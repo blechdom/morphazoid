@@ -103,6 +103,13 @@ for worktree_runtime_file in \
   src/hybrinx-layout.js \
   src/hybrinx-timeline.js \
   assets/instruments/hybrinx.webp \
+  blowhole.html \
+  blowhole.css \
+  blowhole-app.js \
+  src/blowhole.js \
+  src/blowhole-processor.js \
+  assets/instruments/blowhole.webp \
+  BLOWHOLE_RESEARCH.md \
   pink-trombonazoid.html \
   pink-trombonazoid.css \
   pink-trombonazoid-app.js \
@@ -471,6 +478,13 @@ required_files=(
   src/hybrinx-layout.js
   src/hybrinx-timeline.js
   assets/instruments/hybrinx.webp
+  blowhole.html
+  blowhole.css
+  blowhole-app.js
+  src/blowhole.js
+  src/blowhole-processor.js
+  assets/instruments/blowhole.webp
+  BLOWHOLE_RESEARCH.md
   pink-trombonazoid.html
   pink-trombonazoid.css
   pink-trombonazoid-app.js

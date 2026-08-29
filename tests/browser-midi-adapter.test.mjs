@@ -168,6 +168,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "image-to-instrument-3",
     "throatazoid",
     "tongued-beasts",
+    "blowhole",
     "jaw-harp",
     "breath-atlas",
     "morphynx",
@@ -223,8 +224,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 7, drums: 18, pitched: 39, sequence: 40 },
-    "all 104 routes have exactly one intentional note behavior",
+    { processor: 7, drums: 18, pitched: 40, sequence: 40 },
+    "all 105 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -280,7 +281,7 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
       );
     }
   }
-  assert.equal(mastheadPages, 103);
+  assert.equal(mastheadPages, 104);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");

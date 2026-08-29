@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06131a" />
+    <meta
+      name="description"
+      content="Blowhole is a three-topology physical-model instrument for delphinid phonic lips, the sperm-whale nasal head, and baleen-whale laryngeal song."
+    />
+    <title>Blowhole · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="blowhole.css" />
+  </head>
+  <body class="blowhole-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="syrinx.html">syrinx</a>
+        <a class="tab" href="tongued-beasts.html">tongued beasts</a>
+        <a class="tab" href="hybrinx.html">hybrinx</a>
+        <a class="tab active" href="blowhole.html" aria-current="page">blowhole</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="syrinx.html">Syrinx</option>
+          <option value="tongued-beasts.html">Tongued Beasts</option>
+          <option value="hybrinx.html">Hybrinx</option>
+          <option value="blowhole.html" selected>Blowhole</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="blowhole-audio-pulse" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">34%</output></span>
+          <input id="level" aria-label="Blowhole output level" type="range" min="0" max="1" step="0.01" value="0.34" />
+        </label>
+      </div>
+    </header>
+
+    <main class="blowhole-shell" id="blowhole">
+      <section class="blowhole-intro" aria-labelledby="pageTitle">
+        <div>
+          <p class="blowhole-kicker">TWO SOUND ORGANS / ONE BREATHING VALVE</p>
+          <h1 id="pageTitle">BLOW<span>HOLE</span></h1>
+        </div>
+        <p class="blowhole-thesis">
+          The blowhole breathes. The hidden tissue sings.
+          <span>Dolphin phonic lips live in the nose; baleen-whale U-folds live in the larynx.</span>
+        </p>
+      </section>
+
+      <section class="blowhole-instrument" aria-label="Playable cetacean physical model">
+        <div class="blowhole-visual-column">
+          <section class="blowhole-stage-card" aria-labelledby="anatomyTitle">
+            <header class="blowhole-stage-header">
+              <div>
+                <p>LIVE CUTAWAY / <span id="familyCode">ODONTOCETE</span></p>
+                <h2 id="anatomyTitle">Paired nasal source</h2>
+              </div>
+              <div class="blowhole-valve-state" id="valveState" data-state="sealed">
+                <i aria-hidden="true"></i>
+                <span><small>blowhole valve</small><b>sealed underwater</b></span>
+              </div>
+            </header>
+
+            <div class="blowhole-stage-wrap" id="stageWrap">
+              <canvas
+                id="stage"
+                role="img"
+                aria-label="Cutaway of three cetacean sound-production topologies: delphinid and orca phonic lips, the sperm whale's single right nasal head, or the baleen-whale laryngeal U-fold. Colored pointer-drag handles have equivalent labeled sliders after the diagram."
+                aria-describedby="stageInstructions liveStatus"
+              >
+                A cutaway diagram of dolphin phonic lips, a sperm whale's single right nasal sound path, or a baleen-whale laryngeal U-fold.
+              </canvas>
+              <p class="blowhole-stage-instructions" id="stageInstructions">
+                DRAG THE COLORED ORGANS · KEYBOARD: USE THE LABELED SLIDERS
+              </p>
+              <div class="blowhole-signal-legend" aria-hidden="true">
+                <span><i class="is-air"></i>pressurized air</span>
+                <span><i class="is-tissue"></i>vibrating tissue</span>
+                <span><i class="is-sound"></i>sound into water</span>
+              </div>
+            </div>
+
+            <div class="blowhole-stage-readouts">
+              <span><small>source</small><output id="sourceReadout">M1 phonic-lip source · side unassigned</output></span>
+              <span><small>physical signal</small><output id="physicalReadout">500 Hz–10 kHz</output></span>
+              <span><small>monitor</small><output id="monitorReadout">audible 1:1</output></span>
+              <span><small>air path</small><output id="airReadout">nasal loop</output></span>
+            </div>
+          </section>
+
+          <section class="blowhole-timeline-card" aria-labelledby="timelineTitle">
+            <header>
+              <div>
+                <p>CALL GESTURE / HYBRINX DESCENDANT</p>
+                <h2 id="timelineTitle"><span id="timelineSpecies">Orca</span> · <b id="timelineCall">Pulsed call</b></h2>
+              </div>
+              <div class="blowhole-timeline-stats">
+                <span><small>register</small><output id="registerReadout">M1 / pulsed</output></span>
+                <span><small>duration</small><output id="durationReadout">1.45 s</output></span>
+                <span><small>phase</small><output id="phaseReadout">ready</output></span>
+              </div>
+            </header>
+            <div class="blowhole-timeline-wrap">
+              <canvas
+                id="timeline"
+                role="img"
+                aria-label="Four call-gesture contours for pressure, source frequency or click rate, tissue closure, and radiator focus, with a live playhead."
+              ></canvas>
+            </div>
+            <div class="blowhole-lane-key" aria-hidden="true">
+              <span style="--lane-color:#ff715b">pressure</span>
+              <span style="--lane-color:#ffbf4a">frequency / rate</span>
+              <span style="--lane-color:#d893ff">closure</span>
+              <span style="--lane-color:#59eed2">focus</span>
+            </div>
+          </section>
+        </div>
+
+        <aside class="blowhole-console" aria-label="Blowhole controls">
+          <section class="blowhole-transport" aria-label="Call transport">
+            <button id="playButton" class="blowhole-play" type="button" aria-pressed="false" data-primary-transport>
+              <span aria-hidden="true">▶</span>
+              <span><b id="playLabel">Play call</b><small id="playState">space · one gesture</small></span>
+            </button>
+            <button id="loopButton" type="button" aria-pressed="false">
+              <span aria-hidden="true">↻</span>
+              <span><b>Loop</b><small id="loopState">off</small></span>
+            </button>
+          </section>
+
+          <section class="blowhole-performance-pads" aria-label="Manual pneumatic controls">
+            <button id="holdPad" type="button" aria-pressed="false">
+              <span class="blowhole-pad-rings" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span><b>HOLD TO SOUND</b><small>B key · continuous pressure</small></span>
+            </button>
+            <button id="ventButton" type="button">
+              <span class="blowhole-vent-mark" aria-hidden="true">≈</span>
+              <span><b>SURFACE BREATH</b><small>opens valve · separate whoosh</small></span>
+            </button>
+          </section>
+
+          <section class="blowhole-call-bank" aria-labelledby="callBankTitle">
+            <div class="blowhole-section-heading">
+              <p>01 / SOURCE FAMILY + GESTURE</p>
+              <h2 id="callBankTitle">Choose a respiratory voice</h2>
+            </div>
+            <div class="blowhole-family-tabs" role="group" aria-label="Cetacean source family">
+              <button id="odontoceteTab" type="button" data-family="odontocete" aria-pressed="true">
+                <b>TOOTHED</b><small>nasal / phonic lips</small>
+              </button>
+              <button id="mysticeteTab" type="button" data-family="mysticete" aria-pressed="false">
+                <b>BALEEN</b><small>larynx / U-fold</small>
+              </button>
+            </div>
+            <label class="blowhole-call-select" for="callSelect">
+              <span>Call gesture</span>
+              <select id="callSelect" name="call-preset" aria-label="Cetacean call gesture"></select>
+            </label>
+            <div class="blowhole-call-buttons" id="callButtons" role="group" aria-label="Call presets"></div>
+            <p class="blowhole-call-description" id="callDescription"></p>
+          </section>
+
+          <details class="blowhole-control-group" open>
+            <summary>
+              <span><small>02 / PNEUMATIC SOURCE</small><b id="sourceControlTitle">Phonic lip pair</b></span>
+              <output id="sourceSummary">72% pressure · M2</output>
+            </summary>
+            <div class="blowhole-control-body">
+              <label class="blowhole-control" for="pressure">
+                <span><b id="pressureLabel">Nasal pressure</b><output id="pressureOut" for="pressure">72%</output></span>
+                <input id="pressure" type="range" min="0" max="1" step="0.01" value="0.72" />
+                <small id="pressureHelp">Air stored in muscular nasal sacs crosses the self-oscillation threshold.</small>
+              </label>
+              <label class="blowhole-control" for="tension">
+                <span><b id="tensionLabel">Phonic lip tension</b><output id="tensionOut" for="tension">50%</output></span>
+                <input id="tension" type="range" min="0" max="1" step="0.01" value="0.5" />
+                <small id="tensionHelp">Changes vibrating mass, register, and physical center frequency.</small>
+              </label>
+              <label class="blowhole-control" for="closure">
+                <span><b id="closureLabel">Lip closure</b><output id="closureOut" for="closure">62%</output></span>
+                <input id="closure" type="range" min="0" max="1" step="0.01" value="0.62" />
+                <small id="closureHelp">Brief, closure-heavy motion produces air-efficient pulses and clicks.</small>
+              </label>
+              <label class="blowhole-control" for="asymmetry">
+                <span><b id="asymmetryLabel">Left / right offset</b><output id="asymmetryOut" for="asymmetry">center</output></span>
+                <input id="asymmetry" type="range" min="-1" max="1" step="0.01" value="0" />
+                <small id="asymmetryHelp">Detunes and balances the two independently controllable nasal sources.</small>
+              </label>
+            </div>
+          </details>
+
+          <details class="blowhole-control-group" open>
+            <summary>
+              <span><small>03 / AIR LOOP + RADIATOR</small><b id="radiatorControlTitle">Sacs and melon</b></span>
+              <output id="radiatorSummary">74% recycle · focused</output>
+            </summary>
+            <div class="blowhole-control-body">
+              <label class="blowhole-control" for="recycle">
+                <span><b id="recycleLabel">Nasal air recycling</b><output id="recycleOut" for="recycle">76%</output></span>
+                <input id="recycle" type="range" min="0" max="1" step="0.01" value="0.76" />
+                <small id="recycleHelp">Returns spent air through the closed nasal circuit instead of exhaling it.</small>
+              </label>
+              <label class="blowhole-control" for="focus">
+                <span><b id="focusLabel">Melon focus</b><output id="focusOut" for="focus">72%</output></span>
+                <input id="focus" type="range" min="0" max="1" step="0.01" value="0.72" />
+                <small id="focusHelp">Shapes the head filter and the forward acoustic beam; it is not the source.</small>
+              </label>
+              <label class="blowhole-control" for="scale">
+                <span><b id="scaleLabel">Head scale</b><output id="scaleOut" for="scale">50%</output></span>
+                <input id="scale" type="range" min="0" max="1" step="0.01" value="0.5" />
+                <small id="scaleHelp">Changes cavity and tissue size together while the call contour remains intact.</small>
+              </label>
+              <label class="blowhole-control" for="roughness">
+                <span><b>Tissue irregularity</b><output id="roughnessOut" for="roughness">8%</output></span>
+                <input id="roughness" type="range" min="0" max="1" step="0.01" value="0.08" />
+                <small>Adds pitch jitter, contact noise, and slow nonlinear instability inside the source.</small>
+              </label>
+            </div>
+          </details>
+
+          <details class="blowhole-control-group blowhole-environment-group" open>
+            <summary>
+              <span><small>04 / WATER + MONITOR</small><b>Dive context</b></span>
+              <output id="environmentSummary">12 m · audible map</output>
+            </summary>
+            <div class="blowhole-control-body">
+              <label class="blowhole-control" for="pulseRateHz">
+                <span><b id="pulseRateHzLabel">Manual pulse rate</b><output id="pulseRateHzOut" for="pulseRateHz">12 Hz</output></span>
+                <input id="pulseRateHz" type="range" min="0" max="800" step="1" value="12" />
+                <small id="pulseRateHzHelp">Sets click or pulse repetition while HOLD TO SOUND is pressed; authored calls use their own contour.</small>
+              </label>
+              <label class="blowhole-control" for="depthM">
+                <span><b>Model depth</b><output id="depthMOut" for="depthM">12 m</output></span>
+                <input id="depthM" type="range" min="0" max="3000" step="1" value="12" />
+                <small id="depthHelp">Nasal recycling supports deep odontocete clicks; baleen phonation is depth-limited.</small>
+              </label>
+              <label class="blowhole-monitor-select" for="monitorMode">
+                <span><b>Frequency monitor</b><output id="monitorModeOut">audible proxy</output></span>
+                <select id="monitorMode">
+                  <option value="audible" selected>Audible proxy · transpose extremes</option>
+                  <option value="physical">Physical band · browser-limited</option>
+                </select>
+                <small>The physical readout never changes; only the speaker-monitor translation does.</small>
+              </label>
+            </div>
+          </details>
+
+          <section class="blowhole-evidence-card" aria-labelledby="evidenceTitle">
+            <div class="blowhole-section-heading">
+              <p>05 / MODEL BOUNDARY</p>
+              <h2 id="evidenceTitle">Observed mechanism, playable reduction</h2>
+            </div>
+            <p id="evidenceText">
+              Tissue vibration and bilateral nasal sources are evidence-based. Exact live-animal head filtering is reduced to a stable browser model.
+            </p>
+            <dl>
+              <div><dt>blowhole</dt><dd id="blowholeFact">sealed underwater</dd></div>
+              <div><dt>source basis</dt><dd id="basisReadout">direct + anatomical</dd></div>
+              <div><dt>speaker output</dt><dd>safe audible proxy</dd></div>
+            </dl>
+          </section>
+
+          <p class="blowhole-audio-error" id="audioError" role="alert" hidden></p>
+          <button id="resetButton" class="blowhole-reset" type="button" data-reset-all data-reset-in-place>
+            Reset anatomy and call
+          </button>
+        </aside>
+      </section>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="blowhole-app.js"></script>
+  </body>
+</html>

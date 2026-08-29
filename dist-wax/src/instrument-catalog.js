@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260822-2";
+} from "../nav.js?v=catalog-20260829-2";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -171,6 +171,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Reveals the native keyframed pressure, pitch, closure, mouth, cavity, roughness, source-split, and bilateral-balance contours that animate physical animal calls through a playable tongue-shaped tract.",
     "Turn on audio, choose a host beast and native call, then play or loop it while the live timeline traces every sounding parameter contour beneath the animal.",
     ["Built-in source", "Pointer", "Computer keys"],
+  ),
+  blowhole: define(
+    "Cetacean physical-model instrument",
+    "Separates delphinid phonic lips, the sperm whale's right-sided spermaceti pathway, and the coupled U-fold/cricoid-cushion source of baleen-whale song while the external blowhole remains a valve rather than the underwater sound source.",
+    "Turn on audio, choose a dolphin or whale call, then play its visible gesture or hold pressure while dragging the paired source, air sac, and radiator anatomy.",
+    ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
   ),
   "jaw-harp": define(
     "Physical-model instrument",
@@ -595,6 +601,7 @@ const CATALOG_DETAILS = Object.freeze({
 const ADDITIONAL_TAG_IDS = Object.freeze({
   "pink-trombonazoid": Object.freeze(["sequencers"]),
   hybrinx: Object.freeze(["sequencers"]),
+  blowhole: Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "fm-drums": Object.freeze(["geometry-drums"]),
   "linear-drums": Object.freeze(["geometry-drums"]),

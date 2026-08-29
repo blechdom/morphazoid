@@ -1,0 +1,949 @@
+.blowhole-page {
+  --ocean-ink: #06131a;
+  --ocean-deep: #081d26;
+  --ocean-panel: rgba(10, 31, 40, 0.9);
+  --ocean-line: rgba(150, 226, 226, 0.18);
+  --ocean-line-strong: rgba(150, 226, 226, 0.34);
+  --ocean-copy: #e9f4ef;
+  --ocean-muted: #8da9aa;
+  --air: #ff715b;
+  --tissue: #d893ff;
+  --gold: #ffbf4a;
+  --sound: #59eed2;
+  --electric: #c7ff43;
+  color: var(--ocean-copy);
+  background:
+    radial-gradient(circle at 28% 8%, rgba(34, 150, 156, 0.14), transparent 35rem),
+    radial-gradient(circle at 88% 44%, rgba(118, 61, 146, 0.12), transparent 28rem),
+    linear-gradient(155deg, #040b0f 0%, var(--ocean-ink) 44%, #071a21 100%);
+  min-height: 100vh;
+}
+
+.blowhole-page::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(134, 211, 216, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(134, 211, 216, 0.045) 1px, transparent 1px);
+  background-size: 58px 58px;
+  mask-image: linear-gradient(to bottom, black, transparent 78%);
+}
+
+.blowhole-page .masthead {
+  border-bottom-color: var(--ocean-line);
+  background: rgba(3, 12, 16, 0.86);
+  backdrop-filter: blur(18px) saturate(1.25);
+}
+
+.blowhole-page .tab.active {
+  color: var(--electric);
+  border-color: rgba(199, 255, 67, 0.55);
+  background: rgba(199, 255, 67, 0.08);
+}
+
+.blowhole-page .audio-button[aria-pressed="true"] {
+  border-color: rgba(89, 238, 210, 0.55);
+  box-shadow: inset 0 0 24px rgba(89, 238, 210, 0.08);
+}
+
+.blowhole-audio-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  width: 24px;
+  height: 24px;
+}
+
+.blowhole-audio-pulse i {
+  display: block;
+  width: 3px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--ocean-muted);
+  transform-origin: center;
+}
+
+.audio-button[aria-pressed="true"] .blowhole-audio-pulse i {
+  background: var(--sound);
+  animation: blowhole-meter 0.86s ease-in-out infinite alternate;
+}
+
+.audio-button[aria-pressed="true"] .blowhole-audio-pulse i:nth-child(2) {
+  animation-delay: -0.38s;
+}
+
+.audio-button[aria-pressed="true"] .blowhole-audio-pulse i:nth-child(3) {
+  animation-delay: -0.68s;
+}
+
+@keyframes blowhole-meter {
+  to { height: 20px; box-shadow: 0 0 10px rgba(89, 238, 210, 0.7); }
+}
+
+.blowhole-shell {
+  width: min(1840px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 56px;
+}
+
+.blowhole-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 18px 4px 24px;
+}
+
+.blowhole-kicker,
+.blowhole-stage-header p,
+.blowhole-timeline-card header p,
+.blowhole-section-heading p {
+  margin: 0 0 6px;
+  color: var(--sound);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.blowhole-intro h1 {
+  margin: 0;
+  color: #f5fffb;
+  font-size: clamp(3.4rem, 6.7vw, 7rem);
+  font-weight: 950;
+  line-height: 0.78;
+  letter-spacing: -0.075em;
+  text-transform: uppercase;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.32));
+}
+
+.blowhole-intro h1 span {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(199, 255, 67, 0.76);
+  text-shadow: 0 0 34px rgba(199, 255, 67, 0.11);
+}
+
+.blowhole-thesis {
+  max-width: 560px;
+  margin: 0;
+  padding: 0 2px 4px;
+  color: var(--ocean-copy);
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+  font-weight: 720;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.blowhole-thesis span {
+  display: block;
+  margin-top: 7px;
+  color: var(--ocean-muted);
+  font-size: 0.82em;
+  font-weight: 520;
+}
+
+.blowhole-instrument {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(350px, 410px);
+  align-items: start;
+  gap: 14px;
+}
+
+.blowhole-visual-column {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.blowhole-stage-card,
+.blowhole-timeline-card,
+.blowhole-console {
+  border: 1px solid var(--ocean-line);
+  background:
+    linear-gradient(145deg, rgba(17, 43, 52, 0.88), rgba(6, 20, 27, 0.92)),
+    var(--ocean-panel);
+  box-shadow:
+    0 22px 70px rgba(0, 0, 0, 0.28),
+    inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.blowhole-stage-card,
+.blowhole-timeline-card {
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.blowhole-stage-header,
+.blowhole-timeline-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 72px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--ocean-line);
+  background: rgba(4, 17, 23, 0.6);
+}
+
+.blowhole-stage-header h2,
+.blowhole-timeline-card h2,
+.blowhole-section-heading h2 {
+  margin: 0;
+  color: var(--ocean-copy);
+  font-size: 1rem;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+}
+
+.blowhole-valve-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 113, 91, 0.28);
+  border-radius: 9px;
+  background: rgba(255, 113, 91, 0.06);
+}
+
+.blowhole-valve-state > i {
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--air);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255, 113, 91, 0.45);
+}
+
+.blowhole-valve-state[data-state="open"] {
+  border-color: rgba(89, 238, 210, 0.38);
+  background: rgba(89, 238, 210, 0.07);
+}
+
+.blowhole-valve-state[data-state="open"] > i {
+  border-color: var(--sound);
+  box-shadow: 0 0 12px rgba(89, 238, 210, 0.5);
+}
+
+.blowhole-valve-state span {
+  display: grid;
+  line-height: 1.08;
+}
+
+.blowhole-valve-state small,
+.blowhole-stage-readouts small,
+.blowhole-timeline-stats small {
+  color: var(--ocean-muted);
+  font-size: 0.57rem;
+  font-weight: 760;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.blowhole-valve-state b {
+  margin-top: 3px;
+  color: var(--air);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.blowhole-valve-state[data-state="open"] b {
+  color: var(--sound);
+}
+
+.blowhole-stage-wrap {
+  position: relative;
+  aspect-ratio: 1000 / 650;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(17, 77, 83, 0.15), transparent 53%),
+    linear-gradient(180deg, rgba(1, 11, 16, 0.96), rgba(4, 20, 27, 0.96));
+  isolation: isolate;
+}
+
+.blowhole-stage-wrap::after {
+  position: absolute;
+  inset: 14px;
+  z-index: -1;
+  border: 1px solid rgba(141, 203, 205, 0.08);
+  border-radius: 8px;
+  content: "";
+  pointer-events: none;
+}
+
+#stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+#stage:focus-visible,
+#timeline:focus-visible {
+  outline: 2px solid var(--electric);
+  outline-offset: -4px;
+}
+
+.blowhole-stage-instructions {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  margin: 0;
+  color: rgba(184, 222, 221, 0.54);
+  font-size: 0.58rem;
+  font-weight: 770;
+  letter-spacing: 0.11em;
+}
+
+.blowhole-signal-legend {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 11px;
+  color: rgba(219, 240, 236, 0.64);
+  font-size: 0.62rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.blowhole-signal-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.blowhole-signal-legend i {
+  width: 17px;
+  height: 2px;
+  border-radius: 99px;
+  background: currentColor;
+  box-shadow: 0 0 7px currentColor;
+}
+
+.blowhole-signal-legend .is-air { color: var(--air); }
+.blowhole-signal-legend .is-tissue { color: var(--tissue); }
+.blowhole-signal-legend .is-sound { color: var(--sound); }
+
+.blowhole-stage-readouts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--ocean-line);
+  background: rgba(3, 15, 20, 0.74);
+}
+
+.blowhole-stage-readouts > span {
+  display: grid;
+  min-width: 0;
+  padding: 12px 15px;
+  border-right: 1px solid var(--ocean-line);
+}
+
+.blowhole-stage-readouts > span:last-child { border-right: 0; }
+
+.blowhole-stage-readouts output,
+.blowhole-timeline-stats output {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--ocean-copy);
+  font-size: 0.73rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blowhole-timeline-card > header {
+  min-height: 68px;
+}
+
+.blowhole-timeline-card h2 span { color: var(--ocean-muted); font-weight: 580; }
+.blowhole-timeline-card h2 b { color: var(--electric); }
+
+.blowhole-timeline-stats {
+  display: flex;
+  gap: 18px;
+}
+
+.blowhole-timeline-stats > span {
+  display: grid;
+  min-width: 68px;
+}
+
+.blowhole-timeline-wrap {
+  min-height: 242px;
+  overflow-x: auto;
+  background:
+    linear-gradient(rgba(115, 190, 192, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(115, 190, 192, 0.04) 1px, transparent 1px),
+    rgba(2, 13, 18, 0.82);
+  background-size: 32px 32px;
+}
+
+#timeline {
+  display: block;
+  width: 100%;
+  min-width: 650px;
+  height: 242px;
+}
+
+.blowhole-lane-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 9px 17px 11px;
+  border-top: 1px solid var(--ocean-line);
+  background: rgba(3, 15, 20, 0.76);
+}
+
+.blowhole-lane-key span {
+  color: var(--ocean-muted);
+  font-size: 0.61rem;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.blowhole-lane-key span::before {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border: 1px solid var(--lane-color);
+  background: color-mix(in srgb, var(--lane-color) 55%, transparent);
+  transform: rotate(45deg) translateY(-1px);
+  content: "";
+}
+
+.blowhole-console {
+  position: sticky;
+  top: 76px;
+  max-height: calc(100vh - 90px);
+  overflow: auto;
+  border-radius: 18px;
+  scrollbar-color: rgba(89, 238, 210, 0.36) transparent;
+}
+
+.blowhole-console > section,
+.blowhole-control-group {
+  border-bottom: 1px solid var(--ocean-line);
+}
+
+.blowhole-transport {
+  display: grid;
+  grid-template-columns: 1.55fr 0.8fr;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(3, 14, 19, 0.76);
+}
+
+.blowhole-transport button,
+.blowhole-performance-pads button,
+.blowhole-family-tabs button,
+.blowhole-call-buttons button,
+.blowhole-reset {
+  border: 1px solid var(--ocean-line-strong);
+  color: var(--ocean-copy);
+  background: rgba(15, 42, 51, 0.58);
+  font: inherit;
+  cursor: pointer;
+  transition: 130ms ease;
+}
+
+.blowhole-transport button:hover,
+.blowhole-performance-pads button:hover,
+.blowhole-family-tabs button:hover,
+.blowhole-call-buttons button:hover,
+.blowhole-reset:hover {
+  border-color: rgba(89, 238, 210, 0.52);
+  background: rgba(28, 67, 75, 0.64);
+}
+
+.blowhole-transport button:focus-visible,
+.blowhole-performance-pads button:focus-visible,
+.blowhole-family-tabs button:focus-visible,
+.blowhole-call-buttons button:focus-visible,
+.blowhole-reset:focus-visible,
+.blowhole-page select:focus-visible,
+.blowhole-page input:focus-visible {
+  outline: 2px solid var(--electric);
+  outline-offset: 2px;
+}
+
+.blowhole-transport button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 9px 11px;
+  border-radius: 10px;
+}
+
+.blowhole-transport button > span:last-child {
+  display: grid;
+  text-align: left;
+}
+
+.blowhole-transport button > span:first-child {
+  color: var(--electric);
+  font-size: 1.15rem;
+}
+
+.blowhole-transport button b { font-size: 0.78rem; }
+.blowhole-transport button small { margin-top: 2px; color: var(--ocean-muted); font-size: 0.6rem; }
+
+.blowhole-play[aria-pressed="true"] {
+  border-color: rgba(199, 255, 67, 0.48);
+  background: rgba(199, 255, 67, 0.09);
+}
+
+.blowhole-transport #loopButton[aria-pressed="true"] {
+  border-color: rgba(216, 147, 255, 0.48);
+  background: rgba(216, 147, 255, 0.09);
+}
+
+.blowhole-performance-pads {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px;
+}
+
+.blowhole-performance-pads button {
+  position: relative;
+  min-height: 74px;
+  overflow: hidden;
+  border-radius: 11px;
+}
+
+.blowhole-performance-pads button > span:last-child {
+  position: relative;
+  z-index: 1;
+  display: grid;
+}
+
+.blowhole-performance-pads b {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+}
+
+.blowhole-performance-pads small {
+  margin-top: 4px;
+  color: var(--ocean-muted);
+  font-size: 0.57rem;
+}
+
+#holdPad[aria-pressed="true"] {
+  border-color: rgba(255, 113, 91, 0.68);
+  background: rgba(255, 113, 91, 0.13);
+  box-shadow: inset 0 0 30px rgba(255, 113, 91, 0.1);
+}
+
+.blowhole-pad-rings {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 62px;
+  height: 62px;
+  transform: translate(-50%, -50%);
+  opacity: 0.21;
+}
+
+.blowhole-pad-rings i {
+  position: absolute;
+  inset: 9px;
+  border: 1px solid var(--air);
+  border-radius: 50%;
+}
+
+.blowhole-pad-rings i:nth-child(2) { inset: 1px; }
+.blowhole-pad-rings i:nth-child(3) { inset: -8px; }
+
+#holdPad[aria-pressed="true"] .blowhole-pad-rings i {
+  animation: blowhole-ripple 1.3s ease-out infinite;
+}
+
+#holdPad[aria-pressed="true"] .blowhole-pad-rings i:nth-child(2) { animation-delay: -0.42s; }
+#holdPad[aria-pressed="true"] .blowhole-pad-rings i:nth-child(3) { animation-delay: -0.84s; }
+
+@keyframes blowhole-ripple {
+  from { transform: scale(0.55); opacity: 0.9; }
+  to { transform: scale(1.25); opacity: 0; }
+}
+
+.blowhole-vent-mark {
+  position: absolute;
+  inset: 1px 0 auto;
+  color: var(--sound);
+  font-size: 2.6rem;
+  opacity: 0.12;
+}
+
+#ventButton.is-venting {
+  border-color: rgba(89, 238, 210, 0.72);
+  background: rgba(89, 238, 210, 0.12);
+}
+
+.blowhole-call-bank {
+  padding: 16px;
+}
+
+.blowhole-section-heading {
+  margin-bottom: 12px;
+}
+
+.blowhole-family-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.blowhole-family-tabs button {
+  display: grid;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  text-align: left;
+}
+
+.blowhole-family-tabs button b {
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
+}
+
+.blowhole-family-tabs button small {
+  margin-top: 2px;
+  color: var(--ocean-muted);
+  font-size: 0.58rem;
+}
+
+.blowhole-family-tabs button[aria-pressed="true"] {
+  border-color: rgba(199, 255, 67, 0.5);
+  color: var(--electric);
+  background: rgba(199, 255, 67, 0.075);
+}
+
+.blowhole-call-select,
+.blowhole-monitor-select {
+  display: grid;
+  gap: 6px;
+  margin-top: 11px;
+}
+
+.blowhole-call-select > span,
+.blowhole-monitor-select > span {
+  color: var(--ocean-muted);
+  font-size: 0.62rem;
+  font-weight: 730;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.blowhole-page select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 34px 0 10px;
+  border: 1px solid var(--ocean-line-strong);
+  border-radius: 8px;
+  color: var(--ocean-copy);
+  background: #0c252e;
+  font: inherit;
+  font-size: 0.76rem;
+}
+
+.blowhole-call-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.blowhole-call-buttons button {
+  display: grid;
+  min-height: 43px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.blowhole-call-buttons button b {
+  overflow: hidden;
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blowhole-call-buttons button small {
+  margin-top: 2px;
+  color: var(--ocean-muted);
+  font-size: 0.54rem;
+  text-transform: uppercase;
+}
+
+.blowhole-call-buttons button[aria-pressed="true"] {
+  border-color: rgba(89, 238, 210, 0.52);
+  background: rgba(89, 238, 210, 0.09);
+}
+
+.blowhole-call-description {
+  min-height: 3.8em;
+  margin: 11px 0 0;
+  color: var(--ocean-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.blowhole-control-group {
+  margin: 0;
+  background: rgba(4, 19, 25, 0.22);
+}
+
+.blowhole-control-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.blowhole-control-group > summary::-webkit-details-marker { display: none; }
+
+.blowhole-control-group > summary::after {
+  color: var(--ocean-muted);
+  font-size: 0.8rem;
+  content: "+";
+}
+
+.blowhole-control-group[open] > summary::after { content: "−"; }
+
+.blowhole-control-group > summary span {
+  display: grid;
+  flex: 1;
+}
+
+.blowhole-control-group > summary small {
+  margin-bottom: 3px;
+  color: var(--sound);
+  font-size: 0.57rem;
+  font-weight: 780;
+  letter-spacing: 0.12em;
+}
+
+.blowhole-control-group > summary b {
+  color: var(--ocean-copy);
+  font-size: 0.78rem;
+}
+
+.blowhole-control-group > summary output {
+  color: var(--ocean-muted);
+  font-size: 0.59rem;
+  white-space: nowrap;
+}
+
+.blowhole-control-body {
+  display: grid;
+  gap: 14px;
+  padding: 3px 16px 17px;
+}
+
+.blowhole-control {
+  display: grid;
+  gap: 7px;
+}
+
+.blowhole-control > span,
+.blowhole-monitor-select > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.blowhole-control b,
+.blowhole-monitor-select b {
+  color: #dbeae6;
+  font-size: 0.67rem;
+  font-weight: 680;
+}
+
+.blowhole-control output,
+.blowhole-monitor-select output {
+  color: var(--electric);
+  font-size: 0.63rem;
+  font-weight: 760;
+}
+
+.blowhole-control small,
+.blowhole-monitor-select small {
+  color: #718f91;
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.blowhole-page input[type="range"] {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  appearance: none;
+  background: transparent;
+  cursor: ew-resize;
+}
+
+.blowhole-page input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 99px;
+  background:
+    linear-gradient(90deg, var(--sound) var(--range-progress, 50%), rgba(132, 174, 177, 0.22) var(--range-progress, 50%));
+}
+
+.blowhole-page input[type="range"]::-webkit-slider-thumb {
+  width: 13px;
+  height: 13px;
+  margin-top: -5px;
+  border: 2px solid #082029;
+  border-radius: 2px;
+  appearance: none;
+  background: var(--electric);
+  box-shadow: 0 0 0 1px rgba(199, 255, 67, 0.45), 0 0 10px rgba(199, 255, 67, 0.28);
+  transform: rotate(45deg);
+}
+
+.blowhole-page input[type="range"]::-moz-range-track {
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(132, 174, 177, 0.22);
+}
+
+.blowhole-page input[type="range"]::-moz-range-progress {
+  height: 3px;
+  background: var(--sound);
+}
+
+.blowhole-page input[type="range"]::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 2px solid #082029;
+  border-radius: 2px;
+  background: var(--electric);
+  transform: rotate(45deg);
+}
+
+.blowhole-evidence-card {
+  padding: 16px;
+  background:
+    linear-gradient(135deg, rgba(89, 238, 210, 0.055), rgba(216, 147, 255, 0.045)),
+    rgba(4, 18, 24, 0.66);
+}
+
+.blowhole-evidence-card > p {
+  margin: 0 0 12px;
+  color: var(--ocean-muted);
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+
+.blowhole-evidence-card dl {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.blowhole-evidence-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(135, 202, 203, 0.1);
+  font-size: 0.6rem;
+}
+
+.blowhole-evidence-card dt {
+  color: #789496;
+  text-transform: uppercase;
+}
+
+.blowhole-evidence-card dd {
+  margin: 0;
+  color: #cfe4df;
+  text-align: right;
+}
+
+.blowhole-audio-error {
+  margin: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 113, 91, 0.44);
+  border-radius: 8px;
+  color: #ffd5cd;
+  background: rgba(255, 113, 91, 0.08);
+  font-size: 0.68rem;
+}
+
+.blowhole-reset {
+  width: calc(100% - 20px);
+  min-height: 40px;
+  margin: 10px;
+  border-radius: 8px;
+  color: var(--ocean-muted);
+  font-size: 0.66rem;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1180px) {
+  .blowhole-instrument { grid-template-columns: minmax(0, 1fr) 360px; }
+  .blowhole-stage-readouts { grid-template-columns: repeat(2, 1fr); }
+  .blowhole-stage-readouts > span:nth-child(2) { border-right: 0; }
+  .blowhole-stage-readouts > span:nth-child(-n + 2) { border-bottom: 1px solid var(--ocean-line); }
+}
+
+@media (max-width: 900px) {
+  .blowhole-shell { width: min(100% - 18px, 760px); padding-top: 16px; }
+  .blowhole-intro { align-items: start; flex-direction: column; gap: 15px; }
+  .blowhole-intro h1 { font-size: clamp(3.2rem, 15vw, 6.2rem); }
+  .blowhole-thesis { max-width: 660px; }
+  .blowhole-instrument { grid-template-columns: minmax(0, 1fr); }
+  .blowhole-console { position: static; max-height: none; }
+}
+
+@media (max-width: 600px) {
+  .blowhole-shell { width: calc(100% - 10px); padding-bottom: 24px; }
+  .blowhole-intro { padding: 12px 5px 18px; }
+  .blowhole-kicker { font-size: 0.56rem; }
+  .blowhole-intro h1 { letter-spacing: -0.08em; }
+  .blowhole-thesis { font-size: 0.94rem; }
+  .blowhole-stage-card,
+  .blowhole-timeline-card,
+  .blowhole-console { border-radius: 12px; }
+  .blowhole-stage-header,
+  .blowhole-timeline-card > header { align-items: start; padding: 11px; }
+  .blowhole-valve-state { padding: 7px; }
+  .blowhole-valve-state small { display: none; }
+  .blowhole-stage-instructions { right: 12px; bottom: 10px; font-size: 0.48rem; }
+  .blowhole-signal-legend { top: 10px; left: 11px; gap: 8px; }
+  .blowhole-signal-legend span { font-size: 0.53rem; }
+  .blowhole-stage-readouts { grid-template-columns: 1fr 1fr; }
+  .blowhole-stage-readouts > span { padding: 9px; }
+  .blowhole-timeline-card > header { display: grid; }
+  .blowhole-timeline-stats { justify-content: space-between; gap: 8px; }
+  .blowhole-timeline-stats > span { min-width: 0; }
+  .blowhole-performance-pads { grid-template-columns: 1fr; }
+  .blowhole-performance-pads button { min-height: 58px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blowhole-page *,
+  .blowhole-page *::before,
+  .blowhole-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
