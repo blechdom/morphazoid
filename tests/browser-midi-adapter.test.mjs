@@ -163,6 +163,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("hyper-rubix").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("karplus-carpet").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("pink-trombonazoid").noteMode, "sequence");
+  assert.equal(instrumentMidiCapabilityForId("harmonica").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("morphazoidical").noteMode, "sequence");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
     "image-to-instrument-3",
@@ -170,6 +171,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "tongued-beasts",
     "blowhole",
     "jaw-harp",
+    "harmonica",
     "breath-atlas",
     "morphynx",
     "hyper-syrinx",
@@ -224,8 +226,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 7, drums: 18, pitched: 40, sequence: 40 },
-    "all 105 routes have exactly one intentional note behavior",
+    { processor: 7, drums: 18, pitched: 41, sequence: 40 },
+    "all 106 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -281,7 +283,7 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
       );
     }
   }
-  assert.equal(mastheadPages, 104);
+  assert.equal(mastheadPages, 105);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");

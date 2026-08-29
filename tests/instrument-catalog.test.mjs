@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 105);
+  assert.equal(INSTRUMENTS.length, 106);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -299,6 +299,22 @@ test("Pink Trombonazoid is an articulatory voice sequencer without generic note 
   assert.equal(midi?.noteMode, "sequence");
   assert.equal(midi?.midiOutput, false);
   assert.equal(midi?.computerKeyboardMode, "none");
+});
+
+test("Harmonica is a Southern blues free-reed instrument with page-owned performance keys", () => {
+  const instrument = instrumentById("harmonica");
+  assert.equal(instrument?.label, "Harmonica");
+  assert.equal(instrument?.href, "harmonica.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/harmonica.webp");
+  assert.equal(instrument?.kind, "Southern blues free-reed instrument");
+  assert.match(instrument?.description ?? "", /paired blow and draw reeds/i);
+  assert.match(instrument?.description ?? "", /double-stops, chords, bends/i);
+  assert.ok(instrument?.features.includes("Physical-model DSP"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+  const midi = instrumentMidiCapabilityForId("harmonica");
+  assert.equal(midi?.noteMode, "pitched");
+  assert.equal(midi?.computerKeyboardMode, "page");
 });
 
 test("Alien Larynx is a work-in-progress experiment", () => {

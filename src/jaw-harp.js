@@ -10,26 +10,55 @@ export const JAW_HARP_LIMITS = Object.freeze({
   reedFrequencyHz: Object.freeze([38, 180]),
   reedDecaySeconds: Object.freeze([0.35, 8]),
   reedStiffness: Object.freeze([0, 1]),
-  pluckForce: Object.freeze([0.08, 1]),
+  pluckForce: Object.freeze([0.005, 4]),
   pluckPosition: Object.freeze([0.08, 0.92]),
-  tonguePosition: Object.freeze([0, 1]),
-  tongueHeight: Object.freeze([0, 1]),
-  jawOpening: Object.freeze([0, 1]),
-  lipRounding: Object.freeze([0, 1]),
-  glottisOpening: Object.freeze([0, 1]),
-  cavityCoupling: Object.freeze([0, 1]),
+  tonguePosition: Object.freeze([-2, 3]),
+  tongueHeight: Object.freeze([-2, 3]),
+  jawOpening: Object.freeze([-2, 3]),
+  lipRounding: Object.freeze([-2, 3]),
+  glottisOpening: Object.freeze([-2, 3]),
+  cavityCoupling: Object.freeze([0, 2]),
   frameCoupling: Object.freeze([0, 1]),
-  breathDepth: Object.freeze([0, 1]),
-  breathRateBpm: Object.freeze([12, 120]),
-  breathBalance: Object.freeze([0.25, 0.75]),
-  breathFlow: Object.freeze([-1, 1]),
-  formantFocus: Object.freeze([0, 1]),
+  breathDepth: Object.freeze([0, 3]),
+  breathRateBpm: Object.freeze([1, 1_200]),
+  breathBalance: Object.freeze([0.02, 0.98]),
+  breathFlow: Object.freeze([-3, 3]),
+  formantFocus: Object.freeze([-2, 3]),
   repeatRateBpm: Object.freeze([36, 480]),
   repeatSwing: Object.freeze([-0.42, 0.42]),
-  breathsPerLoop: Object.freeze([0.5, 3]),
-  dryResonance: Object.freeze([0, 0.35]),
+  breathsPerLoop: Object.freeze([0.125, 16]),
+  dryResonance: Object.freeze([0, 1]),
   level: Object.freeze([0, 0.82]),
 });
+
+// Randomize explores a deliberately playable subset of the much wider manual
+// ranges. The full limits remain available from the controls for intentional
+// sub-audio, near-silent, overblown, and anatomically impossible sounds.
+export const JAW_HARP_RANDOM_LIMITS = Object.freeze({
+  reedFrequencyHz: Object.freeze([50, 155]),
+  reedDecaySeconds: Object.freeze([0.7, 6]),
+  reedStiffness: Object.freeze([0.12, 0.92]),
+  pluckForce: Object.freeze([0.48, 1.65]),
+  pluckPosition: Object.freeze([0.14, 0.86]),
+  mouthArticulation: Object.freeze([-1.2, 2.2]),
+  glottisOpening: Object.freeze([-1, 2]),
+  cavityCoupling: Object.freeze([0.18, 1.45]),
+  frameCoupling: Object.freeze([0.16, 0.82]),
+  breathDepth: Object.freeze([0.42, 1.65]),
+  breathRateBpm: Object.freeze([10, 280]),
+  breathBalance: Object.freeze([0.14, 0.86]),
+  formantFocus: Object.freeze([-0.75, 2.25]),
+  dryResonance: Object.freeze([0.12, 0.72]),
+  dryResonanceWithoutBreath: Object.freeze([0.2, 0.72]),
+  effectiveBreathRateBpm: Object.freeze([8, 360]),
+});
+
+export const JAW_HARP_MODE_COUNT = 96;
+export const MAX_TINE_PULL = 2.5;
+
+// Material constants are representative longitudinal values, rather than exact
+// measurements of any one instrument. Geometry still sets the tuned fundamental.
+const REFERENCE_STEEL_SPECIFIC_MODULUS = 200e9 / 7_800;
 
 export const JAW_HARP_DEFAULTS = Object.freeze({
   presetId: "khomus",
@@ -81,6 +110,12 @@ export const JAW_HARP_PRESETS = Object.freeze([
       pluckPosition: 0.32,
       frameCoupling: 0.36,
     }),
+    material: freezeSettings({
+      brightness: 0.72, inharmonicity: 1.25, lossTilt: 0.72,
+      frameRatio: 0.78, frameBandwidth: 0.72, contact: 0.86, airResponse: 0.88,
+      youngsModulusGPa: 200, densityKgM3: 7_800,
+      internalLossFactor: 0.0001, elasticLimitStrain: 0.009,
+    }),
   }),
   Object.freeze({
     id: "munnharpe",
@@ -94,6 +129,12 @@ export const JAW_HARP_PRESETS = Object.freeze([
       pluckForce: 0.66,
       pluckPosition: 0.24,
       frameCoupling: 0.48,
+    }),
+    material: freezeSettings({
+      brightness: 1.34, inharmonicity: 1.12, lossTilt: 1.18,
+      frameRatio: 1.32, frameBandwidth: 0.58, contact: 1.2, airResponse: 1.08,
+      youngsModulusGPa: 210, densityKgM3: 7_800,
+      internalLossFactor: 0.00008, elasticLimitStrain: 0.0095,
     }),
   }),
   Object.freeze({
@@ -109,6 +150,12 @@ export const JAW_HARP_PRESETS = Object.freeze([
       pluckPosition: 0.2,
       frameCoupling: 0.62,
     }),
+    material: freezeSettings({
+      brightness: 1.08, inharmonicity: 0.92, lossTilt: 1.46,
+      frameRatio: 1.72, frameBandwidth: 1.34, contact: 1.52, airResponse: 0.82,
+      youngsModulusGPa: 200, densityKgM3: 7_850,
+      internalLossFactor: 0.00024, elasticLimitStrain: 0.0065,
+    }),
   }),
   Object.freeze({
     id: "kubing",
@@ -117,11 +164,17 @@ export const JAW_HARP_PRESETS = Object.freeze([
     description: "A light bamboo lamella with a soft fundamental, short decay, and woody frame radiation.",
     settings: freezeSettings({
       reedFrequencyHz: 56,
-      reedDecaySeconds: 1.45,
+      reedDecaySeconds: 0.62,
       reedStiffness: 0.28,
       pluckForce: 0.58,
       pluckPosition: 0.46,
       frameCoupling: 0.74,
+    }),
+    material: freezeSettings({
+      brightness: 0.48, inharmonicity: 0.38, lossTilt: 2.08,
+      frameRatio: 0.58, frameBandwidth: 0.92, contact: 0.54, airResponse: 0.68,
+      youngsModulusGPa: 10.6, densityKgM3: 630,
+      internalLossFactor: 0.015, elasticLimitStrain: 0.006,
     }),
   }),
   Object.freeze({
@@ -136,6 +189,12 @@ export const JAW_HARP_PRESETS = Object.freeze([
       pluckForce: 0.48,
       pluckPosition: 0.4,
       frameCoupling: 0.24,
+    }),
+    material: freezeSettings({
+      brightness: 1.62, inharmonicity: 0.74, lossTilt: 0.94,
+      frameRatio: 1.08, frameBandwidth: 0.5, contact: 0.62, airResponse: 1.34,
+      youngsModulusGPa: 105, densityKgM3: 8_500,
+      internalLossFactor: 0.0015, elasticLimitStrain: 0.0035,
     }),
   }),
 ]);
@@ -169,6 +228,29 @@ export const JAW_HARP_RHYTHMS = Object.freeze([
 
 export function jawHarpPreset(id) {
   return JAW_HARP_PRESETS.find((preset) => preset.id === id) ?? JAW_HARP_PRESETS[0];
+}
+
+export function reedMaterialProperties(source = JAW_HARP_DEFAULTS) {
+  const presetId = typeof source === "string" ? source : source?.presetId;
+  const preset = jawHarpPreset(presetId);
+  const material = preset.material;
+  const youngsModulusPa = material.youngsModulusGPa * 1e9;
+  const specificModulusM2S2 = youngsModulusPa / material.densityKgM3;
+  const waveSpeedMps = Math.sqrt(specificModulusM2S2);
+  const dampingRatio = material.internalLossFactor * 0.5;
+  const intrinsicCycleRetention = Math.exp(-Math.PI * material.internalLossFactor);
+  return Object.freeze({
+    presetId: preset.id,
+    youngsModulusPa,
+    densityKgM3: material.densityKgM3,
+    specificModulusM2S2,
+    specificModulusRatio: specificModulusM2S2 / REFERENCE_STEEL_SPECIFIC_MODULUS,
+    waveSpeedMps,
+    internalLossFactor: material.internalLossFactor,
+    dampingRatio,
+    intrinsicCycleRetention,
+    elasticLimitStrain: material.elasticLimitStrain,
+  });
 }
 
 export function vowelPreset(id) {
@@ -228,15 +310,15 @@ export function mouthGeometry(source = JAW_HARP_DEFAULTS) {
 
   const lengthM = clamp(
     0.095 + (1 - front) * 0.075 + rounding * 0.038 + glottis * 0.018,
-    0.085,
-    0.235,
+    0.012,
+    0.65,
   );
   const volumeMl = clamp(
     28 + jaw * 72 + (1 - height) * 42 + glottis * 28,
-    24,
-    170,
+    0.5,
+    1_200,
   );
-  const apertureCm2 = clamp(0.35 + jaw * 3.3 - rounding * 1.15, 0.16, 4.2);
+  const apertureCm2 = clamp(0.35 + jaw * 3.3 - rounding * 1.15, 0.002, 24);
   return Object.freeze({ lengthM, volumeMl, apertureCm2 });
 }
 
@@ -249,36 +331,47 @@ export function mouthFormants(source = JAW_HARP_DEFAULTS) {
   const glottis = state.glottisOpening;
   const first = clamp(
     235 + jaw * 510 + (1 - height) * 280 - rounding * 55 - glottis * 34,
-    185,
-    1_050,
+    30,
+    4_200,
   );
   const second = clamp(
     610 + front * 1_890 - rounding * 520 - (1 - height) * 80 - glottis * 42,
-    first + 170,
-    2_850,
+    first + 30,
+    8_200,
   );
   const third = clamp(
     1_930 + front * 720 + jaw * 235 - rounding * 245 - glottis * 95,
-    second + 220,
-    3_750,
+    second + 40,
+    9_400,
   );
-  const focus = clamp(state.formantFocus);
-  const focusFrequencyHz = first + (second - first) * (0.2 + focus * 0.68);
+  const focus = state.formantFocus;
+  let focusFrequencyHz;
+  if (focus < 0) {
+    focusFrequencyHz = first * Math.pow(2, focus);
+  } else if (focus <= 1) {
+    focusFrequencyHz = first + (second - first) * focus;
+  } else if (focus <= 2) {
+    focusFrequencyHz = second + (third - second) * (focus - 1);
+  } else {
+    focusFrequencyHz = third * Math.pow(2, (focus - 2) * 0.7);
+  }
+  focusFrequencyHz = clamp(focusFrequencyHz, 30, 9_400);
   return Object.freeze({
     frequenciesHz: Object.freeze([first, second, third]),
     bandwidthsHz: Object.freeze([
-      80 + jaw * 92 + glottis * 70,
-      105 + (1 - height) * 135 + glottis * 85,
-      170 + rounding * 145 + glottis * 110,
+      clamp(80 + jaw * 92 + glottis * 70, 8, 2_400),
+      clamp(105 + (1 - height) * 135 + glottis * 85, 8, 2_800),
+      clamp(170 + rounding * 145 + glottis * 110, 8, 3_200),
     ]),
     focusFrequencyHz,
+    focusBandwidthHz: clamp(34 + Math.sqrt(focusFrequencyHz) * 2.8, 24, 420),
   });
 }
 
 export function dominantHarmonic(source = JAW_HARP_DEFAULTS) {
   const state = sanitizeJawHarpState(source);
   const { focusFrequencyHz } = mouthFormants(state);
-  const index = clamp(Math.round(focusFrequencyHz / state.reedFrequencyHz), 2, 48);
+  const index = clamp(Math.round(focusFrequencyHz / state.reedFrequencyHz), 1, JAW_HARP_MODE_COUNT);
   return Object.freeze({
     index,
     frequencyHz: index * state.reedFrequencyHz,
@@ -288,12 +381,58 @@ export function dominantHarmonic(source = JAW_HARP_DEFAULTS) {
 
 export function reedModeFrequencies(source = JAW_HARP_DEFAULTS, count = 24) {
   const state = sanitizeJawHarpState(source);
-  const amount = Math.max(1, Math.min(64, Math.round(finiteOr(count, 24))));
+  const physics = reedMaterialProperties(state);
+  const amount = Math.max(1, Math.min(128, Math.round(finiteOr(count, 24))));
   return Object.freeze(Array.from({ length: amount }, (_, index) => {
     const harmonic = index + 1;
-    const stretch = 1 + state.reedStiffness * 0.000035 * harmonic * harmonic;
+    const specificStiffness = clamp(Math.sqrt(physics.specificModulusRatio), 0.45, 1.35);
+    const stretch = 1 + state.reedStiffness
+      * (0.000023 + specificStiffness * 0.000012)
+      * harmonic * harmonic;
     return state.reedFrequencyHz * harmonic * stretch;
   }));
+}
+
+export function tineDisplayFrequencyHz(source = JAW_HARP_DEFAULTS) {
+  const state = sanitizeJawHarpState(source);
+  return clamp(Math.sqrt(state.reedFrequencyHz) * 0.95, 5.5, 12);
+}
+
+// A time-expanded view of the same underdamped release. Actual jaw-harp reeds
+// oscillate too quickly for a 60 Hz display, so one visual cycle represents one
+// physical cycle while preserving the modeled loss per cycle.
+export function tineReleaseMotion(
+  source = JAW_HARP_DEFAULTS,
+  elapsedSeconds = 0,
+  force = source?.pluckForce,
+  direction = source?.pluckDirection,
+) {
+  const state = sanitizeJawHarpState(source);
+  const physics = reedMaterialProperties(state);
+  const time = Math.max(0, finiteOr(elapsedSeconds, 0));
+  const displayFrequencyHz = tineDisplayFrequencyHz(state);
+  const cycles = time * displayFrequencyHz;
+  const strength = clamp(
+    finiteOr(force, state.pluckForce),
+    JAW_HARP_LIMITS.pluckForce[0],
+    JAW_HARP_LIMITS.pluckForce[1],
+  );
+  const normalizedForce = Math.log1p(strength * 1.5)
+    / Math.log1p(JAW_HARP_LIMITS.pluckForce[1] * 1.5);
+  const systemCycleRetention = Math.exp(
+    -1 / Math.max(1e-6, state.reedFrequencyHz * state.reedDecaySeconds),
+  );
+  const cycleRetention = systemCycleRetention
+    * Math.pow(physics.intrinsicCycleRetention, 0.12);
+  const dampedCycles = cycles * Math.sqrt(Math.max(0, 1 - physics.dampingRatio ** 2));
+  const presentationFade = cycles <= 5.25
+    ? 1
+    : Math.exp(-Math.pow((cycles - 5.25) / 1.15, 2));
+  const side = finiteOr(direction, state.pluckDirection) < 0 ? -1 : 1;
+  return side * normalizedForce
+    * Math.pow(cycleRetention, cycles)
+    * Math.cos(Math.PI * 2 * dampedCycles)
+    * presentationFade;
 }
 
 export function repeatIntervalMs(rateBpm, step = 0, swing = 0) {
@@ -329,6 +468,14 @@ export function linkedBreathIntervalMs(source = JAW_HARP_DEFAULTS) {
   return jawHarpRhythmLoopMs(state) / state.breathsPerLoop;
 }
 
+export function effectiveBreathRateBpm(source = JAW_HARP_DEFAULTS) {
+  const state = sanitizeJawHarpState(source);
+  if (!state.breathLinked) return state.breathRateBpm;
+  const clockRate = 60_000 / linkedBreathIntervalMs(state);
+  const performerMultiplier = state.breathRateBpm / JAW_HARP_DEFAULTS.breathRateBpm;
+  return clamp(clockRate * performerMultiplier, 0.1, 7_200);
+}
+
 export function breathCycleFlow(source = JAW_HARP_DEFAULTS, phase = 0) {
   const state = sanitizeJawHarpState(source);
   const wrapped = ((finiteOr(phase, 0) % 1) + 1) % 1;
@@ -345,31 +492,119 @@ export function breathCycleIntervalMs(rateBpm) {
   return 60_000 / bpm;
 }
 
+export function pluckForceFromPull(pull, scale = JAW_HARP_DEFAULTS.pluckForce) {
+  const tension = clamp(Math.abs(finiteOr(pull, 0)), 0, MAX_TINE_PULL);
+  if (tension < 0.012) return 0;
+  const forceScale = clamp(
+    scale,
+    JAW_HARP_LIMITS.pluckForce[0],
+    JAW_HARP_LIMITS.pluckForce[1],
+  );
+  const rawForce = forceScale * Math.pow(tension, 1.55);
+  return clamp(
+    -JAW_HARP_LIMITS.pluckForce[1]
+      * Math.expm1(-rawForce / JAW_HARP_LIMITS.pluckForce[1]),
+    JAW_HARP_LIMITS.pluckForce[0],
+    JAW_HARP_LIMITS.pluckForce[1],
+  );
+}
+
+function randomRange(unitValue, limits, curve = 1) {
+  const [minimum, maximum] = limits;
+  return minimum + (maximum - minimum) * Math.pow(clamp(unitValue), curve);
+}
+
+function centeredRandomRange(unitValue, limits, curve = 1.55) {
+  const [minimum, maximum] = limits;
+  const signed = clamp(unitValue) * 2 - 1;
+  const curved = Math.sign(signed) * Math.pow(Math.abs(signed), curve);
+  return (minimum + maximum) * 0.5 + curved * (maximum - minimum) * 0.5;
+}
+
+function logarithmicRandomRange(unitValue, limits, curve = 1) {
+  const [minimum, maximum] = limits;
+  return minimum * Math.pow(maximum / minimum, Math.pow(clamp(unitValue), curve));
+}
+
+function randomizedRhythmId(unitValue) {
+  const value = clamp(unitValue);
+  if (value < 0.24) return "sparse-seven";
+  if (value < 0.44) return "tresillo";
+  if (value < 0.62) return "two-one";
+  if (value < 0.79) return "soft-machine";
+  if (value < 0.93) return "five-step";
+  return "quarter-eighths";
+}
+
+function randomizedBreathsPerLoop(unitValue) {
+  const value = clamp(unitValue);
+  if (value < 0.12) return 0.125;
+  if (value < 0.25) return 0.25;
+  if (value < 0.42) return 0.5;
+  if (value < 0.72) return 1;
+  if (value < 0.86) return 2;
+  if (value < 0.93) return 3;
+  if (value < 0.97) return 4;
+  if (value < 0.99) return 8;
+  return 16;
+}
+
 export function randomizeJawHarpState(source = JAW_HARP_DEFAULTS, random = Math.random) {
   const state = sanitizeJawHarpState(source);
   const unit = () => clamp(typeof random === "function" ? random() : Math.random());
-  return sanitizeJawHarpState({
+  const presetId = JAW_HARP_PRESETS[
+    Math.min(JAW_HARP_PRESETS.length - 1, Math.floor(unit() * JAW_HARP_PRESETS.length))
+  ].id;
+  const vowelId = VOWEL_PRESETS[
+    Math.min(VOWEL_PRESETS.length - 1, Math.floor(unit() * VOWEL_PRESETS.length))
+  ].id;
+  const rhythmId = randomizedRhythmId(unit());
+  const repeat = unit() < 0.22;
+  const autoBreath = unit() < 0.68;
+  const breathLinked = unit() < 0.28;
+  const pluckDirection = unit() < 0.5 ? -1 : 1;
+  const breathsPerLoop = randomizedBreathsPerLoop(unit());
+  const randomized = sanitizeJawHarpState({
     ...state,
-    reedFrequencyHz: 46 + unit() * 92,
-    reedDecaySeconds: 0.8 + unit() * 4.8,
-    reedStiffness: 0.18 + unit() * 0.76,
-    pluckForce: 0.28 + unit() * 0.68,
-    pluckPosition: 0.12 + unit() * 0.72,
-    tonguePosition: unit(),
-    tongueHeight: unit(),
-    jawOpening: 0.1 + unit() * 0.82,
-    lipRounding: unit(),
-    glottisOpening: unit(),
-    cavityCoupling: 0.45 + unit() * 0.52,
-    frameCoupling: unit() * 0.82,
-    breathDepth: 0.42 + unit() * 0.56,
-    breathRateBpm: 22 + unit() * 62,
-    breathBalance: 0.34 + unit() * 0.3,
+    presetId,
+    vowelId,
+    rhythmId,
+    repeat,
+    autoBreath,
+    breathLinked,
+    pluckDirection,
+    breathsPerLoop,
+    reedFrequencyHz: logarithmicRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.reedFrequencyHz, 1.1),
+    reedDecaySeconds: randomRange(unit(), JAW_HARP_RANDOM_LIMITS.reedDecaySeconds, 1.15),
+    reedStiffness: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.reedStiffness, 1.35),
+    pluckForce: randomRange(unit(), JAW_HARP_RANDOM_LIMITS.pluckForce, 1.45),
+    pluckPosition: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.pluckPosition, 1.3),
+    tonguePosition: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.mouthArticulation, 1.4),
+    tongueHeight: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.mouthArticulation, 1.4),
+    jawOpening: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.mouthArticulation, 1.4),
+    lipRounding: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.mouthArticulation, 1.4),
+    glottisOpening: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.glottisOpening, 1.4),
+    cavityCoupling: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.cavityCoupling, 1.35),
+    frameCoupling: randomRange(unit(), JAW_HARP_RANDOM_LIMITS.frameCoupling, 1.25),
+    breathDepth: randomRange(unit(), JAW_HARP_RANDOM_LIMITS.breathDepth, 1.3),
+    breathRateBpm: logarithmicRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.breathRateBpm, 1.2),
+    breathBalance: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.breathBalance, 1.65),
     breathFlow: 0,
-    formantFocus: unit(),
-    repeatRateBpm: 70 + unit() * 250,
-    repeatSwing: (unit() * 2 - 1) * 0.26,
-    presetId: state.presetId,
-    vowelId: state.vowelId,
+    formantFocus: centeredRandomRange(unit(), JAW_HARP_RANDOM_LIMITS.formantFocus, 1.4),
+    repeatRateBpm: logarithmicRandomRange(unit(), JAW_HARP_LIMITS.repeatRateBpm, 1.7),
+    repeatSwing: centeredRandomRange(unit(), JAW_HARP_LIMITS.repeatSwing, 1.8),
+    dryResonance: randomRange(
+      unit(),
+      autoBreath
+        ? JAW_HARP_RANDOM_LIMITS.dryResonance
+        : JAW_HARP_RANDOM_LIMITS.dryResonanceWithoutBreath,
+      1.6,
+    ),
   }, state);
+  const [minimumBreathRate, maximumBreathRate] = JAW_HARP_RANDOM_LIMITS.effectiveBreathRateBpm;
+  const linkedRate = effectiveBreathRateBpm(randomized);
+  return randomized.breathLinked
+    && (linkedRate < minimumBreathRate || linkedRate > maximumBreathRate)
+    ? sanitizeJawHarpState({ ...randomized, breathLinked: false }, randomized)
+    : randomized;
 }

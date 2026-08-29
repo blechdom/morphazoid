@@ -1,0 +1,735 @@
+.harmonica-page {
+  --accent: #e36a5d;
+  --accent-soft: color-mix(in oklab, #e36a5d 55%, transparent);
+  --accent-glow: color-mix(in oklab, #e36a5d 20%, transparent);
+  --jaw-copper: #d8dfdc;
+  --jaw-amber: #f0bd69;
+  --jaw-cyan: #69d5dd;
+  --jaw-violet: #a99bef;
+  --jaw-coral: #e36a5d;
+  --harmonica-steel: #d8dfdc;
+  --harmonica-red: #e36a5d;
+  --harmonica-draw: #69d5dd;
+  --harmonica-blow: #f0bd69;
+  --harmonica-dark: #050707;
+}
+
+.harmonica-page .masthead,
+.harmonica-page .panel {
+  background: #070909;
+}
+
+.harmonica-page .tab.active {
+  color: var(--harmonica-red);
+}
+
+.harmonica-page .stage-wrap {
+  background:
+    radial-gradient(ellipse at 55% 54%, rgba(227, 106, 93, 0.07), transparent 32%),
+    radial-gradient(ellipse at 76% 47%, rgba(105, 213, 221, 0.055), transparent 28%),
+    linear-gradient(rgba(216, 223, 220, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(216, 223, 220, 0.022) 1px, transparent 1px),
+    #050707;
+  background-size: auto, auto, 34px 34px, 34px 34px, auto;
+}
+
+.harmonica-page #stage {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.harmonica-page .audio-button[aria-pressed="true"] {
+  border-color: var(--harmonica-red);
+  color: #070909;
+  background: var(--harmonica-red);
+  box-shadow: 0 0 20px rgba(227, 106, 93, 0.2);
+}
+
+.harmonica-stage-heading p {
+  color: rgba(227, 106, 93, 0.84);
+}
+
+.harmonica-stage-heading h1 {
+  color: rgba(227, 232, 229, 0.92);
+  letter-spacing: -0.085em;
+}
+
+.harmonica-drag-hint {
+  color: rgba(216, 223, 220, 0.68);
+}
+
+.harmonica-transport {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-color: rgba(227, 106, 93, 0.27);
+  background:
+    linear-gradient(90deg, rgba(105, 213, 221, 0.075), transparent 34%, rgba(240, 189, 105, 0.07)),
+    #060808;
+}
+
+.harmonica-transport button {
+  min-height: 68px;
+  padding-right: 9px;
+  padding-left: 9px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.harmonica-transport button[aria-pressed="true"] {
+  color: #050707;
+}
+
+.harmonica-transport #drawButton[aria-pressed="true"] {
+  background: var(--harmonica-draw);
+}
+
+.harmonica-transport #blowButton[aria-pressed="true"] {
+  background: var(--harmonica-blow);
+}
+
+.harmonica-transport #breathCycleButton[aria-pressed="true"] {
+  background: var(--harmonica-red);
+}
+
+.harmonica-transport button.is-technique-direction:not([aria-pressed="true"]) {
+  box-shadow: inset 0 -2px 0 rgba(227, 106, 93, 0.72);
+}
+
+.harmonica-flow-icon {
+  min-width: 24px;
+  color: currentColor;
+  font-size: 24px;
+  text-align: center;
+}
+
+.harmonica-preset-deck {
+  background:
+    linear-gradient(135deg, rgba(227, 106, 93, 0.055), transparent 58%),
+    #080a0a;
+}
+
+.harmonica-aperture-selector {
+  display: grid;
+  min-width: 0;
+  margin: 2px 0 1px;
+  padding: 9px 10px 10px;
+  border: 1px solid rgba(227, 106, 93, 0.32);
+  background:
+    linear-gradient(105deg, rgba(227, 106, 93, 0.1), transparent 52%),
+    rgba(4, 6, 6, 0.76);
+  gap: 8px;
+}
+
+.harmonica-aperture-selector legend {
+  padding: 0 5px;
+  color: var(--harmonica-red);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.harmonica-aperture-heading {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(100px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.harmonica-aperture-heading output {
+  color: var(--harmonica-steel);
+  font-size: 9px;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+}
+
+.harmonica-aperture-heading small {
+  color: var(--jaw-muted);
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.harmonica-aperture-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.harmonica-aperture-grid button {
+  display: grid;
+  min-width: 0;
+  min-height: 46px;
+  padding: 6px 4px;
+  border: 1px solid rgba(227, 106, 93, 0.24);
+  cursor: pointer;
+  color: var(--harmonica-steel);
+  background: #050707;
+  place-content: center;
+  text-align: center;
+}
+
+.harmonica-aperture-grid button b,
+.harmonica-aperture-grid button small {
+  display: block;
+}
+
+.harmonica-aperture-grid button b {
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.harmonica-aperture-grid button small {
+  margin-top: 3px;
+  color: var(--jaw-muted);
+  font-size: 6px;
+  line-height: 1.15;
+}
+
+.harmonica-aperture-grid button:hover,
+.harmonica-aperture-grid button:focus-visible {
+  border-color: var(--harmonica-red);
+  background: rgba(227, 106, 93, 0.1);
+  outline: 1px solid var(--harmonica-red);
+  outline-offset: 2px;
+}
+
+.harmonica-aperture-grid button[aria-pressed="true"] {
+  border-color: var(--harmonica-red);
+  color: #070505;
+  background: var(--harmonica-red);
+  box-shadow: 0 0 14px rgba(227, 106, 93, 0.16);
+}
+
+.harmonica-aperture-grid button[aria-pressed="true"] small {
+  color: rgba(7, 5, 5, 0.66);
+}
+
+.harmonica-blues-deck {
+  --accent: var(--harmonica-red);
+  --accent-soft: color-mix(in oklab, var(--harmonica-red) 62%, transparent);
+  --accent-glow: color-mix(in oklab, var(--harmonica-red) 19%, transparent);
+  border-top: 1px solid rgba(227, 106, 93, 0.38);
+  border-bottom-color: rgba(227, 106, 93, 0.28);
+  background:
+    radial-gradient(circle at 7% 5%, rgba(227, 106, 93, 0.13), transparent 31%),
+    linear-gradient(145deg, rgba(240, 189, 105, 0.045), transparent 44%, rgba(105, 213, 221, 0.035)),
+    #070909;
+}
+
+.harmonica-blues-deck > .group-summary {
+  min-height: 60px;
+  background:
+    linear-gradient(90deg, rgba(227, 106, 93, 0.15), transparent 72%),
+    rgba(5, 7, 7, 0.48);
+}
+
+.harmonica-blues-deck > .group-summary .group-title {
+  color: #f08b7f;
+  font-size: 12px;
+}
+
+.harmonica-blues-body {
+  display: grid;
+  padding-top: 16px;
+  padding-bottom: 15px;
+  gap: 13px;
+}
+
+.harmonica-position-context {
+  display: grid;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(227, 106, 93, 0.28);
+  background:
+    linear-gradient(105deg, rgba(227, 106, 93, 0.11), transparent 48%),
+    rgba(3, 5, 5, 0.64);
+  grid-template-columns: minmax(104px, 0.72fr) minmax(0, 1.65fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.harmonica-position-context > span {
+  display: grid;
+  gap: 4px;
+}
+
+.harmonica-position-context small,
+.harmonica-technique-palette header span,
+.harmonica-blues-language article > span {
+  color: var(--harmonica-red);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.harmonica-position-context b {
+  color: var(--harmonica-steel);
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.harmonica-position-context p,
+.harmonica-blues-descriptions p,
+.harmonica-blues-language p {
+  margin: 0;
+  color: var(--jaw-muted);
+  font-size: 8px;
+  line-height: 1.48;
+}
+
+.harmonica-blues-selects {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.harmonica-blues-select {
+  min-width: 0;
+  margin: 0;
+}
+
+.harmonica-blues-select select {
+  min-height: 44px;
+  border-color: rgba(227, 106, 93, 0.3);
+  background: rgba(4, 6, 6, 0.9);
+}
+
+.harmonica-blues-select select:hover,
+.harmonica-blues-select select:focus-visible {
+  border-color: var(--harmonica-red);
+}
+
+.harmonica-performance-guide {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.harmonica-performance-guide p {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 9px 10px;
+  border-top: 1px solid rgba(105, 213, 221, 0.22);
+  background: rgba(105, 213, 221, 0.035);
+  gap: 4px;
+}
+
+.harmonica-performance-guide p:last-child {
+  border-top-color: rgba(169, 155, 239, 0.3);
+  background: rgba(169, 155, 239, 0.045);
+}
+
+.harmonica-performance-guide b {
+  color: var(--harmonica-draw);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.harmonica-performance-guide p:last-child b {
+  color: var(--jaw-violet);
+}
+
+.harmonica-performance-guide span {
+  color: var(--jaw-muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.harmonica-technique-palette {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.harmonica-technique-palette header {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.harmonica-technique-palette h3 {
+  margin: 0;
+  color: var(--harmonica-steel);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.harmonica-technique-palette header span {
+  overflow: hidden;
+  color: var(--jaw-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.harmonica-technique-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.harmonica-technique-grid > button {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  padding: 7px 6px;
+  border: 1px solid rgba(227, 106, 93, 0.22);
+  cursor: pointer;
+  color: #a7aeaa;
+  background:
+    linear-gradient(145deg, rgba(227, 106, 93, 0.045), transparent),
+    #050707;
+  font: 650 8px/1.15 var(--mono);
+  letter-spacing: 0.035em;
+  place-content: center;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.harmonica-technique-grid > button b,
+.harmonica-technique-grid > button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.harmonica-technique-grid > button b {
+  color: inherit;
+  font: inherit;
+  white-space: normal;
+}
+
+.harmonica-technique-grid > button small {
+  margin-top: 4px;
+  color: var(--jaw-muted);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+.harmonica-technique-grid > button:hover,
+.harmonica-technique-grid > button:focus-visible {
+  border-color: var(--harmonica-red);
+  color: var(--harmonica-steel);
+  background: rgba(227, 106, 93, 0.1);
+  outline: 1px solid var(--harmonica-red);
+  outline-offset: 2px;
+}
+
+.harmonica-technique-grid > button[aria-pressed="true"],
+.harmonica-technique-grid > button.is-active {
+  border-color: var(--harmonica-red);
+  color: #080505;
+  background: var(--harmonica-red);
+  box-shadow: 0 0 16px rgba(227, 106, 93, 0.16);
+}
+
+.harmonica-technique-grid > button[aria-pressed="true"] small,
+.harmonica-technique-grid > button.is-active small {
+  color: rgba(8, 5, 5, 0.64);
+}
+
+.harmonica-blues-descriptions {
+  display: grid;
+  padding: 9px 10px;
+  border-left: 2px solid rgba(240, 189, 105, 0.55);
+  background: rgba(240, 189, 105, 0.035);
+  gap: 6px;
+}
+
+.harmonica-blues-descriptions p {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 7px;
+}
+
+.harmonica-blues-descriptions b {
+  color: var(--harmonica-blow);
+  font-size: 7px;
+  font-weight: 680;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.harmonica-blues-controls {
+  display: grid;
+  min-width: 0;
+  padding-top: 13px;
+  border-top: 1px solid rgba(216, 223, 220, 0.11);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+
+.harmonica-blues-controls .control {
+  min-width: 0;
+}
+
+.harmonica-blues-controls .control > span {
+  gap: 6px;
+}
+
+.harmonica-blues-controls .control b {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.harmonica-blues-controls .control output {
+  font-size: 8px;
+}
+
+.harmonica-blues-controls .control small {
+  min-height: 3.9em;
+  font-size: 7px;
+}
+
+.harmonica-blues-language {
+  display: grid;
+  padding-top: 2px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.harmonica-blues-language article {
+  min-width: 0;
+  padding: 9px;
+  border-top: 1px solid rgba(105, 213, 221, 0.2);
+  background: rgba(105, 213, 221, 0.025);
+}
+
+.harmonica-blues-language article > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--harmonica-draw);
+}
+
+.harmonica-blues-language p {
+  font-size: 8px;
+}
+
+.harmonica-hole-grid {
+  display: grid;
+  margin-top: 10px;
+  border-top: 1px solid rgba(216, 223, 220, 0.14);
+  border-left: 1px solid rgba(216, 223, 220, 0.14);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.harmonica-hole-button {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  padding: 5px 3px;
+  border: 0;
+  border-right: 1px solid rgba(216, 223, 220, 0.14);
+  border-bottom: 1px solid rgba(216, 223, 220, 0.14);
+  cursor: pointer;
+  color: #8f9893;
+  background: rgba(5, 7, 7, 0.7);
+  place-content: center;
+  text-align: center;
+}
+
+.harmonica-hole-button b,
+.harmonica-hole-button small {
+  display: block;
+}
+
+.harmonica-hole-button b {
+  color: var(--harmonica-steel);
+  font-size: 9px;
+  font-weight: 680;
+}
+
+.harmonica-hole-button small {
+  margin-top: 3px;
+  font-size: 6px;
+}
+
+.harmonica-hole-button:hover,
+.harmonica-hole-button:focus-visible {
+  color: var(--harmonica-steel);
+  background: rgba(216, 223, 220, 0.07);
+  outline: 1px solid var(--harmonica-red);
+  outline-offset: -3px;
+}
+
+.harmonica-hole-button[aria-pressed="true"] {
+  color: #050707;
+  background: var(--harmonica-red);
+}
+
+.harmonica-hole-button[aria-pressed="true"] b {
+  color: #050707;
+}
+
+.harmonica-hole-button.is-covered:not([aria-pressed="true"]) {
+  background: rgba(227, 106, 93, 0.11);
+}
+
+.harmonica-hole-button.is-technique-hole:not([aria-pressed="true"]) {
+  color: var(--harmonica-steel);
+  background:
+    linear-gradient(rgba(227, 106, 93, 0.09), rgba(227, 106, 93, 0.09)),
+    rgba(5, 7, 7, 0.7);
+}
+
+.harmonica-hole-button.is-sounding-draw {
+  box-shadow: inset 0 -3px 0 var(--harmonica-draw);
+}
+
+.harmonica-hole-button.is-sounding-blow {
+  box-shadow: inset 0 3px 0 var(--harmonica-blow);
+}
+
+.harmonica-model-hud {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.harmonica-model-hud span:last-child {
+  grid-column: 1 / -1;
+}
+
+.harmonica-page .group-summary[aria-expanded="true"],
+.harmonica-page details[open] > .group-summary {
+  border-left-color: var(--harmonica-red);
+}
+
+.harmonica-page .control input[type="range"] {
+  --range-progress: 50%;
+  background:
+    linear-gradient(90deg, var(--harmonica-red) var(--range-progress), rgba(216, 223, 220, 0.18) var(--range-progress));
+}
+
+.harmonica-page .control input[type="range"]::-webkit-slider-thumb,
+.harmonica-page .header-level input[type="range"]::-webkit-slider-thumb {
+  border-color: var(--harmonica-red);
+}
+
+.harmonica-page .control input[type="range"]::-moz-range-thumb,
+.harmonica-page .header-level input[type="range"]::-moz-range-thumb {
+  border-color: var(--harmonica-red);
+}
+
+.harmonica-model-note {
+  background:
+    linear-gradient(135deg, rgba(105, 213, 221, 0.05), transparent 48%),
+    linear-gradient(225deg, rgba(227, 106, 93, 0.05), transparent 52%),
+    #070909;
+}
+
+.harmonica-model-note header strong {
+  color: var(--harmonica-red);
+}
+
+.harmonica-page .jaw-breath-meter span:first-child {
+  color: var(--harmonica-draw);
+}
+
+.harmonica-page .jaw-breath-meter span:last-child {
+  color: var(--harmonica-blow);
+}
+
+.harmonica-page .jaw-breath-meter i.is-current:nth-of-type(-n + 4) {
+  background: var(--harmonica-draw);
+  box-shadow: 0 0 8px rgba(105, 213, 221, 0.32);
+}
+
+.harmonica-page .jaw-breath-meter i.is-current:nth-of-type(n + 5) {
+  background: var(--harmonica-blow);
+  box-shadow: 0 0 8px rgba(240, 189, 105, 0.32);
+}
+
+@media (max-width: 650px) {
+  .harmonica-transport {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .harmonica-transport button {
+    min-height: 62px;
+    padding: 7px 5px;
+    grid-template-columns: 1fr;
+    gap: 2px;
+    text-align: center;
+  }
+
+  .harmonica-flow-icon {
+    min-width: 0;
+    font-size: 18px;
+  }
+
+  .harmonica-hole-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .harmonica-hole-button {
+    min-height: 44px;
+  }
+
+  .harmonica-aperture-heading,
+  .harmonica-performance-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .harmonica-blues-deck > .group-summary {
+    min-height: 56px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .harmonica-blues-deck > .group-summary .group-title {
+    max-width: 58%;
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .harmonica-blues-body {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .harmonica-position-context,
+  .harmonica-blues-selects,
+  .harmonica-blues-controls,
+  .harmonica-blues-language {
+    grid-template-columns: 1fr;
+  }
+
+  .harmonica-position-context {
+    align-items: start;
+    gap: 7px;
+  }
+
+  .harmonica-technique-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .harmonica-technique-grid > button {
+    min-height: 46px;
+  }
+
+  .harmonica-blues-controls .control small {
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .harmonica-hole-button,
+  .harmonica-aperture-grid button,
+  .harmonica-technique-grid > button {
+    transition: none;
+  }
+}

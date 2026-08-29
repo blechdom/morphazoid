@@ -110,6 +110,12 @@ for worktree_runtime_file in \
   src/blowhole-processor.js \
   assets/instruments/blowhole.webp \
   BLOWHOLE_RESEARCH.md \
+  harmonica.html \
+  harmonica.css \
+  harmonica-app.js \
+  src/harmonica.js \
+  src/harmonica-processor.js \
+  assets/instruments/harmonica.webp \
   pink-trombonazoid.html \
   pink-trombonazoid.css \
   pink-trombonazoid-app.js \
@@ -485,6 +491,12 @@ required_files=(
   src/blowhole-processor.js
   assets/instruments/blowhole.webp
   BLOWHOLE_RESEARCH.md
+  harmonica.html
+  harmonica.css
+  harmonica-app.js
+  src/harmonica.js
+  src/harmonica-processor.js
+  assets/instruments/harmonica.webp
   pink-trombonazoid.html
   pink-trombonazoid.css
   pink-trombonazoid-app.js

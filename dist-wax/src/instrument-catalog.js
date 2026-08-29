@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260829-2";
+} from "../nav.js?v=catalog-20260829-3";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -183,6 +183,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Couples a plucked cantilever reed to an interactive mouth cavity so one fixed reed fundamental excites harmonics selected by the tongue, jaw, lips, and cavity.",
     "Turn on audio, choose a harp and vowel preset, then pull and release the copper trigger or press Space to pluck.",
     ["Built-in source", "Pointer", "Computer keys"],
+  ),
+  harmonica: define(
+    "Southern blues free-reed instrument",
+    "Models a ten-hole diatonic harmonica as paired blow and draw reeds for single notes, double-stops, chords, bends, scoops, dips, falls, shakes, slaps, hand wah, throat vibrato, flutter, growl, octave tongue blocks, overbends, and signed blues breath rhythms.",
+    "Turn on audio, choose a one- to four-hole mouth aperture and a blues gesture, then hold blow or draw; shape its rhythm, breath envelope, cover-hand filter, tongue, tract, bend, or overbend in real time.",
+    ["Built-in source", "Pointer", "Computer keys", "MIDI expression", "Physical-model DSP"],
   ),
   "breath-atlas": define(
     "Breath physical-model atlas",
