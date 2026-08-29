@@ -826,7 +826,12 @@ export class LinearDrumAudio {
       vertical: options.performanceY,
     });
     const velocity = clamp(finiteOr(options.velocity, .82), .05, 1);
-    const now = context.currentTime + clamp(finiteOr(options.delay, 0), 0, .12);
+    const requestedStartAt = options.startAt === undefined || options.startAt === null
+      ? Number.NaN
+      : Number(options.startAt);
+    const now = Number.isFinite(requestedStartAt)
+      ? Math.max(context.currentTime, requestedStartAt)
+      : context.currentTime + clamp(finiteOr(options.delay, 0), 0, .12);
     const voice = this.#createVoice(now, velocity);
     const engine = options.engine === "karplus-strong" || parameters.model === "karplus-strong"
       ? "karplus-strong"
@@ -1167,6 +1172,30 @@ export class LinearDrumAudio {
     }, disconnectDelay);
   }
 
+  /** Fade active and look-ahead-scheduled strikes without closing the engine. */
+  silence() {
+    const context = this.context;
+    if (!context) {
+      this.activeVoices = [];
+      return;
+    }
+    const now = Number(context.currentTime) || 0;
+    for (const voice of this.activeVoices) {
+      try {
+        const gain = voice.output?.gain;
+        if (typeof gain?.cancelAndHoldAtTime === "function") gain.cancelAndHoldAtTime(now);
+        else gain?.cancelScheduledValues?.(now);
+        gain?.setTargetAtTime?.(0, now, .004);
+      } catch {
+        // A completed voice is already silent.
+      }
+      for (const source of voice.sources ?? []) {
+        try { source.stop(now + .025); } catch { /* already stopped */ }
+      }
+    }
+    this.activeVoices = [];
+  }
+
   #createNoiseBuffer(context) {
     const frameCount = Math.ceil(context.sampleRate * 1.25);
     const buffer = context.createBuffer(1, frameCount, context.sampleRate);
@@ -1183,6 +1212,7 @@ export class LinearDrumAudio {
   async close() {
     this.lifecycleGeneration += 1;
     const context = this.context;
+    this.silence();
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
     this.context = null;

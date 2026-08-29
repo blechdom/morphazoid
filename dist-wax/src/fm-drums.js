@@ -2,6 +2,7 @@ import { unlockAudioContext } from "./audio.js";
 import { connectAudioOutput } from "./audio-output-manager.js";
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+const NOISE_BUFFER_SECONDS = 2.5;
 
 function cancelledAudioStart() {
   const error = new Error("FM Drum audio start was cancelled.");
@@ -79,12 +80,16 @@ export class FmDrumAudio {
     this.output = .72;
     this.hostGain = 1;
     this.lifecycleGeneration = 0;
+    this.noiseBuffer = null;
+    this.noiseBufferContext = null;
+    this.activeHits = new Set();
   }
 
   async start() {
     const lifecycleGeneration = this.lifecycleGeneration;
     let context = this.context;
     if (!context || context.state === "closed") {
+      for (const hit of [...this.activeHits]) this.#cleanupHit(hit);
       this.releaseAudioOutput?.();
       this.releaseAudioOutput = null;
       this.context = null;
@@ -92,6 +97,8 @@ export class FmDrumAudio {
       this.master = null;
       this.hostGate = null;
       this.analyser = null;
+      this.noiseBuffer = null;
+      this.noiseBufferContext = null;
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
       if (!Context) throw new Error("Web Audio is not available in this browser.");
       context = new Context();
@@ -152,6 +159,8 @@ export class FmDrumAudio {
   async close() {
     this.lifecycleGeneration += 1;
     const context = this.context;
+    this.silence();
+    for (const hit of [...this.activeHits]) this.#cleanupHit(hit);
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
     this.context = null;
@@ -159,24 +168,42 @@ export class FmDrumAudio {
     this.master = null;
     this.hostGate = null;
     this.analyser = null;
+    this.noiseBuffer = null;
+    this.noiseBufferContext = null;
     if (context && context.state !== "closed" && typeof context.close === "function") {
       await context.close();
     }
   }
 
-  async trigger(sourceVoice) {
+  /**
+   * Trigger a voice on the AudioContext timeline. `startAt` is an absolute
+   * context time; `startDelaySeconds` is retained for relative callers and is
+   * used only when no finite absolute time is supplied.
+   */
+  async trigger(sourceVoice, { startAt, startDelaySeconds = 0 } = {}) {
     const voice = sanitizeFmDrumVoice(sourceVoice);
     const context = await this.start();
     if (context !== this.context || context.state === "closed") {
       throw cancelledAudioStart();
     }
-    const now = context.currentTime;
-    const stopAt = now + Math.max(.12, voice.attack + voice.decay * 1.35);
+    const currentTime = Number(context.currentTime) || 0;
+    const requestedStart = startAt === undefined || startAt === null
+      ? Number.NaN
+      : Number(startAt);
+    const requestedDelay = Number(startDelaySeconds);
+    const delay = Number.isFinite(requestedDelay) ? Math.max(0, requestedDelay) : 0;
+    // Web Audio rejects starts in the past on some implementations. Keeping an
+    // absolute request when it is still ahead preserves rhythm across delayed
+    // JavaScript callbacks; a genuinely late request starts safely now.
+    const startsAt = Number.isFinite(requestedStart)
+      ? Math.max(currentTime, requestedStart)
+      : currentTime + delay;
+    const stopAt = startsAt + Math.max(.12, voice.attack + voice.decay * 1.35);
 
     const amplitude = context.createGain();
-    amplitude.gain.setValueAtTime(.0001, now);
-    amplitude.gain.exponentialRampToValueAtTime(Math.max(.001, voice.level), now + voice.attack);
-    amplitude.gain.exponentialRampToValueAtTime(.0001, now + voice.attack + voice.decay);
+    amplitude.gain.setValueAtTime(.0001, startsAt);
+    amplitude.gain.exponentialRampToValueAtTime(Math.max(.001, voice.level), startsAt + voice.attack);
+    amplitude.gain.exponentialRampToValueAtTime(.0001, startsAt + voice.attack + voice.decay);
 
     const filter = context.createBiquadFilter();
     filter.type = voice.family === "hat"
@@ -201,35 +228,166 @@ export class FmDrumAudio {
     modulator.type = voice.family === "bell" ? "sine" : "triangle";
     carrier.frequency.setValueAtTime(
       clamp(base * Math.max(.15, 1 + voice.pitchBend), 20, 16_000),
-      now,
+      startsAt,
     );
     carrier.frequency.exponentialRampToValueAtTime(
       base,
-      now + Math.max(.018, voice.decay * .42),
+      startsAt + Math.max(.018, voice.decay * .42),
     );
     modulator.frequency.value = clamp(base * voice.modRatio, 20, 18_000);
-    modulation.gain.setValueAtTime(base * voice.modIndex, now);
-    modulation.gain.exponentialRampToValueAtTime(.001, now + Math.max(.025, voice.decay));
+    modulation.gain.setValueAtTime(base * voice.modIndex, startsAt);
+    modulation.gain.exponentialRampToValueAtTime(.001, startsAt + Math.max(.025, voice.decay));
     modulator.connect(modulation);
     modulation.connect(carrier.frequency);
     carrier.connect(amplitude);
-    carrier.start(now);
-    modulator.start(now);
+    carrier.start(startsAt);
+    modulator.start(startsAt);
     carrier.stop(stopAt);
     modulator.stop(stopAt);
 
-    if (voice.noise > .005) this.#addNoise(voice, filter, now, stopAt);
+    const noiseLayer = voice.noise > .005
+      ? this.#addNoise(voice, filter, startsAt, stopAt)
+      : null;
+    this.#trackHit({
+      startsAt,
+      stopAt,
+      carrier,
+      modulator,
+      modulation,
+      amplitude,
+      filter,
+      noiseLayer,
+    });
     return voice;
   }
 
-  #addNoise(voice, destination, now, stopAt) {
+  /** Fade audible hits and invalidate every hit that has not started yet. */
+  silence() {
     const context = this.context;
-    const frameCount = Math.ceil(context.sampleRate * Math.min(2.5, voice.decay + .08));
-    const buffer = context.createBuffer(1, frameCount, context.sampleRate);
+    if (!context) {
+      for (const hit of [...this.activeHits]) this.#cleanupHit(hit);
+      return;
+    }
+    const now = Number(context.currentTime) || 0;
+    for (const hit of [...this.activeHits]) {
+      if (hit.stopAt <= now) {
+        this.#cleanupHit(hit);
+        continue;
+      }
+      if (hit.startsAt > now + 1e-6) {
+        this.#cancelGain(hit.amplitude.gain, now);
+        if (hit.noiseLayer) this.#cancelGain(hit.noiseLayer.amplitude.gain, now);
+        this.#stopSource(hit.carrier, now);
+        this.#stopSource(hit.modulator, now);
+        this.#stopSource(hit.noiseLayer?.source, now);
+        // Disconnecting makes a future source silent even on engines that defer
+        // an onended callback for a start which was cancelled before it began.
+        this.#cleanupHit(hit);
+        continue;
+      }
+
+      const fadeEnd = Math.min(hit.stopAt, now + 0.025);
+      this.#fadeGain(hit.amplitude.gain, now, fadeEnd);
+      if (hit.noiseLayer) this.#fadeGain(hit.noiseLayer.amplitude.gain, now, fadeEnd);
+      this.#stopSource(hit.carrier, fadeEnd + 0.005);
+      this.#stopSource(hit.modulator, fadeEnd + 0.005);
+      this.#stopSource(hit.noiseLayer?.source, fadeEnd + 0.005);
+      hit.stopAt = fadeEnd + 0.005;
+    }
+  }
+
+  #cancelGain(parameter, now) {
+    if (!parameter) return;
+    try {
+      parameter.cancelScheduledValues?.(now);
+      parameter.setValueAtTime?.(0, now);
+    } catch {
+      // A source may finish between the lifecycle check and cancellation.
+    }
+  }
+
+  #fadeGain(parameter, now, fadeEnd) {
+    if (!parameter) return;
+    try {
+      if (typeof parameter.cancelAndHoldAtTime === "function") {
+        parameter.cancelAndHoldAtTime(now);
+      } else {
+        parameter.cancelScheduledValues?.(now);
+        parameter.setValueAtTime?.(Math.max(.0001, Number(parameter.value) || .0001), now);
+      }
+      parameter.exponentialRampToValueAtTime?.(.0001, fadeEnd);
+      parameter.setValueAtTime?.(0, fadeEnd + .003);
+    } catch {
+      // An already-ended gain needs no additional fade.
+    }
+  }
+
+  #stopSource(source, at) {
+    if (!source || typeof source.stop !== "function") return;
+    try {
+      source.stop(at);
+    } catch {
+      // Calling stop again after an onended callback is harmless to silence().
+    }
+  }
+
+  #trackHit(hit) {
+    hit.cleaned = false;
+    hit.pendingSources = new Set([
+      hit.carrier,
+      hit.modulator,
+      hit.noiseLayer?.source,
+    ].filter(Boolean));
+    this.activeHits.add(hit);
+    for (const source of hit.pendingSources) {
+      source.onended = () => {
+        hit.pendingSources.delete(source);
+        try { source.disconnect?.(); } catch { /* Already disconnected. */ }
+        if (!hit.pendingSources.size) this.#cleanupHit(hit);
+      };
+    }
+  }
+
+  #cleanupHit(hit) {
+    if (!hit || hit.cleaned) return;
+    hit.cleaned = true;
+    this.activeHits.delete(hit);
+    const nodes = [
+      hit.carrier,
+      hit.modulator,
+      hit.modulation,
+      hit.amplitude,
+      hit.filter,
+      hit.noiseLayer?.source,
+      hit.noiseLayer?.amplitude,
+      hit.noiseLayer?.filter,
+    ];
+    for (const source of [hit.carrier, hit.modulator, hit.noiseLayer?.source]) {
+      if (source) source.onended = null;
+    }
+    for (const node of nodes) {
+      try { node?.disconnect?.(); } catch { /* Already disconnected. */ }
+    }
+    hit.pendingSources?.clear();
+  }
+
+  #noiseBuffer(context) {
+    if (this.noiseBuffer && this.noiseBufferContext === context) return this.noiseBuffer;
+    const sampleRate = Number.isFinite(context.sampleRate) ? context.sampleRate : 48_000;
+    const frameCount = Math.max(1, Math.ceil(sampleRate * NOISE_BUFFER_SECONDS));
+    const buffer = context.createBuffer(1, frameCount, sampleRate);
     const samples = buffer.getChannelData(0);
     for (let index = 0; index < frameCount; index += 1) {
       samples[index] = Math.random() * 2 - 1;
     }
+    this.noiseBuffer = buffer;
+    this.noiseBufferContext = context;
+    return buffer;
+  }
+
+  #addNoise(voice, destination, startsAt, stopAt) {
+    const context = this.context;
+    const buffer = this.#noiseBuffer(context);
     const noise = context.createBufferSource();
     const amplitude = context.createGain();
     const filter = context.createBiquadFilter();
@@ -240,33 +398,34 @@ export class FmDrumAudio {
         ? clamp(voice.frequency * 6, 520, 13_000)
         : 900 + voice.tone * 7_200;
     filter.Q.value = voice.family === "rattle" ? 5.2 : voice.family === "snare" ? .7 : 1.8;
-    amplitude.gain.setValueAtTime(.0001, now);
+    amplitude.gain.setValueAtTime(.0001, startsAt);
     if (voice.family === "rattle") {
       const pulseCount = Math.max(4, Math.min(10, Math.round(voice.decay / 0.02)));
       const spacing = voice.decay / pulseCount;
       for (let pulse = 0; pulse < pulseCount; pulse += 1) {
-        const pulseAt = now + voice.attack + pulse * spacing;
+        const pulseAt = startsAt + voice.attack + pulse * spacing;
         const pulseLevel = voice.noise * voice.level * (1 - pulse / (pulseCount * 1.7));
         amplitude.gain.setValueAtTime(.0001, pulseAt);
         amplitude.gain.linearRampToValueAtTime(pulseLevel, pulseAt + 0.002);
         amplitude.gain.exponentialRampToValueAtTime(.0001, pulseAt + spacing * 0.72);
       }
     } else {
-      amplitude.gain.linearRampToValueAtTime(voice.noise * voice.level, now + voice.attack);
+      amplitude.gain.linearRampToValueAtTime(voice.noise * voice.level, startsAt + voice.attack);
     }
     if (voice.id === "wide-clap" && voice.family !== "rattle") {
-      amplitude.gain.setValueAtTime(voice.noise * voice.level, now + .022);
-      amplitude.gain.setValueAtTime(.04, now + .032);
-      amplitude.gain.setValueAtTime(voice.noise * voice.level * .72, now + .047);
+      amplitude.gain.setValueAtTime(voice.noise * voice.level, startsAt + .022);
+      amplitude.gain.setValueAtTime(.04, startsAt + .032);
+      amplitude.gain.setValueAtTime(voice.noise * voice.level * .72, startsAt + .047);
     }
     if (voice.family !== "rattle") {
-      amplitude.gain.exponentialRampToValueAtTime(.0001, now + voice.attack + voice.decay);
+      amplitude.gain.exponentialRampToValueAtTime(.0001, startsAt + voice.attack + voice.decay);
     }
     noise.buffer = buffer;
     noise.connect(filter);
     filter.connect(amplitude);
     amplitude.connect(destination);
-    noise.start(now);
+    noise.start(startsAt);
     noise.stop(stopAt);
+    return { source: noise, amplitude, filter };
   }
 }

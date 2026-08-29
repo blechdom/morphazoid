@@ -279,6 +279,93 @@
   letter-spacing: 0;
 }
 
+.webgpu-dsp-atlas-link {
+  display: grid;
+  min-height: 58px;
+  padding: 9px 12px;
+  border-bottom: 1px solid color-mix(in oklab, var(--lane-pitch) 24%, var(--line));
+  color: inherit;
+  background:
+    linear-gradient(90deg, rgba(116, 247, 255, 0.075), rgba(255, 110, 170, 0.035), transparent 82%),
+    var(--panel);
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+}
+
+.webgpu-dsp-atlas-link > span:first-child {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in oklab, var(--lane-pitch) 46%, var(--line));
+  color: var(--lane-pitch);
+  background: color-mix(in oklab, var(--lane-pitch) 7%, var(--bg-deep));
+  place-items: center;
+  font-size: 17px;
+}
+
+.webgpu-dsp-atlas-link > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.webgpu-dsp-atlas-link b {
+  color: color-mix(in oklab, var(--lane-pitch) 72%, var(--ink));
+  font-size: 9px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.webgpu-dsp-atlas-link small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.webgpu-dsp-atlas-link strong {
+  color: color-mix(in oklab, var(--gpu-green) 62%, var(--muted));
+  font-size: 7px;
+  font-weight: 760;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.webgpu-dsp-atlas-link i {
+  font-style: normal;
+}
+
+.webgpu-dsp-atlas-link:hover,
+.webgpu-dsp-atlas-link:focus-visible {
+  color: inherit;
+  background:
+    linear-gradient(90deg, rgba(116, 247, 255, 0.13), rgba(255, 110, 170, 0.06), transparent 88%),
+    var(--panel-high);
+}
+
+.webgpu-dsp-atlas-link:hover strong,
+.webgpu-dsp-atlas-link:focus-visible strong {
+  color: var(--gpu-green);
+}
+
+.webgpu-playground-link {
+  margin-top: -1px;
+  border-top: 1px solid color-mix(in oklab, var(--lane-morph) 16%, var(--line));
+}
+
+.webgpu-playground-link > span:first-child {
+  border-color: color-mix(in oklab, var(--lane-morph) 46%, var(--line));
+  color: var(--lane-morph);
+  background: color-mix(in oklab, var(--lane-morph) 7%, var(--bg-deep));
+}
+
+.webgpu-playground-link b {
+  color: color-mix(in oklab, var(--lane-morph) 72%, var(--ink));
+}
+
 .wgsl-boundary {
   order: 100;
   padding: 11px 22px 12px;

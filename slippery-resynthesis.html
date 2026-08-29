@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Slippery Resynthesis — live FFT spectral resynthesis through phase-locked Shepard glissando banks."
+    />
+    <title>Slippery Resynthesis — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="slippery-resynthesis.css" />
+  </head>
+  <body class="slippery-resynthesis-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="shepard-risset.html">shepard–risset</a>
+        <a class="tab active" href="slippery-resynthesis.html" aria-current="page">slippery resynthesis</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="shepard-risset.html">shepard–risset</option>
+          <option value="slippery-resynthesis.html" selected>slippery resynthesis</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph slipper-audio-glyph" aria-hidden="true">≋</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">65%</output></span>
+          <input
+            id="outputLevel"
+            aria-label="Slippery Resynthesis output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.65"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell slippery-resynthesis-shell" id="slippery-resynthesis">
+      <section class="stage slippery-resynthesis-stage" aria-label="Slippery Resynthesis spectral stage">
+        <div class="stage-wrap slipper-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="A logarithmic live input spectrum and its phase-locked Shepard resynthesis drifting upward. Audio off."
+            aria-describedby="slipperyResynthesisDescription liveStatus"
+          >
+            Live input spectrum and Shepard-glissando resynthesis across a logarithmic frequency field.
+          </canvas>
+
+          <div class="slipper-spectrum-legend" aria-hidden="true">
+            <span class="input"><i></i>Input FFT</span>
+            <span class="slip"><i></i>Slip bank</span>
+            <span class="octave"><i></i>Octave ghosts</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">MIC · FFT 2048 · 32 BANDS · 128 OSC · ↑ 0.12 OCT/S · AUDIO OFF</span>
+          </div>
+
+          <div class="slipper-stage-caption" aria-hidden="true">
+            <span>Slippery Resynthesis</span>
+            <small id="stageCaption">input spectrum → phase-locked octave banks</small>
+          </div>
+
+          <div class="slipper-frequency-axis" aria-hidden="true">
+            <span>20</span><span>50</span><span>100</span><span>200</span><span>500</span>
+            <span>1k</span><span>2k</span><span>5k</span><span>10k</span><span>20k Hz</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel slippery-resynthesis-panel" aria-label="Slippery Resynthesis controls">
+        <details class="group control-section slipper-source" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Source</h2>
+            <span class="section-state" id="sourceSummary">microphone · headphones</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Input</span>
+            <div
+              class="choice-switch"
+              id="sourceChoice"
+              role="group"
+              aria-label="Audio source"
+              aria-describedby="sourceNote"
+            >
+              <button id="sourceMic" type="button" data-source="microphone" aria-pressed="true">Mic</button>
+              <button id="sourceFile" type="button" data-source="file" aria-pressed="false">File</button>
+            </div>
+
+            <div class="slipper-file-row" id="fileControls" hidden>
+              <label class="slipper-file-picker" for="filePicker">
+                <input id="filePicker" type="file" accept="audio/*" />
+                <span id="fileName">Choose local audio…</span>
+              </label>
+              <button
+                class="slipper-icon-button"
+                id="loopFile"
+                type="button"
+                aria-label="Loop local audio"
+                aria-pressed="true"
+                title="Loop local audio"
+              >
+                ↻
+              </button>
+            </div>
+            <audio id="fileAudio" loop preload="metadata"></audio>
+
+            <p class="slipper-control-note" id="sourceNote">
+              Switch Audio on to allow microphone access. Use headphones; the resynthesized signal can feed back through speakers.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section slipper-presets" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Gentle lift</span>
+          </summary>
+          <div class="group-body">
+            <div
+              class="slipper-preset-grid"
+              id="presetGrid"
+              role="group"
+              aria-label="Slippery Resynthesis presets"
+            ></div>
+          </div>
+        </details>
+
+        <details class="group control-section slipper-motion" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Slippage</h2>
+            <span class="section-state" id="motionSummary">rise · 0.12 oct/s · 4 layers</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Direction</span>
+            <div class="choice-switch" id="directionChoice" role="group" aria-label="Slip direction">
+              <button
+                id="directionDown"
+                type="button"
+                data-direction="-1"
+                aria-pressed="false"
+              >
+                ↓ Fall
+              </button>
+              <button
+                id="directionUp"
+                type="button"
+                data-direction="1"
+                aria-pressed="true"
+              >
+                ↑ Rise
+              </button>
+            </div>
+
+            <label class="control" for="slipRate">
+              <span><b>Slip rate</b><output id="slipRateOut" for="slipRate">0.12 oct/s</output></span>
+              <input
+                id="slipRate"
+                type="range"
+                min="0"
+                max="4"
+                step="0.01"
+                value="0.12"
+                aria-valuetext="0.12 octaves per second"
+              />
+            </label>
+
+            <label class="control" for="bankWidth">
+              <span><b>Octave layers</b><output id="bankWidthOut" for="bankWidth">4</output></span>
+              <input id="bankWidth" type="range" min="2" max="8" step="1" value="4" />
+            </label>
+
+            <label class="control" for="coherence">
+              <span><b>Band coherence</b><output id="coherenceOut" for="coherence">locked</output></span>
+              <input
+                id="coherence"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="1"
+                aria-valuetext="Locked"
+              />
+            </label>
+            <div class="slipper-control-scale" aria-hidden="true">
+              <span>loose · bands peel apart</span>
+              <span>locked · one body</span>
+            </div>
+            <small class="slipper-control-help">
+              Locked bands share one glide. Loosen them to stagger the spectrum across the octave cycle.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section slipper-spectrum" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Spectrum</h2>
+            <span class="section-state" id="spectrumSummary">live · 32 bands · FFT 2048</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Spectral memory</span>
+            <div
+              class="choice-switch"
+              id="trackingChoice"
+              role="group"
+              aria-label="Spectral tracking"
+            >
+              <button id="trackingLive" type="button" data-tracking="live" aria-pressed="true">Track</button>
+              <button id="trackingHold" type="button" data-tracking="hold" aria-pressed="false">Hold</button>
+            </div>
+
+            <label class="control" for="bandCount">
+              <span><b>Resynthesis bands</b><output id="bandCountOut" for="bandCount">32</output></span>
+              <input id="bandCount" type="range" min="8" max="64" step="1" value="32" />
+            </label>
+
+            <label class="control" for="response">
+              <span><b>Spectral response</b><output id="responseOut" for="response">60 ms</output></span>
+              <input
+                id="response"
+                type="range"
+                min="2"
+                max="1000"
+                step="1"
+                value="60"
+                aria-valuetext="60 milliseconds"
+              />
+            </label>
+            <div class="slipper-control-scale compact" aria-hidden="true">
+              <span>quick detail</span><span>smooth shape</span>
+            </div>
+
+            <label class="control" for="consonantDetail">
+              <span><b>Consonant detail</b><output id="consonantDetailOut" for="consonantDetail">72%</output></span>
+              <input
+                id="consonantDetail"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.72"
+                aria-valuetext="72 percent"
+              />
+            </label>
+            <div class="slipper-control-scale compact" aria-hidden="true">
+              <span>tonal only</span><span>speech detail</span>
+            </div>
+
+            <label class="control" for="gate">
+              <span><b>Analysis gate</b><output id="gateOut" for="gate">−66 dB</output></span>
+              <input
+                id="gate"
+                type="range"
+                min="-100"
+                max="-18"
+                step="1"
+                value="-66"
+                aria-valuetext="minus 66 decibels"
+              />
+            </label>
+
+            <label class="control" for="highFrequency">
+              <span><b>High-frequency limit</b><output id="highFrequencyOut" for="highFrequency">10.0 kHz</output></span>
+              <input
+                id="highFrequency"
+                type="range"
+                min="1000"
+                max="20000"
+                step="100"
+                value="10000"
+                aria-valuetext="10 kilohertz"
+              />
+            </label>
+
+            <div class="slipper-analysis-card" aria-label="Fixed spectral analysis configuration">
+              <span><b>FFT 2048</b><small>fixed Hann window</small></span>
+              <span><b>Log bands</b><small>gated magnitudes</small></span>
+              <span><b>Layer bank</b><small>power normalized</small></span>
+            </div>
+            <small class="slipper-control-help">
+              Consonant detail detects noise-like upper bands and gives them a faster, slipping stochastic carrier. Hold freezes the current amplitudes and excitation shape while the spectrum keeps moving.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section slipper-character" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Character</h2>
+            <span class="section-state" id="characterSummary">0 st · linear · sine</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="transpose">
+              <span><b>Transpose</b><output id="transposeOut" for="transpose">0 st</output></span>
+              <input id="transpose" type="range" min="-24" max="24" step="1" value="0" />
+            </label>
+
+            <label class="control" for="glideShape">
+              <span><b>Glide contour</b><output id="glideShapeOut" for="glideShape">linear</output></span>
+              <input id="glideShape" type="range" min="-0.9" max="0.9" step="0.01" value="0" />
+            </label>
+            <div class="slipper-control-scale compact" aria-hidden="true">
+              <span>linger at edges</span><span>linger at center</span>
+            </div>
+
+            <label class="control" for="spectralTilt">
+              <span><b>Spectral tilt</b><output id="spectralTiltOut" for="spectralTilt">flat</output></span>
+              <input id="spectralTilt" type="range" min="-9" max="9" step="0.1" value="0" />
+            </label>
+            <div class="slipper-control-scale compact" aria-hidden="true">
+              <span>dark</span><span>bright</span>
+            </div>
+
+            <label class="control" for="carrierColor">
+              <span><b>Carrier color</b><output id="carrierColorOut" for="carrierColor">12%</output></span>
+              <input id="carrierColor" type="range" min="0" max="1" step="0.01" value="0.12" />
+            </label>
+            <div class="slipper-control-scale compact" aria-hidden="true">
+              <span>pure sine</span><span>odd harmonics</span>
+            </div>
+
+            <label class="control" for="stereoWidth">
+              <span><b>Octave spread</b><output id="stereoWidthOut" for="stereoWidth">35%</output></span>
+              <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.35" />
+            </label>
+            <div class="slipper-control-scale compact" aria-hidden="true">
+              <span>mono</span><span>wide layers</span>
+            </div>
+
+            <small class="slipper-control-help">
+              Transpose moves the reconstructed spectrum. Glide contour bends time within each endless cycle; carrier color adds anti-aliased odd harmonics.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section slipper-mix" data-section="output" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Mix</h2>
+            <span class="section-state" id="mixSummary">90% slip · 100% input</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="dryWet">
+              <span><b>Dry / slip</b><output id="dryWetOut" for="dryWet">90% slip</output></span>
+              <input id="dryWet" type="range" min="0" max="1" step="0.01" value="0.9" />
+            </label>
+            <div class="slipper-control-scale compact" aria-hidden="true">
+              <span>dry input</span><span>slip bank</span>
+            </div>
+
+            <label class="control" for="inputGain">
+              <span><b>Input level</b><output id="inputGainOut" for="inputGain">100%</output></span>
+              <input id="inputGain" type="range" min="0" max="4" step="0.01" value="1" />
+            </label>
+
+            <div class="slipper-signal-card" aria-label="Slippery Resynthesis audio path">
+              <span><b>Mic / file</b><small>local input</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>FFT 2048</b><small>tracked amplitudes</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Slip bank</b><small>power normalized</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Output</b><small>soft ceiling</small></span>
+            </div>
+            <p class="slipper-control-note">
+              Sinusoidal resynthesis softens transients. Blend in the dry source when attacks need definition.
+            </p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="slipperyResynthesisDescription">
+        Slippery Resynthesis analyzes microphone or local-file audio with a fixed 2048-point FFT. Tracked
+        spectral bands drive phase-locked Shepard oscillator layers that rise or fall continuously,
+        fading and wrapping across octaves while preserving the shape of the input spectrum.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="slippery-resynthesis-app.js"></script>
+  </body>
+</html>

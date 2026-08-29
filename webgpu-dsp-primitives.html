@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en" class="webgpu-dsp-primitives-document">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06070a" />
+    <meta
+      name="description"
+      content="A searchable reference of 120 shader synth primitives, with WGSL syntax, audio meaning, GPU execution notes, and sound-building ideas."
+    />
+    <title>Shader Synth Primitives — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="webgpu-dsp-primitives.css?v=20260828-research120-b" />
+  </head>
+  <body class="webgpu-dsp-primitives-page">
+    <header class="masthead dsp-atlas-header">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <div class="dsp-atlas-context" aria-label="Current section">
+        <small>GPU Shader Synths</small>
+        <strong>Shader Synth Primitives</strong>
+      </div>
+
+      <nav class="dsp-atlas-header-links" aria-label="Shader synth pages">
+        <a class="dsp-atlas-back-link" href="shader-synth-playground.html">
+          <span>Open playground</span><span aria-hidden="true">→</span>
+        </a>
+        <a class="dsp-atlas-back-link" href="webgpu-synths.html">
+          <span aria-hidden="true">←</span><span>Open synth</span>
+        </a>
+      </nav>
+    </header>
+
+    <main class="dsp-atlas-shell">
+      <header class="dsp-page-title">
+        <h1 id="dspAtlasTitle">Shader Synth Primitives</h1>
+      </header>
+
+      <section class="atlas-reference" aria-labelledby="primitiveTableTitle">
+        <header class="atlas-reference-header">
+          <p id="primitiveTableTitle">SEARCHABLE REFERENCE</p>
+          <output id="resultCount" aria-live="polite">120 primitives</output>
+        </header>
+
+        <div class="atlas-toolbar" id="atlasToolbar">
+          <label class="atlas-search" for="primitiveSearch">
+            <span>Search name, sound, syntax, or idea</span>
+            <span class="atlas-search-shell">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5"></path></svg>
+              <input id="primitiveSearch" type="search" autocomplete="off" placeholder="metallic, sin, history, grain…" />
+              <button id="clearSearch" type="button" aria-label="Clear search" hidden>×</button>
+            </span>
+          </label>
+
+          <fieldset class="atlas-filter-group atlas-category-filters">
+            <legend>Signal stage</legend>
+            <div class="atlas-filter-scroll" role="group" aria-label="Filter by signal stage">
+              <button class="atlas-filter is-active" type="button" data-category-filter="all" aria-pressed="true">All</button>
+              <button class="atlas-filter" type="button" data-category-filter="control" aria-pressed="false">Control</button>
+              <button class="atlas-filter" type="button" data-category-filter="source" aria-pressed="false">Sources</button>
+              <button class="atlas-filter" type="button" data-category-filter="modulation" aria-pressed="false">Modulation</button>
+              <button class="atlas-filter" type="button" data-category-filter="synthesis" aria-pressed="false">Synthesis</button>
+              <button class="atlas-filter" type="button" data-category-filter="composition" aria-pressed="false">Layer / mix</button>
+              <button class="atlas-filter" type="button" data-category-filter="shaping" aria-pressed="false">Shape</button>
+              <button class="atlas-filter" type="button" data-category-filter="filter" aria-pressed="false">Filter</button>
+              <button class="atlas-filter" type="button" data-category-filter="space" aria-pressed="false">Space</button>
+              <button class="atlas-filter" type="button" data-category-filter="architecture" aria-pressed="false">Architecture</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="atlas-filter-group atlas-status-filters">
+            <legend>Availability</legend>
+            <div class="atlas-filter-scroll" role="group" aria-label="Filter by implementation status">
+              <button class="atlas-filter is-active" type="button" data-status-filter="all" aria-pressed="true">Every scope</button>
+              <button class="atlas-filter status-live" type="button" data-status-filter="live" aria-pressed="false">Current synth</button>
+              <button class="atlas-filter status-direct" type="button" data-status-filter="direct" aria-pressed="false">Single-sample</button>
+              <button class="atlas-filter status-block" type="button" data-status-filter="block" aria-pressed="false">State / passes</button>
+            </div>
+          </fieldset>
+        </div>
+
+        <ul class="atlas-scope-legend" aria-label="GPU execution labels">
+          <li data-status="live"><b>Current synth</b><span>The function is already present in the instrument's WGSL.</span></li>
+          <li data-status="direct"><b>Single-sample</b><span>Each sample is independent, so the pattern fits a sample-parallel pass.</span></li>
+          <li data-status="block"><b>State / passes</b><span>The algorithm depends on history, synchronization, reduction, or another pass.</span></li>
+        </ul>
+
+        <div class="primitive-table-wrap">
+          <table class="primitive-table">
+            <caption>
+              GPU audio primitives ordered along the signal path. Syntax is WGSL unless a block-design row is shown as a recurrence relation.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Primitive</th>
+                <th scope="col">Shader syntax</th>
+                <th scope="col">What it represents in audio</th>
+                <th scope="col">GPU shape + limits</th>
+                <th scope="col">Build from it</th>
+              </tr>
+            </thead>
+            <tbody id="primitiveTableBody"></tbody>
+          </table>
+          <div class="atlas-empty-state" id="atlasEmptyState" hidden>
+            <b>No primitive matches that shape.</b>
+            <span>Try a broader sonic word, another stage, or every scope.</span>
+            <button class="atlas-action" id="resetFilters" type="button">Reset filters</button>
+          </div>
+          <noscript>
+            <p class="atlas-noscript">Enable JavaScript to render and filter the structured primitive catalog.</p>
+          </noscript>
+        </div>
+      </section>
+
+      <details class="dsp-source-appendix">
+        <summary>
+          <span><small>REFERENCES</small><b>Shader synth research sources</b></span>
+          <strong>Open <i aria-hidden="true">+</i></strong>
+        </summary>
+
+        <div class="dsp-research-grid">
+          <article style="--research-color: var(--lane-timbre)">
+            <span>SHADERTOY GRAMMAR</span>
+            <h3>Procedural music as a pure sample function</h3>
+            <p>
+              The lineage runs from <code>mainSound(sample, time)</code> to complete tracks made from analytic clocks,
+              local event time, integer patterns, envelopes, oscillators, noise, and a final stereo mix.
+            </p>
+            <nav aria-label="ShaderToy sound sources">
+              <a href="https://scrapbox.io/0b5vr/Shader_Music">0b5vr overview</a>
+              <a href="https://www.shadertoy.com/view/XdfXWS">iq sound shader</a>
+              <a href="https://www.shadertoy.com/view/ldXXDj">Music Pirate</a>
+            </nav>
+          </article>
+
+          <article style="--research-color: var(--lane-energy)">
+            <span>PROCEDURAL DRUMS</span>
+            <h3>Integrated sweeps, noise bodies, burst trains</h3>
+            <p>
+              Shader-native percussion is especially fertile: phase-integrated kick bends, differentiated-noise
+              snares, inharmonic sine clouds for metal, and micro-retriggered noise envelopes for claps.
+            </p>
+            <nav aria-label="Procedural drum sources">
+              <a href="https://github.com/0b5vr/wavenerd-dubplates/blob/10ef0c2739558c0362b4880b57313eef2a152f5f/shaders/20250712_drum_machine_tutorial.glsl">drum source</a>
+              <a href="https://www.shadertoy.com/view/flcyRH">clap shader</a>
+              <a href="https://www.shadertoy.com/view/mssBD8">rounded saw</a>
+            </nav>
+          </article>
+
+          <article style="--research-color: var(--lane-pitch)">
+            <span>ANALYTIC MATERIALS</span>
+            <h3>Strings, acid transfer functions, coherent noise</h3>
+            <p>
+              Closed-form modal sums avoid feedback entirely: pluck position selects harmonic nulls, stiffness bends
+              upper modes, and per-mode loss shapes decay. Other shaders evaluate a filter response per known partial.
+            </p>
+            <nav aria-label="Analytic synthesis sources">
+              <a href="https://www.shadertoy.com/view/7lyfWR">stiff string</a>
+              <a href="https://gist.github.com/JolifantoBambla/0a4e9c2a0a8bc475f081bc6f9d1aa1a8">WGSL guitar port</a>
+              <a href="https://www.shadertoy.com/view/msBXDm">acid filter</a>
+              <a href="https://www.shadertoy.com/view/3tcyD7">cyclic noise</a>
+            </nav>
+          </article>
+
+          <article style="--research-color: var(--gpu-green)">
+            <span>WEBGPU BRIDGE</span>
+            <h3>Samples become a compute grid</h3>
+            <p>
+              A compute invocation converts its global index plus a chunk offset into time, writes a stereo sample to
+              storage, and leaves playback to a queued audio buffer. Stateful graphs add ring buffers and dispatches.
+            </p>
+            <nav aria-label="WebGPU audio sources">
+              <a href="https://gist.github.com/JolifantoBambla/0a4e9c2a0a8bc475f081bc6f9d1aa1a8">minimal WebGPU port</a>
+              <a href="https://github.com/blechdom/webgpuaudio">WebGPUSound</a>
+              <a href="https://gpuweb.github.io/gpuweb/">WebGPU spec</a>
+              <a href="https://www.w3.org/TR/WGSL/">WGSL spec</a>
+            </nav>
+          </article>
+
+          <article style="--research-color: var(--lane-morph)">
+            <span>PARALLEL SCALE</span>
+            <h3>Grains, modes, playheads, and mix reductions</h3>
+            <p>
+              The GPU's advantage appears when work fans out across many independent dimensions. Benchmarks include
+              large random-access playhead banks, modal synthesis, convolution, IIR banks, and digital waveguides.
+            </p>
+            <nav aria-label="GPU audio benchmark sources">
+              <a href="https://github.com/tskare/gpuaudiobench">gpuaudiobench</a>
+              <a href="https://dafx.de/paper-archive/2024/papers/DAFx24_paper_56.pdf">DAFx benchmark paper</a>
+              <a href="https://github.com/gpuaudio/gpuaudio-sdk">GPU Audio SDK</a>
+              <a href="https://research.aalto.fi/en/publications/real-time-additive-synthesis-with-one-million-sinusoids-using-a-g/">million sinusoids</a>
+            </nav>
+          </article>
+
+          <article style="--research-color: var(--lane-pitch)">
+            <span>SPECTRAL MACHINES</span>
+            <h3>FFT, convolution, vocoders, spectral drawing</h3>
+            <p>
+              Stockham FFT passes, overlap reconstruction, and partitioned convolution turn frequency bins into a
+              parallel material. Long impulse responses need short early partitions to avoid one giant block of latency.
+            </p>
+            <nav aria-label="Spectral GPU sources">
+              <a href="https://docs.rs/crate/wgsl-fft/latest">wgsl-fft</a>
+              <a href="https://github.com/WebAudio/web-audio-api/blob/main/convolution.html">Web Audio convolution design</a>
+              <a href="https://www.dafx.de/paper-archive/2010/DAFx10/WefersBerg_DAFx10_P76.pdf">GPU partitioned convolution</a>
+            </nav>
+          </article>
+
+          <article style="--research-color: var(--lane-energy)">
+            <span>SIMULATED OBJECTS + ROOMS</span>
+            <h3>Sound as a field evolving over a grid</h3>
+            <p>
+              FDTD and waveguide meshes parallelize each spatial time step across strings, membranes, plates, or rooms.
+              Their constraints—boundary shape, stability, pickup, and material maps—become the instrument controls.
+            </p>
+            <nav aria-label="GPU physical modeling sources">
+              <a href="https://www.nime.org/proceedings/2011/nime2011_264.pdf">GPU membrane</a>
+              <a href="https://arxiv.org/abs/2311.18505">nonlinear string</a>
+              <a href="https://research.nvidia.com/labs/prl/publication/xue2024waveblender/">WaveBlender rooms</a>
+            </nav>
+          </article>
+
+          <article style="--research-color: var(--lane-timbre)">
+            <span>SEARCHING SOUND SPACE</span>
+            <h3>Render whole families, not one patch</h3>
+            <p>
+              GPU modular synthesis and differentiable DSP suggest a new workflow: render a grid of primitive chains,
+              compare or cluster the results, then promote surprising candidates into a playable sculpted instrument.
+            </p>
+            <nav aria-label="GPU sound discovery sources">
+              <a href="https://github.com/torchsynth/torchsynth">TorchSynth</a>
+              <a href="https://github.com/magenta/ddsp">DDSP</a>
+              <a href="https://arxiv.org/abs/2104.12922">one billion sounds</a>
+            </nav>
+          </article>
+
+          <article style="--research-color: var(--lane-pitch)">
+            <span>FAUST DSP LIBRARIES</span>
+            <h3>Block diagrams, explicit I/O, and reusable signal processors</h3>
+            <p>
+              FAUST is both a catalog and a graph model: processors declare audio inputs and outputs, then compose in
+              parallel, sequence, split, merge, or feedback. Its oscillator, envelope, filter, delay, noise, reverb,
+              routing, and synth libraries provide module families to translate while preserving their state needs.
+            </p>
+            <nav aria-label="FAUST primary sources">
+              <a href="https://faustdoc.grame.fr/manual/syntax/#diagram-expression">diagram syntax</a>
+              <a href="https://faustlibraries.grame.fr/libs/oscillators/">oscillators</a>
+              <a href="https://faustlibraries.grame.fr/libs/envelopes/">envelopes</a>
+              <a href="https://faustlibraries.grame.fr/libs/filters/">filters</a>
+              <a href="https://faustlibraries.grame.fr/libs/delays/">delays</a>
+            </nav>
+          </article>
+        </div>
+
+        <aside class="dsp-porting-notes" aria-label="ShaderToy to WGSL porting notes">
+          <b>PORTING CHECKLIST</b>
+          <span>Reduce large time values before phase math so <code>f32</code> precision stays musical.</span>
+          <span>Translate GLSL modulo, two-argument arctangent, casts, and shifts explicitly.</span>
+          <span>Nyquist-cull additive modes; smooth-looking formulas are not automatically band-limited.</span>
+          <span>Workgroup barriers are local. Ordered feedback, cross-group reductions, and stream state need passes or scans.</span>
+          <span>Portable core WGSL has integer—not floating-point—atomic accumulation; prefer gather and staged reductions.</span>
+        </aside>
+      </details>
+
+      <section class="dsp-constraints" aria-labelledby="constraintsTitle">
+        <header>
+          <h2 id="constraintsTitle">Shader audio architecture</h2>
+          <p>GPU audio combines sample-parallel kernels, block state, reductions, and streamed output.</p>
+        </header>
+        <ul class="dsp-consideration-list">
+          <li><b>Sample-parallel kernels</b><code>out[n] = synth(f32(n) / sampleRate)</code><span>Stateless oscillators, envelopes, waveshapers, and feed-forward filters can calculate each output sample independently.</span></li>
+          <li><b>Recursive state</b><code>y[n] = x[n] + feedback * y[n - delay]</code><span>IIR filters, feedback delays, waveguides, envelope followers, and compressors carry results from earlier samples into later ones.</span></li>
+          <li><b>Workgroup synchronization</b><code>var&lt;workgroup&gt; tile: array&lt;f32, N&gt;; workgroupBarrier();</code><span>Shared memory and barriers coordinate one workgroup. Larger FFTs, scans, and reductions cross workgroup boundaries through additional compute passes.</span></li>
+          <li><b>Parallel reduction</b><code>mix[n] = sum(voices[0..voiceCount, n])</code><span>Voice-, grain-, partial-, mode-, and bin-parallel kernels produce many values that converge into fewer audio channels through tree or staged sums.</span></li>
+          <li><b>Aliasing control</b><code>saw = rawSaw - polyBlep(phase, hz / sampleRate)</code><span>Discontinuities and nonlinear processing create frequencies above Nyquist. Polynomial edge correction, partial culling, band-limited tables, filtering, and oversampling limit foldback.</span></li>
+          <li><b>Frequency and phase</b><code>phase[n] = phase0 + prefixSum(frequency / sampleRate)</code><span>Pitch trajectories become oscillator phase through integration. Directly multiplying time by a changing frequency produces a different instantaneous pitch.</span></li>
+          <li><b>Floating-point time</b><code>localTime = f32(n - chunkStart) / sampleRate</code><span>Chunk-local and note-local coordinates preserve finer <code>f32</code> resolution than an ever-growing absolute timer.</span></li>
+          <li><b>Buffer access</b><code>sample = audioBuffer[base + stride * index]</code><span>Sequential history and tiled FIR reads have coherent memory access. Granular playheads, spatial taps, and large lookup fields create scattered gathers.</span></li>
+          <li><b>Browser audio streaming</b><code>compute → staging ring → AudioWorklet</code><span>WebGPU produces PCM buffers while Web Audio owns the playback deadline. Buffer rings overlap GPU rendering, CPU-visible transfer, and audio-device consumption.</span></li>
+          <li><b>Optional GPU features</b><code>subgroups ? fastReduction() : workgroupReduction()</code><span>Subgroups and <code>shader-f16</code> can accelerate reductions and neural kernels, but adapter support and subgroup width vary.</span></li>
+          <li><b>Two-dimensional dispatch</b><code>gid = vec2(sampleIndex, voiceIndex)</code><span>Large workloads can span both time and synthesis entities such as voices, modes, grains, sources, output channels, or candidate patches.</span></li>
+          <li><b>Morphazoid's current pipeline</b><code>dry pass → history buffer → FX pass → vec2&lt;f32&gt; PCM</code><span>The live synth submits two compute passes and reads stereo chunks for scheduled playback. Its default generated chunk represents 100 ms of audio.</span></li>
+        </ul>
+      </section>
+
+      <footer class="dsp-atlas-footer">
+        <p>
+          Current-function entries are audited against
+          <a href="https://github.com/blechdom/morphazoid/blob/main/src/webgpu-synths.js">the Morphazoid shader source</a>.
+          Language syntax follows the
+          <a href="https://www.w3.org/TR/WGSL/#builtin-functions">WGSL built-in function specification</a>.
+        </p>
+        <a href="webgpu-synths.html">Take these ideas back to GPU Shader Synths <span aria-hidden="true">→</span></a>
+      </footer>
+    </main>
+
+    <script type="module" src="webgpu-dsp-primitives-app.js?v=20260828-research120"></script>
+  </body>
+</html>

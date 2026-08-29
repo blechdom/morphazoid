@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 102);
+  assert.equal(INSTRUMENTS.length, 104);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -68,7 +68,10 @@ test("every instrument has factual card copy, a start action, traits, and a tran
       instrument.tags.length,
       `${instrument.id} repeats a tag`,
     );
-    assert.equal(instrument.imageHref, `assets/instruments/${instrument.id}.webp`);
+    const expectedImageHref = instrument.id === "shader-synth-playground"
+      ? "assets/instruments/webgpu-synths.webp"
+      : `assets/instruments/${instrument.id}.webp`;
+    assert.equal(instrument.imageHref, expectedImageHref);
 
     const imageUrl = new URL(instrument.imageHref, root);
     const [bytes, fileStat] = await Promise.all([readFile(imageUrl), stat(imageUrl)]);
@@ -151,6 +154,41 @@ test("Plasma Ball is an experiment with no secondary catalogue tags", () => {
     plasmaBall?.tags.map(({ id }) => id),
     ["experiments"],
   );
+});
+
+test("Slippery Resynthesis catalogues its FFT resynthesis and both local input paths", () => {
+  const instrument = instrumentById("slippery-resynthesis");
+  assert.equal(instrument?.label, "Slippery Resynthesis");
+  assert.equal(instrument?.href, "slippery-resynthesis.html");
+  assert.equal(instrument?.kind, "Spectral resynthesizer");
+  assert.match(instrument?.description ?? "", /FFT bands/i);
+  assert.match(instrument?.description ?? "", /Shepard glissando banks/i);
+  assert.ok(instrument?.features.includes("Mic input"));
+  assert.ok(instrument?.features.includes("Local file input"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.equal(instrument?.features.includes("Computer keys"), false);
+  assert.ok(instrument?.features.includes("Speech-detail resynthesis"));
+  assert.ok(instrument?.tags.some(({ id }) => id === "faves"));
+  assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis")?.noteMode, "processor");
+});
+
+test("Modular Shader Synth is a sequencer instrument with shared GPU artwork", () => {
+  const instrument = instrumentById("shader-synth-playground");
+  assert.equal(instrument?.label, "Modular Shader Synth");
+  assert.equal(instrument?.href, "shader-synth-playground.html");
+  assert.equal(instrument?.kind, "Modular WebGPU synth");
+  assert.equal(instrument?.imageHref, "assets/instruments/webgpu-synths.webp");
+  assert.match(instrument?.description ?? "", /editable graph/i);
+  assert.match(instrument?.description ?? "", /WGSL compute shaders/i);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers", "faves"]);
+  assert.ok(instrument?.features.includes("WebGPU"));
+  assert.ok(instrument?.features.includes("Pointer"));
+  assert.ok(instrument?.features.includes("Built-in synth"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+
+  const midi = instrumentMidiCapabilityForId("shader-synth-playground");
+  assert.equal(midi?.noteMode, "sequence");
+  assert.equal(midi?.computerKeyboardMode, "midi");
 });
 
 test("Quantum Square Dance is an exact paired-atom sonification with sequence output", () => {

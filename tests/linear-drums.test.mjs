@@ -281,6 +281,7 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
   let disconnected = 0;
   let oscillatorCount = 0;
   let bufferSourceCount = 0;
+  const sourceStartTimes = [];
   const parameter = (value = 0) => ({
     value,
     setValueAtTime(next) { this.value = next; },
@@ -316,7 +317,7 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
       return node({
         frequency: parameter(440),
         type: "sine",
-        start() {},
+        start(time = 0) { sourceStartTimes.push(time); },
         stop() {},
       });
     }
@@ -337,7 +338,12 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
     }
     createBufferSource() {
       bufferSourceCount += 1;
-      return node({ buffer: null, start() {}, stop() {}, onended: null });
+      return node({
+        buffer: null,
+        start(time = 0) { sourceStartTimes.push(time); },
+        stop() {},
+        onended: null,
+      });
     }
     async close() { this.state = "closed"; }
   }
@@ -367,6 +373,15 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
   assert.ok(bufferSourceCount > sourcesBeforeKarplusStrong);
   assert.ok(oscillatorCount >= 10);
   assert.ok(disconnected >= 3);
+  audio.context.currentTime = 2;
+  const scheduledStartIndex = sourceStartTimes.length;
+  await audio.trigger(440, { model: "hybrid" }, { startAt: 2.075 });
+  const scheduledStarts = sourceStartTimes.slice(scheduledStartIndex);
+  assert.ok(scheduledStarts.length > 0);
+  assert.ok(
+    scheduledStarts.every((time) => time >= 2.075),
+    "Rattlesnake preserves absolute look-ahead scheduling",
+  );
   audio.setOutput(.99);
   assert.equal(audio.output, .85);
   await audio.close();

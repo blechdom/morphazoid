@@ -12,7 +12,7 @@
     <title>GPU Shader Synths — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="webgpu-synths.css?v=20260825-sequencer-toolbar" />
+    <link rel="stylesheet" href="webgpu-synths.css?v=20260828-dsp-atlas" />
   </head>
   <body class="webgpu-synths-page">
     <header class="masthead">
@@ -92,6 +92,18 @@
         <div class="webgpu-status-strip" aria-live="polite">
           <b id="gpuState">Checking WebGPU</b>
         </div>
+
+        <a class="webgpu-dsp-atlas-link" href="webgpu-dsp-primitives.html">
+          <span aria-hidden="true">∿</span>
+          <span><b>Shader synth primitives</b><small>WGSL syntax · audio meaning · GPU limits</small></span>
+          <strong>Explore <i aria-hidden="true">→</i></strong>
+        </a>
+
+        <a class="webgpu-dsp-atlas-link webgpu-playground-link" href="shader-synth-playground.html">
+          <span aria-hidden="true">⌁</span>
+          <span><b>Shader synth playground</b><small>Connect modules · audition techniques · change parameters</small></span>
+          <strong>Patch <i aria-hidden="true">→</i></strong>
+        </a>
 
         <details class="group control-section webgpu-synths-section" data-section="presets" open>
           <summary class="group-summary">

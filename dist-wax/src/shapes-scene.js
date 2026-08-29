@@ -1,5 +1,6 @@
 import {
   buildShape,
+  horizontalIntersections,
   pointAtPath,
   rayIntersections,
   verticalIntersections,
@@ -20,10 +21,51 @@ import {
   projectPoint4,
   transformedHyperShape,
 } from "./hyper.js";
-import { displayShapesPhase } from "./shapes-state.js";
+import {
+  displayShapesPhase,
+  shapes2dHeadCount,
+  shapes2dHeadPhase,
+  shapes2dHeadTravel,
+  shapesDivisionCount,
+} from "./shapes-state.js";
 
 const clamp01 = (value) => Math.min(1, Math.max(0, Number(value) || 0));
 const MAX_VISIBLE_DIVISION_MARKERS = 1600;
+const twoDimensionalPathCache = new Map();
+
+function twoDimensionalPath(state) {
+  const local = state.dimension["2d"];
+  const key = [
+    state.profile.sides,
+    state.profile.kind,
+    Number(state.profile.starDepth).toFixed(4),
+    Number(local.curvature).toFixed(4),
+    Number(local.aspect).toFixed(4),
+    Number(local.skew).toFixed(4),
+    Number(local.rotation).toFixed(4),
+  ].join(":");
+  const cached = twoDimensionalPathCache.get(key);
+  if (cached) {
+    // Two entries keep the current and 75 ms forecast rotations hot.
+    twoDimensionalPathCache.delete(key);
+    twoDimensionalPathCache.set(key, cached);
+    return cached;
+  }
+  const path = buildShape({
+    sides: state.profile.sides,
+    shapeType: state.profile.kind === "star" ? "star" : state.profile.kind,
+    starDepth: state.profile.starDepth,
+    curvature: local.curvature,
+    aspect: local.aspect,
+    skew: local.skew,
+    rotationDeg: local.rotation,
+  });
+  twoDimensionalPathCache.set(key, path);
+  if (twoDimensionalPathCache.size > 2) {
+    twoDimensionalPathCache.delete(twoDimensionalPathCache.keys().next().value);
+  }
+  return path;
+}
 
 function projectedBounds(points) {
   if (!points.length) return { minX: -1, maxX: 1, minY: -1, maxY: 1, span: 2 };
@@ -53,6 +95,50 @@ function contactVoice(contact, key, pitch, pan, drive) {
   };
 }
 
+function contactRegionOnPath(contact, path, divisions) {
+  const count = Math.max(1, Math.round(Number(divisions) || 1));
+  if (path.shapeType === "circle" || path.vertexDistances.length < 2) {
+    const phase = ((Number(contact.u) % 1) + 1) % 1;
+    return `contour:${Math.min(count - 1, Math.floor(phase * count))}`;
+  }
+  const sideCount = path.closed
+    ? path.vertexDistances.length
+    : Math.max(1, path.vertexDistances.length - 1);
+  const distance = Math.min(path.totalLength, Math.max(0, Number(contact.distance) || 0));
+  let sideIndex = sideCount - 1;
+  for (let index = 0; index < sideCount; index += 1) {
+    const end = index + 1 < path.vertexDistances.length
+      ? path.vertexDistances[index + 1]
+      : path.totalLength;
+    if (distance < end) {
+      sideIndex = index;
+      break;
+    }
+  }
+  const start = path.vertexDistances[sideIndex] ?? 0;
+  const end = sideIndex + 1 < path.vertexDistances.length
+    ? path.vertexDistances[sideIndex + 1]
+    : path.totalLength;
+  const local = Math.min(1, Math.max(0, (distance - start) / Math.max(1e-9, end - start)));
+  const segment = Math.min(count - 1, Math.floor(local * count));
+  return `side:${sideIndex}:segment:${segment}`;
+}
+
+function projectedAlong(point, start, end, fallback = 0) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared <= 1e-9) return clamp01(fallback);
+  return clamp01(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared);
+}
+
+function edgeContactRegion(dimension, contact, start, end, divisions) {
+  const count = Math.max(1, Math.round(Number(divisions) || 1));
+  const along = projectedAlong(contact.view, start, end, contact.t);
+  const segment = Math.min(count - 1, Math.floor(along * count));
+  return `${dimension}:edge:${Math.max(0, Math.trunc(contact.edgeIndex ?? 0))}:segment:${segment}`;
+}
+
 function twoDimensionalTopologyEdgeCount(path) {
   if (path.shapeType === "circle") return 1;
   return path.closed
@@ -62,40 +148,82 @@ function twoDimensionalTopologyEdgeCount(path) {
 
 function buildTwoDimensionalScene(state, phase) {
   const local = state.dimension["2d"];
-  const path = buildShape({
-    sides: state.profile.sides,
-    shapeType: state.profile.kind === "star" ? "star" : state.profile.kind,
-    starDepth: state.profile.starDepth,
-    curvature: local.curvature,
-    aspect: local.aspect,
-    skew: local.skew,
-    rotationDeg: local.rotation,
-  });
+  const path = twoDimensionalPath(state);
   const reader = local.reader;
-  let contacts;
-  let readerGeometry;
-  if (reader === "line") {
-    const x = path.bounds.minX + path.bounds.width * phase;
-    contacts = verticalIntersections(path, x);
-    readerGeometry = { type: "line", x };
-  } else if (reader === "radar") {
-    const angle = phase * Math.PI * 2 - Math.PI / 2;
-    contacts = rayIntersections(path, angle);
-    readerGeometry = { type: "radar", angle };
-  } else {
-    contacts = [pointAtPath(path, phase, { pingPong: false })];
-    readerGeometry = { type: "points" };
-  }
-
   const height = Math.max(path.bounds.height, 0.001);
   const width = Math.max(path.bounds.width, 0.001);
-  const voiced = contacts.map((contact, index) => contactVoice(
-    { ...contact, view: { x: contact.x, y: contact.y, z: 0 } },
-    `2d:${reader}:${index}`,
-    1 - (contact.y - path.bounds.minY) / height,
-    ((contact.x - path.bounds.minX) / width) * 2 - 1,
-    contact.cornerStrength ?? contact.segmentT ?? 0.5,
-  ));
+  const divisions = shapesDivisionCount(state);
+  const readers = [];
+  const voiced = [];
+
+  for (let headIndex = 0; headIndex < shapes2dHeadCount(state); headIndex += 1) {
+    const headTravel = shapes2dHeadTravel(state, headIndex, reader);
+    const headPhase = shapes2dHeadPhase(state, headIndex, reader);
+    let rawContacts;
+    let readerGeometry;
+
+    if (reader === "line") {
+      const axis = local.scanLineAxes?.[headIndex] === "horizontal"
+        ? "horizontal"
+        : "vertical";
+      const minimum = axis === "horizontal" ? path.bounds.minY : path.bounds.minX;
+      const span = axis === "horizontal" ? path.bounds.height : path.bounds.width;
+      const coordinate = minimum + span * headPhase;
+      rawContacts = axis === "horizontal"
+        ? horizontalIntersections(path, coordinate)
+        : verticalIntersections(path, coordinate);
+      readerGeometry = {
+        type: "line",
+        headIndex,
+        headTravel,
+        phase: headPhase,
+        axis,
+        coordinate,
+        ...(axis === "horizontal" ? { y: coordinate } : { x: coordinate }),
+      };
+    } else if (reader === "radar") {
+      const angle = headPhase * Math.PI * 2 - Math.PI / 2;
+      rawContacts = rayIntersections(path, angle);
+      readerGeometry = {
+        type: "radar",
+        headIndex,
+        headTravel,
+        phase: headPhase,
+        angle,
+      };
+    } else {
+      rawContacts = [pointAtPath(path, headPhase, { pingPong: false })];
+      readerGeometry = {
+        type: "points",
+        headIndex,
+        headTravel,
+        phase: headPhase,
+      };
+    }
+
+    const headContacts = rawContacts.map((contact, contactIndex) => ({
+      ...contactVoice(
+        {
+          ...contact,
+          headIndex,
+          headTravel,
+          headPhase,
+          scanAxis: reader === "line" ? readerGeometry.axis : reader === "radar" ? "radial" : "path",
+          view: { x: contact.x, y: contact.y, z: 0 },
+        },
+        `2d:${reader}:head:${headIndex}:contact:${contactIndex}`,
+        1 - (contact.y - path.bounds.minY) / height,
+        ((contact.x - path.bounds.minX) / width) * 2 - 1,
+        contact.cornerStrength ?? contact.segmentT ?? 0.5,
+      ),
+      eventKey: `2d:${contactRegionOnPath(contact, path, divisions)}:head:${headIndex}`,
+    }));
+    readerGeometry.contacts = headContacts;
+    if (reader === "points") readerGeometry.contact = headContacts[0];
+    readers.push(readerGeometry);
+    voiced.push(...headContacts);
+  }
+
   const edges = [];
   const segmentCount = path.closed ? path.points.length : Math.max(0, path.points.length - 1);
   for (let index = 0; index < segmentCount; index += 1) {
@@ -112,7 +240,10 @@ function buildTwoDimensionalScene(state, phase) {
     vertices: path.points,
     edges,
     contacts: voiced,
-    reader: readerGeometry,
+    // `reader` keeps existing hosts working while `readers` exposes every
+    // independent 2D playhead to multihead-aware renderers.
+    reader: readers[0],
+    readers,
     bounds: projectedBounds(path.points),
     closed: path.closed,
     vertexIndices: path.vertexIndices,
@@ -145,10 +276,18 @@ function buildThreeDimensionalScene(state, phase) {
   const plane = { normal, offset: planeOffsetForPhase(phase, radius) };
   const contacts = planeIntersections(solid, plane.normal, plane.offset);
   const vertices = solid.vertices.map((point) => ({ ...projectPoint3(point), source: point }));
+  const divisions = shapesDivisionCount(state);
   const voiced = contacts.map((contact, index) => {
     const view = projectPoint3(contact);
+    const edge = solid.edges[contact.edgeIndex];
+    const start = edge ? projectPoint3(solid.vertices[edge.a]) : view;
+    const end = edge ? projectPoint3(solid.vertices[edge.b]) : view;
     return contactVoice(
-      { ...contact, view },
+      {
+        ...contact,
+        view,
+        eventKey: edgeContactRegion("3d", { ...contact, view }, start, end, divisions),
+      },
       `3d:${contact.edgeIndex ?? index}`,
       (contact.y + 1.1) / 2.2,
       view.x,
@@ -201,10 +340,18 @@ function buildFourDimensionalScene(state, phase) {
   const offset = hyperplaneOffsetForShapePhase(hyper, phase);
   const contacts = hyperplaneIntersections(hyper, offset);
   const vertices = hyper.vertices.map((point) => ({ ...hyperViewPoint(point), source: point }));
+  const divisions = shapesDivisionCount(state);
   const voiced = contacts.map((contact, index) => {
     const view = hyperViewPoint(contact);
+    const edge = hyper.edges[contact.edgeIndex];
+    const start = edge ? vertices[edge.a] : view;
+    const end = edge ? vertices[edge.b] : view;
     return contactVoice(
-      { ...contact, view },
+      {
+        ...contact,
+        view,
+        eventKey: edgeContactRegion("4d", { ...contact, view }, start, end, divisions),
+      },
       `4d:${contact.edgeIndex ?? index}`,
       (view.y + 1.2) / 2.4,
       view.x,

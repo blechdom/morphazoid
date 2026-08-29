@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en" class="shader-playground-document">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06070a" />
+    <meta
+      name="description"
+      content="An audible WebGPU patching playground for connecting shader synthesis primitives, changing their parameters, and hearing how each value shapes sound."
+    />
+    <title>Modular Shader Synth — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260828-patch-controls" />
+  </head>
+  <body class="shader-playground-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="rubix.html">rubix</a>
+        <a class="tab" href="hyper-rubix.html">hyper rubix</a>
+        <a class="tab" href="webgpu-303.html">webgpu 303</a>
+        <a class="tab" href="webgpu-synths.html">gpu shader synths</a>
+        <a class="tab active" href="shader-synth-playground.html" aria-current="page">modular shader synth</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="rubix.html">rubix</option>
+          <option value="hyper-rubix.html">hyper rubix</option>
+          <option value="webgpu-303.html">webgpu 303</option>
+          <option value="webgpu-synths.html">gpu shader synths</option>
+          <option value="shader-synth-playground.html" selected>modular shader synth</option>
+        </select>
+      </label>
+
+      <div class="audio-strip playground-transport" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">∿</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <button class="synth-play-button playground-play-button" id="playgroundPlayButton" type="button" aria-pressed="false" data-primary-transport>
+          <span id="playgroundPlayLabel">Play patch</span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">70%</output></span>
+          <input id="output" aria-label="Modular Shader Synth output level" type="range" min="0" max="1" step="0.01" value="0.7" />
+        </label>
+      </div>
+    </header>
+
+    <main class="playground-workspace" id="shaderSynthPlayground">
+      <aside class="module-browser" aria-labelledby="moduleBrowserTitle">
+        <header class="workspace-panel-heading">
+          <h1 id="moduleBrowserTitle">Modules</h1>
+          <p>Add a primitive, then patch from its OUT port into a compatible IN port.</p>
+          <div class="module-coverage" aria-label="Playground module coverage">
+            <b><output id="playableModuleCount">68</output> playable</b>
+            <a href="webgpu-dsp-primitives.html">120 in atlas <span aria-hidden="true">→</span></a>
+          </div>
+        </header>
+
+        <label class="module-search" for="moduleSearch">
+          <span class="sr-only">Search modules</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5"></path></svg>
+          <input id="moduleSearch" type="search" autocomplete="off" placeholder="Try delay, organ, robot, arp…" />
+        </label>
+
+        <div class="module-palette" id="modulePalette" aria-label="Available shader synthesis modules"></div>
+
+        <section class="port-legend" aria-labelledby="portLegendTitle">
+          <h2 id="portLegendTitle">Typed connections</h2>
+          <ul>
+            <li data-signal-type="audio"><i aria-hidden="true"></i><span><b>Audio</b> sample-rate signal</span></li>
+            <li data-signal-type="control"><i aria-hidden="true"></i><span><b>Control</b> parameter motion</span></li>
+            <li data-signal-type="stereo"><i aria-hidden="true"></i><span><b>Stereo</b> paired output</span></li>
+          </ul>
+        </section>
+      </aside>
+
+      <section class="patch-workbench" aria-labelledby="patchTitle">
+        <header class="patch-toolbar">
+          <div class="patch-identity">
+            <div>
+              <h2 id="patchTitle">Signal graph</h2>
+              <output id="patchStatus" aria-live="polite">Loading patch…</output>
+            </div>
+          </div>
+
+          <div class="preset-picker">
+            <span>Patch</span>
+            <div id="presetButtons" role="group" aria-label="Choose a playground patch"></div>
+          </div>
+
+          <div class="patch-actions">
+            <button id="viewModeToggle" type="button" aria-pressed="false">Patch view</button>
+            <button id="resetView" type="button">Fit graph</button>
+            <button id="clearPatch" type="button">Clear</button>
+          </div>
+        </header>
+
+        <div class="execution-shape-map" id="executionShapeMap" aria-label="GPU audio execution shapes">
+          <div class="execution-flow-strip" id="executionFlowStrip" aria-label="Current audio execution path">
+            <span class="execution-flow-stage execution-flow-upload" id="cpuGpuUploadLane">CPU <i aria-hidden="true">→</i> GPU</span>
+            <i class="execution-flow-divider" aria-hidden="true"></i>
+            <span class="execution-flow-stage execution-flow-live" id="sampleParallelPass">Sample pass <b><i aria-hidden="true"></i>Live</b></span>
+            <i class="execution-flow-divider execution-history-divider" id="gpuHistoryPassDivider" aria-hidden="true" hidden></i>
+            <span class="execution-flow-stage execution-flow-history" id="gpuHistoryPass" hidden>GPU history <b>Post FX</b></span>
+            <i class="execution-flow-divider" aria-hidden="true"></i>
+            <span class="execution-flow-stage execution-flow-readback" id="gpuReadbackLane">GPU <i aria-hidden="true">→</i> CPU <output id="gpuChunkDuration">~100 ms chunk</output></span>
+
+            <details class="execution-shape-details" id="executionShapeDetails">
+              <summary><b>Execution details</b><span aria-hidden="true">+</span></summary>
+              <div class="execution-shape-detail-panel" id="executionBoundaryLanes">
+                <section class="execution-detail-current" aria-labelledby="sampleParallelHeading">
+                  <h3 id="sampleParallelHeading">Current sample-parallel pass</h3>
+                  <p id="sampleInvocationModel">One GPU invocation computes one sample and evaluates every visible module. Additive organ ranks are bounded harmonic lanes inside that invocation; the GPU still runs thousands of sample invocations in parallel.</p>
+                  <p id="cpuGpuUploadHeading"><b>CPU → GPU:</b> graph changes, parameters, and per-chunk render metadata are written before dispatch.</p>
+                  <p id="gpuReadbackHeading"><b>GPU → CPU / Web Audio:</b> the finished stereo buffer is read back once and then scheduled for playback.</p>
+                  <p id="gpuChunkSummary"><output id="gpuChunkSampleCount">4,410 samples @ 44.1 kHz</output> · <output id="gpuChunkChannelCount">stereo</output> · <output id="gpuLookaheadDuration">~300 ms queued</output></p>
+                  <p id="graphNodeLimitNote"><output id="graphNodeLimit">16</output> nodes is a fixed-array guardrail in this prototype, not a WebGPU limit.</p>
+                </section>
+                <section class="execution-detail-alternative" id="blockStateLane" aria-labelledby="blockStateHeading">
+                  <h3 id="blockStateHeading">Block / state</h3>
+                  <p id="blockStateDescription">A persistent dry-history ring feeds Delay, Reverb, Flanger, Chorus, Doppler, Recombobulator, and the spectral processors. Feed-forward reads keep every output sample race-free.</p>
+                </section>
+                <section class="execution-detail-alternative" id="separateGpuPassLane" aria-labelledby="separateGpuPassHeading">
+                  <h3 id="separateGpuPassHeading">History / spectral GPU pass</h3>
+                  <p id="separateGpuPassDescription">After the graph pass, one capture dispatch updates history and one post dispatch applies the terminal effects. Sliding-DFT robotizer, resynthesis, and spectral gating stay bounded here; large FFT reductions and physical grids remain atlas techniques.</p>
+                </section>
+              </div>
+            </details>
+          </div>
+
+          <div
+            class="graph-viewport"
+            id="graphViewport"
+            tabindex="0"
+            role="application"
+            aria-roledescription="sample-parallel shader audio patch graph"
+            aria-label="Connect sample-parallel shader synthesis modules. Audio is off."
+            aria-describedby="sampleInvocationModel graphNodeLimitNote graphInstructions graphMobileInstructions liveStatus"
+          >
+              <svg class="patch-cables" id="patchCables" aria-hidden="true">
+                <defs>
+                  <filter id="cableGlow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="2.4" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                  </filter>
+                </defs>
+                <g id="patchCableLayer"></g>
+                <path id="pendingCable" class="patch-cable is-preview" d="" hidden></path>
+              </svg>
+              <div class="patch-nodes" id="patchNodes"></div>
+
+              <p class="chain-view-note" id="chainViewNote">
+                <b>Signal overview</b>
+                <span>Exact routing: <strong>Patch cables</strong></span>
+              </p>
+
+              <div class="graph-empty-state" id="graphEmptyState" hidden>
+                <span aria-hidden="true">＋</span>
+                <b>Start with a sound source</b>
+                <p>Choose an oscillator or noise module, then route it toward Output.</p>
+              </div>
+
+              <div class="graph-instructions" id="graphInstructions">
+                <b class="connect-intro">Connect</b>
+                <span class="connect-step" data-guide-step="1"><i>1</i>Select or drag <strong>OUT</strong></span>
+                <span class="connect-arrow" aria-hidden="true">→</span>
+                <span class="connect-step" data-guide-step="2"><i>2</i>Choose a glowing <strong>IN</strong></span>
+                <small>Headers move · ports patch</small>
+              </div>
+              <p class="graph-mobile-instructions" id="graphMobileInstructions">
+                Tap an OUT port, then a glowing IN port. Modules follow the signal from top to bottom.
+              </p>
+              <output class="connection-hint" id="connectionHint" aria-live="polite">To patch: select an OUT port, then a compatible IN port.</output>
+          </div>
+        </div>
+
+        <section class="signal-monitor" aria-labelledby="signalMonitorTitle">
+          <div class="monitor-heading">
+            <span>LIVE OUTPUT</span>
+            <h2 id="signalMonitorTitle">Waveform</h2>
+          </div>
+          <div class="scope-frame">
+            <canvas id="scopeCanvas" width="960" height="128" role="img" aria-label="Live output waveform"></canvas>
+            <div class="scope-zero" aria-hidden="true"></div>
+          </div>
+          <dl class="scope-metrics" id="scopeReadout">
+            <div><dt>GPU</dt><dd id="gpuState">checking</dd></div>
+            <div><dt>Signal</dt><dd id="signalLevel">silent</dd></div>
+            <div><dt>Keys / MIDI</dt><dd id="midiNoteState" title="Two-row piano: Z–M and Q–U. Brackets change octave. Notes retune the patch without changing transport.">Z–M · Q–U</dd></div>
+          </dl>
+        </section>
+      </section>
+
+      <aside class="node-inspector" id="nodeInspector" aria-labelledby="inspectorTitle">
+        <header class="workspace-panel-heading inspector-heading">
+          <h2 id="inspectorTitle">Module inspector</h2>
+        </header>
+
+        <details class="patch-controls-panel" id="patchControlsPanel" open>
+          <summary>
+            <span>Patch controls</span>
+            <output id="patchControlCount">0 parameters</output>
+          </summary>
+          <div class="patch-controls" id="patchControls" aria-label="All active module parameters"></div>
+        </details>
+
+        <div class="inspector-empty" id="inspectorEmpty">
+          <span class="inspector-empty-symbol" aria-hidden="true">⌁</span>
+          <h3>Select a module</h3>
+          <p>Its live parameters, I/O, shader expression, and audible behavior will appear here.</p>
+        </div>
+
+        <div class="inspector-content" id="inspectorContent" hidden>
+          <section class="selected-module-heading">
+            <span id="selectedNodeKind">SOURCE</span>
+            <h3 id="selectedNodeTitle">Oscillator</h3>
+            <p id="selectedNodeRole">Produces a repeating audio-rate waveform.</p>
+          </section>
+
+          <section class="inspector-section module-io" aria-labelledby="moduleIoTitle">
+            <div class="inspector-section-title">
+              <h4 id="moduleIoTitle">Signal I/O</h4>
+              <span>ports</span>
+            </div>
+            <div id="ioSummary"></div>
+          </section>
+
+          <section class="inspector-section parameter-section" aria-labelledby="parameterTitle">
+            <div class="inspector-section-title">
+              <h4 id="parameterTitle">Live parameters</h4>
+              <span>drag while playing</span>
+            </div>
+            <div class="node-controls" id="nodeControls"></div>
+          </section>
+
+          <section class="inspector-section organ-rank-section" id="organRankSection" aria-labelledby="organRankTitle" hidden>
+            <div class="inspector-section-title">
+              <h4 id="organRankTitle">GPU harmonic lanes</h4>
+              <span>9 live ranks</span>
+            </div>
+            <p class="organ-rank-intro">Each rank is read from a GPU storage buffer for every sample lane. Shape its harmonic ratio, drawbar level, and independent amplitude motion.</p>
+            <div class="organ-rank-head" aria-hidden="true">
+              <span>Rank</span><span>Ratio</span><span>Level</span><span>AM Hz</span><span>AM depth</span>
+            </div>
+            <div class="organ-rank-controls" id="organRankControls"></div>
+            <button class="organ-rank-reset" id="resetOrganRanks" type="button">Reset nine organ ranks</button>
+          </section>
+
+          <section class="inspector-section behavior-section" aria-labelledby="behaviorTitle">
+            <div class="inspector-section-title">
+              <h4 id="behaviorTitle">Sonic behavior</h4>
+              <span>parameter response</span>
+            </div>
+            <canvas id="parameterResponseCanvas" width="640" height="164" role="img" aria-label="Selected module parameter response"></canvas>
+            <p id="parameterBehavior">Adjust a parameter to see and hear its effect.</p>
+          </section>
+
+          <section class="inspector-section shader-expression" aria-labelledby="shaderExpressionTitle">
+            <div class="inspector-section-title">
+              <h4 id="shaderExpressionTitle">Shader expression</h4>
+              <span>WGSL</span>
+            </div>
+            <p class="execution-shape" id="selectedNodeExecution">Runs independently for each output sample.</p>
+            <pre><code id="selectedNodeShader">sample = sin(TAU * frequency * time);</code></pre>
+          </section>
+
+          <button class="delete-node" id="deleteNode" type="button">Remove selected module</button>
+        </div>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+      </aside>
+    </main>
+
+    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260828-patch-controls"></script>
+  </body>
+</html>

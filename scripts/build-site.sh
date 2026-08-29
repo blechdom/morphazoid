@@ -62,6 +62,7 @@ for worktree_runtime_file in \
   src/breath-atlas.js \
   src/breath-atlas-processor.js \
   assets/instruments/breath-atlas.webp \
+  src/shapes-rhythm.js \
   shape.html \
   playhead-paint.html \
   playhead-paint.css \
@@ -284,6 +285,11 @@ for worktree_runtime_file in \
   cascading-pm.css \
   cascading-pm-app.js \
   src/cascading-pm.js \
+  slippery-resynthesis.html \
+  slippery-resynthesis.css \
+  slippery-resynthesis-app.js \
+  src/slippery-resynthesis.js \
+  assets/instruments/slippery-resynthesis.webp \
   drum-roll-please.html \
   drum-roll-please.css \
   drum-roll-please-app.js \
@@ -320,6 +326,18 @@ for worktree_runtime_file in \
   webgpu-synths.css \
   webgpu-synths-app.js \
   src/webgpu-synths.js \
+  webgpu-dsp-primitives.html \
+  webgpu-dsp-primitives.css \
+  webgpu-dsp-primitives-app.js \
+  src/webgpu-dsp-primitives.js \
+  shader-synth-playground.html \
+  shader-synth-playground.css \
+  shader-synth-playground-app.js \
+  src/shader-synth-playground.js \
+  src/shader-synth-playground-extra.js \
+  src/shader-synth-playground-found-sounds.js \
+  src/shader-synth-playground-fx.js \
+  src/shader-synth-playground-scenes.js \
   assets/instruments/webgpu-synths.webp \
   algorithmic-sequencers.html \
   algorithmic-sequencers.css \
@@ -571,6 +589,11 @@ required_files=(
   shepard-risset.html
   shepard-risset-app.js
   src/shepard-risset.js
+  slippery-resynthesis.html
+  slippery-resynthesis.css
+  slippery-resynthesis-app.js
+  src/slippery-resynthesis.js
+  assets/instruments/slippery-resynthesis.webp
   drum-roll-please.html
   drum-roll-please.css
   drum-roll-please-app.js
@@ -637,6 +660,18 @@ required_files=(
   webgpu-synths.css
   webgpu-synths-app.js
   src/webgpu-synths.js
+  webgpu-dsp-primitives.html
+  webgpu-dsp-primitives.css
+  webgpu-dsp-primitives-app.js
+  src/webgpu-dsp-primitives.js
+  shader-synth-playground.html
+  shader-synth-playground.css
+  shader-synth-playground-app.js
+  src/shader-synth-playground.js
+  src/shader-synth-playground-extra.js
+  src/shader-synth-playground-found-sounds.js
+  src/shader-synth-playground-fx.js
+  src/shader-synth-playground-scenes.js
   assets/instruments/webgpu-synths.webp
   weierstrass.html
   weierstrass.css

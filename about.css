@@ -89,6 +89,14 @@
   max-width: 760px;
 }
 
+.catalogue-operation {
+  max-width: 62ch;
+  margin: 12px 0 0;
+  color: color-mix(in oklab, var(--ink) 77%, var(--muted));
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .manual-section-note {
   max-width: 270px;
   margin: 14px 0 0;

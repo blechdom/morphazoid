@@ -902,6 +902,53 @@ test("strike headroom tracks scheduled exponential envelopes and overlapping tai
   assert.equal(created.length, 3);
 });
 
+test("strikes honor absolute AudioContext start times and clamp late requests", () => {
+  const pool = new VoicePool(0);
+  const created = [];
+  pool.context = {
+    currentTime: 10,
+    createOscillator() {
+      const oscillator = fakeNode({
+        type: "sine",
+        frequency: fakeParam(220),
+        startCalls: [],
+        stopCalls: [],
+        start(time) { this.startCalls.push(time); },
+        stop(time) { this.stopCalls.push(time); },
+        onended: null,
+      });
+      created.push(oscillator);
+      return oscillator;
+    },
+    createGain() { return fakeNode({ gain: fakeParam(0) }); },
+    createStereoPanner() { return fakeNode({ pan: fakeParam(0) }); },
+  };
+  pool.master = fakeNode();
+  pool.enabled = true;
+
+  assert.equal(pool.strike(
+    { key: "absolute:future", frequency: 440, gain: 0.3, pan: -0.25 },
+    { startAt: 10.2, startDelaySeconds: 0.05 },
+  ), true);
+  const future = [...pool.activeStrikes][0];
+  assert.equal(future.startedAt, 10.2, "absolute time takes precedence over relative delay");
+  assert.deepEqual(created[0].startCalls, [10.2]);
+  assert.deepEqual(created[0].frequency.calls[0], ["value", 440, 10.2]);
+  assert.deepEqual(future.pan.pan.calls[0], ["value", -0.25, 10.2]);
+  assert.deepEqual(future.gain.gain.calls[0], ["value", 0.0001, 10.2]);
+
+  pool.context.currentTime = 11;
+  assert.equal(pool.strike(
+    { key: "absolute:late", frequency: 660, gain: 0.25 },
+    { startAt: 10.5 },
+  ), true);
+  const late = [...pool.activeStrikes].at(-1);
+  assert.equal(late.startedAt, 11, "a past absolute time clamps to the current audio clock");
+  assert.deepEqual(created[1].startCalls, [11]);
+  assert.deepEqual(created[1].frequency.calls[0], ["value", 660, 11]);
+  assert.deepEqual(late.gain.gain.calls[0], ["value", 0.0001, 11]);
+});
+
 test("keyed voices keep their oscillator slots when specs reorder", () => {
   const pool = new VoicePool(2);
   pool.context = { currentTime: 1 };

@@ -61,7 +61,9 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "lattice-drums",
   "micmic",
   "webgpu-synths",
+  "shader-synth-playground",
   "sandy-syrup-delay",
+  "slippery-resynthesis",
 ]);
 
 /**
@@ -128,6 +130,12 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
     { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
     { id: "webgpu-synths", label: "GPU Shader Synths", href: "webgpu-synths.html" },
+    {
+      id: "shader-synth-playground",
+      label: "Modular Shader Synth",
+      href: "shader-synth-playground.html",
+      imageHref: "assets/instruments/webgpu-synths.webp",
+    },
   ]),
   freezeGroup("voice-synths", "Voice Synths", [
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
@@ -167,6 +175,11 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
+    {
+      id: "slippery-resynthesis",
+      label: "Slippery Resynthesis",
+      href: "slippery-resynthesis.html",
+    },
     {
       id: "drum-roll-please",
       label: "Drum Roll Please!",
@@ -492,7 +505,7 @@ function createInstrumentPicker(doc, activeTool, siteRoot, index) {
       icon.width = 24;
       icon.height = 24;
       icon.decoding = "async";
-      icon.src = new URL(`assets/instruments/${tool.id}.webp`, siteRoot).href;
+      icon.src = new URL(tool.imageHref ?? `assets/instruments/${tool.id}.webp`, siteRoot).href;
       const label = element(doc, "span", "instrument-picker-link-label", tool.label);
       link.append(icon, label);
       if (tool.id === activeTool?.id) {

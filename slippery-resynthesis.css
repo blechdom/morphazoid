@@ -1,0 +1,538 @@
+.slippery-resynthesis-page {
+  --accent: #ff7898;
+  --accent-soft: color-mix(in oklab, #ff7898 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff7898 22%, transparent);
+  --slipper-input: #5fe8c4;
+  --slipper-slip: #ff7898;
+  --slipper-octave: #7db4ff;
+  --slipper-violet: #c79bff;
+}
+
+.slippery-resynthesis-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 410px);
+}
+
+.slipper-stage-wrap {
+  isolation: isolate;
+  background:
+    linear-gradient(rgba(214, 232, 226, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214, 232, 226, 0.035) 1px, transparent 1px),
+    radial-gradient(ellipse at 36% 50%, color-mix(in oklab, var(--slipper-input) 9%, transparent), transparent 44%),
+    radial-gradient(ellipse at 66% 48%, color-mix(in oklab, var(--slipper-slip) 11%, transparent), transparent 53%),
+    radial-gradient(ellipse at 54% 56%, color-mix(in oklab, var(--slipper-octave) 6%, transparent), transparent 72%),
+    var(--bg-deep);
+  background-size: 100% 25%, 10% 100%, auto, auto, auto, auto;
+}
+
+.slipper-stage-wrap::after {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 116px;
+  pointer-events: none;
+  background: linear-gradient(transparent, color-mix(in oklab, var(--bg-deep) 82%, transparent));
+  content: "";
+}
+
+.slippery-resynthesis-page #stage {
+  position: relative;
+  z-index: 1;
+  cursor: default;
+}
+
+.slipper-spectrum-legend {
+  position: absolute;
+  z-index: 4;
+  top: 16px;
+  left: 18px;
+  display: flex;
+  pointer-events: none;
+  color: var(--muted);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px 18px;
+  font-size: 8px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.slipper-spectrum-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.slipper-spectrum-legend i {
+  display: inline-block;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.slipper-spectrum-legend .input {
+  color: var(--slipper-input);
+}
+
+.slipper-spectrum-legend .slip {
+  color: var(--slipper-slip);
+}
+
+.slipper-spectrum-legend .octave {
+  color: var(--slipper-octave);
+}
+
+.slipper-stage-caption {
+  position: absolute;
+  z-index: 4;
+  bottom: 34px;
+  left: clamp(18px, 3vw, 38px);
+  display: grid;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.slipper-stage-caption span {
+  color: var(--ink);
+  font-size: clamp(20px, 2.8vw, 38px);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.slipper-stage-caption small {
+  margin-top: 6px;
+  color: var(--slipper-slip);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+}
+
+.slipper-frequency-axis {
+  position: absolute;
+  z-index: 4;
+  right: clamp(18px, 3vw, 38px);
+  bottom: 16px;
+  left: clamp(18px, 3vw, 38px);
+  display: flex;
+  pointer-events: none;
+  color: var(--faint);
+  justify-content: space-between;
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.slippery-resynthesis-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--slipper-slip) 3%, transparent), transparent 300px),
+    var(--panel);
+}
+
+.control-section.slipper-source[data-section="play"] {
+  --accent: var(--slipper-input);
+  --accent-soft: color-mix(in oklab, var(--slipper-input) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--slipper-input) 20%, transparent);
+}
+
+.control-section.slipper-presets[data-section="form"] {
+  --accent: var(--slipper-octave);
+  --accent-soft: color-mix(in oklab, var(--slipper-octave) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--slipper-octave) 20%, transparent);
+}
+
+.control-section.slipper-motion[data-section="mapping"] {
+  --accent: var(--slipper-slip);
+  --accent-soft: color-mix(in oklab, var(--slipper-slip) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--slipper-slip) 20%, transparent);
+}
+
+.control-section.slipper-spectrum[data-section="sound"] {
+  --accent: var(--slipper-violet);
+  --accent-soft: color-mix(in oklab, var(--slipper-violet) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--slipper-violet) 20%, transparent);
+}
+
+.control-section.slipper-character[data-section="mapping"] {
+  --accent: color-mix(in oklab, var(--slipper-slip) 58%, var(--slipper-violet));
+  --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 20%, transparent);
+}
+
+.control-section.slipper-mix[data-section="output"] {
+  --accent: var(--slipper-octave);
+  --accent-soft: color-mix(in oklab, var(--slipper-octave) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--slipper-octave) 20%, transparent);
+}
+
+.slipper-file-row {
+  display: grid;
+  margin: 1px 0 9px;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 6px;
+}
+
+.slipper-file-picker {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 11px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  align-items: center;
+  font-size: 9px;
+}
+
+.slipper-file-picker:hover,
+.slipper-file-picker:focus-within {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.slipper-file-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.slipper-file-picker span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slipper-icon-button {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 17px;
+}
+
+.slipper-icon-button:hover,
+.slipper-icon-button:focus-visible {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.slipper-icon-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.slipper-control-note {
+  margin: 3px 0 10px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.slipper-control-help {
+  display: block;
+  margin: -1px 0 10px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.slipper-control-scale {
+  display: flex;
+  margin: -9px 0 9px;
+  color: var(--faint);
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.slipper-control-scale.compact {
+  margin-bottom: 11px;
+}
+
+.slippery-resynthesis-page .audio-error {
+  margin: 9px 0 5px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 130, 111, 0.38);
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, 0.06);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.slipper-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.slipper-preset-grid:empty::before {
+  min-height: 74px;
+  color: var(--faint);
+  content: "Loading spectral presets…";
+  grid-column: 1 / -1;
+  place-content: center;
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.slipper-preset-grid button {
+  display: grid;
+  min-height: 40px;
+  padding: 8px 9px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  align-content: center;
+  justify-items: start;
+  text-align: left;
+}
+
+.slipper-preset-grid button:hover,
+.slipper-preset-grid button:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.slipper-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 10px var(--accent-glow);
+}
+
+.slipper-preset-grid b {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.slipper-analysis-card {
+  display: grid;
+  margin: 7px 0 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.slipper-analysis-card span {
+  display: grid;
+  min-width: 0;
+  padding: 9px 8px;
+  gap: 3px;
+}
+
+.slipper-analysis-card span + span {
+  border-left: 1px solid var(--line);
+}
+
+.slipper-analysis-card b,
+.slipper-signal-card b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.slipper-analysis-card small,
+.slipper-signal-card small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+}
+
+.slipper-signal-card {
+  display: grid;
+  margin: 10px 0 11px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.slipper-signal-card span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.slipper-signal-card i {
+  color: var(--accent);
+  font-size: 8px;
+  font-style: normal;
+}
+
+@media (max-width: 960px) {
+  .slippery-resynthesis-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(250px, 44dvh, 420px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 650px) {
+  .slippery-resynthesis-shell {
+    grid-template-rows: clamp(215px, 38dvh, 300px) minmax(0, 1fr);
+  }
+
+  .slipper-spectrum-legend {
+    top: 12px;
+    left: 13px;
+    gap: 7px 12px;
+    font-size: 7px;
+  }
+
+  .slipper-spectrum-legend .octave {
+    display: none;
+  }
+
+  .slippery-resynthesis-page .stage-meta {
+    top: 35px;
+    right: 13px;
+    left: 13px;
+    justify-content: flex-start;
+    font-size: 7px;
+  }
+
+  .slippery-resynthesis-page #stageReadout {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .slipper-stage-caption {
+    bottom: 30px;
+    left: 14px;
+  }
+
+  .slipper-stage-caption span {
+    font-size: 18px;
+  }
+
+  .slipper-stage-caption small {
+    max-width: 58vw;
+    overflow: hidden;
+    font-size: 7px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .slipper-frequency-axis {
+    right: 14px;
+    bottom: 11px;
+    left: 14px;
+    font-size: 6px;
+  }
+
+  .slipper-frequency-axis span:nth-child(even):not(:last-child) {
+    display: none;
+  }
+}
+
+@media (max-width: 450px) {
+  .slippery-resynthesis-shell {
+    grid-template-rows: clamp(205px, 36dvh, 270px) minmax(0, 1fr);
+  }
+
+  .slipper-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .slipper-analysis-card {
+    grid-template-columns: 1fr;
+  }
+
+  .slipper-analysis-card span + span {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .slipper-signal-card {
+    grid-template-columns: 1fr;
+  }
+
+  .slipper-signal-card i {
+    display: none;
+  }
+}
+
+@media (max-width: 960px) and (max-height: 560px) {
+  .slippery-resynthesis-shell {
+    grid-template-rows: clamp(150px, 40dvh, 210px) minmax(0, 1fr);
+  }
+
+  .slipper-stage-caption {
+    bottom: 27px;
+  }
+}
+
+@media (pointer: coarse) {
+  .slipper-file-picker,
+  .slipper-icon-button {
+    min-height: 48px;
+  }
+
+  .slipper-icon-button {
+    width: 48px;
+    min-width: 48px;
+  }
+
+  .slipper-file-row {
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slipper-spectrum-legend i,
+  .slipper-stage-caption small {
+    text-shadow: none;
+    box-shadow: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .slipper-spectrum-legend i {
+    background: currentColor;
+    box-shadow: none;
+  }
+
+  .slipper-stage-wrap::after {
+    display: none;
+  }
+}

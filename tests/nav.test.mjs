@@ -255,7 +255,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 106);
+  assert.equal(tools.length, 108);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -325,6 +325,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "slippery-resynthesis"),
+    {
+      id: "slippery-resynthesis",
+      label: "Slippery Resynthesis",
+      href: "slippery-resynthesis.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "ouroborousel"),
     {
       id: "ouroborousel",
@@ -359,6 +367,16 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   const barberShopTools = TOOL_GROUPS.find(({ id }) => (
     id === "barber-shop-poles"
   ))?.tools ?? [];
+  assert.equal(
+    barberShopTools.findIndex(({ id }) => id === "slippery-resynthesis"),
+    barberShopTools.findIndex(({ id }) => id === "shepard-risset") + 1,
+    "Slippery Resynthesis belongs immediately after Shepard–Risset",
+  );
+  assert.equal(
+    barberShopTools.findIndex(({ id }) => id === "drum-roll-please"),
+    barberShopTools.findIndex(({ id }) => id === "slippery-resynthesis") + 1,
+    "Drum Roll Please belongs immediately after Slippery Resynthesis",
+  );
   assert.equal(
     barberShopTools.findIndex(({ id }) => id === "ouroborousel"),
     barberShopTools.findIndex(({ id }) => id === "drum-roll-please") + 1,
@@ -506,6 +524,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
       { id: "webgpu-synths", href: "webgpu-synths.html" },
+      { id: "shader-synth-playground", href: "shader-synth-playground.html" },
     ],
   );
   assert.deepEqual(
@@ -615,6 +634,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "shepard-risset", href: "shepard-risset.html" },
+      { id: "slippery-resynthesis", href: "slippery-resynthesis.html" },
       { id: "drum-roll-please", href: "drum-roll-please.html" },
       { id: "ouroborousel", href: "ouroborousel.html" },
       { id: "ourorourobouroboros", href: "ourorourobouroboros.html" },
@@ -653,6 +673,15 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "webgpu-synths",
       label: "GPU Shader Synths",
       href: "webgpu-synths.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "shader-synth-playground"),
+    {
+      id: "shader-synth-playground",
+      label: "Modular Shader Synth",
+      href: "shader-synth-playground.html",
+      imageHref: "assets/instruments/webgpu-synths.webp",
     },
   );
   const experiments = TOOL_GROUPS.find((group) => group.id === "experiments");
@@ -741,7 +770,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
 test("every navigation tool ships a valid picker icon", async () => {
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
   await Promise.all(tools.map(async (tool) => {
-    const imageUrl = new URL(`../assets/instruments/${tool.id}.webp`, import.meta.url);
+    const imageUrl = new URL(`../${tool.imageHref ?? `assets/instruments/${tool.id}.webp`}`, import.meta.url);
     const bytes = await readFile(imageUrl);
     assert.ok(bytes.length > 1000, `${tool.id} picker icon is unexpectedly small`);
     assert.equal(bytes.subarray(0, 4).toString("ascii"), "RIFF", tool.id);
@@ -780,6 +809,10 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}orbital-ferris.html`, SITE_ROOT)?.id, "orbital-ferris");
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}shepard-risset.html`, SITE_ROOT)?.id, "shepard-risset");
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}slippery-resynthesis.html`, SITE_ROOT)?.id,
+    "slippery-resynthesis",
+  );
   assert.equal(resolveActiveTool(`${SITE_ROOT}drum-roll-please.html`, SITE_ROOT)?.id, "drum-roll-please");
   assert.equal(resolveActiveTool(`${SITE_ROOT}ouroborousel.html`, SITE_ROOT)?.id, "ouroborousel");
   assert.equal(
@@ -799,6 +832,10 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
   assert.equal(resolveActiveTool(`${SITE_ROOT}webgpu-303.html`, SITE_ROOT)?.id, "webgpu-303");
   assert.equal(resolveActiveTool(`${SITE_ROOT}webgpu-synths.html`, SITE_ROOT)?.id, "webgpu-synths");
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}shader-synth-playground.html`, SITE_ROOT)?.id,
+    "shader-synth-playground",
+  );
   assert.equal(resolveActiveTool(`${SITE_ROOT}gravity-walk.html`, SITE_ROOT)?.id, "gravity-walk");
   assert.equal(resolveActiveTool(`${SITE_ROOT}ricochet.html`, SITE_ROOT)?.id, "ricochet");
   assert.equal(resolveActiveTool(`${SITE_ROOT}rigidity.html`, SITE_ROOT)?.id, "rigidity");

@@ -187,6 +187,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "hyper-rubix",
     "webgpu-synths",
     "playhead-paint",
+    "slippery-resynthesis",
     "candy-coil-delay",
     "chladni-plate",
     "spring-choir",
@@ -200,9 +201,13 @@ test("one acyclic capability registry covers every playable catalog instrument",
   ]);
   assert.equal(instrumentMidiCapabilityForId("spelling-synthesizer").computerKeyboardMode, "page");
   assert.equal(instrumentMidiCapabilityForId("shape-drums").computerKeyboardMode, "midi");
+  assert.equal(instrumentMidiCapabilityForId("shader-synth-playground").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("recursion").startsAudio, true);
   assert.equal(instrumentMidiCapabilityForId("lumber").startsAudio, false);
   assert.equal(instrumentMidiCapabilityForId("graph-delay").audioInput, true);
+  assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").audioInput, true);
+  assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").noteMode, "processor");
+  assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").computerKeyboardMode, "none");
   assert.equal(instrumentMidiCapabilityForId("throatazoid").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("morphynx").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("alien-larynx").audioInput, true);
@@ -218,8 +223,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 6, drums: 18, pitched: 39, sequence: 39 },
-    "all 102 routes have exactly one intentional note behavior",
+    { processor: 7, drums: 18, pitched: 39, sequence: 40 },
+    "all 104 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -275,7 +280,7 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
       );
     }
   }
-  assert.equal(mastheadPages, 101);
+  assert.equal(mastheadPages, 103);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");

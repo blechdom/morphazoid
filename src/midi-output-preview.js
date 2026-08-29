@@ -398,6 +398,7 @@ function insertMonitor(host, monitor) {
 
 function monitorHost(doc) {
   for (const selector of [
+    ".node-inspector",
     ".panel",
     ".linear-control-panel",
     ".paint-inspector",

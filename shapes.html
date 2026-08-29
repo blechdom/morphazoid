@@ -43,9 +43,9 @@
           <canvas id="stage" tabindex="0" aria-label="Interactive 2D Polygon instrument canvas" aria-describedby="canvasInstructions liveStatus">
             An animated geometric instrument with a moving reader.
           </canvas>
-          <div class="shapes-stage-title" aria-hidden="true">
+          <div class="shapes-stage-title sr-only" aria-hidden="true">
             <span id="dimensionKicker">2D · POLYGON</span>
-            <strong id="shapeReadout">6-SIDED POLYGON</strong>
+            <strong id="shapeReadout">4-SIDED POLYGON</strong>
           </div>
           <div class="shapes-stage-meta" aria-hidden="true">
             <span id="stageReadout">1 CONTACT · PAUSED · AUDIO OFF</span>
@@ -56,7 +56,7 @@
       <aside class="shapes-panel" aria-label="Shapes controls">
         <header class="shapes-panel-header">
           <label class="shapes-dimension-menu" for="dimensionSelect">
-            <span>Dimension</span>
+            <span class="sr-only">Dimension</span>
             <span class="select-shell">
               <select id="dimensionSelect" aria-label="Shapes dimension">
                 <option value="2d">2D · Polygon</option>
@@ -65,20 +65,26 @@
               </select>
             </span>
           </label>
+          <div class="shapes-bank-tabs" role="tablist" aria-label="Shapes control banks">
+              <button id="mainBankTab" type="button" role="tab" data-bank="main" aria-label="Main controls" title="Main" aria-selected="true" aria-controls="mainBankPanel" tabindex="0">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h6m4 0h6M10 3v6M4 12h10m4 0h2m-6-3v6M4 18h3m4 0h9m-13-3v6" /></svg><span class="shapes-bank-tab-label">Main</span>
+              </button>
+              <button id="formBankTab" type="button" role="tab" data-bank="form" aria-label="Form controls" title="Form" aria-selected="false" aria-controls="formBankPanel" tabindex="-1">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5h14v14H5zM5 5l14 14M19 5 5 19" /></svg><span class="shapes-bank-tab-label">Form</span>
+              </button>
+              <button id="rotationBankTab" type="button" role="tab" data-bank="rotation" aria-label="Rotation controls" title="Rotation" aria-selected="false" aria-controls="rotationBankPanel" tabindex="-1">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 8V4m0 0h-4m4 0-3.1 3.1A7 7 0 1 0 19 13" /></svg><span class="shapes-bank-tab-label">Rotate</span>
+              </button>
+              <button id="mappingBankTab" type="button" role="tab" data-bank="mapping" aria-label="Mapping controls" title="Mapping" aria-selected="false" aria-controls="mappingBankPanel" tabindex="-1">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="6" cy="6" r="2" /><circle cx="18" cy="7" r="2" /><circle cx="8" cy="18" r="2" /><circle cx="18" cy="17" r="2" /><path d="m8 7 8 0M7 8l1 8m2 1h6m1-8v6" /></svg><span class="shapes-bank-tab-label">Map</span>
+              </button>
+          </div>
         </header>
-
-        <div class="shapes-bank-tabs" role="tablist" aria-label="Shapes control banks">
-          <button id="mainBankTab" type="button" role="tab" data-bank="main" aria-selected="true" aria-controls="mainBankPanel" tabindex="0">Main</button>
-          <button id="formBankTab" type="button" role="tab" data-bank="form" aria-selected="false" aria-controls="formBankPanel" tabindex="-1">Form</button>
-          <button id="rotationBankTab" type="button" role="tab" data-bank="rotation" aria-selected="false" aria-controls="rotationBankPanel" tabindex="-1">Rotation</button>
-          <button id="mappingBankTab" type="button" role="tab" data-bank="mapping" aria-selected="false" aria-controls="mappingBankPanel" tabindex="-1">Mapping</button>
-        </div>
 
         <div class="shapes-panel-scroll">
           <section class="shapes-bank is-active" id="mainBankPanel" role="tabpanel" data-bank-panel="main" aria-labelledby="mainBankTab">
             <h2 class="sr-only" id="mainBankTitle">Main performance controls</h2>
             <div class="shapes-playing-mode" role="group" aria-label="Playing mode">
-              <span>Playing</span>
               <div class="choice-switch" id="playingMode">
                 <button type="button" data-playing-mode="continuous" aria-pressed="true">Continuous</button>
                 <button type="button" data-playing-mode="notes" aria-pressed="false">Notes</button>
@@ -88,83 +94,124 @@
 
             <div class="shapes-twin-rack">
               <section class="shapes-rack-card shapes-play-rack" aria-labelledby="playRackTitle">
-                <header><span>01</span><h3 id="playRackTitle">Play &amp; voice</h3></header>
-                <div class="shapes-live-row">
-                  <label class="select-control shapes-engine-control" for="voiceEngine">
-                    <span class="field-label">Voice engine</span>
-                    <span class="select-shell"><select id="voiceEngine"><option value="sine">Sine</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option></select></span>
-                  </label>
-                  <button class="shapes-transport-button" id="playButton" type="button" aria-pressed="false">
+                <header><h3 id="playRackTitle">Transport</h3></header>
+                <div class="shapes-play-position-row">
+                  <button class="shapes-icon-button shapes-transport-button" id="playButton" type="button" aria-label="Start playback" title="Play" aria-pressed="false">
                     <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                     <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-                    <span id="playButtonLabel">Play</span>
+                    <span class="sr-only" id="playButtonLabel">Play</span>
                   </button>
+                  <label class="control shapes-primary-range" for="position">
+                    <span><b id="positionLabel">Playhead position</b><output id="positionOut" for="position">18.0%</output></span>
+                    <input id="position" type="range" min="0" max="1" step="0.0005" value="0.18" />
+                  </label>
                 </div>
-                <label class="control shapes-primary-range" for="position">
-                  <span><b>Reader position</b><output id="positionOut" for="position">18.0%</output></span>
-                  <input id="position" type="range" min="0" max="1" step="0.0005" value="0.18" />
-                </label>
                 <label class="control shapes-primary-range shapes-speed-row" for="speed">
-                  <span><b>Speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span>
+                  <span><b id="speedLabel">Playhead speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span>
                   <input id="speed" type="range" min="0" max="4" step="0.01" value="0.12" />
                 </label>
                 <label class="control shapes-primary-range shapes-divisions-row" id="divisionsControl" for="divisions" hidden>
-                  <span><b>Divisions</b><output id="divisionsOut" for="divisions">8</output></span>
-                  <input id="divisions" type="range" min="1" max="24" step="1" value="8" disabled />
+                  <span><b>Divisions</b><output id="divisionsOut" for="divisions">2</output></span>
+                  <input id="divisions" type="range" min="1" max="16" step="1" value="2" disabled />
                 </label>
-                <div class="shapes-motion-row" aria-label="Reader motion">
-                  <button class="mini-action" id="directionButton" type="button">Direction · forward</button>
-                  <div class="choice-switch compact" id="motionMode" role="group" aria-label="Motion shape">
-                    <button type="button" data-motion="loop" aria-pressed="true">Loop</button>
-                    <button type="button" data-motion="pingpong" aria-pressed="false">Ping-pong</button>
+                <div class="shapes-transport-options">
+                  <div class="shapes-transport-actions" role="group" aria-label="Reader and shape motion">
+                    <div class="shapes-motion-row" role="group" aria-label="Reader traversal">
+                      <button class="shapes-icon-button shapes-direction-button" id="directionButton" type="button" aria-label="Reader direction: forward" title="Direction: forward">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12h16m-5-5 5 5-5 5" /></svg><span class="sr-only" id="directionButtonLabel">Forward</span>
+                      </button>
+                      <div class="choice-switch compact" id="motionMode" role="group" aria-label="Motion shape">
+                        <button type="button" data-motion="loop" aria-label="Loop motion" title="Loop" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 7h-9a5 5 0 0 0 0 10h9M15 4l3 3-3 3m-6 4-3 3 3 3" /></svg></button>
+                        <button type="button" data-motion="pingpong" aria-label="Ping-pong motion" title="Ping-pong" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8h14m-3-3 3 3-3 3M19 16H5m3-3-3 3 3 3" /></svg></button>
+                      </div>
+                    </div>
+                    <div class="shapes-rotation-transport" id="rotationTransport" role="group" aria-label="Shape rotation transport">
+                      <button class="shapes-icon-button shapes-transport-button shapes-rotate-button shapes-shape-transport-button" id="rotateButton" type="button" aria-label="Start automatic rotation" title="Auto-rotate" aria-pressed="false">
+                        <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                        <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                        <span class="sr-only" id="rotateButtonLabel">Auto-rotate</span>
+                      </button>
+                    </div>
+                  </div>
+                  <label class="select-control shapes-engine-control" id="voiceEngineControl" for="voiceEngine">
+                    <span class="field-label">Sound</span>
+                    <span class="select-shell"><select id="voiceEngine" aria-label="Sound engine"><option value="sine">Sine</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option></select></span>
+                  </label>
+                  <label class="select-control shapes-engine-control" id="triggerSoundBankControl" for="triggerSoundBank" hidden>
+                    <span class="field-label">Percussion</span>
+                    <span class="select-shell"><select id="triggerSoundBank" aria-label="Percussion sound bank"><option value="rattlesnake" selected>Rattlesnake</option><option value="fm-kit">FM drum kit</option></select></span>
+                  </label>
+                </div>
+              </section>
+
+              <section class="shapes-rack-card shapes-reader-rack" id="readerRack" aria-labelledby="readerRackTitle">
+                <header><h3 id="readerRackTitle">Reader</h3></header>
+                <div class="shapes-reader-row">
+                  <label class="select-control shapes-reader-control" for="readerSelect">
+                    <span class="field-label">Type</span>
+                    <span class="select-shell"><select id="readerSelect"><option value="points">Points</option><option value="line">Line</option><option value="radar">Radar</option></select></span>
+                  </label>
+                  <div class="shapes-playhead-count" id="playheadStepper" role="group" aria-labelledby="playheadCountLabel">
+                    <span class="field-label" id="playheadCountLabel">Playheads</span>
+                    <div class="shapes-playhead-stepper">
+                      <button class="shapes-icon-button" id="removePlayhead" type="button" aria-label="Remove one playhead" title="Remove playhead" disabled>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14" /></svg>
+                      </button>
+                      <output id="playheadCountOut">1</output>
+                      <button class="shapes-icon-button" id="addPlayhead" type="button" aria-label="Add one playhead" title="Add playhead" disabled>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="shapes-head-layout" id="headLayoutControl" aria-disabled="true">
+                  <div class="shapes-head-layout-heading">
+                    <span class="field-label">Spacing</span>
+                    <button class="shapes-icon-button shapes-head-reset" id="resetHeadSpacing" type="button" aria-label="Reset playhead spacing" title="Equal spacing" disabled>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8V4m0 0h4M5 4l3.2 3.2A7 7 0 1 1 5 14" /></svg>
+                    </button>
+                  </div>
+                  <div class="shapes-head-layout-track" id="headLayoutTrack" role="group" aria-label="Relative playhead spacing">
+                    <button class="shapes-head-marker" id="headMarker0" type="button" role="slider" aria-label="Playhead 1 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" style="--head-offset: 0" disabled><span>1</span></button>
                   </div>
                 </div>
               </section>
 
-              <section class="shapes-rack-card shapes-motion-rack" aria-labelledby="motionRackTitle">
-                <header><span>02</span><h3 id="motionRackTitle">Shape &amp; motion</h3></header>
-                <div class="shapes-live-row">
-                  <label class="select-control" for="mainFormSelect">
-                    <span class="field-label">Form</span>
-                    <span class="select-shell"><select id="mainFormSelect"></select></span>
-                  </label>
-                  <button class="shapes-rotate-button" id="rotateButton" type="button" aria-pressed="false">
-                    <span aria-hidden="true">↻</span><span id="rotateButtonLabel">Rotate</span>
-                  </button>
-                </div>
+              <section class="shapes-rack-card shapes-shape-rack" aria-labelledby="motionRackTitle">
+                <header><h3 id="motionRackTitle">Shape</h3></header>
+                <label class="select-control shapes-main-form-control" for="mainFormSelect">
+                  <span class="field-label">Form</span>
+                  <span class="select-shell"><select id="mainFormSelect"></select></span>
+                </label>
                 <div class="shapes-knob-row" aria-label="Live shape controls">
                   <div class="shapes-knob-control" data-live-knob="a">
-                    <button class="shapes-knob" id="liveKnobA" type="button" role="slider" aria-label="Rotation" aria-valuemin="-180" aria-valuemax="180" aria-valuenow="0"><i></i></button>
-                    <span id="liveKnobALabel">Rotate</span><output id="liveKnobAOut">0°</output>
+                    <button class="shapes-knob" id="liveKnobA" type="button" role="slider" aria-label="Angle" aria-valuemin="-180" aria-valuemax="180" aria-valuenow="0"><i></i></button>
+                    <span class="shapes-knob-caption"><span id="liveKnobALabel">Angle</span><output id="liveKnobAOut">0°</output></span>
                   </div>
                   <div class="shapes-knob-control" data-live-knob="b">
-                    <button class="shapes-knob" id="liveKnobB" type="button" role="slider" aria-label="Sides" aria-valuemin="1" aria-valuemax="32" aria-valuenow="6"><i></i></button>
-                    <span id="liveKnobBLabel">Sides</span><output id="liveKnobBOut">6</output>
+                    <button class="shapes-knob" id="liveKnobB" type="button" role="slider" aria-label="Sides" aria-valuemin="1" aria-valuemax="32" aria-valuenow="4"><i></i></button>
+                    <span class="shapes-knob-caption"><span id="liveKnobBLabel">Sides</span><output id="liveKnobBOut">4</output></span>
                   </div>
                   <div class="shapes-knob-control" data-live-knob="c">
                     <button class="shapes-knob" id="liveKnobC" type="button" role="slider" aria-label="Roundness" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0"><i></i></button>
-                    <span id="liveKnobCLabel">Roundness</span><output id="liveKnobCOut">0%</output>
+                    <span class="shapes-knob-caption"><span id="liveKnobCLabel">Roundness</span><output id="liveKnobCOut">0%</output></span>
                   </div>
                 </div>
-                <label class="select-control shapes-reader-control" for="readerSelect">
-                  <span class="field-label">Reader</span>
-                  <span class="select-shell"><select id="readerSelect"><option value="points">Points</option><option value="line">Line</option><option value="radar">Radar</option></select></span>
-                </label>
               </section>
             </div>
           </section>
 
           <section class="shapes-bank" id="formBankPanel" role="tabpanel" data-bank-panel="form" aria-labelledby="formBankTab" hidden>
             <div class="shapes-bank-heading">
-              <div><span>Form</span><h2 id="formBankTitle">Topology &amp; deformation</h2></div>
-              <button class="mini-action" id="resetForm" type="button">Reset form</button>
+              <h2 id="formBankTitle">Form</h2>
+              <button class="shapes-icon-button shapes-reset-button" id="resetForm" type="button" aria-label="Reset form" title="Reset form"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8V4m0 0h4M5 4l3.2 3.2A7 7 0 1 1 5 14" /></svg></button>
             </div>
             <div class="shapes-parameter-grid">
               <label class="select-control" for="profileKind">
                 <span class="field-label">Shared profile</span>
                 <span class="select-shell"><select id="profileKind"><option value="polygon">Polygon</option><option value="star">Star</option><option value="circle">Circle</option><option value="line">Open line</option></select></span>
               </label>
-              <label class="control" for="profileSides"><span><b>Sides / points</b><output id="profileSidesOut" for="profileSides">6</output></span><input id="profileSides" type="range" min="1" max="32" step="1" value="6" /></label>
+              <label class="control" for="profileSides"><span><b>Sides / points</b><output id="profileSidesOut" for="profileSides">4</output></span><input id="profileSides" type="range" min="1" max="32" step="1" value="4" /></label>
               <label class="control" id="starDepthControl" for="starDepth"><span><b>Star depth</b><output id="starDepthOut" for="starDepth">48%</output></span><input id="starDepth" type="range" min="0.05" max="0.82" step="0.01" value="0.48" /></label>
             </div>
             <div class="shapes-dimension-form" data-dimension-form="2d">
@@ -200,21 +247,20 @@
 
           <section class="shapes-bank" id="rotationBankPanel" role="tabpanel" data-bank-panel="rotation" aria-labelledby="rotationBankTab" hidden>
             <div class="shapes-bank-heading">
-              <div><span>Rotation</span><h2 id="rotationBankTitle">Dimension-owned motion</h2></div>
-              <button class="mini-action" id="resetRotation" type="button">Reset rotation</button>
+              <h2 id="rotationBankTitle">Rotation</h2>
+              <button class="shapes-icon-button shapes-reset-button" id="resetRotation" type="button" aria-label="Reset rotation" title="Reset rotation"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8V4m0 0h4M5 4l3.2 3.2A7 7 0 1 1 5 14" /></svg></button>
             </div>
-            <p class="shapes-bank-note">Angles remain private to each dimension. Returning to a dimension restores its last orientation.</p>
             <div id="rotationControls" class="shapes-rotation-controls"></div>
           </section>
 
           <section class="shapes-bank" id="mappingBankPanel" role="tabpanel" data-bank-panel="mapping" aria-labelledby="mappingBankTab" hidden>
             <div class="shapes-bank-heading">
-              <div><span>Mapping</span><h2 id="mappingBankTitle">Voice &amp; trigger response</h2></div>
-              <button class="mini-action" id="resetMapping" type="button">Reset mapping</button>
+              <h2 id="mappingBankTitle">Mapping</h2>
+              <button class="shapes-icon-button shapes-reset-button" id="resetMapping" type="button" aria-label="Reset mapping" title="Reset mapping"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8V4m0 0h4M5 4l3.2 3.2A7 7 0 1 1 5 14" /></svg></button>
             </div>
             <div class="shapes-mapping-racks">
-              <section aria-labelledby="voiceMappingTitle">
-                <h3 id="voiceMappingTitle">Voice mapping</h3>
+              <section id="voiceMappingSection" aria-labelledby="voiceMappingTitle">
+                <h3 id="voiceMappingTitle">Voice</h3>
                 <div class="shapes-parameter-grid">
                   <label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
                   <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.0 oct</output></span><input id="pitchRange" type="range" min="0" max="7" step="0.1" value="3" /></label>
@@ -222,20 +268,21 @@
                   <label class="control" for="stereoSpread"><span><b>Stereo spread</b><output id="stereoSpreadOut" for="stereoSpread">85%</output></span><input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.85" /></label>
                 </div>
               </section>
-              <section aria-labelledby="triggerMappingTitle">
-                <h3 id="triggerMappingTitle">Trigger mapping</h3>
-                <label class="select-control" for="triggerMapping"><span class="field-label">Map</span><span class="select-shell"><select id="triggerMapping"><option value="feature">Feature</option><option value="position">Position</option><option value="incidence">Incidence</option></select></span></label>
+              <section id="triggerMappingSection" aria-labelledby="triggerMappingTitle" hidden>
+                <h3 id="triggerMappingTitle">Percussion</h3>
+                <label class="select-control" id="triggerMappingControl" for="triggerMapping" hidden><span class="field-label">FM kit assignment</span><span class="select-shell"><select id="triggerMapping"><option value="feature">Feature</option><option value="position">Position</option><option value="incidence">Incidence</option></select></span></label>
                 <div class="shapes-parameter-grid">
-                  <label class="control" for="tuningDepth"><span><b>Tuning depth</b><output id="tuningDepthOut" for="tuningDepth">12 st</output></span><input id="tuningDepth" type="range" min="0" max="24" step="1" value="12" /></label>
+                  <label class="control" for="tuningDepth"><span><b id="tuningDepthLabel">Morph range</b><output id="tuningDepthOut" for="tuningDepth">100%</output></span><input id="tuningDepth" type="range" min="0" max="24" step="1" value="12" /></label>
                   <label class="control" for="triggerCharacter"><span><b>Character depth</b><output id="triggerCharacterOut" for="triggerCharacter">70%</output></span><input id="triggerCharacter" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
                   <label class="control" for="hitCap"><span><b>Hit cap</b><output id="hitCapOut" for="hitCap">6</output></span><input id="hitCap" type="range" min="1" max="16" step="1" value="6" /></label>
                 </div>
               </section>
             </div>
+            <div class="shapes-reset-row"><button class="shapes-icon-button shapes-reset-button" id="resetAll" type="button" aria-label="Reset all Shapes controls" title="Reset all"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 8V4m0 0h4M5 4l3.2 3.2A7 7 0 1 1 5 14" /></svg></button></div>
           </section>
 
-          <details class="shapes-output-details">
-            <summary>Output &amp; diagnostics</summary>
+          <details class="shapes-output-details" hidden>
+            <summary aria-label="Output details" title="Output details"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10v.1" /></svg><span class="sr-only">Output details</span></summary>
             <dl>
               <div><dt>Route</dt><dd id="routeReadout">2D · Continuous</dd></div>
               <div><dt>Contacts</dt><dd id="contactReadout">1</dd></div>
@@ -243,11 +290,10 @@
               <div><dt>Engine</dt><dd id="engineReadout">Sine</dd></div>
             </dl>
           </details>
-          <div class="shapes-reset-row"><button class="reset-all-button" id="resetAll" type="button">Reset Shapes</button></div>
         </div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Drag horizontally to scrub. Press Space to play or pause. Use Left and Right Arrow to move the reader.</p>
+      <p class="sr-only" id="canvasInstructions">In 2D, drag on or inside the shape to move the reader; drag outside the shape to rotate it. Press Space to play or pause. Use Left and Right Arrow to move the reader.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 

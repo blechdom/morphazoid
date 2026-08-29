@@ -220,6 +220,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Builds the illusion of endlessly rising or falling pitch from overlapping octave layers.",
     "Turn on audio, choose a direction or preset, then adjust speed, density, and range.",
   ),
+  "slippery-resynthesis": define(
+    "Spectral resynthesizer",
+    "Tracks microphone or local-file audio across logarithmic FFT bands, then rebuilds it through endlessly slipping Shepard glissando banks with adaptive consonant excitation.",
+    "Choose Mic or File, turn on audio, then shape the glide, transpose, spectral tilt, carrier color, consonant detail, stereo spread, and dry/slip mix.",
+    ["Mic input", "Local file input", "Speech-detail resynthesis"],
+  ),
   "drum-roll-please": define(
     "Rhythm synth",
     "Translates the Shepard–Risset illusion into overlapping tempo octaves whose struck voices morph from kick through tom, hand drum, and air.",
@@ -341,6 +347,12 @@ const CATALOG_DETAILS = Object.freeze({
     "GPU shader synth laboratory",
     "Runs four control lanes, six adjustable synthesis models, editable additive ranks, a causal FIR, feed-forward delay taps, and waveshaping across two WGSL compute passes.",
     "Use a WebGPU-capable browser, turn on Audio, choose a theme or sequence generator, then draw pitch, pulse, timbre, and model motion directly on the stage.",
+    ["WebGPU", "Pointer", "Built-in synth"],
+  ),
+  "shader-synth-playground": define(
+    "Modular WebGPU synth",
+    "Patches typed synthesis, modulation, shaping, control, and spatial modules into an editable graph that renders stereo audio with WGSL compute shaders.",
+    "Use a WebGPU-capable browser, select a patch, turn on Audio, then select modules to change their parameters and signal routing.",
     ["WebGPU", "Pointer", "Built-in synth"],
   ),
 
@@ -665,7 +677,7 @@ const instrumentByToolId = new Map(instrumentTools.map((tool) => {
     ])]),
     tags,
     status: primaryGroup.id === "experiments" ? "Works in progress" : null,
-    imageHref: `assets/instruments/${tool.id}.webp`,
+    imageHref: tool.imageHref ?? `assets/instruments/${tool.id}.webp`,
   })];
 }));
 

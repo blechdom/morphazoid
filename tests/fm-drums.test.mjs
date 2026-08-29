@@ -251,6 +251,212 @@ test("FM drum audio gives rattles a pitched bandpass and repeated noise strikes"
   );
 });
 
+test("FM drum hits follow absolute audio time and reuse one noise buffer", async () => {
+  const buffers = [];
+  const oscillators = [];
+  const noiseSources = [];
+  const audioParam = (value = 0) => ({
+    value,
+    setValueAtTime(next) { this.value = next; },
+    linearRampToValueAtTime(next) { this.value = next; },
+    exponentialRampToValueAtTime(next) { this.value = next; },
+    setTargetAtTime(next) { this.value = next; },
+  });
+  const node = (properties = {}) => ({
+    ...properties,
+    connect(destination) { return destination; },
+  });
+  class ScheduledContext {
+    constructor() {
+      this.state = "running";
+      this.currentTime = 3;
+      this.sampleRate = 1_000;
+      this.destination = node();
+    }
+
+    createDynamicsCompressor() {
+      return node({ threshold: {}, knee: {}, ratio: {}, attack: {}, release: {} });
+    }
+
+    createGain() { return node({ gain: audioParam() }); }
+
+    createAnalyser() { return node({ fftSize: 0 }); }
+
+    createBiquadFilter() {
+      return node({ type: "", frequency: audioParam(), Q: audioParam() });
+    }
+
+    createOscillator() {
+      const oscillator = node({
+        type: "sine",
+        frequency: audioParam(),
+        starts: [],
+        stops: [],
+        start(time) { this.starts.push(time); },
+        stop(time) { this.stops.push(time); },
+      });
+      oscillators.push(oscillator);
+      return oscillator;
+    }
+
+    createBuffer(channels, frameCount, sampleRate) {
+      const buffer = {
+        channels,
+        frameCount,
+        sampleRate,
+        getChannelData: () => new Float32Array(frameCount),
+      };
+      buffers.push(buffer);
+      return buffer;
+    }
+
+    createBufferSource() {
+      const source = node({
+        buffer: null,
+        starts: [],
+        stops: [],
+        start(time) { this.starts.push(time); },
+        stop(time) { this.stops.push(time); },
+      });
+      noiseSources.push(source);
+      return source;
+    }
+  }
+
+  const audio = new FmDrumAudio({ AudioContext: ScheduledContext });
+  const noisyVoice = { ...DEFAULT_FM_DRUM_VOICES[2], noise: 0.8 };
+
+  await audio.trigger(noisyVoice, { startAt: 3.125 });
+  assert.deepEqual(oscillators.slice(0, 2).map(({ starts }) => starts), [[3.125], [3.125]]);
+  assert.deepEqual(noiseSources[0].starts, [3.125]);
+
+  audio.context.currentTime = 4;
+  await audio.trigger(noisyVoice, { startAt: 3.75 });
+  assert.deepEqual(oscillators.slice(2, 4).map(({ starts }) => starts), [[4], [4]]);
+  assert.deepEqual(noiseSources[1].starts, [4]);
+
+  audio.context.currentTime = 5;
+  await audio.trigger(noisyVoice, { startDelaySeconds: 0.075 });
+  assert.deepEqual(oscillators.slice(4, 6).map(({ starts }) => starts), [[5.075], [5.075]]);
+  assert.deepEqual(noiseSources[2].starts, [5.075]);
+
+  assert.equal(buffers.length, 1, "repeated hits should not regenerate white noise");
+  assert.equal(buffers[0].frameCount, 2_500);
+  assert.ok(noiseSources.every(({ buffer }) => buffer === buffers[0]));
+});
+
+test("FM drum silence cancels future hits and fades active sources before cleanup", async () => {
+  const audioParam = (value = 0) => ({
+    value,
+    calls: [],
+    setValueAtTime(next, time) {
+      this.value = next;
+      this.calls.push(["set", next, time]);
+    },
+    linearRampToValueAtTime(next, time) {
+      this.value = next;
+      this.calls.push(["linear", next, time]);
+    },
+    exponentialRampToValueAtTime(next, time) {
+      this.value = next;
+      this.calls.push(["exponential", next, time]);
+    },
+    cancelScheduledValues(time) { this.calls.push(["cancel", time]); },
+    cancelAndHoldAtTime(time) { this.calls.push(["hold", time]); },
+    setTargetAtTime(next) { this.value = next; },
+  });
+  const node = (properties = {}) => ({
+    disconnectCount: 0,
+    ...properties,
+    connect(destination) { return destination; },
+    disconnect() { this.disconnectCount += 1; },
+  });
+  class SilenceContext {
+    constructor() {
+      this.state = "running";
+      this.currentTime = 1;
+      this.sampleRate = 1_000;
+      this.destination = node();
+    }
+
+    createDynamicsCompressor() {
+      return node({ threshold: {}, knee: {}, ratio: {}, attack: {}, release: {} });
+    }
+
+    createGain() { return node({ gain: audioParam() }); }
+
+    createAnalyser() { return node({ fftSize: 0 }); }
+
+    createBiquadFilter() {
+      return node({ type: "", frequency: audioParam(), Q: audioParam() });
+    }
+
+    createOscillator() {
+      return node({
+        type: "sine",
+        frequency: audioParam(),
+        starts: [],
+        stops: [],
+        start(time) { this.starts.push(time); },
+        stop(time) { this.stops.push(time); },
+        onended: null,
+      });
+    }
+
+    createBuffer(_channels, frameCount) {
+      return { getChannelData: () => new Float32Array(frameCount) };
+    }
+
+    createBufferSource() {
+      return node({
+        buffer: null,
+        starts: [],
+        stops: [],
+        start(time) { this.starts.push(time); },
+        stop(time) { this.stops.push(time); },
+        onended: null,
+      });
+    }
+  }
+
+  const audio = new FmDrumAudio({ AudioContext: SilenceContext });
+  const noisyVoice = { ...DEFAULT_FM_DRUM_VOICES[2], noise: 0.8 };
+  await audio.trigger(noisyVoice, { startAt: 1 });
+  await audio.trigger(noisyVoice, { startAt: 1.5 });
+  const [activeHit, futureHit] = [...audio.activeHits];
+  assert.equal(audio.activeHits.size, 2);
+
+  audio.context.currentTime = 1.1;
+  audio.silence();
+
+  assert.equal(futureHit.cleaned, true);
+  assert.equal(audio.activeHits.has(futureHit), false);
+  assert.equal(futureHit.carrier.stops.at(-1), 1.1);
+  assert.equal(futureHit.modulator.stops.at(-1), 1.1);
+  assert.equal(futureHit.noiseLayer.source.stops.at(-1), 1.1);
+  assert.ok(futureHit.filter.disconnectCount > 0);
+  assert.ok(futureHit.amplitude.gain.calls.some(([method, , time]) => (
+    method === "set" && time === 1.1
+  )));
+
+  assert.equal(audio.activeHits.has(activeHit), true, "an audible hit remains tracked through its fade");
+  assert.equal(activeHit.carrier.stops.at(-1), 1.13);
+  assert.equal(activeHit.modulator.stops.at(-1), 1.13);
+  assert.equal(activeHit.noiseLayer.source.stops.at(-1), 1.13);
+  assert.ok(activeHit.amplitude.gain.calls.some(([method, time]) => (
+    method === "hold" && time === 1.1
+  )));
+  assert.ok(activeHit.amplitude.gain.calls.some(([method, value, time]) => (
+    method === "exponential" && value === 0.0001 && time === 1.125
+  )));
+
+  for (const source of [...activeHit.pendingSources]) source.onended();
+  assert.equal(audio.activeHits.size, 0);
+  assert.equal(activeHit.cleaned, true);
+  assert.ok(activeHit.filter.disconnectCount > 0);
+  assert.ok(activeHit.amplitude.disconnectCount > 0);
+});
+
 test("FM drum audio cancels a suspended start when page lifecycle closure wins", async () => {
   let resolveResume;
   const resumeGate = new Promise((resolve) => {

@@ -1245,7 +1245,7 @@ export class VoicePool {
    * the sustained pool, a strike cannot linger merely because a playhead is
    * parked on a corner.
    * @param {VoiceSpec} spec
-   * @param {{attackSeconds?: number, decaySeconds?: number, envelopePoints?: unknown, attackNoise?: number, startDelaySeconds?: number, retriggerMode?: "overlap"|"crossfade"|"ignore", crossfadeSeconds?: number}} [envelope]
+   * @param {{attackSeconds?: number, decaySeconds?: number, envelopePoints?: unknown, attackNoise?: number, startDelaySeconds?: number, startAt?: number, retriggerMode?: "overlap"|"crossfade"|"ignore", crossfadeSeconds?: number}} [envelope]
    */
   strike(spec, {
     attackSeconds = 0.004,
@@ -1253,6 +1253,7 @@ export class VoicePool {
     envelopePoints,
     attackNoise = 0,
     startDelaySeconds = 0,
+    startAt: requestedStartAt = null,
     retriggerMode = "overlap",
     crossfadeSeconds = 0.012,
   } = {}) {
@@ -1263,7 +1264,9 @@ export class VoicePool {
 
     const context = this.context;
     const now = context.currentTime;
-    const startAt = now + clamp(startDelaySeconds, 0, 0.05);
+    const startAt = Number.isFinite(requestedStartAt)
+      ? Math.max(now, requestedStartAt)
+      : now + clamp(startDelaySeconds, 0, 0.05);
     const key = voice.key;
     const previousStart = key ? this.lastStrikeAtByKey.get(key) : undefined;
     if (previousStart !== undefined && startAt - previousStart < 0.012) return false;

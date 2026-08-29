@@ -656,6 +656,125 @@ export function mirroredCornerPhase(path, contact) {
   return clamp(Math.abs(delta) / (edgeLength * 0.5), 0, 1);
 }
 
+/**
+ * Locate a contact within the full edge that begins at the most recently
+ * crossed corner. Unlike `mirroredCornerPhase`, this follows the contact's
+ * contour direction: phase 0 is the corner that was just crossed and phase 1
+ * is the next corner. This is the original Shape instrument's default
+ * continuous-amplitude envelope.
+ * @param {ShapePath} path
+ * @param {PathContact} contact
+ * @param {number} contourDirection
+ * @returns {{ phase: number, strength: number, edgeFraction: number }}
+ */
+export function directedCornerEnvelopeProfile(path, contact, contourDirection = 1) {
+  const cornerEpsilon = 1e-9;
+  const distances = path?.vertexDistances ?? [];
+  const totalLength = path?.totalLength ?? 0;
+  if (!distances.length || totalLength <= cornerEpsilon) {
+    return {
+      phase: 0,
+      strength: finiteOr(contact?.cornerStrength, 0),
+      edgeFraction: 1,
+    };
+  }
+
+  const distance = clamp(finiteOr(contact?.distance, 0), 0, totalLength);
+  if (contourDirection >= 0) {
+    let cornerIndex = 0;
+    for (let index = 1; index < distances.length; index += 1) {
+      if (distances[index] <= distance + cornerEpsilon) cornerIndex = index;
+      else break;
+    }
+    const start = distances[cornerIndex];
+    const end = cornerIndex + 1 < distances.length
+      ? distances[cornerIndex + 1]
+      : totalLength;
+    return {
+      phase: end - start <= cornerEpsilon
+        ? 0
+        : clamp((distance - start) / (end - start), 0, 1),
+      strength: path.cornerStrengths[cornerIndex] ?? 0,
+      edgeFraction: (end - start) / totalLength,
+    };
+  }
+
+  let cornerIndex = distances.findIndex((value) => value >= distance - cornerEpsilon);
+  let target;
+  let start;
+  if (cornerIndex < 0) {
+    cornerIndex = 0;
+    target = totalLength;
+    start = distances.at(-1);
+  } else if (cornerIndex === 0) {
+    target = 0;
+    start = path.closed ? distances.at(-1) - totalLength : 0;
+  } else {
+    target = distances[cornerIndex];
+    start = distances[cornerIndex - 1];
+  }
+  return {
+    phase: target - start <= cornerEpsilon
+      ? 0
+      : clamp((target - distance) / (target - start), 0, 1),
+    strength: path.cornerStrengths[cornerIndex] ?? 0,
+    edgeFraction: (target - start) / totalLength,
+  };
+}
+
+/**
+ * Resolve which way a 2D contact is moving along its contour. Reader velocity
+ * is measured in cycles per second and shape rotation in revolutions per
+ * second. When stopped, Line and Radar retain a unit reader intent so their
+ * two intersections can point in opposite contour directions, as in the
+ * original Shape instrument.
+ * @param {PathContact & { scanAxis?: string }} contact
+ * @param {{
+ *   reader?: 'points'|'line'|'radar',
+ *   phaseRate?: number,
+ *   rotationRate?: number,
+ *   intendedPhaseDirection?: number,
+ * }} options
+ * @returns {-1|1}
+ */
+export function shapes2dContactContourDirection(contact, {
+  reader = "points",
+  phaseRate = 0,
+  rotationRate = 0,
+  intendedPhaseDirection = 1,
+} = {}) {
+  const intendedDirection = intendedPhaseDirection < 0 ? -1 : 1;
+  if (reader === "points") {
+    return Math.abs(phaseRate) > EPSILON
+      ? Math.sign(phaseRate)
+      : intendedDirection;
+  }
+
+  let readerRate = Number.isFinite(phaseRate) ? phaseRate : 0;
+  const shapeRate = Number.isFinite(rotationRate) ? rotationRate : 0;
+  if (Math.abs(readerRate) <= EPSILON && Math.abs(shapeRate) <= EPSILON) {
+    readerRate = intendedDirection;
+  }
+
+  const axis = contact?.scanAxis ?? (reader === "radar" ? "radial" : "vertical");
+  let velocity = axis === "radial"
+    ? {
+      x: -finiteOr(contact?.y, 0) * readerRate * TAU,
+      y: finiteOr(contact?.x, 0) * readerRate * TAU,
+    }
+    : axis === "horizontal"
+      ? { x: 0, y: readerRate }
+      : { x: readerRate, y: 0 };
+  velocity = {
+    x: velocity.x + shapeRate * TAU * finiteOr(contact?.y, 0),
+    y: velocity.y - shapeRate * TAU * finiteOr(contact?.x, 0),
+  };
+  const tangentX = finiteOr(contact?.tangent?.x, 1);
+  const tangentY = finiteOr(contact?.tangent?.y, 0);
+  const alongContour = velocity.x * tangentX + velocity.y * tangentY;
+  return Math.abs(alongContour) <= EPSILON ? 1 : Math.sign(alongContour);
+}
+
 function mergeContacts(a, b, epsilon) {
   const tangentSum = { x: a.tangent.x + b.tangent.x, y: a.tangent.y + b.tangent.y };
   const mergedTangent = Math.hypot(tangentSum.x, tangentSum.y) > epsilon

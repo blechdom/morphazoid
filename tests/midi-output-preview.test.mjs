@@ -105,7 +105,6 @@ class FakeDocument {
   }
   createElement(tagName) { return new FakeNode(tagName, this); }
   querySelector(selector) {
-    if (selector === ".panel") return this.panel;
     return this.body.querySelector(selector);
   }
   querySelectorAll(selector) {
@@ -589,6 +588,33 @@ test("output-capable pages get one flow-contained live monitor and no routing co
   monitor.destroy();
   assert.equal(doc.panel.children.length, 0);
   assert.equal(runtime.listeners.get(MIDI_OUTPUT_PREVIEW_EVENT)?.length, 0);
+});
+
+test("the modular synth keeps its MIDI monitor inside the inspector grid child", () => {
+  const doc = new FakeDocument();
+  const runtime = fakeRuntime();
+  doc.body.removeChild(doc.panel);
+
+  const workspace = new FakeNode("main", doc);
+  workspace.className = "playground-workspace";
+  const moduleBrowser = new FakeNode("aside", doc);
+  moduleBrowser.className = "module-browser";
+  const workbench = new FakeNode("section", doc);
+  workbench.className = "patch-workbench";
+  const inspector = new FakeNode("aside", doc);
+  inspector.className = "node-inspector";
+  workspace.append(moduleBrowser, workbench, inspector);
+  doc.body.append(workspace);
+
+  const monitor = initializeMidiOutputMonitor(doc, runtime, {
+    routeId: "shader-synth-playground",
+    capability: { midiOutput: true },
+  });
+
+  assert.equal(workspace.children.length, 3, "the three-column workspace must not gain a second grid row");
+  assert.equal(inspector.children.at(-1), monitor.monitor);
+
+  monitor.destroy();
 });
 
 test("non-output routes and WAX hosts do not receive a duplicate browser monitor", () => {

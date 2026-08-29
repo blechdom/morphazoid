@@ -19,10 +19,14 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /href="(?:plugins|instruments|about)\.html"/);
   assert.match(html, /id="homeInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
   assert.match(html, /src="instrument-catalog-app\.js\?v=catalog-[^"]+"/);
+  assert.match(
+    html,
+    /<h1>Morphazoid<\/h1>[\s\S]*?<h2>Instrument Catalogue<\/h2>[\s\S]*?Select an instrument, turn on audio, then find its play, input, or transport control\./,
+  );
+  assert.doesNotMatch(html, /class="about-lede"|Basic operation/);
   assert.doesNotMatch(html, /manual-section-label">Browse|Instrument sections, titles, and order/);
   assert.doesNotMatch(html, /microphone input|audio files?|file instruments?/i);
   assert.doesNotMatch(html, /Select the speaker, Input/);
-  assert.match(html, /Audio defaults to "off"\./);
   assert.doesNotMatch(html, /Audio starts off\./);
   assert.doesNotMatch(html, /class="about-summary"/);
   assert.doesNotMatch(html, /class="manual-index"/);
@@ -56,7 +60,7 @@ test("Home mounts the only complete menu-ordered catalogue", async () => {
   assert.match(home, /class="mobile-instrument-select"/);
   assert.match(home, /<script type="module" src="nav\.js\?v=catalog-[^"]+"><\/script>/);
   assert.equal([home, about, catalogue].filter((html) => /data-instrument-catalog/.test(html)).length, 1);
-  assert.equal(INSTRUMENTS.length, 102);
+  assert.equal(INSTRUMENTS.length, 104);
   assert.equal(
     INSTRUMENTS.find(({ id }) => id === "escher-tessellation")?.label,
     "Escher",
@@ -86,18 +90,10 @@ test("Home mounts the only complete menu-ordered catalogue", async () => {
   assert.match(home, /Kristin Galvin/);
 });
 
-test("Home links to the standalone MIDI guide, which keeps WAX output distinct", async () => {
-  const [home, html] = await Promise.all([
-    readFile(new URL("index.html", root), "utf8"),
-    readFile(new URL("midi-guide.html", root), "utf8"),
-  ]);
+test("Standalone MIDI guide keeps WAX output distinct", async () => {
+  const html = await readFile(new URL("midi-guide.html", root), "utf8");
   const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-  assert.match(
-    home,
-    /<section class="manual-section" id="operation">[\s\S]*?id="midi"[\s\S]*?href="midi-guide\.html">MIDI Guide<\/a>/,
-  );
-  assert.doesNotMatch(home, /<section class="manual-section" id="midi">/);
   assert.match(html, /<title>MIDI Guide — Morphazoid<\/title>/);
   assert.match(html, /<body class="about-page">/);
   assert.match(html, /<h1>MIDI Guide<\/h1>/);
@@ -141,13 +137,15 @@ test("Home links to the standalone MIDI guide, which keeps WAX output distinct",
   assert.doesNotMatch(visibleText, /every page (?:generates|outputs) MIDI/i);
 });
 
-test("Home teaches explicit audio activation separately from transport and microphone input", async () => {
+test("Home gives one concise instruction before the catalogue", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-  assert.match(visibleText, /Select the speaker to arm audio/);
-  assert.match(visibleText, /On microphone instruments, start Input separately/);
-  assert.doesNotMatch(visibleText, /speaker, Input, or the page's start control/);
+  assert.match(
+    visibleText,
+    /Morphazoid Instrument Catalogue Select an instrument, turn on audio, then find its play, input, or transport control\./,
+  );
+  assert.doesNotMatch(visibleText, /Basic operation|Select the speaker to arm audio/);
 });
 
 test("legacy About and catalogue URLs redirect to the single home page", async () => {
