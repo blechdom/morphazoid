@@ -84,6 +84,7 @@ let pixelRatio = 1;
 let handles = [];
 let hotspots = [];
 let hands = [];
+let toothGapGeometry = null;
 const handPlacements = {
   left: { x: -0.62, y: 0.1 },
   right: { x: 0.62, y: 0.14 },
@@ -214,7 +215,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.audioWorklet.addModule(new URL(
-    "./src/hambone-processor.js?v=hambone-tract-20260829-3",
+    "./src/hambone-processor.js?v=hambone-tract-20260829-4",
     import.meta.url,
   ));
   const sourceNode = new AudioWorkletNode(context, "hambone-physical-model", {
@@ -305,7 +306,7 @@ const VOICE_SOUND_IDS = new Set([
   "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
 ]);
 const TEMPO_STRETCH_SOUND_IDS = new Set([
-  "pff", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
+  "pff", "whistle", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
 ]);
 
 function flashSound(soundId, velocity = 1, voiceChoice = null) {
@@ -640,6 +641,8 @@ function buildSequenceGrid() {
   const grid = $("sequenceGrid");
   grid.replaceChildren();
   grid.style.setProperty("--hambone-sequence-steps", String(sequenceLength));
+  grid.style.setProperty("--hambone-sequence-sounds", String(HAMBONE_SOUNDS.length));
+  grid.setAttribute("aria-rowcount", String(HAMBONE_SOUNDS.length));
   grid.setAttribute("aria-colcount", String(sequenceLength));
   const headerRow = document.createElement("div");
   headerRow.className = "hambone-grid-header-row";
@@ -725,7 +728,7 @@ function setSequenceLength(value, { announceState = true } = {}) {
   buildSequenceGrid();
   $("sequenceGrid").setAttribute(
     "aria-label",
-    `Twenty-four Hambone sounds by ${sequenceLength} sequence steps. Only one sound can occupy each step.`,
+    `${HAMBONE_SOUNDS.length} Hambone sounds by ${sequenceLength} sequence steps. Only one sound can occupy each step.`,
   );
   $("playState").textContent = `space · ${sequenceLength} steps`;
   if (announceState) announce(`Sequence length: ${sequenceLength} steps`);
@@ -1303,6 +1306,11 @@ function activeMotion(now, physicalStatus = physicalTelemetryStatus(now)) {
       Math.exp(-Math.abs(phase - 0.48) * 19),
     );
     if (animation.soundId === "pff") envelope *= 0.62 + Math.sin(phase * 44) * 0.28;
+    if (animation.soundId === "whistle") {
+      const attack = Math.min(1, phase * 13);
+      const release = Math.min(1, (1 - phase) * 6);
+      envelope = attack * release * (0.9 + Math.sin(phase * 54) * 0.06);
+    }
     if (animation.soundId === "kick") envelope = Math.exp(-phase * 6.2);
     if (animation.soundId === "slap" || animation.soundId === "smack") {
       // Show the whole trip into and back out of the cheek. The acoustic
@@ -1354,6 +1362,7 @@ function flushVisualQueue(now) {
       shack: 340,
       slap: 270,
       pff: 520,
+      whistle: 1080,
       kick: 360,
       smack: 285,
       hee: 430,
@@ -1465,8 +1474,64 @@ function drawAirPlume(context, layout, motion, now) {
   context.restore();
 }
 
+function drawToothWhistleJet(context, layout, motion, now) {
+  const amount = motion.whistle ?? 0;
+  if (amount < 0.008 || !toothGapGeometry) return;
+  const gap = toothGapGeometry;
+  const sourceX = gap.x;
+  const sourceY = gap.y + gap.height * 0.46;
+  const jetLength = layout.rx * (0.92 + amount * 0.5);
+  context.save();
+  context.globalCompositeOperation = "screen";
+  context.lineCap = "round";
+
+  const glowRadius = Math.max(9, gap.width * (0.82 + amount * 0.65));
+  const glow = context.createRadialGradient(sourceX, sourceY, 0, sourceX, sourceY, glowRadius);
+  glow.addColorStop(0, `rgba(247, 220, 106, ${0.54 + amount * 0.38})`);
+  glow.addColorStop(0.28, `rgba(101, 223, 232, ${0.24 + amount * 0.34})`);
+  glow.addColorStop(1, "rgba(101, 223, 232, 0)");
+  context.fillStyle = glow;
+  context.beginPath();
+  context.arc(sourceX, sourceY, glowRadius, 0, Math.PI * 2);
+  context.fill();
+
+  for (let lane = -2; lane <= 2; lane += 1) {
+    const laneOffset = lane * Math.max(0.8, gap.height * 0.085);
+    const gradient = context.createLinearGradient(sourceX, sourceY, sourceX + jetLength, sourceY);
+    gradient.addColorStop(0, `rgba(247, 220, 106, ${amount * (0.66 - Math.abs(lane) * 0.08)})`);
+    gradient.addColorStop(0.32, `rgba(101, 223, 232, ${amount * (0.5 - Math.abs(lane) * 0.055)})`);
+    gradient.addColorStop(1, "rgba(101, 223, 232, 0)");
+    context.strokeStyle = gradient;
+    context.lineWidth = Math.max(0.7, 2.6 - Math.abs(lane) * 0.48) * (0.72 + amount * 0.34);
+    context.beginPath();
+    context.moveTo(sourceX, sourceY + laneOffset);
+    for (let segment = 1; segment <= 12; segment += 1) {
+      const progress = segment / 12;
+      const whistleWave = Math.sin(now * 0.034 + progress * 15 + lane * 0.9)
+        * (0.6 + progress * 2.8) * amount;
+      context.lineTo(
+        sourceX + jetLength * progress,
+        sourceY + laneOffset * (1 + progress * 0.38) + whistleWave,
+      );
+    }
+    context.stroke();
+  }
+
+  for (let particle = 0; particle < 9; particle += 1) {
+    const phase = (particle / 9 + now * 0.00068) % 1;
+    const x = sourceX + jetLength * phase;
+    const y = sourceY + Math.sin(now * 0.026 + phase * 17 + particle) * (1 + phase * 4);
+    context.fillStyle = `rgba(247, 220, 106, ${amount * (1 - phase) * 0.58})`;
+    context.beginPath();
+    context.arc(x, y, 0.8 + (1 - phase) * 1.3, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.restore();
+}
+
 function drawFace(context, layout, pose, motion, now) {
   const { cx, cy, rx, ry, mouthY, opening } = layout;
+  const whistle = motion.whistle ?? 0;
   const slap = Math.max(motion.slap, motion.smack * 0.34);
   const smack = motion.smack;
   const pop = motion.pop;
@@ -1794,6 +1859,7 @@ function drawFace(context, layout, pose, motion, now) {
     motion.mwah * 0.9,
     motion.drr * 0.58,
     motion.burp * 0.86,
+    whistle * 0.34,
     motion.aah * 0.94,
     motion.ooh * 0.88,
     motion.wail,
@@ -1809,6 +1875,7 @@ function drawFace(context, layout, pose, motion, now) {
     + motion.doo * 0.8
     + motion.mwah * 0.95
     + motion.burp * 0.3
+    + whistle * 0.72
     + motion.ooh * 1.05
     + motion.hum * 0.88;
   const spreadGesture = motion.shh * 0.48
@@ -1829,7 +1896,8 @@ function drawFace(context, layout, pose, motion, now) {
     + motion.wail * Math.sin(now * 0.034)
     + motion.yodel * Math.sign(Math.sin(now * 0.022)) * 0.58
     + motion.growl * Math.sin(now * 0.058 + Math.sin(now * 0.017))
-    + motion.rattle * Math.sin(now * 0.092))
+    + motion.rattle * Math.sin(now * 0.092)
+    + whistle * Math.sin(now * 0.052) * 0.1)
     * (0.08 + state.silliness * 0.06);
   const lipDiameterCm = Number(pose.lipDiameterCm);
   const physicalLipAperture = Number.isFinite(lipDiameterCm)
@@ -1945,30 +2013,79 @@ function drawFace(context, layout, pose, motion, now) {
   context.fill();
   context.stroke();
 
-  // Teeth act as the sh-noise obstacle.
-  if (liveOpening > 5) {
-    const teethX = cx - mouthWidth * 0.64;
-    const teethY = mouthY - liveOpening * 0.72;
-    const teethWidth = mouthWidth * 1.28;
-    const teethHeight = Math.max(2, liveOpening * 0.3);
-    const toothCount = Math.round(clamp(mouthWidth / 24, 6, 12));
-    roundedRect(context, teethX, teethY, teethWidth, teethHeight, Math.min(4, teethHeight * 0.22));
-    context.save();
-    context.clip();
-    context.fillStyle = "rgba(244, 238, 233, 0.78)";
-    context.fill();
-    context.strokeStyle = "rgba(91, 34, 51, 0.34)";
-    context.lineWidth = 0.8;
-    for (let tooth = 1; tooth < toothCount; tooth += 1) {
-      const progress = tooth / toothCount;
-      const toothX = teethX + teethWidth * progress;
-      const skew = Math.sin(progress * Math.PI * 3 + clownEnergy) * teethHeight * 0.08;
+  // These are discrete upper teeth, not a white strip with separator marks.
+  // One entire front-incisor cell is never drawn: the actual cavity behind it
+  // remains visible and becomes Hambone's pressure-whistle nozzle.
+  const teethX = cx - mouthWidth * 0.64;
+  const teethY = mouthY - liveOpening * 0.72;
+  const teethWidth = mouthWidth * 1.28;
+  const teethHeight = Math.max(3, liveOpening * 0.31);
+  const estimatedToothCount = Math.round(clamp(mouthWidth / 23, 8, 12));
+  const toothCount = estimatedToothCount % 2 === 0
+    ? estimatedToothCount
+    : Math.min(12, estimatedToothCount + 1);
+  const toothCellWidth = teethWidth / toothCount;
+  const missingFrontIncisor = toothCount / 2;
+  toothGapGeometry = {
+    x: teethX + (missingFrontIncisor + 0.5) * toothCellWidth,
+    y: teethY,
+    width: toothCellWidth,
+    height: teethHeight,
+  };
+
+  if (liveOpening > 3) {
+    const toothFill = context.createLinearGradient(0, teethY, 0, teethY + teethHeight);
+    toothFill.addColorStop(0, "rgba(255, 252, 231, 0.94)");
+    toothFill.addColorStop(1, "rgba(224, 210, 181, 0.84)");
+    for (let tooth = 0; tooth < toothCount; tooth += 1) {
+      if (tooth === missingFrontIncisor) continue;
+      const progress = (tooth + 0.5) / toothCount;
+      const inset = clamp(toothCellWidth * 0.075, 0.65, 1.6);
+      const toothX = teethX + tooth * toothCellWidth + inset;
+      const width = toothCellWidth - inset * 2;
+      const centrality = 1 - Math.min(1, Math.abs(progress - 0.5) * 2);
+      const height = teethHeight * (0.86 + centrality * 0.14);
+      const lean = Math.sin(progress * Math.PI * 3 + clownEnergy) * height * 0.06;
+      const corner = Math.min(3.2, width * 0.16, height * 0.24);
       context.beginPath();
-      context.moveTo(toothX + skew, teethY);
-      context.lineTo(toothX - skew, teethY + teethHeight);
+      context.moveTo(toothX + lean, teethY);
+      context.lineTo(toothX + width + lean, teethY);
+      context.lineTo(toothX + width - lean, teethY + height - corner);
+      context.quadraticCurveTo(
+        toothX + width * 0.78 - lean,
+        teethY + height + corner * 0.2,
+        toothX + width * 0.5 - lean,
+        teethY + height,
+      );
+      context.quadraticCurveTo(
+        toothX + width * 0.22 - lean,
+        teethY + height + corner * 0.2,
+        toothX - lean,
+        teethY + height - corner,
+      );
+      context.closePath();
+      context.fillStyle = toothFill;
+      context.fill();
+      context.strokeStyle = "rgba(91, 34, 51, 0.5)";
+      context.lineWidth = 0.85;
       context.stroke();
     }
-    context.restore();
+
+    // A small gum socket contour makes the missing incisor legible even when
+    // the mouth is moving, while leaving the gap itself as untouched cavity.
+    const gapLeft = toothGapGeometry.x - toothCellWidth * 0.42;
+    const gapRight = toothGapGeometry.x + toothCellWidth * 0.42;
+    context.strokeStyle = `rgba(255, 111, 121, ${0.56 + whistle * 0.36})`;
+    context.lineWidth = 1.1 + whistle * 1.4;
+    context.beginPath();
+    context.moveTo(gapLeft, teethY + 0.5);
+    context.quadraticCurveTo(
+      toothGapGeometry.x,
+      teethY + teethHeight * 0.22,
+      gapRight,
+      teethY + 0.5,
+    );
+    context.stroke();
   }
 
   // Tongue body and curled tip.
@@ -2088,9 +2205,16 @@ function buildHitGeometry(layout, pose) {
   const { cx, cy, rx, ry, mouthY, opening } = layout;
   const hitRadius = clamp(Math.min(rx, ry) * 0.09, 12, 22);
   const mouthReach = rx * clamp(0.6 + pose.lipRounding * 0.1, 0.16, 0.96);
+  const whistleGap = toothGapGeometry ?? {
+    x: cx + mouthReach * 0.065,
+    y: mouthY - opening * 0.7,
+    width: hitRadius,
+    height: Math.max(4, opening * 0.3),
+  };
   hotspots = [
     { soundId: "slap", label: "SLAP", color: hamboneSound("slap").color, x: cx - rx * 0.7, y: cy + ry * 0.1, r: hitRadius * 1.35, labelSide: -1 },
     { soundId: "pop", label: "POP", color: hamboneSound("pop").color, x: cx + rx * 0.7, y: cy + ry * 0.1, r: hitRadius * 1.35, labelSide: 1 },
+    { soundId: "whistle", label: "FWEE", color: hamboneSound("whistle").color, x: whistleGap.x, y: whistleGap.y + whistleGap.height * 0.52, r: hitRadius * 0.92, labelSide: -1, labelDy: -48, compact: true },
     { soundId: "bop", label: "BOP", color: hamboneSound("bop").color, x: cx - mouthReach * 0.55, y: mouthY - opening * 0.58, r: hitRadius, labelSide: -1, labelDy: -30, compact: true },
     { soundId: "boop", label: "BOOP", color: hamboneSound("boop").color, x: cx + mouthReach * 0.55, y: mouthY - opening * 0.36, r: hitRadius, labelSide: 1, labelDy: -30, compact: true },
     { soundId: "pff", label: hamboneSound("pff").label, color: hamboneSound("pff").color, x: cx - mouthReach * 0.62, y: mouthY + opening * 0.58, r: hitRadius, labelSide: -1, labelDy: 30, compact: true },
@@ -2358,6 +2482,7 @@ function drawStage(now = performance.now()) {
   drawBackground(drawing, cssWidth, cssHeight, now, motion);
   drawAirPlume(drawing, layout, motion, now);
   drawFace(drawing, layout, pose, motion, now);
+  drawToothWhistleJet(drawing, layout, motion, now);
   drawWaveform(drawing, layout);
   buildHitGeometry(layout, pose);
   for (const hotspot of hotspots) drawHotspot(drawing, hotspot, motion[hotspot.soundId] ?? 0);

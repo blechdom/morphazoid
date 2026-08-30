@@ -6,12 +6,12 @@
     <meta name="theme-color" content="#080507" />
     <meta
       name="description"
-      content="Hambone is a shape-shifting face-percussion and beatbox physical model with 24 playable gestures, mutable voice collections, and sequences up to 64 steps."
+      content="Hambone is a shape-shifting face-percussion and beatbox physical model with 25 playable gestures, mutable voice collections, and sequences up to 64 steps."
     />
     <title>Hambone · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hambone.css?v=hambone-20260829-5" />
+    <link rel="stylesheet" href="hambone.css?v=hambone-20260829-6" />
   </head>
   <body class="hambone-page">
     <header class="masthead">
@@ -60,10 +60,10 @@
             <canvas
               id="stage"
               tabindex="0"
-              aria-label="A fully mutable beatbox face. Drag either eye, the nose, either ear, and both slap hands to shape strong effects and percussion; tap a mouth zone or sound pad to play one of twenty-four face, throat, and mouth gestures."
+              aria-label="A fully mutable beatbox face missing one upper front tooth. Drag either eye, the nose, either ear, and both slap hands to shape strong effects and percussion; tap the front-tooth gap or another mouth zone to play one of twenty-five face, throat, and mouth gestures."
               aria-describedby="canvasInstructions liveStatus"
             >
-              A playable mutable face with draggable eyes, nose, ears, two slap hands, mouth anatomy, and resonant face percussion.
+              A playable mutable face with a whistling front-tooth gap, draggable eyes, nose, ears, two slap hands, mouth anatomy, and resonant face percussion.
             </canvas>
 
             <div class="hambone-stage-heading" aria-hidden="true">
@@ -103,7 +103,7 @@
             </div>
 
             <div class="hambone-sequence-title">
-              <p>24 SOUNDS · ANY LENGTH 1–64</p>
+              <p>25 SOUNDS · ANY LENGTH 1–64</p>
               <h2 id="sequencerTitle">Sequence the mutable face</h2>
             </div>
 
@@ -128,7 +128,7 @@
             </label>
           </header>
 
-          <div class="hambone-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable twenty-four-sound sequence with any length from one to sixty-four steps">
+          <div class="hambone-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable twenty-five-sound sequence with any length from one to sixty-four steps">
             <p class="hambone-face-guide">
               <b>MOVE THE WHOLE FACE</b><span>Each preset loads its own face effects. Drag the eyes, nose, and ears for stronger live changes; drag either hand to slap a resonant zone.</span>
             </p>
@@ -136,8 +136,8 @@
               class="hambone-sequence-grid"
               id="sequenceGrid"
               role="grid"
-              aria-label="Twenty-four Hambone face, throat, and mouth sounds by thirty-two sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
-              aria-rowcount="24"
+              aria-label="Twenty-five Hambone face, throat, and mouth sounds by thirty-two sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
+              aria-rowcount="25"
               aria-colcount="32"
             ></div>
           </div>
@@ -187,11 +187,11 @@
 
         <section class="hambone-pad-section" aria-labelledby="padBankTitle">
           <header class="hambone-pad-heading">
-            <p>24 PHYSICAL GESTURES</p>
+            <p>25 PHYSICAL GESTURES</p>
             <h2 id="padBankTitle">Mouth, throat &amp; face</h2>
-            <small>Now with AAH · OOH · WAIL · YODEL · GROWL · HOLLER · HUM · RATTLE</small>
+            <small>Now with FWEE tooth-gap whistle · AAH · OOH · WAIL · YODEL · GROWL · HOLLER · HUM · RATTLE</small>
           </header>
-          <div class="hambone-pad-bank" id="padGrid" aria-label="Twenty-four playable Hambone sound pads in a four-column grid"></div>
+          <div class="hambone-pad-bank" id="padGrid" aria-label="Twenty-five playable Hambone sound pads in a four-column grid"></div>
         </section>
 
         <div class="hambone-model-hud" aria-live="polite">
@@ -312,7 +312,7 @@
         <details class="group control-section hambone-model-notes" data-section="output">
           <summary class="group-summary">
             <h2 class="group-title">What is physical here?</h2>
-            <span class="section-state">full face · 24 sequential sounds</span>
+            <span class="section-state">full face · 25 sequential sounds</span>
           </summary>
           <div class="group-body">
             <p><b>One tract</b> resamples Pink Trombone / Throatazoid's 44-point mouth geometry into a continuously moving, variable-length oral waveguide. Its travelling air waves persist as every new gesture reshapes that same mouth.</p>
@@ -322,6 +322,7 @@
             <p><b>SLAP / SMACK / KICK</b> send clap-like palm-and-finger contact clusters or a low body impulse through the compliant cheek branch. Moving either hand changes the struck cavity, brightness, timing, and face resonance.</p>
             <p><b>HEE / HAW / DOO</b> reverse airflow across a brief fold pulse, open the jaw, or tune a rounded voiced tube with the dedicated pitch control.</p>
             <p><b>MWAH / DRR / BURP / PFRR</b> use sealed suction, a pressure-driven tongue-tip valve, irregular low folds, or a sustained pressure-feedback lip roll—never sample playback.</p>
+            <p><b>FWEE</b> sends stored pressure through Hambone's one missing upper incisor. The narrow tooth gap forms the focused air jet and resonant whistle cavity; tap the gap itself to play it.</p>
             <p><b>AAH / OOH / WAIL / YODEL / GROWL / HOLLER / HUM / RATTLE</b> open the throat into wider vowel areas, vibrato, register breaks, false-fold roughness, and sustained resonant tissue motion.</p>
             <p><b>VOICE COLLECTIONS</b> hold up to eight alternate fold and tract characters. Solo one, cycle predictably, or choose randomly; only one character drives the persistent mouth for each event.</p>
             <p><b>NOSE / EARS / EYES</b> expose the velum and nasal branch, unequal stereo propagation delays, and a strong bounded cross-fed room. Every preset supplies useful defaults, then the face and live sliders push them much further.</p>
@@ -333,7 +334,7 @@
     </main>
 
     <p class="sr-only" id="canvasInstructions">
-      Tap a labeled face zone or use the displayed pad shortcuts to play one of twenty-four face, throat, and mouth sounds.
+      Tap the labeled missing-front-tooth gap, another face zone, or a displayed pad shortcut to play one of twenty-five face, throat, and mouth sounds.
       Drag the left and right hands onto different cheeks, jaw, forehead, or mouth zones for resonant slaps.
       Drag either eye to shape reverb, the nose up or down to change nasal tone, and either ear outward to
       change stereo spread and delay. Face presets supply defaults for those effects, and dragging tweaks them live.
@@ -344,6 +345,6 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
-    <script type="module" src="hambone-app.js?v=hambone-20260829-7"></script>
+    <script type="module" src="hambone-app.js?v=hambone-20260829-8"></script>
   </body>
 </html>

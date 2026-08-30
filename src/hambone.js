@@ -78,6 +78,24 @@ export const HAMBONE_TRACT_LANDMARKS = Object.freeze({
   lips: HAMBONE_TRACT_SECTION_COUNT - 1,
 });
 
+// Hambone is missing his upper-left central incisor. The dimensions describe
+// the anatomical vacancy and the much smaller tongue-to-gap air slot that is
+// actually used to whistle. The jet is generated immediately behind the
+// dental edge and is injected into the anterior cells of the same oral tube.
+export const HAMBONE_TOOTH_GAP_ANATOMY = Object.freeze({
+  missingTooth: "upper-left central incisor",
+  crownGapWidthCm: 0.86,
+  crownGapHeightCm: 1.04,
+  jetSlotHeightCm: 0.072,
+  jetSlotAreaCm2: 0.06192,
+  edgeAngleDegrees: 34,
+  canonicalOralSection: 40.5,
+  baseImpingementLengthM: 0.00165,
+  airDensityKgM3: 1.204,
+  maximumOralPressurePa: 1_650,
+  strouhalNumbers: Object.freeze([0.14, 0.2, 0.27]),
+});
+
 export const HAMBONE_GESTURE_CHANNELS = Object.freeze([
   "poseMix",
   "pressure",
@@ -99,6 +117,7 @@ export const HAMBONE_GESTURE_CHANNELS = Object.freeze([
   "tongueTrill",
   "throatRattle",
   "registerLift",
+  "toothJet",
 ]);
 
 export const HAMBONE_SOUNDS = Object.freeze([
@@ -317,6 +336,15 @@ export const HAMBONE_SOUNDS = Object.freeze([
     family: "rough-vocal",
     color: "#e46fbd",
     description: "A compliant uvular and epiglottal-region flap self-oscillates in the pressure-driven throat.",
+  }),
+  Object.freeze({
+    id: "whistle",
+    label: "FWEE",
+    subtitle: "missing-tooth whistle",
+    key: "g",
+    family: "tooth-whistle",
+    color: "#ff73a9",
+    description: "A focused tongue jet catches the edge of Hambone's missing upper front tooth and whistles through the living oral tube.",
   }),
 ]);
 
@@ -851,6 +879,27 @@ export const HAMBONE_PATTERNS = Object.freeze([
       kick: phraseRow([[15, 0.86]], [[15, 0.9]], [[15, 0.94]], [[15, 1]]),
     }),
   }),
+  Object.freeze({
+    id: "gap-tooth-fwee",
+    label: "Gap-tooth FWEE",
+    rows: freezePatternRows({
+      whistle: phraseRow(
+        [[1, 0.58], [5, 0.78], [11, 0.92]],
+        [[2, 0.68], [7, 0.86], [13, 1]],
+        [[1, 0.76], [6, 0.9], [10, 0.64], [14, 1]],
+        [[3, 0.82], [8, 0.7], [12, 0.94], [15, 1]],
+      ),
+      kick: phraseRow(
+        [[0, 0.9], [8, 0.82]], [[0, 0.94], [8, 0.88]],
+        [[0, 0.9], [8, 0.84]], [[0, 1], [10, 0.88]],
+      ),
+      tlik: phraseRow(
+        [[3, 0.44], [13, 0.58]], [[4, 0.5], [11, 0.62]],
+        [[3, 0.54], [12, 0.66]], [[5, 0.58], [14, 0.7]],
+      ),
+      slap: phraseRow([[7, 0.68]], [[10, 0.74]], [[9, 0.78]], [[6, 0.82]]),
+    }),
+  }),
 ]);
 
 export function hambonePattern(id) {
@@ -924,6 +973,7 @@ export function randomizePattern(random = Math.random, density = 0.22) {
     "bop", "bop", "boop", "pop", "tlik", "shh", "shack", "slap", "pff",
     "kick", "kick", "smack", "hee", "haw", "doo", "mwah", "drr", "burp",
     "aah", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
+    "whistle", "whistle",
   ]);
   for (let step = 0; step < HAMBONE_STEP_COUNT; step += 1) {
     const downbeatBias = step % 4 === 0 ? 0.15 : 0;
@@ -1496,6 +1546,11 @@ const SOUND_POSES = Object.freeze({
     cheekVolume: 1.08, cheekTension: 0.02, tonguePosition: -0.24,
     tongueCurl: 0.7, tractLengthM: 0.25,
   }),
+  whistle: freezeSettings({
+    mouthOpening: 0.12, lipRounding: 0.62, lipTension: 0.92,
+    cheekVolume: 0.38, cheekTension: 0.68, tonguePosition: 1.34,
+    tongueCurl: 1.08, nasalMix: 0.015,
+  }),
 });
 
 // Canonical Pink Trombone vowel geometry. These acoustic keyframes move the
@@ -1511,6 +1566,7 @@ const SOUND_ACOUSTIC_POSES = Object.freeze({
   holler: freezeSettings({ tongueBodyIndex: 13, tongueBodyDiameterCm: 2.4, lipDiameterCm: 3 }),
   hum: freezeSettings({ tongueBodyIndex: 23, tongueBodyDiameterCm: 2.1, lipDiameterCm: 0.5 }),
   rattle: freezeSettings({ tongueBodyIndex: 13, tongueBodyDiameterCm: 2.4, lipDiameterCm: 2.6 }),
+  whistle: freezeSettings({ tongueBodyIndex: 26.2, tongueBodyDiameterCm: 1.7, lipDiameterCm: 0.42 }),
 });
 
 const freezeGestureCurve = (points) => Object.freeze(points.map(([phase, value]) => (
@@ -1538,6 +1594,7 @@ const GESTURE_CURVE_DEFAULTS = Object.freeze({
   tongueTrill: Object.freeze([[0, 0], [1, 0]]),
   throatRattle: Object.freeze([[0, 0], [1, 0]]),
   registerLift: Object.freeze([[0, 0], [1, 0]]),
+  toothJet: Object.freeze([[0, 0], [1, 0]]),
 });
 
 const defineHamboneGesture = (id, label, curves) => Object.freeze({
@@ -1831,6 +1888,19 @@ export const HAMBONE_GESTURE_TRAJECTORIES = Object.freeze({
     aspiration: [[0, 0.14], [0.04, 0.48], [0.86, 0.4], [0.96, 0], [1, 0]],
     throatRattle: [[0, 0], [0.045, 0.62], [0.14, 1], [0.86, 0.94], [0.96, 0.03], [1, 0]],
   }),
+  whistle: defineHamboneGesture("whistle", "missing-incisor edge whistle", {
+    poseMix: [[0, 0], [0.045, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0.03], [0.05, 0.58], [0.16, 0.92], [0.86, 0.8], [0.96, 0.04], [1, 0]],
+    tongueContact: [[0, 0.04], [0.08, 0.26], [0.88, 0.24], [0.96, 0], [1, 0]],
+    constrictionPosition: [[0, 0.91], [1, 0.91]],
+    constriction: [[0, 0.05], [0.08, 0.54], [0.88, 0.5], [0.96, 0], [1, 0]],
+    velum: [[0, 0.015], [0.12, 0.025], [0.9, 0.018], [1, 0.01]],
+    turbulence: [[0, 0.01], [0.06, 0.18], [0.9, 0.12], [0.97, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.12, 0.08], [0.86, 0.04], [0.96, 0], [1, 0]],
+    jawImpulse: [[0, 0.02], [0.08, 0.16], [0.86, 0.12], [0.96, 0], [1, 0]],
+    aspiration: [[0, 0.05], [0.05, 0.5], [0.18, 0.34], [0.88, 0.28], [0.97, 0], [1, 0]],
+    toothJet: [[0, 0], [0.03, 0], [0.045, 0.5], [0.14, 1], [0.88, 0.92], [0.96, 0.02], [1, 0]],
+  }),
 });
 
 export function sampleHamboneGestureCurve(points, normalizedPhase) {
@@ -1889,6 +1959,8 @@ export function physicalVoiceParameters(
         ? 1.24
         : sound.id === "rattle"
           ? 1.08
+          : sound.id === "whistle"
+            ? 1.12
           : 1;
   const pressure = clamp(
     state.lungPressure * (0.34 + velocityAmount * 0.82) * pressureScale,
@@ -1902,10 +1974,11 @@ export function physicalVoiceParameters(
     doo: 0.28, mwah: 0.24, drr: 0.31, burp: 0.42,
     aah: 0.56, ooh: 0.58, wail: 0.68, yodel: 0.72,
     growl: 0.62, holler: 0.52, hum: 0.58, rattle: 0.6,
+    whistle: 0.74,
   };
   durationBySound.pff = 0.32;
   const tempoAwareSounds = new Set([
-    "pff", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
+    "pff", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle", "whistle",
   ]);
   const tempoStepSeconds = 15 / state.tempo;
   const baseDuration = durationBySound[sound.id];
@@ -1932,6 +2005,7 @@ export function physicalVoiceParameters(
     holler: 1.28,
     hum: 0.68,
     rattle: 0.52,
+    whistle: 1,
   };
   const glottalRatio = glottalRatioBySound[sound.id]
     ?? (sound.id === "boop" ? 0.72 : 1);
@@ -1953,6 +2027,29 @@ export function physicalVoiceParameters(
   const flutterBase = 18 + state.lipTension * 38 + pressure * 10;
   const membraneBase = 92 + state.cheekTension * 250 + (1 - state.cheekVolume) * 120;
   const noiseCenterBase = 1_100 + state.tonguePosition * 3_500 + state.tongueCurl * 1_200;
+  const toothJetLengthScale = clamp(
+    voice.tractScale
+      + state.lipRounding * 0.12
+      - state.tonguePosition * 0.095
+      + state.tongueCurl * 0.055,
+    0.58,
+    1.72,
+  ) * 2 ** (-voice.pitchOffsetSemitones / 48);
+  const toothJetSlotHeightCm = clamp(
+    HAMBONE_TOOTH_GAP_ANATOMY.jetSlotHeightCm * (
+      0.72
+      + state.mouthOpening * 0.34
+      - state.lipTension * 0.12
+      + state.tongueCurl * 0.08
+    ),
+    0.026,
+    0.16,
+  );
+  const toothJetImpingementLengthM = clamp(
+    HAMBONE_TOOTH_GAP_ANATOMY.baseImpingementLengthM * toothJetLengthScale,
+    0.00072,
+    0.0038,
+  );
   return Object.freeze({
     soundId: sound.id,
     family: sound.family,
@@ -2038,6 +2135,15 @@ export function physicalVoiceParameters(
       52,
     ),
     irregularity: sound.id === "burp" ? clamp(0.62 + state.silliness * 0.36) : 0,
+    toothGapCanonicalSection: HAMBONE_TOOTH_GAP_ANATOMY.canonicalOralSection,
+    toothGapWidthCm: HAMBONE_TOOTH_GAP_ANATOMY.crownGapWidthCm,
+    toothGapHeightCm: HAMBONE_TOOTH_GAP_ANATOMY.crownGapHeightCm,
+    toothJetSlotHeightCm,
+    toothJetAreaCm2: HAMBONE_TOOTH_GAP_ANATOMY.crownGapWidthCm * toothJetSlotHeightCm,
+    toothEdgeAngleDegrees: HAMBONE_TOOTH_GAP_ANATOMY.edgeAngleDegrees,
+    toothJetImpingementLengthM,
+    toothWhistleMaximumPressurePa: HAMBONE_TOOTH_GAP_ANATOMY.maximumOralPressurePa,
+    toothWhistleStrouhalNumbers: HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers,
     silliness: state.silliness,
     lipTension: state.lipTension,
     cheekTension: state.cheekTension,

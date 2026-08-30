@@ -1,5 +1,6 @@
 import {
   HAMBONE_DEFAULTS,
+  HAMBONE_TOOTH_GAP_ANATOMY,
   HAMBONE_TRACT_SECTION_COUNT,
   hamboneGestureFrame,
   hamboneSound,
@@ -61,6 +62,7 @@ const RELEASE_PHASES = Object.freeze({
   holler: 0.035,
   hum: 0.045,
   rattle: 0.04,
+  whistle: 0.045,
 });
 
 const LIVE_PREPARATION_SECONDS = Object.freeze({
@@ -88,6 +90,7 @@ const LIVE_PREPARATION_SECONDS = Object.freeze({
   holler: 0.012,
   hum: 0.016,
   rattle: 0.014,
+  whistle: 0.016,
 });
 
 const finite = (value, fallback = 0) => (
@@ -495,7 +498,8 @@ class CompliantCheekBranch {
     const pneumaticGesture = frame?.soundId === "bop"
       || frame?.soundId === "boop"
       || frame?.soundId === "shh"
-      || frame?.soundId === "pff";
+      || frame?.soundId === "pff"
+      || frame?.soundId === "whistle";
     const lungScale = pneumaticGesture
       ? clamp(finite(configuration.lungPressure, 0) / HAMBONE_DEFAULTS.lungPressure)
       : 1;
@@ -825,6 +829,146 @@ class PressureDrivenThroatValve {
   }
 }
 
+// A wall-impingement edge tone at the missing incisor. Bernoulli flow sets
+// jet speed and f = St*u/x sets the coherent edge-tone frequency. The source
+// is pressure-thresholded, hysteretic between jet modes, and is injected into
+// the anterior oral delay line below; it is not an output-side oscillator or
+// filter. Local oral pressure feeds back into the jet so the living tube can
+// pull and roughen the tone.
+class PressureDrivenToothGapJet {
+  constructor(rate) {
+    this.rate = rate;
+    this.substepRate = rate * SUBSTEPS;
+    this.mode = 1;
+    this.phase = 0;
+    this.amplitude = 0;
+    this.noiseMemory = 0;
+    this.jetSpeedMps = 0;
+    this.frequencyHz = 0;
+    this.impingementLengthM = HAMBONE_TOOTH_GAP_ANATOMY.baseImpingementLengthM;
+    this.strouhalNumber = HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers[1];
+    this.flow = 0;
+  }
+
+  _updateMode(control) {
+    if (this.mode === 0 && control > 0.34) this.mode = 1;
+    if (this.mode === 1 && control < 0.24) this.mode = 0;
+    if (this.mode === 1 && control > 0.72) this.mode = 2;
+    if (this.mode === 2 && control < 0.58) this.mode = 1;
+  }
+
+  advance(frame, plan, localOralPressure, noise) {
+    const enabled = frame?.soundId === "whistle"
+      && finite(frame?.toothJet, 0) > 0.001;
+    const jetGesture = enabled ? clamp(frame.toothJet) : 0;
+    const suppliedPressure = enabled ? Math.max(0, finite(frame.pressureDrive, 0)) : 0;
+    const normalizedPressure = suppliedPressure > 0.000001
+      ? clamp(
+        suppliedPressure
+          + clamp(Math.abs(finite(localOralPressure, 0)) * 0.42, 0, 0.24),
+        0,
+        1.8,
+      ) * jetGesture
+      : 0;
+    const tension = clamp((finite(frame?.lipTension, 0.46) + 0.35) / 2);
+    const tongueAim = clamp((finite(frame?.tonguePosition, 0.58) + 0.65) / 2.3);
+    this._updateMode(tension * 0.38 + tongueAim * 0.22 + normalizedPressure * 0.34);
+
+    const threshold = 0.075 + (1 - tongueAim) * 0.035;
+    const excessPressure = Math.max(0, normalizedPressure - threshold);
+    const growth = (normalizedPressure - threshold) * 145;
+    const saturation = 84;
+    const squaredAmplitude = this.amplitude * this.amplitude;
+    // Turbulent onset forcing is proportional to real flow, allowing an idle
+    // whistle to restart but making both tone and seed vanish at zero breath.
+    const onsetForcing = excessPressure * (0.12 + Math.abs(noise) * 0.045);
+    this.amplitude += (
+      growth * this.amplitude
+      - saturation * squaredAmplitude * this.amplitude
+      + onsetForcing
+    ) / this.substepRate;
+    if (!enabled) this.amplitude *= 1 - timeAlpha(8, this.substepRate);
+    this.amplitude = clamp(cleanWave(this.amplitude), 0, 1.32);
+
+    this.noiseMemory += (noise - this.noiseMemory) * 0.024;
+    const pressurePa = normalizedPressure
+      * finite(plan?.toothWhistleMaximumPressurePa, HAMBONE_TOOTH_GAP_ANATOMY.maximumOralPressurePa);
+    const jetSpeedMps = Math.sqrt(
+      2 * Math.max(0, pressurePa) / HAMBONE_TOOTH_GAP_ANATOMY.airDensityKgM3,
+    );
+    const breathiness = clamp(finite(plan?.breathiness, 0.12));
+    const roughness = clamp(finite(plan?.roughness, 0.08));
+    const acousticLengthPull = clamp(localOralPressure * 0.018, -0.08, 0.08);
+    const impingementLengthM = clamp(
+      finite(
+        plan?.toothJetImpingementLengthM,
+        HAMBONE_TOOTH_GAP_ANATOMY.baseImpingementLengthM,
+      ) * (1 + acousticLengthPull),
+      0.00072,
+      0.0038,
+    );
+    const strouhalNumber = HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers[this.mode];
+    const jitteredJetSpeed = jetSpeedMps * (
+      1 + roughness * (noise - this.noiseMemory) * 0.018
+    );
+    const frequencyHz = clamp(
+      strouhalNumber * jitteredJetSpeed / impingementLengthM,
+      0,
+      this.rate * 0.38,
+    );
+    this.phase += Math.PI * 2 * frequencyHz / this.substepRate;
+    if (this.phase >= Math.PI * 2) this.phase %= Math.PI * 2;
+
+    const edgeAngle = clamp(
+      finite(plan?.toothEdgeAngleDegrees, HAMBONE_TOOTH_GAP_ANATOMY.edgeAngleDegrees),
+      10,
+      70,
+    );
+    const harmonicGain = frequencyHz * 2 < this.rate * 0.38
+      ? 0.045 + tension * 0.075 + Math.abs(edgeAngle - 34) / 360
+      : 0;
+    const coherentJet = Math.sin(this.phase)
+      + harmonicGain * Math.sin(this.phase * 2);
+    const noisyJet = (noise - this.noiseMemory)
+      * (0.025 + breathiness * 0.075)
+      * normalizedPressure;
+    // sqrt(P) follows jet momentum. It multiplies the entire edge tone, so
+    // any residual oscillator state is rigorously inaudible without flow.
+    const source = (
+      coherentJet * this.amplitude * Math.sqrt(normalizedPressure) * 0.012
+      + noisyJet * 0.0028
+    ) * jetGesture;
+    this.jetSpeedMps = jetSpeedMps;
+    this.frequencyHz = frequencyHz;
+    this.impingementLengthM = impingementLengthM;
+    this.strouhalNumber = strouhalNumber;
+    this.flow = cleanWave(clamp(source, -0.065, 0.065));
+    return this.flow;
+  }
+
+  reset() {
+    this.mode = 1;
+    this.phase = 0;
+    this.amplitude = 0;
+    this.noiseMemory = 0;
+    this.jetSpeedMps = 0;
+    this.frequencyHz = 0;
+    this.impingementLengthM = HAMBONE_TOOTH_GAP_ANATOMY.baseImpingementLengthM;
+    this.strouhalNumber = HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers[1];
+    this.flow = 0;
+  }
+
+  isFinite() {
+    return Number.isFinite(this.phase)
+      && Number.isFinite(this.amplitude)
+      && Number.isFinite(this.noiseMemory)
+      && Number.isFinite(this.jetSpeedMps)
+      && Number.isFinite(this.frequencyHz)
+      && Number.isFinite(this.impingementLengthM)
+      && Number.isFinite(this.flow);
+  }
+}
+
 class OrganicMouthTract {
   constructor(rate, configuration) {
     this.rate = rate;
@@ -853,6 +997,7 @@ class OrganicMouthTract {
     this.lipValve = new PressureDrivenLipValve(rate);
     this.tongueValve = new PressureDrivenTongueValve(rate);
     this.throatValve = new PressureDrivenThroatValve(rate);
+    this.toothJet = new PressureDrivenToothGapJet(rate);
     this.articulationSpeedScale = 1;
     this.noseJunction = 4;
     this.cheekJunction = 7;
@@ -1563,6 +1708,38 @@ class OrganicMouthTract {
     this.left[downstream] += flow * 0.3;
   }
 
+  _injectToothWhistle(noise) {
+    const canonicalSection = finite(
+      this.currentPlan?.toothGapCanonicalSection,
+      HAMBONE_TOOTH_GAP_ANATOMY.canonicalOralSection,
+    );
+    const toothIndex = clamp(
+      Math.round(
+        canonicalSection / (HAMBONE_TRACT_SECTION_COUNT - 1)
+          * (this.sectionCount - 1),
+      ),
+      2,
+      this.sectionCount - 2,
+    );
+    const upstreamPressure = this._localPressure(toothIndex - 1);
+    const downstreamPressure = this._localPressure(toothIndex + 1);
+    const localOralPressure = (upstreamPressure + downstreamPressure) * 0.5;
+    const toothFlow = this.toothJet.advance(
+      this.currentFrame,
+      this.currentPlan,
+      localOralPressure,
+      noise,
+    );
+    if (Math.abs(toothFlow) <= 1e-12) return;
+    // A volume-flow source at the dental edge launches both directions. Most
+    // energy radiates toward the tooth/lip opening, while the upstream share
+    // travels back through the anterior oral waveguide and is scattered by
+    // the current tongue, lips, and tract geometry before returning.
+    this.right[Math.min(this.sectionCount - 1, toothIndex + 1)] += toothFlow * 0.72;
+    this.left[Math.max(0, toothIndex - 1)] += toothFlow * 0.28;
+    this.activeConstrictionIndex = toothIndex;
+  }
+
   _scatterThreePort(junction, branchIncoming, branchArea) {
     const upstreamIncoming = this.right[junction - 1];
     const downstreamIncoming = this.left[junction];
@@ -1590,6 +1767,7 @@ class OrganicMouthTract {
     this._advanceSeals(noise);
     this._injectTransients(noise);
     this._injectTurbulence(noise);
+    this._injectToothWhistle(noise);
 
     const count = this.sectionCount;
     this.rightJunction[0] = cleanWave(this.left[0] * GLOTTAL_REFLECTION + sourceFlow);
@@ -1659,6 +1837,7 @@ class OrganicMouthTract {
     this.lipValve.reset();
     this.tongueValve.reset();
     this.throatValve.reset();
+    this.toothJet.reset();
     for (const seal of this.seals) {
       seal.sealed = false;
       seal.reservoir = 0;
@@ -1711,6 +1890,8 @@ class OrganicMouthTract {
     this.tongueValve.collisionFlow *= keep;
     this.throatValve.velocityCmPerSecond *= keep;
     this.throatValve.collisionFlow *= keep;
+    this.toothJet.amplitude *= keep;
+    this.toothJet.flow *= keep;
     this.signedPressure *= keep;
     this.tractPressure *= keep;
     this.lastOralOutput *= keep;
@@ -1726,6 +1907,7 @@ class OrganicMouthTract {
       && this.lipValve.isFinite()
       && this.tongueValve.isFinite()
       && this.throatValve.isFinite()
+      && this.toothJet.isFinite()
       && arraysAreFinite(
         [this.right, this.left, this.rightJunction, this.leftJunction, this.diameter],
         [this.sectionCount, this.sectionCount, this.sectionCount + 1, this.sectionCount + 1, this.sectionCount],
@@ -2287,6 +2469,23 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
       cheekDisplacement: this.tract.cheek.displacement,
       tongueTrillApertureCm: this.tract.tongueValve.apertureCm,
       throatRattleApertureCm: this.tract.throatValve.apertureCm,
+      missingTooth: HAMBONE_TOOTH_GAP_ANATOMY.missingTooth,
+      toothGapWidthCm: finite(
+        this.gesture?.plan?.toothGapWidthCm,
+        HAMBONE_TOOTH_GAP_ANATOMY.crownGapWidthCm,
+      ),
+      toothGapHeightCm: finite(
+        this.gesture?.plan?.toothGapHeightCm,
+        HAMBONE_TOOTH_GAP_ANATOMY.crownGapHeightCm,
+      ),
+      toothJetSlotHeightCm: finite(this.gesture?.plan?.toothJetSlotHeightCm, 0),
+      toothJetAreaCm2: finite(this.gesture?.plan?.toothJetAreaCm2, 0),
+      toothJetFlow: this.tract.toothJet.flow,
+      toothJetSpeedMps: this.tract.toothJet.jetSpeedMps,
+      toothWhistleFrequencyHz: this.tract.toothJet.frequencyHz,
+      toothWhistleMode: this.tract.toothJet.mode,
+      toothWhistleStrouhalNumber: this.tract.toothJet.strouhalNumber,
+      toothJetImpingementLengthM: this.tract.toothJet.impingementLengthM,
       airflowDirection: finite(this.gesture?.plan?.airflowDirection, 0),
       voiceCharacterId: this.gesture?.voiceSnapshot?.characterId ?? "",
       glottalFrequencyHz: finite(this.gesture?.currentGlottalFrequencyHz, 0),

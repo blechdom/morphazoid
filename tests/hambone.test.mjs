@@ -14,6 +14,7 @@ import {
   HAMBONE_PRESETS,
   HAMBONE_SOUNDS,
   HAMBONE_STEP_COUNT,
+  HAMBONE_TOOTH_GAP_ANATOMY,
   HAMBONE_TRACT_DIAMETER_FLOOR_CM,
   HAMBONE_TRACT_LANDMARKS,
   HAMBONE_TRACT_SECTION_COUNT,
@@ -77,12 +78,14 @@ const SOUND_IDS = Object.freeze([
   "holler",
   "hum",
   "rattle",
+  "whistle",
 ]);
 
 const SOUND_KEYS = Object.freeze([
   "1", "2", "3", "4", "5", "6", "7", "8",
   "9", "0", "q", "w", "e", "r", "t", "y",
   "u", "i", "o", "p", "a", "s", "d", "f",
+  "g",
 ]);
 
 function assertFiniteTree(value, label = "value", seen = new Set()) {
@@ -111,7 +114,7 @@ function roundedSignature(values) {
   return values.map((value) => Number(value).toFixed(4)).join("|");
 }
 
-test("Hambone exposes twenty-four complete, stable face-percussion and throat identities", () => {
+test("Hambone exposes twenty-five complete, stable face-percussion, throat, and tooth identities", () => {
   assert.deepEqual(HAMBONE_SOUNDS.map(({ id }) => id), SOUND_IDS);
   assert.equal(HAMBONE_SOUNDS.length, SOUND_IDS.length);
   assert.equal(new Set(HAMBONE_SOUNDS.map(({ id }) => id)).size, SOUND_IDS.length);
@@ -131,7 +134,75 @@ test("Hambone exposes twenty-four complete, stable face-percussion and throat id
   assert.equal(HAMBONE_SOUNDS.some(({ label }) => label === "SHHH"), false);
   assert.equal(hamboneSound("pff").label, "PFRR");
   assert.equal(hamboneSound("pff").subtitle, "pressure lip roll");
+  assert.deepEqual(
+    {
+      id: hamboneSound("whistle").id,
+      label: hamboneSound("whistle").label,
+      subtitle: hamboneSound("whistle").subtitle,
+      key: hamboneSound("whistle").key,
+      family: hamboneSound("whistle").family,
+    },
+    {
+      id: "whistle",
+      label: "FWEE",
+      subtitle: "missing-tooth whistle",
+      key: "g",
+      family: "tooth-whistle",
+    },
+  );
+  assert.match(hamboneSound("whistle").description, /missing upper front tooth[\s\S]*oral tube/i);
   assert.equal(hamboneSound("not-a-mouth-noise").id, "bop");
+});
+
+test("FWEE drives a bounded edge jet through the missing upper-left central incisor", () => {
+  assert.equal(Object.isFrozen(HAMBONE_TOOTH_GAP_ANATOMY), true);
+  assert.equal(Object.isFrozen(HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers), true);
+  assert.equal(HAMBONE_TOOTH_GAP_ANATOMY.missingTooth, "upper-left central incisor");
+  assert.deepEqual(HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers, [0.14, 0.2, 0.27]);
+  assert.ok(HAMBONE_TOOTH_GAP_ANATOMY.crownGapWidthCm > 0.5);
+  assert.ok(HAMBONE_TOOTH_GAP_ANATOMY.crownGapHeightCm > 0.5);
+  assert.ok(HAMBONE_TOOTH_GAP_ANATOMY.jetSlotHeightCm > 0);
+  assert.ok(
+    Math.abs(
+      HAMBONE_TOOTH_GAP_ANATOMY.jetSlotAreaCm2
+      - HAMBONE_TOOTH_GAP_ANATOMY.crownGapWidthCm
+        * HAMBONE_TOOTH_GAP_ANATOMY.jetSlotHeightCm
+    ) < 1e-12,
+  );
+  assert.ok(
+    HAMBONE_TOOTH_GAP_ANATOMY.canonicalOralSection
+      > HAMBONE_TRACT_LANDMARKS.alveolar,
+  );
+  assert.ok(
+    HAMBONE_TOOTH_GAP_ANATOMY.canonicalOralSection
+      < HAMBONE_TRACT_LANDMARKS.lips,
+  );
+
+  const onset = hamboneGestureFrame("whistle", 0.02);
+  const sustained = hamboneGestureFrame("whistle", 0.5);
+  const released = hamboneGestureFrame("whistle", 1);
+  assert.equal(onset.toothJet, 0);
+  assert.ok(sustained.toothJet > 0.9);
+  assert.ok(sustained.pressure > 0.75);
+  assert.equal(sustained.voicing, 0, "FWEE must use its tooth-edge jet, not vocal folds");
+  assert.ok(released.toothJet < 0.001);
+
+  const plan = physicalVoiceParameters("whistle", HAMBONE_DEFAULTS, 1);
+  assert.equal(plan.soundId, "whistle");
+  assert.equal(plan.family, "tooth-whistle");
+  assert.equal(plan.toothGapCanonicalSection, HAMBONE_TOOTH_GAP_ANATOMY.canonicalOralSection);
+  assert.equal(plan.toothGapWidthCm, HAMBONE_TOOTH_GAP_ANATOMY.crownGapWidthCm);
+  assert.equal(plan.toothGapHeightCm, HAMBONE_TOOTH_GAP_ANATOMY.crownGapHeightCm);
+  assert.deepEqual(plan.toothWhistleStrouhalNumbers, HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers);
+  assert.ok(plan.toothJetSlotHeightCm >= 0.026 && plan.toothJetSlotHeightCm <= 0.16);
+  assert.ok(Math.abs(plan.toothJetAreaCm2 - plan.toothGapWidthCm * plan.toothJetSlotHeightCm) < 1e-12);
+  assert.ok(plan.toothJetImpingementLengthM >= 0.00072);
+  assert.ok(plan.toothJetImpingementLengthM <= 0.0038);
+  assert.ok(plan.toothWhistleMaximumPressurePa > 1_000);
+
+  const target = hamboneTargetOralDiameters(HAMBONE_DEFAULTS, sustained);
+  assert.equal(target.length, HAMBONE_TRACT_SECTION_COUNT);
+  assert.ok(target.every(Number.isFinite));
 });
 
 test("eight bounded voice characters retune one tract and preserve assignable modulation", () => {
@@ -275,9 +346,9 @@ test("open-throat gestures expose Pink vowel targets, vibrato, register breaks, 
   assert.ok(rattle.rattleFrequencyHz >= 14 && rattle.rattleFrequencyHz <= 52);
 });
 
-test("open vocals and PFRR breathe longer at slow tempo without changing percussive attacks", () => {
+test("open vocals, PFRR, and FWEE breathe longer at slow tempo without changing percussive attacks", () => {
   for (const soundId of [
-    "pff", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
+    "pff", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle", "whistle",
   ]) {
     const fast = physicalVoiceParameters(soundId, { ...HAMBONE_DEFAULTS, tempo: 520 }, 1);
     const medium = physicalVoiceParameters(soundId, { ...HAMBONE_DEFAULTS, tempo: 118 }, 1);
@@ -846,10 +917,10 @@ test("physical presets and deterministic randomization produce distinct bounded 
   }
 });
 
-test("patterns expose an exclusive editable twenty-four-by-sixty-four face-pose grid", () => {
+test("patterns expose an exclusive editable twenty-five-by-sixty-four face-pose grid", () => {
   assert.equal(HAMBONE_STEP_COUNT, 64);
   assert.deepEqual(HAMBONE_VELOCITIES, [0, 0.42, 0.72, 1]);
-  assert.ok(HAMBONE_PATTERNS.length >= 13, "the expanded sound bank needs a wider rhythm bank");
+  assert.ok(HAMBONE_PATTERNS.length >= 14, "the expanded sound bank needs a wider rhythm bank");
   assert.equal(new Set(HAMBONE_PATTERNS.map(({ id }) => id)).size, HAMBONE_PATTERNS.length);
 
   for (const pattern of HAMBONE_PATTERNS) {
@@ -878,6 +949,19 @@ test("patterns expose an exclusive editable twenty-four-by-sixty-four face-pose 
     }
     assert.ok(activeCells > 0, `${pattern.id} must contain at least one hit`);
   }
+
+  const gapTooth = hambonePattern("gap-tooth-fwee");
+  assert.equal(gapTooth.label, "Gap-tooth FWEE");
+  const whistlePhrases = Array.from({ length: 4 }, (_, phrase) => (
+    gapTooth.rows.whistle.slice(phrase * 16, phrase * 16 + 16)
+  ));
+  assert.ok(whistlePhrases.every((phrase) => phrase.some((amount) => amount > 0)));
+  assert.equal(
+    new Set(whistlePhrases.map((phrase) => roundedSignature(phrase))).size,
+    4,
+    "FWEE rhythm phrases must evolve across the full 64-step grid",
+  );
+  assert.ok(gapTooth.rows.whistle.slice(48).some((amount) => amount > 0.9));
 
   const original = HAMBONE_PATTERNS[0];
   const editable = clonePattern(original);
@@ -964,7 +1048,7 @@ test("velocity cycling and swing preserve every loop duration from one through s
   assert.equal(sequenceStepIntervalSeconds(1e6, 0, 0), 15 / 520);
 });
 
-test("Hambone worklet renders twenty-four distinct gestures through exactly one active mouth", async () => {
+test("Hambone worklet renders twenty-five distinct gestures through exactly one active mouth", async () => {
   const globalKeys = ["sampleRate", "AudioWorkletProcessor", "registerProcessor"];
   const originals = new Map(globalKeys.map((key) => [
     key,
@@ -1091,9 +1175,20 @@ test("Hambone worklet renders twenty-four distinct gestures through exactly one 
           "roughness",
           "subharmonicMix",
           "throatRattleApertureCm",
+          "toothGapWidthCm",
+          "toothGapHeightCm",
+          "toothJetSlotHeightCm",
+          "toothJetAreaCm2",
+          "toothJetFlow",
+          "toothJetSpeedMps",
+          "toothWhistleFrequencyHz",
+          "toothWhistleMode",
+          "toothWhistleStrouhalNumber",
+          "toothJetImpingementLengthM",
         ]) {
           assert.ok(Number.isFinite(message[field]), `${soundId} telemetry ${field} must be finite`);
         }
+        assert.equal(message.missingTooth, HAMBONE_TOOTH_GAP_ANATOMY.missingTooth);
         assert.ok(message.oralSectionCount >= 8);
         assert.ok(
           message.activeGesture === false
@@ -1117,6 +1212,32 @@ test("Hambone worklet renders twenty-four distinct gestures through exactly one 
       assert.ok(rendered.processor.tract, `${soundId} must pass through the persistent tract`);
       renders.set(soundId, rendered.left);
     }
+
+    const fwee = render("whistle", 360);
+    const fweeMetrics = metrics([fwee.left, fwee.right]);
+    const fweeTelemetry = fwee.processor.messages.filter(({ type }) => type === "telemetry");
+    assert.ok(fweeMetrics.rms > 0.001, "FWEE must have an audible pressure-driven body");
+    assert.ok(fweeMetrics.peak > 0.01, "FWEE must radiate a clear tooth-edge tone");
+    assert.ok(fweeMetrics.audibleSamples > 3_000, "FWEE must sustain beyond a click");
+    assert.ok(
+      fweeTelemetry.some(({ toothJetFlow }) => Math.abs(toothJetFlow) > 1e-7),
+      "FWEE must inject measurable dental volume flow",
+    );
+    assert.ok(
+      fweeTelemetry.some(({ toothJetSpeedMps }) => toothJetSpeedMps > 5),
+      "FWEE must accelerate a real pressure-derived air jet",
+    );
+    assert.ok(
+      fweeTelemetry.some(({ toothWhistleFrequencyHz }) => toothWhistleFrequencyHz > 500),
+      "FWEE must report a coherent edge-tone frequency",
+    );
+    assert.ok(
+      fweeTelemetry.every(({ activeVoices }) => activeVoices === 0 || activeVoices === 1),
+      "the missing-tooth whistle must still use exactly one active tract",
+    );
+    assert.ok(fwee.processor.tract.toothJet, "FWEE source must live inside the persistent oral tract");
+    assert.equal("voices" in fwee.processor, false);
+    assert.equal("voicePool" in fwee.processor, false);
 
     for (let leftIndex = 0; leftIndex < SOUND_IDS.length; leftIndex += 1) {
       for (let rightIndex = leftIndex + 1; rightIndex < SOUND_IDS.length; rightIndex += 1) {
@@ -1203,6 +1324,48 @@ test("Hambone worklet renders twenty-four distinct gestures through exactly one 
       );
     }
     assert.ok(silentFlutterAperture < 0.0011, "PFRR lips cannot self-flutter without pressure");
+
+    const toothJetProbe = new Processor({
+      processorOptions: { configuration: HAMBONE_DEFAULTS },
+    });
+    const toothPlan = physicalVoiceParameters("whistle", HAMBONE_DEFAULTS, 1);
+    const unpressurizedToothFrame = {
+      ...hamboneGestureFrame("whistle", 0.5, HAMBONE_DEFAULTS, 1),
+      pressureDrive: 0,
+    };
+    let unpressurizedToothFlow = 0;
+    for (let substep = 0; substep < 2_048; substep += 1) {
+      unpressurizedToothFlow = Math.max(
+        unpressurizedToothFlow,
+        Math.abs(toothJetProbe.tract.toothJet.advance(
+          unpressurizedToothFrame,
+          toothPlan,
+          0,
+          substep % 2 ? 1 : -1,
+        )),
+      );
+    }
+    assert.ok(
+      unpressurizedToothFlow < 1e-12,
+      "the tooth-edge source cannot whistle without a pressure drop",
+    );
+
+    const pressurizedToothFrame = { ...unpressurizedToothFrame, pressureDrive: 0.9 };
+    let pressurizedToothFlow = 0;
+    for (let substep = 0; substep < 4_096; substep += 1) {
+      pressurizedToothFlow = Math.max(
+        pressurizedToothFlow,
+        Math.abs(toothJetProbe.tract.toothJet.advance(
+          pressurizedToothFrame,
+          toothPlan,
+          0,
+          substep % 3 ? 0.7 : -0.8,
+        )),
+      );
+    }
+    assert.ok(pressurizedToothFlow > 1e-6);
+    assert.ok(toothJetProbe.tract.toothJet.jetSpeedMps > 5);
+    assert.ok(toothJetProbe.tract.toothJet.frequencyHz > 500);
 
     const tightSlap = render("slap", 300, {
       ...HAMBONE_DEFAULTS,
@@ -1574,11 +1737,14 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   assert.match(html, /id="stage"[\s\S]*?tabindex="0"[\s\S]*?aria-label=/);
   assert.match(html, /aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="sequenceGrid"[\s\S]*?role="grid"/);
-  assert.match(html, /aria-rowcount="24"/);
+  assert.match(html, /aria-rowcount="25"/);
   assert.match(html, /aria-colcount="32"/);
   assert.match(html, /Only one (?:sound|gesture|pose) can occupy each step/i);
   assert.match(html, /beyond human ranges|beyond-human/i);
-  assert.match(html, /id="padGrid"[\s\S]*?Twenty-four playable Hambone sound pads/i);
+  assert.match(html, /id="padGrid"[\s\S]*?Twenty-five playable Hambone sound pads/i);
+  assert.match(html, /missing one upper front tooth/i);
+  assert.match(html, /tap the (?:front-)?tooth gap/i);
+  assert.match(html, /FWEE[\s\S]*missing upper incisor/i);
   assert.match(html, /id="sequenceLength"[^>]*min="1"[^>]*max="64"[^>]*value="32"/);
   assert.match(html, /id="sequenceLengthNumber"[^>]*min="1"[^>]*max="64"[^>]*value="32"/);
   assert.match(html, /id="sequenceLengthOut"[\s\S]*?32 steps/);
@@ -1608,7 +1774,7 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
 
   assert.match(css, /\.hambone-workspace\s*\{[\s\S]*?grid-template-rows:/);
   assert.match(css, /\.hambone-sequence-grid\s*\{[\s\S]*?repeat\(var\(--hambone-sequence-steps, 32\),/);
-  assert.match(css, /grid-template-rows:\s*20px repeat\(24,/);
+  assert.match(css, /grid-template-rows:\s*20px repeat\(var\(--hambone-sequence-sounds,\s*25\),/);
   assert.doesNotMatch(css, /\.hambone-effect-contour-grid/);
   assert.match(css, /\.hambone-grid-scroll\s*\{[\s\S]*?overflow:/);
   assert.match(css, /\.hambone-step-cell:focus-visible/);
@@ -1662,6 +1828,16 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   assert.match(app, /ArrowDown/);
   assert.match(app, /const pressedKey = String\(event\.key\)\.toLowerCase\(\)/);
   assert.match(app, /HAMBONE_SOUNDS\.find\(\(\{ key \}\) => String\(key\)\.toLowerCase\(\) === pressedKey\)/);
+  assert.match(app, /let toothGapGeometry = null/);
+  assert.match(app, /const missingFrontIncisor = toothCount \/ 2/);
+  assert.match(app, /if \(tooth === missingFrontIncisor\) continue/);
+  assert.match(app, /const whistleGap = toothGapGeometry \?\?/);
+  assert.match(
+    app,
+    /soundId: "whistle"[\s\S]{0,180}?label: "FWEE"[\s\S]{0,220}?x: whistleGap\.x/,
+  );
+  assert.match(app, /if \(hotspot\) \{[\s\S]{0,180}?triggerSound\(hotspot\.soundId/);
+  assert.match(app, /function drawToothWhistleJet\(/);
   assert.match(app, /type: "strike"/);
   assert.match(app, /type: "silence"/);
   assert.match(app, /function clearStepExcept\(step, soundId\)/);
@@ -1731,6 +1907,27 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   assert.match(processor, /lip(?:Valve|Aperture|Diameter|Closure)/i);
   assert.match(processor, /class FaceSpace/);
   assert.match(processor, /class PressureDrivenTongueValve/);
+  assert.match(model, /export const HAMBONE_TOOTH_GAP_ANATOMY/);
+  assert.match(model, /missingTooth:\s*"upper-left central incisor"/);
+  assert.match(model, /toothJet:\s*\[\[0, 0\]/);
+  assert.match(processor, /class PressureDrivenToothGapJet/);
+  assert.match(processor, /Math\.sqrt\([\s\S]{0,100}?Math\.max\(0, pressurePa\)/);
+  assert.match(processor, /_injectToothWhistle\(noise\)/);
+  assert.match(processor, /this\.toothJet\.advance\(/);
+  assert.match(
+    processor,
+    /this\.right\[[^\n]+\] \+= toothFlow \* 0\.72;[\s\S]{0,140}?this\.left\[[^\n]+\] \+= toothFlow \* 0\.28;/,
+  );
+  for (const field of [
+    "missingTooth",
+    "toothJetFlow",
+    "toothJetSpeedMps",
+    "toothWhistleFrequencyHz",
+    "toothWhistleStrouhalNumber",
+    "toothJetImpingementLengthM",
+  ]) {
+    assert.match(processor, new RegExp(`\\b${field}\\b`));
+  }
   assert.match(processor, /_scheduleHandContactIfNeeded\(frame, plan\)/);
   assert.match(processor, /Palm, fingers, and reflected skin fold/i);
   for (const field of ["handImpactBrightness", "handContactSpacingMs", "handTail"]) {
@@ -1753,7 +1950,8 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   assert.equal(catalogEntry?.kind, "Monophonic physical beatbox sequencer");
   assert.equal(catalogEntry?.imageHref, "assets/instruments/hambone.webp");
   assert.match(catalogEntry?.description ?? "", /fully mutable face/i);
-  assert.match(catalogEntry?.description ?? "", /twenty-four exclusive gestures/i);
+  assert.match(catalogEntry?.description ?? "", /twenty-five exclusive gestures/i);
+  assert.match(catalogEntry?.description ?? "", /FWEE[\s\S]*missing upper-left central incisor/i);
   assert.match(catalogEntry?.description ?? "", /PHSHSHK/i);
   assert.match(catalogEntry?.description ?? "", /open-throat[\s\S]*vibrato[\s\S]*register-break/i);
   assert.match(catalogEntry?.start ?? "", /one gesture per column/i);
@@ -1785,7 +1983,8 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
     );
   }
   assert.match(readme, /\*\*Hambone\*\*/);
-  assert.match(readme, /twenty-four playable gestures/i);
+  assert.match(readme, /twenty-five playable gestures/i);
+  assert.match(readme, /FWEE[\s\S]*missing upper-left central incisor/i);
   assert.match(readme, /freely adjustable from 1 through 64 steps/i);
   assert.doesNotMatch(readme, /per-step face contours/i);
   assert.match(readme, /one to eight editable voice characters/i);
@@ -1795,7 +1994,7 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   for (const label of [
     "BOP", "BOOP", "POP", "TLIK", "PHSHSHK", "SHACK!", "SLAP", "PFRR",
     "KICK", "SMACK", "HEE", "HAW", "DOO", "MWAH", "DRR", "BURP",
-    "AAH", "OOH", "WAIL", "YODEL", "GROWL", "HOLLER", "HUM", "RATTLE",
+    "AAH", "OOH", "WAIL", "YODEL", "GROWL", "HOLLER", "HUM", "RATTLE", "FWEE",
   ]) {
     assert.match(readme, new RegExp(label.replace("!", "\\!")));
   }

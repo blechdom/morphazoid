@@ -488,7 +488,7 @@
   min-width: 100%;
   min-height: 0;
   grid-template-columns: 108px repeat(var(--hambone-sequence-steps, 32), minmax(32px, 1fr));
-  grid-template-rows: 20px repeat(24, 29px);
+  grid-template-rows: 20px repeat(var(--hambone-sequence-sounds, 25), 29px);
   align-content: start;
   gap: 3px;
 }
