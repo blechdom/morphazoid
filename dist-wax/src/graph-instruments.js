@@ -6,14 +6,12 @@ import {
   turnPitchSemitones,
 } from "./graph-delay.js";
 
-// One 512-node chain with sixteen timing divisions contains 511 * 16 edge
-// events plus its entry. Keep that complete authored worst case inside the
-// shared schedule while dense/cyclic graphs remain explicitly bounded.
+// Dense and cyclic graphs can revisit nodes many times. Keep their event queue
+// explicitly bounded even though the editable instruments stop at 128 nodes.
 export const MAX_GRAPH_EVENT_SCHEDULE = 8_192;
 export const MIN_GRAPH_EVENT_AMPLITUDE = 0.001;
-export const MAX_GRAPH_INSTRUMENT_NODES = 512;
+export const MAX_GRAPH_INSTRUMENT_NODES = 128;
 export const MAX_GRAPH_INSTRUMENT_TURN_ROUTES = 4_096;
-export const MAX_GRAPH_EDGE_SUBDIVISIONS = 16;
 export const MAX_GRAPH_EQUAL_DIVISIONS = 360;
 
 const DEFAULT_GRAPH_EVENT_HORIZON_SECONDS = 16;
@@ -314,51 +312,6 @@ function insertEvent(queue, event) {
   queue.splice(low, 0, event);
 }
 
-function evenlyDistributedIndices(total, requested) {
-  const count = Math.min(total, Math.max(0, Math.floor(requested)));
-  if (!count) return [];
-  if (count === total) return Array.from({ length: total }, (_item, index) => index);
-  return Array.from({ length: count }, (_item, index) => (
-    Math.min(total - 1, Math.floor((index + 0.5) * total / count))
-  ));
-}
-
-function addEdgeSubdivisionEvents(nodeEvents, edgeSubdivisions, maximum) {
-  if (edgeSubdivisions <= 1 || nodeEvents.length >= maximum) return nodeEvents;
-  const arrivals = nodeEvents.filter((event) => (
-    event.arrivalEdgeId !== null && event.arrivalEdgeId !== undefined
-  ));
-  const stepsPerArrival = edgeSubdivisions - 1;
-  const requestedStepCount = arrivals.length * stepsPerArrival;
-  const availableStepCount = Math.min(maximum - nodeEvents.length, requestedStepCount);
-  if (!availableStepCount) return nodeEvents;
-
-  const baseAllocation = Math.floor(availableStepCount / arrivals.length);
-  const remainder = availableStepCount % arrivals.length;
-  const bonusArrivals = new Set(evenlyDistributedIndices(arrivals.length, remainder));
-  const subdivisionEvents = [];
-  arrivals.forEach((arrival, arrivalIndex) => {
-    const allocation = Math.min(
-      stepsPerArrival,
-      baseAllocation + (bonusArrivals.has(arrivalIndex) ? 1 : 0),
-    );
-    for (const stepIndex of evenlyDistributedIndices(stepsPerArrival, allocation)) {
-      const subdivisionIndex = stepIndex + 1;
-      const edgeProgress = subdivisionIndex / edgeSubdivisions;
-      subdivisionEvents.push({
-        ...arrival,
-        time: arrival.departTime + (arrival.time - arrival.departTime) * edgeProgress,
-        kind: "subdivision",
-        transitOnly: true,
-        edgeProgress,
-        subdivisionIndex,
-        pathKey: `${arrival.pathKey}~${subdivisionIndex}/${edgeSubdivisions}`,
-      });
-    }
-  });
-  return [...nodeEvents, ...subdivisionEvents].sort(eventComparison);
-}
-
 function graphEventLimits(options) {
   return {
     maxEvents: positiveInteger(
@@ -404,11 +357,6 @@ export function scheduleGraphPulse(graph, options = {}) {
   if (!model.nodes.length) return [];
   const settings = { ...(options.patch ?? {}), ...options };
   const limits = graphEventLimits(settings);
-  const edgeSubdivisions = Math.max(1, positiveInteger(
-    settings.edgeSubdivisions ?? settings.subdivisions,
-    1,
-    MAX_GRAPH_EDGE_SUBDIVISIONS,
-  ));
   if (limits.maxEvents === 0) return [];
   const inputAmplitude = clamp(settings.amplitude, 0, 1, 1);
   if (inputAmplitude < limits.minAmplitude) return [];
@@ -442,27 +390,12 @@ export function scheduleGraphPulse(graph, options = {}) {
       depth: 0,
       feedbackCount: 0,
       kind: "node",
-      edgeProgress: 1,
-      subdivisionIndex: 1,
-      subdivisions: 1,
       pathKey: `entry:${String(nodeId).padStart(3, "0")}`,
     });
   }
 
-  // Propagate only real node arrivals through the queue. Subdivision events are
-  // rendered after traversal, so intermediate ticks can never consume the cap
-  // before a destination, leaf, or feedback return has had a chance to arrive.
-  // When ticks are requested, reserve half the schedule for them once every
-  // authored node could have appeared at least once. A simple 512-node path
-  // still completes in full; a dense cycle gets both returns and edge rhythm.
-  const nodeEventLimit = edgeSubdivisions > 1
-    ? Math.min(
-      limits.maxEvents,
-      Math.max(model.nodes.length, Math.floor(limits.maxEvents * 0.5)),
-    )
-    : limits.maxEvents;
   const scheduledNodes = [];
-  while (queue.length && scheduledNodes.length < nodeEventLimit) {
+  while (queue.length && scheduledNodes.length < limits.maxEvents) {
     const event = queue.shift();
     if (event.time > limits.horizonSeconds + 1e-12) continue;
     scheduledNodes.push(event);
@@ -495,19 +428,12 @@ export function scheduleGraphPulse(graph, options = {}) {
         depth: event.depth + 1,
         feedbackCount,
         kind: "node",
-        edgeProgress: 1,
-        subdivisionIndex: edgeSubdivisions,
-        subdivisions: edgeSubdivisions,
         pathKey: `${event.pathKey}>${String(edge.id)}@${String(index).padStart(4, "0")}`,
       };
       insertEvent(queue, nextEvent);
     }
   }
-  return addEdgeSubdivisionEvents(
-    scheduledNodes,
-    edgeSubdivisions,
-    limits.maxEvents,
-  );
+  return scheduledNodes;
 }
 
 /**

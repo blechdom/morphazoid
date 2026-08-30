@@ -388,7 +388,6 @@ export function initializeGraphInstrument({
       nodePass: state.nodePass,
       feedback: state.feedback,
       pitchScale: state.turnPitchScale,
-      edgeSubdivisions: 1,
       horizonSeconds: 1_024,
       maxEvents: eventCap,
       maxFeedbackPasses: 24,

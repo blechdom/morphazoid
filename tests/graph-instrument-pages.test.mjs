@@ -52,7 +52,7 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
     ]) assert.match(html, new RegExp(`option value="${topology}"`));
     assert.match(html, /Cycles are (?:musical|note) feedback/);
     assert.match(html, /id="randomGraphButton"[^>]*>Random<\/button>/);
-    assert.match(html, /id="nodeCount"[^>]*max="512"/);
+    assert.match(html, /id="nodeCount"[^>]*max="128"/);
     assert.match(html, /option value="all"/);
     assert.match(html, /option value="leaves"/);
     assert.doesNotMatch(html, /id="edgeSubdivisions"/);

@@ -222,21 +222,21 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
 
   elements.get("topology").value = "chain";
   listeners.get("topology:change")({ currentTarget: elements.get("topology") });
-  elements.get("nodeCount").value = "512";
+  elements.get("nodeCount").value = "128";
   listeners.get("nodeCount:input")({ currentTarget: elements.get("nodeCount") });
   elements.get("triggerScope").value = "leaves";
   listeners.get("triggerScope:change")({ currentTarget: elements.get("triggerScope") });
 
   const largeTemplate = controller.pulseTemplate;
-  assert.equal(controller.model.nodes.length, 512);
-  assert.equal(largeTemplate.reachedNodeCount, 512);
-  assert.ok(largeTemplate.tailSeconds > 30, "the full long chain should outlive the old short horizon");
+  assert.equal(controller.model.nodes.length, 128);
+  assert.equal(largeTemplate.reachedNodeCount, 128);
+  assert.ok(largeTemplate.tailSeconds > 7, "the complete 128-node route should retain its full tail");
   assert.ok(
-    largeTemplate.audioEvents.some(({ nodeId }) => nodeId === 511),
+    largeTemplate.audioEvents.some(({ nodeId }) => nodeId === 127),
     "leaf-only audio must retain the end of a long route",
   );
   assert.ok(
-    largeTemplate.events.some(({ nodeId }) => nodeId === 511),
+    largeTemplate.events.some(({ nodeId }) => nodeId === 127),
     "every sounded leaf keeps a corresponding route cue",
   );
 
@@ -248,7 +248,7 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
     const continuousTemplate = controller.pulseTemplate;
     assert.equal(controller.state.triggerScope, "all");
     assert.equal(continuousTemplate.articulation, "edge");
-    assert.equal(continuousTemplate.audioEvents.length, 511);
+    assert.equal(continuousTemplate.audioEvents.length, 127);
     assert.ok(continuousTemplate.audioEvents.every(({ gateSeconds }) => gateSeconds > 0));
   }
 

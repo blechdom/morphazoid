@@ -256,108 +256,6 @@ test("a directed ring returns at the exact lap time with one decay per lap", () 
   closeTo(afterFeedback.amplitude, 0.5);
 });
 
-test("edge subdivisions add exact intermediate attacks without extending the route tail", () => {
-  const graph = generateGraph({ type: "chain", nodeCount: 3 });
-  const unsplit = scheduleGraphPulse(graph, {
-    baseDelay: 100,
-    timeScale: 0,
-    nodePass: 1,
-    edgeSubdivisions: 1,
-    horizonSeconds: 2,
-  });
-  const split = scheduleGraphPulse(graph, {
-    baseDelay: 100,
-    timeScale: 0,
-    nodePass: 1,
-    edgeSubdivisions: 4,
-    horizonSeconds: 2,
-  });
-
-  assert.equal(split.length, 9);
-  split.forEach((event, index) => closeTo(event.time, index * 0.025));
-  assert.deepEqual(
-    split.map(({ kind }) => kind),
-    [
-      "node", "subdivision", "subdivision", "subdivision", "node",
-      "subdivision", "subdivision", "subdivision", "node",
-    ],
-  );
-  assert.deepEqual(
-    split.filter(({ kind }) => kind === "subdivision").map((event) => [
-      event.arrivalEdgeId,
-      event.subdivisionIndex,
-      event.subdivisions,
-      event.edgeProgress,
-      event.transitOnly,
-    ]),
-    [
-      [0, 1, 4, 0.25, true],
-      [0, 2, 4, 0.5, true],
-      [0, 3, 4, 0.75, true],
-      [1, 1, 4, 0.25, true],
-      [1, 2, 4, 0.5, true],
-      [1, 3, 4, 0.75, true],
-    ],
-  );
-  assert.deepEqual(
-    split.filter(({ kind }) => kind === "node").map(({ nodeId, depth, time }) => (
-      [nodeId, depth, time]
-    )),
-    unsplit.map(({ nodeId, depth, time }) => [nodeId, depth, time]),
-  );
-  closeTo(split.at(-1).time, unsplit.at(-1).time);
-});
-
-test("subdividing a feedback edge applies amplitude decay once per completed lap", () => {
-  const graph = generateGraph({ type: "ring", nodeCount: 3 });
-  const options = {
-    baseDelay: 100,
-    timeScale: 0,
-    nodePass: 1,
-    feedback: 0.5,
-    minAmplitude: 1e-9,
-    maxFeedbackPasses: 2,
-    horizonSeconds: 2,
-  };
-  const unsplit = scheduleGraphPulse(graph, options);
-  const split = scheduleGraphPulse(graph, { ...options, edgeSubdivisions: 4 });
-  const nodeEvents = split.filter(({ kind }) => kind === "node");
-  const feedbackSteps = split.filter(({ kind, nodeId }) => (
-    kind === "subdivision" && nodeId === 0
-  ));
-
-  const nodeSignature = ({
-    nodeId,
-    time,
-    departTime,
-    amplitude,
-    depth,
-    feedbackCount,
-    arrivalEdgeId,
-    previousNodeId,
-    pathKey,
-  }) => [
-    nodeId,
-    time,
-    departTime,
-    amplitude,
-    depth,
-    feedbackCount,
-    arrivalEdgeId,
-    previousNodeId,
-    pathKey,
-  ];
-  assert.deepEqual(nodeEvents.map(nodeSignature), unsplit.map(nodeSignature));
-  assert.equal(feedbackSteps.length, 6);
-  assert.deepEqual(feedbackSteps.map(({ feedbackCount }) => feedbackCount), [1, 1, 1, 2, 2, 2]);
-  [0.225, 0.25, 0.275, 0.525, 0.55, 0.575].forEach((time, index) => {
-    closeTo(feedbackSteps[index].time, time);
-  });
-  feedbackSteps.slice(0, 3).forEach(({ amplitude }) => closeTo(amplitude, 0.5));
-  feedbackSteps.slice(3).forEach(({ amplitude }) => closeTo(amplitude, 0.25));
-  closeTo(split.at(-1).time, unsplit.at(-1).time);
-});
-
 test("closed graph switches stop their route without changing deterministic ordering", () => {
   const graph = generateGraph({ type: "chain", nodeCount: 5 });
   const enabledEdges = graph.edges.map((_edge, index) => index !== 1);
@@ -452,14 +350,15 @@ test("event, depth, feedback-pass, horizon, and amplitude bounds stop cyclic exp
   );
 });
 
-test("an opted-in 512-node chain traverses every sequential node", () => {
+test("the maximum 128-node chain traverses every sequential node", () => {
   const graph = generateGraph({
     type: "chain",
     nodeCount: MAX_GRAPH_INSTRUMENT_NODES,
     maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
   });
-  assert.equal(graph.nodes.length, 512);
-  assert.equal(graph.edges.length, 511);
+  assert.equal(MAX_GRAPH_INSTRUMENT_NODES, 128);
+  assert.equal(graph.nodes.length, MAX_GRAPH_INSTRUMENT_NODES);
+  assert.equal(graph.edges.length, MAX_GRAPH_INSTRUMENT_NODES - 1);
 
   const events = scheduleGraphPulse(graph, {
     baseDelay: 4,
@@ -469,44 +368,18 @@ test("an opted-in 512-node chain traverses every sequential node", () => {
     maxDepth: MAX_GRAPH_INSTRUMENT_NODES,
     maxEvents: MAX_GRAPH_EVENT_SCHEDULE,
   });
-  assert.equal(events.length, 512);
+  assert.equal(events.length, MAX_GRAPH_INSTRUMENT_NODES);
   assert.deepEqual(
     events.map(({ nodeId }) => nodeId),
-    Array.from({ length: 512 }, (_item, nodeId) => nodeId),
+    Array.from({ length: MAX_GRAPH_INSTRUMENT_NODES }, (_item, nodeId) => nodeId),
   );
   assert.ok(events.every(({ kind }) => kind === "node"));
-  assert.equal(events.at(-1).depth, 511);
-  closeTo(events.at(-1).departTime, 510 * 0.004, 1e-10);
-  closeTo(events.at(-1).time, 511 * 0.004, 1e-10);
+  assert.equal(events.at(-1).depth, MAX_GRAPH_INSTRUMENT_NODES - 1);
+  closeTo(events.at(-1).departTime, (MAX_GRAPH_INSTRUMENT_NODES - 2) * 0.004, 1e-10);
+  closeTo(events.at(-1).time, (MAX_GRAPH_INSTRUMENT_NODES - 1) * 0.004, 1e-10);
 });
 
-test("a 512-node chain keeps every node and all sixteen edge divisions", () => {
-  const graph = generateGraph({
-    type: "chain",
-    nodeCount: MAX_GRAPH_INSTRUMENT_NODES,
-    maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
-  });
-  const events = scheduleGraphPulse(graph, {
-    baseDelay: 4,
-    timeScale: 0,
-    nodePass: 1,
-    edgeSubdivisions: 16,
-    horizonSeconds: 1_024,
-    maxDepth: MAX_GRAPH_INSTRUMENT_NODES,
-    maxEvents: MAX_GRAPH_EVENT_SCHEDULE,
-  });
-  const nodeEvents = events.filter(({ kind }) => kind === "node");
-  const subdivisionEvents = events.filter(({ kind }) => kind === "subdivision");
-
-  assert.equal(MAX_GRAPH_EVENT_SCHEDULE, 8_192);
-  assert.equal(events.length, 1 + 511 * 16);
-  assert.equal(nodeEvents.length, 512);
-  assert.equal(subdivisionEvents.length, 511 * 15);
-  assert.equal(new Set(nodeEvents.map(({ nodeId }) => nodeId)).size, 512);
-  closeTo(events.at(-1).time, 511 * 0.004, 1e-10);
-});
-
-test("a 512-node ring can complete multiple decaying feedback laps", () => {
+test("a 128-node ring can complete multiple decaying feedback laps", () => {
   const graph = generateGraph({
     type: "ring",
     nodeCount: MAX_GRAPH_INSTRUMENT_NODES,
@@ -526,7 +399,7 @@ test("a 512-node ring can complete multiple decaying feedback laps", () => {
   const rootReturns = events.filter(({ kind, nodeId }) => kind === "node" && nodeId === 0);
 
   assert.ok(rootReturns.length >= 3);
-  closeTo(rootReturns[1].time, 512 * 0.004, 1e-10);
+  closeTo(rootReturns[1].time, MAX_GRAPH_INSTRUMENT_NODES * 0.004, 1e-10);
   closeTo(rootReturns[1].amplitude, 0.72, 1e-10);
   closeTo(rootReturns[2].amplitude, 0.72 ** 2, 1e-10);
 });
