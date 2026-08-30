@@ -23,7 +23,7 @@ import {
   graphInstrumentDefaultState,
   graphInstrumentPresetState,
 } from "../src/graph-instrument-app.js";
-import { generateGraph } from "../src/graph-delay.js";
+import { edgeAudioParameters, generateGraph } from "../src/graph-delay.js";
 
 const closeTo = (actual, expected, epsilon = 1e-12) => {
   assert.ok(
@@ -31,6 +31,17 @@ const closeTo = (actual, expected, epsilon = 1e-12) => {
     `expected ${actual} to be within ${epsilon} of ${expected}`,
   );
 };
+
+const LEGACY_GRAPH_INSTRUMENT_TIME_SCALES = Object.freeze({
+  clearSteps: 0,
+  branchChoir: 310,
+  layeredGlass: 58,
+  haloRing: 15,
+  shortcutChorus: 300,
+  hubScatter: 50,
+  softMesh: 220,
+  islandSignals: 520,
+});
 
 test("shared graph instrument patches retain the selected safe graph-delay contracts", () => {
   assert.deepEqual(Object.keys(GRAPH_INSTRUMENT_PATCHES), [
@@ -47,7 +58,8 @@ test("shared graph instrument patches retain the selected safe graph-delay contr
     assert.ok(patch.tempo >= 35 && patch.tempo <= 220);
     assert.ok(patch.pulseBeats > 0);
     assert.ok(patch.baseDelay >= 20 && patch.baseDelay <= 600);
-    assert.ok(patch.timeScale >= 0 && patch.timeScale <= 800);
+    assert.ok(patch.distanceRatio >= 1 && patch.distanceRatio <= 12);
+    assert.equal(Object.hasOwn(patch, "timeScale"), false);
     assert.ok(patch.timeCurve >= 0.25 && patch.timeCurve <= 3);
     assert.ok(patch.feedback >= 0 && patch.feedback <= 0.92);
     assert.ok(patch.nodePass >= 0 && patch.nodePass <= 1);
@@ -58,17 +70,17 @@ test("shared graph instrument patches retain the selected safe graph-delay contr
   assert.deepEqual(
     Object.fromEntries(Object.entries(GRAPH_INSTRUMENT_PATCHES).map(([id, item]) => [
       id,
-      [item.tempo, item.pulseBeats, item.baseDelay, item.timeScale, item.timeCurve],
+      [item.tempo, item.pulseBeats, item.baseDelay, item.distanceRatio, item.timeCurve],
     ])),
     {
-      clearSteps: [144, 0.5, 55, 0, 1],
-      branchChoir: [72, 4, 190, 310, 1.35],
-      layeredGlass: [126, 1, 62, 58, 0.9],
-      haloRing: [100, 2, 105, 15, 1],
-      shortcutChorus: [108, 2, 36, 300, 1.8],
-      hubScatter: [156, 0.5, 24, 50, 0.45],
-      softMesh: [76, 2, 120, 220, 0.7],
-      islandSignals: [60, 4, 260, 520, 1.45],
+      clearSteps: [144, 0.5, 55, 1, 1],
+      branchChoir: [72, 4, 190, 50 / 19, 1.35],
+      layeredGlass: [126, 1, 62, 60 / 31, 0.9],
+      haloRing: [100, 2, 105, 8 / 7, 1],
+      shortcutChorus: [108, 2, 36, 28 / 3, 1.8],
+      hubScatter: [156, 0.5, 24, 37 / 12, 0.45],
+      softMesh: [76, 2, 120, 17 / 6, 0.7],
+      islandSignals: [60, 4, 260, 3, 1.45],
     },
   );
   assert.deepEqual(
@@ -77,13 +89,13 @@ test("shared graph instrument patches retain the selected safe graph-delay contr
   );
   assert.ok(Math.min(...patches.map(({ baseDelay }) => baseDelay)) <= 24);
   assert.ok(Math.max(...patches.map(({ baseDelay }) => baseDelay)) >= 260);
-  assert.ok(Math.max(...patches.map(({ timeScale }) => timeScale)) >= 520);
+  assert.ok(Math.max(...patches.map(({ distanceRatio }) => distanceRatio)) >= 9);
   const pulseIntervals = patches.map(graphPulseIntervalSeconds);
   assert.ok(Math.min(...pulseIntervals) <= 0.21);
   assert.ok(Math.max(...pulseIntervals) >= 4);
   assert.equal(
-    new Set(patches.map(({ baseDelay, timeScale, timeCurve }) => (
-      `${baseDelay}:${timeScale}:${timeCurve}`
+    new Set(patches.map(({ baseDelay, distanceRatio, timeCurve }) => (
+      `${baseDelay}:${distanceRatio}:${timeCurve}`
     ))).size,
     patches.length,
   );
@@ -98,7 +110,7 @@ test("both instruments initialize and reset to the timing of their selected pres
     assert.equal(state.graphPatch, "layeredGlass");
     for (const key of [
       "topology", "nodeCount", "density", "seed", "tempo", "nodePass",
-      "baseDelay", "timeScale", "timeCurve", "feedback",
+      "baseDelay", "distanceRatio", "timeCurve", "feedback",
     ]) assert.equal(state[key], patch[key]);
     assert.equal(state.pulseDivision, patch.pulseBeats);
   }
@@ -111,13 +123,72 @@ test("preset state maps every authored cadence into the runtime clock fields", (
     assert.equal(state.tempo, patch.tempo);
     assert.equal(state.pulseDivision, patch.pulseBeats);
     assert.equal(state.baseDelay, patch.baseDelay);
-    assert.equal(state.timeScale, patch.timeScale);
+    assert.equal(state.distanceRatio, patch.distanceRatio);
+    assert.equal(Object.hasOwn(state, "timeScale"), false);
     assert.equal(state.timeCurve, patch.timeCurve);
     closeTo(graphPulseIntervalSeconds(state.tempo, state.pulseDivision), (
       patch.pulseBeats * 60 / patch.tempo
     ));
   }
   assert.equal(graphInstrumentPresetState("missing"), null);
+});
+
+test("distance ratios preserve every authored preset edge time", () => {
+  for (const [name, patch] of Object.entries(GRAPH_INSTRUMENT_PATCHES)) {
+    const graph = generateGraph({
+      type: patch.topology,
+      nodeCount: patch.nodeCount,
+      density: patch.density,
+      seed: patch.seed,
+    });
+    const ratioParameters = edgeAudioParameters(graph, patch);
+    const legacyParameters = edgeAudioParameters(graph, {
+      ...patch,
+      distanceRatio: null,
+      timeScale: LEGACY_GRAPH_INSTRUMENT_TIME_SCALES[name],
+    });
+    assert.equal(ratioParameters.length, legacyParameters.length);
+    ratioParameters.forEach((edge, index) => {
+      closeTo(edge.delaySeconds, legacyParameters[index].delaySeconds);
+    });
+  }
+});
+
+test("distance ratio scales edge time from the base while preserving safety bounds", () => {
+  const graph = {
+    nodes: [
+      { id: 0, x: 0, y: 0 },
+      { id: 1, x: 0, y: 0 },
+      { id: 2, x: Math.SQRT1_2, y: 0 },
+      { id: 3, x: 1, y: 1 },
+    ],
+    edges: [
+      { id: 0, from: 0, to: 1, feedbackEdge: false },
+      { id: 1, from: 0, to: 2, feedbackEdge: false },
+      { id: 2, from: 0, to: 3, feedbackEdge: false },
+    ],
+    indegree: [0, 1, 1, 1],
+    outdegree: [3, 0, 0, 0],
+  };
+  const delays = (settings) => edgeAudioParameters(graph, settings)
+    .map(({ delaySeconds }) => delaySeconds);
+
+  const ratioDelays = delays({
+    baseDelay: 100,
+    distanceRatio: 3,
+    timeScale: 999,
+    timeCurve: 2,
+  });
+  [0.1, 0.15, 0.3].forEach((expected, index) => closeTo(ratioDelays[index], expected));
+  delays({ baseDelay: 100, distanceRatio: 1, timeCurve: 2 })
+    .forEach((delay) => closeTo(delay, 0.1));
+  delays({ baseDelay: 100, distanceRatio: -4, timeCurve: 2 })
+    .forEach((delay) => closeTo(delay, 0.1));
+  [0.2, 0.3, 0.6].forEach((expected, index) => closeTo(
+    delays({ baseDelay: 200, distanceRatio: 3, timeCurve: 2 })[index],
+    expected,
+  ));
+  closeTo(delays({ baseDelay: 600, distanceRatio: 12, timeCurve: 1 })[2], 2);
 });
 
 test("presets apply rich, mode-specific sound settings alongside graph timing", () => {
@@ -209,7 +280,7 @@ test("an acyclic chain creates one finite, exactly timed arrival per node", () =
   const graph = generateGraph({ type: "chain", nodeCount: 4 });
   const events = scheduleGraphPulse(graph, {
     baseDelay: 100,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     pitchScale: 1,
     amplitude: 0.8,
@@ -232,7 +303,7 @@ test("a directed ring returns at the exact lap time with one decay per lap", () 
   const graph = generateGraph({ type: "ring", nodeCount: 3 });
   const events = scheduleGraphPulse(graph, {
     baseDelay: 100,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     feedback: 0.5,
     minAmplitude: 1e-9,
@@ -261,13 +332,13 @@ test("closed graph switches stop their route without changing deterministic orde
   const enabledEdges = graph.edges.map((_edge, index) => index !== 1);
   const first = scheduleGraphPulse(graph, {
     baseDelay: 50,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     enabledEdges,
   });
   const repeated = scheduleGraphPulse(graph, {
     baseDelay: 50,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     enabledEdges,
   });
@@ -276,7 +347,7 @@ test("closed graph switches stop their route without changing deterministic orde
 
   const opened = scheduleGraphPulse(graph, {
     baseDelay: 50,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     enabledEdges: new Set(graph.edges.map(({ id }) => id)),
   });
@@ -300,7 +371,7 @@ test("merge arrivals retain incoming provenance and make distinct following turn
   };
   const events = scheduleGraphPulse(graph, {
     baseDelay: 100,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     pitchScale: 1,
     pitchCurve: 1,
@@ -324,7 +395,7 @@ test("event, depth, feedback-pass, horizon, and amplitude bounds stop cyclic exp
   const graph = generateGraph({ type: "ring", nodeCount: 3 });
   const base = {
     baseDelay: 4,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     feedback: 0.92,
     minAmplitude: 1e-12,
@@ -362,7 +433,7 @@ test("the maximum 128-node chain traverses every sequential node", () => {
 
   const events = scheduleGraphPulse(graph, {
     baseDelay: 4,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     horizonSeconds: 60,
     maxDepth: MAX_GRAPH_INSTRUMENT_NODES,
@@ -389,7 +460,7 @@ test("the scheduler hard-caps oversized graph input at 128 nodes", () => {
 
   const events = scheduleGraphPulse(oversized, {
     baseDelay: 4,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     horizonSeconds: 60,
     maxDepth: MAX_GRAPH_EVENT_SCHEDULE,
@@ -415,7 +486,7 @@ test("a 128-node ring can complete multiple decaying feedback laps", () => {
   });
   const events = scheduleGraphPulse(graph, {
     baseDelay: 4,
-    timeScale: 0,
+    distanceRatio: 1,
     nodePass: 1,
     feedback: 0.72,
     minAmplitude: MIN_GRAPH_EVENT_AMPLITUDE,

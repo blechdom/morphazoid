@@ -195,6 +195,22 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.equal(controller.scheduledPulseTime, scheduledPulseBeforeTempo, "tempo input must preserve transport phase");
   assert.equal(controller.soundedEventCount, attackCountBeforeTempo, "tempo input must not add attacks");
 
+  const tailBeforeDistanceRatio = controller.pulseTemplate.tailSeconds;
+  elements.get("distanceRatio").value = "4";
+  listeners.get("distanceRatio:input")({ currentTarget: elements.get("distanceRatio") });
+  flushAnimationFrames(frameNow + 10);
+  assert.equal(controller.state.distanceRatio, 4);
+  assert.equal(elements.get("distanceRatioOut").textContent, "4.00×");
+  assert.notEqual(
+    controller.pulseTemplate.tailSeconds,
+    tailBeforeDistanceRatio,
+    "distance ratio should retime the graph template",
+  );
+  assert.equal(controller.pulseCount, pulseCountBeforeTempo, "distance ratio input must not launch another pulse");
+  assert.equal(controller.activeRunCount, activeRunsBeforeTempo, "distance ratio input must preserve the active run");
+  assert.equal(controller.scheduledPulseTime, scheduledPulseBeforeTempo, "distance ratio input must preserve transport phase");
+  assert.equal(controller.soundedEventCount, attackCountBeforeTempo, "distance ratio input must not add attacks");
+
   const node = controller.model.nodes[0];
   const nodeX = 63 + node.x * 774;
   const nodeY = 48 + node.y * 504;

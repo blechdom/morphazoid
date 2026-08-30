@@ -2,3 +2,8 @@
 PanGPA.log
 node_modules/
 dist/
+
+# Playwright browser-test artifacts
+playwright-report/
+test-results/
+blob-report/

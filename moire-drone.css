@@ -2,8 +2,8 @@
   --accent: #ff6f94;
   --accent-soft: color-mix(in oklab, #ff6f94 55%, transparent);
   --accent-glow: color-mix(in oklab, #ff6f94 22%, transparent);
-  --moire-a: #55e7e1;
-  --moire-b: #ff6f94;
+  --moire-a: #68f7a4;
+  --moire-b: #ff5cad;
   --moire-collision: #f5d5ff;
   --moire-violet: #aa8cff;
   --moire-propagation: #ffd166;
@@ -16,36 +16,18 @@
 
 .moire-stage-wrap {
   isolation: isolate;
-  background:
-    linear-gradient(rgba(214, 232, 226, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(214, 232, 226, 0.022) 1px, transparent 1px),
-    radial-gradient(circle at 30% 52%, color-mix(in oklab, var(--moire-a) 7%, transparent), transparent 42%),
-    radial-gradient(circle at 70% 48%, color-mix(in oklab, var(--moire-b) 7%, transparent), transparent 44%),
-    radial-gradient(circle at 50% 52%, color-mix(in oklab, var(--moire-collision) 4%, transparent), transparent 30%),
-    var(--bg-deep);
-  background-size: 100% 12.5%, 12.5% 100%, auto, auto, auto, auto;
-}
-
-.moire-stage-wrap::after {
-  position: absolute;
-  z-index: 2;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 120px;
-  pointer-events: none;
-  background: linear-gradient(transparent, color-mix(in oklab, var(--bg-deep) 84%, transparent));
-  content: "";
+  background: var(--bg-deep);
 }
 
 .moire-drone-page #stage {
   position: relative;
   z-index: 1;
-  cursor: crosshair;
+  cursor: grab;
   touch-action: none;
 }
 
-.moire-drone-page #stage.is-tugging { cursor: ns-resize; }
+.moire-drone-page #stage.is-grabbed,
+.moire-drone-page #stage.is-pulling { cursor: grabbing; }
 
 .moire-field-legend {
   position: absolute;
@@ -83,6 +65,8 @@
 }
 .moire-field-legend .output-spectrum { color: var(--moire-collision); }
 .moire-field-legend .comb-gap { color: var(--moire-gap); }
+.moire-field-legend .q-response { color: var(--moire-b); }
+.moire-field-legend .fft-response { color: var(--moire-a); }
 
 .moire-field-legend .comb-gap i {
   height: 5px;
@@ -101,6 +85,7 @@
   left: clamp(18px, 3vw, 38px);
   display: grid;
   pointer-events: none;
+  text-shadow: 0 1px 10px var(--bg-deep), 0 1px 3px var(--bg-deep);
   text-transform: uppercase;
 }
 
@@ -131,6 +116,29 @@
   font-size: 7px;
   letter-spacing: 0.11em;
   text-transform: uppercase;
+}
+
+.fabric-first-instruction {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  padding: 7px 10px;
+  pointer-events: none;
+  color: var(--ink);
+  border: 1px solid color-mix(in oklab, var(--moire-collision) 24%, transparent);
+  background: color-mix(in oklab, var(--bg-deep) 82%, transparent);
+  box-shadow: 0 0 28px color-mix(in oklab, var(--moire-collision) 10%, transparent);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transform: translate(-50%, 62px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.fabric-first-instruction.dismissed {
+  opacity: 0;
+  transform: translate(-50%, 70px);
 }
 
 .moire-drone-page .stage-meta {
@@ -287,6 +295,7 @@
 }
 
 .propagation-harmonics[hidden] { display: none; }
+.moire-propagation .control[hidden] { display: none; }
 
 .control-section.moire-texture[data-section="sound"] {
   --accent: var(--moire-collision);
@@ -417,6 +426,43 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.moire-six-choice {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sculpt-mode-choice {
+  margin: 5px 0 13px;
+}
+
+.sculpt-mode-choice button {
+  min-width: 0;
+  padding-inline: 5px;
+  font-size: 8px;
+}
+
+.noise-color-choice {
+  margin: 5px 0 13px;
+}
+
+.noise-color-choice button {
+  min-width: 0;
+  padding-inline: 5px;
+  color: color-mix(in oklab, var(--noise-choice) 68%, var(--muted));
+}
+
+.noise-color-choice button[data-noise-color="-1"] { --noise-choice: #c58b5e; }
+.noise-color-choice button[data-noise-color="-0.5"] { --noise-choice: #ff83b6; }
+.noise-color-choice button[data-noise-color="0"] { --noise-choice: #eef2f7; }
+.noise-color-choice button[data-noise-color="1"] { --noise-choice: #79b7ff; }
+
+.noise-color-choice button[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--noise-choice) 62%, transparent);
+  color: var(--noise-choice);
+  background: color-mix(in oklab, var(--noise-choice) 13%, transparent);
+  box-shadow: inset 0 0 12px color-mix(in oklab, var(--noise-choice) 14%, transparent);
+}
+
 .propagation-mode-choice button {
   min-width: 0;
   padding-inline: 4px;
@@ -533,6 +579,14 @@
     line-height: 1.45;
     text-align: right;
   }
+
+  .fabric-first-instruction {
+    transform: translate(-50%, -20px);
+  }
+
+  .fabric-first-instruction.dismissed {
+    transform: translate(-50%, -12px);
+  }
 }
 
 @media (max-width: 450px) {
@@ -542,7 +596,8 @@
 
   .moire-signal-card { grid-template-columns: 1fr; }
   .moire-signal-card i { display: none; }
-  .moire-four-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .moire-four-choice,
+  .moire-six-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 960px) and (max-height: 560px) {
@@ -557,7 +612,9 @@
   .moire-preset-grid button { min-height: 48px; }
   .fabric-excite-button,
   .fabric-clear-button { min-height: 48px; }
-  .propagation-mode-choice button { min-height: 48px; }
+  .sculpt-mode-choice button,
+  .propagation-mode-choice button,
+  .noise-color-choice button { min-height: 48px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

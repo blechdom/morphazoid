@@ -43,13 +43,15 @@ The hard bounds are also relevant: `MAX_RECURSION_FEEDBACK = 0.96`, thirteen gen
 
 The supplied topologies cover Chain, Tree, DAG, Bipartite, Ring, Small World, Hub, Mesh, Modular, and seeded Random graphs. After cycle annotation, `generateGraph` marks a stable cycle-closing route with `feedbackEdge: edge.cyclic && edge.to <= edge.from`. This distinction is essential: an edge can be inside a strongly connected component without attenuating every intermediate step.
 
-`edgeAudioParameters` maps geometric edge length to 4 ms–2 s of delay. Its normal pass gain is `nodePass / sqrt(indegree * outdegree)`; only a `feedbackEdge` multiplies that result by the bounded feedback amount. Thus a simple ring at `nodePass = 1` loses exactly one feedback factor per complete lap, not one factor at every node. Existing tests also verify that dense and route-masked cyclic graphs remain below unity.
+`edgeAudioParameters` maps geometric edge length to 4 ms–2 s of delay. The microphone Graph Delay retains its absolute `timeScale` control, which adds milliseconds according to length. Graph Synth and Graph Drum Machine instead use a dimensionless `distanceRatio`: 1× gives every edge the minimum time, while larger ratios stretch longer edges proportionally until the shared 2-second safety ceiling. Its normal pass gain is `nodePass / sqrt(indegree * outdegree)`; only a `feedbackEdge` multiplies that result by the bounded feedback amount. Thus a simple ring at `nodePass = 1` loses exactly one feedback factor per complete lap, not one factor at every node. Existing tests also verify that dense and route-masked cyclic graphs remain below unity.
 
 `graph-delay-app.js` demonstrates the audio-rate realization in `buildAudioGraphNodes`: each edge is an `input bus -> route switch -> DelayNode -> GainNode`; a feedback edge additionally passes through a low-pass filter before returning to the target node. Relative incoming-to-outgoing turns are pitch shifted by `src/graph-turn-processor.js`. Only forward sinks are tapped to the wet output, then a compressor and soft clipper protect the final bus. This is the direct starting point for Graph Synth.
 
 ## Shared graph contract
 
 Both new pages should generate their model through `generateGraphWithinTurnBudget`, derive enabled-route gains with `graphEdgeSwitchMultipliers`, and derive timing and amplitude with `edgeAudioParameters`. Node dragging may change delay and turn mappings, but not node identity or edge identity. Seeded graphs must remain deterministic.
+
+For the event instruments, normalized edge length `L` and response curve `C` set the route time by `baseDelay × (1 + L^C × (distanceRatio - 1))`, subject to the shared 4 ms–2 s safety bounds. This is a scale, not an added millisecond offset: doubling `baseDelay` doubles every edge time that has not reached the ceiling. The Graph Delay page continues to use its established `baseDelay + L^C × timeScale` contract.
 
 For every enabled route `e`:
 
@@ -78,9 +80,9 @@ In a cycle, a returned event is a real delayed retrigger with reduced amplitude 
 
 ## Graph Synth semantics
 
-Graph Synth replaces Graph Delay's microphone terminal with a permission-free built-in excitation. A played note or transport gate creates a Sine, FM, PM, or Shepard source using the mappings and envelope language of the L-System synth. The implemented event-domain form schedules each node arrival on the AudioContext clock using the same edge timing and gain math as Graph Delay:
+Graph Synth replaces Graph Delay's microphone terminal with a permission-free built-in excitation. A played note or transport gate creates a Sine, FM, PM, or Shepard source using the mappings and envelope language of the L-System synth. The implemented event-domain form schedules each node arrival on the AudioContext clock using the shared graph kernel and gain math, with the event instruments' ratio-based edge timing:
 
-- edge length controls delay time;
+- edge length scales delay time between the minimum and the selected distance ratio;
 - an incoming-to-outgoing signed turn controls inherited pitch interval;
 - node position controls pan and can optionally control pitch or timbre;
 - branching uses normalized energy;
@@ -94,7 +96,7 @@ Useful sound mappings are Turn -> pitch, Y -> pitch, Degree -> FM/PM depth, Path
 ## Safety and performance bounds
 
 - Keep the microphone Graph Delay at 3–24 nodes and 192 relative-turn routes. The event instruments use 3–128 nodes and a 4,096-turn-route generation budget; `generateGraphWithinTurnBudget` reduces density when needed.
-- Keep edge delay within 0.004–2 seconds, `nodePass` within 0–1, feedback within 0–0.92, and per-return tone/brightness retention within 0.2–1.
+- Keep edge delay within 0.004–2 seconds, event-instrument distance ratio within 1×–12×, `nodePass` within 0–1, feedback within 0–0.92, and per-return tone/brightness retention within 0.2–1.
 - Preserve split/merge normalization and use `graphEdgeSwitchMultipliers`; closing one merge input must not amplify another input.
 - Retain a protected output, conservative master maximum, and click-safe gain ramps; Graph Synth uses its own bounded compressor-backed one-shot renderer while Graph Drums reuses `FmDrumAudio`.
 - Bound event count, tail time, depth, active traversals, and amplitude as described above. Keep at most 64 live graph traversals and draw only the newest four; Graph Synth separately caps native simultaneous oscillator voices at 64.

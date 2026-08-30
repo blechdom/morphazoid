@@ -399,6 +399,10 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.equal(manifest.name, "morphazoid");
   assert.equal(manifest.type, "module");
   assert.equal(manifest.dependencies, undefined);
-  assert.equal(manifest.devDependencies, undefined);
+  assert.deepEqual(
+    Object.keys(manifest.devDependencies ?? {}).sort(),
+    ["@axe-core/playwright", "@playwright/test"],
+    "browser QA dependencies must remain development-only",
+  );
   assert.doesNotMatch(packageJson, /next|react|typescript/i);
 });

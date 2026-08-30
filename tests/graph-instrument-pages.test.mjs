@@ -37,7 +37,7 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
       "tempo", "pulseDivision", "randomGraphButton",
       "graphPatch", "graphPatchGrid", "topology", "nodeCount", "density", "seed",
       "newGraphButton", "arrangeGraphButton", "scatterGraphButton", "openAllSwitchesButton",
-      "triggerScope", "nodePass", "baseDelay", "timeScale",
+      "triggerScope", "nodePass", "baseDelay", "distanceRatio",
       "timeCurve", "feedback", "feedbackTone", "motionSection", "motionSummary",
       "nodeMotionPlayButton", "nodeMotionMode", "nodeMotionSpeed", "nodeMotionSpeedOut",
       "nodeMotionAmount", "nodeMotionAmountOut", "mappingMode", "mappingReadout",
@@ -54,6 +54,9 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
     assert.match(html, /Cycles are (?:musical|note) feedback/);
     assert.match(html, /id="randomGraphButton"[^>]*>Random<\/button>/);
     assert.match(html, /id="nodeCount"[^>]*max="128"/);
+    assert.match(html, /id="distanceRatio"[^>]*min="1"[^>]*max="12"[^>]*step="0\.01"/);
+    assert.match(html, /At 1×, every edge uses the minimum time/);
+    assert.doesNotMatch(html, /id="timeScale"|Distance → extra time/);
     assert.match(html, /option value="all"/);
     assert.match(html, /option value="leaves"/);
     assert.doesNotMatch(html, /id="edgeSubdivisions"/);

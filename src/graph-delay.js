@@ -762,6 +762,7 @@ export function edgeAudioParameters(graph, {
   baseDelay = 180,
   dispersion = 0.45,
   timeScale = null,
+  distanceRatio = null,
   timeCurve = 1,
   nodePass = 0.96,
   feedback = 0.72,
@@ -777,10 +778,17 @@ export function edgeAudioParameters(graph, {
       0,
       1,
     );
-    const geometricDelay = Number.isFinite(Number(timeScale))
-      ? clamp(baseDelay, 4, 600)
-        + normalizedLength ** clamp(timeCurve, 0.25, 3) * clamp(timeScale, 0, 1600)
-      : clamp(baseDelay, 8, 1600) * (1 + variation);
+    const baseMilliseconds = clamp(baseDelay, 4, 600);
+    const lengthAmount = normalizedLength ** clamp(timeCurve, 0.25, 3);
+    const hasDistanceRatio = distanceRatio !== null
+      && distanceRatio !== undefined
+      && distanceRatio !== ""
+      && Number.isFinite(Number(distanceRatio));
+    const geometricDelay = hasDistanceRatio
+      ? baseMilliseconds * (1 + lengthAmount * (clamp(distanceRatio, 1, 12) - 1))
+      : Number.isFinite(Number(timeScale))
+        ? baseMilliseconds + lengthAmount * clamp(timeScale, 0, 1600)
+        : clamp(baseDelay, 8, 1600) * (1 + variation);
     const delaySeconds = clamp(
       geometricDelay / 1000,
       0.004,

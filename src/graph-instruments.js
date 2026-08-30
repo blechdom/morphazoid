@@ -35,10 +35,11 @@ const positiveInteger = (value, fallback, maximum = Infinity) => Math.min(
   Math.max(0, Math.floor(finite(value, fallback))),
 );
 
-const patch = (id, overrides) => Object.freeze({
-  ...GRAPH_DELAY_PATCHES[id],
-  ...overrides,
-});
+const patch = (id, overrides) => {
+  const inherited = { ...GRAPH_DELAY_PATCHES[id] };
+  delete inherited.timeScale;
+  return Object.freeze({ ...inherited, ...overrides });
+};
 
 /**
  * A compact shared bank for the drum and synth graph pages. Each patch keeps a
@@ -48,7 +49,7 @@ const patch = (id, overrides) => Object.freeze({
 export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
   clearSteps: patch("clearSteps", {
     baseDelay: 55,
-    timeScale: 0,
+    distanceRatio: 1,
     timeCurve: 1,
     tempo: 144,
     pulseBeats: 0.5,
@@ -69,7 +70,7 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
   }),
   branchChoir: patch("branchChoir", {
     baseDelay: 190,
-    timeScale: 310,
+    distanceRatio: 50 / 19,
     timeCurve: 1.35,
     tempo: 72,
     pulseBeats: 4,
@@ -90,7 +91,7 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
   }),
   layeredGlass: patch("layeredGlass", {
     baseDelay: 62,
-    timeScale: 58,
+    distanceRatio: 60 / 31,
     timeCurve: 0.9,
     tempo: 126,
     pulseBeats: 1,
@@ -111,7 +112,7 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
   }),
   haloRing: patch("haloRing", {
     baseDelay: 105,
-    timeScale: 15,
+    distanceRatio: 8 / 7,
     timeCurve: 1,
     tempo: 100,
     pulseBeats: 2,
@@ -132,7 +133,7 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
   }),
   shortcutChorus: patch("shortcutChorus", {
     baseDelay: 36,
-    timeScale: 300,
+    distanceRatio: 28 / 3,
     timeCurve: 1.8,
     tempo: 108,
     pulseBeats: 2,
@@ -153,7 +154,7 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
   }),
   hubScatter: patch("hubScatter", {
     baseDelay: 24,
-    timeScale: 50,
+    distanceRatio: 37 / 12,
     timeCurve: 0.45,
     tempo: 156,
     pulseBeats: 0.5,
@@ -174,7 +175,7 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
   }),
   softMesh: patch("softMesh", {
     baseDelay: 120,
-    timeScale: 220,
+    distanceRatio: 17 / 6,
     timeCurve: 0.7,
     tempo: 76,
     pulseBeats: 2,
@@ -195,7 +196,7 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
   }),
   islandSignals: patch("islandSignals", {
     baseDelay: 260,
-    timeScale: 520,
+    distanceRatio: 3,
     timeCurve: 1.45,
     tempo: 60,
     pulseBeats: 4,

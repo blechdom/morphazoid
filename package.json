@@ -15,6 +15,15 @@
     "analyze:julia-similarity": "node scripts/julia-similarity-report.mjs",
     "check": "for file in app.js nav.js *-app.js wax-page.js src/*.js; do node --check $file || exit 1; done; node --check scripts/julia-similarity-report.mjs; node --check scripts/mix-catalogue-icons.mjs; node --check scripts/build-release-site.mjs; node --check scripts/build-wax-site.mjs; node --check scripts/check-wax-dist.mjs; node --check scripts/wax/wax-host-bootstrap.js; node --check scripts/wax/wax-host-bridge.js; node --check scripts/wax/wax-universal-adapter.js",
     "test": "node --test --test-concurrency=4 tests/*.test.mjs morphazoidical/tests/*.test.mjs",
-    "verify": "npm run check && npm test && npm run check:wax-dist"
+    "verify": "npm run check && npm test && npm run check:wax-dist",
+    "test:browser": "playwright test",
+    "test:browser:smoke": "playwright test e2e/site-smoke.spec.mjs",
+    "test:browser:midi": "playwright test e2e/midi-contract.spec.mjs",
+    "test:browser:audio": "playwright test e2e/audio-contract.spec.mjs",
+    "test:browser:audit": "playwright test e2e/control-inventory.spec.mjs e2e/shared-consistency.spec.mjs e2e/responsive.spec.mjs e2e/accessibility.spec.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1"
   }
 }

@@ -1,21 +1,20 @@
 import {
   MOIRE_DRONE_DEFAULTS,
   MOIRE_DRONE_FFT_SIZE,
+  MOIRE_DRONE_LIMITS,
+  MOIRE_DRONE_NOISE_COLOR_CHOICES,
   MOIRE_DRONE_PRESETS,
   MoireDroneAudio,
   SpectralFabric,
   SpectralPropagationPool,
-  collideWaveFields,
   combToothAnchor,
   combToothWarpOffset,
-  latticeCoordinate,
-  moireFilterTarget,
+  fabricGesturePull,
   normalizedResonanceQ,
   rotateFabricCoordinate,
   sanitizeMoireDroneParams,
   spectralFftMaskGain,
   spectralWarpedCombGate,
-  waveFieldValue,
   wrapUnit,
 } from "./src/moire-drone.js";
 
@@ -24,9 +23,12 @@ const TAU = Math.PI * 2;
 const audio = new MoireDroneAudio(globalThis);
 const canvas = $("stage");
 const context2d = canvas.getContext("2d", { alpha: true, desynchronized: true });
-const textureCanvas = document.createElement("canvas");
-const textureContext = textureCanvas.getContext("2d", { alpha: false });
 const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+const STATIC_GRID_COLUMNS = 14;
+const STATIC_GRID_ROWS = 10;
+const STATIC_GRID_SEGMENTS = 40;
+const STATIC_GRID_PINK = "#ff5cad";
+const STATIC_GRID_GREEN = "#68f7a4";
 const firstPreset = MOIRE_DRONE_PRESETS[0];
 const visualFabric = new SpectralFabric({
   seed: (MOIRE_DRONE_DEFAULTS.seed ^ 0xa511e9b3) >>> 0,
@@ -45,6 +47,15 @@ const PROPAGATION_LABELS = Object.freeze({
   spiral: "Spiral",
   shock: "Pulse",
 });
+const SPECTRAL_SCULPT_LABELS = Object.freeze({
+  notches: "Gaps",
+  ridges: "Ridges",
+  lowpass: "Low-pass",
+  highpass: "High-pass",
+  bandpass: "Window",
+  bandstop: "Hollow",
+});
+const REPEATED_SCULPT_MODES = new Set(["notches", "ridges"]);
 
 const state = {
   settings: {
@@ -56,37 +67,62 @@ const state = {
   preset: firstPreset.id,
   audioOn: false,
   quality: { tier: 0, activeFilters: MOIRE_DRONE_DEFAULTS.filterPairs * 2, load: 0 },
-  shepardPhaseA: 0.117,
-  shepardPhaseB: 0.117,
-  fieldPhaseA: 0.213,
-  fieldPhaseB: 0.213,
-  fabricSpinPhase: 0,
   combPhase: 0,
 };
 
 const spectrum = new Float32Array(1_024);
 spectrum.fill(-100);
 
-let textureImage = null;
 let canvasWidth = 1;
 let canvasHeight = 1;
 let animationFrame = 0;
 let lastAnimationTime = 0;
 let lastDrawTime = 0;
 let audioTransition = false;
+let audioStartPromise = null;
 let pointerId = null;
 let pointerStartX = 0;
 let pointerStartY = 0;
-let pointerLastY = 0;
+let pointerStartTime = 0;
 let pointerLastTime = 0;
+let pointerVelocityX = 0;
+let pointerVelocityY = 0;
 let pointerAnchorX = 0;
 let pointerAnchorY = 0;
+let pointerAnchorLocalX = 0;
+let pointerAnchorLocalY = 0;
+let pointerAudioAnchorX = 0;
+let pointerAudioAnchorY = 0;
 let pointerCurrentX = 0;
 let pointerCurrentY = 0;
 let pointerPullAmount = 0;
 let pointerDidDrag = false;
-let visualAutoAccumulator = 0.82;
-let visualAutoSerial = 0;
+let keyboardSculptX = 0;
+let keyboardSculptY = 0;
+let visualPullAnchorX = 0;
+let visualPullAnchorY = 0;
+let visualPullOffsetX = 0;
+let visualPullOffsetY = 0;
+let visualPullVelocityX = 0;
+let visualPullVelocityY = 0;
+let visualSculptGestureActive = false;
+let visualSculptGestureEnvelope = 0;
+let visualSculptGestureStrength = 0;
+let visualSculptGestureFocus = state.settings.combOffset;
+let visualSculptGestureCurrentY = 0;
+let visualSculptGestureDeltaY = 0;
+let visualSculptGestureWidthScale = 1;
+let visualSculptGestureThrowVelocity = 0;
+let visualSculptGestureWidthVelocity = 0;
+let currentVisualSculpt = Object.freeze({
+  periodic: false,
+  focus: state.settings.combOffset,
+  width: state.settings.combWidth,
+  depth: state.settings.combDepth,
+  character: state.settings.qCharacter,
+  fftSharpness: state.settings.fftSharpness,
+  warp: 0,
+});
 let displayedPropagationCount = -1;
 let disposed = false;
 
@@ -139,6 +175,8 @@ const RANGE_BINDINGS = Object.freeze([
   ["combDrift", "combDrift", Number],
   ["combWarp", "combWarp", Number],
   ["pluckCut", "pluckCut", Number],
+  ["gestureCoupling", "gestureCoupling", Number],
+  ["gestureMemory", "gestureMemory", Number],
   ["spectralFilterBlend", "spectralFilterBlend", Number],
   ["fftCutDepth", "fftCutDepth", Number],
   ["fftSharpness", "fftSharpness", Number],
@@ -185,6 +223,17 @@ function percent(value) {
   return `${Math.round(value * 100)}%`;
 }
 
+function clampVisual(value, low, high, fallback = low) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(high, Math.max(low, numeric));
+}
+
+function reflectVisualUnit(value) {
+  const doubled = wrapUnit(Number(value) * 0.5) * 2;
+  return doubled <= 1 ? doubled : 2 - doubled;
+}
+
 function spectralFilterBlendLabel(value) {
   if (value <= 0.005) return "Q only";
   if (value >= 0.995) return "FFT only";
@@ -203,12 +252,19 @@ function formatFrequency(value) {
     : `${Math.round(value)} Hz`;
 }
 
+function frequencyAtStageX(x, settings = state.settings) {
+  const position = Math.max(0, Math.min(1, (Number(x) + 1) * 0.5));
+  return settings.lowFrequency
+    * (settings.highFrequency / settings.lowFrequency) ** position;
+}
+
 function noiseColorLabel(value) {
-  if (value <= -0.76) return "brown";
-  if (value < -0.25) return "brown-pink";
-  if (value < -0.03) return "pink-white";
-  if (value <= 0.08) return "white";
-  if (value < 0.65) return "white-blue";
+  if (value <= -0.995) return "brown";
+  if (value < -0.505) return "brown–pink";
+  if (value <= -0.495) return "pink";
+  if (value < -0.005) return "pink–white";
+  if (value <= 0.005) return "white";
+  if (value < 0.995) return "white–blue";
   return "blue";
 }
 
@@ -231,11 +287,19 @@ function formatCycleRate(value) {
 }
 
 function effectiveFabricAngle() {
-  return state.settings.fabricRotation + state.fabricSpinPhase * 360;
+  return state.settings.fabricRotation;
 }
 
 function propagationLabel(mode = state.settings.propagationMode) {
   return PROPAGATION_LABELS[mode] ?? "Rings";
+}
+
+function spectralSculptLabel(mode = state.settings.spectralSculptMode) {
+  return SPECTRAL_SCULPT_LABELS[mode] ?? "Gaps";
+}
+
+function sculptUsesRegions(mode = state.settings.spectralSculptMode) {
+  return REPEATED_SCULPT_MODES.has(mode);
 }
 
 function updatePropagationStatus(force = false) {
@@ -243,9 +307,11 @@ function updatePropagationStatus(force = false) {
   if (!force && displayedPropagationCount === activeCount) return;
   displayedPropagationCount = activeCount;
   const settings = state.settings;
-  const toothNoun = settings.combTeeth === 1 ? "tooth" : "teeth";
+  const regions = sculptUsesRegions(settings.spectralSculptMode)
+    ? ` · ${settings.combTeeth} ${settings.combTeeth === 1 ? "region" : "regions"}`
+    : "";
   const rippleNoun = settings.propagationVoices === 1 ? "ripple" : "ripples";
-  $("propagationSummary").textContent = `${settings.combTeeth} ${toothNoun} · ${percent(settings.combDepth)} deep · ${activeCount}/${settings.propagationVoices} ${rippleNoun}`;
+  $("propagationSummary").textContent = `${spectralSculptLabel(settings.spectralSculptMode)}${regions} · ${percent(settings.combDepth)} sculpt · ${activeCount}/${settings.propagationVoices} ${rippleNoun}`;
   $("clearWavesButton")?.setAttribute(
     "aria-label",
     `Clear ${activeCount} active ${activeCount === 1 ? "ripple" : "ripples"} and fabric motion`,
@@ -255,27 +321,245 @@ function updatePropagationStatus(force = false) {
 
 function updateStageReadout() {
   const settings = state.settings;
-  const effectiveFilters = state.quality.tier > 0
-    ? state.quality.activeFilters
-    : settings.filterPairs * 2;
-  $("stageReadout").textContent = [
-    `${settings.combTeeth} GAPS`,
-    `${percent(settings.combDepth)} DEPTH`,
+  const effectiveFilters = effectiveFilterCount();
+  const readout = [
+    spectralSculptLabel(settings.spectralSculptMode).toUpperCase(),
+  ];
+  if (sculptUsesRegions(settings.spectralSculptMode)) {
+    readout.push(`${settings.combTeeth} REGIONS`);
+  }
+  readout.push(
+    `${percent(settings.combDepth)} SCULPT`,
     `${visualPropagation.activeCount}/${settings.propagationVoices} RIPPLES`,
     `${propagationLabel(settings.propagationMode).toUpperCase()} SHAPE`,
     `${effectiveFilters}/${settings.filterPairs * 2} FILTERS`,
-    settings.freeze ? "FROZEN" : "DRIFTING",
+    "STATIC GRID",
+    settings.freeze ? "AUDIO FROZEN" : "AUDIO DRIFT",
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
-  ].join(" · ");
+  );
+  $("stageReadout").textContent = readout.join(" · ");
+}
+
+function effectiveFilterCount() {
+  const tier = Math.round(clampVisual(
+    state.quality.tier,
+    0,
+    MOIRE_DRONE_LIMITS.qualityScales.length - 1,
+    0,
+  ));
+  const scale = MOIRE_DRONE_LIMITS.qualityScales[tier] ?? 1;
+  return Math.max(4, Math.round(state.settings.filterPairs * scale)) * 2;
+}
+
+function resetVisualSculptGesture() {
+  visualSculptGestureActive = false;
+  visualSculptGestureEnvelope = 0;
+  visualSculptGestureStrength = 0;
+  visualSculptGestureFocus = state.settings.combOffset;
+  visualSculptGestureCurrentY = 0;
+  visualSculptGestureDeltaY = 0;
+  visualSculptGestureWidthScale = 1;
+  visualSculptGestureThrowVelocity = 0;
+  visualSculptGestureWidthVelocity = 0;
+}
+
+function captureVisualSculptGesture(
+  x = 0,
+  y = 0,
+  amount = 0,
+  gesture = {},
+  active = false,
+) {
+  const packet = gesture && typeof gesture === "object" ? gesture : {};
+  const anchorX = clampVisual(x, -1, 1, 0);
+  const anchorY = clampVisual(y, -1, 1, 0);
+  const currentX = clampVisual(packet.currentX, -1, 1, anchorX);
+  const currentY = clampVisual(packet.currentY, -1, 1, anchorY);
+  const deltaX = clampVisual(packet.deltaX, -2, 2, currentX - anchorX);
+  const deltaY = clampVisual(packet.deltaY, -2, 2, currentY - anchorY);
+  const suppliedDistance = Number(packet.distance);
+  const hasSpatialGesture = Number.isFinite(suppliedDistance)
+    || Math.abs(deltaX) + Math.abs(deltaY) > 1e-6;
+  const distance = clampVisual(
+    suppliedDistance,
+    0,
+    Math.SQRT2 * 2,
+    Math.hypot(deltaX, deltaY),
+  );
+  const effort = hasSpatialGesture
+    ? 1 - Math.exp(-distance * 1.25)
+    : 1 - Math.exp(-Math.abs(clampVisual(amount, -2, 2, 0)) * 1.4);
+  const directAmount = Math.min(1, Math.abs(clampVisual(amount, -2, 2, 0)));
+  visualSculptGestureStrength = clampVisual(
+    effort * 0.78 + directAmount * 0.22,
+    0,
+    1,
+    directAmount,
+  );
+  visualSculptGestureFocus = (currentX + 1) * 0.5;
+  visualSculptGestureCurrentY = currentY;
+  visualSculptGestureDeltaY = deltaY;
+  visualSculptGestureWidthScale = 2 ** clampVisual(
+    currentY * 0.9 + deltaY * 1.35
+      + (visualSculptGestureStrength - 0.5) * 1.1,
+    -2.3,
+    2.3,
+    0,
+  );
+  visualSculptGestureEnvelope = active
+    ? 1
+    : 0.15 + visualSculptGestureStrength * 0.85;
+  visualSculptGestureActive = Boolean(active);
+  visualSculptGestureThrowVelocity = active
+    ? 0
+    : clampVisual(packet.velocityX, -16, 16, 0) * 0.12;
+  visualSculptGestureWidthVelocity = active
+    ? 0
+    : clampVisual(packet.velocityY, -16, 16, 0) * 0.08;
+}
+
+function stepVisualSculptGesture(seconds) {
+  if (visualSculptGestureActive) {
+    visualSculptGestureEnvelope = 1;
+    return;
+  }
+  const elapsed = clampVisual(seconds, 0, 0.1, 0);
+  if (elapsed <= 0 || visualSculptGestureEnvelope <= 1e-7) return;
+  const memory = clampVisual(state.settings.gestureMemory, 0.08, 4, 1.1);
+  const decay = Math.exp(-elapsed / memory);
+  visualSculptGestureFocus = clampVisual(
+    visualSculptGestureFocus + visualSculptGestureThrowVelocity * elapsed,
+    0,
+    1,
+    visualSculptGestureFocus,
+  );
+  visualSculptGestureWidthScale = clampVisual(
+    visualSculptGestureWidthScale
+      * 2 ** (visualSculptGestureWidthVelocity * elapsed * 0.2),
+    0.2,
+    5,
+    1,
+  );
+  visualSculptGestureThrowVelocity *= decay;
+  visualSculptGestureWidthVelocity *= decay;
+  visualSculptGestureEnvelope *= decay;
+  if (visualSculptGestureEnvelope < 1e-7) resetVisualSculptGesture();
+}
+
+function visualSculptGeometry() {
+  const settings = state.settings;
+  const periodic = sculptUsesRegions(settings.spectralSculptMode);
+  const movingFocus = periodic
+    ? wrapUnit(settings.combOffset + state.combPhase)
+    : reflectVisualUnit(settings.combOffset + state.combPhase * 2);
+  const positionInfluence = clampVisual(
+    settings.gestureCoupling * visualSculptGestureEnvelope,
+    0,
+    1,
+    0,
+  );
+  const shapeInfluence = positionInfluence * (
+    0.16 + visualSculptGestureStrength * 0.84
+  );
+  const gestureTarget = periodic
+    ? wrapUnit(-visualSculptGestureFocus * settings.combTeeth)
+    : visualSculptGestureFocus;
+  const rawDelta = gestureTarget - movingFocus;
+  const focusDelta = periodic ? rawDelta - Math.round(rawDelta) : rawDelta;
+  let focus = periodic
+    ? wrapUnit(movingFocus + focusDelta * positionInfluence)
+    : movingFocus + focusDelta * positionInfluence;
+  let width = clampVisual(
+    settings.combWidth
+      * visualSculptGestureWidthScale ** shapeInfluence,
+    0.02,
+    0.48,
+    settings.combWidth,
+  );
+  const pressureDepth = settings.combDepth * (
+    0.55 + visualSculptGestureStrength * 0.45
+  );
+  const pressureAmount = clampVisual(
+    settings.gestureCoupling * visualSculptGestureEnvelope * settings.pluckCut,
+    0,
+    1,
+    0,
+  );
+  const depth = clampVisual(
+    settings.combDepth + (pressureDepth - settings.combDepth) * pressureAmount,
+    0,
+    1,
+    settings.combDepth,
+  );
+  const character = clampVisual(
+    settings.qCharacter + (
+      visualSculptGestureCurrentY * 0.12
+      + visualSculptGestureDeltaY * 0.38
+      + visualSculptGestureStrength * settings.pluckCut * 0.28
+    ) * shapeInfluence,
+    0,
+    1,
+    settings.qCharacter,
+  );
+  let warp = 0;
+  if (!periodic) {
+    const anchorX = focus * 2 - 1;
+    const anchorY = visualSculptGestureEnvelope > 1e-5
+      ? visualSculptGestureCurrentY
+      : settings.originY;
+    const fabric = visualFabric.sample(anchorX, anchorY, effectiveFabricAngle());
+    const propagation = visualPropagation.sample(anchorX, anchorY);
+    const octaveSpan = Math.max(
+      0.25,
+      Math.log2(settings.highFrequency / settings.lowFrequency),
+    );
+    warp = combToothWarpOffset({
+      fabric,
+      propagation,
+      fabricDepth: settings.fabricDepth,
+      propagationDepth: settings.propagationDepth,
+      combWarp: settings.combWarp,
+      octaveSpan,
+      teeth: 1,
+    });
+    focus = reflectVisualUnit(focus + warp);
+    width = clampVisual(
+      width * (1
+        + Math.abs(propagation) * settings.pluckCut * 2.2
+        + Math.abs(fabric) * settings.pluckCut * 0.45),
+      0.02,
+      0.48,
+      width,
+    );
+  }
+  return {
+    periodic,
+    focus,
+    width,
+    depth,
+    character,
+    fftSharpness: clampVisual(
+      settings.fftSharpness + (character - settings.qCharacter) * 0.35,
+      0,
+      1,
+      settings.fftSharpness,
+    ),
+    warp,
+  };
 }
 
 function resetVisualDynamics({ resetComb = true } = {}) {
   visualFabric.reset((state.settings.seed ^ 0xa511e9b3) >>> 0);
   visualPropagation.reset((state.settings.seed ^ 0x3c6ef372) >>> 0);
+  visualPullOffsetX = 0;
+  visualPullOffsetY = 0;
+  visualPullVelocityX = 0;
+  visualPullVelocityY = 0;
   visualPropagation.setActiveLimit(state.settings.propagationVoices);
-  if (resetComb) state.combPhase = 0;
-  visualAutoAccumulator = 0.82;
-  visualAutoSerial = 0;
+  resetVisualSculptGesture();
+  if (resetComb) {
+    state.combPhase = 0;
+  }
   visualCombPositions.fill(0);
   visualCombWidths.fill(0);
   visualCombWarps.fill(0);
@@ -285,14 +569,22 @@ function resetVisualDynamics({ resetComb = true } = {}) {
 
 function updateVisualCombGeometry() {
   const settings = state.settings;
-  const teeth = settings.combTeeth;
-  const phase = wrapUnit(state.combPhase + settings.combOffset);
+  currentVisualSculpt = visualSculptGeometry();
+  const teeth = currentVisualSculpt.periodic ? settings.combTeeth : 1;
+  const phase = currentVisualSculpt.focus;
   const octaveSpan = Math.max(
     0.25,
     Math.log2(settings.highFrequency / settings.lowFrequency),
   );
   const fabricAngle = effectiveFabricAngle();
   for (let stage = 0; stage < teeth; stage += 1) {
+    if (!currentVisualSculpt.periodic) {
+      visualCombWarps[0] = currentVisualSculpt.warp;
+      visualCombPositions[0] = currentVisualSculpt.focus;
+      visualCombWidths[0] = currentVisualSculpt.width;
+      visualQWidths[0] = currentVisualSculpt.width;
+      continue;
+    }
     const anchor = combToothAnchor(stage, teeth);
     const fabric = visualFabric.sample(anchor.x, anchor.y, fabricAngle);
     const propagation = visualPropagation.sample(anchor.x, anchor.y);
@@ -309,13 +601,14 @@ function updateVisualCombGeometry() {
     visualCombPositions[stage] = wrapUnit((stage - phase) / teeth + warp);
     visualCombWidths[stage] = Math.max(0.02, Math.min(
       0.48,
-      settings.combWidth * (1
+      currentVisualSculpt.width * (1
         + Math.abs(propagation) * settings.pluckCut * 3.5
         + Math.abs(fabric) * settings.pluckCut * 0.35),
     ));
     visualQWidths[stage] = Math.max(0.02, Math.min(
       0.48,
-      visualCombWidths[stage] * 2 ** ((0.5 - settings.qCharacter) * 4),
+      visualCombWidths[stage]
+        * 2 ** ((0.5 - currentVisualSculpt.character) * 4),
     ));
   }
   for (let stage = teeth; stage < visualCombPositions.length; stage += 1) {
@@ -331,7 +624,13 @@ function triggerPropagationAt(
   y,
   force = 0.72,
   radius = 0.28,
-  { sendAudio = true, fabricScale = 1 } = {},
+  {
+    sendAudio = true,
+    fabricScale = 1,
+    audioX = x,
+    audioY = y,
+    gesture = {},
+  } = {},
 ) {
   const settings = state.settings;
   visualPropagation.setActiveLimit(settings.propagationVoices);
@@ -352,26 +651,11 @@ function triggerPropagationAt(
     ringDensity: settings.ringDensity,
     polarity: force < 0 ? -1 : 1,
   });
-  if (sendAudio) audio.pluckFabric(x, y, force, radius);
+  if (sendAudio) {
+    captureVisualSculptGesture(audioX, audioY, force, gesture, false);
+    audio.pluckFabric(audioX, audioY, force, radius, gesture);
+  }
   updatePropagationStatus(true);
-}
-
-function triggerAutomaticVisualPropagation() {
-  const settings = state.settings;
-  const serial = visualAutoSerial;
-  visualAutoSerial += 1;
-  const angle = serial * 2.399963229728653;
-  const orbit = 0.18 + wrapUnit(serial * 0.6180339887498949) * 0.5;
-  const x = wrapUnit((settings.originX + Math.cos(angle) * orbit) * 0.5 + 0.5) * 2 - 1;
-  const y = wrapUnit((settings.originY + Math.sin(angle) * orbit) * 0.5 + 0.5) * 2 - 1;
-  const strength = 0.28 + settings.propagationGain * 0.42;
-  triggerPropagationAt(
-    x,
-    y,
-    strength,
-    Math.max(0.06, settings.propagationWidth * 1.35),
-    { sendAudio: false, fabricScale: 0.2 },
-  );
 }
 
 function updateAudioParameters() {
@@ -436,7 +720,7 @@ function updateInterface({ drawNow = true } = {}) {
     : `${settings.autoPluckRate.toFixed(2)} Hz`;
   $("propagationVoicesOut").textContent = `${settings.propagationVoices} ${settings.propagationVoices === 1 ? "ripple" : "ripples"}`;
   $("combDepthOut").textContent = percent(settings.combDepth);
-  $("combTeethOut").textContent = `${settings.combTeeth} ${settings.combTeeth === 1 ? "gap" : "gaps"}`;
+  $("combTeethOut").textContent = `${settings.combTeeth} ${settings.combTeeth === 1 ? "region" : "regions"}`;
   $("combWidthOut").textContent = percent(settings.combWidth);
   $("combOffsetOut").textContent = percent(settings.combOffset);
   $("combDriftOut").textContent = settings.combDrift === 0
@@ -444,6 +728,8 @@ function updateInterface({ drawNow = true } = {}) {
     : `${signed(settings.combDrift, Math.abs(settings.combDrift) < 0.1 ? 3 : 2)} cyc/s`;
   $("combWarpOut").textContent = `${settings.combWarp.toFixed(2)}×`;
   $("pluckCutOut").textContent = percent(settings.pluckCut);
+  $("gestureCouplingOut").textContent = percent(settings.gestureCoupling);
+  $("gestureMemoryOut").textContent = `${settings.gestureMemory.toFixed(2)} s`;
   $("spectralFilterBlendOut").textContent = spectralFilterBlendLabel(settings.spectralFilterBlend);
   $("fftCutDepthOut").textContent = percent(settings.fftCutDepth);
   $("fftSharpnessOut").textContent = `${percent(settings.fftSharpness)} sharp`;
@@ -473,6 +759,13 @@ function updateInterface({ drawNow = true } = {}) {
   for (const button of $("propagationModeChoice").querySelectorAll("[data-propagation-mode]")) {
     setPressed(button, settings.propagationMode === button.dataset.propagationMode);
   }
+  for (const button of $("spectralSculptModeChoice").querySelectorAll("[data-spectral-sculpt-mode]")) {
+    setPressed(button, settings.spectralSculptMode === button.dataset.spectralSculptMode);
+  }
+  for (const button of $("noiseColorChoice").querySelectorAll("[data-noise-color]")) {
+    setPressed(button, Math.abs(settings.noiseColor - Number(button.dataset.noiseColor)) < 0.005);
+  }
+  $("sculptRegionsControl").hidden = !sculptUsesRegions(settings.spectralSculptMode);
   $("harmonicOrderControl").hidden = ![
     "harmonic", "spiral",
   ].includes(settings.propagationMode);
@@ -482,7 +775,7 @@ function updateInterface({ drawNow = true } = {}) {
 
   const preset = MOIRE_DRONE_PRESETS.find(({ id }) => id === state.preset);
   $("presetSummary").textContent = preset?.label ?? "Custom";
-  $("filterEngineSummary").textContent = `${spectralFilterBlendLabel(settings.spectralFilterBlend)} · ${percent(settings.qCutDepth)} Q / ${percent(settings.fftCutDepth)} FFT cut`;
+  $("filterEngineSummary").textContent = `${spectralSculptLabel(settings.spectralSculptMode)} · ${spectralFilterBlendLabel(settings.spectralFilterBlend)} · ${percent(settings.qCutDepth)} Q / ${percent(settings.fftCutDepth)} FFT`;
   $("noiseSummary").textContent = `${noiseColorLabel(settings.noiseColor)} · ${percent(settings.noiseCorrelation)} linked · ${percent(settings.filteredMix)} filtered`;
   $("latticeSummary").textContent = `${settings.filterPairs} pairs · ${formatFrequency(settings.lowFrequency)}–${formatFrequency(settings.highFrequency)} · Q ${normalizedResonanceQ(settings.resonance).toFixed(1)}`;
   $("motionSummary").textContent = settings.freeze
@@ -494,23 +787,24 @@ function updateInterface({ drawNow = true } = {}) {
   $("outputSummary").textContent = `${percent(settings.stereoWidth)} wide · ${percent(settings.space)} space · ${percent(settings.feedback)} feedback`;
   $("fabricExciteButton").setAttribute(
     "aria-label",
-    `Pluck a ${propagationLabel(settings.propagationMode).toLowerCase()} deformation into the shared spectral texture`,
+    `Pluck a ${propagationLabel(settings.propagationMode).toLowerCase()} ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} deformation at the center frequency`,
   );
   $("clearWavesButton").setAttribute(
     "aria-label",
     `Clear ${visualPropagation.activeCount} active ${visualPropagation.activeCount === 1 ? "ripple" : "ripples"} and fabric motion`,
   );
 
-  const effectiveFilters = state.quality.tier > 0
-    ? state.quality.activeFilters
-    : settings.filterPairs * 2;
-  const gapsMoving = !settings.freeze && Math.abs(settings.combDrift) > 0.0005;
+  const effectiveFilters = effectiveFilterCount();
+  const sculptMoving = !settings.freeze && Math.abs(settings.combDrift) > 0.0005;
+  const regionDescription = sculptUsesRegions(settings.spectralSculptMode)
+    ? `${settings.combTeeth} ${sculptMoving ? "moving audio" : "stationary audio"} regions`
+    : `one ${sculptMoving ? "moving audio" : "stationary audio"} shape`;
   $("stageCaption").textContent = state.quality.tier > 0
-    ? `adaptive weave · tier ${state.quality.tier} · ${effectiveFilters} filters`
-    : `${settings.combTeeth} ${gapsMoving ? "moving" : "stationary"} gaps across one coupled spectral weave`;
+    ? `static vector grid · adaptive audio tier ${state.quality.tier} · ${effectiveFilters} filters`
+    : `static vector grid · ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} · ${regionDescription}`;
   canvas.setAttribute(
     "aria-label",
-    `One ${settings.freeze ? "frozen" : "moving"} cyan and magenta spectral weave represents ${settings.filterPairs * 2} noise filters. ${settings.combTeeth} output gaps are ${gapsMoving ? "moving" : "stationary"} across its frequency range at ${percent(settings.combDepth)} depth, using ${spectralFilterBlendLabel(settings.spectralFilterBlend).toLowerCase()} filtering. Up to ${settings.propagationVoices} ${settings.propagationVoices === 1 ? "ripple" : "ripples"} may deform both strands at once. Tap or press Enter to pluck; drag vertically to tug the weave. Audio ${state.audioOn ? "on" : "off"}.`,
+    `A static pink and green vector grid represents ${settings.filterPairs * 2} noise filters and never moves automatically. The audible ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} sculptor makes ${regionDescription} at ${percent(settings.combDepth)} depth, using ${spectralFilterBlendLabel(settings.spectralFilterBlend).toLowerCase()} filtering. Horizontal touch position selects frequency from low to high. Vertical position and movement change width and character. Pull distance sets sculpt strength, and release speed sets the throw. Up to ${settings.propagationVoices} directly triggered ${settings.propagationVoices === 1 ? "ripple" : "ripples"} may deform the grid. Tap or press Enter to pluck. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
   updateAudioParameters();
@@ -553,10 +847,10 @@ function applyPreset(id) {
       outputLevel,
     }),
   };
-  state.fabricSpinPhase = 0;
+  state.preset = preset.id;
+  updateAudioParameters();
   resetVisualDynamics();
   audio.resetFabric();
-  state.preset = preset.id;
   updateInterface();
   announce(`${preset.label} preset loaded.`);
 }
@@ -567,28 +861,34 @@ function setAudioTransition(active) {
   $("fabricExciteButton").disabled = active;
 }
 
-async function ensureAudioOn() {
-  if (state.audioOn) return true;
-  if (audioTransition) return false;
-  setAudioTransition(true);
-  clearAudioError();
-  try {
-    updateAudioParameters();
-    await audio.start();
-    state.audioOn = true;
-    updateInterface();
-    announce("Audio on.");
-    return true;
-  } catch (error) {
-    state.audioOn = false;
-    await audio.stop().catch(() => {});
-    showAudioError(error);
-    updateInterface();
-    announce("Audio could not start.");
-    return false;
-  } finally {
-    setAudioTransition(false);
-  }
+function ensureAudioOn() {
+  if (state.audioOn) return Promise.resolve(true);
+  if (audioStartPromise) return audioStartPromise;
+  if (audioTransition) return Promise.resolve(false);
+  audioStartPromise = (async () => {
+    setAudioTransition(true);
+    clearAudioError();
+    try {
+      updateAudioParameters();
+      await audio.start();
+      resetVisualDynamics();
+      state.audioOn = true;
+      updateInterface();
+      announce("Audio on.");
+      return true;
+    } catch (error) {
+      state.audioOn = false;
+      await audio.stop().catch(() => {});
+      showAudioError(error);
+      updateInterface();
+      announce("Audio could not start.");
+      return false;
+    } finally {
+      setAudioTransition(false);
+      audioStartPromise = null;
+    }
+  })();
+  return audioStartPromise;
 }
 
 async function toggleAudio() {
@@ -624,227 +924,214 @@ function stagePointFromEvent(event) {
   };
 }
 
-function tugFabricFromPointer(event) {
+function holdVisualFabricAtPointer() {
+  visualPullAnchorX = pointerAnchorX;
+  visualPullAnchorY = pointerAnchorY;
+  visualPullOffsetX = pointerCurrentX - pointerAnchorX;
+  visualPullOffsetY = pointerCurrentY - pointerAnchorY;
+  visualPullVelocityX = pointerVelocityX;
+  visualPullVelocityY = pointerVelocityY;
+}
+
+function stepReleasedVisualPull(seconds) {
+  if (pointerId !== null) {
+    holdVisualFabricAtPointer();
+    return;
+  }
+  const elapsed = Math.max(0, Math.min(0.05, Number(seconds) || 0));
+  if (elapsed <= 0) return;
+  const energy = Math.hypot(
+    visualPullOffsetX,
+    visualPullOffsetY,
+    visualPullVelocityX * 0.05,
+    visualPullVelocityY * 0.05,
+  );
+  if (energy < 0.0005) {
+    visualPullOffsetX = 0;
+    visualPullOffsetY = 0;
+    visualPullVelocityX = 0;
+    visualPullVelocityY = 0;
+    return;
+  }
+  const spring = 20 + state.settings.fabricTension * 44;
+  const damping = 3.2 + state.settings.fabricDamping * 12 + (reducedMotion ? 18 : 0);
+  visualPullVelocityX -= visualPullOffsetX * spring * elapsed;
+  visualPullVelocityY -= visualPullOffsetY * spring * elapsed;
+  const decay = Math.exp(-damping * elapsed);
+  visualPullVelocityX = Math.max(-12, Math.min(12, visualPullVelocityX * decay));
+  visualPullVelocityY = Math.max(-12, Math.min(12, visualPullVelocityY * decay));
+  visualPullOffsetX = Math.max(-1.5, Math.min(
+    1.5,
+    visualPullOffsetX + visualPullVelocityX * elapsed,
+  ));
+  visualPullOffsetY = Math.max(-1.5, Math.min(
+    1.5,
+    visualPullOffsetY + visualPullVelocityY * elapsed,
+  ));
+}
+
+function visualPullOffsetAt(x, y) {
+  const displacement = Math.hypot(visualPullOffsetX, visualPullOffsetY);
+  if (displacement < 0.0001) return { x: 0, y: 0, weight: 0 };
+  const radius = 0.3 + Math.min(0.28, displacement * 0.38);
+  const dx = x - visualPullAnchorX;
+  const dy = y - visualPullAnchorY;
+  const weight = Math.exp(-0.5 * (dx * dx + dy * dy) / (radius * radius));
+  return {
+    x: visualPullOffsetX * weight * 0.9,
+    y: visualPullOffsetY * weight * 0.9,
+    weight,
+  };
+}
+
+function currentAudioGesture() {
+  const deltaX = pointerCurrentX - pointerAudioAnchorX;
+  const deltaY = pointerCurrentY - pointerAudioAnchorY;
+  return {
+    currentX: pointerCurrentX,
+    currentY: pointerCurrentY,
+    deltaX,
+    deltaY,
+    distance: Math.hypot(deltaX, deltaY),
+    velocityX: pointerVelocityX,
+    velocityY: pointerVelocityY,
+  };
+}
+
+function applyPointerTug(amount = pointerPullAmount) {
+  holdVisualFabricAtPointer();
+  visualFabric.tug(pointerAnchorLocalX, pointerAnchorLocalY, amount);
+  captureVisualSculptGesture(
+    pointerAudioAnchorX,
+    pointerAudioAnchorY,
+    amount,
+    currentAudioGesture(),
+    true,
+  );
+  audio.tugFabric(
+    pointerAudioAnchorX,
+    pointerAudioAnchorY,
+    amount,
+    currentAudioGesture(),
+  );
+}
+
+function samplePointerEvent(event, { drawNow = true } = {}) {
+  if (!event || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) {
+    return false;
+  }
   const point = stagePointFromEvent(event);
   const now = Number(event.timeStamp) || performance.now();
-  const elapsed = Math.max(1, now - pointerLastTime) / 1_000;
-  const dragPull = (pointerStartY - event.clientY) / Math.max(1, point.rect.height) * 4;
-  const flickPull = (pointerLastY - event.clientY) / Math.max(1, point.rect.height) / elapsed * 0.055;
-  pointerPullAmount = Math.max(-1, Math.min(1, dragPull + flickPull));
+  const elapsed = Math.max(1 / 240, (now - pointerLastTime) / 1_000);
+  const motionX = point.x - pointerCurrentX;
+  const motionY = point.y - pointerCurrentY;
+  if (Math.hypot(motionX, motionY) > 1e-6) {
+    const measuredVelocityX = motionX / elapsed;
+    const measuredVelocityY = motionY / elapsed;
+    pointerVelocityX += (measuredVelocityX - pointerVelocityX) * 0.48;
+    pointerVelocityY += (measuredVelocityY - pointerVelocityY) * 0.48;
+  }
+  pointerLastTime = now;
   pointerCurrentX = point.x;
   pointerCurrentY = point.y;
-  pointerLastY = event.clientY;
-  pointerLastTime = now;
-  const local = rotateFabricCoordinate(point.x, point.y, effectiveFabricAngle());
-  visualFabric.tug(local.x, local.y, pointerPullAmount);
-  audio.tugFabric(point.x, point.y, pointerPullAmount);
-  draw(performance.now(), true);
+  const gesture = fabricGesturePull({
+    anchorX: pointerAudioAnchorX,
+    anchorY: pointerAudioAnchorY,
+    currentX: pointerCurrentX,
+    currentY: pointerCurrentY,
+  });
+  pointerPullAmount = gesture.amount;
+  applyPointerTug(pointerPullAmount);
+  if (drawNow) draw(performance.now(), true);
+  return true;
 }
 
-function configureTextureBuffer() {
-  const activeRipples = visualPropagation.activeCount;
-  const widthCap = activeRipples >= 3 ? 92 : activeRipples === 2 ? 108 : 144;
-  const targetWidth = Math.max(72, Math.min(widthCap, Math.round(canvasWidth / 7)));
-  const targetHeight = Math.max(52, Math.min(112, Math.round(targetWidth * canvasHeight / Math.max(1, canvasWidth))));
-  if (textureCanvas.width === targetWidth && textureCanvas.height === targetHeight && textureImage) return;
-  textureCanvas.width = targetWidth;
-  textureCanvas.height = targetHeight;
-  textureImage = textureContext.createImageData(targetWidth, targetHeight);
+function tugFabricFromPointer(event) {
+  samplePointerEvent(event);
 }
 
-function renderSpectralTexture() {
-  configureTextureBuffer();
+function staticGridHasDeformation() {
+  return pointerId !== null
+    || visualPropagation.activeCount > 0
+    || visualFabric.energy > 0.0001
+    || Math.hypot(
+      visualPullOffsetX,
+      visualPullOffsetY,
+      visualPullVelocityX * 0.04,
+      visualPullVelocityY * 0.04,
+    ) > 0.0005;
+}
+
+function staticGridPoint(x, y, deform, fabricAngle) {
+  const baseX = (x + 1) * 0.5 * canvasWidth;
+  const baseY = (y + 1) * 0.5 * canvasHeight;
+  if (!deform) return { x: baseX, y: baseY };
   const settings = state.settings;
-  const width = textureCanvas.width;
-  const height = textureCanvas.height;
-  const data = textureImage.data;
-  const fieldPhaseB = wrapUnit(state.fieldPhaseB + settings.phaseOffset);
-  const fabricRadians = effectiveFabricAngle() * Math.PI / 180;
-  const fabricCosine = Math.cos(fabricRadians);
-  const fabricSine = Math.sin(fabricRadians);
-  const contourWidthA = 0.055 + Math.min(0.18, settings.fieldADepth * 0.2);
-  const contourWidthB = 0.055 + Math.min(0.18, settings.fieldBDepth * 0.2);
-  let offset = 0;
-  for (let y = 0; y < height; y += 1) {
-    const ny = y / Math.max(1, height - 1) * 2 - 1;
-    for (let x = 0; x < width; x += 1) {
-      const nx = x / Math.max(1, width - 1) * 2 - 1;
-      const fabricX = wrapUnit((nx * fabricCosine - ny * fabricSine) * 0.5 + 0.5) * 2 - 1;
-      const fabricY = wrapUnit((nx * fabricSine + ny * fabricCosine) * 0.5 + 0.5) * 2 - 1;
-      const fabricA = visualFabric.sampleLocal(fabricX, fabricY);
-      const fabricB = visualFabric.sampleLocal(-fabricX, -fabricY);
-      const propagationA = visualPropagation.sample(nx, ny);
-      const propagationB = visualPropagation.sample(-nx, -ny);
-      const fieldA = waveFieldValue(
-        nx, ny, state.fieldPhaseA, settings.fieldAAngle,
-        settings.fieldADensity, settings.fieldACurvature,
-        settings.originX, settings.originY,
-      );
-      const fieldB = waveFieldValue(
-        nx, ny, fieldPhaseB, settings.fieldBAngle,
-        settings.fieldBDensity * (1 + settings.moireDetune * 0.08),
-        settings.fieldBCurvature, -settings.originX, -settings.originY,
-      );
-      const collision = collideWaveFields(fieldA, fieldB, settings.collisionMode);
-      const surfaceA = fieldA * settings.fieldADepth
-        + fabricA * settings.fabricDepth
-        + propagationA * settings.propagationDepth;
-      const surfaceB = fieldB * settings.fieldBDepth
-        + fabricB * settings.fabricDepth
-        + propagationB * settings.propagationDepth;
-      const visibilityA = Math.min(1,
-        settings.fieldADepth * 3
-          + Math.abs(fabricA) * settings.fabricDepth * 2
-          + Math.abs(propagationA) * settings.propagationDepth * 2,
-      );
-      const visibilityB = Math.min(1,
-        settings.fieldBDepth * 3
-          + Math.abs(fabricB) * settings.fabricDepth * 2
-          + Math.abs(propagationB) * settings.propagationDepth * 2,
-      );
-      const normalizedA = Math.max(-1, Math.min(1, surfaceA / contourWidthA));
-      const normalizedB = Math.max(-1, Math.min(1, surfaceB / contourWidthB));
-      const ridgeA = (1 - Math.abs(normalizedA)) ** 3 * visibilityA;
-      const ridgeB = (1 - Math.abs(normalizedB)) ** 3 * visibilityB;
-      const sharedRidge = Math.min(ridgeA, ridgeB);
-      const crossing = (
-        Math.abs(collision) ** 2.4 * settings.collisionAmount * 0.72
-        + sharedRidge * (0.08 + settings.collisionAmount * 0.5)
-      );
-      const fillA = Math.max(0, normalizedA) * 0.1 * visibilityA;
-      const fillB = Math.max(0, normalizedB) * 0.1 * visibilityB;
-      const rippleEnergy = Math.min(1, (
-        Math.abs(propagationA) + Math.abs(propagationB)
-      ) * 0.5);
-      const fabricEnergy = Math.min(1, (
-        Math.abs(fabricA) + Math.abs(fabricB)
-      ) * settings.fabricDepth * 0.7);
-      const rippleInfluence = Math.min(
-        1,
-        Math.max(settings.propagationDepth / 2, settings.propagationGain),
-      );
-      const textureLight = rippleEnergy * rippleInfluence * 42 + fabricEnergy * 24;
-      const vignette = Math.max(0.2, 1 - Math.hypot(nx, ny) * 0.38);
-      data[offset] = Math.min(255, (
-        5 + ridgeA * 20 + ridgeB * 154 + crossing * 156 + fillB * 52 + textureLight * 0.42
-      ) * vignette);
-      data[offset + 1] = Math.min(255, (
-        8 + ridgeA * 166 + ridgeB * 34 + crossing * 148 + textureLight * 0.72
-      ) * vignette);
-      data[offset + 2] = Math.min(255, (
-        13 + ridgeA * 158 + ridgeB * 104 + crossing * 178 + fillA * 44 + textureLight
-      ) * vignette);
-      data[offset + 3] = 255;
-      offset += 4;
-    }
-  }
-  textureContext.putImageData(textureImage, 0, 0);
+  const surface = (
+    visualFabric.sample(x, y, fabricAngle) * settings.fabricDepth
+    + visualPropagation.sample(x, y) * settings.propagationDepth
+  );
+  const vectorScale = Math.min(22, Math.min(canvasWidth, canvasHeight) * 0.032);
+  const pull = visualPullOffsetAt(x * 0.92, y * 0.86);
+  return {
+    x: baseX + pull.x * canvasWidth * 0.5
+      + clampVisual(surface * vectorScale * 0.55, -24, 24, 0),
+    y: baseY + pull.y * canvasHeight * 0.5
+      - clampVisual(surface * vectorScale, -32, 32, 0),
+  };
 }
 
-function drawGrid() {
-  context2d.save();
-  context2d.lineWidth = 1;
-  for (let index = 2; index < 8; index += 2) {
-    const x = index / 8 * canvasWidth;
-    const y = index / 8 * canvasHeight;
-    context2d.beginPath();
-    context2d.moveTo(x, 0);
-    context2d.lineTo(x, canvasHeight);
-    context2d.moveTo(0, y);
-    context2d.lineTo(canvasWidth, y);
-    context2d.strokeStyle = index === 4
-      ? "rgba(255,255,255,0.065)"
-      : "rgba(255,255,255,0.025)";
-    context2d.stroke();
-  }
-  context2d.restore();
-}
-
-function drawFilterNodes() {
-  const settings = state.settings;
-  const phaseA = state.shepardPhaseA;
-  const phaseB = wrapUnit(state.shepardPhaseB + settings.phaseOffset);
-  const fieldPhaseA = state.fieldPhaseA;
-  const fieldPhaseB = wrapUnit(state.fieldPhaseB + settings.phaseOffset);
+function drawStaticVectorGrid() {
+  const deform = staticGridHasDeformation();
   const fabricAngle = effectiveFabricAngle();
-  const strandAngleA = (settings.fieldAAngle + 90) * Math.PI / 180;
-  const strandAngleB = (settings.fieldBAngle + 90) * Math.PI / 180;
+  const segments = deform ? STATIC_GRID_SEGMENTS : 1;
   context2d.save();
-  context2d.lineCap = "round";
-  for (let index = 0; index < settings.filterPairs; index += 1) {
-    const coordinate = latticeCoordinate(index, settings.filterPairs);
-    const fabricA = visualFabric.sample(coordinate.x, coordinate.y, fabricAngle);
-    const fabricB = visualFabric.sample(-coordinate.x, -coordinate.y, fabricAngle);
-    const fabricVelocityA = visualFabric.sampleVelocity(coordinate.x, coordinate.y, fabricAngle);
-    const fabricVelocityB = visualFabric.sampleVelocity(-coordinate.x, -coordinate.y, fabricAngle);
-    const propagationA = visualPropagation.sample(coordinate.x, coordinate.y);
-    const propagationB = visualPropagation.sample(-coordinate.x, -coordinate.y);
-    const x = (coordinate.x * 0.46 + 0.5) * canvasWidth
-      + (fabricVelocityA - fabricVelocityB) * Math.min(8, canvasWidth * 0.008)
-      + (propagationA - propagationB) * Math.min(12, canvasWidth * 0.012) * settings.propagationDepth;
-    const y = (coordinate.y * 0.43 + 0.5) * canvasHeight
-      - (fabricA + fabricB) * 0.5 * Math.min(34, canvasHeight * 0.07) * settings.fabricDepth
-      - (propagationA + propagationB) * 0.5 * Math.min(46, canvasHeight * 0.09) * settings.propagationDepth;
-    const targetOptions = {
-      index, phaseA, phaseB, fieldPhaseA, fieldPhaseB,
-      fabricA, fabricB, propagationA, propagationB,
-      fabricVelocityA, fabricVelocityB, combPhase: state.combPhase,
-      combToothPositions: visualCombPositions,
-      combToothWidths: visualCombWidths,
-      parameters: settings,
-    };
-    const targetA = moireFilterTarget({ ...targetOptions, bank: 0 });
-    const targetB = moireFilterTarget({ ...targetOptions, bank: 1 });
-    const collision = Math.abs(targetA.collision);
-    const gateA = targetA.combGain ?? 1;
-    const gateB = targetB.combGain ?? 1;
-    const halfLength = 2.4 + Math.min(
-      3.8,
-      Math.sqrt(Math.max(targetA.gain, targetB.gain)) * 2.2,
-    );
-    const lineWidth = 0.7 + Math.min(0.75, halfLength * 0.08);
-    context2d.beginPath();
-    context2d.moveTo(
-      x - Math.cos(strandAngleA) * halfLength,
-      y - Math.sin(strandAngleA) * halfLength,
-    );
-    context2d.lineTo(
-      x + Math.cos(strandAngleA) * halfLength,
-      y + Math.sin(strandAngleA) * halfLength,
-    );
-    context2d.strokeStyle = `rgba(85, 231, 225, ${gateA * 0.62})`;
-    context2d.lineWidth = lineWidth;
-    context2d.stroke();
+  context2d.globalCompositeOperation = "source-over";
+  context2d.lineCap = "butt";
+  context2d.lineJoin = "round";
+  context2d.shadowBlur = 0;
+  context2d.lineWidth = 0.9;
 
+  context2d.globalAlpha = 0.62;
+  context2d.strokeStyle = STATIC_GRID_GREEN;
+  for (let column = 0; column <= STATIC_GRID_COLUMNS; column += 1) {
+    const x = column / STATIC_GRID_COLUMNS * 2 - 1;
     context2d.beginPath();
-    context2d.moveTo(
-      x - Math.cos(strandAngleB) * halfLength,
-      y - Math.sin(strandAngleB) * halfLength,
-    );
-    context2d.lineTo(
-      x + Math.cos(strandAngleB) * halfLength,
-      y + Math.sin(strandAngleB) * halfLength,
-    );
-    context2d.strokeStyle = `rgba(255, 111, 148, ${gateB * 0.62})`;
-    context2d.stroke();
-
-    const interaction = collision * Math.sqrt(gateA * gateB);
-    if (interaction > 0.04) {
-      context2d.beginPath();
-      context2d.arc(x, y, 0.7 + interaction * 1.5, 0, TAU);
-      context2d.fillStyle = `rgba(245, 213, 255, ${interaction * 0.7})`;
-      context2d.fill();
+    for (let segment = 0; segment <= segments; segment += 1) {
+      const y = segment / segments * 2 - 1;
+      const point = staticGridPoint(x, y, deform, fabricAngle);
+      if (segment === 0) context2d.moveTo(point.x, point.y);
+      else context2d.lineTo(point.x, point.y);
     }
+    context2d.stroke();
+  }
+
+  context2d.globalAlpha = 0.66;
+  context2d.strokeStyle = STATIC_GRID_PINK;
+  for (let row = 0; row <= STATIC_GRID_ROWS; row += 1) {
+    const y = row / STATIC_GRID_ROWS * 2 - 1;
+    context2d.beginPath();
+    for (let segment = 0; segment <= segments; segment += 1) {
+      const x = segment / segments * 2 - 1;
+      const point = staticGridPoint(x, y, deform, fabricAngle);
+      if (segment === 0) context2d.moveTo(point.x, point.y);
+      else context2d.lineTo(point.x, point.y);
+    }
+    context2d.stroke();
   }
   context2d.restore();
 }
 
 function drawEmbeddedCombGaps() {
   const settings = state.settings;
-  if (settings.combDepth <= 0.001) return;
+  const isRidge = settings.spectralSculptMode === "ridges";
+  if (
+    currentVisualSculpt.depth <= 0.001
+    || (!isRidge && settings.spectralSculptMode !== "notches")
+  ) return;
   const fabricAngle = effectiveFabricAngle();
   context2d.save();
-  context2d.globalCompositeOperation = "source-over";
+  context2d.globalCompositeOperation = isRidge ? "screen" : "source-over";
   for (let stage = 0; stage < settings.combTeeth; stage += 1) {
     const anchor = combToothAnchor(stage, settings.combTeeth);
     const fabric = visualFabric.sample(anchor.x, anchor.y, fabricAngle);
@@ -857,27 +1144,37 @@ function drawEmbeddedCombGaps() {
       Math.abs(propagation) * settings.pluckCut
       + Math.abs(fabric) * 0.35
     ));
-    const x = (anchor.x * 0.45 + 0.5) * canvasWidth
-      + visualCombWarps[stage] * canvasWidth * 1.65;
+    const spectralX = visualCombPositions[stage] * 2 - 1;
+    const pullOffset = visualPullOffsetAt(spectralX * 0.9, anchor.y * 0.84);
+    const x = visualCombPositions[stage] * canvasWidth
+      + pullOffset.x * canvasWidth * 0.28;
     const y = (anchor.y * 0.42 + 0.5) * canvasHeight
+      + pullOffset.y * canvasHeight * 0.5
       - deformation * canvasHeight * 0.045;
     const radiusX = Math.min(30, 5
-      + settings.combWidth * 27
+      + currentVisualSculpt.width * 27
       + Math.abs(visualCombWarps[stage]) * canvasWidth * 0.42
       + activity * 7);
     const radiusY = Math.min(18, 3.5
-      + settings.combWidth * 13
+      + currentVisualSculpt.width * 13
       + activity * 5);
-    const opacity = settings.combDepth * (0.62 + activity * 0.28);
+    const opacity = currentVisualSculpt.depth * (0.62 + activity * 0.28);
     const angle = (fabricAngle * 0.35 + stage * 31) * Math.PI / 180;
     context2d.save();
     context2d.translate(x, y);
     context2d.rotate(angle);
     context2d.scale(radiusX, radiusY);
     const cut = context2d.createRadialGradient(0, 0, 0, 0, 0, 1);
-    cut.addColorStop(0, `rgba(0, 2, 7, ${Math.min(0.96, opacity)})`);
-    cut.addColorStop(0.52, `rgba(1, 4, 11, ${opacity * 0.84})`);
-    cut.addColorStop(1, "rgba(1, 4, 11, 0)");
+    if (isRidge) {
+      const color = stage % 2 ? "255, 92, 173" : "104, 247, 164";
+      cut.addColorStop(0, `rgba(${color}, ${Math.min(0.74, opacity * 0.72)})`);
+      cut.addColorStop(0.52, `rgba(${color}, ${opacity * 0.32})`);
+      cut.addColorStop(1, `rgba(${color}, 0)`);
+    } else {
+      cut.addColorStop(0, `rgba(0, 2, 7, ${Math.min(0.96, opacity)})`);
+      cut.addColorStop(0.52, `rgba(1, 4, 11, ${opacity * 0.84})`);
+      cut.addColorStop(1, "rgba(1, 4, 11, 0)");
+    }
     context2d.fillStyle = cut;
     context2d.beginPath();
     context2d.arc(0, 0, 1, 0, TAU);
@@ -887,17 +1184,90 @@ function drawEmbeddedCombGaps() {
     context2d.beginPath();
     context2d.ellipse(x, y, radiusX * 0.62, radiusY * 0.62, angle, 0, TAU);
     context2d.strokeStyle = stage % 2
-      ? `rgba(255, 111, 148, ${0.1 + activity * 0.18})`
-      : `rgba(85, 231, 225, ${0.1 + activity * 0.18})`;
+      ? `rgba(255, 92, 173, ${0.1 + activity * 0.18})`
+      : `rgba(104, 247, 164, ${0.1 + activity * 0.18})`;
     context2d.lineWidth = 0.7;
     context2d.stroke();
   }
   context2d.restore();
 }
 
+function drawBroadSculptRegions() {
+  const settings = state.settings;
+  const sculpt = currentVisualSculpt;
+  if (sculpt.periodic || sculpt.depth <= 0.001) return;
+  const columns = Math.max(42, Math.min(84, Math.round(canvasWidth / 12)));
+  const rows = Math.max(16, Math.min(30, Math.round(canvasHeight / 22)));
+  const cellWidth = canvasWidth / columns + 0.75;
+  const cellHeight = canvasHeight / rows + 0.75;
+  const octaveSpan = Math.max(
+    0.25,
+    Math.log2(settings.highFrequency / settings.lowFrequency),
+  );
+  const fabricAngle = effectiveFabricAngle();
+  context2d.save();
+  context2d.globalCompositeOperation = "source-over";
+  for (let row = 0; row < rows; row += 1) {
+    const y = (row + 0.5) / rows * 2 - 1;
+    for (let column = 0; column < columns; column += 1) {
+      const x = (column + 0.5) / columns * 2 - 1;
+      const fabric = visualFabric.sample(x, y, fabricAngle);
+      const propagation = visualPropagation.sample(x, y);
+      const pull = visualPullOffsetAt(x * 0.92, y * 0.86);
+      const surfaceWarp = (
+        fabric * settings.fabricDepth
+        + propagation * settings.propagationDepth
+      ) / octaveSpan * settings.combWarp * 0.28;
+      const position = clampVisual(
+        (x + 1) * 0.5 - surfaceWarp - pull.x * 0.16,
+        0,
+        1,
+        0.5,
+      );
+      const frequency = settings.lowFrequency
+        * (settings.highFrequency / settings.lowFrequency) ** position;
+      const qGate = spectralFftMaskGain({
+        frequency,
+        lowFrequency: settings.lowFrequency,
+        highFrequency: settings.highFrequency,
+        depth: sculpt.depth * settings.qCutDepth,
+        sharpness: sculpt.character,
+        mode: settings.spectralSculptMode,
+        focus: sculpt.focus,
+        width: sculpt.width,
+      });
+      const fftGate = spectralFftMaskGain({
+        frequency,
+        lowFrequency: settings.lowFrequency,
+        highFrequency: settings.highFrequency,
+        depth: sculpt.depth * settings.fftCutDepth,
+        sharpness: sculpt.fftSharpness,
+        mode: settings.spectralSculptMode,
+        focus: sculpt.focus,
+        width: sculpt.width,
+      });
+      const gate = qGate
+        + (fftGate - qGate) * settings.spectralFilterBlend;
+      const darkness = clampVisual(1 - gate, 0, 1, 0);
+      if (darkness <= 0.008) continue;
+      const activity = Math.min(1, Math.abs(fabric) * 0.22
+        + Math.abs(propagation) * settings.pluckCut * 0.7);
+      context2d.fillStyle = `rgba(0, 2, 8, ${darkness * (0.42 + activity * 0.22)})`;
+      context2d.fillRect(
+        column / columns * canvasWidth,
+        row / rows * canvasHeight,
+        cellWidth,
+        cellHeight,
+      );
+    }
+  }
+  context2d.restore();
+}
+
 function drawSpectralCombMask() {
   const settings = state.settings;
-  if (settings.combDepth <= 0.001) return;
+  const sculpt = currentVisualSculpt;
+  if (sculpt.depth <= 0.001) return;
   const slices = Math.max(128, Math.min(420, Math.round(canvasWidth / 2)));
   const sliceWidth = canvasWidth / slices;
   const responseY = Math.max(70, canvasHeight - Math.max(82, canvasHeight * 0.17));
@@ -907,20 +1277,34 @@ function drawSpectralCombMask() {
   const fftBinWidth = (audio.context?.sampleRate ?? 48_000) / MOIRE_DRONE_FFT_SIZE;
 
   const responseAt = (position) => {
-    const qGate = spectralWarpedCombGate({
-      spectralPosition: position,
-      toothPositions: visualCombPositions,
-      toothWidths: visualQWidths,
-      teeth: settings.combTeeth,
-      width: settings.combWidth,
-      depth: settings.combDepth * settings.qCutDepth,
-    });
     const frequency = settings.lowFrequency
       * (settings.highFrequency / settings.lowFrequency) ** position;
     const fftBinFrequency = Math.max(
       fftBinWidth,
       Math.round(frequency / fftBinWidth) * fftBinWidth,
     );
+    const qGate = settings.spectralSculptMode === "notches"
+      ? spectralWarpedCombGate({
+        spectralPosition: position,
+        toothPositions: visualCombPositions,
+        toothWidths: visualQWidths,
+        teeth: settings.combTeeth,
+        width: sculpt.width,
+        depth: sculpt.depth * settings.qCutDepth,
+      })
+      : spectralFftMaskGain({
+        frequency,
+        lowFrequency: settings.lowFrequency,
+        highFrequency: settings.highFrequency,
+        toothPositions: visualCombPositions,
+        toothWidths: visualQWidths,
+        teeth: settings.combTeeth,
+        depth: sculpt.depth * settings.qCutDepth,
+        sharpness: sculpt.character,
+        mode: settings.spectralSculptMode,
+        focus: sculpt.focus,
+        width: sculpt.width,
+      });
     const fftGate = spectralFftMaskGain({
       frequency: fftBinFrequency,
       binWidth: fftBinWidth,
@@ -929,8 +1313,11 @@ function drawSpectralCombMask() {
       toothPositions: visualCombPositions,
       toothWidths: visualCombWidths,
       teeth: settings.combTeeth,
-      depth: settings.combDepth * settings.fftCutDepth,
-      sharpness: settings.fftSharpness,
+      depth: sculpt.depth * settings.fftCutDepth,
+      sharpness: sculpt.fftSharpness,
+      mode: settings.spectralSculptMode,
+      focus: sculpt.focus,
+      width: sculpt.width,
     });
     return { qGate, fftGate };
   };
@@ -963,8 +1350,8 @@ function drawSpectralCombMask() {
       ? settings.spectralFilterBlend
       : 1 - settings.spectralFilterBlend;
     context2d.strokeStyle = engine === "fftGate"
-      ? `rgba(85, 231, 225, ${0.2 + engineAmount * 0.65})`
-      : `rgba(255, 111, 148, ${0.2 + engineAmount * 0.65})`;
+      ? `rgba(104, 247, 164, ${0.2 + engineAmount * 0.65})`
+      : `rgba(255, 92, 173, ${0.2 + engineAmount * 0.65})`;
     context2d.lineWidth = engine === "fftGate" ? 1 : 0.9;
     context2d.stroke();
   }
@@ -1006,31 +1393,77 @@ function drawOrigin() {
   const x = (state.settings.originX + 1) * 0.5 * canvasWidth;
   const y = (state.settings.originY + 1) * 0.5 * canvasHeight;
   context2d.save();
-  context2d.translate(x, y);
   context2d.strokeStyle = "rgba(245, 213, 255, 0.28)";
   context2d.lineWidth = 0.75;
   context2d.beginPath();
-  context2d.arc(0, 0, 5, 0, Math.PI * 2);
-  context2d.moveTo(-8, 0);
-  context2d.lineTo(8, 0);
-  context2d.moveTo(0, -8);
-  context2d.lineTo(0, 8);
+  context2d.arc(x, y, 5, 0, Math.PI * 2);
+  context2d.moveTo(x - 8, y);
+  context2d.lineTo(x + 8, y);
+  context2d.moveTo(x, y - 8);
+  context2d.lineTo(x, y + 8);
   context2d.stroke();
   if (pointerId !== null) {
-    const pointerX = (pointerCurrentX + 1) * 0.5 * canvasWidth - x;
-    const pointerY = (pointerCurrentY + 1) * 0.5 * canvasHeight - y;
+    const anchorX = (pointerAnchorX + 1) * 0.5 * canvasWidth;
+    const anchorY = (pointerAnchorY + 1) * 0.5 * canvasHeight;
+    const pointerX = (pointerCurrentX + 1) * 0.5 * canvasWidth;
+    const pointerY = (pointerCurrentY + 1) * 0.5 * canvasHeight;
+    const stretch = Math.hypot(pointerX - anchorX, pointerY - anchorY);
+    if (stretch > 1) {
+      const tether = context2d.createLinearGradient(anchorX, anchorY, pointerX, pointerY);
+      tether.addColorStop(0, "rgba(104, 247, 164, 0.9)");
+      tether.addColorStop(1, "rgba(255, 92, 173, 0.9)");
+      context2d.beginPath();
+      context2d.moveTo(anchorX, anchorY);
+      context2d.lineTo(pointerX, pointerY);
+      context2d.strokeStyle = tether;
+      context2d.lineWidth = 1 + Math.abs(pointerPullAmount) * 2.5;
+      context2d.stroke();
+    }
+    const haloRadius = 18 + Math.abs(pointerPullAmount) * 42;
+    const halo = context2d.createRadialGradient(
+      anchorX,
+      anchorY,
+      2,
+      anchorX,
+      anchorY,
+      haloRadius,
+    );
+    const haloColor = pointerPullAmount >= 0 ? "104, 247, 164" : "255, 92, 173";
+    halo.addColorStop(0, `rgba(${haloColor}, 0.22)`);
+    halo.addColorStop(0.45, `rgba(${haloColor}, 0.08)`);
+    halo.addColorStop(1, `rgba(${haloColor}, 0)`);
+    context2d.fillStyle = halo;
     context2d.beginPath();
-    context2d.moveTo(pointerX, pointerY);
-    context2d.lineTo(0, 0);
-    context2d.strokeStyle = "rgba(245, 213, 255, 0.5)";
-    context2d.setLineDash([3, 4]);
-    context2d.stroke();
-    context2d.setLineDash([]);
+    context2d.arc(anchorX, anchorY, haloRadius, 0, Math.PI * 2);
+    context2d.fill();
     context2d.beginPath();
-    context2d.arc(pointerX, pointerY, 8 + Math.abs(pointerPullAmount) * 16, 0, Math.PI * 2);
+    context2d.arc(anchorX, anchorY, 8 + Math.abs(pointerPullAmount) * 16, 0, Math.PI * 2);
     context2d.strokeStyle = pointerPullAmount >= 0
-      ? "rgba(85, 231, 225, 0.72)"
-      : "rgba(255, 111, 148, 0.72)";
+      ? "rgba(104, 247, 164, 0.82)"
+      : "rgba(255, 92, 173, 0.82)";
+    context2d.lineWidth = 1.5;
+    context2d.stroke();
+    context2d.beginPath();
+    context2d.arc(anchorX, anchorY, 3 + Math.abs(pointerPullAmount) * 2.5, 0, Math.PI * 2);
+    context2d.fillStyle = pointerPullAmount >= 0
+      ? "rgba(104, 247, 164, 0.96)"
+      : "rgba(255, 92, 173, 0.96)";
+    context2d.fill();
+    context2d.beginPath();
+    context2d.arc(pointerX, pointerY, 3.5, 0, Math.PI * 2);
+    context2d.fillStyle = "rgba(255, 92, 173, 0.92)";
+    context2d.fill();
+  } else if (document.activeElement === canvas) {
+    const keyboardX = (keyboardSculptX + 1) * 0.5 * canvasWidth;
+    const keyboardY = (keyboardSculptY + 1) * 0.5 * canvasHeight;
+    context2d.beginPath();
+    context2d.arc(keyboardX, keyboardY, 7, 0, TAU);
+    context2d.moveTo(keyboardX - 11, keyboardY);
+    context2d.lineTo(keyboardX + 11, keyboardY);
+    context2d.moveTo(keyboardX, keyboardY - 11);
+    context2d.lineTo(keyboardX, keyboardY + 11);
+    context2d.strokeStyle = "rgba(245, 213, 255, 0.72)";
+    context2d.lineWidth = 1;
     context2d.stroke();
   }
   context2d.restore();
@@ -1044,16 +1477,10 @@ function draw(timestamp, force = false) {
   if (!force && timestamp - lastDrawTime < frameInterval) return;
   lastDrawTime = timestamp;
   updateVisualCombGeometry();
-  renderSpectralTexture();
   context2d.clearRect(0, 0, canvasWidth, canvasHeight);
-  context2d.save();
-  context2d.globalAlpha = 0.64;
-  context2d.imageSmoothingEnabled = true;
-  context2d.drawImage(textureCanvas, 0, 0, canvasWidth, canvasHeight);
-  context2d.restore();
-  drawGrid();
+  drawBroadSculptRegions();
+  drawStaticVectorGrid();
   drawEmbeddedCombGaps();
-  drawFilterNodes();
   drawSpectralCombMask();
   drawSpectrum();
   drawOrigin();
@@ -1071,7 +1498,6 @@ function resizeCanvas() {
   canvasWidth = rect.width;
   canvasHeight = rect.height;
   context2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-  textureImage = null;
   draw(performance.now(), true);
 }
 
@@ -1084,34 +1510,20 @@ function animate(timestamp) {
   const settings = state.settings;
   visualPropagation.setActiveLimit(settings.propagationVoices);
   visualPropagation.step(elapsed);
-  if (!settings.freeze && settings.autoPluckRate > 0.001) {
-    visualAutoAccumulator += settings.autoPluckRate * elapsed;
-    let launches = 0;
-    while (visualAutoAccumulator >= 1 && launches < 3) {
-      visualAutoAccumulator -= 1;
-      launches += 1;
-      triggerAutomaticVisualPropagation();
-    }
-    if (launches >= 3) visualAutoAccumulator %= 1;
-  }
-  if (!reducedMotion && !settings.freeze) {
-    const octaveSpan = Math.log2(settings.highFrequency / settings.lowFrequency);
-    state.shepardPhaseA = wrapUnit(state.shepardPhaseA + settings.glideA / octaveSpan * elapsed);
-    state.shepardPhaseB = wrapUnit(state.shepardPhaseB + settings.glideB / octaveSpan * elapsed);
-    state.fieldPhaseA = wrapUnit(state.fieldPhaseA + settings.fieldASpeed * elapsed);
-    state.fieldPhaseB = wrapUnit(state.fieldPhaseB + settings.fieldBSpeed * elapsed);
-    state.fabricSpinPhase = wrapUnit(state.fabricSpinPhase + settings.fabricSpin * elapsed);
-    state.combPhase = wrapUnit(state.combPhase + settings.combDrift * elapsed);
-  }
-  if (
-    (!reducedMotion && !settings.freeze)
-    || pointerDidDrag
-    || visualPropagation.activeCount > 0
-  ) {
-    visualFabric.step(elapsed, settings, settings.freeze);
+  stepReleasedVisualPull(elapsed);
+  stepVisualSculptGesture(elapsed);
+  if (staticGridHasDeformation()) {
+    // The display membrane reacts only to direct interaction. Audio keeps its
+    // independent motion settings, but no motor or random excitation moves
+    // the visual background by itself.
+    visualFabric.step(elapsed, settings, true);
   }
   updatePropagationStatus();
-  draw(timestamp);
+  if (
+    state.audioOn
+    || staticGridHasDeformation()
+    || visualSculptGestureEnvelope > 1e-7
+  ) draw(timestamp);
   animationFrame = requestAnimationFrame(animate);
 }
 
@@ -1132,7 +1544,7 @@ $("fabricExciteButton").addEventListener("click", async () => {
     0.2 + state.settings.fabricInertia * 0.12,
   );
   draw(performance.now(), true);
-  announce(`${propagationLabel()} ripple plucked into the spectral weave.`);
+  announce(`${propagationLabel()} ripple plucked into the vector grid.`);
 });
 
 $("clearWavesButton").addEventListener("click", () => {
@@ -1146,7 +1558,7 @@ $("clearWavesButton").addEventListener("click", () => {
 for (const button of $("freezeChoice").querySelectorAll("[data-freeze]")) {
   button.addEventListener("click", () => {
     setParameter("freeze", button.dataset.freeze === "true");
-    announce(`Spectral weave motion ${state.settings.freeze ? "frozen" : "resumed"}.`);
+    announce(`Audio spectral motion ${state.settings.freeze ? "frozen" : "resumed"}.`);
   });
 }
 
@@ -1157,10 +1569,26 @@ for (const button of $("collisionModeChoice").querySelectorAll("[data-collision-
   });
 }
 
+for (const button of $("spectralSculptModeChoice").querySelectorAll("[data-spectral-sculpt-mode]")) {
+  button.addEventListener("click", () => {
+    setParameter("spectralSculptMode", button.dataset.spectralSculptMode);
+    announce(`${button.textContent.trim()} spectral sculptor selected. Touch left for low frequencies and right for high; pull farther for more intensity.`);
+  });
+}
+
 for (const button of $("propagationModeChoice").querySelectorAll("[data-propagation-mode]")) {
   button.addEventListener("click", () => {
     setParameter("propagationMode", button.dataset.propagationMode);
     announce(`${button.textContent.trim()} ripple shape selected.`);
+  });
+}
+
+for (const button of $("noiseColorChoice").querySelectorAll("[data-noise-color]")) {
+  button.addEventListener("click", () => {
+    const value = Number(button.dataset.noiseColor);
+    const choice = MOIRE_DRONE_NOISE_COLOR_CHOICES.find((candidate) => candidate.value === value);
+    setParameter("noiseColor", value);
+    announce(`${choice?.label ?? noiseColorLabel(value)} noise selected.`);
   });
 }
 
@@ -1170,72 +1598,163 @@ $("stage").addEventListener("pointerdown", (event) => {
     || event.isPrimary === false
     || (event.pointerType !== "touch" && event.button !== 0)
   ) return;
+  event.preventDefault();
   const point = stagePointFromEvent(event);
   pointerId = event.pointerId;
   pointerStartX = event.clientX;
   pointerStartY = event.clientY;
-  pointerLastY = event.clientY;
-  pointerLastTime = Number(event.timeStamp) || performance.now();
+  pointerStartTime = Number(event.timeStamp) || performance.now();
+  pointerLastTime = pointerStartTime;
+  pointerVelocityX = 0;
+  pointerVelocityY = 0;
+  const localAnchor = rotateFabricCoordinate(
+    point.x,
+    point.y,
+    effectiveFabricAngle(),
+  );
   pointerAnchorX = point.x;
   pointerAnchorY = point.y;
+  pointerAnchorLocalX = localAnchor.x;
+  pointerAnchorLocalY = localAnchor.y;
+  pointerAudioAnchorX = point.x;
+  pointerAudioAnchorY = point.y;
   pointerCurrentX = point.x;
   pointerCurrentY = point.y;
-  pointerPullAmount = 0;
+  holdVisualFabricAtPointer();
+  pointerPullAmount = fabricGesturePull({
+    anchorX: pointerAudioAnchorX,
+    anchorY: pointerAudioAnchorY,
+    currentX: pointerCurrentX,
+    currentY: pointerCurrentY,
+  }).amount;
   pointerDidDrag = false;
+  canvas.classList.add("is-grabbed");
+  $("fabricInstruction")?.classList.add("dismissed");
+  canvas.focus?.({ preventScroll: true });
   canvas.setPointerCapture?.(event.pointerId);
+  applyPointerTug(pointerPullAmount);
   draw(performance.now(), true);
+  const pressedPointerId = event.pointerId;
+  void ensureAudioOn().then((ready) => {
+    if (ready && pointerId === pressedPointerId) applyPointerTug(pointerPullAmount);
+  });
 });
 
 $("stage").addEventListener("pointermove", (event) => {
   if (pointerId !== event.pointerId) return;
-  const point = stagePointFromEvent(event);
-  pointerCurrentX = point.x;
-  pointerCurrentY = point.y;
+  event.preventDefault();
   const dragThreshold = event.pointerType === "touch" ? 10 : 5;
   if (!pointerDidDrag) {
     const distance = Math.hypot(
       event.clientX - pointerStartX,
       event.clientY - pointerStartY,
     );
-    if (distance < dragThreshold) {
-      draw(performance.now(), true);
-      return;
+    if (distance >= dragThreshold) {
+      pointerDidDrag = true;
+      canvas.classList.add("is-pulling");
     }
-    pointerDidDrag = true;
-    canvas.classList.add("is-tugging");
   }
   tugFabricFromPointer(event);
 });
 
 async function releasePointer(event, { cancelled = false } = {}) {
   if (pointerId === null || (event?.pointerId != null && event.pointerId !== pointerId)) return;
+  event?.preventDefault?.();
+  if (!cancelled && event) {
+    const dragThreshold = event.pointerType === "touch" ? 10 : 5;
+    if (
+      !pointerDidDrag
+      && Math.hypot(
+        event.clientX - pointerStartX,
+        event.clientY - pointerStartY,
+      ) >= dragThreshold
+    ) {
+      pointerDidDrag = true;
+    }
+    samplePointerEvent(event, { drawNow: false });
+  }
   const releasedId = pointerId;
   const wasDrag = pointerDidDrag;
-  const releaseX = pointerCurrentX;
-  const releaseY = pointerCurrentY;
+  const releaseAnchorX = pointerAnchorX;
+  const releaseAnchorY = pointerAnchorY;
+  const releaseAnchorLocalX = pointerAnchorLocalX;
+  const releaseAnchorLocalY = pointerAnchorLocalY;
+  const releaseAudioAnchorX = pointerAudioAnchorX;
+  const releaseAudioAnchorY = pointerAudioAnchorY;
+  const releaseGesture = currentAudioGesture();
   const releasePull = pointerPullAmount;
+  captureVisualSculptGesture(
+    releaseAudioAnchorX,
+    releaseAudioAnchorY,
+    releasePull,
+    releaseGesture,
+    false,
+  );
+  const releaseFrequency = frequencyAtStageX(releaseAudioAnchorX);
+  const releaseVelocity = Math.hypot(pointerVelocityX, pointerVelocityY);
+  const releasePolarity = releasePull < 0 ? -1 : 1;
+  const thrownForce = releasePolarity * Math.min(1, releaseVelocity * 0.58 / 6);
+  const releasedAt = Number(event?.timeStamp) || performance.now();
+  const wasQuickTap = !wasDrag && releasedAt - pointerStartTime <= 350;
+  const audioWasReady = state.audioOn;
   pointerId = null;
   pointerDidDrag = false;
-  canvas.classList.remove("is-tugging");
+  visualPullAnchorX = releaseAnchorX;
+  visualPullAnchorY = releaseAnchorY;
+  visualPullVelocityX = cancelled
+    ? 0
+    : Math.max(-8, Math.min(8, pointerVelocityX)) * 0.58;
+  visualPullVelocityY = cancelled
+    ? 0
+    : Math.max(-8, Math.min(8, pointerVelocityY)) * 0.58;
+  canvas.classList.remove("is-grabbed", "is-pulling");
   visualFabric.release();
-  audio.releaseFabric();
-  canvas.releasePointerCapture?.(releasedId);
+  if (wasDrag && Math.abs(thrownForce) > 0.015) {
+    visualFabric.excite(
+      releaseAnchorLocalX,
+      releaseAnchorLocalY,
+      thrownForce,
+      0.13 + state.settings.fabricInertia * 0.08,
+    );
+  }
+  audio.releaseFabric(releaseGesture);
+  if (canvas.hasPointerCapture?.(releasedId)) canvas.releasePointerCapture(releasedId);
   pointerPullAmount = 0;
   draw(performance.now(), true);
   if (cancelled) return;
-  if (wasDrag) {
-    announce(`Fabric tug released at ${signed(releaseX, 2)}, ${signed(releaseY, 2)} with ${signed(releasePull, 2)} pull.`);
+  const audioReady = audioWasReady || await ensureAudioOn();
+  if (!audioReady) return;
+  if (!wasQuickTap) {
+    if (wasDrag || !audioWasReady) {
+      const startupTransfer = audioWasReady ? 0 : Math.abs(releasePull) * 0.3;
+      const audioThrowForce = releasePolarity * Math.min(
+        1,
+        Math.abs(thrownForce) + startupTransfer,
+      );
+      audio.kickFabric(
+        releaseAudioAnchorX,
+        releaseAudioAnchorY,
+        audioThrowForce,
+        0.13 + state.settings.fabricInertia * 0.08,
+        releaseGesture,
+      );
+    }
+    announce(`${wasDrag ? "Pulled" : "Held"} ${spectralSculptLabel().toLowerCase()} near ${formatFrequency(releaseFrequency)} released with ${percent(Math.abs(releasePull))} intensity.`);
     return;
   }
-  if (!await ensureAudioOn()) return;
   triggerPropagationAt(
-    pointerAnchorX,
-    pointerAnchorY,
+    releaseAnchorX,
+    releaseAnchorY,
     Math.min(1.35, 0.38 + state.settings.fabricPull * 0.42),
     0.16 + state.settings.fabricInertia * 0.1,
+    {
+      audioX: releaseAudioAnchorX,
+      audioY: releaseAudioAnchorY,
+      gesture: releaseGesture,
+    },
   );
   draw(performance.now(), true);
-  announce(`${propagationLabel()} ripple plucked at ${signed(pointerAnchorX, 2)}, ${signed(pointerAnchorY, 2)}.`);
+  announce(`${propagationLabel()} ${spectralSculptLabel().toLowerCase()} ripple plucked near ${formatFrequency(releaseFrequency)}.`);
 }
 
 $("stage").addEventListener("pointerup", releasePointer);
@@ -1246,36 +1765,52 @@ $("stage").addEventListener("keydown", async (event) => {
   if (event.key === " ") {
     event.preventDefault();
     setParameter("freeze", !state.settings.freeze);
-    announce(`Spectral weave motion ${state.settings.freeze ? "frozen" : "resumed"}.`);
+    announce(`Audio spectral motion ${state.settings.freeze ? "frozen" : "resumed"}.`);
   } else if (event.key === "Enter") {
     event.preventDefault();
     if (!await ensureAudioOn()) return;
+    const keyboardWidth = (keyboardSculptY + 1) * 0.5;
     triggerPropagationAt(
-      state.settings.originX,
-      state.settings.originY,
-      Math.min(1.6, 0.5 + state.settings.fabricPull * 0.55),
-      0.2 + state.settings.fabricInertia * 0.12,
+      keyboardSculptX,
+      keyboardSculptY,
+      event.shiftKey
+        ? 1.35
+        : Math.min(1.1, 0.38 + state.settings.fabricPull * 0.42),
+      0.1 + keyboardWidth * 0.28,
     );
     draw(performance.now(), true);
-    announce(`${propagationLabel()} ripple plucked into the spectral weave.`);
+    announce(`${event.shiftKey ? "Strong " : ""}${propagationLabel().toLowerCase()} ${spectralSculptLabel().toLowerCase()} ripple plucked near ${formatFrequency(frequencyAtStageX(keyboardSculptX))}.`);
   } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     event.preventDefault();
-    const amount = event.shiftKey ? 0.1 : 0.01;
-    setParameter("glideA", state.settings.glideA + (event.key === "ArrowRight" ? amount : -amount));
+    const amount = event.shiftKey ? 0.2 : 0.05;
+    keyboardSculptX = Math.max(-1, Math.min(
+      1,
+      keyboardSculptX + (event.key === "ArrowRight" ? amount : -amount),
+    ));
+    draw(performance.now(), true);
+    announce(`Keyboard sculpt focus ${formatFrequency(frequencyAtStageX(keyboardSculptX))}. Press Enter to pluck or Shift Enter for a stronger pluck.`);
   } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     event.preventDefault();
-    const amount = event.shiftKey ? 0.1 : 0.01;
-    setParameter("glideB", state.settings.glideB + (event.key === "ArrowUp" ? amount : -amount));
+    const amount = event.shiftKey ? 0.2 : 0.05;
+    keyboardSculptY = Math.max(-1, Math.min(
+      1,
+      keyboardSculptY + (event.key === "ArrowDown" ? amount : -amount),
+    ));
+    draw(performance.now(), true);
+    announce(`Keyboard sculpt character ${percent((keyboardSculptY + 1) * 0.5)} broad. Press Enter to pluck.`);
   }
 });
+
+canvas.addEventListener("focus", () => draw(performance.now(), true));
+canvas.addEventListener("blur", () => draw(performance.now(), true));
 
 document.querySelector("[data-reset-all]").addEventListener("click", () => {
   const outputLevel = state.settings.outputLevel;
   state.settings = { ...sanitizeMoireDroneParams({ ...MOIRE_DRONE_DEFAULTS, outputLevel }) };
-  state.fabricSpinPhase = 0;
+  state.preset = null;
+  updateAudioParameters();
   resetVisualDynamics();
   audio.resetFabric();
-  state.preset = null;
   updateInterface();
   announce("All Moiré Drone parameters reset.");
 });
@@ -1298,15 +1833,15 @@ document.addEventListener("visibilitychange", () => {
     lastAnimationTime = performance.now();
     resizeCanvas();
   } else {
-    releasePointer();
+    releasePointer(undefined, { cancelled: true });
   }
 });
 
-globalThis.addEventListener("blur", () => releasePointer());
+globalThis.addEventListener("blur", () => releasePointer(undefined, { cancelled: true }));
 
 globalThis.addEventListener("pagehide", () => {
   disposed = true;
-  releasePointer();
+  releasePointer(undefined, { cancelled: true });
   cancelAnimationFrame(animationFrame);
   resizeObserver?.disconnect();
   audio.close();

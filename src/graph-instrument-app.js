@@ -41,7 +41,7 @@ const EDGE_SWITCH_HIT_RADIUS = 14;
 const NODE_HIT_RADIUS = 23;
 const DEFAULT_PATCH = "layeredGlass";
 const GRAPH_PRESET_STATE_KEYS = Object.freeze([
-  "topology", "nodeCount", "density", "seed", "baseDelay", "timeScale",
+  "topology", "nodeCount", "density", "seed", "baseDelay", "distanceRatio",
   "timeCurve", "nodePass", "feedback", "feedbackTone", "tempo",
   "triggerScope",
 ]);
@@ -383,7 +383,7 @@ export function initializeGraphInstrument({
       enabledEdges: enabledFlags(),
       inputPosition: { x: 0.02, y: 0.5 },
       baseDelay: state.baseDelay,
-      timeScale: state.timeScale,
+      distanceRatio: state.distanceRatio,
       timeCurve: state.timeCurve,
       nodePass: state.nodePass,
       feedback: state.feedback,
@@ -1059,7 +1059,7 @@ export function initializeGraphInstrument({
       output: state.output,
       nodePass: state.nodePass,
       baseDelay: state.baseDelay,
-      timeScale: state.timeScale,
+      distanceRatio: state.distanceRatio,
       timeCurve: state.timeCurve,
       feedback: state.feedback,
       feedbackTone: state.feedbackTone,
@@ -1108,7 +1108,7 @@ export function initializeGraphInstrument({
       output: percent,
       nodePass: percent,
       baseDelay: (value) => `${Math.round(value)} ms`,
-      timeScale: (value) => `+${Math.round(value)} ms`,
+      distanceRatio: (value) => `${Number(value).toFixed(2)}×`,
       timeCurve: (value) => Number(value).toFixed(2),
       feedback: percent,
       feedbackTone: percent,
@@ -1305,7 +1305,7 @@ export function initializeGraphInstrument({
   bindRange("output", "output");
   bindRange("nodePass", "nodePass", { template: true });
   bindRange("baseDelay", "baseDelay", { template: true });
-  bindRange("timeScale", "timeScale", { template: true });
+  bindRange("distanceRatio", "distanceRatio", { template: true });
   bindRange("timeCurve", "timeCurve", { template: true });
   bindRange("feedback", "feedback", { template: true });
   bindRange("feedbackTone", "feedbackTone", { custom: true });
