@@ -151,12 +151,12 @@ for worktree_runtime_file in \
   src/harmonica.js \
   src/harmonica-processor.js \
   assets/instruments/harmonica.webp \
-  hambone.html \
-  hambone.css \
-  hambone-app.js \
-  src/hambone.js \
-  src/hambone-processor.js \
-  assets/instruments/hambone.webp \
+  hiccup-head.html \
+  hiccup-head.css \
+  hiccup-head-app.js \
+  src/hiccup-head.js \
+  src/hiccup-head-processor.js \
+  assets/instruments/hiccup-head.webp \
   src/tongue-physics.js \
   src/tongue-performance.js \
   ANIMAL_VOICE_SYNTHESIS_RESEARCH.md \
@@ -579,12 +579,12 @@ required_files=(
   src/harmonica.js
   src/harmonica-processor.js
   assets/instruments/harmonica.webp
-  hambone.html
-  hambone.css
-  hambone-app.js
-  src/hambone.js
-  src/hambone-processor.js
-  assets/instruments/hambone.webp
+  hiccup-head.html
+  hiccup-head.css
+  hiccup-head-app.js
+  src/hiccup-head.js
+  src/hiccup-head-processor.js
+  assets/instruments/hiccup-head.webp
   src/tongue-physics.js
   src/tongue-performance.js
   assets/instruments/syrinx.webp

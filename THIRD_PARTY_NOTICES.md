@@ -33,7 +33,7 @@ load the Shadertoy page as a runtime dependency.
 ## Pink Trombone
 
 The shared classic 44-section vocal-tract geometry used by Throatazoid, Pink
-Trombonazoid, Spelling Synthesizer, and Hambone, including its tongue-rest curve,
+Trombonazoid, Spelling Synthesizer, and Hiccup Head, including its tongue-rest curve,
 reflection coefficients, and two-step waveguide behavior, is adapted from Neil
 Thapen's Pink Trombone:
 

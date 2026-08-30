@@ -180,7 +180,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
     { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
     { id: "harmonica", label: "Harmonica", href: "harmonica.html" },
-    { id: "hambone", label: "Hambone", href: "hambone.html" },
+    { id: "hiccup-head", label: "Hiccup Head", href: "hiccup-head.html" },
     {
       id: "breath-atlas",
       label: "Breath Atlas",

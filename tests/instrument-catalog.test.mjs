@@ -337,16 +337,16 @@ test("Pink Trombonazoid is an articulatory voice sequencer without generic note 
   assert.equal(midi?.computerKeyboardMode, "none");
 });
 
-test("Hambone is a monophonic physical beatbox sequencer with page-owned drum keys", () => {
-  const instrument = instrumentById("hambone");
-  assert.equal(instrument?.label, "Hambone");
-  assert.equal(instrument?.href, "hambone.html");
-  assert.equal(instrument?.imageHref, "assets/instruments/hambone.webp");
+test("Hiccup Head is a monophonic physical beatbox sequencer with page-owned drum keys", () => {
+  const instrument = instrumentById("hiccup-head");
+  assert.equal(instrument?.label, "Hiccup Head");
+  assert.equal(instrument?.href, "hiccup-head.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/hiccup-head.webp");
   assert.equal(instrument?.kind, "Monophonic physical beatbox sequencer");
-  assert.match(instrument?.description ?? "", /fully mutable face/i);
-  assert.match(instrument?.description ?? "", /twenty-five exclusive gestures/i);
-  assert.match(instrument?.description ?? "", /PHSHSHK/i);
-  assert.match(instrument?.description ?? "", /missing upper-left central incisor/i);
+  assert.match(instrument?.description ?? "", /thirty-seven exclusive gestures/i);
+  assert.match(instrument?.description ?? "", /HIC!/i);
+  assert.match(instrument?.description ?? "", /mouth KSH snare/i);
+  assert.match(instrument?.description ?? "", /twelve pitched dead-wood teeth/i);
   assert.match(instrument?.start ?? "", /one gesture per column/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
@@ -357,7 +357,7 @@ test("Hambone is a monophonic physical beatbox sequencer with page-owned drum ke
   assert.ok(instrument?.features.includes("MIDI"));
   assert.ok(instrument?.features.includes("Computer keys"));
 
-  const midi = instrumentMidiCapabilityForId("hambone");
+  const midi = instrumentMidiCapabilityForId("hiccup-head");
   assert.equal(midi?.noteMode, "drums");
   assert.equal(midi?.midiOutput, true);
   assert.equal(midi?.computerKeyboardMode, "page");

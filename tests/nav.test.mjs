@@ -597,7 +597,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
       { id: "harmonica", label: "Harmonica", href: "harmonica.html" },
-      { id: "hambone", label: "Hambone", href: "hambone.html" },
+      { id: "hiccup-head", label: "Hiccup Head", href: "hiccup-head.html" },
       { id: "breath-atlas", label: "Breath Atlas", href: "breath-atlas.html" },
       {
         id: "spelling-synthesizer",
@@ -839,7 +839,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
     resolveActiveTool(`${SITE_ROOT}pink-trombonazoid.html`, SITE_ROOT)?.id,
     "pink-trombonazoid",
   );
-  assert.equal(resolveActiveTool(`${SITE_ROOT}hambone.html`, SITE_ROOT)?.id, "hambone");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}hiccup-head.html`, SITE_ROOT)?.id, "hiccup-head");
   assert.equal(resolveActiveTool(`${SITE_ROOT}harmonica.html`, SITE_ROOT)?.id, "harmonica");
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}colony-syrinx.html`, SITE_ROOT)?.id,
