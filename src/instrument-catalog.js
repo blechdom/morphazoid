@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260829-6";
+} from "../nav.js?v=catalog-20260829-7";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -106,6 +106,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Offers five mutually exclusive banks: four sample-free drum kits read the two side faces, while 303 Acid reads only the upper face through its Classic or WebGPU engine; hidden stickers stay hard-silent.",
     "Choose one bank or preset, then drag the cube or enable Random Twists; in WebGPU 303 mode, sticker row, column, edge, current face, and visibility reshape each acid step.",
     ["Pointer"],
+  ),
+  "sliding-puzzle": define(
+    "2D puzzle sequencer",
+    "Reads a resizable 2 × 2 through 8 × 8 square or rectangular tile field as either a serial score or Rubix-style parallel rows, with four fixed home-row colors and one moving silent cell.",
+    "Choose Lines together or One tile, set independent rows and columns, then slide complete lines, rotate the rectangle, scramble, or let Solve unwind the exact move history.",
+    ["Pointer", "Built-in synth"],
   ),
   "hyper-drums": define(
     "Drum machine",

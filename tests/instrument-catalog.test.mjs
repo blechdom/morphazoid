@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 111);
+  assert.equal(INSTRUMENTS.length, 112);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -557,6 +557,19 @@ test("input and plug-in availability facts remain explicit", () => {
   }
   assert.equal(instrumentById("striped-sludge-delay"), null);
   assert.equal(instrumentById("rubix")?.kind, "Geometric sequencer");
+  assert.equal(instrumentById("sliding-puzzle")?.kind, "2D puzzle sequencer");
+  assert.match(
+    instrumentById("sliding-puzzle")?.description ?? "",
+    /resizable.*2 × 2.*8 × 8.*rectangular.*parallel rows.*silent cell/i,
+  );
+  assert.match(
+    instrumentById("sliding-puzzle")?.start ?? "",
+    /complete lines.*rectangle.*scramble.*Solve.*exact move history/i,
+  );
+  assert.deepEqual(
+    instrumentById("sliding-puzzle")?.features,
+    ["Pointer", "Built-in synth", "MIDI"],
+  );
   for (const id of ["cascading-fm", "cascading-pm"]) {
     assert.equal(instrumentById(id)?.kind, "Synth");
     assert.deepEqual(

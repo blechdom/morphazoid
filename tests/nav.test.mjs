@@ -255,7 +255,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 115);
+  assert.equal(tools.length, 116);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -475,6 +475,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "sliding-puzzle"),
+    {
+      id: "sliding-puzzle",
+      label: "Sliding Puzzle Sequencer",
+      href: "sliding-puzzle.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "hyper-drums"),
     {
       id: "hyper-drums",
@@ -536,6 +544,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "rubix", href: "rubix.html" },
+      { id: "sliding-puzzle", href: "sliding-puzzle.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
       { id: "webgpu-synths", href: "webgpu-synths.html" },
@@ -921,6 +930,10 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}solid-drums.html`, SITE_ROOT)?.id, "solid-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-rubix.html`, SITE_ROOT)?.id, "hyper-rubix");
   assert.equal(resolveActiveTool(`${SITE_ROOT}rubix.html`, SITE_ROOT)?.id, "rubix");
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}sliding-puzzle.html`, SITE_ROOT)?.id,
+    "sliding-puzzle",
+  );
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-system-drums.html`, SITE_ROOT)?.id, "l-system-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}graph-drums.html`, SITE_ROOT)?.id, "graph-drums");

@@ -138,6 +138,11 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Rubix Cube Sequencer",
       href: "rubix.html",
     },
+    {
+      id: "sliding-puzzle",
+      label: "Sliding Puzzle Sequencer",
+      href: "sliding-puzzle.html",
+    },
     { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
     { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
     { id: "webgpu-synths", label: "GPU Shader Synths", href: "webgpu-synths.html" },
