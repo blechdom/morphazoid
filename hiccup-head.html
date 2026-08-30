@@ -11,7 +11,7 @@
     <title>Hiccup Head · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-20260829-9" />
+    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-20260829-10" />
   </head>
   <body class="hiccup-head-page">
     <header class="masthead">
@@ -140,6 +140,14 @@
             <span aria-hidden="true">✦</span>
             <span><b>Mutate the whole face</b></span>
           </button>
+        </section>
+
+        <section class="hiccup-head-effect-bypasses" aria-label="Persistent effect bypasses" aria-describedby="effectBypassHelp">
+          <p class="sr-only" id="effectBypassHelp">These four effect switches and their live face-controlled amounts are independent of face presets, mutation, and reset.</p>
+          <button id="delayEffectButton" type="button" aria-pressed="true"><span>Delay</span><b id="delayEffectState">ON</b></button>
+          <button id="reverbEffectButton" type="button" aria-pressed="true"><span>Reverb</span><b id="reverbEffectState">ON</b></button>
+          <button id="nasalEffectButton" type="button" aria-pressed="true"><span>Nasal</span><b id="nasalEffectState">ON</b></button>
+          <button id="stereoEffectButton" type="button" aria-pressed="true"><span>Stereo</span><b id="stereoEffectState">ON</b></button>
         </section>
 
         <section class="hiccup-head-voice-collection" aria-labelledby="voiceCollectionTitle">
@@ -293,14 +301,14 @@
               <small>Rotates the right rays and moves only their delay time. Drag the right tip in two dimensions to change this and length together.</small>
             </label>
             <label class="control" for="eyeDivergence">
-              <span><b>Eye divergence / gate–reverb</b><output id="eyeDivergenceOut" for="eyeDivergence">8% reverb</output></span>
+              <span><b>Eye divergence / reverb</b><output id="eyeDivergenceOut" for="eyeDivergence">8% reverb</output></span>
               <input id="eyeDivergence" type="range" min="-1" max="1" step="0.01" value="0.08" />
-              <small>Pull inward through center for crossed-eye gating, or outward for an unmistakable cross-fed room bloom.</small>
+              <small>Pull inward to cross the eyes visually, or outward for an unmistakable cross-fed room bloom.</small>
             </label>
             <label class="control" for="eyeClosure">
-              <span><b>Eyelids / bitcrush</b><output id="eyeClosureOut" for="eyeClosure">0%</output></span>
+              <span><b>Eyelid closure</b><output id="eyeClosureOut" for="eyeClosure">0%</output></span>
               <input id="eyeClosure" type="range" min="0" max="1" step="0.01" value="0" />
-              <small>Bright open eyes are zero. Drag either eye downward to close both lids and increase the bitcrush.</small>
+              <small>Drag either eye downward to close both lids. Eyelids are visual only and never change the sound.</small>
             </label>
             <label class="control" for="leftBrow">
               <span><b>Left brow / loop A</b><output id="leftBrowOut" for="leftBrow">50%</output></span>
@@ -348,7 +356,7 @@
             <p><b>HIC! + EEF!</b> add a caught diaphragm/glottal rebound and folded ingressive–egressive breath contours inside the same one-mouth tract.</p>
             <p><b>AAH / OOH / WAIL / YODEL / GROWL / HOLLER / HUM / RATTLE</b> open the throat into wider vowel areas, vibrato, register breaks, false-fold roughness, and sustained resonant tissue motion.</p>
             <p><b>VOICE COLLECTIONS</b> hold up to eight alternate fold and tract characters. Solo one, cycle predictably, or choose randomly; only one character drives the persistent mouth for each event.</p>
-            <p><b>NOSE / EARS / SIDE HAIR / EYES / BROWS</b> expose the nasal branch, short ear-controlled stereo width, a separate long hair feedback delay, a cross-fed room, and a two-anchor amplitude contour. Every preset supplies useful defaults, then the face pushes them further.</p>
+            <p><b>NOSE / EARS / SIDE HAIR / EYES / BROWS</b> expose the nasal branch, short ear-controlled stereo width, a separate long hair feedback delay, outward-eye cross-fed room, and a two-anchor amplitude contour. Crossed eyes and eyelid closure are visual only. Delay, Reverb, Nasal, and Stereo amounts and bypass switches stay independent of presets, mutation, and reset.</p>
           </div>
         </details>
 
@@ -359,9 +367,9 @@
     <p class="sr-only" id="canvasInstructions">
       Tap any of thirty-seven colored trigger dots on clear face regions, twelve visible tooth tines, the visible missing-front-tooth gap, or a displayed pad shortcut to play the face, throat, breath, tongue, and mouth sounds.
       Drag the left and right hands onto different cheeks, jaw, forehead, or mouth zones for resonant slaps.
-      Drag either eye horizontally through center to move from crossed-eye gating into outward reverb, or downward to close both lids and increase bitcrush. Drag either eyebrow up or down to shape the two-anchor loop amplitude contour,
+      Drag either eye outward for reverb, inward to cross visually, or downward to close both lids visually without changing the sound. Drag either eyebrow up or down to shape the two-anchor loop amplitude contour,
       the nose to change nasal tone, either ear for stereo width, either side-hair tip in two dimensions for its own feedback amount and delay time, and the tongue tip beyond the lips.
-      Face presets supply defaults for those effects, and dragging tweaks them live.
+      Face presets move the anatomy, while the four effect switches and their live face-controlled amounts stay unchanged.
       Drag the mouth anatomy beyond human ranges. Set the sequence to any whole-number length from one through
       sixty-four steps. Each column holds at most one sound; selecting another row replaces that step's old sound.
       The voice collection can cycle or randomly choose among one to eight mutable characters, one per event.
@@ -369,6 +377,6 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
-    <script type="module" src="hiccup-head-app.js?v=hiccup-head-20260829-15"></script>
+    <script type="module" src="hiccup-head-app.js?v=hiccup-head-20260829-19"></script>
   </body>
 </html>

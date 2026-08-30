@@ -1522,8 +1522,11 @@ test("Hiccup Head bounds mobile grid, canvas, and HUD work without hiding its fa
   assert.match(
     app,
     /type: "eye-2d"[\s\S]{0,420}?startClosure: state\.eyeClosure[\s\S]*?pointerDrag\.type === "eye-2d"[\s\S]*?queueCanvasStateUpdates\(\{ eyeDivergence: divergence, eyeClosure: closure \}\)/,
-    "vertical eye dragging must directly control eyelid closure while horizontal dragging controls gate/reverb",
+    "vertical eye dragging must control visual lid closure while outward dragging controls reverb",
   );
+  assert.match(app, /Number\(value\) < -0\.005[\s\S]{0,80}?`\$\{amount\}% crossed`/);
+  assert.match(app, /label: "CROSS ↔ REVERB · LIDS ↓"/);
+  assert.doesNotMatch(app, /(?:ROBOT|GATE) ↔ REVERB/);
 
   const sequenceLengthSource = app.slice(
     app.indexOf("function setSequenceLength("),
@@ -1673,29 +1676,124 @@ test("Hiccup Head fills its canvas with a large outlined, translucent-checker go
     /const skinCheckerSize = clamp\(Math\.min\(rx, ry\) \* 0\.18, 22, 34\)[\s\S]*?if \(\(rowIndex \+ columnIndex\) % 2 === colorIndex\) \{[\s\S]*?context\.rect\(checkerX, checkerY, skinCheckerSize, skinCheckerSize\)/,
     "bounded square tiles must alternate by row and column rather than becoming stripes",
   );
-  const skinCheckerPaletteSource = skinCheckerSource.slice(
-    skinCheckerSource.indexOf("const skinCheckerColors = ["),
-    skinCheckerSource.indexOf("];", skinCheckerSource.indexOf("const skinCheckerColors = [")) + 2,
-  );
-  const skinCheckerColors = [...skinCheckerPaletteSource.matchAll(
-    /"rgba\((\d+), (\d+), (\d+), (0?\.\d+)\)"/g,
-  )].map(([, red, green, blue, alpha]) => [red, green, blue, alpha].map(Number));
-  assert.equal(skinCheckerColors.length, 2, "the skin needs exactly one purple and one red checker color");
+  const skinCheckerPaletteStart = app.indexOf("const STOPPED_SKIN_CHECKER_COLORS");
+  const skinCheckerPaletteEnd = app.indexOf("\nlet state =", skinCheckerPaletteStart);
   assert.ok(
-    skinCheckerColors.some(([red, green, blue, alpha]) => (
-      blue > red && red > green && alpha >= 0.42 && alpha <= 0.58
+    skinCheckerPaletteStart >= 0 && skinCheckerPaletteEnd > skinCheckerPaletteStart,
+    "checker palette definitions must stay isolated from mutable runtime state",
+  );
+  const skinCheckerPaletteSource = app.slice(
+    skinCheckerPaletteStart,
+    skinCheckerPaletteEnd,
+  );
+  const checkerPaletteApi = Function(
+    "HICCUP_HEAD_STEP_COUNT",
+    `${skinCheckerPaletteSource}\nreturn {\n  stopped: STOPPED_SKIN_CHECKER_COLORS,\n  sequence: SEQUENCE_SKIN_CHECKER_COLORS,\n  forStep: skinCheckerColorsForStep,\n};`,
+  )(HICCUP_HEAD_STEP_COUNT);
+  const stoppedSkinCheckerColors = checkerPaletteApi.stopped.map((color) => {
+    const match = color.match(/^rgba\((\d+), (\d+), (\d+), (0?\.\d+)\)$/);
+    assert.ok(match, `stopped checker color ${color} must be rgba`);
+    return match.slice(1).map(Number);
+  });
+  assert.equal(stoppedSkinCheckerColors.length, 2, "stopped skin needs one purple and one red checker color");
+  assert.ok(
+    stoppedSkinCheckerColors.some(([red, green, blue, alpha]) => (
+      blue > red && red > green && alpha === 0.4
     )),
-    "the skin needs a roughly fifty-percent-transparent purple checker",
+    "the skin needs an exactly forty-percent-opaque purple checker",
   );
   assert.ok(
-    skinCheckerColors.some(([red, green, blue, alpha]) => (
-      red > blue && blue > green && alpha >= 0.42 && alpha <= 0.58
+    stoppedSkinCheckerColors.some(([red, green, blue, alpha]) => (
+      red > blue && blue > green && alpha === 0.4
     )),
-    "the skin needs a roughly fifty-percent-transparent red checker",
+    "the skin needs an exactly forty-percent-opaque red checker",
   );
   assert.ok(
-    skinCheckerColors.every(([, , , alpha]) => alpha < 0.65),
-    "checker skin must remain visibly below opaque",
+    stoppedSkinCheckerColors.every(([, , , alpha]) => alpha === 0.4),
+    "both stopped checker colors must share the requested forty-percent opacity",
+  );
+  assert.equal(checkerPaletteApi.sequence.length, HICCUP_HEAD_STEP_COUNT);
+  assert.equal(HICCUP_HEAD_STEP_COUNT, 64);
+  const stepPaletteSignatures = [];
+  for (let step = 0; step < HICCUP_HEAD_STEP_COUNT; step += 1) {
+    const palette = checkerPaletteApi.sequence[step];
+    assert.equal(palette.length, 2, `step ${step + 1} needs exactly two checker colors`);
+    assert.equal(Object.isFrozen(palette), true);
+    assert.equal(checkerPaletteApi.forStep(step), palette);
+    assert.equal(checkerPaletteApi.forStep(step + HICCUP_HEAD_STEP_COUNT), palette);
+    const parsedColors = palette.map((color) => {
+      const match = color.match(/^hsla\((\d+), 76%, 55%, (0?\.\d+)\)$/);
+      assert.ok(match, `step ${step + 1} checker color ${color} must be bounded HSLA`);
+      return { hue: Number(match[1]), alpha: Number(match[2]) };
+    });
+    assert.ok(parsedColors.every(({ alpha }) => alpha === 0.4));
+    assert.equal(
+      (parsedColors[1].hue - parsedColors[0].hue + 360) % 360,
+      180,
+      `step ${step + 1} checker colors must remain strongly contrasting`,
+    );
+    stepPaletteSignatures.push(palette.join("|"));
+  }
+  assert.equal(
+    new Set(stepPaletteSignatures).size,
+    HICCUP_HEAD_STEP_COUNT,
+    "sequencer steps 1 through 64 each need one deterministic checker palette",
+  );
+  for (let sequenceLength = 1; sequenceLength <= HICCUP_HEAD_STEP_COUNT; sequenceLength += 1) {
+    assert.equal(
+      new Set(stepPaletteSignatures.slice(0, sequenceLength)).size,
+      sequenceLength,
+      `a ${sequenceLength}-step sequence needs deterministic visual variation at every step`,
+    );
+  }
+  assert.equal(checkerPaletteApi.forStep(-1), checkerPaletteApi.stopped);
+  assert.equal(checkerPaletteApi.forStep(Number.NaN), checkerPaletteApi.stopped);
+  assert.doesNotMatch(
+    skinCheckerPaletteSource,
+    /nextStepTime|sequenceStepIntervalSeconds|postStrike|visualQueue|audioContext|state\.(?:tempo|swing)/,
+    "palette lookup must remain pure visual data with no audio-timing dependency",
+  );
+  assert.match(
+    drawFaceSource,
+    /^function drawFace\(context, layout, pose, motion, now, checkerStep = -1\)/,
+    "drawFace must receive the visual checker step as inert paint data",
+  );
+  assert.match(
+    skinCheckerSource,
+    /const skinCheckerColors = skinCheckerColorsForStep\(checkerStep\)/,
+    "checker paint must use only the sampled visual step",
+  );
+  assert.doesNotMatch(
+    skinCheckerSource,
+    /visibleStep|sequencePlaying|nextStepTime|sequenceStepIntervalSeconds|postStrike|audioContext/,
+    "checker painting must not reach back into playback or audio timing state",
+  );
+  const drawStageSource = app.slice(
+    app.indexOf("function drawStage("),
+    app.indexOf("function resizeCanvas("),
+  );
+  assert.match(
+    drawStageSource,
+    /flushVisualQueue\(now\);[\s\S]*?const checkerStep = sequencePlaying && visibleStep >= 0\s*\? visibleStep % sequenceLength\s*: -1;[\s\S]*?drawFace\(drawing, layout, pose, motion, now, checkerStep\)/,
+    "the checker must sample the already-due visual playhead and wrap to every live 1–64-step length",
+  );
+  const checkerStepSelectionSource = drawStageSource.slice(
+    drawStageSource.indexOf("// `visibleStep` is advanced"),
+    drawStageSource.indexOf("drawToothWhistleJet("),
+  );
+  assert.doesNotMatch(
+    checkerStepSelectionSource,
+    /nextStepTime|sequenceStepIntervalSeconds|sequenceStep\s*=|absoluteStep|postStrike|audioContext/,
+    "choosing a checker palette must never mutate or recompute audio timing",
+  );
+  const schedulerSource = app.slice(
+    app.indexOf("function scheduleSequenceAhead("),
+    app.indexOf("async function startSequence("),
+  );
+  assert.doesNotMatch(
+    schedulerSource,
+    /skinChecker|checkerStep/,
+    "the audio lookahead scheduler must remain independent of checker colors",
   );
   assert.equal(
     (skinCheckerSource.match(/context\.fill\(\);/g) ?? []).length,
@@ -2002,6 +2100,276 @@ test("all thirty-seven Hiccup Head sounds own exactly one feature-safe face polk
   );
 });
 
+test("persistent face-effect bypasses and voice assignment fallback stay independent", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("hiccup-head.html", root), "utf8"),
+    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+  ]);
+
+  assert.match(html, /aria-label="Persistent effect bypasses"/);
+  assert.match(
+    html,
+    /id="effectBypassHelp"[\s\S]*?independent of face presets, mutation, and reset/i,
+  );
+  for (const key of ["delay", "reverb", "nasal", "stereo"]) {
+    assert.match(
+      html,
+      new RegExp(`id="${key}EffectButton"[^>]*aria-pressed="true"[\\s\\S]{0,100}?id="${key}EffectState"[^>]*>ON<`),
+      `${key} needs one persistent, accessible effect switch`,
+    );
+  }
+
+  const bypassDefinitionsStart = app.indexOf("const FACE_EFFECT_KEYS");
+  const bypassDefinitionsEnd = app.indexOf("\nlet state =", bypassDefinitionsStart);
+  const audioConfigurationStart = app.indexOf("function audioConfiguration(");
+  const audioConfigurationEnd = app.indexOf(
+    "\nfunction syncFaceEffectButtons(",
+    audioConfigurationStart,
+  );
+  assert.ok(bypassDefinitionsStart >= 0 && bypassDefinitionsEnd > bypassDefinitionsStart);
+  assert.ok(audioConfigurationStart >= 0 && audioConfigurationEnd > audioConfigurationStart);
+  const baseFaceState = {
+    leftHairLength: 0.72,
+    leftHairAngle: -0.37,
+    rightHairLength: 0.43,
+    rightHairAngle: 0.58,
+    eyeDivergence: 0.78,
+    nasalMix: 0.66,
+    earSpread: 0.81,
+  };
+  const bypassApi = Function(
+    "sanitizeHiccupHeadState",
+    "state",
+    `${app.slice(bypassDefinitionsStart, bypassDefinitionsEnd)}\n${app.slice(audioConfigurationStart, audioConfigurationEnd)}\nreturn { effects: faceEffectEnabled, audioConfiguration };`,
+  )((candidate) => ({ ...candidate }), baseFaceState);
+  assert.equal(Object.isSealed(bypassApi.effects), true);
+  assert.deepEqual(Object.keys(bypassApi.effects), ["delay", "reverb", "nasal", "stereo"]);
+  Object.assign(bypassApi.effects, {
+    delay: false,
+    reverb: false,
+    nasal: false,
+    stereo: false,
+  });
+  const effectSnapshot = { ...bypassApi.effects };
+  const bypassed = bypassApi.audioConfiguration();
+  assert.equal(bypassed.leftHairLength, 0);
+  assert.equal(bypassed.rightHairLength, 0);
+  assert.equal(bypassed.leftHairAngle, baseFaceState.leftHairAngle);
+  assert.equal(bypassed.rightHairAngle, baseFaceState.rightHairAngle);
+  assert.equal(bypassed.eyeDivergence, 0);
+  assert.equal(bypassed.nasalMix, 0);
+  assert.equal(bypassed.earSpread, 0);
+  assert.deepEqual(bypassApi.effects, effectSnapshot);
+  assert.deepEqual(baseFaceState, {
+    leftHairLength: 0.72,
+    leftHairAngle: -0.37,
+    rightHairLength: 0.43,
+    rightHairAngle: 0.58,
+    eyeDivergence: 0.78,
+    nasalMix: 0.66,
+    earSpread: 0.81,
+  });
+  assert.equal(
+    bypassApi.audioConfiguration({ eyeDivergence: -0.93 }).eyeDivergence,
+    -0.93,
+    "reverb bypass must preserve visual-only crossed-eye travel",
+  );
+  Object.assign(bypassApi.effects, {
+    delay: true,
+    reverb: true,
+    nasal: true,
+    stereo: true,
+  });
+  assert.deepEqual(bypassApi.audioConfiguration(), baseFaceState);
+
+  const persistentHelperStart = app.indexOf("function withPersistentFaceEffects(");
+  const persistentHelperEnd = app.indexOf(
+    "\nfunction createDefaultVoiceSlots(",
+    persistentHelperStart,
+  );
+  assert.ok(persistentHelperStart >= 0 && persistentHelperEnd > persistentHelperStart);
+  const persistentHelperApi = Function(
+    "sanitizeHiccupHeadState",
+    "state",
+    `${app.slice(bypassDefinitionsStart, bypassDefinitionsEnd)}\n${app.slice(persistentHelperStart, persistentHelperEnd)}\nreturn { parameters: PRESET_INDEPENDENT_EFFECT_PARAMETERS, preserve: withPersistentFaceEffects };`,
+  )(sanitizeHiccupHeadState, HICCUP_HEAD_DEFAULTS);
+  const persistentParameterKeys = [
+    "leftHairLength",
+    "leftHairAngle",
+    "rightHairLength",
+    "rightHairAngle",
+    "eyeDivergence",
+    "nasalMix",
+    "earSpread",
+  ];
+  assert.equal(Object.isFrozen(persistentHelperApi.parameters), true);
+  assert.deepEqual(persistentHelperApi.parameters, persistentParameterKeys);
+  const previousLiveState = sanitizeHiccupHeadState({
+    ...HICCUP_HEAD_DEFAULTS,
+    leftHairLength: 0.72,
+    leftHairAngle: -0.37,
+    rightHairLength: 0.43,
+    rightHairAngle: 0.58,
+    eyeDivergence: -0.78,
+    nasalMix: 0.66,
+    earSpread: 0.81,
+    mouthOpening: 0.14,
+  });
+  const presetCandidate = sanitizeHiccupHeadState({
+    ...HICCUP_HEAD_DEFAULTS,
+    leftHairLength: 0.05,
+    leftHairAngle: 0.91,
+    rightHairLength: 0.96,
+    rightHairAngle: -0.82,
+    eyeDivergence: 0.64,
+    nasalMix: 0.04,
+    earSpread: 0.12,
+    mouthOpening: 0.83,
+  });
+  const previousLiveSnapshot = { ...previousLiveState };
+  const presetCandidateSnapshot = { ...presetCandidate };
+  const preservedState = persistentHelperApi.preserve(presetCandidate, previousLiveState);
+  for (const key of persistentParameterKeys) {
+    assert.equal(
+      preservedState[key],
+      previousLiveState[key],
+      `${key} must survive preset, mutation, and reset replacements`,
+    );
+  }
+  assert.equal(
+    preservedState.mouthOpening,
+    presetCandidate.mouthOpening,
+    "ordinary face anatomy must still come from the selected preset or mutation",
+  );
+  assert.deepEqual(previousLiveState, previousLiveSnapshot);
+  assert.deepEqual(presetCandidate, presetCandidateSnapshot);
+
+  const presetMutationResetSource = app.slice(
+    app.indexOf("function setPreset("),
+    app.indexOf("function populateSelects("),
+  );
+  assert.doesNotMatch(
+    presetMutationResetSource,
+    /faceEffectEnabled|toggleFaceEffect|FACE_EFFECT_KEYS/,
+    "preset load, whole-face mutation, and reset must never rewrite persistent bypass state",
+  );
+  assert.match(
+    presetMutationResetSource,
+    /state = withPersistentFaceEffects\(hiccupHeadState\(preset\.id, transport\), state\)/,
+    "preset selection must retain all seven live face-effect amounts",
+  );
+  assert.match(
+    presetMutationResetSource,
+    /state = withPersistentFaceEffects\(randomizeHiccupHeadState\(state\), state\)/,
+    "whole-face mutation must retain all seven live face-effect amounts",
+  );
+  assert.match(
+    presetMutationResetSource,
+    /state = withPersistentFaceEffects\(\{ \.\.\.HICCUP_HEAD_DEFAULTS \}, state\);[\s\S]{0,160}?setPreset\(HICCUP_HEAD_DEFAULTS\.presetId/,
+    "reset must snapshot the seven live amounts before loading its default preset",
+  );
+  assert.equal(
+    (app.match(/faceEffectEnabled\[key\] = !faceEffectEnabled\[key\]/g) ?? []).length,
+    1,
+    "only an explicit effect-button action may toggle a bypass",
+  );
+
+  const liveSetterStart = app.indexOf("function setStateValue(");
+  const liveSetterEnd = app.indexOf(
+    "\nfunction flushPendingCanvasStateUpdate(",
+    liveSetterStart,
+  );
+  assert.ok(liveSetterStart >= 0 && liveSetterEnd > liveSetterStart);
+  const liveSetterSource = app.slice(liveSetterStart, liveSetterEnd);
+  assert.doesNotMatch(
+    liveSetterSource,
+    /withPersistentFaceEffects/,
+    "live controls must write their requested amount instead of restoring the old one",
+  );
+  const liveSetterApi = Function(
+    "sanitizeHiccupHeadState",
+    "initialState",
+    `let state = sanitizeHiccupHeadState(initialState);\nconst CONTROL_SPECS = [];\nconst $ = () => null;\nconst updateRangeFill = () => {};\nconst graph = null;\nconst audioContext = { currentTime: 0 };\nlet configurationPosts = 0;\nconst postConfiguration = () => { configurationPosts += 1; };\nconst updateHud = () => {};\nconst announce = () => {};\n${liveSetterSource}\nreturn { setStateValue, setStateValues, getState: () => state, getConfigurationPosts: () => configurationPosts };`,
+  )(sanitizeHiccupHeadState, previousLiveState);
+  const individualLiveValues = {
+    leftHairLength: 0.27,
+    leftHairAngle: 0.31,
+    rightHairLength: 0.84,
+    rightHairAngle: -0.46,
+    eyeDivergence: -0.52,
+    nasalMix: 0.39,
+    earSpread: 0.57,
+  };
+  for (const [key, value] of Object.entries(individualLiveValues)) {
+    liveSetterApi.setStateValue(key, value);
+    assert.equal(liveSetterApi.getState()[key], value, `${key} must remain directly tweakable live`);
+  }
+  const batchedLiveValues = {
+    leftHairLength: 0.91,
+    leftHairAngle: -0.73,
+    rightHairLength: 0.19,
+    rightHairAngle: 0.68,
+    eyeDivergence: 0.44,
+    nasalMix: 0.88,
+    earSpread: 0.23,
+  };
+  liveSetterApi.setStateValues(batchedLiveValues);
+  for (const [key, value] of Object.entries(batchedLiveValues)) {
+    assert.equal(liveSetterApi.getState()[key], value, `${key} must remain canvas-tweakable live`);
+  }
+  assert.equal(
+    liveSetterApi.getConfigurationPosts(),
+    persistentParameterKeys.length + 1,
+    "individual and paired live gestures must immediately post their audio configuration",
+  );
+
+  const availableVoiceSlotsStart = app.indexOf("function availableVoiceSlots(");
+  const availableVoiceSlotsEnd = app.indexOf(
+    "\nfunction voiceChoiceForSound(",
+    availableVoiceSlotsStart,
+  );
+  const availableVoiceSlotsSource = app.slice(
+    availableVoiceSlotsStart,
+    availableVoiceSlotsEnd,
+  );
+  const slots = [
+    { id: "wrong-solo", assignment: "aah", solo: true },
+    { id: "exact", assignment: "doo", solo: false },
+    { id: "all", assignment: "all", solo: false },
+    { id: "other", assignment: "ooh", solo: false },
+  ];
+  const buildAvailableVoiceSlots = (voiceSlots, voiceCount = voiceSlots.length) => Function(
+    "voiceSlots",
+    "voiceCount",
+    `${availableVoiceSlotsSource}\nreturn availableVoiceSlots;`,
+  )(voiceSlots, voiceCount);
+  let availableVoiceSlots = buildAvailableVoiceSlots(slots);
+  assert.deepEqual(
+    availableVoiceSlots("doo"),
+    [slots[1], slots[2]],
+    "compatible assignments must win over an incompatible solo",
+  );
+  slots[2].solo = true;
+  assert.deepEqual(availableVoiceSlots("doo"), [slots[2]]);
+  slots[1].assignment = "hee";
+  slots[2].assignment = "hee";
+  assert.deepEqual(
+    availableVoiceSlots("doo"),
+    [slots[0]],
+    "no-compatible-slot fallback must choose the first active solo deterministically",
+  );
+  slots[0].solo = false;
+  slots[2].solo = false;
+  assert.deepEqual(
+    availableVoiceSlots("doo"),
+    [slots[0]],
+    "without compatible or soloed slots the first active character must be retained",
+  );
+  assert.equal(availableVoiceSlots("doo")[0], availableVoiceSlots("doo")[0]);
+  availableVoiceSlots = buildAvailableVoiceSlots(slots, 0);
+  assert.deepEqual(availableVoiceSlots("doo"), []);
+});
+
 test("Hiccup Head keeps DSP safety and telemetry scans bounded on mobile", async () => {
   const processor = await readFile(new URL("src/hiccup-head-processor.js", root), "utf8");
   const faceSpaceSource = processor.slice(
@@ -2178,11 +2546,21 @@ test("Hiccup Head worklet renders thirty-seven distinct gestures through exactly
       assert.equal(valve.collisionFlow, 0);
     }
 
-    const render = (soundId, blocks = 280, configuration = HICCUP_HEAD_DEFAULTS) => {
+    const render = (
+      soundId,
+      blocks = 280,
+      configuration = HICCUP_HEAD_DEFAULTS,
+      voice = null,
+    ) => {
       const processor = new Processor({
         processorOptions: { configuration },
       });
-      processor._handleMessage({ type: "strike", soundId, velocity: 0.86 });
+      processor._handleMessage({
+        type: "strike",
+        soundId,
+        velocity: 0.86,
+        ...(voice ? { voice } : {}),
+      });
       const left = new Float32Array(blocks * 128);
       const right = new Float32Array(blocks * 128);
       let offset = 0;
@@ -2295,13 +2673,7 @@ test("Hiccup Head worklet renders thirty-seven distinct gestures through exactly
           "stereoDelayMs",
           "eyeDivergence",
           "eyeReverbAmount",
-          "eyeGateAmount",
-          "eyeGateGain",
-          "eyeGatePhase",
           "eyeClosure",
-          "eyeCrushMix",
-          "eyeCrushBits",
-          "eyeCrushHoldFrames",
           "glottalFrequencyHz",
           "vibratoRateHz",
           "vibratoDepthSemitones",
@@ -2401,6 +2773,95 @@ test("Hiccup Head worklet renders thirty-seven distinct gestures through exactly
       assert.ok(renderMetrics.get(soundId).rms >= 0.0035, `${soundId} needs percussive body`);
       assert.ok(renderMetrics.get(soundId).peak >= 0.05, `${soundId} needs a distinct transient`);
     }
+
+    const openVoiceSoundIds = HICCUP_HEAD_SOUNDS.filter(({ id, family }) => (
+      family.includes("vocal") && hiccupHeadPoseForSound(id).mouthOpening >= 0.16
+    )).map(({ id }) => id);
+    assert.deepEqual(openVoiceSoundIds, [
+      "hee", "haw", "doo", "burp", "aah", "ooh", "wail", "yodel",
+      "growl", "holler", "rattle", "grunt", "moan", "lala", "hiccup", "eef",
+    ]);
+    const voiceAudibilityConfigurations = [
+      {
+        id: "open-throat-preset",
+        configuration: { ...hiccupHeadState("open-throat"), eyeClosure: 0 },
+      },
+      {
+        id: "crossed-visual-preset",
+        configuration: {
+          ...hiccupHeadState("tin-grin"),
+          eyeDivergence: -1,
+          eyeClosure: 0,
+        },
+      },
+      {
+        id: "cavern-preset",
+        configuration: { ...hiccupHeadState("cavern-gob"), eyeClosure: 0.18 },
+      },
+    ];
+    const openVoiceResults = [];
+    const configurationUseCounts = new Map(
+      voiceAudibilityConfigurations.map(({ id }) => [id, 0]),
+    );
+    for (let soundIndex = 0; soundIndex < openVoiceSoundIds.length; soundIndex += 1) {
+      const soundId = openVoiceSoundIds[soundIndex];
+      for (let voiceIndex = 0; voiceIndex < HICCUP_HEAD_VOICE_CHARACTERS.length; voiceIndex += 1) {
+        const character = HICCUP_HEAD_VOICE_CHARACTERS[voiceIndex];
+        const voice = { characterId: character.id, ...character.settings };
+        const configurationCase = voiceAudibilityConfigurations[
+          (soundIndex + voiceIndex) % voiceAudibilityConfigurations.length
+        ];
+        configurationUseCounts.set(
+          configurationCase.id,
+          configurationUseCounts.get(configurationCase.id) + 1,
+        );
+        const voiced = render(soundId, 128, configurationCase.configuration, voice);
+        const result = metrics([voiced.left, voiced.right]);
+        const telemetry = voiced.processor.messages.filter(({ type }) => type === "telemetry");
+        const label = `${soundId}/${character.id}/${configurationCase.id}`;
+        assert.ok(result.rms >= 0.0009, `${label} must retain an audible continuous body`);
+        assert.ok(result.peak >= 0.008, `${label} must retain a present onset`);
+        assert.ok(result.peak <= 0.721, `${label} must remain below the worklet limiter ceiling`);
+        assert.ok(
+          telemetry.some(({ voiceCharacterId }) => voiceCharacterId === character.id),
+          `${label} must not silently drop its assigned voice character`,
+        );
+        assert.ok(
+          telemetry.some(({ activeVoices }) => activeVoices === 1),
+          `${label} must activate the one persistent mouth`,
+        );
+        openVoiceResults.push({ soundId, characterId: character.id, ...result });
+      }
+    }
+    assert.ok([...configurationUseCounts.values()].every((count) => count > 0));
+    assert.equal(
+      openVoiceResults.length,
+      openVoiceSoundIds.length * HICCUP_HEAD_VOICE_CHARACTERS.length,
+    );
+    assert.ok(
+      openVoiceResults.reduce((sum, { rms }) => sum + rms, 0) / openVoiceResults.length >= 0.008,
+      "the complete open-voice collection needs modest overall presence",
+    );
+    assert.ok(
+      Math.max(...openVoiceResults.filter(({ soundId }) => soundId === "rattle").map(({ peak }) => peak))
+        <= 0.4,
+      "RATTLE must stay controlled across every assigned voice and representative face",
+    );
+
+    const pffVoiceResults = HICCUP_HEAD_VOICE_CHARACTERS.map((character, voiceIndex) => {
+      const configurationCase = voiceAudibilityConfigurations[
+        voiceIndex % voiceAudibilityConfigurations.length
+      ];
+      const voice = { characterId: character.id, ...character.settings };
+      const voiced = render("pff", 128, configurationCase.configuration, voice);
+      const result = metrics([voiced.left, voiced.right]);
+      const telemetry = voiced.processor.messages.filter(({ type }) => type === "telemetry");
+      assert.ok(result.rms >= 0.0007, `PFRR/${character.id} must remain audible`);
+      assert.ok(result.peak >= 0.008 && result.peak <= 0.32, `PFRR/${character.id} must stay present but soft-edged`);
+      assert.ok(telemetry.some(({ voiceCharacterId }) => voiceCharacterId === character.id));
+      return result;
+    });
+    assert.equal(pffVoiceResults.length, HICCUP_HEAD_VOICE_CHARACTERS.length);
 
     const fwee = render("whistle", 360);
     const fweeMetrics = metrics([fwee.left, fwee.right]);
@@ -2635,8 +3096,8 @@ test("Hiccup Head worklet renders thirty-seven distinct gestures through exactly
       "eye divergence alone must open an unmistakable physical room",
     );
     assert.ok(
-      normalizedDifference(dryFace.left, crossedEyes.left) > 0.18,
-      "crossed eyes alone must impose an unmistakable dry tempo gate",
+      normalizedDifference(dryFace.left, crossedEyes.left) === 0,
+      "crossed eyes must remain exactly audio-transparent",
     );
     assert.ok(
       normalizedDifference(dryFace.left, openNose.left) > 0.35,
@@ -2679,40 +3140,48 @@ test("Hiccup Head worklet renders thirty-seven distinct gestures through exactly
     assert.ok(normalizedDifference(dryFace.right, rightHair.right) > 0.3);
     assert.ok(openFace.processor.faceSpace.eyeAmount > 0.9);
     assert.ok(divergentEyes.processor.faceSpace.eyeReverbAmount > 0.9);
-    assert.ok(divergentEyes.processor.faceSpace.eyeGateAmount < 0.000001);
-    assert.ok(crossedEyes.processor.faceSpace.eyeGateAmount > 0.9);
+    assert.ok(crossedEyes.processor.faceSpace.eyeAmount < -0.9);
     assert.ok(crossedEyes.processor.faceSpace.eyeReverbAmount < 0.000001);
 
-    const exactOpenEyes = new Processor({
-      processorOptions: { configuration: neutralEffects },
-    }).faceSpace;
-    exactOpenEyes._crush(0.2375, -0.14375, 0);
-    assert.equal(exactOpenEyes.eyeCrushOutputLeft, 0.2375);
-    assert.equal(exactOpenEyes.eyeCrushOutputRight, -0.14375);
-    assert.equal(exactOpenEyes.eyeCrushMix, 0);
-    assert.equal(exactOpenEyes.eyeCrushBits, 16);
-    assert.equal(exactOpenEyes.eyeCrushHoldFrames, 1);
-
-    const closedEyes = new Processor({
-      processorOptions: { configuration: neutralEffects },
-    }).faceSpace;
-    let crushedDifference = 0;
-    let minimumGateGain = 1;
-    for (let sample = 0; sample < 24_000; sample += 1) {
-      const input = Math.sin(sample * 0.071) * 0.31 + Math.sin(sample * 0.013) * 0.07;
-      closedEyes.process(input, -input * 0.73, {
+    for (const closure of [0, 0.02, 0.08, 0.12, 0.18, 0.24, 0.28, 0.5, 1]) {
+      const openCentered = new Processor({
+        processorOptions: { configuration: neutralEffects },
+      }).faceSpace;
+      const crossedClosed = new Processor({
+        processorOptions: { configuration: neutralEffects },
+      }).faceSpace;
+      const referenceConfiguration = {
         ...neutralEffects,
-        eyeClosure: 1,
+        eyeDivergence: 0,
+        eyeClosure: 0,
+      };
+      const visualOnlyConfiguration = {
+        ...neutralEffects,
         eyeDivergence: -1,
-      });
-      crushedDifference += Math.abs(closedEyes.left - input);
-      minimumGateGain = Math.min(minimumGateGain, closedEyes.eyeGateGain);
+        eyeClosure: closure,
+      };
+      for (let sample = 0; sample < 8_192; sample += 1) {
+        const inputLeft = Math.sin(sample * 0.071) * 0.31
+          + Math.sin(sample * 0.013) * 0.07;
+        const inputRight = -inputLeft * 0.73 + Math.sin(sample * 0.031) * 0.025;
+        openCentered.process(inputLeft, inputRight, referenceConfiguration);
+        crossedClosed.process(inputLeft, inputRight, visualOnlyConfiguration);
+        assert.equal(
+          crossedClosed.left,
+          openCentered.left,
+          `crossed/closed left output must stay exact at closure ${closure}`,
+        );
+        assert.equal(
+          crossedClosed.right,
+          openCentered.right,
+          `crossed/closed right output must stay exact at closure ${closure}`,
+        );
+      }
+      assert.ok(crossedClosed.eyeAmount < -0.99);
+      assert.ok(crossedClosed.eyeReverbAmount < 0.000001);
+      assert.ok(Math.abs(crossedClosed.eyeClosureAmount - closure) < 0.001);
+      assert.equal(crossedClosed.scalarsAreFinite(), true);
     }
-    assert.ok(closedEyes.eyeCrushMix > 0.29 && closedEyes.eyeCrushMix <= 0.3);
-    assert.equal(closedEyes.eyeCrushBits, 8);
-    assert.equal(closedEyes.eyeCrushHoldFrames, 5);
-    assert.ok(crushedDifference > 1);
-    assert.ok(minimumGateGain < 0.2);
 
     const flutterProbe = new Processor({ processorOptions: { configuration: HICCUP_HEAD_DEFAULTS } });
     flutterProbe._handleMessage({ type: "strike", soundId: "pff", velocity: 1 });
@@ -3159,8 +3628,14 @@ test("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build 
   assert.match(html, /<h1>HICCUP HEAD<\/h1>/);
   assert.doesNotMatch(html, /crazed clown beatbox/i);
   assert.doesNotMatch(html, /one face\s*(?:×|x)\s*one mouth/i);
-  assert.match(html, /href="hiccup-head\.css[^\"]*"/);
-  assert.match(html, /src="hiccup-head-app\.js[^\"]*"/);
+  assert.match(html, /href="hiccup-head\.css\?v=hiccup-head-20260829-10"/);
+  assert.match(html, /src="hiccup-head-app\.js\?v=hiccup-head-20260829-19"/);
+  assert.match(html, /crossed eyes and eyelid closure are visual only/i);
+  assert.match(
+    html,
+    /effect switches and their live face-controlled amounts are independent of face presets, mutation, and reset/i,
+  );
+  assert.doesNotMatch(html, /robot|bitcrush|tempo gate/i);
   assert.ok(
     html.indexOf("hiccup-head-stage") < html.indexOf("hiccup-head-sequencer"),
     "the selectable sequencer must follow the face visual",
@@ -3217,8 +3692,9 @@ test("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build 
   assert.match(css, /@media \(max-width:\s*680px\)/);
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
 
-  assert.match(app, /from "\.\/src\/hiccup-head\.js(?:\?[^\"]*)?"/);
-  assert.match(app, /\.\/src\/hiccup-head-processor\.js/);
+  assert.match(app, /from "\.\/src\/hiccup-head\.js\?v=hiccup-head-model-20260829-6"/);
+  assert.match(app, /\.\/src\/hiccup-head-processor\.js\?v=hiccup-head-tract-20260829-10/);
+  assert.match(processor, /from "\.\/hiccup-head\.js\?v=hiccup-head-model-20260829-6"/);
   assert.match(app, /"hiccup-head-physical-model"/);
   assert.match(app, /connectAudioOutput\(context, analyser/);
   assert.match(app, /function buildPadGrid\(\)/);
@@ -3321,6 +3797,17 @@ test("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build 
     assert.match(app, new RegExp(`\\b${field}\\b`), `the face must consume ${field} telemetry`);
     assert.match(processor, new RegExp(`\\b${field}\\b`), `the tract must report ${field} telemetry`);
   }
+  assert.match(processor, /\beyeReverbAmount\b/);
+  assert.doesNotMatch(
+    processor,
+    /eyeGate|eyeRobot|eyeCrush|gateDuty|gateEnvelope|\b_crush\s*\(/,
+    "crossed eyes and lid closure must not retain hidden audio processors",
+  );
+  assert.match(
+    processor,
+    /this\.eyeReverbAmount = smoothstep\(Math\.max\(0, this\.eyeAmount\)\);[\s\S]*?this\.left = roomLeft;[\s\S]*?this\.right = roomRight;/,
+    "only positive eye divergence may open reverb before direct output",
+  );
   assert.match(processor, /\boralSectionCount\b/);
   assert.match(processor, /\bstereoDelayMs\b/);
   assert.match(processor, /\bvoiceSnapshot\b/);
@@ -3426,7 +3913,7 @@ test("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build 
   assert.match(processor, /collisionRadiationAlpha/);
   assert.match(
     processor,
-    /const GESTURE_SOURCE_GAIN = Object\.freeze\(\{\s*bop: 2\.2,\s*boop: 2,\s*hiccup: 2\.35,\s*hum: 0\.32,\s*holler: 0\.55,\s*wail: 0\.78,\s*yodel: 0\.82,\s*\}\)/,
+    /const GESTURE_SOURCE_GAIN = Object\.freeze\(\{\s*bop: 2\.2,\s*boop: 2,\s*hiccup: 2\.35,\s*aah: 1\.025,\s*ooh: 1\.035,\s*wail: 0\.8,\s*yodel: 0\.84,\s*growl: 1\.02,\s*holler: 0\.565,\s*hum: 0\.33,\s*moan: 1\.025,\s*lala: 1\.02,\s*\}\)/,
   );
   assert.match(
     processor,
@@ -3434,6 +3921,16 @@ test("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build 
   );
   assert.match(processor, /GESTURE_SOURCE_GAIN\[this\.sound\.id\] \?\? 1/);
   assert.match(processor, /GESTURE_OUTPUT_GAIN\[this\.gesture\?\.sound\.id\] \?\? 1/);
+  assert.match(
+    processor,
+    /const VOCAL_FREQUENCY_FLOOR_HZ = Object\.freeze\(\{[\s\S]*?hee: 55,[\s\S]*?haw: 48,[\s\S]*?doo: 48,[\s\S]*?wail: 55,[\s\S]*?holler: 52,[\s\S]*?moan: 48,[\s\S]*?\}\)/,
+    "open/modal voices need a restrained radiation floor across character mutations",
+  );
+  assert.doesNotMatch(
+    processor,
+    /VOCAL_FREQUENCY_FLOOR_HZ[\s\S]{0,420}?lala:/,
+    "LA-LA must retain the odd low character of mutated voices instead of inheriting an open-vocal floor",
+  );
   assert.match(processor, /pffTurbulenceMemory/);
   assert.match(processor, /lipSourceMemory/);
   assert.match(processor, /_scheduleHandContactIfNeeded\(frame, plan\)/);
@@ -3459,7 +3956,7 @@ test("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build 
   assert.equal(catalogEntry?.imageHref, "assets/instruments/hiccup-head.webp");
   assert.match(
     catalogEntry?.description ?? "",
-    /half-transparent purple\/red-checkerboard polka-dot goofball face/i,
+    /40%-opaque,? step-shifting checkerboard polka-dot goofball face/i,
   );
   assert.match(catalogEntry?.description ?? "", /thirty-seven exclusive gestures/i);
   assert.match(catalogEntry?.description ?? "", /missing-incisor FWEE/i);
@@ -3472,6 +3969,9 @@ test("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build 
   );
   assert.match(catalogEntry?.start ?? "", /520 BPM/i);
   assert.match(catalogEntry?.start ?? "", /one to eight sequential voice characters/i);
+  assert.match(catalogEntry?.start ?? "", /crossed eyes and closed lids stay visual only/i);
+  assert.match(catalogEntry?.start ?? "", /Persistent Delay, Reverb, Nasal, and Stereo switches and live amounts stay put/i);
+  assert.doesNotMatch(catalogEntry?.start ?? "", /robot|bitcrush|tempo gate/i);
   assert.ok(catalogEntry?.features.includes("Pointer"));
   assert.ok(catalogEntry?.features.includes("Computer keys"));
   assert.deepEqual(catalogEntry?.tags.map(({ id }) => id), ["voice-synths", "sequencers"]);
@@ -3508,6 +4008,15 @@ test("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and build 
   assert.match(readme, /(?:same monophonic folds and tract|remaining a single mouth)/i);
   assert.match(readme, /520 BPM/i);
   assert.match(readme, /(?:visible hand|palm models?)/i);
+  assert.match(
+    readme,
+    /Only outward eye motion changes audio by opening the room; crossed eyes and eyelid closure are visual only/i,
+  );
+  assert.match(readme, /live face-controlled amounts also stay put when presets, mutation, or reset/i);
+  const hiccupReadmeStart = readme.indexOf("**Hiccup Head**");
+  const hiccupReadmeEnd = readme.indexOf("\n\n", hiccupReadmeStart);
+  const hiccupReadme = readme.slice(hiccupReadmeStart, hiccupReadmeEnd);
+  assert.doesNotMatch(hiccupReadme, /robot|bitcrush|tempo gate/i);
   for (const label of [
     "PFRR", "FWEE", "HNNGH", "MMOAN", "LA-LA", "PB-PB", "SLRRP",
     "HIC!", "EEF!", "KSH", "SNAP", "TOM", "BRRAP",

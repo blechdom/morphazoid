@@ -591,6 +591,54 @@
   font-size: 9px;
 }
 
+.hiccup-head-effect-bypasses {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid rgba(187, 140, 255, 0.22);
+  background: #090709;
+}
+
+.hiccup-head-effect-bypasses button {
+  display: grid;
+  min-width: 0;
+  min-height: 40px;
+  padding: 7px 4px 6px;
+  border: 0;
+  border-right: 1px solid rgba(187, 140, 255, 0.16);
+  cursor: pointer;
+  color: var(--hiccup-head-bone);
+  background: rgba(187, 140, 255, 0.08);
+  font: 650 7px/1.15 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  place-items: center;
+  gap: 4px;
+}
+
+.hiccup-head-effect-bypasses button:last-child {
+  border-right: 0;
+}
+
+.hiccup-head-effect-bypasses button b {
+  color: #70f0c2;
+  font-size: 8px;
+}
+
+.hiccup-head-effect-bypasses button[aria-pressed="false"] {
+  color: rgba(232, 224, 213, 0.46);
+  background: transparent;
+}
+
+.hiccup-head-effect-bypasses button[aria-pressed="false"] b {
+  color: var(--hiccup-head-coral);
+}
+
+.hiccup-head-effect-bypasses button:hover,
+.hiccup-head-effect-bypasses button:focus-visible {
+  outline: 1px solid var(--hiccup-head-lilac);
+  outline-offset: -2px;
+}
+
 .hiccup-head-voice-collection {
   display: grid;
   padding: 12px 14px 13px;

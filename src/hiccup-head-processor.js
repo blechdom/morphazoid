@@ -8,7 +8,7 @@ import {
   physicalVoiceParameters,
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
-} from "./hiccup-head.js?v=hiccup-head-model-20260829-5";
+} from "./hiccup-head.js?v=hiccup-head-model-20260829-6";
 
 // Hiccup Head's tract is a single, persistent Kelly-Lochbaum volume-flow tube.
 // The scattering convention, losses, and 44-section source geometry follow
@@ -40,6 +40,7 @@ const AREA_MINIMUM = 0.000001;
 const DIAMETER_MINIMUM = 0.001;
 const REFLECTION_LIMIT = 0.9995;
 const DENORMAL_LIMIT = 1e-20;
+const NASAL_BYPASS_EPSILON = 0.000001;
 const OUTPUT_CEILING = 0.72;
 const TOOTH_TINE_MINIMUM_HZ = 80;
 const TOOTH_TINE_MAXIMUM_HZ = 4_800;
@@ -66,13 +67,34 @@ const GESTURE_SOURCE_GAIN = Object.freeze({
   bop: 2.2,
   boop: 2,
   hiccup: 2.35,
-  hum: 0.32,
-  holler: 0.55,
-  wail: 0.78,
-  yodel: 0.82,
+  aah: 1.025,
+  ooh: 1.035,
+  wail: 0.8,
+  yodel: 0.84,
+  growl: 1.02,
+  holler: 0.565,
+  hum: 0.33,
+  moan: 1.025,
+  lala: 1.02,
 });
 const GESTURE_OUTPUT_GAIN = Object.freeze({
   rattle: 0.35,
+});
+// Open/modal voices must remain physically audible on small speakers even
+// when a mutated character pulls the folds below their useful radiation
+// range. Rough growls, grunts, burps, and percussion deliberately keep their
+// lower unrestricted registers.
+const VOCAL_FREQUENCY_FLOOR_HZ = Object.freeze({
+  hee: 55,
+  haw: 48,
+  doo: 48,
+  aah: 48,
+  ooh: 48,
+  wail: 55,
+  yodel: 52,
+  holler: 52,
+  hum: 48,
+  moan: 48,
 });
 
 const RELEASE_PHASES = Object.freeze({
@@ -220,7 +242,8 @@ function arraysAreFinite(arrays, lengths = []) {
 
 // Ears, bilateral hair, and eyes are global face parameters after the one
 // resonating tract. Ears own only fixed short width; each hair side owns its
-// own feedback delay; signed eyes choose either cross-fed room or beat gate.
+// own feedback delay; outward eyes open the cross-fed room. Inward eye travel
+// and lid closure remain smoothed visual telemetry without changing the sound.
 class FaceSpace {
   constructor(rate) {
     this.rate = rate;
@@ -241,22 +264,9 @@ class FaceSpace {
     this.rightHairAngle = 0;
     this.eyeAmount = 0;
     this.eyeReverbAmount = 0;
-    this.eyeGateAmount = 0;
-    this.eyeGateGain = 1;
-    this.eyeGatePhase = 0;
     this.eyeDampedLeft = 0;
     this.eyeDampedRight = 0;
     this.eyeClosureAmount = 0;
-    this.eyeCrushMix = 0;
-    this.eyeCrushBits = 16;
-    this.eyeCrushHoldFrames = 1;
-    this.eyeCrushCounter = 0;
-    this.eyeCrushHeldLeft = 0;
-    this.eyeCrushHeldRight = 0;
-    this.eyeCrushSmoothedLeft = 0;
-    this.eyeCrushSmoothedRight = 0;
-    this.eyeCrushOutputLeft = 0;
-    this.eyeCrushOutputRight = 0;
     this.left = 0;
     this.right = 0;
     this.stereoDelayMs = 0;
@@ -297,54 +307,6 @@ class FaceSpace {
     return buffer[lower] + (buffer[upper] - buffer[lower]) * mix;
   }
 
-  _crush(left, right, target) {
-    this.eyeClosureAmount += (
-      target - this.eyeClosureAmount
-    ) * this.eyeClosureSmoothingAlpha;
-    if (target === 0 && this.eyeClosureAmount < 0.000001) {
-      this.eyeClosureAmount = 0;
-    }
-    if (this.eyeClosureAmount === 0) {
-      this.eyeCrushMix = 0;
-      this.eyeCrushBits = 16;
-      this.eyeCrushHoldFrames = 1;
-      this.eyeCrushCounter = 0;
-      this.eyeCrushHeldLeft = left;
-      this.eyeCrushHeldRight = right;
-      this.eyeCrushSmoothedLeft = left;
-      this.eyeCrushSmoothedRight = right;
-      this.eyeCrushOutputLeft = left;
-      this.eyeCrushOutputRight = right;
-      return;
-    }
-    const curve = smoothstep(this.eyeClosureAmount);
-    this.eyeCrushMix = curve * 0.3;
-    this.eyeCrushBits = 12 - Math.floor(curve * 4);
-    this.eyeCrushHoldFrames = 1 + Math.floor(curve * 4);
-    if (this.eyeCrushCounter <= 0) {
-      const scale = 2 ** (this.eyeCrushBits - 1) - 1;
-      this.eyeCrushHeldLeft = Math.round(clamp(left, -1, 1) * scale) / scale;
-      this.eyeCrushHeldRight = Math.round(clamp(right, -1, 1) * scale) / scale;
-      this.eyeCrushCounter = this.eyeCrushHoldFrames - 1;
-    } else {
-      this.eyeCrushCounter -= 1;
-    }
-    // A tiny reconstruction pole softens sample-hold edges before the low-wet
-    // blend, keeping closed eyelids playful instead of painfully aliased.
-    this.eyeCrushSmoothedLeft += (
-      this.eyeCrushHeldLeft - this.eyeCrushSmoothedLeft
-    ) * 0.34;
-    this.eyeCrushSmoothedRight += (
-      this.eyeCrushHeldRight - this.eyeCrushSmoothedRight
-    ) * 0.34;
-    this.eyeCrushOutputLeft = cleanWave(
-      left * (1 - this.eyeCrushMix) + this.eyeCrushSmoothedLeft * this.eyeCrushMix,
-    );
-    this.eyeCrushOutputRight = cleanWave(
-      right * (1 - this.eyeCrushMix) + this.eyeCrushSmoothedRight * this.eyeCrushMix,
-    );
-  }
-
   process(left, right, configuration) {
     const earTarget = clamp(finite(configuration?.earSpread, 0));
     const leftLengthTarget = clamp(finite(configuration?.leftHairLength, 0));
@@ -368,6 +330,14 @@ class FaceSpace {
     ) * this.hairAngleSmoothingAlpha;
     this.eyeAmount += (eyeTarget - this.eyeAmount) * this.eyeSmoothingAlpha;
     if (eyeTarget === 0 && Math.abs(this.eyeAmount) < 0.000001) this.eyeAmount = 0;
+    // Eyelid closure is visual state only. Keep its existing smoothing for
+    // telemetry-driven animation without putting it in the audio path.
+    this.eyeClosureAmount += (
+      eyeClosureTarget - this.eyeClosureAmount
+    ) * this.eyeClosureSmoothingAlpha;
+    if (eyeClosureTarget === 0 && this.eyeClosureAmount < 0.000001) {
+      this.eyeClosureAmount = 0;
+    }
 
     const mono = cleanWave((left + right) * Math.SQRT1_2);
     this.widthBuffer[this.widthIndex] = clamp(mono, -1.5, 1.5);
@@ -421,7 +391,6 @@ class FaceSpace {
     this.hairMix = Math.max(this.leftHairMix, this.rightHairMix);
 
     this.eyeReverbAmount = smoothstep(Math.max(0, this.eyeAmount));
-    this.eyeGateAmount = smoothstep(Math.max(0, -this.eyeAmount));
     const roomLeftDelay = this.rate * (0.053 + this.eyeReverbAmount * 0.083);
     const roomRightDelay = this.rate * (0.079 + this.eyeReverbAmount * 0.121);
     const reflectedLeft = this._tap(this.eyeLeftBuffer, this.eyeIndex, roomLeftDelay);
@@ -450,23 +419,8 @@ class FaceSpace {
       hairRight * (1 - roomWet * 0.18) + this.eyeDampedRight * roomWet,
     );
 
-    const tempo = clamp(finite(configuration?.tempo, 118), 48, 520);
-    this.eyeGatePhase += tempo / (15 * this.rate);
-    if (this.eyeGatePhase >= 1) this.eyeGatePhase -= 1;
-    const gateDuty = 0.68 - this.eyeGateAmount * 0.34;
-    const gateEdge = 0.065;
-    const gateAttack = smoothstep(clamp(this.eyeGatePhase / gateEdge));
-    const gateRelease = 1 - smoothstep(clamp(
-      (this.eyeGatePhase - (gateDuty - gateEdge)) / gateEdge,
-    ));
-    const gateEnvelope = gateAttack * gateRelease;
-    const gatedShape = 0.07 + gateEnvelope * 0.93;
-    this.eyeGateGain = 1 - this.eyeGateAmount * (1 - gatedShape);
-    const gatedLeft = cleanWave(roomLeft * this.eyeGateGain);
-    const gatedRight = cleanWave(roomRight * this.eyeGateGain);
-    this._crush(gatedLeft, gatedRight, eyeClosureTarget);
-    this.left = this.eyeCrushOutputLeft;
-    this.right = this.eyeCrushOutputRight;
+    this.left = roomLeft;
+    this.right = roomRight;
   }
 
   reset() {
@@ -485,22 +439,9 @@ class FaceSpace {
     this.rightHairAngle = 0;
     this.eyeAmount = 0;
     this.eyeReverbAmount = 0;
-    this.eyeGateAmount = 0;
-    this.eyeGateGain = 1;
-    this.eyeGatePhase = 0;
     this.eyeDampedLeft = 0;
     this.eyeDampedRight = 0;
     this.eyeClosureAmount = 0;
-    this.eyeCrushMix = 0;
-    this.eyeCrushBits = 16;
-    this.eyeCrushHoldFrames = 1;
-    this.eyeCrushCounter = 0;
-    this.eyeCrushHeldLeft = 0;
-    this.eyeCrushHeldRight = 0;
-    this.eyeCrushSmoothedLeft = 0;
-    this.eyeCrushSmoothedRight = 0;
-    this.eyeCrushOutputLeft = 0;
-    this.eyeCrushOutputRight = 0;
     this.left = 0;
     this.right = 0;
     this.stereoDelayMs = 0;
@@ -527,17 +468,7 @@ class FaceSpace {
       && Number.isFinite(this.rightHairAngle)
       && Number.isFinite(this.eyeAmount)
       && Number.isFinite(this.eyeReverbAmount)
-      && Number.isFinite(this.eyeGateAmount)
-      && Number.isFinite(this.eyeGateGain)
-      && Number.isFinite(this.eyeGatePhase)
       && Number.isFinite(this.eyeClosureAmount)
-      && Number.isFinite(this.eyeCrushMix)
-      && Number.isFinite(this.eyeCrushHeldLeft)
-      && Number.isFinite(this.eyeCrushHeldRight)
-      && Number.isFinite(this.eyeCrushSmoothedLeft)
-      && Number.isFinite(this.eyeCrushSmoothedRight)
-      && Number.isFinite(this.eyeCrushOutputLeft)
-      && Number.isFinite(this.eyeCrushOutputRight)
       && Number.isFinite(this.eyeDampedLeft)
       && Number.isFinite(this.eyeDampedRight)
       && Number.isFinite(this.left)
@@ -1969,7 +1900,13 @@ class OrganicMouthTract {
       finite(articulation.tongueContact, 0),
       finite(articulation.lipFlutter, 0),
     );
-    let rawVelum = clamp(finite(articulation.velum, configuration.nasalMix));
+    // A literal zero is an effect bypass, not merely a low nasal preference:
+    // gesture-intrinsic velum curves cannot reopen the side branch while the
+    // user has Nasal OFF.
+    const nasalBypass = finite(configuration.nasalMix, 0) <= NASAL_BYPASS_EPSILON;
+    let rawVelum = nasalBypass
+      ? 0
+      : clamp(finite(articulation.velum, configuration.nasalMix));
     if (isOralStop) {
       const intentionalNasalMutation = smoothstep(
         (configuration.nasalMix - 0.25) / 0.4,
@@ -1984,7 +1921,7 @@ class OrganicMouthTract {
     this.nose.configure(
       physicalVelum,
       finite(articulation.tractLengthM, configuration.tractLengthM),
-      immediate,
+      immediate || nasalBypass,
     );
     this.cheek.configure(articulation);
     this._updateSealTargets(articulation);
@@ -2706,6 +2643,9 @@ class OrganicMouthTract {
     this.cheek.process(cheekInput, this.tailLoss);
     this.lastOralOutput = this.right[count - 1];
     this.lastNasalOutput = nasalOutput;
+    if (finite(this.configuration?.nasalMix, 0) <= NASAL_BYPASS_EPSILON) {
+      return this.lastOralOutput;
+    }
     const nasalCoupling = smoothstep(this.nose.opening);
     return this.lastOralOutput * (1 - nasalCoupling * 0.34)
       + nasalOutput * (0.4 + nasalCoupling * 4.4);
@@ -3071,13 +3011,24 @@ class HiccupHeadGestureController {
       : 0;
     const registerSemitones = finite(frame.registerLift, 0)
       * finite(this.plan.registerJumpSemitones, 0);
+    const frequencyTarget = this.plan.glottalFrequencyHz
+      * 2 ** ((vibratoSemitones + pitchModulationSemitones + registerSemitones) / 12)
+      * (1 + this.jitter * jitterDepth);
+    const vocalFrequencyFloorHz = VOCAL_FREQUENCY_FLOOR_HZ[this.sound.id] ?? 18;
     const frequency = clamp(
-      this.plan.glottalFrequencyHz
-        * 2 ** ((vibratoSemitones + pitchModulationSemitones + registerSemitones) / 12)
-        * (1 + this.jitter * jitterDepth),
-      18,
+      frequencyTarget,
+      vocalFrequencyFloorHz,
       1_600,
     );
+    // A maximum 12% flow makeup accompanies only an actually engaged vocal
+    // floor, compensating for the missing low-frequency radiation without
+    // flattening normal voices or changing rough/percussive families.
+    const lowFrequencyVocalMakeup = vocalFrequencyFloorHz > 18
+      ? 1 + clamp(
+        (vocalFrequencyFloorHz - finite(frequencyTarget, vocalFrequencyFloorHz))
+          / vocalFrequencyFloorHz,
+      ) * 0.12
+      : 1;
     this.currentGlottalFrequencyHz = frequency;
     this.currentVibratoSemitones = vibratoSemitones;
     this.glottalPhase += frequency / (this.rate * SUBSTEPS);
@@ -3193,6 +3144,7 @@ class HiccupHeadGestureController {
       (direction * (breathFlow + voicedFlow) + diaphragmFlow)
         * (0.62 + this.velocity * 0.62)
         * sourceBody
+        * lowFrequencyVocalMakeup
         * (GESTURE_SOURCE_GAIN[this.sound.id] ?? 1),
     );
     if (
@@ -3671,13 +3623,7 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       rightHairMix: this.faceSpace.rightHairMix,
       eyeDivergence: this.faceSpace.eyeAmount,
       eyeReverbAmount: this.faceSpace.eyeReverbAmount,
-      eyeGateAmount: this.faceSpace.eyeGateAmount,
-      eyeGateGain: this.faceSpace.eyeGateGain,
-      eyeGatePhase: this.faceSpace.eyeGatePhase,
       eyeClosure: this.faceSpace.eyeClosureAmount,
-      eyeCrushMix: this.faceSpace.eyeCrushMix,
-      eyeCrushBits: this.faceSpace.eyeCrushBits,
-      eyeCrushHoldFrames: this.faceSpace.eyeCrushHoldFrames,
       peak: this.lastPeak,
       rms: this.lastRms,
     };

@@ -27,7 +27,7 @@ import {
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
   sequenceStepIntervalSeconds,
-} from "./src/hiccup-head.js?v=hiccup-head-model-20260829-5";
+} from "./src/hiccup-head.js?v=hiccup-head-model-20260829-6";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
 
@@ -173,6 +173,51 @@ if (
   throw new Error("Hiccup Head requires exactly one safe-skin dot for every sound");
 }
 
+const STOPPED_SKIN_CHECKER_COLORS = Object.freeze([
+  "rgba(143, 87, 214, 0.4)",
+  "rgba(225, 64, 112, 0.4)",
+]);
+const SEQUENCE_SKIN_CHECKER_COLORS = Object.freeze(Array.from(
+  { length: HICCUP_HEAD_STEP_COUNT },
+  (_, step) => {
+    // Forty-seven degrees is coprime with 360, so all 64 steps receive a
+    // distinct first hue. Its 180-degree partner stays strongly contrasting.
+    const firstHue = (286 + step * 47) % 360;
+    const secondHue = (firstHue + 180) % 360;
+    return Object.freeze([
+      `hsla(${firstHue}, 76%, 55%, 0.4)`,
+      `hsla(${secondHue}, 76%, 55%, 0.4)`,
+    ]);
+  },
+));
+
+function skinCheckerColorsForStep(step) {
+  const numericStep = Number(step);
+  if (!Number.isInteger(numericStep) || numericStep < 0) {
+    return STOPPED_SKIN_CHECKER_COLORS;
+  }
+  return SEQUENCE_SKIN_CHECKER_COLORS[numericStep % HICCUP_HEAD_STEP_COUNT];
+}
+
+// These are performance-level bypasses, deliberately kept outside the face
+// state so loading, mutating, or resetting a preset cannot change them.
+const FACE_EFFECT_KEYS = Object.freeze(["delay", "reverb", "nasal", "stereo"]);
+const PRESET_INDEPENDENT_EFFECT_PARAMETERS = Object.freeze([
+  "leftHairLength",
+  "leftHairAngle",
+  "rightHairLength",
+  "rightHairAngle",
+  "eyeDivergence",
+  "nasalMix",
+  "earSpread",
+]);
+const faceEffectEnabled = Object.seal({
+  delay: true,
+  reverb: true,
+  nasal: true,
+  stereo: true,
+});
+
 let state = hiccupHeadState("rubber-face");
 let pattern = normalizePatternColumns(clonePattern(hiccupHeadPattern(state.patternId)));
 let currentPatternId = state.patternId;
@@ -240,6 +285,13 @@ let telemetry = {
   rms: 0,
 };
 
+function withPersistentFaceEffects(candidate, previous = state) {
+  const preserved = Object.fromEntries(
+    PRESET_INDEPENDENT_EFFECT_PARAMETERS.map((key) => [key, previous[key]]),
+  );
+  return sanitizeHiccupHeadState({ ...candidate, ...preserved }, candidate);
+}
+
 function createDefaultVoiceSlots() {
   return HICCUP_HEAD_VOICE_CHARACTERS.slice(0, 8).map((character, index) => ({
     id: `voice-${index + 1}`,
@@ -270,7 +322,7 @@ function formatSignedPercent(value) {
 
 function formatEyeDivergence(value) {
   const amount = Math.round(Math.abs(Number(value)) * 100);
-  if (Number(value) < -0.005) return `${amount}% gate`;
+  if (Number(value) < -0.005) return `${amount}% crossed`;
   if (Number(value) > 0.005) return `${amount}% reverb`;
   return "center";
 }
@@ -343,7 +395,41 @@ function setAudioPresentation(status = "off", message = "") {
 }
 
 function audioConfiguration(overrides = null) {
-  return overrides ? sanitizeHiccupHeadState({ ...state, ...overrides }, state) : { ...state };
+  const configuration = overrides
+    ? sanitizeHiccupHeadState({ ...state, ...overrides }, state)
+    : { ...state };
+  if (!faceEffectEnabled.delay) {
+    configuration.leftHairLength = 0;
+    configuration.rightHairLength = 0;
+  }
+  if (!faceEffectEnabled.reverb && configuration.eyeDivergence > 0) {
+    // Negative divergence is visual-only; preserve the crossed-eye pose.
+    configuration.eyeDivergence = 0;
+  }
+  if (!faceEffectEnabled.nasal) configuration.nasalMix = 0;
+  if (!faceEffectEnabled.stereo) configuration.earSpread = 0;
+  return configuration;
+}
+
+function syncFaceEffectButtons() {
+  for (const key of FACE_EFFECT_KEYS) {
+    const button = $(`${key}EffectButton`);
+    const output = $(`${key}EffectState`);
+    const enabled = faceEffectEnabled[key];
+    if (button) {
+      button.setAttribute("aria-pressed", String(enabled));
+      button.setAttribute("aria-label", `${key} effect ${enabled ? "on" : "off"}`);
+    }
+    if (output) output.textContent = enabled ? "ON" : "OFF";
+  }
+}
+
+function toggleFaceEffect(key) {
+  if (!FACE_EFFECT_KEYS.includes(key)) return;
+  faceEffectEnabled[key] = !faceEffectEnabled[key];
+  syncFaceEffectButtons();
+  postConfiguration();
+  announce(`${key} effect ${faceEffectEnabled[key] ? "on" : "off"}`);
 }
 
 function postConfiguration(overrides = null) {
@@ -359,7 +445,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.audioWorklet.addModule(new URL(
-    "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260829-8",
+    "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260829-10",
     import.meta.url,
   ));
   const sourceNode = new AudioWorkletNode(context, "hiccup-head-physical-model", {
@@ -508,9 +594,18 @@ function seededVoiceRandom(seedValue) {
 function availableVoiceSlots(soundId = null) {
   const active = voiceSlots.slice(0, voiceCount);
   const soloed = active.filter((slot) => slot.solo);
-  const candidates = soloed.length ? soloed : active;
-  if (!soundId) return candidates;
-  return candidates.filter((slot) => slot.assignment === "all" || slot.assignment === soundId);
+  if (!soundId) return soloed.length ? soloed : active;
+  // Resolve sound assignments first so a solo aimed at another gesture cannot
+  // erase this event's intended collection character. If no slot explicitly
+  // accepts the sound, fall back deterministically instead of silently losing
+  // collection identity and relying on the processor's generic Natural voice.
+  const compatible = active.filter(
+    (slot) => slot.assignment === "all" || slot.assignment === soundId,
+  );
+  const compatibleSoloed = compatible.filter((slot) => slot.solo);
+  if (compatibleSoloed.length) return compatibleSoloed;
+  if (compatible.length) return compatible;
+  return soloed.length ? [soloed[0]] : active.length ? [active[0]] : [];
 }
 
 function voiceChoiceForSound(soundId, seed = performance.now()) {
@@ -1430,7 +1525,7 @@ function setPreset(id, { announceState = true } = {}) {
     humanize: state.humanize,
     level: state.level,
   };
-  state = hiccupHeadState(preset.id, transport);
+  state = withPersistentFaceEffects(hiccupHeadState(preset.id, transport), state);
   $("presetSelect").value = preset.id;
   $("presetDescription").textContent = preset.description;
   syncControls();
@@ -1439,7 +1534,7 @@ function setPreset(id, { announceState = true } = {}) {
 }
 
 function randomizeFace() {
-  state = randomizeHiccupHeadState(state);
+  state = withPersistentFaceEffects(randomizeHiccupHeadState(state), state);
   $("presetDescription").textContent = "A one-off mouth mutation: pressure, tissue, tongue, and cavity moved anywhere from human-ish to gleefully impossible.";
   syncControls();
   postConfiguration();
@@ -1450,7 +1545,7 @@ function resetAll() {
   stopSequence({ announceState: false });
   clearTimeout(manualConfigurationResetTimer);
   manualConfigurationResetTimer = 0;
-  state = { ...HICCUP_HEAD_DEFAULTS };
+  state = withPersistentFaceEffects({ ...HICCUP_HEAD_DEFAULTS }, state);
   setPreset(HICCUP_HEAD_DEFAULTS.presetId, { announceState: false });
   setCurrentPattern(HICCUP_HEAD_DEFAULTS.patternId, { announceState: false });
   graph?.sourceNode?.port.postMessage({ type: "silence" });
@@ -2048,7 +2143,7 @@ function appendHeadSilhouette(context, layout, pop = 0, slap = 0) {
   context.closePath();
 }
 
-function drawFace(context, layout, pose, motion, now) {
+function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   const { cx, cy, rx, ry, mouthY, opening } = layout;
   const whistle = motion.whistle ?? 0;
   const slap = Math.max(motion.slap, motion.smack * 0.34);
@@ -2232,10 +2327,7 @@ function drawFace(context, layout, pose, motion, now) {
   ) * skinCheckerSize;
   const skinCheckerRight = cx + rx * 1.24;
   const skinCheckerBottom = cy + ry * 1.08;
-  const skinCheckerColors = [
-    "rgba(143, 87, 214, 0.5)",
-    "rgba(225, 64, 112, 0.5)",
-  ];
+  const skinCheckerColors = skinCheckerColorsForStep(checkerStep);
   for (let colorIndex = 0; colorIndex < skinCheckerColors.length; colorIndex += 1) {
     context.beginPath();
     let rowIndex = 0;
@@ -3061,8 +3153,8 @@ function buildHitGeometry(layout, pose) {
     { id: "right-hair", key: "rightHairLength", lengthKey: "rightHairLength", angleKey: "rightHairAngle", label: "RIGHT HAIR 2D", color: "#bb8cff", x: rightSideHair.tipX, y: rightSideHair.tipY, r: nodeRadius * 1.42, feature: "hair", hairSide: 1, labelSide: 1 },
     { id: "left-brow", key: "leftBrow", label: "LOOP A", color: "#ff4f7e", x: leftBrow.x, y: leftBrow.y, r: nodeRadius * 1.4, axis: "y-invert", scale: Math.max(24, leftBrow.eyeRy * 1.13), feature: "brow", labelSide: -1 },
     { id: "right-brow", key: "rightBrow", label: "LOOP B", color: "#2dcbda", x: rightBrow.x, y: rightBrow.y, r: nodeRadius * 1.4, axis: "y-invert", scale: Math.max(24, rightBrow.eyeRy * 1.13), feature: "brow", labelSide: 1 },
-    { id: "left-eye", key: "eyeDivergence", label: "GATE ↔ REVERB · LIDS ↓", color: "#bb8cff", x: leftEyeX, y: cy - ry * 0.455, r: nodeRadius * 1.35, axis: "x-invert", scale: leftEyeRx * 1.56, feature: "eye", labelSide: -1 },
-    { id: "right-eye", key: "eyeDivergence", label: "GATE ↔ REVERB · LIDS ↓", color: "#bb8cff", x: rightEyeX, y: cy - ry * 0.43, r: nodeRadius * 1.35, axis: "x", scale: rightEyeRx * 1.56, feature: "eye", labelSide: 1 },
+    { id: "left-eye", key: "eyeDivergence", label: "CROSS ↔ REVERB · LIDS ↓", color: "#bb8cff", x: leftEyeX, y: cy - ry * 0.455, r: nodeRadius * 1.35, axis: "x-invert", scale: leftEyeRx * 1.56, feature: "eye", labelSide: -1 },
+    { id: "right-eye", key: "eyeDivergence", label: "CROSS ↔ REVERB · LIDS ↓", color: "#bb8cff", x: rightEyeX, y: cy - ry * 0.43, r: nodeRadius * 1.35, axis: "x", scale: rightEyeRx * 1.56, feature: "eye", labelSide: 1 },
     { id: "left-cheek", key: "cheekVolume", label: "cheek volume", color: hiccupHeadSound("slap").color, x: cx - rx * (0.48 + pose.cheekVolume * 0.32), y: cy - ry * 0.05, r: nodeRadius, axis: "x-invert", scale: rx * 0.5 },
     { id: "right-cheek", key: "cheekTension", label: "membrane tension", color: hiccupHeadSound("pop").color, x: cx + rx * 0.72, y: cy + ry * (0.23 - pose.cheekTension * 0.33), r: nodeRadius, axis: "y-invert", scale: ry * 0.42 },
     { id: "lip-tension", key: "lipTension", label: "lip tension", color: hiccupHeadSound("bop").color, x: cx - rx * 0.05, y: mouthY - opening - nodeRadius * 1.7, r: nodeRadius, axis: "y-invert", scale: ry * 0.34 },
@@ -3379,7 +3471,13 @@ function drawStage(now = performance.now()) {
   const layout = faceLayout(pose);
   drawBackground(drawing, cssWidth, cssHeight, now, motion);
   drawAirPlume(drawing, layout, motion, now);
-  drawFace(drawing, layout, pose, motion, now);
+  // `visibleStep` is advanced by the existing visual queue at its scheduled
+  // playhead time. Sampling it after queue flushing changes paint only; the
+  // scheduler may continue looking ahead without pulling colors ahead too.
+  const checkerStep = sequencePlaying && visibleStep >= 0
+    ? visibleStep % sequenceLength
+    : -1;
+  drawFace(drawing, layout, pose, motion, now, checkerStep);
   drawToothWhistleJet(drawing, layout, motion, now);
   drawWaveform(drawing, layout);
   buildHitGeometry(layout, pose);
@@ -3751,6 +3849,9 @@ function bindControls() {
   $("clearPatternButton").addEventListener("click", clearPattern);
   $("randomizeButton").addEventListener("click", randomizeFace);
   $("resetButton").addEventListener("click", resetAll);
+  for (const key of FACE_EFFECT_KEYS) {
+    $(`${key}EffectButton`)?.addEventListener("click", () => toggleFaceEffect(key));
+  }
   $("sequenceLength")?.addEventListener("input", () => {
     const previewLength = clamp(
       Math.round(Number($("sequenceLength").value) || 1),
@@ -3830,7 +3931,7 @@ function bindControls() {
 function initialize() {
   canvas.setAttribute(
     "aria-description",
-    "Tap any colored face dot for its sound, any visible upper tooth for its short irregular dry-wood knock, or the missing front-tooth gap to whistle FWEE. Drag either eye horizontally through gate and reverb or downward to close both lids, drag each side-hair tip in two dimensions, and drag LOOP A and LOOP B eyebrows vertically to shape sequenced playback.",
+    "Tap any colored face dot for its sound, any visible upper tooth for its short irregular dry-wood knock, or the missing front-tooth gap to whistle FWEE. Drag either eye outward for reverb, inward to cross visually, or downward to close both lids visually; drag each side-hair tip in two dimensions, and drag LOOP A and LOOP B eyebrows vertically to shape sequenced playback.",
   );
   syncControlLimits();
   populateSelects();
@@ -3838,6 +3939,7 @@ function initialize() {
   buildVoiceRack({ preserveScroll: false });
   setSequenceLength(Number($("sequenceLength")?.value) || sequenceLength, { announceState: false });
   bindControls();
+  syncFaceEffectButtons();
   syncControls();
   setAudioPresentation("off");
   resizeCanvas();
