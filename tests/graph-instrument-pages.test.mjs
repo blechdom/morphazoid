@@ -8,11 +8,12 @@ import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabiliti
 const root = new URL("../", import.meta.url);
 
 test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbench", async () => {
-  const [drums, synth, css, app, drumWrapper, synthWrapper, research] = await Promise.all([
+  const [drums, synth, css, app, core, drumWrapper, synthWrapper, research] = await Promise.all([
     readFile(new URL("graph-drums.html", root), "utf8"),
     readFile(new URL("graph-synth.html", root), "utf8"),
     readFile(new URL("graph-instruments.css", root), "utf8"),
     readFile(new URL("src/graph-instrument-app.js", root), "utf8"),
+    readFile(new URL("src/graph-instruments.js", root), "utf8"),
     readFile(new URL("graph-drums-app.js", root), "utf8"),
     readFile(new URL("graph-synth-app.js", root), "utf8"),
     readFile(new URL("GRAPH_INSTRUMENTS_RESEARCH.md", root), "utf8"),
@@ -87,6 +88,8 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
   assert.match(app, /scheduleGraphPulse/);
   assert.match(app, /horizonSeconds: 1_024/);
   assert.match(app, /maxNodes: MAX_GRAPH_INSTRUMENT_NODES/);
+  assert.match(core, /MAX_GRAPH_INSTRUMENT_NODES = 128/);
+  assert.doesNotMatch(core, /edgeSubdivisions|kind: "subdivision"/);
   assert.match(app, /invalidatePulseTemplate\(\{ clearRuns: false/);
   assert.match(app, /startAt/);
   assert.match(app, /edge\.feedbackEdge/);

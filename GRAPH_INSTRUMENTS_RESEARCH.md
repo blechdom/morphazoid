@@ -39,7 +39,7 @@ The hard bounds are also relevant: `MAX_RECURSION_FEEDBACK = 0.96`, thirteen gen
 - `graphTurnRoutings`, `nodeTurnRouting`, and `turnPitchSemitones`;
 - `graphSinkNodeIds` and `graphNodePans`;
 - `graphEdgeSwitchMultipliers` and `edgeAudioParameters`;
-- the microphone safety constants `MAX_GRAPH_NODES = 24`, `MAX_GRAPH_FEEDBACK = 0.92`, and `MAX_GRAPH_TURN_ROUTES = 192`, plus an opt-in 512-node generator ceiling used only by the event instruments.
+- the microphone safety constants `MAX_GRAPH_NODES = 24`, `MAX_GRAPH_FEEDBACK = 0.92`, and `MAX_GRAPH_TURN_ROUTES = 192`, plus a separate 128-node ceiling used by the event instruments.
 
 The supplied topologies cover Chain, Tree, DAG, Bipartite, Ring, Small World, Hub, Mesh, Modular, and seeded Random graphs. After cycle annotation, `generateGraph` marks a stable cycle-closing route with `feedbackEdge: edge.cyclic && edge.to <= edge.from`. This distinction is essential: an edge can be inside a strongly connected component without attenuating every intermediate step.
 
@@ -74,7 +74,7 @@ Suggested selectable mappings, parallel to L-System Drum Machine, are:
 
 Vertical position and accumulated turn can retune the chosen drum. Indegree/outdegree can shape tone/noise or decay. Arrival amplitude sets strike level; simultaneous arrivals use square-root normalization. Reuse `cloneDefaultFmDrumVoices`, `sanitizeFmDrumVoice`, `mappedLSystemDrumVoice`-style parameter shaping, and the existing sixteen-slot keyboard/MIDI convention without overwriting the user's saved FM drum bank.
 
-In a cycle, a returned event is a real delayed retrigger with reduced amplitude and darker tone. The final event scheduler stops propagation below an amplitude floor of 0.001, beyond a 1,024-second defensive horizon, at 8,192 path events, or at the bounded feedback/depth limits. The shared low-level scheduler retains optional edge subdivisions for compatibility and stress testing, but Graph Synth and Graph Drum Machine deliberately emit attacks only at node arrivals. Their quieter display marks an active route and briefly fills its destination node instead of drawing traveling dots or expanding rings. The page caps each source pulse at 768 drum or 1,024 synth attacks and at most 96 native attacks in one display frame.
+In a cycle, a returned event is a real delayed retrigger with reduced amplitude and darker tone. The final event scheduler stops propagation below an amplitude floor of 0.001, beyond a 1,024-second defensive horizon, at 8,192 path events, or at the bounded feedback/depth limits. Graph Synth and Graph Drum Machine emit attacks only at node arrivals; there is no intermediate edge-subdivision parameter. Their quieter display marks an active route and briefly fills its destination node instead of drawing traveling dots or expanding rings. The page caps each source pulse at 768 drum or 1,024 synth attacks and at most 96 native attacks in one display frame.
 
 ## Graph Synth semantics
 
@@ -93,11 +93,11 @@ Useful sound mappings are Turn -> pitch, Y -> pitch, Degree -> FM/PM depth, Path
 
 ## Safety and performance bounds
 
-- Keep the microphone Graph Delay at 3–24 nodes and 192 relative-turn routes. The event instruments opt into 3–512 nodes and a 4,096-turn-route generation budget; `generateGraphWithinTurnBudget` reduces density when needed.
+- Keep the microphone Graph Delay at 3–24 nodes and 192 relative-turn routes. The event instruments use 3–128 nodes and a 4,096-turn-route generation budget; `generateGraphWithinTurnBudget` reduces density when needed.
 - Keep edge delay within 0.004–2 seconds, `nodePass` within 0–1, feedback within 0–0.92, and per-return tone/brightness retention within 0.2–1.
 - Preserve split/merge normalization and use `graphEdgeSwitchMultipliers`; closing one merge input must not amplify another input.
 - Retain a protected output, conservative master maximum, and click-safe gain ramps; Graph Synth uses its own bounded compressor-backed one-shot renderer while Graph Drums reuses `FmDrumAudio`.
-- Bound event count, tail time, depth, active traversals, and amplitude as described above. Keep at most 64 live graph traversals and draw only the newest 24; Graph Synth separately caps native simultaneous oscillator voices at 64.
+- Bound event count, tail time, depth, active traversals, and amplitude as described above. Keep at most 64 live graph traversals and draw only the newest four; Graph Synth separately caps native simultaneous oscillator voices at 64.
 - Recompute spectral/cycle safety after route switching. Never connect a zero-delay feedback path.
 - Suspend expensive animation under reduced motion and while hidden; stop all AudioContexts and scheduled tails on `pagehide`.
 
@@ -119,7 +119,7 @@ Core tests should prove:
 - finite completion for every acyclic topology;
 - ring return time equals the sum of edge delays;
 - ring amplitude and brightness lose exactly one feedback/damping step per lap;
-- the backward-compatible scheduler still reaches all 512 chain nodes under its one-through-sixteen subdivision stress case, while both instruments request one event per node;
+- the scheduler reaches all 128 nodes in the maximum chain and completes multiple decaying laps around the maximum ring;
 - tempo and node-position edits preserve pulse count, active-run count, transport phase, and already-scheduled attack count;
 - branching, merging, switching, and simultaneous-event normalization stay bounded;
 - random graphs follow their computed cycle annotation;

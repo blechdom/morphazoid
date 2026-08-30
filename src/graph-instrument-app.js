@@ -1025,6 +1025,7 @@ export function initializeGraphInstrument({
   }
 
   function rebuildModel({ silence = true } = {}) {
+    state.nodeCount = Math.round(clamp(state.nodeCount, 3, MAX_GRAPH_INSTRUMENT_NODES, 10));
     const result = generateGraphWithinTurnBudget({
       type: state.topology,
       nodeCount: state.nodeCount,
