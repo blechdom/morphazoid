@@ -255,7 +255,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 110);
+  assert.equal(tools.length, 111);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -569,6 +569,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
       { id: "harmonica", label: "Harmonica", href: "harmonica.html" },
+      { id: "hambone", label: "Hambone", href: "hambone.html" },
       { id: "breath-atlas", label: "Breath Atlas", href: "breath-atlas.html" },
       {
         id: "spelling-synthesizer",

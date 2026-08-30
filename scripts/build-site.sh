@@ -116,6 +116,12 @@ for worktree_runtime_file in \
   src/harmonica.js \
   src/harmonica-processor.js \
   assets/instruments/harmonica.webp \
+  hambone.html \
+  hambone.css \
+  hambone-app.js \
+  src/hambone.js \
+  src/hambone-processor.js \
+  assets/instruments/hambone.webp \
   pink-trombonazoid.html \
   pink-trombonazoid.css \
   pink-trombonazoid-app.js \
@@ -497,6 +503,12 @@ required_files=(
   src/harmonica.js
   src/harmonica-processor.js
   assets/instruments/harmonica.webp
+  hambone.html
+  hambone.css
+  hambone-app.js
+  src/hambone.js
+  src/hambone-processor.js
+  assets/instruments/hambone.webp
   pink-trombonazoid.html
   pink-trombonazoid.css
   pink-trombonazoid-app.js

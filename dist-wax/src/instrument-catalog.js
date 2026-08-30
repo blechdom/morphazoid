@@ -190,6 +190,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose a one- to four-hole mouth aperture and a blues gesture, then hold blow or draw; shape its rhythm, breath envelope, cover-hand filter, tongue, tract, bend, or overbend in real time.",
     ["Built-in source", "Pointer", "Computer keys", "MIDI expression", "Physical-model DSP"],
   ),
+  hambone: define(
+    "Monophonic physical beatbox sequencer",
+    "Moves one mutable mouth—a persistent variable-length oral waveguide with a coupled nasal tube—between eight human-inspired percussion gestures using physical pressure releases, tongue suction, compact PHSHSHK constrictions, a compliant cheek pocket, and pressure-feedback lip flutter.",
+    "Turn on audio, tap the face or pads, then choose one mouth pose per column in the sixteen-step grid and drag the anatomy beyond human range.",
+    ["Built-in source", "Pointer", "Computer keys"],
+  ),
   "breath-atlas": define(
     "Breath physical-model atlas",
     "Compares nineteen mouth and breath instruments through six physical source topologies, from quill-driven strings and bidirectional free reeds to lip valves, flutes, jaw reeds, and mouth bows.",
@@ -608,6 +614,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   "pink-trombonazoid": Object.freeze(["sequencers"]),
   hybrinx: Object.freeze(["sequencers"]),
   blowhole: Object.freeze(["sequencers"]),
+  hambone: Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "fm-drums": Object.freeze(["geometry-drums"]),
   "linear-drums": Object.freeze(["geometry-drums"]),
