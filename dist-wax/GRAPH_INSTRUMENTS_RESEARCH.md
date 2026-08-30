@@ -74,7 +74,7 @@ Suggested selectable mappings, parallel to L-System Drum Machine, are:
 
 Vertical position and accumulated turn can retune the chosen drum. Indegree/outdegree can shape tone/noise or decay. Arrival amplitude sets strike level; simultaneous arrivals use square-root normalization. Reuse `cloneDefaultFmDrumVoices`, `sanitizeFmDrumVoice`, `mappedLSystemDrumVoice`-style parameter shaping, and the existing sixteen-slot keyboard/MIDI convention without overwriting the user's saved FM drum bank.
 
-In a cycle, a returned event is a real delayed retrigger with reduced amplitude and darker tone. The final event scheduler stops propagation below an amplitude floor of 0.001, beyond a 1,024-second defensive horizon, at 8,192 path events, or at the bounded feedback/depth limits. It reserves real node arrivals before adding evenly distributed edge-subdivision ticks, so a 512-node chain with sixteen divisions reaches every node. The page then performs its own musical decimation: at most 768 drum or 1,024 synth attacks per source pulse, at most 96 native attacks in one display frame, with sounded leaf/node milestones prioritized over decorative subdivision playheads.
+In a cycle, a returned event is a real delayed retrigger with reduced amplitude and darker tone. The final event scheduler stops propagation below an amplitude floor of 0.001, beyond a 1,024-second defensive horizon, at 8,192 path events, or at the bounded feedback/depth limits. The shared low-level scheduler retains optional edge subdivisions for compatibility and stress testing, but Graph Synth and Graph Drum Machine deliberately emit attacks only at node arrivals. Their quieter display marks an active route and briefly fills its destination node instead of drawing traveling dots or expanding rings. The page caps each source pulse at 768 drum or 1,024 synth attacks and at most 96 native attacks in one display frame.
 
 ## Graph Synth semantics
 
@@ -119,7 +119,7 @@ Core tests should prove:
 - finite completion for every acyclic topology;
 - ring return time equals the sum of edge delays;
 - ring amplitude and brightness lose exactly one feedback/damping step per lap;
-- a 512-node chain reaches all nodes with one through sixteen equal edge subdivisions;
+- the backward-compatible scheduler still reaches all 512 chain nodes under its one-through-sixteen subdivision stress case, while both instruments request one event per node;
 - tempo and node-position edits preserve pulse count, active-run count, transport phase, and already-scheduled attack count;
 - branching, merging, switching, and simultaneous-event normalization stay bounded;
 - random graphs follow their computed cycle annotation;
