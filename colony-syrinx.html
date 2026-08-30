@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050806" />
+    <meta
+      name="description"
+      content="Colony Syrinx is a breath-driven polyphonic organism: sixteen lungs, eight vocal folds, a MIDI valve matrix, and three independently sequenced mouths."
+    />
+    <title>Colony Syrinx — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="colony-syrinx.css" />
+  </head>
+  <body class="colony-syrinx-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="jaw-harp.html">jaw harp</a>
+        <a class="tab" href="hyper-syrinx.html">hyper-syrinx</a>
+        <a class="tab active" href="colony-syrinx.html" aria-current="page">colony syrinx</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="jaw-harp.html">jaw harp</option>
+          <option value="hyper-syrinx.html">hyper-syrinx</option>
+          <option value="colony-syrinx.html" selected>colony syrinx</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="colony-audio-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">46%</output></span>
+          <input id="level" aria-label="Colony Syrinx output level" type="range" min="0" max="0.82" step="0.01" value="0.46" />
+        </label>
+      </div>
+    </header>
+
+    <main class="colony-shell" id="colonySyrinx">
+      <section class="colony-workspace" aria-labelledby="pageTitle">
+        <header class="colony-titlebar">
+          <div class="colony-title-copy">
+            <p id="engineTitle">PRESSURE-OPERATED MULTI-MOUTH PREDATOR / AIR ENGINE 01</p>
+            <h1 id="pageTitle"><span>COLONY</span><i>/</i><span>SYRINX</span></h1>
+          </div>
+          <p class="colony-thesis">
+            Sixteen lungs feed four incompatible paired voices. Every exhale is fought over by
+            three mouths: a subharmonic maw, a vowel-biting throat, and a pressure-loaded needle scream.
+          </p>
+          <dl class="colony-counts" aria-label="Anatomy count">
+            <div><dt>lungs</dt><dd>16</dd></div>
+            <div><dt>folds</dt><dd>08</dd></div>
+            <div><dt>routes</dt><dd>12</dd></div>
+            <div><dt>mouths</dt><dd>03</dd></div>
+          </dl>
+        </header>
+
+        <section class="colony-anatomy" aria-labelledby="anatomyTitle">
+          <div class="colony-section-heading">
+            <div>
+              <span>01 / LIVING MANIFOLD</span>
+              <h2 id="anatomyTitle">Pressure becomes an argument</h2>
+            </div>
+            <div class="anatomy-legend" aria-label="Diagram legend">
+              <span><i class="is-pressure"></i> pressure</span>
+              <span><i class="is-voice"></i> source</span>
+              <span><i class="is-route"></i> open route</span>
+              <span><i class="is-return"></i> reflected load</span>
+            </div>
+          </div>
+
+          <div class="colony-body-scroll" tabindex="0" aria-label="Scrollable live anatomy diagram">
+            <figure class="colony-body-stage">
+              <svg
+                class="colony-body"
+                viewBox="0 0 1200 620"
+                role="img"
+                aria-labelledby="colonyBodyTitle colonyBodyDescription"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                <title id="colonyBodyTitle">Live Colony Syrinx pressure anatomy</title>
+                <desc id="colonyBodyDescription">
+                  Sixteen asymmetric breathing sacs feed four reservoirs and eight vocal folds.
+                  Nine open colored vessels, from twelve possible routes, drive three hostile mouths.
+                </desc>
+                <defs>
+                  <radialGradient id="colonyLungFill" cx="38%" cy="32%" r="78%">
+                    <stop offset="0" stop-color="#ff78bd" stop-opacity=".42" />
+                    <stop offset=".46" stop-color="#ff55b1" stop-opacity=".28" />
+                    <stop offset=".78" stop-color="#7e42d4" stop-opacity=".12" />
+                    <stop offset="1" stop-color="#32d6d0" stop-opacity=".025" />
+                  </radialGradient>
+                  <linearGradient id="colonyBodyWash" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#c9f36a" stop-opacity=".08" />
+                    <stop offset=".46" stop-color="#ff806b" stop-opacity=".055" />
+                    <stop offset="1" stop-color="#64dfd2" stop-opacity=".025" />
+                  </linearGradient>
+                  <filter id="colonyGlow" x="-80%" y="-80%" width="260%" height="260%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                  </filter>
+                  <filter id="colonySoftGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="11" />
+                  </filter>
+                  <path id="colonySacA" d="M31 1 C22 -5 27 -18 18 -31 C7 -47 -17 -46 -31 -31 C-47 -14 -45 12 -33 30 C-21 48 4 51 20 37 C30 28 27 14 39 8 C46 4 43 2 31 1Z" />
+                  <path id="colonySacB" d="M34 -3 C23 -8 27 -23 15 -35 C2 -48 -18 -42 -28 -30 C-39 -34 -48 -20 -45 -7 C-41 8 -35 12 -34 27 C-31 48 -5 56 15 42 C29 32 25 15 39 7 C47 3 45 0 34 -3Z" />
+                  <path id="colonySacC" d="M32 3 C20 -1 26 -14 17 -25 C8 -36 -5 -38 -15 -29 C-29 -39 -44 -31 -46 -15 C-49 3 -37 15 -31 30 C-21 49 3 51 20 35 C30 25 27 14 40 9 C47 6 44 4 32 3Z" />
+                  <path id="colonySacD" d="M35 0 C24 -7 30 -18 20 -30 C9 -43 -8 -41 -18 -32 C-31 -36 -43 -24 -41 -9 C-39 4 -32 11 -35 24 C-39 42 -17 55 2 50 C22 45 25 29 26 18 C27 11 39 8 44 5 C49 2 45 1 35 0Z" />
+                  <path id="colonyGarden" d="M44 118 C55 66 104 58 149 73 C196 48 255 59 301 88 C325 104 332 132 314 151 C288 176 245 160 212 154 C174 171 135 153 111 143 C77 156 45 144 44 118Z" />
+                </defs>
+
+                <path class="body-aura" d="M28 308 C57 77 243 13 404 76 C506 115 522 41 642 64 C769 89 808 33 943 72 C1083 113 1180 197 1170 311 C1160 434 1063 546 932 552 C798 559 763 500 649 548 C536 595 481 517 386 552 C215 614 55 518 28 308Z" />
+                <path class="body-ghost-vessel" d="M38 309 C162 270 264 346 358 310 C425 284 466 337 515 309 C634 242 754 374 860 309" />
+
+                <g class="reservoir-veins" aria-hidden="true">
+                  <path d="M68 113 C164 121 267 104 358 118" />
+                  <path d="M66 235 C161 225 269 251 358 244" />
+                  <path d="M66 378 C170 363 265 389 358 378" />
+                  <path d="M68 504 C167 522 264 493 358 505" />
+                  <path class="reservoir-spine" d="M358 118 C375 167 338 201 358 244 C379 291 337 333 358 378 C378 421 343 459 358 505" />
+                </g>
+
+                <g class="lung-garden-membranes" aria-hidden="true">
+                  <use href="#colonyGarden" />
+                  <use href="#colonyGarden" transform="translate(0 126)" />
+                  <use href="#colonyGarden" transform="translate(0 260)" />
+                  <use href="#colonyGarden" transform="translate(0 387)" />
+                </g>
+
+                <g class="lung-colony" aria-label="Sixteen asymmetric breathing sacs">
+                  <g class="vessel-lung is-enabled" data-vessel-lung="1" transform="translate(65 108) rotate(-7) scale(.68)"><use href="#colonySacA" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="2" transform="translate(137 77) rotate(5) scale(.56)"><use href="#colonySacB" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="3" transform="translate(208 124) rotate(-3) scale(.64)"><use href="#colonySacC" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="4" transform="translate(286 87) rotate(8) scale(.52)"><use href="#colonySacD" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+
+                  <g class="vessel-lung is-enabled" data-vessel-lung="5" transform="translate(66 233) rotate(6) scale(.61)"><use href="#colonySacB" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="6" transform="translate(139 267) rotate(-7) scale(.54)"><use href="#colonySacD" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="7" transform="translate(211 215) rotate(4) scale(.58)"><use href="#colonySacA" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="8" transform="translate(287 255) rotate(-8) scale(.65)"><use href="#colonySacC" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+
+                  <g class="vessel-lung is-enabled" data-vessel-lung="9" transform="translate(66 370) rotate(-6) scale(.56)"><use href="#colonySacC" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="10" transform="translate(139 407) rotate(7) scale(.64)"><use href="#colonySacA" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="11" transform="translate(210 353) rotate(-2) scale(.59)"><use href="#colonySacD" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="12" transform="translate(286 394) rotate(6) scale(.52)"><use href="#colonySacB" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+
+                  <g class="vessel-lung is-enabled" data-vessel-lung="13" transform="translate(66 504) rotate(7) scale(.61)"><use href="#colonySacD" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="14" transform="translate(138 468) rotate(-8) scale(.54)"><use href="#colonySacC" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="15" transform="translate(210 522) rotate(3) scale(.67)"><use href="#colonySacB" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="16" transform="translate(286 478) rotate(-5) scale(.58)"><use href="#colonySacA" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
+                </g>
+
+                <g class="source-bridges" aria-hidden="true">
+                  <path d="M358 118 C392 118 409 117 436 117" />
+                  <path d="M358 244 C392 244 409 244 436 244" />
+                  <path d="M358 378 C392 378 409 378 436 378" />
+                  <path d="M358 505 C392 505 409 505 436 505" />
+                </g>
+
+                <g class="fold-sources" aria-label="Four paired-fold sound sources">
+                  <g class="vessel-source is-enabled" data-vessel-source="1" transform="translate(478 117)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P1 · ROAR / 2 FOLDS</text></g>
+                  <g class="vessel-source is-enabled" data-vessel-source="2" transform="translate(478 244)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P2 · SPLIT / 2 FOLDS</text></g>
+                  <g class="vessel-source is-enabled" data-vessel-source="3" transform="translate(478 378)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P3 · RATTLE / 2 FOLDS</text></g>
+                  <g class="vessel-source is-enabled" data-vessel-source="4" transform="translate(478 505)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P4 · SHRIEK / 2 FOLDS</text></g>
+                </g>
+
+                <g class="route-vessels" aria-label="Twelve source to mouth routes">
+                  <path class="vessel-route mouth-a is-open" data-vessel-route="1-1" d="M516 106 C624 64 732 84 875 115" />
+                  <path class="vessel-route mouth-b is-open" data-vessel-route="1-2" d="M518 115 C647 119 730 220 870 287" />
+                  <path class="vessel-route mouth-c" data-vessel-route="1-3" d="M516 124 C623 166 753 405 874 483" />
+
+                  <path class="vessel-route mouth-a is-open" data-vessel-route="2-1" d="M516 233 C636 186 718 143 875 118" />
+                  <path class="vessel-route mouth-b is-open" data-vessel-route="2-2" d="M518 244 C649 239 731 272 870 291" />
+                  <path class="vessel-route mouth-c is-open" data-vessel-route="2-3" d="M516 254 C632 286 753 419 874 487" />
+
+                  <path class="vessel-route mouth-a" data-vessel-route="3-1" d="M516 367 C620 321 746 172 875 121" />
+                  <path class="vessel-route mouth-b is-open" data-vessel-route="3-2" d="M518 378 C641 364 745 315 870 295" />
+                  <path class="vessel-route mouth-c is-open" data-vessel-route="3-3" d="M516 388 C633 423 746 457 874 490" />
+
+                  <path class="vessel-route mouth-a is-open" data-vessel-route="4-1" d="M516 494 C616 449 734 224 875 124" />
+                  <path class="vessel-route mouth-b" data-vessel-route="4-2" d="M518 504 C633 473 746 352 870 299" />
+                  <path class="vessel-route mouth-c is-open" data-vessel-route="4-3" d="M516 514 C638 541 759 514 874 493" />
+                </g>
+
+                <g class="mouth-organs" aria-label="Three radiating mouths">
+                  <g class="vessel-mouth mouth-a" data-vessel-mouth="1" transform="translate(878 118)">
+                    <path class="mouth-root" d="M-9 0 C14 -2 24 -1 39 0" />
+                    <path class="mouth-upper" d="M37 0 C58 -34 91 -61 128 -48 C151 -70 192 -58 216 -33 C244 -31 260 -11 286 0 C255 7 231 17 205 18 C169 9 132 22 96 14 C69 13 51 7 37 0Z" />
+                    <path class="mouth-lower" d="M37 0 C72 5 101 21 132 15 C163 39 205 30 235 17 C257 15 273 7 286 0 C267 44 229 73 184 67 C151 85 102 63 74 42 C56 28 45 13 37 0Z" />
+                    <path class="mouth-tongue" d="M63 17 C105 7 149 25 207 9 C190 43 143 55 96 42 C82 38 70 29 63 17Z" />
+                    <path class="mouth-teeth" d="M78 9 L90 30 L103 10 L116 32 L131 11 L146 29 L162 9 M175 17 L189 39 L202 15 L216 34 L231 12" />
+                    <text x="65" y="-61">M1 · SUBHARMONIC MAW</text>
+                  </g>
+                  <g class="vessel-mouth mouth-b" data-vessel-mouth="2" transform="translate(874 293)">
+                    <path class="mouth-root" d="M-9 0 C12 -2 25 -1 43 0" />
+                    <path class="mouth-upper" d="M39 0 C66 -38 105 -48 137 -33 C158 -51 187 -36 199 -17 C225 -20 246 -7 265 0 C239 10 219 24 187 29 C151 23 126 37 91 27 C68 23 52 10 39 0Z" />
+                    <path class="mouth-lower" d="M39 0 C69 5 93 19 121 12 C147 31 181 26 203 14 C228 16 247 7 265 0 C239 30 210 49 169 45 C138 58 96 44 70 29 C56 20 46 9 39 0Z" />
+                    <path class="mouth-tongue" d="M68 14 C101 6 132 20 184 7 C167 30 130 39 92 30 C80 27 72 21 68 14Z" />
+                    <path class="mouth-teeth" d="M73 7 L83 25 L94 7 L105 28 L117 8 L129 27 L142 7 L154 25 L168 7 L180 23 L194 6 M104 22 L114 38 L126 20 L138 39 L151 18 L164 35" />
+                    <text x="65" y="-49">M2 · VOWEL BITER</text>
+                  </g>
+                  <g class="vessel-mouth mouth-c" data-vessel-mouth="3" transform="translate(878 491)">
+                    <path class="mouth-root" d="M-9 0 C13 -1 26 0 44 0" />
+                    <path class="mouth-upper" d="M40 0 C68 -19 96 -30 121 -18 C137 -33 159 -20 170 -9 C188 -13 207 -5 226 0 C201 7 181 17 157 18 C130 11 106 24 78 16 C61 13 48 6 40 0Z" />
+                    <path class="mouth-lower" d="M40 0 C68 4 89 14 111 9 C132 25 157 20 175 11 C195 12 212 5 226 0 C208 19 181 30 150 25 C126 34 96 27 72 18 C56 12 47 5 40 0Z" />
+                    <path class="mouth-tongue" d="M88 8 C110 3 132 12 164 4 C153 17 130 22 105 17 C96 15 91 12 88 8Z" />
+                    <path class="mouth-teeth" d="M69 5 L77 17 L86 5 L95 19 L105 5 L115 19 L125 4 L136 18 L147 4 L158 16 L170 3" />
+                    <text x="65" y="-35">M3 · NEEDLE SCREAM</text>
+                  </g>
+                </g>
+
+                <g class="body-labels" aria-hidden="true">
+                  <text x="45" y="45">16 LUNGS / 4 PRESSURE GARDENS</text>
+                  <text x="430" y="45">8 FOLDS / 4 PAIRS</text>
+                  <text id="bodyRouteCount" x="621" y="45">9 OPEN / 12 POSSIBLE</text>
+                  <path d="M38 55 H303" /><path d="M427 55 H531" /><path d="M617 55 H850" />
+                </g>
+              </svg>
+              <figcaption>
+                <span><i></i> pressure grows left to right</span>
+                <b>Every bright vessel is a playable valve. Closed mouths return pressure upstream.</b>
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="anatomy-scroll">
+            <div class="anatomy-flow">
+              <section class="lung-system flow-module" aria-labelledby="lungBankTitle">
+                <header class="flow-module-heading">
+                  <div><span>A / RESERVOIRS</span><h3 id="lungBankTitle">16 lungs</h3></div>
+                  <output id="lungPressureReadout">6.8 kPa</output>
+                </header>
+
+                <div class="lung-banks" id="lungBanks">
+                  <section class="lung-bank" data-bank="1" aria-label="Lung bank one">
+                    <header><b>R1</b><output id="bank1Pressure">72%</output></header>
+                    <div class="lung-grid">
+                      <button id="lung1" class="lung" type="button" data-lung="1" data-bank="1" aria-label="Lung 1 enabled" aria-pressed="true"><span>01</span><i></i><b style="--fill:.78"></b></button>
+                      <button id="lung2" class="lung" type="button" data-lung="2" data-bank="1" aria-label="Lung 2 enabled" aria-pressed="true"><span>02</span><i></i><b style="--fill:.56"></b></button>
+                      <button id="lung3" class="lung" type="button" data-lung="3" data-bank="1" aria-label="Lung 3 enabled" aria-pressed="true"><span>03</span><i></i><b style="--fill:.36"></b></button>
+                      <button id="lung4" class="lung" type="button" data-lung="4" data-bank="1" aria-label="Lung 4 enabled" aria-pressed="true"><span>04</span><i></i><b style="--fill:.18"></b></button>
+                    </div>
+                  </section>
+                  <section class="lung-bank" data-bank="2" aria-label="Lung bank two">
+                    <header><b>R2</b><output id="bank2Pressure">63%</output></header>
+                    <div class="lung-grid">
+                      <button id="lung5" class="lung" type="button" data-lung="5" data-bank="2" aria-label="Lung 5 enabled" aria-pressed="true"><span>05</span><i></i><b style="--fill:.64"></b></button>
+                      <button id="lung6" class="lung" type="button" data-lung="6" data-bank="2" aria-label="Lung 6 enabled" aria-pressed="true"><span>06</span><i></i><b style="--fill:.43"></b></button>
+                      <button id="lung7" class="lung" type="button" data-lung="7" data-bank="2" aria-label="Lung 7 enabled" aria-pressed="true"><span>07</span><i></i><b style="--fill:.25"></b></button>
+                      <button id="lung8" class="lung" type="button" data-lung="8" data-bank="2" aria-label="Lung 8 enabled" aria-pressed="true"><span>08</span><i></i><b style="--fill:.86"></b></button>
+                    </div>
+                  </section>
+                  <section class="lung-bank" data-bank="3" aria-label="Lung bank three">
+                    <header><b>R3</b><output id="bank3Pressure">81%</output></header>
+                    <div class="lung-grid">
+                      <button id="lung9" class="lung" type="button" data-lung="9" data-bank="3" aria-label="Lung 9 enabled" aria-pressed="true"><span>09</span><i></i><b style="--fill:.32"></b></button>
+                      <button id="lung10" class="lung" type="button" data-lung="10" data-bank="3" aria-label="Lung 10 enabled" aria-pressed="true"><span>10</span><i></i><b style="--fill:.71"></b></button>
+                      <button id="lung11" class="lung" type="button" data-lung="11" data-bank="3" aria-label="Lung 11 enabled" aria-pressed="true"><span>11</span><i></i><b style="--fill:.51"></b></button>
+                      <button id="lung12" class="lung" type="button" data-lung="12" data-bank="3" aria-label="Lung 12 enabled" aria-pressed="true"><span>12</span><i></i><b style="--fill:.22"></b></button>
+                    </div>
+                  </section>
+                  <section class="lung-bank" data-bank="4" aria-label="Lung bank four">
+                    <header><b>R4</b><output id="bank4Pressure">54%</output></header>
+                    <div class="lung-grid">
+                      <button id="lung13" class="lung" type="button" data-lung="13" data-bank="4" aria-label="Lung 13 enabled" aria-pressed="true"><span>13</span><i></i><b style="--fill:.48"></b></button>
+                      <button id="lung14" class="lung" type="button" data-lung="14" data-bank="4" aria-label="Lung 14 enabled" aria-pressed="true"><span>14</span><i></i><b style="--fill:.28"></b></button>
+                      <button id="lung15" class="lung" type="button" data-lung="15" data-bank="4" aria-label="Lung 15 enabled" aria-pressed="true"><span>15</span><i></i><b style="--fill:.82"></b></button>
+                      <button id="lung16" class="lung" type="button" data-lung="16" data-bank="4" aria-label="Lung 16 enabled" aria-pressed="true"><span>16</span><i></i><b style="--fill:.61"></b></button>
+                    </div>
+                  </section>
+                </div>
+                <div class="flow-port is-out" aria-hidden="true"><span></span></div>
+              </section>
+
+              <section class="source-system flow-module" aria-labelledby="sourceRackTitle">
+                <header class="flow-module-heading">
+                  <div><span>B / PHONATORS</span><h3 id="sourceRackTitle">4 incompatible pairs</h3></div>
+                  <output id="foldCountReadout">8 folds</output>
+                </header>
+                <div class="source-rack" id="sourceRack">
+                  <article class="source-card" id="source1" data-source="1">
+                    <header><button id="source1Enable" type="button" aria-pressed="true"><i></i>P1 · ROAR</button><output id="source1Frequency">62 Hz</output></header>
+                    <div class="fold-pair" aria-label="Folds 1 and 2 vibrating">
+                      <span class="fold" id="fold1Meter"><i></i></span><b>↕</b><span class="fold" id="fold2Meter"><i></i></span>
+                    </div>
+                    <label for="source1Tension"><span>tension</span><output id="source1TensionOut" for="source1Tension">28%</output><input id="source1Tension" type="range" min="0" max="1" step="0.01" value="0.28" /></label>
+                  </article>
+                  <article class="source-card" id="source2" data-source="2">
+                    <header><button id="source2Enable" type="button" aria-pressed="true"><i></i>P2 · SPLIT</button><output id="source2Frequency">326 Hz</output></header>
+                    <div class="fold-pair" aria-label="Folds 3 and 4 vibrating">
+                      <span class="fold" id="fold3Meter"><i></i></span><b>↕</b><span class="fold" id="fold4Meter"><i></i></span>
+                    </div>
+                    <label for="source2Tension"><span>tension</span><output id="source2TensionOut" for="source2Tension">43%</output><input id="source2Tension" type="range" min="0" max="1" step="0.01" value="0.43" /></label>
+                  </article>
+                  <article class="source-card" id="source3" data-source="3">
+                    <header><button id="source3Enable" type="button" aria-pressed="true"><i></i>P3 · RATTLE</button><output id="source3Frequency">180 Hz</output></header>
+                    <div class="fold-pair" aria-label="Folds 5 and 6 vibrating">
+                      <span class="fold" id="fold5Meter"><i></i></span><b>↕</b><span class="fold" id="fold6Meter"><i></i></span>
+                    </div>
+                    <label for="source3Tension"><span>tension</span><output id="source3TensionOut" for="source3Tension">61%</output><input id="source3Tension" type="range" min="0" max="1" step="0.01" value="0.61" /></label>
+                  </article>
+                  <article class="source-card" id="source4" data-source="4">
+                    <header><button id="source4Enable" type="button" aria-pressed="true"><i></i>P4 · SHRIEK</button><output id="source4Frequency">1284 Hz</output></header>
+                    <div class="fold-pair" aria-label="Folds 7 and 8 vibrating">
+                      <span class="fold" id="fold7Meter"><i></i></span><b>↕</b><span class="fold" id="fold8Meter"><i></i></span>
+                    </div>
+                    <label for="source4Tension"><span>tension</span><output id="source4TensionOut" for="source4Tension">78%</output><input id="source4Tension" type="range" min="0" max="1" step="0.01" value="0.78" /></label>
+                  </article>
+                </div>
+                <div class="flow-port is-in" aria-hidden="true"><span></span></div>
+                <div class="flow-port is-out" aria-hidden="true"><span></span></div>
+              </section>
+
+              <section class="route-system flow-module" aria-labelledby="routeMatrixTitle">
+                <header class="flow-module-heading">
+                  <div><span>C / VALVES</span><h3 id="routeMatrixTitle">4 × 3 route matrix</h3></div>
+                  <output id="routeCountReadout">9 / 12 open</output>
+                </header>
+                <div class="route-matrix" id="routeMatrix" role="group" aria-label="Source to mouth routing valves">
+                  <span class="route-corner">SRC</span>
+                  <span class="route-column mouth-a"><b>M1</b><small>MAW</small></span>
+                  <span class="route-column mouth-b"><b>M2</b><small>BITER</small></span>
+                  <span class="route-column mouth-c"><b>M3</b><small>SCREAM</small></span>
+
+                  <span class="route-row"><b>P1</b><small>62 HZ</small></span>
+                  <button id="route-s1-m1" class="route-valve" type="button" data-route="1-1" data-source="1" data-mouth="1" aria-label="Route source 1 to subharmonic maw, MIDI C2" aria-pressed="true"><i></i><small>C2</small></button>
+                  <button id="route-s1-m2" class="route-valve" type="button" data-route="1-2" data-source="1" data-mouth="2" aria-label="Route source 1 to vowel biter, MIDI C sharp 2" aria-pressed="true"><i></i><small>C♯2</small></button>
+                  <button id="route-s1-m3" class="route-valve" type="button" data-route="1-3" data-source="1" data-mouth="3" aria-label="Route source 1 to needle scream, MIDI D2" aria-pressed="false"><i></i><small>D2</small></button>
+
+                  <span class="route-row"><b>P2</b><small>326 HZ</small></span>
+                  <button id="route-s2-m1" class="route-valve" type="button" data-route="2-1" data-source="2" data-mouth="1" aria-label="Route source 2 to subharmonic maw, MIDI D sharp 2" aria-pressed="true"><i></i><small>D♯2</small></button>
+                  <button id="route-s2-m2" class="route-valve" type="button" data-route="2-2" data-source="2" data-mouth="2" aria-label="Route source 2 to vowel biter, MIDI E2" aria-pressed="true"><i></i><small>E2</small></button>
+                  <button id="route-s2-m3" class="route-valve" type="button" data-route="2-3" data-source="2" data-mouth="3" aria-label="Route source 2 to needle scream, MIDI F2" aria-pressed="true"><i></i><small>F2</small></button>
+
+                  <span class="route-row"><b>P3</b><small>180 HZ</small></span>
+                  <button id="route-s3-m1" class="route-valve" type="button" data-route="3-1" data-source="3" data-mouth="1" aria-label="Route source 3 to subharmonic maw, MIDI F sharp 2" aria-pressed="false"><i></i><small>F♯2</small></button>
+                  <button id="route-s3-m2" class="route-valve" type="button" data-route="3-2" data-source="3" data-mouth="2" aria-label="Route source 3 to vowel biter, MIDI G2" aria-pressed="true"><i></i><small>G2</small></button>
+                  <button id="route-s3-m3" class="route-valve" type="button" data-route="3-3" data-source="3" data-mouth="3" aria-label="Route source 3 to needle scream, MIDI G sharp 2" aria-pressed="true"><i></i><small>G♯2</small></button>
+
+                  <span class="route-row"><b>P4</b><small>1284 HZ</small></span>
+                  <button id="route-s4-m1" class="route-valve" type="button" data-route="4-1" data-source="4" data-mouth="1" aria-label="Route source 4 to subharmonic maw, MIDI A2" aria-pressed="true"><i></i><small>A2</small></button>
+                  <button id="route-s4-m2" class="route-valve" type="button" data-route="4-2" data-source="4" data-mouth="2" aria-label="Route source 4 to vowel biter, MIDI A sharp 2" aria-pressed="false"><i></i><small>A♯2</small></button>
+                  <button id="route-s4-m3" class="route-valve" type="button" data-route="4-3" data-source="4" data-mouth="3" aria-label="Route source 4 to needle scream, MIDI B2" aria-pressed="true"><i></i><small>B2</small></button>
+                </div>
+                <p class="matrix-note"><span>MIDI NOTES OPEN PATHS</span><b>Opening one valve retunes every other load.</b></p>
+                <div class="flow-port is-in" aria-hidden="true"><span></span></div>
+                <div class="flow-port is-out" aria-hidden="true"><span></span></div>
+              </section>
+
+              <section class="mouth-system flow-module" aria-labelledby="mouthRackTitle">
+                <header class="flow-module-heading">
+                  <div><span>D / RADIATORS</span><h3 id="mouthRackTitle">3 mouths</h3></div>
+                  <output id="mouthCountReadout">3 rhythmic exits</output>
+                </header>
+                <div class="mouth-rack" id="mouthRack">
+                  <article class="mouth-card mouth-a" id="mouth1" data-mouth="1">
+                    <header><span><b>M1 / SUBHARMONIC MAW</b><small>false-fold collision · broad lips</small></span><output id="mouth1State">OPEN</output></header>
+                    <div class="mouth-shape" aria-hidden="true"><span class="upper-lip"></span><i class="tongue"></i><span class="lower-lip"></span><b class="air-jet"></b></div>
+                    <div class="mouth-stats"><span><small>aperture</small><b>84 mm</b></span><span><small>tongue</small><b>1.00×</b></span></div>
+                    <label for="mouth1Aperture"><span>lips</span><output id="mouth1ApertureOut" for="mouth1Aperture">74%</output><input id="mouth1Aperture" type="range" min="0" max="1" step="0.01" value="0.74" /></label>
+                    <label for="mouth1Tongue"><span>tongue</span><output id="mouth1TongueOut" for="mouth1Tongue">31%</output><input id="mouth1Tongue" type="range" min="0" max="1" step="0.01" value="0.31" /></label>
+                  </article>
+                  <article class="mouth-card mouth-b" id="mouth2" data-mouth="2">
+                    <header><span><b>M2 / VOWEL BITER</b><small>moving tongue · fricative teeth</small></span><output id="mouth2State">PULSE</output></header>
+                    <div class="mouth-shape" aria-hidden="true"><span class="upper-lip"></span><i class="tongue"></i><span class="lower-lip"></span><b class="air-jet"></b></div>
+                    <div class="mouth-stats"><span><small>aperture</small><b>42 mm</b></span><span><small>tongue</small><b>0.46×</b></span></div>
+                    <label for="mouth2Aperture"><span>lips</span><output id="mouth2ApertureOut" for="mouth2Aperture">48%</output><input id="mouth2Aperture" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
+                    <label for="mouth2Tongue"><span>tongue</span><output id="mouth2TongueOut" for="mouth2Tongue">58%</output><input id="mouth2Tongue" type="range" min="0" max="1" step="0.01" value="0.58" /></label>
+                  </article>
+                  <article class="mouth-card mouth-c" id="mouth3" data-mouth="3">
+                    <header><span><b>M3 / NEEDLE SCREAM</b><small>jet whistle · ratchet tongue</small></span><output id="mouth3State">SHUT</output></header>
+                    <div class="mouth-shape" aria-hidden="true"><span class="upper-lip"></span><i class="tongue"></i><span class="lower-lip"></span><b class="air-jet"></b></div>
+                    <div class="mouth-stats"><span><small>aperture</small><b>12 mm</b></span><span><small>tongue</small><b>0.16×</b></span></div>
+                    <label for="mouth3Aperture"><span>lips</span><output id="mouth3ApertureOut" for="mouth3Aperture">48%</output><input id="mouth3Aperture" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
+                    <label for="mouth3Tongue"><span>tongue</span><output id="mouth3TongueOut" for="mouth3Tongue">76%</output><input id="mouth3Tongue" type="range" min="0" max="1" step="0.01" value="0.76" /></label>
+                  </article>
+                </div>
+                <div class="flow-port is-in" aria-hidden="true"><span></span></div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section class="colony-sequencer" aria-labelledby="sequencerTitle">
+          <header class="colony-section-heading sequencer-heading">
+            <div><span>02 / POLYMETRIC MOUTHS</span><h2 id="sequencerTitle">Three clocks share one breath</h2></div>
+            <div class="sequence-position" aria-live="polite"><span>BAR 01</span><output id="stepReadout">STEP 01 / 16</output></div>
+          </header>
+
+          <div class="sequence-scroll">
+            <div class="sequence-lanes" id="sequenceLanes">
+              <section class="sequence-lane mouth-a" id="lane1" data-lane="1" data-mouth="1" aria-labelledby="lane1Title">
+                <header class="lane-header">
+                  <button id="lane1Mute" type="button" aria-pressed="false" aria-label="Mute subharmonic maw lane"><i></i></button>
+                  <div><b id="lane1Title">M1 / MAW</b><small>13-step cycle · subharmonic exhale</small></div>
+                  <label for="lane1Length">LEN <input id="lane1Length" type="number" min="1" max="16" step="1" value="13" /></label>
+                  <select id="lane1Rate" aria-label="Subharmonic maw lane clock rate"><option value="0.5">½×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+                </header>
+                <div class="lane-steps" role="group" aria-label="Bass mouth 16-step pattern">
+                  <button type="button" data-step="1" data-velocity="1" aria-label="Bass step 1 active, full velocity" aria-pressed="true"><span>1</span><i style="--velocity:1"></i></button>
+                  <button type="button" data-step="2" aria-label="Bass step 2 inactive" aria-pressed="false"><span>2</span><i></i></button>
+                  <button type="button" data-step="3" aria-label="Bass step 3 inactive" aria-pressed="false"><span>3</span><i></i></button>
+                  <button type="button" data-step="4" data-velocity=".48" aria-label="Bass step 4 active, medium velocity" aria-pressed="true"><span>4</span><i style="--velocity:.48"></i></button>
+                  <button type="button" data-step="5" aria-label="Bass step 5 inactive" aria-pressed="false"><span>5</span><i></i></button>
+                  <button type="button" data-step="6" aria-label="Bass step 6 inactive" aria-pressed="false"><span>6</span><i></i></button>
+                  <button type="button" data-step="7" data-velocity=".76" aria-label="Bass step 7 active, strong velocity" aria-pressed="true"><span>7</span><i style="--velocity:.76"></i></button>
+                  <button type="button" data-step="8" aria-label="Bass step 8 inactive" aria-pressed="false"><span>8</span><i></i></button>
+                  <button type="button" data-step="9" aria-label="Bass step 9 inactive" aria-pressed="false"><span>9</span><i></i></button>
+                  <button type="button" data-step="10" data-velocity=".38" aria-label="Bass step 10 active, soft velocity" aria-pressed="true"><span>10</span><i style="--velocity:.38"></i></button>
+                  <button type="button" data-step="11" aria-label="Bass step 11 inactive" aria-pressed="false"><span>11</span><i></i></button>
+                  <button type="button" data-step="12" aria-label="Bass step 12 inactive" aria-pressed="false"><span>12</span><i></i></button>
+                  <button class="is-loop-end" type="button" data-step="13" data-velocity=".62" aria-label="Bass step 13 active, loop end" aria-pressed="true"><span>13</span><i style="--velocity:.62"></i></button>
+                  <button class="is-outside-loop" type="button" data-step="14" aria-label="Bass step 14 outside loop" aria-pressed="false"><span>14</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="15" aria-label="Bass step 15 outside loop" aria-pressed="false"><span>15</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="16" aria-label="Bass step 16 outside loop" aria-pressed="false"><span>16</span><i></i></button>
+                </div>
+              </section>
+
+              <section class="sequence-lane mouth-b" id="lane2" data-lane="2" data-mouth="2" aria-labelledby="lane2Title">
+                <header class="lane-header">
+                  <button id="lane2Mute" type="button" aria-pressed="false" aria-label="Mute vowel biter lane"><i></i></button>
+                  <div><b id="lane2Title">M2 / BITER</b><small>11-step cycle · teeth and vowels</small></div>
+                  <label for="lane2Length">LEN <input id="lane2Length" type="number" min="1" max="16" step="1" value="11" /></label>
+                  <select id="lane2Rate" aria-label="Vowel biter lane clock rate"><option value="0.5">½×</option><option value="1">1×</option><option value="1.5" selected>3/2×</option><option value="2">2×</option></select>
+                </header>
+                <div class="lane-steps" role="group" aria-label="Speech mouth 16-step pattern">
+                  <button type="button" data-step="1" data-velocity=".82" aria-label="Speech step 1 active, strong velocity" aria-pressed="true"><span>1</span><i style="--velocity:.82"></i></button>
+                  <button type="button" data-step="2" aria-label="Speech step 2 inactive" aria-pressed="false"><span>2</span><i></i></button>
+                  <button type="button" data-step="3" data-velocity=".42" aria-label="Speech step 3 active, medium velocity" aria-pressed="true"><span>3</span><i style="--velocity:.42"></i></button>
+                  <button type="button" data-step="4" aria-label="Speech step 4 inactive" aria-pressed="false"><span>4</span><i></i></button>
+                  <button type="button" data-step="5" data-velocity="1" aria-label="Speech step 5 active, full velocity" aria-pressed="true"><span>5</span><i style="--velocity:1"></i></button>
+                  <button type="button" data-step="6" aria-label="Speech step 6 inactive" aria-pressed="false"><span>6</span><i></i></button>
+                  <button type="button" data-step="7" data-velocity=".58" aria-label="Speech step 7 active, medium velocity" aria-pressed="true"><span>7</span><i style="--velocity:.58"></i></button>
+                  <button type="button" data-step="8" data-velocity=".28" aria-label="Speech step 8 active, soft velocity" aria-pressed="true"><span>8</span><i style="--velocity:.28"></i></button>
+                  <button type="button" data-step="9" aria-label="Speech step 9 inactive" aria-pressed="false"><span>9</span><i></i></button>
+                  <button type="button" data-step="10" data-velocity=".74" aria-label="Speech step 10 active, strong velocity" aria-pressed="true"><span>10</span><i style="--velocity:.74"></i></button>
+                  <button class="is-loop-end" type="button" data-step="11" aria-label="Speech step 11 inactive, loop end" aria-pressed="false"><span>11</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="12" aria-label="Speech step 12 outside loop" aria-pressed="false"><span>12</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="13" aria-label="Speech step 13 outside loop" aria-pressed="false"><span>13</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="14" aria-label="Speech step 14 outside loop" aria-pressed="false"><span>14</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="15" aria-label="Speech step 15 outside loop" aria-pressed="false"><span>15</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="16" aria-label="Speech step 16 outside loop" aria-pressed="false"><span>16</span><i></i></button>
+                </div>
+              </section>
+
+              <section class="sequence-lane mouth-c" id="lane3" data-lane="3" data-mouth="3" aria-labelledby="lane3Title">
+                <header class="lane-header">
+                  <button id="lane3Mute" type="button" aria-pressed="false" aria-label="Mute needle scream lane"><i></i></button>
+                  <div><b id="lane3Title">M3 / SCREAM</b><small>7-step cycle · needle ratchets</small></div>
+                  <label for="lane3Length">LEN <input id="lane3Length" type="number" min="1" max="16" step="1" value="7" /></label>
+                  <select id="lane3Rate" aria-label="Needle scream lane clock rate"><option value="0.5">½×</option><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select>
+                </header>
+                <div class="lane-steps" role="group" aria-label="Click mouth 16-step pattern">
+                  <button type="button" data-step="1" data-velocity="1" aria-label="Click step 1 active, full velocity" aria-pressed="true"><span>1</span><i style="--velocity:1"></i></button>
+                  <button type="button" data-step="2" data-velocity=".36" aria-label="Click step 2 active, soft velocity" aria-pressed="true"><span>2</span><i style="--velocity:.36"></i></button>
+                  <button type="button" data-step="3" aria-label="Click step 3 inactive" aria-pressed="false"><span>3</span><i></i></button>
+                  <button type="button" data-step="4" data-velocity=".72" aria-label="Click step 4 active, strong velocity" aria-pressed="true"><span>4</span><i style="--velocity:.72"></i></button>
+                  <button type="button" data-step="5" aria-label="Click step 5 inactive" aria-pressed="false"><span>5</span><i></i></button>
+                  <button type="button" data-step="6" data-velocity=".48" aria-label="Click step 6 active, medium velocity" aria-pressed="true"><span>6</span><i style="--velocity:.48"></i></button>
+                  <button class="is-loop-end" type="button" data-step="7" data-velocity=".86" aria-label="Click step 7 active, loop end" aria-pressed="true"><span>7</span><i style="--velocity:.86"></i></button>
+                  <button class="is-outside-loop" type="button" data-step="8" aria-label="Click step 8 outside loop" aria-pressed="false"><span>8</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="9" aria-label="Click step 9 outside loop" aria-pressed="false"><span>9</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="10" aria-label="Click step 10 outside loop" aria-pressed="false"><span>10</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="11" aria-label="Click step 11 outside loop" aria-pressed="false"><span>11</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="12" aria-label="Click step 12 outside loop" aria-pressed="false"><span>12</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="13" aria-label="Click step 13 outside loop" aria-pressed="false"><span>13</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="14" aria-label="Click step 14 outside loop" aria-pressed="false"><span>14</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="15" aria-label="Click step 15 outside loop" aria-pressed="false"><span>15</span><i></i></button>
+                  <button class="is-outside-loop" type="button" data-step="16" aria-label="Click step 16 outside loop" aria-pressed="false"><span>16</span><i></i></button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="colony-console control-rail" aria-label="Colony Syrinx controls">
+        <section class="colony-transport" aria-label="Transport">
+          <button id="playButton" type="button" data-primary-transport aria-pressed="false">
+            <span class="colony-play-icon" id="playIcon" aria-hidden="true"></span>
+            <span><b>Release the freak</b><small id="playState">four hostile exhales · space</small></span>
+          </button>
+          <button id="panicButton" type="button">
+            <span aria-hidden="true">×</span><span><b>Close all</b><small>release pressure</small></span>
+          </button>
+        </section>
+
+        <section class="colony-console-section medium-section" aria-labelledby="mediumTitle">
+          <div class="console-heading"><span>MEDIUM</span><output id="engineStatus">AIR ENGINE ONLINE</output></div>
+          <h2 id="mediumTitle">What moves through it?</h2>
+          <label class="medium-select" for="mediumSelect">
+            <span class="medium-symbol" aria-hidden="true">≈</span>
+            <span><b>Flow medium</b><small>engine architecture</small></span>
+            <select id="mediumSelect">
+              <option value="air" selected>Air</option>
+              <option value="hydraulic">Hydraulic · water hammer</option>
+              <option value="granular">Granular · pellet avalanche</option>
+            </select>
+          </label>
+          <div class="future-engines" aria-label="Alternate material engines">
+            <span><i></i><b>Hydraulic</b><small>water hammer / bubbles</small><em>EXPERIMENT</em></span>
+            <span><i></i><b>Granular</b><small>pellets / jams / avalanches</small><em>EXPERIMENT</em></span>
+          </div>
+        </section>
+
+        <section class="colony-console-section breath-section" aria-labelledby="breathTitle">
+          <div class="console-heading"><span>BREATH DRIVE</span><output id="breathReadout">resting</output></div>
+          <h2 id="breathTitle">Feed the reservoirs</h2>
+          <button class="breath-button" id="breathButton" type="button" aria-pressed="false" aria-keyshortcuts="B">
+            <span class="breath-organ" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span><b>HOLD FOR CONTINUOUS BREATH</b><small>B / MIDI sustain / pointer pressure</small></span>
+          </button>
+          <div class="breath-meter" id="breathMeter" aria-label="Breath pressure meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i><span></span></div>
+          <label class="colony-control" for="lungPressure">
+            <span><b>Lung pressure</b><output id="lungPressureOut" for="lungPressure">68%</output></span>
+            <input id="lungPressure" type="range" min="0" max="1" step="0.01" value="0.68" />
+            <small>Sets the shared charge behind four separately timed exhale events.</small>
+          </label>
+        </section>
+
+        <section class="colony-console-section" aria-labelledby="behaviorTitle">
+          <div class="console-heading"><span>COLONY BEHAVIOR</span><output id="clockReadout">118 BPM</output></div>
+          <h2 id="behaviorTitle">One body, several clocks</h2>
+          <label class="colony-select-control" for="performanceMode">
+            <span><b>Valve behavior</b><small>who decides when a path opens</small></span>
+            <select id="performanceMode">
+              <option value="direct">Direct · note is valve</option>
+              <option value="organ" selected>Organ · held paths latch</option>
+              <option value="colony">Colony · pressure decides</option>
+            </select>
+          </label>
+          <label class="colony-control" for="tempo">
+            <span><b>Colony clock</b><output id="tempoOut" for="tempo">118 BPM</output></span>
+            <input id="tempo" type="range" min="24" max="260" step="1" value="118" />
+          </label>
+          <label class="colony-control" for="swing">
+            <span><b>Valve swing</b><output id="swingOut" for="swing">14%</output></span>
+            <input id="swing" type="range" min="0" max="0.75" step="0.01" value="0.14" />
+          </label>
+          <label class="colony-control" for="coupling">
+            <span><b>Back-pressure coupling</b><output id="couplingOut" for="coupling">32%</output></span>
+            <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.32" />
+            <small>Closing one mouth pushes its reflected load into the other folds.</small>
+          </label>
+          <label class="colony-control" for="valveSlew">
+            <span><b>Valve slew</b><output id="valveSlewOut" for="valveSlew">18 ms</output></span>
+            <input id="valveSlew" type="range" min="1" max="180" step="1" value="18" />
+            <small>Fast clicks become pressure shocks; slow motion bends the manifold.</small>
+          </label>
+          <label class="colony-control" for="reservoirLoss">
+            <span><b>Reservoir leak</b><output id="reservoirLossOut" for="reservoirLoss">21%</output></span>
+            <input id="reservoirLoss" type="range" min="0" max="1" step="0.01" value="0.21" />
+          </label>
+        </section>
+
+        <section class="colony-console-section colony-readouts" aria-labelledby="readoutTitle">
+          <div class="console-heading"><span>LIVE BODY</span><output id="phaseReadout">PHASE 000°</output></div>
+          <h2 id="readoutTitle">Plumbing under tension</h2>
+          <dl>
+            <div><dt>manifold</dt><dd id="manifoldReadout">6.8 kPa</dd></div>
+            <div><dt>flow</dt><dd id="flowReadout">0.00 L/s</dd></div>
+            <div><dt>open paths</dt><dd id="activePathReadout">09 / 12</dd></div>
+            <div><dt>fold lock</dt><dd id="foldLockReadout">2 + 2</dd></div>
+            <div><dt>reflected load</dt><dd id="loadReadout">31%</dd></div>
+            <div><dt>MIDI input</dt><dd id="midiReadout">not connected</dd></div>
+          </dl>
+          <button class="midi-learn-button" id="midiLearnButton" type="button">
+            <span aria-hidden="true">⌨</span><span><b>Learn twelve valves</b><small>C2–B2 default map · velocity = aperture</small></span>
+          </button>
+          <p id="statusText" role="status">Audio sleeps. The valve map and anatomy remain editable.</p>
+          <p class="audio-error" id="audioError" role="alert" hidden></p>
+        </section>
+      </aside>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="colony-syrinx-app.js"></script>
+  </body>
+</html>

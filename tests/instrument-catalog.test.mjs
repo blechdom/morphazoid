@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 112);
+  assert.equal(INSTRUMENTS.length, 113);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -336,6 +336,28 @@ test("Harmonica is a Southern blues free-reed instrument with page-owned perform
   assert.ok(instrument?.features.includes("Computer keys"));
   const midi = instrumentMidiCapabilityForId("harmonica");
   assert.equal(midi?.noteMode, "pitched");
+  assert.equal(midi?.computerKeyboardMode, "page");
+});
+
+test("Colony Syrinx is a polymetric pressure-network voice with page-owned valve keys", () => {
+  const instrument = instrumentById("colony-syrinx");
+  assert.equal(instrument?.label, "Colony Syrinx");
+  assert.equal(instrument?.href, "colony-syrinx.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/colony-syrinx.webp");
+  assert.equal(instrument?.kind, "Pressure-network voice sequencer");
+  assert.match(instrument?.description ?? "", /sixteen staggered lungs/i);
+  assert.match(instrument?.description ?? "", /twelve-valve manifold/i);
+  assert.deepEqual(
+    instrument?.tags.map(({ id }) => id),
+    ["voice-synths", "sequencers"],
+  );
+  assert.ok(instrument?.features.includes("Physical-model DSP"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+
+  const midi = instrumentMidiCapabilityForId("colony-syrinx");
+  assert.equal(midi?.noteMode, "sequence");
+  assert.equal(midi?.midiOutput, true);
   assert.equal(midi?.computerKeyboardMode, "page");
 });
 

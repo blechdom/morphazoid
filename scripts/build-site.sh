@@ -108,6 +108,12 @@ for worktree_runtime_file in \
   src/hybrinx-layout.js \
   src/hybrinx-timeline.js \
   assets/instruments/hybrinx.webp \
+  colony-syrinx.html \
+  colony-syrinx.css \
+  colony-syrinx-app.js \
+  src/colony-syrinx.js \
+  src/colony-syrinx-processor.js \
+  assets/instruments/colony-syrinx.webp \
   blowhole.html \
   blowhole.css \
   blowhole-app.js \
@@ -516,6 +522,12 @@ required_files=(
   src/hybrinx-layout.js
   src/hybrinx-timeline.js
   assets/instruments/hybrinx.webp
+  colony-syrinx.html
+  colony-syrinx.css
+  colony-syrinx-app.js
+  src/colony-syrinx.js
+  src/colony-syrinx-processor.js
+  assets/instruments/colony-syrinx.webp
   blowhole.html
   blowhole.css
   blowhole-app.js

@@ -82,6 +82,7 @@ const NOTE_MODE_IDS = Object.freeze({
   sequence: Object.freeze([
     "boidzoid",
     "pink-trombonazoid",
+    "colony-syrinx",
     "vocalzoid",
     "sliding-puzzle",
     "hyper-rubix",
@@ -142,6 +143,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "jaw-harp",
   "harmonica",
   "hambone",
+  "colony-syrinx",
   "breath-atlas",
   "morphynx",
   "hyper-syrinx",

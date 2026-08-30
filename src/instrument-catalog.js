@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260829-7";
+} from "../nav.js?v=catalog-20260829-8";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -195,6 +195,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Reveals the native keyframed pressure, pitch, closure, mouth, cavity, roughness, source-split, and bilateral-balance contours that animate physical animal calls through a playable tongue-shaped tract.",
     "Turn on audio, choose a host beast and native call, then play or loop it while the live timeline traces every sounding parameter contour beneath the animal.",
     ["Built-in source", "Pointer", "Computer keys"],
+  ),
+  "colony-syrinx": define(
+    "Pressure-network voice sequencer",
+    "Routes sixteen staggered lungs through eight coupled folds and a twelve-valve manifold into three differently shaped, polymetric mouths whose closures push pressure back through the whole organism.",
+    "Turn on audio, hold Breath, then open source-to-mouth valves with C2–B2 or draw three interlocking mouth rhythms in the sequencer.",
+    ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
   ),
   blowhole: define(
     "Cetacean physical-model instrument",
@@ -643,6 +649,7 @@ const CATALOG_DETAILS = Object.freeze({
 const ADDITIONAL_TAG_IDS = Object.freeze({
   "pink-trombonazoid": Object.freeze(["sequencers"]),
   hybrinx: Object.freeze(["sequencers"]),
+  "colony-syrinx": Object.freeze(["sequencers"]),
   blowhole: Object.freeze(["sequencers"]),
   hambone: Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),

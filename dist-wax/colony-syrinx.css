@@ -1,0 +1,2446 @@
+.colony-syrinx-page {
+  --colony-bg: #050806;
+  --colony-panel: #090d0a;
+  --colony-panel-high: #0d130e;
+  --colony-paper: #e8eadc;
+  --colony-muted: #899087;
+  --colony-faint: #555d54;
+  --colony-line: rgba(232, 234, 220, 0.12);
+  --colony-line-strong: rgba(232, 234, 220, 0.24);
+  --colony-lung: #c9f36a;
+  --colony-lung-soft: rgba(201, 243, 106, 0.12);
+  --colony-fold: #ff806b;
+  --colony-fold-soft: rgba(255, 128, 107, 0.12);
+  --mouth-a: #e6bd62;
+  --mouth-b: #64dfd2;
+  --mouth-c: #bb9bf2;
+  --accent: var(--colony-lung);
+  --accent-soft: rgba(201, 243, 106, 0.5);
+  --accent-glow: rgba(201, 243, 106, 0.16);
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--colony-paper);
+  background:
+    radial-gradient(circle at 42% -10%, rgba(201, 243, 106, 0.06), transparent 31rem),
+    var(--colony-bg);
+}
+
+.colony-syrinx-page .masthead {
+  border-color: var(--colony-line);
+  background: rgba(5, 8, 6, 0.94);
+  backdrop-filter: blur(16px);
+}
+
+.colony-syrinx-page .tab.active {
+  color: var(--colony-lung);
+}
+
+.colony-syrinx-page .audio-button {
+  border-color: rgba(201, 243, 106, 0.3);
+  background: rgba(201, 243, 106, 0.045);
+}
+
+.colony-syrinx-page .audio-button[aria-pressed="true"] {
+  color: #071007;
+  background: var(--colony-lung);
+  box-shadow: 0 0 20px rgba(201, 243, 106, 0.16);
+}
+
+.colony-audio-glyph {
+  position: relative;
+  display: flex;
+  width: 21px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.colony-audio-glyph i {
+  width: 2px;
+  height: 8px;
+  background: currentColor;
+}
+
+.colony-audio-glyph i:nth-child(2) { height: 17px; }
+.colony-audio-glyph i:nth-child(3) { height: 12px; }
+
+.audio-button[aria-pressed="true"] .colony-audio-glyph i {
+  animation: colony-audio 760ms ease-in-out infinite alternate;
+}
+
+.audio-button[aria-pressed="true"] .colony-audio-glyph i:nth-child(2) { animation-delay: -280ms; }
+.audio-button[aria-pressed="true"] .colony-audio-glyph i:nth-child(3) { animation-delay: -510ms; }
+
+.colony-shell {
+  display: grid;
+  height: calc(100dvh - 58px);
+  min-height: 0;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) clamp(330px, 25vw, 398px);
+}
+
+.colony-workspace {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: rgba(201, 243, 106, 0.55) rgba(232, 234, 220, 0.04);
+  background:
+    linear-gradient(rgba(201, 243, 106, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 243, 106, 0.022) 1px, transparent 1px),
+    var(--colony-bg);
+  background-size: 30px 30px;
+}
+
+.colony-titlebar {
+  display: grid;
+  min-height: 160px;
+  padding: clamp(24px, 3.2vw, 46px) clamp(18px, 2.8vw, 42px) 28px;
+  border-bottom: 1px solid var(--colony-line);
+  background:
+    radial-gradient(circle at 8% 44%, rgba(201, 243, 106, 0.075), transparent 25%),
+    linear-gradient(100deg, rgba(255, 128, 107, 0.025), transparent 60%);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: clamp(24px, 3.4vw, 58px);
+  row-gap: 18px;
+}
+
+.colony-title-copy {
+  min-width: 0;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.colony-title-copy p {
+  margin: 0 0 11px;
+  color: var(--colony-lung);
+  font-size: 8px;
+  font-weight: 760;
+  letter-spacing: 0.19em;
+}
+
+.colony-title-copy h1 {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  color: var(--colony-paper);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(42px, 4vw, 66px);
+  font-weight: 900;
+  letter-spacing: -0.075em;
+  line-height: 0.76;
+  white-space: nowrap;
+}
+
+.colony-title-copy h1 span:last-child {
+  color: transparent;
+  -webkit-text-stroke: 1.2px var(--colony-paper);
+}
+
+.colony-title-copy h1 i {
+  margin: 0 0.16em;
+  color: var(--colony-fold);
+  font-family: Georgia, serif;
+  font-size: 0.62em;
+  font-weight: 400;
+}
+
+.colony-thesis {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--colony-muted);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 1.52;
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.colony-counts {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(2, 72px);
+  gap: 5px;
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+.colony-counts div {
+  display: grid;
+  min-height: 48px;
+  padding: 7px 9px;
+  border: 1px solid var(--colony-line);
+  border-radius: 58% 42% 54% 46% / 38% 58% 42% 62%;
+  background: rgba(232, 234, 220, 0.018);
+  align-content: center;
+  justify-items: center;
+}
+
+.colony-counts dt {
+  color: var(--colony-faint);
+  font-size: 6px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.colony-counts dd {
+  margin: 1px 0 0;
+  color: var(--colony-paper);
+  font-size: 14px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.colony-anatomy,
+.colony-sequencer {
+  border-bottom: 1px solid var(--colony-line);
+}
+
+.colony-section-heading {
+  display: flex;
+  min-height: 72px;
+  padding: 14px clamp(18px, 2.4vw, 34px);
+  border-bottom: 1px solid var(--colony-line);
+  background: rgba(5, 8, 6, 0.82);
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.colony-section-heading > div:first-child > span,
+.flow-module-heading span,
+.console-heading span {
+  color: var(--colony-lung);
+  font-size: 7px;
+  font-weight: 760;
+  letter-spacing: 0.17em;
+}
+
+.colony-section-heading h2 {
+  margin: 4px 0 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.anatomy-legend {
+  display: flex;
+  color: var(--colony-faint);
+  align-items: center;
+  gap: 15px;
+  font-size: 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.anatomy-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.anatomy-legend i {
+  width: 12px;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 0 5px currentColor;
+}
+
+.anatomy-legend .is-pressure { color: var(--colony-lung); }
+.anatomy-legend .is-voice { color: var(--colony-fold); }
+.anatomy-legend .is-route { color: var(--mouth-b); }
+.anatomy-legend .is-return { color: var(--mouth-c); border-top: 1px dashed currentColor; background: transparent; }
+
+.anatomy-scroll,
+.sequence-scroll {
+  overflow-x: auto;
+  scrollbar-color: rgba(201, 243, 106, 0.55) rgba(232, 234, 220, 0.04);
+}
+
+/* The instrument's primary surface is one continuous body. The controls below
+   remain literal and accessible, while this diagram carries the live pressure. */
+
+.colony-body-scroll {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px solid rgba(201, 243, 106, 0.13);
+  background:
+    radial-gradient(ellipse at 28% 48%, rgba(201, 243, 106, 0.085), transparent 37%),
+    radial-gradient(ellipse at 79% 44%, rgba(100, 223, 210, 0.055), transparent 36%),
+    linear-gradient(180deg, #050806, #020403 72%, #050806);
+  scrollbar-color: rgba(201, 243, 106, 0.55) rgba(232, 234, 220, 0.04);
+}
+
+.colony-body-scroll:focus-visible {
+  outline: 1px solid var(--colony-lung);
+  outline-offset: -4px;
+}
+
+.colony-body-stage {
+  position: relative;
+  width: 100%;
+  min-width: 870px;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 5px clamp(10px, 2vw, 26px) 0;
+}
+
+.colony-body-stage::before,
+.colony-body-stage::after {
+  position: absolute;
+  z-index: 0;
+  width: 35%;
+  height: 64%;
+  border: 1px solid rgba(201, 243, 106, 0.055);
+  border-radius: 50%;
+  pointer-events: none;
+  content: "";
+  filter: blur(12px);
+}
+
+.colony-body-stage::before {
+  top: 15%;
+  left: 1%;
+  transform: rotate(-12deg);
+}
+
+.colony-body-stage::after {
+  right: 2%;
+  bottom: 11%;
+  border-color: rgba(100, 223, 210, 0.05);
+  transform: rotate(16deg);
+}
+
+.colony-body {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 410px;
+  overflow: visible;
+}
+
+.colony-body .body-aura {
+  fill: url(#colonyBodyWash);
+  stroke: rgba(201, 243, 106, 0.09);
+  stroke-width: 1;
+  filter: url(#colonySoftGlow);
+}
+
+.colony-body .body-ghost-vessel {
+  fill: none;
+  stroke: rgba(201, 243, 106, 0.065);
+  stroke-linecap: round;
+  stroke-width: 19;
+}
+
+.reservoir-veins path,
+.source-bridges path {
+  fill: none;
+  stroke: rgba(74, 228, 220, 0.54);
+  stroke-linecap: round;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 4px rgba(74, 228, 220, 0.42));
+}
+
+.reservoir-veins path:not(.reservoir-spine) {
+  stroke-dasharray: 2 7;
+}
+
+.reservoir-veins .reservoir-spine {
+  stroke: rgba(74, 228, 220, 0.28);
+  stroke-width: 6;
+}
+
+.lung-garden-membranes use {
+  fill: rgba(255, 99, 185, .035);
+  stroke: rgba(113, 238, 230, .3);
+  stroke-dasharray: 1 7;
+  stroke-width: .8;
+  opacity: calc(.55 + var(--exhale, 0) * .45);
+  filter: drop-shadow(0 0 calc(2px + var(--exhale, 0) * 10px) rgba(255, 99, 185, .32));
+  transition: fill 100ms linear, opacity 100ms linear, filter 100ms linear;
+}
+
+.vessel-lung {
+  color: #ff63b9;
+  opacity: calc(0.34 + var(--pressure, 0.34) * 0.52 + var(--exhale, 0) * .14);
+  filter: drop-shadow(0 0 calc(2px + var(--pressure, 0.34) * 6px) rgba(255, 82, 177, 0.48));
+  transition: opacity 100ms linear, filter 100ms linear;
+}
+
+.vessel-lung use {
+  fill: url(#colonyLungFill);
+  stroke: currentColor;
+  stroke-width: 1.1;
+  vector-effect: non-scaling-stroke;
+  transform: scale(
+    calc(.93 + var(--pressure, 0) * .04 + var(--exhale, 0) * .07),
+    calc(.9 + var(--pressure, 0) * .06 + var(--exhale, 0) * .13)
+  );
+  transform-box: fill-box;
+  transform-origin: 82% 50%;
+  transition: transform 130ms ease-out;
+}
+
+.vessel-lung path {
+  fill: none;
+  stroke: rgba(113, 238, 230, 0.72);
+  stroke-linecap: round;
+  stroke-width: .85;
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-lung.is-exhaling {
+  filter: drop-shadow(0 0 calc(6px + var(--exhale, 0) * 10px) rgba(255, 82, 177, .72));
+}
+
+.vessel-lung.is-disabled,
+.vessel-lung:not(.is-enabled) {
+  opacity: .14;
+  filter: none;
+}
+
+.vessel-source {
+  color: #ffa755;
+  opacity: calc(0.48 + var(--activity, 0.32) * 0.52);
+  filter: drop-shadow(0 0 calc(2px + var(--activity, 0.32) * 7px) rgba(255, 167, 85, 0.5));
+  transition: opacity 90ms linear, filter 90ms linear;
+}
+
+.vessel-source > path {
+  fill: rgba(255, 128, 107, 0.055);
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2.2;
+}
+
+.vessel-source > circle {
+  fill: currentColor;
+}
+
+.vessel-source > text,
+.vessel-mouth > text,
+.body-labels text {
+  fill: currentColor;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-anchor: middle;
+}
+
+.vessel-source.is-disabled,
+.vessel-source:not(.is-enabled) {
+  opacity: .16;
+  filter: none;
+}
+
+.vessel-source.is-exhaling {
+  opacity: 1;
+  filter: drop-shadow(0 0 calc(5px + var(--exhale, 0) * 10px) rgba(255, 167, 85, .78));
+}
+
+.route-vessels {
+  isolation: isolate;
+}
+
+.vessel-route {
+  --vessel-color: var(--colony-muted);
+  fill: none;
+  stroke: var(--vessel-color);
+  stroke-dasharray: 1 8;
+  stroke-linecap: round;
+  stroke-width: 1.2;
+  opacity: .06;
+  cursor: pointer;
+  filter: none;
+  pointer-events: stroke;
+  transition: opacity 90ms linear, stroke-width 90ms linear, filter 90ms linear;
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-route:hover,
+.vessel-route:focus-visible {
+  opacity: .72;
+  stroke-width: 4px;
+  outline: none;
+  filter: drop-shadow(0 0 7px var(--vessel-color));
+}
+
+.vessel-route.mouth-a { --vessel-color: var(--mouth-a); }
+.vessel-route.mouth-b { --vessel-color: var(--mouth-b); }
+.vessel-route.mouth-c { --vessel-color: var(--mouth-c); }
+
+.vessel-route.is-open {
+  stroke-dasharray: 2 8;
+  stroke-width: 1.8px;
+  opacity: .64;
+  filter: drop-shadow(0 0 2px var(--vessel-color));
+}
+
+.vessel-route.is-flowing {
+  stroke-width: calc(1.8px + var(--flow, .28) * 2.8px);
+  opacity: calc(.62 + var(--flow, .28) * .36);
+  filter: drop-shadow(0 0 calc(3px + var(--flow, .28) * 7px) var(--vessel-color));
+}
+
+.colony-shell.is-running .vessel-route.is-flowing {
+  animation: colony-vessel-flow 800ms linear infinite;
+}
+
+.vessel-mouth {
+  color: var(--mouth-color);
+  opacity: calc(.58 + var(--pressure, .22) * .42);
+  filter: drop-shadow(0 0 calc(2px + var(--pressure, .22) * 8px) color-mix(in oklab, var(--mouth-color) 48%, transparent));
+  transition: opacity 100ms linear, filter 100ms linear;
+}
+
+.vessel-mouth .mouth-root {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.vessel-mouth .mouth-upper,
+.vessel-mouth .mouth-lower {
+  fill: color-mix(in oklab, var(--mouth-color) 7%, transparent);
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 2.3;
+}
+
+.vessel-mouth .mouth-tongue {
+  fill: color-mix(in oklab, var(--mouth-color) 24%, transparent);
+  stroke: color-mix(in oklab, var(--mouth-color) 85%, white);
+  stroke-width: 1.2;
+}
+
+.vessel-mouth .mouth-teeth {
+  fill: none;
+  stroke: color-mix(in oklab, var(--mouth-color) 48%, white);
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1.35;
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth.is-sounding {
+  opacity: 1;
+  filter: drop-shadow(0 0 calc(7px + var(--pressure, .5) * 12px) var(--mouth-color));
+}
+
+.body-labels {
+  color: rgba(232, 234, 220, 0.36);
+}
+
+.body-labels path {
+  fill: none;
+  stroke: rgba(232, 234, 220, 0.1);
+  stroke-width: 1;
+}
+
+.body-labels text {
+  font-size: 7px;
+  text-anchor: start;
+}
+
+.colony-body-stage figcaption {
+  display: flex;
+  min-height: 37px;
+  margin: -11px 2.2% 0;
+  padding: 8px 0 9px;
+  border-top: 1px solid rgba(201, 243, 106, 0.1);
+  color: var(--colony-faint);
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 6px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.colony-body-stage figcaption span {
+  display: inline-flex;
+  color: var(--colony-lung);
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.colony-body-stage figcaption i {
+  width: 23px;
+  border-top: 1px dotted currentColor;
+  box-shadow: 0 0 5px currentColor;
+}
+
+.colony-body-stage figcaption b {
+  max-width: 58ch;
+  font-weight: 500;
+  text-align: right;
+}
+
+.anatomy-flow {
+  display: grid;
+  min-width: 1060px;
+  min-height: 454px;
+  padding: 18px 20px 20px;
+  grid-template-columns: minmax(228px, 0.95fr) minmax(194px, 0.78fr) minmax(232px, 0.86fr) minmax(264px, 1.08fr);
+  gap: 18px;
+}
+
+.flow-module {
+  position: relative;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(232, 234, 220, 0.07);
+  border-radius: 28px 12px 34px 15px / 19px 30px 16px 32px;
+  background:
+    radial-gradient(ellipse at 24% 14%, rgba(232, 234, 220, 0.034), transparent 48%),
+    rgba(7, 11, 8, 0.68);
+  box-shadow: inset 0 0 28px rgba(201, 243, 106, 0.014);
+}
+
+.flow-module::after {
+  display: none;
+}
+
+.flow-module-heading {
+  display: flex;
+  min-height: 48px;
+  border-bottom: 1px solid var(--colony-line);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.flow-module-heading h3 {
+  margin: 3px 0 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 720;
+  letter-spacing: -0.01em;
+}
+
+.flow-module-heading output {
+  color: var(--colony-muted);
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.flow-port {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--colony-lung);
+  border-radius: 50%;
+  background: var(--colony-bg);
+  box-shadow: 0 0 9px rgba(201, 243, 106, 0.24);
+  place-items: center;
+  transform: translateY(-50%);
+}
+
+.flow-port::before,
+.flow-port::after {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  border-top: 1px solid rgba(201, 243, 106, 0.56);
+  content: "";
+}
+
+.flow-port::before { right: 100%; }
+.flow-port::after { left: 100%; }
+.flow-port.is-in { left: -10px; }
+.flow-port.is-out { right: -10px; }
+
+.flow-port span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--colony-lung);
+}
+
+.lung-banks {
+  display: grid;
+  padding-top: 11px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lung-bank {
+  padding: 7px;
+  border: 1px solid rgba(201, 243, 106, 0.12);
+  border-radius: 19px 10px 22px 12px / 14px 22px 12px 18px;
+  background: rgba(201, 243, 106, 0.025);
+}
+
+.lung-bank > header {
+  display: flex;
+  margin-bottom: 6px;
+  color: var(--colony-faint);
+  align-items: center;
+  justify-content: space-between;
+  font-size: 6px;
+}
+
+.lung-bank > header b {
+  color: var(--colony-lung);
+  letter-spacing: 0.12em;
+}
+
+.lung-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.lung {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: 58px;
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(201, 243, 106, 0.13);
+  border-radius: 25px 12px 29px 16px / 18px 27px 14px 25px;
+  cursor: pointer;
+  color: var(--colony-faint);
+  background: #070b08;
+  align-content: start;
+  font-size: 6px;
+  text-align: left;
+}
+
+.lung:hover,
+.lung:focus-visible {
+  border-color: var(--colony-lung);
+  color: var(--colony-lung);
+}
+
+.lung > i {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 27px;
+  height: 32px;
+  border: 1px solid currentColor;
+  border-radius: 68% 35% 61% 45% / 49% 38% 70% 59%;
+  color: rgba(201, 243, 106, 0.45);
+  transform: translateX(-50%) rotate(-5deg);
+}
+
+.lung > i::before {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  height: 22px;
+  border-left: 1px solid currentColor;
+  content: "";
+}
+
+.lung > i::after {
+  position: absolute;
+  top: 7px;
+  left: 49%;
+  width: 11px;
+  height: 13px;
+  border-top: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+  border-radius: 0 12px 0 0;
+  content: "";
+  transform: rotate(24deg);
+  transform-origin: left top;
+}
+
+.lung:nth-child(2) {
+  border-radius: 12px 27px 15px 25px / 24px 15px 28px 17px;
+}
+
+.lung:nth-child(2) > i {
+  top: 13px;
+  width: 30px;
+  height: 34px;
+  border-radius: 41% 65% 38% 63% / 36% 55% 67% 62%;
+  transform: translateX(-50%) rotate(7deg);
+}
+
+.lung:nth-child(3) {
+  border-radius: 28px 15px 20px 11px / 17px 26px 15px 29px;
+}
+
+.lung:nth-child(3) > i {
+  top: 16px;
+  left: 48%;
+  width: 29px;
+  height: 29px;
+  border-radius: 72% 34% 54% 46% / 55% 42% 71% 45%;
+  transform: translateX(-50%) rotate(-9deg);
+}
+
+.lung:nth-child(4) {
+  border-radius: 16px 24px 29px 12px / 26px 17px 22px 14px;
+}
+
+.lung:nth-child(4) > i {
+  top: 12px;
+  left: 52%;
+  width: 25px;
+  height: 35px;
+  border-radius: 39% 67% 58% 42% / 48% 39% 64% 72%;
+  transform: translateX(-50%) rotate(8deg);
+}
+
+.lung > b {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  left: 3px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--colony-lung) calc(var(--fill) * 100%), rgba(201, 243, 106, 0.1) 0);
+}
+
+.lung[aria-pressed="false"] {
+  opacity: 0.35;
+}
+
+.lung[aria-pressed="false"] > i {
+  color: var(--colony-faint);
+}
+
+.source-rack {
+  display: grid;
+  padding-top: 9px;
+  gap: 7px;
+}
+
+.source-card {
+  display: grid;
+  min-height: 80px;
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 128, 107, 0.12);
+  border-radius: 25px 10px 27px 13px / 17px 25px 15px 24px;
+  background: rgba(255, 128, 107, 0.025);
+  grid-template-columns: minmax(0, 1fr) 56px;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+}
+
+.source-card > header {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.source-card > header button {
+  display: inline-flex;
+  padding: 0;
+  cursor: pointer;
+  color: var(--colony-fold);
+  background: transparent;
+  align-items: center;
+  gap: 5px;
+  font-size: 7px;
+  font-weight: 760;
+  letter-spacing: 0.09em;
+}
+
+.source-card > header button i,
+.lane-header > button i {
+  width: 6px;
+  height: 6px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 7px currentColor;
+}
+
+.source-card > header button[aria-pressed="false"] {
+  color: var(--colony-faint);
+}
+
+.source-card > header button[aria-pressed="false"] i {
+  background: transparent;
+  box-shadow: none;
+}
+
+.source-card > header output {
+  color: var(--colony-muted);
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fold-pair {
+  display: grid;
+  min-height: 40px;
+  grid-column: 2;
+  grid-row: 2;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 3px;
+}
+
+.fold-pair > b {
+  color: rgba(255, 128, 107, 0.55);
+  font-size: 7px;
+  font-weight: 400;
+}
+
+.fold {
+  position: relative;
+  display: block;
+  height: 30px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 128, 107, 0.25);
+  border-radius: 50% 30% 50% 30%;
+  background: rgba(255, 128, 107, 0.05);
+}
+
+.fold:nth-child(3) {
+  border-radius: 30% 50% 30% 50%;
+}
+
+.fold i {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  left: 2px;
+  border-top: 1px solid var(--colony-fold);
+  box-shadow: 0 0 6px var(--colony-fold);
+}
+
+.source-card > label,
+.mouth-card > label {
+  display: grid;
+  min-width: 0;
+  margin-top: 5px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-column: 1;
+  grid-row: 2;
+  align-content: end;
+  color: var(--colony-faint);
+  font-size: 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.source-card > label output,
+.mouth-card > label output {
+  color: var(--colony-fold);
+  font-variant-numeric: tabular-nums;
+}
+
+.source-card > label input,
+.mouth-card > label input {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  grid-column: 1 / -1;
+}
+
+.route-system {
+  background:
+    radial-gradient(ellipse at 50% 48%, rgba(100, 223, 210, 0.055), transparent 70%),
+    rgba(7, 11, 8, 0.72);
+}
+
+.route-matrix {
+  display: grid;
+  padding-top: 10px;
+  grid-template-columns: 44px repeat(3, minmax(0, 1fr));
+  grid-template-rows: 31px repeat(4, 52px);
+  gap: 5px;
+}
+
+.route-corner,
+.route-column,
+.route-row {
+  display: grid;
+  min-width: 0;
+  color: var(--colony-faint);
+  place-items: center;
+  font-size: 6px;
+  letter-spacing: 0.08em;
+}
+
+.route-column b,
+.route-column small,
+.route-row b,
+.route-row small {
+  display: block;
+}
+
+.route-column b,
+.route-row b {
+  color: var(--route-color, var(--colony-paper));
+  font-size: 7px;
+}
+
+.route-column small,
+.route-row small {
+  margin-top: 1px;
+  font-size: 5px;
+}
+
+.mouth-a { --mouth-color: var(--mouth-a); --route-color: var(--mouth-a); }
+.mouth-b { --mouth-color: var(--mouth-b); --route-color: var(--mouth-b); }
+.mouth-c { --mouth-color: var(--mouth-c); --route-color: var(--mouth-c); }
+
+.route-valve {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid rgba(232, 234, 220, 0.1);
+  border-radius: 50% 42% 51% 45% / 45% 52% 43% 54%;
+  cursor: pointer;
+  color: var(--colony-faint);
+  background: rgba(232, 234, 220, 0.018);
+  place-items: center;
+}
+
+.route-valve::before,
+.route-valve::after {
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 10px);
+  border-top: 1px solid currentColor;
+  content: "";
+  opacity: 0.3;
+}
+
+.route-valve::before { left: 0; }
+.route-valve::after { right: 0; }
+
+.route-valve i {
+  position: relative;
+  z-index: 1;
+  width: 15px;
+  height: 15px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: var(--colony-bg);
+}
+
+.route-valve i::before {
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  height: 7px;
+  border-left: 1px solid currentColor;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.route-valve small {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  font-size: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.route-valve:hover,
+.route-valve:focus-visible {
+  border-color: var(--colony-paper);
+  color: var(--colony-paper);
+}
+
+.route-valve[data-mouth="1"][aria-pressed="true"] { color: var(--mouth-a); }
+.route-valve[data-mouth="2"][aria-pressed="true"] { color: var(--mouth-b); }
+.route-valve[data-mouth="3"][aria-pressed="true"] { color: var(--mouth-c); }
+
+.route-valve[aria-pressed="true"] {
+  border-color: currentColor;
+  background: color-mix(in oklab, currentColor 9%, transparent);
+  box-shadow: inset 0 0 15px color-mix(in oklab, currentColor 8%, transparent);
+}
+
+.route-valve[aria-pressed="true"] i {
+  background: currentColor;
+  box-shadow: 0 0 11px currentColor;
+}
+
+.route-valve[aria-pressed="true"] i::before {
+  border-color: var(--colony-bg);
+  transform: rotate(90deg);
+}
+
+.matrix-note {
+  display: flex;
+  margin: 12px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--colony-line);
+  color: var(--colony-faint);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 9px;
+  font-size: 5px;
+  line-height: 1.45;
+}
+
+.matrix-note span {
+  color: var(--mouth-b);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.matrix-note b {
+  max-width: 19ch;
+  font-weight: 400;
+  text-align: right;
+}
+
+.mouth-rack {
+  display: grid;
+  padding-top: 9px;
+  gap: 7px;
+}
+
+.mouth-card {
+  display: grid;
+  min-height: 107px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in oklab, var(--mouth-color) 18%, transparent);
+  border-radius: 34px 13px 40px 15px / 21px 38px 17px 34px;
+  background: color-mix(in oklab, var(--mouth-color) 3.5%, transparent);
+  grid-template-columns: minmax(90px, 0.85fr) minmax(98px, 1fr);
+  grid-template-rows: auto 40px auto auto;
+  column-gap: 10px;
+}
+
+.mouth-card > header {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mouth-card > header b,
+.mouth-card > header small {
+  display: block;
+}
+
+.mouth-card > header b {
+  color: var(--mouth-color);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.mouth-card > header small {
+  margin-top: 1px;
+  color: var(--colony-faint);
+  font-size: 5px;
+}
+
+.mouth-card > header output {
+  padding: 2px 4px;
+  border: 1px solid color-mix(in oklab, var(--mouth-color) 30%, transparent);
+  color: var(--mouth-color);
+  font-size: 5px;
+  letter-spacing: 0.1em;
+}
+
+.mouth-shape {
+  position: relative;
+  height: 40px;
+  overflow: hidden;
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.mouth-shape .upper-lip,
+.mouth-shape .lower-lip {
+  position: absolute;
+  right: 5px;
+  left: 5px;
+  height: 14px;
+  border: 2px solid var(--mouth-color);
+}
+
+.mouth-shape .upper-lip {
+  top: 5px;
+  border-right-width: 4px;
+  border-bottom: 0;
+  border-radius: 62% 100% 0 0;
+}
+
+.mouth-shape .lower-lip {
+  bottom: 5px;
+  border-top: 0;
+  border-right-width: 4px;
+  border-radius: 0 0 62% 100%;
+}
+
+.mouth-shape .tongue {
+  position: absolute;
+  z-index: 2;
+  right: 13px;
+  bottom: 8px;
+  left: 23%;
+  height: 11px;
+  border-top: 1px solid var(--mouth-color);
+  border-radius: 50% 80% 0 0;
+  background: color-mix(in oklab, var(--mouth-color) 13%, transparent);
+}
+
+.mouth-shape .air-jet {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 22%;
+  border-top: 1px dotted var(--mouth-color);
+  transform: translateY(-50%);
+}
+
+.mouth-card.mouth-b .mouth-shape {
+  margin: 3px 8% 3px 2%;
+}
+
+.mouth-card.mouth-c .mouth-shape {
+  margin: 7px 18% 7px 7%;
+}
+
+.mouth-card.mouth-c .mouth-shape .tongue {
+  left: 48%;
+  height: 8px;
+}
+
+.mouth-stats {
+  display: grid;
+  grid-column: 2;
+  grid-row: 2;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 4px;
+}
+
+.mouth-stats span {
+  padding: 4px;
+  border-left: 1px solid color-mix(in oklab, var(--mouth-color) 25%, transparent);
+}
+
+.mouth-stats small,
+.mouth-stats b {
+  display: block;
+}
+
+.mouth-stats small {
+  color: var(--colony-faint);
+  font-size: 5px;
+}
+
+.mouth-stats b {
+  margin-top: 2px;
+  color: var(--mouth-color);
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mouth-card > label {
+  grid-template-columns: 38px auto minmax(60px, 1fr);
+  grid-column: 1 / -1;
+  grid-row: auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.mouth-card > label output {
+  color: var(--mouth-color);
+}
+
+.mouth-card > label input {
+  height: 12px;
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.sequencer-heading {
+  min-height: 68px;
+}
+
+.sequence-position {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--colony-faint);
+  font-size: 6px;
+  letter-spacing: 0.1em;
+}
+
+.sequence-position output {
+  min-width: 92px;
+  padding: 7px 8px;
+  border: 1px solid rgba(201, 243, 106, 0.25);
+  color: var(--colony-lung);
+  text-align: center;
+}
+
+.sequence-lanes {
+  min-width: 980px;
+  padding: 14px 20px 20px;
+}
+
+.sequence-lane {
+  display: grid;
+  min-height: 72px;
+  border-top: 1px solid color-mix(in oklab, var(--mouth-color) 22%, transparent);
+  border-right: 1px solid var(--colony-line);
+  border-left: 1px solid var(--colony-line);
+  background: rgba(7, 11, 8, 0.88);
+  grid-template-columns: 230px minmax(720px, 1fr);
+}
+
+.sequence-lane:last-child {
+  border-bottom: 1px solid var(--colony-line);
+}
+
+.lane-header {
+  display: grid;
+  min-width: 0;
+  padding: 9px 10px;
+  border-right: 1px solid var(--colony-line);
+  grid-template-columns: 22px minmax(0, 1fr) 48px 47px;
+  align-items: center;
+  gap: 7px;
+}
+
+.lane-header > button {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in oklab, var(--mouth-color) 30%, transparent);
+  cursor: pointer;
+  color: var(--mouth-color);
+  background: transparent;
+  place-items: center;
+}
+
+.lane-header > button[aria-pressed="true"] {
+  color: var(--colony-faint);
+}
+
+.lane-header > button[aria-pressed="true"] i {
+  background: transparent;
+  box-shadow: none;
+}
+
+.lane-header > div b,
+.lane-header > div small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lane-header > div b {
+  color: var(--mouth-color);
+  font-size: 8px;
+  letter-spacing: 0.07em;
+}
+
+.lane-header > div small {
+  margin-top: 2px;
+  color: var(--colony-faint);
+  font-size: 5px;
+}
+
+.lane-header label {
+  display: flex;
+  color: var(--colony-faint);
+  align-items: center;
+  gap: 3px;
+  font-size: 5px;
+}
+
+.lane-header input,
+.lane-header select {
+  height: 25px;
+  min-width: 0;
+  padding: 0 3px;
+  border: 1px solid var(--colony-line-strong);
+  border-radius: 0;
+  color: var(--colony-paper);
+  background: var(--colony-bg);
+  font-size: 7px;
+}
+
+.lane-header input { width: 33px; }
+.lane-header select { width: 47px; }
+
+.lane-steps {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(16, minmax(38px, 1fr));
+}
+
+.lane-steps button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 71px;
+  padding: 6px 5px;
+  border-right: 1px solid var(--colony-line);
+  cursor: pointer;
+  color: var(--colony-faint);
+  background: transparent;
+  align-content: space-between;
+  justify-items: center;
+}
+
+.lane-steps button:last-child { border-right: 0; }
+
+.lane-steps button::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  content: "";
+  opacity: 0;
+}
+
+.lane-steps button:hover,
+.lane-steps button:focus-visible {
+  color: var(--mouth-color);
+  background: color-mix(in oklab, var(--mouth-color) 5%, transparent);
+}
+
+.lane-steps button > span {
+  font-size: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lane-steps button > i {
+  display: block;
+  width: 15px;
+  height: 5px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+
+.lane-steps button[aria-pressed="true"] {
+  color: var(--mouth-color);
+  background: color-mix(in oklab, var(--mouth-color) 6%, transparent);
+}
+
+.lane-steps button[aria-pressed="true"] > i {
+  height: calc(6px + 20px * var(--velocity, 0.6));
+  border-radius: 8px 8px 3px 3px;
+  background: currentColor;
+  box-shadow: 0 0 8px color-mix(in oklab, currentColor 55%, transparent);
+}
+
+.lane-steps button.is-loop-end {
+  border-right: 2px solid var(--mouth-color);
+}
+
+.lane-steps button.is-outside-loop {
+  color: #343a34;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.lane-steps button.is-current::after,
+.lane-steps button[data-current="true"]::after {
+  opacity: 1;
+}
+
+.colony-console {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--colony-line);
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(201, 243, 106, 0.48) rgba(232, 234, 220, 0.04);
+  background:
+    linear-gradient(110deg, rgba(201, 243, 106, 0.025), transparent 45%),
+    var(--colony-panel);
+}
+
+.colony-transport {
+  display: grid;
+  min-height: 70px;
+  border-bottom: 1px solid rgba(201, 243, 106, 0.25);
+  background:
+    linear-gradient(90deg, rgba(201, 243, 106, 0.09), transparent 72%),
+    #060a07;
+  grid-template-columns: minmax(170px, 1fr) 108px;
+}
+
+.colony-transport button {
+  display: grid;
+  min-width: 0;
+  min-height: 70px;
+  padding: 9px 12px;
+  cursor: pointer;
+  color: var(--colony-muted);
+  background: transparent;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.colony-transport button + button {
+  border-left: 1px solid var(--colony-line);
+  grid-template-columns: 18px minmax(0, 1fr);
+}
+
+.colony-transport button:hover,
+.colony-transport button:focus-visible {
+  color: var(--colony-paper);
+  background: rgba(201, 243, 106, 0.045);
+  outline: 1px solid var(--colony-lung);
+  outline-offset: -3px;
+}
+
+.colony-transport button b,
+.colony-transport button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.colony-transport button b {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.colony-transport button small {
+  margin-top: 2px;
+  color: var(--colony-faint);
+  font-size: 6px;
+}
+
+.colony-play-icon {
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 28px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+
+.colony-play-icon::before {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid currentColor;
+  content: "";
+}
+
+#playButton[aria-pressed="true"] {
+  color: #071007;
+  background: var(--colony-lung);
+}
+
+#playButton[aria-pressed="true"] small { color: rgba(7, 16, 7, 0.62); }
+
+#playButton[aria-pressed="true"] .colony-play-icon::before {
+  top: 8px;
+  left: 9px;
+  width: 7px;
+  height: 10px;
+  border: 0;
+  border-right: 3px solid currentColor;
+  border-left: 3px solid currentColor;
+}
+
+.colony-console-section {
+  padding: 18px 17px 20px;
+  border-bottom: 1px solid var(--colony-line);
+}
+
+.console-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.console-heading output {
+  color: var(--colony-muted);
+  font-size: 6px;
+  letter-spacing: 0.07em;
+}
+
+.colony-console-section h2 {
+  margin: 5px 0 14px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.medium-section {
+  background:
+    radial-gradient(circle at 5% 24%, rgba(100, 223, 210, 0.075), transparent 31%),
+    rgba(5, 9, 7, 0.55);
+}
+
+.medium-select {
+  display: grid;
+  min-height: 58px;
+  padding: 8px 9px;
+  border: 1px solid rgba(100, 223, 210, 0.22);
+  background: rgba(100, 223, 210, 0.035);
+  grid-template-columns: 30px minmax(0, 1fr) minmax(96px, 0.82fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.medium-symbol {
+  color: var(--mouth-b);
+  font-size: 25px;
+  line-height: 1;
+  text-align: center;
+}
+
+.medium-select b,
+.medium-select small {
+  display: block;
+}
+
+.medium-select b {
+  color: var(--mouth-b);
+  font-size: 8px;
+}
+
+.medium-select small {
+  margin-top: 2px;
+  color: var(--colony-faint);
+  font-size: 6px;
+}
+
+.medium-select select,
+.colony-select-control select {
+  width: 100%;
+  height: 34px;
+  min-width: 0;
+  padding: 0 7px;
+  border: 1px solid var(--colony-line-strong);
+  border-radius: 0;
+  color: var(--colony-paper);
+  background: var(--colony-bg);
+  font-size: 7px;
+}
+
+.future-engines {
+  display: grid;
+  margin-top: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.future-engines > span {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 7px;
+  border: 1px dashed var(--colony-line);
+  opacity: 0.5;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 5px;
+}
+
+.future-engines i {
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--colony-muted);
+  border-radius: 50%;
+  grid-row: 1 / -1;
+}
+
+.future-engines b {
+  font-size: 6px;
+  letter-spacing: 0.05em;
+}
+
+.future-engines small {
+  overflow: hidden;
+  color: var(--colony-faint);
+  font-size: 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.future-engines em {
+  color: var(--colony-faint);
+  font-size: 5px;
+  font-style: normal;
+  letter-spacing: 0.09em;
+  grid-column: 3;
+  grid-row: 1 / -1;
+}
+
+.breath-section {
+  background: linear-gradient(145deg, rgba(201, 243, 106, 0.045), transparent 54%);
+}
+
+.breath-button {
+  display: grid;
+  width: 100%;
+  min-height: 76px;
+  padding: 10px;
+  border: 1px solid rgba(201, 243, 106, 0.24);
+  cursor: pointer;
+  color: var(--colony-lung);
+  background: rgba(201, 243, 106, 0.025);
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.breath-button:hover,
+.breath-button:focus-visible,
+.breath-button[aria-pressed="true"] {
+  border-color: var(--colony-lung);
+  background: rgba(201, 243, 106, 0.08);
+  box-shadow: inset 0 0 28px rgba(201, 243, 106, 0.05);
+}
+
+.breath-button b,
+.breath-button small {
+  display: block;
+}
+
+.breath-button b {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+}
+
+.breath-button small {
+  margin-top: 4px;
+  color: var(--colony-faint);
+  font-size: 6px;
+  line-height: 1.35;
+}
+
+.breath-organ {
+  display: grid;
+  width: 70px;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+  gap: 3px;
+}
+
+.breath-organ i {
+  display: block;
+  height: 40px;
+  border: 1px solid currentColor;
+  border-radius: 58% 42% 55% 45% / 39% 44% 68% 61%;
+  background: rgba(201, 243, 106, 0.04);
+  transform: scaleY(0.74);
+}
+
+.breath-organ i:nth-child(2),
+.breath-organ i:nth-child(4) {
+  transform: scaleY(0.9);
+}
+
+.breath-button[aria-pressed="true"] .breath-organ i {
+  background: rgba(201, 243, 106, 0.18);
+  animation: colony-breathe 820ms ease-in-out infinite alternate;
+}
+
+.breath-button[aria-pressed="true"] .breath-organ i:nth-child(2) { animation-delay: -430ms; }
+.breath-button[aria-pressed="true"] .breath-organ i:nth-child(3) { animation-delay: -210ms; }
+.breath-button[aria-pressed="true"] .breath-organ i:nth-child(4) { animation-delay: -620ms; }
+
+.breath-meter {
+  position: relative;
+  height: 8px;
+  margin: 8px 0 11px;
+  overflow: hidden;
+  border: 1px solid rgba(201, 243, 106, 0.18);
+  background: rgba(201, 243, 106, 0.025);
+}
+
+.breath-meter i {
+  display: block;
+  width: calc(var(--breath, 0) * 100%);
+  height: 100%;
+  background: linear-gradient(90deg, var(--colony-lung), var(--mouth-b));
+  box-shadow: 0 0 10px rgba(201, 243, 106, 0.45);
+  transition: width 70ms linear;
+}
+
+.breath-meter span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 68%;
+  border-left: 1px solid rgba(232, 234, 220, 0.48);
+}
+
+.colony-control {
+  display: block;
+  margin-top: 12px;
+}
+
+.colony-control > span {
+  display: flex;
+  margin-bottom: 2px;
+  color: var(--colony-muted);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 7px;
+}
+
+.colony-control b {
+  font-weight: 600;
+}
+
+.colony-control output {
+  color: var(--colony-lung);
+  font-variant-numeric: tabular-nums;
+}
+
+.colony-control input {
+  width: 100%;
+  margin: 0;
+}
+
+.colony-control small {
+  display: block;
+  margin-top: 1px;
+  color: var(--colony-faint);
+  font-size: 6px;
+  line-height: 1.42;
+}
+
+.colony-select-control {
+  display: grid;
+  margin-bottom: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(132px, 0.95fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.colony-select-control b,
+.colony-select-control small {
+  display: block;
+}
+
+.colony-select-control b {
+  color: var(--colony-muted);
+  font-size: 7px;
+}
+
+.colony-select-control small {
+  margin-top: 2px;
+  color: var(--colony-faint);
+  font-size: 5px;
+}
+
+.colony-readouts dl {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.colony-readouts dl div {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--colony-line);
+  background: rgba(232, 234, 220, 0.018);
+}
+
+.colony-readouts dt {
+  overflow: hidden;
+  color: var(--colony-faint);
+  font-size: 5px;
+  letter-spacing: 0.09em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.colony-readouts dd {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--colony-paper);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.midi-learn-button {
+  display: grid;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(187, 155, 242, 0.2);
+  cursor: pointer;
+  color: var(--mouth-c);
+  background: rgba(187, 155, 242, 0.025);
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.midi-learn-button:hover,
+.midi-learn-button:focus-visible,
+.midi-learn-button[aria-pressed="true"] {
+  border-color: var(--mouth-c);
+  background: rgba(187, 155, 242, 0.08);
+}
+
+.midi-learn-button > span:first-child {
+  font-size: 17px;
+  text-align: center;
+}
+
+.midi-learn-button b,
+.midi-learn-button small {
+  display: block;
+}
+
+.midi-learn-button b {
+  font-size: 7px;
+  letter-spacing: 0.05em;
+}
+
+.midi-learn-button small {
+  margin-top: 2px;
+  color: var(--colony-faint);
+  font-size: 6px;
+}
+
+#statusText {
+  margin: 11px 0 0;
+  color: var(--colony-muted);
+  font-size: 6px;
+  line-height: 1.45;
+}
+
+.colony-console .audio-error {
+  margin: 9px 0 0;
+  color: #ff9a89;
+  font-size: 7px;
+}
+
+/* Live telemetry. These states add motion and energy without replacing the
+   persistent enabled/open semantics expressed by aria-pressed. */
+
+.lung-bank {
+  position: relative;
+}
+
+.lung-bank::after {
+  position: absolute;
+  right: 7px;
+  bottom: 5px;
+  left: 7px;
+  height: 1px;
+  pointer-events: none;
+  background: var(--colony-lung);
+  box-shadow: 0 0 7px var(--colony-lung);
+  content: "";
+  opacity: clamp(0, var(--pressure, 0), 0.7);
+  transform: scaleX(clamp(0.04, var(--pressure, 0), 1));
+  transform-origin: left;
+}
+
+.lung.is-pressured {
+  box-shadow:
+    inset 0 0 calc(5px + var(--pressure, 0) * 12px) rgba(201, 243, 106, 0.055),
+    0 0 calc(var(--pressure, 0) * 7px) rgba(201, 243, 106, 0.08);
+}
+
+.lung.is-pressured > i {
+  filter: brightness(calc(0.75 + var(--pressure, 0) * 0.75));
+}
+
+.lung.is-pressured > i::after {
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: rgba(201, 243, 106, 0.16);
+  content: "";
+  opacity: clamp(0.08, var(--pressure, 0), 0.78);
+}
+
+.lung.is-pressured > b {
+  box-shadow: 0 0 calc(3px + var(--pressure, 0) * 8px) var(--colony-lung);
+}
+
+.lung.is-disabled,
+.lung.is-disabled.is-pressured {
+  opacity: 0.35;
+  box-shadow: none;
+  filter: saturate(0.25);
+}
+
+.source-card.is-disabled {
+  opacity: 0.34;
+  filter: saturate(0.22);
+}
+
+.source-card.is-disabled .fold i {
+  opacity: 0.18;
+  box-shadow: none;
+}
+
+.fold i {
+  opacity: clamp(0.28, calc(0.28 + var(--activity, 0) * 0.72), 1);
+  box-shadow: 0 0 calc(2px + var(--activity, 0) * 10px) var(--colony-fold);
+  transform: scaleX(clamp(0.24, calc(0.24 + var(--activity, 0) * 0.76), 1));
+  transition:
+    opacity 80ms linear,
+    box-shadow 80ms linear,
+    transform 80ms linear;
+}
+
+.route-valve[data-mouth="1"] { --flow-color: var(--mouth-a); }
+.route-valve[data-mouth="2"] { --flow-color: var(--mouth-b); }
+.route-valve[data-mouth="3"] { --flow-color: var(--mouth-c); }
+
+.route-valve.is-flowing::before,
+.route-valve.is-flowing::after {
+  border-color: var(--flow-color);
+  box-shadow: 0 0 calc(3px + var(--flow, 0) * 7px) var(--flow-color);
+  opacity: clamp(0.34, var(--flow, 0), 1);
+}
+
+.route-valve.is-flowing i {
+  box-shadow: 0 0 calc(4px + var(--flow, 0) * 10px) var(--flow-color);
+}
+
+.route-valve.is-flowing i::after {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: var(--flow-color);
+  content: "";
+  opacity: clamp(0.12, var(--flow, 0), 0.9);
+  transform: scale(clamp(0.35, var(--flow, 0), 1));
+}
+
+.mouth-card {
+  position: relative;
+}
+
+.mouth-card.is-sounding {
+  box-shadow:
+    inset 0 0 calc(8px + var(--pressure, 0) * 18px) color-mix(in oklab, var(--mouth-color) 8%, transparent),
+    0 0 calc(var(--pressure, 0) * 8px) color-mix(in oklab, var(--mouth-color) 12%, transparent);
+}
+
+.mouth-card.is-sounding::after {
+  position: absolute;
+  inset: 2px;
+  border: 1px solid var(--mouth-color);
+  pointer-events: none;
+  content: "";
+  opacity: clamp(0.08, calc(var(--pressure, 0) * 0.52), 0.52);
+}
+
+.mouth-card.is-sounding .air-jet {
+  width: calc(18% + var(--pressure, 0) * 34%);
+  box-shadow: 0 0 calc(2px + var(--pressure, 0) * 7px) var(--mouth-color);
+  opacity: clamp(0.3, var(--pressure, 0), 1);
+}
+
+.mouth-card.is-sounding > header output {
+  text-shadow: 0 0 7px var(--mouth-color);
+}
+
+.sequence-lane.is-muted {
+  opacity: 0.38;
+  filter: saturate(0.16);
+}
+
+.sequence-lane.is-muted .lane-steps button {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.midi-learn-button.is-learning {
+  border-color: var(--mouth-c);
+  color: #08050d;
+  background: var(--mouth-c);
+  box-shadow: 0 0 18px rgba(187, 155, 242, 0.18);
+  animation: colony-midi-learn 880ms ease-in-out infinite alternate;
+}
+
+.midi-learn-button.is-learning small {
+  color: rgba(8, 5, 13, 0.62);
+}
+
+.colony-shell.is-running .flow-port span {
+  animation: colony-flow-pulse 900ms ease-in-out infinite alternate;
+}
+
+.colony-shell.is-running .sequence-position output {
+  box-shadow: inset 0 0 13px rgba(201, 243, 106, 0.07);
+  text-shadow: 0 0 8px rgba(201, 243, 106, 0.65);
+}
+
+.colony-shell.is-breathing .lung.is-pressured > i {
+  animation: colony-pressure-live 720ms ease-in-out infinite alternate;
+}
+
+.breath-button.is-breathing .breath-organ i {
+  animation:
+    colony-breathe 820ms ease-in-out infinite alternate,
+    colony-pressure-live 720ms ease-in-out infinite alternate;
+}
+
+.breath-button.is-breathing {
+  border-color: var(--colony-lung);
+  background: rgba(201, 243, 106, 0.08);
+  box-shadow: inset 0 0 28px rgba(201, 243, 106, 0.05);
+}
+
+.colony-syrinx-page input[type="range"] {
+  accent-color: var(--colony-lung);
+}
+
+.source-card input[type="range"] { accent-color: var(--colony-fold); }
+.mouth-card input[type="range"] { accent-color: var(--mouth-color); }
+
+@keyframes colony-audio {
+  from { transform: scaleY(0.42); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes colony-breathe {
+  from { transform: scaleY(0.72); }
+  to { transform: scaleY(1.03); }
+}
+
+@keyframes colony-flow-pulse {
+  from { opacity: 0.36; transform: scale(0.72); }
+  to { opacity: 1; transform: scale(1.12); }
+}
+
+@keyframes colony-vessel-flow {
+  to { stroke-dashoffset: -40; }
+}
+
+@keyframes colony-pressure-live {
+  from { filter: brightness(0.9); }
+  to { filter: brightness(1.35); }
+}
+
+@keyframes colony-midi-learn {
+  from { box-shadow: 0 0 4px rgba(187, 155, 242, 0.12); }
+  to { box-shadow: 0 0 20px rgba(187, 155, 242, 0.42); }
+}
+
+@media (max-width: 1260px) {
+  .colony-shell {
+    grid-template-columns: minmax(0, 1fr) 326px;
+  }
+
+  .colony-titlebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .colony-counts {
+    display: none;
+  }
+
+  .anatomy-flow {
+    min-width: 1020px;
+  }
+}
+
+@media (max-width: 940px) {
+  .colony-syrinx-page {
+    height: auto;
+    min-height: 100%;
+    overflow: auto;
+  }
+
+  .colony-shell {
+    display: block;
+    height: auto;
+    min-height: calc(100dvh - 58px);
+    overflow: visible;
+  }
+
+  .colony-workspace,
+  .colony-console {
+    overflow: visible;
+  }
+
+  .colony-console {
+    display: grid;
+    border-top: 1px solid var(--colony-line);
+    border-left: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .colony-transport {
+    grid-column: 1 / -1;
+  }
+
+  .colony-console-section {
+    border-right: 1px solid var(--colony-line);
+  }
+
+  .colony-readouts {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .colony-titlebar {
+    min-height: 0;
+    padding: 27px 18px 24px;
+    grid-template-columns: 1fr;
+    gap: 19px;
+  }
+
+  .colony-title-copy h1 {
+    font-size: clamp(38px, 12.5vw, 70px);
+  }
+
+  .colony-thesis {
+    max-width: none;
+  }
+
+  .colony-section-heading {
+    min-height: 64px;
+    padding: 12px 16px;
+  }
+
+  .anatomy-legend {
+    display: none;
+  }
+
+  .colony-body-scroll {
+    overflow-x: hidden;
+  }
+
+  .colony-body-stage {
+    width: 100%;
+    min-width: 0;
+    padding: 4px 6px 0;
+  }
+
+  .colony-body {
+    min-height: 0;
+  }
+
+  .colony-body-stage figcaption {
+    margin-top: -7px;
+  }
+
+  .anatomy-flow {
+    min-width: 0;
+    padding: 12px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .flow-port {
+    top: auto;
+    right: auto !important;
+    bottom: -9px;
+    left: 50% !important;
+    transform: translateX(-50%);
+  }
+
+  .flow-port.is-in {
+    top: -9px;
+    bottom: auto;
+  }
+
+  .flow-port::before,
+  .flow-port::after {
+    display: none;
+  }
+
+  .lung-banks {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .source-rack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mouth-rack {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mouth-card {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 48px auto auto auto;
+  }
+
+  .mouth-shape,
+  .mouth-stats {
+    grid-column: 1;
+  }
+
+  .mouth-stats {
+    grid-row: 3;
+  }
+
+  .mouth-card > label {
+    grid-template-columns: 32px auto minmax(48px, 1fr);
+  }
+
+  .sequence-lanes {
+    min-width: 850px;
+    padding: 11px 12px 15px;
+  }
+
+  .sequence-lane {
+    grid-template-columns: 200px minmax(640px, 1fr);
+  }
+
+  .lane-header {
+    grid-template-columns: 20px minmax(0, 1fr) 45px 43px;
+    padding-right: 7px;
+    padding-left: 7px;
+    gap: 5px;
+  }
+
+  .lane-header select { width: 43px; }
+}
+
+@media (max-width: 580px) {
+  .colony-shell {
+    min-height: calc(100dvh - 54px);
+  }
+
+  .colony-title-copy h1 {
+    white-space: normal;
+  }
+
+  .colony-body-stage figcaption b {
+    display: none;
+  }
+
+  .lung-banks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mouth-rack {
+    grid-template-columns: 1fr;
+  }
+
+  .mouth-card {
+    grid-template-columns: minmax(90px, 0.85fr) minmax(98px, 1fr);
+    grid-template-rows: auto 42px auto auto;
+  }
+
+  .mouth-shape {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .mouth-stats {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .mouth-card > label {
+    grid-column: 1 / -1;
+  }
+
+  .colony-console {
+    display: block;
+  }
+
+  .colony-console-section {
+    border-right: 0;
+  }
+
+  .colony-transport {
+    grid-template-columns: minmax(0, 1fr) 120px;
+  }
+
+  #panicButton {
+    padding-inline: 8px;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .sequence-position span {
+    display: none;
+  }
+}
+
+@media (max-width: 390px) {
+  .source-rack {
+    grid-template-columns: 1fr;
+  }
+
+  .route-matrix {
+    grid-template-columns: 40px repeat(3, minmax(0, 1fr));
+  }
+
+  .future-engines {
+    grid-template-columns: 1fr;
+  }
+
+  .medium-select {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .medium-select select {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .colony-audio-glyph i,
+  .breath-organ i,
+  .colony-shell.is-running .flow-port span,
+  .colony-shell.is-breathing .lung.is-pressured > i,
+  .midi-learn-button.is-learning {
+    animation: none !important;
+  }
+
+  .colony-shell.is-running .vessel-route.is-flowing {
+    animation: none;
+  }
+
+  .breath-meter i,
+  .fold i {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .route-valve[aria-pressed="true"],
+  .lane-steps button[aria-pressed="true"],
+  .lung[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -3px;
+  }
+
+  .future-engines {
+    opacity: 1;
+  }
+}
