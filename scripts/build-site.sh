@@ -314,6 +314,11 @@ for worktree_runtime_file in \
   slippery-resynthesis-app.js \
   src/slippery-resynthesis.js \
   assets/instruments/slippery-resynthesis.webp \
+  moire-drone.html \
+  moire-drone.css \
+  moire-drone-app.js \
+  src/moire-drone.js \
+  assets/instruments/moire-drone.webp \
   drum-roll-please.html \
   drum-roll-please.css \
   drum-roll-please-app.js \
@@ -637,6 +642,11 @@ required_files=(
   slippery-resynthesis-app.js
   src/slippery-resynthesis.js
   assets/instruments/slippery-resynthesis.webp
+  moire-drone.html
+  moire-drone.css
+  moire-drone-app.js
+  src/moire-drone.js
+  assets/instruments/moire-drone.webp
   drum-roll-please.html
   drum-roll-please.css
   drum-roll-please-app.js

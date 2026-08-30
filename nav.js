@@ -64,6 +64,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "shader-synth-playground",
   "sandy-syrup-delay",
   "slippery-resynthesis",
+  "moire-drone",
 ]);
 
 /**
@@ -182,6 +183,11 @@ export const TOOL_GROUPS = Object.freeze([
       id: "slippery-resynthesis",
       label: "Slippery Resynthesis",
       href: "slippery-resynthesis.html",
+    },
+    {
+      id: "moire-drone",
+      label: "Moiré Drone",
+      href: "moire-drone.html",
     },
     {
       id: "drum-roll-please",

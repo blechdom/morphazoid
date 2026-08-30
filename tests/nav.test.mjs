@@ -255,7 +255,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 112);
+  assert.equal(tools.length, 113);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -333,6 +333,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "moire-drone"),
+    {
+      id: "moire-drone",
+      label: "Moiré Drone",
+      href: "moire-drone.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "ouroborousel"),
     {
       id: "ouroborousel",
@@ -373,9 +381,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     "Slippery Resynthesis belongs immediately after Shepard–Risset",
   );
   assert.equal(
-    barberShopTools.findIndex(({ id }) => id === "drum-roll-please"),
+    barberShopTools.findIndex(({ id }) => id === "moire-drone"),
     barberShopTools.findIndex(({ id }) => id === "slippery-resynthesis") + 1,
-    "Drum Roll Please belongs immediately after Slippery Resynthesis",
+    "Moiré Drone belongs immediately after Slippery Resynthesis",
+  );
+  assert.equal(
+    barberShopTools.findIndex(({ id }) => id === "drum-roll-please"),
+    barberShopTools.findIndex(({ id }) => id === "moire-drone") + 1,
+    "Drum Roll Please belongs immediately after Moiré Drone",
   );
   assert.equal(
     barberShopTools.findIndex(({ id }) => id === "ouroborousel"),
@@ -639,6 +652,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "shepard-risset", href: "shepard-risset.html" },
       { id: "slippery-resynthesis", href: "slippery-resynthesis.html" },
+      { id: "moire-drone", href: "moire-drone.html" },
       { id: "drum-roll-please", href: "drum-roll-please.html" },
       { id: "ouroborousel", href: "ouroborousel.html" },
       { id: "ourorourobouroboros", href: "ourorourobouroboros.html" },
@@ -818,6 +832,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
     resolveActiveTool(`${SITE_ROOT}slippery-resynthesis.html`, SITE_ROOT)?.id,
     "slippery-resynthesis",
   );
+  assert.equal(resolveActiveTool(`${SITE_ROOT}moire-drone.html`, SITE_ROOT)?.id, "moire-drone");
   assert.equal(resolveActiveTool(`${SITE_ROOT}drum-roll-please.html`, SITE_ROOT)?.id, "drum-roll-please");
   assert.equal(resolveActiveTool(`${SITE_ROOT}ouroborousel.html`, SITE_ROOT)?.id, "ouroborousel");
   assert.equal(

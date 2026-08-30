@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 108);
+  assert.equal(INSTRUMENTS.length, 109);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -170,6 +170,28 @@ test("Slippery Resynthesis catalogues its FFT resynthesis and both local input p
   assert.ok(instrument?.features.includes("Speech-detail resynthesis"));
   assert.ok(instrument?.tags.some(({ id }) => id === "faves"));
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis")?.noteMode, "processor");
+});
+
+test("Moiré Drone catalogues its two-dimensional noise-filter collision engine", () => {
+  const instrument = instrumentById("moire-drone");
+  assert.equal(instrument?.label, "Moiré Drone");
+  assert.equal(instrument?.href, "moire-drone.html");
+  assert.equal(instrument?.kind, "Noise-field drone");
+  assert.match(instrument?.description ?? "", /colored noise/i);
+  assert.match(instrument?.description ?? "", /two-dimensional wave fields/i);
+  assert.ok(instrument?.features.includes("Built-in noise"));
+  assert.ok(instrument?.features.includes("Pointer"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.equal(instrument?.features.includes("Computer keys"), false);
+  assert.deepEqual(
+    instrument?.tags.map(({ id }) => id),
+    ["barber-shop-poles", "faves"],
+  );
+  const midi = instrumentMidiCapabilityForId("moire-drone");
+  assert.equal(midi?.noteMode, "processor");
+  assert.equal(midi?.audioInput, false);
+  assert.equal(midi?.startsAudio, true);
+  assert.equal(midi?.computerKeyboardMode, "none");
 });
 
 test("Modular Shader Synth is a sequencer instrument with shared GPU artwork", () => {

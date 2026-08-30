@@ -60,9 +60,11 @@ if (missingIds.length || unknownIds.length) {
   ].filter(Boolean).join(". "));
 }
 
-function summaryFor(instrument, noteMode, midiOutput) {
+function summaryFor(instrument, noteMode, midiOutput, audioInput) {
   if (noteMode === "processor") {
-    return `Process a DAW track through ${instrument.label}'s live-input signal path.`;
+    return audioInput
+      ? `Process a DAW track through ${instrument.label}'s live-input signal path.`
+      : `Generate and automate ${instrument.label}'s self-contained built-in noise engine.`;
   }
   if (noteMode === "drums") {
     return midiOutput
@@ -101,29 +103,33 @@ function caveatFor(instrument, noteMode, midiOutput) {
 
 export const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {
   const midiCapability = instrumentMidiCapabilityForId(instrument.id);
-  const { midiOutput, noteMode } = midiCapability;
-  const recommended = noteMode === "processor"
+  const {
+    audioInput, midiOutput, noteMode, startsAudio,
+  } = midiCapability;
+  const recommended = noteMode === "processor" && audioInput
     ? WAX_ROLE_IDS.audioFx
     : WAX_ROLE_IDS.instrument;
   const roles = [recommended];
   if (AUDIO_FX_IDS.has(instrument.id) && !roles.includes(WAX_ROLE_IDS.audioFx)) {
     roles.push(WAX_ROLE_IDS.audioFx);
   }
-  if (instrument.id === "recursion") roles.push(WAX_ROLE_IDS.instrument);
+  if (startsAudio && !roles.includes(WAX_ROLE_IDS.instrument)) {
+    roles.push(WAX_ROLE_IDS.instrument);
+  }
   if (midiOutput) roles.push(WAX_ROLE_IDS.midiFx);
 
   return Object.freeze({
     id: instrument.id,
     recommended,
     roles: Object.freeze([...new Set(roles)]),
-    audioInput: midiCapability.audioInput,
+    audioInput,
     midiInput: midiCapability.midiInput,
     midiInputMode: midiCapability.midiInputMode,
     computerKeyboardMode: midiCapability.computerKeyboardMode,
     midiOutput,
     hostSync: midiOutput && !HOST_SYNC_EXCLUDED_IDS.has(instrument.id),
     noteMode,
-    summary: summaryFor(instrument, noteMode, midiOutput),
+    summary: summaryFor(instrument, noteMode, midiOutput, audioInput),
     caveat: caveatFor(instrument, noteMode, midiOutput),
   });
 }));

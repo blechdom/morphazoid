@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260829-4";
+} from "../nav.js?v=catalog-20260829-5";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -249,6 +249,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Tracks microphone or local-file audio across logarithmic FFT bands, then rebuilds it through endlessly slipping Shepard glissando banks with adaptive consonant excitation.",
     "Choose Mic or File, turn on audio, then shape the glide, transpose, spectral tilt, carrier color, consonant detail, stereo spread, and dry/slip mix.",
     ["Mic input", "Local file input", "Speech-detail resynthesis"],
+  ),
+  "moire-drone": define(
+    "Noise-field drone",
+    "Sends correlated colored noise through colliding two-dimensional wave fields and a Shepard-wrapped filter lattice whose rotating mass-spring frequency fabric is crossed by drops, circular harmonics, spirals, and shock fronts.",
+    "Turn on audio, choose a preset, then pluck to launch a 1–50 Hz propagation or drag vertically to tug the fabric; shape its wave mode, travel, repetition, tension, damping, rotation, and pull.",
+    ["Built-in noise", "Pointer", "Spectral propagation", "Adaptive DSP"],
   ),
   "drum-roll-please": define(
     "Rhythm synth",

@@ -7,6 +7,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "micmic",
     "graph-delay",
     "slippery-resynthesis",
+    "moire-drone",
     "sandy-syrup-delay",
     "candy-coil-delay",
     "recursion",
@@ -162,6 +163,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "webgpu-synths",
   "playhead-paint",
   "slippery-resynthesis",
+  "moire-drone",
   "candy-coil-delay",
   "chladni-plate",
   "spring-choir",
@@ -177,7 +179,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
 const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
 const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
-const processorAudioIds = new Set(["recursion"]);
+const processorAudioIds = new Set(["moire-drone", "recursion"]);
 const audioInputIds = new Set([
   "lumber",
   "micmic",

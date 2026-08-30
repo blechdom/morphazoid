@@ -194,6 +194,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "webgpu-synths",
     "playhead-paint",
     "slippery-resynthesis",
+    "moire-drone",
     "candy-coil-delay",
     "chladni-plate",
     "spring-choir",
@@ -214,6 +215,10 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").noteMode, "processor");
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").computerKeyboardMode, "none");
+  assert.equal(instrumentMidiCapabilityForId("moire-drone").audioInput, false);
+  assert.equal(instrumentMidiCapabilityForId("moire-drone").noteMode, "processor");
+  assert.equal(instrumentMidiCapabilityForId("moire-drone").startsAudio, true);
+  assert.equal(instrumentMidiCapabilityForId("moire-drone").computerKeyboardMode, "none");
   assert.equal(instrumentMidiCapabilityForId("throatazoid").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("morphynx").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("alien-larynx").audioInput, true);
@@ -229,8 +234,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 7, drums: 19, pitched: 42, sequence: 40 },
-    "all 108 routes have exactly one intentional note behavior",
+    { processor: 8, drums: 19, pitched: 42, sequence: 40 },
+    "all 109 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -286,7 +291,7 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
       );
     }
   }
-  assert.equal(mastheadPages, 107);
+  assert.equal(mastheadPages, 108);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");
