@@ -192,8 +192,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   hambone: define(
     "Monophonic physical beatbox sequencer",
-    "Moves a fully mutable face and persistent Pink Trombone–lineage oral waveguide between sixteen exclusive gestures: plosives, clicks, PHSHSHK, two resonant hand slaps, a low kick, ingressive HEE and egressive HAW, pitched DOO, suction MWAH, tongue-roll DRR, and an irregular BURP.",
-    "Turn on audio, tap a pad or face zone, drag either visible hand to slap, then sequence a single gesture per column at up to 520 BPM; drag the eyes, nose, and ears or draw their reverb, nasal, and stereo-delay contours per step.",
+    "Moves a fully mutable face and one persistent Pink Trombone–lineage oral waveguide between twenty-four exclusive gestures: plosives, clicks, PHSHSHK, two resonant hand slaps, a low kick, reversible breath, pitched DOO, suction and trills, BURP, and eight open-throat, vibrato, register-break, subharmonic, nasal, and rattle voices.",
+    "Turn on audio, tap a pad or face zone, drag either animated multi-contact hand to slap, then sequence one gesture per column at any length from 1 through 64 steps and up to 520 BPM; live-mutate preset face effects and choose, solo, mutate, or modulate one to eight sequential voice characters without layering mouths.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
   "breath-atlas": define(

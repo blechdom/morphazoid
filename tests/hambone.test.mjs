@@ -18,6 +18,11 @@ import {
   HAMBONE_TRACT_LANDMARKS,
   HAMBONE_TRACT_SECTION_COUNT,
   HAMBONE_VELOCITIES,
+  HAMBONE_VOICE_CHARACTERS,
+  HAMBONE_VOICE_LIMITS,
+  HAMBONE_VOICE_MODULATION_LIMITS,
+  HAMBONE_VOICE_MODULATION_SOURCES,
+  HAMBONE_VOICE_MODULATION_TARGETS,
   clonePattern,
   cycleStepVelocity,
   hamboneBaseOralDiameters,
@@ -31,10 +36,15 @@ import {
   hamboneSound,
   hamboneState,
   hamboneTargetOralDiameters,
+  hamboneVoiceCharacter,
+  mutateHamboneVoice,
   patternEventsAtStep,
   physicalVoiceParameters,
+  randomizeHamboneVoice,
   randomizeHamboneState,
   randomizePattern,
+  sanitizeHamboneVoice,
+  sanitizeHamboneVoiceModulation,
   sampleHamboneGestureCurve,
   sanitizeHamboneState,
   sanitizePattern,
@@ -59,11 +69,20 @@ const SOUND_IDS = Object.freeze([
   "mwah",
   "drr",
   "burp",
+  "aah",
+  "ooh",
+  "wail",
+  "yodel",
+  "growl",
+  "holler",
+  "hum",
+  "rattle",
 ]);
 
 const SOUND_KEYS = Object.freeze([
   "1", "2", "3", "4", "5", "6", "7", "8",
   "9", "0", "q", "w", "e", "r", "t", "y",
+  "u", "i", "o", "p", "a", "s", "d", "f",
 ]);
 
 function assertFiniteTree(value, label = "value", seen = new Set()) {
@@ -92,7 +111,7 @@ function roundedSignature(values) {
   return values.map((value) => Number(value).toFixed(4)).join("|");
 }
 
-test("Hambone exposes sixteen complete, stable face-percussion sound identities", () => {
+test("Hambone exposes twenty-four complete, stable face-percussion and throat identities", () => {
   assert.deepEqual(HAMBONE_SOUNDS.map(({ id }) => id), SOUND_IDS);
   assert.equal(HAMBONE_SOUNDS.length, SOUND_IDS.length);
   assert.equal(new Set(HAMBONE_SOUNDS.map(({ id }) => id)).size, SOUND_IDS.length);
@@ -110,7 +129,177 @@ test("Hambone exposes sixteen complete, stable face-percussion sound identities"
   assert.equal(hamboneSound("shh").label, "PHSHSHK");
   assert.match(hamboneSound("shh").description, /PH puff[\s\S]*K cut/i);
   assert.equal(HAMBONE_SOUNDS.some(({ label }) => label === "SHHH"), false);
+  assert.equal(hamboneSound("pff").label, "PFRR");
+  assert.equal(hamboneSound("pff").subtitle, "pressure lip roll");
   assert.equal(hamboneSound("not-a-mouth-noise").id, "bop");
+});
+
+test("eight bounded voice characters retune one tract and preserve assignable modulation", () => {
+  assert.equal(HAMBONE_VOICE_CHARACTERS.length, 8);
+  assert.equal(
+    new Set(HAMBONE_VOICE_CHARACTERS.map(({ id }) => id)).size,
+    HAMBONE_VOICE_CHARACTERS.length,
+  );
+  assert.equal(
+    new Set(HAMBONE_VOICE_CHARACTERS.map(({ settings }) => JSON.stringify(settings))).size,
+    HAMBONE_VOICE_CHARACTERS.length,
+  );
+  for (const character of HAMBONE_VOICE_CHARACTERS) {
+    assert.equal(hamboneVoiceCharacter(character.id), character);
+    assert.equal(Object.isFrozen(character), true);
+    assert.equal(Object.isFrozen(character.settings), true);
+    assert.ok(character.label.length > 0);
+    assert.ok(character.description.length > 20);
+    const voice = sanitizeHamboneVoice({ characterId: character.id, ...character.settings });
+    assert.equal(voice.characterId, character.id);
+    for (const [key, [minimum, maximum]] of Object.entries(HAMBONE_VOICE_LIMITS)) {
+      assert.ok(Number.isFinite(voice[key]));
+      assert.ok(voice[key] >= minimum && voice[key] <= maximum);
+    }
+  }
+  assert.equal(hamboneVoiceCharacter("not-a-character").id, "natural");
+
+  const hostile = sanitizeHamboneVoice({
+    characterId: "monster",
+    ...Object.fromEntries(Object.keys(HAMBONE_VOICE_LIMITS).map((key, index) => [
+      key,
+      index % 2 ? Number.POSITIVE_INFINITY : -1e9,
+    ])),
+    modulation: {
+      source: "not-an-lfo",
+      target: "not-a-target",
+      depth: 200,
+      rateHz: -200,
+      phase: Number.NaN,
+    },
+  });
+  for (const [key, [minimum, maximum]] of Object.entries(HAMBONE_VOICE_LIMITS)) {
+    assert.ok(hostile[key] >= minimum && hostile[key] <= maximum);
+  }
+  assert.deepEqual(hostile.modulation, {
+    source: "sine",
+    target: "pitch",
+    depth: HAMBONE_VOICE_MODULATION_LIMITS.depth[1],
+    rateHz: HAMBONE_VOICE_MODULATION_LIMITS.rateHz[0],
+    phase: 0,
+  });
+
+  assert.deepEqual(HAMBONE_VOICE_MODULATION_SOURCES, ["sine", "triangle", "random"]);
+  assert.deepEqual(
+    HAMBONE_VOICE_MODULATION_TARGETS,
+    ["pitch", "vibratoDepth", "breathiness", "roughness", "tractScale"],
+  );
+  for (const source of HAMBONE_VOICE_MODULATION_SOURCES) {
+    for (const target of HAMBONE_VOICE_MODULATION_TARGETS) {
+      assert.deepEqual(
+        sanitizeHamboneVoiceModulation({ source, target, depth: 0.4, rateHz: 7, phase: 0.25 }),
+        { source, target, depth: 0.4, rateHz: 7, phase: 0.25 },
+      );
+    }
+  }
+
+  const seed = sanitizeHamboneVoice({
+    characterId: "warble",
+    modulation: { source: "triangle", target: "roughness", depth: 0.6, rateHz: 4, phase: 0.3 },
+  });
+  const snapshot = structuredClone(seed);
+  const unchanged = mutateHamboneVoice(seed, () => 0, 0);
+  const lower = mutateHamboneVoice(seed, () => 0, 0.7);
+  const upper = mutateHamboneVoice(seed, () => 1, 0.7);
+  const randomized = randomizeHamboneVoice(seed, () => 1);
+  assert.deepEqual(seed, snapshot, "voice mutation must not alter a rack slot in place");
+  assert.deepEqual(unchanged, seed);
+  assert.deepEqual(lower.modulation, seed.modulation, "mutation preserves its assignable modulator");
+  assert.deepEqual(upper.modulation, seed.modulation, "mutation preserves its assignable modulator");
+  assert.notDeepEqual(lower, upper);
+  for (const voice of [lower, upper, randomized]) {
+    for (const [key, [minimum, maximum]] of Object.entries(HAMBONE_VOICE_LIMITS)) {
+      assert.ok(voice[key] >= minimum && voice[key] <= maximum);
+    }
+  }
+
+  const monster = physicalVoiceParameters("aah", HAMBONE_DEFAULTS, 1, {
+    characterId: "monster",
+  });
+  const helium = physicalVoiceParameters("aah", HAMBONE_DEFAULTS, 1, {
+    characterId: "helium",
+  });
+  assert.equal(monster.voiceCharacterId, "monster");
+  assert.equal(helium.voiceCharacterId, "helium");
+  assert.ok(helium.glottalFrequencyHz > monster.glottalFrequencyHz * 4);
+  assert.ok(helium.tractScale < monster.tractScale);
+  assert.notDeepEqual(helium.formantFrequenciesHz, monster.formantFrequenciesHz);
+});
+
+test("open-throat gestures expose Pink vowel targets, vibrato, register breaks, and rough anatomy", () => {
+  const pinkTargets = {
+    hee: [27.4, 2.25, 3],
+    haw: [13, 2.4, 3],
+    doo: [23, 2.1, 0.5],
+    aah: [13, 2.4, 3],
+    ooh: [17.7, 2.05, 0.95],
+    wail: [27.4, 2.25, 3],
+    growl: [17.7, 2.05, 0.95],
+    holler: [13, 2.4, 3],
+    hum: [23, 2.1, 0.5],
+    rattle: [13, 2.4, 2.6],
+  };
+  for (const [soundId, [tongueBodyIndex, tongueBodyDiameterCm, lipDiameterCm]] of Object.entries(pinkTargets)) {
+    const frame = hamboneGestureFrame(soundId, 0.5);
+    assert.equal(frame.acousticMix, 1);
+    assert.equal(frame.tongueBodyIndex, tongueBodyIndex);
+    assert.equal(frame.tongueBodyDiameterCm, tongueBodyDiameterCm);
+    assert.equal(frame.lipDiameterCm, lipDiameterCm);
+  }
+
+  const aah = physicalVoiceParameters("aah", HAMBONE_DEFAULTS, 1);
+  const ooh = physicalVoiceParameters("ooh", HAMBONE_DEFAULTS, 1);
+  const wail = physicalVoiceParameters("wail", HAMBONE_DEFAULTS, 1);
+  const yodel = physicalVoiceParameters("yodel", HAMBONE_DEFAULTS, 1);
+  const growl = physicalVoiceParameters("growl", HAMBONE_DEFAULTS, 1);
+  const holler = physicalVoiceParameters("holler", HAMBONE_DEFAULTS, 1);
+  const hum = physicalVoiceParameters("hum", HAMBONE_DEFAULTS, 1);
+  const rattle = physicalVoiceParameters("rattle", HAMBONE_DEFAULTS, 1);
+  assert.ok(aah.durationSeconds > 0.5 && ooh.durationSeconds > 0.5);
+  assert.ok(wail.vibratoRateHz >= 5.3 && wail.vibratoDepthSemitones > 1.5);
+  assert.equal(yodel.registerJumpSemitones, 12);
+  assert.equal(hamboneGestureFrame("yodel", 0.3).registerLift, 0);
+  assert.ok(hamboneGestureFrame("yodel", 0.5).registerLift > 0.99);
+  assert.equal(hamboneGestureFrame("yodel", 0.5).tongueBodyIndex, 27.4);
+  assert.ok(growl.roughness >= 0.78 && growl.subharmonicMix >= 0.7);
+  assert.ok(holler.pressure > aah.pressure * 1.2);
+  assert.ok(hamboneGestureFrame("hum", 0.5).lipClosure > 0.99);
+  assert.ok(hamboneGestureFrame("hum", 0.5).velum > 0.9);
+  assert.ok(hum.nasalMix > HAMBONE_DEFAULTS.nasalMix * 4);
+  assert.ok(hamboneGestureFrame("rattle", 0.5).throatRattle > 0.9);
+  assert.ok(rattle.rattleFrequencyHz >= 14 && rattle.rattleFrequencyHz <= 52);
+});
+
+test("open vocals and PFRR breathe longer at slow tempo without changing percussive attacks", () => {
+  for (const soundId of [
+    "pff", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
+  ]) {
+    const fast = physicalVoiceParameters(soundId, { ...HAMBONE_DEFAULTS, tempo: 520 }, 1);
+    const medium = physicalVoiceParameters(soundId, { ...HAMBONE_DEFAULTS, tempo: 118 }, 1);
+    const slow = physicalVoiceParameters(soundId, { ...HAMBONE_DEFAULTS, tempo: 48 }, 1);
+    assert.equal(fast.tempoStepSeconds, 15 / 520);
+    assert.equal(slow.tempoStepSeconds, 15 / 48);
+    assert.ok(fast.durationSeconds < medium.durationSeconds);
+    assert.ok(medium.durationSeconds < slow.durationSeconds);
+    assert.ok(
+      slow.durationSeconds > fast.durationSeconds * 2.25,
+      `${soundId} must use the musical room available at slow tempo`,
+    );
+    assert.ok(slow.durationSeconds <= 1.4, `${soundId} must retain a bounded physical tail`);
+  }
+
+  for (const soundId of ["bop", "pop", "tlik", "shack", "slap", "kick", "smack", "mwah"]) {
+    assert.equal(
+      physicalVoiceParameters(soundId, { ...HAMBONE_DEFAULTS, tempo: 48 }, 1).durationSeconds,
+      physicalVoiceParameters(soundId, { ...HAMBONE_DEFAULTS, tempo: 520 }, 1).durationSeconds,
+      `${soundId} must remain a sharply timed percussive gesture`,
+    );
+  }
 });
 
 test("Hambone sanitation clamps every continuous control and rejects non-finite state", () => {
@@ -504,7 +693,6 @@ test("face geometry, tract formants, and all sound-specific voice plans remain p
   );
   assert.ok(physicalVoiceParameters("shh", HAMBONE_DEFAULTS, 1).durationSeconds < 0.3);
   assert.ok(physicalVoiceParameters("shack", HAMBONE_DEFAULTS, 1).durationSeconds < 0.3);
-  assert.ok(physicalVoiceParameters("pff", HAMBONE_DEFAULTS, 1).durationSeconds < 0.4);
 });
 
 test("the expanded bank models body kicks, opposed slaps, reversible breath, pitch, suction, trills, and burps", () => {
@@ -515,8 +703,47 @@ test("the expanded bank models body kicks, opposed slaps, reversible breath, pit
   assert.ok(kick.glottalFrequencyHz < slap.glottalFrequencyHz * 0.55);
   assert.equal(slap.pan, -smack.pan);
   assert.ok(slap.pan < 0 && smack.pan > 0);
+  const tightHand = physicalVoiceParameters("slap", {
+    ...HAMBONE_DEFAULTS,
+    cheekVolume: -0.3,
+    cheekTension: 1.6,
+    tractLengthM: 0.08,
+  }, 1);
+  const cavernHand = physicalVoiceParameters("slap", {
+    ...HAMBONE_DEFAULTS,
+    cheekVolume: 1.9,
+    cheekTension: -0.25,
+    tractLengthM: 0.42,
+  }, 1);
+  assert.ok(tightHand.handImpactBrightness > cavernHand.handImpactBrightness + 0.2);
+  assert.ok(cavernHand.handContactSpacingMs > tightHand.handContactSpacingMs + 0.8);
+  assert.ok(cavernHand.handTail > tightHand.handTail + 0.15);
+  for (const plan of [slap, smack, tightHand, cavernHand]) {
+    assert.ok(plan.handImpactBrightness >= 0 && plan.handImpactBrightness <= 1);
+    assert.ok(plan.handContactSpacingMs >= 0.7 && plan.handContactSpacingMs <= 4.8);
+    assert.ok(plan.handTail >= 0.22 && plan.handTail <= 0.94);
+  }
   assert.ok(hamboneGestureFrame("slap", 0.09).cheekImpulse < -0.9);
   assert.ok(hamboneGestureFrame("smack", 0.075).cheekImpulse > 0.9);
+  for (const soundId of ["slap", "smack"]) {
+    const contacts = Array.from({ length: 201 }, (_, index) => (
+      hamboneGestureFrame(soundId, index / 200).cheekImpulse
+    ));
+    const extrema = contacts.filter((amount, index) => (
+      index > 0
+      && index < contacts.length - 1
+      && Math.abs(amount) > 0.14
+      && Math.abs(amount) >= Math.abs(contacts[index - 1])
+      && Math.abs(amount) > Math.abs(contacts[index + 1])
+    ));
+    const contactSigns = contacts
+      .filter((amount) => Math.abs(amount) > 0.1)
+      .map(Math.sign);
+    const reversals = contactSigns.slice(1)
+      .filter((sign, index) => sign !== contactSigns[index]).length;
+    assert.ok(extrema.length >= 3, `${soundId} needs palm, finger, and rebound contacts`);
+    assert.ok(reversals >= 2, `${soundId} needs alternating clap-like skin displacement`);
+  }
 
   const hee = physicalVoiceParameters("hee", HAMBONE_DEFAULTS, 1);
   const haw = physicalVoiceParameters("haw", HAMBONE_DEFAULTS, 1);
@@ -555,7 +782,7 @@ test("the expanded bank models body kicks, opposed slaps, reversible breath, pit
 });
 
 test("physical presets and deterministic randomization produce distinct bounded faces", () => {
-  assert.ok(HAMBONE_PRESETS.length >= 9, "the expanded face needs a wider preset bank");
+  assert.ok(HAMBONE_PRESETS.length >= 13, "the expanded face needs a wider preset bank");
   assert.equal(new Set(HAMBONE_PRESETS.map(({ id }) => id)).size, HAMBONE_PRESETS.length);
   assert.equal(
     new Set(HAMBONE_PRESETS.map(({ settings }) => JSON.stringify(settings))).size,
@@ -563,6 +790,12 @@ test("physical presets and deterministic randomization produce distinct bounded 
   );
 
   const presetStates = HAMBONE_PRESETS.map((preset) => {
+    for (const effectKey of ["nasalMix", "earSpread", "eyeDivergence"]) {
+      assert.ok(
+        Object.hasOwn(preset.settings, effectKey),
+        `${preset.id} must carry its own ${effectKey} live-control default`,
+      );
+    }
     const state = hamboneState(preset.id);
     assert.equal(state.presetId, preset.id);
     assertBoundedState(state, preset.id);
@@ -613,10 +846,10 @@ test("physical presets and deterministic randomization produce distinct bounded 
   }
 });
 
-test("patterns expose an exclusive editable sixteen-by-sixteen face-pose grid", () => {
-  assert.equal(HAMBONE_STEP_COUNT, 16);
+test("patterns expose an exclusive editable twenty-four-by-sixty-four face-pose grid", () => {
+  assert.equal(HAMBONE_STEP_COUNT, 64);
   assert.deepEqual(HAMBONE_VELOCITIES, [0, 0.42, 0.72, 1]);
-  assert.ok(HAMBONE_PATTERNS.length >= 9, "the expanded sound bank needs a wider rhythm bank");
+  assert.ok(HAMBONE_PATTERNS.length >= 13, "the expanded sound bank needs a wider rhythm bank");
   assert.equal(new Set(HAMBONE_PATTERNS.map(({ id }) => id)).size, HAMBONE_PATTERNS.length);
 
   for (const pattern of HAMBONE_PATTERNS) {
@@ -630,6 +863,14 @@ test("patterns expose an exclusive editable sixteen-by-sixteen face-pose grid", 
         assert.ok(amount >= 0 && amount <= 1);
         if (amount > 0) activeCells += 1;
       }
+    }
+    for (let phraseStart = 0; phraseStart < HAMBONE_STEP_COUNT; phraseStart += 16) {
+      assert.ok(
+        SOUND_IDS.some((soundId) => pattern.rows[soundId]
+          .slice(phraseStart, phraseStart + 16)
+          .some((amount) => amount > 0)),
+        `${pattern.id} must remain playable when a 64-step grid reaches phrase ${phraseStart / 16 + 1}`,
+      );
     }
     for (let step = 0; step < HAMBONE_STEP_COUNT; step += 1) {
       const activeAtStep = SOUND_IDS.filter((soundId) => pattern.rows[soundId][step] > 0);
@@ -647,10 +888,10 @@ test("patterns expose an exclusive editable sixteen-by-sixteen face-pose grid", 
 
   const hostile = sanitizePattern({
     bop: [Number.NaN, -4, 0.5, 20],
-    unknown: Array(16).fill(1),
+    unknown: Array(HAMBONE_STEP_COUNT).fill(1),
   });
   assert.deepEqual(Object.keys(hostile), SOUND_IDS);
-  assert.equal(hostile.bop.length, 16);
+  assert.equal(hostile.bop.length, HAMBONE_STEP_COUNT);
   assert.deepEqual(hostile.bop.slice(0, 4), [0, 0, 0.5, 1]);
   assert.ok(hostile.boop.every((amount) => amount === 0));
 
@@ -667,8 +908,8 @@ test("patterns expose an exclusive editable sixteen-by-sixteen face-pose grid", 
     [{ soundId: "bop", velocity: 0.72, step: 0 }],
     "stable sound order breaks equal-velocity ties",
   );
-  assert.deepEqual(patternEventsAtStep({ boop: { 15: 0.42 } }, -1), [
-    { soundId: "boop", velocity: 0.42, step: 15 },
+  assert.deepEqual(patternEventsAtStep({ boop: { 63: 0.42 } }, -1), [
+    { soundId: "boop", velocity: 0.42, step: 63 },
   ]);
 
   const scattered = randomizePattern(() => 0, 0.22);
@@ -683,7 +924,7 @@ test("patterns expose an exclusive editable sixteen-by-sixteen face-pose grid", 
   }
 });
 
-test("velocity cycling and swing preserve the sixteen-step loop duration", () => {
+test("velocity cycling and swing preserve every loop duration from one through sixty-four steps", () => {
   const velocityCycle = [0];
   for (let index = 0; index < HAMBONE_VELOCITIES.length; index += 1) {
     velocityCycle.push(cycleStepVelocity(velocityCycle.at(-1)));
@@ -702,14 +943,18 @@ test("velocity cycling and swing preserve the sixteen-step loop duration", () =>
   assert.ok(short < straight);
   assert.ok(Math.abs(long + short - straight * 2) < 1e-12);
 
-  const straightLoop = Array.from({ length: 16 }, (_, step) => (
-    sequenceStepIntervalSeconds(tempo, 0, step)
-  )).reduce((sum, interval) => sum + interval, 0);
-  const swungLoop = Array.from({ length: 16 }, (_, step) => (
-    sequenceStepIntervalSeconds(tempo, 0.46, step)
-  )).reduce((sum, interval) => sum + interval, 0);
-  assert.ok(Math.abs(straightLoop - 2) < 1e-12);
-  assert.ok(Math.abs(swungLoop - straightLoop) < 1e-12);
+  for (let stepCount = 1; stepCount <= HAMBONE_STEP_COUNT; stepCount += 1) {
+    const cycleCount = stepCount % 2 === 0 ? 1 : 2;
+    const subdivisionCount = stepCount * cycleCount;
+    const straightLoop = Array.from({ length: subdivisionCount }, (_, absoluteStep) => (
+      sequenceStepIntervalSeconds(tempo, 0, absoluteStep)
+    )).reduce((sum, interval) => sum + interval, 0);
+    const swungLoop = Array.from({ length: subdivisionCount }, (_, absoluteStep) => (
+      sequenceStepIntervalSeconds(tempo, 0.46, absoluteStep)
+    )).reduce((sum, interval) => sum + interval, 0);
+    assert.ok(Math.abs(straightLoop - subdivisionCount / 8) < 1e-12);
+    assert.ok(Math.abs(swungLoop - straightLoop) < 1e-12);
+  }
   assert.equal(
     sequenceStepIntervalSeconds(-1e6, -1e6, 0),
     15 / HAMBONE_LIMITS.tempo[0],
@@ -719,7 +964,7 @@ test("velocity cycling and swing preserve the sixteen-step loop duration", () =>
   assert.equal(sequenceStepIntervalSeconds(1e6, 0, 0), 15 / 520);
 });
 
-test("Hambone worklet renders sixteen distinct gestures through exactly one active mouth", async () => {
+test("Hambone worklet renders twenty-four distinct gestures through exactly one active mouth", async () => {
   const globalKeys = ["sampleRate", "AudioWorkletProcessor", "registerProcessor"];
   const originals = new Map(globalKeys.map((key) => [
     key,
@@ -810,10 +1055,15 @@ test("Hambone worklet renders sixteen distinct gestures through exactly one acti
     for (const soundId of SOUND_IDS) {
       const rendered = render(soundId);
       const result = metrics([rendered.left, rendered.right]);
-      assert.ok(result.rms > 0.0001, `${soundId} must be audible`);
-      assert.ok(result.peak > 0.001, `${soundId} must have a clear attack or body`);
+      assert.ok(result.rms > 0.0005, `${soundId} must have audible body, not a vanishing trace`);
+      assert.ok(result.peak > 0.008, `${soundId} must have a clear attack or body`);
       assert.ok(result.peak <= 0.721, `${soundId} must stay below the worklet limiter ceiling`);
-      assert.ok(result.audibleSamples > 128, `${soundId} must render more than an impulse`);
+      assert.ok(result.audibleSamples > 1_000, `${soundId} must render more than an impulse`);
+      if (["aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle"].includes(soundId)) {
+        assert.ok(result.rms > 0.02, `${soundId} needs sustained throat presence`);
+        assert.ok(result.peak > 0.07, `${soundId} needs a present vocal onset`);
+        assert.ok(result.audibleSamples > 10_000, `${soundId} needs a sustained physical body`);
+      }
       const telemetryMessages = rendered.processor.messages.filter(({ type }) => type === "telemetry");
       const telemetry = telemetryMessages.at(-1);
       assert.equal(telemetry?.lastSoundId, soundId);
@@ -835,6 +1085,12 @@ test("Hambone worklet renders sixteen distinct gestures through exactly one acti
           "earSpread",
           "stereoDelayMs",
           "eyeDivergence",
+          "glottalFrequencyHz",
+          "vibratoRateHz",
+          "vibratoDepthSemitones",
+          "roughness",
+          "subharmonicMix",
+          "throatRattleApertureCm",
         ]) {
           assert.ok(Number.isFinite(message[field]), `${soundId} telemetry ${field} must be finite`);
         }
@@ -850,6 +1106,10 @@ test("Hambone worklet renders sixteen distinct gestures through exactly one acti
       assert.ok(
         telemetryMessages.every(({ activeVoices }) => activeVoices === 0 || activeVoices === 1),
         `${soundId} telemetry must never report layered mouths`,
+      );
+      assert.ok(
+        telemetryMessages.some(({ voiceCharacterId }) => voiceCharacterId === "natural"),
+        `${soundId} must report the one character currently retuning its tract`,
       );
       assert.equal("voices" in rendered.processor, false);
       assert.equal("voice" in rendered.processor, false);
@@ -871,24 +1131,133 @@ test("Hambone worklet renders sixteen distinct gestures through exactly one acti
 
     const dryFace = render("doo", 420, {
       ...HAMBONE_DEFAULTS,
+      nasalMix: 0,
       earSpread: 0,
       eyeDivergence: 0,
     });
     const openFace = render("doo", 420, {
       ...HAMBONE_DEFAULTS,
+      nasalMix: 0,
       earSpread: 1,
       eyeDivergence: 1,
     });
+    const divergentEyes = render("doo", 420, {
+      ...HAMBONE_DEFAULTS,
+      nasalMix: 0,
+      earSpread: 0,
+      eyeDivergence: 1,
+    });
+    const openNose = render("doo", 420, {
+      ...HAMBONE_DEFAULTS,
+      nasalMix: 1,
+      earSpread: 0,
+      eyeDivergence: 0,
+    });
     assert.ok(
-      normalizedDifference(dryFace.left, openFace.left) > 0.08,
+      normalizedDifference(dryFace.left, openFace.left) > 0.75,
       "ear and eye movement must materially reshape the full-sequence output",
     );
     assert.ok(
-      normalizedDifference(openFace.left, openFace.right) > 0.05,
+      normalizedDifference(openFace.left, openFace.right) > 0.7,
       "stretched ears must create a real stereo delay rather than a label-only control",
     );
-    assert.ok(openFace.processor.faceSpace.stereoDelayMs > 10);
+    assert.ok(
+      normalizedDifference(dryFace.left, divergentEyes.left) > 0.18,
+      "eye divergence alone must open an unmistakable physical room",
+    );
+    assert.ok(
+      normalizedDifference(dryFace.left, openNose.left) > 0.35,
+      "nose height alone must strongly reroute sound through the nasal tube",
+    );
+    assert.ok(openNose.processor.tract.nose.opening > 0.95);
+    assert.ok(openFace.processor.faceSpace.stereoDelayMs > 20);
+    assert.ok(openFace.processor.faceSpace.stereoDelayMs < 35);
     assert.ok(openFace.processor.faceSpace.eyeAmount > 0.9);
+
+    const flutterProbe = new Processor({ processorOptions: { configuration: HAMBONE_DEFAULTS } });
+    flutterProbe._handleMessage({ type: "strike", soundId: "pff", velocity: 1 });
+    const flutterApertures = [];
+    for (let block = 0; block < 120; block += 1) {
+      flutterProbe.process([], [[new Float32Array(128), new Float32Array(128)]]);
+      flutterApertures.push(flutterProbe.tract.lipValve.apertureCm);
+    }
+    let flutterOpenings = 0;
+    let flutterClosures = 0;
+    for (let index = 1; index < flutterApertures.length; index += 1) {
+      if (flutterApertures[index - 1] <= 0.002 && flutterApertures[index] > 0.002) flutterOpenings += 1;
+      if (flutterApertures[index - 1] > 0.002 && flutterApertures[index] <= 0.002) flutterClosures += 1;
+    }
+    assert.ok(Math.max(...flutterApertures) > 0.005, "PFRR pressure must physically part the lip mass");
+    assert.ok(flutterOpenings >= 6 && flutterClosures >= 6, "PFRR needs repeated pressure-driven lip contacts");
+
+    const silentFlutter = new Processor({
+      processorOptions: { configuration: { ...HAMBONE_DEFAULTS, lungPressure: 0 } },
+    });
+    silentFlutter._handleMessage({ type: "strike", soundId: "pff", velocity: 1 });
+    let silentFlutterAperture = 0;
+    for (let block = 0; block < 120; block += 1) {
+      silentFlutter.process([], [[new Float32Array(128), new Float32Array(128)]]);
+      silentFlutterAperture = Math.max(
+        silentFlutterAperture,
+        silentFlutter.tract.lipValve.apertureCm,
+      );
+    }
+    assert.ok(silentFlutterAperture < 0.0011, "PFRR lips cannot self-flutter without pressure");
+
+    const tightSlap = render("slap", 300, {
+      ...HAMBONE_DEFAULTS,
+      cheekVolume: -0.3,
+      cheekTension: 1.6,
+      tractLengthM: 0.08,
+      earSpread: 0,
+    });
+    const cavernSlap = render("slap", 300, {
+      ...HAMBONE_DEFAULTS,
+      cheekVolume: 1.9,
+      cheekTension: -0.25,
+      tractLengthM: 0.42,
+      earSpread: 0,
+    });
+    const tightSmack = render("smack", 300, {
+      ...HAMBONE_DEFAULTS,
+      cheekVolume: -0.3,
+      cheekTension: 1.6,
+      tractLengthM: 0.08,
+      earSpread: 0,
+    });
+    const cavernSmack = render("smack", 300, {
+      ...HAMBONE_DEFAULTS,
+      cheekVolume: 1.9,
+      cheekTension: -0.25,
+      tractLengthM: 0.42,
+      earSpread: 0,
+    });
+    assert.ok(
+      normalizedDifference(tightSlap.left, cavernSlap.left) > 0.35,
+      "left-hand hit configuration must materially retune the cheek and mouth resonator",
+    );
+    assert.ok(
+      normalizedDifference(tightSmack.left, cavernSmack.left) > 0.25,
+      "right-hand hit configuration must materially retune the cheek and mouth resonator",
+    );
+    for (const soundId of ["slap", "smack"]) {
+      const handProbe = new Processor({ processorOptions: { configuration: HAMBONE_DEFAULTS } });
+      handProbe._handleMessage({ type: "strike", soundId, velocity: 1 });
+      let contacts = [];
+      for (let block = 0; block < 50; block += 1) {
+        handProbe.process([], [[new Float32Array(128), new Float32Array(128)]]);
+        const activeContacts = handProbe.tract.transients.filter(({ active }) => active);
+        if (activeContacts.length > contacts.length) contacts = activeContacts.map((contact) => ({
+          index: contact.index,
+          strength: contact.strength,
+          delaySeconds: contact.delaySeconds,
+        }));
+      }
+      assert.ok(contacts.length >= 3, `${soundId} must schedule palm, finger, and skin-fold contacts`);
+      assert.ok(new Set(contacts.map(({ index }) => index)).size >= 3);
+      assert.ok(new Set(contacts.map(({ strength }) => Math.sign(strength))).size >= 2);
+      assert.ok(contacts.some(({ delaySeconds }) => delaySeconds > 0));
+    }
 
     const contoured = new Processor({ processorOptions: { configuration: HAMBONE_DEFAULTS } });
     contoured._handleMessage({
@@ -913,6 +1282,52 @@ test("Hambone worklet renders sixteen distinct gestures through exactly one acti
     assert.equal(contoured.configuration.dooPitch, 12);
     assert.equal(contoured.configuration.earSpread, 0.92);
     assert.equal(contoured.configuration.eyeDivergence, 0.76);
+
+    const queuedVoice = {
+      characterId: "monster",
+      pitchOffsetSemitones: -13,
+      vibratoRateHz: 3.1,
+      vibratoDepthSemitones: 1.4,
+      breathiness: 0.28,
+      roughness: 0.8,
+      subharmonicMix: 0.7,
+      tractScale: 1.16,
+      modulation: {
+        source: "triangle",
+        target: "roughness",
+        depth: 0.72,
+        rateHz: 4.4,
+        phase: 0.2,
+      },
+    };
+    const voicedEvent = new Processor({ processorOptions: { configuration: HAMBONE_DEFAULTS } });
+    voicedEvent._handleMessage({
+      type: "strike",
+      soundId: "wail",
+      velocity: 0.9,
+      delaySeconds: 0.03,
+      voice: queuedVoice,
+    });
+    assert.equal(voicedEvent.queue.length, 1);
+    assert.deepEqual(voicedEvent.queue[0].voiceSnapshot, sanitizeHamboneVoice(queuedVoice));
+    queuedVoice.characterId = "helium";
+    queuedVoice.pitchOffsetSemitones = 24;
+    queuedVoice.modulation.depth = 0;
+    assert.equal(voicedEvent.queue[0].voiceSnapshot.characterId, "monster");
+    assert.equal(voicedEvent.queue[0].voiceSnapshot.pitchOffsetSemitones, -13);
+    assert.equal(voicedEvent.queue[0].voiceSnapshot.modulation.depth, 0.72);
+    for (let block = 0; block < 28; block += 1) {
+      voicedEvent.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    }
+    assert.equal(voicedEvent.lastSoundId, "wail");
+    assert.equal(voicedEvent.gesture?.voiceSnapshot?.characterId, "monster");
+    assert.equal(voicedEvent.gesture?.plan?.voiceCharacterId, "monster");
+    assert.ok(
+      voicedEvent.messages.some((message) => (
+        message.type === "telemetry" && message.voiceCharacterId === "monster"
+      )),
+      "the chosen event character must remain visible while the one tract sounds",
+    );
 
     const fresh = new Processor({ processorOptions: { configuration: HAMBONE_DEFAULTS } });
     const freshLeft = new Float32Array(128);
@@ -1154,19 +1569,29 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   assert.match(html, /src="hambone-app\.js[^\"]*"/);
   assert.ok(
     html.indexOf("hambone-stage") < html.indexOf("hambone-sequencer"),
-    "the sixteen-step sequencer must follow the face visual",
+    "the selectable sequencer must follow the face visual",
   );
   assert.match(html, /id="stage"[\s\S]*?tabindex="0"[\s\S]*?aria-label=/);
   assert.match(html, /aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="sequenceGrid"[\s\S]*?role="grid"/);
-  assert.match(html, /aria-rowcount="16"/);
-  assert.match(html, /aria-colcount="16"/);
+  assert.match(html, /aria-rowcount="24"/);
+  assert.match(html, /aria-colcount="32"/);
   assert.match(html, /Only one (?:sound|gesture|pose) can occupy each step/i);
-  assert.match(html, /beyond human ranges/i);
-  assert.match(html, /id="padGrid"[\s\S]*?Sixteen playable Hambone sound pads/i);
-  assert.match(html, /id="effectContourGrid"[\s\S]*?aria-rowcount="3"/);
-  assert.match(html, /Nose controls nasal tone[\s\S]*Ears control stereo delay[\s\S]*Eyes control reverb/i);
-  assert.match(html, /Drag both hands to slap different resonant zones/i);
+  assert.match(html, /beyond human ranges|beyond-human/i);
+  assert.match(html, /id="padGrid"[\s\S]*?Twenty-four playable Hambone sound pads/i);
+  assert.match(html, /id="sequenceLength"[^>]*min="1"[^>]*max="64"[^>]*value="32"/);
+  assert.match(html, /id="sequenceLengthNumber"[^>]*min="1"[^>]*max="64"[^>]*value="32"/);
+  assert.match(html, /id="sequenceLengthOut"[\s\S]*?32 steps/);
+  assert.doesNotMatch(html, /id="effectContourGrid"|hambone-effect-contour/i);
+  assert.doesNotMatch(html, /per-step face contours|draw their .* contours/i);
+  assert.match(html, /preset loads its own face effects/i);
+  assert.match(html, /Drag the eyes, nose, and ears for stronger live changes/i);
+  assert.match(html, /drag either hand to slap/i);
+  assert.match(html, /id="voiceCount"[^>]*min="1"[^>]*max="8"[^>]*value="4"/);
+  assert.match(html, /id="voiceSelectionMode"[\s\S]*?value="roundRobin"[\s\S]*?value="random"/);
+  assert.match(html, /id="mutateVoicesButton"/);
+  assert.match(html, /id="voiceRack"[^>]*role="list"/);
+  assert.match(html, /One persistent mouth and one chosen voice sound each event/i);
   assert.doesNotMatch(html, />SHHH</);
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);
   assert.match(html, /id="playButton"[^>]*aria-pressed="false"/);
@@ -1182,12 +1607,16 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   }
 
   assert.match(css, /\.hambone-workspace\s*\{[\s\S]*?grid-template-rows:/);
-  assert.match(css, /\.hambone-sequence-grid\s*\{[\s\S]*?repeat\(16,/);
-  assert.match(css, /grid-template-rows:\s*20px repeat\(16,/);
-  assert.match(css, /\.hambone-effect-contour-grid\s*\{[\s\S]*?repeat\(16,/);
-  assert.match(css, /grid-template-rows:\s*20px repeat\(3,/);
+  assert.match(css, /\.hambone-sequence-grid\s*\{[\s\S]*?repeat\(var\(--hambone-sequence-steps, 32\),/);
+  assert.match(css, /grid-template-rows:\s*20px repeat\(24,/);
+  assert.doesNotMatch(css, /\.hambone-effect-contour-grid/);
   assert.match(css, /\.hambone-grid-scroll\s*\{[\s\S]*?overflow:/);
   assert.match(css, /\.hambone-step-cell:focus-visible/);
+  assert.match(css, /\.hambone-voice-rack\s*\{[\s\S]*?overflow:\s*auto/);
+  assert.match(css, /\.hambone-voice-card/);
+  assert.match(css, /\.hambone-voice-solo\[aria-pressed="true"\]/);
+  assert.match(css, /\.hambone-voice-mod-(?:source|target)/);
+  assert.match(css, /\.hambone-voice-mod-(?:depth|rate)/);
   assert.match(css, /@media \(max-width:\s*680px\)/);
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
 
@@ -1199,17 +1628,32 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   assert.match(app, /HAMBONE_SOUNDS\.map\(\(sound, index\) =>/);
   assert.match(app, /button\.dataset\.padIndex = String\(index\)/);
   assert.match(app, /function buildSequenceGrid\(\)/);
-  assert.match(app, /function buildEffectContourGrid\(\)/);
-  assert.match(app, /const EFFECT_LANES = Object\.freeze/);
-  for (const effectKey of ["nasalMix", "earSpread", "eyeDivergence"]) {
-    assert.match(app, new RegExp(`key: "${effectKey}"`));
-  }
-  assert.match(app, /Array\(HAMBONE_STEP_COUNT\)/);
-  assert.match(app, /configuration:\s*stepEffects/);
+  assert.match(app, /function setSequenceLength\(value,/);
+  assert.doesNotMatch(app, /\[16, 32, 48, 64\]/);
+  assert.match(app, /sequenceLength\s*=\s*clamp\([\s\S]{0,160}1,\s*HAMBONE_STEP_COUNT,?\s*\)/);
+  assert.match(app, /\$\("sequenceLengthNumber"\)\?\.addEventListener\("change"/);
+  assert.match(app, /--hambone-sequence-steps/);
+  assert.match(app, /for \(let step = 0; step < sequenceLength; step \+= 1\)/);
+  assert.match(app, /sequenceStepIntervalSeconds\(state\.tempo, state\.swing, absoluteStep\)/);
+  assert.doesNotMatch(app, /function buildEffectContourGrid\(|const EFFECT_LANES|effectContourGrid/);
   assert.match(
     app,
-    /function initialize\(\)[\s\S]*?buildPadGrid\(\)[\s\S]*?buildSequenceGrid\(\)[\s\S]*?buildEffectContourGrid\(\)/,
+    /function initialize\(\)[\s\S]*?buildPadGrid\(\)[\s\S]*?buildVoiceRack\([\s\S]*?setSequenceLength\(/,
   );
+  assert.match(app, /function buildVoiceRack\(/);
+  assert.match(app, /HAMBONE_VOICE_CHARACTERS\.map/);
+  assert.match(app, /className = "hambone-voice-card"/);
+  assert.match(app, /className = "hambone-voice-solo"/);
+  assert.match(app, /className = "hambone-voice-mutate"/);
+  assert.match(app, /className = "hambone-voice-assignment"/);
+  assert.match(app, /HAMBONE_VOICE_MODULATION_SOURCES\.map/);
+  assert.match(app, /HAMBONE_VOICE_MODULATION_TARGETS\.map/);
+  assert.match(app, /className = "hambone-voice-mod-depth"/);
+  assert.match(app, /className = "hambone-voice-mod-rate"/);
+  assert.match(app, /availableVoiceSlots/);
+  assert.match(app, /\.filter\(\(slot\) => slot\.solo\)/);
+  assert.match(app, /voiceSelectionMode === "random"/);
+  assert.match(app, /voice:\s*voiceChoice\.voice/);
   assert.match(app, /setAttribute\("role", "gridcell"\)/);
   assert.match(app, /setAttribute\("aria-pressed", String\(level > 0\)\)/);
   assert.match(app, /ArrowLeft/);
@@ -1226,6 +1670,10 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   assert.match(app, /function morphDisplayedPose\(target, now, isSpeaking\)/);
   assert.match(app, /type\s*(?:===|!==)\s*"telemetry"/);
   assert.match(app, /function drawHands\(context, motion\)/);
+  assert.match(app, /const travel = 1 - \(1 - clamp\(active\)\) \*\* 2/);
+  assert.match(app, /const palmX = hand\.x \+ \(hand\.targetX - hand\.x\) \* travel/);
+  assert.match(app, /const palmY = hand\.y \+ \(hand\.targetY - hand\.y\) \* travel/);
+  assert.match(app, /if \(travel > 0\.54\)[\s\S]*?const impact/);
   assert.match(app, /soundId: "slap"[\s\S]*soundId: "smack"/);
   assert.match(app, /pointerDrag\?\.type === "hand"/);
   assert.match(app, /pointerDrag = \{[\s\S]*?type: "hand"[\s\S]*?soundId: hand\.soundId/);
@@ -1252,13 +1700,24 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   }
   assert.match(processor, /\boralSectionCount\b/);
   assert.match(processor, /\bstereoDelayMs\b/);
+  assert.match(processor, /\bvoiceSnapshot\b/);
+  for (const field of [
+    "voiceCharacterId",
+    "glottalFrequencyHz",
+    "vibratoRateHz",
+    "vibratoDepthSemitones",
+    "roughness",
+    "subharmonicMix",
+    "throatRattleApertureCm",
+  ]) {
+    assert.match(processor, new RegExp(`\\b${field}\\b`));
+  }
   assert.match(model, /one physical mouth/i);
   assert.match(model, /const exclusivePatternRows/);
   assert.match(processor, /this\.tract\s*=/);
   assert.match(processor, /this\.gesture\s*=/);
   assert.match(processor, /hamboneGestureFrame(?:AtSample)?/);
   assert.match(processor, /hamboneTargetOralDiameters/);
-  assert.doesNotMatch(processor, /this\.voice\s*=/);
   assert.doesNotMatch(processor, /this\.voices\s*=/);
   assert.doesNotMatch(processor, /voicePool|voiceSlots/i);
   assert.match(processor, /activeVoices:/);
@@ -1272,8 +1731,15 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   assert.match(processor, /lip(?:Valve|Aperture|Diameter|Closure)/i);
   assert.match(processor, /class FaceSpace/);
   assert.match(processor, /class PressureDrivenTongueValve/);
+  assert.match(processor, /_scheduleHandContactIfNeeded\(frame, plan\)/);
+  assert.match(processor, /Palm, fingers, and reflected skin fold/i);
+  for (const field of ["handImpactBrightness", "handContactSpacingMs", "handTail"]) {
+    assert.match(model, new RegExp(`\\b${field}\\b`));
+    assert.match(processor, new RegExp(`\\b${field}\\b`));
+  }
   assert.match(processor, /airflowDirection/);
   assert.match(processor, /configurationSnapshot/);
+  assert.match(processor, /sanitizeHamboneVoice/);
   assert.doesNotMatch(processor, /StateVariableBandpass/);
   assert.doesNotMatch(processor, /formantFrequenciesHz|formantBandwidthsHz|formantFilters/);
 
@@ -1287,12 +1753,13 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
   assert.equal(catalogEntry?.kind, "Monophonic physical beatbox sequencer");
   assert.equal(catalogEntry?.imageHref, "assets/instruments/hambone.webp");
   assert.match(catalogEntry?.description ?? "", /fully mutable face/i);
-  assert.match(catalogEntry?.description ?? "", /sixteen exclusive gestures/i);
+  assert.match(catalogEntry?.description ?? "", /twenty-four exclusive gestures/i);
   assert.match(catalogEntry?.description ?? "", /PHSHSHK/i);
-  assert.match(catalogEntry?.description ?? "", /HEE[\s\S]*HAW[\s\S]*DOO[\s\S]*BURP/i);
-  assert.match(catalogEntry?.start ?? "", /single gesture per column/i);
+  assert.match(catalogEntry?.description ?? "", /open-throat[\s\S]*vibrato[\s\S]*register-break/i);
+  assert.match(catalogEntry?.start ?? "", /one gesture per column/i);
+  assert.match(catalogEntry?.start ?? "", /any length from 1 through 64 steps/i);
   assert.match(catalogEntry?.start ?? "", /520 BPM/i);
-  assert.match(catalogEntry?.start ?? "", /eyes, nose, and ears/i);
+  assert.match(catalogEntry?.start ?? "", /one to eight sequential voice characters/i);
   assert.ok(catalogEntry?.features.includes("Pointer"));
   assert.ok(catalogEntry?.features.includes("Computer keys"));
   assert.deepEqual(catalogEntry?.tags.map(({ id }) => id), ["voice-synths", "sequencers"]);
@@ -1318,13 +1785,17 @@ test("Hambone page, app, accessibility, catalogue, MIDI registry, and build wiri
     );
   }
   assert.match(readme, /\*\*Hambone\*\*/);
-  assert.match(readme, /sixteen playable gestures/i);
-  assert.match(readme, /three per-step face contours/i);
+  assert.match(readme, /twenty-four playable gestures/i);
+  assert.match(readme, /freely adjustable from 1 through 64 steps/i);
+  assert.doesNotMatch(readme, /per-step face contours/i);
+  assert.match(readme, /one to eight editable voice characters/i);
+  assert.match(readme, /same monophonic folds and tract/i);
   assert.match(readme, /520 BPM/i);
-  assert.match(readme, /two visible hands/i);
+  assert.match(readme, /visible hand/i);
   for (const label of [
-    "BOP", "BOOP", "POP", "TLIK", "PHSHSHK", "SHACK!", "SLAP", "PFF",
+    "BOP", "BOOP", "POP", "TLIK", "PHSHSHK", "SHACK!", "SLAP", "PFRR",
     "KICK", "SMACK", "HEE", "HAW", "DOO", "MWAH", "DRR", "BURP",
+    "AAH", "OOH", "WAIL", "YODEL", "GROWL", "HOLLER", "HUM", "RATTLE",
   ]) {
     assert.match(readme, new RegExp(label.replace("!", "\\!")));
   }

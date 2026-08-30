@@ -6,12 +6,12 @@
     <meta name="theme-color" content="#080507" />
     <meta
       name="description"
-      content="Hambone is a monophonic, shape-shifting face-percussion and beatbox physical model with an editable 16-step sequencer for Morphazoid."
+      content="Hambone is a shape-shifting face-percussion and beatbox physical model with 24 playable gestures, mutable voice collections, and sequences up to 64 steps."
     />
     <title>Hambone · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hambone.css?v=hambone-20260829-4" />
+    <link rel="stylesheet" href="hambone.css?v=hambone-20260829-5" />
   </head>
   <body class="hambone-page">
     <header class="masthead">
@@ -47,8 +47,8 @@
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
-          <span><b>Output</b><output id="levelOut" for="level">50%</output></span>
-          <input id="level" aria-label="Hambone output level" type="range" min="0" max="0.82" step="0.01" value="0.5" />
+          <span><b>Output</b><output id="levelOut" for="level">60%</output></span>
+          <input id="level" aria-label="Hambone output level" type="range" min="0" max="0.82" step="0.01" value="0.6" />
         </label>
       </div>
     </header>
@@ -60,7 +60,7 @@
             <canvas
               id="stage"
               tabindex="0"
-              aria-label="A fully mutable beatbox face. Drag either eye, the nose, either ear, and both slap hands to shape effects and percussion; tap a mouth zone or sound pad to play one of sixteen face and mouth gestures."
+              aria-label="A fully mutable beatbox face. Drag either eye, the nose, either ear, and both slap hands to shape strong effects and percussion; tap a mouth zone or sound pad to play one of twenty-four face, throat, and mouth gestures."
               aria-describedby="canvasInstructions liveStatus"
             >
               A playable mutable face with draggable eyes, nose, ears, two slap hands, mouth anatomy, and resonant face percussion.
@@ -70,9 +70,9 @@
               <h1>HAMBONE</h1>
             </div>
             <div class="hambone-drag-legend" role="note" aria-label="Face controls are draggable">
-              <span><b>NOSE ↕</b><small>nasal tone</small></span>
-              <span><b>EARS ↔</b><small>spread + delay</small></span>
-              <span><b>EYES ◉</b><small>reverb space</small></span>
+              <span><b>NOSE ↕</b><small>hard nasal morph</small></span>
+              <span><b>EARS ↔</b><small>wide echo throw</small></span>
+              <span><b>EYES ◉</b><small>deep room bloom</small></span>
               <span><b>2 HANDS ✋</b><small>drag to slap</small></span>
             </div>
             <p class="hambone-stage-hint" aria-hidden="true">
@@ -87,15 +87,23 @@
             <div class="hambone-transport">
               <button id="playButton" type="button" aria-pressed="false" data-primary-transport>
                 <span class="hambone-play-glyph" aria-hidden="true"></span>
-                <span><b id="playLabel">Play face</b><small id="playState">space · 16 steps</small></span>
+                <span><b id="playLabel">Play face</b><small id="playState">space · 32 steps</small></span>
               </button>
               <button id="restartButton" type="button" title="Restart at step 1">
                 <span aria-hidden="true">↤</span><span><b>First</b><small>step 1</small></span>
               </button>
             </div>
 
+            <div class="hambone-sequence-length" role="group" aria-labelledby="sequenceLengthLabel">
+              <span><b id="sequenceLengthLabel">Length</b><output id="sequenceLengthOut" for="sequenceLength sequenceLengthNumber" aria-live="polite">32 steps</output></span>
+              <div class="hambone-sequence-length-inputs">
+                <input id="sequenceLength" type="range" min="1" max="64" step="1" value="32" aria-labelledby="sequenceLengthLabel" aria-controls="sequenceGrid" />
+                <input id="sequenceLengthNumber" type="number" min="1" max="64" step="1" value="32" inputmode="numeric" aria-label="Exact sequence length in steps" aria-controls="sequenceGrid" />
+              </div>
+            </div>
+
             <div class="hambone-sequence-title">
-              <p>16 SOUNDS · FULL-FACE EFFECT LANES</p>
+              <p>24 SOUNDS · ANY LENGTH 1–64</p>
               <h2 id="sequencerTitle">Sequence the mutable face</h2>
             </div>
 
@@ -120,36 +128,18 @@
             </label>
           </header>
 
-          <div class="hambone-grid-scroll" tabindex="0" aria-label="Scrollable sixteen-sound step sequence and face-effect contours">
+          <div class="hambone-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable twenty-four-sound sequence with any length from one to sixty-four steps">
             <p class="hambone-face-guide">
-              <b>MOVE THE WHOLE FACE</b><span>Drag both hands to slap different resonant zones. Eyes, nose, and ears reshape the sequence effects.</span>
+              <b>MOVE THE WHOLE FACE</b><span>Each preset loads its own face effects. Drag the eyes, nose, and ears for stronger live changes; drag either hand to slap a resonant zone.</span>
             </p>
             <div
               class="hambone-sequence-grid"
               id="sequenceGrid"
               role="grid"
-              aria-label="Sixteen Hambone face and mouth sounds by sixteen sequence steps. Only one sound can occupy each step. Activating a sound replaces any other sound in that column."
-              aria-rowcount="16"
-              aria-colcount="16"
+              aria-label="Twenty-four Hambone face, throat, and mouth sounds by thirty-two sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
+              aria-rowcount="24"
+              aria-colcount="32"
             ></div>
-
-            <section class="hambone-effect-contours" aria-labelledby="effectContourTitle" aria-describedby="effectContourHelp">
-              <header class="hambone-effect-contours-header">
-                <div>
-                  <p>ASSIGNABLE FULL-FACE EFFECTS</p>
-                  <h3 id="effectContourTitle">Face contours</h3>
-                </div>
-                <p id="effectContourHelp">Shape each step: Nose controls nasal tone, Ears control stereo delay, and Eyes control reverb.</p>
-              </header>
-              <div
-                class="hambone-effect-contour-grid"
-                id="effectContourGrid"
-                role="grid"
-                aria-label="Three effect contour lanes across sixteen sequence steps: Nose nasal tone, Ears stereo delay, and Eyes reverb"
-                aria-rowcount="3"
-                aria-colcount="16"
-              ></div>
-            </section>
           </div>
         </section>
       </div>
@@ -167,14 +157,49 @@
           </button>
         </section>
 
-        <section class="hambone-pad-bank" id="padGrid" aria-label="Sixteen playable Hambone sound pads in a four by four grid"></section>
+        <section class="hambone-voice-collection" aria-labelledby="voiceCollectionTitle">
+          <header class="hambone-voice-heading">
+            <div>
+              <p>FOLDS · THROATS · CHARACTERS</p>
+              <h2 id="voiceCollectionTitle">Voice collection</h2>
+            </div>
+            <p id="voiceCollectionHelp">Build alternate vocal-fold and tract characters. One persistent mouth and one chosen voice sound each event.</p>
+          </header>
+          <div class="hambone-voice-toolbar">
+            <label class="hambone-voice-count" for="voiceCount">
+              <span><b>Voices</b><output id="voiceCountOut" for="voiceCount">4</output></span>
+              <input id="voiceCount" type="range" min="1" max="8" step="1" value="4" aria-controls="voiceRack" aria-describedby="voiceCollectionHelp" />
+            </label>
+            <label class="hambone-voice-mode" for="voiceSelectionMode">
+              <span>Choose per event</span>
+              <select id="voiceSelectionMode" aria-label="Voice selection mode" aria-controls="voiceRack" aria-describedby="voiceCollectionHelp">
+                <option value="roundRobin">Round robin</option>
+                <option value="random">Random</option>
+              </select>
+            </label>
+            <button class="hambone-voice-mutate-all" id="mutateVoicesButton" type="button" aria-controls="voiceRack">
+              <b>Mutate voices</b><small>new collection</small>
+            </button>
+          </div>
+          <div class="hambone-voice-rack" id="voiceRack" role="list" aria-label="Mutable and soloable voice characters" aria-live="polite"></div>
+          <p class="hambone-voice-note">Each voice can choose a character, be soloed, mutated, and given its own modulation depth. Round robin stays repeatable; Random makes a fresh vocal choice for every hit.</p>
+        </section>
+
+        <section class="hambone-pad-section" aria-labelledby="padBankTitle">
+          <header class="hambone-pad-heading">
+            <p>24 PHYSICAL GESTURES</p>
+            <h2 id="padBankTitle">Mouth, throat &amp; face</h2>
+            <small>Now with AAH · OOH · WAIL · YODEL · GROWL · HOLLER · HUM · RATTLE</small>
+          </header>
+          <div class="hambone-pad-bank" id="padGrid" aria-label="Twenty-four playable Hambone sound pads in a four-column grid"></div>
+        </section>
 
         <div class="hambone-model-hud" aria-live="polite">
           <span><small>Current mouth pose</small><output id="soundReadout">ready to morph</output></span>
           <span><small>Cheek cavity</small><output id="cavityReadout">94 ml · 205 Hz</output></span>
           <span><small>Oral tract</small><output id="tractReadout">16.5 cm</output></span>
           <span><small>Pressure</small><output id="pressureReadout">82%</output></span>
-          <span><small>Mouth mechanism</small><output id="voicesReadout">1 · ready</output></span>
+          <span><small>Event voice</small><output id="voicesReadout">voice 1 · ready</output></span>
         </div>
 
         <details class="group control-section" data-section="sound" open>
@@ -254,17 +279,17 @@
             <label class="control" for="nasalMix">
               <span><b>Nose height / nasal tone</b><output id="nasalMixOut" for="nasalMix">14%</output></span>
               <input id="nasalMix" type="range" min="0" max="1" step="0.01" value="0.14" />
-              <small>Matches dragging the nose vertically: it opens a velum-coupled nasal waveguide with its own poles and oral antiresonances.</small>
+              <small>Starts from the selected face preset. Drag the nose or move this live to force the velum from dry oral tone into an unmistakably hard nasal branch.</small>
             </label>
             <label class="control" for="earSpread">
               <span><b>Ear spread / stereo delay</b><output id="earSpreadOut" for="earSpread">18%</output></span>
               <input id="earSpread" type="range" min="0" max="1" step="0.01" value="0.18" />
-              <small>Matches stretching either ear outward, widening the face into stereo and lengthening its offset delay.</small>
+              <small>Starts from the preset, then stretches the live sound from centered mono into a conspicuous wide, offset stereo echo throw.</small>
             </label>
             <label class="control" for="eyeDivergence">
               <span><b>Eye divergence / reverb</b><output id="eyeDivergenceOut" for="eyeDivergence">8%</output></span>
               <input id="eyeDivergence" type="range" min="0" max="1" step="0.01" value="0.08" />
-              <small>Matches dragging the eyes into different directions, opening and skewing the reverberant space.</small>
+              <small>Starts from the preset. Pull the eyes apart to move from a close dry face into a deep, clearly audible cross-fed room bloom.</small>
             </label>
             <label class="control" for="silliness">
               <span><b>Anatomy warp</b><output id="sillinessOut" for="silliness">56%</output></span>
@@ -287,17 +312,19 @@
         <details class="group control-section hambone-model-notes" data-section="output">
           <summary class="group-summary">
             <h2 class="group-title">What is physical here?</h2>
-            <span class="section-state">full face · 16 sequential sounds</span>
+            <span class="section-state">full face · 24 sequential sounds</span>
           </summary>
           <div class="group-body">
             <p><b>One tract</b> resamples Pink Trombone / Throatazoid's 44-point mouth geometry into a continuously moving, variable-length oral waveguide. Its travelling air waves persist as every new gesture reshapes that same mouth.</p>
             <p><b>BOP / BOOP</b> seal the lips, store pressure, then release it into different tongue and lip shapes.</p>
             <p><b>POP / TLIK</b> use signed cheek or tongue-pocket suction, with TLIK releasing its front and rear contacts in sequence.</p>
             <p><b>PHSHSHK / SHACK</b> move the tongue between lip, postalveolar, open-jaw, and velar phases; turbulence is injected where the constriction actually is.</p>
-            <p><b>SLAP / SMACK / KICK</b> send opposite-polarity hand contacts or a low body impulse through the compliant cheek branch and the current mouth resonance.</p>
+            <p><b>SLAP / SMACK / KICK</b> send clap-like palm-and-finger contact clusters or a low body impulse through the compliant cheek branch. Moving either hand changes the struck cavity, brightness, timing, and face resonance.</p>
             <p><b>HEE / HAW / DOO</b> reverse airflow across a brief fold pulse, open the jaw, or tune a rounded voiced tube with the dedicated pitch control.</p>
-            <p><b>MWAH / DRR / BURP / PFF</b> use sealed suction, a pressure-driven tongue-tip valve, irregular low folds, or a feedback lip valve—never sample playback.</p>
-            <p><b>NOSE / EARS / EYES</b> expose the velum and nasal branch, unequal stereo propagation delays, and a bounded cross-fed room. Their three contour rows move those effects step by step.</p>
+            <p><b>MWAH / DRR / BURP / PFRR</b> use sealed suction, a pressure-driven tongue-tip valve, irregular low folds, or a sustained pressure-feedback lip roll—never sample playback.</p>
+            <p><b>AAH / OOH / WAIL / YODEL / GROWL / HOLLER / HUM / RATTLE</b> open the throat into wider vowel areas, vibrato, register breaks, false-fold roughness, and sustained resonant tissue motion.</p>
+            <p><b>VOICE COLLECTIONS</b> hold up to eight alternate fold and tract characters. Solo one, cycle predictably, or choose randomly; only one character drives the persistent mouth for each event.</p>
+            <p><b>NOSE / EARS / EYES</b> expose the velum and nasal branch, unequal stereo propagation delays, and a strong bounded cross-fed room. Every preset supplies useful defaults, then the face and live sliders push them much further.</p>
           </div>
         </details>
 
@@ -306,16 +333,17 @@
     </main>
 
     <p class="sr-only" id="canvasInstructions">
-      Tap a labeled face zone or use the displayed pad shortcuts to play one of sixteen face and mouth sounds.
+      Tap a labeled face zone or use the displayed pad shortcuts to play one of twenty-four face, throat, and mouth sounds.
       Drag the left and right hands onto different cheeks, jaw, forehead, or mouth zones for resonant slaps.
       Drag either eye to shape reverb, the nose up or down to change nasal tone, and either ear outward to
-      change stereo spread and delay. Drag the mouth anatomy beyond human ranges. In the sixteen-step grid,
-      each column holds at most one sound; selecting another row replaces that step's old sound. The three
-      contour lanes automate nose and nasal tone, ears and stereo delay, and eyes and reverb at every step.
+      change stereo spread and delay. Face presets supply defaults for those effects, and dragging tweaks them live.
+      Drag the mouth anatomy beyond human ranges. Set the sequence to any whole-number length from one through
+      sixty-four steps. Each column holds at most one sound; selecting another row replaces that step's old sound.
+      The voice collection can cycle or randomly choose among one to eight mutable characters, one per event.
     </p>
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
-    <script type="module" src="hambone-app.js?v=hambone-20260829-6"></script>
+    <script type="module" src="hambone-app.js?v=hambone-20260829-7"></script>
   </body>
 </html>

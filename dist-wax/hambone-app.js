@@ -7,6 +7,9 @@ import {
   HAMBONE_STEP_COUNT,
   HAMBONE_TRACT_SECTION_COUNT,
   HAMBONE_VELOCITIES,
+  HAMBONE_VOICE_CHARACTERS,
+  HAMBONE_VOICE_MODULATION_SOURCES,
+  HAMBONE_VOICE_MODULATION_TARGETS,
   clamp,
   clonePattern,
   cycleStepVelocity,
@@ -16,10 +19,13 @@ import {
   hambonePoseForSound,
   hamboneSound,
   hamboneState,
+  hamboneVoiceCharacter,
+  mutateHamboneVoice,
   patternEventsAtStep,
   randomizeHamboneState,
   randomizePattern,
   sanitizeHamboneState,
+  sanitizeHamboneVoice,
   sequenceStepIntervalSeconds,
 } from "./src/hambone.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
@@ -53,20 +59,15 @@ const CONTROL_SPECS = Object.freeze([
   { key: "level", format: formatPercent },
 ]);
 
-const EFFECT_LANES = Object.freeze([
-  Object.freeze({ id: "nose", key: "nasalMix", label: "NOSE / NASAL", color: "#ff7b87" }),
-  Object.freeze({ id: "ears", key: "earSpread", label: "EARS / STEREO", color: "#65dfe8" }),
-  Object.freeze({ id: "eyes", key: "eyeDivergence", label: "EYES / REVERB", color: "#bb8cff" }),
-]);
-
 let state = hamboneState("rubber-face");
 let pattern = normalizePatternColumns(clonePattern(hambonePattern(state.patternId)));
 let currentPatternId = state.patternId;
-let effectContours = Object.fromEntries(EFFECT_LANES.map(({ key }) => [
-  key,
-  Array(HAMBONE_STEP_COUNT).fill(clamp(Number(state[key]) || 0)),
-]));
-let liveSequenceEffects = null;
+let sequenceLength = Math.min(32, HAMBONE_STEP_COUNT);
+let voiceCount = 4;
+let voiceSelectionMode = "round-robin";
+let voiceCursor = 0;
+let activeVoiceSlot = -1;
+let voiceSlots = createDefaultVoiceSlots();
 let audioContext = null;
 let graph = null;
 let startingAudio = false;
@@ -84,8 +85,8 @@ let handles = [];
 let hotspots = [];
 let hands = [];
 const handPlacements = {
-  left: { x: -0.88, y: 0.1 },
-  right: { x: 0.88, y: 0.14 },
+  left: { x: -0.62, y: 0.1 },
+  right: { x: 0.62, y: 0.14 },
 };
 let pointerDrag = null;
 let animationFrame = 0;
@@ -105,6 +106,25 @@ let telemetry = {
   peak: 0,
   rms: 0,
 };
+
+function createDefaultVoiceSlots() {
+  return HAMBONE_VOICE_CHARACTERS.slice(0, 8).map((character, index) => ({
+    id: `voice-${index + 1}`,
+    solo: false,
+    assignment: "all",
+    voice: sanitizeHamboneVoice({
+      characterId: character.id,
+      ...character.settings,
+      modulation: {
+        source: HAMBONE_VOICE_MODULATION_SOURCES[index % HAMBONE_VOICE_MODULATION_SOURCES.length],
+        target: HAMBONE_VOICE_MODULATION_TARGETS[index % HAMBONE_VOICE_MODULATION_TARGETS.length],
+        depth: 0.18 + (index % 4) * 0.08,
+        rateHz: 2.4 + index * 0.53,
+        phase: (index * 0.173) % 1,
+      },
+    }),
+  }));
+}
 
 function formatPercent(value) {
   return `${Math.round(value * 100)}%`;
@@ -194,7 +214,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.audioWorklet.addModule(new URL(
-    "./src/hambone-processor.js?v=hambone-tract-20260829-2",
+    "./src/hambone-processor.js?v=hambone-tract-20260829-3",
     import.meta.url,
   ));
   const sourceNode = new AudioWorkletNode(context, "hambone-physical-model", {
@@ -280,7 +300,15 @@ async function toggleAudio() {
   if (await ensureAudio()) announce("Hambone audio on");
 }
 
-function flashSound(soundId, velocity = 1) {
+const VOICE_SOUND_IDS = new Set([
+  "bop", "boop", "pff", "hee", "haw", "doo", "mwah", "drr", "burp",
+  "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
+]);
+const TEMPO_STRETCH_SOUND_IDS = new Set([
+  "pff", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
+]);
+
+function flashSound(soundId, velocity = 1, voiceChoice = null) {
   const sound = hamboneSound(soundId);
   for (const element of document.querySelectorAll(`[data-sound-id="${sound.id}"]`)) {
     element.classList.add("is-hit");
@@ -290,7 +318,61 @@ function flashSound(soundId, velocity = 1) {
       70 + velocity * 90,
     );
   }
-  $("soundReadout").textContent = `${sound.label} · ${sound.subtitle}`;
+  if (voiceChoice?.slotIndex >= 0) {
+    activeVoiceSlot = voiceChoice.slotIndex;
+    const card = document.querySelector(`[data-voice-slot="${voiceChoice.slotIndex}"]`);
+    card?.classList.add("is-active");
+    clearTimeout(card?._hamboneVoiceFlashTimer);
+    if (card) {
+      card._hamboneVoiceFlashTimer = setTimeout(
+        () => card.classList.remove("is-active"),
+        140 + velocity * 180,
+      );
+    }
+    $("soundReadout").textContent = `${sound.label} · ${voiceChoice.label}`;
+  } else {
+    activeVoiceSlot = -1;
+    $("soundReadout").textContent = `${sound.label} · ${sound.subtitle}`;
+  }
+}
+
+function seededVoiceRandom(seedValue) {
+  let seed = (Math.trunc(Number(seedValue) || 0) ^ 0x766f6963) >>> 0;
+  return () => {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    return (seed >>> 0) / 4294967295;
+  };
+}
+
+function availableVoiceSlots(soundId = null) {
+  const active = voiceSlots.slice(0, voiceCount);
+  const soloed = active.filter((slot) => slot.solo);
+  const candidates = soloed.length ? soloed : active;
+  if (!soundId) return candidates;
+  return candidates.filter((slot) => slot.assignment === "all" || slot.assignment === soundId);
+}
+
+function voiceChoiceForSound(soundId, seed = performance.now()) {
+  if (!VOICE_SOUND_IDS.has(hamboneSound(soundId).id)) return null;
+  const candidates = availableVoiceSlots(soundId);
+  if (!candidates.length) return null;
+  let slot = null;
+  if (voiceSelectionMode === "random") {
+    const draw = seededVoiceRandom(seed)();
+    slot = candidates[Math.min(candidates.length - 1, Math.floor(draw * candidates.length))];
+  } else {
+    slot = candidates[voiceCursor % candidates.length];
+    voiceCursor = (voiceCursor + 1) % Math.max(1, candidates.length);
+  }
+  const slotIndex = voiceSlots.indexOf(slot);
+  const voice = sanitizeHamboneVoice(slot.voice);
+  return {
+    slotIndex,
+    voice,
+    label: hamboneVoiceCharacter(voice.characterId).label,
+  };
 }
 
 function queueSoundVisual(
@@ -299,6 +381,7 @@ function queueSoundVisual(
   delaySeconds = 0,
   step = null,
   configuration = null,
+  voiceChoice = null,
 ) {
   visualQueue.push({
     type: "sound",
@@ -306,6 +389,7 @@ function queueSoundVisual(
     velocity: clamp(velocity, 0.01, 1),
     step,
     configuration,
+    voiceChoice,
     due: performance.now() + Math.max(0, delaySeconds) * 1000,
   });
 }
@@ -316,6 +400,7 @@ function postStrike(
   delaySeconds = 0,
   step = null,
   configuration = null,
+  voiceChoice = null,
 ) {
   if (!graph || audioContext?.state !== "running") return false;
   const boundedDelay = clamp(delaySeconds, 0, 2);
@@ -326,17 +411,30 @@ function postStrike(
     velocity: clamp(velocity, 0.01, 1),
     delaySeconds: boundedDelay,
     ...(strikeConfiguration ? { configuration: strikeConfiguration } : {}),
+    ...(voiceChoice?.voice ? { voice: voiceChoice.voice } : {}),
   });
-  queueSoundVisual(soundId, velocity, boundedDelay, step, strikeConfiguration);
+  queueSoundVisual(
+    soundId,
+    velocity,
+    boundedDelay,
+    step,
+    strikeConfiguration,
+    voiceChoice,
+  );
   return true;
 }
 
 async function triggerSound(soundId, velocity = 1, configuration = null) {
   const sound = hamboneSound(soundId);
   if (!(await ensureAudio())) return false;
-  postStrike(sound.id, velocity, 0, null, configuration);
+  const transientConfiguration = configuration
+    ?? (sound.id === "slap" ? handStrikeConfiguration("left") : null)
+    ?? (sound.id === "smack" ? handStrikeConfiguration("right") : null);
+  const strikeConfiguration = transientConfiguration ?? state;
+  const voiceChoice = voiceChoiceForSound(sound.id, performance.now());
+  postStrike(sound.id, velocity, 0, null, strikeConfiguration, voiceChoice);
   clearTimeout(manualConfigurationResetTimer);
-  if (configuration) {
+  if (transientConfiguration) {
     manualConfigurationResetTimer = setTimeout(() => {
       manualConfigurationResetTimer = 0;
       if (!sequencePlaying) postConfiguration();
@@ -344,42 +442,6 @@ async function triggerSound(soundId, velocity = 1, configuration = null) {
   }
   announce(`${sound.label}: ${sound.description}`);
   return true;
-}
-
-function effectValuesAtStep(step) {
-  const safeStep = ((Number(step) || 0) + HAMBONE_STEP_COUNT) % HAMBONE_STEP_COUNT;
-  return Object.fromEntries(EFFECT_LANES.map(({ key }) => [
-    key,
-    clamp(Number(effectContours[key]?.[safeStep]) || 0),
-  ]));
-}
-
-function updateEffectContourPlayhead() {
-  const grid = $("effectContourGrid");
-  if (!grid) return;
-  for (const element of grid.querySelectorAll("[data-step]")) {
-    element.classList.toggle("is-current", Number(element.dataset.step) === visibleStep);
-  }
-}
-
-function renderEffectContours() {
-  const grid = $("effectContourGrid");
-  if (!grid) return;
-  for (const input of grid.querySelectorAll(".hambone-contour-input")) {
-    const value = clamp(Number(effectContours[input.dataset.key]?.[Number(input.dataset.step)]) || 0);
-    input.value = String(value);
-    input.style.setProperty("--contour-height", `${Math.max(4, value * 100).toFixed(1)}%`);
-    input.setAttribute("aria-valuetext", formatPercent(value));
-  }
-  updateEffectContourPlayhead();
-}
-
-function resetEffectContours(source = state) {
-  effectContours = Object.fromEntries(EFFECT_LANES.map(({ key }) => [
-    key,
-    Array(HAMBONE_STEP_COUNT).fill(clamp(Number(source[key]) || 0)),
-  ]));
-  renderEffectContours();
 }
 
 function deterministicHumanize(step, salt) {
@@ -394,8 +456,7 @@ function scheduleSequence() {
   if (!sequencePlaying || !graph || audioContext?.state !== "running") return;
   const lookaheadSeconds = 0.115;
   while (nextStepTime < audioContext.currentTime + lookaheadSeconds) {
-    const step = sequenceStep % HAMBONE_STEP_COUNT;
-    const stepEffects = effectValuesAtStep(step);
+    const step = sequenceStep % sequenceLength;
     const timeJitter = deterministicHumanize(absoluteStep, 5) * state.humanize * 0.014;
     const scheduledTime = Math.max(audioContext.currentTime + 0.004, nextStepTime + timeJitter);
     const delaySeconds = scheduledTime - audioContext.currentTime;
@@ -407,22 +468,30 @@ function scheduleSequence() {
       const soundIndex = HAMBONE_SOUNDS.findIndex(({ id }) => id === event.soundId);
       const velocityMotion = 1 + deterministicHumanize(absoluteStep, soundIndex + 23)
         * state.humanize * 0.22;
+      const voiceChoice = voiceChoiceForSound(event.soundId, absoluteStep * 131 + soundIndex);
+      const strikeConfiguration = event.soundId === "slap"
+        ? handStrikeConfiguration("left")
+        : event.soundId === "smack"
+          ? handStrikeConfiguration("right")
+          : state;
       postStrike(
         event.soundId,
         event.velocity * velocityMotion,
         delaySeconds,
         step,
-        stepEffects,
+        strikeConfiguration,
+        voiceChoice,
       );
     }
     visualQueue.push({
       type: "step",
       step,
-      configuration: stepEffects,
       due: performance.now() + delaySeconds * 1000,
     });
-    nextStepTime += sequenceStepIntervalSeconds(state.tempo, state.swing, step);
-    sequenceStep = (sequenceStep + 1) % HAMBONE_STEP_COUNT;
+    // Swing follows absolute time so odd sequence lengths do not produce two
+    // consecutive long (or short) subdivisions at the loop boundary.
+    nextStepTime += sequenceStepIntervalSeconds(state.tempo, state.swing, absoluteStep);
+    sequenceStep = (sequenceStep + 1) % sequenceLength;
     absoluteStep += 1;
   }
 }
@@ -436,7 +505,7 @@ async function startSequence({ restart = false } = {}) {
   }
   sequencePlaying = true;
   $("playButton").setAttribute("aria-pressed", "true");
-  $("playLabel").textContent = "Pause mouth";
+  $("playLabel").textContent = "Pause face";
   $("playState").textContent = `${Math.round(state.tempo)} BPM · playing`;
   clearInterval(schedulerTimer);
   scheduleSequence();
@@ -452,14 +521,12 @@ function stopSequence({ announceState = true } = {}) {
   manualConfigurationResetTimer = 0;
   schedulerTimer = 0;
   visualQueue = visualQueue.filter(({ type }) => type !== "step");
-  liveSequenceEffects = null;
   postConfiguration();
   visibleStep = -1;
   updateGridPlayhead();
-  updateEffectContourPlayhead();
   $("playButton").setAttribute("aria-pressed", "false");
-  $("playLabel").textContent = "Play mouth";
-  $("playState").textContent = "space · 16 steps";
+  $("playLabel").textContent = "Play face";
+  $("playState").textContent = `space · ${sequenceLength} steps`;
   if (announceState) announce("Hambone sequence paused");
 }
 
@@ -473,7 +540,6 @@ function restartSequence() {
   absoluteStep = 0;
   visibleStep = -1;
   updateGridPlayhead();
-  updateEffectContourPlayhead();
   if (sequencePlaying && audioContext) {
     visualQueue = visualQueue.filter(({ type }) => type !== "step");
     nextStepTime = audioContext.currentTime + 0.05;
@@ -544,7 +610,7 @@ function renderPattern() {
 
 function focusGridCell(row, step) {
   const safeRow = (row + HAMBONE_SOUNDS.length) % HAMBONE_SOUNDS.length;
-  const safeStep = (step + HAMBONE_STEP_COUNT) % HAMBONE_STEP_COUNT;
+  const safeStep = (step + sequenceLength) % sequenceLength;
   const target = $("sequenceGrid").querySelector(
     `.hambone-step-cell[data-row="${safeRow}"][data-step="${safeStep}"]`,
   );
@@ -564,7 +630,7 @@ function handleGridKeydown(event) {
   if (event.key === "ArrowUp") target = [row - 1, step];
   if (event.key === "ArrowDown") target = [row + 1, step];
   if (event.key === "Home") target = [row, 0];
-  if (event.key === "End") target = [row, HAMBONE_STEP_COUNT - 1];
+  if (event.key === "End") target = [row, sequenceLength - 1];
   if (!target) return;
   event.preventDefault();
   focusGridCell(target[0], target[1]);
@@ -572,6 +638,9 @@ function handleGridKeydown(event) {
 
 function buildSequenceGrid() {
   const grid = $("sequenceGrid");
+  grid.replaceChildren();
+  grid.style.setProperty("--hambone-sequence-steps", String(sequenceLength));
+  grid.setAttribute("aria-colcount", String(sequenceLength));
   const headerRow = document.createElement("div");
   headerRow.className = "hambone-grid-header-row";
   headerRow.setAttribute("role", "row");
@@ -581,7 +650,7 @@ function buildSequenceGrid() {
   corner.setAttribute("aria-hidden", "true");
   corner.textContent = "POSE / STEP";
   headerRow.append(corner);
-  for (let step = 0; step < HAMBONE_STEP_COUNT; step += 1) {
+  for (let step = 0; step < sequenceLength; step += 1) {
     const heading = document.createElement("span");
     heading.className = "hambone-step-number";
     heading.setAttribute("role", "columnheader");
@@ -607,7 +676,7 @@ function buildSequenceGrid() {
     trigger.addEventListener("click", () => triggerSound(sound.id, 0.88));
     row.append(trigger);
 
-    for (let step = 0; step < HAMBONE_STEP_COUNT; step += 1) {
+    for (let step = 0; step < sequenceLength; step += 1) {
       const cell = document.createElement("button");
       cell.className = "hambone-step-cell";
       cell.type = "button";
@@ -634,6 +703,34 @@ function buildSequenceGrid() {
   renderPattern();
 }
 
+function setSequenceLength(value, { announceState = true } = {}) {
+  sequenceLength = clamp(
+    Math.round(Number(value) || 32),
+    1,
+    HAMBONE_STEP_COUNT,
+  );
+  stopSequence({ announceState: false });
+  sequenceStep = 0;
+  absoluteStep = 0;
+  visibleStep = -1;
+  const control = $("sequenceLength");
+  if (control) control.value = String(sequenceLength);
+  const numberControl = $("sequenceLengthNumber");
+  if (numberControl) numberControl.value = String(sequenceLength);
+  const output = $("sequenceLengthOut");
+  if (output) {
+    output.value = `${sequenceLength} steps`;
+    output.textContent = output.value;
+  }
+  buildSequenceGrid();
+  $("sequenceGrid").setAttribute(
+    "aria-label",
+    `Twenty-four Hambone sounds by ${sequenceLength} sequence steps. Only one sound can occupy each step.`,
+  );
+  $("playState").textContent = `space · ${sequenceLength} steps`;
+  if (announceState) announce(`Sequence length: ${sequenceLength} steps`);
+}
+
 function buildPadGrid() {
   const padGrid = $("padGrid");
   if (!padGrid) return;
@@ -657,66 +754,210 @@ function buildPadGrid() {
   padGrid.replaceChildren(...pads);
 }
 
-function buildEffectContourGrid() {
-  const grid = $("effectContourGrid");
-  if (!grid) return;
-  const fragment = document.createDocumentFragment();
-  const corner = document.createElement("span");
-  corner.className = "hambone-contour-corner";
-  corner.setAttribute("aria-hidden", "true");
-  corner.textContent = "FX / STEP";
-  fragment.append(corner);
-  for (let step = 0; step < HAMBONE_STEP_COUNT; step += 1) {
-    const heading = document.createElement("span");
-    heading.className = "hambone-contour-step";
-    heading.setAttribute("role", "columnheader");
-    heading.dataset.step = String(step);
-    heading.textContent = String(step + 1).padStart(2, "0");
-    fragment.append(heading);
-  }
-  for (const lane of EFFECT_LANES) {
-    const label = document.createElement("b");
-    label.className = "hambone-contour-label";
-    label.setAttribute("role", "rowheader");
-    label.style.setProperty("--contour-color", lane.color);
-    label.textContent = lane.label;
-    fragment.append(label);
-    for (let step = 0; step < HAMBONE_STEP_COUNT; step += 1) {
-      const cell = document.createElement("label");
-      const input = document.createElement("input");
-      cell.className = "hambone-contour-cell";
-      cell.setAttribute("role", "gridcell");
-      cell.dataset.step = String(step);
-      cell.style.setProperty("--contour-color", lane.color);
-      input.className = "hambone-contour-input";
-      input.type = "range";
-      input.min = "0";
-      input.max = "1";
-      input.step = "0.01";
-      input.value = String(effectContours[lane.key][step]);
-      input.dataset.key = lane.key;
-      input.dataset.step = String(step);
-      input.setAttribute("aria-orientation", "vertical");
-      input.setAttribute("aria-label", `${lane.label}, step ${step + 1}`);
-      input.addEventListener("input", () => {
-        const amount = clamp(Number(input.value) || 0);
-        effectContours[lane.key][step] = amount;
-        input.style.setProperty("--contour-height", `${Math.max(4, amount * 100).toFixed(1)}%`);
-        input.setAttribute("aria-valuetext", formatPercent(amount));
-        if (sequencePlaying && step === visibleStep) {
-          liveSequenceEffects = effectValuesAtStep(step);
-          postConfiguration(liveSequenceEffects);
-        }
-      });
-      input.addEventListener("change", () => announce(
-        `${lane.label}, step ${step + 1}: ${formatPercent(effectContours[lane.key][step])}`,
-      ));
-      cell.append(input);
-      fragment.append(cell);
-    }
-  }
-  grid.replaceChildren(fragment);
-  renderEffectContours();
+function makeVoiceOption(value, label, selectedValue) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  option.selected = value === selectedValue;
+  return option;
+}
+
+function voiceParameterSummary(voice) {
+  const pitch = Math.round(voice.pitchOffsetSemitones);
+  return `${pitch >= 0 ? "+" : ""}${pitch} st · ${voice.vibratoRateHz.toFixed(1)} Hz · ${Math.round(voice.roughness * 100)}% rough`;
+}
+
+function voiceModulationLabel(value) {
+  const labels = {
+    sine: "Sine LFO",
+    triangle: "Triangle LFO",
+    random: "Organic random",
+    pitch: "Fold pitch",
+    vibratoDepth: "Vibrato depth",
+    breathiness: "Breathiness",
+    roughness: "Fold roughness",
+    tractScale: "Tract length",
+  };
+  return labels[value] ?? value;
+}
+
+function setVoiceSlotCharacter(slot, characterId) {
+  const character = hamboneVoiceCharacter(characterId);
+  slot.voice = sanitizeHamboneVoice({
+    characterId: character.id,
+    ...character.settings,
+    modulation: slot.voice.modulation,
+  });
+}
+
+function setVoiceSlotModulation(slot, updates) {
+  slot.voice = sanitizeHamboneVoice({
+    ...slot.voice,
+    modulation: { ...slot.voice.modulation, ...updates },
+  });
+}
+
+function buildVoiceRack({ preserveScroll = true } = {}) {
+  const rack = $("voiceRack");
+  if (!rack) return;
+  const previousScroll = preserveScroll ? rack.scrollTop : 0;
+  const cards = voiceSlots.slice(0, voiceCount).map((slot, index) => {
+    const character = hamboneVoiceCharacter(slot.voice.characterId);
+    const modulation = slot.voice.modulation;
+    const card = document.createElement("article");
+    card.className = "hambone-voice-card";
+    card.dataset.voiceSlot = String(index);
+    card.dataset.solo = String(slot.solo);
+    card.setAttribute("role", "listitem");
+
+    const header = document.createElement("header");
+    header.className = "hambone-voice-card-header";
+    const name = document.createElement("b");
+    name.className = "hambone-voice-name";
+    name.textContent = `${String(index + 1).padStart(2, "0")} · ${character.label}`;
+    const summary = document.createElement("span");
+    summary.textContent = voiceParameterSummary(slot.voice);
+    header.append(name, summary);
+
+    const controls = document.createElement("div");
+    controls.className = "hambone-voice-card-controls";
+    const characterSelect = document.createElement("select");
+    characterSelect.className = "hambone-voice-character-select";
+    characterSelect.setAttribute("aria-label", `Voice ${index + 1} character`);
+    characterSelect.replaceChildren(...HAMBONE_VOICE_CHARACTERS.map((candidate) => (
+      makeVoiceOption(candidate.id, candidate.label, character.id)
+    )));
+    characterSelect.addEventListener("change", () => {
+      setVoiceSlotCharacter(slot, characterSelect.value);
+      buildVoiceRack();
+      announce(`Voice ${index + 1}: ${hamboneVoiceCharacter(characterSelect.value).label}`);
+    });
+    const soloButton = document.createElement("button");
+    soloButton.className = "hambone-voice-solo";
+    soloButton.type = "button";
+    soloButton.textContent = "SOLO";
+    soloButton.setAttribute("aria-pressed", String(slot.solo));
+    soloButton.setAttribute("aria-label", `Solo voice ${index + 1}`);
+    soloButton.addEventListener("click", () => {
+      slot.solo = !slot.solo;
+      voiceCursor = 0;
+      buildVoiceRack();
+      announce(`Voice ${index + 1} solo ${slot.solo ? "on" : "off"}`);
+    });
+    const mutateButton = document.createElement("button");
+    mutateButton.className = "hambone-voice-mutate";
+    mutateButton.type = "button";
+    mutateButton.textContent = "MUT";
+    mutateButton.setAttribute("aria-label", `Mutate voice ${index + 1}`);
+    mutateButton.addEventListener("click", () => {
+      slot.voice = mutateHamboneVoice(slot.voice, Math.random, 0.48);
+      buildVoiceRack();
+      announce(`Voice ${index + 1} mutated`);
+    });
+    controls.append(characterSelect, soloButton, mutateButton);
+
+    const assignmentLabel = document.createElement("label");
+    assignmentLabel.className = "hambone-voice-assignment";
+    const assignmentText = document.createElement("span");
+    assignmentText.textContent = "Assign";
+    const assignmentSelect = document.createElement("select");
+    assignmentSelect.setAttribute("aria-label", `Voice ${index + 1} sound assignment`);
+    assignmentSelect.replaceChildren(
+      makeVoiceOption("all", "All vocal gestures", slot.assignment),
+      ...HAMBONE_SOUNDS
+        .filter((sound) => VOICE_SOUND_IDS.has(sound.id))
+        .map((sound) => makeVoiceOption(sound.id, sound.label, slot.assignment)),
+    );
+    assignmentSelect.addEventListener("change", () => {
+      slot.assignment = assignmentSelect.value;
+      voiceCursor = 0;
+      announce(`Voice ${index + 1} assigned to ${assignmentSelect.selectedOptions[0].textContent}`);
+    });
+    assignmentLabel.append(assignmentText, assignmentSelect);
+
+    const modBlock = document.createElement("div");
+    modBlock.className = "hambone-voice-modulation";
+    const modMatrix = document.createElement("div");
+    modMatrix.className = "hambone-voice-mod-matrix";
+    const sourceSelect = document.createElement("select");
+    sourceSelect.className = "hambone-voice-mod-source";
+    sourceSelect.setAttribute("aria-label", `Voice ${index + 1} modulation source`);
+    sourceSelect.replaceChildren(...HAMBONE_VOICE_MODULATION_SOURCES.map((source) => (
+      makeVoiceOption(source, voiceModulationLabel(source), modulation.source)
+    )));
+    sourceSelect.addEventListener("change", () => {
+      setVoiceSlotModulation(slot, { source: sourceSelect.value });
+      announce(`Voice ${index + 1} modulator: ${voiceModulationLabel(sourceSelect.value)}`);
+    });
+    const targetSelect = document.createElement("select");
+    targetSelect.className = "hambone-voice-mod-target";
+    targetSelect.setAttribute("aria-label", `Voice ${index + 1} modulation target`);
+    targetSelect.replaceChildren(...HAMBONE_VOICE_MODULATION_TARGETS.map((target) => (
+      makeVoiceOption(target, voiceModulationLabel(target), modulation.target)
+    )));
+    targetSelect.addEventListener("change", () => {
+      setVoiceSlotModulation(slot, { target: targetSelect.value });
+      announce(`Voice ${index + 1} modulates ${voiceModulationLabel(targetSelect.value)}`);
+    });
+    modMatrix.append(sourceSelect, targetSelect);
+
+    const depthLabel = document.createElement("label");
+    depthLabel.className = "hambone-voice-mod-depth-wrap";
+    const depthText = document.createElement("span");
+    depthText.textContent = "Depth";
+    const depthInput = document.createElement("input");
+    depthInput.className = "hambone-voice-mod-depth";
+    depthInput.type = "range";
+    depthInput.min = "0";
+    depthInput.max = "1";
+    depthInput.step = "0.01";
+    depthInput.value = String(modulation.depth);
+    depthInput.setAttribute("aria-label", `Voice ${index + 1} modulation depth`);
+    const depthOutput = document.createElement("output");
+    depthOutput.className = "hambone-voice-mod-depth-out";
+    depthOutput.value = formatPercent(modulation.depth);
+    depthOutput.textContent = depthOutput.value;
+    depthInput.addEventListener("input", () => {
+      setVoiceSlotModulation(slot, { depth: Number(depthInput.value) });
+      depthOutput.value = formatPercent(slot.voice.modulation.depth);
+      depthOutput.textContent = depthOutput.value;
+    });
+    depthInput.addEventListener("change", () => announce(
+      `Voice ${index + 1} modulation depth: ${formatPercent(slot.voice.modulation.depth)}`,
+    ));
+    depthLabel.append(depthText, depthInput, depthOutput);
+
+    const rateLabel = document.createElement("label");
+    rateLabel.className = "hambone-voice-mod-rate-wrap";
+    const rateText = document.createElement("span");
+    rateText.textContent = "Rate";
+    const rateInput = document.createElement("input");
+    rateInput.className = "hambone-voice-mod-rate";
+    rateInput.type = "range";
+    rateInput.min = "0.05";
+    rateInput.max = "20";
+    rateInput.step = "0.05";
+    rateInput.value = String(modulation.rateHz);
+    rateInput.setAttribute("aria-label", `Voice ${index + 1} modulation rate`);
+    const rateOutput = document.createElement("output");
+    rateOutput.className = "hambone-voice-mod-rate-out";
+    rateOutput.value = `${modulation.rateHz.toFixed(1)} Hz`;
+    rateOutput.textContent = rateOutput.value;
+    rateInput.addEventListener("input", () => {
+      setVoiceSlotModulation(slot, { rateHz: Number(rateInput.value) });
+      rateOutput.value = `${slot.voice.modulation.rateHz.toFixed(1)} Hz`;
+      rateOutput.textContent = rateOutput.value;
+    });
+    rateInput.addEventListener("change", () => announce(
+      `Voice ${index + 1} modulation rate: ${slot.voice.modulation.rateHz.toFixed(1)} hertz`,
+    ));
+    rateLabel.append(rateText, rateInput, rateOutput);
+    modBlock.append(modMatrix, depthLabel, rateLabel);
+    card.append(header, controls, assignmentLabel, modBlock);
+    return card;
+  });
+  rack.replaceChildren(...cards);
+  rack.scrollTop = previousScroll;
 }
 
 function updateHud(pose = state) {
@@ -727,9 +968,15 @@ function updateHud(pose = state) {
   $("cavityReadout").textContent = `${Math.round(geometry.cheekVolumeMl)} ml · ${Math.round(geometry.cavityFrequencyHz)} Hz`;
   $("tractReadout").textContent = `${(pose.tractLengthM * 100).toFixed(1)} cm`;
   $("pressureReadout").textContent = formatPercent(livePressure);
+  const activeSlot = activeVoiceSlot >= 0 ? voiceSlots[activeVoiceSlot] : null;
+  const activeCharacter = activeSlot
+    ? hamboneVoiceCharacter(activeSlot.voice.characterId)
+    : null;
   $("voicesReadout").textContent = activeMouthSoundId
-    ? `1 · ${hamboneSound(activeMouthSoundId).label}`
-    : "1 · ready";
+    ? activeCharacter
+      ? `1 · ${activeCharacter.label}`
+      : `1 · ${hamboneSound(activeMouthSoundId).label}`
+    : `${voiceCount} ready · 1 at a time`;
   $("pressureSummary").textContent = `${formatPercent(livePressure)} pressure · ${pose.lipTension < 0.4 ? "soft" : pose.lipTension > 0.7 ? "tight" : "springy"} lips`;
   $("faceSummary").textContent = `${formatPercent(pose.cheekVolume)} puff · ${formatPercent(pose.cheekTension)} skin`;
   $("cavitySummary").textContent = `${(pose.tractLengthM * 100).toFixed(1)} cm · ${pose.nasalMix < 0.22 ? "mostly oral" : pose.nasalMix > 0.62 ? "nose open" : "oral + nasal"}`;
@@ -781,7 +1028,7 @@ function setStateValue(key, value, { fromCanvas = false } = {}) {
   if (fromCanvas && spec) announce(`${input?.previousElementSibling?.querySelector("b")?.textContent ?? key}: ${spec.format(state[key])}`);
 }
 
-function setPreset(id, { announceState = true, resetContours = true } = {}) {
+function setPreset(id, { announceState = true } = {}) {
   const preset = hambonePreset(id);
   const transport = {
     tempo: state.tempo,
@@ -790,7 +1037,6 @@ function setPreset(id, { announceState = true, resetContours = true } = {}) {
     level: state.level,
   };
   state = hamboneState(preset.id, transport);
-  if (resetContours) resetEffectContours(state);
   $("presetSelect").value = preset.id;
   $("presetDescription").textContent = preset.description;
   syncControls();
@@ -800,7 +1046,6 @@ function setPreset(id, { announceState = true, resetContours = true } = {}) {
 
 function randomizeFace() {
   state = randomizeHamboneState(state);
-  resetEffectContours(state);
   $("presetDescription").textContent = "A one-off mouth mutation: pressure, tissue, tongue, and cavity moved anywhere from human-ish to gleefully impossible.";
   syncControls();
   postConfiguration();
@@ -812,21 +1057,31 @@ function resetAll() {
   clearTimeout(manualConfigurationResetTimer);
   manualConfigurationResetTimer = 0;
   state = { ...HAMBONE_DEFAULTS };
-  setPreset(HAMBONE_DEFAULTS.presetId, { announceState: false, resetContours: true });
+  setPreset(HAMBONE_DEFAULTS.presetId, { announceState: false });
   setCurrentPattern(HAMBONE_DEFAULTS.patternId, { announceState: false });
   graph?.sourceNode?.port.postMessage({ type: "silence" });
   soundAnimation = null;
   displayedPose = { ...state };
   activeMouthSoundId = "";
-  Object.assign(handPlacements.left, { x: -0.88, y: 0.1 });
-  Object.assign(handPlacements.right, { x: 0.88, y: 0.14 });
+  activeVoiceSlot = -1;
+  voiceCount = 4;
+  voiceSelectionMode = "round-robin";
+  voiceCursor = 0;
+  voiceSlots = createDefaultVoiceSlots();
+  if ($("voiceCount")) $("voiceCount").value = String(voiceCount);
+  if ($("voiceCountOut")) {
+    $("voiceCountOut").value = String(voiceCount);
+    $("voiceCountOut").textContent = String(voiceCount);
+  }
+  if ($("voiceSelectionMode")) $("voiceSelectionMode").value = "roundRobin";
+  buildVoiceRack({ preserveScroll: false });
+  Object.assign(handPlacements.left, { x: -0.62, y: 0.1 });
+  Object.assign(handPlacements.right, { x: 0.62, y: 0.14 });
   lastTelemetryGestureSoundId = "";
   telemetry = { ...telemetry, activeGesture: false, tractPressure: 0 };
   visualQueue = [];
-  liveSequenceEffects = null;
   visibleStep = -1;
   updateGridPlayhead();
-  updateEffectContourPlayhead();
   announce("Hambone face and sequence reset");
 }
 
@@ -1009,19 +1264,29 @@ function activeMotion(now, physicalStatus = physicalTelemetryStatus(now)) {
     if (!physicalStatus.active) {
       if (lastTelemetryGestureSoundId) $("soundReadout").textContent = "resting pose";
       activeMouthSoundId = "";
+      activeVoiceSlot = -1;
       lastTelemetryGestureSoundId = "";
       return amounts;
     }
     activeMouthSoundId = physicalStatus.soundId;
     amounts[physicalStatus.soundId] = physicalStatus.amount;
     if (lastTelemetryGestureSoundId !== physicalStatus.soundId) {
-      flashSound(physicalStatus.soundId, physicalStatus.velocity);
+      const slot = voiceSlots[activeVoiceSlot];
+      flashSound(
+        physicalStatus.soundId,
+        physicalStatus.velocity,
+        slot ? {
+          slotIndex: activeVoiceSlot,
+          label: hamboneVoiceCharacter(slot.voice.characterId).label,
+        } : null,
+      );
       lastTelemetryGestureSoundId = physicalStatus.soundId;
     }
     return amounts;
   }
   if (soundAnimation && now - soundAnimation.start >= soundAnimation.duration) {
     soundAnimation = null;
+    activeVoiceSlot = -1;
     $("soundReadout").textContent = "resting pose";
   }
   const animation = soundAnimation;
@@ -1039,8 +1304,11 @@ function activeMotion(now, physicalStatus = physicalTelemetryStatus(now)) {
     );
     if (animation.soundId === "pff") envelope *= 0.62 + Math.sin(phase * 44) * 0.28;
     if (animation.soundId === "kick") envelope = Math.exp(-phase * 6.2);
-    if (animation.soundId === "smack") envelope = Math.exp(-phase * 7.8)
-      * (0.82 + Math.sin(phase * 32) * 0.16);
+    if (animation.soundId === "slap" || animation.soundId === "smack") {
+      // Show the whole trip into and back out of the cheek. The acoustic
+      // contact remains an impulse, but the hand is readable at a glance.
+      envelope = Math.pow(Math.sin(Math.PI * phase), 0.72);
+    }
     if (animation.soundId === "hee") envelope *= 0.74 + Math.sin(phase * 19) * 0.16;
     if (animation.soundId === "haw") envelope *= 0.8 + Math.sin(phase * 14) * 0.12;
     if (animation.soundId === "doo") envelope *= 0.88 + Math.sin(phase * 22) * 0.08;
@@ -1048,6 +1316,17 @@ function activeMotion(now, physicalStatus = physicalTelemetryStatus(now)) {
     if (animation.soundId === "drr") envelope *= 0.68 + Math.sin(phase * 58) * 0.29;
     if (animation.soundId === "burp") envelope *= 0.58
       + Math.sin(phase * 23 + Math.sin(phase * 11) * 2.1) * 0.24;
+    if (["aah", "ooh", "wail", "holler", "hum"].includes(animation.soundId)) {
+      const rates = { aah: 31, ooh: 28, wail: 39, holler: 24, hum: 33 };
+      const depths = { aah: 0.08, ooh: 0.1, wail: 0.2, holler: 0.07, hum: 0.12 };
+      envelope *= 0.82 + Math.sin(phase * rates[animation.soundId]) * depths[animation.soundId];
+    }
+    if (animation.soundId === "yodel") envelope *= 0.72
+      + (Math.sin(phase * 26) > -0.12 ? 0.22 : -0.12);
+    if (animation.soundId === "growl") envelope *= 0.68
+      + Math.sin(phase * 47 + Math.sin(phase * 13) * 2.4) * 0.26;
+    if (animation.soundId === "rattle") envelope *= 0.64
+      + Math.sin(phase * 71 + Math.sin(phase * 19)) * 0.3;
     amounts[animation.soundId] = envelope * animation.velocity;
   }
   return amounts;
@@ -1062,10 +1341,7 @@ function flushVisualQueue(now) {
     }
     if (event.type === "step") {
       visibleStep = event.step;
-      liveSequenceEffects = event.configuration ?? effectValuesAtStep(event.step);
-      postConfiguration(liveSequenceEffects);
       updateGridPlayhead();
-      updateEffectContourPlayhead();
       continue;
     }
     const sound = hamboneSound(event.soundId);
@@ -1077,7 +1353,7 @@ function flushVisualQueue(now) {
       shh: 250,
       shack: 340,
       slap: 270,
-      pff: 300,
+      pff: 520,
       kick: 360,
       smack: 285,
       hee: 430,
@@ -1086,16 +1362,30 @@ function flushVisualQueue(now) {
       mwah: 410,
       drr: 470,
       burp: 620,
+      aah: 760,
+      ooh: 780,
+      wail: 920,
+      yodel: 820,
+      growl: 840,
+      holler: 720,
+      hum: 760,
+      rattle: 780,
     };
+    const visualTempoScale = TEMPO_STRETCH_SOUND_IDS.has(sound.id)
+      ? clamp(Math.sqrt(118 / state.tempo), 0.68, 1.8)
+      : 1;
     soundAnimation = {
       soundId: sound.id,
       velocity: event.velocity,
       configuration: event.configuration,
+      voiceChoice: event.voiceChoice,
       start: now,
-      duration: prefersReducedMotion ? 90 : (durations[sound.id] ?? 320),
+      duration: prefersReducedMotion
+        ? 90
+        : (durations[sound.id] ?? 320) * visualTempoScale,
     };
     activeMouthSoundId = sound.id;
-    flashSound(sound.id, event.velocity);
+    flashSound(sound.id, event.velocity, event.voiceChoice);
   }
   visualQueue = waiting;
 }
@@ -1151,6 +1441,9 @@ function drawAirPlume(context, layout, motion, now) {
     motion.pff * 0.44,
     motion.haw * 0.54,
     motion.hee * 0.42,
+    motion.aah * 0.36,
+    motion.wail * 0.44,
+    motion.holler * 0.58,
   );
   if (amount < 0.008) return;
   const { cx, rx, mouthY } = layout;
@@ -1501,22 +1794,42 @@ function drawFace(context, layout, pose, motion, now) {
     motion.mwah * 0.9,
     motion.drr * 0.58,
     motion.burp * 0.86,
+    motion.aah * 0.94,
+    motion.ooh * 0.88,
+    motion.wail,
+    motion.yodel * 0.92,
+    motion.growl * 0.86,
+    motion.holler,
+    motion.hum * 0.54,
+    motion.rattle * 0.82,
   );
   const roundedGesture = motion.boop * 0.9
     + motion.pop * 0.46
     + motion.pff * 0.38
     + motion.doo * 0.8
     + motion.mwah * 0.95
-    + motion.burp * 0.3;
+    + motion.burp * 0.3
+    + motion.ooh * 1.05
+    + motion.hum * 0.88;
   const spreadGesture = motion.shh * 0.48
     + motion.tlik * 0.22
     + motion.shack * 0.16
     + motion.hee * 0.72
     + motion.haw * 0.38
-    + motion.drr * 0.22;
+    + motion.drr * 0.22
+    + motion.aah * 0.44
+    + motion.wail * 0.62
+    + motion.yodel * 0.36
+    + motion.growl * 0.3
+    + motion.holler * 0.52
+    + motion.rattle * 0.18;
   const flutter = (motion.pff * Math.sin(now * 0.045)
     + motion.drr * Math.sin(now * 0.074)
-    + motion.burp * Math.sin(now * 0.026 + Math.sin(now * 0.011)))
+    + motion.burp * Math.sin(now * 0.026 + Math.sin(now * 0.011))
+    + motion.wail * Math.sin(now * 0.034)
+    + motion.yodel * Math.sign(Math.sin(now * 0.022)) * 0.58
+    + motion.growl * Math.sin(now * 0.058 + Math.sin(now * 0.017))
+    + motion.rattle * Math.sin(now * 0.092))
     * (0.08 + state.silliness * 0.06);
   const lipDiameterCm = Number(pose.lipDiameterCm);
   const physicalLipAperture = Number.isFinite(lipDiameterCm)
@@ -1536,8 +1849,16 @@ function drawFace(context, layout, pose, motion, now) {
       + motion.tlik * 0.42
       + motion.haw * 0.28
       + motion.burp * 0.34
+      + motion.aah * 0.46
+      + motion.wail * 0.48
+      + motion.yodel * 0.34
+      + motion.growl * 0.28
+      + motion.holler * 0.5
+      + motion.rattle * 0.22
       - motion.shh * 0.18
       - motion.hee * 0.12
+      - motion.ooh * 0.08
+      - motion.hum * 0.64
       + flutter,
     0.12,
     3.2,
@@ -1772,7 +2093,7 @@ function buildHitGeometry(layout, pose) {
     { soundId: "pop", label: "POP", color: hamboneSound("pop").color, x: cx + rx * 0.7, y: cy + ry * 0.1, r: hitRadius * 1.35, labelSide: 1 },
     { soundId: "bop", label: "BOP", color: hamboneSound("bop").color, x: cx - mouthReach * 0.55, y: mouthY - opening * 0.58, r: hitRadius, labelSide: -1, labelDy: -30, compact: true },
     { soundId: "boop", label: "BOOP", color: hamboneSound("boop").color, x: cx + mouthReach * 0.55, y: mouthY - opening * 0.36, r: hitRadius, labelSide: 1, labelDy: -30, compact: true },
-    { soundId: "pff", label: "PFF", color: hamboneSound("pff").color, x: cx - mouthReach * 0.62, y: mouthY + opening * 0.58, r: hitRadius, labelSide: -1, labelDy: 30, compact: true },
+    { soundId: "pff", label: hamboneSound("pff").label, color: hamboneSound("pff").color, x: cx - mouthReach * 0.62, y: mouthY + opening * 0.58, r: hitRadius, labelSide: -1, labelDy: 30, compact: true },
     { soundId: "tlik", label: "TLIK", color: hamboneSound("tlik").color, x: cx + (pose.tonguePosition - 0.5) * mouthReach * 0.72, y: mouthY + opening * 0.72, r: hitRadius, labelSide: 1, labelDy: 34, compact: true },
     { soundId: "shh", label: hamboneSound("shh").label, color: hamboneSound("shh").color, x: cx + rx * 0.84, y: mouthY - opening * 0.3, r: hitRadius * 1.08, labelSide: 1 },
     { soundId: "shack", label: "SHACK!", color: hamboneSound("shack").color, x: cx + rx * 0.3, y: cy + ry * 0.76, r: hitRadius * 1.12, labelSide: 1 },
@@ -1804,26 +2125,36 @@ function buildHitGeometry(layout, pose) {
     { key: "tractLengthM", label: "tract length", color: hamboneSound("shh").color, x: cx, y: cy + ry * (0.55 + tractProgress * 0.3), r: nodeRadius, axis: "y", scale: ry * 0.31 },
   ];
   const handRadius = clamp(Math.min(rx, ry) * 0.14, 22, 46);
+  const leftTargetX = cx + handPlacements.left.x * rx;
+  const leftTargetY = cy + handPlacements.left.y * ry;
+  const rightTargetX = cx + handPlacements.right.x * rx;
+  const rightTargetY = cy + handPlacements.right.y * ry;
+  const leftDragging = pointerDrag?.type === "hand" && pointerDrag.handId === "left";
+  const rightDragging = pointerDrag?.type === "hand" && pointerDrag.handId === "right";
   hands = [
     {
       id: "left",
       soundId: "slap",
       label: "LEFT SLAP",
       color: hamboneSound("slap").color,
-      x: cx + handPlacements.left.x * rx,
-      y: cy + handPlacements.left.y * ry,
+      x: leftTargetX - (leftDragging ? 0 : rx * 0.3),
+      y: leftTargetY + (leftDragging ? 0 : ry * 0.03),
       r: handRadius,
       side: -1,
+      targetX: leftTargetX,
+      targetY: leftTargetY,
     },
     {
       id: "right",
       soundId: "smack",
       label: "RIGHT SMACK",
       color: hamboneSound("smack").color,
-      x: cx + handPlacements.right.x * rx,
-      y: cy + handPlacements.right.y * ry,
+      x: rightTargetX + (rightDragging ? 0 : rx * 0.3),
+      y: rightTargetY + (rightDragging ? 0 : ry * 0.03),
       r: handRadius,
       side: 1,
+      targetX: rightTargetX,
+      targetY: rightTargetY,
     },
   ];
   for (const point of [...hotspots, ...handles, ...hands]) {
@@ -1892,21 +2223,42 @@ function drawHands(context, motion) {
     const active = motion[hand.soundId] ?? 0;
     const selected = pointerDrag?.type === "hand" && pointerDrag.handId === hand.id;
     const r = hand.r * (1 + active * 0.1);
+    const travel = 1 - (1 - clamp(active)) ** 2;
+    const palmX = hand.x + (hand.targetX - hand.x) * travel;
+    const palmY = hand.y + (hand.targetY - hand.y) * travel;
     context.save();
     context.lineCap = "round";
     context.lineJoin = "round";
+
+    if (travel > 0.08) {
+      context.strokeStyle = colorWithAlpha(hand.color, 0.2 + travel * 0.56);
+      context.lineWidth = 1.2 + travel * 1.8;
+      for (let streak = -1; streak <= 1; streak += 1) {
+        const offsetY = streak * r * 0.34;
+        context.beginPath();
+        context.moveTo(
+          hand.x + (palmX - hand.x) * 0.08,
+          hand.y + offsetY,
+        );
+        context.lineTo(
+          hand.x + (palmX - hand.x) * 0.68,
+          palmY + offsetY * 0.32,
+        );
+        context.stroke();
+      }
+    }
 
     // Forearm exits the stage edge so the palm reads immediately as a hand,
     // even at phone scale.
     context.strokeStyle = colorWithAlpha(hand.color, selected ? 0.72 : 0.4 + active * 0.24);
     context.lineWidth = r * 0.48;
     context.beginPath();
-    context.moveTo(hand.x + hand.side * r * 0.32, hand.y + r * 0.42);
+    context.moveTo(palmX + hand.side * r * 0.32, palmY + r * 0.42);
     context.lineTo(hand.x + hand.side * r * 2.15, hand.y + r * 1.25);
     context.stroke();
 
-    context.translate(hand.x, hand.y);
-    context.rotate(hand.side * (-0.2 + active * 0.08));
+    context.translate(palmX, palmY);
+    context.rotate(hand.side * (-0.2 + travel * 0.34));
     context.shadowColor = hand.color;
     context.shadowBlur = selected ? 22 : 8 + active * 12;
     context.fillStyle = selected
@@ -1944,6 +2296,27 @@ function drawHands(context, motion) {
     context.shadowBlur = 0;
     context.restore();
 
+    if (travel > 0.54) {
+      const impact = clamp((travel - 0.54) / 0.46);
+      context.save();
+      context.translate(hand.targetX, hand.targetY);
+      context.strokeStyle = colorWithAlpha(hand.color, 0.34 + impact * 0.58);
+      context.lineWidth = 1.2 + impact * 1.8;
+      context.beginPath();
+      context.arc(0, 0, r * (0.55 + impact * 0.9), 0, Math.PI * 2);
+      context.stroke();
+      context.beginPath();
+      for (let ray = 0; ray < 8; ray += 1) {
+        const angle = ray * Math.PI / 4;
+        const inner = r * (0.52 + impact * 0.2);
+        const outer = r * (0.78 + impact * 0.7);
+        context.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+        context.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+      }
+      context.stroke();
+      context.restore();
+    }
+
     const labelWidthPx = Math.max(62, labelWidth(context, hand.label));
     const labelX = clamp(hand.x - labelWidthPx / 2, 6, Math.max(6, cssWidth - labelWidthPx - 6));
     const labelY = clamp(hand.y + r * 0.92, 6, Math.max(6, cssHeight - 26));
@@ -1958,7 +2331,11 @@ function drawHands(context, motion) {
     context.font = "700 7px ui-monospace, monospace";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(`${hand.label} · DRAG`, labelX + labelWidthPx / 2, labelY + 10);
+    context.fillText(
+      `${travel > 0.35 ? "SLAP!" : hand.label} · DRAG`,
+      labelX + labelWidthPx / 2,
+      labelY + 10,
+    );
     context.restore();
   }
 }
@@ -1969,7 +2346,7 @@ function drawStage(now = performance.now()) {
   const motion = activeMotion(now, physicalStatus);
   const strongest = Object.entries(motion).sort((left, right) => right[1] - left[1])[0];
   const isSpeaking = Boolean(physicalStatus?.active) || strongest?.[1] > 0.01;
-  const visualOverrides = soundAnimation?.configuration ?? liveSequenceEffects;
+  const visualOverrides = soundAnimation?.configuration ?? null;
   const visualState = visualOverrides ? { ...state, ...visualOverrides } : state;
   const targetPose = physicalStatus
     ? physicalTelemetryPose(physicalStatus, visualState)
@@ -2016,12 +2393,50 @@ function distanceSquared(point, target) {
 
 function handStrikeConfiguration(handId) {
   const placement = handPlacements[handId] ?? { x: 0, y: 0 };
-  const cheekCenter = clamp(1 - Math.abs(placement.x) * 0.62);
+  const horizontal = clamp(placement.x, -1.2, 1.2);
+  const vertical = clamp(placement.y, -0.76, 0.78);
+  const cheekCenter = clamp(1 - Math.abs(horizontal) * 0.62);
   const height = clamp((placement.y + 0.72) / 1.46);
+  const upperFace = clamp((-vertical + 0.08) / 0.8);
+  const lowerFace = clamp((vertical + 0.02) / 0.8);
+  const mouthZone = clamp(
+    1 - Math.hypot(horizontal / 0.86, (vertical - 0.28) / 0.64),
+  );
+  const outerCheek = clamp(Math.abs(horizontal) / 1.05);
   return {
-    cheekVolume: clamp(state.cheekVolume * 0.58 + cheekCenter * 0.62, 0, 1),
-    cheekTension: clamp(state.cheekTension * 0.62 + (1 - height) * 0.48, 0, 1),
-    nasalMix: clamp(state.nasalMix + Math.max(0, -placement.y - 0.16) * 0.42, 0, 1),
+    cheekVolume: clamp(
+      state.cheekVolume * 0.46 + cheekCenter * 0.82 - upperFace * 0.16,
+      HAMBONE_LIMITS.cheekVolume[0],
+      HAMBONE_LIMITS.cheekVolume[1],
+    ),
+    cheekTension: clamp(
+      state.cheekTension * 0.44 + (1 - height) * 0.72 + outerCheek * 0.28,
+      HAMBONE_LIMITS.cheekTension[0],
+      HAMBONE_LIMITS.cheekTension[1],
+    ),
+    nasalMix: clamp(state.nasalMix * 0.54 + upperFace * 0.76, 0, 1),
+    mouthOpening: clamp(
+      state.mouthOpening * 0.68 + mouthZone * 0.72 + lowerFace * 0.16,
+      HAMBONE_LIMITS.mouthOpening[0],
+      HAMBONE_LIMITS.mouthOpening[1],
+    ),
+    lipRounding: clamp(
+      state.lipRounding + mouthZone * 0.48 - outerCheek * 0.22,
+      HAMBONE_LIMITS.lipRounding[0],
+      HAMBONE_LIMITS.lipRounding[1],
+    ),
+    tonguePosition: clamp(
+      state.tonguePosition + horizontal * 0.16 - lowerFace * 0.08,
+      HAMBONE_LIMITS.tonguePosition[0],
+      HAMBONE_LIMITS.tonguePosition[1],
+    ),
+    tractLengthM: clamp(
+      state.tractLengthM * (0.86 + lowerFace * 0.28 + cheekCenter * 0.08),
+      HAMBONE_LIMITS.tractLengthM[0],
+      HAMBONE_LIMITS.tractLengthM[1],
+    ),
+    earSpread: clamp(state.earSpread * 0.7 + outerCheek * 0.46, 0, 1),
+    eyeDivergence: clamp(state.eyeDivergence * 0.68 + upperFace * 0.38, 0, 1),
   };
 }
 
@@ -2153,6 +2568,47 @@ function bindControls() {
   $("clearPatternButton").addEventListener("click", clearPattern);
   $("randomizeButton").addEventListener("click", randomizeFace);
   $("resetButton").addEventListener("click", resetAll);
+  $("sequenceLength")?.addEventListener("input", () => {
+    const previewLength = clamp(
+      Math.round(Number($("sequenceLength").value) || 1),
+      1,
+      HAMBONE_STEP_COUNT,
+    );
+    if ($("sequenceLengthNumber")) $("sequenceLengthNumber").value = String(previewLength);
+    if ($("sequenceLengthOut")) {
+      $("sequenceLengthOut").value = `${previewLength} steps`;
+      $("sequenceLengthOut").textContent = $("sequenceLengthOut").value;
+    }
+  });
+  $("sequenceLength")?.addEventListener("change", () => (
+    setSequenceLength($("sequenceLength").value)
+  ));
+  $("sequenceLengthNumber")?.addEventListener("change", () => (
+    setSequenceLength($("sequenceLengthNumber").value)
+  ));
+  $("voiceCount")?.addEventListener("input", () => {
+    voiceCount = clamp(Math.round(Number($("voiceCount").value) || 1), 1, voiceSlots.length);
+    $("voiceCountOut").value = String(voiceCount);
+    $("voiceCountOut").textContent = String(voiceCount);
+    activeVoiceSlot = -1;
+    voiceCursor = 0;
+    buildVoiceRack();
+  });
+  $("voiceCount")?.addEventListener("change", () => announce(
+    `${voiceCount} voice character${voiceCount === 1 ? "" : "s"}; one plays per event`,
+  ));
+  $("voiceSelectionMode")?.addEventListener("change", () => {
+    voiceSelectionMode = $("voiceSelectionMode").value === "random" ? "random" : "round-robin";
+    voiceCursor = 0;
+    announce(`Voice choice: ${voiceSelectionMode === "random" ? "random per event" : "round robin"}`);
+  });
+  $("mutateVoicesButton")?.addEventListener("click", () => {
+    for (const slot of voiceSlots.slice(0, voiceCount)) {
+      slot.voice = mutateHamboneVoice(slot.voice, Math.random, 0.58);
+    }
+    buildVoiceRack();
+    announce(`${voiceCount} voice characters mutated`);
+  });
   $("presetSelect").addEventListener("change", () => setPreset($("presetSelect").value));
   $("patternSelect").addEventListener("change", () => {
     if ($("patternSelect").value !== "custom") setCurrentPattern($("patternSelect").value);
@@ -2189,8 +2645,8 @@ function initialize() {
   syncControlLimits();
   populateSelects();
   buildPadGrid();
-  buildSequenceGrid();
-  buildEffectContourGrid();
+  buildVoiceRack({ preserveScroll: false });
+  setSequenceLength(Number($("sequenceLength")?.value) || sequenceLength, { announceState: false });
   bindControls();
   syncControls();
   setAudioPresentation("off");
