@@ -2,18 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#080507" />
     <meta
       name="description"
-      content="Hambone is a shape-shifting face-percussion and beatbox physical model with 25 playable gestures, mutable voice collections, and sequences up to 64 steps."
+      content="Hiccup Head is a large shape-shifting face-percussion and beatbox physical model with 37 playable gestures, dry dead-wood tines, mutable voice collections, and sequences up to 64 steps."
     />
-    <title>Hambone · Morphazoid</title>
+    <title>Hiccup Head · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hambone.css?v=hambone-20260829-6" />
+    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-20260829-9" />
   </head>
-  <body class="hambone-page">
+  <body class="hiccup-head-page">
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -24,7 +25,7 @@
         <a class="tab" href="throatazoid.html">throatazoid</a>
         <a class="tab" href="syrinx.html">syrinx</a>
         <a class="tab" href="jaw-harp.html">jaw harp</a>
-        <a class="tab active" href="hambone.html" aria-current="page">hambone</a>
+        <a class="tab active" href="hiccup-head.html" aria-current="page">hiccup head</a>
         <a class="tab" href="breath-atlas.html">breath atlas</a>
         <a class="tab" href="drum-roll-please.html">drum roll</a>
       </nav>
@@ -35,7 +36,7 @@
           <option value="throatazoid.html">throatazoid</option>
           <option value="syrinx.html">syrinx</option>
           <option value="jaw-harp.html">jaw harp</option>
-          <option value="hambone.html" selected>hambone</option>
+          <option value="hiccup-head.html" selected>hiccup head</option>
           <option value="breath-atlas.html">breath atlas</option>
           <option value="drum-roll-please.html">drum roll</option>
         </select>
@@ -48,153 +49,134 @@
         </button>
         <label class="header-level" for="level">
           <span><b>Output</b><output id="levelOut" for="level">60%</output></span>
-          <input id="level" aria-label="Hambone output level" type="range" min="0" max="0.82" step="0.01" value="0.6" />
+          <input id="level" aria-label="Hiccup Head output level" type="range" min="0" max="0.82" step="0.01" value="0.6" />
         </label>
       </div>
     </header>
 
-    <main class="hambone-shell" id="hambone">
-      <div class="hambone-workspace">
-        <section class="hambone-stage" aria-label="Interactive monophonic face percussion physical model">
-          <div class="hambone-stage-wrap" id="stageWrap">
+    <main class="hiccup-head-shell" id="hiccup-head">
+      <div class="hiccup-head-workspace">
+        <section class="hiccup-head-stage" aria-label="Interactive monophonic face percussion physical model">
+          <div class="hiccup-head-stage-wrap" id="stageWrap">
             <canvas
               id="stage"
               tabindex="0"
-              aria-label="A fully mutable beatbox face missing one upper front tooth. Drag either eye, the nose, either ear, and both slap hands to shape strong effects and percussion; tap the front-tooth gap or another mouth zone to play one of twenty-five face, throat, and mouth gestures."
+              aria-label="A large pink-purple outline goofball beatbox face missing one upper front tooth. Tap any of its thirty-seven colored face dots or twelve dry wood teeth; pull out the tongue; drag either eye in two dimensions, the brows, shiny nose, ears, independent side hair tips, and both rubbery hands."
               aria-describedby="canvasInstructions liveStatus"
             >
-              A playable mutable face with a whistling front-tooth gap, draggable eyes, nose, ears, two slap hands, mouth anatomy, and resonant face percussion.
+              A large playable pink-purple outline goofball face with thirty-seven colored trigger dots, a whistling tooth gap, independent two-dimensional side hair, two rubbery slap hands, and resonant face percussion.
             </canvas>
 
-            <div class="hambone-stage-heading" aria-hidden="true">
-              <h1>HAMBONE</h1>
+            <div class="hiccup-head-stage-heading" aria-hidden="true">
+              <h1>HICCUP HEAD</h1>
             </div>
-            <div class="hambone-drag-legend" role="note" aria-label="Face controls are draggable">
-              <span><b>NOSE ↕</b><small>hard nasal morph</small></span>
-              <span><b>EARS ↔</b><small>wide echo throw</small></span>
-              <span><b>EYES ◉</b><small>deep room bloom</small></span>
-              <span><b>2 HANDS ✋</b><small>drag to slap</small></span>
-            </div>
-            <p class="hambone-stage-hint" aria-hidden="true">
-              DRAG EYES · NOSE · EARS · LEFT + RIGHT SLAP HANDS · TAP A SOUND
-            </p>
-            <p class="hambone-audio-error" id="audioError" role="alert" hidden></p>
+            <p class="hiccup-head-audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </section>
 
-        <section class="hambone-sequencer" aria-labelledby="sequencerTitle">
-          <header class="hambone-sequencer-header">
-            <div class="hambone-transport">
+        <section class="hiccup-head-sequencer" aria-labelledby="sequencerTitle">
+          <header class="hiccup-head-sequencer-header">
+            <div class="hiccup-head-transport">
               <button id="playButton" type="button" aria-pressed="false" data-primary-transport>
-                <span class="hambone-play-glyph" aria-hidden="true"></span>
+                <span class="hiccup-head-play-glyph" aria-hidden="true"></span>
                 <span><b id="playLabel">Play face</b><small id="playState">space · 32 steps</small></span>
               </button>
-              <button id="restartButton" type="button" title="Restart at step 1">
-                <span aria-hidden="true">↤</span><span><b>First</b><small>step 1</small></span>
+              <button id="restartButton" type="button" title="Back to beginning" aria-label="Back to beginning">
+                <span aria-hidden="true">|◀</span>
               </button>
             </div>
 
-            <div class="hambone-sequence-length" role="group" aria-labelledby="sequenceLengthLabel">
+            <div class="hiccup-head-sequence-length" role="group" aria-labelledby="sequenceLengthLabel">
               <span><b id="sequenceLengthLabel">Length</b><output id="sequenceLengthOut" for="sequenceLength sequenceLengthNumber" aria-live="polite">32 steps</output></span>
-              <div class="hambone-sequence-length-inputs">
+              <div class="hiccup-head-sequence-length-inputs">
                 <input id="sequenceLength" type="range" min="1" max="64" step="1" value="32" aria-labelledby="sequenceLengthLabel" aria-controls="sequenceGrid" />
                 <input id="sequenceLengthNumber" type="number" min="1" max="64" step="1" value="32" inputmode="numeric" aria-label="Exact sequence length in steps" aria-controls="sequenceGrid" />
               </div>
             </div>
 
-            <div class="hambone-sequence-title">
-              <p>25 SOUNDS · ANY LENGTH 1–64</p>
-              <h2 id="sequencerTitle">Sequence the mutable face</h2>
-            </div>
+            <h2 class="sr-only" id="sequencerTitle">Hiccup Head sequencer</h2>
 
-            <label class="hambone-pattern-select" for="patternSelect">
+            <label class="hiccup-head-pattern-select" for="patternSelect">
               <span>Pattern</span>
-              <select id="patternSelect" aria-label="Hambone sequence pattern"></select>
+              <select id="patternSelect" aria-label="Hiccup Head sequence pattern"></select>
             </label>
-            <button class="hambone-sequence-action" id="randomPatternButton" type="button">
-              <b>Scatter</b><small>new beat</small>
+            <button class="hiccup-head-sequence-action" id="randomPatternButton" type="button">
+              <b>Scatter</b>
             </button>
-            <button class="hambone-sequence-action" id="clearPatternButton" type="button">
-              <b>Clear</b><small>blank grid</small>
+            <button class="hiccup-head-sequence-action" id="clearPatternButton" type="button">
+              <b>Clear</b>
             </button>
 
-            <label class="hambone-mini-control" for="tempo">
+            <label class="hiccup-head-mini-control" for="tempo">
               <span><b>Tempo</b><output id="tempoOut" for="tempo">118 BPM</output></span>
               <input id="tempo" name="tempo" type="range" min="48" max="520" step="1" value="118" />
             </label>
-            <label class="hambone-mini-control" for="swing">
+            <label class="hiccup-head-mini-control" for="swing">
               <span><b>Swing</b><output id="swingOut" for="swing">10%</output></span>
               <input id="swing" type="range" min="0" max="0.46" step="0.01" value="0.1" />
             </label>
           </header>
 
-          <div class="hambone-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable twenty-five-sound sequence with any length from one to sixty-four steps">
-            <p class="hambone-face-guide">
-              <b>MOVE THE WHOLE FACE</b><span>Each preset loads its own face effects. Drag the eyes, nose, and ears for stronger live changes; drag either hand to slap a resonant zone.</span>
-            </p>
+          <div class="hiccup-head-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable thirty-seven-sound sequence with any length from one to sixty-four steps">
             <div
-              class="hambone-sequence-grid"
+              class="hiccup-head-sequence-grid"
               id="sequenceGrid"
               role="grid"
-              aria-label="Twenty-five Hambone face, throat, and mouth sounds by thirty-two sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
-              aria-rowcount="25"
+              aria-label="Thirty-seven Hiccup Head face, throat, breath, tongue, and mouth sounds by thirty-two sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
+              aria-rowcount="37"
               aria-colcount="32"
             ></div>
           </div>
         </section>
       </div>
 
-      <aside class="panel hambone-panel" aria-label="Hambone controls">
-        <section class="hambone-preset-deck" aria-label="Mutable full-face preset">
+      <aside class="panel hiccup-head-panel" aria-label="Hiccup Head controls">
+        <section class="hiccup-head-preset-deck" aria-label="Mutable full-face preset">
           <label for="presetSelect">
             <span>Mutable face preset</span>
-            <select id="presetSelect" aria-label="Hambone physical preset"></select>
+            <select id="presetSelect" aria-label="Hiccup Head physical preset"></select>
           </label>
-          <p id="presetDescription">A playable beatbox face: drag the eyes, nose, ears, mouth, and two hands into gleefully impossible shapes.</p>
+          <p class="sr-only" id="presetDescription">A playable beatbox face with mutable anatomy and effects.</p>
           <button id="randomizeButton" type="button">
             <span aria-hidden="true">✦</span>
-            <span><b>Mutate the whole face</b><small>human-ish to cheerfully impossible</small></span>
+            <span><b>Mutate the whole face</b></span>
           </button>
         </section>
 
-        <section class="hambone-voice-collection" aria-labelledby="voiceCollectionTitle">
-          <header class="hambone-voice-heading">
+        <section class="hiccup-head-voice-collection" aria-labelledby="voiceCollectionTitle">
+          <header class="hiccup-head-voice-heading">
             <div>
-              <p>FOLDS · THROATS · CHARACTERS</p>
               <h2 id="voiceCollectionTitle">Voice collection</h2>
             </div>
-            <p id="voiceCollectionHelp">Build alternate vocal-fold and tract characters. One persistent mouth and one chosen voice sound each event.</p>
+            <p class="sr-only" id="voiceCollectionHelp">Voice characters alter the fold and tract parameters selected for each event.</p>
           </header>
-          <div class="hambone-voice-toolbar">
-            <label class="hambone-voice-count" for="voiceCount">
+          <div class="hiccup-head-voice-toolbar">
+            <label class="hiccup-head-voice-count" for="voiceCount">
               <span><b>Voices</b><output id="voiceCountOut" for="voiceCount">4</output></span>
               <input id="voiceCount" type="range" min="1" max="8" step="1" value="4" aria-controls="voiceRack" aria-describedby="voiceCollectionHelp" />
             </label>
-            <label class="hambone-voice-mode" for="voiceSelectionMode">
+            <label class="hiccup-head-voice-mode" for="voiceSelectionMode">
               <span>Choose per event</span>
               <select id="voiceSelectionMode" aria-label="Voice selection mode" aria-controls="voiceRack" aria-describedby="voiceCollectionHelp">
                 <option value="roundRobin">Round robin</option>
                 <option value="random">Random</option>
               </select>
             </label>
-            <button class="hambone-voice-mutate-all" id="mutateVoicesButton" type="button" aria-controls="voiceRack">
-              <b>Mutate voices</b><small>new collection</small>
+            <button class="hiccup-head-voice-mutate-all" id="mutateVoicesButton" type="button" aria-controls="voiceRack">
+              <b>Mutate voices</b>
             </button>
           </div>
-          <div class="hambone-voice-rack" id="voiceRack" role="list" aria-label="Mutable and soloable voice characters" aria-live="polite"></div>
-          <p class="hambone-voice-note">Each voice can choose a character, be soloed, mutated, and given its own modulation depth. Round robin stays repeatable; Random makes a fresh vocal choice for every hit.</p>
+          <div class="hiccup-head-voice-rack" id="voiceRack" role="list" aria-label="Mutable and soloable voice characters" aria-live="polite"></div>
         </section>
 
-        <section class="hambone-pad-section" aria-labelledby="padBankTitle">
-          <header class="hambone-pad-heading">
-            <p>25 PHYSICAL GESTURES</p>
+        <section class="hiccup-head-pad-section" aria-labelledby="padBankTitle">
+          <header class="hiccup-head-pad-heading">
             <h2 id="padBankTitle">Mouth, throat &amp; face</h2>
-            <small>Now with FWEE tooth-gap whistle · AAH · OOH · WAIL · YODEL · GROWL · HOLLER · HUM · RATTLE</small>
           </header>
-          <div class="hambone-pad-bank" id="padGrid" aria-label="Twenty-five playable Hambone sound pads in a four-column grid"></div>
+          <div class="hiccup-head-pad-bank" id="padGrid" aria-label="Thirty-seven playable Hiccup Head sound pads in a four-column grid"></div>
         </section>
 
-        <div class="hambone-model-hud" aria-live="polite">
+        <div class="hiccup-head-model-hud" aria-live="polite">
           <span><small>Current mouth pose</small><output id="soundReadout">ready to morph</output></span>
           <span><small>Cheek cavity</small><output id="cavityReadout">94 ml · 205 Hz</output></span>
           <span><small>Oral tract</small><output id="tractReadout">16.5 cm</output></span>
@@ -226,7 +208,7 @@
             <label class="control" for="mouthOpening">
               <span><b>Mouth aperture</b><output id="mouthOpeningOut" for="mouthOpening">48%</output></span>
               <input id="mouthOpening" type="range" min="0.01" max="1.85" step="0.01" value="0.48" />
-              <small>Moves the single mouth from sealed contact to an overextended open-jaw shape.</small>
+              <small>Moves the lips from sealed contact to an overextended open-jaw shape.</small>
             </label>
             <label class="control" for="dooPitch">
               <span><b>Vocal / DOO pitch</b><output id="dooPitchOut" for="dooPitch">0 st</output></span>
@@ -262,6 +244,11 @@
               <input id="tongueCurl" type="range" min="-0.7" max="1.8" step="0.01" value="0.4" />
               <small>Moves from a shallow human groove into the sharp PHSHSHK channel and tongue flick.</small>
             </label>
+            <label class="control" for="tongueOut">
+              <span><b>Tongue extension</b><output id="tongueOutOut" for="tongueOut">8%</output></span>
+              <input id="tongueOut" type="range" min="0" max="1.6" step="0.01" value="0.08" />
+              <small>Pulls the same tongue past the lips for lateral LA, rolled R, and wet suction gestures.</small>
+            </label>
           </div>
         </details>
 
@@ -282,14 +269,49 @@
               <small>Starts from the selected face preset. Drag the nose or move this live to force the velum from dry oral tone into an unmistakably hard nasal branch.</small>
             </label>
             <label class="control" for="earSpread">
-              <span><b>Ear spread / stereo delay</b><output id="earSpreadOut" for="earSpread">18%</output></span>
+              <span><b>Ear spread / stereo width</b><output id="earSpreadOut" for="earSpread">18%</output></span>
               <input id="earSpread" type="range" min="0" max="1" step="0.01" value="0.18" />
-              <small>Starts from the preset, then stretches the live sound from centered mono into a conspicuous wide, offset stereo echo throw.</small>
+              <small>Pull either ear outward to widen the face and its short elastic stereo tether. The spaghetti hair stays put.</small>
+            </label>
+            <label class="control" for="leftHairLength">
+              <span><b>Left hair length / feedback</b><output id="leftHairLengthOut" for="leftHairLength">12%</output></span>
+              <input id="leftHairLength" type="range" min="0" max="1" step="0.01" value="0.12" />
+              <small>Extends only the left straight hair rays and raises their feedback amount. The right hair and both ears stay put.</small>
+            </label>
+            <label class="control" for="leftHairAngle">
+              <span><b>Left hair angle / delay time</b><output id="leftHairAngleOut" for="leftHairAngle">−82%</output></span>
+              <input id="leftHairAngle" type="range" min="-1" max="1" step="0.01" value="-0.82" />
+              <small>Rotates the left rays and moves only their delay time. Drag the left tip in two dimensions to change this and length together.</small>
+            </label>
+            <label class="control" for="rightHairLength">
+              <span><b>Right hair length / feedback</b><output id="rightHairLengthOut" for="rightHairLength">16%</output></span>
+              <input id="rightHairLength" type="range" min="0" max="1" step="0.01" value="0.16" />
+              <small>Extends only the right straight hair rays and raises their feedback amount. The left hair and both ears stay put.</small>
+            </label>
+            <label class="control" for="rightHairAngle">
+              <span><b>Right hair angle / delay time</b><output id="rightHairAngleOut" for="rightHairAngle">−62%</output></span>
+              <input id="rightHairAngle" type="range" min="-1" max="1" step="0.01" value="-0.62" />
+              <small>Rotates the right rays and moves only their delay time. Drag the right tip in two dimensions to change this and length together.</small>
             </label>
             <label class="control" for="eyeDivergence">
-              <span><b>Eye divergence / reverb</b><output id="eyeDivergenceOut" for="eyeDivergence">8%</output></span>
-              <input id="eyeDivergence" type="range" min="0" max="1" step="0.01" value="0.08" />
-              <small>Starts from the preset. Pull the eyes apart to move from a close dry face into a deep, clearly audible cross-fed room bloom.</small>
+              <span><b>Eye divergence / gate–reverb</b><output id="eyeDivergenceOut" for="eyeDivergence">8% reverb</output></span>
+              <input id="eyeDivergence" type="range" min="-1" max="1" step="0.01" value="0.08" />
+              <small>Pull inward through center for crossed-eye gating, or outward for an unmistakable cross-fed room bloom.</small>
+            </label>
+            <label class="control" for="eyeClosure">
+              <span><b>Eyelids / bitcrush</b><output id="eyeClosureOut" for="eyeClosure">0%</output></span>
+              <input id="eyeClosure" type="range" min="0" max="1" step="0.01" value="0" />
+              <small>Bright open eyes are zero. Drag either eye downward to close both lids and increase the bitcrush.</small>
+            </label>
+            <label class="control" for="leftBrow">
+              <span><b>Left brow / loop A</b><output id="leftBrowOut" for="leftBrow">50%</output></span>
+              <input id="leftBrow" type="range" min="0" max="1" step="0.01" value="0.5" />
+              <small>Raises or lowers the sequencer's smooth loudness anchor around the first half of each loop.</small>
+            </label>
+            <label class="control" for="rightBrow">
+              <span><b>Right brow / loop B</b><output id="rightBrowOut" for="rightBrow">50%</output></span>
+              <input id="rightBrow" type="range" min="0" max="1" step="0.01" value="0.5" />
+              <small>Shapes the second-half loudness anchor; the two brows interpolate into one cyclic amplitude contour.</small>
             </label>
             <label class="control" for="silliness">
               <span><b>Anatomy warp</b><output id="sillinessOut" for="silliness">56%</output></span>
@@ -309,35 +331,38 @@
           </div>
         </details>
 
-        <details class="group control-section hambone-model-notes" data-section="output">
+        <details class="group control-section hiccup-head-model-notes" data-section="output">
           <summary class="group-summary">
             <h2 class="group-title">What is physical here?</h2>
-            <span class="section-state">full face · 25 sequential sounds</span>
+            <span class="section-state">full face · 37 sequential sounds</span>
           </summary>
           <div class="group-body">
-            <p><b>One tract</b> resamples Pink Trombone / Throatazoid's 44-point mouth geometry into a continuously moving, variable-length oral waveguide. Its travelling air waves persist as every new gesture reshapes that same mouth.</p>
+            <p><b>Shared tract</b> resamples Pink Trombone / Throatazoid's 44-point mouth geometry into a continuously moving, variable-length oral waveguide. Its travelling air waves persist as every new gesture reshapes it.</p>
             <p><b>BOP / BOOP</b> seal the lips, store pressure, then release it into different tongue and lip shapes.</p>
             <p><b>POP / TLIK</b> use signed cheek or tongue-pocket suction, with TLIK releasing its front and rear contacts in sequence.</p>
             <p><b>PHSHSHK / SHACK</b> move the tongue between lip, postalveolar, open-jaw, and velar phases; turbulence is injected where the constriction actually is.</p>
             <p><b>SLAP / SMACK / KICK</b> send clap-like palm-and-finger contact clusters or a low body impulse through the compliant cheek branch. Moving either hand changes the struck cavity, brightness, timing, and face resonance.</p>
             <p><b>HEE / HAW / DOO</b> reverse airflow across a brief fold pulse, open the jaw, or tune a rounded voiced tube with the dedicated pitch control.</p>
-            <p><b>MWAH / DRR / BURP / PFRR</b> use sealed suction, a pressure-driven tongue-tip valve, irregular low folds, or a sustained pressure-feedback lip roll—never sample playback.</p>
-            <p><b>FWEE</b> sends stored pressure through Hambone's one missing upper incisor. The narrow tooth gap forms the focused air jet and resonant whistle cavity; tap the gap itself to play it.</p>
+            <p><b>MWAH / DRR / BURP / PFRR / PB-PB</b> use sealed suction, pressure-driven tongue or lip valves, irregular low folds, and smoothly shaped breath—never sample playback or a flat digital noise slab.</p>
+            <p><b>HNNGH / MMOAN / LA-LA / SLRRP</b> add low rough folds, a sliding open vowel, repeated lateral tongue contacts, and a visible wet tongue pull to the sequencer.</p>
+            <p><b>FWEE + TOOTH WOOD</b> keep one upper incisor missing for its focused edge whistle while every remaining visible tooth acts as a short, dull, irregular dead-wood tine behind the lips.</p>
+            <p><b>HIC! + EEF!</b> add a caught diaphragm/glottal rebound and folded ingressive–egressive breath contours inside the same one-mouth tract.</p>
             <p><b>AAH / OOH / WAIL / YODEL / GROWL / HOLLER / HUM / RATTLE</b> open the throat into wider vowel areas, vibrato, register breaks, false-fold roughness, and sustained resonant tissue motion.</p>
             <p><b>VOICE COLLECTIONS</b> hold up to eight alternate fold and tract characters. Solo one, cycle predictably, or choose randomly; only one character drives the persistent mouth for each event.</p>
-            <p><b>NOSE / EARS / EYES</b> expose the velum and nasal branch, unequal stereo propagation delays, and a strong bounded cross-fed room. Every preset supplies useful defaults, then the face and live sliders push them much further.</p>
+            <p><b>NOSE / EARS / SIDE HAIR / EYES / BROWS</b> expose the nasal branch, short ear-controlled stereo width, a separate long hair feedback delay, a cross-fed room, and a two-anchor amplitude contour. Every preset supplies useful defaults, then the face pushes them further.</p>
           </div>
         </details>
 
-        <button class="hambone-reset" id="resetButton" type="button">Reset face &amp; pattern</button>
+        <button class="hiccup-head-reset" id="resetButton" type="button">Reset face &amp; pattern</button>
       </aside>
     </main>
 
     <p class="sr-only" id="canvasInstructions">
-      Tap the labeled missing-front-tooth gap, another face zone, or a displayed pad shortcut to play one of twenty-five face, throat, and mouth sounds.
+      Tap any of thirty-seven colored trigger dots on clear face regions, twelve visible tooth tines, the visible missing-front-tooth gap, or a displayed pad shortcut to play the face, throat, breath, tongue, and mouth sounds.
       Drag the left and right hands onto different cheeks, jaw, forehead, or mouth zones for resonant slaps.
-      Drag either eye to shape reverb, the nose up or down to change nasal tone, and either ear outward to
-      change stereo spread and delay. Face presets supply defaults for those effects, and dragging tweaks them live.
+      Drag either eye horizontally through center to move from crossed-eye gating into outward reverb, or downward to close both lids and increase bitcrush. Drag either eyebrow up or down to shape the two-anchor loop amplitude contour,
+      the nose to change nasal tone, either ear for stereo width, either side-hair tip in two dimensions for its own feedback amount and delay time, and the tongue tip beyond the lips.
+      Face presets supply defaults for those effects, and dragging tweaks them live.
       Drag the mouth anatomy beyond human ranges. Set the sequence to any whole-number length from one through
       sixty-four steps. Each column holds at most one sound; selecting another row replaces that step's old sound.
       The voice collection can cycle or randomly choose among one to eight mutable characters, one per event.
@@ -345,6 +370,7 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
-    <script type="module" src="hambone-app.js?v=hambone-20260829-8"></script>
-  </body>
+    <script type="module" src="hiccup-head-app.js?v=hiccup-head-20260829-15"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
 </html>

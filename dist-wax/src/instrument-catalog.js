@@ -226,10 +226,10 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose a one- to four-hole mouth aperture and a blues gesture, then hold blow or draw; shape its rhythm, breath envelope, cover-hand filter, tongue, tract, bend, or overbend in real time.",
     ["Built-in source", "Pointer", "Computer keys", "MIDI expression", "Physical-model DSP"],
   ),
-  hambone: define(
+  "hiccup-head": define(
     "Monophonic physical beatbox sequencer",
-    "Moves a fully mutable face and one persistent Pink Trombone–lineage oral waveguide between twenty-five exclusive gestures: plosives, clicks, PHSHSHK, two resonant hand slaps, a low kick, reversible breath, pitched DOO, suction and trills, BURP, eight open-throat, vibrato, register-break, subharmonic, nasal, and rattle voices, plus FWEE from a pressure-driven jet at the missing upper-left central incisor.",
-    "Turn on audio, tap a pad, face zone, or the visible missing-tooth gap, drag either animated multi-contact hand to slap, then sequence one gesture per column at any length from 1 through 64 steps and up to 520 BPM; live-mutate preset face effects and choose, solo, mutate, or modulate one to eight sequential voice characters without layering mouths.",
+    "Moves a half-transparent purple/red-checkerboard polka-dot goofball face and one persistent Pink Trombone–lineage oral waveguide between thirty-seven exclusive gestures, including HIC! and EEF! breaths, mouth KSH snare, tongue snap, low and high cheek toms, BRRAP, resonant rubber-hand claps, open-throat and rough voices, grunt, moan, rolling LA and R, PB-PB, a wet pull-out tongue, missing-incisor FWEE, and twelve pitched dead-wood teeth.",
+    "Tap any of thirty-seven feature-clear sound dots, the whistle gap, or twelve separately pitched crooked teeth; drag the larger rubbery hands to slap, pull either horizontal-tethered ear for stereo width, and drag each straight side-hair tip in two dimensions—length sets echo amount while angle sets that side's delay time. Cross the eyes inward for a dry tempo gate, pull them outward for reverb, close the lids for light bitcrushing, or use two thick eyebrows as a cyclic sequence-amplitude contour. The glossy square nose controls the nasal branch, while the green, translucent-striped lips become thinner as the mouth expands. Sequence one gesture per column at any length from 1 through 64 steps and up to 520 BPM, then mutate one to eight sequential voice characters without layering mouths.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
   "breath-atlas": define(
@@ -657,7 +657,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   hybrinx: Object.freeze(["sequencers"]),
   "colony-syrinx": Object.freeze(["sequencers"]),
   blowhole: Object.freeze(["sequencers"]),
-  hambone: Object.freeze(["sequencers"]),
+  "hiccup-head": Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "graph-drums": Object.freeze(["fractals-recursion"]),
   "graph-synth": Object.freeze(["fractals-recursion"]),

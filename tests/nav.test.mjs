@@ -596,7 +596,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
       { id: "harmonica", label: "Harmonica", href: "harmonica.html" },
-      { id: "hambone", label: "Hambone", href: "hambone.html" },
+      { id: "hiccup-head", label: "Hiccup Head", href: "hiccup-head.html" },
       { id: "breath-atlas", label: "Breath Atlas", href: "breath-atlas.html" },
       {
         id: "spelling-synthesizer",

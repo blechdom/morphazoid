@@ -166,7 +166,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("sliding-puzzle").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("colony-syrinx").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("harmonica").noteMode, "pitched");
-  assert.equal(instrumentMidiCapabilityForId("hambone").noteMode, "drums");
+  assert.equal(instrumentMidiCapabilityForId("hiccup-head").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("graph-drums").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("graph-synth").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("morphazoidical").noteMode, "sequence");
@@ -177,7 +177,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "blowhole",
     "jaw-harp",
     "harmonica",
-    "hambone",
+    "hiccup-head",
     "colony-syrinx",
     "breath-atlas",
     "morphynx",
