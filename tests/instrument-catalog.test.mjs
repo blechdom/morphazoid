@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 113);
+  assert.equal(INSTRUMENTS.length, 114);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -131,10 +131,11 @@ test("Faves keep their regular catalogue groups and experiments never inherit th
   );
 });
 
-test("temporary Misc group owns the five uncategorized instruments", () => {
+test("temporary Misc group owns the six uncategorized instruments", () => {
   const ids = [
     "playhead-paint",
     "boidzoid",
+    "vector-flight",
     "gesturama",
     "image-to-instrument-3",
     "orbital-ferris",

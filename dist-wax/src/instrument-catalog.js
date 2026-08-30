@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260829-8";
+} from "../nav.js?v=catalog-20260829-9";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -36,6 +36,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Makes autonomous arrow playheads into continuous sine voices: height sweeps frequency without note divisions, horizontal position sets stereo, and speed breathes the level.",
     "Turn on audio, let the arrows drift, then drag the open surface to steer the sine field.",
     ["Pointer", "Built-in synth"],
+  ),
+  "vector-flight": define(
+    "Circular flight geometry",
+    "Keeps a wireframe ship centered inside a full 360-degree star field, mapping a circular listening contour, azimuth, proximity, radial velocity, and tangential motion directly into continuous voices, free-pitch flybys, or triggers without a scale grid.",
+    "Turn on audio, choose Continuous, Notes, or Triggers, drag around the ship to rotate the physics mapping, then raise the throttle until points become hyperspace rays and full-circle plaid.",
+    ["Pointer", "Built-in synth", "Spatial audio"],
   ),
   "surround-field": define(
     "Multichannel spatial instrument",

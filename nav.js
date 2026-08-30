@@ -251,6 +251,7 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("misc", "Misc", [
     { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
     { id: "boidzoid", label: "Boidzoid", href: "boidzoid.html" },
+    { id: "vector-flight", label: "Vector Flight", href: "vector-flight.html" },
     { id: "gesturama", label: "Gesturama", href: "gesturama.html" },
     {
       id: "image-to-instrument-3",

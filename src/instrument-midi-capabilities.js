@@ -81,6 +81,7 @@ const NOTE_MODE_IDS = Object.freeze({
   ]),
   sequence: Object.freeze([
     "boidzoid",
+    "vector-flight",
     "pink-trombonazoid",
     "colony-syrinx",
     "vocalzoid",
@@ -162,6 +163,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
 // piano/drum keys until an explicit page mapping exists.
 export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "boidzoid",
+  "vector-flight",
   "pink-trombonazoid",
   "vocalzoid",
   "sliding-puzzle",

@@ -75,6 +75,11 @@ for worktree_runtime_file in \
   boidzoid-app.js \
   src/boidzoid.js \
   assets/instruments/boidzoid.webp \
+  vector-flight.html \
+  vector-flight.css \
+  vector-flight-app.js \
+  src/vector-flight.js \
+  assets/instruments/vector-flight.webp \
   surround-field.html \
   surround-field.css \
   surround-field-app.js \
