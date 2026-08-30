@@ -1,11 +1,13 @@
 import {
   HAMBONE_DEFAULTS,
+  HAMBONE_TOOTH_GAP_ANATOMY,
   HAMBONE_TRACT_SECTION_COUNT,
   hamboneGestureFrame,
   hamboneSound,
   hamboneTargetOralDiameters,
   physicalVoiceParameters,
   sanitizeHamboneState,
+  sanitizeHamboneVoice,
 } from "./hambone.js";
 
 // Hambone's tract is a single, persistent Kelly-Lochbaum volume-flow tube.
@@ -44,6 +46,23 @@ const RELEASE_PHASES = Object.freeze({
   shack: 0.08,
   slap: 0.09,
   pff: 0.18,
+  kick: 0.07,
+  smack: 0.075,
+  hee: 0.035,
+  haw: 0.04,
+  doo: 0.035,
+  mwah: 0.535,
+  drr: 0.045,
+  burp: 0.04,
+  aah: 0.045,
+  ooh: 0.045,
+  wail: 0.04,
+  yodel: 0.04,
+  growl: 0.04,
+  holler: 0.035,
+  hum: 0.045,
+  rattle: 0.04,
+  whistle: 0.045,
 });
 
 const LIVE_PREPARATION_SECONDS = Object.freeze({
@@ -55,6 +74,23 @@ const LIVE_PREPARATION_SECONDS = Object.freeze({
   shack: 0.01,
   slap: 0.006,
   pff: 0.022,
+  kick: 0.006,
+  smack: 0.006,
+  hee: 0.012,
+  haw: 0.012,
+  doo: 0.012,
+  mwah: 0.025,
+  drr: 0.014,
+  burp: 0.016,
+  aah: 0.016,
+  ooh: 0.016,
+  wail: 0.014,
+  yodel: 0.014,
+  growl: 0.014,
+  holler: 0.012,
+  hum: 0.016,
+  rattle: 0.014,
+  whistle: 0.016,
 });
 
 const finite = (value, fallback = 0) => (
@@ -100,6 +136,114 @@ function arraysAreFinite(arrays, lengths = []) {
     }
   }
   return true;
+}
+
+// The ears and eyes are global face parameters, so this stage follows the
+// single resonating tract instead of spawning effect voices per gesture.
+// Ears create two unequal, feed-forward acoustic paths; divergent eyes open a
+// restrained cross-fed room whose feedback is hard-bounded below unity.
+class FaceSpace {
+  constructor(rate) {
+    this.rate = rate;
+    this.earBuffer = new Float64Array(Math.ceil(rate * 0.038) + 4);
+    this.eyeLeftBuffer = new Float64Array(Math.ceil(rate * 0.39) + 4);
+    this.eyeRightBuffer = new Float64Array(Math.ceil(rate * 0.39) + 4);
+    this.earIndex = 0;
+    this.eyeIndex = 0;
+    this.earAmount = 0;
+    this.eyeAmount = 0;
+    this.eyeDampedLeft = 0;
+    this.eyeDampedRight = 0;
+    this.left = 0;
+    this.right = 0;
+    this.stereoDelayMs = 0;
+  }
+
+  _tap(buffer, writeIndex, delayFrames) {
+    const length = buffer.length;
+    const position = (writeIndex - delayFrames + length) % length;
+    const lower = Math.floor(position);
+    const upper = (lower + 1) % length;
+    const mix = position - lower;
+    return buffer[lower] + (buffer[upper] - buffer[lower]) * mix;
+  }
+
+  process(left, right, configuration) {
+    const earTarget = clamp(finite(configuration?.earSpread, 0));
+    const eyeTarget = clamp(finite(configuration?.eyeDivergence, 0));
+    this.earAmount += (earTarget - this.earAmount) * timeAlpha(24, this.rate);
+    this.eyeAmount += (eyeTarget - this.eyeAmount) * timeAlpha(36, this.rate);
+
+    const mono = cleanWave((left + right) * Math.SQRT1_2);
+    this.earBuffer[this.earIndex] = clamp(mono, -1.5, 1.5);
+    const nearDelayFrames = this.rate * (0.00045 + this.earAmount * 0.0032);
+    const farDelayFrames = this.rate * (
+      0.0012 + this.earAmount * this.earAmount * 0.031
+    );
+    const near = this._tap(this.earBuffer, this.earIndex, nearDelayFrames) * Math.SQRT1_2;
+    const far = this._tap(this.earBuffer, this.earIndex, farDelayFrames) * Math.SQRT1_2;
+    const earWet = smoothstep(this.earAmount) * 0.9;
+    const crossWidth = this.earAmount * 0.22;
+    const earLeft = cleanWave(
+      left * (1 - earWet * 0.72) + near * earWet - far * crossWidth,
+    );
+    const earRight = cleanWave(
+      right * (1 - earWet * 0.72) + far * earWet - near * crossWidth,
+    );
+    this.stereoDelayMs = (farDelayFrames - nearDelayFrames) / this.rate * 1_000;
+    this.earIndex = (this.earIndex + 1) % this.earBuffer.length;
+
+    const leftDelayFrames = this.rate * (0.053 + this.eyeAmount * 0.083);
+    const rightDelayFrames = this.rate * (0.079 + this.eyeAmount * 0.121);
+    const reflectedLeft = this._tap(this.eyeLeftBuffer, this.eyeIndex, leftDelayFrames);
+    const reflectedRight = this._tap(this.eyeRightBuffer, this.eyeIndex, rightDelayFrames);
+    this.eyeDampedLeft += (reflectedLeft - this.eyeDampedLeft) * 0.12;
+    this.eyeDampedRight += (reflectedRight - this.eyeDampedRight) * 0.105;
+    const feedback = 0.28 + this.eyeAmount * 0.49;
+    this.eyeLeftBuffer[this.eyeIndex] = clamp(
+      earLeft * (0.22 + this.eyeAmount * 0.12) + this.eyeDampedRight * feedback,
+      -1.5,
+      1.5,
+    );
+    this.eyeRightBuffer[this.eyeIndex] = clamp(
+      earRight * (0.22 + this.eyeAmount * 0.12) + this.eyeDampedLeft * feedback,
+      -1.5,
+      1.5,
+    );
+    this.eyeIndex = (this.eyeIndex + 1) % this.eyeLeftBuffer.length;
+    const eyeWet = smoothstep(this.eyeAmount) * 0.66;
+    this.left = cleanWave(earLeft * (1 - eyeWet * 0.18) + this.eyeDampedLeft * eyeWet);
+    this.right = cleanWave(earRight * (1 - eyeWet * 0.18) + this.eyeDampedRight * eyeWet);
+  }
+
+  reset() {
+    this.earBuffer.fill(0);
+    this.eyeLeftBuffer.fill(0);
+    this.eyeRightBuffer.fill(0);
+    this.earIndex = 0;
+    this.eyeIndex = 0;
+    this.earAmount = 0;
+    this.eyeAmount = 0;
+    this.eyeDampedLeft = 0;
+    this.eyeDampedRight = 0;
+    this.left = 0;
+    this.right = 0;
+    this.stereoDelayMs = 0;
+  }
+
+  isFinite() {
+    return Number.isFinite(this.earAmount)
+      && Number.isFinite(this.eyeAmount)
+      && Number.isFinite(this.eyeDampedLeft)
+      && Number.isFinite(this.eyeDampedRight)
+      && Number.isFinite(this.left)
+      && Number.isFinite(this.right)
+      && arraysAreFinite([
+        this.earBuffer,
+        this.eyeLeftBuffer,
+        this.eyeRightBuffer,
+      ]);
+  }
 }
 
 function updateReflections(diameter, area, reflection, length) {
@@ -208,12 +352,14 @@ class NasalBranch {
     const lengthScale = clamp(Math.cbrt(Math.max(0.01, tractLengthM / 0.165)), 0.72, 1.52);
     for (let index = 0; index < NOSE_SECTIONS; index += 1) {
       const progress = index / (NOSE_SECTIONS - 1);
-      const chamber = 0.38
-        + Math.sin(progress * Math.PI) * 0.68
-        + Math.sin(progress * Math.PI * 3.1) * 0.055;
-      this.targetDiameter[index] = Math.max(0.12, chamber * lengthScale);
+      // Pronounced alternating nasal chambers create the pole/antiresonance
+      // pattern acoustically in the side tube instead of with an output EQ.
+      const chamber = 0.31
+        + Math.sin(progress * Math.PI) * 0.9
+        + Math.sin(progress * Math.PI * 3.1) * 0.11;
+      this.targetDiameter[index] = Math.max(0.09, chamber * lengthScale);
     }
-    this.targetDiameter[0] = DIAMETER_MINIMUM + this.targetOpening * 0.64;
+    this.targetDiameter[0] = DIAMETER_MINIMUM + this.targetOpening * 1.08;
     if (immediate) {
       this.opening = this.targetOpening;
       this.diameter.set(this.targetDiameter);
@@ -225,7 +371,7 @@ class NasalBranch {
     const lagMilliseconds = this.targetOpening > this.opening ? 15 : 40;
     this.opening += (this.targetOpening - this.opening)
       * timeAlpha(lagMilliseconds, this.substepRate);
-    this.targetDiameter[0] = DIAMETER_MINIMUM + this.opening * 0.64;
+    this.targetDiameter[0] = DIAMETER_MINIMUM + this.opening * 1.08;
     const alpha = timeAlpha(22, this.substepRate);
     for (let index = 0; index < NOSE_SECTIONS; index += 1) {
       this.diameter[index] = Math.max(
@@ -340,13 +486,20 @@ class CompliantCheekBranch {
       * timeAlpha(18, this.substepRate);
     updateReflections(this.diameter, this.area, this.reflection, CHEEK_SECTIONS);
     const tension = finite(frame?.cheekTension, configuration.cheekTension);
-    const naturalFrequency = clamp(74 + tension * 180, 34, 460);
+    const isHand = frame?.soundId === "slap" || frame?.soundId === "smack";
+    const volume = finite(frame?.cheekVolume, configuration.cheekVolume);
+    const naturalFrequency = frame?.soundId === "kick"
+      ? clamp(38 + tension * 24, 30, 78)
+      : isHand
+        ? clamp(68 + tension * 238 + (0.72 - volume) * 66, 38, 520)
+        : clamp(74 + tension * 180, 34, 460);
     const omega = Math.PI * 2 * naturalFrequency;
     const damping = clamp(0.08 + tension * 0.055, 0.025, 0.34);
     const pneumaticGesture = frame?.soundId === "bop"
       || frame?.soundId === "boop"
       || frame?.soundId === "shh"
-      || frame?.soundId === "pff";
+      || frame?.soundId === "pff"
+      || frame?.soundId === "whistle";
     const lungScale = pneumaticGesture
       ? clamp(finite(configuration.lungPressure, 0) / HAMBONE_DEFAULTS.lungPressure)
       : 1;
@@ -448,16 +601,23 @@ class PressureDrivenLipValve {
     const frequency = clamp(finite(plan?.flutterFrequencyHz, 38), 12, 92);
     const omega = Math.PI * 2 * frequency;
     const tension = finite(frame?.lipTension, 0.4);
-    const damping = clamp(0.075 + Math.max(0, tension) * 0.035, 0.035, 0.22);
-    const restPosition = enabled ? -0.028 - Math.max(0, -tension) * 0.035 : 0;
+    const restPosition = enabled ? -0.036 - Math.max(0, -tension) * 0.045 : 0;
     const pressure = enabled && finite(lungPressure, 0) > 0.000001
       ? Math.max(
         0,
-        finite(frame.pressureDrive, 0) * 0.18 - finite(tractPressure, 0) * 4.2,
+        finite(frame.pressureDrive, 0) * 0.26 - finite(tractPressure, 0) * 3.4,
       )
       : 0;
     const opening = Math.max(0, this.positionCm);
-    const aerodynamicForce = pressure * flutter * 0.16 * (1 - opening / 0.12 * 1.7);
+    // Flow across loose lips unloads them after opening and contributes
+    // negative damping. With no pressure the damping is positive and the
+    // valve cannot buzz on its own.
+    const damping = clamp(
+      0.085 + Math.max(0, tension) * 0.028 - pressure * flutter * 0.34,
+      -0.11,
+      0.22,
+    );
+    const aerodynamicForce = pressure * flutter * (0.23 - opening * 3.25);
     const acceleration = omega * omega * (
       restPosition + aerodynamicForce - this.positionCm
     ) - 2 * damping * omega * this.velocityCmPerSecond;
@@ -471,21 +631,21 @@ class PressureDrivenLipValve {
     if (this.positionCm < 0) {
       const collisionVelocity = Math.min(0, this.velocityCmPerSecond);
       this.positionCm = 0;
-      if (this.velocityCmPerSecond < 0) this.velocityCmPerSecond *= -0.16;
+      if (this.velocityCmPerSecond < 0) this.velocityCmPerSecond *= -0.045;
       // Contact emits energy only after pressure actually parted the lips.
       // A valve resting at zero aperture must not manufacture a collision on
       // every substep when lung pressure is zero.
       if (previousPositionCm > 0.0001 && finite(lungPressure, 0) > 0.000001) {
-        this.collisionFlow += clamp(-collisionVelocity * 0.00042, 0, 0.075);
+        this.collisionFlow += clamp(-collisionVelocity * 0.00062, 0, 0.1);
       }
     }
-    this.collisionFlow *= 0.86;
+    this.collisionFlow *= 0.88;
     if (!enabled) {
       this.positionCm *= 1 - timeAlpha(14, this.substepRate);
       this.velocityCmPerSecond *= 1 - timeAlpha(10, this.substepRate);
     }
     this.apertureCm = clamp(
-      DIAMETER_MINIMUM + Math.max(0, this.positionCm) * 2.4,
+      DIAMETER_MINIMUM + Math.max(0, this.positionCm - 0.0012) * 3,
       DIAMETER_MINIMUM,
       1.15,
     );
@@ -504,6 +664,308 @@ class PressureDrivenLipValve {
       && Number.isFinite(this.velocityCmPerSecond)
       && Number.isFinite(this.apertureCm)
       && Number.isFinite(this.collisionFlow);
+  }
+}
+
+// A compliant tongue-tip mass. DRR supplies breath and a near-alveolar
+// constriction, but no clocked oscillator: the local pressure drop parts the
+// tip, aerodynamic unloading lets the spring close it, and each collision
+// feeds a small volume pulse back into the same oral tube.
+class PressureDrivenTongueValve {
+  constructor(rate) {
+    this.substepRate = rate * SUBSTEPS;
+    this.positionCm = 0;
+    this.velocityCmPerSecond = 0;
+    this.apertureCm = DIAMETER_MINIMUM;
+    this.collisionFlow = 0;
+  }
+
+  advance(frame, plan, pressureDrop) {
+    const enabled = frame?.soundId === "drr" && finite(frame?.tongueTrill, 0) > 0.001;
+    const trill = enabled ? clamp(frame.tongueTrill) : 0;
+    const frequency = clamp(finite(plan?.trillFrequencyHz, 34), 16, 72);
+    const omega = Math.PI * 2 * frequency;
+    const curl = finite(frame?.tongueCurl, 0.7);
+    const pressure = enabled
+      ? Math.max(0, finite(frame?.pressureDrive, 0) * 0.42 + finite(pressureDrop, 0) * 1.2)
+      : 0;
+    // Flow across a loose tip contributes negative damping; without pressure
+    // the same tissue is positively damped and cannot self-oscillate.
+    const damping = clamp(
+      0.052 + Math.max(0, curl) * 0.01 - pressure * trill * 0.48,
+      -0.12,
+      0.13,
+    );
+    const opening = Math.max(0, this.positionCm);
+    const restPosition = enabled ? -0.032 - Math.max(0, curl - 0.8) * 0.012 : 0;
+    const aerodynamicForce = pressure * trill * (0.22 - opening * 3.8);
+    const acceleration = omega * omega * (
+      restPosition + aerodynamicForce - this.positionCm
+    ) - 2 * damping * omega * this.velocityCmPerSecond;
+    const previousPosition = this.positionCm;
+    this.velocityCmPerSecond = clamp(
+      this.velocityCmPerSecond + acceleration / this.substepRate,
+      -220,
+      220,
+    );
+    this.positionCm = clamp(
+      this.positionCm + this.velocityCmPerSecond / this.substepRate,
+      -0.08,
+      0.42,
+    );
+    const contactThresholdCm = enabled ? 0.0007 : 0;
+    if (this.positionCm < contactThresholdCm) {
+      const collisionVelocity = Math.min(0, this.velocityCmPerSecond);
+      this.positionCm = 0;
+      if (this.velocityCmPerSecond < 0) this.velocityCmPerSecond *= -0.2;
+      if (
+        enabled
+        && previousPosition > contactThresholdCm + 0.00001
+        && pressure > 0.0001
+      ) {
+        this.collisionFlow += clamp(-collisionVelocity * 0.00034, 0, 0.065);
+      }
+    }
+    this.collisionFlow *= 0.84;
+    if (!enabled) {
+      this.positionCm *= 1 - timeAlpha(12, this.substepRate);
+      this.velocityCmPerSecond *= 1 - timeAlpha(8, this.substepRate);
+    }
+    this.apertureCm = clamp(
+      DIAMETER_MINIMUM + Math.max(0, this.positionCm) * 2.8,
+      DIAMETER_MINIMUM,
+      0.82,
+    );
+    return this.apertureCm;
+  }
+
+  reset() {
+    this.positionCm = 0;
+    this.velocityCmPerSecond = 0;
+    this.apertureCm = DIAMETER_MINIMUM;
+    this.collisionFlow = 0;
+  }
+
+  isFinite() {
+    return Number.isFinite(this.positionCm)
+      && Number.isFinite(this.velocityCmPerSecond)
+      && Number.isFinite(this.apertureCm)
+      && Number.isFinite(this.collisionFlow);
+  }
+}
+
+// A heavier compliant flap in the uvular/epiglottal region. Like the tongue
+// roll it has no metronomic oscillator: local pressure provides negative
+// damping, the tissue spring returns it toward contact, and collisions feed
+// volume flow back into this same tract.
+class PressureDrivenThroatValve {
+  constructor(rate) {
+    this.substepRate = rate * SUBSTEPS;
+    this.positionCm = 0;
+    this.velocityCmPerSecond = 0;
+    this.apertureCm = DIAMETER_MINIMUM;
+    this.collisionFlow = 0;
+  }
+
+  advance(frame, plan, pressureDrop) {
+    const enabled = frame?.soundId === "rattle" && finite(frame?.throatRattle, 0) > 0.001;
+    const amount = enabled ? clamp(frame.throatRattle) : 0;
+    const frequency = clamp(finite(plan?.rattleFrequencyHz, 27), 14, 52);
+    const omega = Math.PI * 2 * frequency;
+    const pressure = enabled
+      ? Math.max(0, finite(frame?.pressureDrive, 0) * 0.5 + finite(pressureDrop, 0) * 1.35)
+      : 0;
+    const damping = clamp(0.075 - pressure * amount * 0.42, -0.105, 0.16);
+    const opening = Math.max(0, this.positionCm);
+    const restPosition = enabled ? -0.026 : 0;
+    const aerodynamicForce = pressure * amount * (0.19 - opening * 3.1);
+    const acceleration = omega * omega * (
+      restPosition + aerodynamicForce - this.positionCm
+    ) - 2 * damping * omega * this.velocityCmPerSecond;
+    const previousPosition = this.positionCm;
+    this.velocityCmPerSecond = clamp(
+      this.velocityCmPerSecond + acceleration / this.substepRate,
+      -180,
+      180,
+    );
+    this.positionCm = clamp(
+      this.positionCm + this.velocityCmPerSecond / this.substepRate,
+      -0.07,
+      0.36,
+    );
+    if (this.positionCm < 0.0006) {
+      const collisionVelocity = Math.min(0, this.velocityCmPerSecond);
+      this.positionCm = 0;
+      if (this.velocityCmPerSecond < 0) this.velocityCmPerSecond *= -0.24;
+      if (enabled && previousPosition > 0.00062 && pressure > 0.0001) {
+        this.collisionFlow += clamp(-collisionVelocity * 0.00048, 0, 0.072);
+      }
+    }
+    this.collisionFlow *= 0.86;
+    if (!enabled) {
+      this.positionCm *= 1 - timeAlpha(16, this.substepRate);
+      this.velocityCmPerSecond *= 1 - timeAlpha(10, this.substepRate);
+    }
+    this.apertureCm = clamp(
+      DIAMETER_MINIMUM + Math.max(0, this.positionCm) * 2.9,
+      DIAMETER_MINIMUM,
+      0.76,
+    );
+    return this.apertureCm;
+  }
+
+  reset() {
+    this.positionCm = 0;
+    this.velocityCmPerSecond = 0;
+    this.apertureCm = DIAMETER_MINIMUM;
+    this.collisionFlow = 0;
+  }
+
+  isFinite() {
+    return Number.isFinite(this.positionCm)
+      && Number.isFinite(this.velocityCmPerSecond)
+      && Number.isFinite(this.apertureCm)
+      && Number.isFinite(this.collisionFlow);
+  }
+}
+
+// A wall-impingement edge tone at the missing incisor. Bernoulli flow sets
+// jet speed and f = St*u/x sets the coherent edge-tone frequency. The source
+// is pressure-thresholded, hysteretic between jet modes, and is injected into
+// the anterior oral delay line below; it is not an output-side oscillator or
+// filter. Local oral pressure feeds back into the jet so the living tube can
+// pull and roughen the tone.
+class PressureDrivenToothGapJet {
+  constructor(rate) {
+    this.rate = rate;
+    this.substepRate = rate * SUBSTEPS;
+    this.mode = 1;
+    this.phase = 0;
+    this.amplitude = 0;
+    this.noiseMemory = 0;
+    this.jetSpeedMps = 0;
+    this.frequencyHz = 0;
+    this.impingementLengthM = HAMBONE_TOOTH_GAP_ANATOMY.baseImpingementLengthM;
+    this.strouhalNumber = HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers[1];
+    this.flow = 0;
+  }
+
+  _updateMode(control) {
+    if (this.mode === 0 && control > 0.34) this.mode = 1;
+    if (this.mode === 1 && control < 0.24) this.mode = 0;
+    if (this.mode === 1 && control > 0.72) this.mode = 2;
+    if (this.mode === 2 && control < 0.58) this.mode = 1;
+  }
+
+  advance(frame, plan, localOralPressure, noise) {
+    const enabled = frame?.soundId === "whistle"
+      && finite(frame?.toothJet, 0) > 0.001;
+    const jetGesture = enabled ? clamp(frame.toothJet) : 0;
+    const suppliedPressure = enabled ? Math.max(0, finite(frame.pressureDrive, 0)) : 0;
+    const normalizedPressure = suppliedPressure > 0.000001
+      ? clamp(
+        suppliedPressure
+          + clamp(Math.abs(finite(localOralPressure, 0)) * 0.42, 0, 0.24),
+        0,
+        1.8,
+      ) * jetGesture
+      : 0;
+    const tension = clamp((finite(frame?.lipTension, 0.46) + 0.35) / 2);
+    const tongueAim = clamp((finite(frame?.tonguePosition, 0.58) + 0.65) / 2.3);
+    this._updateMode(tension * 0.38 + tongueAim * 0.22 + normalizedPressure * 0.34);
+
+    const threshold = 0.075 + (1 - tongueAim) * 0.035;
+    const excessPressure = Math.max(0, normalizedPressure - threshold);
+    const growth = (normalizedPressure - threshold) * 145;
+    const saturation = 84;
+    const squaredAmplitude = this.amplitude * this.amplitude;
+    // Turbulent onset forcing is proportional to real flow, allowing an idle
+    // whistle to restart but making both tone and seed vanish at zero breath.
+    const onsetForcing = excessPressure * (0.12 + Math.abs(noise) * 0.045);
+    this.amplitude += (
+      growth * this.amplitude
+      - saturation * squaredAmplitude * this.amplitude
+      + onsetForcing
+    ) / this.substepRate;
+    if (!enabled) this.amplitude *= 1 - timeAlpha(8, this.substepRate);
+    this.amplitude = clamp(cleanWave(this.amplitude), 0, 1.32);
+
+    this.noiseMemory += (noise - this.noiseMemory) * 0.024;
+    const pressurePa = normalizedPressure
+      * finite(plan?.toothWhistleMaximumPressurePa, HAMBONE_TOOTH_GAP_ANATOMY.maximumOralPressurePa);
+    const jetSpeedMps = Math.sqrt(
+      2 * Math.max(0, pressurePa) / HAMBONE_TOOTH_GAP_ANATOMY.airDensityKgM3,
+    );
+    const breathiness = clamp(finite(plan?.breathiness, 0.12));
+    const roughness = clamp(finite(plan?.roughness, 0.08));
+    const acousticLengthPull = clamp(localOralPressure * 0.018, -0.08, 0.08);
+    const impingementLengthM = clamp(
+      finite(
+        plan?.toothJetImpingementLengthM,
+        HAMBONE_TOOTH_GAP_ANATOMY.baseImpingementLengthM,
+      ) * (1 + acousticLengthPull),
+      0.00072,
+      0.0038,
+    );
+    const strouhalNumber = HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers[this.mode];
+    const jitteredJetSpeed = jetSpeedMps * (
+      1 + roughness * (noise - this.noiseMemory) * 0.018
+    );
+    const frequencyHz = clamp(
+      strouhalNumber * jitteredJetSpeed / impingementLengthM,
+      0,
+      this.rate * 0.38,
+    );
+    this.phase += Math.PI * 2 * frequencyHz / this.substepRate;
+    if (this.phase >= Math.PI * 2) this.phase %= Math.PI * 2;
+
+    const edgeAngle = clamp(
+      finite(plan?.toothEdgeAngleDegrees, HAMBONE_TOOTH_GAP_ANATOMY.edgeAngleDegrees),
+      10,
+      70,
+    );
+    const harmonicGain = frequencyHz * 2 < this.rate * 0.38
+      ? 0.045 + tension * 0.075 + Math.abs(edgeAngle - 34) / 360
+      : 0;
+    const coherentJet = Math.sin(this.phase)
+      + harmonicGain * Math.sin(this.phase * 2);
+    const noisyJet = (noise - this.noiseMemory)
+      * (0.025 + breathiness * 0.075)
+      * normalizedPressure;
+    // sqrt(P) follows jet momentum. It multiplies the entire edge tone, so
+    // any residual oscillator state is rigorously inaudible without flow.
+    const source = (
+      coherentJet * this.amplitude * Math.sqrt(normalizedPressure) * 0.012
+      + noisyJet * 0.0028
+    ) * jetGesture;
+    this.jetSpeedMps = jetSpeedMps;
+    this.frequencyHz = frequencyHz;
+    this.impingementLengthM = impingementLengthM;
+    this.strouhalNumber = strouhalNumber;
+    this.flow = cleanWave(clamp(source, -0.065, 0.065));
+    return this.flow;
+  }
+
+  reset() {
+    this.mode = 1;
+    this.phase = 0;
+    this.amplitude = 0;
+    this.noiseMemory = 0;
+    this.jetSpeedMps = 0;
+    this.frequencyHz = 0;
+    this.impingementLengthM = HAMBONE_TOOTH_GAP_ANATOMY.baseImpingementLengthM;
+    this.strouhalNumber = HAMBONE_TOOTH_GAP_ANATOMY.strouhalNumbers[1];
+    this.flow = 0;
+  }
+
+  isFinite() {
+    return Number.isFinite(this.phase)
+      && Number.isFinite(this.amplitude)
+      && Number.isFinite(this.noiseMemory)
+      && Number.isFinite(this.jetSpeedMps)
+      && Number.isFinite(this.frequencyHz)
+      && Number.isFinite(this.impingementLengthM)
+      && Number.isFinite(this.flow);
   }
 }
 
@@ -533,6 +995,9 @@ class OrganicMouthTract {
     this.nose = new NasalBranch(rate);
     this.cheek = new CompliantCheekBranch(rate);
     this.lipValve = new PressureDrivenLipValve(rate);
+    this.tongueValve = new PressureDrivenTongueValve(rate);
+    this.throatValve = new PressureDrivenThroatValve(rate);
+    this.toothJet = new PressureDrivenToothGapJet(rate);
     this.articulationSpeedScale = 1;
     this.noseJunction = 4;
     this.cheekJunction = 7;
@@ -553,12 +1018,18 @@ class OrganicMouthTract {
       this._newSeal("secondary"),
       this._newSeal("tongueTip"),
     ];
-    this.transients = Array.from({ length: 4 }, () => ({
+    this.transients = Array.from({ length: 10 }, () => ({
       active: false,
       index: 0,
       strength: 0,
       ageSeconds: 1,
+      delaySeconds: 0,
+      decayRate: 260,
+      durationSeconds: 0.028,
     }));
+    this.handContactSound = "";
+    this.previousHandPhase = 1;
+    this.handContactTriggered = false;
     this.configure(configuration, true);
   }
 
@@ -642,6 +1113,9 @@ class OrganicMouthTract {
       voicing: 0,
       aspiration: 0,
       lipFlutter: 0,
+      tongueTrill: 0,
+      throatRattle: 0,
+      registerLift: 0,
       lipTension: configuration.lipTension,
       cheekVolume: configuration.cheekVolume,
       cheekTension: configuration.cheekTension,
@@ -689,7 +1163,8 @@ class OrganicMouthTract {
       || articulation.soundId === "tlik"
       || articulation.soundId === "shh"
       || articulation.soundId === "shack"
-      || articulation.soundId === "pff";
+      || articulation.soundId === "pff"
+      || articulation.soundId === "mwah";
     const closureAmount = Math.max(
       finite(articulation.lipClosure, 0),
       finite(articulation.constriction, 0),
@@ -716,6 +1191,7 @@ class OrganicMouthTract {
     );
     this.cheek.configure(articulation);
     this._updateSealTargets(articulation);
+    this._scheduleHandContactIfNeeded(articulation, plan);
     this.activeConstrictionIndex = finite(articulation.secondaryConstriction, 0)
       > finite(articulation.constriction, 0)
       ? mappedConstrictionIndex(
@@ -871,6 +1347,70 @@ class OrganicMouthTract {
     } else {
       this.lipValve.advance(null, null, 0);
     }
+
+    if (this.currentFrame?.soundId === "drr") {
+      const tipIndex = mappedConstrictionIndex(
+        finite(this.currentFrame.constrictionPosition, 0.84),
+        this.sectionCount,
+      );
+      const upstreamPressure = this._localPressure(Math.max(0, tipIndex - 1));
+      const downstreamPressure = this._localPressure(
+        Math.min(this.sectionCount - 1, tipIndex + 1),
+      );
+      const aperture = this.tongueValve.advance(
+        this.currentFrame,
+        this.currentPlan,
+        Math.abs(upstreamPressure - downstreamPressure),
+      );
+      for (let offset = -2; offset <= 2; offset += 1) {
+        const index = clamp(tipIndex + offset, 1, this.sectionCount - 2);
+        const weight = 1 - Math.abs(offset) / 3;
+        const dynamicDiameter = aperture
+          + (this.targetDiameter[index] - aperture) * (1 - weight);
+        this.diameter[index] = Math.min(this.diameter[index], dynamicDiameter);
+      }
+      if (this.tongueValve.collisionFlow > 0.0000001) {
+        this.right[Math.min(this.sectionCount - 1, tipIndex + 1)]
+          += this.tongueValve.collisionFlow * 0.62;
+        this.left[Math.max(0, tipIndex - 1)]
+          += this.tongueValve.collisionFlow * 0.38;
+      }
+      this.activeConstrictionIndex = tipIndex;
+    } else {
+      this.tongueValve.advance(null, null, 0);
+    }
+
+    if (this.currentFrame?.soundId === "rattle") {
+      const throatIndex = mappedConstrictionIndex(
+        finite(this.currentFrame.constrictionPosition, 0.22),
+        this.sectionCount,
+      );
+      const upstreamPressure = this._localPressure(Math.max(0, throatIndex - 1));
+      const downstreamPressure = this._localPressure(
+        Math.min(this.sectionCount - 1, throatIndex + 1),
+      );
+      const aperture = this.throatValve.advance(
+        this.currentFrame,
+        this.currentPlan,
+        Math.abs(upstreamPressure - downstreamPressure),
+      );
+      for (let offset = -3; offset <= 3; offset += 1) {
+        const index = clamp(throatIndex + offset, 1, this.sectionCount - 2);
+        const weight = 1 - Math.abs(offset) / 4;
+        const dynamicDiameter = aperture
+          + (this.targetDiameter[index] - aperture) * (1 - weight);
+        this.diameter[index] = Math.min(this.diameter[index], dynamicDiameter);
+      }
+      if (this.throatValve.collisionFlow > 0.0000001) {
+        this.right[Math.min(this.sectionCount - 1, throatIndex + 1)]
+          += this.throatValve.collisionFlow * 0.58;
+        this.left[Math.max(0, throatIndex - 1)]
+          += this.throatValve.collisionFlow * 0.42;
+      }
+      this.activeConstrictionIndex = throatIndex;
+    } else {
+      this.throatValve.advance(null, null, 0);
+    }
     updateReflections(this.diameter, this.area, this.reflection, this.sectionCount);
   }
 
@@ -880,7 +1420,13 @@ class OrganicMouthTract {
       / Math.sqrt(Math.max(AREA_MINIMUM, this.area[safeIndex]));
   }
 
-  _startTransient(index, strength) {
+  _startTransient(
+    index,
+    strength,
+    delaySeconds = 0,
+    decayRate = 260,
+    durationSeconds = 0.028,
+  ) {
     const transient = this.transients.find(({ active }) => !active)
       ?? this.transients.reduce((oldest, candidate) => (
         candidate.ageSeconds > oldest.ageSeconds ? candidate : oldest
@@ -889,6 +1435,74 @@ class OrganicMouthTract {
     transient.index = clamp(Math.round(index), 0, this.sectionCount - 1);
     transient.strength = clamp(strength, -0.64, 0.64);
     transient.ageSeconds = 0;
+    transient.delaySeconds = clamp(delaySeconds, 0, 0.04);
+    transient.decayRate = clamp(decayRate, 45, 520);
+    transient.durationSeconds = clamp(durationSeconds, 0.012, 0.12);
+  }
+
+  _scheduleHandContactIfNeeded(frame, plan) {
+    const isHand = frame?.soundId === "slap" || frame?.soundId === "smack";
+    if (!isHand) {
+      this.handContactSound = "";
+      this.previousHandPhase = 1;
+      this.handContactTriggered = false;
+      return;
+    }
+    const phase = clamp(finite(frame.phase, 0));
+    if (
+      frame.soundId !== this.handContactSound
+      || phase + 0.015 < this.previousHandPhase
+    ) {
+      this.handContactSound = frame.soundId;
+      this.handContactTriggered = false;
+    }
+    this.previousHandPhase = phase;
+    const impact = Math.abs(finite(frame.cheekImpulse, 0));
+    if (this.handContactTriggered || impact < 0.16) return;
+    this.handContactTriggered = true;
+
+    const velocity = clamp(finite(frame.velocity, 0.8), 0.01, 1);
+    const brightness = clamp(finite(plan?.handImpactBrightness, 0.5));
+    const spacingSeconds = clamp(
+      finite(plan?.handContactSpacingMs, 2) / 1_000,
+      0.0007,
+      0.0048,
+    );
+    const tail = clamp(finite(plan?.handTail, 0.56));
+    const side = frame.soundId === "slap" ? -1 : 1;
+    const available = Math.max(3, this.sectionCount - this.cheekJunction - 3);
+    const contactIndex = clamp(
+      Math.round(this.cheekJunction + 1 + available * (0.18 + brightness * 0.54)),
+      2,
+      this.sectionCount - 2,
+    );
+    const baseStrength = (0.21 + brightness * 0.13) * velocity;
+    const decayRate = 300 - tail * 130 + brightness * 90;
+    const durationSeconds = 0.035 + tail * 0.055;
+    // Palm, fingers, and reflected skin fold arrive as a short asymmetric
+    // doublet/triplet; every impulse then propagates through cheek and mouth.
+    this._startTransient(
+      contactIndex,
+      side * baseStrength,
+      0,
+      decayRate,
+      durationSeconds,
+    );
+    this._startTransient(
+      clamp(contactIndex + side * (1 + Math.round(brightness * 2)), 1, this.sectionCount - 2),
+      -side * baseStrength * (0.62 + tail * 0.12),
+      spacingSeconds,
+      decayRate * 1.18,
+      durationSeconds * 0.82,
+    );
+    this._startTransient(
+      clamp(contactIndex - side * 2, 1, this.sectionCount - 2),
+      side * baseStrength * (0.32 + tail * 0.22),
+      spacingSeconds * (2.1 + (1 - brightness) * 0.55),
+      decayRate * 0.86,
+      durationSeconds,
+    );
+    this.cheek.collisionDrive += side * baseStrength * (0.28 + tail * 0.22);
   }
 
   _pressureStoredAtSeal(seal) {
@@ -992,11 +1606,16 @@ class OrganicMouthTract {
   _injectTransients(noise) {
     for (const transient of this.transients) {
       if (!transient.active) continue;
-      if (transient.ageSeconds >= 0.028) {
+      if (transient.delaySeconds > 0) {
+        transient.delaySeconds -= 1 / this.substepRate;
+        continue;
+      }
+      if (transient.ageSeconds >= transient.durationSeconds) {
         transient.active = false;
         continue;
       }
-      const envelope = transient.strength * 2 ** (-transient.ageSeconds * 260);
+      const envelope = transient.strength
+        * 2 ** (-transient.ageSeconds * transient.decayRate);
       const shaped = envelope * (0.74 + noise * 0.26);
       const index = clamp(transient.index, 0, this.sectionCount - 1);
       this.right[index] += shaped * 0.5;
@@ -1083,10 +1702,42 @@ class OrganicMouthTract {
     }
     if (bestScore <= 0) return;
     this.activeConstrictionIndex = constriction;
-    const flow = noise * amount * bestDrive * 0.072;
+    const flow = noise * amount * bestDrive * 0.09;
     const downstream = Math.min(this.sectionCount - 1, constriction + 1);
     this.right[downstream] += flow * 0.7;
     this.left[downstream] += flow * 0.3;
+  }
+
+  _injectToothWhistle(noise) {
+    const canonicalSection = finite(
+      this.currentPlan?.toothGapCanonicalSection,
+      HAMBONE_TOOTH_GAP_ANATOMY.canonicalOralSection,
+    );
+    const toothIndex = clamp(
+      Math.round(
+        canonicalSection / (HAMBONE_TRACT_SECTION_COUNT - 1)
+          * (this.sectionCount - 1),
+      ),
+      2,
+      this.sectionCount - 2,
+    );
+    const upstreamPressure = this._localPressure(toothIndex - 1);
+    const downstreamPressure = this._localPressure(toothIndex + 1);
+    const localOralPressure = (upstreamPressure + downstreamPressure) * 0.5;
+    const toothFlow = this.toothJet.advance(
+      this.currentFrame,
+      this.currentPlan,
+      localOralPressure,
+      noise,
+    );
+    if (Math.abs(toothFlow) <= 1e-12) return;
+    // A volume-flow source at the dental edge launches both directions. Most
+    // energy radiates toward the tooth/lip opening, while the upstream share
+    // travels back through the anterior oral waveguide and is scattered by
+    // the current tongue, lips, and tract geometry before returning.
+    this.right[Math.min(this.sectionCount - 1, toothIndex + 1)] += toothFlow * 0.72;
+    this.left[Math.max(0, toothIndex - 1)] += toothFlow * 0.28;
+    this.activeConstrictionIndex = toothIndex;
   }
 
   _scatterThreePort(junction, branchIncoming, branchArea) {
@@ -1116,6 +1767,7 @@ class OrganicMouthTract {
     this._advanceSeals(noise);
     this._injectTransients(noise);
     this._injectTurbulence(noise);
+    this._injectToothWhistle(noise);
 
     const count = this.sectionCount;
     this.rightJunction[0] = cleanWave(this.left[0] * GLOTTAL_REFLECTION + sourceFlow);
@@ -1170,7 +1822,9 @@ class OrganicMouthTract {
     const targetPressure = clamp(1 - Math.exp(-Math.sqrt(energy / count) * 0.82));
     this.tractPressure += (targetPressure - this.tractPressure)
       * timeAlpha(22, this.substepRate);
-    return this.lastOralOutput + nasalOutput * clamp(this.nose.opening * 2.8);
+    const nasalCoupling = smoothstep(this.nose.opening);
+    return this.lastOralOutput * (1 - nasalCoupling * 0.34)
+      + nasalOutput * (0.4 + nasalCoupling * 4.4);
   }
 
   resetWaveState() {
@@ -1181,6 +1835,9 @@ class OrganicMouthTract {
     this.nose.reset();
     this.cheek.reset();
     this.lipValve.reset();
+    this.tongueValve.reset();
+    this.throatValve.reset();
+    this.toothJet.reset();
     for (const seal of this.seals) {
       seal.sealed = false;
       seal.reservoir = 0;
@@ -1190,6 +1847,9 @@ class OrganicMouthTract {
       seal.releaseMemory = 0;
     }
     for (const transient of this.transients) transient.active = false;
+    this.handContactSound = "";
+    this.previousHandPhase = 1;
+    this.handContactTriggered = false;
     this.tractPressure = 0;
     this.signedPressure = 0;
     this.lastOralOutput = 0;
@@ -1220,9 +1880,18 @@ class OrganicMouthTract {
       seal.releaseMemory = 0;
     }
     for (const transient of this.transients) transient.active = false;
+    this.handContactSound = "";
+    this.previousHandPhase = 1;
+    this.handContactTriggered = false;
     this.cheek.velocity *= keep;
     this.cheek.collisionDrive = 0;
     this.lipValve.velocityCmPerSecond *= keep;
+    this.tongueValve.velocityCmPerSecond *= keep;
+    this.tongueValve.collisionFlow *= keep;
+    this.throatValve.velocityCmPerSecond *= keep;
+    this.throatValve.collisionFlow *= keep;
+    this.toothJet.amplitude *= keep;
+    this.toothJet.flow *= keep;
     this.signedPressure *= keep;
     this.tractPressure *= keep;
     this.lastOralOutput *= keep;
@@ -1236,6 +1905,9 @@ class OrganicMouthTract {
       && this.nose.isFinite()
       && this.cheek.isFinite()
       && this.lipValve.isFinite()
+      && this.tongueValve.isFinite()
+      && this.throatValve.isFinite()
+      && this.toothJet.isFinite()
       && arraysAreFinite(
         [this.right, this.left, this.rightJunction, this.leftJunction, this.diameter],
         [this.sectionCount, this.sectionCount, this.sectionCount + 1, this.sectionCount + 1, this.sectionCount],
@@ -1250,7 +1922,13 @@ class HamboneGestureController {
     this.soundId = this.sound.id;
     this.velocity = clamp(event.velocity, 0.01, 1);
     this.configuration = configuration;
-    this.plan = physicalVoiceParameters(this.sound.id, configuration, this.velocity);
+    this.voiceSnapshot = sanitizeHamboneVoice(event.voiceSnapshot ?? {});
+    this.plan = physicalVoiceParameters(
+      this.sound.id,
+      configuration,
+      this.velocity,
+      this.voiceSnapshot,
+    );
     this.totalFrames = Math.max(1, Math.ceil(this.plan.durationSeconds * rate));
     this.startPhase = clamp(event.startPhase, 0, 1);
     this.releasePhase = clamp(event.releasePhase, this.startPhase, 1);
@@ -1258,17 +1936,30 @@ class HamboneGestureController {
     this.ageFrames = 0;
     this.releaseFrame = event.releaseFrame;
     this.glottalPhase = 0;
+    this.vibratoPhase = 0;
+    this.irregularPhase = 0;
     this.jitter = 0;
+    this.foldCycle = 0;
+    this.modulationPhase = this.voiceSnapshot.modulation.phase;
+    this.modulationValue = 0;
+    this.modulationRandomTarget = 0;
+    this.modulationRandomValue = 0;
+    this.modulationRandomInitialized = false;
+    this.currentGlottalFrequencyHz = this.plan.glottalFrequencyHz;
+    this.currentVibratoSemitones = 0;
+    this.currentRoughness = this.plan.roughness;
     const plannedGlottalTenseness = Number(this.plan.glottalTenseness);
     const glottalTenseness = Number.isFinite(plannedGlottalTenseness)
       ? clamp(plannedGlottalTenseness)
       : clamp(0.34 + configuration.lungPressure * 0.2 + configuration.silliness * 0.16);
     this.glottalShape = glottalCoefficients(glottalTenseness);
+    this.headGlottalShape = glottalCoefficients(clamp(glottalTenseness + 0.18));
     this.lastFrame = hamboneGestureFrame(
       this.sound.id,
       this.progress,
       this.configuration,
       this.velocity,
+      this.voiceSnapshot,
     );
   }
 
@@ -1289,34 +1980,157 @@ class HamboneGestureController {
   }
 
   sampleControlFrame() {
+    let controlVoice = this.voiceSnapshot;
+    const modulation = this.voiceSnapshot.modulation;
+    if (modulation.target === "tractScale" && modulation.depth > 0) {
+      controlVoice = {
+        ...this.voiceSnapshot,
+        tractScale: clamp(
+          this.voiceSnapshot.tractScale + this.modulationValue * modulation.depth * 0.16,
+          0.82,
+          1.18,
+        ),
+      };
+    }
     this.lastFrame = hamboneGestureFrame(
       this.sound.id,
       this.progress,
       this.configuration,
       this.velocity,
+      controlVoice,
     );
     return this.lastFrame;
+  }
+
+  _advanceModulation(noise) {
+    const modulation = this.voiceSnapshot.modulation;
+    const previousPhase = this.modulationPhase;
+    this.modulationPhase += modulation.rateHz / (this.rate * SUBSTEPS);
+    if (this.modulationPhase >= 1) this.modulationPhase -= 1;
+    if (modulation.source === "triangle") {
+      this.modulationValue = 1 - 4 * Math.abs(this.modulationPhase - 0.5);
+    } else if (modulation.source === "random") {
+      if (!this.modulationRandomInitialized) {
+        this.modulationRandomTarget = noise;
+        this.modulationRandomInitialized = true;
+      }
+      if (this.modulationPhase < previousPhase) this.modulationRandomTarget = noise;
+      this.modulationRandomValue += (
+        this.modulationRandomTarget - this.modulationRandomValue
+      ) * timeAlpha(42, this.rate * SUBSTEPS);
+      this.modulationValue = this.modulationRandomValue;
+    } else {
+      this.modulationValue = Math.sin(this.modulationPhase * Math.PI * 2);
+    }
+    return this.modulationValue;
   }
 
   sourceFlow(noise) {
     const frame = this.lastFrame;
     const silliness = clamp(finite(this.plan.silliness, 0.5));
-    this.jitter += (noise - this.jitter) * (0.0015 + silliness * 0.004);
-    const frequency = this.plan.glottalFrequencyHz * (1 + this.jitter * silliness * 0.065);
+    const modulationValue = this._advanceModulation(noise);
+    const modulation = this.voiceSnapshot.modulation;
+    const modulationDepth = modulation.depth;
+    const roughness = clamp(
+      this.plan.roughness
+        + (modulation.target === "roughness"
+          ? modulationValue * modulationDepth * 0.78
+          : 0),
+    );
+    const breathiness = clamp(
+      this.plan.breathiness
+        + (modulation.target === "breathiness"
+          ? modulationValue * modulationDepth * 0.76
+          : 0),
+    );
+    this.currentRoughness = roughness;
+    this.jitter += (noise - this.jitter) * (
+      0.0015 + silliness * 0.004 + roughness * 0.008
+    );
+    const burpIrregularity = this.sound.id === "burp"
+      ? clamp(finite(this.plan.irregularity, 0.7))
+      : 0;
+    const jitterDepth = this.sound.id === "burp"
+      ? 0.16 + burpIrregularity * 0.18
+      : silliness * 0.035 + roughness * 0.075;
+    const vibratoOnset = smoothstep((this.progress - 0.1) / 0.13);
+    const modulatedVibratoDepth = clamp(
+      this.plan.vibratoDepthSemitones
+        + (modulation.target === "vibratoDepth"
+          ? modulationValue * modulationDepth * 3
+          : 0),
+      0,
+      5,
+    );
+    this.vibratoPhase += this.plan.vibratoRateHz / (this.rate * SUBSTEPS);
+    if (this.vibratoPhase >= 1) this.vibratoPhase -= 1;
+    const vibratoSemitones = Math.sin(this.vibratoPhase * Math.PI * 2)
+      * modulatedVibratoDepth * vibratoOnset;
+    const pitchModulationSemitones = modulation.target === "pitch"
+      ? modulationValue * modulationDepth * 12
+      : 0;
+    const registerSemitones = finite(frame.registerLift, 0)
+      * finite(this.plan.registerJumpSemitones, 0);
+    const frequency = clamp(
+      this.plan.glottalFrequencyHz
+        * 2 ** ((vibratoSemitones + pitchModulationSemitones + registerSemitones) / 12)
+        * (1 + this.jitter * jitterDepth),
+      18,
+      1_600,
+    );
+    this.currentGlottalFrequencyHz = frequency;
+    this.currentVibratoSemitones = vibratoSemitones;
     this.glottalPhase += frequency / (this.rate * SUBSTEPS);
-    if (this.glottalPhase >= 1) this.glottalPhase -= 1;
-    const lf = glottalSample(this.glottalPhase, this.glottalShape);
+    if (this.glottalPhase >= 1) {
+      this.glottalPhase -= 1;
+      this.foldCycle ^= 1;
+    }
+    const registerIsHead = finite(frame.registerLift, 0) >= 0.5
+      || this.sound.id === "wail";
+    const lf = glottalSample(
+      this.glottalPhase,
+      registerIsHead ? this.headGlottalShape : this.glottalShape,
+    );
     const pressure = finite(this.configuration.lungPressure, 0) <= 0.000001
       ? 0
       : finite(frame.pressureDrive, 0);
     const voicing = clamp(finite(frame.voicing, 0));
     const aspiration = clamp(finite(frame.aspiration, 0));
-    const storesSuction = this.sound.id === "pop" || this.sound.id === "tlik";
+    const storesSuction = this.sound.id === "pop"
+      || this.sound.id === "tlik"
+      || this.sound.id === "mwah";
     const breathFlow = pressure * (
-      (storesSuction ? 0 : 0.0025) + aspiration * (0.009 + noise * 0.0065)
+      (storesSuction ? 0 : 0.0025 + breathiness * 0.0038)
+      + clamp(aspiration + breathiness * 0.42) * (0.0112 + noise * 0.0078)
     );
-    const voicedFlow = pressure * voicing * lf * 0.021;
-    return cleanWave((breathFlow + voicedFlow) * (0.62 + this.velocity * 0.62));
+    // Period doubling is a cycle-to-cycle fold asymmetry, not another source.
+    // Every other LF cycle loses closure in proportion to subharmonicMix.
+    const alternateCycle = this.foldCycle
+      ? 1
+      : 1 - this.plan.subharmonicMix * 0.78;
+    const roughClosure = clamp(
+      alternateCycle * (1 + this.jitter * roughness * 0.46),
+      0.08,
+      1.3,
+    );
+    let voicedFlow = pressure * voicing * lf * 0.025
+      * roughClosure * (1 - breathiness * 0.34);
+    voicedFlow += pressure * voicing * noise * roughness * 0.0018;
+    if (this.sound.id === "burp") {
+      const irregularRate = 5.4 + (this.jitter + 1) * 2.1 + burpIrregularity * 2.8;
+      this.irregularPhase += irregularRate / (this.rate * SUBSTEPS);
+      if (this.irregularPhase >= 1) this.irregularPhase -= 1;
+      const gasPulse = 0.22 + 0.78 * Math.max(
+        0,
+        Math.sin(this.irregularPhase * Math.PI * 2 + this.jitter * 1.7),
+      ) ** 2;
+      const foldRattle = 0.7 + Math.abs(noise) * 0.3;
+      voicedFlow *= gasPulse * foldRattle * 1.18;
+    }
+    const direction = finite(this.plan.airflowDirection, 1) < 0 ? -1 : 1;
+    return cleanWave(
+      direction * (breathFlow + voicedFlow) * (0.62 + this.velocity * 0.62),
+    );
   }
 
   advance() {
@@ -1332,6 +2146,7 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
       options.processorOptions?.configuration ?? HAMBONE_DEFAULTS,
     );
     this.tract = new OrganicMouthTract(this.rate, this.configuration);
+    this.faceSpace = new FaceSpace(this.rate);
     this.gesture = null;
     this.queue = [];
     this.renderedFrames = 0;
@@ -1360,7 +2175,23 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
     const soundId = hamboneSound(message.soundId).id;
     const velocity = clamp(finite(message.velocity, 1), 0.01, 1);
     const delayFrames = Math.max(0, Math.round(clamp(finite(message.delaySeconds, 0), 0, 2) * this.rate));
-    const plan = physicalVoiceParameters(soundId, this.configuration, velocity);
+    const configurationSnapshot = message.configuration
+      && typeof message.configuration === "object"
+      ? sanitizeHamboneState(
+        { ...this.configuration, ...message.configuration },
+        this.configuration,
+      )
+      : null;
+    const voiceSnapshot = message.voice && typeof message.voice === "object"
+      ? sanitizeHamboneVoice(message.voice)
+      : null;
+    const planningConfiguration = configurationSnapshot ?? this.configuration;
+    const plan = physicalVoiceParameters(
+      soundId,
+      planningConfiguration,
+      velocity,
+      voiceSnapshot ?? {},
+    );
     const totalFrames = Math.max(1, Math.ceil(plan.durationSeconds * this.rate));
     const releasePhase = RELEASE_PHASES[soundId] ?? 0.1;
     const livePreparationFrames = Math.min(
@@ -1385,6 +2216,8 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
       live: delayFrames === 0,
       requestedDelayFrames: delayFrames,
       availablePreparation,
+      configurationSnapshot,
+      voiceSnapshot,
     };
   }
 
@@ -1421,6 +2254,7 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
     this.gesture = null;
     this.queue.length = 0;
     this.tract.resetWaveState();
+    this.faceSpace.reset();
     this.tract.configure(this.configuration, true);
     this.controlCountdown = 0;
     this.lastPeak = 0;
@@ -1438,7 +2272,18 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
     const hasAcousticMemory = previousGestureWasAudible
       || Math.abs(this.tract.lastOralOutput) + Math.abs(this.tract.lastNasalOutput) > 1e-8;
     if (this.gesture || hasAcousticMemory) this.tract.chokeForRetarget(0.24);
-    const plan = physicalVoiceParameters(event.soundId, this.configuration, event.velocity);
+    if (event.configurationSnapshot) {
+      this.configuration = sanitizeHamboneState(
+        event.configurationSnapshot,
+        this.configuration,
+      );
+    }
+    const plan = physicalVoiceParameters(
+      event.soundId,
+      this.configuration,
+      event.velocity,
+      event.voiceSnapshot ?? {},
+    );
     const totalFrames = Math.max(1, Math.ceil(plan.durationSeconds * this.rate));
     const remainingPreparation = Math.max(0, event.releaseFrame - absoluteFrame);
     const startPhase = event.live
@@ -1496,6 +2341,7 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
     this.gesture = null;
     this.queue.length = 0;
     this.tract.resetWaveState();
+    this.faceSpace.reset();
     this.tract.configure(this.configuration, true);
     this.previousNoise = 0;
     this.turbulenceFast = 0;
@@ -1547,17 +2393,22 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
     const panAngle = (pan + 1) * Math.PI * 0.25;
     // The app owns the user-facing master gain. Keep only strike dynamics here
     // so `level` is not applied twice before the safety ceiling.
-    const level = 0.58 + finite(this.gesture?.velocity, 0.65) * 0.42;
-    const left = output * Math.cos(panAngle) * level;
-    const right = output * Math.sin(panAngle) * level;
+    const level = 0.66 + finite(this.gesture?.velocity, 0.65) * 0.46;
+    const dryLeft = output * Math.cos(panAngle) * level;
+    const dryRight = output * Math.sin(panAngle) * level;
+    this.faceSpace.process(dryLeft, dryRight, this.configuration);
+    const left = this.faceSpace.left;
+    const right = this.faceSpace.right;
     const highpassedLeft = left - this.dcInputLeft + this.dcOutputLeft * 0.995;
     const highpassedRight = right - this.dcInputRight + this.dcOutputRight * 0.995;
     this.dcInputLeft = left;
     this.dcInputRight = right;
     this.dcOutputLeft = highpassedLeft;
     this.dcOutputRight = highpassedRight;
-    const boundedLeft = Math.tanh(highpassedLeft * 24) * OUTPUT_CEILING;
-    const boundedRight = Math.tanh(highpassedRight * 24) * OUTPUT_CEILING;
+    // A bounded presence stage raises small breaths and skin detail while the
+    // smooth tanh knee prevents digital clipping at violent face settings.
+    const boundedLeft = Math.tanh(highpassedLeft * 28) * OUTPUT_CEILING;
+    const boundedRight = Math.tanh(highpassedRight * 28) * OUTPUT_CEILING;
 
     this.gesture?.advance();
     if (this.gesture?.complete) {
@@ -1572,7 +2423,7 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
     this.finiteAuditCountdown -= 1;
     let tractIsFinite = true;
     if (this.finiteAuditCountdown <= 0) {
-      tractIsFinite = this.tract.isFinite();
+      tractIsFinite = this.tract.isFinite() && this.faceSpace.isFinite();
       this.finiteAuditCountdown = 32;
     }
     if (
@@ -1616,6 +2467,37 @@ class HambonePhysicalProcessor extends AudioWorkletProcessor {
       tongueCurl: finite(frame.tongueCurl, this.configuration.tongueCurl),
       mouthOpening: finite(frame.mouthOpening, this.configuration.mouthOpening),
       cheekDisplacement: this.tract.cheek.displacement,
+      tongueTrillApertureCm: this.tract.tongueValve.apertureCm,
+      throatRattleApertureCm: this.tract.throatValve.apertureCm,
+      missingTooth: HAMBONE_TOOTH_GAP_ANATOMY.missingTooth,
+      toothGapWidthCm: finite(
+        this.gesture?.plan?.toothGapWidthCm,
+        HAMBONE_TOOTH_GAP_ANATOMY.crownGapWidthCm,
+      ),
+      toothGapHeightCm: finite(
+        this.gesture?.plan?.toothGapHeightCm,
+        HAMBONE_TOOTH_GAP_ANATOMY.crownGapHeightCm,
+      ),
+      toothJetSlotHeightCm: finite(this.gesture?.plan?.toothJetSlotHeightCm, 0),
+      toothJetAreaCm2: finite(this.gesture?.plan?.toothJetAreaCm2, 0),
+      toothJetFlow: this.tract.toothJet.flow,
+      toothJetSpeedMps: this.tract.toothJet.jetSpeedMps,
+      toothWhistleFrequencyHz: this.tract.toothJet.frequencyHz,
+      toothWhistleMode: this.tract.toothJet.mode,
+      toothWhistleStrouhalNumber: this.tract.toothJet.strouhalNumber,
+      toothJetImpingementLengthM: this.tract.toothJet.impingementLengthM,
+      airflowDirection: finite(this.gesture?.plan?.airflowDirection, 0),
+      voiceCharacterId: this.gesture?.voiceSnapshot?.characterId ?? "",
+      glottalFrequencyHz: finite(this.gesture?.currentGlottalFrequencyHz, 0),
+      vibratoRateHz: finite(this.gesture?.plan?.vibratoRateHz, 0),
+      vibratoDepthSemitones: finite(this.gesture?.plan?.vibratoDepthSemitones, 0),
+      vibratoSemitones: finite(this.gesture?.currentVibratoSemitones, 0),
+      roughness: finite(this.gesture?.currentRoughness, 0),
+      subharmonicMix: finite(this.gesture?.plan?.subharmonicMix, 0),
+      dooPitch: this.configuration.dooPitch,
+      earSpread: this.faceSpace.earAmount,
+      stereoDelayMs: this.faceSpace.stereoDelayMs,
+      eyeDivergence: this.faceSpace.eyeAmount,
       peak: this.lastPeak,
       rms: this.lastRms,
     };

@@ -343,10 +343,11 @@ test("Hambone is a monophonic physical beatbox sequencer with page-owned drum ke
   assert.equal(instrument?.href, "hambone.html");
   assert.equal(instrument?.imageHref, "assets/instruments/hambone.webp");
   assert.equal(instrument?.kind, "Monophonic physical beatbox sequencer");
-  assert.match(instrument?.description ?? "", /one mutable mouth/i);
-  assert.match(instrument?.description ?? "", /pressure releases/i);
+  assert.match(instrument?.description ?? "", /fully mutable face/i);
+  assert.match(instrument?.description ?? "", /twenty-five exclusive gestures/i);
   assert.match(instrument?.description ?? "", /PHSHSHK/i);
-  assert.match(instrument?.start ?? "", /one mouth pose per column/i);
+  assert.match(instrument?.description ?? "", /missing upper-left central incisor/i);
+  assert.match(instrument?.start ?? "", /one gesture per column/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
     ["voice-synths", "sequencers"],

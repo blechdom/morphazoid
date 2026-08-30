@@ -152,6 +152,8 @@ test("the release builder includes every new Graph instrument runtime file", asy
     "src/graph-instrument-app.js",
     "src/graph-instruments.js",
     "src/graph-synth-audio.js",
+    "assets/instruments/graph-drums.webp",
+    "assets/instruments/graph-synth.webp",
     "GRAPH_INSTRUMENTS_RESEARCH.md",
   ]) {
     assert.match(build, new RegExp(file.replace(/[./-]/g, "\\$&")));
