@@ -222,13 +222,15 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
 
   elements.get("topology").value = "chain";
   listeners.get("topology:change")({ currentTarget: elements.get("topology") });
-  elements.get("nodeCount").value = "128";
+  elements.get("nodeCount").value = "512";
   listeners.get("nodeCount:input")({ currentTarget: elements.get("nodeCount") });
   elements.get("triggerScope").value = "leaves";
   listeners.get("triggerScope:change")({ currentTarget: elements.get("triggerScope") });
 
   const largeTemplate = controller.pulseTemplate;
   assert.equal(controller.model.nodes.length, 128);
+  assert.equal(controller.state.nodeCount, 128);
+  assert.equal(elements.get("nodeCount").value, "128");
   assert.equal(largeTemplate.reachedNodeCount, 128);
   assert.ok(largeTemplate.tailSeconds > 7, "the complete 128-node route should retain its full tail");
   assert.ok(

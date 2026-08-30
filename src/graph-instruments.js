@@ -217,7 +217,9 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
 });
 
 function normalizedGraph(graph = {}) {
-  const sourceNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+  const sourceNodes = Array.isArray(graph.nodes)
+    ? graph.nodes.slice(0, MAX_GRAPH_INSTRUMENT_NODES)
+    : [];
   const nodes = sourceNodes.map((node, id) => ({
     ...node,
     id,

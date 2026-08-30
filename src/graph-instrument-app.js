@@ -436,9 +436,8 @@ export function initializeGraphInstrument({
         || String(first.pathKey).localeCompare(String(second.pathKey))
       ))
       .slice(0, maximum);
-    // Every sounded milestone must keep a matching playhead even when thousands
-    // of inaudible subdivision rings are decimated for drawing. Fill whatever
-    // visual capacity remains with the earliest non-audible geometry events.
+    // Every sounded node must keep a matching route cue. Fill whatever visual
+    // capacity remains with the earliest non-audible geometry events.
     const visualIdentity = (event) => [
       Math.round(event.time * 1_000_000),
       event.nodeId,
@@ -792,7 +791,7 @@ export function initializeGraphInstrument({
   function drawNode(node, pulseLevel = 0) {
     const position = point(node);
     const color = nodeColor(node.id);
-    const radius = model.nodes.length > 256 ? 2.4 : model.nodes.length > 96 ? 4 : 8;
+    const radius = model.nodes.length > 96 ? 4 : 8;
     const selectedRadius = Math.max(radius + 2, 6);
     context.save();
     context.shadowColor = color;
@@ -1026,6 +1025,7 @@ export function initializeGraphInstrument({
 
   function rebuildModel({ silence = true } = {}) {
     state.nodeCount = Math.round(clamp(state.nodeCount, 3, MAX_GRAPH_INSTRUMENT_NODES, 10));
+    $("nodeCount").value = String(state.nodeCount);
     const result = generateGraphWithinTurnBudget({
       type: state.topology,
       nodeCount: state.nodeCount,
@@ -1171,7 +1171,7 @@ export function initializeGraphInstrument({
   function randomizeGraph() {
     const topologyIds = Object.keys(GRAPH_PRESETS);
     state.topology = topologyIds[randomGraphInteger(0, topologyIds.length - 1)] ?? "random";
-    // Bias toward nimble graphs while keeping the full hundreds-of-nodes range
+    // Bias toward nimble graphs while keeping the full 128-node range
     // discoverable from the one-click randomizer.
     state.nodeCount = Math.round(
       6 + randomGraphUnit() ** 1.7 * (MAX_GRAPH_INSTRUMENT_NODES - 6),

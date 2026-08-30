@@ -379,6 +379,34 @@ test("the maximum 128-node chain traverses every sequential node", () => {
   closeTo(events.at(-1).time, (MAX_GRAPH_INSTRUMENT_NODES - 1) * 0.004, 1e-10);
 });
 
+test("the scheduler hard-caps oversized graph input at 128 nodes", () => {
+  const oversized = generateGraph({
+    type: "chain",
+    nodeCount: 512,
+    maxNodes: 512,
+  });
+  assert.equal(oversized.nodes.length, 512, "the shared graph generator keeps its separate ceiling");
+
+  const events = scheduleGraphPulse(oversized, {
+    baseDelay: 4,
+    timeScale: 0,
+    nodePass: 1,
+    horizonSeconds: 60,
+    maxDepth: MAX_GRAPH_EVENT_SCHEDULE,
+    maxEvents: MAX_GRAPH_EVENT_SCHEDULE,
+  });
+  assert.equal(events.length, MAX_GRAPH_INSTRUMENT_NODES);
+  assert.deepEqual(
+    events.map(({ nodeId }) => nodeId),
+    Array.from({ length: MAX_GRAPH_INSTRUMENT_NODES }, (_item, nodeId) => nodeId),
+  );
+  for (const event of events) {
+    for (const obsoleteKey of [
+      "edgeProgress", "subdivisionIndex", "subdivisions", "transitOnly",
+    ]) assert.equal(Object.hasOwn(event, obsoleteKey), false);
+  }
+});
+
 test("a 128-node ring can complete multiple decaying feedback laps", () => {
   const graph = generateGraph({
     type: "ring",
