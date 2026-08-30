@@ -36,7 +36,7 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
       "tempo", "pulseDivision", "randomGraphButton",
       "graphPatch", "graphPatchGrid", "topology", "nodeCount", "density", "seed",
       "newGraphButton", "arrangeGraphButton", "scatterGraphButton", "openAllSwitchesButton",
-      "triggerScope", "edgeSubdivisions", "nodePass", "baseDelay", "timeScale",
+      "triggerScope", "nodePass", "baseDelay", "timeScale",
       "timeCurve", "feedback", "feedbackTone", "motionSection", "motionSummary",
       "nodeMotionPlayButton", "nodeMotionMode", "nodeMotionSpeed", "nodeMotionSpeedOut",
       "nodeMotionAmount", "nodeMotionAmountOut", "mappingMode", "mappingReadout",
@@ -53,10 +53,10 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
     assert.match(html, /Cycles are (?:musical|note) feedback/);
     assert.match(html, /id="randomGraphButton"[^>]*>Random<\/button>/);
     assert.match(html, /id="nodeCount"[^>]*max="512"/);
-    assert.match(html, /id="edgeSubdivisions"[^>]*min="1"[^>]*max="16"/);
     assert.match(html, /option value="all"/);
     assert.match(html, /option value="leaves"/);
-    assert.match(html, /option value="subdivisions"/);
+    assert.doesNotMatch(html, /id="edgeSubdivisions"/);
+    assert.doesNotMatch(html, /option value="subdivisions"/);
     assert.equal(
       [...html.matchAll(/data-seed-semitone="(?:[0-9]|1[0-2])"/g)].length,
       13,
@@ -94,6 +94,9 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
   assert.match(app, /morphazoid:midi-input/);
   assert.match(app, /patch\.pulseBeats \?\? patch\.pulseDivision/);
   assert.match(app, /randomGraphButton[^\n]*addEventListener\("click", randomizeGraph\)/);
+  assert.match(app, /const MAX_VISIBLE_RUNS = 4/);
+  assert.doesNotMatch(app, /2\.5 \+ amplitude \* 4/);
+  assert.doesNotMatch(app, /10 \+ age \* 70/);
   assert.match(drumWrapper, /mode: "drums"/);
   assert.match(synthWrapper, /mode: "synth"/);
   assert.match(research, /L-system synth/i);

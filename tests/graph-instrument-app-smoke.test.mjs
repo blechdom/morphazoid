@@ -49,8 +49,9 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
 
   for (const id of ids) element(id);
 
+  const arcCalls = [];
   const drawingContext = {
-    arc() {},
+    arc(x, y, radius) { arcCalls.push({ x, y, radius }); },
     beginPath() {},
     clearRect() {},
     closePath() {},
@@ -141,6 +142,20 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.equal(controller.activeRunCount, 1);
   assert.ok(controller.soundedEventCount > 0, "Pulse should schedule audible graph attacks");
   assert.equal(audioTriggers.length, controller.soundedEventCount);
+  assert.ok(
+    controller.pulseTemplate.audioEvents.every(({ kind }) => kind === "node"),
+    "instrument attacks should be node arrivals only",
+  );
+
+  const arcsBeforeActiveFrame = arcCalls.length;
+  audioEngine.context.currentTime += 0.08;
+  flushAnimationFrames(frameNow + 20);
+  assert.equal(
+    arcCalls.length - arcsBeforeActiveFrame,
+    controller.model.nodes.length,
+    "playback should reuse the fixed graph nodes instead of adding moving or expanding circles",
+  );
+  assert.equal(audioTriggers.length, controller.soundedEventCount);
 
   const attacksAfterPulse = controller.soundedEventCount;
   await listeners.get("seedPulseButton:click")();
@@ -209,8 +224,6 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   listeners.get("topology:change")({ currentTarget: elements.get("topology") });
   elements.get("nodeCount").value = "512";
   listeners.get("nodeCount:input")({ currentTarget: elements.get("nodeCount") });
-  elements.get("edgeSubdivisions").value = "16";
-  listeners.get("edgeSubdivisions:input")({ currentTarget: elements.get("edgeSubdivisions") });
   elements.get("triggerScope").value = "leaves";
   listeners.get("triggerScope:change")({ currentTarget: elements.get("triggerScope") });
 
@@ -220,18 +233,18 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.ok(largeTemplate.tailSeconds > 30, "the full long chain should outlive the old short horizon");
   assert.ok(
     largeTemplate.audioEvents.some(({ nodeId }) => nodeId === 511),
-    "leaf audio must survive visual/subdivision decimation",
+    "leaf-only audio must retain the end of a long route",
   );
   assert.ok(
     largeTemplate.events.some(({ nodeId }) => nodeId === 511),
-    "every sounded leaf keeps a corresponding visual playhead",
+    "every sounded leaf keeps a corresponding route cue",
   );
 
   if (mode === "synth") {
+    elements.get("triggerScope").value = "all";
+    listeners.get("triggerScope:change")({ currentTarget: elements.get("triggerScope") });
     elements.get("articulation").value = "edge";
     listeners.get("articulation:change")({ currentTarget: elements.get("articulation") });
-    elements.get("triggerScope").value = "subdivisions";
-    listeners.get("triggerScope:change")({ currentTarget: elements.get("triggerScope") });
     const continuousTemplate = controller.pulseTemplate;
     assert.equal(controller.state.triggerScope, "all");
     assert.equal(continuousTemplate.articulation, "edge");

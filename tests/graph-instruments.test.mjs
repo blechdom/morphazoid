@@ -145,10 +145,12 @@ test("presets apply rich, mode-specific sound settings alongside graph timing", 
 
     const drums = graphInstrumentPresetState(name, "drums");
     const synth = graphInstrumentPresetState(name, "synth");
+    assert.equal(Object.hasOwn(patch, "edgeSubdivisions"), false);
     for (const state of [drums, synth]) {
       assert.equal(state.graphPatch, name);
-      assert.equal(state.edgeSubdivisions, patch.edgeSubdivisions);
+      assert.equal(Object.hasOwn(state, "edgeSubdivisions"), false);
       assert.equal(state.triggerScope, patch.triggerScope);
+      assert.ok(["all", "leaves"].includes(state.triggerScope));
       assert.equal(state.feedbackTone, patch.feedbackTone);
     }
     for (const key of drumKeys) assert.equal(drums[key], patch.drums[key]);

@@ -32,7 +32,7 @@ import { GraphSynthAudio } from "./graph-synth-audio.js";
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.09;
 const MAX_CLOCK_CATCH_UP = 4;
-const MAX_VISIBLE_RUNS = 24;
+const MAX_VISIBLE_RUNS = 4;
 const MAX_ACTIVE_RUNS = 64;
 const MAX_DRUM_EVENTS_PER_PULSE = 768;
 const MAX_SYNTH_EVENTS_PER_PULSE = 1_024;
@@ -43,7 +43,7 @@ const DEFAULT_PATCH = "layeredGlass";
 const GRAPH_PRESET_STATE_KEYS = Object.freeze([
   "topology", "nodeCount", "density", "seed", "baseDelay", "timeScale",
   "timeCurve", "nodePass", "feedback", "feedbackTone", "tempo",
-  "edgeSubdivisions", "triggerScope",
+  "triggerScope",
 ]);
 
 const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {
@@ -52,15 +52,6 @@ const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {
 };
 
 const percent = (value) => `${Math.round(clamp(value) * 100)}%`;
-
-function evenlySample(items, maximum) {
-  const count = Math.min(items.length, Math.max(0, Math.floor(maximum)));
-  if (count === items.length) return items;
-  if (!count) return [];
-  return Array.from({ length: count }, (_item, index) => (
-    items[Math.min(items.length - 1, Math.floor((index + 0.5) * items.length / count))]
-  ));
-}
 
 const DRUM_MAPPING_DETAILS = Object.freeze({
   "position-grid": Object.freeze({
@@ -123,7 +114,6 @@ export function graphInstrumentDefaultState(mode = "synth") {
     playing: false,
     audio: false,
     output: instrumentMode === "drums" ? 0.58 : 0.52,
-    edgeSubdivisions: 1,
     triggerScope: "all",
     feedbackTone: 0.78,
     seedOctave: 4,
@@ -382,8 +372,7 @@ export function initializeGraphInstrument({
     if (state.triggerScope === "leaves") {
       return event.kind === "node" && leaves.has(event.nodeId);
     }
-    if (state.triggerScope === "subdivisions") return true;
-    return event.kind !== "subdivision";
+    return event.kind === "node";
   }
 
   function buildPulseTemplate() {
@@ -399,7 +388,7 @@ export function initializeGraphInstrument({
       nodePass: state.nodePass,
       feedback: state.feedback,
       pitchScale: state.turnPitchScale,
-      edgeSubdivisions: state.edgeSubdivisions,
+      edgeSubdivisions: 1,
       horizonSeconds: 1_024,
       maxEvents: eventCap,
       maxFeedbackPasses: 24,
@@ -422,28 +411,12 @@ export function initializeGraphInstrument({
         Math.round((event.cumulativeSemitones ?? 0) * 100),
         event.kind,
         event.arrivalEdgeId ?? "entry",
-        event.subdivisionIndex ?? 0,
         event.audible ? 1 : 0,
       ].join(":"),
     };
     const visualBase = coalesceGraphEvents(markedEvents, coalesceOptions);
     const audibleMarkedEvents = markedEvents.filter((event) => event.audible);
-    let triggerEvents;
-    if (state.triggerScope === "subdivisions") {
-      const nodeAttacks = coalesceGraphEvents(
-        audibleMarkedEvents.filter((event) => event.kind === "node"),
-        coalesceOptions,
-      );
-      const availableSteps = Math.max(0, maximum - nodeAttacks.length);
-      const edgeSteps = coalesceGraphEvents(
-        audibleMarkedEvents.filter((event) => event.kind === "subdivision"),
-        { ...coalesceOptions, maxEvents: eventCap },
-      );
-      triggerEvents = [...nodeAttacks, ...evenlySample(edgeSteps, availableSteps)]
-        .sort((first, second) => first.time - second.time);
-    } else {
-      triggerEvents = coalesceGraphEvents(audibleMarkedEvents, coalesceOptions);
-    }
+    const triggerEvents = coalesceGraphEvents(audibleMarkedEvents, coalesceOptions);
     const audioEvents = (instrumentMode === "synth" && state.articulation === "edge"
       ? markedEvents
         .filter((event) => (
@@ -472,7 +445,6 @@ export function initializeGraphInstrument({
       event.nodeId,
       event.kind,
       event.arrivalEdgeId ?? "entry",
-      event.subdivisionIndex ?? 0,
     ].join(":");
     const priorityVisuals = audioEvents.map((event) => ({ ...event, audible: true }));
     const priorityKeys = new Set(priorityVisuals.map(visualIdentity));
@@ -646,12 +618,9 @@ export function initializeGraphInstrument({
   }
 
   function triggerAudioEvent(run, event, startAt) {
-    const subdivisionHeadroom = run.triggerScope === "subdivisions"
-      ? Math.sqrt(Math.max(1, event.subdivisions ?? 1))
-      : 1;
     const scaledEvent = {
       ...event,
-      amplitude: event.amplitude * run.velocity / subdivisionHeadroom,
+      amplitude: event.amplitude * run.velocity,
     };
     soundedEventCount += 1;
     if (instrumentMode === "drums") {
@@ -821,7 +790,7 @@ export function initializeGraphInstrument({
     context.restore();
   }
 
-  function drawNode(node) {
+  function drawNode(node, pulseLevel = 0) {
     const position = point(node);
     const color = nodeColor(node.id);
     const radius = model.nodes.length > 256 ? 2.4 : model.nodes.length > 96 ? 4 : 8;
@@ -835,6 +804,12 @@ export function initializeGraphInstrument({
     context.beginPath();
     context.arc(position.x, position.y, selectedNodeId === node.id ? selectedRadius : radius, 0, TAU);
     context.fill();
+    if (pulseLevel > 0) {
+      context.globalAlpha = clamp(pulseLevel, 0, 1, 0);
+      context.fillStyle = color;
+      context.fill();
+      context.globalAlpha = 1;
+    }
     context.stroke();
     context.shadowBlur = 0;
     if (model.nodes.length <= 96 || selectedNodeId === node.id) {
@@ -847,76 +822,50 @@ export function initializeGraphInstrument({
     context.restore();
   }
 
-  function drawPulseEvent(run, event, elapsed) {
+  function drawPulseEvent(run, event, elapsed, nodeFlashes) {
     const amplitude = clamp(event.amplitude * run.velocity, 0, 1, 0);
     const color = event.feedbackCount > 0 ? "#ff826f" : instrumentMode === "drums" ? "#ffad69" : "#b299ff";
-    const reducedMotion = Boolean(reducedMotionQuery?.matches);
     if (
-      !reducedMotion
-      && event.kind === "node"
+      event.kind === "node"
       && event.arrivalEdgeId !== null
       && event.arrivalEdgeId !== undefined
     ) {
       const edge = model.edges[event.arrivalEdgeId];
       if (edge && elapsed >= event.departTime && elapsed <= event.time) {
-        const edgeProgress = clamp(event.edgeProgress, 1e-6, 1, 1);
-        const duration = Math.max(1e-6, (event.time - event.departTime) / edgeProgress);
-        const progress = clamp((elapsed - event.departTime) / duration, 0, edgeProgress);
         const { from, to, offsetX, offsetY } = edgePoints(edge);
-        const x = from.x + (to.x - from.x) * progress + offsetX;
-        const y = from.y + (to.y - from.y) * progress + offsetY;
         context.save();
-        context.globalAlpha = 0.35 + amplitude * 0.65;
-        context.shadowColor = color;
-        context.shadowBlur = 18 * amplitude + 4;
-        context.fillStyle = color;
+        context.globalAlpha = 0.12 + amplitude * 0.42;
+        context.strokeStyle = color;
+        context.lineWidth = 1 + amplitude * 2;
         context.beginPath();
-        context.arc(x, y, 2.5 + amplitude * 4, 0, TAU);
-        context.fill();
+        context.moveTo(from.x + offsetX, from.y + offsetY);
+        context.lineTo(to.x + offsetX, to.y + offsetY);
+        context.stroke();
         context.restore();
       }
     }
     const age = elapsed - event.time;
-    if (age < 0 || age > 0.22) return;
-    let position;
-    if (event.kind === "subdivision" && event.arrivalEdgeId !== null) {
-      const edge = model.edges[event.arrivalEdgeId];
-      if (!edge) return;
-      const { from, to, offsetX, offsetY } = edgePoints(edge);
-      const progress = clamp(event.edgeProgress, 0, 1, 0.5);
-      position = {
-        x: from.x + (to.x - from.x) * progress + offsetX,
-        y: from.y + (to.y - from.y) * progress + offsetY,
-      };
-    } else {
-      const node = displayModel.nodes[event.nodeId];
-      if (!node) return;
-      position = point(node);
-    }
-    const fade = 1 - age / 0.22;
-    context.save();
-    context.globalAlpha = fade * (0.3 + amplitude * 0.7);
-    context.strokeStyle = color;
-    context.lineWidth = 1.5;
-    context.beginPath();
-    context.arc(position.x, position.y, reducedMotion ? 12 : 10 + age * 70, 0, TAU);
-    context.stroke();
-    context.restore();
+    if (age < 0 || age > 0.14) return;
+    const node = displayModel.nodes[event.nodeId];
+    if (!node) return;
+    const fade = 1 - age / 0.14;
+    const level = fade * (0.25 + amplitude * 0.65);
+    nodeFlashes.set(event.nodeId, Math.max(nodeFlashes.get(event.nodeId) ?? 0, level));
   }
 
   function draw(now) {
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     context.clearRect(0, 0, cssWidth, cssHeight);
     for (const edge of model.edges) drawEdge(edge);
+    const nodeFlashes = new Map();
     for (const run of activeRuns.slice(-MAX_VISIBLE_RUNS)) {
       const elapsed = now - run.launchTime;
       for (const event of run.events) {
         if (event.departTime > elapsed || event.time < elapsed - 0.22) continue;
-        drawPulseEvent(run, event, elapsed);
+        drawPulseEvent(run, event, elapsed, nodeFlashes);
       }
     }
-    for (const node of model.nodes) drawNode(node);
-
+    for (const node of model.nodes) drawNode(node, nodeFlashes.get(node.id));
     const input = { x: 18, y: cssHeight * 0.5 };
     context.save();
     context.fillStyle = instrumentMode === "drums" ? "#ffad69" : "#b299ff";
@@ -1042,7 +991,7 @@ export function initializeGraphInstrument({
     $("topologySummary").textContent = `${patch?.label ?? "Custom"} · ${topology.label}`;
     $("topologyDescription").textContent = topology.description;
     $("graphPatchDescription").textContent = patch?.instrumentDescription ?? patch?.description ?? topology.description;
-    $("delaySummary").textContent = `${Math.round(minimumDelay)}–${Math.round(maximumDelay)} ms · ${state.edgeSubdivisions} step${state.edgeSubdivisions === 1 ? "" : "s"} / edge · ${model.cyclic ? `${percent(state.feedback)} return` : "acyclic"}`;
+    $("delaySummary").textContent = `${Math.round(minimumDelay)}–${Math.round(maximumDelay)} ms · ${model.cyclic ? `${percent(state.feedback)} return` : "acyclic"}`;
     $("feedback").disabled = !model.cyclic;
     $("feedbackTone").disabled = !model.cyclic;
     $("feedbackSafetyNote").textContent = model.cyclic
@@ -1069,8 +1018,6 @@ export function initializeGraphInstrument({
       : "nodes stable";
     if ($("edoDivisions")) $("edoDivisions").disabled = state.tuningMode !== "equal";
     if ($("noteDuration")) $("noteDuration").disabled = state.articulation === "edge";
-    const subdivisionScope = $("triggerScope")?.querySelector?.('option[value="subdivisions"]');
-    if (subdivisionScope) subdivisionScope.disabled = instrumentMode === "synth" && state.articulation === "edge";
     if (instrumentMode === "synth") {
       $("soundSummary").textContent = `${state.soundMode.toUpperCase()} · ${state.articulation === "edge" ? "edge gate" : `${Math.round(state.noteDuration)} ms`} · ADSR`;
     }
@@ -1109,7 +1056,6 @@ export function initializeGraphInstrument({
       tempo: state.tempo,
       pulseDivision: state.pulseDivision,
       triggerScope: state.triggerScope,
-      edgeSubdivisions: state.edgeSubdivisions,
       output: state.output,
       nodePass: state.nodePass,
       baseDelay: state.baseDelay,
@@ -1159,7 +1105,6 @@ export function initializeGraphInstrument({
       density: percent,
       seed: (value) => String(Math.round(value)),
       tempo: (value) => `${Math.round(value)} BPM`,
-      edgeSubdivisions: (value) => String(Math.round(value)),
       output: percent,
       nodePass: percent,
       baseDelay: (value) => `${Math.round(value)} ms`,
@@ -1358,7 +1303,6 @@ export function initializeGraphInstrument({
   bindRange("seed", "seed", { rebuild: true });
   bindRange("tempo", "tempo", { custom: true });
   bindRange("output", "output");
-  bindRange("edgeSubdivisions", "edgeSubdivisions", { template: true });
   bindRange("nodePass", "nodePass", { template: true });
   bindRange("baseDelay", "baseDelay", { template: true });
   bindRange("timeScale", "timeScale", { template: true });
@@ -1394,15 +1338,10 @@ export function initializeGraphInstrument({
     updateUi();
   });
   $("triggerScope").addEventListener("change", (event) => {
-    const requestedScope = ["all", "leaves", "subdivisions"].includes(event.currentTarget.value)
+    const requestedScope = ["all", "leaves"].includes(event.currentTarget.value)
       ? event.currentTarget.value
       : "all";
-    state.triggerScope = instrumentMode === "synth"
-      && state.articulation === "edge"
-      && requestedScope === "subdivisions"
-      ? "all"
-      : requestedScope;
-    if (state.triggerScope !== requestedScope) syncControls();
+    state.triggerScope = requestedScope;
     markCustom();
     invalidatePulseTemplate({ clearRuns: false });
     updateUi();
@@ -1433,10 +1372,6 @@ export function initializeGraphInstrument({
   });
   $("articulation")?.addEventListener("change", (event) => {
     state.articulation = event.currentTarget.value === "edge" ? "edge" : "trigger";
-    if (state.articulation === "edge" && state.triggerScope === "subdivisions") {
-      state.triggerScope = "all";
-      syncControls();
-    }
     markCustom();
     invalidatePulseTemplate({ clearRuns: false });
     updateUi();

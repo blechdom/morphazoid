@@ -30,7 +30,7 @@
     <main class="shell" id="graphSynth">
       <section class="stage" aria-label="Graph Synth stage">
         <div class="stage-wrap" id="stageWrap">
-          <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive note graph" aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight" aria-label="A directed graph whose moving pulses sound inherited synth notes. Audio off." aria-describedby="canvasInstructions liveStatus">A switchable directed graph whose turns inherit pitch and whose cycles make decaying note repeats.</canvas>
+          <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive note graph" aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight" aria-label="A directed graph whose active routes sound inherited synth notes. Audio off." aria-describedby="canvasInstructions liveStatus">A switchable directed graph whose turns inherit pitch and whose cycles make decaying note repeats.</canvas>
           <div class="graph-pulse-control"><button id="seedPulseButton" type="button"><b>Seed note</b><small>send one voice</small></button></div>
           <div class="graph-seed-keyboard" id="seedKeyboard" role="group" aria-label="Graph synth seed-note keyboard">
             <div class="graph-seed-keyboard-head">
@@ -55,7 +55,7 @@
             </div>
           </div>
           <div class="l-system-mapping-readout" id="mappingReadout" aria-label="Latest graph synth mapping" aria-live="off">NODE 1 · PASS 0 → A3 · 100%</div>
-          <div class="graph-key" aria-hidden="true"><span><i class="feed-forward"></i> inherited route</span><span><i class="feedback"></i> cycle return</span><span><i class="route-switch"></i> click switch</span><span><i class="pulse-route"></i> note pulse</span></div>
+          <div class="graph-key" aria-hidden="true"><span><i class="feed-forward"></i> inherited route</span><span><i class="feedback"></i> cycle return</span><span><i class="route-switch"></i> click switch</span><span><i class="pulse-route"></i> active route</span></div>
           <div class="stage-meta" aria-hidden="true"><span id="stageReadout">LAYERED DAG · 10 NODES · READY · AUDIO OFF</span></div>
         </div>
       </section>
@@ -81,8 +81,7 @@
         <details class="group control-section" id="delaySection" data-section="delay" open>
           <summary class="group-summary"><h2 class="group-title">Time + feedback</h2><span class="section-state" id="delaySummary">62–120 ms · acyclic</span></summary>
           <div class="group-body">
-            <label class="select-control" for="triggerScope"><span class="field-label">Attack points</span><span class="select-shell"><select id="triggerScope"><option value="all" selected>Every node arrival</option><option value="leaves">Leaf / sink nodes only</option><option value="subdivisions">Nodes + edge steps</option></select></span></label>
-            <label class="control" for="edgeSubdivisions"><span><b>Subdivisions per edge</b><output id="edgeSubdivisionsOut" for="edgeSubdivisions">2</output></span><input id="edgeSubdivisions" type="range" min="1" max="16" step="1" value="2" /></label>
+            <label class="select-control" for="triggerScope"><span class="field-label">Attack points</span><span class="select-shell"><select id="triggerScope"><option value="all" selected>Every node arrival</option><option value="leaves">Leaf / sink nodes only</option></select></span></label>
             <label class="control" for="nodePass"><span><b>Node pass-through</b><output id="nodePassOut" for="nodePass">100%</output></span><input id="nodePass" type="range" min="0.2" max="1" step="0.01" value="1" /></label>
             <label class="control" for="baseDelay"><span><b>Minimum edge time</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
             <label class="control" for="timeScale"><span><b>Distance → extra time</b><output id="timeScaleOut" for="timeScale">+58 ms</output></span><input id="timeScale" type="range" min="0" max="800" step="1" value="58" /></label>
