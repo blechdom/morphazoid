@@ -2605,10 +2605,20 @@ export class ShaderSynthPlaygroundAudio {
     this.visualTimers = new Set();
     this.onError = null;
     this.onChunk = null;
+    this.onStatus = null;
   }
 
   setErrorHandler(handler) { this.onError = typeof handler === "function" ? handler : null; }
   setChunkHandler(handler) { this.onChunk = typeof handler === "function" ? handler : null; }
+  setStatusHandler(handler) { this.onStatus = typeof handler === "function" ? handler : null; }
+
+  reportStatus(status) {
+    try {
+      this.onStatus?.(status);
+    } catch (error) {
+      this.runtime.console?.error?.("Shader playground status callback failed.", error);
+    }
+  }
 
   async start(patch = this.patch) {
     if (this.context) await this.stop();
@@ -2618,6 +2628,7 @@ export class ShaderSynthPlaygroundAudio {
     const validated = validateShaderPlaygroundPatch(patch);
     if (!validated.valid) throw new Error(validated.errors.join(" "));
     this.patch = validated.patch;
+    this.reportStatus("preparing");
     const AudioContextCtor = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
     this.context = new AudioContextCtor();
     if (this.context.state === "suspended" && typeof this.context.resume === "function") await this.context.resume();
@@ -2646,6 +2657,18 @@ export class ShaderSynthPlaygroundAudio {
     this.pendingQueueHandoff = null;
     this.deferredQueueRefresh = false;
     this.running = true;
+    this.reportStatus("rendering");
+    const prime = this.fillBuffer({ forceFirstChunk: true, maxChunks: 1 });
+    this.renderingPromise = prime;
+    try {
+      await prime;
+    } catch (error) {
+      this.running = false;
+      throw error;
+    } finally {
+      if (this.renderingPromise === prime) this.renderingPromise = null;
+    }
+    this.reportStatus("ready");
     this.queueFill();
     return this.context;
   }
@@ -2684,10 +2707,32 @@ export class ShaderSynthPlaygroundAudio {
     });
     this.mapBuffer = this.device.createBuffer({ size: this.chunkBufferSize, usage: usage.MAP_READ | usage.COPY_DST });
     const module = this.device.createShaderModule({ code: SHADER_PLAYGROUND_SHADER });
-    this.pipeline = this.device.createComputePipeline({
+    const pipelineDescriptor = {
       layout: "auto",
       compute: { module, entryPoint: "render", constants: { SAMPLE_RATE: this.sampleRate, WORKGROUP_SIZE: this.workgroupSize } },
-    });
+    };
+    const historyCaptureModule = this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER });
+    const historyCapturePipelineDescriptor = {
+      layout: "auto",
+      compute: { module: historyCaptureModule, entryPoint: "captureDryHistory", constants: { WORKGROUP_SIZE: this.workgroupSize } },
+    };
+    const fxModule = this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_FX_SHADER });
+    const fxPipelineDescriptor = {
+      layout: "auto",
+      compute: { module: fxModule, entryPoint: "processPostGraphFx", constants: { SAMPLE_RATE: this.sampleRate, WORKGROUP_SIZE: this.workgroupSize } },
+    };
+    this.reportStatus("compiling");
+    if (typeof this.device.createComputePipelineAsync === "function") {
+      [this.pipeline, this.historyCapturePipeline, this.fxPipeline] = await Promise.all([
+        this.device.createComputePipelineAsync(pipelineDescriptor),
+        this.device.createComputePipelineAsync(historyCapturePipelineDescriptor),
+        this.device.createComputePipelineAsync(fxPipelineDescriptor),
+      ]);
+    } else {
+      this.pipeline = this.device.createComputePipeline(pipelineDescriptor);
+      this.historyCapturePipeline = this.device.createComputePipeline(historyCapturePipelineDescriptor);
+      this.fxPipeline = this.device.createComputePipeline(fxPipelineDescriptor);
+    }
     this.bindGroup = this.device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),
       entries: [
@@ -2697,11 +2742,6 @@ export class ShaderSynthPlaygroundAudio {
         { binding: 3, resource: { buffer: this.organRankBuffer } },
       ],
     });
-    const historyCaptureModule = this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER });
-    this.historyCapturePipeline = this.device.createComputePipeline({
-      layout: "auto",
-      compute: { module: historyCaptureModule, entryPoint: "captureDryHistory", constants: { WORKGROUP_SIZE: this.workgroupSize } },
-    });
     this.historyCaptureBindGroup = this.device.createBindGroup({
       layout: this.historyCapturePipeline.getBindGroupLayout(0),
       entries: [
@@ -2709,11 +2749,6 @@ export class ShaderSynthPlaygroundAudio {
         { binding: 1, resource: { buffer: this.chunkBuffer } },
         { binding: 2, resource: { buffer: this.fxHistoryBuffer } },
       ],
-    });
-    const fxModule = this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_FX_SHADER });
-    this.fxPipeline = this.device.createComputePipeline({
-      layout: "auto",
-      compute: { module: fxModule, entryPoint: "processPostGraphFx", constants: { SAMPLE_RATE: this.sampleRate, WORKGROUP_SIZE: this.workgroupSize } },
     });
     const fxLayout = this.fxPipeline.getBindGroupLayout(0);
     this.fxBindGroups = Array.from(

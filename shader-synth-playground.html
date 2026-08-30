@@ -205,7 +205,7 @@
             <div class="performance-note-buttons" id="performanceNoteButtons" role="group" aria-label="Play notes from C3 to C4"></div>
             <p id="performanceNoteHint">Click to start · MIDI on: Z–M / Q–U</p>
             <dl class="scope-metrics" id="scopeReadout">
-              <div><dt>GPU</dt><dd id="gpuState">checking</dd></div>
+              <div><dt>GPU</dt><dd id="gpuState" role="status" aria-live="polite">checking</dd></div>
               <div><dt>Signal</dt><dd id="signalLevel">silent</dd></div>
             </dl>
           </section>
@@ -295,6 +295,6 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260829-geometry-notes"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260830-compile-status"></script>
   </body>
 </html>

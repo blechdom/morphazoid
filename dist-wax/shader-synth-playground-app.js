@@ -13,7 +13,7 @@ import {
   sanitizeShaderPlaygroundPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "./src/shader-synth-playground.js";
+} from "./src/shader-synth-playground.js?v=20260830-compile-status";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -403,6 +403,7 @@ const state = {
   playing: false,
   engine: null,
   audioStartPromise: null,
+  audioPhase: null,
   audioGeneration: 0,
   latestChunk: new Float32Array(0),
   rms: 0,
@@ -2218,24 +2219,36 @@ function drawScope() {
 }
 
 function syncTransport() {
+  const startup = {
+    preparing: { button: "Preparing GPU…", gpu: "preparing GPU", hint: "Preparing Web Audio and the GPU device…" },
+    compiling: { button: "Compiling shaders…", gpu: "compiling shaders", hint: "Compiling the WebGPU audio shaders…" },
+    rendering: { button: "Rendering audio…", gpu: "rendering first chunk", hint: "Rendering the first GPU audio chunk…" },
+  }[state.audioPhase] ?? null;
+  const starting = Boolean(startup || state.audioStartPromise);
   $("audioButton").setAttribute("aria-pressed", String(state.audioOn));
+  $("audioButton").setAttribute("aria-busy", String(starting));
   $("audioState").textContent = state.audioOn ? "on" : "off";
   $("playgroundPlayButton").setAttribute("aria-pressed", String(state.playing));
-  $("playgroundPlayLabel").textContent = state.playing ? "Pause patch" : "Run patch";
-  $("audioButton").disabled = !support.supported || Boolean(state.audioStartPromise);
-  $("playgroundPlayButton").disabled = !support.supported || Boolean(state.audioStartPromise);
+  $("playgroundPlayButton").setAttribute("aria-busy", String(starting));
+  $("playgroundPlayLabel").textContent = startup?.button ?? (state.playing ? "Pause patch" : "Run patch");
+  $("audioButton").disabled = !support.supported || starting;
+  $("playgroundPlayButton").disabled = !support.supported || starting;
   $("gpuState").textContent = !support.audio
     ? "Web Audio unavailable"
     : !support.webgpu
       ? "WebGPU unavailable"
-      : state.audioOn
-        ? state.playing ? "streaming" : "ready"
-        : "available";
+      : startup
+        ? startup.gpu
+        : state.audioOn
+          ? state.playing ? "streaming" : "ready"
+          : "available";
   $("performanceNoteHint").textContent = !support.supported
     ? "WebGPU audio unavailable"
-    : state.playing
-      ? "Keys / MIDI retune while running"
-      : "Click to start · MIDI on: Z–M / Q–U";
+    : startup
+      ? startup.hint
+      : state.playing
+        ? "Keys / MIDI retune while running"
+        : "Click to start · MIDI on: Z–M / Q–U";
   syncPerformanceNoteButtons();
   syncPatchStatus();
 }
@@ -2281,11 +2294,18 @@ async function startAudio({ play = state.playing } = {}) {
   nextEngine.setPlaybackEnabled(Boolean(play));
   nextEngine.updateOrganRanks?.(state.organRanks);
   nextEngine.setChunkHandler((...args) => receiveChunk(...args));
+  nextEngine.setStatusHandler?.((phase) => {
+    if (state.engine !== nextEngine) return;
+    if (!["preparing", "compiling", "rendering"].includes(phase)) return;
+    state.audioPhase = phase;
+    syncTransport();
+  });
   nextEngine.setErrorHandler((error) => {
     showError(error);
     if (state.engine === nextEngine) {
       state.playing = false;
       state.audioOn = false;
+      state.audioPhase = null;
       syncTransport();
     }
   });
@@ -2298,6 +2318,7 @@ async function startAudio({ play = state.playing } = {}) {
     }
     state.audioOn = true;
     state.playing = Boolean(play);
+    state.audioPhase = null;
     nextEngine.setOutput(midiOutputLevel());
     nextEngine.setPerformancePitch?.(midiVoicePitch());
     nextEngine.setPlaybackEnabled(state.playing);
@@ -2306,12 +2327,16 @@ async function startAudio({ play = state.playing } = {}) {
     syncTransport();
     announce(state.playing ? "WebGPU audio is on and the patch is running." : "WebGPU audio is ready. Press Run patch or choose a note to hear it.");
     return true;
-  }).catch((error) => {
-    if (state.engine === nextEngine) state.engine = null;
-    state.audioOn = false;
-    state.playing = false;
-    showError(error);
-    syncTransport();
+  }).catch(async (error) => {
+    await nextEngine.stop().catch(() => {});
+    if (state.engine === nextEngine) {
+      state.engine = null;
+      state.audioOn = false;
+      state.playing = false;
+      state.audioPhase = null;
+      showError(error);
+      syncTransport();
+    }
     return false;
   }).finally(() => {
     if (state.audioStartPromise === pending) state.audioStartPromise = null;
@@ -2327,6 +2352,7 @@ async function stopAudio({ quiet = false } = {}) {
   const previous = state.engine;
   state.engine = null;
   state.audioStartPromise = null;
+  state.audioPhase = null;
   state.audioOn = false;
   state.playing = false;
   state.latestChunk = new Float32Array(0);

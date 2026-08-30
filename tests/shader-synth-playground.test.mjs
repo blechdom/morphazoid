@@ -1247,6 +1247,50 @@ test("runtime support and the audio class report WebGPU and Web Audio independen
   });
 });
 
+test("startup stays pending until the first GPU audio chunk is ready", async () => {
+  const phases = [];
+  let finishFirstChunk;
+  let queuedRefillCount = 0;
+  const gainNode = () => ({
+    gain: { value: 0 },
+    connect() {},
+    disconnect() {},
+  });
+  const context = {
+    state: "running",
+    sampleRate: 48000,
+    currentTime: 2,
+    createGain: gainNode,
+  };
+  const runtime = {
+    AudioContext: class { constructor() { return context; } },
+    navigator: { gpu: { requestAdapter() {} } },
+  };
+  const engine = new ShaderSynthPlaygroundAudio(runtime);
+  engine.setStatusHandler((phase) => phases.push(phase));
+  engine.initGpu = async () => { engine.reportStatus("compiling"); };
+  engine.writeOrganRankTransition = () => {};
+  engine.updatePatch = (patch) => { engine.patch = patch; };
+  engine.fillBuffer = (options) => {
+    assert.deepEqual(options, { forceFirstChunk: true, maxChunks: 1 });
+    return new Promise((resolve) => { finishFirstChunk = resolve; });
+  };
+  engine.queueFill = () => { queuedRefillCount += 1; };
+
+  let started = false;
+  const start = engine.start(createShaderPlaygroundPatch("pm-bell")).then(() => { started = true; });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(started, false, "startup cannot report ready before the first PCM chunk exists");
+  assert.deepEqual(phases, ["preparing", "compiling", "rendering"]);
+
+  finishFirstChunk();
+  await start;
+  assert.equal(started, true);
+  assert.equal(queuedRefillCount, 1, "lookahead refill begins only after the primed chunk is ready");
+  assert.deepEqual(phases, ["preparing", "compiling", "rendering", "ready"]);
+});
+
 test("clocks start straight and the reusable event contour closes before phase wraps", () => {
   const clockModule = SHADER_PLAYGROUND_MODULES.find(({ id }) => id === "clock");
   const swing = clockModule.params.find(({ id }) => id === "swing");
@@ -1722,6 +1766,13 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(html, /id="midiNoteState"[^>]*>C3<\/output>/);
   assert.match(html, /id="performanceNoteHint">Click to start · MIDI on: Z–M \/ Q–U<\/p>/);
   assert.match(html, /id="playgroundPlayLabel">Run patch<\/span>/);
+  assert.match(html, /id="gpuState" role="status" aria-live="polite">checking<\/dd>/);
+  assert.match(app, /audioPhase: null/);
+  assert.match(app, /button: "Compiling shaders…"/);
+  assert.match(app, /gpu: "rendering first chunk"/);
+  assert.match(app, /setAttribute\("aria-busy", String\(starting\)\)/);
+  assert.match(ShaderSynthPlaygroundAudio.prototype.initGpu.toString(), /createComputePipelineAsync/);
+  assert.match(ShaderSynthPlaygroundAudio.prototype.start.toString(), /fillBuffer\(\{ forceFirstChunk: true, maxChunks: 1 \}\)/);
   assert.match(css, /\.performance-notes\s*\{/);
   assert.match(css, /\.performance-note-buttons\s*\{[\s\S]*?grid-template-columns: repeat\(7,/);
   assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.performance-notes\s*\{[\s\S]*?width: 100%/);
