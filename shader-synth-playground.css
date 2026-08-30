@@ -1700,6 +1700,34 @@
   text-transform: uppercase;
 }
 
+.performance-random-note {
+  min-height: 18px;
+  margin-left: auto;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklab, var(--port-control) 58%, var(--line-strong));
+  cursor: pointer;
+  color: var(--port-control);
+  background: color-mix(in oklab, var(--port-control) 6%, transparent);
+  font-size: 8px;
+  font-weight: 740;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.performance-random-note:hover,
+.performance-random-note:focus-visible {
+  border-color: var(--port-control);
+  color: var(--bg-deep);
+  background: var(--port-control);
+  outline: 0;
+}
+
+.performance-random-note:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
 .performance-octave {
   display: grid;
   grid-template-columns: 20px minmax(30px, auto) 20px;
@@ -3022,6 +3050,7 @@
   }
 
   .performance-note,
+  .performance-random-note,
   .performance-octave button {
     min-height: 44px;
   }
@@ -3041,6 +3070,19 @@
   .node-port::before {
     width: 14px;
     height: 14px;
+  }
+}
+
+@media (pointer: coarse) and (min-width: 721px) and (max-width: 1240px) {
+  .performance-notes-heading > b {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 }
 

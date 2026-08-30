@@ -442,11 +442,19 @@ function performanceBaseNote() {
   return (state.performanceOctave + 1) * 12;
 }
 
+function randomPerformanceNote(baseNote, noteCount, random = Math.random) {
+  const firstNote = Math.min(127, Math.max(0, Math.round(Number(baseNote) || 0)));
+  const count = Math.min(128 - firstNote, Math.max(1, Math.round(Number(noteCount) || 1)));
+  const draw = Math.min(1, Math.max(0, Number(random()) || 0));
+  return firstNote + Math.min(count - 1, Math.floor(draw * count));
+}
+
 function syncPerformanceNoteButtons(voice = performanceMidiVoice()) {
   const selectedNote = voice?.note;
   const baseNote = performanceBaseNote();
   const container = $("performanceNoteButtons");
   if (!container) return;
+  const disabled = !support.supported || Boolean(state.audioStartPromise || state.audioPhase);
   container.setAttribute(
     "aria-label",
     `Play notes from ${midiNoteName(baseNote)} to ${midiNoteName(baseNote + 12)}`,
@@ -454,10 +462,11 @@ function syncPerformanceNoteButtons(voice = performanceMidiVoice()) {
   for (const button of container.querySelectorAll("button[data-performance-note]")) {
     const active = Number(button.dataset.performanceNote) === selectedNote;
     button.setAttribute("aria-pressed", String(active));
-    button.disabled = !support.supported || Boolean(state.audioStartPromise);
+    button.disabled = disabled;
   }
-  $("performanceOctaveDown").disabled = state.performanceOctave <= PERFORMANCE_OCTAVE_MIN;
-  $("performanceOctaveUp").disabled = state.performanceOctave >= PERFORMANCE_OCTAVE_MAX;
+  $("performanceRandomNote").disabled = disabled;
+  $("performanceOctaveDown").disabled = disabled || state.performanceOctave <= PERFORMANCE_OCTAVE_MIN;
+  $("performanceOctaveUp").disabled = disabled || state.performanceOctave >= PERFORMANCE_OCTAVE_MAX;
 }
 
 function renderPerformanceNoteButtons() {
@@ -647,6 +656,17 @@ async function auditionPerformanceNote(note) {
   applyMidiPerformance();
   const started = await startAudio({ play: true });
   if (started) announce(`${midiNoteName(selectedNote)} selected and the patch is running. Other notes retune it without gating.`);
+}
+
+async function auditionRandomPerformanceNote() {
+  const baseNote = performanceBaseNote();
+  const noteCount = PERFORMANCE_NOTE_NAMES.length;
+  let note = randomPerformanceNote(baseNote, noteCount);
+  const currentNote = performanceMidiVoice()?.note;
+  if (note === currentNote && noteCount > 1) {
+    note = baseNote + ((note - baseNote + 1) % noteCount);
+  }
+  await auditionPerformanceNote(note);
 }
 
 function selectMidiProgram(program) {
@@ -2507,6 +2527,7 @@ $("performanceNoteButtons").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-performance-note]");
   if (button) void auditionPerformanceNote(Number(button.dataset.performanceNote));
 });
+$("performanceRandomNote").addEventListener("click", () => { void auditionRandomPerformanceNote(); });
 $("performanceOctaveDown").addEventListener("click", () => shiftPerformanceOctave(-1));
 $("performanceOctaveUp").addEventListener("click", () => shiftPerformanceOctave(1));
 $("output").addEventListener("input", () => {

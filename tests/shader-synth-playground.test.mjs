@@ -559,7 +559,7 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   assert.match(css, /\.patch-node\.is-selected\s*\{[\s\S]*?border-color: var\(--node-color, var\(--accent\)\)/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeWidth/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeHeight/);
-  assert.match(html, /shader-synth-playground\.css\?v=20260829-compact-geometry-notes/);
+  assert.match(html, /shader-synth-playground\.css\?v=20260830-random-note/);
 });
 
 test("three-way sum and product require and encode all three input slots", () => {
@@ -1760,6 +1760,7 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(html, /id="gpuLookaheadDuration">~300 ms queued<\/output>/);
   assert.doesNotMatch(`${app}\n${html}`, /createOscillator\s*\(/);
   assert.match(html, /id="performanceNotesTitle">Play notes<\/b>/);
+  assert.match(html, /id="performanceRandomNote"[^>]*aria-label="Choose and play a random note"[^>]*>Random note<\/button>/);
   assert.match(html, /id="performanceNoteButtons"[^>]*aria-label="Play notes from C3 to C4"/);
   assert.match(html, /id="performanceOctaveDown"/);
   assert.match(html, /id="performanceOctaveUp"/);
@@ -1779,6 +1780,18 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.performance-note,[\s\S]*?min-height: 44px/);
   assert.match(app, /function renderPerformanceNoteButtons\(\)/);
   assert.match(app, /async function auditionPerformanceNote\(note\)[\s\S]*?startAudio\(\{ play: true \}\)/);
+  const randomNoteSource = app.match(/function randomPerformanceNote\(baseNote, noteCount, random = Math\.random\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(randomNoteSource);
+  const randomPerformanceNote = Function(`"use strict"; return (${randomNoteSource});`)();
+  assert.equal(randomPerformanceNote(48, 13, () => 0), 48);
+  assert.equal(randomPerformanceNote(48, 13, () => 0.5), 54);
+  assert.equal(randomPerformanceNote(48, 13, () => 0.999999), 60);
+  assert.equal(randomPerformanceNote(48, 13, () => 1), 60);
+  assert.match(app, /async function auditionRandomPerformanceNote\(\)[\s\S]*?auditionPerformanceNote\(note\)/);
+  assert.match(app, /performanceRandomNote"\)\.addEventListener\("click"[\s\S]*?auditionRandomPerformanceNote\(\)/);
+  assert.match(app, /\$\("performanceRandomNote"\)\.disabled = disabled/);
+  assert.match(css, /\.performance-random-note\s*\{/);
+  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.performance-random-note,[\s\S]*?min-height: 44px/);
   assert.match(app, /performanceNoteButtons[\s\S]*?data-performance-note/);
   assert.match(app, /morphazoid:midi-input/);
   assert.match(app, /MIDI_PATCH_ROOT_NOTE = 48/);

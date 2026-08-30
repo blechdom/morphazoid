@@ -11,7 +11,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260829-compact-geometry-notes" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260830-random-note" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -196,6 +196,7 @@
           <section class="performance-notes" aria-labelledby="performanceNotesTitle">
             <header class="performance-notes-heading">
               <b id="performanceNotesTitle">Play notes</b>
+              <button class="performance-random-note" id="performanceRandomNote" type="button" aria-label="Choose and play a random note">Random note</button>
               <div class="performance-octave" role="group" aria-label="On-screen keyboard octave">
                 <button id="performanceOctaveDown" type="button" aria-label="Move note keyboard down one octave">−</button>
                 <output id="midiNoteState" title="Selected pitch. Computer keys use Z–M and Q–U after Keys/MIDI is enabled.">C3</output>
@@ -295,6 +296,6 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260830-compile-status"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260830-random-note"></script>
   </body>
 </html>
