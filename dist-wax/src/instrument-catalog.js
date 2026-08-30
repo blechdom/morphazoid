@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260829-5";
+} from "../nav.js?v=catalog-20260829-6";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -68,6 +68,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Cuts a rotating 4D wireframe with a W hyperplane and sonifies the crossing edges.",
     "Turn on audio, choose a 4D form, then move the W reader or start rotation.",
   ),
+  "graph-synth": define(
+    "Network synth",
+    "Sends inherited-pitch note pulses through editable directed graphs; edge length sets time, route turns set intervals, and cycle-closing edges create quieter, darker repeats.",
+    "Turn on audio, choose or generate a graph, then send one note or run the pulse clock while dragging nodes and switching routes.",
+    ["Built-in synth", "Pointer", "MIDI", "Feedback sequencing"],
+  ),
   "hyper-rubix": define(
     "4D shape sequencer",
     "Separates five instrument presets—color drums, resonant prisms, bit voices, WebGPU acid, and seed-shell rattles—from three playback views: one selected cell, four view-facing cells, or all 64, 216, or 512 distinct notes in an order-2, order-3, or order-4 tesseract boundary.",
@@ -110,6 +116,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Drum machine",
     "Walks through recursive branch heads and maps depth, angle, generation, phase, and position to drums.",
     "Turn on audio, choose a grammar and drum bank, then generate and play the tree.",
+  ),
+  "graph-drums": define(
+    "Network drum machine",
+    "Propagates percussion triggers through editable directed graphs, mapping node position, degree, route turn, path depth, and cycle pass to a shared sixteen-voice FM drum bank.",
+    "Turn on audio, choose a topology and drum style, then seed a pulse or run the clock; cyclic routes return later with reduced amplitude and tone.",
+    ["Built-in drums", "Pointer", "MIDI", "Feedback sequencing"],
   ),
   "linear-drums-machine": define(
     "Drum machine",
@@ -628,6 +640,8 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   blowhole: Object.freeze(["sequencers"]),
   hambone: Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
+  "graph-drums": Object.freeze(["fractals-recursion"]),
+  "graph-synth": Object.freeze(["fractals-recursion"]),
   "fm-drums": Object.freeze(["geometry-drums"]),
   "linear-drums": Object.freeze(["geometry-drums"]),
   "sample-drums": Object.freeze(["geometry-drums"]),

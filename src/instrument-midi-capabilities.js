@@ -20,6 +20,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "rubix",
     "hyper-drums",
     "l-system-drums",
+    "graph-drums",
     "hambone",
     "linear-drums-machine",
     "drum-roll-please",
@@ -41,6 +42,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "spiral",
     "solid",
     "hyper",
+    "graph-synth",
     "image-to-instrument-3",
     "throatazoid",
     "syrinx",
@@ -198,6 +200,7 @@ const midiOutputExtraIds = new Set([
   "spiral",
   "solid",
   "hyper",
+  "graph-synth",
   "l-system",
   "julia",
 ]);

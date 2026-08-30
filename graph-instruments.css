@@ -1,0 +1,457 @@
+.graph-instrument-page {
+  --graph-pulse: #fff3d6;
+}
+
+.graph-drums-page {
+  --accent: #ffad69;
+  --accent-soft: color-mix(in oklab, #ffad69 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffad69 22%, transparent);
+  --graph-pulse: #ffad69;
+}
+
+.graph-synth-page {
+  --accent: #b299ff;
+  --accent-soft: color-mix(in oklab, #b299ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #b299ff 22%, transparent);
+  --graph-pulse: #b299ff;
+}
+
+.graph-instrument-page #playSection {
+  --accent: var(--graph-pulse);
+  --accent-soft: color-mix(in oklab, var(--graph-pulse) 55%, transparent);
+}
+
+.graph-instrument-page #mappingSection {
+  --accent: #b8df77;
+  --accent-soft: color-mix(in oklab, #b8df77 55%, transparent);
+}
+
+.graph-instrument-page #soundSection {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+}
+
+.graph-instrument-page #motionSection {
+  --accent: #55d9ff;
+  --accent-soft: color-mix(in oklab, #55d9ff 55%, transparent);
+}
+
+.graph-instrument-page .stage-wrap {
+  background:
+    linear-gradient(rgba(104, 224, 210, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(104, 224, 210, 0.025) 1px, transparent 1px),
+    radial-gradient(circle at 14% 50%, color-mix(in oklab, var(--graph-pulse) 9%, transparent), transparent 24%),
+    radial-gradient(circle at 72% 44%, rgba(125, 180, 255, 0.065), transparent 42%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto;
+}
+
+.graph-instrument-page #stage {
+  cursor: grab;
+  touch-action: none;
+}
+
+.graph-instrument-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.graph-instrument-page #stage.is-switch-hover:not(.is-dragging) {
+  cursor: pointer;
+}
+
+.graph-pulse-control {
+  position: absolute;
+  z-index: 4;
+  top: 17px;
+  left: 17px;
+}
+
+.graph-pulse-control button,
+.graph-pulse-action {
+  display: inline-grid;
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 1px solid color-mix(in oklab, var(--graph-pulse) 34%, var(--line));
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  align-content: center;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.graph-pulse-control button:hover,
+.graph-pulse-control button:focus-visible,
+.graph-pulse-action:hover,
+.graph-pulse-action:focus-visible {
+  border-color: var(--graph-pulse);
+  box-shadow: 0 0 16px color-mix(in oklab, var(--graph-pulse) 20%, transparent);
+}
+
+.graph-pulse-control b,
+.graph-pulse-control small {
+  display: block;
+}
+
+.graph-pulse-control b {
+  color: var(--graph-pulse);
+  font-size: 9px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.graph-seed-keyboard {
+  position: absolute;
+  z-index: 5;
+  top: 14px;
+  left: 50%;
+  width: min(340px, calc(100% - 280px));
+  min-width: 252px;
+  padding: 5px;
+  border: 1px solid color-mix(in oklab, var(--graph-pulse) 32%, var(--line));
+  background: color-mix(in oklab, var(--bg-deep) 92%, transparent);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .28);
+  transform: translateX(-50%);
+  backdrop-filter: blur(8px);
+}
+
+.graph-seed-keyboard-head {
+  display: grid;
+  margin-bottom: 4px;
+  grid-template-columns: 28px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 4px;
+}
+
+.graph-seed-keyboard-head span {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: .09em;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.graph-seed-keyboard-head output {
+  color: var(--graph-pulse);
+  font: inherit;
+}
+
+.graph-seed-keyboard button {
+  min-width: 0;
+  border: 1px solid color-mix(in oklab, var(--graph-pulse) 24%, var(--line));
+  border-radius: 0;
+  cursor: pointer;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 8%, var(--bg-deep));
+  font: inherit;
+}
+
+.graph-seed-keyboard button:hover,
+.graph-seed-keyboard button:focus-visible,
+.graph-seed-keyboard button[aria-pressed="true"] {
+  border-color: var(--graph-pulse);
+  color: var(--graph-pulse);
+  box-shadow: 0 0 11px color-mix(in oklab, var(--graph-pulse) 24%, transparent);
+  outline: none;
+}
+
+.graph-seed-keyboard-head button {
+  height: 22px;
+  padding: 0;
+  color: var(--graph-pulse);
+  font-size: 13px;
+}
+
+.graph-seed-keys {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.graph-seed-keys button {
+  height: 28px;
+  padding: 0;
+  font-size: 7px;
+}
+
+.graph-seed-keys button.is-accidental {
+  color: color-mix(in oklab, var(--graph-pulse) 72%, var(--muted));
+  background: color-mix(in oklab, var(--graph-pulse) 7%, #020405);
+}
+
+.graph-pulse-control small {
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.graph-instrument-page .graph-key {
+  right: 18px;
+}
+
+.graph-instrument-page .graph-key i.pulse-route {
+  height: 4px;
+  background: var(--graph-pulse);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--graph-pulse) 60%, transparent);
+}
+
+.graph-instrument-page .l-system-mapping-readout {
+  top: 91px;
+  right: 18px;
+  bottom: auto;
+  color: var(--graph-pulse);
+}
+
+.graph-transport-actions {
+  display: grid;
+  margin-bottom: 12px;
+  grid-template-columns: 46px minmax(0, 1fr) 76px;
+  gap: 8px;
+}
+
+.graph-transport-actions .play-button {
+  width: 46px;
+  min-height: 46px;
+}
+
+.graph-pulse-action {
+  width: 100%;
+  justify-content: center;
+  color: var(--graph-pulse);
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.graph-random-action {
+  border-color: color-mix(in oklab, var(--graph-random) 64%, var(--line));
+  color: var(--graph-random);
+  background: color-mix(in oklab, var(--graph-random) 9%, var(--bg-deep));
+  box-shadow: inset 0 -2px 0 color-mix(in oklab, var(--graph-random) 30%, transparent);
+}
+
+.graph-drums-page .graph-random-action {
+  --graph-random: #5fe8c4;
+}
+
+.graph-synth-page .graph-random-action {
+  --graph-random: #e8c46b;
+}
+
+.graph-instrument-page .graph-preset-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.graph-instrument-page .graph-preset-grid button {
+  min-height: 44px;
+  padding: 5px 4px;
+  text-align: center;
+}
+
+.graph-instrument-page .graph-preset-grid b {
+  font-size: 7px;
+  letter-spacing: .035em;
+}
+
+.graph-instrument-page .graph-preset-grid small {
+  display: none;
+}
+
+.graph-pulse-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.graph-pulse-grid .select-control {
+  margin: 0;
+}
+
+.graph-cycle-note {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border-left: 2px solid #ff826f;
+  color: var(--muted);
+  background: color-mix(in oklab, #ff826f 5%, transparent);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.graph-cycle-note b {
+  color: #ffad9d;
+}
+
+.graph-distance-note {
+  display: block;
+  margin: -3px 0 13px;
+}
+
+.graph-layout-actions {
+  display: grid;
+  margin: 8px 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.graph-layout-actions .mini-action {
+  width: 100%;
+  margin: 0;
+}
+
+.graph-motion-row {
+  display: grid;
+  margin: 0 0 13px;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.graph-motion-row .play-button {
+  width: 46px;
+  min-height: 46px;
+}
+
+.graph-motion-row .select-control {
+  margin: 0;
+}
+
+.graph-motion-row .select-shell,
+.graph-motion-row select {
+  height: 100%;
+}
+
+.graph-instrument-page input:disabled,
+.graph-instrument-page select:disabled {
+  cursor: not-allowed;
+  opacity: .34;
+}
+
+.graph-instrument-page #openAllSwitchesButton:disabled {
+  cursor: default;
+  opacity: .38;
+}
+
+.graph-drum-map {
+  display: grid;
+  margin-top: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.graph-drum-map .l-system-drum-cell {
+  min-height: 52px;
+}
+
+.graph-mapping-description {
+  min-height: 32px;
+  margin: 8px 0 11px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.graph-mapping-legend {
+  display: grid;
+  margin: 0 0 13px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.graph-mapping-legend span {
+  display: grid;
+  min-height: 52px;
+  padding: 7px 5px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: center;
+  gap: 3px;
+}
+
+.graph-mapping-legend b {
+  color: var(--ink);
+  font-size: 7px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.graph-mapping-legend small {
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.2;
+}
+
+.graph-info-readout > div {
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+
+@media (max-width: 650px) {
+  .graph-instrument-page .graph-key {
+    right: 12px;
+    left: 12px;
+  }
+
+  .graph-instrument-page .l-system-mapping-readout {
+    top: auto;
+    right: 12px;
+    bottom: 54px;
+    left: 12px;
+    max-width: none;
+    text-align: left;
+  }
+
+  .graph-pulse-control {
+    top: 12px;
+    left: 12px;
+  }
+
+  .graph-seed-keyboard {
+    top: 66px;
+    width: calc(100% - 24px);
+    min-width: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .graph-transport-actions {
+    grid-template-columns: 46px minmax(0, 1fr) 72px;
+    gap: 6px;
+  }
+
+  .graph-mapping-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .graph-seed-keys {
+    gap: 1px;
+  }
+
+  .graph-seed-keys button {
+    font-size: 6px;
+  }
+}
+
+@media (pointer: coarse) {
+  .graph-seed-keyboard-head button {
+    height: 30px;
+  }
+
+  .graph-seed-keys button {
+    height: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graph-pulse-control button,
+  .graph-pulse-action,
+  .graph-seed-keyboard button {
+    transition: none;
+  }
+}

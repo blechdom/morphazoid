@@ -84,6 +84,11 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "spiral", label: "Spiral", href: "spiral.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
+    {
+      id: "graph-synth",
+      label: "Graph Synth",
+      href: "graph-synth.html",
+    },
   ]),
   freezeGroup("geometry-drums", "Drum Machines", [
     {
@@ -115,6 +120,11 @@ export const TOOL_GROUPS = Object.freeze([
       id: "l-system-drums",
       label: "L-System Drum Machine",
       href: "l-system-drums.html",
+    },
+    {
+      id: "graph-drums",
+      label: "Graph Drum Machine",
+      href: "graph-drums.html",
     },
     {
       id: "linear-drums-machine",

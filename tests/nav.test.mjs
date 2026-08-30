@@ -255,7 +255,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 113);
+  assert.equal(tools.length, 115);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -512,6 +512,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "spiral", href: "spiral.html" },
       { id: "solid", href: "solid.html" },
       { id: "hyper", href: "hyper.html" },
+      { id: "graph-synth", href: "graph-synth.html" },
     ],
   );
   assert.deepEqual(
@@ -525,6 +526,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "solid-drums", href: "solid-drums.html" },
       { id: "hyper-drums", href: "hyper-drums.html" },
       { id: "l-system-drums", href: "l-system-drums.html" },
+      { id: "graph-drums", href: "graph-drums.html" },
       { id: "linear-drums-machine", href: "linear-drums-machine.html" },
     ],
   );
@@ -921,6 +923,8 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}rubix.html`, SITE_ROOT)?.id, "rubix");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-system-drums.html`, SITE_ROOT)?.id, "l-system-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}graph-drums.html`, SITE_ROOT)?.id, "graph-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}graph-synth.html`, SITE_ROOT)?.id, "graph-synth");
   assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");

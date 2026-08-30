@@ -1,0 +1,1015 @@
+import {
+  GRAPH_DELAY_PATCHES,
+  edgeAudioParameters,
+  graphEdgeSwitchMultipliers,
+  relativeTurnRadians,
+  turnPitchSemitones,
+} from "./graph-delay.js";
+
+// One 512-node chain with sixteen timing divisions contains 511 * 16 edge
+// events plus its entry. Keep that complete authored worst case inside the
+// shared schedule while dense/cyclic graphs remain explicitly bounded.
+export const MAX_GRAPH_EVENT_SCHEDULE = 8_192;
+export const MIN_GRAPH_EVENT_AMPLITUDE = 0.001;
+export const MAX_GRAPH_INSTRUMENT_NODES = 512;
+export const MAX_GRAPH_INSTRUMENT_TURN_ROUTES = 4_096;
+export const MAX_GRAPH_EDGE_SUBDIVISIONS = 16;
+export const MAX_GRAPH_EQUAL_DIVISIONS = 360;
+
+const DEFAULT_GRAPH_EVENT_HORIZON_SECONDS = 16;
+const DEFAULT_GRAPH_EVENT_DEPTH = 128;
+const DEFAULT_GRAPH_FEEDBACK_PASSES = 24;
+const MAX_GRAPH_EVENT_HORIZON_SECONDS = 1_024;
+const MAX_GRAPH_EVENT_DEPTH = MAX_GRAPH_EVENT_SCHEDULE;
+const MAX_GRAPH_FEEDBACK_PASSES = 64;
+
+const finite = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => (
+  Math.min(maximum, Math.max(minimum, finite(value, fallback)))
+);
+
+const positiveInteger = (value, fallback, maximum = Infinity) => Math.min(
+  maximum,
+  Math.max(0, Math.floor(finite(value, fallback))),
+);
+
+const patch = (id, overrides) => Object.freeze({
+  ...GRAPH_DELAY_PATCHES[id],
+  ...overrides,
+});
+
+/**
+ * A compact shared bank for the drum and synth graph pages. Each patch keeps a
+ * proven Graph Delay topology and safety profile, then gives it an instrument-
+ * specific edge clock, length response, tempo, and launch cadence.
+ */
+export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
+  clearSteps: patch("clearSteps", {
+    baseDelay: 55,
+    timeScale: 0,
+    timeCurve: 1,
+    tempo: 144,
+    pulseBeats: 0.5,
+    edgeSubdivisions: 1,
+    triggerScope: "all",
+    feedbackTone: 0.92,
+    description: "Even 55 ms edges launch a crisp four-step phrase twice per beat.",
+    drums: Object.freeze({
+      mappingMode: "path-phase", percussionStyle: "circuit",
+      pitchDepth: 5, turnPitchDepth: 3, characterDepth: 0.38,
+    }),
+    synth: Object.freeze({
+      mappingMode: "progress", tuningMode: "equal", edoDivisions: 12,
+      baseFrequency: 110, pitchRange: 1, turnPitchScale: 0.25,
+      soundMode: "square", modulationIndex: 0.4, modulationRatio: 2,
+      articulation: "trigger", noteDuration: 90,
+      attack: 2, decay: 34, sustain: 0.12, release: 55, stereoSpread: 0.42,
+    }),
+  }),
+  branchChoir: patch("branchChoir", {
+    baseDelay: 190,
+    timeScale: 310,
+    timeCurve: 1.35,
+    tempo: 72,
+    pulseBeats: 4,
+    edgeSubdivisions: 1,
+    triggerScope: "leaves",
+    feedbackTone: 0.86,
+    description: "A slow four-beat seed blooms through long, unhurried branches.",
+    drums: Object.freeze({
+      mappingMode: "degree-turn", percussionStyle: "resonant-metal",
+      pitchDepth: 18, turnPitchDepth: 14, characterDepth: 0.82,
+    }),
+    synth: Object.freeze({
+      mappingMode: "turn", tuningMode: "pure", edoDivisions: 12,
+      baseFrequency: 196, pitchRange: 3.5, turnPitchScale: 0.78,
+      soundMode: "sine", modulationIndex: 0.8, modulationRatio: 1.5,
+      articulation: "edge", noteDuration: 520,
+      attack: 55, decay: 180, sustain: 0.72, release: 720, stereoSpread: 1,
+    }),
+  }),
+  layeredGlass: patch("layeredGlass", {
+    baseDelay: 62,
+    timeScale: 58,
+    timeCurve: 0.9,
+    tempo: 126,
+    pulseBeats: 1,
+    edgeSubdivisions: 2,
+    triggerScope: "all",
+    feedbackTone: 0.78,
+    description: "Close crossing times make a tight cascade on every beat.",
+    drums: Object.freeze({
+      mappingMode: "position-grid", percussionStyle: "drum-bank",
+      pitchDepth: 12, turnPitchDepth: 9, characterDepth: 0.72,
+    }),
+    synth: Object.freeze({
+      mappingMode: "turn", tuningMode: "equal", edoDivisions: 19,
+      baseFrequency: 220, pitchRange: 2, turnPitchScale: 0.55,
+      soundMode: "fm", modulationIndex: 2.8, modulationRatio: 2,
+      articulation: "trigger", noteDuration: 210,
+      attack: 8, decay: 90, sustain: 0.34, release: 220, stereoSpread: 0.84,
+    }),
+  }),
+  haloRing: patch("haloRing", {
+    baseDelay: 105,
+    timeScale: 15,
+    timeCurve: 1,
+    tempo: 100,
+    pulseBeats: 2,
+    edgeSubdivisions: 1,
+    triggerScope: "all",
+    feedbackTone: 0.72,
+    description: "Near-even edge times make a measured two-beat orbit and falling halo.",
+    drums: Object.freeze({
+      mappingMode: "path-phase", percussionStyle: "resonant-metal",
+      pitchDepth: 16, turnPitchDepth: 20, characterDepth: 0.9,
+    }),
+    synth: Object.freeze({
+      mappingMode: "turn", tuningMode: "just", edoDivisions: 12,
+      baseFrequency: 147, pitchRange: 4, turnPitchScale: 0.18,
+      soundMode: "shepard", modulationIndex: 1.2, modulationRatio: 1.5,
+      articulation: "edge", noteDuration: 420,
+      attack: 28, decay: 120, sustain: 0.66, release: 880, stereoSpread: 0.92,
+    }),
+  }),
+  shortcutChorus: patch("shortcutChorus", {
+    baseDelay: 36,
+    timeScale: 300,
+    timeCurve: 1.8,
+    tempo: 108,
+    pulseBeats: 2,
+    edgeSubdivisions: 3,
+    triggerScope: "subdivisions",
+    feedbackTone: 0.8,
+    description: "Short hops and much longer shortcuts scatter each two-beat pulse into crooked answers.",
+    drums: Object.freeze({
+      mappingMode: "degree-turn", percussionStyle: "rattlesnake",
+      pitchDepth: 9, turnPitchDepth: 18, characterDepth: 1,
+    }),
+    synth: Object.freeze({
+      mappingMode: "turn", tuningMode: "equal", edoDivisions: 31,
+      baseFrequency: 262, pitchRange: 3, turnPitchScale: 0.92,
+      soundMode: "pm", modulationIndex: 5.4, modulationRatio: 1.25,
+      articulation: "trigger", noteDuration: 180,
+      attack: 4, decay: 70, sustain: 0.28, release: 310, stereoSpread: 1,
+    }),
+  }),
+  hubScatter: patch("hubScatter", {
+    baseDelay: 24,
+    timeScale: 50,
+    timeCurve: 0.45,
+    tempo: 156,
+    pulseBeats: 0.5,
+    edgeSubdivisions: 4,
+    triggerScope: "subdivisions",
+    feedbackTone: 0.88,
+    description: "Rapid spokes ricochet from the hub twice per beat.",
+    drums: Object.freeze({
+      mappingMode: "position-grid", percussionStyle: "circuit",
+      pitchDepth: 24, turnPitchDepth: 7, characterDepth: 0.96,
+    }),
+    synth: Object.freeze({
+      mappingMode: "degree", tuningMode: "equal", edoDivisions: 7,
+      baseFrequency: 82, pitchRange: 2.5, turnPitchScale: 0.4,
+      soundMode: "sawtooth", modulationIndex: 1.8, modulationRatio: 3,
+      articulation: "trigger", noteDuration: 70,
+      attack: 1, decay: 22, sustain: 0.08, release: 38, stereoSpread: 0.72,
+    }),
+  }),
+  softMesh: patch("softMesh", {
+    baseDelay: 120,
+    timeScale: 220,
+    timeCurve: 0.7,
+    tempo: 76,
+    pulseBeats: 2,
+    edgeSubdivisions: 2,
+    triggerScope: "leaves",
+    feedbackTone: 0.56,
+    description: "Wide neighbor times smear slow clustered calls into softened returns.",
+    drums: Object.freeze({
+      mappingMode: "degree-turn", percussionStyle: "drum-bank",
+      pitchDepth: 4, turnPitchDepth: 5, characterDepth: 0.28,
+    }),
+    synth: Object.freeze({
+      mappingMode: "height", tuningMode: "just", edoDivisions: 12,
+      baseFrequency: 330, pitchRange: 1.5, turnPitchScale: 0.28,
+      soundMode: "triangle", modulationIndex: 0.3, modulationRatio: 0.5,
+      articulation: "edge", noteDuration: 680,
+      attack: 120, decay: 340, sustain: 0.78, release: 1_200, stereoSpread: 0.64,
+    }),
+  }),
+  islandSignals: patch("islandSignals", {
+    baseDelay: 260,
+    timeScale: 520,
+    timeCurve: 1.45,
+    tempo: 60,
+    pulseBeats: 4,
+    edgeSubdivisions: 1,
+    triggerScope: "leaves",
+    feedbackTone: 0.48,
+    description: "Very long routes let three islands trade calls every four beats.",
+    drums: Object.freeze({
+      mappingMode: "path-phase", percussionStyle: "resonant-metal",
+      pitchDepth: 20, turnPitchDepth: 24, characterDepth: 0.76,
+    }),
+    synth: Object.freeze({
+      mappingMode: "turn", tuningMode: "pure", edoDivisions: 12,
+      baseFrequency: 55, pitchRange: 5, turnPitchScale: 1.2,
+      soundMode: "shepard", modulationIndex: 3.6, modulationRatio: 0.75,
+      articulation: "edge", noteDuration: 1_600,
+      attack: 240, decay: 520, sustain: 0.82, release: 2_400, stereoSpread: 1,
+    }),
+  }),
+});
+
+function normalizedGraph(graph = {}) {
+  const sourceNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+  const nodes = sourceNodes.map((node, id) => ({
+    ...node,
+    id,
+    x: finite(node?.x, 0.5),
+    y: finite(node?.y, 0.5),
+  }));
+  const edges = (Array.isArray(graph.edges) ? graph.edges : [])
+    .map((edge, index) => ({
+      ...edge,
+      id: edge?.id ?? index,
+      from: Math.floor(finite(edge?.from, -1)),
+      to: Math.floor(finite(edge?.to, -1)),
+    }))
+    .filter((edge) => (
+      edge.from >= 0
+      && edge.from < nodes.length
+      && edge.to >= 0
+      && edge.to < nodes.length
+    ));
+  const indegree = Array(nodes.length).fill(0);
+  const outdegree = Array(nodes.length).fill(0);
+  for (const edge of edges) {
+    indegree[edge.to] += 1;
+    outdegree[edge.from] += 1;
+  }
+  const requestedEntries = Array.isArray(graph.entries)
+    ? [...new Set(graph.entries
+      .map((nodeId) => Math.floor(finite(nodeId, -1)))
+      .filter((nodeId) => nodeId >= 0 && nodeId < nodes.length))]
+    : [];
+  const entries = requestedEntries.length
+    ? requestedEntries
+    : nodes.filter((node) => indegree[node.id] === 0).map((node) => node.id);
+  if (!entries.length && nodes.length) entries.push(0);
+  return {
+    ...graph,
+    nodes,
+    edges,
+    indegree,
+    outdegree,
+    entries,
+  };
+}
+
+function enabledEdgeFlags(graph, enabledEdges) {
+  if (Array.isArray(enabledEdges)) {
+    return graph.edges.map((_edge, index) => enabledEdges[index] ?? true);
+  }
+  if (enabledEdges instanceof Set) {
+    return graph.edges.map((edge) => (
+      enabledEdges.has(edge.id)
+      || enabledEdges.has(`${edge.from}>${edge.to}`)
+    ));
+  }
+  if (enabledEdges instanceof Map) {
+    return graph.edges.map((edge) => (
+      enabledEdges.get(edge.id)
+      ?? enabledEdges.get(`${edge.from}>${edge.to}`)
+      ?? true
+    ));
+  }
+  if (typeof enabledEdges === "function") {
+    return graph.edges.map((edge, index) => Boolean(enabledEdges(edge, index)));
+  }
+  if (enabledEdges && typeof enabledEdges === "object") {
+    return graph.edges.map((edge, index) => (
+      enabledEdges[edge.id]
+      ?? enabledEdges[`${edge.from}>${edge.to}`]
+      ?? enabledEdges[index]
+      ?? true
+    ));
+  }
+  return graph.edges.map(() => true);
+}
+
+function eventComparison(first, second) {
+  return first.time - second.time
+    || first.feedbackCount - second.feedbackCount
+    || first.depth - second.depth
+    || String(first.pathKey).localeCompare(String(second.pathKey))
+    || first.nodeId - second.nodeId;
+}
+
+function insertEvent(queue, event) {
+  let low = 0;
+  let high = queue.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (eventComparison(queue[middle], event) <= 0) low = middle + 1;
+    else high = middle;
+  }
+  queue.splice(low, 0, event);
+}
+
+function evenlyDistributedIndices(total, requested) {
+  const count = Math.min(total, Math.max(0, Math.floor(requested)));
+  if (!count) return [];
+  if (count === total) return Array.from({ length: total }, (_item, index) => index);
+  return Array.from({ length: count }, (_item, index) => (
+    Math.min(total - 1, Math.floor((index + 0.5) * total / count))
+  ));
+}
+
+function addEdgeSubdivisionEvents(nodeEvents, edgeSubdivisions, maximum) {
+  if (edgeSubdivisions <= 1 || nodeEvents.length >= maximum) return nodeEvents;
+  const arrivals = nodeEvents.filter((event) => (
+    event.arrivalEdgeId !== null && event.arrivalEdgeId !== undefined
+  ));
+  const stepsPerArrival = edgeSubdivisions - 1;
+  const requestedStepCount = arrivals.length * stepsPerArrival;
+  const availableStepCount = Math.min(maximum - nodeEvents.length, requestedStepCount);
+  if (!availableStepCount) return nodeEvents;
+
+  const baseAllocation = Math.floor(availableStepCount / arrivals.length);
+  const remainder = availableStepCount % arrivals.length;
+  const bonusArrivals = new Set(evenlyDistributedIndices(arrivals.length, remainder));
+  const subdivisionEvents = [];
+  arrivals.forEach((arrival, arrivalIndex) => {
+    const allocation = Math.min(
+      stepsPerArrival,
+      baseAllocation + (bonusArrivals.has(arrivalIndex) ? 1 : 0),
+    );
+    for (const stepIndex of evenlyDistributedIndices(stepsPerArrival, allocation)) {
+      const subdivisionIndex = stepIndex + 1;
+      const edgeProgress = subdivisionIndex / edgeSubdivisions;
+      subdivisionEvents.push({
+        ...arrival,
+        time: arrival.departTime + (arrival.time - arrival.departTime) * edgeProgress,
+        kind: "subdivision",
+        transitOnly: true,
+        edgeProgress,
+        subdivisionIndex,
+        pathKey: `${arrival.pathKey}~${subdivisionIndex}/${edgeSubdivisions}`,
+      });
+    }
+  });
+  return [...nodeEvents, ...subdivisionEvents].sort(eventComparison);
+}
+
+function graphEventLimits(options) {
+  return {
+    maxEvents: positiveInteger(
+      options.maxEvents ?? options.eventCap,
+      MAX_GRAPH_EVENT_SCHEDULE,
+      MAX_GRAPH_EVENT_SCHEDULE,
+    ),
+    minAmplitude: clamp(
+      options.minAmplitude ?? options.amplitudeFloor,
+      Number.EPSILON,
+      1,
+      MIN_GRAPH_EVENT_AMPLITUDE,
+    ),
+    horizonSeconds: clamp(
+      options.horizonSeconds ?? options.horizon,
+      0,
+      MAX_GRAPH_EVENT_HORIZON_SECONDS,
+      DEFAULT_GRAPH_EVENT_HORIZON_SECONDS,
+    ),
+    maxDepth: positiveInteger(
+      options.maxDepth ?? options.depthCap,
+      DEFAULT_GRAPH_EVENT_DEPTH,
+      MAX_GRAPH_EVENT_DEPTH,
+    ),
+    maxFeedbackPasses: positiveInteger(
+      options.maxFeedbackPasses ?? options.feedbackPasses ?? options.passCap,
+      DEFAULT_GRAPH_FEEDBACK_PASSES,
+      MAX_GRAPH_FEEDBACK_PASSES,
+    ),
+  };
+}
+
+/**
+ * Expand one graph pulse into deterministic, relative-time node arrivals.
+ *
+ * The event path retains its incoming edge and previous node, so a merge never
+ * loses the turn provenance needed by the next branch. Cycles are ordinary
+ * paths in the queue: their time comes from edgeAudioParameters(), and their
+ * amplitude only receives the user feedback coefficient on `feedbackEdge`.
+ */
+export function scheduleGraphPulse(graph, options = {}) {
+  const model = normalizedGraph(graph);
+  if (!model.nodes.length) return [];
+  const settings = { ...(options.patch ?? {}), ...options };
+  const limits = graphEventLimits(settings);
+  const edgeSubdivisions = Math.max(1, positiveInteger(
+    settings.edgeSubdivisions ?? settings.subdivisions,
+    1,
+    MAX_GRAPH_EDGE_SUBDIVISIONS,
+  ));
+  if (limits.maxEvents === 0) return [];
+  const inputAmplitude = clamp(settings.amplitude, 0, 1, 1);
+  if (inputAmplitude < limits.minAmplitude) return [];
+
+  const edgeParameters = edgeAudioParameters(model, settings);
+  const enabledFlags = enabledEdgeFlags(model, settings.enabledEdges);
+  const switchMultipliers = graphEdgeSwitchMultipliers(model, enabledFlags);
+  const outgoing = Array.from({ length: model.nodes.length }, () => []);
+  edgeParameters.forEach((edge, index) => {
+    outgoing[edge.from].push({ edge, index });
+  });
+  const inputPosition = {
+    x: finite(settings.inputPosition?.x, 0),
+    y: finite(settings.inputPosition?.y, 0.5),
+  };
+  const entryScale = settings.normalizeEntries === false
+    ? 1
+    : 1 / Math.sqrt(Math.max(1, model.entries.length));
+  const queue = [];
+  for (const nodeId of model.entries) {
+    insertEvent(queue, {
+      nodeId,
+      time: 0,
+      departTime: 0,
+      arrivalEdgeId: null,
+      previousNodeId: null,
+      amplitude: inputAmplitude * entryScale,
+      localTurn: 0,
+      cumulativeTurn: 0,
+      cumulativeSemitones: 0,
+      depth: 0,
+      feedbackCount: 0,
+      kind: "node",
+      edgeProgress: 1,
+      subdivisionIndex: 1,
+      subdivisions: 1,
+      pathKey: `entry:${String(nodeId).padStart(3, "0")}`,
+    });
+  }
+
+  // Propagate only real node arrivals through the queue. Subdivision events are
+  // rendered after traversal, so intermediate ticks can never consume the cap
+  // before a destination, leaf, or feedback return has had a chance to arrive.
+  // When ticks are requested, reserve half the schedule for them once every
+  // authored node could have appeared at least once. A simple 512-node path
+  // still completes in full; a dense cycle gets both returns and edge rhythm.
+  const nodeEventLimit = edgeSubdivisions > 1
+    ? Math.min(
+      limits.maxEvents,
+      Math.max(model.nodes.length, Math.floor(limits.maxEvents * 0.5)),
+    )
+    : limits.maxEvents;
+  const scheduledNodes = [];
+  while (queue.length && scheduledNodes.length < nodeEventLimit) {
+    const event = queue.shift();
+    if (event.time > limits.horizonSeconds + 1e-12) continue;
+    scheduledNodes.push(event);
+    if (event.depth >= limits.maxDepth) continue;
+
+    const pivot = model.nodes[event.nodeId];
+    const previous = event.previousNodeId === null
+      ? inputPosition
+      : model.nodes[event.previousNodeId] ?? inputPosition;
+    for (const { edge, index } of outgoing[event.nodeId]) {
+      if (!enabledFlags[index] || switchMultipliers[index] <= 0) continue;
+      const feedbackCount = event.feedbackCount + (edge.feedbackEdge ? 1 : 0);
+      if (feedbackCount > limits.maxFeedbackPasses) continue;
+      const amplitude = event.amplitude * edge.gain * switchMultipliers[index];
+      if (!Number.isFinite(amplitude) || amplitude < limits.minAmplitude) continue;
+      const time = event.time + edge.delaySeconds;
+      if (time > limits.horizonSeconds + 1e-12) continue;
+      const localTurn = relativeTurnRadians(previous, pivot, model.nodes[edge.to]);
+      const localSemitones = turnPitchSemitones(localTurn, settings);
+      const nextEvent = {
+        nodeId: edge.to,
+        time,
+        departTime: event.time,
+        arrivalEdgeId: edge.id,
+        previousNodeId: event.nodeId,
+        amplitude,
+        localTurn,
+        cumulativeTurn: event.cumulativeTurn + localTurn,
+        cumulativeSemitones: event.cumulativeSemitones + localSemitones,
+        depth: event.depth + 1,
+        feedbackCount,
+        kind: "node",
+        edgeProgress: 1,
+        subdivisionIndex: edgeSubdivisions,
+        subdivisions: edgeSubdivisions,
+        pathKey: `${event.pathKey}>${String(edge.id)}@${String(index).padStart(4, "0")}`,
+      };
+      insertEvent(queue, nextEvent);
+    }
+  }
+  return addEdgeSubdivisionEvents(
+    scheduledNodes,
+    edgeSubdivisions,
+    limits.maxEvents,
+  );
+}
+
+/**
+ * Collapse sample-near duplicate arrivals without destroying distinct pitches.
+ * Amplitudes combine as signal energy (root-sum-square) and are ceiling-bound.
+ */
+export function coalesceGraphEvents(events, options = {}) {
+  if (!Array.isArray(events) || !events.length) return [];
+  const timeResolution = clamp(
+    options.timeResolutionSeconds ?? options.timeWindowSeconds ?? options.timeWindow,
+    1e-7,
+    1,
+    1 / 48_000,
+  );
+  const semitoneResolution = clamp(
+    options.semitoneResolution,
+    1e-4,
+    12,
+    0.01,
+  );
+  const amplitudeCeiling = clamp(options.amplitudeCeiling, 0, 4, 1);
+  const maximum = positiveInteger(
+    options.maxEvents,
+    MAX_GRAPH_EVENT_SCHEDULE,
+    MAX_GRAPH_EVENT_SCHEDULE,
+  );
+  if (maximum === 0) return [];
+  const keyForEvent = typeof options.key === "function"
+    ? options.key
+    : typeof options.keyForEvent === "function"
+      ? options.keyForEvent
+      : (event) => [
+        Math.floor(finite(event?.nodeId, 0)),
+        Math.round(finite(event?.cumulativeSemitones, 0) / semitoneResolution),
+      ].join(":");
+  const ordered = events
+    .filter((event) => event && Number.isFinite(Number(event.time)))
+    .map((event, index) => ({ event, index }))
+    .sort((first, second) => (
+      finite(first.event.time) - finite(second.event.time)
+      || String(keyForEvent(first.event)).localeCompare(String(keyForEvent(second.event)))
+      || first.index - second.index
+    ));
+  const groups = new Map();
+  for (const { event, index } of ordered) {
+    const sample = Math.round(finite(event.time) / timeResolution);
+    const key = `${sample}|${String(keyForEvent(event, index))}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        representative: event,
+        strongestAmplitude: -Infinity,
+        energy: 0,
+        pathKeys: [],
+        arrivalEdgeIds: [],
+        previousNodeIds: [],
+      };
+      groups.set(key, group);
+    }
+    const amplitude = Math.max(0, finite(event.amplitude, 0));
+    group.energy += amplitude * amplitude;
+    if (amplitude > group.strongestAmplitude) {
+      group.representative = event;
+      group.strongestAmplitude = amplitude;
+    }
+    group.pathKeys.push(event.pathKey ?? `event:${index}`);
+    group.arrivalEdgeIds.push(event.arrivalEdgeId ?? null);
+    group.previousNodeIds.push(event.previousNodeId ?? null);
+  }
+  return [...groups.values()]
+    .map((group) => ({
+      ...group.representative,
+      amplitude: Math.min(amplitudeCeiling, Math.sqrt(group.energy)),
+      coalescedCount: group.pathKeys.length,
+      pathCount: group.pathKeys.length,
+      pathKeys: group.pathKeys,
+      arrivalEdgeIds: group.arrivalEdgeIds,
+      previousNodeIds: group.previousNodeIds,
+    }))
+    .sort(eventComparison)
+    .slice(0, maximum);
+}
+
+const quadrant = (value) => Math.min(3, Math.floor(clamp(value) * 4));
+
+function wrappedTurn01(radians) {
+  return ((finite(radians) / (Math.PI * 2)) % 1 + 1) % 1;
+}
+
+function graphNodeDegree(graph, nodeId) {
+  const incoming = Number(graph?.indegree?.[nodeId]);
+  const outgoing = Number(graph?.outdegree?.[nodeId]);
+  if (Number.isFinite(incoming) && Number.isFinite(outgoing)) {
+    return Math.max(0, incoming) + Math.max(0, outgoing);
+  }
+  return (Array.isArray(graph?.edges) ? graph.edges : []).reduce((degree, edge) => (
+    degree + (edge?.from === nodeId ? 1 : 0) + (edge?.to === nodeId ? 1 : 0)
+  ), 0);
+}
+
+function graphMaximumDegree(graph) {
+  const nodeCount = Math.max(0, graph?.nodes?.length ?? 0);
+  let maximum = 0;
+  for (let nodeId = 0; nodeId < nodeCount; nodeId += 1) {
+    maximum = Math.max(maximum, graphNodeDegree(graph, nodeId));
+  }
+  return maximum;
+}
+
+function routePhase(value) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return Math.abs(Math.floor(numeric)) % 4;
+  const source = String(value ?? "entry");
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (hash * 31 + source.charCodeAt(index)) % 4;
+  }
+  return hash;
+}
+
+/** Map graph position, route, depth, or turn data onto the shared 4 x 4 bank. */
+export function graphDrumVoiceIndex(event = {}, graph = {}, {
+  mode = "node-turn",
+  voiceOffset = 0,
+} = {}) {
+  const nodeCount = Math.max(1, graph?.nodes?.length ?? 1);
+  const nodeId = Math.abs(Math.floor(finite(event.nodeId, 0)));
+  const node = graph?.nodes?.[nodeId] ?? {};
+  let row;
+  let column;
+  if (mode === "position-grid") {
+    row = 3 - quadrant(node.y);
+    column = quadrant(node.x);
+  } else if (mode === "degree-turn") {
+    row = Math.min(3, Math.max(0, Math.floor(graphNodeDegree(graph, nodeId))));
+    column = quadrant(
+      (clamp(event.localTurn, -Math.PI, Math.PI, 0) + Math.PI) / (Math.PI * 2),
+    );
+  } else if (mode === "path-phase") {
+    row = Math.abs(Math.floor(finite(event.depth, 0))) % 4;
+    const identity = event.arrivalEdgeId ?? event.pathKey ?? nodeId;
+    column = (routePhase(identity) + positiveInteger(event.feedbackCount, 0)) % 4;
+  } else if (mode === "depth-route" || mode === "route-depth") {
+    row = quadrant(finite(event.depth) / Math.max(1, nodeCount - 1));
+    column = Math.abs(Math.floor(finite(event.arrivalEdgeId, nodeId))) % 4;
+  } else if (mode === "feedback-turn") {
+    row = Math.min(3, Math.max(0, Math.floor(finite(event.feedbackCount))));
+    column = quadrant(wrappedTurn01(event.cumulativeTurn));
+  } else {
+    row = nodeId % 4;
+    column = quadrant(wrappedTurn01(event.cumulativeTurn));
+  }
+  const offset = Math.floor(finite(voiceOffset, 0));
+  return ((row * 4 + column + offset) % 16 + 16) % 16;
+}
+
+/** Shape one member of the shared FM drum bank from a graph arrival. */
+export function mappedGraphDrumVoice(baseVoice = {}, event = {}, graph = {}, options = {}) {
+  const pitchDepth = options.pitchDepth ?? 9;
+  const turnPitchAmount = options.turnPitchAmount ?? 0.35;
+  const characterDepth = options.characterDepth ?? 0.72;
+  const eventCount = options.eventCount ?? 1;
+  const node = graph?.nodes?.[event.nodeId] ?? { x: 0.5, y: 0.5 };
+  const depth = clamp(
+    finite(event.depth) / Math.max(1, (graph?.nodes?.length ?? 2) - 1),
+  );
+  const turnForce = clamp(Math.abs(finite(event.localTurn)) / Math.PI);
+  const character = clamp(characterDepth);
+  const feedbackRetention = clamp(
+    options.feedbackTone ?? options.feedbackDamping,
+    0.1,
+    1,
+    0.84,
+  )
+    ** positiveInteger(event.feedbackCount, 0, MAX_GRAPH_FEEDBACK_PASSES);
+  const verticalSemitones = (0.5 - clamp(node.y, 0, 1, 0.5))
+    * 2
+    * clamp(pitchDepth, 0, 24, 9);
+  const requestedTurnDepth = Number(options.turnPitchDepth);
+  const turnSemitones = Number.isFinite(requestedTurnDepth)
+    ? clamp(
+      clamp(finite(event.localTurn) / Math.PI, -1, 1, 0) * 0.7
+        + clamp(finite(event.cumulativeTurn) / (Math.PI * 2), -1, 1, 0) * 0.3,
+      -1,
+      1,
+      0,
+    ) * clamp(requestedTurnDepth, 0, 48, 9)
+    : finite(event.cumulativeSemitones) * clamp(turnPitchAmount, 0, 2, 0.35);
+  const semitones = verticalSemitones + turnSemitones;
+  const baseFrequency = clamp(baseVoice?.frequency, 20, 12_000, 60);
+  const baseTone = clamp(baseVoice?.tone, 0, 1, 0.5);
+  const baseModIndex = clamp(baseVoice?.modIndex, 0, 20, 3);
+  const baseLevel = clamp(baseVoice?.level ?? baseVoice?.gain, 0, 1, 0.7);
+  const amplitude = clamp(event.amplitude, 0, 1, 1);
+  const headroom = 1 / Math.sqrt(Math.max(1, finite(eventCount, 1)));
+  const force = clamp(0.5 + depth * 0.2 + turnForce * 0.3);
+  const level = clamp(baseLevel * amplitude * force * headroom);
+  const toneCharacter = Math.max(depth, turnForce, 1 - clamp(node.x, 0, 1, 0.5));
+  const tone = clamp(
+    (baseTone * (1 - character) + toneCharacter * character) * feedbackRetention,
+  );
+  const modIndex = clamp(
+    baseModIndex * (1 - character * 0.35)
+      + baseModIndex * (0.55 + turnForce * 0.9 + depth * 0.35) * character,
+    0,
+    20,
+    baseModIndex,
+  );
+  return {
+    ...baseVoice,
+    voiceIndex: graphDrumVoiceIndex(event, graph, {
+      mode: options.mappingMode ?? options.mode ?? "node-turn",
+      voiceOffset: options.voiceOffset,
+    }),
+    frequency: clamp(baseFrequency * 2 ** (semitones / 12), 20, 12_000, baseFrequency),
+    tone,
+    modIndex,
+    level,
+    gain: level,
+    attack: clamp(baseVoice?.attack, 0.0005, 2, 0.001),
+    decay: clamp(baseVoice?.decay, 0.02, 4, 0.14),
+  };
+}
+
+const scale = (...degrees) => Object.freeze(degrees);
+const MINOR_PENTATONIC_SCALE = scale(0, 3, 5, 7, 10);
+const WHOLE_TONE_SCALE = scale(0, 2, 4, 6, 8, 10);
+const OCTAVE_SCALE = scale(0);
+const JUST_RATIOS = Object.freeze([
+  1,
+  16 / 15,
+  9 / 8,
+  6 / 5,
+  5 / 4,
+  4 / 3,
+  45 / 32,
+  3 / 2,
+  8 / 5,
+  5 / 3,
+  9 / 5,
+  15 / 8,
+]);
+
+export const GRAPH_JUST_SEMITONES = Object.freeze(
+  JUST_RATIOS.map((ratio) => 12 * Math.log2(ratio)),
+);
+
+export const GRAPH_SYNTH_SCALES = Object.freeze({
+  chromatic: scale(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11),
+  major: scale(0, 2, 4, 5, 7, 9, 11),
+  minor: scale(0, 2, 3, 5, 7, 8, 10),
+  dorian: scale(0, 2, 3, 5, 7, 9, 10),
+  mixolydian: scale(0, 2, 4, 5, 7, 9, 10),
+  pentatonic: scale(0, 2, 4, 7, 9),
+  minorPentatonic: MINOR_PENTATONIC_SCALE,
+  "minor-pentatonic": MINOR_PENTATONIC_SCALE,
+  wholeTone: WHOLE_TONE_SCALE,
+  "whole-tone": WHOLE_TONE_SCALE,
+  octaves: OCTAVE_SCALE,
+});
+
+function graphScaleDegrees(requestedScale) {
+  const source = typeof requestedScale === "string"
+    ? GRAPH_SYNTH_SCALES[requestedScale]
+    : Array.isArray(requestedScale)
+      ? requestedScale
+      : requestedScale?.degrees;
+  const degrees = [...new Set((source ?? GRAPH_SYNTH_SCALES.major)
+    .map((degree) => finite(degree, NaN))
+    .filter(Number.isFinite)
+    .map((degree) => ((degree % 12) + 12) % 12))]
+    .sort((first, second) => first - second);
+  return degrees.length ? degrees : GRAPH_SYNTH_SCALES.major;
+}
+
+/** Quantize a signed interval across octave boundaries to the nearest degree. */
+export function quantizeGraphSemitones(semitones, requestedScale = "major", root = 0) {
+  const value = finite(semitones, 0);
+  const rootSemitones = finite(root, 0);
+  const relative = value - rootSemitones;
+  const octave = Math.floor(relative / 12);
+  const degrees = graphScaleDegrees(requestedScale);
+  let closest = octave * 12 + degrees[0];
+  let closestDistance = Math.abs(relative - closest);
+  for (let candidateOctave = octave - 1; candidateOctave <= octave + 1; candidateOctave += 1) {
+    for (const degree of degrees) {
+      const candidate = candidateOctave * 12 + degree;
+      const distance = Math.abs(relative - candidate);
+      if (
+        distance < closestDistance - 1e-12
+        || (Math.abs(distance - closestDistance) <= 1e-12 && candidate < closest)
+      ) {
+        closest = candidate;
+        closestDistance = distance;
+      }
+    }
+  }
+  return closest + rootSemitones;
+}
+
+/** Snap an interval to any equal division of the octave (N-EDO). */
+export function quantizeGraphEqualDivision(semitones, divisions = 12, root = 0) {
+  const value = finite(semitones, 0);
+  const rootSemitones = finite(root, 0);
+  const divisionCount = Math.max(1, Math.round(clamp(
+    divisions,
+    1,
+    MAX_GRAPH_EQUAL_DIVISIONS,
+    12,
+  )));
+  const step = 12 / divisionCount;
+  return rootSemitones + Math.round((value - rootSemitones) / step) * step;
+}
+
+/** Snap an interval to a rational just-intonation ratio in any octave. */
+export function quantizeGraphJustSemitones(semitones, root = 0) {
+  return quantizeGraphSemitones(semitones, GRAPH_JUST_SEMITONES, root);
+}
+
+/** Apply the user-facing Pure / N-EDO / Just tuning contract. */
+export function tuneGraphSemitones(semitones, {
+  mode = "equal",
+  divisions = 12,
+  root = 0,
+} = {}) {
+  if (mode === "pure" || mode === "continuous" || mode === "free") {
+    return finite(semitones, 0);
+  }
+  if (mode === "just") return quantizeGraphJustSemitones(semitones, root);
+  return quantizeGraphEqualDivision(semitones, divisions, root);
+}
+
+const GRAPH_SYNTH_MAPPING_MODES = new Set(["turn", "height", "degree", "progress"]);
+const GRAPH_SYNTH_AUDIO_MODES = new Set(["sine", "fm", "pm", "shepard"]);
+const GRAPH_SYNTH_WAVEFORMS = new Set(["sine", "triangle", "sawtooth", "square"]);
+
+/** Convert a graph arrival into a bounded, scheduler-ready synth voice. */
+export function graphSynthVoice(event = {}, graph = {}, options = {}) {
+  const nodeId = Math.max(0, Math.floor(finite(event.nodeId)));
+  const node = graph?.nodes?.[nodeId] ?? { x: 0.5, y: 0.5 };
+  const mappingMode = GRAPH_SYNTH_MAPPING_MODES.has(options.mappingMode)
+    ? options.mappingMode
+    : GRAPH_SYNTH_MAPPING_MODES.has(options.mode)
+      ? options.mode
+      : "turn";
+  const rootFrequency = Number.isFinite(Number(options.rootMidiNote))
+    ? 440 * 2 ** ((clamp(options.rootMidiNote, 0, 127, 45) - 69) / 12)
+    : clamp(options.rootFrequency ?? options.baseFrequency, 20, 20_000, 110);
+  const pitchRange = clamp(options.pitchRange, 0, 8, 2);
+  const pitchSpanSemitones = pitchRange * 12;
+  const halfPitchSpan = pitchSpanSemitones * 0.5;
+  const maximumDegree = graphMaximumDegree(graph);
+  const nodeDegree = graphNodeDegree(graph, nodeId);
+  let mappedSemitones;
+  if (mappingMode === "height") {
+    mappedSemitones = (0.5 - clamp(node.y, 0, 1, 0.5)) * pitchSpanSemitones;
+  } else if (mappingMode === "degree") {
+    const degreePosition = maximumDegree > 0 ? nodeDegree / maximumDegree : 0.5;
+    mappedSemitones = (degreePosition - 0.5) * pitchSpanSemitones;
+  } else if (mappingMode === "progress") {
+    mappedSemitones = (clamp(node.x, 0, 1, 0.5) - 0.5) * pitchSpanSemitones;
+  } else {
+    mappedSemitones = finite(event.cumulativeSemitones);
+  }
+  const positionPitchDepth = clamp(options.positionPitchDepth, 0, 24, 0);
+  const depthPitch = finite(options.depthSemitones, 0) * Math.max(0, finite(event.depth));
+  const rawSemitones = finite(options.transpose) + clamp(
+    mappedSemitones
+      + (0.5 - clamp(node.y, 0, 1, 0.5)) * 2 * positionPitchDepth
+      + depthPitch,
+    -halfPitchSpan,
+    halfPitchSpan,
+    0,
+  );
+  const requestedTuningMode = options.tuningMode ?? options.tuning;
+  const tuningMode = ["pure", "continuous", "free", "equal", "just"].includes(
+    requestedTuningMode,
+  )
+    ? requestedTuningMode
+    : null;
+  const edoDivisions = Math.max(1, Math.round(clamp(
+    options.edoDivisions ?? options.divisions,
+    1,
+    MAX_GRAPH_EQUAL_DIVISIONS,
+    12,
+  )));
+  const semitones = options.quantize === false
+    ? rawSemitones
+    : tuningMode
+      ? tuneGraphSemitones(rawSemitones, {
+        mode: tuningMode,
+        divisions: edoDivisions,
+        root: options.scaleRoot,
+      })
+      : quantizeGraphSemitones(rawSemitones, options.scale ?? "major", options.scaleRoot);
+  const minimumFrequency = clamp(options.minFrequency, 20, 20_000, 20);
+  const maximumFrequency = clamp(
+    options.maxFrequency,
+    minimumFrequency,
+    20_000,
+    Math.max(minimumFrequency, 16_000),
+  );
+  const amplitude = clamp(event.amplitude, 0, 1, 1);
+  const voiceCount = Math.max(1, finite(options.eventCount ?? options.voiceCount, 1));
+  const gain = clamp(
+    amplitude * clamp(options.level ?? options.gain, 0, 1, 0.42) / Math.sqrt(voiceCount),
+  );
+  const spread = clamp(options.stereoSpread ?? options.spread, 0, 1, 0.82);
+  const pan = clamp((clamp(node.y, 0, 1, 0.5) - 0.5) * 2 * spread, -1, 1, 0);
+  const feedbackCount = positiveInteger(
+    event.feedbackCount,
+    0,
+    MAX_GRAPH_FEEDBACK_PASSES,
+  );
+  const feedbackDamping = clamp(
+    options.feedbackTone ?? options.feedbackDamping,
+    0.1,
+    1,
+    0.86,
+  ) ** feedbackCount;
+  const geometryBrightness = 0.35 + (1 - clamp(node.x, 0, 1, 0.5)) * 0.65;
+  const brightness = clamp(geometryBrightness * feedbackDamping);
+  const cutoff = clamp(
+    clamp(options.filterFrequency ?? options.cutoff, 80, 20_000, 9_000)
+      * (0.3 + brightness * 0.7),
+    80,
+    20_000,
+    6_000,
+  );
+  const requestedSoundMode = typeof options.soundMode === "string"
+    ? options.soundMode
+    : typeof options.mode === "string" && !GRAPH_SYNTH_MAPPING_MODES.has(options.mode)
+      ? options.mode
+      : "sine";
+  const mode = GRAPH_SYNTH_AUDIO_MODES.has(requestedSoundMode)
+    ? requestedSoundMode
+    : "sine";
+  const requestedWaveform = typeof options.waveform === "string"
+    ? options.waveform
+    : requestedSoundMode;
+  const waveform = GRAPH_SYNTH_WAVEFORMS.has(requestedWaveform)
+    ? requestedWaveform
+    : "sine";
+  const modulationIndex = clamp(
+    options.modulationIndex ?? options.modIndex,
+    0,
+    20,
+    0,
+  );
+  const modulationRatio = clamp(
+    options.modulationRatio ?? options.modRatio,
+    0.125,
+    16,
+    1.5,
+  );
+  return {
+    nodeId,
+    time: Math.max(0, finite(event.time)),
+    feedbackCount,
+    mappingMode,
+    pitchRange,
+    rawSemitones,
+    semitones,
+    tuningMode: tuningMode ?? "legacy-scale",
+    edoDivisions,
+    frequency: clamp(rootFrequency * 2 ** (semitones / 12), minimumFrequency, maximumFrequency),
+    gain,
+    level: gain,
+    pan,
+    stereoSpread: spread,
+    brightness,
+    tone: brightness,
+    cutoff,
+    mode,
+    soundMode: requestedSoundMode,
+    waveform,
+    modulationIndex,
+    modIndex: modulationIndex,
+    modulationRatio,
+    modRatio: modulationRatio,
+    attack: clamp(options.attack, 0.001, 2, 0.008),
+    release: clamp(options.release, 0.01, 8, 0.38),
+    duration: clamp(options.duration, 0.01, 16, 0.45),
+    velocity: Math.round(clamp(gain * 127, 1, 127, 1)),
+  };
+}
+
+/** Return the interval between root graph pulses; positional arguments are BPM first. */
+export function graphPulseIntervalSeconds(tempo = 120, pulseBeats = 1) {
+  let bpm = tempo;
+  let beats = pulseBeats;
+  if (tempo && typeof tempo === "object") {
+    bpm = tempo.tempo ?? tempo.tempoBpm ?? 120;
+    beats = tempo.pulseBeats ?? tempo.beats ?? 1;
+  }
+  return clamp(beats, 1 / 16, 16, 1) * 60 / clamp(bpm, 20, 400, 120);
+}

@@ -1,0 +1,130 @@
+# Graph Instruments Research
+
+## Goal
+
+Add two instruments that apply Morphazoid's existing recursive-instrument ideas to a general directed graph:
+
+- **Graph Drum Machine**: a source hit enters the graph; node arrivals trigger mapped FM drums.
+- **Graph Synth**: a built-in synth excitation enters the graph; delays, turns, branches, sinks, and cycles shape the audible signal.
+
+Both instruments should use the same generated graph and the same edge-time/gain contract. An acyclic graph has a finite first pass. A cyclic graph audibly returns to an earlier node like a bounded delay: every edge contributes time, while each designated cycle-closing edge applies one feedback decay and one tone loss per lap.
+
+## Existing design lineage
+
+### L-System synth
+
+`src/l-system.js` is the reusable grammar and traversal layer. Important exports are `L_SYSTEM_PRESETS`, `expandLSystem`, `traceLSystem`, `advanceLSystemTraversal`, `iterationPlaybackAtPhase`, `allocateIterationVoiceHeads`, `branchAngleFrequency`, `branchVoiceGain`, and `normalizeLSystemPoint`.
+
+`l-system-app.js` turns each active branch head into a continuous voice. `voiceForPlayhead` maps inherited turn, depth, progress, and position to pitch, timbre, gain, and pan; `voicesForPlayheads` preserves branch power and iteration-layer headroom. It uses `VoicePool`, `pitch01ToFrequency`, and `synthParametersForMode` from `src/audio.js` for Sine, FM, PM, and Shepard modes. The useful principle is that the visible traversal and the audio read the same structural state.
+
+### L-System Drum Machine
+
+`src/l-system-drums.js` supplies the discrete-event layer. `lSystemDrumEventsForTraversal` detects every newly entered segment subdivision, including samples around loop wraps and ping-pong reflections. `lSystemDrumVoiceIndex`, `groupedLSystemDrumEvents`, `mappedLSystemDrumVoice`, and `styledLSystemDrumVoice` turn depth, inherited turn, generation, phase, position, and simultaneous-head count into a bounded sixteen-voice drum result.
+
+`l-system-drums-app.js` uses `FmDrumAudio` from `src/fm-drums.js`. In particular, `FmDrumAudio.trigger(voice, { startAt, startDelaySeconds })` already supports absolute AudioContext scheduling and is suitable for graph-arrival events. The instrument also establishes useful limits: 240 hits per second, 24 hits per display frame, grouping of coincident hits, and square-root headroom.
+
+### L-System Delay / microphone instrument
+
+`src/micmic.js` turns recursive descendants into delayed audio voices. `generationTopology` builds the exact bounded rewrite, while `generationVoiceSpecs` inherits cumulative delay and cumulative turn-to-pitch along each parent path. Its gain law decays by generation and normalizes voices within a generation. `recursionParameters`, `estimateGenerations`, `generationCountForDepth`, and `generationTailSeconds` show the existing finite-tail and silence-floor conventions.
+
+The hard bounds are also relevant: `MAX_RECURSION_FEEDBACK = 0.96`, thirteen generation stages, 1–3000 ms time folds, a 39-second usable history, 128 branches per generation, and adaptive audio pruning. `micmic-app.js`, `src/micmic-generation-dsp.js`, `src/micmic-generation-processor.js`, `src/signalsmith-generation-bank.js`, and `src/granular-economy-renderer.js` implement microphone capture and pitch-shifted descendant playback. The reusable idea is inherited time, pitch, amplitude, and stereo state along one structural lineage; the new graph instruments do not need microphone permission or this heavier renderer.
+
+### Graph Delay
+
+`src/graph-delay.js` should remain the canonical graph kernel rather than being copied. It provides:
+
+- `GRAPH_PRESETS` and `GRAPH_DELAY_PATCHES`;
+- `generateGraph` and `generateGraphWithinTurnBudget`;
+- `annotateCycles`, using strongly connected components;
+- `graphTurnRoutings`, `nodeTurnRouting`, and `turnPitchSemitones`;
+- `graphSinkNodeIds` and `graphNodePans`;
+- `graphEdgeSwitchMultipliers` and `edgeAudioParameters`;
+- the microphone safety constants `MAX_GRAPH_NODES = 24`, `MAX_GRAPH_FEEDBACK = 0.92`, and `MAX_GRAPH_TURN_ROUTES = 192`, plus an opt-in 512-node generator ceiling used only by the event instruments.
+
+The supplied topologies cover Chain, Tree, DAG, Bipartite, Ring, Small World, Hub, Mesh, Modular, and seeded Random graphs. After cycle annotation, `generateGraph` marks a stable cycle-closing route with `feedbackEdge: edge.cyclic && edge.to <= edge.from`. This distinction is essential: an edge can be inside a strongly connected component without attenuating every intermediate step.
+
+`edgeAudioParameters` maps geometric edge length to 4 ms–2 s of delay. Its normal pass gain is `nodePass / sqrt(indegree * outdegree)`; only a `feedbackEdge` multiplies that result by the bounded feedback amount. Thus a simple ring at `nodePass = 1` loses exactly one feedback factor per complete lap, not one factor at every node. Existing tests also verify that dense and route-masked cyclic graphs remain below unity.
+
+`graph-delay-app.js` demonstrates the audio-rate realization in `buildAudioGraphNodes`: each edge is an `input bus -> route switch -> DelayNode -> GainNode`; a feedback edge additionally passes through a low-pass filter before returning to the target node. Relative incoming-to-outgoing turns are pitch shifted by `src/graph-turn-processor.js`. Only forward sinks are tapped to the wet output, then a compressor and soft clipper protect the final bus. This is the direct starting point for Graph Synth.
+
+## Shared graph contract
+
+Both new pages should generate their model through `generateGraphWithinTurnBudget`, derive enabled-route gains with `graphEdgeSwitchMultipliers`, and derive timing and amplitude with `edgeAudioParameters`. Node dragging may change delay and turn mappings, but not node identity or edge identity. Seeded graphs must remain deterministic.
+
+For every enabled route `e`:
+
+```text
+arrivalTime(next) = arrivalTime(current) + e.delaySeconds
+amplitude(next)   = amplitude(current) * e.gain * switchMultiplier(e)
+```
+
+Forward edges preserve the normalized pass level. A `feedbackEdge` additionally applies `feedback <= 0.92`. Tone state is unchanged on forward edges and loses brightness once on each feedback edge; the audio-rate form uses the existing low-pass cutoff, while the event form carries a normalized brightness value through an equivalent one-pole decay. A ring therefore repeats after the sum of its edge delays, at one feedback factor and one damping step per lap.
+
+Do not infer cycling from the preset name: use `graph.cyclic` and `edge.feedbackEdge`, especially for Random. Acyclic graphs must end naturally and must not manufacture echo repetitions.
+
+## Graph Drum Machine semantics
+
+A clock, pad, computer key, pointer strike, or MIDI note injects one event into every graph entry (or node zero when a graph has no zero-indegree entry). A priority queue, ordered by absolute AudioContext time, advances events along enabled edges. Each node arrival produces at most one audible strike for a coincident source pulse, then schedules outgoing arrivals using the shared contract. `FmDrumAudio.trigger` should receive `startAt`; JavaScript timers should not define rhythm.
+
+Suggested selectable mappings, parallel to L-System Drum Machine, are:
+
+1. **Path depth × turn**: shortest forward depth chooses the four-row family; signed relative turn chooses the column.
+2. **Stage position**: node Y chooses the row and X chooses the column.
+3. **Degree × cycle phase**: indegree/outdegree class chooses the row; SCC position or lap phase chooses the column.
+
+Vertical position and accumulated turn can retune the chosen drum. Indegree/outdegree can shape tone/noise or decay. Arrival amplitude sets strike level; simultaneous arrivals use square-root normalization. Reuse `cloneDefaultFmDrumVoices`, `sanitizeFmDrumVoice`, `mappedLSystemDrumVoice`-style parameter shaping, and the existing sixteen-slot keyboard/MIDI convention without overwriting the user's saved FM drum bank.
+
+In a cycle, a returned event is a real delayed retrigger with reduced amplitude and darker tone. The final event scheduler stops propagation below an amplitude floor of 0.001, beyond a 1,024-second defensive horizon, at 8,192 path events, or at the bounded feedback/depth limits. It reserves real node arrivals before adding evenly distributed edge-subdivision ticks, so a 512-node chain with sixteen divisions reaches every node. The page then performs its own musical decimation: at most 768 drum or 1,024 synth attacks per source pulse, at most 96 native attacks in one display frame, with sounded leaf/node milestones prioritized over decorative subdivision playheads.
+
+## Graph Synth semantics
+
+Graph Synth replaces Graph Delay's microphone terminal with a permission-free built-in excitation. A played note or transport gate creates a Sine, FM, PM, or Shepard source using the mappings and envelope language of the L-System synth. The implemented event-domain form schedules each node arrival on the AudioContext clock using the same edge timing and gain math as Graph Delay:
+
+- edge length controls delay time;
+- an incoming-to-outgoing signed turn controls inherited pitch interval;
+- node position controls pan and can optionally control pitch or timbre;
+- branching uses normalized energy;
+- every reached node emits an audible one-shot;
+- a cycle-closing edge schedules the inherited voice again after the remaining edge times, with feedback gain and brightness damping applied once per lap.
+
+This makes a cyclic Graph Synth a network-delay event instrument, not an LFO imitation or a merely visual loop. The event scheduler retains incoming-route provenance through merges, so the following edge receives the correct local turn. Structural rebuilds cancel incompatible scheduled arrivals and fade active voices before adopting the new graph. Moving nodes, arranging, scattering, or animating geometry does not relaunch a traversal: already-scheduled attacks remain untouched while unscheduled future path events are retimed/remapped outside the audio lookahead window.
+
+Useful sound mappings are Turn -> pitch, Y -> pitch, Degree -> FM/PM depth, Path time -> envelope phase, and SCC/lap -> brightness. Keep one direct/root voice option so an acyclic graph with a long first edge responds immediately. Cyclic tails must be cleared by Audio off, Panic, page hide, topology reset, and page exit.
+
+## Safety and performance bounds
+
+- Keep the microphone Graph Delay at 3–24 nodes and 192 relative-turn routes. The event instruments opt into 3–512 nodes and a 4,096-turn-route generation budget; `generateGraphWithinTurnBudget` reduces density when needed.
+- Keep edge delay within 0.004–2 seconds, `nodePass` within 0–1, feedback within 0–0.92, and per-return tone/brightness retention within 0.2–1.
+- Preserve split/merge normalization and use `graphEdgeSwitchMultipliers`; closing one merge input must not amplify another input.
+- Retain a protected output, conservative master maximum, and click-safe gain ramps; Graph Synth uses its own bounded compressor-backed one-shot renderer while Graph Drums reuses `FmDrumAudio`.
+- Bound event count, tail time, depth, active traversals, and amplitude as described above. Keep at most 64 live graph traversals and draw only the newest 24; Graph Synth separately caps native simultaneous oscillator voices at 64.
+- Recompute spectral/cycle safety after route switching. Never connect a zero-delay feedback path.
+- Suspend expensive animation under reduced motion and while hidden; stop all AudioContexts and scheduled tails on `pagehide`.
+
+## Interaction, accessibility, and MIDI
+
+Both pages need explicit Audio off/on state, no autoplay, labelled controls and outputs, unique IDs, Reset all, and a terse `aria-live` status for user actions rather than animation frames. The Audio control clears every active and future tail when switched off. The canvas remains keyboard focusable: Space injects a pulse, arrow keys move the selected node, and Enter toggles its first outgoing route. Pointer users can drag nodes and click the visible route switches. Route switches have a non-color state, while cycle-closing routes retain the dashed coral treatment. Reduced motion changes presentation without changing sound.
+
+Register Graph Drum Machine under the `drums` note mode and Graph Synth under `pitched` in `src/instrument-midi-capabilities.js`. The shared browser MIDI adapter can provide the normal sixteen-pad and chromatic-key fallbacks. Hardware MIDI should trigger only the source event/note by default; internally generated feedback echoes should not be sent back out as new MIDI messages, avoiding an external MIDI loop. If graph-event MIDI output is later exposed, it needs a separate opt-in and the same rate/tail bounds.
+
+## Site, build, and test integration
+
+The implemented pages are `graph-drums.html` and `graph-synth.html`, with thin entry modules, the shared `graph-instruments.css` workbench style, `src/graph-instrument-app.js`, the pure `src/graph-instruments.js` scheduler/mapping kernel, and `src/graph-synth-audio.js`. They reuse `src/graph-delay.js`; its topology algorithms are not forked.
+
+Add both tools to `nav.js`, add mandatory card copy to `src/instrument-catalog.js`, classify MIDI in `src/instrument-midi-capabilities.js`, add `assets/instruments/graph-drums.webp` and `assets/instruments/graph-synth.webp`, update the authored desktop/mobile fallback links on related pages, and document both instruments in `README.md`. New untracked runtime files must be listed in the worktree-copy and required-file sections of `scripts/build-site.sh`; update `tests/aws-deployment.test.mjs`, then regenerate `dist-wax` through the build rather than editing generated copies by hand.
+
+Core tests should prove:
+
+- deterministic topology and mappings for a seed;
+- finite completion for every acyclic topology;
+- ring return time equals the sum of edge delays;
+- ring amplitude and brightness lose exactly one feedback/damping step per lap;
+- a 512-node chain reaches all nodes with one through sixteen equal edge subdivisions;
+- tempo and node-position edits preserve pulse count, active-run count, transport phase, and already-scheduled attack count;
+- branching, merging, switching, and simultaneous-event normalization stay bounded;
+- random graphs follow their computed cycle annotation;
+- amplitude floor, tail horizon, hit-rate limit, event queue, panic, and stale-event cancellation work;
+- Graph Synth uses no microphone permission and clears every live feedback tail;
+- markup has labelled controls/unique IDs, navigation resolves both pages, catalogue icons are valid WebP files, MIDI classification is correct, and release/WAX artifacts contain every runtime file.
+
+Run focused tests first, followed by `npm run check`, `npm test`, `node scripts/build-release-site.mjs /tmp/morphazoid-graph-site`, and `npm run check:wax-dist` after regenerating the committed WAX artifact.

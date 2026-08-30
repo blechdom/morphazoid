@@ -278,6 +278,17 @@ for worktree_runtime_file in \
   l-system-drums.css \
   l-system-drums-app.js \
   src/l-system-drums.js \
+  graph-drums.html \
+  graph-synth.html \
+  graph-instruments.css \
+  graph-drums-app.js \
+  graph-synth-app.js \
+  src/graph-instrument-app.js \
+  src/graph-instruments.js \
+  src/graph-synth-audio.js \
+  assets/instruments/graph-drums.webp \
+  assets/instruments/graph-synth.webp \
+  GRAPH_INSTRUMENTS_RESEARCH.md \
   linear-drums.html \
   linear-drums.css \
   linear-drums-app.js \
@@ -862,6 +873,17 @@ required_files=(
   l-system-drums.css
   l-system-drums-app.js
   src/l-system-drums.js
+  graph-drums.html
+  graph-synth.html
+  graph-instruments.css
+  graph-drums-app.js
+  graph-synth-app.js
+  src/graph-instrument-app.js
+  src/graph-instruments.js
+  src/graph-synth-audio.js
+  assets/instruments/graph-drums.webp
+  assets/instruments/graph-synth.webp
+  GRAPH_INSTRUMENTS_RESEARCH.md
   linear-drums.html
   linear-drums.css
   linear-drums-app.js
