@@ -25,9 +25,12 @@ export const HAMBONE_LIMITS = Object.freeze({
   mouthOpening: Object.freeze([0.01, 1.85]),
   tractLengthM: Object.freeze([0.035, 0.52]),
   nasalMix: Object.freeze([0, 1]),
+  dooPitch: Object.freeze([-24, 24]),
+  earSpread: Object.freeze([0, 1]),
+  eyeDivergence: Object.freeze([0, 1]),
   silliness: Object.freeze([0, 1]),
   decay: Object.freeze([0.35, 1.8]),
-  tempo: Object.freeze([48, 260]),
+  tempo: Object.freeze([48, 520]),
   swing: Object.freeze([0, 0.46]),
   humanize: Object.freeze([0, 0.45]),
   level: Object.freeze([0, 0.82]),
@@ -46,6 +49,9 @@ export const HAMBONE_DEFAULTS = Object.freeze({
   mouthOpening: 0.48,
   tractLengthM: 0.165,
   nasalMix: 0.14,
+  dooPitch: 0,
+  earSpread: 0.18,
+  eyeDivergence: 0.08,
   silliness: 0.56,
   decay: 0.92,
   tempo: 118,
@@ -90,6 +96,7 @@ export const HAMBONE_GESTURE_CHANNELS = Object.freeze([
   "voicing",
   "aspiration",
   "lipFlutter",
+  "tongueTrill",
 ]);
 
 export const HAMBONE_SOUNDS = Object.freeze([
@@ -165,6 +172,78 @@ export const HAMBONE_SOUNDS = Object.freeze([
     color: "#f07fd0",
     description: "A short breath pulse repeatedly parts loose lips into a beatbox PFF rather than a sustained buzz.",
   }),
+  Object.freeze({
+    id: "kick",
+    label: "KICK",
+    subtitle: "low body thump",
+    key: "9",
+    family: "body",
+    color: "#ff526b",
+    description: "A low-pressure body impulse folds the cheek wall into the mouth cavity for a resonant beatbox kick.",
+  }),
+  Object.freeze({
+    id: "smack",
+    label: "SMACK",
+    subtitle: "other-hand face slap",
+    key: "0",
+    family: "membrane",
+    color: "#ff9257",
+    description: "The opposite hand catches the other cheek, reversing the skin impulse and throwing its resonance across the face.",
+  }),
+  Object.freeze({
+    id: "hee",
+    label: "HEE",
+    subtitle: "ingressive voice",
+    key: "q",
+    family: "vocal",
+    color: "#f4d35e",
+    description: "Air is pulled inward across briefly vibrating vocal folds through a tight, bright HEE-shaped tract.",
+  }),
+  Object.freeze({
+    id: "haw",
+    label: "HAW",
+    subtitle: "egressive voice",
+    key: "w",
+    family: "vocal",
+    color: "#79e5ae",
+    description: "The folds reverse to outward breath while the jaw falls into a short, open HAW vowel.",
+  }),
+  Object.freeze({
+    id: "doo",
+    label: "DOO",
+    subtitle: "pitched round voice",
+    key: "e",
+    family: "vocal",
+    color: "#58dbe8",
+    description: "A compact voiced pulse travels through a rounded DOO tube, transposed by the dedicated DOO pitch control.",
+  }),
+  Object.freeze({
+    id: "mwah",
+    label: "MWAH",
+    subtitle: "suction kiss",
+    key: "r",
+    family: "cavity",
+    color: "#629dff",
+    description: "Projected lips seal around a falling-pressure pocket, then spring open into a wet suction kiss.",
+  }),
+  Object.freeze({
+    id: "drr",
+    label: "DRR",
+    subtitle: "tongue-tip roll",
+    key: "t",
+    family: "tongue",
+    color: "#ae7df2",
+    description: "Oral pressure repeatedly parts a compliant tongue tip for an organic, pressure-driven rolled DRR.",
+  }),
+  Object.freeze({
+    id: "burp",
+    label: "BURP",
+    subtitle: "irregular low fold",
+    key: "y",
+    family: "vocal",
+    color: "#e978bd",
+    description: "An uneven low gas pulse rattles relaxed vocal folds and the full tract into a short human burp.",
+  }),
 ]);
 
 const soundById = new Map(HAMBONE_SOUNDS.map((sound) => [sound.id, sound]));
@@ -227,6 +306,54 @@ export const HAMBONE_PRESETS = Object.freeze([
       cheekVolume: 1.08, cheekTension: 0.9, tonguePosition: 0.96,
       tongueCurl: 1.54, mouthOpening: 0.14, tractLengthM: 0.19,
       nasalMix: 0.18, silliness: 0.62, decay: 0.68,
+    }),
+  }),
+  Object.freeze({
+    id: "vowel-engine",
+    label: "Vowel engine",
+    description: "A supple human-length tract with a mobile tongue and rounded outlet keeps HEE, HAW, and pitched DOO articulate.",
+    settings: freezeSettings({
+      lungPressure: 0.7, lipTension: 0.34, lipRounding: 0.74,
+      cheekVolume: 0.52, cheekTension: 0.3, tonguePosition: 0.76,
+      tongueCurl: 0.28, mouthOpening: 0.46, tractLengthM: 0.172,
+      nasalMix: 0.1, dooPitch: 5, earSpread: 0.34,
+      eyeDivergence: 0.16, silliness: 0.3, decay: 1.08,
+    }),
+  }),
+  Object.freeze({
+    id: "inside-out",
+    label: "Inside-out singer",
+    description: "A short bright tube and forward tongue emphasize the reversal between ingressive HEE and egressive HAW.",
+    settings: freezeSettings({
+      lungPressure: 0.92, lipTension: 0.78, lipRounding: 0.18,
+      cheekVolume: 0.28, cheekTension: 0.68, tonguePosition: 1.28,
+      tongueCurl: 0.74, mouthOpening: 0.3, tractLengthM: 0.115,
+      nasalMix: 0.24, dooPitch: 12, earSpread: 0.24,
+      eyeDivergence: 0.1, silliness: 0.72, decay: 0.74,
+    }),
+  }),
+  Object.freeze({
+    id: "slap-canyon",
+    label: "Slap canyon",
+    description: "Loose, oversized cheeks and a deep tract exaggerate alternating hand contacts, kick thumps, and their stereo tail.",
+    settings: freezeSettings({
+      lungPressure: 0.58, lipTension: -0.2, lipRounding: 0.26,
+      cheekVolume: 1.72, cheekTension: -0.2, tonguePosition: -0.14,
+      tongueCurl: 0.02, mouthOpening: 0.72, tractLengthM: 0.34,
+      nasalMix: 0.08, dooPitch: -9, earSpread: 0.86,
+      eyeDivergence: 0.28, silliness: 0.64, decay: 1.48,
+    }),
+  }),
+  Object.freeze({
+    id: "feral-baron",
+    label: "Feral baron",
+    description: "Relaxed folds, a long throat, and an unruly tongue favor low burps, suction kisses, and unstable DRR rolls.",
+    settings: freezeSettings({
+      lungPressure: 1.18, lipTension: -0.28, lipRounding: 1.1,
+      cheekVolume: 1.26, cheekTension: 0.02, tonguePosition: 0.16,
+      tongueCurl: 1.34, mouthOpening: 0.82, tractLengthM: 0.3,
+      nasalMix: 0.32, dooPitch: -17, earSpread: 0.58,
+      eyeDivergence: 0.7, silliness: 0.96, decay: 1.62,
     }),
   }),
 ]);
@@ -321,6 +448,62 @@ export const HAMBONE_PATTERNS = Object.freeze([
       pff: row([5, 0.5], [13, 0.54]),
     }),
   }),
+  Object.freeze({
+    id: "hee-haw-loop",
+    label: "HEE HAW loop",
+    rows: freezePatternRows({
+      kick: row([0, 1], [8, 0.92]),
+      hee: row([2, 0.78], [10, 0.84]),
+      haw: row([4, 0.9], [12, 1]),
+      doo: row([6, 0.62], [14, 0.74]),
+      smack: row([7, 0.54], [15, 0.72]),
+    }),
+  }),
+  Object.freeze({
+    id: "two-hands",
+    label: "Two hands",
+    rows: freezePatternRows({
+      kick: row([0, 1], [6, 0.72], [8, 0.94], [14, 0.76]),
+      slap: row([2, 0.82], [10, 0.92]),
+      smack: row([4, 0.88], [12, 1]),
+      pop: row([3, 0.46], [11, 0.56]),
+      mwah: row([7, 0.58], [15, 0.74]),
+    }),
+  }),
+  Object.freeze({
+    id: "doo-wop",
+    label: "Pitchy doo-wop",
+    rows: freezePatternRows({
+      kick: row([0, 0.86], [8, 0.92]),
+      doo: row([1, 0.58], [3, 0.72], [5, 0.5], [7, 0.86], [9, 0.64], [11, 0.78], [15, 1]),
+      hee: row([4, 0.52]),
+      haw: row([12, 0.68]),
+      mwah: row([14, 0.62]),
+    }),
+  }),
+  Object.freeze({
+    id: "rolled-and-rude",
+    label: "Rolled & rude",
+    rows: freezePatternRows({
+      kick: row([0, 1], [5, 0.72], [8, 0.9]),
+      drr: row([2, 0.62], [6, 0.8], [10, 0.7], [14, 1]),
+      burp: row([4, 0.86], [12, 1]),
+      tlik: row([3, 0.42], [11, 0.52]),
+      smack: row([7, 0.64], [15, 0.82]),
+    }),
+  }),
+  Object.freeze({
+    id: "sixteen-faces",
+    label: "Sixteen faces",
+    rows: freezePatternRows({
+      bop: row([0, 0.88]), boop: row([1, 0.68]), pop: row([2, 0.72]),
+      tlik: row([3, 0.64]), shh: row([4, 0.58]), shack: row([5, 0.78]),
+      slap: row([6, 0.82]), pff: row([7, 0.66]), kick: row([8, 1]),
+      smack: row([9, 0.86]), hee: row([10, 0.7]), haw: row([11, 0.76]),
+      doo: row([12, 0.72]), mwah: row([13, 0.68]), drr: row([14, 0.82]),
+      burp: row([15, 1]),
+    }),
+  }),
 ]);
 
 export function hambonePattern(id) {
@@ -391,7 +574,8 @@ export function randomizePattern(random = Math.random, density = 0.22) {
   const chance = clamp(density, 0.04, 0.68);
   const result = clonePattern({});
   const weightedSoundIds = Object.freeze([
-    "bop", "bop", "boop", "boop", "pop", "tlik", "tlik", "shh", "shack", "slap", "pff",
+    "bop", "bop", "boop", "pop", "tlik", "shh", "shack", "slap", "pff",
+    "kick", "kick", "smack", "hee", "haw", "doo", "mwah", "drr", "burp",
   ]);
   for (let step = 0; step < HAMBONE_STEP_COUNT; step += 1) {
     const downbeatBias = step % 4 === 0 ? 0.15 : 0;
@@ -426,6 +610,9 @@ export function randomizeHamboneState(source = HAMBONE_DEFAULTS, random = Math.r
     mouthOpening: pick("mouthOpening"),
     tractLengthM: pick("tractLengthM"),
     nasalMix: pick("nasalMix"),
+    dooPitch: pick("dooPitch"),
+    earSpread: pick("earSpread"),
+    eyeDivergence: pick("eyeDivergence"),
     silliness: pick("silliness"),
     decay: pick("decay"),
   }, state);
@@ -473,6 +660,8 @@ export function hamboneGeometry(source = HAMBONE_DEFAULTS) {
   });
 }
 
+// DOO pitch belongs to the folds, while ear spread and eye divergence follow
+// the tract as global effects. They deliberately do not reshape oral sections.
 const HAMBONE_ANATOMY_KEYS = Object.freeze([
   "lipTension",
   "lipRounding",
@@ -843,6 +1032,40 @@ const SOUND_POSES = Object.freeze({
     mouthOpening: 0.1, lipRounding: 0.48, lipTension: -0.18,
     cheekVolume: 0.82, tonguePosition: 0.36, tongueCurl: 0.06,
   }),
+  kick: freezeSettings({
+    mouthOpening: 0.2, lipRounding: 0.46, lipTension: -0.26,
+    cheekVolume: 1.62, cheekTension: -0.22, tonguePosition: -0.2,
+    tongueCurl: -0.08, tractLengthM: 0.28,
+  }),
+  smack: freezeSettings({
+    mouthOpening: 0.34, lipRounding: -0.24, lipTension: 0.16,
+    cheekVolume: 1.54, cheekTension: 1.14, tonguePosition: 0.04,
+  }),
+  hee: freezeSettings({
+    mouthOpening: 0.16, lipRounding: -0.2, lipTension: 0.72,
+    cheekVolume: 0.22, tonguePosition: 1.42, tongueCurl: 0.56,
+  }),
+  haw: freezeSettings({
+    mouthOpening: 1.18, lipRounding: -0.12, lipTension: 0.24,
+    cheekVolume: 0.74, tonguePosition: -0.42, tongueCurl: -0.08,
+  }),
+  doo: freezeSettings({
+    mouthOpening: 0.22, lipRounding: 1.5, lipTension: 0.42,
+    cheekVolume: 0.68, tonguePosition: 0.34, tongueCurl: 0.18,
+  }),
+  mwah: freezeSettings({
+    mouthOpening: 0.045, lipRounding: 1.7, lipTension: 0.22,
+    cheekVolume: 1.06, cheekTension: 0.5, tonguePosition: 0.08,
+  }),
+  drr: freezeSettings({
+    mouthOpening: 0.32, lipRounding: 0.04, lipTension: 0.28,
+    cheekVolume: 0.58, tonguePosition: 1.12, tongueCurl: 1.36,
+  }),
+  burp: freezeSettings({
+    mouthOpening: 0.82, lipRounding: 0.38, lipTension: -0.3,
+    cheekVolume: 1.2, cheekTension: -0.22, tonguePosition: -0.28,
+    tongueCurl: -0.18, tractLengthM: 0.3,
+  }),
 });
 
 const freezeGestureCurve = (points) => Object.freeze(points.map(([phase, value]) => (
@@ -867,6 +1090,7 @@ const GESTURE_CURVE_DEFAULTS = Object.freeze({
   voicing: Object.freeze([[0, 0], [1, 0]]),
   aspiration: Object.freeze([[0, 0], [1, 0]]),
   lipFlutter: Object.freeze([[0, 0], [1, 0]]),
+  tongueTrill: Object.freeze([[0, 0], [1, 0]]),
 });
 
 const defineHamboneGesture = (id, label, curves) => Object.freeze({
@@ -991,6 +1215,90 @@ export const HAMBONE_GESTURE_TRAJECTORIES = Object.freeze({
     aspiration: [[0, 0.12], [0.12, 0.82], [0.72, 0.74], [0.9, 0.08], [1, 0]],
     lipFlutter: [[0, 0], [0.1, 0.72], [0.22, 1], [0.72, 0.9], [0.88, 0.08], [1, 0]],
   }),
+  kick: defineHamboneGesture("kick", "low-pressure body kick", {
+    poseMix: [[0, 0], [0.018, 1], [0.58, 1], [1, 0]],
+    pressure: [[0, 0.04], [0.05, 0.18], [0.14, 0.1], [0.36, 0.025], [1, 0]],
+    cheekImpulse: [[0, 0], [0.035, 0.18], [0.07, -1], [0.13, 0.82], [0.28, -0.28], [0.58, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.055, -0.5], [0.1, 0.72], [0.24, -0.18], [0.5, 0], [1, 0]],
+    voicing: [[0, 0], [0.045, 0.24], [0.16, 0.08], [0.32, 0], [1, 0]],
+    aspiration: [[0, 0], [0.06, 0.1], [0.18, 0], [1, 0]],
+  }),
+  smack: defineHamboneGesture("smack", "opposite-hand cheek impulse", {
+    poseMix: [[0, 0], [0.018, 1], [0.64, 1], [1, 0]],
+    pressure: [[0, 0], [0.09, 0.08], [0.28, 0.025], [1, 0]],
+    turbulence: [[0, 0], [0.06, 0.42], [0.16, 0.08], [1, 0]],
+    cheekImpulse: [[0, 0], [0.04, -0.14], [0.075, 1], [0.14, -0.78], [0.3, 0.24], [0.62, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.075, -0.46], [0.2, 0.14], [0.5, 0], [1, 0]],
+    aspiration: [[0, 0], [0.065, 0.18], [0.17, 0], [1, 0]],
+  }),
+  hee: defineHamboneGesture("hee", "ingressive HEE", {
+    poseMix: [[0, 0], [0.025, 1], [0.84, 1], [1, 0]],
+    pressure: [[0, 0.08], [0.04, 0.72], [0.16, 0.9], [0.7, 0.68], [0.88, 0.08], [1, 0]],
+    constrictionPosition: [[0, 0.7], [1, 0.7]],
+    constriction: [[0, 0.28], [0.08, 0.48], [0.74, 0.44], [0.9, 0.08], [1, 0]],
+    velum: [[0, 0.08], [0.14, 0.18], [0.74, 0.12], [1, 0.06]],
+    turbulence: [[0, 0.06], [0.05, 0.28], [0.72, 0.16], [0.9, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.08, -0.14], [0.4, -0.06], [0.86, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.08, -0.18], [0.72, -0.08], [0.9, 0], [1, 0]],
+    voicing: [[0, 0], [0.035, 0.72], [0.16, 1], [0.7, 0.86], [0.88, 0.06], [1, 0]],
+    aspiration: [[0, 0.1], [0.04, 0.48], [0.18, 0.28], [0.76, 0.2], [0.9, 0], [1, 0]],
+  }),
+  haw: defineHamboneGesture("haw", "egressive HAW", {
+    poseMix: [[0, 0], [0.025, 1], [0.86, 1], [1, 0]],
+    pressure: [[0, 0.08], [0.05, 0.78], [0.18, 1], [0.72, 0.72], [0.9, 0.08], [1, 0]],
+    velum: [[0, 0.08], [0.12, 0.12], [0.78, 0.1], [1, 0.06]],
+    turbulence: [[0, 0.08], [0.045, 0.34], [0.18, 0.16], [0.78, 0.08], [0.92, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.1, 0.18], [0.72, 0.1], [0.9, 0], [1, 0]],
+    jawImpulse: [[0, 0.1], [0.08, 0.86], [0.7, 0.72], [0.9, 0], [1, 0]],
+    voicing: [[0, 0], [0.04, 0.62], [0.15, 0.9], [0.74, 0.76], [0.9, 0.04], [1, 0]],
+    aspiration: [[0, 0.18], [0.04, 0.64], [0.22, 0.3], [0.78, 0.18], [0.92, 0], [1, 0]],
+  }),
+  doo: defineHamboneGesture("doo", "pitched rounded DOO", {
+    poseMix: [[0, 0], [0.025, 1], [0.9, 1], [1, 0]],
+    pressure: [[0, 0.08], [0.045, 0.68], [0.14, 0.88], [0.8, 0.68], [0.92, 0.06], [1, 0]],
+    constrictionPosition: [[0, 0.98], [1, 0.98]],
+    constriction: [[0, 0.12], [0.1, 0.28], [0.82, 0.24], [0.94, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.12, 0.12], [0.78, 0.08], [0.92, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.08, 0.1], [0.82, 0.08], [0.94, 0], [1, 0]],
+    voicing: [[0, 0], [0.035, 0.7], [0.12, 1], [0.8, 0.9], [0.92, 0.04], [1, 0]],
+    aspiration: [[0, 0.06], [0.05, 0.18], [0.82, 0.1], [0.94, 0], [1, 0]],
+  }),
+  mwah: defineHamboneGesture("mwah", "sealed suction kiss", {
+    poseMix: [[0, 0], [0.03, 1], [0.82, 1], [1, 0]],
+    pressure: [[0, 0.02], [0.2, 0.12], [0.46, 0.24], [0.55, 0.62], [0.76, 0.34], [0.9, 0.04], [1, 0]],
+    lipClosure: [[0, 0.82], [0.08, 1], [0.48, 1], [0.54, 0], [1, 0]],
+    lipImpulse: [[0, 0], [0.48, 0], [0.53, 1], [0.64, 0.08], [1, 0]],
+    constrictionPosition: [[0, 0.995], [1, 0.995]],
+    constriction: [[0, 0.76], [0.08, 1], [0.48, 1], [0.54, 0], [1, 0]],
+    turbulence: [[0, 0], [0.48, 0], [0.54, 0.38], [0.68, 0.04], [1, 0]],
+    suction: [[0, 0.16], [0.12, 0.68], [0.42, 1], [0.54, 0], [1, 0]],
+    cheekImpulse: [[0, -0.08], [0.38, -0.58], [0.5, -0.88], [0.56, 0.62], [0.74, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.52, 0.32], [0.68, 0.08], [0.82, 0], [1, 0]],
+    voicing: [[0, 0], [0.53, 0.62], [0.78, 0.42], [0.9, 0], [1, 0]],
+    aspiration: [[0, 0], [0.52, 0.2], [0.68, 0], [1, 0]],
+  }),
+  drr: defineHamboneGesture("drr", "pressure-driven tongue roll", {
+    poseMix: [[0, 0], [0.025, 1], [0.9, 1], [1, 0]],
+    pressure: [[0, 0.08], [0.05, 0.76], [0.16, 1], [0.82, 0.82], [0.94, 0.06], [1, 0]],
+    tongueContact: [[0, 0.14], [0.08, 0.34], [0.84, 0.3], [0.94, 0], [1, 0]],
+    constrictionPosition: [[0, 0.84], [1, 0.84]],
+    constriction: [[0, 0.18], [0.08, 0.58], [0.84, 0.54], [0.94, 0], [1, 0]],
+    turbulence: [[0, 0.04], [0.06, 0.34], [0.84, 0.42], [0.95, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.12, 0.1], [0.84, 0.06], [0.94, 0], [1, 0]],
+    voicing: [[0, 0], [0.045, 0.48], [0.18, 0.72], [0.84, 0.6], [0.94, 0], [1, 0]],
+    aspiration: [[0, 0.1], [0.05, 0.5], [0.82, 0.44], [0.94, 0], [1, 0]],
+    tongueTrill: [[0, 0], [0.045, 0.62], [0.14, 1], [0.84, 0.92], [0.94, 0.04], [1, 0]],
+  }),
+  burp: defineHamboneGesture("burp", "irregular low gastric fold", {
+    poseMix: [[0, 0], [0.025, 1], [0.92, 1], [1, 0]],
+    pressure: [[0, 0.04], [0.04, 0.62], [0.16, 1], [0.31, 0.52], [0.45, 0.92], [0.68, 0.38], [0.8, 0.72], [0.94, 0.04], [1, 0]],
+    velum: [[0, 0.08], [0.18, 0.3], [0.78, 0.22], [1, 0.08]],
+    turbulence: [[0, 0.05], [0.06, 0.28], [0.3, 0.14], [0.46, 0.34], [0.82, 0.16], [0.95, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.08, 0.34], [0.28, -0.14], [0.48, 0.24], [0.72, -0.08], [0.92, 0], [1, 0]],
+    jawImpulse: [[0, 0.04], [0.08, 0.58], [0.34, 0.38], [0.5, 0.72], [0.78, 0.46], [0.94, 0], [1, 0]],
+    voicing: [[0, 0], [0.035, 0.58], [0.14, 1], [0.32, 0.5], [0.46, 0.92], [0.68, 0.42], [0.82, 0.78], [0.94, 0], [1, 0]],
+    aspiration: [[0, 0.12], [0.04, 0.46], [0.26, 0.3], [0.5, 0.52], [0.82, 0.36], [0.95, 0], [1, 0]],
+  }),
 });
 
 export function sampleHamboneGestureCurve(points, normalizedPhase) {
@@ -1031,20 +1339,45 @@ export function physicalVoiceParameters(soundId, source = HAMBONE_DEFAULTS, stri
   const state = hambonePoseForSound(sound.id, source, 0.72);
   const geometry = hamboneGeometry(state);
   const formants = hamboneFormants(state);
-  const pressure = clamp(state.lungPressure * (0.34 + velocityAmount * 0.82), 0, 1.8);
+  const pressureScale = sound.id === "kick"
+    ? 0.26
+    : sound.id === "slap" || sound.id === "smack"
+      ? 0.18
+      : 1;
+  const pressure = clamp(
+    state.lungPressure * (0.34 + velocityAmount * 0.82) * pressureScale,
+    0,
+    1.8,
+  );
   const durationBySound = {
     bop: 0.15, boop: 0.22, pop: 0.14, tlik: 0.095,
     shh: 0.14, shack: 0.18, slap: 0.25, pff: 0.22,
+    kick: 0.28, smack: 0.24, hee: 0.2, haw: 0.24,
+    doo: 0.28, mwah: 0.24, drr: 0.31, burp: 0.42,
   };
   // Vocal-fold pitch and closure belong to the larynx, not the lips. Keep
   // their internal gesture parameters independent even though Hambone's UI
   // intentionally exposes only the face-level controls.
   const glottalBase = 68 + state.lungPressure * 38 + state.silliness * 58;
+  const glottalRatioBySound = {
+    kick: 0.42,
+    hee: 1.48,
+    haw: 0.76,
+    doo: 2 ** (state.dooPitch / 12),
+    mwah: 0.92,
+    drr: 0.82,
+    burp: 0.34,
+  };
+  const glottalRatio = glottalRatioBySound[sound.id]
+    ?? (sound.id === "boop" ? 0.72 : 1);
   const glottalTenseness = clamp(
     0.3
       + state.lungPressure * 0.2
       + state.silliness * 0.12
-      + (sound.id === "boop" ? -0.08 : sound.id === "shack" ? 0.05 : 0),
+      + (sound.id === "boop" ? -0.08 : 0)
+      + (sound.id === "shack" || sound.id === "hee" ? 0.08 : 0)
+      - (sound.id === "haw" ? 0.06 : 0)
+      - (sound.id === "burp" ? 0.2 : 0),
     0.16,
     0.88,
   );
@@ -1061,10 +1394,10 @@ export function physicalVoiceParameters(soundId, source = HAMBONE_DEFAULTS, stri
       0.055,
       1.4,
     ),
-    glottalFrequencyHz: clamp(glottalBase * (sound.id === "boop" ? 0.72 : 1), 42, 360),
+    glottalFrequencyHz: clamp(glottalBase * glottalRatio, 28, 720),
     glottalTenseness,
     flutterFrequencyHz: clamp(flutterBase, 12, 92),
-    membraneFrequencyHz: clamp(membraneBase, 70, 620),
+    membraneFrequencyHz: clamp(sound.id === "kick" ? membraneBase * 0.38 : membraneBase, 34, 620),
     cavityFrequencyHz: geometry.cavityFrequencyHz,
     noiseCenterHz: clamp(noiseCenterBase * (sound.id === "shh" ? 1.32 : 1), 650, 7_600),
     noiseBandwidthHz: clamp(780 + state.mouthOpening * 2_200 + state.silliness * 1_400, 320, 4_600),
@@ -1072,6 +1405,14 @@ export function physicalVoiceParameters(soundId, source = HAMBONE_DEFAULTS, stri
     formantBandwidthsHz: formants.bandwidthsHz,
     nasalFrequencyHz: formants.nasalFrequencyHz,
     nasalMix: state.nasalMix,
+    dooPitch: state.dooPitch,
+    airflowDirection: sound.id === "hee" ? -1 : 1,
+    trillFrequencyHz: clamp(
+      22 + state.tongueCurl * 12 + state.lungPressure * 9 + state.silliness * 7,
+      16,
+      72,
+    ),
+    irregularity: sound.id === "burp" ? clamp(0.62 + state.silliness * 0.36) : 0,
     silliness: state.silliness,
     lipTension: state.lipTension,
     cheekTension: state.cheekTension,
@@ -1081,7 +1422,13 @@ export function physicalVoiceParameters(soundId, source = HAMBONE_DEFAULTS, stri
     mouthOpening: state.mouthOpening,
     // The oral radiator stays in one place; only asymmetric cheek contact gets
     // a restrained spatial offset.
-    pan: sound.id === "slap" ? -0.18 : sound.id === "pop" ? 0.08 : 0,
+    pan: sound.id === "slap"
+      ? -0.42
+      : sound.id === "smack"
+        ? 0.42
+        : sound.id === "pop"
+          ? 0.08
+          : 0,
   });
 }
 

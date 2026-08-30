@@ -102,34 +102,70 @@
   pointer-events: none;
 }
 
-.hambone-stage-heading p,
-.hambone-stage-heading h1,
-.hambone-stage-heading small {
+.hambone-stage-heading h1 {
   margin: 0;
 }
 
-.hambone-stage-heading p {
-  color: rgba(255, 111, 121, 0.82);
-  font-size: 7px;
-  letter-spacing: 0.18em;
-}
-
 .hambone-stage-heading h1 {
-  margin-top: 8px;
   color: rgba(244, 238, 233, 0.94);
-  font-size: clamp(32px, 4.6vw, 64px);
-  font-weight: 360;
-  letter-spacing: -0.07em;
-  line-height: 0.76;
+  font-size: clamp(28px, 4.1vw, 58px);
+  font-weight: 420;
+  letter-spacing: -0.055em;
+  line-height: 0.9;
+  text-shadow: 0 0 24px rgba(255, 111, 121, 0.15);
+  white-space: nowrap;
 }
 
-.hambone-stage-heading small {
-  display: block;
-  margin-top: 12px;
-  color: rgba(154, 142, 147, 0.8);
+.hambone-drag-legend {
+  position: absolute;
+  z-index: 3;
+  top: clamp(18px, 3vh, 34px);
+  right: clamp(16px, 2vw, 30px);
+  display: grid;
+  width: min(300px, 34%);
+  border: 1px solid rgba(255, 177, 93, 0.2);
+  pointer-events: none;
+  background: rgba(8, 5, 7, 0.7);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(7px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hambone-drag-legend span {
+  display: grid;
+  min-width: 0;
+  min-height: 35px;
+  padding: 6px 8px;
+  border-right: 1px solid rgba(244, 238, 233, 0.07);
+  border-bottom: 1px solid rgba(244, 238, 233, 0.07);
+  align-content: center;
+  gap: 2px;
+}
+
+.hambone-drag-legend span:nth-child(2n) {
+  border-right: 0;
+}
+
+.hambone-drag-legend span:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.hambone-drag-legend b,
+.hambone-drag-legend small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hambone-drag-legend b {
+  color: var(--hambone-orange);
   font-size: 7px;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+}
+
+.hambone-drag-legend small {
+  color: rgba(244, 238, 233, 0.6);
+  font-size: 6px;
 }
 
 .hambone-stage-hint {
@@ -139,7 +175,10 @@
   bottom: 16px;
   margin: 0;
   pointer-events: none;
-  color: rgba(255, 177, 93, 0.72);
+  padding: 5px 7px;
+  border: 1px solid rgba(255, 177, 93, 0.16);
+  color: rgba(255, 177, 93, 0.86);
+  background: rgba(8, 5, 7, 0.7);
   font-size: 7px;
   letter-spacing: 0.13em;
   text-align: right;
@@ -364,6 +403,7 @@
 }
 
 .hambone-grid-scroll {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: auto;
@@ -372,7 +412,7 @@
   scrollbar-width: thin;
 }
 
-.hambone-one-mouth-rule {
+.hambone-face-guide {
   display: flex;
   min-height: 18px;
   margin: 0 0 6px;
@@ -384,20 +424,22 @@
   white-space: nowrap;
 }
 
-.hambone-one-mouth-rule b {
+.hambone-face-guide b {
   padding: 3px 6px;
-  border: 1px solid rgba(124, 231, 189, 0.42);
-  color: var(--hambone-mint);
+  border: 1px solid rgba(255, 177, 93, 0.42);
+  color: var(--hambone-orange);
   font-size: 6px;
   letter-spacing: 0.14em;
 }
 
 .hambone-sequence-grid {
   display: grid;
-  min-width: 720px;
-  min-height: calc(100% - 24px);
+  width: max(100%, 790px);
+  min-width: 790px;
+  min-height: 0;
   grid-template-columns: 104px repeat(16, minmax(32px, 1fr));
-  grid-template-rows: 18px repeat(8, minmax(24px, 1fr));
+  grid-template-rows: 20px repeat(16, 29px);
+  align-content: start;
   gap: 3px;
 }
 
@@ -405,9 +447,25 @@
 .hambone-step-number {
   display: grid;
   color: rgba(154, 142, 147, 0.64);
+  background: #0a0709;
   place-items: center;
   font-size: 6px;
   font-variant-numeric: tabular-nums;
+}
+
+.hambone-grid-corner {
+  position: sticky;
+  z-index: 8;
+  top: 0;
+  left: 0;
+  box-shadow: 6px 0 12px rgba(8, 5, 7, 0.72);
+}
+
+.hambone-step-number {
+  position: sticky;
+  z-index: 7;
+  top: 0;
+  border-bottom: 1px solid rgba(244, 238, 233, 0.09);
 }
 
 .hambone-step-number:nth-child(4n + 2) {
@@ -415,6 +473,9 @@
 }
 
 .hambone-row-trigger {
+  position: sticky;
+  z-index: 6;
+  left: 0;
   display: grid;
   min-width: 0;
   padding: 0 8px;
@@ -425,6 +486,7 @@
   grid-template-columns: 48px minmax(0, 1fr);
   align-items: center;
   column-gap: 6px;
+  box-shadow: 6px 0 12px rgba(8, 5, 7, 0.64);
   text-align: left;
 }
 
@@ -513,6 +575,186 @@
   border-color: var(--row-color);
   outline: 1px solid var(--row-color);
   outline-offset: 1px;
+}
+
+/* Three per-step facial effect lanes. JS fills the grid so its values and
+   accessible names remain tied to the current pattern. */
+
+.hambone-effect-contours {
+  width: max(100%, 790px);
+  min-width: 790px;
+  margin-top: 12px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(101, 223, 232, 0.22);
+}
+
+.hambone-effect-contours-header {
+  display: flex;
+  min-height: 39px;
+  margin-bottom: 7px;
+  padding: 0 2px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.hambone-effect-contours-header p,
+.hambone-effect-contours-header h3 {
+  margin: 0;
+}
+
+.hambone-effect-contours-header > div > p {
+  color: var(--hambone-cyan);
+  font-size: 6px;
+  letter-spacing: 0.15em;
+}
+
+.hambone-effect-contours-header h3 {
+  margin-top: 3px;
+  color: var(--hambone-bone);
+  font-size: 11px;
+  font-weight: 560;
+}
+
+.hambone-effect-contours-header > p {
+  max-width: 480px;
+  color: var(--hambone-muted);
+  font-size: 7px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.hambone-effect-contour-grid {
+  display: grid;
+  min-height: 215px;
+  grid-template-columns: 104px repeat(16, minmax(32px, 1fr));
+  grid-template-rows: 20px repeat(3, 62px);
+  gap: 3px;
+}
+
+.hambone-effect-contour-grid:empty::before {
+  display: grid;
+  min-height: 62px;
+  padding: 10px;
+  border: 1px dashed rgba(101, 223, 232, 0.25);
+  color: var(--hambone-muted);
+  content: "Nose / nasal · Ears / stereo delay · Eyes / reverb";
+  grid-column: 1 / -1;
+  place-items: center;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hambone-contour-corner,
+.hambone-contour-step {
+  position: sticky;
+  z-index: 7;
+  top: 0;
+  display: grid;
+  border-bottom: 1px solid rgba(244, 238, 233, 0.09);
+  color: rgba(154, 142, 147, 0.64);
+  background: #0a0709;
+  place-items: center;
+  font-size: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hambone-contour-corner {
+  z-index: 8;
+  left: 0;
+  box-shadow: 6px 0 12px rgba(8, 5, 7, 0.72);
+}
+
+.hambone-contour-step:nth-child(4n + 2),
+.hambone-contour-step.is-current {
+  color: var(--hambone-bone);
+}
+
+.hambone-contour-step.is-current {
+  background: rgba(101, 223, 232, 0.12);
+}
+
+.hambone-contour-label,
+.effect-contour-label,
+.hambone-effect-label {
+  position: sticky;
+  z-index: 6;
+  left: 0;
+  display: grid;
+  min-width: 0;
+  padding: 7px 8px;
+  border-left: 2px solid var(--contour-color, var(--lane-color, var(--hambone-cyan)));
+  color: var(--contour-color, var(--lane-color, var(--hambone-cyan)));
+  background: color-mix(in oklab, var(--contour-color, var(--lane-color, var(--hambone-cyan))) 7%, #0b080a);
+  box-shadow: 6px 0 12px rgba(8, 5, 7, 0.64);
+  align-content: center;
+  gap: 3px;
+  overflow: hidden;
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hambone-contour-label b,
+.effect-contour-label b,
+.hambone-effect-label b {
+  overflow: hidden;
+  color: var(--contour-color, var(--lane-color, var(--hambone-cyan)));
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hambone-contour-label small,
+.effect-contour-label small,
+.hambone-effect-label small {
+  overflow: hidden;
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hambone-contour-cell,
+.effect-contour-step,
+.effect-contour-cell {
+  display: grid;
+  min-width: 0;
+  min-height: 62px;
+  border: 1px solid rgba(244, 238, 233, 0.09);
+  background: color-mix(in oklab, var(--contour-color, var(--lane-color, var(--hambone-cyan))) 4%, #080507);
+  place-items: center;
+}
+
+.hambone-contour-cell:hover,
+.hambone-contour-cell:focus-within,
+.effect-contour-step:hover,
+.effect-contour-step:focus-within,
+.effect-contour-cell:hover,
+.effect-contour-cell:focus-within {
+  border-color: var(--contour-color, var(--lane-color, var(--hambone-cyan)));
+  background: color-mix(in oklab, var(--contour-color, var(--lane-color, var(--hambone-cyan))) 10%, #080507);
+}
+
+.hambone-contour-cell.is-current {
+  box-shadow: inset 0 0 0 1px rgba(244, 238, 233, 0.68);
+}
+
+.hambone-effect-contour-grid input[type="range"],
+.hambone-contour-input,
+.effect-contour-input {
+  width: 22px;
+  height: 48px;
+  min-height: 48px;
+  margin: 0;
+  padding: 0;
+  cursor: ns-resize;
+  accent-color: var(--contour-color, var(--lane-color, var(--hambone-cyan)));
+  appearance: slider-vertical;
+  direction: rtl;
+  writing-mode: vertical-lr;
 }
 
 /* Control panel */
@@ -605,18 +847,18 @@
 
 .hambone-pad-bank {
   display: grid;
-  padding: 8px;
+  padding: 6px;
   border-bottom: 1px solid rgba(244, 238, 233, 0.1);
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
+  gap: 3px;
 }
 
 .hambone-pad-bank button {
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 48px;
-  padding: 7px 19px 7px 8px;
+  min-height: 43px;
+  padding: 6px 17px 6px 7px;
   border: 1px solid color-mix(in oklab, var(--pad-color) 35%, transparent);
   cursor: pointer;
   color: var(--hambone-muted);
@@ -635,8 +877,8 @@
 
 .hambone-pad-bank button b {
   color: var(--pad-color);
-  font-size: 9px;
-  letter-spacing: 0.05em;
+  font-size: 8px;
+  letter-spacing: 0.035em;
 }
 
 .hambone-pad-bank button small {
@@ -869,19 +1111,35 @@
   }
 
   .hambone-stage-heading {
-    top: 18px;
-    left: 16px;
+    top: 14px;
+    left: 13px;
   }
 
-  .hambone-stage-heading p,
-  .hambone-stage-heading small {
-    max-width: 170px;
-    line-height: 1.45;
+  .hambone-stage-heading h1 {
+    font-size: 28px;
   }
 
-  .hambone-stage-heading small,
   .hambone-stage-hint {
     display: none;
+  }
+
+  .hambone-drag-legend {
+    top: 11px;
+    right: 10px;
+    width: min(226px, 62%);
+  }
+
+  .hambone-drag-legend span {
+    min-height: 29px;
+    padding: 4px 6px;
+  }
+
+  .hambone-drag-legend b {
+    font-size: 6px;
+  }
+
+  .hambone-drag-legend small {
+    font-size: 5px;
   }
 
   .hambone-sequencer-header {
@@ -922,16 +1180,39 @@
     grid-template-columns: 100px repeat(16, 40px);
   }
 
+  .hambone-effect-contours {
+    min-width: 790px;
+  }
+
+  .hambone-effect-contour-grid {
+    grid-template-columns: 100px repeat(16, 40px);
+  }
+
+  .hambone-face-guide span {
+    display: none;
+  }
+
   .hambone-step-cell {
     min-height: 30px;
   }
 
   .hambone-pad-bank {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 5px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 3px;
   }
 
   .hambone-pad-bank button {
-    min-height: 52px;
+    min-height: 44px;
+    padding: 5px 14px 5px 5px;
+  }
+
+  .hambone-pad-bank button b {
+    font-size: 7px;
+  }
+
+  .hambone-pad-bank button small {
+    font-size: 5px;
   }
 }
 
