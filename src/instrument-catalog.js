@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260829-3";
+} from "../nav.js?v=catalog-20260829-4";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -36,6 +36,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Makes autonomous arrow playheads into continuous sine voices: height sweeps frequency without note divisions, horizontal position sets stereo, and speed breathes the level.",
     "Turn on audio, let the arrows drift, then drag the open surface to steer the sine field.",
     ["Pointer", "Built-in synth"],
+  ),
+  "surround-field": define(
+    "Multichannel spatial instrument",
+    "Places a playable synth source inside 7:4:1, 4:1, eight-speaker circle, eight-speaker cube, and two-to-thirty-two-channel custom arrays, with visible equal-power sends and per-output calibration.",
+    "Turn on audio to probe the active device, choose an array, then drag the coral source, play the A–K pads, orbit a phrase, or test each numbered output.",
+    ["Pointer", "Built-in synth", "Spatial audio", "Discrete output", "Device probe"],
   ),
   lattice: define(
     "Synth",

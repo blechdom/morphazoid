@@ -183,6 +183,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "micmic",
     "karplus-strong",
     "karplus-carpet",
+    "surround-field",
     "gesturama",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
@@ -228,8 +229,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 7, drums: 19, pitched: 41, sequence: 40 },
-    "all 107 routes have exactly one intentional note behavior",
+    { processor: 7, drums: 19, pitched: 42, sequence: 40 },
+    "all 108 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -285,7 +286,7 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
       );
     }
   }
-  assert.equal(mastheadPages, 106);
+  assert.equal(mastheadPages, 107);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");
