@@ -1,16 +1,56 @@
 import {
-  dominantHarmonic,
+  JAW_HARP_LIMITS,
+  JAW_HARP_MODE_COUNT,
+  effectiveBreathRateBpm,
+  jawHarpPreset,
   mouthFormants,
+  reedMaterialProperties,
   reedModeFrequencies,
   sanitizeJawHarpState,
 } from "./jaw-harp.js";
 
-const MODE_COUNT = 36;
+const MODE_COUNT = JAW_HARP_MODE_COUNT;
 const TELEMETRY_BLOCKS = 10;
 const SILENCE_FLOOR = 1e-9;
+const INHALE_FORMANT_WEIGHTS = Object.freeze([0.96, 0.72, 0.24]);
+const EXHALE_FORMANT_WEIGHTS = Object.freeze([0.48, 1.08, 0.72]);
+const REST_FORMANT_WEIGHTS = Object.freeze([0.7, 0.9, 0.42]);
+const COEFFICIENT_REED = 1;
+const COEFFICIENT_TRACT = 2;
+const COEFFICIENT_FRAME = 4;
+const COEFFICIENT_BREATH = 8;
+const COEFFICIENT_ALL = COEFFICIENT_REED
+  | COEFFICIENT_TRACT
+  | COEFFICIENT_FRAME
+  | COEFFICIENT_BREATH;
+const DISCRETE_CONFIGURATION_KEYS = new Set([
+  "presetId", "vowelId", "repeat", "autoBreath", "breathLinked", "rhythmId",
+  "pluckDirection", "breathFlow",
+]);
 
 function clamp(value, minimum = 0, maximum = 1) {
   return Math.min(maximum, Math.max(minimum, Number.isFinite(value) ? value : minimum));
+}
+
+function coefficientMaskForKey(key) {
+  switch (key) {
+    case "reedFrequencyHz": return COEFFICIENT_REED | COEFFICIENT_FRAME;
+    case "reedDecaySeconds": return COEFFICIENT_REED;
+    case "reedStiffness": return COEFFICIENT_REED | COEFFICIENT_FRAME;
+    case "tonguePosition":
+    case "tongueHeight":
+    case "jawOpening":
+    case "lipRounding":
+    case "glottisOpening":
+    case "formantFocus": return COEFFICIENT_TRACT;
+    case "frameCoupling": return COEFFICIENT_FRAME;
+    case "breathRateBpm":
+    case "repeatRateBpm":
+    case "breathsPerLoop":
+    case "breathLinked":
+    case "rhythmId": return COEFFICIENT_BREATH;
+    default: return 0;
+  }
 }
 
 class StateVariableBandpass {
@@ -60,16 +100,28 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     this.decays = new Float64Array(MODE_COUNT);
     this.mouthFiltersLeft = Array.from({ length: 3 }, () => new StateVariableBandpass(this.rate));
     this.mouthFiltersRight = Array.from({ length: 3 }, () => new StateVariableBandpass(this.rate));
+    this.focusFilterLeft = new StateVariableBandpass(this.rate);
+    this.focusFilterRight = new StateVariableBandpass(this.rate);
     this.frameFilterLeft = new StateVariableBandpass(this.rate);
     this.frameFilterRight = new StateVariableBandpass(this.rate);
     this.noiseState = 0x4a617748;
     this.clickEnvelope = 0;
+    this.attackEnvelope = 0;
     this.clickPolarity = 1;
-    this.breathFlow = 0;
-    this.targetBreathFlow = clamp(this.configuration.breathFlow, -1, 1);
+    this.breathFlow = clamp(
+      this.configuration.breathFlow,
+      JAW_HARP_LIMITS.breathFlow[0],
+      JAW_HARP_LIMITS.breathFlow[1],
+    );
+    this.manualBreathFlow = null;
+    this.breathPhase = 0;
+    this.breathPhaseIncrement = 0;
+    this.effectiveBreathRate = this.configuration.breathRateBpm;
     this.breathNoiseState = 0;
     this.sourceDc = 0;
     this.airGate = 0;
+    this.airPathPrimed = false;
+    this.tineHeld = false;
     this.hasBeenPlucked = false;
     this.reedDisplacement = 0;
     this.energy = 0;
@@ -84,18 +136,55 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
   _handleMessage(message = {}) {
     if (!message || typeof message !== "object") return;
     if (message.type === "configure") {
+      const previousPresetId = this.targetConfiguration.presetId;
       this.targetConfiguration = sanitizeJawHarpState({
         ...this.targetConfiguration,
         ...(message.configuration ?? {}),
       }, this.targetConfiguration);
+      if (this.targetConfiguration.presetId !== previousPresetId) {
+        const wasHeld = this.tineHeld;
+        const manualBreathFlow = this.manualBreathFlow;
+        this._silence();
+        this.tineHeld = wasHeld;
+        this.manualBreathFlow = manualBreathFlow;
+        const preset = jawHarpPreset(this.targetConfiguration.presetId);
+        for (const key of Object.keys(preset.settings)) {
+          this.configuration[key] = this.targetConfiguration[key];
+        }
+        this.configuration.presetId = this.targetConfiguration.presetId;
+        this._updateCoefficients();
+      }
       return;
     }
     if (message.type === "pluck") {
-      this._pluck(message.force, message.direction, message.position);
+      this._pluck(message.force, message.direction, message.position, message.automatic);
       return;
     }
     if (message.type === "breath") {
-      this.targetBreathFlow = clamp(Number(message.flow), -1, 1);
+      const requestedFlow = Number(message.flow);
+      this.manualBreathFlow = message.manual === false
+        ? null
+        : clamp(
+          Number.isFinite(requestedFlow) ? requestedFlow : 0,
+          JAW_HARP_LIMITS.breathFlow[0],
+          JAW_HARP_LIMITS.breathFlow[1],
+        );
+      return;
+    }
+    if (message.type === "breath-cycle-reset") {
+      const phase = Number(message.phase);
+      this.breathPhase = Number.isFinite(phase) ? ((phase % 1) + 1) % 1 : 0;
+      return;
+    }
+    if (message.type === "hold-tine") {
+      this._holdTine();
+      return;
+    }
+    if (message.type === "release-tine") {
+      this.tineHeld = false;
+      if (Number(message.force) > 0) {
+        this._pluck(message.force, message.direction, message.position, false, true);
+      }
       return;
     }
     if (message.type === "silence") this._silence();
@@ -111,127 +200,266 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
   }
 
   _silence() {
+    this.silenced = true;
     this.amplitudes.fill(0);
     this.clickEnvelope = 0;
-    this.targetBreathFlow = 0;
+    this.attackEnvelope = 0;
     this.breathFlow = 0;
+    this.manualBreathFlow = null;
     this.breathNoiseState = 0;
     this.sourceDc = 0;
     this.airGate = 0;
+    this.airPathPrimed = false;
+    this.tineHeld = false;
     this.hasBeenPlucked = false;
     this.energy = 0;
     this.reedDisplacement = 0;
     for (const filter of [
       ...this.mouthFiltersLeft,
       ...this.mouthFiltersRight,
+      this.focusFilterLeft,
+      this.focusFilterRight,
       this.frameFilterLeft,
       this.frameFilterRight,
     ]) filter.reset();
   }
 
-  _pluck(force, direction, position) {
+  _holdTine() {
+    this.amplitudes.fill(0);
+    this.clickEnvelope = 0;
+    this.attackEnvelope = 0;
+    this.sourceDc = 0;
+    this.breathFlow = 0;
+    this.breathNoiseState = 0;
+    this.airGate = 0;
+    this.airPathPrimed = false;
+    this.energy = 0;
+    this.reedDisplacement = 0;
+    this.hasBeenPlucked = false;
+    this.tineHeld = true;
+    for (const filter of [
+      ...this.mouthFiltersLeft,
+      ...this.mouthFiltersRight,
+      this.focusFilterLeft,
+      this.focusFilterRight,
+      this.frameFilterLeft,
+      this.frameFilterRight,
+    ]) filter.reset();
+  }
+
+  _pluck(force, direction, position, _automatic = false, tineRelease = false) {
+    if (this.tineHeld && !tineRelease) return;
     this.silenced = false;
-    const strength = clamp(Number(force), 0.04, 1);
+    this.tineHeld = false;
+    const strength = clamp(
+      Number(force),
+      JAW_HARP_LIMITS.pluckForce[0],
+      JAW_HARP_LIMITS.pluckForce[1],
+    );
     const side = Number(direction) < 0 ? -1 : 1;
     const pluckPosition = clamp(Number(position), 0.05, 0.95);
     const stiffness = this.targetConfiguration.reedStiffness;
-    const spectralSlope = 0.68 + (1 - stiffness) * 0.82;
-    const resetAmount = 0.78;
+    const material = jawHarpPreset(this.targetConfiguration.presetId).material;
+    const physics = reedMaterialProperties(this.targetConfiguration);
+    const spectralSlope = clamp(
+      0.68 + (1 - stiffness) * 0.82
+        - Math.log2(material.brightness) * 0.42
+        - Math.log2(physics.specificModulusRatio) * 0.08,
+      0.38,
+      2.2,
+    );
+    const elasticHeadroom = clamp(physics.elasticLimitStrain / 0.006, 0.5, 1.65);
+    const impulseCoupling = 0.74 + elasticHeadroom * 0.08;
 
     for (let index = 0; index < MODE_COUNT; index += 1) {
       const harmonic = index + 1;
       const positionComb = Math.sin(Math.PI * harmonic * pluckPosition);
-      const amplitude = side * strength * positionComb
+      const excitation = side * strength * impulseCoupling * positionComb
         / Math.pow(harmonic, spectralSlope);
-      this.amplitudes[index] = this.amplitudes[index] * (1 - resetAmount)
-        + amplitude * resetAmount;
-      this.phases[index] = side > 0 ? 0 : Math.PI;
+      if (tineRelease) {
+        // A pulled tine is released from maximum displacement with zero velocity.
+        this.amplitudes[index] = Math.abs(excitation);
+        this.phases[index] = excitation < 0 ? -Math.PI * 0.5 : Math.PI * 0.5;
+      } else {
+        // A retrigger supplies energy without phase-braking a mode that is
+        // already ringing. Dormant modes start from the signed velocity
+        // impulse; active modes retain their phase and gain quadrature energy.
+        const previousAmplitude = this.amplitudes[index];
+        if (previousAmplitude < SILENCE_FLOOR) {
+          this.amplitudes[index] = Math.abs(excitation);
+          this.phases[index] = excitation < 0 ? Math.PI : 0;
+        } else {
+          this.amplitudes[index] = Math.hypot(previousAmplitude, excitation);
+        }
+      }
     }
-    this.clickEnvelope = 0.42 + strength * 0.58;
+    // A weaker follow-up cannot erase the attack that is still decaying from
+    // the preceding strike; it can only add its own click/modal energy.
+    this.clickEnvelope = Math.max(this.clickEnvelope, strength * material.contact);
+    this.attackEnvelope = Math.max(this.attackEnvelope, strength);
     this.clickPolarity = side;
     this.energy = Math.max(this.energy, strength);
-    this.airGate = Math.max(this.airGate, strength * 0.72);
+    this.airGate = Math.max(this.airGate, Math.min(1.6, Math.sqrt(strength) * 0.58));
     this.hasBeenPlucked = true;
   }
 
-  _approachConfiguration() {
-    const smooth = 0.16;
-    const discrete = new Set([
-      "presetId", "vowelId", "repeat", "autoBreath", "breathLinked", "rhythmId",
-      "pluckDirection", "breathFlow",
-    ]);
-    for (const [key, target] of Object.entries(this.targetConfiguration)) {
-      if (discrete.has(key) || typeof target !== "number") {
-        this.configuration[key] = target;
+  _approachConfiguration(frameCount = 128) {
+    const smooth = 1 - Math.exp(-Math.max(1, frameCount) / (this.rate * 0.012));
+    let coefficientMask = 0;
+    for (const key in this.targetConfiguration) {
+      const target = this.targetConfiguration[key];
+      if (DISCRETE_CONFIGURATION_KEYS.has(key) || typeof target !== "number") {
+        if (this.configuration[key] !== target) {
+          this.configuration[key] = target;
+          coefficientMask |= coefficientMaskForKey(key);
+        }
       } else {
-        this.configuration[key] += (target - this.configuration[key]) * smooth;
+        const difference = target - this.configuration[key];
+        if (Math.abs(difference) > 1e-6) {
+          this.configuration[key] += difference * smooth;
+          coefficientMask |= coefficientMaskForKey(key);
+        } else if (difference !== 0) {
+          this.configuration[key] = target;
+          coefficientMask |= coefficientMaskForKey(key);
+        }
       }
     }
-    this._updateCoefficients();
+    if (coefficientMask) this._updateCoefficients(coefficientMask);
   }
 
-  _updateCoefficients() {
+  _updateCoefficients(coefficientMask = COEFFICIENT_ALL) {
     const state = this.configuration;
-    const modes = reedModeFrequencies(state, MODE_COUNT);
-    const baseDecay = state.reedDecaySeconds;
-    const lossTilt = 0.018 + (1 - state.reedStiffness) * 0.055;
-    for (let index = 0; index < MODE_COUNT; index += 1) {
-      this.frequencies[index] = modes[index];
-      const modeDecay = baseDecay / (1 + index * lossTilt);
-      this.decays[index] = Math.exp(-1 / Math.max(1, this.rate * modeDecay));
+    if (coefficientMask & COEFFICIENT_REED) {
+      const material = jawHarpPreset(state.presetId).material;
+      const physics = reedMaterialProperties(state);
+      this.material = material;
+      this.materialPhysics = physics;
+      const modes = reedModeFrequencies(state, MODE_COUNT);
+      const baseDecay = state.reedDecaySeconds;
+      const intrinsicLossScale = clamp(
+        Math.log1p(physics.internalLossFactor * 10_000) / Math.log(151),
+        0,
+        1,
+      );
+      const lossTilt = (0.018 + (1 - state.reedStiffness) * 0.055)
+        * material.lossTilt * (0.92 + intrinsicLossScale * 0.28);
+      for (let index = 0; index < MODE_COUNT; index += 1) {
+        const harmonic = index + 1;
+        const idealFrequency = state.reedFrequencyHz * harmonic;
+        this.frequencies[index] = idealFrequency
+          + (modes[index] - idealFrequency) * material.inharmonicity;
+        const modeDecay = baseDecay / (1 + index * lossTilt);
+        this.decays[index] = Math.exp(-1 / Math.max(1, this.rate * modeDecay));
+      }
     }
 
-    const formants = mouthFormants(state);
-    for (let index = 0; index < 3; index += 1) {
-      const frequency = formants.frequenciesHz[index];
-      const bandwidth = formants.bandwidthsHz[index];
-      this.mouthFiltersLeft[index].configure(frequency * (index === 1 ? 0.997 : 1), bandwidth);
-      this.mouthFiltersRight[index].configure(frequency * (index === 1 ? 1.003 : 1), bandwidth * 1.03);
+    if (coefficientMask & COEFFICIENT_TRACT) {
+      const formants = mouthFormants(state);
+      for (let index = 0; index < 3; index += 1) {
+        const frequency = formants.frequenciesHz[index];
+        const bandwidth = formants.bandwidthsHz[index];
+        this.mouthFiltersLeft[index].configure(frequency * (index === 1 ? 0.997 : 1), bandwidth);
+        this.mouthFiltersRight[index].configure(frequency * (index === 1 ? 1.003 : 1), bandwidth * 1.03);
+      }
+      this.focusFilterLeft.configure(formants.focusFrequencyHz * 0.998, formants.focusBandwidthHz);
+      this.focusFilterRight.configure(formants.focusFrequencyHz * 1.002, formants.focusBandwidthHz * 1.04);
     }
-    const frameFrequency = Math.min(
-      this.rate * 0.18,
-      state.reedFrequencyHz * (3.2 + state.frameCoupling * 9.4),
-    );
-    const frameBandwidth = 130 + (1 - state.reedStiffness) * 360;
-    this.frameFilterLeft.configure(frameFrequency * 0.992, frameBandwidth);
-    this.frameFilterRight.configure(frameFrequency * 1.008, frameBandwidth);
+
+    if (coefficientMask & COEFFICIENT_FRAME) {
+      const frameFrequency = Math.min(
+        this.rate * 0.18,
+        state.reedFrequencyHz * (3.2 + state.frameCoupling * 9.4) * this.material.frameRatio,
+      );
+      const frameBandwidth = (130 + (1 - state.reedStiffness) * 360)
+        * this.material.frameBandwidth;
+      this.frameFilterLeft.configure(frameFrequency * 0.992, frameBandwidth);
+      this.frameFilterRight.configure(frameFrequency * 1.008, frameBandwidth);
+    }
+
+    if (coefficientMask & COEFFICIENT_BREATH) {
+      this.effectiveBreathRate = effectiveBreathRateBpm(state);
+      this.breathPhaseIncrement = this.effectiveBreathRate / (60 * this.rate);
+    }
+  }
+
+  _automaticBreathFlow() {
+    const state = this.configuration;
+    if (!state.autoBreath) return 0;
+    const phase = this.breathPhase;
+    this.breathPhase += this.breathPhaseIncrement;
+    if (this.breathPhase >= 1) this.breathPhase -= Math.floor(this.breathPhase);
+    if (phase < state.breathBalance) {
+      return -state.breathDepth * Math.sin(Math.PI * phase / state.breathBalance);
+    }
+    return state.breathDepth
+      * Math.sin(Math.PI * (phase - state.breathBalance) / (1 - state.breathBalance));
   }
 
   _renderSource() {
+    const automaticBreathFlow = this._automaticBreathFlow();
+    if (this.silenced || this.tineHeld) {
+      this.breathFlow = 0;
+      return 0;
+    }
     const state = this.configuration;
-    this.breathFlow += (this.targetBreathFlow - this.breathFlow) * 0.0018;
-    if (Math.abs(this.breathFlow) < 1e-5 && Math.abs(this.targetBreathFlow) < 1e-5) this.breathFlow = 0;
-    const flow = clamp(this.breathFlow, -1, 1);
+    const targetBreathFlow = this.manualBreathFlow ?? automaticBreathFlow;
+    if (this.manualBreathFlow === null && state.autoBreath) {
+      this.breathFlow = targetBreathFlow;
+    } else {
+      this.breathFlow += (targetBreathFlow - this.breathFlow) * 0.032;
+    }
+    if (Math.abs(this.breathFlow) < 1e-6 && Math.abs(targetBreathFlow) < 1e-6) this.breathFlow = 0;
+    const flow = clamp(
+      this.breathFlow,
+      JAW_HARP_LIMITS.breathFlow[0],
+      JAW_HARP_LIMITS.breathFlow[1],
+    );
     const flowMagnitude = Math.abs(flow);
+    const breathPresence = 1 - Math.exp(-flowMagnitude * 1.15);
     const exhaling = flow >= 0;
-    const flowGate = this.hasBeenPlucked ? flowMagnitude : 0;
-    const gateTarget = flowGate > 0.015 ? 0.22 + flowGate * 0.78 : 0;
-    const gateRate = gateTarget > this.airGate ? 0.00012 : 0.000018;
+    const flowGate = this.hasBeenPlucked && !this.tineHeld ? breathPresence : 0;
+    const gateTarget = flowGate > 0.004 ? 0.08 + flowGate * 1.12 : 0;
+    // Once breath has opened this reed, reopen it promptly after a breath-zero
+    // crossing. A brand-new feather-light pluck still earns its intentionally
+    // soft attack instead of being inflated to the hard-pluck air level.
+    const gateRate = gateTarget > this.airGate
+      ? (this.airPathPrimed ? 0.0006 : 0.00004) + Math.min(1, this.energy) * 0.003
+      : 0.0007;
     this.airGate += (gateTarget - this.airGate) * gateRate;
+    if (this.airGate > 0.2) this.airPathPrimed = true;
     let sum = 0;
     let fundamental = 0;
     let energy = 0;
     const maximumFrequency = this.rate * 0.44;
-    const pressureBend = 1 + flow * (0.0032 + state.reedStiffness * 0.0048);
-    const aerodynamicSlope = exhaling ? 0.8 : 1.08;
+    const pressureBend = Math.pow(2, flow * (0.012 + state.reedStiffness * 0.018));
+    const aerodynamicSlope = (exhaling ? 0.68 : 1.18) - breathPresence * (exhaling ? 0.16 : 0.04);
 
     for (let index = 0; index < MODE_COUNT; index += 1) {
       const harmonic = index + 1;
       const frequency = this.frequencies[index] * pressureBend;
-      if (frequency >= maximumFrequency) continue;
       const amplitude = this.amplitudes[index];
+      if (frequency >= maximumFrequency) {
+        this.phases[index] = (this.phases[index] + Math.PI * 2 * frequency / this.rate)
+          % (Math.PI * 2);
+        const breathSustain = breathPresence * (0.82 + state.reedStiffness * 0.16);
+        this.amplitudes[index] *= Math.min(
+          0.9999995,
+          this.decays[index] + (1 - this.decays[index]) * breathSustain,
+        );
+        continue;
+      }
       const parityWeight = exhaling
         ? (harmonic % 2 === 0 ? 1.38 : 0.92)
         : (harmonic % 2 === 0 ? 0.46 : 1.08);
       const airAmplitude = this.airGate * flowMagnitude * parityWeight
-        * (0.072 + state.reedStiffness * 0.022)
+        * (0.078 + state.reedStiffness * 0.04) * this.material.airResponse
         / Math.pow(harmonic, aerodynamicSlope);
       if (Math.abs(amplitude) < SILENCE_FLOOR && airAmplitude < SILENCE_FLOOR) {
         this.amplitudes[index] = 0;
         continue;
       }
-      this.phases[index] += Math.PI * 2 * frequency / this.rate;
-      if (this.phases[index] > Math.PI * 2) this.phases[index] -= Math.PI * 2;
+      this.phases[index] = (this.phases[index] + Math.PI * 2 * frequency / this.rate)
+        % (Math.PI * 2);
       const mechanical = Math.sin(this.phases[index]) * amplitude;
       const aerodynamic = Math.sin(this.phases[index] + (exhaling ? 0.19 : -0.31))
         * airAmplitude * Math.sign(flow || 1);
@@ -239,54 +467,85 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
       sum += value;
       if (index === 0) fundamental = value;
       energy += amplitude * amplitude + airAmplitude * airAmplitude;
-      const breathSustain = flowMagnitude * (0.7 + state.reedStiffness * 0.22);
+      const breathSustain = breathPresence * (0.82 + state.reedStiffness * 0.16);
       this.amplitudes[index] *= Math.min(0.9999995, this.decays[index] + (1 - this.decays[index]) * breathSustain);
     }
 
     this.reedDisplacement = fundamental;
     this.energy += (Math.sqrt(energy) - this.energy) * 0.0018;
-    const edge = 1.4 + state.reedStiffness * 5.8;
+    const elasticHeadroom = clamp(this.materialPhysics.elasticLimitStrain / 0.006, 0.5, 1.65);
+    const edge = (1.2 + state.reedStiffness * 5.4)
+      * (0.82 + this.material.brightness * 0.22)
+      * (0.9 + elasticHeadroom * 0.1);
     const nonlinear = Math.tanh(sum * edge) / edge;
     const pressureLoaded = nonlinear * (1 + flow * nonlinear * (0.55 + state.reedStiffness * 0.42));
     this.sourceDc += (pressureLoaded - this.sourceDc) * 0.00055;
     const pressureLoadedAc = pressureLoaded - this.sourceDc;
     const clickNoise = this._random() * this.clickEnvelope * this.clickPolarity;
-    this.clickEnvelope *= 0.992 - state.frameCoupling * 0.0015;
+    this.clickEnvelope *= 0.9972 - state.frameCoupling * 0.00045;
     if (this.clickEnvelope < SILENCE_FLOOR) this.clickEnvelope = 0;
+    const attack = this.attackEnvelope;
+    this.attackEnvelope *= 0.99928;
+    if (this.attackEnvelope < SILENCE_FLOOR) this.attackEnvelope = 0;
     const rawBreathNoise = this._random();
-    const breathColor = exhaling ? 0.31 + state.reedStiffness * 0.22 : 0.075 + state.glottisOpening * 0.09;
+    const breathColor = clamp(
+      exhaling ? 0.31 + state.reedStiffness * 0.22 : 0.075 + state.glottisOpening * 0.09,
+      0.008,
+      0.82,
+    );
     this.breathNoiseState += (rawBreathNoise - this.breathNoiseState) * breathColor;
     const breathNoise = (this.breathNoiseState * 0.74 + rawBreathNoise * 0.26)
-      * flowMagnitude * (exhaling ? 0.055 : 0.036) * (0.35 + this.airGate * 0.65);
-    const breathLoad = state.dryResonance + flowMagnitude * (1 - state.dryResonance);
-    const mechanicalAudibility = 0.1 + breathLoad * 0.9;
-    return pressureLoadedAc * mechanicalAudibility * (0.72 + flowMagnitude * 0.14)
-      + clickNoise * (0.018 + breathLoad * 0.045)
+      * flowMagnitude * (exhaling ? 0.082 : 0.058) * this.material.airResponse
+      * (0.18 + this.airGate * 0.82) * (this.hasBeenPlucked ? 1 : 0);
+    const breathLoad = state.dryResonance + breathPresence * (1 - state.dryResonance);
+    const mechanicalAudibility = 0.09 + state.dryResonance * 0.72 + breathPresence * 1.16;
+    const releaseLift = 1 + Math.min(1.5, attack) * (0.22 + this.material.contact * 0.08);
+    return pressureLoadedAc
+        * mechanicalAudibility * releaseLift
+        * (0.68 + breathPresence * 0.42)
+      + clickNoise * (0.004 + breathLoad * 0.058)
       + breathNoise;
   }
 
   _radiate(source, side) {
     const state = this.configuration;
     const filters = side < 0 ? this.mouthFiltersLeft : this.mouthFiltersRight;
-    const flow = clamp(this.breathFlow, -1, 1);
-    const weights = flow < -0.015 ? [0.9, 0.82, 0.3] : flow > 0.015 ? [0.62, 1.12, 0.58] : [0.72, 1, 0.46];
+    const flow = clamp(
+      this.breathFlow,
+      JAW_HARP_LIMITS.breathFlow[0],
+      JAW_HARP_LIMITS.breathFlow[1],
+    );
+    const breathPresence = 1 - Math.exp(-Math.abs(flow) * 1.15);
+    const directionalWeights = flow < -0.015
+      ? INHALE_FORMANT_WEIGHTS
+      : flow > 0.015
+        ? EXHALE_FORMANT_WEIGHTS
+        : REST_FORMANT_WEIGHTS;
+    const focusCoordinate = clamp(state.formantFocus, 0, 2);
     let cavity = 0;
     for (let index = 0; index < 3; index += 1) {
-      cavity += filters[index].process(source) * weights[index];
+      const focusWeight = 0.34 + 1.66 * Math.exp(-Math.abs(focusCoordinate - index) * 1.55);
+      cavity += filters[index].process(source) * directionalWeights[index] * focusWeight;
     }
-    const coupling = state.cavityCoupling;
-    const breathLoad = state.dryResonance + Math.abs(flow) * (1 - state.dryResonance);
-    const openGlottisLoss = 1 - state.glottisOpening * 0.18;
+    const focusFilter = side < 0 ? this.focusFilterLeft : this.focusFilterRight;
+    const focusResonance = focusFilter.process(source)
+      * (1.15 + Math.abs(state.formantFocus - 0.5) * 0.18);
+    const coupling = clamp(state.cavityCoupling, 0, 2);
+    const normalCoupling = Math.min(1, coupling);
+    const superCoupling = 1 + Math.max(0, coupling - 1) * 2.4;
+    const breathLoad = state.dryResonance + breathPresence * (1 - state.dryResonance);
+    const openGlottisLoss = clamp(1 - state.glottisOpening * 0.18, 0.32, 1.42);
     const directionalDirect = flow < -0.015 ? 0.14 : flow > 0.015 ? 0.27 : 0.2;
-    const directionalCavity = flow < -0.015 ? 2.72 : flow > 0.015 ? 2.34 : 2.45;
+    const directionalCavity = flow < -0.015 ? 2.9 : flow > 0.015 ? 2.55 : 2.62;
     const mouth = (
-      source * (0.06 + directionalDirect * breathLoad + (1 - coupling) * 0.2)
-      + cavity * coupling * directionalCavity * breathLoad
+      source * (0.025 + directionalDirect * breathLoad + (1 - normalCoupling) * 0.24)
+      + (cavity + focusResonance * (0.7 + breathPresence * 0.8))
+        * normalCoupling * superCoupling * directionalCavity * breathLoad
     )
       * openGlottisLoss;
     const frameFilter = side < 0 ? this.frameFilterLeft : this.frameFilterRight;
     const frame = frameFilter.process(source) * (0.5 + state.reedStiffness * 0.7);
-    return mouth + frame * state.frameCoupling * (0.12 + breathLoad * 0.6);
+    return mouth + frame * state.frameCoupling * this.material.contact * (0.28 + breathLoad * 1.8);
   }
 
   process(_inputs, outputs) {
@@ -294,7 +553,7 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     if (!output?.[0]) return true;
     const leftOutput = output[0];
     const rightOutput = output[1] ?? leftOutput;
-    this._approachConfiguration();
+    this._approachConfiguration(leftOutput.length);
     let squareSum = 0;
     let peak = 0;
 
@@ -315,7 +574,12 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     this.blockCounter += 1;
     if (this.blockCounter % TELEMETRY_BLOCKS === 0) {
       const formants = mouthFormants(this.configuration);
-      const selected = dominantHarmonic(this.configuration);
+      const harmonicIndex = clamp(
+        Math.round(formants.focusFrequencyHz / this.configuration.reedFrequencyHz),
+        1,
+        MODE_COUNT,
+      );
+      const harmonicFrequencyHz = harmonicIndex * this.configuration.reedFrequencyHz;
       this.port.postMessage({
         type: "telemetry",
         displacement: this.reedDisplacement,
@@ -324,9 +588,11 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
         rms: this.lastRms,
         formants: formants.frequenciesHz,
         focusFrequencyHz: formants.focusFrequencyHz,
-        harmonicIndex: selected.index,
-        harmonicFrequencyHz: selected.frequencyHz,
+        harmonicIndex,
+        harmonicFrequencyHz,
         breathFlow: this.breathFlow,
+        breathRateBpm: this.effectiveBreathRate,
+        tineHeld: this.tineHeld,
       });
     }
     return true;

@@ -5,6 +5,7 @@ import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js
 const ADAPTER_KEY = Symbol.for("morphazoid.browserMidiAdapter");
 
 const PLAY_SELECTORS = Object.freeze([
+  "[data-primary-transport]",
   "#playButton",
   "#playToggle",
   "#transportButton",

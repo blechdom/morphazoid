@@ -7,12 +7,12 @@
     <meta name="theme-color" content="#06070a" />
     <meta
       name="description"
-      content="A searchable reference of 120 shader synth primitives, with WGSL syntax, audio meaning, GPU execution notes, and sound-building ideas."
+      content="A searchable reference of 142 shader synth primitives, with WGSL syntax, audio meaning, GPU execution notes, and sound-building ideas."
     />
     <title>Shader Synth Primitives — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="webgpu-dsp-primitives.css?v=20260828-research120-b" />
+    <link rel="stylesheet" href="webgpu-dsp-primitives.css?v=20260829-geometry" />
   </head>
   <body class="webgpu-dsp-primitives-page">
     <header class="masthead dsp-atlas-header">
@@ -44,7 +44,7 @@
       <section class="atlas-reference" aria-labelledby="primitiveTableTitle">
         <header class="atlas-reference-header">
           <p id="primitiveTableTitle">SEARCHABLE REFERENCE</p>
-          <output id="resultCount" aria-live="polite">120 primitives</output>
+          <output id="resultCount" aria-live="polite">142 primitives</output>
         </header>
 
         <div class="atlas-toolbar" id="atlasToolbar">
@@ -291,7 +291,9 @@
       <footer class="dsp-atlas-footer">
         <p>
           Current-function entries are audited against
-          <a href="https://github.com/blechdom/morphazoid/blob/main/src/webgpu-synths.js">the Morphazoid shader source</a>.
+          <a href="https://github.com/blechdom/morphazoid/blob/main/src/webgpu-synths.js">GPU Shader Synths</a>
+          and the
+          <a href="https://github.com/blechdom/morphazoid/blob/main/src/shader-synth-playground-geometry.js">Modular Shader Synth geometry source</a>.
           Language syntax follows the
           <a href="https://www.w3.org/TR/WGSL/#builtin-functions">WGSL built-in function specification</a>.
         </p>
@@ -299,7 +301,7 @@
       </footer>
     </main>
 
-    <script type="module" src="webgpu-dsp-primitives-app.js?v=20260828-research120"></script>
+    <script type="module" src="webgpu-dsp-primitives-app.js?v=20260829-geometry142"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

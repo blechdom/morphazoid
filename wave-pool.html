@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#03141d" />
+    <meta
+      name="description"
+      content="Wave Pool is a sample-free physical-model rhythm instrument for artificial paddles, pneumatic caissons, breaking water, bubbles, material wall slaps, and aerated whirlpools."
+    />
+    <title>Wave Pool · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="wave-pool.css" />
+  </head>
+  <body class="wave-pool-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="hambone.html">hambone</a>
+        <a class="tab" href="blowhole.html">blowhole</a>
+        <a class="tab active" href="wave-pool.html" aria-current="page">wave pool</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="hambone.html">Hambone</option>
+          <option value="blowhole.html">Blowhole</option>
+          <option value="wave-pool.html" selected>Wave Pool</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="wave-pool-audio-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">30%</output></span>
+          <input id="level" aria-label="Wave Pool output level" type="range" min="0" max="0.7" step="0.01" value="0.3" />
+        </label>
+      </div>
+    </header>
+
+    <main class="wave-pool-shell" id="wavePool">
+      <section class="wave-pool-intro" aria-labelledby="pageTitle">
+        <div>
+          <p class="wave-pool-kicker">ARTIFICIAL SURGE / BOUNDARY ACOUSTICS / FOUR-LANE WATER RHYTHM</p>
+          <h1 id="pageTitle">WAVE <span>POOL</span></h1>
+        </div>
+        <p class="wave-pool-thesis">
+          The machine starts the wave. The water decides when it becomes sound.
+          <span>Pressure surge, turbulence, foam, bubbles, wet-wall contact, and drains remain separate physical stages; structure is only background color.</span>
+        </p>
+      </section>
+
+      <section class="wave-pool-workspace" aria-label="Wave Pool physical-model instrument">
+        <div class="wave-pool-main-column">
+          <section class="wave-pool-stage-card" aria-labelledby="poolTitle">
+            <header class="wave-pool-stage-header">
+              <div>
+                <p>LIVE BASIN / <span id="generatorCode">PISTON BANK</span></p>
+                <h2 id="poolTitle">Gravity-wave clock → audible water events</h2>
+              </div>
+              <div class="wave-pool-stage-state" id="stageState" data-state="ready">
+                <i aria-hidden="true"></i>
+                <span><small>transport</small><b id="stageStateText">ready</b></span>
+              </div>
+            </header>
+
+            <div class="wave-pool-stage-wrap" id="stageWrap">
+              <canvas
+                id="stage"
+                width="1040"
+                height="640"
+                tabindex="0"
+                role="application"
+                aria-label="Interactive overhead wave pool. Press 1 for a paddle stroke, 2 for a breaking splash, 3 for water hitting the wall, or 4 for a whirlpool pulse. Pointer positions near the generator, wet boundary, drains, and open water trigger the corresponding event."
+                aria-describedby="stageInstructions liveStatus"
+              >
+                An overhead artificial wave pool with a paddle bank, wave fronts, material walls, bubbles, and two whirlpools.
+              </canvas>
+              <p class="wave-pool-stage-instructions" id="stageInstructions">
+                TAP WATER / WALL / PADDLE / DRAIN · KEYS 1–4
+              </p>
+              <div class="wave-pool-legend" aria-hidden="true">
+                <span><i class="is-drive"></i>drive</span>
+                <span><i class="is-surface"></i>surface</span>
+                <span><i class="is-bubble"></i>air</span>
+                <span><i class="is-boundary"></i>boundary</span>
+              </div>
+              <div class="wave-pool-meter" aria-hidden="true">
+                <i id="meterFill"></i><span>SAFE OUTPUT</span>
+              </div>
+            </div>
+
+            <dl class="wave-pool-readouts" aria-label="Live pool model readouts">
+              <div><dt>wave speed</dt><dd id="waveSpeedReadout">—</dd></div>
+              <div><dt>wavelength</dt><dd id="wavelengthReadout">—</dd></div>
+              <div><dt>wall arrival</dt><dd id="travelReadout">—</dd></div>
+              <div><dt>bubble-cloud center</dt><dd id="bubbleReadout">—</dd></div>
+              <div><dt>reflection</dt><dd id="reflectionReadout">—</dd></div>
+              <div><dt>breaking</dt><dd id="breakingReadout">—</dd></div>
+            </dl>
+          </section>
+
+          <section class="wave-pool-sequencer-card" aria-labelledby="sequencerTitle">
+            <header>
+              <div>
+                <p>16 STEPS / COUPLED EVENT LANES</p>
+                <h2 id="sequencerTitle">A wave can break, slap, and entrain air on the same step</h2>
+              </div>
+              <div class="wave-pool-sequence-actions">
+                <button id="mutatePatternButton" type="button">Mutate</button>
+                <button id="clearPatternButton" type="button">Clear</button>
+              </div>
+            </header>
+            <div class="wave-pool-grid-scroll" tabindex="0" aria-label="Horizontally scrollable rhythm grid">
+              <div class="wave-pool-grid" id="sequencerGrid" role="grid" aria-label="Four lane, sixteen step water-event sequence"></div>
+            </div>
+            <div class="wave-pool-lane-key" aria-hidden="true">
+              <span style="--lane:#ff8b5c">Paddle</span>
+              <span style="--lane:#d7ff69">Break + splash</span>
+              <span style="--lane:#c39aff">Water-on-wall</span>
+              <span style="--lane:#55e8df">Bubble + vortex</span>
+            </div>
+          </section>
+        </div>
+
+        <aside class="wave-pool-console" aria-label="Wave Pool controls">
+          <section class="wave-pool-transport" aria-label="Pool transport and manual events">
+            <button id="playButton" class="wave-pool-play" type="button" aria-pressed="false" data-primary-transport>
+              <span aria-hidden="true">▶</span>
+              <span><b id="playLabel">Run pool</b><small id="playState">space · sequence stopped</small></span>
+            </button>
+            <div class="wave-pool-event-pads" role="group" aria-label="Manual water events">
+              <button id="oneWaveButton" type="button"><b>01</b><span>Paddle<small>stroke</small></span></button>
+              <button id="splashButton" type="button"><b>02</b><span>Break<small>splash</small></span></button>
+              <button id="slapButton" type="button"><b>03</b><span>Wet wall<small>water contact</small></span></button>
+              <button id="vortexButton" type="button"><b>04</b><span>Vortex<small>aerate</small></span></button>
+            </div>
+          </section>
+
+          <section class="wave-pool-preset-card" aria-labelledby="presetTitle">
+            <div class="wave-pool-section-heading">
+              <p>01 / BASIN STATES</p>
+              <h2 id="presetTitle">Choose the machine and water regime</h2>
+            </div>
+            <label class="wave-pool-select" for="presetSelect">
+              <span>Pool preset</span>
+              <select id="presetSelect" aria-label="Wave Pool preset"></select>
+            </label>
+            <div class="wave-pool-preset-buttons" id="presetButtons" role="group" aria-label="Wave Pool presets"></div>
+            <p id="presetDescription" class="wave-pool-description"></p>
+          </section>
+
+          <details class="wave-pool-control-group" open>
+            <summary>
+              <span><small>02 / GENERATOR + GRAVITY WAVE</small><b>Drive the basin</b></span>
+              <output id="generatorSummary">Hydraulic piston bank · 72 BPM</output>
+            </summary>
+            <div class="wave-pool-control-body">
+              <label class="wave-pool-select" for="generatorId">
+                <span>Artificial generator</span>
+                <select id="generatorId">
+                  <option value="piston">Hydraulic piston bank</option>
+                  <option value="pneumatic">Pneumatic caissons</option>
+                </select>
+              </label>
+              <label class="wave-pool-control" for="tempoBpm">
+                <span><b>Rhythm tempo</b><output id="tempoBpmOut" for="tempoBpm">72 BPM</output></span>
+                <input id="tempoBpm" type="range" min="35" max="160" step="1" value="72" />
+                <small>Clocks the four event lanes; it does not retune the wall or bubbles.</small>
+              </label>
+              <label class="wave-pool-control" for="swing">
+                <span><b>Valve phase swing</b><output id="swingOut" for="swing">8%</output></span>
+                <input id="swing" type="range" min="0" max="0.35" step="0.01" value="0.08" />
+              </label>
+              <div class="wave-pool-control-pair">
+                <label class="wave-pool-control" for="depthM">
+                  <span><b>Depth</b><output id="depthMOut" for="depthM">1.45 m</output></span>
+                  <input id="depthM" type="range" min="0.5" max="3" step="0.05" value="1.45" />
+                </label>
+                <label class="wave-pool-control" for="widthM">
+                  <span><b>Pool width</b><output id="widthMOut" for="widthM">22 m</output></span>
+                  <input id="widthM" type="range" min="8" max="40" step="0.5" value="22" />
+                </label>
+              </div>
+              <div class="wave-pool-control-pair">
+                <label class="wave-pool-control" for="waveHeightM">
+                  <span><b>Wave height</b><output id="waveHeightMOut" for="waveHeightM">0.42 m</output></span>
+                  <input id="waveHeightM" type="range" min="0.05" max="1.2" step="0.01" value="0.42" />
+                </label>
+                <label class="wave-pool-control" for="wavePeriodSeconds">
+                  <span><b>Gravity period</b><output id="wavePeriodSecondsOut" for="wavePeriodSeconds">3.6 s</output></span>
+                  <input id="wavePeriodSeconds" type="range" min="1.5" max="8" step="0.1" value="3.6" />
+                </label>
+              </div>
+              <label class="wave-pool-control" for="paddleForce">
+                <span><b>Stroke force</b><output id="paddleForceOut" for="paddleForce">68%</output></span>
+                <input id="paddleForce" type="range" min="0" max="1" step="0.01" value="0.68" />
+              </label>
+              <div class="wave-pool-control-pair">
+                <label class="wave-pool-control" for="paddleCount">
+                  <span><b>Paddles</b><output id="paddleCountOut" for="paddleCount">4</output></span>
+                  <input id="paddleCount" type="range" min="1" max="8" step="1" value="4" />
+                </label>
+                <label class="wave-pool-control" for="phaseSpread">
+                  <span><b>Bank phase</b><output id="phaseSpreadOut" for="phaseSpread">8%</output></span>
+                  <input id="phaseSpread" type="range" min="0" max="1" step="0.01" value="0.08" />
+                </label>
+              </div>
+              <label class="wave-pool-control" for="machinery">
+                <span><b>Machine pickup</b><output id="machineryOut" for="machinery">8%</output></span>
+                <input id="machinery" type="range" min="0" max="1" step="0.01" value="0.08" />
+                <small>Piston return or pneumatic valve and blower, separate from the water.</small>
+              </label>
+            </div>
+          </details>
+
+          <details class="wave-pool-control-group" open>
+            <summary>
+              <span><small>03 / BREAKING + ENTRAINED AIR</small><b>Make foam and spray</b></span>
+              <output id="waterSummary">moderate break</output>
+            </summary>
+            <div class="wave-pool-control-body">
+              <label class="wave-pool-control" for="breaking">
+                <span><b>Breaker sensitivity</b><output id="breakingOut" for="breaking">72%</output></span>
+                <input id="breaking" type="range" min="0" max="1" step="0.01" value="0.72" />
+              </label>
+              <label class="wave-pool-control" for="splash">
+                <span><b>Drop + spray contact</b><output id="splashOut" for="splash">78%</output></span>
+                <input id="splash" type="range" min="0" max="1" step="0.01" value="0.78" />
+              </label>
+              <label class="wave-pool-control" for="bubbleDensity">
+                <span><b>Entrained-air density</b><output id="bubbleDensityOut" for="bubbleDensity">52%</output></span>
+                <input id="bubbleDensity" type="range" min="0" max="1" step="0.01" value="0.52" />
+              </label>
+              <label class="wave-pool-control" for="bubbleSize">
+                <span><b>Bubble radius field</b><output id="bubbleSizeOut" for="bubbleSize">5.2 mm</output></span>
+                <input id="bubbleSize" type="range" min="0.2" max="12" step="0.1" value="5.2" />
+                <small>Minnaert-informed; clouds, walls, and the free surface can shift real bubbles.</small>
+              </label>
+              <div class="wave-pool-control-pair">
+                <label class="wave-pool-control" for="whirlpool">
+                  <span><b>Circulation</b><output id="whirlpoolOut" for="whirlpool">38%</output></span>
+                  <input id="whirlpool" type="range" min="0" max="1" step="0.01" value="0.38" />
+                </label>
+                <label class="wave-pool-control" for="aeration">
+                  <span><b>Vortex aeration</b><output id="aerationOut" for="aeration">42%</output></span>
+                  <input id="aeration" type="range" min="0" max="1" step="0.01" value="0.42" />
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <details class="wave-pool-control-group">
+            <summary>
+              <span><small>04 / WET BOUNDARY SYSTEM</small><b>Water against material</b></span>
+              <output id="boundarySummary">concrete wall</output>
+            </summary>
+            <div class="wave-pool-control-body">
+              <label class="wave-pool-select" for="boundaryId">
+                <span>Wet boundary</span>
+                <select id="boundaryId"></select>
+              </label>
+              <p id="boundaryDescription" class="wave-pool-description"></p>
+              <label class="wave-pool-control" for="wallImpact">
+                <span><b>Wet wall contact</b><output id="wallImpactOut" for="wallImpact">18%</output></span>
+                <input id="wallImpact" type="range" min="0" max="1" step="0.01" value="0.18" />
+              </label>
+              <div class="wave-pool-control-pair">
+                <label class="wave-pool-control" for="panelTone">
+                  <span><b>Structure bleed</b><output id="panelToneOut" for="panelTone">8%</output></span>
+                  <input id="panelTone" type="range" min="0" max="1" step="0.01" value="0.08" />
+                  <small>At zero, only broadband water impact remains; move right to add brief water-loaded structure.</small>
+                </label>
+                <label class="wave-pool-control" for="damping">
+                  <span><b>Water loading + damping</b><output id="dampingOut" for="damping">72%</output></span>
+                  <input id="damping" type="range" min="0" max="1" step="0.01" value="0.72" />
+                </label>
+              </div>
+              <p class="wave-pool-caveat">Water pressure, turbulence, and spray stay primary. Material changes reflection and adds only a short, secondary structural trace—not a tuned note.</p>
+            </div>
+          </details>
+
+          <details class="wave-pool-control-group">
+            <summary>
+              <span><small>05 / RECEIVER</small><b>Where the listener is</b></span>
+              <output id="receiverSummary">waterline</output>
+            </summary>
+            <div class="wave-pool-control-body">
+              <label class="wave-pool-select" for="receiverId">
+                <span>Listening position</span>
+                <select id="receiverId"></select>
+              </label>
+              <p id="receiverDescription" class="wave-pool-description"></p>
+            </div>
+          </details>
+
+          <section class="wave-pool-evidence-card" aria-labelledby="modelBoundaryTitle">
+            <div class="wave-pool-section-heading">
+              <p>06 / MODEL BOUNDARY</p>
+              <h2 id="modelBoundaryTitle">Measured relationships, playable basin</h2>
+            </div>
+            <p>
+              Gravity-wave dispersion, material impedance, impact transients, and bubble resonance anchor the model. Exact pool geometry, mounting, turbulence, and bubble clouds are intentionally reduced for real-time play.
+            </p>
+            <dl>
+              <div><dt>samples</dt><dd>none</dd></div>
+              <div><dt>whirlpool air</dt><dd>entrainment, not assumed cavitation</dd></div>
+              <div><dt>speaker output</dt><dd>normalized + hard-bounded</dd></div>
+            </dl>
+          </section>
+
+          <p class="wave-pool-audio-error" id="audioError" role="alert" hidden></p>
+          <button id="resetButton" class="wave-pool-reset" type="button" data-reset-all data-reset-in-place>
+            Reset pool
+          </button>
+        </aside>
+      </section>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="wave-pool-app.js"></script>
+  </body>
+</html>

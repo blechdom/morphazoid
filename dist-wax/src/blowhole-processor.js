@@ -3,6 +3,7 @@ import {
   BLOWHOLE_SOURCE_FAMILIES,
   blowholeCall,
   createBlowholeVoicePlan,
+  deriveBlowholePropagation,
   evaluateBlowholeGesture,
   sanitizeBlowholeState,
 } from "./blowhole.js";
@@ -10,12 +11,25 @@ import {
 const TAU = Math.PI * 2;
 const TELEMETRY_BLOCKS = 12;
 const SILENCE_FLOOR = 1e-12;
+const CALL_RETARGET_FADE_OUT_SECONDS = 0.018;
+const CALL_RETARGET_FADE_IN_SECONDS = 0.03;
+const SURFACE_VALVE_SMOOTH_SECONDS = 0.02;
+const PROPAGATION_PROFILE_IDS = Object.freeze([
+  "water-calm",
+  "air-still",
+  "air-windy",
+  "water-choppy",
+]);
 
 const clamp = (value, minimum = 0, maximum = 1) => (
   Math.min(maximum, Math.max(minimum, Number.isFinite(value) ? value : minimum))
 );
 
 const smoothCoefficient = (seconds, rate) => 1 - Math.exp(-1 / Math.max(1, seconds * rate));
+
+const finiteOr = (value, fallback) => (
+  Number.isFinite(value) ? value : fallback
+);
 
 function xorshift(value) {
   let state = value | 0;
@@ -111,6 +125,54 @@ class AcousticDelayLine {
   }
 }
 
+class OnePoleLowpass {
+  constructor() {
+    this.state = 0;
+  }
+
+  reset() {
+    this.state = 0;
+  }
+
+  process(input, coefficient) {
+    this.state += (input - this.state) * coefficient;
+    if (!Number.isFinite(this.state) || Math.abs(this.state) < SILENCE_FLOOR) this.state = 0;
+    return this.state;
+  }
+}
+
+/**
+ * A feed-forward fractional delay: only the unprocessed input is written to
+ * the line, so the reflected path can never form an unstable feedback loop.
+ */
+class FractionalPropagationDelay {
+  constructor(rate, maximumSeconds = 0.25) {
+    this.rate = rate;
+    this.buffer = new Float32Array(Math.ceil(rate * maximumSeconds) + 4);
+    this.writeIndex = 0;
+  }
+
+  reset() {
+    this.buffer.fill(0);
+    this.writeIndex = 0;
+  }
+
+  process(input, delaySeconds) {
+    const maximumFrames = this.buffer.length - 3;
+    const delayFrames = clamp(delaySeconds * this.rate, 1, maximumFrames);
+    let readPosition = this.writeIndex - delayFrames;
+    while (readPosition < 0) readPosition += this.buffer.length;
+    const firstIndex = Math.floor(readPosition) % this.buffer.length;
+    const secondIndex = (firstIndex + 1) % this.buffer.length;
+    const fraction = readPosition - Math.floor(readPosition);
+    const delayed = this.buffer[firstIndex]
+      + (this.buffer[secondIndex] - this.buffer[firstIndex]) * fraction;
+    this.buffer[this.writeIndex] = Number.isFinite(input) ? input : 0;
+    this.writeIndex = (this.writeIndex + 1) % this.buffer.length;
+    return Number.isFinite(delayed) ? delayed : 0;
+  }
+}
+
 class BlowholePhysicalProcessor extends AudioWorkletProcessor {
   constructor(options = {}) {
     super();
@@ -129,6 +191,29 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     this.startedCurrentCall = false;
     this.seed = 0x63657461;
     this.blockCounter = 0;
+    // A call topology is swapped only after the old source reaches zero and at
+    // the beginning of a render block. This avoids retuning live modal state
+    // when moving between laryngeal tones, nasal whistles, and click sources.
+    this.pendingConfiguration = null;
+    this.pendingTransportIntent = null;
+    this.callTransitionState = "steady";
+    this.callTransitionGain = 1;
+    this.callTransitionFadeOutStep = 1 / Math.max(
+      1,
+      CALL_RETARGET_FADE_OUT_SECONDS * this.rate,
+    );
+    this.callTransitionFadeInStep = 1 / Math.max(
+      1,
+      CALL_RETARGET_FADE_IN_SECONDS * this.rate,
+    );
+
+    // The external valve is a surface-breath performance state, not part of
+    // the underwater source configuration. Keeping it separate preserves the
+    // model's sealed-underwater anatomical contract.
+    this.surfaceValveTarget = 0;
+    this.surfaceValveAperture = 0;
+    this.surfaceValveSourceGain = 1;
+    this.surfaceValveCoefficient = smoothCoefficient(SURFACE_VALVE_SMOOTH_SECONDS, this.rate);
     this.ventEnvelope = 0;
     this.ventFilterLow = new StateVariableBandpass(this.rate);
     this.ventFilterHigh = new StateVariableBandpass(this.rate);
@@ -169,6 +254,42 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     this.acousticDelayLeft = new AcousticDelayLine(this.rate);
     this.acousticDelayRight = new AcousticDelayLine(this.rate);
 
+    this.propagationDelayLeft = new FractionalPropagationDelay(this.rate);
+    this.propagationDelayRight = new FractionalPropagationDelay(this.rate);
+    this.propagationDirectLowpassLeft = new OnePoleLowpass();
+    this.propagationDirectLowpassRight = new OnePoleLowpass();
+    this.propagationReflectionLowpassLeft = new OnePoleLowpass();
+    this.propagationReflectionLowpassRight = new OnePoleLowpass();
+    this.propagationParameterCoefficient = smoothCoefficient(0.12, this.rate);
+    this.propagationPhasePrimary = 0;
+    this.propagationPhaseSecondary = 0.271;
+    this.propagationOutputLeft = 0;
+    this.propagationOutputRight = 0;
+    this.propagationTarget = {
+      mix: 0,
+      directGain: 1,
+      directFilterCoefficient: 1,
+      reflectionFilterCoefficient: 1,
+      reflectionGain: 0,
+      reflectionDelaySeconds: 0.008,
+      reflectionSpreadSeconds: 0,
+      modulationDepthSeconds: 0,
+      modulationRateHz: 0,
+      flutterDepth: 0,
+    };
+    this.propagationSmoothed = { ...this.propagationTarget };
+    this.propagationMetadata = {
+      presetId: "water-calm",
+      label: "Calm Water",
+      medium: "water",
+      condition: "calm",
+      speedMps: 1_500,
+      distanceM: 0,
+      travelTimeMs: 0,
+    };
+    this._setPropagationTarget(this.lastPlan);
+    this._snapPropagationParameters();
+
     this.dcLeft = 0;
     this.dcRight = 0;
     this.lastPeak = 0;
@@ -180,15 +301,33 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
   _handleMessage(message = {}) {
     if (!message || typeof message !== "object") return;
     if (message.type === "configure") {
-      const previousCallId = this.configuration.callId;
-      this.configuration = sanitizeBlowholeState(
-        { ...this.configuration, ...(message.configuration ?? {}) },
-        this.configuration,
+      const base = this.pendingConfiguration ?? this.configuration;
+      const nextConfiguration = sanitizeBlowholeState(
+        { ...base, ...(message.configuration ?? {}) },
+        base,
       );
-      this.call = blowholeCall(this.configuration.callId);
-      if (previousCallId !== this.call.id) {
-        this.nextPulseIndex = 0;
-        this.lastPhase = 0;
+      const callChanged = nextConfiguration.callId !== this.call.id;
+      if (callChanged && (this.playing || this.manualGate)) {
+        // Repeated UI updates during the fade replace/extend the pending
+        // configuration without restarting the fade or touching transport.
+        this.pendingConfiguration = nextConfiguration;
+        this.pendingTransportIntent = {
+          playing: this.playing,
+          loop: this.loop,
+          manualGate: this.manualGate,
+        };
+        this.callTransitionState = "fading-out";
+      } else {
+        // Switching back to the current call before the pending commit simply
+        // cancels the swap and returns smoothly to unity.
+        this.pendingConfiguration = null;
+        this.pendingTransportIntent = null;
+        if (callChanged) {
+          this._commitCallConfiguration(nextConfiguration);
+        } else {
+          this.configuration = nextConfiguration;
+          if (this.callTransitionGain < 1) this.callTransitionState = "fading-in";
+        }
       }
       return;
     }
@@ -201,7 +340,6 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
         this.call = blowholeCall(this.configuration.callId);
       }
       this.playing = true;
-      if (this.call.id !== "sperm-whale-coda") this.ventEnvelope = 0;
       this.loop = Boolean(message.loop);
       this.manualGate = false;
       const delaySeconds = clamp(Number(message.delaySeconds), 0, 2);
@@ -210,23 +348,45 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
       this.nextPulseIndex = 0;
       this.pulsePhase = 0;
       this.startedCurrentCall = false;
+      if (this.pendingTransportIntent) {
+        this.pendingTransportIntent = {
+          playing: this.playing,
+          loop: this.loop,
+          manualGate: this.manualGate,
+        };
+      }
       return;
     }
     if (message.type === "manual" || message.type === "gate") {
       this.manualGate = Boolean(message.active ?? message.value);
       if (this.manualGate) {
-        if (this.call.id !== "sperm-whale-coda") this.ventEnvelope = 0;
         this.playing = false;
         this.lastPhase = 0.45;
         this.pulsePhase = 0;
       }
+      if (this.pendingTransportIntent) {
+        this.pendingTransportIntent = {
+          playing: this.playing,
+          loop: this.loop,
+          manualGate: this.manualGate,
+        };
+      }
+      return;
+    }
+    if (message.type === "surfaceValve") {
+      const requested = message.aperture
+        ?? message.value
+        ?? (message.active === true ? 1 : message.active === false ? 0 : 0);
+      let aperture = 0;
+      try {
+        aperture = Number(requested);
+      } catch {
+        aperture = 0;
+      }
+      this.surfaceValveTarget = clamp(aperture, 0, 1);
       return;
     }
     if (message.type === "vent") {
-      if (this.call.id !== "sperm-whale-coda") {
-        this.playing = false;
-        this.manualGate = false;
-      }
       this.ventEnvelope = Math.max(this.ventEnvelope, clamp(Number(message.strength), 0.2, 1.4));
       return;
     }
@@ -235,6 +395,9 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
       return;
     }
     if (message.type === "stop") {
+      this.pendingConfiguration = null;
+      this.pendingTransportIntent = null;
+      this.callTransitionState = this.callTransitionGain < 1 ? "fading-in" : "steady";
       this.playing = false;
       this.loop = false;
       this.lastPhase = 0;
@@ -243,6 +406,7 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     }
     if (message.type === "loop") {
       this.loop = Boolean(message.active);
+      if (this.pendingTransportIntent) this.pendingTransportIntent.loop = this.loop;
       return;
     }
     if (message.type === "silence" || message.type === "panic") this._silence();
@@ -252,6 +416,13 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     this.playing = false;
     this.loop = false;
     this.manualGate = false;
+    this.pendingConfiguration = null;
+    this.pendingTransportIntent = null;
+    this.callTransitionState = "steady";
+    this.callTransitionGain = 1;
+    this.surfaceValveTarget = 0;
+    this.surfaceValveAperture = 0;
+    this.surfaceValveSourceGain = 1;
     this.ventEnvelope = 0;
     this.pulseEnvelope = 0;
     this.clickPulseFramesRemaining = 0;
@@ -264,12 +435,107 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     this.dcRight = 0;
     this.acousticDelayLeft.reset();
     this.acousticDelayRight.reset();
+    this._resetPropagation();
     this.ventFilterLow.reset();
     this.ventFilterHigh.reset();
     for (const mode of [...this.clickModesLeft, ...this.clickModesRight]) mode.reset();
+    this.nasalColorLeft.reset();
+    this.nasalColorRight.reset();
     this.sacMode.reset();
     this.spermacetiMode.reset();
     for (const mode of this.bodyModes) mode.reset();
+  }
+
+  _resetSourceState() {
+    this.nextPulseIndex = 0;
+    this.pulsePhase = 0;
+    this.pulseEnvelope = 0;
+    this.clickPulseFramesRemaining = 0;
+    this.clickPulseFrameLength = 1;
+    this.pneumaticReservoir = 0;
+    this.phaseLeft = 0;
+    this.phaseRight = 0.31;
+    this.foldMemoryLeft = 0;
+    this.foldMemoryRight = 0;
+    this.startedCurrentCall = false;
+
+    this.acousticDelayLeft.reset();
+    this.acousticDelayRight.reset();
+    for (const mode of [...this.clickModesLeft, ...this.clickModesRight]) mode.reset();
+    this.nasalColorLeft.reset();
+    this.nasalColorRight.reset();
+    this.sacMode.reset();
+    this.spermacetiMode.reset();
+    for (const mode of this.bodyModes) mode.reset();
+  }
+
+  _commitCallConfiguration(configuration) {
+    this.configuration = sanitizeBlowholeState(configuration, this.configuration);
+    this.call = blowholeCall(this.configuration.callId);
+    this._resetSourceState();
+
+    const phase = this.manualGate ? 0.45 : 0;
+    this.lastPhase = phase;
+    if (this.playing) this.callStartFrame = this.renderedFrames;
+    const plan = createBlowholeVoicePlan(this.configuration, phase);
+    const active = this.manualGate || this.playing;
+    this._updateTargets(plan, active);
+    this.smoothed.pressure = 0;
+    this.smoothed.frequencyLeft = this.target.frequencyLeft;
+    this.smoothed.frequencyRight = this.target.frequencyRight;
+    this.smoothed.pulseRateHz = this.target.pulseRateHz;
+    this.smoothed.closure = this.target.closure;
+    this.smoothed.focus = this.target.focus;
+    this.smoothed.roughness = this.target.roughness;
+    this.smoothed.asymmetry = this.target.asymmetry;
+    this._configureFilters(plan);
+  }
+
+  _commitPendingCallAtBlockBoundary() {
+    if (
+      this.callTransitionState !== "fading-out"
+      || this.callTransitionGain > 0
+      || !this.pendingConfiguration
+    ) return;
+    const configuration = this.pendingConfiguration;
+    const transportIntent = this.pendingTransportIntent;
+    this.pendingConfiguration = null;
+    this.pendingTransportIntent = null;
+    if (transportIntent) {
+      this.playing = transportIntent.playing;
+      this.loop = transportIntent.loop;
+      this.manualGate = transportIntent.manualGate;
+    }
+    this._commitCallConfiguration(configuration);
+    this.callTransitionState = "fading-in";
+  }
+
+  _advanceCallTransition() {
+    if (this.callTransitionState === "fading-out") {
+      this.callTransitionGain = Math.max(
+        0,
+        this.callTransitionGain - this.callTransitionFadeOutStep,
+      );
+      return;
+    }
+    if (this.callTransitionState === "fading-in") {
+      this.callTransitionGain = Math.min(
+        1,
+        this.callTransitionGain + this.callTransitionFadeInStep,
+      );
+      if (this.callTransitionGain >= 1) this.callTransitionState = "steady";
+    }
+  }
+
+  _smoothSurfaceValve() {
+    this.surfaceValveAperture += (
+      this.surfaceValveTarget - this.surfaceValveAperture
+    ) * this.surfaceValveCoefficient;
+    if (this.surfaceValveTarget === 0 && this.surfaceValveAperture < 1e-7) {
+      this.surfaceValveAperture = 0;
+    } else if (this.surfaceValveTarget === 1 && this.surfaceValveAperture > 1 - 1e-7) {
+      this.surfaceValveAperture = 1;
+    }
   }
 
   _random() {
@@ -288,6 +554,13 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     let elapsed = frame - this.callStartFrame;
     if (elapsed >= durationFrames) {
       if (!this.loop) {
+        // A requested live call remains transport-active long enough for its
+        // fade-out and block-boundary swap to complete, even if the outgoing
+        // authored gesture reaches its endpoint during those few milliseconds.
+        if (this.pendingConfiguration && this.callTransitionState === "fading-out") {
+          this.lastPhase = 1;
+          return 1;
+        }
         this.playing = false;
         this.lastPhase = 1;
         return 1;
@@ -408,6 +681,226 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
         0.003 + this.configuration.scale * 0.009,
       );
     }
+  }
+
+  _propagationFilterCoefficient(frequencyHz) {
+    const cutoffHz = clamp(frequencyHz, 24, this.rate * 0.48);
+    return clamp(1 - Math.exp(-TAU * cutoffHz / this.rate), 0.0001, 1);
+  }
+
+  _setPropagationTarget(plan) {
+    const propagation = plan?.propagation ?? deriveBlowholePropagation(this.configuration);
+    const requestedId = typeof propagation?.presetId === "string"
+      ? propagation.presetId
+      : propagation?.id;
+    const presetId = PROPAGATION_PROFILE_IDS.includes(requestedId)
+      ? requestedId
+      : "water-calm";
+    const directCutoffHz = clamp(
+      finiteOr(propagation?.directCutoffHz, propagation?.cutoffHz ?? 18_000),
+      24,
+      this.rate * 0.48,
+    );
+    const reflectionCutoffHz = clamp(
+      finiteOr(propagation?.reflectionCutoffHz, directCutoffHz * 0.72),
+      24,
+      this.rate * 0.48,
+    );
+    const reflectionGain = Number.isFinite(propagation?.signedReflectionGain)
+      ? propagation.signedReflectionGain
+      : finiteOr(propagation?.reflectionGain, 0)
+        * (finiteOr(propagation?.reflectionPolarity, 1) < 0 ? -1 : 1);
+    const reflectionDelaySeconds = Number.isFinite(propagation?.reflectionDelaySeconds)
+      ? propagation.reflectionDelaySeconds
+      : finiteOr(propagation?.reflectionDelayMs, 8) / 1_000;
+    const reflectionSpreadSeconds = Number.isFinite(propagation?.reflectionSpreadSeconds)
+      ? propagation.reflectionSpreadSeconds
+      : finiteOr(propagation?.reflectionSpreadMs, 0) / 1_000;
+    const modulationDepthSeconds = Number.isFinite(propagation?.modulationDepthSeconds)
+      ? propagation.modulationDepthSeconds
+      : finiteOr(propagation?.modulationDepthMs, 0) / 1_000;
+
+    this.propagationTarget.mix = clamp(finiteOr(propagation?.mix, 0));
+    this.propagationTarget.directGain = clamp(finiteOr(propagation?.directGain, 1), 0, 1);
+    this.propagationTarget.directFilterCoefficient = this._propagationFilterCoefficient(
+      directCutoffHz,
+    );
+    this.propagationTarget.reflectionFilterCoefficient = this._propagationFilterCoefficient(
+      reflectionCutoffHz,
+    );
+    this.propagationTarget.reflectionGain = clamp(reflectionGain, -0.6, 0.6);
+    this.propagationTarget.reflectionDelaySeconds = clamp(
+      reflectionDelaySeconds,
+      1 / this.rate,
+      0.24,
+    );
+    this.propagationTarget.reflectionSpreadSeconds = clamp(
+      reflectionSpreadSeconds,
+      0,
+      0.04,
+    );
+    this.propagationTarget.modulationDepthSeconds = clamp(
+      modulationDepthSeconds,
+      0,
+      0.01,
+    );
+    this.propagationTarget.modulationRateHz = clamp(
+      finiteOr(propagation?.modulationRateHz, 0),
+      0,
+      5,
+    );
+    this.propagationTarget.flutterDepth = clamp(
+      finiteOr(propagation?.flutterDepth, 0),
+      0,
+      0.25,
+    );
+    this.propagationMetadata.presetId = presetId;
+    this.propagationMetadata.label = typeof propagation?.label === "string"
+      ? propagation.label
+      : presetId;
+    this.propagationMetadata.medium = propagation?.medium === "air" ? "air" : "water";
+    this.propagationMetadata.condition = typeof propagation?.condition === "string"
+      ? propagation.condition
+      : "calm";
+    this.propagationMetadata.speedMps = clamp(
+      finiteOr(propagation?.speedMps, this.propagationMetadata.medium === "air" ? 343 : 1_500),
+      250,
+      1_700,
+    );
+    this.propagationMetadata.distanceM = clamp(finiteOr(propagation?.distanceM, 0), 0, 100_000);
+    this.propagationMetadata.travelTimeMs = Math.max(
+      0,
+      finiteOr(
+        propagation?.travelTimeMs,
+        finiteOr(propagation?.travelTimeSeconds, 0) * 1_000,
+      ),
+    );
+    this.propagationMetadata.directCutoffHz = directCutoffHz;
+    this.propagationMetadata.reflectionCutoffHz = reflectionCutoffHz;
+    this.propagationMetadata.reflectionDelayMs = this.propagationTarget.reflectionDelaySeconds * 1_000;
+    this.propagationMetadata.reflectionSpreadMs = this.propagationTarget.reflectionSpreadSeconds * 1_000;
+  }
+
+  _snapPropagationParameters() {
+    const target = this.propagationTarget;
+    const smoothed = this.propagationSmoothed;
+    smoothed.mix = target.mix;
+    smoothed.directGain = target.directGain;
+    smoothed.directFilterCoefficient = target.directFilterCoefficient;
+    smoothed.reflectionFilterCoefficient = target.reflectionFilterCoefficient;
+    smoothed.reflectionGain = target.reflectionGain;
+    smoothed.reflectionDelaySeconds = target.reflectionDelaySeconds;
+    smoothed.reflectionSpreadSeconds = target.reflectionSpreadSeconds;
+    smoothed.modulationDepthSeconds = target.modulationDepthSeconds;
+    smoothed.modulationRateHz = target.modulationRateHz;
+    smoothed.flutterDepth = target.flutterDepth;
+  }
+
+  _resetPropagation() {
+    this.propagationDelayLeft.reset();
+    this.propagationDelayRight.reset();
+    this.propagationDirectLowpassLeft.reset();
+    this.propagationDirectLowpassRight.reset();
+    this.propagationReflectionLowpassLeft.reset();
+    this.propagationReflectionLowpassRight.reset();
+    this.propagationPhasePrimary = 0;
+    this.propagationPhaseSecondary = 0.271;
+    this.propagationOutputLeft = 0;
+    this.propagationOutputRight = 0;
+    this._snapPropagationParameters();
+  }
+
+  _smoothPropagationParameters() {
+    const amount = this.propagationParameterCoefficient;
+    const target = this.propagationTarget;
+    const smoothed = this.propagationSmoothed;
+    // A zero mix is a true bypass rather than an asymptotic approximation.
+    smoothed.mix = target.mix === 0
+      ? 0
+      : smoothed.mix + (target.mix - smoothed.mix) * amount;
+    smoothed.directGain += (target.directGain - smoothed.directGain) * amount;
+    smoothed.directFilterCoefficient += (
+      target.directFilterCoefficient - smoothed.directFilterCoefficient
+    ) * amount;
+    smoothed.reflectionFilterCoefficient += (
+      target.reflectionFilterCoefficient - smoothed.reflectionFilterCoefficient
+    ) * amount;
+    smoothed.reflectionGain += (target.reflectionGain - smoothed.reflectionGain) * amount;
+    smoothed.reflectionDelaySeconds += (
+      target.reflectionDelaySeconds - smoothed.reflectionDelaySeconds
+    ) * amount;
+    smoothed.reflectionSpreadSeconds += (
+      target.reflectionSpreadSeconds - smoothed.reflectionSpreadSeconds
+    ) * amount;
+    smoothed.modulationDepthSeconds += (
+      target.modulationDepthSeconds - smoothed.modulationDepthSeconds
+    ) * amount;
+    smoothed.modulationRateHz += (
+      target.modulationRateHz - smoothed.modulationRateHz
+    ) * amount;
+    smoothed.flutterDepth += (target.flutterDepth - smoothed.flutterDepth) * amount;
+  }
+
+  _processPropagation(inputLeft, inputRight) {
+    this._smoothPropagationParameters();
+    const parameters = this.propagationSmoothed;
+    const primary = Math.sin(TAU * this.propagationPhasePrimary);
+    const secondary = Math.sin(TAU * this.propagationPhaseSecondary);
+    const modulationLeft = primary * 0.68 + secondary * 0.32;
+    const modulationRight = Math.sin(TAU * (this.propagationPhasePrimary + 0.193)) * 0.68
+      + Math.sin(TAU * (this.propagationPhaseSecondary + 0.417)) * 0.32;
+    this.propagationPhasePrimary += parameters.modulationRateHz / this.rate;
+    this.propagationPhaseSecondary += parameters.modulationRateHz * 0.61803398875 / this.rate;
+    if (this.propagationPhasePrimary >= 1) this.propagationPhasePrimary -= 1;
+    if (this.propagationPhaseSecondary >= 1) this.propagationPhaseSecondary -= 1;
+
+    const halfSpread = parameters.reflectionSpreadSeconds * 0.5;
+    const reflectionDelayLeft = parameters.reflectionDelaySeconds - halfSpread
+      + parameters.modulationDepthSeconds * modulationLeft;
+    const reflectionDelayRight = parameters.reflectionDelaySeconds + halfSpread
+      + parameters.modulationDepthSeconds * modulationRight;
+    const delayedLeft = this.propagationDelayLeft.process(inputLeft, reflectionDelayLeft);
+    const delayedRight = this.propagationDelayRight.process(inputRight, reflectionDelayRight);
+    const directLeft = this.propagationDirectLowpassLeft.process(
+      inputLeft,
+      parameters.directFilterCoefficient,
+    );
+    const directRight = this.propagationDirectLowpassRight.process(
+      inputRight,
+      parameters.directFilterCoefficient,
+    );
+    const reflectedLeft = this.propagationReflectionLowpassLeft.process(
+      delayedLeft,
+      parameters.reflectionFilterCoefficient,
+    );
+    const reflectedRight = this.propagationReflectionLowpassRight.process(
+      delayedRight,
+      parameters.reflectionFilterCoefficient,
+    );
+
+    // Turbulence/flutter changes level only. Delay modulation is confined to
+    // the reflected tap, so changing medium never retunes the direct call.
+    const flutterLeft = 1 + parameters.flutterDepth * modulationLeft;
+    const flutterRight = 1 + parameters.flutterDepth * modulationRight;
+    const maximumWetGain = Math.abs(parameters.directGain)
+      * (1 + Math.abs(parameters.flutterDepth))
+      + Math.abs(parameters.reflectionGain);
+    const wetNormalization = 1 / Math.max(1, maximumWetGain);
+    const wetLeft = (
+      directLeft * parameters.directGain * flutterLeft
+      + reflectedLeft * parameters.reflectionGain
+    ) * wetNormalization;
+    const wetRight = (
+      directRight * parameters.directGain * flutterRight
+      + reflectedRight * parameters.reflectionGain
+    ) * wetNormalization;
+    const mixAmount = this.propagationTarget.mix === 0 ? 0 : clamp(parameters.mix);
+    this.propagationOutputLeft = mixAmount === 0
+      ? inputLeft
+      : inputLeft + (wetLeft - inputLeft) * mixAmount;
+    this.propagationOutputRight = mixAmount === 0
+      ? inputRight
+      : inputRight + (wetRight - inputRight) * mixAmount;
   }
 
   _smoothParameters() {
@@ -646,11 +1139,15 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
   }
 
   _renderVent() {
-    if (this.ventEnvelope < 1e-5) return 0;
+    const sustainedDrive = this.surfaceValveAperture * (
+      0.38 + this.smoothed.pressure * 0.38
+    );
+    const breathDrive = Math.max(this.ventEnvelope, sustainedDrive);
+    if (breathDrive < 1e-5) return 0;
     const noise = this._random();
     const low = this.ventFilterLow.process(noise);
     const high = this.ventFilterHigh.process(noise);
-    const output = (low * 0.94 + high * 0.35) * this.ventEnvelope;
+    const output = (low * 0.94 + high * 0.35) * breathDrive;
     this.ventEnvelope *= Math.exp(-1 / Math.max(1, 0.16 * this.rate));
     return output * 0.28;
   }
@@ -661,12 +1158,14 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     const right = output?.[1] ?? left;
     if (!left) return true;
 
+    this._commitPendingCallAtBlockBoundary();
     const startPhase = this._phaseAtFrame(this.renderedFrames);
     const active = this.manualGate
       || (this.playing && this.renderedFrames >= this.callStartFrame);
     const plan = this._planAt(startPhase);
     this._updateTargets(plan, active);
     this._configureFilters(plan);
+    this._setPropagationTarget(plan);
 
     let peak = 0;
     let squareSum = 0;
@@ -674,18 +1173,30 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
       const absoluteFrame = this.renderedFrames + frame;
       const phase = this._phaseAtFrame(absoluteFrame);
       this._smoothParameters();
+      this._smoothSurfaceValve();
+      this._advanceCallTransition();
+      const apertureCurve = this.surfaceValveAperture
+        * this.surfaceValveAperture
+        * (3 - 2 * this.surfaceValveAperture);
+      const minimumSourceGain = this.call.id === "sperm-whale-coda" ? 0.92 : 0.16;
+      this.surfaceValveSourceGain = 1 - apertureCurve * (1 - minimumSourceGain);
       let sampleLeft = 0;
       let sampleRight = 0;
       if (this.smoothed.pressure > 1e-5) {
         const sample = this.call.sourceFamily === BLOWHOLE_SOURCE_FAMILIES.ODONTOCETE
           ? this._renderOdontocete(phase)
           : this._renderMysticete();
-        sampleLeft += sample[0];
-        sampleRight += sample[1];
+        const sourceGain = this.callTransitionGain * this.surfaceValveSourceGain;
+        sampleLeft += sample[0] * sourceGain;
+        sampleRight += sample[1] * sourceGain;
       }
       const vent = this._renderVent();
       sampleLeft += vent * 0.93;
       sampleRight += vent * 1.07;
+
+      this._processPropagation(sampleLeft, sampleRight);
+      sampleLeft = this.propagationOutputLeft;
+      sampleRight = this.propagationOutputRight;
 
       this.dcLeft += (sampleLeft - this.dcLeft) * 0.00042;
       this.dcRight += (sampleRight - this.dcRight) * 0.00042;
@@ -721,7 +1232,36 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
         pressure: this.smoothed.pressure,
         peak: this.lastPeak,
         rms: this.lastRms,
-        valveOpen: this.ventEnvelope > 0.001,
+        valveAperture: this.surfaceValveAperture,
+        valveSourceGain: this.surfaceValveSourceGain,
+        valveOpen: this.surfaceValveAperture > 0.001 || this.ventEnvelope > 0.001,
+        propagationId: this.propagationMetadata.presetId,
+        propagationMedium: this.propagationMetadata.medium,
+        propagationCondition: this.propagationMetadata.condition,
+        propagationMix: this.propagationSmoothed.mix,
+        propagationDistanceM: this.propagationMetadata.distanceM,
+        propagationSpeedMps: this.propagationMetadata.speedMps,
+        propagationTravelTimeMs: this.propagationMetadata.travelTimeMs,
+        propagation: {
+          presetId: this.propagationMetadata.presetId,
+          label: this.propagationMetadata.label,
+          medium: this.propagationMetadata.medium,
+          condition: this.propagationMetadata.condition,
+          mix: this.propagationSmoothed.mix,
+          distanceM: this.propagationMetadata.distanceM,
+          speedMps: this.propagationMetadata.speedMps,
+          travelTimeMs: this.propagationMetadata.travelTimeMs,
+          travelTimeReadoutOnly: true,
+          appliesTravelTimeDelay: false,
+          directCutoffHz: this.propagationMetadata.directCutoffHz,
+          reflectionCutoffHz: this.propagationMetadata.reflectionCutoffHz,
+          signedReflectionGain: this.propagationSmoothed.reflectionGain,
+          reflectionDelayMs: this.propagationSmoothed.reflectionDelaySeconds * 1_000,
+          reflectionSpreadMs: this.propagationSmoothed.reflectionSpreadSeconds * 1_000,
+          modulationDepthMs: this.propagationSmoothed.modulationDepthSeconds * 1_000,
+          modulationRateHz: this.propagationSmoothed.modulationRateHz,
+          flutterDepth: this.propagationSmoothed.flutterDepth,
+        },
       });
     }
     return true;

@@ -75,6 +75,16 @@ for worktree_runtime_file in \
   boidzoid-app.js \
   src/boidzoid.js \
   assets/instruments/boidzoid.webp \
+  vector-flight.html \
+  vector-flight.css \
+  vector-flight-app.js \
+  src/vector-flight.js \
+  assets/instruments/vector-flight.webp \
+  surround-field.html \
+  surround-field.css \
+  surround-field-app.js \
+  src/surround-field.js \
+  assets/instruments/surround-field.webp \
   striped-staircase.html \
   striped-staircase.css \
   striped-staircase-app.js \
@@ -103,13 +113,12 @@ for worktree_runtime_file in \
   src/hybrinx-layout.js \
   src/hybrinx-timeline.js \
   assets/instruments/hybrinx.webp \
-  blowhole.html \
-  blowhole.css \
-  blowhole-app.js \
-  src/blowhole.js \
-  src/blowhole-processor.js \
-  assets/instruments/blowhole.webp \
-  BLOWHOLE_RESEARCH.md \
+  colony-syrinx.html \
+  colony-syrinx.css \
+  colony-syrinx-app.js \
+  src/colony-syrinx.js \
+  src/colony-syrinx-processor.js \
+  assets/instruments/colony-syrinx.webp \
   pink-trombonazoid.html \
   pink-trombonazoid.css \
   pink-trombonazoid-app.js \
@@ -122,6 +131,32 @@ for worktree_runtime_file in \
   src/syrinx.js \
   src/syrinx-source-models.js \
   src/syrinx-processor.js \
+  blowhole.html \
+  blowhole.css \
+  blowhole-app.js \
+  src/blowhole.js \
+  src/blowhole-processor.js \
+  assets/instruments/blowhole.webp \
+  BLOWHOLE_RESEARCH.md \
+  wave-pool.html \
+  wave-pool.css \
+  wave-pool-app.js \
+  src/wave-pool.js \
+  src/wave-pool-processor.js \
+  assets/instruments/wave-pool.webp \
+  WAVE_POOL_RESEARCH.md \
+  harmonica.html \
+  harmonica.css \
+  harmonica-app.js \
+  src/harmonica.js \
+  src/harmonica-processor.js \
+  assets/instruments/harmonica.webp \
+  hambone.html \
+  hambone.css \
+  hambone-app.js \
+  src/hambone.js \
+  src/hambone-processor.js \
+  assets/instruments/hambone.webp \
   src/tongue-physics.js \
   src/tongue-performance.js \
   ANIMAL_VOICE_SYNTHESIS_RESEARCH.md \
@@ -247,6 +282,11 @@ for worktree_runtime_file in \
   src/rubix-webgpu-303.js \
   src/rubix-visibility.js \
   assets/instruments/rubix.webp \
+  sliding-puzzle.html \
+  sliding-puzzle.css \
+  sliding-puzzle-app.js \
+  src/sliding-puzzle.js \
+  assets/instruments/sliding-puzzle.webp \
   hyper-rubix.html \
   hyper-rubix.css \
   hyper-rubix-app.js \
@@ -261,6 +301,17 @@ for worktree_runtime_file in \
   l-system-drums.css \
   l-system-drums-app.js \
   src/l-system-drums.js \
+  graph-drums.html \
+  graph-synth.html \
+  graph-instruments.css \
+  graph-drums-app.js \
+  graph-synth-app.js \
+  src/graph-instrument-app.js \
+  src/graph-instruments.js \
+  src/graph-synth-audio.js \
+  assets/instruments/graph-drums.webp \
+  assets/instruments/graph-synth.webp \
+  GRAPH_INSTRUMENTS_RESEARCH.md \
   linear-drums.html \
   linear-drums.css \
   linear-drums-app.js \
@@ -297,6 +348,17 @@ for worktree_runtime_file in \
   slippery-resynthesis-app.js \
   src/slippery-resynthesis.js \
   assets/instruments/slippery-resynthesis.webp \
+  micromorph.html \
+  micromorph.css \
+  micromorph-app.js \
+  src/micromorph.js \
+  src/micromorph-model-client.js \
+  assets/instruments/micromorph.webp \
+  moire-drone.html \
+  moire-drone.css \
+  moire-drone-app.js \
+  src/moire-drone.js \
+  assets/instruments/moire-drone.webp \
   drum-roll-please.html \
   drum-roll-please.css \
   drum-roll-please-app.js \
@@ -344,6 +406,7 @@ for worktree_runtime_file in \
   src/shader-synth-playground-extra.js \
   src/shader-synth-playground-found-sounds.js \
   src/shader-synth-playground-fx.js \
+  src/shader-synth-playground-geometry.js \
   src/shader-synth-playground-scenes.js \
   assets/instruments/webgpu-synths.webp \
   algorithmic-sequencers.html \
@@ -478,13 +541,12 @@ required_files=(
   src/hybrinx-layout.js
   src/hybrinx-timeline.js
   assets/instruments/hybrinx.webp
-  blowhole.html
-  blowhole.css
-  blowhole-app.js
-  src/blowhole.js
-  src/blowhole-processor.js
-  assets/instruments/blowhole.webp
-  BLOWHOLE_RESEARCH.md
+  colony-syrinx.html
+  colony-syrinx.css
+  colony-syrinx-app.js
+  src/colony-syrinx.js
+  src/colony-syrinx-processor.js
+  assets/instruments/colony-syrinx.webp
   pink-trombonazoid.html
   pink-trombonazoid.css
   pink-trombonazoid-app.js
@@ -497,6 +559,32 @@ required_files=(
   src/syrinx.js
   src/syrinx-source-models.js
   src/syrinx-processor.js
+  blowhole.html
+  blowhole.css
+  blowhole-app.js
+  src/blowhole.js
+  src/blowhole-processor.js
+  assets/instruments/blowhole.webp
+  BLOWHOLE_RESEARCH.md
+  wave-pool.html
+  wave-pool.css
+  wave-pool-app.js
+  src/wave-pool.js
+  src/wave-pool-processor.js
+  assets/instruments/wave-pool.webp
+  WAVE_POOL_RESEARCH.md
+  harmonica.html
+  harmonica.css
+  harmonica-app.js
+  src/harmonica.js
+  src/harmonica-processor.js
+  assets/instruments/harmonica.webp
+  hambone.html
+  hambone.css
+  hambone-app.js
+  src/hambone.js
+  src/hambone-processor.js
+  assets/instruments/hambone.webp
   src/tongue-physics.js
   src/tongue-performance.js
   assets/instruments/syrinx.webp
@@ -600,6 +688,12 @@ required_files=(
   micmic.html
   micmic-app.js
   micmic.css
+  micromorph.html
+  micromorph.css
+  micromorph-app.js
+  src/micromorph.js
+  src/micromorph-model-client.js
+  assets/instruments/micromorph.webp
   shepard-risset.html
   shepard-risset-app.js
   src/shepard-risset.js
@@ -608,6 +702,11 @@ required_files=(
   slippery-resynthesis-app.js
   src/slippery-resynthesis.js
   assets/instruments/slippery-resynthesis.webp
+  moire-drone.html
+  moire-drone.css
+  moire-drone-app.js
+  src/moire-drone.js
+  assets/instruments/moire-drone.webp
   drum-roll-please.html
   drum-roll-please.css
   drum-roll-please-app.js
@@ -685,6 +784,7 @@ required_files=(
   src/shader-synth-playground-extra.js
   src/shader-synth-playground-found-sounds.js
   src/shader-synth-playground-fx.js
+  src/shader-synth-playground-geometry.js
   src/shader-synth-playground-scenes.js
   assets/instruments/webgpu-synths.webp
   weierstrass.html
@@ -809,6 +909,11 @@ required_files=(
   src/rubix-webgpu-303.js
   src/rubix-visibility.js
   assets/instruments/rubix.webp
+  sliding-puzzle.html
+  sliding-puzzle.css
+  sliding-puzzle-app.js
+  src/sliding-puzzle.js
+  assets/instruments/sliding-puzzle.webp
   hyper-rubix.html
   hyper-rubix.css
   hyper-rubix-app.js
@@ -823,6 +928,17 @@ required_files=(
   l-system-drums.css
   l-system-drums-app.js
   src/l-system-drums.js
+  graph-drums.html
+  graph-synth.html
+  graph-instruments.css
+  graph-drums-app.js
+  graph-synth-app.js
+  src/graph-instrument-app.js
+  src/graph-instruments.js
+  src/graph-synth-audio.js
+  assets/instruments/graph-drums.webp
+  assets/instruments/graph-synth.webp
+  GRAPH_INSTRUMENTS_RESEARCH.md
   linear-drums.html
   linear-drums.css
   linear-drums-app.js

@@ -59,20 +59,20 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive jaw harp and cutaway mouth. Pull and release the copper reed trigger to pluck, breathe in or out through the reed, and drag the colored mouth nodes to reshape the resonator."
+            aria-label="Interactive jaw harp and cutaway profile. Pull and release the copper reed trigger to pluck. Drag the larger BREATH pad anywhere to change cycle speed and pressure without interrupting its inhale-exhale phase. Drag the TEMPO pad anywhere horizontally from 36 to 480 BPM and vertically for swing. Drag the mouth, cavity, and glottis nodes to reshape the resonator."
             aria-describedby="canvasInstructions liveStatus"
           >
             A plucked jaw harp reed coupled to an interactive cutaway mouth resonator.
           </canvas>
 
           <div class="jaw-stage-heading" aria-hidden="true">
-            <p>PLUCKED REED × SIGNED BREATH × HUMAN RESONATOR</p>
+            <p>PLUCKED REED × SIGNED BREATH × HUMAN / IMPOSSIBLE RESONATOR</p>
             <h1>JAW<br />HARP</h1>
             <small>fixed reed fundamental / inhaled + exhaled pressure drive / moving harmonic focus</small>
           </div>
 
           <p class="jaw-drag-hint" aria-hidden="true">
-            PULL + RELEASE THE COPPER TRIGGER · HOLD INHALE / EXHALE · SHAPE THE MOUTH
+            PULL + RELEASE · BREATH SPEED ↔ / PRESSURE ↕ · TEMPO ↔ / SWING ↕ · SHAPE MOUTH + THROAT
           </p>
           <p class="jaw-audio-error" id="audioError" role="alert" hidden></p>
         </div>
@@ -92,14 +92,14 @@
 
         <section class="jaw-preset-deck" aria-label="Harp and vowel presets">
           <label for="harpSelect">
-            <span>Physical harp</span>
+            <span>Jaw-harp instrument</span>
             <select id="harpSelect" aria-label="Jaw harp physical preset"></select>
           </label>
           <p id="harpDescription">Low, elastic steel tongue with a long bloom and a strong, dark harmonic ladder.</p>
           <div class="jaw-vowel-row" id="vowelButtons" role="group" aria-label="Mouth vowel shapes"></div>
           <button class="jaw-randomize-button" id="randomizeButton" type="button">
             <span aria-hidden="true">✦</span>
-            <span><b>Randomize the physical model</b><small>body, reed, mouth, coupling + rhythm</small></span>
+            <span><b>Randomize the physical model</b><small>fresh playable body, reed, mouth, audible breath + weighted rhythm</small></span>
           </button>
         </section>
 
@@ -138,9 +138,9 @@
               <small>Moves the excitation comb along the flexible tongue.</small>
             </label>
             <label class="control" for="pluckForce">
-              <span><b>Pluck force</b><output id="pluckForceOut" for="pluckForce">72%</output></span>
-              <input id="pluckForce" type="range" min="0.08" max="1" step="0.01" value="0.72" />
-              <small>Sets initial reed displacement and the short frame-contact transient.</small>
+              <span><b>Tine tension scale</b><output id="pluckForceOut" for="pluckForce">72%</output></span>
+              <input id="pluckForce" type="range" min="0.005" max="4" step="0.005" value="0.72" />
+              <small>Scales initial displacement and contact attack. Canvas pull distance spans whisper taps through 400% overpulls.</small>
             </label>
           </div>
         </details>
@@ -168,25 +168,25 @@
               <span aria-hidden="true">↔</span>
               <span>
                 <b>Automatic breath cycle</b>
-                <small id="breathCycleState">42 cycles/min · alternating in and out</small>
+                <small id="breathCycleState">74 cycles/min · hand-clock × rate</small>
               </span>
             </button>
             <label class="control" for="breathDepth">
               <span><b>Breath pressure</b><output id="breathDepthOut" for="breathDepth">72%</output></span>
-              <input id="breathDepth" type="range" min="0" max="1" step="0.01" value="0.72" />
-              <small>Sets the signed pressure load that sustains and bends the moving reed.</small>
+              <input id="breathDepth" type="range" min="0" max="3" step="0.01" value="0.72" />
+              <small>Sets signed pressure from no air through 300% impossible lung pressure, strongly controlling level, sustain, bend, and spectrum.</small>
             </label>
             <label class="control" for="breathRateBpm">
-              <span><b>Breath rhythm</b><output id="breathRateBpmOut" for="breathRateBpm">42 cycles/min</output></span>
-              <input id="breathRateBpm" type="range" min="12" max="120" step="1" value="42" />
+              <span><b>Breath oscillator</b><output id="breathRateBpmOut" for="breathRateBpm">42 cycles/min</output></span>
+              <input id="breathRateBpm" type="range" min="1" max="1200" step="1" value="42" />
               <small>
-                One cycle contains a complete inhalation and exhalation. Link it to the hand loop below or let it run independently.
+                One inhale/exhale cycle, generated at audio rate from one per minute to 20 per second. When linked, this becomes a multiplier on the hand clock.
               </small>
             </label>
             <label class="control" for="breathBalance">
               <span><b>In / out duration</b><output id="breathBalanceOut" for="breathBalance">46 / 54</output></span>
-              <input id="breathBalance" type="range" min="0.25" max="0.75" step="0.01" value="0.46" />
-              <small>Moves time between the inward and outward halves while preserving the full cycle.</small>
+              <input id="breathBalance" type="range" min="0.02" max="0.98" step="0.01" value="0.46" />
+              <small>Moves 2–98% of the cycle into inhalation, from needle impulses to nearly one-way pressure.</small>
             </label>
             <div class="jaw-breath-meter" id="breathMeter" aria-hidden="true">
               <span>IN</span><i></i><i></i><i></i><i></i><b>0</b><i></i><i></i><i></i><i></i><span>OUT</span>
@@ -202,28 +202,28 @@
           <div class="group-body">
             <label class="control" for="tonguePosition">
               <span><b>Tongue front / back</b><output id="tonguePositionOut" for="tonguePosition">48% front</output></span>
-              <input id="tonguePosition" type="range" min="0" max="1" step="0.01" value="0.48" />
-              <small>Shortens or lengthens the front cavity, moving the upper harmonic focus.</small>
+              <input id="tonguePosition" type="range" min="-2" max="3" step="0.01" value="0.48" />
+              <small>Extrapolates far behind and beyond a human tongue; 0–100% is the human band.</small>
             </label>
             <label class="control" for="tongueHeight">
               <span><b>Tongue height</b><output id="tongueHeightOut" for="tongueHeight">22%</output></span>
-              <input id="tongueHeight" type="range" min="0" max="1" step="0.01" value="0.22" />
-              <small>Changes the palatal constriction and the spacing between oral modes.</small>
+              <input id="tongueHeight" type="range" min="-2" max="3" step="0.01" value="0.22" />
+              <small>Moves from a virtual cavity below the jaw to an impossible palatal over-closure.</small>
             </label>
             <label class="control" for="jawOpening">
               <span><b>Jaw opening</b><output id="jawOpeningOut" for="jawOpening">72%</output></span>
-              <input id="jawOpening" type="range" min="0" max="1" step="0.01" value="0.72" />
-              <small>Changes cavity volume, the lowest oral mode, and radiation aperture.</small>
+              <input id="jawOpening" type="range" min="-2" max="3" step="0.01" value="0.72" />
+              <small>Runs past sealed negative aperture to a 300% nonhuman opening.</small>
             </label>
             <label class="control" for="lipRounding">
               <span><b>Lip rounding</b><output id="lipRoundingOut" for="lipRounding">8%</output></span>
-              <input id="lipRounding" type="range" min="0" max="1" step="0.01" value="0.08" />
-              <small>Lengthens the lip opening and lowers the upper resonance region.</small>
+              <input id="lipRounding" type="range" min="-2" max="3" step="0.01" value="0.08" />
+              <small>Extends from impossible retraction through extreme projected tube length.</small>
             </label>
             <label class="control" for="formantFocus">
               <span><b>Harmonic focus</b><output id="formantFocusOut" for="formantFocus">48%</output></span>
-              <input id="formantFocus" type="range" min="0" max="1" step="0.01" value="0.48" />
-              <small>Moves emphasis between the first and second oral modes without retuning the reed.</small>
+              <input id="formantFocus" type="range" min="-2" max="3" step="0.01" value="0.48" />
+              <small>Sweeps a real focus resonator from sub-formant depths past the third formant without retuning the reed.</small>
             </label>
           </div>
         </details>
@@ -236,12 +236,12 @@
           <div class="group-body">
             <label class="control" for="cavityCoupling">
               <span><b>Mouth coupling</b><output id="cavityCouplingOut" for="cavityCoupling">82%</output></span>
-              <input id="cavityCoupling" type="range" min="0" max="1" step="0.01" value="0.82" />
-              <small>Balances direct lamella radiation against the three moving oral modes.</small>
+              <input id="cavityCoupling" type="range" min="0" max="2" step="0.01" value="0.82" />
+              <small>Balances direct lamella radiation against the moving oral modes, then over-couples them above 100%.</small>
             </label>
             <label class="control" for="dryResonance">
               <span><b>Unbreathed resonance</b><output id="dryResonanceOut" for="dryResonance">6%</output></span>
-              <input id="dryResonance" type="range" min="0" max="0.35" step="0.01" value="0.06" />
+              <input id="dryResonance" type="range" min="0" max="1" step="0.01" value="0.06" />
               <small>At minimum, an unbreathed pluck is only a soft mechanical tick; signed breath opens the mouth resonance.</small>
             </label>
             <label class="control" for="frameCoupling">
@@ -251,8 +251,8 @@
             </label>
             <label class="control" for="glottisOpening">
               <span><b>Glottis opening</b><output id="glottisOpeningOut" for="glottisOpening">42%</output></span>
-              <input id="glottisOpening" type="range" min="0" max="1" step="0.01" value="0.42" />
-              <small>Opens the rear cavity toward the pharynx and trachea, adding length and acoustic loss.</small>
+              <input id="glottisOpening" type="range" min="-2" max="3" step="0.01" value="0.42" />
+              <small>Runs from impossible reverse closure to a three-times-human rear cavity.</small>
             </label>
           </div>
         </details>
@@ -284,15 +284,20 @@
             <label class="jaw-select-control" for="breathsPerLoop">
               <span><b>Breath against pluck loop</b><small>The breath can move slower than, with, or faster than the hand.</small></span>
               <select id="breathsPerLoop">
+                <option value="0.125">1 breath / 8 loops</option>
+                <option value="0.25">1 breath / 4 loops</option>
                 <option value="0.5">1 breath / 2 loops</option>
                 <option value="1" selected>1 breath / loop</option>
                 <option value="2">2 breaths / loop</option>
                 <option value="3">3 breaths / loop</option>
+                <option value="4">4 breaths / loop</option>
+                <option value="8">8 breaths / loop</option>
+                <option value="16">16 breaths / loop</option>
               </select>
             </label>
             <button class="jaw-breath-link" id="breathLinkButton" type="button" aria-pressed="true">
               <span aria-hidden="true">⛓</span>
-              <span><b>Lock breath to plucking</b><small id="breathLinkState">linked · pressure resets on the first step</small></span>
+              <span><b>Lock breath to plucking</b><small id="breathLinkState">linked · clock runs while the hand is muted</small></span>
             </button>
             <div class="jaw-pulse-map" id="pulseMap" aria-hidden="true"></div>
           </div>
@@ -328,8 +333,12 @@
       <p class="sr-only" id="canvasInstructions">
         Pull the copper reed trigger up or down and release it to pluck. Hold the Inhale or Exhale button to drive
         the vibrating reed manually, or leave Automatic breath cycle on for rhythmic bidirectional airflow.
-        Drag the tongue node in two dimensions,
-        the jaw node vertically, the lip node horizontally, or the cavity node horizontally to change harmonic focus.
+        Drag anywhere in the BREATH pad in two dimensions: horizontal changes breath speed from one cycle per minute
+        to twenty per second without restarting the current breath, and vertical changes pressure from zero through
+        three hundred percent. Drag anywhere in the TEMPO pad horizontally from 36 to 480 BPM and vertically for
+        alternating swing without restarting the breath pattern. Drag the tongue node in two dimensions, the jaw node
+        vertically, and the lip node horizontally. Drag the focus and cavity node in two dimensions, or the glottis node
+        horizontally, to reshape the resonator. Equivalent labeled controls are available in the control panel.
         Space or Enter plucks the reed. A, E, I, O, and U load mouth shapes. Number keys one through five load harp bodies.
         R toggles the repeater. Left bracket holds inhale, right bracket holds exhale, and Escape stops it.
       </p>

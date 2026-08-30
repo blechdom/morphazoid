@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260829-2";
+} from "../nav.js?v=catalog-20260829-8";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -37,6 +37,18 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, let the arrows drift, then drag the open surface to steer the sine field.",
     ["Pointer", "Built-in synth"],
   ),
+  "vector-flight": define(
+    "Circular flight geometry",
+    "Keeps a wireframe ship centered inside a full 360-degree star field, mapping a circular listening contour, azimuth, proximity, radial velocity, and tangential motion directly into continuous voices, free-pitch flybys, or triggers without a scale grid.",
+    "Turn on audio, choose Continuous, Notes, or Triggers, drag around the ship to rotate the physics mapping, then raise the throttle until points become hyperspace rays and full-circle plaid.",
+    ["Pointer", "Built-in synth", "Spatial audio"],
+  ),
+  "surround-field": define(
+    "Multichannel spatial instrument",
+    "Places a playable synth source inside 7:4:1, 4:1, eight-speaker circle, eight-speaker cube, and two-to-thirty-two-channel custom arrays, with visible equal-power sends and per-output calibration.",
+    "Turn on audio to probe the active device, choose an array, then drag the coral source, play the A–K pads, orbit a phrase, or test each numbered output.",
+    ["Pointer", "Built-in synth", "Spatial audio", "Discrete output", "Device probe"],
+  ),
   lattice: define(
     "Synth",
     "Slides an editable isohedral tiling beneath a reader so every crossed edge becomes a polyphonic synth event.",
@@ -61,6 +73,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Synth",
     "Cuts a rotating 4D wireframe with a W hyperplane and sonifies the crossing edges.",
     "Turn on audio, choose a 4D form, then move the W reader or start rotation.",
+  ),
+  "graph-synth": define(
+    "Network synth",
+    "Sends inherited-pitch note pulses through editable directed graphs; edge length sets time, route turns set intervals, and cycle-closing edges create quieter, darker repeats.",
+    "Turn on audio, choose or generate a graph, then send one note or run the pulse clock while dragging nodes and switching routes.",
+    ["Built-in synth", "Pointer", "MIDI", "Feedback sequencing"],
   ),
   "hyper-rubix": define(
     "4D shape sequencer",
@@ -95,6 +113,18 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose one bank or preset, then drag the cube or enable Random Twists; in WebGPU 303 mode, sticker row, column, edge, current face, and visibility reshape each acid step.",
     ["Pointer"],
   ),
+  "sliding-puzzle": define(
+    "2D puzzle sequencer",
+    "Reads a resizable 2 × 2 through 8 × 8 square or rectangular tile field as either a serial score or Rubix-style parallel rows, with four fixed home-row colors and one moving silent cell.",
+    "Choose Lines together or One tile, set independent rows and columns, then slide complete lines, rotate the rectangle, scramble, or let Solve unwind the exact move history.",
+    ["Pointer", "Built-in synth"],
+  ),
+  "wave-pool": define(
+    "Hydroacoustic physical-model sequencer",
+    "Couples piston paddles or pneumatic caissons to a slow gravity-wave clock, then makes breaking spray, entrained bubbles, wet boundary slaps, structural modes, and aerated whirlpools into four interlocking sample-free rhythm lanes.",
+    "Turn on audio, run the four-lane sequence, then tap the pool or use keys 1–4 while changing water depth, wave height, bubble radius, wall system, and receiver position.",
+    ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
+  ),
   "hyper-drums": define(
     "Drum machine",
     "Turns 4D hyperplane intersections into drum hits selected by position and four-dimensional rotation.",
@@ -104,6 +134,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Drum machine",
     "Walks through recursive branch heads and maps depth, angle, generation, phase, and position to drums.",
     "Turn on audio, choose a grammar and drum bank, then generate and play the tree.",
+  ),
+  "graph-drums": define(
+    "Network drum machine",
+    "Propagates percussion triggers through editable directed graphs, mapping node position, degree, route turn, path depth, and cycle pass to a shared sixteen-voice FM drum bank.",
+    "Turn on audio, choose a topology and drum style, then seed a pulse or run the clock; cyclic routes return later with reduced amplitude and tone.",
+    ["Built-in drums", "Pointer", "MIDI", "Feedback sequencing"],
   ),
   "linear-drums-machine": define(
     "Drum machine",
@@ -142,6 +178,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Allow microphone access, choose a graph preset, then start input and open or close routes.",
     ["Mic input"],
   ),
+  micromorph: define(
+    "Realtime generative mic effect",
+    "Streams microphone audio and sample-clocked performance controls to an optional local diffusion model, while five visible membranes expose the path from source to imaginary descendant.",
+    "Use headphones, turn on the microphone, move Ancestor distance through the five derivation stages, then connect an MGA Stream v1 model host for neural audio; without one, the page identifies its bounded rehearsal DSP honestly.",
+    ["Mic input", "Local model host", "Streaming PCM", "Parameter conditioning"],
+  ),
   throatazoid: define(
     "Voice instrument",
     "Feeds microphone input, an internal glottis, or both through up to seven editable vocal tracts.",
@@ -172,6 +214,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose a host beast and native call, then play or loop it while the live timeline traces every sounding parameter contour beneath the animal.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
+  "colony-syrinx": define(
+    "Pressure-network voice sequencer",
+    "Routes sixteen staggered lungs through eight coupled folds and a twelve-valve manifold into three differently shaped, polymetric mouths whose closures push pressure back through the whole organism.",
+    "Turn on audio, hold Breath, then open source-to-mouth valves with C2–B2 or draw three interlocking mouth rhythms in the sequencer.",
+    ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
+  ),
   blowhole: define(
     "Cetacean physical-model instrument",
     "Separates delphinid phonic lips, the sperm whale's right-sided spermaceti pathway, and the coupled U-fold/cricoid-cushion source of baleen-whale song while the external blowhole remains a valve rather than the underwater sound source.",
@@ -182,6 +230,18 @@ const CATALOG_DETAILS = Object.freeze({
     "Physical-model instrument",
     "Couples a plucked cantilever reed to an interactive mouth cavity so one fixed reed fundamental excites harmonics selected by the tongue, jaw, lips, and cavity.",
     "Turn on audio, choose a harp and vowel preset, then pull and release the copper trigger or press Space to pluck.",
+    ["Built-in source", "Pointer", "Computer keys"],
+  ),
+  harmonica: define(
+    "Southern blues free-reed instrument",
+    "Models a ten-hole diatonic harmonica as paired blow and draw reeds for single notes, double-stops, chords, bends, scoops, dips, falls, shakes, slaps, hand wah, throat vibrato, flutter, growl, octave tongue blocks, overbends, and signed blues breath rhythms.",
+    "Turn on audio, choose a one- to four-hole mouth aperture and a blues gesture, then hold blow or draw; shape its rhythm, breath envelope, cover-hand filter, tongue, tract, bend, or overbend in real time.",
+    ["Built-in source", "Pointer", "Computer keys", "MIDI expression", "Physical-model DSP"],
+  ),
+  hambone: define(
+    "Monophonic physical beatbox sequencer",
+    "Moves one mutable mouth—a persistent variable-length oral waveguide with a coupled nasal tube—between eight human-inspired percussion gestures using physical pressure releases, tongue suction, compact PHSHSHK constrictions, a compliant cheek pocket, and pressure-feedback lip flutter.",
+    "Turn on audio, tap the face or pads, then choose one mouth pose per column in the sixteen-step grid and drag the anatomy beyond human range.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
   "breath-atlas": define(
@@ -231,6 +291,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Tracks microphone or local-file audio across logarithmic FFT bands, then rebuilds it through endlessly slipping Shepard glissando banks with adaptive consonant excitation.",
     "Choose Mic or File, turn on audio, then shape the glide, transpose, spectral tilt, carrier color, consonant detail, stereo spread, and dry/slip mix.",
     ["Mic input", "Local file input", "Speech-detail resynthesis"],
+  ),
+  "moire-drone": define(
+    "Noise-field drone",
+    "Sends correlated colored noise through colliding two-dimensional wave fields and a Shepard-wrapped filter lattice whose rotating mass-spring frequency fabric is crossed by drops, circular harmonics, spirals, and shock fronts.",
+    "Turn on audio, choose a preset, then pluck to launch a 1–50 Hz propagation or drag vertically to tug the fabric; shape its wave mode, travel, repetition, tension, damping, rotation, and pull.",
+    ["Built-in noise", "Pointer", "Spectral propagation", "Adaptive DSP"],
   ),
   "drum-roll-please": define(
     "Rhythm synth",
@@ -601,11 +667,16 @@ const CATALOG_DETAILS = Object.freeze({
 const ADDITIONAL_TAG_IDS = Object.freeze({
   "pink-trombonazoid": Object.freeze(["sequencers"]),
   hybrinx: Object.freeze(["sequencers"]),
+  "colony-syrinx": Object.freeze(["sequencers"]),
   blowhole: Object.freeze(["sequencers"]),
+  hambone: Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
+  "graph-drums": Object.freeze(["fractals-recursion"]),
+  "graph-synth": Object.freeze(["fractals-recursion"]),
   "fm-drums": Object.freeze(["geometry-drums"]),
   "linear-drums": Object.freeze(["geometry-drums"]),
   "sample-drums": Object.freeze(["geometry-drums"]),
+  "wave-pool": Object.freeze(["geometry-drums"]),
   micmic: Object.freeze(["fractals-recursion"]),
   "recursive-fm": Object.freeze(["fractals-recursion"]),
   "recursive-pm": Object.freeze(["fractals-recursion"]),

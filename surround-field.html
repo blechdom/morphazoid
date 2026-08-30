@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#080a09" />
+    <meta
+      name="description"
+      content="Morphazoid Surround Field — place a sound inside 7:4:1, 4:1, eight-speaker circle, cube, and custom multichannel arrays."
+    />
+    <title>Surround Field — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="surround-field.css" />
+  </head>
+  <body class="surround-field-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="vector-flight.html">vector flight</a>
+        <a class="tab active" href="surround-field.html" aria-current="page">surround field</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="vector-flight.html">vector flight</option>
+          <option value="surround-field.html" selected>surround field</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-speaker-icon" aria-hidden="true"></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off · probe device</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Safe level</b><output id="levelOut" for="level">28%</output></span>
+          <input id="level" aria-label="Surround Field output level" type="range" min="0" max="0.68" step="0.01" value="0.28" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell surround-shell" id="surroundField">
+      <section class="stage surround-stage" aria-labelledby="sceneTitle">
+        <div class="stage-wrap surround-stage-wrap" id="stageWrap">
+          <svg class="room-plot" id="roomPlot" viewBox="0 0 1000 760" aria-hidden="true">
+            <defs>
+              <pattern id="minorGrid" width="25" height="25" patternUnits="userSpaceOnUse">
+                <path d="M 25 0 L 0 0 0 25" fill="none" stroke="rgba(215,255,82,.045)" stroke-width="1" />
+              </pattern>
+              <radialGradient id="floorGlow">
+                <stop offset="0" stop-color="#d7ff52" stop-opacity=".08" />
+                <stop offset=".58" stop-color="#54e6d0" stop-opacity=".025" />
+                <stop offset="1" stop-color="#050706" stop-opacity="0" />
+              </radialGradient>
+              <filter id="rayGlow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+            <rect width="1000" height="760" fill="url(#minorGrid)" />
+            <ellipse cx="500" cy="385" rx="390" ry="315" fill="url(#floorGlow)" />
+            <g id="roomGeometry"></g>
+            <g id="signalRays" filter="url(#rayGlow)"></g>
+          </svg>
+
+          <header class="surround-identity">
+            <p>MULTICHANNEL SPATIAL INSTRUMENT · SF–32</p>
+            <h1 id="sceneTitle">SURROUND<br /><i>FIELD</i></h1>
+            <span>PLACE THE SOUND / HEAR THE ARRAY</span>
+          </header>
+
+          <div class="front-marker" aria-hidden="true"><i></i><span>FRONT · 0°</span></div>
+          <div class="speaker-layer" id="speakerLayer" aria-label="Speaker layout"></div>
+
+          <button
+            class="sound-emitter"
+            id="emitter"
+            type="button"
+            aria-label="Sound position. Drag to move; use arrow keys for fine movement."
+          >
+            <span class="emitter-core"></span>
+            <span class="emitter-ring ring-a"></span>
+            <span class="emitter-ring ring-b"></span>
+            <small>SOURCE</small>
+          </button>
+
+          <div class="listener" id="listener" aria-hidden="true">
+            <span></span><i></i><small>YOU</small>
+          </div>
+
+          <div class="stage-capability" id="stageCapability" data-mode="unprobed">
+            <span class="capability-light" aria-hidden="true"></span>
+            <div><small>OUTPUT PATH</small><b id="stageMode">START AUDIO TO PROBE</b></div>
+          </div>
+
+          <dl class="stage-telemetry" aria-label="Spatial telemetry">
+            <div><dt>Patch</dt><dd id="telemetryPatch">8 CIRCLE</dd></div>
+            <div><dt>Channels</dt><dd id="telemetryChannels">08 VIRTUAL</dd></div>
+            <div><dt>Source</dt><dd id="telemetryPosition">000° · 00%</dd></div>
+            <div><dt>Height</dt><dd id="telemetryHeight">00%</dd></div>
+          </dl>
+
+          <div class="stage-tools">
+            <div class="view-toggle" role="group" aria-label="Room view">
+              <button type="button" data-view="plan" aria-pressed="true">Plan</button>
+              <button type="button" data-view="space" aria-pressed="false">Space</button>
+            </div>
+            <p id="sceneInstruction">Drag the coral source through the room. Tap a speaker to test its channel.</p>
+            <button class="stage-center-button" id="centerSource" type="button">Center source</button>
+          </div>
+        </div>
+
+        <section class="performance-deck" aria-labelledby="keyboardTitle">
+          <div class="deck-transport">
+            <button class="field-play" id="sequenceButton" type="button" data-primary-transport aria-pressed="false">
+              <span aria-hidden="true">▶</span>
+              <span><b>Orbit phrase</b><small id="sequenceState">ready · audio off</small></span>
+            </button>
+            <div class="deck-title">
+              <p id="keyboardTitle">PLAY THE FIELD</p>
+              <span>click pads or use A S D F G H J K</span>
+            </div>
+          </div>
+          <div class="note-pads" id="notePads" role="group" aria-label="Surround Field note pads">
+            <button type="button" data-note="48"><kbd>A</kbd><b>C</b><small>48</small></button>
+            <button type="button" data-note="50"><kbd>S</kbd><b>D</b><small>50</small></button>
+            <button type="button" data-note="51"><kbd>D</kbd><b>E♭</b><small>51</small></button>
+            <button type="button" data-note="55"><kbd>F</kbd><b>G</b><small>55</small></button>
+            <button type="button" data-note="58"><kbd>G</kbd><b>B♭</b><small>58</small></button>
+            <button type="button" data-note="60"><kbd>H</kbd><b>C</b><small>60</small></button>
+            <button type="button" data-note="62"><kbd>J</kbd><b>D</b><small>62</small></button>
+            <button type="button" data-note="63"><kbd>K</kbd><b>E♭</b><small>63</small></button>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel surround-panel" aria-label="Surround Field controls">
+        <section class="output-console" id="outputConsole" aria-labelledby="outputConsoleTitle">
+          <div class="console-heading">
+            <div><small id="outputConsoleTitle">LIVE OUTPUT</small><b id="outputModeLabel">NOT PROBED</b></div>
+            <span id="deviceChannels">? CH</span>
+          </div>
+          <div class="console-route">
+            <div><small>GRAPH</small><b>32</b><span>demo ceiling</span></div>
+            <i aria-hidden="true">→</i>
+            <div><small>PATCH</small><b id="patchChannels">8</b><span>virtual speakers</span></div>
+            <i aria-hidden="true">→</i>
+            <div><small>DEVICE</small><b id="hardwareChannels">?</b><span>reported outputs</span></div>
+          </div>
+          <p id="outputDetail">Audio is opt-in. Start it to read this device’s real <code>maxChannelCount</code>.</p>
+        </section>
+
+        <details class="group control-section array-section" data-section="array" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Speaker array</h2>
+            <span class="section-state" id="arraySummary">8 circle · 8 channels</span>
+          </summary>
+          <div class="group-body">
+            <div class="layout-grid" role="group" aria-label="Speaker layouts">
+              <button type="button" data-layout="7-4-1" aria-pressed="false"><b>7:4:1</b><small>7 BED · 4 HEIGHT · 1 LFE</small><i class="layout-glyph glyph-741"></i></button>
+              <button type="button" data-layout="4-1" aria-pressed="false"><b>4:1</b><small>5 CH · LFE</small><i class="layout-glyph glyph-41"></i></button>
+              <button type="button" data-layout="8-circle" aria-pressed="true"><b>8 CIRCLE</b><small>8 CH · RING</small><i class="layout-glyph glyph-ring"></i></button>
+              <button type="button" data-layout="8-cube" aria-pressed="false"><b>8 CUBE</b><small>4 LOWER · 4 UPPER</small><i class="layout-glyph glyph-cube"></i></button>
+            </div>
+            <p class="array-convention"><b>7:4:1</b> follows bed : height : LFE order; the same array is commonly written 7.1.4.</p>
+            <label class="control custom-array-control" for="speakerCount">
+              <span><b>Custom ring</b><output id="speakerCountOut" for="speakerCount">8 speakers</output></span>
+              <input id="speakerCount" type="range" min="2" max="32" step="1" value="8" />
+              <small><i>2</i><i>demo cap · spec guarantees ≥32</i></small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section motion-section" data-section="motion" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Spatial motion</h2>
+            <span class="section-state" id="motionSummary">manual · floor</span>
+          </summary>
+          <div class="group-body">
+            <div class="motion-switches" role="group" aria-label="Source motion">
+              <button type="button" data-motion="manual" aria-pressed="true"><span>✣</span>Manual</button>
+              <button type="button" data-motion="orbit" aria-pressed="false"><span>↻</span>Orbit</button>
+              <button type="button" data-motion="wander" aria-pressed="false"><span>⌁</span>Wander</button>
+            </div>
+            <label class="control" for="orbitRate"><span><b>Motion rate</b><output id="orbitRateOut" for="orbitRate">0.12 rev/s</output></span><input id="orbitRate" type="range" min="0.03" max="0.5" step="0.01" value="0.12" /></label>
+            <label class="control" for="focus"><span><b>Speaker focus</b><output id="focusOut" for="focus">58%</output></span><input id="focus" type="range" min="0" max="1" step="0.01" value="0.58" /></label>
+            <label class="control elevation-control" for="elevation"><span><b>Source height</b><output id="elevationOut" for="elevation">0% · floor</output></span><input id="elevation" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section voice-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Voice</h2>
+            <span class="section-state" id="voiceSummary">halo · 900 ms</span>
+          </summary>
+          <div class="group-body">
+            <div class="voice-grid" role="group" aria-label="Synth voice">
+              <button type="button" data-voice="halo" aria-pressed="true"><i></i><span>Halo</span></button>
+              <button type="button" data-voice="glass" aria-pressed="false"><i></i><span>Glass</span></button>
+              <button type="button" data-voice="pulse" aria-pressed="false"><i></i><span>Pulse</span></button>
+            </div>
+            <label class="control" for="color"><span><b>Spectral color</b><output id="colorOut" for="color">62%</output></span><input id="color" type="range" min="0" max="1" step="0.01" value="0.62" /></label>
+            <label class="control" for="release"><span><b>Field tail</b><output id="releaseOut" for="release">900 ms</output></span><input id="release" type="range" min="0.18" max="2.4" step="0.01" value="0.9" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section calibration-section" data-section="output" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Outputs + test</h2>
+            <span class="section-state" id="calibrationSummary">8 virtual · unprobed</span>
+          </summary>
+          <div class="group-body">
+            <div class="route-mode" role="group" aria-label="Output route mode">
+              <button type="button" data-route="auto" aria-pressed="true"><b>Auto</b><small>discrete when possible</small></button>
+              <button type="button" data-route="preview" aria-pressed="false"><b>Stereo preview</b><small>safe fold-down</small></button>
+            </div>
+            <button class="sweep-button" id="sweepButton" type="button"><span>▶</span><b>Run channel sweep</b><small>low-level test · tap again to stop</small></button>
+            <div class="channel-meters" id="channelMeters" aria-label="Virtual channel activity"></div>
+            <p class="calibration-note"><b>Turn down first.</b> The browser reports channel count, not where your speakers sit. Confirm every numbered output by ear.</p>
+          </div>
+        </details>
+
+        <details class="web-audio-fact">
+          <summary><span>?</span><b>How many outputs can a browser use?</b><i>+</i></summary>
+          <div>
+            <p><strong>Graph:</strong> at least 32 channels. <strong>Speakers:</strong> whatever <code>destination.maxChannelCount</code> reports for the active device—commonly 2.</p>
+            <p>Surround Field sends numbered, discrete channels when the full patch fits. Otherwise it preserves the virtual layout as a stereo preview. One multichannel HDMI or USB interface is the reliable setup.</p>
+            <a href="https://webaudio.github.io/web-audio-api/#AudioDestinationNode" target="_blank" rel="noreferrer">Read the Web Audio specification ↗</a>
+          </div>
+        </details>
+
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset Surround Field</button></div>
+      </aside>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      <p class="sr-only" id="audioError" role="alert" hidden></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="surround-field-app.js"></script>
+  </body>
+</html>

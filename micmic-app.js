@@ -11,7 +11,8 @@ import {
   recursionParameters,
   sliderFromTimeFold,
   timeFoldFromSlider,
-} from "./src/micmic.js?v=20260726-independent-timing";
+} from "./src/micmic.js?v=20260829-l-system-types";
+import { L_SYSTEM_PRESETS } from "./src/l-system.js";
 import { AdaptivePolyphonyController } from "./src/adaptive-polyphony.js";
 import {
   GRANULAR_ECONOMY_PITCH_CLASSES,
@@ -34,6 +35,9 @@ const PITCH_DETAIL_OPTIONS = Object.freeze([
   ...SIGNALSMITH_PITCH_DETAIL_OPTIONS,
   GRANULAR_ECONOMY_PITCH_CLASSES,
 ]);
+const L_SYSTEM_PRESET_BY_ID = new Map(
+  L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]),
+);
 const DEFAULT_STATE = Object.freeze({
   ...MICMIC_PRESETS.bloom,
   inputTrim: 0.85,
@@ -47,6 +51,7 @@ const DEFAULT_STATE = Object.freeze({
   interval: GENERATION_RULE_PRESETS.pythagorean.interval,
   mutation: GENERATION_RULE_PRESETS.pythagorean.mutation,
   generationPreset: "pythagorean",
+  lSystemType: "pythagorean",
   timeRatio: GENERATION_RULE_PRESETS.pythagorean.timeRatio,
   generationAngle: GENERATION_RULE_PRESETS.pythagorean.angle,
   generationAsymmetry: GENERATION_RULE_PRESETS.pythagorean.asymmetry,
@@ -355,6 +360,7 @@ function generationTurns() {
 
 function generationTopologyKey() {
   return [
+    state.lSystemType,
     state.generations,
     state.branching,
     state.mutation,
@@ -366,6 +372,7 @@ function generationTopologyKey() {
 
 function currentGenerationVoiceSpecs(maximumVoices) {
   return generationVoiceSpecs({
+    lSystemType: state.lSystemType,
     generations: state.generations,
     interval: state.interval,
     depth: state.depth,
@@ -388,6 +395,7 @@ function buildGenerationVisualModel() {
     generationTopologyCache = {
       key: topologyKey,
       topology: generationTopology({
+        lSystemType: state.lSystemType,
         generations: generationCount,
         branching: state.branching,
         mutation: state.mutation,
@@ -425,12 +433,10 @@ function renderGenerationRules() {
   const toOctavePercent = (degrees) => (
     degrees / 180 * state.generationPitchScale * 100
   );
+  $("lSystemType").value = state.lSystemType;
   for (const name of Object.keys(GENERATION_RULE_PRESETS)) {
     setPressed($(`generationPreset-${name}`), state.generationPreset === name);
   }
-  $("generationPresetDescription").textContent = state.generationPreset === "custom"
-    ? "Your current hand-shaped combination of recursion controls."
-    : GENERATION_RULE_PRESETS[state.generationPreset]?.description ?? "";
   const finalTiming = state.interval * state.timeRatio ** state.generations;
   $("generationTimingReadout").textContent = (
     timing.map(formatMilliseconds).join(" → ")
@@ -470,7 +476,7 @@ function showError(message) {
   const element = $("audioError");
   element.textContent = message;
   element.hidden = false;
-  $("listenSection").open = true;
+  $("inputMenu").open = true;
 }
 
 function clearError() {
@@ -1074,6 +1080,7 @@ function applyAudioParameters(immediate = false) {
   setAudioParam(graph.modulationB?.gain, -parameters.modulationDepth, immediate);
   setAudioParam(graph.masterGain.gain, active ? levelToGain(state.level) : 0, immediate);
   const topology = generationTopology({
+    lSystemType: state.lSystemType,
     generations: state.generations,
     branching: state.branching,
     mutation: state.mutation,
@@ -1591,6 +1598,11 @@ function presetLabel() {
     : GENERATION_RULE_PRESETS[state.generationPreset]?.label ?? "Custom growth";
 }
 
+function lSystemTypeLabel() {
+  return L_SYSTEM_PRESET_BY_ID.get(state.lSystemType)?.name
+    ?? L_SYSTEM_PRESETS[0].name;
+}
+
 function paintGenerationCapacity() {
   const structuralDemand = Math.max(
     generationStructuralDemand,
@@ -1717,6 +1729,7 @@ function paintControls() {
 function updateUi() {
   const generations = state.generations;
   const label = presetLabel();
+  const systemLabel = lSystemTypeLabel();
   const live = state.mic;
   const starting = state.starting;
   const controlsChanging = starting || pitchDetailChanging || audioChanging;
@@ -1751,25 +1764,34 @@ function updateUi() {
     : live ? (state.frozen ? "Resume input" : "Pause input") : "Start input";
   $("seedMicButton").querySelector("b").textContent = seedLabel;
   $("seedMicButton").setAttribute("aria-label", seedLabel);
-  $("listenSummary").textContent = pitchDetailChanging
+  const inputStatus = pitchDetailChanging
     ? "changing pitch engine"
     : starting
       ? "waiting for permission"
       : live
         ? (state.frozen ? "input paused · tail live" : "microphone live")
         : "microphone off";
+  $("inputMenu").dataset.inputState = starting
+    ? "starting"
+    : live
+      ? (state.frozen ? "paused" : "live")
+      : "off";
+  $("inputMenuButton").setAttribute(
+    "aria-label",
+    `Microphone controls: ${inputStatus}`,
+  );
   $("presetSummary").textContent = `${label} · ${pitchDetailSelectionLabel()}`;
-  $("recursionSummary").textContent = `${label} · ${generations} generations`;
+  $("recursionSummary").textContent = `${systemLabel} · ${generations} generations`;
   $("mixSummary").textContent = `${Math.round(state.wet * 100)}% descendants · ${state.dry ? `${Math.round(state.dry * 100)}% root` : "root muted"}`;
   $("generationKeyEnd").textContent = `G${generations} DESCENDANT`;
-  $("stageReadout").textContent = `${live ? (state.frozen ? "INPUT PAUSED" : "MIC LIVE") : "MIC OFF"} · ${label.toUpperCase()} · ${generations} GENERATIONS`;
+  $("stageReadout").textContent = `${live ? (state.frozen ? "INPUT PAUSED" : "MIC LIVE") : "MIC OFF"} · ${systemLabel.toUpperCase()} · ${generations} GENERATIONS`;
   const segmentCount = generationVisualModel?.topology.length ?? 0;
   const voiceCount = generationVisualModel?.voices.length ?? 0;
   const audibleCount = generationVisualModel?.voices.filter((voice) => (
     voice.gain * state.wet > 0.00001
   )).length ?? 0;
   canvas.setAttribute("aria-label", `Live fitted L-system tree for L-system Delay. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}.`);
-  $("treeDescription").textContent = `${label}. ${generations} generations and ${segmentCount} connected segments; ${audibleCount} of ${voiceCount} ${pruningBiasLabel(state.pruningBias)} delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.`;
+  $("treeDescription").textContent = `${systemLabel} with ${label} growth. ${generations} generations and ${segmentCount} connected segments; ${audibleCount} of ${voiceCount} ${pruningBiasLabel(state.pruningBias)} delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.`;
 }
 
 function bindRange(id, key, marksGrowthCustom = false) {
@@ -1818,6 +1840,14 @@ function loadGenerationPreset(name, shouldAnnounce = true) {
   if (shouldAnnounce) announce(`${preset.label} recursion preset loaded.`);
 }
 
+$("lSystemType").addEventListener("change", (event) => {
+  const preset = L_SYSTEM_PRESET_BY_ID.get(event.currentTarget.value)
+    ?? L_SYSTEM_PRESETS[0];
+  state.lSystemType = preset.id;
+  applyAudioParameters();
+  updateUi();
+  announce(`${preset.name} L-system loaded.`);
+});
 for (const name of Object.keys(GENERATION_RULE_PRESETS)) {
   $(`generationPreset-${name}`).addEventListener("click", () => (
     loadGenerationPreset(name)
@@ -1843,8 +1873,17 @@ $("micButton").addEventListener("click", () => void toggleInput());
 $("freezeButton").addEventListener("click", () => stopMicrophone());
 $("panicButton").addEventListener("click", () => panic());
 
+document.addEventListener("pointerdown", (event) => {
+  const menu = $("inputMenu");
+  if (menu.open && !menu.contains?.(event.target)) menu.open = false;
+});
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if ($("inputMenu").open) {
+      $("inputMenu").open = false;
+      $("inputMenuButton").focus?.();
+    }
     if (state.mic || state.starting) panic();
     return;
   }

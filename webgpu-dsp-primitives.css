@@ -1003,6 +1003,15 @@
   text-transform: uppercase;
 }
 
+.primitive-source {
+  display: inline-block;
+  margin-top: 7px;
+  color: color-mix(in oklab, var(--lane-pitch) 70%, var(--ink));
+  font-size: 9px;
+  font-weight: 700;
+  text-underline-offset: 2px;
+}
+
 .primitive-compose {
   margin-top: 0;
   padding-top: 0;

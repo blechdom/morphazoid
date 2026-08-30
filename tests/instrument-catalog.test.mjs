@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 105);
+  assert.equal(INSTRUMENTS.length, 116);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -131,10 +131,11 @@ test("Faves keep their regular catalogue groups and experiments never inherit th
   );
 });
 
-test("temporary Misc group owns the five uncategorized instruments", () => {
+test("temporary Misc group owns the six uncategorized instruments", () => {
   const ids = [
     "playhead-paint",
     "boidzoid",
+    "vector-flight",
     "gesturama",
     "image-to-instrument-3",
     "orbital-ferris",
@@ -170,6 +171,41 @@ test("Slippery Resynthesis catalogues its FFT resynthesis and both local input p
   assert.ok(instrument?.features.includes("Speech-detail resynthesis"));
   assert.ok(instrument?.tags.some(({ id }) => id === "faves"));
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis")?.noteMode, "processor");
+});
+
+test("Micromorph catalogues its honest local streaming-model boundary", () => {
+  const instrument = instrumentById("micromorph");
+  assert.equal(instrument?.label, "Micromorph");
+  assert.equal(instrument?.href, "micromorph.html");
+  assert.equal(instrument?.kind, "Realtime generative mic effect");
+  assert.match(instrument?.description ?? "", /local diffusion model/i);
+  assert.match(instrument?.start ?? "", /rehearsal DSP/i);
+  assert.ok(instrument?.features.includes("Mic input"));
+  assert.ok(instrument?.features.includes("Local model host"));
+  assert.ok(instrument?.features.includes("Streaming PCM"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.equal(instrument?.features.includes("Computer keys"), false);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["mic-fx"]);
+  assert.equal(instrumentMidiCapabilityForId("micromorph")?.noteMode, "processor");
+});
+
+test("Moiré Drone catalogues its two-dimensional noise-filter collision engine", () => {
+  const instrument = instrumentById("moire-drone");
+  assert.equal(instrument?.label, "Moiré Drone");
+  assert.equal(instrument?.href, "moire-drone.html");
+  assert.equal(instrument?.kind, "Noise-field drone");
+  assert.match(instrument?.description ?? "", /colored noise/i);
+  assert.match(instrument?.description ?? "", /two-dimensional wave fields/i);
+  assert.ok(instrument?.features.includes("Built-in noise"));
+  assert.ok(instrument?.features.includes("Pointer"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.equal(instrument?.features.includes("Computer keys"), false);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["barber-shop-poles", "faves"]);
+  const midi = instrumentMidiCapabilityForId("moire-drone");
+  assert.equal(midi?.noteMode, "processor");
+  assert.equal(midi?.audioInput, false);
+  assert.equal(midi?.startsAudio, true);
+  assert.equal(midi?.computerKeyboardMode, "none");
 });
 
 test("Modular Shader Synth is a sequencer instrument with shared GPU artwork", () => {
@@ -299,6 +335,73 @@ test("Pink Trombonazoid is an articulatory voice sequencer without generic note 
   assert.equal(midi?.noteMode, "sequence");
   assert.equal(midi?.midiOutput, false);
   assert.equal(midi?.computerKeyboardMode, "none");
+});
+
+test("Hambone is a monophonic physical beatbox sequencer with page-owned drum keys", () => {
+  const instrument = instrumentById("hambone");
+  assert.equal(instrument?.label, "Hambone");
+  assert.equal(instrument?.href, "hambone.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/hambone.webp");
+  assert.equal(instrument?.kind, "Monophonic physical beatbox sequencer");
+  assert.match(instrument?.description ?? "", /one mutable mouth/i);
+  assert.match(instrument?.description ?? "", /pressure releases/i);
+  assert.match(instrument?.description ?? "", /PHSHSHK/i);
+  assert.match(instrument?.start ?? "", /one mouth pose per column/i);
+  assert.deepEqual(
+    instrument?.tags.map(({ id }) => id),
+    ["voice-synths", "sequencers"],
+  );
+  assert.ok(instrument?.features.includes("Built-in source"));
+  assert.ok(instrument?.features.includes("Pointer"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+
+  const midi = instrumentMidiCapabilityForId("hambone");
+  assert.equal(midi?.noteMode, "drums");
+  assert.equal(midi?.midiOutput, true);
+  assert.equal(midi?.computerKeyboardMode, "page");
+});
+
+test("Colony Syrinx is a polymetric pressure-network voice with page-owned valve keys", () => {
+  const instrument = instrumentById("colony-syrinx");
+  assert.equal(instrument?.label, "Colony Syrinx");
+  assert.equal(instrument?.href, "colony-syrinx.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/colony-syrinx.webp");
+  assert.equal(instrument?.kind, "Pressure-network voice sequencer");
+  assert.match(instrument?.description ?? "", /sixteen staggered lungs/i);
+  assert.match(instrument?.description ?? "", /twelve-valve manifold/i);
+  assert.deepEqual(
+    instrument?.tags.map(({ id }) => id),
+    ["voice-synths", "sequencers"],
+  );
+  assert.ok(instrument?.features.includes("Physical-model DSP"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+
+  const midi = instrumentMidiCapabilityForId("colony-syrinx");
+  assert.equal(midi?.noteMode, "sequence");
+  assert.equal(midi?.midiOutput, true);
+  assert.equal(midi?.computerKeyboardMode, "page");
+});
+
+test("Wave Pool catalogues a sample-free hydroacoustic rhythm model", () => {
+  const instrument = instrumentById("wave-pool");
+  assert.equal(instrument?.label, "Wave Pool");
+  assert.equal(instrument?.href, "wave-pool.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/wave-pool.webp");
+  assert.equal(instrument?.kind, "Hydroacoustic physical-model sequencer");
+  assert.match(instrument?.description ?? "", /piston paddles|pneumatic caissons/i);
+  assert.match(instrument?.description ?? "", /entrained bubbles/i);
+  assert.deepEqual(
+    instrument?.tags.map(({ id }) => id),
+    ["sequencers", "geometry-drums"],
+  );
+  assert.ok(instrument?.features.includes("Physical-model DSP"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+  const midi = instrumentMidiCapabilityForId("wave-pool");
+  assert.equal(midi?.noteMode, "drums");
+  assert.equal(midi?.midiOutput, true);
+  assert.equal(midi?.computerKeyboardMode, "page");
 });
 
 test("Alien Larynx is a work-in-progress experiment", () => {
@@ -519,6 +622,13 @@ test("input and plug-in availability facts remain explicit", () => {
   }
   assert.equal(instrumentById("striped-sludge-delay"), null);
   assert.equal(instrumentById("rubix")?.kind, "Geometric sequencer");
+  assert.equal(instrumentById("sliding-puzzle")?.kind, "2D puzzle sequencer");
+  assert.match(instrumentById("sliding-puzzle")?.description ?? "", /resizable.*2 × 2.*8 × 8.*rectangular.*parallel rows.*silent cell/i);
+  assert.match(instrumentById("sliding-puzzle")?.start ?? "", /complete lines.*rectangle.*scramble.*Solve.*exact move history/i);
+  assert.deepEqual(
+    instrumentById("sliding-puzzle")?.features,
+    ["Pointer", "Built-in synth", "MIDI"],
+  );
   for (const id of ["cascading-fm", "cascading-pm"]) {
     assert.equal(instrumentById(id)?.kind, "Synth");
     assert.deepEqual(

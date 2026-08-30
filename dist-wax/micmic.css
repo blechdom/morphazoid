@@ -12,7 +12,7 @@
   --accent-glow: color-mix(in oklab, #e8c46b 20%, transparent);
 }
 
-.micmic-page #listenSection {
+.micmic-page .micmic-input-menu {
   --accent: #55d9ff;
   --accent-soft: color-mix(in oklab, #55d9ff 55%, transparent);
   --accent-glow: color-mix(in oklab, #55d9ff 21%, transparent);
@@ -36,15 +36,96 @@
   --accent-glow: color-mix(in oklab, #7db4ff 20%, transparent);
 }
 
-.micmic-headphone-warning {
-  min-width: 80px;
-  max-width: 340px;
-  margin: 0;
+.micmic-header-controls {
+  display: flex;
+  min-width: 0;
+  margin-left: auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.micmic-header-controls .audio-strip {
+  margin-left: 0;
+}
+
+.micmic-input-menu {
+  position: relative;
+  flex: 0 0 44px;
+}
+
+.micmic-input-trigger {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
   color: var(--muted);
-  flex: 1 1 260px;
-  font: 7px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: color-mix(in oklab, var(--bg-deep) 92%, var(--faint));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--bg-deep) 72%, transparent);
+  list-style: none;
+  place-items: center;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.micmic-input-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.micmic-input-trigger::marker {
+  content: "";
+}
+
+.micmic-input-trigger:hover,
+.micmic-input-trigger:focus-visible,
+.micmic-input-menu[open] > .micmic-input-trigger {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-deep) 82%, var(--faint));
+}
+
+.micmic-input-trigger .fracta-mic-icon {
+  transform: scale(0.62);
+}
+
+.micmic-input-menu[data-input-state="live"] > .micmic-input-trigger {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 8px var(--accent-soft), inset 0 0 9px var(--accent-glow);
+}
+
+.micmic-input-menu[data-input-state="paused"] > .micmic-input-trigger {
+  border-color: #c79bff;
+  color: #c79bff;
+  box-shadow: inset 0 0 9px rgba(199, 155, 255, 0.12);
+}
+
+.micmic-input-menu[data-input-state="starting"] > .micmic-input-trigger {
+  border-color: var(--brass);
+  color: var(--brass);
+  cursor: progress;
+}
+
+.micmic-input-popover {
+  position: fixed;
+  z-index: 90;
+  top: 64px;
+  right: clamp(16px, 2.5vw, 32px);
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100dvh - 76px);
+  overflow-y: auto;
+  padding: 13px 14px 14px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--panel-high) 96%, var(--bg-deep));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.46), 0 0 20px var(--accent-glow);
+}
+
+.micmic-headphone-warning {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font: 8px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0.025em;
-  text-align: right;
+  text-align: left;
 }
 
 .micmic-headphone-warning strong {
@@ -355,6 +436,11 @@
   gap: 7px;
 }
 
+.micmic-input-popover .control,
+.micmic-input-popover .fracta-meter:last-child {
+  margin-bottom: 0;
+}
+
 .fracta-meter > span {
   display: flex;
   color: var(--muted);
@@ -417,7 +503,7 @@
 
 .micmic-preset-grid {
   display: grid;
-  margin: 0 0 12px;
+  margin: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
@@ -425,14 +511,13 @@
 .micmic-preset-grid button {
   display: grid;
   min-width: 0;
-  min-height: 52px;
+  min-height: 38px;
   padding: 8px 9px;
   border: 1px solid var(--line);
   cursor: pointer;
   color: var(--ink);
   background: var(--bg-deep);
   align-content: center;
-  gap: 3px;
   text-align: left;
 }
 
@@ -451,39 +536,6 @@
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
-}
-
-.micmic-preset-grid small {
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 7px;
-  line-height: 1.3;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.micmic-preset-grid [data-preset-band="robotic"] small {
-  color: #ff826f;
-}
-
-.micmic-preset-grid [data-preset-band="rhythmic"] small {
-  color: #e8c46b;
-}
-
-.micmic-preset-grid [data-preset-band="spacious"] small {
-  color: #55d9ff;
-}
-
-.micmic-preset-grid [data-preset-band="smooth"] small {
-  color: #c79bff;
-}
-
-.growth-preset-description {
-  min-height: 2.9em;
-  margin: -3px 0 3px;
-  color: var(--muted);
-  font-size: 8px;
-  line-height: 1.45;
 }
 
 .recursion-parameter-cluster {
@@ -569,12 +621,24 @@
 }
 
 @media (max-width: 650px) {
+  .micmic-header-controls {
+    flex: 1 1 auto;
+    gap: 6px;
+  }
+
+  .micmic-header-controls .audio-strip {
+    flex: 1 1 auto;
+  }
+
+  .micmic-input-popover {
+    top: 60px;
+    right: max(10px, env(safe-area-inset-right));
+    left: max(10px, env(safe-area-inset-left));
+    width: auto;
+  }
+
   .micmic-headphone-warning {
-    max-width: 190px;
-    flex-basis: 100px;
-    font-size: 6.5px;
-    line-height: 1.25;
-    text-align: center;
+    font-size: 7px;
   }
 
   #seedMicButton small {
@@ -592,10 +656,23 @@
 
 }
 
+@media (max-width: 520px) {
+  .masthead.has-midi-toolbar .micmic-input-popover {
+    top: 104px;
+    max-height: calc(100dvh - 112px);
+  }
+}
+
 @media (max-width: 430px) {
-  .micmic-headphone-warning {
-    max-width: 96px;
-    line-height: 1.15;
+  .micmic-page .mobile-instrument-nav {
+    width: clamp(76px, 25vw, 110px);
+    flex-basis: 110px;
+  }
+
+  .micmic-header-controls .audio-strip {
+    width: min(110px, 35vw);
+    grid-template-columns: minmax(50px, 1fr) var(--audio-control-width);
+    gap: 4px;
   }
 
   .fracta-listen-actions {

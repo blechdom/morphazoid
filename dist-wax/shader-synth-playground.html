@@ -12,7 +12,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260828-patch-controls" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260829-compact-geometry-notes" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -23,6 +23,7 @@
 
       <nav class="tabs" aria-label="Instrument">
         <a class="tab" href="rubix.html">rubix</a>
+        <a class="tab" href="sliding-puzzle.html">slide</a>
         <a class="tab" href="hyper-rubix.html">hyper rubix</a>
         <a class="tab" href="webgpu-303.html">webgpu 303</a>
         <a class="tab" href="webgpu-synths.html">gpu shader synths</a>
@@ -32,6 +33,7 @@
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
           <option value="rubix.html">rubix</option>
+          <option value="sliding-puzzle.html">sliding puzzle</option>
           <option value="hyper-rubix.html">hyper rubix</option>
           <option value="webgpu-303.html">webgpu 303</option>
           <option value="webgpu-synths.html">gpu shader synths</option>
@@ -45,7 +47,7 @@
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <button class="synth-play-button playground-play-button" id="playgroundPlayButton" type="button" aria-pressed="false" data-primary-transport>
-          <span id="playgroundPlayLabel">Play patch</span>
+          <span id="playgroundPlayLabel">Run patch</span>
         </button>
         <label class="header-level" for="output">
           <span><b>Output</b><output id="outputOut" for="output">70%</output></span>
@@ -60,8 +62,8 @@
           <h1 id="moduleBrowserTitle">Modules</h1>
           <p>Add a primitive, then patch from its OUT port into a compatible IN port.</p>
           <div class="module-coverage" aria-label="Playground module coverage">
-            <b><output id="playableModuleCount">68</output> playable</b>
-            <a href="webgpu-dsp-primitives.html">120 in atlas <span aria-hidden="true">→</span></a>
+            <b><output id="playableModuleCount">83</output> playable</b>
+            <a href="webgpu-dsp-primitives.html">142 in atlas <span aria-hidden="true">→</span></a>
           </div>
         </header>
 
@@ -192,11 +194,22 @@
             <canvas id="scopeCanvas" width="960" height="128" role="img" aria-label="Live output waveform"></canvas>
             <div class="scope-zero" aria-hidden="true"></div>
           </div>
-          <dl class="scope-metrics" id="scopeReadout">
-            <div><dt>GPU</dt><dd id="gpuState">checking</dd></div>
-            <div><dt>Signal</dt><dd id="signalLevel">silent</dd></div>
-            <div><dt>Keys / MIDI</dt><dd id="midiNoteState" title="Two-row piano: Z–M and Q–U. Brackets change octave. Notes retune the patch without changing transport.">Z–M · Q–U</dd></div>
-          </dl>
+          <section class="performance-notes" aria-labelledby="performanceNotesTitle">
+            <header class="performance-notes-heading">
+              <b id="performanceNotesTitle">Play notes</b>
+              <div class="performance-octave" role="group" aria-label="On-screen keyboard octave">
+                <button id="performanceOctaveDown" type="button" aria-label="Move note keyboard down one octave">−</button>
+                <output id="midiNoteState" title="Selected pitch. Computer keys use Z–M and Q–U after Keys/MIDI is enabled.">C3</output>
+                <button id="performanceOctaveUp" type="button" aria-label="Move note keyboard up one octave">+</button>
+              </div>
+            </header>
+            <div class="performance-note-buttons" id="performanceNoteButtons" role="group" aria-label="Play notes from C3 to C4"></div>
+            <p id="performanceNoteHint">Click to start · MIDI on: Z–M / Q–U</p>
+            <dl class="scope-metrics" id="scopeReadout">
+              <div><dt>GPU</dt><dd id="gpuState">checking</dd></div>
+              <div><dt>Signal</dt><dd id="signalLevel">silent</dd></div>
+            </dl>
+          </section>
         </section>
       </section>
 
@@ -283,7 +296,7 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260828-patch-controls"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260829-geometry-notes"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

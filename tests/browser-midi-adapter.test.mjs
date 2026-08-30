@@ -163,6 +163,11 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("hyper-rubix").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("karplus-carpet").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("pink-trombonazoid").noteMode, "sequence");
+  assert.equal(instrumentMidiCapabilityForId("sliding-puzzle").noteMode, "sequence");
+  assert.equal(instrumentMidiCapabilityForId("hambone").noteMode, "drums");
+  assert.equal(instrumentMidiCapabilityForId("wave-pool").noteMode, "drums");
+  assert.equal(instrumentMidiCapabilityForId("colony-syrinx").noteMode, "sequence");
+  assert.equal(instrumentMidiCapabilityForId("harmonica").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("morphazoidical").noteMode, "sequence");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
     "image-to-instrument-3",
@@ -170,6 +175,10 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "tongued-beasts",
     "blowhole",
     "jaw-harp",
+    "harmonica",
+    "hambone",
+    "wave-pool",
+    "colony-syrinx",
     "breath-atlas",
     "morphynx",
     "hyper-syrinx",
@@ -179,16 +188,21 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "micmic",
     "karplus-strong",
     "karplus-carpet",
+    "surround-field",
     "gesturama",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
     "boidzoid",
+    "vector-flight",
     "pink-trombonazoid",
     "vocalzoid",
+    "sliding-puzzle",
     "hyper-rubix",
     "webgpu-synths",
     "playhead-paint",
     "slippery-resynthesis",
+    "micromorph",
+    "moire-drone",
     "candy-coil-delay",
     "chladni-plate",
     "spring-choir",
@@ -206,9 +220,18 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("recursion").startsAudio, true);
   assert.equal(instrumentMidiCapabilityForId("lumber").startsAudio, false);
   assert.equal(instrumentMidiCapabilityForId("graph-delay").audioInput, true);
+  assert.equal(instrumentMidiCapabilityForId("micromorph").audioInput, true);
+  assert.equal(instrumentMidiCapabilityForId("micromorph").noteMode, "processor");
+  assert.equal(instrumentMidiCapabilityForId("micromorph").computerKeyboardMode, "none");
+  assert.equal(instrumentMidiCapabilityForId("micromorph").midiOutput, false);
+  assert.equal(instrumentMidiCapabilityForId("micromorph").startsAudio, false);
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").noteMode, "processor");
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").computerKeyboardMode, "none");
+  assert.equal(instrumentMidiCapabilityForId("moire-drone").audioInput, false);
+  assert.equal(instrumentMidiCapabilityForId("moire-drone").noteMode, "processor");
+  assert.equal(instrumentMidiCapabilityForId("moire-drone").startsAudio, true);
+  assert.equal(instrumentMidiCapabilityForId("moire-drone").computerKeyboardMode, "none");
   assert.equal(instrumentMidiCapabilityForId("throatazoid").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("morphynx").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("alien-larynx").audioInput, true);
@@ -224,8 +247,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 7, drums: 18, pitched: 40, sequence: 40 },
-    "all 105 routes have exactly one intentional note behavior",
+    { processor: 9, drums: 21, pitched: 43, sequence: 43 },
+    "all 116 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -281,7 +304,7 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
       );
     }
   }
-  assert.equal(mastheadPages, 104);
+  assert.equal(mastheadPages, 115);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");
@@ -670,6 +693,31 @@ test("universal browser mapping handles notes, note-off events, CC, bend, preset
     ["input", "change"],
     "stable 24-PPQN clock does not emit redundant page updates",
   );
+});
+
+test("MIDI Start and Stop find a page transport through the shared primary marker", () => {
+  const play = toggle("playgroundPlayButton");
+  const audio = toggle("audioButton");
+  const documentObject = {
+    querySelector(selector) {
+      if (selector === "[data-primary-transport]") return play;
+      if (selector === "#audioButton") return audio;
+      return null;
+    },
+    querySelectorAll() { return []; },
+  };
+  const common = {
+    documentObject,
+    runtime: testRuntime(),
+    routeId: "shader-synth-playground",
+    support: instrumentMidiCapabilityForId("shader-synth-playground"),
+  };
+
+  assert.equal(applyBrowserMidiMessage({ ...common, message: { type: "start" } }), true);
+  assert.equal(audio.getAttribute("aria-pressed"), "true");
+  assert.equal(play.getAttribute("aria-pressed"), "true");
+  assert.equal(applyBrowserMidiMessage({ ...common, message: { type: "stop" } }), true);
+  assert.equal(play.getAttribute("aria-pressed"), "false");
 });
 
 test("note fallbacks sound sequence steps and drum one-shots without mutating patches", () => {

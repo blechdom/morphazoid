@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { L_SYSTEM_PRESETS } from "../src/l-system.js";
+
 const root = new URL("../", import.meta.url);
 
 test("L-system Delay exposes live recursion, current settings, safety, and an echo-tree stage", async () => {
@@ -28,17 +30,18 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
   assert.match(html, /src="micmic-app\.js(?:\?[^"]+)?"/);
   assert.match(html, /href="micmic\.css"/);
   for (const id of [
-    "stage", "seedControl", "seedMicButton", "panicButton", "audioButton", "micButton",
+    "stage", "seedControl", "seedMicButton", "panicButton", "audioButton", "inputMenu", "inputMenuButton", "micButton",
     "freezeButton", "inputMeterBar", "inputTrim", "depth", "interval",
     "mutation", "wet", "dry", "spread", "settingsSection", "currentSettingsSummary",
-    "generationPresetGrid", "presetSummary", "generations", "timeRatio", "generationAngle", "generationAsymmetry",
+    "generationPresetGrid", "lSystemType", "presetSummary", "generations", "timeRatio", "generationAngle", "generationAsymmetry",
     "generationPitchScale", "generationTimingReadout", "generationPitchReadout", "resetGenerationRules",
-    "generationPresetDescription", "generationCapacityInline", "generationCountReadout", "pitchDetail",
+    "generationCapacityInline", "generationCountReadout", "pitchDetail",
     "pitchDetailStatus", "pruningBias", "pruningBiasOut", "treeDescription",
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
-  for (const section of ["presetSection", "listenSection", "recursionSection", "mixSection", "settingsSection"]) {
+  for (const section of ["presetSection", "recursionSection", "mixSection", "settingsSection"]) {
     assert.match(html, new RegExp(`<details[^>]*id="${section}"`));
   }
+  assert.doesNotMatch(html, /id="listenSection"|id="listenSummary"|data-section="listen"/);
   assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
   assert.doesNotMatch(html, /LIVE RECURSIVE MICROPHONE|Speak once\. Let every echo become the parent of another\.|<strong>mic/);
   assert.doesNotMatch(html, /Capture|recordButton|recordingBadge|downloadTake|clearTake/);
@@ -50,15 +53,26 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
     html.indexOf('<header class="masthead">'),
     html.indexOf("</header>"),
   );
+  const panelMarkup = html.slice(
+    html.indexOf('<aside class="panel"'),
+    html.indexOf("</aside>"),
+  );
+  assert.match(mastheadMarkup, /class="header-io-controls micmic-header-controls"/);
+  assert.match(mastheadMarkup, /<details class="micmic-input-menu" id="inputMenu"/);
+  for (const id of [
+    "micButton", "micButtonLabel", "micButtonHint", "freezeButton", "freezeLabel",
+    "freezeHint", "inputMeterOut", "inputMeterBar", "inputPeakMarker", "inputTrim",
+    "inputTrimOut", "audioError",
+  ]) {
+    assert.match(mastheadMarkup, new RegExp(`id="${id}"`), `#${id} should live in the top menu`);
+    assert.doesNotMatch(panelMarkup, new RegExp(`id="${id}"`), `#${id} should not remain in the panel`);
+  }
   assert.ok(
     mastheadMarkup.indexOf("micmic-headphone-warning")
       < mastheadMarkup.indexOf('class="audio-strip"'),
-    "headphone warning should sit in the menu bar beside the audio controls",
+    "headphone warning should live in the header input menu before the audio controls",
   );
-  assert.doesNotMatch(
-    html.slice(html.indexOf('<aside class="panel"'), html.indexOf("</aside>")),
-    /Use headphones/,
-  );
+  assert.doesNotMatch(panelMarkup, /Use headphones/);
   assert.match(html, /<b id="micButtonLabel">Start input<\/b>/);
   assert.match(html, /<b id="freezeLabel">Stop audio<\/b>/);
   assert.doesNotMatch(html, /Press Escape for an immediate panic stop|canvasInstructions/);
@@ -66,6 +80,24 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
   assert.match(html, /<h2 class="group-title">Presets<\/h2>/);
   assert.match(html, /id="generationPresetGrid"[^>]*role="group"/);
   assert.match(html, /data-generation-preset="pythagorean"[^>]*aria-pressed="true"/);
+  assert.equal((html.match(/data-generation-preset="[^"]+"/g) ?? []).length, 16);
+  assert.doesNotMatch(html, /data-preset-band/);
+  const presetGridMarkup = html.slice(
+    html.indexOf('id="generationPresetGrid"'),
+    html.indexOf("</div>", html.indexOf('id="generationPresetGrid"')),
+  );
+  assert.doesNotMatch(presetGridMarkup, /<small\b/);
+  assert.deepEqual(
+    [...presetGridMarkup.matchAll(/data-generation-preset="([^"]+)"/g)].map((match) => match[1]),
+    [
+      "pythagorean", "bramble", "venus", "ivy", "binary", "coral", "moss", "plant",
+      "kelp", "dragon", "koch", "clean", "orchid", "willow", "mangrove", "sequoia",
+    ],
+  );
+  assert.match(html, /<label class="select-control" for="lSystemType">/);
+  assert.match(html, /<span class="field-label">L-system type<\/span>/);
+  assert.match(html, /<select id="lSystemType">/);
+  assert.match(html, /<option value="pythagorean" selected>Pythagorean tree<\/option>/);
   for (const plantName of [
     "Bamboo Shoot", "Silver Birch", "Fern Frond", "Weeping Willow", "Midnight Ivy",
     "Mangrove Roots", "Giant Sequoia", "Ghost Orchid", "Kelp Forest", "Moss Carpet",
@@ -73,26 +105,19 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
   ]) {
     assert.match(html, new RegExp(`>${plantName}<`), `missing ${plantName} preset`);
   }
-  assert.equal((html.match(/data-generation-preset="[^"]+"/g) ?? []).length, 16);
-  for (const [band, count] of [
-    ["robotic", 4],
-    ["rhythmic", 4],
-    ["spacious", 3],
-    ["smooth", 5],
-  ]) {
-    assert.equal(
-      (html.match(new RegExp(`data-preset-band="${band}"`, "g")) ?? []).length,
-      count,
-      `expected ${count} ${band} presets`,
-    );
-  }
-  assert.match(html, /ROBOTIC · 1 ms fold/);
-  assert.match(html, /SMOOTH · 3 s fold/);
-  assert.ok(
-    html.indexOf('data-generation-preset="moss"')
-      < html.indexOf('data-generation-preset="sequoia"'),
-    "presets should read from the tightest fold to the longest",
+  const lSystemTypeMarkup = html.slice(
+    html.indexOf('<select id="lSystemType"'),
+    html.indexOf("</select>", html.indexOf('<select id="lSystemType"')),
   );
+  assert.deepEqual(
+    [...lSystemTypeMarkup.matchAll(/<option value="([^"]+)"(?: selected)?>([^<]+)<\/option>/g)]
+      .map((match) => [match[1], match[2]]),
+    L_SYSTEM_PRESETS.map(({ id, name }) => [id, name]),
+  );
+  assert.match(lSystemTypeMarkup, /<optgroup label="Branching systems">/);
+  assert.match(lSystemTypeMarkup, /<optgroup label="Classic fractals">/);
+  assert.doesNotMatch(lSystemTypeMarkup, /value="custom"/);
+  assert.doesNotMatch(html, /generationPresetDescription|growth-preset-description/);
   assert.match(html, /id="generations"[^>]*value="13"/);
   assert.doesNotMatch(html, /Fork density|id="branching"|id="branchingOut"/);
   assert.doesNotMatch(html, /Recursive bounce|branchRendererToggle|branchRendererState/);
@@ -121,7 +146,7 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
   }
   assert.match(html, /<option value="24" selected>Maximum · Economy granular \(default\)<\/option>/);
   assert.match(html, /id="pitchDetailStatus"[^>]*>Maximum economy · 0 active shifted pitches · exact unison<\/small>/);
-  assert.doesNotMatch(html, /id="generationPreset"[\s>]|pitchDetailHelp/);
+  assert.doesNotMatch(html, /pitchDetailHelp/);
   assert.doesNotMatch(html, /Stop audio to change Pitch Detail\. Economy uses Graph Delay/);
   assert.doesNotMatch(html, /Starting topology|id="presetButtons"|data-preset=/);
   assert.doesNotMatch(html, /id="stateMetric"|id="depthMetric"|id="outputMetric"/);
@@ -136,7 +161,7 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
     html.indexOf('id="mixSection"'),
   );
   const groupedControlOrder = [
-    "generations", "pruningBias", "depth",
+    "lSystemType", "generations", "pruningBias", "depth",
     "interval", "timeRatio",
     "pitchDetail", "generationAngle", "generationPitchScale",
     "generationAsymmetry", "mutation",
@@ -195,6 +220,7 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
   assert.doesNotMatch(app, /MAX_ENVELOPE_SAMPLES|envelopeHistory\.splice/);
   assert.doesNotMatch(app, /capsulePath|drawCapsule|generationShape/);
   assert.doesNotMatch(app, /localStorage|sessionStorage/);
+  assert.doesNotMatch(app, /listenSection|listenSummary/);
 
   assert.match(css, /\.micmic-page\s*\{/);
   assert.match(css, /\.fracta-seed-control/);
@@ -202,12 +228,11 @@ test("L-system Delay exposes live recursion, current settings, safety, and an ec
   assert.match(css, /\.fracta-panic/);
   assert.match(css, /\.recursion-parameter-cluster/);
   assert.match(css, /\.parameter-cluster-title/);
-  assert.match(css, /\.growth-preset-description/);
   assert.match(css, /\.micmic-preset-grid/);
   assert.match(css, /\.micmic-headphone-warning/);
-  for (const band of ["robotic", "rhythmic", "spacious", "smooth"]) {
-    assert.match(css, new RegExp(`data-preset-band="${band}"`));
-  }
+  assert.match(css, /\.micmic-input-menu/);
+  assert.doesNotMatch(css, /#listenSection/);
+  assert.doesNotMatch(css, /growth-preset-description|data-preset-band/);
   assert.match(css, /\.current-settings-readout/);
   assert.doesNotMatch(css, /\.fracta-record-button|\.fracta-recording-badge|\.fracta-take/);
   assert.doesNotMatch(css, /\.branch-renderer-toggle|\.branch-toggle-track/);
@@ -223,6 +248,8 @@ test("L-system Delay markup has unique ids and labelled controls", async () => {
     assert.match(html, new RegExp(`<label[^>]*for="${id}"`));
     assert.match(html, new RegExp(`<input id="${id}"`));
   }
+  assert.match(html, /<label[^>]*for="lSystemType"/);
+  assert.match(html, /<select id="lSystemType"/);
   assert.match(html, /<label[^>]*for="pitchDetail"/);
   assert.match(html, /<select id="pitchDetail"/);
   assert.match(html, /id="stage"[\s\S]*?role="img"[\s\S]*?aria-describedby="treeDescription liveStatus"/);

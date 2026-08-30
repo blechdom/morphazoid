@@ -51,14 +51,7 @@
 
     <main class="blowhole-shell" id="blowhole">
       <section class="blowhole-intro" aria-labelledby="pageTitle">
-        <div>
-          <p class="blowhole-kicker">TWO SOUND ORGANS / ONE BREATHING VALVE</p>
-          <h1 id="pageTitle">BLOW<span>HOLE</span></h1>
-        </div>
-        <p class="blowhole-thesis">
-          The blowhole breathes. The hidden tissue sings.
-          <span>Dolphin phonic lips live in the nose; baleen-whale U-folds live in the larynx.</span>
-        </p>
+        <h1 id="pageTitle">BLOWHOLE</h1>
       </section>
 
       <section class="blowhole-instrument" aria-label="Playable cetacean physical model">
@@ -66,8 +59,8 @@
           <section class="blowhole-stage-card" aria-labelledby="anatomyTitle">
             <header class="blowhole-stage-header">
               <div>
-                <p>LIVE CUTAWAY / <span id="familyCode">ODONTOCETE</span></p>
-                <h2 id="anatomyTitle">Paired nasal source</h2>
+                <p>LIVE CUTAWAY / <span id="familyCode">MYSTICETE</span></p>
+                <h2 id="anatomyTitle">Laryngeal U-fold source</h2>
               </div>
               <div class="blowhole-valve-state" id="valveState" data-state="sealed">
                 <i aria-hidden="true"></i>
@@ -79,26 +72,26 @@
               <canvas
                 id="stage"
                 role="img"
-                aria-label="Cutaway of three cetacean sound-production topologies: delphinid and orca phonic lips, the sperm whale's single right nasal head, or the baleen-whale laryngeal U-fold. Colored pointer-drag handles have equivalent labeled sliders after the diagram."
+                aria-label="Playable cutaway of three cetacean sound-production topologies. Drag the colored organ controls, external valve aperture, or stepped comparative voice map from baleen moans to odontocete clicks. Every canvas control has a labeled slider or selector after the diagram."
                 aria-describedby="stageInstructions liveStatus"
               >
                 A cutaway diagram of dolphin phonic lips, a sperm whale's single right nasal sound path, or a baleen-whale laryngeal U-fold.
               </canvas>
               <p class="blowhole-stage-instructions" id="stageInstructions">
-                DRAG THE COLORED ORGANS · KEYBOARD: USE THE LABELED SLIDERS
+                DRAG ORGANS · SCRUB MOAN → CLICK · OPEN THE VALVE · KEYBOARD CONTROLS FOLLOW
               </p>
               <div class="blowhole-signal-legend" aria-hidden="true">
                 <span><i class="is-air"></i>pressurized air</span>
                 <span><i class="is-tissue"></i>vibrating tissue</span>
-                <span><i class="is-sound"></i>sound into water</span>
+                <span><i class="is-sound"></i>radiated sound</span>
               </div>
             </div>
 
             <div class="blowhole-stage-readouts">
-              <span><small>source</small><output id="sourceReadout">M1 phonic-lip source · side unassigned</output></span>
-              <span><small>physical signal</small><output id="physicalReadout">500 Hz–10 kHz</output></span>
-              <span><small>monitor</small><output id="monitorReadout">audible 1:1</output></span>
-              <span><small>air path</small><output id="airReadout">nasal loop</output></span>
+              <span><small>source</small><output id="sourceReadout">coupled U-fold + cushion</output></span>
+              <span><small>physical signal</small><output id="physicalReadout">80–700 Hz</output></span>
+              <span><small>monitor</small><output id="monitorReadout">audible · 1:1</output></span>
+              <span><small>air path</small><output id="airReadout">82% sac coupling · memory</output></span>
             </div>
           </section>
 
@@ -106,11 +99,11 @@
             <header>
               <div>
                 <p>CALL GESTURE / HYBRINX DESCENDANT</p>
-                <h2 id="timelineTitle"><span id="timelineSpecies">Orca</span> · <b id="timelineCall">Pulsed call</b></h2>
+                <h2 id="timelineTitle"><span id="timelineSpecies">Humpback whale</span> · <b id="timelineCall">Humpback moan</b></h2>
               </div>
               <div class="blowhole-timeline-stats">
-                <span><small>register</small><output id="registerReadout">M1 / pulsed</output></span>
-                <span><small>duration</small><output id="durationReadout">1.45 s</output></span>
+                <span><small>register</small><output id="registerReadout">U-fold / fold-to-fat</output></span>
+                <span><small>duration</small><output id="durationReadout">3.60 s</output></span>
                 <span><small>phase</small><output id="phaseReadout">ready</output></span>
               </div>
             </header>
@@ -147,10 +140,23 @@
               <span class="blowhole-pad-rings" aria-hidden="true"><i></i><i></i><i></i></span>
               <span><b>HOLD TO SOUND</b><small>B key · continuous pressure</small></span>
             </button>
-            <button id="ventButton" type="button">
+            <button id="ventButton" type="button" aria-pressed="false">
               <span class="blowhole-vent-mark" aria-hidden="true">≈</span>
-              <span><b>SURFACE BREATH</b><small>opens valve · separate whoosh</small></span>
+              <span><b>BLOWHOLE VALVE</b><small>toggle open · breath layer</small></span>
             </button>
+            <label class="blowhole-aperture-control" for="valveAperture">
+              <span><b>External valve aperture</b><output id="valveApertureOut" for="valveAperture">sealed</output></span>
+              <input
+                id="valveAperture"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0"
+                aria-describedby="valveApertureHelp"
+              />
+              <small id="valveApertureHelp">A surface-performance breath/leak control. Transport keeps running; the hidden sound organ remains separate from the external blowhole.</small>
+            </label>
           </section>
 
           <section class="blowhole-call-bank" aria-labelledby="callBankTitle">
@@ -158,11 +164,35 @@
               <p>01 / SOURCE FAMILY + GESTURE</p>
               <h2 id="callBankTitle">Choose a respiratory voice</h2>
             </div>
+            <label class="blowhole-call-path" for="callPath">
+              <span><b>Comparative voice map</b><output id="callPathOut" for="callPath">Humpback moan</output></span>
+              <input
+                id="callPath"
+                type="range"
+                min="0"
+                max="7"
+                step="1"
+                value="1"
+                list="callPathStops"
+                aria-describedby="callPathHelp"
+              />
+              <datalist id="callPathStops">
+                <option value="0" label="B call"></option>
+                <option value="1" label="Moan"></option>
+                <option value="2" label="Song"></option>
+                <option value="3" label="Whistle"></option>
+                <option value="4" label="Pulse"></option>
+                <option value="5" label="Coda"></option>
+                <option value="6" label="Clicks"></option>
+                <option value="7" label="Buzz"></option>
+              </datalist>
+              <small id="callPathHelp">Eight stepped physical models, from baleen voices to odontocete clicks. This is a live comparative map—not one animal changing organs.</small>
+            </label>
             <div class="blowhole-family-tabs" role="group" aria-label="Cetacean source family">
-              <button id="odontoceteTab" type="button" data-family="odontocete" aria-pressed="true">
+              <button id="odontoceteTab" type="button" data-family="odontocete" aria-pressed="false">
                 <b>TOOTHED</b><small>nasal / phonic lips</small>
               </button>
-              <button id="mysticeteTab" type="button" data-family="mysticete" aria-pressed="false">
+              <button id="mysticeteTab" type="button" data-family="mysticete" aria-pressed="true">
                 <b>BALEEN</b><small>larynx / U-fold</small>
               </button>
             </div>
@@ -176,27 +206,27 @@
 
           <details class="blowhole-control-group" open>
             <summary>
-              <span><small>02 / PNEUMATIC SOURCE</small><b id="sourceControlTitle">Phonic lip pair</b></span>
-              <output id="sourceSummary">72% pressure · M2</output>
+              <span><small>02 / PNEUMATIC SOURCE</small><b id="sourceControlTitle">Coupled fold / cushion</b></span>
+              <output id="sourceSummary">80% pressure · U-fold</output>
             </summary>
             <div class="blowhole-control-body">
               <label class="blowhole-control" for="pressure">
-                <span><b id="pressureLabel">Nasal pressure</b><output id="pressureOut" for="pressure">72%</output></span>
-                <input id="pressure" type="range" min="0" max="1" step="0.01" value="0.72" />
-                <small id="pressureHelp">Air stored in muscular nasal sacs crosses the self-oscillation threshold.</small>
+                <span><b id="pressureLabel">Lung pressure</b><output id="pressureOut" for="pressure">80%</output></span>
+                <input id="pressure" type="range" min="0" max="1" step="0.01" value="0.8" />
+                <small id="pressureHelp">Air leaving the lungs drives the coupled U-fold and cricoid-cushion mucosa across a narrow gap.</small>
               </label>
               <label class="blowhole-control" for="tension">
-                <span><b id="tensionLabel">Phonic lip tension</b><output id="tensionOut" for="tension">50%</output></span>
+                <span><b id="tensionLabel">U-fold tension</b><output id="tensionOut" for="tension">50%</output></span>
                 <input id="tension" type="range" min="0" max="1" step="0.01" value="0.5" />
                 <small id="tensionHelp">Changes vibrating mass, register, and physical center frequency.</small>
               </label>
               <label class="blowhole-control" for="closure">
-                <span><b id="closureLabel">Lip closure</b><output id="closureOut" for="closure">62%</output></span>
-                <input id="closure" type="range" min="0" max="1" step="0.01" value="0.62" />
-                <small id="closureHelp">Brief, closure-heavy motion produces air-efficient pulses and clicks.</small>
+                <span><b id="closureLabel">Fold / cushion gap</b><output id="closureOut" for="closure">76%</output></span>
+                <input id="closure" type="range" min="0" max="1" step="0.01" value="0.76" />
+                <small id="closureHelp">Changes onset threshold, coupled-surface vibration, harmonic richness, and collision strength.</small>
               </label>
               <label class="blowhole-control" for="asymmetry">
-                <span><b id="asymmetryLabel">Left / right offset</b><output id="asymmetryOut" for="asymmetry">center</output></span>
+                <span><b id="asymmetryLabel">Radiation bias</b><output id="asymmetryOut" for="asymmetry">center</output></span>
                 <input id="asymmetry" type="range" min="-1" max="1" step="0.01" value="0" />
                 <small id="asymmetryHelp">Detunes and balances the two independently controllable nasal sources.</small>
               </label>
@@ -205,28 +235,28 @@
 
           <details class="blowhole-control-group" open>
             <summary>
-              <span><small>03 / AIR LOOP + RADIATOR</small><b id="radiatorControlTitle">Sacs and melon</b></span>
-              <output id="radiatorSummary">74% recycle · focused</output>
+              <span><small>03 / AIR LOOP + RADIATOR</small><b id="radiatorControlTitle">Laryngeal sac and body</b></span>
+              <output id="radiatorSummary">82% sac coupling · 46% radiation</output>
             </summary>
             <div class="blowhole-control-body">
               <label class="blowhole-control" for="recycle">
-                <span><b id="recycleLabel">Nasal air recycling</b><output id="recycleOut" for="recycle">76%</output></span>
-                <input id="recycle" type="range" min="0" max="1" step="0.01" value="0.76" />
-                <small id="recycleHelp">Returns spent air through the closed nasal circuit instead of exhaling it.</small>
+                <span><b id="recycleLabel">Laryngeal sac coupling</b><output id="recycleOut" for="recycle">82%</output></span>
+                <input id="recycle" type="range" min="0" max="1" step="0.01" value="0.82" />
+                <small id="recycleHelp">Changes compliant sac memory and resonance; the model does not simulate air transport back to the lungs.</small>
               </label>
               <label class="blowhole-control" for="focus">
-                <span><b id="focusLabel">Melon focus</b><output id="focusOut" for="focus">72%</output></span>
-                <input id="focus" type="range" min="0" max="1" step="0.01" value="0.72" />
-                <small id="focusHelp">Shapes the head filter and the forward acoustic beam; it is not the source.</small>
+                <span><b id="focusLabel">Throat / body radiation</b><output id="focusOut" for="focus">46%</output></span>
+                <input id="focus" type="range" min="0" max="1" step="0.01" value="0.46" />
+                <small id="focusHelp">Changes passive tissue-coupled modes without pretending the blowholes radiate the song.</small>
               </label>
               <label class="blowhole-control" for="scale">
-                <span><b id="scaleLabel">Head scale</b><output id="scaleOut" for="scale">50%</output></span>
-                <input id="scale" type="range" min="0" max="1" step="0.01" value="0.5" />
-                <small id="scaleHelp">Changes cavity and tissue size together while the call contour remains intact.</small>
+                <span><b id="scaleLabel">Larynx scale</b><output id="scaleOut" for="scale">74%</output></span>
+                <input id="scale" type="range" min="0" max="1" step="0.01" value="0.74" />
+                <small id="scaleHelp">Changes fold mass, air-sac size, and body-mode spacing as one morphology control.</small>
               </label>
               <label class="blowhole-control" for="roughness">
-                <span><b>Tissue irregularity</b><output id="roughnessOut" for="roughness">8%</output></span>
-                <input id="roughness" type="range" min="0" max="1" step="0.01" value="0.08" />
+                <span><b>Tissue irregularity</b><output id="roughnessOut" for="roughness">18%</output></span>
+                <input id="roughness" type="range" min="0" max="1" step="0.01" value="0.18" />
                 <small>Adds pitch jitter, contact noise, and slow nonlinear instability inside the source.</small>
               </label>
             </div>
@@ -234,20 +264,112 @@
 
           <details class="blowhole-control-group blowhole-environment-group" open>
             <summary>
-              <span><small>04 / WATER + MONITOR</small><b>Dive context</b></span>
-              <output id="environmentSummary">12 m · audible map</output>
+              <span><small>04 / EXTERNAL ACOUSTIC PATH</small><b>Listening environment</b></span>
+              <output id="environmentSummary">Calm water · 40 m</output>
             </summary>
             <div class="blowhole-control-body">
+              <fieldset class="blowhole-propagation-presets" aria-describedby="propagationHelp propagationCaveat">
+                <legend>Propagation environment</legend>
+                <div class="blowhole-propagation-grid">
+                  <label class="blowhole-propagation-choice" for="propagationWaterCalm">
+                    <input
+                      id="propagationWaterCalm"
+                      name="propagationPreset"
+                      type="radio"
+                      value="water-calm"
+                      checked
+                    />
+                    <span><b>Calm water</b><small>submerged path</small></span>
+                  </label>
+                  <label class="blowhole-propagation-choice" for="propagationAirStill">
+                    <input
+                      id="propagationAirStill"
+                      name="propagationPreset"
+                      type="radio"
+                      value="air-still"
+                    />
+                    <span><b>Open air</b><small>air comparison</small></span>
+                  </label>
+                  <label class="blowhole-propagation-choice" for="propagationAirWindy">
+                    <input
+                      id="propagationAirWindy"
+                      name="propagationPreset"
+                      type="radio"
+                      value="air-windy"
+                    />
+                    <span><b>Windy air</b><small>gusting receiver path</small></span>
+                  </label>
+                  <label class="blowhole-propagation-choice" for="propagationWaterChoppy">
+                    <input
+                      id="propagationWaterChoppy"
+                      name="propagationPreset"
+                      type="radio"
+                      value="water-choppy"
+                    />
+                    <span><b>Choppy surface</b><small>moving water boundary</small></span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <div
+                class="blowhole-propagation-strip"
+                id="propagationStrip"
+                aria-label="Post-source acoustic path: calm water over 40 metres to a submerged receiver."
+              >
+                <span><small>source</small><b>fixed anatomy</b></span>
+                <i class="blowhole-propagation-arrow" aria-hidden="true"></i>
+                <span><small>external path</small><b id="propagationPathReadout">calm water · 40 m</b></span>
+                <i class="blowhole-propagation-arrow" aria-hidden="true"></i>
+                <span><small>receiver</small><b id="propagationReceiverReadout">submerged</b></span>
+              </div>
+
+              <label class="blowhole-control" for="propagationDistanceM">
+                <span><b>Path length</b><output id="propagationDistanceMOut" for="propagationDistanceM">40 m</output></span>
+                <input
+                  id="propagationDistanceM"
+                  type="range"
+                  min="1"
+                  max="500"
+                  step="1"
+                  value="40"
+                  aria-describedby="propagationDistanceHelp"
+                />
+                <small id="propagationDistanceHelp">Distance from the animal to the receiver; this changes the path, not the sound organ.</small>
+              </label>
+
+              <label class="blowhole-control" for="propagationMix">
+                <span><b>Acoustic path amount</b><output id="propagationMixOut" for="propagationMix">72%</output></span>
+                <input
+                  id="propagationMix"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="0.72"
+                  aria-describedby="propagationMixHelp"
+                />
+                <small id="propagationMixHelp">Blends from the clean physical model to the full modeled propagation path.</small>
+              </label>
+
+              <p class="blowhole-propagation-help" id="propagationHelp">
+                Stable submerged transmission with distance-dependent absorption and very light scatter.
+              </p>
+              <p class="blowhole-propagation-caveat" id="propagationCaveat">
+                POST-SOURCE LAYER · Source anatomy and call contours stay fixed. Presets are monitor-normalized for comparison; Open air is a listening simulation, not an open-blowhole sound source.
+              </p>
+
+              <p class="blowhole-control-divider">SOURCE + DIVE CONTEXT</p>
               <label class="blowhole-control" for="pulseRateHz">
-                <span><b id="pulseRateHzLabel">Manual pulse rate</b><output id="pulseRateHzOut" for="pulseRateHz">12 Hz</output></span>
-                <input id="pulseRateHz" type="range" min="0" max="800" step="1" value="12" />
-                <small id="pulseRateHzHelp">Sets click or pulse repetition while HOLD TO SOUND is pressed; authored calls use their own contour.</small>
+                <span><b id="pulseRateHzLabel">Manual pulse rate · inactive</b><output id="pulseRateHzOut" for="pulseRateHz">0 Hz</output></span>
+                <input id="pulseRateHz" type="range" min="0" max="0" step="1" value="0" disabled />
+                <small id="pulseRateHzHelp">This tonal laryngeal source has no independent pulse-rate control.</small>
               </label>
               <label class="blowhole-control" for="depthM">
                 <span><b>Model depth</b><output id="depthMOut" for="depthM">12 m</output></span>
                 <input id="depthM" type="range" min="0" max="3000" step="1" value="12" />
-                <small id="depthHelp">Nasal recycling supports deep odontocete clicks; baleen phonation is depth-limited.</small>
+                <small id="depthHelp">The demonstrated baleen source needs lung air and is strongly depth-limited in this model.</small>
               </label>
+              <p class="blowhole-control-divider">SPEAKER TRANSLATION</p>
               <label class="blowhole-monitor-select" for="monitorMode">
                 <span><b>Frequency monitor</b><output id="monitorModeOut">audible proxy</output></span>
                 <select id="monitorMode">
@@ -265,18 +387,18 @@
               <h2 id="evidenceTitle">Observed mechanism, playable reduction</h2>
             </div>
             <p id="evidenceText">
-              Tissue vibration and bilateral nasal sources are evidence-based. Exact live-animal head filtering is reduced to a stable browser model.
+              Fold-to-fat vibration is supported by direct excised-larynx experiments in sei, minke, and humpback whales. Exact filtering and radiation in a living, diving whale remain a playable reduction.
             </p>
             <dl>
-              <div><dt>blowhole</dt><dd id="blowholeFact">sealed underwater</dd></div>
-              <div><dt>source basis</dt><dd id="basisReadout">direct + anatomical</dd></div>
+              <div><dt>blowhole</dt><dd id="blowholeFact">paired nares · sealed underwater</dd></div>
+              <div><dt>source basis</dt><dd id="basisReadout">direct excised-larynx evidence</dd></div>
               <div><dt>speaker output</dt><dd>safe audible proxy</dd></div>
             </dl>
           </section>
 
           <p class="blowhole-audio-error" id="audioError" role="alert" hidden></p>
           <button id="resetButton" class="blowhole-reset" type="button" data-reset-all data-reset-in-place>
-            Reset anatomy and call
+            Reset instrument
           </button>
         </aside>
       </section>

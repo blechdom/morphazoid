@@ -31,7 +31,7 @@ function assertUniqueIds(records, label) {
 test("Shader Synth Primitives exports complete, uniquely identified primitive data", () => {
   assertUniqueIds(WEBGPU_DSP_CATEGORIES, "DSP categories");
   assertUniqueIds(WEBGPU_DSP_PRIMITIVES, "DSP primitives");
-  assert.ok(WEBGPU_DSP_PRIMITIVES.length >= 100, "the extended atlas should retain at least 100 primitives");
+  assert.equal(WEBGPU_DSP_PRIMITIVES.length, 142, "the atlas count and initial page count should stay aligned");
 
   const statuses = new Set();
   for (const primitive of WEBGPU_DSP_PRIMITIVES) {
@@ -63,6 +63,43 @@ test("Shader Synth Primitives exports complete, uniquely identified primitive da
     true,
     "every execution label must explain what it means",
   );
+});
+
+test("the atlas documents the live geometry-to-time primitives with primary shader references", () => {
+  const expectedIds = [
+    "mirror-fold-time-field",
+    "sdf-boundary-clock",
+    "polar-kaleidoscope-clock",
+    "voronoi-event-field",
+    "truchet-path-clock",
+    "kifs-fold-clock",
+    "interference-lattice-clock",
+  ];
+  const entries = expectedIds.map((id) => WEBGPU_DSP_PRIMITIVES.find((primitive) => primitive.id === id));
+  assert.equal(entries.every(Boolean), true);
+  for (const entry of entries) {
+    assert.equal(entry.status, "live");
+    assert.equal(entry.category, "control");
+    assert.match(entry.source?.url ?? "", /^https:\/\/www\.shadertoy\.com\/view\//);
+    assert.match(`${entry.audio} ${entry.note} ${entry.compose}`, /event|gate|rhythm|note|clock|phrase/i);
+  }
+
+  const composableIds = [
+    "phase-plane-coordinate-field", "tile-mirror-coordinate-field", "polar-fold-coordinate-field",
+    "sdf-pattern-control-field", "sdf-boolean-control-field", "interference-control-field",
+    "voronoi-control-field", "truchet-router-control-field",
+  ];
+  for (const id of composableIds) {
+    const entry = WEBGPU_DSP_PRIMITIVES.find((primitive) => primitive.id === id);
+    assert.ok(entry, `${id} needs a matching atlas entry`);
+    assert.equal(entry.status, "live");
+    assert.match(entry.source?.url ?? "", /^https:\/\/(?:www\.)?(?:shadertoy\.com|thebookofshaders\.com)\//);
+    assert.match(`${entry.audio} ${entry.note}`, /X\/Y|coordinate|distance|field|cell|tile/i);
+  }
+
+  for (const id of ["cellular-automaton-score", "reaction-diffusion-score-lattice", "geometric-feedback-lattice"]) {
+    assert.equal(WEBGPU_DSP_PRIMITIVES.find((primitive) => primitive.id === id)?.status, "block");
+  }
 });
 
 test("every function in the live GPU synth WGSL is named by a live atlas entry", () => {
@@ -121,6 +158,10 @@ test("the companion page exposes filters, a semantic table, and technical notes"
   assert.match(app, /WEBGPU_DSP_PRIMITIVES/);
   assert.match(app, /WEBGPU_DSP_CATEGORIES/);
   assert.match(app, /primitive-status[^\n]*title=/);
+  assert.match(app, /class="primitive-source"/);
+  assert.match(app, /primitive\.source\?\.url/);
+  assert.match(css, /\.primitive-source/);
+  assert.match(html, />142 primitives</);
   assert.doesNotMatch(app, /WEBGPU_DSP_RECIPES|data-add-sketch|recipeStrip/);
   assert.match(css, /overflow-x:\s*(?:auto|scroll)/);
   assert.match(css, /@media\s*\(max-width:\s*\d+px\)/);

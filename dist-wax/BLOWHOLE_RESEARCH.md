@@ -132,6 +132,32 @@ Real odontocete clicks can extend well above 100 kHz, outside a 48 kHz browser a
 
 `Physical band` removes that musical convenience, but browser Nyquist filtering and the listener's hardware still limit the result. Neither mode is a calibrated underwater-source simulation.
 
+### External fluid-acoustic path
+
+The animal model ends at radiation. A separate post-source layer now sketches what reaches a receiver through four listening environments: calm water, open air, windy air, and choppy surface water. This separation is deliberate. Selecting air does not open the blowhole, change the call source, or imply that a submerged cetacean signal crosses the air–water boundary efficiently.
+
+Water and air differ in sound speed, absorption, characteristic impedance, boundary behavior, and turbulence. Seawater carries sound at roughly 1,500 m/s, with the exact value depending on temperature, salinity, and pressure; ordinary air is closer to 343 m/s under room-like conditions. That speed difference changes wavelength and travel time, not pitch for a stationary source and receiver. Absorption in both media is frequency-dependent. Audible low-frequency underwater sound can travel far, so the calm-water mode deliberately avoids the clichéd steep “underwater” low-pass.
+
+The presets are monitor-normalized acoustic sketches:
+
+- **Calm water · hydrophone** keeps a relatively clear direct path and one stable, polarity-inverted surface reflection. The inversion approximates a smooth pressure-release air–water boundary.
+- **Open air · comparison** applies modest distance-linked high-frequency loss and an airborne reflection pattern. It is an audition comparison, not normal cetacean phonation or cross-surface transmission.
+- **Windy air · turbulence** starts from the open-air path and adds conservative, slowly varying gain and reflected-arrival fluctuation. This represents propagation variability; it does not pitch the source up or down.
+- **Choppy surface · hydrophone** replaces one coherent surface return with moving, less-coherent stereo returns and filtered scatter. It is a compact proxy for a moving rough boundary and bubbles, not a generic lush reverb.
+
+Path distance controls spectral color and reflected-path timing. The displayed direct travel time is calculated from distance divided by the preset sound speed, but that full delay is not placed in the live monitor because doing so would make the instrument unplayable. `Acoustic path` interpolates continuously from the clean radiated source to the level-compensated environment. Presets crossfade and remain behind the existing hard output bound.
+
+This layer is not a calibrated propagation solver. It does not request temperature, salinity, pH, humidity, receiver depth, source depth, sea-state spectrum, bathymetry, or wind profile, all of which matter to a predictive model. It also does not simulate transmission through the air–water interface, where the large impedance mismatch normally reflects most incident energy. The layer should therefore be read as a physically informed comparison among receiver scenes.
+
+Primary and standards references:
+
+- NOAA Ocean Service, [“How far does sound travel in the ocean?”](https://oceanservice.noaa.gov/facts/sound.html), for the air/water sound-speed comparison and environmental dependence.
+- National Physical Laboratory, [seawater absorption physics](https://resource.npl.co.uk/acoustics/techguides/seaabsorption/physics.html), and M. Ainslie and J. McColm, [simplified seawater absorption formula](https://doi.org/10.1121/1.421258), *JASA* 103 (1998), for frequency-dependent attenuation.
+- ISO, [ISO 9613-1](https://www.iso.org/standard/17426.html), and H. Bass et al., [atmospheric absorption model](https://doi.org/10.1121/1.412989), *JASA* 97 (1995), for air absorption's dependence on frequency and atmospheric state.
+- National Physical Laboratory, [*Underwater Acoustics: Technical Guides — Speed, absorption, propagation and ambient noise*](https://eprintspublications.npl.co.uk/6340/1/AC12.pdf), for surface roughness, bubbles, wave motion, scattering, and geometry caveats.
+- D. Wilson et al., [measurements of atmospheric-turbulence effects on sound](https://doi.org/10.1121/1.413649), *JASA* 99 (1996).
+- National Physical Laboratory, [sound pressure, intensity, and acoustic impedance](https://resource.npl.co.uk/acoustics/techguides/concepts/spl.html), for why airborne and underwater sound-pressure levels are not directly interchangeable.
+
 ## Gesture set
 
 The included gestures are synthesis targets, not embedded animal recordings:

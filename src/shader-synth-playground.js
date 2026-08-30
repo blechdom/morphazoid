@@ -21,6 +21,11 @@ import {
   SHADER_SYNTH_PLAYGROUND_FOUND_MODULES,
 } from "./shader-synth-playground-found-sounds.js";
 import {
+  SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES,
+  SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS,
+  SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES,
+} from "./shader-synth-playground-geometry.js";
+import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
   sanitizeWebGpuSynthOrganRanks,
@@ -123,6 +128,19 @@ export const SHADER_PLAYGROUND_LIMITS = freeze({
   maxNodes: MAX_NODES,
   maxConnections: MAX_CONNECTIONS,
   maxInputs: 3,
+});
+
+// Shared geometry keeps the compact DOM nodes, automatic layout, new-node
+// placement, and drag bounds in agreement. These are editor dimensions only;
+// they do not affect the encoded GPU graph.
+export const SHADER_PLAYGROUND_LAYOUT_DEFAULTS = freeze({
+  nodeWidth: 150,
+  nodeHeight: 96,
+  gapX: 24,
+  gapY: 20,
+  marginX: 20,
+  marginTop: 52,
+  marginBottom: 20,
 });
 
 // The readback path is deliberately buffered like the standalone WebGPU 303:
@@ -573,6 +591,7 @@ export const SHADER_PLAYGROUND_MODULES = freeze([
     faust: { symbol: "ma.chebychevpoly", url: "https://faustlibraries.grame.fr/libs/maths/" },
   }),
   ...SHADER_SYNTH_PLAYGROUND_EXTRA_MODULES.map(moduleSpec),
+  ...SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES.map(moduleSpec),
   ...SHADER_SYNTH_PLAYGROUND_FOUND_MODULES.map(moduleSpec),
   ...SHADER_SYNTH_PLAYGROUND_FX_MODULES.map(moduleSpec),
   moduleSpec({
@@ -1234,6 +1253,82 @@ function buildModuleAudition(spec, sequence) {
       edge("amp-pan", "amp", "out", "pan", "signal"),
       edge("pan-out", "pan", "out", "out", "signal"),
     ]);
+  } else if (spec.auditionKind === "coordinate") {
+    const generator = spec.id === "phase-plane";
+    route = generator
+      ? `${spec.name} X/Y → Oscillator phase + pan → Output`
+      : `Phase Plane → ${spec.name} X/Y → Oscillator phase + pan → Output`;
+    const coordinateNodes = generator
+      ? [
+        node("motion", "lfo", 20, 255, { rate: 0.08, shape: 0, depth: 0.72, offset: 0 }),
+        node("focus", spec.id, 250, 205),
+      ]
+      : [
+        node("motion", "phase-plane", 20, 245, { rate: 0.29, ratio: 1.5, phase: 0.25, phaseDepth: 0 }),
+        ...(spec.inputs[2] ? [node("transform", "lfo", 20, 405, { rate: 0.071, shape: 0, depth: 0.58, offset: 0 })] : []),
+        node("focus", spec.id, 250, 205),
+      ];
+    const coordinateConnections = generator
+      ? [edge("motion-phase", "motion", "out", "focus", "phase")]
+      : [
+        edge("motion-x", "motion", "x", "focus", spec.inputs[0].id),
+        edge("motion-y", "motion", "y", "focus", spec.inputs[1].id),
+        ...(spec.inputs[2] ? [edge("transform-focus", "transform", "out", "focus", spec.inputs[2].id)] : []),
+      ];
+    patch = comboGraph(comboId, name, [
+      ...coordinateNodes,
+      node("source", "oscillator", 510, 70, { frequency: 82.41, waveform: 1, level: 0.46, pmDepth: 3.1 }),
+      node("pan", "pan", 735, 105, { pan: 0, depth: 0.85 }), comboOutput(0.58),
+    ], [
+      ...coordinateConnections,
+      edge("coordinate-phase", "focus", "x", "source", "pm"),
+      edge("source-pan", "source", "out", "pan", "signal"),
+      edge("coordinate-pan", "focus", "y", "pan", "position"),
+      edge("pan-out", "pan", "out", "out", "signal"),
+    ]);
+  } else if (spec.auditionKind === "field-gate") {
+    route = `Phase Plane → ${spec.name} → Oscillator + VCA → Pan → Output`;
+    patch = comboGraph(comboId, name, [
+      node("motion", "phase-plane", 20, 245, { rate: 0.37, ratio: 1.5, phase: 0.25, phaseDepth: 0 }),
+      ...(spec.inputs[2] ? [node("field-motion", "lfo", 20, 405, { rate: 0.083, shape: 0, depth: 0.54, offset: 0 })] : []),
+      node("focus", spec.id, 250, 245),
+      node("source", "oscillator", 250, 55, { frequency: 82.41, waveform: 2, level: 0.46, pmDepth: 2.4 }),
+      node("amp", "vca", 500, 95, { base: 0, depth: 1, drive: 1.15 }),
+      node("pan", "pan", 725, 105, { pan: 0, depth: 0 }), comboOutput(0.58),
+    ], [
+      edge("motion-x", "motion", "x", "focus", "x"),
+      edge("motion-y", "motion", "y", "focus", "y"),
+      ...(spec.inputs[2] ? [edge("field-motion-focus", "field-motion", "out", "focus", spec.inputs[2].id)] : []),
+      edge("field-phase", "focus", "field", "source", "pm"),
+      edge("source-amp", "source", "out", "amp", "signal"),
+      edge("gate-amp", "focus", "gate", "amp", "cv"),
+      edge("amp-pan", "amp", "out", "pan", "signal"),
+      edge("pan-out", "pan", "out", "out", "signal"),
+    ]);
+  } else if (spec.auditionKind === "sdf-logic") {
+    route = `Phase Plane → 2× SDF Pattern → ${spec.name} → Oscillator + VCA → Pan → Output`;
+    patch = comboGraph(comboId, name, [
+      node("motion", "phase-plane", 20, 245, { rate: 0.29, ratio: 1.5, phase: 0.25, phaseDepth: 0 }),
+      node("shape-a", "sdf-pattern-field", 220, 60, { shape: 0, size: 0.44, repeatX: 2, repeatY: 3, rotation: 0.03, band: 0.02 }),
+      node("shape-b", "sdf-pattern-field", 220, 280, { shape: 1, size: 0.34, repeatX: 3, repeatY: 2, rotation: 0.125, band: 0.02 }),
+      node("focus", spec.id, 450, 205, { operation: 0, smoothing: 0.08, width: 0.055, morph: 0.18 }),
+      node("source", "oscillator", 450, 25, { frequency: 73.42, waveform: 2, level: 0.46, pmDepth: 3.8 }),
+      node("amp", "vca", 675, 80, { base: 0, depth: 1, drive: 1.15 }),
+      node("pan", "pan", 860, 95, { pan: 0, depth: 0 }), comboOutput(0.57),
+    ], [
+      edge("motion-x-a", "motion", "x", "shape-a", "x"),
+      edge("motion-y-a", "motion", "y", "shape-a", "y"),
+      edge("motion-x-b", "motion", "x", "shape-b", "x"),
+      edge("motion-y-b", "motion", "y", "shape-b", "y"),
+      edge("shape-a-logic", "shape-a", "field", "focus", "a"),
+      edge("shape-b-logic", "shape-b", "field", "focus", "b"),
+      edge("motion-morph", "motion", "y", "focus", "morph"),
+      edge("logic-phase", "focus", "field", "source", "pm"),
+      edge("source-amp", "source", "out", "amp", "signal"),
+      edge("logic-gate", "focus", "gate", "amp", "cv"),
+      edge("amp-pan", "amp", "out", "pan", "signal"),
+      edge("pan-out", "pan", "out", "out", "signal"),
+    ]);
   } else if (spec.auditionKind === "gate") {
     route = `${spec.name} + Oscillator → VCA → Pan → Output`;
     patch = comboGraph(comboId, name, [
@@ -1610,13 +1705,13 @@ export function validateShaderPlaygroundPatch(candidate = {}) {
  * terminal audio destination remains at the right edge when rows wrap.
  */
 export function layoutShaderPlaygroundPatch(candidate = {}, options = {}) {
-  const nodeWidth = Math.max(1, finiteOr(options.nodeWidth, 190));
-  const nodeHeight = Math.max(1, finiteOr(options.nodeHeight, 108));
-  const gapX = Math.max(0, finiteOr(options.gapX, 42));
-  const gapY = Math.max(0, finiteOr(options.gapY, 38));
-  const marginX = Math.max(0, finiteOr(options.marginX, 28));
-  const marginTop = Math.max(0, finiteOr(options.marginTop, 62));
-  const marginBottom = Math.max(0, finiteOr(options.marginBottom, 24));
+  const nodeWidth = Math.max(1, finiteOr(options.nodeWidth, SHADER_PLAYGROUND_LAYOUT_DEFAULTS.nodeWidth));
+  const nodeHeight = Math.max(1, finiteOr(options.nodeHeight, SHADER_PLAYGROUND_LAYOUT_DEFAULTS.nodeHeight));
+  const gapX = Math.max(0, finiteOr(options.gapX, SHADER_PLAYGROUND_LAYOUT_DEFAULTS.gapX));
+  const gapY = Math.max(0, finiteOr(options.gapY, SHADER_PLAYGROUND_LAYOUT_DEFAULTS.gapY));
+  const marginX = Math.max(0, finiteOr(options.marginX, SHADER_PLAYGROUND_LAYOUT_DEFAULTS.marginX));
+  const marginTop = Math.max(0, finiteOr(options.marginTop, SHADER_PLAYGROUND_LAYOUT_DEFAULTS.marginTop));
+  const marginBottom = Math.max(0, finiteOr(options.marginBottom, SHADER_PLAYGROUND_LAYOUT_DEFAULTS.marginBottom));
   const width = Math.max(nodeWidth + marginX * 2, finiteOr(options.width, 720));
   const height = Math.max(nodeHeight + marginTop + marginBottom, finiteOr(options.height, 480));
   const validation = validateShaderPlaygroundPatch(candidate);
@@ -1949,6 +2044,7 @@ fn chebyshevSeries(value: vec2<f32>, order: u32, tilt: f32) -> vec2<f32> {
 }
 
 ${SHADER_SYNTH_PLAYGROUND_EXTRA_HELPERS}
+${SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS}
 ${SHADER_SYNTH_PLAYGROUND_FOUND_HELPERS}
 
 fn evaluateNode(
@@ -2040,6 +2136,7 @@ fn evaluateNode(
       result = mix(parallel, multiplied, clamp(p0.x, 0.0, 1.0)) * p0.z;
     }
     ${SHADER_SYNTH_PLAYGROUND_EXTRA_CASES}
+    ${SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES}
     ${SHADER_SYNTH_PLAYGROUND_FOUND_CASES}
     case 12u: {
       let driven = (inputA + vec2<f32>(p0.w)) * max(p0.x, 1.0);

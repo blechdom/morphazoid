@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06090a" />
+    <meta
+      name="description"
+      content="Morphazoid Micromorph — a live microphone instrument for parameter-conditioned streaming audio diffusion."
+    />
+    <title>Micromorph — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="micromorph.css" />
+  </head>
+  <body class="micromorph-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="l-mic.html">l-system delay</a>
+        <a class="tab" href="graph-delay.html">graph delay</a>
+        <a class="tab active" href="micromorph.html" aria-current="page">micromorph</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="l-mic.html">l-system delay</option>
+          <option value="graph-delay.html">graph delay</option>
+          <option value="micromorph.html" selected>micromorph</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph micromorph-audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Mic</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">64%</output></span>
+          <input
+            id="outputLevel"
+            aria-label="Micromorph output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.64"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell micromorph-shell" id="micromorph">
+      <section class="stage micromorph-stage" aria-label="Micromorph derivation chamber">
+        <div class="stage-wrap micromorph-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="slider"
+            aria-label="Derivation chamber"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="56"
+            aria-valuetext="56 percent, derivation"
+            aria-describedby="micromorphDescription liveStatus"
+          >
+            Five nested denoising membranes from microphone source to an imaginary descendant.
+          </canvas>
+
+          <div class="micromorph-engine-pill rehearsal" id="enginePill" aria-live="polite">
+            <i aria-hidden="true"></i>
+            <span id="enginePillText">rehearsal dsp · no model</span>
+          </div>
+
+          <div class="micromorph-stage-key" aria-hidden="true">
+            <span data-stage-label="0">source</span>
+            <span data-stage-label="1">reconstruct</span>
+            <span data-stage-label="2">derive</span>
+            <span data-stage-label="3">mutate</span>
+            <span data-stage-label="4">imaginary</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">MIC OFF · SOURCE 56% · LOCAL REHEARSAL</span>
+          </div>
+
+          <div class="micromorph-stage-caption" aria-hidden="true">
+            <span>Micromorph</span>
+            <small id="stageCaption">microphone → five possible descendants</small>
+          </div>
+
+          <div class="micromorph-meter" aria-hidden="true">
+            <span><i id="inputMeter"></i></span>
+            <span><i id="outputMeter"></i></span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel micromorph-panel" aria-label="Micromorph controls">
+        <details class="group control-section micromorph-source" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Live source</h2>
+            <span class="section-state" id="sourceSummary">microphone · local</span>
+          </summary>
+          <div class="group-body">
+            <p class="micromorph-note">
+              Switch Mic on to allow local microphone access. Use headphones: generated audio can feed back through speakers.
+            </p>
+            <div class="micromorph-privacy-card">
+              <b>Local signal boundary</b>
+              <span id="privacyState">The microphone stays in this browser while no model host is connected.</span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section micromorph-engine" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Diffusion engine</h2>
+            <span class="section-state" id="engineSummary">unavailable · rehearsal</span>
+          </summary>
+          <div class="group-body">
+            <div class="micromorph-engine-card" id="engineCard" data-state="unavailable">
+              <span class="micromorph-engine-light" aria-hidden="true"></span>
+              <span><b id="engineName">No model connected</b><small id="engineDetail">Deterministic spectral rehearsal is available.</small></span>
+            </div>
+
+            <label class="micromorph-endpoint" for="engineUrl">
+              <span class="field-label">Local MGA stream</span>
+              <input
+                id="engineUrl"
+                type="url"
+                value="ws://127.0.0.1:3939/v1/stream"
+                spellcheck="false"
+                autocomplete="off"
+                aria-describedby="engineHelp"
+              />
+            </label>
+            <button class="micromorph-connect" id="connectModel" type="button" aria-pressed="false">
+              Connect local model
+            </button>
+            <p class="micromorph-note" id="engineHelp">
+              A backend must implement MGA Stream v1. Connection failure leaves the honest rehearsal path running.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section micromorph-derive" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Derivation</h2>
+            <span class="section-state" id="derivationSummary">56% · derivation</span>
+          </summary>
+          <div class="group-body">
+            <label class="control micromorph-primary-control" for="derivation">
+              <span><b>Ancestor distance</b><output id="derivationOut" for="derivation">56%</output></span>
+              <input id="derivation" type="range" min="0" max="1" step="0.001" value="0.56" />
+            </label>
+            <div class="micromorph-scale" aria-hidden="true">
+              <span>microphone</span><span>imaginary descendant</span>
+            </div>
+            <p class="micromorph-note">
+              This is the principal conditioning signal. On a model backend it is sent as a sample-clocked curve, not applied as an ordinary filter.
+            </p>
+
+            <span class="field-label">Starting organism</span>
+            <div class="micromorph-preset-grid" id="presetGrid" role="group" aria-label="Micromorph presets"></div>
+          </div>
+        </details>
+
+        <details class="group control-section micromorph-matter" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Matter</h2>
+            <span class="section-state" id="matterSummary">ceramic ↔ glass</span>
+          </summary>
+          <div class="group-body">
+            <label class="micromorph-anchor" for="anchorA">
+              <span><b>Ancestor A</b><small>condition endpoint</small></span>
+              <textarea id="anchorA" rows="2" maxlength="512">wet ceramic throat and close breath</textarea>
+            </label>
+            <label class="micromorph-anchor" for="anchorB">
+              <span><b>Ancestor B</b><small>condition endpoint</small></span>
+              <textarea id="anchorB" rows="2" maxlength="512">fractured glass lung singing in a small chamber</textarea>
+            </label>
+            <label class="control" for="material">
+              <span><b>A / B body</b><output id="materialOut" for="material">50% B</output></span>
+              <input id="material" type="range" min="0" max="1" step="0.001" value="0.5" />
+            </label>
+            <div class="micromorph-scale" aria-hidden="true">
+              <span>ancestor A</span><span>ancestor B</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section micromorph-behavior" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Behavior</h2>
+            <span class="section-state" id="behaviorSummary">74% structure · 62% memory</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="structureLock">
+              <span><b>Structure lock</b><output id="structureLockOut" for="structureLock">74%</output></span>
+              <input id="structureLock" type="range" min="0" max="1" step="0.001" value="0.74" />
+            </label>
+            <div class="micromorph-scale compact" aria-hidden="true">
+              <span>free rhythm</span><span>follow mic</span>
+            </div>
+
+            <label class="control" for="memory">
+              <span><b>Memory</b><output id="memoryOut" for="memory">62%</output></span>
+              <input id="memory" type="range" min="0" max="1" step="0.001" value="0.62" />
+            </label>
+            <div class="micromorph-scale compact" aria-hidden="true">
+              <span>instant</span><span>long ancestry</span>
+            </div>
+
+            <label class="control" for="mutation">
+              <span><b>Mutation</b><output id="mutationOut" for="mutation">22%</output></span>
+              <input id="mutation" type="range" min="0" max="1" step="0.001" value="0.22" />
+            </label>
+            <div class="micromorph-scale compact" aria-hidden="true">
+              <span>repeatable</span><span>divergent</span>
+            </div>
+
+            <label class="control" for="continuation">
+              <span><b>Continuation</b><output id="continuationOut" for="continuation">20%</output></span>
+              <input id="continuation" type="range" min="0" max="1" step="0.001" value="0.2" />
+            </label>
+            <div class="micromorph-scale compact" aria-hidden="true">
+              <span>stop with mic</span><span>keep imagining</span>
+            </div>
+
+            <label class="control" for="inputGain">
+              <span><b>Input level</b><output id="inputGainOut" for="inputGain">100%</output></span>
+              <input id="inputGain" type="range" min="0" max="4" step="0.01" value="1" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section micromorph-signal" data-section="output" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Signal truth</h2>
+            <span class="section-state" id="signalSummary">rehearsal path</span>
+          </summary>
+          <div class="group-body">
+            <div class="micromorph-signal-card" aria-label="Micromorph signal path">
+              <span><b>Mic</b><small>local PCM</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Condition</b><small>sample-clocked controls</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b id="signalEngine">Rehearsal</b><small id="signalEngineDetail">bounded DSP</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Output</b><small>soft ceiling</small></span>
+            </div>
+            <dl class="micromorph-telemetry">
+              <div><dt>Control clock</dt><dd id="controlRate">—</dd></div>
+              <div><dt>Model lead</dt><dd id="modelLead">—</dd></div>
+              <div><dt>Underruns</dt><dd id="underruns">0</dd></div>
+              <div><dt>Input drops</dt><dd id="inputDrops">0</dd></div>
+            </dl>
+            <p class="micromorph-truth" id="truthNote">
+              No neural model is active. The audible wet path is a deterministic spectral rehearsal used to test the instrument and control contract.
+            </p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="micromorphDescription">
+        Micromorph sends microphone audio and sample-clocked control curves to an optional local streaming model.
+        Five visible membranes represent source, reconstruction, derivation, mutation, and imaginary output.
+        With no model connected, it identifies and uses a deterministic rehearsal processor instead.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="micromorph-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

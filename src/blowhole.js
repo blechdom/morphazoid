@@ -39,6 +39,8 @@ export const BLOWHOLE_LIMITS = Object.freeze({
   roughness: Object.freeze([0, 1]),
   pulseRateHz: Object.freeze([0, 10_000]),
   depthM: Object.freeze([0, 3_000]),
+  propagationDistanceM: Object.freeze([1, 500]),
+  propagationMix: Object.freeze([0, 1]),
   level: Object.freeze([0, 1]),
   durationMs: Object.freeze([80, 30_000]),
   physicalFrequencyHz: Object.freeze([10, 200_000]),
@@ -46,7 +48,7 @@ export const BLOWHOLE_LIMITS = Object.freeze({
 });
 
 export const BLOWHOLE_DEFAULTS = Object.freeze({
-  callId: "orca-pulsed-call",
+  callId: "humpback-moan",
   pressure: 0.72,
   tension: 0.5,
   closure: 0.62,
@@ -57,9 +59,120 @@ export const BLOWHOLE_DEFAULTS = Object.freeze({
   roughness: 0.08,
   pulseRateHz: 12,
   depthM: 12,
+  propagationId: "water-calm",
+  propagationDistanceM: 40,
+  propagationMix: 0.72,
   monitorMode: "audible",
   level: 0.34,
 });
+
+/**
+ * Compact post-source listening scenes. These parameters intentionally model
+ * broad transmission cues rather than a complete atmosphere or ocean. In
+ * particular, wind and surface chop are represented as time-varying filtering
+ * and multipath, not as new cetacean sound sources.
+ */
+export const BLOWHOLE_PROPAGATION_PRESETS = Object.freeze([
+  Object.freeze({
+    id: "water-calm",
+    label: "Calm water",
+    medium: "water",
+    condition: "calm",
+    speedMps: 1_480,
+    directGain: 0.98,
+    directCutoffNearHz: 19_000,
+    directCutoffFarHz: 12_500,
+    reflectionCutoffNearHz: 14_500,
+    reflectionCutoffFarHz: 6_500,
+    reflectionGain: 0.1,
+    reflectionPolarity: -1,
+    reflectionDelayMs: 1.6,
+    reflectionSpreadMs: 0.8,
+    modulationDepthMs: 0.03,
+    modulationRateHz: 0.08,
+    flutterDepth: 0.005,
+    description: "Stable underwater transmission with a restrained, polarity-inverting pressure-release surface reflection.",
+  }),
+  Object.freeze({
+    id: "air-still",
+    label: "Open air",
+    medium: "air",
+    condition: "still",
+    speedMps: 343,
+    directGain: 0.88,
+    directCutoffNearHz: 18_000,
+    directCutoffFarHz: 8_500,
+    reflectionCutoffNearHz: 12_000,
+    reflectionCutoffFarHz: 5_200,
+    reflectionGain: 0.08,
+    reflectionPolarity: 1,
+    reflectionDelayMs: 6,
+    reflectionSpreadMs: 3,
+    modulationDepthMs: 0.04,
+    modulationRateHz: 0.06,
+    flutterDepth: 0.008,
+    description: "A comparatively stable above-water path with stronger distance-dependent high-frequency loss than calm water.",
+  }),
+  Object.freeze({
+    id: "air-windy",
+    label: "Windy air",
+    medium: "air",
+    condition: "windy",
+    speedMps: 343,
+    directGain: 0.68,
+    directCutoffNearHz: 15_000,
+    directCutoffFarHz: 4_800,
+    reflectionCutoffNearHz: 9_000,
+    reflectionCutoffFarHz: 2_800,
+    reflectionGain: 0.18,
+    reflectionPolarity: 1,
+    reflectionDelayMs: 9,
+    reflectionSpreadMs: 7,
+    modulationDepthMs: 2.1,
+    modulationRateHz: 0.23,
+    flutterDepth: 0.16,
+    description: "An above-water comparison with turbulent flutter, moving path length, and stronger high-frequency loss.",
+  }),
+  Object.freeze({
+    id: "water-choppy",
+    label: "Choppy surface water",
+    medium: "water",
+    condition: "choppy surface",
+    speedMps: 1_480,
+    directGain: 0.72,
+    directCutoffNearHz: 16_000,
+    directCutoffFarHz: 6_500,
+    reflectionCutoffNearHz: 9_000,
+    reflectionCutoffFarHz: 3_400,
+    reflectionGain: 0.28,
+    reflectionPolarity: -1,
+    reflectionDelayMs: 4.5,
+    reflectionSpreadMs: 4,
+    modulationDepthMs: 1.6,
+    modulationRateHz: 0.31,
+    flutterDepth: 0.12,
+    description: "A near-surface underwater comparison with moving, polarity-inverting multipath and scattering-like flutter.",
+  }),
+]);
+
+export const BLOWHOLE_PROPAGATION_LOOKUP = Object.freeze(Object.fromEntries(
+  BLOWHOLE_PROPAGATION_PRESETS.map((preset) => [preset.id, preset]),
+));
+
+export const BLOWHOLE_PROPAGATION_PRESETS_BY_ID = BLOWHOLE_PROPAGATION_LOOKUP;
+
+export function blowholePropagationPreset(
+  id,
+  fallbackId = BLOWHOLE_DEFAULTS.propagationId,
+) {
+  const key = typeof id === "string" ? id : "";
+  const fallbackKey = typeof fallbackId === "string"
+    ? fallbackId
+    : BLOWHOLE_DEFAULTS.propagationId;
+  return BLOWHOLE_PROPAGATION_LOOKUP[key]
+    ?? BLOWHOLE_PROPAGATION_LOOKUP[fallbackKey]
+    ?? BLOWHOLE_PROPAGATION_PRESETS[0];
+}
 
 const finiteOr = (value, fallback = 0) => {
   try {
@@ -421,10 +534,12 @@ export function sanitizeBlowholeState(source = {}, fallback = BLOWHOLE_DEFAULTS)
   const state = safeStateObject(source);
   const base = safeStateObject(fallback);
   const call = blowholeCall(state.callId, base.callId);
-  const result = { callId: call.id };
+  const propagation = blowholePropagationPreset(state.propagationId, base.propagationId);
+  const result = { callId: call.id, propagationId: propagation.id };
   const numericKeys = [
     "pressure", "tension", "closure", "asymmetry", "recycle", "focus",
-    "scale", "roughness", "pulseRateHz", "depthM", "level",
+    "scale", "roughness", "pulseRateHz", "depthM", "propagationDistanceM",
+    "propagationMix", "level",
   ];
   for (const key of numericKeys) {
     const limits = BLOWHOLE_LIMITS[key];
@@ -451,6 +566,9 @@ export function sanitizeBlowholeState(source = {}, fallback = BLOWHOLE_DEFAULTS)
     roughness: result.roughness,
     pulseRateHz: result.pulseRateHz,
     depthM: result.depthM,
+    propagationId: result.propagationId,
+    propagationDistanceM: result.propagationDistanceM,
+    propagationMix: result.propagationMix,
     monitorMode: result.monitorMode,
     level: result.level,
   });
@@ -695,6 +813,78 @@ function resolveStateAndCall(source) {
   return { state, call };
 }
 
+/**
+ * Resolve the selected post-source transmission scene into bounded DSP
+ * parameters. `travelTimeMs` is an educational one-way readout only: the
+ * playable renderer uses short relative multipath delays and must not add the
+ * full distance / sound-speed latency to live input.
+ */
+export function deriveBlowholePropagation(source = BLOWHOLE_DEFAULTS) {
+  const { state } = resolveStateAndCall(source);
+  const preset = blowholePropagationPreset(state.propagationId);
+  const distanceLimits = BLOWHOLE_LIMITS.propagationDistanceM;
+  const distanceM = clampBlowhole(
+    state.propagationDistanceM,
+    distanceLimits[0],
+    distanceLimits[1],
+  );
+  const distanceNormalized = clamp01(
+    Math.log1p(distanceM - distanceLimits[0])
+      / Math.log1p(distanceLimits[1] - distanceLimits[0]),
+  );
+  const frequencyBetween = (nearHz, farHz) => clampBlowhole(
+    nearHz * Math.pow(Math.max(1e-9, farHz / nearHz), distanceNormalized),
+    20,
+    24_000,
+  );
+  const directGain = mix(1, preset.directGain, distanceNormalized);
+  const directCutoffHz = frequencyBetween(
+    preset.directCutoffNearHz,
+    preset.directCutoffFarHz,
+  );
+  const reflectionCutoffHz = frequencyBetween(
+    preset.reflectionCutoffNearHz,
+    preset.reflectionCutoffFarHz,
+  );
+  const reflectionGain = preset.reflectionGain * mix(0.4, 1, distanceNormalized);
+  const reflectionDelayMs = preset.reflectionDelayMs * mix(0.7, 1.3, distanceNormalized);
+  const reflectionSpreadMs = preset.reflectionSpreadMs * mix(0.4, 1, distanceNormalized);
+  const modulationDepthMs = preset.modulationDepthMs * mix(0.25, 1, distanceNormalized);
+  const flutterDepth = preset.flutterDepth * mix(0.35, 1, distanceNormalized);
+  const travelTimeSeconds = distanceM / preset.speedMps;
+  return Object.freeze({
+    presetId: preset.id,
+    id: preset.id,
+    label: preset.label,
+    medium: preset.medium,
+    condition: preset.condition,
+    description: preset.description,
+    speedMps: preset.speedMps,
+    distanceM,
+    distanceNormalized,
+    travelTimeSeconds,
+    travelTimeMs: travelTimeSeconds * 1_000,
+    travelTimeReadoutOnly: true,
+    appliesTravelTimeDelay: false,
+    mix: state.propagationMix,
+    directGain,
+    directCutoffHz,
+    cutoffHz: directCutoffHz,
+    reflectionCutoffHz,
+    reflectionGain,
+    signedReflectionGain: reflectionGain * preset.reflectionPolarity,
+    reflectionPolarity: preset.reflectionPolarity,
+    reflectionDelayMs,
+    reflectionDelaySeconds: reflectionDelayMs / 1_000,
+    reflectionSpreadMs,
+    reflectionSpreadSeconds: reflectionSpreadMs / 1_000,
+    modulationDepthMs,
+    modulationDepthSeconds: modulationDepthMs / 1_000,
+    modulationRateHz: preset.modulationRateHz,
+    flutterDepth,
+  });
+}
+
 /** Geometry values are normalized unless their unit is present in the key. */
 export function deriveBlowholeGeometry(source = BLOWHOLE_DEFAULTS, phase = 0) {
   const { state, call } = resolveStateAndCall(source);
@@ -766,6 +956,7 @@ export function deriveBlowholeReadout(source = BLOWHOLE_DEFAULTS, phase = 0) {
     ? gesture.physicalFrequencyHz
     : audibleFrequencyHz;
   const geometry = deriveBlowholeGeometry(state, phase);
+  const propagation = deriveBlowholePropagation(state);
   return Object.freeze({
     callId: call.id,
     label: call.label,
@@ -783,6 +974,15 @@ export function deriveBlowholeReadout(source = BLOWHOLE_DEFAULTS, phase = 0) {
     durationSeconds: call.durationMs / 1_000,
     depthM: state.depthM,
     ambientPressureKPa: clampBlowhole(101.325 + state.depthM * 10.06, 101.325, 40_000),
+    propagation,
+    propagationId: propagation.presetId,
+    propagationLabel: propagation.label,
+    propagationMedium: propagation.medium,
+    propagationCondition: propagation.condition,
+    propagationDistanceM: propagation.distanceM,
+    propagationTravelTimeMs: propagation.travelTimeMs,
+    propagationMix: propagation.mix,
+    propagationCutoffHz: propagation.directCutoffHz,
     physicalFrequencyHz: gesture.physicalFrequencyHz,
     audibleFrequencyHz,
     monitorFrequencyHz,
@@ -810,6 +1010,7 @@ function freezeVoice(voice) {
 export function createBlowholeVoicePlan(source = BLOWHOLE_DEFAULTS, phase = 0) {
   const { state, call } = resolveStateAndCall(source);
   const gesture = evaluateBlowholeGesture(call, phase, state);
+  const propagation = deriveBlowholePropagation(state);
   const nasal = call.sourceFamily === SOURCE_FAMILY.ODONTOCETE;
   const isClickSource = /click|buzz|coda/.test(call.register);
   const isPulsedCall = /pulsed/.test(call.register);
@@ -909,6 +1110,7 @@ export function createBlowholeVoicePlan(source = BLOWHOLE_DEFAULTS, phase = 0) {
     blowholeSealed: true,
     externalBlowholeAperture: 0,
     sourcePath: call.sourcePath,
+    propagation,
     generatorType: isSpermWhale
       ? "single-right-phonic-lips"
       : isPulsedCall
@@ -990,8 +1192,9 @@ export function createBlowholeRandom(seed = 1) {
 }
 
 /**
- * Deterministically vary a state without mutating it or changing the selected
- * call/monitor mode. The selected call constrains its meaningful pulse rate.
+ * Deterministically vary anatomy and performance controls without mutating the
+ * input or changing its call, monitor mode, or propagation comparison. The
+ * selected call constrains its meaningful pulse rate.
  */
 export function randomizeBlowholeState(source = BLOWHOLE_DEFAULTS, seed = 1) {
   const current = typeof source === "string"
@@ -1016,6 +1219,9 @@ export function randomizeBlowholeState(source = BLOWHOLE_DEFAULTS, seed = 1) {
     roughness: between(0.01, 0.58),
     pulseRateHz,
     depthM: between(0, Math.min(1_500, BLOWHOLE_LIMITS.depthM[1])),
+    propagationId: current.propagationId,
+    propagationDistanceM: current.propagationDistanceM,
+    propagationMix: current.propagationMix,
     monitorMode: current.monitorMode,
     level: between(0.28, 0.88),
   }, current);

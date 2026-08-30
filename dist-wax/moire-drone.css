@@ -1,0 +1,575 @@
+.moire-drone-page {
+  --accent: #ff6f94;
+  --accent-soft: color-mix(in oklab, #ff6f94 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff6f94 22%, transparent);
+  --moire-a: #55e7e1;
+  --moire-b: #ff6f94;
+  --moire-collision: #f5d5ff;
+  --moire-violet: #aa8cff;
+  --moire-propagation: #ffd166;
+  --moire-gap: #7e879b;
+}
+
+.moire-drone-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 420px);
+}
+
+.moire-stage-wrap {
+  isolation: isolate;
+  background:
+    linear-gradient(rgba(214, 232, 226, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214, 232, 226, 0.022) 1px, transparent 1px),
+    radial-gradient(circle at 30% 52%, color-mix(in oklab, var(--moire-a) 7%, transparent), transparent 42%),
+    radial-gradient(circle at 70% 48%, color-mix(in oklab, var(--moire-b) 7%, transparent), transparent 44%),
+    radial-gradient(circle at 50% 52%, color-mix(in oklab, var(--moire-collision) 4%, transparent), transparent 30%),
+    var(--bg-deep);
+  background-size: 100% 12.5%, 12.5% 100%, auto, auto, auto, auto;
+}
+
+.moire-stage-wrap::after {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 120px;
+  pointer-events: none;
+  background: linear-gradient(transparent, color-mix(in oklab, var(--bg-deep) 84%, transparent));
+  content: "";
+}
+
+.moire-drone-page #stage {
+  position: relative;
+  z-index: 1;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.moire-drone-page #stage.is-tugging { cursor: ns-resize; }
+
+.moire-field-legend {
+  position: absolute;
+  z-index: 4;
+  top: 16px;
+  left: 18px;
+  display: flex;
+  pointer-events: none;
+  color: var(--muted);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px 18px;
+  font-size: 8px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.moire-field-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.moire-field-legend i {
+  display: inline-block;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.moire-field-legend .texture { color: var(--moire-collision); }
+.moire-field-legend .texture i {
+  background: linear-gradient(90deg, var(--moire-a), var(--moire-collision), var(--moire-b));
+}
+.moire-field-legend .output-spectrum { color: var(--moire-collision); }
+.moire-field-legend .comb-gap { color: var(--moire-gap); }
+
+.moire-field-legend .comb-gap i {
+  height: 5px;
+  background: repeating-linear-gradient(
+    90deg,
+    currentColor 0 3px,
+    transparent 3px 5px
+  );
+  box-shadow: none;
+}
+
+.moire-stage-caption {
+  position: absolute;
+  z-index: 4;
+  bottom: 32px;
+  left: clamp(18px, 3vw, 38px);
+  display: grid;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.moire-stage-caption h1 {
+  padding: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(23px, 3vw, 42px);
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  line-height: 1;
+}
+
+.moire-stage-caption small {
+  margin-top: 7px;
+  color: var(--moire-collision);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+}
+
+.moire-pointer-note {
+  position: absolute;
+  z-index: 4;
+  right: clamp(18px, 3vw, 38px);
+  bottom: 35px;
+  pointer-events: none;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.moire-drone-page .stage-meta {
+  top: 38px;
+  font-size: 8px;
+}
+
+.moire-drone-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--moire-b) 3%, transparent), transparent 320px),
+    var(--panel);
+}
+
+.control-section.moire-presets[data-section="form"] {
+  --accent: var(--moire-collision);
+  --accent-soft: color-mix(in oklab, var(--moire-collision) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--moire-collision) 18%, transparent);
+}
+
+.control-section.moire-source[data-section="sound"] {
+  --accent: #9ed7ff;
+  --accent-soft: color-mix(in oklab, #9ed7ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #9ed7ff 18%, transparent);
+}
+
+.control-section.moire-lattice[data-section="mapping"],
+.control-section.moire-motion[data-section="mapping"],
+.control-section.moire-fabric[data-section="mapping"] {
+  --accent: var(--moire-violet);
+  --accent-soft: color-mix(in oklab, var(--moire-violet) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--moire-violet) 18%, transparent);
+}
+
+.control-section.moire-propagation[data-section="play"] {
+  --accent: var(--moire-propagation);
+  --accent-soft: color-mix(in oklab, var(--moire-propagation) 58%, transparent);
+  --accent-glow: color-mix(in oklab, var(--moire-propagation) 20%, transparent);
+  background:
+    radial-gradient(circle at 14% 0%, color-mix(in oklab, var(--moire-propagation) 9%, transparent), transparent 45%),
+    linear-gradient(135deg, color-mix(in oklab, var(--moire-a) 4%, transparent), transparent 62%),
+    var(--panel);
+  box-shadow: inset 0 -1px 0 color-mix(in oklab, var(--moire-propagation) 12%, transparent);
+}
+
+.moire-propagation > .group-summary {
+  min-height: 58px;
+  background: linear-gradient(90deg, var(--accent-glow), transparent 78%);
+}
+
+.moire-propagation .group-title { font-weight: 650; }
+
+.control-section.moire-fabric[data-section="mapping"] {
+  --accent: #c2a8ff;
+  --accent-soft: color-mix(in oklab, #c2a8ff 58%, transparent);
+  --accent-glow: color-mix(in oklab, #c2a8ff 20%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in oklab, #aa8cff 6%, transparent), transparent 62%),
+    var(--panel);
+}
+
+.fabric-excite-button,
+.fabric-clear-button {
+  width: 100%;
+  min-height: 40px;
+  margin: 1px 0 10px;
+  border: 1px solid var(--accent-soft);
+  cursor: pointer;
+  color: var(--accent);
+  background:
+    repeating-linear-gradient(110deg, transparent 0 9px, color-mix(in oklab, var(--accent) 7%, transparent) 9px 10px),
+    var(--accent-glow);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.fabric-excite-button:hover,
+.fabric-excite-button:focus-visible,
+.fabric-clear-button:hover,
+.fabric-clear-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+.fabric-excite-button:active,
+.fabric-clear-button:active { transform: translateY(1px); }
+
+.fabric-excite-button:disabled,
+.fabric-clear-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.propagation-actions {
+  display: grid;
+  margin: 4px 0 10px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 5px;
+}
+
+.propagation-actions .fabric-excite-button,
+.propagation-actions .fabric-clear-button {
+  margin: 0;
+}
+
+.fabric-clear-button {
+  border-color: var(--line-strong);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--panel-high) 82%, transparent);
+  font-weight: 550;
+}
+
+.moire-propagation-advanced {
+  margin: 8px 0 3px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 62%, transparent);
+}
+
+.moire-propagation-advanced > summary {
+  display: flex;
+  min-height: 38px;
+  padding: 0 11px;
+  cursor: pointer;
+  color: var(--muted);
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.moire-propagation-advanced > summary::-webkit-details-marker { display: none; }
+
+.moire-propagation-advanced > summary::after {
+  color: var(--accent);
+  content: "+";
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.moire-propagation-advanced[open] > summary::after { content: "−"; }
+
+.moire-propagation-advanced[open] > summary {
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.moire-propagation-advanced-body {
+  padding: 10px 11px 4px;
+}
+
+.propagation-harmonics[hidden] { display: none; }
+
+.control-section.moire-texture[data-section="sound"] {
+  --accent: var(--moire-collision);
+  --accent-soft: color-mix(in oklab, var(--moire-collision) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--moire-collision) 18%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--moire-a) 5%, transparent), transparent 46%),
+    linear-gradient(225deg, color-mix(in oklab, var(--moire-b) 5%, transparent), transparent 46%),
+    var(--panel);
+}
+
+.moire-texture-strand {
+  padding: 3px 0 10px;
+}
+
+.moire-texture-strand + .moire-texture-strand {
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.moire-texture-strand.warp .field-label { color: var(--moire-a); }
+.moire-texture-strand.weft .field-label { color: var(--moire-b); }
+.moire-texture-strand.interaction .field-label { color: var(--moire-collision); }
+
+.moire-texture-strand.warp input[type="range"] { --accent: var(--moire-a); }
+.moire-texture-strand.weft input[type="range"] { --accent: var(--moire-b); }
+
+.control-section.moire-output[data-section="output"] {
+  --accent: #ffb266;
+  --accent-soft: color-mix(in oklab, #ffb266 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffb266 18%, transparent);
+}
+
+.moire-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.moire-preset-grid:empty::before {
+  min-height: 74px;
+  color: var(--faint);
+  content: "Loading drone presets…";
+  grid-column: 1 / -1;
+  place-content: center;
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.moire-preset-grid button {
+  display: grid;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 9px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  align-content: center;
+  justify-items: start;
+  text-align: left;
+}
+
+.moire-preset-grid button:hover,
+.moire-preset-grid button:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.moire-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 10px var(--accent-glow);
+}
+
+.moire-preset-grid b {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.moire-control-scale {
+  display: grid;
+  margin: -9px 0 9px;
+  color: var(--faint);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  font-size: 7px;
+  letter-spacing: 0.035em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.moire-control-scale span:first-child { text-align: left; }
+.moire-control-scale span:last-child { text-align: right; }
+
+.moire-control-scale.two {
+  display: flex;
+  justify-content: space-between;
+}
+
+.moire-control-help {
+  display: block;
+  margin: 1px 0 10px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.52;
+}
+
+.moire-three-choice {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.moire-four-choice {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.propagation-mode-choice button {
+  min-width: 0;
+  padding-inline: 4px;
+  font-size: 8px;
+}
+
+.moire-signal-card {
+  display: grid;
+  margin: 11px 0 9px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.moire-signal-card span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.moire-signal-card b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.moire-signal-card small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+}
+
+.moire-signal-card i {
+  color: var(--accent);
+  font-size: 8px;
+  font-style: normal;
+}
+
+.moire-drone-page .audio-error {
+  margin: 9px 0 5px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 130, 111, 0.38);
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, 0.06);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 960px) {
+  .moire-drone-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(270px, 46dvh, 430px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 650px) {
+  .moire-drone-shell {
+    grid-template-rows: clamp(225px, 39dvh, 315px) minmax(0, 1fr);
+  }
+
+  .moire-field-legend {
+    top: 12px;
+    left: 13px;
+    gap: 7px 12px;
+    font-size: 7px;
+  }
+
+  .moire-drone-page .stage-meta {
+    top: 50px;
+    right: 13px;
+    left: 13px;
+    justify-content: flex-start;
+    font-size: 7px;
+  }
+
+  .moire-drone-page #stageReadout {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .moire-stage-caption {
+    bottom: 25px;
+    left: 14px;
+  }
+
+  .moire-stage-caption h1 { font-size: 20px; }
+  .moire-stage-caption small {
+    max-width: 65vw;
+    overflow: hidden;
+    font-size: 7px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .moire-pointer-note {
+    top: 73px;
+    right: 13px;
+    bottom: auto;
+    display: block;
+    max-width: 48vw;
+    font-size: 6px;
+    line-height: 1.45;
+    text-align: right;
+  }
+}
+
+@media (max-width: 450px) {
+  .moire-drone-shell {
+    grid-template-rows: clamp(210px, 36dvh, 280px) minmax(0, 1fr);
+  }
+
+  .moire-signal-card { grid-template-columns: 1fr; }
+  .moire-signal-card i { display: none; }
+  .moire-four-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 960px) and (max-height: 560px) {
+  .moire-drone-shell {
+    grid-template-rows: clamp(165px, 42dvh, 225px) minmax(0, 1fr);
+  }
+
+  .moire-stage-caption { bottom: 20px; }
+}
+
+@media (pointer: coarse) {
+  .moire-preset-grid button { min-height: 48px; }
+  .fabric-excite-button,
+  .fabric-clear-button { min-height: 48px; }
+  .propagation-mode-choice button { min-height: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moire-field-legend i { box-shadow: none; }
+}
+
+@media (forced-colors: active) {
+  .moire-field-legend i,
+  .moire-field-legend .texture i {
+    background: currentColor;
+    box-shadow: none;
+  }
+
+  .moire-stage-wrap::after { display: none; }
+}

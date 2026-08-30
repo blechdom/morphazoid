@@ -460,7 +460,7 @@
   display: grid;
   overflow: hidden;
   background: var(--bg-deep);
-  grid-template-rows: auto minmax(300px, 1fr) 116px;
+  grid-template-rows: auto minmax(300px, 1fr) auto;
 }
 
 .patch-toolbar {
@@ -1277,7 +1277,7 @@
     radial-gradient(circle at 18% 45%, rgba(116, 247, 255, 0.06), transparent 28%),
     radial-gradient(circle at 78% 42%, rgba(145, 255, 99, 0.045), transparent 31%),
     #06070a;
-  background-size: 32px 32px, 32px 32px, auto, auto, auto;
+  background-size: 24px 24px, 24px 24px, auto, auto, auto;
   isolation: isolate;
   touch-action: none;
 }
@@ -1337,28 +1337,30 @@
 .patch-node {
   position: absolute;
   display: grid;
-  width: 190px;
-  min-height: 108px;
+  width: 150px;
+  min-height: 60px;
   border: 1px solid color-mix(in oklab, var(--node-color, var(--port-audio)) 30%, var(--line-strong));
+  border-radius: 7px;
   color: var(--ink);
   background:
-    linear-gradient(135deg, color-mix(in oklab, var(--node-color, var(--port-audio)) 9%, transparent), transparent 58%),
-    color-mix(in oklab, var(--panel) 97%, black);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.32);
-  grid-template-rows: auto minmax(52px, 1fr);
+    linear-gradient(135deg, color-mix(in oklab, var(--node-color, var(--port-audio)) 7%, transparent), transparent 52%),
+    color-mix(in oklab, var(--panel) 94%, black);
+  box-shadow: 0 6px 13px rgba(0, 0, 0, 0.28);
+  grid-template-rows: auto auto;
   user-select: none;
   touch-action: none;
 }
 
 .patch-node::before {
   position: absolute;
-  top: -1px;
-  right: -1px;
-  left: -1px;
+  top: 0;
+  left: 7px;
+  width: 30px;
   height: 2px;
-  background: linear-gradient(90deg, var(--node-color, var(--port-audio)), transparent 82%);
+  border-radius: 0 0 2px 2px;
+  background: var(--node-color, var(--port-audio));
   content: "";
-  opacity: 0.6;
+  opacity: 0.72;
 }
 
 .patch-node:hover {
@@ -1368,19 +1370,19 @@
 .patch-node.is-selected {
   border-color: var(--node-color, var(--accent));
   box-shadow:
-    0 0 0 2px color-mix(in oklab, var(--node-color, var(--accent)) 34%, transparent),
-    0 0 24px color-mix(in oklab, var(--node-color, var(--accent)) 17%, transparent),
-    0 14px 30px rgba(0, 0, 0, 0.44);
+    0 0 0 2px color-mix(in oklab, var(--node-color, var(--accent)) 26%, transparent),
+    0 0 15px color-mix(in oklab, var(--node-color, var(--accent)) 17%, transparent),
+    0 8px 17px rgba(0, 0, 0, 0.4);
 }
 
 .patch-node.is-selected::before {
-  height: 3px;
+  width: calc(100% - 14px);
   opacity: 1;
 }
 
 .patch-node.is-selected .node-header {
-  background: color-mix(in oklab, var(--node-color, var(--accent)) 8%, transparent);
-  box-shadow: inset 4px 0 0 var(--node-color, var(--accent));
+  background: color-mix(in oklab, var(--node-color, var(--accent)) 9%, transparent);
+  box-shadow: inset 3px 0 0 var(--node-color, var(--accent));
 }
 
 .patch-node:focus-visible {
@@ -1396,13 +1398,14 @@
 
 .node-header {
   display: grid;
-  min-height: 42px;
-  padding: 8px 10px;
+  min-height: 30px;
+  padding: 5px 7px 4px;
   border-bottom: 1px solid var(--line);
+  border-radius: 6px 6px 0 0;
   cursor: grab;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
 }
 
 .node-header > span {
@@ -1412,32 +1415,32 @@
 .node-header b {
   display: block;
   overflow: hidden;
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 1.2;
+  font-size: 10px;
+  font-weight: 680;
+  line-height: 1.12;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .node-header small {
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
   color: var(--node-color, var(--muted));
-  font-size: 7px;
+  font-size: 6px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
 .node-index {
   color: var(--faint);
-  font-size: 8px;
+  font-size: 7px;
   font-variant-numeric: tabular-nums;
 }
 
 .node-index.is-selection-status {
   color: var(--node-color, var(--accent));
-  font-size: 7px;
+  font-size: 6px;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1446,16 +1449,16 @@
 .node-body {
   position: relative;
   display: grid;
-  padding: 9px 0;
+  padding: 4px 0 5px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-content: start;
-  gap: 7px;
+  gap: 2px;
 }
 
 .node-inputs,
 .node-outputs {
   display: grid;
-  gap: 7px;
+  gap: 1px;
 }
 
 .node-outputs {
@@ -1465,24 +1468,29 @@
 .node-port {
   position: relative;
   display: inline-flex;
-  min-height: 20px;
+  min-width: 28px;
+  min-height: 18px;
   padding: 0;
   cursor: crosshair;
   color: var(--muted);
   background: transparent;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   font-size: 8px;
   line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .node-port[data-direction="input"] {
-  padding-left: 14px;
+  padding-left: 11px;
   text-align: left;
 }
 
 .node-port[data-direction="output"] {
-  padding-right: 14px;
+  padding-right: 11px;
   text-align: right;
   flex-direction: row-reverse;
 }
@@ -1490,9 +1498,9 @@
 .node-port::before {
   position: absolute;
   top: 50%;
-  width: 11px;
-  height: 11px;
-  border: 2px solid var(--signal-color);
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--signal-color);
   border-radius: 50%;
   background: var(--bg-deep);
   box-shadow: 0 0 7px color-mix(in oklab, var(--signal-color) 28%, transparent);
@@ -1501,11 +1509,11 @@
 }
 
 .node-port[data-direction="input"]::before {
-  left: -6px;
+  left: -5px;
 }
 
 .node-port[data-direction="output"]::before {
-  right: -6px;
+  right: -5px;
 }
 
 .node-port:hover,
@@ -1522,12 +1530,7 @@
 }
 
 .node-mini-value {
-  grid-column: 1 / -1;
-  margin: 1px 10px 0;
-  color: var(--faint);
-  font-size: 8px;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
+  display: none;
 }
 
 .graph-empty-state {
@@ -1616,7 +1619,7 @@
   padding: 10px 13px;
   border-top: 1px solid var(--workspace-edge);
   background: color-mix(in oklab, var(--panel) 94%, black);
-  grid-template-columns: 74px minmax(0, 1fr) 188px;
+  grid-template-columns: 74px minmax(0, 1fr) 230px;
   align-items: stretch;
   gap: 11px;
 }
@@ -1671,29 +1674,156 @@
   border-top: 1px solid rgba(145, 255, 99, 0.12);
 }
 
+.performance-notes {
+  display: grid;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid color-mix(in oklab, var(--port-control) 24%, var(--line));
+  background: color-mix(in oklab, var(--port-control) 3%, var(--bg-deep));
+  grid-template-rows: 18px minmax(48px, 1fr) 11px 12px;
+  gap: 1px;
+}
+
+.performance-notes-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.performance-notes-heading > b {
+  color: var(--port-control);
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.performance-octave {
+  display: grid;
+  grid-template-columns: 20px minmax(30px, auto) 20px;
+  align-items: center;
+}
+
+.performance-octave button {
+  min-width: 20px;
+  min-height: 18px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.performance-octave button:hover,
+.performance-octave button:focus-visible {
+  border-color: var(--port-control);
+  color: var(--ink);
+  outline: 0;
+}
+
+.performance-octave button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.performance-octave output {
+  color: var(--ink);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  text-align: center;
+}
+
+.performance-note-buttons {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.performance-note {
+  display: grid;
+  min-width: 0;
+  min-height: 23px;
+  padding: 1px 0;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--ink);
+  background: color-mix(in oklab, white 8%, var(--panel));
+  place-content: center;
+  gap: 0;
+}
+
+.performance-note.is-accidental {
+  color: color-mix(in oklab, var(--port-control) 70%, var(--ink));
+  background: color-mix(in oklab, black 58%, var(--panel));
+}
+
+.performance-note b {
+  font-size: 10px;
+  font-weight: 720;
+  line-height: 1;
+}
+
+.performance-note small {
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1;
+}
+
+.performance-note:hover,
+.performance-note:focus-visible,
+.performance-note[aria-pressed="true"] {
+  border-color: var(--port-control);
+  color: var(--bg-deep);
+  background: var(--port-control);
+  outline: 0;
+}
+
+.performance-note[aria-pressed="true"] small,
+.performance-note:hover small,
+.performance-note:focus-visible small {
+  color: color-mix(in oklab, var(--bg-deep) 72%, transparent);
+}
+
+.performance-note:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.performance-notes > p {
+  overflow: hidden;
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .scope-metrics {
   display: grid;
   min-width: 0;
   margin: 0;
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .scope-metrics > div {
-  display: grid;
+  display: flex;
   min-width: 0;
-  padding: 8px;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  align-content: center;
-  gap: 5px;
+  align-items: baseline;
+  gap: 3px;
 }
 
 .scope-metrics dt {
   color: var(--faint);
-  font-size: 7px;
-  letter-spacing: 0.1em;
+  font-size: 6px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -1701,7 +1831,7 @@
   overflow: hidden;
   margin: 0;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2429,10 +2559,6 @@
 .selected-module-heading > span,
 .inspector-section-title span,
 .io-row b,
-.node-header small,
-.node-index,
-.node-port,
-.node-mini-value,
 .parameter-effect,
 .parameter-effect::before,
 .parameter-effect::after,
@@ -2471,7 +2597,7 @@
   }
 
   .signal-monitor {
-    grid-template-columns: 62px minmax(0, 1fr) 152px;
+    grid-template-columns: 62px minmax(0, 1fr) 210px;
   }
 }
 
@@ -2528,7 +2654,7 @@
     overflow: visible;
     grid-column: 2;
     grid-row: 1;
-    grid-template-rows: auto minmax(520px, 1fr) 112px;
+    grid-template-rows: auto minmax(520px, 1fr) auto;
   }
 
   .node-inspector {
@@ -2687,7 +2813,7 @@
 
   .patch-workbench {
     min-height: 0;
-    grid-template-rows: auto auto 116px;
+    grid-template-rows: auto auto auto;
   }
 
   .execution-shape-map {
@@ -2744,7 +2870,7 @@
     height: auto;
     align-content: start;
     justify-items: stretch;
-    gap: 24px;
+    gap: 14px;
   }
 
   .patch-node {
@@ -2753,15 +2879,15 @@
     left: auto !important;
     width: 100%;
     max-width: none;
-    min-height: 100px;
+    min-height: 60px;
   }
 
   .patch-node:not(:last-child)::after {
     position: absolute;
-    bottom: -25px;
+    bottom: -15px;
     left: 50%;
     width: 1px;
-    height: 24px;
+    height: 14px;
     background: linear-gradient(var(--node-color, var(--port-audio)), var(--line-strong));
     content: "";
     opacity: 0.56;
@@ -2792,11 +2918,17 @@
   }
 
   .signal-monitor {
-    grid-template-columns: 50px minmax(0, 1fr);
+    min-height: 144px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .scope-metrics {
+  .signal-monitor .monitor-heading,
+  .signal-monitor .scope-frame {
     display: none;
+  }
+
+  .performance-notes {
+    width: 100%;
   }
 
   .node-inspector {
@@ -2880,6 +3012,32 @@
     min-height: 44px;
   }
 
+  .module-name-button,
+  .module-action-button {
+    min-height: 44px;
+  }
+
+  .module-action-button {
+    min-width: 44px;
+  }
+
+  .performance-note,
+  .performance-octave button {
+    min-height: 44px;
+  }
+
+  .performance-octave {
+    grid-template-columns: 44px minmax(34px, auto) 44px;
+  }
+
+  .performance-octave button {
+    min-width: 44px;
+  }
+
+  .performance-notes {
+    grid-template-rows: 44px minmax(88px, 1fr) 14px 14px;
+  }
+
   .node-port::before {
     width: 14px;
     height: 14px;
@@ -2914,23 +3072,11 @@
 }
 
 .port-column-title {
-  display: block;
-  min-height: 14px;
-  padding: 0 10px 3px;
-  color: var(--faint);
-  font-size: 9px;
-  font-weight: 780;
-  letter-spacing: 0.13em;
-  line-height: 1;
+  display: none;
 }
 
 .node-outputs .port-column-title {
   text-align: right;
-}
-
-.node-port::before {
-  width: 13px;
-  height: 13px;
 }
 
 .graph-viewport.is-connecting .node-port.is-incompatible {
@@ -3088,14 +3234,14 @@
   position: relative;
   inset: auto;
   display: grid;
-  width: min(390px, calc(100% - 40px));
+  width: min(320px, calc(100% - 40px));
   height: auto;
   min-height: 100%;
   padding: 56px 0 28px;
   margin: 0 auto;
   box-sizing: border-box;
   align-content: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .graph-viewport[data-view-mode="chain"] .patch-node {
@@ -3103,7 +3249,7 @@
   top: auto !important;
   left: auto !important;
   width: 100%;
-  min-height: 54px;
+  min-height: 42px;
   grid-template-rows: auto;
   touch-action: auto;
 }
@@ -3113,13 +3259,13 @@
 }
 
 .graph-viewport[data-view-mode="chain"] .node-header {
-  min-height: 54px;
-  padding: 8px 12px;
+  min-height: 42px;
+  padding: 6px 9px;
   cursor: pointer;
 }
 
 .graph-viewport[data-view-mode="chain"] .node-header b {
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .graph-viewport[data-view-mode="chain"] .node-header small {
@@ -3128,9 +3274,9 @@
 
 .graph-viewport[data-view-mode="chain"] .node-flow-summary {
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 8px;
   letter-spacing: 0.035em;
   text-transform: uppercase;
 }
@@ -3169,6 +3315,12 @@
     display: grid;
     justify-items: center;
     gap: 3px;
+  }
+}
+
+@media (pointer: coarse) {
+  .graph-viewport[data-view-mode="chain"] .node-header {
+    min-height: 44px;
   }
 }
 

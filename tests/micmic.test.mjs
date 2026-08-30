@@ -208,6 +208,69 @@ test("default L-system Delay Pythagorean geometry matches the L-system page", ()
   );
 });
 
+test("every shared L-system type drives bounded mic geometry and audio", () => {
+  const settings = {
+    generations: MAX_GENERATION_STAGES,
+    interval: 240,
+    depth: 0.72,
+    branching: 1,
+    spread: 0.9,
+    mutation: 0,
+    timeRatio: 0.72,
+    angle: 45,
+    asymmetry: 0,
+    pitchScale: 1,
+    maximumVoices: 256,
+  };
+  const signatures = new Map();
+
+  for (const preset of L_SYSTEM_PRESETS) {
+    const topology = generationTopology({ ...settings, lSystemType: preset.id });
+    const voices = generationVoiceSpecs({ ...settings, lSystemType: preset.id });
+    const topologyIds = new Set(topology.map(({ id }) => id));
+    const voiceIds = new Set(voices.map(({ key }) => key.replace(/^generation:/, "")));
+
+    assert.ok(topology.length > 1, `${preset.name} needs drawable branches`);
+    assert.ok(topology.length <= 4_096, `${preset.name} must stay structurally bounded`);
+    assert.ok(voices.length > 0 && voices.length <= 256);
+    assert.ok(topology.every((node) => (
+      node.parentId === null || topologyIds.has(node.parentId)
+    )), `${preset.name} topology must retain its parents`);
+    assert.ok(topology.every((node) => (
+      node.generation >= 0
+      && node.generation <= MAX_GENERATION_STAGES
+      && [node.startX, node.startY, node.x, node.y, node.turnDegrees]
+        .every(Number.isFinite)
+    )), `${preset.name} topology must remain finite`);
+    assert.ok(voices.every((voice) => (
+      (voice.parentId === "trunk" || voiceIds.has(voice.parentId))
+      && [voice.delay, voice.interval, voice.rate, voice.gain, voice.pan]
+        .every(Number.isFinite)
+    )), `${preset.name} voices must stay finite and parent-connected`);
+
+    signatures.set(preset.id, {
+      topology: topology.map((node) => [
+        node.parentId,
+        node.generation,
+        Number(node.x.toFixed(6)),
+        Number(node.y.toFixed(6)),
+      ]),
+      voices: voices.map((voice) => [
+        voice.key,
+        voice.parentId,
+        voice.generation,
+        Number(voice.turnDegrees.toFixed(6)),
+      ]),
+    });
+  }
+
+  assert.notDeepEqual(
+    signatures.get("hilbert"),
+    signatures.get("pythagorean"),
+    "the type selector must change both the drawn topology and audible voice graph",
+  );
+});
+
 test("generation and voice limits stay bounded above the UI maximum", () => {
   const topology = generationTopology({
     generations: 99,

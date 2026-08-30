@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   GRAPH_DELAY_PATCHES,
   GRAPH_PRESETS,
+  MAX_GENERATABLE_GRAPH_NODES,
   MAX_GRAPH_FEEDBACK,
+  MAX_GRAPH_NODES,
   MAX_GRAPH_TURN_ROUTES,
   directedHeading,
   edgeAudioParameters,
@@ -73,6 +75,82 @@ test("graph-delay offers acyclic, cyclic, community, and random topology familie
   for (const type of ["ring", "smallworld", "hub", "mesh", "modular"]) {
     assert.equal(generateGraph({ type, nodeCount: 12, density: 1, seed: 2 }).cyclic, true);
   }
+});
+
+test("graph generation keeps the microphone cap by default and supports opt-in large graphs", () => {
+  assert.equal(MAX_GRAPH_NODES, 24);
+  assert.equal(MAX_GENERATABLE_GRAPH_NODES, 512);
+
+  const defaultChain = generateGraph({ type: "chain", nodeCount: 512 });
+  assert.equal(defaultChain.nodes.length, MAX_GRAPH_NODES);
+  assert.equal(defaultChain.edges.length, MAX_GRAPH_NODES - 1);
+
+  const options = {
+    type: "chain",
+    nodeCount: MAX_GENERATABLE_GRAPH_NODES,
+    maxNodes: MAX_GENERATABLE_GRAPH_NODES,
+    seed: 43,
+  };
+  const largeChain = generateGraph(options);
+  assert.equal(largeChain.nodes.length, 512);
+  assert.equal(largeChain.edges.length, 511);
+  assert.deepEqual(largeChain, generateGraph(options));
+  assert.equal(graphTurnRouteCount(largeChain), 511);
+
+  const budgeted = generateGraphWithinTurnBudget(options, 512);
+  assert.equal(budgeted.limited, false);
+  assert.equal(budgeted.graph.nodes.length, 512);
+  assert.equal(budgeted.graph.edges.length, 511);
+  assert.equal(budgeted.turnRouteCount, 511);
+
+  const hardCapped = generateGraph({
+    type: "chain",
+    nodeCount: 10_000,
+    maxNodes: 10_000,
+  });
+  assert.equal(hardCapped.nodes.length, MAX_GENERATABLE_GRAPH_NODES);
+});
+
+test("extended bipartite graphs can be reduced beneath the instrument route budget", () => {
+  const result = generateGraphWithinTurnBudget({
+    type: "bipartite",
+    nodeCount: MAX_GENERATABLE_GRAPH_NODES,
+    maxNodes: MAX_GENERATABLE_GRAPH_NODES,
+    density: 0.75,
+    seed: 17,
+  }, 4_096);
+
+  assert.equal(result.graph.nodes.length, MAX_GENERATABLE_GRAPH_NODES);
+  assert.equal(result.limited, true);
+  assert.ok(result.density < 0.75);
+  assert.ok(result.turnRouteCount <= 4_096);
+  assert.equal(result.turnRouteCount, graphTurnRouteCount(result.graph));
+});
+
+test("direct route counting matches materialized turn routing", () => {
+  for (const type of Object.keys(GRAPH_PRESETS)) {
+    const graph = generateGraph({ type, nodeCount: 18, density: 0.74, seed: 29 });
+    const materialized = graphTurnRoutings(graph)
+      .reduce((count, routing) => count + routing.turns.length, 0);
+    assert.equal(graphTurnRouteCount(graph), materialized, type);
+  }
+});
+
+test("Small World density limiting preserves its greatest safe non-monotonic step", () => {
+  const options = { type: "smallworld", nodeCount: 4, density: 1, seed: 20 };
+  const budget = 10;
+  let expectedDensity = 0;
+  for (let step = 99; step >= 0; step -= 1) {
+    const density = step / 100;
+    if (graphTurnRouteCount(generateGraph({ ...options, density })) <= budget) {
+      expectedDensity = density;
+      break;
+    }
+  }
+  const result = generateGraphWithinTurnBudget(options, budget);
+  assert.equal(result.limited, true);
+  assert.equal(result.density, expectedDensity);
+  assert.equal(result.turnRouteCount, graphTurnRouteCount(result.graph));
 });
 
 test("graph-delay defaults cover many safe acyclic, cyclic, and generative sounds", () => {
@@ -228,6 +306,12 @@ test("every dense graph setting simplifies to the greatest safe density", () => 
           > MAX_GRAPH_TURN_ROUTES) {
           assert.equal(result.limited, true);
           assert.ok(result.density < 1);
+          const nextDensity = Math.min(1, result.density + 0.01);
+          assert.ok(
+            graphTurnRouteCount(generateGraph({ type, nodeCount, density: nextDensity, seed }))
+              > MAX_GRAPH_TURN_ROUTES,
+            `${type} ${nodeCount} seed ${seed} must choose the greatest safe 1% density`,
+          );
         }
       }
     }

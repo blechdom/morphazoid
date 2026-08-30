@@ -9,12 +9,16 @@ import {
   BLOWHOLE_DEFAULTS,
   BLOWHOLE_GESTURE_LANES,
   BLOWHOLE_LIMITS,
+  BLOWHOLE_PROPAGATION_LOOKUP,
+  BLOWHOLE_PROPAGATION_PRESETS,
   BLOWHOLE_SOURCE_FAMILIES,
   blowholeCall,
+  blowholePropagationPreset,
   createBlowholeRandom,
   createBlowholeState,
   createBlowholeVoicePlan,
   deriveBlowholeGeometry,
+  deriveBlowholePropagation,
   deriveBlowholeReadout,
   evaluateBlowholeGesture,
   interpolateBlowholeLane,
@@ -53,6 +57,9 @@ const PUBLIC_STATE_KEYS = Object.freeze([
   "roughness",
   "pulseRateHz",
   "depthM",
+  "propagationId",
+  "propagationDistanceM",
+  "propagationMix",
   "monitorMode",
   "level",
 ]);
@@ -96,6 +103,7 @@ function assertStateBounds(state, label) {
     assertInRange(state[key], BLOWHOLE_LIMITS[key], `${label}.${key}`);
   }
   assert.ok(["audible", "physical"].includes(state.monitorMode));
+  assert.ok(BLOWHOLE_PROPAGATION_LOOKUP[state.propagationId], `${label} must select a known propagation scene`);
   assert.ok(BLOWHOLE_CALL_LOOKUP[state.callId], `${label} must select a known call`);
   assertFiniteTree(state, label);
 }
@@ -147,6 +155,9 @@ function assertPlanBounds(plan, call, label) {
   );
   assertInRange(plan.focus, [0, 1], `${label}.focus`);
   assertInRange(plan.level, [0, 1], `${label}.level`);
+  assert.ok(BLOWHOLE_PROPAGATION_LOOKUP[plan.propagation.presetId]);
+  assertInRange(plan.propagation.distanceM, BLOWHOLE_LIMITS.propagationDistanceM, `${label}.propagation.distanceM`);
+  assertInRange(plan.propagation.mix, BLOWHOLE_LIMITS.propagationMix, `${label}.propagation.mix`);
   assert.ok(plan.voices.length >= 1 && plan.voices.length <= 2);
   for (const [index, voice] of plan.voices.entries()) {
     assertInRange(
@@ -245,19 +256,75 @@ test("Blowhole defines exactly eight calls across the two anatomically distinct 
   assert.equal(blowholeCall("not-a-call").id, BLOWHOLE_DEFAULTS.callId);
 });
 
-test("Blowhole starts on a conservative mid-register call at a quiet master level", () => {
-  assert.equal(BLOWHOLE_DEFAULTS.callId, "orca-pulsed-call");
+test("Blowhole starts on a low baleen moan at a quiet, speaker-safe level", () => {
+  assert.equal(BLOWHOLE_DEFAULTS.callId, "humpback-moan");
   assert.equal(BLOWHOLE_DEFAULTS.level, 0.34);
 
   const defaultState = createBlowholeState();
-  assert.equal(defaultState.callId, "orca-pulsed-call");
+  assert.equal(defaultState.callId, "humpback-moan");
   assert.equal(defaultState.level, 0.34);
+  assert.equal(defaultState.pulseRateHz, 0);
+
+  const defaultCall = blowholeCall(defaultState.callId);
+  assert.equal(defaultCall.family, "mysticete");
+  assert.equal(defaultCall.sourceFamily, BLOWHOLE_SOURCE_FAMILIES.MYSTICETE);
+  assert.deepEqual(defaultCall.physicalRange.frequencyHz, [80, 700]);
+  const geometry = deriveBlowholeGeometry(defaultState, 0.5);
+  assert.equal(geometry.blowholeCount, 2);
+  assert.equal(geometry.phonicLipActiveCount, 0);
+  assert.ok(geometry.uFoldOpening > 0);
 
   const monitorFrequencies = Array.from({ length: 101 }, (_, index) => (
     createBlowholeVoicePlan(defaultState, index / 100).monitorFrequencyHz
   ));
-  assert.ok(Math.min(...monitorFrequencies) >= 800);
-  assert.ok(Math.max(...monitorFrequencies) <= 4_000);
+  assert.ok(Math.min(...monitorFrequencies) >= 80);
+  assert.ok(Math.max(...monitorFrequencies) <= 700);
+  assert.ok(Math.max(...monitorFrequencies) < 1_000, "the default monitor must stay in a low register");
+});
+
+test("four post-source propagation scenes distinguish air, water, wind, and chop without changing pitch", () => {
+  assert.deepEqual(
+    BLOWHOLE_PROPAGATION_PRESETS.map(({ id }) => id),
+    ["water-calm", "air-still", "air-windy", "water-choppy"],
+  );
+  assert.equal(Object.keys(BLOWHOLE_PROPAGATION_LOOKUP).length, 4);
+  assert.equal(BLOWHOLE_DEFAULTS.propagationId, "water-calm");
+  assert.equal(BLOWHOLE_DEFAULTS.propagationDistanceM, 40);
+  assert.equal(BLOWHOLE_DEFAULTS.propagationMix, 0.72);
+  assert.equal(blowholePropagationPreset("hostile").id, "water-calm");
+
+  for (const preset of BLOWHOLE_PROPAGATION_PRESETS) {
+    assert.ok(Object.isFrozen(preset));
+    assert.equal(BLOWHOLE_PROPAGATION_LOOKUP[preset.id], preset);
+    assert.ok(preset.label.length > 4 && preset.description.length > 40);
+    assert.ok(["air", "water"].includes(preset.medium));
+    assert.ok(preset.speedMps > 300 && preset.speedMps < 1_600);
+  }
+  assert.ok(BLOWHOLE_PROPAGATION_LOOKUP["water-calm"].speedMps > BLOWHOLE_PROPAGATION_LOOKUP["air-still"].speedMps);
+  assert.ok(BLOWHOLE_PROPAGATION_LOOKUP["air-windy"].flutterDepth > BLOWHOLE_PROPAGATION_LOOKUP["air-still"].flutterDepth);
+  assert.ok(BLOWHOLE_PROPAGATION_LOOKUP["water-choppy"].reflectionGain > BLOWHOLE_PROPAGATION_LOOKUP["water-calm"].reflectionGain);
+
+  const base = createBlowholeState("orca-pulsed-call", {
+    propagationDistanceM: 120,
+    propagationMix: 1,
+  });
+  const sourcePitches = [];
+  for (const preset of BLOWHOLE_PROPAGATION_PRESETS) {
+    const scene = createBlowholeState(base.callId, { ...base, propagationId: preset.id });
+    const propagation = deriveBlowholePropagation(scene);
+    const readout = deriveBlowholeReadout(scene, 0.4);
+    const plan = createBlowholeVoicePlan(scene, 0.4);
+    assert.equal(propagation.presetId, preset.id);
+    assertClose(propagation.travelTimeMs, 120 / preset.speedMps * 1_000, `${preset.id} travel time`, 1e-9);
+    assert.equal(propagation.travelTimeReadoutOnly, true);
+    assert.equal(propagation.appliesTravelTimeDelay, false);
+    assert.equal(readout.propagationId, preset.id);
+    assert.equal(plan.propagation.presetId, preset.id);
+    sourcePitches.push([plan.physicalFrequencyHz, plan.monitorFrequencyHz]);
+    assertFiniteTree(propagation, `${preset.id}.propagation`);
+  }
+  assert.equal(new Set(sourcePitches.map(([physical]) => physical)).size, 1);
+  assert.equal(new Set(sourcePitches.map(([, monitor]) => monitor)).size, 1);
 });
 
 test("the external blowhole stays sealed throughout every underwater sounding plan and geometry", () => {
@@ -333,7 +400,11 @@ test("hostile controls and phases sanitize to finite bounded states, gestures, a
   const numericKeys = PUBLIC_STATE_KEYS.filter((key) => BLOWHOLE_LIMITS[key]);
 
   for (const [callIndex, call] of BLOWHOLE_CALLS.entries()) {
-    const hostile = { callId: call.id, monitorMode: "not-a-monitor" };
+    const hostile = {
+      callId: call.id,
+      monitorMode: "not-a-monitor",
+      propagationId: "not-an-environment",
+    };
     numericKeys.forEach((key, index) => {
       hostile[key] = hostileValues[(callIndex + index) % hostileValues.length];
     });
@@ -343,6 +414,7 @@ test("hostile controls and phases sanitize to finite bounded states, gestures, a
     assertStateBounds(state, call.id);
     assert.equal(state.callId, call.id);
     assert.equal(state.monitorMode, fallback.monitorMode);
+    assert.equal(state.propagationId, fallback.propagationId);
     assert.deepEqual(fallback, snapshot, "sanitation must not mutate its fallback");
     assert.ok(Object.isFrozen(state));
 
@@ -515,6 +587,9 @@ test("seeded randomization is deterministic, immutable, selector-preserving, and
   const input = createBlowholeState("dolphin-terminal-buzz", {
     monitorMode: "physical",
     depthM: 800,
+    propagationId: "water-choppy",
+    propagationDistanceM: 225,
+    propagationMix: 0.43,
   });
   const snapshot = structuredClone(input);
   const first = randomizeBlowholeState(input, "same-seed");
@@ -526,6 +601,9 @@ test("seeded randomization is deterministic, immutable, selector-preserving, and
   assert.notStrictEqual(first, input);
   assert.equal(first.callId, input.callId);
   assert.equal(first.monitorMode, input.monitorMode);
+  assert.equal(first.propagationId, input.propagationId);
+  assert.equal(first.propagationDistanceM, input.propagationDistanceM);
+  assert.equal(first.propagationMix, input.propagationMix);
   assertStateBounds(first, "randomized buzz");
   assertInRange(
     first.pulseRateHz,
@@ -578,10 +656,12 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
     assert.equal(typeof processor.port.onmessage, "function");
     processor.port.onmessage({ data: message });
   };
-  const render = (processor, blockCount) => {
+  const render = (processor, blockCount, { capture = false } = {}) => {
     let peak = 0;
     let squareSum = 0;
     let sampleCount = 0;
+    const capturedLeft = capture ? [] : null;
+    const capturedRight = capture ? [] : null;
     for (let block = 0; block < blockCount; block += 1) {
       const left = new Float32Array(BLOCK_SIZE);
       const right = new Float32Array(BLOCK_SIZE);
@@ -596,9 +676,18 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
         peak = Math.max(peak, Math.abs(leftSample), Math.abs(rightSample));
         squareSum += leftSample ** 2 + rightSample ** 2;
         sampleCount += 2;
+        if (capture) {
+          capturedLeft.push(leftSample);
+          capturedRight.push(rightSample);
+        }
       }
     }
-    return { peak, rms: Math.sqrt(squareSum / Math.max(1, sampleCount)) };
+    const result = { peak, rms: Math.sqrt(squareSum / Math.max(1, sampleCount)) };
+    if (capture) {
+      result.left = capturedLeft;
+      result.right = capturedRight;
+    }
+    return result;
   };
   const assertTelemetry = (processor, label) => {
     const messages = processor.messages.filter(({ type }) => type === "telemetry");
@@ -611,6 +700,8 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
       assert.equal(typeof message.manual, "boolean");
       assert.equal(typeof message.loop, "boolean");
       assert.equal(typeof message.valveOpen, "boolean");
+      assertInRange(message.valveAperture, [0, 1], `${label}.telemetry[${index}].valveAperture`);
+      assertInRange(message.valveSourceGain, [0.16, 1], `${label}.telemetry[${index}].valveSourceGain`);
       assertInRange(message.phase, [0, 1], `${label}.telemetry[${index}].phase`);
       assertInRange(message.pressure, [0, 1], `${label}.telemetry[${index}].pressure`);
       assertInRange(message.pulseRateHz, BLOWHOLE_LIMITS.pulseRateHz, `${label}.telemetry[${index}].pulseRateHz`);
@@ -618,6 +709,16 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
       assertInRange(message.rms, [0, 0.580001], `${label}.telemetry[${index}].rms`);
       assert.ok(message.physicalFrequencyHz > 0 && Number.isFinite(message.physicalFrequencyHz));
       assert.ok(message.monitorFrequencyHz > 0 && Number.isFinite(message.monitorFrequencyHz));
+      assert.ok(BLOWHOLE_PROPAGATION_LOOKUP[message.propagationId]);
+      assert.ok(["air", "water"].includes(message.propagationMedium));
+      assertInRange(message.propagationMix, BLOWHOLE_LIMITS.propagationMix, `${label}.telemetry[${index}].propagationMix`);
+      assertInRange(message.propagationDistanceM, BLOWHOLE_LIMITS.propagationDistanceM, `${label}.telemetry[${index}].propagationDistanceM`);
+      assert.ok(message.propagationSpeedMps > 300 && message.propagationSpeedMps < 1_600);
+      assert.ok(message.propagationTravelTimeMs > 0 && Number.isFinite(message.propagationTravelTimeMs));
+      assert.equal(message.propagation.presetId, message.propagationId);
+      assert.equal(message.propagation.travelTimeReadoutOnly, true);
+      assert.equal(message.propagation.appliesTravelTimeDelay, false);
+      assertFiniteTree(message.propagation, `${label}.telemetry[${index}].propagation`);
     }
     return messages;
   };
@@ -632,6 +733,141 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
     const silentTelemetry = assertTelemetry(silent, "silence").at(-1);
     assert.equal(silentTelemetry.active, false);
     assert.equal(silentTelemetry.valveOpen, false);
+    assert.equal(silentTelemetry.valveAperture, 0);
+
+    for (const preset of BLOWHOLE_PROPAGATION_PRESETS) {
+      const sceneSilence = new Processor({
+        processorOptions: {
+          configuration: createBlowholeState("orca-pulsed-call", {
+            propagationId: preset.id,
+            propagationMix: 1,
+          }),
+        },
+      });
+      assert.deepEqual(render(sceneSilence, 16), { peak: 0, rms: 0 }, `${preset.id} must not create sound from silence`);
+      assert.equal(assertTelemetry(sceneSilence, `${preset.id} silence`).at(-1).propagationId, preset.id);
+    }
+
+    const renderPropagationScene = (propagationId, propagationMix = 1) => {
+      const processor = new Processor({
+        processorOptions: {
+          configuration: createBlowholeState("orca-pulsed-call", {
+            pressure: 0.76,
+            roughness: 0,
+            propagationId,
+            propagationDistanceM: 180,
+            propagationMix,
+          }),
+        },
+      });
+      send(processor, { type: "manual", active: true });
+      return { processor, rendered: render(processor, 72, { capture: true }) };
+    };
+    const dryWater = renderPropagationScene("water-calm", 0);
+    const dryWind = renderPropagationScene("air-windy", 0);
+    assert.deepEqual(dryWater.rendered.left, dryWind.rendered.left, "mix=0 must exactly bypass every propagation scene");
+    assert.deepEqual(dryWater.rendered.right, dryWind.rendered.right, "mix=0 stereo bypass must be exact");
+
+    const renderedScenes = Object.fromEntries(BLOWHOLE_PROPAGATION_PRESETS.map((preset) => (
+      [preset.id, renderPropagationScene(preset.id, 1)]
+    )));
+    const meanAbsoluteDifference = (first, second) => (
+      first.reduce((sum, sample, index) => sum + Math.abs(sample - second[index]), 0)
+        / Math.max(1, first.length)
+    );
+    for (const preset of BLOWHOLE_PROPAGATION_PRESETS.slice(1)) {
+      const difference = meanAbsoluteDifference(
+        renderedScenes["water-calm"].rendered.left,
+        renderedScenes[preset.id].rendered.left,
+      );
+      assert.ok(difference > 1e-5, `${preset.id} must be audibly distinct from calm water (${difference})`);
+      const levelRatio = renderedScenes[preset.id].rendered.rms
+        / Math.max(1e-12, renderedScenes["water-calm"].rendered.rms);
+      assertInRange(levelRatio, [0.35, 1.35], `${preset.id} level-matched rms ratio`);
+      const sceneTelemetry = assertTelemetry(renderedScenes[preset.id].processor, preset.id).at(-1);
+      assert.equal(sceneTelemetry.propagationId, preset.id);
+      assert.equal(
+        renderedScenes[preset.id].processor.currentPhysicalFrequencyHz,
+        renderedScenes["water-calm"].processor.currentPhysicalFrequencyHz,
+        `${preset.id} must not retune the physical source`,
+      );
+      assert.equal(
+        renderedScenes[preset.id].processor.currentMonitorFrequencyHz,
+        renderedScenes["water-calm"].processor.currentMonitorFrequencyHz,
+        `${preset.id} must not retune the monitor source`,
+      );
+    }
+    const choppyTail = renderedScenes["water-choppy"].processor;
+    send(choppyTail, { type: "panic" });
+    assert.deepEqual(render(choppyTail, 12), { peak: 0, rms: 0 }, "panic must clear choppy multipath tails exactly");
+
+    const switching = new Processor({
+      processorOptions: { configuration: createBlowholeState("orca-pulsed-call") },
+    });
+    send(switching, { type: "manual", active: true });
+    for (let pass = 0; pass < 3; pass += 1) {
+      for (const preset of BLOWHOLE_PROPAGATION_PRESETS) {
+        send(switching, {
+          type: "configure",
+          configuration: { propagationId: preset.id, propagationDistanceM: 500, propagationMix: 1 },
+        });
+        assert.ok(render(switching, 2).peak <= 0.580001, `rapid ${preset.id} switching must stay bounded`);
+      }
+    }
+
+    const longToShort = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("humpback-moan", { level: 0.8 }),
+      },
+    });
+    send(longToShort, { type: "play", callId: "humpback-moan", loop: true });
+    render(longToShort, 1_000);
+    assert.equal(longToShort.playing, true);
+    assert.equal(longToShort.loop, true);
+    longToShort.messages.length = 0;
+    send(longToShort, {
+      type: "configure",
+      configuration: createBlowholeState("dolphin-terminal-buzz", { level: 0.8 }),
+    });
+    assert.equal(longToShort.playing, true, "retargeting must not stop an active call");
+    assert.equal(longToShort.loop, true, "retargeting must preserve loop transport");
+    const shortRetarget = render(longToShort, 48);
+    assert.equal(longToShort.call.id, "dolphin-terminal-buzz");
+    assert.equal(longToShort.playing, true);
+    assert.equal(longToShort.loop, true);
+    assert.ok(shortRetarget.peak > 1e-5, "the retargeted short call must fade back into sound");
+    assert.ok(longToShort.lastPhase < 0.2, `the short call must restart near phase zero (${longToShort.lastPhase})`);
+    const shortTelemetry = assertTelemetry(longToShort, "long-to-short retarget");
+    assert.equal(shortTelemetry.every(({ active }) => active), true);
+    const firstShortTelemetry = shortTelemetry.find(({ callId }) => callId === "dolphin-terminal-buzz");
+    assert.ok(firstShortTelemetry, "retarget telemetry must reach the new call");
+    assert.ok(firstShortTelemetry.phase < 0.2, "new-call telemetry must restart near phase zero");
+
+    const manualRetarget = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("humpback-moan", { level: 0.8 }),
+      },
+    });
+    send(manualRetarget, { type: "loop", active: true });
+    send(manualRetarget, { type: "manual", active: true });
+    render(manualRetarget, 48);
+    manualRetarget.messages.length = 0;
+    send(manualRetarget, {
+      type: "configure",
+      configuration: createBlowholeState("dolphin-search-clicks", { level: 0.8 }),
+    });
+    assert.equal(manualRetarget.manualGate, true, "family retargeting must preserve the manual gate");
+    assert.equal(manualRetarget.loop, true, "family retargeting must preserve the loop setting");
+    const manualClicks = render(manualRetarget, 48);
+    assert.equal(manualRetarget.call.id, "dolphin-search-clicks");
+    assert.equal(manualRetarget.manualGate, true);
+    assert.equal(manualRetarget.playing, false);
+    assert.equal(manualRetarget.loop, true);
+    assertClose(manualRetarget.lastPhase, 0.45, "manual retarget phase");
+    assert.ok(manualClicks.peak > 1e-5, "manual retargeting must fade the odontocete source back in");
+    const manualTelemetry = assertTelemetry(manualRetarget, "mysticete-to-odontocete retarget");
+    assert.equal(manualTelemetry.every(({ active, manual }) => active && manual), true);
+    assert.equal(manualTelemetry.some(({ callId }) => callId === "dolphin-search-clicks"), true);
 
     const delayed = new Processor({
       processorOptions: { configuration: createBlowholeState("sperm-whale-coda") },
@@ -778,25 +1014,84 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
     const ventTelemetry = assertTelemetry(vent, "vent");
     assert.equal(ventTelemetry.some(({ valveOpen }) => valveOpen), true);
     assert.equal(ventTelemetry.every(({ active }) => !active), true, "venting is breathing, not underwater calling");
+    assert.equal(ventTelemetry.every(({ valveAperture }) => valveAperture === 0), true);
+    assert.equal(ventTelemetry.every(({ valveSourceGain }) => valveSourceGain === 1), true);
+
+    const humpbackValve = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("humpback-moan", { level: 0.8 }),
+      },
+    });
+    send(humpbackValve, { type: "play", callId: "humpback-moan", loop: true });
+    render(humpbackValve, 120);
+    humpbackValve.messages.length = 0;
+    send(humpbackValve, { type: "surfaceValve", aperture: 1 });
+    send(humpbackValve, { type: "vent", strength: 1 });
+    assert.equal(humpbackValve.playing, true, "opening the surface valve must preserve transport");
+    assert.equal(humpbackValve.loop, true);
+    const openHumpback = render(humpbackValve, 120);
+    assert.ok(openHumpback.peak > 1e-5, "an open valve must attenuate rather than mute the hidden source");
+    const humpbackValveTelemetry = assertTelemetry(humpbackValve, "open humpback valve");
+    const openHumpbackTelemetry = humpbackValveTelemetry.at(-1);
+    assert.equal(openHumpbackTelemetry.active, true);
+    assert.equal(openHumpbackTelemetry.playing, true);
+    assert.equal(openHumpbackTelemetry.valveOpen, true);
+    assert.ok(openHumpbackTelemetry.valveAperture > 0.99);
+    assertInRange(openHumpbackTelemetry.valveSourceGain, [0.16, 0.2], "open humpback source gain");
+    send(humpbackValve, { type: "stopVent" });
+    assert.equal(humpbackValve.playing, true, "ending the transient whoosh must not stop transport");
+    humpbackValve.messages.length = 0;
+    render(humpbackValve, 12);
+    const sustainedValve = assertTelemetry(humpbackValve, "sustained surface valve").at(-1);
+    assert.equal(sustainedValve.valveOpen, true);
+    assert.ok(sustainedValve.valveAperture > 0.99);
 
     const dolphinValve = new Processor({
-      processorOptions: { configuration: createBlowholeState("dolphin-search-clicks") },
+      processorOptions: {
+        configuration: createBlowholeState("dolphin-search-clicks", { level: 0.8 }),
+      },
     });
     send(dolphinValve, { type: "manual", active: true });
-    render(dolphinValve, 2);
+    render(dolphinValve, 48);
+    dolphinValve.messages.length = 0;
+    send(dolphinValve, { type: "surfaceValve", aperture: 1 });
     send(dolphinValve, { type: "vent", strength: 1 });
-    assert.equal(dolphinValve.manualGate, false, "opening a dolphin valve must stop underwater phonation");
-    assert.ok(dolphinValve.ventEnvelope > 0);
-    send(dolphinValve, { type: "manual", active: true });
-    assert.equal(dolphinValve.ventEnvelope, 0, "restarting a dolphin source must close the surface valve");
+    assert.equal(dolphinValve.manualGate, true, "surface-valve and vent messages must preserve the manual gate");
+    const openManualClicks = render(dolphinValve, 120);
+    assert.ok(openManualClicks.peak > 1e-5);
+    const dolphinValveTelemetry = assertTelemetry(dolphinValve, "open manual dolphin valve").at(-1);
+    assert.equal(dolphinValveTelemetry.active, true);
+    assert.equal(dolphinValveTelemetry.manual, true);
+    assert.equal(dolphinValveTelemetry.valveOpen, true);
+    assert.ok(dolphinValveTelemetry.valveAperture > 0.99);
+    assertInRange(dolphinValveTelemetry.valveSourceGain, [0.16, 0.2], "open dolphin source gain");
 
     const spermSurface = new Processor({
-      processorOptions: { configuration: createBlowholeState("sperm-whale-coda") },
+      processorOptions: {
+        configuration: createBlowholeState("sperm-whale-coda", { level: 0.8 }),
+      },
     });
-    send(spermSurface, { type: "play", callId: "sperm-whale-coda" });
+    send(spermSurface, { type: "play", callId: "sperm-whale-coda", loop: true });
+    send(spermSurface, { type: "surfaceValve", aperture: 1 });
     send(spermSurface, { type: "vent", strength: 1 });
     assert.equal(spermSurface.playing, true, "the isolated sperm-whale right passage can click while breathing");
-    assert.ok(spermSurface.ventEnvelope > 0);
+    const openSpermClicks = render(spermSurface, 120);
+    assert.ok(openSpermClicks.peak > 1e-5);
+    const spermValveTelemetry = assertTelemetry(spermSurface, "open sperm-whale valve").at(-1);
+    assert.equal(spermValveTelemetry.active, true);
+    assert.equal(spermValveTelemetry.playing, true);
+    assert.equal(spermValveTelemetry.valveOpen, true);
+    assert.ok(spermValveTelemetry.valveAperture > 0.99);
+    assert.ok(spermValveTelemetry.valveSourceGain >= 0.9, "the isolated right click passage must retain its drive");
+
+    humpbackValve.messages.length = 0;
+    send(humpbackValve, { type: "panic" });
+    assert.deepEqual(render(humpbackValve, 12), { peak: 0, rms: 0 });
+    const panickedValve = assertTelemetry(humpbackValve, "panicked surface valve").at(-1);
+    assert.equal(panickedValve.active, false);
+    assert.equal(panickedValve.valveOpen, false);
+    assert.equal(panickedValve.valveAperture, 0);
+    assert.equal(panickedValve.valveSourceGain, 1);
 
     const renderHumpback = (depthM) => {
       const processor = new Processor({
@@ -831,6 +1126,9 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
           roughness: 1e300,
           pulseRateHz: 1e300,
           depthM: -1e300,
+          propagationId: "not-a-fluid",
+          propagationDistanceM: 1e300,
+          propagationMix: -1e300,
           monitorMode: "audible",
           level: 1e300,
         },
@@ -858,16 +1156,23 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   ]);
 
   assert.match(html, /<body class="blowhole-page">/);
-  assert.match(html, /TWO SOUND ORGANS \/ ONE BREATHING VALVE/);
-  assert.match(html, /The blowhole breathes\. The hidden tissue sings\./);
+  assert.match(html, /<h1 id="pageTitle">BLOWHOLE<\/h1>/);
+  assert.doesNotMatch(html, /TWO SOUND ORGANS \/ ONE BREATHING VALVE/);
+  assert.doesNotMatch(html, /The blowhole breathes\. The hidden tissue sings\./);
+  assert.doesNotMatch(html, /Dolphin phonic lips live in the nose/);
+  assert.doesNotMatch(css, /\.blowhole-intro h1 span/);
   assert.match(html, /id="valveState" data-state="sealed"/);
   assert.match(html, /sealed underwater/);
-  assert.match(html, /id="blowholeFact">sealed underwater/);
+  assert.match(html, /id="blowholeFact">paired nares · sealed underwater/);
   assert.match(tagWithId(html, "select", "callSelect"), /\bname="call-preset"/i);
+  assert.match(html, /id="familyCode">MYSTICETE</);
+  assert.match(html, /id="physicalReadout">80–700 Hz</);
 
   const labeledControls = [
     "level",
     "callSelect",
+    "callPath",
+    "valveAperture",
     "pressure",
     "tension",
     "closure",
@@ -878,12 +1183,43 @@ test("the page, app, and styles expose the complete accessible physical-instrume
     "roughness",
     "pulseRateHz",
     "depthM",
+    "propagationDistanceM",
+    "propagationMix",
     "monitorMode",
   ];
   for (const id of labeledControls) {
     assert.ok(tagWithId(html, id === "callSelect" || id === "monitorMode" ? "select" : "input", id));
     assert.match(html, new RegExp(`<label\\b[^>]*\\bfor=["']${id}["']`, "i"), `${id} needs a label`);
   }
+  const callPath = tagWithId(html, "input", "callPath");
+  assert.match(callPath, /\btype=["']range["']/i);
+  assert.match(callPath, /\bmin=["']0["']/i);
+  assert.match(callPath, /\bmax=["']7["']/i);
+  assert.match(callPath, /\bstep=["']1["']/i);
+  assert.match(callPath, /\bvalue=["']1["']/i);
+  const valveAperture = tagWithId(html, "input", "valveAperture");
+  assert.match(valveAperture, /\btype=["']range["']/i);
+  assert.match(valveAperture, /\bmin=["']0["']/i);
+  assert.match(valveAperture, /\bmax=["']1["']/i);
+  assert.match(valveAperture, /\bstep=["']0\.01["']/i);
+  assert.match(valveAperture, /\bvalue=["']0["']/i);
+  const propagationRadios = [
+    ["propagationWaterCalm", "water-calm"],
+    ["propagationAirStill", "air-still"],
+    ["propagationAirWindy", "air-windy"],
+    ["propagationWaterChoppy", "water-choppy"],
+  ];
+  for (const [id, value] of propagationRadios) {
+    const tag = tagWithId(html, "input", id);
+    assert.match(tag, /\btype=["']radio["']/i);
+    assert.match(tag, /\bname=["']propagationPreset["']/i);
+    assert.match(tag, new RegExp(`\\bvalue=["']${value}["']`, "i"));
+    assert.match(html, new RegExp(`<label\\b[^>]*\\bfor=["']${id}["']`, "i"));
+  }
+  assert.match(html, /<fieldset class="blowhole-propagation-presets"/);
+  assert.match(html, /POST-SOURCE LAYER/);
+  assert.match(html, /monitor-normalized for comparison/i);
+  assert.match(html, /Open air is a listening simulation, not an open-blowhole sound source/i);
   for (const id of [
     "audioButton",
     "playButton",
@@ -905,6 +1241,8 @@ test("the page, app, and styles expose the complete accessible physical-instrume
     assert.match(tagWithId(html, "button", id), /\baria-pressed=/i);
     assert.doesNotMatch(tagWithId(html, "button", id), /\brole="tab"/i);
   }
+  assert.match(tagWithId(html, "button", "odontoceteTab"), /\baria-pressed=["']false["']/i);
+  assert.match(tagWithId(html, "button", "mysticeteTab"), /\baria-pressed=["']true["']/i);
   for (const id of ["stage", "timeline"]) {
     const tag = tagWithId(html, "canvas", id);
     assert.match(tag, /\brole="img"/i);
@@ -925,10 +1263,42 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.match(app, /outputChannelCount:\s*\[2\]/);
   assert.match(app, /type:\s*"vent", strength:/);
   assert.match(app, /type:\s*"stopVent"/);
-  assert.match(app, /surfaceValveOpen \? "blowhole \/ open to breathe"/);
-  assert.match(app, /surfaceValveOpen \? "left airway \/ open to breathe"/);
-  assert.match(app, /surfaceValveOpen \? "paired blowholes \/ open"/);
-  assert.match(app, /underwater calls use the hidden internal source/);
+  assert.match(app, /type:\s*"surfaceValve", aperture: valveAperture/);
+  assert.match(app, /input\[name="propagationPreset"\]/);
+  assert.match(app, /deriveBlowholePropagation\(state\)/);
+  assert.match(app, /source anatomy remains fixed/);
+  assert.match(app, /surfaceValveOpen \? "blowhole \/ surface-open \/ source internal"/);
+  assert.match(app, /surfaceValveOpen \? "left airway \/ surface-open \/ right source separate"/);
+  assert.match(app, /surfaceValveOpen \? "paired blowholes \/ surface-open \/ source laryngeal"/);
+  assert.match(app, /hidden sound organ remains separate/);
+
+  assert.match(
+    app,
+    /const CALL_GESTURE_PATH = Object\.freeze\(\[\s*"blue-whale-b-call",\s*"humpback-moan",\s*"humpback-two-voice-phrase",\s*"bottlenose-signature-whistle",\s*"orca-pulsed-call",\s*"sperm-whale-coda",\s*"dolphin-search-clicks",\s*"dolphin-terminal-buzz",\s*\]\);/,
+  );
+  assert.match(app, /Math\.round\(clamp\(Number\(value\), 0, CALL_GESTURE_PATH\.length - 1\)\)/);
+  assert.match(app, /\$\("callPath"\)\?\.addEventListener\("input",[\s\S]*?setCallPathIndex\(event\.target\.value\)/);
+  assert.match(app, /function drawCallGesturePath\(context\)/);
+  assert.match(app, /kind:\s*"callPath"/);
+  assert.match(app, /function drawValveApertureHandle\(context,/);
+  assert.match(app, /kind:\s*"valveAperture"/);
+  assert.match(app, /drawCallGesturePath\(stageDrawing\)/);
+
+  const setCallStart = app.indexOf("function setCall(");
+  const setCallEnd = app.indexOf("\nfunction setFamily(", setCallStart);
+  assert.ok(setCallStart >= 0 && setCallEnd > setCallStart, "setCall source must remain inspectable");
+  const setCallSource = app.slice(setCallStart, setCallEnd);
+  assert.match(setCallSource, /const wasPlaying = playing/);
+  assert.match(setCallSource, /const wasManual = manualHeld/);
+  assert.match(setCallSource, /postConfiguration\(\)/);
+  assert.doesNotMatch(setCallSource, /stopPerformance\(/, "changing calls must not interrupt transport");
+
+  const telemetryHandlerStart = app.indexOf("sourceNode.port.onmessage");
+  const telemetryHandlerEnd = app.indexOf("sourceNode.onprocessorerror", telemetryHandlerStart);
+  assert.ok(telemetryHandlerStart >= 0 && telemetryHandlerEnd > telemetryHandlerStart);
+  const telemetryHandlerSource = app.slice(telemetryHandlerStart, telemetryHandlerEnd);
+  assert.match(telemetryHandlerSource, /event\.data\.callId === state\.callId/);
+  assert.match(app, /telemetry\.active && telemetry\.callId === state\.callId/);
   assert.match(app, /event\.code === "Space"/);
   assert.match(app, /event\.key\.toLowerCase\(\) === "b"/);
   assert.match(app, /input, select, textarea, button, a\[href\], summary/);
@@ -941,6 +1311,9 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.match(css, /#stage:focus-visible,[\s\S]*#timeline:focus-visible/);
   assert.match(css, /\.blowhole-transport button:focus-visible/);
   assert.match(css, /\.blowhole-page input:focus-visible/);
+  assert.match(css, /\.blowhole-propagation-choice input:focus-visible \+ span/);
+  assert.match(css, /\[data-propagation="air-windy"\]/);
+  assert.match(css, /\[data-propagation="water-choppy"\]/);
   assert.match(css, /touch-action:\s*none/);
   assert.match(css, /@media \(max-width: 900px\)/);
   assert.match(css, /@media \(max-width: 600px\)/);
@@ -952,6 +1325,8 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.doesNotMatch(app, /\bfetch\s*\(/);
   assert.match(processor, /class DampedMode/);
   assert.match(processor, /class AcousticDelayLine/);
+  assert.match(processor, /class FractionalPropagationDelay/);
+  assert.match(processor, /class OnePoleLowpass/);
   assert.match(processor, /pulseWidthMicroseconds \* this\.rate \/ 1_000_000/);
   assert.match(processor, /pneumaticReservoir/);
   assert.match(processor, /headReflectionDelaySeconds/);

@@ -300,9 +300,9 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.ok(initialBounds.minX >= 0 && initialBounds.maxX <= 900);
   assert.ok(initialBounds.minY >= 0 && initialBounds.maxY <= 600);
   assert.equal(arcs, 0, "the unified tree should not draw detached travelling dots");
-  assert.equal(elements.get("stageReadout").textContent, "MIC OFF · PYTHAGOREAN PINE · 13 GENERATIONS");
+  assert.equal(elements.get("stageReadout").textContent, "MIC OFF · PYTHAGOREAN TREE · 13 GENERATIONS");
   assert.equal(elements.get("presetSummary").textContent, "Pythagorean Pine · Maximum");
-  assert.equal(elements.get("recursionSummary").textContent, "Pythagorean Pine · 13 generations");
+  assert.equal(elements.get("recursionSummary").textContent, "Pythagorean tree · 13 generations");
   assert.equal(elements.get("mixSummary").textContent, "76% descendants · root muted");
   assert.equal(elements.get("depthOut").textContent, "72%");
   assert.equal(elements.get("generationsOut").textContent, "13 / 13");
@@ -311,7 +311,7 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.equal(elements.get("pruningBias").value, "0");
   assert.equal(elements.get("pruningBiasOut").textContent, "breadth first");
   assert.equal(attributes.get("pruningBias:aria-valuetext"), "breadth first");
-  assert.match(elements.get("generationPresetDescription").textContent, /full reference canopy/);
+  assert.equal(elements.get("lSystemType").value, "pythagorean");
   assert.equal(attributes.get("generationPreset-pythagorean:aria-pressed"), "true");
   assert.equal(elements.get("pitchDetail").value, "24");
   assert.equal(elements.get("pitchDetail").disabled, false);
@@ -339,6 +339,33 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
     "-45° → -25% octave · +45° → +25% octave",
   );
   assert.equal(elements.get("generationPitchScaleOut").textContent, "100% / 180°");
+  const pythagoreanGeometry = framePoints.slice();
+  const growthBeforeTypeChange = [
+    elements.get("generations").value,
+    elements.get("interval").value,
+    elements.get("timeRatio").value,
+    elements.get("generationAngle").value,
+  ];
+  elements.get("lSystemType").value = "hilbert";
+  listeners.get("lSystemType:change")({
+    currentTarget: elements.get("lSystemType"),
+  });
+  queuedFrame(performance.now() + 121);
+  assert.notDeepEqual(framePoints, pythagoreanGeometry);
+  assert.deepEqual([
+    elements.get("generations").value,
+    elements.get("interval").value,
+    elements.get("timeRatio").value,
+    elements.get("generationAngle").value,
+  ], growthBeforeTypeChange);
+  assert.equal(attributes.get("generationPreset-pythagorean:aria-pressed"), "true");
+  assert.equal(elements.get("recursionSummary").textContent, "Hilbert curve · 13 generations");
+  elements.get("lSystemType").value = "pythagorean";
+  listeners.get("lSystemType:change")({
+    currentTarget: elements.get("lSystemType"),
+  });
+  queuedFrame(performance.now() + 122);
+  assert.deepEqual(framePoints, pythagoreanGeometry);
   listeners.get("resetGenerationRules:click")();
   assert.equal(
     elements.get("pitchDetail").value,
@@ -348,7 +375,9 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   listeners.get("generationPreset-moss:click")();
   assert.equal(elements.get("timeRatio").value, "2");
   assert.equal(elements.get("timeRatioOut").textContent, "2.00× per generation");
-  assert.match(elements.get("generationPresetDescription").textContent, /doubles its spacing/);
+  assert.equal(attributes.get("generationPreset-moss:aria-pressed"), "true");
+  assert.equal(attributes.get("generationPreset-pythagorean:aria-pressed"), "false");
+  assert.equal(elements.get("lSystemType").value, "pythagorean");
   queuedFrame(performance.now() + 125);
   const [trunkStart, trunkEnd] = framePoints;
   assert.ok(
@@ -430,6 +459,39 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.ok(initialGenerations.voices.every((voice) => (
     voice.parentId === "trunk" || initiallyAudible.has(voice.parentId)
   )), "every audible branch should retain its parent");
+  const voiceSignature = (message) => message.voices.map((voice) => [
+    voice.key,
+    voice.parentId,
+    voice.generation,
+    voice.turnDegrees,
+    voice.delay,
+    voice.rate,
+  ]);
+  const pythagoreanVoiceSignature = voiceSignature(initialGenerations);
+  const pythagoreanGrowthPressed = attributes.get(
+    "generationPreset-pythagorean:aria-pressed",
+  );
+  elements.get("lSystemType").value = "hilbert";
+  listeners.get("lSystemType:change")({
+    currentTarget: elements.get("lSystemType"),
+  });
+  const hilbertGenerations = generationMessages
+    .filter((message) => message.type === "voices")
+    .at(-1);
+  assert.notDeepEqual(voiceSignature(hilbertGenerations), pythagoreanVoiceSignature);
+  assert.equal(audioContexts.length, 1, "changing L-system type must reuse the live graph");
+  assert.equal(
+    attributes.get("generationPreset-pythagorean:aria-pressed"),
+    pythagoreanGrowthPressed,
+  );
+  elements.get("lSystemType").value = "pythagorean";
+  listeners.get("lSystemType:change")({
+    currentTarget: elements.get("lSystemType"),
+  });
+  const restoredGenerations = generationMessages
+    .filter((message) => message.type === "voices")
+    .at(-1);
+  assert.deepEqual(voiceSignature(restoredGenerations), pythagoreanVoiceSignature);
 
   queuedFrame(performance.now() + 145);
   const breadthFirstFrame = framePoints.slice();
@@ -569,7 +631,7 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   assert.equal(elements.get("depthOut").textContent, "68%");
   assert.equal(elements.get("intervalOut").textContent, "85 ms");
   assert.equal(elements.get("generationAngleOut").textContent, "30°");
-  assert.match(elements.get("generationPresetDescription").textContent, /halves its timing/);
+  assert.equal(elements.get("lSystemType").value, "pythagorean");
   assert.equal(attributes.get("generationPreset-binary:aria-pressed"), "true");
 
   listeners.get("micButton:click")();
@@ -597,9 +659,10 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
   listeners.get("interval:input")();
   assert.equal(elements.get("intervalOut").textContent, "500 ms");
   assert.equal(elements.get("generationTimingReadout").textContent, "500 ms → 250 ms → 125 ms → 63 ms … 0.98 ms at G9");
+  assert.equal(elements.get("lSystemType").value, "pythagorean");
   assert.equal(attributes.get("generationPreset-binary:aria-pressed"), "false");
   assert.equal(elements.get("presetSummary").textContent, "Custom growth · Maximum");
-  assert.equal(elements.get("recursionSummary").textContent, "Custom growth · 9 generations");
+  assert.equal(elements.get("recursionSummary").textContent, "Pythagorean tree · 9 generations");
   assert.ok(Math.abs(delays[0].delayTime.value - 0.5) < 1e-9);
   assert.ok(Math.abs(delays[1].delayTime.value - 0.809) < 1e-9);
   queuedFrame(intervalFrameTime);
@@ -766,6 +829,9 @@ test("L-system Delay renders and drives a recursive microphone graph", async () 
 
   economyNodes[0].onprocessorerror();
   assert.match(elements.get("pitchDetailStatus").textContent, /bounded audio fallback/i);
+  assert.equal(elements.get("audioError").hidden, false);
+  assert.match(elements.get("audioError").textContent, /Economy pitch stopped|bounded audio fallback/i);
+  assert.equal(elements.get("inputMenu").open, true);
 
   listeners.get("audioButton:click")();
   assert.equal(elements.get("audioState").textContent, "off");

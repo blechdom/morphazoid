@@ -1,0 +1,944 @@
+.hambone-page {
+  --accent: #ff7b87;
+  --accent-soft: color-mix(in oklab, #ff7b87 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff7b87 20%, transparent);
+  --hambone-coral: #ff6f79;
+  --hambone-orange: #ffb15d;
+  --hambone-yellow: #f7dc6a;
+  --hambone-mint: #7ce7bd;
+  --hambone-cyan: #65dfe8;
+  --hambone-blue: #70a9ff;
+  --hambone-violet: #bb8cff;
+  --hambone-pink: #f07fd0;
+  --hambone-bone: #f4eee9;
+  --hambone-muted: #9a8e93;
+  height: 100dvh;
+  overflow: hidden;
+  background: #080507;
+}
+
+.hambone-page .masthead {
+  background: #0b0709;
+}
+
+.hambone-page .tab.active {
+  color: var(--hambone-coral);
+}
+
+.hambone-page .audio-glyph {
+  color: currentColor;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.hambone-page .audio-button[aria-pressed="true"] {
+  border-color: var(--hambone-coral);
+  color: #100507;
+  background: var(--hambone-coral);
+  box-shadow: 0 0 18px rgba(255, 111, 121, 0.22);
+}
+
+.hambone-shell {
+  display: grid;
+  height: calc(100dvh - 58px);
+  min-height: 0;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 24vw, 400px);
+}
+
+.hambone-workspace {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: minmax(300px, 1fr) clamp(276px, 30dvh, 324px);
+}
+
+.hambone-stage {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid rgba(244, 238, 233, 0.08);
+  border-bottom: 1px solid rgba(255, 111, 121, 0.24);
+}
+
+.hambone-stage-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 52% 48%, rgba(255, 111, 121, 0.075), transparent 31%),
+    radial-gradient(ellipse at 58% 62%, rgba(101, 223, 232, 0.055), transparent 28%),
+    linear-gradient(rgba(255, 111, 121, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 111, 121, 0.025) 1px, transparent 1px),
+    #080507;
+  background-size: auto, auto, 34px 34px, 34px 34px, auto;
+}
+
+.hambone-page #stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.hambone-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.hambone-page #stage:focus-visible {
+  outline-offset: -5px;
+}
+
+.hambone-stage-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(20px, 3.4vh, 42px);
+  left: clamp(20px, 3vw, 48px);
+  pointer-events: none;
+}
+
+.hambone-stage-heading p,
+.hambone-stage-heading h1,
+.hambone-stage-heading small {
+  margin: 0;
+}
+
+.hambone-stage-heading p {
+  color: rgba(255, 111, 121, 0.82);
+  font-size: 7px;
+  letter-spacing: 0.18em;
+}
+
+.hambone-stage-heading h1 {
+  margin-top: 8px;
+  color: rgba(244, 238, 233, 0.94);
+  font-size: clamp(32px, 4.6vw, 64px);
+  font-weight: 360;
+  letter-spacing: -0.07em;
+  line-height: 0.76;
+}
+
+.hambone-stage-heading small {
+  display: block;
+  margin-top: 12px;
+  color: rgba(154, 142, 147, 0.8);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hambone-stage-hint {
+  position: absolute;
+  z-index: 2;
+  right: 22px;
+  bottom: 16px;
+  margin: 0;
+  pointer-events: none;
+  color: rgba(255, 177, 93, 0.72);
+  font-size: 7px;
+  letter-spacing: 0.13em;
+  text-align: right;
+}
+
+.hambone-audio-error {
+  position: absolute;
+  z-index: 5;
+  right: 22px;
+  bottom: 38px;
+  max-width: min(420px, 68%);
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 111, 121, 0.52);
+  color: #ffc2c7;
+  background: rgba(31, 6, 12, 0.95);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+/* Sequencer */
+
+.hambone-sequencer {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid rgba(244, 238, 233, 0.08);
+  background:
+    linear-gradient(120deg, rgba(255, 111, 121, 0.05), transparent 48%),
+    #0a0709;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.hambone-sequencer-header {
+  display: grid;
+  min-width: 0;
+  min-height: 74px;
+  border-bottom: 1px solid rgba(244, 238, 233, 0.09);
+  grid-template-columns: 198px minmax(160px, 1fr) minmax(130px, 170px) 68px 62px minmax(116px, 150px) minmax(116px, 150px);
+  align-items: stretch;
+}
+
+.hambone-transport {
+  display: grid;
+  border-right: 1px solid rgba(244, 238, 233, 0.1);
+  grid-template-columns: minmax(126px, 1fr) 68px;
+}
+
+.hambone-transport button {
+  display: grid;
+  min-width: 0;
+  padding: 9px 11px;
+  cursor: pointer;
+  color: var(--hambone-muted);
+  background: transparent;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+}
+
+.hambone-transport button + button {
+  border-left: 1px solid rgba(244, 238, 233, 0.08);
+}
+
+.hambone-transport button:hover,
+.hambone-transport button:focus-visible {
+  color: var(--hambone-bone);
+  background: rgba(255, 111, 121, 0.06);
+  outline: 1px solid var(--hambone-coral);
+  outline-offset: -3px;
+}
+
+.hambone-transport button b,
+.hambone-transport button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hambone-transport button b {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.hambone-transport button small {
+  margin-top: 2px;
+  color: var(--hambone-muted);
+  font-size: 7px;
+}
+
+.hambone-play-glyph {
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 11px solid currentColor;
+}
+
+#playButton[aria-pressed="true"] {
+  color: #08100d;
+  background: var(--hambone-mint);
+}
+
+#playButton[aria-pressed="true"] .hambone-play-glyph {
+  width: 11px;
+  height: 14px;
+  border: 0;
+  border-right: 3px solid currentColor;
+  border-left: 3px solid currentColor;
+}
+
+#playButton[aria-pressed="true"] small {
+  color: rgba(8, 16, 13, 0.62);
+}
+
+.hambone-sequence-title {
+  display: grid;
+  min-width: 0;
+  padding: 11px 16px;
+  align-content: center;
+}
+
+.hambone-sequence-title p,
+.hambone-sequence-title h2 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hambone-sequence-title p {
+  color: var(--hambone-coral);
+  font-size: 6px;
+  letter-spacing: 0.16em;
+}
+
+.hambone-sequence-title h2 {
+  margin-top: 4px;
+  color: var(--hambone-bone);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.hambone-pattern-select,
+.hambone-mini-control {
+  display: grid;
+  min-width: 0;
+  padding: 9px 10px;
+  border-left: 1px solid rgba(244, 238, 233, 0.08);
+  align-content: center;
+  gap: 5px;
+}
+
+.hambone-pattern-select > span,
+.hambone-mini-control > span {
+  display: flex;
+  color: var(--hambone-muted);
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 7px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.hambone-pattern-select select {
+  width: 100%;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid rgba(255, 111, 121, 0.22);
+  border-radius: 0;
+  color: var(--hambone-bone);
+  background: #080507;
+  font-size: 8px;
+}
+
+.hambone-mini-control input[type="range"] {
+  height: 22px;
+}
+
+.hambone-mini-control output {
+  color: var(--hambone-bone);
+  font-variant-numeric: tabular-nums;
+}
+
+.hambone-sequence-action {
+  display: grid;
+  min-width: 0;
+  padding: 8px 7px;
+  border-left: 1px solid rgba(244, 238, 233, 0.08);
+  cursor: pointer;
+  color: var(--hambone-muted);
+  background: transparent;
+  place-content: center;
+  text-align: center;
+}
+
+.hambone-sequence-action b,
+.hambone-sequence-action small {
+  display: block;
+}
+
+.hambone-sequence-action b {
+  color: var(--hambone-bone);
+  font-size: 8px;
+}
+
+.hambone-sequence-action small {
+  margin-top: 2px;
+  font-size: 6px;
+}
+
+.hambone-sequence-action:hover,
+.hambone-sequence-action:focus-visible {
+  color: var(--hambone-coral);
+  background: rgba(255, 111, 121, 0.06);
+  outline: 1px solid var(--hambone-coral);
+  outline-offset: -3px;
+}
+
+.hambone-grid-scroll {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px 11px;
+  scrollbar-color: rgba(255, 111, 121, 0.35) transparent;
+  scrollbar-width: thin;
+}
+
+.hambone-one-mouth-rule {
+  display: flex;
+  min-height: 18px;
+  margin: 0 0 6px;
+  color: rgba(154, 142, 147, 0.78);
+  align-items: center;
+  gap: 9px;
+  font-size: 6px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.hambone-one-mouth-rule b {
+  padding: 3px 6px;
+  border: 1px solid rgba(124, 231, 189, 0.42);
+  color: var(--hambone-mint);
+  font-size: 6px;
+  letter-spacing: 0.14em;
+}
+
+.hambone-sequence-grid {
+  display: grid;
+  min-width: 720px;
+  min-height: calc(100% - 24px);
+  grid-template-columns: 104px repeat(16, minmax(32px, 1fr));
+  grid-template-rows: 18px repeat(8, minmax(24px, 1fr));
+  gap: 3px;
+}
+
+.hambone-grid-corner,
+.hambone-step-number {
+  display: grid;
+  color: rgba(154, 142, 147, 0.64);
+  place-items: center;
+  font-size: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hambone-step-number:nth-child(4n + 2) {
+  color: var(--hambone-bone);
+}
+
+.hambone-row-trigger {
+  display: grid;
+  min-width: 0;
+  padding: 0 8px;
+  border-left: 2px solid var(--row-color);
+  cursor: pointer;
+  color: var(--hambone-muted);
+  background: color-mix(in oklab, var(--row-color) 6%, #0b080a);
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+  text-align: left;
+}
+
+.hambone-row-trigger b,
+.hambone-row-trigger small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hambone-row-trigger b {
+  color: var(--row-color);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.hambone-row-trigger small {
+  font-size: 6px;
+}
+
+.hambone-row-trigger:hover,
+.hambone-row-trigger:focus-visible,
+.hambone-row-trigger.is-hit {
+  color: var(--hambone-bone);
+  background: color-mix(in oklab, var(--row-color) 19%, #0b080a);
+  outline: 1px solid var(--row-color);
+  outline-offset: -2px;
+}
+
+.hambone-step-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 24px;
+  border: 1px solid rgba(244, 238, 233, 0.1);
+  cursor: pointer;
+  color: var(--row-color);
+  background: rgba(244, 238, 233, 0.018);
+}
+
+.hambone-step-cell:nth-of-type(4n + 1) {
+  border-left-color: rgba(244, 238, 233, 0.3);
+}
+
+.hambone-step-cell::before {
+  position: absolute;
+  right: 18%;
+  bottom: 20%;
+  left: 18%;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 0 8px color-mix(in oklab, currentColor 45%, transparent);
+  content: "";
+  opacity: 0;
+  transform-origin: bottom;
+}
+
+.hambone-step-cell[data-level="1"]::before {
+  opacity: 0.42;
+  transform: scaleY(1);
+}
+
+.hambone-step-cell[data-level="2"]::before {
+  height: 34%;
+  opacity: 0.7;
+}
+
+.hambone-step-cell[data-level="3"]::before {
+  top: 18%;
+  height: auto;
+  opacity: 1;
+}
+
+.hambone-step-cell[data-level]:not([data-level="0"]) {
+  border-color: color-mix(in oklab, var(--row-color) 54%, transparent);
+  background: color-mix(in oklab, var(--row-color) 12%, transparent);
+}
+
+.hambone-step-cell.is-current {
+  box-shadow:
+    inset 0 0 0 1px var(--hambone-bone),
+    0 0 9px rgba(244, 238, 233, 0.16);
+}
+
+.hambone-step-cell:hover,
+.hambone-step-cell:focus-visible {
+  border-color: var(--row-color);
+  outline: 1px solid var(--row-color);
+  outline-offset: 1px;
+}
+
+/* Control panel */
+
+.hambone-panel {
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(115deg, rgba(255, 111, 121, 0.035), transparent 46%),
+    #0c090b;
+}
+
+.hambone-preset-deck {
+  display: grid;
+  padding: 13px 15px;
+  border-bottom: 1px solid rgba(255, 111, 121, 0.2);
+  background: linear-gradient(135deg, rgba(255, 111, 121, 0.09), transparent 58%);
+  gap: 8px;
+}
+
+.hambone-preset-deck > label {
+  display: grid;
+  gap: 5px;
+}
+
+.hambone-preset-deck > label > span {
+  color: var(--hambone-muted);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hambone-preset-deck select {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 111, 121, 0.28);
+  border-radius: 0;
+  color: var(--hambone-bone);
+  background: #080507;
+  font: 600 9px/1 var(--mono);
+}
+
+.hambone-preset-deck p {
+  min-height: 2.6em;
+  margin: 0;
+  color: var(--hambone-muted);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.hambone-preset-deck button {
+  display: grid;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 111, 121, 0.28);
+  cursor: pointer;
+  color: var(--hambone-coral);
+  background: rgba(255, 111, 121, 0.045);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+}
+
+.hambone-preset-deck button:hover,
+.hambone-preset-deck button:focus-visible {
+  color: #16080b;
+  background: var(--hambone-coral);
+}
+
+.hambone-preset-deck button b,
+.hambone-preset-deck button small {
+  display: block;
+}
+
+.hambone-preset-deck button b {
+  font-size: 9px;
+}
+
+.hambone-preset-deck button small {
+  margin-top: 2px;
+  color: var(--hambone-muted);
+  font-size: 7px;
+}
+
+.hambone-preset-deck button:hover small {
+  color: rgba(22, 8, 11, 0.64);
+}
+
+.hambone-pad-bank {
+  display: grid;
+  padding: 8px;
+  border-bottom: 1px solid rgba(244, 238, 233, 0.1);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.hambone-pad-bank button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 48px;
+  padding: 7px 19px 7px 8px;
+  border: 1px solid color-mix(in oklab, var(--pad-color) 35%, transparent);
+  cursor: pointer;
+  color: var(--hambone-muted);
+  background: color-mix(in oklab, var(--pad-color) 5%, #080507);
+  align-content: center;
+  text-align: left;
+}
+
+.hambone-pad-bank button b,
+.hambone-pad-bank button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hambone-pad-bank button b {
+  color: var(--pad-color);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+
+.hambone-pad-bank button small {
+  margin-top: 2px;
+  font-size: 6px;
+}
+
+.hambone-pad-bank kbd {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  color: rgba(244, 238, 233, 0.36);
+  font: 6px/1 var(--mono);
+}
+
+.hambone-pad-bank button:hover,
+.hambone-pad-bank button:focus-visible,
+.hambone-pad-bank button.is-hit {
+  color: var(--hambone-bone);
+  background: color-mix(in oklab, var(--pad-color) 18%, #080507);
+  box-shadow: inset 0 0 0 1px var(--pad-color), 0 0 12px color-mix(in oklab, var(--pad-color) 20%, transparent);
+  outline: none;
+}
+
+.hambone-model-hud {
+  display: grid;
+  border-bottom: 1px solid rgba(244, 238, 233, 0.1);
+  background: #080507;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hambone-model-hud span {
+  display: grid;
+  min-width: 0;
+  min-height: 45px;
+  padding: 7px 10px;
+  border-right: 1px solid rgba(244, 238, 233, 0.07);
+  border-bottom: 1px solid rgba(244, 238, 233, 0.07);
+  align-content: center;
+  gap: 2px;
+}
+
+.hambone-model-hud span:last-child {
+  grid-column: 1 / -1;
+}
+
+.hambone-model-hud small,
+.hambone-model-hud output {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hambone-model-hud small {
+  color: var(--hambone-muted);
+  font-size: 6px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hambone-model-hud output {
+  color: var(--hambone-bone);
+  font-size: 9px;
+}
+
+.hambone-page .control-section[data-section="sound"] {
+  --accent: var(--hambone-coral);
+  --accent-glow: color-mix(in oklab, var(--hambone-coral) 18%, transparent);
+}
+
+.hambone-page .control-section[data-section="form"] {
+  --accent: var(--hambone-yellow);
+  --accent-glow: color-mix(in oklab, var(--hambone-yellow) 17%, transparent);
+}
+
+.hambone-page .control-section[data-section="mapping"] {
+  --accent: var(--hambone-cyan);
+  --accent-glow: color-mix(in oklab, var(--hambone-cyan) 17%, transparent);
+}
+
+.hambone-page .control-section[data-section="output"] {
+  --accent: var(--hambone-violet);
+  --accent-glow: color-mix(in oklab, var(--hambone-violet) 17%, transparent);
+}
+
+.hambone-page .group-summary {
+  min-height: 48px;
+  padding-right: 16px;
+  padding-left: 16px;
+}
+
+.hambone-page .group-body {
+  padding: 13px 16px 7px;
+}
+
+.hambone-page .control {
+  margin-bottom: 10px;
+}
+
+.hambone-page .control small {
+  color: var(--hambone-muted);
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.hambone-model-notes p {
+  margin: 0 0 9px;
+  color: var(--hambone-muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.hambone-model-notes b {
+  color: var(--hambone-bone);
+}
+
+.hambone-reset {
+  width: calc(100% - 30px);
+  min-height: 42px;
+  margin: 15px;
+  border: 1px solid rgba(255, 111, 121, 0.25);
+  cursor: pointer;
+  color: var(--hambone-muted);
+  background: transparent;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hambone-reset:hover,
+.hambone-reset:focus-visible {
+  border-color: var(--hambone-coral);
+  color: #16080b;
+  background: var(--hambone-coral);
+}
+
+@media (max-width: 1500px) {
+  .hambone-sequencer-header {
+    grid-template-columns: 182px minmax(130px, 1fr) minmax(120px, 150px) 62px 58px minmax(105px, 126px) minmax(105px, 126px);
+  }
+
+  .hambone-sequence-title {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+}
+
+@media (max-width: 1250px) {
+  .hambone-shell {
+    grid-template-columns: minmax(0, 1fr) 350px;
+  }
+
+  .hambone-sequencer-header {
+    grid-template-columns: 178px minmax(125px, 1fr) minmax(120px, 145px) 58px 54px;
+    grid-template-rows: 66px 52px;
+  }
+
+  .hambone-mini-control {
+    grid-row: 2;
+  }
+
+  .hambone-mini-control[for="tempo"] {
+    grid-column: 1 / 4;
+  }
+
+  .hambone-mini-control[for="swing"] {
+    grid-column: 4 / -1;
+  }
+
+  .hambone-workspace {
+    grid-template-rows: minmax(280px, 1fr) clamp(300px, 35dvh, 356px);
+  }
+}
+
+@media (max-width: 960px) {
+  .hambone-page {
+    height: 100dvh;
+    overflow-y: auto;
+  }
+
+  .hambone-page .masthead {
+    position: sticky;
+    z-index: 70;
+    top: 0;
+  }
+
+  .hambone-shell {
+    display: block;
+    height: auto;
+    min-height: calc(100dvh - 58px);
+    overflow: visible;
+  }
+
+  .hambone-workspace {
+    display: grid;
+    height: auto;
+    min-height: 770px;
+    overflow: visible;
+    grid-template-rows: clamp(360px, 54dvh, 520px) 360px;
+  }
+
+  .hambone-stage {
+    min-height: 0;
+    border-right: 0;
+  }
+
+  .hambone-sequencer {
+    border-right: 0;
+  }
+
+  .hambone-panel {
+    min-height: 0;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    overflow: visible;
+  }
+}
+
+@media (max-width: 680px) {
+  .hambone-page .masthead {
+    height: 54px;
+  }
+
+  .hambone-shell {
+    min-height: calc(100dvh - 54px);
+  }
+
+  .hambone-workspace {
+    min-height: 806px;
+    grid-template-rows: 370px 436px;
+  }
+
+  .hambone-stage-heading {
+    top: 18px;
+    left: 16px;
+  }
+
+  .hambone-stage-heading p,
+  .hambone-stage-heading small {
+    max-width: 170px;
+    line-height: 1.45;
+  }
+
+  .hambone-stage-heading small,
+  .hambone-stage-hint {
+    display: none;
+  }
+
+  .hambone-sequencer-header {
+    min-height: 158px;
+    grid-template-columns: minmax(170px, 1fr) 88px 72px;
+    grid-template-rows: 68px 44px 46px;
+  }
+
+  .hambone-transport {
+    grid-column: 1 / -1;
+  }
+
+  .hambone-sequence-title {
+    display: none;
+  }
+
+  .hambone-pattern-select {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .hambone-sequence-action {
+    grid-row: 2;
+  }
+
+  .hambone-mini-control[for="tempo"] {
+    grid-column: 1 / 3;
+    grid-row: 3;
+  }
+
+  .hambone-mini-control[for="swing"] {
+    grid-column: 3;
+    grid-row: 3;
+  }
+
+  .hambone-sequence-grid {
+    min-width: 790px;
+    grid-template-columns: 100px repeat(16, 40px);
+  }
+
+  .hambone-step-cell {
+    min-height: 30px;
+  }
+
+  .hambone-pad-bank {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hambone-pad-bank button {
+    min-height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hambone-step-cell,
+  .hambone-pad-bank button,
+  .hambone-transport button {
+    transition: none;
+  }
+}

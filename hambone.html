@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#080507" />
+    <meta
+      name="description"
+      content="Hambone is a monophonic, shape-shifting face-percussion and beatbox physical model with an editable 16-step sequencer for Morphazoid."
+    />
+    <title>Hambone · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="hambone.css?v=hambone-20260829-3" />
+  </head>
+  <body class="hambone-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="syrinx.html">syrinx</a>
+        <a class="tab" href="jaw-harp.html">jaw harp</a>
+        <a class="tab active" href="hambone.html" aria-current="page">hambone</a>
+        <a class="tab" href="breath-atlas.html">breath atlas</a>
+        <a class="tab" href="drum-roll-please.html">drum roll</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="syrinx.html">syrinx</option>
+          <option value="jaw-harp.html">jaw harp</option>
+          <option value="hambone.html" selected>hambone</option>
+          <option value="breath-atlas.html">breath atlas</option>
+          <option value="drum-roll-please.html">drum roll</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">50%</output></span>
+          <input id="level" aria-label="Hambone output level" type="range" min="0" max="0.82" step="0.01" value="0.5" />
+        </label>
+      </div>
+    </header>
+
+    <main class="hambone-shell" id="hambone">
+      <div class="hambone-workspace">
+        <section class="hambone-stage" aria-label="Interactive monophonic face percussion physical model">
+          <div class="hambone-stage-wrap" id="stageWrap">
+            <canvas
+              id="stage"
+              tabindex="0"
+              aria-label="One elastic clown-like beatbox face with one oversized mouth. Tap a labeled zone to move that single mouth into one of eight sound poses. Drag the colored anatomy nodes beyond human ranges to mutate the face."
+              aria-describedby="canvasInstructions liveStatus"
+            >
+              A playable crazed-clown face with pressure, lips, cheeks, tongue, oral and nasal waveguides, and face percussion.
+            </canvas>
+
+            <div class="hambone-stage-heading" aria-hidden="true">
+              <p>ONE FACE × ONE MOUTH × ONE SOUND AT A TIME</p>
+              <h1>HAM<br />BONE</h1>
+              <small>crazed clown beatbox / tap a pose / warp the anatomy</small>
+            </div>
+            <p class="hambone-stage-hint" aria-hidden="true">
+              TAP A SOUND POSE · WATCH ONE MOUTH MORPH · DRAG PAST HUMAN LIMITS
+            </p>
+            <p class="hambone-audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </section>
+
+        <section class="hambone-sequencer" aria-labelledby="sequencerTitle">
+          <header class="hambone-sequencer-header">
+            <div class="hambone-transport">
+              <button id="playButton" type="button" aria-pressed="false" data-primary-transport>
+                <span class="hambone-play-glyph" aria-hidden="true"></span>
+                <span><b id="playLabel">Play mouth</b><small id="playState">space · 16 steps</small></span>
+              </button>
+              <button id="restartButton" type="button" title="Restart at step 1">
+                <span aria-hidden="true">↤</span><span><b>First</b><small>step 1</small></span>
+              </button>
+            </div>
+
+            <div class="hambone-sequence-title">
+              <p>MONOPHONIC · ONE SOUND PER STEP</p>
+              <h2 id="sequencerTitle">Shape-shift the mouth</h2>
+            </div>
+
+            <label class="hambone-pattern-select" for="patternSelect">
+              <span>Pattern</span>
+              <select id="patternSelect" aria-label="Hambone sequence pattern"></select>
+            </label>
+            <button class="hambone-sequence-action" id="randomPatternButton" type="button">
+              <b>Scatter</b><small>new beat</small>
+            </button>
+            <button class="hambone-sequence-action" id="clearPatternButton" type="button">
+              <b>Clear</b><small>blank grid</small>
+            </button>
+
+            <label class="hambone-mini-control" for="tempo">
+              <span><b>Tempo</b><output id="tempoOut" for="tempo">118 BPM</output></span>
+              <input id="tempo" name="tempo" type="range" min="48" max="260" step="1" value="118" />
+            </label>
+            <label class="hambone-mini-control" for="swing">
+              <span><b>Swing</b><output id="swingOut" for="swing">10%</output></span>
+              <input id="swing" type="range" min="0" max="0.46" step="0.01" value="0.1" />
+            </label>
+          </header>
+
+          <div class="hambone-grid-scroll" tabindex="0" aria-label="Scrollable step sequence">
+            <p class="hambone-one-mouth-rule">
+              <b>ONE MOUTH</b><span>Each column holds one pose. A new light switches the old one off.</span>
+            </p>
+            <div
+              class="hambone-sequence-grid"
+              id="sequenceGrid"
+              role="grid"
+              aria-label="Eight Hambone mouth poses by sixteen sequence steps. Only one pose can occupy each step. Activating a sound replaces any other sound in that column."
+              aria-rowcount="8"
+              aria-colcount="16"
+            ></div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="panel hambone-panel" aria-label="Hambone controls">
+        <section class="hambone-preset-deck" aria-label="Mutable mouth preset">
+          <label for="presetSelect">
+            <span>One mutable mouth</span>
+            <select id="presetSelect" aria-label="Hambone physical preset"></select>
+          </label>
+          <p id="presetDescription">A lively human beatbox mouth with enough elastic travel to push its anatomy into gleefully impossible shapes.</p>
+          <button id="randomizeButton" type="button">
+            <span aria-hidden="true">✦</span>
+            <span><b>Mutate this mouth</b><small>human-ish to cheerfully impossible</small></span>
+          </button>
+        </section>
+
+        <section class="hambone-pad-bank" id="padGrid" aria-label="Playable Hambone sound pads">
+          <button type="button" data-pad-index="0" data-sound-id="bop"><b>BOP</b><small>lip burst</small><kbd>1</kbd></button>
+          <button type="button" data-pad-index="1" data-sound-id="boop"><b>BOOP</b><small>round tube</small><kbd>2</kbd></button>
+          <button type="button" data-pad-index="2" data-sound-id="pop"><b>POP</b><small>cheek</small><kbd>3</kbd></button>
+          <button type="button" data-pad-index="3" data-sound-id="tlik"><b>TLIK</b><small>tongue</small><kbd>4</kbd></button>
+          <button type="button" data-pad-index="4" data-sound-id="shh"><b>PHSHSHK</b><small>air + teeth + k</small><kbd>5</kbd></button>
+          <button type="button" data-pad-index="5" data-sound-id="shack"><b>SHACK!</b><small>back release</small><kbd>6</kbd></button>
+          <button type="button" data-pad-index="6" data-sound-id="slap"><b>SLAP</b><small>membrane</small><kbd>7</kbd></button>
+          <button type="button" data-pad-index="7" data-sound-id="pff"><b>PFF</b><small>lip flutter</small><kbd>8</kbd></button>
+        </section>
+
+        <div class="hambone-model-hud" aria-live="polite">
+          <span><small>Current mouth pose</small><output id="soundReadout">ready to morph</output></span>
+          <span><small>Cheek cavity</small><output id="cavityReadout">94 ml · 205 Hz</output></span>
+          <span><small>Oral tract</small><output id="tractReadout">16.5 cm</output></span>
+          <span><small>Pressure</small><output id="pressureReadout">82%</output></span>
+          <span><small>Mouth mechanism</small><output id="voicesReadout">1 · ready</output></span>
+        </div>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Lips &amp; lungs</h2>
+            <span class="section-state" id="pressureSummary">82% pressure · loose lips</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="lungPressure">
+              <span><b>Stored air pressure</b><output id="lungPressureOut" for="lungPressure">82%</output></span>
+              <input id="lungPressure" type="range" min="0" max="1.6" step="0.01" value="0.82" />
+              <small>Pressure accumulates behind the one active lip or tongue closure before its release.</small>
+            </label>
+            <label class="control" for="lipTension">
+              <span><b>Lip tension</b><output id="lipTensionOut" for="lipTension">46%</output></span>
+              <input id="lipTension" type="range" min="-0.35" max="1.65" step="0.01" value="0.46" />
+              <small>Moves from soft human raspberry flaps into physically impossible tight snaps.</small>
+            </label>
+            <label class="control" for="lipRounding">
+              <span><b>Lip projection</b><output id="lipRoundingOut" for="lipRounding">38%</output></span>
+              <input id="lipRounding" type="range" min="-0.45" max="1.8" step="0.01" value="0.38" />
+              <small>Projects the same pair of lips from a human pout into a cartoon-length outlet tube.</small>
+            </label>
+            <label class="control" for="mouthOpening">
+              <span><b>Mouth aperture</b><output id="mouthOpeningOut" for="mouthOpening">48%</output></span>
+              <input id="mouthOpening" type="range" min="0.01" max="1.85" step="0.01" value="0.48" />
+              <small>Moves the single mouth from sealed contact to an overextended open-jaw shape.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Cheeks &amp; tongue</h2>
+            <span class="section-state" id="faceSummary">64% puff · 42% skin</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="cheekVolume">
+              <span><b>Cheek volume</b><output id="cheekVolumeOut" for="cheekVolume">64%</output></span>
+              <input id="cheekVolume" type="range" min="-0.4" max="2" step="0.01" value="0.64" />
+              <small>Deflates or overinflates the same cheeks far beyond ordinary human volume.</small>
+            </label>
+            <label class="control" for="cheekTension">
+              <span><b>Face membrane tension</b><output id="cheekTensionOut" for="cheekTension">42%</output></span>
+              <input id="cheekTension" type="range" min="-0.35" max="1.7" step="0.01" value="0.42" />
+              <small>Changes the compliant cheek pocket that couples SLAP and POP into the same oral air column.</small>
+            </label>
+            <label class="control" for="tonguePosition">
+              <span><b>Tongue front / back</b><output id="tonguePositionOut" for="tonguePosition">58% front</output></span>
+              <input id="tonguePosition" type="range" min="-0.65" max="1.65" step="0.01" value="0.58" />
+              <small>Moves the constriction from the rear release toward teeth and lips.</small>
+            </label>
+            <label class="control" for="tongueCurl">
+              <span><b>Tongue curl / groove</b><output id="tongueCurlOut" for="tongueCurl">40%</output></span>
+              <input id="tongueCurl" type="range" min="-0.7" max="1.8" step="0.01" value="0.4" />
+              <small>Moves from a shallow human groove into the sharp PHSHSHK channel and tongue flick.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Cavities &amp; character</h2>
+            <span class="section-state" id="cavitySummary">16.5 cm · mostly oral</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="tractLengthM">
+              <span><b>Tract length</b><output id="tractLengthMOut" for="tractLengthM">16.5 cm</output></span>
+              <input id="tractLengthM" type="range" min="0.035" max="0.52" step="0.001" value="0.165" />
+              <small>Changes the real propagation length from about ten tube sections to nearly one hundred and fifty.</small>
+            </label>
+            <label class="control" for="nasalMix">
+              <span><b>Nasal leak</b><output id="nasalMixOut" for="nasalMix">14%</output></span>
+              <input id="nasalMix" type="range" min="0" max="1" step="0.01" value="0.14" />
+              <small>Opens a velum-coupled nasal waveguide with its own poles and oral antiresonances.</small>
+            </label>
+            <label class="control" for="silliness">
+              <span><b>Anatomy warp</b><output id="sillinessOut" for="silliness">56%</output></span>
+              <input id="silliness" type="range" min="0" max="1" step="0.01" value="0.56" />
+              <small>Pushes wobble, vocal bends, and visible face deformation past human anatomy.</small>
+            </label>
+            <label class="control" for="decay">
+              <span><b>Body decay</b><output id="decayOut" for="decay">92%</output></span>
+              <input id="decay" type="range" min="0.35" max="1.8" step="0.01" value="0.92" />
+              <small>Scales every pressure, air-jet, and membrane tail together.</small>
+            </label>
+            <label class="control" for="humanize">
+              <span><b>Sequence looseness</b><output id="humanizeOut" for="humanize">6%</output></span>
+              <input id="humanize" type="range" min="0" max="0.45" step="0.01" value="0.06" />
+              <small>Adds bounded microtiming and velocity motion without changing the grid.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section hambone-model-notes" data-section="output">
+          <summary class="group-summary">
+            <h2 class="group-title">What is physical here?</h2>
+            <span class="section-state">1 mouth · 8 sequential poses</span>
+          </summary>
+          <div class="group-body">
+            <p><b>One tract</b> resamples Pink Trombone / Throatazoid's 44-point mouth geometry into a continuously moving, variable-length oral waveguide. Its travelling air waves persist as every new gesture reshapes that same mouth.</p>
+            <p><b>BOP / BOOP</b> seal the lips, store pressure, then release it into different tongue and lip shapes.</p>
+            <p><b>POP / TLIK</b> use signed cheek or tongue-pocket suction, with TLIK releasing its front and rear contacts in sequence.</p>
+            <p><b>PHSHSHK / SHACK</b> move the tongue between lip, postalveolar, open-jaw, and velar phases; turbulence is injected where the constriction actually is.</p>
+            <p><b>SLAP / PFF</b> drive the oral tract through a compliant cheek side cavity or a pressure-feedback lip valve.</p>
+          </div>
+        </details>
+
+        <button class="hambone-reset" id="resetButton" type="button">Reset face &amp; pattern</button>
+      </aside>
+    </main>
+
+    <p class="sr-only" id="canvasInstructions">
+      Tap a labeled face zone or use keys 1 through 8 to play one mouth. Each new sound replaces the
+      previous pose and the face morphs between them; sounds never layer. Drag colored nodes to alter
+      cheeks, lips, tongue, mouth opening, and tract length beyond human ranges. In the sixteen-step
+      grid, each column holds at most one sound; selecting another row replaces that step's old sound.
+    </p>
+    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+
+    <script type="module" src="nav.js?v=catalog-20260829-1"></script>
+    <script type="module" src="hambone-app.js?v=hambone-20260829-5"></script>
+  </body>
+</html>

@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   SHADER_PLAYGROUND_LIMITS,
+  SHADER_PLAYGROUND_LAYOUT_DEFAULTS,
   SHADER_PLAYGROUND_COMBOS,
   SHADER_PLAYGROUND_MODULES,
   SHADER_PLAYGROUND_PRESETS,
@@ -39,6 +40,11 @@ import {
 import {
   SHADER_SYNTH_PLAYGROUND_FOUND_HELPERS,
 } from "../src/shader-synth-playground-found-sounds.js";
+import {
+  SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES,
+  SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS,
+  SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES,
+} from "../src/shader-synth-playground-geometry.js";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -56,7 +62,7 @@ function evaluatorCase(kind) {
 }
 
 test("the playground registry exposes bounded typed modules with educational metadata", () => {
-  assert.ok(SHADER_PLAYGROUND_MODULES.length >= 68);
+  assert.ok(SHADER_PLAYGROUND_MODULES.length >= 83);
   assert.equal(new Set(SHADER_PLAYGROUND_MODULES.map(({ id }) => id)).size, SHADER_PLAYGROUND_MODULES.length);
   assert.equal(new Set(SHADER_PLAYGROUND_MODULES.map(({ kind }) => kind)).size, SHADER_PLAYGROUND_MODULES.length);
   assert.ok(SHADER_PLAYGROUND_MODULES.some(({ id }) => id === "fm"));
@@ -71,6 +77,10 @@ test("the playground registry exposes bounded typed modules with educational met
     "bitmask-rhythm", "morph-crossfade", "harmonic-exciter", "cv-curve-mapper",
     "flanger", "chorus", "doppler-sweep", "fft-robotizer", "spectral-gate", "vibrato",
     "shepard-risset-spiral", "procedural-bird-flock", "thunder-impact-cell",
+    "mirror-fold-sequencer", "sdf-orbit-sequencer", "polar-kaleidoscope-sequencer",
+    "voronoi-cell-sequencer", "truchet-path-sequencer", "kifs-fold-sequencer",
+    "interference-lattice-sequencer", "phase-plane", "tile-mirror-domain", "polar-fold-domain",
+    "sdf-pattern-field", "sdf-logic", "interference-field", "voronoi-event-field", "truchet-router",
   ];
   assert.deepEqual(
     extendedPlayableModules.filter((id) => !SHADER_PLAYGROUND_MODULES.some((module) => module.id === id)),
@@ -105,6 +115,78 @@ test("the graph utility expansion owns unique evaluator cases 66 through 68", ()
     assert.equal([...SHADER_SYNTH_PLAYGROUND_EXTRA_CASES.matchAll(new RegExp(`case ${kind}u:`, "g"))].length, 1);
     assert.match(SHADER_PLAYGROUND_SHADER, new RegExp(`case ${kind}u:`));
   }
+});
+
+test("geometry modules own kinds 69 through 83 and preserve composable X/Y or field/gate outputs", () => {
+  const expectedIds = [
+    "mirror-fold-sequencer", "sdf-orbit-sequencer", "polar-kaleidoscope-sequencer",
+    "voronoi-cell-sequencer", "truchet-path-sequencer", "kifs-fold-sequencer",
+    "interference-lattice-sequencer", "phase-plane", "tile-mirror-domain", "polar-fold-domain",
+    "sdf-pattern-field", "sdf-logic", "interference-field", "voronoi-event-field", "truchet-router",
+  ];
+  assert.deepEqual(SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES.map(({ id }) => id), expectedIds);
+  assert.deepEqual(SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES.map(({ kind }) => kind), Array.from({ length: 15 }, (_, index) => 69 + index));
+
+  for (const module of SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES) {
+    assert.equal([...SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES.matchAll(new RegExp(`case ${module.kind}u:`, "g"))].length, 1);
+    assert.match(module.shaderSource?.url ?? "", /^https:\/\/(?:www\.)?(?:shadertoy\.com|thebookofshaders\.com)\//);
+    assert.equal(module.outputs.length, 2);
+    assert.equal(module.outputs[1].component, "y", `${module.id} must expose the packed Y output independently`);
+    assert.equal(module.outputs.every(({ type }) => type === "control"), true);
+    assert.equal(module.params.length <= 8, true);
+  }
+
+  for (const module of SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES.slice(0, 7)) {
+    assert.deepEqual(module.outputs.map(({ id }) => id), ["pitch", "gate"]);
+    assert.equal(module.auditionKind, "pitch-gate");
+  }
+  assert.deepEqual(
+    SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES.slice(7, 10).map(({ outputs }) => outputs.map(({ id }) => id)),
+    [["x", "y"], ["x", "y"], ["x", "y"]],
+  );
+  assert.equal(
+    SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES.slice(10).every(({ outputs }) => outputs[1].id === "gate"),
+    true,
+  );
+});
+
+test("geometric event fields use absolute time, bounded work, and explicit click-safe contour edges", () => {
+  assert.doesNotMatch(SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES, /\bfwidth\s*\(/, "fragment derivatives are not valid in the compute pass");
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES, /phaseAtSample\(sampleIndex, baseRate \* ratio\)/);
+  assert.match(evaluatorCase(78), /if \(radius > 0\.04\)/);
+  assert.match(evaluatorCase(78), /angularStability = smoothstep\(0\.04, 0\.24, radius\)/);
+  assert.doesNotMatch(evaluatorCase(70), /phase >= 0\.5/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES, /extraStepCoordinates\(sampleIndex,/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES, /smoothstep\(band, band \+ softness, abs\(distance\)\)/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES, /for \(var axis = 0u; axis < 12u;/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES, /for \(var y: i32 = -1; y <= 1;/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS, /fn geometrySmoothMin/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS, /fn geometrySmoothMax/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS, /fn geometryShapeSize/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS, /fn geometryWrappedTurns/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS, /fn geometryCellIdentity/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS, /bitcast<u32>\(cell\.x\)/);
+});
+
+test("the coordinate-field scene visibly wires packed X/Y through geometric processors", () => {
+  const combo = SHADER_PLAYGROUND_COMBOS.find(({ id }) => id === "combo-228-folded-coordinate-weather");
+  assert.ok(combo);
+  const patch = createShaderPlaygroundCombo(combo.id);
+  assert.equal(patch.nodes.length, 14);
+  assert.equal(patch.connections.length, 22);
+  for (const type of ["phase-plane", "tile-mirror-domain", "polar-fold-domain", "sdf-pattern-field", "sdf-logic", "interference-field"]) {
+    assert.ok(patch.nodes.some((node) => node.type === type), `${type} should be visible in the composable geometry scene`);
+  }
+  const encoded = encodeShaderPlaygroundPatch(patch);
+  const tileOffset = encoded.order.indexOf("tiles") * 20;
+  assert.ok(encoded.data[tileOffset + 1] > 0, "X should use the packed vector's first component");
+  assert.ok(encoded.data[tileOffset + 2] < 0, "Y should use the packed vector's second component");
+  const unsafePitchSources = new Set(["logic", "moire"]);
+  assert.equal(
+    patch.connections.some(({ from, to }) => unsafePitchSources.has(from.node) && to.port === "pitch"),
+    false,
+    "continuous fields should use stateless phase/index modulation rather than t·f(t) pitch modulation",
+  );
 });
 
 test("every starter patch is a valid audible DAG and encodes into the fixed GPU buffer", () => {
@@ -199,8 +281,8 @@ test("the combination library provides at least 120 distinct, compact, audible g
 
   assert.equal(patchFingerprints.size, SHADER_PLAYGROUND_COMBOS.length);
   assert.ok(topologyFingerprints.size >= 40, "the library should contain substantially different graph architectures");
-  assert.equal(SHADER_PLAYGROUND_COMBOS.filter(({ collection }) => collection === "authored-scenes").length, 20);
-  assert.equal(authoredTopologyFingerprints.size, 20, "each authored scene needs its own graph topology");
+  assert.equal(SHADER_PLAYGROUND_COMBOS.filter(({ collection }) => collection === "authored-scenes").length, 28);
+  assert.equal(authoredTopologyFingerprints.size, 28, "each authored scene needs its own graph topology");
   assert.deepEqual([...moduleTypesUsed].sort(), SHADER_PLAYGROUND_MODULES.map(({ id }) => id).sort());
   const extendedComboCoverage = SHADER_PLAYGROUND_COMBOS.slice(108, 120);
   assert.equal(extendedComboCoverage.length, 12);
@@ -424,6 +506,9 @@ test("one module output can fan out to independent downstream inputs", () => {
 
 test("editor layout keeps Output at the right edge when graph rows wrap", () => {
   const patch = createShaderPlaygroundPatch("moving-drone");
+  const {
+    nodeWidth, nodeHeight, marginX,
+  } = SHADER_PLAYGROUND_LAYOUT_DEFAULTS;
   for (const width of [570, 710, 864]) {
     const layout = layoutShaderPlaygroundPatch(patch, { width, height: 640 });
     const positions = new Map(layout.map((position) => [position.id, position]));
@@ -432,18 +517,44 @@ test("editor layout keeps Output at the right edge when graph rows wrap", () => 
     const maximumX = Math.max(...layout.map(({ x }) => x));
 
     assert.equal(outputPosition.x, maximumX, `Output should be rightmost at ${width}px`);
-    assert.equal(outputPosition.x + 190, width - 28, `Output should meet the right layout margin at ${width}px`);
-    assert.ok(layout.every(({ x }) => x >= 28 && x + 190 <= width - 28));
+    assert.equal(outputPosition.x + nodeWidth, width - marginX, `Output should meet the right layout margin at ${width}px`);
+    assert.ok(layout.every(({ x }) => x >= marginX && x + nodeWidth <= width - marginX));
     for (let first = 0; first < layout.length; first += 1) {
       for (let second = first + 1; second < layout.length; second += 1) {
         const a = layout[first];
         const b = layout[second];
-        const overlaps = a.x < b.x + 190 && a.x + 190 > b.x
-          && a.y < b.y + 108 && a.y + 108 > b.y;
+        const overlaps = a.x < b.x + nodeWidth && a.x + nodeWidth > b.x
+          && a.y < b.y + nodeHeight && a.y + nodeHeight > b.y;
         assert.equal(overlaps, false, `${a.id} and ${b.id} should not overlap at ${width}px`);
       }
     }
   }
+});
+
+test("the graph editor shares a compact node footprint without shrinking touch targets", async () => {
+  assert.deepEqual(SHADER_PLAYGROUND_LAYOUT_DEFAULTS, {
+    nodeWidth: 150,
+    nodeHeight: 96,
+    gapX: 24,
+    gapY: 20,
+    marginX: 20,
+    marginTop: 52,
+    marginBottom: 20,
+  });
+
+  const [css, app, html] = await Promise.all([
+    readFile(new URL("shader-synth-playground.css", ROOT), "utf8"),
+    readFile(new URL("shader-synth-playground-app.js", ROOT), "utf8"),
+    readFile(new URL("shader-synth-playground.html", ROOT), "utf8"),
+  ]);
+  assert.match(css, /\.patch-node\s*\{[\s\S]*?width: 150px;[\s\S]*?min-height: 60px;[\s\S]*?border-radius: 7px;/);
+  assert.match(css, /\.node-header\s*\{[\s\S]*?min-height: 30px;[\s\S]*?padding: 5px 7px 4px;/);
+  assert.match(css, /\.node-port\s*\{[\s\S]*?min-height: 18px;/);
+  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.node-port[\s\S]*?min-height: 44px;/);
+  assert.match(css, /\.patch-node\.is-selected\s*\{[\s\S]*?border-color: var\(--node-color, var\(--accent\)\)/);
+  assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeWidth/);
+  assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeHeight/);
+  assert.match(html, /shader-synth-playground\.css\?v=20260829-compact-geometry-notes/);
 });
 
 test("three-way sum and product require and encode all three input slots", () => {
@@ -1599,7 +1710,20 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(html, /id="gpuChunkSampleCount">4,410 samples @ 44\.1 kHz<\/output>/);
   assert.match(html, /id="gpuLookaheadDuration">~300 ms queued<\/output>/);
   assert.doesNotMatch(`${app}\n${html}`, /createOscillator\s*\(/);
-  assert.match(html, /id="midiNoteState"[^>]*>Z–M · Q–U<\/dd>/);
+  assert.match(html, /id="performanceNotesTitle">Play notes<\/b>/);
+  assert.match(html, /id="performanceNoteButtons"[^>]*aria-label="Play notes from C3 to C4"/);
+  assert.match(html, /id="performanceOctaveDown"/);
+  assert.match(html, /id="performanceOctaveUp"/);
+  assert.match(html, /id="midiNoteState"[^>]*>C3<\/output>/);
+  assert.match(html, /id="performanceNoteHint">Click to start · MIDI on: Z–M \/ Q–U<\/p>/);
+  assert.match(html, /id="playgroundPlayLabel">Run patch<\/span>/);
+  assert.match(css, /\.performance-notes\s*\{/);
+  assert.match(css, /\.performance-note-buttons\s*\{[\s\S]*?grid-template-columns: repeat\(7,/);
+  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.performance-notes\s*\{[\s\S]*?width: 100%/);
+  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.performance-note,[\s\S]*?min-height: 44px/);
+  assert.match(app, /function renderPerformanceNoteButtons\(\)/);
+  assert.match(app, /async function auditionPerformanceNote\(note\)[\s\S]*?startAudio\(\{ play: true \}\)/);
+  assert.match(app, /performanceNoteButtons[\s\S]*?data-performance-note/);
   assert.match(app, /morphazoid:midi-input/);
   assert.match(app, /MIDI_PATCH_ROOT_NOTE = 48/);
   assert.match(app, /setPerformancePitch\?\.\(performancePitch, \{ refresh \}\)/);

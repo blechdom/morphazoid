@@ -6,7 +6,9 @@ const NOTE_MODE_IDS = Object.freeze({
     "lumber",
     "micmic",
     "graph-delay",
+    "micromorph",
     "slippery-resynthesis",
+    "moire-drone",
     "sandy-syrup-delay",
     "candy-coil-delay",
     "recursion",
@@ -19,7 +21,10 @@ const NOTE_MODE_IDS = Object.freeze({
     "rubix",
     "hyper-drums",
     "l-system-drums",
+    "graph-drums",
     "linear-drums-machine",
+    "hambone",
+    "wave-pool",
     "drum-roll-please",
     "ouroborousel",
     "ourorourobouroboros",
@@ -39,6 +44,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "spiral",
     "solid",
     "hyper",
+    "graph-synth",
     "image-to-instrument-3",
     "throatazoid",
     "syrinx",
@@ -46,6 +52,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "hybrinx",
     "blowhole",
     "jaw-harp",
+    "harmonica",
     "breath-atlas",
     "morphynx",
     "hyper-syrinx",
@@ -64,6 +71,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "plasma-ball",
     "karplus-strong",
     "karplus-carpet",
+    "surround-field",
     "webgpu-303",
     "moire-organ",
     "chladni-plate",
@@ -75,8 +83,11 @@ const NOTE_MODE_IDS = Object.freeze({
   ]),
   sequence: Object.freeze([
     "boidzoid",
+    "vector-flight",
     "pink-trombonazoid",
+    "colony-syrinx",
     "vocalzoid",
+    "sliding-puzzle",
     "hyper-rubix",
     "webgpu-synths",
     "shader-synth-playground",
@@ -133,6 +144,10 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "tongued-beasts",
   "blowhole",
   "jaw-harp",
+  "harmonica",
+  "hambone",
+  "wave-pool",
+  "colony-syrinx",
   "breath-atlas",
   "morphynx",
   "hyper-syrinx",
@@ -142,6 +157,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "micmic",
   "karplus-strong",
   "karplus-carpet",
+  "surround-field",
   "gesturama",
 ]);
 
@@ -150,12 +166,16 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
 // piano/drum keys until an explicit page mapping exists.
 export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "boidzoid",
+  "vector-flight",
   "pink-trombonazoid",
   "vocalzoid",
+  "sliding-puzzle",
   "hyper-rubix",
   "webgpu-synths",
   "playhead-paint",
   "slippery-resynthesis",
+  "micromorph",
+  "moire-drone",
   "candy-coil-delay",
   "chladni-plate",
   "spring-choir",
@@ -171,11 +191,12 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
 const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
 const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
-const processorAudioIds = new Set(["recursion"]);
+const processorAudioIds = new Set(["moire-drone", "recursion"]);
 const audioInputIds = new Set([
   "lumber",
   "micmic",
   "graph-delay",
+  "micromorph",
   "slippery-resynthesis",
   "sandy-syrup-delay",
   "candy-coil-delay",
@@ -190,6 +211,7 @@ const midiOutputExtraIds = new Set([
   "spiral",
   "solid",
   "hyper",
+  "graph-synth",
   "l-system",
   "julia",
 ]);

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#020405" />
+    <meta
+      name="description"
+      content="Morphazoid Vector Flight — a centered wireframe ship reads a 360-degree star field through circular physics, Doppler motion, hyperspace, and plaid."
+    />
+    <title>Vector Flight — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="vector-flight.css" />
+  </head>
+  <body class="vector-flight-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="playhead-paint.html">playhead paint</a>
+        <a class="tab" href="boidzoid.html">boidzoid</a>
+        <a class="tab active" href="vector-flight.html" aria-current="page">vector flight</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="playhead-paint.html">playhead paint</option>
+          <option value="boidzoid.html">boidzoid</option>
+          <option value="vector-flight.html" selected>vector flight</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-speaker-icon" aria-hidden="true"></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Flight level</b><output id="levelOut" for="level">42%</output></span>
+          <input id="level" aria-label="Vector Flight output level" type="range" min="0" max="0.78" step="0.01" value="0.42" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell vector-flight-shell" id="vectorFlight">
+      <section class="stage vector-flight-stage" aria-labelledby="sceneTitle">
+        <div class="stage-wrap vector-flight-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="application"
+            aria-label="A centered wireframe ship playhead reads stars moving through its circular sensor field."
+            aria-describedby="sceneInstruction liveStatus"
+          >
+            A centered wireframe ship reads a circular field of stars moving through space.
+          </canvas>
+
+          <header class="flight-identity">
+            <p>SONIC NAVIGATION SYSTEM · VF-79</p>
+            <h1 id="sceneTitle">VECTOR<br />FLIGHT</h1>
+            <span>SHIP = PLAYHEAD / STAR FIELD = INSTRUMENT</span>
+          </header>
+
+          <div class="flight-mode-badge" id="flightModeBadge" aria-hidden="true">
+            <i></i>
+            <span>VECTOR CRUISE</span>
+          </div>
+
+          <div class="flight-stage-readout" aria-hidden="true">
+            <span id="stageReadout">022% THRUST · CONTINUOUS · 3-LOBE FIELD · AUDIO OFF</span>
+          </div>
+
+          <div class="flight-helm-legend" aria-hidden="true">
+            <span><i class="legend-playhead"></i>ship / playhead</span>
+            <span><i class="legend-note"></i>star / contact</span>
+            <span><i class="legend-ring"></i>listening contour</span>
+          </div>
+
+          <div class="flight-invitation" id="stageInvitation" aria-hidden="true">
+            <b>drag around the ship</b>
+            <span>steering rotates the field mapping</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel vector-flight-panel" aria-label="Vector Flight controls">
+        <section class="flight-telemetry" aria-labelledby="telemetryTitle">
+          <h2 class="sr-only" id="telemetryTitle">Flight telemetry</h2>
+          <div class="flight-telemetry-mode">
+            <span>FLIGHT REGIME</span>
+            <output id="telemetryMode">VECTOR CRUISE</output>
+          </div>
+          <dl>
+            <div><dt>Thrust</dt><dd id="metricThrust">022</dd></div>
+            <div><dt>Contacts</dt><dd id="metricContacts">0000</dd></div>
+            <div><dt>Helm</dt><dd id="metricHelm">00·00</dd></div>
+          </dl>
+        </section>
+
+        <details class="group control-section flight-drive" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Flight drive</h2>
+            <span class="section-state" id="driveSummary">flying · vector cruise</span>
+          </summary>
+          <div class="group-body">
+            <div class="flight-transport-row">
+              <button
+                class="play-button"
+                id="flightButton"
+                type="button"
+                aria-pressed="true"
+                aria-label="Pause Vector Flight"
+                aria-keyshortcuts="Space"
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <div class="flight-action-grid" role="group" aria-label="Flight actions">
+                <button id="centerHelm" type="button">Center helm</button>
+                <button id="newSector" type="button">New field</button>
+              </div>
+            </div>
+
+            <div class="flight-articulation-control">
+              <span>Ship hears star geometry as</span>
+              <div class="flight-articulation-switch" role="group" aria-label="How the ship hears star geometry">
+                <button type="button" data-articulation="continuous" aria-pressed="true">Continuous</button>
+                <button type="button" data-articulation="notes" aria-pressed="false">Notes</button>
+                <button type="button" data-articulation="triggers" aria-pressed="false">Triggers</button>
+              </div>
+            </div>
+
+            <label class="control flight-throttle" for="throttle">
+              <span><b>Throttle</b><output id="throttleOut" for="throttle">022 · VECTOR</output></span>
+              <input id="throttle" type="range" min="0" max="100" step="1" value="22" />
+            </label>
+
+            <div class="flight-regime-track" id="regimeTrack" aria-hidden="true">
+              <span data-tier="vector">vector</span>
+              <span data-tier="attack">attack</span>
+              <span data-tier="hyper">hyper</span>
+              <span data-tier="ludicrous">ludicrous</span>
+              <span data-tier="plaid">plaid</span>
+            </div>
+
+            <div class="flight-preset-grid" role="group" aria-label="Throttle presets">
+              <button type="button" data-throttle-preset="16">Drift</button>
+              <button type="button" data-throttle-preset="42">Attack</button>
+              <button type="button" data-throttle-preset="72">Hyperspace</button>
+              <button class="plaid-button" type="button" data-throttle-preset="100">Go plaid</button>
+            </div>
+
+            <p class="flight-hint" id="sceneInstruction">Drag around the centered ship to steer the field. Arrow keys or WASD move the helm. + / − changes throttle. Space pauses. Escape mutes.</p>
+            <p class="flight-audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section flight-orbit" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Circular field</h2>
+            <span class="section-state" id="fieldSummary">78 stars · 3 lobes</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="density">
+              <span><b>Star density</b><output id="densityOut" for="density">78</output></span>
+              <input id="density" type="range" min="24" max="144" step="1" value="78" />
+            </label>
+            <label class="control" for="sensorRadius">
+              <span><b>Listening radius</b><output id="sensorRadiusOut" for="sensorRadius">26%</output></span>
+              <input id="sensorRadius" type="range" min="0.14" max="0.4" step="0.005" value="0.26" />
+            </label>
+            <label class="control" for="sensorWidth">
+              <span><b>Listening width</b><output id="sensorWidthOut" for="sensorWidth">10%</output></span>
+              <input id="sensorWidth" type="range" min="0.035" max="0.2" step="0.005" value="0.1" />
+            </label>
+            <label class="control" for="orbitLobes">
+              <span><b>Orbit lobes</b><output id="orbitLobesOut" for="orbitLobes">3</output></span>
+              <input id="orbitLobes" type="range" min="1" max="8" step="1" value="3" />
+            </label>
+            <label class="control" for="orbitPhase">
+              <span><b>Orbit phase</b><output id="orbitPhaseOut" for="orbitPhase">0°</output></span>
+              <input id="orbitPhase" type="range" min="-180" max="180" step="1" value="0" />
+            </label>
+            <label class="control" for="fieldSpin">
+              <span><b>Field spin</b><output id="fieldSpinOut" for="fieldSpin">+12%</output></span>
+              <input id="fieldSpin" type="range" min="-1" max="1" step="0.01" value="0.12" />
+            </label>
+            <p class="flight-control-note">The ship remains fixed at the center. Its listening contour is circular geometry; steering rotates that geometry and bends the star flow without imposing a scale, score, or note grid.</p>
+          </div>
+        </details>
+
+        <details class="group control-section flight-sound" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Physics mapping</h2>
+            <span class="section-state" id="soundSummary">continuous · 48–2400 Hz</span>
+          </summary>
+          <div class="group-body">
+            <label class="flight-select flight-select-wide" for="articulation">
+              <span>Articulation</span>
+              <select id="articulation">
+                <option value="continuous" selected>Continuous · proximity field</option>
+                <option value="notes">Notes · each contour crossing</option>
+                <option value="triggers">Triggers · contour impulses</option>
+              </select>
+            </label>
+            <div class="flight-frequency-pair">
+              <label class="control" for="minimumFrequency">
+                <span><b>Frequency floor</b><output id="minimumFrequencyOut" for="minimumFrequency">48 Hz</output></span>
+                <input id="minimumFrequency" type="range" min="24" max="220" step="1" value="48" />
+              </label>
+              <label class="control" for="maximumFrequency">
+                <span><b>Frequency ceiling</b><output id="maximumFrequencyOut" for="maximumFrequency">2400 Hz</output></span>
+                <input id="maximumFrequency" type="range" min="320" max="6400" step="10" value="2400" />
+              </label>
+            </div>
+            <label class="control" for="stereoWidth">
+              <span><b>Azimuth stereo</b><output id="stereoWidthOut" for="stereoWidth">92%</output></span>
+              <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.92" />
+            </label>
+            <label class="control" for="doppler">
+              <span><b>Doppler bend</b><output id="dopplerOut" for="doppler">70%</output></span>
+              <input id="doppler" type="range" min="0" max="1" step="0.01" value="0.7" />
+            </label>
+            <label class="control" for="tail">
+              <span><b>Contact release</b><output id="tailOut" for="tail">56%</output></span>
+              <input id="tail" type="range" min="0.08" max="1" step="0.01" value="0.56" />
+            </label>
+            <label class="control" for="character">
+              <span><b>Velocity character</b><output id="characterOut" for="character">48%</output></span>
+              <input id="character" type="range" min="0" max="1" step="0.01" value="0.48" />
+            </label>
+            <label class="control" for="engineMix">
+              <span><b>Engine field</b><output id="engineMixOut" for="engineMix">22%</output></span>
+              <input id="engineMix" type="range" min="0" max="0.65" step="0.01" value="0.22" />
+            </label>
+            <dl class="flight-signal-map" aria-label="Vector Flight sound mapping">
+              <div><dt>Azimuth</dt><dd>cyclic continuous Hz</dd></div>
+              <div><dt>Contour distance</dt><dd>level + articulation</dd></div>
+              <div><dt>Radial velocity</dt><dd>Doppler bend</dd></div>
+              <div><dt>Tangential velocity</dt><dd>tone character</dd></div>
+              <div><dt>Ship-relative side</dt><dd>stereo position</dd></div>
+              <div><dt>Throttle</dt><dd>flow + trail + engine</dd></div>
+            </dl>
+          </div>
+        </details>
+
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset flight computer</button></div>
+      </aside>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="vector-flight-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -1,0 +1,652 @@
+.micromorph-page {
+  --accent: #8df7c7;
+  --accent-soft: color-mix(in oklab, #8df7c7 54%, transparent);
+  --accent-glow: color-mix(in oklab, #8df7c7 20%, transparent);
+  --micromorph-source: #8df7c7;
+  --micromorph-reconstruct: #78d9ff;
+  --micromorph-derive: #bca1ff;
+  --micromorph-mutate: #ff83bd;
+  --micromorph-imaginary: #ffbd6d;
+}
+
+.micromorph-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(355px, 28vw, 430px);
+}
+
+.micromorph-stage-wrap {
+  isolation: isolate;
+  background:
+    linear-gradient(rgba(201, 245, 230, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 245, 230, 0.028) 1px, transparent 1px),
+    radial-gradient(circle at 50% 47%, rgba(141, 247, 199, 0.08), transparent 18%),
+    radial-gradient(circle at 50% 47%, rgba(188, 161, 255, 0.055), transparent 43%),
+    radial-gradient(circle at 50% 47%, rgba(255, 131, 189, 0.035), transparent 67%),
+    #06090a;
+  background-size: 48px 48px, 48px 48px, auto, auto, auto, auto;
+}
+
+.micromorph-stage-wrap::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, rgba(141, 247, 199, 0.018), transparent),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 0, 0, 0.08) 3px 4px);
+  content: "";
+}
+
+.micromorph-stage-wrap::after {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 128px;
+  pointer-events: none;
+  background: linear-gradient(transparent, rgba(6, 9, 10, 0.9));
+  content: "";
+}
+
+.micromorph-page #stage {
+  position: relative;
+  z-index: 1;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.micromorph-page #stage:focus-visible {
+  outline: 1px solid var(--micromorph-source);
+  outline-offset: -3px;
+}
+
+.micromorph-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--micromorph-derive) 3%, transparent), transparent 340px),
+    var(--panel);
+}
+
+.control-section.micromorph-source[data-section="play"] {
+  --accent: var(--micromorph-source);
+  --accent-soft: color-mix(in oklab, var(--micromorph-source) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--micromorph-source) 18%, transparent);
+}
+
+.control-section.micromorph-engine[data-section="form"] {
+  --accent: var(--micromorph-reconstruct);
+  --accent-soft: color-mix(in oklab, var(--micromorph-reconstruct) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--micromorph-reconstruct) 18%, transparent);
+}
+
+.control-section.micromorph-derive[data-section="mapping"] {
+  --accent: var(--micromorph-derive);
+  --accent-soft: color-mix(in oklab, var(--micromorph-derive) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--micromorph-derive) 20%, transparent);
+}
+
+.control-section.micromorph-matter[data-section="sound"] {
+  --accent: var(--micromorph-mutate);
+  --accent-soft: color-mix(in oklab, var(--micromorph-mutate) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--micromorph-mutate) 18%, transparent);
+}
+
+.control-section.micromorph-behavior[data-section="mapping"] {
+  --accent: var(--micromorph-imaginary);
+  --accent-soft: color-mix(in oklab, var(--micromorph-imaginary) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--micromorph-imaginary) 18%, transparent);
+}
+
+.control-section.micromorph-signal[data-section="output"] {
+  --accent: var(--micromorph-source);
+  --accent-soft: color-mix(in oklab, var(--micromorph-source) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--micromorph-source) 18%, transparent);
+}
+
+.micromorph-engine-pill {
+  position: absolute;
+  z-index: 5;
+  top: 17px;
+  left: 18px;
+  display: inline-flex;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 189, 109, 0.35);
+  pointer-events: none;
+  color: var(--micromorph-imaginary);
+  background: rgba(6, 9, 10, 0.82);
+  box-shadow: 0 0 24px rgba(255, 189, 109, 0.055);
+  align-items: center;
+  gap: 8px;
+  font-size: 7px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.micromorph-engine-pill i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.micromorph-engine-pill.connecting,
+.micromorph-engine-pill.ready {
+  border-color: color-mix(in oklab, var(--micromorph-reconstruct) 45%, transparent);
+  color: var(--micromorph-reconstruct);
+}
+
+.micromorph-engine-pill.live {
+  border-color: color-mix(in oklab, var(--micromorph-source) 55%, transparent);
+  color: var(--micromorph-source);
+  box-shadow: 0 0 28px rgba(141, 247, 199, 0.11);
+}
+
+.micromorph-stage-key {
+  position: absolute;
+  z-index: 4;
+  top: 57px;
+  left: 18px;
+  display: grid;
+  pointer-events: none;
+  gap: 7px;
+  font-size: 7px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.micromorph-stage-key span {
+  display: flex;
+  color: var(--faint);
+  align-items: center;
+  gap: 7px;
+}
+
+.micromorph-stage-key span::before {
+  width: 13px;
+  height: 1px;
+  background: currentColor;
+  content: "";
+}
+
+.micromorph-stage-key span:nth-child(1) { color: var(--micromorph-source); }
+.micromorph-stage-key span:nth-child(2) { color: var(--micromorph-reconstruct); }
+.micromorph-stage-key span:nth-child(3) { color: var(--micromorph-derive); }
+.micromorph-stage-key span:nth-child(4) { color: var(--micromorph-mutate); }
+.micromorph-stage-key span:nth-child(5) { color: var(--micromorph-imaginary); }
+
+.micromorph-stage-caption {
+  position: absolute;
+  z-index: 4;
+  bottom: 31px;
+  left: clamp(18px, 3vw, 40px);
+  display: grid;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.micromorph-stage-caption span {
+  color: var(--ink);
+  font-size: clamp(22px, 3vw, 42px);
+  font-weight: 500;
+  letter-spacing: 0.075em;
+  line-height: 1;
+}
+
+.micromorph-stage-caption small {
+  margin-top: 6px;
+  color: var(--micromorph-derive);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+}
+
+.micromorph-meter {
+  position: absolute;
+  z-index: 4;
+  right: 22px;
+  bottom: 30px;
+  display: grid;
+  width: min(28vw, 220px);
+  pointer-events: none;
+  gap: 4px;
+}
+
+.micromorph-meter span {
+  display: block;
+  height: 2px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.micromorph-meter i {
+  display: block;
+  width: 0;
+  height: 100%;
+  transform-origin: left;
+  transition: width 80ms linear;
+}
+
+#inputMeter {
+  background: var(--micromorph-source);
+  box-shadow: 0 0 8px var(--micromorph-source);
+}
+
+#outputMeter {
+  background: var(--micromorph-mutate);
+  box-shadow: 0 0 8px var(--micromorph-mutate);
+}
+
+.micromorph-note {
+  margin: 3px 0 10px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.micromorph-privacy-card,
+.micromorph-engine-card {
+  display: grid;
+  margin: 7px 0 11px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  gap: 4px;
+}
+
+.micromorph-privacy-card b,
+.micromorph-engine-card b {
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.micromorph-privacy-card span,
+.micromorph-engine-card small {
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.micromorph-engine-card {
+  grid-template-columns: 9px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.micromorph-engine-card > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.micromorph-engine-light {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--micromorph-imaginary);
+  box-shadow: 0 0 8px var(--micromorph-imaginary);
+}
+
+.micromorph-engine-card[data-state="connecting"] .micromorph-engine-light {
+  background: var(--micromorph-reconstruct);
+  box-shadow: 0 0 8px var(--micromorph-reconstruct);
+}
+
+.micromorph-engine-card[data-state="live"] .micromorph-engine-light {
+  background: var(--micromorph-source);
+  box-shadow: 0 0 10px var(--micromorph-source);
+}
+
+.micromorph-endpoint {
+  display: grid;
+  margin: 4px 0 7px;
+  gap: 5px;
+}
+
+.micromorph-endpoint input,
+.micromorph-anchor textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: inherit;
+  font-size: 8px;
+  outline: none;
+}
+
+.micromorph-endpoint input {
+  height: 39px;
+  padding: 0 10px;
+}
+
+.micromorph-endpoint input:focus,
+.micromorph-anchor textarea:focus {
+  border-color: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+
+.micromorph-connect {
+  width: 100%;
+  min-height: 40px;
+  margin: 0 0 8px;
+  border: 1px solid var(--accent-soft);
+  cursor: pointer;
+  color: var(--accent);
+  background: var(--accent-glow);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.micromorph-connect:hover,
+.micromorph-connect:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.micromorph-connect[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--micromorph-mutate) 55%, transparent);
+  color: var(--micromorph-mutate);
+  background: color-mix(in oklab, var(--micromorph-mutate) 10%, transparent);
+}
+
+.micromorph-primary-control {
+  padding: 10px 10px 4px;
+  border: 1px solid var(--accent-soft);
+  background: var(--accent-glow);
+}
+
+.micromorph-scale {
+  display: flex;
+  margin: -5px 0 10px;
+  color: var(--faint);
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 7px;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.micromorph-primary-control + .micromorph-scale {
+  margin: 4px 9px 10px;
+}
+
+.micromorph-scale.compact {
+  margin-bottom: 11px;
+}
+
+.micromorph-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.micromorph-preset-grid button {
+  min-height: 38px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.micromorph-preset-grid button:hover,
+.micromorph-preset-grid button:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.micromorph-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.micromorph-anchor {
+  display: grid;
+  margin: 2px 0 10px;
+  gap: 5px;
+}
+
+.micromorph-anchor > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.micromorph-anchor b {
+  color: var(--ink);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.micromorph-anchor small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.micromorph-anchor textarea {
+  min-height: 49px;
+  padding: 8px 9px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.micromorph-signal-card {
+  display: grid;
+  margin: 8px 0 11px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.micromorph-signal-card span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.micromorph-signal-card b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.micromorph-signal-card small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 6px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.micromorph-signal-card i {
+  color: var(--accent);
+  font-size: 8px;
+  font-style: normal;
+}
+
+.micromorph-telemetry {
+  display: grid;
+  margin: 0 0 10px;
+  border: 1px solid var(--line);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.micromorph-telemetry div {
+  display: grid;
+  min-width: 0;
+  padding: 8px;
+  gap: 3px;
+}
+
+.micromorph-telemetry div + div {
+  border-left: 1px solid var(--line);
+}
+
+.micromorph-telemetry dt {
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.micromorph-telemetry dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.micromorph-truth {
+  margin: 0 0 7px;
+  padding: 9px 10px;
+  border-left: 2px solid var(--micromorph-imaginary);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--micromorph-imaginary) 5%, transparent);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.micromorph-truth.model-live {
+  border-left-color: var(--micromorph-source);
+  background: color-mix(in oklab, var(--micromorph-source) 5%, transparent);
+}
+
+.micromorph-page .audio-error {
+  margin: 9px 0 5px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 130, 111, 0.38);
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, 0.06);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 960px) {
+  .micromorph-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(260px, 45dvh, 430px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 650px) {
+  .micromorph-shell {
+    grid-template-rows: clamp(225px, 38dvh, 310px) minmax(0, 1fr);
+  }
+
+  .micromorph-engine-pill {
+    top: 12px;
+    left: 13px;
+  }
+
+  .micromorph-stage-key {
+    top: 51px;
+    left: 13px;
+    gap: 5px;
+    font-size: 6px;
+  }
+
+  .micromorph-page .stage-meta {
+    top: 14px;
+    right: 13px;
+    left: auto;
+    max-width: 48vw;
+    overflow: hidden;
+    font-size: 6px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .micromorph-stage-caption {
+    bottom: 27px;
+    left: 14px;
+  }
+
+  .micromorph-stage-caption span {
+    font-size: 20px;
+  }
+
+  .micromorph-stage-caption small {
+    max-width: 58vw;
+    overflow: hidden;
+    font-size: 7px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .micromorph-meter {
+    right: 14px;
+    bottom: 29px;
+    width: 28vw;
+  }
+}
+
+@media (max-width: 450px) {
+  .micromorph-shell {
+    grid-template-rows: clamp(215px, 36dvh, 285px) minmax(0, 1fr);
+  }
+
+  .micromorph-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .micromorph-signal-card {
+    grid-template-columns: 1fr;
+  }
+
+  .micromorph-signal-card i {
+    display: none;
+  }
+
+  .micromorph-telemetry {
+    grid-template-columns: 1fr;
+  }
+
+  .micromorph-telemetry div + div {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 960px) and (max-height: 560px) {
+  .micromorph-shell {
+    grid-template-rows: clamp(170px, 40dvh, 230px) minmax(0, 1fr);
+  }
+
+  .micromorph-stage-key span:nth-child(even) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .micromorph-meter i {
+    transition: none;
+  }
+}

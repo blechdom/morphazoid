@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect x="20" y="20" width="472" height="472" rx="72" fill="#030607" stroke="#29443d" stroke-width="8"/>
+  <rect x="33" y="33" width="446" height="446" rx="60" fill="none" stroke="#8dffcf" stroke-opacity=".12" stroke-width="2"/>
+
+  <g fill="none" stroke-linecap="square">
+    <g opacity=".18" stroke-width="3">
+      <path stroke="#8dffcf" d="M256 256 58 118M256 256 454 118M256 256 472 256M256 256 454 394M256 256 58 394M256 256 40 256M256 256 126 42M256 256 386 470"/>
+      <path stroke="#75d9ff" d="M256 256 256 36M256 256 256 476M256 256 72 68M256 256 440 444"/>
+      <path stroke="#ff7bd5" d="M256 256 438 65M256 256 74 447"/>
+      <path stroke="#ffe17a" d="M256 256 474 176M256 256 38 336"/>
+    </g>
+
+    <g opacity=".2" stroke-width="3">
+      <circle cx="256" cy="256" r="196" stroke="#8dffcf"/>
+      <circle cx="256" cy="256" r="155" stroke="#c79bff"/>
+      <circle cx="256" cy="256" r="112" stroke="#75d9ff"/>
+      <circle cx="256" cy="256" r="68" stroke="#ff826f"/>
+    </g>
+
+    <path stroke="#ffe17a" stroke-opacity=".58" stroke-width="5" d="M256 102c49 0 99 24 126 67 25 40 30 92 12 135-19 46-63 87-113 99-49 11-104-5-138-42-34-36-48-90-35-138 14-51 51-91 98-109 16-7 33-11 50-12Z"/>
+
+    <g opacity=".9" stroke-width="5">
+      <path stroke="#fff4ce" d="m256 69 1 18"/>
+      <path stroke="#8dffcf" d="m120 121-17-17"/>
+      <path stroke="#75d9ff" d="m389 116 20-20"/>
+      <path stroke="#ffe17a" d="m430 254 29 0"/>
+      <path stroke="#ff7bd5" d="m390 392 21 21"/>
+      <path stroke="#fff4ce" d="m256 427 0 31"/>
+      <path stroke="#75d9ff" d="m121 389-22 22"/>
+      <path stroke="#ff7bd5" d="m79 256-29 0"/>
+    </g>
+
+    <g transform="translate(256 256)">
+      <circle r="48" stroke="#75d9ff" stroke-opacity=".25" stroke-width="3"/>
+      <path stroke="#8dffcf" stroke-opacity=".2" stroke-width="9" d="M0-80 15-27 78 32 31 23 21 70 0 43-21 70-31 23-78 32-15-27Z"/>
+      <path stroke="#eafff6" stroke-width="4" d="M0-80 15-27 78 32 31 23 21 70 0 43-21 70-31 23-78 32-15-27Z"/>
+      <path stroke="#75d9ff" stroke-width="3" d="m0-17 16 16L0 15-16-1ZM-31 23 0-59 31 23M-21 42h42"/>
+      <path stroke="#ffe17a" stroke-width="3" stroke-opacity=".72" d="M0 0V-108"/>
+      <path stroke="#ff7bd5" stroke-width="4" stroke-opacity=".74" d="m-12 55 6 26M12 55 6 26"/>
+    </g>
+  </g>
+</svg>

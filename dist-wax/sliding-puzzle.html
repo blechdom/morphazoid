@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Sliding Puzzle Sequencer — resize a square or rectangular note puzzle, slide complete lines around one audible rest, play tiles serially or all rows in parallel, rotate, scramble, and unwind."
+    />
+    <title>Sliding Puzzle Sequencer — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="sliding-puzzle.css" />
+  </head>
+  <body class="sliding-puzzle-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="rubix.html">rubix</a>
+        <a class="tab active sliding-puzzle-tab" href="sliding-puzzle.html" aria-current="page">slide</a>
+        <a class="tab" href="hyper-rubix.html">hyper rubix</a>
+        <a class="tab" href="webgpu-303.html">webgpu 303</a>
+        <a class="tab" href="webgpu-synths.html">gpu shader synths</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="rubix.html">rubix</option>
+          <option value="sliding-puzzle.html" selected>sliding puzzle</option>
+          <option value="hyper-rubix.html">hyper rubix</option>
+          <option value="webgpu-303.html">webgpu 303</option>
+          <option value="webgpu-synths.html">gpu shader synths</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph sliding-audio-glyph" aria-hidden="true">▦</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">54%</output></span>
+          <input
+            id="output"
+            aria-label="Sliding puzzle output level"
+            type="range"
+            min="0"
+            max="0.9"
+            step="0.01"
+            value="0.54"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell sliding-puzzle-shell" id="slidingPuzzleSequencer">
+      <section class="stage sliding-puzzle-stage" aria-labelledby="slidingPuzzleTitle">
+        <div class="stage-wrap sliding-puzzle-stage-wrap" id="stageWrap">
+          <div class="sliding-puzzle-heading">
+            <p>PERMUTATION · <b id="stageScoreLabel">15 NOTES + ONE REST</b></p>
+            <h1 id="slidingPuzzleTitle">Slide</h1>
+            <span>the gap writes the rhythm</span>
+          </div>
+
+          <div class="sliding-puzzle-performance">
+            <div class="sliding-orientation" aria-hidden="true">
+              <span class="sliding-orientation-arrow">↑</span>
+              <b id="orientationLabel">0°</b>
+              <small>READ TOP</small>
+            </div>
+
+            <div class="sliding-puzzle-frame" id="puzzleFrame">
+              <div class="sliding-board-slots" id="boardSlots" aria-hidden="true"></div>
+              <div class="sliding-puzzle-reader" id="puzzleReader" aria-hidden="true"></div>
+              <div
+                class="sliding-puzzle-board"
+                id="puzzleBoard"
+                role="grid"
+                aria-label="Resizable sliding note puzzle with colored tiles and one empty cell."
+                aria-describedby="puzzleInstructions liveStatus"
+                style="--board-turn: 0deg"
+              ></div>
+            </div>
+
+            <div class="sliding-stage-rotate" role="group" aria-label="Rotate board">
+              <button id="rotateLeftStage" type="button" aria-label="Rotate board 90 degrees left">
+                <span aria-hidden="true">↶</span><small>90° LEFT</small>
+              </button>
+              <button id="rotateRightStage" type="button" aria-label="Rotate board 90 degrees right">
+                <small>90° RIGHT</small><span aria-hidden="true">↷</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="sliding-score-readout" id="stageSequence" aria-hidden="true"></div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">SOLVED · 4×4 · LINES TOGETHER · STEP 01/04 · AUDIO OFF</span>
+          </div>
+
+          <div class="sliding-gesture-hint" aria-hidden="true">
+            <span>CLICK A LIT TILE TO SLIDE · ARROW KEYS MOVE THE GAP</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel sliding-puzzle-panel" aria-label="Sliding Puzzle Sequencer controls">
+        <div class="sliding-status-strip">
+          <b id="puzzleState">Solved · 4 × 4 · 15 notes / one rest</b>
+          <small id="sequenceState">Lines together · 4 steps · 0° · Soft FM kit</small>
+        </div>
+
+        <details class="group control-section sliding-control-section" data-section="clock" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Clock</h2>
+            <span class="section-state" id="clockSummary">124 BPM · straight</span>
+          </summary>
+          <div class="group-body">
+            <div class="sliding-clock-transport" aria-label="Sequencer transport">
+              <button class="sliding-play-button" id="playButton" type="button" aria-pressed="false">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                <span><b id="playLabel">Play puzzle</b><small id="playState">4-step line loop</small></span>
+              </button>
+              <div class="sliding-step-strip" id="stepStrip" aria-label="Puzzle sequence playhead"></div>
+              <div class="sliding-now-playing" aria-live="off">
+                <span id="nowPlaying">STEP 01 / 04 · 4 NOTES</span>
+              </div>
+            </div>
+
+            <div class="sliding-read-heading">
+              <b>Playback</b>
+              <span>Rubix-style lanes or one tile</span>
+            </div>
+            <div class="sliding-playback-modes" role="group" aria-label="Playback layout">
+              <button type="button" data-playback-mode="parallel" aria-pressed="true">
+                <b>Lines together</b><small>one column · every row</small>
+              </button>
+              <button type="button" data-playback-mode="serial" aria-pressed="false">
+                <b>One tile</b><small>follow a board path</small>
+              </button>
+            </div>
+
+            <div class="sliding-read-heading">
+              <b>Serial path</b>
+              <span id="readPathState">Lines saved · available in One tile mode</span>
+            </div>
+            <div class="sliding-read-paths" role="group" aria-label="Board read path">
+              <button type="button" data-read-path="rows" aria-pressed="true" disabled>
+                <b>Lines</b><small>left → right</small>
+              </button>
+              <button type="button" data-read-path="snake" aria-pressed="false" disabled>
+                <b>Snake</b><small>alternating rows</small>
+              </button>
+              <button type="button" data-read-path="spiral" aria-pressed="false" disabled>
+                <b>Spiral</b><small>outside → center</small>
+              </button>
+            </div>
+
+            <div class="sliding-clock-options">
+              <label class="select-control" for="pulseDivision">
+                <span><b>Pulse rate</b></span>
+                <span class="select-shell">
+                  <select id="pulseDivision">
+                    <option value="4">1/4</option>
+                    <option value="8" selected>1/8</option>
+                    <option value="16">1/16</option>
+                    <option value="32">1/32</option>
+                    <option value="64">1/64</option>
+                  </select>
+                </span>
+              </label>
+              <label class="select-control" for="playbackDirection">
+                <span><b>Direction</b></span>
+                <span class="select-shell">
+                  <select id="playbackDirection">
+                    <option value="forward" selected>Forward</option>
+                    <option value="reverse">Reverse</option>
+                    <option value="pendulum">Pendulum</option>
+                    <option value="random">Random pass</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+
+            <div class="sliding-tempo-row">
+              <label class="control" for="tempo">
+                <span><b>Tempo</b><output id="tempoOut" for="tempo">124 BPM</output></span>
+                <input id="tempo" type="range" min="36" max="260" step="1" value="124" />
+              </label>
+              <button
+                class="sliding-restart-button"
+                id="restartLoop"
+                type="button"
+                aria-label="Restart loop at step one"
+                title="Restart loop at step one"
+              >
+                <span aria-hidden="true">↶ 1</span>
+              </button>
+            </div>
+            <label class="control" for="swing">
+              <span><b>Swing</b><output id="swingOut" for="swing">0%</output></span>
+              <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section sliding-control-section" data-section="moves" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Puzzle moves</h2>
+            <span class="section-state" id="moveSummary">solved · 0 moves</span>
+          </summary>
+          <div class="group-body">
+            <div class="sliding-dimensions">
+              <div class="sliding-dimension-heading">
+                <span><b>Board dimensions</b><output id="dimensionOut">4 × 4 · 15 tiles</output></span>
+                <button id="squareLock" type="button" aria-pressed="true">
+                  <b>Square lock</b><small id="squareLockState">on</small>
+                </button>
+              </div>
+              <div class="sliding-dimension-grid">
+                <label class="control" for="rows">
+                  <span><b>Rows</b><output id="rowsOut" for="rows">4</output></span>
+                  <input id="rows" type="range" min="2" max="8" step="1" value="4" />
+                </label>
+                <label class="control" for="columns">
+                  <span><b>Columns</b><output id="columnsOut" for="columns">4</output></span>
+                  <input id="columns" type="range" min="2" max="8" step="1" value="4" />
+                </label>
+              </div>
+              <small>Unlock square to make any rectangle from 2 × 2 through 8 × 8. Resizing starts a solved board.</small>
+            </div>
+
+            <div class="sliding-move-actions" aria-label="Puzzle arrangement actions">
+              <button class="mini-action" id="scramblePuzzle" type="button">Scramble 48</button>
+              <button class="mini-action sliding-solve-button" id="solvePuzzle" type="button" disabled>Solve · unwind</button>
+              <button class="mini-action" id="undoMove" type="button" disabled>Undo move</button>
+              <button class="mini-action" id="resetPuzzle" type="button">Reset puzzle</button>
+            </div>
+
+            <div class="sliding-rotation-control">
+              <div>
+                <b>Quarter-turn score</b>
+                <small>Rotates the board beneath the screen reader</small>
+              </div>
+              <div role="group" aria-label="Quarter-turn score">
+                <button id="rotateLeft" type="button" aria-label="Rotate score 90 degrees left"><span>↶</span> LEFT</button>
+                <output id="rotationOut" aria-live="off">0°</output>
+                <button id="rotateRight" type="button" aria-label="Rotate score 90 degrees right">RIGHT <span>↷</span></button>
+              </div>
+            </div>
+
+            <div class="sliding-auto-motion">
+              <button id="autoSlide" type="button" aria-pressed="false">
+                <span aria-hidden="true">▧</span>
+                <span><b>Auto slide</b><small id="autoSlideState">off</small></span>
+              </button>
+              <label class="control" for="autoSlideSpeed">
+                <span>
+                  <b>Slide speed</b>
+                  <output id="autoSlideSpeedOut" for="autoSlideSpeed">1×</output>
+                </span>
+                <input
+                  id="autoSlideSpeed"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value="36"
+                  aria-valuetext="1 times normal speed"
+                  aria-describedby="autoSlideHelp"
+                />
+              </label>
+              <small id="autoSlideHelp">Automatic legal moves · independent of sequencer tempo</small>
+            </div>
+
+            <div class="sliding-move-receipt" aria-label="Move history">
+              <span><b>Empty cell</b><small id="blankCell">board row 4 · column 4</small></span>
+              <span><b>Disorder</b><small id="disorderState">0 steps from home</small></span>
+              <span><b>History</b><small id="historyState">ready</small></span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section sliding-control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundSummary">Soft FM kit · D dorian</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="soundBank">
+              <span><b>Tile bank</b><output id="soundBankState" for="soundBank">Soft FM kit</output></span>
+              <span class="select-shell">
+                <select id="soundBank">
+                  <option value="soft-fm" selected>Soft FM kit</option>
+                  <option value="analog">Analog kit</option>
+                  <option value="modal">Modal colors</option>
+                  <option value="noise">Noise grid</option>
+                  <option value="acid-303">303 acid</option>
+                </select>
+              </span>
+            </label>
+            <label class="select-control" for="scale">
+              <span><b>Tile tuning</b><output id="scaleState" for="scale">D dorian</output></span>
+              <span class="select-shell">
+                <select id="scale">
+                  <option value="dorian" selected>D dorian</option>
+                  <option value="minor-pentatonic">A minor pentatonic</option>
+                  <option value="whole-tone">C whole tone</option>
+                  <option value="chromatic">Chromatic</option>
+                </select>
+              </span>
+            </label>
+            <div class="sliding-sound-grid">
+              <label class="control" for="brightness">
+                <span><b>Brightness</b><output id="brightnessOut" for="brightness">62%</output></span>
+                <input id="brightness" type="range" min="0" max="1" step="0.01" value="0.62" />
+              </label>
+              <label class="control" for="decay">
+                <span><b>Decay</b><output id="decayOut" for="decay">42%</output></span>
+                <input id="decay" type="range" min="0.08" max="0.9" step="0.01" value="0.42" />
+              </label>
+              <label class="control" for="colorDepth">
+                <span><b>Color depth</b><output id="colorDepthOut" for="colorDepth">74%</output></span>
+                <input id="colorDepth" type="range" min="0" max="1" step="0.01" value="0.74" />
+              </label>
+              <label class="control" for="stereoWidth">
+                <span><b>Stereo width</b><output id="stereoWidthOut" for="stereoWidth">68%</output></span>
+                <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.68" />
+              </label>
+              <label class="control" for="pitchSpan">
+                <span><b>Pitch span</b><output id="pitchSpanOut" for="pitchSpan">36 st</output></span>
+                <input id="pitchSpan" type="range" min="12" max="48" step="1" value="36" />
+              </label>
+              <label class="control" for="microStrum">
+                <span><b>Parallel strum</b><output id="microStrumOut" for="microStrum">12 ms</output></span>
+                <input id="microStrum" type="range" min="0" max="0.04" step="0.001" value="0.012" />
+              </label>
+            </div>
+            <div class="sliding-mapping-divider"><span>puzzle mapping · 0–200%</span></div>
+            <div class="sliding-sound-grid sliding-mapping-grid">
+              <label class="control" for="positionInfluence">
+                <span><b>Position pitch</b><output id="positionInfluenceOut" for="positionInfluence">72%</output></span>
+                <input id="positionInfluence" type="range" min="0" max="2" step="0.01" value="0.72" />
+                <small>Screen position and distance from home bend tile pitch.</small>
+              </label>
+              <label class="control" for="filterInfluence">
+                <span><b>Filter motion</b><output id="filterInfluenceOut" for="filterInfluence">72%</output></span>
+                <input id="filterInfluence" type="range" min="0" max="2" step="0.01" value="0.72" />
+                <small>Screen height and tile displacement move brightness.</small>
+              </label>
+              <label class="control" for="neighborResponse">
+                <span><b>Neighbor response</b><output id="neighborResponseOut" for="neighborResponse">65%</output></span>
+                <input id="neighborResponse" type="range" min="0" max="2" step="0.01" value="0.65" />
+                <small>Matching colors ring; mixed-color borders add edge.</small>
+              </label>
+              <label class="control" for="disorderInfluence">
+                <span><b>Disorder response</b><output id="disorderInfluenceOut" for="disorderInfluence">60%</output></span>
+                <input id="disorderInfluence" type="range" min="0" max="2" step="0.01" value="0.6" />
+                <small>Distance from solved adds bounded detune and filter energy.</small>
+              </label>
+            </div>
+            <p class="sliding-sound-note" id="soundDescription">
+              A four-color home-row cycle shapes pitch and timbre while each tile keeps its note identity.
+              The moving empty cell is always a hard rest.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section sliding-control-section sliding-score-section" data-section="score" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Tile score</h2>
+            <span class="section-state" id="scoreSummary">15 sounding · 1 rest</span>
+          </summary>
+          <div class="group-body">
+            <p class="sliding-causal-copy">
+              Parallel playback sounds every screen row at one shared column; serial playback follows
+              one path. Sliding changes step identities, while rotating a rectangle swaps its line and
+              step counts without changing the underlying puzzle.
+            </p>
+            <div class="sliding-color-key" id="colorKey" aria-label="Tile color sound mapping"></div>
+          </div>
+        </details>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+        <div class="reset-all-row sliding-reset-sound-row">
+          <button
+            class="reset-all-button"
+            id="resetSound"
+            type="button"
+            data-reset-all
+            data-reset-in-place
+            title="Restore sound and clock controls without changing the puzzle"
+          >
+            Reset sound + clock
+          </button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="puzzleInstructions">
+        Click or press Enter on any highlighted tile sharing the empty cell's row or column. That
+        tile and every tile between it and the empty cell slide together toward the gap.
+        Arrow keys move the empty cell in screen space. Space starts or pauses the current loop.
+        Lines together plays one screen column across every row at once; the empty cell rests only
+        its lane. One tile mode follows the selected Lines, Snake, or Spiral path. Rotate left or right to turn the board by
+        ninety degrees beneath the fixed screen-space reader; this changes the note order without
+        changing the puzzle permutation. Rows and columns resize independently when Square lock is off.
+        Scramble performs a size-scaled set of fast legal moves. Auto slide
+        continues making legal moves at its own speed. Solve unwinds the exact move history, so every
+        scrambled state remains solvable.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="sliding-puzzle-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

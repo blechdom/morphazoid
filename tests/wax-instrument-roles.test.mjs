@@ -34,6 +34,11 @@ test("every catalog instrument has exactly one complete WAX support record", () 
       `${support.id} has an unknown role`,
     );
     assert.equal(typeof support.audioInput, "boolean");
+    assert.equal(
+      support.roles.includes(WAX_ROLE_IDS.audioFx),
+      support.audioInput,
+      `${support.id} must expose Audio FX exactly when it accepts track audio`,
+    );
     assert.equal(typeof support.midiInput, "boolean");
     assert.ok(["native", "universal-control"].includes(support.midiInputMode));
     assert.ok(["midi", "page", "none"].includes(support.computerKeyboardMode));
@@ -63,6 +68,7 @@ test("input processors are conservative previews and musical generators expose u
     "lumber",
     "micmic",
     "graph-delay",
+    "micromorph",
     "sandy-syrup-delay",
     "candy-coil-delay",
     "recursion",
@@ -101,6 +107,13 @@ test("input processors are conservative previews and musical generators expose u
   assert.equal(waxSupportForId("throatazoid").roles.includes(WAX_ROLE_IDS.audioFx), true);
   assert.equal(waxSupportForId("alien-larynx").roles.includes(WAX_ROLE_IDS.audioFx), true);
   assert.match(waxSupportForId("webgpu-303").caveat, /WebGPU support/i);
+
+  const moire = waxSupportForId("moire-drone");
+  assert.equal(moire.recommended, WAX_ROLE_IDS.instrument);
+  assert.deepEqual(moire.roles, [WAX_ROLE_IDS.instrument]);
+  assert.equal(moire.audioInput, false);
+  assert.match(moire.summary, /built-in noise/i);
+  assert.doesNotMatch(moire.summary, /live-input|process a DAW track/i);
 });
 
 test("the role catalog search and role filters use the central support records", () => {

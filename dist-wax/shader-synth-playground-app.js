@@ -3,6 +3,7 @@ import {
   SHADER_PLAYGROUND_MODULES,
   SHADER_PLAYGROUND_PRESETS,
   SHADER_PLAYGROUND_LIMITS,
+  SHADER_PLAYGROUND_LAYOUT_DEFAULTS,
   SHADER_PLAYGROUND_RUNTIME_DEFAULTS,
   ShaderSynthPlaygroundAudio,
   canConnectShaderPlaygroundPorts,
@@ -26,6 +27,15 @@ const copy = (value) => globalThis.structuredClone
   : JSON.parse(JSON.stringify(value));
 const MIDI_PATCH_ROOT_NOTE = 48;
 const MIDI_PITCH_BEND_SEMITONES = 2;
+const PERFORMANCE_OCTAVE_MIN = 1;
+const PERFORMANCE_OCTAVE_MAX = 6;
+const PERFORMANCE_NOTE_KEYS = Object.freeze([
+  "Z", "S", "X", "D", "C", "V", "G", "B", "H", "N", "J", "M", "Q",
+]);
+const PERFORMANCE_NOTE_NAMES = Object.freeze([
+  "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B", "C",
+]);
+const PERFORMANCE_ACCIDENTALS = new Set([1, 3, 6, 8, 10]);
 
 const SIGNAL_COLORS = Object.freeze({
   audio: "#74f7ff",
@@ -37,6 +47,7 @@ const SIGNAL_COLORS = Object.freeze({
 const CATEGORY_COLORS = Object.freeze({
   source: "#74f7ff",
   modulation: "#ffda57",
+  geometry: "#ff8ccf",
   dynamics: "#ff6eaa",
   nonlinear: "#a78bff",
   space: "#e883ee",
@@ -62,6 +73,7 @@ const HISTORY_MODULE_IDS = new Set([
 const CATEGORY_LABELS = Object.freeze({
   source: "Sources · instruments",
   modulation: "Modulation · arpeggiators",
+  geometry: "Geometry · coordinates · patterns",
   control: "Clocks · arpeggiators · control",
   compose: "Mix · VCA",
   dynamics: "Dynamics",
@@ -77,6 +89,7 @@ const CATEGORY_ORDER = Object.freeze([
   "space",
   "source",
   "modulation",
+  "geometry",
   "spectral",
   "control",
   "compose",
@@ -108,6 +121,21 @@ const FEATURED_MODULE_ORDER = Object.freeze([
   "euclidean-arpeggiator",
   "random-walk-arpeggiator",
   "gpu-arp",
+  "mirror-fold-sequencer",
+  "sdf-orbit-sequencer",
+  "polar-kaleidoscope-sequencer",
+  "voronoi-cell-sequencer",
+  "truchet-path-sequencer",
+  "kifs-fold-sequencer",
+  "interference-lattice-sequencer",
+  "phase-plane",
+  "tile-mirror-domain",
+  "polar-fold-domain",
+  "sdf-pattern-field",
+  "sdf-logic",
+  "interference-field",
+  "voronoi-event-field",
+  "truchet-router",
   "am-tremolo",
 ]);
 
@@ -148,6 +176,7 @@ function normalizeModule([fallbackId, definition]) {
   const id = definition.id ?? fallbackId;
   const category = definition.category ?? definition.group ?? definition.kind ?? "utility";
   const faust = definition.faust ?? definition.faustPrimitive ?? definition.faustEquivalent ?? "";
+  const shaderSource = definition.shaderSource ?? definition.shaderReference ?? null;
   return {
     ...definition,
     id,
@@ -182,6 +211,11 @@ function normalizeModule([fallbackId, definition]) {
     })),
     wgsl: definition.wgsl ?? definition.shader ?? definition.syntax ?? "// WGSL expression supplied by the module implementation.",
     execution: definition.execution ?? definition.executionShape ?? "Evaluated in the GPU sample pass.",
+    shaderSource,
+    shaderSourceLabel: typeof shaderSource === "string"
+      ? shaderSource
+      : shaderSource?.label ?? shaderSource?.name ?? shaderSource?.title ?? "",
+    shaderSourceUrl: typeof shaderSource === "object" ? shaderSource?.url ?? "" : "",
     faust,
     faustSymbol: typeof faust === "string" ? faust : faust?.symbol ?? faust?.name ?? faust?.expression ?? "",
     faustUrl: typeof faust === "object" ? faust?.url ?? "" : "",
@@ -323,14 +357,17 @@ function defaultParams(module) {
 function makeNode(module, index = patchNodes().length) {
   const viewport = $("graphViewport");
   const width = Math.max(520, viewport?.clientWidth || 720);
-  const columnCount = Math.max(1, Math.floor((width - 80) / 220));
+  const {
+    nodeWidth, nodeHeight, gapX, gapY, marginX, marginTop,
+  } = SHADER_PLAYGROUND_LAYOUT_DEFAULTS;
+  const columnCount = Math.max(1, Math.floor((width - marginX * 2 + gapX) / (nodeWidth + gapX)));
   const column = index % columnCount;
   const row = Math.floor(index / columnCount);
   return {
     id: `${module.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
     type: module.id,
-    x: 48 + column * 220,
-    y: 74 + row * 144,
+    x: marginX + column * (nodeWidth + gapX),
+    y: marginTop + row * (nodeHeight + gapY),
     params: defaultParams(module),
   };
 }
@@ -370,6 +407,7 @@ const state = {
   latestChunk: new Float32Array(0),
   rms: 0,
   scopeFrame: 0,
+  performanceOctave: 3,
   organRanks: sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS),
   midi: {
     notes: new Map(),
@@ -399,6 +437,64 @@ function midiNoteName(note) {
   return `${names[value % 12]}${Math.floor(value / 12) - 1}`;
 }
 
+function performanceBaseNote() {
+  return (state.performanceOctave + 1) * 12;
+}
+
+function syncPerformanceNoteButtons(voice = performanceMidiVoice()) {
+  const selectedNote = voice?.note;
+  const baseNote = performanceBaseNote();
+  const container = $("performanceNoteButtons");
+  if (!container) return;
+  container.setAttribute(
+    "aria-label",
+    `Play notes from ${midiNoteName(baseNote)} to ${midiNoteName(baseNote + 12)}`,
+  );
+  for (const button of container.querySelectorAll("button[data-performance-note]")) {
+    const active = Number(button.dataset.performanceNote) === selectedNote;
+    button.setAttribute("aria-pressed", String(active));
+    button.disabled = !support.supported || Boolean(state.audioStartPromise);
+  }
+  $("performanceOctaveDown").disabled = state.performanceOctave <= PERFORMANCE_OCTAVE_MIN;
+  $("performanceOctaveUp").disabled = state.performanceOctave >= PERFORMANCE_OCTAVE_MAX;
+}
+
+function renderPerformanceNoteButtons() {
+  const container = $("performanceNoteButtons");
+  if (!container) return;
+  const baseNote = performanceBaseNote();
+  const buttons = PERFORMANCE_NOTE_NAMES.map((name, offset) => {
+    const note = baseNote + offset;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `performance-note${PERFORMANCE_ACCIDENTALS.has(offset) ? " is-accidental" : ""}`;
+    button.dataset.performanceNote = String(note);
+    button.setAttribute("aria-label", `Play ${midiNoteName(note)}. Computer key ${PERFORMANCE_NOTE_KEYS[offset]}.`);
+    button.setAttribute("aria-pressed", "false");
+    const pitch = document.createElement("b");
+    pitch.textContent = name;
+    const key = document.createElement("small");
+    key.textContent = PERFORMANCE_NOTE_KEYS[offset];
+    button.append(pitch, key);
+    return button;
+  });
+  container.replaceChildren(...buttons);
+  syncPerformanceNoteButtons();
+}
+
+function shiftPerformanceOctave(direction) {
+  const next = clamp(
+    state.performanceOctave + Math.sign(Number(direction) || 0),
+    PERFORMANCE_OCTAVE_MIN,
+    PERFORMANCE_OCTAVE_MAX,
+  );
+  if (next === state.performanceOctave) return;
+  state.performanceOctave = next;
+  renderPerformanceNoteButtons();
+  syncMidiReadout();
+  announce(`On-screen notes now span C${next} to C${next + 1}.`);
+}
+
 function selectedMidiVoice() {
   return [...state.midi.notes.values()].at(-1) ?? null;
 }
@@ -421,12 +517,14 @@ function syncMidiReadout(voice = performanceMidiVoice()) {
   const readout = $("midiNoteState");
   if (!readout) return;
   if (!voice) {
-    readout.textContent = "Z–M · Q–U";
-    readout.title = "Two-row piano: Z–M and Q–U. Brackets change octave. Notes retune the patch without changing transport.";
+    readout.textContent = `C${state.performanceOctave}`;
+    readout.title = "Selected pitch. Turn MIDI on for the two-row computer keyboard: Z–M and Q–U; brackets change its octave.";
+    syncPerformanceNoteButtons(null);
     return;
   }
   readout.textContent = midiNoteName(voice.note);
-  readout.title = `${voice.virtual ? "Computer key" : "MIDI input"} · pitch only · last-note priority`;
+  readout.title = `${voice.onscreen ? "On-screen note" : voice.virtual ? "Computer key" : "MIDI input"} · pitch only · last-note priority`;
+  syncPerformanceNoteButtons(voice);
 }
 
 function applyMidiPerformance({ refresh = true } = {}) {
@@ -526,6 +624,28 @@ function handleMidiControlChange(message) {
     return true;
   }
   return false;
+}
+
+async function auditionPerformanceNote(note) {
+  const selectedNote = clamp(Math.round(note), 0, 127);
+  for (const [key, voice] of [...state.midi.notes]) {
+    if (voice.onscreen) state.midi.notes.delete(key);
+  }
+  const channelKey = "onscreen-keyboard:0";
+  const voice = {
+    key: `${channelKey}:${selectedNote}`,
+    channelKey,
+    note: selectedNote,
+    velocity: 100,
+    released: false,
+    virtual: true,
+    onscreen: true,
+  };
+  state.midi.notes.set(voice.key, voice);
+  state.midi.latchedVoice = { ...voice };
+  applyMidiPerformance();
+  const started = await startAudio({ play: true });
+  if (started) announce(`${midiNoteName(selectedNote)} selected and the patch is running. Other notes retune it without gating.`);
 }
 
 function selectMidiProgram(program) {
@@ -691,6 +811,7 @@ function moduleSearchText(module) {
     module.category,
     CATEGORY_LABELS[module.category],
     module.role,
+    module.shaderSourceLabel,
     module.faustSymbol,
     module.execution,
     ...(Array.isArray(module.aliases) ? module.aliases : []),
@@ -732,7 +853,7 @@ function renderPalette() {
     const section = document.createElement("details");
     section.className = "module-group";
     section.open = Boolean(query)
-      || ["source", "space", "modulation", "spectral", "control"].includes(category.toLocaleLowerCase());
+      || ["source", "space", "modulation", "geometry", "spectral", "control"].includes(category.toLocaleLowerCase());
 
     const heading = document.createElement("summary");
     const categoryName = document.createElement("span");
@@ -1444,6 +1565,21 @@ function renderPatchControls() {
   $("patchControlCount").textContent = `${parameterCount} ${parameterCount === 1 ? "parameter" : "parameters"}`;
 }
 
+function appendInspectorReference(target, prefix, label, url) {
+  if (!label) return;
+  target.append(` · ${prefix}: `);
+  if (!url) {
+    target.append(label);
+    return;
+  }
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.textContent = label;
+  target.append(link);
+}
+
 function renderInspector() {
   const node = findNode(state.selectedNodeId);
   const module = moduleForNode(node);
@@ -1528,19 +1664,10 @@ function renderInspector() {
     ? module.wgsl
     : module.wgsl?.code ?? JSON.stringify(module.wgsl, null, 2);
   const execution = $("selectedNodeExecution");
-  execution.replaceChildren(`${module.execution}${module.faustSymbol ? " FAUST analogue: " : ""}`);
-  if (module.faustSymbol) {
-    if (module.faustUrl) {
-      const faustLink = document.createElement("a");
-      faustLink.href = module.faustUrl;
-      faustLink.target = "_blank";
-      faustLink.rel = "noreferrer";
-      faustLink.textContent = module.faustSymbol;
-      execution.append(faustLink, ".");
-    } else {
-      execution.append(`${module.faustSymbol}.`);
-    }
-  }
+  execution.replaceChildren(String(module.execution).replace(/[.\s]+$/, ""));
+  appendInspectorReference(execution, "Source", module.shaderSourceLabel, module.shaderSourceUrl);
+  appendInspectorReference(execution, "FAUST", module.faustSymbol, module.faustUrl);
+  execution.append(".");
   const protectedNode = Boolean(module.required || module.fixed || module.id === "output" || module.category === "output");
   $("deleteNode").disabled = protectedNode;
   $("deleteNode").textContent = protectedNode ? "Output stays in the patch" : "Remove selected module";
@@ -1946,8 +2073,19 @@ function moveNodeDrag(event) {
   const node = findNode(state.drag.nodeId);
   const element = $("patchNodes").querySelector(`[data-node-id="${CSS.escape(state.drag.nodeId)}"]`);
   if (!node || !element) return;
-  const x = clamp(state.drag.x + event.clientX - state.drag.startX, 6, Math.max(6, $("graphViewport").clientWidth - 196));
-  const y = clamp(state.drag.y + event.clientY - state.drag.startY, 48, Math.max(48, $("graphViewport").clientHeight - 114));
+  const x = clamp(
+    state.drag.x + event.clientX - state.drag.startX,
+    6,
+    Math.max(6, $("graphViewport").clientWidth - SHADER_PLAYGROUND_LAYOUT_DEFAULTS.nodeWidth - 6),
+  );
+  const y = clamp(
+    state.drag.y + event.clientY - state.drag.startY,
+    SHADER_PLAYGROUND_LAYOUT_DEFAULTS.marginTop,
+    Math.max(
+      SHADER_PLAYGROUND_LAYOUT_DEFAULTS.marginTop,
+      $("graphViewport").clientHeight - SHADER_PLAYGROUND_LAYOUT_DEFAULTS.nodeHeight - 6,
+    ),
+  );
   setNodePosition(node, Math.round(x), Math.round(y));
   element.style.left = `${Math.round(x)}px`;
   element.style.top = `${Math.round(y)}px`;
@@ -2083,7 +2221,7 @@ function syncTransport() {
   $("audioButton").setAttribute("aria-pressed", String(state.audioOn));
   $("audioState").textContent = state.audioOn ? "on" : "off";
   $("playgroundPlayButton").setAttribute("aria-pressed", String(state.playing));
-  $("playgroundPlayLabel").textContent = state.playing ? "Pause patch" : "Play patch";
+  $("playgroundPlayLabel").textContent = state.playing ? "Pause patch" : "Run patch";
   $("audioButton").disabled = !support.supported || Boolean(state.audioStartPromise);
   $("playgroundPlayButton").disabled = !support.supported || Boolean(state.audioStartPromise);
   $("gpuState").textContent = !support.audio
@@ -2093,6 +2231,12 @@ function syncTransport() {
       : state.audioOn
         ? state.playing ? "streaming" : "ready"
         : "available";
+  $("performanceNoteHint").textContent = !support.supported
+    ? "WebGPU audio unavailable"
+    : state.playing
+      ? "Keys / MIDI retune while running"
+      : "Click to start · MIDI on: Z–M / Q–U";
+  syncPerformanceNoteButtons();
   syncPatchStatus();
 }
 
@@ -2160,7 +2304,7 @@ async function startAudio({ play = state.playing } = {}) {
     nextEngine.updatePatch(state.patch);
     syncExecutionReadout(nextEngine);
     syncTransport();
-    announce(state.playing ? "WebGPU audio is on and the patch is playing." : "WebGPU audio is ready. Press Play patch to hear it.");
+    announce(state.playing ? "WebGPU audio is on and the patch is running." : "WebGPU audio is ready. Press Run patch or choose a note to hear it.");
     return true;
   }).catch((error) => {
     if (state.engine === nextEngine) state.engine = null;
@@ -2333,6 +2477,12 @@ $("resetView").addEventListener("click", () => fitGraph());
 $("clearPatch").addEventListener("click", clearPatch);
 $("audioButton").addEventListener("click", () => { void toggleAudio(); });
 $("playgroundPlayButton").addEventListener("click", () => { void togglePlay(); });
+$("performanceNoteButtons").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-performance-note]");
+  if (button) void auditionPerformanceNote(Number(button.dataset.performanceNote));
+});
+$("performanceOctaveDown").addEventListener("click", () => shiftPerformanceOctave(-1));
+$("performanceOctaveUp").addEventListener("click", () => shiftPerformanceOctave(1));
 $("output").addEventListener("input", () => {
   const output = clamp($("output").value, 0, 1);
   $("outputOut").textContent = `${Math.round(output * 100)}%`;
@@ -2389,6 +2539,7 @@ if (globalThis.matchMedia?.("(max-width: 720px)")?.matches) {
   $("patchControlsPanel").open = false;
 }
 renderPalette();
+renderPerformanceNoteButtons();
 $("playableModuleCount").textContent = String(modules.length);
 syncExecutionReadout();
 renderPatch();

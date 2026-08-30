@@ -1,4 +1,5 @@
 export const MAX_GRAPH_NODES = 24;
+export const MAX_GENERATABLE_GRAPH_NODES = 512;
 export const MAX_GRAPH_FEEDBACK = 0.92;
 export const MAX_GRAPH_TURN_ROUTES = 192;
 
@@ -488,10 +489,12 @@ export function generateGraph(options = {}) {
   const {
     type = options.topology ?? "dag",
     nodeCount = 10,
+    maxNodes = MAX_GRAPH_NODES,
     density = 0.34,
     seed = 1,
   } = options;
-  const count = Math.round(clamp(nodeCount, 3, MAX_GRAPH_NODES));
+  const nodeLimit = Math.round(clamp(maxNodes, 3, MAX_GENERATABLE_GRAPH_NODES));
+  const count = Math.round(clamp(nodeCount, 3, nodeLimit));
   const amount = clamp(density, 0, 1);
   const random = seededRandom(seed);
   const edges = [];
@@ -526,9 +529,15 @@ export function generateGraph(options = {}) {
   } else if (type === "bipartite") {
     nodes = layeredLayout(count, 2);
     const split = Math.ceil(count / 2);
+    // Keep the authored microphone-sized field pleasantly connected, but let
+    // opt-in instrument graphs reach a genuinely sparse zero-density backbone.
+    // Otherwise 512 nodes would still create roughly fourteen thousand routes
+    // at density zero, making the live turn-route budget impossible to honor.
+    const baseline = count <= MAX_GRAPH_NODES ? 0.22 : 0;
+    const routeProbability = baseline + amount * (0.94 - baseline);
     for (let from = 0; from < split; from += 1) {
       for (let to = split; to < count; to += 1) {
-        if (random() < 0.22 + amount * 0.72) addEdge(edges, seen, from, to);
+        if (random() < routeProbability) addEdge(edges, seen, from, to);
       }
     }
     if (!edges.length) addEdge(edges, seen, 0, split);
@@ -633,8 +642,20 @@ export function generateGraph(options = {}) {
 }
 
 export function graphTurnRouteCount(graph) {
-  return graphTurnRoutings(graph)
-    .reduce((count, routing) => count + routing.turns.length, 0);
+  const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
+  const edges = Array.isArray(graph?.edges) ? graph.edges : [];
+  const injectedNodes = new Set(graph?.entries?.length ? graph.entries : [0]);
+  const incoming = new Map(nodes.map(({ id }) => [id, 0]));
+  const outgoing = new Map(nodes.map(({ id }) => [id, 0]));
+  for (const edge of edges) {
+    if (incoming.has(edge.to)) incoming.set(edge.to, incoming.get(edge.to) + 1);
+    if (outgoing.has(edge.from)) outgoing.set(edge.from, outgoing.get(edge.from) + 1);
+  }
+  return nodes.reduce((count, { id }) => (
+    count
+      + ((incoming.get(id) ?? 0) + (injectedNodes.has(id) ? 1 : 0))
+        * (outgoing.get(id) ?? 0)
+  ), 0);
 }
 
 /**
@@ -669,15 +690,41 @@ export function generateGraphWithinTurnBudget(
     99,
     Math.floor(requestedDensity * 100 - 1e-7),
   );
-  for (let step = firstStep; step >= 0; step -= 1) {
+  // Every built-in density generator is monotonic except Small World: taking
+  // a shortcut consumes a second random value for its destination, which can
+  // change the later candidates as density rises. Preserve its exact greatest-
+  // safe-step behavior while binary-searching all monotonic topology families.
+  if ((options.type ?? options.topology ?? "dag") === "smallworld") {
+    for (let step = firstStep; step >= 0; step -= 1) {
+      const candidate = build(step / 100);
+      if (candidate.turnRouteCount <= budget) {
+        return {
+          ...candidate,
+          requestedDensity,
+          limited: true,
+        };
+      }
+    }
+  }
+  let lowestStep = 0;
+  let highestStep = firstStep;
+  let greatestSafe = null;
+  while (lowestStep <= highestStep) {
+    const step = (lowestStep + highestStep) >> 1;
     const candidate = build(step / 100);
     if (candidate.turnRouteCount <= budget) {
-      return {
-        ...candidate,
-        requestedDensity,
-        limited: true,
-      };
+      greatestSafe = candidate;
+      lowestStep = step + 1;
+    } else {
+      highestStep = step - 1;
     }
+  }
+  if (greatestSafe) {
+    return {
+      ...greatestSafe,
+      requestedDensity,
+      limited: true,
+    };
   }
 
   // Every built-in topology has a safe zero-density backbone. Keep this

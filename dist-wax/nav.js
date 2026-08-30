@@ -64,6 +64,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "shader-synth-playground",
   "sandy-syrup-delay",
   "slippery-resynthesis",
+  "moire-drone",
 ]);
 
 /**
@@ -83,6 +84,11 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "spiral", label: "Spiral", href: "spiral.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
+    {
+      id: "graph-synth",
+      label: "Graph Synth",
+      href: "graph-synth.html",
+    },
   ]),
   freezeGroup("geometry-drums", "Drum Machines", [
     {
@@ -116,6 +122,11 @@ export const TOOL_GROUPS = Object.freeze([
       href: "l-system-drums.html",
     },
     {
+      id: "graph-drums",
+      label: "Graph Drum Machine",
+      href: "graph-drums.html",
+    },
+    {
       id: "linear-drums-machine",
       label: "Rattle Snake Skin",
       href: "linear-drums-machine.html",
@@ -126,6 +137,16 @@ export const TOOL_GROUPS = Object.freeze([
       id: "rubix",
       label: "Rubix Cube Sequencer",
       href: "rubix.html",
+    },
+    {
+      id: "sliding-puzzle",
+      label: "Sliding Puzzle Sequencer",
+      href: "sliding-puzzle.html",
+    },
+    {
+      id: "wave-pool",
+      label: "Wave Pool",
+      href: "wave-pool.html",
     },
     { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
     { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
@@ -151,8 +172,15 @@ export const TOOL_GROUPS = Object.freeze([
       href: "tongued-beasts.html",
     },
     { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
+    {
+      id: "colony-syrinx",
+      label: "Colony Syrinx",
+      href: "colony-syrinx.html",
+    },
     { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
     { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
+    { id: "harmonica", label: "Harmonica", href: "harmonica.html" },
+    { id: "hambone", label: "Hambone", href: "hambone.html" },
     {
       id: "breath-atlas",
       label: "Breath Atlas",
@@ -173,6 +201,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
     { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
+    { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
@@ -180,6 +209,11 @@ export const TOOL_GROUPS = Object.freeze([
       id: "slippery-resynthesis",
       label: "Slippery Resynthesis",
       href: "slippery-resynthesis.html",
+    },
+    {
+      id: "moire-drone",
+      label: "Moiré Drone",
+      href: "moire-drone.html",
     },
     {
       id: "drum-roll-please",
@@ -223,6 +257,7 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("misc", "Misc", [
     { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
     { id: "boidzoid", label: "Boidzoid", href: "boidzoid.html" },
+    { id: "vector-flight", label: "Vector Flight", href: "vector-flight.html" },
     { id: "gesturama", label: "Gesturama", href: "gesturama.html" },
     {
       id: "image-to-instrument-3",
@@ -240,6 +275,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "linear-drums", label: "Rattlesnake", href: "linear-drums.html" },
     { id: "karplus-strong", label: "Karplus Strong", href: "karplus-strong.html" },
     { id: "karplus-carpet", label: "Karplus Carpet", href: "karplus-carpet.html" },
+    { id: "surround-field", label: "Surround Field", href: "surround-field.html" },
     { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
   ]),
   freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [

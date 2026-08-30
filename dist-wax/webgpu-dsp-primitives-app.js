@@ -52,6 +52,8 @@ function primitiveSearchText(primitive) {
     primitive.note,
     primitive.compose,
     primitive.execution,
+    primitive.source?.label,
+    primitive.source?.url,
     category?.label,
     WEBGPU_DSP_STATUSES[primitive.status]?.label,
     ...primitive.tags,
@@ -75,6 +77,9 @@ function primitiveRow(primitive, category) {
   const symbol = primitive.symbol
     ? `<code class="primitive-symbol">${escapeHtml(primitive.symbol)}()</code>`
     : "";
+  const source = primitive.source?.url
+    ? `<a class="primitive-source" href="${escapeHtml(primitive.source.url)}" target="_blank" rel="noreferrer">${escapeHtml(primitive.source.label ?? "Primary source")}</a>`
+    : "";
   return `
     <tr class="primitive-row" id="primitive-${escapeHtml(primitive.id)}" data-primitive-id="${escapeHtml(primitive.id)}" style="--category-color: ${category.color}">
       <td class="primitive-name-cell" data-label="Primitive">
@@ -94,6 +99,7 @@ function primitiveRow(primitive, category) {
       <td data-label="GPU shape + limits">
         <b class="primitive-execution">${escapeHtml(primitive.execution)}</b>
         <span class="primitive-note">${escapeHtml(primitive.note)}</span>
+        ${source}
       </td>
       <td data-label="Build from it"><span class="primitive-compose">${escapeHtml(primitive.compose)}</span></td>
     </tr>`;

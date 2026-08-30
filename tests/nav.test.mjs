@@ -255,7 +255,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 109);
+  assert.equal(tools.length, 120);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -333,6 +333,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "moire-drone"),
+    {
+      id: "moire-drone",
+      label: "Moiré Drone",
+      href: "moire-drone.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "ouroborousel"),
     {
       id: "ouroborousel",
@@ -373,9 +381,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     "Slippery Resynthesis belongs immediately after Shepard–Risset",
   );
   assert.equal(
-    barberShopTools.findIndex(({ id }) => id === "drum-roll-please"),
+    barberShopTools.findIndex(({ id }) => id === "moire-drone"),
     barberShopTools.findIndex(({ id }) => id === "slippery-resynthesis") + 1,
-    "Drum Roll Please belongs immediately after Slippery Resynthesis",
+    "Moiré Drone belongs immediately after Slippery Resynthesis",
+  );
+  assert.equal(
+    barberShopTools.findIndex(({ id }) => id === "drum-roll-please"),
+    barberShopTools.findIndex(({ id }) => id === "moire-drone") + 1,
+    "Drum Roll Please belongs immediately after Moiré Drone",
   );
   assert.equal(
     barberShopTools.findIndex(({ id }) => id === "ouroborousel"),
@@ -462,6 +475,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "sliding-puzzle"),
+    {
+      id: "sliding-puzzle",
+      label: "Sliding Puzzle Sequencer",
+      href: "sliding-puzzle.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "hyper-drums"),
     {
       id: "hyper-drums",
@@ -499,6 +520,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "spiral", href: "spiral.html" },
       { id: "solid", href: "solid.html" },
       { id: "hyper", href: "hyper.html" },
+      { id: "graph-synth", href: "graph-synth.html" },
     ],
   );
   assert.deepEqual(
@@ -512,6 +534,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "solid-drums", href: "solid-drums.html" },
       { id: "hyper-drums", href: "hyper-drums.html" },
       { id: "l-system-drums", href: "l-system-drums.html" },
+      { id: "graph-drums", href: "graph-drums.html" },
       { id: "linear-drums-machine", href: "linear-drums-machine.html" },
     ],
   );
@@ -521,6 +544,8 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "rubix", href: "rubix.html" },
+      { id: "sliding-puzzle", href: "sliding-puzzle.html" },
+      { id: "wave-pool", href: "wave-pool.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
       { id: "webgpu-synths", href: "webgpu-synths.html" },
@@ -534,6 +559,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "playhead-paint", href: "playhead-paint.html" },
       { id: "boidzoid", href: "boidzoid.html" },
+      { id: "vector-flight", href: "vector-flight.html" },
       { id: "gesturama", href: "gesturama.html" },
       { id: "image-to-instrument-3", href: "image-to-instrument-3.html" },
       { id: "orbital-ferris", href: "orbital-ferris.html" },
@@ -548,6 +574,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "linear-drums", href: "linear-drums.html" },
       { id: "karplus-strong", href: "karplus-strong.html" },
       { id: "karplus-carpet", href: "karplus-carpet.html" },
+      { id: "surround-field", href: "surround-field.html" },
       { id: "sample-drums", href: "sample-drums.html" },
     ],
   );
@@ -566,8 +593,11 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
       { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
       { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
+      { id: "colony-syrinx", label: "Colony Syrinx", href: "colony-syrinx.html" },
       { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
+      { id: "harmonica", label: "Harmonica", href: "harmonica.html" },
+      { id: "hambone", label: "Hambone", href: "hambone.html" },
       { id: "breath-atlas", label: "Breath Atlas", href: "breath-atlas.html" },
       {
         id: "spelling-synthesizer",
@@ -585,6 +615,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
       { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
       { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
+      { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
     ],
   );
   assert.deepEqual(
@@ -636,6 +667,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "shepard-risset", href: "shepard-risset.html" },
       { id: "slippery-resynthesis", href: "slippery-resynthesis.html" },
+      { id: "moire-drone", href: "moire-drone.html" },
       { id: "drum-roll-please", href: "drum-roll-please.html" },
       { id: "ouroborousel", href: "ouroborousel.html" },
       { id: "ourorourobouroboros", href: "ourorourobouroboros.html" },
@@ -802,9 +834,16 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-mic.html`, SITE_ROOT)?.id, "micmic");
   assert.equal(resolveActiveTool(`${SITE_ROOT}micmic.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}graph-delay.html`, SITE_ROOT)?.id, "graph-delay");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}micromorph.html`, SITE_ROOT)?.id, "micromorph");
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}pink-trombonazoid.html`, SITE_ROOT)?.id,
     "pink-trombonazoid",
+  );
+  assert.equal(resolveActiveTool(`${SITE_ROOT}hambone.html`, SITE_ROOT)?.id, "hambone");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}harmonica.html`, SITE_ROOT)?.id, "harmonica");
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}colony-syrinx.html`, SITE_ROOT)?.id,
+    "colony-syrinx",
   );
   assert.equal(resolveActiveTool(`${SITE_ROOT}alien-larynx.html`, SITE_ROOT)?.id, "alien-larynx");
   assert.equal(resolveActiveTool(`${SITE_ROOT}orbital-ferris.html`, SITE_ROOT)?.id, "orbital-ferris");
@@ -814,6 +853,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
     resolveActiveTool(`${SITE_ROOT}slippery-resynthesis.html`, SITE_ROOT)?.id,
     "slippery-resynthesis",
   );
+  assert.equal(resolveActiveTool(`${SITE_ROOT}moire-drone.html`, SITE_ROOT)?.id, "moire-drone");
   assert.equal(resolveActiveTool(`${SITE_ROOT}drum-roll-please.html`, SITE_ROOT)?.id, "drum-roll-please");
   assert.equal(resolveActiveTool(`${SITE_ROOT}ouroborousel.html`, SITE_ROOT)?.id, "ouroborousel");
   assert.equal(
@@ -887,6 +927,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}linear-drums.html`, SITE_ROOT)?.id, "linear-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}karplus-strong.html`, SITE_ROOT)?.id, "karplus-strong");
   assert.equal(resolveActiveTool(`${SITE_ROOT}karplus-carpet.html`, SITE_ROOT)?.id, "karplus-carpet");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}surround-field.html`, SITE_ROOT)?.id, "surround-field");
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}linear-drums-machine.html`, SITE_ROOT)?.id,
     "linear-drums-machine",
@@ -899,6 +940,11 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}solid-drums.html`, SITE_ROOT)?.id, "solid-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-rubix.html`, SITE_ROOT)?.id, "hyper-rubix");
   assert.equal(resolveActiveTool(`${SITE_ROOT}rubix.html`, SITE_ROOT)?.id, "rubix");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}wave-pool.html`, SITE_ROOT)?.id, "wave-pool");
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}sliding-puzzle.html`, SITE_ROOT)?.id,
+    "sliding-puzzle",
+  );
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-system-drums.html`, SITE_ROOT)?.id, "l-system-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT), null);

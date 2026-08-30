@@ -1,3 +1,5 @@
+import { L_SYSTEM_PRESETS, traceLSystem } from "./l-system.js";
+
 export const MAX_RECURSION_FEEDBACK = 0.96;
 export const MAX_GENERATION_STAGES = 13;
 export const MAX_GENERATION_VOICES = 48;
@@ -357,6 +359,117 @@ function visualChildTimeRatio(timeRatio) {
   return 1 + Math.log2(ratio) * (MAX_VISUAL_CHILD_TIME_RATIO - 1);
 }
 
+const L_SYSTEM_PRESET_BY_ID = new Map(
+  L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]),
+);
+
+function canonicalTraceIterations(preset, generations) {
+  const requestedGenerations = Math.max(
+    1,
+    Math.min(MAX_GENERATION_STAGES, Math.round(Number(generations) || 1)),
+  );
+  const defaultIterations = Math.max(1, Math.round(Number(preset.iterations) || 1));
+  const maximumIterations = Math.max(
+    1,
+    Math.round(Number(preset.maxIterations) || defaultIterations),
+  );
+  return Math.max(1, Math.min(
+    maximumIterations,
+    Math.round(defaultIterations * requestedGenerations / MAX_GENERATION_STAGES),
+  ));
+}
+
+// Dense curve grammars can contain thousands of sequential turtle segments.
+// Map their normalized root-to-tip progress onto the mic's bounded acoustic
+// generations so the full curve shares one safe geometric-series delay tail.
+function acousticPathTime(progress, generations, timeRatio) {
+  const count = Math.max(1, Math.round(Number(generations) || 1));
+  const position = clamp(progress) * count;
+  const completeGenerations = Math.min(count, Math.floor(position));
+  let time = 0;
+  for (let generation = 1; generation <= completeGenerations; generation += 1) {
+    time += timeRatio ** generation;
+  }
+  if (completeGenerations < count) {
+    time += (position - completeGenerations) * timeRatio ** (completeGenerations + 1);
+  }
+  return time;
+}
+
+// Convert the shared synth/drum turtle trace into the node contract already
+// consumed by both the mic canvas and its inherited audio voice graph.
+function canonicalGenerationTopology({
+  lSystemType,
+  generations,
+  mutation,
+  timeRatio,
+  angle,
+  asymmetry,
+} = {}) {
+  const preset = L_SYSTEM_PRESET_BY_ID.get(lSystemType);
+  if (!preset) return null;
+  const count = Math.max(
+    1,
+    Math.min(MAX_GENERATION_STAGES, Math.round(Number(generations) || 1)),
+  );
+  const mutationAmount = clamp(mutation);
+  const exactTimeRatio = clamp(
+    timeRatio,
+    MIN_CHILD_TIME_RATIO,
+    MAX_CHILD_TIME_RATIO,
+  );
+  const trace = traceLSystem({
+    ...preset,
+    iterations: canonicalTraceIterations(preset, count),
+    angle: clamp(angle, 0, 180),
+    turnAsymmetry: clamp(asymmetry, -0.8, 0.8),
+    lengthScale: visualChildTimeRatio(exactTimeRatio),
+  });
+  const traceDuration = Math.max(1e-9, trace.duration);
+
+  return trace.segments.map((segment, index) => {
+    const startProgress = segment.startDistance / traceDuration;
+    const endProgress = segment.endDistance / traceDuration;
+    const generation = index === 0
+      ? 0
+      : Math.max(1, Math.min(
+        count,
+        Math.ceil(endProgress * count),
+      ));
+    const id = index === 0 ? "trunk" : `${preset.id}:${index}`;
+    const parentId = index === 0
+      ? null
+      : segment.parentIndex === null || segment.parentIndex === 0
+        ? "trunk"
+        : `${preset.id}:${segment.parentIndex}`;
+    const turnDegrees = segment.turn * 180 / Math.PI;
+    const lengthVariation = hashUnit(`${id}:length`) * mutationAmount * 0.3;
+
+    return {
+      id,
+      parentId,
+      generation,
+      index,
+      rule: trace.instructions[segment.instructionIndex] ?? "F",
+      turnDegrees,
+      headingDegrees: segment.heading * 180 / Math.PI,
+      timeScale: Math.max(
+        1e-9,
+        acousticPathTime(endProgress, count, exactTimeRatio)
+          - acousticPathTime(startProgress, count, exactTimeRatio),
+      ) * (1 - lengthVariation),
+      length: Math.hypot(
+        segment.end.x - segment.start.x,
+        segment.end.y - segment.start.y,
+      ),
+      startX: segment.start.x,
+      startY: segment.start.y,
+      x: segment.end.x,
+      y: segment.end.y,
+    };
+  });
+}
+
 export function estimateGenerations(feedback, silenceFloor = 0.04) {
   const gain = clamp(feedback, 0, MAX_RECURSION_FEEDBACK);
   const floor = clamp(silenceFloor, 0.0001, 0.5);
@@ -554,6 +667,7 @@ function boundedConnectedVoices(
  * generation one, so it can never resize or remove that trunk.
  */
 export function generationTopology({
+  lSystemType = "pythagorean",
   generations = 8,
   branching = 0.84,
   mutation = 0,
@@ -562,6 +676,17 @@ export function generationTopology({
   asymmetry = 0,
   maximumPerGeneration = MAX_BRANCHES_PER_GENERATION,
 } = {}) {
+  if (lSystemType !== "pythagorean") {
+    const canonical = canonicalGenerationTopology({
+      lSystemType,
+      generations,
+      mutation,
+      timeRatio,
+      angle,
+      asymmetry,
+    });
+    if (canonical?.length) return canonical;
+  }
   const count = Math.max(1, Math.min(MAX_GENERATION_STAGES, Math.round(Number(generations) || 1)));
   const branchAmount = clamp(branching);
   const mutationAmount = clamp(mutation);
@@ -653,6 +778,7 @@ export function generationTopology({
 
 /** Build inherited audio voices from the exact same L-system as the preview. */
 export function generationVoiceSpecs({
+  lSystemType = "pythagorean",
   generations = 8,
   interval = 240,
   depth = 0.72,
@@ -673,6 +799,7 @@ export function generationVoiceSpecs({
     MAX_CHILD_TIME_RATIO,
   );
   const layout = generationTopology({
+    lSystemType,
     generations,
     branching,
     mutation,

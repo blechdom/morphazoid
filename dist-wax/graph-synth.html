@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Graph Synth — send notes through switchable directed graphs whose turns inherit pitch and whose cycles return as timed, decaying voices." />
+    <title>Graph Synth — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="micmic.css" />
+    <link rel="stylesheet" href="graph-delay.css" />
+    <link rel="stylesheet" href="l-system-drums.css" />
+    <link rel="stylesheet" href="graph-instruments.css" />
+  </head>
+  <body class="micmic-page graph-delay-page graph-instrument-page graph-synth-page" data-graph-instrument="synth">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a><a class="tab" href="lattice.html">lattice</a><a class="tab" href="spiral.html">spiral</a><a class="tab" href="solid.html">solid</a><a class="tab" href="hyper.html">hyper</a><a class="tab" href="l-system.html">l-system</a><a class="tab active" href="graph-synth.html" aria-current="page">graph synth</a><a class="tab" href="graph-delay.html">graph delay</a>
+      </nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="shape.html">shape</option><option value="lattice.html">lattice</option><option value="spiral.html">spiral</option><option value="solid.html">solid</option><option value="hyper.html">hyper</option><option value="l-system.html">l-system</option><option value="graph-synth.html" selected>graph synth</option><option value="graph-delay.html">graph delay</option></select></label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◇</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+        <label class="header-level" for="output"><span><b>Output</b><output id="outputOut" for="output">52%</output></span><input id="output" aria-label="Graph Synth output level" type="range" min="0" max="0.9" step="0.01" value="0.52" /></label>
+      </div>
+    </header>
+
+    <main class="shell" id="graphSynth">
+      <section class="stage" aria-label="Graph Synth stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive note graph" aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight" aria-label="A directed graph whose moving pulses sound inherited synth notes. Audio off." aria-describedby="canvasInstructions liveStatus">A switchable directed graph whose turns inherit pitch and whose cycles make decaying note repeats.</canvas>
+          <div class="graph-pulse-control"><button id="seedPulseButton" type="button"><b>Seed note</b><small>send one voice</small></button></div>
+          <div class="graph-seed-keyboard" id="seedKeyboard" role="group" aria-label="Graph synth seed-note keyboard">
+            <div class="graph-seed-keyboard-head">
+              <button id="seedOctaveDown" type="button" aria-label="Move the seed keyboard down one octave">&minus;</button>
+              <span>Seed octave <output id="seedOctaveOut" aria-live="polite">4</output></span>
+              <button id="seedOctaveUp" type="button" aria-label="Move the seed keyboard up one octave">+</button>
+            </div>
+            <div class="graph-seed-keys" aria-label="Seed notes C4 through C5">
+              <button type="button" data-seed-semitone="0" aria-label="Seed note C"><span>C</span></button>
+              <button class="is-accidental" type="button" data-seed-semitone="1" aria-label="Seed note C sharp"><span>C&#9839;</span></button>
+              <button type="button" data-seed-semitone="2" aria-label="Seed note D"><span>D</span></button>
+              <button class="is-accidental" type="button" data-seed-semitone="3" aria-label="Seed note E flat"><span>E&#9837;</span></button>
+              <button type="button" data-seed-semitone="4" aria-label="Seed note E"><span>E</span></button>
+              <button type="button" data-seed-semitone="5" aria-label="Seed note F"><span>F</span></button>
+              <button class="is-accidental" type="button" data-seed-semitone="6" aria-label="Seed note F sharp"><span>F&#9839;</span></button>
+              <button type="button" data-seed-semitone="7" aria-label="Seed note G"><span>G</span></button>
+              <button class="is-accidental" type="button" data-seed-semitone="8" aria-label="Seed note A flat"><span>A&#9837;</span></button>
+              <button type="button" data-seed-semitone="9" aria-label="Seed note A"><span>A</span></button>
+              <button class="is-accidental" type="button" data-seed-semitone="10" aria-label="Seed note B flat"><span>B&#9837;</span></button>
+              <button type="button" data-seed-semitone="11" aria-label="Seed note B"><span>B</span></button>
+              <button type="button" data-seed-semitone="12" aria-label="Seed note C one octave higher"><span>C</span></button>
+            </div>
+          </div>
+          <div class="l-system-mapping-readout" id="mappingReadout" aria-label="Latest graph synth mapping" aria-live="off">NODE 1 · PASS 0 → A3 · 100%</div>
+          <div class="graph-key" aria-hidden="true"><span><i class="feed-forward"></i> inherited route</span><span><i class="feedback"></i> cycle return</span><span><i class="route-switch"></i> click switch</span><span><i class="pulse-route"></i> note pulse</span></div>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">LAYERED DAG · 10 NODES · READY · AUDIO OFF</span></div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Graph Synth controls">
+        <details class="group control-section" id="playSection" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">paused · 126 BPM · 1 beat</span></summary>
+          <div class="group-body">
+            <div class="graph-transport-actions">
+              <button class="play-button" id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play graph note pulses"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+              <button class="graph-pulse-action" id="pulseButton" type="button">Send one graph note</button>
+              <button class="graph-pulse-action graph-random-action" id="randomGraphButton" type="button" aria-label="Create a random graph">Random</button>
+            </div>
+            <div class="graph-pulse-grid">
+              <label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
+              <label class="select-control" for="pulseDivision"><span class="field-label">Pulse interval</span><span class="select-shell"><select id="pulseDivision"><option value="0.5">Every 1/2 beat</option><option value="1" selected>Every beat</option><option value="2">Every 2 beats</option><option value="4">Every 4 beats</option></select></span></label>
+            </div>
+            <p class="graph-cycle-note"><b>Cycles are note feedback.</b> A returning voice waits for the full cycle, keeps its inherited pitch, and comes back quieter and darker.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="delaySection" data-section="delay" open>
+          <summary class="group-summary"><h2 class="group-title">Time + feedback</h2><span class="section-state" id="delaySummary">62–120 ms · acyclic</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="triggerScope"><span class="field-label">Attack points</span><span class="select-shell"><select id="triggerScope"><option value="all" selected>Every node arrival</option><option value="leaves">Leaf / sink nodes only</option><option value="subdivisions">Nodes + edge steps</option></select></span></label>
+            <label class="control" for="edgeSubdivisions"><span><b>Subdivisions per edge</b><output id="edgeSubdivisionsOut" for="edgeSubdivisions">2</output></span><input id="edgeSubdivisions" type="range" min="1" max="16" step="1" value="2" /></label>
+            <label class="control" for="nodePass"><span><b>Node pass-through</b><output id="nodePassOut" for="nodePass">100%</output></span><input id="nodePass" type="range" min="0.2" max="1" step="0.01" value="1" /></label>
+            <label class="control" for="baseDelay"><span><b>Minimum edge time</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
+            <label class="control" for="timeScale"><span><b>Distance → extra time</b><output id="timeScaleOut" for="timeScale">+58 ms</output></span><input id="timeScale" type="range" min="0" max="800" step="1" value="58" /></label>
+            <label class="control" for="timeCurve"><span><b>Length response</b><output id="timeCurveOut" for="timeCurve">0.90</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="0.9" /></label>
+            <small class="growth-parameter-note graph-distance-note">At 0 ms, every edge takes the same time. Raise this to make longer drawn segments take longer.</small>
+            <label class="control" for="feedback"><span><b>Cycle amplitude return</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
+            <label class="control" for="feedbackTone"><span><b>Cycle brightness retention</b><output id="feedbackToneOut" for="feedbackTone">78%</output></span><input id="feedbackTone" type="range" min="0.2" max="1" step="0.01" value="0.78" /></label>
+            <small class="growth-parameter-note" id="feedbackSafetyNote">Acyclic · the feedback controls are dormant.</small>
+          </div>
+        </details>
+
+        <details class="group control-section" id="topologySection" data-section="topology">
+          <summary class="group-summary"><h2 class="group-title">Topology</h2><span class="section-state" id="topologySummary">Layered Glass · Layered DAG</span></summary>
+          <div class="group-body">
+            <input id="graphPatch" type="hidden" value="layeredGlass" />
+            <div class="micmic-preset-grid graph-preset-grid" id="graphPatchGrid" role="group" aria-label="Graph synth presets">
+              <button id="graphPatch-clearSteps" type="button" data-graph-patch="clearSteps" data-preset-band="clean" aria-pressed="false"><b>Clear Steps</b><small>CHAIN · FINITE</small></button>
+              <button id="graphPatch-branchChoir" type="button" data-graph-patch="branchChoir" data-preset-band="spacious" aria-pressed="false"><b>Branch Choir</b><small>TREE · SPLIT</small></button>
+              <button id="graphPatch-layeredGlass" type="button" data-graph-patch="layeredGlass" data-preset-band="rhythmic" aria-pressed="true"><b>Layered Glass</b><small>DAG · CROSSING</small></button>
+              <button id="graphPatch-haloRing" type="button" data-graph-patch="haloRing" data-preset-band="feedback" aria-pressed="false"><b>Halo Ring</b><small>RING · DECAY</small></button>
+              <button id="graphPatch-shortcutChorus" type="button" data-graph-patch="shortcutChorus" data-preset-band="feedback" aria-pressed="false"><b>Shortcut Chorus</b><small>SMALL WORLD</small></button>
+              <button id="graphPatch-hubScatter" type="button" data-graph-patch="hubScatter" data-preset-band="wild" aria-pressed="false"><b>Hub Scatter</b><small>SPOKE RETURNS</small></button>
+              <button id="graphPatch-softMesh" type="button" data-graph-patch="softMesh" data-preset-band="feedback" aria-pressed="false"><b>Soft Mesh</b><small>NEIGHBOR LOOPS</small></button>
+              <button id="graphPatch-islandSignals" type="button" data-graph-patch="islandSignals" data-preset-band="spacious" aria-pressed="false"><b>Island Signals</b><small>MODULAR LOOPS</small></button>
+            </div>
+            <p class="growth-preset-description" id="graphPatchDescription">Close crossing times make a tight cascade on every beat.</p>
+            <section class="recursion-parameter-cluster graph-generator-cluster">
+              <h3 class="parameter-cluster-title">Graph generator</h3>
+              <label class="select-control" for="topology"><span class="field-label">Graph shape</span><span class="select-shell"><select id="topology"><optgroup label="Directed acyclic graphs"><option value="chain">Delay Chain</option><option value="tree">Branching Tree</option><option value="dag" selected>Layered DAG</option><option value="bipartite">Bipartite Field</option></optgroup><optgroup label="Cyclic and network graphs"><option value="ring">Directed Ring</option><option value="smallworld">Small World</option><option value="hub">Hub + Spokes</option><option value="mesh">Feedback Mesh</option><option value="modular">Modular Islands</option><option value="random">Seeded Random</option></optgroup></select></span></label>
+              <p class="graph-mapping-description" id="topologyDescription">Several forward-only routes cross between ordered layers.</p>
+              <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="512" step="1" value="10" /></label>
+              <label class="control" for="density"><span><b>Connection density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+              <label class="control" for="seed"><span><b>Graph seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
+              <button class="mini-action" id="newGraphButton" type="button">Next seed</button>
+              <div class="graph-layout-actions" role="group" aria-label="Topology-preserving node layouts">
+                <button class="mini-action" id="arrangeGraphButton" type="button" title="Restore a stable symmetric layout without changing graph connections">Arrange</button>
+                <button class="mini-action" id="scatterGraphButton" type="button" title="Scatter node positions without changing graph connections">Scatter</button>
+              </div>
+              <button class="mini-action" id="openAllSwitchesButton" type="button" disabled>Open all graph switches</button>
+            </section>
+          </div>
+        </details>
+
+        <details class="group control-section" id="motionSection" data-section="motion" open>
+          <summary class="group-summary"><h2 class="group-title">Motion</h2><span class="section-state" id="motionSummary">nodes paused · wiggle</span></summary>
+          <div class="group-body">
+            <div class="graph-motion-row">
+              <button class="play-button motion-play-button" id="nodeMotionPlayButton" type="button" aria-pressed="false" aria-label="Play node motion">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="select-control" for="nodeMotionMode"><span class="field-label">Node path</span><span class="select-shell"><select id="nodeMotionMode"><option value="wiggle" selected>Independent wiggle</option><option value="orbit">Circular orbits</option><option value="random">Random walks</option></select></span></label>
+            </div>
+            <label class="control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.12" /></label>
+            <label class="control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
+            <small class="growth-parameter-note">Motion changes distance, timing, and mapping without launching a new note.</small>
+          </div>
+        </details>
+
+        <details class="group control-section" id="mappingSection" data-section="mapping">
+          <summary class="group-summary"><h2 class="group-title">Pitch mapping</h2><span class="section-state" id="mappingSummary">inherited turns · 19 equal divisions</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="mappingMode"><span class="field-label">Graph → pitch</span><span class="select-shell"><select id="mappingMode"><option value="turn" selected>Inherited route turns</option><option value="height">Node height</option><option value="degree">Node degree</option><option value="progress">Left-to-right progress</option></select></span></label>
+            <p class="graph-mapping-description" id="mappingDescription">Every turn adds a local interval to the pitch inherited from the previous route.</p>
+            <div class="graph-mapping-legend" aria-label="Graph synth mapping legend"><span><b id="mappingLegendLabel0">Turn</b><small id="mappingLegendDetail0">inherited pitch</small></span><span><b id="mappingLegendLabel1">Node height</b><small id="mappingLegendDetail1">stereo + alternate pitch</small></span><span><b id="mappingLegendLabel2">Degree</b><small id="mappingLegendDetail2">modulation</small></span><span><b id="mappingLegendLabel3">Cycle pass</b><small id="mappingLegendDetail3">level + brightness loss</small></span></div>
+            <label class="control" for="baseFrequency"><span><b>Root frequency</b><output id="baseFrequencyOut" for="baseFrequency">220 Hz</output></span><input id="baseFrequency" name="frequency" type="range" min="35" max="880" step="1" value="220" /></label>
+            <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">2.00 oct</output></span><input id="pitchRange" type="range" min="0" max="5" step="0.05" value="2" /></label>
+            <label class="select-control" for="tuningMode"><span class="field-label">Pitch system</span><span class="select-shell"><select id="tuningMode"><option value="pure">Pure angle · continuous</option><option value="equal" selected>Equal octave divisions</option><option value="just">Just ratios · non-equal</option></select></span></label>
+            <label class="control" for="edoDivisions"><span><b>Equal divisions / octave</b><output id="edoDivisionsOut" for="edoDivisions">19</output></span><input id="edoDivisions" type="range" min="1" max="360" step="1" value="19" /></label>
+            <small class="growth-parameter-note">Any integer division is available: 6 gives whole tone and 12 gives chromatic. Pure angle bypasses the lattice at floating-point resolution; Just ratios is a separate non-equal option.</small>
+            <label class="control" for="turnPitchScale"><span><b>Turn → octave span</b><output id="turnPitchScaleOut" for="turnPitchScale">0.55 oct / 180°</output></span><input id="turnPitchScale" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" id="soundSection" data-section="sound">
+          <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state" id="soundSummary">FM · trigger · ADSR</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="soundMode"><span class="field-label">Voice</span><span class="select-shell"><select id="soundMode"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="sawtooth">Sawtooth</option><option value="square">Square</option><option value="fm" selected>FM</option><option value="pm">PM</option><option value="shepard">Shepard stack</option></select></span></label>
+            <label class="control" for="modulationIndex"><span><b>Modulation depth</b><output id="modulationIndexOut" for="modulationIndex">2.80</output></span><input id="modulationIndex" type="range" min="0" max="12" step="0.05" value="2.8" /></label>
+            <label class="control" for="modulationRatio"><span><b>Modulation ratio</b><output id="modulationRatioOut" for="modulationRatio">2.00×</output></span><input id="modulationRatio" type="range" min="0.25" max="8" step="0.05" value="2" /></label>
+            <label class="select-control" for="articulation"><span class="field-label">Note length</span><span class="select-shell"><select id="articulation"><option value="trigger" selected>Triggered duration</option><option value="edge">Continuous · hold for edge time</option></select></span></label>
+            <label class="control" for="noteDuration"><span><b>Triggered duration</b><output id="noteDurationOut" for="noteDuration">210 ms</output></span><input id="noteDuration" type="range" min="20" max="4000" step="10" value="210" /></label>
+            <label class="control" for="attack"><span><b>Attack</b><output id="attackOut" for="attack">8 ms</output></span><input id="attack" type="range" min="1" max="2000" step="1" value="8" /></label>
+            <label class="control" for="decay"><span><b>Decay</b><output id="decayOut" for="decay">90 ms</output></span><input id="decay" type="range" min="5" max="2400" step="1" value="90" /></label>
+            <label class="control" for="sustain"><span><b>Sustain</b><output id="sustainOut" for="sustain">34%</output></span><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+            <label class="control" for="release"><span><b>Release</b><output id="releaseOut" for="release">220 ms</output></span><input id="release" type="range" min="2" max="5000" step="1" value="220" /></label>
+            <label class="control" for="stereoSpread"><span><b>Stereo spread</b><output id="stereoSpreadOut" for="stereoSpread">84%</output></span><input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.84" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" id="graphInfoSection" data-section="settings">
+          <summary class="group-summary"><h2 class="group-title">Current graph</h2><span class="section-state" id="graphInfoSummary">10 nodes · 12 routes</span></summary>
+          <div class="group-body graph-info-readout">
+            <div class="structure-readout"><b>Structure</b><output id="structureReadout">10 nodes · 12/12 routes open</output></div>
+            <div class="structure-readout"><b>Cycles</b><output id="cycleReadout">none · finite tail</output></div>
+            <div class="structure-readout"><b>Pulse tail</b><output id="tailReadout">finite · 0 repeats</output></div>
+            <div class="structure-readout selected-node-card"><b>Selected</b><output id="selectedNodeReadout">node 1 · source</output></div>
+          </div>
+        </details>
+
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all>Reset Graph Synth</button></div>
+      </aside>
+      <p class="sr-only" id="canvasInstructions">Drag nodes to change edge times and note geometry. Click an edge switch to open or close that route. With the graph focused, Space sends a note, arrow keys move the selected node, and Enter toggles its first outgoing route. Route turns inherit pitch. In a cyclic graph, a note returns after the cycle with lower amplitude and darker tone.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="graph-synth-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

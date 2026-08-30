@@ -4,8 +4,10 @@ import {
   BLOWHOLE_LIMITS,
   blowholeCallAudibleShift,
   blowholeCall,
+  blowholePropagationPreset,
   createBlowholeState,
   deriveBlowholeGeometry,
+  deriveBlowholePropagation,
   deriveBlowholeReadout,
   evaluateBlowholeGesture,
   sanitizeBlowholeState,
@@ -26,6 +28,19 @@ const timeline = $("timeline");
 const timelineDrawing = timeline.getContext("2d", { alpha: false, desynchronized: true });
 const DESIGN_WIDTH = 1_000;
 const DESIGN_HEIGHT = 650;
+const CALL_GESTURE_PATH = Object.freeze([
+  "blue-whale-b-call",
+  "humpback-moan",
+  "humpback-two-voice-phrase",
+  "bottlenose-signature-whistle",
+  "orca-pulsed-call",
+  "sperm-whale-coda",
+  "dolphin-search-clicks",
+  "dolphin-terminal-buzz",
+]);
+const CALL_PATH_LEFT = 96;
+const CALL_PATH_RIGHT = 904;
+const CALL_PATH_Y = 594;
 
 const CONTROL_SPECS = Object.freeze([
   { key: "pressure", format: formatPercent },
@@ -41,6 +56,8 @@ const CONTROL_SPECS = Object.freeze([
     format: (value) => `${Number.isInteger(value) ? value : Number(value).toFixed(1)} Hz`,
   },
   { key: "depthM", format: formatDepth },
+  { key: "propagationDistanceM", format: formatDistance },
+  { key: "propagationMix", format: formatPercent },
   { key: "level", format: formatPercent },
 ]);
 
@@ -127,7 +144,7 @@ let looping = false;
 let manualHeld = false;
 let pointerManualHeld = false;
 let keyboardManualHeld = false;
-let venting = false;
+let valveAperture = 0;
 let localPlayStart = 0;
 let localPhase = 0;
 let stageMetrics = { cssWidth: 1, cssHeight: 1, pixelRatio: 1, scale: 1, offsetX: 0, offsetY: 0 };
@@ -148,6 +165,7 @@ let telemetry = {
   peak: 0,
   rms: 0,
   valveOpen: false,
+  valveAperture: 0,
 };
 
 function currentCall() {
@@ -157,6 +175,44 @@ function currentCall() {
 function familyCopy() {
   if (currentCall().id === "sperm-whale-coda") return FAMILY_COPY.sperm;
   return FAMILY_COPY[currentCall().family] ?? FAMILY_COPY.odontocete;
+}
+
+function currentCallPathIndex() {
+  const index = CALL_GESTURE_PATH.indexOf(state.callId);
+  return index < 0 ? 0 : index;
+}
+
+function syncCallPathControl() {
+  const index = currentCallPathIndex();
+  const call = currentCall();
+  const input = $("callPath");
+  const output = $("callPathOut");
+  if (input) {
+    input.min = "0";
+    input.max = String(CALL_GESTURE_PATH.length - 1);
+    input.step = "1";
+    input.value = String(index);
+    input.setAttribute(
+      "aria-valuetext",
+      `${index + 1} of ${CALL_GESTURE_PATH.length}: ${call.label}`,
+    );
+    updateRangeFill(input);
+  }
+  if (output) {
+    output.value = call.label;
+    output.textContent = call.label;
+  }
+}
+
+function setCallPathIndex(value, { announceState = false } = {}) {
+  const index = Math.round(clamp(Number(value), 0, CALL_GESTURE_PATH.length - 1));
+  const callId = CALL_GESTURE_PATH[index];
+  if (callId !== state.callId) {
+    setCall(callId, { announceState });
+    return;
+  }
+  syncCallPathControl();
+  if (announceState) announce(`${currentCall().label}: comparative voice stop ${index + 1} of ${CALL_GESTURE_PATH.length}`);
 }
 
 function formatPercent(value) {
@@ -173,6 +229,25 @@ function formatDepth(value) {
   const meters = clamp(value, 0, BLOWHOLE_LIMITS.depthM[1]);
   return meters >= 1_000 ? `${(meters / 1_000).toFixed(meters >= 2_000 ? 1 : 2)} km` : `${Math.round(meters)} m`;
 }
+
+function formatDistance(value) {
+  const meters = clamp(value, ...BLOWHOLE_LIMITS.propagationDistanceM);
+  return meters >= 1_000 ? `${(meters / 1_000).toFixed(1)} km` : `${Math.round(meters)} m`;
+}
+
+function formatTravelTime(value) {
+  const milliseconds = Math.max(0, Number(value) || 0);
+  return milliseconds >= 1_000
+    ? `${(milliseconds / 1_000).toFixed(2)} s`
+    : `${milliseconds.toFixed(milliseconds >= 100 ? 0 : 1)} ms`;
+}
+
+const PROPAGATION_RECEIVERS = Object.freeze({
+  "water-calm": "submerged hydrophone",
+  "air-still": "airborne receiver",
+  "air-windy": "airborne receiver",
+  "water-choppy": "submerged hydrophone",
+});
 
 function formatFrequency(value) {
   const frequency = Math.max(0, Number(value) || 0);
@@ -253,7 +328,13 @@ async function createAudioGraph() {
     sourceNode.port.onmessage = (event) => {
       if (event.data?.type !== "telemetry") return;
       telemetry = { ...telemetry, ...event.data };
-      if (playing && !looping && !telemetry.playing && telemetry.phase >= 0.99) {
+      if (
+        event.data.callId === state.callId
+        && playing
+        && !looping
+        && !event.data.playing
+        && event.data.phase >= 0.99
+      ) {
         playing = false;
         updateTransportPresentation();
       }
@@ -314,6 +395,7 @@ async function ensureAudio() {
       return false;
     }
     postConfiguration();
+    graph.sourceNode.port.postMessage({ type: "surfaceValve", aperture: valveAperture });
     setAudioPresentation("on");
     return true;
   } catch (error) {
@@ -325,6 +407,7 @@ async function ensureAudio() {
 
 async function toggleAudio() {
   if (audioContext?.state === "running") {
+    closeSurfaceBreath();
     stopPerformance({ announceState: false });
     graph.sourceNode.port.postMessage({ type: "silence" });
     await audioContext.suspend();
@@ -349,7 +432,6 @@ function updateTransportPresentation() {
 async function startCall() {
   const intent = ++playIntent;
   if (!(await ensureAudio()) || intent !== playIntent) return false;
-  if (currentCall().id !== "sperm-whale-coda") closeSurfaceBreath();
   stopManual();
   playing = true;
   localPlayStart = performance.now();
@@ -408,7 +490,6 @@ async function startManual(source = "pointer") {
     stopManual(source);
     return;
   }
-  if (currentCall().id !== "sperm-whale-coda") closeSurfaceBreath();
   updateManualState();
 }
 
@@ -421,42 +502,107 @@ function stopManual(source = null) {
 function stopPerformance({ announceState = true } = {}) {
   stopCall({ announceState: false });
   stopManual();
+  closeSurfaceBreath();
   graph?.sourceNode?.port.postMessage({ type: "stop" });
   if (announceState) announce("Cetacean sound stopped");
 }
 
-function closeSurfaceBreath() {
-  clearTimeout(ventSurfaceBreath.timer);
-  venting = false;
-  $("ventButton").classList.remove("is-venting");
-  graph?.sourceNode?.port.postMessage({ type: "stopVent" });
+function effectiveValveAperture() {
+  const reported = Number.isFinite(Number(telemetry.valveAperture))
+    ? clamp(telemetry.valveAperture)
+    : telemetry.valveOpen ? 1 : 0;
+  return Math.max(valveAperture, reported);
+}
+
+function syncValveControl() {
+  const input = $("valveAperture");
+  const output = $("valveApertureOut");
+  if (input) {
+    input.value = String(valveAperture);
+    input.setAttribute(
+      "aria-valuetext",
+      valveAperture > 0.01 ? `${formatPercent(valveAperture)} open at the surface` : "sealed",
+    );
+    updateRangeFill(input);
+  }
+  if (output) {
+    const value = valveAperture > 0.01 ? `${formatPercent(valveAperture)} open` : "sealed";
+    output.value = value;
+    output.textContent = value;
+  }
+}
+
+function setValveAperture(value, { announceState = false, legacyAttack = false } = {}) {
+  const previous = valveAperture;
+  valveAperture = clamp(value);
+  telemetry = {
+    ...telemetry,
+    valveOpen: valveAperture > 0.01,
+    valveAperture,
+  };
+  graph?.sourceNode?.port.postMessage({ type: "surfaceValve", aperture: valveAperture });
+  if (legacyAttack && previous <= 0.01 && valveAperture > 0.01) {
+    graph?.sourceNode?.port.postMessage({ type: "vent", strength: 0.92 });
+  }
+  if (valveAperture <= 0.01) {
+    graph?.sourceNode?.port.postMessage({ type: "stopVent" });
+  }
+  syncValveControl();
   updateValvePresentation();
+  if (announceState) {
+    announce(valveAperture > 0.01
+      ? `External blowhole valve ${formatPercent(valveAperture)} open at the surface; the hidden sound organ remains separate`
+      : "External blowhole valve sealed");
+  }
+}
+
+function closeSurfaceBreath() {
+  setValveAperture(0);
 }
 
 async function ventSurfaceBreath() {
   if (!(await ensureAudio())) return;
-  const surfaceClickException = currentCall().id === "sperm-whale-coda";
-  if (!surfaceClickException && (playing || manualHeld)) {
-    stopPerformance({ announceState: false });
-  }
-  venting = true;
-  $("ventButton").classList.add("is-venting");
-  updateValvePresentation();
-  graph.sourceNode.port.postMessage({ type: "vent", strength: 0.92 });
-  announce(surfaceClickException
-    ? "Surface breath opens the left airway; the sperm whale's right sound passage can remain isolated and click"
-    : "Surface breath opens the external valve; underwater calls use the hidden internal source");
-  clearTimeout(ventSurfaceBreath.timer);
-  ventSurfaceBreath.timer = setTimeout(() => {
-    closeSurfaceBreath();
-  }, 620);
+  const opening = valveAperture <= 0.01;
+  setValveAperture(opening ? 1 : 0, {
+    announceState: true,
+    legacyAttack: opening,
+  });
 }
 
 function updateValvePresentation() {
-  const open = venting || telemetry.valveOpen;
+  const aperture = effectiveValveAperture();
+  const open = aperture > 0.01;
+  const call = currentCall();
   const valve = $("valveState");
   valve.dataset.state = open ? "open" : "sealed";
-  valve.querySelector("b").textContent = open ? "open to breathe" : "sealed underwater";
+  valve.setAttribute(
+    "aria-label",
+    open
+      ? `External blowhole valve ${formatPercent(aperture)} open at the surface; sound source remains internal`
+      : "External blowhole valve sealed underwater",
+  );
+  valve.querySelector("b").textContent = open
+    ? `${formatPercent(aperture)} open at surface`
+    : "sealed underwater";
+
+  const ventButton = $("ventButton");
+  ventButton.setAttribute("aria-pressed", String(open));
+  if (open) ventButton.classList.add("is-venting");
+  else ventButton.classList.remove("is-venting");
+  const ventHint = ventButton.querySelector("small");
+  if (ventHint) ventHint.textContent = open ? "toggle sealed · transport continues" : "toggle open · breath layer";
+
+  $("blowholeFact").textContent = open
+    ? call.family === "mysticete"
+      ? "paired nares · open at surface; laryngeal source remains separate"
+      : call.id === "sperm-whale-coda"
+        ? "left airway · open at surface; right click passage remains separate"
+        : "external naris · open at surface; phonic lips remain internal"
+    : call.family === "mysticete"
+      ? "paired nares · sealed underwater"
+      : call.id === "sperm-whale-coda"
+        ? "left external naris · sealed underwater"
+        : "one external naris · sealed underwater";
 }
 
 function updateRangeFill(input) {
@@ -475,6 +621,9 @@ function setStateValue(key, value, { announceState = false } = {}) {
     postConfiguration();
   }
   syncControl(key);
+  if (key === "propagationDistanceM" || key === "propagationMix") {
+    syncPropagationPresentation();
+  }
   updateReadouts();
   if (announceState) {
     const spec = CONTROL_SPECS.find((candidate) => candidate.key === key);
@@ -509,8 +658,32 @@ function syncLimits() {
   }
 }
 
+function syncPropagationPresentation() {
+  const propagation = deriveBlowholePropagation(state);
+  for (const input of document.querySelectorAll('input[name="propagationPreset"]')) {
+    input.checked = input.value === propagation.presetId;
+  }
+  const receiver = PROPAGATION_RECEIVERS[propagation.presetId]
+    ?? (propagation.medium === "water" ? "submerged hydrophone" : "airborne receiver");
+  const distance = formatDistance(propagation.distanceM);
+  const pathLabel = `${propagation.label.toLowerCase()} · ${distance}`;
+  $("propagationPathReadout").textContent = pathLabel;
+  $("propagationReceiverReadout").textContent = receiver;
+  $("propagationHelp").textContent = `${propagation.description} One-way travel time: ${formatTravelTime(propagation.travelTimeMs)} (shown only; the live monitor stays latency-compensated).`;
+  const strip = $("propagationStrip");
+  strip.dataset.propagation = propagation.presetId;
+  strip.setAttribute(
+    "aria-label",
+    `Post-source acoustic path: ${propagation.label} over ${distance} to a ${receiver}. One-way physical travel time ${formatTravelTime(propagation.travelTimeMs)}; monitor delay compensated.`,
+  );
+  $("environmentSummary").textContent = `${propagation.label} · ${distance}`;
+}
+
 function syncControls() {
   for (const spec of CONTROL_SPECS) syncControl(spec.key);
+  syncPropagationPresentation();
+  syncCallPathControl();
+  syncValveControl();
   $("monitorMode").value = state.monitorMode;
   $("monitorModeOut").value = state.monitorMode === "audible" ? "audible proxy" : "physical band";
   $("monitorModeOut").textContent = $("monitorModeOut").value;
@@ -545,11 +718,6 @@ function updateFamilyCopy() {
   $("basisReadout").textContent = blueComparative
     ? "comparative anatomical inference"
     : copy.basis;
-  $("blowholeFact").textContent = call.family === "mysticete"
-    ? "paired nares · sealed underwater"
-    : call.id === "sperm-whale-coda"
-      ? "left external naris · sealed underwater"
-      : "one external naris · sealed underwater";
   $("asymmetry").disabled = [
     "bottlenose-signature-whistle",
     "dolphin-search-clicks",
@@ -582,6 +750,7 @@ function updateFamilyCopy() {
   for (const button of document.querySelectorAll(".blowhole-family-tabs [data-family]")) {
     button.setAttribute("aria-pressed", String(button.dataset.family === call.family));
   }
+  updateValvePresentation();
 }
 
 function monitorSummary(physicalFrequencyHz) {
@@ -633,7 +802,7 @@ function updateReadouts() {
   $("radiatorSummary").textContent = call.family === "mysticete"
     ? `${formatPercent(state.recycle)} sac coupling · ${formatPercent(state.focus)} radiation`
     : `${formatPercent(state.recycle)} pneumatic reuse · ${formatPercent(state.focus)} focus`;
-  $("environmentSummary").textContent = `${formatDepth(state.depthM)} · ${state.monitorMode === "audible" ? "audible map" : "physical band"}`;
+  $("environmentSummary").textContent = `${readout.propagationLabel} · ${formatDistance(readout.propagationDistanceM)}`;
   updateValvePresentation();
 }
 
@@ -670,21 +839,36 @@ function buildCallButtons() {
 
 function setCall(callId, { announceState = true } = {}) {
   const call = blowholeCall(callId);
+  const wasPlaying = playing;
+  const wasManual = manualHeld;
   const preserved = {
     level: state.level,
     depthM: state.depthM,
+    propagationId: state.propagationId,
+    propagationDistanceM: state.propagationDistanceM,
+    propagationMix: state.propagationMix,
     monitorMode: state.monitorMode,
   };
-  stopPerformance({ announceState: false });
   state = createBlowholeState(call.id, preserved);
+  if (wasPlaying) {
+    localPlayStart = performance.now();
+    localPhase = 0;
+  } else if (!wasManual) {
+    localPhase = 0;
+  }
   $("callSelect").value = call.id;
   $("callDescription").textContent = call.description;
   updateFamilyCopy();
   buildCallButtons();
   syncControls();
   postConfiguration();
-  localPhase = 0;
-  if (announceState) announce(`${call.species}: ${call.label} loaded`);
+  updateTransportPresentation();
+  if (announceState) {
+    const continuation = wasManual
+      ? " · manual pressure continues"
+      : wasPlaying ? looping ? " · loop continues" : " · playback continues" : "";
+    announce(`${call.species}: ${call.label} loaded${continuation}`);
+  }
 }
 
 function setFamily(family) {
@@ -694,6 +878,7 @@ function setFamily(family) {
 
 function resetAll() {
   stopPerformance({ announceState: false });
+  closeSurfaceBreath();
   looping = false;
   state = createBlowholeState(BLOWHOLE_DEFAULTS.callId);
   $("callSelect").value = state.callId;
@@ -703,7 +888,7 @@ function resetAll() {
   syncControls();
   postConfiguration();
   updateTransportPresentation();
-  announce("Blowhole anatomy and call reset");
+  announce("Blowhole instrument reset");
 }
 
 function fitCanvas(canvas, context, metrics, designWidth = null, designHeight = null) {
@@ -749,6 +934,10 @@ function drawRoundedRect(context, x, y, width, height, radius) {
 }
 
 function drawLabel(context, text, x, y, targetX, targetY, color = "rgba(184,218,216,.72)", align = "left") {
+  // At phone widths the anatomical callouts collide with the playable macro
+  // rails. The semantic readouts immediately below the canvas preserve the
+  // same information, so keep the compact canvas focused on its drag handles.
+  if (stageMetrics.scale < 0.48) return;
   context.save();
   const annotationScale = Math.max(0.05, stageMetrics.scale);
   context.strokeStyle = color;
@@ -780,6 +969,134 @@ function drawHandle(context, key, x, y, color, axis = "x") {
   context.lineWidth = 4;
   context.shadowColor = color;
   context.shadowBlur = active ? 22 : 12;
+  context.fillRect(-halfSize, -halfSize, halfSize * 2, halfSize * 2);
+  context.strokeRect(-halfSize, -halfSize, halfSize * 2, halfSize * 2);
+  context.restore();
+}
+
+function drawValveApertureHandle(context, valveX, valveY, trackX) {
+  const top = valveY - 42;
+  const bottom = valveY + 42;
+  const handleY = bottom - valveAperture * (bottom - top);
+  const active = pointerDrag?.kind === "valveAperture";
+  const scale = Math.max(0.05, stageMetrics.scale);
+  const hitRadius = Math.max(18, 24 / scale);
+  stageHandles.push({
+    kind: "valveAperture",
+    key: "valveAperture",
+    x: trackX,
+    y: handleY,
+    radius: hitRadius,
+    axis: "y",
+    trackTop: top,
+    trackBottom: bottom,
+    bounds: {
+      left: trackX - hitRadius,
+      right: trackX + hitRadius,
+      top: top - hitRadius * 0.5,
+      bottom: bottom + hitRadius * 0.5,
+    },
+  });
+  context.save();
+  context.strokeStyle = "rgba(89,238,210,.38)";
+  context.fillStyle = "rgba(89,238,210,.8)";
+  context.lineWidth = Math.max(1, 1.25 / scale);
+  context.setLineDash([3 / scale, 4 / scale]);
+  context.beginPath();
+  context.moveTo(valveX, valveY);
+  context.lineTo(trackX, valveY);
+  context.stroke();
+  context.setLineDash([]);
+  context.beginPath();
+  context.moveTo(trackX, top);
+  context.lineTo(trackX, bottom);
+  context.stroke();
+  context.font = `700 ${Math.max(9, 7.5 / scale)}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+  context.textAlign = "center";
+  context.fillText("OPEN", trackX, top - 7 / scale);
+  context.fillText("SEAL", trackX, bottom + 13 / scale);
+  context.translate(trackX, handleY);
+  context.rotate(Math.PI * 0.25);
+  context.fillStyle = active ? "#f6fff8" : "#59eed2";
+  context.strokeStyle = "rgba(3,16,21,.92)";
+  context.lineWidth = 3;
+  context.shadowColor = "#59eed2";
+  context.shadowBlur = active ? 20 : 10;
+  const halfSize = clamp(7.5 / scale, 6, 16);
+  context.fillRect(-halfSize, -halfSize, halfSize * 2, halfSize * 2);
+  context.strokeRect(-halfSize, -halfSize, halfSize * 2, halfSize * 2);
+  context.restore();
+}
+
+function drawCallGesturePath(context) {
+  const index = currentCallPathIndex();
+  const stepWidth = (CALL_PATH_RIGHT - CALL_PATH_LEFT) / (CALL_GESTURE_PATH.length - 1);
+  const handleX = CALL_PATH_LEFT + index * stepWidth;
+  const active = pointerDrag?.kind === "callPath";
+  const scale = Math.max(0.05, stageMetrics.scale);
+  const hitRadius = Math.max(18, 24 / scale);
+  stageHandles.push({
+    kind: "callPath",
+    key: "callPath",
+    x: handleX,
+    y: CALL_PATH_Y,
+    radius: hitRadius,
+    axis: "x",
+    bounds: {
+      left: CALL_PATH_LEFT - hitRadius,
+      right: CALL_PATH_RIGHT + hitRadius,
+      top: CALL_PATH_Y - hitRadius,
+      bottom: CALL_PATH_Y + hitRadius,
+    },
+  });
+
+  context.save();
+  context.fillStyle = "rgba(3,16,22,.84)";
+  context.strokeStyle = "rgba(135,204,204,.2)";
+  context.lineWidth = Math.max(1, 1 / scale);
+  drawRoundedRect(
+    context,
+    CALL_PATH_LEFT - 34,
+    CALL_PATH_Y - 35,
+    CALL_PATH_RIGHT - CALL_PATH_LEFT + 68,
+    70,
+    10,
+  );
+  context.fill();
+  context.stroke();
+  const gradient = context.createLinearGradient(CALL_PATH_LEFT, 0, CALL_PATH_RIGHT, 0);
+  gradient.addColorStop(0, "#ffbf4a");
+  gradient.addColorStop(0.48, "#d893ff");
+  gradient.addColorStop(1, "#59eed2");
+  context.strokeStyle = gradient;
+  context.lineWidth = Math.max(2, 2 / scale);
+  context.beginPath();
+  context.moveTo(CALL_PATH_LEFT, CALL_PATH_Y);
+  context.lineTo(CALL_PATH_RIGHT, CALL_PATH_Y);
+  context.stroke();
+  for (let stop = 0; stop < CALL_GESTURE_PATH.length; stop += 1) {
+    const x = CALL_PATH_LEFT + stop * stepWidth;
+    context.fillStyle = stop === index ? "#f6fff8" : "rgba(184,222,221,.58)";
+    context.beginPath();
+    context.arc(x, CALL_PATH_Y, stop === index ? 4.5 : 2.8, 0, TAU);
+    context.fill();
+  }
+  context.fillStyle = "rgba(219,240,236,.76)";
+  context.font = `700 ${Math.max(10, 8 / scale)}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+  context.textAlign = "center";
+  context.fillText(currentCall().label.toUpperCase(), (CALL_PATH_LEFT + CALL_PATH_RIGHT) * 0.5, CALL_PATH_Y - 15);
+  context.textAlign = "left";
+  context.fillText("MOAN", CALL_PATH_LEFT, CALL_PATH_Y + 22);
+  context.textAlign = "right";
+  context.fillText("CLICK", CALL_PATH_RIGHT, CALL_PATH_Y + 22);
+  context.translate(handleX, CALL_PATH_Y);
+  context.rotate(Math.PI * 0.25);
+  context.fillStyle = active ? "#f6fff8" : "#c7ff43";
+  context.strokeStyle = "rgba(3,16,21,.92)";
+  context.lineWidth = 3;
+  context.shadowColor = "#c7ff43";
+  context.shadowBlur = active ? 20 : 10;
+  const halfSize = clamp(7.5 / scale, 6, 16);
   context.fillRect(-halfSize, -halfSize, halfSize * 2, halfSize * 2);
   context.strokeRect(-halfSize, -halfSize, halfSize * 2, halfSize * 2);
   context.restore();
@@ -866,7 +1183,8 @@ function drawSoundBeam(context, originX, originY, time, amount, focus, family) {
   context.restore();
 }
 
-function drawDolphin(context, geometry, gesture, time, surfaceValveOpen = false) {
+function drawDolphin(context, geometry, gesture, time, surfaceValveAperture = 0) {
+  const surfaceValveOpen = surfaceValveAperture > 0.01;
   const active = clamp(telemetry.rms * 12 + gesture.pressure * (playing || manualHeld ? 0.24 : 0));
   const breath = geometry.nasalAirSacInflation;
   const focus = geometry.melonFocus;
@@ -982,11 +1300,11 @@ function drawDolphin(context, geometry, gesture, time, surfaceValveOpen = false)
   context.quadraticCurveTo(483, 171, 500, 181);
   context.stroke();
   if (surfaceValveOpen) {
-    context.fillStyle = "rgba(89,238,210,.22)";
+    context.fillStyle = `rgba(89,238,210,${0.08 + surfaceValveAperture * 0.2})`;
     context.strokeStyle = "#59eed2";
     context.lineWidth = 2.5;
     context.beginPath();
-    context.ellipse(483, 180, 13, 7, 0, 0, TAU);
+    context.ellipse(483, 180, 13, 2 + surfaceValveAperture * 5, 0, 0, TAU);
     context.fill();
     context.stroke();
   } else {
@@ -1003,7 +1321,7 @@ function drawDolphin(context, geometry, gesture, time, surfaceValveOpen = false)
   drawSoundBeam(context, 775, 286, time, active, focus, "odontocete");
   drawLabel(
     context,
-    surfaceValveOpen ? "blowhole / open to breathe" : "blowhole / sealed underwater",
+    surfaceValveOpen ? "blowhole / surface-open / source internal" : "blowhole / sealed underwater",
     400,
     126,
     482,
@@ -1026,10 +1344,12 @@ function drawDolphin(context, geometry, gesture, time, surfaceValveOpen = false)
   drawHandle(context, "recycle", 414 + state.recycle * 48, 304, "#59eed2", "x");
   drawHandle(context, "tension", 495 + state.tension * 47, 260, "#d893ff", "x");
   drawHandle(context, "focus", 640 + state.focus * 86, 303, "#c7ff43", "x");
+  drawValveApertureHandle(context, 483, 180, 565);
   context.restore();
 }
 
-function drawSpermWhale(context, geometry, gesture, time, surfaceValveOpen = false) {
+function drawSpermWhale(context, geometry, gesture, time, surfaceValveAperture = 0) {
+  const surfaceValveOpen = surfaceValveAperture > 0.01;
   const active = clamp(telemetry.rms * 15 + gesture.pressure * (playing || manualHeld ? 0.24 : 0));
   const focus = geometry.spermacetiCaseFocus;
   context.save();
@@ -1137,11 +1457,11 @@ function drawSpermWhale(context, geometry, gesture, time, surfaceValveOpen = fal
   context.quadraticCurveTo(815, 161, 833, 173);
   context.stroke();
   if (surfaceValveOpen) {
-    context.fillStyle = "rgba(89,238,210,.22)";
+    context.fillStyle = `rgba(89,238,210,${0.08 + surfaceValveAperture * 0.2})`;
     context.strokeStyle = "#59eed2";
     context.lineWidth = 2.5;
     context.beginPath();
-    context.ellipse(816, 172, 14, 7, 0, 0, TAU);
+    context.ellipse(816, 172, 14, 2 + surfaceValveAperture * 5, 0, 0, TAU);
     context.fill();
     context.stroke();
   } else {
@@ -1158,7 +1478,7 @@ function drawSpermWhale(context, geometry, gesture, time, surfaceValveOpen = fal
   drawSoundBeam(context, 828, 367, time, active, focus, "odontocete");
   drawLabel(
     context,
-    surfaceValveOpen ? "left airway / open to breathe" : "left blowhole / sealed underwater",
+    surfaceValveOpen ? "left airway / surface-open / right source separate" : "left blowhole / sealed underwater",
     741,
     116,
     816,
@@ -1176,10 +1496,12 @@ function drawSpermWhale(context, geometry, gesture, time, surfaceValveOpen = fal
   drawHandle(context, "recycle", 792 + state.recycle * 47, 298, "#59eed2", "x");
   drawHandle(context, "tension", 780 + state.tension * 43, 248, "#d893ff", "x");
   drawHandle(context, "focus", 618 + state.focus * 119, 365, "#c7ff43", "x");
+  drawValveApertureHandle(context, 816, 172, 875);
   context.restore();
 }
 
-function drawBaleenWhale(context, geometry, gesture, time, surfaceValveOpen = false) {
+function drawBaleenWhale(context, geometry, gesture, time, surfaceValveAperture = 0) {
+  const surfaceValveOpen = surfaceValveAperture > 0.01;
   const drive = geometry.internalPressure;
   const active = clamp(telemetry.rms * 13 + drive * (playing || manualHeld ? 0.24 : 0));
   const sac = geometry.laryngealSacInflation;
@@ -1285,9 +1607,9 @@ function drawBaleenWhale(context, geometry, gesture, time, surfaceValveOpen = fa
   for (const center of [502, 530]) {
     context.beginPath();
     if (surfaceValveOpen) {
-      context.fillStyle = "rgba(89,238,210,.22)";
+      context.fillStyle = `rgba(89,238,210,${0.08 + surfaceValveAperture * 0.2})`;
       context.strokeStyle = "#59eed2";
-      context.ellipse(center, 190, 10, 6, 0, 0, TAU);
+      context.ellipse(center, 190, 10, 2 + surfaceValveAperture * 4, 0, 0, TAU);
       context.fill();
     } else {
       context.strokeStyle = "#ff715b";
@@ -1316,7 +1638,7 @@ function drawBaleenWhale(context, geometry, gesture, time, surfaceValveOpen = fa
 
   drawLabel(
     context,
-    surfaceValveOpen ? "paired blowholes / open" : "paired blowholes / sealed underwater",
+    surfaceValveOpen ? "paired blowholes / surface-open / source laryngeal" : "paired blowholes / sealed underwater",
     421,
     132,
     516,
@@ -1334,6 +1656,7 @@ function drawBaleenWhale(context, geometry, gesture, time, surfaceValveOpen = fa
   drawHandle(context, "recycle", 408 + state.recycle * 53, 454, "#59eed2", "x");
   drawHandle(context, "tension", 502 + state.tension * 58, 391, "#d893ff", "x");
   drawHandle(context, "focus", 586 + state.focus * 86, 435, "#c7ff43", "x");
+  drawValveApertureHandle(context, 516, 190, 585);
   context.restore();
 }
 
@@ -1372,15 +1695,16 @@ function drawStage(time = 0) {
   const call = currentCall();
   const gesture = evaluateBlowholeGesture(call, phase, state);
   const geometry = deriveBlowholeGeometry(state, phase);
-  const surfaceValveOpen = venting || telemetry.valveOpen;
+  const surfaceValveAperture = effectiveValveAperture();
   stageHandles = [];
   if (call.id === "sperm-whale-coda") {
-    drawSpermWhale(stageDrawing, geometry, gesture, time, surfaceValveOpen);
+    drawSpermWhale(stageDrawing, geometry, gesture, time, surfaceValveAperture);
   } else if (call.family === "odontocete") {
-    drawDolphin(stageDrawing, geometry, gesture, time, surfaceValveOpen);
+    drawDolphin(stageDrawing, geometry, gesture, time, surfaceValveAperture);
   } else {
-    drawBaleenWhale(stageDrawing, geometry, gesture, time, surfaceValveOpen);
+    drawBaleenWhale(stageDrawing, geometry, gesture, time, surfaceValveAperture);
   }
+  drawCallGesturePath(stageDrawing);
   stageDrawing.restore();
 }
 
@@ -1528,8 +1852,13 @@ function startStageDrag(event) {
   let closest = null;
   let closestDistance = Infinity;
   for (const handle of stageHandles) {
-    const distance = Math.hypot(point.x - handle.x, point.y - handle.y);
-    if (distance <= handle.radius && distance < closestDistance) {
+    const insideBounds = handle.bounds
+      && point.x >= handle.bounds.left
+      && point.x <= handle.bounds.right
+      && point.y >= handle.bounds.top
+      && point.y <= handle.bounds.bottom;
+    const distance = insideBounds ? 0 : Math.hypot(point.x - handle.x, point.y - handle.y);
+    if ((insideBounds || distance <= handle.radius) && distance < closestDistance) {
       closest = handle;
       closestDistance = distance;
     }
@@ -1542,14 +1871,41 @@ function startStageDrag(event) {
     pointerId: event.pointerId,
     startX: point.x,
     startY: point.y,
-    startValue: state[closest.key],
+    startValue: closest.kind === "callPath"
+      ? currentCallPathIndex()
+      : closest.kind === "valveAperture" ? valveAperture : state[closest.key],
   };
+  if (closest.kind === "callPath") {
+    const position = clamp(
+      (point.x - CALL_PATH_LEFT) / (CALL_PATH_RIGHT - CALL_PATH_LEFT),
+    );
+    setCallPathIndex(position * (CALL_GESTURE_PATH.length - 1));
+  } else if (closest.kind === "valveAperture") {
+    const aperture = 1 - clamp(
+      (point.y - closest.trackTop) / (closest.trackBottom - closest.trackTop),
+    );
+    setValveAperture(aperture);
+  }
 }
 
 function moveStageDrag(event) {
   if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
   event.preventDefault();
   const point = stagePoint(event);
+  if (pointerDrag.kind === "callPath") {
+    const position = clamp(
+      (point.x - CALL_PATH_LEFT) / (CALL_PATH_RIGHT - CALL_PATH_LEFT),
+    );
+    setCallPathIndex(position * (CALL_GESTURE_PATH.length - 1));
+    return;
+  }
+  if (pointerDrag.kind === "valveAperture") {
+    const aperture = 1 - clamp(
+      (point.y - pointerDrag.trackTop) / (pointerDrag.trackBottom - pointerDrag.trackTop),
+    );
+    setValveAperture(aperture);
+    return;
+  }
   const delta = pointerDrag.axis === "y"
     ? (pointerDrag.startY - point.y) / 150
     : (point.x - pointerDrag.startX) / 170;
@@ -1559,10 +1915,19 @@ function moveStageDrag(event) {
 
 function endStageDrag(event) {
   if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
-  const key = pointerDrag.key;
+  const completedDrag = pointerDrag;
   pointerDrag = null;
   stage.releasePointerCapture?.(event.pointerId);
-  setStateValue(key, state[key], { announceState: true });
+  if (completedDrag.kind === "callPath") {
+    const index = currentCallPathIndex();
+    announce(`${currentCall().label}: comparative voice stop ${index + 1} of ${CALL_GESTURE_PATH.length}`);
+    return;
+  }
+  if (completedDrag.kind === "valveAperture") {
+    setValveAperture(valveAperture, { announceState: true });
+    return;
+  }
+  setStateValue(completedDrag.key, state[completedDrag.key], { announceState: true });
 }
 
 function installEvents() {
@@ -1572,6 +1937,18 @@ function installEvents() {
   $("ventButton").addEventListener("click", ventSurfaceBreath);
   $("resetButton").addEventListener("click", resetAll);
   $("callSelect").addEventListener("change", (event) => setCall(event.target.value));
+  $("callPath")?.addEventListener("input", (event) => {
+    setCallPathIndex(event.target.value);
+  });
+  $("callPath")?.addEventListener("change", (event) => {
+    setCallPathIndex(event.target.value, { announceState: true });
+  });
+  $("valveAperture")?.addEventListener("input", (event) => {
+    setValveAperture(Number(event.target.value));
+  });
+  $("valveAperture")?.addEventListener("change", (event) => {
+    setValveAperture(Number(event.target.value), { announceState: true });
+  });
   for (const tab of document.querySelectorAll(".blowhole-family-tabs [data-family]")) {
     tab.addEventListener("click", () => setFamily(tab.dataset.family));
   }
@@ -1579,6 +1956,16 @@ function installEvents() {
     const input = $(spec.key);
     input?.addEventListener("input", () => setStateValue(spec.key, Number(input.value)));
     input?.addEventListener("change", () => setStateValue(spec.key, Number(input.value), { announceState: true }));
+  }
+  for (const input of document.querySelectorAll('input[name="propagationPreset"]')) {
+    input.addEventListener("change", () => {
+      if (!input.checked) return;
+      const preset = blowholePropagationPreset(input.value, state.propagationId);
+      state = sanitizeBlowholeState({ ...state, propagationId: preset.id }, state);
+      postConfiguration();
+      syncControls();
+      announce(`${preset.label} propagation selected; source anatomy remains fixed`);
+    });
   }
   $("monitorMode").addEventListener("change", (event) => {
     state = sanitizeBlowholeState({ ...state, monitorMode: event.target.value }, state);
@@ -1643,7 +2030,10 @@ function installEvents() {
   document.addEventListener("keyup", (event) => {
     if (event.key.toLowerCase() === "b") stopManual("keyboard");
   });
-  globalThis.addEventListener("blur", () => stopManual());
+  globalThis.addEventListener("blur", () => {
+    stopManual();
+    closeSurfaceBreath();
+  });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       stopPerformance({ announceState: false });
@@ -1651,6 +2041,7 @@ function installEvents() {
     }
   });
   globalThis.addEventListener("pagehide", (event) => {
+    closeSurfaceBreath();
     if (event.persisted) return;
     pageIsActive = false;
     pageLifecycleGeneration += 1;
