@@ -166,6 +166,11 @@ test("geometric event fields use absolute time, bounded work, and explicit click
   assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS, /fn geometryWrappedTurns/);
   assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS, /fn geometryCellIdentity/);
   assert.match(SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS, /bitcast<u32>\(cell\.x\)/);
+  assert.match(
+    evaluatorCase(72),
+    /identity = \(lower \* 2246822519u\) \^ \(upper \* 3266489917u\);/,
+    "Voronoi border identity must parenthesize multiplication on both sides of WGSL bitwise XOR",
+  );
 });
 
 test("the coordinate-field scene visibly wires packed X/Y through geometric processors", () => {

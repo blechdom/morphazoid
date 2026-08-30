@@ -607,7 +607,7 @@ export const SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES = /* wgsl */ `
       if (mode == 1u) {
         let lower = min(nearestCell, secondCell);
         let upper = max(nearestCell, secondCell);
-        identity = lower * 2246822519u ^ upper * 3266489917u;
+        identity = (lower * 2246822519u) ^ (upper * 3266489917u);
       }
       let scale = u32(clamp(round(p1.y), 0.0, 6.0));
       let octaves = u32(clamp(round(p1.z), 1.0, 4.0));
