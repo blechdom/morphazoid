@@ -1246,6 +1246,7 @@ function drawHair(model, topY, backX) {
   const { compact, throatX, lipX, mouthY } = model;
   const crestY = Math.max(12, topY - (compact ? 8 : 13));
   const frontX = lipX - (compact ? 29 : 42);
+  const headOverlapY = compact ? 3 : 5;
   drawing.save();
   drawing.beginPath();
   drawing.moveTo(backX - 4, mouthY + 8);
@@ -1255,8 +1256,22 @@ function drawHair(model, topY, backX) {
   drawing.lineTo(throatX + 65, crestY + 2);
   drawing.lineTo(throatX + 78, crestY + 16);
   drawing.lineTo(throatX + 96, crestY + 8);
-  drawing.bezierCurveTo(frontX - 17, crestY + 11, frontX - 7, topY + 14, frontX, topY + 28);
-  drawing.bezierCurveTo(frontX - 28, topY + 20, throatX + 27, topY + 31, throatX - 5, topY + 49);
+  drawing.bezierCurveTo(
+    frontX - 17,
+    crestY + 11,
+    frontX - 7,
+    topY + 14,
+    frontX,
+    topY + 28 + headOverlapY,
+  );
+  drawing.bezierCurveTo(
+    frontX - 28,
+    topY + 20 + headOverlapY,
+    throatX + 27,
+    topY + 31 + headOverlapY,
+    throatX - 5,
+    topY + 49 + headOverlapY,
+  );
   drawing.bezierCurveTo(backX + 8, topY + 68, backX + 7, mouthY - 11, backX - 4, mouthY + 8);
   drawing.closePath();
   drawing.fillStyle = "rgba(70, 55, 43, 0.48)";

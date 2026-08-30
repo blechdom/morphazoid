@@ -1120,6 +1120,9 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   );
   assert.match(loadHarpBlock, /audioGraphIsRunning\(\) && !tineIsHeld/);
   assert.match(app, /function drawHair\(/);
+  assert.match(app, /const headOverlapY = compact \? 3 : 5/);
+  assert.match(app, /topY \+ 28 \+ headOverlapY/);
+  assert.match(app, /topY \+ 49 \+ headOverlapY/);
   assert.match(app, /function drawEye\(/);
   assert.match(app, /1 \+ exhale \* 0\.36 - inhale \* 0\.11/);
   assert.match(app, /function lipExtensionPixels\(/);
