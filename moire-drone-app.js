@@ -1,4 +1,5 @@
 import {
+  FABRIC_IMPACT_BODIES,
   MOIRE_DRONE_DEFAULTS,
   MOIRE_DRONE_FFT_SIZE,
   MOIRE_DRONE_LIMITS,
@@ -11,7 +12,9 @@ import {
   SpectralPropagationPool,
   combToothAnchor,
   combToothWarpOffset,
+  elasticReleaseProfile,
   fabricGesturePull,
+  fabricImpactPattern,
   normalizedResonanceQ,
   rotateFabricCoordinate,
   sanitizeMoireDroneParams,
@@ -62,6 +65,12 @@ const PROPAGATION_LABELS = Object.freeze({
   gravity: "Gravity",
   standing: "Standing",
   ocean: "Ocean",
+  sheet: "Sheet",
+});
+const IMPACT_BODY_LABELS = Object.freeze({
+  pebble: "Pebble",
+  pebbles: "Pebbles",
+  brick: "Brick",
 });
 const SPECTRAL_SCULPT_LABELS = Object.freeze({
   notches: "Gaps",
@@ -115,6 +124,7 @@ let pointerStartX = 0;
 let pointerStartY = 0;
 let pointerStartTime = 0;
 let pointerLastTime = 0;
+let pointerLastMotionTime = 0;
 let pointerVelocityX = 0;
 let pointerVelocityY = 0;
 let pointerAnchorX = 0;
@@ -154,6 +164,7 @@ let currentVisualSculpt = Object.freeze({
 });
 let displayedPropagationCount = -1;
 let disposed = false;
+const propagationVector = { x: 0, y: 0, value: 0 };
 
 const invertUnit = (value) => 1 - Number(value);
 
@@ -296,11 +307,11 @@ function noiseTypeLabel(value = state.settings.noiseType) {
 }
 
 function springFeelLabel(value) {
-  if (value < 0.15) return "soft";
-  if (value < 0.4) return "gentle";
-  if (value < 0.65) return "balanced";
-  if (value < 0.88) return "springy";
-  return "very bouncy";
+  if (value < 0.15) return "slack";
+  if (value < 0.4) return "slow";
+  if (value < 0.65) return "flowing";
+  if (value < 0.88) return "taut";
+  return "very fast";
 }
 
 function responseFeelLabel(value) {
@@ -335,6 +346,10 @@ function effectiveFabricAngle() {
 
 function propagationLabel(mode = state.settings.propagationMode) {
   return PROPAGATION_LABELS[mode] ?? "Rings";
+}
+
+function impactBodyLabel(body = state.settings.impactBody) {
+  return IMPACT_BODY_LABELS[body] ?? "Pebble";
 }
 
 function spectralSculptLabel(mode = state.settings.spectralSculptMode) {
@@ -733,6 +748,16 @@ function triggerPropagationAt(
     audioY = y,
     gesture = {},
     audioAction = "pluck",
+    mode,
+    directionX,
+    directionY,
+    waveRate,
+    waveSpeed,
+    waveDecay,
+    waveWidth,
+    sizeSpread,
+    speedSpread,
+    propagationGroup,
   } = {},
 ) {
   const settings = state.settings;
@@ -741,30 +766,162 @@ function triggerPropagationAt(
   if (fabricScale > 0.0001) {
     visualFabric.excite(local.x, local.y, force * fabricScale, radius);
   }
-  visualPropagation.trigger({
-    mode: settings.propagationMode,
+  const propagationEvent = {
+    mode: mode ?? settings.propagationMode,
     x,
     y,
     strength: Math.abs(force),
-    rate: settings.propagationRate,
-    speed: settings.propagationSpeed,
-    decay: settings.propagationDecay,
-    width: settings.propagationWidth,
+    rate: waveRate ?? settings.propagationRate,
+    speed: waveSpeed ?? settings.propagationSpeed,
+    decay: waveDecay ?? settings.propagationDecay,
+    width: waveWidth ?? settings.propagationWidth,
     harmonicOrder: settings.harmonicOrder,
     ringDensity: settings.ringDensity,
-    sizeSpread: settings.propagationSizeSpread,
-    speedSpread: settings.propagationSpeedSpread,
+    sizeSpread: sizeSpread ?? settings.propagationSizeSpread,
+    speedSpread: speedSpread ?? settings.propagationSpeedSpread,
     polarity: force < 0 ? -1 : 1,
-  });
+    directionX,
+    directionY,
+  };
+  if (Array.isArray(propagationGroup)) {
+    propagationGroup.push(propagationEvent);
+  } else {
+    visualPropagation.trigger(propagationEvent);
+  }
   if (sendAudio) {
     if (audioAction === "ripple") {
-      audio.rippleFabric(audioX, audioY, force, radius);
+      audio.rippleFabric(audioX, audioY, force, radius, gesture);
     } else {
       captureVisualSculptGesture(audioX, audioY, force, gesture, false);
       audio.pluckFabric(audioX, audioY, force, radius, gesture);
     }
   }
   updatePropagationStatus(true);
+}
+
+function triggerImpactAt(
+  x,
+  y,
+  force = 0.72,
+  radius = 0.28,
+  { sendAudio = true, audioX = x, audioY = y, gesture = {} } = {},
+) {
+  const settings = state.settings;
+  const pattern = fabricImpactPattern({
+    body: settings.impactBody,
+    x,
+    y,
+    force,
+    radius,
+    count: settings.propagationVoices,
+    spread: settings.propagationSizeSpread,
+    width: settings.propagationWidth,
+  });
+  visualPropagation.setActiveLimit(settings.propagationVoices);
+  const propagationGroup = [];
+  for (const source of pattern) {
+    if (source.body === "brick") {
+      const local = rotateFabricCoordinate(
+        source.x,
+        source.y,
+        effectiveFabricAngle(),
+      );
+      visualFabric.excitePatch(
+        local.x,
+        local.y,
+        source.force,
+        source.radius,
+        effectiveFabricAngle(),
+      );
+      triggerPropagationAt(
+        source.x,
+        source.y,
+        source.force,
+        source.radius,
+        {
+          sendAudio: false,
+          fabricScale: 0,
+          waveWidth: Math.max(
+            settings.propagationWidth,
+            source.radius * 0.72,
+          ),
+          sizeSpread: 0,
+          speedSpread: 0,
+          propagationGroup,
+        },
+      );
+    } else {
+      triggerPropagationAt(
+        source.x,
+        source.y,
+        source.force,
+        source.radius,
+        { sendAudio: false, propagationGroup },
+      );
+    }
+  }
+  visualPropagation.triggerGroup(propagationGroup);
+  captureVisualSculptGesture(audioX, audioY, force, gesture, false);
+  if (sendAudio) audio.impactFabric(audioX, audioY, force, radius, gesture);
+  updatePropagationStatus(true);
+  return pattern;
+}
+
+function triggerElasticWaveAt(
+  x,
+  y,
+  force,
+  radius,
+  gesture,
+  { sendAudio = true, fabricScale = 1, waveScale = 1 } = {},
+) {
+  const settings = state.settings;
+  visualPropagation.setActiveLimit(settings.propagationVoices);
+  const profile = elasticReleaseProfile(settings, gesture, force, radius);
+  const local = rotateFabricCoordinate(x, y, effectiveFabricAngle());
+  const localDirection = rotateFabricCoordinate(
+    profile.impulseDirectionX,
+    profile.impulseDirectionY,
+    effectiveFabricAngle(),
+  );
+  const safeFabricScale = clampVisual(fabricScale, 0, 1, 1);
+  if (
+    safeFabricScale > 0.0001
+    && Math.abs(profile.impulseForce) > 0.0001
+  ) {
+    visualFabric.exciteDirectional(
+      local.x,
+      local.y,
+      profile.impulseForce * safeFabricScale,
+      profile.radius,
+      localDirection.x,
+      localDirection.y,
+      profile.breadth,
+    );
+  }
+  const scaledStrength = profile.strength * clampVisual(waveScale, 0, 1, 1);
+  if (scaledStrength > 0.0001) {
+    visualPropagation.trigger({
+      mode: "sheet",
+      x,
+      y,
+      strength: scaledStrength,
+      rate: profile.rate,
+      speed: profile.speed,
+      decay: profile.decay,
+      width: profile.width,
+      harmonicOrder: settings.harmonicOrder,
+      ringDensity: settings.ringDensity,
+      sizeSpread: 0,
+      speedSpread: 0,
+      polarity: force < 0 ? -1 : 1,
+      directionX: profile.directionX,
+      directionY: profile.directionY,
+    });
+  }
+  if (sendAudio) audio.kickFabric(x, y, force, radius, gesture);
+  updatePropagationStatus(true);
+  return profile;
 }
 
 function updateAudioParameters() {
@@ -843,7 +1000,9 @@ function updateInterface({ drawNow = true } = {}) {
     $("ringDensityLabel").textContent = "Wake / Y density";
     $("ringDensityOut").textContent = settings.ringDensity.toFixed(2);
   }
-  $("propagationVoicesOut").textContent = `${settings.propagationVoices} ${settings.propagationVoices === 1 ? "wave" : "waves"}`;
+  $("propagationVoicesOut").textContent = settings.impactBody === "pebbles"
+    ? `${settings.propagationVoices} pieces`
+    : `${settings.propagationVoices} max ${settings.propagationVoices === 1 ? "wave" : "waves"}`;
   $("combDepthOut").textContent = percent(settings.combDepth);
   $("combTeethOut").textContent = `${settings.combTeeth} ${settings.combTeeth === 1 ? "region" : "regions"}`;
   $("combWidthOut").textContent = percent(settings.combWidth);
@@ -878,6 +1037,9 @@ function updateInterface({ drawNow = true } = {}) {
   for (const button of $("propagationModeChoice").querySelectorAll("[data-propagation-mode]")) {
     setPressed(button, settings.propagationMode === button.dataset.propagationMode);
   }
+  for (const button of $("impactBodyChoice").querySelectorAll("[data-impact-body]")) {
+    setPressed(button, settings.impactBody === button.dataset.impactBody);
+  }
   for (const button of $("spectralSculptModeChoice").querySelectorAll("[data-spectral-sculpt-mode]")) {
     setPressed(button, settings.spectralSculptMode === button.dataset.spectralSculptMode);
   }
@@ -903,11 +1065,11 @@ function updateInterface({ drawNow = true } = {}) {
   $("motionSummary").textContent = `edge ${settings.edgeFocus.toFixed(2)} · phase ${settings.phaseOffset.toFixed(2)}`;
   $("textureSummary").textContent = `X / warp ${settings.fieldADensity.toFixed(2)} · Y / weft ${settings.fieldBDensity.toFixed(2)} · ${settings.collisionMode} ${percent(settings.collisionAmount)}`;
   updatePropagationStatus(true);
-  $("fabricSummary").textContent = `${percent(settings.fabricTension)} spring · response ${responseFeelLabel(responseSpeed)} · brake ${brakeFeelLabel(settings.fabricDamping)}`;
+  $("fabricSummary").textContent = `${percent(settings.fabricTension)} tension · travel ${responseFeelLabel(responseSpeed)} · brake ${brakeFeelLabel(settings.fabricDamping)}`;
   $("outputSummary").textContent = `${percent(settings.stereoWidth)} wide · ${percent(settings.space)} space · ${percent(settings.feedback)} feedback`;
   $("fabricExciteButton").setAttribute(
     "aria-label",
-    `Pluck a ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} using ${propagationLabel(settings.propagationMode).toLowerCase()} propagation at the current X / Y field origin`,
+    `Drop ${impactBodyLabel(settings.impactBody).toLowerCase()} into a ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} using ${propagationLabel(settings.propagationMode).toLowerCase()} propagation at the current X / Y field origin`,
   );
   $("clearWavesButton").setAttribute(
     "aria-label",
@@ -923,7 +1085,7 @@ function updateInterface({ drawNow = true } = {}) {
     : `static vector grid · ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} · ${regionDescription}`;
   canvas.setAttribute(
     "aria-label",
-    `A static pink and green vector grid represents ${settings.filterPairs * 2} filters acting on one ${noiseTypeLabel(settings.noiseType).toLowerCase()} noise field. Field A is the X / warp filter and Field B is the Y / weft filter. The audible ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} sculptor is at ${percent(settings.combDepth)} depth using ${spectralFilterBlendLabel(settings.spectralFilterBlend).toLowerCase()} filtering. Horizontal touch position selects frequency and X; vertical position selects the Y row and character. Pulling grabs that exact fabric patch and emits ${propagationLabel(settings.propagationMode).toLowerCase()} propagation through a ${fabricSections.columns} by ${fabricSections.rows} sounding section lattice with ${percent(settings.fabricPatchwork)} panel variation. Up to ${settings.propagationVoices} directly triggered ${settings.propagationVoices === 1 ? "wave" : "waves"} may deform the grid. Tap or press Enter to pluck. Audio ${state.audioOn ? "on" : "off"}.`,
+    `A static pink and green vector grid represents ${settings.filterPairs * 2} filters acting on one ${noiseTypeLabel(settings.noiseType).toLowerCase()} noise field. Field A is the X / warp filter and Field B is the Y / weft filter. The audible ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} sculptor is at ${percent(settings.combDepth)} depth using ${spectralFilterBlendLabel(settings.spectralFilterBlend).toLowerCase()} filtering. Horizontal touch position selects frequency and X; vertical position selects the Y row and character. Pulling stores strain in that exact fabric patch and release sends a broad directional sheet wave through a ${fabricSections.columns} by ${fabricSections.rows} sounding section lattice with ${percent(settings.fabricPatchwork)} panel variation. A tap drops ${impactBodyLabel(settings.impactBody).toLowerCase()} using ${propagationLabel(settings.propagationMode).toLowerCase()} impact propagation. Up to ${settings.propagationVoices} directly triggered ${settings.propagationVoices === 1 ? "wave" : "waves"} may deform the grid. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
   updateAudioParameters();
@@ -1081,14 +1243,18 @@ function visualPullOffsetAt(x, y) {
   };
 }
 
-function currentAudioGesture() {
+function currentAudioGesture(timestamp = performance.now()) {
+  const velocityAge = Math.max(0, Number(timestamp) - pointerLastMotionTime);
+  const velocityDecay = velocityAge >= 240
+    ? 0
+    : Math.exp(-velocityAge / 60);
   const pull = fabricGesturePull({
     anchorX: pointerAudioAnchorX,
     anchorY: pointerAudioAnchorY,
     currentX: pointerRawCurrentX,
     currentY: pointerRawCurrentY,
-    velocityX: pointerVelocityX,
-    velocityY: pointerVelocityY,
+    velocityX: pointerVelocityX * velocityDecay,
+    velocityY: pointerVelocityY * velocityDecay,
   });
   return {
     currentX: pointerCurrentX,
@@ -1103,6 +1269,7 @@ function currentAudioGesture() {
 
 function applyPointerTug(amount = pointerPullAmount) {
   holdVisualFabricAtPointer();
+  const gesture = currentAudioGesture();
   const movingGrab = rotateFabricCoordinate(
     pointerCurrentX,
     pointerCurrentY,
@@ -1113,14 +1280,14 @@ function applyPointerTug(amount = pointerPullAmount) {
     pointerAudioAnchorX,
     pointerAudioAnchorY,
     amount,
-    currentAudioGesture(),
+    gesture,
     true,
   );
   audio.tugFabric(
     pointerCurrentX,
     pointerCurrentY,
     amount,
-    currentAudioGesture(),
+    gesture,
   );
 }
 
@@ -1151,13 +1318,7 @@ function directGrabWakeProfile(amount = pointerPullAmount, gesture = currentAudi
 
 function triggerDirectGrabWake(x, y, amount, gesture) {
   const wake = directGrabWakeProfile(amount, gesture);
-  triggerPropagationAt(x, y, wake.force, wake.radius, {
-    audioAction: "pluck",
-    fabricScale: 1,
-    audioX: x,
-    audioY: y,
-    gesture,
-  });
+  triggerElasticWaveAt(x, y, wake.force, wake.radius, gesture);
 }
 
 function emitFirstGrabWake(timestamp = performance.now()) {
@@ -1227,17 +1388,24 @@ function maybeEmitGrabRipple(timestamp = performance.now()) {
   pointerWakeCount += 1;
   pointerWakeTravel = 0;
   pointerLastRippleTime = now;
-  triggerPropagationAt(
+  triggerElasticWaveAt(
     pointerCurrentX,
     pointerCurrentY,
     force,
     radius,
+    gesture,
     {
-      audioAction: "ripple",
+      sendAudio: false,
       fabricScale: 0.32,
-      audioX: pointerCurrentX,
-      audioY: pointerCurrentY,
+      waveScale: 0.38,
     },
+  );
+  audio.rippleFabric(
+    pointerCurrentX,
+    pointerCurrentY,
+    force,
+    radius,
+    gesture,
   );
   return true;
 }
@@ -1252,6 +1420,12 @@ function samplePointerEvent(event, { drawNow = true } = {}) {
   const motionX = point.rawX - pointerRawCurrentX;
   const motionY = point.rawY - pointerRawCurrentY;
   if (Math.hypot(motionX, motionY) > 1e-6) {
+    const velocityAge = Math.max(0, now - pointerLastMotionTime);
+    const retainedVelocity = velocityAge >= 240
+      ? 0
+      : Math.exp(-velocityAge / 60);
+    pointerVelocityX *= retainedVelocity;
+    pointerVelocityY *= retainedVelocity;
     const measuredVelocityX = motionX / elapsed;
     const measuredVelocityY = motionY / elapsed;
     pointerVelocityX += (measuredVelocityX - pointerVelocityX) * 0.48;
@@ -1260,6 +1434,7 @@ function samplePointerEvent(event, { drawNow = true } = {}) {
       4,
       pointerWakeTravel + Math.min(2, Math.hypot(motionX, motionY)),
     );
+    pointerLastMotionTime = now;
   }
   pointerLastTime = now;
   pointerCurrentX = point.x;
@@ -1301,21 +1476,25 @@ function staticGridPoint(x, y, deform, fabricAngle) {
   const baseY = (y + 1) * 0.5 * canvasHeight;
   if (!deform) return { x: baseX, y: baseY };
   const settings = state.settings;
-  const surface = (
-    visualFabric.sample(x, y, fabricAngle) * currentVisualSculpt.fabricDepth
-    + visualPropagation.sample(
-      x,
-      y,
-      settings.propagationInterference,
-    ) * settings.propagationDepth
+  const fabricSurface = visualFabric.sample(x, y, fabricAngle)
+    * currentVisualSculpt.fabricDepth;
+  visualPropagation.sampleVector(
+    x,
+    y,
+    settings.propagationInterference,
+    propagationVector,
   );
-  const vectorScale = Math.min(22, Math.min(canvasWidth, canvasHeight) * 0.032);
+  const fabricScale = Math.min(34, Math.min(canvasWidth, canvasHeight) * 0.045);
+  const waveScale = Math.min(110, Math.min(canvasWidth, canvasHeight) * 0.14)
+    * settings.propagationDepth;
   const pull = visualPullOffsetAt(x * 0.92, y * 0.86);
   return {
     x: baseX + pull.x * canvasWidth * 0.5
-      + clampVisual(surface * vectorScale * 0.55, -24, 24, 0),
+      + clampVisual(fabricSurface * fabricScale * 0.4, -32, 32, 0)
+      + clampVisual(propagationVector.x * waveScale, -110, 110, 0),
     y: baseY + pull.y * canvasHeight * 0.5
-      - clampVisual(surface * vectorScale, -32, 32, 0),
+      - clampVisual(fabricSurface * fabricScale, -44, 44, 0)
+      + clampVisual(propagationVector.y * waveScale, -110, 110, 0),
   };
 }
 
@@ -1843,14 +2022,14 @@ $("audioButton").addEventListener("click", toggleAudio);
 
 $("fabricExciteButton").addEventListener("click", async () => {
   if (!await ensureAudioOn()) return;
-  triggerPropagationAt(
+  triggerImpactAt(
     state.settings.originX,
     state.settings.originY,
     Math.min(1.6, 0.5 + state.settings.fabricPull * 0.55),
     0.2 + state.settings.fabricInertia * 0.12,
   );
   draw(performance.now(), true);
-  announce(`${propagationLabel()} wave plucked into the X / Y filter fabric.`);
+  announce(`${impactBodyLabel()} dropped into the X / Y filter fabric with ${propagationLabel().toLowerCase()} propagation.`);
 });
 
 $("clearWavesButton").addEventListener("click", () => {
@@ -1879,6 +2058,15 @@ for (const button of $("propagationModeChoice").querySelectorAll("[data-propagat
   button.addEventListener("click", () => {
     setParameter("propagationMode", button.dataset.propagationMode);
     announce(`${button.textContent.trim()} fabric-wave mode selected.`);
+  });
+}
+
+for (const button of $("impactBodyChoice").querySelectorAll("[data-impact-body]")) {
+  button.addEventListener("click", () => {
+    const body = button.dataset.impactBody;
+    if (!FABRIC_IMPACT_BODIES.includes(body)) return;
+    setParameter("impactBody", body);
+    announce(`${impactBodyLabel(body)} impact selected.`);
   });
 }
 
@@ -1913,6 +2101,7 @@ $("stage").addEventListener("pointerdown", (event) => {
   pointerStartY = event.clientY;
   pointerStartTime = Number(event.timeStamp) || performance.now();
   pointerLastTime = pointerStartTime;
+  pointerLastMotionTime = pointerStartTime;
   pointerVelocityX = 0;
   pointerVelocityY = 0;
   pointerAnchorX = point.x;
@@ -1989,18 +2178,12 @@ async function releasePointer(event, { cancelled = false } = {}) {
   const releaseAnchorY = pointerAnchorY;
   const releaseCurrentX = pointerCurrentX;
   const releaseCurrentY = pointerCurrentY;
-  const releaseGrabLocal = rotateFabricCoordinate(
-    releaseCurrentX,
-    releaseCurrentY,
-    effectiveFabricAngle(),
-  );
-  const releaseCurrentLocalX = releaseGrabLocal.x;
-  const releaseCurrentLocalY = releaseGrabLocal.y;
   const releaseAudioAnchorX = pointerAudioAnchorX;
   const releaseAudioAnchorY = pointerAudioAnchorY;
-  const releaseGesture = currentAudioGesture();
+  const releaseGesture = currentAudioGesture(
+    Number(event?.timeStamp) || performance.now(),
+  );
   const releasePull = pointerPullAmount;
-  const releaseWakeCount = pointerWakeCount;
   captureVisualSculptGesture(
     releaseAudioAnchorX,
     releaseAudioAnchorY,
@@ -2009,19 +2192,7 @@ async function releasePointer(event, { cancelled = false } = {}) {
     false,
   );
   const releaseFrequency = frequencyAtStageX(releaseCurrentX);
-  const releaseVelocity = Math.hypot(pointerVelocityX, pointerVelocityY);
-  const releaseStrain = clampVisual(releaseGesture.distance / 0.9, 0, 1, 0);
-  const releaseSpeed = clampVisual(releaseVelocity / 7, 0, 1, 0);
-  const releasePolarity = releasePull < 0 ? -1 : 1;
-  const thrownMagnitude = wasDrag
-    ? clampVisual(
-      Math.max(0.38 + releaseStrain * 0.24, releaseSpeed * 0.82),
-      0.38,
-      1,
-      0.38,
-    )
-    : Math.min(1, releaseVelocity * 0.58 / 6);
-  const thrownForce = releasePolarity * thrownMagnitude;
+  const releaseRadius = 0.13 + state.settings.fabricInertia * 0.08;
   const releasedAt = Number(event?.timeStamp) || performance.now();
   const wasQuickTap = !wasDrag && releasedAt - pointerStartTime <= 350;
   const audioWasReady = state.audioOn;
@@ -2031,12 +2202,14 @@ async function releasePointer(event, { cancelled = false } = {}) {
   visualPullAnchorY = releaseAnchorY;
   canvas.classList.remove("is-grabbed", "is-pulling");
   visualFabric.release();
-  if (wasDrag && Math.abs(thrownForce) > 0.015) {
-    visualFabric.excite(
-      releaseCurrentLocalX,
-      releaseCurrentLocalY,
-      thrownForce,
-      0.13 + state.settings.fabricInertia * 0.08,
+  if (wasDrag && !cancelled) {
+    triggerElasticWaveAt(
+      releaseCurrentX,
+      releaseCurrentY,
+      releasePull,
+      releaseRadius,
+      releaseGesture,
+      { sendAudio: false },
     );
   }
   // The direct on-screen pull, like the direct audio override, belongs only
@@ -2051,42 +2224,23 @@ async function releasePointer(event, { cancelled = false } = {}) {
   const audioReady = audioWasReady || await ensureAudioOn();
   if (!audioReady) return;
   if (!wasQuickTap) {
-    // A drag can finish before a suspended AudioContext has opened. Deliver
-    // its one mandatory wake at the final hand position once audio is ready.
-    if (wasDrag && releaseWakeCount === 0) {
-      triggerDirectGrabWake(
-        releaseCurrentX,
-        releaseCurrentY,
-        releasePull,
-        releaseGesture,
-      );
-    }
     if (wasDrag || !audioWasReady) {
-      const startupTransfer = audioWasReady ? 0 : Math.abs(releasePull) * 0.3;
-      const audioThrowForce = releasePolarity * Math.min(
-        1,
-        Math.abs(thrownForce) + startupTransfer,
-      );
-      const releaseRadius = 0.13 + state.settings.fabricInertia * 0.08;
       if (!audioWasReady) {
-        // Starting audio resets both simulations. Restore the exact same
-        // release impulse visually before sending it to the worklet.
-        const releaseLocal = rotateFabricCoordinate(
+        // Starting audio resets both simulations. Replay the same derived
+        // membrane initial condition visually before dispatching it.
+        triggerElasticWaveAt(
           releaseCurrentX,
           releaseCurrentY,
-          effectiveFabricAngle(),
-        );
-        visualFabric.excite(
-          releaseLocal.x,
-          releaseLocal.y,
-          audioThrowForce,
+          releasePull,
           releaseRadius,
+          releaseGesture,
+          { sendAudio: false },
         );
       }
       audio.kickFabric(
         releaseCurrentX,
         releaseCurrentY,
-        audioThrowForce,
+        releasePull,
         releaseRadius,
         releaseGesture,
       );
@@ -2094,7 +2248,7 @@ async function releasePointer(event, { cancelled = false } = {}) {
     announce(`${wasDrag ? "Pulled" : "Held"} ${spectralSculptLabel().toLowerCase()} near ${formatFrequency(releaseFrequency)} released with ${percent(Math.abs(releasePull))} intensity.`);
     return;
   }
-  triggerPropagationAt(
+  triggerImpactAt(
     releaseAnchorX,
     releaseAnchorY,
     Math.min(1.35, 0.38 + state.settings.fabricPull * 0.42),
@@ -2106,7 +2260,7 @@ async function releasePointer(event, { cancelled = false } = {}) {
     },
   );
   draw(performance.now(), true);
-  announce(`${propagationLabel()} ${spectralSculptLabel().toLowerCase()} wave plucked near ${formatFrequency(releaseFrequency)}.`);
+  announce(`${impactBodyLabel()} dropped into the ${spectralSculptLabel().toLowerCase()} near ${formatFrequency(releaseFrequency)}.`);
 }
 
 $("stage").addEventListener("pointerup", releasePointer);
@@ -2118,7 +2272,7 @@ $("stage").addEventListener("keydown", async (event) => {
     event.preventDefault();
     if (!await ensureAudioOn()) return;
     const keyboardWidth = (keyboardSculptY + 1) * 0.5;
-    triggerPropagationAt(
+    triggerImpactAt(
       keyboardSculptX,
       keyboardSculptY,
       event.shiftKey
@@ -2127,7 +2281,7 @@ $("stage").addEventListener("keydown", async (event) => {
       0.1 + keyboardWidth * 0.28,
     );
     draw(performance.now(), true);
-    announce(`${event.shiftKey ? "Strong " : ""}${propagationLabel().toLowerCase()} ${spectralSculptLabel().toLowerCase()} wave plucked near ${formatFrequency(frequencyAtStageX(keyboardSculptX))}.`);
+    announce(`${event.shiftKey ? "Strong " : ""}${impactBodyLabel().toLowerCase()} dropped into the ${spectralSculptLabel().toLowerCase()} near ${formatFrequency(frequencyAtStageX(keyboardSculptX))}.`);
   } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     event.preventDefault();
     const amount = event.shiftKey ? 0.2 : 0.05;
@@ -2136,7 +2290,7 @@ $("stage").addEventListener("keydown", async (event) => {
       keyboardSculptX + (event.key === "ArrowRight" ? amount : -amount),
     ));
     draw(performance.now(), true);
-    announce(`Keyboard sculpt focus ${formatFrequency(frequencyAtStageX(keyboardSculptX))}. Press Enter to pluck or Shift Enter for a stronger pluck.`);
+    announce(`Keyboard sculpt focus ${formatFrequency(frequencyAtStageX(keyboardSculptX))}. Press Enter to drop the selected impact or Shift Enter for a stronger drop.`);
   } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     event.preventDefault();
     const amount = event.shiftKey ? 0.2 : 0.05;
@@ -2145,7 +2299,7 @@ $("stage").addEventListener("keydown", async (event) => {
       keyboardSculptY + (event.key === "ArrowDown" ? amount : -amount),
     ));
     draw(performance.now(), true);
-    announce(`Keyboard sculpt character ${percent((keyboardSculptY + 1) * 0.5)} broad. Press Enter to pluck.`);
+    announce(`Keyboard sculpt character ${percent((keyboardSculptY + 1) * 0.5)} broad. Press Enter to drop the selected impact.`);
   }
 });
 

@@ -28,6 +28,10 @@ const QUALITY_SCALES = Object.freeze([1, 0.75, 0.5, 1 / 3]);
 const COLLISION_MODES = Object.freeze(["multiply", "difference", "fold"]);
 export const SPECTRAL_PROPAGATION_MODES = Object.freeze([
   "drop", "harmonic", "spiral", "shock", "gravity", "standing", "ocean",
+  "sheet",
+]);
+export const FABRIC_IMPACT_BODIES = Object.freeze([
+  "pebble", "pebbles", "brick",
 ]);
 export const SPECTRAL_SCULPT_MODES = Object.freeze([
   "notches", "ridges", "lowpass", "highpass", "bandpass", "bandstop",
@@ -150,6 +154,7 @@ export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   fabricRotation: 18,
   fabricPull: 0.72,
   fabricGravity: 0.55,
+  impactBody: "pebble",
   propagationMode: "drop",
   propagationRate: 5,
   propagationSpeed: 1.4,
@@ -160,7 +165,7 @@ export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   propagationSizeSpread: 0.38,
   propagationSpeedSpread: 0.42,
   propagationInterference: 0.62,
-  grabRippleRate: 3,
+  grabRippleRate: 0,
   harmonicOrder: 3,
   ringDensity: 2.4,
   propagationVoices: 1,
@@ -1350,6 +1355,146 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
     },
   }),
   freezePreset({
+    id: "single-pebble",
+    label: "Single Pebble",
+    settings: {
+      impactBody: "pebble",
+      noiseType: "colored", noiseColor: -0.35, noiseCorrelation: 0.72,
+      spectralSculptMode: "bandstop", spectralFilterBlend: 0.76,
+      fftCutDepth: 1, fftSharpness: 0.9, qCutDepth: 1, qCharacter: 0.56,
+      filteredMix: 1, resonance: 0.28,
+      fabricSections: 12, fabricPatchwork: 0.04,
+      fabricTension: 0.62, fabricDamping: 0.52, fabricInertia: 0.28,
+      fabricDepth: 0.85, fabricGravity: 0.05, fabricPull: 0.55,
+      propagationMode: "drop", propagationVoices: 1,
+      propagationRate: 12, propagationSpeed: 3.2, propagationDecay: 1.1,
+      propagationWidth: 0.045, propagationDepth: 0.75,
+      propagationGain: 0.64, propagationSizeSpread: 0,
+      propagationSpeedSpread: 0, propagationInterference: 0,
+      grabRippleRate: 0, combDepth: 0.98, combWidth: 0.08,
+      combWarp: 2.4, pluckCut: 1, gestureCoupling: 0.95,
+      drive: 0, space: 0.02, feedback: 0,
+    },
+  }),
+  freezePreset({
+    id: "pebble-quartet",
+    label: "Pebble Quartet",
+    settings: {
+      impactBody: "pebbles",
+      noiseType: "fractal", noiseColor: -0.28, noiseFractalDepth: 0.72,
+      noiseCorrelation: 0.62, spectralSculptMode: "notches",
+      spectralFilterBlend: 0.84, fftCutDepth: 1, fftSharpness: 0.92,
+      qCutDepth: 0.94, qCharacter: 0.5, filteredMix: 1, resonance: 0.3,
+      combTeeth: 7, combDepth: 1, combWidth: 0.09, combWarp: 2.6,
+      fabricSections: 14, fabricPatchwork: 0.12,
+      fabricTension: 0.66, fabricDamping: 0.58, fabricInertia: 0.25,
+      fabricDepth: 0.8, fabricGravity: 0.05, fabricPull: 0.58,
+      propagationMode: "drop", propagationVoices: 4,
+      propagationRate: 9.5, propagationSpeed: 2.6,
+      propagationDecay: 1.45, propagationWidth: 0.06,
+      propagationDepth: 0.68, propagationGain: 0.58,
+      propagationSizeSpread: 0.08, propagationSpeedSpread: 0.05,
+      propagationInterference: 0.24, grabRippleRate: 0,
+      pluckCut: 0.95, gestureCoupling: 0.95,
+      drive: 0, space: 0.02, feedback: 0,
+    },
+  }),
+  freezePreset({
+    id: "dropped-brick",
+    label: "Dropped Brick",
+    settings: {
+      impactBody: "brick",
+      noiseType: "fractal", noiseColor: -0.9, noiseFractalDepth: 0.95,
+      noiseCorrelation: 0.9, lowFrequency: 24, highFrequency: 6_000,
+      spectralSculptMode: "lowpass", spectralFilterBlend: 0.42,
+      fftCutDepth: 1, fftSharpness: 0.72, qCutDepth: 1, qCharacter: 0.3,
+      filteredMix: 1, resonance: 0.24,
+      fabricSections: 5, fabricPatchwork: 0.08,
+      fabricTension: 0.2, fabricDamping: 0.18, fabricInertia: 0.96,
+      fabricDepth: 1.4, fabricGravity: 1.4, fabricPull: 1.9,
+      propagationMode: "shock", propagationVoices: 1,
+      propagationRate: 1.2, propagationSpeed: 0.65,
+      propagationDecay: 4.5, propagationWidth: 0.5,
+      propagationDepth: 1.2, propagationGain: 0.86,
+      propagationSizeSpread: 0, propagationSpeedSpread: 0,
+      propagationInterference: 0, grabRippleRate: 0, ringDensity: 0.8,
+      combDepth: 1, combWidth: 0.38, combWarp: 3,
+      pluckCut: 1, gestureCoupling: 1,
+      drive: 0.04, space: 0, feedback: 0,
+    },
+  }),
+  freezePreset({
+    id: "hard-pull-sheet",
+    label: "Hard Pull",
+    settings: {
+      impactBody: "brick",
+      noiseType: "colored", noiseColor: -0.45, noiseCorrelation: 0.78,
+      spectralSculptMode: "bandstop", spectralFilterBlend: 0.65,
+      fftCutDepth: 1, fftSharpness: 0.82, qCutDepth: 1, qCharacter: 0.62,
+      filteredMix: 1, resonance: 0.3,
+      fabricSections: 10, fabricPatchwork: 0.02,
+      fabricTension: 0.78, fabricDamping: 0.26, fabricInertia: 0.15,
+      fabricDepth: 1.5, fabricGravity: 0.08,
+      fabricRotation: 0, fabricPull: 1.8,
+      propagationMode: "sheet", propagationVoices: 1,
+      propagationRate: 2.2, propagationSpeed: 4.6,
+      propagationDecay: 2.4, propagationWidth: 0.32,
+      propagationDepth: 1.3, propagationGain: 0.88,
+      propagationSizeSpread: 0, propagationSpeedSpread: 0,
+      propagationInterference: 0, grabRippleRate: 0,
+      combDepth: 1, combWidth: 0.28, combWarp: 3.2,
+      pluckCut: 1, gestureCoupling: 1,
+      drive: 0.02, space: 0.02, feedback: 0,
+    },
+  }),
+  freezePreset({
+    id: "slow-spring",
+    label: "Slow Spring",
+    settings: {
+      impactBody: "brick",
+      noiseType: "fractal", noiseColor: -0.75, noiseFractalDepth: 0.9,
+      noiseCorrelation: 0.88, spectralSculptMode: "bandpass",
+      spectralFilterBlend: 0.25, fftCutDepth: 0.8,
+      fftSharpness: 0.38, qCutDepth: 1, qCharacter: 0.26,
+      filteredMix: 1, resonance: 0.26,
+      fabricSections: 4, fabricPatchwork: 0.15,
+      fabricTension: 0.3, fabricDamping: 0.08, fabricInertia: 0.96,
+      fabricDepth: 1.2, fabricGravity: 0.55, fabricPull: 1.35,
+      propagationMode: "sheet", propagationVoices: 1,
+      propagationRate: 1, propagationSpeed: 0.45,
+      propagationDecay: 7, propagationWidth: 0.34,
+      propagationDepth: 0.35, propagationGain: 0.32,
+      propagationSizeSpread: 0, propagationSpeedSpread: 0,
+      propagationInterference: 0, grabRippleRate: 0,
+      combDepth: 0.9, combWidth: 0.3, combWarp: 2,
+      pluckCut: 0.78, gestureCoupling: 0.92,
+      drive: 0, space: 0.08, feedback: 0.02,
+    },
+  }),
+  freezePreset({
+    id: "taut-snap-sheet",
+    label: "Taut Snap",
+    settings: {
+      impactBody: "pebble",
+      noiseType: "violet", noiseColor: 0.9, noiseCorrelation: 0.42,
+      spectralSculptMode: "highpass", spectralFilterBlend: 0.88,
+      fftCutDepth: 1, fftSharpness: 0.96, qCutDepth: 0.9,
+      qCharacter: 0.58, filteredMix: 1, resonance: 0.3,
+      fabricSections: 16, fabricPatchwork: 0,
+      fabricTension: 0.98, fabricDamping: 0.38, fabricInertia: 0.02,
+      fabricDepth: 0.92, fabricGravity: 0, fabricPull: 1.25,
+      propagationMode: "sheet", propagationVoices: 1,
+      propagationRate: 14, propagationSpeed: 9,
+      propagationDecay: 0.75, propagationWidth: 0.065,
+      propagationDepth: 0.9, propagationGain: 0.65,
+      propagationSizeSpread: 0, propagationSpeedSpread: 0,
+      propagationInterference: 0, grabRippleRate: 0,
+      combDepth: 1, combWidth: 0.06, combWarp: 2.4,
+      pluckCut: 1, gestureCoupling: 1,
+      drive: 0, space: 0, feedback: 0,
+    },
+  }),
+  freezePreset({
     id: "snap-mesh",
     label: "Snap Mesh",
     settings: {
@@ -1537,6 +1682,161 @@ export function fabricGesturePull({
     velocityX: clamp(velocityX, -16, 16, 0),
     velocityY: clamp(velocityY, -16, 16, 0),
   };
+}
+
+/**
+ * Translate one released pull into the initial conditions of a broad,
+ * directional membrane packet. Nothing runs by itself: distance supplies
+ * stored strain and pointer velocity supplies extra momentum.
+ */
+export function elasticReleaseProfile(
+  parameters = MOIRE_DRONE_DEFAULTS,
+  gesture = {},
+  force = 0.7,
+  radius = 0.2,
+) {
+  const packet = gesture && typeof gesture === "object" ? gesture : {};
+  const deltaX = clamp(packet.deltaX, -2, 2, 0);
+  const deltaY = clamp(packet.deltaY, -2, 2, 0);
+  const velocityX = clamp(packet.velocityX, -16, 16, 0);
+  const velocityY = clamp(packet.velocityY, -16, 16, 0);
+  const distance = clamp(
+    packet.distance,
+    0,
+    Math.SQRT2 * 2,
+    Math.hypot(deltaX, deltaY),
+  );
+  const velocity = Math.hypot(velocityX, velocityY);
+  const strain = 1 - Math.exp(-distance * 1.2);
+  const flick = 1 - Math.exp(-velocity * 0.2);
+  const usePullAxis = distance > 0.025;
+  const axis = normalizedDirection(
+    usePullAxis ? deltaX : -velocityX,
+    usePullAxis ? deltaY : -velocityY,
+    -velocityX,
+    -velocityY,
+  );
+  const impulseDirection = normalizedDirection(
+    velocityX,
+    velocityY,
+    -axis.x,
+    -axis.y,
+  );
+  const travelDirection = normalizedDirection(
+    -axis.x,
+    -axis.y,
+    velocityX,
+    velocityY,
+  );
+  const tension = clamp(
+    parameters.fabricTension,
+    0,
+    1,
+    MOIRE_DRONE_DEFAULTS.fabricTension,
+  );
+  const damping = clamp(
+    parameters.fabricDamping,
+    0,
+    1,
+    MOIRE_DRONE_DEFAULTS.fabricDamping,
+  );
+  const inertia = clamp(
+    parameters.fabricInertia,
+    0,
+    1,
+    MOIRE_DRONE_DEFAULTS.fabricInertia,
+  );
+  const safeForce = clamp(force, -2, 2, 0.7);
+  const polarity = safeForce < 0 ? -1 : 1;
+  const pullScale = clamp(
+    0.55 + clamp(
+      parameters.fabricPull,
+      0,
+      2,
+      MOIRE_DRONE_DEFAULTS.fabricPull,
+    ) * 0.65,
+    0.55,
+    1.5,
+    1,
+  );
+  const storedStrength = Math.abs(safeForce) * strain * pullScale;
+  const responseRoot = Math.sqrt(0.35 + inertia * 2.65);
+  const materialRate = (1 + tension * 8 + flick * 2) / responseRoot;
+  const materialSpeed = (0.4 + tension * 5 + flick * 2) / responseRoot;
+  return Object.freeze({
+    axisX: axis.x,
+    axisY: axis.y,
+    directionX: travelDirection.x,
+    directionY: travelDirection.y,
+    impulseDirectionX: impulseDirection.x,
+    impulseDirectionY: impulseDirection.y,
+    strain,
+    flick,
+    strength: clamp(storedStrength, 0, 2, 0),
+    // A held pull already lives in the membrane. Only measured release speed
+    // injects extra momentum, eliminating the former unconditional 0.38 kick
+    // and its double excitation.
+    impulseForce: polarity * clamp(
+      Math.abs(safeForce) * flick * (0.35 + strain * 0.65),
+      0,
+      1.7,
+      0,
+    ),
+    breadth: clamp(0.34 + strain * 0.66, 0, 1, 0.5),
+    radius: clamp(
+      Math.max(radius, 0.15 + strain * 0.3 + inertia * 0.08),
+      0.1,
+      0.68,
+      0.24,
+    ),
+    rate: clamp(
+      Math.sqrt(materialRate * clamp(
+        parameters.propagationRate,
+        1,
+        50,
+        MOIRE_DRONE_DEFAULTS.propagationRate,
+      )),
+      1,
+      20,
+      4,
+    ),
+    speed: clamp(
+      Math.sqrt(materialSpeed * clamp(
+        parameters.propagationSpeed,
+        0.1,
+        12,
+        MOIRE_DRONE_DEFAULTS.propagationSpeed,
+      )),
+      0.1,
+      8,
+      2.4,
+    ),
+    decay: clamp(
+      clamp(
+        parameters.propagationDecay,
+        0.08,
+        8,
+        MOIRE_DRONE_DEFAULTS.propagationDecay,
+      ) * (1.5 - damping) + inertia * 0.15,
+      0.08,
+      8,
+      2,
+    ),
+    width: clamp(
+      Math.max(
+        clamp(
+          parameters.propagationWidth,
+          0.02,
+          0.6,
+          MOIRE_DRONE_DEFAULTS.propagationWidth,
+        ),
+        0.14 + strain * 0.3 + inertia * 0.06,
+      ),
+      0.08,
+      0.6,
+      0.26,
+    ),
+  });
 }
 
 function combNotchAmount(distanceInCycles, width) {
@@ -2284,6 +2584,10 @@ export function sanitizeMoireDroneParams(params = {}) {
   const propagationMode = SPECTRAL_PROPAGATION_MODES.includes(requestedPropagationMode)
     ? requestedPropagationMode
     : MOIRE_DRONE_DEFAULTS.propagationMode;
+  const requestedImpactBody = String(params.impactBody ?? "");
+  const impactBody = FABRIC_IMPACT_BODIES.includes(requestedImpactBody)
+    ? requestedImpactBody
+    : MOIRE_DRONE_DEFAULTS.impactBody;
   const requestedSculptMode = String(params.spectralSculptMode ?? "");
   const spectralSculptMode = SPECTRAL_SCULPT_MODES.includes(requestedSculptMode)
     ? requestedSculptMode
@@ -2359,6 +2663,7 @@ export function sanitizeMoireDroneParams(params = {}) {
       MOIRE_DRONE_LIMITS.maxFabricGravity,
       MOIRE_DRONE_DEFAULTS.fabricGravity,
     ),
+    impactBody,
     propagationMode,
     propagationRate: clamp(params.propagationRate, 1, 50, MOIRE_DRONE_DEFAULTS.propagationRate),
     propagationSpeed: clamp(params.propagationSpeed, 0.1, 12, MOIRE_DRONE_DEFAULTS.propagationSpeed),
@@ -2398,12 +2703,15 @@ export function sanitizeMoireDroneParams(params = {}) {
       MOIRE_DRONE_LIMITS.maxAutoPluckRate,
       MOIRE_DRONE_DEFAULTS.autoPluckRate,
     ),
-    propagationVoices: Math.round(clamp(
-      params.propagationVoices,
-      1,
-      MOIRE_DRONE_LIMITS.maxPropagationVoices,
-      MOIRE_DRONE_DEFAULTS.propagationVoices,
-    )),
+    propagationVoices: Math.max(
+      impactBody === "pebbles" ? 2 : 1,
+      Math.round(clamp(
+        params.propagationVoices,
+        1,
+        MOIRE_DRONE_LIMITS.maxPropagationVoices,
+        MOIRE_DRONE_DEFAULTS.propagationVoices,
+      )),
+    ),
     combDepth: clamp(params.combDepth, 0, 1, MOIRE_DRONE_DEFAULTS.combDepth),
     combTeeth: Math.round(clamp(params.combTeeth, 1, 16, MOIRE_DRONE_DEFAULTS.combTeeth)),
     combWidth: clamp(params.combWidth, 0.02, 0.48, MOIRE_DRONE_DEFAULTS.combWidth),
@@ -2559,8 +2867,8 @@ export function rotateFabricCoordinate(x, y, angleDegrees = 0) {
   const safeX = clamp(x, -2, 2, 0);
   const safeY = clamp(y, -2, 2, 0);
   return Object.freeze({
-    x: wrapBipolar(safeX * cosine - safeY * sine),
-    y: wrapBipolar(safeX * sine + safeY * cosine),
+    x: clamp(safeX * cosine - safeY * sine, -1, 1, 0),
+    y: clamp(safeX * sine + safeY * cosine, -1, 1, 0),
   });
 }
 
@@ -2571,14 +2879,98 @@ export function fabricImpulseWeight(
   centerY = 0,
   radius = 0.28,
 ) {
-  const px = wrapBipolar(clamp(x, -2, 2, 0));
-  const py = wrapBipolar(clamp(y, -2, 2, 0));
-  const cx = wrapBipolar(clamp(centerX, -2, 2, 0));
-  const cy = wrapBipolar(clamp(centerY, -2, 2, 0));
-  const dx = Math.min(Math.abs(px - cx), 2 - Math.abs(px - cx));
-  const dy = Math.min(Math.abs(py - cy), 2 - Math.abs(py - cy));
+  const px = clamp(x, -1, 1, 0);
+  const py = clamp(y, -1, 1, 0);
+  const cx = clamp(centerX, -1, 1, 0);
+  const cy = clamp(centerY, -1, 1, 0);
+  const dx = Math.abs(px - cx);
+  const dy = Math.abs(py - cy);
   const safeRadius = clamp(radius, 0.04, 1.5, 0.28);
   return Math.exp(-0.5 * (dx * dx + dy * dy) / (safeRadius * safeRadius));
+}
+
+function fabricSignedDelta(value, origin) {
+  return clamp(value, -1, 1, 0) - clamp(origin, -1, 1, 0);
+}
+
+function normalizedDirection(x = 0, y = 0, fallbackX = 1, fallbackY = 0) {
+  let safeX = clamp(x, -16, 16, 0);
+  let safeY = clamp(y, -16, 16, 0);
+  let magnitude = Math.hypot(safeX, safeY);
+  if (magnitude < 1e-6) {
+    safeX = clamp(fallbackX, -16, 16, 1);
+    safeY = clamp(fallbackY, -16, 16, 0);
+    magnitude = Math.hypot(safeX, safeY);
+  }
+  if (magnitude < 1e-6) return Object.freeze({ x: 1, y: 0 });
+  return Object.freeze({ x: safeX / magnitude, y: safeY / magnitude });
+}
+
+const PEBBLE_CLUSTER_OFFSETS = Object.freeze({
+  1: Object.freeze([[0, 0]]),
+  2: Object.freeze([[-0.58, -0.2], [0.58, 0.2]]),
+  3: Object.freeze([[0, -0.64], [-0.58, 0.38], [0.58, 0.38]]),
+  4: Object.freeze([[-0.55, -0.55], [0.55, -0.55], [-0.55, 0.55], [0.55, 0.55]]),
+});
+
+/**
+ * Deterministic finite contact points for one manual impact. A pebble cluster
+ * remains one player action even though it deposits momentum at several
+ * places; a brick remains one broad rectangular contact patch.
+ */
+export function fabricImpactPattern({
+  body = MOIRE_DRONE_DEFAULTS.impactBody,
+  x = 0,
+  y = 0,
+  force = 0.7,
+  radius = 0.28,
+  count = MOIRE_DRONE_DEFAULTS.propagationVoices,
+  spread = MOIRE_DRONE_DEFAULTS.propagationSizeSpread,
+  width = MOIRE_DRONE_DEFAULTS.propagationWidth,
+} = {}) {
+  const safeBody = FABRIC_IMPACT_BODIES.includes(String(body))
+    ? String(body)
+    : MOIRE_DRONE_DEFAULTS.impactBody;
+  const safeX = clamp(x, -1, 1, 0);
+  const safeY = clamp(y, -1, 1, 0);
+  const safeForce = clamp(force, -2, 2, 0.7);
+  const safeInputRadius = clamp(radius, 0.04, 1.5, 0.28);
+  const safeWidth = clamp(width, 0.02, 0.6, MOIRE_DRONE_DEFAULTS.propagationWidth);
+  if (safeBody === "brick") {
+    return Object.freeze([Object.freeze({
+      body: safeBody,
+      x: safeX,
+      y: safeY,
+      force: clamp(safeForce * 1.22, -2, 2, safeForce),
+      radius: clamp(
+        Math.max(safeInputRadius * 2.15, 0.38 + safeWidth * 0.85),
+        0.38,
+        0.82,
+        0.5,
+      ),
+    })]);
+  }
+
+  const pieceCount = safeBody === "pebbles"
+    ? Math.round(clamp(count, 2, 4, 3))
+    : 1;
+  const offsets = PEBBLE_CLUSTER_OFFSETS[pieceCount];
+  const clusterSpread = 0.1 + clamp(spread, 0, 1, 0) * 0.34
+    + safeWidth * 0.12;
+  const pebbleRadius = clamp(
+    Math.max(safeInputRadius * 0.62, 0.045 + safeWidth * 0.34),
+    0.05,
+    0.28,
+    0.1,
+  );
+  const pieceForce = safeBody === "pebbles" ? safeForce * 0.84 : safeForce;
+  return Object.freeze(offsets.map(([offsetX, offsetY]) => Object.freeze({
+    body: safeBody,
+    x: clamp(safeX + offsetX * clusterSpread, -1, 1, safeX),
+    y: clamp(safeY + offsetY * clusterSpread, -1, 1, safeY),
+    force: clamp(pieceForce, -2, 2, safeForce),
+    radius: pebbleRadius,
+  })));
 }
 
 export function fabricHeightForSections(
@@ -2603,9 +2995,9 @@ function fabricTopologyUnit(seed, index) {
 }
 
 /**
- * A small toroidal mass-spring membrane over log-frequency space. Its scalar
- * displacement is mapped to octaves by `fabricDepth`; rotating the sampling
- * coordinates turns the weave without injecting unstable angular forces.
+ * A bounded mass-spring membrane over log-frequency space. Its scalar
+ * displacement is mapped to octaves by `fabricDepth`; the outer ghost nodes
+ * form the held frame while every visible/sounding node remains movable.
  */
 export class SpectralFabric {
   constructor({
@@ -2702,22 +3094,23 @@ export class SpectralFabric {
     const uniformRowSpan = 2 / this.height;
     const uniformArea = uniformColumnSpan * uniformRowSpan;
     for (let row = 0; row < this.height; row += 1) {
-      const nextRow = (row + 1) % this.height;
-      const nextY = this.rowPositions[nextRow] + (nextRow === 0 ? 2 : 0);
+      const nextRow = row + 1;
+      const nextY = nextRow < this.height ? this.rowPositions[nextRow] : 1;
       const verticalLength = nextY - this.rowPositions[row];
       for (let column = 0; column < this.width; column += 1) {
         const index = row * this.width + column;
-        const nextColumn = (column + 1) % this.width;
-        const nextX = this.columnPositions[nextColumn]
-          + (nextColumn === 0 ? 2 : 0);
+        const nextColumn = column + 1;
+        const nextX = nextColumn < this.width
+          ? this.columnPositions[nextColumn]
+          : 1;
         const horizontalLength = nextX - this.columnPositions[column];
         this.nodeX[index] = this.columnPositions[column];
         this.nodeY[index] = this.rowPositions[row];
         if (this.patchwork <= 1e-12) {
           this.nodeMass[index] = 1;
           this.nodeDamping[index] = 1;
-          this.horizontalSpringWeight[index] = 1;
-          this.verticalSpringWeight[index] = 1;
+          this.horizontalSpringWeight[index] = column === this.width - 1 ? 2 : 1;
+          this.verticalSpringWeight[index] = row === this.height - 1 ? 2 : 1;
           continue;
         }
 
@@ -2876,10 +3269,115 @@ export class SpectralFabric {
     }
   }
 
+  /**
+   * Add the matched displacement/velocity gradient of a broad wave packet.
+   * The Gaussian-gradient term is the finite-grid equivalent of choosing an
+   * initial velocity for a traveling solution instead of an isotropic kick.
+   */
+  exciteDirectional(
+    x = 0,
+    y = 0,
+    force = 0.7,
+    radius = 0.28,
+    directionX = 1,
+    directionY = 0,
+    breadth = 1,
+  ) {
+    const amount = clamp(force, -2, 2, 0);
+    const direction = normalizedDirection(directionX, directionY);
+    const safeRadius = clamp(radius, 0.04, 1.5, 0.28);
+    const safeBreadth = clamp(breadth, 0, 1, 0.5);
+    const alongRadius = clamp(
+      safeRadius * (1.15 + safeBreadth * 0.55),
+      0.08,
+      0.62,
+      0.22,
+    );
+    const acrossRadius = clamp(
+      safeRadius * (2.8 + safeBreadth * 3.2),
+      0.24,
+      1.28,
+      0.68,
+    );
+    for (let row = 0; row < this.height; row += 1) {
+      for (let column = 0; column < this.width; column += 1) {
+        const index = row * this.width + column;
+        const dx = fabricSignedDelta(this.nodeX[index], x);
+        const dy = fabricSignedDelta(this.nodeY[index], y);
+        const along = dx * direction.x + dy * direction.y;
+        const across = -dx * direction.y + dy * direction.x;
+        const envelope = Math.exp(-0.5 * (
+          (along / alongRadius) ** 2 + (across / acrossRadius) ** 2
+        ));
+        // For u(x-ct), u_t=-c*u_x. The signed Gaussian derivative therefore
+        // carries most energy along the player's pull vector while the small
+        // monopole term retains the felt up/down spring motion at the grab.
+        const gradient = along / alongRadius * envelope;
+        this.displacement[index] = clamp(
+          this.displacement[index] + amount * envelope * 0.22,
+          -1.2,
+          1.2,
+          0,
+        );
+        this.velocity[index] = clamp(
+          this.velocity[index] + amount * (envelope * 2.1 + gradient * 6.8),
+          -14,
+          14,
+          0,
+        );
+      }
+    }
+  }
+
+  /** Deposit momentum over a rounded rectangular contact patch. */
+  excitePatch(
+    x = 0,
+    y = 0,
+    force = 1,
+    radius = 0.42,
+    angleDegrees = 0,
+  ) {
+    const amount = clamp(force, -2, 2, 0);
+    const safeRadius = clamp(radius, 0.08, 1.2, 0.42);
+    const angle = clamp(angleDegrees, -360_000, 360_000, 0) * Math.PI / 180;
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const halfWidth = safeRadius * 1.18;
+    const halfHeight = safeRadius * 0.68;
+    for (let row = 0; row < this.height; row += 1) {
+      for (let column = 0; column < this.width; column += 1) {
+        const index = row * this.width + column;
+        const dx = fabricSignedDelta(this.nodeX[index], x);
+        const dy = fabricSignedDelta(this.nodeY[index], y);
+        const localX = dx * cosine + dy * sine;
+        const localY = -dx * sine + dy * cosine;
+        const normalizedRadius = Math.hypot(
+          localX / halfWidth,
+          localY / halfHeight,
+        );
+        if (normalizedRadius >= 1.35) continue;
+        const edge = clamp((1.35 - normalizedRadius) / 0.35, 0, 1, 0);
+        const weight = edge * edge * (3 - 2 * edge);
+        this.displacement[index] = clamp(
+          this.displacement[index] + amount * weight * 0.2,
+          -1.2,
+          1.2,
+          0,
+        );
+        this.velocity[index] = clamp(
+          this.velocity[index] + amount * weight * 4.8,
+          -14,
+          14,
+          0,
+        );
+      }
+    }
+  }
+
   tug(x = 0, y = 0, amount = 0) {
     this.tugActive = true;
-    this.tugX = wrapBipolar(clamp(x, -2, 2, 0));
-    this.tugY = wrapBipolar(clamp(y, -2, 2, 0));
+    this.tugX = clamp(x, -1, 1, 0);
+    this.tugY = clamp(y, -1, 1, 0);
     this.tugAmount = clamp(amount, -1, 1, 0);
   }
 
@@ -2910,48 +3408,62 @@ export class SpectralFabric {
     const sine = Math.sin(angle);
     const safeX = clamp(x, -2, 2, 0);
     const safeY = clamp(y, -2, 2, 0);
-    const rotatedX = wrapBipolar(safeX * cosine - safeY * sine);
-    const rotatedY = wrapBipolar(safeX * sine + safeY * cosine);
+    const rotatedX = clamp(safeX * cosine - safeY * sine, -1, 1, 0);
+    const rotatedY = clamp(safeX * sine + safeY * cosine, -1, 1, 0);
     return this.sampleArrayLocal(values, rotatedX, rotatedY);
   }
 
   sampleArrayLocal(values, x, y) {
-    const rotatedX = wrapBipolar(clamp(x, -2, 2, 0));
-    const rotatedY = wrapBipolar(clamp(y, -2, 2, 0));
-    let x0 = this.width - 1;
-    let sampleX = rotatedX;
-    let xStart = this.columnPositions[x0];
-    let xEnd = this.columnPositions[0] + 2;
-    if (rotatedX < this.columnPositions[0]) sampleX += 2;
-    else if (rotatedX < this.columnPositions[this.width - 1]) {
-      for (let column = 0; column < this.width - 1; column += 1) {
-        if (rotatedX < this.columnPositions[column + 1]) {
-          x0 = column;
-          xStart = this.columnPositions[column];
-          xEnd = this.columnPositions[column + 1];
-          break;
-        }
-      }
+    const sampleX = clamp(x, -1, 1, 0);
+    const sampleY = clamp(y, -1, 1, 0);
+    let x0;
+    let x1;
+    let xStart;
+    let xEnd;
+    if (sampleX <= this.columnPositions[0]) {
+      x0 = -1;
+      x1 = 0;
+      xStart = -1;
+      xEnd = this.columnPositions[0];
+    } else if (sampleX >= this.columnPositions[this.width - 1]) {
+      x0 = this.width - 1;
+      x1 = this.width;
+      xStart = this.columnPositions[x0];
+      xEnd = 1;
+    } else {
+      x0 = 0;
+      while (
+        x0 < this.width - 2
+        && sampleX > this.columnPositions[x0 + 1]
+      ) x0 += 1;
+      x1 = x0 + 1;
+      xStart = this.columnPositions[x0];
+      xEnd = this.columnPositions[x1];
     }
-
-    let y0 = this.height - 1;
-    let sampleY = rotatedY;
-    let yStart = this.rowPositions[y0];
-    let yEnd = this.rowPositions[0] + 2;
-    if (rotatedY < this.rowPositions[0]) sampleY += 2;
-    else if (rotatedY < this.rowPositions[this.height - 1]) {
-      for (let row = 0; row < this.height - 1; row += 1) {
-        if (rotatedY < this.rowPositions[row + 1]) {
-          y0 = row;
-          yStart = this.rowPositions[row];
-          yEnd = this.rowPositions[row + 1];
-          break;
-        }
-      }
+    let y0;
+    let y1;
+    let yStart;
+    let yEnd;
+    if (sampleY <= this.rowPositions[0]) {
+      y0 = -1;
+      y1 = 0;
+      yStart = -1;
+      yEnd = this.rowPositions[0];
+    } else if (sampleY >= this.rowPositions[this.height - 1]) {
+      y0 = this.height - 1;
+      y1 = this.height;
+      yStart = this.rowPositions[y0];
+      yEnd = 1;
+    } else {
+      y0 = 0;
+      while (
+        y0 < this.height - 2
+        && sampleY > this.rowPositions[y0 + 1]
+      ) y0 += 1;
+      y1 = y0 + 1;
+      yStart = this.rowPositions[y0];
+      yEnd = this.rowPositions[y1];
     }
-
-    const x1 = (x0 + 1) % this.width;
-    const y1 = (y0 + 1) % this.height;
     const mixX = clamp(
       (sampleX - xStart) / Math.max(1e-9, xEnd - xStart),
       0,
@@ -2964,10 +3476,20 @@ export class SpectralFabric {
       1,
       0,
     );
-    const top = values[y0 * this.width + x0] * (1 - mixX)
-      + values[y0 * this.width + x1] * mixX;
-    const bottom = values[y1 * this.width + x0] * (1 - mixX)
-      + values[y1 * this.width + x1] * mixX;
+    const topLeft = (
+      x0 < 0 || x0 >= this.width || y0 < 0 || y0 >= this.height
+    ) ? 0 : values[y0 * this.width + x0];
+    const topRight = (
+      x1 < 0 || x1 >= this.width || y0 < 0 || y0 >= this.height
+    ) ? 0 : values[y0 * this.width + x1];
+    const bottomLeft = (
+      x0 < 0 || x0 >= this.width || y1 < 0 || y1 >= this.height
+    ) ? 0 : values[y1 * this.width + x0];
+    const bottomRight = (
+      x1 < 0 || x1 >= this.width || y1 < 0 || y1 >= this.height
+    ) ? 0 : values[y1 * this.width + x1];
+    const top = topLeft * (1 - mixX) + topRight * mixX;
+    const bottom = bottomLeft * (1 - mixX) + bottomRight * mixX;
     return top * (1 - mixY) + bottom * mixY;
   }
 
@@ -3005,20 +3527,57 @@ export class SpectralFabric {
       MOIRE_DRONE_LIMITS.maxFabricGravity,
       MOIRE_DRONE_DEFAULTS.fabricGravity,
     );
-    // The three material controls deliberately own different parts of the
-    // motion. Tension is the elastic spring/rebound, inertia is response time,
-    // and damping is the velocity brake. Keeping these coefficients separate
-    // makes the performance controls predictable while retaining the existing
-    // coefficient ranges and every preset's material settings.
+    // This is a damped two-dimensional membrane: tension sets propagation
+    // speed through the neighbor Laplacian, inertia is surface mass, and
+    // damping removes velocity. There is deliberately no spring connecting
+    // every point to zero; that "elastic foundation" caused the old global
+    // snapback instead of carrying the gesture across the sheet.
     const responseMass = 0.35 + inertia * 2.65;
-    const springWaveRate = 1.2 + tension * 17;
+    // Even a slack sheet must still carry a gesture across its frame. The
+    // former 1.2 Hz floor made a heavy, slack sheet take many seconds to move
+    // by one cell, which read as a frozen surface rather than low tension.
+    const springWaveRate = 3.2 + tension * 15;
     const springCoupling = (TAU * springWaveRate) ** 2 * 0.045 / responseMass;
-    const springAnchor = (TAU * (0.28 + tension * 0.86)) ** 2 / responseMass;
-    const motionBrakeRate = 0.12 + damping * damping * 17;
+    // The grid is a numerical resolution of one fixed-size membrane, not a
+    // larger physical sheet each time Sections increases. The 1/h² factors
+    // keep propagation speed consistent across resolutions while preserving
+    // each patch's independent mass and edge material.
+    const horizontalGridScale = (this.width / FABRIC_WIDTH) ** 2;
+    const verticalGridScale = (this.height / FABRIC_HEIGHT) ** 2;
+    // Map the control to a modal damping ratio rather than an arbitrary drag
+    // rate. A fixed high drag overdamps the lowest membrane mode and produces
+    // a very slow exponential creep. Referencing the fixed-frame fundamental
+    // keeps maximum damping just below critical at every grid resolution and
+    // inertia, while lower values retain a progressively longer spring ring.
+    const fundamentalLaplacian = 4 * (
+      horizontalGridScale * Math.sin(Math.PI / (2 * this.width)) ** 2
+      + verticalGridScale * Math.sin(Math.PI / (2 * this.height)) ** 2
+    );
+    const fundamentalAngularRate = Math.sqrt(
+      springCoupling * fundamentalLaplacian,
+    );
+    const modalDampingRatio = 0.015 + damping ** 1.6 * 0.965;
     // Boundary restitution is only a stability guard. Audible/visible bounce
     // comes from the spring terms above, not from hitting the guard.
     const boundaryRebound = 0.16;
-    const maximumStep = 1 / 240;
+    let minimumNodeMass = Infinity;
+    for (let index = 0; index < this.nodeCount; index += 1) {
+      minimumNodeMass = Math.min(minimumNodeMass, this.nodeMass[index]);
+    }
+    const maximumEdgeWeight = 4.8;
+    // Twice the maximum absolute row sum is a conservative Gershgorin bound
+    // for the fastest discrete membrane mode.
+    const maximumSpatialLoad = 4 * maximumEdgeWeight
+      * (horizontalGridScale + verticalGridScale);
+    const maximumHoldStiffness = (55 + pull * 175) / responseMass;
+    const angularRateBound = Math.sqrt(
+      (springCoupling * maximumSpatialLoad + maximumHoldStiffness)
+        / Math.max(0.1, minimumNodeMass),
+    );
+    const maximumStep = Math.min(
+      1 / 240,
+      1.45 / Math.max(1, angularRateBound),
+    );
 
     while (remaining > 1e-9) {
       const elapsed = Math.min(maximumStep, remaining);
@@ -3050,28 +3609,60 @@ export class SpectralFabric {
       );
 
       for (let row = 0; row < this.height; row += 1) {
-        const up = ((row - 1 + this.height) % this.height) * this.width;
-        const down = ((row + 1) % this.height) * this.width;
         const rowOffset = row * this.width;
         for (let column = 0; column < this.width; column += 1) {
-          const left = rowOffset + (column - 1 + this.width) % this.width;
-          const right = rowOffset + (column + 1) % this.width;
-          const upIndex = up + column;
-          const downIndex = down + column;
           const index = rowOffset + column;
           const center = this.displacement[index];
-          const laplacian = (
-            (this.displacement[left] - center)
-              * this.horizontalSpringWeight[left]
-            + (this.displacement[right] - center)
-              * this.horizontalSpringWeight[index]
-            + (this.displacement[upIndex] - center)
-              * this.verticalSpringWeight[upIndex]
-            + (this.displacement[downIndex] - center)
-              * this.verticalSpringWeight[index]
-          );
+          const left = column > 0 ? index - 1 : -1;
+          const right = column < this.width - 1 ? index + 1 : -1;
+          const upIndex = row > 0 ? index - this.width : -1;
+          const downIndex = row < this.height - 1
+            ? index + this.width
+            : -1;
           const nodeX = this.nodeX[index];
           const nodeY = this.nodeY[index];
+          const leftWeight = left >= 0
+            ? this.horizontalSpringWeight[left]
+            : clamp(
+              (2 / this.width) / Math.max(1e-6, nodeX + 1),
+              0.32,
+              maximumEdgeWeight,
+              2,
+            );
+          const rightWeight = right >= 0
+            ? this.horizontalSpringWeight[index]
+            : clamp(
+              (2 / this.width) / Math.max(1e-6, 1 - nodeX),
+              0.32,
+              maximumEdgeWeight,
+              2,
+            );
+          const upWeight = upIndex >= 0
+            ? this.verticalSpringWeight[upIndex]
+            : clamp(
+              (2 / this.height) / Math.max(1e-6, nodeY + 1),
+              0.32,
+              maximumEdgeWeight,
+              2,
+            );
+          const downWeight = downIndex >= 0
+            ? this.verticalSpringWeight[index]
+            : clamp(
+              (2 / this.height) / Math.max(1e-6, 1 - nodeY),
+              0.32,
+              maximumEdgeWeight,
+              2,
+            );
+          const laplacian = (
+            ((left >= 0 ? this.displacement[left] : 0) - center)
+              * leftWeight * horizontalGridScale
+            + ((right >= 0 ? this.displacement[right] : 0) - center)
+              * rightWeight * horizontalGridScale
+            + ((upIndex >= 0 ? this.displacement[upIndex] : 0) - center)
+              * upWeight * verticalGridScale
+            + ((downIndex >= 0 ? this.displacement[downIndex] : 0) - center)
+              * downWeight * verticalGridScale
+          );
           const localMass = this.nodeMass[index];
           const modalDrive = Math.sin(TAU * (
             this.vibrationPhase + nodeX * 0.37 + nodeY * 0.23
@@ -3083,8 +3674,7 @@ export class SpectralFabric {
           const gravityAcceleration = gravity * gravityActivity * 8
             * (0.72 + nodeY * 0.28) / responseMass;
           let acceleration = (
-            laplacian * springCoupling - center * springAnchor
-            + modalDrive + gravityAcceleration
+            laplacian * springCoupling + modalDrive + gravityAcceleration
           ) / localMass;
           if (this.tugActive && Math.abs(this.tugAmount) > 0.001 && pull > 0.001) {
             const weight = fabricImpulseWeight(
@@ -3098,19 +3688,22 @@ export class SpectralFabric {
             acceleration += weight * (target - center) * (55 + pull * 175)
               / (responseMass * localMass);
           }
-          this.acceleration[index] = clamp(acceleration, -520, 520, 0);
+          // The adaptive CFL step above is the stability mechanism. This wide
+          // finite guard catches corrupt state without flattening real hard
+          // impacts or erasing patch-to-patch material differences.
+          this.acceleration[index] = clamp(acceleration, -8_000, 8_000, 0);
         }
       }
 
       let energyTotal = 0;
-      const uniformDecay = Math.exp(-motionBrakeRate * elapsed);
       for (let index = 0; index < this.nodeCount; index += 1) {
-        const decay = clamp(
-          1 - (1 - uniformDecay) * this.nodeDamping[index],
-          0,
-          1,
-          uniformDecay,
+        const localDampingRatio = Math.min(
+          0.98,
+          modalDampingRatio * this.nodeDamping[index],
         );
+        const localBrakeRate = 2 * localDampingRatio
+          * fundamentalAngularRate / Math.sqrt(this.nodeMass[index]);
+        const decay = Math.exp(-localBrakeRate * elapsed);
         let velocity = (
           this.velocity[index] + this.acceleration[index] * elapsed
         ) * decay;
@@ -3145,6 +3738,7 @@ const PROPAGATION_MODE_INDEX = Object.freeze({
   gravity: 4,
   standing: 5,
   ocean: 6,
+  sheet: 7,
 });
 
 function propagationModeIndex(mode) {
@@ -3207,8 +3801,68 @@ function propagationValueFast(
   harmonicOrder,
   ringDensity,
   polarity,
+  directionX = 1,
+  directionY = 0,
 ) {
   const ageEnvelope = Math.exp(-age / Math.max(0.04, decay));
+
+  if (modeIndex === PROPAGATION_MODE_INDEX.sheet) {
+    const dx = x - originX;
+    const dy = y - originY;
+    let safeDirectionX = Number.isFinite(directionX) ? directionX : 1;
+    let safeDirectionY = Number.isFinite(directionY) ? directionY : 0;
+    let directionMagnitude = Math.hypot(safeDirectionX, safeDirectionY);
+    if (directionMagnitude < 1e-6) {
+      safeDirectionX = Math.abs(originX) + Math.abs(originY) > 1e-6
+        ? -originX
+        : 1;
+      safeDirectionY = Math.abs(originX) + Math.abs(originY) > 1e-6
+        ? -originY
+        : 0;
+      directionMagnitude = Math.max(1e-6, Math.hypot(
+        safeDirectionX,
+        safeDirectionY,
+      ));
+    }
+    safeDirectionX /= directionMagnitude;
+    safeDirectionY /= directionMagnitude;
+    const along = dx * safeDirectionX + dy * safeDirectionY;
+    const across = -dx * safeDirectionY + dy * safeDirectionX;
+    const safeWidth = Math.max(0.02, width);
+    const frontPosition = speed * age;
+    const forwardOffset = (along - frontPosition) / safeWidth;
+    const reverseOffset = (along + frontPosition * 0.72) / (safeWidth * 1.45);
+    const forwardSquare = forwardOffset * forwardOffset;
+    const reverseSquare = reverseOffset * reverseOffset;
+    const forward = (1 - forwardSquare) * Math.exp(-0.5 * forwardSquare);
+    const reverse = (1 - reverseSquare) * Math.exp(-0.5 * reverseSquare);
+    const crossWidth = clamp(
+      safeWidth * (3.8 + Math.min(8, ringDensity) * 0.26)
+        + strength * 0.18,
+      0.3,
+      1.35,
+      0.62,
+    );
+    const aperture = Math.exp(-0.5 * (across / crossWidth) ** 2);
+    const forwardTime = age - Math.max(0, along) / speed;
+    const wake = forwardTime > 0
+      ? Math.sin(TAU * rate * forwardTime)
+        * Math.exp(-forwardTime / Math.max(0.04, decay * 0.74))
+      : 0;
+    const wakeGate = clamp(
+      (along + safeWidth * 1.5) / Math.max(0.01, frontPosition + safeWidth * 1.5),
+      0,
+      1,
+      0,
+    );
+    const wave = forward * 0.94 - reverse * 0.28 + wake * wakeGate * 0.66;
+    return clamp(
+      wave * aperture * strength * polarity * ageEnvelope,
+      -1.5,
+      1.5,
+      0,
+    );
+  }
 
   if (modeIndex === PROPAGATION_MODE_INDEX.standing) {
     // Two independently anchored Cartesian modes form a true membrane
@@ -3365,6 +4019,8 @@ export function spectralPropagationValue({
   harmonicOrder = MOIRE_DRONE_DEFAULTS.harmonicOrder,
   ringDensity = MOIRE_DRONE_DEFAULTS.ringDensity,
   polarity = 1,
+  directionX = 1,
+  directionY = 0,
 } = {}) {
   return propagationValueFast(
     propagationModeIndex(mode),
@@ -3381,6 +4037,8 @@ export function spectralPropagationValue({
     Math.round(clamp(harmonicOrder, 0, 12, MOIRE_DRONE_DEFAULTS.harmonicOrder)),
     clamp(ringDensity, 0.25, 12, MOIRE_DRONE_DEFAULTS.ringDensity),
     clamp(polarity, -1, 1, 1),
+    clamp(directionX, -1, 1, 1),
+    clamp(directionY, -1, 1, 0),
   );
 }
 
@@ -3415,6 +4073,8 @@ export class SpectralPropagationPool {
     this.harmonicOrder = new Uint8Array(this.maxEntities);
     this.ringDensity = new Float64Array(this.maxEntities);
     this.polarity = new Float64Array(this.maxEntities);
+    this.directionX = new Float64Array(this.maxEntities);
+    this.directionY = new Float64Array(this.maxEntities);
   }
 
   setActiveLimit(value) {
@@ -3461,6 +4121,8 @@ export class SpectralPropagationPool {
     this.harmonicOrder.fill(0);
     this.ringDensity.fill(0);
     this.polarity.fill(0);
+    this.directionX.fill(0);
+    this.directionY.fill(0);
   }
 
   nextRandom() {
@@ -3486,6 +4148,8 @@ export class SpectralPropagationPool {
     sizeSpread = 0,
     speedSpread = 0,
     polarity,
+    directionX,
+    directionY,
   } = {}) {
     let slot = -1;
     let lowestResidual = Infinity;
@@ -3505,6 +4169,90 @@ export class SpectralPropagationPool {
       }
     }
     if (slot < 0) slot = 0;
+    return this.writeTrigger(slot, {
+      mode,
+      x,
+      y,
+      strength,
+      rate,
+      speed,
+      decay,
+      width,
+      harmonicOrder,
+      ringDensity,
+      sizeSpread,
+      speedSpread,
+      polarity,
+      directionX,
+      directionY,
+    });
+  }
+
+  /**
+   * Launch a related set of events against one snapshot of the pool. Slots
+   * are reserved before any event is written, so a newly written weak event
+   * cannot immediately become the replacement candidate for its siblings.
+   */
+  triggerGroup(events = []) {
+    if (!Array.isArray(events)) {
+      throw new TypeError("Propagation event group must be an array.");
+    }
+    if (events.length === 0) return [];
+    const capacity = Math.min(this.activeLimit, this.maxEntities);
+    if (events.length > capacity) {
+      throw new RangeError(
+        `Propagation event group has ${events.length} events but capacity is ${capacity}.`,
+      );
+    }
+
+    const inactive = [];
+    const active = [];
+    for (let index = 0; index < this.maxEntities; index += 1) {
+      if (!this.active[index]) {
+        inactive.push(index);
+        continue;
+      }
+      active.push({
+        index,
+        residual: this.strength[index] * Math.exp(
+          -this.age[index] / Math.max(0.04, this.decay[index]),
+        ),
+      });
+    }
+    active.sort((a, b) => a.residual - b.residual || a.index - b.index);
+    const freeCapacity = Math.max(0, capacity - active.length);
+    const slots = inactive.slice(0, Math.min(freeCapacity, events.length));
+    for (const candidate of active) {
+      if (slots.length >= events.length) break;
+      slots.push(candidate.index);
+    }
+    if (slots.length < events.length) {
+      throw new RangeError("Propagation pool cannot reserve the event group atomically.");
+    }
+
+    for (let index = 0; index < events.length; index += 1) {
+      this.writeTrigger(slots[index], events[index]);
+    }
+    return slots;
+  }
+
+  writeTrigger(slot, {
+    mode = MOIRE_DRONE_DEFAULTS.propagationMode,
+    x = 0,
+    y = 0,
+    strength = 1,
+    rate = MOIRE_DRONE_DEFAULTS.propagationRate,
+    speed = MOIRE_DRONE_DEFAULTS.propagationSpeed,
+    decay = MOIRE_DRONE_DEFAULTS.propagationDecay,
+    width = MOIRE_DRONE_DEFAULTS.propagationWidth,
+    harmonicOrder = MOIRE_DRONE_DEFAULTS.harmonicOrder,
+    ringDensity = MOIRE_DRONE_DEFAULTS.ringDensity,
+    sizeSpread = 0,
+    speedSpread = 0,
+    polarity,
+    directionX,
+    directionY,
+  } = {}) {
     const safeRate = clamp(rate, 1, 50, MOIRE_DRONE_DEFAULTS.propagationRate);
     const baseSpeed = clamp(speed, 0.1, 12, MOIRE_DRONE_DEFAULTS.propagationSpeed);
     const safeDecay = clamp(decay, 0.08, 8, MOIRE_DRONE_DEFAULTS.propagationDecay);
@@ -3524,7 +4272,10 @@ export class SpectralPropagationPool {
     this.y[slot] = clamp(y, -1, 1, 0);
     this.age[slot] = 0;
     const modeIndex = this.mode[slot];
-    const crossingDistance = modeIndex === PROPAGATION_MODE_INDEX.ocean
+    const crossingDistance = (
+      modeIndex === PROPAGATION_MODE_INDEX.ocean
+      || modeIndex === PROPAGATION_MODE_INDEX.sheet
+    )
       ? Math.SQRT2 * 2
       : Math.SQRT2;
     this.lifetime[slot] = Math.min(
@@ -3545,6 +4296,20 @@ export class SpectralPropagationPool {
     this.polarity[slot] = Number.isFinite(Number(polarity))
       ? (Number(polarity) < 0 ? -1 : 1)
       : (this.nextRandom() < 0.5 ? -1 : 1);
+    const fallbackX = Math.abs(this.x[slot]) + Math.abs(this.y[slot]) > 1e-6
+      ? -this.x[slot]
+      : 1;
+    const fallbackY = Math.abs(this.x[slot]) + Math.abs(this.y[slot]) > 1e-6
+      ? -this.y[slot]
+      : 0;
+    const direction = normalizedDirection(
+      directionX,
+      directionY,
+      fallbackX,
+      fallbackY,
+    );
+    this.directionX[slot] = direction.x;
+    this.directionY[slot] = direction.y;
     this.serial += 1;
     return slot;
   }
@@ -3585,6 +4350,8 @@ export class SpectralPropagationPool {
         this.harmonicOrder[index],
         this.ringDensity[index],
         this.polarity[index],
+        this.directionX[index],
+        this.directionY[index],
       );
       sum += candidate;
       count += 1;
@@ -3602,6 +4369,135 @@ export class SpectralPropagationPool {
       1,
       0,
     );
+  }
+
+  /** Vector view of the same scalar event field used by the audio engine. */
+  sampleVector(x = 0, y = 0, interference = 0, target = {}) {
+    const safeX = clamp(x, -1, 1, 0);
+    const safeY = clamp(y, -1, 1, 0);
+    const mix = clamp(interference, 0, 1, 0);
+    let strongest = 0;
+    let strongestValue = 0;
+    let strongestX = 0;
+    let strongestY = 0;
+    let sumValue = 0;
+    let sumX = 0;
+    let sumY = 0;
+    let count = 0;
+    for (let index = 0; index < this.maxEntities; index += 1) {
+      if (!this.active[index]) continue;
+      const candidate = propagationValueFast(
+        this.mode[index],
+        safeX,
+        safeY,
+        this.x[index],
+        this.y[index],
+        this.age[index],
+        this.strength[index],
+        this.rate[index],
+        this.speed[index],
+        this.decay[index],
+        this.width[index],
+        this.harmonicOrder[index],
+        this.ringDensity[index],
+        this.polarity[index],
+        this.directionX[index],
+        this.directionY[index],
+      );
+      let vectorX = this.directionX[index];
+      let vectorY = this.directionY[index];
+      if (this.mode[index] === PROPAGATION_MODE_INDEX.ocean) {
+        let xWeight = Math.abs(this.x[index]);
+        let yWeight = Math.abs(this.y[index]);
+        const weightMagnitude = Math.hypot(xWeight, yWeight);
+        if (weightMagnitude < 1e-6) {
+          vectorX = 1;
+          vectorY = 0;
+        } else {
+          vectorX = (this.x[index] <= 0 ? 1 : -1) * xWeight / weightMagnitude;
+          vectorY = (this.y[index] <= 0 ? 1 : -1) * yWeight / weightMagnitude;
+        }
+      } else if (this.mode[index] === PROPAGATION_MODE_INDEX.standing) {
+        const xOrder = Math.max(1, this.harmonicOrder[index]);
+        const yOrder = Math.max(0.5, this.ringDensity[index] * 0.5);
+        const xPhase = Math.PI * xOrder
+          * (safeX - this.x[index]);
+        const yPhase = Math.PI * yOrder
+          * (safeY - this.y[index]);
+        vectorX = -xOrder * Math.sin(xPhase) * Math.cos(yPhase);
+        vectorY = -yOrder * Math.sin(yPhase) * Math.cos(xPhase);
+        const gradientMagnitude = Math.hypot(vectorX, vectorY);
+        if (gradientMagnitude > 1e-6) {
+          vectorX /= gradientMagnitude;
+          vectorY /= gradientMagnitude;
+        } else {
+          vectorX = 0;
+          vectorY = -1;
+        }
+      } else if (this.mode[index] !== PROPAGATION_MODE_INDEX.sheet) {
+        vectorX = safeX - this.x[index];
+        vectorY = safeY - this.y[index];
+        if (this.mode[index] === PROPAGATION_MODE_INDEX.gravity) {
+          vectorY -= Math.min(
+            1,
+            this.age[index] * this.age[index] * this.speed[index] * 0.16,
+          );
+        }
+        if (vectorX > 1) vectorX -= 2;
+        else if (vectorX < -1) vectorX += 2;
+        if (vectorY > 1) vectorY -= 2;
+        else if (vectorY < -1) vectorY += 2;
+        const magnitude = Math.hypot(vectorX, vectorY);
+        if (magnitude > 1e-6) {
+          vectorX /= magnitude;
+          vectorY /= magnitude;
+        } else {
+          vectorX = 0;
+          vectorY = -1;
+        }
+      }
+      const candidateX = candidate * vectorX;
+      const candidateY = candidate * vectorY;
+      sumValue += candidate;
+      sumX += candidateX;
+      sumY += candidateY;
+      count += 1;
+      const magnitude = Math.abs(candidate);
+      if (magnitude > strongest) {
+        strongest = magnitude;
+        strongestValue = candidate;
+        strongestX = candidateX;
+        strongestY = candidateY;
+      }
+    }
+    if (count === 0) {
+      target.x = 0;
+      target.y = 0;
+      target.value = 0;
+      return target;
+    }
+    const normalizer = Math.sqrt(count);
+    target.x = clamp(
+      strongestX + (sumX / normalizer - strongestX) * mix,
+      -1,
+      1,
+      0,
+    );
+    target.y = clamp(
+      strongestY + (sumY / normalizer - strongestY) * mix,
+      -1,
+      1,
+      0,
+    );
+    // This is exactly sample()'s scalar aggregate, returned with the vector to
+    // avoid a second full wave-field traversal per canvas vertex.
+    target.value = clamp(
+      strongestValue + (sumValue / normalizer - strongestValue) * mix,
+      -1,
+      1,
+      0,
+    );
+    return target;
   }
 
   get activeCount() {
@@ -3954,6 +4850,7 @@ export class MoireDroneKernel {
     this.impactGain = 0;
     this.impactPhase = 0;
     this.impactPolarity = 1;
+    this.impactMass = 0.2;
     this.impactX = 0;
     this.impactY = 0;
     this.impactPreviousNoise = 0;
@@ -3998,6 +4895,7 @@ export class MoireDroneKernel {
       this.impactGain = 0;
       this.impactX = 0;
       this.impactY = 0;
+      this.impactMass = 0.2;
       this.impactPreviousNoise = 0;
     }
     return Object.freeze({ ...this.target });
@@ -4069,8 +4967,10 @@ export class MoireDroneKernel {
     fabricScale = 1,
     sizeSpread = parameters.propagationSizeSpread,
     speedSpread = parameters.propagationSpeedSpread,
+    event = {},
+    propagationGroup = null,
   ) {
-    const angle = this.fabricAngle * Math.PI / 180;
+    const angle = parameters.fabricRotation * Math.PI / 180;
     const cosine = Math.cos(angle);
     const sine = Math.sin(angle);
     const safeX = clamp(x, -1, 1, 0);
@@ -4080,27 +4980,34 @@ export class MoireDroneKernel {
     const safeFabricScale = clamp(fabricScale, 0, 1, 1);
     if (safeFabricScale > 0.0001) {
       this.fabric.excite(
-        wrapBipolar(safeX * cosine - safeY * sine),
-        wrapBipolar(safeX * sine + safeY * cosine),
+        clamp(safeX * cosine - safeY * sine, -1, 1, 0),
+        clamp(safeX * sine + safeY * cosine, -1, 1, 0),
         safeForce * safeFabricScale,
         radius,
       );
     }
-    this.propagation.trigger({
-      mode: parameters.propagationMode,
+    const propagationEvent = {
+      mode: event.mode ?? parameters.propagationMode,
       x: safeX,
       y: safeY,
-      strength: Math.abs(safeForce),
-      rate: parameters.propagationRate,
-      speed: parameters.propagationSpeed,
-      decay: parameters.propagationDecay,
-      width: parameters.propagationWidth,
+      strength: clamp(event.strength, 0, 2, Math.abs(safeForce)),
+      rate: event.rate ?? parameters.propagationRate,
+      speed: event.speed ?? parameters.propagationSpeed,
+      decay: event.decay ?? parameters.propagationDecay,
+      width: event.width ?? parameters.propagationWidth,
       harmonicOrder: parameters.harmonicOrder,
       ringDensity: parameters.ringDensity,
       sizeSpread,
       speedSpread,
       polarity: safeForce < 0 ? -1 : 1,
-    });
+      directionX: event.directionX,
+      directionY: event.directionY,
+    };
+    if (Array.isArray(propagationGroup)) {
+      propagationGroup.push(propagationEvent);
+    } else {
+      this.propagation.trigger(propagationEvent);
+    }
     const impact = Math.abs(safeForce) * clamp(impactScale, 0, 1, 1);
     if (impact > 0.0001) {
       this.impactEnvelope = Math.min(
@@ -4116,24 +5023,152 @@ export class MoireDroneKernel {
     return true;
   }
 
+  launchElasticWave(
+    x = 0,
+    y = 0,
+    force = 0.7,
+    radius = 0.2,
+    gesture = {},
+    fabricScale = 1,
+    waveScale = 1,
+  ) {
+    const safeX = clamp(x, -1, 1, 0);
+    const safeY = clamp(y, -1, 1, 0);
+    const profile = elasticReleaseProfile(this.target, gesture, force, radius);
+    const angle = this.target.fabricRotation * Math.PI / 180;
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const localX = clamp(safeX * cosine - safeY * sine, -1, 1, 0);
+    const localY = clamp(safeX * sine + safeY * cosine, -1, 1, 0);
+    const localDirectionX = (
+      profile.impulseDirectionX * cosine
+      - profile.impulseDirectionY * sine
+    );
+    const localDirectionY = (
+      profile.impulseDirectionX * sine
+      + profile.impulseDirectionY * cosine
+    );
+    const safeFabricScale = clamp(fabricScale, 0, 1, 1);
+    if (
+      safeFabricScale > 0.0001
+      && Math.abs(profile.impulseForce) > 0.0001
+    ) {
+      this.fabric.exciteDirectional(
+        localX,
+        localY,
+        profile.impulseForce * safeFabricScale,
+        profile.radius,
+        localDirectionX,
+        localDirectionY,
+        profile.breadth,
+      );
+    }
+    const safeWaveScale = clamp(waveScale, 0, 1, 1);
+    const waveStrength = profile.strength * safeWaveScale;
+    if (waveStrength > 0.0001) {
+      this.propagation.trigger({
+        mode: "sheet",
+        x: safeX,
+        y: safeY,
+        strength: waveStrength,
+        rate: profile.rate,
+        speed: profile.speed,
+        decay: profile.decay,
+        width: profile.width,
+        harmonicOrder: this.target.harmonicOrder,
+        ringDensity: this.target.ringDensity,
+        sizeSpread: 0,
+        speedSpread: 0,
+        polarity: force < 0 ? -1 : 1,
+        directionX: profile.directionX,
+        directionY: profile.directionY,
+      });
+    }
+    return profile;
+  }
+
+  impactFabric(x = 0, y = 0, force = 0.7, radius = 0.28, gesture = {}) {
+    const pattern = fabricImpactPattern({
+      body: this.target.impactBody,
+      x,
+      y,
+      force,
+      radius,
+      count: this.target.propagationVoices,
+      spread: this.target.propagationSizeSpread,
+      width: this.target.propagationWidth,
+    });
+    this.impactMass = this.target.impactBody === "brick"
+      ? 1
+      : (this.target.impactBody === "pebbles" ? 0.34 : 0.14);
+    this.captureGesture(x, y, force, gesture, false);
+    const angle = this.target.fabricRotation * Math.PI / 180;
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const propagationGroup = [];
+    for (const source of pattern) {
+      if (source.body === "brick") {
+        const localX = clamp(
+          source.x * cosine - source.y * sine,
+          -1,
+          1,
+          0,
+        );
+        const localY = clamp(
+          source.x * sine + source.y * cosine,
+          -1,
+          1,
+          0,
+        );
+        this.fabric.excitePatch(
+          localX,
+          localY,
+          source.force,
+          source.radius,
+          this.target.fabricRotation,
+        );
+        this.launchPropagation(
+          source.x,
+          source.y,
+          source.force,
+          source.radius,
+          this.target,
+          1,
+          0,
+          0,
+          0,
+          { width: Math.max(this.target.propagationWidth, source.radius * 0.72) },
+          propagationGroup,
+        );
+      } else {
+        this.launchPropagation(
+          source.x,
+          source.y,
+          source.force,
+          source.radius,
+          this.target,
+          1,
+          1,
+          undefined,
+          undefined,
+          {},
+          propagationGroup,
+        );
+      }
+    }
+    this.propagation.triggerGroup(propagationGroup);
+    return pattern;
+  }
+
   pluckFabric(x = 0, y = 0, force = 0.7, radius = 0.28, gesture = {}) {
     this.captureGesture(x, y, force, gesture, false);
     this.launchPropagation(x, y, force, radius, this.target, 1);
   }
 
-  rippleFabric(x = 0, y = 0, force = 0.35, radius = 0.18) {
+  rippleFabric(x = 0, y = 0, force = 0.35, radius = 0.18, gesture = {}) {
     // Drag ripples must not end or overwrite the active grab. They carry a
-    // small physical impulse and an even smaller onset,
-    // so a moving hand creates wake rather than a stream of clicks.
-    return this.launchPropagation(
-      x,
-      y,
-      force,
-      radius,
-      this.target,
-      0.14,
-      0.32,
-    );
+    // small broad directional packet, not a stream of circular clicks.
+    return this.launchElasticWave(x, y, force, radius, gesture, 0.32, 0.38);
   }
 
   exciteFabric(x = 0, y = 0, force = 0.7, radius = 0.28) {
@@ -4141,18 +5176,19 @@ export class MoireDroneKernel {
   }
 
   kickFabric(x = 0, y = 0, force = 0.5, radius = 0.2, gesture = {}) {
-    const angle = this.fabricAngle * Math.PI / 180;
-    const cosine = Math.cos(angle);
-    const sine = Math.sin(angle);
     const safeX = clamp(x, -1, 1, 0);
     const safeY = clamp(y, -1, 1, 0);
-    this.fabric.excite(
-      wrapBipolar(safeX * cosine - safeY * sine),
-      wrapBipolar(safeX * sine + safeY * cosine),
-      clamp(force, -2, 2, 0.5),
-      clamp(radius, 0.04, 1.5, 0.2),
+    const profile = this.launchElasticWave(
+      safeX,
+      safeY,
+      force,
+      radius,
+      gesture,
+      1,
+      1,
     );
     this.captureGesture(safeX, safeY, force, gesture, false);
+    return profile;
   }
 
   tugFabric(x = 0, y = 0, amount = 0, gesture = {}) {
@@ -4229,6 +5265,7 @@ export class MoireDroneKernel {
     this.impactEnvelope = 0;
     this.impactGain = 0;
     this.impactPhase = 0;
+    this.impactMass = 0.2;
     this.impactX = 0;
     this.impactY = 0;
     this.impactPreviousNoise = 0;
@@ -4432,11 +5469,13 @@ export class MoireDroneKernel {
       const broadAnchorY = this.gestureEnvelope > 1e-5
         ? this.gestureCurrentY
         : params.originY;
-      const fabricX = wrapBipolar(
+      const fabricX = clamp(
         broadAnchorX * fabricCosine - broadAnchorY * fabricSine,
+        -1, 1, 0,
       );
-      const fabricY = wrapBipolar(
+      const fabricY = clamp(
         broadAnchorX * fabricSine + broadAnchorY * fabricCosine,
+        -1, 1, 0,
       );
       const fabricValue = this.fabric.sampleLocal(fabricX, fabricY);
       const propagationValue = this.propagation.sample(
@@ -4509,11 +5548,13 @@ export class MoireDroneKernel {
     for (let stage = 0; stage < toothCount; stage += 1) {
       const anchorX = this.nodeX[stage];
       const anchorY = this.nodeY[stage];
-      const fabricX = wrapBipolar(
+      const fabricX = clamp(
         anchorX * fabricCosine - anchorY * fabricSine,
+        -1, 1, 0,
       );
-      const fabricY = wrapBipolar(
+      const fabricY = clamp(
         anchorX * fabricSine + anchorY * fabricCosine,
+        -1, 1, 0,
       );
       const fabricValue = this.fabric.sampleLocal(fabricX, fabricY);
       const propagationValue = this.propagation.sample(
@@ -4617,6 +5658,7 @@ export class MoireDroneKernel {
     this.impactGain = 0;
     this.impactPhase = 0;
     this.impactPolarity = 1;
+    this.impactMass = 0.2;
     this.impactX = 0;
     this.impactY = 0;
     this.impactPreviousNoise = 0;
@@ -4759,6 +5801,7 @@ export class MoireDroneKernel {
     this.current.fabricSections = this.target.fabricSections;
     this.current.fabricPatchwork = this.target.fabricPatchwork;
     this.current.collisionMode = this.target.collisionMode;
+    this.current.impactBody = this.target.impactBody;
     this.current.propagationMode = this.target.propagationMode;
     this.current.spectralSculptMode = this.target.spectralSculptMode;
     this.current.harmonicOrder = this.target.harmonicOrder;
@@ -4980,11 +6023,13 @@ export class MoireDroneKernel {
     const fabricCosine = Math.cos(fabricRadians);
     const fabricSine = Math.sin(fabricRadians);
     if (this.fabricTugActive) {
-      const tugX = wrapBipolar(
+      const tugX = clamp(
         this.fabricTugX * fabricCosine - this.fabricTugY * fabricSine,
+        -1, 1, 0,
       );
-      const tugY = wrapBipolar(
+      const tugY = clamp(
         this.fabricTugX * fabricSine + this.fabricTugY * fabricCosine,
+        -1, 1, 0,
       );
       this.fabric.tug(tugX, tugY, this.fabricTugAmount);
     } else {
@@ -5065,10 +6110,10 @@ export class MoireDroneKernel {
         (index + 0.5) / count
         + this.nodeHash[index] * params.latticeScatter / octaveSpan
       );
-      const fabricX = wrapBipolar(x * fabricCosine - y * fabricSine);
-      const fabricY = wrapBipolar(x * fabricSine + y * fabricCosine);
-      const fabricBX = wrapBipolar(-x * fabricCosine + y * fabricSine);
-      const fabricBY = wrapBipolar(-x * fabricSine - y * fabricCosine);
+      const fabricX = clamp(x * fabricCosine - y * fabricSine, -1, 1, 0);
+      const fabricY = clamp(x * fabricSine + y * fabricCosine, -1, 1, 0);
+      const fabricBX = clamp(-x * fabricCosine + y * fabricSine, -1, 1, 0);
+      const fabricBY = clamp(-x * fabricSine - y * fabricCosine, -1, 1, 0);
       const fabricA = this.fabric.sampleLocal(fabricX, fabricY);
       const fabricB = this.fabric.sampleLocal(fabricBX, fabricBY);
       const fabricVelocityA = this.fabric.sampleVelocityLocal(fabricX, fabricY);
@@ -5310,7 +6355,9 @@ export class MoireDroneKernel {
     const gestureGainCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.003));
     const impactAttackCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.0012));
     const impactRelease = Math.exp(-1 / (
-      this.sampleRate * (0.012 + this.current.propagationWidth * 0.55)
+      this.sampleRate * (
+        0.012 + this.current.propagationWidth * 0.22 + this.impactMass * 0.16
+      )
     ));
 
     for (let sample = 0; sample < length; sample += 1) {
@@ -5350,16 +6397,23 @@ export class MoireDroneKernel {
         this.impactEnvelope *= impactRelease;
         const impactBrightness = clamp((1 - this.impactY) * 0.5, 0, 1, 0.5);
         this.impactPhase += TAU * (
-          55 + this.current.propagationRate * 6
+          42 + (1 - this.impactMass) * 86
+            + this.current.propagationRate * (2 + (1 - this.impactMass) * 4)
         ) * 2 ** ((impactBrightness - 0.5) * 1.8) / this.sampleRate;
         if (this.impactPhase >= TAU) this.impactPhase -= TAU;
         const impactNoise = this.nextWhite(4);
         const impactClick = impactNoise - this.impactPreviousNoise;
         this.impactPreviousNoise = impactNoise;
         const burst = (
-          impactNoise * (0.28 + impactBrightness * 0.2)
-          + impactClick * (0.06 + impactBrightness * 0.09)
-          + Math.sin(this.impactPhase) * (0.21 - impactBrightness * 0.08)
+          impactNoise * (
+            0.3 - this.impactMass * 0.14 + impactBrightness * 0.16
+          )
+          + impactClick * (
+            0.14 - this.impactMass * 0.1 + impactBrightness * 0.06
+          )
+          + Math.sin(this.impactPhase) * (
+            0.12 + this.impactMass * 0.32 - impactBrightness * 0.05
+          )
         ) * this.impactGain * this.impactPolarity
           * (0.015 + this.current.propagationGain * 0.14)
           * (1 - this.current.pluckCut * 0.65);
@@ -5630,6 +6684,15 @@ function createProcessorClass(AudioWorkletBase) {
             message.y,
             message.force,
             message.radius,
+            message.gesture,
+          );
+        } else if (message.type === "fabric-impact") {
+          this.kernel.impactFabric(
+            message.x,
+            message.y,
+            message.force,
+            message.radius,
+            message.gesture,
           );
         } else if (message.type === "fabric-kick") {
           this.kernel.kickFabric(
@@ -5847,13 +6910,25 @@ export class MoireDroneAudio {
     });
   }
 
-  rippleFabric(x = 0, y = 0, force = 0.35, radius = 0.18) {
+  rippleFabric(x = 0, y = 0, force = 0.35, radius = 0.18, gesture = {}) {
     this.node?.port.postMessage({
       type: "fabric-ripple",
       x: clamp(x, -1, 1, 0),
       y: clamp(y, -1, 1, 0),
       force: clamp(force, -2, 2, 0.35),
       radius: clamp(radius, 0.04, 1.5, 0.18),
+      gesture: transferableFabricGesture(gesture),
+    });
+  }
+
+  impactFabric(x = 0, y = 0, force = 0.7, radius = 0.28, gesture = {}) {
+    this.node?.port.postMessage({
+      type: "fabric-impact",
+      x: clamp(x, -1, 1, 0),
+      y: clamp(y, -1, 1, 0),
+      force: clamp(force, -2, 2, 0.7),
+      radius: clamp(radius, 0.04, 1.5, 0.28),
+      gesture: transferableFabricGesture(gesture),
     });
   }
 

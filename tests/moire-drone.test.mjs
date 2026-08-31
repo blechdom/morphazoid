@@ -54,6 +54,7 @@ const {
   MOIRE_DRONE_NOISE_TYPES,
   MOIRE_DRONE_PRESETS,
   MOIRE_DRONE_PROCESSOR_NAME,
+  FABRIC_IMPACT_BODIES,
   SPECTRAL_SCULPT_MODES,
   SPECTRAL_PROPAGATION_MODES,
   MoireDroneAudio,
@@ -66,7 +67,9 @@ const {
   combToothWarpOffset,
   collideWaveFields,
   createSeededNoise,
+  elasticReleaseProfile,
   fabricHeightForSections,
+  fabricImpactPattern,
   fabricImpulseWeight,
   fabricGesturePull,
   latticeCoordinate,
@@ -817,13 +820,13 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     /aria-keyshortcuts="[^"]*\bSpace\b/,
     "Space must not toggle hidden automatic motion",
   );
-  assert.match(html, /id="fabricExciteButton"[^>]*>Pluck origin</);
+  assert.match(html, /id="fabricExciteButton"[^>]*>Drop at origin</);
   assert.match(html, /id="fabricSections"[^>]*min="3"[^>]*max="16"/);
   assert.match(html, /id="fabricPatchwork"[^>]*min="0"[^>]*max="1"/);
-  assert.match(html, /for="fabricTension"><span><b>Spring \/ bounce<\/b>/);
+  assert.match(html, /for="fabricTension"><span><b>Wave tension<\/b>/);
   assert.match(html, /for="fabricInertia"><span><b>Response speed<\/b>/);
   assert.match(html, /for="fabricDamping"><span><b>Motion brake<\/b>/);
-  assert.match(html, /soft \/ loose[\s\S]*springy \/ taut/);
+  assert.match(html, /loose \/ slow[\s\S]*taut \/ fast/);
   assert.match(html, /slow \/ weighty[\s\S]*fast \/ immediate/);
   assert.match(html, /rings out[\s\S]*stops quickly/);
   assert.match(
@@ -901,13 +904,23 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   assert.match(
     html,
-    /Pull(?:ing)?[^<]{0,100}(?:farther|distance)[^<]{0,100}strength[^<]{0,120}(?:move|moving)[^<]{0,80}faster[^<]{0,120}(?:narrower|quicker)/i,
+    /stores strain[^<]{0,180}broad[^<]{0,100}pull axis[^<]{0,180}fast flick/i,
   );
   assert.match(html, /id="fabricInstruction"[^>]*>touch a frequency · pull to sculpt</);
   assert.match(
     html,
-    /id="propagationModeChoice"[\s\S]*data-propagation-mode="drop"[\s\S]*data-propagation-mode="harmonic"[\s\S]*data-propagation-mode="spiral"[\s\S]*data-propagation-mode="shock"[\s\S]*data-propagation-mode="gravity"[\s\S]*data-propagation-mode="standing"[\s\S]*data-propagation-mode="ocean"/,
+    /id="propagationModeChoice"[\s\S]*data-propagation-mode="drop"[\s\S]*data-propagation-mode="harmonic"[\s\S]*data-propagation-mode="spiral"[\s\S]*data-propagation-mode="shock"[\s\S]*data-propagation-mode="gravity"[\s\S]*data-propagation-mode="standing"[\s\S]*data-propagation-mode="ocean"[\s\S]*data-propagation-mode="sheet"/,
   );
+  const impactBodyChoiceStart = html.indexOf('id="impactBodyChoice"');
+  assert.ok(impactBodyChoiceStart >= 0, "the impact-body chooser must be present");
+  const impactBodyChoice = html.slice(
+    impactBodyChoiceStart,
+    html.indexOf("</div>", impactBodyChoiceStart) + 6,
+  );
+  assert.equal((impactBodyChoice.match(/<button\b/g) ?? []).length, FABRIC_IMPACT_BODIES.length);
+  for (const body of FABRIC_IMPACT_BODIES) {
+    assert.match(impactBodyChoice, new RegExp(`data-impact-body="${body}"`));
+  }
   assert.match(html, /id="propagationRate"[^>]*min="1"[^>]*max="50"/);
   assert.match(html, /id="propagationVoices"[^>]*min="1"[^>]*max="4"/);
   assert.match(html, /id="propagationSizeSpread"[^>]*min="0"[^>]*max="1"/);
@@ -942,7 +955,7 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     /Layered spectral texture|Warp strand|Weft strand|Shared interaction|Moving gaps/,
   );
   assert.doesNotMatch(html, /class="group-title">(?:Wave field A|Wave field B|Collision)</);
-  assert.match(html, /for="propagationVoices"><span><b>Max waves<\/b>/);
+  assert.match(html, /for="propagationVoices"><span><b>Pebbles \/ max waves<\/b>/);
   assert.doesNotMatch(html, /data-preset=/, "preset names are rendered without embedded stats");
   for (const [, key] of new Set([
     ["", "noiseColor"], ["", "noiseChaos"], ["", "noiseFractalDepth"],
@@ -1005,7 +1018,8 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   assert.match(
     applyPointerTugSource,
-    /audio\.tugFabric\([\s\S]*?pointerCurrentX,[\s\S]*?pointerCurrentY,[\s\S]*?amount,[\s\S]*?currentAudioGesture\(\)[\s\S]*?\)/,
+    /const gesture\s*=\s*currentAudioGesture\(\)[\s\S]*?captureVisualSculptGesture\([\s\S]*?gesture,[\s\S]*?true[\s\S]*?audio\.tugFabric\([\s\S]*?pointerCurrentX,[\s\S]*?pointerCurrentY,[\s\S]*?amount,[\s\S]*?gesture[\s\S]*?\)/,
+    "visual and audio tug paths must receive one identical gesture snapshot",
   );
   const audioGestureSource = appSource.slice(
     appSource.indexOf("function currentAudioGesture("),
@@ -1039,6 +1053,9 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(samplePointerSource, /pointerCurrentY\s*=\s*point\.y/);
   assert.match(samplePointerSource, /motionX\s*=\s*point\.rawX\s*-\s*pointerRawCurrentX/);
   assert.match(samplePointerSource, /motionY\s*=\s*point\.rawY\s*-\s*pointerRawCurrentY/);
+  assert.match(samplePointerSource, /velocityAge\s*=\s*Math\.max\(0, now - pointerLastMotionTime\)/);
+  assert.match(samplePointerSource, /pointerVelocityX\s*\*=\s*retainedVelocity/);
+  assert.match(samplePointerSource, /pointerVelocityY\s*\*=\s*retainedVelocity/);
   assert.match(samplePointerSource, /pointerRawCurrentX\s*=\s*point\.rawX/);
   assert.match(samplePointerSource, /pointerRawCurrentY\s*=\s*point\.rawY/);
   assert.match(
@@ -1078,11 +1095,10 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   const directWakeSource = namedFunctionSource(appSource, "directGrabWakeProfile");
   assert.match(directWakeSource, /0\.68/);
   const directWakeTriggerSource = namedFunctionSource(appSource, "triggerDirectGrabWake");
-  assert.match(directWakeTriggerSource, /audioAction:\s*"pluck"/);
   assert.match(
     directWakeTriggerSource,
-    /fabricScale:\s*1\b/,
-    "the first grab wake must strike the visible and audio membranes equally",
+    /triggerElasticWaveAt\(x, y, wake\.force, wake\.radius, gesture\)/,
+    "the first grab wake must use the same directional elastic release model",
   );
   const grabRippleSource = namedFunctionSource(appSource, "maybeEmitGrabRipple");
   assert.match(grabRippleSource, /pointerId\s*===\s*null|pointerId\s*!==\s*null/);
@@ -1090,7 +1106,7 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(grabRippleSource, /settings\.grabRippleRate/);
   assert.match(grabRippleSource, /(?:elapsed|interval|time|timestamp|performance\.now)/i);
   assert.match(grabRippleSource, /(?:travel|distance|Math\.hypot)/i);
-  assert.match(grabRippleSource, /triggerPropagationAt\(/);
+  assert.match(grabRippleSource, /triggerElasticWaveAt\(/);
   assert.match(
     grabRippleSource,
     /fabricScale:\s*0\.32\b/,
@@ -1107,7 +1123,7 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   const finalPointerSample = releasePointerSource.search(/samplePointerEvent\(\s*event\b/);
   const releaseGestureCapture = releasePointerSource.indexOf(
-    "const releaseGesture = currentAudioGesture()",
+    "const releaseGesture = currentAudioGesture(",
   );
   assert.ok(
     finalPointerSample >= 0 && finalPointerSample < releaseGestureCapture,
@@ -1119,26 +1135,25 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   assert.match(
     releasePointerSource,
-    /if \(!wasQuickTap\) \{[\s\S]*?return;\s*\}[\s\S]*?triggerPropagationAt\(/,
+    /if \(!wasQuickTap\) \{[\s\S]*?return;\s*\}[\s\S]*?triggerImpactAt\(/,
   );
   assert.equal(
-    (releasePointerSource.match(/triggerPropagationAt\(/g) ?? []).length,
+    (releasePointerSource.match(/triggerImpactAt\(/g) ?? []).length,
     1,
-    "the direct release propagation branch remains reserved for a quick stationary tap",
+    "a quick stationary tap must create exactly one selected impact",
   );
-  assert.match(releasePointerSource, /visualFabric\.excite\(/);
+  assert.match(
+    releasePointerSource,
+    /if \(wasDrag && !cancelled\) \{[\s\S]*?triggerElasticWaveAt\([\s\S]*?releaseGesture,[\s\S]*?\{ sendAudio: false \}/,
+    "the visual release must launch the derived sheet without double-firing audio",
+  );
   for (const axis of ["X", "Y"]) {
     assert.match(releasePointerSource, new RegExp(`visualPullOffset${axis}\\s*=\\s*0`));
   }
-  assert.match(releasePointerSource, /const releaseGesture = currentAudioGesture\(\)/);
+  assert.match(releasePointerSource, /const releaseGesture = currentAudioGesture\(/);
   assert.match(releasePointerSource, /audio\.releaseFabric\(releaseGesture\)/);
   assert.match(releasePointerSource, /const releaseCurrentX\s*=\s*pointerCurrentX/);
   assert.match(releasePointerSource, /const releaseCurrentY\s*=\s*pointerCurrentY/);
-  assert.match(
-    releasePointerSource,
-    /wasDrag\s*&&\s*releaseWakeCount\s*===\s*0[\s\S]*?triggerDirectGrabWake\([\s\S]*?releaseCurrentX,[\s\S]*?releaseCurrentY/,
-    "a drag completed during audio startup must receive one wake at release position",
-  );
   assert.match(
     releasePointerSource,
     /audio\.kickFabric\([\s\S]*?releaseCurrentX,[\s\S]*?releaseCurrentY,[\s\S]*?releaseGesture,[\s\S]*?\)/,
@@ -1146,8 +1161,8 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   assert.match(
     releasePointerSource,
-    /if \(!audioWasReady\) \{[\s\S]*?visualFabric\.excite\([\s\S]*?audioThrowForce[\s\S]*?releaseRadius[\s\S]*?\}[\s\S]*?audio\.kickFabric\([\s\S]*?audioThrowForce[\s\S]*?releaseRadius/,
-    "audio startup must restore the same release impulse to both membranes",
+    /if \(!audioWasReady\) \{[\s\S]*?triggerElasticWaveAt\([\s\S]*?releasePull,[\s\S]*?releaseRadius,[\s\S]*?releaseGesture,[\s\S]*?\{ sendAudio: false \}[\s\S]*?\}[\s\S]*?audio\.kickFabric\([\s\S]*?releasePull,[\s\S]*?releaseRadius,[\s\S]*?releaseGesture/,
+    "audio startup must restore the same derived release wave to both membranes",
   );
   assert.match(appSource, /grabRippleRate[\s\S]*?"onset only"/);
   assert.match(cssSource, /#stage\s*\{[\s\S]*?cursor:\s*grab/);
@@ -1158,17 +1173,21 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   assert.match(
     appSource,
-    /\$\("fabricExciteButton"\)\.addEventListener\("click", async \(\) => \{[\s\S]*?if \(!await ensureAudioOn\(\)\) return;[\s\S]*?triggerPropagationAt\(/,
+    /\$\("fabricExciteButton"\)\.addEventListener\("click", async \(\) => \{[\s\S]*?if \(!await ensureAudioOn\(\)\) return;[\s\S]*?triggerImpactAt\(/,
   );
   assert.match(
     appSource,
-    /\$\("stage"\)\.addEventListener\("keydown", async \(event\) => \{[\s\S]*?event\.key === "Enter"[\s\S]*?if \(!await ensureAudioOn\(\)\) return;[\s\S]*?triggerPropagationAt\(/,
+    /\$\("stage"\)\.addEventListener\("keydown", async \(event\) => \{[\s\S]*?event\.key === "Enter"[\s\S]*?if \(!await ensureAudioOn\(\)\) return;[\s\S]*?triggerImpactAt\(/,
   );
+  assert.match(appSource, /audio\.impactFabric\(/);
+  assert.match(appSource, /visualPropagation\.triggerGroup\(propagationGroup\)/);
+  assert.match(appSource, /elasticReleaseProfile\(/);
+  assert.match(appSource, /visualPropagation\.sampleVector\(/);
   const triggerPropagationSource = namedFunctionSource(appSource, "triggerPropagationAt");
   assert.match(triggerPropagationSource, /if \(sendAudio\)\s*\{/);
   assert.match(triggerPropagationSource, /captureVisualSculptGesture\(/);
-  assert.match(triggerPropagationSource, /sizeSpread:\s*settings\.propagationSizeSpread/);
-  assert.match(triggerPropagationSource, /speedSpread:\s*settings\.propagationSpeedSpread/);
+  assert.match(triggerPropagationSource, /sizeSpread:\s*sizeSpread \?\? settings\.propagationSizeSpread/);
+  assert.match(triggerPropagationSource, /speedSpread:\s*speedSpread \?\? settings\.propagationSpeedSpread/);
   assert.match(
     triggerPropagationSource,
     /audio\.pluckFabric\(audioX, audioY, force, radius, gesture\)/,
@@ -1235,12 +1254,12 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   assert.match(
     staticGridPointSource,
-    /visualFabric\.(?:sample|sampleLocal)[\s\S]*visualPropagation\.sample/,
+    /visualFabric\.(?:sample|sampleLocal)[\s\S]*visualPropagation\.sampleVector/,
     "fabric tugs and manual pluck ripples must still deform the static grid",
   );
   assert.match(
     staticGridPointSource,
-    /visualPropagation\.sample\([\s\S]*?settings\.propagationInterference/,
+    /visualPropagation\.sampleVector\([\s\S]*?settings\.propagationInterference/,
     "the visible waves must use the same interference control as the audible field",
   );
   assert.doesNotMatch(staticGridPointSource, /waveFieldValue\(|Math\.random\(/);
@@ -1503,40 +1522,44 @@ test("patchwork topology is seeded, nonuniform, and exactly uniform at zero", ()
       (row + 0.5) / uniform.height * 2 - 1,
     );
   }
-  for (const values of [
-    uniform.nodeMass,
-    uniform.nodeDamping,
-    uniform.horizontalSpringWeight,
-    uniform.verticalSpringWeight,
-  ]) {
+  for (const values of [uniform.nodeMass, uniform.nodeDamping]) {
     assert.ok(values.every((value) => value === 1));
+  }
+  for (let row = 0; row < uniform.height; row += 1) {
+    for (let column = 0; column < uniform.width; column += 1) {
+      const index = row * uniform.width + column;
+      assert.equal(uniform.horizontalSpringWeight[index], column === uniform.width - 1 ? 2 : 1);
+      assert.equal(uniform.verticalSpringWeight[index], row === uniform.height - 1 ? 2 : 1);
+    }
   }
 
   for (let index = 0; index < uniform.nodeCount; index += 1) {
     uniform.displacement[index] = Math.sin(index * 0.73);
   }
-  const legacyUniformSample = (x, y) => {
-    const gridX = (x + 1) * 0.5 * uniform.width - 0.5;
-    const gridY = (y + 1) * 0.5 * uniform.height - 0.5;
-    const floorX = Math.floor(gridX);
-    const floorY = Math.floor(gridY);
-    const x0 = ((floorX % uniform.width) + uniform.width) % uniform.width;
-    const y0 = ((floorY % uniform.height) + uniform.height) % uniform.height;
-    const x1 = (x0 + 1) % uniform.width;
-    const y1 = (y0 + 1) % uniform.height;
-    const mixX = gridX - floorX;
-    const mixY = gridY - floorY;
-    const top = uniform.displacement[y0 * uniform.width + x0] * (1 - mixX)
-      + uniform.displacement[y0 * uniform.width + x1] * mixX;
-    const bottom = uniform.displacement[y1 * uniform.width + x0] * (1 - mixX)
-      + uniform.displacement[y1 * uniform.width + x1] * mixX;
-    return top * (1 - mixY) + bottom * mixY;
-  };
-  for (let index = 0; index <= 100; index += 1) {
-    const x = -1 + index / 50;
-    const y = -1 + ((index * 37) % 100) / 50;
-    assert.ok(Math.abs(uniform.sampleLocal(x, y) - legacyUniformSample(x, y)) < 2e-12);
+  assert.equal(uniform.sampleLocal(-1, 0), 0);
+  assert.equal(uniform.sampleLocal(1, 0), 0);
+  assert.equal(uniform.sampleLocal(0, -1), 0);
+  assert.equal(uniform.sampleLocal(0, 1), 0);
+  for (let row = 0; row < uniform.height; row += 1) {
+    for (let column = 0; column < uniform.width; column += 1) {
+      const expected = uniform.displacement[row * uniform.width + column];
+      assert.ok(Math.abs(uniform.sampleLocal(
+        uniform.columnPositions[column],
+        uniform.rowPositions[row],
+      ) - expected) < 2e-12);
+    }
   }
+  const x0 = 2;
+  const y0 = 1;
+  const midpointX = (uniform.columnPositions[x0] + uniform.columnPositions[x0 + 1]) * 0.5;
+  const midpointY = (uniform.rowPositions[y0] + uniform.rowPositions[y0 + 1]) * 0.5;
+  const midpointExpected = (
+    uniform.displacement[y0 * uniform.width + x0]
+    + uniform.displacement[y0 * uniform.width + x0 + 1]
+    + uniform.displacement[(y0 + 1) * uniform.width + x0]
+    + uniform.displacement[(y0 + 1) * uniform.width + x0 + 1]
+  ) * 0.25;
+  assert.ok(Math.abs(uniform.sampleLocal(midpointX, midpointY) - midpointExpected) < 2e-12);
 });
 
 test("unequal patchwork vertices and edges change local membrane response", () => {
@@ -1584,6 +1607,48 @@ test("unequal patchwork vertices and edges change local membrane response", () =
     "excitation must follow the nonuniform physical vertex locations",
   );
   assert.ok(Math.abs(patchwork.sampleVelocityLocal(localX, localY) - patchwork.velocity[source]) < 1e-12);
+});
+
+test("fabric sections refine one membrane without changing its physical time scale", () => {
+  const parameters = {
+    ...MOIRE_DRONE_DEFAULTS,
+    fabricTension: 0.58,
+    fabricDamping: 0,
+    fabricInertia: 0.5,
+    fabricExcitation: 0,
+    fabricVibration: 0,
+    fabricGravity: 0,
+  };
+  const firstCrossings = [3, 8, 16].map((width) => {
+    const fabric = new SpectralFabric({ width, patchwork: 0, seed: 31 });
+    for (let index = 0; index < fabric.nodeCount; index += 1) {
+      fabric.displacement[index] = Math.cos(Math.PI * fabric.nodeX[index] * 0.5)
+        * Math.cos(Math.PI * fabric.nodeY[index] * 0.5) * 0.1;
+    }
+    const center = Math.floor(fabric.height / 2) * fabric.width + Math.floor(fabric.width / 2);
+    let elapsed = 0;
+    while (elapsed < 0.5 && fabric.displacement[center] > 0) {
+      fabric.step(1 / 2_000, parameters, true);
+      elapsed += 1 / 2_000;
+    }
+    return elapsed;
+  });
+  assert.ok(Math.max(...firstCrossings) - Math.min(...firstCrossings) < 0.015);
+
+  const heavilyBraked = new SpectralFabric({ width: 16, patchwork: 1, seed: 42 });
+  for (let index = 0; index < heavilyBraked.nodeCount; index += 1) {
+    heavilyBraked.displacement[index] = Math.cos(Math.PI * heavilyBraked.nodeX[index] * 0.5)
+      * Math.cos(Math.PI * heavilyBraked.nodeY[index] * 0.5) * 0.7;
+  }
+  for (let frame = 0; frame < 600; frame += 1) {
+    heavilyBraked.step(1 / 60, {
+      ...parameters,
+      fabricTension: 0,
+      fabricDamping: 1,
+      fabricInertia: 1,
+    }, true);
+  }
+  assert.ok(heavilyBraked.energy < 0.001, "maximum brake must settle instead of overdamped creeping");
 });
 
 test("the kernel reconfigures physical topology immediately and deterministically", () => {
@@ -1637,7 +1702,15 @@ test("the kernel reconfigures physical topology immediately and deterministicall
   kernel.setParameters({ fabricPatchwork: 0 });
   assert.notStrictEqual(kernel.fabric.displacement, patchworkState);
   assert.ok(kernel.fabric.nodeMass.every((value) => value === 1));
-  assert.ok(kernel.fabric.horizontalSpringWeight.every((value) => value === 1));
+  for (let row = 0; row < kernel.fabric.height; row += 1) {
+    for (let column = 0; column < kernel.fabric.width; column += 1) {
+      const index = row * kernel.fabric.width + column;
+      assert.equal(
+        kernel.fabric.horizontalSpringWeight[index],
+        column === kernel.fabric.width - 1 ? 2 : 1,
+      );
+    }
+  }
 
   kernel.setActive(true);
   kernel.tugFabric(0.72, -0.61, 0.95, {
@@ -1682,17 +1755,17 @@ test("gravity is bounded and materially changes a grabbed fabric", () => {
   }
   assert.ok(weighted.displacement.every((value) => Math.abs(value) <= 1.2));
   assert.ok(weighted.velocity.every((value) => Math.abs(value) <= 16));
-  assert.ok(weighted.acceleration.every((value) => Math.abs(value) <= 520));
+  assert.ok(weighted.acceleration.every((value) => Math.abs(value) <= 8_000));
 });
 
-test("fabric impulses are local, toroidal, deterministic, and bounded", () => {
+test("fabric impulses are local, fixed-frame, deterministic, and bounded", () => {
   assert.equal(fabricImpulseWeight(0.2, -0.3, 0.2, -0.3, 0.2), 1);
   const near = fabricImpulseWeight(0.24, -0.28, 0.2, -0.3, 0.2);
   const far = fabricImpulseWeight(-0.5, 0.6, 0.2, -0.3, 0.2);
   assert.ok(near > far * 1_000);
   assert.ok(
-    fabricImpulseWeight(-0.99, 0, 0.99, 0, 0.1) > 0.9,
-    "opposite fabric edges must be adjacent on the torus",
+    fabricImpulseWeight(-0.99, 0, 0.99, 0, 0.1) < 1e-20,
+    "opposite fabric edges must remain physically far apart",
   );
 
   for (const value of [
@@ -1710,6 +1783,120 @@ test("fabric impulses are local, toroidal, deterministic, and bounded", () => {
   assert.deepEqual(first.velocity, second.velocity);
   assert.ok(first.velocity.some((value) => Math.abs(value) > 0.1));
   assert.ok(first.velocity.every((value) => Number.isFinite(value) && Math.abs(value) <= 14));
+
+  const edge = new SpectralFabric({ width: 16, height: 12, seed: 91 });
+  edge.excite(0.99, 0, 1, 0.08);
+  const oppositeEdgeVelocity = Array.from({ length: edge.height }, (_, row) => (
+    Math.abs(edge.velocity[row * edge.width])
+  ));
+  const impactEdgeVelocity = Array.from({ length: edge.height }, (_, row) => (
+    Math.abs(edge.velocity[row * edge.width + edge.width - 1])
+  ));
+  assert.ok(Math.max(...oppositeEdgeVelocity) < 1e-12);
+  assert.ok(Math.max(...impactEdgeVelocity) > 0.1);
+});
+
+test("elastic releases turn stored strain into broad directional membrane waves", () => {
+  const base = {
+    ...MOIRE_DRONE_DEFAULTS,
+    fabricTension: 0.7,
+    fabricDamping: 0.25,
+    fabricInertia: 0.2,
+    fabricPull: 1.4,
+    propagationRate: 6,
+    propagationSpeed: 3,
+    propagationDecay: 2.5,
+    propagationWidth: 0.12,
+  };
+  const rightPull = {
+    deltaX: 0.9, deltaY: 0.1, distance: Math.hypot(0.9, 0.1),
+    velocityX: 0, velocityY: 0,
+  };
+  const leftPull = { ...rightPull, deltaX: -rightPull.deltaX };
+  const slow = elasticReleaseProfile(base, rightPull, 1.2, 0.2);
+  const mirrored = elasticReleaseProfile(base, leftPull, 1.2, 0.2);
+  assert.ok(slow.strength > 0.5, "stored pull distance must launch a strong sheet wave");
+  assert.equal(slow.impulseForce, 0, "slow release adds no synthetic momentum kick");
+  assert.ok(slow.directionX < -0.9);
+  assert.ok(mirrored.directionX > 0.9);
+  assert.ok(Math.abs(slow.directionY - mirrored.directionY) < 1e-12);
+  assert.ok(Math.abs(slow.strength - mirrored.strength) < 1e-12);
+
+  const flick = elasticReleaseProfile(base, {
+    ...rightPull,
+    velocityX: 7,
+    velocityY: -1,
+  }, 1.2, 0.2);
+  assert.ok(flick.impulseForce > 0.5, "measured flick velocity must add directional momentum");
+  assert.ok(flick.impulseDirectionX > 0.9);
+
+  const weak = elasticReleaseProfile(base, {
+    ...rightPull,
+    deltaX: 0.15,
+    distance: 0.15,
+  }, 0.35, 0.2);
+  assert.ok(slow.strength > weak.strength * 5);
+
+  const light = elasticReleaseProfile({ ...base, fabricInertia: 0 }, rightPull, 1.2, 0.2);
+  const heavy = elasticReleaseProfile({ ...base, fabricInertia: 1 }, rightPull, 1.2, 0.2);
+  assert.ok(light.rate > heavy.rate);
+  assert.ok(light.speed > heavy.speed);
+
+  const slowControls = elasticReleaseProfile({
+    ...base, propagationRate: 1, propagationSpeed: 0.1,
+  }, rightPull, 1.2, 0.2);
+  const fastControls = elasticReleaseProfile({
+    ...base, propagationRate: 50, propagationSpeed: 12,
+  }, rightPull, 1.2, 0.2);
+  assert.ok(fastControls.rate > slowControls.rate * 3);
+  assert.ok(fastControls.speed > slowControls.speed * 3);
+
+  const forward = new SpectralFabric({ width: 16, height: 12, patchwork: 0, seed: 19 });
+  const backward = new SpectralFabric({ width: 16, height: 12, patchwork: 0, seed: 19 });
+  forward.exciteDirectional(0, 0, 1, 0.24, 1, 0, 0.8);
+  backward.exciteDirectional(0, 0, 1, 0.24, -1, 0, 0.8);
+  for (let row = 0; row < forward.height; row += 1) {
+    for (let column = 0; column < forward.width; column += 1) {
+      const index = row * forward.width + column;
+      const mirroredIndex = row * backward.width + backward.width - 1 - column;
+      assert.ok(Math.abs(forward.displacement[index] - backward.displacement[mirroredIndex]) < 1e-12);
+      assert.ok(Math.abs(forward.velocity[index] - backward.velocity[mirroredIndex]) < 1e-12);
+    }
+  }
+});
+
+test("manual impacts distinguish one pebble, a cluster, and a broad brick", () => {
+  assert.deepEqual(FABRIC_IMPACT_BODIES, ["pebble", "pebbles", "brick"]);
+  assert.ok(Object.isFrozen(FABRIC_IMPACT_BODIES));
+  const common = {
+    x: 0.2, y: -0.3, force: 0.8, radius: 0.2,
+    count: 4, spread: 0.8, width: 0.18,
+  };
+  const pebble = fabricImpactPattern({ ...common, body: "pebble" });
+  const pebbles = fabricImpactPattern({ ...common, body: "pebbles" });
+  const brick = fabricImpactPattern({ ...common, body: "brick" });
+  assert.equal(pebble.length, 1);
+  assert.equal(pebbles.length, 4);
+  assert.equal(brick.length, 1);
+  assert.equal(new Set(pebbles.map(({ x, y }) => `${x.toFixed(6)}:${y.toFixed(6)}`)).size, 4);
+  assert.ok(brick[0].radius > pebble[0].radius * 2);
+  assert.ok(Math.abs(brick[0].force) > Math.abs(pebble[0].force));
+  for (const source of [...pebble, ...pebbles, ...brick]) {
+    assert.ok(source.x >= -1 && source.x <= 1);
+    assert.ok(source.y >= -1 && source.y <= 1);
+    assert.ok(Number.isFinite(source.force));
+    assert.ok(Number.isFinite(source.radius));
+    assert.ok(Object.isFrozen(source));
+  }
+  assert.ok(Object.isFrozen(pebbles));
+
+  const brickFabric = new SpectralFabric({ width: 16, height: 12, patchwork: 0, seed: 23 });
+  const pebbleFabric = new SpectralFabric({ width: 16, height: 12, patchwork: 0, seed: 23 });
+  brickFabric.excitePatch(0, 0, 1, brick[0].radius, 25);
+  pebbleFabric.excite(0, 0, 1, pebble[0].radius);
+  const brickFootprint = Array.from(brickFabric.velocity).filter((value) => Math.abs(value) > 0.05).length;
+  const pebbleFootprint = Array.from(pebbleFabric.velocity).filter((value) => Math.abs(value) > 0.05).length;
+  assert.ok(brickFootprint > pebbleFootprint * 2.5, "a brick must contact substantially more fabric");
 });
 
 test("spectral fabric is seeded and invariant to compatible block boundaries", () => {
@@ -1772,7 +1959,7 @@ test("spring tension makes the fabric rebound faster and spreads the impulse", (
   const tautFarField = Math.abs(taut.sample(0.5, 0));
   assert.ok(tautFarField > 1e-5);
   assert.ok(
-    tautFarField > slackFarField * 100,
+    tautFarField > slackFarField * 10,
     "higher tension must propagate a local impulse across the weave faster",
   );
 
@@ -2064,10 +2251,11 @@ test("the browser wrapper transfers complete tug and release gestures into the w
   audio.tugFabric(0.14, -0.16, 0.73, gesture);
   audio.releaseFabric(gesture);
   audio.kickFabric(0.14, -0.16, 0.81, 0.19, gesture);
+  audio.impactFabric(0.14, -0.16, 0.81, 0.19, gesture);
   audio.pluckFabric(0.14, -0.16, 0.81, 0.19, gesture);
 
   assert.deepEqual(messages.map(({ type }) => type), [
-    "fabric-tug", "fabric-release", "fabric-kick", "fabric-pluck",
+    "fabric-tug", "fabric-release", "fabric-kick", "fabric-impact", "fabric-pluck",
   ]);
   for (const message of messages) {
     const packet = message.gesture ?? message;
@@ -2520,7 +2708,7 @@ test("extreme spectral-fabric motion stays finite and shifts the filter lattice"
   assert.ok(fabric.energy >= 0 && fabric.energy <= 1.5);
   assert.ok(fabric.displacement.every((value) => Number.isFinite(value) && Math.abs(value) <= 1.2));
   assert.ok(fabric.velocity.every((value) => Number.isFinite(value) && Math.abs(value) <= 16));
-  assert.ok(fabric.acceleration.every((value) => Number.isFinite(value) && Math.abs(value) <= 520));
+  assert.ok(fabric.acceleration.every((value) => Number.isFinite(value) && Math.abs(value) <= 8_000));
   for (const values of [
     fabric.nodeX,
     fabric.nodeY,
@@ -2561,6 +2749,7 @@ test("extreme spectral-fabric motion stays finite and shifts the filter lattice"
 
 test("propagation controls sanitize to the bounded event model", () => {
   const low = sanitizeMoireDroneParams({
+    impactBody: "meteor",
     propagationMode: "not-a-wave",
     propagationRate: -99,
     propagationSpeed: -99,
@@ -2589,6 +2778,7 @@ test("propagation controls sanitize to the bounded event model", () => {
     qCutDepth: -99,
     qCharacter: -99,
   });
+  assert.equal(low.impactBody, MOIRE_DRONE_DEFAULTS.impactBody);
   assert.equal(low.propagationMode, MOIRE_DRONE_DEFAULTS.propagationMode);
   assert.equal(low.propagationRate, MOIRE_DRONE_LIMITS.minPropagationRate);
   assert.equal(low.propagationSpeed, 0.1);
@@ -2618,6 +2808,7 @@ test("propagation controls sanitize to the bounded event model", () => {
   assert.equal(low.qCharacter, 0);
 
   const high = sanitizeMoireDroneParams({
+    impactBody: "brick",
     propagationMode: "shock",
     propagationRate: 999,
     propagationSpeed: 999,
@@ -2646,6 +2837,7 @@ test("propagation controls sanitize to the bounded event model", () => {
     qCutDepth: 999,
     qCharacter: 999,
   });
+  assert.equal(high.impactBody, "brick");
   assert.equal(high.propagationMode, "shock");
   assert.equal(high.propagationRate, MOIRE_DRONE_LIMITS.maxPropagationRate);
   assert.equal(high.propagationSpeed, MOIRE_DRONE_LIMITS.maxPropagationSpeed);
@@ -2673,6 +2865,13 @@ test("propagation controls sanitize to the bounded event model", () => {
   assert.equal(high.fftSharpness, 1);
   assert.equal(high.qCutDepth, 1);
   assert.equal(high.qCharacter, 1);
+
+  const clustered = sanitizeMoireDroneParams({
+    impactBody: "pebbles",
+    propagationVoices: 1,
+  });
+  assert.equal(clustered.impactBody, "pebbles");
+  assert.equal(clustered.propagationVoices, 2);
 
   const defaults = sanitizeMoireDroneParams();
   assert.equal(defaults.autoPluckRate, 0);
@@ -3758,9 +3957,9 @@ test("a frozen physical tug stretches the real output-comb gaps across the fabri
   }
 });
 
-test("propagation modes include radial, gravity, standing, and ocean fields while preserving polarity", () => {
+test("propagation modes include radial, modal, ocean, and directional sheet fields", () => {
   assert.deepEqual(SPECTRAL_PROPAGATION_MODES, [
-    "drop", "harmonic", "spiral", "shock", "gravity", "standing", "ocean",
+    "drop", "harmonic", "spiral", "shock", "gravity", "standing", "ocean", "sheet",
   ]);
   assert.ok(Object.isFrozen(SPECTRAL_PROPAGATION_MODES));
 
@@ -4019,8 +4218,58 @@ test("ocean propagation sends Cartesian sheets from the touched side across the 
   );
 });
 
+test("elastic sheet propagation follows the pull axis instead of radiating in circles", () => {
+  const wave = {
+    mode: "sheet",
+    originX: 0,
+    originY: 0,
+    age: 0.2,
+    strength: 1,
+    rate: 5,
+    speed: 2,
+    decay: 3,
+    width: 0.08,
+    harmonicOrder: 3,
+    ringDensity: 2,
+    polarity: 1,
+    directionX: 1,
+    directionY: 0,
+  };
+  const forward = spectralPropagationValue({ ...wave, x: 0.4, y: 0 });
+  const transverse = spectralPropagationValue({ ...wave, x: 0.4, y: 0.9 });
+  const reverse = spectralPropagationValue({ ...wave, x: -0.29, y: 0 });
+  assert.ok(Math.abs(forward) > 0.5);
+  assert.ok(Math.abs(forward) > Math.abs(transverse) * 2);
+  assert.ok(Math.abs(forward) > Math.abs(reverse) * 2);
+  assert.ok(Math.abs(
+    forward - spectralPropagationValue({
+      ...wave, x: -0.4, y: 0, directionX: -1,
+    }),
+  ) < 1e-12, "opposite pulls must launch mirrored equal-energy sheets");
+
+  const pool = new SpectralPropagationPool({ maxEntities: 1, activeLimit: 1 });
+  pool.trigger({ ...wave, x: 0, y: 0 });
+  pool.step(wave.age);
+  const vector = pool.sampleVector(0.4, 0, 1, {});
+  assert.ok(Math.abs(vector.value - pool.sample(0.4, 0, 1)) < 1e-12);
+  assert.ok(Math.abs(vector.x - vector.value) < 1e-12);
+  assert.ok(Math.abs(vector.y) < 1e-12);
+
+  const wrappedRadial = new SpectralPropagationPool({ maxEntities: 1, activeLimit: 1 });
+  wrappedRadial.trigger({
+    mode: "drop", x: 0.95, y: 0, strength: 1, speed: 1, rate: 2,
+    decay: 3, width: 0.08, polarity: 1,
+  });
+  wrappedRadial.step(0.1);
+  const radialVector = wrappedRadial.sampleVector(-0.95, 0, 1, {});
+  assert.ok(Math.abs(radialVector.value - wrappedRadial.sample(-0.95, 0, 1)) < 1e-12);
+  if (Math.abs(radialVector.value) > 1e-9) {
+    assert.ok(radialVector.x / radialVector.value > 0);
+  }
+});
+
 test("directional propagation modes integrate with the pool and stay finite under stress", () => {
-  for (const mode of ["standing", "ocean"]) {
+  for (const mode of ["standing", "ocean", "sheet"]) {
     const event = {
       mode,
       x: -0.82,
@@ -4033,6 +4282,8 @@ test("directional propagation modes integrate with the pool and stay finite unde
       harmonicOrder: 5,
       ringDensity: 7,
       polarity: -1,
+      directionX: 0.8,
+      directionY: -0.6,
     };
     const pool = new SpectralPropagationPool({ maxEntities: 1, activeLimit: 1 });
     const slot = pool.trigger(event);
@@ -4053,6 +4304,8 @@ test("directional propagation modes integrate with the pool and stay finite unde
       harmonicOrder: event.harmonicOrder,
       ringDensity: event.ringDensity,
       polarity: event.polarity,
+      directionX: pool.directionX[slot],
+      directionY: pool.directionY[slot],
     });
     assert.ok(Math.abs(pooled - Math.max(-1, Math.min(1, direct))) < 1e-12);
 
@@ -4077,6 +4330,7 @@ test("directional propagation modes integrate with the pool and stay finite unde
 
   assert.equal(sanitizeMoireDroneParams({ propagationMode: "standing" }).propagationMode, "standing");
   assert.equal(sanitizeMoireDroneParams({ propagationMode: "ocean" }).propagationMode, "ocean");
+  assert.equal(sanitizeMoireDroneParams({ propagationMode: "sheet" }).propagationMode, "sheet");
 });
 
 test("each ripple can deterministically vary its physical size and sweep speed", () => {
@@ -4249,6 +4503,51 @@ test("the propagation pool bounds events and lets slow fronts finish", () => {
   expiring.step(0.1);
   assert.equal(expiring.activeCount, 0);
   assert.equal(expiring.sample(0, 0), 0);
+});
+
+test("multi-pebble impacts reserve every propagation voice atomically", () => {
+  const pool = new SpectralPropagationPool({ maxEntities: 4, activeLimit: 4, seed: 83 });
+  for (let index = 0; index < 4; index += 1) {
+    pool.trigger({
+      mode: "standing", x: -0.75 + index * 0.5, y: 0.8,
+      strength: 2, decay: 8, speed: 1, polarity: 1,
+    });
+  }
+  const group = [-0.6, -0.2, 0.2, 0.6].map((x) => ({
+    mode: "drop", x, y: -0.35, strength: 0.2, decay: 1, speed: 2,
+    width: 0.06, sizeSpread: 0, speedSpread: 0, polarity: 1,
+  }));
+  const slots = pool.triggerGroup(group);
+  assert.equal(new Set(slots).size, 4);
+  assert.equal(pool.activeCount, 4);
+  assert.deepEqual(Array.from(pool.x), group.map(({ x }) => x));
+  assert.ok(Array.from(pool.y).every((y) => y === -0.35));
+  assert.ok(Array.from(pool.strength).every((strength) => strength === 0.2));
+
+  const kernel = new MoireDroneKernel({
+    sampleRate: SAMPLE_RATE,
+    parameters: {
+      ...MOIRE_DRONE_DEFAULTS,
+      impactBody: "pebbles",
+      propagationVoices: 4,
+      propagationSizeSpread: 0.8,
+      propagationSpeedSpread: 0,
+    },
+  });
+  for (let index = 0; index < 4; index += 1) {
+    kernel.propagation.trigger({
+      mode: "standing", x: -0.75 + index * 0.5, y: 0.8,
+      strength: 2, decay: 8, speed: 1, polarity: 1,
+    });
+  }
+  const pattern = kernel.impactFabric(0.1, -0.2, 0.9, 0.2, {});
+  assert.equal(pattern.length, 4);
+  assert.equal(kernel.propagation.activeCount, 4);
+  const actualPositions = Array.from(kernel.propagation.active, (active, index) => (
+    active ? `${kernel.propagation.x[index].toFixed(8)}:${kernel.propagation.y[index].toFixed(8)}` : null
+  )).filter(Boolean).sort();
+  const expectedPositions = pattern.map(({ x, y }) => `${x.toFixed(8)}:${y.toFixed(8)}`).sort();
+  assert.deepEqual(actualPositions, expectedPositions);
 });
 
 test("the propagation pool caps voices, replaces the weakest event, and trims immediately", () => {
