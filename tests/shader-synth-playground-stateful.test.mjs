@@ -201,7 +201,7 @@ test("every packed stateful parameter is read by its dedicated WGSL renderer", (
       /p1\.x/, /p1\.y/, /p1\.z/, /p1\.w/,
     ]],
     ["spectral-sdf", [
-      /p0\.x/, /p0\.y/, /p0\.z/, /p0\.w/,
+      /node\.(?:previous|target)0\.x/, /p0\.y/, /p0\.z/, /p0\.w/,
       /p1\.x/, /p1\.y/, /p1\.z/, /p1\.w/,
     ]],
     ["flow-field-advection", [
@@ -230,6 +230,27 @@ test("every packed stateful parameter is read by its dedicated WGSL renderer", (
       assert.match(renderer, reference, `${module.id}.${module.params[index].id} is packed but never read`);
     });
   }
+});
+
+test("Spectral SDF maps each exposed analysis-window choice to a distinct power of two", () => {
+  const spectral = STATEFUL_MODULES.find(({ id }) => id === "spectral-sdf");
+  const windowParameter = spectral.params.find(({ id }) => id === "fftSize");
+  assert.deepEqual(
+    {
+      min: windowParameter.min,
+      max: windowParameter.max,
+      step: windowParameter.step,
+      default: windowParameter.default,
+      options: windowParameter.options,
+    },
+    { min: 0, max: 3, step: 1, default: 2, options: ["256", "512", "1024", "2048"] },
+  );
+  const selector = wgslFunction("selectedFftSize");
+  assert.ok(
+    /value\s*<\s*0\.5[\s\S]*?256u[\s\S]*?value\s*<\s*1\.5[\s\S]*?512u[\s\S]*?value\s*<\s*2\.5[\s\S]*?1024u[\s\S]*?2048u/.test(selector)
+      || /switch\s+u32\([^)]*value[^)]*\)[\s\S]*?case\s+0u[\s\S]*?256u[\s\S]*?case\s+1u[\s\S]*?512u[\s\S]*?case\s+2u[\s\S]*?1024u[\s\S]*?2048u/.test(selector),
+    "the 0..3 selector must not be interpreted as a raw sample count",
+  );
 });
 
 test("state engine allocates lazily and destroys private buffers with the last active node", () => {
