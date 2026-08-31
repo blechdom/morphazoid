@@ -12,6 +12,12 @@ import {
   sanitizeShaderPlaygroundPatch,
   validateShaderPlaygroundPatch,
 } from "../src/shader-synth-playground.js";
+import {
+  SHADER_SYNTH_PLAYGROUND_ADVANCED_RESET_PARAM_INDICES,
+  SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_LIMITS,
+  shaderSynthPlaygroundAdvancedAssetLayout,
+  shaderSynthPlaygroundAdvancedPersistentByteSize,
+} from "../src/shader-synth-playground-advanced-state-engine.js";
 import * as stateful from "../src/shader-synth-playground-stateful.js";
 
 const ROOT = new URL("../", import.meta.url);
@@ -24,10 +30,14 @@ const EXPECTED_STATEFUL_IDS = Object.freeze([
   "raymarch-resonator",
 ]);
 const EXPECTED_STATEFUL_KINDS = Object.freeze([105, 106, 107, 108, 109, 110]);
+const EXPECTED_ADVANCED_KINDS = Object.freeze(Array.from({ length: 15 }, (_, index) => 111 + index));
 
 const STATEFUL_MODULES = stateful.SHADER_SYNTH_PLAYGROUND_STATEFUL_MODULES;
 const STATEFUL_KINDS = stateful.SHADER_SYNTH_PLAYGROUND_STATEFUL_KINDS;
 const STATEFUL_SHADER = stateful.SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER;
+const VISUAL_STATEFUL_MODULES = stateful.SHADER_SYNTH_PLAYGROUND_VISUAL_STATE_MODULES;
+const VISUAL_STATEFUL_KINDS = stateful.SHADER_SYNTH_PLAYGROUND_VISUAL_STATE_KINDS;
+const ADVANCED_STATEFUL_MODULES = stateful.SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_MODULES;
 const StatefulEngine = stateful.ShaderSynthPlaygroundStateEngine;
 
 function countMatches(source, expression) {
@@ -70,7 +80,10 @@ function encodedStateNodes(kinds = []) {
   const order = kinds.map((_, index) => `state-${index}`);
   const nodes = kinds.map((kind, index) => {
     data[index * 20] = kind;
-    return { id: order[index], type: EXPECTED_STATEFUL_IDS[EXPECTED_STATEFUL_KINDS.indexOf(kind)] };
+    return {
+      id: order[index],
+      type: STATEFUL_MODULES.find((module) => module.kind === kind)?.id,
+    };
   });
   return {
     data,
@@ -91,15 +104,22 @@ function geometricFeedbackPatch(enabled = true) {
   return sanitizeShaderPlaygroundPatch(patch);
 }
 
-test("six stateful visual modules own unique registry kinds 105 through 110", () => {
+test("stateful barrel combines six visual and fifteen advanced modules without kind overlap", () => {
   assert.ok(Array.isArray(STATEFUL_MODULES), "the dedicated state module must export its module registry");
-  assert.deepEqual(STATEFUL_MODULES.map(({ id }) => id), EXPECTED_STATEFUL_IDS);
-  assert.deepEqual(STATEFUL_MODULES.map(({ kind }) => kind), EXPECTED_STATEFUL_KINDS);
+  assert.deepEqual(VISUAL_STATEFUL_MODULES.map(({ id }) => id), EXPECTED_STATEFUL_IDS);
+  assert.deepEqual(VISUAL_STATEFUL_MODULES.map(({ kind }) => kind), EXPECTED_STATEFUL_KINDS);
+  assert.deepEqual(
+    [...Object.values(VISUAL_STATEFUL_KINDS ?? {})].sort((left, right) => left - right),
+    EXPECTED_STATEFUL_KINDS,
+    "the visual kind map must retain the same six fixed evaluator kinds",
+  );
+  assert.deepEqual(ADVANCED_STATEFUL_MODULES.map(({ kind }) => kind), EXPECTED_ADVANCED_KINDS);
   assert.deepEqual(
     [...Object.values(STATEFUL_KINDS ?? {})].sort((left, right) => left - right),
-    EXPECTED_STATEFUL_KINDS,
-    "the public kind map must describe the same six fixed evaluator kinds",
+    [...EXPECTED_STATEFUL_KINDS, ...EXPECTED_ADVANCED_KINDS],
+    "the aggregate kind map must cover the complete ordered-state range",
   );
+  assert.equal(STATEFUL_MODULES.length, 21);
 
   const allIds = SHADER_PLAYGROUND_MODULES.map(({ id }) => id);
   const allKinds = SHADER_PLAYGROUND_MODULES.map(({ kind }) => kind);
@@ -115,7 +135,7 @@ test("six stateful visual modules own unique registry kinds 105 through 110", ()
   }
 });
 
-test("stateful visual modules expose bounded typed I/O and packed audible parameters", () => {
+test("all stateful modules expose bounded typed I/O and packed audible parameters", () => {
   const signalTypes = new Set(["audio", "stereo", "control"]);
   for (const module of STATEFUL_MODULES) {
     assert.ok(module.inputs.length > 0, `${module.id} needs an excitation, coordinate, or routing input`);
@@ -145,7 +165,7 @@ test("stateful visual modules expose bounded typed I/O and packed audible parame
   }
 });
 
-test("every stateful visual module has one valid dedicated Hear graph", () => {
+test("every stateful module has one valid dedicated Hear graph", () => {
   const effectExcitationById = new Map([
     ["geometric-feedback-lattice", "procedural-kick"],
     ["spectral-sdf", "supersaw"],
@@ -166,7 +186,12 @@ test("every stateful visual module has one valid dedicated Hear graph", () => {
     const focus = audition.patch.nodes.find(({ id }) => id === "focus");
     const incoming = audition.patch.connections.filter(({ to }) => to.node === focus.id);
     const outgoing = audition.patch.connections.filter(({ from }) => from.node === focus.id);
-    assert.ok(incoming.length > 0, `${module.id} Hear graph must drive at least one module input`);
+    for (const input of module.inputs.filter(({ required }) => required)) {
+      assert.ok(
+        incoming.some(({ to }) => to.port === input.id),
+        `${module.id} Hear graph must drive required input ${input.id}`,
+      );
+    }
     assert.ok(outgoing.length > 0, `${module.id} Hear graph must route its result toward Output`);
 
     const encoded = encodeShaderPlaygroundPatch(audition.patch);
@@ -226,6 +251,69 @@ test("stateful WGSL owns six cases and a dedicated ordered compute entry point",
     /createComputePipeline(?:Async)?\s*\(/,
     "the state engine must own a dedicated GPU compute pipeline",
   );
+});
+
+test("advanced state kinds dispatch dedicated renderers with aligned reset and asset contracts", () => {
+  const rendererByKind = new Map([
+    [111, "renderSequenceLane"],
+    [112, "renderUploadedWavetable"],
+    [113, "renderGpuSamplerGranulator"],
+    [114, "renderSpatializer"],
+    [115, "renderRecursiveFilter"],
+    [116, "renderFeedbackNetwork"],
+    [117, "renderWavefieldSolver"],
+    [118, "renderSpectralTransport"],
+    [119, "renderAdvancedDynamics"],
+    [120, "renderConvolutionSpace"],
+    [121, "renderMassiveBank"],
+    [122, "renderAudioAnalysisField"],
+    [123, "renderDdspResynth"],
+    [124, "renderSpectralVocoder"],
+    [125, "renderNeuralProcessor"],
+  ]);
+  const assetKinds = new Set([112, 113, 120]);
+  const sampleRate = 48000;
+
+  for (const module of ADVANCED_STATEFUL_MODULES) {
+    const renderer = rendererByKind.get(module.kind);
+    assert.equal(countMatches(STATEFUL_SHADER, new RegExp(`case ${module.kind}u:`, "g")), 1);
+    assert.match(statefulCase(module.kind), new RegExp(`${renderer}\\(node\\)`));
+    assert.match(wgslFunction(renderer), /node\.|stateInput\(|params[01]\(/, `${module.id} renderer must consume graph state`);
+
+    const resetIndices = module.state.resetParams.map((parameterId) => (
+      module.params.findIndex(({ id }) => id === parameterId)
+    ));
+    assert.deepEqual(
+      SHADER_SYNTH_PLAYGROUND_ADVANCED_RESET_PARAM_INDICES[module.kind],
+      resetIndices,
+      `${module.id} reset signature must track its declared structural parameters`,
+    );
+
+    const byteSize = shaderSynthPlaygroundAdvancedPersistentByteSize(module.kind, sampleRate);
+    assert.ok(byteSize > 0 && byteSize % 16 === 0, `${module.id} needs aligned private GPU storage`);
+    assert.equal(stateful.shaderSynthPlaygroundStatePersistentByteSize(module.kind, sampleRate), byteSize);
+
+    const layout = shaderSynthPlaygroundAdvancedAssetLayout(module.kind, sampleRate);
+    assert.equal(Boolean(layout), assetKinds.has(module.kind), `${module.id} uploaded-asset ownership drifted`);
+    if (layout) {
+      assert.ok(layout.capacityFrames > 0 && layout.channels >= 1 && layout.channels <= 2);
+      assert.ok(
+        (layout.offsetVec4 + layout.capacityFrames) * 16 <= byteSize,
+        `${module.id} upload region must stay inside its private state buffer`,
+      );
+    }
+  }
+
+  assert.equal(shaderSynthPlaygroundAdvancedPersistentByteSize(110, sampleRate), 0);
+  assert.equal(shaderSynthPlaygroundAdvancedAssetLayout(125, sampleRate), null);
+  assert.equal(SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_LIMITS.convolutionSeconds, 12);
+
+  const entry = wgslFunction("renderStateNode");
+  const laneZeroGuard = entry.indexOf("if (lane != 0u)");
+  assert.ok(entry.indexOf("case 117u:") < laneZeroGuard, "wavefield evolution needs the full 64-lane workgroup");
+  for (const kind of EXPECTED_ADVANCED_KINDS.filter((kind) => kind !== 117)) {
+    assert.ok(entry.indexOf(`case ${kind}u:`) > laneZeroGuard, `advanced kind ${kind} must stay lane-zero ordered`);
+  }
 });
 
 test("Spectral SDF keeps its 64-lane ordered state-pass contract", () => {
@@ -321,7 +409,7 @@ test("every packed stateful parameter is read by its dedicated WGSL renderer", (
     ["raymarch-resonator", "renderRaymarchResonator"],
   ]);
 
-  for (const module of STATEFUL_MODULES) {
+  for (const module of VISUAL_STATEFUL_MODULES) {
     const renderer = wgslFunction(rendererById.get(module.id));
     const references = referencesById.get(module.id);
     assert.equal(references.length, module.params.length, `${module.id} parameter-reference contract drifted`);
@@ -332,7 +420,7 @@ test("every packed stateful parameter is read by its dedicated WGSL renderer", (
 });
 
 test("Spectral SDF maps each exposed analysis-window choice to a distinct power of two", () => {
-  const spectral = STATEFUL_MODULES.find(({ id }) => id === "spectral-sdf");
+  const spectral = VISUAL_STATEFUL_MODULES.find(({ id }) => id === "spectral-sdf");
   const windowParameter = spectral.params.find(({ id }) => id === "fftSize");
   assert.deepEqual(
     {
@@ -564,13 +652,31 @@ test("stateful passes keep simulation data on GPU and preserve one final CPU rea
 });
 
 test("site and WAX builds include the dedicated stateful runtime", async () => {
-  const [barrel, waxBarrel, engine, waxEngine, visual, waxVisual, builder, core, waxCore] = await Promise.all([
+  const [
+    barrel,
+    waxBarrel,
+    engine,
+    waxEngine,
+    visual,
+    waxVisual,
+    advanced,
+    waxAdvanced,
+    advancedEngine,
+    waxAdvancedEngine,
+    builder,
+    core,
+    waxCore,
+  ] = await Promise.all([
     readFile(new URL("src/shader-synth-playground-stateful.js", ROOT), "utf8"),
     readFile(new URL("dist-wax/src/shader-synth-playground-stateful.js", ROOT), "utf8"),
     readFile(new URL("src/shader-synth-playground-state-engine.js", ROOT), "utf8"),
     readFile(new URL("dist-wax/src/shader-synth-playground-state-engine.js", ROOT), "utf8"),
     readFile(new URL("src/shader-synth-playground-visual-state.js", ROOT), "utf8"),
     readFile(new URL("dist-wax/src/shader-synth-playground-visual-state.js", ROOT), "utf8"),
+    readFile(new URL("src/shader-synth-playground-advanced-state.js", ROOT), "utf8"),
+    readFile(new URL("dist-wax/src/shader-synth-playground-advanced-state.js", ROOT), "utf8"),
+    readFile(new URL("src/shader-synth-playground-advanced-state-engine.js", ROOT), "utf8"),
+    readFile(new URL("dist-wax/src/shader-synth-playground-advanced-state-engine.js", ROOT), "utf8"),
     readFile(new URL("scripts/build-site.sh", ROOT), "utf8"),
     readFile(new URL("src/shader-synth-playground.js", ROOT), "utf8"),
     readFile(new URL("dist-wax/src/shader-synth-playground.js", ROOT), "utf8"),
@@ -578,11 +684,15 @@ test("site and WAX builds include the dedicated stateful runtime", async () => {
   assert.equal(waxBarrel, barrel, "WAX must ship the exact stateful barrel used by the web build");
   assert.equal(waxEngine, engine, "WAX must ship the exact state engine used by the web build");
   assert.equal(waxVisual, visual, "WAX must ship the exact visual-state specs used by the web build");
+  assert.equal(waxAdvanced, advanced, "WAX must ship the exact advanced-state specs used by the web build");
+  assert.equal(waxAdvancedEngine, advancedEngine, "WAX must ship the exact advanced-state WGSL used by the web build");
   assert.equal(waxCore, core, "WAX core must import the same stateful graph integration");
   for (const file of [
     "shader-synth-playground-stateful.js",
     "shader-synth-playground-state-engine.js",
     "shader-synth-playground-visual-state.js",
+    "shader-synth-playground-advanced-state.js",
+    "shader-synth-playground-advanced-state-engine.js",
   ]) {
     assert.ok(
       countMatches(builder, new RegExp(`src/${file.replaceAll(".", "\\.")}`, "g")) >= 2,

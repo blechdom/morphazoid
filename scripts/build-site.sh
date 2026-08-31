@@ -433,6 +433,8 @@ for worktree_runtime_file in \
   src/shader-synth-playground-stateful.js \
   src/shader-synth-playground-state-engine.js \
   src/shader-synth-playground-visual-state.js \
+  src/shader-synth-playground-advanced-state.js \
+  src/shader-synth-playground-advanced-state-engine.js \
   src/shader-synth-playground-found-sounds.js \
   src/shader-synth-playground-fx.js \
   src/shader-synth-playground-geometry.js \
@@ -833,6 +835,8 @@ required_files=(
   src/shader-synth-playground-stateful.js
   src/shader-synth-playground-state-engine.js
   src/shader-synth-playground-visual-state.js
+  src/shader-synth-playground-advanced-state.js
+  src/shader-synth-playground-advanced-state-engine.js
   src/shader-synth-playground-found-sounds.js
   src/shader-synth-playground-fx.js
   src/shader-synth-playground-geometry.js
