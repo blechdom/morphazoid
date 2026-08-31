@@ -1,0 +1,686 @@
+const freeze = (value) => Object.freeze(value);
+
+function port(id, label, type, options = {}) {
+  return freeze({
+    id,
+    label,
+    type,
+    types: freeze([...(options.types ?? [type])]),
+    required: Boolean(options.required),
+    component: options.component ?? null,
+  });
+}
+
+function parameter(id, label, minimum, maximum, defaultValue, options = {}) {
+  return freeze({
+    id,
+    label,
+    min: minimum,
+    max: maximum,
+    default: defaultValue,
+    step: options.step ?? (maximum - minimum) / 100,
+    unit: options.unit ?? "",
+    scale: options.scale ?? "linear",
+    options: options.options ? freeze([...options.options]) : null,
+    low: options.low ?? "less",
+    high: options.high ?? "more",
+    behavior: options.behavior ?? "Changes the module's response.",
+  });
+}
+
+function moduleSpec(spec) {
+  return freeze({
+    ...spec,
+    stateful: true,
+    aliases: freeze([...(spec.aliases ?? [])]),
+    tags: freeze([...(spec.tags ?? [])]),
+    primitiveIds: freeze([...(spec.primitiveIds ?? [])]),
+    inputs: freeze([...(spec.inputs ?? [])]),
+    outputs: freeze([...(spec.outputs ?? [])]),
+    params: freeze([...(spec.params ?? [])]),
+    state: freeze({
+      conditional: true,
+      persistent: true,
+      ...spec.state,
+      resetParams: freeze([...(spec.state?.resetParams ?? [])]),
+    }),
+    faust: spec.faust ? freeze({ ...spec.faust }) : null,
+  });
+}
+
+const stereoOutput = () => [port("out", "stereo", "stereo")];
+const effectInput = () => [port("signal", "audio", "audio", { types: ["audio", "stereo"], required: true })];
+const ACTIVE_LIFECYCLE = "allocate on first active node; release after last active node";
+
+export const SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS = freeze({
+  sequenceLane: 111,
+  uploadedWavetable: 112,
+  gpuSamplerGranulator: 113,
+  spatializer: 114,
+  recursiveFilter: 115,
+  feedbackNetwork: 116,
+  wavefieldSolver: 117,
+  spectralTransport: 118,
+  dynamics: 119,
+  convolutionSpace: 120,
+  massiveBank: 121,
+  audioAnalysisField: 122,
+  ddspResynth: 123,
+  spectralVocoder: 124,
+  neuralProcessor: 125,
+});
+
+/**
+ * Combined implementations for the remaining state- and block-oriented atlas
+ * families. Closely related primitives share one compact module and a mode
+ * selector instead of creating several graph boxes around the same GPU state.
+ *
+ * Parameter order is fixed: descriptors 0..3 occupy p0.xyzw and descriptors
+ * 4..7 occupy p1.xyzw in both the ordinary graph and ordered-state pipelines.
+ * Every resource description is conditional: no node means no private buffer,
+ * texture, transform plan, model state, or uploaded asset owned by that family.
+ */
+export const SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_MODULES = freeze([
+  moduleSpec({
+    id: "sequence-lane",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.sequenceLane,
+    name: "Sequence Lane",
+    category: "control",
+    color: "#91ff63",
+    aliases: ["sequence lane lookup", "score buffer", "step lane", "lane value", "GPU sequence"],
+    tags: ["lane-value", "sequence", "score", "step", "bitmask", "euclidean", "persistent buffer"],
+    primitiveIds: ["lane-value"],
+    description: "Reads a persistent 128-value score lane with selectable generated patterns, sample-accurate swing, and click-safe interpolation between cells.",
+    execution: "Persistent GPU score lane · sample-accurate indexed reads · active nodes only",
+    wgsl: "lane = score[step % length]; value = mix(previousLane, lane, smoothedPhase);",
+    auditionKind: "pitch-gate",
+    auditionPreset: null,
+    inputs: [
+      port("phase", "external phase", "control"),
+      port("value", "write / transform", "control"),
+    ],
+    outputs: [
+      port("pitch", "value / pitch", "control", { component: "x" }),
+      port("gate", "step gate", "control", { component: "y" }),
+    ],
+    params: [
+      parameter("mode", "Lane mode", 0, 5, 0, { step: 1, options: ["Steps", "Ramp", "Pendulum", "Random", "Bitmask", "Euclidean"], low: "stored steps", high: "distributed pulses", behavior: "Selects how the persistent lane is filled or traversed." }),
+      parameter("rate", "Step rate", 0.05, 64, 4, { step: 0.01, unit: "Hz", scale: "log", low: "slow cells", high: "rapid cells", behavior: "Sets the sample-accurate lane advance rate when no external phase is connected." }),
+      parameter("length", "Lane length", 1, 128, 16, { step: 1, low: "single cell", high: "128 cells", behavior: "Sets the active wrapped region of the persistent score buffer." }),
+      parameter("swing", "Swing", 0, 0.49, 0, { step: 0.01, low: "even steps", high: "long / short", behavior: "Alternates adjacent step durations without moving the two-step boundary." }),
+      parameter("smoothing", "Cell glide", 0, 1, 0.12, { step: 0.01, low: "stepped", high: "continuous", behavior: "Interpolates lane values around cell boundaries while keeping gate timing exact." }),
+      parameter("seed", "Pattern seed", 1, 65535, 12037, { step: 1, low: "pattern A", high: "pattern B", behavior: "Selects repeatable generated cells and resets this lane when changed." }),
+      parameter("depth", "Value depth", 0, 2, 1, { step: 0.01, low: "flat", high: "expanded", behavior: "Scales the stored or generated lane before output." }),
+      parameter("offset", "Value offset", -1, 1, 0, { step: 0.01, low: "lower", high: "higher", behavior: "Moves the complete lane above or below its stored center." }),
+    ],
+    state: {
+      family: "sequence-lane",
+      resources: "128-value score storage, previous-cell interpolation state, and event carry",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode", "length", "seed"],
+    },
+    faust: { symbol: "rdtable, ba.pulse", url: "https://faustdoc.grame.fr/manual/syntax/" },
+  }),
+
+  moduleSpec({
+    id: "uploaded-wavetable",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.uploadedWavetable,
+    name: "Uploaded Wavetable",
+    category: "source",
+    color: "#74f7ff",
+    aliases: ["wavetable lookup", "sampled oscillator", "drawn table", "table oscillator"],
+    tags: ["wavetable-lookup", "uploaded wavetable", "storage buffer", "interpolation", "oscillator"],
+    primitiveIds: ["wavetable-lookup"],
+    description: "Reads a periodic waveform or frame bank from GPU storage and interpolates phase and scan position without copying the table for every audio chunk.",
+    execution: "Persistent uploaded GPU table · parallel interpolated reads · active nodes only",
+    wgsl: "sample = interpolate(table, phase * tableSize, frameScan, interpolationMode);",
+    auditionKind: "source",
+    auditionPreset: null,
+    inputs: [port("scan", "table scan", "control"), port("pitch", "pitch", "control")],
+    outputs: stereoOutput(),
+    params: [
+      parameter("frequency", "Frequency", 20, 8000, 110, { step: 0.1, unit: "Hz", scale: "log", low: "low pitch", high: "high pitch", behavior: "Sets the oscillator frequency before graph and performance-note transposition." }),
+      parameter("table", "Table", 0, 7, 0, { step: 1, options: ["Sine bank", "Organ", "Vocal", "Metal", "Drawn", "Upload A", "Upload B", "Upload C"], low: "built-in table", high: "uploaded table", behavior: "Chooses a resident built-in, drawn, or uploaded periodic table slot." }),
+      parameter("scan", "Frame scan", 0, 1, 0.25, { step: 0.01, low: "first frame", high: "last frame", behavior: "Moves across frames when the selected GPU table contains a timbre bank." }),
+      parameter("scanDepth", "Scan CV", -1, 1, 0.5, { step: 0.01, low: "reverse scan", high: "forward scan", behavior: "Scales and optionally reverses the connected scan control." }),
+      parameter("interpolation", "Interpolation", 0, 2, 1, { step: 1, options: ["Nearest", "Linear", "Cubic"], low: "stepped read", high: "smooth cubic", behavior: "Chooses the number and shape of neighboring table reads used per sample." }),
+      parameter("detune", "Stereo detune", 0, 80, 7, { step: 0.1, unit: "cent", low: "mono pitch", high: "wide beating", behavior: "Offsets the left and right table phases with opposite pitch shifts." }),
+      parameter("stereo", "Stereo width", 0, 1, 0.55, { step: 0.01, low: "centered", high: "wide", behavior: "Blends from one shared table read to independent stereo frame positions." }),
+      parameter("level", "Level", 0, 1, 0.42, { step: 0.01, low: "quiet", high: "full", behavior: "Scales the interpolated table oscillator into its output ceiling." }),
+    ],
+    state: {
+      family: "uploaded-wavetable",
+      resources: "resident waveform/frame storage and upload staging buffer",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["table"],
+    },
+    faust: { symbol: "rdtable", url: "https://faustdoc.grame.fr/manual/syntax/" },
+  }),
+
+  moduleSpec({
+    id: "gpu-sampler-granulator",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.gpuSamplerGranulator,
+    name: "GPU Sampler / Granulator",
+    category: "source",
+    color: "#74f7ff",
+    aliases: ["sample playback", "sample granular cloud", "large grain engine", "GPU granulator"],
+    tags: ["sample-buffer-playback", "granular-sample-cloud", "large-grain-engine", "sample", "grain", "playhead", "reduction"],
+    primitiveIds: ["sample-buffer-playback", "granular-sample-cloud", "large-grain-engine"],
+    description: "Shares one resident recording across one-shot, looped, scanned, frozen, and many-playhead granular modes, then reduces active grains into stereo.",
+    execution: "Persistent sample storage + grain/playhead buffers · grain-parallel reduction · active nodes only",
+    wgsl: "grain = sampleBuffer[interpolatedPlayhead] * window(age); out = reduce(activeGrains);",
+    auditionKind: "source",
+    auditionPreset: null,
+    inputs: [
+      port("position", "position", "control"),
+      port("density", "density", "control"),
+      port("pitch", "pitch", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Playback mode", 0, 4, 2, { step: 1, options: ["One-shot", "Loop", "Cloud", "Scan", "Freeze"], low: "single playhead", high: "held microtexture", behavior: "Selects conventional playback or the grain scheduling strategy." }),
+      parameter("rate", "Playback rate", -4, 4, 1, { step: 0.01, unit: "×", low: "reverse", high: "fast forward", behavior: "Sets playhead direction and resampling ratio before pitch input." }),
+      parameter("position", "Position", 0, 1, 0, { step: 0.001, low: "sample start", high: "sample end", behavior: "Sets the base read position or center of the grain cloud." }),
+      parameter("grainSize", "Grain size", 2, 1000, 90, { step: 0.1, unit: "ms", scale: "log", low: "microscopic", high: "long slices", behavior: "Sets each granular splice duration and its frequency-time resolution." }),
+      parameter("density", "Grain density", 1, 2048, 20, { step: 1, unit: "/s", scale: "log", low: "separate grains", high: "dense cloud", behavior: "Sets the bounded number of new playheads launched per second." }),
+      parameter("spread", "Position spread", 0, 1, 0.72, { step: 0.01, low: "one position", high: "whole sample", behavior: "Distributes grain read heads and pan positions around the base position." }),
+      parameter("jitter", "Timing jitter", 0, 1, 0.28, { step: 0.01, low: "regular", high: "scattered", behavior: "Randomizes launch time and playback rate without changing average density." }),
+      parameter("level", "Level", 0, 1, 0.5, { step: 0.01, low: "quiet", high: "full", behavior: "Scales the normalized sample or reduced grain cloud." }),
+    ],
+    state: {
+      family: "gpu-sampler-granulator",
+      resources: "resident sample buffer, persistent playheads, grain descriptors, and reduction scratch",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode"],
+    },
+    faust: { symbol: "soundfile, ba.selectn", url: "https://faustdoc.grame.fr/manual/syntax/" },
+  }),
+
+  moduleSpec({
+    id: "spatializer",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.spatializer,
+    name: "Ambisonic Spatializer",
+    category: "space",
+    color: "#e883ee",
+    aliases: ["ambisonic encode", "ambisonic decode", "HRTF binaural", "3D spatializer"],
+    tags: ["ambisonic-encode", "ambisonic-decode", "hrtf-binaural-convolution", "FOA", "HRTF", "binaural", "space"],
+    primitiveIds: ["ambisonic-encode", "hrtf-binaural-convolution", "ambisonic-decode"],
+    description: "Places an input in a directional sound field, then decodes it directly to stereo, a virtual room, or a direction-interpolated binaural HRTF.",
+    execution: "Persistent decode filters and optional HRTF partitions · source/ear-parallel · active nodes only",
+    wgsl: "field = ambisonicEncode(signal, direction); out = decodeOrHrtf(field, listener);",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [
+      ...effectInput(),
+      port("azimuth", "azimuth", "control"),
+      port("elevation", "elevation", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Spatial mode", 0, 3, 2, { step: 1, options: ["Equal power", "First-order ambisonic", "Binaural HRTF", "Ambisonic room"], low: "simple pan", high: "room decode", behavior: "Selects the encode/decode and directional filtering path." }),
+      parameter("azimuth", "Azimuth", -180, 180, 0, { step: 1, unit: "°", low: "left / behind", high: "right / behind", behavior: "Sets the horizontal source angle before connected azimuth modulation." }),
+      parameter("elevation", "Elevation", -90, 90, 0, { step: 1, unit: "°", low: "below", high: "above", behavior: "Sets the vertical source angle before connected elevation modulation." }),
+      parameter("distance", "Distance", 0.1, 100, 1, { step: 0.01, unit: "m", scale: "log", low: "near field", high: "far field", behavior: "Controls level, near-field cues, and optional propagation delay." }),
+      parameter("width", "Source width", 0, 1, 0, { step: 0.01, low: "point source", high: "diffuse field", behavior: "Spreads encoded directions around the central source angle." }),
+      parameter("order", "Ambisonic order", 1, 3, 1, { step: 1, options: ["First", "Second", "Third"], low: "four channels", high: "sixteen channels", behavior: "Sets directional resolution and the number of internal field channels." }),
+      parameter("dataset", "HRTF set", 0, 3, 0, { step: 1, options: ["Compact", "Diffuse-field", "Near-field", "User"], low: "compact built-in", high: "user dataset", behavior: "Chooses the resident direction-indexed binaural filter collection." }),
+      parameter("mix", "Spatial mix", 0, 1, 1, { step: 0.01, low: "dry", high: "decoded", behavior: "Crossfades from the original input to the decoded spatial result." }),
+    ],
+    state: {
+      family: "spatializer",
+      resources: "ambisonic channel buffers, decode matrices, HRTF partitions, and convolution tails",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode", "order", "dataset"],
+    },
+    faust: { symbol: "sp.spat, convolver", url: "https://faustlibraries.grame.fr/libs/spats/" },
+  }),
+
+  moduleSpec({
+    id: "recursive-filter",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.recursiveFilter,
+    name: "Recursive Filter",
+    category: "filter",
+    color: "#67c8ff",
+    aliases: ["DC blocker", "biquad", "IIR filter", "state variable filter", "parallel recursive scan"],
+    tags: ["dc-blocker", "recursive-biquad", "state-variable-filter", "parallel-prefix-recursion", "filter", "IIR", "SVF"],
+    primitiveIds: ["dc-blocker", "recursive-biquad", "state-variable-filter", "parallel-prefix-recursion"],
+    description: "Runs DC blocking, biquad responses, or a state-variable topology through one ordered filter-state path with smooth coefficient transitions.",
+    execution: "Persistent filter state · ordered recurrence or parallel block scan · active nodes only",
+    wgsl: "stateNext = filterTransform(coefficients, input, statePrevious);",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [
+      ...effectInput(),
+      port("cutoff", "cutoff", "control"),
+      port("resonance", "resonance", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Filter mode", 0, 8, 1, { step: 1, options: ["DC blocker", "Low-pass", "High-pass", "Band-pass", "Notch", "Peak", "Low shelf", "High shelf", "State variable"], low: "DC removal", high: "multi-output topology", behavior: "Selects the recursive coefficient and state topology." }),
+      parameter("cutoff", "Cutoff", 5, 20000, 1200, { step: 0.1, unit: "Hz", scale: "log", low: "low", high: "high", behavior: "Sets the pole or state-variable integration frequency." }),
+      parameter("resonance", "Resonance", 0.05, 20, 0.7, { step: 0.01, unit: "Q", scale: "log", low: "damped", high: "ringing", behavior: "Controls energy around cutoff while the engine maintains a stable coefficient range." }),
+      parameter("gain", "Peak / shelf gain", -24, 24, 0, { step: 0.1, unit: "dB", low: "cut", high: "boost", behavior: "Sets gain for peak and shelving modes; other modes leave it neutral." }),
+      parameter("drive", "Input drive", 0.25, 8, 1, { step: 0.01, unit: "×", scale: "log", low: "clean", high: "saturated", behavior: "Pushes the recursive core while bounding state before it can destabilize." }),
+      parameter("cutoffDepth", "Cutoff CV", -4, 4, 1, { step: 0.01, unit: "oct", low: "inverse sweep", high: "wide sweep", behavior: "Maps the first control input exponentially around cutoff." }),
+      parameter("resonanceDepth", "Resonance CV", -1, 1, 0.5, { step: 0.01, low: "inverse", high: "forward", behavior: "Scales the second control input before adding it to resonance." }),
+      parameter("mix", "Wet mix", 0, 1, 1, { step: 0.01, low: "dry", high: "filtered", behavior: "Crossfades from input to the selected recursive response." }),
+    ],
+    state: {
+      family: "recursive-filter",
+      resources: "per-channel recurrence carry, coefficient transitions, and optional prefix-scan scratch",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode"],
+    },
+    faust: { symbol: "fi.biquad, fi.svf", url: "https://faustlibraries.grame.fr/libs/filters/" },
+  }),
+
+  moduleSpec({
+    id: "feedback-network",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.feedbackNetwork,
+    name: "Feedback Network",
+    category: "space",
+    color: "#e883ee",
+    aliases: ["true feedback delay", "comb all-pass", "feedback delay network", "FDN reverb"],
+    tags: ["feedback-delay", "comb-allpass", "feedback-delay-network", "delay", "comb", "all-pass", "FDN"],
+    primitiveIds: ["feedback-delay", "comb-allpass", "feedback-delay-network"],
+    description: "Shares a bounded delay-bank engine across recirculating echo, comb, all-pass, matrix FDN, and geometrically routed feedback modes.",
+    execution: "Persistent circular delay bank + stable matrix recurrence · active nodes only",
+    wgsl: "returned = delayRead(lines) * stableMatrix * feedback; delayWrite(input + returned);",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [
+      ...effectInput(),
+      port("time", "delay time", "control"),
+      port("tone", "feedback tone", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Network mode", 0, 5, 3, { step: 1, options: ["Feedback delay", "Comb", "All-pass", "FDN 4", "FDN 8", "Geometric"], low: "one line", high: "topological network", behavior: "Selects the delay-bank topology and energy-preserving mixing rule." }),
+      parameter("time", "Delay time", 0.5, 2000, 83, { step: 0.1, unit: "ms", scale: "log", low: "resonant", high: "separate echoes", behavior: "Sets the base line length before decorrelation and time modulation." }),
+      parameter("feedback", "Feedback", 0, 0.999, 0.82, { step: 0.001, low: "one pass", high: "long decay", behavior: "Controls returned network energy below the bounded stability ceiling." }),
+      parameter("diffusion", "Diffusion", 0, 1, 0.55, { step: 0.01, low: "distinct lines", high: "dense field", behavior: "Increases all-pass depth and cross-line mixing." }),
+      parameter("damping", "High damping", 0, 1, 0.38, { step: 0.01, low: "bright repeats", high: "dark repeats", behavior: "Removes high-frequency energy on every circulation." }),
+      parameter("modRate", "Modulation rate", 0.01, 20, 0.17, { step: 0.01, unit: "Hz", scale: "log", low: "slow drift", high: "fast motion", behavior: "Moves decorrelated delay reads to reduce stationary ringing." }),
+      parameter("modDepth", "Modulation depth", 0, 20, 2, { step: 0.01, unit: "ms", low: "fixed lines", high: "moving lines", behavior: "Sets delay-time excursion around each network line." }),
+      parameter("mix", "Wet mix", 0, 1, 0.55, { step: 0.01, low: "dry", high: "network only", behavior: "Crossfades from the current input to the recirculating network output." }),
+    ],
+    state: {
+      family: "feedback-network",
+      resources: "circular delay lines, damping states, modulation phases, and matrix-mix scratch",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode"],
+    },
+    faust: { symbol: "de.fdelay, re.fdnrev0", url: "https://faustlibraries.grame.fr/libs/reverbs/" },
+  }),
+
+  moduleSpec({
+    id: "wavefield-solver",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.wavefieldSolver,
+    name: "Wavefield Solver",
+    category: "source",
+    color: "#74f7ff",
+    aliases: ["Karplus Strong", "nonlinear string FDTD", "membrane FDTD", "room acoustics", "digital waveguide mesh"],
+    tags: ["karplus-strong", "nonlinear-string-fdtd", "membrane-fdtd", "room-acoustics-fdtd", "digital-waveguide-mesh", "physical model", "grid"],
+    primitiveIds: ["karplus-strong", "nonlinear-string-fdtd", "membrane-fdtd", "room-acoustics-fdtd", "digital-waveguide-mesh"],
+    description: "Uses one conditional grid-state family for delay-line strings, nonlinear strings, membranes, plates, rooms, and directional waveguide meshes.",
+    execution: "Persistent ping-pong wavefield · ordered stable substeps across parallel cells · active nodes only",
+    wgsl: "nextCell = stableWaveStep(neighbors, material, damping) + distributedExcitation;",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [
+      port("excite", "excitation", "audio", { types: ["audio", "stereo"], required: true }),
+      port("position", "excite / pickup position", "control"),
+      port("material", "material", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("model", "Physical model", 0, 5, 0, { step: 1, options: ["Karplus string", "Nonlinear string", "Membrane", "Plate", "Room", "Waveguide mesh"], low: "one delay line", high: "directional mesh", behavior: "Selects dimensionality, neighborhood, and boundary update rules." }),
+      parameter("frequency", "Fundamental", 20, 4000, 110, { step: 0.1, unit: "Hz", scale: "log", low: "large / low", high: "small / high", behavior: "Sets the string or dominant body frequency before pitch-related inputs." }),
+      parameter("size", "Field size", 0.1, 20, 1, { step: 0.01, unit: "×", scale: "log", low: "small field", high: "large field", behavior: "Scales propagation length and mode density for surface and room models." }),
+      parameter("resolution", "Grid resolution", 16, 256, 64, { step: 16, low: "coarse / dark", high: "fine / expensive", behavior: "Sets the active spatial cells; the runtime reallocates only this node's surface when changed." }),
+      parameter("material", "Material", 0, 1, 0.5, { step: 0.01, low: "soft / linear", high: "stiff / nonlinear", behavior: "Moves loss, dispersion, stiffness, and nonlinear tension together." }),
+      parameter("damping", "Damping", 0, 1, 0.35, { step: 0.01, low: "long ringing", high: "short decay", behavior: "Removes energy on propagation while preserving a stable time step." }),
+      parameter("pickup", "Pickup position", 0, 1, 0.3, { step: 0.001, low: "first boundary", high: "opposite boundary", behavior: "Moves the sampled point or stereo pair across the simulated field." }),
+      parameter("mix", "Wet mix", 0, 1, 0.9, { step: 0.01, low: "excitation", high: "wavefield", behavior: "Crossfades from the excitation to the simulated body or room response." }),
+    ],
+    state: {
+      family: "wavefield-solver",
+      resources: "mode-dependent delay line or ping-pong 1D/2D wave surfaces and boundary buffers",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["model", "resolution"],
+    },
+    faust: { symbol: "pm.ks, pm.mesh_square", url: "https://faustlibraries.grame.fr/libs/physmodels/" },
+  }),
+
+  moduleSpec({
+    id: "spectral-transport",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.spectralTransport,
+    name: "Spectral Transport",
+    category: "spectral",
+    color: "#ff9f68",
+    aliases: ["FFT STFT", "spectral remap", "phase vocoder", "sliding phase vocoder", "spectral gate"],
+    tags: ["fft-stft", "spectral-remap", "phase-vocoder", "overlap-add", "sliding-phase-vocoder", "spectral-gate", "phase-prefix-integration"],
+    primitiveIds: ["fft-stft", "spectral-remap", "phase-vocoder", "overlap-add", "sliding-phase-vocoder", "spectral-gate", "phase-prefix-integration"],
+    description: "Shares one analysis, persistent phase, bin transform, and overlap-add engine across remapping, time/pitch transport, freeze, robot, and gate modes.",
+    execution: "Windowed GPU transform + persistent bin phases + overlap-add · active nodes only",
+    wgsl: "bins = transform(windowedInput); bins = transport(bins, phaseCarry); out = overlapAdd(inverse(bins));",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [
+      ...effectInput(),
+      port("shift", "pitch / bin shift", "control"),
+      port("time", "time transport", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Spectral mode", 0, 5, 1, { step: 1, options: ["Bin remap", "Phase vocoder", "Sliding vocoder", "Freeze", "Robotize", "Spectral gate"], low: "bin geometry", high: "threshold mask", behavior: "Selects the operation applied between analysis and reconstruction." }),
+      parameter("window", "Window size", 0, 4, 2, { step: 1, options: ["256", "512", "1024", "2048", "4096"], low: "fast / coarse", high: "resolved / latent", behavior: "Selects the exact power-of-two transform window." }),
+      parameter("hop", "Hop size", 0, 3, 2, { step: 1, options: ["1/8", "1/4", "1/2", "3/4"], low: "heavy overlap", high: "light overlap", behavior: "Sets analysis-frame spacing as a fraction of the selected window." }),
+      parameter("pitch", "Pitch ratio", 0.25, 4, 1, { step: 0.01, unit: "×", scale: "log", low: "two octaves down", high: "two octaves up", behavior: "Moves reconstructed bin frequencies independently from transport speed." }),
+      parameter("time", "Time ratio", 0.25, 4, 1, { step: 0.01, unit: "×", scale: "log", low: "compressed", high: "stretched", behavior: "Controls analysis-to-synthesis frame transport without changing target pitch." }),
+      parameter("phaseLock", "Phase lock", 0, 1, 0.65, { step: 0.01, low: "independent bins", high: "locked peaks", behavior: "Ties neighboring bin phases to spectral peaks for more coherent transients and tones." }),
+      parameter("transients", "Transient preserve", 0, 1, 0.7, { step: 0.01, low: "smooth", high: "sharp", behavior: "Detects spectral flux and resets or blends phase around attacks." }),
+      parameter("mix", "Wet mix", 0, 1, 1, { step: 0.01, low: "latency-aligned dry", high: "transported", behavior: "Crossfades from aligned input to overlap-added spectral output." }),
+    ],
+    state: {
+      family: "spectral-transport",
+      resources: "analysis rings, transform scratch, persistent complex bin phases, and overlap-add tails",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode", "window", "hop"],
+    },
+    faust: { symbol: "an.fft, an.ifft", url: "https://faustlibraries.grame.fr/libs/analyzers/" },
+  }),
+
+  moduleSpec({
+    id: "dynamics",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.dynamics,
+    name: "Dynamics",
+    category: "dynamics",
+    color: "#ff6eaa",
+    aliases: ["compressor", "envelope reduction", "lookahead limiter", "true peak limiter", "level rider"],
+    tags: ["dynamics-reduction", "lookahead-limiter", "compressor", "limiter", "sidechain", "true peak"],
+    primitiveIds: ["dynamics-reduction", "lookahead-limiter"],
+    description: "Reduces block and oversampled peak measurements into a persistent gain envelope for compression, limiting, expansion, gating, or level riding.",
+    execution: "GPU level reduction + attack/release state + optional lookahead ring · active nodes only",
+    wgsl: "targetGain = dynamicsCurve(reduceLevel(block), threshold, ratio); gain = smoothState(targetGain);",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [
+      ...effectInput(),
+      port("sidechain", "sidechain", "audio", { types: ["audio", "stereo", "control"] }),
+      port("threshold", "threshold", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Dynamics mode", 0, 5, 0, { step: 1, options: ["Compressor", "Limiter", "True-peak limiter", "Expander", "Gate", "Level rider"], low: "compression", high: "slow normalization", behavior: "Selects the static gain curve and detector strategy." }),
+      parameter("threshold", "Threshold", -60, 0, -12, { step: 0.1, unit: "dB", low: "more processing", high: "only peaks", behavior: "Sets the detector level at which the selected gain curve begins." }),
+      parameter("ratio", "Ratio", 1, 100, 4, { step: 0.1, unit: ":1", scale: "log", low: "gentle", high: "limiting", behavior: "Sets compression or expansion strength beyond threshold." }),
+      parameter("attack", "Attack", 0.05, 500, 8, { step: 0.01, unit: "ms", scale: "log", low: "fast catch", high: "slow onset", behavior: "Sets how quickly the persistent gain state responds to increasing level." }),
+      parameter("release", "Release", 5, 5000, 180, { step: 0.1, unit: "ms", scale: "log", low: "quick recovery", high: "smooth recovery", behavior: "Sets how quickly gain returns after the detector falls." }),
+      parameter("knee", "Knee", 0, 24, 6, { step: 0.1, unit: "dB", low: "hard", high: "soft", behavior: "Rounds the gain curve around threshold." }),
+      parameter("lookahead", "Lookahead", 0, 50, 5, { step: 0.1, unit: "ms", low: "immediate", high: "early gain", behavior: "Delays output behind the detector so gain can respond before a peak arrives." }),
+      parameter("makeup", "Makeup gain", -24, 24, 0, { step: 0.1, unit: "dB", low: "attenuated", high: "boosted", behavior: "Applies output gain after the dynamics envelope." }),
+    ],
+    state: {
+      family: "dynamics",
+      resources: "detector reduction scratch, gain envelope state, lookahead ring, and true-peak interpolation history",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode", "lookahead"],
+    },
+    faust: { symbol: "co.compressor, co.limiter_1176_R4", url: "https://faustlibraries.grame.fr/libs/compressors/" },
+  }),
+
+  moduleSpec({
+    id: "convolution-space",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.convolutionSpace,
+    name: "Convolution Space",
+    category: "space",
+    color: "#e883ee",
+    aliases: ["partitioned convolution", "hybrid convolution", "non-uniform convolution", "long IR"],
+    tags: ["partitioned-convolution", "hybrid-convolution", "convolution", "impulse response", "FFT", "room"],
+    primitiveIds: ["partitioned-convolution", "hybrid-convolution"],
+    description: "Applies cabinet, body, resonator, or room impulse responses with direct early taps and uniform or progressively larger frequency-domain tail partitions.",
+    execution: "Persistent IR spectra + partition history + overlap tails · active nodes only",
+    wgsl: "out = directEarly(input, ir) + sum(partitionSpectrumHistory * irPartitions);",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [...effectInput(), port("morph", "IR morph", "control"), port("size", "size", "control")],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Convolution mode", 0, 5, 2, { step: 1, options: ["Direct FIR", "Partitioned", "Hybrid", "Cabinet", "Room", "Resonator"], low: "short direct", high: "pitched body", behavior: "Selects partition scheduling and the intended response family." }),
+      parameter("ir", "Impulse response", 0, 7, 0, { step: 1, options: ["Small room", "Hall", "Plate", "Spring", "Cabinet", "Body", "Upload A", "Upload B"], low: "small built-in", high: "uploaded response", behavior: "Chooses a resident or uploaded impulse-response slot." }),
+      parameter("size", "IR size", 0.25, 4, 1, { step: 0.01, unit: "×", scale: "log", low: "short / bright", high: "long / low", behavior: "Resamples the response in time before connected size modulation." }),
+      parameter("predelay", "Pre-delay", 0, 500, 12, { step: 0.1, unit: "ms", low: "immediate", high: "detached", behavior: "Offsets the convolved response without altering its internal decay." }),
+      parameter("decay", "Tail decay", 0.1, 30, 3.2, { step: 0.01, unit: "s", scale: "log", low: "tight", high: "very long", behavior: "Applies a stable envelope across response partitions." }),
+      parameter("tone", "Tail tone", 0, 1, 0.55, { step: 0.01, low: "dark", high: "bright", behavior: "Tilts or damps later impulse-response partitions." }),
+      parameter("width", "Stereo width", 0, 1, 0.85, { step: 0.01, low: "mono", high: "wide", behavior: "Controls cross-channel response and late-tail decorrelation." }),
+      parameter("mix", "Wet mix", 0, 1, 0.5, { step: 0.01, low: "dry", high: "convolved", behavior: "Crossfades from latency-aligned input to the complete convolution result." }),
+    ],
+    state: {
+      family: "convolution-space",
+      resources: "resident IR samples/spectra, frequency-domain delay lines, transform scratch, and overlap tails",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode", "ir"],
+    },
+    faust: { symbol: "convolver", url: "https://faustlibraries.grame.fr/libs/filters/" },
+  }),
+
+  moduleSpec({
+    id: "massive-bank",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.massiveBank,
+    name: "Massive Bank",
+    category: "source",
+    color: "#74f7ff",
+    aliases: ["million sinusoid bank", "large modal bank", "voice mix reduction", "partial swarm"],
+    tags: ["voice-mix-reduction", "million-sinusoid-bank", "massive-modal-synthesis", "additive", "modal", "reduction"],
+    primitiveIds: ["voice-mix-reduction", "million-sinusoid-bank", "massive-modal-synthesis"],
+    description: "Evaluates large parameter-buffer banks as additive partials, damped modes, swarms, or resonators and reduces their independent lanes into stereo.",
+    execution: "Voice/mode-parallel persistent phase or resonance state + staged reduction · active nodes only",
+    wgsl: "lane = renderBankElement(parameters[id], phaseOrModeState[id]); out = reduce(lanes);",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [
+      port("excite", "excitation", "audio", { types: ["audio", "stereo"] }),
+      port("pitch", "pitch", "control"),
+      port("spectrum", "spectrum", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Bank mode", 0, 4, 0, { step: 1, options: ["Additive", "Modal", "Partials", "Swarm", "Resonator"], low: "free oscillators", high: "excited modes", behavior: "Selects oscillator or recurrence state for each parallel bank lane." }),
+      parameter("frequency", "Root frequency", 20, 4000, 110, { step: 0.1, unit: "Hz", scale: "log", low: "low root", high: "high root", behavior: "Sets the common frequency reference before pitch input." }),
+      parameter("voices", "Bank lanes", 64, 65536, 2048, { step: 64, scale: "log", low: "small bank", high: "massive bank", behavior: "Sets how many active parameter lanes are rendered and reduced." }),
+      parameter("spread", "Frequency spread", 0, 4, 0.35, { step: 0.01, unit: "oct", low: "clustered", high: "wide", behavior: "Distributes lanes around the root frequency." }),
+      parameter("inharmonicity", "Inharmonicity", 0, 1, 0.12, { step: 0.01, low: "harmonic", high: "dispersed", behavior: "Moves partial and mode ratios away from integer alignment." }),
+      parameter("decay", "Mode decay", 0.01, 30, 2.4, { step: 0.01, unit: "s", scale: "log", low: "short", high: "long", behavior: "Sets persistent decay for modal and resonator modes." }),
+      parameter("brightness", "Spectral tilt", -2, 2, 0.15, { step: 0.01, low: "low lanes", high: "high lanes", behavior: "Weights high or low bank elements before reduction." }),
+      parameter("level", "Level", 0, 1, 0.35, { step: 0.01, low: "quiet", high: "full", behavior: "Scales the normalized tree-reduction result." }),
+    ],
+    state: {
+      family: "massive-bank",
+      resources: "parameter buffers, persistent phases/modal states, per-lane output, and staged reduction scratch",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode"],
+    },
+    faust: { symbol: "par, pm.modeFilter", url: "https://faustdoc.grame.fr/manual/syntax/" },
+  }),
+
+  moduleSpec({
+    id: "audio-analysis-field",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.audioAnalysisField,
+    name: "Audio Analysis Field",
+    category: "control",
+    color: "#91ff63",
+    aliases: ["ShaderToy audio texture", "waveform texture", "spectrum texture", "audio feature field"],
+    tags: ["audio-analysis-texture", "analysis", "waveform", "spectrum", "centroid", "onset", "texture"],
+    primitiveIds: ["audio-analysis-texture"],
+    description: "Writes waveform and spectral analysis into a ShaderToy-style GPU field, then exposes one selected feature and a related event gate to the graph.",
+    execution: "Persistent waveform/spectrum texture + analysis reduction · active nodes only",
+    wgsl: "analysisTexture = vec2(waveform, spectrum); out = selectFeature(analysisTexture, feature);",
+    auditionKind: "control",
+    auditionPreset: null,
+    inputs: [port("signal", "audio / control", "audio", { types: ["audio", "stereo", "control"], required: true })],
+    outputs: [
+      port("field", "feature", "control", { component: "x" }),
+      port("gate", "event gate", "control", { component: "y" }),
+    ],
+    params: [
+      parameter("feature", "Feature", 0, 7, 3, { step: 1, options: ["Waveform", "RMS", "Peak", "Centroid", "Flux", "Pitch", "Onset", "Band energy"], low: "instant waveform", high: "selected band", behavior: "Chooses which texture row or reduced measurement reaches the field output." }),
+      parameter("window", "Analysis window", 0, 5, 2, { step: 1, options: ["128", "256", "512", "1024", "2048", "4096"], low: "fast", high: "resolved", behavior: "Selects the waveform and spectrum analysis span." }),
+      parameter("bandLow", "Band low", 20, 20000, 80, { step: 1, unit: "Hz", scale: "log", low: "sub", high: "treble", behavior: "Sets the lower boundary for band energy and band-limited event detection." }),
+      parameter("bandHigh", "Band high", 20, 20000, 8000, { step: 1, unit: "Hz", scale: "log", low: "narrow band", high: "wide band", behavior: "Sets the upper boundary; the shader safely sorts both frequency endpoints." }),
+      parameter("smoothing", "Smoothing", 0, 1, 0.72, { step: 0.01, low: "instant", high: "slow field", behavior: "Carries feature values across chunks to suppress block flicker." }),
+      parameter("threshold", "Event threshold", 0, 1, 0.35, { step: 0.01, low: "frequent gates", high: "strong events", behavior: "Sets the level or flux boundary that opens the gate output." }),
+      parameter("gain", "Feature gain", 0, 8, 1, { step: 0.01, unit: "×", low: "flat", high: "expanded", behavior: "Scales the selected feature before output." }),
+      parameter("offset", "Feature offset", -1, 1, 0, { step: 0.01, low: "lower", high: "higher", behavior: "Offsets the selected feature without changing event measurement." }),
+    ],
+    state: {
+      family: "audio-analysis-field",
+      resources: "ShaderToy-style waveform/spectrum texture, transform scratch, and smoothed feature history",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["feature", "window"],
+    },
+    faust: { symbol: "an.fft, an.rms_envelope", url: "https://faustlibraries.grame.fr/libs/analyzers/" },
+  }),
+
+  moduleSpec({
+    id: "ddsp-resynth",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.ddspResynth,
+    name: "DDSP Resynth",
+    category: "source",
+    color: "#74f7ff",
+    aliases: ["DDSP decoder", "filtered noise spectrum", "harmonic noise decoder", "differentiable DSP"],
+    tags: ["filtered-noise-spectrum", "ddsp-decoder", "harmonic", "noise", "decoder", "resynthesis"],
+    primitiveIds: ["filtered-noise-spectrum", "ddsp-decoder"],
+    description: "Decodes pitch, loudness, and timbre controls into editable harmonic and inharmonic oscillators plus an overlap-added filtered-noise spectrum.",
+    execution: "Persistent phase bank + random-phase spectral noise frames + reduction · active nodes only",
+    wgsl: "out = harmonicBank(integratedPitch, amplitudes) + inverse(noiseMagnitude * randomPhase);",
+    auditionKind: "source",
+    auditionPreset: null,
+    inputs: [port("pitch", "pitch", "control"), port("loudness", "loudness", "control"), port("timbre", "timbre", "control")],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Decoder mode", 0, 5, 0, { step: 1, options: ["Harmonic + noise", "Filtered noise", "Harmonic", "Inharmonic", "Breath", "Bowed"], low: "complete decoder", high: "bowed model", behavior: "Selects which interpretable oscillator and noise components are active." }),
+      parameter("frequency", "Base frequency", 20, 4000, 110, { step: 0.1, unit: "Hz", scale: "log", low: "low", high: "high", behavior: "Sets decoder pitch before connected pitch trajectories and performance notes." }),
+      parameter("harmonics", "Harmonics", 1, 512, 64, { step: 1, low: "fundamental", high: "dense spectrum", behavior: "Sets the bounded persistent oscillator bank size." }),
+      parameter("noise", "Noise amount", 0, 1, 0.35, { step: 0.01, low: "tonal", high: "noise", behavior: "Balances harmonic decoding with the filtered random-phase spectrum." }),
+      parameter("brightness", "Brightness", -2, 2, 0.2, { step: 0.01, low: "dark", high: "bright", behavior: "Tilts harmonic amplitudes and noise magnitudes together." }),
+      parameter("inharmonicity", "Inharmonicity", 0, 1, 0.05, { step: 0.01, low: "integer partials", high: "dispersed partials", behavior: "Offsets oscillator ratios while retaining continuous phase." }),
+      parameter("formant", "Spectral formant", 0, 1, 0.4, { step: 0.01, low: "low focus", high: "high focus", behavior: "Moves a broad envelope across both harmonic and noise components." }),
+      parameter("level", "Level", 0, 1, 0.4, { step: 0.01, low: "quiet", high: "full", behavior: "Scales the complete harmonic-plus-noise decoder." }),
+    ],
+    state: {
+      family: "ddsp-resynth",
+      resources: "harmonic phase bank, control frames, noise spectra, inverse-transform scratch, and overlap tails",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode", "harmonics"],
+    },
+    faust: { symbol: "os.oscbank, no.noise", url: "https://faustlibraries.grame.fr/libs/oscillators/" },
+  }),
+
+  moduleSpec({
+    id: "spectral-vocoder",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.spectralVocoder,
+    name: "Spectral Vocoder",
+    category: "spectral",
+    color: "#ff9f68",
+    aliases: ["vocoder cross synthesis", "spectral envelope transfer", "cross spectrum", "channel vocoder"],
+    tags: ["vocoder-cross-synthesis", "vocoder", "cross synthesis", "spectral envelope", "carrier", "modulator"],
+    primitiveIds: ["vocoder-cross-synthesis"],
+    description: "Analyzes a modulator and carrier together, smooths the modulator envelope across frequency and time, then transfers it to the carrier spectrum.",
+    execution: "Dual persistent analysis + band envelope state + overlap-add · active nodes only",
+    wgsl: "outSpectrum = carrierPhase * smoothBands(abs(modulatorSpectrum));",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [
+      port("modulator", "modulator", "audio", { types: ["audio", "stereo"], required: true }),
+      port("carrier", "carrier", "audio", { types: ["audio", "stereo"] }),
+      port("morph", "envelope morph", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("mode", "Vocoder mode", 0, 4, 0, { step: 1, options: ["Envelope", "Cross spectrum", "Whisper", "Robot", "Freeze"], low: "smooth transfer", high: "held envelope", behavior: "Selects envelope, magnitude, phase, and persistence strategy." }),
+      parameter("bands", "Envelope bands", 8, 128, 32, { step: 1, low: "broad / clear", high: "fine / detailed", behavior: "Sets frequency resolution of the smoothed modulator envelope." }),
+      parameter("window", "Window size", 0, 3, 1, { step: 1, options: ["256", "512", "1024", "2048"], low: "fast consonants", high: "resolved pitch", behavior: "Selects the dual analysis and synthesis window." }),
+      parameter("attack", "Envelope attack", 1, 500, 12, { step: 0.1, unit: "ms", scale: "log", low: "sharp", high: "soft", behavior: "Sets how quickly each spectral band follows increasing modulator energy." }),
+      parameter("release", "Envelope release", 5, 2000, 40, { step: 0.1, unit: "ms", scale: "log", low: "articulate", high: "sustained", behavior: "Sets how long each band retains its envelope after energy falls." }),
+      parameter("shift", "Envelope shift", 0.25, 4, 1, { step: 0.01, unit: "×", scale: "log", low: "lower mapping", high: "higher mapping", behavior: "Moves the transferred envelope across carrier frequency bins." }),
+      parameter("contrast", "Envelope contrast", 0.25, 4, 1, { step: 0.01, low: "flattened", high: "pronounced", behavior: "Curves band envelopes to trade smoothness for articulation." }),
+      parameter("mix", "Wet mix", 0, 1, 1, { step: 0.01, low: "modulator", high: "cross-synthesized", behavior: "Crossfades from the modulator input to reconstructed vocoder audio." }),
+    ],
+    state: {
+      family: "spectral-vocoder",
+      resources: "dual analysis rings, complex spectra, smoothed band envelopes, carrier phase, and overlap tails",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["mode", "bands", "window"],
+    },
+    faust: { symbol: "ef.vocoder", url: "https://faustlibraries.grame.fr/libs/effect.lib/" },
+  }),
+
+  moduleSpec({
+    id: "neural-processor",
+    kind: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS.neuralProcessor,
+    name: "Neural Processor",
+    category: "nonlinear",
+    color: "#a78bff",
+    aliases: ["neural dilated convolution", "neural recurrent model", "LSTM audio", "learned effect"],
+    tags: ["neural-dilated-convolution", "neural-recurrent-model", "convolutional network", "LSTM", "weights", "inference"],
+    primitiveIds: ["neural-dilated-convolution", "neural-recurrent-model"],
+    description: "Runs compact built-in or uploaded learned effects as a parallel dilated-convolution stack or an ordered recurrent state model with patchable conditioning.",
+    execution: "Persistent weight/intermediate buffers + convolutional or recurrent inference · active nodes only",
+    wgsl: "out = select(dilatedConvBlock(input, weights), recurrentStep(input, hidden, weights), model);",
+    auditionKind: "effect",
+    auditionPreset: null,
+    inputs: [
+      ...effectInput(),
+      port("condition", "conditioning", "control"),
+      port("morph", "model morph", "control"),
+    ],
+    outputs: stereoOutput(),
+    params: [
+      parameter("model", "Model", 0, 5, 0, { step: 1, options: ["Dilated convolution", "Recurrent / LSTM", "Amplifier", "Cabinet", "Denoiser", "Timbre morph"], low: "parallel receptive field", high: "conditioned morph", behavior: "Selects network topology or a compatible resident weight slot." }),
+      parameter("size", "Model size", 0, 3, 1, { step: 1, options: ["Tiny", "Small", "Medium", "Large"], low: "low latency", high: "wide receptive field", behavior: "Selects bounded channel count, layers, and intermediate storage." }),
+      parameter("drive", "Input drive", 0, 2, 0.5, { step: 0.01, low: "gentle", high: "strong", behavior: "Scales audio entering the learned transformation." }),
+      parameter("memory", "Memory", 0, 1, 0.5, { step: 0.01, low: "short context", high: "long context", behavior: "Scales dilation depth or recurrent-state retention." }),
+      parameter("condition", "Condition", -1, 1, 0, { step: 0.01, low: "condition A", high: "condition B", behavior: "Sets the base learned-control value before graph conditioning." }),
+      parameter("conditionDepth", "Condition CV", -2, 2, 1, { step: 0.01, low: "inverse", high: "forward", behavior: "Scales the connected conditioning control." }),
+      parameter("mix", "Wet mix", 0, 1, 1, { step: 0.01, low: "dry", high: "model", behavior: "Crossfades from input to learned output, with latency alignment when required." }),
+      parameter("level", "Level", 0, 1.5, 0.8, { step: 0.01, low: "quiet", high: "strong", behavior: "Scales and bounds the final model result." }),
+    ],
+    state: {
+      family: "neural-processor",
+      resources: "resident model weights, receptive-field history, intermediate tensors, and recurrent hidden/cell state",
+      lifecycle: ACTIVE_LIFECYCLE,
+      resetParams: ["model", "size"],
+    },
+    faust: { symbol: "ffunction", url: "https://faustdoc.grame.fr/manual/syntax/" },
+  }),
+]);
+
+export const SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KIND_SET = freeze(new Set(
+  Object.values(SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS),
+));
+
+export function isShaderSynthPlaygroundAdvancedStateKind(kind) {
+  return SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KIND_SET.has(Number(kind));
+}
+
+// The ordered state engine writes one vec2 for each advanced node and sample.
+// The ordinary evaluator consumes it so all downstream routing and fan-out
+// semantics stay identical to sample-independent graph nodes.
+export const SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_CASES = /* wgsl */ `
+    case 111u: { result = stateValue; }
+    case 112u: { result = stateValue; }
+    case 113u: { result = stateValue; }
+    case 114u: { result = stateValue; }
+    case 115u: { result = stateValue; }
+    case 116u: { result = stateValue; }
+    case 117u: { result = stateValue; }
+    case 118u: { result = stateValue; }
+    case 119u: { result = stateValue; }
+    case 120u: { result = stateValue; }
+    case 121u: { result = stateValue; }
+    case 122u: { result = stateValue; }
+    case 123u: { result = stateValue; }
+    case 124u: { result = stateValue; }
+    case 125u: { result = stateValue; }
+`;
