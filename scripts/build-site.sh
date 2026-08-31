@@ -306,6 +306,7 @@ for worktree_runtime_file in \
   graph-instruments.css \
   graph-drums-app.js \
   graph-synth-app.js \
+  src/graph-drum-audio.js \
   src/graph-instrument-app.js \
   src/graph-instruments.js \
   src/graph-synth-audio.js \
@@ -933,6 +934,7 @@ required_files=(
   graph-instruments.css
   graph-drums-app.js
   graph-synth-app.js
+  src/graph-drum-audio.js
   src/graph-instrument-app.js
   src/graph-instruments.js
   src/graph-synth-audio.js

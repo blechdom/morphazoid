@@ -8,6 +8,7 @@ import {
   applyBrowserMidiMessage,
   browserMidiControls,
   browserMidiNoteValue,
+  browserMidiPitchControl,
   browserPitchBendValue,
   installBrowserMidiAdapter,
   isBrowserMidiControl,
@@ -888,4 +889,16 @@ test("note and bend helpers remain identical to the WAX mapping contract", () =>
     "tone controls use the same two-semitone exponential bend as frequency controls",
   );
   assert.equal(browserPitchBendValue({ min: "24", max: "84", id: "rootNote" }, 60, 1), 62);
+});
+
+test("the compact graph seed note remains the MIDI pitch target", () => {
+  const seedNote = range("seedNote", { min: 0, max: 127, step: 1, value: 57 });
+  const documentObject = {
+    querySelector(selector) {
+      return selector === "#seedNote" ? seedNote : null;
+    },
+    querySelectorAll() { return [seedNote]; },
+  };
+  assert.equal(browserMidiPitchControl(documentObject), seedNote);
+  assert.equal(browserPitchBendValue(seedNote, 57, 1), 59);
 });

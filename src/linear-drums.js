@@ -800,7 +800,7 @@ export class LinearDrumAudio {
       this.releaseAudioOutput = connectAudioOutput(context, this.analyser, { runtime: this.runtime });
       this.noiseBuffer = this.#createNoiseBuffer(context);
     }
-    if (context.state === "suspended") {
+    if (context.state && context.state !== "running") {
       unlockAudioContext(context);
       await context.resume();
     }
@@ -825,7 +825,8 @@ export class LinearDrumAudio {
     const parameters = linearDrumParameters(frequency, sourceSettings, {
       vertical: options.performanceY,
     });
-    const velocity = clamp(finiteOr(options.velocity, .82), .05, 1);
+    const minimumVelocity = clamp(finiteOr(options.minimumVelocity, .05), .001, .05);
+    const velocity = clamp(finiteOr(options.velocity, .82), minimumVelocity, 1);
     const requestedStartAt = options.startAt === undefined || options.startAt === null
       ? Number.NaN
       : Number(options.startAt);

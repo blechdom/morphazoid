@@ -5,6 +5,10 @@ import {
   cloneDefaultFmDrumVoices,
   DEFAULT_FM_DRUM_VOICES,
   FmDrumAudio,
+  MAX_FM_DRUM_ACTIVE_HITS,
+  MAX_FM_DRUM_ACTIVE_SOURCES,
+  MAX_FM_DRUM_SOURCE_BURST,
+  MAX_FM_DRUM_SOURCE_STARTS_PER_SECOND,
   frequencyFromSlider,
   frequencySliderPosition,
   sanitizeFmDrumVoice,
@@ -26,6 +30,10 @@ test("FM Drums exposes sixteen uniquely keyed reusable voices", () => {
 });
 
 test("FM drum banks clone cleanly and voice values stay bounded", () => {
+  assert.equal(MAX_FM_DRUM_ACTIVE_HITS, 96);
+  assert.equal(MAX_FM_DRUM_ACTIVE_SOURCES, 256);
+  assert.equal(MAX_FM_DRUM_SOURCE_STARTS_PER_SECOND, 512);
+  assert.equal(MAX_FM_DRUM_SOURCE_BURST, 192);
   const bank = cloneDefaultFmDrumVoices();
   bank[0].frequency = 999;
   assert.notEqual(bank[0].frequency, DEFAULT_FM_DRUM_VOICES[0].frequency);
@@ -456,6 +464,256 @@ test("FM drum silence cancels future hits and fades active sources before cleanu
   assert.ok(activeHit.filter.disconnectCount > 0);
   assert.ok(activeHit.amplitude.disconnectCount > 0);
 });
+
+function makeGuardedFmRuntime({ failure = null } = {}) {
+  const created = {
+    nodes: [],
+    oscillators: [],
+    bufferSources: [],
+    oscillatorAttempts: 0,
+    gainAttempts: 0,
+    contexts: [],
+    closeCount: 0,
+    failure,
+  };
+  const audioParam = (value = 0) => ({
+    value,
+    setValueAtTime(next) { this.value = next; },
+    linearRampToValueAtTime(next) { this.value = next; },
+    exponentialRampToValueAtTime(next) { this.value = next; },
+    setTargetAtTime(next) { this.value = next; },
+    cancelScheduledValues() {},
+    cancelAndHoldAtTime() {},
+  });
+  const node = (properties = {}) => {
+    const result = {
+      connections: [],
+      disconnectCount: 0,
+      ...properties,
+      connect(destination) {
+        this.connections.push(destination);
+        return destination;
+      },
+      disconnect() {
+        this.disconnectCount += 1;
+        this.connections.length = 0;
+      },
+    };
+    created.nodes.push(result);
+    return result;
+  };
+
+  class GuardedContext {
+    constructor() {
+      this.state = "running";
+      this.currentTime = 1;
+      this.sampleRate = 1_000;
+      this.destination = node();
+      created.contexts.push(this);
+    }
+
+    createDynamicsCompressor() {
+      return node({ threshold: {}, knee: {}, ratio: {}, attack: {}, release: {} });
+    }
+
+    createGain() {
+      created.gainAttempts += 1;
+      if (created.failure === "output-gain" && created.gainAttempts === 1) {
+        throw new DOMException("injected output exhaustion", "QuotaExceededError");
+      }
+      return node({ gain: audioParam() });
+    }
+
+    createAnalyser() { return node({ fftSize: 0 }); }
+
+    createBiquadFilter() {
+      return node({ type: "", frequency: audioParam(), Q: audioParam() });
+    }
+
+    createOscillator() {
+      created.oscillatorAttempts += 1;
+      if (created.failure === "second-oscillator" && created.oscillatorAttempts === 2) {
+        throw new DOMException("injected oscillator exhaustion", "QuotaExceededError");
+      }
+      const oscillator = node({
+        type: "sine",
+        frequency: audioParam(),
+        starts: [],
+        stops: [],
+        onended: null,
+        start(time) { this.starts.push(time); },
+        stop(time) { this.stops.push(time); },
+      });
+      created.oscillators.push(oscillator);
+      return oscillator;
+    }
+
+    createBuffer(_channels, frameCount) {
+      return { getChannelData: () => new Float32Array(frameCount) };
+    }
+
+    createBufferSource() {
+      const source = node({
+        buffer: null,
+        starts: [],
+        stops: [],
+        onended: null,
+        start(time) {
+          this.starts.push(time);
+          if (created.failure === "noise-start") {
+            throw new DOMException("injected source exhaustion", "OperationError");
+          }
+        },
+        stop(time) { this.stops.push(time); },
+      });
+      created.bufferSources.push(source);
+      return source;
+    }
+
+    async close() {
+      created.closeCount += 1;
+      this.state = "closed";
+    }
+  }
+
+  const runtime = { AudioContext: GuardedContext };
+  return { runtime, created };
+}
+
+test("FM drum output construction closes and disconnects a partial graph", async () => {
+  const { runtime, created } = makeGuardedFmRuntime({ failure: "output-gain" });
+  const audio = new FmDrumAudio(runtime);
+
+  await assert.rejects(audio.start(), /injected output exhaustion/);
+  const failedContext = created.contexts[0];
+  const failedCompressor = created.nodes.find((candidate) => (
+    candidate !== failedContext.destination && "threshold" in candidate
+  ));
+  assert.equal(failedContext.state, "closed");
+  assert.equal(created.closeCount, 1);
+  assert.ok(failedCompressor.disconnectCount > 0);
+  assert.equal(audio.context, null);
+  assert.equal(audio.input, null);
+  assert.equal(audio.master, null);
+
+  created.failure = null;
+  const recovered = await audio.start();
+  assert.equal(recovered.state, "running");
+  assert.notEqual(recovered, failedContext);
+});
+
+test("FM drum admission bounds live hits and source allocation without throwing", async () => {
+  const { runtime, created } = makeGuardedFmRuntime();
+  const audio = new FmDrumAudio(runtime, {
+    maxActiveHits: 2,
+    maxActiveSources: 4,
+    sourceStartsPerSecond: 20,
+    sourceBurst: 4,
+  });
+  const quietVoice = { ...DEFAULT_FM_DRUM_VOICES[0], noise: 0, decay: 3 };
+
+  const first = await audio.trigger(quietVoice, { startAt: 1 });
+  const second = await audio.trigger(quietVoice, { startAt: 1.1 });
+  const skipped = await audio.trigger(quietVoice, { startAt: 1.2 });
+
+  assert.equal(first.scheduled, true);
+  assert.equal(second.scheduled, true);
+  assert.deepEqual(
+    { scheduled: skipped.scheduled, skipped: skipped.skipped, reason: skipped.skipReason },
+    { scheduled: false, skipped: true, reason: "live-hit-budget" },
+  );
+  assert.equal(audio.activeHits.size, 2);
+  assert.equal(audio.activeSourceCount, 4);
+  assert.equal(created.oscillators.length, 4, "a rejected hit must allocate no native nodes");
+
+  for (const source of [...audio.activeHits][0].sources) source.onended?.();
+  audio.context.currentTime = 1.25;
+  const recovered = await audio.trigger(quietVoice, { startAt: 1.25 });
+  assert.equal(recovered.scheduled, true, "capacity should recover as sources end");
+  assert.equal(audio.activeHits.size, 2);
+  assert.equal(audio.activeSourceCount, 4);
+});
+
+test("FM drum source-rate admission refills without allocating rejected hits", async () => {
+  const { runtime, created } = makeGuardedFmRuntime();
+  const audio = new FmDrumAudio(runtime, {
+    maxActiveHits: 8,
+    maxActiveSources: 16,
+    sourceStartsPerSecond: 2,
+    sourceBurst: 2,
+  });
+  const quietVoice = { ...DEFAULT_FM_DRUM_VOICES[0], noise: 0 };
+
+  assert.equal((await audio.trigger(quietVoice)).scheduled, true);
+  const skipped = await audio.trigger(quietVoice);
+  assert.equal(skipped.scheduled, false);
+  assert.equal(skipped.skipped, true);
+  assert.equal(skipped.skipReason, "source-rate-budget");
+  assert.equal(created.oscillators.length, 2);
+
+  audio.context.currentTime = 2;
+  const recovered = await audio.trigger(quietVoice);
+  assert.equal(recovered.scheduled, true);
+  assert.equal(created.oscillators.length, 4);
+});
+
+test("FM drum source-cost admission accounts for optional noise layers", async () => {
+  const { runtime, created } = makeGuardedFmRuntime();
+  const audio = new FmDrumAudio(runtime, {
+    maxActiveHits: 8,
+    maxActiveSources: 5,
+    sourceStartsPerSecond: 20,
+    sourceBurst: 5,
+  });
+  const noisyVoice = { ...DEFAULT_FM_DRUM_VOICES[2], noise: 0.8, decay: 3 };
+
+  const first = await audio.trigger(noisyVoice);
+  const skipped = await audio.trigger(noisyVoice);
+  assert.equal(first.scheduled, true);
+  assert.equal(audio.activeSourceCount, 3);
+  assert.equal(skipped.scheduled, false);
+  assert.equal(skipped.skipReason, "live-source-budget");
+  assert.equal(created.oscillators.length, 2);
+  assert.equal(created.bufferSources.length, 1);
+});
+
+for (const failure of ["second-oscillator", "noise-start"]) {
+  test(`FM drum construction rolls back every partial node after ${failure}`, async () => {
+    const { runtime, created } = makeGuardedFmRuntime({ failure });
+    const audio = new FmDrumAudio(runtime, {
+      maxActiveHits: 8,
+      maxActiveSources: 24,
+      sourceStartsPerSecond: 24,
+      sourceBurst: 24,
+    });
+    await audio.start();
+    const graphNodeCount = created.nodes.length;
+    const voice = {
+      ...DEFAULT_FM_DRUM_VOICES[2],
+      noise: failure === "noise-start" ? 0.8 : 0,
+    };
+
+    await assert.rejects(audio.trigger(voice), /injected .* exhaustion/);
+    const partialNodes = created.nodes.slice(graphNodeCount);
+    assert.ok(partialNodes.length > 0);
+    assert.ok(
+      partialNodes.every(({ disconnectCount }) => disconnectCount > 0),
+      "every native node created for a failed hit must be disconnected",
+    );
+    assert.ok(
+      [...created.oscillators, ...created.bufferSources]
+        .every(({ stops }) => stops.at(-1) === audio.context.currentTime),
+      "every partial source must be stopped immediately",
+    );
+    assert.equal(audio.activeHits.size, 0);
+    assert.equal(audio.activeSourceCount, 0);
+
+    created.failure = null;
+    const recovered = await audio.trigger(voice);
+    assert.equal(recovered.scheduled, true, "the same AudioContext should remain usable");
+    assert.equal(audio.activeHits.size, 1);
+  });
+}
 
 test("FM drum audio cancels a suspended start when page lifecycle closure wins", async () => {
   let resolveResume;

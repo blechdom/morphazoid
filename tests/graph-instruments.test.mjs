@@ -24,6 +24,7 @@ import {
   graphInstrumentPresetState,
 } from "../src/graph-instrument-app.js";
 import { edgeAudioParameters, generateGraph } from "../src/graph-delay.js";
+import { GRAPH_DRUM_PERCUSSION_STYLES } from "../src/graph-drum-audio.js";
 
 const closeTo = (actual, expected, epsilon = 1e-12) => {
   assert.ok(
@@ -191,74 +192,147 @@ test("distance ratio scales edge time from the base while preserving safety boun
   closeTo(delays({ baseDelay: 600, distanceRatio: 12, timeCurve: 1 })[2], 2);
 });
 
-test("presets apply rich, mode-specific sound settings alongside graph timing", () => {
+test("graph presets preserve synth controls while drum presets retain their sound palettes", () => {
   const drumKeys = [
     "mappingMode", "percussionStyle", "pitchDepth", "turnPitchDepth",
     "characterDepth",
   ];
-  const synthKeys = [
+  const synthControlKeys = [
+    "output", "seedNote",
     "mappingMode", "tuningMode", "edoDivisions", "soundMode",
     "baseFrequency", "pitchRange", "turnPitchScale",
     "modulationIndex", "modulationRatio", "articulation", "noteDuration",
     "attack", "decay", "sustain", "release", "stereoSpread",
   ];
   const drumStyles = new Set();
-  const synthSounds = new Set();
-  const synthTunings = new Set();
-  const synthArticulations = new Set();
-  const equalDivisions = new Set();
+  const validDrumStyles = new Set(GRAPH_DRUM_PERCUSSION_STYLES.map(({ id }) => id));
+  const selectedSynth = {
+    ...graphInstrumentDefaultState("synth"),
+    output: 0.73,
+    seedNote: 74,
+    triggerScope: "all",
+    mappingMode: "turn",
+    tuningMode: "just",
+    edoDivisions: 53,
+    soundMode: "square",
+    baseFrequency: 432,
+    pitchRange: 4.25,
+    turnPitchScale: 1.37,
+    modulationIndex: 7.15,
+    modulationRatio: 3.25,
+    articulation: "edge",
+    noteDuration: 770,
+    attack: 321,
+    decay: 654,
+    sustain: 0.67,
+    release: 987,
+    stereoSpread: 0.23,
+  };
 
   for (const [name, patch] of Object.entries(GRAPH_INSTRUMENT_PATCHES)) {
     assert.ok(Object.isFrozen(patch.drums));
-    assert.ok(Object.isFrozen(patch.synth));
+    assert.equal(
+      Object.hasOwn(patch, "synth"),
+      false,
+      `${name} must not carry a hidden Graph Synth sound preset`,
+    );
     for (const key of drumKeys) assert.ok(Object.hasOwn(patch.drums, key));
-    for (const key of synthKeys) assert.ok(Object.hasOwn(patch.synth, key));
 
     const drums = graphInstrumentPresetState(name, "drums");
-    const synth = graphInstrumentPresetState(name, "synth");
+    const synthPreset = graphInstrumentPresetState(name, "synth");
     assert.equal(Object.hasOwn(patch, "edgeSubdivisions"), false);
-    for (const state of [drums, synth]) {
+    for (const state of [drums, synthPreset]) {
       assert.equal(state.graphPatch, name);
       assert.equal(Object.hasOwn(state, "edgeSubdivisions"), false);
-      assert.equal(state.triggerScope, patch.triggerScope);
-      assert.ok(["all", "leaves"].includes(state.triggerScope));
       assert.equal(state.feedbackTone, patch.feedbackTone);
     }
+    assert.equal(drums.triggerScope, patch.triggerScope);
+    assert.ok(["all", "leaves"].includes(drums.triggerScope));
+    assert.equal(
+      Object.hasOwn(synthPreset, "triggerScope"),
+      false,
+      `${name} must preserve the performer's current Synth attack scope`,
+    );
     for (const key of drumKeys) assert.equal(drums[key], patch.drums[key]);
-    for (const key of synthKeys) assert.equal(synth[key], patch.synth[key]);
+    for (const key of synthControlKeys) {
+      assert.equal(
+        Object.hasOwn(synthPreset, key),
+        false,
+        `${name} must not override Synth control ${key}`,
+      );
+    }
     assert.equal(drums.soundMode, undefined, "synth settings must not leak into drums");
-    assert.equal(synth.percussionStyle, undefined, "drum settings must not leak into synth");
+    assert.equal(synthPreset.percussionStyle, undefined, "drum settings must not leak into synth");
 
     assert.ok(drums.pitchDepth >= 0 && drums.pitchDepth <= 24);
     assert.ok(drums.turnPitchDepth >= 0 && drums.turnPitchDepth <= 48);
     assert.ok(drums.characterDepth >= 0 && drums.characterDepth <= 1);
-    assert.ok(synth.edoDivisions >= 1 && synth.edoDivisions <= MAX_GRAPH_EQUAL_DIVISIONS);
-    assert.ok(synth.attack >= 0 && synth.attack <= 2_000);
-    assert.ok(synth.decay >= 0 && synth.decay <= 4_000);
-    assert.ok(synth.sustain >= 0 && synth.sustain <= 1);
-    assert.ok(synth.release >= 0 && synth.release <= 8_000);
-    assert.ok(synth.stereoSpread >= 0 && synth.stereoSpread <= 1);
+    assert.equal(validDrumStyles.has(drums.percussionStyle), true);
 
     drumStyles.add(drums.percussionStyle);
-    synthSounds.add(synth.soundMode);
-    synthTunings.add(synth.tuningMode);
-    synthArticulations.add(synth.articulation);
-    if (synth.tuningMode === "equal") equalDivisions.add(synth.edoDivisions);
+
+    const loadedSynth = { ...selectedSynth, ...synthPreset };
+    assert.equal(loadedSynth.triggerScope, selectedSynth.triggerScope);
+    for (const key of synthControlKeys) {
+      assert.equal(loadedSynth[key], selectedSynth[key], `${name} changed Synth control ${key}`);
+    }
+
+    const graph = generateGraph({
+      type: loadedSynth.topology,
+      nodeCount: loadedSynth.nodeCount,
+      density: loadedSynth.density,
+      seed: loadedSynth.seed,
+    });
+    const arrivals = scheduleGraphPulse(graph, {
+      ...loadedSynth,
+      pitchScale: loadedSynth.turnPitchScale,
+      maxEvents: 1,
+    });
+    assert.equal(arrivals.length, 1, `${name} must retain an immediate source arrival`);
+    assert.equal(arrivals[0].time, 0);
+    const sourceVoice = graphSynthVoice(arrivals[0], graph, {
+      mappingMode: loadedSynth.mappingMode,
+      baseFrequency: loadedSynth.baseFrequency,
+      pitchRange: loadedSynth.pitchRange,
+      tuningMode: loadedSynth.tuningMode,
+      edoDivisions: loadedSynth.edoDivisions,
+      soundMode: loadedSynth.soundMode,
+      waveform: loadedSynth.soundMode,
+      modulationIndex: loadedSynth.modulationIndex,
+      modulationRatio: loadedSynth.modulationRatio,
+      stereoSpread: loadedSynth.stereoSpread,
+      feedbackTone: loadedSynth.feedbackTone,
+    });
+    assert.ok(sourceVoice.gain >= 0.1, `${name} source voice must begin at an audible level`);
+    assert.equal(sourceVoice.soundMode, selectedSynth.soundMode);
   }
 
-  assert.ok(drumStyles.size >= 4, "drum presets should span distinct timbre banks");
-  assert.ok(synthSounds.size >= 6, "synth presets should span distinct oscillator colors");
-  assert.deepEqual([...synthTunings].sort(), ["equal", "just", "pure"]);
-  assert.deepEqual([...synthArticulations].sort(), ["edge", "trigger"]);
-  assert.ok(equalDivisions.has(7));
-  assert.ok(equalDivisions.has(19));
-  assert.ok(equalDivisions.has(31));
+  assert.deepEqual(
+    [...drumStyles].sort(),
+    [
+      "circuit",
+      "drum-bank",
+      "karplus-objects",
+      "karplus-strong",
+      "karplus-tines",
+      "rattlesnake",
+      "resonant-metal",
+    ],
+    "drum presets should demonstrate every authored FM and Karplus palette",
+  );
 
   const defaultPatch = GRAPH_INSTRUMENT_PATCHES.layeredGlass;
   const defaultDrums = graphInstrumentDefaultState("drums");
   const defaultSynth = graphInstrumentDefaultState("synth");
   for (const key of drumKeys) assert.equal(defaultDrums[key], defaultPatch.drums[key]);
-  for (const key of synthKeys) assert.equal(defaultSynth[key], defaultPatch.synth[key]);
+  assert.equal(defaultDrums.percussionStyle, "circuit");
+  assert.equal(defaultDrums.seedNote, 60);
+  assert.equal(defaultSynth.triggerScope, "all");
+  assert.equal(defaultSynth.seedNote, 57);
+  assert.equal(defaultSynth.output, 0.64);
+  assert.equal(defaultSynth.soundMode, "fm");
+  assert.equal(defaultSynth.edoDivisions, 19);
+  assert.equal(GRAPH_INSTRUMENT_PATCHES.hubScatter.drums.percussionStyle, "drum-bank");
 });
 
 test("the fast even preset schedules its authored 55 ms graph steps", () => {
@@ -501,6 +575,114 @@ test("a 128-node ring can complete multiple decaying feedback laps", () => {
   closeTo(rootReturns[1].time, MAX_GRAPH_INSTRUMENT_NODES * 0.004, 1e-10);
   closeTo(rootReturns[1].amplitude, 0.72, 1e-10);
   closeTo(rootReturns[2].amplitude, 0.72 ** 2, 1e-10);
+});
+
+test("a dense cyclic 128-node schedule stays bounded and deterministic without shrinking topology", () => {
+  const graph = generateGraph({
+    type: "smallworld",
+    nodeCount: MAX_GRAPH_INSTRUMENT_NODES,
+    density: 0.9,
+    seed: 83,
+    maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
+  });
+  const topologySnapshot = structuredClone(graph);
+  const options = {
+    baseDelay: 4,
+    distanceRatio: 1,
+    nodePass: 1,
+    feedback: 0.92,
+    minAmplitude: 1e-12,
+    horizonSeconds: 1_024,
+    maxDepth: MAX_GRAPH_EVENT_SCHEDULE,
+    maxEvents: MAX_GRAPH_EVENT_SCHEDULE,
+    maxFeedbackPasses: 24,
+  };
+
+  assert.equal(graph.nodes.length, MAX_GRAPH_INSTRUMENT_NODES);
+  assert.equal(graph.cyclic, true);
+  assert.ok(graph.edges.length > graph.nodes.length, "the regression graph must remain dense");
+
+  const first = scheduleGraphPulse(graph, options);
+  const second = scheduleGraphPulse(graph, options);
+  assert.equal(first.length, MAX_GRAPH_EVENT_SCHEDULE);
+  assert.equal(second.length, MAX_GRAPH_EVENT_SCHEDULE);
+  assert.equal(
+    new Set(first.map(({ nodeId }) => nodeId)).size,
+    MAX_GRAPH_INSTRUMENT_NODES,
+    "the bounded event schedule must still reach every available graph node",
+  );
+  assert.deepEqual(
+    second.map((event) => [
+      event.pathKey,
+      event.nodeId,
+      event.arrivalEdgeId,
+      event.previousNodeId,
+      event.time,
+      event.amplitude,
+      event.depth,
+      event.feedbackCount,
+    ]),
+    first.map((event) => [
+      event.pathKey,
+      event.nodeId,
+      event.arrivalEdgeId,
+      event.previousNodeId,
+      event.time,
+      event.amplitude,
+      event.depth,
+      event.feedbackCount,
+    ]),
+    "equal dense graphs and seeds must retain deterministic traversal identities",
+  );
+
+  const maximumPathKeyLength = `p:${"0".repeat(16)}:${MAX_GRAPH_EVENT_SCHEDULE}`.length;
+  assert.equal(new Set(first.map(({ pathKey }) => pathKey)).size, first.length);
+  for (const event of first) {
+    assert.match(event.pathKey, /^p:[0-9a-f]{16}:\d+$/);
+    assert.ok(event.pathKey.length <= maximumPathKeyLength);
+    assert.equal(Number(event.pathKey.split(":")[2]), event.depth);
+    assert.ok(Number.isInteger(event.pathHashA) && event.pathHashA >= 0);
+    assert.ok(Number.isInteger(event.pathHashB) && event.pathHashB >= 0);
+    assert.ok(event.nodeId >= 0 && event.nodeId < MAX_GRAPH_INSTRUMENT_NODES);
+    assert.ok(event.time <= options.horizonSeconds);
+    assert.ok(event.feedbackCount <= options.maxFeedbackPasses);
+  }
+
+  assert.deepEqual(
+    graph,
+    topologySnapshot,
+    "scheduling and overload bounds must not delete or rewrite graph nodes or routes",
+  );
+});
+
+test("dense path competition preserves one first visit for every reachable node", () => {
+  const graph = generateGraph({
+    type: "random",
+    nodeCount: MAX_GRAPH_INSTRUMENT_NODES,
+    density: 1,
+    seed: 17,
+    maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
+  });
+  const topologySnapshot = structuredClone(graph);
+  const events = scheduleGraphPulse(graph, {
+    baseDelay: 4,
+    distanceRatio: 1,
+    nodePass: 1,
+    feedback: 0.92,
+    minAmplitude: 1e-12,
+    horizonSeconds: 1_024,
+    maxDepth: MAX_GRAPH_EVENT_SCHEDULE,
+    maxEvents: MAX_GRAPH_EVENT_SCHEDULE,
+    maxFeedbackPasses: 24,
+  });
+
+  assert.equal(events.length, MAX_GRAPH_EVENT_SCHEDULE);
+  assert.equal(
+    new Set(events.map(({ nodeId }) => nodeId)).size,
+    MAX_GRAPH_INSTRUMENT_NODES,
+    "duplicate short paths must yield capacity to every reachable node's first visit",
+  );
+  assert.deepEqual(graph, topologySnapshot);
 });
 
 test("coalescing combines duplicate energy while preserving pitch-separated arrivals", () => {

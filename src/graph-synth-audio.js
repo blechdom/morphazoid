@@ -3,7 +3,10 @@ import { connectAudioOutput } from "./audio-output-manager.js";
 
 const MIN_FREQUENCY = 20;
 const MAX_FREQUENCY = 20_000;
-const MAX_ACTIVE_VOICES = 64;
+export const MAX_GRAPH_SYNTH_ACTIVE_VOICES = 64;
+export const MAX_GRAPH_SYNTH_LIVE_SOURCES = 256;
+export const MAX_GRAPH_SYNTH_SOURCE_STARTS_PER_SECOND = 512;
+export const MAX_GRAPH_SYNTH_SOURCE_START_BURST = 256;
 const SILENCE_FLOOR = 0.0001;
 const SILENCE_FADE_SECONDS = 0.025;
 const SOURCE_STOP_PADDING = 0.012;
@@ -92,6 +95,20 @@ function sanitizeVoice(source = {}) {
   };
 }
 
+/** Estimate native source-node cost before allocating any Web Audio nodes. */
+export function graphSynthSourceCost(source = {}) {
+  const voice = sanitizeVoice(source);
+  if (voice.mode === "fm" || voice.mode === "pm") return 2;
+  if (voice.mode !== "shepard") return 1;
+  const center = (voice.shepardWidth - 1) * 0.5;
+  let partials = 0;
+  for (let index = 0; index < voice.shepardWidth; index += 1) {
+    const frequency = voice.frequency * 2 ** (index - center);
+    if (frequency >= MIN_FREQUENCY && frequency <= MAX_FREQUENCY) partials += 1;
+  }
+  return Math.max(1, partials);
+}
+
 /** Map the normalized topology brightness to a perceptually useful low-pass. */
 function brightnessCutoff(brightness, sampleRate) {
   const high = Math.min(18_000, Math.max(1_000, finite(sampleRate, 48_000) * 0.45));
@@ -116,6 +133,14 @@ export class GraphSynthAudio {
     this.lifecycleGeneration = 0;
     this.startPromise = null;
     this.activeVoices = new Set();
+    this.sourceStartTokens = MAX_GRAPH_SYNTH_SOURCE_START_BURST;
+    this.sourceTokenTime = null;
+  }
+
+  get activeSourceCount() {
+    let count = 0;
+    for (const voice of this.activeVoices) count += voice.sourceCost ?? voice.sources?.length ?? 0;
+    return count;
   }
 
   async start() {
@@ -141,7 +166,15 @@ export class GraphSynthAudio {
       }
       context = new AudioContextConstructor();
       this.context = context;
-      this.#buildGraph(context);
+      this.#resetSourceAdmission(context.currentTime);
+      try {
+        this.#buildGraph(context);
+      } catch (error) {
+        this.#discardGraph();
+        this.context = null;
+        try { await context.close?.(); } catch { /* A failed graph may already be closed. */ }
+        throw error;
+      }
     }
 
     if (context.state !== "running") {
@@ -168,23 +201,37 @@ export class GraphSynthAudio {
   }
 
   #buildGraph(context) {
-    const input = context.createGain();
-    const master = context.createGain();
-    const compressor = context.createDynamicsCompressor?.() ?? context.createGain();
-    input.gain.value = 1;
-    master.gain.value = this.output;
-    if (compressor.threshold) {
-      compressor.threshold.value = -10;
-      compressor.knee.value = 12;
-      compressor.ratio.value = 8;
-      compressor.attack.value = 0.002;
-      compressor.release.value = 0.14;
+    let input = null;
+    let master = null;
+    let compressor = null;
+    let releaseAudioOutput = null;
+    try {
+      input = context.createGain();
+      master = context.createGain();
+      compressor = context.createDynamicsCompressor?.() ?? context.createGain();
+      input.gain.value = 1;
+      master.gain.value = this.output;
+      if (compressor.threshold) {
+        compressor.threshold.value = -10;
+        compressor.knee.value = 12;
+        compressor.ratio.value = 8;
+        compressor.attack.value = 0.002;
+        compressor.release.value = 0.14;
+      }
+      safeConnect(input, master);
+      safeConnect(master, compressor);
+      releaseAudioOutput = connectAudioOutput(context, compressor, {
+        runtime: this.runtime,
+      });
+    } catch (error) {
+      releaseAudioOutput?.();
+      safeDisconnect(input);
+      safeDisconnect(master);
+      safeDisconnect(compressor);
+      throw error;
     }
-    safeConnect(input, master);
-    safeConnect(master, compressor);
-    this.releaseAudioOutput = connectAudioOutput(context, compressor, {
-      runtime: this.runtime,
-    });
+
+    this.releaseAudioOutput = releaseAudioOutput;
     this.input = input;
     this.master = master;
     this.compressor = compressor;
@@ -235,7 +282,7 @@ export class GraphSynthAudio {
     sustainLevel,
     releaseSeconds,
   } = {}) {
-    const voice = sanitizeVoice(spec);
+    let voice = sanitizeVoice(spec);
     if (voice.gain <= 0) return Object.freeze({ ...voice, scheduled: false });
     const context = await this.start();
     if (context !== this.context || context.state === "closed") {
@@ -244,16 +291,42 @@ export class GraphSynthAudio {
 
     const now = finite(context.currentTime, 0);
     this.#pruneVoices(now);
-    while (this.activeVoices.size >= MAX_ACTIVE_VOICES) {
-      const oldest = this.activeVoices.values().next().value;
-      if (!oldest) break;
-      this.#cancelVoice(oldest, now, true);
-    }
-
     const requestedStart = Number(startAt);
     const startsAt = startAt === undefined || startAt === null || !Number.isFinite(requestedStart)
       ? now
       : Math.max(now, requestedStart);
+    this.#refillSourceTokens(now);
+    let sourceCost = graphSynthSourceCost(voice);
+    // Shepard is the only voice whose optional width multiplies native source
+    // count. Under pressure, retain the note with a compact three-partial stack
+    // before considering an ordinary overload drop.
+    if (
+      voice.mode === "shepard"
+      && voice.shepardWidth > 3
+      && this.sourceStartTokens < sourceCost
+      && this.sourceStartTokens >= 3
+    ) {
+      voice = { ...voice, shepardWidth: 3 };
+      sourceCost = graphSynthSourceCost(voice);
+    }
+    if (this.sourceStartTokens < sourceCost) {
+      return Object.freeze({
+        ...voice,
+        startAt: startsAt,
+        scheduled: false,
+        skipReason: "source-rate-budget",
+      });
+    }
+    const reservation = this.#reserveVoiceSlot(now, startsAt, sourceCost);
+    if (!reservation.admitted) {
+      return Object.freeze({
+        ...voice,
+        startAt: startsAt,
+        scheduled: false,
+        skipReason: reservation.reason,
+      });
+    }
+    this.sourceStartTokens -= sourceCost;
     const attack = clamp(
       attackSeconds ?? spec?.attackSeconds ?? spec?.attack,
       0.0005,
@@ -300,32 +373,39 @@ export class GraphSynthAudio {
     const endsAt = usesAdsrGate ? releaseEndsAt : startsAt + attack + decay;
     const stopsAt = endsAt + SOURCE_STOP_PADDING;
     const filterFrequency = brightnessCutoff(voice.brightness, context.sampleRate);
-    const amplitude = context.createGain();
-    const filter = context.createBiquadFilter();
-    const panner = typeof context.createStereoPanner === "function"
-      ? context.createStereoPanner()
-      : null;
+    let amplitude = null;
+    let filter = null;
+    let panner = null;
     const sources = [];
-    const nodes = [amplitude, filter, panner].filter(Boolean);
+    const nodes = [];
     let record = null;
 
-    filter.type = "lowpass";
-    setParam(filter.frequency, "setValueAtTime", filterFrequency, startsAt);
-    setParam(filter.Q, "setValueAtTime", voice.filterQ, startsAt);
-    setParam(amplitude.gain, "setValueAtTime", SILENCE_FLOOR, startsAt);
-    setParam(amplitude.gain, "linearRampToValueAtTime", voice.gain, attackEndsAt);
-    if (usesAdsrGate) {
-      const sustainGain = Math.max(SILENCE_FLOOR, voice.gain * requestedSustain);
-      setParam(amplitude.gain, "exponentialRampToValueAtTime", sustainGain, decayEndsAt);
-      setParam(amplitude.gain, "setValueAtTime", sustainGain, gateEndsAt);
-      setParam(amplitude.gain, "exponentialRampToValueAtTime", SILENCE_FLOOR, releaseEndsAt);
-    } else {
-      setParam(amplitude.gain, "exponentialRampToValueAtTime", SILENCE_FLOOR, endsAt);
-    }
-    setParam(amplitude.gain, "setValueAtTime", 0, stopsAt);
-    setParam(panner?.pan, "setValueAtTime", voice.pan, startsAt);
-
     try {
+      amplitude = context.createGain();
+      nodes.push(amplitude);
+      filter = context.createBiquadFilter();
+      nodes.push(filter);
+      panner = typeof context.createStereoPanner === "function"
+        ? context.createStereoPanner()
+        : null;
+      if (panner) nodes.push(panner);
+
+      filter.type = "lowpass";
+      setParam(filter.frequency, "setValueAtTime", filterFrequency, startsAt);
+      setParam(filter.Q, "setValueAtTime", voice.filterQ, startsAt);
+      setParam(amplitude.gain, "setValueAtTime", SILENCE_FLOOR, startsAt);
+      setParam(amplitude.gain, "linearRampToValueAtTime", voice.gain, attackEndsAt);
+      if (usesAdsrGate) {
+        const sustainGain = Math.max(SILENCE_FLOOR, voice.gain * requestedSustain);
+        setParam(amplitude.gain, "exponentialRampToValueAtTime", sustainGain, decayEndsAt);
+        setParam(amplitude.gain, "setValueAtTime", sustainGain, gateEndsAt);
+        setParam(amplitude.gain, "exponentialRampToValueAtTime", SILENCE_FLOOR, releaseEndsAt);
+      } else {
+        setParam(amplitude.gain, "exponentialRampToValueAtTime", SILENCE_FLOOR, endsAt);
+      }
+      setParam(amplitude.gain, "setValueAtTime", 0, stopsAt);
+      setParam(panner?.pan, "setValueAtTime", voice.pan, startsAt);
+
       if (voice.mode === "shepard") {
         this.#buildShepardVoice({
           context,
@@ -385,6 +465,7 @@ export class GraphSynthAudio {
         startAt: startsAt,
         endAt: endsAt,
         stopAt: stopsAt,
+        sourceCost,
         cleaned: false,
       };
       this.activeVoices.add(record);
@@ -526,6 +607,61 @@ export class GraphSynthAudio {
     }
   }
 
+  #reserveVoiceSlot(now, startsAt, sourceCost) {
+    while (
+      this.activeVoices.size >= MAX_GRAPH_SYNTH_ACTIVE_VOICES
+      || this.activeSourceCount + sourceCost > MAX_GRAPH_SYNTH_LIVE_SOURCES
+    ) {
+      let latestFuture = null;
+      for (const voice of this.activeVoices) {
+        if (voice.startAt <= now + 1e-6) continue;
+        if (!latestFuture || voice.startAt >= latestFuture.startAt) latestFuture = voice;
+      }
+
+      if (latestFuture) {
+        // Lookahead scheduling arrives in chronological order. Once the pool
+        // is full, replacing its earliest pending entries with later events
+        // can indefinitely starve every attack before it reaches startAt.
+        if (startsAt >= latestFuture.startAt) {
+          return {
+            admitted: false,
+            reason: this.activeVoices.size >= MAX_GRAPH_SYNTH_ACTIVE_VOICES
+              ? "voice-budget"
+              : "live-source-budget",
+          };
+        }
+        this.#cancelVoice(latestFuture, now, true);
+        continue;
+      }
+
+      // Once every retained voice has started, keep the original bounded-pool
+      // behavior: the oldest live voice yields to the new attack.
+      const oldest = this.activeVoices.values().next().value;
+      if (!oldest) break;
+      this.#cancelVoice(oldest, now, true);
+    }
+    return { admitted: true, reason: null };
+  }
+
+  #resetSourceAdmission(now = 0) {
+    this.sourceStartTokens = MAX_GRAPH_SYNTH_SOURCE_START_BURST;
+    this.sourceTokenTime = finite(now, 0);
+  }
+
+  #refillSourceTokens(now) {
+    const safeNow = finite(now, 0);
+    if (!Number.isFinite(this.sourceTokenTime)) {
+      this.#resetSourceAdmission(safeNow);
+      return;
+    }
+    const elapsed = Math.max(0, safeNow - this.sourceTokenTime);
+    this.sourceStartTokens = Math.min(
+      MAX_GRAPH_SYNTH_SOURCE_START_BURST,
+      this.sourceStartTokens + elapsed * MAX_GRAPH_SYNTH_SOURCE_STARTS_PER_SECOND,
+    );
+    this.sourceTokenTime = safeNow;
+  }
+
   #stopSource(source, at) {
     try {
       source?.stop?.(at);
@@ -595,6 +731,7 @@ export class GraphSynthAudio {
       this.#cleanupVoice(voice);
     }
     this.#discardGraph();
+    this.#resetSourceAdmission(0);
     this.context = null;
     if (context && context.state !== "closed" && typeof context.close === "function") {
       await context.close();

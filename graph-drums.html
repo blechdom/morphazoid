@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="micmic.css" />
     <link rel="stylesheet" href="graph-delay.css" />
     <link rel="stylesheet" href="l-system-drums.css" />
-    <link rel="stylesheet" href="graph-instruments.css" />
+    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-2" />
   </head>
   <body class="micmic-page graph-delay-page graph-instrument-page graph-drums-page" data-graph-instrument="drums">
     <header class="masthead">
@@ -59,32 +59,7 @@
           <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive percussion graph" aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight" aria-label="A directed graph whose active routes trigger drums. Audio off." aria-describedby="canvasInstructions liveStatus">
             A switchable directed graph whose nodes trigger percussion and whose cycles make decaying repeats.
           </canvas>
-          <div class="graph-pulse-control">
-            <button id="seedPulseButton" type="button"><b>Seed pulse</b><small>send one trigger</small></button>
-          </div>
-          <div class="graph-seed-keyboard" id="seedKeyboard" role="group" aria-label="Graph drum seed-note keyboard">
-            <div class="graph-seed-keyboard-head">
-              <button id="seedOctaveDown" type="button" aria-label="Move the seed keyboard down one octave">&minus;</button>
-              <span>Seed octave <output id="seedOctaveOut" aria-live="polite">4</output></span>
-              <button id="seedOctaveUp" type="button" aria-label="Move the seed keyboard up one octave">+</button>
-            </div>
-            <div class="graph-seed-keys" aria-label="Seed notes C4 through C5">
-              <button type="button" data-seed-semitone="0" aria-label="Seed note C"><span>C</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="1" aria-label="Seed note C sharp"><span>C&#9839;</span></button>
-              <button type="button" data-seed-semitone="2" aria-label="Seed note D"><span>D</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="3" aria-label="Seed note E flat"><span>E&#9837;</span></button>
-              <button type="button" data-seed-semitone="4" aria-label="Seed note E"><span>E</span></button>
-              <button type="button" data-seed-semitone="5" aria-label="Seed note F"><span>F</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="6" aria-label="Seed note F sharp"><span>F&#9839;</span></button>
-              <button type="button" data-seed-semitone="7" aria-label="Seed note G"><span>G</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="8" aria-label="Seed note A flat"><span>A&#9837;</span></button>
-              <button type="button" data-seed-semitone="9" aria-label="Seed note A"><span>A</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="10" aria-label="Seed note B flat"><span>B&#9837;</span></button>
-              <button type="button" data-seed-semitone="11" aria-label="Seed note B"><span>B</span></button>
-              <button type="button" data-seed-semitone="12" aria-label="Seed note C one octave higher"><span>C</span></button>
-            </div>
-          </div>
-          <div class="l-system-mapping-readout" id="mappingReadout" aria-label="Latest graph drum mapping" aria-live="off">NODE 1 · PASS 0 → SUB KICK · 100%</div>
+          <div class="l-system-mapping-readout" id="mappingReadout" aria-label="Latest graph drum mapping" aria-live="off">NODE 1 · PASS 0 → CIRCUIT SUB KICK · 100%</div>
           <div class="graph-key" aria-hidden="true">
             <span><i class="feed-forward"></i> feed-forward</span>
             <span><i class="feedback"></i> cycle return</span>
@@ -108,9 +83,16 @@
               <button class="graph-pulse-action graph-random-action" id="randomGraphButton" type="button" aria-label="Create a random graph">Random</button>
             </div>
             <div class="graph-pulse-grid">
+              <label class="control graph-seed-note-control" for="seedNote"><span><b>Seed note</b><output id="seedNoteOut" for="seedNote">C4 · 60</output></span><input id="seedNote" name="pitch" type="range" min="0" max="127" step="1" value="60" /></label>
               <label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
               <label class="select-control" for="pulseDivision"><span class="field-label">Pulse interval</span><span class="select-shell"><select id="pulseDivision"><option value="0.5">Every 1/2 beat</option><option value="1" selected>Every beat</option><option value="2">Every 2 beats</option><option value="4">Every 4 beats</option></select></span></label>
             </div>
+            <small class="growth-parameter-note graph-seed-note-note">MIDI In and computer keys launch their own seed notes; this value sets Play, Send, and Space.</small>
+            <section class="graph-play-percussion-bank" aria-labelledby="percussionBankTitle">
+              <h3 class="parameter-cluster-title" id="percussionBankTitle">Percussion bank</h3>
+              <label class="select-control" for="percussionStyle"><span class="field-label">Percussion style</span><span class="select-shell"><select id="percussionStyle"><option value="drum-bank">Drum bank</option><option value="circuit" selected>Circuit percussion</option><option value="rattlesnake">Rattlesnake</option><option value="rattlesnake-physical">Rattlesnake physical</option><option value="resonant-metal">Resonant metal</option><option value="karplus-strong">Karplus Strong</option><option value="karplus-tines">Karplus tines</option><option value="karplus-objects">Karplus objects</option></select></span></label>
+              <div class="graph-drum-map" id="drumMap" aria-label="Sixteen graph drum voices"></div>
+            </section>
             <p class="graph-cycle-note"><b>Cycles are musical feedback.</b> Every return waits for its edge times, then loses amplitude and tone before it can trigger again.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
@@ -183,16 +165,14 @@
         </details>
 
         <details class="group control-section" id="mappingSection" data-section="mapping">
-          <summary class="group-summary"><h2 class="group-title">Drum mapping</h2><span class="section-state" id="mappingSummary">position grid · drum bank</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Drum mapping</h2><span class="section-state" id="mappingSummary">position grid · circuit percussion</span></summary>
           <div class="group-body">
             <label class="select-control" for="mappingMode"><span class="field-label">Node → voice</span><span class="select-shell"><select id="mappingMode"><option value="position-grid" selected>Stage position</option><option value="degree-turn">Degree × incoming turn</option><option value="path-phase">Path depth × cycle pass</option></select></span></label>
             <p class="graph-mapping-description" id="mappingDescription">Each node's 4 × 4 stage position chooses one drum.</p>
             <div class="graph-mapping-legend" aria-label="Graph drum mapping legend"><span><b id="mappingLegendLabel0">Vertical</b><small id="mappingLegendDetail0">drum row</small></span><span><b id="mappingLegendLabel1">Horizontal</b><small id="mappingLegendDetail1">voice column</small></span><span><b id="mappingLegendLabel2">Edge turn</b><small id="mappingLegendDetail2">tuning</small></span><span><b id="mappingLegendLabel3">Cycle pass</b><small id="mappingLegendDetail3">level + tone loss</small></span></div>
-            <label class="select-control" for="percussionStyle"><span class="field-label">Percussion style</span><span class="select-shell"><select id="percussionStyle"><option value="drum-bank" selected>Drum bank</option><option value="circuit">Circuit percussion</option><option value="rattlesnake">Rattlesnake</option><option value="resonant-metal">Resonant metal</option></select></span></label>
             <label class="control" for="pitchDepth"><span><b>Height → pitch</b><output id="pitchDepthOut" for="pitchDepth">12 st</output></span><input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" /></label>
             <label class="control" for="turnPitchDepth"><span><b>Turn → pitch</b><output id="turnPitchDepthOut" for="turnPitchDepth">9 st</output></span><input id="turnPitchDepth" type="range" min="0" max="24" step="1" value="9" /></label>
             <label class="control" for="characterDepth"><span><b>Graph → character</b><output id="characterDepthOut" for="characterDepth">72%</output></span><input id="characterDepth" type="range" min="0" max="1" step="0.01" value="0.72" /></label>
-            <div class="graph-drum-map" id="drumMap" aria-label="Sixteen graph drum voices"></div>
           </div>
         </details>
 
@@ -212,6 +192,6 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="graph-drums-app.js"></script>
+    <script type="module" src="graph-drums-app.js?v=graph-instruments-20260830-2"></script>
   </body>
 </html>

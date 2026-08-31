@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { generateGraph } from "../src/graph-delay.js";
 import { initializeGraphInstrument } from "../src/graph-instrument-app.js";
 
 async function exerciseLiveEditRegression(mode, htmlFile) {
@@ -49,7 +50,18 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
 
   for (const id of ids) element(id);
 
+  const graphPatchButtons = [];
+  for (const match of html.matchAll(/<button\b[^>]*id="([^"]+)"[^>]*data-graph-patch="([^"]+)"/g)) {
+    const button = elements.get(match[1]);
+    button.dataset.graphPatch = match[2];
+    graphPatchButtons.push(button);
+  }
+  elements.get("graphPatchGrid").querySelectorAll = (selector) => (
+    selector === "[data-graph-patch]" ? graphPatchButtons : []
+  );
+
   const arcCalls = [];
+  let strokeCallCount = 0;
   const drawingContext = {
     arc(x, y, radius) { arcCalls.push({ x, y, radius }); },
     beginPath() {},
@@ -65,7 +77,7 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
     save() {},
     setLineDash() {},
     setTransform() {},
-    stroke() {},
+    stroke() { strokeCallCount += 1; },
     translate() {},
   };
   elements.get("stage").getContext = () => drawingContext;
@@ -74,6 +86,7 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   let frameNow = 1_000;
   let nextFrameId = 1;
   const runtimeListeners = new Map();
+  const documentListeners = new Map();
   const runtime = {
     Math,
     devicePixelRatio: 1,
@@ -98,25 +111,45 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   const documentObject = {
     hidden: false,
     getElementById(id) { return elements.get(id) ?? null; },
-    addEventListener() {},
+    addEventListener(type, listener) { documentListeners.set(type, listener); },
+    removeEventListener(type) { documentListeners.delete(type); },
   };
   runtime.document = documentObject;
 
   const audioTriggers = [];
+  const heldAudioTriggerResolvers = [];
+  let holdAudioTriggers = false;
+  let rejectAudioTriggers = false;
+  let rejectedAudioErrorName = "Error";
   const audioEngine = {
     context: null,
     output: 0,
+    closeCount: 0,
+    silenceCount: 0,
     async start() {
       this.context ??= { currentTime: 1, state: "running" };
       return this.context;
     },
     setOutput(value) { this.output = value; },
-    async trigger(voice, options) {
+    trigger(voice, options) {
       audioTriggers.push({ voice, options });
-      return { voice, options };
+      if (rejectAudioTriggers) {
+        const error = new Error("synthetic Web Audio overload");
+        error.name = rejectedAudioErrorName;
+        return Promise.reject(error);
+      }
+      if (holdAudioTriggers) {
+        return new Promise((resolve) => heldAudioTriggerResolvers.push(() => (
+          resolve({ voice, options })
+        )));
+      }
+      return Promise.resolve({ voice, options });
     },
-    silence() {},
-    async close() { this.context = null; },
+    silence() { this.silenceCount += 1; },
+    async close() {
+      this.closeCount += 1;
+      this.context = null;
+    },
   };
 
   function flushAnimationFrames(timestamp = frameNow + 20) {
@@ -135,6 +168,87 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.ok(rafQueue.length > 0, "initialization should request a render frame");
   flushAnimationFrames();
 
+  if (mode === "drums") {
+    elements.get("percussionStyle").value = "karplus-tines";
+    listeners.get("percussionStyle:change")({
+      currentTarget: elements.get("percussionStyle"),
+    });
+    flushAnimationFrames(frameNow + 10);
+    assert.equal(controller.state.percussionStyle, "karplus-tines");
+    assert.equal(controller.pulseCount, 0, "style selection must not launch a pulse");
+    assert.equal(controller.soundedEventCount, 0, "style selection must not add attacks");
+    assert.equal(audioEngine.context, null, "style selection must not start audio by itself");
+    assert.equal(elements.get("drumMap").dataset.percussionStyle, "karplus-tines");
+    assert.match(elements.get("drumMap").innerHTML, /karplus/i);
+    assert.match(elements.get("mappingSummary").textContent, /karplus tines/i);
+  }
+
+  if (mode === "synth") {
+    const selectValue = (id, value) => {
+      elements.get(id).value = value;
+      listeners.get(`${id}:change`)({ currentTarget: elements.get(id) });
+    };
+    const rangeValue = (id, value) => {
+      elements.get(id).value = String(value);
+      listeners.get(`${id}:input`)({ currentTarget: elements.get(id) });
+    };
+    selectValue("soundMode", "pm");
+    selectValue("mappingMode", "progress");
+    selectValue("tuningMode", "just");
+    selectValue("articulation", "edge");
+    selectValue("triggerScope", "all");
+    rangeValue("output", 0.71);
+    rangeValue("pitchRange", 1.25);
+    rangeValue("edoDivisions", 31);
+    rangeValue("turnPitchScale", 0.83);
+    rangeValue("modulationIndex", 5.4);
+    rangeValue("modulationRatio", 3.25);
+    rangeValue("noteDuration", 480);
+    rangeValue("attack", 37);
+    rangeValue("decay", 260);
+    rangeValue("sustain", 0.67);
+    rangeValue("release", 810);
+    rangeValue("stereoSpread", 0.39);
+
+    const synthControlKeys = [
+      "output", "seedNote", "triggerScope", "mappingMode", "characterDepth", "baseFrequency",
+      "pitchRange", "tuningMode", "edoDivisions", "turnPitchScale", "soundMode",
+      "modulationIndex", "modulationRatio", "articulation", "noteDuration", "attack",
+      "decay", "sustain", "release", "stereoSpread",
+    ];
+    const synthControlSnapshot = Object.fromEntries(
+      synthControlKeys.map((key) => [key, controller.state[key]]),
+    );
+    for (const button of graphPatchButtons) {
+      listeners.get(`${button.id}:click`)();
+      assert.deepEqual(
+        Object.fromEntries(synthControlKeys.map((key) => [key, controller.state[key]])),
+        synthControlSnapshot,
+        `${button.dataset.graphPatch} must preserve the current synth controls`,
+      );
+      assert.equal(controller.pulseCount, 0, "loading a graph preset must not launch a pulse");
+      assert.equal(controller.soundedEventCount, 0, "loading a graph preset must not add attacks");
+      assert.equal(audioEngine.context, null, "loading a graph preset must not start audio");
+      assert.equal(
+        controller.pulseTemplate.audioEvents[0]?.audioStartOffset,
+        0,
+        `${button.dataset.graphPatch} should retain an immediate source-node attack`,
+      );
+    }
+  }
+
+  elements.get("seedNote").value = "69";
+  listeners.get("seedNote:input")({ currentTarget: elements.get("seedNote") });
+  flushAnimationFrames(frameNow + 10);
+  assert.equal(controller.state.seedNote, 69);
+  assert.equal(elements.get("seedNote").value, "69");
+  assert.match(elements.get("seedNoteOut").textContent, /A4.*69/);
+  assert.equal(controller.pulseCount, 0, "seed-note input must not launch a graph run");
+  assert.equal(controller.activeRunCount, 0, "seed-note input must not create an active run");
+  assert.equal(controller.soundedEventCount, 0, "seed-note input must not add an attack");
+  assert.equal(audioEngine.context, null, "seed-note input must not start audio");
+
+  const firstSeedTriggerIndex = audioTriggers.length;
   await listeners.get("pulseButton:click")();
   flushAnimationFrames(frameNow + 20);
   assert.equal(controller.state.audio, true, "a cold Pulse click should arm audio");
@@ -142,10 +256,16 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.equal(controller.activeRunCount, 1);
   assert.ok(controller.soundedEventCount > 0, "Pulse should schedule audible graph attacks");
   assert.equal(audioTriggers.length, controller.soundedEventCount);
+  if (mode === "drums") {
+    assert.ok(audioTriggers.every(({ voice }) => voice.percussionStyle === "karplus-tines"));
+    assert.ok(audioTriggers.every(({ voice }) => voice.family === "karplus"));
+  }
   assert.ok(
     controller.pulseTemplate.audioEvents.every(({ kind }) => kind === "node"),
     "instrument attacks should be node arrivals only",
   );
+  const firstSeedVoice = audioTriggers[firstSeedTriggerIndex]?.voice;
+  assert.ok(firstSeedVoice, "Send one must use the selected seed note for an audible run");
 
   const arcsBeforeActiveFrame = arcCalls.length;
   audioEngine.context.currentTime += 0.08;
@@ -157,13 +277,21 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   );
   assert.equal(audioTriggers.length, controller.soundedEventCount);
 
-  const attacksAfterPulse = controller.soundedEventCount;
-  await listeners.get("seedPulseButton:click")();
-  flushAnimationFrames(frameNow + 20);
-  assert.equal(controller.pulseCount, 2, "Seed pulse should launch another audible run");
-  assert.ok(controller.soundedEventCount > attacksAfterPulse);
+  const runsBeforeSeedMove = controller.activeRunCount;
+  const pulsesBeforeSeedMove = controller.pulseCount;
+  const attacksBeforeSeedMove = controller.soundedEventCount;
+  const contextBeforeSeedMove = audioEngine.context;
+  elements.get("seedNote").value = "73";
+  listeners.get("seedNote:input")({ currentTarget: elements.get("seedNote") });
+  flushAnimationFrames(frameNow + 10);
+  assert.equal(controller.state.seedNote, 73);
+  assert.match(elements.get("seedNoteOut").textContent, /73/);
+  assert.equal(controller.pulseCount, pulsesBeforeSeedMove, "moving Seed note must not launch another run");
+  assert.equal(controller.activeRunCount, runsBeforeSeedMove, "moving Seed note must preserve active runs");
+  assert.equal(controller.soundedEventCount, attacksBeforeSeedMove, "moving Seed note must not add attacks");
+  assert.equal(audioEngine.context, contextBeforeSeedMove, "moving Seed note must not restart audio");
 
-  const attacksAfterSeed = controller.soundedEventCount;
+  const spaceSeedTriggerIndex = audioTriggers.length;
   let spacePrevented = false;
   listeners.get("stage:keydown")({
     key: " ",
@@ -172,15 +300,60 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   await new Promise((resolve) => setImmediate(resolve));
   flushAnimationFrames(frameNow + 20);
   assert.equal(spacePrevented, true);
-  assert.equal(controller.pulseCount, 3, "Space should launch another audible run");
-  assert.ok(controller.soundedEventCount > attacksAfterSeed);
+  assert.equal(controller.pulseCount, pulsesBeforeSeedMove + 1, "Space should launch another audible run");
+  assert.ok(controller.soundedEventCount > attacksBeforeSeedMove);
+  const spaceSeedVoice = audioTriggers[spaceSeedTriggerIndex]?.voice;
+  assert.ok(spaceSeedVoice, "Space must use the selected seed note for an audible run");
+  if (mode === "synth") {
+    const expectedRatio = 2 ** (4 / 12);
+    assert.ok(
+      Math.abs(spaceSeedVoice.frequency / firstSeedVoice.frequency - expectedRatio) < 1e-9,
+      "Send one and Space must derive their synth roots from the selected seed note",
+    );
+  } else {
+    assert.notEqual(
+      spaceSeedVoice.voiceIndex,
+      firstSeedVoice.voiceIndex,
+      "Send one and Space must rotate the drum mapping from the selected seed note",
+    );
+  }
+
+  const midiHandler = runtimeListeners.get("morphazoid:midi-input");
+  assert.equal(typeof midiHandler, "function");
+  const midiPulseCount = controller.pulseCount;
+  const midiRunCount = controller.activeRunCount;
+  const midiAttackCount = controller.soundedEventCount;
+  const midiPrevented = [];
+  for (const note of [64, 76]) {
+    let prevented = false;
+    midiHandler({
+      detail: { message: { type: "noteOn", note, velocity: 112 } },
+      preventDefault() { prevented = true; },
+    });
+    midiPrevented.push(() => prevented);
+  }
+  await new Promise((resolve) => setImmediate(resolve));
+  flushAnimationFrames(frameNow + 20);
+  assert.ok(midiPrevented.every((wasPrevented) => wasPrevented()));
+  assert.equal(controller.pulseCount, midiPulseCount + 2, "two MIDI notes must launch two graph runs");
+  assert.equal(
+    controller.activeRunCount,
+    midiRunCount + 2,
+    "simultaneous MIDI seeds must remain as separate polyphonic graph runs",
+  );
+  assert.ok(controller.soundedEventCount > midiAttackCount);
+  assert.equal(controller.state.seedNote, 76, "the latest MIDI note must become the visible seed note");
+  assert.equal(elements.get("seedNote").value, "76");
+  assert.match(elements.get("seedNoteOut").textContent, /E5.*76/);
 
   const attacksBeforePlay = controller.soundedEventCount;
+  const pulsesBeforePlay = controller.pulseCount;
+  const runsBeforePlay = controller.activeRunCount;
   await listeners.get("playButton:click")();
   flushAnimationFrames(frameNow + 20);
   assert.equal(controller.state.playing, true);
-  assert.equal(controller.pulseCount, 4, "transport start should launch its first graph pulse");
-  assert.equal(controller.activeRunCount, 4);
+  assert.equal(controller.pulseCount, pulsesBeforePlay + 1, "transport start should launch its first graph pulse");
+  assert.equal(controller.activeRunCount, runsBeforePlay + 1);
   assert.ok(controller.soundedEventCount > attacksBeforePlay, "Play should schedule audible attacks");
 
   const pulseCountBeforeTempo = controller.pulseCount;
@@ -269,6 +442,218 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
     assert.equal(continuousTemplate.audioEvents.length, 127);
     assert.ok(continuousTemplate.audioEvents.every(({ gateSeconds }) => gateSeconds > 0));
   }
+
+  if (controller.state.playing) await listeners.get("playButton:click")();
+  const attacksBeforeMotionCadence = controller.soundedEventCount;
+  const motionBuildsBefore = controller.motionTemplateBuildCount;
+  listeners.get("nodeMotionPlayButton:click")();
+  for (let index = 0; index < 10; index += 1) flushAnimationFrames(frameNow + 20);
+  assert.equal(
+    controller.motionTemplateBuildCount,
+    motionBuildsBefore + 1,
+    "moving nodes must not rebuild the expensive graph schedule every animation frame",
+  );
+  for (let index = 0; index < 4; index += 1) flushAnimationFrames(frameNow + 20);
+  assert.equal(
+    controller.motionTemplateBuildCount,
+    motionBuildsBefore + 2,
+    "moving-node schedule retiming should resume after its adaptive safety interval",
+  );
+  assert.ok(controller.motionTemplateIntervalMs >= 250);
+  assert.equal(
+    controller.soundedEventCount,
+    attacksBeforeMotionCadence,
+    "adaptive geometry retiming must not introduce attacks",
+  );
+  listeners.get("nodeMotionPlayButton:click")();
+
+  elements.get("topology").value = "bipartite";
+  listeners.get("topology:change")({ currentTarget: elements.get("topology") });
+  elements.get("density").value = "1";
+  listeners.get("density:input")({ currentTarget: elements.get("density") });
+  elements.get("triggerScope").value = "all";
+  listeners.get("triggerScope:change")({ currentTarget: elements.get("triggerScope") });
+  if (mode === "synth") {
+    elements.get("articulation").value = "trigger";
+    listeners.get("articulation:change")({ currentTarget: elements.get("articulation") });
+  }
+  const requestedDenseGraph = generateGraph({
+    type: controller.state.topology,
+    nodeCount: controller.state.nodeCount,
+    density: controller.state.density,
+    seed: controller.state.seed,
+    maxNodes: 128,
+  });
+  assert.equal(controller.model.nodes.length, 128);
+  assert.equal(
+    controller.model.edges.length,
+    requestedDenseGraph.edges.length,
+    "audio protection must retain every route in the requested dense topology",
+  );
+  assert.ok(controller.model.edges.length > 3_000, "the overload fixture must stay genuinely dense");
+  const strokesBeforeDenseFrame = strokeCallCount;
+  flushAnimationFrames(frameNow + 20);
+  const denseFrameStrokeCount = strokeCallCount - strokesBeforeDenseFrame;
+  assert.ok(
+    denseFrameStrokeCount < controller.model.edges.length / 8,
+    `dense routes should be painted in batches rather than one canvas stroke per edge (${denseFrameStrokeCount} strokes for ${controller.model.edges.length} routes)`,
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(controller.inFlightAudioTriggerCount, 0);
+  holdAudioTriggers = true;
+  const triggersBeforeHeldRuns = audioTriggers.length;
+  const shedBeforeHeldRuns = controller.shedAudioEventCount;
+  const olderDenseRun = await controller.launchPulse();
+  const newerDenseRun = await controller.launchPulse();
+  flushAnimationFrames(frameNow + 20);
+  const heldRunTriggers = audioTriggers.slice(triggersBeforeHeldRuns);
+  assert.ok(heldRunTriggers.length > 0, "the dense fixture must reach the audio scheduler");
+  assert.ok(heldRunTriggers.length <= 64, "unsettled Web Audio requests must stay bounded");
+  assert.ok(
+    heldRunTriggers.every(({ options }) => options.graphRunId === newerDenseRun.id),
+    "a new manual graph note must get audio priority over an older thick tail",
+  );
+  assert.equal(controller.lastAdmittedRunId, newerDenseRun.id);
+  assert.notEqual(olderDenseRun.id, newerDenseRun.id);
+  assert.equal(controller.inFlightAudioTriggerCount, heldRunTriggers.length);
+  assert.ok(
+    controller.shedAudioEventCount > shedBeforeHeldRuns,
+    "excess due events must be skipped instead of accumulating as a backlog",
+  );
+  holdAudioTriggers = false;
+  for (const resolveHeldTrigger of heldAudioTriggerResolvers.splice(0)) resolveHeldTrigger();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(controller.inFlightAudioTriggerCount, 0);
+
+  rejectAudioTriggers = true;
+  const silenceBeforeProtection = audioEngine.silenceCount;
+  await controller.launchPulse();
+  flushAnimationFrames(frameNow + 20);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(controller.audioProtected, true, "repeated renderer failures must trip protection");
+  assert.ok(controller.audioProtectionLevel >= 1);
+  assert.ok(audioEngine.silenceCount > silenceBeforeProtection);
+  assert.match(elements.get("liveStatus").textContent, /Audio protected/);
+  assert.equal(controller.inFlightAudioTriggerCount, 0);
+
+  rejectAudioTriggers = false;
+  const triggersBeforeRecovery = audioTriggers.length;
+  await controller.launchPulse();
+  flushAnimationFrames(frameNow + 20);
+  assert.equal(controller.audioProtected, false, "a fresh user sound gesture must reset protection");
+  assert.ok(audioTriggers.length > triggersBeforeRecovery, "audio must recover without reloading the page");
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const damagedContext = audioEngine.context;
+  const closesBeforeFatalError = audioEngine.closeCount;
+  rejectedAudioErrorName = "InvalidStateError";
+  rejectAudioTriggers = true;
+  await controller.launchPulse();
+  flushAnimationFrames(frameNow + 20);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(controller.audioProtected, true, "fatal Web Audio errors must latch protection");
+  assert.equal(controller.state.playing, false);
+  assert.equal(controller.state.audio, false);
+  assert.equal(controller.activeRunCount, 0);
+  assert.equal(audioEngine.context, null, "the damaged context must be discarded");
+  assert.equal(
+    audioEngine.closeCount,
+    closesBeforeFatalError + 1,
+    "a fatal attack burst must close its shared damaged context only once",
+  );
+  assert.match(elements.get("liveStatus").textContent, /safely reset/);
+
+  rejectAudioTriggers = false;
+  rejectedAudioErrorName = "Error";
+  await controller.launchPulse();
+  flushAnimationFrames(frameNow + 20);
+  assert.equal(controller.audioProtected, false);
+  assert.equal(controller.state.audio, true);
+  assert.notEqual(audioEngine.context, damagedContext, "the next gesture must build a fresh context");
+  await new Promise((resolve) => setImmediate(resolve));
+
+  elements.get("topology").value = "chain";
+  listeners.get("topology:change")({ currentTarget: elements.get("topology") });
+  elements.get("nodeCount").value = "8";
+  listeners.get("nodeCount:input")({ currentTarget: elements.get("nodeCount") });
+  flushAnimationFrames(frameNow + 20);
+
+  const assertLifecycleStopped = (label) => {
+    assert.equal(controller.state.playing, false, `${label} must stop the graph transport`);
+    assert.equal(controller.state.audio, false, `${label} must mark graph audio off`);
+    assert.equal(controller.activeRunCount, 0, `${label} must clear active graph runs`);
+    assert.equal(controller.scheduledPulseTime, null, `${label} must clear the next clock pulse`);
+    assert.equal(audioEngine.context, null, `${label} must close the Web Audio context`);
+  };
+  const armLifecyclePlayback = async (label) => {
+    if (!controller.state.playing) await listeners.get("playButton:click")();
+    await controller.launchPulse();
+    flushAnimationFrames(frameNow + 20);
+    assert.equal(controller.state.playing, true, `${label} setup must start the transport`);
+    assert.equal(controller.state.audio, true, `${label} setup must start graph audio`);
+    assert.ok(controller.activeRunCount > 0, `${label} setup must have an active run`);
+    assert.notEqual(controller.scheduledPulseTime, null, `${label} setup must arm the graph clock`);
+  };
+
+  assert.equal(
+    typeof documentListeners.get("visibilitychange"),
+    "function",
+    "graph instruments must observe page visibility so hidden tabs cannot keep sounding",
+  );
+  await armLifecyclePlayback("visibilitychange");
+  const closesBeforeHidden = audioEngine.closeCount;
+  documentObject.hidden = true;
+  await documentListeners.get("visibilitychange")();
+  assertLifecycleStopped("hidden visibilitychange");
+  assert.ok(
+    audioEngine.closeCount > closesBeforeHidden,
+    "hiding a graph page must close or silence its audio engine",
+  );
+  const pulsesBeforeHiddenMidi = controller.pulseCount;
+  let hiddenMidiPrevented = false;
+  midiHandler({
+    detail: { message: { type: "noteOn", note: 81, velocity: 118 } },
+    preventDefault() { hiddenMidiPrevented = true; },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  flushAnimationFrames(frameNow + 20);
+  assert.equal(hiddenMidiPrevented, true, "a hidden graph page must claim and ignore MIDI note-on");
+  assert.equal(
+    controller.pulseCount,
+    pulsesBeforeHiddenMidi,
+    "hardware MIDI must not launch a graph pulse in a hidden tab",
+  );
+  let hiddenStartPrevented = false;
+  midiHandler({
+    detail: { message: { type: "start" } },
+    preventDefault() { hiddenStartPrevented = true; },
+  });
+  assert.equal(hiddenStartPrevented, true, "a hidden graph page must reject MIDI transport start");
+  assert.equal(controller.state.playing, false, "hidden MIDI Start must not restart the graph transport");
+  assertLifecycleStopped("hidden MIDI note-on");
+
+  documentObject.hidden = false;
+  await armLifecyclePlayback("persisted pagehide");
+  const closesBeforePersistedHide = audioEngine.closeCount;
+  await runtimeListeners.get("pagehide")({ persisted: true });
+  assertLifecycleStopped("persisted pagehide");
+  assert.ok(
+    audioEngine.closeCount > closesBeforePersistedHide,
+    "a BFCache pagehide must close or silence its audio engine",
+  );
+  runtimeListeners.get("pageshow")({ persisted: true });
+  flushAnimationFrames(frameNow + 20);
+  assertLifecycleStopped("BFCache pageshow");
+
+  await armLifecyclePlayback("non-persisted pagehide");
+  const closesBeforeFinalHide = audioEngine.closeCount;
+  await runtimeListeners.get("pagehide")({ persisted: false });
+  assertLifecycleStopped("non-persisted pagehide");
+  assert.ok(
+    audioEngine.closeCount > closesBeforeFinalHide,
+    "a final pagehide must close or silence its audio engine",
+  );
 
   controller.dispose({ persisted: false });
 }

@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { GraphSynthAudio } from "../src/graph-synth-audio.js";
+import {
+  MAX_GRAPH_SYNTH_ACTIVE_VOICES,
+  MAX_GRAPH_SYNTH_LIVE_SOURCES,
+  MAX_GRAPH_SYNTH_SOURCE_START_BURST,
+  GraphSynthAudio,
+  graphSynthSourceCost,
+} from "../src/graph-synth-audio.js";
 
 class FakeAudioParam {
   constructor(value = 0) {
@@ -198,6 +204,28 @@ test("Graph Synth audio is lazy and applies an output selected before start", as
   )));
 });
 
+test("Graph Synth closes and detaches a partially built output graph", async () => {
+  const { runtime, created } = makeRuntime();
+  const BaseContext = runtime.AudioContext;
+  runtime.AudioContext = class FailingContext extends BaseContext {
+    createGain() {
+      if (this.failedOnce) {
+        const error = new Error("native gain allocation failed");
+        error.name = "OperationError";
+        throw error;
+      }
+      this.failedOnce = true;
+      return super.createGain();
+    }
+  };
+  const audio = new GraphSynthAudio(runtime);
+
+  await assert.rejects(audio.start(), ({ name }) => name === "OperationError");
+  assert.equal(audio.context, null);
+  assert.equal(created.closeCount, 1);
+  assert.ok(created.gains[0].disconnectCount > 0);
+});
+
 test("Graph Synth follows absolute audio time and honors feedback-darkened brightness", async () => {
   const { runtime, created } = makeRuntime();
   const audio = new GraphSynthAudio(runtime);
@@ -355,6 +383,79 @@ test("Graph Synth builds native sine, FM, PM, and Shepard one-shots", async () =
   );
 });
 
+test("Graph Synth accounts for native source cost before allocating dense attacks", async () => {
+  assert.equal(graphSynthSourceCost({ mode: "sine" }), 1);
+  assert.equal(graphSynthSourceCost({ mode: "fm" }), 2);
+  assert.equal(graphSynthSourceCost({ mode: "pm" }), 2);
+  assert.equal(graphSynthSourceCost({
+    mode: "shepard",
+    frequency: 220,
+    shepardWidth: 5,
+  }), 5);
+
+  const { runtime, created } = makeRuntime();
+  const audio = new GraphSynthAudio(runtime);
+  await audio.start();
+  const results = [];
+  for (let index = 0; index < 1_000; index += 1) {
+    results.push(await audio.trigger({
+      mode: "shepard",
+      frequency: 220,
+      shepardWidth: 5,
+      gain: 0.1,
+    }, {
+      startAt: 1,
+      decaySeconds: 1,
+    }));
+  }
+
+  const scheduled = results.filter(({ scheduled }) => scheduled);
+  const thinned = results.filter(({ scheduled }) => !scheduled);
+  assert.ok(scheduled.length > 0);
+  assert.ok(scheduled.length <= Math.floor(MAX_GRAPH_SYNTH_SOURCE_START_BURST / 5));
+  assert.ok(audio.activeSourceCount <= MAX_GRAPH_SYNTH_LIVE_SOURCES);
+  assert.ok(created.oscillators.length <= MAX_GRAPH_SYNTH_LIVE_SOURCES);
+  assert.ok(thinned.length > 0);
+  assert.ok(thinned.every(({ skipReason }) => typeof skipReason === "string"));
+  assert.equal(audio.context.state, "running", "thinning must leave Web Audio usable");
+
+  audio.context.currentTime = 3;
+  const recovered = await audio.trigger({ mode: "sine", frequency: 330 }, {
+    startAt: 3,
+  });
+  assert.equal(recovered.scheduled, true, "admission recovers after voices and rate window clear");
+});
+
+test("Graph Synth cleans a partially constructed voice and remains restartable", async () => {
+  const { runtime, created } = makeRuntime();
+  const audio = new GraphSynthAudio(runtime);
+  await audio.start();
+  const context = audio.context;
+  const createOscillator = context.createOscillator.bind(context);
+  let oscillatorCalls = 0;
+  context.createOscillator = () => {
+    oscillatorCalls += 1;
+    if (oscillatorCalls === 2) {
+      const error = new Error("native oscillator allocation failed");
+      error.name = "OperationError";
+      throw error;
+    }
+    return createOscillator();
+  };
+
+  await assert.rejects(
+    audio.trigger({ mode: "fm", frequency: 220, modulationIndex: 2 }),
+    ({ name }) => name === "OperationError",
+  );
+  assert.equal(audio.activeVoices.size, 0);
+  assert.ok(created.oscillators[0].disconnectCount > 0);
+  assert.ok(created.gains.at(-1).disconnectCount > 0);
+
+  context.createOscillator = createOscillator;
+  const recovered = await audio.trigger({ mode: "sine", frequency: 330 });
+  assert.equal(recovered.scheduled, true);
+});
+
 test("Graph Synth silence cancels future voices and fades active voices", async () => {
   const { runtime } = makeRuntime();
   const audio = new GraphSynthAudio(runtime);
@@ -396,19 +497,85 @@ test("Graph Synth silence cancels future voices and fades active voices", async 
   assert.ok(active.filter.disconnectCount > 0);
 });
 
-test("Graph Synth caps overlapping voices without leaving stolen sources live", async () => {
+test("Graph Synth caps started voices without leaving stolen sources live", async () => {
   const { runtime, created } = makeRuntime();
   const audio = new GraphSynthAudio(runtime);
   await audio.start();
-  for (let index = 0; index < 65; index += 1) {
+  assert.equal(MAX_GRAPH_SYNTH_ACTIVE_VOICES, 64);
+  for (let index = 0; index <= MAX_GRAPH_SYNTH_ACTIVE_VOICES; index += 1) {
     await audio.trigger({ frequency: 80 + index, gain: 0.1 }, {
+      startAt: 1,
+      decaySeconds: 1,
+    });
+  }
+  assert.equal(audio.activeVoices.size, MAX_GRAPH_SYNTH_ACTIVE_VOICES);
+  assert.equal(created.oscillators[0].stops.at(-1), 1);
+  assert.ok(created.oscillators[0].disconnectCount > 0);
+});
+
+test("Graph Synth keeps earlier future voices when the pending pool is full", async () => {
+  const { runtime, created } = makeRuntime();
+  const audio = new GraphSynthAudio(runtime);
+  await audio.start();
+  for (let index = 0; index < MAX_GRAPH_SYNTH_ACTIVE_VOICES; index += 1) {
+    await audio.trigger({ frequency: 100 + index, gain: 0.1 }, {
       startAt: 2,
       decaySeconds: 1,
     });
   }
-  assert.equal(audio.activeVoices.size, 64);
-  assert.equal(created.oscillators[0].stops.at(-1), 1);
-  assert.ok(created.oscillators[0].disconnectCount > 0);
+
+  const retained = [...audio.activeVoices];
+  const oscillatorCount = created.oscillators.length;
+  const equal = await audio.trigger({ frequency: 440, gain: 0.1 }, {
+    startAt: 2,
+    decaySeconds: 1,
+  });
+  const later = await audio.trigger({ frequency: 660, gain: 0.1 }, {
+    startAt: 3,
+    decaySeconds: 1,
+  });
+
+  assert.equal(equal.scheduled, false);
+  assert.equal(equal.startAt, 2);
+  assert.equal(later.scheduled, false);
+  assert.equal(later.startAt, 3);
+  assert.equal(audio.activeVoices.size, MAX_GRAPH_SYNTH_ACTIVE_VOICES);
+  assert.deepEqual([...audio.activeVoices], retained);
+  assert.equal(created.oscillators.length, oscillatorCount, "dropped requests allocate no nodes");
+  assert.ok(retained.every(({ cleaned }) => cleaned === false));
+});
+
+test("Graph Synth replaces only the latest future voice for an earlier request", async () => {
+  const { runtime, created } = makeRuntime();
+  const audio = new GraphSynthAudio(runtime);
+  await audio.start();
+  for (let index = 0; index < MAX_GRAPH_SYNTH_ACTIVE_VOICES; index += 1) {
+    await audio.trigger({ frequency: 100 + index, gain: 0.1 }, {
+      startAt: 2 + index / 100,
+      decaySeconds: 1,
+    });
+  }
+
+  const retainedBefore = [...audio.activeVoices];
+  const earliest = retainedBefore[0];
+  const latest = retainedBefore.at(-1);
+  const latestOscillator = latest.sources[0];
+  const replacement = await audio.trigger({ frequency: 880, gain: 0.1 }, {
+    startAt: 1.5,
+    decaySeconds: 1,
+  });
+
+  assert.equal(replacement.scheduled, true);
+  assert.equal(replacement.startAt, 1.5);
+  assert.equal(audio.activeVoices.size, MAX_GRAPH_SYNTH_ACTIVE_VOICES);
+  assert.equal(latest.cleaned, true);
+  assert.equal(audio.activeVoices.has(latest), false);
+  assert.equal(latestOscillator.stops.at(-1), 1);
+  assert.ok(latestOscillator.disconnectCount > 0);
+  assert.equal(earliest.cleaned, false);
+  assert.equal(audio.activeVoices.has(earliest), true);
+  assert.ok([...audio.activeVoices].some(({ spec }) => spec.frequency === 880));
+  assert.equal(created.oscillators.length, MAX_GRAPH_SYNTH_ACTIVE_VOICES + 1);
 });
 
 test("Graph Synth closes cleanly and restarts with a fresh context", async () => {

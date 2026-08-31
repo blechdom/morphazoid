@@ -281,6 +281,7 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
   let disconnected = 0;
   let oscillatorCount = 0;
   let bufferSourceCount = 0;
+  let resumeCount = 0;
   const sourceStartTimes = [];
   const parameter = (value = 0) => ({
     value,
@@ -345,6 +346,7 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
         onended: null,
       });
     }
+    async resume() { resumeCount += 1; this.state = "running"; }
     async close() { this.state = "closed"; }
   }
 
@@ -382,6 +384,10 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
     scheduledStarts.every((time) => time >= 2.075),
     "Rattlesnake preserves absolute look-ahead scheduling",
   );
+  audio.context.state = "interrupted";
+  await audio.start();
+  assert.equal(audio.context.state, "running");
+  assert.equal(resumeCount, 1);
   audio.setOutput(.99);
   assert.equal(audio.output, .85);
   await audio.close();

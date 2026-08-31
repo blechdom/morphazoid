@@ -25,6 +25,7 @@ const PITCH_SELECTORS = Object.freeze([
   "#carrier",
   "#rootFrequency",
   "#baseFrequency",
+  "#seedNote",
   "#rootMidiNote",
   "#rootHz",
   "#root",
