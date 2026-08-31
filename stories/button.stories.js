@@ -23,7 +23,7 @@ function makeStateMatrix() {
         { label: "Reset 90°", variant: "mini" },
         { label: "Apply mapping", variant: "primary", size: "compact" },
         { label: "Quiet", variant: "quiet" },
-        { label: "Delete bank", variant: "danger" },
+        { label: "Delete bank", variant: "danger", size: "compact" },
         { label: "Disabled", variant: "mini", disabled: true },
       ],
     },
