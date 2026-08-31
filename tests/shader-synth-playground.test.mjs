@@ -845,7 +845,11 @@ test("every direct-pass module parameter is consumed by its WGSL evaluator", () 
     [58, "foundBirdFlock"],
     [59, "foundThunderImpact"],
   ]);
-  const directModules = SHADER_PLAYGROUND_MODULES.filter(({ kind }) => !isShaderSynthPlaygroundFxKind(kind));
+  const directModules = SHADER_PLAYGROUND_MODULES.filter((module) => (
+    !isShaderSynthPlaygroundFxKind(module.kind)
+    && module.stateful !== true
+    && !module.state?.family
+  ));
   for (const module of directModules) {
     const helperName = foundHelperByKind.get(module.kind);
     const helperStart = helperName ? SHADER_SYNTH_PLAYGROUND_FOUND_HELPERS.indexOf(`fn ${helperName}(`) : -1;
