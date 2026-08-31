@@ -47,7 +47,10 @@ export const SHADER_SYNTH_PLAYGROUND_STATE_ENGINE_LIMITS = freeze({
 });
 
 export function isShaderSynthPlaygroundStateEngineKind(kind) {
-  return STATE_KIND_SET.has(Number(kind));
+  const numericKind = Number(kind);
+  // Negative graph kinds are deliberately reserved for bypassed state nodes.
+  // They remain in the graph but must own no persistent GPU resources.
+  return numericKind > 0 && STATE_KIND_SET.has(numericKind);
 }
 
 function feedbackRingFrames(sampleRate) {

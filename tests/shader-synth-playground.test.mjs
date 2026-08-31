@@ -682,7 +682,7 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   assert.match(css, /\.patch-node\.is-selected\s*\{[\s\S]*?border-color: var\(--node-color, var\(--accent\)\)/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeWidth/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeHeight/);
-  assert.match(html, /shader-synth-playground\.css\?v=20260831-visual-state/);
+  assert.match(html, /shader-synth-playground\.css\?v=20260831-state-bypass/);
 });
 
 test("three-way sum and product require and encode all three input slots", () => {
@@ -1876,7 +1876,8 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   ]);
   for (const id of [
     "audioButton", "playgroundPlayButton", "moduleHearSelect", "modulePalette", "graphViewport", "patchCables", "patchNodes",
-    "nodeInspector", "nodeControls", "parameterResponseCanvas", "parameterBehavior", "selectedNodeShader", "scopeCanvas",
+    "nodeInspector", "nodeControls", "statefulNodeToggle", "statefulNodeEnabled", "statefulNodeState",
+    "parameterResponseCanvas", "parameterBehavior", "selectedNodeShader", "scopeCanvas",
     "presetButtons", "organRankSection", "organRankControls", "resetOrganRanks",
     "patchControlsPanel", "patchControls", "patchControlCount",
   ]) assert.match(html, new RegExp(`id=["']${id}["']`));
@@ -1897,12 +1898,14 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.doesNotMatch(html, /module-coverage|playableModuleCount|83\s*playable|142\s*in atlas/);
   assert.doesNotMatch(app, /playableModuleCount/);
   assert.match(app, /section\.open = Boolean\(query\);/);
-  assert.match(app, /shader-synth-playground\.js\?v=20260831-visual-state/);
+  assert.match(app, /shader-synth-playground\.js\?v=20260831-state-bypass/);
   assert.match(engineSource, /shader-synth-playground-fx\.js\?v=20260830-atlas-dsp/);
   assert.match(css, /\.patch-node/);
   assert.match(css, /\.patch-cable/);
   assert.match(css, /\.patch-node\.is-selected/);
+  assert.match(css, /\.patch-node\.is-bypassed/);
   assert.match(css, /\.selected-module-heading::after/);
+  assert.match(css, /\.stateful-node-toggle\[hidden\]/);
   assert.match(html, /<details class="patch-controls-panel" id="patchControlsPanel" open>/);
   assert.match(css, /\.patch-controls\s*\{[\s\S]*?max-height:[\s\S]*?overflow-y: auto/);
   assert.match(css, /\.patch-control-module/);
@@ -1919,6 +1922,9 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(app, /input\.dataset\.paramId = param\.id/);
   assert.match(app, /function updateNodeParameter\(input\)[\s\S]*?resolveParameterTarget\(input, patchNodes\(\), moduleForNode\)/);
   assert.match(app, /node\.params\[param\.id\] = value/);
+  assert.match(app, /function updateStatefulNodeEnabled\(input\)[\s\S]*?node\.enabled = Boolean\(input\.checked\)[\s\S]*?syncPatch\(\{ render: true \}\)/);
+  assert.match(app, /module\.stateful && node\.enabled === false/);
+  assert.match(app, /moduleForNode\(node\)\?\.stateful && node\.enabled !== false/);
   assert.match(app, /\$\("patchControls"\)\.addEventListener\("input"[\s\S]*?updateNodeParameter\(event\.target\)/);
   assert.match(app, /syncParameterControlSurfaces\(node, param, value\)/);
   assert.match(app, /parameterCount \+= WEBGPU_SYNTHS_ORGAN_RANK_COUNT \* ORGAN_RANK_FIELDS\.length/);

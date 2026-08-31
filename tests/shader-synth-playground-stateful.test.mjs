@@ -6,8 +6,10 @@ import {
   SHADER_PLAYGROUND_COMBOS,
   SHADER_PLAYGROUND_LIMITS,
   SHADER_PLAYGROUND_MODULES,
+  SHADER_PLAYGROUND_SHADER,
   ShaderSynthPlaygroundAudio,
   encodeShaderPlaygroundPatch,
+  sanitizeShaderPlaygroundPatch,
   validateShaderPlaygroundPatch,
 } from "../src/shader-synth-playground.js";
 import * as stateful from "../src/shader-synth-playground-stateful.js";
@@ -76,6 +78,17 @@ function encodedStateNodes(kinds = []) {
     patch: { nodes, connections: [] },
     paramsByNode: new Map(order.map((id) => [id, [1, 2, 3, 4, 5, 6, 7, 8]])),
   };
+}
+
+function geometricFeedbackPatch(enabled = true) {
+  const combo = SHADER_PLAYGROUND_COMBOS.find((candidate) => (
+    candidate.character === "primitive-audition"
+    && candidate.patch.nodes.some(({ id, type }) => id === "focus" && type === "geometric-feedback-lattice")
+  ));
+  assert.ok(combo, "the geometric feedback Hear graph must exist");
+  const patch = JSON.parse(JSON.stringify(combo.patch));
+  patch.nodes.find(({ id }) => id === "focus").enabled = enabled;
+  return sanitizeShaderPlaygroundPatch(patch);
 }
 
 test("six stateful visual modules own unique registry kinds 105 through 110", () => {
@@ -339,6 +352,59 @@ test("Spectral SDF maps each exposed analysis-window choice to a distinct power 
   );
 });
 
+test("stateful bypass survives JSON serialization and keeps graph routing and parameters intact", () => {
+  const active = geometricFeedbackPatch(true);
+  const activeFocus = active.nodes.find(({ id }) => id === "focus");
+  assert.equal(activeFocus.enabled, true);
+
+  const serialized = JSON.parse(JSON.stringify(active));
+  serialized.nodes.find(({ id }) => id === "focus").enabled = false;
+  const bypassed = sanitizeShaderPlaygroundPatch(serialized);
+  const bypassedFocus = bypassed.nodes.find(({ id }) => id === "focus");
+  assert.equal(bypassedFocus.enabled, false, "sanitization must preserve an explicit state bypass");
+  assert.equal(
+    Object.hasOwn(bypassed.nodes.find(({ id }) => id === "source"), "enabled"),
+    false,
+    "the state lifecycle flag must not leak onto ordinary sample nodes",
+  );
+  assert.equal(validateShaderPlaygroundPatch(bypassed).valid, true);
+
+  const encoded = encodeShaderPlaygroundPatch(bypassed);
+  const focusIndex = encoded.order.indexOf("focus");
+  const sourceIndex = encoded.order.indexOf("source");
+  const focusOffset = focusIndex * 20;
+  assert.equal(encoded.data[focusOffset], -107, "a bypassed state node needs the reserved negative-kind sentinel");
+  assert.equal(encoded.data[focusOffset + 1], sourceIndex + 1, "input A routing must survive bypass");
+  STATEFUL_MODULES.find(({ id }) => id === "geometric-feedback-lattice").params.forEach((parameter, index) => {
+    assert.equal(
+      encoded.data[focusOffset + 12 + index],
+      new Float32Array([bypassedFocus.params[parameter.id]])[0],
+      `${parameter.id} must remain serialized while the node is bypassed`,
+    );
+  });
+  assert.deepEqual(
+    stateful.shaderSynthPlaygroundStateEngineNodes(encoded),
+    [],
+    "a bypassed node must not enter the ordered state engine",
+  );
+});
+
+test("the graph shader bypasses a state kind by forwarding input A in both transition paths", () => {
+  const render = wgslBlock(SHADER_PLAYGROUND_SHADER, "fn render(");
+  assert.match(render, /let bypassed = graphNode\.header\.x < 0\.0/);
+  assert.match(render, /let kind = u32\(round\(abs\(graphNode\.header\.x\)\)\)/);
+  assert.match(
+    render,
+    /let previousInputA = readInput\(&previousValues, graphNode\.header\.y\);[\s\S]*?var previousResult = previousInputA;[\s\S]*?if \(!bypassed\) \{[\s\S]*?previousResult = evaluateNode/,
+  );
+  assert.match(
+    render,
+    /let targetInputA = readInput\(&targetValues, graphNode\.header\.y\);[\s\S]*?targetResult = targetInputA;[\s\S]*?if \(!bypassed\) \{[\s\S]*?targetResult = evaluateNode/,
+  );
+  assert.equal(stateful.isShaderSynthPlaygroundStateEngineKind(107), true);
+  assert.equal(stateful.isShaderSynthPlaygroundStateEngineKind(-107), false);
+});
+
 test("state engine allocates lazily and destroys private buffers with the last active node", () => {
   const buffers = [];
   const device = {
@@ -383,6 +449,55 @@ test("state engine allocates lazily and destroys private buffers with the last a
   assert.equal(buffers.every(({ destroyCount }) => destroyCount === 1), true, "last-node removal must destroy all state allocations");
   assert.equal(engine.sync(encodedStateNodes()), false, "repeated empty synchronization must not allocate or destroy again");
   assert.equal(buffers.every(({ destroyCount }) => destroyCount === 1), true);
+});
+
+test("state engine releases and recreates resources across active, bypassed, and active states", () => {
+  const buffers = [];
+  const device = {
+    queue: { writeBuffer() {} },
+    createBuffer(descriptor) {
+      const buffer = {
+        descriptor,
+        destroyCount: 0,
+        destroy() { this.destroyCount += 1; },
+      };
+      buffers.push(buffer);
+      return buffer;
+    },
+    createBindGroup(descriptor) { return { descriptor }; },
+  };
+  const pipeline = { getBindGroupLayout() { return {}; } };
+  const engine = new StatefulEngine(device, {
+    usage: { STORAGE: 1, COPY_DST: 2, UNIFORM: 4 },
+    sampleRate: 48000,
+    chunkSamples: 128,
+    maxNodes: SHADER_PLAYGROUND_LIMITS.maxNodes,
+    renderInfoBuffer: {},
+    nodeBuffer: {},
+  }).setPipeline(pipeline);
+
+  const active = encodeShaderPlaygroundPatch(geometricFeedbackPatch(true));
+  const bypassed = encodeShaderPlaygroundPatch(geometricFeedbackPatch(false));
+  const restored = encodeShaderPlaygroundPatch(geometricFeedbackPatch(true));
+
+  assert.equal(engine.sync(active), true);
+  assert.equal(engine.active, true);
+  assert.equal(engine.orderedResources.length, 1);
+  const firstResource = engine.orderedResources[0];
+  const firstBuffers = [...buffers];
+
+  assert.equal(engine.sync(bypassed), true);
+  assert.equal(engine.active, false);
+  assert.equal(engine.orderedResources.length, 0);
+  assert.equal(engine.allocationSummary.persistentBytes, 0);
+  assert.equal(firstBuffers.every(({ destroyCount }) => destroyCount === 1), true);
+
+  assert.equal(engine.sync(restored), true);
+  assert.equal(engine.active, true);
+  assert.equal(engine.orderedResources.length, 1);
+  assert.notEqual(engine.orderedResources[0], firstResource, "re-enabling must create fresh private state");
+  assert.equal(buffers.length, firstBuffers.length * 2);
+  assert.equal(buffers.slice(firstBuffers.length).every(({ destroyCount }) => destroyCount === 0), true);
 });
 
 test("large state resources are conditional, state passes are active-only, and shutdown destroys them", async () => {

@@ -13,7 +13,7 @@ import {
   sanitizeShaderPlaygroundPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "./src/shader-synth-playground.js?v=20260831-visual-state";
+} from "./src/shader-synth-playground.js?v=20260831-state-bypass";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -370,13 +370,15 @@ function makeNode(module, index = patchNodes().length) {
   const columnCount = Math.max(1, Math.floor((width - marginX * 2 + gapX) / (nodeWidth + gapX)));
   const column = index % columnCount;
   const row = Math.floor(index / columnCount);
-  return {
+  const node = {
     id: `${module.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
     type: module.id,
     x: marginX + column * (nodeWidth + gapX),
     y: marginTop + row * (nodeHeight + gapY),
     params: defaultParams(module),
   };
+  if (module.stateful) node.enabled = true;
+  return node;
 }
 
 function findNode(nodeId) {
@@ -781,8 +783,9 @@ function syncExecutionShape() {
   const activeModuleIds = patchNodes().map((node) => nodeModuleId(node));
   const activeHistoryModules = [...new Set(activeModuleIds
     .filter((moduleId) => HISTORY_MODULE_IDS.has(moduleId)))];
-  const activeStatefulModules = [...new Set(activeModuleIds
-    .filter((moduleId) => moduleById.get(moduleId)?.stateful))];
+  const activeStatefulModules = [...new Set(patchNodes()
+    .filter((node) => moduleForNode(node)?.stateful && node.enabled !== false)
+    .map((node) => nodeModuleId(node)))];
   const hasHistoryPass = activeHistoryModules.length > 0;
   const hasStatePass = activeStatefulModules.length > 0;
   const hasExtraGpuPass = hasHistoryPass || hasStatePass;
@@ -1188,6 +1191,8 @@ function createNodeElement(node, index) {
   const element = document.createElement("article");
   element.className = "patch-node";
   if (isSelected) element.classList.add("is-selected");
+  const isBypassed = module.stateful && node.enabled === false;
+  if (isBypassed) element.classList.add("is-bypassed");
   element.dataset.nodeId = node.id;
   element.style.setProperty("--node-color", module.color);
   const position = nodePosition(node);
@@ -1195,7 +1200,7 @@ function createNodeElement(node, index) {
   element.style.top = `${position.y}px`;
   element.tabIndex = isSelected || (!state.selectedNodeId && index === 0) ? 0 : -1;
   element.setAttribute("aria-controls", "nodeInspector");
-  element.setAttribute("aria-label", `${module.label} module${isSelected ? ", selected; parameters shown in the inspector" : ""}`);
+  element.setAttribute("aria-label", `${module.label} module${isBypassed ? ", GPU state bypassed" : ""}${isSelected ? ", selected; parameters shown in the inspector" : ""}`);
   if (isSelected) element.setAttribute("aria-current", "true");
 
   const header = document.createElement("header");
@@ -1233,7 +1238,7 @@ function createNodeElement(node, index) {
   body.append(inputs, outputs);
   const readout = document.createElement("span");
   readout.className = "node-mini-value";
-  readout.textContent = miniValue(node, module) || module.execution;
+  readout.textContent = isBypassed ? "GPU state off · input A through" : miniValue(node, module) || module.execution;
   body.append(readout);
   element.append(header, body);
   return element;
@@ -1666,6 +1671,7 @@ function renderInspector() {
     inspector.removeAttribute("aria-describedby");
     $("organRankSection").hidden = true;
     $("organRankControls").replaceChildren();
+    $("statefulNodeToggle").hidden = true;
     return;
   }
   inspector.dataset.selectedNode = node.id;
@@ -1674,6 +1680,13 @@ function renderInspector() {
   $("selectedNodeKind").textContent = module.category;
   $("selectedNodeTitle").textContent = module.label;
   $("selectedNodeRole").textContent = module.role;
+  const statefulToggle = $("statefulNodeToggle");
+  const statefulEnabled = $("statefulNodeEnabled");
+  const stateIsActive = module.stateful && node.enabled !== false;
+  statefulToggle.hidden = !module.stateful;
+  statefulEnabled.checked = stateIsActive;
+  statefulEnabled.setAttribute("aria-label", `${module.label} GPU state`);
+  $("statefulNodeState").textContent = stateIsActive ? "On" : "Bypassed";
   const ioRows = [];
   for (const [direction, ports] of [["input", module.inputs], ["output", module.outputs]]) {
     for (const port of ports) {
@@ -2036,6 +2049,11 @@ function auditionModule(moduleId) {
   announce(`${focus.label} audition selected. Its live controls are ready, and playback is starting.`);
 }
 
+function requestedModuleId(search, validModuleIds) {
+  const requested = new URLSearchParams(String(search ?? "")).get("module");
+  return requested && validModuleIds.has(requested) ? requested : null;
+}
+
 function createFallbackAuditionPatch(focus) {
   const templateId = focus.outputs.some((port) => port.type === "control")
     ? "folded-pulse"
@@ -2210,6 +2228,19 @@ function updateNodeParameter(input) {
   if (nodeElement) nodeElement.querySelector(".node-mini-value").textContent = miniValue(node, module);
   if (node.id === state.selectedNodeId) updateBehavior(module, node, effectiveParameterDescriptor(module, node, rawParam));
   syncPatchStatus();
+}
+
+function updateStatefulNodeEnabled(input) {
+  const node = findNode(state.selectedNodeId);
+  const module = moduleForNode(node);
+  if (!node || !module?.stateful) return;
+  node.enabled = Boolean(input.checked);
+  state.presetId = null;
+  state.comboId = null;
+  syncPatch({ render: true });
+  announce(node.enabled
+    ? `${module.label} GPU state is active.`
+    : `${module.label} is bypassed. Input A passes through and its private GPU state is released.`);
 }
 
 function normalizeChunk(...args) {
@@ -2551,6 +2582,9 @@ $("patchNodes").addEventListener("pointercancel", (event) => {
 $("nodeControls").addEventListener("input", (event) => {
   if (event.target.matches("input[type=\"range\"][data-param-id]")) updateNodeParameter(event.target);
 });
+$("statefulNodeEnabled").addEventListener("change", (event) => {
+  updateStatefulNodeEnabled(event.target);
+});
 $("patchControls").addEventListener("input", (event) => {
   if (event.target.matches("input[type=\"range\"][data-param-id]")) {
     updateNodeParameter(event.target);
@@ -2653,6 +2687,16 @@ if (patchNodes().length) {
   state.selectedNodeId = patchNodes()[0].id;
   renderPatch();
   globalThis.requestAnimationFrame?.(() => fitGraph({ silent: true }));
+}
+
+const initialModuleId = requestedModuleId(
+  globalThis.location?.search,
+  new Set(moduleById.keys()),
+);
+if (initialModuleId) {
+  auditionModule(initialModuleId);
+  $("moduleHearSelect").value = "";
+  announce(`${moduleById.get(initialModuleId).label} audition loaded. Press Run patch or play a note to hear it.`);
 }
 
 const initialPanel = new URLSearchParams(globalThis.location?.search ?? "").get("panel");

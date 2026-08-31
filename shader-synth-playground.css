@@ -1376,6 +1376,19 @@
   box-shadow: inset 3px 0 0 var(--node-color, var(--accent));
 }
 
+.patch-node.is-bypassed {
+  border-style: dashed;
+  filter: saturate(0.55);
+}
+
+.patch-node.is-bypassed:not(.is-selected) {
+  opacity: 0.72;
+}
+
+.patch-node.is-bypassed .node-mini-value {
+  color: var(--muted);
+}
+
 .patch-node:focus-visible {
   outline: 2px solid var(--node-color, var(--accent));
   outline-offset: 4px;
@@ -2253,6 +2266,45 @@
   color: var(--muted);
   font-size: 11px;
   line-height: 1.6;
+}
+
+.stateful-node-toggle {
+  display: inline-flex;
+  min-height: 28px;
+  margin-top: 12px;
+  padding: 3px 5px 3px 8px;
+  border: 1px solid color-mix(in oklab, var(--node-color, var(--accent)) 30%, var(--line-strong));
+  border-radius: 999px;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--node-color, var(--accent)) 6%, var(--panel));
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.stateful-node-toggle[hidden] {
+  display: none;
+}
+
+.stateful-node-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--node-color, var(--accent));
+}
+
+.stateful-node-toggle strong {
+  min-width: 22px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--node-color, var(--accent)) 16%, transparent);
+  font-size: 8px;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .inspector-section {

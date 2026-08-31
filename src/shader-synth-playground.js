@@ -1571,13 +1571,18 @@ function sanitizeNode(candidate, index) {
     const value = clamp(finiteOr(candidate?.params?.[descriptor.id], descriptor.default), descriptor.min, descriptor.max);
     params[descriptor.id] = descriptor.step >= 1 ? Math.round(value) : value;
   }
-  return {
+  const node = {
     id: String(candidate?.id ?? `${spec.id}-${index + 1}`).replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 64) || `${spec.id}-${index + 1}`,
     type: spec.id,
     x: clamp(finiteOr(candidate?.x, 30 + index * 28), 0, 4096),
     y: clamp(finiteOr(candidate?.y, 40 + index * 24), 0, 4096),
     params,
   };
+  // Stateful nodes retain a real graph-level bypass flag. Keeping this
+  // outside p0/p1 avoids spending one of the eight audible parameter slots.
+  // Missing flags remain enabled so every existing patch keeps its behavior.
+  if (spec.stateful) node.enabled = candidate?.enabled !== false;
+  return node;
 }
 
 export function sanitizeShaderPlaygroundPatch(candidate = {}) {
@@ -1887,7 +1892,11 @@ export function encodeShaderPlaygroundPatch(candidate, previousParams = new Map(
   for (const [index, graphNode] of orderedNodes.entries()) {
     const spec = MODULE_BY_ID.get(graphNode.type);
     const offset = index * FLOATS_PER_NODE;
-    data[offset] = spec.kind;
+    // A negative kind preserves the module identity and all cable slots while
+    // marking this stateful node inactive. The graph shader passes input A
+    // through without evaluating the kind, and the state engine intentionally
+    // ignores negative kinds so its private allocation is released.
+    data[offset] = spec.stateful && graphNode.enabled === false ? -spec.kind : spec.kind;
     for (const [inputIndex, inputPort] of spec.inputs.slice(0, 3).entries()) {
       const connection = patch.connections.find((entry) => entry.to.node === graphNode.id && entry.to.port === inputPort.id);
       if (!connection) {
@@ -2573,35 +2582,44 @@ fn render(@builtin(global_invocation_id) global_id: vec3<u32>) {
   for (var nodeIndex = 0u; nodeIndex < MAX_GRAPH_NODES; nodeIndex += 1u) {
     if (nodeIndex >= render_info.nodeCount) { break; }
     let graphNode = graph_nodes[nodeIndex];
-    let kind = u32(round(graphNode.header.x));
+    let bypassed = graphNode.header.x < 0.0;
+    let kind = u32(round(abs(graphNode.header.x)));
     var stateValue = vec2<f32>(0.0);
     if (render_info.stateActive != 0u) {
       stateValue = state_output[nodeIndex * render_info.sampleCount + sample];
     }
-    let previousResult = evaluateNode(
-      kind,
-      readInput(&previousValues, graphNode.header.y),
-      readInput(&previousValues, graphNode.header.z),
-      readInput(&previousValues, graphNode.header.w),
-      graphNode.previous0,
-      graphNode.previous1,
-      sampleIndex,
-      previousOrganRankOffset,
-      stateValue
-    );
-    var targetResult = previousResult;
-    if (transitionActive) {
-      targetResult = evaluateNode(
+    let previousInputA = readInput(&previousValues, graphNode.header.y);
+    var previousResult = previousInputA;
+    if (!bypassed) {
+      previousResult = evaluateNode(
         kind,
-        readInput(&targetValues, graphNode.header.y),
-        readInput(&targetValues, graphNode.header.z),
-        readInput(&targetValues, graphNode.header.w),
-        graphNode.target0,
-        graphNode.target1,
+        previousInputA,
+        readInput(&previousValues, graphNode.header.z),
+        readInput(&previousValues, graphNode.header.w),
+        graphNode.previous0,
+        graphNode.previous1,
         sampleIndex,
-        9u,
+        previousOrganRankOffset,
         stateValue
       );
+    }
+    var targetResult = previousResult;
+    if (transitionActive) {
+      let targetInputA = readInput(&targetValues, graphNode.header.y);
+      targetResult = targetInputA;
+      if (!bypassed) {
+        targetResult = evaluateNode(
+          kind,
+          targetInputA,
+          readInput(&targetValues, graphNode.header.z),
+          readInput(&targetValues, graphNode.header.w),
+          graphNode.target0,
+          graphNode.target1,
+          sampleIndex,
+          9u,
+          stateValue
+        );
+      }
     }
     previousValues[nodeIndex] = previousResult;
     targetValues[nodeIndex] = targetResult;
