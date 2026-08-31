@@ -40,6 +40,13 @@ function statefulCase(kind) {
   return next >= 0 ? remainder.slice(0, next) : remainder;
 }
 
+function wgslFunction(name) {
+  const start = STATEFUL_SHADER.indexOf(`fn ${name}(`);
+  assert.ok(start >= 0, `missing stateful WGSL function ${name}`);
+  const next = STATEFUL_SHADER.indexOf("\nfn ", start + 4);
+  return next >= 0 ? STATEFUL_SHADER.slice(start, next) : STATEFUL_SHADER.slice(start);
+}
+
 test("six stateful visual modules own unique registry kinds 105 through 110", () => {
   assert.ok(Array.isArray(STATEFUL_MODULES), "the dedicated state module must export its module registry");
   assert.deepEqual(STATEFUL_MODULES.map(({ id }) => id), EXPECTED_STATEFUL_IDS);
@@ -126,10 +133,24 @@ test("stateful WGSL owns six cases and a dedicated ordered compute entry point",
     1,
     "one ordered state-node pass may combine persistent evolution with audio/control projection",
   );
+  const renderFunctionById = new Map([
+    ["cellular-automaton-score", "renderCellularAutomaton"],
+    ["reaction-diffusion-score-lattice", "renderReactionDiffusion"],
+    ["geometric-feedback-lattice", "renderFeedbackLattice"],
+    ["spectral-sdf", "renderSpectralSdf"],
+    ["flow-field-advection", "renderFlowAdvection"],
+    ["raymarch-resonator", "renderRaymarchResonator"],
+  ]);
   for (const [index, id] of EXPECTED_STATEFUL_IDS.entries()) {
     const kind = EXPECTED_STATEFUL_KINDS[index];
     assert.equal(countMatches(STATEFUL_SHADER, new RegExp(`case ${kind}u:`, "g")), 1, `${id} needs one stateful WGSL case`);
-    assert.match(statefulCase(kind), /p0\.|p1\.|params/i, `${id} must consume packed graph parameters`);
+    const renderFunction = renderFunctionById.get(id);
+    assert.match(statefulCase(kind), new RegExp(`${renderFunction}\\(node\\)`), `${id} must dispatch its dedicated renderer`);
+    assert.match(
+      wgslFunction(renderFunction),
+      /node\.target[01]|params[01]\(node/,
+      `${id} must consume packed graph parameters in its renderer`,
+    );
   }
 
   const stateEngineSource = await readFile(new URL("src/shader-synth-playground-state-engine.js", ROOT), "utf8");
@@ -171,8 +192,11 @@ test("large state resources are conditional, state passes are active-only, and s
   );
 
   const stopSource = ShaderSynthPlaygroundAudio.prototype.stop.toString();
-  assert.match(stopSource, /stateful/i, "shutdown must include stateful resources");
-  assert.match(stopSource, /destroy\?*\s*\./, "shutdown must destroy GPU buffers rather than only drop references");
+  assert.match(
+    stopSource,
+    /this\.statefulEngine(?:\?\.|\.)destroy(?:\?\.)?\(/,
+    "shutdown must destroy the state engine rather than only drop its reference",
+  );
   assert.match(
     lifecycleSource,
     /(?:release|destroy)\w*stateful\w*(?:resource|buffer)|stateful[\s\S]{0,1200}?\.destroy\?*\s*\./i,
