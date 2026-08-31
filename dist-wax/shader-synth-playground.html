@@ -12,7 +12,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260830-atlas-dsp" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260831-visual-state" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -133,11 +133,11 @@
                 </section>
                 <section class="execution-detail-alternative" id="blockStateLane" aria-labelledby="blockStateHeading">
                   <h3 id="blockStateHeading">Block / state</h3>
-                  <p id="blockStateDescription">A persistent dry-history ring feeds Delay, Reverb, Flanger, Chorus, Doppler, Recombobulator, and the spectral processors. Feed-forward reads keep every output sample race-free.</p>
+                  <p id="blockStateDescription">History, ordered feedback, evolving grids, spectral windows, particles, and resonators use private GPU storage that exists only while a matching module is present.</p>
                 </section>
                 <section class="execution-detail-alternative" id="separateGpuPassLane" aria-labelledby="separateGpuPassHeading">
-                  <h3 id="separateGpuPassHeading">History / spectral GPU pass</h3>
-                  <p id="separateGpuPassDescription">After the graph pass, one capture dispatch updates history and one post dispatch applies the terminal effects. Sliding-DFT robotizer, resynthesis, and spectral gating stay bounded here; large FFT reductions and physical grids remain atlas techniques.</p>
+                  <h3 id="separateGpuPassHeading">Ordered GPU passes</h3>
+                  <p id="separateGpuPassDescription">State modules exchange intermediate GPU buffers between graph evaluations. Terminal history effects follow them, and only the completed stereo chunk returns to the CPU.</p>
                 </section>
               </div>
             </details>
@@ -148,7 +148,7 @@
             id="graphViewport"
             tabindex="0"
             role="application"
-            aria-roledescription="sample-parallel shader audio patch graph"
+            aria-roledescription="shader audio patch graph"
             aria-label="Connect sample-parallel shader synthesis modules. Audio is off."
             aria-describedby="sampleInvocationModel graphNodeLimitNote graphInstructions graphMobileInstructions liveStatus"
           >
@@ -301,7 +301,7 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260830-atlas-dsp"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260831-visual-state"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>
