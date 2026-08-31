@@ -110,6 +110,10 @@ test("stateful visual modules expose bounded typed I/O and packed audible parame
       assert.ok(parameter.default >= parameter.min && parameter.default <= parameter.max, `${module.id}.${parameter.id} default is outside its range`);
       assert.ok(parameter.low && parameter.high && parameter.behavior, `${module.id}.${parameter.id} needs audible endpoint language`);
     }
+    assert.ok(module.state?.family && module.state.resources && module.state.lifecycle, `${module.id} needs explicit GPU state ownership metadata`);
+    for (const resetParameter of module.state.resetParams ?? []) {
+      assert.ok(module.params.some(({ id }) => id === resetParameter), `${module.id} names unknown reset parameter ${resetParameter}`);
+    }
   }
 });
 
@@ -180,6 +184,52 @@ test("stateful WGSL owns six cases and a dedicated ordered compute entry point",
     /createComputePipeline(?:Async)?\s*\(/,
     "the state engine must own a dedicated GPU compute pipeline",
   );
+});
+
+test("every packed stateful parameter is read by its dedicated WGSL renderer", () => {
+  const referencesById = new Map([
+    ["cellular-automaton-score", [
+      /p0\.x/, /p0\.y/, /p0\.z/, /node\.target0\.w/,
+      /node\.target1\.x/, /p1\.y/, /p1\.z/, /p1\.w/,
+    ]],
+    ["reaction-diffusion-score-lattice", [
+      /p0\.x/, /p0\.y/, /p0\.z/, /p0\.w/,
+      /p1\.x/, /p\.y/, /p\.z/, /node\.target1\.w/,
+    ]],
+    ["geometric-feedback-lattice", [
+      /p0\.x/, /p0\.y/, /p0\.z/, /p0\.w/,
+      /p1\.x/, /p1\.y/, /p1\.z/, /p1\.w/,
+    ]],
+    ["spectral-sdf", [
+      /p0\.x/, /p0\.y/, /p0\.z/, /p0\.w/,
+      /p1\.x/, /p1\.y/, /p1\.z/, /p1\.w/,
+    ]],
+    ["flow-field-advection", [
+      /p0\.x/, /p0\.y/, /p0\.z/, /p0\.w/,
+      /p1\.x/, /p1\.y/, /node\.target1\.z/, /params1\(node, sample\)\.w/,
+    ]],
+    ["raymarch-resonator", [
+      /target0\.x/, /target0\.y/, /target0\.z/, /p0\.w/,
+      /p1\.x/, /p1\.y/, /p1\.z/, /p1\.w/,
+    ]],
+  ]);
+  const rendererById = new Map([
+    ["cellular-automaton-score", "renderCellularAutomaton"],
+    ["reaction-diffusion-score-lattice", "renderReactionDiffusion"],
+    ["geometric-feedback-lattice", "renderFeedbackLattice"],
+    ["spectral-sdf", "renderSpectralSdf"],
+    ["flow-field-advection", "renderFlowAdvection"],
+    ["raymarch-resonator", "renderRaymarchResonator"],
+  ]);
+
+  for (const module of STATEFUL_MODULES) {
+    const renderer = wgslFunction(rendererById.get(module.id));
+    const references = referencesById.get(module.id);
+    assert.equal(references.length, module.params.length, `${module.id} parameter-reference contract drifted`);
+    references.forEach((reference, index) => {
+      assert.match(renderer, reference, `${module.id}.${module.params[index].id} is packed but never read`);
+    });
+  }
 });
 
 test("state engine allocates lazily and destroys private buffers with the last active node", () => {
