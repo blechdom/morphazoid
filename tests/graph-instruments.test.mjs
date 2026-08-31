@@ -20,6 +20,7 @@ import {
   tuneGraphSemitones,
 } from "../src/graph-instruments.js";
 import {
+  graphEdgeSpeedReadout,
   graphInstrumentDefaultState,
   graphInstrumentPresetState,
 } from "../src/graph-instrument-app.js";
@@ -33,6 +34,14 @@ const closeTo = (actual, expected, epsilon = 1e-12) => {
     `expected ${actual} to be within ${epsilon} of ${expected}`,
   );
 };
+
+test("graph edge-speed readout preserves milliseconds and shows BPM equivalent", () => {
+  assert.equal(graphEdgeSpeedReadout(600), "100 BPM eq. · 600 ms");
+  assert.equal(graphEdgeSpeedReadout(62), "968 BPM eq. · 62 ms");
+  assert.equal(graphEdgeSpeedReadout(20), "3000 BPM eq. · 20 ms");
+  assert.equal(graphEdgeSpeedReadout(Number.NaN), "968 BPM eq. · 62 ms");
+  assert.equal(graphEdgeSpeedReadout(10_000), "100 BPM eq. · 600 ms");
+});
 
 const LEGACY_GRAPH_INSTRUMENT_TIME_SCALES = Object.freeze({
   clearSteps: 0,

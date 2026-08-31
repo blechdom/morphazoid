@@ -107,7 +107,7 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
         && html.indexOf('id="topology"') < html.indexOf('id="delaySection"')
         && html.indexOf('id="playSection"') < html.indexOf('id="baseDelay"')
         && html.indexOf('id="baseDelay"') < html.indexOf('id="delaySection"'),
-      "Graph shape and Edge time / speed belong in the top Play panel",
+      "Graph shape and Edge speed belong in the top Play panel",
     );
     for (const uniqueId of ["topology", "baseDelay", "baseDelayOut", "nodeCount"]) {
       assert.equal(
@@ -116,7 +116,16 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
         `${uniqueId} must have one authoritative control`,
       );
     }
-    assert.match(html, /<b>Edge time \/ speed<\/b>/);
+    assert.match(html, /<b>Edge speed<\/b>/);
+    const edgeSpeedInput = html.match(/<input\b[^>]*id="baseDelay"[^>]*>/)?.[0] ?? "";
+    assert.match(edgeSpeedInput, /min="20"/);
+    assert.match(edgeSpeedInput, /max="600"/);
+    assert.match(edgeSpeedInput, /step="1"/);
+    assert.match(edgeSpeedInput, /value="62"/);
+    assert.match(edgeSpeedInput, /dir="rtl"/);
+    assert.match(edgeSpeedInput, /aria-label="Edge speed, slow to fast"/);
+    assert.match(html, /id="baseDelayOut"[^>]*>968 BPM eq\. · 62 ms<\/output>/);
+    assert.match(html, /<b>Pulse tempo<\/b>/);
     assert.doesNotMatch(html, /id="seedPulseButton"|id="seedKeyboard"|id="seedOctave(?:Down|Out|Up)"/);
     assert.doesNotMatch(html, /data-seed-semitone|class="[^"]*graph-seed-keyboard/);
     assert.match(html, /Drag nodes to change edge times/);
@@ -185,7 +194,7 @@ test("Graph pages cannot mix refreshed markup with stale Graph runtime modules",
     readFile(new URL("src/graph-instruments.js", root), "utf8"),
     readFile(new URL("scripts/dev-server.py", root), "utf8"),
   ]);
-  const version = "graph-instruments-20260830-4";
+  const version = "graph-instruments-20260830-5";
 
   assert.match(drums, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));
   assert.match(synth, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));

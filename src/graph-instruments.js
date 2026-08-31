@@ -4,7 +4,7 @@ import {
   graphEdgeSwitchMultipliers,
   relativeTurnRadians,
   turnPitchSemitones,
-} from "./graph-delay.js?v=graph-instruments-20260830-4";
+} from "./graph-delay.js?v=graph-instruments-20260830-5";
 
 // Dense and cyclic graphs can revisit nodes many times. Keep their event queue
 // explicitly bounded even though the editable instruments stop at 32 nodes.

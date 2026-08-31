@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="micmic.css" />
     <link rel="stylesheet" href="graph-delay.css" />
     <link rel="stylesheet" href="l-system-drums.css" />
-    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-4" />
+    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-5" />
   </head>
   <body class="micmic-page graph-delay-page graph-instrument-page graph-drums-page" data-graph-instrument="drums">
     <header class="masthead">
@@ -88,11 +88,11 @@
                 <optgroup label="Directed acyclic graphs"><option value="chain">Delay Chain</option><option value="tree">Branching Tree</option><option value="dag" selected>Layered DAG</option><option value="bipartite">Bipartite Field</option></optgroup>
                 <optgroup label="Cyclic and network graphs"><option value="ring">Directed Ring</option><option value="smallworld">Small World</option><option value="hub">Hub + Spokes</option><option value="mesh">Feedback Mesh</option><option value="modular">Modular Islands</option><option value="random">Seeded Random</option></optgroup>
               </select></span></label>
-              <label class="control" for="baseDelay"><span><b>Edge time / speed</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
+              <label class="control" for="baseDelay"><span><b>Edge speed</b><output id="baseDelayOut" for="baseDelay">968 BPM eq. · 62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" dir="rtl" aria-label="Edge speed, slow to fast" aria-valuetext="968 BPM equivalent, 62 milliseconds" title="Slow at the left, fast at the right. BPM is the equivalent rate for one minimum-length edge; Pulse tempo controls graph-note launches." /></label>
             </div>
             <div class="graph-pulse-grid">
               <label class="control graph-seed-note-control" for="seedNote"><span><b>Seed note</b><output id="seedNoteOut" for="seedNote">C4 · 60</output></span><input id="seedNote" name="pitch" type="range" min="0" max="127" step="1" value="60" /></label>
-              <label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
+              <label class="control" for="tempo"><span><b>Pulse tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
               <label class="select-control" for="pulseDivision"><span class="field-label">Pulse interval</span><span class="select-shell"><select id="pulseDivision"><option value="0.5">Every 1/2 beat</option><option value="1" selected>Every beat</option><option value="2">Every 2 beats</option><option value="4">Every 4 beats</option></select></span></label>
             </div>
             <small class="growth-parameter-note graph-seed-note-note">MIDI In and computer keys launch their own seed notes; this value sets Play, Send, and Space.</small>
@@ -195,7 +195,7 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="graph-drums-app.js?v=graph-instruments-20260830-4"></script>
+    <script type="module" src="graph-drums-app.js?v=graph-instruments-20260830-5"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

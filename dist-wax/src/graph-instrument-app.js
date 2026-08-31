@@ -13,13 +13,13 @@ import {
   graphDrumStyleUsesContinuousPitch,
   graphDrumStyleUsesPhysicalEngine,
   sanitizeGraphDrumPercussionStyle,
-} from "./graph-drum-audio.js?v=graph-instruments-20260830-4";
+} from "./graph-drum-audio.js?v=graph-instruments-20260830-5";
 import {
   GRAPH_PRESETS,
   edgeAudioParameters,
   generateGraph,
   graphSinkNodeIds,
-} from "./graph-delay.js?v=graph-instruments-20260830-4";
+} from "./graph-delay.js?v=graph-instruments-20260830-5";
 import {
   GRAPH_INSTRUMENT_PATCHES,
   MAX_GRAPH_EVENT_SCHEDULE,
@@ -31,11 +31,11 @@ import {
   graphSynthVoice,
   mappedGraphDrumVoice,
   scheduleGraphPulse,
-} from "./graph-instruments.js?v=graph-instruments-20260830-4";
+} from "./graph-instruments.js?v=graph-instruments-20260830-5";
 import {
   MAX_GRAPH_SYNTH_ACTIVE_VOICES,
   GraphSynthAudio,
-} from "./graph-synth-audio.js?v=graph-instruments-20260830-4";
+} from "./graph-synth-audio.js?v=graph-instruments-20260830-5";
 
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.09;
@@ -204,6 +204,11 @@ function noteName(frequency) {
 
 function midiFrequency(note) {
   return 440 * 2 ** ((clamp(note, 0, 127, 69) - 69) / 12);
+}
+
+export function graphEdgeSpeedReadout(delayMilliseconds) {
+  const milliseconds = Math.round(clamp(delayMilliseconds, 20, 600, 62));
+  return `${Math.round(60_000 / milliseconds)} BPM eq. · ${milliseconds} ms`;
 }
 
 /** Initialize either authored Graph instrument page without touching globals at import time. */
@@ -1411,7 +1416,7 @@ export function initializeGraphInstrument({
       tempo: (value) => `${Math.round(value)} BPM`,
       output: percent,
       nodePass: percent,
-      baseDelay: (value) => `${Math.round(value)} ms`,
+      baseDelay: graphEdgeSpeedReadout,
       distanceRatio: (value) => `${Number(value).toFixed(2)}×`,
       timeCurve: (value) => Number(value).toFixed(2),
       feedback: percent,
@@ -1436,7 +1441,15 @@ export function initializeGraphInstrument({
     };
     for (const [id, formatter] of Object.entries(formats)) {
       const output = $(`${id}Out`);
-      if (output) output.textContent = formatter(state[id]);
+      if (!output) continue;
+      const formatted = formatter(state[id]);
+      output.textContent = formatted;
+      if (id === "baseDelay") {
+        $(id)?.setAttribute?.(
+          "aria-valuetext",
+          formatted.replace(" BPM eq. · ", " BPM equivalent, ").replace(" ms", " milliseconds"),
+        );
+      }
     }
   }
 

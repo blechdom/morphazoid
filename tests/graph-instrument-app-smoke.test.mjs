@@ -174,6 +174,11 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.ok(controller);
   assert.ok(rafQueue.length > 0, "initialization should request a render frame");
   flushAnimationFrames();
+  assert.equal(elements.get("baseDelayOut").textContent, "968 BPM eq. · 62 ms");
+  assert.equal(
+    attributes.get("baseDelay:aria-valuetext"),
+    "968 BPM equivalent, 62 milliseconds",
+  );
 
   if (mode === "drums") {
     elements.get("percussionStyle").value = "karplus-tines";
@@ -502,6 +507,12 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   listeners.get("density:input")({ currentTarget: elements.get("density") });
   elements.get("baseDelay").value = "20";
   listeners.get("baseDelay:input")({ currentTarget: elements.get("baseDelay") });
+  assert.equal(controller.state.baseDelay, 20, "Edge speed must remain stored in milliseconds");
+  assert.equal(elements.get("baseDelayOut").textContent, "3000 BPM eq. · 20 ms");
+  assert.equal(
+    attributes.get("baseDelay:aria-valuetext"),
+    "3000 BPM equivalent, 20 milliseconds",
+  );
   elements.get("distanceRatio").value = "1";
   listeners.get("distanceRatio:input")({ currentTarget: elements.get("distanceRatio") });
   elements.get("triggerScope").value = "all";
