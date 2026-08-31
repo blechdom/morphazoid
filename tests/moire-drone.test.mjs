@@ -49,6 +49,7 @@ const {
   MOIRE_DRONE_FFT_LATENCY,
   MOIRE_DRONE_FFT_SIZE,
   MOIRE_DRONE_LIMITS,
+  MOIRE_DRONE_MANUAL_MOTION_SETTINGS,
   MOIRE_DRONE_NOISE_COLOR_CHOICES,
   MOIRE_DRONE_NOISE_TYPES,
   MOIRE_DRONE_PRESETS,
@@ -276,6 +277,40 @@ test("parameter sanitization enforces the complete DSP budget and safe ranges", 
   assert.ok(reordered.highFrequency >= reordered.lowFrequency * 1.25);
 });
 
+test("the browser audio and worklet boundaries reject hidden autonomous motion", () => {
+  const autonomousRequest = {
+    glideA: 1.7,
+    glideB: -1.6,
+    fieldASpeed: 1.5,
+    fieldBSpeed: -1.4,
+    fabricExcitation: 1,
+    fabricVibration: 1,
+    fabricRate: 30,
+    fabricSpin: 0.9,
+    autoPluckRate: 4,
+    combDrift: -1.8,
+    gestureMemory: 4,
+    freeze: true,
+  };
+  const assertManual = (parameters, boundary) => {
+    for (const [key, value] of Object.entries(MOIRE_DRONE_MANUAL_MOTION_SETTINGS)) {
+      assert.equal(parameters[key], value, `${boundary} must neutralize ${key}`);
+    }
+  };
+
+  const audio = new MoireDroneAudio({});
+  assertManual(audio.setParameters(autonomousRequest), "browser audio wrapper");
+
+  const processor = new ProcessorConstructor({
+    processorOptions: { parameters: autonomousRequest },
+  });
+  assertManual(processor.kernel.target, "worklet constructor");
+  processor.port.onmessage({
+    data: { type: "parameters", parameters: autonomousRequest },
+  });
+  assertManual(processor.kernel.target, "worklet message boundary");
+});
+
 test("spectral sculpt modes and gesture dynamics sanitize to a stable public contract", () => {
   assert.ok(Object.isFrozen(SPECTRAL_SCULPT_MODES));
   assert.deepEqual(SPECTRAL_SCULPT_MODES, [
@@ -389,7 +424,7 @@ test("noise engines expose deterministic colored, impulsive, fractal, and chaoti
   );
 });
 
-test("the names-only preset library is unique, frozen, safe, and audible", () => {
+test("the names-only preset library is unique, frozen, manual, safe, and audible", () => {
   assert.ok(
     MOIRE_DRONE_PRESETS.length >= 56,
     "the expanded library must expose a substantial range of controllable sounds",
@@ -406,6 +441,13 @@ test("the names-only preset library is unique, frozen, safe, and audible", () =>
       ...preset.settings,
     });
     sanitizedPresets.push(parameters);
+    for (const [key, value] of Object.entries(MOIRE_DRONE_MANUAL_MOTION_SETTINGS)) {
+      assert.equal(
+        parameters[key],
+        value,
+        `${preset.id} must neutralize hidden ${key} automation`,
+      );
+    }
     const kernel = new MoireDroneKernel({ sampleRate: SAMPLE_RATE, parameters });
     kernel.setActive(true);
     const rendered = renderKernel(kernel, BLOCK_SIZE * 90);
@@ -418,19 +460,15 @@ test("the names-only preset library is unique, frozen, safe, and audible", () =>
     parameters.combTeeth,
     parameters.combWidth.toFixed(3),
     parameters.combOffset.toFixed(3),
-    parameters.combDrift.toFixed(3),
     parameters.propagationVoices,
-    parameters.autoPluckRate.toFixed(3),
     parameters.propagationMode,
+    parameters.propagationSpeed.toFixed(3),
+    parameters.propagationDecay.toFixed(3),
   ].join("|")));
-  assert.ok(combSignatures.size >= 12, "presets must not be cosmetic aliases of one comb motion");
-  assert.ok(sanitizedPresets.some(({ autoPluckRate }) => autoPluckRate === 0));
-  assert.ok(sanitizedPresets.some(({ autoPluckRate }) => autoPluckRate > 0));
+  assert.ok(combSignatures.size >= 12, "presets must not be cosmetic aliases of one manual sculpture");
   assert.ok(sanitizedPresets.some(({ propagationVoices }) => propagationVoices > 1));
   assert.ok(sanitizedPresets.some(({ combDepth }) => combDepth < 0.8));
   assert.ok(sanitizedPresets.some(({ combDepth }) => combDepth === 1));
-  assert.ok(sanitizedPresets.some(({ combDrift }) => combDrift < 0));
-  assert.ok(sanitizedPresets.some(({ combDrift }) => combDrift > 0));
   assert.deepEqual(
     new Set(sanitizedPresets.map(({ propagationMode }) => propagationMode)),
     new Set(SPECTRAL_PROPAGATION_MODES),
@@ -773,7 +811,12 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(html, /id="audioState">off</);
   assert.match(html, /id="audioError" role="alert" hidden/);
   assert.match(html, /id="liveStatus" aria-live="polite"/);
-  assert.match(html, /aria-keyshortcuts="Space Enter ArrowLeft ArrowRight ArrowUp ArrowDown"/);
+  assert.match(html, /aria-keyshortcuts="Enter ArrowLeft ArrowRight ArrowUp ArrowDown"/);
+  assert.doesNotMatch(
+    html,
+    /aria-keyshortcuts="[^"]*\bSpace\b/,
+    "Space must not toggle hidden automatic motion",
+  );
   assert.match(html, /id="fabricExciteButton"[^>]*>Pluck origin</);
   assert.match(html, /id="fabricSections"[^>]*min="3"[^>]*max="16"/);
   assert.match(html, /id="fabricPatchwork"[^>]*min="0"[^>]*max="1"/);
@@ -840,7 +883,18 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     /data-spectral-sculpt-mode="notches"[^>]*>Gaps<[\s\S]*data-spectral-sculpt-mode="ridges"[^>]*>Ridges<[\s\S]*data-spectral-sculpt-mode="lowpass"[^>]*>Low-pass<[\s\S]*data-spectral-sculpt-mode="highpass"[^>]*>High-pass<[\s\S]*data-spectral-sculpt-mode="bandpass"[^>]*>Window<[\s\S]*data-spectral-sculpt-mode="bandstop"[^>]*>Hollow<[\s\S]*data-spectral-sculpt-mode="peak"[^>]*>Peak<[\s\S]*data-spectral-sculpt-mode="tilt"[^>]*>Tilt</,
   );
   assert.match(html, /id="gestureCoupling"[^>]*type="range"/);
-  assert.match(html, /id="gestureMemory"[^>]*type="range"/);
+  for (const id of [
+    "glideA", "glideB", "fieldASpeed", "fieldBSpeed", "autoPluckRate",
+    "combDrift", "gestureMemory", "fabricExcitation", "fabricVibration",
+    "fabricRate", "fabricSpin", "freezeChoice",
+  ]) {
+    assert.doesNotMatch(
+      html,
+      new RegExp(`id="${id}"`),
+      `${id} must not expose audio-only automatic motion`,
+    );
+  }
+  assert.doesNotMatch(html, /data-freeze=/);
   assert.match(
     html,
     /Touch left[\s\S]{0,120}low frequencies[\s\S]{0,120}right[\s\S]{0,120}high frequencies/i,
@@ -892,16 +946,16 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.doesNotMatch(html, /data-preset=/, "preset names are rendered without embedded stats");
   for (const [, key] of new Set([
     ["", "noiseColor"], ["", "noiseChaos"], ["", "noiseFractalDepth"],
-    ["", "filterPairs"], ["", "glideA"],
+    ["", "filterPairs"],
     ["", "propagationRate"], ["", "propagationSpeed"], ["", "propagationDecay"],
     ["", "propagationDepth"], ["", "propagationGain"], ["", "propagationWidth"],
-    ["", "harmonicOrder"], ["", "ringDensity"], ["", "autoPluckRate"],
+    ["", "harmonicOrder"], ["", "ringDensity"],
     ["", "propagationSizeSpread"], ["", "propagationSpeedSpread"],
     ["", "propagationInterference"], ["", "grabRippleRate"],
     ["", "propagationVoices"], ["", "combDepth"], ["", "combTeeth"],
-    ["", "combWidth"], ["", "combOffset"], ["", "combDrift"],
+    ["", "combWidth"], ["", "combOffset"],
     ["", "combWarp"], ["", "pluckCut"],
-    ["", "gestureCoupling"], ["", "gestureMemory"],
+    ["", "gestureCoupling"],
     ["", "spectralFilterBlend"], ["", "fftCutDepth"], ["", "fftSharpness"],
     ["", "qCutDepth"], ["", "qCharacter"],
     ["", "gridDensity"], ["", "fabricSections"], ["", "fabricPatchwork"],
@@ -914,6 +968,11 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     assert.match(html, new RegExp(`<output[^>]+for="${key}"`));
   }
   assert.doesNotMatch(appSource, /new\s+(?:AudioContext|webkitAudioContext)/);
+  assert.doesNotMatch(appSource, /\$\("freezeChoice"\)|stepVisualSculptGesture/);
+  const manualSettingsSource = namedFunctionSource(appSource, "manualFabricSettings");
+  assert.match(manualSettingsSource, /MOIRE_DRONE_MANUAL_MOTION_SETTINGS/);
+  const updateAudioParametersSource = namedFunctionSource(appSource, "updateAudioParameters");
+  assert.match(updateAudioParametersSource, /manualFabricSettings\(state\.settings\)/);
   assert.match(appSource, /prefers-reduced-motion/);
   assert.match(appSource, /pointerdown/);
   assert.match(appSource, /fabricGesturePull/);
@@ -1020,6 +1079,11 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(directWakeSource, /0\.68/);
   const directWakeTriggerSource = namedFunctionSource(appSource, "triggerDirectGrabWake");
   assert.match(directWakeTriggerSource, /audioAction:\s*"pluck"/);
+  assert.match(
+    directWakeTriggerSource,
+    /fabricScale:\s*1\b/,
+    "the first grab wake must strike the visible and audio membranes equally",
+  );
   const grabRippleSource = namedFunctionSource(appSource, "maybeEmitGrabRipple");
   assert.match(grabRippleSource, /pointerId\s*===\s*null|pointerId\s*!==\s*null/);
   assert.match(grabRippleSource, /pointerWakeCount\s*===\s*0/);
@@ -1027,6 +1091,11 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(grabRippleSource, /(?:elapsed|interval|time|timestamp|performance\.now)/i);
   assert.match(grabRippleSource, /(?:travel|distance|Math\.hypot)/i);
   assert.match(grabRippleSource, /triggerPropagationAt\(/);
+  assert.match(
+    grabRippleSource,
+    /fabricScale:\s*0\.32\b/,
+    "drag ripples must use the same physical impulse as the audio membrane",
+  );
   assert.doesNotMatch(
     grabRippleSource,
     /autoPluckRate/,
@@ -1057,9 +1126,10 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     1,
     "the direct release propagation branch remains reserved for a quick stationary tap",
   );
-  assert.match(releasePointerSource, /pointerVelocityX\)\) \* 0\.58/);
-  assert.match(releasePointerSource, /pointerVelocityY\)\) \* 0\.58/);
   assert.match(releasePointerSource, /visualFabric\.excite\(/);
+  for (const axis of ["X", "Y"]) {
+    assert.match(releasePointerSource, new RegExp(`visualPullOffset${axis}\\s*=\\s*0`));
+  }
   assert.match(releasePointerSource, /const releaseGesture = currentAudioGesture\(\)/);
   assert.match(releasePointerSource, /audio\.releaseFabric\(releaseGesture\)/);
   assert.match(releasePointerSource, /const releaseCurrentX\s*=\s*pointerCurrentX/);
@@ -1073,6 +1143,11 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     releasePointerSource,
     /audio\.kickFabric\([\s\S]*?releaseCurrentX,[\s\S]*?releaseCurrentY,[\s\S]*?releaseGesture,[\s\S]*?\)/,
     "release energy must follow the hand instead of snapping back to its anchor",
+  );
+  assert.match(
+    releasePointerSource,
+    /if \(!audioWasReady\) \{[\s\S]*?visualFabric\.excite\([\s\S]*?audioThrowForce[\s\S]*?releaseRadius[\s\S]*?\}[\s\S]*?audio\.kickFabric\([\s\S]*?audioThrowForce[\s\S]*?releaseRadius/,
+    "audio startup must restore the same release impulse to both membranes",
   );
   assert.match(appSource, /grabRippleRate[\s\S]*?"onset only"/);
   assert.match(cssSource, /#stage\s*\{[\s\S]*?cursor:\s*grab/);
@@ -1181,7 +1256,7 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(
     sculptGeometrySource,
     /pointer|gesture|visualSculpt/i,
-    "the displayed spectral shape must be derived from live or remembered gesture state",
+    "the displayed spectral shape must be derived from live gesture state",
   );
   assert.match(
     sculptGeometrySource,
@@ -1200,8 +1275,11 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(captureVisualGestureSource, /focus|currentX|pointerCurrentX/);
   assert.match(captureVisualGestureSource, /width|currentY|deltaY|pointerCurrentY/);
   assert.match(captureVisualGestureSource, /depth|amount|distance|pointerPullAmount/);
-  const stepVisualGestureSource = namedFunctionSource(appSource, "stepVisualSculptGesture");
-  assert.match(stepVisualGestureSource, /memory|gestureMemory|decay|Math\.exp/i);
+  assert.match(
+    captureVisualGestureSource,
+    /visualSculptGestureEnvelope\s*=\s*active\s*\?\s*1\s*:\s*0/,
+    "released direct manipulation must not leave an invisible visual memory tail",
+  );
   const visualCombGeometrySource = namedFunctionSource(appSource, "updateVisualCombGeometry");
   assert.match(visualCombGeometrySource, /visualSculptGeometry\(\)/);
   assert.match(visualCombGeometrySource, /\.focus\b/);
@@ -1239,7 +1317,7 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     "the displayed mask must show the same serial hybrid intersection as the audio",
   );
   const animateSource = namedFunctionSource(appSource, "animate");
-  assert.match(animateSource, /stepVisualSculptGesture\(/);
+  assert.doesNotMatch(animateSource, /stepVisualSculptGesture\(/);
   assert.doesNotMatch(
     animateSource,
     /state\.(?:shepardPhaseA|shepardPhaseB|fieldPhaseA|fieldPhaseB|fabricSpinPhase|combPhase)\s*=/,
@@ -2060,10 +2138,14 @@ test("horizontal touch selects spectral focus and pull strength materially chang
 
   weak.releaseFabric(weakGesture);
   strong.releaseFabric(strongGesture);
-  assert.ok(
-    strong.gestureEnvelope - weak.gestureEnvelope > 0.08,
-    "stored pull distance must survive release as materially different ring energy",
-  );
+  weak.updateTargets(true);
+  strong.updateTargets(true);
+  for (const kernel of [weak, strong]) {
+    assert.equal(kernel.gestureEnvelope, 0);
+    assert.equal(kernel.directGestureResponse, 0);
+    assert.equal(kernel.directGestureDepth, 0);
+    assert.equal(kernel.directGestureGainTarget, 1);
+  }
   for (const value of [
     lowTap.gestureFocus,
     highTap.gestureFocus,
@@ -2076,7 +2158,7 @@ test("horizontal touch selects spectral focus and pull strength materially chang
   ]) assert.ok(Number.isFinite(value));
 });
 
-test("matched X and opposite Y gestures address different interacting filter families", () => {
+test("matched X and opposite Y contacts address different filter families until release", () => {
   const parameters = {
     ...MOIRE_DRONE_DEFAULTS,
     autoPluckRate: 0,
@@ -2103,13 +2185,14 @@ test("matched X and opposite Y gestures address different interacting filter fam
     velocityX: 2.2,
     velocityY: Math.sign(y) * 3.8,
   });
-  top.pluckFabric(0.22, -0.76, 0.92, 0.16, gestureAt(-0.76));
-  bottom.pluckFabric(0.22, 0.76, 0.92, 0.16, gestureAt(0.76));
-  assert.equal(top.impactX, bottom.impactX);
-  assert.equal(top.impactY, -0.76);
-  assert.equal(bottom.impactY, 0.76);
+  const topGesture = gestureAt(-0.76);
+  const bottomGesture = gestureAt(0.76);
+  top.tugFabric(0.22, -0.76, 0.92, topGesture);
+  bottom.tugFabric(0.22, 0.76, 0.92, bottomGesture);
   top.updateTargets(true);
   bottom.updateTargets(true);
+  assert.equal(top.gestureActive, true);
+  assert.equal(bottom.gestureActive, true);
   assert.ok(top.gestureWarpAxis > 0 && bottom.gestureWarpAxis > 0);
   assert.ok(top.gestureWeftAxis < 0 && bottom.gestureWeftAxis > 0);
   assert.notDeepEqual(
@@ -2137,6 +2220,18 @@ test("matched X and opposite Y gestures address different interacting filter fam
     Math.sqrt(difference / Math.max(1e-15, energy)) > 0.12,
     "top and bottom gestures must produce materially different sound",
   );
+
+  top.releaseFabric(topGesture);
+  bottom.releaseFabric(bottomGesture);
+  top.updateTargets(true);
+  bottom.updateTargets(true);
+  for (const kernel of [top, bottom]) {
+    assert.equal(kernel.gestureActive, false);
+    assert.equal(kernel.gestureEnvelope, 0);
+    assert.ok(Math.abs(kernel.gestureWarpAxis) < 1e-12);
+    assert.ok(Math.abs(kernel.gestureWeftAxis) < 1e-12);
+    assert.equal(kernel.directGestureGainTarget, 1);
+  }
 });
 
 test("every preset gives a direct pull a serious parameter-independent sonic response", () => {
@@ -2301,7 +2396,7 @@ test("direct pull survives zeroed modulators at every sculpt and Q/FFT topology"
   }
 });
 
-test("the guaranteed direct-pull response remains strongly graded", () => {
+test("the guaranteed direct-pull response is graded during contact and ends at release", () => {
   const parameters = {
     ...MOIRE_DRONE_DEFAULTS,
     freeze: true,
@@ -2366,21 +2461,35 @@ test("the guaranteed direct-pull response remains strongly graded", () => {
 
   const released = new MoireDroneKernel({
     sampleRate: SAMPLE_RATE,
-    parameters: { ...parameters, gestureMemory: 0.08 },
+    parameters,
   });
   released.setActive(true);
   const releaseGesture = gestureAt(strengths[2]);
   released.tugFabric(-0.7, 0.2, 0.98, releaseGesture);
   renderKernel(released, BLOCK_SIZE * 4);
+  const retainedFabricEnergy = released.fabric.energy;
+  assert.ok(retainedFabricEnergy > 0.001);
+  assert.ok(released.directGestureGain < 0.6);
   released.releaseFabric(releaseGesture);
   released.updateTargets(true);
   assert.equal(released.gestureActive, false);
+  assert.equal(released.gestureEnvelope, 0);
+  assert.equal(released.directGestureResponse, 0);
+  assert.equal(released.directGestureDepth, 0);
+  assert.equal(released.directGestureGainTarget, 1);
+  assert.ok(Math.abs(released.gestureWarpAxis) < 1e-12);
+  assert.ok(Math.abs(released.gestureWeftAxis) < 1e-12);
+  assert.equal(released.fabric.energy, retainedFabricEnergy);
+  renderKernel(released, Math.round(SAMPLE_RATE * 0.05));
   assert.ok(
-    released.directGestureResponse > 0.75,
-    "release must retain the strong pull as a directly audible memory tail",
+    released.directGestureGain > 0.999,
+    "the de-click smoothing may be brief but must not become a second release envelope",
   );
-  assert.ok(released.directGestureDepth > 0.7);
-  assert.ok(released.directGestureGainTarget < 0.6);
+  assert.equal(
+    released.fabric.energy,
+    retainedFabricEnergy,
+    "the released physical sheet may retain visible energy independently of direct contact",
+  );
 });
 
 test("extreme spectral-fabric motion stays finite and shifts the filter lattice", () => {

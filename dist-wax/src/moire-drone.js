@@ -90,6 +90,24 @@ export const MOIRE_DRONE_LIMITS = Object.freeze({
   qualityScales: QUALITY_SCALES,
 });
 
+// Fabric Filter is a manual instrument: post-release sound comes from the
+// same physical sheet and propagation waves shown on the canvas. Keep the
+// former audio-only modulation parameters neutral in every public preset.
+export const MOIRE_DRONE_MANUAL_MOTION_SETTINGS = Object.freeze({
+  glideA: 0,
+  glideB: 0,
+  fieldASpeed: 0,
+  fieldBSpeed: 0,
+  fabricExcitation: 0,
+  fabricVibration: 0,
+  fabricRate: 2.4,
+  fabricSpin: 0,
+  autoPluckRate: 0,
+  combDrift: 0,
+  gestureMemory: 0.08,
+  freeze: false,
+});
+
 export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   noiseType: "colored",
   noiseColor: -0.2,
@@ -106,17 +124,13 @@ export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   latticeScatter: 0.08,
   filteredMix: 1,
   cascade: 0.1,
-  glideA: 0.035,
-  glideB: -0.027,
   edgeFocus: 1.4,
   fieldAAngle: 25,
   fieldADensity: 2.4,
-  fieldASpeed: 0.035,
   fieldACurvature: 0.15,
   fieldADepth: 0.2,
   fieldBAngle: -31,
   fieldBDensity: 2.58,
-  fieldBSpeed: -0.028,
   fieldBCurvature: 0.38,
   fieldBDepth: 0.22,
   originX: -0.18,
@@ -133,11 +147,7 @@ export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   fabricSections: 8,
   fabricPatchwork: 0.35,
   fabricDepth: 0.55,
-  fabricExcitation: 0,
-  fabricVibration: 0,
-  fabricRate: 2.4,
   fabricRotation: 18,
-  fabricSpin: 0,
   fabricPull: 0.72,
   fabricGravity: 0.55,
   propagationMode: "drop",
@@ -153,13 +163,11 @@ export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   grabRippleRate: 3,
   harmonicOrder: 3,
   ringDensity: 2.4,
-  autoPluckRate: 0,
   propagationVoices: 1,
   combDepth: 1,
   combTeeth: 6,
   combWidth: 0.16,
   combOffset: 0.875,
-  combDrift: 0.035,
   combWarp: 2,
   pluckCut: 0.82,
   spectralFilterBlend: 0.55,
@@ -169,13 +177,12 @@ export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   qCharacter: 0.55,
   spectralSculptMode: "notches",
   gestureCoupling: 0.9,
-  gestureMemory: 1.1,
   stereoWidth: 0.78,
   drive: 0.12,
   space: 0.1,
   feedback: 0.08,
   outputLevel: 0.52,
-  freeze: false,
+  ...MOIRE_DRONE_MANUAL_MOTION_SETTINGS,
   seed: 0x6d2b79f5,
 });
 
@@ -226,38 +233,38 @@ const FILTER_ENGINE_PRESET_SETTINGS = Object.freeze({
 });
 
 const PRESET_SCULPT_SETTINGS = Object.freeze({
-  "tectonic-veil": Object.freeze({ spectralSculptMode: "lowpass", gestureMemory: 2.8 }),
-  "radio-aurora": Object.freeze({ spectralSculptMode: "ridges", gestureMemory: 0.72 }),
-  "velvet-interference": Object.freeze({ spectralSculptMode: "bandpass", gestureMemory: 1.8 }),
-  "opposed-tides": Object.freeze({ spectralSculptMode: "bandstop", gestureMemory: 2.2 }),
-  "glass-weather": Object.freeze({ spectralSculptMode: "highpass", gestureMemory: 0.42 }),
-  "moire-storm": Object.freeze({ spectralSculptMode: "notches", gestureMemory: 0.3 }),
-  "frozen-collision": Object.freeze({ spectralSculptMode: "bandstop", gestureMemory: 3.6 }),
-  "subduction-drone": Object.freeze({ spectralSculptMode: "lowpass", gestureMemory: 3.2 }),
-  "static-escalator": Object.freeze({ spectralSculptMode: "ridges", gestureMemory: 0.58 }),
-  "ion-fog": Object.freeze({ spectralSculptMode: "bandpass", gestureMemory: 2.4 }),
-  "folded-horizon": Object.freeze({ spectralSculptMode: "bandstop", gestureMemory: 1.65 }),
-  "parallax-furnace": Object.freeze({ spectralSculptMode: "highpass", gestureMemory: 0.9 }),
-  "taut-filament": Object.freeze({ spectralSculptMode: "ridges", gestureMemory: 0.34 }),
-  "spectral-sail": Object.freeze({ spectralSculptMode: "lowpass", gestureMemory: 2.1 }),
-  "rotary-loom": Object.freeze({ spectralSculptMode: "bandpass", gestureMemory: 1.15 }),
-  "thunder-sheet": Object.freeze({ spectralSculptMode: "lowpass", gestureMemory: 2.7 }),
-  "rain-engine": Object.freeze({ spectralSculptMode: "highpass", gestureMemory: 0.46 }),
-  "spherical-choir": Object.freeze({ spectralSculptMode: "ridges", gestureMemory: 2.25 }),
-  "spiral-current": Object.freeze({ spectralSculptMode: "bandpass", gestureMemory: 0.8 }),
-  "shock-repeat": Object.freeze({ spectralSculptMode: "highpass", gestureMemory: 0.22 }),
-  "still-water": Object.freeze({ spectralSculptMode: "bandpass", gestureMemory: 3.5 }),
-  "missing-teeth": Object.freeze({ spectralSculptMode: "notches", gestureMemory: 1.3 }),
-  "hollow-ladder": Object.freeze({ spectralSculptMode: "ridges", gestureMemory: 1.4 }),
-  "barber-notches": Object.freeze({ spectralSculptMode: "notches", gestureMemory: 0.95 }),
-  countercomb: Object.freeze({ spectralSculptMode: "bandstop", gestureMemory: 1.25 }),
-  "two-step-rain": Object.freeze({ spectralSculptMode: "highpass", gestureMemory: 0.52 }),
-  "triplet-well": Object.freeze({ spectralSculptMode: "lowpass", gestureMemory: 2.5 }),
-  "morse-gate": Object.freeze({ spectralSculptMode: "bandstop", gestureMemory: 0.18 }),
-  "velvet-slots": Object.freeze({ spectralSculptMode: "bandpass", gestureMemory: 1.9 }),
-  "air-sieve": Object.freeze({ spectralSculptMode: "notches", gestureMemory: 0.38 }),
-  "one-hertz-tide": Object.freeze({ spectralSculptMode: "lowpass", gestureMemory: 4 }),
-  "fifty-hertz-flicker": Object.freeze({ spectralSculptMode: "highpass", gestureMemory: 0.08 }),
+  "tectonic-veil": Object.freeze({ spectralSculptMode: "lowpass" }),
+  "radio-aurora": Object.freeze({ spectralSculptMode: "ridges" }),
+  "velvet-interference": Object.freeze({ spectralSculptMode: "bandpass" }),
+  "opposed-tides": Object.freeze({ spectralSculptMode: "bandstop" }),
+  "glass-weather": Object.freeze({ spectralSculptMode: "highpass" }),
+  "moire-storm": Object.freeze({ spectralSculptMode: "notches" }),
+  "frozen-collision": Object.freeze({ spectralSculptMode: "bandstop" }),
+  "subduction-drone": Object.freeze({ spectralSculptMode: "lowpass" }),
+  "static-escalator": Object.freeze({ spectralSculptMode: "ridges" }),
+  "ion-fog": Object.freeze({ spectralSculptMode: "bandpass" }),
+  "folded-horizon": Object.freeze({ spectralSculptMode: "bandstop" }),
+  "parallax-furnace": Object.freeze({ spectralSculptMode: "highpass" }),
+  "taut-filament": Object.freeze({ spectralSculptMode: "ridges" }),
+  "spectral-sail": Object.freeze({ spectralSculptMode: "lowpass" }),
+  "rotary-loom": Object.freeze({ spectralSculptMode: "bandpass" }),
+  "thunder-sheet": Object.freeze({ spectralSculptMode: "lowpass" }),
+  "rain-engine": Object.freeze({ spectralSculptMode: "highpass" }),
+  "spherical-choir": Object.freeze({ spectralSculptMode: "ridges" }),
+  "spiral-current": Object.freeze({ spectralSculptMode: "bandpass" }),
+  "shock-repeat": Object.freeze({ spectralSculptMode: "highpass" }),
+  "still-water": Object.freeze({ spectralSculptMode: "bandpass" }),
+  "missing-teeth": Object.freeze({ spectralSculptMode: "notches" }),
+  "hollow-ladder": Object.freeze({ spectralSculptMode: "ridges" }),
+  "barber-notches": Object.freeze({ spectralSculptMode: "notches" }),
+  countercomb: Object.freeze({ spectralSculptMode: "bandstop" }),
+  "two-step-rain": Object.freeze({ spectralSculptMode: "highpass" }),
+  "triplet-well": Object.freeze({ spectralSculptMode: "lowpass" }),
+  "morse-gate": Object.freeze({ spectralSculptMode: "bandstop" }),
+  "velvet-slots": Object.freeze({ spectralSculptMode: "bandpass" }),
+  "air-sieve": Object.freeze({ spectralSculptMode: "notches" }),
+  "one-hertz-tide": Object.freeze({ spectralSculptMode: "lowpass" }),
+  "fifty-hertz-flicker": Object.freeze({ spectralSculptMode: "highpass" }),
 });
 
 function freezePreset(preset) {
@@ -271,6 +278,7 @@ function freezePreset(preset) {
         ?? MOIRE_DRONE_DEFAULTS.noiseColor,
       ...(FILTER_ENGINE_PRESET_SETTINGS[preset.id] ?? {}),
       ...(PRESET_SCULPT_SETTINGS[preset.id] ?? {}),
+      ...MOIRE_DRONE_MANUAL_MOTION_SETTINGS,
     }),
   });
 }
@@ -936,7 +944,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       grabRippleRate: 1.2, ringDensity: 0.8,
       combDepth: 0.88, combWidth: 0.25, combOffset: 0.66,
       combDrift: 0, combWarp: 2.6, pluckCut: 0.9,
-      gestureMemory: 3, drive: 0.02, space: 0.1,
+      drive: 0.02, space: 0.1,
       feedback: 0.03, outputLevel: 0.4,
     },
   }),
@@ -971,7 +979,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       grabRippleRate: 2.2, ringDensity: 2.1,
       combDepth: 0.84, combWidth: 0.15, combOffset: 0.38,
       combDrift: 0, combWarp: 2.2, pluckCut: 0.88,
-      gestureMemory: 1.5, drive: 0, space: 0.05,
+      drive: 0, space: 0.05,
       feedback: 0.02, outputLevel: 0.32,
     },
   }),
@@ -1007,7 +1015,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       grabRippleRate: 4, ringDensity: 1.7,
       combDepth: 0.76, combWidth: 0.2, combOffset: 0.54,
       combDrift: 0.008, combWarp: 2.8, pluckCut: 0.9,
-      gestureMemory: 2.4, drive: 0.02, space: 0.08,
+      drive: 0.02, space: 0.08,
       feedback: 0.025, outputLevel: 0.33,
     },
   }),
@@ -1042,7 +1050,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       grabRippleRate: 0, ringDensity: 1.2,
       combDepth: 0.78, combWidth: 0.18, combOffset: 0.72,
       combDrift: 0, combWarp: 3, pluckCut: 0.86,
-      gestureMemory: 3.2, space: 0.09,
+      space: 0.09,
       feedback: 0.03, outputLevel: 0.38,
     },
   }),
@@ -1077,7 +1085,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       autoPluckRate: 0.1, grabRippleRate: 0,
       combDepth: 0.48, combWidth: 0.34, combOffset: 0.46,
       combDrift: 0, combWarp: 2.4, pluckCut: 0.78,
-      gestureMemory: 3.8, drive: 0, space: 0.16,
+      drive: 0, space: 0.16,
       feedback: 0.06, outputLevel: 0.36,
     },
   }),
@@ -1112,7 +1120,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       autoPluckRate: 0, grabRippleRate: 3,
       combDepth: 0.9, combTeeth: 8, combWidth: 0.09,
       combOffset: 0.5, combDrift: 0, combWarp: 2.6,
-      pluckCut: 0.92, gestureMemory: 1.2,
+      pluckCut: 0.92,
       drive: 0, space: 0.025, feedback: 0, outputLevel: 0.34,
     },
   }),
@@ -1148,7 +1156,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       autoPluckRate: 0.16, grabRippleRate: 2,
       combDepth: 0.7, combTeeth: 5, combWidth: 0.14,
       combOffset: 0.4, combDrift: 0.006, combWarp: 2,
-      pluckCut: 0.76, gestureMemory: 2.7,
+      pluckCut: 0.76,
       drive: 0.01, space: 0.12, feedback: 0.045, outputLevel: 0.31,
     },
   }),
@@ -1186,7 +1194,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       autoPluckRate: 0, grabRippleRate: 3,
       combDepth: 0.58, combWidth: 0.3, combOffset: 0.42,
       combDrift: 0.014, combWarp: 2.5, pluckCut: 0.82,
-      gestureMemory: 2, drive: 0.03, space: 0.06,
+      drive: 0.03, space: 0.06,
       feedback: 0.02, outputLevel: 0.29,
     },
   }),
@@ -1223,7 +1231,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       autoPluckRate: 0.22, grabRippleRate: 6,
       combDepth: 0.54, combWidth: 0.075, combOffset: 0.28,
       combDrift: 0.02, combWarp: 2.3, pluckCut: 0.72,
-      gestureMemory: 0.72, drive: 0, space: 0.025,
+      drive: 0, space: 0.025,
       feedback: 0, outputLevel: 0.28,
     },
   }),
@@ -1259,7 +1267,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       autoPluckRate: 0.18, grabRippleRate: 6,
       combDepth: 0.5, combWidth: 0.07, combOffset: 0.68,
       combDrift: -0.018, combWarp: 2.2, pluckCut: 0.7,
-      gestureMemory: 0.68, drive: 0, space: 0.02,
+      drive: 0, space: 0.02,
       feedback: 0, outputLevel: 0.27,
     },
   }),
@@ -1298,7 +1306,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       combDepth: 0.86, combTeeth: 10, combWidth: 0.065,
       combOffset: 0.34, combDrift: 0.045,
       combWarp: 2.8, pluckCut: 0.84,
-      gestureMemory: 0.8, drive: 0.04, space: 0.04,
+      drive: 0.04, space: 0.04,
       feedback: 0.015, outputLevel: 0.3,
     },
   }),
@@ -1337,7 +1345,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       grabRippleRate: 0, ringDensity: 0.7,
       combDepth: 0.72, combWidth: 0.32, combOffset: 0.52,
       combDrift: 0.003, combWarp: 2.1, pluckCut: 0.74,
-      gestureMemory: 4, drive: 0.02, space: 0.18,
+      drive: 0.02, space: 0.18,
       feedback: 0.07, outputLevel: 0.4,
     },
   }),
@@ -1367,7 +1375,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       propagationWidth: 0.02, autoPluckRate: 0,
       grabRippleRate: 0, combDepth: 0.84,
       combWidth: 0.15, combDrift: 0,
-      pluckCut: 1, gestureMemory: 0.28,
+      pluckCut: 1,
       drive: 0, space: 0, feedback: 0, outputLevel: 0.38,
     },
   }),
@@ -1397,7 +1405,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       propagationWidth: 0.02, autoPluckRate: 0,
       grabRippleRate: 0, combDepth: 0.84,
       combWidth: 0.15, combDrift: 0,
-      pluckCut: 1, gestureMemory: 2.6,
+      pluckCut: 1,
       drive: 0, space: 0, feedback: 0, outputLevel: 0.38,
     },
   }),
@@ -1427,7 +1435,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       propagationWidth: 0.02, autoPluckRate: 0,
       grabRippleRate: 0, combDepth: 0.84,
       combWidth: 0.15, combDrift: 0,
-      pluckCut: 1, gestureMemory: 3.5,
+      pluckCut: 1,
       drive: 0, space: 0, feedback: 0, outputLevel: 0.38,
     },
   }),
@@ -1457,7 +1465,7 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       propagationWidth: 0.02, autoPluckRate: 0,
       grabRippleRate: 0, combDepth: 0.84,
       combWidth: 0.15, combDrift: 0,
-      pluckCut: 1, gestureMemory: 0.16,
+      pluckCut: 1,
       drive: 0, space: 0, feedback: 0, outputLevel: 0.38,
     },
   }),
@@ -3809,8 +3817,6 @@ export class MoireDroneKernel {
     this.gestureDeltaY = 0;
     this.gestureVelocityX = 0;
     this.gestureVelocityY = 0;
-    this.gestureThrowVelocity = 0;
-    this.gestureWidthVelocity = 0;
     this.gestureWidthScale = 1;
     // Direct manipulation has its own invariant response path. Preset controls
     // can still remove autonomous fabric/propagation motion, but they must not
@@ -4046,14 +4052,10 @@ export class MoireDroneKernel {
       2.3,
       0,
     );
-    this.gestureEnvelope = active
-      ? 1
-      : 0.15 + this.gestureStrength * 0.85;
+    // The direct spectral override belongs to contact only. Once released,
+    // the visible physical fabric and propagation field own every tail.
+    this.gestureEnvelope = active ? 1 : 0;
     this.gestureActive = Boolean(active);
-    if (active) {
-      this.gestureThrowVelocity = 0;
-      this.gestureWidthVelocity = 0;
-    }
     return this.gestureStrength;
   }
 
@@ -4116,14 +4118,12 @@ export class MoireDroneKernel {
 
   pluckFabric(x = 0, y = 0, force = 0.7, radius = 0.28, gesture = {}) {
     this.captureGesture(x, y, force, gesture, false);
-    this.gestureThrowVelocity = this.gestureVelocityX * 0.12;
-    this.gestureWidthVelocity = this.gestureVelocityY * 0.08;
     this.launchPropagation(x, y, force, radius, this.target, 1);
   }
 
   rippleFabric(x = 0, y = 0, force = 0.35, radius = 0.18) {
-    // Drag ripples must not end the active grab or overwrite its gesture
-    // memory. They carry a small physical impulse and an even smaller onset,
+    // Drag ripples must not end or overwrite the active grab. They carry a
+    // small physical impulse and an even smaller onset,
     // so a moving hand creates wake rather than a stream of clicks.
     return this.launchPropagation(
       x,
@@ -4153,8 +4153,6 @@ export class MoireDroneKernel {
       clamp(radius, 0.04, 1.5, 0.2),
     );
     this.captureGesture(safeX, safeY, force, gesture, false);
-    this.gestureThrowVelocity = this.gestureVelocityX * 0.12;
-    this.gestureWidthVelocity = this.gestureVelocityY * 0.08;
   }
 
   tugFabric(x = 0, y = 0, amount = 0, gesture = {}) {
@@ -4177,10 +4175,8 @@ export class MoireDroneKernel {
       );
     } else {
       this.gestureActive = false;
-      this.gestureEnvelope = 0.15 + this.gestureStrength * 0.85;
+      this.gestureEnvelope = 0;
     }
-    this.gestureThrowVelocity = this.gestureVelocityX * 0.12;
-    this.gestureWidthVelocity = this.gestureVelocityY * 0.08;
     this.fabricTugActive = false;
     this.fabricTugAmount = 0;
     this.fabric.release();
@@ -4197,8 +4193,6 @@ export class MoireDroneKernel {
     this.gestureDeltaY = 0;
     this.gestureVelocityX = 0;
     this.gestureVelocityY = 0;
-    this.gestureThrowVelocity = 0;
-    this.gestureWidthVelocity = 0;
     this.gestureWidthScale = 1;
     this.directGestureResponse = 0;
     this.directGestureDepth = 0;
@@ -4793,37 +4787,7 @@ export class MoireDroneKernel {
       this.fabricSpinPhase = wrapUnit(this.fabricSpinPhase + params.fabricSpin * elapsed);
       this.combPhase = wrapUnit(this.combPhase + params.combDrift * elapsed);
     }
-    if (!this.gestureActive && this.gestureEnvelope > 1e-7) {
-      const memory = clamp(
-        params.gestureMemory,
-        0.08,
-        4,
-        MOIRE_DRONE_DEFAULTS.gestureMemory,
-      );
-      const gestureDecay = Math.exp(-elapsed / memory);
-      this.gestureFocus = clamp(
-        this.gestureFocus + this.gestureThrowVelocity * elapsed,
-        0,
-        1,
-        this.gestureFocus,
-      );
-      this.gestureWidthScale = clamp(
-        this.gestureWidthScale * 2 ** (this.gestureWidthVelocity * elapsed * 0.2),
-        0.2,
-        5,
-        1,
-      );
-      this.gestureThrowVelocity *= gestureDecay;
-      this.gestureWidthVelocity *= gestureDecay;
-      this.gestureEnvelope *= gestureDecay;
-      if (this.gestureEnvelope < 1e-7) {
-        this.gestureEnvelope = 0;
-        this.gestureThrowVelocity = 0;
-        this.gestureWidthVelocity = 0;
-      }
-    } else if (this.gestureActive) {
-      this.gestureEnvelope = 1;
-    }
+    this.gestureEnvelope = this.gestureActive ? 1 : 0;
     // A direct pull is an instrument gesture, not merely another modulation
     // source. Give it a parameter-independent floor so zeroed coupling, cut,
     // fabric, warp, propagation, and resting-depth controls cannot null it.
@@ -5626,7 +5590,10 @@ function createProcessorClass(AudioWorkletBase) {
       super();
       this.kernel = new MoireDroneKernel({
         sampleRate: Number(globalThis.sampleRate) || DEFAULT_SAMPLE_RATE,
-        parameters: options.processorOptions?.parameters ?? options.processorOptions,
+        parameters: {
+          ...(options.processorOptions?.parameters ?? options.processorOptions),
+          ...MOIRE_DRONE_MANUAL_MOTION_SETTINGS,
+        },
       });
       this.performanceNow = typeof globalThis.performance?.now === "function"
         ? globalThis.performance.now.bind(globalThis.performance)
@@ -5635,7 +5602,10 @@ function createProcessorClass(AudioWorkletBase) {
         const message = event.data ?? {};
         if (message.type === "parameters") {
           const previousTier = this.kernel.qualityTier;
-          this.kernel.setParameters(message.parameters);
+          this.kernel.setParameters({
+            ...message.parameters,
+            ...MOIRE_DRONE_MANUAL_MOTION_SETTINGS,
+          });
           if (this.kernel.qualityTier !== previousTier) {
             this.postQuality("dense-lattice");
           }
@@ -5848,7 +5818,13 @@ export class MoireDroneAudio {
   }
 
   setParameters(parameters = {}) {
-    this.params = { ...sanitizeMoireDroneParams({ ...this.params, ...parameters }) };
+    this.params = {
+      ...sanitizeMoireDroneParams({
+        ...this.params,
+        ...parameters,
+        ...MOIRE_DRONE_MANUAL_MOTION_SETTINGS,
+      }),
+    };
     this.node?.port.postMessage({ type: "parameters", parameters: this.params });
     if (this.isInitialized && this.enabled) {
       this.master.gain.setTargetAtTime(

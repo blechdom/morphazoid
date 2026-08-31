@@ -55,7 +55,7 @@
             tabindex="0"
             role="application"
             aria-roledescription="interactive spectral vector grid"
-            aria-keyshortcuts="Space Enter ArrowLeft ArrowRight ArrowUp ArrowDown"
+            aria-keyshortcuts="Enter ArrowLeft ArrowRight ArrowUp ArrowDown"
             aria-label="Static pink and green spectral vector grid with eight noise-sculpting shapes. The background does not move automatically. Horizontal touch position selects frequency and the X warp filter; vertical position selects fabric row and the Y weft filter. Pulling grabs a physical patch and movement can emit circular, standing, or side-to-side ocean waves. Tap or press Enter to pluck. Audio off."
             aria-describedby="moireDroneDescription liveStatus"
           >
@@ -107,12 +107,10 @@
             <label class="control" id="sculptRegionsControl" for="combTeeth" hidden><span><b>Regions</b><output id="combTeethOut" for="combTeeth">6 regions</output></span><input id="combTeeth" type="range" min="1" max="16" step="1" value="6" /></label>
             <label class="control" for="combWidth"><span><b>Sculpt width</b><output id="combWidthOut" for="combWidth">16%</output></span><input id="combWidth" type="range" min="0.02" max="0.48" step="0.01" value="0.16" /></label>
             <label class="control" for="combOffset"><span><b>Center / phase</b><output id="combOffsetOut" for="combOffset">88%</output></span><input id="combOffset" type="range" min="0" max="1" step="0.001" value="0.875" /></label>
-            <label class="control" for="combDrift"><span><b>Sculpt motion</b><output id="combDriftOut" for="combDrift">+0.035 cyc/s</output></span><input id="combDrift" type="range" min="-2" max="2" step="0.001" value="0.035" /></label>
             <label class="control" for="combWarp"><span><b>Fabric bend</b><output id="combWarpOut" for="combWarp">2.00×</output></span><input id="combWarp" type="range" min="0" max="4" step="0.01" value="2" /></label>
             <label class="control" for="propagationDepth"><span><b>Wave bend</b><output id="propagationDepthOut" for="propagationDepth">0.48 oct</output></span><input id="propagationDepth" type="range" min="0" max="2" step="0.01" value="0.48" /></label>
             <label class="control" for="pluckCut"><span><b>Gesture bite</b><output id="pluckCutOut" for="pluckCut">82%</output></span><input id="pluckCut" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
             <label class="control" for="gestureCoupling"><span><b>Gesture coupling</b><output id="gestureCouplingOut" for="gestureCoupling">90%</output></span><input id="gestureCoupling" type="range" min="0" max="1" step="0.01" value="0.9" /></label>
-            <label class="control" for="gestureMemory"><span><b>Gesture memory</b><output id="gestureMemoryOut" for="gestureMemory">2.80 s</output></span><input id="gestureMemory" type="range" min="0.08" max="4" step="0.01" value="2.8" /></label>
             <label class="control" for="propagationVoices"><span><b>Max waves</b><output id="propagationVoicesOut" for="propagationVoices">1 wave</output></span><input id="propagationVoices" type="range" min="1" max="4" step="1" value="1" /></label>
             <label class="control" for="grabRippleRate"><span><b>Drag waves</b><output id="grabRippleRateOut" for="grabRippleRate">3.0 Hz</output></span><input id="grabRippleRate" type="range" min="0" max="30" step="0.1" value="3" /></label>
 
@@ -121,7 +119,6 @@
               <button class="fabric-clear-button" id="clearWavesButton" type="button">Clear waves</button>
             </div>
 
-            <label class="control" for="autoPluckRate"><span><b>Repeat</b><output id="autoPluckRateOut" for="autoPluckRate">off</output></span><input id="autoPluckRate" type="range" min="0" max="4" step="0.01" value="0" /></label>
             <small class="moire-control-help" id="propagationHelp">Touch left for low frequencies or right for high frequencies and the X / warp-filter position; touch higher or lower to choose the Y / weft-filter row and character. Pulling grabs that exact 2D patch. Travelling across it sheds controlled waves, so horizontal and vertical gestures produce different spectral motion. Pull farther for strength and move faster for narrower, quicker waves. A quick tap launches one local wave; Pluck origin launches from the current field origin.</small>
 
             <details class="moire-propagation-advanced" id="propagationGeometryDetails">
@@ -141,7 +138,7 @@
                 <label class="control" for="propagationRate"><span><b>Wave rate</b><output id="propagationRateOut" for="propagationRate">5.0 Hz</output></span><input id="propagationRate" type="range" min="1" max="50" step="0.1" value="5" /></label>
                 <label class="control" for="propagationSpeed"><span><b>Sweep speed</b><output id="propagationSpeedOut" for="propagationSpeed">1.40 field/s</output></span><input id="propagationSpeed" type="range" min="0.1" max="12" step="0.01" value="1.4" /></label>
                 <label class="control" for="propagationDecay"><span><b>Tail</b><output id="propagationDecayOut" for="propagationDecay">1.50 s</output></span><input id="propagationDecay" type="range" min="0.08" max="8" step="0.01" value="1.5" /></label>
-                <label class="control" for="propagationGain"><span><b>Q motion</b><output id="propagationGainOut" for="propagationGain">68%</output></span><input id="propagationGain" type="range" min="0" max="1" step="0.01" value="0.68" /></label>
+                <label class="control" for="propagationGain"><span><b>Wave Q depth</b><output id="propagationGainOut" for="propagationGain">68%</output></span><input id="propagationGain" type="range" min="0" max="1" step="0.01" value="0.68" /></label>
                 <label class="control" for="propagationWidth"><span><b>Front width</b><output id="propagationWidthOut" for="propagationWidth">0.150 field</output></span><input id="propagationWidth" type="range" min="0.02" max="0.6" step="0.001" value="0.15" /></label>
                 <label class="control" for="propagationSizeSpread"><span><b>Size variety</b><output id="propagationSizeSpreadOut" for="propagationSizeSpread">38%</output></span><input id="propagationSizeSpread" type="range" min="0" max="1" step="0.01" value="0.38" /></label>
                 <label class="control" for="propagationSpeedSpread"><span><b>Speed variety</b><output id="propagationSpeedSpreadOut" for="propagationSpeedSpread">42%</output></span><input id="propagationSpeedSpread" type="range" min="0" max="1" step="0.01" value="0.42" /></label>
@@ -225,11 +222,7 @@
             <label class="control" for="fabricDepth"><span><b>Fabric stretch</b><output id="fabricDepthOut" for="fabricDepth">0.55 oct</output></span><input id="fabricDepth" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
             <label class="control" for="fabricPull"><span><b>Pull strength</b><output id="fabricPullOut" for="fabricPull">72%</output></span><input id="fabricPull" type="range" min="0" max="2" step="0.01" value="0.72" /></label>
             <label class="control" for="fabricGravity"><span><b>Gravity well</b><output id="fabricGravityOut" for="fabricGravity">55%</output></span><input id="fabricGravity" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
-            <label class="control" for="fabricExcitation"><span><b>Self-excitation</b><output id="fabricExcitationOut" for="fabricExcitation">12%</output></span><input id="fabricExcitation" type="range" min="0" max="1" step="0.01" value="0.12" /></label>
-            <label class="control" for="fabricVibration"><span><b>Motor vibration</b><output id="fabricVibrationOut" for="fabricVibration">18%</output></span><input id="fabricVibration" type="range" min="0" max="1" step="0.01" value="0.18" /></label>
-            <label class="control" for="fabricRate"><span><b>Vibration rate</b><output id="fabricRateOut" for="fabricRate">2.40 Hz</output></span><input id="fabricRate" type="range" min="0.05" max="30" step="0.01" value="2.4" /></label>
             <label class="control" for="fabricRotation"><span><b>Weave rotation</b><output id="fabricRotationOut" for="fabricRotation">18°</output></span><input id="fabricRotation" type="range" min="-180" max="180" step="1" value="18" /></label>
-            <label class="control" for="fabricSpin"><span><b>Rotation drift</b><output id="fabricSpinOut" for="fabricSpin">+0.025 rev/s</output></span><input id="fabricSpin" type="range" min="-1" max="1" step="0.001" value="0.025" /></label>
             <small class="moire-control-help">Grid density changes only the visible weave. Fabric sections divide the sounding sheet into an X-by-Y panel lattice; Panel variation gives neighboring panels different bounded material behavior and filter response. At zero the sheet is uniform. The moving grab retains its exact X / warp and Y / weft location.</small>
           </div>
         </details>
@@ -317,7 +310,7 @@
             </label>
 
             <label class="control" for="resonanceMotion">
-              <span><b>Collision Q motion</b><output id="resonanceMotionOut" for="resonanceMotion">46%</output></span>
+              <span><b>Collision Q depth</b><output id="resonanceMotionOut" for="resonanceMotion">46%</output></span>
               <input id="resonanceMotion" type="range" min="0" max="1" step="0.01" value="0.46" />
             </label>
 
@@ -336,32 +329,16 @@
               <span><b>Filter cascade</b><output id="cascadeOut" for="cascade">20%</output></span>
               <input id="cascade" type="range" min="0" max="1" step="0.01" value="0.2" />
             </label>
-            <small class="moire-control-help">Each spatial cell contains an A and B band-pass filter. Scatter breaks their log-frequency regularity; cascade steepens each moving band.</small>
+            <small class="moire-control-help">Each spatial cell contains an A and B band-pass filter. Scatter breaks their log-frequency regularity; cascade steepens each spectral band.</small>
           </div>
         </details>
 
         <details class="group control-section moire-motion" data-section="mapping">
           <summary class="group-summary">
-            <h2 class="group-title">Shepard / gliss</h2>
-            <span class="section-state" id="motionSummary">A +0.09 · B −0.07 oct/s</span>
+            <h2 class="group-title">Wrapped spectral weave</h2>
+            <span class="section-state" id="motionSummary">edge 1.40 · phase 0.37</span>
           </summary>
           <div class="group-body">
-            <span class="field-label">Motion</span>
-            <div class="choice-switch" id="freezeChoice" role="group" aria-label="Field motion">
-              <button type="button" data-freeze="false" aria-pressed="true">Drift</button>
-              <button type="button" data-freeze="true" aria-pressed="false">Freeze</button>
-            </div>
-
-            <label class="control" for="glideA">
-              <span><b>Warp glide</b><output id="glideAOut" for="glideA">+0.090 oct/s</output></span>
-              <input id="glideA" type="range" min="-2" max="2" step="0.001" value="0.09" />
-            </label>
-
-            <label class="control" for="glideB">
-              <span><b>Weft glide</b><output id="glideBOut" for="glideB">−0.073 oct/s</output></span>
-              <input id="glideB" type="range" min="-2" max="2" step="0.001" value="-0.073" />
-            </label>
-
             <label class="control" for="edgeFocus">
               <span><b>Shepard edge fade</b><output id="edgeFocusOut" for="edgeFocus">1.40</output></span>
               <input id="edgeFocus" type="range" min="0.5" max="4" step="0.01" value="1.4" />
@@ -376,7 +353,7 @@
               <span><b>Weave phase</b><output id="phaseOffsetOut" for="phaseOffset">0.37 cycle</output></span>
               <input id="phaseOffset" type="range" min="0" max="1" step="0.01" value="0.37" />
             </label>
-            <small class="moire-control-help">Warp and weft glide independently through the same bounded spectrum. Their filters fade at the band edges, wrap silently, then return from the other side.</small>
+            <small class="moire-control-help">Warp and weft occupy one bounded log-frequency weave. Their filters fade at the band edges and wrap silently, but nothing here moves by itself: touch, fabric physics, and visible propagation supply all spectral motion.</small>
           </div>
         </details>
 
@@ -390,7 +367,6 @@
               <span class="field-label" id="warpStrandLabel">Field A · X / Warp Filter · green</span>
               <label class="control" for="fieldAAngle"><span><b>Direction</b><output id="fieldAAngleOut" for="fieldAAngle">25°</output></span><input id="fieldAAngle" type="range" min="-180" max="180" step="1" value="25" /></label>
               <label class="control" for="fieldADensity"><span><b>Spatial density</b><output id="fieldADensityOut" for="fieldADensity">2.40</output></span><input id="fieldADensity" type="range" min="0.25" max="12" step="0.01" value="2.4" /></label>
-              <label class="control" for="fieldASpeed"><span><b>Texture drift</b><output id="fieldASpeedOut" for="fieldASpeed">+0.080 cyc/s</output></span><input id="fieldASpeed" type="range" min="-2" max="2" step="0.001" value="0.08" /></label>
               <label class="control" for="fieldACurvature"><span><b>Curvature</b><output id="fieldACurvatureOut" for="fieldACurvature">15%</output></span><input id="fieldACurvature" type="range" min="0" max="1" step="0.01" value="0.15" /></label>
               <label class="control" for="fieldADepth"><span><b>Filter bend</b><output id="fieldADepthOut" for="fieldADepth">0.38 oct</output></span><input id="fieldADepth" type="range" min="0" max="2" step="0.01" value="0.38" /></label>
             </div>
@@ -399,7 +375,6 @@
               <span class="field-label" id="weftStrandLabel">Field B · Y / Weft Filter · pink</span>
               <label class="control" for="fieldBAngle"><span><b>Direction</b><output id="fieldBAngleOut" for="fieldBAngle">−31°</output></span><input id="fieldBAngle" type="range" min="-180" max="180" step="1" value="-31" /></label>
               <label class="control" for="fieldBDensity"><span><b>Spatial density</b><output id="fieldBDensityOut" for="fieldBDensity">2.58</output></span><input id="fieldBDensity" type="range" min="0.25" max="12" step="0.01" value="2.58" /></label>
-              <label class="control" for="fieldBSpeed"><span><b>Texture drift</b><output id="fieldBSpeedOut" for="fieldBSpeed">−0.067 cyc/s</output></span><input id="fieldBSpeed" type="range" min="-2" max="2" step="0.001" value="-0.067" /></label>
               <label class="control" for="fieldBCurvature"><span><b>Curvature</b><output id="fieldBCurvatureOut" for="fieldBCurvature">38%</output></span><input id="fieldBCurvature" type="range" min="0" max="1" step="0.01" value="0.38" /></label>
               <label class="control" for="fieldBDepth"><span><b>Filter bend</b><output id="fieldBDepthOut" for="fieldBDepth">0.42 oct</output></span><input id="fieldBDepth" type="range" min="0" max="2" step="0.01" value="0.42" /></label>
             </div>
@@ -448,7 +423,7 @@
       </aside>
 
       <p class="sr-only" id="moireDroneDescription">
-        Fabric Filter sends colored, violet, crackle, stepped, fractal, or chaotic noise through one coupled 2D spectral fabric represented by a static pink-and-green vector grid. Field A is the X / warp filter and Field B is the Y / weft filter acting on that same noise field. Choose gaps, ridges, low-pass, high-pass, a passing window, a hollowed band, a resonant peak, or a spectral tilt. Pulling retains both coordinates of the grabbed patch: horizontal position selects frequency and warp location, while vertical position selects the weft row and character. Circular ripples, spherical-style lobes, spirals, pulses, gravity wells, stationary harmonic nodes, and side-to-side ocean fronts can interfere constructively or destructively before decaying. Q filtering supplies physical ringing edges, while FFT filtering sculpts exact bins without adding resonance. With keyboard focus, Left and Right select frequency, Up and Down select character, Enter plucks, Shift plus Enter plucks strongly, and Space freezes or resumes spectral motion.
+        Fabric Filter sends colored, violet, crackle, stepped, fractal, or chaotic noise through one coupled 2D spectral fabric represented by a static pink-and-green vector grid. Field A is the X / warp filter and Field B is the Y / weft filter acting on that same noise field. Choose gaps, ridges, low-pass, high-pass, a passing window, a hollowed band, a resonant peak, or a spectral tilt. Pulling retains both coordinates of the grabbed patch: horizontal position selects frequency and warp location, while vertical position selects the weft row and character. The direct spectral override ends when contact ends; afterward, only the visibly moving fabric and its circular ripples, spherical-style lobes, spirals, pulses, gravity wells, stationary harmonic nodes, or side-to-side ocean fronts continue moving the spectral controls. Ordinary filter and ambience tails may decay without changing that mapping. Q filtering supplies physical ringing edges, while FFT filtering sculpts exact bins without adding resonance. With keyboard focus, Left and Right select frequency, Up and Down select character, Enter plucks, and Shift plus Enter plucks strongly.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

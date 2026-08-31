@@ -2,6 +2,7 @@ import {
   MOIRE_DRONE_DEFAULTS,
   MOIRE_DRONE_FFT_SIZE,
   MOIRE_DRONE_LIMITS,
+  MOIRE_DRONE_MANUAL_MOTION_SETTINGS,
   MOIRE_DRONE_NOISE_COLOR_CHOICES,
   MOIRE_DRONE_NOISE_TYPES,
   MOIRE_DRONE_PRESETS,
@@ -34,6 +35,14 @@ const FRAME_INTERVAL_TOLERANCE_MS = 0.75;
 const STATIC_GRID_PINK = "#ff5cad";
 const STATIC_GRID_GREEN = "#68f7a4";
 const firstPreset = MOIRE_DRONE_PRESETS[0];
+
+function manualFabricSettings(parameters = {}) {
+  return sanitizeMoireDroneParams({
+    ...parameters,
+    ...MOIRE_DRONE_MANUAL_MOTION_SETTINGS,
+  });
+}
+
 const visualFabric = new SpectralFabric({
   seed: (MOIRE_DRONE_DEFAULTS.seed ^ 0xa511e9b3) >>> 0,
 });
@@ -79,7 +88,7 @@ const CUT_SCULPT_MODES = new Set([
 
 const state = {
   settings: {
-    ...sanitizeMoireDroneParams({
+    ...manualFabricSettings({
       ...MOIRE_DRONE_DEFAULTS,
       ...firstPreset.settings,
     }),
@@ -127,8 +136,6 @@ let visualPullAnchorX = 0;
 let visualPullAnchorY = 0;
 let visualPullOffsetX = 0;
 let visualPullOffsetY = 0;
-let visualPullVelocityX = 0;
-let visualPullVelocityY = 0;
 let visualSculptGestureActive = false;
 let visualSculptGestureEnvelope = 0;
 let visualSculptGestureStrength = 0;
@@ -136,8 +143,6 @@ let visualSculptGestureFocus = state.settings.combOffset;
 let visualSculptGestureCurrentY = 0;
 let visualSculptGestureDeltaY = 0;
 let visualSculptGestureWidthScale = 1;
-let visualSculptGestureThrowVelocity = 0;
-let visualSculptGestureWidthVelocity = 0;
 let currentVisualSculpt = Object.freeze({
   periodic: false,
   focus: state.settings.combOffset,
@@ -168,19 +173,15 @@ const RANGE_BINDINGS = Object.freeze([
   ["spectralTilt", "spectralTilt", Number],
   ["latticeScatter", "latticeScatter", Number],
   ["cascade", "cascade", Number],
-  ["glideA", "glideA", Number],
-  ["glideB", "glideB", Number],
   ["edgeFocus", "edgeFocus", Number],
   ["moireDetune", "moireDetune", Number],
   ["phaseOffset", "phaseOffset", Number],
   ["fieldAAngle", "fieldAAngle", Number],
   ["fieldADensity", "fieldADensity", Number],
-  ["fieldASpeed", "fieldASpeed", Number],
   ["fieldACurvature", "fieldACurvature", Number],
   ["fieldADepth", "fieldADepth", Number],
   ["fieldBAngle", "fieldBAngle", Number],
   ["fieldBDensity", "fieldBDensity", Number],
-  ["fieldBSpeed", "fieldBSpeed", Number],
   ["fieldBCurvature", "fieldBCurvature", Number],
   ["fieldBDepth", "fieldBDepth", Number],
   ["collisionAmount", "collisionAmount", Number],
@@ -198,17 +199,14 @@ const RANGE_BINDINGS = Object.freeze([
   ["grabRippleRate", "grabRippleRate", Number],
   ["harmonicOrder", "harmonicOrder", Number],
   ["ringDensity", "ringDensity", Number],
-  ["autoPluckRate", "autoPluckRate", Number],
   ["propagationVoices", "propagationVoices", Number],
   ["combDepth", "combDepth", Number],
   ["combTeeth", "combTeeth", Number],
   ["combWidth", "combWidth", Number],
   ["combOffset", "combOffset", Number],
-  ["combDrift", "combDrift", Number],
   ["combWarp", "combWarp", Number],
   ["pluckCut", "pluckCut", Number],
   ["gestureCoupling", "gestureCoupling", Number],
-  ["gestureMemory", "gestureMemory", Number],
   ["spectralFilterBlend", "spectralFilterBlend", Number],
   ["fftCutDepth", "fftCutDepth", Number],
   ["fftSharpness", "fftSharpness", Number],
@@ -221,11 +219,7 @@ const RANGE_BINDINGS = Object.freeze([
   ["fabricSections", "fabricSections", Number],
   ["fabricPatchwork", "fabricPatchwork", Number],
   ["fabricDepth", "fabricDepth", Number],
-  ["fabricExcitation", "fabricExcitation", Number],
-  ["fabricVibration", "fabricVibration", Number],
-  ["fabricRate", "fabricRate", Number],
   ["fabricRotation", "fabricRotation", Number],
-  ["fabricSpin", "fabricSpin", Number],
   ["fabricPull", "fabricPull", Number],
   ["stereoWidth", "stereoWidth", Number],
   ["drive", "drive", Number],
@@ -273,12 +267,6 @@ function spectralFilterBlendLabel(value) {
   if (value <= 0.005) return "Q only";
   if (value >= 0.995) return "FFT only";
   return `${percent(value)} FFT`;
-}
-
-function signed(value, digits = 2) {
-  const number = Number(value);
-  const sign = number > 0 ? "+" : number < 0 ? "−" : "";
-  return `${sign}${Math.abs(number).toFixed(digits)}`;
 }
 
 function formatFrequency(value) {
@@ -339,14 +327,6 @@ function collisionPolarityLabel(value) {
 function formatTilt(value) {
   if (Math.abs(value) < 0.05) return "flat";
   return `${value > 0 ? "+" : "−"}${Math.abs(value).toFixed(1)} dB/oct`;
-}
-
-function formatGlide(value) {
-  return `${signed(value, Math.abs(value) < 0.1 ? 3 : 2)} oct/s`;
-}
-
-function formatCycleRate(value) {
-  return `${signed(value, Math.abs(value) < 0.1 ? 3 : 2)} cyc/s`;
 }
 
 function effectiveFabricAngle() {
@@ -414,7 +394,7 @@ function updateStageReadout() {
     `${propagationLabel(settings.propagationMode).toUpperCase()} SHAPE`,
     `${effectiveFilters}/${settings.filterPairs * 2} FILTERS`,
     "STATIC GRID",
-    settings.freeze ? "AUDIO FROZEN" : "AUDIO DRIFT",
+    "MANUAL MOTION",
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   );
   $("stageReadout").textContent = readout.join(" · ");
@@ -469,8 +449,6 @@ function resetVisualSculptGesture() {
   visualSculptGestureCurrentY = 0;
   visualSculptGestureDeltaY = 0;
   visualSculptGestureWidthScale = 1;
-  visualSculptGestureThrowVelocity = 0;
-  visualSculptGestureWidthVelocity = 0;
 }
 
 function captureVisualSculptGesture(
@@ -516,44 +494,10 @@ function captureVisualSculptGesture(
     2.3,
     0,
   );
-  visualSculptGestureEnvelope = active
-    ? 1
-    : 0.15 + visualSculptGestureStrength * 0.85;
+  // Direct spectral focus exists only while contact is held. Released motion
+  // comes from the same visible fabric and propagation fields drawn below.
+  visualSculptGestureEnvelope = active ? 1 : 0;
   visualSculptGestureActive = Boolean(active);
-  visualSculptGestureThrowVelocity = active
-    ? 0
-    : clampVisual(packet.velocityX, -16, 16, 0) * 0.12;
-  visualSculptGestureWidthVelocity = active
-    ? 0
-    : clampVisual(packet.velocityY, -16, 16, 0) * 0.08;
-}
-
-function stepVisualSculptGesture(seconds) {
-  if (visualSculptGestureActive) {
-    visualSculptGestureEnvelope = 1;
-    return;
-  }
-  const elapsed = clampVisual(seconds, 0, 0.1, 0);
-  if (elapsed <= 0 || visualSculptGestureEnvelope <= 1e-7) return;
-  const memory = clampVisual(state.settings.gestureMemory, 0.08, 4, 1.1);
-  const decay = Math.exp(-elapsed / memory);
-  visualSculptGestureFocus = clampVisual(
-    visualSculptGestureFocus + visualSculptGestureThrowVelocity * elapsed,
-    0,
-    1,
-    visualSculptGestureFocus,
-  );
-  visualSculptGestureWidthScale = clampVisual(
-    visualSculptGestureWidthScale
-      * 2 ** (visualSculptGestureWidthVelocity * elapsed * 0.2),
-    0.2,
-    5,
-    1,
-  );
-  visualSculptGestureThrowVelocity *= decay;
-  visualSculptGestureWidthVelocity *= decay;
-  visualSculptGestureEnvelope *= decay;
-  if (visualSculptGestureEnvelope < 1e-7) resetVisualSculptGesture();
 }
 
 function visualDirectGestureResponse() {
@@ -709,8 +653,6 @@ function resetVisualDynamics({ resetComb = true } = {}) {
   visualPropagation.reset((state.settings.seed ^ 0x3c6ef372) >>> 0);
   visualPullOffsetX = 0;
   visualPullOffsetY = 0;
-  visualPullVelocityX = 0;
-  visualPullVelocityY = 0;
   visualPropagation.setActiveLimit(state.settings.propagationVoices);
   resetVisualSculptGesture();
   if (resetComb) {
@@ -826,7 +768,9 @@ function triggerPropagationAt(
 }
 
 function updateAudioParameters() {
-  state.settings = { ...audio.setParameters(state.settings) };
+  state.settings = {
+    ...audio.setParameters(manualFabricSettings(state.settings)),
+  };
 }
 
 function updateInterface({ drawNow = true } = {}) {
@@ -860,19 +804,15 @@ function updateInterface({ drawNow = true } = {}) {
   $("spectralTiltOut").textContent = formatTilt(settings.spectralTilt);
   $("latticeScatterOut").textContent = percent(settings.latticeScatter);
   $("cascadeOut").textContent = percent(settings.cascade);
-  $("glideAOut").textContent = formatGlide(settings.glideA);
-  $("glideBOut").textContent = formatGlide(settings.glideB);
   $("edgeFocusOut").textContent = settings.edgeFocus.toFixed(2);
   $("moireDetuneOut").textContent = `${settings.moireDetune >= 0 ? "+" : "−"}${Math.round(Math.abs(settings.moireDetune) * 100)}%`;
   $("phaseOffsetOut").textContent = `${settings.phaseOffset.toFixed(2)} cycle`;
   $("fieldAAngleOut").textContent = `${Math.round(settings.fieldAAngle)}°`;
   $("fieldADensityOut").textContent = settings.fieldADensity.toFixed(2);
-  $("fieldASpeedOut").textContent = formatCycleRate(settings.fieldASpeed);
   $("fieldACurvatureOut").textContent = percent(settings.fieldACurvature);
   $("fieldADepthOut").textContent = `${settings.fieldADepth.toFixed(2)} oct`;
   $("fieldBAngleOut").textContent = `${settings.fieldBAngle < 0 ? "−" : ""}${Math.abs(Math.round(settings.fieldBAngle))}°`;
   $("fieldBDensityOut").textContent = settings.fieldBDensity.toFixed(2);
-  $("fieldBSpeedOut").textContent = formatCycleRate(settings.fieldBSpeed);
   $("fieldBCurvatureOut").textContent = percent(settings.fieldBCurvature);
   $("fieldBDepthOut").textContent = `${settings.fieldBDepth.toFixed(2)} oct`;
   $("collisionAmountOut").textContent = percent(settings.collisionAmount);
@@ -903,21 +843,14 @@ function updateInterface({ drawNow = true } = {}) {
     $("ringDensityLabel").textContent = "Wake / Y density";
     $("ringDensityOut").textContent = settings.ringDensity.toFixed(2);
   }
-  $("autoPluckRateOut").textContent = settings.autoPluckRate <= 0.001
-    ? "off"
-    : `${settings.autoPluckRate.toFixed(2)} Hz`;
   $("propagationVoicesOut").textContent = `${settings.propagationVoices} ${settings.propagationVoices === 1 ? "wave" : "waves"}`;
   $("combDepthOut").textContent = percent(settings.combDepth);
   $("combTeethOut").textContent = `${settings.combTeeth} ${settings.combTeeth === 1 ? "region" : "regions"}`;
   $("combWidthOut").textContent = percent(settings.combWidth);
   $("combOffsetOut").textContent = percent(settings.combOffset);
-  $("combDriftOut").textContent = settings.combDrift === 0
-    ? "still"
-    : `${signed(settings.combDrift, Math.abs(settings.combDrift) < 0.1 ? 3 : 2)} cyc/s`;
   $("combWarpOut").textContent = `${settings.combWarp.toFixed(2)}×`;
   $("pluckCutOut").textContent = percent(settings.pluckCut);
   $("gestureCouplingOut").textContent = percent(settings.gestureCoupling);
-  $("gestureMemoryOut").textContent = `${settings.gestureMemory.toFixed(2)} s`;
   $("spectralFilterBlendOut").textContent = spectralFilterBlendLabel(settings.spectralFilterBlend);
   $("fftCutDepthOut").textContent = percent(settings.fftCutDepth);
   $("fftSharpnessOut").textContent = `${percent(settings.fftSharpness)} sharp`;
@@ -932,20 +865,13 @@ function updateInterface({ drawNow = true } = {}) {
   $("fabricSectionsOut").textContent = `${fabricSections.columns} × ${fabricSections.rows}`;
   $("fabricPatchworkOut").textContent = percent(settings.fabricPatchwork);
   $("fabricDepthOut").textContent = `${settings.fabricDepth.toFixed(2)} oct`;
-  $("fabricExcitationOut").textContent = percent(settings.fabricExcitation);
-  $("fabricVibrationOut").textContent = percent(settings.fabricVibration);
-  $("fabricRateOut").textContent = `${settings.fabricRate.toFixed(2)} Hz`;
   $("fabricRotationOut").textContent = `${settings.fabricRotation < 0 ? "−" : ""}${Math.abs(Math.round(settings.fabricRotation))}°`;
-  $("fabricSpinOut").textContent = `${signed(settings.fabricSpin, Math.abs(settings.fabricSpin) < 0.1 ? 3 : 2)} rev/s`;
   $("fabricPullOut").textContent = `${Math.round(settings.fabricPull * 100)}%`;
   $("stereoWidthOut").textContent = percent(settings.stereoWidth);
   $("driveOut").textContent = percent(settings.drive);
   $("spaceOut").textContent = percent(settings.space);
   $("feedbackOut").textContent = percent(settings.feedback);
 
-  for (const button of $("freezeChoice").querySelectorAll("[data-freeze]")) {
-    setPressed(button, String(settings.freeze) === button.dataset.freeze);
-  }
   for (const button of $("collisionModeChoice").querySelectorAll("[data-collision-mode]")) {
     setPressed(button, settings.collisionMode === button.dataset.collisionMode);
   }
@@ -974,9 +900,7 @@ function updateInterface({ drawNow = true } = {}) {
   $("filterEngineSummary").textContent = `${spectralSculptLabel(settings.spectralSculptMode)} · ${spectralFilterBlendLabel(settings.spectralFilterBlend)} · ${percent(settings.qCutDepth)} Q / ${percent(settings.fftCutDepth)} FFT`;
   $("noiseSummary").textContent = `${noiseTypeLabel(settings.noiseType)} · ${noiseColorLabel(settings.noiseColor)} · ${percent(settings.filteredMix)} filtered`;
   $("latticeSummary").textContent = `${settings.filterPairs} pairs · ${formatFrequency(settings.lowFrequency)}–${formatFrequency(settings.highFrequency)} · Q ${normalizedResonanceQ(settings.resonance).toFixed(1)}`;
-  $("motionSummary").textContent = settings.freeze
-    ? "frozen weave"
-    : `warp ${formatGlide(settings.glideA)} · weft ${formatGlide(settings.glideB)}`;
+  $("motionSummary").textContent = `edge ${settings.edgeFocus.toFixed(2)} · phase ${settings.phaseOffset.toFixed(2)}`;
   $("textureSummary").textContent = `X / warp ${settings.fieldADensity.toFixed(2)} · Y / weft ${settings.fieldBDensity.toFixed(2)} · ${settings.collisionMode} ${percent(settings.collisionAmount)}`;
   updatePropagationStatus(true);
   $("fabricSummary").textContent = `${percent(settings.fabricTension)} spring · response ${responseFeelLabel(responseSpeed)} · brake ${brakeFeelLabel(settings.fabricDamping)}`;
@@ -991,10 +915,9 @@ function updateInterface({ drawNow = true } = {}) {
   );
 
   const effectiveFilters = effectiveFilterCount();
-  const sculptMoving = !settings.freeze && Math.abs(settings.combDrift) > 0.0005;
   const regionDescription = sculptUsesRegions(settings.spectralSculptMode)
-    ? `${settings.combTeeth} ${sculptMoving ? "moving audio" : "stationary audio"} regions`
-    : `one ${sculptMoving ? "moving audio" : "stationary audio"} shape`;
+    ? `${settings.combTeeth} stationary audio regions`
+    : "one stationary audio shape";
   $("stageCaption").textContent = state.quality.tier > 0
     ? `static vector grid · adaptive audio tier ${state.quality.tier} · ${effectiveFilters} filters`
     : `static vector grid · ${spectralSculptLabel(settings.spectralSculptMode).toLowerCase()} · ${regionDescription}`;
@@ -1025,7 +948,7 @@ function renderPresets() {
 
 function setParameter(key, value, { announceChange = false } = {}) {
   state.settings = {
-    ...sanitizeMoireDroneParams({ ...state.settings, [key]: value }),
+    ...manualFabricSettings({ ...state.settings, [key]: value }),
   };
   state.preset = null;
   updateInterface();
@@ -1037,7 +960,7 @@ function applyPreset(id) {
   if (!preset) return;
   const outputLevel = state.settings.outputLevel;
   state.settings = {
-    ...sanitizeMoireDroneParams({
+    ...manualFabricSettings({
       ...MOIRE_DRONE_DEFAULTS,
       ...preset.settings,
       outputLevel,
@@ -1142,45 +1065,6 @@ function holdVisualFabricAtPointer() {
     2,
     pointerCurrentY - pointerAnchorY,
   );
-  visualPullVelocityX = pointerVelocityX;
-  visualPullVelocityY = pointerVelocityY;
-}
-
-function stepReleasedVisualPull(seconds) {
-  if (pointerId !== null) {
-    holdVisualFabricAtPointer();
-    return;
-  }
-  const elapsed = Math.max(0, Math.min(0.05, Number(seconds) || 0));
-  if (elapsed <= 0) return;
-  const energy = Math.hypot(
-    visualPullOffsetX,
-    visualPullOffsetY,
-    visualPullVelocityX * 0.05,
-    visualPullVelocityY * 0.05,
-  );
-  if (energy < 0.0005) {
-    visualPullOffsetX = 0;
-    visualPullOffsetY = 0;
-    visualPullVelocityX = 0;
-    visualPullVelocityY = 0;
-    return;
-  }
-  const spring = 20 + state.settings.fabricTension * 44;
-  const damping = 3.2 + state.settings.fabricDamping * 12 + (reducedMotion ? 18 : 0);
-  visualPullVelocityX -= visualPullOffsetX * spring * elapsed;
-  visualPullVelocityY -= visualPullOffsetY * spring * elapsed;
-  const decay = Math.exp(-damping * elapsed);
-  visualPullVelocityX = Math.max(-12, Math.min(12, visualPullVelocityX * decay));
-  visualPullVelocityY = Math.max(-12, Math.min(12, visualPullVelocityY * decay));
-  visualPullOffsetX = Math.max(-1.5, Math.min(
-    1.5,
-    visualPullOffsetX + visualPullVelocityX * elapsed,
-  ));
-  visualPullOffsetY = Math.max(-1.5, Math.min(
-    1.5,
-    visualPullOffsetY + visualPullVelocityY * elapsed,
-  ));
 }
 
 function visualPullOffsetAt(x, y) {
@@ -1269,7 +1153,7 @@ function triggerDirectGrabWake(x, y, amount, gesture) {
   const wake = directGrabWakeProfile(amount, gesture);
   triggerPropagationAt(x, y, wake.force, wake.radius, {
     audioAction: "pluck",
-    fabricScale: 0.72,
+    fabricScale: 1,
     audioX: x,
     audioY: y,
     gesture,
@@ -1297,8 +1181,8 @@ function emitFirstGrabWake(timestamp = performance.now()) {
     pointerPullAmount,
     gesture,
   );
-  // pluckFabric creates a released gesture envelope. Restore the live fixed
-  // point immediately so the hand continues to own the fabric after the wake.
+  // A propagation launch is physical rather than a remembered direct gesture.
+  // Restore the live fixed point so the held hand keeps owning the fabric.
   applyPointerTug(pointerPullAmount);
   return true;
 }
@@ -1350,7 +1234,7 @@ function maybeEmitGrabRipple(timestamp = performance.now()) {
     radius,
     {
       audioAction: "ripple",
-      fabricScale: 0.18,
+      fabricScale: 0.32,
       audioX: pointerCurrentX,
       audioY: pointerCurrentY,
     },
@@ -1409,12 +1293,7 @@ function staticGridHasDeformation() {
   return pointerId !== null
     || visualPropagation.activeCount > 0
     || visualFabric.energy > 0.0001
-    || Math.hypot(
-      visualPullOffsetX,
-      visualPullOffsetY,
-      visualPullVelocityX * 0.04,
-      visualPullVelocityY * 0.04,
-    ) > 0.0005;
+    || Math.hypot(visualPullOffsetX, visualPullOffsetY) > 0.0005;
 }
 
 function staticGridPoint(x, y, deform, fabricAngle) {
@@ -1918,12 +1797,10 @@ function animate(timestamp) {
   const settings = state.settings;
   visualPropagation.setActiveLimit(settings.propagationVoices);
   visualPropagation.step(elapsed);
-  stepReleasedVisualPull(elapsed);
-  stepVisualSculptGesture(elapsed);
   if (staticGridHasDeformation()) {
-    // The display membrane reacts only to direct interaction. Audio keeps its
-    // independent motion settings, but no motor or random excitation moves
-    // the visual background by itself.
+    // The same manual fabric physics shapes both display and audio. Random
+    // excitation and motor drive stay disabled so nothing moves underneath
+    // a resting grid.
     visualFabric.step(
       elapsed,
       settings,
@@ -1983,13 +1860,6 @@ $("clearWavesButton").addEventListener("click", () => {
   draw(performance.now(), true);
   announce("Waves and fabric motion cleared.");
 });
-
-for (const button of $("freezeChoice").querySelectorAll("[data-freeze]")) {
-  button.addEventListener("click", () => {
-    setParameter("freeze", button.dataset.freeze === "true");
-    announce(`Audio spectral motion ${state.settings.freeze ? "frozen" : "resumed"}.`);
-  });
-}
 
 for (const button of $("collisionModeChoice").querySelectorAll("[data-collision-mode]")) {
   button.addEventListener("click", () => {
@@ -2159,12 +2029,6 @@ async function releasePointer(event, { cancelled = false } = {}) {
   pointerDidDrag = false;
   visualPullAnchorX = releaseAnchorX;
   visualPullAnchorY = releaseAnchorY;
-  visualPullVelocityX = cancelled
-    ? 0
-    : Math.max(-8, Math.min(8, pointerVelocityX)) * 0.58;
-  visualPullVelocityY = cancelled
-    ? 0
-    : Math.max(-8, Math.min(8, pointerVelocityY)) * 0.58;
   canvas.classList.remove("is-grabbed", "is-pulling");
   visualFabric.release();
   if (wasDrag && Math.abs(thrownForce) > 0.015) {
@@ -2175,6 +2039,10 @@ async function releasePointer(event, { cancelled = false } = {}) {
       0.13 + state.settings.fabricInertia * 0.08,
     );
   }
+  // The direct on-screen pull, like the direct audio override, belongs only
+  // to contact. Any released motion now comes from the shared fabric impulse.
+  visualPullOffsetX = 0;
+  visualPullOffsetY = 0;
   audio.releaseFabric(releaseGesture);
   if (canvas.hasPointerCapture?.(releasedId)) canvas.releasePointerCapture(releasedId);
   pointerPullAmount = 0;
@@ -2199,11 +2067,27 @@ async function releasePointer(event, { cancelled = false } = {}) {
         1,
         Math.abs(thrownForce) + startupTransfer,
       );
+      const releaseRadius = 0.13 + state.settings.fabricInertia * 0.08;
+      if (!audioWasReady) {
+        // Starting audio resets both simulations. Restore the exact same
+        // release impulse visually before sending it to the worklet.
+        const releaseLocal = rotateFabricCoordinate(
+          releaseCurrentX,
+          releaseCurrentY,
+          effectiveFabricAngle(),
+        );
+        visualFabric.excite(
+          releaseLocal.x,
+          releaseLocal.y,
+          audioThrowForce,
+          releaseRadius,
+        );
+      }
       audio.kickFabric(
         releaseCurrentX,
         releaseCurrentY,
         audioThrowForce,
-        0.13 + state.settings.fabricInertia * 0.08,
+        releaseRadius,
         releaseGesture,
       );
     }
@@ -2230,11 +2114,7 @@ $("stage").addEventListener("pointercancel", (event) => releasePointer(event, { 
 $("stage").addEventListener("lostpointercapture", (event) => releasePointer(event, { cancelled: true }));
 
 $("stage").addEventListener("keydown", async (event) => {
-  if (event.key === " ") {
-    event.preventDefault();
-    setParameter("freeze", !state.settings.freeze);
-    announce(`Audio spectral motion ${state.settings.freeze ? "frozen" : "resumed"}.`);
-  } else if (event.key === "Enter") {
+  if (event.key === "Enter") {
     event.preventDefault();
     if (!await ensureAudioOn()) return;
     const keyboardWidth = (keyboardSculptY + 1) * 0.5;
@@ -2274,7 +2154,7 @@ canvas.addEventListener("blur", () => draw(performance.now(), true));
 
 document.querySelector("[data-reset-all]").addEventListener("click", () => {
   const outputLevel = state.settings.outputLevel;
-  state.settings = { ...sanitizeMoireDroneParams({ ...MOIRE_DRONE_DEFAULTS, outputLevel }) };
+  state.settings = { ...manualFabricSettings({ ...MOIRE_DRONE_DEFAULTS, outputLevel }) };
   state.gridDensity = STATIC_GRID_ROWS;
   state.preset = null;
   updateAudioParameters();

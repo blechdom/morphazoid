@@ -294,8 +294,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "moire-drone": define(
     "Noise-field drone",
-    "Sends correlated colored noise through colliding two-dimensional wave fields and a Shepard-wrapped filter lattice whose rotating mass-spring frequency fabric is crossed by drops, circular harmonics, spirals, and shock fronts.",
-    "Turn on audio, choose a preset, then pluck to launch a 1–50 Hz propagation or drag vertically to tug the fabric; shape its wave mode, travel, repetition, tension, damping, rotation, and pull.",
+    "Sends correlated colored noise through interacting two-dimensional wave fields, a Shepard-wrapped Q/FFT lattice, and a visible damped mass-spring frequency fabric shaped by direct grabs and user-triggered propagation.",
+    "Turn on audio, choose a preset and sculptor, then grab or pluck the fabric. There are no hidden audio-only LFOs, drifts, motors, or automatic plucks: the direct grab override ends on release, and only visibly moving fabric and user-triggered waves continue moving the spectral controls while normal audio tails decay.",
     ["Built-in noise", "Pointer", "Spectral propagation", "Adaptive DSP"],
   ),
   "drum-roll-please": define(
