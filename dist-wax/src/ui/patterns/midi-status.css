@@ -92,9 +92,11 @@
 
 .mz-midi-status.is-receiving .mz-midi-status__activity,
 .midi-toolbar.is-receiving .midi-activity-light {
-  border-color: var(--brass, var(--mz-color-brass));
-  background: var(--brass, var(--mz-color-brass));
-  box-shadow: 0 0 9px color-mix(in oklab, var(--brass, var(--mz-color-brass)) 72%, transparent);
+  border-color: var(--mz-color-danger);
+  background: var(--mz-color-danger);
+  box-shadow:
+    0 0 0 1px var(--bg-deep, var(--mz-color-bg-deep)),
+    0 0 9px color-mix(in oklab, var(--mz-color-danger) 72%, transparent);
 }
 
 .mz-midi-status__toggle[aria-pressed="true"],

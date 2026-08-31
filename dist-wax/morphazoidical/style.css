@@ -259,9 +259,11 @@ canvas:focus-visible,
 }
 
 .session-state .midi-toolbar.is-receiving .midi-activity-light {
-  border-color: var(--gold);
-  background: var(--gold);
-  box-shadow: 0 0 9px rgba(232,199,110,.72);
+  border-color: var(--danger);
+  background: var(--danger);
+  box-shadow:
+    0 0 0 1px var(--background),
+    0 0 9px color-mix(in oklab, var(--danger) 72%, transparent);
 }
 
 .session-state .midi-toggle:hover,

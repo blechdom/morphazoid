@@ -2304,7 +2304,11 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   assert.match(css, /\.header-output-meter-shell \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/s);
   assert.match(css, /\.header-output-meter-shell \{[^}]*width: 22px;[^}]*gap: 0;/s);
   assert.match(css, /\.header-output-channel-label \{[^}]*font-size: 7px;/s);
-  assert.match(css, /\.midi-toolbar\.is-receiving \.midi-activity-light \{/);
+  assert.match(
+    css,
+    /\.midi-toolbar\.is-receiving \.midi-activity-light \{[^}]*background: var\(--mz-color-danger\);/s,
+    "MIDI receive activity uses the red danger token against the green active control",
+  );
   assert.match(
     audioStripCss,
     /\.audio-strip,[\s\S]*?grid-template-columns: minmax\(96px, 140px\) var\(--audio-control-width, var\(--mz-control-height\)\);/,

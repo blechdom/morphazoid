@@ -5,14 +5,26 @@ import test from "node:test";
 const readProjectFile = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("the production stylesheet consumes the shared design tokens and controls", async () => {
-  const [style, entrypoint, foundations, buttons, choices, selects, fmDrums] = await Promise.all([
+  const [
+    style,
+    entrypoint,
+    foundations,
+    buttons,
+    choices,
+    selects,
+    midiStatus,
+    fmDrums,
+    morphazoidical,
+  ] = await Promise.all([
     readProjectFile("style.css"),
     readProjectFile("src/ui/index.css"),
     readProjectFile("src/ui/foundations/foundations.css"),
     readProjectFile("src/ui/primitives/button.css"),
     readProjectFile("src/ui/primitives/choice-switch.css"),
     readProjectFile("src/ui/primitives/select-field.css"),
+    readProjectFile("src/ui/patterns/midi-status.css"),
     readProjectFile("fm-drums.css"),
+    readProjectFile("morphazoidical/style.css"),
   ]);
 
   assert.match(style, /^@import url\("\.\/src\/ui\/index\.css"\);/);
@@ -57,6 +69,16 @@ test("the production stylesheet consumes the shared design tokens and controls",
   assert.match(choices, /\.choice-switch\.compact button,[\s\S]*?font-size: var\(--mz-font-size-xs\);/);
   assert.doesNotMatch(choices, /\.choice-switch\.compact[^{]*\{[^}]*min-height:/s);
   assert.match(selects, /@supports \(appearance: base-select\)/);
+  assert.match(
+    midiStatus,
+    /\.mz-midi-status\.is-receiving[^{]*\{[^}]*background: var\(--mz-color-danger\);/s,
+    "MIDI receive activity must remain distinct from the green active surface",
+  );
+  assert.match(
+    morphazoidical,
+    /\.session-state \.midi-toolbar\.is-receiving \.midi-activity-light \{[^}]*background: var\(--danger\);/s,
+    "the independently themed Morphazoidical toolbar uses its red receiving state",
+  );
   assert.match(
     selects,
     /\.mz-select-field__select option:checked,[^{]*\.select-shell > select option:checked\s*\{[^}]*color: var\(--mz-color-bg-deep\);[^}]*background: var\(--mz-active-accent\);/s,

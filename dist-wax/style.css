@@ -2232,9 +2232,11 @@ a {
 }
 
 .midi-toolbar.is-receiving .midi-activity-light {
-  border-color: var(--brass);
-  background: var(--brass);
-  box-shadow: 0 0 9px color-mix(in oklab, var(--brass) 72%, transparent);
+  border-color: var(--mz-color-danger);
+  background: var(--mz-color-danger);
+  box-shadow:
+    0 0 0 1px var(--bg-deep),
+    0 0 9px color-mix(in oklab, var(--mz-color-danger) 72%, transparent);
 }
 
 .midi-toggle[aria-pressed="true"] {
