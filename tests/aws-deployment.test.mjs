@@ -431,6 +431,7 @@ test("site builder publishes runtime files without development material", async 
       "webgpu-dsp-primitives.css",
       "webgpu-dsp-primitives-app.js",
       "src/webgpu-dsp-primitives.js",
+      "src/shader-synth-playground-primitive-coverage.js",
       "shader-synth-playground.html",
       "shader-synth-playground.css",
       "shader-synth-playground-app.js",
