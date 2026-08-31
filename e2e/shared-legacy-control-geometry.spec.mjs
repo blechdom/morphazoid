@@ -56,6 +56,48 @@ test("shared legacy controls retain their desktop production geometry", async ({
   expect(metrics.choice.height).toBe(40);
 });
 
+test("primary button hover keeps dark text on the bright accent surface", async ({ page }) => {
+  await loadProductionPage(page);
+  await page.evaluate(() => {
+    const button = document.createElement("button");
+    button.id = "sharedPrimaryButton";
+    button.className = "mz-button mz-button--primary";
+    button.type = "button";
+    button.textContent = "Apply mapping";
+    document.body.append(button);
+  });
+
+  const button = page.locator("#sharedPrimaryButton");
+  await button.hover();
+  const colors = await button.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      text: style.color,
+    };
+  });
+
+  expect(colors.text).toBe("rgb(5, 6, 8)");
+  expect(colors.background).not.toBe(colors.text);
+});
+
+test("legacy filled primary actions keep dark text on hover", async ({ page }) => {
+  const cases = [
+    ["/fm-drums.html", "#saveBank"],
+    ["/sample-drums.html", "#preloadSamples"],
+    ["/chaotic-fm.html", ".plugin-download-callout-primary"],
+  ];
+
+  for (const [route, selector] of cases) {
+    const response = await page.goto(route, { waitUntil: "domcontentloaded" });
+    expect(response?.ok(), `${route} returned HTTP ${response?.status()}`).toBe(true);
+    const button = page.locator(selector);
+    await expect(button).toBeVisible();
+    await button.hover();
+    await expect(button).toHaveCSS("color", "rgb(5, 6, 8)");
+  }
+});
+
 test.describe("coarse pointer", () => {
   test.use({
     hasTouch: true,

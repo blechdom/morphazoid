@@ -5,12 +5,13 @@ import test from "node:test";
 const readProjectFile = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("the production stylesheet consumes the shared design tokens and controls", async () => {
-  const [style, entrypoint, foundations, buttons, choices] = await Promise.all([
+  const [style, entrypoint, foundations, buttons, choices, fmDrums] = await Promise.all([
     readProjectFile("style.css"),
     readProjectFile("src/ui/index.css"),
     readProjectFile("src/ui/foundations/foundations.css"),
     readProjectFile("src/ui/primitives/button.css"),
     readProjectFile("src/ui/primitives/choice-switch.css"),
+    readProjectFile("fm-drums.css"),
   ]);
 
   assert.match(style, /^@import url\("\.\/src\/ui\/index\.css"\);/);
@@ -30,6 +31,21 @@ test("the production stylesheet consumes the shared design tokens and controls",
   );
   assert.match(buttons, /\.mini-action,\s*\.mz-button--mini\s*\{/);
   assert.match(buttons, /\.reset-all-button,\s*\.mz-button--reset\s*\{/);
+  assert.match(
+    buttons,
+    /\.mz-button--primary:hover:not\(:disabled\),\s*\.mz-button--primary:focus-visible\s*\{[^}]*color: var\(--mz-color-bg-deep\);/s,
+    "primary hover and keyboard focus must retain dark text on the bright accent surface",
+  );
+  assert.match(
+    fmDrums,
+    /\.fm-bank-actions \.is-primary:hover,\s*\.fm-bank-actions \.is-primary:focus-visible\s*\{[^}]*color: var\(--bg-deep\);/s,
+    "legacy FM primary actions must retain dark hover text",
+  );
+  assert.match(
+    style,
+    /\.plugin-download-callout-actions \.plugin-download-callout-primary:hover,[\s\S]*?\{[^}]*color: var\(--bg-deep\);/s,
+    "the primary plug-in download must retain dark hover text",
+  );
   assert.match(buttons, /@media \(pointer: coarse\)[\s\S]*--audio-control-width: 48px;/);
   assert.match(choices, /\.choice-switch\.compact button,[\s\S]*?font-size: var\(--mz-font-size-xs\);/);
   assert.doesNotMatch(choices, /\.choice-switch\.compact[^{]*\{[^}]*min-height:/s);

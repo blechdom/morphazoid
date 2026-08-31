@@ -46,6 +46,14 @@
   box-shadow: 0 0 14px var(--mz-active-accent-glow);
 }
 
+.mz-button--primary:hover:not(:disabled),
+.mz-button--primary:focus-visible {
+  border-color: var(--mz-active-accent);
+  color: var(--mz-color-bg-deep);
+  background: var(--mz-active-accent);
+  box-shadow: 0 0 18px var(--mz-active-accent-glow);
+}
+
 .mz-button--quiet {
   min-height: var(--mz-control-height-compact);
   padding-inline: 9px;

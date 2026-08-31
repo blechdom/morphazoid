@@ -2697,8 +2697,9 @@ input[type="range"]::-moz-range-thumb {
 
 .plugin-download-callout-actions .plugin-download-callout-primary:hover,
 .plugin-download-callout-actions .plugin-download-callout-primary:focus-visible {
-  color: var(--ink);
-  background: color-mix(in oklab, var(--accent) 74%, transparent);
+  color: var(--bg-deep);
+  background: color-mix(in oklab, var(--accent) 84%, white);
+  box-shadow: 0 0 14px var(--accent-glow);
 }
 
 .reset-all-row {
