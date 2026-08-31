@@ -112,45 +112,6 @@ const CATEGORY_ORDER = Object.freeze([
   "output",
 ]);
 
-const FEATURED_MODULE_ORDER = Object.freeze([
-  "delay",
-  "reverb",
-  "flanger",
-  "chorus",
-  "vibrato",
-  "doppler-sweep",
-  "fft-robotizer",
-  "spectral-gate",
-  "spectral-resynth",
-  "additive-drawbar-organ",
-  "air-swoosh",
-  "laser-woosh",
-  "robot-voice",
-  "shepard-risset-spiral",
-  "procedural-bird-flock",
-  "thunder-impact-cell",
-  "chord-arpeggiator",
-  "euclidean-arpeggiator",
-  "random-walk-arpeggiator",
-  "gpu-arp",
-  "mirror-fold-sequencer",
-  "sdf-orbit-sequencer",
-  "polar-kaleidoscope-sequencer",
-  "voronoi-cell-sequencer",
-  "truchet-path-sequencer",
-  "kifs-fold-sequencer",
-  "interference-lattice-sequencer",
-  "phase-plane",
-  "tile-mirror-domain",
-  "polar-fold-domain",
-  "sdf-pattern-field",
-  "sdf-logic",
-  "interference-field",
-  "voronoi-event-field",
-  "truchet-router",
-  "am-tremolo",
-]);
-
 const COMBO_FAMILY_CATEGORIES = Object.freeze({
   "wave-pan": "tonal",
   "fold-motion": "texture",
@@ -251,6 +212,9 @@ const combos = (Array.isArray(SHADER_PLAYGROUND_COMBOS) ? SHADER_PLAYGROUND_COMB
     category: combo.category ?? COMBO_FAMILY_CATEGORIES[combo.family] ?? "experimental",
   }));
 const comboById = new Map(combos.map((combo) => [combo.id, combo]));
+const auditionComboByModuleId = new Map(combos
+  .filter((combo) => combo.character === "primitive-audition" && String(combo.family).startsWith("audition-"))
+  .map((combo) => [String(combo.family).slice("audition-".length), combo]));
 
 function safeSupport() {
   try {
@@ -869,24 +833,6 @@ function formatValue(param, value) {
   return `${numeric.toFixed(decimals)}${param.unit ? ` ${param.unit}` : ""}`;
 }
 
-function moduleSearchText(module) {
-  return [
-    module.id,
-    module.label,
-    module.category,
-    CATEGORY_LABELS[module.category],
-    module.role,
-    module.shaderSourceLabel,
-    module.faustSymbol,
-    module.execution,
-    ...(Array.isArray(module.aliases) ? module.aliases : []),
-    ...(Array.isArray(module.tags) ? module.tags : []),
-    ...module.params.map((param) => `${param.id} ${param.label}`),
-  ]
-    .join(" ")
-    .toLocaleLowerCase();
-}
-
 function renderHearMenu() {
   const select = $("moduleHearSelect");
   const placeholder = document.createElement("option");
@@ -917,85 +863,59 @@ function renderHearMenu() {
     fragments.push(group);
   }
   select.replaceChildren(...fragments);
+  syncHearModuleButton();
 }
 
-function renderPalette() {
-  const query = $("moduleSearch").value.trim().toLocaleLowerCase();
-  const terms = query.split(/\s+/).filter(Boolean);
-  const visible = modules.filter((module) => terms.every((term) => moduleSearchText(module).includes(term)));
-  const groups = new Map();
-  for (const module of visible) {
+function syncHearModuleButton() {
+  const module = moduleById.get($("moduleHearSelect").value);
+  const button = $("moduleHearButton");
+  button.disabled = !module;
+  button.setAttribute("aria-label", module ? `Hear ${module.label}` : "Hear selected module");
+}
+
+function renderAddMenu() {
+  const select = $("moduleAddSelect");
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Choose a module…";
+  const fragments = [placeholder];
+  const grouped = new Map();
+  for (const module of modules) {
     const category = module.category || "utility";
-    if (!groups.has(category)) groups.set(category, []);
-    groups.get(category).push(module);
+    if (!grouped.has(category)) grouped.set(category, []);
+    grouped.get(category).push(module);
   }
-  for (const entries of groups.values()) {
-    entries.sort((left, right) => {
-      const leftIndex = FEATURED_MODULE_ORDER.indexOf(left.id);
-      const rightIndex = FEATURED_MODULE_ORDER.indexOf(right.id);
-      if (leftIndex < 0 && rightIndex < 0) return 0;
-      if (leftIndex < 0) return 1;
-      if (rightIndex < 0) return -1;
-      return leftIndex - rightIndex;
-    });
-  }
-  const fragments = [];
-  const orderedGroups = [...groups].sort(([left], [right]) => {
+  const orderedGroups = [...grouped].sort(([left], [right]) => {
     const leftIndex = CATEGORY_ORDER.indexOf(left);
     const rightIndex = CATEGORY_ORDER.indexOf(right);
     return (leftIndex < 0 ? CATEGORY_ORDER.length : leftIndex)
       - (rightIndex < 0 ? CATEGORY_ORDER.length : rightIndex);
   });
   for (const [category, entries] of orderedGroups) {
-    const section = document.createElement("details");
-    section.className = "module-group";
-    section.open = Boolean(query);
-
-    const heading = document.createElement("summary");
-    const categoryName = document.createElement("span");
-    categoryName.textContent = CATEGORY_LABELS[category] ?? category;
-    const categoryCount = document.createElement("small");
-    categoryCount.textContent = String(entries.length);
-    heading.append(categoryName, categoryCount);
-
-    const list = document.createElement("div");
-    list.className = "module-group-list";
-    section.append(heading, list);
+    const group = document.createElement("optgroup");
+    group.label = CATEGORY_LABELS[category] ?? category;
+    entries.sort((left, right) => left.label.localeCompare(right.label));
     for (const module of entries) {
-      const row = document.createElement("div");
-      row.className = "module-row";
-      row.style.setProperty("--module-color", module.color);
-      row.dataset.moduleId = module.id;
-      row.title = module.role;
-
-      const nameButton = document.createElement("button");
-      nameButton.type = "button";
-      nameButton.className = "module-name-button";
-      nameButton.dataset.addModule = module.id;
-      nameButton.setAttribute("aria-label", `Add ${module.label} to the patch. ${module.role}`);
-      const name = document.createElement("b");
-      name.textContent = module.label;
-      nameButton.append(name);
-
-      const add = document.createElement("button");
-      add.type = "button";
-      add.className = "module-action-button module-add-button";
-      add.dataset.addModule = module.id;
-      add.textContent = "+";
-      add.setAttribute("aria-label", `Add ${module.label} to the patch`);
-
-      row.append(nameButton, add);
-      list.append(row);
+      const option = document.createElement("option");
+      option.value = module.id;
+      const fixedOutput = module.required || module.fixed || module.category === "output";
+      option.disabled = fixedOutput;
+      option.textContent = fixedOutput ? `${module.label} — already in graph` : module.label;
+      group.append(option);
     }
-    fragments.push(section);
+    fragments.push(group);
   }
-  if (!fragments.length) {
-    const empty = document.createElement("p");
-    empty.className = "palette-empty";
-    empty.textContent = "No modules match that search.";
-    fragments.push(empty);
-  }
-  $("modulePalette").replaceChildren(...fragments);
+  select.replaceChildren(...fragments);
+  select.dataset.moduleCount = String(modules.length);
+  syncAddModuleButton();
+}
+
+function syncAddModuleButton() {
+  const module = moduleById.get($("moduleAddSelect").value);
+  const addable = Boolean(module && !module.required && !module.fixed && module.category !== "output");
+  const button = $("moduleAddButton");
+  button.disabled = !addable;
+  button.setAttribute("aria-label", addable ? `Add ${module.label} to the patch` : "Add selected module to the patch");
 }
 
 function isAuthoredScene(combo) {
@@ -1043,6 +963,20 @@ function renderPresets() {
   appendPatchOptions(select, "Variations", uniqueCombos.filter((combo) => !isAuthoredScene(combo)), "combo");
   select.value = currentPatchSelection();
   $("presetButtons").replaceChildren(select);
+}
+
+function selectAdjacentPatch(direction) {
+  const select = $("patchSelect");
+  const options = [...(select?.options ?? [])].filter((option) => option.value && !option.disabled);
+  if (!select || !options.length) return false;
+  const step = direction < 0 ? -1 : 1;
+  const currentIndex = options.findIndex((option) => option.value === select.value);
+  const nextIndex = currentIndex < 0
+    ? (step < 0 ? options.length - 1 : 0)
+    : (currentIndex + step + options.length) % options.length;
+  select.value = options[nextIndex].value;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
 }
 
 function patchFromCombo(combo) {
@@ -2176,7 +2110,10 @@ function removeSelectedCable() {
 function auditionModule(moduleId) {
   const focus = moduleById.get(moduleId);
   if (!focus) return;
-  if (focus.auditionPatch) {
+  const dedicatedCombo = auditionComboByModuleId.get(focus.id);
+  if (dedicatedCombo) {
+    state.patch = sanitizePatch(patchFromCombo(dedicatedCombo));
+  } else if (focus.auditionPatch) {
     state.patch = sanitizePatch(copy(focus.auditionPatch));
   } else {
     const preferredPreset = presets.find((candidate) => candidate.id === focus.auditionPreset);
@@ -2648,17 +2585,21 @@ async function togglePlay() {
   }
 }
 
-$("moduleSearch").addEventListener("input", renderPalette);
-$("moduleHearSelect").addEventListener("change", (event) => {
-  const moduleId = event.target.value;
+$("moduleHearSelect").addEventListener("change", () => {
+  syncHearModuleButton();
+  const module = moduleById.get($("moduleHearSelect").value);
+  if (module) announce(`${module.label} selected. Press Hear to load its audition graph and start audio.`);
+});
+$("moduleHearButton").addEventListener("click", () => {
+  const moduleId = $("moduleHearSelect").value;
   if (!moduleId) return;
   auditionModule(moduleId);
-  event.target.value = "";
   void startAudio({ play: true });
 });
-$("modulePalette").addEventListener("click", (event) => {
-  const add = event.target.closest("[data-add-module]");
-  if (add) addModule(add.dataset.addModule);
+$("moduleAddSelect").addEventListener("change", syncAddModuleButton);
+$("moduleAddButton").addEventListener("click", () => {
+  const moduleId = $("moduleAddSelect").value;
+  if (moduleId) addModule(moduleId);
 });
 
 $("presetButtons").addEventListener("change", (event) => {
@@ -2672,6 +2613,8 @@ $("presetButtons").addEventListener("change", (event) => {
     if (combo) loadCombo(combo);
   }
 });
+$("previousPatch").addEventListener("click", () => { selectAdjacentPatch(-1); });
+$("nextPatch").addEventListener("click", () => { selectAdjacentPatch(1); });
 
 function selectGraphNode(nodeId, { focus = false } = {}) {
   const node = findNode(nodeId);
@@ -2803,9 +2746,25 @@ $("graphViewport").addEventListener("pointerdown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  const shortcutTarget = event.target?.closest?.("a, input, textarea, select, button, summary, [contenteditable]:not([contenteditable='false']), [role='button'], [role='slider'], .patch-node");
+  if (
+    !event.defaultPrevented
+    && !event.isComposing
+    && !event.repeat
+    && event.shiftKey
+    && !event.ctrlKey
+    && !event.metaKey
+    && !event.altKey
+    && !shortcutTarget
+    && ["ArrowLeft", "ArrowRight"].includes(event.key)
+  ) {
+    event.preventDefault();
+    selectAdjacentPatch(event.key === "ArrowLeft" ? -1 : 1);
+    return;
+  }
   if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) {
     event.preventDefault();
-    $("moduleSearch").focus();
+    $("moduleAddSelect").focus();
     return;
   }
   if (event.key === "Escape") {
@@ -2842,7 +2801,7 @@ if (globalThis.matchMedia?.("(max-width: 720px)")?.matches) {
   $("patchControlsPanel").open = false;
 }
 renderHearMenu();
-renderPalette();
+renderAddMenu();
 renderPerformanceNoteButtons();
 syncExecutionReadout();
 renderPatch();
@@ -2863,7 +2822,8 @@ const initialModuleId = requestedModuleId(
 );
 if (initialModuleId) {
   auditionModule(initialModuleId);
-  $("moduleHearSelect").value = "";
+  $("moduleHearSelect").value = initialModuleId;
+  syncHearModuleButton();
   announce(`${moduleById.get(initialModuleId).label} audition loaded. Press Run patch or play a note to hear it.`);
 }
 

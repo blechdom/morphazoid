@@ -12,7 +12,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260831-modules125" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260831-preset-controls" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -63,21 +63,32 @@
           <p>Add a primitive, then patch from its OUT port into a compatible IN port.</p>
         </header>
 
-        <label class="module-hear-picker" for="moduleHearSelect">
-          <span>Hear a module</span>
-          <select id="moduleHearSelect" aria-label="Hear one module in a complete audition patch" aria-describedby="moduleHearHelp">
-            <option value="">Choose a module…</option>
-          </select>
-          <small class="sr-only" id="moduleHearHelp">Choosing a module replaces the graph with its supporting audition patch and starts audio.</small>
-        </label>
+        <div class="module-hear-picker">
+          <label for="moduleHearSelect">Hear a module</label>
+          <div class="module-hear-controls">
+            <select id="moduleHearSelect" aria-label="Choose one module to hear" aria-describedby="moduleHearHelp">
+              <option value="">Choose a module…</option>
+            </select>
+            <button id="moduleHearButton" type="button" disabled>Hear</button>
+          </div>
+          <small class="module-picker-help" id="moduleHearHelp">Choose a module, then press Hear.</small>
+        </div>
 
-        <label class="module-search" for="moduleSearch">
-          <span class="sr-only">Search modules</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5"></path></svg>
-          <input id="moduleSearch" type="search" autocomplete="off" placeholder="Try delay, organ, robot, arp…" />
-        </label>
-
-        <div class="module-palette" id="modulePalette" aria-label="Available shader synthesis modules"></div>
+        <div class="module-add-picker" id="modulePalette">
+          <label for="moduleAddSelect">Add a module</label>
+          <div class="module-add-controls">
+            <select
+              id="moduleAddSelect"
+              aria-label="Choose a shader synthesis module to add"
+              aria-describedby="moduleAddHelp"
+              aria-keyshortcuts="/"
+            >
+              <option value="">Choose a module…</option>
+            </select>
+            <button id="moduleAddButton" type="button" disabled>Add</button>
+          </div>
+          <small class="sr-only" id="moduleAddHelp">The menu contains every module, grouped by signal role. Choose one, then press Add. Press slash anywhere outside a form control to focus this menu.</small>
+        </div>
 
         <section class="port-legend" aria-labelledby="portLegendTitle">
           <h2 id="portLegendTitle">Typed connections</h2>
@@ -100,7 +111,11 @@
 
           <div class="preset-picker">
             <span>Patch</span>
-            <div id="presetButtons" role="group" aria-label="Choose a playground patch"></div>
+            <div class="preset-controls" role="group" aria-label="Choose a playground patch">
+              <button id="previousPatch" class="preset-step-button" type="button" aria-label="Previous patch" aria-keyshortcuts="Shift+ArrowLeft" title="Previous patch (Shift + Left Arrow)">Previous</button>
+              <div id="presetButtons"></div>
+              <button id="nextPatch" class="preset-step-button" type="button" aria-label="Next patch" aria-keyshortcuts="Shift+ArrowRight" title="Next patch (Shift + Right Arrow)">Next</button>
+            </div>
           </div>
 
           <div class="patch-actions">
@@ -121,7 +136,7 @@
             <span class="execution-flow-stage execution-flow-readback" id="gpuReadbackLane">GPU <i aria-hidden="true">→</i> CPU <output id="gpuChunkDuration">~100 ms chunk</output></span>
 
             <details class="execution-shape-details" id="executionShapeDetails">
-              <summary><b>Execution details</b><span aria-hidden="true">+</span></summary>
+              <summary aria-label="Execution details"><b>Execution details</b><span aria-hidden="true">+</span></summary>
               <div class="execution-shape-detail-panel" id="executionBoundaryLanes">
                 <section class="execution-detail-current" aria-labelledby="sampleParallelHeading">
                   <h3 id="sampleParallelHeading">Current sample-parallel pass</h3>
@@ -321,7 +336,7 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260831-modules125"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260831-preset-controls"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

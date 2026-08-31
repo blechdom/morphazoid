@@ -138,59 +138,19 @@
   line-height: 1.55;
 }
 
-.module-search {
-  position: relative;
-  display: block;
-  margin: 14px 14px 8px;
-}
-
-.module-search svg {
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  left: 11px;
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: var(--muted);
-  stroke-width: 1.6;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.module-search input {
-  width: 100%;
-  min-height: 42px;
-  padding: 0 10px 0 34px;
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
-  color: var(--ink);
-  background: var(--bg-deep);
-  font-size: 11px;
-  appearance: none;
-}
-
-.module-search input::placeholder {
-  color: var(--faint);
-}
-
-.module-search:focus-within svg {
-  stroke: var(--accent);
-}
-
-.module-search input:focus-visible {
-  border-color: var(--accent);
-  outline: 0;
-  box-shadow: 0 0 0 1px var(--accent);
-}
-
-.module-hear-picker {
+.module-hear-picker,
+.module-add-picker {
   display: grid;
   padding: 12px 14px 5px;
   gap: 5px;
 }
 
-.module-hear-picker > span {
+.module-add-picker {
+  padding-bottom: 14px;
+}
+
+.module-hear-picker > label,
+.module-add-picker > label {
   color: var(--faint);
   font-size: 10px;
   font-weight: 700;
@@ -198,7 +158,8 @@
   text-transform: uppercase;
 }
 
-#moduleHearSelect {
+#moduleHearSelect,
+#moduleAddSelect {
   width: 100%;
   min-height: 34px;
   padding: 0 9px;
@@ -212,174 +173,52 @@
 }
 
 #moduleHearSelect:hover,
-#moduleHearSelect:focus-visible {
+#moduleHearSelect:focus-visible,
+#moduleAddSelect:hover,
+#moduleAddSelect:focus-visible {
   border-color: var(--accent);
   outline: 0;
 }
 
-.module-palette {
+.module-hear-controls,
+.module-add-controls {
   display: grid;
-  min-height: 120px;
-  padding: 6px 14px 18px;
-  align-content: start;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
 }
 
-.module-group {
-  display: block;
-  border: 1px solid var(--line);
-  background: var(--bg-deep);
-}
-
-.module-group summary {
-  display: grid;
-  min-height: 38px;
+#moduleHearButton,
+#moduleAddButton {
+  min-width: 48px;
+  min-height: 34px;
   padding: 0 10px;
+  border: 1px solid color-mix(in oklab, var(--accent) 48%, var(--line-strong));
   cursor: pointer;
-  color: var(--muted);
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 10px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  list-style: none;
-  text-transform: uppercase;
-}
-
-.module-group summary::-webkit-details-marker {
-  display: none;
-}
-
-.module-group summary::before {
-  display: inline-block;
-  width: 9px;
-  margin-right: 5px;
-  color: var(--faint);
-  content: "›";
-  font-size: 15px;
-  line-height: 1;
-  transform-origin: center;
-  transition: transform 120ms ease;
-}
-
-.module-group summary > span {
-  grid-column: 1;
-  grid-row: 1;
-  padding-left: 14px;
-}
-
-.module-group summary::before {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.module-group[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.module-group summary small {
-  color: var(--faint);
-  font-size: 9px;
-  font-weight: 650;
-  letter-spacing: 0;
-}
-
-.module-group summary:hover,
-.module-group summary:focus-visible {
   color: var(--ink);
-  outline: 0;
-}
-
-.module-group-list {
-  display: grid;
-  border-top: 1px solid var(--line);
-}
-
-.module-row {
-  position: relative;
-  display: grid;
-  width: 100%;
-  min-height: 40px;
-  padding: 0 6px 0 11px;
-  border: 0;
-  border-bottom: 1px solid color-mix(in oklab, var(--line) 72%, transparent);
-  color: var(--ink);
-  background:
-    linear-gradient(115deg, color-mix(in oklab, var(--module-color, var(--accent)) 4%, transparent), transparent 65%),
-    var(--bg-deep);
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 5px;
-}
-
-.module-row:last-child {
-  border-bottom: 0;
-}
-
-.module-name-button {
-  all: unset;
-  display: flex;
-  min-width: 0;
-  min-height: 39px;
-  cursor: pointer;
-  align-items: center;
-}
-
-.module-name-button b {
-  overflow: hidden;
-  color: var(--ink);
+  background: color-mix(in oklab, var(--accent) 9%, var(--bg-deep));
   font-size: 11px;
-  font-weight: 650;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.module-action-button {
-  min-width: 29px;
-  min-height: 26px;
-  padding: 0 7px;
-  border: 1px solid var(--line-strong);
-  cursor: pointer;
-  color: var(--muted);
-  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
-  font-size: 8px;
   font-weight: 700;
 }
 
-.module-add-button {
-  min-width: 26px;
-  padding: 0;
-  color: var(--module-color, var(--accent));
-  font-size: 15px;
-  font-weight: 500;
+#moduleHearButton:hover,
+#moduleHearButton:focus-visible,
+#moduleAddButton:hover,
+#moduleAddButton:focus-visible {
+  border-color: var(--accent);
+  outline: 0;
+  background: color-mix(in oklab, var(--accent) 16%, var(--bg-deep));
 }
 
-.module-row:hover,
-.module-row:focus-within {
-  background:
-    linear-gradient(115deg, color-mix(in oklab, var(--module-color, var(--accent)) 9%, transparent), transparent 72%),
-    var(--bg-deep);
+#moduleHearButton:disabled,
+#moduleAddButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
 }
 
-.module-name-button:focus-visible,
-.module-action-button:focus-visible {
-  outline: 1px solid var(--module-color, var(--accent));
-  outline-offset: 1px;
-}
-
-.module-action-button:hover {
-  border-color: var(--module-color, var(--accent));
-  color: var(--ink);
-}
-
-.palette-empty {
-  padding: 14px;
-  border: 1px dashed var(--line-strong);
+.module-picker-help {
   color: var(--muted);
   font-size: 10px;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 .port-legend {
@@ -748,6 +587,34 @@
   display: block;
   width: min(230px, 100%);
   max-width: 100%;
+}
+
+.preset-controls {
+  display: grid;
+  width: min(430px, 100%);
+  max-width: 100%;
+  grid-template-columns: auto minmax(150px, 230px) auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.preset-step-button {
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.preset-step-button:hover,
+.preset-step-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  outline: 0;
 }
 
 #patchSelect {
@@ -2686,9 +2553,7 @@
 }
 
 /* Keep secondary technical labels legible without enlarging the workspace panels. */
-.module-group h2,
 .module-button small,
-.module-row small,
 .port-legend h2,
 .port-legend li,
 .port-legend li b,
@@ -2933,28 +2798,12 @@
     max-width: 480px;
   }
 
-  .module-search {
-    margin: 5px 16px 9px;
-  }
-
   .module-hear-picker {
     padding: 4px 16px 5px;
   }
 
-  .module-palette {
-    display: grid;
-    padding: 2px 16px 14px;
-    overflow: visible;
-    gap: 6px;
-  }
-
-  .module-group {
-    display: block;
-  }
-
-  .module-row {
-    width: 100%;
-    min-width: 0;
+  .module-add-picker {
+    padding: 4px 16px 14px;
   }
 
   .port-legend {
@@ -2969,6 +2818,24 @@
   .execution-shape-map {
     overflow: visible;
     grid-template-rows: 36px auto;
+  }
+
+  .execution-flow-strip {
+    padding-right: 7px;
+    padding-left: 7px;
+    gap: 4px;
+  }
+
+  #gpuChunkDuration,
+  .execution-shape-details summary b {
+    display: none;
+  }
+
+  .execution-shape-details summary {
+    min-width: 22px;
+    padding-left: 3px;
+    border-left: 0;
+    justify-content: center;
   }
 
   .combo-library {
@@ -2998,6 +2865,11 @@
 
   #presetButtons {
     width: 100%;
+  }
+
+  .preset-controls {
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .graph-viewport {
@@ -3154,7 +3026,6 @@
 
 @media (pointer: coarse) {
   .module-button,
-  .module-row,
   .preset-button,
   .patch-actions button,
   .delete-node,
@@ -3162,13 +3033,11 @@
     min-height: 44px;
   }
 
-  .module-name-button,
-  .module-action-button {
+  #moduleHearSelect,
+  #moduleHearButton,
+  #moduleAddSelect,
+  #moduleAddButton {
     min-height: 44px;
-  }
-
-  .module-action-button {
-    min-width: 44px;
   }
 
   .performance-note,
