@@ -8,7 +8,7 @@ import {
   physicalVoiceParameters,
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
-} from "./hiccup-head.js?v=hiccup-head-model-20260829-6";
+} from "./hiccup-head.js?v=hiccup-head-model-20260830-8";
 
 // Hiccup Head's tract is a single, persistent Kelly-Lochbaum volume-flow tube.
 // The scattering convention, losses, and 44-section source geometry follow
@@ -54,7 +54,7 @@ const TOOTH_WOOD_MODE_COUNT = 2;
 // audible beside the tongue release. It does not extend modal decay or Q.
 const TOOTH_WOOD_IMPACT_GAIN = 15;
 const TOOTH_WOOD_FREQUENCY_OFFSETS_HZ = Object.freeze([
-  -7, 5, -4, 9, -6, 3, 7, -2, 4, -8, 10, -1,
+  -1.2, 0.8, -0.6, 1.1, -0.9, 0.5, 0.9, -0.4, 0.6, -1, 1.2, -0.2,
 ]);
 const TOOTH_WOOD_DECAY_SCALES = Object.freeze([
   0.86, 1.02, 0.9, 1.08, 0.84, 0.98, 1.04, 0.88, 1, 0.82, 1.1, 0.92,
@@ -75,7 +75,7 @@ const GESTURE_SOURCE_GAIN = Object.freeze({
   holler: 0.565,
   hum: 0.33,
   moan: 1.025,
-  lala: 1.02,
+  lala: 1.24,
 });
 const GESTURE_OUTPUT_GAIN = Object.freeze({
   rattle: 0.35,
@@ -248,8 +248,8 @@ class FaceSpace {
   constructor(rate) {
     this.rate = rate;
     this.widthBuffer = new Float64Array(Math.ceil(rate * 0.0015) + 4);
-    this.leftHairBuffer = new Float64Array(Math.ceil(rate * 0.038) + 4);
-    this.rightHairBuffer = new Float64Array(Math.ceil(rate * 0.038) + 4);
+    this.leftHairBuffer = new Float64Array(Math.ceil(rate * 0.46) + 4);
+    this.rightHairBuffer = new Float64Array(Math.ceil(rate * 0.46) + 4);
     this.eyeLeftBuffer = new Float64Array(Math.ceil(rate * 0.39) + 4);
     this.eyeRightBuffer = new Float64Array(Math.ceil(rate * 0.39) + 4);
     // Read-only compatibility alias for diagnostics which knew the old buffer.
@@ -264,6 +264,7 @@ class FaceSpace {
     this.rightHairAngle = 0;
     this.eyeAmount = 0;
     this.eyeReverbAmount = 0;
+    this.eyelidFuzzAmount = 0;
     this.eyeDampedLeft = 0;
     this.eyeDampedRight = 0;
     this.eyeClosureAmount = 0;
@@ -314,7 +315,10 @@ class FaceSpace {
     const leftAngleTarget = clamp(finite(configuration?.leftHairAngle, 0), -1, 1);
     const rightAngleTarget = clamp(finite(configuration?.rightHairAngle, 0), -1, 1);
     const eyeTarget = clamp(finite(configuration?.eyeDivergence, 0), -1, 1);
-    const eyeClosureTarget = clamp(finite(configuration?.eyeClosure, 0));
+    const leftEyeClosure = clamp(finite(configuration?.leftEyeClosure, configuration?.eyeClosure));
+    const rightEyeClosure = clamp(finite(configuration?.rightEyeClosure, configuration?.eyeClosure));
+    const eyeClosureTarget = Math.max(leftEyeClosure, rightEyeClosure);
+    const eyelidImbalance = leftEyeClosure - rightEyeClosure;
     this.earAmount += (earTarget - this.earAmount) * this.earSmoothingAlpha;
     this.leftHairLength += (
       leftLengthTarget - this.leftHairLength
@@ -330,8 +334,7 @@ class FaceSpace {
     ) * this.hairAngleSmoothingAlpha;
     this.eyeAmount += (eyeTarget - this.eyeAmount) * this.eyeSmoothingAlpha;
     if (eyeTarget === 0 && Math.abs(this.eyeAmount) < 0.000001) this.eyeAmount = 0;
-    // Eyelid closure is visual state only. Keep its existing smoothing for
-    // telemetry-driven animation without putting it in the audio path.
+    // Eyelids shade the same reverb network; they never gate or bitcrush.
     this.eyeClosureAmount += (
       eyeClosureTarget - this.eyeClosureAmount
     ) * this.eyeClosureSmoothingAlpha;
@@ -358,12 +361,14 @@ class FaceSpace {
     const rightCurve = smoothstep(this.rightHairLength);
     const leftAngleNormalized = (this.leftHairAngle + 1) * 0.5;
     const rightAngleNormalized = (this.rightHairAngle + 1) * 0.5;
-    const leftDelayFrames = this.rate * (0.0045 + leftAngleNormalized * 0.032);
-    const rightDelayFrames = this.rate * (0.0045 + rightAngleNormalized * 0.032);
+    // Hair angle sweeps delay time from a tight doubling zone through slapback
+    // and into slow rhythmic echoes; radial length controls feedback and mix.
+    const leftDelayFrames = this.rate * (0.012 + leftAngleNormalized ** 1.7 * 0.408);
+    const rightDelayFrames = this.rate * (0.012 + rightAngleNormalized ** 1.7 * 0.408);
     const leftHairTap = this._tap(this.leftHairBuffer, this.hairIndex, leftDelayFrames);
     const rightHairTap = this._tap(this.rightHairBuffer, this.hairIndex, rightDelayFrames);
-    this.leftHairFeedback = this.leftHairLength <= 0.000001 ? 0 : 0.06 + leftCurve * 0.68;
-    this.rightHairFeedback = this.rightHairLength <= 0.000001 ? 0 : 0.06 + rightCurve * 0.68;
+    this.leftHairFeedback = this.leftHairLength <= 0.000001 ? 0 : 0.08 + leftCurve * 0.78;
+    this.rightHairFeedback = this.rightHairLength <= 0.000001 ? 0 : 0.08 + rightCurve * 0.78;
     this.leftHairMix = leftCurve * 0.78;
     this.rightHairMix = rightCurve * 0.78;
     this.leftHairBuffer[this.hairIndex] = clamp(
@@ -379,25 +384,63 @@ class FaceSpace {
     this.hairIndex = (this.hairIndex + 1) % this.leftHairBuffer.length;
     this.leftHairDelayMs = leftDelayFrames / this.rate * 1_000;
     this.rightHairDelayMs = rightDelayFrames / this.rate * 1_000;
+    const leftDelayBlend = this.leftHairMix * 0.48;
+    const rightDelayBlend = this.rightHairMix * 0.48;
     const hairLeft = cleanWave(
-      earLeft * (1 - this.leftHairMix * 0.18) + leftHairTap * this.leftHairMix * 0.72,
+      (earLeft * 0.94 + leftHairTap * leftDelayBlend * (0.76 - this.leftHairFeedback * 0.12))
+        / (0.94 + leftDelayBlend * 0.34),
     );
     const hairRight = cleanWave(
-      earRight * (1 - this.rightHairMix * 0.18) + rightHairTap * this.rightHairMix * 0.72,
+      (earRight * 0.94 + rightHairTap * rightDelayBlend * (0.76 - this.rightHairFeedback * 0.12))
+        / (0.94 + rightDelayBlend * 0.34),
     );
     this.hairAmount = Math.max(this.leftHairLength, this.rightHairLength);
     this.hairDelayMs = (this.leftHairDelayMs + this.rightHairDelayMs) * 0.5;
     this.hairFeedback = Math.max(this.leftHairFeedback, this.rightHairFeedback);
     this.hairMix = Math.max(this.leftHairMix, this.rightHairMix);
 
-    this.eyeReverbAmount = smoothstep(Math.max(0, this.eyeAmount));
-    const roomLeftDelay = this.rate * (0.053 + this.eyeReverbAmount * 0.083);
-    const roomRightDelay = this.rate * (0.079 + this.eyeReverbAmount * 0.121);
-    const reflectedLeft = this._tap(this.eyeLeftBuffer, this.eyeIndex, roomLeftDelay);
-    const reflectedRight = this._tap(this.eyeRightBuffer, this.eyeIndex, roomRightDelay);
-    this.eyeDampedLeft += (reflectedLeft - this.eyeDampedLeft) * 0.12;
-    this.eyeDampedRight += (reflectedRight - this.eyeDampedRight) * 0.105;
-    const roomFeedback = 0.28 + this.eyeReverbAmount * 0.49;
+    const eyeDistance = Math.max(Math.abs(this.eyeAmount), this.eyeClosureAmount * 0.72);
+    // Keep the small resting divergence dry; once the eyes visibly move, jump
+    // into an audible wet range instead of spending most travel near silence.
+    const eyeActivation = smoothstep(clamp((eyeDistance - 0.04) / 0.26));
+    this.eyeReverbAmount = eyeActivation * (0.18 + smoothstep(eyeDistance) * 0.82);
+    // Inward gaze is a short bright plate, centered open eyes are dry, outward
+    // gaze grows into a long dark cathedral, and lids thicken either character.
+    const eyeCharacter = clamp((this.eyeAmount + 1) * 0.5);
+    const lidThickness = smoothstep(this.eyeClosureAmount);
+    // Left lid closure pulls toward a short bright plate; right lid closure
+    // stretches and darkens the field. This makes independent lids audible.
+    const lidDelayScale = clamp(1 - eyelidImbalance * 0.3, 0.7, 1.3);
+    const roomLeftDelay = this.rate * (
+      0.009 + eyeCharacter * 0.058 + this.eyeReverbAmount * 0.014 + lidThickness * 0.012
+    ) * lidDelayScale;
+    const roomRightDelay = this.rate * (
+      0.013 + eyeCharacter * 0.077 + this.eyeReverbAmount * 0.019 + lidThickness * 0.016
+    ) * lidDelayScale;
+    // Three incommensurate taps blur discrete repeats into a plate at crossed
+    // positions and a dense, long cathedral field as the gaze moves outward.
+    const reflectedLeft = (
+      this._tap(this.eyeLeftBuffer, this.eyeIndex, roomLeftDelay * 0.47) * 0.34
+      + this._tap(this.eyeLeftBuffer, this.eyeIndex, roomLeftDelay * 0.73) * 0.29
+      + this._tap(this.eyeLeftBuffer, this.eyeIndex, roomLeftDelay) * 0.37
+    );
+    const reflectedRight = (
+      this._tap(this.eyeRightBuffer, this.eyeIndex, roomRightDelay * 0.53) * 0.31
+      + this._tap(this.eyeRightBuffer, this.eyeIndex, roomRightDelay * 0.79) * 0.33
+      + this._tap(this.eyeRightBuffer, this.eyeIndex, roomRightDelay) * 0.36
+    );
+    const roomDamping = clamp(
+      0.2 - eyeCharacter * 0.09 - lidThickness * 0.035 + eyelidImbalance * 0.055,
+      0.045,
+      0.27,
+    );
+    this.eyeDampedLeft += (reflectedLeft - this.eyeDampedLeft) * roomDamping;
+    this.eyeDampedRight += (reflectedRight - this.eyeDampedRight) * roomDamping * 0.92;
+    const roomFeedback = clamp(
+      0.38 + this.eyeReverbAmount * 0.3 + eyeCharacter * 0.18 + lidThickness * 0.07,
+      0.34,
+      0.88,
+    );
     this.eyeLeftBuffer[this.eyeIndex] = clamp(
       hairLeft * (0.22 + this.eyeReverbAmount * 0.12)
         + this.eyeDampedRight * roomFeedback,
@@ -411,16 +454,34 @@ class FaceSpace {
       1.5,
     );
     this.eyeIndex = (this.eyeIndex + 1) % this.eyeLeftBuffer.length;
-    const roomWet = this.eyeReverbAmount * 0.66;
+    const roomWet = eyeActivation * (0.16 + this.eyeReverbAmount * 0.58);
+    const roomBlend = roomWet * 0.5;
+    const reverbReturnGain = 0.78 - roomFeedback * 0.24;
     const roomLeft = cleanWave(
-      hairLeft * (1 - roomWet * 0.18) + this.eyeDampedLeft * roomWet,
+      (hairLeft * 0.96
+        + this.eyeDampedLeft * roomBlend * reverbReturnGain * (1 + eyelidImbalance * 0.12))
+        / (0.96 + roomBlend * 0.28),
     );
     const roomRight = cleanWave(
-      hairRight * (1 - roomWet * 0.18) + this.eyeDampedRight * roomWet,
+      (hairRight * 0.96
+        + this.eyeDampedRight * roomBlend * reverbReturnGain * (1 - eyelidImbalance * 0.12))
+        / (0.96 + roomBlend * 0.28),
     );
 
-    this.left = roomLeft;
-    this.right = roomRight;
+    // Closing either colored lid adds whole-mix fuzz. Dividing tanh by its
+    // drive preserves unity slope around quiet signals, while the parallel
+    // blend adds harmonics without the usual distortion-volume jump.
+    const eyelidAverage = (leftEyeClosure + rightEyeClosure) * 0.5;
+    const eyelidFuzz = smoothstep(
+      Math.max(leftEyeClosure, rightEyeClosure) * 0.72 + eyelidAverage * 0.28,
+    );
+    const fuzzDrive = 1 + eyelidFuzz * 7;
+    const fuzzBlend = eyelidFuzz * 0.62;
+    const fuzzLeft = Math.tanh(roomLeft * fuzzDrive) / fuzzDrive;
+    const fuzzRight = Math.tanh(roomRight * fuzzDrive) / fuzzDrive;
+    this.left = cleanWave(roomLeft * (1 - fuzzBlend) + fuzzLeft * fuzzBlend);
+    this.right = cleanWave(roomRight * (1 - fuzzBlend) + fuzzRight * fuzzBlend);
+    this.eyelidFuzzAmount = eyelidFuzz;
   }
 
   reset() {
@@ -439,6 +500,7 @@ class FaceSpace {
     this.rightHairAngle = 0;
     this.eyeAmount = 0;
     this.eyeReverbAmount = 0;
+    this.eyelidFuzzAmount = 0;
     this.eyeDampedLeft = 0;
     this.eyeDampedRight = 0;
     this.eyeClosureAmount = 0;
@@ -800,7 +862,11 @@ class CompliantCheekBranch {
     this.collisionDrive += forceChange * (0.032 + clamp(tension) * 0.018);
     // Tongue/cheek withdrawal expands the sealed pocket: its volume-flow sign
     // is negative while suction rises, positive on the release rebound.
-    const suctionCollisionScale = frame?.soundId === "slurp" ? 0.28 : 0.12;
+    const suctionCollisionScale = frame?.soundId === "slurp"
+      ? 0.28
+      : frame?.soundId === "mwah"
+        ? 0.24
+        : 0.12;
     this.collisionDrive -= suctionChange * suctionCollisionScale;
     this.collisionDrive *= 0.88;
     const cheekForce = externalForce + clamp(localPressure, -2, 2) * 0.06;
@@ -1442,8 +1508,7 @@ class ToothTineResonator {
     // 116–566 Hz physically, while small crooked-tooth offsets retain wood
     // character without scrambling the ordered pitches.
     this.resonantFrequencyHz = clamp(
-      this.frequencyHz * 0.76
-        + 24
+      this.frequencyHz
         + TOOTH_WOOD_FREQUENCY_OFFSETS_HZ[this.toothIndex],
       96,
       820,
@@ -1451,16 +1516,16 @@ class ToothTineResonator {
     const x = 0.03 + this.position * 0.97;
     const toothCrookedness = (this.toothIndex % 5 - 2) * 0.017;
     const baseDecaySeconds = (
-      0.044 + (1 - this.brightness) * 0.022 + this.position * 0.012
+      0.082 + (1 - this.brightness) * 0.038 + this.position * 0.018
     ) * TOOTH_WOOD_DECAY_SCALES[this.toothIndex];
     for (let mode = 0; mode < TOOTH_WOOD_MODE_COUNT; mode += 1) {
-      const modeRatio = mode === 0 ? 1 : 1.43 + toothCrookedness;
+      const modeRatio = mode === 0 ? 1 : 3.92 + toothCrookedness;
       const modeFrequency = Math.min(
         this.resonantFrequencyHz * modeRatio,
         this.rate * 0.24,
       );
       const omega = Math.PI * 2 * modeFrequency / this.substepRate;
-      const decaySeconds = baseDecaySeconds * (mode === 0 ? 1 : 0.48);
+      const decaySeconds = baseDecaySeconds * (mode === 0 ? 1 : 0.26);
       const radius = Math.exp(
         Math.log(0.001) / Math.max(1, decaySeconds * this.substepRate),
       );
@@ -1475,7 +1540,7 @@ class ToothTineResonator {
         + Math.abs(Math.sin((mode + 0.62) * Math.PI * x)) * 0.68;
       const brightnessGain = mode === 0
         ? 0.82
-        : 0.055 + this.brightness * 0.105;
+        : 0.018 + this.brightness * 0.038;
       this.strikeGain[mode] = bendingShape * brightnessGain;
       // Retargeting one mouth lightly damps any preceding tooth rather than
       // layering an independent tine voice over the new strike.
@@ -2026,7 +2091,8 @@ class OrganicMouthTract {
 
     const lipImpulse = finite(frame.lipImpulse, 0);
     if (frame.soundId !== "pff" && lipImpulse > this.previousLipImpulse + 0.04) {
-      lip.releaseBoost = Math.max(lip.releaseBoost, lipImpulse);
+      const kissBoost = frame.soundId === "mwah" ? 1.42 : 1;
+      lip.releaseBoost = Math.max(lip.releaseBoost, lipImpulse * kissBoost);
     }
     const primaryAmount = finite(frame.constriction, 0);
     if (primaryAmount < this.previousPrimaryConstriction - 0.08) {
@@ -3051,6 +3117,7 @@ class HiccupHeadGestureController {
     const storesSuction = this.sound.id === "pop"
       || this.sound.id === "tlik"
       || this.sound.id === "mwah"
+      || this.sound.id === "kiss"
       || this.sound.id === "slurp"
       || this.sound.id === "snap";
     let breathFlow = pressure * (
@@ -3316,6 +3383,10 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       this.queue.sort((left, right) => left.releaseFrame - right.releaseFrame || left.order - right.order);
       return;
     }
+    if (message.type === "drop-scheduled") {
+      this.queue.length = 0;
+      return;
+    }
     if (message.type === "silence" || message.type === "panic") this._silence();
   }
 
@@ -3493,8 +3564,8 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       : highpassedRight;
     // A bounded presence stage raises small breaths and skin detail while the
     // smooth tanh knee prevents digital clipping at violent face settings.
-    const boundedLeft = Math.tanh(presenceLeft * 28) * OUTPUT_CEILING;
-    const boundedRight = Math.tanh(presenceRight * 28) * OUTPUT_CEILING;
+    const boundedLeft = Math.tanh(presenceLeft * 42) * OUTPUT_CEILING;
+    const boundedRight = Math.tanh(presenceRight * 42) * OUTPUT_CEILING;
 
     this.gesture?.advance();
     if (this.gesture?.complete) {

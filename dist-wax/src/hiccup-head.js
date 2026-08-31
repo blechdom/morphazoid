@@ -36,6 +36,8 @@ export const HICCUP_HEAD_LIMITS = Object.freeze({
   // opens the cross-fed room; crossed eyes and lid closure never alter audio.
   eyeDivergence: Object.freeze([-1, 1]),
   eyeClosure: Object.freeze([0, 1]),
+  leftEyeClosure: Object.freeze([0, 1]),
+  rightEyeClosure: Object.freeze([0, 1]),
   leftBrow: Object.freeze([0, 1]),
   rightBrow: Object.freeze([0, 1]),
   silliness: Object.freeze([0, 1]),
@@ -68,6 +70,8 @@ export const HICCUP_HEAD_DEFAULTS = Object.freeze({
   rightHairAngle: -0.64,
   eyeDivergence: 0.08,
   eyeClosure: 0,
+  leftEyeClosure: 0,
+  rightEyeClosure: 0,
   leftBrow: 0.5,
   rightBrow: 0.5,
   silliness: 0.56,
@@ -75,7 +79,7 @@ export const HICCUP_HEAD_DEFAULTS = Object.freeze({
   tempo: 118,
   swing: 0.1,
   humanize: 0.06,
-  level: 0.6,
+  level: 0.68,
 });
 
 // Hiccup Head uses one continuous oral tube. The section count and tongue
@@ -267,6 +271,15 @@ export const HICCUP_HEAD_SOUNDS = Object.freeze([
     family: "cavity",
     color: "#629dff",
     description: "Projected lips seal around a falling-pressure pocket, then spring open into a wet suction kiss.",
+  }),
+  Object.freeze({
+    id: "kiss",
+    label: "KISS",
+    subtitle: "lipstick pop kiss",
+    key: ";",
+    family: "cavity",
+    color: "#ff4f9a",
+    description: "A short projected-lip suction kiss leaves a fading lipstick print at a new place on the face.",
   }),
   Object.freeze({
     id: "drr",
@@ -475,9 +488,22 @@ export const HICCUP_HEAD_SOUNDS = Object.freeze([
     color: "#69dce8",
     description: "Low rough folds push uneven pressure pockets through a loose bilabial valve for an organic voiced BRRAP distinct from the breathier PFRR.",
   }),
+  Object.freeze({
+    id: "brush",
+    label: "BRUSH",
+    subtitle: "toothbrush wood gliss",
+    key: ".",
+    family: "body",
+    color: "#72d9ff",
+    description: "A toothbrush sweeps all twelve warm dead-wood teeth in sequence as a visible marimba-like glissando.",
+  }),
 ]);
 
 const soundById = new Map(HICCUP_HEAD_SOUNDS.map((sound) => [sound.id, sound]));
+
+const hiccupHeadModelSoundId = (soundId) => (
+  soundId === "kiss" ? "mwah" : soundId === "brush" ? "tomhi" : soundId
+);
 
 export function hiccupHeadSound(id) {
   return soundById.get(id) ?? HICCUP_HEAD_SOUNDS[0];
@@ -611,7 +637,19 @@ export function mutateHiccupHeadVoice(source = {}, random = Math.random, amount 
     const displacement = (draw * 2 - 1) * (maximum - minimum) * depth * 0.5;
     result[key] = clamp(voice[key] + displacement, minimum, maximum);
   }
-  return sanitizeHiccupHeadVoice(result, voice);
+  const mutated = sanitizeHiccupHeadVoice(result, voice);
+  // Keep mutation characterful without pushing folds or tube beyond the
+  // reliably radiating region of the physical model.
+  mutated.pitchOffsetSemitones = clamp(mutated.pitchOffsetSemitones, -16, 16);
+  mutated.breathiness = clamp(mutated.breathiness, 0.03, 0.68);
+  mutated.roughness = clamp(mutated.roughness, 0, 0.82);
+  mutated.subharmonicMix = clamp(mutated.subharmonicMix, 0, 0.68);
+  mutated.tractScale = clamp(mutated.tractScale, 0.88, 1.12);
+  mutated.modulation = {
+    ...mutated.modulation,
+    depth: clamp(mutated.modulation.depth, ...HICCUP_HEAD_VOICE_MODULATION_LIMITS.depth),
+  };
+  return mutated;
 }
 
 export function randomizeHiccupHeadVoice(source = {}, random = Math.random) {
@@ -619,6 +657,21 @@ export function randomizeHiccupHeadVoice(source = {}, random = Math.random) {
 }
 
 export const HICCUP_HEAD_PRESETS = Object.freeze([
+  Object.freeze({
+    id: "humming-head",
+    label: "Humming head",
+    description: "Closed resonant lips and an open nasal path tuned for the HUM trigger.",
+    settings: freezeSettings({
+      lungPressure: 0.62, lipTension: 0.34, lipRounding: 0.72,
+      cheekVolume: 0.72, cheekTension: 0.3, tonguePosition: 0.42,
+      tongueCurl: 0.18, mouthOpening: 0.035, tractLengthM: 0.19,
+      nasalMix: 0.72, earSpread: 0.28, eyeDivergence: 0.24,
+      leftHairLength: 0.14, rightHairLength: 0.14,
+      leftHairAngle: -0.78, rightHairAngle: -0.64,
+      leftEyeClosure: 0.12, rightEyeClosure: 0.12, eyeClosure: 0.12,
+      leftBrow: 0.56, rightBrow: 0.56, silliness: 0.38, decay: 1.34,
+    }),
+  }),
   Object.freeze({
     id: "rubber-face",
     label: "Rubber face",
@@ -1275,6 +1328,8 @@ export function randomizeHiccupHeadState(source = HICCUP_HEAD_DEFAULTS, random =
     rightHairAngle: pick("rightHairAngle"),
     eyeDivergence: pick("eyeDivergence"),
     eyeClosure: pick("eyeClosure"),
+    leftEyeClosure: pick("leftEyeClosure"),
+    rightEyeClosure: pick("rightEyeClosure"),
     leftBrow: pick("leftBrow"),
     rightBrow: pick("rightBrow"),
     silliness: pick("silliness"),
@@ -2274,13 +2329,13 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
   lala: defineHiccupHeadGesture("lala", "rolling lateral LA voice", {
     poseMix: [[0, 0], [0.04, 1], [0.92, 1], [1, 0]],
     pressure: [[0, 0.04], [0.06, 0.66], [0.18, 0.9], [0.86, 0.78], [0.96, 0], [1, 0]],
-    tongueContact: [[0, 0.1], [0.1, 0.94], [0.2, 0.12], [0.31, 1], [0.42, 0.1], [0.54, 0.96], [0.65, 0.08], [0.77, 0.9], [0.88, 0.06], [1, 0]],
+    tongueContact: [[0, 0.08], [0.1, 0.66], [0.2, 0.08], [0.31, 0.7], [0.42, 0.08], [0.54, 0.68], [0.65, 0.06], [0.77, 0.64], [0.88, 0.04], [1, 0]],
     constrictionPosition: [[0, 0.82], [1, 0.88]],
-    constriction: [[0, 0.08], [0.1, 0.7], [0.2, 0.18], [0.31, 0.74], [0.42, 0.16], [0.54, 0.7], [0.65, 0.14], [0.77, 0.66], [0.9, 0], [1, 0]],
+    constriction: [[0, 0.06], [0.1, 0.46], [0.2, 0.1], [0.31, 0.5], [0.42, 0.09], [0.54, 0.47], [0.65, 0.08], [0.77, 0.44], [0.9, 0], [1, 0]],
     velum: [[0, 0.05], [0.16, 0.12], [0.86, 0.1], [1, 0.04]],
     turbulence: [[0, 0], [0.16, 0.08], [0.86, 0.06], [0.96, 0], [1, 0]],
     jawImpulse: [[0, 0], [0.08, 0.42], [0.88, 0.36], [0.96, 0], [1, 0]],
-    voicing: [[0, 0], [0.04, 0.58], [0.14, 0.94], [0.86, 0.82], [0.96, 0], [1, 0]],
+    voicing: [[0, 0], [0.04, 0.76], [0.14, 1], [0.86, 0.94], [0.96, 0], [1, 0]],
     aspiration: [[0, 0], [0.08, 0.16], [0.86, 0.1], [0.96, 0], [1, 0]],
     tongueTrill: [[0, 0], [0.08, 0.22], [0.86, 0.18], [0.96, 0], [1, 0]],
     tongueExtension: [[0, 0], [0.06, 0.58], [0.18, 0.92], [0.86, 0.82], [0.97, 0], [1, 0]],
@@ -2428,7 +2483,7 @@ export function sampleHiccupHeadGestureCurve(points, normalizedPhase) {
 
 export function hiccupHeadPoseForSound(soundId, source = HICCUP_HEAD_DEFAULTS, amount = 1) {
   const state = sanitizeHiccupHeadState(source);
-  const pose = SOUND_POSES[hiccupHeadSound(soundId).id];
+  const pose = SOUND_POSES[hiccupHeadModelSoundId(hiccupHeadSound(soundId).id)];
   const mix = clamp(amount);
   return sanitizeHiccupHeadState(Object.fromEntries(Object.entries(state).map(([key, value]) => [
     key,
@@ -2444,7 +2499,8 @@ export function physicalVoiceParameters(
   strikeVelocity = 1,
   voiceSource = {},
 ) {
-  const sound = hiccupHeadSound(soundId);
+  const displaySound = hiccupHeadSound(soundId);
+  const sound = hiccupHeadSound(hiccupHeadModelSoundId(displaySound.id));
   const velocityAmount = clamp(strikeVelocity, 0.01, 1);
   const voice = sanitizeHiccupHeadVoice(voiceSource);
   const posedState = hiccupHeadPoseForSound(sound.id, source, 0.72);
@@ -2580,8 +2636,8 @@ export function physicalVoiceParameters(
     0.0038,
   );
   return Object.freeze({
-    soundId: sound.id,
-    family: sound.family,
+    soundId: displaySound.id,
+    family: displaySound.family,
     velocity: velocityAmount,
     pressure,
     durationSeconds: clamp(
@@ -2756,7 +2812,8 @@ export function hiccupHeadGestureFrame(
   voiceSource = {},
 ) {
   const sound = hiccupHeadSound(soundId);
-  const trajectory = HICCUP_HEAD_GESTURE_TRAJECTORIES[sound.id];
+  const modelSoundId = hiccupHeadModelSoundId(sound.id);
+  const trajectory = HICCUP_HEAD_GESTURE_TRAJECTORIES[modelSoundId];
   const phase = clamp(normalizedPhase);
   const velocityAmount = clamp(strikeVelocity, 0.01, 1);
   const state = sanitizeHiccupHeadState(source);
@@ -2798,7 +2855,7 @@ export function hiccupHeadGestureFrame(
       tongueBodyDiameterCm: 2.4 + (2.25 - 2.4) * yodelRegister,
       lipDiameterCm: 3,
     }
-    : SOUND_ACOUSTIC_POSES[sound.id];
+    : SOUND_ACOUSTIC_POSES[modelSoundId];
   return Object.freeze({
     soundId: sound.id,
     phase,

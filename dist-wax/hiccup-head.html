@@ -7,12 +7,12 @@
     <meta name="theme-color" content="#080507" />
     <meta
       name="description"
-      content="Hiccup Head is a large shape-shifting face-percussion and beatbox physical model with 37 playable gestures, dry dead-wood tines, mutable voice collections, and sequences up to 64 steps."
+      content="Hiccup Head is a large shape-shifting face-percussion and beatbox physical model with 39 playable gestures, fading KISS marks, a BRUSH tooth gliss, mutable voice collections, and sequences up to 64 steps."
     />
     <title>Hiccup Head · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-20260829-10" />
+    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-20260830-15" />
   </head>
   <body class="hiccup-head-page">
     <header class="masthead">
@@ -48,8 +48,8 @@
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
-          <span><b>Output</b><output id="levelOut" for="level">60%</output></span>
-          <input id="level" aria-label="Hiccup Head output level" type="range" min="0" max="0.82" step="0.01" value="0.6" />
+          <span><b>Output</b><output id="levelOut" for="level">68%</output></span>
+          <input id="level" aria-label="Hiccup Head output level" type="range" min="0" max="0.82" step="0.01" value="0.68" />
         </label>
       </div>
     </header>
@@ -61,25 +61,30 @@
             <canvas
               id="stage"
               tabindex="0"
-              aria-label="A large pink-purple outline goofball beatbox face missing one upper front tooth. Tap any of its thirty-seven colored face dots or twelve dry wood teeth; pull out the tongue; drag either eye in two dimensions, the brows, shiny nose, ears, independent side hair tips, and both rubbery hands."
+              aria-label="A large pink-purple outline goofball beatbox face with two matched circular eyes, a big #FF0000-red circular nose, oval green thinning lips, and one missing upper front tooth. Tap any of its thirty-nine colored face dots or twelve dry wood teeth; KISS leaves a fading lipstick print and BRUSH sweeps a visible toothbrush across the teeth. Pull out the tongue; drag either eye in two dimensions, the brows, nose, ears, and independent side hair tips. Blue slap mitts appear only while dragging SLAP or SMACK."
               aria-describedby="canvasInstructions liveStatus"
             >
-              A large playable pink-purple outline goofball face with thirty-seven colored trigger dots, a whistling tooth gap, independent two-dimensional side hair, two rubbery slap hands, and resonant face percussion.
+              A large playable pink-purple outline goofball face with thirty-nine colored trigger dots, fading lipstick kisses, a toothbrush gliss, a whistling tooth gap, independent two-dimensional side hair, and hidden-at-rest blue slap mitts.
             </canvas>
 
             <div class="hiccup-head-stage-heading" aria-hidden="true">
               <h1>HICCUP HEAD</h1>
             </div>
+            <div class="hiccup-head-face-effects" aria-label="Reset all face effects">
+              <button id="resetEffectsButton" type="button" title="Reset all face effects" aria-label="Reset all face effects"><span aria-hidden="true">FX↺</span></button>
+            </div>
             <p class="hiccup-head-audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </section>
+
+        <div class="hiccup-head-workspace-splitter" id="workspaceSplitter" role="separator" aria-label="Resize face and sequencer" aria-orientation="horizontal" tabindex="0"></div>
 
         <section class="hiccup-head-sequencer" aria-labelledby="sequencerTitle">
           <header class="hiccup-head-sequencer-header">
             <div class="hiccup-head-transport">
               <button id="playButton" type="button" aria-pressed="false" data-primary-transport>
                 <span class="hiccup-head-play-glyph" aria-hidden="true"></span>
-                <span><b id="playLabel">Play face</b><small id="playState">space · 32 steps</small></span>
+                <span><b id="playLabel">Play face</b><small id="playState">space · 16 steps</small></span>
               </button>
               <button id="restartButton" type="button" title="Back to beginning" aria-label="Back to beginning">
                 <span aria-hidden="true">|◀</span>
@@ -87,10 +92,10 @@
             </div>
 
             <div class="hiccup-head-sequence-length" role="group" aria-labelledby="sequenceLengthLabel">
-              <span><b id="sequenceLengthLabel">Length</b><output id="sequenceLengthOut" for="sequenceLength sequenceLengthNumber" aria-live="polite">32 steps</output></span>
+              <span><b id="sequenceLengthLabel">Length</b><output id="sequenceLengthOut" for="sequenceLength sequenceLengthNumber" aria-live="polite">16 steps</output></span>
               <div class="hiccup-head-sequence-length-inputs">
-                <input id="sequenceLength" type="range" min="1" max="64" step="1" value="32" aria-labelledby="sequenceLengthLabel" aria-controls="sequenceGrid" />
-                <input id="sequenceLengthNumber" type="number" min="1" max="64" step="1" value="32" inputmode="numeric" aria-label="Exact sequence length in steps" aria-controls="sequenceGrid" />
+                <input id="sequenceLength" type="range" min="1" max="64" step="1" value="16" aria-labelledby="sequenceLengthLabel" aria-controls="sequenceGrid" />
+                <input id="sequenceLengthNumber" type="number" min="1" max="64" step="1" value="16" inputmode="numeric" aria-label="Exact sequence length in steps" aria-controls="sequenceGrid" />
               </div>
             </div>
 
@@ -117,14 +122,14 @@
             </label>
           </header>
 
-          <div class="hiccup-head-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable thirty-seven-sound sequence with any length from one to sixty-four steps">
+          <div class="hiccup-head-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable thirty-nine-sound sequence with any length from one to sixty-four steps">
             <div
               class="hiccup-head-sequence-grid"
               id="sequenceGrid"
               role="grid"
-              aria-label="Thirty-seven Hiccup Head face, throat, breath, tongue, and mouth sounds by thirty-two sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
-              aria-rowcount="37"
-              aria-colcount="32"
+              aria-label="Thirty-nine Hiccup Head face, throat, breath, tongue, tooth, and mouth sounds by sixteen sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
+              aria-rowcount="39"
+              aria-colcount="16"
             ></div>
           </div>
         </section>
@@ -141,14 +146,6 @@
             <span aria-hidden="true">✦</span>
             <span><b>Mutate the whole face</b></span>
           </button>
-        </section>
-
-        <section class="hiccup-head-effect-bypasses" aria-label="Persistent effect bypasses" aria-describedby="effectBypassHelp">
-          <p class="sr-only" id="effectBypassHelp">These four effect switches and their live face-controlled amounts are independent of face presets, mutation, and reset.</p>
-          <button id="delayEffectButton" type="button" aria-pressed="true"><span>Delay</span><b id="delayEffectState">ON</b></button>
-          <button id="reverbEffectButton" type="button" aria-pressed="true"><span>Reverb</span><b id="reverbEffectState">ON</b></button>
-          <button id="nasalEffectButton" type="button" aria-pressed="true"><span>Nasal</span><b id="nasalEffectState">ON</b></button>
-          <button id="stereoEffectButton" type="button" aria-pressed="true"><span>Stereo</span><b id="stereoEffectState">ON</b></button>
         </section>
 
         <section class="hiccup-head-voice-collection" aria-labelledby="voiceCollectionTitle">
@@ -181,7 +178,7 @@
           <header class="hiccup-head-pad-heading">
             <h2 id="padBankTitle">Mouth, throat &amp; face</h2>
           </header>
-          <div class="hiccup-head-pad-bank" id="padGrid" aria-label="Thirty-seven playable Hiccup Head sound pads in a four-column grid"></div>
+          <div class="hiccup-head-pad-bank" id="padGrid" aria-label="Thirty-nine playable Hiccup Head sound pads in a four-column grid"></div>
         </section>
 
         <div class="hiccup-head-model-hud" aria-live="polite">
@@ -304,12 +301,12 @@
             <label class="control" for="eyeDivergence">
               <span><b>Eye divergence / reverb</b><output id="eyeDivergenceOut" for="eyeDivergence">8% reverb</output></span>
               <input id="eyeDivergence" type="range" min="-1" max="1" step="0.01" value="0.08" />
-              <small>Pull inward to cross the eyes visually, or outward for an unmistakable cross-fed room bloom.</small>
+              <small>Pull inward for a bright plate, center the open eyes for dry sound, or pull outward for a dark cathedral.</small>
             </label>
             <label class="control" for="eyeClosure">
               <span><b>Eyelid closure</b><output id="eyeClosureOut" for="eyeClosure">0%</output></span>
               <input id="eyeClosure" type="range" min="0" max="1" step="0.01" value="0" />
-              <small>Drag either eye downward to close both lids. Eyelids are visual only and never change the sound.</small>
+              <small>Drag either eye downward to close the lids and thicken the current reverb character. Eyelids never gate or soften the sequence.</small>
             </label>
             <label class="control" for="leftBrow">
               <span><b>Left brow / loop A</b><output id="leftBrowOut" for="leftBrow">50%</output></span>
@@ -357,7 +354,7 @@
             <p><b>HIC! + EEF!</b> add a caught diaphragm/glottal rebound and folded ingressive–egressive breath contours inside the same one-mouth tract.</p>
             <p><b>AAH / OOH / WAIL / YODEL / GROWL / HOLLER / HUM / RATTLE</b> open the throat into wider vowel areas, vibrato, register breaks, false-fold roughness, and sustained resonant tissue motion.</p>
             <p><b>VOICE COLLECTIONS</b> hold up to eight alternate fold and tract characters. Solo one, cycle predictably, or choose randomly; only one character drives the persistent mouth for each event.</p>
-            <p><b>NOSE / EARS / SIDE HAIR / EYES / BROWS</b> expose the nasal branch, short ear-controlled stereo width, a separate long hair feedback delay, outward-eye cross-fed room, and a two-anchor amplitude contour. Crossed eyes and eyelid closure are visual only. Delay, Reverb, Nasal, and Stereo amounts and bypass switches stay independent of presets, mutation, and reset.</p>
+            <p><b>NOSE / EARS / SIDE HAIR / EYES / BROWS</b> expose the nasal branch, short ear-controlled stereo width, separate hair feedback delays, eye-controlled plate/room/cathedral reverb, and a two-anchor amplitude contour. Centered open eyes are dry, inward gaze is a bright plate, outward gaze is a dark cathedral, and eyelid closure thickens the room without gating or softening it. Delay, Reverb, Nasal, and Stereo amounts and bypass switches stay independent of presets, mutation, and reset.</p>
           </div>
         </details>
 
@@ -366,9 +363,9 @@
     </main>
 
     <p class="sr-only" id="canvasInstructions">
-      Tap any of thirty-seven colored trigger dots on clear face regions, twelve visible tooth tines, the visible missing-front-tooth gap, or a displayed pad shortcut to play the face, throat, breath, tongue, and mouth sounds.
-      Drag the left and right hands onto different cheeks, jaw, forehead, or mouth zones for resonant slaps.
-      Drag either eye outward for reverb, inward to cross visually, or downward to close both lids visually without changing the sound. Drag either eyebrow up or down to shape the two-anchor loop amplitude contour,
+      Tap any of thirty-nine colored trigger dots on clear face regions, twelve visible tooth tines, the visible missing-front-tooth gap, or a displayed pad shortcut to play the face, throat, breath, tongue, tooth, and mouth sounds. KISS leaves a fading lipstick print at a different face position; BRUSH sweeps a visible toothbrush across all twelve teeth.
+      The blue hands stay hidden at rest. Drag the SLAP or SMACK face dot onto different cheeks, jaw, forehead, or mouth zones to reveal a mitt and make a resonant strike.
+      Drag either eye inward for bright plate reverb, outward for a dark cathedral, or downward to close the lids and thicken the room without gating or softening it. Drag either eyebrow up or down to shape the two-anchor loop amplitude contour,
       the nose to change nasal tone, either ear for stereo width, either side-hair tip in two dimensions for its own feedback amount and delay time, and the tongue tip beyond the lips.
       Face presets move the anatomy, while the four effect switches and their live face-controlled amounts stay unchanged.
       Drag the mouth anatomy beyond human ranges. Set the sequence to any whole-number length from one through
@@ -378,7 +375,7 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
-    <script type="module" src="hiccup-head-app.js?v=hiccup-head-20260829-19"></script>
+    <script type="module" src="hiccup-head-app.js?v=hiccup-head-20260830-18"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

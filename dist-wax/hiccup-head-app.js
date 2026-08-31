@@ -27,7 +27,7 @@ import {
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
   sequenceStepIntervalSeconds,
-} from "./src/hiccup-head.js?v=hiccup-head-model-20260829-6";
+} from "./src/hiccup-head.js?v=hiccup-head-model-20260830-8";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
 
@@ -109,6 +109,8 @@ const FACE_SOUND_TRIGGER_LAYOUT = Object.freeze([
   { soundId: "tomlo", slot: 34, zone: "jaw-drum" },
   { soundId: "tomhi", slot: 35, zone: "jaw-drum" },
   { soundId: "braap", slot: 36, zone: "jaw-drum" },
+  { soundId: "kiss", slot: 37, zone: "kiss-cheek" },
+  { soundId: "brush", slot: 38, zone: "tooth-brush" },
 ]);
 
 const faceSoundTriggerIds = new Set(FACE_SOUND_TRIGGER_LAYOUT.map(({ soundId }) => soundId));
@@ -142,28 +144,30 @@ const FACE_TRIGGER_DOT_POSITIONS = Object.freeze({
   rattle: Object.freeze({ x: 0.36, y: -0.16, region: "eye-cheek" }),
   growl: Object.freeze({ x: 0.54, y: -0.18, region: "eye-cheek" }),
   grunt: Object.freeze({ x: 0.7, y: -0.26, region: "eye-cheek" }),
-  // Twenty-one jaw/chin dots sit below lips, teeth, tongue, and oral handles.
-  hiccup: Object.freeze({ x: 0.39, y: 0.79, region: "jaw" }),
-  burp: Object.freeze({ x: 0.12, y: 0.79, region: "chin" }),
-  kick: Object.freeze({ x: -0.41, y: 0.64, region: "jaw" }),
-  bop: Object.freeze({ x: 0.52, y: 0.63, region: "jaw" }),
-  boop: Object.freeze({ x: 0.02, y: 0.87, region: "chin" }),
-  pff: Object.freeze({ x: -0.61, y: 0.65, region: "jaw" }),
-  pbpb: Object.freeze({ x: -0.2, y: 0.71, region: "chin" }),
-  mwah: Object.freeze({ x: 0.27, y: 0.67, region: "jaw" }),
-  slap: Object.freeze({ x: -0.45, y: 0.75, region: "chin" }),
-  tlik: Object.freeze({ x: 0.71, y: 0.5, region: "jaw" }),
-  drr: Object.freeze({ x: 0.15, y: 0.92, region: "low-chin" }),
-  lala: Object.freeze({ x: -0.1, y: 0.81, region: "chin" }),
-  slurp: Object.freeze({ x: -0.69, y: 0.54, region: "jaw" }),
-  shack: Object.freeze({ x: -0.28, y: 0.86, region: "low-chin" }),
-  shh: Object.freeze({ x: 0.28, y: 0.87, region: "low-chin" }),
-  whistle: Object.freeze({ x: -0.14, y: 0.92, region: "low-chin" }),
-  snare: Object.freeze({ x: 0.65, y: 0.61, region: "jaw" }),
-  snap: Object.freeze({ x: 0.39, y: 0.64, region: "jaw" }),
-  tomlo: Object.freeze({ x: -0.28, y: 0.62, region: "jaw" }),
-  tomhi: Object.freeze({ x: -0.32, y: 0.75, region: "chin" }),
-  braap: Object.freeze({ x: 0.51, y: 0.75, region: "chin" }),
+  // Loose left/right cheek constellations keep the chin clear.
+  hiccup: Object.freeze({ x: 0.72, y: 0.18, region: "right-cheek" }),
+  burp: Object.freeze({ x: 0.58, y: 0.12, region: "right-cheek" }),
+  kick: Object.freeze({ x: -0.76, y: 0.12, region: "left-cheek" }),
+  bop: Object.freeze({ x: 0.72, y: 0.32, region: "right-cheek" }),
+  boop: Object.freeze({ x: 0.58, y: 0.26, region: "right-cheek" }),
+  pff: Object.freeze({ x: -0.62, y: 0.22, region: "left-cheek" }),
+  pbpb: Object.freeze({ x: -0.76, y: 0.34, region: "left-cheek" }),
+  mwah: Object.freeze({ x: 0.72, y: 0.48, region: "right-cheek" }),
+  slap: Object.freeze({ x: -0.62, y: 0.42, region: "left-cheek" }),
+  tlik: Object.freeze({ x: 0.58, y: 0.4, region: "right-cheek" }),
+  drr: Object.freeze({ x: 0.68, y: 0.66, region: "right-cheek" }),
+  lala: Object.freeze({ x: -0.68, y: 0.52, region: "left-cheek" }),
+  slurp: Object.freeze({ x: -0.54, y: 0.56, region: "left-cheek" }),
+  shack: Object.freeze({ x: -0.62, y: 0.68, region: "left-cheek" }),
+  shh: Object.freeze({ x: 0.58, y: 0.7, region: "right-cheek" }),
+  whistle: Object.freeze({ x: 0.5, y: 0.6, region: "right-cheek" }),
+  snare: Object.freeze({ x: 0.8, y: 0.04, region: "right-cheek" }),
+  snap: Object.freeze({ x: 0.64, y: 0.02, region: "right-cheek" }),
+  tomlo: Object.freeze({ x: -0.8, y: 0.04, region: "left-cheek" }),
+  tomhi: Object.freeze({ x: -0.66, y: 0.06, region: "left-cheek" }),
+  braap: Object.freeze({ x: 0.8, y: 0.4, region: "right-cheek" }),
+  kiss: Object.freeze({ x: -0.5, y: 0.7, region: "left-cheek" }),
+  brush: Object.freeze({ x: 0.46, y: 0.72, region: "right-cheek" }),
 });
 const faceTriggerDotIds = new Set(Object.keys(FACE_TRIGGER_DOT_POSITIONS));
 if (
@@ -174,19 +178,33 @@ if (
 }
 
 const STOPPED_SKIN_CHECKER_COLORS = Object.freeze([
-  "rgba(143, 87, 214, 0.4)",
-  "rgba(225, 64, 112, 0.4)",
+  "rgb(255, 174, 199)",
+  "rgb(255, 218, 105)",
+]);
+const FACE_TRIGGER_FRECKLE_COLORS = Object.freeze([
+  "#55307d", "#214e83", "#276749", "#713b73", "#285f70", "#355c32",
+]);
+const TONGUE_STEP_COLORS = Object.freeze([
+  "#b51f58", "#d34b31", "#7a3f91", "#176b63", "#c23867", "#9b4a24",
+]);
+const SKIN_CHECKER_PALETTE = Object.freeze([
+  "rgb(255, 174, 199)", // pink
+  "rgb(255, 218, 105)", // yellow
+  "rgb(255, 164, 92)",  // orange
+  "rgb(157, 218, 125)", // green
+  "rgb(244, 126, 173)", // deep pink
+  "rgb(205, 235, 116)", // yellow-green
 ]);
 const SEQUENCE_SKIN_CHECKER_COLORS = Object.freeze(Array.from(
   { length: HICCUP_HEAD_STEP_COUNT },
   (_, step) => {
-    // Forty-seven degrees is coprime with 360, so all 64 steps receive a
-    // distinct first hue. Its 180-degree partner stays strongly contrasting.
-    const firstHue = (286 + step * 47) % 360;
-    const secondHue = (firstHue + 180) % 360;
+    // Rotate only through opaque warm/citrus skin colors. Offset the second
+    // square by alternating distances so adjacent steps visibly change.
+    const firstIndex = step % SKIN_CHECKER_PALETTE.length;
+    const secondIndex = (step + 2 + (step % 2)) % SKIN_CHECKER_PALETTE.length;
     return Object.freeze([
-      `hsla(${firstHue}, 76%, 55%, 0.4)`,
-      `hsla(${secondHue}, 76%, 55%, 0.4)`,
+      SKIN_CHECKER_PALETTE[firstIndex],
+      SKIN_CHECKER_PALETTE[secondIndex],
     ]);
   },
 ));
@@ -208,6 +226,9 @@ const PRESET_INDEPENDENT_EFFECT_PARAMETERS = Object.freeze([
   "rightHairLength",
   "rightHairAngle",
   "eyeDivergence",
+  "eyeClosure",
+  "leftEyeClosure",
+  "rightEyeClosure",
   "nasalMix",
   "earSpread",
 ]);
@@ -221,7 +242,7 @@ const faceEffectEnabled = Object.seal({
 let state = hiccupHeadState("rubber-face");
 let pattern = normalizePatternColumns(clonePattern(hiccupHeadPattern(state.patternId)));
 let currentPatternId = state.patternId;
-let sequenceLength = Math.min(32, HICCUP_HEAD_STEP_COUNT);
+let sequenceLength = Math.min(16, HICCUP_HEAD_STEP_COUNT);
 let voiceCount = 4;
 let voiceSelectionMode = "round-robin";
 let voiceCursor = 0;
@@ -236,6 +257,10 @@ let manualConfigurationResetTimer = 0;
 let nextStepTime = 0;
 let sequenceStep = 0;
 let absoluteStep = 0;
+let loopStartStep = 0;
+let loopEndStep = sequenceLength - 1;
+let pendingSequenceStep = null;
+let stepRangeDrag = null;
 let visibleStep = -1;
 let paintedGridStep = -1;
 let gridCellsByStep = [];
@@ -257,6 +282,9 @@ let toothGapGeometry = null;
 let toothTines = [];
 let toothTineHit = null;
 let tongueTipGeometry = null;
+let kissMarks = [];
+let kissMarkCursor = 0;
+let brushSweep = null;
 const handPlacements = {
   left: { x: -0.62, y: 0.1 },
   right: { x: 0.62, y: 0.14 },
@@ -402,9 +430,11 @@ function audioConfiguration(overrides = null) {
     configuration.leftHairLength = 0;
     configuration.rightHairLength = 0;
   }
-  if (!faceEffectEnabled.reverb && configuration.eyeDivergence > 0) {
-    // Negative divergence is visual-only; preserve the crossed-eye pose.
+  if (!faceEffectEnabled.reverb) {
     configuration.eyeDivergence = 0;
+    configuration.eyeClosure = 0;
+    configuration.leftEyeClosure = 0;
+    configuration.rightEyeClosure = 0;
   }
   if (!faceEffectEnabled.nasal) configuration.nasalMix = 0;
   if (!faceEffectEnabled.stereo) configuration.earSpread = 0;
@@ -445,7 +475,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.audioWorklet.addModule(new URL(
-    "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260829-10",
+    "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260830-8",
     import.meta.url,
   ));
   const sourceNode = new AudioWorkletNode(context, "hiccup-head-physical-model", {
@@ -541,9 +571,9 @@ const TEMPO_STRETCH_SOUND_IDS = new Set([
   "grunt", "moan", "lala", "pbpb", "slurp",
 ]);
 const TOOTH_TINE_PROFILES = Object.freeze([
-  [132, 0.38], [164, 0.76], [203, 0.49], [247, 0.91],
-  [292, 0.57], [341, 0.83], [397, 0.44], [456, 0.88],
-  [518, 0.61], [579, 0.79], [638, 0.52], [699, 0.94],
+  [130.81, 0.42], [146.83, 0.46], [164.81, 0.5], [196, 0.54],
+  [220, 0.48], [261.63, 0.56], [293.66, 0.5], [329.63, 0.58],
+  [392, 0.52], [440, 0.6], [523.25, 0.54], [587.33, 0.62],
 ].map(([frequencyHz, brightness]) => Object.freeze({ frequencyHz, brightness })));
 
 function flashSound(soundId, velocity = 1, voiceChoice = null) {
@@ -700,6 +730,26 @@ async function triggerSound(soundId, velocity = 1, configuration = null, eventDe
   const strikeConfiguration = transientConfiguration ?? state;
   const voiceChoice = voiceChoiceForSound(sound.id, performance.now());
   postStrike(sound.id, velocity, 0, null, strikeConfiguration, voiceChoice, eventDetails);
+  if (sound.id === "brush") {
+    // Twelve sample-addressed tooth contacts make one rising dry-wood gliss;
+    // only the BRUSH event owns the UI animation.
+    for (let index = 0; index < TOOTH_TINE_PROFILES.length; index += 1) {
+      const profile = TOOTH_TINE_PROFILES[index];
+      graph.sourceNode.port.postMessage({
+        type: "strike",
+        soundId: "tlik",
+        velocity: clamp(velocity * (0.5 + index * 0.008), 0.01, 0.72),
+        delaySeconds: 0.025 + index * 0.044,
+        configuration: audioConfiguration(strikeConfiguration),
+        toothTine: {
+          frequencyHz: profile.frequencyHz,
+          position: 0.28 + (index % 4) * 0.13,
+          brightness: profile.brightness,
+          toothIndex: index,
+        },
+      });
+    }
+  }
   clearTimeout(manualConfigurationResetTimer);
   if (transientConfiguration) {
     manualConfigurationResetTimer = setTimeout(() => {
@@ -800,12 +850,27 @@ function browSequenceGain(step, length, leftBrow, rightBrow) {
 }
 
 function scheduleSequence() {
-  scheduleSequenceAhead(0.115);
+  scheduleSequenceAhead(usesCompactCanvas() ? 0.32 : 0.22);
 }
 
 function scheduleSequenceAhead(lookaheadSeconds) {
   if (!sequencePlaying || !graph || audioContext?.state !== "running") return;
+  // Never dump a backlog onto one render quantum after the UI thread stalls.
+  // Advance the musical clock to the first future subdivision; the worklet
+  // then receives evenly spaced events instead of a burst of late notes.
+  const recoveryFloor = audioContext.currentTime + 0.008;
+  while (nextStepTime < audioContext.currentTime - 0.025) {
+    nextStepTime += sequenceStepIntervalSeconds(state.tempo, state.swing, absoluteStep);
+    sequenceStep = sequenceStep >= loopEndStep ? loopStartStep : sequenceStep + 1;
+    absoluteStep += 1;
+  }
+  if (nextStepTime < recoveryFloor) nextStepTime = recoveryFloor;
   while (nextStepTime < audioContext.currentTime + lookaheadSeconds) {
+    if (pendingSequenceStep !== null) {
+      sequenceStep = clamp(pendingSequenceStep, loopStartStep, loopEndStep);
+      pendingSequenceStep = null;
+    }
+    if (sequenceStep < loopStartStep || sequenceStep > loopEndStep) sequenceStep = loopStartStep;
     const step = sequenceStep % sequenceLength;
     const timeJitter = deterministicHumanize(absoluteStep, 5) * state.humanize * 0.014;
     const scheduledTime = Math.max(audioContext.currentTime + 0.004, nextStepTime + timeJitter);
@@ -851,15 +916,18 @@ function scheduleSequenceAhead(lookaheadSeconds) {
     // Swing follows absolute time so odd sequence lengths do not produce two
     // consecutive long (or short) subdivisions at the loop boundary.
     nextStepTime += sequenceStepIntervalSeconds(state.tempo, state.swing, absoluteStep);
-    sequenceStep = (sequenceStep + 1) % sequenceLength;
+    sequenceStep = sequenceStep >= loopEndStep ? loopStartStep : sequenceStep + 1;
     absoluteStep += 1;
   }
 }
 
-async function startSequence({ restart = false } = {}) {
+async function startSequence({ restart = false, startStep = null } = {}) {
   if (!(await ensureAudio())) return;
   if (restart || !sequencePlaying) {
-    sequenceStep = 0;
+    sequenceStep = Number.isInteger(startStep)
+      ? clamp(startStep, loopStartStep, loopEndStep)
+      : loopStartStep;
+    pendingSequenceStep = null;
     absoluteStep = 0;
     nextStepTime = audioContext.currentTime + 0.055;
   }
@@ -869,7 +937,7 @@ async function startSequence({ restart = false } = {}) {
   $("playState").textContent = `${Math.round(state.tempo)} BPM · playing`;
   clearInterval(schedulerTimer);
   scheduleSequence();
-  schedulerTimer = setInterval(scheduleSequence, 24);
+  schedulerTimer = setInterval(scheduleSequence, 18);
   announce("Hiccup Head sequence playing");
 }
 
@@ -972,6 +1040,82 @@ function updateGridPlayhead() {
   }
 }
 
+function paintLoopRange() {
+  for (let step = 0; step < gridHeadingsByStep.length; step += 1) {
+    gridHeadingsByStep[step]?.classList.toggle(
+      "is-looped",
+      step >= loopStartStep && step <= loopEndStep,
+    );
+  }
+}
+
+function hasSubloop() {
+  return loopStartStep !== 0 || loopEndStep !== sequenceLength - 1;
+}
+
+function syncSubloopReleaseButton() {
+  const button = $("releaseSubloopButton");
+  if (!button) return;
+  button.hidden = !hasSubloop();
+  button.setAttribute("aria-label", hasSubloop()
+    ? `Release loop steps ${loopStartStep + 1} through ${loopEndStep + 1}`
+    : "No subloop selected");
+}
+
+function previewLoopRange(firstStep, lastStep) {
+  const start = Math.min(firstStep, lastStep);
+  const end = Math.max(firstStep, lastStep);
+  for (let step = 0; step < gridHeadingsByStep.length; step += 1) {
+    gridHeadingsByStep[step]?.classList.toggle("is-loop-preview", step >= start && step <= end);
+  }
+}
+
+function clearLoopPreview() {
+  for (const heading of gridHeadingsByStep) heading?.classList.remove("is-loop-preview");
+}
+
+function rescheduleTransportFrom(step) {
+  if (!sequencePlaying || !audioContext || !graph) return;
+  graph.sourceNode.port.postMessage({ type: "drop-scheduled" });
+  visualQueue = visualQueue.filter(({ type }) => type !== "step");
+  sequenceStep = step;
+  const interval = sequenceStepIntervalSeconds(state.tempo, state.swing, absoluteStep);
+  nextStepTime = Math.max(
+    audioContext.currentTime + 0.012,
+    Math.min(nextStepTime, audioContext.currentTime + interval),
+  );
+  scheduleSequence();
+}
+
+function setLoopRange(firstStep, lastStep, { announceState = true } = {}) {
+  loopStartStep = clamp(Math.min(firstStep, lastStep), 0, sequenceLength - 1);
+  loopEndStep = clamp(Math.max(firstStep, lastStep), loopStartStep, sequenceLength - 1);
+  paintLoopRange();
+  syncSubloopReleaseButton();
+  if (sequencePlaying) rescheduleTransportFrom(loopStartStep);
+  else startSequence({ restart: true, startStep: loopStartStep });
+  if (announceState) announce(`Loop steps ${loopStartStep + 1} through ${loopEndStep + 1} queued for the next tick`);
+}
+
+function queueSequenceStep(step) {
+  const target = clamp(step, 0, sequenceLength - 1);
+  pendingSequenceStep = null;
+  if (!sequencePlaying) startSequence({ restart: true, startStep: target });
+  else rescheduleTransportFrom(target);
+  announce(`Step ${target + 1} queued for the next tick`);
+}
+
+function releaseSubloop() {
+  const continuationStep = clamp(sequenceStep, 0, sequenceLength - 1);
+  loopStartStep = 0;
+  loopEndStep = sequenceLength - 1;
+  sequenceStep = continuationStep;
+  paintLoopRange();
+  syncSubloopReleaseButton();
+  if (sequencePlaying) rescheduleTransportFrom(continuationStep);
+  announce("Subloop released; the full sequence will continue");
+}
+
 function renderPatternColumn(step) {
   for (const button of gridCellsByStep[step] ?? []) {
     renderCell(button, pattern[button.dataset.soundId][step]);
@@ -1059,12 +1203,23 @@ function buildSequenceGrid() {
   const corner = document.createElement("span");
   corner.className = "hiccup-head-grid-corner";
   corner.setAttribute("aria-hidden", "true");
-  corner.textContent = "POSE / STEP";
+  const cornerLabel = document.createElement("span");
+  cornerLabel.textContent = "POSE / STEP";
+  const releaseSubloopButton = document.createElement("button");
+  releaseSubloopButton.id = "releaseSubloopButton";
+  releaseSubloopButton.className = "hiccup-head-release-subloop";
+  releaseSubloopButton.type = "button";
+  releaseSubloopButton.textContent = "×";
+  releaseSubloopButton.title = "Release subloop";
+  releaseSubloopButton.hidden = true;
+  corner.append(cornerLabel, releaseSubloopButton);
   headerRow.append(corner);
   for (let step = 0; step < sequenceLength; step += 1) {
-    const heading = document.createElement("span");
+    const heading = document.createElement("button");
     heading.className = "hiccup-head-step-number";
+    heading.type = "button";
     heading.setAttribute("role", "columnheader");
+    heading.setAttribute("aria-label", `Queue step ${step + 1}; drag across step numbers to set a loop`);
     heading.dataset.step = String(step);
     heading.textContent = String(step + 1).padStart(2, "0");
     gridHeadingsByStep[step] = heading;
@@ -1106,6 +1261,8 @@ function buildSequenceGrid() {
     fragment.append(row);
   });
   grid.replaceChildren(fragment);
+  paintLoopRange();
+  syncSubloopReleaseButton();
   renderPattern();
 }
 
@@ -1118,6 +1275,8 @@ function setSequenceLength(value, { announceState = true } = {}) {
   // Resizing the loop is a live performance gesture. Preserve transport,
   // absolute timing, and the nearest sensible playhead instead of stopping.
   sequenceStep %= sequenceLength;
+  loopStartStep = clamp(loopStartStep, 0, sequenceLength - 1);
+  loopEndStep = clamp(loopEndStep, loopStartStep, sequenceLength - 1);
   if (visibleStep >= 0) visibleStep %= sequenceLength;
   visualQueue = visualQueue.map((event) => event.type === "step"
     ? { ...event, step: event.step % sequenceLength }
@@ -1268,7 +1427,7 @@ function buildVoiceRack({ preserveScroll = true } = {}) {
     mutateButton.textContent = "MUT";
     mutateButton.setAttribute("aria-label", `Mutate voice ${index + 1}`);
     mutateButton.addEventListener("click", () => {
-      slot.voice = mutateHiccupHeadVoice(slot.voice, Math.random, 0.48);
+      slot.voice = mutateHiccupHeadVoice(slot.voice, Math.random, 0.34);
       buildVoiceRack();
       announce(`Voice ${index + 1} mutated`);
     });
@@ -1439,7 +1598,10 @@ function syncControlLimits() {
 }
 
 function setStateValue(key, value, { fromCanvas = false } = {}) {
-  state = sanitizeHiccupHeadState({ ...state, [key]: value }, state);
+  const values = key === "eyeClosure"
+    ? { eyeClosure: value, leftEyeClosure: value, rightEyeClosure: value }
+    : { [key]: value };
+  state = sanitizeHiccupHeadState({ ...state, ...values }, state);
   const spec = CONTROL_SPECS.find((candidate) => candidate.key === key);
   const input = $(key);
   const output = $(`${key}Out`);
@@ -1534,7 +1696,27 @@ function setPreset(id, { announceState = true } = {}) {
 }
 
 function randomizeFace() {
-  state = withPersistentFaceEffects(randomizeHiccupHeadState(state), state);
+  const extremeRandom = () => {
+    const draw = Math.random();
+    if (draw < 0.36) return Math.random() * 0.12;
+    if (draw > 0.64) return 0.88 + Math.random() * 0.12;
+    return Math.random();
+  };
+  state = withPersistentFaceEffects(randomizeHiccupHeadState(state, extremeRandom), state);
+  // Preserve the extreme visible pose while keeping a viable singing tube.
+  state = sanitizeHiccupHeadState({
+    ...state,
+    lungPressure: clamp(state.lungPressure, 0.5, 1),
+    tractLengthM: clamp(state.tractLengthM, 0.07, 0.34),
+    mouthOpening: clamp(state.mouthOpening, 0.06, HICCUP_HEAD_LIMITS.mouthOpening[1]),
+    lipTension: clamp(state.lipTension, -0.18, 1.35),
+    lipRounding: clamp(state.lipRounding, -0.2, 1.4),
+    cheekVolume: clamp(state.cheekVolume, 0, 1.5),
+    cheekTension: clamp(state.cheekTension, -0.12, 1.35),
+    tonguePosition: clamp(state.tonguePosition, -0.25, 1.25),
+    tongueCurl: clamp(state.tongueCurl, -0.2, 1.25),
+    decay: clamp(state.decay, 0.58, HICCUP_HEAD_LIMITS.decay[1]),
+  }, state);
   $("presetDescription").textContent = "A one-off mouth mutation: pressure, tissue, tongue, and cavity moved anywhere from human-ish to gleefully impossible.";
   syncControls();
   postConfiguration();
@@ -1550,6 +1732,8 @@ function resetAll() {
   setCurrentPattern(HICCUP_HEAD_DEFAULTS.patternId, { announceState: false });
   graph?.sourceNode?.port.postMessage({ type: "silence" });
   soundAnimation = null;
+  kissMarks = [];
+  brushSweep = null;
   displayedPose = { ...state };
   activeMouthSoundId = "";
   activeVoiceSlot = -1;
@@ -1572,6 +1756,16 @@ function resetAll() {
   visibleStep = -1;
   updateGridPlayhead();
   announce("Hiccup Head face and sequence reset");
+}
+
+function resetFaceEffects() {
+  const neutral = HICCUP_HEAD_DEFAULTS;
+  for (const key of PRESET_INDEPENDENT_EFFECT_PARAMETERS) state[key] = neutral[key];
+  for (const key of FACE_EFFECT_KEYS) faceEffectEnabled[key] = false;
+  syncFaceEffectButtons();
+  syncControls();
+  postConfiguration();
+  announce("Face effects reset and switched off");
 }
 
 function populateSelects() {
@@ -1608,22 +1802,23 @@ function roundedRect(context, x, y, width, height, radius) {
 }
 
 function faceLayout(pose = state) {
-  // Keep enough room for the title, but let the mutable stretched face own
-  // the stage. The large pink-purple contour intentionally fills a phone canvas.
-  const headingClearance = cssWidth > 720 ? Math.min(158, cssWidth * 0.15) : 0;
-  const availableWidth = Math.max(220, cssWidth - headingClearance);
-  const cx = headingClearance + availableWidth * (cssWidth > 720 ? 0.54 : 0.5);
-  const cy = cssHeight * (cssWidth <= 680 ? 0.51 : 0.49);
+  // The title is an overlay, never layout space. Keep the head centered in the
+  // actual drawable pane at every desktop, splitter, and phone size.
+  const availableWidth = Math.max(220, cssWidth);
+  const cx = cssWidth * 0.5;
+  const cy = cssHeight * 0.5;
   const tractWarp = clamp((pose.tractLengthM - 0.165) / 0.18, -0.72, 1.35);
   const widthScale = cssWidth > 720 ? 0.41 : 0.405;
-  const ry = Math.min(cssHeight * 0.465, availableWidth * widthScale)
-    * clamp(1 + tractWarp * 0.12, 0.72, 1.2);
-  const rx = ry * clamp(
+  const boundaryScale = Math.min(cssHeight * 0.465, availableWidth * widthScale);
+  const headScale = boundaryScale * clamp(1 + tractWarp * 0.12, 0.72, 1.2);
+  const ry = headScale;
+  const rx = headScale * clamp(
     0.76 + pose.cheekVolume * 0.25 - tractWarp * 0.05,
     0.48,
     1.48,
   );
-  const mouthY = cy + ry * 0.29;
+  const featureY = cy + ry * 0.1;
+  const mouthY = featureY + ry * 0.39;
   // A nonlinear jaw map keeps bilabial closures tight while letting the
   // ordinary human-ish pose open into an outsized rubber resonator.
   const opening = ry * clamp(
@@ -1631,7 +1826,7 @@ function faceLayout(pose = state) {
     0.012,
     0.52,
   );
-  return { cx, cy, rx, ry, mouthY, opening };
+  return { cx, cy, rx, ry, featureY, mouthY, opening };
 }
 
 function telemetryNumber(key, fallback = Number.NaN) {
@@ -1822,7 +2017,10 @@ function activeMotion(now, physicalStatus = physicalTelemetryStatus(now)) {
     if (animation.soundId === "hee") envelope *= 0.74 + Math.sin(phase * 19) * 0.16;
     if (animation.soundId === "haw") envelope *= 0.8 + Math.sin(phase * 14) * 0.12;
     if (animation.soundId === "doo") envelope *= 0.88 + Math.sin(phase * 22) * 0.08;
-    if (animation.soundId === "mwah") envelope *= 0.62 + phase * 0.55;
+    if (animation.soundId === "mwah" || animation.soundId === "kiss") {
+      envelope *= 0.62 + phase * 0.55;
+    }
+    if (animation.soundId === "brush") envelope = Math.sin(Math.PI * phase) * 0.78;
     if (animation.soundId === "drr") envelope *= 0.68 + Math.sin(phase * 58) * 0.29;
     if (animation.soundId === "burp") envelope *= 0.58
       + Math.sin(phase * 23 + Math.sin(phase * 11) * 2.1) * 0.24;
@@ -1880,6 +2078,7 @@ function flushVisualQueue(now) {
       haw: 440,
       doo: 390,
       mwah: 410,
+      kiss: 460,
       drr: 470,
       burp: 620,
       aah: 760,
@@ -1897,6 +2096,7 @@ function flushVisualQueue(now) {
       slurp: 640,
       hiccup: 460,
       eef: 620,
+      brush: 520,
     };
     const visualTempoScale = TEMPO_STRETCH_SOUND_IDS.has(sound.id)
       ? clamp(Math.sqrt(118 / state.tempo), 0.68, 1.8)
@@ -1912,6 +2112,17 @@ function flushVisualQueue(now) {
         ? 90
         : (durations[sound.id] ?? 320) * visualTempoScale,
     };
+    if (sound.id === "kiss") {
+      const placements = [
+        [-0.56, -0.08], [0.58, 0.08], [-0.42, 0.38], [0.46, -0.28],
+        [0.18, 0.56], [-0.12, -0.58], [0.64, 0.42], [-0.66, 0.24],
+      ];
+      const [x, y] = placements[kissMarkCursor % placements.length];
+      kissMarkCursor += 1;
+      kissMarks.push({ x, y, born: now, hue: (kissMarkCursor * 47) % 110 });
+      kissMarks = kissMarks.slice(-10);
+    }
+    if (sound.id === "brush") brushSweep = { born: now, duration: 520 };
     activeMouthSoundId = sound.id;
     flashSound(sound.id, event.velocity, event.voiceChoice);
   }
@@ -2049,13 +2260,14 @@ function drawToothWhistleJet(context, layout, motion, now) {
 }
 
 function eyebrowGeometry(layout, pose, side) {
-  const { cx, cy, rx, ry } = layout;
+  const { cx, featureY, rx, ry } = layout;
   const leftEye = side < 0;
   const value = normalizedBrowValue(leftEye ? pose.leftBrow : pose.rightBrow);
-  const eyeX = cx + side * rx * (leftEye ? 0.345 : 0.34);
-  const eyeY = cy - ry * (leftEye ? 0.455 : 0.43);
-  const eyeRx = rx * (leftEye ? 0.255 : 0.225) * (1 + clamp(pose.silliness) * 0.08);
-  const eyeRy = ry * (leftEye ? 0.18 : 0.205) * (1 + clamp(pose.silliness) * 0.06);
+  const eyeX = cx + side * rx * 0.34;
+  const eyeY = featureY - ry * 0.43;
+  const eyeRadius = Math.min(rx, ry) * 0.235 * (1 + clamp(pose.silliness) * 0.06);
+  const eyeRx = eyeRadius;
+  const eyeRy = eyeRadius;
   return {
     x: eyeX,
     y: eyeY - eyeRy * (1.42 + value * 1.13),
@@ -2077,11 +2289,11 @@ function sideSpaghettiHairGeometry(layout, pose, side) {
   const directionX = side * Math.cos(angleRadians);
   const directionY = Math.sin(angleRadians);
   const rawLength = rx * (0.08 + lengthAmount * 1.02);
-  // Roots tuck just behind the upper side silhouette. The paint pass clips
+  // Roots tuck behind the lower side silhouette. The paint pass clips
   // away the in-face portion, so the spaghetti appears to grow out from under
   // the skull edge without crossing the forehead or eye anatomy.
-  const rootX = cx + side * rx * 0.84;
-  const rootY = cy - ry * 0.58;
+  const rootX = cx + side * rx * 0.8;
+  const rootY = cy - ry * 0.34;
   const horizontalRoom = Math.max(28, side < 0 ? rootX - 10 : cssWidth - rootX - 10);
   const horizontalLimit = horizontalRoom / Math.max(0.28, Math.abs(directionX));
   const verticalRoom = directionY < 0 ? rootY - 10 : cssHeight - rootY - 10;
@@ -2144,7 +2356,7 @@ function appendHeadSilhouette(context, layout, pop = 0, slap = 0) {
 }
 
 function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
-  const { cx, cy, rx, ry, mouthY, opening } = layout;
+  const { cx, cy, rx, ry, featureY, mouthY, opening } = layout;
   const whistle = motion.whistle ?? 0;
   const slap = Math.max(motion.slap, motion.smack * 0.34);
   const smack = motion.smack;
@@ -2197,11 +2409,11 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   const compactHair = usesCompactCanvas();
   for (const side of [-1, 1]) {
     context.save();
-    const earX = cx + side * rx * (0.91 + earSpread * 0.32);
-    const earY = cy - ry * 0.07;
+    const earX = cx + side * rx * (0.88 + earSpread * 0.32);
+    const earY = cy + ry * 0.03;
     const earRx = rx * (0.12 + earSpread * 0.045);
     const earRy = ry * (0.19 + earSpread * 0.035);
-    const tetherHeadX = cx + side * rx * 0.88;
+    const tetherHeadX = cx + side * rx * 0.84;
     const tetherHeadY = earY;
     const tetherEarX = earX;
     const tetherEarY = earY;
@@ -2286,8 +2498,8 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   // Ears are stereo controls, not ornaments: pulling either ear outward
   // widens the binaural spacing and lengthens the tiny interaural delay.
   for (const side of [-1, 1]) {
-    const earX = cx + side * rx * (0.91 + earSpread * 0.32);
-    const earY = cy - ry * 0.07;
+    const earX = cx + side * rx * (0.88 + earSpread * 0.32);
+    const earY = cy + ry * 0.03;
     const earRx = rx * (0.12 + earSpread * 0.045);
     const earRy = ry * (0.19 + earSpread * 0.035);
     context.strokeStyle = side < 0
@@ -2311,8 +2523,8 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     context.stroke();
   }
 
-  // A translucent two-color checkerboard supplies the skin without an opaque
-  // base fill. Both checker paths share the deforming silhouette clip, while
+  // An opaque two-color checkerboard supplies the skin. Both checker paths
+  // share the deforming silhouette clip, while
   // batching each color into one fill keeps the phone paint cost bounded.
   context.save();
   context.beginPath();
@@ -2354,8 +2566,8 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   }
   context.restore();
 
-  // Restore opaque stroke state after translucent effects. The head remains
-  // one strong contour over checker skin with no opaque base fill.
+  // Restore the stroke state after the skin fill. The head remains one strong
+  // contour over its opaque checkerboard.
   context.globalAlpha = 1;
   context.globalCompositeOperation = "source-over";
   context.strokeStyle = "rgba(232, 142, 225, 0.96)";
@@ -2369,18 +2581,21 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   context.closePath();
   context.stroke();
 
-  // Huge mismatched eyes and independently wandering pupils provide the
-  // character above the translucent checker skin.
+  // Two large matched circular eyes and independently wandering pupils provide
+  // the character above the translucent checker skin.
   const gazePhase = prefersReducedMotion ? 0.72 : now * 0.00125;
-  const eyeClosure = clamp(Number(pose.eyeClosure) || 0);
   for (const side of [-1, 1]) {
     const leftEye = side < 0;
-    const eyeX = cx + side * rx * (leftEye ? 0.345 : 0.34);
-    const eyeY = cy - ry * (leftEye ? 0.455 : 0.43);
-    const eyeRx = rx * (leftEye ? 0.255 : 0.225) * (1 + goofballEnergy * 0.08);
-    const baseEyeRy = ry * (leftEye ? 0.18 : 0.205) * (1 + goofballEnergy * 0.06);
-    const eyeRy = Math.max(2.2, baseEyeRy * (1 - eyeClosure * 0.92));
-    const eyeRotation = side * (0.08 + goofballEnergy * 0.085);
+    const eyeClosure = clamp(Number(
+      leftEye ? pose.leftEyeClosure : pose.rightEyeClosure,
+    ) || Number(pose.eyeClosure) || 0);
+    const eyeX = cx + side * rx * 0.34;
+    const eyeY = featureY - ry * 0.43;
+    const eyeRadius = Math.min(rx, ry) * 0.235 * (1 + goofballEnergy * 0.06);
+    const eyeRx = eyeRadius;
+    const baseEyeRy = eyeRadius;
+    const eyeRy = baseEyeRy;
+    const eyeRotation = 0;
     context.save();
     context.translate(eyeX, eyeY);
     context.rotate(eyeRotation);
@@ -2396,17 +2611,11 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     context.beginPath();
     context.ellipse(0, 0, eyeRx, eyeRy, 0, 0, Math.PI * 2);
     context.clip();
-    const irisRadius = Math.max(5, Math.min(eyeRx, baseEyeRy) * (leftEye ? 0.4 : 0.36));
-    const pupilPhase = prefersReducedMotion
-      ? 0
-      : now * (leftEye ? 0.00176 : 0.00219);
-    const pupilDriftX = prefersReducedMotion
-      ? 0
-      : Math.sin(pupilPhase + side * 1.9) * eyeRx * (0.1 + goofballEnergy * 0.07);
-    const pupilDriftY = prefersReducedMotion
-      ? 0
-      : Math.cos(pupilPhase * (leftEye ? 1.23 : 0.91) - side * 0.7)
-        * eyeRy * (0.12 + goofballEnergy * 0.06);
+    const irisRadius = Math.max(5, eyeRadius * 0.38);
+    // Pupils only move when the player moves the eyes. Automatic wandering
+    // made the face controls look unstable and obscured the reverb position.
+    const pupilDriftX = 0;
+    const pupilDriftY = 0;
     const maxGazeX = Math.max(0, eyeRx - irisRadius * 1.14);
     const maxGazeY = Math.max(0, eyeRy - irisRadius * 1.14);
     const gazeX = clamp(
@@ -2430,8 +2639,8 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
       irisRadius,
     );
     irisGradient.addColorStop(0, "rgba(255, 255, 255, 0.96)");
-    irisGradient.addColorStop(0.2, leftEye ? "rgba(240, 127, 208, 0.96)" : "rgba(247, 220, 106, 0.96)");
-    irisGradient.addColorStop(1, leftEye ? "rgba(187, 140, 255, 0.92)" : "rgba(101, 223, 232, 0.92)");
+    irisGradient.addColorStop(0.2, "rgba(187, 140, 255, 0.96)");
+    irisGradient.addColorStop(1, "rgba(101, 223, 232, 0.92)");
     context.fillStyle = irisGradient;
     context.strokeStyle = "rgba(8, 5, 7, 0.86)";
     context.lineWidth = 1.4;
@@ -2441,7 +2650,7 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     context.stroke();
     context.fillStyle = "rgba(5, 3, 5, 0.96)";
     context.beginPath();
-    context.arc(gazeX, gazeY, irisRadius * (leftEye ? 0.43 : 0.5), 0, Math.PI * 2);
+    context.arc(gazeX, gazeY, irisRadius * 0.46, 0, Math.PI * 2);
     context.fill();
     context.fillStyle = "rgba(255, 255, 255, 0.92)";
     context.beginPath();
@@ -2449,24 +2658,39 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     context.fill();
     context.restore();
 
-    if (eyeClosure > 0.01) {
-      context.strokeStyle = leftEye
-        ? `rgba(240, 127, 208, ${0.58 + eyeClosure * 0.4})`
-        : `rgba(101, 223, 232, ${0.58 + eyeClosure * 0.4})`;
-      context.lineWidth = 1.5 + eyeClosure * 3.4;
-      context.lineCap = "round";
-      context.beginPath();
-      context.moveTo(-eyeRx * 0.92, -eyeRy * 0.15);
-      context.quadraticCurveTo(0, eyeRy * (0.12 + eyeClosure * 0.22), eyeRx * 0.92, -eyeRy * 0.15);
-      context.stroke();
-    }
+    // Each eye remains the same circular size. Opaque colored lid tissue
+    // slides over its top and bottom independently instead of squeezing the
+    // eyeball or drawing long lines outside it.
+    const lidCover = 0.08 + eyeClosure * 0.44;
+    const lidEdgeY = eyeRy * (-1 + lidCover * 2);
+    context.save();
+    context.beginPath();
+    context.arc(0, 0, eyeRadius, 0, Math.PI * 2);
+    context.clip();
+    context.fillStyle = leftEye ? "rgb(244, 126, 173)" : "rgb(157, 218, 125)";
+    context.beginPath();
+    context.moveTo(-eyeRx, -eyeRy);
+    context.lineTo(eyeRx, -eyeRy);
+    context.lineTo(eyeRx, lidEdgeY);
+    context.quadraticCurveTo(0, lidEdgeY + eyeRy * 0.12, -eyeRx, lidEdgeY);
+    context.closePath();
+    context.fill();
+    context.fillStyle = leftEye ? "rgb(255, 164, 92)" : "rgb(255, 218, 105)";
+    context.beginPath();
+    context.moveTo(-eyeRx, eyeRy);
+    context.lineTo(eyeRx, eyeRy);
+    context.lineTo(eyeRx, -lidEdgeY);
+    context.quadraticCurveTo(0, -lidEdgeY - eyeRy * 0.08, -eyeRx, -lidEdgeY);
+    context.closePath();
+    context.fill();
+    context.restore();
     context.restore();
 
     const brow = eyebrowGeometry(layout, pose, side);
     const browStartY = brow.y + brow.eyeRy * (leftEye ? 0.16 : -0.02);
     const browEndY = brow.y + brow.eyeRy * (leftEye ? 0.03 : 0.22);
     context.strokeStyle = "rgba(67, 31, 46, 0.9)";
-    context.lineWidth = 8.8 + goofballEnergy * 2.2;
+    context.lineWidth = 13.2 + goofballEnergy * 2.8;
     context.lineCap = "round";
     context.beginPath();
     context.moveTo(brow.x - brow.eyeRx * 1.08, browStartY);
@@ -2480,16 +2704,14 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     context.strokeStyle = leftEye
       ? "rgba(255, 79, 126, 0.96)"
       : "rgba(45, 203, 218, 0.96)";
-    context.lineWidth = 5.4 + goofballEnergy * 1.35;
+    context.lineWidth = 8.2 + goofballEnergy * 1.7;
     context.stroke();
   }
 
-  // Raise the nasal resonator between the eyes and give it one glossy rubber
-  // square. Its tint and side-path still expose the live velum/nasal state.
+  // One oversized glossy clown-red circle exposes the live nasal resonator.
   const noseX = cx + Math.sin(gazePhase * 0.7) * rx * goofballEnergy * 0.008;
-  const noseY = cy - ry * (0.025 + pose.nasalMix * 0.34);
-  const noseHalfSize = Math.min(rx, ry) * (0.098 + pose.nasalMix * 0.018);
-  const noseSize = noseHalfSize * 2;
+  const noseY = featureY - ry * (0.025 + pose.nasalMix * 0.34);
+  const noseRadius = Math.min(rx, ry) * (0.135 + pose.nasalMix * 0.022);
   context.strokeStyle = `rgba(101, 223, 232, ${0.22 + pose.nasalMix * 0.5})`;
   context.lineWidth = 1.35;
   if (pose.nasalMix > 0.02) {
@@ -2500,49 +2722,42 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     context.bezierCurveTo(
       cx + rx * 0.14,
       mouthY - ry * 0.18,
-      noseX + noseHalfSize * 0.72,
-      noseY + noseHalfSize * 0.7,
-      noseX + noseHalfSize * 0.36,
+      noseX + noseRadius * 0.72,
+      noseY + noseRadius * 0.7,
+      noseX + noseRadius * 0.36,
       noseY,
     );
     context.stroke();
     context.restore();
   }
   context.beginPath();
-  context.moveTo(cx - rx * 0.015, cy - ry * 0.42);
+  context.moveTo(cx - rx * 0.015, featureY - ry * 0.42);
   context.bezierCurveTo(
     cx + rx * 0.055,
-    cy - ry * 0.34,
-    noseX - noseHalfSize * 0.42,
-    noseY - noseHalfSize * 0.66,
+    featureY - ry * 0.34,
+    noseX - noseRadius * 0.42,
+    noseY - noseRadius * 0.66,
     noseX,
-    noseY - noseHalfSize * 0.35,
+    noseY - noseRadius * 0.35,
   );
   context.stroke();
-  context.fillStyle = "rgba(225, 64, 112, 0.96)";
-  context.strokeStyle = `rgba(255, 177, 93, ${0.72 + pose.nasalMix * 0.2})`;
-  context.lineWidth = 2;
-  context.fillRect(
-    noseX - noseHalfSize,
-    noseY - noseHalfSize,
-    noseSize,
-    noseSize,
+  context.fillStyle = "#FF0000";
+  context.strokeStyle = `rgba(105, 0, 0, ${0.84 + pose.nasalMix * 0.12})`;
+  context.lineWidth = 2.4;
+  context.beginPath();
+  context.arc(noseX, noseY, noseRadius, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.fillStyle = "rgba(255, 238, 230, 0.84)";
+  context.beginPath();
+  context.arc(
+    noseX - noseRadius * 0.38,
+    noseY - noseRadius * 0.4,
+    noseRadius * 0.17,
+    0,
+    Math.PI * 2,
   );
-  context.strokeRect(
-    noseX - noseHalfSize,
-    noseY - noseHalfSize,
-    noseSize,
-    noseSize,
-  );
-  // One cheap solid highlight keeps the square glossy
-  // without allocating another per-frame gradient on mobile.
-  context.fillStyle = "rgba(255, 224, 204, 0.82)";
-  context.fillRect(
-    noseX - noseHalfSize * 0.63,
-    noseY - noseHalfSize * 0.63,
-    noseSize * 0.2,
-    noseSize * 0.2,
-  );
+  context.fill();
   const mouthPulse = Math.max(
     motion.bop * 0.48,
     motion.boop * 0.68,
@@ -2658,120 +2873,24 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     // pressure build-up, without inventing a second visual mouth layer.
     liveOpening *= clamp(0.06 + physicalLipAperture * 1.3, 0.06, 1.55);
   }
-  liveOpening = clamp(liveOpening, Math.max(1.2, ry * 0.004), ry * 0.56);
+  const noseClearanceOpening = Math.max(
+    ry * 0.045,
+    mouthY - (noseY + noseRadius * 1.12),
+  );
+  liveOpening = clamp(
+    liveOpening,
+    Math.max(1.2, ry * 0.004),
+    Math.min(ry * 0.56, noseClearanceOpening),
+  );
 
-  const cornerCurl = ry * (0.018 + goofballEnergy * 0.028 + shack * 0.024);
-  const mouthExpansion = clamp(
-    clamp(liveOpening / Math.max(1, ry * 0.56)) * 0.78
-      + clamp(mouthWidth / Math.max(1, rx * 0.96)) * 0.22,
-  );
-  const lipThickness = ry * clamp(
-    (0.052 + (1 - clamp(pose.lipTension)) * 0.02)
-      * (1 - mouthExpansion * 0.66),
-    0.012,
-    0.072,
-  );
-  const outerMouthWidth = Math.min(
-    rx * 0.995,
-    mouthWidth + rx * (0.055 + goofballEnergy * 0.018),
-  );
-  const upperLipReach = liveOpening + lipThickness * (1.05 + motion.bop * 0.2 + motion.doo * 0.18);
-  const lowerLipReach = liveOpening + lipThickness * (1.42 + motion.pff * 0.25 + motion.burp * 0.34);
-  const lipGradient = context.createLinearGradient(
-    cx,
-    mouthY - upperLipReach,
-    cx,
-    mouthY + lowerLipReach,
-  );
-  lipGradient.addColorStop(0, "rgba(176, 244, 145, 0.94)");
-  lipGradient.addColorStop(0.48, "rgba(66, 184, 102, 0.9)");
-  lipGradient.addColorStop(1, "rgba(17, 108, 74, 0.92)");
-  context.fillStyle = lipGradient;
-  context.strokeStyle = `rgba(111, 244, 142, ${0.72 + mouthPulse * 0.22})`;
-  context.lineWidth = clamp(2.2 + pose.lipTension * 1.5, 1.2, 8);
-  context.beginPath();
-  context.moveTo(cx - outerMouthWidth, mouthY - cornerCurl);
-  context.bezierCurveTo(
-    cx - outerMouthWidth * 0.56,
-    mouthY - upperLipReach * 0.92,
-    cx - outerMouthWidth * 0.2,
-    mouthY - upperLipReach * 1.08,
-    cx,
-    mouthY - upperLipReach,
-  );
-  context.bezierCurveTo(
-    cx + outerMouthWidth * 0.2,
-    mouthY - upperLipReach * 1.08,
-    cx + outerMouthWidth * 0.56,
-    mouthY - upperLipReach * 0.92,
-    cx + outerMouthWidth,
-    mouthY - cornerCurl,
-  );
-  context.bezierCurveTo(
-    cx + outerMouthWidth * 0.58,
-    mouthY + lowerLipReach * 0.93,
-    cx + outerMouthWidth * 0.2,
-    mouthY + lowerLipReach * 1.08,
-    cx,
-    mouthY + lowerLipReach,
-  );
-  context.bezierCurveTo(
-    cx - outerMouthWidth * 0.2,
-    mouthY + lowerLipReach * 1.08,
-    cx - outerMouthWidth * 0.58,
-    mouthY + lowerLipReach * 0.93,
-    cx - outerMouthWidth,
-    mouthY - cornerCurl,
-  );
-  context.closePath();
-  context.fill();
-  context.stroke();
-
-  // Thin translucent purple and blue ribbons sit inside the green lip mass.
-  // The black oral opening painted next naturally masks their inner spans.
-  context.save();
-  context.clip();
-  context.lineCap = "round";
-  context.lineWidth = clamp(lipThickness * 0.22, 1.1, 2.6);
-  for (let stripe = 0; stripe < 4; stripe += 1) {
-    const upperStripe = stripe < 2;
-    const innerStripe = stripe % 2;
-    const direction = upperStripe ? -1 : 1;
-    const outerReach = upperStripe ? upperLipReach : lowerLipReach;
-    const stripePosition = 0.35 + innerStripe * 0.37;
-    const reach = liveOpening + (outerReach - liveOpening) * stripePosition;
-    const inset = mouthWidth
-      + (outerMouthWidth - mouthWidth) * stripePosition;
-    const controlX = mouthWidth * 0.43
-      + (outerMouthWidth * 0.56 - mouthWidth * 0.43) * stripePosition;
-    const cornerReach = cornerCurl * (0.52 + stripePosition * 0.48);
-    context.strokeStyle = innerStripe === 0
-      ? "rgba(187, 140, 255, 0.5)"
-      : "rgba(101, 169, 255, 0.44)";
-    context.beginPath();
-    context.moveTo(cx - inset, mouthY + direction * cornerReach);
-    context.bezierCurveTo(
-      cx - controlX,
-      mouthY + direction * reach,
-      cx + controlX,
-      mouthY + direction * reach,
-      cx + inset,
-      mouthY + direction * cornerReach,
-    );
-    context.stroke();
-  }
-  context.restore();
-
-  // One oral opening inside the one lip mass. Every sound reshapes this same
-  // path; no gesture draws a second mouth or a competing pose.
+  const lipRimWidth = clamp(Math.min(rx, ry) * 0.04, 5, 10);
+  // Exactly one simple oral oval: the dark-green stroke is the lip, and the
+  // black fill is the cavity. Sound gestures reshape this one path only.
   context.fillStyle = "rgba(4, 3, 4, 0.96)";
-  context.strokeStyle = `rgba(192, 255, 207, ${0.52 + mouthPulse * 0.32})`;
-  context.lineWidth = clamp(1.5 + pose.lipTension * 1.15, 0.8, 6);
+  context.strokeStyle = `rgba(34, 139, 79, ${0.9 + mouthPulse * 0.1})`;
+  context.lineWidth = lipRimWidth;
   context.beginPath();
-  context.moveTo(cx - mouthWidth, mouthY - cornerCurl * 0.52);
-  context.bezierCurveTo(cx - mouthWidth * 0.43, mouthY - liveOpening, cx + mouthWidth * 0.43, mouthY - liveOpening, cx + mouthWidth, mouthY - cornerCurl * 0.52);
-  context.bezierCurveTo(cx + mouthWidth * 0.43, mouthY + liveOpening, cx - mouthWidth * 0.43, mouthY + liveOpening, cx - mouthWidth, mouthY - cornerCurl * 0.52);
-  context.closePath();
+  context.ellipse(cx, mouthY, mouthWidth, liveOpening, 0, 0, Math.PI * 2);
   context.fill();
   context.stroke();
 
@@ -2804,24 +2923,7 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     // tappable tines and missing FWEE gap stays unchanged and fully live.
     context.save();
     context.beginPath();
-    context.moveTo(cx - mouthWidth, mouthY - cornerCurl * 0.52);
-    context.bezierCurveTo(
-      cx - mouthWidth * 0.43,
-      mouthY - liveOpening,
-      cx + mouthWidth * 0.43,
-      mouthY - liveOpening,
-      cx + mouthWidth,
-      mouthY - cornerCurl * 0.52,
-    );
-    context.bezierCurveTo(
-      cx + mouthWidth * 0.43,
-      mouthY + liveOpening,
-      cx - mouthWidth * 0.43,
-      mouthY + liveOpening,
-      cx - mouthWidth,
-      mouthY - cornerCurl * 0.52,
-    );
-    context.closePath();
+    context.ellipse(cx, mouthY, mouthWidth, liveOpening, 0, 0, Math.PI * 2);
     context.clip();
 
     const toothFill = context.createLinearGradient(0, teethY, 0, teethY + teethHeight);
@@ -2908,26 +3010,6 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
 
     context.restore();
 
-    // Repaint the inner upper-lip rim after the teeth. This explicit final
-    // occlusion keeps the bouncing dead-wood tooth tines behind the lip paint.
-    const upperLipOcclusionWidth = clamp(lipThickness * 0.72, 2.4, 8.5);
-    context.save();
-    context.strokeStyle = lipGradient;
-    context.lineWidth = upperLipOcclusionWidth;
-    context.lineCap = "round";
-    context.beginPath();
-    context.moveTo(cx - mouthWidth, mouthY - cornerCurl * 0.52);
-    context.bezierCurveTo(
-      cx - mouthWidth * 0.43,
-      mouthY - liveOpening,
-      cx + mouthWidth * 0.43,
-      mouthY - liveOpening,
-      cx + mouthWidth,
-      mouthY - cornerCurl * 0.52,
-    );
-    context.stroke();
-    context.restore();
-
   }
 
   // One continuous tongue changes from an internal body into a protruding
@@ -2954,8 +3036,13 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     width: tongueTipWidth,
     height: Math.max(8, liveOpening * 0.42),
   };
-  context.fillStyle = `rgba(240, 127, 208, ${0.58 + Math.max(motion.tlik, lala, slurp) * 0.32})`;
-  context.strokeStyle = "rgba(255, 198, 228, 0.58)";
+  // Paint the tongue as the final opaque oral layer in front of lips and face.
+  // Its contrasting color rotates with the sequencer's changing face skin.
+  const tongueColorIndex = checkerStep >= 0
+    ? checkerStep % TONGUE_STEP_COLORS.length
+    : 0;
+  context.fillStyle = TONGUE_STEP_COLORS[tongueColorIndex];
+  context.strokeStyle = "rgba(55, 16, 31, 0.72)";
   context.lineWidth = 1 + liveTongueOut * 0.3;
   context.beginPath();
   context.moveTo(cx - mouthWidth * 0.57, mouthY + liveOpening * 0.68);
@@ -3058,6 +3145,26 @@ function drawHotspot(context, hotspot, active) {
   context.stroke();
   context.shadowBlur = 0;
 
+  if (["slap", "smack", "kiss"].includes(hotspot.soundId)) {
+    context.strokeStyle = "rgba(45, 17, 28, 0.92)";
+    context.lineWidth = Math.max(1.2, hotspot.r * 0.16);
+    context.lineCap = "round";
+    context.beginPath();
+    if (hotspot.soundId === "kiss") {
+      context.moveTo(hotspot.x - hotspot.r * 0.58, hotspot.y);
+      context.quadraticCurveTo(hotspot.x - hotspot.r * 0.2, hotspot.y - hotspot.r * 0.5, hotspot.x, hotspot.y - hotspot.r * 0.08);
+      context.quadraticCurveTo(hotspot.x + hotspot.r * 0.2, hotspot.y - hotspot.r * 0.5, hotspot.x + hotspot.r * 0.58, hotspot.y);
+      context.quadraticCurveTo(hotspot.x, hotspot.y + hotspot.r * 0.58, hotspot.x - hotspot.r * 0.58, hotspot.y);
+    } else {
+      context.arc(hotspot.x, hotspot.y + hotspot.r * 0.08, hotspot.r * 0.34, 0, Math.PI * 2);
+      for (const finger of [-0.3, 0, 0.3]) {
+        context.moveTo(hotspot.x + hotspot.r * finger, hotspot.y - hotspot.r * 0.15);
+        context.lineTo(hotspot.x + hotspot.r * finger, hotspot.y - hotspot.r * (0.56 + (finger === 0 ? 0.12 : 0)));
+      }
+    }
+    context.stroke();
+  }
+
   // Polka dots never carry resting words. Exact hover reveals one label at
   // the top-right stage edge, away from face anatomy and its drag handles.
   if (hovered) {
@@ -3076,6 +3183,77 @@ function drawHotspot(context, hotspot, active) {
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText(hotspot.label, labelX + labelWidthPx / 2, labelY + labelHeight / 2 + 0.4);
+  }
+  context.restore();
+}
+
+function drawKissMarks(context, layout, now) {
+  kissMarks = kissMarks.filter(({ born }) => now - born < 2_800);
+  const { cx, cy, rx, ry } = layout;
+  for (const mark of kissMarks) {
+    const age = clamp((now - mark.born) / 2_800);
+    const alpha = (1 - age) * 0.88;
+    const x = cx + mark.x * rx;
+    const y = cy + mark.y * ry;
+    const width = Math.min(rx, ry) * 0.11;
+    const height = width * 0.52;
+    context.save();
+    context.translate(x, y);
+    context.rotate((mark.x + mark.y) * 0.22);
+    context.fillStyle = `hsla(${338 + mark.hue * 0.12}, 92%, 48%, ${alpha})`;
+    context.strokeStyle = `hsla(${340 + mark.hue * 0.1}, 96%, 32%, ${alpha})`;
+    context.lineWidth = Math.max(1.4, width * 0.08);
+    context.beginPath();
+    context.moveTo(-width, 0);
+    context.bezierCurveTo(-width * 0.68, -height * 1.25, -width * 0.24, -height * 1.16, 0, -height * 0.3);
+    context.bezierCurveTo(width * 0.24, -height * 1.16, width * 0.68, -height * 1.25, width, 0);
+    context.bezierCurveTo(width * 0.58, height * 1.15, width * 0.2, height * 1.22, 0, height * 0.42);
+    context.bezierCurveTo(-width * 0.2, height * 1.22, -width * 0.58, height * 1.15, -width, 0);
+    context.closePath();
+    context.fill();
+    context.stroke();
+    context.strokeStyle = `rgba(255, 174, 199, ${alpha * 0.92})`;
+    context.lineWidth = Math.max(1, width * 0.055);
+    context.beginPath();
+    context.moveTo(-width * 0.62, 0);
+    context.quadraticCurveTo(0, height * 0.16, width * 0.62, 0);
+    context.stroke();
+    context.restore();
+  }
+}
+
+function drawBrushSweep(context, now) {
+  if (!brushSweep || toothTines.length < 2) return;
+  const phase = clamp((now - brushSweep.born) / brushSweep.duration);
+  if (phase >= 1) {
+    brushSweep = null;
+    return;
+  }
+  const first = toothTines[0];
+  const last = toothTines.at(-1);
+  const x = first.x + (last.x - first.x) * phase;
+  const y = first.y - first.height * 0.72;
+  const brushLength = Math.max(38, Math.abs(last.x - first.x) * 0.42);
+  context.save();
+  context.translate(x, y);
+  context.rotate(-0.28 + Math.sin(phase * Math.PI) * 0.18);
+  context.strokeStyle = "rgba(19, 76, 142, 0.98)";
+  context.lineWidth = 9;
+  context.lineCap = "round";
+  context.beginPath();
+  context.moveTo(0, 0);
+  context.lineTo(brushLength, -10);
+  context.stroke();
+  context.fillStyle = "rgba(104, 218, 255, 0.98)";
+  roundedRect(context, -14, -7, 27, 14, 5);
+  context.fill();
+  context.strokeStyle = "rgba(245, 248, 255, 0.96)";
+  context.lineWidth = 2;
+  for (let bristle = -10; bristle <= 10; bristle += 5) {
+    context.beginPath();
+    context.moveTo(bristle, 4);
+    context.lineTo(bristle + 1.5, 13);
+    context.stroke();
   }
   context.restore();
 }
@@ -3102,10 +3280,10 @@ function colorWithAlpha(color, alpha) {
 }
 
 function buildHitGeometry(layout, pose) {
-  const { cx, cy, rx, ry, mouthY, opening } = layout;
+  const { cx, cy, rx, ry, featureY, mouthY, opening } = layout;
   const compact = usesCompactCanvas();
-  const dotRadius = compact ? 4.6 : 5.3;
-  const dotHitRadius = compact ? 9 : 11;
+  const dotRadius = compact ? 5.8 : 6.7;
+  const dotHitRadius = compact ? 11 : 13.5;
   hotspots = HICCUP_HEAD_SOUNDS.map((sound, fallbackSlot) => {
     const triggerLayout = faceSoundTriggerById.get(sound.id) ?? {
       slot: fallbackSlot,
@@ -3115,25 +3293,28 @@ function buildHitGeometry(layout, pose) {
     return {
       soundId: sound.id,
       label: triggerLayout.label ?? sound.label,
-      color: sound.color,
+      color: FACE_TRIGGER_FRECKLE_COLORS[fallbackSlot % FACE_TRIGGER_FRECKLE_COLORS.length],
       x: cx + rx * dot.x,
       y: cy + ry * dot.y,
-      r: dotRadius,
-      hitR: dotHitRadius,
+      r: ["slap", "smack", "kiss"].includes(sound.id) ? dotRadius * 1.65 : dotRadius,
+      hitR: ["slap", "smack", "kiss"].includes(sound.id) ? dotHitRadius * 1.35 : dotHitRadius,
       zone: `face-dot-${dot.region}`,
       sourceZone: triggerLayout.zone,
       kind: "dot",
       primary: true,
+      slot: fallbackSlot,
     };
   });
   const nodeRadius = clamp(Math.min(rx, ry) * 0.035, 7, 10);
   const tractLimits = HICCUP_HEAD_LIMITS.tractLengthM;
   const tractProgress = (pose.tractLengthM - tractLimits[0]) / Math.max(0.001, tractLimits[1] - tractLimits[0]);
-  const noseY = cy - ry * (0.025 + pose.nasalMix * 0.34);
-  const earOffset = rx * (0.91 + pose.earSpread * 0.32);
-  const leftEyeRx = rx * 0.255 * (1 + clamp(pose.silliness) * 0.08);
-  const rightEyeRx = rx * 0.225 * (1 + clamp(pose.silliness) * 0.08);
-  const leftEyeX = cx - rx * 0.345
+  const noseY = featureY - ry * (0.025 + pose.nasalMix * 0.34);
+  const noseRadius = Math.min(rx, ry) * (0.135 + pose.nasalMix * 0.022);
+  const earOffset = rx * (0.88 + pose.earSpread * 0.32);
+  const eyeRadius = Math.min(rx, ry) * 0.235 * (1 + clamp(pose.silliness) * 0.06);
+  const leftEyeRx = eyeRadius;
+  const rightEyeRx = eyeRadius;
+  const leftEyeX = cx - rx * 0.34
     - leftEyeRx * pose.eyeDivergence * 0.78;
   const rightEyeX = cx + rx * 0.34
     + rightEyeRx * pose.eyeDivergence * 0.78;
@@ -3146,15 +3327,15 @@ function buildHitGeometry(layout, pose) {
     y: mouthY + opening * 0.78,
   };
   handles = [
-    { id: "nose", key: "nasalMix", label: "NASAL ↑", color: "#ff7b87", x: cx, y: noseY, r: nodeRadius * 1.45, axis: "y-invert", scale: ry * 0.34, feature: "nose", labelSide: 1 },
-    { id: "left-ear", key: "earSpread", label: "STEREO ↔", color: "#65dfe8", x: cx - earOffset, y: cy - ry * 0.07, r: nodeRadius * 1.45, axis: "x-invert", scale: rx * 0.32, feature: "ear", labelSide: -1 },
-    { id: "right-ear", key: "earSpread", label: "STEREO ↔", color: "#65dfe8", x: cx + earOffset, y: cy - ry * 0.07, r: nodeRadius * 1.45, axis: "x", scale: rx * 0.32, feature: "ear", labelSide: 1 },
+    { id: "nose", key: "nasalMix", label: "NASAL ↑", color: "#FF0000", x: cx, y: noseY, r: Math.max(nodeRadius * 1.45, noseRadius * 0.72), hitR: noseRadius + (compact ? 8 : 10), axis: "y-invert", scale: ry * 0.34, feature: "nose", labelSide: 1 },
+    { id: "left-ear", key: "earSpread", label: "STEREO ↔", color: "#65dfe8", x: cx - earOffset, y: cy + ry * 0.03, r: nodeRadius * 1.45, axis: "x-invert", scale: rx * 0.32, feature: "ear", labelSide: -1 },
+    { id: "right-ear", key: "earSpread", label: "STEREO ↔", color: "#65dfe8", x: cx + earOffset, y: cy + ry * 0.03, r: nodeRadius * 1.45, axis: "x", scale: rx * 0.32, feature: "ear", labelSide: 1 },
     { id: "left-hair", key: "leftHairLength", lengthKey: "leftHairLength", angleKey: "leftHairAngle", label: "LEFT HAIR 2D", color: "#f07fd0", x: leftSideHair.tipX, y: leftSideHair.tipY, r: nodeRadius * 1.42, feature: "hair", hairSide: -1, labelSide: -1 },
     { id: "right-hair", key: "rightHairLength", lengthKey: "rightHairLength", angleKey: "rightHairAngle", label: "RIGHT HAIR 2D", color: "#bb8cff", x: rightSideHair.tipX, y: rightSideHair.tipY, r: nodeRadius * 1.42, feature: "hair", hairSide: 1, labelSide: 1 },
     { id: "left-brow", key: "leftBrow", label: "LOOP A", color: "#ff4f7e", x: leftBrow.x, y: leftBrow.y, r: nodeRadius * 1.4, axis: "y-invert", scale: Math.max(24, leftBrow.eyeRy * 1.13), feature: "brow", labelSide: -1 },
     { id: "right-brow", key: "rightBrow", label: "LOOP B", color: "#2dcbda", x: rightBrow.x, y: rightBrow.y, r: nodeRadius * 1.4, axis: "y-invert", scale: Math.max(24, rightBrow.eyeRy * 1.13), feature: "brow", labelSide: 1 },
-    { id: "left-eye", key: "eyeDivergence", label: "CROSS ↔ REVERB · LIDS ↓", color: "#bb8cff", x: leftEyeX, y: cy - ry * 0.455, r: nodeRadius * 1.35, axis: "x-invert", scale: leftEyeRx * 1.56, feature: "eye", labelSide: -1 },
-    { id: "right-eye", key: "eyeDivergence", label: "CROSS ↔ REVERB · LIDS ↓", color: "#bb8cff", x: rightEyeX, y: cy - ry * 0.43, r: nodeRadius * 1.35, axis: "x", scale: rightEyeRx * 1.56, feature: "eye", labelSide: 1 },
+    { id: "left-eye", key: "eyeDivergence", label: "REVERB ↔ · LIDS ↓", color: "#bb8cff", x: leftEyeX, y: featureY - ry * 0.43, r: nodeRadius * 1.35, axis: "x-invert", scale: leftEyeRx * 1.56, feature: "eye", labelSide: -1 },
+    { id: "right-eye", key: "eyeDivergence", label: "REVERB ↔ · LIDS ↓", color: "#bb8cff", x: rightEyeX, y: featureY - ry * 0.43, r: nodeRadius * 1.35, axis: "x", scale: rightEyeRx * 1.56, feature: "eye", labelSide: 1 },
     { id: "left-cheek", key: "cheekVolume", label: "cheek volume", color: hiccupHeadSound("slap").color, x: cx - rx * (0.48 + pose.cheekVolume * 0.32), y: cy - ry * 0.05, r: nodeRadius, axis: "x-invert", scale: rx * 0.5 },
     { id: "right-cheek", key: "cheekTension", label: "membrane tension", color: hiccupHeadSound("pop").color, x: cx + rx * 0.72, y: cy + ry * (0.23 - pose.cheekTension * 0.33), r: nodeRadius, axis: "y-invert", scale: ry * 0.42 },
     { id: "lip-tension", key: "lipTension", label: "lip tension", color: hiccupHeadSound("bop").color, x: cx - rx * 0.05, y: mouthY - opening - nodeRadius * 1.7, r: nodeRadius, axis: "y-invert", scale: ry * 0.34 },
@@ -3165,6 +3346,54 @@ function buildHitGeometry(layout, pose) {
     { id: "tongue-out", key: "tongueOut", label: "TONGUE OUT ↕", color: "#f07fd0", x: tongueTip.x, y: tongueTip.y, r: nodeRadius * 1.18, axis: "y", scale: ry * 0.3, feature: "tongue", labelSide: 1 },
     { id: "tract-length", key: "tractLengthM", label: "tract length", color: hiccupHeadSound("shh").color, x: cx, y: cy + ry * (0.55 + tractProgress * 0.3), r: nodeRadius, axis: "y", scale: ry * 0.31 },
   ];
+
+  // Mutated anatomy can travel underneath the original freckle coordinates.
+  // Project every trigger back onto clear skin after the live feature geometry
+  // is known, so no sound dot is painted on an eyeball or another body part.
+  const featureClearance = dotRadius + (compact ? 3 : 5);
+  const forbiddenCircles = [
+    { x: cx - rx * 0.34, y: featureY - ry * 0.43, r: eyeRadius + featureClearance },
+    { x: cx + rx * 0.34, y: featureY - ry * 0.43, r: eyeRadius + featureClearance },
+    { x: cx, y: noseY, r: noseRadius + featureClearance },
+    { x: leftBrow.x, y: leftBrow.y, r: leftBrow.eyeRx * 0.72 + featureClearance },
+    { x: rightBrow.x, y: rightBrow.y, r: rightBrow.eyeRx * 0.72 + featureClearance },
+    { x: cx - earOffset, y: cy + ry * 0.03, r: nodeRadius * 2.5 + featureClearance },
+    { x: cx + earOffset, y: cy + ry * 0.03, r: nodeRadius * 2.5 + featureClearance },
+    { x: tongueTip.x, y: tongueTip.y, r: nodeRadius * 2.2 + featureClearance },
+  ];
+  for (const hotspot of hotspots) {
+    for (let pass = 0; pass < 3; pass += 1) {
+      for (const feature of forbiddenCircles) {
+        let dx = hotspot.x - feature.x;
+        let dy = hotspot.y - feature.y;
+        let distance = Math.hypot(dx, dy);
+        if (distance >= feature.r) continue;
+        if (distance < 0.001) {
+          const angle = hotspot.slot / HICCUP_HEAD_SOUNDS.length * Math.PI * 2;
+          dx = Math.cos(angle);
+          dy = Math.sin(angle);
+          distance = 1;
+        }
+        hotspot.x = feature.x + dx / distance * feature.r;
+        hotspot.y = feature.y + dy / distance * feature.r;
+      }
+      const mouthRx = rx * 0.72 + featureClearance;
+      const mouthRy = Math.max(opening * 1.65, ry * 0.12) + featureClearance;
+      let mouthDx = (hotspot.x - cx) / mouthRx;
+      let mouthDy = (hotspot.y - mouthY) / mouthRy;
+      const mouthDistance = Math.hypot(mouthDx, mouthDy);
+      if (mouthDistance < 1) {
+        if (mouthDistance < 0.001) {
+          const angle = hotspot.slot / HICCUP_HEAD_SOUNDS.length * Math.PI * 2;
+          mouthDx = Math.cos(angle);
+          mouthDy = Math.sin(angle);
+        }
+        const scale = 1 / Math.max(0.001, Math.hypot(mouthDx, mouthDy));
+        hotspot.x = cx + mouthDx * scale * mouthRx;
+        hotspot.y = mouthY + mouthDy * scale * mouthRy;
+      }
+    }
+  }
   const handRadius = clamp(Math.min(rx, ry) * 0.175, 27, 57);
   const leftTargetX = cx + handPlacements.left.x * rx;
   const leftTargetY = cy + handPlacements.left.y * ry;
@@ -3177,7 +3406,7 @@ function buildHitGeometry(layout, pose) {
       id: "left",
       soundId: "slap",
       label: "LEFT SLAP",
-      color: hiccupHeadSound("slap").color,
+      color: "#4a9cff",
       x: leftTargetX - (leftDragging ? 0 : rx * 0.3),
       y: leftTargetY + (leftDragging ? 0 : ry * 0.03),
       r: handRadius,
@@ -3189,7 +3418,7 @@ function buildHitGeometry(layout, pose) {
       id: "right",
       soundId: "smack",
       label: "RIGHT SMACK",
-      color: hiccupHeadSound("smack").color,
+      color: "#4a9cff",
       x: rightTargetX + (rightDragging ? 0 : rx * 0.3),
       y: rightTargetY + (rightDragging ? 0 : ry * 0.03),
       r: handRadius,
@@ -3220,37 +3449,18 @@ function drawHandles(context) {
     );
     context.lineWidth = selected ? 2.4 : hovered ? 1.8 : 1.1;
     const handleRadius = handle.r + (selected ? 2 : 0) + (handle.feature ? 1.5 : 0);
-    if (handle.feature === "nose") {
-      context.strokeRect(
-        handle.x - handleRadius,
-        handle.y - handleRadius,
-        handleRadius * 2,
-        handleRadius * 2,
-      );
-    } else {
-      context.beginPath();
-      context.arc(handle.x, handle.y, handleRadius, 0, Math.PI * 2);
-      context.stroke();
-    }
+    context.beginPath();
+    context.arc(handle.x, handle.y, handleRadius, 0, Math.PI * 2);
+    context.stroke();
     context.shadowBlur = 0;
 
     if (handle.feature) {
       context.setLineDash(revealed ? [] : [2.5, 3.5]);
       context.strokeStyle = colorWithAlpha(handle.color, revealed ? 0.78 : 0.4);
       context.lineWidth = revealed ? 1.3 : 0.8;
-      if (handle.feature === "nose") {
-        const outerNoseHandle = handle.r * 1.55;
-        context.strokeRect(
-          handle.x - outerNoseHandle,
-          handle.y - outerNoseHandle,
-          outerNoseHandle * 2,
-          outerNoseHandle * 2,
-        );
-      } else {
-        context.beginPath();
-        context.arc(handle.x, handle.y, handle.r * 1.55, 0, Math.PI * 2);
-        context.stroke();
-      }
+      context.beginPath();
+      context.arc(handle.x, handle.y, handle.r * 1.55, 0, Math.PI * 2);
+      context.stroke();
       context.setLineDash([]);
     }
 
@@ -3295,6 +3505,9 @@ function drawHands(context, motion) {
     const active = motion[hand.soundId] ?? 0;
     const selected = pointerDrag?.type === "hand" && pointerDrag.handId === hand.id;
     const hovered = hoveredHandId === hand.id;
+    // Hands are effects, not permanent face furniture. Reveal a mitt only
+    // while its SLAP/SMACK dot is being dragged or while the strike animates.
+    if (!selected && active <= 0.01) continue;
     const r = hand.r * (1 + active * 0.1);
     const travel = 1 - (1 - clamp(active)) ** 2;
     const palmX = hand.x + (hand.targetX - hand.x) * travel;
@@ -3323,8 +3536,8 @@ function drawHands(context, motion) {
 
     // An outlined candy-colored tube and bulbous mitt read as absurd rubber
     // props rather than realistic skin, without changing their drag targets.
-    const mittHighlight = hand.side < 0 ? "rgb(255, 205, 235)" : "rgb(201, 246, 238)";
-    const mittShade = hand.side < 0 ? "rgb(197, 126, 231)" : "rgb(71, 193, 211)";
+    const mittHighlight = "rgb(201, 232, 255)";
+    const mittShade = "rgb(55, 133, 225)";
     const mittOutline = "rgba(65, 31, 50, 0.94)";
     context.strokeStyle = mittOutline;
     context.lineWidth = r * 0.64;
@@ -3478,6 +3691,8 @@ function drawStage(now = performance.now()) {
     ? visibleStep % sequenceLength
     : -1;
   drawFace(drawing, layout, pose, motion, now, checkerStep);
+  drawKissMarks(drawing, layout, now);
+  drawBrushSweep(drawing, now);
   drawToothWhistleJet(drawing, layout, motion, now);
   drawWaveform(drawing, layout);
   buildHitGeometry(layout, pose);
@@ -3571,6 +3786,29 @@ function handStrikeConfiguration(handId) {
   };
 }
 
+function beginHandDragFromSound(soundId, event, point) {
+  if (soundId !== "slap" && soundId !== "smack") return false;
+  const handId = soundId === "slap" ? "left" : "right";
+  const layout = faceLayout(displayedPose);
+  const placement = handPlacements[handId];
+  placement.x = clamp((point.x - layout.cx) / Math.max(1, layout.rx), -1.1, 1.1);
+  placement.y = clamp((point.y - layout.cy) / Math.max(1, layout.ry), -0.72, 0.74);
+  pointerDrag = {
+    type: "hand",
+    pointerId: event.pointerId,
+    handId,
+    soundId,
+    startX: point.x,
+    startY: point.y,
+    lastX: point.x,
+    lastY: point.y,
+    distance: 0,
+  };
+  canvas.classList.add("is-dragging");
+  canvas.setPointerCapture?.(event.pointerId);
+  return true;
+}
+
 function handlePointerDown(event) {
   const point = canvasPoint(event);
   const toothTine = toothTineAtPoint(point);
@@ -3591,6 +3829,10 @@ function handlePointerDown(event) {
   // mutated ear, tongue, or hand crosses a polka dot. Anatomy keeps
   // priority elsewhere inside the generous invisible hitR.
   if (nearestHotspotCore) {
+    if (beginHandDragFromSound(nearestHotspotCore.soundId, event, point)) {
+      event.preventDefault();
+      return;
+    }
     triggerSound(nearestHotspotCore.soundId, clamp(0.62 + state.lungPressure * 0.28, 0.55, 1));
     event.preventDefault();
     return;
@@ -3617,7 +3859,8 @@ function handlePointerDown(event) {
         startX: point.x,
         startY: point.y,
         startDivergence: state.eyeDivergence,
-        startClosure: state.eyeClosure,
+        closureKey: handle.id === "left-eye" ? "leftEyeClosure" : "rightEyeClosure",
+        startClosure: state[handle.id === "left-eye" ? "leftEyeClosure" : "rightEyeClosure"],
         horizontalScale: Math.max(24, handle.scale),
         verticalScale: Math.max(28, faceLayout(displayedPose).ry * 0.32),
       };
@@ -3660,6 +3903,10 @@ function handlePointerDown(event) {
     return;
   }
   if (nearestHotspot) {
+    if (beginHandDragFromSound(nearestHotspot.soundId, event, point)) {
+      event.preventDefault();
+      return;
+    }
     triggerSound(nearestHotspot.soundId, clamp(0.62 + state.lungPressure * 0.28, 0.55, 1));
     event.preventDefault();
   }
@@ -3771,7 +4018,14 @@ function handlePointerMove(event) {
       closureMinimum,
       closureMaximum,
     );
-    queueCanvasStateUpdates({ eyeDivergence: divergence, eyeClosure: closure });
+    const otherClosureKey = pointerDrag.closureKey === "leftEyeClosure"
+      ? "rightEyeClosure"
+      : "leftEyeClosure";
+    queueCanvasStateUpdates({
+      eyeDivergence: divergence,
+      [pointerDrag.closureKey]: closure,
+      eyeClosure: (closure + state[otherClosureKey]) * 0.5,
+    });
     canvas.style.cursor = "grabbing";
     event.preventDefault();
     return;
@@ -3827,7 +4081,7 @@ function endPointerDrag(event) {
   }
   if (drag.type === "eye-2d") {
     announce(
-      `Eyes: ${formatEyeDivergence(state.eyeDivergence)}, eyelids ${formatPercent(state.eyeClosure)}`,
+      `Eyes: ${formatEyeDivergence(state.eyeDivergence)}, left lid ${formatPercent(state.leftEyeClosure)}, right lid ${formatPercent(state.rightEyeClosure)}`,
     );
     return;
   }
@@ -3849,6 +4103,34 @@ function bindControls() {
   $("clearPatternButton").addEventListener("click", clearPattern);
   $("randomizeButton").addEventListener("click", randomizeFace);
   $("resetButton").addEventListener("click", resetAll);
+  $("resetEffectsButton")?.addEventListener("click", resetFaceEffects);
+  const workspace = document.querySelector(".hiccup-head-workspace");
+  const splitter = $("workspaceSplitter");
+  let splitterPointerId = null;
+  const resizeWorkspace = (clientY) => {
+    if (!workspace) return;
+    const bounds = workspace.getBoundingClientRect();
+    const stageHeight = clamp(clientY - bounds.top, 220, Math.max(220, bounds.height - 218));
+    workspace.style.setProperty("--hiccup-head-stage-height", `${stageHeight}px`);
+    workspace.style.setProperty("--hiccup-head-grid-height", `${Math.max(210, bounds.height - stageHeight - 8)}px`);
+    resizeCanvas();
+  };
+  splitter?.addEventListener("pointerdown", (event) => {
+    splitterPointerId = event.pointerId;
+    splitter.setPointerCapture?.(event.pointerId);
+    resizeWorkspace(event.clientY);
+  });
+  splitter?.addEventListener("pointermove", (event) => {
+    if (event.pointerId === splitterPointerId) resizeWorkspace(event.clientY);
+  });
+  splitter?.addEventListener("pointerup", (event) => {
+    if (event.pointerId === splitterPointerId) splitterPointerId = null;
+  });
+  splitter?.addEventListener("dblclick", () => {
+    workspace?.style.removeProperty("--hiccup-head-stage-height");
+    workspace?.style.removeProperty("--hiccup-head-grid-height");
+    resizeCanvas();
+  });
   for (const key of FACE_EFFECT_KEYS) {
     $(`${key}EffectButton`)?.addEventListener("click", () => toggleFaceEffect(key));
   }
@@ -3888,7 +4170,7 @@ function bindControls() {
   });
   $("mutateVoicesButton")?.addEventListener("click", () => {
     for (const slot of voiceSlots.slice(0, voiceCount)) {
-      slot.voice = mutateHiccupHeadVoice(slot.voice, Math.random, 0.58);
+      slot.voice = mutateHiccupHeadVoice(slot.voice, Math.random, 0.4);
     }
     buildVoiceRack();
     announce(`${voiceCount} voice characters mutated`);
@@ -3904,6 +4186,38 @@ function bindControls() {
   }
 
   $("sequenceGrid").addEventListener("click", handleSequenceGridClick);
+  $("sequenceGrid").addEventListener("pointerdown", (event) => {
+    const heading = event.target.closest?.(".hiccup-head-step-number");
+    if (!heading) return;
+    event.preventDefault();
+    const step = Number(heading.dataset.step);
+    stepRangeDrag = { start: step, end: step, moved: false };
+    heading.setPointerCapture?.(event.pointerId);
+  });
+  $("sequenceGrid").addEventListener("pointermove", (event) => {
+    if (!stepRangeDrag) return;
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    const heading = element?.closest?.(".hiccup-head-step-number");
+    if (!heading) return;
+    stepRangeDrag.end = Number(heading.dataset.step);
+    stepRangeDrag.moved ||= stepRangeDrag.end !== stepRangeDrag.start;
+    if (stepRangeDrag.moved) previewLoopRange(stepRangeDrag.start, stepRangeDrag.end);
+  });
+  $("sequenceGrid").addEventListener("pointerup", () => {
+    if (!stepRangeDrag) return;
+    const { start, end, moved } = stepRangeDrag;
+    stepRangeDrag = null;
+    clearLoopPreview();
+    if (!moved) queueSequenceStep(start);
+    else setLoopRange(start, end);
+  });
+  $("sequenceGrid").addEventListener("pointercancel", () => {
+    stepRangeDrag = null;
+    clearLoopPreview();
+  });
+  $("sequenceGrid").addEventListener("click", (event) => {
+    if (event.target.closest?.("#releaseSubloopButton")) releaseSubloop();
+  });
   $("sequenceGrid").addEventListener("keydown", handleGridKeydown);
   canvas.addEventListener("pointerdown", handlePointerDown);
   canvas.addEventListener("pointermove", handlePointerMove);
