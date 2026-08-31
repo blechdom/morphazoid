@@ -36,6 +36,12 @@ import {
   SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES,
 } from "./shader-synth-playground-geometry.js";
 import {
+  SHADER_SYNTH_PLAYGROUND_STATEFUL_CASES,
+  SHADER_SYNTH_PLAYGROUND_STATEFUL_MODULES,
+  SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER,
+  ShaderSynthPlaygroundStateEngine,
+} from "./shader-synth-playground-stateful.js";
+import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
   sanitizeWebGpuSynthOrganRanks,
@@ -622,6 +628,7 @@ export const SHADER_PLAYGROUND_MODULES = freeze([
   ...SHADER_SYNTH_PLAYGROUND_FX_MODULES.map(moduleSpec),
   ...SHADER_SYNTH_PLAYGROUND_ATLAS_MODULES.map(moduleSpec),
   ...SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_MODULES.map(moduleSpec),
+  ...SHADER_SYNTH_PLAYGROUND_STATEFUL_MODULES.map(moduleSpec),
   moduleSpec({
     id: "output", kind: 16, name: "Output", category: "output", color: "#91ff63",
     description: "Collects the graph's final stereo signal, applies output gain, and limits extreme peaks before readback.",
@@ -1289,12 +1296,19 @@ function buildModuleAudition(spec, sequence) {
     const pitch = spec.outputs.find(({ id }) => id === "pitch")?.id ?? spec.outputs[0]?.id;
     const gate = spec.outputs.find(({ id }) => id === "gate")?.id ?? spec.outputs[1]?.id;
     route = `${spec.name} → Oscillator + VCA → Pan → Output`;
+    const rootControl = spec.id === "cellular-automaton-score"
+      ? [node("root", "constant", 20, 405, { amount: 0 })]
+      : [];
     patch = comboGraph(comboId, name, [
       node("focus", spec.id, 20, 245),
+      ...rootControl,
       node("source", "oscillator", 260, 70, { frequency: 82.41, waveform: 2, level: 0.48 }),
       node("amp", "vca", 500, 115, { base: 0, depth: 1, drive: 1.2 }),
       node("pan", "pan", 735, 115, { pan: 0, depth: 0 }), comboOutput(0.62),
     ], [
+      ...(spec.id === "cellular-automaton-score"
+        ? [edge("root-focus", "root", "out", "focus", "root")]
+        : []),
       edge("pitch-source", "focus", pitch, "source", "pitch"),
       edge("source-amp", "source", "out", "amp", "signal"),
       edge("gate-amp", "focus", gate, "amp", "cv"),
@@ -1894,7 +1908,7 @@ struct RenderInfo {
   rampActive: u32,
   performancePitch: f32,
   organRampActive: u32,
-  padding2: u32,
+  stateActive: u32,
 }
 
 struct GraphNode {
@@ -1909,6 +1923,11 @@ struct GraphNode {
 @group(0) @binding(1) var<storage, read> graph_nodes: array<GraphNode>;
 @group(0) @binding(2) var<storage, read_write> sound_chunk: array<vec2<f32>>;
 @group(0) @binding(3) var<storage, read> organ_rank: array<vec4<f32>>;
+// Conditional node×sample scratch is bound only while a stateful node is
+// active. Otherwise two distinct tiny placeholders satisfy the layout, and
+// the stateActive branch prevents either array from being accessed.
+@group(0) @binding(4) var<storage, read_write> graph_signals: array<vec2<f32>>;
+@group(0) @binding(5) var<storage, read> state_output: array<vec2<f32>>;
 
 fn hashU32(value: u32) -> f32 {
   var word = value;
@@ -2106,7 +2125,8 @@ fn evaluateNode(
   p0: vec4<f32>,
   p1: vec4<f32>,
   sampleIndex: u32,
-  organRankOffset: u32
+  organRankOffset: u32,
+  stateValue: vec2<f32>
 ) -> vec2<f32> {
   var result = vec2<f32>(0.0);
   switch kind {
@@ -2191,6 +2211,7 @@ fn evaluateNode(
     ${SHADER_SYNTH_PLAYGROUND_FOUND_CASES}
     ${SHADER_SYNTH_PLAYGROUND_ATLAS_CASES}
     ${SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_CASES}
+    ${SHADER_SYNTH_PLAYGROUND_STATEFUL_CASES}
     case 12u: {
       let driven = (inputA + vec2<f32>(p0.w)) * max(p0.x, 1.0);
       let shaped = mix(softClip(driven), sin(driven * PI), clamp(p0.y, 0.0, 1.0));
@@ -2526,6 +2547,10 @@ fn render(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (nodeIndex >= render_info.nodeCount) { break; }
     let graphNode = graph_nodes[nodeIndex];
     let kind = u32(round(graphNode.header.x));
+    var stateValue = vec2<f32>(0.0);
+    if (render_info.stateActive != 0u) {
+      stateValue = state_output[nodeIndex * render_info.sampleCount + sample];
+    }
     let previousResult = evaluateNode(
       kind,
       readInput(&previousValues, graphNode.header.y),
@@ -2534,7 +2559,8 @@ fn render(@builtin(global_invocation_id) global_id: vec3<u32>) {
       graphNode.previous0,
       graphNode.previous1,
       sampleIndex,
-      previousOrganRankOffset
+      previousOrganRankOffset,
+      stateValue
     );
     var targetResult = previousResult;
     if (transitionActive) {
@@ -2546,11 +2572,15 @@ fn render(@builtin(global_invocation_id) global_id: vec3<u32>) {
         graphNode.target0,
         graphNode.target1,
         sampleIndex,
-        9u
+        9u,
+        stateValue
       );
     }
     previousValues[nodeIndex] = previousResult;
     targetValues[nodeIndex] = targetResult;
+    if (render_info.stateActive != 0u) {
+      graph_signals[nodeIndex * render_info.sampleCount + sample] = mix(previousResult, targetResult, ramp);
+    }
   }
   let outputIndex = min(render_info.outputIndex, MAX_GRAPH_NODES - 1u);
   sound_chunk[sample] = mix(previousValues[outputIndex], targetValues[outputIndex], ramp);
@@ -2624,6 +2654,10 @@ export class ShaderSynthPlaygroundAudio {
     this.historyCapturePipeline = null;
     this.historyCaptureBindGroup = null;
     this.fxPipeline = null;
+    this.statefulPipeline = null;
+    this.statefulEngine = null;
+    this.stateGraphFallbackBuffer = null;
+    this.stateOutputFallbackBuffer = null;
     this.fxBindGroups = [];
     this.fxStageInfoBuffer = null;
     this.fxStageInfoStride = 0;
@@ -2635,6 +2669,7 @@ export class ShaderSynthPlaygroundAudio {
     this.fxOutputBuffer = null;
     this.fxHistoryBuffer = null;
     this.fxHistoryFrames = 0;
+    this.fxHistoryAllocated = false;
     this.mapBuffer = null;
     this.chunkSamples = 0;
     this.chunkBufferSize = 0;
@@ -2710,6 +2745,9 @@ export class ShaderSynthPlaygroundAudio {
     this.pendingOrganRankRamp = false;
     this.writeOrganRankTransition();
     this.previousParams = new Map();
+    // initGpu created fresh graph/state buffers; force this patch to upload
+    // even when the same graph was used before a stop/start cycle.
+    this.encodedPatch = null;
     this.updatePatch(this.patch);
     this.renderOffset = 0;
     this.renderSampleOffset = 0;
@@ -2746,18 +2784,15 @@ export class ShaderSynthPlaygroundAudio {
     this.organRankBuffer = this.device.createBuffer({ size: ORGAN_RANK_BUFFER_SIZE, usage: usage.STORAGE | usage.COPY_DST });
     this.chunkBuffer = this.device.createBuffer({ size: this.chunkBufferSize, usage: usage.STORAGE | usage.COPY_SRC });
     this.fxOutputBuffer = this.device.createBuffer({ size: this.chunkBufferSize, usage: usage.STORAGE | usage.COPY_SRC });
-    this.fxHistoryFrames = shaderSynthPlaygroundFxHistoryFrames(this.sampleRate, this.chunkSamples);
-    const fxHistoryByteSize = shaderSynthPlaygroundFxHistoryByteSize(this.sampleRate, this.chunkSamples);
-    const fxHistoryLimits = [
-      Number(this.device.limits?.maxStorageBufferBindingSize),
-      Number(this.device.limits?.maxBufferSize),
-    ].filter((value) => Number.isFinite(value) && value > 0);
-    const fxHistoryLimit = fxHistoryLimits.length ? Math.min(...fxHistoryLimits) : Number.POSITIVE_INFINITY;
-    if (fxHistoryByteSize > fxHistoryLimit) {
-      throw new Error(`GPU effect history needs ${fxHistoryByteSize} bytes, but this device allows ${fxHistoryLimit}.`);
-    }
+    // Distinct tiny placeholders satisfy the inactive graph shader layout
+    // without aliasing writable storage bindings. Large node×sample state
+    // scratch remains conditional inside ShaderSynthPlaygroundStateEngine.
+    this.stateGraphFallbackBuffer = this.device.createBuffer({ size: 16, usage: usage.STORAGE });
+    this.stateOutputFallbackBuffer = this.device.createBuffer({ size: 16, usage: usage.STORAGE });
+    this.fxHistoryFrames = 0;
+    this.fxHistoryAllocated = false;
     this.fxHistoryBuffer = this.device.createBuffer({
-      size: fxHistoryByteSize,
+      size: 16,
       usage: usage.STORAGE,
     });
     const stageAlignment = Math.max(16, Number(this.device.limits?.minUniformBufferOffsetAlignment) || 256);
@@ -2782,27 +2817,48 @@ export class ShaderSynthPlaygroundAudio {
       layout: "auto",
       compute: { module: fxModule, entryPoint: "processPostGraphFx", constants: { SAMPLE_RATE: this.sampleRate, WORKGROUP_SIZE: this.workgroupSize } },
     };
+    const statefulModule = this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER });
+    const statefulPipelineDescriptor = {
+      layout: "auto",
+      compute: { module: statefulModule, entryPoint: "renderStateNode", constants: { SAMPLE_RATE: this.sampleRate } },
+    };
     this.reportStatus("compiling");
     if (typeof this.device.createComputePipelineAsync === "function") {
-      [this.pipeline, this.historyCapturePipeline, this.fxPipeline] = await Promise.all([
+      [
+        this.pipeline,
+        this.historyCapturePipeline,
+        this.fxPipeline,
+        this.statefulPipeline,
+      ] = await Promise.all([
         this.device.createComputePipelineAsync(pipelineDescriptor),
         this.device.createComputePipelineAsync(historyCapturePipelineDescriptor),
         this.device.createComputePipelineAsync(fxPipelineDescriptor),
+        this.device.createComputePipelineAsync(statefulPipelineDescriptor),
       ]);
     } else {
       this.pipeline = this.device.createComputePipeline(pipelineDescriptor);
       this.historyCapturePipeline = this.device.createComputePipeline(historyCapturePipelineDescriptor);
       this.fxPipeline = this.device.createComputePipeline(fxPipelineDescriptor);
+      this.statefulPipeline = this.device.createComputePipeline(statefulPipelineDescriptor);
     }
-    this.bindGroup = this.device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: this.renderInfoBuffer } },
-        { binding: 1, resource: { buffer: this.nodeBuffer } },
-        { binding: 2, resource: { buffer: this.chunkBuffer } },
-        { binding: 3, resource: { buffer: this.organRankBuffer } },
-      ],
-    });
+    this.statefulEngine = new ShaderSynthPlaygroundStateEngine(this.device, {
+      usage,
+      sampleRate: this.sampleRate,
+      chunkSamples: this.chunkSamples,
+      maxNodes: MAX_NODES,
+      renderInfoBuffer: this.renderInfoBuffer,
+      nodeBuffer: this.nodeBuffer,
+    }).setPipeline(this.statefulPipeline);
+    this.rebuildGraphBindGroup();
+    this.rebuildFxBindGroups();
+  }
+
+  rebuildFxBindGroups() {
+    if (
+      !this.device || !this.historyCapturePipeline || !this.fxPipeline
+      || !this.renderInfoBuffer || !this.nodeBuffer || !this.chunkBuffer || !this.fxOutputBuffer
+      || !this.fxHistoryBuffer || !this.fxStageInfoBuffer
+    ) return;
     this.historyCaptureBindGroup = this.device.createBindGroup({
       layout: this.historyCapturePipeline.getBindGroupLayout(0),
       entries: [
@@ -2834,6 +2890,57 @@ export class ShaderSynthPlaygroundAudio {
         };
       },
     );
+  }
+
+  syncFxHistoryResources(activeFxCount) {
+    if (!this.device || !this.fxPipeline || !this.fxHistoryBuffer) return false;
+    const needed = Number(activeFxCount) > 0;
+    if (needed === this.fxHistoryAllocated && this.fxHistoryBuffer) return false;
+    const { usage } = gpuConstants(this.runtime);
+    let replacement;
+    if (needed) {
+      const byteSize = shaderSynthPlaygroundFxHistoryByteSize(this.sampleRate, this.chunkSamples);
+      const limits = [
+        Number(this.device.limits?.maxStorageBufferBindingSize),
+        Number(this.device.limits?.maxBufferSize),
+      ].filter((value) => Number.isFinite(value) && value > 0);
+      const limit = limits.length ? Math.min(...limits) : Number.POSITIVE_INFINITY;
+      if (byteSize > limit) {
+        throw new Error(`GPU effect history needs ${byteSize} bytes, but this device allows ${limit}.`);
+      }
+      replacement = this.device.createBuffer({ size: byteSize, usage: usage.STORAGE });
+      this.fxHistoryFrames = shaderSynthPlaygroundFxHistoryFrames(this.sampleRate, this.chunkSamples);
+    } else {
+      replacement = this.device.createBuffer({ size: 16, usage: usage.STORAGE });
+      this.fxHistoryFrames = 0;
+    }
+    try { this.fxHistoryBuffer?.destroy?.(); } catch { /* optional cleanup */ }
+    this.fxHistoryBuffer = replacement;
+    this.fxHistoryAllocated = needed;
+    this.rebuildFxBindGroups();
+    return true;
+  }
+
+  rebuildGraphBindGroup() {
+    if (!this.device || !this.pipeline || !this.chunkBuffer) return;
+    const stateBindings = this.statefulEngine?.graphBindings(
+      this.stateGraphFallbackBuffer,
+      this.stateOutputFallbackBuffer,
+    ) ?? {
+      graphSignals: this.stateGraphFallbackBuffer,
+      stateOutput: this.stateOutputFallbackBuffer,
+    };
+    this.bindGroup = this.device.createBindGroup({
+      layout: this.pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.renderInfoBuffer } },
+        { binding: 1, resource: { buffer: this.nodeBuffer } },
+        { binding: 2, resource: { buffer: this.chunkBuffer } },
+        { binding: 3, resource: { buffer: this.organRankBuffer } },
+        { binding: 4, resource: { buffer: stateBindings.graphSignals } },
+        { binding: 5, resource: { buffer: stateBindings.stateOutput } },
+      ],
+    });
   }
 
   updateOrganRanks(ranks = this.organRanks) {
@@ -2875,9 +2982,12 @@ export class ShaderSynthPlaygroundAudio {
       return this.patch;
     }
     this.encodedPatch = encoded;
+    const statefulBindingsChanged = this.statefulEngine?.sync(encoded) ?? false;
+    if (statefulBindingsChanged) this.rebuildGraphBindGroup();
     const orderIndex = new Map(encoded.order.map((id, index) => [id, index]));
     const effectNodes = shaderSynthPlaygroundFxNodes(encoded);
     this.fxStageCount = effectNodes.length;
+    this.syncFxHistoryResources(effectNodes.length);
     if (this.device && this.fxStageInfoBuffer && this.fxStageInfoStride > 0) {
       const stageData = new ArrayBuffer(
         this.fxStageInfoStride * SHADER_SYNTH_PLAYGROUND_FX_LIMITS.maxChainEffects,
@@ -3151,6 +3261,7 @@ export class ShaderSynthPlaygroundAudio {
       !this.device || !this.pipeline || !this.bindGroup
       || !this.historyCapturePipeline || !this.historyCaptureBindGroup
       || !this.fxPipeline || this.fxBindGroups.length === 0
+      || !this.statefulPipeline || !this.statefulEngine
       || !this.renderInfoBuffer || !this.chunkBuffer || !this.organRankBuffer || !this.fxOutputBuffer || !this.fxHistoryBuffer || !this.fxStageInfoBuffer
       || !this.mapBuffer || !this.encodedPatch
     ) {
@@ -3172,20 +3283,35 @@ export class ShaderSynthPlaygroundAudio {
     const renderedOrganRanks = this.organRanks;
     const organRankRampActive = this.pendingOrganRankRamp;
     view.setUint32(24, organRankRampActive ? 1 : 0, true);
-    view.setUint32(28, 0, true);
+    const activeStateful = Boolean(this.statefulEngine?.active);
+    view.setUint32(28, activeStateful ? 1 : 0, true);
     this.device.queue.writeBuffer(this.renderInfoBuffer, 0, info);
     const revision = this.patchRevision;
     const encoder = this.device.createCommandEncoder();
-    const pass = encoder.beginComputePass();
-    pass.setPipeline(this.pipeline);
-    pass.setBindGroup(0, this.bindGroup);
-    pass.dispatchWorkgroups(Math.ceil(this.chunkSamples / this.workgroupSize));
-    pass.end();
-    const historyPass = encoder.beginComputePass();
-    historyPass.setPipeline(this.historyCapturePipeline);
-    historyPass.setBindGroup(0, this.historyCaptureBindGroup);
-    historyPass.dispatchWorkgroups(Math.ceil(this.chunkSamples / this.workgroupSize));
-    historyPass.end();
+    const encodeGraphPass = () => {
+      const graphPass = encoder.beginComputePass();
+      graphPass.setPipeline(this.pipeline);
+      graphPass.setBindGroup(0, this.bindGroup);
+      graphPass.dispatchWorkgroups(Math.ceil(this.chunkSamples / this.workgroupSize));
+      graphPass.end();
+    };
+    // Capture every node's current GPU signal. Ordered state-node passes then
+    // consume their real connected inputs; a graph rerun after each stage
+    // exposes its stateValue through any intervening stateless modules.
+    encodeGraphPass();
+    if (activeStateful) {
+      for (const statefulResource of this.statefulEngine.orderedResources) {
+        this.statefulEngine.encodeNodePass(encoder, statefulResource);
+        encodeGraphPass();
+      }
+    }
+    if (this.fxStageCount > 0) {
+      const historyPass = encoder.beginComputePass();
+      historyPass.setPipeline(this.historyCapturePipeline);
+      historyPass.setBindGroup(0, this.historyCaptureBindGroup);
+      historyPass.dispatchWorkgroups(Math.ceil(this.chunkSamples / this.workgroupSize));
+      historyPass.end();
+    }
     const fxPassCount = Math.max(1, this.fxStageCount);
     for (let stageIndex = 0; stageIndex < fxPassCount; stageIndex += 1) {
       const fxPass = encoder.beginComputePass();
@@ -3244,6 +3370,8 @@ export class ShaderSynthPlaygroundAudio {
     this.input = null;
     this.master = null;
     if (context && context.state !== "closed" && typeof context.close === "function") await context.close();
+    this.statefulEngine?.destroy();
+    this.statefulEngine = null;
     for (const buffer of [
       this.renderInfoBuffer,
       this.nodeBuffer,
@@ -3252,6 +3380,8 @@ export class ShaderSynthPlaygroundAudio {
       this.fxOutputBuffer,
       this.fxHistoryBuffer,
       this.fxStageInfoBuffer,
+      this.stateGraphFallbackBuffer,
+      this.stateOutputFallbackBuffer,
       this.mapBuffer,
     ]) {
       try { buffer?.destroy?.(); } catch { /* optional cleanup */ }
@@ -3263,6 +3393,7 @@ export class ShaderSynthPlaygroundAudio {
     this.historyCapturePipeline = null;
     this.historyCaptureBindGroup = null;
     this.fxPipeline = null;
+    this.statefulPipeline = null;
     this.fxBindGroups = [];
     this.fxStageInfoBuffer = null;
     this.fxStageInfoStride = 0;
@@ -3274,6 +3405,9 @@ export class ShaderSynthPlaygroundAudio {
     this.fxOutputBuffer = null;
     this.fxHistoryBuffer = null;
     this.fxHistoryFrames = 0;
+    this.fxHistoryAllocated = false;
+    this.stateGraphFallbackBuffer = null;
+    this.stateOutputFallbackBuffer = null;
     this.mapBuffer = null;
   }
 }
