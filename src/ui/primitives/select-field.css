@@ -10,6 +10,13 @@
   gap: var(--mz-space-3);
 }
 
+.select-shell > select {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, color-mix(in oklab, var(--mz-active-accent) 55%, transparent));
+
+  accent-color: var(--mz-active-accent);
+}
+
 .mz-select-field__shell {
   position: relative;
   display: block;
@@ -37,6 +44,7 @@
   cursor: pointer;
   color: var(--mz-color-ink);
   background: var(--mz-color-bg-deep);
+  accent-color: var(--mz-active-accent);
   appearance: none;
   font-family: var(--mz-font-mono);
   font-size: var(--mz-font-size-md);
@@ -52,4 +60,65 @@
 
 .mz-select-field.is-disabled select {
   cursor: not-allowed;
+}
+
+/*
+ * Keep the native select semantics and progressively style its picker where
+ * the browser exposes the customizable-select surface. Other browsers retain
+ * their platform picker instead of receiving a partial ARIA reimplementation.
+ */
+@supports (appearance: base-select) {
+  .mz-select-field__select,
+  .mz-select-field__select::picker(select),
+  .select-shell > select,
+  .select-shell > select::picker(select) {
+    appearance: base-select;
+  }
+
+  .mz-select-field__select::picker-icon,
+  .select-shell > select::picker-icon {
+    display: none;
+  }
+
+  .mz-select-field__select::picker(select),
+  .select-shell > select::picker(select) {
+    max-height: min(320px, 60vh);
+    margin-block: 4px;
+    overflow-y: auto;
+    border: 1px solid var(--mz-active-accent);
+    border-radius: 0;
+    color: var(--mz-color-ink);
+    background: var(--mz-color-bg-deep);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+  }
+
+  .mz-select-field__select option,
+  .select-shell > select option {
+    min-height: 34px;
+    padding: 8px 11px;
+    color: var(--mz-color-ink);
+    background: var(--mz-color-bg-deep);
+  }
+
+  .mz-select-field__select option:hover:not(:disabled),
+  .mz-select-field__select option:focus:not(:disabled),
+  .mz-select-field__select option:checked,
+  .select-shell > select option:hover:not(:disabled),
+  .select-shell > select option:focus:not(:disabled),
+  .select-shell > select option:checked {
+    color: var(--mz-color-bg-deep);
+    background: var(--mz-active-accent);
+  }
+
+  .mz-select-field__select option:disabled,
+  .select-shell > select option:disabled {
+    cursor: not-allowed;
+    color: var(--mz-color-muted);
+    background: var(--mz-color-bg-deep);
+  }
+
+  .mz-select-field__select option::checkmark,
+  .select-shell > select option::checkmark {
+    display: none;
+  }
 }

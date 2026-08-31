@@ -98,6 +98,46 @@ test("legacy filled primary actions keep dark text on hover", async ({ page }) =
   }
 });
 
+test("customizable select highlight follows the component accent", async ({ page }) => {
+  await loadProductionPage(page);
+  const supportsCustomPicker = await page.evaluate(() => CSS.supports("appearance", "base-select"));
+  test.skip(!supportsCustomPicker, "Browser retains its native platform picker");
+
+  await page.evaluate(() => {
+    const field = document.createElement("label");
+    field.className = "mz-select-field";
+    const select = document.createElement("select");
+    select.id = "sharedSelectHighlight";
+    select.className = "mz-select-field__select";
+    select.innerHTML = `
+      <option value="sine" selected>Sine oscillators</option>
+      <option value="fm">FM synthesis</option>
+    `;
+    field.append(select);
+    document.body.append(field);
+  });
+
+  const select = page.locator("#sharedSelectHighlight");
+  await select.click();
+  const selectedColors = await select.locator("option:checked").evaluate((option) => {
+    const style = getComputedStyle(option);
+    const probe = document.createElement("span");
+    probe.style.color = "var(--mz-active-accent)";
+    option.closest(".mz-select-field").append(probe);
+    const accent = getComputedStyle(probe).color;
+    probe.remove();
+    return {
+      accent,
+      background: style.backgroundColor,
+      text: style.color,
+    };
+  });
+
+  expect(selectedColors.background).toBe(selectedColors.accent);
+  expect(selectedColors.text).toBe("rgb(5, 6, 8)");
+  await select.press("Escape");
+});
+
 test.describe("coarse pointer", () => {
   test.use({
     hasTouch: true,

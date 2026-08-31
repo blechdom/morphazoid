@@ -5,12 +5,13 @@ import test from "node:test";
 const readProjectFile = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("the production stylesheet consumes the shared design tokens and controls", async () => {
-  const [style, entrypoint, foundations, buttons, choices, fmDrums] = await Promise.all([
+  const [style, entrypoint, foundations, buttons, choices, selects, fmDrums] = await Promise.all([
     readProjectFile("style.css"),
     readProjectFile("src/ui/index.css"),
     readProjectFile("src/ui/foundations/foundations.css"),
     readProjectFile("src/ui/primitives/button.css"),
     readProjectFile("src/ui/primitives/choice-switch.css"),
+    readProjectFile("src/ui/primitives/select-field.css"),
     readProjectFile("fm-drums.css"),
   ]);
 
@@ -49,6 +50,12 @@ test("the production stylesheet consumes the shared design tokens and controls",
   assert.match(buttons, /@media \(pointer: coarse\)[\s\S]*--audio-control-width: 48px;/);
   assert.match(choices, /\.choice-switch\.compact button,[\s\S]*?font-size: var\(--mz-font-size-xs\);/);
   assert.doesNotMatch(choices, /\.choice-switch\.compact[^{]*\{[^}]*min-height:/s);
+  assert.match(selects, /@supports \(appearance: base-select\)/);
+  assert.match(
+    selects,
+    /\.mz-select-field__select option:checked,[^{]*\.select-shell > select option:checked\s*\{[^}]*color: var\(--mz-color-bg-deep\);[^}]*background: var\(--mz-active-accent\);/s,
+    "customizable select options must use the component accent for their selected highlight",
+  );
 });
 
 test("the physics instrument family renders controls with shared factories", async () => {
