@@ -50,6 +50,7 @@ const {
   MOIRE_DRONE_FFT_SIZE,
   MOIRE_DRONE_LIMITS,
   MOIRE_DRONE_NOISE_COLOR_CHOICES,
+  MOIRE_DRONE_NOISE_TYPES,
   MOIRE_DRONE_PRESETS,
   MOIRE_DRONE_PROCESSOR_NAME,
   SPECTRAL_SCULPT_MODES,
@@ -64,6 +65,7 @@ const {
   combToothWarpOffset,
   collideWaveFields,
   createSeededNoise,
+  fabricHeightForSections,
   fabricImpulseWeight,
   fabricGesturePull,
   latticeCoordinate,
@@ -176,7 +178,7 @@ function namedFunctionSource(source, name) {
   return source.slice(start, next < 0 ? source.length : start + match[0].length + next);
 }
 
-test("Moiré Drone registers a zero-input self-generating worklet", () => {
+test("Fabric Filter registers a zero-input self-generating worklet", () => {
   assert.equal(registeredName, MOIRE_DRONE_PROCESSOR_NAME);
   assert.equal(typeof ProcessorConstructor, "function");
   const processor = new ProcessorConstructor({
@@ -278,6 +280,7 @@ test("spectral sculpt modes and gesture dynamics sanitize to a stable public con
   assert.ok(Object.isFrozen(SPECTRAL_SCULPT_MODES));
   assert.deepEqual(SPECTRAL_SCULPT_MODES, [
     "notches", "ridges", "lowpass", "highpass", "bandpass", "bandstop",
+    "peak", "tilt",
   ]);
 
   const invalid = sanitizeMoireDroneParams({
@@ -330,9 +333,65 @@ test("noise-color choices are canonical, immutable, and represented by presets",
   assert.ok([...presetColors].some((value) => value >= 0.75), "presets must reach blue noise");
 });
 
+test("noise engines expose deterministic colored, impulsive, fractal, and chaotic sources", () => {
+  assert.ok(Object.isFrozen(MOIRE_DRONE_NOISE_TYPES));
+  assert.deepEqual(MOIRE_DRONE_NOISE_TYPES, [
+    "colored", "violet", "crackle", "samplehold", "fractal", "chaotic",
+  ]);
+
+  const low = sanitizeMoireDroneParams({
+    noiseType: "not-a-noise",
+    noiseChaos: -99,
+    noiseFractalDepth: -99,
+  });
+  assert.equal(low.noiseType, MOIRE_DRONE_DEFAULTS.noiseType);
+  assert.equal(low.noiseChaos, 0);
+  assert.equal(low.noiseFractalDepth, 0);
+
+  const high = sanitizeMoireDroneParams({
+    noiseType: "chaotic",
+    noiseChaos: 99,
+    noiseFractalDepth: 99,
+  });
+  assert.equal(high.noiseType, "chaotic");
+  assert.equal(high.noiseChaos, 1);
+  assert.equal(high.noiseFractalDepth, 1);
+
+  const signatures = new Set();
+  for (const noiseType of MOIRE_DRONE_NOISE_TYPES) {
+    const parameters = {
+      ...MOIRE_DRONE_DEFAULTS,
+      noiseType,
+      noiseChaos: 0.83,
+      noiseFractalDepth: 0.78,
+      filteredMix: 0.35,
+      seed: 0x1badb002,
+    };
+    const first = new MoireDroneKernel({ sampleRate: SAMPLE_RATE, parameters });
+    const second = new MoireDroneKernel({ sampleRate: SAMPLE_RATE, parameters });
+    first.setActive(true);
+    second.setActive(true);
+    const firstRender = renderKernel(first, BLOCK_SIZE * 96);
+    const secondRender = renderKernel(second, BLOCK_SIZE * 96, 73);
+    assertFiniteBounded([firstRender.left, firstRender.right]);
+    assert.deepEqual(firstRender.left, secondRender.left, `${noiseType} must be seeded`);
+    assert.deepEqual(firstRender.right, secondRender.right, `${noiseType} must be block-stable`);
+    assert.ok(rms(firstRender.left, BLOCK_SIZE * 12) > 0.001, `${noiseType} must be audible`);
+    signatures.add(Array.from(
+      firstRender.left.slice(BLOCK_SIZE * 40, BLOCK_SIZE * 41),
+      (sample) => sample.toFixed(6),
+    ).join(","));
+  }
+  assert.equal(
+    signatures.size,
+    MOIRE_DRONE_NOISE_TYPES.length,
+    "the named noise engines must not collapse into cosmetic aliases",
+  );
+});
+
 test("the names-only preset library is unique, frozen, safe, and audible", () => {
   assert.ok(
-    MOIRE_DRONE_PRESETS.length >= 28,
+    MOIRE_DRONE_PRESETS.length >= 52,
     "the expanded library must expose a substantial range of controllable sounds",
   );
   assert.equal(new Set(MOIRE_DRONE_PRESETS.map(({ id }) => id)).size, MOIRE_DRONE_PRESETS.length);
@@ -376,6 +435,20 @@ test("the names-only preset library is unique, frozen, safe, and audible", () =>
     new Set(sanitizedPresets.map(({ propagationMode }) => propagationMode)),
     new Set(SPECTRAL_PROPAGATION_MODES),
   );
+  const fabricSignatures = new Set(sanitizedPresets.map((parameters) => (
+    `${parameters.fabricSections}|${parameters.fabricPatchwork.toFixed(2)}`
+  )));
+  assert.ok(fabricSignatures.size >= 10, "presets must exercise genuinely different fabrics");
+  assert.ok(sanitizedPresets.some(({ fabricSections }) => fabricSections === 3));
+  assert.ok(sanitizedPresets.some(({ fabricSections }) => fabricSections === 16));
+  assert.ok(sanitizedPresets.some(({ fabricPatchwork }) => fabricPatchwork < 0.1));
+  assert.ok(sanitizedPresets.some(({ fabricPatchwork }) => fabricPatchwork > 0.8));
+  assert.ok(
+    sanitizedPresets
+      .filter(({ propagationMode }) => propagationMode === "ocean")
+      .every(({ autoPluckRate }) => autoPluckRate === 0),
+    "named shoreline presets must launch from the chosen shore rather than wrapping randomly",
+  );
   assert.deepEqual(
     new Set(sanitizedPresets.map(({ spectralSculptMode }) => spectralSculptMode)),
     new Set(SPECTRAL_SCULPT_MODES),
@@ -386,6 +459,20 @@ test("the names-only preset library is unique, frozen, safe, and audible", () =>
       <= Math.ceil(sanitizedPresets.length / 2),
     "periodic gaps must be one color in the library, not its dominant identity",
   );
+  assert.deepEqual(
+    new Set(sanitizedPresets.map(({ noiseType }) => noiseType)),
+    new Set(MOIRE_DRONE_NOISE_TYPES),
+    "the preset library must demonstrate every noise generator",
+  );
+  for (const parameter of [
+    "propagationSizeSpread", "propagationSpeedSpread", "propagationInterference",
+    "grabRippleRate", "fabricGravity",
+  ]) {
+    assert.ok(
+      sanitizedPresets.some((settings) => settings[parameter] > 0),
+      `the preset library must demonstrate ${parameter}`,
+    );
+  }
 });
 
 test("seeded noise resets exactly and remains independent across seeds", () => {
@@ -462,6 +549,97 @@ test("the spatial lattice covers both axes and yields stable non-quantized filte
       assert.ok(coefficients.a1 > 0 && coefficients.a1 <= 1);
     }
   }
+});
+
+test("default collision and propagation gain span materially audible filter ranges", () => {
+  const collisionBase = {
+    ...MOIRE_DRONE_DEFAULTS,
+    phaseOffset: 0,
+    moireDetune: 0,
+    fieldADepth: 0,
+    fieldBDepth: 0,
+    combDepth: 0,
+  };
+  const uncoupled = moireFilterTarget({
+    index: 0,
+    bank: 0,
+    phaseA: 0.2,
+    phaseB: 0.2,
+    fieldPhaseA: 0.2,
+    fieldPhaseB: 0.2,
+    parameters: { ...collisionBase, collisionAmount: 0 },
+  });
+  const defaultCollision = moireFilterTarget({
+    index: 0,
+    bank: 0,
+    phaseA: 0.2,
+    phaseB: 0.2,
+    fieldPhaseA: 0.2,
+    fieldPhaseB: 0.2,
+    parameters: collisionBase,
+  });
+  assert.equal(defaultCollision.proximity, 1);
+  assert.ok(defaultCollision.spatialCollision > 0.6);
+  assert.ok(
+    defaultCollision.gain > uncoupled.gain * 1.1,
+    "the default collision polarity must clear ten percent gain at a real crossing",
+  );
+  assert.ok(
+    defaultCollision.q > uncoupled.q * 1.08,
+    "the default resonance motion must clear eight percent Q at a real crossing",
+  );
+  const distantOptions = {
+    index: 0,
+    bank: 0,
+    phaseA: 0.1,
+    phaseB: 0.5,
+    fieldPhaseA: 0.2,
+    fieldPhaseB: 0.2,
+  };
+  const distantUncoupled = moireFilterTarget({
+    ...distantOptions,
+    parameters: { ...collisionBase, collisionAmount: 0 },
+  });
+  const distantCollision = moireFilterTarget({
+    ...distantOptions,
+    parameters: collisionBase,
+  });
+  assert.ok(distantCollision.proximity < 1e-20, "the probe bands must be spectrally remote");
+  assert.ok(
+    distantCollision.gain > distantUncoupled.gain * 1.02,
+    "the bounded spatial near-field must keep remote wave collisions audible",
+  );
+  assert.ok(distantCollision.q > distantUncoupled.q * 1.02);
+
+  const propagationBase = {
+    ...MOIRE_DRONE_DEFAULTS,
+    phaseOffset: 0,
+    moireDetune: 0,
+    fieldADepth: 0,
+    fieldBDepth: 0,
+    fabricDepth: 0,
+    propagationDepth: 1,
+    pluckCut: 1,
+    combDepth: 0,
+  };
+  const propagationAt = (propagationGain) => moireFilterTarget({
+    index: 5,
+    bank: 0,
+    phaseA: 0.1,
+    phaseB: 0.1,
+    propagationA: 0.7,
+    propagationB: -0.3,
+    parameters: { ...propagationBase, propagationGain },
+  });
+  const silentRipple = propagationAt(0);
+  const defaultRipple = propagationAt(MOIRE_DRONE_DEFAULTS.propagationGain);
+  const maximumRipple = propagationAt(1);
+  assert.equal(silentRipple.propagation, 0);
+  assert.equal(silentRipple.propagationCut, 1);
+  assert.ok(Math.abs(defaultRipple.propagation - 0.7) < 1e-12);
+  assert.ok(maximumRipple.propagation > defaultRipple.propagation * 1.3);
+  assert.ok(defaultRipple.propagationCut < 0.25);
+  assert.ok(maximumRipple.propagationCut < defaultRipple.propagationCut * 0.1);
 });
 
 test("Shepard edges mute the wrap while opposite glides move independently", () => {
@@ -550,6 +728,20 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
   assert.match(
     html,
+    /<div class="moire-field-legend"[^>]*\shidden(?:\s|>)/,
+    "the verbose legend must stay off the top of the canvas",
+  );
+  assert.match(
+    html,
+    /<div class="stage-meta"[^>]*\shidden(?:\s|>)/,
+    "the diagnostic readout must stay off the top of the canvas",
+  );
+  assert.match(
+    cssSource,
+    /\.moire-field-legend\[hidden\][\s\S]*?\.stage-meta\[hidden\][\s\S]*?display:\s*none/,
+  );
+  assert.match(
+    html,
     /<canvas[\s\S]*?id="stage"[\s\S]*?tabindex="0"[\s\S]*?role="application"[\s\S]*?aria-roledescription="interactive spectral vector grid"/,
   );
   assert.match(html, /id="audioButton"[^>]+aria-pressed="false"/);
@@ -557,7 +749,14 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(html, /id="audioError" role="alert" hidden/);
   assert.match(html, /id="liveStatus" aria-live="polite"/);
   assert.match(html, /aria-keyshortcuts="Space Enter ArrowLeft ArrowRight ArrowUp ArrowDown"/);
-  assert.match(html, /id="fabricExciteButton"[^>]*>Pluck center</);
+  assert.match(html, /id="fabricExciteButton"[^>]*>Pluck origin</);
+  assert.match(html, /id="fabricSections"[^>]*min="3"[^>]*max="16"/);
+  assert.match(html, /id="fabricPatchwork"[^>]*min="0"[^>]*max="1"/);
+  assert.match(html, /Field A · X \/ Warp Filter/);
+  assert.match(html, /Field B · Y \/ Weft Filter/);
+  assert.match(appSource, /function syncVisualFabricTopology\(/);
+  assert.match(appSource, /visualFabricTopology\.columnPositions/);
+  assert.match(appSource, /visualFabricTopology\.rowPositions/);
   const noiseColorChoiceStart = html.indexOf('id="noiseColorChoice"');
   assert.ok(noiseColorChoiceStart >= 0, "the canonical noise-color chooser must be present");
   const noiseColorChoice = html.slice(
@@ -570,6 +769,20 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     noiseColorChoice,
     /data-noise-color="-1"[^>]*aria-pressed="(?:true|false)"[^>]*>Brown<[\s\S]*data-noise-color="-0\.5"[^>]*aria-pressed="(?:true|false)"[^>]*>Pink<[\s\S]*data-noise-color="0"[^>]*aria-pressed="(?:true|false)"[^>]*>White<[\s\S]*data-noise-color="1"[^>]*aria-pressed="(?:true|false)"[^>]*>Blue</,
   );
+  const noiseTypeChoiceStart = html.indexOf('id="noiseTypeChoice"');
+  assert.ok(noiseTypeChoiceStart >= 0, "the noise-generator chooser must be present");
+  const noiseTypeChoice = html.slice(
+    noiseTypeChoiceStart,
+    html.indexOf("</div>", noiseTypeChoiceStart) + 6,
+  );
+  assert.match(noiseTypeChoice, /role="group"[^>]*aria-label="[^"]*noise[^"]*"/i);
+  assert.equal(
+    (noiseTypeChoice.match(/data-noise-type=/g) ?? []).length,
+    MOIRE_DRONE_NOISE_TYPES.length,
+  );
+  for (const noiseType of MOIRE_DRONE_NOISE_TYPES) {
+    assert.match(noiseTypeChoice, new RegExp(`data-noise-type="${noiseType}"`));
+  }
   const sculptModeChoiceStart = html.indexOf('id="spectralSculptModeChoice"');
   assert.ok(sculptModeChoiceStart >= 0, "the spectral-sculpt selector must be present");
   const sculptModeChoice = html.slice(
@@ -580,25 +793,31 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.equal((sculptModeChoice.match(/<button\b/g) ?? []).length, SPECTRAL_SCULPT_MODES.length);
   assert.match(
     sculptModeChoice,
-    /data-spectral-sculpt-mode="notches"[^>]*>Gaps<[\s\S]*data-spectral-sculpt-mode="ridges"[^>]*>Ridges<[\s\S]*data-spectral-sculpt-mode="lowpass"[^>]*>Low-pass<[\s\S]*data-spectral-sculpt-mode="highpass"[^>]*>High-pass<[\s\S]*data-spectral-sculpt-mode="bandpass"[^>]*>Window<[\s\S]*data-spectral-sculpt-mode="bandstop"[^>]*>Hollow</,
+    /data-spectral-sculpt-mode="notches"[^>]*>Gaps<[\s\S]*data-spectral-sculpt-mode="ridges"[^>]*>Ridges<[\s\S]*data-spectral-sculpt-mode="lowpass"[^>]*>Low-pass<[\s\S]*data-spectral-sculpt-mode="highpass"[^>]*>High-pass<[\s\S]*data-spectral-sculpt-mode="bandpass"[^>]*>Window<[\s\S]*data-spectral-sculpt-mode="bandstop"[^>]*>Hollow<[\s\S]*data-spectral-sculpt-mode="peak"[^>]*>Peak<[\s\S]*data-spectral-sculpt-mode="tilt"[^>]*>Tilt</,
   );
   assert.match(html, /id="gestureCoupling"[^>]*type="range"/);
   assert.match(html, /id="gestureMemory"[^>]*type="range"/);
   assert.match(
     html,
-    /(?:horizontal|low[^<]{0,80}high)[^<]{0,160}(?:frequency|spectrum|touch)[^<]{0,160}(?:pull|distance)[^<]{0,100}(?:deep|depth|width|strength)/i,
+    /Touch left[\s\S]{0,120}low frequencies[\s\S]{0,120}right[\s\S]{0,120}high frequencies/i,
   );
   assert.match(
     html,
-    /Touch left[\s\S]{0,120}low frequencies[\s\S]{0,120}right[\s\S]{0,120}high frequencies[\s\S]{0,180}pulling farther[\s\S]{0,160}release/i,
+    /Pull(?:ing)?[^<]{0,100}(?:farther|distance)[^<]{0,100}strength[^<]{0,120}(?:move|moving)[^<]{0,80}faster[^<]{0,120}(?:narrower|quicker)/i,
   );
   assert.match(html, /id="fabricInstruction"[^>]*>touch a frequency · pull to sculpt</);
   assert.match(
     html,
-    /id="propagationModeChoice"[\s\S]*data-propagation-mode="drop"[\s\S]*data-propagation-mode="harmonic"[\s\S]*data-propagation-mode="spiral"[\s\S]*data-propagation-mode="shock"/,
+    /id="propagationModeChoice"[\s\S]*data-propagation-mode="drop"[\s\S]*data-propagation-mode="harmonic"[\s\S]*data-propagation-mode="spiral"[\s\S]*data-propagation-mode="shock"[\s\S]*data-propagation-mode="gravity"[\s\S]*data-propagation-mode="standing"[\s\S]*data-propagation-mode="ocean"/,
   );
   assert.match(html, /id="propagationRate"[^>]*min="1"[^>]*max="50"/);
   assert.match(html, /id="propagationVoices"[^>]*min="1"[^>]*max="4"/);
+  assert.match(html, /id="propagationSizeSpread"[^>]*min="0"[^>]*max="1"/);
+  assert.match(html, /id="propagationSpeedSpread"[^>]*min="0"[^>]*max="1"/);
+  assert.match(html, /id="propagationInterference"[^>]*min="0"[^>]*max="1"/);
+  assert.match(html, /id="grabRippleRate"[^>]*min="0"[^>]*max="30"/);
+  assert.match(html, /id="fabricGravity"[^>]*min="0"[^>]*max="2"/);
+  assert.match(html, /id="gridDensity"[^>]*min="8"[^>]*max="40"[^>]*value="20"/);
   assert.match(html, /id="combDepth"[^>]*min="0"[^>]*max="1"/);
   assert.match(html, /id="combTeeth"[^>]*min="1"[^>]*max="16"/);
   assert.match(html, /id="combWidth"[^>]*min="0\.02"[^>]*max="0\.48"/);
@@ -612,7 +831,7 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(html, /id="qCharacter"[^>]*min="0"[^>]*max="1"/);
   assert.match(
     html,
-    /Q filtering gives the sculpture physical resonance[\s\S]*FFT filtering reshapes exact frequency bins[\s\S]*gaps, ridges, shelves, a passing window, or a hollowed band/,
+    /Q filtering gives the sculpture physical resonance[\s\S]*FFT filtering reshapes exact frequency bins[\s\S]*eight shared shapes[\s\S]*gaps and ridges[\s\S]*shelves[\s\S]*window and hollow bands[\s\S]*resonant peak[\s\S]*spectral tilt/,
   );
   const legendStart = html.indexOf('<div class="moire-field-legend"');
   const legend = html.slice(legendStart, html.indexOf("</div>", legendStart) + 6);
@@ -625,20 +844,25 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     /Layered spectral texture|Warp strand|Weft strand|Shared interaction|Moving gaps/,
   );
   assert.doesNotMatch(html, /class="group-title">(?:Wave field A|Wave field B|Collision)</);
-  assert.match(html, /for="propagationVoices"><span><b>Max ripples<\/b>/);
+  assert.match(html, /for="propagationVoices"><span><b>Max waves<\/b>/);
   assert.doesNotMatch(html, /data-preset=/, "preset names are rendered without embedded stats");
   for (const [, key] of new Set([
-    ["", "noiseColor"], ["", "filterPairs"], ["", "glideA"],
+    ["", "noiseColor"], ["", "noiseChaos"], ["", "noiseFractalDepth"],
+    ["", "filterPairs"], ["", "glideA"],
     ["", "propagationRate"], ["", "propagationSpeed"], ["", "propagationDecay"],
     ["", "propagationDepth"], ["", "propagationGain"], ["", "propagationWidth"],
     ["", "harmonicOrder"], ["", "ringDensity"], ["", "autoPluckRate"],
+    ["", "propagationSizeSpread"], ["", "propagationSpeedSpread"],
+    ["", "propagationInterference"], ["", "grabRippleRate"],
     ["", "propagationVoices"], ["", "combDepth"], ["", "combTeeth"],
     ["", "combWidth"], ["", "combOffset"], ["", "combDrift"],
     ["", "combWarp"], ["", "pluckCut"],
     ["", "gestureCoupling"], ["", "gestureMemory"],
     ["", "spectralFilterBlend"], ["", "fftCutDepth"], ["", "fftSharpness"],
     ["", "qCutDepth"], ["", "qCharacter"],
+    ["", "gridDensity"], ["", "fabricSections"], ["", "fabricPatchwork"],
     ["", "fabricDepth"], ["", "fabricTension"], ["", "fabricRotation"],
+    ["", "fabricGravity"],
     ["", "fieldAAngle"], ["", "fieldBAngle"], ["", "collisionAmount"],
     ["", "stereoWidth"], ["", "outputLevel"],
   ])) {
@@ -657,6 +881,10 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   assert.match(
     appSource,
+    /\$\("noiseTypeChoice"\)\.querySelectorAll\("\[data-noise-type\]"\)[\s\S]*?button\.addEventListener\("click"[\s\S]*?setParameter\("noiseType", (?:type|button\.dataset\.noiseType)\)/,
+  );
+  assert.match(
+    appSource,
     /\$\("spectralSculptModeChoice"\)\.querySelectorAll\("\[data-spectral-sculpt-mode\]"\)[\s\S]*?button\.addEventListener\("click"[\s\S]*?setParameter\("spectralSculptMode", button\.dataset\.spectralSculptMode\)/,
   );
   const applyPointerTugSource = appSource.slice(
@@ -665,11 +893,16 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   assert.match(
     applyPointerTugSource,
-    /visualFabric\.tug\(pointerAnchorLocalX, pointerAnchorLocalY, amount\)/,
+    /rotateFabricCoordinate\([\s\S]*?pointerCurrentX,[\s\S]*?pointerCurrentY,[\s\S]*?effectiveFabricAngle\(\)[\s\S]*?\)/,
+    "the physical grab point must follow the user's hand across the fabric",
   );
   assert.match(
     applyPointerTugSource,
-    /audio\.tugFabric\([\s\S]*?pointerAudioAnchorX,[\s\S]*?pointerAudioAnchorY,[\s\S]*?amount,[\s\S]*?currentAudioGesture\(\)[\s\S]*?\)/,
+    /visualFabric\.tug\([A-Za-z_$][\w$]*\.x, [A-Za-z_$][\w$]*\.y, amount\)/,
+  );
+  assert.match(
+    applyPointerTugSource,
+    /audio\.tugFabric\([\s\S]*?pointerCurrentX,[\s\S]*?pointerCurrentY,[\s\S]*?amount,[\s\S]*?currentAudioGesture\(\)[\s\S]*?\)/,
   );
   const audioGestureSource = appSource.slice(
     appSource.indexOf("function currentAudioGesture("),
@@ -691,13 +924,8 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(pointerDownSource, /pointerAnchorY\s*=\s*point\.y/);
   assert.match(
     pointerDownSource,
-    /rotateFabricCoordinate\(\s*point\.x\s*,\s*point\.y\s*,\s*effectiveFabricAngle\(\)\s*,?\s*\)/,
-  );
-  assert.match(pointerDownSource, /pointerAnchorLocalX\s*=\s*[A-Za-z_$][\w$]*\.x/);
-  assert.match(pointerDownSource, /pointerAnchorLocalY\s*=\s*[A-Za-z_$][\w$]*\.y/);
-  assert.match(
-    pointerDownSource,
-    /pointerAudioAnchorX\s*=\s*point\.x[\s\S]*?pointerAudioAnchorY\s*=\s*point\.y[\s\S]*?pointerPullAmount\s*=\s*fabricGesturePull\([\s\S]*?anchorX:\s*pointerAudioAnchorX[\s\S]*?anchorY:\s*pointerAudioAnchorY[\s\S]*?currentX:\s*pointerCurrentX[\s\S]*?currentY:\s*pointerCurrentY[\s\S]*?\)\.amount/,
+    /pointerAudioAnchorX\s*=\s*point\.x[\s\S]*?pointerAudioAnchorY\s*=\s*point\.y[\s\S]*?pointerRawCurrentX\s*=\s*point\.rawX[\s\S]*?pointerRawCurrentY\s*=\s*point\.rawY[\s\S]*?pointerPullAmount\s*=\s*fabricGesturePull\([\s\S]*?anchorX:\s*pointerAudioAnchorX[\s\S]*?anchorY:\s*pointerAudioAnchorY[\s\S]*?currentX:\s*pointerRawCurrentX[\s\S]*?currentY:\s*pointerRawCurrentY[\s\S]*?\)\.amount/,
+    "the contact stays onstage while raw captured coordinates preserve edge strain",
   );
   assert.match(pointerDownSource, /applyPointerTug\(pointerPullAmount\)/);
   assert.match(pointerDownSource, /void ensureAudioOn\(\)/);
@@ -706,10 +934,56 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(samplePointerSource, /stagePointFromEvent\(event\)/);
   assert.match(samplePointerSource, /pointerCurrentX\s*=\s*point\.x/);
   assert.match(samplePointerSource, /pointerCurrentY\s*=\s*point\.y/);
-  assert.match(samplePointerSource, /pointerVelocityX/);
-  assert.match(samplePointerSource, /pointerVelocityY/);
+  assert.match(samplePointerSource, /motionX\s*=\s*point\.rawX\s*-\s*pointerRawCurrentX/);
+  assert.match(samplePointerSource, /motionY\s*=\s*point\.rawY\s*-\s*pointerRawCurrentY/);
+  assert.match(samplePointerSource, /pointerRawCurrentX\s*=\s*point\.rawX/);
+  assert.match(samplePointerSource, /pointerRawCurrentY\s*=\s*point\.rawY/);
+  assert.match(
+    samplePointerSource,
+    /pointerWakeTravel\s*=\s*Math\.min\([\s\S]*?pointerWakeTravel\s*\+/,
+  );
+  assert.doesNotMatch(
+    samplePointerSource,
+    /pointerWakeTravel\s*=\s*0/,
+    "ordinary move samples must accumulate rather than erase grab-wake travel",
+  );
+  assert.match(pointerDownSource, /pointerLastRippleTime\s*=/);
+  assert.match(pointerDownSource, /pointerWakeCount\s*=\s*0/);
+  assert.match(pointerDownSource, /pointerWakeTravel\s*=\s*0/);
+  assert.match(
+    pointerDownSource,
+    /ensureAudioOn\(\)[\s\S]*?emitFirstGrabWake\(/,
+    "a drag that outruns audio startup must emit its first wake when audio becomes ready",
+  );
   const pointerMoveSource = namedFunctionSource(appSource, "tugFabricFromPointer");
   assert.match(pointerMoveSource, /samplePointerEvent\(event\)/);
+  assert.match(pointerMoveSource, /emitFirstGrabWake\(/);
+  assert.match(
+    pointerMoveSource,
+    /maybeEmitGrabRipple\(/,
+    "moving a held patch must be able to emit ripples before release",
+  );
+  const firstWakeSource = namedFunctionSource(appSource, "emitFirstGrabWake");
+  assert.match(firstWakeSource, /pointerWakeCount\s*!==\s*0/);
+  assert.match(firstWakeSource, /!state\.audioOn/);
+  assert.match(firstWakeSource, /triggerDirectGrabWake\(/);
+  assert.match(firstWakeSource, /applyPointerTug\(pointerPullAmount\)/);
+  const directWakeSource = namedFunctionSource(appSource, "directGrabWakeProfile");
+  assert.match(directWakeSource, /0\.68/);
+  const directWakeTriggerSource = namedFunctionSource(appSource, "triggerDirectGrabWake");
+  assert.match(directWakeTriggerSource, /audioAction:\s*"pluck"/);
+  const grabRippleSource = namedFunctionSource(appSource, "maybeEmitGrabRipple");
+  assert.match(grabRippleSource, /pointerId\s*===\s*null|pointerId\s*!==\s*null/);
+  assert.match(grabRippleSource, /pointerWakeCount\s*===\s*0/);
+  assert.match(grabRippleSource, /settings\.grabRippleRate/);
+  assert.match(grabRippleSource, /(?:elapsed|interval|time|timestamp|performance\.now)/i);
+  assert.match(grabRippleSource, /(?:travel|distance|Math\.hypot)/i);
+  assert.match(grabRippleSource, /triggerPropagationAt\(/);
+  assert.doesNotMatch(
+    grabRippleSource,
+    /autoPluckRate/,
+    "grab ripples must be driven only by the user's held gesture",
+  );
   const releasePointerSource = appSource.slice(
     appSource.indexOf("async function releasePointer("),
     appSource.indexOf('$("stage").addEventListener("pointerup"'),
@@ -733,17 +1007,26 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.equal(
     (releasePointerSource.match(/triggerPropagationAt\(/g) ?? []).length,
     1,
-    "a release must produce at most one ripple, and only for a quick stationary tap",
+    "the direct release propagation branch remains reserved for a quick stationary tap",
   );
   assert.match(releasePointerSource, /pointerVelocityX\)\) \* 0\.58/);
   assert.match(releasePointerSource, /pointerVelocityY\)\) \* 0\.58/);
   assert.match(releasePointerSource, /visualFabric\.excite\(/);
   assert.match(releasePointerSource, /const releaseGesture = currentAudioGesture\(\)/);
   assert.match(releasePointerSource, /audio\.releaseFabric\(releaseGesture\)/);
+  assert.match(releasePointerSource, /const releaseCurrentX\s*=\s*pointerCurrentX/);
+  assert.match(releasePointerSource, /const releaseCurrentY\s*=\s*pointerCurrentY/);
   assert.match(
     releasePointerSource,
-    /audio\.kickFabric\([\s\S]*?releaseAudioAnchorX,[\s\S]*?releaseAudioAnchorY,[\s\S]*?releaseGesture,[\s\S]*?\)/,
+    /wasDrag\s*&&\s*releaseWakeCount\s*===\s*0[\s\S]*?triggerDirectGrabWake\([\s\S]*?releaseCurrentX,[\s\S]*?releaseCurrentY/,
+    "a drag completed during audio startup must receive one wake at release position",
   );
+  assert.match(
+    releasePointerSource,
+    /audio\.kickFabric\([\s\S]*?releaseCurrentX,[\s\S]*?releaseCurrentY,[\s\S]*?releaseGesture,[\s\S]*?\)/,
+    "release energy must follow the hand instead of snapping back to its anchor",
+  );
+  assert.match(appSource, /grabRippleRate[\s\S]*?"onset only"/);
   assert.match(cssSource, /#stage\s*\{[\s\S]*?cursor:\s*grab/);
   assert.match(cssSource, /#stage\.is-grabbed[\s\S]*?cursor:\s*grabbing/);
   assert.match(
@@ -761,6 +1044,8 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   const triggerPropagationSource = namedFunctionSource(appSource, "triggerPropagationAt");
   assert.match(triggerPropagationSource, /if \(sendAudio\)\s*\{/);
   assert.match(triggerPropagationSource, /captureVisualSculptGesture\(/);
+  assert.match(triggerPropagationSource, /sizeSpread:\s*settings\.propagationSizeSpread/);
+  assert.match(triggerPropagationSource, /speedSpread:\s*settings\.propagationSpeedSpread/);
   assert.match(
     triggerPropagationSource,
     /audio\.pluckFabric\(audioX, audioY, force, radius, gesture\)/,
@@ -771,8 +1056,15 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   const gridRows = Number(
     appSource.match(/const STATIC_GRID_ROWS\s*=\s*(\d+)\b/)?.[1],
   );
-  assert.ok(Number.isInteger(gridColumns) && gridColumns >= 2);
-  assert.ok(Number.isInteger(gridRows) && gridRows >= 2);
+  assert.equal(gridColumns, 28, "the default grid must be visibly finer");
+  assert.equal(gridRows, 20, "the default grid must be visibly finer");
+  const gridDimensionsSource = namedFunctionSource(appSource, "staticGridDimensions");
+  assert.match(gridDimensionsSource, /state\.gridDensity/);
+  assert.match(gridDimensionsSource, /STATIC_GRID_COLUMNS[\s\S]*?STATIC_GRID_ROWS/);
+  assert.match(
+    appSource,
+    /\$\("gridDensity"\)\.addEventListener\("input"[\s\S]*?state\.gridDensity[\s\S]*?draw\(performance\.now\(\), true\)/,
+  );
   assert.match(appSource, /const STATIC_GRID_PINK\s*=\s*"#ff5cad"/i);
   assert.match(appSource, /const STATIC_GRID_GREEN\s*=\s*"#68f7a4"/i);
   const staticGridRenderer = namedFunctionSource(appSource, "drawStaticVectorGrid");
@@ -802,6 +1094,11 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     /visualFabric\.(?:sample|sampleLocal)[\s\S]*visualPropagation\.sample/,
     "fabric tugs and manual pluck ripples must still deform the static grid",
   );
+  assert.match(
+    staticGridPointSource,
+    /visualPropagation\.sample\([\s\S]*?settings\.propagationInterference/,
+    "the visible waves must use the same interference control as the audible field",
+  );
   assert.doesNotMatch(staticGridPointSource, /waveFieldValue\(|Math\.random\(/);
   assert.doesNotMatch(appSource, /function drawFabricMesh|function drawPropagationOverlays/);
   const sculptGeometrySource = namedFunctionSource(appSource, "visualSculptGeometry");
@@ -817,6 +1114,16 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     /pointer|gesture|visualSculpt/i,
     "the displayed spectral shape must be derived from live or remembered gesture state",
   );
+  assert.match(
+    sculptGeometrySource,
+    /visualDirectGestureResponse\(\)[\s\S]*?qDepth:\s*Math\.max[\s\S]*?fftDepth:\s*Math\.max/,
+    "the displayed Q/FFT sculpture must show the same guaranteed manual floor as the DSP",
+  );
+  const visualGestureFloorSource = namedFunctionSource(
+    appSource,
+    "visualDirectGestureResponse",
+  );
+  assert.match(visualGestureFloorSource, /0\.42[\s\S]*?0\.55/);
   const captureVisualGestureSource = namedFunctionSource(
     appSource,
     "captureVisualSculptGesture",
@@ -833,7 +1140,7 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(spectralMaskSource, /visualSculptGeometry\(\)|currentVisualSculpt/);
   assert.match(spectralMaskSource, /\.focus\b/);
   assert.match(spectralMaskSource, /\.width\b/);
-  assert.match(spectralMaskSource, /\.depth\b/);
+  assert.match(spectralMaskSource, /\.(?:qDepth|fftDepth)\b/);
   assert.doesNotMatch(
     spectralMaskSource,
     /focus:\s*settings\.combOffset/,
@@ -843,6 +1150,7 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(broadRegionsSource, /visualSculptGeometry\(\)|currentVisualSculpt/);
   assert.match(broadRegionsSource, /sculpt\.periodic/);
   assert.match(broadRegionsSource, /mode:\s*settings\.spectralSculptMode/);
+  assert.match(broadRegionsSource, /combinedSpectralGain\(/);
   assert.match(
     broadRegionsSource,
     /context2d\.(?:fillRect|ellipse|arc|fill)\(/,
@@ -852,6 +1160,15 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(drawSource, /drawBroadSculptRegions\(\)/);
   assert.match(drawSource, /drawStaticVectorGrid\(\)/);
   assert.doesNotMatch(drawSource, /renderSpectralTexture\(\)|drawImage\(\s*textureCanvas/);
+  const combinedGainSource = namedFunctionSource(appSource, "combinedSpectralGain");
+  assert.match(combinedGainSource, /CUT_SCULPT_MODES\.has\(mode\)/);
+  assert.match(combinedGainSource, /qGain\s*\*\s*fftGain/);
+  assert.match(combinedGainSource, /4\s*\*\s*amount\s*\*\s*\(1\s*-\s*amount\)/);
+  assert.match(
+    spectralMaskSource,
+    /combinedSpectralGain\(/,
+    "the displayed mask must show the same serial hybrid intersection as the audio",
+  );
   const animateSource = namedFunctionSource(appSource, "animate");
   assert.match(animateSource, /stepVisualSculptGesture\(/);
   assert.doesNotMatch(
@@ -861,12 +1178,12 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   );
   assert.doesNotMatch(
     animateSource,
-    /triggerAutomaticVisualPropagation\(|autoPluckRate/,
+    /triggerAutomaticVisualPropagation\(|autoPluckRate|maybeEmitGrabRipple\(/,
     "the static visual page must not create automatic background ripples",
   );
   assert.match(
     animateSource,
-    /if\s*\(\s*staticGridHasDeformation\(\)\s*\)\s*\{[\s\S]*?visualFabric\.step\(\s*elapsed\s*,\s*settings\s*,\s*true\s*\)/,
+    /if\s*\(\s*staticGridHasDeformation\(\)\s*\)\s*\{[\s\S]*?visualFabric\.step\(\s*elapsed\s*,\s*settings\s*,\s*true\s*,\s*visualDirectGestureResponse\(\)\s*,?\s*\)/,
     "fabric simulation may advance only while a direct interaction is active or decaying",
   );
   assert.match(
@@ -929,6 +1246,8 @@ test("spectral-fabric parameters sanitize to finite physical limits", () => {
     fabricTension: -99,
     fabricDamping: 99,
     fabricInertia: Number.NaN,
+    fabricSections: 99,
+    fabricPatchwork: -99,
     fabricDepth: 99,
     fabricExcitation: -4,
     fabricVibration: 4,
@@ -936,11 +1255,14 @@ test("spectral-fabric parameters sanitize to finite physical limits", () => {
     fabricRotation: 999,
     fabricSpin: -99,
     fabricPull: 99,
+    fabricGravity: 99,
   });
 
   assert.equal(settings.fabricTension, 0);
   assert.equal(settings.fabricDamping, 1);
   assert.equal(settings.fabricInertia, MOIRE_DRONE_DEFAULTS.fabricInertia);
+  assert.equal(settings.fabricSections, MOIRE_DRONE_LIMITS.maxFabricSections);
+  assert.equal(settings.fabricPatchwork, 0);
   assert.equal(settings.fabricDepth, MOIRE_DRONE_LIMITS.maxFabricDepth);
   assert.equal(settings.fabricExcitation, 0);
   assert.equal(settings.fabricVibration, 1);
@@ -948,10 +1270,272 @@ test("spectral-fabric parameters sanitize to finite physical limits", () => {
   assert.equal(settings.fabricRotation, 180);
   assert.equal(settings.fabricSpin, -MOIRE_DRONE_LIMITS.maxFabricSpin);
   assert.equal(settings.fabricPull, 2);
+  assert.equal(settings.fabricGravity, 2);
   assert.equal(
     MOIRE_DRONE_LIMITS.fabricWidth * MOIRE_DRONE_LIMITS.fabricHeight,
     MOIRE_DRONE_LIMITS.fabricNodes,
   );
+  assert.equal(MOIRE_DRONE_DEFAULTS.fabricSections, 8);
+  assert.equal(MOIRE_DRONE_DEFAULTS.fabricPatchwork, 0.35);
+  assert.equal(fabricHeightForSections(8), 6);
+  assert.equal(fabricHeightForSections(3), 3);
+  assert.equal(fabricHeightForSections(16), 12);
+  const minimum = sanitizeMoireDroneParams({
+    fabricSections: -99,
+    fabricPatchwork: 99,
+  });
+  assert.equal(minimum.fabricSections, MOIRE_DRONE_LIMITS.minFabricSections);
+  assert.equal(minimum.fabricPatchwork, 1);
+});
+
+test("fabric section count configures the actual physical topology", () => {
+  const defaultFabric = new SpectralFabric();
+  assert.equal(defaultFabric.width, 8);
+  assert.equal(defaultFabric.height, 6);
+  assert.equal(defaultFabric.nodeCount, 48);
+  assert.equal(defaultFabric.patchwork, 0.35);
+
+  for (const sections of [3, 5, 9, 12, 16]) {
+    const fabric = new SpectralFabric({ width: sections, patchwork: 0 });
+    const height = Math.max(3, Math.round(sections * 0.75));
+    assert.equal(fabric.width, sections);
+    assert.equal(fabric.height, height);
+    assert.equal(fabric.nodeCount, sections * height);
+    assert.equal(fabric.displacement.length, fabric.nodeCount);
+    assert.equal(fabric.nodeX.length, fabric.nodeCount);
+    assert.equal(fabric.horizontalSpringWeight.length, fabric.nodeCount);
+  }
+
+  const snapshot = defaultFabric.topology;
+  assert.ok(Object.isFrozen(snapshot));
+  assert.ok(Object.isFrozen(snapshot.columnPositions));
+  assert.ok(Object.isFrozen(snapshot.nodeMass));
+  assert.equal(snapshot.width, defaultFabric.width);
+  assert.equal(snapshot.height, defaultFabric.height);
+  assert.equal(snapshot.nodeCount, defaultFabric.nodeCount);
+});
+
+test("patchwork topology is seeded, nonuniform, and exactly uniform at zero", () => {
+  const first = new SpectralFabric({ width: 11, patchwork: 1, seed: 0x12345678 });
+  const second = new SpectralFabric({ width: 11, patchwork: 1, seed: 0x12345678 });
+  const other = new SpectralFabric({ width: 11, patchwork: 1, seed: 0x87654321 });
+  assert.deepEqual(first.topology, second.topology);
+  assert.notDeepEqual(first.columnSpans, other.columnSpans);
+  assert.notDeepEqual(first.nodeMass, other.nodeMass);
+  assert.ok(Math.abs(first.columnSpans.reduce((sum, value) => sum + value, 0) - 2) < 1e-12);
+  assert.ok(Math.abs(first.rowSpans.reduce((sum, value) => sum + value, 0) - 2) < 1e-12);
+  assert.ok(new Set(Array.from(first.columnSpans, (value) => value.toFixed(8))).size > 1);
+  assert.ok(new Set(Array.from(first.rowSpans, (value) => value.toFixed(8))).size > 1);
+  assert.ok(new Set(Array.from(first.nodeMass, (value) => value.toFixed(8))).size > 4);
+  assert.ok(new Set(Array.from(first.nodeDamping, (value) => value.toFixed(8))).size > 4);
+  assert.ok(
+    first.horizontalSpringWeight.some((value, index) => (
+      Math.abs(value - first.verticalSpringWeight[index]) > 0.05
+    )),
+    "horizontal and vertical edges need independent material weights",
+  );
+  assert.ok(first.columnPositions.every((value, index, values) => (
+    index === 0 || value > values[index - 1]
+  )));
+  assert.ok(first.rowPositions.every((value, index, values) => (
+    index === 0 || value > values[index - 1]
+  )));
+
+  const uniform = new SpectralFabric({ width: 8, height: 6, patchwork: 0, seed: 17 });
+  for (let column = 0; column < uniform.width; column += 1) {
+    assert.equal(uniform.columnSpans[column], 2 / uniform.width);
+    assert.equal(
+      uniform.columnPositions[column],
+      (column + 0.5) / uniform.width * 2 - 1,
+    );
+  }
+  for (let row = 0; row < uniform.height; row += 1) {
+    assert.equal(uniform.rowSpans[row], 2 / uniform.height);
+    assert.equal(
+      uniform.rowPositions[row],
+      (row + 0.5) / uniform.height * 2 - 1,
+    );
+  }
+  for (const values of [
+    uniform.nodeMass,
+    uniform.nodeDamping,
+    uniform.horizontalSpringWeight,
+    uniform.verticalSpringWeight,
+  ]) {
+    assert.ok(values.every((value) => value === 1));
+  }
+
+  for (let index = 0; index < uniform.nodeCount; index += 1) {
+    uniform.displacement[index] = Math.sin(index * 0.73);
+  }
+  const legacyUniformSample = (x, y) => {
+    const gridX = (x + 1) * 0.5 * uniform.width - 0.5;
+    const gridY = (y + 1) * 0.5 * uniform.height - 0.5;
+    const floorX = Math.floor(gridX);
+    const floorY = Math.floor(gridY);
+    const x0 = ((floorX % uniform.width) + uniform.width) % uniform.width;
+    const y0 = ((floorY % uniform.height) + uniform.height) % uniform.height;
+    const x1 = (x0 + 1) % uniform.width;
+    const y1 = (y0 + 1) % uniform.height;
+    const mixX = gridX - floorX;
+    const mixY = gridY - floorY;
+    const top = uniform.displacement[y0 * uniform.width + x0] * (1 - mixX)
+      + uniform.displacement[y0 * uniform.width + x1] * mixX;
+    const bottom = uniform.displacement[y1 * uniform.width + x0] * (1 - mixX)
+      + uniform.displacement[y1 * uniform.width + x1] * mixX;
+    return top * (1 - mixY) + bottom * mixY;
+  };
+  for (let index = 0; index <= 100; index += 1) {
+    const x = -1 + index / 50;
+    const y = -1 + ((index * 37) % 100) / 50;
+    assert.ok(Math.abs(uniform.sampleLocal(x, y) - legacyUniformSample(x, y)) < 2e-12);
+  }
+});
+
+test("unequal patchwork vertices and edges change local membrane response", () => {
+  const parameters = {
+    ...MOIRE_DRONE_DEFAULTS,
+    fabricTension: 0.82,
+    fabricDamping: 0.18,
+    fabricInertia: 0.3,
+    fabricExcitation: 0,
+    fabricVibration: 0,
+    fabricGravity: 0,
+  };
+  const patchwork = new SpectralFabric({
+    width: 10, patchwork: 1, seed: 0x5eed1234,
+  });
+  const uniform = new SpectralFabric({
+    width: 10, patchwork: 0, seed: 0x5eed1234,
+  });
+  const source = 4 * patchwork.width + 4;
+  patchwork.displacement[source] = 0.9;
+  uniform.displacement[source] = 0.9;
+  patchwork.step(1 / 240, parameters, true);
+  uniform.step(1 / 240, parameters, true);
+  assert.notDeepEqual(patchwork.acceleration, uniform.acceleration);
+
+  const left = source - 1;
+  const right = source + 1;
+  const up = source - patchwork.width;
+  const down = source + patchwork.width;
+  const neighborAccelerations = [left, right, up, down].map((index) => (
+    patchwork.acceleration[index]
+  ));
+  assert.ok(
+    new Set(neighborAccelerations.map((value) => value.toFixed(8))).size >= 3,
+    "unequal edge springs and vertex masses must split neighboring responses",
+  );
+
+  const localX = patchwork.nodeX[source];
+  const localY = patchwork.nodeY[source];
+  patchwork.reset();
+  patchwork.excite(localX, localY, 1, 0.04);
+  assert.equal(
+    patchwork.velocity[source],
+    Math.max(...patchwork.velocity),
+    "excitation must follow the nonuniform physical vertex locations",
+  );
+  assert.ok(Math.abs(patchwork.sampleVelocityLocal(localX, localY) - patchwork.velocity[source]) < 1e-12);
+});
+
+test("the kernel reconfigures physical topology immediately and deterministically", () => {
+  const kernel = new MoireDroneKernel({
+    parameters: {
+      ...MOIRE_DRONE_DEFAULTS,
+      freeze: true,
+      fabricExcitation: 0,
+      fabricVibration: 0,
+    },
+  });
+  assert.equal(kernel.fabric.width, 8);
+  assert.equal(kernel.fabric.height, 6);
+  assert.equal(kernel.fabric.patchwork, 0.35);
+  const initialState = kernel.fabric.displacement;
+  const initialVersion = kernel.fabric.topologyVersion;
+
+  const changed = kernel.setParameters({
+    fabricSections: 13,
+    fabricPatchwork: 0.9,
+  });
+  assert.equal(changed.fabricSections, 13);
+  assert.equal(changed.fabricPatchwork, 0.9);
+  assert.equal(kernel.fabric.width, 13);
+  assert.equal(kernel.fabric.height, 10);
+  assert.equal(kernel.fabric.nodeCount, 130);
+  assert.equal(kernel.fabric.patchwork, 0.9);
+  assert.notStrictEqual(kernel.fabric.displacement, initialState);
+  assert.ok(kernel.fabric.topologyVersion > initialVersion);
+  kernel.updateTargets(true);
+  assert.equal(kernel.current.fabricSections, 13);
+  assert.equal(kernel.current.fabricPatchwork, 0.9);
+
+  const deterministicSeed = 0x2468ace0;
+  kernel.setParameters({ seed: deterministicSeed });
+  const expectedTopology = kernel.fabric.topology;
+  const topologyArrays = {
+    nodeX: kernel.fabric.nodeX,
+    displacement: kernel.fabric.displacement,
+  };
+  kernel.setParameters({ seed: 0x13579bdf });
+  assert.notDeepEqual(kernel.fabric.topology.nodeMass, expectedTopology.nodeMass);
+  kernel.setParameters({ seed: deterministicSeed });
+  assert.deepEqual(kernel.fabric.topology.columnSpans, expectedTopology.columnSpans);
+  assert.deepEqual(kernel.fabric.topology.rowSpans, expectedTopology.rowSpans);
+  assert.deepEqual(kernel.fabric.topology.nodeMass, expectedTopology.nodeMass);
+  assert.strictEqual(kernel.fabric.nodeX, topologyArrays.nodeX);
+  assert.strictEqual(kernel.fabric.displacement, topologyArrays.displacement);
+
+  const patchworkState = kernel.fabric.displacement;
+  kernel.setParameters({ fabricPatchwork: 0 });
+  assert.notStrictEqual(kernel.fabric.displacement, patchworkState);
+  assert.ok(kernel.fabric.nodeMass.every((value) => value === 1));
+  assert.ok(kernel.fabric.horizontalSpringWeight.every((value) => value === 1));
+
+  kernel.setActive(true);
+  kernel.tugFabric(0.72, -0.61, 0.95, {
+    currentX: -0.34,
+    currentY: 0.48,
+    deltaX: -1.06,
+    deltaY: 1.09,
+    distance: 1.52,
+    velocityX: -2.2,
+    velocityY: 1.7,
+  });
+  const rendered = renderKernel(kernel, BLOCK_SIZE * 48);
+  assertFiniteBounded([rendered.left, rendered.right]);
+  assert.ok(kernel.fabric.energy > 0.01, "a rebuilt topology must retain serious pull response");
+});
+
+test("gravity is bounded and materially changes a grabbed fabric", () => {
+  const common = {
+    ...MOIRE_DRONE_DEFAULTS,
+    fabricTension: 0.62,
+    fabricDamping: 0.24,
+    fabricInertia: 0.42,
+    fabricExcitation: 0,
+    fabricVibration: 0,
+    fabricPull: 1.4,
+  };
+  const weightless = new SpectralFabric({ seed: 0x51515151 });
+  const weighted = new SpectralFabric({ seed: 0x51515151 });
+  weightless.tug(0.38, -0.26, 0.86);
+  weighted.tug(0.38, -0.26, 0.86);
+  for (let frame = 0; frame < 90; frame += 1) {
+    weightless.step(1 / 120, { ...common, fabricGravity: 0 }, true);
+    weighted.step(1 / 120, { ...common, fabricGravity: 2 }, true);
+  }
+  assert.notDeepEqual(
+    weighted.displacement,
+    weightless.displacement,
+    "gravity must add a physical restoring/bending force while the fabric is grabbed",
+  );
+  for (const values of [weighted.displacement, weighted.velocity, weighted.acceleration]) {
+    assert.ok(values.every(Number.isFinite));
+  }
+  assert.ok(weighted.displacement.every((value) => Math.abs(value) <= 1.2));
+  assert.ok(weighted.velocity.every((value) => Math.abs(value) <= 16));
+  assert.ok(weighted.acceleration.every((value) => Math.abs(value) <= 520));
 });
 
 test("fabric impulses are local, toroidal, deterministic, and bounded", () => {
@@ -1027,6 +1611,7 @@ test("tension spreads an impulse while damping removes membrane energy", () => {
     fabricVibration: 0,
     fabricInertia: 0.3,
     fabricDamping: 0.1,
+    fabricGravity: 0,
   };
   const slack = new SpectralFabric({ seed: 1 });
   const taut = new SpectralFabric({ seed: 1 });
@@ -1089,6 +1674,7 @@ test("fabric pull and rotation deform the intended spectral region", () => {
       ...MOIRE_DRONE_DEFAULTS,
       freeze: true,
       fabricRotation: 0,
+      fabricPatchwork: 0,
       fabricExcitation: 0,
       fabricVibration: 0,
     },
@@ -1098,6 +1684,7 @@ test("fabric pull and rotation deform the intended spectral region", () => {
       ...MOIRE_DRONE_DEFAULTS,
       freeze: true,
       fabricRotation: 90,
+      fabricPatchwork: 0,
       fabricExcitation: 0,
       fabricVibration: 0,
     },
@@ -1161,6 +1748,24 @@ test("direct fabric gestures preserve the full vector while keeping a bounded an
     currentY: anchor.anchorY + 0.034,
   });
   assert.ok(subtleDownward.amount > 0, "pointer jitter must not unexpectedly flip polarity");
+
+  const outwardEdgePull = fabricGesturePull({
+    anchorX: 1,
+    anchorY: -1,
+    currentX: 1.75,
+    currentY: -1.6,
+  });
+  assert.equal(outwardEdgePull.tugX, 1);
+  assert.equal(outwardEdgePull.tugY, -1);
+  assert.equal(outwardEdgePull.currentX, 1);
+  assert.equal(outwardEdgePull.currentY, -1);
+  assert.equal(outwardEdgePull.deltaX, 0.75);
+  assert.ok(Math.abs(outwardEdgePull.deltaY + 0.6) < 1e-12);
+  assert.ok(outwardEdgePull.distance > 0.9);
+  assert.ok(
+    Math.abs(outwardEdgePull.amount) > 0.7,
+    "pointer capture beyond an edge must keep increasing audible fabric strain",
+  );
 
   const extreme = fabricGesturePull({
     anchorX: 99,
@@ -1334,8 +1939,317 @@ test("horizontal touch selects spectral focus and pull strength materially chang
   ]) assert.ok(Number.isFinite(value));
 });
 
+test("matched X and opposite Y gestures address different interacting filter families", () => {
+  const parameters = {
+    ...MOIRE_DRONE_DEFAULTS,
+    autoPluckRate: 0,
+    fieldASpeed: 0,
+    fieldBSpeed: 0,
+    glideA: 0,
+    glideB: 0,
+    spectralSculptMode: "bandstop",
+    spectralFilterBlend: 0.62,
+    seed: 0x64b19ea3,
+  };
+  const top = new MoireDroneKernel({ sampleRate: SAMPLE_RATE, parameters });
+  const bottom = new MoireDroneKernel({ sampleRate: SAMPLE_RATE, parameters });
+  top.setActive(true);
+  bottom.setActive(true);
+  renderKernel(top, 4_096);
+  renderKernel(bottom, 4_096);
+  const gestureAt = (y) => Object.freeze({
+    currentX: 0.22,
+    currentY: y,
+    deltaX: 0.42,
+    deltaY: Math.sign(y) * 0.92,
+    distance: Math.hypot(0.42, 0.92),
+    velocityX: 2.2,
+    velocityY: Math.sign(y) * 3.8,
+  });
+  top.pluckFabric(0.22, -0.76, 0.92, 0.16, gestureAt(-0.76));
+  bottom.pluckFabric(0.22, 0.76, 0.92, 0.16, gestureAt(0.76));
+  assert.equal(top.impactX, bottom.impactX);
+  assert.equal(top.impactY, -0.76);
+  assert.equal(bottom.impactY, 0.76);
+  top.updateTargets(true);
+  bottom.updateTargets(true);
+  assert.ok(top.gestureWarpAxis > 0 && bottom.gestureWarpAxis > 0);
+  assert.ok(top.gestureWeftAxis < 0 && bottom.gestureWeftAxis > 0);
+  assert.notDeepEqual(
+    Array.from(top.filterPosition),
+    Array.from(bottom.filterPosition),
+    "Y must retune the weft family rather than only drawing at a different row",
+  );
+
+  const topRender = renderKernel(top, 6_144);
+  const bottomRender = renderKernel(bottom, 6_144);
+  assertFiniteBounded([
+    topRender.left, topRender.right, bottomRender.left, bottomRender.right,
+  ]);
+  let energy = 0;
+  let difference = 0;
+  for (let index = 0; index < topRender.left.length; index += 1) {
+    for (const channel of ["left", "right"]) {
+      const a = topRender[channel][index];
+      const b = bottomRender[channel][index];
+      energy += (a * a + b * b) * 0.5;
+      difference += (a - b) ** 2;
+    }
+  }
+  assert.ok(
+    Math.sqrt(difference / Math.max(1e-15, energy)) > 0.12,
+    "top and bottom gestures must produce materially different sound",
+  );
+});
+
+test("every preset gives a direct pull a serious parameter-independent sonic response", () => {
+  const gesture = Object.freeze({
+    currentX: 0.78,
+    currentY: -0.68,
+    deltaX: 1.5,
+    deltaY: -1.33,
+    distance: Math.hypot(1.5, -1.33),
+    velocityX: 4.8,
+    velocityY: -3.6,
+  });
+  const warmFrames = 4_096;
+  const renderFrames = 6_144;
+  const comparisonStart = MOIRE_DRONE_FFT_SIZE * 2;
+
+  for (const preset of MOIRE_DRONE_PRESETS) {
+    const parameters = {
+      ...MOIRE_DRONE_DEFAULTS,
+      ...preset.settings,
+      seed: 0x71c4a9e3,
+    };
+    const idle = new MoireDroneKernel({ sampleRate: SAMPLE_RATE, parameters });
+    const pulled = new MoireDroneKernel({ sampleRate: SAMPLE_RATE, parameters });
+    idle.setActive(true);
+    pulled.setActive(true);
+    renderKernel(idle, warmFrames);
+    renderKernel(pulled, warmFrames);
+    pulled.tugFabric(-0.72, 0.65, 0.96, gesture);
+    const idleRender = renderKernel(idle, renderFrames);
+    const pulledRender = renderKernel(pulled, renderFrames);
+    assertFiniteBounded([
+      idleRender.left, idleRender.right,
+      pulledRender.left, pulledRender.right,
+    ]);
+
+    let referenceEnergy = 0;
+    let differenceEnergy = 0;
+    for (let index = comparisonStart; index < renderFrames; index += 1) {
+      for (const channel of ["left", "right"]) {
+        const reference = idleRender[channel][index];
+        const result = pulledRender[channel][index];
+        referenceEnergy += reference * reference;
+        differenceEnergy += (result - reference) ** 2;
+      }
+    }
+    const relativeDifference = Math.sqrt(
+      differenceEnergy / Math.max(1e-15, referenceEnergy),
+    );
+    assert.ok(referenceEnergy > 1e-7, `${preset.id} reference must stay audible`);
+    assert.ok(
+      relativeDifference > 0.3,
+      `${preset.id} direct pull must remain unmistakable (${relativeDifference})`,
+    );
+    assert.ok(pulled.directGestureResponse > 0.85, `${preset.id} must retain direct contact`);
+    assert.ok(pulled.directGestureDepth > 0.8, `${preset.id} must force deep spectral action`);
+    assert.ok(pulled.directGestureGainTarget < 0.55, `${preset.id} must excavate every output path`);
+  }
+});
+
+test("direct pull survives zeroed modulators at every sculpt and Q/FFT topology", () => {
+  const parameters = {
+    ...MOIRE_DRONE_DEFAULTS,
+    freeze: true,
+    dust: 0,
+    filterPairs: 8,
+    cascade: 0,
+    glideA: 0,
+    glideB: 0,
+    fieldASpeed: 0,
+    fieldBSpeed: 0,
+    fabricDepth: 0,
+    fabricPull: 0,
+    fabricExcitation: 0,
+    fabricVibration: 0,
+    propagationDepth: 0,
+    propagationGain: 0,
+    autoPluckRate: 0,
+    combDepth: 0,
+    combWidth: 0.02,
+    combDrift: 0,
+    combWarp: 0,
+    pluckCut: 0,
+    fftCutDepth: 0,
+    qCutDepth: 0,
+    gestureCoupling: 0,
+    gestureMemory: 0.08,
+    filteredMix: 0,
+    drive: 0,
+    space: 0,
+    feedback: 0,
+    seed: 0x2f41bc98,
+  };
+  const gesture = Object.freeze({
+    currentX: 0.74,
+    currentY: -0.62,
+    deltaX: 1.42,
+    deltaY: -1.18,
+    distance: Math.hypot(1.42, -1.18),
+    velocityX: 5,
+    velocityY: -4,
+  });
+
+  for (const spectralSculptMode of SPECTRAL_SCULPT_MODES) {
+    for (const spectralFilterBlend of [0, 0.5, 1]) {
+      const topology = { ...parameters, spectralSculptMode, spectralFilterBlend };
+      const idle = new MoireDroneKernel({ sampleRate: SAMPLE_RATE, parameters: topology });
+      const pulled = new MoireDroneKernel({ sampleRate: SAMPLE_RATE, parameters: topology });
+      idle.setActive(true);
+      pulled.setActive(true);
+      const idleWarm = renderKernel(idle, 3_072);
+      const pulledWarm = renderKernel(pulled, 3_072);
+      assert.deepEqual(
+        pulledWarm.left,
+        idleWarm.left,
+        `${spectralSculptMode}/${spectralFilterBlend} untouched bypass must remain exact`,
+      );
+      assert.equal(pulled.directGestureResponse, 0);
+      assert.equal(pulled.directGestureDepth, 0);
+      assert.equal(pulled.directGestureGain, 1);
+      assert.equal(pulled.directGestureGainTarget, 1);
+
+      pulled.tugFabric(gesture.currentX, gesture.currentY, 0.95, gesture);
+      const idleRender = renderKernel(idle, 5_120);
+      const pulledRender = renderKernel(pulled, 5_120);
+      assertFiniteBounded([
+        idleRender.left, idleRender.right,
+        pulledRender.left, pulledRender.right,
+      ]);
+      let referenceEnergy = 0;
+      let differenceEnergy = 0;
+      for (let index = MOIRE_DRONE_FFT_SIZE * 2; index < 5_120; index += 1) {
+        for (const channel of ["left", "right"]) {
+          const reference = idleRender[channel][index];
+          const result = pulledRender[channel][index];
+          referenceEnergy += reference * reference;
+          differenceEnergy += (result - reference) ** 2;
+        }
+      }
+      const relativeDifference = Math.sqrt(
+        differenceEnergy / Math.max(1e-15, referenceEnergy),
+      );
+      assert.ok(
+        relativeDifference > 0.3,
+        `${spectralSculptMode}/${spectralFilterBlend} zeroed topology must still respond (${relativeDifference})`,
+      );
+      assert.ok(pulled.sculptDepth > 0.55);
+      assert.ok(pulled.directGestureDepth > 0.75);
+      assert.ok(pulled.directGestureFabricDepth > 1);
+      assert.ok(pulled.directGestureWarp > 2.5);
+      assert.ok(pulled.directGestureGain < 0.58);
+      assert.ok(
+        pulled.fabric.energy > 0.01,
+        `${spectralSculptMode}/${spectralFilterBlend} zero pull control must still move the membrane`,
+      );
+      assert.ok(
+        Array.from(pulled.combToothWarp.slice(0, pulled.combStageCount))
+          .some((warp) => Math.abs(warp) > 1e-5),
+        `${spectralSculptMode}/${spectralFilterBlend} direct membrane must still bend filter geometry`,
+      );
+    }
+  }
+});
+
+test("the guaranteed direct-pull response remains strongly graded", () => {
+  const parameters = {
+    ...MOIRE_DRONE_DEFAULTS,
+    freeze: true,
+    fabricDepth: 0,
+    propagationDepth: 0,
+    propagationGain: 0,
+    combDepth: 0,
+    combWarp: 0,
+    pluckCut: 0,
+    fftCutDepth: 0,
+    qCutDepth: 0,
+    gestureCoupling: 0,
+    filteredMix: 0,
+    space: 0,
+    feedback: 0,
+    drive: 0,
+    seed: 0x9d2c5681,
+  };
+  const gestureAt = (distance) => Object.freeze({
+    currentX: -0.7 + distance,
+    currentY: 0.2 - distance * 0.25,
+    deltaX: distance,
+    deltaY: -distance * 0.25,
+    distance: Math.hypot(distance, distance * 0.25),
+    velocityX: distance * 5,
+    velocityY: -distance * 1.25,
+  });
+  const strengths = [0.08, 0.58, 1.42];
+
+  for (const spectralSculptMode of SPECTRAL_SCULPT_MODES) {
+    const responses = [];
+    const gains = [];
+    const depths = [];
+    for (const distance of strengths) {
+      const kernel = new MoireDroneKernel({
+        sampleRate: SAMPLE_RATE,
+        parameters: { ...parameters, spectralSculptMode },
+      });
+      kernel.setActive(true);
+      kernel.tugFabric(-0.7, 0.2, Math.min(1, 0.16 + distance * 0.58), gestureAt(distance));
+      renderKernel(kernel, BLOCK_SIZE * 4);
+      responses.push(kernel.directGestureResponse);
+      gains.push(kernel.directGestureGainTarget);
+      depths.push(kernel.directGestureDepth);
+    }
+    assert.ok(
+      responses[0] < responses[1] && responses[1] < responses[2],
+      `${spectralSculptMode} contact response must preserve pull headroom`,
+    );
+    assert.ok(
+      depths[0] < depths[1] && depths[1] < depths[2],
+      `${spectralSculptMode} forced spectral depth must be graded`,
+    );
+    assert.ok(
+      gains[0] > gains[1] && gains[1] > gains[2],
+      `${spectralSculptMode} excavation must deepen with pull distance`,
+    );
+    assert.ok(responses[2] - responses[0] > 0.3);
+    assert.ok(depths[2] - depths[0] > 0.4);
+    assert.ok(gains[0] - gains[2] > 0.25);
+  }
+
+  const released = new MoireDroneKernel({
+    sampleRate: SAMPLE_RATE,
+    parameters: { ...parameters, gestureMemory: 0.08 },
+  });
+  released.setActive(true);
+  const releaseGesture = gestureAt(strengths[2]);
+  released.tugFabric(-0.7, 0.2, 0.98, releaseGesture);
+  renderKernel(released, BLOCK_SIZE * 4);
+  released.releaseFabric(releaseGesture);
+  released.updateTargets(true);
+  assert.equal(released.gestureActive, false);
+  assert.ok(
+    released.directGestureResponse > 0.75,
+    "release must retain the strong pull as a directly audible memory tail",
+  );
+  assert.ok(released.directGestureDepth > 0.7);
+  assert.ok(released.directGestureGainTarget < 0.6);
+});
+
 test("extreme spectral-fabric motion stays finite and shifts the filter lattice", () => {
-  const fabric = new SpectralFabric({ width: 99, height: 99, seed: 31_337 });
+  const fabric = new SpectralFabric({
+    width: 99, height: 99, patchwork: 1, seed: 31_337,
+  });
   assert.equal(fabric.width, 16);
   assert.equal(fabric.height, 16);
   assert.equal(fabric.nodeCount, 256);
@@ -1361,6 +2275,20 @@ test("extreme spectral-fabric motion stays finite and shifts the filter lattice"
   assert.ok(fabric.displacement.every((value) => Number.isFinite(value) && Math.abs(value) <= 1.2));
   assert.ok(fabric.velocity.every((value) => Number.isFinite(value) && Math.abs(value) <= 16));
   assert.ok(fabric.acceleration.every((value) => Number.isFinite(value) && Math.abs(value) <= 520));
+  for (const values of [
+    fabric.nodeX,
+    fabric.nodeY,
+    fabric.nodeMass,
+    fabric.nodeDamping,
+    fabric.horizontalSpringWeight,
+    fabric.verticalSpringWeight,
+  ]) {
+    assert.ok(values.every(Number.isFinite));
+  }
+  assert.ok(fabric.nodeMass.every((value) => value >= 0.42 && value <= 2.4));
+  assert.ok(fabric.nodeDamping.every((value) => value >= 0.35 && value <= 1.7));
+  assert.ok(fabric.horizontalSpringWeight.every((value) => value >= 0.32 && value <= 2.4));
+  assert.ok(fabric.verticalSpringWeight.every((value) => value >= 0.32 && value <= 2.4));
 
   const targetOptions = {
     index: 7,
@@ -1398,6 +2326,10 @@ test("propagation controls sanitize to the bounded event model", () => {
     ringDensity: -99,
     autoPluckRate: -99,
     propagationVoices: -99,
+    propagationSizeSpread: -99,
+    propagationSpeedSpread: -99,
+    propagationInterference: -99,
+    grabRippleRate: -99,
     combDepth: -99,
     combTeeth: -99,
     combWidth: -99,
@@ -1422,6 +2354,10 @@ test("propagation controls sanitize to the bounded event model", () => {
   assert.equal(low.ringDensity, 0.25);
   assert.equal(low.autoPluckRate, 0);
   assert.equal(low.propagationVoices, 1);
+  assert.equal(low.propagationSizeSpread, 0);
+  assert.equal(low.propagationSpeedSpread, 0);
+  assert.equal(low.propagationInterference, 0);
+  assert.equal(low.grabRippleRate, 0);
   assert.equal(low.combDepth, 0);
   assert.equal(low.combTeeth, 1);
   assert.equal(low.combWidth, 0.02);
@@ -1447,6 +2383,10 @@ test("propagation controls sanitize to the bounded event model", () => {
     ringDensity: 999,
     autoPluckRate: 999,
     propagationVoices: 999,
+    propagationSizeSpread: 999,
+    propagationSpeedSpread: 999,
+    propagationInterference: 999,
+    grabRippleRate: 999,
     combDepth: 999,
     combTeeth: 15.6,
     combWidth: 999,
@@ -1471,6 +2411,10 @@ test("propagation controls sanitize to the bounded event model", () => {
   assert.equal(high.ringDensity, 12);
   assert.equal(high.autoPluckRate, MOIRE_DRONE_LIMITS.maxAutoPluckRate);
   assert.equal(high.propagationVoices, MOIRE_DRONE_LIMITS.maxPropagationVoices);
+  assert.equal(high.propagationSizeSpread, 1);
+  assert.equal(high.propagationSpeedSpread, 1);
+  assert.equal(high.propagationInterference, 1);
+  assert.equal(high.grabRippleRate, 30);
   assert.equal(high.combDepth, 1);
   assert.equal(high.combTeeth, 16);
   assert.equal(high.combWidth, 0.48);
@@ -1487,6 +2431,10 @@ test("propagation controls sanitize to the bounded event model", () => {
   const defaults = sanitizeMoireDroneParams();
   assert.equal(defaults.autoPluckRate, 0);
   assert.equal(defaults.propagationVoices, 1);
+  assert.equal(defaults.propagationSizeSpread, MOIRE_DRONE_DEFAULTS.propagationSizeSpread);
+  assert.equal(defaults.propagationSpeedSpread, MOIRE_DRONE_DEFAULTS.propagationSpeedSpread);
+  assert.equal(defaults.propagationInterference, MOIRE_DRONE_DEFAULTS.propagationInterference);
+  assert.equal(defaults.grabRippleRate, MOIRE_DRONE_DEFAULTS.grabRippleRate);
   assert.equal(defaults.combDepth, MOIRE_DRONE_DEFAULTS.combDepth);
   assert.equal(defaults.combTeeth, MOIRE_DRONE_DEFAULTS.combTeeth);
   assert.equal(defaults.combWidth, MOIRE_DRONE_DEFAULTS.combWidth);
@@ -1501,7 +2449,7 @@ test("propagation controls sanitize to the bounded event model", () => {
   assert.equal(defaults.qCharacter, MOIRE_DRONE_DEFAULTS.qCharacter);
 });
 
-test("six spectral sculptors have distinct, finite, frequency-selective responses", () => {
+test("all spectral sculptors have distinct, finite, frequency-selective responses", () => {
   const lowFrequency = 100;
   const highFrequency = 12_800;
   const focus = 0.5;
@@ -1530,7 +2478,9 @@ test("six spectral sculptors have distinct, finite, frequency-selective response
     const gains = positions.map((position) => response(mode, position));
     assert.ok(gains.every((gain) => Number.isFinite(gain) && gain >= 0));
     assert.ok(
-      gains.every((gain) => gain <= (mode === "ridges" ? 3.000001 : 1.000001)),
+      gains.every((gain) => gain <= (["ridges", "peak", "tilt"].includes(mode)
+        ? 3.000001
+        : 1.000001)),
       `${mode} must retain bounded spectral gain`,
     );
     responses.set(mode, gains);
@@ -1548,6 +2498,11 @@ test("six spectral sculptors have distinct, finite, frequency-selective response
   assert.ok(at("highpass", 0.88) > at("highpass", 0.12) + 0.25);
   assert.ok(at("bandpass", focus) > Math.max(at("bandpass", 0.12), at("bandpass", 0.88)) + 0.25);
   assert.ok(at("bandstop", focus) + 0.25 < Math.min(at("bandstop", 0.12), at("bandstop", 0.88)));
+  assert.ok(at("peak", focus) > 1 && at("peak", focus) > at("peak", 0.12));
+  assert.ok(
+    Math.abs(at("tilt", 0.12) - at("tilt", 0.88)) > 0.2,
+    "tilt must create a broad spectral slope rather than another comb",
+  );
 
   const lowFocusCut = response("bandstop", 0.2, { focus: 0.2 });
   const lowFocusRemote = response("bandstop", 0.8, { focus: 0.2 });
@@ -1555,6 +2510,46 @@ test("six spectral sculptors have distinct, finite, frequency-selective response
   const highFocusCut = response("bandstop", 0.8, { focus: 0.8 });
   assert.ok(lowFocusCut + 0.25 < lowFocusRemote);
   assert.ok(highFocusCut + 0.25 < highFocusRemote);
+});
+
+test("FFT cut depth uses the full control travel as a deep decibel-like response", () => {
+  const lowFrequency = 100;
+  const highFrequency = 12_800;
+  const focus = 0.5;
+  const frequency = Math.sqrt(lowFrequency * highFrequency);
+  const common = {
+    frequency,
+    lowFrequency,
+    highFrequency,
+    toothPositions: Float64Array.of(focus),
+    toothWidths: Float64Array.of(0.2),
+    teeth: 1,
+    sharpness: 1,
+    mode: "notches",
+    focus,
+    width: 0.2,
+  };
+  const expectedCoreGains = new Map([
+    [0, 1],
+    [0.25, 0.75 ** 2],
+    [0.5, 0.5 ** 2],
+    [0.75, 0.25 ** 2],
+    [1, 0],
+  ]);
+  let previous = Infinity;
+  for (const [depth, expected] of expectedCoreGains) {
+    const gain = spectralFftMaskGain({ ...common, depth });
+    assert.ok(Math.abs(gain - expected) < 1e-12);
+    assert.ok(gain <= previous, "increasing FFT depth must never reopen a cut");
+    previous = gain;
+  }
+
+  const remoteFrequency = lowFrequency * (highFrequency / lowFrequency) ** 0.76;
+  assert.equal(spectralFftMaskGain({
+    ...common,
+    frequency: remoteFrequency,
+    depth: 0.75,
+  }), 1, "a deeper response must not lower bins outside the sculpted region");
 });
 
 test("periodic pointer focus places a real gap or ridge at that absolute spectrum position", () => {
@@ -1636,7 +2631,7 @@ test("the spectral comb gate has true zero cores, exact bypass, and periodic bou
   };
   assert.equal(spectralCombGate({ ...center, depth: 1, influence: 1 }), 0);
   assert.ok(Math.abs(
-    spectralCombGate({ ...center, depth: 0.8, influence: 0.5 }) - 0.6
+    spectralCombGate({ ...center, depth: 0.8, influence: 0.5 }) - 0.52
   ) < 1e-12);
   for (const spectralPosition of [-999, -0.37, 0, 0.81, 999]) {
     assert.equal(spectralCombGate({ spectralPosition, depth: 0 }), 1);
@@ -2052,7 +3047,7 @@ test("the streaming FFT resets exactly and ignores host chunk partitions", () =>
   assert.deepEqual(afterReset.right, regular.right);
 });
 
-test("the kernel crossfades sample-exactly between aligned Q and FFT engines", () => {
+test("the kernel preserves exact Q/FFT endpoints and makes the middle a real intersection", () => {
   const common = {
     ...MOIRE_DRONE_DEFAULTS,
     freeze: true,
@@ -2098,21 +3093,78 @@ test("the kernel crossfades sample-exactly between aligned Q and FFT engines", (
   ]);
 
   let endpointDifference = 0;
-  let maximumBlendError = 0;
+  let squaredIntersectionDifference = 0;
+  let comparisonSamples = 0;
   for (let channel = 0; channel < 2; channel += 1) {
     const q = channel === 0 ? qOnly.left : qOnly.right;
     const fft = channel === 0 ? fftOnly.left : fftOnly.right;
     const mixed = channel === 0 ? hybrid.left : hybrid.right;
     for (let index = 0; index < mixed.length; index += 1) {
       const expected = q[index] + (fft[index] - q[index]) * blendAmount;
-      maximumBlendError = Math.max(maximumBlendError, Math.abs(mixed[index] - expected));
+      if (index >= MOIRE_DRONE_FFT_SIZE * 2) {
+        squaredIntersectionDifference += (mixed[index] - expected) ** 2;
+        comparisonSamples += 1;
+      }
       endpointDifference += Math.abs(q[index] - fft[index]);
     }
   }
   assert.ok(endpointDifference > 1, "Q and FFT endpoints must be genuinely different filters");
   assert.ok(
-    maximumBlendError < 2e-7,
-    "the phase-aligned hybrid must be a linear sample-accurate crossfade",
+    Math.sqrt(squaredIntersectionDifference / comparisonSamples) > 1e-5,
+    "the hybrid must intersect both cuts instead of refilling them with a parallel crossfade",
+  );
+});
+
+test("the mixed Q/FFT cut rejects a tone passed by one mismatched shoulder", () => {
+  const fftSize = MOIRE_DRONE_FFT_SIZE;
+  const targetBin = 20;
+  const frequency = targetBin * SAMPLE_RATE / fftSize;
+  const kernel = new MoireDroneKernel({
+    sampleRate: SAMPLE_RATE,
+    parameters: {
+      ...MOIRE_DRONE_DEFAULTS,
+      spectralSculptMode: "notches",
+      freeze: true,
+      combDepth: 0.8,
+      combTeeth: 3,
+      combWidth: 0.16,
+      combOffset: 0.5,
+      combDrift: 0,
+      qCutDepth: 1,
+      qCharacter: 0.55,
+      fftCutDepth: 1,
+      fftSharpness: 0.8,
+      fabricDepth: 0,
+      propagationDepth: 0,
+    },
+  });
+  kernel.resetCombNotches();
+  kernel.fftFilter.reset();
+  const length = fftSize * 80;
+  const q = new Float64Array(length);
+  const fft = new Float64Array(length);
+  const intersection = new Float64Array(length);
+  const qDepth = 1 - (1 - kernel.sculptDepth * kernel.current.qCutDepth) ** 2;
+  for (let sample = 0; sample < length; sample += 1) {
+    const input = Math.sin(Math.PI * 2 * frequency * sample / SAMPLE_RATE) * 0.25;
+    q[sample] = kernel.processCombNotchChannel(input, 0);
+    kernel.fftFilter.processSample(input, input);
+    fft[sample] = kernel.fftFilter.outputLeft;
+    const serialQ = kernel.processHybridCombChannel(fft[sample], 0);
+    intersection[sample] = fft[sample] + (serialQ - fft[sample]) * qDepth;
+  }
+  const start = fftSize * 12;
+  const qAmplitude = rms(q, start) * Math.SQRT2;
+  const fftAmplitude = rms(fft, start) * Math.SQRT2;
+  const intersectionAmplitude = rms(intersection, start) * Math.SQRT2;
+  assert.ok(qAmplitude > fftAmplitude * 4, "the probe must expose a mismatched Q shoulder");
+  assert.ok(
+    intersectionAmplitude < fftAmplitude * 0.7,
+    "the serial midpoint must deepen even the already quieter FFT branch",
+  );
+  assert.ok(
+    intersectionAmplitude < qAmplitude * 0.1,
+    "the hybrid must not restore the Q shoulder over the FFT cut",
   );
 });
 
@@ -2333,6 +3385,58 @@ test("the final series comb creates deep acoustic notches after the parallel ban
   assert.ok(residual < 1e-6, "the complete series stage must reject a tooth by over 120 dB");
 });
 
+test("broad Q cut modes cascade two bounded sections for an unmasked slope", () => {
+  for (const spectralSculptMode of [
+    "lowpass", "highpass", "bandpass", "bandstop",
+  ]) {
+    const kernel = new MoireDroneKernel({
+      sampleRate: SAMPLE_RATE,
+      parameters: {
+        ...MOIRE_DRONE_DEFAULTS,
+        spectralSculptMode,
+        freeze: true,
+        combOffset: 0.5,
+        combWidth: 0.14,
+        qCharacter: 0.42,
+        combDrift: 0,
+        fabricDepth: 0,
+        propagationDepth: 0,
+      },
+    });
+    assert.equal(kernel.combStageCount, 2, `${spectralSculptMode} must use two Q sections`);
+    assert.ok(kernel.combNotchFrequency[0] > 0);
+    assert.equal(kernel.combNotchFrequency[1], kernel.combNotchFrequency[0]);
+    for (const coefficients of [
+      kernel.combNotchB0,
+      kernel.combNotchB1,
+      kernel.combNotchB2,
+      kernel.combNotchA1,
+      kernel.combNotchA2,
+    ]) {
+      assert.ok(Number.isFinite(coefficients[0]));
+      assert.equal(coefficients[1], coefficients[0]);
+    }
+
+    kernel.resetCombNotches();
+    for (let sample = 0; sample < SAMPLE_RATE; sample += 1) {
+      const impulse = sample === 0 ? 1 : 0;
+      assert.ok(Number.isFinite(kernel.processCombNotchChannel(impulse, 0)));
+    }
+  }
+
+  for (const spectralSculptMode of ["peak", "tilt"]) {
+    const kernel = new MoireDroneKernel({
+      sampleRate: SAMPLE_RATE,
+      parameters: { ...MOIRE_DRONE_DEFAULTS, spectralSculptMode, freeze: true },
+    });
+    assert.equal(
+      kernel.combStageCount,
+      1,
+      `${spectralSculptMode} must retain one bounded boost section`,
+    );
+  }
+});
+
 test("a frozen physical tug stretches the real output-comb gaps across the fabric", () => {
   const teeth = 7;
   const parameters = {
@@ -2408,9 +3512,9 @@ test("a frozen physical tug stretches the real output-comb gaps across the fabri
   }
 });
 
-test("the four propagation modes move outward, repeat at rate, and preserve polarity", () => {
+test("propagation modes include radial, gravity, standing, and ocean fields while preserving polarity", () => {
   assert.deepEqual(SPECTRAL_PROPAGATION_MODES, [
-    "drop", "harmonic", "spiral", "shock",
+    "drop", "harmonic", "spiral", "shock", "gravity", "standing", "ocean",
   ]);
   assert.ok(Object.isFrozen(SPECTRAL_PROPAGATION_MODES));
 
@@ -2449,6 +3553,36 @@ test("the four propagation modes move outward, repeat at rate, and preserve pola
     return signature.map((value) => value.toFixed(8)).join(",");
   });
   assert.equal(new Set(signatures).size, SPECTRAL_PROPAGATION_MODES.length);
+
+  const harmonicRadius = 0.28;
+  const harmonicOrder = 3;
+  const harmonicPositive = spectralPropagationValue({
+    mode: "harmonic",
+    x: harmonicRadius,
+    y: 0,
+    age: 0.2,
+    speed: 1.4,
+    rate: 5,
+    decay: 3,
+    width: 0.04,
+    harmonicOrder,
+    ringDensity: 1,
+  });
+  const oppositeLobeAngle = Math.PI / harmonicOrder;
+  const harmonicNegative = spectralPropagationValue({
+    mode: "harmonic",
+    x: Math.cos(oppositeLobeAngle) * harmonicRadius,
+    y: Math.sin(oppositeLobeAngle) * harmonicRadius,
+    age: 0.2,
+    speed: 1.4,
+    rate: 5,
+    decay: 3,
+    width: 0.04,
+    harmonicOrder,
+    ringDensity: 1,
+  });
+  assert.ok(harmonicPositive * harmonicNegative < 0);
+  assert.ok(Math.abs(Math.abs(harmonicPositive) - Math.abs(harmonicNegative)) < 1e-10);
 
   const peakRadius = (mode, age) => {
     let bestRadius = 0;
@@ -2514,6 +3648,293 @@ test("the four propagation modes move outward, repeat at rate, and preserve pola
     spectralPropagationValue({ ...clampProbe, rate: 5_000 }),
     spectralPropagationValue({ ...clampProbe, rate: 50 }),
   );
+});
+
+test("standing propagation creates stationary orthogonal nodes anchored by both gesture axes", () => {
+  const common = {
+    mode: "standing",
+    originX: 0,
+    originY: 0,
+    age: 0.17,
+    strength: 1,
+    rate: 1,
+    speed: 2,
+    decay: 8,
+    width: 0.1,
+    harmonicOrder: 2,
+    ringDensity: 4,
+    polarity: 1,
+  };
+  const at = (x, y, overrides = {}) => spectralPropagationValue({
+    ...common, ...overrides, x, y,
+  });
+
+  const centerAntinode = at(0, 0);
+  const adjacentAntinode = at(0.5, 0);
+  assert.ok(Math.abs(centerAntinode) > 0.4);
+  assert.ok(centerAntinode * adjacentAntinode < 0);
+  assert.ok(Math.abs(Math.abs(centerAntinode) - Math.abs(adjacentAntinode)) < 1e-12);
+  assert.ok(Math.abs(at(0.25, 0)) < 1e-12, "the X mode must have a fixed node");
+  assert.ok(Math.abs(at(0, 0.25)) < 1e-12, "the Y mode must have a fixed node");
+
+  for (const age of [0.08, 0.23, 0.61]) {
+    assert.ok(
+      Math.abs(at(0.25, 0, { age })) < 1e-12,
+      "standing nodes must not travel as the oscillator advances",
+    );
+    assert.ok(Math.abs(at(0, 0.25, { age })) < 1e-12);
+  }
+
+  const shiftedXNode = at(0.35, 0, { originX: 0.1 });
+  const shiftedYNode = at(0, 0.05, { originY: -0.2 });
+  assert.ok(Math.abs(shiftedXNode) < 1e-12, "originX must translate X nodes");
+  assert.ok(Math.abs(shiftedYNode) < 1e-12, "originY must translate Y nodes");
+  assert.ok(Math.abs(at(0.25, 0, { originX: 0.1 })) > 0.1);
+  assert.ok(Math.abs(at(0, 0.25, { originY: -0.2 })) > 0.1);
+});
+
+test("ocean propagation sends Cartesian sheets from the touched side across the fabric", () => {
+  const horizontal = {
+    mode: "ocean",
+    originX: -1,
+    originY: 0,
+    strength: 1,
+    rate: 1,
+    speed: 1,
+    decay: 8,
+    width: 0.03,
+    harmonicOrder: 3,
+    ringDensity: 0.25,
+    polarity: 1,
+  };
+
+  // A plane front has the same value everywhere transverse to its direction;
+  // a circular front with the same origin demonstrably does not.
+  const planeLine = [-0.9, -0.4, 0, 0.7, 1].map((y) => (
+    spectralPropagationValue({ ...horizontal, age: 0.6, x: -0.4, y })
+  ));
+  planeLine.forEach((value) => assert.ok(Math.abs(value - planeLine[0]) < 1e-12));
+  const radialCenter = spectralPropagationValue({
+    ...horizontal, mode: "drop", age: 0.6, x: -0.4, y: 0,
+  });
+  const radialEdge = spectralPropagationValue({
+    ...horizontal, mode: "drop", age: 0.6, x: -0.4, y: 0.7,
+  });
+  assert.ok(Math.abs(radialCenter - radialEdge) > 0.1);
+
+  const frontPeak = (age) => {
+    let bestX = -1;
+    let bestMagnitude = -1;
+    for (let step = 0; step <= 400; step += 1) {
+      const x = -1 + step / 200;
+      const magnitude = Math.abs(spectralPropagationValue({
+        ...horizontal, age, x, y: 0.63,
+      }));
+      if (magnitude > bestMagnitude) {
+        bestMagnitude = magnitude;
+        bestX = x;
+      }
+    }
+    return bestX;
+  };
+  const ages = [0.2, 0.6, 0.9, 1.4];
+  const peaks = ages.map(frontPeak);
+  peaks.forEach((peak, index) => {
+    assert.ok(Math.abs(peak - (-1 + ages[index])) <= 0.015);
+  });
+  assert.ok(peaks.every((peak, index) => index === 0 || peak > peaks[index - 1]));
+
+  const vertical = { ...horizontal, originX: 0, originY: -1 };
+  const verticalLine = [-0.9, -0.3, 0.2, 0.8].map((x) => (
+    spectralPropagationValue({ ...vertical, age: 0.6, x, y: -0.4 })
+  ));
+  verticalLine.forEach((value) => (
+    assert.ok(Math.abs(value - verticalLine[0]) < 1e-12)
+  ));
+  assert.ok(
+    Math.abs(spectralPropagationValue({
+      ...horizontal, age: 0.6, x: -0.4, y: 0.6,
+    }) - spectralPropagationValue({
+      ...vertical, age: 0.6, x: -0.4, y: 0.6,
+    })) > 0.1,
+    "originX/originY must select and place different orthogonal traveling sheets",
+  );
+
+  const corner = { ...horizontal, originX: -1, originY: -1, age: 0.6 };
+  const cornerIntersection = spectralPropagationValue({
+    ...corner, x: -0.4, y: -0.4,
+  });
+  const cornerSingleFront = spectralPropagationValue({
+    ...corner, x: -0.4, y: 0.6,
+  });
+  assert.ok(
+    Math.abs(cornerIntersection - cornerSingleFront) > 0.05,
+    "corner gestures must let the X and Y wave sheets interact",
+  );
+});
+
+test("directional propagation modes integrate with the pool and stay finite under stress", () => {
+  for (const mode of ["standing", "ocean"]) {
+    const event = {
+      mode,
+      x: -0.82,
+      y: 0.47,
+      strength: 0.74,
+      rate: 6,
+      speed: 2.3,
+      decay: 3.1,
+      width: 0.12,
+      harmonicOrder: 5,
+      ringDensity: 7,
+      polarity: -1,
+    };
+    const pool = new SpectralPropagationPool({ maxEntities: 1, activeLimit: 1 });
+    const slot = pool.trigger(event);
+    pool.step(0.31);
+    const pooled = pool.sample(0.13, -0.29, 1);
+    const direct = spectralPropagationValue({
+      mode,
+      originX: event.x,
+      originY: event.y,
+      x: 0.13,
+      y: -0.29,
+      age: pool.age[slot],
+      strength: event.strength,
+      rate: event.rate,
+      speed: event.speed,
+      decay: event.decay,
+      width: event.width,
+      harmonicOrder: event.harmonicOrder,
+      ringDensity: event.ringDensity,
+      polarity: event.polarity,
+    });
+    assert.ok(Math.abs(pooled - Math.max(-1, Math.min(1, direct))) < 1e-12);
+
+    for (let age = 0; age <= 60; age += 0.37) {
+      for (const [x, y] of [[-1, -1], [-0.7, 0.9], [0, 0], [0.8, -0.6], [1, 1]]) {
+        const positive = spectralPropagationValue({
+          mode, x, y, originX: -99, originY: 99, age,
+          strength: 99, rate: 99, speed: 99, decay: 99,
+          width: -99, harmonicOrder: 99, ringDensity: 99, polarity: 1,
+        });
+        const negative = spectralPropagationValue({
+          mode, x, y, originX: -99, originY: 99, age,
+          strength: 99, rate: 99, speed: 99, decay: 99,
+          width: -99, harmonicOrder: 99, ringDensity: 99, polarity: -1,
+        });
+        assert.ok(Number.isFinite(positive));
+        assert.ok(Math.abs(positive) <= 1.5);
+        assert.ok(Math.abs(positive + negative) < 1e-12);
+      }
+    }
+  }
+
+  assert.equal(sanitizeMoireDroneParams({ propagationMode: "standing" }).propagationMode, "standing");
+  assert.equal(sanitizeMoireDroneParams({ propagationMode: "ocean" }).propagationMode, "ocean");
+});
+
+test("each ripple can deterministically vary its physical size and sweep speed", () => {
+  const launchSequence = (seed, sizeSpread, speedSpread) => {
+    const pool = new SpectralPropagationPool({
+      maxEntities: 4,
+      activeLimit: 4,
+      seed,
+    });
+    for (let event = 0; event < 4; event += 1) {
+      pool.trigger({
+        mode: "drop",
+        x: event * 0.2 - 0.3,
+        y: 0,
+        strength: 1,
+        rate: 7,
+        speed: 3.2,
+        width: 0.18,
+        sizeSpread,
+        speedSpread,
+        polarity: 1,
+      });
+    }
+    return pool;
+  };
+
+  const exact = launchSequence(0x1234, 0, 0);
+  assert.deepEqual(Array.from(exact.speed), [3.2, 3.2, 3.2, 3.2]);
+  assert.deepEqual(Array.from(exact.width), [0.18, 0.18, 0.18, 0.18]);
+
+  const first = launchSequence(0x89abcdef, 1, 1);
+  const second = launchSequence(0x89abcdef, 1, 1);
+  assert.deepEqual(first.speed, second.speed);
+  assert.deepEqual(first.width, second.width);
+  assert.equal(first.randomState, second.randomState);
+  assert.ok(new Set(Array.from(first.speed, (value) => value.toFixed(8))).size > 1);
+  assert.ok(new Set(Array.from(first.width, (value) => value.toFixed(8))).size > 1);
+  assert.ok(first.speed.every((value) => (
+    Number.isFinite(value)
+      && value >= 0.1
+      && value <= MOIRE_DRONE_LIMITS.maxPropagationSpeed
+  )));
+  assert.ok(first.width.every((value) => (
+    Number.isFinite(value) && value >= 0.02 && value <= 0.6
+  )));
+
+  const kernel = new MoireDroneKernel({
+    sampleRate: SAMPLE_RATE,
+    parameters: {
+      ...MOIRE_DRONE_DEFAULTS,
+      propagationVoices: 4,
+      propagationSizeSpread: 1,
+      propagationSpeedSpread: 1,
+      autoPluckRate: 0,
+      seed: 0x13579bdf,
+    },
+  });
+  for (let event = 0; event < 4; event += 1) {
+    kernel.pluckFabric(event * 0.2 - 0.3, 0, 0.8, 0.18);
+  }
+  assert.equal(kernel.propagation.activeCount, 4);
+  const activeSlots = Array.from(kernel.propagation.active, (active, index) => (
+    active ? index : -1
+  )).filter((index) => index >= 0);
+  assert.ok(new Set(activeSlots.map((index) => kernel.propagation.speed[index].toFixed(8))).size > 1);
+  assert.ok(new Set(activeSlots.map((index) => kernel.propagation.width[index].toFixed(8))).size > 1);
+});
+
+test("propagation interference crossfades from one strongest wave to bounded superposition", () => {
+  const createPair = (secondPolarity) => {
+    const pool = new SpectralPropagationPool({ maxEntities: 2, activeLimit: 2, seed: 73 });
+    const event = {
+      mode: "drop",
+      x: 0,
+      y: 0,
+      strength: 0.62,
+      rate: 4,
+      speed: 1.4,
+      decay: 4,
+      width: 0.08,
+      ringDensity: 1,
+      sizeSpread: 0,
+      speedSpread: 0,
+    };
+    pool.trigger({ ...event, polarity: 1 });
+    pool.trigger({ ...event, polarity: secondPolarity });
+    for (let frame = 0; frame < 3; frame += 1) pool.step(0.1);
+    return pool;
+  };
+
+  const opposed = createPair(-1);
+  const strongest = opposed.sample(0.42, 0, 0);
+  const halfMixed = opposed.sample(0.42, 0, 0.5);
+  const cancelled = opposed.sample(0.42, 0, 1);
+  assert.ok(Math.abs(strongest) > 0.05);
+  assert.ok(Math.abs(cancelled) < Math.abs(strongest) * 0.05);
+  assert.ok(Math.abs(halfMixed) < Math.abs(strongest));
+  assert.ok(Math.abs(halfMixed) > Math.abs(cancelled));
+
+  const aligned = createPair(1);
+  const oneWave = Math.abs(aligned.sample(0.42, 0, 0));
+  const reinforced = Math.abs(aligned.sample(0.42, 0, 1));
+  assert.ok(reinforced > oneWave, "same-polarity fronts must reinforce");
+  assert.ok(reinforced <= 1, "interference must remain bounded");
 });
 
 test("the propagation pool bounds events and lets slow fronts finish", () => {
@@ -2629,7 +4050,7 @@ test("propagation reset and compatible block boundaries are deterministic", () =
   const triggerSequence = (pool) => {
     for (let index = 0; index < 8; index += 1) {
       pool.trigger({
-        mode: SPECTRAL_PROPAGATION_MODES[index % 4],
+        mode: SPECTRAL_PROPAGATION_MODES[index % SPECTRAL_PROPAGATION_MODES.length],
         x: index * 0.17 - 0.6,
         y: 0.7 - index * 0.13,
         strength: 0.4 + index * 0.11,
@@ -2731,16 +4152,72 @@ test("defaults stay still until one controllable voice is manually or sparsely l
   assert.equal(automatic.propagation.activeLimit, 2);
   assert.equal(automatic.propagation.activeCount, 2);
   assert.ok(automatic.autoLaunchSerial >= 2);
-  assert.equal(
+  assert.notEqual(
     automatic.propagation.randomState,
     automaticRandomState,
-    "automatic placement and polarity must not consume random choices",
+    "per-ripple size and speed variety must advance the seeded random sequence",
   );
   for (let index = 0; index < automatic.propagation.maxEntities; index += 1) {
     if (automatic.propagation.active[index]) {
       assert.equal(automatic.propagation.polarity[index], 1);
     }
   }
+});
+
+test("filtered mix removes broadband masking progressively without changing its endpoints", () => {
+  const common = {
+    ...MOIRE_DRONE_DEFAULTS,
+    freeze: true,
+    dust: 0,
+    filterPairs: 8,
+    cascade: 0,
+    glideA: 0,
+    glideB: 0,
+    fieldASpeed: 0,
+    fieldBSpeed: 0,
+    fabricExcitation: 0,
+    fabricVibration: 0,
+    autoPluckRate: 0,
+    combDepth: 0,
+    fftCutDepth: 0,
+    qCutDepth: 0,
+    space: 0,
+    feedback: 0,
+    drive: 0,
+    seed: 0x5ca1ab1e,
+  };
+  const renderAt = (filteredMix) => {
+    const kernel = new MoireDroneKernel({
+      sampleRate: SAMPLE_RATE,
+      parameters: { ...common, filteredMix },
+    });
+    kernel.setActive(true);
+    return renderKernel(kernel, 8_192);
+  };
+  const raw = renderAt(0);
+  const middle = renderAt(0.5);
+  const resonant = renderAt(1);
+  assertFiniteBounded([
+    raw.left, raw.right,
+    middle.left, middle.right,
+    resonant.left, resonant.right,
+  ]);
+
+  let endpointDifference = 0;
+  let maximumCurveError = 0;
+  for (let channel = 0; channel < 2; channel += 1) {
+    const dry = channel === 0 ? raw.left : raw.right;
+    const half = channel === 0 ? middle.left : middle.right;
+    const wet = channel === 0 ? resonant.left : resonant.right;
+    for (let index = MOIRE_DRONE_FFT_SIZE * 2; index < half.length; index += 1) {
+      // The residual-noise curve maps a 50% control to 75% resonator signal.
+      const expected = dry[index] + (wet[index] - dry[index]) * 0.75;
+      maximumCurveError = Math.max(maximumCurveError, Math.abs(half[index] - expected));
+      endpointDifference += Math.abs(wet[index] - dry[index]);
+    }
+  }
+  assert.ok(endpointDifference > 1, "raw noise and resonator endpoints must remain distinct");
+  assert.ok(maximumCurveError < 2e-7, "the masking curve must retain deterministic endpoints");
 });
 
 test("spectral sculpting is not duplicated inside resonators or allowed to force the dry mix", async () => {

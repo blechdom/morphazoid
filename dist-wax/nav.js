@@ -212,7 +212,7 @@ export const TOOL_GROUPS = Object.freeze([
     },
     {
       id: "moire-drone",
-      label: "Moiré Drone",
+      label: "Fabric Filter",
       href: "moire-drone.html",
     },
     {

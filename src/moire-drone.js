@@ -12,6 +12,8 @@ const MAX_FILTERS = MAX_FILTER_PAIRS * FILTER_BANKS;
 const FABRIC_WIDTH = 8;
 const FABRIC_HEIGHT = 6;
 const FABRIC_NODES = FABRIC_WIDTH * FABRIC_HEIGHT;
+const MIN_FABRIC_SECTIONS = 3;
+const MAX_FABRIC_SECTIONS = 16;
 const MAX_PROPAGATIONS = 12;
 const CONTROL_INTERVAL = 16;
 const DELAY_SECONDS = 0.64;
@@ -25,13 +27,18 @@ const MOIRE_DRONE_Q_POST_DELAY = (
 const QUALITY_SCALES = Object.freeze([1, 0.75, 0.5, 1 / 3]);
 const COLLISION_MODES = Object.freeze(["multiply", "difference", "fold"]);
 export const SPECTRAL_PROPAGATION_MODES = Object.freeze([
-  "drop", "harmonic", "spiral", "shock",
+  "drop", "harmonic", "spiral", "shock", "gravity", "standing", "ocean",
 ]);
 export const SPECTRAL_SCULPT_MODES = Object.freeze([
   "notches", "ridges", "lowpass", "highpass", "bandpass", "bandstop",
+  "peak", "tilt",
+]);
+export const MOIRE_DRONE_NOISE_TYPES = Object.freeze([
+  "colored", "violet", "crackle", "samplehold", "fractal", "chaotic",
 ]);
 const SMOOTHED_PARAMETER_KEYS = Object.freeze([
-  "noiseColor", "noiseCorrelation", "dust", "lowFrequency", "highFrequency",
+  "noiseColor", "noiseChaos", "noiseFractalDepth", "noiseCorrelation",
+  "dust", "lowFrequency", "highFrequency",
   "resonance", "resonanceMotion", "spectralTilt", "latticeScatter",
   "filteredMix", "cascade", "glideA", "glideB", "edgeFocus",
   "fieldAAngle", "fieldADensity", "fieldASpeed", "fieldACurvature",
@@ -40,9 +47,11 @@ const SMOOTHED_PARAMETER_KEYS = Object.freeze([
   "phaseOffset", "collisionAmount", "collisionWidth", "collisionPolarity",
   "fabricTension", "fabricDamping", "fabricInertia", "fabricDepth",
   "fabricExcitation", "fabricVibration", "fabricRate", "fabricRotation",
-  "fabricSpin", "fabricPull",
+  "fabricSpin", "fabricPull", "fabricGravity",
   "propagationRate", "propagationSpeed", "propagationDecay",
   "propagationDepth", "propagationGain", "propagationWidth",
+  "propagationSizeSpread", "propagationSpeedSpread",
+  "propagationInterference", "grabRippleRate",
   "ringDensity", "autoPluckRate", "combDepth", "combWidth", "combDrift",
   "combWarp", "pluckCut",
   "spectralFilterBlend", "fftCutDepth", "fftSharpness",
@@ -64,20 +73,28 @@ export const MOIRE_DRONE_LIMITS = Object.freeze({
   fabricWidth: FABRIC_WIDTH,
   fabricHeight: FABRIC_HEIGHT,
   fabricNodes: FABRIC_NODES,
+  minFabricSections: MIN_FABRIC_SECTIONS,
+  maxFabricSections: MAX_FABRIC_SECTIONS,
+  maxFabricNodes: MAX_FABRIC_SECTIONS * MAX_FABRIC_SECTIONS,
   maxFabricDepth: 2,
   maxFabricRate: 30,
   maxFabricSpin: 1,
+  maxFabricGravity: 2,
   maxPropagations: MAX_PROPAGATIONS,
   maxPropagationVoices: 4,
   minPropagationRate: 1,
   maxPropagationRate: 50,
   maxPropagationSpeed: 12,
+  maxGrabRippleRate: 30,
   maxAutoPluckRate: 4,
   qualityScales: QUALITY_SCALES,
 });
 
 export const MOIRE_DRONE_DEFAULTS = Object.freeze({
+  noiseType: "colored",
   noiseColor: -0.2,
+  noiseChaos: 0.68,
+  noiseFractalDepth: 0.62,
   noiseCorrelation: 0.68,
   dust: 0.02,
   filterPairs: 16,
@@ -113,6 +130,8 @@ export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   fabricTension: 0.58,
   fabricDamping: 0.42,
   fabricInertia: 0.5,
+  fabricSections: 8,
+  fabricPatchwork: 0.35,
   fabricDepth: 0.55,
   fabricExcitation: 0,
   fabricVibration: 0,
@@ -120,6 +139,7 @@ export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   fabricRotation: 18,
   fabricSpin: 0,
   fabricPull: 0.72,
+  fabricGravity: 0.55,
   propagationMode: "drop",
   propagationRate: 5,
   propagationSpeed: 1.4,
@@ -127,6 +147,10 @@ export const MOIRE_DRONE_DEFAULTS = Object.freeze({
   propagationDepth: 0.48,
   propagationGain: 0.68,
   propagationWidth: 0.15,
+  propagationSizeSpread: 0.38,
+  propagationSpeedSpread: 0.42,
+  propagationInterference: 0.62,
+  grabRippleRate: 3,
   harmonicOrder: 3,
   ringDensity: 2.4,
   autoPluckRate: 0,
@@ -241,6 +265,7 @@ function freezePreset(preset) {
     ...preset,
     settings: Object.freeze({
       ...preset.settings,
+      noiseType: preset.settings.noiseType ?? MOIRE_DRONE_DEFAULTS.noiseType,
       noiseColor: preset.settings.noiseColor
         ?? PRESET_NOISE_COLORS[preset.id]
         ?? MOIRE_DRONE_DEFAULTS.noiseColor,
@@ -735,6 +760,587 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       drive: 0, space: 0, feedback: 0, outputLevel: 0.34,
     },
   }),
+  freezePreset({
+    id: "violet-prism",
+    label: "Violet Prism",
+    settings: {
+      noiseType: "violet", noiseColor: 1, noiseChaos: 0.2,
+      spectralSculptMode: "peak", spectralFilterBlend: 0.72,
+      fftCutDepth: 0.58, qCutDepth: 0.64, qCharacter: 0.48,
+      lowFrequency: 180, highFrequency: 19_000, spectralTilt: -2.5,
+      propagationMode: "harmonic", propagationRate: 13,
+      propagationSpeed: 4.8, propagationDecay: 1.2,
+      propagationWidth: 0.09, harmonicOrder: 6,
+      propagationSizeSpread: 0.44, propagationSpeedSpread: 0.32,
+      propagationInterference: 0.72, propagationVoices: 3,
+      grabRippleRate: 7, combDepth: 0.54, combWidth: 0.12,
+      combDrift: 0.06, filteredMix: 0.92, resonance: 0.42,
+      drive: 0.04, space: 0.08, feedback: 0.03, outputLevel: 0.38,
+    },
+  }),
+  freezePreset({
+    id: "ember-crackle",
+    label: "Ember Crackle",
+    settings: {
+      noiseType: "crackle", noiseColor: -0.35, noiseChaos: 0.78,
+      spectralSculptMode: "bandpass", spectralFilterBlend: 0.4,
+      lowFrequency: 34, highFrequency: 9_500, dust: 0.12,
+      propagationMode: "shock", propagationRate: 18,
+      propagationSpeed: 6.4, propagationDecay: 0.74,
+      propagationWidth: 0.075, propagationSizeSpread: 0.68,
+      propagationSpeedSpread: 0.55, propagationInterference: 0.36,
+      propagationVoices: 3, grabRippleRate: 11,
+      combDepth: 0.82, combWidth: 0.09, combOffset: 0.32,
+      combDrift: -0.08, filteredMix: 0.78, resonance: 0.36,
+      drive: 0.16, space: 0.04, feedback: 0.02, outputLevel: 0.34,
+    },
+  }),
+  freezePreset({
+    id: "stepped-static",
+    label: "Stepped Static",
+    settings: {
+      noiseType: "samplehold", noiseColor: 0.12, noiseChaos: 0.46,
+      spectralSculptMode: "highpass", spectralFilterBlend: 0.88,
+      lowFrequency: 70, highFrequency: 16_000, fftSharpness: 0.86,
+      propagationMode: "drop", propagationRate: 4.5,
+      propagationSpeed: 2.4, propagationDecay: 1.8,
+      propagationWidth: 0.18, propagationSizeSpread: 0.52,
+      propagationSpeedSpread: 0.7, propagationInterference: 0.82,
+      propagationVoices: 4, grabRippleRate: 5,
+      combDepth: 0.76, combWidth: 0.2, combOffset: 0.58,
+      combDrift: 0.018, filteredMix: 0.7, resonance: 0.32,
+      drive: 0.08, space: 0.1, feedback: 0.05, outputLevel: 0.36,
+    },
+  }),
+  freezePreset({
+    id: "fractal-canopy",
+    label: "Fractal Canopy",
+    settings: {
+      noiseType: "fractal", noiseColor: -0.58, noiseChaos: 0.32,
+      noiseFractalDepth: 0.94, spectralSculptMode: "lowpass",
+      spectralFilterBlend: 0.3, lowFrequency: 24, highFrequency: 8_000,
+      propagationMode: "harmonic", propagationRate: 2.5,
+      propagationSpeed: 1.1, propagationDecay: 4.8,
+      propagationWidth: 0.25, harmonicOrder: 5,
+      propagationSizeSpread: 0.72, propagationSpeedSpread: 0.62,
+      propagationInterference: 0.9, propagationVoices: 4,
+      grabRippleRate: 4, fabricGravity: 0.38,
+      combDepth: 0.68, combWidth: 0.24, combOffset: 0.4,
+      combDrift: -0.012, filteredMix: 0.88, resonance: 0.5,
+      space: 0.18, feedback: 0.08, outputLevel: 0.4,
+    },
+  }),
+  freezePreset({
+    id: "strange-attractor",
+    label: "Strange Attractor",
+    settings: {
+      noiseType: "chaotic", noiseColor: 0.18, noiseChaos: 0.96,
+      noiseFractalDepth: 0.42, spectralSculptMode: "peak",
+      spectralFilterBlend: 0.56, fftCutDepth: 0.48,
+      qCutDepth: 0.58, qCharacter: 0.62,
+      propagationMode: "spiral", propagationRate: 9.5,
+      propagationSpeed: 3.7, propagationDecay: 2.2,
+      propagationWidth: 0.11, harmonicOrder: 7,
+      propagationSizeSpread: 0.9, propagationSpeedSpread: 0.88,
+      propagationInterference: 1, propagationVoices: 4,
+      grabRippleRate: 14, fabricGravity: 0.24,
+      combDepth: 0.58, combWidth: 0.13, combDrift: 0.11,
+      filteredMix: 0.82, resonance: 0.46, drive: 0.1,
+      space: 0.08, feedback: 0.035, outputLevel: 0.32,
+    },
+  }),
+  freezePreset({
+    id: "gravity-basin",
+    label: "Gravity Basin",
+    settings: {
+      noiseType: "colored", noiseColor: -0.74, noiseChaos: 0.18,
+      spectralSculptMode: "tilt", spectralFilterBlend: 0.62,
+      fftCutDepth: 0.52, qCutDepth: 0.56, qCharacter: 0.34,
+      lowFrequency: 26, highFrequency: 11_000,
+      propagationMode: "gravity", propagationRate: 3.2,
+      propagationSpeed: 1.35, propagationDecay: 5.2,
+      propagationWidth: 0.2, propagationSizeSpread: 0.64,
+      propagationSpeedSpread: 0.48, propagationInterference: 0.88,
+      propagationVoices: 4, grabRippleRate: 6, fabricGravity: 1.35,
+      fabricTension: 0.48, fabricDamping: 0.32, fabricInertia: 0.72,
+      combDepth: 0.62, combWidth: 0.28, combOffset: 0.46,
+      combDrift: -0.008, filteredMix: 0.94, resonance: 0.4,
+      space: 0.15, feedback: 0.07, outputLevel: 0.38,
+    },
+  }),
+  freezePreset({
+    id: "interference-reef",
+    label: "Interference Reef",
+    settings: {
+      noiseType: "fractal", noiseColor: -0.22, noiseChaos: 0.58,
+      noiseFractalDepth: 0.8, spectralSculptMode: "bandstop",
+      spectralFilterBlend: 0.76, fftSharpness: 0.74,
+      propagationMode: "harmonic", propagationRate: 7.5,
+      propagationSpeed: 2.8, propagationDecay: 3.4,
+      propagationWidth: 0.12, harmonicOrder: 4, ringDensity: 5.5,
+      propagationSizeSpread: 0.58, propagationSpeedSpread: 0.58,
+      propagationInterference: 1, propagationVoices: 4,
+      autoPluckRate: 0.7, grabRippleRate: 9, fabricGravity: 0.18,
+      combDepth: 0.86, combWidth: 0.16, combOffset: 0.66,
+      combDrift: 0.025, filteredMix: 1, resonance: 0.44,
+      space: 0.1, feedback: 0.04, outputLevel: 0.36,
+    },
+  }),
+  freezePreset({
+    id: "torn-spectrum",
+    label: "Torn Spectrum",
+    settings: {
+      noiseType: "chaotic", noiseColor: 0.64, noiseChaos: 0.88,
+      noiseFractalDepth: 0.7, spectralSculptMode: "notches",
+      spectralFilterBlend: 0.84, fftCutDepth: 0.9,
+      fftSharpness: 0.9, qCutDepth: 0.5, qCharacter: 0.4,
+      propagationMode: "gravity", propagationRate: 21,
+      propagationSpeed: 8.2, propagationDecay: 1.1,
+      propagationWidth: 0.06, propagationSizeSpread: 0.82,
+      propagationSpeedSpread: 0.92, propagationInterference: 0.76,
+      propagationVoices: 4, grabRippleRate: 18, fabricGravity: 0.82,
+      combDepth: 0.88, combTeeth: 9, combWidth: 0.07,
+      combOffset: 0.21, combDrift: -0.17, combWarp: 3.2,
+      filteredMix: 0.9, resonance: 0.3, drive: 0.08,
+      space: 0.04, feedback: 0.015, outputLevel: 0.3,
+    },
+  }),
+  freezePreset({
+    id: "longshore-swell",
+    label: "Longshore Swell",
+    settings: {
+      noiseType: "colored", noiseColor: -0.58, noiseCorrelation: 0.84,
+      spectralSculptMode: "lowpass", spectralFilterBlend: 0.68,
+      fftCutDepth: 0.92, fftSharpness: 0.42,
+      qCutDepth: 0.72, qCharacter: 0.26,
+      filterPairs: 14, lowFrequency: 28, highFrequency: 9_000,
+      resonance: 0.32, spectralTilt: -2, latticeScatter: 0.04,
+      fieldAAngle: 0, fieldBAngle: 90,
+      fieldADensity: 1.1, fieldBDensity: 1.65,
+      fieldASpeed: 0.008, fieldBSpeed: -0.006,
+      fieldACurvature: 0, fieldBCurvature: 0,
+      fieldADepth: 0.5, fieldBDepth: 0.42,
+      collisionMode: "multiply", collisionAmount: 0.52,
+      collisionWidth: 0.28, collisionPolarity: -0.12,
+      originX: -0.96, originY: 0,
+      fabricSections: 6, fabricPatchwork: 0.08,
+      fabricTension: 0.32, fabricDamping: 0.24,
+      fabricInertia: 0.82, fabricDepth: 0.85,
+      fabricGravity: 0.18, fabricRotation: 0, fabricSpin: 0,
+      propagationMode: "ocean", propagationRate: 1.1,
+      propagationSpeed: 0.62, propagationDecay: 6,
+      propagationWidth: 0.28, propagationDepth: 0.72,
+      propagationGain: 0.72, propagationSizeSpread: 0.08,
+      propagationSpeedSpread: 0.06, propagationInterference: 0,
+      propagationVoices: 1, autoPluckRate: 0,
+      grabRippleRate: 1.2, ringDensity: 0.8,
+      combDepth: 0.88, combWidth: 0.25, combOffset: 0.66,
+      combDrift: 0, combWarp: 2.6, pluckCut: 0.9,
+      gestureMemory: 3, drive: 0.02, space: 0.1,
+      feedback: 0.03, outputLevel: 0.4,
+    },
+  }),
+  freezePreset({
+    id: "vertical-tide",
+    label: "Vertical Tide",
+    settings: {
+      noiseType: "violet", noiseColor: 0.9, noiseCorrelation: 0.38,
+      spectralSculptMode: "highpass", spectralFilterBlend: 0.9,
+      fftCutDepth: 0.94, fftSharpness: 0.84,
+      qCutDepth: 0.5, qCharacter: 0.48,
+      filterPairs: 16, lowFrequency: 150, highFrequency: 19_000,
+      resonance: 0.38, spectralTilt: 2.8, latticeScatter: 0.12,
+      fieldAAngle: 0, fieldBAngle: 90,
+      fieldADensity: 1.4, fieldBDensity: 2.6,
+      fieldASpeed: 0.006, fieldBSpeed: -0.018,
+      fieldACurvature: 0, fieldBCurvature: 0,
+      fieldADepth: 0.26, fieldBDepth: 0.82,
+      collisionMode: "fold", collisionAmount: 0.58,
+      collisionWidth: 0.2, collisionPolarity: 0.42,
+      originX: 0, originY: -0.96,
+      fabricSections: 12, fabricPatchwork: 0.18,
+      fabricTension: 0.62, fabricDamping: 0.45,
+      fabricInertia: 0.38, fabricDepth: 0.62,
+      fabricGravity: 0.12, fabricRotation: 90,
+      propagationMode: "ocean", propagationRate: 3.4,
+      propagationSpeed: 1.8, propagationDecay: 3.1,
+      propagationWidth: 0.14, propagationDepth: 0.68,
+      propagationGain: 0.7, propagationSizeSpread: 0.1,
+      propagationSpeedSpread: 0.08, propagationInterference: 0,
+      propagationVoices: 1, autoPluckRate: 0,
+      grabRippleRate: 2.2, ringDensity: 2.1,
+      combDepth: 0.84, combWidth: 0.15, combOffset: 0.38,
+      combDrift: 0, combWarp: 2.2, pluckCut: 0.88,
+      gestureMemory: 1.5, drive: 0, space: 0.05,
+      feedback: 0.02, outputLevel: 0.32,
+    },
+  }),
+  freezePreset({
+    id: "corner-crossing",
+    label: "Corner Crossing",
+    settings: {
+      noiseType: "fractal", noiseColor: -0.18,
+      noiseFractalDepth: 0.86, noiseCorrelation: 0.72,
+      spectralSculptMode: "bandstop", spectralFilterBlend: 0.5,
+      fftCutDepth: 0.82, fftSharpness: 0.62,
+      qCutDepth: 0.82, qCharacter: 0.46,
+      filterPairs: 18, lowFrequency: 34, highFrequency: 13_000,
+      resonance: 0.42, latticeScatter: 0.18,
+      fieldAAngle: 0, fieldBAngle: 90,
+      fieldADensity: 2, fieldBDensity: 2.6,
+      fieldASpeed: 0.018, fieldBSpeed: -0.014,
+      fieldACurvature: 0, fieldBCurvature: 0,
+      fieldADepth: 0.55, fieldBDepth: 0.55,
+      collisionMode: "difference", collisionAmount: 0.72,
+      collisionWidth: 0.17, collisionPolarity: 0.35,
+      originX: -0.9, originY: 0.86,
+      fabricSections: 9, fabricPatchwork: 0.42,
+      fabricTension: 0.48, fabricDamping: 0.3,
+      fabricInertia: 0.66, fabricDepth: 0.78,
+      fabricGravity: 0.3, fabricRotation: 0,
+      propagationMode: "ocean", propagationRate: 2.4,
+      propagationSpeed: 1.15, propagationDecay: 4.4,
+      propagationWidth: 0.18, propagationDepth: 0.82,
+      propagationGain: 0.76, propagationSizeSpread: 0.18,
+      propagationSpeedSpread: 0.12, propagationInterference: 0.78,
+      propagationVoices: 2, autoPluckRate: 0,
+      grabRippleRate: 4, ringDensity: 1.7,
+      combDepth: 0.76, combWidth: 0.2, combOffset: 0.54,
+      combDrift: 0.008, combWarp: 2.8, pluckCut: 0.9,
+      gestureMemory: 2.4, drive: 0.02, space: 0.08,
+      feedback: 0.025, outputLevel: 0.33,
+    },
+  }),
+  freezePreset({
+    id: "shoreline-slots",
+    label: "Shoreline Slots",
+    settings: {
+      noiseType: "samplehold", noiseColor: -0.2,
+      noiseChaos: 0.38, noiseCorrelation: 0.5,
+      spectralSculptMode: "bandpass", spectralFilterBlend: 0.12,
+      fftCutDepth: 0.48, fftSharpness: 0.25,
+      qCutDepth: 0.96, qCharacter: 0.3,
+      filterPairs: 12, lowFrequency: 42, highFrequency: 7_500,
+      resonance: 0.36, spectralTilt: -1.2, latticeScatter: 0.08,
+      fieldAAngle: 24, fieldBAngle: 114,
+      fieldADensity: 1.5, fieldBDensity: 2.1,
+      fieldASpeed: 0, fieldBSpeed: 0,
+      fieldACurvature: 0, fieldBCurvature: 0,
+      fieldADepth: 0.48, fieldBDepth: 0.62,
+      collisionMode: "fold", collisionAmount: 0.64,
+      collisionWidth: 0.24, collisionPolarity: -0.28,
+      originX: 0.96, originY: -0.18,
+      fabricSections: 7, fabricPatchwork: 0.58,
+      fabricTension: 0.4, fabricDamping: 0.38,
+      fabricInertia: 0.74, fabricDepth: 0.88,
+      fabricGravity: 0.24, fabricRotation: 24,
+      propagationMode: "ocean", propagationRate: 1.7,
+      propagationSpeed: 0.9, propagationDecay: 5.2,
+      propagationWidth: 0.24, propagationDepth: 0.64,
+      propagationGain: 0.7, propagationInterference: 0,
+      propagationVoices: 1, autoPluckRate: 0,
+      grabRippleRate: 0, ringDensity: 1.2,
+      combDepth: 0.78, combWidth: 0.18, combOffset: 0.72,
+      combDrift: 0, combWarp: 3, pluckCut: 0.86,
+      gestureMemory: 3.2, space: 0.09,
+      feedback: 0.03, outputLevel: 0.38,
+    },
+  }),
+  freezePreset({
+    id: "harbor-seiche",
+    label: "Harbor Seiche",
+    settings: {
+      noiseType: "fractal", noiseColor: -0.78,
+      noiseFractalDepth: 0.94, noiseCorrelation: 0.9,
+      spectralSculptMode: "peak", spectralFilterBlend: 0.34,
+      fftCutDepth: 0.56, fftSharpness: 0.34,
+      qCutDepth: 0.68, qCharacter: 0.36,
+      filterPairs: 10, lowFrequency: 24, highFrequency: 4_500,
+      resonance: 0.3, spectralTilt: -3.5, latticeScatter: 0.04,
+      fieldAAngle: 0, fieldBAngle: 90,
+      fieldADensity: 0.7, fieldBDensity: 1,
+      fieldASpeed: 0, fieldBSpeed: 0,
+      fieldACurvature: 0, fieldBCurvature: 0,
+      fieldADepth: 0.24, fieldBDepth: 0.3,
+      collisionMode: "multiply", collisionAmount: 0.3,
+      collisionWidth: 0.36, collisionPolarity: 0.18,
+      originX: 0.1, originY: -0.12,
+      fabricSections: 4, fabricPatchwork: 0.04,
+      fabricTension: 0.2, fabricDamping: 0.16,
+      fabricInertia: 0.92, fabricDepth: 0.95,
+      fabricGravity: 0.35, fabricRotation: 0,
+      propagationMode: "standing", propagationRate: 1,
+      propagationSpeed: 0.9, propagationDecay: 7.5,
+      propagationWidth: 0.26, propagationDepth: 0.65,
+      propagationGain: 0.68, propagationInterference: 0,
+      propagationVoices: 1, harmonicOrder: 1, ringDensity: 2,
+      autoPluckRate: 0.1, grabRippleRate: 0,
+      combDepth: 0.48, combWidth: 0.34, combOffset: 0.46,
+      combDrift: 0, combWarp: 2.4, pluckCut: 0.78,
+      gestureMemory: 3.8, drive: 0, space: 0.16,
+      feedback: 0.06, outputLevel: 0.36,
+    },
+  }),
+  freezePreset({
+    id: "standing-checker",
+    label: "Standing Checker",
+    settings: {
+      noiseType: "samplehold", noiseColor: 0.05,
+      noiseChaos: 0.44, noiseCorrelation: 0.36,
+      spectralSculptMode: "notches", spectralFilterBlend: 0.98,
+      fftCutDepth: 0.98, fftSharpness: 0.94,
+      qCutDepth: 0.5, qCharacter: 0.52,
+      filterPairs: 18, lowFrequency: 60, highFrequency: 16_000,
+      resonance: 0.4, latticeScatter: 0.06,
+      fieldAAngle: 0, fieldBAngle: 90,
+      fieldADensity: 4, fieldBDensity: 3,
+      fieldASpeed: 0, fieldBSpeed: 0,
+      fieldACurvature: 0, fieldBCurvature: 0,
+      fieldADepth: 0.52, fieldBDepth: 0.52,
+      collisionMode: "difference", collisionAmount: 0.8,
+      collisionWidth: 0.1, collisionPolarity: -0.36,
+      originX: 0, originY: 0,
+      fabricSections: 12, fabricPatchwork: 0.06,
+      fabricTension: 0.82, fabricDamping: 0.5,
+      fabricInertia: 0.24, fabricDepth: 0.5,
+      fabricGravity: 0.08, fabricRotation: 0,
+      propagationMode: "standing", propagationRate: 5.5,
+      propagationSpeed: 3.6, propagationDecay: 2,
+      propagationWidth: 0.07, propagationDepth: 0.75,
+      propagationGain: 0.74, propagationInterference: 0,
+      propagationVoices: 1, harmonicOrder: 4, ringDensity: 6,
+      autoPluckRate: 0, grabRippleRate: 3,
+      combDepth: 0.9, combTeeth: 8, combWidth: 0.09,
+      combOffset: 0.5, combDrift: 0, combWarp: 2.6,
+      pluckCut: 0.92, gestureMemory: 1.2,
+      drive: 0, space: 0.025, feedback: 0, outputLevel: 0.34,
+    },
+  }),
+  freezePreset({
+    id: "nodal-choir",
+    label: "Nodal Choir",
+    settings: {
+      noiseType: "colored", noiseColor: -0.5, noiseCorrelation: 0.96,
+      spectralSculptMode: "ridges", spectralFilterBlend: 0.05,
+      fftCutDepth: 0.42, fftSharpness: 0.26,
+      qCutDepth: 0.9, qCharacter: 0.68,
+      filterPairs: 14, lowFrequency: 32, highFrequency: 10_000,
+      resonance: 0.54, resonanceMotion: 0.42,
+      spectralTilt: -1.8, latticeScatter: 0.04,
+      fieldAAngle: 0, fieldBAngle: 90,
+      fieldADensity: 2, fieldBDensity: 4,
+      fieldASpeed: 0.006, fieldBSpeed: -0.004,
+      fieldACurvature: 0, fieldBCurvature: 0,
+      fieldADepth: 0.4, fieldBDepth: 0.58,
+      collisionMode: "multiply", collisionAmount: 0.48,
+      collisionWidth: 0.18, collisionPolarity: 0.3,
+      originX: -0.08, originY: 0.14,
+      fabricSections: 8, fabricPatchwork: 0.24,
+      fabricTension: 0.67, fabricDamping: 0.24,
+      fabricInertia: 0.48, fabricDepth: 0.66,
+      fabricVibration: 0.035, fabricRate: 2.6,
+      fabricGravity: 0.2, fabricRotation: 0,
+      propagationMode: "standing", propagationRate: 2.6,
+      propagationSpeed: 1.8, propagationDecay: 4.8,
+      propagationWidth: 0.15, propagationDepth: 0.52,
+      propagationGain: 0.6, propagationInterference: 0,
+      propagationVoices: 1, harmonicOrder: 2, ringDensity: 8,
+      autoPluckRate: 0.16, grabRippleRate: 2,
+      combDepth: 0.7, combTeeth: 5, combWidth: 0.14,
+      combOffset: 0.4, combDrift: 0.006, combWarp: 2,
+      pluckCut: 0.76, gestureMemory: 2.7,
+      drive: 0.01, space: 0.12, feedback: 0.045, outputLevel: 0.31,
+    },
+  }),
+  freezePreset({
+    id: "tilted-membrane",
+    label: "Tilted Membrane",
+    settings: {
+      noiseType: "chaotic", noiseColor: 0.28,
+      noiseChaos: 0.82, noiseFractalDepth: 0.45,
+      noiseCorrelation: 0.58,
+      spectralSculptMode: "tilt", spectralFilterBlend: 0.76,
+      fftCutDepth: 0.72, fftSharpness: 0.65,
+      qCutDepth: 0.48, qCharacter: 0.45,
+      filterPairs: 16, lowFrequency: 38, highFrequency: 15_000,
+      resonance: 0.36, spectralTilt: 0.8, latticeScatter: 0.22,
+      glideA: 0.02, glideB: -0.015,
+      fieldAAngle: 27, fieldBAngle: 117,
+      fieldADensity: 3, fieldBDensity: 2.2,
+      fieldASpeed: 0.03, fieldBSpeed: -0.021,
+      fieldACurvature: 0.08, fieldBCurvature: 0.08,
+      fieldADepth: 0.5, fieldBDepth: 0.46,
+      collisionMode: "fold", collisionAmount: 0.7,
+      collisionWidth: 0.16, collisionPolarity: 0.62,
+      originX: 0.31, originY: -0.24,
+      fabricSections: 10, fabricPatchwork: 0.46,
+      fabricTension: 0.55, fabricDamping: 0.37,
+      fabricInertia: 0.58, fabricDepth: 0.72,
+      fabricVibration: 0.055, fabricRate: 4.2,
+      fabricGravity: 0.26, fabricRotation: 27, fabricSpin: 0.006,
+      propagationMode: "standing", propagationRate: 4.2,
+      propagationSpeed: 2.6, propagationDecay: 3.2,
+      propagationWidth: 0.11, propagationDepth: 0.6,
+      propagationGain: 0.64, propagationInterference: 0,
+      propagationVoices: 1, harmonicOrder: 3, ringDensity: 4,
+      autoPluckRate: 0, grabRippleRate: 3,
+      combDepth: 0.58, combWidth: 0.3, combOffset: 0.42,
+      combDrift: 0.014, combWarp: 2.5, pluckCut: 0.82,
+      gestureMemory: 2, drive: 0.03, space: 0.06,
+      feedback: 0.02, outputLevel: 0.29,
+    },
+  }),
+  freezePreset({
+    id: "warp-wire",
+    label: "Warp Wire",
+    settings: {
+      noiseType: "crackle", noiseColor: 0.35,
+      noiseChaos: 0.72, noiseCorrelation: 0.3,
+      spectralSculptMode: "peak", spectralFilterBlend: 0.18,
+      fftCutDepth: 0.42, fftSharpness: 0.4,
+      qCutDepth: 0.86, qCharacter: 0.74,
+      filterPairs: 14, lowFrequency: 90, highFrequency: 14_000,
+      resonance: 0.5, resonanceMotion: 0.36,
+      spectralTilt: 1.2, latticeScatter: 0.03, cascade: 0.18,
+      fieldAAngle: 0, fieldBAngle: 90,
+      fieldADensity: 8, fieldBDensity: 0.5,
+      fieldASpeed: 0.018, fieldBSpeed: 0,
+      fieldACurvature: 0, fieldBCurvature: 0,
+      fieldADepth: 0.9, fieldBDepth: 0.12,
+      collisionMode: "difference", collisionAmount: 0.36,
+      collisionWidth: 0.08, collisionPolarity: 0.4,
+      originX: -0.18, originY: 0,
+      fabricSections: 16, fabricPatchwork: 0.12,
+      fabricTension: 0.9, fabricDamping: 0.3,
+      fabricInertia: 0.16, fabricDepth: 0.38,
+      fabricVibration: 0.04, fabricRate: 8.5,
+      fabricGravity: 0.05, fabricRotation: 0,
+      propagationMode: "standing", propagationRate: 8.5,
+      propagationSpeed: 5.4, propagationDecay: 1.4,
+      propagationWidth: 0.05, propagationDepth: 0.42,
+      propagationGain: 0.58, propagationInterference: 0,
+      propagationVoices: 1, harmonicOrder: 8, ringDensity: 0.25,
+      autoPluckRate: 0.22, grabRippleRate: 6,
+      combDepth: 0.54, combWidth: 0.075, combOffset: 0.28,
+      combDrift: 0.02, combWarp: 2.3, pluckCut: 0.72,
+      gestureMemory: 0.72, drive: 0, space: 0.025,
+      feedback: 0, outputLevel: 0.28,
+    },
+  }),
+  freezePreset({
+    id: "weft-wire",
+    label: "Weft Wire",
+    settings: {
+      noiseType: "violet", noiseColor: 1, noiseCorrelation: 0.42,
+      spectralSculptMode: "peak", spectralFilterBlend: 0.86,
+      fftCutDepth: 0.72, fftSharpness: 0.88,
+      qCutDepth: 0.46, qCharacter: 0.58,
+      filterPairs: 14, lowFrequency: 220, highFrequency: 19_000,
+      resonance: 0.42, spectralTilt: -1.5,
+      latticeScatter: 0.04, cascade: 0.08,
+      fieldAAngle: 0, fieldBAngle: 90,
+      fieldADensity: 0.5, fieldBDensity: 9,
+      fieldASpeed: 0, fieldBSpeed: -0.022,
+      fieldACurvature: 0, fieldBCurvature: 0,
+      fieldADepth: 0.1, fieldBDepth: 0.9,
+      collisionMode: "difference", collisionAmount: 0.4,
+      collisionWidth: 0.075, collisionPolarity: -0.38,
+      originX: 0, originY: 0.12,
+      fabricSections: 14, fabricPatchwork: 0.14,
+      fabricTension: 0.88, fabricDamping: 0.34,
+      fabricInertia: 0.2, fabricDepth: 0.4,
+      fabricVibration: 0.04, fabricRate: 9,
+      fabricGravity: 0.04, fabricRotation: 90,
+      propagationMode: "standing", propagationRate: 9,
+      propagationSpeed: 5.8, propagationDecay: 1.3,
+      propagationWidth: 0.045, propagationDepth: 0.4,
+      propagationGain: 0.56, propagationInterference: 0,
+      propagationVoices: 1, harmonicOrder: 1, ringDensity: 12,
+      autoPluckRate: 0.18, grabRippleRate: 6,
+      combDepth: 0.5, combWidth: 0.07, combOffset: 0.68,
+      combDrift: -0.018, combWarp: 2.2, pluckCut: 0.7,
+      gestureMemory: 0.68, drive: 0, space: 0.02,
+      feedback: 0, outputLevel: 0.27,
+    },
+  }),
+  freezePreset({
+    id: "patchwork-rain",
+    label: "Patchwork Rain",
+    settings: {
+      noiseType: "crackle", noiseColor: -0.38,
+      noiseChaos: 0.84, noiseCorrelation: 0.44, dust: 0.12,
+      spectralSculptMode: "notches", spectralFilterBlend: 0.66,
+      fftCutDepth: 0.9, fftSharpness: 0.86,
+      qCutDepth: 0.68, qCharacter: 0.42,
+      filterPairs: 18, lowFrequency: 36, highFrequency: 15_000,
+      resonance: 0.4, spectralTilt: -0.5,
+      latticeScatter: 0.28, cascade: 0.16,
+      fieldAAngle: -18, fieldBAngle: 72,
+      fieldADensity: 5.2, fieldBDensity: 4.7,
+      fieldASpeed: 0.04, fieldBSpeed: -0.03,
+      fieldACurvature: 0.22, fieldBCurvature: 0.15,
+      fieldADepth: 0.3, fieldBDepth: 0.34,
+      collisionMode: "fold", collisionAmount: 0.58,
+      collisionWidth: 0.11, collisionPolarity: 0.26,
+      originX: -0.24, originY: 0.18,
+      fabricSections: 11, fabricPatchwork: 0.84,
+      fabricTension: 0.56, fabricDamping: 0.62,
+      fabricInertia: 0.36, fabricDepth: 0.74,
+      fabricExcitation: 0.03, fabricVibration: 0,
+      fabricGravity: 0.22, fabricRotation: -18,
+      propagationMode: "drop", propagationRate: 14,
+      propagationSpeed: 4.5, propagationDecay: 1.1,
+      propagationWidth: 0.08, propagationDepth: 0.55,
+      propagationGain: 0.62, propagationSizeSpread: 0.55,
+      propagationSpeedSpread: 0.35, propagationInterference: 0.32,
+      propagationVoices: 2, autoPluckRate: 0.72,
+      grabRippleRate: 8, ringDensity: 5,
+      combDepth: 0.86, combTeeth: 10, combWidth: 0.065,
+      combOffset: 0.34, combDrift: 0.045,
+      combWarp: 2.8, pluckCut: 0.84,
+      gestureMemory: 0.8, drive: 0.04, space: 0.04,
+      feedback: 0.015, outputLevel: 0.3,
+    },
+  }),
+  freezePreset({
+    id: "soft-quilt",
+    label: "Soft Quilt",
+    settings: {
+      noiseType: "fractal", noiseColor: -0.82,
+      noiseFractalDepth: 1, noiseCorrelation: 0.92,
+      spectralSculptMode: "bandpass", spectralFilterBlend: 0.2,
+      fftCutDepth: 0.54, fftSharpness: 0.2,
+      qCutDepth: 0.86, qCharacter: 0.2,
+      filterPairs: 8, lowFrequency: 24, highFrequency: 3_200,
+      resonance: 0.28, spectralTilt: -4,
+      latticeScatter: 0.12, cascade: 0,
+      glideA: 0.003, glideB: -0.002,
+      fieldAAngle: 0, fieldBAngle: 90,
+      fieldADensity: 0.5, fieldBDensity: 0.75,
+      fieldASpeed: 0, fieldBSpeed: 0,
+      fieldACurvature: 0.12, fieldBCurvature: 0.2,
+      fieldADepth: 0.22, fieldBDepth: 0.28,
+      collisionMode: "multiply", collisionAmount: 0.22,
+      collisionWidth: 0.4, collisionPolarity: -0.1,
+      originX: -0.12, originY: 0.08,
+      fabricSections: 3, fabricPatchwork: 0.3,
+      fabricTension: 0.12, fabricDamping: 0.18,
+      fabricInertia: 0.96, fabricDepth: 1.1,
+      fabricGravity: 0.85, fabricRotation: -12,
+      fabricSpin: 0, fabricPull: 1.35,
+      propagationMode: "gravity", propagationRate: 1,
+      propagationSpeed: 0.45, propagationDecay: 7,
+      propagationWidth: 0.34, propagationDepth: 0.48,
+      propagationGain: 0.5, propagationSizeSpread: 0.12,
+      propagationSpeedSpread: 0.08, propagationInterference: 0,
+      propagationVoices: 1, autoPluckRate: 0.08,
+      grabRippleRate: 0, ringDensity: 0.7,
+      combDepth: 0.72, combWidth: 0.32, combOffset: 0.52,
+      combDrift: 0.003, combWarp: 2.1, pluckCut: 0.74,
+      gestureMemory: 4, drive: 0.02, space: 0.18,
+      feedback: 0.07, outputLevel: 0.4,
+    },
+  }),
 ]);
 
 export function clamp(value, low, high, fallback = low) {
@@ -765,10 +1371,16 @@ export function fabricGesturePull({
 } = {}) {
   const tugX = clamp(anchorX, -1, 1, 0);
   const tugY = clamp(anchorY, -1, 1, 0);
-  const pointerX = clamp(currentX, -1, 1, tugX);
-  const pointerY = clamp(currentY, -1, 1, tugY);
-  const deltaX = pointerX - tugX;
-  const deltaY = pointerY - tugY;
+  // Keep the physical/spectral contact on the fabric, but measure strain from
+  // the raw normalized pointer. Pointer capture commonly continues beyond the
+  // canvas; clamping before this subtraction made an outward edge pull read as
+  // zero motion. The wider safety bound matches captureGesture's delta budget.
+  const rawPointerX = clamp(currentX, -3, 3, tugX);
+  const rawPointerY = clamp(currentY, -3, 3, tugY);
+  const pointerX = clamp(rawPointerX, -1, 1, tugX);
+  const pointerY = clamp(rawPointerY, -1, 1, tugY);
+  const deltaX = clamp(rawPointerX - tugX, -2, 2, 0);
+  const deltaY = clamp(rawPointerY - tugY, -2, 2, 0);
   const distance = Math.hypot(deltaX, deltaY);
   const contact = clamp(contactPull, 0.05, 0.5, 0.18);
   const maximumDistance = Math.SQRT2 * 2;
@@ -781,7 +1393,7 @@ export function fabricGesturePull({
     1,
     contact,
   );
-  const verticalTravel = pointerY - tugY;
+  const verticalTravel = deltaY;
   const polarity = Math.abs(verticalTravel) >= 0.035
     ? (verticalTravel < 0 ? 1 : -1)
     : 1;
@@ -882,7 +1494,7 @@ export function spectralCombGate({
   const safeTeeth = Math.round(clamp(teeth, 1, 16, MOIRE_DRONE_DEFAULTS.combTeeth));
   const safeWidth = clamp(width, 0.02, 0.48, MOIRE_DRONE_DEFAULTS.combWidth);
   const clampedDepth = clamp(depth, 0, 1, MOIRE_DRONE_DEFAULTS.combDepth);
-  const safeDepth = clampedDepth >= 0.999 ? 1 : clampedDepth;
+  const safeDepth = spectralDepthResponseFast(clampedDepth);
   const safeInfluence = clamp(influence, 0, 1, 1);
   if (safeDepth === 0 || safeInfluence === 0) return 1;
   const cycle = wrapUnit(
@@ -939,7 +1551,7 @@ export function spectralWarpedCombGate({
 } = {}) {
   const safeTeeth = Math.round(clamp(teeth, 1, MAX_COMB_TEETH, MOIRE_DRONE_DEFAULTS.combTeeth));
   const clampedDepth = clamp(depth, 0, 1, MOIRE_DRONE_DEFAULTS.combDepth);
-  const safeDepth = clampedDepth >= 0.999 ? 1 : clampedDepth;
+  const safeDepth = spectralDepthResponseFast(clampedDepth);
   const safeInfluence = clamp(influence, 0, 1, 1);
   if (safeDepth === 0 || safeInfluence === 0) return 1;
   const safeWidth = clamp(width, 0.02, 0.48, MOIRE_DRONE_DEFAULTS.combWidth);
@@ -981,6 +1593,8 @@ const SPECTRAL_SCULPT_MODE_INDEX = Object.freeze({
   highpass: 3,
   bandpass: 4,
   bandstop: 5,
+  peak: 6,
+  tilt: 7,
 });
 
 function spectralSculptModeIndex(mode) {
@@ -991,6 +1605,17 @@ function spectralSculptModeIndex(mode) {
 function smoothUnit(value) {
   const unit = Math.max(0, Math.min(1, Number(value) || 0));
   return unit * unit * (3 - 2 * unit);
+}
+
+// A linear amplitude-depth control spends most of its travel in the barely
+// audible top few decibels. Squaring the residual gain gives the cut controls
+// a useful dB-like sweep while preserving exact bypass and exact silence:
+// 25% => -5 dB, 50% => -12 dB, 75% => -24 dB, 100% => a true zero.
+function spectralDepthResponseFast(value) {
+  const depth = Math.max(0, Math.min(1, Number(value) || 0));
+  if (depth >= 0.999) return 1;
+  const residual = 1 - depth;
+  return 1 - residual * residual;
 }
 
 function reflectUnit(value) {
@@ -1055,6 +1680,7 @@ function spectralFftMaskGainFast(
   width = MOIRE_DRONE_DEFAULTS.combWidth,
 ) {
   const safeBinWidth = Math.max(0, Number(binWidth) || 0);
+  const responseDepth = spectralDepthResponseFast(depth);
   if (!Number.isFinite(frequency) || frequency < 0) return 1;
   const isPeriodic = modeIndex === SPECTRAL_SCULPT_MODE_INDEX.notches
     || modeIndex === SPECTRAL_SCULPT_MODE_INDEX.ridges;
@@ -1073,6 +1699,38 @@ function spectralFftMaskGainFast(
     ? Math.log2(binHigh / binLow) / octaveSpan * 0.5
     : 0;
   if (!isPeriodic) {
+    if (modeIndex === SPECTRAL_SCULPT_MODE_INDEX.peak) {
+      const band = spectralBandAmountFast(
+        spectralPosition,
+        focus,
+        width,
+        sharpness,
+        normalizedBinFootprint,
+      );
+      return clamp(
+        1 + responseDepth * band * (0.5 + sharpness * 1.5),
+        1,
+        3,
+        1,
+      );
+    }
+    if (modeIndex === SPECTRAL_SCULPT_MODE_INDEX.tilt) {
+      const safeWidth = clamp(width, 0.02, 0.48, MOIRE_DRONE_DEFAULTS.combWidth);
+      const transition = Math.max(
+        normalizedBinFootprint,
+        safeWidth * (0.18 + (1 - sharpness) * 0.82),
+      );
+      const signedSide = Math.tanh(
+        (spectralPosition - clamp(focus, 0, 1, 0.5))
+          / Math.max(1e-9, transition),
+      );
+      return clamp(
+        2 ** (signedSide * responseDepth * (0.55 + sharpness * 1.05)),
+        0.2,
+        3,
+        1,
+      );
+    }
     let passAmount;
     if (modeIndex === SPECTRAL_SCULPT_MODE_INDEX.lowpass) {
       passAmount = spectralShelfAmountFast(
@@ -1104,7 +1762,7 @@ function spectralFftMaskGainFast(
         ? 1 - band
         : band;
     }
-    return clamp(1 - depth * (1 - passAmount), 0, 1, 1);
+    return clamp(1 - responseDepth * (1 - passAmount), 0, 1, 1);
   }
   const binFootprintCycles = binHigh > binLow
     ? Math.log2(binHigh / binLow) / octaveSpan * teeth * 0.5
@@ -1126,9 +1784,9 @@ function spectralFftMaskGainFast(
   }
   if (modeIndex === SPECTRAL_SCULPT_MODE_INDEX.ridges) {
     const ridgeBoost = 0.5 + sharpness * 1.5;
-    return clamp(1 + depth * shapedNotch * ridgeBoost, 1, 3, 1);
+    return clamp(1 + responseDepth * shapedNotch * ridgeBoost, 1, 3, 1);
   }
-  return clamp(1 - depth * shapedNotch, 0, 1, 1);
+  return clamp(1 - responseDepth * shapedNotch, 0, 1, 1);
 }
 
 /** Convert the shared warped gap geometry into a true FFT-bin gain. */
@@ -1383,6 +2041,9 @@ export class SpectralFftFilter {
     const halfSize = size / 2;
     let inputEnergy = 0;
     let sculptedEnergy = 0;
+    const boostMode = this.modeIndex === SPECTRAL_SCULPT_MODE_INDEX.ridges
+      || this.modeIndex === SPECTRAL_SCULPT_MODE_INDEX.peak
+      || this.modeIndex === SPECTRAL_SCULPT_MODE_INDEX.tilt;
     for (let bin = 0; bin <= halfSize; bin += 1) {
       const gain = spectralFftMaskGainFast(
         bin * this.sampleRate / size,
@@ -1399,7 +2060,7 @@ export class SpectralFftFilter {
         this.width,
       );
       this.binGains[bin] = gain;
-      if (this.modeIndex === SPECTRAL_SCULPT_MODE_INDEX.ridges) {
+      if (boostMode) {
         const binEnergy = (
           this.realLeft[bin] * this.realLeft[bin]
           + this.imaginaryLeft[bin] * this.imaginaryLeft[bin]
@@ -1411,7 +2072,7 @@ export class SpectralFftFilter {
         sculptedEnergy += binEnergy * gain * gain * symmetryWeight;
       }
     }
-    const ridgeHeadroom = this.modeIndex === SPECTRAL_SCULPT_MODE_INDEX.ridges
+    const ridgeHeadroom = boostMode
       && sculptedEnergy > inputEnergy
       ? clamp(Math.sqrt(inputEnergy / Math.max(1e-18, sculptedEnergy)), 0.45, 1, 1)
       : 1;
@@ -1487,6 +2148,10 @@ export function sanitizeMoireDroneParams(params = {}) {
   const collisionMode = COLLISION_MODES.includes(requestedMode)
     ? requestedMode
     : MOIRE_DRONE_DEFAULTS.collisionMode;
+  const requestedNoiseType = String(params.noiseType ?? "");
+  const noiseType = MOIRE_DRONE_NOISE_TYPES.includes(requestedNoiseType)
+    ? requestedNoiseType
+    : MOIRE_DRONE_DEFAULTS.noiseType;
   const requestedPropagationMode = String(params.propagationMode ?? "");
   const propagationMode = SPECTRAL_PROPAGATION_MODES.includes(requestedPropagationMode)
     ? requestedPropagationMode
@@ -1497,7 +2162,15 @@ export function sanitizeMoireDroneParams(params = {}) {
     : MOIRE_DRONE_DEFAULTS.spectralSculptMode;
 
   return Object.freeze({
+    noiseType,
     noiseColor: clamp(params.noiseColor, -1, 1, MOIRE_DRONE_DEFAULTS.noiseColor),
+    noiseChaos: clamp(params.noiseChaos, 0, 1, MOIRE_DRONE_DEFAULTS.noiseChaos),
+    noiseFractalDepth: clamp(
+      params.noiseFractalDepth,
+      0,
+      1,
+      MOIRE_DRONE_DEFAULTS.noiseFractalDepth,
+    ),
     noiseCorrelation: clamp(params.noiseCorrelation, 0, 1, MOIRE_DRONE_DEFAULTS.noiseCorrelation),
     dust: clamp(params.dust, 0, 1, MOIRE_DRONE_DEFAULTS.dust),
     filterPairs: Math.round(clamp(params.filterPairs, 4, MAX_FILTER_PAIRS, MOIRE_DRONE_DEFAULTS.filterPairs)),
@@ -1533,6 +2206,18 @@ export function sanitizeMoireDroneParams(params = {}) {
     fabricTension: clamp(params.fabricTension, 0, 1, MOIRE_DRONE_DEFAULTS.fabricTension),
     fabricDamping: clamp(params.fabricDamping, 0, 1, MOIRE_DRONE_DEFAULTS.fabricDamping),
     fabricInertia: clamp(params.fabricInertia, 0, 1, MOIRE_DRONE_DEFAULTS.fabricInertia),
+    fabricSections: Math.round(clamp(
+      params.fabricSections,
+      MOIRE_DRONE_LIMITS.minFabricSections,
+      MOIRE_DRONE_LIMITS.maxFabricSections,
+      MOIRE_DRONE_DEFAULTS.fabricSections,
+    )),
+    fabricPatchwork: clamp(
+      params.fabricPatchwork,
+      0,
+      1,
+      MOIRE_DRONE_DEFAULTS.fabricPatchwork,
+    ),
     fabricDepth: clamp(params.fabricDepth, 0, 2, MOIRE_DRONE_DEFAULTS.fabricDepth),
     fabricExcitation: clamp(params.fabricExcitation, 0, 1, MOIRE_DRONE_DEFAULTS.fabricExcitation),
     fabricVibration: clamp(params.fabricVibration, 0, 1, MOIRE_DRONE_DEFAULTS.fabricVibration),
@@ -1540,6 +2225,12 @@ export function sanitizeMoireDroneParams(params = {}) {
     fabricRotation: clamp(params.fabricRotation, -180, 180, MOIRE_DRONE_DEFAULTS.fabricRotation),
     fabricSpin: clamp(params.fabricSpin, -1, 1, MOIRE_DRONE_DEFAULTS.fabricSpin),
     fabricPull: clamp(params.fabricPull, 0, 2, MOIRE_DRONE_DEFAULTS.fabricPull),
+    fabricGravity: clamp(
+      params.fabricGravity,
+      0,
+      MOIRE_DRONE_LIMITS.maxFabricGravity,
+      MOIRE_DRONE_DEFAULTS.fabricGravity,
+    ),
     propagationMode,
     propagationRate: clamp(params.propagationRate, 1, 50, MOIRE_DRONE_DEFAULTS.propagationRate),
     propagationSpeed: clamp(params.propagationSpeed, 0.1, 12, MOIRE_DRONE_DEFAULTS.propagationSpeed),
@@ -1547,6 +2238,30 @@ export function sanitizeMoireDroneParams(params = {}) {
     propagationDepth: clamp(params.propagationDepth, 0, 2, MOIRE_DRONE_DEFAULTS.propagationDepth),
     propagationGain: clamp(params.propagationGain, 0, 1, MOIRE_DRONE_DEFAULTS.propagationGain),
     propagationWidth: clamp(params.propagationWidth, 0.02, 0.6, MOIRE_DRONE_DEFAULTS.propagationWidth),
+    propagationSizeSpread: clamp(
+      params.propagationSizeSpread,
+      0,
+      1,
+      MOIRE_DRONE_DEFAULTS.propagationSizeSpread,
+    ),
+    propagationSpeedSpread: clamp(
+      params.propagationSpeedSpread,
+      0,
+      1,
+      MOIRE_DRONE_DEFAULTS.propagationSpeedSpread,
+    ),
+    propagationInterference: clamp(
+      params.propagationInterference,
+      0,
+      1,
+      MOIRE_DRONE_DEFAULTS.propagationInterference,
+    ),
+    grabRippleRate: clamp(
+      params.grabRippleRate,
+      0,
+      MOIRE_DRONE_LIMITS.maxGrabRippleRate,
+      MOIRE_DRONE_DEFAULTS.grabRippleRate,
+    ),
     harmonicOrder: Math.round(clamp(params.harmonicOrder, 0, 12, MOIRE_DRONE_DEFAULTS.harmonicOrder)),
     ringDensity: clamp(params.ringDensity, 0.25, 12, MOIRE_DRONE_DEFAULTS.ringDensity),
     autoPluckRate: clamp(
@@ -1660,6 +2375,14 @@ export function normalizedResonanceQ(value) {
   return 0.55 * (MOIRE_DRONE_LIMITS.maxQ / 0.55) ** clamp(value, 0, 1, 0.5);
 }
 
+function propagationGainResponseFast(value) {
+  const gain = clamp(value, 0, 1, MOIRE_DRONE_DEFAULTS.propagationGain);
+  if (gain <= 0) return 0;
+  // Keep the established default at unity while making the complete slider
+  // useful: zero is a sonic bypass and the top adds about 31% more excursion.
+  return Math.min(1.32, (gain / MOIRE_DRONE_DEFAULTS.propagationGain) ** 0.7);
+}
+
 export function stableSvfCoefficients(frequency, q, sampleRate = DEFAULT_SAMPLE_RATE) {
   const rate = Math.max(8_000, Number(sampleRate) || DEFAULT_SAMPLE_RATE);
   const safeFrequency = clamp(frequency, 20, rate * 0.42, 220);
@@ -1730,6 +2453,27 @@ export function fabricImpulseWeight(
   return Math.exp(-0.5 * (dx * dx + dy * dy) / (safeRadius * safeRadius));
 }
 
+export function fabricHeightForSections(
+  sections = MOIRE_DRONE_DEFAULTS.fabricSections,
+) {
+  const width = Math.round(clamp(
+    sections,
+    MIN_FABRIC_SECTIONS,
+    MAX_FABRIC_SECTIONS,
+    MOIRE_DRONE_DEFAULTS.fabricSections,
+  ));
+  return Math.max(MIN_FABRIC_SECTIONS, Math.round(width * 0.75));
+}
+
+function fabricTopologyUnit(seed, index) {
+  let state = (
+    sanitizeSeed(seed) ^ Math.imul((index | 0) + 1, 0x9e3779b9)
+  ) >>> 0;
+  state = Math.imul(state ^ (state >>> 16), 0x21f0aaad) >>> 0;
+  state = Math.imul(state ^ (state >>> 15), 0x735a2d97) >>> 0;
+  return ((state ^ (state >>> 15)) >>> 0) / 0x1_0000_0000;
+}
+
 /**
  * A small toroidal mass-spring membrane over log-frequency space. Its scalar
  * displacement is mapped to octaves by `fabricDepth`; rotating the sampling
@@ -1738,27 +2482,162 @@ export function fabricImpulseWeight(
 export class SpectralFabric {
   constructor({
     width = FABRIC_WIDTH,
-    height = FABRIC_HEIGHT,
+    height,
+    patchwork = MOIRE_DRONE_DEFAULTS.fabricPatchwork,
     seed = MOIRE_DRONE_DEFAULTS.seed ^ 0xa511e9b3,
   } = {}) {
-    this.width = Math.max(3, Math.min(16, Math.round(Number(width) || FABRIC_WIDTH)));
-    this.height = Math.max(3, Math.min(16, Math.round(Number(height) || FABRIC_HEIGHT)));
+    this.width = Math.round(clamp(
+      width,
+      MIN_FABRIC_SECTIONS,
+      MAX_FABRIC_SECTIONS,
+      FABRIC_WIDTH,
+    ));
+    this.height = height === undefined
+      ? fabricHeightForSections(this.width)
+      : Math.round(clamp(
+        height,
+        MIN_FABRIC_SECTIONS,
+        MAX_FABRIC_SECTIONS,
+        FABRIC_HEIGHT,
+      ));
+    this.patchwork = clamp(
+      patchwork,
+      0,
+      1,
+      MOIRE_DRONE_DEFAULTS.fabricPatchwork,
+    );
     this.nodeCount = this.width * this.height;
+    this.seed = sanitizeSeed(seed);
+    this.topologyVersion = 0;
+    this.allocateTopology();
+    this.buildTopology();
+    this.clearDynamics();
+  }
+
+  allocateTopology() {
     this.displacement = new Float64Array(this.nodeCount);
     this.velocity = new Float64Array(this.nodeCount);
     this.acceleration = new Float64Array(this.nodeCount);
-    this.seed = sanitizeSeed(seed);
-    this.randomState = this.seed;
-    this.vibrationPhase = 0;
-    this.tugActive = false;
-    this.tugX = 0;
-    this.tugY = 0;
-    this.tugAmount = 0;
-    this.lastEnergy = 0;
+    this.nodeX = new Float64Array(this.nodeCount);
+    this.nodeY = new Float64Array(this.nodeCount);
+    this.columnPositions = new Float64Array(this.width);
+    this.rowPositions = new Float64Array(this.height);
+    this.columnSpans = new Float64Array(this.width);
+    this.rowSpans = new Float64Array(this.height);
+    this.nodeMass = new Float64Array(this.nodeCount);
+    this.nodeDamping = new Float64Array(this.nodeCount);
+    this.horizontalSpringWeight = new Float64Array(this.nodeCount);
+    this.verticalSpringWeight = new Float64Array(this.nodeCount);
   }
 
-  reset(seed = this.seed) {
-    this.seed = sanitizeSeed(seed);
+  buildAxisTopology(count, salt, spans, positions) {
+    if (this.patchwork <= 1e-12) {
+      const span = 2 / count;
+      for (let index = 0; index < count; index += 1) {
+        spans[index] = span;
+        positions[index] = (index + 0.5) / count * 2 - 1;
+      }
+      return;
+    }
+    let spanTotal = 0;
+    for (let index = 0; index < count; index += 1) {
+      const irregularity = (
+        fabricTopologyUnit(this.seed ^ salt, index) * 2 - 1
+      ) * this.patchwork;
+      const span = 1 + irregularity * 0.56;
+      spans[index] = span;
+      spanTotal += span;
+    }
+    let cursor = -1;
+    for (let index = 0; index < count; index += 1) {
+      const span = spans[index] * 2 / spanTotal;
+      spans[index] = span;
+      positions[index] = cursor + span * 0.5;
+      cursor += span;
+    }
+  }
+
+  buildTopology() {
+    this.buildAxisTopology(
+      this.width,
+      0x68bc21eb,
+      this.columnSpans,
+      this.columnPositions,
+    );
+    this.buildAxisTopology(
+      this.height,
+      0x02e5be93,
+      this.rowSpans,
+      this.rowPositions,
+    );
+    const uniformColumnSpan = 2 / this.width;
+    const uniformRowSpan = 2 / this.height;
+    const uniformArea = uniformColumnSpan * uniformRowSpan;
+    for (let row = 0; row < this.height; row += 1) {
+      const nextRow = (row + 1) % this.height;
+      const nextY = this.rowPositions[nextRow] + (nextRow === 0 ? 2 : 0);
+      const verticalLength = nextY - this.rowPositions[row];
+      for (let column = 0; column < this.width; column += 1) {
+        const index = row * this.width + column;
+        const nextColumn = (column + 1) % this.width;
+        const nextX = this.columnPositions[nextColumn]
+          + (nextColumn === 0 ? 2 : 0);
+        const horizontalLength = nextX - this.columnPositions[column];
+        this.nodeX[index] = this.columnPositions[column];
+        this.nodeY[index] = this.rowPositions[row];
+        if (this.patchwork <= 1e-12) {
+          this.nodeMass[index] = 1;
+          this.nodeDamping[index] = 1;
+          this.horizontalSpringWeight[index] = 1;
+          this.verticalSpringWeight[index] = 1;
+          continue;
+        }
+
+        const areaRatio = (
+          this.columnSpans[column] * this.rowSpans[row] / uniformArea
+        );
+        const massMaterial = 1 + this.patchwork * (
+          fabricTopologyUnit(this.seed ^ 0xb5297a4d, index) * 2 - 1
+        ) * 0.38;
+        const dampingMaterial = 1 + this.patchwork * (
+          fabricTopologyUnit(this.seed ^ 0x1b56c4e9, index) * 2 - 1
+        ) * 0.62;
+        const horizontalMaterial = 1 + this.patchwork * (
+          fabricTopologyUnit(this.seed ^ 0x7f4a7c15, index) * 2 - 1
+        ) * 0.68;
+        const verticalMaterial = 1 + this.patchwork * (
+          fabricTopologyUnit(this.seed ^ 0x94d049bb, index) * 2 - 1
+        ) * 0.68;
+        this.nodeMass[index] = clamp(
+          areaRatio * massMaterial,
+          0.42,
+          2.4,
+          1,
+        );
+        this.nodeDamping[index] = clamp(
+          dampingMaterial,
+          0.35,
+          1.7,
+          1,
+        );
+        this.horizontalSpringWeight[index] = clamp(
+          horizontalMaterial * uniformColumnSpan / horizontalLength,
+          0.32,
+          2.4,
+          1,
+        );
+        this.verticalSpringWeight[index] = clamp(
+          verticalMaterial * uniformRowSpan / verticalLength,
+          0.32,
+          2.4,
+          1,
+        );
+      }
+    }
+    this.topologyVersion += 1;
+  }
+
+  clearDynamics() {
     this.randomState = this.seed;
     this.displacement.fill(0);
     this.velocity.fill(0);
@@ -1768,7 +2647,73 @@ export class SpectralFabric {
     this.tugX = 0;
     this.tugY = 0;
     this.tugAmount = 0;
+    this.gravityEnvelope = 0;
     this.lastEnergy = 0;
+  }
+
+  reset(seed = this.seed) {
+    const nextSeed = sanitizeSeed(seed);
+    if (nextSeed !== this.seed) {
+      this.seed = nextSeed;
+      this.buildTopology();
+    }
+    this.clearDynamics();
+  }
+
+  reconfigure({
+    width = this.width,
+    height = this.height,
+    patchwork = this.patchwork,
+    seed = this.seed,
+  } = {}) {
+    const nextWidth = Math.round(clamp(
+      width,
+      MIN_FABRIC_SECTIONS,
+      MAX_FABRIC_SECTIONS,
+      this.width,
+    ));
+    const nextHeight = Math.round(clamp(
+      height,
+      MIN_FABRIC_SECTIONS,
+      MAX_FABRIC_SECTIONS,
+      this.height,
+    ));
+    const nextPatchwork = clamp(patchwork, 0, 1, this.patchwork);
+    const nextSeed = sanitizeSeed(seed);
+    const changed = nextWidth !== this.width
+      || nextHeight !== this.height
+      || nextPatchwork !== this.patchwork
+      || nextSeed !== this.seed;
+    if (!changed) return false;
+    this.width = nextWidth;
+    this.height = nextHeight;
+    this.patchwork = nextPatchwork;
+    this.seed = nextSeed;
+    this.nodeCount = this.width * this.height;
+    this.allocateTopology();
+    this.buildTopology();
+    this.clearDynamics();
+    return true;
+  }
+
+  get topology() {
+    return Object.freeze({
+      version: this.topologyVersion,
+      width: this.width,
+      height: this.height,
+      nodeCount: this.nodeCount,
+      patchwork: this.patchwork,
+      columnPositions: Object.freeze(Array.from(this.columnPositions)),
+      rowPositions: Object.freeze(Array.from(this.rowPositions)),
+      columnSpans: Object.freeze(Array.from(this.columnSpans)),
+      rowSpans: Object.freeze(Array.from(this.rowSpans)),
+      nodeX: Object.freeze(Array.from(this.nodeX)),
+      nodeY: Object.freeze(Array.from(this.nodeY)),
+      nodeMass: Object.freeze(Array.from(this.nodeMass)),
+      nodeDamping: Object.freeze(Array.from(this.nodeDamping)),
+      horizontalSpringWeight: Object.freeze(Array.from(this.horizontalSpringWeight)),
+      verticalSpringWeight: Object.freeze(Array.from(this.verticalSpringWeight)),
+    });
   }
 
   nextRandom() {
@@ -1784,11 +2729,15 @@ export class SpectralFabric {
     const amount = clamp(force, -2, 2, 0);
     const safeRadius = clamp(radius, 0.04, 1.5, 0.28);
     for (let row = 0; row < this.height; row += 1) {
-      const nodeY = (row + 0.5) / this.height * 2 - 1;
       for (let column = 0; column < this.width; column += 1) {
-        const nodeX = (column + 0.5) / this.width * 2 - 1;
         const index = row * this.width + column;
-        const weight = fabricImpulseWeight(nodeX, nodeY, x, y, safeRadius);
+        const weight = fabricImpulseWeight(
+          this.nodeX[index],
+          this.nodeY[index],
+          x,
+          y,
+          safeRadius,
+        );
         this.velocity[index] = clamp(
           this.velocity[index] + amount * weight * 6,
           -14,
@@ -1841,16 +2790,52 @@ export class SpectralFabric {
   sampleArrayLocal(values, x, y) {
     const rotatedX = wrapBipolar(clamp(x, -2, 2, 0));
     const rotatedY = wrapBipolar(clamp(y, -2, 2, 0));
-    const gridX = (rotatedX + 1) * 0.5 * this.width - 0.5;
-    const gridY = (rotatedY + 1) * 0.5 * this.height - 0.5;
-    const floorX = Math.floor(gridX);
-    const floorY = Math.floor(gridY);
-    const x0 = ((floorX % this.width) + this.width) % this.width;
-    const y0 = ((floorY % this.height) + this.height) % this.height;
+    let x0 = this.width - 1;
+    let sampleX = rotatedX;
+    let xStart = this.columnPositions[x0];
+    let xEnd = this.columnPositions[0] + 2;
+    if (rotatedX < this.columnPositions[0]) sampleX += 2;
+    else if (rotatedX < this.columnPositions[this.width - 1]) {
+      for (let column = 0; column < this.width - 1; column += 1) {
+        if (rotatedX < this.columnPositions[column + 1]) {
+          x0 = column;
+          xStart = this.columnPositions[column];
+          xEnd = this.columnPositions[column + 1];
+          break;
+        }
+      }
+    }
+
+    let y0 = this.height - 1;
+    let sampleY = rotatedY;
+    let yStart = this.rowPositions[y0];
+    let yEnd = this.rowPositions[0] + 2;
+    if (rotatedY < this.rowPositions[0]) sampleY += 2;
+    else if (rotatedY < this.rowPositions[this.height - 1]) {
+      for (let row = 0; row < this.height - 1; row += 1) {
+        if (rotatedY < this.rowPositions[row + 1]) {
+          y0 = row;
+          yStart = this.rowPositions[row];
+          yEnd = this.rowPositions[row + 1];
+          break;
+        }
+      }
+    }
+
     const x1 = (x0 + 1) % this.width;
     const y1 = (y0 + 1) % this.height;
-    const mixX = gridX - floorX;
-    const mixY = gridY - floorY;
+    const mixX = clamp(
+      (sampleX - xStart) / Math.max(1e-9, xEnd - xStart),
+      0,
+      1,
+      0,
+    );
+    const mixY = clamp(
+      (sampleY - yStart) / Math.max(1e-9, yEnd - yStart),
+      0,
+      1,
+      0,
+    );
     const top = values[y0 * this.width + x0] * (1 - mixX)
       + values[y0 * this.width + x1] * mixX;
     const bottom = values[y1 * this.width + x0] * (1 - mixX)
@@ -1858,7 +2843,12 @@ export class SpectralFabric {
     return top * (1 - mixY) + bottom * mixY;
   }
 
-  step(seconds, parameters = MOIRE_DRONE_DEFAULTS, manualOnly = false) {
+  step(
+    seconds,
+    parameters = MOIRE_DRONE_DEFAULTS,
+    manualOnly = false,
+    directPullResponse = 0,
+  ) {
     let remaining = clamp(seconds, 0, 0.05, 0);
     if (remaining <= 0) return this.energy;
     const tension = clamp(parameters.fabricTension, 0, 1, MOIRE_DRONE_DEFAULTS.fabricTension);
@@ -1871,7 +2861,22 @@ export class SpectralFabric {
       ? 0
       : clamp(parameters.fabricVibration, 0, 1, MOIRE_DRONE_DEFAULTS.fabricVibration);
     const rate = clamp(parameters.fabricRate, 0.05, 30, MOIRE_DRONE_DEFAULTS.fabricRate);
-    const pull = clamp(parameters.fabricPull, 0, 2, MOIRE_DRONE_DEFAULTS.fabricPull);
+    const configuredPull = clamp(
+      parameters.fabricPull,
+      0,
+      2,
+      MOIRE_DRONE_DEFAULTS.fabricPull,
+    );
+    const directPull = clamp(directPullResponse, 0, 1, 0);
+    const pull = this.tugActive
+      ? Math.max(configuredPull, directPull * 1.6)
+      : configuredPull;
+    const gravity = clamp(
+      parameters.fabricGravity,
+      0,
+      MOIRE_DRONE_LIMITS.maxFabricGravity,
+      MOIRE_DRONE_DEFAULTS.fabricGravity,
+    );
     const mass = 0.35 + inertia * 2.65;
     const waveRate = 1.2 + tension * 17;
     const coupling = (TAU * waveRate) ** 2 * 0.045 / mass;
@@ -1882,6 +2887,14 @@ export class SpectralFabric {
     while (remaining > 1e-9) {
       const elapsed = Math.min(maximumStep, remaining);
       remaining -= elapsed;
+      if (this.tugActive) {
+        this.gravityEnvelope = Math.max(
+          this.gravityEnvelope,
+          Math.min(1, 0.2 + Math.abs(this.tugAmount) * 0.8),
+        );
+      } else {
+        this.gravityEnvelope *= Math.exp(-elapsed * 2.4);
+      }
       const impulseChance = (0.04 + excitation * excitation * 13) * elapsed;
       if (excitation > 0.001 && this.nextRandom() < impulseChance) {
         const x = this.nextRandom() * 2 - 1;
@@ -1904,20 +2917,39 @@ export class SpectralFabric {
         const up = ((row - 1 + this.height) % this.height) * this.width;
         const down = ((row + 1) % this.height) * this.width;
         const rowOffset = row * this.width;
-        const nodeY = (row + 0.5) / this.height * 2 - 1;
         for (let column = 0; column < this.width; column += 1) {
           const left = rowOffset + (column - 1 + this.width) % this.width;
           const right = rowOffset + (column + 1) % this.width;
+          const upIndex = up + column;
+          const downIndex = down + column;
           const index = rowOffset + column;
           const center = this.displacement[index];
-          const laplacian = this.displacement[left] + this.displacement[right]
-            + this.displacement[up + column] + this.displacement[down + column]
-            - center * 4;
-          const nodeX = (column + 0.5) / this.width * 2 - 1;
+          const laplacian = (
+            (this.displacement[left] - center)
+              * this.horizontalSpringWeight[left]
+            + (this.displacement[right] - center)
+              * this.horizontalSpringWeight[index]
+            + (this.displacement[upIndex] - center)
+              * this.verticalSpringWeight[upIndex]
+            + (this.displacement[downIndex] - center)
+              * this.verticalSpringWeight[index]
+          );
+          const nodeX = this.nodeX[index];
+          const nodeY = this.nodeY[index];
+          const localMass = this.nodeMass[index];
           const modalDrive = Math.sin(TAU * (
             this.vibrationPhase + nodeX * 0.37 + nodeY * 0.23
           )) * driveAcceleration;
-          let acceleration = laplacian * coupling - center * anchor + modalDrive;
+          // Gravity acts on an excited or held sheet, but cannot wake an
+          // untouched one. This keeps the display perfectly static at rest
+          // while letting a grab acquire weight and sag after release.
+          const gravityActivity = this.gravityEnvelope;
+          const gravityAcceleration = gravity * gravityActivity * 8
+            * (0.72 + nodeY * 0.28) / mass;
+          let acceleration = (
+            laplacian * coupling - center * anchor
+            + modalDrive + gravityAcceleration
+          ) / localMass;
           if (this.tugActive && Math.abs(this.tugAmount) > 0.001 && pull > 0.001) {
             const weight = fabricImpulseWeight(
               nodeX,
@@ -1927,15 +2959,22 @@ export class SpectralFabric {
               0.13 + pull * 0.1,
             );
             const target = this.tugAmount * Math.min(1.15, 0.28 + pull * 0.5);
-            acceleration += weight * (target - center) * (55 + pull * 175) / mass;
+            acceleration += weight * (target - center) * (55 + pull * 175)
+              / (mass * localMass);
           }
           this.acceleration[index] = clamp(acceleration, -520, 520, 0);
         }
       }
 
-      const decay = Math.exp(-dampingRate * elapsed);
       let energyTotal = 0;
+      const uniformDecay = Math.exp(-dampingRate * elapsed);
       for (let index = 0; index < this.nodeCount; index += 1) {
+        const decay = clamp(
+          1 - (1 - uniformDecay) * this.nodeDamping[index],
+          0,
+          1,
+          uniformDecay,
+        );
         let velocity = (
           this.velocity[index] + this.acceleration[index] * elapsed
         ) * decay;
@@ -1967,10 +3006,54 @@ const PROPAGATION_MODE_INDEX = Object.freeze({
   harmonic: 1,
   spiral: 2,
   shock: 3,
+  gravity: 4,
+  standing: 5,
+  ocean: 6,
 });
 
 function propagationModeIndex(mode) {
   return PROPAGATION_MODE_INDEX[String(mode)] ?? PROPAGATION_MODE_INDEX.drop;
+}
+
+function travelingSheetComponent(
+  coordinate,
+  origin,
+  age,
+  rate,
+  speed,
+  decay,
+  width,
+  ringDensity,
+) {
+  // A signed Cartesian distance creates a plane front. Unlike the circular
+  // modes, the other coordinate is deliberately absent: every point on this
+  // crest reaches the same phase. The touched half of the sheet determines
+  // which direction travels inward and onward to the opposite side.
+  const direction = origin > 0 ? -1 : 1;
+  const along = (coordinate - origin) * direction;
+  const sourceFade = clamp(
+    (along + width * 3) / Math.max(0.01, width * 3),
+    0,
+    1,
+    0,
+  );
+  if (sourceFade <= 0) return 0;
+
+  const localTime = age - along / speed;
+  const frontOffset = (along - speed * age) / width;
+  const front = Math.exp(-0.5 * frontOffset * frontOffset);
+  const wakeAttack = localTime > 0
+    ? Math.min(1, localTime * rate * 3.5)
+    : 0;
+  const wakeDecay = localTime > 0
+    ? Math.exp(-localTime / Math.max(0.04, decay * 0.72))
+    : 0;
+  const phase = TAU * (
+    rate * localTime - ringDensity * along * 0.22
+  );
+  return sourceFade * (
+    front * 0.96 + Math.sin(phase) * wakeAttack * wakeDecay * 0.72
+  );
 }
 
 function propagationValueFast(
@@ -1989,8 +3072,72 @@ function propagationValueFast(
   ringDensity,
   polarity,
 ) {
+  const ageEnvelope = Math.exp(-age / Math.max(0.04, decay));
+
+  if (modeIndex === PROPAGATION_MODE_INDEX.standing) {
+    // Two independently anchored Cartesian modes form a true membrane
+    // pattern. Their product produces stationary horizontal/vertical nodes,
+    // so originX and originY move different parts of the audible filter field
+    // instead of collapsing the gesture into a radial distance.
+    const xOrder = Math.max(1, harmonicOrder | 0);
+    const yOrder = Math.max(0.5, ringDensity * 0.5);
+    const xStanding = Math.cos(Math.PI * xOrder * (x - originX));
+    const yStanding = Math.cos(Math.PI * yOrder * (y - originY));
+    const attack = 1 - Math.exp(
+      -age * speed / Math.max(0.01, width * 0.35),
+    );
+    const temporal = Math.cos(TAU * rate * age);
+    return clamp(
+      xStanding * yStanding * temporal * attack
+        * strength * polarity * ageEnvelope,
+      -1.5,
+      1.5,
+      0,
+    );
+  }
+
+  if (modeIndex === PROPAGATION_MODE_INDEX.ocean) {
+    // X and Y are separate traveling sheets. A gesture near a horizontal or
+    // vertical edge launches one clean ocean front; corner gestures combine
+    // both axes and create a bounded interference seam where the sheets meet.
+    let xWeight = Math.abs(originX);
+    let yWeight = Math.abs(originY);
+    const weightMagnitude = Math.hypot(xWeight, yWeight);
+    if (weightMagnitude < 1e-6) {
+      xWeight = 1;
+      yWeight = 0;
+    } else {
+      xWeight /= weightMagnitude;
+      yWeight /= weightMagnitude;
+    }
+    const xSheet = travelingSheetComponent(
+      x, originX, age, rate, speed, decay, width, ringDensity,
+    );
+    const ySheet = travelingSheetComponent(
+      y, originY, age, rate, speed, decay, width, ringDensity,
+    );
+    const interactionWeight = Math.min(xWeight, yWeight);
+    const sheets = (
+      xSheet * xWeight
+      + ySheet * yWeight
+      + xSheet * ySheet * interactionWeight * 0.28
+    ) / (1 + interactionWeight * 0.28);
+    return clamp(
+      sheets * strength * polarity * ageEnvelope,
+      -1.5,
+      1.5,
+      0,
+    );
+  }
+
   let dx = x - originX;
   let dy = y - originY;
+  if (modeIndex === PROPAGATION_MODE_INDEX.gravity) {
+    // A falling wavefront follows the same simple constant-acceleration idea
+    // as the gravity cloth study. The bounded shift keeps the event local to
+    // the toroidal spectral sheet instead of letting coordinates run away.
+    dy -= Math.min(1, age * age * speed * 0.16);
+  }
   if (dx > 1) dx -= 2;
   else if (dx < -1) dx += 2;
   if (dy > 1) dy -= 2;
@@ -2050,10 +3197,14 @@ function propagationValueFast(
     const square = frontOffset * frontOffset;
     const ricker = (1 - square) * Math.exp(-0.5 * square);
     wave = ricker * 1.18 + sine * wake * 0.24;
+  } else if (modeIndex === PROPAGATION_MODE_INDEX.gravity) {
+    const downwardBias = distance > 1e-9
+      ? clamp(0.78 + dy / distance * 0.22, 0.5, 1, 0.78)
+      : 0.78;
+    wave = (front * 0.86 + sine * wake * 0.78) * downwardBias;
   } else {
     wave = front * 0.94 + sine * wake * 0.7;
   }
-  const ageEnvelope = Math.exp(-age / Math.max(0.04, decay));
   const distanceEnvelope = 1 / (1 + distance * (0.3 + ringDensity * 0.035));
   return clamp(
     wave * strength * polarity * ageEnvelope * distanceEnvelope,
@@ -2097,7 +3248,7 @@ export function spectralPropagationValue({
   );
 }
 
-/** Fixed-size pool of persistent circular wave events. */
+/** Fixed-size pool of persistent radial and Cartesian wave events. */
 export class SpectralPropagationPool {
   constructor({
     maxEntities = MAX_PROPAGATIONS,
@@ -2196,6 +3347,8 @@ export class SpectralPropagationPool {
     width = MOIRE_DRONE_DEFAULTS.propagationWidth,
     harmonicOrder = MOIRE_DRONE_DEFAULTS.harmonicOrder,
     ringDensity = MOIRE_DRONE_DEFAULTS.ringDensity,
+    sizeSpread = 0,
+    speedSpread = 0,
     polarity,
   } = {}) {
     let slot = -1;
@@ -2217,22 +3370,36 @@ export class SpectralPropagationPool {
     }
     if (slot < 0) slot = 0;
     const safeRate = clamp(rate, 1, 50, MOIRE_DRONE_DEFAULTS.propagationRate);
-    const safeSpeed = clamp(speed, 0.1, 12, MOIRE_DRONE_DEFAULTS.propagationSpeed);
+    const baseSpeed = clamp(speed, 0.1, 12, MOIRE_DRONE_DEFAULTS.propagationSpeed);
     const safeDecay = clamp(decay, 0.08, 8, MOIRE_DRONE_DEFAULTS.propagationDecay);
+    const baseWidth = clamp(width, 0.02, 0.6, MOIRE_DRONE_DEFAULTS.propagationWidth);
+    const safeSizeSpread = clamp(sizeSpread, 0, 1, 0);
+    const safeSpeedSpread = clamp(speedSpread, 0, 1, 0);
+    const variedWidth = safeSizeSpread > 0
+      ? baseWidth * 2 ** ((this.nextRandom() * 2 - 1) * safeSizeSpread * 2)
+      : baseWidth;
+    const variedSpeed = safeSpeedSpread > 0
+      ? baseSpeed * 2 ** ((this.nextRandom() * 2 - 1) * safeSpeedSpread * 2)
+      : baseSpeed;
+    const safeSpeed = clamp(variedSpeed, 0.1, 12, baseSpeed);
     this.active[slot] = 1;
     this.mode[slot] = propagationModeIndex(mode);
     this.x[slot] = clamp(x, -1, 1, 0);
     this.y[slot] = clamp(y, -1, 1, 0);
     this.age[slot] = 0;
+    const modeIndex = this.mode[slot];
+    const crossingDistance = modeIndex === PROPAGATION_MODE_INDEX.ocean
+      ? Math.SQRT2 * 2
+      : Math.SQRT2;
     this.lifetime[slot] = Math.min(
       60,
-      safeDecay * 4 + Math.SQRT2 / safeSpeed + 2 / safeRate,
+      safeDecay * 4 + crossingDistance / safeSpeed + 2 / safeRate,
     );
     this.strength[slot] = clamp(strength, 0, 2, 1);
     this.rate[slot] = safeRate;
     this.speed[slot] = safeSpeed;
     this.decay[slot] = safeDecay;
-    this.width[slot] = clamp(width, 0.02, 0.6, MOIRE_DRONE_DEFAULTS.propagationWidth);
+    this.width[slot] = clamp(variedWidth, 0.02, 0.6, baseWidth);
     this.harmonicOrder[slot] = Math.round(clamp(
       harmonicOrder, 0, 12, MOIRE_DRONE_DEFAULTS.harmonicOrder,
     ));
@@ -2257,11 +3424,14 @@ export class SpectralPropagationPool {
     return this.activeCount;
   }
 
-  sample(x = 0, y = 0) {
+  sample(x = 0, y = 0, interference = 0) {
     const safeX = clamp(x, -1, 1, 0);
     const safeY = clamp(y, -1, 1, 0);
-    let value = 0;
+    const mix = clamp(interference, 0, 1, 0);
+    let strongestValue = 0;
     let strongest = 0;
+    let sum = 0;
+    let count = 0;
     for (let index = 0; index < this.maxEntities; index += 1) {
       if (!this.active[index]) continue;
       const candidate = propagationValueFast(
@@ -2280,13 +3450,22 @@ export class SpectralPropagationPool {
         this.ringDensity[index],
         this.polarity[index],
       );
+      sum += candidate;
+      count += 1;
       const magnitude = Math.abs(candidate);
       if (magnitude > strongest) {
         strongest = magnitude;
-        value = candidate;
+        strongestValue = candidate;
       }
     }
-    return clamp(value, -1, 1, 0);
+    if (count === 0) return 0;
+    const interferingValue = sum / Math.sqrt(count);
+    return clamp(
+      strongestValue + (interferingValue - strongestValue) * mix,
+      -1,
+      1,
+      0,
+    );
   }
 
   get activeCount() {
@@ -2352,10 +3531,11 @@ export function moireFilterTarget({
   const localB = fieldB * params.fieldBDepth / octaveSpan;
   const fabricShiftA = clamp(fabricA, -1.2, 1.2, 0) * params.fabricDepth / octaveSpan;
   const fabricShiftB = clamp(fabricB, -1.2, 1.2, 0) * params.fabricDepth / octaveSpan;
+  const propagationGainResponse = propagationGainResponseFast(params.propagationGain);
   const propagationShiftA = clamp(propagationA, -1, 1, 0)
-    * params.propagationDepth / octaveSpan;
+    * params.propagationDepth * propagationGainResponse / octaveSpan;
   const propagationShiftB = clamp(propagationB, -1, 1, 0)
-    * params.propagationDepth / octaveSpan;
+    * params.propagationDepth * propagationGainResponse / octaveSpan;
   const positionA = wrapUnit(
     base + phaseA + localA + fabricShiftA + propagationShiftA
   );
@@ -2365,7 +3545,8 @@ export function moireFilterTarget({
   );
   const proximityOctaves = wrappedDistance(positionA, positionB) * octaveSpan;
   const proximity = Math.exp(-0.5 * (proximityOctaves / params.collisionWidth) ** 2);
-  const collision = spatialCollision * proximity * params.collisionAmount;
+  const collisionNearField = 0.2 + Math.sqrt(proximity) * 0.8;
+  const collision = spatialCollision * collisionNearField * params.collisionAmount;
   const position = bank === 1 ? positionB : positionA;
   const field = bank === 1 ? fieldB : fieldA;
   const frequency = Math.min(
@@ -2386,11 +3567,11 @@ export function moireFilterTarget({
     : clamp(propagationA, -1, 1, 0);
   const q = clamp(
     baseQ * 2 ** (
-      collision * params.resonanceMotion * 2
+      collision * params.resonanceMotion * 3
       + fabricActivity * 0.2
-      + localPropagation * params.propagationGain
-        * (0.05 + params.resonanceMotion * 0.2)
-      + propagationActivity * params.propagationGain * 0.02
+      + localPropagation * propagationGainResponse
+        * (0.08 + params.resonanceMotion * 0.32)
+      + propagationActivity * propagationGainResponse * 0.04
     ),
     0.45,
     MOIRE_DRONE_LIMITS.maxQ,
@@ -2399,7 +3580,7 @@ export function moireFilterTarget({
   const edge = shepardWindow(position, params.edgeFocus);
   const octaveFromCenter = (position - 0.5) * octaveSpan;
   const tiltGain = 10 ** (params.spectralTilt * octaveFromCenter / 20);
-  const collisionGain = 2 ** (params.collisionPolarity * collision * 1.5);
+  const collisionGain = 2 ** (params.collisionPolarity * collision * 2.5);
   const baseGain = Math.min(
     3,
     edge * tiltGain * collisionGain / Math.sqrt(params.filterPairs * 2),
@@ -2421,8 +3602,9 @@ export function moireFilterTarget({
       depth: params.combDepth,
     });
   const propagationCut = 1 - Math.min(
-    0.96,
-    Math.abs(localPropagation) * params.pluckCut * 1.1,
+    0.995,
+    Math.abs(localPropagation) * params.pluckCut
+      * propagationGainResponse * 1.1,
   );
   const gain = baseGain * combGain * propagationCut;
   const pan = clamp(
@@ -2502,6 +3684,18 @@ export class MoireDroneKernel {
     this.gestureThrowVelocity = 0;
     this.gestureWidthVelocity = 0;
     this.gestureWidthScale = 1;
+    // Direct manipulation has its own invariant response path. Preset controls
+    // can still remove autonomous fabric/propagation motion, but they must not
+    // be able to turn a held physical grab into a no-op.
+    this.directGestureResponse = 0;
+    this.directGestureDepth = 0;
+    this.directGestureFabricDepth = 0;
+    this.directGestureWarp = 0;
+    this.directGestureCut = 0;
+    this.directGestureGainTarget = 1;
+    this.directGestureGain = 1;
+    this.gestureWarpAxis = 0;
+    this.gestureWeftAxis = 0;
     this.sculptFocus = this.target.combOffset;
     this.sculptWidth = this.target.combWidth;
     this.sculptDepth = this.target.combDepth;
@@ -2576,6 +3770,17 @@ export class MoireDroneKernel {
     this.combNotchRightX2 = new Float64Array(MAX_COMB_TEETH);
     this.combNotchRightY1 = new Float64Array(MAX_COMB_TEETH);
     this.combNotchRightY2 = new Float64Array(MAX_COMB_TEETH);
+    // The center of the Q/FFT morph is an actual intersection of both cut
+    // responses. Its Q states are independent from the parallel Q endpoint,
+    // so processing one branch cannot contaminate the other branch history.
+    this.combHybridLeftX1 = new Float64Array(MAX_COMB_TEETH);
+    this.combHybridLeftX2 = new Float64Array(MAX_COMB_TEETH);
+    this.combHybridLeftY1 = new Float64Array(MAX_COMB_TEETH);
+    this.combHybridLeftY2 = new Float64Array(MAX_COMB_TEETH);
+    this.combHybridRightX1 = new Float64Array(MAX_COMB_TEETH);
+    this.combHybridRightX2 = new Float64Array(MAX_COMB_TEETH);
+    this.combHybridRightY1 = new Float64Array(MAX_COMB_TEETH);
+    this.combHybridRightY2 = new Float64Array(MAX_COMB_TEETH);
     this.fftFilter = new SpectralFftFilter({ sampleRate: this.sampleRate });
     this.qInputDelayLeft = new Float64Array(MOIRE_DRONE_FFT_SIZE);
     this.qInputDelayRight = new Float64Array(MOIRE_DRONE_FFT_SIZE);
@@ -2589,9 +3794,20 @@ export class MoireDroneKernel {
     this.pink2 = new Float64Array(3);
     this.brown = new Float64Array(3);
     this.previousWhite = new Float64Array(3);
+    this.previousBlue = new Float64Array(3);
+    this.crackleEnvelope = new Float64Array(3);
+    this.sampleHoldValue = new Float64Array(3);
+    this.sampleHoldCounter = new Uint32Array(3);
+    this.fractalCounter = new Uint32Array(3);
+    this.fractalValues = new Float64Array(3 * 8);
+    this.chaosState = new Float64Array(3);
+    this.chaosDc = new Float64Array(3);
     this.dustEnvelope = 0;
     this.dustPolarity = 1;
     this.fabric = new SpectralFabric({
+      width: this.target.fabricSections,
+      height: fabricHeightForSections(this.target.fabricSections),
+      patchwork: this.target.fabricPatchwork,
       seed: (this.target.seed ^ 0xa511e9b3) >>> 0,
     });
     this.propagation = new SpectralPropagationPool({
@@ -2605,12 +3821,15 @@ export class MoireDroneKernel {
     this.impactPhase = 0;
     this.impactPolarity = 1;
     this.impactX = 0;
+    this.impactY = 0;
     this.impactPreviousNoise = 0;
     this.reset();
   }
 
   setParameters(parameters = {}) {
     const previousSeed = this.target.seed;
+    const previousFabricSections = this.target.fabricSections;
+    const previousFabricPatchwork = this.target.fabricPatchwork;
     this.target = {
       ...sanitizeMoireDroneParams({ ...this.target, ...parameters }),
     };
@@ -2621,15 +3840,30 @@ export class MoireDroneKernel {
       this.qualityTier = this.minimumQualityTier;
     }
     this.propagation.setActiveLimit(this.target.propagationVoices);
-    if (this.target.seed !== previousSeed) {
+    const seedChanged = this.target.seed !== previousSeed;
+    const topologyChanged = this.target.fabricSections !== previousFabricSections
+      || this.target.fabricPatchwork !== previousFabricPatchwork;
+    const fabricSeed = (this.target.seed ^ 0xa511e9b3) >>> 0;
+    if (topologyChanged) {
+      this.fabric.reconfigure({
+        width: this.target.fabricSections,
+        height: fabricHeightForSections(this.target.fabricSections),
+        patchwork: this.target.fabricPatchwork,
+        seed: fabricSeed,
+      });
+    } else if (seedChanged) {
+      this.fabric.reset(fabricSeed);
+    }
+    if (seedChanged) {
       this.resetNoise();
-      this.fabric.reset((this.target.seed ^ 0xa511e9b3) >>> 0);
       this.propagation.reset((this.target.seed ^ 0x3c6ef372) >>> 0);
       this.resetGestureState();
       this.propagationAutoAccumulator = 0.82;
       this.autoLaunchSerial = 0;
       this.impactEnvelope = 0;
       this.impactGain = 0;
+      this.impactX = 0;
+      this.impactY = 0;
       this.impactPreviousNoise = 0;
     }
     return Object.freeze({ ...this.target });
@@ -2703,6 +3937,8 @@ export class MoireDroneKernel {
     parameters = this.current,
     impactScale = 1,
     fabricScale = 1,
+    sizeSpread = parameters.propagationSizeSpread,
+    speedSpread = parameters.propagationSpeedSpread,
   ) {
     const angle = this.fabricAngle * Math.PI / 180;
     const cosine = Math.cos(angle);
@@ -2731,6 +3967,8 @@ export class MoireDroneKernel {
       width: parameters.propagationWidth,
       harmonicOrder: parameters.harmonicOrder,
       ringDensity: parameters.ringDensity,
+      sizeSpread,
+      speedSpread,
       polarity: safeForce < 0 ? -1 : 1,
     });
     const impact = Math.abs(safeForce) * clamp(impactScale, 0, 1, 1);
@@ -2742,6 +3980,7 @@ export class MoireDroneKernel {
       this.impactPhase = 0;
       this.impactPolarity = safeForce < 0 ? -1 : 1;
       this.impactX = safeX;
+      this.impactY = safeY;
       this.impactPreviousNoise = 0;
     }
     return true;
@@ -2752,6 +3991,21 @@ export class MoireDroneKernel {
     this.gestureThrowVelocity = this.gestureVelocityX * 0.12;
     this.gestureWidthVelocity = this.gestureVelocityY * 0.08;
     this.launchPropagation(x, y, force, radius, this.target, 1);
+  }
+
+  rippleFabric(x = 0, y = 0, force = 0.35, radius = 0.18) {
+    // Drag ripples must not end the active grab or overwrite its gesture
+    // memory. They carry a small physical impulse and an even smaller onset,
+    // so a moving hand creates wake rather than a stream of clicks.
+    return this.launchPropagation(
+      x,
+      y,
+      force,
+      radius,
+      this.target,
+      0.14,
+      0.32,
+    );
   }
 
   exciteFabric(x = 0, y = 0, force = 0.7, radius = 0.28) {
@@ -2818,6 +4072,15 @@ export class MoireDroneKernel {
     this.gestureThrowVelocity = 0;
     this.gestureWidthVelocity = 0;
     this.gestureWidthScale = 1;
+    this.directGestureResponse = 0;
+    this.directGestureDepth = 0;
+    this.directGestureFabricDepth = 0;
+    this.directGestureWarp = 0;
+    this.directGestureCut = 0;
+    this.directGestureGainTarget = 1;
+    this.directGestureGain = 1;
+    this.gestureWarpAxis = 0;
+    this.gestureWeftAxis = 0;
     this.sculptFocus = this.target.combOffset;
     this.sculptWidth = this.target.combWidth;
     this.sculptDepth = this.target.combDepth;
@@ -2844,6 +4107,8 @@ export class MoireDroneKernel {
     this.impactEnvelope = 0;
     this.impactGain = 0;
     this.impactPhase = 0;
+    this.impactX = 0;
+    this.impactY = 0;
     this.impactPreviousNoise = 0;
   }
 
@@ -2859,6 +4124,26 @@ export class MoireDroneKernel {
     this.pink2.fill(0);
     this.brown.fill(0);
     this.previousWhite.fill(0);
+    this.previousBlue.fill(0);
+    this.crackleEnvelope.fill(0);
+    this.sampleHoldValue.fill(0);
+    this.sampleHoldCounter.fill(0);
+    this.fractalCounter.fill(0);
+    this.chaosDc.fill(0);
+    for (let index = 0; index < this.fractalValues.length; index += 1) {
+      let state = (seed ^ Math.imul(index + 1, 0x9e3779b9)) >>> 0 || 1;
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      this.fractalValues[index] = ((state >>> 0) / 0x8000_0000) - 1;
+    }
+    for (let stream = 0; stream < this.chaosState.length; stream += 1) {
+      let state = (seed ^ Math.imul(stream + 17, 0x85ebca6b)) >>> 0 || 1;
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      this.chaosState[stream] = 0.18 + (state >>> 0) / 0x1_0000_0000 * 0.64;
+    }
     this.dustEnvelope = 0;
     this.dustPolarity = 1;
   }
@@ -2875,10 +4160,24 @@ export class MoireDroneKernel {
       this.combNotchRightX2[index] = 0;
       this.combNotchRightY1[index] = 0;
       this.combNotchRightY2[index] = 0;
+      this.combHybridLeftX1[index] = 0;
+      this.combHybridLeftX2[index] = 0;
+      this.combHybridLeftY1[index] = 0;
+      this.combHybridLeftY2[index] = 0;
+      this.combHybridRightX1[index] = 0;
+      this.combHybridRightX2[index] = 0;
+      this.combHybridRightY1[index] = 0;
+      this.combHybridRightY2[index] = 0;
     }
   }
 
-  setCombBiquadCoefficients(stage, frequency, q, modeIndex) {
+  setCombBiquadCoefficients(
+    stage,
+    frequency,
+    q,
+    modeIndex,
+    character = MOIRE_DRONE_DEFAULTS.qCharacter,
+  ) {
     const safeFrequency = clamp(frequency, 20, this.sampleRate * 0.42, 220);
     const safeQ = clamp(q, 0.18, 32, 1);
     const previousFrequency = this.combNotchFrequency[stage];
@@ -2894,8 +4193,11 @@ export class MoireDroneKernel {
     this.combNotchFrequency[stage] = safeFrequency;
     const omega = TAU * safeFrequency / this.sampleRate;
     const cosine = Math.cos(omega);
-    const alpha = Math.sin(omega) / (2 * safeQ);
-    const inverseA0 = 1 / (1 + alpha);
+    const sine = Math.sin(omega);
+    const alpha = sine / (2 * safeQ);
+    let a0 = 1 + alpha;
+    let a1 = -2 * cosine;
+    let a2 = 1 - alpha;
     let b0 = 1;
     let b1 = -2 * cosine;
     let b2 = 1;
@@ -2911,12 +4213,45 @@ export class MoireDroneKernel {
       b0 = alpha;
       b1 = 0;
       b2 = -alpha;
+    } else if (modeIndex === SPECTRAL_SCULPT_MODE_INDEX.peak) {
+      const gainDb = 3 + clamp(character, 0, 1, 0.5) * 12;
+      const amplitude = 10 ** (gainDb / 40);
+      b0 = 1 + alpha * amplitude;
+      b1 = -2 * cosine;
+      b2 = 1 - alpha * amplitude;
+      a0 = 1 + alpha / amplitude;
+      a1 = -2 * cosine;
+      a2 = 1 - alpha / amplitude;
+    } else if (modeIndex === SPECTRAL_SCULPT_MODE_INDEX.tilt) {
+      // One symmetric high shelf is a true tilt: the spectrum below the pivot
+      // is attenuated by the same dB amount that the spectrum above it gains.
+      const gainDb = 3 + clamp(character, 0, 1, 0.5) * 9;
+      const amplitude = 10 ** (gainDb / 40);
+      const shelfAlpha = sine * Math.SQRT1_2;
+      const beta = 2 * Math.sqrt(amplitude) * shelfAlpha;
+      b0 = amplitude * (
+        (amplitude + 1) + (amplitude - 1) * cosine + beta
+      );
+      b1 = -2 * amplitude * (
+        (amplitude - 1) + (amplitude + 1) * cosine
+      );
+      b2 = amplitude * (
+        (amplitude + 1) + (amplitude - 1) * cosine - beta
+      );
+      a0 = (amplitude + 1) - (amplitude - 1) * cosine + beta;
+      a1 = 2 * ((amplitude - 1) - (amplitude + 1) * cosine);
+      a2 = (amplitude + 1) - (amplitude - 1) * cosine - beta;
+      const symmetricGain = 1 / amplitude;
+      b0 *= symmetricGain;
+      b1 *= symmetricGain;
+      b2 *= symmetricGain;
     }
+    const inverseA0 = 1 / Math.max(1e-12, a0);
     this.combNotchB0[stage] = b0 * inverseA0;
     this.combNotchB1[stage] = b1 * inverseA0;
     this.combNotchB2[stage] = b2 * inverseA0;
-    this.combNotchA1[stage] = -2 * cosine * inverseA0;
-    this.combNotchA2[stage] = (1 - alpha) * inverseA0;
+    this.combNotchA1[stage] = a1 * inverseA0;
+    this.combNotchA2[stage] = a2 * inverseA0;
   }
 
   updateCombNotchCoefficients(
@@ -2931,10 +4266,20 @@ export class MoireDroneKernel {
     } = {},
   ) {
     const modeIndex = spectralSculptModeIndex(params.spectralSculptMode);
+    const propagationGainResponse = propagationGainResponseFast(
+      params.propagationGain,
+    );
     const isPeriodic = modeIndex === SPECTRAL_SCULPT_MODE_INDEX.notches
       || modeIndex === SPECTRAL_SCULPT_MODE_INDEX.ridges;
+    const isBroadCut = modeIndex === SPECTRAL_SCULPT_MODE_INDEX.lowpass
+      || modeIndex === SPECTRAL_SCULPT_MODE_INDEX.highpass
+      || modeIndex === SPECTRAL_SCULPT_MODE_INDEX.bandpass
+      || modeIndex === SPECTRAL_SCULPT_MODE_INDEX.bandstop;
     const toothCount = Math.round(clamp(params.combTeeth, 1, MAX_COMB_TEETH, 6));
-    const stageCount = isPeriodic ? toothCount : 1;
+    // Cut modes use a two-section Q topology. A single biquad left enough
+    // broadband noise around shelves and band edges to mask motion; the
+    // cascade doubles the slope while boost modes remain one bounded section.
+    const stageCount = isPeriodic ? toothCount : (isBroadCut ? 2 : 1);
     if (stageCount !== this.combStageCount || modeIndex !== this.combModeIndex) {
       this.combStageCount = stageCount;
       this.combModeIndex = modeIndex;
@@ -2948,6 +4293,18 @@ export class MoireDroneKernel {
     const safeFocus = clamp(focus, 0, 1, params.combOffset);
     const safeWidth = clamp(width, 0.02, 0.48, params.combWidth);
     const safeCharacter = clamp(character, 0, 1, params.qCharacter);
+    const effectiveFabricDepth = Math.max(
+      params.fabricDepth,
+      this.directGestureFabricDepth,
+    );
+    const effectiveCombWarp = Math.max(
+      params.combWarp,
+      this.directGestureWarp,
+    );
+    const effectivePluckCut = Math.max(
+      params.pluckCut,
+      this.directGestureCut,
+    );
     if (!isPeriodic) {
       const broadAnchorX = safeFocus * 2 - 1;
       const broadAnchorY = this.gestureEnvelope > 1e-5
@@ -2960,20 +4317,24 @@ export class MoireDroneKernel {
         broadAnchorX * fabricSine + broadAnchorY * fabricCosine,
       );
       const fabricValue = this.fabric.sampleLocal(fabricX, fabricY);
-      const propagationValue = this.propagation.sample(broadAnchorX, broadAnchorY);
+      const propagationValue = this.propagation.sample(
+        broadAnchorX,
+        broadAnchorY,
+        params.propagationInterference,
+      );
       const broadWarp = combToothWarpOffsetFast(
         fabricValue,
         propagationValue,
-        params.fabricDepth,
-        params.propagationDepth,
-        params.combWarp,
+        effectiveFabricDepth,
+        params.propagationDepth * propagationGainResponse,
+        effectiveCombWarp,
         octaveSpan,
         1,
       );
       const broadFocus = reflectUnit(safeFocus + broadWarp);
       const widthExpansion = (
-        Math.abs(propagationValue) * params.pluckCut * 2.2
-        + Math.abs(fabricValue) * params.pluckCut * 0.45
+        Math.abs(propagationValue) * effectivePluckCut * 2.2
+        + Math.abs(fabricValue) * effectivePluckCut * 0.45
       );
       const broadWidth = clamp(
         safeWidth * (1 + widthExpansion),
@@ -2998,11 +4359,19 @@ export class MoireDroneKernel {
           16,
           1,
         );
-      this.combNotchPosition[0] = broadFocus;
-      this.combNotchWidth[0] = broadWidth;
-      this.combToothWarp[0] = broadWarp;
-      this.setCombBiquadCoefficients(0, frequency, q, modeIndex);
-      for (let stage = 1; stage < MAX_COMB_TEETH; stage += 1) {
+      for (let stage = 0; stage < stageCount; stage += 1) {
+        this.combNotchPosition[stage] = broadFocus;
+        this.combNotchWidth[stage] = broadWidth;
+        this.combToothWarp[stage] = broadWarp;
+        this.setCombBiquadCoefficients(
+          stage,
+          frequency,
+          q,
+          modeIndex,
+          safeCharacter,
+        );
+      }
+      for (let stage = stageCount; stage < MAX_COMB_TEETH; stage += 1) {
         this.combNotchFrequency[stage] = 0;
         this.combNotchPosition[stage] = 0;
         this.combToothWarp[stage] = 0;
@@ -3025,13 +4394,17 @@ export class MoireDroneKernel {
         anchorX * fabricSine + anchorY * fabricCosine,
       );
       const fabricValue = this.fabric.sampleLocal(fabricX, fabricY);
-      const propagationValue = this.propagation.sample(anchorX, anchorY);
+      const propagationValue = this.propagation.sample(
+        anchorX,
+        anchorY,
+        params.propagationInterference,
+      );
       const targetWarp = combToothWarpOffsetFast(
         fabricValue,
         propagationValue,
-        params.fabricDepth,
-        params.propagationDepth,
-        params.combWarp,
+        effectiveFabricDepth,
+        params.propagationDepth * propagationGainResponse,
+        effectiveCombWarp,
         octaveSpan,
         toothCount,
       );
@@ -3043,8 +4416,8 @@ export class MoireDroneKernel {
       );
       this.combNotchPosition[stage] = position;
       const widthExpansion = (
-        Math.abs(propagationValue) * params.pluckCut * 3.5
-        + Math.abs(fabricValue) * params.pluckCut * 0.35
+        Math.abs(propagationValue) * effectivePluckCut * 3.5
+        + Math.abs(fabricValue) * effectivePluckCut * 0.35
       );
       const stageWidth = clamp(
         safeWidth * (1 + widthExpansion),
@@ -3065,7 +4438,7 @@ export class MoireDroneKernel {
         2,
       );
       const frequency = params.lowFrequency * 2 ** (position * octaveSpan);
-      this.setCombBiquadCoefficients(stage, frequency, q, modeIndex);
+      this.setCombBiquadCoefficients(stage, frequency, q, modeIndex, safeCharacter);
     }
     for (let stage = toothCount; stage < MAX_COMB_TEETH; stage += 1) {
       this.combNotchFrequency[stage] = 0;
@@ -3123,6 +4496,7 @@ export class MoireDroneKernel {
     this.impactPhase = 0;
     this.impactPolarity = 1;
     this.impactX = 0;
+    this.impactY = 0;
     this.impactPreviousNoise = 0;
     this.resetNoise();
     this.updateTargets(true);
@@ -3137,7 +4511,13 @@ export class MoireDroneKernel {
     return ((state >>> 0) / 0x8000_0000) - 1;
   }
 
-  coloredNoise(stream, color) {
+  coloredNoise(
+    stream,
+    color,
+    type = MOIRE_DRONE_DEFAULTS.noiseType,
+    chaosAmount = MOIRE_DRONE_DEFAULTS.noiseChaos,
+    fractalDepth = MOIRE_DRONE_DEFAULTS.noiseFractalDepth,
+  ) {
     const white = this.nextWhite(stream);
     this.pink0[stream] = 0.99765 * this.pink0[stream] + white * 0.099046;
     this.pink1[stream] = 0.963 * this.pink1[stream] + white * 0.2965164;
@@ -3151,16 +4531,97 @@ export class MoireDroneKernel {
     ));
     const brown = this.brown[stream] * 2.6;
     const blue = (white - this.previousWhite[stream]) * 0.7071;
+    const violet = (blue - this.previousBlue[stream]) * 0.5;
     this.previousWhite[stream] = white;
+    this.previousBlue[stream] = blue;
+    let colored;
     if (color < -0.5) {
       const blend = (color + 1) * 2;
-      return brown * (1 - blend) + pink * blend;
-    }
-    if (color < 0) {
+      colored = brown * (1 - blend) + pink * blend;
+    } else if (color < 0) {
       const blend = (color + 0.5) * 2;
-      return pink * (1 - blend) + white * blend;
+      colored = pink * (1 - blend) + white * blend;
+    } else {
+      colored = white * (1 - color) + blue * color;
     }
-    return white * (1 - color) + blue * color;
+
+    const safeChaos = clamp(chaosAmount, 0, 1, MOIRE_DRONE_DEFAULTS.noiseChaos);
+    if (type === "violet") {
+      return clamp(violet * 1.35, -1.5, 1.5, 0);
+    }
+    if (type === "crackle") {
+      const retention = 0.91 + safeChaos * 0.075;
+      this.crackleEnvelope[stream] *= retention;
+      const threshold = 0.992 - safeChaos * 0.13;
+      if (Math.abs(white) > threshold) {
+        this.crackleEnvelope[stream] = Math.sign(white)
+          * (0.38 + safeChaos * 0.92);
+      }
+      return clamp(
+        this.crackleEnvelope[stream] + colored * (0.035 + (1 - safeChaos) * 0.12),
+        -1.5,
+        1.5,
+        0,
+      );
+    }
+    if (type === "samplehold") {
+      if (this.sampleHoldCounter[stream] === 0) {
+        this.sampleHoldValue[stream] = white;
+        const holdRate = 90 * 2 ** (safeChaos * 6.5);
+        this.sampleHoldCounter[stream] = Math.max(
+          1,
+          Math.round(this.sampleRate / holdRate),
+        );
+      }
+      this.sampleHoldCounter[stream] -= 1;
+      return this.sampleHoldValue[stream] * 0.9 + colored * 0.035;
+    }
+    if (type === "fractal") {
+      const depth = clamp(
+        fractalDepth,
+        0,
+        1,
+        MOIRE_DRONE_DEFAULTS.noiseFractalDepth,
+      );
+      const counter = (this.fractalCounter[stream] + 1) >>> 0;
+      this.fractalCounter[stream] = counter;
+      const leastBit = counter & -counter;
+      const octave = counter === 0
+        ? 7
+        : Math.min(7, 31 - Math.clz32(leastBit >>> 0));
+      const offset = stream * 8;
+      this.fractalValues[offset + octave] = white;
+      const layers = 2 + Math.round(depth * 6);
+      const persistence = 0.38 + depth * 0.48;
+      let sum = 0;
+      let weight = 1;
+      let power = 0;
+      for (let layer = 0; layer < layers; layer += 1) {
+        sum += this.fractalValues[offset + layer] * weight;
+        power += weight * weight;
+        weight *= persistence;
+      }
+      return clamp(sum / Math.sqrt(Math.max(1e-9, power)), -1.5, 1.5, 0);
+    }
+    if (type === "chaotic") {
+      const logisticRate = 3.57 + safeChaos * 0.429;
+      let state = this.chaosState[stream];
+      state = logisticRate * state * (1 - state);
+      if (!Number.isFinite(state) || state <= 1e-7 || state >= 0.9999999) {
+        state = 0.19 + (white + 1) * 0.31;
+      }
+      this.chaosState[stream] = state;
+      const rawChaos = state * 2 - 1;
+      this.chaosDc[stream] += (rawChaos - this.chaosDc[stream]) * 0.0007;
+      const chaotic = (rawChaos - this.chaosDc[stream]) * 1.22;
+      return clamp(
+        colored * (1 - safeChaos) + chaotic * safeChaos,
+        -1.5,
+        1.5,
+        0,
+      );
+    }
+    return colored;
   }
 
   updateCurrentParameters() {
@@ -3171,7 +4632,10 @@ export class MoireDroneKernel {
       const key = SMOOTHED_PARAMETER_KEYS[index];
       this.current[key] += (this.target[key] - this.current[key]) * amount;
     }
+    this.current.noiseType = this.target.noiseType;
     this.current.filterPairs = this.target.filterPairs;
+    this.current.fabricSections = this.target.fabricSections;
+    this.current.fabricPatchwork = this.target.fabricPatchwork;
     this.current.collisionMode = this.target.collisionMode;
     this.current.propagationMode = this.target.propagationMode;
     this.current.spectralSculptMode = this.target.spectralSculptMode;
@@ -3188,6 +4652,9 @@ export class MoireDroneKernel {
     const params = this.current;
     const count = params.filterPairs;
     const octaveSpan = Math.log2(params.highFrequency / params.lowFrequency);
+    const propagationGainResponse = propagationGainResponseFast(
+      params.propagationGain,
+    );
     const nyquistLimit = this.sampleRate * 0.42;
     const elapsed = CONTROL_INTERVAL / this.sampleRate;
     if (!params.freeze && !force) {
@@ -3229,14 +4696,78 @@ export class MoireDroneKernel {
     } else if (this.gestureActive) {
       this.gestureEnvelope = 1;
     }
-    const gesturePositionInfluence = clamp(
+    // A direct pull is an instrument gesture, not merely another modulation
+    // source. Give it a parameter-independent floor so zeroed coupling, cut,
+    // fabric, warp, propagation, and resting-depth controls cannot null it.
+    // The nonzero floor makes even a small deliberate pull clear; the linear
+    // strength term preserves substantial headroom up to an extreme drag.
+    const directGestureResponse = (
+      this.gestureEnvelope > 1e-7 && this.gestureStrength > 1e-7
+    )
+      ? clamp(
+        this.gestureEnvelope * (0.42 + this.gestureStrength * 0.55),
+        0,
+        0.97,
+        0,
+      )
+      : 0;
+    this.directGestureResponse = directGestureResponse;
+    this.directGestureDepth = directGestureResponse * (
+      0.7 + this.gestureStrength * 0.28
+    );
+    this.directGestureFabricDepth = directGestureResponse * (
+      0.72 + this.gestureStrength * 0.58
+    );
+    this.directGestureWarp = directGestureResponse * (
+      1.5 + this.gestureStrength * 1.65
+    );
+    this.directGestureCut = directGestureResponse * (
+      0.7 + this.gestureStrength * 0.28
+    );
+    // Preserve the gesture as two coordinates all the way into the resonator
+    // lattice. X bends the warp bank; Y bends and re-characters the weft bank.
+    // They remain bounded, then meet again in the normal collision model.
+    this.gestureWarpAxis = directGestureResponse * clamp(
+      this.gestureCurrentX * 0.24
+        + this.gestureDeltaX * 1.2
+        + this.gestureVelocityX * 0.018,
+      -1,
+      1,
+      0,
+    );
+    this.gestureWeftAxis = directGestureResponse * clamp(
+      this.gestureCurrentY * 0.24
+        + this.gestureDeltaY * 1.2
+        + this.gestureVelocityY * 0.018,
+      -1,
+      1,
+      0,
+    );
+    const coordinateExcavation = clamp(
+      0.43 + this.gestureStrength * 0.14
+        + Math.abs(this.gestureWarpAxis) * 0.04
+        + Math.abs(this.gestureWeftAxis) * 0.07,
+      0.43,
+      0.68,
+      0.43,
+    );
+    this.directGestureGainTarget = 1
+      - directGestureResponse * coordinateExcavation;
+    const configuredGesturePositionInfluence = clamp(
       params.gestureCoupling * this.gestureEnvelope,
       0,
       1,
       0,
     );
+    const gesturePositionInfluence = Math.max(
+      configuredGesturePositionInfluence,
+      directGestureResponse * (0.78 + this.gestureStrength * 0.2),
+    );
     const gestureEnergy = 0.16 + this.gestureStrength * 0.84;
-    const gestureInfluence = gesturePositionInfluence * gestureEnergy;
+    const gestureInfluence = Math.max(
+      configuredGesturePositionInfluence * gestureEnergy,
+      directGestureResponse * (0.68 + this.gestureStrength * 0.3),
+    );
     const requestedModeIndex = spectralSculptModeIndex(params.spectralSculptMode);
     const isPeriodicSculpt = requestedModeIndex === SPECTRAL_SCULPT_MODE_INDEX.notches
       || requestedModeIndex === SPECTRAL_SCULPT_MODE_INDEX.ridges;
@@ -3264,20 +4795,24 @@ export class MoireDroneKernel {
       0.48,
       params.combWidth,
     );
-    // `combDepth` is the maximum cut. While the fabric is held, pressure
-    // travels from a lighter contact cut toward that maximum. This preserves
-    // a real weak-to-hard range even for presets whose maximum is already 1.
-    const pressureDepth = params.combDepth * (
-      0.55 + this.gestureStrength * 0.45
+    // A grab deepens a partial resting cut toward a true null. At an already
+    // maximum-depth setting, contact pressure instead spans a deliberately
+    // deep 60%-to-100% range so weak and hard pulls remain distinguishable.
+    const pressureAmount = Math.max(
+      clamp(
+        params.gestureCoupling * this.gestureEnvelope * params.pluckCut,
+        0,
+        1,
+        0,
+      ),
+      directGestureResponse,
     );
-    const pressureAmount = clamp(
-      params.gestureCoupling * this.gestureEnvelope * params.pluckCut,
-      0,
-      1,
-      0,
-    );
+    const contactDepth = params.combDepth >= 0.999
+      ? 0.6 + this.gestureStrength * 0.4
+      : params.combDepth + (1 - params.combDepth)
+        * (0.25 + this.gestureStrength * 0.75);
     const targetSculptDepth = clamp(
-      params.combDepth + (pressureDepth - params.combDepth) * pressureAmount,
+      params.combDepth + (contactDepth - params.combDepth) * pressureAmount,
       0,
       1,
       params.combDepth,
@@ -3285,7 +4820,7 @@ export class MoireDroneKernel {
     const targetSculptCharacter = clamp(
       params.qCharacter + (
         this.gestureCurrentY * 0.12 + this.gestureDeltaY * 0.38
-        + this.gestureStrength * params.pluckCut * 0.28
+        + this.gestureStrength * (0.18 + params.pluckCut * 0.18)
       ) * gestureInfluence,
       0,
       1,
@@ -3326,7 +4861,7 @@ export class MoireDroneKernel {
           const orbit = 0.18 + wrapUnit(serial * 0.6180339887498949) * 0.5;
           const x = wrapBipolar(params.originX + Math.cos(angle) * orbit);
           const y = wrapBipolar(params.originY + Math.sin(angle) * orbit);
-          const strength = 0.28 + params.propagationGain * 0.42;
+          const strength = 0.2 + propagationGainResponse * 0.5;
           this.launchPropagation(
             x,
             y,
@@ -3367,7 +4902,12 @@ export class MoireDroneKernel {
       !force
       && (!params.freeze || this.fabricTugActive || this.propagation.activeCount > 0)
     ) {
-      this.fabric.step(elapsed, params, params.freeze);
+      this.fabric.step(
+        elapsed,
+        params,
+        params.freeze,
+        this.directGestureResponse,
+      );
     }
     this.updateCombNotchCoefficients(params, {
       fabricCosine,
@@ -3399,13 +4939,23 @@ export class MoireDroneKernel {
       this.combNotchPosition,
       this.combNotchWidth,
       params.combTeeth,
-      this.sculptDepth * params.fftCutDepth,
+      Math.max(
+        this.sculptDepth * params.fftCutDepth,
+        this.directGestureDepth,
+      ),
       sculptSharpness,
       params.spectralSculptMode,
       renderedSculptFocus,
       renderedSculptWidth,
     );
 
+    const effectiveFabricDepth = Math.max(
+      params.fabricDepth,
+      this.directGestureFabricDepth,
+    );
+    const gestureAxisActive = this.directGestureResponse > 1e-7;
+    const gestureAxisRadius = 0.14 + this.gestureStrength * 0.2;
+    const gestureAxisOctaves = 0.18 + this.gestureStrength * 0.34;
     for (let index = 0; index < MAX_FILTER_PAIRS; index += 1) {
       const enabled = index < count && isCellEnabled(index, this.qualityTier);
       const x = this.nodeX[index];
@@ -3431,14 +4981,32 @@ export class MoireDroneKernel {
       const fabricB = this.fabric.sampleLocal(fabricBX, fabricBY);
       const fabricVelocityA = this.fabric.sampleVelocityLocal(fabricX, fabricY);
       const fabricVelocityB = this.fabric.sampleVelocityLocal(fabricBX, fabricBY);
-      const propagationA = enabled ? this.propagation.sample(x, y) : 0;
-      const propagationB = enabled ? this.propagation.sample(-x, -y) : 0;
+      const propagationA = enabled
+        ? this.propagation.sample(x, y, params.propagationInterference)
+        : 0;
+      const propagationB = enabled
+        ? this.propagation.sample(-x, -y, params.propagationInterference)
+        : 0;
+      const gestureLocalWeight = gestureAxisActive
+        ? fabricImpulseWeight(
+          x,
+          y,
+          this.gestureCurrentX,
+          this.gestureCurrentY,
+          gestureAxisRadius,
+        )
+        : 0;
+      const warpAxisBend = gestureLocalWeight
+        * this.gestureWarpAxis * gestureAxisOctaves;
+      const weftAxisBend = gestureLocalWeight
+        * this.gestureWeftAxis * gestureAxisOctaves;
       const positionA = wrapUnit(
         base + this.phaseA
         + (
           fieldA * params.fieldADepth
-          + fabricA * params.fabricDepth
-          + propagationA * params.propagationDepth
+          + fabricA * effectiveFabricDepth
+          + propagationA * params.propagationDepth * propagationGainResponse
+          + warpAxisBend
         ) / octaveSpan
       );
       const positionB = wrapUnit(
@@ -3446,19 +5014,32 @@ export class MoireDroneKernel {
         + this.phaseB + params.phaseOffset
         + (
           fieldB * params.fieldBDepth
-          + fabricB * params.fabricDepth
-          + propagationB * params.propagationDepth
+          + fabricB * effectiveFabricDepth
+          + propagationB * params.propagationDepth * propagationGainResponse
+          + weftAxisBend
         ) / octaveSpan,
       );
       const proximityOctaves = wrappedDistance(positionA, positionB) * octaveSpan;
       const proximity = Math.exp(-0.5 * (
         proximityOctaves / params.collisionWidth
       ) ** 2);
-      const spatial = collideWaveFields(fieldA, fieldB, params.collisionMode);
-      const collision = spatial * proximity * params.collisionAmount;
+      const gestureAxisInteraction = gestureLocalWeight * collideWaveFields(
+        this.gestureWarpAxis,
+        this.gestureWeftAxis,
+        params.collisionMode,
+      );
+      const spatial = clamp(
+        collideWaveFields(fieldA, fieldB, params.collisionMode)
+          + gestureAxisInteraction * 0.65,
+        -1,
+        1,
+        0,
+      );
+      const collisionNearField = 0.2 + Math.sqrt(proximity) * 0.8;
+      const collision = spatial * collisionNearField * params.collisionAmount;
       const fabricActivity = Math.min(1, (
         Math.abs(fabricVelocityA) + Math.abs(fabricVelocityB)
-      ) * params.fabricDepth * 0.025);
+      ) * effectiveFabricDepth * 0.025);
       const propagationActivity = Math.min(1, (
         Math.abs(propagationA) + Math.abs(propagationB)
       ) * 0.5);
@@ -3467,6 +5048,7 @@ export class MoireDroneKernel {
         const position = bank === 0 ? positionA : positionB;
         const field = bank === 0 ? fieldA : fieldB;
         const propagationValue = bank === 0 ? propagationA : propagationB;
+        const axisBend = bank === 0 ? warpAxisBend : weftAxisBend;
         if (
           this.positionInitialized[slot]
           && Math.abs(position - this.filterPosition[slot]) > 0.5
@@ -3484,11 +5066,12 @@ export class MoireDroneKernel {
         );
         const q = clamp(
           baseQ * 2 ** (
-            collision * params.resonanceMotion * 2
+            collision * params.resonanceMotion * 3
             + fabricActivity * 0.2
-            + propagationValue * params.propagationGain
-              * (0.05 + params.resonanceMotion * 0.2)
-            + propagationActivity * params.propagationGain * 0.02
+            + propagationValue * propagationGainResponse
+              * (0.08 + params.resonanceMotion * 0.32)
+            + propagationActivity * propagationGainResponse * 0.04
+            + axisBend * (bank === 0 ? 0.75 : 1.25)
           ),
           0.45,
           MOIRE_DRONE_LIMITS.maxQ,
@@ -3506,17 +5089,22 @@ export class MoireDroneKernel {
           params.spectralTilt * Math.log2(frequency / tiltCenter) / 20
         );
         const collideGain = 2 ** (
-          params.collisionPolarity * collision * 1.5
+          params.collisionPolarity * collision * 2.5
         );
         const propagationCut = 1 - Math.min(
-          0.96,
-          Math.abs(propagationValue) * params.pluckCut * 1.1,
+          0.995,
+          Math.abs(propagationValue) * params.pluckCut
+            * propagationGainResponse * 1.1,
+        );
+        const axisCut = 1 - Math.min(
+          0.82,
+          Math.abs(axisBend) * (0.72 + this.gestureStrength * 0.68),
         );
         this.targetGain[slot] = enabled
           ? Math.min(
             2.5,
             edge * tilt * collideGain,
-          ) * enabledNormalization * propagationCut
+          ) * enabledNormalization * propagationCut * axisCut
           : 0;
         // The post Q/FFT sculptor owns the final spectral shape. Keeping the
         // inner Shepard resonators open avoids imposing the same comb twice.
@@ -3574,12 +5162,28 @@ export class MoireDroneKernel {
   }
 
   processCombNotchChannel(input, channel = 0) {
+    return this.processCombBiquadChannel(input, channel, false);
+  }
+
+  processHybridCombChannel(input, channel = 0) {
+    return this.processCombBiquadChannel(input, channel, true);
+  }
+
+  processCombBiquadChannel(input, channel = 0, hybrid = false) {
     let output = Number.isFinite(input) ? input : 0;
     const right = channel === 1;
-    const x1 = right ? this.combNotchRightX1 : this.combNotchLeftX1;
-    const x2 = right ? this.combNotchRightX2 : this.combNotchLeftX2;
-    const y1 = right ? this.combNotchRightY1 : this.combNotchLeftY1;
-    const y2 = right ? this.combNotchRightY2 : this.combNotchLeftY2;
+    const x1 = hybrid
+      ? (right ? this.combHybridRightX1 : this.combHybridLeftX1)
+      : (right ? this.combNotchRightX1 : this.combNotchLeftX1);
+    const x2 = hybrid
+      ? (right ? this.combHybridRightX2 : this.combHybridLeftX2)
+      : (right ? this.combNotchRightX2 : this.combNotchLeftX2);
+    const y1 = hybrid
+      ? (right ? this.combHybridRightY1 : this.combHybridLeftY1)
+      : (right ? this.combNotchRightY1 : this.combNotchLeftY1);
+    const y2 = hybrid
+      ? (right ? this.combHybridRightY2 : this.combHybridLeftY2)
+      : (right ? this.combNotchRightY2 : this.combNotchLeftY2);
     for (let stage = 0; stage < this.combStageCount; stage += 1) {
       const stageInput = output;
       output = (
@@ -3603,14 +5207,15 @@ export class MoireDroneKernel {
 
   process(leftOutput, rightOutput) {
     if (!(leftOutput instanceof Float32Array) || !(rightOutput instanceof Float32Array)) {
-      throw new TypeError("Moiré Drone outputs must be Float32Array instances.");
+      throw new TypeError("Fabric Filter outputs must be Float32Array instances.");
     }
     if (leftOutput.length !== rightOutput.length) {
-      throw new RangeError("Moiré Drone output channels must have equal lengths.");
+      throw new RangeError("Fabric Filter output channels must have equal lengths.");
     }
     const length = leftOutput.length;
     const activationCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.012));
     const gainCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.025));
+    const gestureGainCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.003));
     const impactAttackCoefficient = 1 - Math.exp(-1 / (this.sampleRate * 0.0012));
     const impactRelease = Math.exp(-1 / (
       this.sampleRate * (0.012 + this.current.propagationWidth * 0.55)
@@ -3621,11 +5226,26 @@ export class MoireDroneKernel {
         this.updateTargets();
       }
       this.activeGain += (this.activeTarget - this.activeGain) * activationCoefficient;
+      this.directGestureGain += (
+        this.directGestureGainTarget - this.directGestureGain
+      ) * gestureGainCoefficient;
+      if (
+        Math.abs(this.directGestureGainTarget - this.directGestureGain) < 1e-12
+      ) this.directGestureGain = this.directGestureGainTarget;
 
       const color = this.current.noiseColor;
-      const common = this.coloredNoise(0, color);
-      const independentA = this.coloredNoise(1, color);
-      const independentB = this.coloredNoise(2, color);
+      const noiseType = this.current.noiseType;
+      const noiseChaos = this.current.noiseChaos;
+      const noiseFractalDepth = this.current.noiseFractalDepth;
+      const common = this.coloredNoise(
+        0, color, noiseType, noiseChaos, noiseFractalDepth,
+      );
+      const independentA = this.coloredNoise(
+        1, color, noiseType, noiseChaos, noiseFractalDepth,
+      );
+      const independentB = this.coloredNoise(
+        2, color, noiseType, noiseChaos, noiseFractalDepth,
+      );
       const commonWeight = Math.sqrt(this.current.noiseCorrelation);
       const independentWeight = Math.sqrt(1 - this.current.noiseCorrelation);
       let sourceA = common * commonWeight + independentA * independentWeight;
@@ -3636,22 +5256,27 @@ export class MoireDroneKernel {
           this.impactEnvelope - this.impactGain
         ) * impactAttackCoefficient;
         this.impactEnvelope *= impactRelease;
+        const impactBrightness = clamp((1 - this.impactY) * 0.5, 0, 1, 0.5);
         this.impactPhase += TAU * (
           55 + this.current.propagationRate * 6
-        ) / this.sampleRate;
+        ) * 2 ** ((impactBrightness - 0.5) * 1.8) / this.sampleRate;
         if (this.impactPhase >= TAU) this.impactPhase -= TAU;
         const impactNoise = this.nextWhite(4);
         const impactClick = impactNoise - this.impactPreviousNoise;
         this.impactPreviousNoise = impactNoise;
         const burst = (
-          impactNoise * 0.4 + impactClick * 0.1
-          + Math.sin(this.impactPhase) * 0.16
+          impactNoise * (0.28 + impactBrightness * 0.2)
+          + impactClick * (0.06 + impactBrightness * 0.09)
+          + Math.sin(this.impactPhase) * (0.21 - impactBrightness * 0.08)
         ) * this.impactGain * this.impactPolarity
-          * (0.04 + this.current.propagationGain * 0.08)
+          * (0.015 + this.current.propagationGain * 0.14)
           * (1 - this.current.pluckCut * 0.65);
         const panAngle = (this.impactX + 1) * Math.PI * 0.25;
-        sourceA += burst * (0.72 + Math.cos(panAngle) * 0.28);
-        sourceB += burst * (0.72 + Math.sin(panAngle) * 0.28);
+        const weftBalance = clamp((this.impactY + 1) * 0.5, 0, 1, 0.5);
+        sourceA += burst * (0.72 + Math.cos(panAngle) * 0.28)
+          * (1.08 - weftBalance * 0.26);
+        sourceB += burst * (0.72 + Math.sin(panAngle) * 0.28)
+          * (0.82 + weftBalance * 0.26);
       }
 
       const dust = this.current.dust;
@@ -3720,8 +5345,12 @@ export class MoireDroneKernel {
       const rawLeft = (sourceA * 0.55 + sourceB * 0.15) * 0.22;
       const rawRight = (sourceB * 0.55 + sourceA * 0.15) * 0.22;
       const filteredMix = this.current.filteredMix;
-      let dryLeft = rawLeft * (1 - filteredMix) + filteredLeft * filteredMix;
-      let dryRight = rawRight * (1 - filteredMix) + filteredRight * filteredMix;
+      // Suppress the broadband bypass decisively through the upper half of
+      // the control. The endpoints stay exact, while 50% now means 75% of the
+      // resonant fabric instead of an equal layer of masking raw noise.
+      const resonatorMix = 1 - (1 - filteredMix) * (1 - filteredMix);
+      let dryLeft = rawLeft * (1 - resonatorMix) + filteredLeft * resonatorMix;
+      let dryRight = rawRight * (1 - resonatorMix) + filteredRight * resonatorMix;
       if (!Number.isFinite(dryLeft) || !Number.isFinite(dryRight)) {
         for (let slot = 0; slot < MAX_FILTERS; slot += 1) this.resetFilter(slot);
         dryLeft = 0;
@@ -3769,8 +5398,12 @@ export class MoireDroneKernel {
       const delayedQInputRight = this.qInputDelayRight[qInputRead];
       const sculptedQLeft = this.processCombNotchChannel(delayedQInputLeft, 0);
       const sculptedQRight = this.processCombNotchChannel(delayedQInputRight, 1);
-      const qDepthValue = this.sculptDepth * this.current.qCutDepth;
-      const qDepth = qDepthValue >= 0.999 ? 1 : qDepthValue;
+      const qDepth = spectralDepthResponseFast(
+        Math.max(
+          this.sculptDepth * this.current.qCutDepth,
+          this.directGestureDepth,
+        ),
+      );
       const ridgeAmount = 0.45 + this.sculptCharacter * 1.05;
       const qLeft = this.sculptModeIndex === SPECTRAL_SCULPT_MODE_INDEX.ridges
         ? clamp(
@@ -3803,10 +5436,35 @@ export class MoireDroneKernel {
 
       this.fftFilter.processSample(mixedLeft, mixedRight);
       const fftBlend = this.current.spectralFilterBlend;
-      mixedLeft = alignedQLeft
-        + (this.fftFilter.outputLeft - alignedQLeft) * fftBlend;
-      mixedRight = alignedQRight
-        + (this.fftFilter.outputRight - alignedQRight) * fftBlend;
+      const fftLeft = this.fftFilter.outputLeft;
+      const fftRight = this.fftFilter.outputRight;
+      const parallelLeft = alignedQLeft + (fftLeft - alignedQLeft) * fftBlend;
+      const parallelRight = alignedQRight + (fftRight - alignedQRight) * fftBlend;
+      const cutMode = this.sculptModeIndex === SPECTRAL_SCULPT_MODE_INDEX.notches
+        || this.sculptModeIndex === SPECTRAL_SCULPT_MODE_INDEX.lowpass
+        || this.sculptModeIndex === SPECTRAL_SCULPT_MODE_INDEX.highpass
+        || this.sculptModeIndex === SPECTRAL_SCULPT_MODE_INDEX.bandpass
+        || this.sculptModeIndex === SPECTRAL_SCULPT_MODE_INDEX.bandstop;
+      if (cutMode) {
+        // A plain parallel crossfade restores whatever one engine removes and
+        // the other passes. At the center of the morph, pass the FFT branch
+        // through an independent Q state bank so their cut regions intersect
+        // instead. The parabolic weight preserves both endpoints exactly.
+        const hybridFilteredLeft = this.processHybridCombChannel(fftLeft, 0);
+        const hybridFilteredRight = this.processHybridCombChannel(fftRight, 1);
+        const intersectionLeft = fftLeft
+          + (hybridFilteredLeft - fftLeft) * qDepth;
+        const intersectionRight = fftRight
+          + (hybridFilteredRight - fftRight) * qDepth;
+        const intersectionAmount = 4 * fftBlend * (1 - fftBlend);
+        mixedLeft = parallelLeft
+          + (intersectionLeft - parallelLeft) * intersectionAmount;
+        mixedRight = parallelRight
+          + (intersectionRight - parallelRight) * intersectionAmount;
+      } else {
+        mixedLeft = parallelLeft;
+        mixedRight = parallelRight;
+      }
       const combDepth = this.sculptDepth >= 0.999
         ? 1
         : this.sculptDepth;
@@ -3815,8 +5473,19 @@ export class MoireDroneKernel {
         mixedLeft = alignedQLeft;
         mixedRight = alignedQRight;
       }
-      leftOutput[sample] = Math.max(-0.98, Math.min(0.98, mixedLeft * this.activeGain));
-      rightOutput[sample] = Math.max(-0.98, Math.min(0.98, mixedRight * this.activeGain));
+      // This final, smoothed excavation is intentionally downstream of every
+      // dry, resonant, Q, FFT, space, and drive route. It is the fail-safe that
+      // keeps a direct pull unmistakable even when a chosen topology happens
+      // to mask little energy at the current noise spectrum.
+      const directGestureGain = this.directGestureGain;
+      leftOutput[sample] = Math.max(-0.98, Math.min(
+        0.98,
+        mixedLeft * directGestureGain * this.activeGain,
+      ));
+      rightOutput[sample] = Math.max(-0.98, Math.min(
+        0.98,
+        mixedRight * directGestureGain * this.activeGain,
+      ));
       this.controlCounter = (this.controlCounter + 1) % CONTROL_INTERVAL;
     }
     return true;
@@ -3856,6 +5525,13 @@ function createProcessorClass(AudioWorkletBase) {
             message.force,
             message.radius,
             message.gesture,
+          );
+        } else if (message.type === "fabric-ripple") {
+          this.kernel.rippleFabric(
+            message.x,
+            message.y,
+            message.force,
+            message.radius,
           );
         } else if (message.type === "fabric-kick") {
           this.kernel.kickFabric(
@@ -3980,12 +5656,12 @@ export class MoireDroneAudio {
       throw new Error("Web Audio is not available in this browser.");
     }
     if (typeof AudioWorkletNodeConstructor !== "function") {
-      throw new Error("Moiré Drone requires AudioWorklet support.");
+      throw new Error("Fabric Filter requires AudioWorklet support.");
     }
     const context = new AudioContextConstructor({ latencyHint: "interactive" });
     if (!context.audioWorklet) {
       await context.close().catch(() => {});
-      throw new Error("Moiré Drone requires AudioWorklet support.");
+      throw new Error("Fabric Filter requires AudioWorklet support.");
     }
     try {
       unlockAudioContext(context);
@@ -4064,6 +5740,16 @@ export class MoireDroneAudio {
       force: clamp(force, -2, 2, 0.7),
       radius: clamp(radius, 0.04, 1.5, 0.28),
       gesture: transferableFabricGesture(gesture),
+    });
+  }
+
+  rippleFabric(x = 0, y = 0, force = 0.35, radius = 0.18) {
+    this.node?.port.postMessage({
+      type: "fabric-ripple",
+      x: clamp(x, -1, 1, 0),
+      y: clamp(y, -1, 1, 0),
+      force: clamp(force, -2, 2, 0.35),
+      radius: clamp(radius, 0.04, 1.5, 0.18),
     });
   }
 

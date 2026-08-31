@@ -189,9 +189,9 @@ test("Micromorph catalogues its honest local streaming-model boundary", () => {
   assert.equal(instrumentMidiCapabilityForId("micromorph")?.noteMode, "processor");
 });
 
-test("Moiré Drone catalogues its two-dimensional noise-filter collision engine", () => {
+test("Fabric Filter catalogues its two-dimensional noise-filter collision engine", () => {
   const instrument = instrumentById("moire-drone");
-  assert.equal(instrument?.label, "Moiré Drone");
+  assert.equal(instrument?.label, "Fabric Filter");
   assert.equal(instrument?.href, "moire-drone.html");
   assert.equal(instrument?.kind, "Noise-field drone");
   assert.match(instrument?.description ?? "", /colored noise/i);

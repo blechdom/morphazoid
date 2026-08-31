@@ -45,6 +45,11 @@
   text-transform: uppercase;
 }
 
+.moire-field-legend[hidden],
+.moire-drone-page .stage-meta[hidden] {
+  display: none;
+}
+
 .moire-field-legend span {
   display: inline-flex;
   align-items: center;
@@ -426,9 +431,24 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.moire-five-choice {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .moire-six-choice {
   grid-auto-flow: row;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.moire-seven-choice {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.moire-eight-choice {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .sculpt-mode-choice {
@@ -443,6 +463,10 @@
 
 .noise-color-choice {
   margin: 5px 0 13px;
+}
+
+.noise-type-choice {
+  margin: 5px 0 15px;
 }
 
 .noise-color-choice button {
@@ -570,14 +594,7 @@
   }
 
   .moire-pointer-note {
-    top: 73px;
-    right: 13px;
-    bottom: auto;
-    display: block;
-    max-width: 48vw;
-    font-size: 6px;
-    line-height: 1.45;
-    text-align: right;
+    display: none;
   }
 
   .fabric-first-instruction {
@@ -597,7 +614,10 @@
   .moire-signal-card { grid-template-columns: 1fr; }
   .moire-signal-card i { display: none; }
   .moire-four-choice,
-  .moire-six-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .moire-five-choice,
+  .moire-six-choice,
+  .moire-seven-choice,
+  .moire-eight-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 960px) and (max-height: 560px) {
@@ -614,6 +634,7 @@
   .fabric-clear-button { min-height: 48px; }
   .sculpt-mode-choice button,
   .propagation-mode-choice button,
+  .noise-type-choice button,
   .noise-color-choice button { min-height: 48px; }
 }
 

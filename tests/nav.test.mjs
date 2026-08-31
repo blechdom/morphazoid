@@ -336,7 +336,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     tools.find((tool) => tool.id === "moire-drone"),
     {
       id: "moire-drone",
-      label: "Moiré Drone",
+      label: "Fabric Filter",
       href: "moire-drone.html",
     },
   );
@@ -383,12 +383,12 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   assert.equal(
     barberShopTools.findIndex(({ id }) => id === "moire-drone"),
     barberShopTools.findIndex(({ id }) => id === "slippery-resynthesis") + 1,
-    "Moiré Drone belongs immediately after Slippery Resynthesis",
+    "Fabric Filter belongs immediately after Slippery Resynthesis",
   );
   assert.equal(
     barberShopTools.findIndex(({ id }) => id === "drum-roll-please"),
     barberShopTools.findIndex(({ id }) => id === "moire-drone") + 1,
-    "Drum Roll Please belongs immediately after Moiré Drone",
+    "Drum Roll Please belongs immediately after Fabric Filter",
   );
   assert.equal(
     barberShopTools.findIndex(({ id }) => id === "ouroborousel"),
