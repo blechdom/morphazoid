@@ -264,6 +264,21 @@
             <div class="node-controls" id="nodeControls"></div>
           </section>
 
+          <section class="inspector-section node-asset-section" id="nodeAssetSection" aria-labelledby="nodeAssetTitle" hidden>
+            <div class="inspector-section-title">
+              <h4 id="nodeAssetTitle">Audio data</h4>
+              <span>GPU storage</span>
+            </div>
+            <div class="node-asset-actions">
+              <label class="node-asset-file">
+                <input id="nodeAssetFile" type="file" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3,.m4a,.ogg" />
+                <span id="nodeAssetFileLabel">Choose audio</span>
+              </label>
+              <button id="nodeAssetClear" type="button" hidden>Use built-in</button>
+            </div>
+            <p id="nodeAssetStatus" role="status">Built-in audio data.</p>
+          </section>
+
           <section class="inspector-section organ-rank-section" id="organRankSection" aria-labelledby="organRankTitle" hidden>
             <div class="inspector-section-title">
               <h4 id="organRankTitle">GPU harmonic lanes</h4>

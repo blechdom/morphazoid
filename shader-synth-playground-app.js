@@ -19,6 +19,11 @@ import {
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
   sanitizeWebGpuSynthOrganRanks,
 } from "./src/webgpu-synths.js";
+import {
+  formatShaderSynthPlaygroundAudioAsset,
+  prepareShaderSynthPlaygroundAudioAsset,
+  shaderSynthPlaygroundAudioAssetSpec,
+} from "./src/shader-synth-playground-audio-assets.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -414,6 +419,9 @@ const state = {
   audioStartPromise: null,
   audioPhase: null,
   audioGeneration: 0,
+  nodeAssets: new Map(),
+  assetLoadGeneration: 0,
+  assetLoadingNodeId: null,
   latestChunk: new Float32Array(0),
   rms: 0,
   scopeFrame: 0,
@@ -735,6 +743,7 @@ function validationSummary() {
 function syncPatch({ render = true, announceChange = false } = {}) {
   for (const node of patchNodes()) constrainDependentNodeParameters(node, moduleForNode(node));
   state.patch = sanitizePatch(state.patch);
+  pruneNodeAssets();
   const validation = validateShaderPlaygroundPatch(state.patch);
   if (state.engine) {
     if (validation.valid) {
@@ -1659,6 +1668,146 @@ function appendInspectorReference(target, prefix, label, url) {
   target.append(link);
 }
 
+function pruneNodeAssets() {
+  const activeNodes = new Map(patchNodes().map((node) => [String(node.id), nodeModuleId(node)]));
+  for (const [nodeId, asset] of state.nodeAssets) {
+    if (activeNodes.get(nodeId) === asset.moduleId) continue;
+    state.nodeAssets.delete(nodeId);
+    state.engine?.clearNodeAsset?.(nodeId);
+  }
+}
+
+function renderNodeAssetControl(module, node) {
+  const section = $("nodeAssetSection");
+  const spec = shaderSynthPlaygroundAudioAssetSpec(module?.id);
+  section.hidden = !spec;
+  if (!spec) {
+    $("nodeAssetFile").value = "";
+    $("nodeAssetClear").hidden = true;
+    return;
+  }
+  const asset = state.nodeAssets.get(String(node.id));
+  const loading = state.assetLoadingNodeId === String(node.id);
+  $("nodeAssetTitle").textContent = spec.label;
+  $("nodeAssetFileLabel").textContent = asset ? `Replace ${spec.label.toLocaleLowerCase()}` : spec.chooseLabel;
+  $("nodeAssetFile").disabled = loading;
+  $("nodeAssetFile").dataset.nodeId = String(node.id);
+  $("nodeAssetClear").disabled = loading;
+  $("nodeAssetClear").hidden = !asset;
+  const status = $("nodeAssetStatus");
+  status.dataset.state = loading ? "loading" : "";
+  if (loading) {
+    status.textContent = "Decoding and preparing audio…";
+  } else if (!asset) {
+    status.textContent = `${spec.emptyLabel}. Audio data is allocated only while this module is active.`;
+  } else {
+    const residency = node.enabled === false
+      ? "GPU storage off while bypassed"
+      : state.audioOn
+        ? "resident on GPU"
+        : "ready for GPU";
+    status.textContent = `${asset.name} · ${formatShaderSynthPlaygroundAudioAsset(asset)} · ${residency}`;
+  }
+}
+
+function decodeAudioData(context, bytes) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const complete = (callback) => (value) => {
+      if (settled) return;
+      settled = true;
+      callback(value);
+    };
+    try {
+      const result = context.decodeAudioData(bytes, complete(resolve), complete(reject));
+      result?.then?.(complete(resolve), complete(reject));
+    } catch (error) {
+      complete(reject)(error);
+    }
+  });
+}
+
+async function loadSelectedNodeAsset(file) {
+  const node = findNode(state.selectedNodeId);
+  const module = moduleForNode(node);
+  const spec = shaderSynthPlaygroundAudioAssetSpec(module?.id);
+  if (!file || !node || !module || !spec) return false;
+  if (Number(file.size) > 128 * 1024 * 1024) {
+    $("nodeAssetStatus").textContent = "Choose an audio file smaller than 128 MB.";
+    $("nodeAssetStatus").dataset.state = "error";
+    return false;
+  }
+  const request = ++state.assetLoadGeneration;
+  const nodeId = String(node.id);
+  state.assetLoadingNodeId = nodeId;
+  renderNodeAssetControl(module, node);
+
+  const existingContext = state.engine?.context;
+  const AudioContextCtor = globalThis.AudioContext ?? globalThis.webkitAudioContext;
+  let decodeContext = existingContext;
+  let ownsContext = false;
+  let failed = false;
+  try {
+    if (!decodeContext) {
+      if (typeof AudioContextCtor !== "function") throw new Error("Web Audio cannot decode this file in this browser.");
+      decodeContext = new AudioContextCtor();
+      ownsContext = true;
+    }
+    const bytes = await file.arrayBuffer();
+    const decoded = await decodeAudioData(decodeContext, bytes);
+    const targetSampleRate = Number(state.engine?.sampleRate ?? decodeContext.sampleRate) || 44100;
+    const prepared = prepareShaderSynthPlaygroundAudioAsset(decoded, module.id, targetSampleRate);
+    const currentNode = findNode(nodeId);
+    if (request !== state.assetLoadGeneration || nodeModuleId(currentNode) !== module.id) return false;
+    const asset = { ...prepared, name: file.name || "Audio file" };
+    state.nodeAssets.set(nodeId, asset);
+    state.engine?.setNodeAsset?.(nodeId, asset.left, asset.right);
+    if (spec.selector) {
+      currentNode.params = { ...currentNode.params, [spec.selector.paramId]: spec.selector.value };
+    }
+    syncPatch();
+    announce(`${module.label} now uses ${asset.name}.`);
+    return true;
+  } catch (error) {
+    failed = true;
+    if (request === state.assetLoadGeneration && state.selectedNodeId === nodeId) {
+      const message = error instanceof Error ? error.message : String(error);
+      $("nodeAssetStatus").textContent = `Could not decode that audio file. ${message}`;
+      $("nodeAssetStatus").dataset.state = "error";
+    }
+    return false;
+  } finally {
+    if (ownsContext) {
+      try { await decodeContext?.close?.(); } catch { /* decoding data is already copied */ }
+    }
+    if (request === state.assetLoadGeneration) {
+      state.assetLoadingNodeId = null;
+      const currentNode = findNode(nodeId);
+      if (currentNode && state.selectedNodeId === nodeId) {
+        if (!failed) renderNodeAssetControl(moduleForNode(currentNode), currentNode);
+        else {
+          $("nodeAssetFile").disabled = false;
+          $("nodeAssetClear").disabled = false;
+        }
+      }
+    }
+  }
+}
+
+function clearSelectedNodeAsset() {
+  const node = findNode(state.selectedNodeId);
+  const module = moduleForNode(node);
+  const spec = shaderSynthPlaygroundAudioAssetSpec(module?.id);
+  if (!node || !module || !spec || !state.nodeAssets.delete(String(node.id))) return false;
+  state.assetLoadGeneration += 1;
+  state.assetLoadingNodeId = null;
+  state.engine?.clearNodeAsset?.(node.id);
+  if (spec.selector) node.params = { ...node.params, [spec.selector.paramId]: 0 };
+  syncPatch();
+  announce(`${module.label} returned to its built-in audio data.`);
+  return true;
+}
+
 function renderInspector() {
   const node = findNode(state.selectedNodeId);
   const module = moduleForNode(node);
@@ -1672,6 +1821,7 @@ function renderInspector() {
     $("organRankSection").hidden = true;
     $("organRankControls").replaceChildren();
     $("statefulNodeToggle").hidden = true;
+    $("nodeAssetSection").hidden = true;
     return;
   }
   inspector.dataset.selectedNode = node.id;
@@ -1742,6 +1892,7 @@ function renderInspector() {
   });
   $("nodeControls").replaceChildren(...controls);
   $("parameterTitle").closest(".inspector-section").hidden = controls.length === 0;
+  renderNodeAssetControl(module, node);
   renderOrganRankControls(module);
   const firstParam = module.params[0]
     ? effectiveParameterDescriptor(module, node, module.params[0])
@@ -2355,6 +2506,11 @@ function syncTransport() {
         : "Click to start · MIDI on: Z–M / Q–U";
   syncPerformanceNoteButtons();
   syncPatchStatus();
+  const selectedNode = findNode(state.selectedNodeId);
+  const selectedModule = moduleForNode(selectedNode);
+  if (selectedNode && shaderSynthPlaygroundAudioAssetSpec(selectedModule?.id)) {
+    renderNodeAssetControl(selectedModule, selectedNode);
+  }
 }
 
 function syncExecutionReadout(engine = state.engine) {
@@ -2397,6 +2553,9 @@ async function startAudio({ play = state.playing } = {}) {
   nextEngine.setPerformancePitch?.(midiVoicePitch());
   nextEngine.setPlaybackEnabled(Boolean(play));
   nextEngine.updateOrganRanks?.(state.organRanks);
+  for (const [nodeId, asset] of state.nodeAssets) {
+    nextEngine.setNodeAsset?.(nodeId, asset.left, asset.right);
+  }
   nextEngine.setChunkHandler((...args) => receiveChunk(...args));
   nextEngine.setStatusHandler?.((phase) => {
     if (state.engine !== nextEngine) return;
@@ -2585,6 +2744,12 @@ $("nodeControls").addEventListener("input", (event) => {
 $("statefulNodeEnabled").addEventListener("change", (event) => {
   updateStatefulNodeEnabled(event.target);
 });
+$("nodeAssetFile").addEventListener("change", (event) => {
+  const [file] = event.target.files ?? [];
+  event.target.value = "";
+  if (file) void loadSelectedNodeAsset(file);
+});
+$("nodeAssetClear").addEventListener("click", clearSelectedNodeAsset);
 $("patchControls").addEventListener("input", (event) => {
   if (event.target.matches("input[type=\"range\"][data-param-id]")) {
     updateNodeParameter(event.target);

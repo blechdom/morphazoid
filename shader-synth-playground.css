@@ -2336,6 +2336,81 @@
   text-transform: uppercase;
 }
 
+.node-asset-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.node-asset-file {
+  position: relative;
+  display: grid;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in oklab, var(--node-color, var(--accent)) 38%, var(--line));
+  align-items: center;
+  overflow: hidden;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--node-color, var(--accent)) 7%, var(--bg-deep));
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 650;
+  text-align: center;
+}
+
+.node-asset-file:hover,
+.node-asset-file:focus-within {
+  border-color: var(--node-color, var(--accent));
+  outline: 0;
+}
+
+.node-asset-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.node-asset-file:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+#nodeAssetClear {
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 650;
+}
+
+#nodeAssetClear:hover,
+#nodeAssetClear:focus-visible {
+  border-color: var(--node-color, var(--accent));
+  color: var(--ink);
+  outline: 0;
+}
+
+#nodeAssetStatus {
+  margin: 8px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#nodeAssetStatus[data-state="loading"] {
+  color: var(--node-color, var(--accent));
+}
+
+#nodeAssetStatus[data-state="error"] {
+  color: var(--port-trigger);
+}
+
 #ioSummary {
   display: grid;
   gap: 7px;
