@@ -791,8 +791,16 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(html, /Field A · X \/ Warp Filter/);
   assert.match(html, /Field B · Y \/ Weft Filter/);
   assert.match(appSource, /function syncVisualFabricTopology\(/);
-  assert.match(appSource, /visualFabricTopology\.columnPositions/);
-  assert.match(appSource, /visualFabricTopology\.rowPositions/);
+  const topologySyncSource = namedFunctionSource(appSource, "syncVisualFabricTopology");
+  assert.match(topologySyncSource, /visualFabric\.reconfigure\(/);
+  assert.match(topologySyncSource, /width:\s*columns/);
+  assert.match(topologySyncSource, /height:\s*rows/);
+  assert.match(topologySyncSource, /patchwork:\s*state\.settings\.fabricPatchwork/);
+  assert.doesNotMatch(
+    appSource,
+    /visualFabricTopology|visualFabricColumnEdges|visualFabricRowEdges|topologyEdges/,
+    "nonuniform physical topology must not distort the equally spaced display grid",
+  );
   const noiseColorChoiceStart = html.indexOf('id="noiseColorChoice"');
   assert.ok(noiseColorChoiceStart >= 0, "the canonical noise-color chooser must be present");
   const noiseColorChoice = html.slice(
@@ -992,7 +1000,11 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     "a drag that outruns audio startup must emit its first wake when audio becomes ready",
   );
   const pointerMoveSource = namedFunctionSource(appSource, "tugFabricFromPointer");
-  assert.match(pointerMoveSource, /samplePointerEvent\(event\)/);
+  assert.match(
+    pointerMoveSource,
+    /samplePointerEvent\(event,\s*\{\s*drawNow:\s*false\s*\}\)/,
+    "high-rate pointer samples must be coalesced into the RAF paint loop",
+  );
   assert.match(pointerMoveSource, /emitFirstGrabWake\(/);
   assert.match(
     pointerMoveSource,
@@ -1104,8 +1116,13 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(appSource, /const STATIC_GRID_PINK\s*=\s*"#ff5cad"/i);
   assert.match(appSource, /const STATIC_GRID_GREEN\s*=\s*"#68f7a4"/i);
   const staticGridRenderer = namedFunctionSource(appSource, "drawStaticVectorGrid");
-  assert.match(staticGridRenderer, /column\s*\/\s*STATIC_GRID_COLUMNS/);
-  assert.match(staticGridRenderer, /row\s*\/\s*STATIC_GRID_ROWS/);
+  assert.match(staticGridRenderer, /column\s*\/\s*columns\s*\*\s*2\s*-\s*1/);
+  assert.match(staticGridRenderer, /row\s*\/\s*rows\s*\*\s*2\s*-\s*1/);
+  assert.doesNotMatch(
+    staticGridRenderer,
+    /fabricSectionDimensions|columnPositions|columnSpans|rowPositions|rowSpans/,
+    "every visible resting-grid interval must be uniform",
+  );
   assert.match(staticGridRenderer, /STATIC_GRID_PINK/);
   assert.match(staticGridRenderer, /STATIC_GRID_GREEN/);
   assert.match(staticGridRenderer, /context2d\.beginPath\(\)/);
@@ -1118,6 +1135,22 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
     staticGridRenderer,
     /(?:putImageData|drawImage|createImageData|waveFieldValue|bezierCurveTo|quadraticCurveTo)\(/,
     "the clear two-color grid must be drawn as canvas paths, not a raster texture",
+  );
+  const drawTimingSource = namedFunctionSource(appSource, "draw");
+  assert.match(
+    drawTimingSource,
+    /pointerId\s*!==\s*null\s*\?\s*0/,
+    "direct manipulation must follow each RAF rather than a mismatched refresh-rate cap",
+  );
+  assert.match(
+    drawTimingSource,
+    /staticGridHasDeformation\(\)[\s\S]*?ACTIVE_DEFORMATION_FRAME_RATE[\s\S]*?:\s*AUDIO_VISUAL_FRAME_RATE/,
+    "released fabric motion must stay smoother than the audio-only analyzer",
+  );
+  assert.match(
+    drawTimingSource,
+    /Math\.floor\([\s\S]*?elapsed\s*\+\s*FRAME_INTERVAL_TOLERANCE_MS[\s\S]*?frameInterval[\s\S]*?lastDrawTime\s*\+\s*completedIntervals\s*\*\s*frameInterval/,
+    "frame pacing must tolerate timestamp rounding and carry its target phase",
   );
   const staticGridPointSource = namedFunctionSource(appSource, "staticGridPoint");
   assert.match(

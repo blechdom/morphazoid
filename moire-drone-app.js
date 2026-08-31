@@ -28,21 +28,15 @@ const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)"
 const STATIC_GRID_COLUMNS = 28;
 const STATIC_GRID_ROWS = 20;
 const STATIC_GRID_SEGMENTS = 40;
+const ACTIVE_DEFORMATION_FRAME_RATE = 60;
+const AUDIO_VISUAL_FRAME_RATE = 30;
+const FRAME_INTERVAL_TOLERANCE_MS = 0.75;
 const STATIC_GRID_PINK = "#ff5cad";
 const STATIC_GRID_GREEN = "#68f7a4";
 const firstPreset = MOIRE_DRONE_PRESETS[0];
 const visualFabric = new SpectralFabric({
   seed: (MOIRE_DRONE_DEFAULTS.seed ^ 0xa511e9b3) >>> 0,
 });
-let visualFabricTopology = visualFabric.topology;
-let visualFabricColumnEdges = topologyEdges(
-  visualFabricTopology.columnPositions,
-  visualFabricTopology.columnSpans,
-);
-let visualFabricRowEdges = topologyEdges(
-  visualFabricTopology.rowPositions,
-  visualFabricTopology.rowSpans,
-);
 const visualPropagation = new SpectralPropagationPool({
   seed: (MOIRE_DRONE_DEFAULTS.seed ^ 0x3c6ef372) >>> 0,
   activeLimit: MOIRE_DRONE_DEFAULTS.propagationVoices,
@@ -451,32 +445,14 @@ function fabricSectionDimensions(value = state.settings.fabricSections) {
   return { columns, rows };
 }
 
-function topologyEdges(positions, spans) {
-  const edges = positions.map((position, index) => position - spans[index] * 0.5);
-  edges.push(1);
-  return Object.freeze(edges);
-}
-
 function syncVisualFabricTopology() {
   const { columns, rows } = fabricSectionDimensions();
-  const changed = visualFabric.reconfigure({
+  return visualFabric.reconfigure({
     width: columns,
     height: rows,
     patchwork: state.settings.fabricPatchwork,
     seed: (state.settings.seed ^ 0xa511e9b3) >>> 0,
   });
-  if (changed) {
-    visualFabricTopology = visualFabric.topology;
-    visualFabricColumnEdges = topologyEdges(
-      visualFabricTopology.columnPositions,
-      visualFabricTopology.columnSpans,
-    );
-    visualFabricRowEdges = topologyEdges(
-      visualFabricTopology.rowPositions,
-      visualFabricTopology.rowSpans,
-    );
-  }
-  return changed;
 }
 
 function updateGridDensityOutput() {
@@ -1421,7 +1397,9 @@ function samplePointerEvent(event, { drawNow = true } = {}) {
 }
 
 function tugFabricFromPointer(event) {
-  if (samplePointerEvent(event)) {
+  // Pointer events can arrive several times inside one display frame. Update
+  // the gesture/audio state for every sample, but let RAF paint it once.
+  if (samplePointerEvent(event, { drawNow: false })) {
     const timestamp = Number(event.timeStamp) || performance.now();
     if (!emitFirstGrabWake(timestamp)) maybeEmitGrabRipple(timestamp);
   }
@@ -1477,10 +1455,7 @@ function drawStaticVectorGrid() {
   context2d.globalAlpha = 0.62;
   context2d.strokeStyle = STATIC_GRID_GREEN;
   for (let column = 0; column <= columns; column += 1) {
-    const defaultPosition = column / STATIC_GRID_COLUMNS;
-    const x = (columns === STATIC_GRID_COLUMNS
-      ? defaultPosition
-      : column / columns) * 2 - 1;
+    const x = column / columns * 2 - 1;
     context2d.beginPath();
     for (let segment = 0; segment <= segments; segment += 1) {
       const y = segment / segments * 2 - 1;
@@ -1494,44 +1469,10 @@ function drawStaticVectorGrid() {
   context2d.globalAlpha = 0.66;
   context2d.strokeStyle = STATIC_GRID_PINK;
   for (let row = 0; row <= rows; row += 1) {
-    const defaultPosition = row / STATIC_GRID_ROWS;
-    const y = (rows === STATIC_GRID_ROWS
-      ? defaultPosition
-      : row / rows) * 2 - 1;
+    const y = row / rows * 2 - 1;
     context2d.beginPath();
     for (let segment = 0; segment <= segments; segment += 1) {
       const x = segment / segments * 2 - 1;
-      const point = staticGridPoint(x, y, deform, fabricAngle);
-      if (segment === 0) context2d.moveTo(point.x, point.y);
-      else context2d.lineTo(point.x, point.y);
-    }
-    context2d.stroke();
-  }
-
-  // The fine vector grid remains independently adjustable. These brighter,
-  // nonuniform boundaries show the actual sounding membrane topology so the
-  // Sections and Panel variation controls are visible as well as audible.
-  const topologySegments = deform ? STATIC_GRID_SEGMENTS : 1;
-  context2d.lineWidth = 1.45;
-  context2d.globalAlpha = 0.46;
-  context2d.strokeStyle = STATIC_GRID_GREEN;
-  for (const x of visualFabricColumnEdges) {
-    context2d.beginPath();
-    for (let segment = 0; segment <= topologySegments; segment += 1) {
-      const y = segment / topologySegments * 2 - 1;
-      const point = staticGridPoint(x, y, deform, fabricAngle);
-      if (segment === 0) context2d.moveTo(point.x, point.y);
-      else context2d.lineTo(point.x, point.y);
-    }
-    context2d.stroke();
-  }
-
-  context2d.globalAlpha = 0.5;
-  context2d.strokeStyle = STATIC_GRID_PINK;
-  for (const y of visualFabricRowEdges) {
-    context2d.beginPath();
-    for (let segment = 0; segment <= topologySegments; segment += 1) {
-      const x = segment / topologySegments * 2 - 1;
       const point = staticGridPoint(x, y, deform, fabricAngle);
       if (segment === 0) context2d.moveTo(point.x, point.y);
       else context2d.lineTo(point.x, point.y);
@@ -1914,11 +1855,34 @@ function drawOrigin() {
 
 function draw(timestamp, force = false) {
   if (!context2d || disposed || (document.hidden && !force)) return;
-  const frameInterval = reducedMotion
-    ? (visualPropagation.activeCount > 0 ? 1_000 / 15 : 250)
-    : 1_000 / 30;
-  if (!force && timestamp - lastDrawTime < frameInterval) return;
-  lastDrawTime = timestamp;
+  // A held sheet follows the display's native refresh rate. Released motion
+  // remains fluid, while an audio-only analyzer uses the lighter cadence.
+  const frameInterval = pointerId !== null
+    ? 0
+    : reducedMotion
+      ? (visualPropagation.activeCount > 0 ? 1_000 / 15 : 250)
+      : 1_000 / (
+        staticGridHasDeformation() || visualSculptGestureEnvelope > 1e-7
+          ? ACTIVE_DEFORMATION_FRAME_RATE
+          : AUDIO_VISUAL_FRAME_RATE
+      );
+  // RAF timestamps can land a fraction of a millisecond below an exact 30 or
+  // 60 Hz boundary. Carrying the target phase also avoids dropping to 45 or
+  // 48 fps on 90/144 Hz displays.
+  if (!force && frameInterval > 0) {
+    const elapsed = timestamp - lastDrawTime;
+    if (elapsed < frameInterval - FRAME_INTERVAL_TOLERANCE_MS) return;
+    const completedIntervals = Math.max(
+      1,
+      Math.floor((elapsed + FRAME_INTERVAL_TOLERANCE_MS) / frameInterval),
+    );
+    lastDrawTime = Math.min(
+      timestamp,
+      lastDrawTime + completedIntervals * frameInterval,
+    );
+  } else {
+    lastDrawTime = timestamp;
+  }
   updateVisualCombGeometry();
   context2d.clearRect(0, 0, canvasWidth, canvasHeight);
   drawBroadSculptRegions();
