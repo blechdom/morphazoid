@@ -391,7 +391,7 @@ test("noise engines expose deterministic colored, impulsive, fractal, and chaoti
 
 test("the names-only preset library is unique, frozen, safe, and audible", () => {
   assert.ok(
-    MOIRE_DRONE_PRESETS.length >= 52,
+    MOIRE_DRONE_PRESETS.length >= 56,
     "the expanded library must expose a substantial range of controllable sounds",
   );
   assert.equal(new Set(MOIRE_DRONE_PRESETS.map(({ id }) => id)).size, MOIRE_DRONE_PRESETS.length);
@@ -443,6 +443,31 @@ test("the names-only preset library is unique, frozen, safe, and audible", () =>
   assert.ok(sanitizedPresets.some(({ fabricSections }) => fabricSections === 16));
   assert.ok(sanitizedPresets.some(({ fabricPatchwork }) => fabricPatchwork < 0.1));
   assert.ok(sanitizedPresets.some(({ fabricPatchwork }) => fabricPatchwork > 0.8));
+  const motionPresets = Object.fromEntries(
+    MOIRE_DRONE_PRESETS
+      .filter(({ id }) => [
+        "snap-mesh", "rubber-sheet", "heavy-canvas", "felt-stop",
+      ].includes(id))
+      .map(({ id, settings }) => [id, settings]),
+  );
+  assert.deepEqual(Object.keys(motionPresets), [
+    "snap-mesh", "rubber-sheet", "heavy-canvas", "felt-stop",
+  ]);
+  assert.ok(motionPresets["snap-mesh"].fabricTension > 0.9);
+  assert.ok(1 - motionPresets["snap-mesh"].fabricInertia > 0.9);
+  assert.ok(motionPresets["rubber-sheet"].fabricDamping < 0.05);
+  assert.ok(1 - motionPresets["heavy-canvas"].fabricInertia < 0.05);
+  assert.ok(motionPresets["felt-stop"].fabricDamping > 0.85);
+  for (const settings of Object.values(motionPresets)) {
+    assert.equal(settings.autoPluckRate, 0);
+    assert.equal(settings.grabRippleRate, 0);
+    assert.equal(settings.fabricGravity, 0);
+    assert.equal(settings.fabricExcitation, 0);
+    assert.equal(settings.fabricVibration, 0);
+    assert.equal(settings.combDrift, 0);
+    assert.equal(settings.space, 0);
+    assert.equal(settings.feedback, 0);
+  }
   assert.ok(
     sanitizedPresets
       .filter(({ propagationMode }) => propagationMode === "ocean")
@@ -752,6 +777,17 @@ test("the browser wrapper is lazy and the page exposes complete accessible contr
   assert.match(html, /id="fabricExciteButton"[^>]*>Pluck origin</);
   assert.match(html, /id="fabricSections"[^>]*min="3"[^>]*max="16"/);
   assert.match(html, /id="fabricPatchwork"[^>]*min="0"[^>]*max="1"/);
+  assert.match(html, /for="fabricTension"><span><b>Spring \/ bounce<\/b>/);
+  assert.match(html, /for="fabricInertia"><span><b>Response speed<\/b>/);
+  assert.match(html, /for="fabricDamping"><span><b>Motion brake<\/b>/);
+  assert.match(html, /soft \/ loose[\s\S]*springy \/ taut/);
+  assert.match(html, /slow \/ weighty[\s\S]*fast \/ immediate/);
+  assert.match(html, /rings out[\s\S]*stops quickly/);
+  assert.match(
+    appSource,
+    /\["fabricInertia",\s*"fabricInertia",\s*invertUnit,\s*invertUnit\]/,
+    "response speed must invert both input and preset-to-control display mapping",
+  );
   assert.match(html, /Field A · X \/ Warp Filter/);
   assert.match(html, /Field B · Y \/ Weft Filter/);
   assert.match(appSource, /function syncVisualFabricTopology\(/);
@@ -1604,7 +1640,7 @@ test("spectral fabric is seeded and invariant to compatible block boundaries", (
   assert.strictEqual(whole.acceleration, stateArrays[2]);
 });
 
-test("tension spreads an impulse while damping removes membrane energy", () => {
+test("spring tension makes the fabric rebound faster and spreads the impulse", () => {
   const common = {
     ...MOIRE_DRONE_DEFAULTS,
     fabricExcitation: 0,
@@ -1629,6 +1665,67 @@ test("tension spreads an impulse while damping removes membrane energy", () => {
     "higher tension must propagate a local impulse across the weave faster",
   );
 
+  const slackSpring = new SpectralFabric({ patchwork: 0, seed: 9 });
+  const tautSpring = new SpectralFabric({ patchwork: 0, seed: 9 });
+  const center = 3 * slackSpring.width + 4;
+  slackSpring.displacement[center] = 0.12;
+  tautSpring.displacement[center] = 0.12;
+  let slackCrossings = 0;
+  let tautCrossings = 0;
+  let previousSlack = slackSpring.displacement[center];
+  let previousTaut = tautSpring.displacement[center];
+  for (let step = 0; step < 480; step += 1) {
+    slackSpring.step(1 / 240, { ...common, fabricTension: 0 }, true);
+    tautSpring.step(1 / 240, { ...common, fabricTension: 1 }, true);
+    const nextSlack = slackSpring.displacement[center];
+    const nextTaut = tautSpring.displacement[center];
+    if (nextSlack * previousSlack < 0) slackCrossings += 1;
+    if (nextTaut * previousTaut < 0) tautCrossings += 1;
+    previousSlack = nextSlack;
+    previousTaut = nextTaut;
+  }
+  assert.ok(
+    tautCrossings >= slackCrossings + 8,
+    "spring tension must produce a clearly faster, bouncier rebound",
+  );
+});
+
+test("inertia is an inverse response-speed control without reversing the force", () => {
+  const parameters = {
+    ...MOIRE_DRONE_DEFAULTS,
+    fabricTension: 0.3,
+    fabricDamping: 0,
+    fabricExcitation: 0,
+    fabricVibration: 0,
+    fabricGravity: 0,
+  };
+  const responsive = new SpectralFabric({ patchwork: 0, seed: 10 });
+  const slow = new SpectralFabric({ patchwork: 0, seed: 10 });
+  const center = 3 * responsive.width + 4;
+  responsive.displacement[center] = 0.05;
+  slow.displacement[center] = 0.05;
+  responsive.step(1 / 240, { ...parameters, fabricInertia: 0 }, true);
+  slow.step(1 / 240, { ...parameters, fabricInertia: 1 }, true);
+
+  assert.ok(responsive.acceleration[center] < 0);
+  assert.ok(slow.acceleration[center] < 0);
+  assert.ok(
+    Math.abs(responsive.acceleration[center])
+      > Math.abs(slow.acceleration[center]) * 7,
+    "low inertia must respond much faster than high inertia",
+  );
+  assert.ok(responsive.displacement[center] < slow.displacement[center]);
+});
+
+test("motion damping provides a wide and controllable stop-time range", () => {
+  const common = {
+    ...MOIRE_DRONE_DEFAULTS,
+    fabricExcitation: 0,
+    fabricVibration: 0,
+    fabricInertia: 0.3,
+    fabricGravity: 0,
+  };
+
   const ringing = new SpectralFabric({ seed: 8 });
   const damped = new SpectralFabric({ seed: 8 });
   ringing.excite(0.15, -0.2, 1, 0.12);
@@ -1638,6 +1735,13 @@ test("tension spreads an impulse while damping removes membrane energy", () => {
     damped.step(1 / 240, { ...common, fabricTension: 0.58, fabricDamping: 1 }, true);
   }
   assert.ok(damped.energy < ringing.energy * 0.5);
+
+  for (let step = 0; step < 840; step += 1) {
+    ringing.step(1 / 240, { ...common, fabricTension: 0.58, fabricDamping: 0 }, true);
+    damped.step(1 / 240, { ...common, fabricTension: 0.58, fabricDamping: 1 }, true);
+  }
+  assert.ok(damped.energy < 0.001, "full brake must settle the membrane quickly");
+  assert.ok(ringing.energy > 0.01, "zero brake must retain a long ringing tail");
 });
 
 test("fabric pull and rotation deform the intended spectral region", () => {

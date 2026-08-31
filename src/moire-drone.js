@@ -1341,6 +1341,126 @@ export const MOIRE_DRONE_PRESETS = Object.freeze([
       feedback: 0.07, outputLevel: 0.4,
     },
   }),
+  freezePreset({
+    id: "snap-mesh",
+    label: "Snap Mesh",
+    settings: {
+      freeze: true,
+      noiseType: "colored", noiseColor: -0.45,
+      noiseCorrelation: 0.78, dust: 0,
+      spectralSculptMode: "bandstop", spectralFilterBlend: 0.65,
+      fftCutDepth: 0.92, fftSharpness: 0.74,
+      qCutDepth: 0.88, qCharacter: 0.38,
+      filterPairs: 16, lowFrequency: 34, highFrequency: 12_000,
+      resonance: 0.32, resonanceMotion: 0, spectralTilt: -1,
+      glideA: 0, glideB: 0, fieldASpeed: 0, fieldBSpeed: 0,
+      fieldADepth: 0.12, fieldBDepth: 0.12,
+      collisionAmount: 0.2, collisionWidth: 0.2,
+      fabricSections: 8, fabricPatchwork: 0.08,
+      fabricTension: 0.94, fabricDamping: 0.5,
+      fabricInertia: 0.08, fabricDepth: 0.9,
+      fabricExcitation: 0, fabricVibration: 0,
+      fabricGravity: 0, fabricRotation: 0,
+      fabricSpin: 0, fabricPull: 1.2,
+      propagationSpeed: 0.1, propagationDecay: 0.08,
+      propagationDepth: 0, propagationGain: 0,
+      propagationWidth: 0.02, autoPluckRate: 0,
+      grabRippleRate: 0, combDepth: 0.84,
+      combWidth: 0.15, combDrift: 0,
+      pluckCut: 1, gestureMemory: 0.28,
+      drive: 0, space: 0, feedback: 0, outputLevel: 0.38,
+    },
+  }),
+  freezePreset({
+    id: "rubber-sheet",
+    label: "Rubber Sheet",
+    settings: {
+      freeze: true,
+      noiseType: "colored", noiseColor: -0.45,
+      noiseCorrelation: 0.78, dust: 0,
+      spectralSculptMode: "bandstop", spectralFilterBlend: 0.65,
+      fftCutDepth: 0.92, fftSharpness: 0.74,
+      qCutDepth: 0.88, qCharacter: 0.38,
+      filterPairs: 16, lowFrequency: 34, highFrequency: 12_000,
+      resonance: 0.32, resonanceMotion: 0, spectralTilt: -1,
+      glideA: 0, glideB: 0, fieldASpeed: 0, fieldBSpeed: 0,
+      fieldADepth: 0.12, fieldBDepth: 0.12,
+      collisionAmount: 0.2, collisionWidth: 0.2,
+      fabricSections: 8, fabricPatchwork: 0.08,
+      fabricTension: 0.48, fabricDamping: 0.03,
+      fabricInertia: 0.48, fabricDepth: 0.9,
+      fabricExcitation: 0, fabricVibration: 0,
+      fabricGravity: 0, fabricRotation: 0,
+      fabricSpin: 0, fabricPull: 1.2,
+      propagationSpeed: 0.1, propagationDecay: 0.08,
+      propagationDepth: 0, propagationGain: 0,
+      propagationWidth: 0.02, autoPluckRate: 0,
+      grabRippleRate: 0, combDepth: 0.84,
+      combWidth: 0.15, combDrift: 0,
+      pluckCut: 1, gestureMemory: 2.6,
+      drive: 0, space: 0, feedback: 0, outputLevel: 0.38,
+    },
+  }),
+  freezePreset({
+    id: "heavy-canvas",
+    label: "Heavy Canvas",
+    settings: {
+      freeze: true,
+      noiseType: "colored", noiseColor: -0.45,
+      noiseCorrelation: 0.78, dust: 0,
+      spectralSculptMode: "bandstop", spectralFilterBlend: 0.65,
+      fftCutDepth: 0.92, fftSharpness: 0.74,
+      qCutDepth: 0.88, qCharacter: 0.38,
+      filterPairs: 16, lowFrequency: 34, highFrequency: 12_000,
+      resonance: 0.32, resonanceMotion: 0, spectralTilt: -1,
+      glideA: 0, glideB: 0, fieldASpeed: 0, fieldBSpeed: 0,
+      fieldADepth: 0.12, fieldBDepth: 0.12,
+      collisionAmount: 0.2, collisionWidth: 0.2,
+      fabricSections: 8, fabricPatchwork: 0.08,
+      fabricTension: 0.2, fabricDamping: 0.16,
+      fabricInertia: 0.96, fabricDepth: 0.9,
+      fabricExcitation: 0, fabricVibration: 0,
+      fabricGravity: 0, fabricRotation: 0,
+      fabricSpin: 0, fabricPull: 1.2,
+      propagationSpeed: 0.1, propagationDecay: 0.08,
+      propagationDepth: 0, propagationGain: 0,
+      propagationWidth: 0.02, autoPluckRate: 0,
+      grabRippleRate: 0, combDepth: 0.84,
+      combWidth: 0.15, combDrift: 0,
+      pluckCut: 1, gestureMemory: 3.5,
+      drive: 0, space: 0, feedback: 0, outputLevel: 0.38,
+    },
+  }),
+  freezePreset({
+    id: "felt-stop",
+    label: "Felt Stop",
+    settings: {
+      freeze: true,
+      noiseType: "colored", noiseColor: -0.45,
+      noiseCorrelation: 0.78, dust: 0,
+      spectralSculptMode: "bandstop", spectralFilterBlend: 0.65,
+      fftCutDepth: 0.92, fftSharpness: 0.74,
+      qCutDepth: 0.88, qCharacter: 0.38,
+      filterPairs: 16, lowFrequency: 34, highFrequency: 12_000,
+      resonance: 0.32, resonanceMotion: 0, spectralTilt: -1,
+      glideA: 0, glideB: 0, fieldASpeed: 0, fieldBSpeed: 0,
+      fieldADepth: 0.12, fieldBDepth: 0.12,
+      collisionAmount: 0.2, collisionWidth: 0.2,
+      fabricSections: 8, fabricPatchwork: 0.08,
+      fabricTension: 0.72, fabricDamping: 0.88,
+      fabricInertia: 0.28, fabricDepth: 0.9,
+      fabricExcitation: 0, fabricVibration: 0,
+      fabricGravity: 0, fabricRotation: 0,
+      fabricSpin: 0, fabricPull: 1.2,
+      propagationSpeed: 0.1, propagationDecay: 0.08,
+      propagationDepth: 0, propagationGain: 0,
+      propagationWidth: 0.02, autoPluckRate: 0,
+      grabRippleRate: 0, combDepth: 0.84,
+      combWidth: 0.15, combDrift: 0,
+      pluckCut: 1, gestureMemory: 0.16,
+      drive: 0, space: 0, feedback: 0, outputLevel: 0.38,
+    },
+  }),
 ]);
 
 export function clamp(value, low, high, fallback = low) {
@@ -2877,11 +2997,19 @@ export class SpectralFabric {
       MOIRE_DRONE_LIMITS.maxFabricGravity,
       MOIRE_DRONE_DEFAULTS.fabricGravity,
     );
-    const mass = 0.35 + inertia * 2.65;
-    const waveRate = 1.2 + tension * 17;
-    const coupling = (TAU * waveRate) ** 2 * 0.045 / mass;
-    const anchor = (TAU * (0.28 + tension * 0.86)) ** 2 / mass;
-    const dampingRate = 0.12 + damping * damping * 17;
+    // The three material controls deliberately own different parts of the
+    // motion. Tension is the elastic spring/rebound, inertia is response time,
+    // and damping is the velocity brake. Keeping these coefficients separate
+    // makes the performance controls predictable while retaining the existing
+    // coefficient ranges and every preset's material settings.
+    const responseMass = 0.35 + inertia * 2.65;
+    const springWaveRate = 1.2 + tension * 17;
+    const springCoupling = (TAU * springWaveRate) ** 2 * 0.045 / responseMass;
+    const springAnchor = (TAU * (0.28 + tension * 0.86)) ** 2 / responseMass;
+    const motionBrakeRate = 0.12 + damping * damping * 17;
+    // Boundary restitution is only a stability guard. Audible/visible bounce
+    // comes from the spring terms above, not from hitting the guard.
+    const boundaryRebound = 0.16;
     const maximumStep = 1 / 240;
 
     while (remaining > 1e-9) {
@@ -2945,9 +3073,9 @@ export class SpectralFabric {
           // while letting a grab acquire weight and sag after release.
           const gravityActivity = this.gravityEnvelope;
           const gravityAcceleration = gravity * gravityActivity * 8
-            * (0.72 + nodeY * 0.28) / mass;
+            * (0.72 + nodeY * 0.28) / responseMass;
           let acceleration = (
-            laplacian * coupling - center * anchor
+            laplacian * springCoupling - center * springAnchor
             + modalDrive + gravityAcceleration
           ) / localMass;
           if (this.tugActive && Math.abs(this.tugAmount) > 0.001 && pull > 0.001) {
@@ -2960,14 +3088,14 @@ export class SpectralFabric {
             );
             const target = this.tugAmount * Math.min(1.15, 0.28 + pull * 0.5);
             acceleration += weight * (target - center) * (55 + pull * 175)
-              / (mass * localMass);
+              / (responseMass * localMass);
           }
           this.acceleration[index] = clamp(acceleration, -520, 520, 0);
         }
       }
 
       let energyTotal = 0;
-      const uniformDecay = Math.exp(-dampingRate * elapsed);
+      const uniformDecay = Math.exp(-motionBrakeRate * elapsed);
       for (let index = 0; index < this.nodeCount; index += 1) {
         const decay = clamp(
           1 - (1 - uniformDecay) * this.nodeDamping[index],
@@ -2982,10 +3110,10 @@ export class SpectralFabric {
         let displacement = this.displacement[index] + velocity * elapsed;
         if (displacement > 1.2) {
           displacement = 1.2;
-          velocity = -Math.abs(velocity) * 0.16;
+          velocity = -Math.abs(velocity) * boundaryRebound;
         } else if (displacement < -1.2) {
           displacement = -1.2;
-          velocity = Math.abs(velocity) * 0.16;
+          velocity = Math.abs(velocity) * boundaryRebound;
         }
         this.velocity[index] = velocity;
         this.displacement[index] = displacement;

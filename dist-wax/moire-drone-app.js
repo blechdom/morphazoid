@@ -156,6 +156,8 @@ let currentVisualSculpt = Object.freeze({
 let displayedPropagationCount = -1;
 let disposed = false;
 
+const invertUnit = (value) => 1 - Number(value);
+
 const RANGE_BINDINGS = Object.freeze([
   ["outputLevel", "outputLevel", Number],
   ["noiseColor", "noiseColor", Number],
@@ -220,7 +222,7 @@ const RANGE_BINDINGS = Object.freeze([
   ["qCharacter", "qCharacter", Number],
   ["fabricTension", "fabricTension", Number],
   ["fabricDamping", "fabricDamping", Number],
-  ["fabricInertia", "fabricInertia", Number],
+  ["fabricInertia", "fabricInertia", invertUnit, invertUnit],
   ["fabricGravity", "fabricGravity", Number],
   ["fabricSections", "fabricSections", Number],
   ["fabricPatchwork", "fabricPatchwork", Number],
@@ -309,6 +311,30 @@ function noiseColorLabel(value) {
 
 function noiseTypeLabel(value = state.settings.noiseType) {
   return NOISE_TYPE_LABELS[value] ?? "Colored";
+}
+
+function springFeelLabel(value) {
+  if (value < 0.15) return "soft";
+  if (value < 0.4) return "gentle";
+  if (value < 0.65) return "balanced";
+  if (value < 0.88) return "springy";
+  return "very bouncy";
+}
+
+function responseFeelLabel(value) {
+  if (value < 0.15) return "slow";
+  if (value < 0.4) return "relaxed";
+  if (value < 0.65) return "steady";
+  if (value < 0.88) return "quick";
+  return "immediate";
+}
+
+function brakeFeelLabel(value) {
+  if (value < 0.05) return "free";
+  if (value < 0.35) return "light";
+  if (value < 0.65) return "controlled";
+  if (value < 0.88) return "fast";
+  return "hard stop";
 }
 
 function collisionPolarityLabel(value) {
@@ -834,9 +860,11 @@ function updateInterface({ drawNow = true } = {}) {
   setPressed($("audioButton"), state.audioOn);
   $("audioState").textContent = state.audioOn ? "on" : "off";
 
-  for (const [id, key] of RANGE_BINDINGS) {
+  for (const [id, key, , toControl] of RANGE_BINDINGS) {
     const element = $(id);
-    if (element) element.value = String(settings[key]);
+    if (element) {
+      element.value = String(toControl ? toControl(settings[key]) : settings[key]);
+    }
   }
   $("highFrequency").min = String(Math.ceil(Math.max(240, settings.lowFrequency * 1.25)));
   updateGridDensityOutput();
@@ -919,9 +947,10 @@ function updateInterface({ drawNow = true } = {}) {
   $("fftSharpnessOut").textContent = `${percent(settings.fftSharpness)} sharp`;
   $("qCutDepthOut").textContent = percent(settings.qCutDepth);
   $("qCharacterOut").textContent = `${percent(settings.qCharacter)} resonant`;
-  $("fabricTensionOut").textContent = percent(settings.fabricTension);
-  $("fabricDampingOut").textContent = percent(settings.fabricDamping);
-  $("fabricInertiaOut").textContent = percent(settings.fabricInertia);
+  $("fabricTensionOut").textContent = `${percent(settings.fabricTension)} · ${springFeelLabel(settings.fabricTension)}`;
+  $("fabricDampingOut").textContent = `${percent(settings.fabricDamping)} · ${brakeFeelLabel(settings.fabricDamping)}`;
+  const responseSpeed = invertUnit(settings.fabricInertia);
+  $("fabricInertiaOut").textContent = `${percent(responseSpeed)} · ${responseFeelLabel(responseSpeed)}`;
   $("fabricGravityOut").textContent = `${Math.round(settings.fabricGravity * 100)}%`;
   const fabricSections = fabricSectionDimensions(settings.fabricSections);
   $("fabricSectionsOut").textContent = `${fabricSections.columns} × ${fabricSections.rows}`;
@@ -974,7 +1003,7 @@ function updateInterface({ drawNow = true } = {}) {
     : `warp ${formatGlide(settings.glideA)} · weft ${formatGlide(settings.glideB)}`;
   $("textureSummary").textContent = `X / warp ${settings.fieldADensity.toFixed(2)} · Y / weft ${settings.fieldBDensity.toFixed(2)} · ${settings.collisionMode} ${percent(settings.collisionAmount)}`;
   updatePropagationStatus(true);
-  $("fabricSummary").textContent = `${fabricSections.columns} × ${fabricSections.rows} sections · ${percent(settings.fabricPatchwork)} variation · ${percent(settings.fabricTension)} tension`;
+  $("fabricSummary").textContent = `${percent(settings.fabricTension)} spring · response ${responseFeelLabel(responseSpeed)} · brake ${brakeFeelLabel(settings.fabricDamping)}`;
   $("outputSummary").textContent = `${percent(settings.stereoWidth)} wide · ${percent(settings.space)} space · ${percent(settings.feedback)} feedback`;
   $("fabricExciteButton").setAttribute(
     "aria-label",

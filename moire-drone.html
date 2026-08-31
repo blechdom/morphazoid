@@ -204,24 +204,32 @@
         <details class="group control-section moire-fabric" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title">Physical spectral fabric</h2>
-            <span class="section-state" id="fabricSummary">8 × 6 sections · 35% variation · 58% tension</span>
+            <span class="section-state" id="fabricSummary">58% spring · response steady · brake controlled</span>
           </summary>
           <div class="group-body">
+            <div class="fabric-motion-macros" aria-labelledby="fabricMotionLabel">
+              <span class="field-label" id="fabricMotionLabel">Motion feel</span>
+              <label class="control" for="fabricTension"><span><b>Spring / bounce</b><output id="fabricTensionOut" for="fabricTension">58% · balanced</output></span><input id="fabricTension" aria-describedby="fabricMotionHelp" type="range" min="0" max="1" step="0.01" value="0.58" /></label>
+              <div class="moire-control-scale two" aria-hidden="true"><span>soft / loose</span><span>springy / taut</span></div>
+              <label class="control" for="fabricInertia"><span><b>Response speed</b><output id="fabricInertiaOut" for="fabricInertia">50% · steady</output></span><input id="fabricInertia" aria-describedby="fabricMotionHelp" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+              <div class="moire-control-scale two" aria-hidden="true"><span>slow / weighty</span><span>fast / immediate</span></div>
+              <label class="control" for="fabricDamping"><span><b>Motion brake</b><output id="fabricDampingOut" for="fabricDamping">42% · controlled</output></span><input id="fabricDamping" aria-describedby="fabricMotionHelp" type="range" min="0" max="1" step="0.01" value="0.42" /></label>
+              <div class="moire-control-scale two" aria-hidden="true"><span>rings out</span><span>stops quickly</span></div>
+              <small class="moire-control-help" id="fabricMotionHelp">Spring / bounce sets how strongly neighboring panels snap back. Response speed sets how quickly the sheet follows your hand and sends motion across the field. Motion brake controls how quickly movement settles after release. Try a quick response with a low brake for long travel, or high spring with a high brake for a tight snap.</small>
+            </div>
+
             <label class="control" for="gridDensity"><span><b>Grid density</b><output id="gridDensityOut" for="gridDensity">28 × 20</output></span><input id="gridDensity" type="range" min="8" max="40" step="1" value="20" /></label>
             <label class="control" for="fabricSections"><span><b>Fabric sections</b><output id="fabricSectionsOut" for="fabricSections">8 × 6</output></span><input id="fabricSections" type="range" min="3" max="16" step="1" value="8" /></label>
             <label class="control" for="fabricPatchwork"><span><b>Panel variation</b><output id="fabricPatchworkOut" for="fabricPatchwork">35%</output></span><input id="fabricPatchwork" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
             <label class="control" for="fabricDepth"><span><b>Fabric stretch</b><output id="fabricDepthOut" for="fabricDepth">0.55 oct</output></span><input id="fabricDepth" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
-            <label class="control" for="fabricTension"><span><b>Tension</b><output id="fabricTensionOut" for="fabricTension">58%</output></span><input id="fabricTension" type="range" min="0" max="1" step="0.01" value="0.58" /></label>
-            <label class="control" for="fabricDamping"><span><b>Damping</b><output id="fabricDampingOut" for="fabricDamping">42%</output></span><input id="fabricDamping" type="range" min="0" max="1" step="0.01" value="0.42" /></label>
-            <label class="control" for="fabricInertia"><span><b>Inertia / mass</b><output id="fabricInertiaOut" for="fabricInertia">50%</output></span><input id="fabricInertia" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+            <label class="control" for="fabricPull"><span><b>Pull strength</b><output id="fabricPullOut" for="fabricPull">72%</output></span><input id="fabricPull" type="range" min="0" max="2" step="0.01" value="0.72" /></label>
             <label class="control" for="fabricGravity"><span><b>Gravity well</b><output id="fabricGravityOut" for="fabricGravity">55%</output></span><input id="fabricGravity" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
             <label class="control" for="fabricExcitation"><span><b>Self-excitation</b><output id="fabricExcitationOut" for="fabricExcitation">12%</output></span><input id="fabricExcitation" type="range" min="0" max="1" step="0.01" value="0.12" /></label>
             <label class="control" for="fabricVibration"><span><b>Motor vibration</b><output id="fabricVibrationOut" for="fabricVibration">18%</output></span><input id="fabricVibration" type="range" min="0" max="1" step="0.01" value="0.18" /></label>
             <label class="control" for="fabricRate"><span><b>Vibration rate</b><output id="fabricRateOut" for="fabricRate">2.40 Hz</output></span><input id="fabricRate" type="range" min="0.05" max="30" step="0.01" value="2.4" /></label>
             <label class="control" for="fabricRotation"><span><b>Weave rotation</b><output id="fabricRotationOut" for="fabricRotation">18°</output></span><input id="fabricRotation" type="range" min="-180" max="180" step="1" value="18" /></label>
             <label class="control" for="fabricSpin"><span><b>Rotation drift</b><output id="fabricSpinOut" for="fabricSpin">+0.025 rev/s</output></span><input id="fabricSpin" type="range" min="-1" max="1" step="0.001" value="0.025" /></label>
-            <label class="control" for="fabricPull"><span><b>Pull strength</b><output id="fabricPullOut" for="fabricPull">72%</output></span><input id="fabricPull" type="range" min="0" max="2" step="0.01" value="0.72" /></label>
-            <small class="moire-control-help">Grid density changes only the visible weave. Fabric sections divide the sounding sheet into an X-by-Y panel lattice; Panel variation gives neighboring panels different bounded mass, tension, damping, and filter response. At zero the sheet is uniform. The moving grab retains its exact X / warp and Y / weft location, while tension, inertia, damping, and gravity set how that patch stretches and rebounds.</small>
+            <small class="moire-control-help">Grid density changes only the visible weave. Fabric sections divide the sounding sheet into an X-by-Y panel lattice; Panel variation gives neighboring panels different bounded material behavior and filter response. At zero the sheet is uniform. The moving grab retains its exact X / warp and Y / weft location.</small>
           </div>
         </details>
 

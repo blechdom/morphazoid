@@ -204,6 +204,37 @@
     var(--panel);
 }
 
+.fabric-motion-macros {
+  margin: 0 0 14px;
+  padding: 12px 12px 2px;
+  border: 1px solid color-mix(in oklab, var(--accent) 42%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--accent) 11%, transparent), transparent 68%),
+    color-mix(in oklab, var(--bg-deep) 70%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent-soft);
+}
+
+.fabric-motion-macros > .field-label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--accent);
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.13em;
+}
+
+.fabric-motion-macros .control {
+  margin-bottom: 4px;
+}
+
+.fabric-motion-macros .moire-control-scale {
+  margin-top: -7px;
+  margin-bottom: 11px;
+}
+
+.fabric-motion-macros .moire-control-help {
+  margin-top: 3px;
+}
+
 .fabric-excite-button,
 .fabric-clear-button {
   width: 100%;
