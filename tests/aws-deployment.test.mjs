@@ -399,6 +399,8 @@ test("site builder publishes runtime files without development material", async 
       "shader-synth-playground-app.js",
       "src/shader-synth-playground.js",
       "src/shader-synth-playground-extra.js",
+      "src/shader-synth-playground-atlas.js",
+      "src/shader-synth-playground-atlas-routing.js",
       "src/shader-synth-playground-found-sounds.js",
       "src/shader-synth-playground-fx.js",
       "src/shader-synth-playground-scenes.js",

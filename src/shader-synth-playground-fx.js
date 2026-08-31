@@ -63,6 +63,10 @@ export const SHADER_SYNTH_PLAYGROUND_FX_KINDS = freeze({
   fftRobotizer: 63,
   spectralGate: 64,
   vibrato: 65,
+  firLowpass: 84,
+  firHighpass: 85,
+  firBandpass: 86,
+  sampleRateReducer: 87,
 });
 
 // Core graph kinds occupy values between the original and extended history
@@ -82,6 +86,7 @@ export const SHADER_SYNTH_PLAYGROUND_FX_LIMITS = freeze({
   recombobulatorMemorySeconds: 12,
   spectralWindow: 128,
   spectralBins: 24,
+  firTaps: 31,
   chorusVoices: 6,
   maxChainEffects: FX_MAX_CHAIN_EFFECTS,
   historyRegions: FX_HISTORY_REGIONS,
@@ -315,6 +320,101 @@ export const SHADER_SYNTH_PLAYGROUND_FX_MODULES = freeze([
     ],
   }),
   effect({
+    id: "fir-lowpass",
+    kind: SHADER_SYNTH_PLAYGROUND_FX_KINDS.firLowpass,
+    name: "FIR Low-pass",
+    aliases: ["low pass", "sinc filter", "finite impulse response", "tone filter"],
+    tags: ["filter", "fir", "low-pass", "sinc", "history", "linear phase"],
+    category: "filter",
+    color: "#67c8ff",
+    auditionKind: "history",
+    auditionPreset: null,
+    execution: "History pass · 7–31 FIR taps · fixed 15-sample alignment",
+    description: "Applies a short causal windowed-sinc low-pass inside a fixed 31-sample span. Every kernel and the dry comparison share the same 15-sample latency, so changing tap count does not move the signal in time.",
+    wgsl: "low = sum(history[n - tap] * windowedSinc(tap, cutoff));",
+    faust: { symbol: "fi.lowpass", url: "https://faustlibraries.grame.fr/libs/filters/" },
+    params: [
+      parameter("cutoff", "Kernel cutoff", 1000, 18000, 2400, { step: 1, unit: "Hz", scale: "log", low: "dark", high: "open", behavior: "Moves the short FIR kernel's broad transition. A 31-tap audio-rate kernel does not represent sub-bass cutoff values precisely." }),
+      parameter("taps", "Taps", 7, 31, 31, { step: 2, low: "very broad transition", high: "sharper transition", behavior: "Sets the odd active kernel length inside a fixed 31-sample span; latency remains 15 samples at every setting." }),
+      parameter("window", "Hann window", 0, 1, 1, { step: 0.01, low: "rectangular", high: "smooth sidelobes", behavior: "Morphs the sinc kernel from a narrow rectangular window toward a Hann window with lower spectral ringing." }),
+      parameter("mix", "Mix", 0, 1, 1, { step: 0.01, low: "aligned dry", high: "low-pass", behavior: "Moves from the time-aligned input to the filtered signal without introducing a parallel-path phase mismatch." }),
+      parameter("stereo", "Stereo cutoff", 0, 1200, 0, { step: 1, unit: "cents", low: "matched channels", high: "split cutoffs", behavior: "Moves the left and right cutoff in opposite directions by up to one octave." }),
+      parameter("level", "Level", 0, 1.2, 0.92, { step: 0.01, low: "quiet", high: "forward", behavior: "Scales the filtered result through the shared soft output ceiling." }),
+    ],
+  }),
+  effect({
+    id: "fir-highpass",
+    kind: SHADER_SYNTH_PLAYGROUND_FX_KINDS.firHighpass,
+    name: "FIR High-pass",
+    aliases: ["high pass", "sinc filter", "finite impulse response", "low cut"],
+    tags: ["filter", "fir", "high-pass", "sinc", "history", "linear phase"],
+    category: "filter",
+    color: "#67c8ff",
+    auditionKind: "history",
+    auditionPreset: null,
+    execution: "History pass · aligned subtraction · 7–31 taps · fixed latency",
+    description: "Subtracts a short windowed-sinc low-pass from the input delayed by 15 samples. The active kernel stays centered in a fixed span, preserving both the high-pass subtraction and live tap-count alignment.",
+    wgsl: "high = history[n - centerTap] - sincLowpass(n, cutoff);",
+    faust: { symbol: "fi.highpass", url: "https://faustlibraries.grame.fr/libs/filters/" },
+    params: [
+      parameter("cutoff", "Kernel cutoff", 1000, 18000, 2400, { step: 1, unit: "Hz", scale: "log", low: "full body", high: "thin air", behavior: "Moves the short FIR kernel's broad low-cut transition; the range begins where a 31-tap audio-rate kernel responds meaningfully." }),
+      parameter("taps", "Taps", 7, 31, 31, { step: 2, low: "very broad transition", high: "sharper transition", behavior: "Sets the odd active kernel length while its center and the dry path remain fixed at 15 samples of latency." }),
+      parameter("window", "Hann window", 0, 1, 1, { step: 0.01, low: "rectangular", high: "smooth sidelobes", behavior: "Trades a narrower raw transition for lower stop-band ringing by tapering the sinc kernel." }),
+      parameter("mix", "Mix", 0, 1, 1, { step: 0.01, low: "aligned dry", high: "high-pass", behavior: "Moves from the center-delayed input to the high-frequency remainder." }),
+      parameter("stereo", "Stereo cutoff", 0, 1200, 0, { step: 1, unit: "cents", low: "matched channels", high: "split cutoffs", behavior: "Offsets the two channel cutoffs in opposite directions for frequency-dependent width." }),
+      parameter("level", "Level", 0, 1.2, 0.92, { step: 0.01, low: "quiet", high: "forward", behavior: "Scales the high-pass result through the shared soft output ceiling." }),
+    ],
+  }),
+  effect({
+    id: "fir-bandpass",
+    kind: SHADER_SYNTH_PLAYGROUND_FX_KINDS.firBandpass,
+    name: "FIR Band-pass",
+    aliases: ["band pass", "sinc filter", "finite impulse response", "frequency band"],
+    tags: ["filter", "fir", "band-pass", "sinc", "history", "linear phase"],
+    category: "filter",
+    color: "#67c8ff",
+    auditionKind: "history",
+    auditionPreset: null,
+    execution: "History pass · two aligned FIR sums · 7–31 taps · fixed latency",
+    description: "Subtracts two short, equally aligned windowed-sinc low-passes. Both kernels stay centered at the same fixed 15-sample position so the selected broad frequency band and live tap changes remain aligned.",
+    wgsl: "band = sincLowpass(n, highHz) - sincLowpass(n, lowHz);",
+    faust: { symbol: "fi.bandpass", url: "https://faustlibraries.grame.fr/libs/filters/" },
+    params: [
+      parameter("low", "Lower kernel cutoff", 1000, 16000, 1800, { step: 1, unit: "Hz", scale: "log", low: "keeps body", high: "removes body", behavior: "Moves the lower broad transition of the surviving band." }),
+      parameter("high", "Upper kernel cutoff", 1500, 18000, 5000, { step: 1, unit: "Hz", scale: "log", low: "narrow band", high: "keeps highs", behavior: "Moves the upper broad transition; the shader safely orders crossed cutoff controls." }),
+      parameter("taps", "Taps", 7, 31, 31, { step: 2, low: "very broad edges", high: "sharper edges", behavior: "Sets the shared odd active length of both kernels inside their fixed 31-sample span." }),
+      parameter("window", "Hann window", 0, 1, 1, { step: 0.01, low: "rectangular", high: "smooth sidelobes", behavior: "Tapers both sinc kernels equally so their subtraction remains aligned." }),
+      parameter("mix", "Mix", 0, 1, 1, { step: 0.01, low: "aligned dry", high: "isolated band", behavior: "Moves from the center-delayed input to the isolated frequency band." }),
+      parameter("stereo", "Stereo cutoff", 0, 1200, 0, { step: 1, unit: "cents", low: "matched channels", high: "split bands", behavior: "Moves both band edges oppositely across the left and right channels." }),
+      parameter("level", "Level", 0, 1.2, 0.96, { step: 0.01, low: "quiet", high: "forward", behavior: "Scales the isolated band through the shared soft output ceiling." }),
+    ],
+  }),
+  effect({
+    id: "sample-rate-reducer",
+    kind: SHADER_SYNTH_PLAYGROUND_FX_KINDS.sampleRateReducer,
+    name: "Sample-rate Reducer",
+    aliases: ["sample rate crush", "downsample", "sample hold audio", "time crusher"],
+    tags: ["sample rate", "downsample", "hold", "digital", "history", "lo-fi"],
+    category: "shape",
+    color: "#e883ee",
+    auditionKind: "history",
+    auditionPreset: null,
+    execution: "History pass · causal held-sample reads",
+    description: "Reads one earlier sample for each reduced-rate cell, optionally interpolating causally between adjacent held values; unlike bit crushing, this changes time resolution.",
+    wgsl: "heldIndex = (sampleIndex / holdSamples) * holdSamples;",
+    faust: { symbol: "ba.sAndH", url: "https://faustlibraries.grame.fr/libs/basics/" },
+    params: [
+      parameter("rate", "Sample rate", 50, 48000, 6000, { step: 1, unit: "Hz", scale: "log", low: "stepped", high: "nearly original", behavior: "Sets how frequently the effect captures a new input value." }),
+      parameter("interpolation", "Interpolation", 0, 1, 0, { step: 0.01, low: "hard hold", high: "causal glide", behavior: "Moves from zero-order sample holding toward a one-cell-late smooth interpolation between captured values." }),
+      parameter("phase", "Capture phase", 0, 1, 0, { step: 0.01, unit: "cycle", low: "grid start", high: "shifted grid", behavior: "Moves the capture boundaries through the incoming waveform without reading future samples." }),
+      parameter("stereo", "Stereo phase", 0, 1, 0, { step: 0.01, unit: "cycle", low: "shared captures", high: "offset captures", behavior: "Offsets the right-channel capture grid by up to half a reduced-rate cell." }),
+      parameter("bits", "Bit depth", 0, 16, 0, { step: 1, unit: "bit", low: "rate only", high: "fine quantization", behavior: "Optionally adds amplitude quantization; zero or one leaves amplitude untouched." }),
+      parameter("dither", "Dither", 0, 1, 0, { step: 0.01, low: "undithered", high: "one LSB", behavior: "Adds deterministic cell-rate dither before optional amplitude quantization." }),
+      parameter("mix", "Mix", 0, 1, 1, { step: 0.01, low: "dry", high: "reduced", behavior: "Crossfades from the current input to the held or interpolated result." }),
+      parameter("level", "Level", 0, 1.2, 0.9, { step: 0.01, low: "quiet", high: "forward", behavior: "Scales the reduced-rate result through the shared soft output ceiling." }),
+    ],
+  }),
+  effect({
     id: "vibrato",
     kind: SHADER_SYNTH_PLAYGROUND_FX_KINDS.vibrato,
     name: "Vibrato",
@@ -437,6 +537,8 @@ const MAX_RECOMBOBULATOR_HEADS: u32 = 12u;
 const MAX_SPECTRAL_WINDOW: u32 = 128u;
 const MAX_SPECTRAL_BINS: u32 = 24u;
 const MAX_CHORUS_VOICES: u32 = 6u;
+const MAX_FIR_TAPS: u32 = 31u;
+const FIR_CENTER_TAP: u32 = (MAX_FIR_TAPS - 1u) / 2u;
 const FX_HISTORY_REGIONS: u32 = ${FX_HISTORY_REGIONS}u;
 
 struct RenderInfo {
@@ -509,7 +611,11 @@ fn isHistoryEffectKind(kind: u32) -> bool {
     || kind == 62u
     || kind == 63u
     || kind == 64u
-    || kind == 65u;
+    || kind == 65u
+    || kind == 84u
+    || kind == 85u
+    || kind == 86u
+    || kind == 87u;
 }
 
 fn smootherstep01(value: f32) -> f32 {
@@ -555,6 +661,125 @@ fn softenedHistoryAt(sampleIndex: u32, delaySamples: f32, softness: f32) -> vec2
   let sharp = fractionalHistoryAt(sampleIndex, delaySamples);
   let older = fractionalHistoryAt(sampleIndex, delaySamples + 1.0);
   return mix(sharp, (sharp + older) * 0.5, clamp(softness, 0.0, 1.0));
+}
+
+fn firTapCount(requested: f32) -> u32 {
+  var taps = u32(clamp(round(requested), 7.0, f32(MAX_FIR_TAPS)));
+  if ((taps & 1u) == 0u) { taps = min(taps + 1u, MAX_FIR_TAPS); }
+  return taps;
+}
+
+fn firStereoCutoffs(cutoffHz: f32, stereoCents: f32) -> vec2<f32> {
+  let split = exp2(clamp(stereoCents, 0.0, 1200.0) / 1200.0);
+  let nyquistGuard = SAMPLE_RATE * 0.48;
+  return clamp(vec2<f32>(cutoffHz / split, cutoffHz * split), vec2<f32>(5.0), vec2<f32>(nyquistGuard));
+}
+
+fn firSinc(value: vec2<f32>) -> vec2<f32> {
+  let argument = PI * value;
+  let outsideCenter = abs(argument) > vec2<f32>(0.00001);
+  let safeArgument = select(vec2<f32>(1.0), argument, outsideCenter);
+  return select(vec2<f32>(1.0), sin(argument) / safeArgument, outsideCenter);
+}
+
+fn firLowpassAt(
+  sampleIndex: u32,
+  cutoffHz: vec2<f32>,
+  tapCount: u32,
+  windowAmount: f32
+) -> vec2<f32> {
+  let activeCenter = (tapCount - 1u) / 2u;
+  let firstHistoryTap = FIR_CENTER_TAP - activeCenter;
+  let normalizedCutoff = clamp(cutoffHz / SAMPLE_RATE, vec2<f32>(0.00001), vec2<f32>(0.48));
+  var filtered = vec2<f32>(0.0);
+  var coefficientSum = vec2<f32>(0.0);
+  for (var tap = 0u; tap < MAX_FIR_TAPS; tap += 1u) {
+    if (tap >= tapCount) { break; }
+    let offset = f32(i32(tap) - i32(activeCenter));
+    let position = f32(tap) / f32(max(tapCount - 1u, 1u));
+    let hann = 0.5 - 0.5 * cos(TAU * position);
+    let window = mix(1.0, hann, clamp(windowAmount, 0.0, 1.0));
+    let coefficient = 2.0 * normalizedCutoff * firSinc(2.0 * normalizedCutoff * offset) * window;
+    filtered += historyAt(sampleIndex, firstHistoryTap + tap) * coefficient;
+    coefficientSum += coefficient;
+  }
+  let safeSum = max(abs(coefficientSum), vec2<f32>(0.000001));
+  return filtered / safeSum;
+}
+
+fn firLowpassEffect(signal: vec2<f32>, p0: vec4<f32>, p1: vec4<f32>, sampleIndex: u32) -> vec2<f32> {
+  let taps = firTapCount(p0.y);
+  let alignedDry = historyAt(sampleIndex, FIR_CENTER_TAP);
+  let cutoff = firStereoCutoffs(p0.x, p1.x);
+  let filtered = firLowpassAt(sampleIndex, cutoff, taps, p0.z);
+  return safeEffectLevel(equalPowerMix(alignedDry, filtered, p0.w), p1.y);
+}
+
+fn firHighpassEffect(signal: vec2<f32>, p0: vec4<f32>, p1: vec4<f32>, sampleIndex: u32) -> vec2<f32> {
+  let taps = firTapCount(p0.y);
+  let alignedDry = historyAt(sampleIndex, FIR_CENTER_TAP);
+  let cutoff = firStereoCutoffs(p0.x, p1.x);
+  let filtered = alignedDry - firLowpassAt(sampleIndex, cutoff, taps, p0.z);
+  return safeEffectLevel(equalPowerMix(alignedDry, filtered, p0.w), p1.y);
+}
+
+fn firBandpassEffect(signal: vec2<f32>, p0: vec4<f32>, p1: vec4<f32>, sampleIndex: u32) -> vec2<f32> {
+  let taps = firTapCount(p0.z);
+  let alignedDry = historyAt(sampleIndex, FIR_CENTER_TAP);
+  let lower = min(p0.x, p0.y);
+  let upper = max(p0.x, p0.y);
+  let lowerCutoff = firStereoCutoffs(lower, p1.y);
+  let upperCutoff = firStereoCutoffs(upper, p1.y);
+  let filtered = firLowpassAt(sampleIndex, upperCutoff, taps, p0.w)
+    - firLowpassAt(sampleIndex, lowerCutoff, taps, p0.w);
+  return safeEffectLevel(equalPowerMix(alignedDry, filtered, p1.x), p1.z);
+}
+
+fn reducerCellStart(sampleIndex: u32, holdSamples: u32, phase: f32) -> u32 {
+  let phaseSamples = u32(round(clamp(phase, 0.0, 1.0) * f32(max(holdSamples - 1u, 0u))));
+  let shiftedSample = sampleIndex + phaseSamples;
+  let shiftedStart = (shiftedSample / holdSamples) * holdSamples;
+  return shiftedStart - min(shiftedStart, phaseSamples);
+}
+
+fn reducedRateChannel(
+  sampleIndex: u32,
+  holdSamples: u32,
+  phase: f32,
+  interpolation: f32,
+  bits: u32,
+  dither: f32,
+  channel: u32
+) -> f32 {
+  let currentStart = reducerCellStart(sampleIndex, holdSamples, phase);
+  let currentDelay = sampleIndex - min(currentStart, sampleIndex);
+  let currentValue = historyAt(sampleIndex, currentDelay)[channel];
+  let previousStart = currentStart - min(currentStart, holdSamples);
+  let previousDelay = sampleIndex - min(previousStart, sampleIndex);
+  let previousValue = historyAt(sampleIndex, previousDelay)[channel];
+  let cellPosition = f32(sampleIndex - min(currentStart, sampleIndex)) / f32(max(holdSamples - 1u, 1u));
+  let interpolated = mix(previousValue, currentValue, smootherstep01(cellPosition));
+  var reduced = mix(currentValue, interpolated, clamp(interpolation, 0.0, 1.0));
+  if (bits >= 2u) {
+    let levels = exp2(f32(min(bits, 16u))) - 1.0;
+    let noise = (hashU32(currentStart ^ (channel * 0x9e3779b9u)) - 0.5) * clamp(dither, 0.0, 1.0) / levels;
+    let unit = clamp(reduced * 0.5 + 0.5 + noise, 0.0, 1.0);
+    reduced = round(unit * levels) / levels * 2.0 - 1.0;
+  }
+  return reduced;
+}
+
+fn sampleRateReducerEffect(signal: vec2<f32>, p0: vec4<f32>, p1: vec4<f32>, sampleIndex: u32) -> vec2<f32> {
+  let requestedRate = clamp(p0.x, 50.0, SAMPLE_RATE);
+  let holdSamples = max(u32(round(SAMPLE_RATE / requestedRate)), 1u);
+  let leftPhase = fract(clamp(p0.z, 0.0, 1.0));
+  let rightPhase = fract(leftPhase + clamp(p0.w, 0.0, 1.0) * 0.5);
+  let bits = u32(clamp(round(p1.x), 0.0, 16.0));
+  let reduced = vec2<f32>(
+    reducedRateChannel(sampleIndex, holdSamples, leftPhase, p0.y, bits, p1.y, 0u),
+    reducedRateChannel(sampleIndex, holdSamples, rightPhase, p0.y, bits, p1.y, 1u)
+  );
+  return safeEffectLevel(equalPowerMix(signal, reduced, p1.z), p1.w);
 }
 
 fn delayEffect(signal: vec2<f32>, p0: vec4<f32>, p1: vec4<f32>, sampleIndex: u32) -> vec2<f32> {
@@ -910,6 +1135,10 @@ fn applyEffect(
     case 63u: { return fftRobotizerEffect(signal, p0, p1, sampleIndex, nodeIndex); }
     case 64u: { return spectralGateEffect(signal, p0, p1, sampleIndex); }
     case 65u: { return vibratoEffect(signal, p0, p1, sampleIndex); }
+    case 84u: { return firLowpassEffect(signal, p0, p1, sampleIndex); }
+    case 85u: { return firHighpassEffect(signal, p0, p1, sampleIndex); }
+    case 86u: { return firBandpassEffect(signal, p0, p1, sampleIndex); }
+    case 87u: { return sampleRateReducerEffect(signal, p0, p1, sampleIndex); }
     default: { return signal; }
   }
 }

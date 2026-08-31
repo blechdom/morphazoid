@@ -11,7 +11,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260830-smooth-controls" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260830-atlas-dsp" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -60,10 +60,6 @@
         <header class="workspace-panel-heading">
           <h1 id="moduleBrowserTitle">Modules</h1>
           <p>Add a primitive, then patch from its OUT port into a compatible IN port.</p>
-          <div class="module-coverage" aria-label="Playground module coverage">
-            <b><output id="playableModuleCount">83</output> playable</b>
-            <a href="webgpu-dsp-primitives.html">142 in atlas <span aria-hidden="true">→</span></a>
-          </div>
         </header>
 
         <label class="module-hear-picker" for="moduleHearSelect">
@@ -304,6 +300,6 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260830-smooth-controls"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260830-atlas-dsp"></script>
   </body>
 </html>

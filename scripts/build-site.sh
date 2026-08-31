@@ -405,6 +405,8 @@ for worktree_runtime_file in \
   shader-synth-playground-app.js \
   src/shader-synth-playground.js \
   src/shader-synth-playground-extra.js \
+  src/shader-synth-playground-atlas.js \
+  src/shader-synth-playground-atlas-routing.js \
   src/shader-synth-playground-found-sounds.js \
   src/shader-synth-playground-fx.js \
   src/shader-synth-playground-geometry.js \
@@ -783,6 +785,8 @@ required_files=(
   shader-synth-playground-app.js
   src/shader-synth-playground.js
   src/shader-synth-playground-extra.js
+  src/shader-synth-playground-atlas.js
+  src/shader-synth-playground-atlas-routing.js
   src/shader-synth-playground-found-sounds.js
   src/shader-synth-playground-fx.js
   src/shader-synth-playground-geometry.js

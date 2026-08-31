@@ -13,7 +13,7 @@ import {
   sanitizeShaderPlaygroundPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "./src/shader-synth-playground.js?v=20260830-smooth-controls";
+} from "./src/shader-synth-playground.js?v=20260830-atlas-dsp";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -52,6 +52,7 @@ const CATEGORY_COLORS = Object.freeze({
   nonlinear: "#a78bff",
   space: "#e883ee",
   spectral: "#ff9f68",
+  filter: "#67c8ff",
   utility: "#91ff63",
   output: "#91ff63",
 });
@@ -68,6 +69,10 @@ const HISTORY_MODULE_IDS = new Set([
   "fft-robotizer",
   "spectral-gate",
   "vibrato",
+  "fir-lowpass",
+  "fir-highpass",
+  "fir-bandpass",
+  "sample-rate-reducer",
 ]);
 
 const CATEGORY_LABELS = Object.freeze({
@@ -81,6 +86,7 @@ const CATEGORY_LABELS = Object.freeze({
   shape: "Waveshaping",
   space: "Delay · reverb · motion",
   spectral: "FFT · spectral · robot",
+  filter: "FIR · frequency filters",
   utility: "Mix · route · rhythm",
   output: "Output",
 });
@@ -91,6 +97,7 @@ const CATEGORY_ORDER = Object.freeze([
   "modulation",
   "geometry",
   "spectral",
+  "filter",
   "control",
   "compose",
   "dynamics",
@@ -905,8 +912,7 @@ function renderPalette() {
   for (const [category, entries] of orderedGroups) {
     const section = document.createElement("details");
     section.className = "module-group";
-    section.open = Boolean(query)
-      || ["source", "space", "modulation", "geometry", "spectral", "control"].includes(category.toLocaleLowerCase());
+    section.open = Boolean(query);
 
     const heading = document.createElement("summary");
     const categoryName = document.createElement("span");
@@ -2614,7 +2620,6 @@ if (globalThis.matchMedia?.("(max-width: 720px)")?.matches) {
 renderHearMenu();
 renderPalette();
 renderPerformanceNoteButtons();
-$("playableModuleCount").textContent = String(modules.length);
 syncExecutionReadout();
 renderPatch();
 syncTransport();

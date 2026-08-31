@@ -38,6 +38,15 @@ import {
   SHADER_SYNTH_PLAYGROUND_EXTRA_MODULES,
 } from "../src/shader-synth-playground-extra.js";
 import {
+  SHADER_SYNTH_PLAYGROUND_ATLAS_CASES,
+  SHADER_SYNTH_PLAYGROUND_ATLAS_KINDS,
+  SHADER_SYNTH_PLAYGROUND_ATLAS_MODULES,
+} from "../src/shader-synth-playground-atlas.js";
+import {
+  SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_CASES,
+  SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_MODULES,
+} from "../src/shader-synth-playground-atlas-routing.js";
+import {
   SHADER_SYNTH_PLAYGROUND_FOUND_HELPERS,
 } from "../src/shader-synth-playground-found-sounds.js";
 import {
@@ -76,6 +85,7 @@ test("the playground registry exposes bounded typed modules with educational met
     "clap-burst", "fof-voice", "full-wave-rectifier", "mid-side-width", "cyclic-fractal-noise",
     "bitmask-rhythm", "morph-crossfade", "harmonic-exciter", "cv-curve-mapper",
     "flanger", "chorus", "doppler-sweep", "fft-robotizer", "spectral-gate", "vibrato",
+    "fir-lowpass", "fir-highpass", "fir-bandpass", "sample-rate-reducer",
     "shepard-risset-spiral", "procedural-bird-flock", "thunder-impact-cell",
     "mirror-fold-sequencer", "sdf-orbit-sequencer", "polar-kaleidoscope-sequencer",
     "voronoi-cell-sequencer", "truchet-path-sequencer", "kifs-fold-sequencer",
@@ -115,6 +125,93 @@ test("the graph utility expansion owns unique evaluator cases 66 through 68", ()
     assert.equal([...SHADER_SYNTH_PLAYGROUND_EXTRA_CASES.matchAll(new RegExp(`case ${kind}u:`, "g"))].length, 1);
     assert.match(SHADER_PLAYGROUND_SHADER, new RegExp(`case ${kind}u:`));
   }
+});
+
+test("the atlas expansion owns 17 bounded, playable sample-pass modules", () => {
+  const expectedAtlasKinds = {
+    triggerImpulse: 88,
+    segmentAdsr: 89,
+    grainWindow: 90,
+    logParameterMap: 91,
+    cheapFilteredWave: 92,
+    additiveTransferFilter: 93,
+    gaussianRandomPair: 94,
+    controlDerivedDucking: 95,
+    parallelVoiceBank: 96,
+    hexTriangleLatticeClock: 97,
+    logSpiralEventField: 98,
+    domainWarpTimeField: 99,
+    fractalOrbitTrapEvents: 100,
+  };
+  const expectedRouting = new Map([
+    [101, "analytic-glide-oscillator"],
+    [102, "normalized-route"],
+    [103, "linear-range-map"],
+    [104, "wavefold-table-oscillator"],
+  ]);
+
+  assert.deepEqual(SHADER_SYNTH_PLAYGROUND_ATLAS_KINDS, expectedAtlasKinds);
+  assert.deepEqual(
+    SHADER_SYNTH_PLAYGROUND_ATLAS_MODULES.map(({ kind }) => kind),
+    Array.from({ length: 13 }, (_, index) => 88 + index),
+  );
+  assert.deepEqual(
+    new Map(SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_MODULES.map(({ kind, id }) => [kind, id])),
+    expectedRouting,
+  );
+
+  for (const module of [
+    ...SHADER_SYNTH_PLAYGROUND_ATLAS_MODULES,
+    ...SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_MODULES,
+  ]) {
+    const cases = module.kind <= 100
+      ? SHADER_SYNTH_PLAYGROUND_ATLAS_CASES
+      : SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_CASES;
+    assert.equal([...cases.matchAll(new RegExp(`case ${module.kind}u:`, "g"))].length, 1);
+    assert.ok(module.auditionKind, `${module.id} needs a dedicated Hear graph`);
+    assert.ok(module.inputs.length <= SHADER_PLAYGROUND_LIMITS.maxInputs);
+    assert.ok(module.params.length <= 8);
+    assert.match(SHADER_PLAYGROUND_SHADER, new RegExp(`case ${module.kind}u:`));
+  }
+});
+
+test("atlas DSP adaptations retain bounded phase, clipping, and pitch-transition guards", () => {
+  const roundedSaw = SHADER_PLAYGROUND_SHADER.match(
+    /fn atlasRoundedSaw\([\s\S]*?\n\}/,
+  )?.[0] ?? "";
+  assert.match(roundedSaw, /let rawSaw = p \* 2\.0 - 1\.0/);
+  assert.match(roundedSaw, /let roundedCycle = -cos\(TAU \* p\)/);
+  assert.match(
+    roundedSaw,
+    /return mix\(rawSaw, roundedCycle, smootherstep01\(amount\)\)/,
+    "zero roundness must select the raw saw and increasing roundness must select the rounded cycle",
+  );
+  assert.doesNotMatch(roundedSaw, /smoothstep\(1\.0, 0\.0/);
+
+  const transfer = SHADER_SYNTH_PLAYGROUND_ATLAS_MODULES.find(({ id }) => id === "additive-transfer-filter");
+  assert.ok(transfer);
+  assert.ok(transfer.params.some(({ id }) => id === "phaseColor"));
+  assert.ok(!transfer.params.some(({ id }) => id === "phase"));
+  assert.match(evaluatorCase(93), /let phaseColor(?:Amount)? = clamp\(p1\.y, 0\.0, 1\.0\)/);
+
+  const gaussian = evaluatorCase(94);
+  const safetyClamp = gaussian.lastIndexOf("clamp(");
+  const meanAddition = gaussian.lastIndexOf("vec2<f32>(p0.x, p0.y)");
+  assert.ok(safetyClamp >= 0 && meanAddition >= 0);
+  assert.ok(
+    safetyClamp < meanAddition,
+    "Gaussian tails must be clipped around zero before the requested X/Y means are added",
+  );
+
+  assert.match(SHADER_PLAYGROUND_SHADER, /fn atlasQuantizedPitchGuard\(/);
+  assert.match(evaluatorCase(97), /atlasQuantizedPitchGuard\(pitchPosition,/);
+  assert.match(evaluatorCase(98), /atlasQuantizedPitchGuard\(pitchPosition,/);
+
+  const domainWarp = evaluatorCase(99);
+  assert.doesNotMatch(domainWarp, /16777216u/);
+  assert.match(domainWarp, /let motionPhase = phaseAtSample\(sampleIndex,/);
+  assert.match(domainWarp, /cos\(TAU \* motionPhase\)/);
+  assert.match(domainWarp, /sin\(TAU \* motionPhase\)/);
 });
 
 test("geometry modules own kinds 69 through 83 and preserve composable X/Y or field/gate outputs", () => {
@@ -324,6 +421,21 @@ test("stereo source Hear patches preserve their designed image", () => {
   }
 });
 
+test("new FIR and sample-rate effects have compact dedicated Hear graphs", () => {
+  for (const moduleId of ["fir-lowpass", "fir-highpass", "fir-bandpass", "sample-rate-reducer"]) {
+    const module = SHADER_PLAYGROUND_MODULES.find(({ id }) => id === moduleId);
+    const combo = SHADER_PLAYGROUND_COMBOS.find(({ name }) => name === `${module.name} · Hear`);
+    assert.ok(combo, `${moduleId} needs its own Hear graph`);
+    const patch = createShaderPlaygroundCombo(combo.id);
+    assert.deepEqual(patch.nodes.map(({ type }) => type), ["oscillator", moduleId, "output"]);
+    assert.deepEqual(patch.connections.map(({ from, to }) => [from.node, to.node]), [
+      ["source", "focus"],
+      ["focus", "out"],
+    ]);
+    assert.equal(validateShaderPlaygroundPatch(patch).valid, true);
+  }
+});
+
 test("Hear patches expose optional inputs that materially shape their focus module", () => {
   const hearPatch = (moduleId) => {
     const combo = SHADER_PLAYGROUND_COMBOS.find(({ name, moduleTypes }) => (
@@ -345,9 +457,20 @@ test("Hear patches expose optional inputs that materially shape their focus modu
     ["robot-voice", "vowel"],
     ["fractal-recurrence", "control"],
     ["cyclic-fractal-noise", "control"],
+    ["cheap-filtered-wave", "roundness"],
+    ["additive-transfer-filter", "cutoff"],
+    ["parallel-voice-bank", "spread"],
+    ["wavefold-table-oscillator", "scan"],
   ]) {
     assert.deepEqual(inputsTo(hearPatch(moduleId), moduleId), [{ source: "lfo", port }]);
   }
+
+  const gaussian = hearPatch("gaussian-random-pair");
+  assert.equal(gaussian.nodes.filter(({ type }) => type === "sample-hold").length, 2);
+  assert.deepEqual(inputsTo(gaussian, "gaussian-random-pair"), [
+    { source: "sample-hold", port: "u1" },
+    { source: "sample-hold", port: "u2" },
+  ]);
 
   const exciter = hearPatch("harmonic-exciter");
   assert.deepEqual(inputsTo(exciter, "harmonic-exciter"), [
@@ -559,7 +682,7 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   assert.match(css, /\.patch-node\.is-selected\s*\{[\s\S]*?border-color: var\(--node-color, var\(--accent\)\)/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeWidth/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeHeight/);
-  assert.match(html, /shader-synth-playground\.css\?v=20260830-smooth-controls/);
+  assert.match(html, /shader-synth-playground\.css\?v=20260830-atlas-dsp/);
 });
 
 test("three-way sum and product require and encode all three input slots", () => {
@@ -793,6 +916,10 @@ test("history effects expose explicit core and extended kinds, bounded history h
     fftRobotizer: 63,
     spectralGate: 64,
     vibrato: 65,
+    firLowpass: 84,
+    firHighpass: 85,
+    firBandpass: 86,
+    sampleRateReducer: 87,
   });
   assert.deepEqual(
     SHADER_SYNTH_PLAYGROUND_FX_MODULES.map(({ id, kind }) => ({ id, kind })),
@@ -806,10 +933,14 @@ test("history effects expose explicit core and extended kinds, bounded history h
       { id: "doppler-sweep", kind: 62 },
       { id: "fft-robotizer", kind: 63 },
       { id: "spectral-gate", kind: 64 },
+      { id: "fir-lowpass", kind: 84 },
+      { id: "fir-highpass", kind: 85 },
+      { id: "fir-bandpass", kind: 86 },
+      { id: "sample-rate-reducer", kind: 87 },
       { id: "vibrato", kind: 65 },
     ],
   );
-  const historyKinds = [29, 30, 31, 32, 60, 61, 62, 63, 64, 65];
+  const historyKinds = [29, 30, 31, 32, 60, 61, 62, 63, 64, 65, 84, 85, 86, 87];
   for (const kind of historyKinds) assert.equal(isShaderSynthPlaygroundFxKind(kind), true);
   assert.equal(isShaderSynthPlaygroundFxKind(28), false);
   assert.equal(isShaderSynthPlaygroundFxKind(33), false);
@@ -833,6 +964,7 @@ test("history effects expose explicit core and extended kinds, bounded history h
     recombobulatorMemorySeconds: 12,
     spectralWindow: 128,
     spectralBins: 24,
+    firTaps: 31,
     chorusVoices: 6,
     maxChainEffects: 3,
     historyRegions: 4,
@@ -843,6 +975,10 @@ test("history effects expose explicit core and extended kinds, bounded history h
   const recombobulator = SHADER_SYNTH_PLAYGROUND_FX_MODULES.find(({ id }) => id === "recombobulator");
   const chorus = SHADER_SYNTH_PLAYGROUND_FX_MODULES.find(({ id }) => id === "chorus");
   const vibrato = SHADER_SYNTH_PLAYGROUND_FX_MODULES.find(({ id }) => id === "vibrato");
+  const firLowpass = SHADER_SYNTH_PLAYGROUND_FX_MODULES.find(({ id }) => id === "fir-lowpass");
+  const firHighpass = SHADER_SYNTH_PLAYGROUND_FX_MODULES.find(({ id }) => id === "fir-highpass");
+  const firBandpass = SHADER_SYNTH_PLAYGROUND_FX_MODULES.find(({ id }) => id === "fir-bandpass");
+  const sampleRateReducer = SHADER_SYNTH_PLAYGROUND_FX_MODULES.find(({ id }) => id === "sample-rate-reducer");
   assert.equal(simpleDelay.name, "Simple Delay");
   assert.equal(simpleDelay.auditionKind, "history");
   assert.equal(simpleDelay.params.find(({ id }) => id === "time").max, SHADER_SYNTH_PLAYGROUND_FX_LIMITS.delayTimeSeconds);
@@ -871,6 +1007,12 @@ test("history effects expose explicit core and extended kinds, bounded history h
   }
   assert.deepEqual(vibrato.params.map(({ id }) => id), ["rate", "depth", "delay", "mix", "stereo", "shape", "tone", "level"]);
   assert.equal(vibrato.params.find(({ id }) => id === "depth").unit, "cents");
+  assert.equal(firLowpass.params.find(({ id }) => id === "taps").max, SHADER_SYNTH_PLAYGROUND_FX_LIMITS.firTaps);
+  assert.equal(firHighpass.params.find(({ id }) => id === "taps").max, SHADER_SYNTH_PLAYGROUND_FX_LIMITS.firTaps);
+  assert.equal(firBandpass.params.find(({ id }) => id === "taps").max, SHADER_SYNTH_PLAYGROUND_FX_LIMITS.firTaps);
+  assert.deepEqual(sampleRateReducer.params.map(({ id }) => id), [
+    "rate", "interpolation", "phase", "stereo", "bits", "dither", "mix", "level",
+  ]);
 
   const longestPublicReadSeconds = Math.max(
     SHADER_SYNTH_PLAYGROUND_FX_LIMITS.delayTimeSeconds * SHADER_SYNTH_PLAYGROUND_FX_LIMITS.delayRepeats,
@@ -901,6 +1043,11 @@ test("history effects expose explicit core and extended kinds, bounded history h
     assert.match(SHADER_PLAYGROUND_SHADER, new RegExp(`case ${kind}u:`));
   }
   assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /fn vibratoEffect/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /fn firLowpassAt/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /alignedDry - firLowpassAt/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /firLowpassAt\(sampleIndex, upperCutoff[\s\S]*- firLowpassAt\(sampleIndex, lowerCutoff/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /currentStart - min\(currentStart, holdSamples\)/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /reducedRateChannel/);
   assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /pitchRatioExcursion = pow\(2\.0, cents \/ 1200\.0\) - 1\.0/);
   assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /baseDelay = clamp\(p0\.x, 0\.005, 2\.0\)/);
   assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /roomSize = clamp\(p0\.x, 0\.08, 12\.0\)/);
@@ -976,11 +1123,15 @@ test("every history-effect parameter is packed into and consumed from its matchi
     "fft-robotizer": "fftRobotizerEffect",
     "spectral-gate": "spectralGateEffect",
     vibrato: "vibratoEffect",
+    "fir-lowpass": "firLowpassEffect",
+    "fir-highpass": "firHighpassEffect",
+    "fir-bandpass": "firBandpassEffect",
+    "sample-rate-reducer": "sampleRateReducerEffect",
   };
   const slotNames = ["p0.x", "p0.y", "p0.z", "p0.w", "p1.x", "p1.y", "p1.z", "p1.w"];
 
   for (const effect of SHADER_SYNTH_PLAYGROUND_FX_MODULES) {
-    assert.equal(effect.params.length, 8, `${effect.id} must fill the packed p0/p1 vectors`);
+    assert.ok(effect.params.length <= 8, `${effect.id} exceeds the packed p0/p1 vectors`);
     const requestedParams = Object.fromEntries(effect.params.map((parameter, index) => {
       const fraction = (index + 1) / 10;
       return [parameter.id, parameter.min + (parameter.max - parameter.min) * fraction];
@@ -1003,18 +1154,57 @@ test("every history-effect parameter is packed into and consumed from its matchi
     const encoded = encodeShaderPlaygroundPatch(sanitized, new Map([["effect", previousValues]]));
     const effectOffset = encoded.order.indexOf("effect") * 20;
     targetValues.forEach((value, index) => {
-      assert.ok(Math.abs(encoded.data[effectOffset + 12 + index] - value) < 0.0001, `${effect.id}.${effect.params[index].id} target slot drifted`);
-      assert.ok(Math.abs(encoded.data[effectOffset + 4 + index] - previousValues[index]) < 0.0001, `${effect.id}.${effect.params[index].id} previous slot drifted`);
+      assert.equal(encoded.data[effectOffset + 12 + index], new Float32Array([value])[0], `${effect.id}.${effect.params[index].id} target slot drifted`);
+      assert.equal(encoded.data[effectOffset + 4 + index], new Float32Array([previousValues[index]])[0], `${effect.id}.${effect.params[index].id} previous slot drifted`);
     });
 
     const functionStart = SHADER_SYNTH_PLAYGROUND_FX_SHADER.indexOf(`fn ${functionByModule[effect.id]}(`);
     const functionEnd = SHADER_SYNTH_PLAYGROUND_FX_SHADER.indexOf("\nfn ", functionStart + 4);
     assert.ok(functionStart >= 0, `${effect.id} needs a WGSL effect function`);
     const functionSource = SHADER_SYNTH_PLAYGROUND_FX_SHADER.slice(functionStart, functionEnd);
-    slotNames.forEach((slot, index) => {
+    slotNames.slice(0, effect.params.length).forEach((slot, index) => {
       assert.ok(functionSource.includes(slot), `${effect.id}.${effect.params[index].id} is packed into ${slot} but never read by WGSL`);
     });
   }
+});
+
+test("FIR kernels keep fixed live latency and the reducer wraps its capture phase", () => {
+  for (const id of ["fir-lowpass", "fir-highpass", "fir-bandpass"]) {
+    const module = SHADER_SYNTH_PLAYGROUND_FX_MODULES.find((candidate) => candidate.id === id);
+    assert.ok(module, `${id} must remain registered`);
+    assert.equal(module.params.find(({ id: parameterId }) => parameterId === "taps")?.min, 7);
+  }
+
+  assert.match(
+    SHADER_SYNTH_PLAYGROUND_FX_SHADER,
+    /const FIR_CENTER_TAP: u32 = (?:15u|\(MAX_FIR_TAPS - 1u\) \/ 2u)/,
+  );
+  const firLowpass = SHADER_SYNTH_PLAYGROUND_FX_SHADER.match(
+    /fn firLowpassAt\([\s\S]*?\n\}/,
+  )?.[0] ?? "";
+  assert.ok(
+    /let firstHistoryTap = \(MAX_FIR_TAPS - tapCount\) \/ 2u;[\s\S]*?historyAt\(sampleIndex, tap \+ firstHistoryTap\)/.test(firLowpass)
+      || /let firstHistoryTap = FIR_CENTER_TAP - activeCenter;[\s\S]*?historyAt\(sampleIndex, firstHistoryTap \+ tap\)/.test(firLowpass),
+    "short FIR kernels must be centered inside the fixed 31-tap history span",
+  );
+  assert.equal(
+    SHADER_SYNTH_PLAYGROUND_FX_SHADER.match(/alignedDry = historyAt\(sampleIndex, FIR_CENTER_TAP\)/g)?.length,
+    3,
+  );
+  assert.doesNotMatch(
+    SHADER_SYNTH_PLAYGROUND_FX_SHADER,
+    /alignedDry = historyAt\(sampleIndex, \(taps - 1u\) \/ 2u\)/,
+  );
+
+  assert.match(
+    SHADER_SYNTH_PLAYGROUND_FX_SHADER,
+    /let leftPhase = fract\((?:p0\.z|clamp\(p0\.z, 0\.0, 1\.0\))\)/,
+  );
+  assert.match(
+    SHADER_SYNTH_PLAYGROUND_FX_SHADER,
+    /let rightPhase = fract\((?:leftPhase|p0\.z) \+ clamp\(p0\.w, 0\.0, 1\.0\) \* 0\.5\)/,
+  );
+  assert.doesNotMatch(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /let rightPhase = clamp\(p0\.z \+/);
 });
 
 test("history effects are rejected outside one terminal chain before Output", () => {
@@ -1672,10 +1862,11 @@ test("dynamic pattern-control ceilings follow Steps without changing registry li
 });
 
 test("the page exposes a real graph editor, inspector, transport, and shared instrument header", async () => {
-  const [html, css, app, primitives, synth] = await Promise.all([
+  const [html, css, app, engineSource, primitives, synth] = await Promise.all([
     readFile(new URL("shader-synth-playground.html", ROOT), "utf8"),
     readFile(new URL("shader-synth-playground.css", ROOT), "utf8"),
     readFile(new URL("shader-synth-playground-app.js", ROOT), "utf8"),
+    readFile(new URL("src/shader-synth-playground.js", ROOT), "utf8"),
     readFile(new URL("webgpu-dsp-primitives.html", ROOT), "utf8"),
     readFile(new URL("webgpu-synths.html", ROOT), "utf8"),
   ]);
@@ -1695,11 +1886,15 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.doesNotMatch(html, /class="transport-(?:play|pause)"/);
   assert.doesNotMatch(css, /\.playground-play-button\s+svg/);
   assert.match(html, /src=["']nav\.js["']/);
-  assert.match(html, /href=["']webgpu-dsp-primitives\.html["']/);
   assert.match(primitives, /href=["']shader-synth-playground\.html["']/);
   assert.match(synth, /href=["']shader-synth-playground\.html["']/);
   assert.doesNotMatch(html, /01\s*·\s*BUILD|02\s*·\s*PATCH|03\s*·\s*HEAR THE CHANGE/);
   assert.doesNotMatch(`${html}\n${css}`, /playground-(?:masthead|context|related-links)/);
+  assert.doesNotMatch(html, /module-coverage|playableModuleCount|83\s*playable|142\s*in atlas/);
+  assert.doesNotMatch(app, /playableModuleCount/);
+  assert.match(app, /section\.open = Boolean\(query\);/);
+  assert.match(app, /shader-synth-playground\.js\?v=20260830-atlas-dsp/);
+  assert.match(engineSource, /shader-synth-playground-fx\.js\?v=20260830-atlas-dsp/);
   assert.match(css, /\.patch-node/);
   assert.match(css, /\.patch-cable/);
   assert.match(css, /\.patch-node\.is-selected/);

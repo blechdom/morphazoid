@@ -8,13 +8,23 @@ import {
   shaderSynthPlaygroundFxHistoryByteSize,
   shaderSynthPlaygroundFxHistoryFrames,
   shaderSynthPlaygroundFxNodes,
-} from "./shader-synth-playground-fx.js";
+} from "./shader-synth-playground-fx.js?v=20260830-atlas-dsp";
 import { createShaderPlaygroundScenes } from "./shader-synth-playground-scenes.js";
 import {
   SHADER_SYNTH_PLAYGROUND_EXTRA_CASES,
   SHADER_SYNTH_PLAYGROUND_EXTRA_HELPERS,
   SHADER_SYNTH_PLAYGROUND_EXTRA_MODULES,
 } from "./shader-synth-playground-extra.js";
+import {
+  SHADER_SYNTH_PLAYGROUND_ATLAS_CASES,
+  SHADER_SYNTH_PLAYGROUND_ATLAS_HELPERS,
+  SHADER_SYNTH_PLAYGROUND_ATLAS_MODULES,
+} from "./shader-synth-playground-atlas.js";
+import {
+  SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_CASES,
+  SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_HELPERS,
+  SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_MODULES,
+} from "./shader-synth-playground-atlas-routing.js";
 import {
   SHADER_SYNTH_PLAYGROUND_FOUND_CASES,
   SHADER_SYNTH_PLAYGROUND_FOUND_HELPERS,
@@ -610,6 +620,8 @@ export const SHADER_PLAYGROUND_MODULES = freeze([
   ...SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES.map(moduleSpec),
   ...SHADER_SYNTH_PLAYGROUND_FOUND_MODULES.map(moduleSpec),
   ...SHADER_SYNTH_PLAYGROUND_FX_MODULES.map(moduleSpec),
+  ...SHADER_SYNTH_PLAYGROUND_ATLAS_MODULES.map(moduleSpec),
+  ...SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_MODULES.map(moduleSpec),
   moduleSpec({
     id: "output", kind: 16, name: "Output", category: "output", color: "#91ff63",
     description: "Collects the graph's final stereo signal, applies output gain, and limits extreme peaks before readback.",
@@ -1241,6 +1253,10 @@ const SOURCE_AUDITION_CONTROL_INPUT = Object.freeze({
   "robot-voice": "vowel",
   "fractal-recurrence": "control",
   "cyclic-fractal-noise": "control",
+  "cheap-filtered-wave": "roundness",
+  "additive-transfer-filter": "cutoff",
+  "parallel-voice-bank": "spread",
+  "wavefold-table-oscillator": "scan",
 });
 
 function buildModuleAudition(spec, sequence) {
@@ -1253,7 +1269,23 @@ function buildModuleAudition(spec, sequence) {
   let route;
   let patch;
 
-  if (spec.auditionKind === "pitch-gate") {
+  if (spec.id === "gaussian-random-pair") {
+    route = `2× Sample + Hold → ${spec.name} → Oscillator pitch + pan → Output`;
+    patch = comboGraph(comboId, name, [
+      node("uniform-a", "sample-hold", 20, 245, { rate: 1.7, seed: 17011, slew: 0.58, bipolar: 0, depth: 1, offset: 0 }),
+      node("uniform-b", "sample-hold", 20, 405, { rate: 1.13, seed: 57037, slew: 0.64, bipolar: 0, depth: 1, offset: 0 }),
+      node("focus", spec.id, 280, 260, { deviation: 0.72, correlation: 0.28, clip: 2.5, level: 1 }),
+      node("source", "oscillator", 535, 80, { frequency: 98, waveform: 1, level: 0.46 }),
+      node("pan", "pan", 745, 110, { pan: 0, depth: 0.42 }), comboOutput(0.58),
+    ], [
+      edge("uniform-a-focus", "uniform-a", "out", "focus", "u1"),
+      edge("uniform-b-focus", "uniform-b", "out", "focus", "u2"),
+      edge("gaussian-pitch", "focus", "x", "source", "pitch"),
+      edge("source-pan", "source", "out", "pan", "signal"),
+      edge("gaussian-pan", "focus", "y", "pan", "position"),
+      edge("pan-out", "pan", "out", "out", "signal"),
+    ]);
+  } else if (spec.auditionKind === "pitch-gate") {
     const pitch = spec.outputs.find(({ id }) => id === "pitch")?.id ?? spec.outputs[0]?.id;
     const gate = spec.outputs.find(({ id }) => id === "gate")?.id ?? spec.outputs[1]?.id;
     route = `${spec.name} → Oscillator + VCA → Pan → Output`;
@@ -1458,7 +1490,7 @@ function buildModuleAudition(spec, sequence) {
     sequence,
     slug,
     name,
-    `${spec.description} This compact graph is tuned to make the module audible immediately from its Hear button.`,
+    `${spec.description} This compact graph is tuned to reveal the module from its Hear button; sparse event fields begin when their first geometric crossing arrives.`,
     spec.category,
     route,
     patch,
@@ -2063,6 +2095,8 @@ fn chebyshevSeries(value: vec2<f32>, order: u32, tilt: f32) -> vec2<f32> {
 ${SHADER_SYNTH_PLAYGROUND_EXTRA_HELPERS}
 ${SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS}
 ${SHADER_SYNTH_PLAYGROUND_FOUND_HELPERS}
+${SHADER_SYNTH_PLAYGROUND_ATLAS_HELPERS}
+${SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_HELPERS}
 
 fn evaluateNode(
   kind: u32,
@@ -2155,6 +2189,8 @@ fn evaluateNode(
     ${SHADER_SYNTH_PLAYGROUND_EXTRA_CASES}
     ${SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES}
     ${SHADER_SYNTH_PLAYGROUND_FOUND_CASES}
+    ${SHADER_SYNTH_PLAYGROUND_ATLAS_CASES}
+    ${SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_CASES}
     case 12u: {
       let driven = (inputA + vec2<f32>(p0.w)) * max(p0.x, 1.0);
       let shaped = mix(softClip(driven), sin(driven * PI), clamp(p0.y, 0.0, 1.0));
@@ -2420,6 +2456,10 @@ fn evaluateNode(
     case 63u: { result = inputA; }
     case 64u: { result = inputA; }
     case 65u: { result = inputA; }
+    case 84u: { result = inputA; }
+    case 85u: { result = inputA; }
+    case 86u: { result = inputA; }
+    case 87u: { result = inputA; }
     case 33u: {
       let rate = max(p0.x, 0.001);
       let pairSamples = max(u32(round(SAMPLE_RATE * 2.0 / rate)), 2u);
