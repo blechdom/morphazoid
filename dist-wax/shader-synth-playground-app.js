@@ -816,9 +816,10 @@ function syncExecutionShape() {
     const historySuffix = hasHistoryPass
       ? " The terminal history effects then run before the same final readback."
       : "";
+    const stateVerb = activeStatefulModules.length === 1 ? "keeps" : "keep";
     $("sampleInvocationModel").textContent = `The sample graph captures connected signals on the GPU. Each active state module runs in graph order, and the graph is reevaluated so later modules receive its new output.${historySuffix}`;
     $("blockStateHeading").textContent = "Active GPU state";
-    $("blockStateDescription").textContent = `${stateLabels} keep private state only while their nodes are in this patch.`;
+    $("blockStateDescription").textContent = `${stateLabels} ${stateVerb} private state only while present in this patch.`;
     $("separateGpuPassHeading").textContent = "Ordered state passes";
     $("separateGpuPassDescription").textContent = "Intermediate graph signals, grids, spectral history, and modal state remain on the GPU. Only the completed stereo chunk returns to the CPU.";
   } else if (hasHistoryPass) {
