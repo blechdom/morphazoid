@@ -1,4 +1,7 @@
 .blowhole-page {
+  --accent: var(--sound);
+  --accent-soft: color-mix(in oklab, var(--sound) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--sound) 22%, transparent);
   --ocean-ink: #06131a;
   --ocean-deep: #081d26;
   --ocean-panel: rgba(10, 31, 40, 0.9);
@@ -11,38 +14,23 @@
   --gold: #ffbf4a;
   --sound: #59eed2;
   --electric: #c7ff43;
-  color: var(--ocean-copy);
-  background:
-    radial-gradient(circle at 28% 8%, rgba(34, 150, 156, 0.14), transparent 35rem),
-    radial-gradient(circle at 88% 44%, rgba(118, 61, 146, 0.12), transparent 28rem),
-    linear-gradient(155deg, #040b0f 0%, var(--ocean-ink) 44%, #071a21 100%);
+  color: var(--ink);
+  background: var(--bg);
   min-height: 100vh;
 }
 
 .blowhole-page::before {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  content: "";
-  opacity: 0.18;
-  background-image:
-    linear-gradient(rgba(134, 211, 216, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(134, 211, 216, 0.045) 1px, transparent 1px);
-  background-size: 58px 58px;
-  mask-image: linear-gradient(to bottom, black, transparent 78%);
+  content: none;
 }
 
 .blowhole-page .masthead {
-  border-bottom-color: var(--ocean-line);
-  background: rgba(3, 12, 16, 0.86);
-  backdrop-filter: blur(18px) saturate(1.25);
+  border-bottom-color: var(--line);
+  background: var(--bg-deep);
 }
 
 .blowhole-page .tab.active {
-  color: var(--electric);
-  border-color: rgba(199, 255, 67, 0.55);
-  background: rgba(199, 255, 67, 0.08);
+  color: var(--accent);
+  background: transparent;
 }
 
 .blowhole-page .audio-button[aria-pressed="true"] {
@@ -85,16 +73,13 @@
 }
 
 .blowhole-shell {
-  width: min(1840px, calc(100% - 32px));
-  margin: 0 auto;
-  padding: 28px 0 56px;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
 }
 
-.blowhole-intro {
-  padding: 18px 4px 24px;
-}
-
-.blowhole-stage-header p,
 .blowhole-timeline-card header p,
 .blowhole-section-heading p {
   margin: 0 0 6px;
@@ -105,50 +90,31 @@
   text-transform: uppercase;
 }
 
-.blowhole-intro h1 {
-  margin: 0;
-  color: #f5fffb;
-  font-size: clamp(3.4rem, 6.7vw, 7rem);
-  font-weight: 950;
-  line-height: 0.78;
-  letter-spacing: -0.045em;
-  text-transform: uppercase;
-  font-kerning: normal;
-  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.32));
-}
-
 .blowhole-instrument {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(350px, 410px);
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 24vw, 370px);
   align-items: start;
-  gap: 14px;
+  gap: 0;
 }
 
 .blowhole-visual-column {
   display: grid;
   min-width: 0;
-  gap: 14px;
+  gap: 0;
 }
 
-.blowhole-stage-card,
-.blowhole-timeline-card,
-.blowhole-console {
-  border: 1px solid var(--ocean-line);
-  background:
-    linear-gradient(145deg, rgba(17, 43, 52, 0.88), rgba(6, 20, 27, 0.92)),
-    var(--ocean-panel);
-  box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.28),
-    inset 0 1px rgba(255, 255, 255, 0.035);
-}
-
-.blowhole-stage-card,
-.blowhole-timeline-card {
-  border-radius: 18px;
+.blowhole-stage-card {
   overflow: hidden;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--ocean-panel);
 }
 
-.blowhole-stage-header,
+.blowhole-timeline-card {
+  overflow: hidden;
+  background: var(--panel);
+}
+
 .blowhole-timeline-card > header {
   display: flex;
   align-items: center;
@@ -156,11 +122,10 @@
   gap: 18px;
   min-height: 72px;
   padding: 13px 18px;
-  border-bottom: 1px solid var(--ocean-line);
-  background: rgba(4, 17, 23, 0.6);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
 }
 
-.blowhole-stage-header h2,
 .blowhole-timeline-card h2,
 .blowhole-section-heading h2 {
   margin: 0;
@@ -170,40 +135,6 @@
   letter-spacing: -0.02em;
 }
 
-.blowhole-valve-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 10px;
-  border: 1px solid rgba(255, 113, 91, 0.28);
-  border-radius: 9px;
-  background: rgba(255, 113, 91, 0.06);
-}
-
-.blowhole-valve-state > i {
-  width: 12px;
-  height: 12px;
-  border: 3px solid var(--air);
-  border-radius: 50%;
-  box-shadow: 0 0 10px rgba(255, 113, 91, 0.45);
-}
-
-.blowhole-valve-state[data-state="open"] {
-  border-color: rgba(89, 238, 210, 0.38);
-  background: rgba(89, 238, 210, 0.07);
-}
-
-.blowhole-valve-state[data-state="open"] > i {
-  border-color: var(--sound);
-  box-shadow: 0 0 12px rgba(89, 238, 210, 0.5);
-}
-
-.blowhole-valve-state span {
-  display: grid;
-  line-height: 1.08;
-}
-
-.blowhole-valve-state small,
 .blowhole-timeline-stats small {
   color: var(--ocean-muted);
   font-size: 0.57rem;
@@ -212,20 +143,9 @@
   text-transform: uppercase;
 }
 
-.blowhole-valve-state b {
-  margin-top: 3px;
-  color: var(--air);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-}
-
-.blowhole-valve-state[data-state="open"] b {
-  color: var(--sound);
-}
-
 .blowhole-stage-wrap {
   position: relative;
-  aspect-ratio: 1000 / 650;
+  aspect-ratio: 1000 / 590;
   min-height: 0;
   background:
     radial-gradient(circle at 50% 46%, rgba(17, 77, 83, 0.15), transparent 53%),
@@ -233,14 +153,25 @@
   isolation: isolate;
 }
 
-.blowhole-stage-wrap::after {
+.blowhole-stage-heading {
   position: absolute;
-  inset: 14px;
-  z-index: -1;
-  border: 1px solid rgba(141, 203, 205, 0.08);
-  border-radius: 8px;
-  content: "";
+  z-index: 2;
+  top: 20px;
+  left: 22px;
   pointer-events: none;
+}
+
+.blowhole-stage-heading h1 {
+  margin: 0;
+  color: rgba(233, 244, 239, 0.94);
+  font-family: var(--mono);
+  font-size: clamp(20px, 2vw, 29px);
+  font-weight: 650;
+  font-kerning: normal;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  text-shadow: 0 0 24px rgba(89, 238, 210, 0.15);
+  white-space: nowrap;
 }
 
 #stage {
@@ -260,10 +191,13 @@
 
 .blowhole-signal-legend {
   position: absolute;
-  top: 18px;
-  left: 20px;
+  top: 20px;
+  right: 22px;
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
+  max-width: 62%;
+  justify-content: flex-end;
   gap: 11px;
   color: rgba(219, 240, 236, 0.64);
   font-size: 0.62rem;
@@ -320,9 +254,9 @@
   min-height: 242px;
   overflow-x: auto;
   background:
-    linear-gradient(rgba(115, 190, 192, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(115, 190, 192, 0.04) 1px, transparent 1px),
-    rgba(2, 13, 18, 0.82);
+    linear-gradient(rgba(214, 232, 226, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214, 232, 226, 0.025) 1px, transparent 1px),
+    var(--bg-deep);
   background-size: 32px 32px;
 }
 
@@ -338,8 +272,8 @@
   flex-wrap: wrap;
   gap: 15px;
   padding: 9px 17px 11px;
-  border-top: 1px solid var(--ocean-line);
-  background: rgba(3, 15, 20, 0.76);
+  border-top: 1px solid var(--line);
+  background: var(--panel);
 }
 
 .blowhole-lane-key span {
@@ -362,24 +296,26 @@
 
 .blowhole-console {
   position: sticky;
-  top: 76px;
-  max-height: calc(100vh - 90px);
+  top: 0;
+  max-height: 100vh;
   overflow: auto;
-  border-radius: 18px;
-  scrollbar-color: rgba(89, 238, 210, 0.36) transparent;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  scrollbar-color: var(--faint) transparent;
+  scrollbar-width: thin;
 }
 
 .blowhole-console > section,
 .blowhole-control-group {
-  border-bottom: 1px solid var(--ocean-line);
+  border-bottom: 1px solid var(--line);
 }
 
 .blowhole-transport {
   display: grid;
   grid-template-columns: 1.55fr 0.8fr;
   gap: 8px;
-  padding: 10px;
-  background: rgba(3, 14, 19, 0.76);
+  padding: 10px 22px;
+  background: transparent;
 }
 
 .blowhole-transport button,
@@ -387,9 +323,9 @@
 .blowhole-family-tabs button,
 .blowhole-call-buttons button,
 .blowhole-reset {
-  border: 1px solid var(--ocean-line-strong);
-  color: var(--ocean-copy);
-  background: rgba(15, 42, 51, 0.58);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  background: transparent;
   font: inherit;
   cursor: pointer;
   transition: 130ms ease;
@@ -400,8 +336,8 @@
 .blowhole-family-tabs button:hover,
 .blowhole-call-buttons button:hover,
 .blowhole-reset:hover {
-  border-color: rgba(89, 238, 210, 0.52);
-  background: rgba(28, 67, 75, 0.64);
+  border-color: var(--accent);
+  background: var(--accent-glow);
 }
 
 .blowhole-transport button:focus-visible,
@@ -411,7 +347,7 @@
 .blowhole-reset:focus-visible,
 .blowhole-page select:focus-visible,
 .blowhole-page input:focus-visible {
-  outline: 2px solid var(--electric);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -422,7 +358,7 @@
   gap: 10px;
   min-height: 54px;
   padding: 9px 11px;
-  border-radius: 10px;
+  border-radius: 0;
 }
 
 .blowhole-transport button > span:last-child {
@@ -452,14 +388,14 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  padding: 10px;
+  padding: 10px 22px 12px;
 }
 
 .blowhole-performance-pads button {
   position: relative;
   min-height: 74px;
   overflow: hidden;
-  border-radius: 11px;
+  border-radius: 0;
 }
 
 .blowhole-performance-pads button > span:last-child {
@@ -538,61 +474,51 @@
 .blowhole-aperture-control {
   display: grid;
   grid-column: 1 / -1;
-  gap: 7px;
-  padding: 10px 11px;
-  border: 1px solid rgba(89, 238, 210, 0.2);
-  border-radius: 10px;
-  background: rgba(3, 17, 23, 0.66);
+  gap: 0;
+  padding: 8px 0 0;
 }
 
 .blowhole-aperture-control > span,
 .blowhole-call-path > span {
   display: flex;
+  margin-bottom: 3px;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .blowhole-aperture-control b,
 .blowhole-call-path b {
   color: #dbeae6;
-  font-size: 0.65rem;
-  font-weight: 720;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
 }
 
 .blowhole-aperture-control output,
 .blowhole-call-path output {
-  color: var(--electric);
-  font-size: 0.61rem;
-  font-weight: 760;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .blowhole-aperture-control small,
 .blowhole-call-path small {
-  color: #718f91;
-  font-size: 0.57rem;
-  line-height: 1.38;
+  margin-top: -4px;
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.45;
 }
 
 .blowhole-call-bank {
-  padding: 16px;
+  padding: 16px 22px;
 }
 
 .blowhole-call-path {
   display: grid;
-  gap: 7px;
+  gap: 0;
   margin-bottom: 13px;
-  padding: 10px 11px;
-  border: 1px solid rgba(199, 255, 67, 0.2);
-  border-radius: 10px;
-  background:
-    linear-gradient(90deg, rgba(216, 147, 255, 0.055), rgba(255, 191, 74, 0.04), rgba(89, 238, 210, 0.065)),
-    rgba(3, 17, 23, 0.7);
-}
-
-.blowhole-call-path input[type="range"] {
-  --sound: var(--electric);
+  padding: 0;
 }
 
 .blowhole-section-heading {
@@ -602,14 +528,19 @@
 .blowhole-family-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 7px;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
 }
 
 .blowhole-family-tabs button {
   display: grid;
   min-height: 52px;
   padding: 8px 10px;
-  border-radius: 9px;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
   text-align: left;
 }
 
@@ -650,10 +581,10 @@
   width: 100%;
   min-height: 38px;
   padding: 0 34px 0 10px;
-  border: 1px solid var(--ocean-line-strong);
-  border-radius: 8px;
-  color: var(--ocean-copy);
-  background: #0c252e;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
   font: inherit;
   font-size: 0.76rem;
 }
@@ -669,7 +600,7 @@
   display: grid;
   min-height: 43px;
   padding: 7px 9px;
-  border-radius: 8px;
+  border-radius: 0;
   text-align: left;
 }
 
@@ -702,29 +633,36 @@
 
 .blowhole-control-group {
   margin: 0;
-  background: rgba(4, 19, 25, 0.22);
+  background: transparent;
 }
 
 .blowhole-control-group > summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 58px;
-  padding: 10px 16px;
+  gap: 14px;
+  min-height: 52px;
+  padding: 0 22px;
   cursor: pointer;
   list-style: none;
+  background: linear-gradient(90deg, var(--accent-glow), transparent 42%);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .blowhole-control-group > summary::-webkit-details-marker { display: none; }
 
 .blowhole-control-group > summary::after {
-  color: var(--ocean-muted);
-  font-size: 0.8rem;
+  color: var(--accent);
+  font-size: 16px;
   content: "+";
 }
 
 .blowhole-control-group[open] > summary::after { content: "−"; }
+
+.blowhole-control-group[open] > summary {
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, var(--accent-glow), transparent 68%);
+}
 
 .blowhole-control-group > summary span {
   display: grid;
@@ -734,26 +672,27 @@
 .blowhole-control-group > summary small {
   margin-bottom: 3px;
   color: var(--sound);
-  font-size: 0.57rem;
-  font-weight: 780;
+  font-size: 8px;
+  font-weight: 650;
   letter-spacing: 0.12em;
 }
 
 .blowhole-control-group > summary b {
-  color: var(--ocean-copy);
-  font-size: 0.78rem;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .blowhole-control-group > summary output {
-  color: var(--ocean-muted);
-  font-size: 0.59rem;
+  color: var(--muted);
+  font-size: 9px;
   white-space: nowrap;
 }
 
 .blowhole-control-body {
   display: grid;
-  gap: 14px;
-  padding: 3px 16px 17px;
+  gap: 0;
+  padding: 15px 22px 9px;
 }
 
 .blowhole-propagation-presets {
@@ -776,7 +715,10 @@
 .blowhole-propagation-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
 }
 
 .blowhole-propagation-choice {
@@ -800,10 +742,10 @@
   align-content: center;
   min-height: 48px;
   padding: 7px 26px 7px 9px;
-  border: 1px solid var(--ocean-line-strong);
-  border-radius: 8px;
-  color: var(--ocean-copy);
-  background: rgba(15, 42, 51, 0.58);
+  border: 1px solid transparent;
+  border-radius: 0;
+  color: var(--ink);
+  background: transparent;
   transition: 130ms ease;
 }
 
@@ -840,7 +782,7 @@
 
 .blowhole-propagation-choice:hover > span {
   border-color: rgba(89, 238, 210, 0.52);
-  background: rgba(28, 67, 75, 0.64);
+  background: var(--accent-glow);
 }
 
 .blowhole-propagation-choice input:focus-visible + span {
@@ -867,12 +809,10 @@
   align-items: center;
   gap: 5px;
   min-width: 0;
-  padding: 9px 10px;
-  border: 1px solid rgba(89, 238, 210, 0.2);
-  border-radius: 9px;
-  background:
-    linear-gradient(90deg, rgba(216, 147, 255, 0.04), rgba(89, 238, 210, 0.075)),
-    rgba(3, 17, 23, 0.7);
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
 }
 
 .blowhole-propagation-strip > span {
@@ -924,10 +864,7 @@
 }
 
 .blowhole-propagation-strip[data-propagation="air-still"] {
-  border-color: rgba(255, 191, 74, 0.22);
-  background:
-    linear-gradient(90deg, rgba(216, 147, 255, 0.035), rgba(255, 191, 74, 0.065)),
-    rgba(3, 17, 23, 0.7);
+  border-color: var(--line);
 }
 
 .blowhole-propagation-strip[data-propagation="air-still"] .blowhole-propagation-arrow,
@@ -938,10 +875,7 @@
 }
 
 .blowhole-propagation-strip[data-propagation="air-windy"] {
-  border-color: rgba(255, 113, 91, 0.28);
-  background:
-    linear-gradient(112deg, rgba(255, 113, 91, 0.035), rgba(255, 191, 74, 0.07)),
-    rgba(3, 17, 23, 0.7);
+  border-color: var(--line);
 }
 
 .blowhole-propagation-strip[data-propagation="air-windy"] .blowhole-propagation-arrow {
@@ -949,13 +883,7 @@
 }
 
 .blowhole-propagation-strip[data-propagation="water-choppy"] {
-  border-color: rgba(89, 238, 210, 0.32);
-  background:
-    radial-gradient(circle at 68% 72%, rgba(89, 238, 210, 0.12) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 77% 35%, rgba(89, 238, 210, 0.08) 0 1px, transparent 1.5px),
-    linear-gradient(90deg, rgba(216, 147, 255, 0.04), rgba(89, 238, 210, 0.085)),
-    rgba(3, 17, 23, 0.7);
-  background-size: 23px 19px, 31px 27px, auto, auto;
+  border-color: var(--line);
 }
 
 .blowhole-propagation-strip[data-propagation="water-choppy"] .blowhole-propagation-arrow {
@@ -1001,92 +929,49 @@
 
 .blowhole-control {
   display: grid;
-  gap: 7px;
+  min-width: 0;
+  margin: 0 0 11px;
+  gap: 0;
 }
 
 .blowhole-control > span,
 .blowhole-monitor-select > span {
   display: flex;
+  margin-bottom: 3px;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .blowhole-control b,
 .blowhole-monitor-select b {
   color: #dbeae6;
-  font-size: 0.67rem;
-  font-weight: 680;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
 }
 
 .blowhole-control output,
 .blowhole-monitor-select output {
-  color: var(--electric);
-  font-size: 0.63rem;
-  font-weight: 760;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .blowhole-control small,
 .blowhole-monitor-select small {
-  color: #718f91;
-  font-size: 0.58rem;
-  line-height: 1.35;
-}
-
-.blowhole-page input[type="range"] {
-  width: 100%;
-  height: 14px;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  appearance: none;
-  background: transparent;
-  cursor: ew-resize;
-}
-
-.blowhole-page input[type="range"]::-webkit-slider-runnable-track {
-  height: 3px;
-  border-radius: 99px;
-  background:
-    linear-gradient(90deg, var(--sound) var(--range-progress, 50%), rgba(132, 174, 177, 0.22) var(--range-progress, 50%));
-}
-
-.blowhole-page input[type="range"]::-webkit-slider-thumb {
-  width: 13px;
-  height: 13px;
-  margin-top: -5px;
-  border: 2px solid #082029;
-  border-radius: 2px;
-  appearance: none;
-  background: var(--electric);
-  box-shadow: 0 0 0 1px rgba(199, 255, 67, 0.45), 0 0 10px rgba(199, 255, 67, 0.28);
-  transform: rotate(45deg);
-}
-
-.blowhole-page input[type="range"]::-moz-range-track {
-  height: 3px;
-  border-radius: 99px;
-  background: rgba(132, 174, 177, 0.22);
-}
-
-.blowhole-page input[type="range"]::-moz-range-progress {
-  height: 3px;
-  background: var(--sound);
-}
-
-.blowhole-page input[type="range"]::-moz-range-thumb {
-  width: 11px;
-  height: 11px;
-  border: 2px solid #082029;
-  border-radius: 2px;
-  background: var(--electric);
-  transform: rotate(45deg);
+  margin-top: -4px;
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.45;
 }
 
 .blowhole-evidence-card {
-  padding: 16px;
-  background:
-    linear-gradient(135deg, rgba(89, 238, 210, 0.055), rgba(216, 147, 255, 0.045)),
-    rgba(4, 18, 24, 0.66);
+  padding: 16px 22px;
+  background: transparent;
 }
 
 .blowhole-evidence-card > p {
@@ -1133,10 +1018,10 @@
 }
 
 .blowhole-reset {
-  width: calc(100% - 20px);
+  width: calc(100% - 44px);
   min-height: 40px;
-  margin: 10px;
-  border-radius: 8px;
+  margin: 10px 22px;
+  border-radius: 0;
   color: var(--ocean-muted);
   font-size: 0.66rem;
   font-weight: 720;
@@ -1144,29 +1029,22 @@
   text-transform: uppercase;
 }
 
-@media (max-width: 1180px) {
-  .blowhole-instrument { grid-template-columns: minmax(0, 1fr) 360px; }
-}
-
 @media (max-width: 900px) {
-  .blowhole-shell { width: min(100% - 18px, 760px); padding-top: 16px; }
-  .blowhole-intro h1 { font-size: clamp(3.2rem, 15vw, 6.2rem); }
   .blowhole-instrument { grid-template-columns: minmax(0, 1fr); }
-  .blowhole-console { position: static; max-height: none; }
+  .blowhole-console {
+    position: static;
+    max-height: none;
+    border-top: 1px solid var(--line-strong);
+    border-left: 0;
+  }
 }
 
 @media (max-width: 600px) {
-  .blowhole-shell { width: calc(100% - 10px); padding-bottom: 24px; }
-  .blowhole-intro { padding: 12px 5px 18px; }
-  .blowhole-intro h1 { letter-spacing: -0.045em; }
-  .blowhole-stage-card,
-  .blowhole-timeline-card,
-  .blowhole-console { border-radius: 12px; }
-  .blowhole-stage-header,
+  .blowhole-shell { width: 100%; padding-bottom: 0; }
   .blowhole-timeline-card > header { align-items: start; padding: 11px; }
-  .blowhole-valve-state { padding: 7px; }
-  .blowhole-valve-state small { display: none; }
-  .blowhole-signal-legend { top: 10px; left: 11px; gap: 8px; }
+  .blowhole-stage-heading { top: 13px; left: 13px; }
+  .blowhole-stage-heading h1 { font-size: 20px; }
+  .blowhole-signal-legend { top: 13px; right: 13px; left: auto; gap: 7px; }
   .blowhole-signal-legend span { font-size: 0.53rem; }
   .blowhole-timeline-card > header { display: grid; }
   .blowhole-timeline-stats { justify-content: space-between; gap: 8px; }

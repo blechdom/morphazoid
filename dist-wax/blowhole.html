@@ -51,25 +51,13 @@
     </header>
 
     <main class="blowhole-shell" id="blowhole">
-      <section class="blowhole-intro" aria-labelledby="pageTitle">
-        <h1 id="pageTitle">BLOWHOLE</h1>
-      </section>
-
       <section class="blowhole-instrument" aria-label="Playable cetacean physical model">
         <div class="blowhole-visual-column">
-          <section class="blowhole-stage-card" aria-labelledby="anatomyTitle">
-            <header class="blowhole-stage-header">
-              <div>
-                <p>LIVE CUTAWAY / <span id="familyCode">MYSTICETE</span></p>
-                <h2 id="anatomyTitle">Laryngeal U-fold source</h2>
-              </div>
-              <div class="blowhole-valve-state" id="valveState" data-state="sealed">
-                <i aria-hidden="true"></i>
-                <span><small>blowhole valve</small><b>sealed underwater</b></span>
-              </div>
-            </header>
-
+          <section class="blowhole-stage-card" aria-labelledby="pageTitle">
             <div class="blowhole-stage-wrap" id="stageWrap">
+              <div class="blowhole-stage-heading">
+                <h1 id="pageTitle">BLOWHOLE</h1>
+              </div>
               <canvas
                 id="stage"
                 role="img"
@@ -133,7 +121,7 @@
             </button>
             <button id="ventButton" type="button" aria-pressed="false">
               <span class="blowhole-vent-mark" aria-hidden="true">≈</span>
-              <span><b>BLOWHOLE VALVE</b><small>toggle open · breath layer</small></span>
+              <span><b>BLOWHOLE VALVE</b><small>open valve · finite surface breath</small></span>
             </button>
             <label class="blowhole-aperture-control" for="valveAperture">
               <span><b>External valve aperture</b><output id="valveApertureOut" for="valveAperture">sealed</output></span>
@@ -146,7 +134,7 @@
                 value="0"
                 aria-describedby="valveApertureHelp"
               />
-              <small id="valveApertureHelp">A surface-performance breath/leak control. Transport keeps running; the hidden sound organ remains separate from the external blowhole.</small>
+              <small id="valveApertureHelp">Opening releases one pressure-driven surface breath. Valve area controls flow from a finite air reservoir. Holding the valve open adds no continuous hiss. Close and reopen, or trigger a new call while open, to breathe again. The hidden sound organ remains separate.</small>
             </label>
           </section>
 

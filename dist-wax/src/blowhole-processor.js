@@ -13,7 +13,76 @@ const TELEMETRY_BLOCKS = 12;
 const SILENCE_FLOOR = 1e-12;
 const CALL_RETARGET_FADE_OUT_SECONDS = 0.018;
 const CALL_RETARGET_FADE_IN_SECONDS = 0.03;
+const SURFACE_VALVE_OPEN_THRESHOLD = 0.01;
 const SURFACE_VALVE_SMOOTH_SECONDS = 0.02;
+const SURFACE_BREATH_FLOW_SMOOTH_SECONDS = 0.004;
+const SURFACE_BREATH_RELEASE_SECONDS = 0.03;
+const SURFACE_BREATH_PRESSURE_FLOOR = 1e-5;
+const SURFACE_BREATH_VOLUME_FLOOR = 1e-6;
+const SURFACE_BREATH_MONITOR_GAIN = 1.5;
+const SURFACE_BREATH_RECEIVER_GAINS = Object.freeze({
+  "water-calm": 0.82,
+  "air-still": 1,
+  "air-windy": 0.82,
+  "water-choppy": 0.9,
+});
+const SURFACE_BREATH_PROFILES = Object.freeze({
+  dolphin: Object.freeze({
+    id: "dolphin",
+    exhaleSeconds: 0.28,
+    inhaleSeconds: 0.72,
+    inhaleRatio: 0.06,
+    lowFrequencyHz: 760,
+    lowBandwidthHz: 620,
+    highFrequencyHz: 2_300,
+    highBandwidthHz: 1_750,
+    outputGain: 0.27,
+  }),
+  orca: Object.freeze({
+    id: "orca",
+    exhaleSeconds: 0.42,
+    inhaleSeconds: 0.9,
+    inhaleRatio: 0.06,
+    lowFrequencyHz: 540,
+    lowBandwidthHz: 470,
+    highFrequencyHz: 1_800,
+    highBandwidthHz: 1_350,
+    outputGain: 0.29,
+  }),
+  sperm: Object.freeze({
+    id: "sperm",
+    exhaleSeconds: 1,
+    inhaleSeconds: 1.45,
+    inhaleRatio: 0.05,
+    lowFrequencyHz: 330,
+    lowBandwidthHz: 310,
+    highFrequencyHz: 1_100,
+    highBandwidthHz: 850,
+    outputGain: 0.32,
+  }),
+  humpback: Object.freeze({
+    id: "humpback",
+    exhaleSeconds: 1.1,
+    inhaleSeconds: 1.55,
+    inhaleRatio: 0.045,
+    lowFrequencyHz: 250,
+    lowBandwidthHz: 230,
+    highFrequencyHz: 850,
+    highBandwidthHz: 660,
+    outputGain: 0.32,
+  }),
+  blue: Object.freeze({
+    id: "blue",
+    exhaleSeconds: 1.45,
+    inhaleSeconds: 1.9,
+    inhaleRatio: 0.045,
+    lowFrequencyHz: 170,
+    lowBandwidthHz: 160,
+    highFrequencyHz: 640,
+    highBandwidthHz: 510,
+    outputGain: 0.34,
+  }),
+});
 const PROPAGATION_PROFILE_IDS = Object.freeze([
   "water-calm",
   "air-still",
@@ -29,6 +98,18 @@ const smoothCoefficient = (seconds, rate) => 1 - Math.exp(-1 / Math.max(1, secon
 
 const finiteOr = (value, fallback) => (
   Number.isFinite(value) ? value : fallback
+);
+
+const surfaceBreathProfile = (call) => (
+  call?.id === "sperm-whale-coda"
+    ? SURFACE_BREATH_PROFILES.sperm
+    : call?.id === "orca-pulsed-call"
+      ? SURFACE_BREATH_PROFILES.orca
+      : call?.id === "blue-whale-b-call"
+        ? SURFACE_BREATH_PROFILES.blue
+        : call?.family === "mysticete"
+          ? SURFACE_BREATH_PROFILES.humpback
+          : SURFACE_BREATH_PROFILES.dolphin
 );
 
 function xorshift(value) {
@@ -190,6 +271,7 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     this.lastPhase = 0;
     this.startedCurrentCall = false;
     this.seed = 0x63657461;
+    this.surfaceBreathSeed = 0x62726561;
     this.blockCounter = 0;
     // A call topology is swapped only after the old source reaches zero and at
     // the beginning of a render block. This avoids retuning live modal state
@@ -214,11 +296,26 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     this.surfaceValveAperture = 0;
     this.surfaceValveSourceGain = 1;
     this.surfaceValveCoefficient = smoothCoefficient(SURFACE_VALVE_SMOOTH_SECONDS, this.rate);
-    this.ventEnvelope = 0;
+    this.surfaceBreathFlowCoefficient = smoothCoefficient(
+      SURFACE_BREATH_FLOW_SMOOTH_SECONDS,
+      this.rate,
+    );
+    this.surfaceBreathPressure = 0;
+    this.surfaceBreathFlow = 0;
+    this.surfaceBreathTargetFlow = 0;
+    this.surfaceBreathAirVolume = 1;
+    this.surfaceBreathPhase = "sealed";
+    this.surfaceBreathFrame = 0;
+    this.surfaceBreathInitialPressure = 0;
+    this.surfaceBreathReleaseStartFlow = 0;
+    this.surfaceBreathEventId = 0;
+    this.surfaceBreathTriggerFrame = null;
+    this.surfaceBreathPathGain = SURFACE_BREATH_RECEIVER_GAINS["water-calm"];
+    this.surfaceValveCommandOpen = false;
+    this.surfaceBreathProfile = surfaceBreathProfile(this.call);
     this.ventFilterLow = new StateVariableBandpass(this.rate);
     this.ventFilterHigh = new StateVariableBandpass(this.rate);
-    this.ventFilterLow.configure(620, 480);
-    this.ventFilterHigh.configure(2_100, 1_650);
+    this._configureSurfaceBreath(this.surfaceBreathProfile);
 
     this.phaseLeft = 0;
     this.phaseRight = 0.31;
@@ -298,6 +395,96 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     this._configureFilters(this.lastPlan);
   }
 
+  _configureSurfaceBreath(profile = surfaceBreathProfile(this.call)) {
+    this.surfaceBreathProfile = profile;
+    this.ventFilterLow.configure(profile.lowFrequencyHz, profile.lowBandwidthHz);
+    this.ventFilterHigh.configure(profile.highFrequencyHz, profile.highBandwidthHz);
+  }
+
+  _surfaceBreathReceiverGain() {
+    const configuration = this.pendingConfiguration ?? this.configuration;
+    const propagation = deriveBlowholePropagation(configuration);
+    // These are perceptual monitor trims, not a conversion between airborne
+    // pascals and underwater micropascals. Comparing published close-range
+    // humpback breath and typical song source levels suggests a gap of roughly
+    // 19 dB, so the submerged scenes must not disappear into the noise floor.
+    return SURFACE_BREATH_RECEIVER_GAINS[propagation.presetId]
+      ?? SURFACE_BREATH_RECEIVER_GAINS["water-calm"];
+  }
+
+  _startSurfaceBreath(strength = 1) {
+    const intensity = clamp(finiteOr(Number(strength), 1), 0, 1.4);
+    if (intensity <= 0 || this.surfaceValveTarget <= SURFACE_VALVE_OPEN_THRESHOLD) return;
+    const continuingRelease = this.surfaceBreathPhase === "release"
+      && Math.abs(this.surfaceBreathFlow) > SURFACE_BREATH_PRESSURE_FLOOR;
+    if (!continuingRelease) {
+      this.ventFilterLow.reset();
+      this.ventFilterHigh.reset();
+      this.surfaceBreathFlow = 0;
+    }
+    this._configureSurfaceBreath();
+    const respiratoryDrive = 0.35 + clamp(this.configuration.pressure) * 0.65;
+    this.surfaceBreathInitialPressure = clamp(respiratoryDrive * intensity, 0, 1.4);
+    this.surfaceBreathPressure = this.surfaceBreathInitialPressure;
+    this.surfaceBreathTargetFlow = 0;
+    this.surfaceBreathAirVolume = 1;
+    this.surfaceBreathReleaseStartFlow = 0;
+    this.surfaceBreathFrame = 0;
+    this.surfaceBreathPhase = "exhale";
+    this.surfaceBreathPathGain = this._surfaceBreathReceiverGain();
+    this.surfaceBreathEventId += 1;
+  }
+
+  _releaseSurfaceBreath() {
+    if (this.surfaceBreathPhase === "sealed" || this.surfaceBreathPhase === "open-idle") {
+      this.surfaceBreathPressure = 0;
+      this.surfaceBreathFlow = 0;
+      this.surfaceBreathTargetFlow = 0;
+      this.surfaceBreathPhase = this.surfaceValveCommandOpen ? "open-idle" : "sealed";
+      return;
+    }
+    this.surfaceBreathReleaseStartFlow = this.surfaceBreathFlow;
+    this.surfaceBreathPressure = 0;
+    this.surfaceBreathFrame = 0;
+    this.surfaceBreathPhase = "release";
+  }
+
+  _finishSurfaceBreath() {
+    this.surfaceBreathPressure = 0;
+    this.surfaceBreathFlow = 0;
+    this.surfaceBreathTargetFlow = 0;
+    this.surfaceBreathInitialPressure = 0;
+    this.surfaceBreathReleaseStartFlow = 0;
+    this.surfaceBreathAirVolume = 1;
+    this.surfaceBreathFrame = 0;
+    this.surfaceBreathPhase = this.surfaceValveCommandOpen ? "open-idle" : "sealed";
+    this.ventFilterLow.reset();
+    this.ventFilterHigh.reset();
+  }
+
+  _surfaceBreathProgress() {
+    if (this.surfaceBreathPhase === "exhale") {
+      return clamp(1 - Math.sqrt(this.surfaceBreathAirVolume));
+    }
+    if (this.surfaceBreathPhase === "inhale") {
+      return clamp(this.surfaceBreathAirVolume);
+    }
+    if (this.surfaceBreathPhase === "release") {
+      return clamp(
+        this.surfaceBreathFrame / Math.max(1, SURFACE_BREATH_RELEASE_SECONDS * this.rate),
+      );
+    }
+    return 0;
+  }
+
+  _triggerSurfaceBreathIfOpen() {
+    const breathActive = ["exhale", "inhale", "release"].includes(this.surfaceBreathPhase);
+    if (!this.surfaceValveCommandOpen || breathActive) return false;
+    const previousEventId = this.surfaceBreathEventId;
+    this._startSurfaceBreath();
+    return this.surfaceBreathEventId !== previousEventId;
+  }
+
   _handleMessage(message = {}) {
     if (!message || typeof message !== "object") return;
     if (message.type === "configure") {
@@ -344,6 +531,9 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
       this.manualGate = false;
       const delaySeconds = clamp(Number(message.delaySeconds), 0, 2);
       this.callStartFrame = this.renderedFrames + Math.round(delaySeconds * this.rate);
+      this.surfaceBreathTriggerFrame = this.surfaceValveCommandOpen
+        ? this.callStartFrame
+        : null;
       this.lastPhase = 0;
       this.nextPulseIndex = 0;
       this.pulsePhase = 0;
@@ -383,15 +573,18 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
       } catch {
         aperture = 0;
       }
-      this.surfaceValveTarget = clamp(aperture, 0, 1);
-      return;
-    }
-    if (message.type === "vent") {
-      this.ventEnvelope = Math.max(this.ventEnvelope, clamp(Number(message.strength), 0.2, 1.4));
-      return;
-    }
-    if (message.type === "stopVent") {
-      this.ventEnvelope = 0;
+      const requestedTarget = clamp(aperture, 0, 1);
+      this.surfaceValveTarget = requestedTarget <= SURFACE_VALVE_OPEN_THRESHOLD
+        ? 0
+        : requestedTarget;
+      if (!this.surfaceValveCommandOpen && this.surfaceValveTarget > SURFACE_VALVE_OPEN_THRESHOLD) {
+        this.surfaceValveCommandOpen = true;
+        this._startSurfaceBreath();
+      } else if (this.surfaceValveCommandOpen && this.surfaceValveTarget === 0) {
+        this.surfaceValveCommandOpen = false;
+        this.surfaceBreathTriggerFrame = null;
+        this._releaseSurfaceBreath();
+      }
       return;
     }
     if (message.type === "stop") {
@@ -400,6 +593,7 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
       this.callTransitionState = this.callTransitionGain < 1 ? "fading-in" : "steady";
       this.playing = false;
       this.loop = false;
+      this.surfaceBreathTriggerFrame = null;
       this.lastPhase = 0;
       this.startedCurrentCall = false;
       return;
@@ -423,7 +617,18 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     this.surfaceValveTarget = 0;
     this.surfaceValveAperture = 0;
     this.surfaceValveSourceGain = 1;
-    this.ventEnvelope = 0;
+    this.surfaceValveCommandOpen = false;
+    this.surfaceBreathSeed = 0x62726561;
+    this.surfaceBreathPressure = 0;
+    this.surfaceBreathFlow = 0;
+    this.surfaceBreathTargetFlow = 0;
+    this.surfaceBreathInitialPressure = 0;
+    this.surfaceBreathReleaseStartFlow = 0;
+    this.surfaceBreathAirVolume = 1;
+    this.surfaceBreathFrame = 0;
+    this.surfaceBreathPhase = "sealed";
+    this.surfaceBreathEventId = 0;
+    this.surfaceBreathTriggerFrame = null;
     this.pulseEnvelope = 0;
     this.clickPulseFramesRemaining = 0;
     this.clickPulseFrameLength = 1;
@@ -541,6 +746,11 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
   _random() {
     this.seed = xorshift(this.seed);
     return (this.seed >>> 0) / 4_294_967_295 * 2 - 1;
+  }
+
+  _surfaceBreathRandom() {
+    this.surfaceBreathSeed = xorshift(this.surfaceBreathSeed);
+    return (this.surfaceBreathSeed >>> 0) / 4_294_967_295 * 2 - 1;
   }
 
   _phaseAtFrame(frame) {
@@ -1138,18 +1348,71 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     return [coupled * Math.cos((pan + 1) * Math.PI * 0.18), coupled * Math.sin((pan + 1) * Math.PI * 0.18 + 0.5)];
   }
 
-  _renderVent() {
-    const sustainedDrive = this.surfaceValveAperture * (
-      0.38 + this.smoothed.pressure * 0.38
-    );
-    const breathDrive = Math.max(this.ventEnvelope, sustainedDrive);
-    if (breathDrive < 1e-5) return 0;
-    const noise = this._random();
+  _renderSurfaceBreath() {
+    if (this.surfaceBreathPhase === "sealed" || this.surfaceBreathPhase === "open-idle") {
+      return 0;
+    }
+    const profile = this.surfaceBreathProfile;
+    const aperture = clamp(this.surfaceValveAperture);
+    const area = aperture * aperture * (3 - 2 * aperture);
+    let targetFlow = 0;
+    let highBandMix = 0.35;
+    let finishesAfterSample = false;
+
+    if (this.surfaceBreathPhase === "exhale") {
+      const volume = clamp(this.surfaceBreathAirVolume);
+      // Normalized orifice flow: Q is proportional to open area times the
+      // square root of the pressure difference. Pressure falls with the
+      // remaining air volume, so widening the valve uses the existing
+      // reservoir faster instead of restarting an arbitrary noise envelope.
+      this.surfaceBreathPressure = this.surfaceBreathInitialPressure
+        * volume;
+      targetFlow = area * Math.sqrt(this.surfaceBreathPressure);
+      const volumeStep = 2 * area * Math.sqrt(volume)
+        / Math.max(1, profile.exhaleSeconds * this.rate);
+      this.surfaceBreathAirVolume = Math.max(0, volume - volumeStep);
+      this.surfaceBreathFrame += 1;
+      if (this.surfaceBreathAirVolume <= SURFACE_BREATH_VOLUME_FLOOR) {
+        this.surfaceBreathAirVolume = 0;
+        this.surfaceBreathPhase = "inhale";
+        this.surfaceBreathFrame = 0;
+        this.surfaceBreathPressure = 0;
+      }
+    } else if (this.surfaceBreathPhase === "inhale") {
+      const volume = clamp(this.surfaceBreathAirVolume);
+      const shape = Math.pow(Math.max(0, Math.sin(Math.PI * volume)), 0.8);
+      targetFlow = -area * Math.sqrt(this.surfaceBreathInitialPressure)
+        * profile.inhaleRatio * shape;
+      highBandMix = 0.18;
+      const volumeStep = area / Math.max(1, profile.inhaleSeconds * this.rate);
+      this.surfaceBreathAirVolume = Math.min(1, volume + volumeStep);
+      this.surfaceBreathFrame += 1;
+      finishesAfterSample = this.surfaceBreathAirVolume >= 1;
+    } else if (this.surfaceBreathPhase === "release") {
+      const phaseFrames = Math.max(1, Math.round(SURFACE_BREATH_RELEASE_SECONDS * this.rate));
+      const progress = clamp(this.surfaceBreathFrame / phaseFrames);
+      targetFlow = this.surfaceBreathReleaseStartFlow * (1 - progress);
+      highBandMix = targetFlow < 0 ? 0.18 : 0.35;
+      this.surfaceBreathFrame += 1;
+      finishesAfterSample = this.surfaceBreathFrame >= phaseFrames;
+    }
+
+    this.surfaceBreathTargetFlow = Number.isFinite(targetFlow) ? targetFlow : 0;
+    this.surfaceBreathFlow += (
+      this.surfaceBreathTargetFlow - this.surfaceBreathFlow
+    ) * this.surfaceBreathFlowCoefficient;
+    const noiseDrive = SURFACE_BREATH_MONITOR_GAIN * profile.outputGain
+      * Math.pow(Math.abs(this.surfaceBreathFlow), 1.25);
+    if (noiseDrive <= SURFACE_BREATH_PRESSURE_FLOOR) {
+      if (finishesAfterSample) this._finishSurfaceBreath();
+      return 0;
+    }
+    const noise = this._surfaceBreathRandom();
     const low = this.ventFilterLow.process(noise);
     const high = this.ventFilterHigh.process(noise);
-    const output = (low * 0.94 + high * 0.35) * breathDrive;
-    this.ventEnvelope *= Math.exp(-1 / Math.max(1, 0.16 * this.rate));
-    return output * 0.28;
+    const output = (low * 0.94 + high * highBandMix) * noiseDrive;
+    if (finishesAfterSample) this._finishSurfaceBreath();
+    return Number.isFinite(output) ? output : 0;
   }
 
   process(_inputs, outputs) {
@@ -1171,32 +1434,39 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
     let squareSum = 0;
     for (let frame = 0; frame < left.length; frame += 1) {
       const absoluteFrame = this.renderedFrames + frame;
+      if (
+        this.surfaceBreathTriggerFrame !== null
+        && absoluteFrame >= this.surfaceBreathTriggerFrame
+      ) {
+        this.surfaceBreathTriggerFrame = null;
+        this._triggerSurfaceBreathIfOpen();
+      }
       const phase = this._phaseAtFrame(absoluteFrame);
       this._smoothParameters();
       this._smoothSurfaceValve();
       this._advanceCallTransition();
-      const apertureCurve = this.surfaceValveAperture
-        * this.surfaceValveAperture
-        * (3 - 2 * this.surfaceValveAperture);
-      const minimumSourceGain = this.call.id === "sperm-whale-coda" ? 0.92 : 0.16;
-      this.surfaceValveSourceGain = 1 - apertureCurve * (1 - minimumSourceGain);
+      // The external breathing valve is not the underwater sound generator.
+      // Keep the authored call path independent while the finite surface breath
+      // runs as its own air-side event.
+      this.surfaceValveSourceGain = 1;
       let sampleLeft = 0;
       let sampleRight = 0;
       if (this.smoothed.pressure > 1e-5) {
         const sample = this.call.sourceFamily === BLOWHOLE_SOURCE_FAMILIES.ODONTOCETE
           ? this._renderOdontocete(phase)
           : this._renderMysticete();
-        const sourceGain = this.callTransitionGain * this.surfaceValveSourceGain;
+        const sourceGain = this.callTransitionGain;
         sampleLeft += sample[0] * sourceGain;
         sampleRight += sample[1] * sourceGain;
       }
-      const vent = this._renderVent();
-      sampleLeft += vent * 0.93;
-      sampleRight += vent * 1.07;
 
       this._processPropagation(sampleLeft, sampleRight);
       sampleLeft = this.propagationOutputLeft;
       sampleRight = this.propagationOutputRight;
+
+      const surfaceBreath = this._renderSurfaceBreath();
+      sampleLeft += surfaceBreath * this.surfaceBreathPathGain * 0.93;
+      sampleRight += surfaceBreath * this.surfaceBreathPathGain * 1.07;
 
       this.dcLeft += (sampleLeft - this.dcLeft) * 0.00042;
       this.dcRight += (sampleRight - this.dcRight) * 0.00042;
@@ -1234,7 +1504,15 @@ class BlowholePhysicalProcessor extends AudioWorkletProcessor {
         rms: this.lastRms,
         valveAperture: this.surfaceValveAperture,
         valveSourceGain: this.surfaceValveSourceGain,
-        valveOpen: this.surfaceValveAperture > 0.001 || this.ventEnvelope > 0.001,
+        valveOpen: this.surfaceValveCommandOpen,
+        breathActive: ["exhale", "inhale", "release"].includes(this.surfaceBreathPhase),
+        breathPhase: this.surfaceBreathPhase,
+        breathProgress: this._surfaceBreathProgress(),
+        breathPressure: clamp(this.surfaceBreathPressure, 0, 1.4),
+        breathFlow: clamp(this.surfaceBreathFlow, -1.4, 1.4),
+        breathAirVolume: clamp(this.surfaceBreathAirVolume),
+        breathPathGain: clamp(this.surfaceBreathPathGain),
+        breathEventId: this.surfaceBreathEventId,
         propagationId: this.propagationMetadata.presetId,
         propagationMedium: this.propagationMetadata.medium,
         propagationCondition: this.propagationMetadata.condition,

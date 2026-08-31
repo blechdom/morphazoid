@@ -647,7 +647,7 @@ test("seeded randomization is deterministic, immutable, selector-preserving, and
   assert.ok(new Set(sequenceA).size > 12);
 });
 
-test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, and depth-limited song safely", async () => {
+test("the worklet renders silence, calls, finite surface breaths, and depth-limited song safely", async () => {
   const prior = new Map([
     ["sampleRate", { owned: Object.hasOwn(globalThis, "sampleRate"), value: globalThis.sampleRate }],
     ["AudioWorkletProcessor", { owned: Object.hasOwn(globalThis, "AudioWorkletProcessor"), value: globalThis.AudioWorkletProcessor }],
@@ -723,8 +723,19 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
       assert.equal(typeof message.manual, "boolean");
       assert.equal(typeof message.loop, "boolean");
       assert.equal(typeof message.valveOpen, "boolean");
+      assert.equal(typeof message.breathActive, "boolean");
+      assert.ok(
+        ["sealed", "exhale", "inhale", "open-idle", "release"].includes(message.breathPhase),
+        `${label}.telemetry[${index}].breathPhase must be a known phase`,
+      );
       assertInRange(message.valveAperture, [0, 1], `${label}.telemetry[${index}].valveAperture`);
-      assertInRange(message.valveSourceGain, [0.16, 1], `${label}.telemetry[${index}].valveSourceGain`);
+      assertInRange(message.valveSourceGain, [0, 1], `${label}.telemetry[${index}].valveSourceGain`);
+      assertInRange(message.breathProgress, [0, 1], `${label}.telemetry[${index}].breathProgress`);
+      assertInRange(message.breathPressure, [0, 1.4], `${label}.telemetry[${index}].breathPressure`);
+      assertInRange(message.breathFlow, [-1.4, 1.4], `${label}.telemetry[${index}].breathFlow`);
+      assertInRange(message.breathAirVolume, [0, 1], `${label}.telemetry[${index}].breathAirVolume`);
+      assertInRange(message.breathPathGain, [0, 1], `${label}.telemetry[${index}].breathPathGain`);
+      assert.ok(Number.isInteger(message.breathEventId) && message.breathEventId >= 0);
       assertInRange(message.phase, [0, 1], `${label}.telemetry[${index}].phase`);
       assertInRange(message.pressure, [0, 1], `${label}.telemetry[${index}].pressure`);
       assertInRange(message.pulseRateHz, BLOWHOLE_LIMITS.pulseRateHz, `${label}.telemetry[${index}].pulseRateHz`);
@@ -1029,16 +1040,363 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
       "nasal recycling must retain pneumatic drive instead of acting only as an audio echo",
     );
 
-    const vent = new Processor();
-    send(vent, { type: "vent", strength: 1 });
-    const whoosh = render(vent, 120);
-    assert.ok(whoosh.rms > 0.001, `surface vent must sound, received rms ${whoosh.rms}`);
+    const vent = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("bottlenose-signature-whistle", {
+          pressure: 0.8,
+          propagationId: "air-still",
+        }),
+      },
+    });
+    send(vent, { type: "surfaceValve", aperture: 1 });
+    const firstBreathEvent = vent.surfaceBreathEventId;
+    assert.equal(firstBreathEvent, 1, "a sealed-to-open edge must start exactly one breath");
+    assert.equal(vent.surfaceBreathPhase, "exhale");
+    const whoosh = render(vent, 80);
+    assert.ok(whoosh.rms > 0.001, `surface exhale must sound, received rms ${whoosh.rms}`);
     assert.ok(whoosh.peak > 0.005);
-    const ventTelemetry = assertTelemetry(vent, "vent");
+    const ventTelemetry = assertTelemetry(vent, "finite surface breath");
     assert.equal(ventTelemetry.some(({ valveOpen }) => valveOpen), true);
-    assert.equal(ventTelemetry.every(({ active }) => !active), true, "venting is breathing, not underwater calling");
-    assert.equal(ventTelemetry.every(({ valveAperture }) => valveAperture === 0), true);
+    assert.equal(ventTelemetry.some(({ breathActive }) => breathActive), true);
+    assert.equal(
+      ventTelemetry.every(({ active }) => !active),
+      true,
+      "surface breathing is not underwater calling",
+    );
     assert.equal(ventTelemetry.every(({ valveSourceGain }) => valveSourceGain === 1), true);
+    render(vent, 30);
+    const inhale = render(vent, 120);
+    assert.ok(inhale.rms > 1e-5, `the quieter inhalation must remain audible (${inhale.rms})`);
+    assert.ok(
+      inhale.rms < whoosh.rms * 0.55,
+      `inhalation must be quieter than exhalation (${inhale.rms} vs ${whoosh.rms})`,
+    );
+
+    const dolphinBreathBlocks = Math.ceil(
+      (vent.surfaceBreathProfile.exhaleSeconds + vent.surfaceBreathProfile.inhaleSeconds)
+        * SAMPLE_RATE / BLOCK_SIZE,
+    );
+    render(vent, dolphinBreathBlocks + 24);
+    assert.equal(vent.surfaceBreathPhase, "open-idle");
+    assert.equal(vent.surfaceBreathPressure, 0);
+    assert.equal(vent.surfaceBreathFlow, 0);
+    vent.messages.length = 0;
+    const exhaustedValve = render(vent, 120);
+    assert.ok(
+      exhaustedValve.peak < 1e-7,
+      `an exhausted open valve must not leave a noise floor (${exhaustedValve.peak})`,
+    );
+    const exhaustedTelemetry = assertTelemetry(vent, "exhausted open valve").at(-1);
+    assert.equal(exhaustedTelemetry.valveOpen, true);
+    assert.equal(exhaustedTelemetry.breathActive, false);
+    assert.equal(exhaustedTelemetry.breathPhase, "open-idle");
+
+    send(vent, { type: "surfaceValve", aperture: 1 });
+    assert.equal(vent.surfaceBreathEventId, firstBreathEvent, "duplicate open messages must not retrigger");
+    assert.ok(render(vent, 48).peak < 1e-7, "holding the valve open must remain silent");
+    send(vent, { type: "surfaceValve", aperture: 0 });
+    render(vent, 18);
+    assert.equal(vent.surfaceBreathPhase, "sealed");
+    send(vent, { type: "surfaceValve", aperture: 1 });
+    assert.equal(vent.surfaceBreathEventId, firstBreathEvent + 1, "close/reopen must start one new breath");
+    assert.ok(render(vent, 48).peak > 0.005);
+    send(vent, { type: "surfaceValve", aperture: 0 });
+    render(vent, 24);
+    assert.equal(vent.surfaceBreathPhase, "sealed", "closing during exhale must use a finite release");
+    render(vent, 120);
+    assert.ok(render(vent, 48).peak < 1e-7);
+
+    const triggerWhileOpen = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("bottlenose-signature-whistle", {
+          pressure: 0.8,
+          propagationId: "air-still",
+        }),
+      },
+    });
+    send(triggerWhileOpen, { type: "surfaceValve", aperture: 1 });
+    render(triggerWhileOpen, dolphinBreathBlocks + 24);
+    assert.equal(triggerWhileOpen.surfaceBreathPhase, "open-idle");
+    const exhaustedOpenEvent = triggerWhileOpen.surfaceBreathEventId;
+    assert.ok(render(triggerWhileOpen, 36).peak < 1e-7);
+
+    send(triggerWhileOpen, {
+      type: "play",
+      callId: "bottlenose-signature-whistle",
+    });
+    assert.equal(
+      triggerWhileOpen.surfaceBreathEventId,
+      exhaustedOpenEvent,
+      "the breath must wait for the call trigger's exact start frame",
+    );
+    const triggeredOpenBreath = render(triggerWhileOpen, 48);
+    assert.equal(triggerWhileOpen.surfaceBreathEventId, exhaustedOpenEvent + 1);
+    assert.equal(triggerWhileOpen.surfaceBreathPhase, "exhale");
+    assert.equal(triggerWhileOpen.surfaceValveCommandOpen, true);
+    assert.equal(triggerWhileOpen.playing, true);
+    assert.ok(triggeredOpenBreath.rms > 0.002, "Play with an open valve must release a fresh finite breath");
+
+    const activeTriggeredEvent = triggerWhileOpen.surfaceBreathEventId;
+    send(triggerWhileOpen, {
+      type: "trigger",
+      callId: "bottlenose-signature-whistle",
+    });
+    render(triggerWhileOpen, 1);
+    assert.equal(
+      triggerWhileOpen.surfaceBreathEventId,
+      activeTriggeredEvent,
+      "a trigger during active airflow must not restart the finite reservoir",
+    );
+
+    render(triggerWhileOpen, dolphinBreathBlocks + 24);
+    assert.equal(triggerWhileOpen.surfaceBreathPhase, "open-idle");
+    const delayedOpenEvent = triggerWhileOpen.surfaceBreathEventId;
+    send(triggerWhileOpen, {
+      type: "trigger",
+      callId: "bottlenose-signature-whistle",
+      delaySeconds: 0.05,
+    });
+    render(triggerWhileOpen, 18);
+    assert.equal(
+      triggerWhileOpen.surfaceBreathEventId,
+      delayedOpenEvent,
+      "a delayed call trigger must not release the breath early",
+    );
+    render(triggerWhileOpen, 2);
+    assert.equal(triggerWhileOpen.surfaceBreathEventId, delayedOpenEvent + 1);
+    assert.equal(triggerWhileOpen.surfaceBreathPhase, "exhale");
+
+    const renderValveOpening = (aperture) => {
+      const processor = new Processor({
+        processorOptions: {
+          configuration: createBlowholeState("bottlenose-signature-whistle", {
+            pressure: 0.8,
+            propagationId: "air-still",
+          }),
+        },
+      });
+      send(processor, { type: "surfaceValve", aperture });
+      return { processor, rendered: render(processor, 72) };
+    };
+    const partialValve = renderValveOpening(0.35);
+    const fullValve = renderValveOpening(1);
+    assert.ok(
+      partialValve.rendered.rms < fullValve.rendered.rms * 0.45,
+      "partial aperture must produce less turbulent flow than a fully open valve",
+    );
+    const waterValve = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("bottlenose-signature-whistle", {
+          pressure: 0.8,
+          propagationId: "water-calm",
+        }),
+      },
+    });
+    send(waterValve, { type: "surfaceValve", aperture: 1 });
+    const waterCoupledBreath = render(waterValve, 72);
+    assert.equal(waterValve.surfaceBreathPathGain, 0.82);
+    assertInRange(
+      waterCoupledBreath.rms / fullValve.rendered.rms,
+      [0.79, 0.85],
+      "calm-water breath coupling",
+    );
+
+    // Calibrate the user's actual gesture: let the default humpback call reach
+    // its body resonance, then open the valve while transport keeps running.
+    // Subtracting an identically seeded dry render isolates the audible breath
+    // after the processor's nonlinear output stage.
+    const dryDefaultCall = new Processor({
+      processorOptions: { configuration: createBlowholeState("humpback-moan") },
+    });
+    const breathingDefaultCall = new Processor({
+      processorOptions: { configuration: createBlowholeState("humpback-moan") },
+    });
+    for (const processor of [dryDefaultCall, breathingDefaultCall]) {
+      send(processor, { type: "play", callId: "humpback-moan", loop: true });
+      render(processor, 375);
+    }
+    send(breathingDefaultCall, { type: "surfaceValve", aperture: 1 });
+    const dryCallWindow = render(dryDefaultCall, 120, { capture: true });
+    const breathingCallWindow = render(breathingDefaultCall, 120, { capture: true });
+    let breathDifferenceSquareSum = 0;
+    let breathDifferencePeak = 0;
+    for (let index = 0; index < dryCallWindow.left.length; index += 1) {
+      const leftDifference = breathingCallWindow.left[index] - dryCallWindow.left[index];
+      const rightDifference = breathingCallWindow.right[index] - dryCallWindow.right[index];
+      breathDifferenceSquareSum += leftDifference ** 2 + rightDifference ** 2;
+      breathDifferencePeak = Math.max(
+        breathDifferencePeak,
+        Math.abs(leftDifference),
+        Math.abs(rightDifference),
+      );
+    }
+    const breathDifferenceRms = Math.sqrt(
+      breathDifferenceSquareSum / Math.max(1, dryCallWindow.left.length * 2),
+    );
+    const breathBelowCallDb = 20 * Math.log10(dryCallWindow.rms / breathDifferenceRms);
+    assertInRange(
+      breathBelowCallDb,
+      [18, 25],
+      "default submerged breath below an active humpback call (dB)",
+    );
+    assertInRange(breathDifferencePeak, [0.04, 0.12], "default submerged breath peak");
+
+    const thresholdValve = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("bottlenose-signature-whistle", {
+          propagationId: "air-still",
+        }),
+      },
+    });
+    send(thresholdValve, { type: "surfaceValve", aperture: 0.01 });
+    assert.equal(thresholdValve.surfaceValveTarget, 0, "the 1% slider step must canonicalize to sealed");
+    assert.equal(thresholdValve.surfaceValveCommandOpen, false);
+    assert.equal(thresholdValve.surfaceBreathEventId, 0);
+    render(thresholdValve, 16);
+    assert.equal(assertTelemetry(thresholdValve, "threshold-sealed valve").at(-1).valveOpen, false);
+    send(thresholdValve, { type: "surfaceValve", aperture: 0.0100001 });
+    assert.equal(thresholdValve.surfaceBreathEventId, 1);
+    assert.equal(thresholdValve.surfaceValveCommandOpen, true);
+    render(thresholdValve, 12);
+    send(thresholdValve, { type: "surfaceValve", aperture: 0.01 });
+    assert.equal(thresholdValve.surfaceValveTarget, 0);
+    assert.equal(thresholdValve.surfaceValveCommandOpen, false);
+    thresholdValve.messages.length = 0;
+    render(thresholdValve, 24);
+    const thresholdClosed = assertTelemetry(thresholdValve, "exact-threshold close").at(-1);
+    assert.equal(thresholdClosed.valveOpen, false);
+    assert.ok(thresholdClosed.valveAperture < 0.01);
+    send(thresholdValve, { type: "surfaceValve", aperture: 0.0100001 });
+    assert.equal(thresholdValve.surfaceBreathEventId, 2, "exact-threshold close must rearm one breath");
+
+    const slowValveDrag = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("bottlenose-signature-whistle", {
+          pressure: 0.8,
+          propagationId: "air-still",
+        }),
+      },
+    });
+    let previousAirVolume = 1;
+    let slowDragTail;
+    for (const aperture of [0.02, 0.12, 0.25, 0.45, 0.7, 1]) {
+      send(slowValveDrag, { type: "surfaceValve", aperture });
+      slowDragTail = render(slowValveDrag, 20);
+      assert.equal(slowValveDrag.surfaceBreathEventId, 1, "a live drag must remain one breath event");
+      assert.ok(
+        slowValveDrag.surfaceBreathAirVolume <= previousAirVolume + 1e-12,
+        "opening farther may increase flow but cannot replenish the exhale reservoir",
+      );
+      previousAirVolume = slowValveDrag.surfaceBreathAirVolume;
+    }
+    assert.equal(slowValveDrag.surfaceBreathPhase, "exhale");
+    assert.ok(slowValveDrag.surfaceBreathAirVolume > 0.1, "restricted early flow must conserve usable air");
+    assert.ok(slowDragTail.rms > 0.001, "the remaining pressure must sound when the drag reaches full open");
+    for (let index = 0; index < 80; index += 1) {
+      send(slowValveDrag, { type: "surfaceValve", aperture: index % 2 ? 1 : 0.5 });
+      render(slowValveDrag, 2);
+      assert.equal(slowValveDrag.surfaceBreathEventId, 1, "aperture pumping cannot mint or rewind breaths");
+    }
+    send(slowValveDrag, { type: "surfaceValve", aperture: 1 });
+    render(slowValveDrag, 900);
+    assert.equal(slowValveDrag.surfaceBreathPhase, "open-idle");
+    assert.ok(render(slowValveDrag, 36).peak < 1e-7, "a depleted reservoir must end in exact silence");
+
+    const drySource = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("bottlenose-signature-whistle", {
+          propagationId: "air-still",
+        }),
+      },
+    });
+    const breathingSource = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("bottlenose-signature-whistle", {
+          propagationId: "air-still",
+        }),
+      },
+    });
+    for (const processor of [drySource, breathingSource]) {
+      send(processor, { type: "manual", active: true });
+    }
+    send(breathingSource, { type: "surfaceValve", aperture: 1 });
+    render(drySource, 80);
+    render(breathingSource, 80);
+    assert.equal(
+      breathingSource.seed,
+      drySource.seed,
+      "surface turbulence must not perturb the internal call source's random sequence",
+    );
+    assert.notEqual(
+      breathingSource.surfaceBreathSeed,
+      drySource.surfaceBreathSeed,
+      "the finite breath must advance its own turbulence generator",
+    );
+
+    const rapidReopen = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("bottlenose-signature-whistle", {
+          pressure: 0.8,
+          propagationId: "air-still",
+        }),
+      },
+    });
+    send(rapidReopen, { type: "surfaceValve", aperture: 1 });
+    render(rapidReopen, 30);
+    const flowingBeforeClose = rapidReopen.surfaceBreathFlow;
+    const filterBandBeforeClose = rapidReopen.ventFilterLow.band;
+    assert.ok(flowingBeforeClose > 0.1);
+    send(rapidReopen, { type: "surfaceValve", aperture: 0 });
+    send(rapidReopen, { type: "surfaceValve", aperture: 1 });
+    assert.equal(rapidReopen.surfaceBreathEventId, 2);
+    assert.equal(rapidReopen.surfaceBreathFlow, flowingBeforeClose, "rapid reopen must preserve flow continuity");
+    assert.equal(rapidReopen.ventFilterLow.band, filterBandBeforeClose, "rapid reopen must preserve live filter memory");
+    assert.ok(render(rapidReopen, 8).peak > 0.005);
+
+    const receiverSnapshot = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("bottlenose-signature-whistle", {
+          propagationId: "air-still",
+        }),
+      },
+    });
+    send(receiverSnapshot, { type: "surfaceValve", aperture: 1 });
+    assert.equal(receiverSnapshot.surfaceBreathPathGain, 1);
+    send(receiverSnapshot, {
+      type: "configure",
+      configuration: { propagationId: "air-windy" },
+    });
+    render(receiverSnapshot, 12);
+    assert.equal(
+      receiverSnapshot.surfaceBreathPathGain,
+      1,
+      "receiver changes must not jump the gain of a breath already in flight",
+    );
+    send(receiverSnapshot, { type: "surfaceValve", aperture: 0 });
+    render(receiverSnapshot, 18);
+    send(receiverSnapshot, { type: "surfaceValve", aperture: 1 });
+    assert.equal(receiverSnapshot.surfaceBreathPathGain, 0.82, "wind affects the next air-side breath");
+
+    const breathProfiles = Object.fromEntries([
+      ["dolphin", "bottlenose-signature-whistle"],
+      ["orca", "orca-pulsed-call"],
+      ["sperm", "sperm-whale-coda"],
+      ["humpback", "humpback-moan"],
+      ["blue", "blue-whale-b-call"],
+    ].map(([label, callId]) => {
+      const processor = new Processor({
+        processorOptions: { configuration: createBlowholeState(callId) },
+      });
+      return [label, processor.surfaceBreathProfile];
+    }));
+    assert.deepEqual(
+      Object.fromEntries(Object.entries(breathProfiles).map(([key, profile]) => [key, profile.id])),
+      { dolphin: "dolphin", orca: "orca", sperm: "sperm", humpback: "humpback", blue: "blue" },
+    );
+    assert.ok(breathProfiles.dolphin.exhaleSeconds < breathProfiles.orca.exhaleSeconds);
+    assert.ok(breathProfiles.orca.exhaleSeconds < breathProfiles.sperm.exhaleSeconds);
+    assert.ok(breathProfiles.sperm.exhaleSeconds < breathProfiles.humpback.exhaleSeconds);
+    assert.ok(breathProfiles.humpback.exhaleSeconds < breathProfiles.blue.exhaleSeconds);
 
     const humpbackValve = new Processor({
       processorOptions: {
@@ -1049,25 +1407,26 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
     render(humpbackValve, 120);
     humpbackValve.messages.length = 0;
     send(humpbackValve, { type: "surfaceValve", aperture: 1 });
-    send(humpbackValve, { type: "vent", strength: 1 });
     assert.equal(humpbackValve.playing, true, "opening the surface valve must preserve transport");
     assert.equal(humpbackValve.loop, true);
     const openHumpback = render(humpbackValve, 120);
-    assert.ok(openHumpback.peak > 1e-5, "an open valve must attenuate rather than mute the hidden source");
+    assert.ok(openHumpback.peak > 1e-5, "the internal source must keep sounding during a surface breath");
     const humpbackValveTelemetry = assertTelemetry(humpbackValve, "open humpback valve");
     const openHumpbackTelemetry = humpbackValveTelemetry.at(-1);
     assert.equal(openHumpbackTelemetry.active, true);
     assert.equal(openHumpbackTelemetry.playing, true);
     assert.equal(openHumpbackTelemetry.valveOpen, true);
     assert.ok(openHumpbackTelemetry.valveAperture > 0.99);
-    assertInRange(openHumpbackTelemetry.valveSourceGain, [0.16, 0.2], "open humpback source gain");
-    send(humpbackValve, { type: "stopVent" });
-    assert.equal(humpbackValve.playing, true, "ending the transient whoosh must not stop transport");
+    assert.equal(openHumpbackTelemetry.valveSourceGain, 1);
+    send(humpbackValve, { type: "surfaceValve", aperture: 0 });
+    assert.equal(humpbackValve.playing, true, "closing the breathing valve must not stop transport");
     humpbackValve.messages.length = 0;
-    render(humpbackValve, 12);
-    const sustainedValve = assertTelemetry(humpbackValve, "sustained surface valve").at(-1);
-    assert.equal(sustainedValve.valveOpen, true);
-    assert.ok(sustainedValve.valveAperture > 0.99);
+    render(humpbackValve, 48);
+    const closedValve = assertTelemetry(humpbackValve, "closed surface valve").at(-1);
+    assert.equal(closedValve.valveOpen, false);
+    assert.ok(closedValve.valveAperture < 0.01);
+    assert.equal(closedValve.breathActive, false);
+    assert.equal(closedValve.active, true);
 
     const dolphinValve = new Processor({
       processorOptions: {
@@ -1078,8 +1437,7 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
     render(dolphinValve, 48);
     dolphinValve.messages.length = 0;
     send(dolphinValve, { type: "surfaceValve", aperture: 1 });
-    send(dolphinValve, { type: "vent", strength: 1 });
-    assert.equal(dolphinValve.manualGate, true, "surface-valve and vent messages must preserve the manual gate");
+    assert.equal(dolphinValve.manualGate, true, "surface-valve messages must preserve the manual gate");
     const openManualClicks = render(dolphinValve, 120);
     assert.ok(openManualClicks.peak > 1e-5);
     const dolphinValveTelemetry = assertTelemetry(dolphinValve, "open manual dolphin valve").at(-1);
@@ -1087,7 +1445,7 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
     assert.equal(dolphinValveTelemetry.manual, true);
     assert.equal(dolphinValveTelemetry.valveOpen, true);
     assert.ok(dolphinValveTelemetry.valveAperture > 0.99);
-    assertInRange(dolphinValveTelemetry.valveSourceGain, [0.16, 0.2], "open dolphin source gain");
+    assert.equal(dolphinValveTelemetry.valveSourceGain, 1);
 
     const spermSurface = new Processor({
       processorOptions: {
@@ -1096,7 +1454,6 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
     });
     send(spermSurface, { type: "play", callId: "sperm-whale-coda", loop: true });
     send(spermSurface, { type: "surfaceValve", aperture: 1 });
-    send(spermSurface, { type: "vent", strength: 1 });
     assert.equal(spermSurface.playing, true, "the isolated sperm-whale right passage can click while breathing");
     const openSpermClicks = render(spermSurface, 120);
     assert.ok(openSpermClicks.peak > 1e-5);
@@ -1105,7 +1462,24 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
     assert.equal(spermValveTelemetry.playing, true);
     assert.equal(spermValveTelemetry.valveOpen, true);
     assert.ok(spermValveTelemetry.valveAperture > 0.99);
-    assert.ok(spermValveTelemetry.valveSourceGain >= 0.9, "the isolated right click passage must retain its drive");
+    assert.equal(spermValveTelemetry.valveSourceGain, 1);
+
+    const completedSurfaceBuzz = new Processor({
+      processorOptions: {
+        configuration: createBlowholeState("dolphin-terminal-buzz", {
+          propagationId: "air-still",
+        }),
+      },
+    });
+    send(completedSurfaceBuzz, { type: "play", callId: "dolphin-terminal-buzz" });
+    send(completedSurfaceBuzz, { type: "surfaceValve", aperture: 1 });
+    render(completedSurfaceBuzz, 520);
+    assert.equal(completedSurfaceBuzz.playing, false);
+    assert.equal(completedSurfaceBuzz.surfaceBreathPhase, "open-idle");
+    assert.ok(
+      render(completedSurfaceBuzz, 120).peak < 1e-7,
+      "after both call and breath end, only a finite propagation tail may remain",
+    );
 
     humpbackValve.messages.length = 0;
     send(humpbackValve, { type: "panic" });
@@ -1115,6 +1489,10 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
     assert.equal(panickedValve.valveOpen, false);
     assert.equal(panickedValve.valveAperture, 0);
     assert.equal(panickedValve.valveSourceGain, 1);
+    assert.equal(panickedValve.breathActive, false);
+    assert.equal(panickedValve.breathPhase, "sealed");
+    assert.equal(panickedValve.breathPressure, 0);
+    assert.equal(panickedValve.breathFlow, 0);
 
     const renderHumpback = (depthM) => {
       const processor = new Processor({
@@ -1170,25 +1548,33 @@ test("the worklet renders silence, tonal calls, exact coda clicks, vent noise, a
 });
 
 test("the page, app, and styles expose the complete accessible physical-instrument contract", async () => {
-  const [html, app, css, processor, model] = await Promise.all([
+  const [html, app, css, sharedCss, processor, model] = await Promise.all([
     readFile(new URL("blowhole.html", root), "utf8"),
     readFile(new URL("blowhole-app.js", root), "utf8"),
     readFile(new URL("blowhole.css", root), "utf8"),
+    readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("src/blowhole-processor.js", root), "utf8"),
     readFile(new URL("src/blowhole.js", root), "utf8"),
   ]);
 
   assert.match(html, /<body class="blowhole-page">/);
   assert.match(html, /<h1 id="pageTitle">BLOWHOLE<\/h1>/);
+  assert.match(
+    html,
+    /<section class="blowhole-stage-card" aria-labelledby="pageTitle">[\s\S]*?<div class="blowhole-stage-wrap" id="stageWrap">[\s\S]*?<div class="blowhole-stage-heading">\s*<h1 id="pageTitle">BLOWHOLE<\/h1>/,
+  );
+  assert.doesNotMatch(html, /blowhole-intro/);
+  assert.doesNotMatch(html, /LIVE CUTAWAY|id="familyCode"|id="anatomyTitle"|id="valveState"/i);
+  assert.doesNotMatch(html, /<small>blowhole valve<\/small>/i);
   assert.doesNotMatch(html, /TWO SOUND ORGANS \/ ONE BREATHING VALVE/);
   assert.doesNotMatch(html, /The blowhole breathes\. The hidden tissue sings\./);
   assert.doesNotMatch(html, /Dolphin phonic lips live in the nose/);
-  assert.doesNotMatch(css, /\.blowhole-intro h1 span/);
-  assert.match(html, /id="valveState" data-state="sealed"/);
+  assert.doesNotMatch(css, /\.blowhole-intro|\.blowhole-stage-header|\.blowhole-valve-state/);
+  assert.match(css, /\.blowhole-stage-heading \{[\s\S]*?position:\s*absolute[\s\S]*?pointer-events:\s*none/);
+  assert.match(css, /\.blowhole-stage-heading h1 \{[\s\S]*?font-family:\s*var\(--mono\)[\s\S]*?font-size:\s*clamp\(20px, 2vw, 29px\)[\s\S]*?font-weight:\s*650[\s\S]*?letter-spacing:\s*-0\.025em/);
   assert.match(html, /sealed underwater/);
   assert.match(html, /id="blowholeFact">paired nares · sealed underwater/);
   assert.match(tagWithId(html, "select", "callSelect"), /\bname="call-preset"/i);
-  assert.match(html, /id="familyCode">MYSTICETE</);
   assert.doesNotMatch(html, /DRAG ORGANS|SCRUB MOAN|HYBRINX DESCENDANT/);
   assert.doesNotMatch(html, /blowhole-stage-readouts/);
   for (const id of ["stageInstructions", "sourceReadout", "physicalReadout", "monitorReadout", "airReadout"]) {
@@ -1231,6 +1617,10 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.match(valveAperture, /\bmax=["']1["']/i);
   assert.match(valveAperture, /\bstep=["']0\.01["']/i);
   assert.match(valveAperture, /\bvalue=["']0["']/i);
+  assert.match(html, /Opening releases one pressure-driven surface breath/i);
+  assert.match(html, /Valve area controls flow from a finite air reservoir/i);
+  assert.match(html, /Holding the valve open adds no continuous hiss/i);
+  assert.match(html, /trigger a new call while open, to breathe again/i);
   const propagationRadios = [
     ["propagationWaterCalm", "water-calm"],
     ["propagationAirStill", "air-still"],
@@ -1262,7 +1652,7 @@ test("the page, app, and styles expose the complete accessible physical-instrume
     assert.ok(tag, `${id} must be a semantic button`);
     assert.match(tag, /\btype="button"/i);
   }
-  for (const id of ["audioButton", "playButton", "loopButton", "holdPad"]) {
+  for (const id of ["audioButton", "playButton", "loopButton", "holdPad", "ventButton"]) {
     assert.match(tagWithId(html, "button", id), /\baria-pressed=/i);
   }
   for (const id of ["odontoceteTab", "mysticeteTab"]) {
@@ -1289,8 +1679,9 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.doesNotMatch(app, /if \(startingAudio\) return false/);
   assert.match(app, /numberOfInputs:\s*0/);
   assert.match(app, /outputChannelCount:\s*\[2\]/);
-  assert.match(app, /type:\s*"vent", strength:/);
-  assert.match(app, /type:\s*"stopVent"/);
+  assert.doesNotMatch(app, /legacyAttack/);
+  assert.doesNotMatch(app, /type:\s*"vent"/);
+  assert.doesNotMatch(app, /type:\s*"stopVent"/);
   assert.match(app, /type:\s*"surfaceValve", aperture: valveAperture/);
   assert.match(app, /input\[name="propagationPreset"\]/);
   assert.match(app, /deriveBlowholePropagation\(state\)/);
@@ -1299,6 +1690,9 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.match(app, /surfaceValveOpen \? "left airway \/ surface-open \/ right source separate"/);
   assert.match(app, /surfaceValveOpen \? "paired blowholes \/ surface-open \/ source laryngeal"/);
   assert.match(app, /hidden sound organ remains separate/);
+  assert.match(app, /open · trigger call to breathe again/);
+  assert.match(app, /const aperture = valveAperture/);
+  assert.doesNotMatch(app, /\$\("(?:familyCode|anatomyTitle|valveState)"\)/);
 
   assert.match(
     app,
@@ -1310,6 +1704,14 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.match(app, /\$\("callPath"\)\?\.addEventListener\("input",[\s\S]*?setCallPathIndex\(event\.target\.value\)/);
   assert.match(app, /function drawCallGesturePath\(context\)/);
   assert.match(app, /kind:\s*"callPath"/);
+  assert.match(app, /const DESIGN_HEIGHT = 590/);
+  assert.match(app, /const CALL_PATH_Y = 534/);
+  assert.match(app, /const STAGE_ANIMAL_OFFSET_Y = -48/);
+  assert.match(app, /y:\s*y \+ STAGE_ANIMAL_OFFSET_Y/);
+  assert.match(app, /const interactionTop = top \+ STAGE_ANIMAL_OFFSET_Y/);
+  assert.match(app, /top:\s*CALL_PATH_Y - 35,\s*bottom:\s*CALL_PATH_Y \+ 35/);
+  assert.match(app, /if \(scale >= 0\.48\) \{\s*context\.fillText\("OPEN"/);
+  assert.match(app, /stageDrawing\.translate\(0, STAGE_ANIMAL_OFFSET_Y\)[\s\S]*?drawBaleenWhale[\s\S]*?stageDrawing\.restore\(\);\s*drawCallGesturePath\(stageDrawing\)/);
   assert.match(app, /function drawValveApertureHandle\(context,/);
   assert.match(app, /kind:\s*"valveAperture"/);
   assert.match(app, /drawCallGesturePath\(stageDrawing\)/);
@@ -1345,6 +1747,15 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.match(css, /\[data-propagation="air-windy"\]/);
   assert.match(css, /\[data-propagation="water-choppy"\]/);
   assert.match(css, /touch-action:\s*none/);
+  assert.match(css, /aspect-ratio:\s*1000 \/ 590/);
+  assert.match(css, /\.blowhole-page \{[\s\S]*?--accent:\s*var\(--sound\)[\s\S]*?background:\s*var\(--bg\)/);
+  assert.match(css, /\.blowhole-stage-wrap \{[\s\S]*?radial-gradient[\s\S]*?linear-gradient/);
+  assert.doesNotMatch(css, /\.blowhole-stage-wrap::after/);
+  assert.match(css, /\.blowhole-console \{[\s\S]*?border-left:\s*1px solid var\(--line\)[\s\S]*?background:\s*var\(--panel\)/);
+  assert.match(css, /\.blowhole-timeline-card \{[\s\S]*?background:\s*var\(--panel\)/);
+  assert.doesNotMatch(css, /\.blowhole-page input\[type=["']range["']\]/);
+  assert.match(sharedCss, /input\[type=["']range["']\]::\-webkit-slider-thumb \{[\s\S]*?width:\s*16px[\s\S]*?border-radius:\s*50%[\s\S]*?background:\s*var\(--bg-deep\)/);
+  assert.match(sharedCss, /input\[type=["']range["']\]::\-moz-range-thumb \{[\s\S]*?border-radius:\s*50%[\s\S]*?background:\s*var\(--bg-deep\)/);
   assert.match(css, /@media \(max-width: 900px\)/);
   assert.match(css, /@media \(max-width: 600px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
@@ -1357,6 +1768,21 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.match(processor, /class AcousticDelayLine/);
   assert.match(processor, /class FractionalPropagationDelay/);
   assert.match(processor, /class OnePoleLowpass/);
+  assert.match(processor, /const SURFACE_BREATH_PROFILES = Object\.freeze/);
+  assert.match(processor, /_startSurfaceBreath\(strength = 1\)/);
+  assert.match(processor, /_triggerSurfaceBreathIfOpen\(\)/);
+  assert.match(processor, /this\.surfaceBreathTriggerFrame = this\.surfaceValveCommandOpen/);
+  assert.match(processor, /_renderSurfaceBreath\(\)/);
+  assert.match(processor, /this\.surfaceBreathPhase = this\.surfaceValveCommandOpen \? "open-idle" : "sealed"/);
+  assert.doesNotMatch(processor, /sustainedDrive/);
+  assert.doesNotMatch(processor, /message\.type === "(?:vent|stopVent)"/);
+  assert.doesNotMatch(processor, /_reinforceSurfaceBreath/);
+  assert.match(processor, /surfaceBreathAirVolume/);
+  assert.match(processor, /_surfaceBreathRandom\(\)/);
+  assert.match(processor, /this\.surfaceBreathPathGain/);
+  assert.match(processor, /breathActive:/);
+  assert.match(processor, /breathFlow:/);
+  assert.match(processor, /breathAirVolume:/);
   assert.match(processor, /pulseWidthMicroseconds \* this\.rate \/ 1_000_000/);
   assert.match(processor, /pneumaticReservoir/);
   assert.match(processor, /headReflectionDelaySeconds/);
