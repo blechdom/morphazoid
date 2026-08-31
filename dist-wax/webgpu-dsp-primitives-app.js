@@ -3,7 +3,11 @@ import {
   WEBGPU_DSP_PRIMITIVES,
   WEBGPU_DSP_STATUSES,
   webGpuDspPrimitiveById,
-} from "./src/webgpu-dsp-primitives.js";
+} from "./src/webgpu-dsp-primitives.js?v=20260831-coverage145-final";
+import {
+  shaderSynthPrimitiveCoverageById,
+  shaderSynthPrimitivePlaygroundHref,
+} from "./src/shader-synth-playground-primitive-coverage.js?v=20260831-coverage145-final";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -44,6 +48,7 @@ function normalized(value) {
 
 function primitiveSearchText(primitive) {
   const category = categoryById.get(primitive.category);
+  const coverage = shaderSynthPrimitiveCoverageById(primitive.id);
   return normalized([
     primitive.name,
     primitive.symbol,
@@ -56,6 +61,11 @@ function primitiveSearchText(primitive) {
     primitive.source?.url,
     category?.label,
     WEBGPU_DSP_STATUSES[primitive.status]?.label,
+    coverage?.kind,
+    coverage?.moduleId,
+    coverage?.featureId,
+    coverage?.label,
+    coverage?.mode,
     ...primitive.tags,
   ].join(" "));
 }
@@ -74,12 +84,22 @@ function filteredPrimitives() {
 
 function primitiveRow(primitive, category) {
   const status = WEBGPU_DSP_STATUSES[primitive.status];
+  const coverage = shaderSynthPrimitiveCoverageById(primitive.id);
   const symbol = primitive.symbol
     ? `<code class="primitive-symbol">${escapeHtml(primitive.symbol)}()</code>`
     : "";
   const source = primitive.source?.url
     ? `<a class="primitive-source" href="${escapeHtml(primitive.source.url)}" target="_blank" rel="noreferrer">${escapeHtml(primitive.source.label ?? "Primary source")}</a>`
     : "";
+  const coverageMode = coverage?.mode
+    ? `<small>${escapeHtml(coverage.mode)}</small>`
+    : "";
+  const coverageHref = shaderSynthPrimitivePlaygroundHref(primitive.id);
+  const coverageMarkup = coverage?.kind === "playable" && coverageHref
+    ? `<a class="primitive-coverage" data-coverage-kind="playable" href="${escapeHtml(coverageHref)}"><b>Playable as ${escapeHtml(coverage.label)}</b>${coverageMode}</a>`
+    : coverage
+      ? `<span class="primitive-coverage" data-coverage-kind="${escapeHtml(coverage.kind)}"><b>${coverage.kind === "infrastructure" ? "Runtime infrastructure" : "Workflow"}</b><small>${escapeHtml(coverage.label)}</small></span>`
+      : "";
   return `
     <tr class="primitive-row" id="primitive-${escapeHtml(primitive.id)}" data-primitive-id="${escapeHtml(primitive.id)}" style="--category-color: ${category.color}">
       <td class="primitive-name-cell" data-label="Primitive">
@@ -89,6 +109,7 @@ function primitiveRow(primitive, category) {
           <span class="primitive-status" data-status="${primitive.status}" title="${escapeHtml(status.description)}">${escapeHtml(status.short)}</span>
           <span class="primitive-category">${escapeHtml(category.short)}</span>
         </span>
+        ${coverageMarkup}
       </td>
       <td class="primitive-syntax-cell" data-label="Shader syntax">
         <button class="syntax-copy" type="button" data-copy-syntax="${escapeHtml(primitive.id)}" aria-label="Copy shader syntax for ${escapeHtml(primitive.name)}">

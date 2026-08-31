@@ -12,7 +12,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260831-visual-state" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260831-modules125" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -242,6 +242,11 @@
             <span id="selectedNodeKind">SOURCE</span>
             <h3 id="selectedNodeTitle">Oscillator</h3>
             <p id="selectedNodeRole">Produces a repeating audio-rate waveform.</p>
+            <label class="stateful-node-toggle" id="statefulNodeToggle" hidden>
+              <input id="statefulNodeEnabled" type="checkbox" checked />
+              <span>GPU state</span>
+              <strong id="statefulNodeState">On</strong>
+            </label>
           </section>
 
           <section class="inspector-section module-io" aria-labelledby="moduleIoTitle">
@@ -258,6 +263,21 @@
               <span>drag while playing</span>
             </div>
             <div class="node-controls" id="nodeControls"></div>
+          </section>
+
+          <section class="inspector-section node-asset-section" id="nodeAssetSection" aria-labelledby="nodeAssetTitle" hidden>
+            <div class="inspector-section-title">
+              <h4 id="nodeAssetTitle">Audio data</h4>
+              <span>GPU storage</span>
+            </div>
+            <div class="node-asset-actions">
+              <label class="node-asset-file">
+                <input id="nodeAssetFile" type="file" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3,.m4a,.ogg" />
+                <span id="nodeAssetFileLabel">Choose audio</span>
+              </label>
+              <button id="nodeAssetClear" type="button" hidden>Use built-in</button>
+            </div>
+            <p id="nodeAssetStatus" role="status">Built-in audio data.</p>
           </section>
 
           <section class="inspector-section organ-rank-section" id="organRankSection" aria-labelledby="organRankTitle" hidden>
@@ -301,7 +321,7 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260831-visual-state"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260831-modules125"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

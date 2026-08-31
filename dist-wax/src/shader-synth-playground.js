@@ -40,7 +40,8 @@ import {
   SHADER_SYNTH_PLAYGROUND_STATEFUL_MODULES,
   SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER,
   ShaderSynthPlaygroundStateEngine,
-} from "./shader-synth-playground-stateful.js";
+} from "./shader-synth-playground-stateful.js?v=20260831-modules125";
+import { isShaderSynthPlaygroundStateAssetKind } from "./shader-synth-playground-state-engine.js?v=20260831-modules125";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -644,6 +645,19 @@ export const SHADER_PLAYGROUND_MODULES = freeze([
 
 const MODULE_BY_ID = new Map(SHADER_PLAYGROUND_MODULES.map((entry) => [entry.id, entry]));
 export const SHADER_PLAYGROUND_SCENES = createShaderPlaygroundScenes(SHADER_PLAYGROUND_MODULES);
+
+function shaderPlaygroundNodeAssetOwner(patch, nodeId) {
+  const id = String(nodeId ?? "");
+  const graphNode = patch?.nodes?.find((candidate) => String(candidate.id) === id);
+  const module = MODULE_BY_ID.get(String(graphNode?.type ?? ""));
+  if (!id || !module || !isShaderSynthPlaygroundStateAssetKind(module.kind)) return null;
+  return {
+    nodeId: id,
+    moduleId: module.id,
+    kind: module.kind,
+    key: JSON.stringify([id, module.kind, module.id]),
+  };
+}
 
 function node(id, type, x, y, params = {}) {
   const spec = MODULE_BY_ID.get(type);
@@ -1571,13 +1585,18 @@ function sanitizeNode(candidate, index) {
     const value = clamp(finiteOr(candidate?.params?.[descriptor.id], descriptor.default), descriptor.min, descriptor.max);
     params[descriptor.id] = descriptor.step >= 1 ? Math.round(value) : value;
   }
-  return {
+  const node = {
     id: String(candidate?.id ?? `${spec.id}-${index + 1}`).replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 64) || `${spec.id}-${index + 1}`,
     type: spec.id,
     x: clamp(finiteOr(candidate?.x, 30 + index * 28), 0, 4096),
     y: clamp(finiteOr(candidate?.y, 40 + index * 24), 0, 4096),
     params,
   };
+  // Stateful nodes retain a real graph-level bypass flag. Keeping this
+  // outside p0/p1 avoids spending one of the eight audible parameter slots.
+  // Missing flags remain enabled so every existing patch keeps its behavior.
+  if (spec.stateful) node.enabled = candidate?.enabled !== false;
+  return node;
 }
 
 export function sanitizeShaderPlaygroundPatch(candidate = {}) {
@@ -1887,7 +1906,11 @@ export function encodeShaderPlaygroundPatch(candidate, previousParams = new Map(
   for (const [index, graphNode] of orderedNodes.entries()) {
     const spec = MODULE_BY_ID.get(graphNode.type);
     const offset = index * FLOATS_PER_NODE;
-    data[offset] = spec.kind;
+    // A negative kind preserves the module identity and all cable slots while
+    // marking this stateful node inactive. The graph shader passes input A
+    // through without evaluating the kind, and the state engine intentionally
+    // ignores negative kinds so its private allocation is released.
+    data[offset] = spec.stateful && graphNode.enabled === false ? -spec.kind : spec.kind;
     for (const [inputIndex, inputPort] of spec.inputs.slice(0, 3).entries()) {
       const connection = patch.connections.find((entry) => entry.to.node === graphNode.id && entry.to.port === inputPort.id);
       if (!connection) {
@@ -2573,35 +2596,44 @@ fn render(@builtin(global_invocation_id) global_id: vec3<u32>) {
   for (var nodeIndex = 0u; nodeIndex < MAX_GRAPH_NODES; nodeIndex += 1u) {
     if (nodeIndex >= render_info.nodeCount) { break; }
     let graphNode = graph_nodes[nodeIndex];
-    let kind = u32(round(graphNode.header.x));
+    let bypassed = graphNode.header.x < 0.0;
+    let kind = u32(round(abs(graphNode.header.x)));
     var stateValue = vec2<f32>(0.0);
     if (render_info.stateActive != 0u) {
       stateValue = state_output[nodeIndex * render_info.sampleCount + sample];
     }
-    let previousResult = evaluateNode(
-      kind,
-      readInput(&previousValues, graphNode.header.y),
-      readInput(&previousValues, graphNode.header.z),
-      readInput(&previousValues, graphNode.header.w),
-      graphNode.previous0,
-      graphNode.previous1,
-      sampleIndex,
-      previousOrganRankOffset,
-      stateValue
-    );
-    var targetResult = previousResult;
-    if (transitionActive) {
-      targetResult = evaluateNode(
+    let previousInputA = readInput(&previousValues, graphNode.header.y);
+    var previousResult = previousInputA;
+    if (!bypassed) {
+      previousResult = evaluateNode(
         kind,
-        readInput(&targetValues, graphNode.header.y),
-        readInput(&targetValues, graphNode.header.z),
-        readInput(&targetValues, graphNode.header.w),
-        graphNode.target0,
-        graphNode.target1,
+        previousInputA,
+        readInput(&previousValues, graphNode.header.z),
+        readInput(&previousValues, graphNode.header.w),
+        graphNode.previous0,
+        graphNode.previous1,
         sampleIndex,
-        9u,
+        previousOrganRankOffset,
         stateValue
       );
+    }
+    var targetResult = previousResult;
+    if (transitionActive) {
+      let targetInputA = readInput(&targetValues, graphNode.header.y);
+      targetResult = targetInputA;
+      if (!bypassed) {
+        targetResult = evaluateNode(
+          kind,
+          targetInputA,
+          readInput(&targetValues, graphNode.header.z),
+          readInput(&targetValues, graphNode.header.w),
+          graphNode.target0,
+          graphNode.target1,
+          sampleIndex,
+          9u,
+          stateValue
+        );
+      }
     }
     previousValues[nodeIndex] = previousResult;
     targetValues[nodeIndex] = targetResult;
@@ -2683,6 +2715,7 @@ export class ShaderSynthPlaygroundAudio {
     this.fxPipeline = null;
     this.statefulPipeline = null;
     this.statefulEngine = null;
+    this.pendingNodeAssets = new Map();
     this.stateGraphFallbackBuffer = null;
     this.stateOutputFallbackBuffer = null;
     this.fxBindGroups = [];
@@ -2876,6 +2909,9 @@ export class ShaderSynthPlaygroundAudio {
       renderInfoBuffer: this.renderInfoBuffer,
       nodeBuffer: this.nodeBuffer,
     }).setPipeline(this.statefulPipeline);
+    for (const asset of this.pendingNodeAssets.values()) {
+      this.statefulEngine.setNodeAsset(asset.nodeId, asset.kind, asset.left, asset.right);
+    }
     this.rebuildGraphBindGroup();
     this.rebuildFxBindGroups();
   }
@@ -3004,6 +3040,12 @@ export class ShaderSynthPlaygroundAudio {
     const audioChanged = !encodedAudioMatches(this.encodedPatch, encoded);
     const topologyChanged = !encodedTopologyMatches(this.encodedPatch, encoded);
     this.patch = encoded.patch;
+    for (const [key, asset] of this.pendingNodeAssets) {
+      const owner = shaderPlaygroundNodeAssetOwner(this.patch, asset.nodeId);
+      if (owner?.kind === asset.kind && owner.moduleId === asset.moduleId) continue;
+      this.pendingNodeAssets.delete(key);
+      this.statefulEngine?.clearNodeAsset(asset.nodeId, asset.kind);
+    }
     if (!audioChanged && this.encodedPatch) {
       this.encodedPatch = { ...this.encodedPatch, patch: encoded.patch };
       return this.patch;
@@ -3042,6 +3084,40 @@ export class ShaderSynthPlaygroundAudio {
     // queue replacement for an actual node/routing change.
     if (this.running && topologyChanged) this.refreshSchedule();
     return this.patch;
+  }
+
+  setNodeAsset(nodeId, left, right = left) {
+    const id = String(nodeId ?? "");
+    const owner = shaderPlaygroundNodeAssetOwner(this.patch, id);
+    const leftChannel = left instanceof Float32Array ? left : Float32Array.from(left ?? []);
+    const rightChannel = right instanceof Float32Array ? right : Float32Array.from(right ?? leftChannel);
+    const frameCount = Math.min(leftChannel.length, rightChannel.length || leftChannel.length);
+    if (!owner || frameCount <= 0) return false;
+    for (const [key, pending] of this.pendingNodeAssets) {
+      if (pending.nodeId !== id || key === owner.key) continue;
+      this.pendingNodeAssets.delete(key);
+      this.statefulEngine?.clearNodeAsset(id, pending.kind);
+    }
+    const asset = {
+      nodeId: owner.nodeId,
+      moduleId: owner.moduleId,
+      kind: owner.kind,
+      left: leftChannel.slice(0, frameCount),
+      right: rightChannel.length ? rightChannel.slice(0, frameCount) : leftChannel.slice(0, frameCount),
+    };
+    this.pendingNodeAssets.set(owner.key, asset);
+    return this.statefulEngine?.setNodeAsset(id, owner.kind, asset.left, asset.right) ?? true;
+  }
+
+  clearNodeAsset(nodeId) {
+    const id = String(nodeId ?? "");
+    let existed = false;
+    for (const [key, asset] of this.pendingNodeAssets) {
+      if (asset.nodeId !== id) continue;
+      this.pendingNodeAssets.delete(key);
+      existed = true;
+    }
+    return (this.statefulEngine?.clearNodeAsset(id) ?? false) || existed;
   }
 
   commitRamp(revision, renderedParams = this.encodedPatch?.paramsByNode, rampActive = this.pendingRamp) {
@@ -3083,6 +3159,12 @@ export class ShaderSynthPlaygroundAudio {
     this.performancePitch = next;
     if (refresh && changed) this.refreshSchedule();
     return this.performancePitch;
+  }
+
+  triggerPerformanceNote() {
+    const restarted = this.statefulEngine?.triggerPerformanceNote?.() ?? 0;
+    if (restarted > 0) this.refreshSchedule();
+    return restarted;
   }
 
   refreshSchedule() {

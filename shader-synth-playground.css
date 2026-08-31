@@ -2353,7 +2353,7 @@
   color: var(--ink);
   background: color-mix(in oklab, var(--node-color, var(--accent)) 7%, var(--bg-deep));
   cursor: pointer;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 650;
   text-align: center;
 }
@@ -2383,7 +2383,7 @@
   color: var(--muted);
   background: var(--bg-deep);
   cursor: pointer;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 650;
 }
 
@@ -2398,7 +2398,7 @@
   margin: 8px 0 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }

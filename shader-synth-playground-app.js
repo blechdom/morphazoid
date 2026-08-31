@@ -13,7 +13,7 @@ import {
   sanitizeShaderPlaygroundPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "./src/shader-synth-playground.js?v=20260831-state-bypass";
+} from "./src/shader-synth-playground.js?v=20260831-modules125";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -23,7 +23,7 @@ import {
   formatShaderSynthPlaygroundAudioAsset,
   prepareShaderSynthPlaygroundAudioAsset,
   shaderSynthPlaygroundAudioAssetSpec,
-} from "./src/shader-synth-playground-audio-assets.js";
+} from "./src/shader-synth-playground-audio-assets.js?v=20260831-modules125";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -550,7 +550,7 @@ function syncMidiReadout(voice = performanceMidiVoice()) {
     return;
   }
   readout.textContent = midiNoteName(voice.note);
-  readout.title = `${voice.onscreen ? "On-screen note" : voice.virtual ? "Computer key" : "MIDI input"} · pitch only · last-note priority`;
+  readout.title = `${voice.onscreen ? "On-screen note" : voice.virtual ? "Computer key" : "MIDI input"} · pitch overlay · restarts One-shot samplers · last-note priority`;
   syncPerformanceNoteButtons(voice);
 }
 
@@ -559,8 +559,9 @@ function applyMidiPerformance({ refresh = true } = {}) {
   if (heldVoice) state.midi.latchedVoice = { ...heldVoice, released: false };
   const voice = heldVoice ?? state.midi.latchedVoice;
   const performancePitch = midiVoicePitch(voice);
-  // MIDI note input is a pitch-only performance overlay. It never owns the
-  // transport or output gain, and the final released note remains selected.
+  // MIDI note input is a pitch overlay. One-shot samplers are restarted by the
+  // note-on handlers, but notes never own transport or output gain, and the
+  // final released note remains selected.
   // Request a fresh GPU generation for responsive pitch. The audio engine
   // keeps the existing queue audible until that buffer is ready, then
   // crossfades the two generations without touching transport or master gain.
@@ -605,6 +606,7 @@ function handleMidiNoteOn(message) {
   // Re-inserting an already-held note makes it the unambiguous last-note voice.
   state.midi.notes.delete(key);
   state.midi.notes.set(key, voice);
+  state.engine?.triggerPerformanceNote?.();
   applyMidiPerformance();
   announce(`${midiNoteName(voice.note)} selected. Playback stays where it is.`);
 }
@@ -670,9 +672,10 @@ async function auditionPerformanceNote(note) {
   };
   state.midi.notes.set(voice.key, voice);
   state.midi.latchedVoice = { ...voice };
+  state.engine?.triggerPerformanceNote?.();
   applyMidiPerformance();
   const started = await startAudio({ play: true });
-  if (started) announce(`${midiNoteName(selectedNote)} selected and the patch is running. Other notes retune it without gating.`);
+  if (started) announce(`${midiNoteName(selectedNote)} selected and the patch is running. Other notes retune it; One-shot samplers restart.`);
 }
 
 async function auditionRandomPerformanceNote() {

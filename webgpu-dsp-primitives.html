@@ -11,7 +11,7 @@
     <title>Shader Synth Primitives — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="webgpu-dsp-primitives.css?v=20260829-geometry" />
+    <link rel="stylesheet" href="webgpu-dsp-primitives.css?v=20260831-coverage145-final" />
   </head>
   <body class="webgpu-dsp-primitives-page">
     <header class="masthead dsp-atlas-header">
@@ -76,17 +76,17 @@
             <legend>Availability</legend>
             <div class="atlas-filter-scroll" role="group" aria-label="Filter by implementation status">
               <button class="atlas-filter is-active" type="button" data-status-filter="all" aria-pressed="true">Every scope</button>
-              <button class="atlas-filter status-live" type="button" data-status-filter="live" aria-pressed="false">Current synth</button>
-              <button class="atlas-filter status-direct" type="button" data-status-filter="direct" aria-pressed="false">Single-sample</button>
+              <button class="atlas-filter status-live" type="button" data-status-filter="live" aria-pressed="false">Current path</button>
+              <button class="atlas-filter status-direct" type="button" data-status-filter="direct" aria-pressed="false">Per sample</button>
               <button class="atlas-filter status-block" type="button" data-status-filter="block" aria-pressed="false">State / passes</button>
             </div>
           </fieldset>
         </div>
 
         <ul class="atlas-scope-legend" aria-label="GPU execution labels">
-          <li data-status="live"><b>Current synth</b><span>The function is already present in the instrument's WGSL.</span></li>
-          <li data-status="direct"><b>Single-sample</b><span>Each sample is independent, so the pattern fits a sample-parallel pass.</span></li>
-          <li data-status="block"><b>State / passes</b><span>The algorithm depends on history, synchronization, reduction, or another pass.</span></li>
+          <li data-status="live"><b>Current path</b><span>Part of a shader path used by one of the GPU instruments.</span></li>
+          <li data-status="direct"><b>Per sample</b><span>Each output sample can be evaluated independently in the graph compute pass.</span></li>
+          <li data-status="block"><b>State / passes</b><span>Uses earlier samples, synchronization, persistent storage, or another ordered GPU pass.</span></li>
         </ul>
 
         <div class="primitive-table-wrap">
@@ -300,6 +300,6 @@
       </footer>
     </main>
 
-    <script type="module" src="webgpu-dsp-primitives-app.js?v=20260831-stateful145"></script>
+    <script type="module" src="webgpu-dsp-primitives-app.js?v=20260831-coverage145-final"></script>
   </body>
 </html>

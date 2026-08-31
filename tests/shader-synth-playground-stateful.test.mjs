@@ -104,6 +104,21 @@ function geometricFeedbackPatch(enabled = true) {
   return sanitizeShaderPlaygroundPatch(patch);
 }
 
+function residentAssetPatch(type) {
+  return sanitizeShaderPlaygroundPatch({
+    name: `${type} asset ownership`,
+    nodes: [
+      { id: "focus", type },
+      { id: "out", type: "output" },
+    ],
+    connections: [{
+      id: "focus-out",
+      from: { node: "focus", port: "out" },
+      to: { node: "out", port: "signal" },
+    }],
+  });
+}
+
 test("stateful barrel combines six visual and fifteen advanced modules without kind overlap", () => {
   assert.ok(Array.isArray(STATEFUL_MODULES), "the dedicated state module must export its module registry");
   assert.deepEqual(VISUAL_STATEFUL_MODULES.map(({ id }) => id), EXPECTED_STATEFUL_IDS);
@@ -310,8 +325,9 @@ test("advanced state kinds dispatch dedicated renderers with aligned reset and a
 
   const entry = wgslFunction("renderStateNode");
   const laneZeroGuard = entry.indexOf("if (lane != 0u)");
-  assert.ok(entry.indexOf("case 117u:") < laneZeroGuard, "wavefield evolution needs the full 64-lane workgroup");
-  for (const kind of EXPECTED_ADVANCED_KINDS.filter((kind) => kind !== 117)) {
+  assert.ok(entry.indexOf("case 117u:") < laneZeroGuard, "wavefield block updates need the full 64-lane workgroup");
+  assert.ok(entry.indexOf("case 120u:") < laneZeroGuard, "convolution sample blocks need the full 64-lane workgroup");
+  for (const kind of EXPECTED_ADVANCED_KINDS.filter((kind) => kind !== 117 && kind !== 120)) {
     assert.ok(entry.indexOf(`case ${kind}u:`) > laneZeroGuard, `advanced kind ${kind} must stay lane-zero ordered`);
   }
 });
@@ -586,6 +602,131 @@ test("state engine releases and recreates resources across active, bypassed, and
   assert.notEqual(engine.orderedResources[0], firstResource, "re-enabling must create fresh private state");
   assert.equal(buffers.length, firstBuffers.length * 2);
   assert.equal(buffers.slice(firstBuffers.length).every(({ destroyCount }) => destroyCount === 0), true);
+});
+
+test("uploaded audio is owned by node id and module kind across same-id replacements", () => {
+  const buffers = [];
+  const writes = [];
+  const device = {
+    queue: {
+      writeBuffer(buffer, offset, data) {
+        writes.push({ buffer, offset, byteLength: data.byteLength });
+      },
+    },
+    createBuffer(descriptor) {
+      const buffer = {
+        descriptor,
+        destroyCount: 0,
+        destroy() { this.destroyCount += 1; },
+      };
+      buffers.push(buffer);
+      return buffer;
+    },
+    createBindGroup(descriptor) { return { descriptor }; },
+  };
+  const stateEngine = new StatefulEngine(device, {
+    usage: { STORAGE: 1, COPY_DST: 2, UNIFORM: 4 },
+    sampleRate: 48000,
+    chunkSamples: 128,
+    maxNodes: SHADER_PLAYGROUND_LIMITS.maxNodes,
+    renderInfoBuffer: {},
+    nodeBuffer: {},
+  }).setPipeline({ getBindGroupLayout() { return {}; } });
+
+  stateEngine.sync(encodedStateNodes([112]));
+  const wavetableResource = stateEngine.orderedResources[0];
+  assert.equal(
+    stateEngine.setNodeAsset("state-0", 112, new Float32Array([0, 0.5, -0.5, 0])),
+    true,
+  );
+  assert.deepEqual(
+    [...stateEngine.nodeAssets.values()].map(({ nodeId, kind }) => ({ nodeId, kind })),
+    [{ nodeId: "state-0", kind: 112 }],
+  );
+  assert.ok(
+    writes.some(({ buffer, offset }) => buffer === wavetableResource.persistentBuffer && offset === 16),
+    "the matching wavetable asset must upload into its own private buffer",
+  );
+
+  const replacementWriteStart = writes.length;
+  stateEngine.sync(encodedStateNodes([113]));
+  const samplerResource = stateEngine.orderedResources[0];
+  assert.equal(wavetableResource.persistentBuffer.destroyCount, 1, "kind replacement must destroy old GPU state");
+  assert.equal(wavetableResource.infoBuffer.destroyCount, 1);
+  assert.equal(stateEngine.nodeAssets.size, 0, "a same-id asset from the old kind must be discarded");
+  assert.equal(
+    writes.slice(replacementWriteStart).some(({ buffer, offset }) => (
+      buffer === samplerResource.persistentBuffer && offset === 16
+    )),
+    false,
+    "old wavetable samples must never upload into the replacement sampler buffer",
+  );
+  assert.equal(
+    stateEngine.setNodeAsset("state-0", 113, new Float32Array([0.25, -0.25]), new Float32Array([-0.5, 0.5])),
+    true,
+  );
+  assert.deepEqual(
+    [...stateEngine.nodeAssets.values()].map(({ nodeId, kind }) => ({ nodeId, kind })),
+    [{ nodeId: "state-0", kind: 113 }],
+  );
+  assert.ok(
+    writes.some(({ buffer, offset }) => buffer === samplerResource.persistentBuffer && offset === 16),
+    "the replacement asset must upload only after its matching resource exists",
+  );
+  assert.equal(stateEngine.setNodeAsset("state-0", 125, new Float32Array([1])), false);
+
+  const forwarded = [];
+  const cleared = [];
+  const audio = new ShaderSynthPlaygroundAudio({});
+  audio.statefulEngine = {
+    sync() { return false; },
+    setNodeAsset(...args) { forwarded.push(args); return true; },
+    clearNodeAsset(...args) { cleared.push(args); return true; },
+  };
+  audio.updatePatch(residentAssetPatch("uploaded-wavetable"));
+  assert.equal(audio.setNodeAsset("focus", new Float32Array([0, 1, 0, -1])), true);
+  assert.deepEqual(
+    [...audio.pendingNodeAssets.values()].map(({ nodeId, moduleId, kind }) => ({ nodeId, moduleId, kind })),
+    [{ nodeId: "focus", moduleId: "uploaded-wavetable", kind: 112 }],
+  );
+  assert.deepEqual(forwarded.at(-1).slice(0, 2), ["focus", 112], "runtime must forward the owner kind");
+
+  audio.updatePatch(residentAssetPatch("gpu-sampler-granulator"));
+  assert.equal(audio.pendingNodeAssets.size, 0, "same-id module replacement must evict pending CPU data");
+  assert.deepEqual(cleared.at(-1), ["focus", 112], "the old state kind must be cleared explicitly");
+  assert.equal(audio.setNodeAsset("focus", new Float32Array([0.1, 0.2])), true);
+  assert.deepEqual(
+    [...audio.pendingNodeAssets.values()].map(({ moduleId, kind }) => ({ moduleId, kind })),
+    [{ moduleId: "gpu-sampler-granulator", kind: 113 }],
+  );
+
+  audio.updatePatch(residentAssetPatch("oscillator"));
+  assert.equal(audio.pendingNodeAssets.size, 0, "a non-asset replacement must discard the prior upload");
+  assert.deepEqual(cleared.at(-1), ["focus", 113]);
+  assert.equal(audio.setNodeAsset("focus", new Float32Array([1])), false, "ordinary modules cannot claim audio data");
+});
+
+test("performance notes restart only sampler nodes in One-shot mode", () => {
+  const writes = [];
+  const oneShotBuffer = { id: "one-shot-buffer" };
+  const loopBuffer = { id: "loop-buffer" };
+  const engine = Object.create(StatefulEngine.prototype);
+  engine.device = {
+    queue: {
+      writeBuffer(...args) { writes.push(args); },
+    },
+  };
+  engine.nodeResources = new Map([
+    ["one", { kind: 113, params: [0], persistentBuffer: oneShotBuffer }],
+    ["loop", { kind: 113, params: [1], persistentBuffer: loopBuffer }],
+    ["other", { kind: 116, params: [0], persistentBuffer: { id: "feedback-buffer" } }],
+  ]);
+
+  assert.equal(engine.triggerPerformanceNote(), 1);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0][0], oneShotBuffer);
+  assert.equal(writes[0][1], Float32Array.BYTES_PER_ELEMENT * 2, "only header.z is cleared");
+  assert.deepEqual([...writes[0][2]], [0]);
 });
 
 test("large state resources are conditional, state passes are active-only, and shutdown destroys them", async () => {

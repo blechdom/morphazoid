@@ -40,7 +40,8 @@ import {
   SHADER_SYNTH_PLAYGROUND_STATEFUL_MODULES,
   SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER,
   ShaderSynthPlaygroundStateEngine,
-} from "./shader-synth-playground-stateful.js";
+} from "./shader-synth-playground-stateful.js?v=20260831-modules125";
+import { isShaderSynthPlaygroundStateAssetKind } from "./shader-synth-playground-state-engine.js?v=20260831-modules125";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -644,6 +645,19 @@ export const SHADER_PLAYGROUND_MODULES = freeze([
 
 const MODULE_BY_ID = new Map(SHADER_PLAYGROUND_MODULES.map((entry) => [entry.id, entry]));
 export const SHADER_PLAYGROUND_SCENES = createShaderPlaygroundScenes(SHADER_PLAYGROUND_MODULES);
+
+function shaderPlaygroundNodeAssetOwner(patch, nodeId) {
+  const id = String(nodeId ?? "");
+  const graphNode = patch?.nodes?.find((candidate) => String(candidate.id) === id);
+  const module = MODULE_BY_ID.get(String(graphNode?.type ?? ""));
+  if (!id || !module || !isShaderSynthPlaygroundStateAssetKind(module.kind)) return null;
+  return {
+    nodeId: id,
+    moduleId: module.id,
+    kind: module.kind,
+    key: JSON.stringify([id, module.kind, module.id]),
+  };
+}
 
 function node(id, type, x, y, params = {}) {
   const spec = MODULE_BY_ID.get(type);
@@ -2701,6 +2715,7 @@ export class ShaderSynthPlaygroundAudio {
     this.fxPipeline = null;
     this.statefulPipeline = null;
     this.statefulEngine = null;
+    this.pendingNodeAssets = new Map();
     this.stateGraphFallbackBuffer = null;
     this.stateOutputFallbackBuffer = null;
     this.fxBindGroups = [];
@@ -2894,6 +2909,9 @@ export class ShaderSynthPlaygroundAudio {
       renderInfoBuffer: this.renderInfoBuffer,
       nodeBuffer: this.nodeBuffer,
     }).setPipeline(this.statefulPipeline);
+    for (const asset of this.pendingNodeAssets.values()) {
+      this.statefulEngine.setNodeAsset(asset.nodeId, asset.kind, asset.left, asset.right);
+    }
     this.rebuildGraphBindGroup();
     this.rebuildFxBindGroups();
   }
@@ -3022,6 +3040,12 @@ export class ShaderSynthPlaygroundAudio {
     const audioChanged = !encodedAudioMatches(this.encodedPatch, encoded);
     const topologyChanged = !encodedTopologyMatches(this.encodedPatch, encoded);
     this.patch = encoded.patch;
+    for (const [key, asset] of this.pendingNodeAssets) {
+      const owner = shaderPlaygroundNodeAssetOwner(this.patch, asset.nodeId);
+      if (owner?.kind === asset.kind && owner.moduleId === asset.moduleId) continue;
+      this.pendingNodeAssets.delete(key);
+      this.statefulEngine?.clearNodeAsset(asset.nodeId, asset.kind);
+    }
     if (!audioChanged && this.encodedPatch) {
       this.encodedPatch = { ...this.encodedPatch, patch: encoded.patch };
       return this.patch;
@@ -3060,6 +3084,40 @@ export class ShaderSynthPlaygroundAudio {
     // queue replacement for an actual node/routing change.
     if (this.running && topologyChanged) this.refreshSchedule();
     return this.patch;
+  }
+
+  setNodeAsset(nodeId, left, right = left) {
+    const id = String(nodeId ?? "");
+    const owner = shaderPlaygroundNodeAssetOwner(this.patch, id);
+    const leftChannel = left instanceof Float32Array ? left : Float32Array.from(left ?? []);
+    const rightChannel = right instanceof Float32Array ? right : Float32Array.from(right ?? leftChannel);
+    const frameCount = Math.min(leftChannel.length, rightChannel.length || leftChannel.length);
+    if (!owner || frameCount <= 0) return false;
+    for (const [key, pending] of this.pendingNodeAssets) {
+      if (pending.nodeId !== id || key === owner.key) continue;
+      this.pendingNodeAssets.delete(key);
+      this.statefulEngine?.clearNodeAsset(id, pending.kind);
+    }
+    const asset = {
+      nodeId: owner.nodeId,
+      moduleId: owner.moduleId,
+      kind: owner.kind,
+      left: leftChannel.slice(0, frameCount),
+      right: rightChannel.length ? rightChannel.slice(0, frameCount) : leftChannel.slice(0, frameCount),
+    };
+    this.pendingNodeAssets.set(owner.key, asset);
+    return this.statefulEngine?.setNodeAsset(id, owner.kind, asset.left, asset.right) ?? true;
+  }
+
+  clearNodeAsset(nodeId) {
+    const id = String(nodeId ?? "");
+    let existed = false;
+    for (const [key, asset] of this.pendingNodeAssets) {
+      if (asset.nodeId !== id) continue;
+      this.pendingNodeAssets.delete(key);
+      existed = true;
+    }
+    return (this.statefulEngine?.clearNodeAsset(id) ?? false) || existed;
   }
 
   commitRamp(revision, renderedParams = this.encodedPatch?.paramsByNode, rampActive = this.pendingRamp) {
@@ -3101,6 +3159,12 @@ export class ShaderSynthPlaygroundAudio {
     this.performancePitch = next;
     if (refresh && changed) this.refreshSchedule();
     return this.performancePitch;
+  }
+
+  triggerPerformanceNote() {
+    const restarted = this.statefulEngine?.triggerPerformanceNote?.() ?? 0;
+    if (restarted > 0) this.refreshSchedule();
+    return restarted;
   }
 
   refreshSchedule() {

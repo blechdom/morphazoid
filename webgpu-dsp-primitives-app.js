@@ -3,11 +3,11 @@ import {
   WEBGPU_DSP_PRIMITIVES,
   WEBGPU_DSP_STATUSES,
   webGpuDspPrimitiveById,
-} from "./src/webgpu-dsp-primitives.js";
+} from "./src/webgpu-dsp-primitives.js?v=20260831-coverage145-final";
 import {
   shaderSynthPrimitiveCoverageById,
   shaderSynthPrimitivePlaygroundHref,
-} from "./src/shader-synth-playground-primitive-coverage.js";
+} from "./src/shader-synth-playground-primitive-coverage.js?v=20260831-coverage145-final";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];

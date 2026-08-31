@@ -60,6 +60,16 @@ test("every atlas primitive has one explicit playable, infrastructure, or workfl
   assert.equal(shaderSynthPrimitiveCoverageById("__proto__"), null);
 });
 
+test("catalog ideas and graph modules remain intentionally many-to-one", () => {
+  const coverage = Object.values(SHADER_SYNTH_PRIMITIVE_COVERAGE);
+  const playable = coverage.filter(({ kind }) => kind === "playable");
+  assert.equal(SHADER_PLAYGROUND_MODULES.length, 125);
+  assert.equal(playable.length, 132);
+  assert.equal(coverage.filter(({ kind }) => kind === "infrastructure").length, 11);
+  assert.equal(coverage.filter(({ kind }) => kind === "workflow").length, 2);
+  assert.equal(new Set(playable.map(({ moduleId }) => moduleId)).size, 100);
+});
+
 test("the combined advanced modules are all reachable from their source primitives", () => {
   const coveredModuleIds = new Set(Object.values(SHADER_SYNTH_PRIMITIVE_COVERAGE)
     .filter(({ kind }) => kind === "playable")

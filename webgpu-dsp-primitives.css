@@ -934,7 +934,7 @@
   max-width: 100%;
   margin-top: 8px;
   color: color-mix(in oklab, var(--gpu-green) 68%, var(--ink));
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.35;
   text-decoration: none;
 }
@@ -945,7 +945,7 @@
 
 .primitive-coverage small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 a.primitive-coverage:hover,

@@ -928,6 +928,41 @@
 .primitive-status[data-status="block"] { --badge-color: var(--lane-energy); }
 .primitive-category { --badge-color: var(--category-color); }
 
+.primitive-coverage {
+  display: grid;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 8px;
+  color: color-mix(in oklab, var(--gpu-green) 68%, var(--ink));
+  font-size: 11px;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.primitive-coverage b {
+  font-weight: 720;
+}
+
+.primitive-coverage small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+a.primitive-coverage:hover,
+a.primitive-coverage:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.primitive-coverage[data-coverage-kind="infrastructure"] {
+  color: color-mix(in oklab, var(--lane-energy) 65%, var(--ink));
+}
+
+.primitive-coverage[data-coverage-kind="workflow"] {
+  color: color-mix(in oklab, var(--lane-timbre) 62%, var(--ink));
+}
+
 .add-sketch-button {
   min-height: 29px;
   padding: 0 8px;

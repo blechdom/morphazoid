@@ -5,6 +5,16 @@
 // reevaluated so later nodes see the result. All intermediate data remains on
 // the GPU; the audio runtime still performs one final PCM copy/map per chunk.
 
+import {
+  SHADER_SYNTH_PLAYGROUND_ADVANCED_RESET_PARAM_INDICES,
+  SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_CONSTANTS,
+  SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_HELPERS,
+  SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_LIMITS,
+  shaderSynthPlaygroundAdvancedAssetLayout,
+  shaderSynthPlaygroundAdvancedPersistentByteSize,
+} from "./shader-synth-playground-advanced-state-engine.js?v=20260831-modules125";
+import { SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS } from "./shader-synth-playground-advanced-state.js?v=20260831-modules125";
+
 const freeze = (value) => Object.freeze(value);
 
 export const SHADER_SYNTH_PLAYGROUND_STATE_ENGINE_KINDS = freeze({
@@ -14,6 +24,7 @@ export const SHADER_SYNTH_PLAYGROUND_STATE_ENGINE_KINDS = freeze({
   spectralSdf: 108,
   flowFieldAdvection: 109,
   raymarchResonator: 110,
+  ...SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_KINDS,
 });
 
 const STATE_KIND_SET = new Set(Object.values(SHADER_SYNTH_PLAYGROUND_STATE_ENGINE_KINDS));
@@ -24,6 +35,7 @@ const RESET_PARAM_INDICES = freeze({
   108: freeze([]),
   109: freeze([6]),
   110: freeze([]),
+  ...SHADER_SYNTH_PLAYGROUND_ADVANCED_RESET_PARAM_INDICES,
 });
 
 const CA_ROW_CELLS = 128;
@@ -44,6 +56,7 @@ export const SHADER_SYNTH_PLAYGROUND_STATE_ENGINE_LIMITS = freeze({
   spectralBands: SPECTRAL_BANDS,
   flowParticles: FLOW_PARTICLES,
   rayModes: RAY_MODES,
+  advanced: SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_LIMITS,
 });
 
 export function isShaderSynthPlaygroundStateEngineKind(kind) {
@@ -84,7 +97,7 @@ export function shaderSynthPlaygroundStatePersistentByteSize(kind, sampleRate = 
       vec4Count += RAY_MODES;
       break;
     default:
-      return 0;
+      return shaderSynthPlaygroundAdvancedPersistentByteSize(kind, sampleRate);
   }
   return Math.ceil((vec4Count * BYTES_PER_VEC4) / 16) * 16;
 }
@@ -107,6 +120,25 @@ function resetSignature(kind, params = []) {
   return (RESET_PARAM_INDICES[Number(kind)] ?? [])
     .map((index) => Number(params[index] ?? 0).toPrecision(9))
     .join(":");
+}
+
+function stateNodeAssetOwner(nodeId, kind, sampleRate = 44100) {
+  const id = String(nodeId ?? "");
+  const numericKind = Math.round(Number(kind));
+  const layout = shaderSynthPlaygroundAdvancedAssetLayout(numericKind, sampleRate);
+  if (!id || !Number.isFinite(numericKind) || !layout) return null;
+  return {
+    id,
+    kind: numericKind,
+    // JSON encoding is collision-safe for arbitrary graph ids and makes the
+    // CPU-side cache explicitly belong to both the graph node and DSP kind.
+    key: JSON.stringify([id, numericKind]),
+    layout,
+  };
+}
+
+export function isShaderSynthPlaygroundStateAssetKind(kind) {
+  return Boolean(stateNodeAssetOwner("asset-kind-probe", kind));
 }
 
 /**
@@ -144,6 +176,7 @@ const MAX_SPECTRAL_FRAMES: u32 = 2048u;
 const SPECTRAL_BANDS: u32 = 64u;
 const MAX_FLOW_PARTICLES: u32 = 256u;
 const MAX_RAY_MODES: u32 = 48u;
+${SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_CONSTANTS}
 
 struct RenderInfo {
   baseSample: u32,
@@ -910,6 +943,8 @@ fn renderRaymarchResonator(node: GraphNode) {
   markStateContinuous(persistent_state[0]);
 }
 
+${SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_HELPERS}
+
 @compute @workgroup_size(64)
 fn renderStateNode(
   @builtin(workgroup_id) workgroup_id: vec3<u32>,
@@ -923,6 +958,12 @@ fn renderStateNode(
       let params = node.target0;
       renderSpectralSdf(node);
     }
+    case 117u: {
+      renderWavefieldSolver(node);
+    }
+    case 120u: {
+      renderConvolutionSpace(node);
+    }
     default: {
       if (lane != 0u) { return; }
       switch state_stage.kind {
@@ -931,6 +972,19 @@ fn renderStateNode(
         case 107u: { let params = node.target0; renderFeedbackLattice(node); }
         case 109u: { let params = node.target0; renderFlowAdvection(node); }
         case 110u: { let params = node.target0; renderRaymarchResonator(node); }
+        case 111u: { renderSequenceLane(node); }
+        case 112u: { renderUploadedWavetable(node); }
+        case 113u: { renderGpuSamplerGranulator(node); }
+        case 114u: { renderSpatializer(node); }
+        case 115u: { renderRecursiveFilter(node); }
+        case 116u: { renderFeedbackNetwork(node); }
+        case 118u: { renderSpectralTransport(node); }
+        case 119u: { renderAdvancedDynamics(node); }
+        case 121u: { renderMassiveBank(node); }
+        case 122u: { renderAudioAnalysisField(node); }
+        case 123u: { renderDdspResynth(node); }
+        case 124u: { renderSpectralVocoder(node); }
+        case 125u: { renderNeuralProcessor(node); }
         default: {}
       }
     }
@@ -954,7 +1008,7 @@ function createStorageBuffer(device, usage, size) {
 }
 
 /**
- * Owns only resources used by the six persistent visual/state module kinds.
+ * Owns only resources used by persistent visual and advanced-state modules.
  * Scratch and private state do not exist when the active graph has none.
  */
 export class ShaderSynthPlaygroundStateEngine {
@@ -977,6 +1031,7 @@ export class ShaderSynthPlaygroundStateEngine {
     this.graphSignalBuffer = null;
     this.stateOutputBuffer = null;
     this.nodeResources = new Map();
+    this.nodeAssets = new Map();
     this.orderedResources = [];
     this.scratchBytes = 0;
     this.persistentBytes = 0;
@@ -1069,7 +1124,83 @@ export class ShaderSynthPlaygroundStateEngine {
       bindGroup: null,
     };
     this.writeNodeInfo(resource);
+    this.uploadNodeAsset(resource);
     return resource;
+  }
+
+  uploadNodeAsset(resource) {
+    const owner = stateNodeAssetOwner(resource?.id, resource?.kind, this.sampleRate);
+    const asset = owner ? this.nodeAssets.get(owner.key) : null;
+    if (
+      !owner || !asset || asset.nodeId !== owner.id || asset.kind !== owner.kind
+      || !resource?.persistentBuffer
+    ) return false;
+    const { layout } = owner;
+    const frameCount = Math.min(layout.capacityFrames, asset.frameCount);
+    const packed = new Float32Array(frameCount * 4);
+    for (let frame = 0; frame < frameCount; frame += 1) {
+      packed[frame * 4] = asset.left[frame] ?? 0;
+      packed[frame * 4 + 1] = asset.right[frame] ?? packed[frame * 4];
+    }
+    this.device.queue.writeBuffer(
+      resource.persistentBuffer,
+      layout.offsetVec4 * BYTES_PER_VEC4,
+      packed,
+    );
+    // Header.w carries the number of resident frames. Updating a single float
+    // leaves phase/write position and the continuity marker untouched.
+    this.device.queue.writeBuffer(
+      resource.persistentBuffer,
+      Float32Array.BYTES_PER_ELEMENT * 3,
+      new Float32Array([frameCount]),
+    );
+    return true;
+  }
+
+  setNodeAsset(nodeId, kind, left, right = left) {
+    const owner = stateNodeAssetOwner(nodeId, kind, this.sampleRate);
+    const leftChannel = left instanceof Float32Array ? left : Float32Array.from(left ?? []);
+    const rightChannel = right instanceof Float32Array ? right : Float32Array.from(right ?? leftChannel);
+    const frameCount = Math.min(leftChannel.length, rightChannel.length || leftChannel.length);
+    if (!owner || frameCount <= 0) return false;
+    // One graph node can own only one uploaded-audio interpretation. Remove a
+    // stale same-id asset before retaining data for a replacement DSP kind.
+    for (const [key, asset] of this.nodeAssets) {
+      if (asset.nodeId === owner.id && key !== owner.key) this.nodeAssets.delete(key);
+    }
+    const asset = {
+      nodeId: owner.id,
+      kind: owner.kind,
+      left: leftChannel.slice(0, frameCount),
+      right: rightChannel.length ? rightChannel.slice(0, frameCount) : leftChannel.slice(0, frameCount),
+      frameCount,
+    };
+    this.nodeAssets.set(owner.key, asset);
+    const resource = this.nodeResources.get(owner.id);
+    // A replacement asset may arrive just before sync installs its new node
+    // resource. Never write it into the previous kind's persistent buffer.
+    if (resource?.kind === owner.kind) this.uploadNodeAsset(resource);
+    return true;
+  }
+
+  clearNodeAsset(nodeId, kind = null) {
+    const id = String(nodeId ?? "");
+    const numericKind = kind == null ? null : Math.round(Number(kind));
+    let existed = false;
+    for (const [key, asset] of this.nodeAssets) {
+      if (asset.nodeId !== id || (numericKind != null && asset.kind !== numericKind)) continue;
+      this.nodeAssets.delete(key);
+      existed = true;
+    }
+    const resource = this.nodeResources.get(id);
+    if (resource?.persistentBuffer && (numericKind == null || resource.kind === numericKind)) {
+      this.device.queue.writeBuffer(
+        resource.persistentBuffer,
+        Float32Array.BYTES_PER_ELEMENT * 3,
+        new Float32Array([0]),
+      );
+    }
+    return existed;
   }
 
   writeNodeInfo(resource) {
@@ -1118,6 +1249,16 @@ export class ShaderSynthPlaygroundStateEngine {
    */
   sync(encoded) {
     const nodes = shaderSynthPlaygroundStateEngineNodes(encoded);
+    const patchNodeKinds = new Map((encoded?.order ?? []).map((id, nodeIndex) => [
+      String(id),
+      Math.abs(Math.round(Number(encoded?.data?.[nodeIndex * 20] ?? 0))),
+    ]));
+    for (const [key, asset] of this.nodeAssets) {
+      const patchKind = patchNodeKinds.get(asset.nodeId);
+      if (patchKind !== asset.kind || !isShaderSynthPlaygroundStateAssetKind(patchKind)) {
+        this.nodeAssets.delete(key);
+      }
+    }
     let graphBindingsChanged = false;
     if (nodes.length === 0) {
       for (const resource of this.nodeResources.values()) this.destroyNodeResource(resource);
@@ -1179,9 +1320,28 @@ export class ShaderSynthPlaygroundStateEngine {
     pass.end();
   }
 
+  /** Restart resident sampler one-shots without clearing their uploaded audio. */
+  triggerPerformanceNote() {
+    let restarted = 0;
+    for (const resource of this.nodeResources.values()) {
+      const playbackMode = Math.round(Number(resource.params?.[0]));
+      if (resource.kind !== 113 || playbackMode !== 0 || !resource.persistentBuffer) continue;
+      // Header.z is the continuity marker. Clearing only this float preserves
+      // header.w (asset length) and the sample data that follows the header.
+      this.device.queue.writeBuffer(
+        resource.persistentBuffer,
+        Float32Array.BYTES_PER_ELEMENT * 2,
+        new Float32Array([0]),
+      );
+      restarted += 1;
+    }
+    return restarted;
+  }
+
   destroy() {
     for (const resource of this.nodeResources.values()) this.destroyNodeResource(resource);
     this.nodeResources.clear();
+    this.nodeAssets.clear();
     this.orderedResources = [];
     this.releaseStatefulResourceBuffers();
     this.pipeline = null;

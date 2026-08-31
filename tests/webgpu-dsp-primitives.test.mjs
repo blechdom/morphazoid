@@ -33,8 +33,13 @@ test("Shader Synth Primitives exports complete, uniquely identified primitive da
   assertUniqueIds(WEBGPU_DSP_PRIMITIVES, "DSP primitives");
   assert.equal(WEBGPU_DSP_PRIMITIVES.length, 145, "the atlas count and initial page count should stay aligned");
 
+  const categoryIds = new Set(WEBGPU_DSP_CATEGORIES.map(({ id }) => id));
   const statuses = new Set();
   for (const primitive of WEBGPU_DSP_PRIMITIVES) {
+    assert.ok(
+      categoryIds.has(primitive.category),
+      `${primitive.id} has undeclared category ${primitive.category} and would be omitted from the table`,
+    );
     assert.ok(
       DSP_STATUSES.includes(primitive.status),
       `${primitive.id} has unsupported status ${primitive.status}`,
@@ -55,8 +60,8 @@ test("Shader Synth Primitives exports complete, uniquely identified primitive da
     "modulation",
     "FM / PM belongs to the modulation category",
   );
-  assert.equal(WEBGPU_DSP_STATUSES.live.short, "Current synth");
-  assert.equal(WEBGPU_DSP_STATUSES.direct.short, "Single-sample");
+  assert.equal(WEBGPU_DSP_STATUSES.live.short, "Current path");
+  assert.equal(WEBGPU_DSP_STATUSES.direct.short, "Per sample");
   assert.equal(WEBGPU_DSP_STATUSES.block.short, "State / passes");
   assert.equal(
     Object.values(WEBGPU_DSP_STATUSES).every(({ description }) => description.trim().length > 30),

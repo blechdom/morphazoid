@@ -1376,6 +1376,19 @@
   box-shadow: inset 3px 0 0 var(--node-color, var(--accent));
 }
 
+.patch-node.is-bypassed {
+  border-style: dashed;
+  filter: saturate(0.55);
+}
+
+.patch-node.is-bypassed:not(.is-selected) {
+  opacity: 0.72;
+}
+
+.patch-node.is-bypassed .node-mini-value {
+  color: var(--muted);
+}
+
 .patch-node:focus-visible {
   outline: 2px solid var(--node-color, var(--accent));
   outline-offset: 4px;
@@ -2255,6 +2268,45 @@
   line-height: 1.6;
 }
 
+.stateful-node-toggle {
+  display: inline-flex;
+  min-height: 28px;
+  margin-top: 12px;
+  padding: 3px 5px 3px 8px;
+  border: 1px solid color-mix(in oklab, var(--node-color, var(--accent)) 30%, var(--line-strong));
+  border-radius: 999px;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--node-color, var(--accent)) 6%, var(--panel));
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.stateful-node-toggle[hidden] {
+  display: none;
+}
+
+.stateful-node-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--node-color, var(--accent));
+}
+
+.stateful-node-toggle strong {
+  min-width: 22px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--node-color, var(--accent)) 16%, transparent);
+  font-size: 8px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .inspector-section {
   padding: 16px 18px 18px;
   border-bottom: 1px solid var(--line-strong);
@@ -2282,6 +2334,81 @@
   font-size: 7px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.node-asset-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.node-asset-file {
+  position: relative;
+  display: grid;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in oklab, var(--node-color, var(--accent)) 38%, var(--line));
+  align-items: center;
+  overflow: hidden;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--node-color, var(--accent)) 7%, var(--bg-deep));
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: center;
+}
+
+.node-asset-file:hover,
+.node-asset-file:focus-within {
+  border-color: var(--node-color, var(--accent));
+  outline: 0;
+}
+
+.node-asset-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.node-asset-file:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+#nodeAssetClear {
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+#nodeAssetClear:hover,
+#nodeAssetClear:focus-visible {
+  border-color: var(--node-color, var(--accent));
+  color: var(--ink);
+  outline: 0;
+}
+
+#nodeAssetStatus {
+  margin: 8px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#nodeAssetStatus[data-state="loading"] {
+  color: var(--node-color, var(--accent));
+}
+
+#nodeAssetStatus[data-state="error"] {
+  color: var(--port-trigger);
 }
 
 #ioSummary {

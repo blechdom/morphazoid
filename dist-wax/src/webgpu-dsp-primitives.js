@@ -14,19 +14,19 @@ export const WEBGPU_DSP_CATEGORIES = freeze([
 
 export const WEBGPU_DSP_STATUSES = freeze({
   live: freeze({
-    label: "Used by the current synth",
-    short: "Current synth",
-    description: "This helper or algorithm is present in WGSL currently rendered by GPU Shader Synths or Modular Shader Synth.",
+    label: "Current shader path",
+    short: "Current path",
+    description: "This helper is part of a shader path used directly by GPU Shader Synths or Modular Shader Synth.",
   }),
   direct: freeze({
-    label: "Independent samples",
-    short: "Single-sample",
-    description: "Not currently wired into the synth; each output sample can be evaluated independently in a sample-parallel compute pass.",
+    label: "Sample-parallel",
+    short: "Per sample",
+    description: "Each output sample can be evaluated independently in the graph's sample-parallel compute pass.",
   }),
   block: freeze({
     label: "History or extra passes",
     short: "State / passes",
-    description: "Not currently wired into the synth; earlier samples, synchronization, reduction, or additional GPU passes are required.",
+    description: "The technique needs earlier samples, synchronization, reduction, a persistent resource, or an additional ordered GPU pass.",
   }),
 });
 
@@ -1948,7 +1948,7 @@ export const WEBGPU_DSP_PRIMITIVES = freeze([
     id: "spectral-sdf",
     name: "Spectral signed-distance field",
     symbol: "spectralSdfProject",
-    category: "spectral",
+    category: "filter",
     stage: "spectral",
     status: "live",
     syntax: "let point = rotate(vec2(normalizedBin, framePhase), angle);\nlet mask = smoothstep(edge, -edge, sdShape(point, shape, extent));\nspectrum[bin] *= mix(1.0, mask, depth);",
@@ -1978,7 +1978,7 @@ export const WEBGPU_DSP_PRIMITIVES = freeze([
     id: "raymarch-resonator",
     name: "Raymarched SDF resonator",
     symbol: "raymarchResonator",
-    category: "physical",
+    category: "synthesis",
     stage: "excite",
     status: "live",
     syntax: "for (var step = 0u; step < MAX_STEPS; step++) { distance += sdShape(origin + direction * distance); }\nmodeHz = speedOfSound / max(distance * bodySize, epsilon);",

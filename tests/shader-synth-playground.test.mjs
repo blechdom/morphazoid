@@ -682,7 +682,7 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   assert.match(css, /\.patch-node\.is-selected\s*\{[\s\S]*?border-color: var\(--node-color, var\(--accent\)\)/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeWidth/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeHeight/);
-  assert.match(html, /shader-synth-playground\.css\?v=20260831-state-bypass/);
+  assert.match(html, /shader-synth-playground\.css\?v=20260831-modules125/);
 });
 
 test("three-way sum and product require and encode all three input slots", () => {
@@ -1898,7 +1898,7 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.doesNotMatch(html, /module-coverage|playableModuleCount|83\s*playable|142\s*in atlas/);
   assert.doesNotMatch(app, /playableModuleCount/);
   assert.match(app, /section\.open = Boolean\(query\);/);
-  assert.match(app, /shader-synth-playground\.js\?v=20260831-state-bypass/);
+  assert.match(app, /shader-synth-playground\.js\?v=20260831-modules125/);
   assert.match(engineSource, /shader-synth-playground-fx\.js\?v=20260830-atlas-dsp/);
   assert.match(css, /\.patch-node/);
   assert.match(css, /\.patch-cable/);
@@ -2014,7 +2014,8 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(app, /morphazoid:midi-input/);
   assert.match(app, /MIDI_PATCH_ROOT_NOTE = 48/);
   assert.match(app, /setPerformancePitch\?\.\(performancePitch, \{ refresh \}\)/);
-  assert.match(app, /MIDI note input is a pitch-only performance overlay/);
+  assert.match(app, /MIDI note input is a pitch overlay/);
+  assert.match(app, /async function auditionPerformanceNote\(note\)[\s\S]*?triggerPerformanceNote\?\.\(\)/);
   assert.match(app, /Playback stays where it is/);
   assert.doesNotMatch(app, /midiVelocityGain/);
   const midiNoteHandlers = app.slice(
@@ -2023,5 +2024,6 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   );
   assert.doesNotMatch(midiNoteHandlers, /state\.playing|setPlaybackEnabled|setOutput|startAudio/);
   assert.match(midiNoteHandlers, /applyMidiPerformance\(\)/);
+  assert.match(midiNoteHandlers, /triggerPerformanceNote\?\.\(\)/);
   assert.doesNotMatch(html, /minus and plus change velocity/i);
 });

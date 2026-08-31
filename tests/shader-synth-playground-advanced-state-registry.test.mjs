@@ -8,6 +8,7 @@ import {
   SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_MODULES,
   isShaderSynthPlaygroundAdvancedStateKind,
 } from "../src/shader-synth-playground-advanced-state.js";
+import { SHADER_SYNTH_PRIMITIVE_COVERAGE } from "../src/shader-synth-playground-primitive-coverage.js";
 import { WEBGPU_DSP_PRIMITIVES } from "../src/webgpu-dsp-primitives.js";
 
 const EXPECTED_IDS = Object.freeze([
@@ -32,6 +33,7 @@ const EXPECTED_KINDS = Object.freeze(Array.from({ length: 15 }, (_, index) => 11
 
 const EXPECTED_PRIMITIVE_IDS = Object.freeze([
   "lane-value",
+  "sequence-step-at",
   "wavetable-lookup",
   "sample-buffer-playback",
   "granular-sample-cloud",
@@ -42,7 +44,6 @@ const EXPECTED_PRIMITIVE_IDS = Object.freeze([
   "dc-blocker",
   "recursive-biquad",
   "state-variable-filter",
-  "parallel-prefix-recursion",
   "feedback-delay",
   "comb-allpass",
   "feedback-delay-network",
@@ -51,18 +52,14 @@ const EXPECTED_PRIMITIVE_IDS = Object.freeze([
   "membrane-fdtd",
   "room-acoustics-fdtd",
   "digital-waveguide-mesh",
-  "fft-stft",
   "spectral-remap",
   "phase-vocoder",
-  "overlap-add",
   "sliding-phase-vocoder",
-  "spectral-gate",
-  "phase-prefix-integration",
   "dynamics-reduction",
   "lookahead-limiter",
+  "convolution-reverb",
   "partitioned-convolution",
   "hybrid-convolution",
-  "voice-mix-reduction",
   "million-sinusoid-bank",
   "massive-modal-synthesis",
   "audio-analysis-texture",
@@ -124,7 +121,7 @@ test("advanced modules keep graph packing and conditional state ownership explic
   }
 });
 
-test("combined families explicitly cover forty catalog primitives without duplicate ownership", () => {
+test("combined families explicitly cover thirty-six playable catalog primitives without duplicate ownership", () => {
   const mapped = SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_MODULES.flatMap(({ primitiveIds }) => primitiveIds);
   assert.equal(mapped.length, EXPECTED_PRIMITIVE_IDS.length);
   assert.equal(new Set(mapped).size, mapped.length, "a primitive should have one owning advanced family");
@@ -138,6 +135,31 @@ test("combined families explicitly cover forty catalog primitives without duplic
       assert.ok(module.tags.includes(primitiveId), `${module.id} tags must expose ${primitiveId} to search`);
     }
   }
+});
+
+test("every advanced primitive claim maps bidirectionally to its playable module owner", () => {
+  const modulesById = new Map(SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_MODULES
+    .map((module) => [module.id, module]));
+
+  for (const module of SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_MODULES) {
+    for (const primitiveId of module.primitiveIds) {
+      const coverage = SHADER_SYNTH_PRIMITIVE_COVERAGE[primitiveId];
+      assert.ok(coverage, `${module.id} claims uncovered primitive ${primitiveId}`);
+      assert.equal(coverage.kind, "playable", `${module.id} must not claim ${coverage.kind} primitive ${primitiveId}`);
+      assert.equal(coverage.moduleId, module.id, `${primitiveId} maps to ${coverage.moduleId}, not ${module.id}`);
+    }
+  }
+
+  for (const [primitiveId, coverage] of Object.entries(SHADER_SYNTH_PRIMITIVE_COVERAGE)) {
+    if (coverage.kind !== "playable" || !modulesById.has(coverage.moduleId)) continue;
+    assert.ok(
+      modulesById.get(coverage.moduleId).primitiveIds.includes(primitiveId),
+      `${primitiveId} maps to ${coverage.moduleId}, but that module does not claim it`,
+    );
+  }
+
+  assert.equal(SHADER_SYNTH_PRIMITIVE_COVERAGE["spectral-gate"].moduleId, "spectral-gate");
+  assert.equal(modulesById.get("spectral-transport").primitiveIds.includes("spectral-gate"), false);
 });
 
 test("advanced graph cases forward one ordered-state result for every reserved kind", () => {
