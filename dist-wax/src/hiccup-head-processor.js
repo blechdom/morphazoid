@@ -8,7 +8,7 @@ import {
   physicalVoiceParameters,
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
-} from "./hiccup-head.js?v=hiccup-head-model-20260830-8";
+} from "./hiccup-head.js?v=5d283dfce98f";
 
 // Hiccup Head's tract is a single, persistent Kelly-Lochbaum volume-flow tube.
 // The scattering convention, losses, and 44-section source geometry follow
@@ -268,6 +268,10 @@ class FaceSpace {
     this.eyeDampedLeft = 0;
     this.eyeDampedRight = 0;
     this.eyeClosureAmount = 0;
+    this.leftEyeClosureAmount = 0;
+    this.rightEyeClosureAmount = 0;
+    this.lidToneLeft = 0;
+    this.lidToneRight = 0;
     this.left = 0;
     this.right = 0;
     this.stereoDelayMs = 0;
@@ -336,6 +340,12 @@ class FaceSpace {
     // Eyelids shade the same reverb network; they never gate or bitcrush.
     this.eyeClosureAmount += (
       eyeClosureTarget - this.eyeClosureAmount
+    ) * this.eyeClosureSmoothingAlpha;
+    this.leftEyeClosureAmount += (
+      leftEyeClosure - this.leftEyeClosureAmount
+    ) * this.eyeClosureSmoothingAlpha;
+    this.rightEyeClosureAmount += (
+      rightEyeClosure - this.rightEyeClosureAmount
     ) * this.eyeClosureSmoothingAlpha;
     if (eyeClosureTarget === 0 && this.eyeClosureAmount < 0.000001) {
       this.eyeClosureAmount = 0;
@@ -440,42 +450,43 @@ class FaceSpace {
       0.88,
     );
     this.eyeLeftBuffer[this.eyeIndex] = clamp(
-      hairLeft * (0.22 + this.eyeReverbAmount * 0.12)
+      hairLeft * (0.38 + this.eyeReverbAmount * 0.2)
         + this.eyeDampedRight * roomFeedback,
       -1.5,
       1.5,
     );
     this.eyeRightBuffer[this.eyeIndex] = clamp(
-      hairRight * (0.22 + this.eyeReverbAmount * 0.12)
+      hairRight * (0.38 + this.eyeReverbAmount * 0.2)
         + this.eyeDampedLeft * roomFeedback,
       -1.5,
       1.5,
     );
     this.eyeIndex = (this.eyeIndex + 1) % this.eyeLeftBuffer.length;
-    const roomWet = eyeActivation * (0.32 + this.eyeReverbAmount * 0.82);
-    const roomBlend = clamp(roomWet * 0.72, 0, 0.78);
-    const reverbReturnGain = 0.78 - roomFeedback * 0.24;
+    const roomWet = eyeActivation * (0.52 + this.eyeReverbAmount * 0.92);
+    const roomBlend = clamp(roomWet, 0, 0.92);
+    const reverbReturnGain = 0.94 - roomFeedback * 0.12;
     const roomLeft = cleanWave(
-      (hairLeft * 0.96
+      (hairLeft * (0.98 - roomBlend * 0.32)
         + this.eyeDampedLeft * roomBlend * reverbReturnGain)
-        / (0.96 + roomBlend * 0.28),
+        / (0.98 + roomBlend * 0.12),
     );
     const roomRight = cleanWave(
-      (hairRight * 0.96
+      (hairRight * (0.98 - roomBlend * 0.32)
         + this.eyeDampedRight * roomBlend * reverbReturnGain)
-        / (0.96 + roomBlend * 0.28),
+        / (0.98 + roomBlend * 0.12),
     );
 
-    // Only the right colored lid adds whole-mix fuzz. Dividing tanh by its
-    // drive preserves unity slope around quiet signals, while the parallel
-    // blend adds harmonics without the usual distortion-volume jump.
+    // The left lid audibly darkens the whole mix, even when the eyes are in
+    // their dry center position. The right lid's level-matched waveshaper is
+    // applied again after the output presence stage below so it cannot be
+    // erased by that stage's safety saturation.
+    const lidToneAlpha = 0.86 - leftLidDarken * 0.82;
+    this.lidToneLeft += (roomLeft - this.lidToneLeft) * lidToneAlpha;
+    this.lidToneRight += (roomRight - this.lidToneRight) * lidToneAlpha;
     const eyelidFuzz = rightLidFuzz;
-    const fuzzDrive = 1 + eyelidFuzz * 13;
-    const fuzzBlend = eyelidFuzz * 0.84;
-    const fuzzLeft = Math.tanh(roomLeft * fuzzDrive) / fuzzDrive;
-    const fuzzRight = Math.tanh(roomRight * fuzzDrive) / fuzzDrive;
-    this.left = cleanWave(roomLeft * (1 - fuzzBlend) + fuzzLeft * fuzzBlend);
-    this.right = cleanWave(roomRight * (1 - fuzzBlend) + fuzzRight * fuzzBlend);
+    const darkBlend = leftLidDarken * 0.88;
+    this.left = cleanWave(roomLeft * (1 - darkBlend) + this.lidToneLeft * darkBlend);
+    this.right = cleanWave(roomRight * (1 - darkBlend) + this.lidToneRight * darkBlend);
     this.eyelidFuzzAmount = eyelidFuzz;
   }
 
@@ -3559,8 +3570,28 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       : highpassedRight;
     // A bounded presence stage raises small breaths and skin detail while the
     // smooth tanh knee prevents digital clipping at violent face settings.
-    const boundedLeft = Math.tanh(presenceLeft * 42) * OUTPUT_CEILING;
-    const boundedRight = Math.tanh(presenceRight * 42) * OUTPUT_CEILING;
+    let boundedLeft = Math.tanh(presenceLeft * 42) * OUTPUT_CEILING;
+    let boundedRight = Math.tanh(presenceRight * 42) * OUTPUT_CEILING;
+    // Preserve sequencer velocity contrast after the strong presence stage;
+    // otherwise eyebrow accents collapse to almost the same loudness.
+    const postVelocity = 0.42 + finite(this.gesture?.velocity, 0.65) * 0.58;
+    boundedLeft *= postVelocity;
+    boundedRight *= postVelocity;
+    // Right-lid fuzz is peak-normalized, clearly colored, and cannot create a
+    // large level jump. At full closure it is unmistakably rough rather than
+    // merely quieter.
+    const lidFuzz = this.faceSpace.eyelidFuzzAmount;
+    if (lidFuzz > 0.0001) {
+      const drive = 1 + lidFuzz * 10;
+      const normalization = Math.max(0.001, Math.tanh(drive));
+      const fuzzLeft = Math.tanh((boundedLeft / OUTPUT_CEILING) * drive)
+        / normalization * OUTPUT_CEILING;
+      const fuzzRight = Math.tanh((boundedRight / OUTPUT_CEILING) * drive)
+        / normalization * OUTPUT_CEILING;
+      const blend = lidFuzz * 0.82;
+      boundedLeft = boundedLeft * (1 - blend) + fuzzLeft * blend;
+      boundedRight = boundedRight * (1 - blend) + fuzzRight * blend;
+    }
 
     this.gesture?.advance();
     if (this.gesture?.complete) {
@@ -3690,6 +3721,8 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       eyeDivergence: this.faceSpace.eyeAmount,
       eyeReverbAmount: this.faceSpace.eyeReverbAmount,
       eyeClosure: this.faceSpace.eyeClosureAmount,
+      leftEyeClosure: this.faceSpace.leftEyeClosureAmount,
+      rightEyeClosure: this.faceSpace.rightEyeClosureAmount,
       peak: this.lastPeak,
       rms: this.lastRms,
     };

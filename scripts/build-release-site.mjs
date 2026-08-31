@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { buildWaxSite } from "./build-wax-site.mjs";
+import { fingerprintHiccupHead } from "./fingerprint-hiccup-head.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -17,6 +18,7 @@ export async function buildReleaseSite(outputArgument = "dist") {
     cwd: repositoryRoot,
     maxBuffer: 10 * 1024 * 1024,
   });
+  await fingerprintHiccupHead(outputDirectory);
   const waxResult = await buildWaxSite(path.join(outputDirectory, "dist-wax"));
   return {
     outputDirectory,

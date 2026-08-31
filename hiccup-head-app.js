@@ -509,7 +509,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.audioWorklet.addModule(new URL(
-    "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260830-8",
+    "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260831-9",
     import.meta.url,
   ));
   const sourceNode = new AudioWorkletNode(context, "hiccup-head-physical-model", {
@@ -926,7 +926,7 @@ function browSequenceGain(step, leftBrow, rightBrow, amount = eyebrowEmphasis) {
   // Keep accented hits at their programmed velocity and lower the surrounding
   // steps. This creates audible emphasis even when an accent note is already
   // at velocity 1 and cannot be boosted further without clipping.
-  return leftHit || rightHit ? 1 : 1 - clamp(amount, 0, 0.75) * 0.52;
+  return leftHit || rightHit ? 1 : 1 - clamp(amount, 0, 0.75) * 0.82;
 }
 
 function scheduleSequence() {

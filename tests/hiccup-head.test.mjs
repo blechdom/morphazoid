@@ -3606,8 +3606,8 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(html, /<h1>HICCUP HEAD<\/h1>/);
   assert.doesNotMatch(html, /crazed clown beatbox/i);
   assert.doesNotMatch(html, /one face\s*(?:×|x)\s*one mouth/i);
-  assert.match(html, /href="hiccup-head\.css\?v=hiccup-head-20260829-10"/);
-  assert.match(html, /src="hiccup-head-app\.js\?v=hiccup-head-20260830-2"/);
+  assert.match(html, /href="hiccup-head\.css\?v=hiccup-head-20260831-16"/);
+  assert.match(html, /src="hiccup-head-app\.js\?v=hiccup-head-20260831-19"/);
   assert.match(html, /centered open eyes are dry[\s\S]*?bright plate[\s\S]*?dark cathedral/i);
   assert.match(
     html,
@@ -3674,7 +3674,7 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
 
   assert.match(app, /from "\.\/src\/hiccup-head\.js\?v=hiccup-head-model-20260829-6"/);
-  assert.match(app, /\.\/src\/hiccup-head-processor\.js\?v=hiccup-head-tract-20260830-1/);
+  assert.match(app, /\.\/src\/hiccup-head-processor\.js\?v=hiccup-head-tract-20260831-9/);
   assert.match(processor, /from "\.\/hiccup-head\.js\?v=hiccup-head-model-20260829-6"/);
   assert.match(app, /"hiccup-head-physical-model"/);
   assert.match(app, /connectAudioOutput\(context, analyser/);
