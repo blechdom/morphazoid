@@ -59,14 +59,6 @@
   cursor: pointer;
 }
 
-.graph-pulse-control {
-  position: absolute;
-  z-index: 4;
-  top: 17px;
-  left: 17px;
-}
-
-.graph-pulse-control button,
 .graph-pulse-action {
   display: inline-grid;
   min-height: 38px;
@@ -80,114 +72,10 @@
   text-align: left;
 }
 
-.graph-pulse-control button:hover,
-.graph-pulse-control button:focus-visible,
 .graph-pulse-action:hover,
 .graph-pulse-action:focus-visible {
   border-color: var(--graph-pulse);
   box-shadow: 0 0 16px color-mix(in oklab, var(--graph-pulse) 20%, transparent);
-}
-
-.graph-pulse-control b,
-.graph-pulse-control small {
-  display: block;
-}
-
-.graph-pulse-control b {
-  color: var(--graph-pulse);
-  font-size: 9px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.graph-seed-keyboard {
-  position: absolute;
-  z-index: 5;
-  top: 14px;
-  left: 50%;
-  width: min(340px, calc(100% - 280px));
-  min-width: 252px;
-  padding: 5px;
-  border: 1px solid color-mix(in oklab, var(--graph-pulse) 32%, var(--line));
-  background: color-mix(in oklab, var(--bg-deep) 92%, transparent);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, .28);
-  transform: translateX(-50%);
-  backdrop-filter: blur(8px);
-}
-
-.graph-seed-keyboard-head {
-  display: grid;
-  margin-bottom: 4px;
-  grid-template-columns: 28px minmax(0, 1fr) 28px;
-  align-items: center;
-  gap: 4px;
-}
-
-.graph-seed-keyboard-head span {
-  overflow: hidden;
-  color: var(--faint);
-  font-size: 7px;
-  letter-spacing: .09em;
-  text-align: center;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.graph-seed-keyboard-head output {
-  color: var(--graph-pulse);
-  font: inherit;
-}
-
-.graph-seed-keyboard button {
-  min-width: 0;
-  border: 1px solid color-mix(in oklab, var(--graph-pulse) 24%, var(--line));
-  border-radius: 0;
-  cursor: pointer;
-  color: var(--ink);
-  background: color-mix(in oklab, var(--ink) 8%, var(--bg-deep));
-  font: inherit;
-}
-
-.graph-seed-keyboard button:hover,
-.graph-seed-keyboard button:focus-visible,
-.graph-seed-keyboard button[aria-pressed="true"] {
-  border-color: var(--graph-pulse);
-  color: var(--graph-pulse);
-  box-shadow: 0 0 11px color-mix(in oklab, var(--graph-pulse) 24%, transparent);
-  outline: none;
-}
-
-.graph-seed-keyboard-head button {
-  height: 22px;
-  padding: 0;
-  color: var(--graph-pulse);
-  font-size: 13px;
-}
-
-.graph-seed-keys {
-  display: grid;
-  grid-template-columns: repeat(13, minmax(0, 1fr));
-  gap: 2px;
-}
-
-.graph-seed-keys button {
-  height: 28px;
-  padding: 0;
-  font-size: 7px;
-}
-
-.graph-seed-keys button.is-accidental {
-  color: color-mix(in oklab, var(--graph-pulse) 72%, var(--muted));
-  background: color-mix(in oklab, var(--graph-pulse) 7%, #020405);
-}
-
-.graph-pulse-control small {
-  margin-top: 2px;
-  color: var(--faint);
-  font-size: 7px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 
 .graph-instrument-page .graph-key {
@@ -201,7 +89,7 @@
 }
 
 .graph-instrument-page .l-system-mapping-readout {
-  top: 91px;
+  top: 42px;
   right: 18px;
   bottom: auto;
   color: var(--graph-pulse);
@@ -272,6 +160,15 @@
 
 .graph-pulse-grid .select-control {
   margin: 0;
+}
+
+.graph-seed-note-control {
+  grid-column: 1 / -1;
+}
+
+.graph-seed-note-note {
+  display: block;
+  margin: 7px 0 0;
 }
 
 .graph-cycle-note {
@@ -345,6 +242,16 @@
   gap: 4px;
 }
 
+.graph-play-percussion-bank {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.graph-play-percussion-bank .select-control {
+  margin-top: 9px;
+}
+
 .graph-drum-map .l-system-drum-cell {
   min-height: 52px;
 }
@@ -407,16 +314,6 @@
     text-align: left;
   }
 
-  .graph-pulse-control {
-    top: 12px;
-    left: 12px;
-  }
-
-  .graph-seed-keyboard {
-    top: 66px;
-    width: calc(100% - 24px);
-    min-width: 0;
-  }
 }
 
 @media (max-width: 520px) {
@@ -429,29 +326,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .graph-seed-keys {
-    gap: 1px;
-  }
-
-  .graph-seed-keys button {
-    font-size: 6px;
-  }
-}
-
-@media (pointer: coarse) {
-  .graph-seed-keyboard-head button {
-    height: 30px;
-  }
-
-  .graph-seed-keys button {
-    height: 34px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .graph-pulse-control button,
-  .graph-pulse-action,
-  .graph-seed-keyboard button {
+  .graph-pulse-action {
     transition: none;
   }
 }

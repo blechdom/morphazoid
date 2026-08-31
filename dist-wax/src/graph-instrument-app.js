@@ -1,24 +1,28 @@
 import {
   cloneDefaultFmDrumVoices,
   FM_DRUM_STORAGE_KEY,
-  FmDrumAudio,
   sanitizeFmDrumVoice,
 } from "./fm-drums.js";
 import {
-  L_SYSTEM_DRUM_STYLES,
-  styledLSystemDrumVoice,
-} from "./l-system-drums.js";
+  GRAPH_DRUM_PERCUSSION_STYLES,
+  MAX_GRAPH_KARPLUS_ATTACKS_PER_FRAME,
+  MAX_GRAPH_PHYSICAL_ATTACKS_PER_FRAME,
+  GraphDrumAudio,
+  graphDrumPercussionVoice,
+  graphDrumStyleIsKarplus,
+  graphDrumStyleUsesPhysicalEngine,
+  sanitizeGraphDrumPercussionStyle,
+} from "./graph-drum-audio.js?v=graph-instruments-20260830-2";
 import {
   GRAPH_PRESETS,
   edgeAudioParameters,
-  generateGraphWithinTurnBudget,
+  generateGraph,
   graphSinkNodeIds,
-} from "./graph-delay.js";
+} from "./graph-delay.js?v=graph-instruments-20260830-2";
 import {
   GRAPH_INSTRUMENT_PATCHES,
   MAX_GRAPH_EVENT_SCHEDULE,
   MAX_GRAPH_INSTRUMENT_NODES,
-  MAX_GRAPH_INSTRUMENT_TURN_ROUTES,
   MIN_GRAPH_EVENT_AMPLITUDE,
   coalesceGraphEvents,
   graphDrumVoiceIndex,
@@ -26,8 +30,11 @@ import {
   graphSynthVoice,
   mappedGraphDrumVoice,
   scheduleGraphPulse,
-} from "./graph-instruments.js";
-import { GraphSynthAudio } from "./graph-synth-audio.js";
+} from "./graph-instruments.js?v=graph-instruments-20260830-2";
+import {
+  MAX_GRAPH_SYNTH_ACTIVE_VOICES,
+  GraphSynthAudio,
+} from "./graph-synth-audio.js?v=graph-instruments-20260830-2";
 
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.09;
@@ -37,6 +44,19 @@ const MAX_ACTIVE_RUNS = 64;
 const MAX_DRUM_EVENTS_PER_PULSE = 768;
 const MAX_SYNTH_EVENTS_PER_PULSE = 1_024;
 const MAX_AUDIO_ATTACKS_PER_FRAME = 96;
+const MAX_IN_FLIGHT_AUDIO_TRIGGERS = 64;
+const AUDIO_FAILURE_THRESHOLD = 3;
+const AUDIO_FAILURE_WINDOW_MS = 500;
+const AUDIO_PROTECTION_BASE_MS = 750;
+const AUDIO_PROTECTION_MAX_MS = 8_000;
+const MIN_MOTION_TEMPLATE_INTERVAL_MS = 250;
+const MAX_MOTION_TEMPLATE_INTERVAL_MS = 1_200;
+const MOTION_TEMPLATE_COST_MULTIPLIER = 8;
+const FATAL_AUDIO_ERROR_NAMES = new Set([
+  "InvalidStateError",
+  "OperationError",
+  "QuotaExceededError",
+]);
 const EDGE_SWITCH_HIT_RADIUS = 14;
 const NODE_HIT_RADIUS = 23;
 const DEFAULT_PATCH = "layeredGlass";
@@ -100,39 +120,43 @@ export function graphInstrumentPresetState(name, mode = "synth") {
   const instrumentMode = mode === "drums" ? "drums" : "synth";
   const state = { graphPatch: name };
   for (const key of GRAPH_PRESET_STATE_KEYS) {
+    // Attack-point selection is a performance/sound choice on Graph Synth.
+    // Preserving it prevents graph presets from introducing long silent waits.
+    if (instrumentMode === "synth" && key === "triggerScope") continue;
     if (patch[key] !== undefined) state[key] = patch[key];
   }
   const pulseBeats = patch.pulseBeats ?? patch.pulseDivision;
   if (pulseBeats !== undefined) state.pulseDivision = pulseBeats;
-  Object.assign(state, patch[instrumentMode] ?? {});
+  if (instrumentMode === "drums") Object.assign(state, patch.drums ?? {});
   return state;
 }
 
 export function graphInstrumentDefaultState(mode = "synth") {
   const instrumentMode = mode === "drums" ? "drums" : "synth";
+  const seedNote = instrumentMode === "drums" ? 60 : 57;
   return {
     playing: false,
     audio: false,
-    output: instrumentMode === "drums" ? 0.58 : 0.52,
+    output: instrumentMode === "drums" ? 0.58 : 0.64,
     triggerScope: "all",
     feedbackTone: 0.78,
-    seedOctave: 4,
+    seedNote,
     nodeMoving: false,
     nodeMotionMode: "wiggle",
     nodeMotionSpeed: 0.12,
     nodeMotionAmount: 0.07,
     nodeMotionPhase: 0,
     mappingMode: instrumentMode === "drums" ? "position-grid" : "turn",
-    percussionStyle: "drum-bank",
+    percussionStyle: "circuit",
     pitchDepth: 12,
     turnPitchDepth: 9,
     characterDepth: 0.72,
-    baseFrequency: 220,
+    baseFrequency: midiFrequency(seedNote),
     pitchRange: 2,
     tuningMode: "equal",
-    edoDivisions: 12,
+    edoDivisions: instrumentMode === "synth" ? 19 : 12,
     turnPitchScale: 0.55,
-    soundMode: "sine",
+    soundMode: instrumentMode === "synth" ? "fm" : "sine",
     modulationIndex: 2.8,
     modulationRatio: 2,
     articulation: "trigger",
@@ -200,18 +224,18 @@ export function initializeGraphInstrument({
   const initialState = Object.freeze({ ...state });
   const reducedMotionQuery = runtime.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
   const audio = audioEngine ?? (instrumentMode === "drums"
-    ? new FmDrumAudio(runtime)
+    ? new GraphDrumAudio(runtime)
     : new GraphSynthAudio(runtime));
   const voices = instrumentMode === "drums"
     ? loadDrumBank(runtime.localStorage)
     : [];
-  let model = generateGraphWithinTurnBudget({
+  let model = generateGraph({
     type: state.topology,
     nodeCount: state.nodeCount,
     density: state.density,
     seed: state.seed,
     maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
-  }, MAX_GRAPH_INSTRUMENT_TURN_ROUTES).graph;
+  });
   let displayModel = model;
   let reverseEdgeKeys = new Set(model.edges.map((edge) => `${edge.to}>${edge.from}`));
   let edgeSwitchStates = new Map(model.edges.map((edge) => [`${edge.from}>${edge.to}`, true]));
@@ -235,6 +259,16 @@ export function initializeGraphInstrument({
   let nodeWalkVelocities = [];
   let lastMotionTemplateTime = -Infinity;
   let audioClockContext = null;
+  const inFlightAudioTriggers = new Set();
+  let shedAudioEventCount = 0;
+  let audioFailureTimes = [];
+  let audioProtectionUntil = 0;
+  let audioProtectionLevel = 0;
+  let lastAdmittedRunId = null;
+  let motionTemplateBuildCount = 0;
+  let motionTemplateIntervalMs = MIN_MOTION_TEMPLATE_INTERVAL_MS;
+  let fatalAudioProtection = false;
+  let audioRecoveryPromise = null;
 
   const scheduleFrame = () => {
     if (!scheduledFrame) scheduledFrame = runtime.requestAnimationFrame?.(frame) ?? 0;
@@ -336,6 +370,133 @@ export function initializeGraphInstrument({
 
   function clearError() {
     if ($("audioError")) $("audioError").hidden = true;
+  }
+
+  function performanceNow() {
+    return Number(runtime.performance?.now?.()) || 0;
+  }
+
+  function resetAudioProtection({ resetLevel = true } = {}) {
+    audioFailureTimes = [];
+    audioProtectionUntil = 0;
+    fatalAudioProtection = false;
+    if (resetLevel) audioProtectionLevel = 0;
+  }
+
+  function audioProtectionActive(now = performanceNow()) {
+    if (fatalAudioProtection) return true;
+    if (!(audioProtectionUntil > 0)) return false;
+    if (now < audioProtectionUntil) return true;
+    audioProtectionUntil = 0;
+    audioFailureTimes = [];
+    audioProtectionLevel = Math.max(0, audioProtectionLevel - 1);
+    return false;
+  }
+
+  function fatalAudioError(error) {
+    return FATAL_AUDIO_ERROR_NAMES.has(error?.name);
+  }
+
+  function engageFatalAudioProtection(error) {
+    if (disposed || fatalAudioProtection) return;
+    fatalAudioProtection = true;
+    audioProtectionUntil = Infinity;
+    audioProtectionLevel = Math.min(4, audioProtectionLevel + 1);
+    audioFailureTimes = [];
+    state.playing = false;
+    state.audio = false;
+    activeRuns = [];
+    nextPulseTime = null;
+    audioClockContext = null;
+    inFlightAudioTriggers.clear();
+    setPressed($("playButton"), false);
+    setPressed($("audioButton"), false);
+    $("audioState").textContent = "off";
+    audio.silence?.();
+    if (!audioRecoveryPromise) {
+      try {
+        audioRecoveryPromise = Promise.resolve(audio.close?.()).catch(() => {});
+      } catch {
+        audioRecoveryPromise = Promise.resolve();
+      }
+    }
+    const reason = error instanceof Error ? error.message : String(error ?? "Web Audio failed");
+    showError(new Error(`Audio was safely stopped: ${reason}`));
+    $("liveStatus").textContent = "Web Audio was safely reset. Use Send one, Play, MIDI, or Audio to start a fresh context.";
+    updateUi();
+  }
+
+  function engageAudioProtection(error, { immediate = false } = {}) {
+    if (disposed || !state.audio) return;
+    if (fatalAudioError(error)) {
+      engageFatalAudioProtection(error);
+      return;
+    }
+    const now = performanceNow();
+    if (audioProtectionActive(now)) return;
+    audioFailureTimes = audioFailureTimes.filter(
+      (failureTime) => failureTime >= now - AUDIO_FAILURE_WINDOW_MS,
+    );
+    audioFailureTimes.push(now);
+    if (!immediate && audioFailureTimes.length < AUDIO_FAILURE_THRESHOLD) {
+      showError(error);
+      return;
+    }
+    audioProtectionLevel = Math.min(4, audioProtectionLevel + 1);
+    const cooldown = Math.min(
+      AUDIO_PROTECTION_MAX_MS,
+      AUDIO_PROTECTION_BASE_MS * 2 ** (audioProtectionLevel - 1),
+    );
+    audioProtectionUntil = now + cooldown;
+    audioFailureTimes = [];
+    audio.silence?.();
+    const reason = error instanceof Error ? error.message : String(error ?? "audio overload");
+    showError(new Error(`Audio protection paused new graph attacks: ${reason}`));
+    $("liveStatus").textContent = `Audio protected for ${(cooldown / 1_000).toFixed(2)} s; graph motion and controls remain available.`;
+  }
+
+  function audioSchedulingAvailable() {
+    if (!state.audio || !audio.context || audioProtectionActive()) return false;
+    const contextState = audio.context.state;
+    if (contextState && contextState !== "running") {
+      const error = new Error(`Web Audio is ${contextState}; use a sound control to resume it.`);
+      if (contextState === "closed") error.name = "InvalidStateError";
+      engageAudioProtection(
+        error,
+        { immediate: true },
+      );
+      return false;
+    }
+    return true;
+  }
+
+  function submitAudioTrigger(run, trigger) {
+    if (!audioSchedulingAvailable()) return false;
+    if (inFlightAudioTriggers.size >= MAX_IN_FLIGHT_AUDIO_TRIGGERS) return false;
+    const request = {};
+    inFlightAudioTriggers.add(request);
+    lastAdmittedRunId = run.id;
+    soundedEventCount += 1;
+    let result;
+    try {
+      result = trigger();
+    } catch (error) {
+      inFlightAudioTriggers.delete(request);
+      soundedEventCount = Math.max(0, soundedEventCount - 1);
+      engageAudioProtection(error);
+      return false;
+    }
+    Promise.resolve(result)
+      .then((rendered) => {
+        if (rendered?.scheduled === false || rendered?.skipped === true) {
+          shedAudioEventCount += 1;
+        }
+      })
+      .catch((error) => engageAudioProtection(error))
+      .finally(() => {
+        inFlightAudioTriggers.delete(request);
+      });
+    return true;
   }
 
   function timelineNow(frameTime = runtime.performance?.now?.() ?? 0) {
@@ -476,7 +637,7 @@ export function initializeGraphInstrument({
   function launchPulseAt(launchTime, {
     velocity = 1,
     rootFrequency = state.baseFrequency,
-    seedMidi = 60,
+    seedMidi = state.seedNote,
     announce = true,
   } = {}) {
     const template = buildPulseTemplate();
@@ -516,8 +677,11 @@ export function initializeGraphInstrument({
 
   async function launchSeedMidi(note, velocity = 0.9) {
     const midi = Math.round(clamp(note, 0, 127, 60));
+    state.seedNote = midi;
+    if (instrumentMode === "synth") state.baseFrequency = midiFrequency(midi);
+    syncControls();
     await ensureAudio();
-    launchPulseAt((audio.context?.currentTime ?? 0) + 0.025, {
+    return launchPulseAt((audio.context?.currentTime ?? 0) + 0.025, {
       velocity,
       rootFrequency: midiFrequency(midi),
       seedMidi: midi,
@@ -526,13 +690,27 @@ export function initializeGraphInstrument({
 
   async function ensureAudio() {
     clearError();
-    const startedContext = await audio.start();
-    if (startedContext?.state && startedContext.state !== "running") {
-      await startedContext.resume?.();
-      if (startedContext.state !== "running") {
-        throw new Error("Audio output is still suspended. Try the sound trigger again.");
-      }
+    if (audioRecoveryPromise) {
+      const recovery = audioRecoveryPromise;
+      await recovery;
+      if (audioRecoveryPromise === recovery) audioRecoveryPromise = null;
     }
+    let startedContext;
+    try {
+      startedContext = await audio.start();
+      if (startedContext?.state && startedContext.state !== "running") {
+        await startedContext.resume?.();
+        if (startedContext.state !== "running") {
+          const error = new Error("Audio output is still suspended. Try the sound trigger again.");
+          if (startedContext.state === "closed") error.name = "InvalidStateError";
+          throw error;
+        }
+      }
+    } catch (error) {
+      if (fatalAudioError(error)) engageFatalAudioProtection(error);
+      throw error;
+    }
+    resetAudioProtection();
     const enteringAudioClock = audioClockContext !== audio.context;
     // Muted pulses use performance time; discard them before changing to the
     // unrelated AudioContext clock so they cannot linger far in the future.
@@ -552,6 +730,8 @@ export function initializeGraphInstrument({
     state.audio = false;
     activeRuns = [];
     nextPulseTime = null;
+    resetAudioProtection();
+    inFlightAudioTriggers.clear();
     setPressed($("audioButton"), false);
     $("audioState").textContent = "off";
     audioClockContext = null;
@@ -567,6 +747,7 @@ export function initializeGraphInstrument({
       voiceOffset,
     });
     const mapped = mappedGraphDrumVoice(voices[voiceIndex], event, graph, {
+      mappingMode: state.mappingMode,
       pitchDepth: state.pitchDepth,
       turnPitchDepth: state.turnPitchDepth,
       characterDepth: state.characterDepth,
@@ -576,7 +757,7 @@ export function initializeGraphInstrument({
     });
     return {
       voiceIndex,
-      voice: styledLSystemDrumVoice(mapped, { style: state.percussionStyle }),
+      voice: graphDrumPercussionVoice(mapped, { style: state.percussionStyle }),
     };
   }
 
@@ -620,16 +801,19 @@ export function initializeGraphInstrument({
       ...event,
       amplitude: event.amplitude * run.velocity,
     };
-    soundedEventCount += 1;
     if (instrumentMode === "drums") {
       const { voiceIndex, voice } = drumMapping(scaledEvent, run);
-      audio.trigger(voice, { startAt }).catch(showError);
-      flashDrum(voiceIndex);
-      return;
+      const submitted = submitAudioTrigger(run, () => audio.trigger(voice, {
+        startAt,
+        graphRunId: run.id,
+      }));
+      if (submitted) flashDrum(voiceIndex);
+      return submitted;
     }
     const voice = synthMapping(scaledEvent, run);
-    audio.trigger(voice, {
+    return submitAudioTrigger(run, () => audio.trigger(voice, {
       startAt,
+      graphRunId: run.id,
       attackSeconds: state.attack / 1_000,
       decaySeconds: state.decay / 1_000,
       gateSeconds: run.articulation === "edge"
@@ -637,21 +821,73 @@ export function initializeGraphInstrument({
         : state.noteDuration / 1_000,
       sustainLevel: state.sustain,
       releaseSeconds: state.release / 1_000,
-    }).catch(showError);
+    }));
   }
 
-  function scheduleRunAudio(run, now) {
-    if (!state.audio || !audio.context) return;
-    while (run.audioIndex < run.audioEvents.length) {
-      const event = run.audioEvents[run.audioIndex];
-      const startAt = run.launchTime + event.audioStartOffset;
-      if (startAt > now + AUDIO_LOOKAHEAD_SECONDS) break;
-      run.audioIndex += 1;
-      if (startAt < now - 0.05) continue;
-      if (frameAttackCount >= MAX_AUDIO_ATTACKS_PER_FRAME) continue;
-      frameAttackCount += 1;
-      triggerAudioEvent(run, event, Math.max(now, startAt));
+  function firstAudioEventAtOrAfter(events, offset, startIndex = 0) {
+    let low = Math.max(0, startIndex);
+    let high = events.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (events[middle].audioStartOffset < offset) low = middle + 1;
+      else high = middle;
     }
+    return low;
+  }
+
+  function firstAudioEventAfter(events, offset, startIndex = 0) {
+    let low = Math.max(0, startIndex);
+    let high = events.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (events[middle].audioStartOffset <= offset) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  }
+
+  function audioAttackLimit() {
+    return instrumentMode === "drums" && graphDrumStyleIsKarplus(state.percussionStyle)
+      ? MAX_GRAPH_KARPLUS_ATTACKS_PER_FRAME
+      : instrumentMode === "drums" && graphDrumStyleUsesPhysicalEngine(state.percussionStyle)
+        ? MAX_GRAPH_PHYSICAL_ATTACKS_PER_FRAME
+        : instrumentMode === "synth"
+          ? MAX_GRAPH_SYNTH_ACTIVE_VOICES
+          : MAX_AUDIO_ATTACKS_PER_FRAME;
+  }
+
+  function scheduleRunAudio(run, now, attackLimit) {
+    if (!state.audio || !audio.context) return;
+    const dueOffset = now + AUDIO_LOOKAHEAD_SECONDS - run.launchTime;
+    const dueEnd = firstAudioEventAfter(run.audioEvents, dueOffset, run.audioIndex);
+    if (dueEnd <= run.audioIndex) return;
+    const onTimeOffset = now - 0.05 - run.launchTime;
+    const onTimeIndex = Math.min(
+      dueEnd,
+      firstAudioEventAtOrAfter(run.audioEvents, onTimeOffset, run.audioIndex),
+    );
+    shedAudioEventCount += Math.max(0, onTimeIndex - run.audioIndex);
+    run.audioIndex = onTimeIndex;
+
+    const available = Math.max(0, Math.min(
+      attackLimit - frameAttackCount,
+      MAX_IN_FLIGHT_AUDIO_TRIGGERS - inFlightAudioTriggers.size,
+    ));
+    if (!audioSchedulingAvailable() || available === 0) {
+      shedAudioEventCount += dueEnd - run.audioIndex;
+      run.audioIndex = dueEnd;
+      return;
+    }
+
+    const admittedEnd = Math.min(dueEnd, run.audioIndex + available);
+    for (let index = run.audioIndex; index < admittedEnd; index += 1) {
+      const event = run.audioEvents[index];
+      const startAt = run.launchTime + event.audioStartOffset;
+      if (triggerAudioEvent(run, event, Math.max(now, startAt))) frameAttackCount += 1;
+      else shedAudioEventCount += 1;
+    }
+    shedAudioEventCount += dueEnd - admittedEnd;
+    run.audioIndex = dueEnd;
   }
 
   function updateRunVisuals(run, now) {
@@ -788,6 +1024,34 @@ export function initializeGraphInstrument({
     context.restore();
   }
 
+  function drawDenseEdges() {
+    const buckets = [[], [], [], []];
+    for (const edge of model.edges) {
+      const bucket = (edge.feedbackEdge ? 2 : 0) + (edgeEnabled(edge) ? 1 : 0);
+      buckets[bucket].push(edge);
+    }
+    for (let bucket = 0; bucket < buckets.length; bucket += 1) {
+      const edges = buckets[bucket];
+      if (!edges.length) continue;
+      const feedbackEdge = bucket >= 2;
+      const open = bucket % 2 === 1;
+      context.save();
+      context.globalAlpha = open ? 0.62 : 0.13;
+      context.strokeStyle = feedbackEdge ? "#ff826f" : "#55d9ff";
+      context.lineWidth = feedbackEdge ? 1.5 : 1;
+      context.setLineDash(feedbackEdge ? [5, 5] : []);
+      context.beginPath();
+      for (const edge of edges) {
+        const { from, to, offsetX, offsetY } = edgePoints(edge);
+        context.moveTo(from.x + offsetX, from.y + offsetY);
+        context.lineTo(to.x + offsetX, to.y + offsetY);
+      }
+      context.stroke();
+      context.setLineDash([]);
+      context.restore();
+    }
+  }
+
   function drawNode(node, pulseLevel = 0) {
     const position = point(node);
     const color = nodeColor(node.id);
@@ -854,7 +1118,11 @@ export function initializeGraphInstrument({
   function draw(now) {
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     context.clearRect(0, 0, cssWidth, cssHeight);
-    for (const edge of model.edges) drawEdge(edge);
+    if (edgeControlsVisible()) {
+      for (const edge of model.edges) drawEdge(edge);
+    } else {
+      drawDenseEdges();
+    }
     const nodeFlashes = new Map();
     for (const run of activeRuns.slice(-MAX_VISIBLE_RUNS)) {
       const elapsed = now - run.launchTime;
@@ -884,9 +1152,21 @@ export function initializeGraphInstrument({
     lastFrameTime = safeFrameTime;
     if (advanceNodeMotion(delta)) {
       displayModel = geometryModel();
-      if (safeFrameTime - lastMotionTemplateTime >= 80) {
+      if (safeFrameTime - lastMotionTemplateTime >= motionTemplateIntervalMs) {
+        const buildStartedAt = performanceNow();
         pulseTemplate = null;
         refreshActiveRunGeometry(displayModel, { retime: true });
+        const buildDuration = Math.max(0, performanceNow() - buildStartedAt);
+        motionTemplateIntervalMs = clamp(
+          Math.max(
+            MIN_MOTION_TEMPLATE_INTERVAL_MS,
+            buildDuration * MOTION_TEMPLATE_COST_MULTIPLIER,
+          ),
+          MIN_MOTION_TEMPLATE_INTERVAL_MS,
+          MAX_MOTION_TEMPLATE_INTERVAL_MS,
+          MIN_MOTION_TEMPLATE_INTERVAL_MS,
+        );
+        motionTemplateBuildCount += 1;
         lastMotionTemplateTime = safeFrameTime;
       }
     } else {
@@ -895,15 +1175,28 @@ export function initializeGraphInstrument({
     const now = timelineNow(safeFrameTime);
     updateClock(now);
     frameAttackCount = 0;
+    const attackLimit = audioAttackLimit();
+    // Fresh manual and MIDI graph notes get first claim on bounded Web Audio
+    // capacity, so an older dense tail cannot make a new gesture inaudible.
+    for (let index = activeRuns.length - 1; index >= 0; index -= 1) {
+      scheduleRunAudio(activeRuns[index], now, attackLimit);
+    }
     for (const run of activeRuns) {
-      scheduleRunAudio(run, now);
       updateRunVisuals(run, now);
     }
     activeRuns = activeRuns.filter((run) => now <= run.launchTime + run.tailSeconds + 0.36);
     draw(now);
     const preset = GRAPH_PRESETS[model.type];
     const activePulseCount = activeRuns.length;
-    $("stageReadout").textContent = `${preset.label.toUpperCase()} · ${model.nodes.length} NODES · ${activePulseCount} PULSE${activePulseCount === 1 ? "" : "S"} · AUDIO ${state.audio ? "ON" : "OFF"}`;
+    const audioLabel = audioProtectionActive()
+      ? "PROTECTED"
+      : state.audio
+        ? "ON"
+        : "OFF";
+    const safetyLabel = shedAudioEventCount > 0
+      ? ` · ${shedAudioEventCount} ATTACK${shedAudioEventCount === 1 ? "" : "S"} THINNED`
+      : "";
+    $("stageReadout").textContent = `${preset.label.toUpperCase()} · ${model.nodes.length} NODES · ${activePulseCount} PULSE${activePulseCount === 1 ? "" : "S"} · AUDIO ${audioLabel}${safetyLabel}`;
     if (state.playing || state.nodeMoving || activeRuns.length || draggingNodeId !== null) scheduleFrame();
   }
 
@@ -927,7 +1220,10 @@ export function initializeGraphInstrument({
     drumMap.dataset.mappingMode = state.mappingMode;
     drumMap.dataset.percussionStyle = state.percussionStyle;
     drumMap.innerHTML = voices.map((voice, index) => {
-      const styled = styledLSystemDrumVoice(voice, { style: state.percussionStyle });
+      const styled = graphDrumPercussionVoice(
+        { ...voice, voiceIndex: index },
+        { style: state.percussionStyle },
+      );
       return `<button class="l-system-drum-cell" type="button" data-voice-index="${index}" data-voice-id="${voice.id}" style="--voice-color: ${voice.color}"><b>${styled.name}</b><small>${voice.key.toUpperCase()} · ${styled.family}</small></button>`;
     }).join("");
     for (const button of drumMap.querySelectorAll(".l-system-drum-cell")) {
@@ -935,7 +1231,10 @@ export function initializeGraphInstrument({
         try {
           await ensureAudio();
           const index = Number(button.dataset.voiceIndex) || 0;
-          await audio.trigger(styledLSystemDrumVoice(voices[index], { style: state.percussionStyle }));
+          await audio.trigger(graphDrumPercussionVoice(
+            { ...voices[index], voiceIndex: index },
+            { style: state.percussionStyle },
+          ));
           flashDrum(index);
         } catch (error) {
           showError(error);
@@ -958,8 +1257,8 @@ export function initializeGraphInstrument({
       $("mappingLegendDetail" + index).textContent = detail;
     });
     if (instrumentMode === "drums") {
-      const style = L_SYSTEM_DRUM_STYLES.find(({ id }) => id === state.percussionStyle)
-        ?? L_SYSTEM_DRUM_STYLES[0];
+      const style = GRAPH_DRUM_PERCUSSION_STYLES.find(({ id }) => id === state.percussionStyle)
+        ?? GRAPH_DRUM_PERCUSSION_STYLES[0];
       $("mappingSummary").textContent = `${details.label} · ${style.label.toLowerCase()}`;
     } else {
       const tuning = state.tuningMode === "pure"
@@ -1026,23 +1325,19 @@ export function initializeGraphInstrument({
   function rebuildModel({ silence = true } = {}) {
     state.nodeCount = Math.round(clamp(state.nodeCount, 3, MAX_GRAPH_INSTRUMENT_NODES, 10));
     $("nodeCount").value = String(state.nodeCount);
-    const result = generateGraphWithinTurnBudget({
+    model = generateGraph({
       type: state.topology,
       nodeCount: state.nodeCount,
       density: state.density,
       seed: state.seed,
       maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
-    }, MAX_GRAPH_INSTRUMENT_TURN_ROUTES);
-    model = result.graph;
+    });
     displayModel = model;
     reverseEdgeKeys = new Set(model.edges.map((edge) => `${edge.to}>${edge.from}`));
     edgeSwitchStates = new Map(model.edges.map((edge) => [edgeKey(edge), true]));
     resetNodeWalkState();
     selectedNodeId = Math.min(selectedNodeId, model.nodes.length - 1);
     invalidatePulseTemplate({ clearRuns: true, silence: silence && state.audio });
-    if (result.limited) {
-      $("liveStatus").textContent = `Graph density was reduced to ${percent(result.density)} to keep route processing bounded.`;
-    }
     updateUi();
   }
 
@@ -1056,6 +1351,7 @@ export function initializeGraphInstrument({
       tempo: state.tempo,
       pulseDivision: state.pulseDivision,
       triggerScope: state.triggerScope,
+      seedNote: state.seedNote,
       output: state.output,
       nodePass: state.nodePass,
       baseDelay: state.baseDelay,
@@ -1089,13 +1385,6 @@ export function initializeGraphInstrument({
     })) {
       if ($(id)) $(id).value = String(value);
     }
-    if ($("seedOctaveOut")) $("seedOctaveOut").textContent = String(state.seedOctave);
-    const seedNames = ["C", "C sharp", "D", "E flat", "E", "F", "F sharp", "G", "A flat", "A", "B flat", "B", "C"];
-    for (const button of $("seedKeyboard")?.querySelectorAll?.("[data-seed-semitone]") ?? []) {
-      const semitone = Number(button.dataset.seedSemitone) || 0;
-      const octave = state.seedOctave + (semitone === 12 ? 1 : 0);
-      button.setAttribute("aria-label", `Seed note ${seedNames[semitone] ?? "C"}${octave}`);
-    }
     paintOutputs();
   }
 
@@ -1104,6 +1393,10 @@ export function initializeGraphInstrument({
       nodeCount: (value) => String(Math.round(value)),
       density: percent,
       seed: (value) => String(Math.round(value)),
+      seedNote: (value) => {
+        const midi = Math.round(clamp(value, 0, 127, 60));
+        return `${noteName(midiFrequency(midi))} · ${midi}`;
+      },
       tempo: (value) => `${Math.round(value)} BPM`,
       output: percent,
       nodePass: percent,
@@ -1148,7 +1441,10 @@ export function initializeGraphInstrument({
     Object.assign(state, presetState);
     syncControls();
     rebuildModel();
-    $("liveStatus").textContent = `${patch.label} graph, timing, mapping, and sound preset loaded. ${GRAPH_PRESETS[state.topology].description}`;
+    if (instrumentMode === "drums") renderDrumMap();
+    $("liveStatus").textContent = instrumentMode === "drums"
+      ? `${patch.label} graph, timing, mapping, and sound preset loaded. ${GRAPH_PRESETS[state.topology].description}`
+      : `${patch.label} graph and timing preset loaded; synth controls preserved. ${GRAPH_PRESETS[state.topology].description}`;
   }
 
   function randomGraphUnit() {
@@ -1234,13 +1530,13 @@ export function initializeGraphInstrument({
   }
 
   function arrangeGraph() {
-    const arranged = generateGraphWithinTurnBudget({
+    const arranged = generateGraph({
       type: state.topology,
       nodeCount: state.nodeCount,
       density: state.density,
       seed: state.seed,
       maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
-    }, MAX_GRAPH_INSTRUMENT_TURN_ROUTES).graph;
+    });
     model.nodes.forEach((node, index) => {
       node.x = arranged.nodes[index]?.x ?? node.x;
       node.y = arranged.nodes[index]?.y ?? node.y;
@@ -1301,6 +1597,13 @@ export function initializeGraphInstrument({
   bindRange("nodeCount", "nodeCount", { rebuild: true });
   bindRange("density", "density", { rebuild: true });
   bindRange("seed", "seed", { rebuild: true });
+  bindRange("seedNote", "seedNote", {
+    after: () => {
+      state.seedNote = Math.round(clamp(state.seedNote, 0, 127, 60));
+      $("seedNote").value = String(state.seedNote);
+      if (instrumentMode === "synth") state.baseFrequency = midiFrequency(state.seedNote);
+    },
+  });
   bindRange("tempo", "tempo", { custom: true });
   bindRange("output", "output");
   bindRange("nodePass", "nodePass", { template: true });
@@ -1314,7 +1617,6 @@ export function initializeGraphInstrument({
   bindRange("pitchDepth", "pitchDepth", { custom: true });
   bindRange("turnPitchDepth", "turnPitchDepth", { custom: true });
   bindRange("characterDepth", "characterDepth", { custom: true });
-  bindRange("baseFrequency", "baseFrequency", { custom: true });
   bindRange("pitchRange", "pitchRange", { custom: true });
   bindRange("edoDivisions", "edoDivisions", { custom: true });
   bindRange("turnPitchScale", "turnPitchScale", { template: true });
@@ -1349,11 +1651,13 @@ export function initializeGraphInstrument({
   $("mappingMode").addEventListener("change", (event) => {
     state.mappingMode = event.currentTarget.value;
     markCustom();
+    if (instrumentMode === "drums") renderDrumMap();
     updateMappingUi();
     scheduleFrame();
   });
   $("percussionStyle")?.addEventListener("change", (event) => {
-    state.percussionStyle = event.currentTarget.value;
+    state.percussionStyle = sanitizeGraphDrumPercussionStyle(event.currentTarget.value);
+    event.currentTarget.value = state.percussionStyle;
     markCustom();
     renderDrumMap();
     updateUi();
@@ -1437,22 +1741,6 @@ export function initializeGraphInstrument({
     }
   });
   $("pulseButton").addEventListener("click", () => launchManualPulse().catch(showError));
-  $("seedPulseButton").addEventListener("click", () => launchManualPulse().catch(showError));
-  $("seedOctaveDown").addEventListener("click", () => {
-    state.seedOctave = Math.max(1, state.seedOctave - 1);
-    syncControls();
-  });
-  $("seedOctaveUp").addEventListener("click", () => {
-    state.seedOctave = Math.min(8, state.seedOctave + 1);
-    syncControls();
-  });
-  for (const button of $("seedKeyboard")?.querySelectorAll?.("[data-seed-semitone]") ?? []) {
-    button.addEventListener("click", () => {
-      const semitone = Number(button.dataset.seedSemitone) || 0;
-      const note = (state.seedOctave + 1) * 12 + semitone;
-      launchSeedMidi(note).catch(showError);
-    });
-  }
   $("audioButton").addEventListener("click", async () => {
     try {
       if (state.audio) await stopAudio();
@@ -1613,7 +1901,7 @@ export function initializeGraphInstrument({
     if (instrumentMode === "drums") renderDrumMap();
     rebuildModel({ silence: false });
     $("mappingReadout").textContent = instrumentMode === "drums"
-      ? "NODE 1 · PASS 0 → SUB KICK · 100%"
+      ? "NODE 1 · PASS 0 → CIRCUIT SUB KICK · 100%"
       : "NODE 1 · PASS 0 → A3 · 100%";
     $("liveStatus").textContent = `${instrumentMode === "drums" ? "Graph Drum Machine" : "Graph Synth"} reset.`;
   });
@@ -1621,17 +1909,14 @@ export function initializeGraphInstrument({
   const handleMidi = (event) => {
     const message = event?.detail?.message;
     if (!message) return;
+    if (disposed || documentObject.hidden) {
+      event.preventDefault();
+      return;
+    }
     if (message.type === "noteOn") {
       event.preventDefault();
       const velocity = clamp((message.velocity ?? message.value ?? 100) / 127, 0.05, 1, 0.8);
-      const frequency = instrumentMode === "synth" ? midiFrequency(message.note) : state.baseFrequency;
-      ensureAudio()
-        .then(() => launchPulseAt((audio.context?.currentTime ?? 0) + 0.025, {
-          velocity,
-          rootFrequency: frequency,
-          seedMidi: message.note,
-        }))
-        .catch(showError);
+      launchSeedMidi(message.note, velocity).catch(showError);
     } else if (message.type === "controlChange" && [120, 123].includes(message.controller)) {
       event.preventDefault();
       activeRuns = [];
@@ -1658,27 +1943,52 @@ export function initializeGraphInstrument({
     reducedMotionQuery?.addListener?.(handleReducedMotionChange);
   }
 
+  function stopBackgroundPlayback(status = "") {
+    state.playing = false;
+    state.audio = false;
+    activeRuns = [];
+    nextPulseTime = null;
+    audioClockContext = null;
+    resetAudioProtection();
+    inFlightAudioTriggers.clear();
+    setPressed($("playButton"), false);
+    setPressed($("audioButton"), false);
+    $("audioState").textContent = "off";
+    if (status) $("liveStatus").textContent = status;
+    audio.close().catch?.(() => {});
+    updateUi();
+  }
+
+  const handleVisibilityChange = () => {
+    if (!documentObject.hidden) return;
+    stopBackgroundPlayback("Graph playback stopped because the page moved to the background.");
+  };
+  documentObject.addEventListener?.("visibilitychange", handleVisibilityChange);
+
   const handlePageHide = (event) => {
     disposed = !event?.persisted;
+    stopBackgroundPlayback();
     if (disposed) {
       runtime.removeEventListener?.("morphazoid:midi-input", handleMidi);
+      documentObject.removeEventListener?.("visibilitychange", handleVisibilityChange);
       if (typeof reducedMotionQuery?.removeEventListener === "function") {
         reducedMotionQuery.removeEventListener("change", handleReducedMotionChange);
       } else {
         reducedMotionQuery?.removeListener?.(handleReducedMotionChange);
       }
     }
-    audio.close().catch?.(() => {});
-    audioClockContext = null;
   };
   runtime.addEventListener?.("pagehide", handlePageHide);
   runtime.addEventListener?.("pageshow", (event) => {
     if (!event.persisted) return;
     disposed = false;
+    state.playing = false;
     state.audio = false;
     audioClockContext = null;
     activeRuns = [];
     nextPulseTime = null;
+    resetAudioProtection();
+    inFlightAudioTriggers.clear();
     setPressed($("audioButton"), false);
     $("audioState").textContent = "off";
     scheduleFrame();
@@ -1700,6 +2010,13 @@ export function initializeGraphInstrument({
     get pulseCount() { return pulseSerial; },
     get activeRunCount() { return activeRuns.length; },
     get soundedEventCount() { return soundedEventCount; },
+    get shedAudioEventCount() { return shedAudioEventCount; },
+    get inFlightAudioTriggerCount() { return inFlightAudioTriggers.size; },
+    get audioProtected() { return audioProtectionActive(); },
+    get audioProtectionLevel() { return audioProtectionLevel; },
+    get lastAdmittedRunId() { return lastAdmittedRunId; },
+    get motionTemplateBuildCount() { return motionTemplateBuildCount; },
+    get motionTemplateIntervalMs() { return motionTemplateIntervalMs; },
     get scheduledPulseTime() { return nextPulseTime; },
     launchPulse: launchManualPulse,
     rebuild: rebuildModel,

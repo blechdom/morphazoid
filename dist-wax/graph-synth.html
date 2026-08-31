@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="micmic.css" />
     <link rel="stylesheet" href="graph-delay.css" />
     <link rel="stylesheet" href="l-system-drums.css" />
-    <link rel="stylesheet" href="graph-instruments.css" />
+    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-2" />
   </head>
   <body class="micmic-page graph-delay-page graph-instrument-page graph-synth-page" data-graph-instrument="synth">
     <header class="masthead">
@@ -23,7 +23,7 @@
       <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="shape.html">shape</option><option value="lattice.html">lattice</option><option value="spiral.html">spiral</option><option value="solid.html">solid</option><option value="hyper.html">hyper</option><option value="l-system.html">l-system</option><option value="graph-synth.html" selected>graph synth</option><option value="graph-delay.html">graph delay</option></select></label>
       <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◇</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
-        <label class="header-level" for="output"><span><b>Output</b><output id="outputOut" for="output">52%</output></span><input id="output" aria-label="Graph Synth output level" type="range" min="0" max="0.9" step="0.01" value="0.52" /></label>
+        <label class="header-level" for="output"><span><b>Output</b><output id="outputOut" for="output">64%</output></span><input id="output" aria-label="Graph Synth output level" type="range" min="0" max="0.9" step="0.01" value="0.64" /></label>
       </div>
     </header>
 
@@ -31,29 +31,6 @@
       <section class="stage" aria-label="Graph Synth stage">
         <div class="stage-wrap" id="stageWrap">
           <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive note graph" aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight" aria-label="A directed graph whose active routes sound inherited synth notes. Audio off." aria-describedby="canvasInstructions liveStatus">A switchable directed graph whose turns inherit pitch and whose cycles make decaying note repeats.</canvas>
-          <div class="graph-pulse-control"><button id="seedPulseButton" type="button"><b>Seed note</b><small>send one voice</small></button></div>
-          <div class="graph-seed-keyboard" id="seedKeyboard" role="group" aria-label="Graph synth seed-note keyboard">
-            <div class="graph-seed-keyboard-head">
-              <button id="seedOctaveDown" type="button" aria-label="Move the seed keyboard down one octave">&minus;</button>
-              <span>Seed octave <output id="seedOctaveOut" aria-live="polite">4</output></span>
-              <button id="seedOctaveUp" type="button" aria-label="Move the seed keyboard up one octave">+</button>
-            </div>
-            <div class="graph-seed-keys" aria-label="Seed notes C4 through C5">
-              <button type="button" data-seed-semitone="0" aria-label="Seed note C"><span>C</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="1" aria-label="Seed note C sharp"><span>C&#9839;</span></button>
-              <button type="button" data-seed-semitone="2" aria-label="Seed note D"><span>D</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="3" aria-label="Seed note E flat"><span>E&#9837;</span></button>
-              <button type="button" data-seed-semitone="4" aria-label="Seed note E"><span>E</span></button>
-              <button type="button" data-seed-semitone="5" aria-label="Seed note F"><span>F</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="6" aria-label="Seed note F sharp"><span>F&#9839;</span></button>
-              <button type="button" data-seed-semitone="7" aria-label="Seed note G"><span>G</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="8" aria-label="Seed note A flat"><span>A&#9837;</span></button>
-              <button type="button" data-seed-semitone="9" aria-label="Seed note A"><span>A</span></button>
-              <button class="is-accidental" type="button" data-seed-semitone="10" aria-label="Seed note B flat"><span>B&#9837;</span></button>
-              <button type="button" data-seed-semitone="11" aria-label="Seed note B"><span>B</span></button>
-              <button type="button" data-seed-semitone="12" aria-label="Seed note C one octave higher"><span>C</span></button>
-            </div>
-          </div>
           <div class="l-system-mapping-readout" id="mappingReadout" aria-label="Latest graph synth mapping" aria-live="off">NODE 1 · PASS 0 → A3 · 100%</div>
           <div class="graph-key" aria-hidden="true"><span><i class="feed-forward"></i> inherited route</span><span><i class="feedback"></i> cycle return</span><span><i class="route-switch"></i> click switch</span><span><i class="pulse-route"></i> active route</span></div>
           <div class="stage-meta" aria-hidden="true"><span id="stageReadout">LAYERED DAG · 10 NODES · READY · AUDIO OFF</span></div>
@@ -70,9 +47,11 @@
               <button class="graph-pulse-action graph-random-action" id="randomGraphButton" type="button" aria-label="Create a random graph">Random</button>
             </div>
             <div class="graph-pulse-grid">
+              <label class="control graph-seed-note-control" for="seedNote"><span><b>Seed note</b><output id="seedNoteOut" for="seedNote">A3 · 57</output></span><input id="seedNote" name="pitch" type="range" min="0" max="127" step="1" value="57" /></label>
               <label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
               <label class="select-control" for="pulseDivision"><span class="field-label">Pulse interval</span><span class="select-shell"><select id="pulseDivision"><option value="0.5">Every 1/2 beat</option><option value="1" selected>Every beat</option><option value="2">Every 2 beats</option><option value="4">Every 4 beats</option></select></span></label>
             </div>
+            <small class="growth-parameter-note graph-seed-note-note">MIDI In and computer keys launch their own seed notes; this value sets Play, Send, and Space.</small>
             <p class="graph-cycle-note"><b>Cycles are note feedback.</b> A returning voice waits for the full cycle, keeps its inherited pitch, and comes back quieter and darker.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
@@ -147,7 +126,6 @@
             <label class="select-control" for="mappingMode"><span class="field-label">Graph → pitch</span><span class="select-shell"><select id="mappingMode"><option value="turn" selected>Inherited route turns</option><option value="height">Node height</option><option value="degree">Node degree</option><option value="progress">Left-to-right progress</option></select></span></label>
             <p class="graph-mapping-description" id="mappingDescription">Every turn adds a local interval to the pitch inherited from the previous route.</p>
             <div class="graph-mapping-legend" aria-label="Graph synth mapping legend"><span><b id="mappingLegendLabel0">Turn</b><small id="mappingLegendDetail0">inherited pitch</small></span><span><b id="mappingLegendLabel1">Node height</b><small id="mappingLegendDetail1">stereo + alternate pitch</small></span><span><b id="mappingLegendLabel2">Degree</b><small id="mappingLegendDetail2">modulation</small></span><span><b id="mappingLegendLabel3">Cycle pass</b><small id="mappingLegendDetail3">level + brightness loss</small></span></div>
-            <label class="control" for="baseFrequency"><span><b>Root frequency</b><output id="baseFrequencyOut" for="baseFrequency">220 Hz</output></span><input id="baseFrequency" name="frequency" type="range" min="35" max="880" step="1" value="220" /></label>
             <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">2.00 oct</output></span><input id="pitchRange" type="range" min="0" max="5" step="0.05" value="2" /></label>
             <label class="select-control" for="tuningMode"><span class="field-label">Pitch system</span><span class="select-shell"><select id="tuningMode"><option value="pure">Pure angle · continuous</option><option value="equal" selected>Equal octave divisions</option><option value="just">Just ratios · non-equal</option></select></span></label>
             <label class="control" for="edoDivisions"><span><b>Equal divisions / octave</b><output id="edoDivisionsOut" for="edoDivisions">19</output></span><input id="edoDivisions" type="range" min="1" max="360" step="1" value="19" /></label>
@@ -188,7 +166,7 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="graph-synth-app.js"></script>
+    <script type="module" src="graph-synth-app.js?v=graph-instruments-20260830-2"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

@@ -4,7 +4,7 @@ import {
   graphEdgeSwitchMultipliers,
   relativeTurnRadians,
   turnPitchSemitones,
-} from "./graph-delay.js";
+} from "./graph-delay.js?v=graph-instruments-20260830-2";
 
 // Dense and cyclic graphs can revisit nodes many times. Keep their event queue
 // explicitly bounded even though the editable instruments stop at 128 nodes.
@@ -60,13 +60,6 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
       mappingMode: "path-phase", percussionStyle: "circuit",
       pitchDepth: 5, turnPitchDepth: 3, characterDepth: 0.38,
     }),
-    synth: Object.freeze({
-      mappingMode: "progress", tuningMode: "equal", edoDivisions: 12,
-      baseFrequency: 110, pitchRange: 1, turnPitchScale: 0.25,
-      soundMode: "square", modulationIndex: 0.4, modulationRatio: 2,
-      articulation: "trigger", noteDuration: 90,
-      attack: 2, decay: 34, sustain: 0.12, release: 55, stereoSpread: 0.42,
-    }),
   }),
   branchChoir: patch("branchChoir", {
     baseDelay: 190,
@@ -78,15 +71,8 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
     feedbackTone: 0.86,
     description: "A slow four-beat seed blooms through long, unhurried branches.",
     drums: Object.freeze({
-      mappingMode: "degree-turn", percussionStyle: "resonant-metal",
+      mappingMode: "degree-turn", percussionStyle: "karplus-strong",
       pitchDepth: 18, turnPitchDepth: 14, characterDepth: 0.82,
-    }),
-    synth: Object.freeze({
-      mappingMode: "turn", tuningMode: "pure", edoDivisions: 12,
-      baseFrequency: 196, pitchRange: 3.5, turnPitchScale: 0.78,
-      soundMode: "sine", modulationIndex: 0.8, modulationRatio: 1.5,
-      articulation: "edge", noteDuration: 520,
-      attack: 55, decay: 180, sustain: 0.72, release: 720, stereoSpread: 1,
     }),
   }),
   layeredGlass: patch("layeredGlass", {
@@ -99,15 +85,8 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
     feedbackTone: 0.78,
     description: "Close crossing times make a tight cascade on every beat.",
     drums: Object.freeze({
-      mappingMode: "position-grid", percussionStyle: "drum-bank",
+      mappingMode: "position-grid", percussionStyle: "circuit",
       pitchDepth: 12, turnPitchDepth: 9, characterDepth: 0.72,
-    }),
-    synth: Object.freeze({
-      mappingMode: "turn", tuningMode: "equal", edoDivisions: 19,
-      baseFrequency: 220, pitchRange: 2, turnPitchScale: 0.55,
-      soundMode: "fm", modulationIndex: 2.8, modulationRatio: 2,
-      articulation: "trigger", noteDuration: 210,
-      attack: 8, decay: 90, sustain: 0.34, release: 220, stereoSpread: 0.84,
     }),
   }),
   haloRing: patch("haloRing", {
@@ -123,13 +102,6 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
       mappingMode: "path-phase", percussionStyle: "resonant-metal",
       pitchDepth: 16, turnPitchDepth: 20, characterDepth: 0.9,
     }),
-    synth: Object.freeze({
-      mappingMode: "turn", tuningMode: "just", edoDivisions: 12,
-      baseFrequency: 147, pitchRange: 4, turnPitchScale: 0.18,
-      soundMode: "shepard", modulationIndex: 1.2, modulationRatio: 1.5,
-      articulation: "edge", noteDuration: 420,
-      attack: 28, decay: 120, sustain: 0.66, release: 880, stereoSpread: 0.92,
-    }),
   }),
   shortcutChorus: patch("shortcutChorus", {
     baseDelay: 36,
@@ -144,13 +116,6 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
       mappingMode: "degree-turn", percussionStyle: "rattlesnake",
       pitchDepth: 9, turnPitchDepth: 18, characterDepth: 1,
     }),
-    synth: Object.freeze({
-      mappingMode: "turn", tuningMode: "equal", edoDivisions: 31,
-      baseFrequency: 262, pitchRange: 3, turnPitchScale: 0.92,
-      soundMode: "pm", modulationIndex: 5.4, modulationRatio: 1.25,
-      articulation: "trigger", noteDuration: 180,
-      attack: 4, decay: 70, sustain: 0.28, release: 310, stereoSpread: 1,
-    }),
   }),
   hubScatter: patch("hubScatter", {
     baseDelay: 24,
@@ -162,15 +127,8 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
     feedbackTone: 0.88,
     description: "Rapid spokes ricochet from the hub twice per beat.",
     drums: Object.freeze({
-      mappingMode: "position-grid", percussionStyle: "circuit",
+      mappingMode: "position-grid", percussionStyle: "drum-bank",
       pitchDepth: 24, turnPitchDepth: 7, characterDepth: 0.96,
-    }),
-    synth: Object.freeze({
-      mappingMode: "degree", tuningMode: "equal", edoDivisions: 7,
-      baseFrequency: 82, pitchRange: 2.5, turnPitchScale: 0.4,
-      soundMode: "sawtooth", modulationIndex: 1.8, modulationRatio: 3,
-      articulation: "trigger", noteDuration: 70,
-      attack: 1, decay: 22, sustain: 0.08, release: 38, stereoSpread: 0.72,
     }),
   }),
   softMesh: patch("softMesh", {
@@ -183,15 +141,8 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
     feedbackTone: 0.56,
     description: "Wide neighbor times smear slow clustered calls into softened returns.",
     drums: Object.freeze({
-      mappingMode: "degree-turn", percussionStyle: "drum-bank",
+      mappingMode: "degree-turn", percussionStyle: "karplus-tines",
       pitchDepth: 4, turnPitchDepth: 5, characterDepth: 0.28,
-    }),
-    synth: Object.freeze({
-      mappingMode: "height", tuningMode: "just", edoDivisions: 12,
-      baseFrequency: 330, pitchRange: 1.5, turnPitchScale: 0.28,
-      soundMode: "triangle", modulationIndex: 0.3, modulationRatio: 0.5,
-      articulation: "edge", noteDuration: 680,
-      attack: 120, decay: 340, sustain: 0.78, release: 1_200, stereoSpread: 0.64,
     }),
   }),
   islandSignals: patch("islandSignals", {
@@ -204,15 +155,8 @@ export const GRAPH_INSTRUMENT_PATCHES = Object.freeze({
     feedbackTone: 0.48,
     description: "Very long routes let three islands trade calls every four beats.",
     drums: Object.freeze({
-      mappingMode: "path-phase", percussionStyle: "resonant-metal",
+      mappingMode: "path-phase", percussionStyle: "karplus-objects",
       pitchDepth: 20, turnPitchDepth: 24, characterDepth: 0.76,
-    }),
-    synth: Object.freeze({
-      mappingMode: "turn", tuningMode: "pure", edoDivisions: 12,
-      baseFrequency: 55, pitchRange: 5, turnPitchScale: 1.2,
-      soundMode: "shepard", modulationIndex: 3.6, modulationRatio: 0.75,
-      articulation: "edge", noteDuration: 1_600,
-      attack: 240, decay: 520, sustain: 0.82, release: 2_400, stereoSpread: 1,
     }),
   }),
 });
@@ -297,22 +241,84 @@ function enabledEdgeFlags(graph, enabledEdges) {
 }
 
 function eventComparison(first, second) {
+  const firstPath = String(first.pathKey);
+  const secondPath = String(second.pathKey);
   return first.time - second.time
     || first.feedbackCount - second.feedbackCount
     || first.depth - second.depth
-    || String(first.pathKey).localeCompare(String(second.pathKey))
+    || (firstPath < secondPath ? -1 : firstPath > secondPath ? 1 : 0)
     || first.nodeId - second.nodeId;
 }
 
+// Dense graphs used to maintain a sorted Array with splice() + shift(), making
+// an already bounded 8,192-event traversal quadratic. A binary min-heap keeps
+// the same deterministic ordering without making graph thickness a UI hazard.
 function insertEvent(queue, event) {
-  let low = 0;
-  let high = queue.length;
-  while (low < high) {
-    const middle = (low + high) >> 1;
-    if (eventComparison(queue[middle], event) <= 0) low = middle + 1;
-    else high = middle;
+  queue.push(event);
+  let index = queue.length - 1;
+  while (index > 0) {
+    const parent = (index - 1) >> 1;
+    if (eventComparison(queue[parent], event) <= 0) break;
+    queue[index] = queue[parent];
+    index = parent;
   }
-  queue.splice(low, 0, event);
+  queue[index] = event;
+}
+
+function takeNextEvent(queue) {
+  if (!queue.length) return null;
+  const first = queue[0];
+  const last = queue.pop();
+  if (!queue.length) return first;
+  let index = 0;
+  while (true) {
+    const left = index * 2 + 1;
+    if (left >= queue.length) break;
+    const right = left + 1;
+    const child = right < queue.length
+      && eventComparison(queue[right], queue[left]) < 0
+      ? right
+      : left;
+    if (eventComparison(last, queue[child]) <= 0) break;
+    queue[index] = queue[child];
+    index = child;
+  }
+  queue[index] = last;
+  return first;
+}
+
+function mixPathHash(hash, value) {
+  let result = hash >>> 0;
+  const text = String(value);
+  for (let index = 0; index < text.length; index += 1) {
+    result ^= text.charCodeAt(index);
+    result = Math.imul(result, 16_777_619) >>> 0;
+  }
+  return result;
+}
+
+function entryPathIdentity(nodeId) {
+  const hashA = mixPathHash(2_166_136_261, `entry:${nodeId}`);
+  const hashB = mixPathHash(2_654_435_761, `node:${nodeId}`);
+  return {
+    pathHashA: hashA,
+    pathHashB: hashB,
+    pathKey: `p:${hashA.toString(16).padStart(8, "0")}${hashB.toString(16).padStart(8, "0")}:0`,
+  };
+}
+
+function descendantPathIdentity(event, edge, edgeIndex) {
+  const token = `${edge.id}:${edgeIndex}:${edge.from}>${edge.to}`;
+  const hashA = mixPathHash(event.pathHashA, token);
+  const hashB = mixPathHash(event.pathHashB ^ 0x9e3779b9, token);
+  const depth = event.depth + 1;
+  return {
+    pathHashA: hashA,
+    pathHashB: hashB,
+    // Keep public path identities fixed-size. The previous full ancestry
+    // string reached thousands of characters per event in cyclic graphs.
+    pathKey: `p:${hashA.toString(16).padStart(8, "0")}${hashB.toString(16).padStart(8, "0")}:${depth}`,
+  };
 }
 
 function graphEventLimits(options) {
@@ -371,6 +377,21 @@ export function scheduleGraphPulse(graph, options = {}) {
   edgeParameters.forEach((edge, index) => {
     outgoing[edge.from].push({ edge, index });
   });
+  const reachableNodeIds = new Set();
+  const reachableStack = [...model.entries];
+  while (reachableStack.length) {
+    const nodeId = reachableStack.pop();
+    if (reachableNodeIds.has(nodeId)) continue;
+    reachableNodeIds.add(nodeId);
+    for (const { edge, index } of outgoing[nodeId] ?? []) {
+      if (
+        enabledFlags[index]
+        && switchMultipliers[index] > 0
+        && edge.gain > 0
+        && !reachableNodeIds.has(edge.to)
+      ) reachableStack.push(edge.to);
+    }
+  }
   const inputPosition = {
     x: finite(settings.inputPosition?.x, 0),
     y: finite(settings.inputPosition?.y, 0.5),
@@ -379,8 +400,33 @@ export function scheduleGraphPulse(graph, options = {}) {
     ? 1
     : 1 / Math.sqrt(Math.max(1, model.entries.length));
   const queue = [];
+  let admittedEventCount = 0;
+  let duplicateAdmissionCount = 0;
+  const discoveredNodeIds = new Set();
+  // Reserve one event slot for each structurally reachable node before letting
+  // duplicate paths consume the rest. Thick graphs therefore shed repeated
+  // arrivals before a late node's first arrival, while total pending work can
+  // never exceed maxEvents.
+  const duplicateAdmissionLimit = Math.max(
+    0,
+    limits.maxEvents - reachableNodeIds.size,
+  );
+  const admitEvent = (event) => {
+    // Bound pending work as well as returned work. Previously a highly
+    // branching graph could stop at 8,192 rendered events after allocating a
+    // far larger heap of descendants.
+    if (admittedEventCount >= limits.maxEvents) return false;
+    const firstNodeVisit = !discoveredNodeIds.has(event.nodeId);
+    if (!firstNodeVisit && duplicateAdmissionCount >= duplicateAdmissionLimit) return false;
+    insertEvent(queue, event);
+    admittedEventCount += 1;
+    if (firstNodeVisit) discoveredNodeIds.add(event.nodeId);
+    else duplicateAdmissionCount += 1;
+    return true;
+  };
   for (const nodeId of model.entries) {
-    insertEvent(queue, {
+    const pathIdentity = entryPathIdentity(nodeId);
+    if (!admitEvent({
       nodeId,
       time: 0,
       departTime: 0,
@@ -393,13 +439,13 @@ export function scheduleGraphPulse(graph, options = {}) {
       depth: 0,
       feedbackCount: 0,
       kind: "node",
-      pathKey: `entry:${String(nodeId).padStart(3, "0")}`,
-    });
+      ...pathIdentity,
+    })) break;
   }
 
   const scheduledNodes = [];
   while (queue.length && scheduledNodes.length < limits.maxEvents) {
-    const event = queue.shift();
+    const event = takeNextEvent(queue);
     if (event.time > limits.horizonSeconds + 1e-12) continue;
     scheduledNodes.push(event);
     if (event.depth >= limits.maxDepth) continue;
@@ -418,6 +464,7 @@ export function scheduleGraphPulse(graph, options = {}) {
       if (time > limits.horizonSeconds + 1e-12) continue;
       const localTurn = relativeTurnRadians(previous, pivot, model.nodes[edge.to]);
       const localSemitones = turnPitchSemitones(localTurn, settings);
+      const pathIdentity = descendantPathIdentity(event, edge, index);
       const nextEvent = {
         nodeId: edge.to,
         time,
@@ -431,9 +478,9 @@ export function scheduleGraphPulse(graph, options = {}) {
         depth: event.depth + 1,
         feedbackCount,
         kind: "node",
-        pathKey: `${event.pathKey}>${String(edge.id)}@${String(index).padStart(4, "0")}`,
+        ...pathIdentity,
       };
-      insertEvent(queue, nextEvent);
+      admitEvent(nextEvent);
     }
   }
   return scheduledNodes;

@@ -4,10 +4,26 @@ import { connectAudioOutput } from "./audio-output-manager.js";
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const NOISE_BUFFER_SECONDS = 2.5;
 
+// Dense graph routes can ask for thousands of native nodes in a fraction of a
+// second. These are renderer budgets, not graph/topology limits: excess hits
+// are reported as ordinary skips while the visual graph remains complete.
+export const MAX_FM_DRUM_ACTIVE_HITS = 96;
+export const MAX_FM_DRUM_ACTIVE_SOURCES = 256;
+export const MAX_FM_DRUM_SOURCE_STARTS_PER_SECOND = 512;
+export const MAX_FM_DRUM_SOURCE_BURST = 192;
+
 function cancelledAudioStart() {
   const error = new Error("FM Drum audio start was cancelled.");
   error.name = "AbortError";
   return error;
+}
+
+function safeDisconnect(node) {
+  try {
+    node?.disconnect?.();
+  } catch {
+    // A failed/closing graph may already have detached this node.
+  }
 }
 
 const VOICES = [
@@ -69,7 +85,12 @@ export function frequencySliderPosition(frequency, minimum = 35, maximum = 6_000
 }
 
 export class FmDrumAudio {
-  constructor(runtime = globalThis) {
+  constructor(runtime = globalThis, {
+    maxActiveHits = MAX_FM_DRUM_ACTIVE_HITS,
+    maxActiveSources = MAX_FM_DRUM_ACTIVE_SOURCES,
+    sourceStartsPerSecond = MAX_FM_DRUM_SOURCE_STARTS_PER_SECOND,
+    sourceBurst = MAX_FM_DRUM_SOURCE_BURST,
+  } = {}) {
     this.runtime = runtime;
     this.context = null;
     this.input = null;
@@ -83,6 +104,35 @@ export class FmDrumAudio {
     this.noiseBuffer = null;
     this.noiseBufferContext = null;
     this.activeHits = new Set();
+    this.maxActiveHits = Math.max(
+      1,
+      Math.floor(Number(maxActiveHits) || MAX_FM_DRUM_ACTIVE_HITS),
+    );
+    this.maxActiveSources = Math.max(
+      2,
+      Math.floor(Number(maxActiveSources) || MAX_FM_DRUM_ACTIVE_SOURCES),
+    );
+    this.sourceStartsPerSecond = Math.max(
+      1,
+      Number(sourceStartsPerSecond) || MAX_FM_DRUM_SOURCE_STARTS_PER_SECOND,
+    );
+    this.sourceBurst = Math.max(
+      2,
+      Math.min(
+        this.maxActiveSources,
+        Number(sourceBurst) || MAX_FM_DRUM_SOURCE_BURST,
+      ),
+    );
+    this.sourceTokens = this.sourceBurst;
+    this.sourceTokenTime = null;
+  }
+
+  get activeSourceCount() {
+    let count = 0;
+    for (const hit of this.activeHits) {
+      count += hit.pendingSources?.size ?? hit.sources?.length ?? hit.sourceCost ?? 0;
+    }
+    return count;
   }
 
   async start() {
@@ -92,6 +142,10 @@ export class FmDrumAudio {
       for (const hit of [...this.activeHits]) this.#cleanupHit(hit);
       this.releaseAudioOutput?.();
       this.releaseAudioOutput = null;
+      safeDisconnect(this.input);
+      safeDisconnect(this.master);
+      safeDisconnect(this.hostGate);
+      safeDisconnect(this.analyser);
       this.context = null;
       this.input = null;
       this.master = null;
@@ -102,24 +156,57 @@ export class FmDrumAudio {
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
       if (!Context) throw new Error("Web Audio is not available in this browser.");
       context = new Context();
+      let compressor = null;
+      let master = null;
+      let hostGate = null;
+      let analyser = null;
+      let releaseAudioOutput = null;
+      try {
+        compressor = context.createDynamicsCompressor();
+        compressor.threshold.value = -12;
+        compressor.knee.value = 12;
+        compressor.ratio.value = 8;
+        compressor.attack.value = .002;
+        compressor.release.value = .18;
+        master = context.createGain();
+        master.gain.value = this.output;
+        hostGate = context.createGain();
+        hostGate.gain.value = this.hostGain;
+        analyser = context.createAnalyser();
+        analyser.fftSize = 256;
+        compressor.connect(master);
+        master.connect(hostGate);
+        hostGate.connect(analyser);
+        releaseAudioOutput = connectAudioOutput(context, analyser, { runtime: this.runtime });
+      } catch (error) {
+        releaseAudioOutput?.();
+        safeDisconnect(compressor);
+        safeDisconnect(master);
+        safeDisconnect(hostGate);
+        safeDisconnect(analyser);
+        try {
+          await context.close?.();
+        } catch {
+          // The original construction error is the useful failure to report.
+        }
+        throw error;
+      }
+      if (lifecycleGeneration !== this.lifecycleGeneration) {
+        releaseAudioOutput?.();
+        safeDisconnect(compressor);
+        safeDisconnect(master);
+        safeDisconnect(hostGate);
+        safeDisconnect(analyser);
+        try { await context.close?.(); } catch { /* Lifecycle teardown already won. */ }
+        throw cancelledAudioStart();
+      }
       this.context = context;
-      const compressor = context.createDynamicsCompressor();
-      compressor.threshold.value = -12;
-      compressor.knee.value = 12;
-      compressor.ratio.value = 8;
-      compressor.attack.value = .002;
-      compressor.release.value = .18;
-      this.master = context.createGain();
-      this.master.gain.value = this.output;
-      this.hostGate = context.createGain();
-      this.hostGate.gain.value = this.hostGain;
-      this.analyser = context.createAnalyser();
-      this.analyser.fftSize = 256;
-      compressor.connect(this.master);
-      this.master.connect(this.hostGate);
-      this.hostGate.connect(this.analyser);
-      this.releaseAudioOutput = connectAudioOutput(context, this.analyser, { runtime: this.runtime });
       this.input = compressor;
+      this.master = master;
+      this.hostGate = hostGate;
+      this.analyser = analyser;
+      this.releaseAudioOutput = releaseAudioOutput;
+      this.#resetAdmission(context.currentTime);
     }
     if (context.state !== "running") {
       unlockAudioContext(context);
@@ -163,6 +250,10 @@ export class FmDrumAudio {
     for (const hit of [...this.activeHits]) this.#cleanupHit(hit);
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
+    safeDisconnect(this.input);
+    safeDisconnect(this.master);
+    safeDisconnect(this.hostGate);
+    safeDisconnect(this.analyser);
     this.context = null;
     this.input = null;
     this.master = null;
@@ -199,66 +290,149 @@ export class FmDrumAudio {
       ? Math.max(currentTime, requestedStart)
       : currentTime + delay;
     const stopAt = startsAt + Math.max(.12, voice.attack + voice.decay * 1.35);
+    const sourceCost = voice.noise > .005 ? 3 : 2;
+    const skipReason = this.#admitHit(currentTime, sourceCost);
+    if (skipReason) {
+      return Object.freeze({
+        ...voice,
+        scheduled: false,
+        skipped: true,
+        skipReason,
+      });
+    }
 
-    const amplitude = context.createGain();
-    amplitude.gain.setValueAtTime(.0001, startsAt);
-    amplitude.gain.exponentialRampToValueAtTime(Math.max(.001, voice.level), startsAt + voice.attack);
-    amplitude.gain.exponentialRampToValueAtTime(.0001, startsAt + voice.attack + voice.decay);
-
-    const filter = context.createBiquadFilter();
-    filter.type = voice.family === "hat"
-      ? "highpass"
-      : voice.family === "rattle"
-        ? "bandpass"
-        : "lowpass";
-    filter.frequency.value = voice.family === "hat"
-      ? 2_200 + voice.tone * 5_000
-      : voice.family === "rattle"
-        ? clamp(voice.frequency * 5, 480, 12_000)
-        : 550 + voice.tone * 11_500;
-    filter.Q.value = voice.family === "rattle" ? 4.2 : voice.family === "metal" ? 2.6 : .75;
-    amplitude.connect(filter);
-    filter.connect(this.input);
-
-    const carrier = context.createOscillator();
-    const modulator = context.createOscillator();
-    const modulation = context.createGain();
-    const base = voice.frequency;
-    carrier.type = ["hat", "metal", "rattle"].includes(voice.family) ? "square" : "sine";
-    modulator.type = voice.family === "bell" ? "sine" : "triangle";
-    carrier.frequency.setValueAtTime(
-      clamp(base * Math.max(.15, 1 + voice.pitchBend), 20, 16_000),
-      startsAt,
-    );
-    carrier.frequency.exponentialRampToValueAtTime(
-      base,
-      startsAt + Math.max(.018, voice.decay * .42),
-    );
-    modulator.frequency.value = clamp(base * voice.modRatio, 20, 18_000);
-    modulation.gain.setValueAtTime(base * voice.modIndex, startsAt);
-    modulation.gain.exponentialRampToValueAtTime(.001, startsAt + Math.max(.025, voice.decay));
-    modulator.connect(modulation);
-    modulation.connect(carrier.frequency);
-    carrier.connect(amplitude);
-    carrier.start(startsAt);
-    modulator.start(startsAt);
-    carrier.stop(stopAt);
-    modulator.stop(stopAt);
-
-    const noiseLayer = voice.noise > .005
-      ? this.#addNoise(voice, filter, startsAt, stopAt)
-      : null;
-    this.#trackHit({
+    const hit = {
       startsAt,
       stopAt,
-      carrier,
-      modulator,
-      modulation,
-      amplitude,
-      filter,
-      noiseLayer,
-    });
-    return voice;
+      sourceCost,
+      carrier: null,
+      modulator: null,
+      modulation: null,
+      amplitude: null,
+      filter: null,
+      noiseLayer: null,
+      sources: [],
+      nodes: [],
+      cleaned: false,
+    };
+
+    try {
+      const amplitude = context.createGain();
+      hit.amplitude = amplitude;
+      hit.nodes.push(amplitude);
+      amplitude.gain.setValueAtTime(.0001, startsAt);
+      amplitude.gain.exponentialRampToValueAtTime(
+        Math.max(.001, voice.level),
+        startsAt + voice.attack,
+      );
+      amplitude.gain.exponentialRampToValueAtTime(
+        .0001,
+        startsAt + voice.attack + voice.decay,
+      );
+
+      const filter = context.createBiquadFilter();
+      hit.filter = filter;
+      hit.nodes.push(filter);
+      filter.type = voice.family === "hat"
+        ? "highpass"
+        : voice.family === "rattle"
+          ? "bandpass"
+          : "lowpass";
+      filter.frequency.value = voice.family === "hat"
+        ? 2_200 + voice.tone * 5_000
+        : voice.family === "rattle"
+          ? clamp(voice.frequency * 5, 480, 12_000)
+          : 550 + voice.tone * 11_500;
+      filter.Q.value = voice.family === "rattle" ? 4.2 : voice.family === "metal" ? 2.6 : .75;
+      amplitude.connect(filter);
+      filter.connect(this.input);
+
+      const carrier = context.createOscillator();
+      hit.carrier = carrier;
+      hit.sources.push(carrier);
+      hit.nodes.push(carrier);
+      const modulator = context.createOscillator();
+      hit.modulator = modulator;
+      hit.sources.push(modulator);
+      hit.nodes.push(modulator);
+      const modulation = context.createGain();
+      hit.modulation = modulation;
+      hit.nodes.push(modulation);
+      const base = voice.frequency;
+      carrier.type = ["hat", "metal", "rattle"].includes(voice.family) ? "square" : "sine";
+      modulator.type = voice.family === "bell" ? "sine" : "triangle";
+      carrier.frequency.setValueAtTime(
+        clamp(base * Math.max(.15, 1 + voice.pitchBend), 20, 16_000),
+        startsAt,
+      );
+      carrier.frequency.exponentialRampToValueAtTime(
+        base,
+        startsAt + Math.max(.018, voice.decay * .42),
+      );
+      modulator.frequency.value = clamp(base * voice.modRatio, 20, 18_000);
+      modulation.gain.setValueAtTime(base * voice.modIndex, startsAt);
+      modulation.gain.exponentialRampToValueAtTime(
+        .001,
+        startsAt + Math.max(.025, voice.decay),
+      );
+      modulator.connect(modulation);
+      modulation.connect(carrier.frequency);
+      carrier.connect(amplitude);
+      carrier.start(startsAt);
+      modulator.start(startsAt);
+      carrier.stop(stopAt);
+      modulator.stop(stopAt);
+
+      if (voice.noise > .005) this.#addNoise(voice, filter, startsAt, stopAt, hit);
+      this.#trackHit(hit);
+      return Object.freeze({ ...voice, scheduled: true, skipped: false });
+    } catch (error) {
+      for (const source of hit.sources) this.#stopSource(source, currentTime);
+      this.#cleanupHit(hit);
+      this.#refundSourceTokens(sourceCost);
+      throw error;
+    }
+  }
+
+  #resetAdmission(now = 0) {
+    this.sourceTokens = this.sourceBurst;
+    this.sourceTokenTime = Number.isFinite(Number(now)) ? Number(now) : 0;
+  }
+
+  #refillSourceTokens(now) {
+    const safeNow = Number.isFinite(Number(now)) ? Number(now) : 0;
+    if (!Number.isFinite(this.sourceTokenTime)) {
+      this.sourceTokenTime = safeNow;
+      return;
+    }
+    const elapsed = Math.max(0, safeNow - this.sourceTokenTime);
+    this.sourceTokens = Math.min(
+      this.sourceBurst,
+      this.sourceTokens + elapsed * this.sourceStartsPerSecond,
+    );
+    this.sourceTokenTime = safeNow;
+  }
+
+  #admitHit(now, sourceCost) {
+    this.#pruneHits(now);
+    if (this.activeHits.size >= this.maxActiveHits) return "live-hit-budget";
+    if (this.activeSourceCount + sourceCost > this.maxActiveSources) {
+      return "live-source-budget";
+    }
+    this.#refillSourceTokens(now);
+    if (this.sourceTokens + 1e-9 < sourceCost) return "source-rate-budget";
+    this.sourceTokens -= sourceCost;
+    return null;
+  }
+
+  #refundSourceTokens(sourceCost) {
+    this.sourceTokens = Math.min(this.sourceBurst, this.sourceTokens + sourceCost);
+  }
+
+  #pruneHits(now) {
+    for (const hit of [...this.activeHits]) {
+      if (hit.stopAt <= now) this.#cleanupHit(hit);
+    }
   }
 
   /** Fade audible hits and invalidate every hit that has not started yet. */
@@ -333,11 +507,7 @@ export class FmDrumAudio {
 
   #trackHit(hit) {
     hit.cleaned = false;
-    hit.pendingSources = new Set([
-      hit.carrier,
-      hit.modulator,
-      hit.noiseLayer?.source,
-    ].filter(Boolean));
+    hit.pendingSources = new Set(hit.sources);
     this.activeHits.add(hit);
     for (const source of hit.pendingSources) {
       source.onended = () => {
@@ -352,17 +522,20 @@ export class FmDrumAudio {
     if (!hit || hit.cleaned) return;
     hit.cleaned = true;
     this.activeHits.delete(hit);
-    const nodes = [
+    const sources = hit.sources ?? [
       hit.carrier,
       hit.modulator,
+      hit.noiseLayer?.source,
+    ].filter(Boolean);
+    const nodes = hit.nodes ?? [
+      ...sources,
       hit.modulation,
       hit.amplitude,
       hit.filter,
-      hit.noiseLayer?.source,
       hit.noiseLayer?.amplitude,
       hit.noiseLayer?.filter,
-    ];
-    for (const source of [hit.carrier, hit.modulator, hit.noiseLayer?.source]) {
+    ].filter(Boolean);
+    for (const source of sources) {
       if (source) source.onended = null;
     }
     for (const node of nodes) {
@@ -385,12 +558,17 @@ export class FmDrumAudio {
     return buffer;
   }
 
-  #addNoise(voice, destination, startsAt, stopAt) {
+  #addNoise(voice, destination, startsAt, stopAt, hit) {
     const context = this.context;
     const buffer = this.#noiseBuffer(context);
     const noise = context.createBufferSource();
+    hit.sources.push(noise);
+    hit.nodes.push(noise);
     const amplitude = context.createGain();
+    hit.nodes.push(amplitude);
     const filter = context.createBiquadFilter();
+    hit.nodes.push(filter);
+    hit.noiseLayer = { source: noise, amplitude, filter };
     filter.type = ["kick", "rattle"].includes(voice.family) ? "bandpass" : "highpass";
     filter.frequency.value = voice.family === "kick"
       ? 900
@@ -426,6 +604,6 @@ export class FmDrumAudio {
     amplitude.connect(destination);
     noise.start(startsAt);
     noise.stop(stopAt);
-    return { source: noise, amplitude, filter };
+    return hit.noiseLayer;
   }
 }
