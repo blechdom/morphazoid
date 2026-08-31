@@ -119,11 +119,12 @@ test("every stateful visual module has one valid dedicated Hear graph", () => {
   }
 });
 
-test("stateful WGSL owns six cases and separate update and render entry points", () => {
+test("stateful WGSL owns six cases and a dedicated ordered compute entry point", async () => {
   assert.ok(STATEFUL_SHADER.length > 0, "the dedicated state module must export WGSL source");
-  assert.ok(
-    countMatches(STATEFUL_SHADER, /@compute\s+@workgroup_size\s*\(/g) >= 2,
-    "state evolution and audio/control projection need separate compute entry points",
+  assert.equal(
+    countMatches(STATEFUL_SHADER, /@compute\s+@workgroup_size\s*\(/g),
+    1,
+    "one ordered state-node pass may combine persistent evolution with audio/control projection",
   );
   for (const [index, id] of EXPECTED_STATEFUL_IDS.entries()) {
     const kind = EXPECTED_STATEFUL_KINDS[index];
@@ -131,14 +132,16 @@ test("stateful WGSL owns six cases and separate update and render entry points",
     assert.match(statefulCase(kind), /p0\.|p1\.|params/i, `${id} must consume packed graph parameters`);
   }
 
-  const initSource = ShaderSynthPlaygroundAudio.prototype.initGpu.toString();
-  const statefulPipelineFields = new Set(
-    [...initSource.matchAll(/this\.(\w*stateful\w*pipeline\w*)/gi)].map((match) => match[1]),
+  const stateEngineSource = await readFile(new URL("src/shader-synth-playground-state-engine.js", ROOT), "utf8");
+  assert.match(
+    stateEngineSource,
+    /entryPoint:\s*["']renderStateNode["']/,
+    "the state engine must build a pipeline for the ordered state-node entry point",
   );
-  assert.ok(statefulPipelineFields.size >= 2, "the runtime needs distinct state-update and state-render pipelines");
-  assert.ok(
-    countMatches(initSource, /createComputePipeline(?:Async)?\s*\(/g) >= 5,
-    "the existing graph/capture/FX pipelines plus two stateful pipelines must be created",
+  assert.match(
+    stateEngineSource,
+    /createComputePipeline(?:Async)?\s*\(/,
+    "the state engine must own a dedicated GPU compute pipeline",
   );
 });
 
