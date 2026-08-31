@@ -363,17 +363,17 @@ test("Hiccup Head is a monophonic physical beatbox sequencer with page-owned dru
   assert.equal(midi?.computerKeyboardMode, "page");
 });
 
-test("Colony Syrinx is a polymetric pressure-network voice with page-owned valve keys", () => {
+test("Colony Syrinx is a continuous mutable pressure-network voice with page-owned valve keys", () => {
   const instrument = instrumentById("colony-syrinx");
   assert.equal(instrument?.label, "Colony Syrinx");
   assert.equal(instrument?.href, "colony-syrinx.html");
   assert.equal(instrument?.imageHref, "assets/instruments/colony-syrinx.webp");
-  assert.equal(instrument?.kind, "Pressure-network voice sequencer");
-  assert.match(instrument?.description ?? "", /sixteen staggered lungs/i);
-  assert.match(instrument?.description ?? "", /twelve-valve manifold/i);
+  assert.equal(instrument?.kind, "Mutable pressure-network voice");
+  assert.match(instrument?.description ?? "", /one expressive breath/i);
+  assert.match(instrument?.description ?? "", /two morphing plumbing maps/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["voice-synths", "sequencers"],
+    ["voice-synths"],
   );
   assert.ok(instrument?.features.includes("Physical-model DSP"));
   assert.ok(instrument?.features.includes("MIDI"));

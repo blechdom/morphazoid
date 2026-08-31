@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#050806" />
     <meta
       name="description"
-      content="Colony Syrinx is a breath-driven polyphonic organism: sixteen lungs, eight vocal folds, a MIDI valve matrix, and three independently sequenced mouths."
+      content="Colony Syrinx is a continuously breathing polyphonic organism whose lungs, paired throats, plumbing, mouths, and evolution contours can all be regenerated."
     />
     <title>Colony Syrinx — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -57,14 +57,14 @@
             <h1 id="pageTitle"><span>COLONY</span><i>/</i><span>SYRINX</span></h1>
           </div>
           <p class="colony-thesis">
-            Sixteen lungs feed four incompatible paired voices. Every exhale is fought over by
-            three mouths: a subharmonic maw, a vowel-biting throat, and a pressure-loaded needle scream.
+            One breath circulates through a mutable colony of lungs, incompatible paired throats,
+            and three hostile mouths. Curves bend the organism continuously; they do not trigger notes.
           </p>
           <dl class="colony-counts" aria-label="Anatomy count">
-            <div><dt>lungs</dt><dd>16</dd></div>
-            <div><dt>folds</dt><dd>08</dd></div>
-            <div><dt>routes</dt><dd>12</dd></div>
-            <div><dt>mouths</dt><dd>03</dd></div>
+            <div><dt>lungs</dt><dd id="activeLungCount">16</dd></div>
+            <div><dt>folds</dt><dd id="activeFoldCount">08</dd></div>
+            <div><dt>routes</dt><dd id="activeRouteCount">09</dd></div>
+            <div><dt>mouths</dt><dd id="activeMouthCount">03</dd></div>
           </dl>
         </header>
 
@@ -93,8 +93,8 @@
               >
                 <title id="colonyBodyTitle">Live Colony Syrinx pressure anatomy</title>
                 <desc id="colonyBodyDescription">
-                  Sixteen asymmetric breathing sacs feed four reservoirs and eight vocal folds.
-                  Nine open colored vessels, from twelve possible routes, drive three hostile mouths.
+                  Up to sixteen asymmetric breathing sacs feed four reservoirs and eight vocal folds.
+                  Two continuously morphing plumbing maps drive as many as three hostile mouths.
                 </desc>
                 <defs>
                   <radialGradient id="colonyLungFill" cx="38%" cy="32%" r="78%">
@@ -169,7 +169,7 @@
                   <path d="M358 505 C392 505 409 505 436 505" />
                 </g>
 
-                <g class="fold-sources" aria-label="Four paired-fold sound sources">
+                <g class="fold-sources" aria-label="Up to four paired-fold sound sources">
                   <g class="vessel-source is-enabled" data-vessel-source="1" transform="translate(478 117)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P1 · ROAR / 2 FOLDS</text></g>
                   <g class="vessel-source is-enabled" data-vessel-source="2" transform="translate(478 244)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P2 · SPLIT / 2 FOLDS</text></g>
                   <g class="vessel-source is-enabled" data-vessel-source="3" transform="translate(478 378)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P3 · RATTLE / 2 FOLDS</text></g>
@@ -222,9 +222,9 @@
                 </g>
 
                 <g class="body-labels" aria-hidden="true">
-                  <text x="45" y="45">16 LUNGS / 4 PRESSURE GARDENS</text>
-                  <text x="430" y="45">8 FOLDS / 4 PAIRS</text>
-                  <text id="bodyRouteCount" x="621" y="45">9 OPEN / 12 POSSIBLE</text>
+                  <text x="45" y="45">MUTABLE LUNGS / PRESSURE GARDENS</text>
+                  <text id="bodyFoldCount" x="430" y="45">8 FOLDS / 4 PAIRS</text>
+                  <text id="bodyRouteCount" x="621" y="45">9 FLOWING / 12 LIVING</text>
                   <path d="M38 55 H303" /><path d="M427 55 H531" /><path d="M617 55 H850" />
                 </g>
               </svg>
@@ -362,7 +362,7 @@
               <section class="mouth-system flow-module" aria-labelledby="mouthRackTitle">
                 <header class="flow-module-heading">
                   <div><span>D / RADIATORS</span><h3 id="mouthRackTitle">3 mouths</h3></div>
-                  <output id="mouthCountReadout">3 rhythmic exits</output>
+                  <output id="mouthCountReadout">3 continuous exits</output>
                 </header>
                 <div class="mouth-rack" id="mouthRack">
                   <article class="mouth-card mouth-a" id="mouth1" data-mouth="1">
@@ -395,93 +395,15 @@
 
         <section class="colony-sequencer" aria-labelledby="sequencerTitle">
           <header class="colony-section-heading sequencer-heading">
-            <div><span>02 / POLYMETRIC MOUTHS</span><h2 id="sequencerTitle">Three clocks share one breath</h2></div>
-            <div class="sequence-position" aria-live="polite"><span>BAR 01</span><output id="stepReadout">STEP 01 / 16</output></div>
+            <div><span>02 / EVOLUTION FIELD</span><h2 id="sequencerTitle">One flowing breath, six continuous contours</h2></div>
+            <div class="sequence-position" aria-live="polite"><span>LOOPING FIELD</span><output id="stepReadout">PHASE 000°</output></div>
           </header>
-
-          <div class="sequence-scroll">
-            <div class="sequence-lanes" id="sequenceLanes">
-              <section class="sequence-lane mouth-a" id="lane1" data-lane="1" data-mouth="1" aria-labelledby="lane1Title">
-                <header class="lane-header">
-                  <button id="lane1Mute" type="button" aria-pressed="false" aria-label="Mute subharmonic maw lane"><i></i></button>
-                  <div><b id="lane1Title">M1 / MAW</b><small>13-step cycle · subharmonic exhale</small></div>
-                  <label for="lane1Length">LEN <input id="lane1Length" type="number" min="1" max="16" step="1" value="13" /></label>
-                  <select id="lane1Rate" aria-label="Subharmonic maw lane clock rate"><option value="0.5">½×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
-                </header>
-                <div class="lane-steps" role="group" aria-label="Bass mouth 16-step pattern">
-                  <button type="button" data-step="1" data-velocity="1" aria-label="Bass step 1 active, full velocity" aria-pressed="true"><span>1</span><i style="--velocity:1"></i></button>
-                  <button type="button" data-step="2" aria-label="Bass step 2 inactive" aria-pressed="false"><span>2</span><i></i></button>
-                  <button type="button" data-step="3" aria-label="Bass step 3 inactive" aria-pressed="false"><span>3</span><i></i></button>
-                  <button type="button" data-step="4" data-velocity=".48" aria-label="Bass step 4 active, medium velocity" aria-pressed="true"><span>4</span><i style="--velocity:.48"></i></button>
-                  <button type="button" data-step="5" aria-label="Bass step 5 inactive" aria-pressed="false"><span>5</span><i></i></button>
-                  <button type="button" data-step="6" aria-label="Bass step 6 inactive" aria-pressed="false"><span>6</span><i></i></button>
-                  <button type="button" data-step="7" data-velocity=".76" aria-label="Bass step 7 active, strong velocity" aria-pressed="true"><span>7</span><i style="--velocity:.76"></i></button>
-                  <button type="button" data-step="8" aria-label="Bass step 8 inactive" aria-pressed="false"><span>8</span><i></i></button>
-                  <button type="button" data-step="9" aria-label="Bass step 9 inactive" aria-pressed="false"><span>9</span><i></i></button>
-                  <button type="button" data-step="10" data-velocity=".38" aria-label="Bass step 10 active, soft velocity" aria-pressed="true"><span>10</span><i style="--velocity:.38"></i></button>
-                  <button type="button" data-step="11" aria-label="Bass step 11 inactive" aria-pressed="false"><span>11</span><i></i></button>
-                  <button type="button" data-step="12" aria-label="Bass step 12 inactive" aria-pressed="false"><span>12</span><i></i></button>
-                  <button class="is-loop-end" type="button" data-step="13" data-velocity=".62" aria-label="Bass step 13 active, loop end" aria-pressed="true"><span>13</span><i style="--velocity:.62"></i></button>
-                  <button class="is-outside-loop" type="button" data-step="14" aria-label="Bass step 14 outside loop" aria-pressed="false"><span>14</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="15" aria-label="Bass step 15 outside loop" aria-pressed="false"><span>15</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="16" aria-label="Bass step 16 outside loop" aria-pressed="false"><span>16</span><i></i></button>
-                </div>
-              </section>
-
-              <section class="sequence-lane mouth-b" id="lane2" data-lane="2" data-mouth="2" aria-labelledby="lane2Title">
-                <header class="lane-header">
-                  <button id="lane2Mute" type="button" aria-pressed="false" aria-label="Mute vowel biter lane"><i></i></button>
-                  <div><b id="lane2Title">M2 / BITER</b><small>11-step cycle · teeth and vowels</small></div>
-                  <label for="lane2Length">LEN <input id="lane2Length" type="number" min="1" max="16" step="1" value="11" /></label>
-                  <select id="lane2Rate" aria-label="Vowel biter lane clock rate"><option value="0.5">½×</option><option value="1">1×</option><option value="1.5" selected>3/2×</option><option value="2">2×</option></select>
-                </header>
-                <div class="lane-steps" role="group" aria-label="Speech mouth 16-step pattern">
-                  <button type="button" data-step="1" data-velocity=".82" aria-label="Speech step 1 active, strong velocity" aria-pressed="true"><span>1</span><i style="--velocity:.82"></i></button>
-                  <button type="button" data-step="2" aria-label="Speech step 2 inactive" aria-pressed="false"><span>2</span><i></i></button>
-                  <button type="button" data-step="3" data-velocity=".42" aria-label="Speech step 3 active, medium velocity" aria-pressed="true"><span>3</span><i style="--velocity:.42"></i></button>
-                  <button type="button" data-step="4" aria-label="Speech step 4 inactive" aria-pressed="false"><span>4</span><i></i></button>
-                  <button type="button" data-step="5" data-velocity="1" aria-label="Speech step 5 active, full velocity" aria-pressed="true"><span>5</span><i style="--velocity:1"></i></button>
-                  <button type="button" data-step="6" aria-label="Speech step 6 inactive" aria-pressed="false"><span>6</span><i></i></button>
-                  <button type="button" data-step="7" data-velocity=".58" aria-label="Speech step 7 active, medium velocity" aria-pressed="true"><span>7</span><i style="--velocity:.58"></i></button>
-                  <button type="button" data-step="8" data-velocity=".28" aria-label="Speech step 8 active, soft velocity" aria-pressed="true"><span>8</span><i style="--velocity:.28"></i></button>
-                  <button type="button" data-step="9" aria-label="Speech step 9 inactive" aria-pressed="false"><span>9</span><i></i></button>
-                  <button type="button" data-step="10" data-velocity=".74" aria-label="Speech step 10 active, strong velocity" aria-pressed="true"><span>10</span><i style="--velocity:.74"></i></button>
-                  <button class="is-loop-end" type="button" data-step="11" aria-label="Speech step 11 inactive, loop end" aria-pressed="false"><span>11</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="12" aria-label="Speech step 12 outside loop" aria-pressed="false"><span>12</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="13" aria-label="Speech step 13 outside loop" aria-pressed="false"><span>13</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="14" aria-label="Speech step 14 outside loop" aria-pressed="false"><span>14</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="15" aria-label="Speech step 15 outside loop" aria-pressed="false"><span>15</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="16" aria-label="Speech step 16 outside loop" aria-pressed="false"><span>16</span><i></i></button>
-                </div>
-              </section>
-
-              <section class="sequence-lane mouth-c" id="lane3" data-lane="3" data-mouth="3" aria-labelledby="lane3Title">
-                <header class="lane-header">
-                  <button id="lane3Mute" type="button" aria-pressed="false" aria-label="Mute needle scream lane"><i></i></button>
-                  <div><b id="lane3Title">M3 / SCREAM</b><small>7-step cycle · needle ratchets</small></div>
-                  <label for="lane3Length">LEN <input id="lane3Length" type="number" min="1" max="16" step="1" value="7" /></label>
-                  <select id="lane3Rate" aria-label="Needle scream lane clock rate"><option value="0.5">½×</option><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select>
-                </header>
-                <div class="lane-steps" role="group" aria-label="Click mouth 16-step pattern">
-                  <button type="button" data-step="1" data-velocity="1" aria-label="Click step 1 active, full velocity" aria-pressed="true"><span>1</span><i style="--velocity:1"></i></button>
-                  <button type="button" data-step="2" data-velocity=".36" aria-label="Click step 2 active, soft velocity" aria-pressed="true"><span>2</span><i style="--velocity:.36"></i></button>
-                  <button type="button" data-step="3" aria-label="Click step 3 inactive" aria-pressed="false"><span>3</span><i></i></button>
-                  <button type="button" data-step="4" data-velocity=".72" aria-label="Click step 4 active, strong velocity" aria-pressed="true"><span>4</span><i style="--velocity:.72"></i></button>
-                  <button type="button" data-step="5" aria-label="Click step 5 inactive" aria-pressed="false"><span>5</span><i></i></button>
-                  <button type="button" data-step="6" data-velocity=".48" aria-label="Click step 6 active, medium velocity" aria-pressed="true"><span>6</span><i style="--velocity:.48"></i></button>
-                  <button class="is-loop-end" type="button" data-step="7" data-velocity=".86" aria-label="Click step 7 active, loop end" aria-pressed="true"><span>7</span><i style="--velocity:.86"></i></button>
-                  <button class="is-outside-loop" type="button" data-step="8" aria-label="Click step 8 outside loop" aria-pressed="false"><span>8</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="9" aria-label="Click step 9 outside loop" aria-pressed="false"><span>9</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="10" aria-label="Click step 10 outside loop" aria-pressed="false"><span>10</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="11" aria-label="Click step 11 outside loop" aria-pressed="false"><span>11</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="12" aria-label="Click step 12 outside loop" aria-pressed="false"><span>12</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="13" aria-label="Click step 13 outside loop" aria-pressed="false"><span>13</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="14" aria-label="Click step 14 outside loop" aria-pressed="false"><span>14</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="15" aria-label="Click step 15 outside loop" aria-pressed="false"><span>15</span><i></i></button>
-                  <button class="is-outside-loop" type="button" data-step="16" aria-label="Click step 16 outside loop" aria-pressed="false"><span>16</span><i></i></button>
-                </div>
-              </section>
-            </div>
+          <div class="contour-intro">
+            <p>Drag a point vertically. Breath never becomes a trigger: these closed curves continuously reshape pressure, fold tension, plumbing, and each mouth.</p>
+            <button id="mutateMotionButton" type="button"><b>Mutate curves</b><small>keep this body</small></button>
+          </div>
+          <div class="sequence-scroll contour-scroll" tabindex="0" aria-label="Scrollable continuous evolution contour editor">
+            <div class="sequence-lanes contour-lanes" id="contourLanes" data-contour-count="6"></div>
           </div>
         </section>
       </section>
@@ -490,11 +412,28 @@
         <section class="colony-transport" aria-label="Transport">
           <button id="playButton" type="button" data-primary-transport aria-pressed="false">
             <span class="colony-play-icon" id="playIcon" aria-hidden="true"></span>
-            <span><b>Release the freak</b><small id="playState">four hostile exhales · space</small></span>
+            <span><b>Flow the freak</b><small id="playState">continuous evolution · space / P</small></span>
           </button>
           <button id="panicButton" type="button">
             <span aria-hidden="true">×</span><span><b>Close all</b><small>release pressure</small></span>
           </button>
+        </section>
+
+        <section class="colony-console-section generator-section" aria-labelledby="generatorTitle">
+          <div class="console-heading"><span>BODY GENERATOR</span><output id="seedReadout">SEED 436F6C6F</output></div>
+          <h2 id="generatorTitle">Regrow the instrument</h2>
+          <div class="organ-count-controls">
+            <label for="lungCount"><span><b>Lungs</b><output id="lungCountOut" for="lungCount">16</output></span><input id="lungCount" type="range" min="4" max="16" step="1" value="16" /></label>
+            <label for="throatCount"><span><b>Paired throats</b><output id="throatCountOut" for="throatCount">4</output></span><input id="throatCount" type="range" min="1" max="4" step="1" value="4" /></label>
+            <label for="mouthCount"><span><b>Mouths</b><output id="mouthCountOut" for="mouthCount">3</output></span><input id="mouthCount" type="range" min="1" max="3" step="1" value="3" /></label>
+            <label for="connectionDensity"><span><b>Plumbing density</b><output id="connectionDensityOut" for="connectionDensity">62%</output></span><input id="connectionDensity" type="range" min="0.15" max="1" step="0.01" value="0.62" /></label>
+          </div>
+          <div class="generator-actions" role="group" aria-label="Randomize Colony Syrinx">
+            <button id="randomizeAllButton" type="button"><b>NEW CREATURE</b><small>everything</small></button>
+            <button id="randomizeBodyButton" type="button"><b>BODY</b><small>organs + shapes</small></button>
+            <button id="randomizeRoutesButton" type="button"><b>PLUMBING</b><small>two route maps</small></button>
+            <button id="randomizeMotionButton" type="button"><b>MOTION</b><small>curve families</small></button>
+          </div>
         </section>
 
         <section class="colony-console-section medium-section" aria-labelledby="mediumTitle">
@@ -526,13 +465,13 @@
           <label class="colony-control" for="lungPressure">
             <span><b>Lung pressure</b><output id="lungPressureOut" for="lungPressure">68%</output></span>
             <input id="lungPressure" type="range" min="0" max="1" step="0.01" value="0.68" />
-            <small>Sets the shared charge behind four separately timed exhale events.</small>
+            <small>Sets the shared charge beneath one unbroken, internally shifting exhale.</small>
           </label>
         </section>
 
         <section class="colony-console-section" aria-labelledby="behaviorTitle">
-          <div class="console-heading"><span>COLONY BEHAVIOR</span><output id="clockReadout">118 BPM</output></div>
-          <h2 id="behaviorTitle">One body, several clocks</h2>
+          <div class="console-heading"><span>COLONY BEHAVIOR</span><output id="clockReadout">16.0 S</output></div>
+          <h2 id="behaviorTitle">One body, one evolving field</h2>
           <label class="colony-select-control" for="performanceMode">
             <span><b>Valve behavior</b><small>who decides when a path opens</small></span>
             <select id="performanceMode">
@@ -542,12 +481,12 @@
             </select>
           </label>
           <label class="colony-control" for="tempo">
-            <span><b>Colony clock</b><output id="tempoOut" for="tempo">118 BPM</output></span>
-            <input id="tempo" type="range" min="24" max="260" step="1" value="118" />
+            <span><b>Evolution duration</b><output id="tempoOut" for="tempo">16.0 s</output></span>
+            <input id="tempo" type="range" min="4" max="40" step="0.5" value="16" />
           </label>
           <label class="colony-control" for="swing">
-            <span><b>Valve swing</b><output id="swingOut" for="swing">14%</output></span>
-            <input id="swing" type="range" min="0" max="0.75" step="0.01" value="0.14" />
+            <span><b>Contour depth</b><output id="swingOut" for="swing">78%</output></span>
+            <input id="swing" type="range" min="0" max="1" step="0.01" value="0.78" />
           </label>
           <label class="colony-control" for="coupling">
             <span><b>Back-pressure coupling</b><output id="couplingOut" for="coupling">32%</output></span>

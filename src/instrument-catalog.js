@@ -215,9 +215,9 @@ const CATALOG_DETAILS = Object.freeze({
     ["Built-in source", "Pointer", "Computer keys"],
   ),
   "colony-syrinx": define(
-    "Pressure-network voice sequencer",
-    "Routes sixteen staggered lungs through eight coupled folds and a twelve-valve manifold into three differently shaped, polymetric mouths whose closures push pressure back through the whole organism.",
-    "Turn on audio, hold Breath, then open source-to-mouth valves with C2–B2 or draw three interlocking mouth rhythms in the sequencer.",
+    "Mutable pressure-network voice",
+    "Sustains one expressive breath through a regenerating body of up to sixteen lungs, eight coupled folds, two morphing plumbing maps, and three differently shaped mouths whose continuous contours push pressure back through the whole organism.",
+    "Turn on audio, flow the creature, then draw its breath, tension, plumbing, and mouth contours or regenerate its organs, shapes, routes, and motion from a seed.",
     ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
   ),
   blowhole: define(
@@ -667,7 +667,6 @@ const CATALOG_DETAILS = Object.freeze({
 const ADDITIONAL_TAG_IDS = Object.freeze({
   "pink-trombonazoid": Object.freeze(["sequencers"]),
   hybrinx: Object.freeze(["sequencers"]),
-  "colony-syrinx": Object.freeze(["sequencers"]),
   blowhole: Object.freeze(["sequencers"]),
   "hiccup-head": Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),

@@ -2,6 +2,7 @@ import {
   COLONY_SYRINX_BANK_COUNT,
   COLONY_SYRINX_FOLD_COUNT,
   COLONY_SYRINX_LANE_COUNT,
+  COLONY_SYRINX_LEGACY_LANE_COUNT,
   COLONY_SYRINX_MAX_PRESSURE,
   COLONY_SYRINX_MEDIA,
   COLONY_SYRINX_MOUTH_COUNT,
@@ -22,13 +23,7 @@ const CONTROL_RATE_HZ = 120;
 const TELEMETRY_RATE_HZ = 24;
 const SOURCE_OVERSAMPLE = 2;
 const MAX_SOURCE_RATE = 384_000;
-const AUTO_EXHALE_CYCLE_BEATS = 4;
-const AUTO_EXHALE_PATTERN = Object.freeze([
-  { start: 0, attack: 0.07, hold: 0.12, release: 0.43, level: 1 },
-  { start: 0.72, attack: 0.055, hold: 0.1, release: 0.365, level: 0.8 },
-  { start: 1.58, attack: 0.04, hold: 0.075, release: 0.305, level: 0.96 },
-  { start: 2.46, attack: 0.025, hold: 0.11, release: 0.365, level: 1 },
-]);
+const CONTINUOUS_CONTOUR_COUNT = 6;
 
 const FREAK_SOURCE_PROFILES = Object.freeze([
   Object.freeze({
@@ -93,13 +88,6 @@ const FREAK_SOURCE_PROFILES = Object.freeze([
   }),
 ]);
 
-const SOURCE_STEP_RATIOS = Object.freeze([
-  Object.freeze([1, 0.5, 0.78, 1.17]),
-  Object.freeze([1, 1.26, 0.84, 1.5]),
-  Object.freeze([1, 0.79, 1.12, 0.67]),
-  Object.freeze([1, 1.5, 1.19, 0.71]),
-]);
-
 const MOUTH_GESTURES_HZ = Object.freeze([
   Object.freeze([
     Object.freeze([92, 286, 720, 1_360]),
@@ -159,18 +147,20 @@ function smoothstep(edge0, edge1, value) {
   return amount * amount * (3 - 2 * amount);
 }
 
-function autoExhaleEnvelope(beat, event) {
-  const localBeat = beat - event.start;
-  const releaseStart = event.attack + event.hold;
-  const end = releaseStart + event.release;
-  if (localBeat < 0 || localBeat >= end) return 0;
-  if (localBeat < event.attack) return smoothstep(0, event.attack, localBeat) * event.level;
-  if (localBeat < releaseStart) return event.level;
-  return (1 - smoothstep(releaseStart, end, localBeat)) * event.level;
-}
-
 function clean(value) {
   return Number.isFinite(value) && Math.abs(value) >= SILENCE_FLOOR ? value : 0;
+}
+
+function interpolateMouthGesture(mouthIndex, phase) {
+  const gestures = MOUTH_GESTURES_HZ[mouthIndex] ?? MOUTH_GESTURES_HZ[0];
+  const cyclicPhase = ((Number(phase) || 0) % 1 + 1) % 1;
+  const position = cyclicPhase * gestures.length;
+  const leftIndex = Math.floor(position) % gestures.length;
+  const rightIndex = (leftIndex + 1) % gestures.length;
+  const amount = smoothstep(0, 1, position - Math.floor(position));
+  return gestures[leftIndex].map((frequency, index) => (
+    frequency + (gestures[rightIndex][index] - frequency) * amount
+  ));
 }
 
 /**
@@ -252,8 +242,8 @@ class StableResonator {
 /**
  * The three exits deliberately do not share one tract recipe. Each mouth has
  * four moving resonances, a short reflected path, its own nonlinear exciter,
- * constriction noise, and pressure-release state. The sequencer therefore
- * changes vowels and consonants instead of merely multiplying a static tone.
+ * constriction noise, and pressure-release state. Continuous contour motion
+ * therefore changes vowels and consonants instead of multiplying a static tone.
  */
 class MouthLoad {
   constructor(rate, index) {
@@ -267,8 +257,8 @@ class MouthLoad {
     this.targetOpening = 0;
     this.flowActivity = 0;
     this.targetFlowActivity = 0;
-    this.eventActivity = 0;
-    this.targetEventActivity = 0;
+    this.networkActivity = 0;
+    this.targetNetworkActivity = 0;
     this.openingAlpha = 0.01;
     this.directGain = 0.05;
     this.radiationTrim = [1.08, 1.12, 1.34][index] ?? 1;
@@ -289,6 +279,7 @@ class MouthLoad {
     this.fricationTarget = 0;
     this.storedPressure = 0;
     this.gestureIndex = 0;
+    this.gestureMotion = 0;
     const delayFrequency = [278, 740, 2_520][index] ?? 740;
     this.tractDelay = new Float64Array(Math.max(8, Math.round(rate / delayFrequency)));
     this.tractDelayIndex = 0;
@@ -303,11 +294,32 @@ class MouthLoad {
     this.pan = clamp(mouth.pan, -1, 1, 0);
   }
 
-  articulate(mouth, aperture, flow, pressure, stepIndex, velocity, exhaleBeat, eventActivity) {
+  articulate(
+    mouth,
+    aperture,
+    flow,
+    pressure,
+    gesturePhase,
+    contourValue,
+    contourPhase,
+    networkActivity,
+    seconds = 1 / CONTROL_RATE_HZ,
+  ) {
     const previousTarget = this.targetOpening;
     const opening = clamp(aperture);
-    const gesture = wrap(stepIndex + this.index, MOUTH_GESTURES_HZ[this.index].length);
-    const frequencies = MOUTH_GESTURES_HZ[this.index][gesture];
+    const phase = ((Number(gesturePhase) || 0) % 1 + 1) % 1;
+    // The drawn contour's height owns the tongue/cavity trajectory. Phase adds
+    // only a small cyclic muscular drift, so flattening or redrawing a lane
+    // produces a meaningfully different timbre instead of the same canned
+    // four-formant sweep behind a changing output aperture.
+    const gestureCoordinate = clamp(
+      0.08 + clamp(contourValue) * 0.78 + Math.sin(phase * TWO_PI) * 0.06,
+      0,
+      0.999,
+    );
+    const gesturePosition = gestureCoordinate * MOUTH_GESTURES_HZ[this.index].length;
+    const gestureMotion = gestureCoordinate * (MOUTH_GESTURES_HZ[this.index].length - 1);
+    const frequencies = interpolateMouthGesture(this.index, gestureCoordinate);
     const resonanceScale = clamp(
       mouth.resonanceHz / MOUTH_REFERENCE_RESONANCE_HZ[this.index],
       0.45,
@@ -321,7 +333,7 @@ class MouthLoad {
     const cavityVolume = clamp(mouth.cavity);
     const pressureWarp = 1 + (pressure - 0.5) * [0.09, -0.055, 0.12][this.index];
     const phaseWarp = 1 + Math.sin(
-      exhaleBeat * TWO_PI * (0.5 + this.index * 0.37) + gesture,
+      ((Number(contourPhase) || 0) + this.index * 0.271) * TWO_PI,
     ) * [0.055, 0.08, 0.11][this.index];
     this.throat.configure(
       frequencies[0] * resonanceScale * (0.76 + opening * 0.42)
@@ -345,21 +357,25 @@ class MouthLoad {
     const constriction = Math.sin(clamp(opening) * Math.PI);
     this.fricationTarget = clamp(
       constriction
-        * (0.18 + clamp(velocity) * 0.82)
+        * (0.18 + clamp(contourValue) * 0.82)
         * [0.2, 0.72, 1.28][this.index],
       0,
       1.4,
     );
     if (opening < 0.075) {
       this.storedPressure = clamp(
-        this.storedPressure + pressure * 0.075,
+        this.storedPressure + pressure * clamp(seconds, 0, 0.25, 0) * 9,
         0,
         COLONY_SYRINX_MAX_PRESSURE,
       );
+    } else {
+      this.storedPressure *= Math.exp(-clamp(seconds, 0, 0.25, 0) * (0.4 + opening * 1.8));
     }
-    const released = previousTarget < 0.1 && opening > 0.15;
     const openingJump = Math.max(0, opening - previousTarget);
-    if (released || openingJump > 0.16) {
+    const openingVelocity = openingJump / Math.max(1e-6, clamp(seconds, 0, 0.25, 1 / CONTROL_RATE_HZ));
+    const pressureLoaded = this.storedPressure > 0.08 || pressure > 0.16;
+    const released = previousTarget < 0.1 && opening > 0.15 && pressureLoaded;
+    if (pressureLoaded && (released || (openingJump > 0.025 && openingVelocity > 1.4))) {
       const releaseStrength = Math.sqrt(this.storedPressure / COLONY_SYRINX_MAX_PRESSURE);
       const flowStrength = clamp(Math.sqrt(Math.max(0, flow) / 1.4));
       const pneumaticEnergy = clamp(releaseStrength + flowStrength * 0.62);
@@ -374,15 +390,16 @@ class MouthLoad {
       this.ratchetPhase = 0;
     }
     this.jetFrequencyHz = clamp(
-      1_780 + gesture * 740 + opening * 1_460 + pressure * 620,
+      1_780 + gestureMotion * 740 + opening * 1_460 + pressure * 620,
       1_600,
       6_200,
       2_400,
     );
-    this.gestureIndex = gesture;
+    this.gestureIndex = gesturePosition;
+    this.gestureMotion = gestureMotion;
     this.targetOpening = opening;
     this.targetFlowActivity = clamp(Math.sqrt(Math.max(0, flow) / 1.4));
-    this.targetEventActivity = clamp(eventActivity);
+    this.targetNetworkActivity = clamp(networkActivity);
   }
 
   reset() {
@@ -396,8 +413,8 @@ class MouthLoad {
     this.targetOpening = 0;
     this.flowActivity = 0;
     this.targetFlowActivity = 0;
-    this.eventActivity = 0;
-    this.targetEventActivity = 0;
+    this.networkActivity = 0;
+    this.targetNetworkActivity = 0;
     this.reflectedLoad = 0;
     this.lastRadiation = 0;
     this.feedbackState = 0;
@@ -412,6 +429,8 @@ class MouthLoad {
     this.fricationEnvelope = 0;
     this.fricationTarget = 0;
     this.storedPressure = 0;
+    this.gestureIndex = 0;
+    this.gestureMotion = 0;
   }
 
   process(input, pressure, mediumId, noise, interference = 0) {
@@ -419,9 +438,9 @@ class MouthLoad {
     this.flowActivity += (
       this.targetFlowActivity - this.flowActivity
     ) * (this.targetFlowActivity > this.flowActivity ? 0.006 : 0.0024);
-    this.eventActivity += (
-      this.targetEventActivity - this.eventActivity
-    ) * (this.targetEventActivity > this.eventActivity ? 0.012 : 0.0038);
+    this.networkActivity += (
+      this.targetNetworkActivity - this.networkActivity
+    ) * (this.targetNetworkActivity > this.networkActivity ? 0.012 : 0.0038);
     this.noiseMemory += (noise - this.noiseMemory) * 0.035;
     const turbulence = noise - this.noiseMemory;
     this.fricationEnvelope += (
@@ -430,7 +449,7 @@ class MouthLoad {
 
     const delayed = this.tractDelay[this.tractDelayIndex];
     const acousticGate = clamp(
-      this.eventActivity * (this.flowActivity * 1.18 + Math.abs(input) * 0.82)
+      this.networkActivity * (this.flowActivity * 1.18 + Math.abs(input) * 0.82)
         + this.burstEnvelope * 0.42,
     );
     const crossFeed = interference
@@ -454,8 +473,8 @@ class MouthLoad {
       excitation = folded * 0.74 + Math.tanh(excitation * 2.2) * 0.46;
     } else {
       const jetTarget = clamp(
-        pressure * this.opening * this.flowActivity * this.eventActivity * 0.92
-          + this.fricationEnvelope * this.flowActivity * this.eventActivity * 0.38,
+        pressure * this.opening * this.flowActivity * this.networkActivity * 0.92
+          + this.fricationEnvelope * this.flowActivity * this.networkActivity * 0.38,
       );
       this.jetAmplitude += (jetTarget - this.jetAmplitude) * 0.0018;
       this.jetPhase += TWO_PI * this.jetFrequencyHz / this.rate;
@@ -464,13 +483,13 @@ class MouthLoad {
       if (this.jetOvertonePhase >= TWO_PI) this.jetOvertonePhase %= TWO_PI;
       const jet = (
         Math.sin(this.jetPhase)
-        + Math.sin(this.jetOvertonePhase + this.gestureIndex * 0.21) * 0.34
+        + Math.sin(this.jetOvertonePhase + this.gestureMotion * 0.21) * 0.34
       ) * this.jetAmplitude;
       excitation = Math.tanh((edge * 8.2 + excitation * 0.68) * 3.4)
         + jet * 0.72;
     }
 
-    this.ratchetPhase += TWO_PI * (430 + this.gestureIndex * 91) / this.rate;
+    this.ratchetPhase += TWO_PI * (430 + this.gestureMotion * 91) / this.rate;
     if (this.ratchetPhase >= TWO_PI) this.ratchetPhase %= TWO_PI;
     const ratchet = this.index === 2
       ? (Math.sin(this.ratchetPhase) > 0.22 ? 1 : -0.18)
@@ -480,7 +499,7 @@ class MouthLoad {
     const frication = turbulence
       * this.fricationEnvelope
       * this.flowActivity
-      * this.eventActivity
+      * this.networkActivity
       * MOUTH_FRICATION_GAIN[this.index];
     excitation += frication + burst * MOUTH_BURST_GAIN[this.index];
 
@@ -514,7 +533,10 @@ class MouthLoad {
         + burst * 0.44;
       radiation = Math.tanh(radiation * 2.15);
     }
-    radiation *= (0.002 + acousticGate * 0.998) * this.radiationTrim;
+    const radiationGate = mediumId === "pellets"
+      ? 0.002 + Math.sqrt(acousticGate) * 0.998
+      : 0.002 + acousticGate * 0.998;
+    radiation *= radiationGate * this.radiationTrim;
 
     this.tractDelay[this.tractDelayIndex] = clean(Math.tanh(
       excitation * 0.52 + radiation * 0.21,
@@ -558,6 +580,9 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       ? this.configuration.sequencerEnabled
       : Boolean(initialPlaying);
     this.runtime = createColonySyrinxRuntime();
+    this.activeSeed = (
+      Number(processorOptions.seed ?? initial.seed ?? this.configuration.seed) || 0x436f6c6f
+    ) >>> 0;
 
     this.controlQuantum = Math.max(32, Math.round(this.rate / CONTROL_RATE_HZ));
     this.controlCountdown = 0;
@@ -579,8 +604,7 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       new SyrinxSourceEngine({
         sampleRate: this.sourceRate,
         model: profile.model,
-        seed: (Number(processorOptions.seed ?? initial.seed) || 0x436f6c6f)
-          + index * 0x9e37,
+        seed: this.activeSeed + index * 0x9e37,
         parameters: {
           ...profile,
           pressure: 0,
@@ -599,18 +623,21 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     this.sourceLowpassAlpha = 1 - Math.exp(-TWO_PI * sourceCutoff / this.sourceRate);
 
     this.routeLevels = new Float64Array(COLONY_SYRINX_ROUTE_COUNT);
+    this.previousRouteTargets = new Float64Array(COLONY_SYRINX_ROUTE_COUNT);
     this.routeShockEnvelopes = new Float64Array(COLONY_SYRINX_ROUTE_COUNT);
     this.routeDelayIndices = new Int32Array(COLONY_SYRINX_ROUTE_COUNT);
     this.routeDelayBuffers = ROUTE_DELAY_MILLISECONDS.map((milliseconds) => (
       new Float64Array(Math.max(2, Math.round(this.rate * milliseconds * 0.001)))
     ));
-    this.autoExhaleBeat = 0;
+    this.evolutionCycles = 0;
+    this.contourPhase = 0;
     this.bankExhaleLevels = new Float64Array(COLONY_SYRINX_BANK_COUNT);
     this.bankFeedbackPressures = new Float64Array(COLONY_SYRINX_BANK_COUNT);
     this.bankFeedbackWeights = new Float64Array(COLONY_SYRINX_BANK_COUNT);
     this.phonatorSources = new Float64Array(COLONY_SYRINX_PHONATOR_COUNT);
     this.mouthDrives = new Float64Array(COLONY_SYRINX_MOUTH_COUNT);
     this.mouthDriveWeights = new Float64Array(COLONY_SYRINX_MOUTH_COUNT);
+    this.mouthConnectionApertures = new Float64Array(COLONY_SYRINX_MOUTH_COUNT);
     this.mouthLoads = new Float64Array(COLONY_SYRINX_MOUTH_COUNT);
     this.mouths = Array.from(
       { length: COLONY_SYRINX_MOUTH_COUNT },
@@ -618,8 +645,11 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     );
     this._configureMouths();
     this._configureFreakSources();
+    for (let index = 0; index < this.sourceEngines.length; index += 1) {
+      this.sourceEngines[index].reset(this.activeSeed + index * 0x9e37);
+    }
 
-    this.noiseState = (Number(processorOptions.seed ?? initial.seed) || 0x436f6c6f) >>> 0;
+    this.noiseState = this.activeSeed;
     this.mediumLowpass = 0;
     this.impactEnvelope = 0;
     this.previousLeft = 0;
@@ -658,6 +688,7 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     for (let bank = 0; bank < COLONY_SYRINX_PHONATOR_COUNT; bank += 1) {
       const profile = FREAK_SOURCE_PROFILES[bank];
       const phonator = this.configuration.phonators[bank];
+      const enabled = this.configuration.phonatorEnabled?.[bank] !== false;
       const firstFold = bank * 2;
       const runtimeFrequency = (
         this.runtime.foldFrequenciesHz[firstFold]
@@ -666,13 +697,8 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       const baseFrequency = runtimeFrequency > 1
         ? runtimeFrequency
         : phonator.frequencyHz;
-      const laneIndex = bank % COLONY_SYRINX_LANE_COUNT;
-      const laneStep = this.runtime.laneStepIndices[laneIndex] ?? 0;
-      const laneVelocity = this.runtime.laneVelocities[laneIndex] ?? 0;
-      const stepRatio = SOURCE_STEP_RATIOS[bank][wrap(laneStep, 4)];
-      const sourceGate = this.breathActive
-        ? 1
-        : this.transportPlaying ? this.bankExhaleLevels[bank] : 0;
+      const contourValues = this.runtime.contourValues ?? this.runtime.laneVelocities ?? [];
+      const tensionContour = clamp(contourValues[1], 0, 1, 0.5);
       const routeOffset = bank * COLONY_SYRINX_MOUTH_COUNT;
       const connectedAperture = Math.max(
         this.runtime.routeApertures[routeOffset],
@@ -680,20 +706,35 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
         this.runtime.routeApertures[routeOffset + 2],
       );
       const connectionGate = smoothstep(0.004, 0.08, connectedAperture);
-      const networkVoicing = clamp(this.runtime.phonatorLevels[bank]);
+      const connectedFlow = this.runtime.routeFlows
+        .slice(routeOffset, routeOffset + COLONY_SYRINX_MOUTH_COUNT)
+        .reduce((sum, flow) => sum + flow, 0);
+      const pressureVoicing = smoothstep(
+        0.015,
+        0.42,
+        this.runtime.reservoirPressures[bank],
+      );
+      const networkVoicing = clamp(
+        Math.max(this.runtime.phonatorLevels[bank], pressureVoicing * 0.72)
+          * (0.38 + smoothstep(0.001, 0.16, connectedFlow) * 0.62),
+      );
       const flutterDepth = [0.2, 0.28, 0.42, 0.17][bank];
-      const flutterPhase = this.autoExhaleBeat * TWO_PI * [1.25, 2.6, 5.4, 3.8][bank]
-        + laneStep * 0.71;
+      const motionPhase = clamp(
+        this.runtime.lanePhases?.[1] ?? this.runtime.contourPhase ?? this.contourPhase,
+      );
+      const flutterPhase = motionPhase * TWO_PI * [1, 2, 3, 5][bank] + bank * 0.73;
       const flutter = 1 - flutterDepth * 0.5 + Math.sin(flutterPhase) * flutterDepth * 0.5;
+      const bankMotion = clamp(this.bankExhaleLevels[bank], 0, 1, 0.72);
       const pressure = clamp(
-        sourceGate
+        (enabled ? 1 : 0)
           * connectionGate
           * Math.sqrt(networkVoicing)
           * (0.62 + this.configuredBreath * 0.38)
+          * (0.58 + bankMotion * 0.42)
           * flutter,
       );
       const frequencyHz = clamp(
-        baseFrequency * profile.frequencyScale * stepRatio,
+        baseFrequency * profile.frequencyScale,
         profile.model === "syrinx" ? 40 : profile.model === "frog" ? 30 : 5,
         this.sourceRate * 0.2,
         120,
@@ -703,7 +744,9 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
         model: profile.model,
         frequencyHz,
         pressure,
-        tension: clamp(phonator.tension + profile.tensionBias + laneVelocity * 0.08),
+        tension: clamp(
+          phonator.tension + profile.tensionBias + (tensionContour - 0.5) * 0.22,
+        ),
         adduction: clamp(profile.adduction + phonator.closure * 0.12),
         sourceScale: profile.sourceScale,
         breath: clamp(profile.breath + phonator.roughness * 0.22),
@@ -718,12 +761,13 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
           1,
           0,
         ),
-        pulseRateHz: profile.pulseRateHz + laneVelocity * 19 + bank * 2.5,
+        pulseRateHz: profile.pulseRateHz * (0.84 + tensionContour * 0.32) + bank * 2.5,
         coupling: profile.coupling,
         sourceBalance: clamp(profile.asymmetry * 0.44, -1, 1, 0),
         feedback: clamp(profile.feedback + this.configuration.crossCoupling * 0.18),
         outputGain: profile.outputGain,
       });
+      if (!enabled) this.sourceFrequenciesHz[bank] = 0;
       if (pressure > 0.0005) {
         this.sourceSleeping[bank] = 0;
         this.sourceIdleSamples[bank] = 0;
@@ -731,17 +775,34 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     }
   }
 
+  _reseed(seed) {
+    this.activeSeed = (Number(seed) || 0x436f6c6f) >>> 0;
+    this.noiseState = this.activeSeed;
+    for (let index = 0; index < this.sourceEngines.length; index += 1) {
+      this.sourceEngines[index].reset(this.activeSeed + index * 0x9e37);
+    }
+    this.sourceLowpassOne.fill(0);
+    this.sourceLowpassTwo.fill(0);
+    this.sourceIdleSamples.fill(0);
+    this.sourceSleeping.fill(1);
+    this.sourceStepPhase = 0;
+    this.mediumLowpass = 0;
+    this.impactEnvelope = 0;
+  }
+
   _handleMessage(message = {}) {
     if (!message || typeof message !== "object") return;
     if (message.type === "configure") {
       const patch = message.configuration ?? message.state ?? message.patch ?? {};
       const previousBreath = this.configuration.breath;
+      const previousSeed = this.configuration.seed;
       this.configuration = sanitizeColonySyrinxState(patch, this.configuration);
       if (this.configuration.breath !== previousBreath || this.configuredBreath === previousBreath) {
         this.configuredBreath = this.configuration.breath;
       }
       this._configureMouths();
       this._configureFreakSources();
+      if (this.configuration.seed !== previousSeed) this._reseed(this.configuration.seed);
       this.controlCountdown = 0;
       return;
     }
@@ -788,44 +849,60 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       stepIndex: wrap(step, COLONY_SYRINX_SEQUENCE_LENGTH),
       stepElapsedSeconds: 0,
       laneStepIndices: Array.from(
-        { length: COLONY_SYRINX_LANE_COUNT },
+        { length: COLONY_SYRINX_LEGACY_LANE_COUNT },
         (_, index) => wrap(
           suppliedLanes?.[index],
           this.configuration.lanes?.[index]?.length ?? COLONY_SYRINX_SEQUENCE_LENGTH,
         ),
       ),
-      laneStepElapsedSeconds: Array(COLONY_SYRINX_LANE_COUNT).fill(0),
+      laneStepElapsedSeconds: Array(COLONY_SYRINX_LEGACY_LANE_COUNT).fill(0),
     });
   }
 
   _resetClock() {
-    this._setClockStep(0, Array(COLONY_SYRINX_LANE_COUNT).fill(0));
-    this.autoExhaleBeat = 0;
+    this._setClockStep(0, Array(COLONY_SYRINX_LEGACY_LANE_COUNT).fill(0));
+    this.runtime = createColonySyrinxRuntime({
+      ...this.runtime,
+      timeSeconds: 0,
+      contourPhase: 0,
+      continuousBreath: 0,
+      tensionOffset: 0,
+      lanePhases: Array(COLONY_SYRINX_LANE_COUNT).fill(0),
+      laneVelocities: Array(COLONY_SYRINX_LANE_COUNT).fill(0),
+      contourValues: Array(COLONY_SYRINX_LANE_COUNT).fill(0),
+    });
+    this.evolutionCycles = 0;
+    this.contourPhase = 0;
     this.bankExhaleLevels.fill(0);
   }
 
   _panic() {
     this.breathActive = false;
+    this.transportPlaying = false;
     this.breathValue = 0;
     this.runtime = createColonySyrinxRuntime();
     this.foldLevels.fill(0);
     this.foldDisplacements.fill(0);
     this.foldVelocities.fill(0);
     this.routeLevels.fill(0);
+    this.previousRouteTargets.fill(0);
     this.routeShockEnvelopes.fill(0);
     this.routeDelayIndices.fill(0);
     for (const buffer of this.routeDelayBuffers) buffer.fill(0);
-    this.autoExhaleBeat = 0;
+    this.evolutionCycles = 0;
+    this.contourPhase = 0;
     this.bankExhaleLevels.fill(0);
     this.bankFeedbackPressures.fill(0);
     this.bankFeedbackWeights.fill(0);
     this.phonatorSources.fill(0);
     this.mouthDrives.fill(0);
     this.mouthDriveWeights.fill(0);
+    this.mouthConnectionApertures.fill(0);
     this.mouthLoads.fill(0);
     for (const mouth of this.mouths) mouth.reset();
+    this.noiseState = this.activeSeed;
     for (let index = 0; index < this.sourceEngines.length; index += 1) {
-      this.sourceEngines[index].reset(this.noiseState + index * 0x9e37);
+      this.sourceEngines[index].reset(this.activeSeed + index * 0x9e37);
     }
     this.sourceFrequenciesHz.fill(0);
     this.sourceLowpassOne.fill(0);
@@ -864,11 +941,34 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     return (value >>> 0) / 2147483647.5 - 1;
   }
 
+  _mouthConnectionAperture(mouthIndex) {
+    if (this.configuration.mouthEnabled?.[mouthIndex] === false) return 0;
+    let aperture = 0;
+    for (let phonatorIndex = 0; phonatorIndex < COLONY_SYRINX_PHONATOR_COUNT; phonatorIndex += 1) {
+      if (this.configuration.phonatorEnabled?.[phonatorIndex] === false) continue;
+      const routeIndex = phonatorIndex * COLONY_SYRINX_MOUTH_COUNT + mouthIndex;
+      aperture = Math.max(aperture, this.runtime.routeApertures[routeIndex]);
+    }
+    return clamp(aperture);
+  }
+
   _feedbackRuntime() {
     let hasLoad = false;
+    let changed = false;
     const pressures = new Array(COLONY_SYRINX_MOUTH_COUNT);
     for (let index = 0; index < COLONY_SYRINX_MOUTH_COUNT; index += 1) {
-      const reflected = clamp(this.mouths[index].reflectedLoad, 0, COLONY_SYRINX_MAX_PRESSURE);
+      const connectionAperture = this._mouthConnectionAperture(index);
+      if (connectionAperture <= 1e-6) {
+        pressures[index] = 0;
+        changed ||= this.runtime.mouthPressures[index] > 1e-9;
+        continue;
+      }
+      const connectionGate = smoothstep(0.0001, 0.02, connectionAperture);
+      const reflected = clamp(
+        this.mouths[index].reflectedLoad * connectionGate,
+        0,
+        COLONY_SYRINX_MAX_PRESSURE,
+      );
       hasLoad ||= reflected > 1e-7;
       pressures[index] = clamp(
         Math.max(
@@ -878,26 +978,51 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
         0,
         COLONY_SYRINX_MAX_PRESSURE,
       );
+      changed ||= Math.abs(pressures[index] - this.runtime.mouthPressures[index]) > 1e-9;
     }
-    return hasLoad ? { ...this.runtime, mouthPressures: pressures } : this.runtime;
+    return hasLoad || changed ? { ...this.runtime, mouthPressures: pressures } : this.runtime;
   }
 
-  _advanceExhalePattern(seconds) {
+  _updateContinuousBreathMotion(seconds) {
     if (!this.transportPlaying) {
-      this.bankExhaleLevels.fill(this.breathActive ? 1 : 0);
+      for (let bank = 0; bank < COLONY_SYRINX_BANK_COUNT; bank += 1) {
+        this.bankExhaleLevels[bank] = this.breathActive
+          && this.configuration.phonatorEnabled?.[bank] !== false ? 1 : 0;
+      }
       return;
     }
-    this.autoExhaleBeat = (
-      this.autoExhaleBeat + seconds * this.configuration.tempoBpm / 60
-    ) % AUTO_EXHALE_CYCLE_BEATS;
+    const duration = clamp(this.configuration.contourDurationSeconds, 1, 120, 8);
+    const runtimePhase = Number(this.runtime.contourPhase);
+    this.contourPhase = Number.isFinite(runtimePhase)
+      ? ((runtimePhase % 1) + 1) % 1
+      : (this.contourPhase + seconds / duration) % 1;
     if (this.breathActive) {
-      this.bankExhaleLevels.fill(1);
+      for (let bank = 0; bank < COLONY_SYRINX_BANK_COUNT; bank += 1) {
+        this.bankExhaleLevels[bank] = this.configuration.phonatorEnabled?.[bank] !== false ? 1 : 0;
+      }
       return;
     }
+    const breathValue = clamp(
+      this.runtime.contourValues?.[0] ?? this.runtime.laneVelocities?.[0],
+      0,
+      1,
+      0.72,
+    );
+    const offsets = [0, 0.19, 0.43, 0.68];
     for (let bankIndex = 0; bankIndex < COLONY_SYRINX_BANK_COUNT; bankIndex += 1) {
-      this.bankExhaleLevels[bankIndex] = autoExhaleEnvelope(
-        this.autoExhaleBeat,
-        AUTO_EXHALE_PATTERN[bankIndex],
+      if (this.configuration.phonatorEnabled?.[bankIndex] === false) {
+        this.bankExhaleLevels[bankIndex] = 0;
+        continue;
+      }
+      const phase = (this.contourPhase + offsets[bankIndex]) % 1;
+      const broad = 0.5 + Math.sin(phase * TWO_PI) * 0.5;
+      const detail = 0.5 + Math.sin(
+        phase * TWO_PI * (bankIndex % 2 === 0 ? 2 : 3) + bankIndex * 0.61,
+      ) * 0.5;
+      this.bankExhaleLevels[bankIndex] = clamp(
+        (0.34 + breathValue * 0.5) * (0.7 + broad * 0.2 + detail * 0.1),
+        0.16,
+        1,
       );
     }
   }
@@ -909,12 +1034,12 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       breathTarget - this.breathValue
     ) * smoothingAlpha(breathTarget > 0 ? 9 : 5.5, seconds);
     this.configuration.breath = clamp(this.breathValue);
-    this._advanceExhalePattern(seconds);
 
-    const options = {};
-    if (this.transportPlaying && !this.breathActive) {
-      options.bankExhaleGates = this.bankExhaleLevels;
+    if (this.transportPlaying) {
+      const duration = clamp(this.configuration.contourDurationSeconds, 1, 120, 8);
+      this.evolutionCycles += seconds / duration;
     }
+    const options = { phase: this.evolutionCycles };
     if (!this.transportPlaying) {
       options.stepIndex = this.runtime.stepIndex;
       options.laneStepIndices = this.runtime.laneStepIndices;
@@ -925,28 +1050,34 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       seconds,
       options,
     );
+    this._updateContinuousBreathMotion(seconds);
     this.impactEnvelope = Math.max(this.impactEnvelope, this.runtime.impact);
     this._configureFreakSources();
 
     for (let index = 0; index < COLONY_SYRINX_MOUTH_COUNT; index += 1) {
-      let mouthEventActivity = this.breathActive ? 1 : 0;
-      if (this.transportPlaying && !this.breathActive) {
-        for (let bank = 0; bank < COLONY_SYRINX_BANK_COUNT; bank += 1) {
-          mouthEventActivity = Math.max(
-            mouthEventActivity,
-            this.bankExhaleLevels[bank] * this.configuration.routes[bank][index],
-          );
-        }
-      }
+      const enabled = this.configuration.mouthEnabled?.[index] !== false;
+      const pressureActivity = smoothstep(0.012, 0.32, this.runtime.mouthPressures[index]);
+      const flowActivity = smoothstep(0.001, 0.16, this.runtime.mouthFlows[index]);
+      const networkActivity = enabled
+        ? clamp(pressureActivity * 0.34 + flowActivity * 0.86)
+        : 0;
+      const contourIndex = 3 + index;
+      const contourValue = this.runtime.contourValues?.[contourIndex]
+        ?? this.runtime.laneVelocities?.[contourIndex]
+        ?? 0;
+      const gesturePhase = this.runtime.lanePhases?.[contourIndex]
+        ?? this.runtime.contourPhase
+        ?? this.contourPhase;
       this.mouths[index].articulate(
         this.configuration.mouths[index],
-        this.runtime.mouthApertures[index],
-        this.runtime.mouthFlows[index],
-        this.runtime.mouthPressures[index],
-        this.runtime.laneStepIndices[index],
-        this.runtime.laneVelocities[index],
-        this.autoExhaleBeat,
-        mouthEventActivity,
+        enabled ? this.runtime.mouthApertures[index] : 0,
+        enabled ? this.runtime.mouthFlows[index] : 0,
+        enabled ? this.runtime.mouthPressures[index] : 0,
+        gesturePhase,
+        contourValue,
+        this.runtime.contourPhase ?? this.contourPhase,
+        networkActivity,
+        seconds,
       );
     }
   }
@@ -956,6 +1087,8 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     this.bankFeedbackWeights.fill(0);
     for (let routeIndex = 0; routeIndex < COLONY_SYRINX_ROUTE_COUNT; routeIndex += 1) {
       const route = COLONY_SYRINX_TOPOLOGY.routes[routeIndex];
+      if (this.configuration.phonatorEnabled?.[route.phonatorIndex] === false
+        || this.configuration.mouthEnabled?.[route.mouthIndex] === false) continue;
       const aperture = this.runtime.routeApertures[routeIndex];
       if (aperture <= 1e-5) continue;
       const mouth = this.mouths[route.mouthIndex];
@@ -981,18 +1114,30 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
   _renderPhonator(phonatorIndex, noise, sourceSteps) {
     const firstFold = phonatorIndex * 2;
     const secondFold = firstFold + 1;
+    const enabled = this.configuration.phonatorEnabled?.[phonatorIndex] !== false;
     this.foldLevels[firstFold] += (
-      this.runtime.foldActivities[firstFold] - this.foldLevels[firstFold]
+      (enabled ? this.runtime.foldActivities[firstFold] : 0) - this.foldLevels[firstFold]
     ) * 0.0024;
     this.foldLevels[secondFold] += (
-      this.runtime.foldActivities[secondFold] - this.foldLevels[secondFold]
+      (enabled ? this.runtime.foldActivities[secondFold] : 0) - this.foldLevels[secondFold]
     ) * 0.0024;
     const activity = clamp(
       (this.foldLevels[firstFold] + this.foldLevels[secondFold]) * 0.5,
     );
-    const sourceGate = this.breathActive
-      ? 1
-      : this.transportPlaying ? this.bankExhaleLevels[phonatorIndex] : 0;
+    const routeOffset = phonatorIndex * COLONY_SYRINX_MOUTH_COUNT;
+    const connectedAperture = Math.max(
+      this.runtime.routeApertures[routeOffset],
+      this.runtime.routeApertures[routeOffset + 1],
+      this.runtime.routeApertures[routeOffset + 2],
+    );
+    const connectedFlow = this.runtime.routeFlows
+      .slice(routeOffset, routeOffset + COLONY_SYRINX_MOUTH_COUNT)
+      .reduce((sum, flow) => sum + flow, 0);
+    const sourceGate = enabled
+      ? smoothstep(0.01, 0.32, this.runtime.reservoirPressures[phonatorIndex])
+        * (0.28 + smoothstep(0.002, 0.12, connectedFlow) * 0.54
+          + smoothstep(0.002, 0.08, connectedAperture) * 0.18)
+      : 0;
     if (this.sourceSleeping[phonatorIndex]) {
       this.foldDisplacements[firstFold] = 0;
       this.foldDisplacements[secondFold] = 0;
@@ -1103,7 +1248,14 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       }
       const impulse = noise * this.impactEnvelope;
       this.impactEnvelope *= 0.972;
-      return impulse * 0.46 + noise * activity * 0.07;
+      // Millions of particles produce a continuous avalanche bed even when
+      // individual impacts are sparse. Square-root scaling keeps low-flow
+      // creatures audible; the linked output limiter contains dense jams.
+      const avalanche = Math.sqrt(clamp(
+        activity + this.runtime.totalFlow * 0.18,
+      ));
+      return impulse * 0.72
+        + noise * avalanche * (0.16 + pressureEnergy * 0.16);
     }
     this.impactEnvelope *= 0.985;
     return noise * (0.018 + this.runtime.totalFlow * 0.0025) * pressureEnergy
@@ -1126,26 +1278,36 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
 
     this.mouthDrives.fill(0);
     this.mouthDriveWeights.fill(0);
+    this.mouthConnectionApertures.fill(0);
     const routeAlpha = 1 - Math.exp(-1 / (this.rate * 0.0055));
     for (let routeIndex = 0; routeIndex < COLONY_SYRINX_ROUTE_COUNT; routeIndex += 1) {
       const route = COLONY_SYRINX_TOPOLOGY.routes[routeIndex];
+      const routeEnabled = this.configuration.phonatorEnabled?.[route.phonatorIndex] !== false
+        && this.configuration.mouthEnabled?.[route.mouthIndex] !== false;
       const target = clamp(
-        this.runtime.routeApertures[routeIndex]
+        (routeEnabled ? this.runtime.routeApertures[routeIndex] : 0)
           * Math.sqrt(this.runtime.routeFlows[routeIndex] / 2.5),
         0,
         1.5,
       );
-      const movement = Math.abs(target - this.routeLevels[routeIndex]);
+      const openingDelta = Math.max(0, target - this.previousRouteTargets[routeIndex]);
+      this.previousRouteTargets[routeIndex] = target;
+      const pressureEnergy = smoothstep(
+        0.08,
+        0.42,
+        this.runtime.reservoirPressures[route.phonatorIndex],
+      );
+      const fastOpening = smoothstep(0.004, 0.028, openingDelta);
       this.routeShockEnvelopes[routeIndex] = Math.max(
         this.routeShockEnvelopes[routeIndex] * 0.994,
-        clamp(movement * 4.8 + this.runtime.impact * 0.34),
+        clamp(openingDelta * 8.4 * fastOpening * pressureEnergy),
       );
       this.routeLevels[routeIndex] += (target - this.routeLevels[routeIndex]) * routeAlpha;
       const level = this.routeLevels[routeIndex];
       const buffer = this.routeDelayBuffers[routeIndex];
       const delayIndex = this.routeDelayIndices[routeIndex];
       const delayed = buffer[delayIndex];
-      const shockNoise = noise * (routeIndex % 2 === 0 ? 1 : -1)
+      const shockNoise = (routeEnabled ? 1 : 0) * noise * (routeIndex % 2 === 0 ? 1 : -1)
         * this.routeShockEnvelopes[routeIndex]
         * (0.075 + route.mouthIndex * 0.045);
       const routeInput = this.phonatorSources[route.phonatorIndex] * level + shockNoise;
@@ -1154,8 +1316,14 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
         + route.phonatorIndex * 0.012;
       buffer[delayIndex] = clean(Math.tanh(routeInput + delayed * reflection) * 0.94);
       this.routeDelayIndices[routeIndex] = (delayIndex + 1) % buffer.length;
-      this.mouthDrives[route.mouthIndex] += delayed + routeInput * 0.16;
-      this.mouthDriveWeights[route.mouthIndex] += level * level;
+      if (routeEnabled) {
+        this.mouthConnectionApertures[route.mouthIndex] = Math.max(
+          this.mouthConnectionApertures[route.mouthIndex],
+          this.runtime.routeApertures[routeIndex],
+        );
+        this.mouthDrives[route.mouthIndex] += delayed + routeInput * 0.16;
+        this.mouthDriveWeights[route.mouthIndex] += level * level;
+      }
     }
     for (let mouthIndex = 0; mouthIndex < COLONY_SYRINX_MOUTH_COUNT; mouthIndex += 1) {
       this.mouthDrives[mouthIndex] /= Math.sqrt(Math.max(1, this.mouthDriveWeights[mouthIndex]));
@@ -1163,9 +1331,15 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
 
     const medium = COLONY_SYRINX_MEDIA[this.configuration.mediumId] ?? COLONY_SYRINX_MEDIA.air;
     const excitation = this._mediumExcitation(noise);
-    const previousMouthZero = this.mouths[0].lastRadiation;
-    const previousMouthOne = this.mouths[1].lastRadiation;
-    const previousMouthTwo = this.mouths[2].lastRadiation;
+    const connectionGateZero = smoothstep(0.0001, 0.02, this.mouthConnectionApertures[0]);
+    const connectionGateOne = smoothstep(0.0001, 0.02, this.mouthConnectionApertures[1]);
+    const connectionGateTwo = smoothstep(0.0001, 0.02, this.mouthConnectionApertures[2]);
+    const previousMouthZero = this.configuration.mouthEnabled?.[0] === false
+      ? 0 : this.mouths[0].lastRadiation * connectionGateZero;
+    const previousMouthOne = this.configuration.mouthEnabled?.[1] === false
+      ? 0 : this.mouths[1].lastRadiation * connectionGateOne;
+    const previousMouthTwo = this.configuration.mouthEnabled?.[2] === false
+      ? 0 : this.mouths[2].lastRadiation * connectionGateTwo;
     const interferenceScale = 0.32 + this.configuration.crossCoupling * 0.86;
     const interferenceZero = previousMouthOne * 0.44 - previousMouthTwo * 0.2;
     const interferenceOne = previousMouthZero * 0.34 + previousMouthTwo * 0.38;
@@ -1176,36 +1350,50 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     let activeMouths = 0;
     for (let mouthIndex = 0; mouthIndex < COLONY_SYRINX_MOUTH_COUNT; mouthIndex += 1) {
       const mouth = this.mouths[mouthIndex];
-      const flow = this.runtime.mouthFlows[mouthIndex];
-      if (this.runtime.mouthApertures[mouthIndex] > 0.02 || flow > 0.02) activeMouths += 1;
-      const drive = this.mouthDrives[mouthIndex]
-        + excitation * (MOUTH_EXCITATION_GAINS[mouthIndex] + Math.sqrt(flow) * 0.28);
+      const enabled = this.configuration.mouthEnabled?.[mouthIndex] !== false;
+      const connectionGate = enabled
+        ? smoothstep(0.0001, 0.02, this.mouthConnectionApertures[mouthIndex])
+        : 0;
+      const flow = enabled ? this.runtime.mouthFlows[mouthIndex] : 0;
+      if (enabled && (this.runtime.mouthApertures[mouthIndex] > 0.02 || flow > 0.02)) {
+        activeMouths += 1;
+      }
+      const drive = enabled
+        ? (this.mouthDrives[mouthIndex]
+          + excitation * (MOUTH_EXCITATION_GAINS[mouthIndex] + Math.sqrt(flow) * 0.28))
+          * connectionGate
+        : 0;
       const mouthInterference = mouthIndex === 0
         ? interferenceZero
         : mouthIndex === 1 ? interferenceOne : interferenceTwo;
       const radiated = mouth.process(
         drive,
-        this.runtime.mouthPressures[mouthIndex],
+        enabled ? this.runtime.mouthPressures[mouthIndex] * connectionGate : 0,
         this.configuration.mediumId,
         this._random(),
-        mouthInterference * interferenceScale,
+        enabled ? mouthInterference * interferenceScale * connectionGate : 0,
       );
-      this.mouthLoads[mouthIndex] = clamp(
-        Math.max(this.runtime.mouthPressures[mouthIndex], mouth.reflectedLoad),
+      this.mouthLoads[mouthIndex] = enabled ? clamp(
+        Math.max(this.runtime.mouthPressures[mouthIndex], mouth.reflectedLoad) * connectionGate,
         0,
         COLONY_SYRINX_MAX_PRESSURE,
-      );
+      ) : 0;
       const leftGain = Math.sqrt((1 - mouth.pan) * 0.5);
       const rightGain = Math.sqrt((1 + mouth.pan) * 0.5);
-      left += radiated * leftGain;
-      right += radiated * rightGain;
+      if (enabled) {
+        left += radiated * connectionGate * leftGain;
+        right += radiated * connectionGate * rightGain;
+      }
     }
     // Feed the signed, audio-rate tract return into the next source sample.
     // Compression and rarefaction can now oppose or assist the tissue motion.
     this._updateBankFeedback();
 
     const activeMouthScale = 1 / Math.sqrt(Math.max(1, activeMouths * 0.78));
-    const simultaneousSourceScale = this.breathActive ? 0.3 : 1;
+    const activeSources = this.phonatorSources.reduce((count, source, index) => (
+      count + (this.configuration.phonatorEnabled?.[index] !== false && Math.abs(source) > 1e-5 ? 1 : 0)
+    ), 0);
+    const simultaneousSourceScale = 1 / Math.sqrt(Math.max(1, activeSources * 0.82));
     const gain = this.configuration.level
       * medium.outputGain
       * 2.5
@@ -1262,6 +1450,38 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
 
   _postTelemetry() {
     const runtime = this.runtime;
+    const contourPhase = clamp(runtime.contourPhase ?? this.contourPhase);
+    const lanePhases = Array.from({ length: CONTINUOUS_CONTOUR_COUNT }, (_, index) => clamp(
+      runtime.lanePhases?.[index],
+      0,
+      1,
+      contourPhase,
+    ));
+    const contourValues = Array.from({ length: CONTINUOUS_CONTOUR_COUNT }, (_, index) => clamp(
+      runtime.contourValues?.[index] ?? runtime.laneVelocities?.[index],
+      0,
+      1,
+      index === 0 ? 0.72 : 0.5,
+    ));
+    const laneSteps = lanePhases.map((phase) => Math.floor(phase * COLONY_SYRINX_SEQUENCE_LENGTH)
+      % COLONY_SYRINX_SEQUENCE_LENGTH);
+    const activeLungCount = this.configuration.lungEnabled.filter(Boolean).length;
+    const activePhonatorCount = Array.from(
+      { length: COLONY_SYRINX_PHONATOR_COUNT },
+      (_, index) => this.configuration.phonatorEnabled?.[index] !== false,
+    ).filter(Boolean).length;
+    const activeMouthCount = Array.from(
+      { length: COLONY_SYRINX_MOUTH_COUNT },
+      (_, index) => this.configuration.mouthEnabled?.[index] !== false,
+    ).filter(Boolean).length;
+    const activeRouteCount = COLONY_SYRINX_TOPOLOGY.routes.filter(({ phonatorIndex, mouthIndex }) => (
+      this.configuration.phonatorEnabled?.[phonatorIndex] !== false
+        && this.configuration.mouthEnabled?.[mouthIndex] !== false
+        && Math.max(
+          this.configuration.routes?.[phonatorIndex]?.[mouthIndex] ?? 0,
+          this.configuration.alternateRoutes?.[phonatorIndex]?.[mouthIndex] ?? 0,
+        ) > 1e-6
+    )).length;
     let load = 0;
     for (let index = 0; index < COLONY_SYRINX_MOUTH_COUNT; index += 1) {
       load += this.mouthLoads[index];
@@ -1274,8 +1494,13 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       folds: Array.from(runtime.foldActivities),
       routes: Array.from(runtime.routeFlows),
       mouths: Array.from(runtime.mouthFlows),
-      step: runtime.stepIndex,
-      laneSteps: Array.from(runtime.laneStepIndices ?? Array(COLONY_SYRINX_LANE_COUNT).fill(0)),
+      step: Math.floor(contourPhase * COLONY_SYRINX_SEQUENCE_LENGTH)
+        % COLONY_SYRINX_SEQUENCE_LENGTH,
+      laneSteps,
+      lanePhases,
+      laneVelocities: contourValues,
+      contourPhase,
+      contourValues,
       flow: runtime.totalFlow,
       load,
       foldDisplacements: Array.from(this.foldDisplacements),
@@ -1284,8 +1509,22 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       mouthPressures: Array.from(runtime.mouthPressures),
       mouthLoads: Array.from(this.mouthLoads),
       mouthGestures: this.mouths.map((mouth) => mouth.gestureIndex),
+      mouthFormantsHz: this.mouths.map((mouth, index) => interpolateMouthGesture(
+        index,
+        mouth.gestureIndex / MOUTH_GESTURES_HZ[index].length,
+      )),
       exhales: Array.from(this.bankExhaleLevels),
-      exhaleBeat: this.autoExhaleBeat,
+      exhaleBeat: contourPhase,
+      activeCounts: {
+        lungs: activeLungCount,
+        phonators: activePhonatorCount,
+        mouths: activeMouthCount,
+        routes: activeRouteCount,
+      },
+      activeLungCount,
+      activePhonatorCount,
+      activeMouthCount,
+      activeRouteCount,
       sourceModels: FREAK_SOURCE_PROFILES.map((profile) => profile.id),
       sourceFrequenciesHz: Array.from(this.sourceFrequenciesHz),
       mediumId: this.configuration.mediumId,

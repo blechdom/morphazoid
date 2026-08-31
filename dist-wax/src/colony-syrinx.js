@@ -39,11 +39,31 @@ export const COLONY_SYRINX_LUNGS_PER_BANK = 4;
 export const COLONY_SYRINX_PHONATOR_COUNT = 4;
 export const COLONY_SYRINX_FOLD_COUNT = 8;
 export const COLONY_SYRINX_MOUTH_COUNT = 3;
-export const COLONY_SYRINX_LANE_COUNT = COLONY_SYRINX_MOUTH_COUNT;
+export const COLONY_SYRINX_LANE_COUNT = 6;
+export const COLONY_SYRINX_LEGACY_LANE_COUNT = COLONY_SYRINX_MOUTH_COUNT;
 export const COLONY_SYRINX_ROUTE_COUNT = 12;
 export const COLONY_SYRINX_SEQUENCE_LENGTH = 16;
+export const COLONY_SYRINX_CONTOUR_POINT_COUNT = 16;
 export const COLONY_SYRINX_MAX_PRESSURE = 4;
 export const COLONY_SYRINX_MAX_DELTA_SECONDS = 0.25;
+export const COLONY_SYRINX_CONTINUOUS_BREATH_FLOOR = 0.045;
+
+export const COLONY_SYRINX_CONTOUR_IDS = Object.freeze([
+  "breath",
+  "tension",
+  "routing",
+  "maw",
+  "speech",
+  "click",
+]);
+
+export const COLONY_SYRINX_CONTOUR_SHAPES = Object.freeze([
+  "smooth",
+  "linear",
+  "spline",
+]);
+
+const CONTOUR_PHASE_OFFSETS = Object.freeze([0, 0.11, 0.23, 0, 1 / 3, 2 / 3]);
 
 export const COLONY_SYRINX_LIMITS = deepFreeze({
   breath: [0, 1],
@@ -59,6 +79,9 @@ export const COLONY_SYRINX_LIMITS = deepFreeze({
   swing: [-0.48, 0.48],
   laneLength: [1, COLONY_SYRINX_SEQUENCE_LENGTH],
   laneRate: [0.125, 8],
+  contourDurationSeconds: [1, 120],
+  contourRate: [0.125, 8],
+  contourDepth: [0, 1],
   midiBaseNote: [0, 116],
   level: [0, 1],
 });
@@ -200,43 +223,28 @@ const maskForRoutes = (...routeIndices) => routeIndices.reduce(
   0,
 );
 
-const MAW_RHYTHM = Object.freeze([1, 0, 0, 0, 0.82, 0, 0, 0, 1, 0, 0, 0, 0.7, 0, 0, 0]);
-const SPEECH_RHYTHM = Object.freeze([1, 0, 0, 0.82, 0, 0, 0.72, 0, 1, 0, 0, 0.82, 0, 0, 0.72, 0]);
-const CLICK_RHYTHM = Object.freeze([1, 0, 0.7, 0.42, 1, 0, 0.7, 0, 1, 0.42, 0.7, 0, 1, 0, 0.7, 0.42]);
+const CONTINUOUS_LEGACY_STEPS = Object.freeze(
+  Array(COLONY_SYRINX_SEQUENCE_LENGTH).fill(1),
+);
 
 export const DEFAULT_COLONY_SYRINX_LANES = deepFreeze([
-  { id: "maw", length: 13, rate: 1, muted: false, steps: MAW_RHYTHM },
-  { id: "speech", length: 11, rate: 1.5, muted: false, steps: SPEECH_RHYTHM },
-  { id: "click", length: 7, rate: 2, muted: false, steps: CLICK_RHYTHM },
+  { id: "maw", length: 16, rate: 1, muted: false, steps: CONTINUOUS_LEGACY_STEPS },
+  { id: "speech", length: 16, rate: 1, muted: false, steps: CONTINUOUS_LEGACY_STEPS },
+  { id: "click", length: 16, rate: 1, muted: false, steps: CONTINUOUS_LEGACY_STEPS },
 ]);
 
-const DEFAULT_ROUTE_MASKS = Object.freeze([
-  maskForRoutes(0, 4, 8, 9),
-  maskForRoutes(2, 5, 11),
-  maskForRoutes(1, 7, 8),
-  maskForRoutes(2, 4, 11),
-  maskForRoutes(3, 6, 10),
-  maskForRoutes(2, 5, 8),
-  maskForRoutes(1, 4, 10),
-  maskForRoutes(2, 8, 11),
-  maskForRoutes(0, 6, 7, 11),
-  maskForRoutes(2, 5, 8),
-  maskForRoutes(1, 4, 7),
-  maskForRoutes(2, 8, 10),
-  maskForRoutes(3, 6, 10),
-  maskForRoutes(2, 5, 11),
-  maskForRoutes(1, 7, 8),
-  maskForRoutes(2, 5, 8, 11),
-]);
+const ALL_ROUTE_MASK = maskForRoutes(
+  ...Array.from({ length: COLONY_SYRINX_ROUTE_COUNT }, (_, index) => index),
+);
 
 export const DEFAULT_COLONY_SYRINX_SEQUENCE = deepFreeze(Array.from(
   { length: COLONY_SYRINX_SEQUENCE_LENGTH },
-  (_, index) => ({
-    routeMask: DEFAULT_ROUTE_MASKS[index],
-    // Kept for compatibility with the original global score. Independent
-    // polymetric mouth lanes now supply the default rhythmic gates.
+  () => ({
+    routeMask: ALL_ROUTE_MASK,
+    // Legacy score callers remain supported, but the native score is an open
+    // field. Continuous contour lanes now move the valves and mouths.
     mouthGates: [1, 1, 1],
-    accent: index % 4 === 0 ? 1 : (index % 2 === 0 ? 0.82 : 0.66),
+    accent: 1,
   }),
 ));
 
@@ -261,10 +269,55 @@ const DEFAULT_ROUTES = deepFreeze([
   [0.86, 0.66, 0.76],
 ]);
 
+const DEFAULT_ALTERNATE_ROUTES = deepFreeze([
+  [0.42, 0.88, 0.7],
+  [0.92, 0.36, 0.76],
+  [0.78, 0.84, 0.34],
+  [0.56, 0.94, 0.82],
+]);
+
+const contour = (id, points, shape, rate, depth = 1) => ({
+  id,
+  points,
+  shape,
+  rate,
+  depth,
+  muted: false,
+});
+
+export const DEFAULT_COLONY_SYRINX_CONTOURS = deepFreeze([
+  contour("breath", [
+    0.58, 0.64, 0.72, 0.82, 0.9, 0.86, 0.76, 0.68,
+    0.62, 0.7, 0.8, 0.88, 0.84, 0.74, 0.66, 0.6,
+  ], "spline", 1, 0.72),
+  contour("tension", [
+    0.38, 0.44, 0.58, 0.7, 0.76, 0.68, 0.54, 0.46,
+    0.34, 0.42, 0.62, 0.82, 0.72, 0.56, 0.48, 0.4,
+  ], "spline", 1.25, 0.68),
+  contour("routing", [
+    0.12, 0.2, 0.36, 0.58, 0.82, 0.9, 0.76, 0.54,
+    0.3, 0.18, 0.26, 0.48, 0.72, 0.86, 0.64, 0.32,
+  ], "smooth", 0.75, 0.9),
+  contour("maw", [
+    0.82, 0.9, 0.84, 0.68, 0.46, 0.28, 0.36, 0.62,
+    0.88, 0.94, 0.78, 0.54, 0.32, 0.24, 0.48, 0.72,
+  ], "spline", 0.5, 0.86),
+  contour("speech", [
+    0.34, 0.56, 0.82, 0.7, 0.42, 0.22, 0.48, 0.88,
+    0.66, 0.28, 0.52, 0.92, 0.74, 0.38, 0.2, 0.46,
+  ], "smooth", 1, 0.92),
+  contour("click", [
+    0.22, 0.74, 0.38, 0.86, 0.28, 0.66, 0.18, 0.92,
+    0.32, 0.78, 0.24, 0.62, 0.16, 0.84, 0.3, 0.7,
+  ], "smooth", 2, 0.78),
+]);
+
 export const DEFAULT_COLONY_SYRINX_STATE = deepFreeze({
+  seed: 0x436f6c6f,
   mediumId: "air",
   breath: 0.76,
   breathRateBpm: 24,
+  contourDurationSeconds: 16,
   pressureGain: 1.12,
   crossCoupling: 0.34,
   colonyAmount: 0.38,
@@ -279,10 +332,14 @@ export const DEFAULT_COLONY_SYRINX_STATE = deepFreeze({
   midiMode: "add",
   level: 0.58,
   lungEnabled: Array(COLONY_SYRINX_LUNG_COUNT).fill(true),
+  phonatorEnabled: Array(COLONY_SYRINX_PHONATOR_COUNT).fill(true),
+  mouthEnabled: Array(COLONY_SYRINX_MOUTH_COUNT).fill(true),
   banks: DEFAULT_BANKS,
   phonators: DEFAULT_PHONATORS,
   routes: DEFAULT_ROUTES,
+  alternateRoutes: DEFAULT_ALTERNATE_ROUTES,
   mouths: COLONY_SYRINX_MOUTH_ARCHETYPES,
+  contours: DEFAULT_COLONY_SYRINX_CONTOURS,
   lanes: DEFAULT_COLONY_SYRINX_LANES,
   sequence: DEFAULT_COLONY_SYRINX_SEQUENCE,
 });
@@ -291,11 +348,16 @@ const zeroes = (length) => Array(length).fill(0);
 
 export const DEFAULT_COLONY_SYRINX_RUNTIME = deepFreeze({
   timeSeconds: 0,
+  contourPhase: 0,
+  continuousBreath: 0,
+  tensionOffset: 0,
   stepIndex: 0,
   stepElapsedSeconds: 0,
-  laneStepIndices: zeroes(COLONY_SYRINX_LANE_COUNT),
-  laneStepElapsedSeconds: zeroes(COLONY_SYRINX_LANE_COUNT),
+  laneStepIndices: zeroes(COLONY_SYRINX_LEGACY_LANE_COUNT),
+  laneStepElapsedSeconds: zeroes(COLONY_SYRINX_LEGACY_LANE_COUNT),
+  lanePhases: zeroes(COLONY_SYRINX_LANE_COUNT),
   laneVelocities: zeroes(COLONY_SYRINX_LANE_COUNT),
+  contourValues: zeroes(COLONY_SYRINX_LANE_COUNT),
   lungPressures: zeroes(COLONY_SYRINX_LUNG_COUNT),
   reservoirPressures: zeroes(COLONY_SYRINX_BANK_COUNT),
   routeTargets: zeroes(COLONY_SYRINX_ROUTE_COUNT),
@@ -307,6 +369,7 @@ export const DEFAULT_COLONY_SYRINX_RUNTIME = deepFreeze({
   mouthPressures: zeroes(COLONY_SYRINX_MOUTH_COUNT),
   mouthFlows: zeroes(COLONY_SYRINX_MOUTH_COUNT),
   phonatorLevels: zeroes(COLONY_SYRINX_PHONATOR_COUNT),
+  phonatorTensions: zeroes(COLONY_SYRINX_PHONATOR_COUNT),
   phonatorFrequenciesHz: zeroes(COLONY_SYRINX_PHONATOR_COUNT),
   foldActivities: zeroes(COLONY_SYRINX_FOLD_COUNT),
   foldFrequenciesHz: zeroes(COLONY_SYRINX_FOLD_COUNT),
@@ -330,6 +393,64 @@ const sanitizeBooleanVector = (source, fallback, defaults, length) => {
   return Array.from({ length }, (_, index) => (
     values[index] == null ? Boolean(base[index] ?? defaults[index]) : Boolean(values[index])
   ));
+};
+
+const normalizedSeed = (value, fallback = DEFAULT_COLONY_SYRINX_STATE.seed) => {
+  if (typeof value === "string" && value.trim()) {
+    let hash = 0x811c9dc5;
+    for (const character of value.trim()) {
+      hash ^= character.codePointAt(0);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return hash >>> 0;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.trunc(number) >>> 0 : Math.trunc(fallback) >>> 0;
+};
+
+const contourSourceAt = (source, id, index) => {
+  if (Array.isArray(source)) {
+    const named = source.find((candidate) => candidate?.id === id);
+    if (named) return named;
+    const positional = source[index];
+    return positional?.id == null ? positional : undefined;
+  }
+  return source && typeof source === "object" ? source[id] : undefined;
+};
+
+const sanitizeContour = (source, fallback, defaults) => {
+  const value = source && typeof source === "object" ? source : {};
+  const base = fallback && typeof fallback === "object" ? fallback : defaults;
+  const sourcePoints = Array.isArray(value.points) || ArrayBuffer.isView(value.points)
+    ? value.points
+    : [];
+  const fallbackPoints = Array.isArray(base.points) || ArrayBuffer.isView(base.points)
+    ? base.points
+    : defaults.points;
+  const shapeFallback = COLONY_SYRINX_CONTOUR_SHAPES.includes(base.shape)
+    ? base.shape
+    : defaults.shape;
+  return {
+    id: defaults.id,
+    points: Array.from({ length: COLONY_SYRINX_CONTOUR_POINT_COUNT }, (_, index) => clamp(
+      sourcePoints[index],
+      0,
+      1,
+      clamp(fallbackPoints[index], 0, 1, defaults.points[index]),
+    )),
+    shape: COLONY_SYRINX_CONTOUR_SHAPES.includes(value.shape) ? value.shape : shapeFallback,
+    rate: clamp(
+      value.rate,
+      ...COLONY_SYRINX_LIMITS.contourRate,
+      clamp(base.rate, ...COLONY_SYRINX_LIMITS.contourRate, defaults.rate),
+    ),
+    depth: clamp(
+      value.depth,
+      ...COLONY_SYRINX_LIMITS.contourDepth,
+      clamp(base.depth, ...COLONY_SYRINX_LIMITS.contourDepth, defaults.depth),
+    ),
+    muted: value.muted == null ? Boolean(base.muted ?? defaults.muted) : Boolean(value.muted),
+  };
 };
 
 const sanitizeBank = (source, fallback, defaults) => ({
@@ -468,9 +589,17 @@ export function sanitizeColonySyrinxState(source = {}, fallback = DEFAULT_COLONY
     ? value.midiMode
     : midiModeFallback;
   const result = {
+    seed: normalizedSeed(value.seed, normalizedSeed(base.seed)),
     mediumId,
     breath: boundedFrom(value, base, DEFAULT_COLONY_SYRINX_STATE, "breath", ...COLONY_SYRINX_LIMITS.breath),
     breathRateBpm: boundedFrom(value, base, DEFAULT_COLONY_SYRINX_STATE, "breathRateBpm", ...COLONY_SYRINX_LIMITS.breathRateBpm),
+    contourDurationSeconds: boundedFrom(
+      value,
+      base,
+      DEFAULT_COLONY_SYRINX_STATE,
+      "contourDurationSeconds",
+      ...COLONY_SYRINX_LIMITS.contourDurationSeconds,
+    ),
     pressureGain: boundedFrom(value, base, DEFAULT_COLONY_SYRINX_STATE, "pressureGain", ...COLONY_SYRINX_LIMITS.pressureGain),
     crossCoupling: boundedFrom(value, base, DEFAULT_COLONY_SYRINX_STATE, "crossCoupling", ...COLONY_SYRINX_LIMITS.crossCoupling),
     colonyAmount: boundedFrom(value, base, DEFAULT_COLONY_SYRINX_STATE, "colonyAmount", ...COLONY_SYRINX_LIMITS.colonyAmount),
@@ -502,6 +631,18 @@ export function sanitizeColonySyrinxState(source = {}, fallback = DEFAULT_COLONY
     DEFAULT_COLONY_SYRINX_STATE.lungEnabled,
     COLONY_SYRINX_LUNG_COUNT,
   );
+  result.phonatorEnabled = sanitizeBooleanVector(
+    value.phonatorEnabled,
+    base.phonatorEnabled,
+    DEFAULT_COLONY_SYRINX_STATE.phonatorEnabled,
+    COLONY_SYRINX_PHONATOR_COUNT,
+  );
+  result.mouthEnabled = sanitizeBooleanVector(
+    value.mouthEnabled,
+    base.mouthEnabled,
+    DEFAULT_COLONY_SYRINX_STATE.mouthEnabled,
+    COLONY_SYRINX_MOUTH_COUNT,
+  );
 
   result.banks = Array.from({ length: COLONY_SYRINX_BANK_COUNT }, (_, index) => sanitizeBank(
     Array.isArray(value.banks) ? value.banks[index] : undefined,
@@ -520,12 +661,34 @@ export function sanitizeColonySyrinxState(source = {}, fallback = DEFAULT_COLONY
       DEFAULT_ROUTES[phonatorIndex][mouthIndex],
     ))
   ));
+  result.alternateRoutes = Array.from(
+    { length: COLONY_SYRINX_PHONATOR_COUNT },
+    (_, phonatorIndex) => Array.from(
+      { length: COLONY_SYRINX_MOUTH_COUNT },
+      (__, mouthIndex) => routeAperture(
+        routeValueAt(
+          value.alternateRoutes,
+          phonatorIndex,
+          mouthIndex,
+        ),
+        routeValueAt(base.alternateRoutes, phonatorIndex, mouthIndex),
+        DEFAULT_ALTERNATE_ROUTES[phonatorIndex][mouthIndex],
+      ),
+    ),
+  );
   result.mouths = Array.from({ length: COLONY_SYRINX_MOUTH_COUNT }, (_, index) => sanitizeMouth(
     Array.isArray(value.mouths) ? value.mouths[index] : undefined,
     Array.isArray(base.mouths) ? base.mouths[index] : undefined,
     COLONY_SYRINX_MOUTH_ARCHETYPES[index],
   ));
-  result.lanes = Array.from({ length: COLONY_SYRINX_LANE_COUNT }, (_, index) => sanitizeLane(
+  const sourceContours = value.contours ?? value.contourLanes;
+  const fallbackContours = base.contours ?? base.contourLanes;
+  result.contours = COLONY_SYRINX_CONTOUR_IDS.map((id, index) => sanitizeContour(
+    contourSourceAt(sourceContours, id, index),
+    contourSourceAt(fallbackContours, id, index),
+    DEFAULT_COLONY_SYRINX_CONTOURS[index],
+  ));
+  result.lanes = Array.from({ length: COLONY_SYRINX_LEGACY_LANE_COUNT }, (_, index) => sanitizeLane(
     Array.isArray(value.lanes) ? value.lanes[index] : undefined,
     Array.isArray(base.lanes) ? base.lanes[index] : undefined,
     DEFAULT_COLONY_SYRINX_LANES[index],
@@ -544,6 +707,39 @@ export function createColonySyrinxState(overrides = {}) {
   return sanitizeColonySyrinxState(overrides, DEFAULT_COLONY_SYRINX_STATE);
 }
 
+/**
+ * Sample an evenly spaced cyclic contour. Points describe a ring rather than
+ * a finite envelope, so the final segment always interpolates back to point 0.
+ */
+export function sampleColonySyrinxContour(contourLane, normalizedPhase = 0) {
+  const points = Array.isArray(contourLane?.points) || ArrayBuffer.isView(contourLane?.points)
+    ? contourLane.points
+    : [];
+  const length = points.length;
+  if (length === 0) return 0.5;
+  if (length === 1) return clamp(points[0]);
+  const phase = ((finiteOr(normalizedPhase, 0) % 1) + 1) % 1;
+  const position = phase * length;
+  const index = Math.floor(position) % length;
+  const amount = position - Math.floor(position);
+  const left = clamp(points[index]);
+  const right = clamp(points[(index + 1) % length]);
+  if (contourLane?.shape === "linear") return mix(left, right, amount);
+  if (contourLane?.shape === "spline") {
+    const before = clamp(points[(index - 1 + length) % length]);
+    const after = clamp(points[(index + 2) % length]);
+    const amountSquared = amount * amount;
+    const amountCubed = amountSquared * amount;
+    return clamp(0.5 * (
+      2 * left
+      + (-before + right) * amount
+      + (2 * before - 5 * left + 4 * right - after) * amountSquared
+      + (-before + 3 * left - 3 * right + after) * amountCubed
+    ));
+  }
+  return mix(left, right, smoothstep(0, 1, amount));
+}
+
 const sanitizeVector = (source, fallback, length, minimum, maximum) => {
   const values = Array.isArray(source) || ArrayBuffer.isView(source) ? source : [];
   const base = Array.isArray(fallback) || ArrayBuffer.isView(fallback) ? fallback : [];
@@ -560,19 +756,32 @@ export function sanitizeColonySyrinxRuntime(source = {}, fallback = DEFAULT_COLO
   const base = fallback && typeof fallback === "object" ? fallback : DEFAULT_COLONY_SYRINX_RUNTIME;
   return {
     timeSeconds: clamp(value.timeSeconds, 0, 1e9, clamp(base.timeSeconds, 0, 1e9, 0)),
+    contourPhase: clamp(value.contourPhase, 0, 1, clamp(base.contourPhase, 0, 1, 0)),
+    continuousBreath: clamp(
+      value.continuousBreath,
+      0,
+      1,
+      clamp(base.continuousBreath, 0, 1, 0),
+    ),
+    tensionOffset: clamp(
+      value.tensionOffset,
+      -1,
+      1,
+      clamp(base.tensionOffset, -1, 1, 0),
+    ),
     stepIndex: wrap(value.stepIndex ?? base.stepIndex, COLONY_SYRINX_SEQUENCE_LENGTH),
     stepElapsedSeconds: clamp(value.stepElapsedSeconds, 0, 60, clamp(base.stepElapsedSeconds, 0, 60, 0)),
     laneStepIndices: sanitizeVector(
       value.laneStepIndices,
       base.laneStepIndices,
-      COLONY_SYRINX_LANE_COUNT,
+      COLONY_SYRINX_LEGACY_LANE_COUNT,
       0,
       COLONY_SYRINX_SEQUENCE_LENGTH - 1,
     ).map((index) => Math.round(index)),
     laneStepElapsedSeconds: sanitizeVector(
       value.laneStepElapsedSeconds,
       base.laneStepElapsedSeconds,
-      COLONY_SYRINX_LANE_COUNT,
+      COLONY_SYRINX_LEGACY_LANE_COUNT,
       0,
       60,
     ),
@@ -583,18 +792,32 @@ export function sanitizeColonySyrinxRuntime(source = {}, fallback = DEFAULT_COLO
       0,
       1,
     ),
+    lanePhases: sanitizeVector(
+      value.lanePhases,
+      base.lanePhases,
+      COLONY_SYRINX_LANE_COUNT,
+      0,
+      1,
+    ),
+    contourValues: sanitizeVector(
+      value.contourValues,
+      base.contourValues,
+      COLONY_SYRINX_LANE_COUNT,
+      0,
+      1,
+    ),
     lungPressures: sanitizeVector(value.lungPressures, base.lungPressures, COLONY_SYRINX_LUNG_COUNT, 0, COLONY_SYRINX_MAX_PRESSURE),
     reservoirPressures: sanitizeVector(value.reservoirPressures, base.reservoirPressures, COLONY_SYRINX_BANK_COUNT, 0, COLONY_SYRINX_MAX_PRESSURE),
     routeTargets: sanitizeVector(value.routeTargets, base.routeTargets, COLONY_SYRINX_ROUTE_COUNT, 0, 1),
     routeApertures: sanitizeVector(value.routeApertures, base.routeApertures, COLONY_SYRINX_ROUTE_COUNT, 0, 1),
     routeFlows: sanitizeVector(value.routeFlows, base.routeFlows, COLONY_SYRINX_ROUTE_COUNT, 0, 8),
     routeJams: sanitizeVector(value.routeJams, base.routeJams, COLONY_SYRINX_ROUTE_COUNT, 0, 1),
-    colonyGates: sanitizeVector(value.colonyGates, base.colonyGates, COLONY_SYRINX_ROUTE_COUNT, 0, 1)
-      .map((gate) => (gate >= 0.5 ? 1 : 0)),
+    colonyGates: sanitizeVector(value.colonyGates, base.colonyGates, COLONY_SYRINX_ROUTE_COUNT, 0, 1),
     mouthApertures: sanitizeVector(value.mouthApertures, base.mouthApertures, COLONY_SYRINX_MOUTH_COUNT, 0, 1),
     mouthPressures: sanitizeVector(value.mouthPressures, base.mouthPressures, COLONY_SYRINX_MOUTH_COUNT, 0, COLONY_SYRINX_MAX_PRESSURE),
     mouthFlows: sanitizeVector(value.mouthFlows, base.mouthFlows, COLONY_SYRINX_MOUTH_COUNT, 0, 8),
     phonatorLevels: sanitizeVector(value.phonatorLevels, base.phonatorLevels, COLONY_SYRINX_PHONATOR_COUNT, 0, 1),
+    phonatorTensions: sanitizeVector(value.phonatorTensions, base.phonatorTensions, COLONY_SYRINX_PHONATOR_COUNT, 0, 1),
     phonatorFrequenciesHz: sanitizeVector(value.phonatorFrequenciesHz, base.phonatorFrequenciesHz, COLONY_SYRINX_PHONATOR_COUNT, 0, 20_000),
     foldActivities: sanitizeVector(value.foldActivities, base.foldActivities, COLONY_SYRINX_FOLD_COUNT, 0, 1),
     foldFrequenciesHz: sanitizeVector(value.foldFrequenciesHz, base.foldFrequenciesHz, COLONY_SYRINX_FOLD_COUNT, 0, 20_000),
@@ -679,6 +902,378 @@ const gateValueAt = (gates, routeIndex) => {
   return gates[routeIndex];
 };
 
+const evaluateSanitizedContours = (state, timeSeconds = 0, options = {}) => {
+  const duration = Math.max(
+    COLONY_SYRINX_LIMITS.contourDurationSeconds[0],
+    state.contourDurationSeconds,
+  );
+  const absoluteCycles = Number.isFinite(Number(options.phase))
+    ? Number(options.phase)
+    : Math.max(0, finiteOr(timeSeconds, 0)) / duration;
+  const contourPhase = ((absoluteCycles % 1) + 1) % 1;
+  const lanePhases = state.contours.map((lane, index) => (
+    ((absoluteCycles * lane.rate + CONTOUR_PHASE_OFFSETS[index]) % 1 + 1) % 1
+  ));
+  const sampled = state.contours.map((lane, index) => (
+    sampleColonySyrinxContour(lane, lanePhases[index])
+  ));
+  const laneVelocities = sampled.map((sample, index) => {
+    const lane = state.contours[index];
+    if (lane.muted) return index === 2 ? 0 : 0.5;
+    const neutral = index === 2 ? 0 : 0.5;
+    return clamp(mix(neutral, sample, lane.depth));
+  });
+  const values = Object.freeze(Object.fromEntries(
+    COLONY_SYRINX_CONTOUR_IDS.map((id, index) => [id, laneVelocities[index]]),
+  ));
+
+  const breathMultiplier = 0.45 + values.breath * 1.1;
+  const breathFloor = state.breath > 0
+    ? Math.min(state.breath, COLONY_SYRINX_CONTINUOUS_BREATH_FLOOR)
+    : 0;
+  const continuousBreath = state.breath > 0
+    ? clamp(Math.max(breathFloor, state.breath * breathMultiplier))
+    : 0;
+  const tensionOffset = (values.tension - 0.5) * 0.56;
+  const routingMorph = values.routing;
+  const midiEntries = options.activeMidiNotes ?? options.midiNotes;
+  const midiSupplied = Array.isArray(midiEntries) || midiEntries instanceof Set;
+  const midiMode = ["add", "replace"].includes(options.midiMode)
+    ? options.midiMode
+    : state.midiMode;
+  const midiVelocities = midiRouteVelocities(midiEntries, state.midiBaseNote);
+  const routes = Array.from(
+    { length: COLONY_SYRINX_PHONATOR_COUNT },
+    (_, phonatorIndex) => Array.from(
+      { length: COLONY_SYRINX_MOUTH_COUNT },
+      (__, mouthIndex) => {
+        if (!state.phonatorEnabled[phonatorIndex] || !state.mouthEnabled[mouthIndex]) return 0;
+        const routeIndex = colonySyrinxRouteIndex(phonatorIndex, mouthIndex);
+        let aperture = mix(
+          state.routes[phonatorIndex][mouthIndex],
+          state.alternateRoutes[phonatorIndex][mouthIndex],
+          routingMorph,
+        );
+        if (midiSupplied) {
+          const velocity = midiVelocities[routeIndex];
+          aperture = midiMode === "replace"
+            ? aperture * velocity
+            : velocity > 0 ? mix(aperture, 1, velocity) : aperture;
+        }
+        const externalGate = gateValueAt(options.routeGates, routeIndex);
+        if (externalGate != null) aperture *= clamp(externalGate);
+        return clamp(aperture);
+      },
+    ),
+  );
+  const suppliedMouthGates = Array.isArray(options.mouthGates)
+    || ArrayBuffer.isView(options.mouthGates)
+    ? options.mouthGates
+    : null;
+  const mouthOpenings = Array.from(
+    { length: COLONY_SYRINX_MOUTH_COUNT },
+    (_, mouthIndex) => {
+      if (!state.mouthEnabled[mouthIndex]) return 0;
+      const mouthValue = laneVelocities[mouthIndex + 3];
+      // This is an articulator, not a tremolo gain. Its low region must be
+      // able to seal one mouth so stored pressure can reroute, while its upper
+      // region can stretch beyond the mouth's configured resting aperture.
+      const multiplier = smoothstep(0.18, 0.72, mouthValue) * 1.35;
+      const externalGate = suppliedMouthGates
+        ? clamp(suppliedMouthGates[mouthIndex], 0, 1, 1)
+        : 1;
+      return clamp(state.mouths[mouthIndex].opening * multiplier * externalGate);
+    },
+  );
+  // Independent cyclic mouths can briefly converge on closure. Lift the
+  // living outlets together only during that overlap so the organism retains
+  // one pressure-bearing exit; an individual mouth can still reach zero while
+  // another carries the breath. The max-based correction is value-continuous.
+  const maximumMouthOpening = Math.max(...mouthOpenings);
+  const outletShortfall = Math.max(0, 0.035 - maximumMouthOpening);
+  let rescueMouthIndex = -1;
+  let rescueCapacity = -1;
+  for (let mouthIndex = 0; mouthIndex < COLONY_SYRINX_MOUTH_COUNT; mouthIndex += 1) {
+    const externalGate = suppliedMouthGates
+      ? clamp(suppliedMouthGates[mouthIndex])
+      : 1;
+    const capacity = state.mouths[mouthIndex].opening * externalGate;
+    if (state.mouthEnabled[mouthIndex] && capacity > rescueCapacity && capacity > 0) {
+      rescueMouthIndex = mouthIndex;
+      rescueCapacity = capacity;
+    }
+  }
+  if (rescueMouthIndex >= 0 && outletShortfall > 0) {
+    mouthOpenings[rescueMouthIndex] = clamp(
+      mouthOpenings[rescueMouthIndex] + outletShortfall,
+    );
+  }
+
+  return Object.freeze({
+    timeSeconds: Math.max(0, finiteOr(timeSeconds, 0)),
+    phase: contourPhase,
+    contourPhase,
+    lanePhases: Object.freeze(lanePhases),
+    laneVelocities: Object.freeze(laneVelocities),
+    contourValues: Object.freeze(laneVelocities.slice()),
+    values,
+    breath: continuousBreath,
+    continuousBreath,
+    tensionOffset,
+    routingMorph,
+    routes: Object.freeze(routes.map((row) => Object.freeze(row))),
+    mouthOpenings: Object.freeze(mouthOpenings),
+  });
+};
+
+/** Resolve all six cyclic contours into one continuously moving body state. */
+export function evaluateColonySyrinxContours(configuration, timeSeconds = 0, options = {}) {
+  return evaluateSanitizedContours(sanitizeColonySyrinxState(configuration), timeSeconds, options);
+}
+
+export const evaluateColonySyrinxContinuousState = evaluateColonySyrinxContours;
+
+const seededRandom = (seedValue) => {
+  let state = normalizedSeed(seedValue) || 0x6d2b79f5;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 0x1_0000_0000;
+  };
+};
+
+const shuffleWith = (values, random) => {
+  const result = values.slice();
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(random() * (index + 1));
+    [result[index], result[other]] = [result[other], result[index]];
+  }
+  return result;
+};
+
+const enabledSubset = (length, count, random) => {
+  const chosen = new Set(shuffleWith(
+    Array.from({ length }, (_, index) => index),
+    random,
+  ).slice(0, count));
+  return Array.from({ length }, (_, index) => chosen.has(index));
+};
+
+const randomRange = (random, minimum, maximum) => minimum + random() * (maximum - minimum);
+
+const randomContourPoints = (random, minimum, maximum, smoothingPasses = 1) => {
+  let points = Array.from(
+    { length: COLONY_SYRINX_CONTOUR_POINT_COUNT },
+    () => randomRange(random, minimum, maximum),
+  );
+  for (let pass = 0; pass < smoothingPasses; pass += 1) {
+    points = points.map((value, index) => (
+      points[(index - 1 + points.length) % points.length] * 0.22
+      + value * 0.56
+      + points[(index + 1) % points.length] * 0.22
+    ));
+  }
+  return points.map((value) => clamp(value));
+};
+
+const repairRouteMatrix = (matrix, phonatorEnabled, mouthEnabled, random) => {
+  const activePhonators = phonatorEnabled
+    .map((enabled, index) => enabled ? index : -1)
+    .filter((index) => index >= 0);
+  const activeMouths = mouthEnabled
+    .map((enabled, index) => enabled ? index : -1)
+    .filter((index) => index >= 0);
+  const repaired = Array.from(
+    { length: COLONY_SYRINX_PHONATOR_COUNT },
+    (_, phonatorIndex) => Array.from(
+      { length: COLONY_SYRINX_MOUTH_COUNT },
+      (__, mouthIndex) => phonatorEnabled[phonatorIndex] && mouthEnabled[mouthIndex]
+        ? clamp(matrix?.[phonatorIndex]?.[mouthIndex])
+        : 0,
+    ),
+  );
+  for (const phonatorIndex of activePhonators) {
+    if (activeMouths.some((mouthIndex) => repaired[phonatorIndex][mouthIndex] > 0.04)) continue;
+    const mouthIndex = activeMouths[Math.floor(random() * activeMouths.length)];
+    repaired[phonatorIndex][mouthIndex] = randomRange(random, 0.32, 1);
+  }
+  for (const mouthIndex of activeMouths) {
+    if (activePhonators.some((phonatorIndex) => repaired[phonatorIndex][mouthIndex] > 0.04)) continue;
+    const phonatorIndex = activePhonators[Math.floor(random() * activePhonators.length)];
+    repaired[phonatorIndex][mouthIndex] = randomRange(random, 0.32, 1);
+  }
+  return repaired;
+};
+
+const randomizedRouteMatrix = (phonatorEnabled, mouthEnabled, random) => (
+  Array.from({ length: COLONY_SYRINX_PHONATOR_COUNT }, (_, phonatorIndex) => (
+    Array.from({ length: COLONY_SYRINX_MOUTH_COUNT }, (__, mouthIndex) => {
+      if (!phonatorEnabled[phonatorIndex] || !mouthEnabled[mouthIndex]) return 0;
+      return random() < 0.44 ? 0 : randomRange(random, 0.16, 1);
+    })
+  ))
+);
+
+/**
+ * Deterministically mutate anatomy, plumbing, motion, or the complete beast.
+ * The fixed arrays remain DSP maxima; enabled vectors define the living subset.
+ */
+export function randomizeColonySyrinxState(configuration, options = {}) {
+  const base = sanitizeColonySyrinxState(configuration);
+  const scope = ["anatomy", "plumbing", "motion", "all"].includes(options.scope)
+    ? options.scope
+    : "all";
+  const seed = normalizedSeed(
+    options.seed,
+    (base.seed + 0x9e3779b9) >>> 0,
+  );
+  const random = seededRandom(seed);
+  const next = {
+    ...base,
+    seed,
+    lungEnabled: base.lungEnabled.slice(),
+    phonatorEnabled: base.phonatorEnabled.slice(),
+    mouthEnabled: base.mouthEnabled.slice(),
+    banks: base.banks.map((bank) => ({ ...bank })),
+    phonators: base.phonators.map((phonator) => ({ ...phonator })),
+    routes: base.routes.map((row) => row.slice()),
+    alternateRoutes: base.alternateRoutes.map((row) => row.slice()),
+    mouths: base.mouths.map((mouth) => ({ ...mouth })),
+    contours: base.contours.map((lane) => ({ ...lane, points: lane.points.slice() })),
+    lanes: base.lanes.map((lane) => ({ ...lane, steps: lane.steps.slice() })),
+    sequence: base.sequence.map((step) => ({ ...step, mouthGates: step.mouthGates.slice() })),
+  };
+
+  if (scope === "anatomy" || scope === "all") {
+    const phonatorCount = 1 + Math.floor(random() * COLONY_SYRINX_PHONATOR_COUNT);
+    const mouthCount = 1 + Math.floor(random() * COLONY_SYRINX_MOUTH_COUNT);
+    next.phonatorEnabled = enabledSubset(
+      COLONY_SYRINX_PHONATOR_COUNT,
+      phonatorCount,
+      random,
+    );
+    next.mouthEnabled = enabledSubset(COLONY_SYRINX_MOUTH_COUNT, mouthCount, random);
+    next.lungEnabled.fill(false);
+    for (let phonatorIndex = 0; phonatorIndex < COLONY_SYRINX_PHONATOR_COUNT; phonatorIndex += 1) {
+      if (!next.phonatorEnabled[phonatorIndex]) continue;
+      const lungCount = 1 + Math.floor(random() * COLONY_SYRINX_LUNGS_PER_BANK);
+      const enabled = enabledSubset(COLONY_SYRINX_LUNGS_PER_BANK, lungCount, random);
+      enabled.forEach((isEnabled, lungOffset) => {
+        next.lungEnabled[
+          phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK + lungOffset
+        ] = isEnabled;
+      });
+    }
+    next.banks = next.banks.map(() => ({
+      drive: randomRange(random, 0.48, 1.34),
+      compliance: randomRange(random, 0.42, 2.2),
+      leak: randomRange(random, 0.008, 0.16),
+    }));
+    next.phonators = next.phonators.map((phonator) => ({
+      ...phonator,
+      frequencyHz: 28 * 2 ** (random() * 6.9),
+      tension: randomRange(random, 0.12, 0.9),
+      closure: randomRange(random, 0.18, 0.94),
+      asymmetry: randomRange(random, -0.82, 0.82),
+      roughness: randomRange(random, 0.04, 0.94),
+    }));
+    next.mouths = next.mouths.map((mouth, index) => ({
+      ...mouth,
+      opening: randomRange(random, 0.18, 0.94),
+      tongueSize: randomRange(random, 0.06, 0.98),
+      tonguePosition: randomRange(random, 0.02, 0.98),
+      lipSize: randomRange(random, 0.05, 1),
+      lipTension: randomRange(random, 0.04, 0.98),
+      cavity: randomRange(random, 0.04, 1),
+      resonanceHz: 48 * 2 ** (random() * (index === 2 ? 7.4 : 5.8)),
+      pan: randomRange(random, -1, 1),
+      leak: randomRange(random, 0.002, 0.12),
+      slewMs: randomRange(random, 8, 240),
+    }));
+  }
+
+  if (scope === "plumbing" || scope === "all") {
+    next.routes = randomizedRouteMatrix(next.phonatorEnabled, next.mouthEnabled, random);
+    next.alternateRoutes = randomizedRouteMatrix(
+      next.phonatorEnabled,
+      next.mouthEnabled,
+      random,
+    );
+    next.crossCoupling = randomRange(random, 0.04, 0.92);
+    next.colonyAmount = randomRange(random, 0, 0.82);
+    next.gateHysteresis = randomRange(random, 0.08, 0.9);
+    next.leak = randomRange(random, 0.008, 0.24);
+    next.valveSlewMs = randomRange(random, 8, 260);
+  }
+
+  if (scope === "motion" || scope === "all") {
+    const ranges = {
+      breath: [0.34, 0.94, 2],
+      tension: [0.08, 0.92, 2],
+      routing: [0.02, 0.98, 1],
+      maw: [0.04, 0.98, 2],
+      speech: [0.03, 0.99, 1],
+      click: [0.02, 1, 0],
+    };
+    next.breath = randomRange(random, 0.38, 1);
+    next.breathRateBpm = randomRange(random, 4, 72);
+    next.contourDurationSeconds = 2 ** randomRange(random, 1.2, 5.7);
+    next.contours = COLONY_SYRINX_CONTOUR_IDS.map((id) => {
+      const [minimum, maximum, passes] = ranges[id];
+      return {
+        id,
+        points: randomContourPoints(random, minimum, maximum, passes),
+        shape: COLONY_SYRINX_CONTOUR_SHAPES[
+          Math.floor(random() * COLONY_SYRINX_CONTOUR_SHAPES.length)
+        ],
+        rate: 2 ** randomRange(random, -2.2, 2.4),
+        depth: randomRange(random, 0.36, 1),
+        muted: id === "breath" ? false : random() < 0.1,
+      };
+    });
+  }
+
+  if (scope === "all") {
+    const media = Object.keys(COLONY_SYRINX_MEDIA);
+    next.mediumId = media[Math.floor(random() * media.length)];
+    next.pressureGain = randomRange(random, 0.58, 2.2);
+    next.level = randomRange(random, 0.28, 0.82);
+  }
+
+  if (!next.phonatorEnabled.some(Boolean)) {
+    next.phonatorEnabled[Math.floor(random() * COLONY_SYRINX_PHONATOR_COUNT)] = true;
+  }
+  if (!next.mouthEnabled.some(Boolean)) {
+    next.mouthEnabled[Math.floor(random() * COLONY_SYRINX_MOUTH_COUNT)] = true;
+  }
+  for (let phonatorIndex = 0; phonatorIndex < COLONY_SYRINX_PHONATOR_COUNT; phonatorIndex += 1) {
+    if (!next.phonatorEnabled[phonatorIndex]) continue;
+    const start = phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK;
+    const bankLungs = next.lungEnabled.slice(start, start + COLONY_SYRINX_LUNGS_PER_BANK);
+    if (!bankLungs.some(Boolean)) {
+      next.lungEnabled[start + Math.floor(random() * COLONY_SYRINX_LUNGS_PER_BANK)] = true;
+    }
+  }
+  if (scope === "anatomy" || scope === "plumbing" || scope === "all") {
+    next.routes = repairRouteMatrix(
+      next.routes,
+      next.phonatorEnabled,
+      next.mouthEnabled,
+      random,
+    );
+    next.alternateRoutes = repairRouteMatrix(
+      next.alternateRoutes,
+      next.phonatorEnabled,
+      next.mouthEnabled,
+      random,
+    );
+  }
+  next.breath = Math.max(COLONY_SYRINX_CONTINUOUS_BREATH_FLOOR, next.breath);
+  return sanitizeColonySyrinxState(next, base);
+}
+
 const evaluateSanitizedStep = (state, stepIndex, options = {}) => {
   const index = wrap(stepIndex, COLONY_SYRINX_SEQUENCE_LENGTH);
   const step = state.sequence[index];
@@ -718,7 +1313,10 @@ const evaluateSanitizedStep = (state, stepIndex, options = {}) => {
   const laneVelocities = state.lanes.map((lane, laneIndex) => (
     lane.muted ? 0 : lane.steps[laneStepIndices[laneIndex]]
   ));
-  const mouthOverrides = Array.isArray(options.mouthGates) ? options.mouthGates : [];
+  const mouthOverrides = Array.isArray(options.mouthGates)
+    || ArrayBuffer.isView(options.mouthGates)
+    ? options.mouthGates
+    : [];
   const mouthGates = Array.from({ length: COLONY_SYRINX_MOUTH_COUNT }, (_, mouthIndex) => {
     const scoreGate = sequenceEnabled
       ? step.mouthGates[mouthIndex] * laneVelocities[mouthIndex]
@@ -763,7 +1361,7 @@ export function colonySyrinxStepDurationSeconds(configuration, stepIndex = 0) {
 
 export function colonySyrinxLaneStepDurationSeconds(configuration, laneIndex, stepIndex = 0) {
   const state = sanitizeColonySyrinxState(configuration);
-  const index = clampInteger(laneIndex, 0, COLONY_SYRINX_LANE_COUNT - 1, 0);
+  const index = clampInteger(laneIndex, 0, COLONY_SYRINX_LEGACY_LANE_COUNT - 1, 0);
   const lane = state.lanes[index];
   const base = 60 / state.tempoBpm / state.stepsPerBeat / lane.rate;
   return base * (wrap(stepIndex, 2) === 0 ? 1 + state.swing : 1 - state.swing);
@@ -792,7 +1390,7 @@ const advanceSequenceClock = (clock, state, deltaSeconds, explicitStepIndex) => 
 const advanceLaneClocks = (indices, elapsed, state, deltaSeconds, explicitIndices) => {
   const nextIndices = indices.slice();
   const nextElapsed = elapsed.slice();
-  for (let laneIndex = 0; laneIndex < COLONY_SYRINX_LANE_COUNT; laneIndex += 1) {
+  for (let laneIndex = 0; laneIndex < COLONY_SYRINX_LEGACY_LANE_COUNT; laneIndex += 1) {
     const lane = state.lanes[laneIndex];
     if (explicitIndices) {
       nextIndices[laneIndex] = wrap(explicitIndices[laneIndex], lane.length);
@@ -819,7 +1417,9 @@ const freezeRuntime = (runtime) => Object.freeze({
   ...runtime,
   laneStepIndices: Object.freeze(runtime.laneStepIndices),
   laneStepElapsedSeconds: Object.freeze(runtime.laneStepElapsedSeconds),
+  lanePhases: Object.freeze(runtime.lanePhases),
   laneVelocities: Object.freeze(runtime.laneVelocities),
+  contourValues: Object.freeze(runtime.contourValues),
   lungPressures: Object.freeze(runtime.lungPressures),
   reservoirPressures: Object.freeze(runtime.reservoirPressures),
   routeTargets: Object.freeze(runtime.routeTargets),
@@ -831,6 +1431,7 @@ const freezeRuntime = (runtime) => Object.freeze({
   mouthPressures: Object.freeze(runtime.mouthPressures),
   mouthFlows: Object.freeze(runtime.mouthFlows),
   phonatorLevels: Object.freeze(runtime.phonatorLevels),
+  phonatorTensions: Object.freeze(runtime.phonatorTensions),
   phonatorFrequenciesHz: Object.freeze(runtime.phonatorFrequenciesHz),
   foldActivities: Object.freeze(runtime.foldActivities),
   foldFrequenciesHz: Object.freeze(runtime.foldFrequenciesHz),
@@ -856,12 +1457,7 @@ export function stepColonySyrinx(
   const explicitLaneIndices = optionLaneIndices ?? (explicitStepIndex == null
     ? null
     : state.lanes.map((lane) => Math.floor(explicitStepIndex * lane.rate)));
-  const midiSupplied = Array.isArray(options.activeMidiNotes ?? options.midiNotes)
-    || (options.activeMidiNotes ?? options.midiNotes) instanceof Set;
-  const midiMode = ["add", "replace"].includes(options.midiMode) ? options.midiMode : state.midiMode;
-  const autonomousAmount = midiSupplied && midiMode === "replace"
-    ? 0
-    : clamp(options.colonyAmount, 0, 1, state.colonyAmount);
+  const autonomousAmount = clamp(options.colonyAmount, 0, 1, state.colonyAmount);
   const suppliedBankExhaleGates = Array.isArray(options.bankExhaleGates)
     || ArrayBuffer.isView(options.bankExhaleGates)
     ? options.bankExhaleGates
@@ -875,7 +1471,9 @@ export function stepColonySyrinx(
     ...previous,
     laneStepIndices: previous.laneStepIndices.slice(),
     laneStepElapsedSeconds: previous.laneStepElapsedSeconds.slice(),
+    lanePhases: previous.lanePhases.slice(),
     laneVelocities: previous.laneVelocities.slice(),
+    contourValues: previous.contourValues.slice(),
     lungPressures: previous.lungPressures.slice(),
     reservoirPressures: previous.reservoirPressures.slice(),
     routeTargets: previous.routeTargets.slice(),
@@ -887,6 +1485,7 @@ export function stepColonySyrinx(
     mouthPressures: previous.mouthPressures.slice(),
     mouthFlows: previous.mouthFlows.slice(),
     phonatorLevels: previous.phonatorLevels.slice(),
+    phonatorTensions: previous.phonatorTensions.slice(),
     phonatorFrequenciesHz: previous.phonatorFrequenciesHz.slice(),
     foldActivities: previous.foldActivities.slice(),
     foldFrequenciesHz: previous.foldFrequenciesHz.slice(),
@@ -896,8 +1495,6 @@ export function stepColonySyrinx(
     laneStepIndices: runtime.laneStepIndices,
     laneStepElapsedSeconds: runtime.laneStepElapsedSeconds,
   };
-  let finalAccent = 1;
-
   for (let substep = 0; substep < substepCount; substep += 1) {
     const h = substepSeconds;
     clock = advanceSequenceClock(clock, state, h, explicitStepIndex);
@@ -908,13 +1505,14 @@ export function stepColonySyrinx(
       h,
       explicitLaneIndices,
     );
-    const score = evaluateSanitizedStep(state, clock.stepIndex, {
-      ...options,
-      laneStepIndices: laneClock.laneStepIndices,
-    });
-    runtime.laneVelocities = score.laneVelocities.slice();
-    finalAccent = score.accent;
     runtime.timeSeconds = Math.min(1e9, runtime.timeSeconds + h);
+    const contours = evaluateSanitizedContours(state, runtime.timeSeconds, options);
+    runtime.contourPhase = contours.contourPhase;
+    runtime.continuousBreath = contours.continuousBreath;
+    runtime.tensionOffset = contours.tensionOffset;
+    runtime.lanePhases = contours.lanePhases.slice();
+    runtime.laneVelocities = contours.laneVelocities.slice();
+    runtime.contourValues = contours.contourValues.slice();
 
     for (let routeIndex = 0; routeIndex < COLONY_SYRINX_ROUTE_COUNT; routeIndex += 1) {
       const route = COLONY_SYRINX_TOPOLOGY.routes[routeIndex];
@@ -922,16 +1520,23 @@ export function stepColonySyrinx(
       const backPressure = runtime.mouthPressures[route.mouthIndex];
       const offset = ((routeIndex * 7) % COLONY_SYRINX_ROUTE_COUNT) / (COLONY_SYRINX_ROUTE_COUNT - 1) - 0.5;
       const openThreshold = 0.42 + offset * 0.22 + backPressure * 0.16;
-      const closeThreshold = openThreshold - (0.06 + state.gateHysteresis * 0.2);
-      if (pressure >= openThreshold) runtime.colonyGates[routeIndex] = 1;
-      else if (pressure <= closeThreshold) runtime.colonyGates[routeIndex] = 0;
-      const baseAperture = state.routes[route.phonatorIndex][route.mouthIndex];
-      const autonomousTarget = baseAperture * runtime.colonyGates[routeIndex];
-      runtime.routeTargets[routeIndex] = clamp(mix(
-        score.routeTargets[routeIndex],
-        Math.max(score.routeTargets[routeIndex], autonomousTarget),
-        autonomousAmount,
-      ) * bankExhaleGates[route.phonatorIndex]);
+      const transitionWidth = 0.08 + state.gateHysteresis * 0.24;
+      const pressureValve = smoothstep(
+        openThreshold - transitionWidth,
+        openThreshold + transitionWidth,
+        pressure,
+      );
+      runtime.colonyGates[routeIndex] += (
+        pressureValve - runtime.colonyGates[routeIndex]
+      ) * timeAlpha(9, h);
+      const contourTarget = contours.routes[route.phonatorIndex][route.mouthIndex];
+      const autonomousTarget = contourTarget > 0
+        ? mix(contourTarget, 1, runtime.colonyGates[routeIndex] * 0.42)
+        : 0;
+      runtime.routeTargets[routeIndex] = clamp(
+        mix(contourTarget, autonomousTarget, autonomousAmount)
+          * bankExhaleGates[route.phonatorIndex],
+      );
       runtime.routeApertures[routeIndex] += (
         runtime.routeTargets[routeIndex] - runtime.routeApertures[routeIndex]
       ) * timeAlpha(1_000 / state.valveSlewMs, h);
@@ -940,7 +1545,7 @@ export function stepColonySyrinx(
     const mouthAperturesBefore = runtime.mouthApertures.slice();
     for (let mouthIndex = 0; mouthIndex < COLONY_SYRINX_MOUTH_COUNT; mouthIndex += 1) {
       const mouth = state.mouths[mouthIndex];
-      const target = mouth.opening * score.mouthGates[mouthIndex];
+      const target = contours.mouthOpenings[mouthIndex];
       runtime.mouthApertures[mouthIndex] += (
         target - runtime.mouthApertures[mouthIndex]
       ) * timeAlpha(1_000 / mouth.slewMs, h);
@@ -950,13 +1555,13 @@ export function stepColonySyrinx(
     for (let lungIndex = 0; lungIndex < COLONY_SYRINX_LUNG_COUNT; lungIndex += 1) {
       const bankIndex = Math.floor(lungIndex / COLONY_SYRINX_LUNGS_PER_BANK);
       const bank = state.banks[bankIndex];
-      const enabled = state.lungEnabled[lungIndex];
+      const enabled = state.lungEnabled[lungIndex] && state.phonatorEnabled[bankIndex];
       const phase = fract(
         runtime.timeSeconds * state.breathRateBpm / 60 + COLONY_SYRINX_LUNG_PHASES[lungIndex],
       );
       const stroke = 0.56 + 0.44 * (0.5 - 0.5 * Math.cos(TWO_PI * phase));
       const target = enabled
-        ? state.breath * state.pressureGain * bank.drive * stroke * finalAccent
+        ? contours.continuousBreath * state.pressureGain * bank.drive * stroke
         : 0;
       let pressure = runtime.lungPressures[lungIndex];
       pressure += (target - pressure) * timeAlpha(medium.lungResponse, h);
@@ -978,13 +1583,24 @@ export function stepColonySyrinx(
         COLONY_SYRINX_MAX_PRESSURE,
       );
     }
-    const reservoirMean = runtime.reservoirPressures.reduce((sum, pressure) => sum + pressure, 0)
-      / COLONY_SYRINX_BANK_COUNT;
+    const activeReservoirIndices = state.phonatorEnabled
+      .map((enabled, index) => enabled ? index : -1)
+      .filter((index) => index >= 0);
+    const reservoirMean = activeReservoirIndices.length
+      ? activeReservoirIndices.reduce(
+        (sum, index) => sum + runtime.reservoirPressures[index],
+        0,
+      ) / activeReservoirIndices.length
+      : 0;
     const couplingAlpha = timeAlpha(state.crossCoupling * 2.4, h);
     for (let bankIndex = 0; bankIndex < COLONY_SYRINX_BANK_COUNT; bankIndex += 1) {
-      runtime.reservoirPressures[bankIndex] += (
-        reservoirMean - runtime.reservoirPressures[bankIndex]
-      ) * couplingAlpha;
+      if (state.phonatorEnabled[bankIndex]) {
+        runtime.reservoirPressures[bankIndex] += (
+          reservoirMean - runtime.reservoirPressures[bankIndex]
+        ) * couplingAlpha;
+      } else {
+        runtime.reservoirPressures[bankIndex] *= 1 - timeAlpha(8, h);
+      }
     }
 
     const mouthInputVolumes = zeroes(COLONY_SYRINX_MOUTH_COUNT);
@@ -992,6 +1608,11 @@ export function stepColonySyrinx(
     runtime.routeFlows.fill(0);
     for (let routeIndex = 0; routeIndex < COLONY_SYRINX_ROUTE_COUNT; routeIndex += 1) {
       const route = COLONY_SYRINX_TOPOLOGY.routes[routeIndex];
+      if (!state.phonatorEnabled[route.phonatorIndex]
+        || !state.mouthEnabled[route.mouthIndex]) {
+        runtime.routeJams[routeIndex] *= 1 - timeAlpha(medium.jamRelease, h);
+        continue;
+      }
       const phonator = state.phonators[route.phonatorIndex];
       const pressureDelta = Math.max(
         0,
@@ -1036,6 +1657,10 @@ export function stepColonySyrinx(
     runtime.mouthFlows.fill(0);
     for (let mouthIndex = 0; mouthIndex < COLONY_SYRINX_MOUTH_COUNT; mouthIndex += 1) {
       const mouth = state.mouths[mouthIndex];
+      if (!state.mouthEnabled[mouthIndex]) {
+        runtime.mouthPressures[mouthIndex] *= 1 - timeAlpha(8, h);
+        continue;
+      }
       const capacity = 0.32 + mouth.cavity * 1.18 + mouth.tongueSize * 0.22;
       const pressureBeforeRelease = clamp(
         runtime.mouthPressures[mouthIndex] + mouthInputVolumes[mouthIndex] / capacity,
@@ -1073,13 +1698,31 @@ export function stepColonySyrinx(
   runtime.stepElapsedSeconds = clock.stepElapsedSeconds;
   runtime.laneStepIndices = laneClock.laneStepIndices;
   runtime.laneStepElapsedSeconds = laneClock.laneStepElapsedSeconds;
-  runtime.meanPressure = runtime.reservoirPressures.reduce((sum, pressure) => sum + pressure, 0)
-    / COLONY_SYRINX_BANK_COUNT;
+  const activePhonatorIndices = state.phonatorEnabled
+    .map((enabled, index) => enabled ? index : -1)
+    .filter((index) => index >= 0);
+  runtime.meanPressure = activePhonatorIndices.length
+    ? activePhonatorIndices.reduce(
+      (sum, index) => sum + runtime.reservoirPressures[index],
+      0,
+    ) / activePhonatorIndices.length
+    : 0;
   runtime.totalFlow = runtime.mouthFlows.reduce((sum, flow) => sum + flow, 0);
   runtime.outputLevel = clamp(runtime.totalFlow * state.level * medium.outputGain * 0.72);
 
   for (let phonatorIndex = 0; phonatorIndex < COLONY_SYRINX_PHONATOR_COUNT; phonatorIndex += 1) {
     const phonator = state.phonators[phonatorIndex];
+    const firstFold = phonatorIndex * 2;
+    if (!state.phonatorEnabled[phonatorIndex]) {
+      runtime.phonatorLevels[phonatorIndex] = 0;
+      runtime.phonatorTensions[phonatorIndex] = 0;
+      runtime.phonatorFrequenciesHz[phonatorIndex] = 0;
+      runtime.foldFrequenciesHz[firstFold] = 0;
+      runtime.foldFrequenciesHz[firstFold + 1] = 0;
+      runtime.foldActivities[firstFold] = 0;
+      runtime.foldActivities[firstFold + 1] = 0;
+      continue;
+    }
     const pressure = runtime.reservoirPressures[phonatorIndex];
     const load = runtime.routeApertures
       .slice(
@@ -1096,15 +1739,16 @@ export function stepColonySyrinx(
     const level = clamp(pressureVoicing * closureVoicing * (0.18 + load * 0.82));
     const couplingBend = (runtime.meanPressure - pressure) * state.crossCoupling * 2.4;
     const pressureBend = pressure * (state.mediumId === "air" ? 1.8 : 0.72);
-    const semitones = (phonator.tension - 0.5) * 18 + couplingBend + pressureBend;
+    const tension = clamp(phonator.tension + runtime.tensionOffset);
+    const semitones = (tension - 0.5) * 18 + couplingBend + pressureBend;
     const frequency = clamp(phonator.frequencyHz * 2 ** (semitones / 12), 8, 20_000);
     runtime.phonatorLevels[phonatorIndex] = level;
+    runtime.phonatorTensions[phonatorIndex] = tension;
     runtime.phonatorFrequenciesHz[phonatorIndex] = frequency;
     const flutterCents = Math.sin(
       runtime.timeSeconds * (1.7 + phonatorIndex * 0.37) * TWO_PI + phonatorIndex,
     ) * phonator.roughness * 18;
     const detuneCents = phonator.asymmetry * 52 + flutterCents;
-    const firstFold = phonatorIndex * 2;
     runtime.foldFrequenciesHz[firstFold] = clamp(frequency * 2 ** (-detuneCents / 1_200), 8, 20_000);
     runtime.foldFrequenciesHz[firstFold + 1] = clamp(frequency * 2 ** (detuneCents / 1_200), 8, 20_000);
     runtime.foldActivities[firstFold] = clamp(level * (1 - phonator.asymmetry * 0.14));
