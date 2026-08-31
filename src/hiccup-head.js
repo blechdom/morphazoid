@@ -32,8 +32,8 @@ export const HICCUP_HEAD_LIMITS = Object.freeze({
   rightHairLength: Object.freeze([0, 1]),
   leftHairAngle: Object.freeze([-1, 1]),
   rightHairAngle: Object.freeze([-1, 1]),
-  // Signed eye travel remains visually expressive, but only outward motion
-  // opens the cross-fed room; crossed eyes and lid closure never alter audio.
+  // Signed pupil travel alone chooses the cross-fed room character. The two
+  // lids are separate performance effects and never change reverb wetness.
   eyeDivergence: Object.freeze([-1, 1]),
   eyeClosure: Object.freeze([0, 1]),
   leftEyeClosure: Object.freeze([0, 1]),

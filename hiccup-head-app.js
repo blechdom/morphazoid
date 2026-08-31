@@ -177,10 +177,6 @@ if (
   throw new Error("Hiccup Head requires exactly one safe-skin dot for every sound");
 }
 
-const STOPPED_SKIN_CHECKER_COLORS = Object.freeze([
-  "rgb(255, 174, 199)",
-  "rgb(255, 218, 105)",
-]);
 const FACE_TRIGGER_FRECKLE_COLORS = Object.freeze([
   "#55307d", "#214e83", "#276749", "#713b73", "#285f70", "#355c32",
 ]);
@@ -194,14 +190,50 @@ const SKIN_CHECKER_PALETTE = Object.freeze([
   "rgb(157, 218, 125)", // green
   "rgb(244, 126, 173)", // deep pink
   "rgb(205, 235, 116)", // yellow-green
+  "rgb(129, 190, 235)", // soft blue
+  "rgb(250, 246, 232)", // warm white
+  "rgb(132, 82, 54)",   // brown
+  "rgb(22, 20, 24)",    // soft black
+  "rgb(53, 92, 66)",    // dark green
+  "rgb(61, 66, 118)",   // dark blue
+  "rgb(105, 54, 91)",   // dark berry
+  "rgb(116, 75, 39)",   // dark ochre
 ]);
+function seededCheckerIndex(step, salt) {
+  let value = Math.imul((step + 1) ^ salt, 0x45d9f3b);
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x45d9f3b);
+  value ^= value >>> 16;
+  return (value >>> 0);
+}
+
+function randomCheckerPair(random = Math.random) {
+  const firstIndex = Math.min(
+    SKIN_CHECKER_PALETTE.length - 1,
+    Math.floor(random() * SKIN_CHECKER_PALETTE.length),
+  );
+  const secondDraw = Math.min(
+    SKIN_CHECKER_PALETTE.length - 2,
+    Math.floor(random() * (SKIN_CHECKER_PALETTE.length - 1)),
+  );
+  const secondIndex = secondDraw >= firstIndex ? secondDraw + 1 : secondDraw;
+  return Object.freeze([
+    SKIN_CHECKER_PALETTE[firstIndex],
+    SKIN_CHECKER_PALETTE[secondIndex],
+  ]);
+}
+
+const STOPPED_SKIN_CHECKER_COLORS = randomCheckerPair();
+
 const SEQUENCE_SKIN_CHECKER_COLORS = Object.freeze(Array.from(
   { length: HICCUP_HEAD_STEP_COUNT },
   (_, step) => {
-    // Rotate only through opaque warm/citrus skin colors. Offset the second
-    // square by alternating distances so adjacent steps visibly change.
-    const firstIndex = step % SKIN_CHECKER_PALETTE.length;
-    const secondIndex = (step + 2 + (step % 2)) % SKIN_CHECKER_PALETTE.length;
+    // Choose both colors from independent seeded draws. Selecting the second
+    // from a palette one item shorter, then skipping the first, guarantees
+    // two different colors without a retry loop or frame-to-frame flicker.
+    const firstIndex = seededCheckerIndex(step, 0x2c9277b5) % SKIN_CHECKER_PALETTE.length;
+    const secondDraw = seededCheckerIndex(step, 0x6d2b79f5) % (SKIN_CHECKER_PALETTE.length - 1);
+    const secondIndex = secondDraw >= firstIndex ? secondDraw + 1 : secondDraw;
     return Object.freeze([
       SKIN_CHECKER_PALETTE[firstIndex],
       SKIN_CHECKER_PALETTE[secondIndex],
@@ -240,6 +272,7 @@ const faceEffectEnabled = Object.seal({
 });
 
 let state = hiccupHeadState("rubber-face");
+let eyebrowEmphasis = 0.32;
 let pattern = normalizePatternColumns(clonePattern(hiccupHeadPattern(state.patternId)));
 let currentPatternId = state.patternId;
 let sequenceLength = Math.min(16, HICCUP_HEAD_STEP_COUNT);
@@ -257,10 +290,10 @@ let manualConfigurationResetTimer = 0;
 let nextStepTime = 0;
 let sequenceStep = 0;
 let absoluteStep = 0;
-let loopStartStep = 0;
-let loopEndStep = sequenceLength - 1;
-let pendingSequenceStep = null;
-let stepRangeDrag = null;
+const extraSequenceSoundIds = new Set();
+let sequenceSoundOrder = HICCUP_HEAD_SOUNDS
+  .filter(({ id }) => pattern[id].some((value) => value > 0))
+  .map(({ id }) => id);
 let visibleStep = -1;
 let paintedGridStep = -1;
 let gridCellsByStep = [];
@@ -285,6 +318,7 @@ let tongueTipGeometry = null;
 let kissMarks = [];
 let kissMarkCursor = 0;
 let brushSweep = null;
+let noseHonkStartedAt = -Infinity;
 const handPlacements = {
   left: { x: -0.62, y: 0.1 },
   right: { x: 0.62, y: 0.14 },
@@ -761,6 +795,53 @@ async function triggerSound(soundId, velocity = 1, configuration = null, eventDe
   return true;
 }
 
+async function triggerNoseHonk() {
+  noseHonkStartedAt = performance.now();
+  if (!(await ensureAudio())) return false;
+  const firstHonkConfiguration = sanitizeHiccupHeadState({
+    ...state,
+    lungPressure: Math.max(0.94, state.lungPressure),
+    nasalMix: 0.88,
+    mouthOpening: 0.08,
+    lipRounding: 1.08,
+    cheekTension: 0.82,
+    tractLengthM: 0.19,
+    dooPitch: 7,
+    decay: 0.48,
+  }, state);
+  const secondHonkConfiguration = sanitizeHiccupHeadState({
+    ...firstHonkConfiguration,
+    tractLengthM: 0.235,
+    lipRounding: 0.9,
+    dooPitch: -2,
+    decay: 0.62,
+  }, firstHonkConfiguration);
+  const voiceChoice = voiceChoiceForSound("doo", performance.now());
+  const honkVoice = voiceChoice?.voice ? sanitizeHiccupHeadVoice({
+    ...voiceChoice.voice,
+    breathiness: 0.06,
+    roughness: 0.38,
+    subharmonicMix: 0.16,
+    vibratoDepthSemitones: 0.12,
+    tractScale: 0.94,
+  }, voiceChoice.voice) : null;
+  for (const [delaySeconds, velocity, configuration] of [
+    [0, 0.9, firstHonkConfiguration],
+    [0.105, 0.78, secondHonkConfiguration],
+  ]) {
+    graph.sourceNode.port.postMessage({
+      type: "strike",
+      soundId: "doo",
+      velocity,
+      delaySeconds,
+      configuration: audioConfiguration(configuration),
+      ...(honkVoice ? { voice: honkVoice } : {}),
+    });
+  }
+  announce("HONK-ONK: a two-stage closed-mouth bicycle and goose horn");
+  return true;
+}
+
 function toothTineAtPoint(point) {
   let closest = null;
   let closestDistance = Infinity;
@@ -826,27 +907,26 @@ function deterministicHumanize(step, salt) {
 
 function normalizedBrowValue(value) {
   const numericValue = Number(value);
-  return Number.isFinite(numericValue) ? clamp(numericValue, 0, 1) : 0.5;
+  const bounded = Number.isFinite(numericValue) ? clamp(numericValue, 0, 1) : 0.5;
+  return Math.round(bounded * 4) / 4;
 }
 
-function browPerformanceGain(value) {
-  const normalized = normalizedBrowValue(value);
-  // Keep the default brow position neutral, with more room to duck than boost.
-  return normalized <= 0.5
-    ? 0.35 + normalized * 1.3
-    : 1 + (normalized - 0.5) * 0.5;
+function browAccentPeriod(value) {
+  return [0, 8, 6, 4, 2][Math.round(normalizedBrowValue(value) * 4)];
 }
 
-function browSequenceGain(step, length, leftBrow, rightBrow) {
-  const safeLength = Math.max(1, Math.round(Number(length) || 1));
-  const wrappedStep = ((Number(step) || 0) % safeLength + safeLength) % safeLength;
-  const phase = (wrappedStep + 0.5) / safeLength;
-  // The left and right anchors sit at the centers of the two loop halves.
-  // A phase-shifted cosine makes the midpoint and wrap boundary continuous.
-  const rightMix = 0.5 - 0.5 * Math.cos((phase - 0.25) * Math.PI * 2);
-  const leftGain = browPerformanceGain(leftBrow);
-  const rightGain = browPerformanceGain(rightBrow);
-  return leftGain + (rightGain - leftGain) * rightMix;
+function browSequenceGain(step, leftBrow, rightBrow, amount = eyebrowEmphasis) {
+  const oneBasedStep = Math.max(0, Math.round(Number(step) || 0)) + 1;
+  const leftPeriod = browAccentPeriod(leftBrow);
+  const rightPeriod = browAccentPeriod(rightBrow);
+  const leftHit = leftPeriod > 0 && oneBasedStep % leftPeriod === 0;
+  const rightOffset = rightPeriod * 0.5;
+  const rightHit = rightPeriod > 0
+    && ((oneBasedStep - rightOffset) % rightPeriod + rightPeriod) % rightPeriod === 0;
+  // Keep accented hits at their programmed velocity and lower the surrounding
+  // steps. This creates audible emphasis even when an accent note is already
+  // at velocity 1 and cannot be boosted further without clipping.
+  return leftHit || rightHit ? 1 : 1 - clamp(amount, 0, 0.75) * 0.52;
 }
 
 function scheduleSequence() {
@@ -861,16 +941,12 @@ function scheduleSequenceAhead(lookaheadSeconds) {
   const recoveryFloor = audioContext.currentTime + 0.008;
   while (nextStepTime < audioContext.currentTime - 0.025) {
     nextStepTime += sequenceStepIntervalSeconds(state.tempo, state.swing, absoluteStep);
-    sequenceStep = sequenceStep >= loopEndStep ? loopStartStep : sequenceStep + 1;
+    sequenceStep = (sequenceStep + 1) % sequenceLength;
     absoluteStep += 1;
   }
   if (nextStepTime < recoveryFloor) nextStepTime = recoveryFloor;
   while (nextStepTime < audioContext.currentTime + lookaheadSeconds) {
-    if (pendingSequenceStep !== null) {
-      sequenceStep = clamp(pendingSequenceStep, loopStartStep, loopEndStep);
-      pendingSequenceStep = null;
-    }
-    if (sequenceStep < loopStartStep || sequenceStep > loopEndStep) sequenceStep = loopStartStep;
+    if (sequenceStep < 0 || sequenceStep >= sequenceLength) sequenceStep = 0;
     const step = sequenceStep % sequenceLength;
     const timeJitter = deterministicHumanize(absoluteStep, 5) * state.humanize * 0.014;
     const scheduledTime = Math.max(audioContext.currentTime + 0.004, nextStepTime + timeJitter);
@@ -886,9 +962,9 @@ function scheduleSequenceAhead(lookaheadSeconds) {
       const sequencedVelocity = clamp(
         event.velocity * velocityMotion * browSequenceGain(
           step,
-          sequenceLength,
           state.leftBrow,
           state.rightBrow,
+          eyebrowEmphasis,
         ),
         0.01,
         1,
@@ -916,18 +992,15 @@ function scheduleSequenceAhead(lookaheadSeconds) {
     // Swing follows absolute time so odd sequence lengths do not produce two
     // consecutive long (or short) subdivisions at the loop boundary.
     nextStepTime += sequenceStepIntervalSeconds(state.tempo, state.swing, absoluteStep);
-    sequenceStep = sequenceStep >= loopEndStep ? loopStartStep : sequenceStep + 1;
+    sequenceStep = (sequenceStep + 1) % sequenceLength;
     absoluteStep += 1;
   }
 }
 
-async function startSequence({ restart = false, startStep = null } = {}) {
+async function startSequence({ restart = false } = {}) {
   if (!(await ensureAudio())) return;
   if (restart || !sequencePlaying) {
-    sequenceStep = Number.isInteger(startStep)
-      ? clamp(startStep, loopStartStep, loopEndStep)
-      : loopStartStep;
-    pendingSequenceStep = null;
+    sequenceStep = 0;
     absoluteStep = 0;
     nextStepTime = audioContext.currentTime + 0.055;
   }
@@ -982,8 +1055,20 @@ function setCurrentPattern(id, { announceState = true } = {}) {
   currentPatternId = preset.id;
   state = sanitizeHiccupHeadState({ ...state, patternId: preset.id }, state);
   $("patternSelect").value = preset.id;
-  renderPattern();
+  extraSequenceSoundIds.clear();
+  sequenceSoundOrder = HICCUP_HEAD_SOUNDS
+    .filter(({ id: soundId }) => pattern[soundId].some((value) => value > 0))
+    .map(({ id: soundId }) => soundId);
+  buildSequenceGrid();
   if (announceState) announce(`${preset.label} pattern loaded`);
+}
+
+function cyclePatternPreset(direction = 1) {
+  const currentIndex = HICCUP_HEAD_PATTERNS.findIndex(({ id }) => id === currentPatternId);
+  const startIndex = currentIndex >= 0 ? currentIndex : (direction > 0 ? -1 : 0);
+  const nextIndex = (startIndex + Math.sign(direction || 1) + HICCUP_HEAD_PATTERNS.length)
+    % HICCUP_HEAD_PATTERNS.length;
+  setCurrentPattern(HICCUP_HEAD_PATTERNS[nextIndex].id);
 }
 
 function markPatternCustom() {
@@ -994,14 +1079,20 @@ function markPatternCustom() {
 function scatterPattern() {
   pattern = normalizePatternColumns(randomizePattern(Math.random, 0.22 + state.silliness * 0.13));
   markPatternCustom();
-  renderPattern();
+  extraSequenceSoundIds.clear();
+  sequenceSoundOrder = HICCUP_HEAD_SOUNDS
+    .filter(({ id }) => pattern[id].some((value) => value > 0))
+    .map(({ id }) => id);
+  buildSequenceGrid();
   announce("A new full-face pattern was scattered across the grid");
 }
 
 function clearPattern() {
   pattern = clonePattern({});
+  extraSequenceSoundIds.clear();
+  sequenceSoundOrder = [];
   markPatternCustom();
-  renderPattern();
+  buildSequenceGrid();
   announce("Sequence grid cleared");
 }
 
@@ -1040,82 +1131,6 @@ function updateGridPlayhead() {
   }
 }
 
-function paintLoopRange() {
-  for (let step = 0; step < gridHeadingsByStep.length; step += 1) {
-    gridHeadingsByStep[step]?.classList.toggle(
-      "is-looped",
-      step >= loopStartStep && step <= loopEndStep,
-    );
-  }
-}
-
-function hasSubloop() {
-  return loopStartStep !== 0 || loopEndStep !== sequenceLength - 1;
-}
-
-function syncSubloopReleaseButton() {
-  const button = $("releaseSubloopButton");
-  if (!button) return;
-  button.hidden = !hasSubloop();
-  button.setAttribute("aria-label", hasSubloop()
-    ? `Release loop steps ${loopStartStep + 1} through ${loopEndStep + 1}`
-    : "No subloop selected");
-}
-
-function previewLoopRange(firstStep, lastStep) {
-  const start = Math.min(firstStep, lastStep);
-  const end = Math.max(firstStep, lastStep);
-  for (let step = 0; step < gridHeadingsByStep.length; step += 1) {
-    gridHeadingsByStep[step]?.classList.toggle("is-loop-preview", step >= start && step <= end);
-  }
-}
-
-function clearLoopPreview() {
-  for (const heading of gridHeadingsByStep) heading?.classList.remove("is-loop-preview");
-}
-
-function rescheduleTransportFrom(step) {
-  if (!sequencePlaying || !audioContext || !graph) return;
-  graph.sourceNode.port.postMessage({ type: "drop-scheduled" });
-  visualQueue = visualQueue.filter(({ type }) => type !== "step");
-  sequenceStep = step;
-  const interval = sequenceStepIntervalSeconds(state.tempo, state.swing, absoluteStep);
-  nextStepTime = Math.max(
-    audioContext.currentTime + 0.012,
-    Math.min(nextStepTime, audioContext.currentTime + interval),
-  );
-  scheduleSequence();
-}
-
-function setLoopRange(firstStep, lastStep, { announceState = true } = {}) {
-  loopStartStep = clamp(Math.min(firstStep, lastStep), 0, sequenceLength - 1);
-  loopEndStep = clamp(Math.max(firstStep, lastStep), loopStartStep, sequenceLength - 1);
-  paintLoopRange();
-  syncSubloopReleaseButton();
-  if (sequencePlaying) rescheduleTransportFrom(loopStartStep);
-  else startSequence({ restart: true, startStep: loopStartStep });
-  if (announceState) announce(`Loop steps ${loopStartStep + 1} through ${loopEndStep + 1} queued for the next tick`);
-}
-
-function queueSequenceStep(step) {
-  const target = clamp(step, 0, sequenceLength - 1);
-  pendingSequenceStep = null;
-  if (!sequencePlaying) startSequence({ restart: true, startStep: target });
-  else rescheduleTransportFrom(target);
-  announce(`Step ${target + 1} queued for the next tick`);
-}
-
-function releaseSubloop() {
-  const continuationStep = clamp(sequenceStep, 0, sequenceLength - 1);
-  loopStartStep = 0;
-  loopEndStep = sequenceLength - 1;
-  sequenceStep = continuationStep;
-  paintLoopRange();
-  syncSubloopReleaseButton();
-  if (sequencePlaying) rescheduleTransportFrom(continuationStep);
-  announce("Subloop released; the full sequence will continue");
-}
-
 function renderPatternColumn(step) {
   for (const button of gridCellsByStep[step] ?? []) {
     renderCell(button, pattern[button.dataset.soundId][step]);
@@ -1137,7 +1152,8 @@ function setGridTabStop(cell) {
 }
 
 function focusGridCell(row, step) {
-  const safeRow = (row + HICCUP_HEAD_SOUNDS.length) % HICCUP_HEAD_SOUNDS.length;
+  const rowCount = Math.max(1, gridCellsByRow.length);
+  const safeRow = (row + rowCount) % rowCount;
   const safeStep = (step + sequenceLength) % sequenceLength;
   const target = gridCellsByRow[safeRow]?.[safeStep];
   if (!target) return;
@@ -1164,11 +1180,6 @@ function handleGridKeydown(event) {
 
 function handleSequenceGridClick(event) {
   const grid = $("sequenceGrid");
-  const trigger = event.target.closest?.(".hiccup-head-row-trigger");
-  if (trigger && grid.contains(trigger)) {
-    triggerSound(trigger.dataset.soundId, 0.88);
-    return;
-  }
   const cell = event.target.closest?.(".hiccup-head-step-cell");
   if (!cell || !grid.contains(cell)) return;
   const sound = hiccupHeadSound(cell.dataset.soundId);
@@ -1176,11 +1187,70 @@ function handleSequenceGridClick(event) {
   const next = cycleStepVelocity(pattern[sound.id][step]);
   if (next > 0) clearStepExcept(step, sound.id);
   pattern[sound.id][step] = next;
+  if (next > 0) extraSequenceSoundIds.delete(sound.id);
   setGridTabStop(cell);
   markPatternCustom();
-  renderPatternColumn(step);
+  const rowStillVisible = pattern[sound.id].some((value) => value > 0)
+    || extraSequenceSoundIds.has(sound.id);
+  if (rowStillVisible) renderPatternColumn(step);
+  else buildSequenceGrid();
   if (next > 0) triggerSound(sound.id, next);
   announce(cellLabel(sound, step, next));
+}
+
+function activeSequenceSounds() {
+  const activeIds = new Set(HICCUP_HEAD_SOUNDS
+    .filter(({ id }) => pattern[id].some((value) => value > 0) || extraSequenceSoundIds.has(id))
+    .map(({ id }) => id));
+  sequenceSoundOrder = sequenceSoundOrder.filter((id) => activeIds.has(id));
+  for (const { id } of HICCUP_HEAD_SOUNDS) {
+    if (activeIds.has(id) && !sequenceSoundOrder.includes(id)) sequenceSoundOrder.push(id);
+  }
+  return sequenceSoundOrder.map((id) => hiccupHeadSound(id));
+}
+
+function soundOptions(selectedId = "", placeholder = "", excludedIds = new Set()) {
+  const options = [];
+  if (placeholder) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = placeholder;
+    option.selected = !selectedId;
+    options.push(option);
+  }
+  for (const sound of HICCUP_HEAD_SOUNDS) {
+    if (excludedIds.has(sound.id) && sound.id !== selectedId) continue;
+    const option = document.createElement("option");
+    option.value = sound.id;
+    option.textContent = `${sound.label} · ${sound.subtitle}`;
+    option.selected = sound.id === selectedId;
+    options.push(option);
+  }
+  return options;
+}
+
+function changeSequenceRowSound(previousId, nextId) {
+  if (!nextId || previousId === nextId) return;
+  for (let step = 0; step < HICCUP_HEAD_STEP_COUNT; step += 1) {
+    pattern[nextId][step] = Math.max(pattern[nextId][step], pattern[previousId][step]);
+    pattern[previousId][step] = 0;
+  }
+  extraSequenceSoundIds.delete(previousId);
+  if (!pattern[nextId].some((value) => value > 0)) extraSequenceSoundIds.add(nextId);
+  const rowIndex = sequenceSoundOrder.indexOf(previousId);
+  if (rowIndex >= 0) sequenceSoundOrder[rowIndex] = nextId;
+  markPatternCustom();
+  buildSequenceGrid();
+  announce(`${hiccupHeadSound(previousId).label} row changed to ${hiccupHeadSound(nextId).label}`);
+}
+
+function addSequenceSound(soundId) {
+  if (!soundId) return;
+  if (sequenceSoundOrder.includes(soundId)) return;
+  extraSequenceSoundIds.add(soundId);
+  sequenceSoundOrder.push(soundId);
+  buildSequenceGrid();
+  announce(`${hiccupHeadSound(soundId).label} row added`);
 }
 
 function buildSequenceGrid() {
@@ -1188,13 +1258,14 @@ function buildSequenceGrid() {
   const fragment = document.createDocumentFragment();
   paintedGridStep = -1;
   gridCellsByStep = Array.from({ length: sequenceLength }, () => []);
-  gridCellsByRow = Array.from({ length: HICCUP_HEAD_SOUNDS.length }, () => []);
+  const visibleSounds = activeSequenceSounds();
+  gridCellsByRow = Array.from({ length: visibleSounds.length }, () => []);
   gridHeadingsByStep = [];
   gridRowTriggersBySound = new Map();
   gridTabStop = null;
   grid.style.setProperty("--hiccup-head-sequence-steps", String(sequenceLength));
-  grid.style.setProperty("--hiccup-head-sequence-sounds", String(HICCUP_HEAD_SOUNDS.length));
-  grid.setAttribute("aria-rowcount", String(HICCUP_HEAD_SOUNDS.length));
+  grid.style.setProperty("--hiccup-head-sequence-sounds", String(visibleSounds.length));
+  grid.setAttribute("aria-rowcount", String(visibleSounds.length));
   grid.setAttribute("aria-colcount", String(sequenceLength));
   const headerRow = document.createElement("div");
   headerRow.className = "hiccup-head-grid-header-row";
@@ -1202,24 +1273,18 @@ function buildSequenceGrid() {
   headerRow.style.display = "contents";
   const corner = document.createElement("span");
   corner.className = "hiccup-head-grid-corner";
-  corner.setAttribute("aria-hidden", "true");
-  const cornerLabel = document.createElement("span");
-  cornerLabel.textContent = "POSE / STEP";
-  const releaseSubloopButton = document.createElement("button");
-  releaseSubloopButton.id = "releaseSubloopButton";
-  releaseSubloopButton.className = "hiccup-head-release-subloop";
-  releaseSubloopButton.type = "button";
-  releaseSubloopButton.textContent = "×";
-  releaseSubloopButton.title = "Release subloop";
-  releaseSubloopButton.hidden = true;
-  corner.append(cornerLabel, releaseSubloopButton);
+  const addSoundSelect = document.createElement("select");
+  addSoundSelect.className = "hiccup-head-add-row-select";
+  addSoundSelect.setAttribute("aria-label", "Add sound row");
+  addSoundSelect.replaceChildren(...soundOptions("", "+ SOUND", new Set(visibleSounds.map(({ id }) => id))));
+  addSoundSelect.addEventListener("change", () => addSequenceSound(addSoundSelect.value));
+  corner.append(addSoundSelect);
   headerRow.append(corner);
   for (let step = 0; step < sequenceLength; step += 1) {
-    const heading = document.createElement("button");
+    const heading = document.createElement("span");
     heading.className = "hiccup-head-step-number";
-    heading.type = "button";
     heading.setAttribute("role", "columnheader");
-    heading.setAttribute("aria-label", `Queue step ${step + 1}; drag across step numbers to set a loop`);
+    heading.setAttribute("aria-label", `Step ${step + 1}`);
     heading.dataset.step = String(step);
     heading.textContent = String(step + 1).padStart(2, "0");
     gridHeadingsByStep[step] = heading;
@@ -1227,19 +1292,22 @@ function buildSequenceGrid() {
   }
   fragment.append(headerRow);
 
-  HICCUP_HEAD_SOUNDS.forEach((sound, rowIndex) => {
+  visibleSounds.forEach((sound, rowIndex) => {
     const row = document.createElement("div");
     row.className = "hiccup-head-grid-row";
     row.setAttribute("role", "row");
     row.style.display = "contents";
-    const trigger = document.createElement("button");
+    const trigger = document.createElement("select");
     trigger.className = "hiccup-head-row-trigger";
-    trigger.type = "button";
     trigger.dataset.soundId = sound.id;
-    trigger.setAttribute("role", "rowheader");
-    trigger.setAttribute("aria-label", `Move the face to ${sound.label}: ${sound.subtitle}`);
+    trigger.setAttribute("aria-label", `Sound for row ${rowIndex + 1}`);
     trigger.style.setProperty("--row-color", sound.color);
-    trigger.innerHTML = `<b>${sound.label}</b><small>${sound.subtitle}</small>`;
+    trigger.replaceChildren(...soundOptions(
+      sound.id,
+      "",
+      new Set(visibleSounds.map(({ id }) => id)),
+    ));
+    trigger.addEventListener("change", () => changeSequenceRowSound(sound.id, trigger.value));
     gridRowTriggersBySound.set(sound.id, trigger);
     row.append(trigger);
 
@@ -1261,8 +1329,6 @@ function buildSequenceGrid() {
     fragment.append(row);
   });
   grid.replaceChildren(fragment);
-  paintLoopRange();
-  syncSubloopReleaseButton();
   renderPattern();
 }
 
@@ -1275,8 +1341,6 @@ function setSequenceLength(value, { announceState = true } = {}) {
   // Resizing the loop is a live performance gesture. Preserve transport,
   // absolute timing, and the nearest sensible playhead instead of stopping.
   sequenceStep %= sequenceLength;
-  loopStartStep = clamp(loopStartStep, 0, sequenceLength - 1);
-  loopEndStep = clamp(loopEndStep, loopStartStep, sequenceLength - 1);
   if (visibleStep >= 0) visibleStep %= sequenceLength;
   visualQueue = visualQueue.map((event) => event.type === "step"
     ? { ...event, step: event.step % sequenceLength }
@@ -1286,18 +1350,22 @@ function setSequenceLength(value, { announceState = true } = {}) {
   // starving the realtime audio queue.
   if (sequencePlaying) scheduleSequenceAhead(0.42);
   const control = $("sequenceLength");
-  if (control) control.value = String(sequenceLength);
-  const numberControl = $("sequenceLengthNumber");
-  if (numberControl) numberControl.value = String(sequenceLength);
-  const output = $("sequenceLengthOut");
-  if (output) {
-    output.value = `${sequenceLength} steps`;
-    output.textContent = output.value;
+  if (control) {
+    control.value = String(sequenceLength);
+    control.parentElement?.style.setProperty(
+      "--length-turn",
+      `${-135 + ((sequenceLength - 1) / (HICCUP_HEAD_STEP_COUNT - 1)) * 270}deg`,
+    );
   }
+  const entry = $("sequenceLengthEntry");
+  if (entry && document.activeElement !== entry) entry.value = String(sequenceLength);
+  document.querySelectorAll("[data-sequence-length]").forEach((button) => {
+    button.classList.toggle("is-active", Number(button.dataset.sequenceLength) === sequenceLength);
+  });
   buildSequenceGrid();
   $("sequenceGrid").setAttribute(
     "aria-label",
-    `${HICCUP_HEAD_SOUNDS.length} Hiccup Head sounds by ${sequenceLength} sequence steps. Only one sound can occupy each step.`,
+    `${activeSequenceSounds().length} programmed Hiccup Head sound rows by ${sequenceLength} sequence steps. Only one sound can occupy each step.`,
   );
   updateGridPlayhead();
   $("playState").textContent = sequencePlaying
@@ -1695,6 +1763,14 @@ function setPreset(id, { announceState = true } = {}) {
   if (announceState) announce(`${preset.label} physical face loaded`);
 }
 
+function cycleFacePreset(direction = 1) {
+  const currentIndex = HICCUP_HEAD_PRESETS.findIndex(({ id }) => id === state.presetId);
+  const startIndex = currentIndex >= 0 ? currentIndex : (direction > 0 ? -1 : 0);
+  const nextIndex = (startIndex + Math.sign(direction || 1) + HICCUP_HEAD_PRESETS.length)
+    % HICCUP_HEAD_PRESETS.length;
+  setPreset(HICCUP_HEAD_PRESETS[nextIndex].id);
+}
+
 function randomizeFace() {
   const extremeRandom = () => {
     const draw = Math.random();
@@ -1761,11 +1837,16 @@ function resetAll() {
 function resetFaceEffects() {
   const neutral = HICCUP_HEAD_DEFAULTS;
   for (const key of PRESET_INDEPENDENT_EFFECT_PARAMETERS) state[key] = neutral[key];
-  for (const key of FACE_EFFECT_KEYS) faceEffectEnabled[key] = false;
+  // Reset returns the physical controls to useful neutral positions. Effects
+  // remain enabled because this single reset button is also the only FX UI.
+  state.leftHairLength = Math.max(state.leftHairLength, 0.34);
+  state.rightHairLength = Math.max(state.rightHairLength, 0.34);
+  state.earSpread = Math.max(state.earSpread, 0.28);
+  for (const key of FACE_EFFECT_KEYS) faceEffectEnabled[key] = true;
   syncFaceEffectButtons();
   syncControls();
   postConfiguration();
-  announce("Face effects reset and switched off");
+  announce("Face effects reset to neutral and enabled");
 }
 
 function populateSelects() {
@@ -2283,7 +2364,7 @@ function sideSpaghettiHairGeometry(layout, pose, side) {
   const angleKey = side < 0 ? "leftHairAngle" : "rightHairAngle";
   const rawLengthAmount = Number(pose[lengthKey]);
   const rawAngleAmount = Number(pose[angleKey]);
-  const lengthAmount = clamp(Number.isFinite(rawLengthAmount) ? rawLengthAmount : 0.14, 0, 1);
+  const lengthAmount = clamp(Number.isFinite(rawLengthAmount) ? rawLengthAmount : 0.14, 0.14, 1);
   const angleAmount = clamp(Number.isFinite(rawAngleAmount) ? rawAngleAmount : 0, -1, 1);
   const angleRadians = angleAmount * 0.62;
   const directionX = side * Math.cos(angleRadians);
@@ -2405,11 +2486,11 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
 
   // Each ear has its own short elastic tether back to the adjacent head edge.
   // The two tethers remain independent and never cross the face.
-  const earSpread = clamp(pose.earSpread);
+  const earSpread = clamp(Math.max(HICCUP_HEAD_DEFAULTS.earSpread, pose.earSpread));
   const compactHair = usesCompactCanvas();
   for (const side of [-1, 1]) {
     context.save();
-    const earX = cx + side * rx * (0.88 + earSpread * 0.32);
+    const earX = cx + side * rx * (0.88 + earSpread * 0.64);
     const earY = cy + ry * 0.03;
     const earRx = rx * (0.12 + earSpread * 0.045);
     const earRy = ry * (0.19 + earSpread * 0.035);
@@ -2440,7 +2521,7 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     context.strokeStyle = "rgba(81, 38, 79, 0.9)";
     context.lineWidth = compactHair ? 3.6 : 4.4;
     context.stroke();
-    context.strokeStyle = side < 0 ? "rgb(240, 127, 208)" : "rgb(101, 223, 232)";
+    context.strokeStyle = side < 0 ? "rgb(183, 116, 237)" : "rgb(120, 78, 194)";
     context.lineWidth = compactHair ? 1.4 : 1.8;
     context.stroke();
     context.restore();
@@ -2448,7 +2529,8 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
 
   // Each side owns its own polar spaghetti control: length changes radial
   // reach/feedback amount and angle rotates delay time. Neither side reads the
-  // other side or earSpread, and deterministic straight rays stay cheap. An
+  // other side or earSpread. Light bezier bends keep the larger spaghetti
+  // bundles organic without adding animated geometry or audio-thread work. An
   // exterior clip hides only the short root section tucked behind the skull.
   context.save();
   context.beginPath();
@@ -2457,29 +2539,35 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   context.clip("evenodd");
   for (const side of [-1, 1]) {
     const hair = sideSpaghettiHairGeometry(layout, pose, side);
-    const strandCount = compactHair ? 7 : 9;
+    const strandCount = compactHair ? 11 : 15;
     for (let strand = 0; strand < strandCount; strand += 1) {
       const fraction = strand / Math.max(1, strandCount - 1);
       const fan = fraction - 0.5;
       const strandLength = hair.length * (0.72 + ((strand * 7 + (side > 0 ? 2 : 0)) % 6) * 0.052);
-      const rootX = hair.rootX + side * rx * fan * 0.075;
-      const rootY = hair.rootY + fan * ry * 0.2;
+      const rootX = hair.rootX + side * rx * fan * 0.15;
+      const rootY = hair.rootY + fan * ry * 0.4;
       const irregular = Math.sin(strand * 2.37 + side * 0.91);
       const strandAngle = hair.angleRadians + irregular * 0.075;
       const directionX = side * Math.cos(strandAngle);
       const directionY = Math.sin(strandAngle);
+      const normalX = -directionY;
+      const normalY = directionX;
       const tipX = rootX + directionX * strandLength;
       const tipY = rootY + directionY * strandLength;
+      const curveAmount = (fan * 0.62 + irregular * 0.38) * strandLength * 0.27;
       context.save();
       context.lineCap = "round";
       context.lineJoin = "round";
       context.beginPath();
       context.moveTo(rootX, rootY);
-      context.lineTo(
-        rootX + directionX * strandLength * 0.48,
-        rootY + directionY * strandLength * 0.48 + irregular * 1.5,
+      context.bezierCurveTo(
+        rootX + directionX * strandLength * 0.3 + normalX * curveAmount,
+        rootY + directionY * strandLength * 0.3 + normalY * curveAmount,
+        rootX + directionX * strandLength * 0.7 - normalX * curveAmount * 0.42,
+        rootY + directionY * strandLength * 0.7 - normalY * curveAmount * 0.42,
+        tipX,
+        tipY,
       );
-      context.lineTo(tipX, tipY);
       context.strokeStyle = "rgba(64, 27, 62, 0.82)";
       context.lineWidth = (compactHair ? 6.2 : 7.4) + (strand % 3) * 0.55;
       context.stroke();
@@ -2495,27 +2583,32 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   }
   context.restore();
 
+  const skinCheckerColors = skinCheckerColorsForStep(checkerStep);
+
   // Ears are stereo controls, not ornaments: pulling either ear outward
   // widens the binaural spacing and lengthens the tiny interaural delay.
   for (const side of [-1, 1]) {
-    const earX = cx + side * rx * (0.88 + earSpread * 0.32);
+    const earX = cx + side * rx * (0.88 + earSpread * 0.64);
     const earY = cy + ry * 0.03;
-    const earRx = rx * (0.12 + earSpread * 0.045);
-    const earRy = ry * (0.19 + earSpread * 0.035);
+    const earRadius = Math.min(rx, ry) * (0.15 + earSpread * 0.04);
+    context.fillStyle = skinCheckerColors[side < 0 ? 0 : 1];
     context.strokeStyle = side < 0
-      ? `rgba(240, 127, 208, ${0.7 + earSpread * 0.24})`
-      : `rgba(101, 223, 232, ${0.7 + earSpread * 0.24})`;
-    context.lineWidth = 2.4;
+      ? `rgba(183, 116, 237, ${0.74 + earSpread * 0.22})`
+      : `rgba(120, 78, 194, ${0.74 + earSpread * 0.22})`;
+    context.lineWidth = 3.2;
     context.beginPath();
-    context.ellipse(earX, earY, earRx, earRy, side * -0.12, 0, Math.PI * 2);
+    context.arc(earX, earY, earRadius, 0, Math.PI * 2);
+    context.fill();
     context.stroke();
-    context.strokeStyle = `rgba(255, 177, 93, ${0.36 + earSpread * 0.3})`;
+    context.strokeStyle = side < 0
+      ? `rgba(229, 188, 255, ${0.48 + earSpread * 0.28})`
+      : `rgba(190, 153, 238, ${0.48 + earSpread * 0.28})`;
     context.lineWidth = 1.35;
     context.beginPath();
     context.arc(
-      earX - side * earRx * 0.04,
+      earX - side * earRadius * 0.04,
       earY,
-      earRx * 0.56,
+      earRadius * 0.56,
       side < 0 ? -Math.PI * 0.58 : Math.PI * 0.42,
       side < 0 ? Math.PI * 0.67 : Math.PI * 1.67,
       side > 0,
@@ -2539,7 +2632,6 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   ) * skinCheckerSize;
   const skinCheckerRight = cx + rx * 1.24;
   const skinCheckerBottom = cy + ry * 1.08;
-  const skinCheckerColors = skinCheckerColorsForStep(checkerStep);
   for (let colorIndex = 0; colorIndex < skinCheckerColors.length; colorIndex += 1) {
     context.beginPath();
     let rowIndex = 0;
@@ -2570,8 +2662,9 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   // contour over its opaque checkerboard.
   context.globalAlpha = 1;
   context.globalCompositeOperation = "source-over";
-  context.strokeStyle = "rgba(232, 142, 225, 0.96)";
-  context.lineWidth = compactHair ? 3 : 3.8;
+  context.strokeStyle = "rgba(151, 92, 220, 0.98)";
+  const featureOutlineWidth = 3.2;
+  context.lineWidth = featureOutlineWidth;
   context.beginPath();
   context.moveTo(cx, cy - ry);
   context.bezierCurveTo(cx + rx * 0.78, cy - ry * 0.98, cx + rx * (1.02 + pop * 0.12), cy - ry * 0.32, cx + rx * (0.94 + pop * 0.16), cy + ry * 0.2);
@@ -2601,7 +2694,7 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     context.rotate(eyeRotation);
     context.fillStyle = "rgba(250, 243, 224, 0.91)";
     context.strokeStyle = "rgba(73, 38, 50, 0.74)";
-    context.lineWidth = 2.1;
+    context.lineWidth = featureOutlineWidth;
     context.beginPath();
     context.ellipse(0, 0, eyeRx, eyeRy, 0, 0, Math.PI * 2);
     context.fill();
@@ -2684,6 +2777,11 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     context.closePath();
     context.fill();
     context.restore();
+    context.strokeStyle = "rgba(76, 38, 92, 0.9)";
+    context.lineWidth = featureOutlineWidth;
+    context.beginPath();
+    context.ellipse(0, 0, eyeRx, eyeRy, 0, 0, Math.PI * 2);
+    context.stroke();
     context.restore();
 
     const brow = eyebrowGeometry(layout, pose, side);
@@ -2711,7 +2809,13 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   // One oversized glossy clown-red circle exposes the live nasal resonator.
   const noseX = cx + Math.sin(gazePhase * 0.7) * rx * goofballEnergy * 0.008;
   const noseY = featureY - ry * (0.025 + pose.nasalMix * 0.34);
-  const noseRadius = Math.min(rx, ry) * (0.135 + pose.nasalMix * 0.022);
+  const noseHonkAge = now - noseHonkStartedAt;
+  const noseHonkAmount = noseHonkAge >= 0 && noseHonkAge < 460
+    ? Math.sin((noseHonkAge / 460) * Math.PI) ** 0.7
+    : 0;
+  const noseRadius = Math.min(rx, ry)
+    * (0.135 + pose.nasalMix * 0.022)
+    * (1 + noseHonkAmount * 0.28);
   context.strokeStyle = `rgba(101, 223, 232, ${0.22 + pose.nasalMix * 0.5})`;
   context.lineWidth = 1.35;
   if (pose.nasalMix > 0.02) {
@@ -2743,7 +2847,7 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   context.stroke();
   context.fillStyle = "#FF0000";
   context.strokeStyle = `rgba(105, 0, 0, ${0.84 + pose.nasalMix * 0.12})`;
-  context.lineWidth = 2.4;
+  context.lineWidth = featureOutlineWidth;
   context.beginPath();
   context.arc(noseX, noseY, noseRadius, 0, Math.PI * 2);
   context.fill();
@@ -3310,7 +3414,8 @@ function buildHitGeometry(layout, pose) {
   const tractProgress = (pose.tractLengthM - tractLimits[0]) / Math.max(0.001, tractLimits[1] - tractLimits[0]);
   const noseY = featureY - ry * (0.025 + pose.nasalMix * 0.34);
   const noseRadius = Math.min(rx, ry) * (0.135 + pose.nasalMix * 0.022);
-  const earOffset = rx * (0.88 + pose.earSpread * 0.32);
+  const visibleEarSpread = Math.max(HICCUP_HEAD_DEFAULTS.earSpread, pose.earSpread);
+  const earOffset = rx * (0.88 + visibleEarSpread * 0.64);
   const eyeRadius = Math.min(rx, ry) * 0.235 * (1 + clamp(pose.silliness) * 0.06);
   const leftEyeRx = eyeRadius;
   const rightEyeRx = eyeRadius;
@@ -3328,14 +3433,16 @@ function buildHitGeometry(layout, pose) {
   };
   handles = [
     { id: "nose", key: "nasalMix", label: "NASAL ↑", color: "#FF0000", x: cx, y: noseY, r: Math.max(nodeRadius * 1.45, noseRadius * 0.72), hitR: noseRadius + (compact ? 8 : 10), axis: "y-invert", scale: ry * 0.34, feature: "nose", labelSide: 1 },
-    { id: "left-ear", key: "earSpread", label: "STEREO ↔", color: "#65dfe8", x: cx - earOffset, y: cy + ry * 0.03, r: nodeRadius * 1.45, axis: "x-invert", scale: rx * 0.32, feature: "ear", labelSide: -1 },
-    { id: "right-ear", key: "earSpread", label: "STEREO ↔", color: "#65dfe8", x: cx + earOffset, y: cy + ry * 0.03, r: nodeRadius * 1.45, axis: "x", scale: rx * 0.32, feature: "ear", labelSide: 1 },
+    { id: "left-ear", key: "earSpread", label: "STEREO ↔", color: "#65dfe8", x: cx - earOffset, y: cy + ry * 0.03, r: nodeRadius * 1.45, axis: "x-invert", scale: rx * 0.64, feature: "ear", labelSide: -1 },
+    { id: "right-ear", key: "earSpread", label: "STEREO ↔", color: "#65dfe8", x: cx + earOffset, y: cy + ry * 0.03, r: nodeRadius * 1.45, axis: "x", scale: rx * 0.64, feature: "ear", labelSide: 1 },
     { id: "left-hair", key: "leftHairLength", lengthKey: "leftHairLength", angleKey: "leftHairAngle", label: "LEFT HAIR 2D", color: "#f07fd0", x: leftSideHair.tipX, y: leftSideHair.tipY, r: nodeRadius * 1.42, feature: "hair", hairSide: -1, labelSide: -1 },
     { id: "right-hair", key: "rightHairLength", lengthKey: "rightHairLength", angleKey: "rightHairAngle", label: "RIGHT HAIR 2D", color: "#bb8cff", x: rightSideHair.tipX, y: rightSideHair.tipY, r: nodeRadius * 1.42, feature: "hair", hairSide: 1, labelSide: 1 },
-    { id: "left-brow", key: "leftBrow", label: "LOOP A", color: "#ff4f7e", x: leftBrow.x, y: leftBrow.y, r: nodeRadius * 1.4, axis: "y-invert", scale: Math.max(24, leftBrow.eyeRy * 1.13), feature: "brow", labelSide: -1 },
-    { id: "right-brow", key: "rightBrow", label: "LOOP B", color: "#2dcbda", x: rightBrow.x, y: rightBrow.y, r: nodeRadius * 1.4, axis: "y-invert", scale: Math.max(24, rightBrow.eyeRy * 1.13), feature: "brow", labelSide: 1 },
-    { id: "left-eye", key: "eyeDivergence", label: "REVERB ↔ · LIDS ↓", color: "#bb8cff", x: leftEyeX, y: featureY - ry * 0.43, r: nodeRadius * 1.35, axis: "x-invert", scale: leftEyeRx * 1.56, feature: "eye", labelSide: -1 },
-    { id: "right-eye", key: "eyeDivergence", label: "REVERB ↔ · LIDS ↓", color: "#bb8cff", x: rightEyeX, y: featureY - ry * 0.43, r: nodeRadius * 1.35, axis: "x", scale: rightEyeRx * 1.56, feature: "eye", labelSide: 1 },
+    { id: "left-eye", key: "eyeDivergence", label: "REVERB ↔", color: "#bb8cff", x: leftEyeX, y: featureY - ry * 0.43, r: nodeRadius * 1.35, axis: "x-invert", scale: leftEyeRx * 1.56, feature: "eye-gaze", labelSide: -1 },
+    { id: "right-eye", key: "eyeDivergence", label: "REVERB ↔", color: "#bb8cff", x: rightEyeX, y: featureY - ry * 0.43, r: nodeRadius * 1.35, axis: "x", scale: rightEyeRx * 1.56, feature: "eye-gaze", labelSide: 1 },
+    { id: "left-lid", key: "leftEyeClosure", label: "DARKEN ↓", color: "#f47ead", x: cx - rx * 0.34 - eyeRadius * 0.88, y: featureY - ry * 0.43 + eyeRadius * clamp(pose.leftEyeClosure) * 0.7, r: nodeRadius * 1.08, axis: "y", scale: eyeRadius * 1.25, feature: "lid", labelSide: -1 },
+    { id: "right-lid", key: "rightEyeClosure", label: "FUZZ ↓", color: "#9d67d8", x: cx + rx * 0.34 + eyeRadius * 0.88, y: featureY - ry * 0.43 + eyeRadius * clamp(pose.rightEyeClosure) * 0.7, r: nodeRadius * 1.08, axis: "y", scale: eyeRadius * 1.25, feature: "lid", labelSide: 1 },
+    { id: "left-brow", key: "leftBrow", label: "ACCENT L", color: "#ff4f7e", x: leftBrow.x, y: leftBrow.y, r: nodeRadius * 1.3, axis: "y-invert", scale: Math.max(24, leftBrow.eyeRy * 1.13), step: 0.25, feature: "brow", labelSide: -1 },
+    { id: "right-brow", key: "rightBrow", label: "ACCENT R", color: "#2dcbda", x: rightBrow.x, y: rightBrow.y, r: nodeRadius * 1.3, axis: "y-invert", scale: Math.max(24, rightBrow.eyeRy * 1.13), step: 0.25, feature: "brow", labelSide: 1 },
     { id: "left-cheek", key: "cheekVolume", label: "cheek volume", color: hiccupHeadSound("slap").color, x: cx - rx * (0.48 + pose.cheekVolume * 0.32), y: cy - ry * 0.05, r: nodeRadius, axis: "x-invert", scale: rx * 0.5 },
     { id: "right-cheek", key: "cheekTension", label: "membrane tension", color: hiccupHeadSound("pop").color, x: cx + rx * 0.72, y: cy + ry * (0.23 - pose.cheekTension * 0.33), r: nodeRadius, axis: "y-invert", scale: ry * 0.42 },
     { id: "lip-tension", key: "lipTension", label: "lip tension", color: hiccupHeadSound("bop").color, x: cx - rx * 0.05, y: mouthY - opening - nodeRadius * 1.7, r: nodeRadius, axis: "y-invert", scale: ry * 0.34 },
@@ -3661,7 +3768,11 @@ function drawStage(now = performance.now()) {
   // repaint at 24fps so dense sequencing cannot starve the worklet.
   if (usesCompactCanvas() && now - lastCanvasPaintAt < 1000 / 24) return;
   lastCanvasPaintAt = now;
-  const physicalStatus = physicalTelemetryStatus(now);
+  // The nose horn uses the tract for audio, but its performance animation is
+  // deliberately nose-only: suppress its DOO telemetry pose while it honks.
+  const noseHonkVisualActive = now - noseHonkStartedAt >= 0
+    && now - noseHonkStartedAt < 720;
+  const physicalStatus = noseHonkVisualActive ? null : physicalTelemetryStatus(now);
   const motion = activeMotion(now, physicalStatus);
   let strongestId = HICCUP_HEAD_SOUNDS[0].id;
   let strongestAmount = -Infinity;
@@ -3850,20 +3961,6 @@ function handlePointerDown(event) {
         lengthKey: handle.lengthKey,
         angleKey: handle.angleKey,
       };
-    } else if (handle.feature === "eye") {
-      pointerDrag = {
-        type: "eye-2d",
-        pointerId: event.pointerId,
-        handleId: handle.id,
-        side: handle.id === "left-eye" ? -1 : 1,
-        startX: point.x,
-        startY: point.y,
-        startDivergence: state.eyeDivergence,
-        closureKey: handle.id === "left-eye" ? "leftEyeClosure" : "rightEyeClosure",
-        startClosure: state[handle.id === "left-eye" ? "leftEyeClosure" : "rightEyeClosure"],
-        horizontalScale: Math.max(24, handle.scale),
-        verticalScale: Math.max(28, faceLayout(displayedPose).ry * 0.32),
-      };
     } else {
       pointerDrag = {
         type: "parameter",
@@ -3875,6 +3972,7 @@ function handlePointerDown(event) {
         startX: point.x,
         startY: point.y,
         startValue: state[handle.key],
+        step: handle.step ?? 0,
       };
     }
     canvas.classList.add("is-dragging");
@@ -3989,42 +4087,12 @@ function handlePointerMove(event) {
     const lengthAmount = clamp(
       (radialLength - minimumHair.length)
         / Math.max(1, maximumHair.length - minimumHair.length),
-      0,
+      HICCUP_HEAD_DEFAULTS[pointerDrag.lengthKey],
       1,
     );
     queueCanvasStateUpdates({
       [pointerDrag.lengthKey]: lengthAmount,
       [pointerDrag.angleKey]: angleAmount,
-    });
-    canvas.style.cursor = "grabbing";
-    event.preventDefault();
-    return;
-  }
-  if (pointerDrag.type === "eye-2d") {
-    const [divergenceMinimum, divergenceMaximum] = HICCUP_HEAD_LIMITS.eyeDivergence;
-    const [closureMinimum, closureMaximum] = HICCUP_HEAD_LIMITS.eyeClosure;
-    const dx = point.x - pointerDrag.startX;
-    const dy = point.y - pointerDrag.startY;
-    const divergence = clamp(
-      pointerDrag.startDivergence
-        + pointerDrag.side * dx / pointerDrag.horizontalScale
-          * (divergenceMaximum - divergenceMinimum),
-      divergenceMinimum,
-      divergenceMaximum,
-    );
-    const closure = clamp(
-      pointerDrag.startClosure
-        + dy / pointerDrag.verticalScale * (closureMaximum - closureMinimum),
-      closureMinimum,
-      closureMaximum,
-    );
-    const otherClosureKey = pointerDrag.closureKey === "leftEyeClosure"
-      ? "rightEyeClosure"
-      : "leftEyeClosure";
-    queueCanvasStateUpdates({
-      eyeDivergence: divergence,
-      [pointerDrag.closureKey]: closure,
-      eyeClosure: (closure + state[otherClosureKey]) * 0.5,
     });
     canvas.style.cursor = "grabbing";
     event.preventDefault();
@@ -4041,7 +4109,17 @@ function handlePointerMove(event) {
   if (pointerDrag.axis === "x-invert") delta = -dx / pointerDrag.scale * (maximum - minimum);
   if (pointerDrag.axis === "y") delta = dy / pointerDrag.scale * (maximum - minimum);
   if (pointerDrag.axis === "y-invert") delta = -dy / pointerDrag.scale * (maximum - minimum);
-  queueCanvasStateUpdate(pointerDrag.key, pointerDrag.startValue + delta);
+  const rawValue = pointerDrag.startValue + delta;
+  let nextValue = pointerDrag.step > 0
+    ? Math.round(rawValue / pointerDrag.step) * pointerDrag.step
+    : rawValue;
+  if (["leftHairLength", "rightHairLength"].includes(pointerDrag.key)) {
+    nextValue = Math.max(HICCUP_HEAD_DEFAULTS[pointerDrag.key], nextValue);
+  }
+  if (pointerDrag.key === "earSpread") {
+    nextValue = Math.max(HICCUP_HEAD_DEFAULTS.earSpread, nextValue);
+  }
+  queueCanvasStateUpdate(pointerDrag.key, nextValue);
   event.preventDefault();
 }
 
@@ -4055,7 +4133,7 @@ function handlePointerLeave() {
 
 function endPointerDrag(event) {
   if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
-  if (["parameter", "hair-2d", "eye-2d"].includes(pointerDrag.type)) {
+  if (["parameter", "hair-2d"].includes(pointerDrag.type)) {
     flushPendingCanvasStateUpdate();
   }
   const drag = pointerDrag;
@@ -4079,11 +4157,13 @@ function endPointerDrag(event) {
     );
     return;
   }
-  if (drag.type === "eye-2d") {
-    announce(
-      `Eyes: ${formatEyeDivergence(state.eyeDivergence)}, left lid ${formatPercent(state.leftEyeClosure)}, right lid ${formatPercent(state.rightEyeClosure)}`,
-    );
-    return;
+  if (drag.type === "parameter" && drag.handleId === "nose") {
+    const endPoint = canvasPoint(event);
+    const clickTravel = Math.hypot(endPoint.x - drag.startX, endPoint.y - drag.startY);
+    if (event.type !== "pointercancel" && clickTravel < 10) {
+      triggerNoseHonk();
+      return;
+    }
   }
   const key = drag.key;
   const spec = CONTROL_SPECS.find((candidate) => candidate.key === key);
@@ -4096,6 +4176,11 @@ function bindControls() {
     if (!input) continue;
     input.addEventListener("input", () => setStateValue(spec.key, Number(input.value)));
   }
+  $("eyebrowEmphasis")?.addEventListener("input", () => {
+    eyebrowEmphasis = clamp(Number($("eyebrowEmphasis").value), 0, 0.75);
+    $("eyebrowEmphasisOut").value = formatPercent(eyebrowEmphasis);
+    $("eyebrowEmphasisOut").textContent = formatPercent(eyebrowEmphasis);
+  });
   $("audioButton").addEventListener("click", toggleAudio);
   $("playButton").addEventListener("click", toggleSequence);
   $("restartButton").addEventListener("click", restartSequence);
@@ -4140,18 +4225,27 @@ function bindControls() {
       1,
       HICCUP_HEAD_STEP_COUNT,
     );
-    if ($("sequenceLengthNumber")) $("sequenceLengthNumber").value = String(previewLength);
-    if ($("sequenceLengthOut")) {
-      $("sequenceLengthOut").value = `${previewLength} steps`;
-      $("sequenceLengthOut").textContent = $("sequenceLengthOut").value;
-    }
+    $("sequenceLength").parentElement?.style.setProperty(
+      "--length-turn",
+      `${-135 + ((previewLength - 1) / (HICCUP_HEAD_STEP_COUNT - 1)) * 270}deg`,
+    );
+    if ($("sequenceLengthEntry")) $("sequenceLengthEntry").value = String(previewLength);
   });
   $("sequenceLength")?.addEventListener("change", () => (
     setSequenceLength($("sequenceLength").value)
   ));
-  $("sequenceLengthNumber")?.addEventListener("change", () => (
-    setSequenceLength($("sequenceLengthNumber").value)
+  $("sequenceLengthEntry")?.addEventListener("change", () => (
+    setSequenceLength($("sequenceLengthEntry").value)
   ));
+  $("sequenceLengthEntry")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    setSequenceLength($("sequenceLengthEntry").value);
+    $("sequenceLengthEntry").blur();
+  });
+  document.querySelectorAll("[data-sequence-length]").forEach((button) => {
+    button.addEventListener("click", () => setSequenceLength(button.dataset.sequenceLength));
+  });
   $("voiceCount")?.addEventListener("input", () => {
     voiceCount = clamp(Math.round(Number($("voiceCount").value) || 1), 1, voiceSlots.length);
     $("voiceCountOut").value = String(voiceCount);
@@ -4176,9 +4270,11 @@ function bindControls() {
     announce(`${voiceCount} voice characters mutated`);
   });
   $("presetSelect").addEventListener("change", () => setPreset($("presetSelect").value));
+  $("nextFacePresetButton")?.addEventListener("click", () => cycleFacePreset(1));
   $("patternSelect").addEventListener("change", () => {
     if ($("patternSelect").value !== "custom") setCurrentPattern($("patternSelect").value);
   });
+  $("nextPatternButton")?.addEventListener("click", () => cyclePatternPreset(1));
   for (const button of $("padGrid").querySelectorAll("button[data-sound-id]")) {
     const sound = hiccupHeadSound(button.dataset.soundId);
     button.style.setProperty("--pad-color", sound.color);
@@ -4186,38 +4282,6 @@ function bindControls() {
   }
 
   $("sequenceGrid").addEventListener("click", handleSequenceGridClick);
-  $("sequenceGrid").addEventListener("pointerdown", (event) => {
-    const heading = event.target.closest?.(".hiccup-head-step-number");
-    if (!heading) return;
-    event.preventDefault();
-    const step = Number(heading.dataset.step);
-    stepRangeDrag = { start: step, end: step, moved: false };
-    heading.setPointerCapture?.(event.pointerId);
-  });
-  $("sequenceGrid").addEventListener("pointermove", (event) => {
-    if (!stepRangeDrag) return;
-    const element = document.elementFromPoint(event.clientX, event.clientY);
-    const heading = element?.closest?.(".hiccup-head-step-number");
-    if (!heading) return;
-    stepRangeDrag.end = Number(heading.dataset.step);
-    stepRangeDrag.moved ||= stepRangeDrag.end !== stepRangeDrag.start;
-    if (stepRangeDrag.moved) previewLoopRange(stepRangeDrag.start, stepRangeDrag.end);
-  });
-  $("sequenceGrid").addEventListener("pointerup", () => {
-    if (!stepRangeDrag) return;
-    const { start, end, moved } = stepRangeDrag;
-    stepRangeDrag = null;
-    clearLoopPreview();
-    if (!moved) queueSequenceStep(start);
-    else setLoopRange(start, end);
-  });
-  $("sequenceGrid").addEventListener("pointercancel", () => {
-    stepRangeDrag = null;
-    clearLoopPreview();
-  });
-  $("sequenceGrid").addEventListener("click", (event) => {
-    if (event.target.closest?.("#releaseSubloopButton")) releaseSubloop();
-  });
   $("sequenceGrid").addEventListener("keydown", handleGridKeydown);
   canvas.addEventListener("pointerdown", handlePointerDown);
   canvas.addEventListener("pointermove", handlePointerMove);
@@ -4234,6 +4298,16 @@ function bindControls() {
       toggleSequence();
       return;
     }
+    if (event.code === "ArrowLeft" || event.code === "ArrowRight") {
+      event.preventDefault();
+      cycleFacePreset(event.code === "ArrowRight" ? 1 : -1);
+      return;
+    }
+    if (event.code === "ArrowUp" || event.code === "ArrowDown") {
+      event.preventDefault();
+      cyclePatternPreset(event.code === "ArrowDown" ? 1 : -1);
+      return;
+    }
     const pressedKey = String(event.key).toLowerCase();
     const sound = HICCUP_HEAD_SOUNDS.find(({ key }) => String(key).toLowerCase() === pressedKey);
     if (!sound) return;
@@ -4245,7 +4319,7 @@ function bindControls() {
 function initialize() {
   canvas.setAttribute(
     "aria-description",
-    "Tap any colored face dot for its sound, any visible upper tooth for its short irregular dry-wood knock, or the missing front-tooth gap to whistle FWEE. Drag either eye outward for reverb, inward to cross visually, or downward to close both lids visually; drag each side-hair tip in two dimensions, and drag LOOP A and LOOP B eyebrows vertically to shape sequenced playback.",
+    "Tap any colored face dot for its sound, any visible upper tooth for its short irregular dry-wood knock, or the missing front-tooth gap to whistle FWEE. Drag either pupil horizontally to move both pupils in mirrored directions and shape reverb. Drag the left lid down to darken the reverb or the right lid down for stable-volume fuzz. Drag either eyebrow among five rhythmic accent positions. Drag each side-hair tip in two dimensions.",
   );
   syncControlLimits();
   populateSelects();

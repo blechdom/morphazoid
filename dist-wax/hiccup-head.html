@@ -61,7 +61,7 @@
             <canvas
               id="stage"
               tabindex="0"
-              aria-label="A large pink-purple outline goofball beatbox face with two matched circular eyes, a big #FF0000-red circular nose, oval green thinning lips, and one missing upper front tooth. Tap any of its thirty-nine colored face dots or twelve dry wood teeth; KISS leaves a fading lipstick print and BRUSH sweeps a visible toothbrush across the teeth. Pull out the tongue; drag either eye in two dimensions, the brows, nose, ears, and independent side hair tips. Blue slap mitts appear only while dragging SLAP or SMACK."
+              aria-label="A large purple-outline goofball beatbox face with two matched circular eyes, a big #FF0000-red circular nose, oval green thinning lips, and one missing upper front tooth. Click the nose to honk or drag it to change nasality. Tap any of its thirty-nine colored face dots or twelve dry wood teeth; KISS leaves a fading lipstick print and BRUSH sweeps a visible toothbrush across the teeth. Pull out the tongue; drag either eye in two dimensions, the ears, and independent side hair tips. Blue slap mitts appear only while dragging SLAP or SMACK."
               aria-describedby="canvasInstructions liveStatus"
             >
               A large playable pink-purple outline goofball face with thirty-nine colored trigger dots, fading lipstick kisses, a toothbrush gliss, a whistling tooth gap, independent two-dimensional side hair, and hidden-at-rest blue slap mitts.
@@ -92,19 +92,32 @@
             </div>
 
             <div class="hiccup-head-sequence-length" role="group" aria-labelledby="sequenceLengthLabel">
-              <span><b id="sequenceLengthLabel">Length</b><output id="sequenceLengthOut" for="sequenceLength sequenceLengthNumber" aria-live="polite">16 steps</output></span>
+              <span><b id="sequenceLengthLabel">Length</b><input id="sequenceLengthEntry" type="number" min="1" max="64" step="1" value="16" inputmode="numeric" aria-label="Type sequence length, 1 to 64 steps" aria-controls="sequenceGrid" /></span>
               <div class="hiccup-head-sequence-length-inputs">
-                <input id="sequenceLength" type="range" min="1" max="64" step="1" value="16" aria-labelledby="sequenceLengthLabel" aria-controls="sequenceGrid" />
-                <input id="sequenceLengthNumber" type="number" min="1" max="64" step="1" value="16" inputmode="numeric" aria-label="Exact sequence length in steps" aria-controls="sequenceGrid" />
+                <label class="hiccup-head-length-knob" for="sequenceLength" title="Sequence length, 1–64 steps">
+                  <span class="hiccup-head-length-knob-face" aria-hidden="true"></span>
+                  <input id="sequenceLength" type="range" min="1" max="64" step="1" value="16" aria-labelledby="sequenceLengthLabel" aria-controls="sequenceGrid" />
+                </label>
+                <div class="hiccup-head-length-presets" aria-label="Sequence length presets">
+                  <button type="button" data-sequence-length="4">4</button>
+                  <button type="button" data-sequence-length="8">8</button>
+                  <button type="button" data-sequence-length="16">16</button>
+                  <button type="button" data-sequence-length="24">24</button>
+                  <button type="button" data-sequence-length="32">32</button>
+                  <button type="button" data-sequence-length="64">64</button>
+                </div>
               </div>
             </div>
 
             <h2 class="sr-only" id="sequencerTitle">Hiccup Head sequencer</h2>
 
-            <label class="hiccup-head-pattern-select" for="patternSelect">
+            <div class="hiccup-head-pattern-select">
               <span>Pattern</span>
-              <select id="patternSelect" aria-label="Hiccup Head sequence pattern"></select>
-            </label>
+              <span class="hiccup-head-picker-row">
+                <select id="patternSelect" aria-label="Hiccup Head sequence pattern"></select>
+                <button id="nextPatternButton" type="button" title="Next rhythm preset (Down arrow)" aria-label="Next rhythm preset">▶</button>
+              </span>
+            </div>
             <button class="hiccup-head-sequence-action" id="randomPatternButton" type="button">
               <b>Scatter</b>
             </button>
@@ -137,10 +150,13 @@
 
       <aside class="panel hiccup-head-panel" aria-label="Hiccup Head controls">
         <section class="hiccup-head-preset-deck" aria-label="Mutable full-face preset">
-          <label for="presetSelect">
+          <div class="hiccup-head-face-preset-picker">
             <span>Mutable face preset</span>
-            <select id="presetSelect" aria-label="Hiccup Head physical preset"></select>
-          </label>
+            <span class="hiccup-head-picker-row">
+              <select id="presetSelect" aria-label="Hiccup Head physical preset"></select>
+              <button id="nextFacePresetButton" type="button" title="Next face preset (Right arrow)" aria-label="Next face preset">▶</button>
+            </span>
+          </div>
           <p class="sr-only" id="presetDescription">A playable beatbox face with mutable anatomy and effects.</p>
           <button id="randomizeButton" type="button">
             <span aria-hidden="true">✦</span>
@@ -303,20 +319,10 @@
               <input id="eyeDivergence" type="range" min="-1" max="1" step="0.01" value="0.08" />
               <small>Pull inward for a bright plate, center the open eyes for dry sound, or pull outward for a dark cathedral.</small>
             </label>
-            <label class="control" for="eyeClosure">
-              <span><b>Eyelid closure</b><output id="eyeClosureOut" for="eyeClosure">0%</output></span>
-              <input id="eyeClosure" type="range" min="0" max="1" step="0.01" value="0" />
-              <small>Drag either eye downward to close the lids and thicken the current reverb character. Eyelids never gate or soften the sequence.</small>
-            </label>
-            <label class="control" for="leftBrow">
-              <span><b>Left brow / loop A</b><output id="leftBrowOut" for="leftBrow">50%</output></span>
-              <input id="leftBrow" type="range" min="0" max="1" step="0.01" value="0.5" />
-              <small>Raises or lowers the sequencer's smooth loudness anchor around the first half of each loop.</small>
-            </label>
-            <label class="control" for="rightBrow">
-              <span><b>Right brow / loop B</b><output id="rightBrowOut" for="rightBrow">50%</output></span>
-              <input id="rightBrow" type="range" min="0" max="1" step="0.01" value="0.5" />
-              <small>Shapes the second-half loudness anchor; the two brows interpolate into one cyclic amplitude contour.</small>
+            <label class="control" for="eyebrowEmphasis">
+              <span><b>Eyebrow emphasis</b><output id="eyebrowEmphasisOut" for="eyebrowEmphasis">32%</output></span>
+              <input id="eyebrowEmphasis" type="range" min="0" max="0.75" step="0.01" value="0.32" />
+              <small>Sets how much the five-position left and right eyebrow accent patterns boost selected steps.</small>
             </label>
             <label class="control" for="silliness">
               <span><b>Anatomy warp</b><output id="sillinessOut" for="silliness">56%</output></span>

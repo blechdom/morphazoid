@@ -318,7 +318,6 @@ class FaceSpace {
     const leftEyeClosure = clamp(finite(configuration?.leftEyeClosure, configuration?.eyeClosure));
     const rightEyeClosure = clamp(finite(configuration?.rightEyeClosure, configuration?.eyeClosure));
     const eyeClosureTarget = Math.max(leftEyeClosure, rightEyeClosure);
-    const eyelidImbalance = leftEyeClosure - rightEyeClosure;
     this.earAmount += (earTarget - this.earAmount) * this.earSmoothingAlpha;
     this.leftHairLength += (
       leftLengthTarget - this.leftHairLength
@@ -371,13 +370,15 @@ class FaceSpace {
     this.rightHairFeedback = this.rightHairLength <= 0.000001 ? 0 : 0.08 + rightCurve * 0.78;
     this.leftHairMix = leftCurve * 0.78;
     this.rightHairMix = rightCurve * 0.78;
+    // Both hairs feed a centered two-tap delay network. They independently
+    // choose time, feedback, and wet contribution without panning echoes.
     this.leftHairBuffer[this.hairIndex] = clamp(
-      earLeft + leftHairTap * this.leftHairFeedback,
+      midpoint + leftHairTap * this.leftHairFeedback,
       -1.5,
       1.5,
     );
     this.rightHairBuffer[this.hairIndex] = clamp(
-      earRight + rightHairTap * this.rightHairFeedback,
+      midpoint + rightHairTap * this.rightHairFeedback,
       -1.5,
       1.5,
     );
@@ -386,20 +387,18 @@ class FaceSpace {
     this.rightHairDelayMs = rightDelayFrames / this.rate * 1_000;
     const leftDelayBlend = this.leftHairMix * 0.48;
     const rightDelayBlend = this.rightHairMix * 0.48;
-    const hairLeft = cleanWave(
-      (earLeft * 0.94 + leftHairTap * leftDelayBlend * (0.76 - this.leftHairFeedback * 0.12))
-        / (0.94 + leftDelayBlend * 0.34),
-    );
-    const hairRight = cleanWave(
-      (earRight * 0.94 + rightHairTap * rightDelayBlend * (0.76 - this.rightHairFeedback * 0.12))
-        / (0.94 + rightDelayBlend * 0.34),
-    );
+    const centeredDelay = (
+      leftHairTap * leftDelayBlend * (0.76 - this.leftHairFeedback * 0.12)
+      + rightHairTap * rightDelayBlend * (0.76 - this.rightHairFeedback * 0.12)
+    ) / Math.max(1, 1 + (leftDelayBlend + rightDelayBlend) * 0.18);
+    const hairLeft = cleanWave(earLeft * 0.94 + centeredDelay);
+    const hairRight = cleanWave(earRight * 0.94 + centeredDelay);
     this.hairAmount = Math.max(this.leftHairLength, this.rightHairLength);
     this.hairDelayMs = (this.leftHairDelayMs + this.rightHairDelayMs) * 0.5;
     this.hairFeedback = Math.max(this.leftHairFeedback, this.rightHairFeedback);
     this.hairMix = Math.max(this.leftHairMix, this.rightHairMix);
 
-    const eyeDistance = Math.max(Math.abs(this.eyeAmount), this.eyeClosureAmount * 0.72);
+    const eyeDistance = Math.abs(this.eyeAmount);
     // Keep the small resting divergence dry; once the eyes visibly move, jump
     // into an audible wet range instead of spending most travel near silence.
     const eyeActivation = smoothstep(clamp((eyeDistance - 0.04) / 0.26));
@@ -407,15 +406,14 @@ class FaceSpace {
     // Inward gaze is a short bright plate, centered open eyes are dry, outward
     // gaze grows into a long dark cathedral, and lids thicken either character.
     const eyeCharacter = clamp((this.eyeAmount + 1) * 0.5);
-    const lidThickness = smoothstep(this.eyeClosureAmount);
-    // Left lid closure pulls toward a short bright plate; right lid closure
-    // stretches and darkens the field. This makes independent lids audible.
-    const lidDelayScale = clamp(1 - eyelidImbalance * 0.3, 0.7, 1.3);
+    const leftLidDarken = smoothstep(leftEyeClosure);
+    const rightLidFuzz = smoothstep(rightEyeClosure);
+    const lidDelayScale = 1 + leftLidDarken * 0.16;
     const roomLeftDelay = this.rate * (
-      0.009 + eyeCharacter * 0.058 + this.eyeReverbAmount * 0.014 + lidThickness * 0.012
+      0.009 + eyeCharacter * 0.058 + this.eyeReverbAmount * 0.014 + leftLidDarken * 0.01
     ) * lidDelayScale;
     const roomRightDelay = this.rate * (
-      0.013 + eyeCharacter * 0.077 + this.eyeReverbAmount * 0.019 + lidThickness * 0.016
+      0.013 + eyeCharacter * 0.077 + this.eyeReverbAmount * 0.019 + leftLidDarken * 0.014
     ) * lidDelayScale;
     // Three incommensurate taps blur discrete repeats into a plate at crossed
     // positions and a dense, long cathedral field as the gaze moves outward.
@@ -430,14 +428,14 @@ class FaceSpace {
       + this._tap(this.eyeRightBuffer, this.eyeIndex, roomRightDelay) * 0.36
     );
     const roomDamping = clamp(
-      0.2 - eyeCharacter * 0.09 - lidThickness * 0.035 + eyelidImbalance * 0.055,
-      0.045,
+      0.2 - eyeCharacter * 0.09 - leftLidDarken * 0.13,
+      0.028,
       0.27,
     );
     this.eyeDampedLeft += (reflectedLeft - this.eyeDampedLeft) * roomDamping;
     this.eyeDampedRight += (reflectedRight - this.eyeDampedRight) * roomDamping * 0.92;
     const roomFeedback = clamp(
-      0.38 + this.eyeReverbAmount * 0.3 + eyeCharacter * 0.18 + lidThickness * 0.07,
+      0.38 + this.eyeReverbAmount * 0.34 + eyeCharacter * 0.18 + leftLidDarken * 0.1,
       0.34,
       0.88,
     );
@@ -454,29 +452,26 @@ class FaceSpace {
       1.5,
     );
     this.eyeIndex = (this.eyeIndex + 1) % this.eyeLeftBuffer.length;
-    const roomWet = eyeActivation * (0.16 + this.eyeReverbAmount * 0.58);
-    const roomBlend = roomWet * 0.5;
+    const roomWet = eyeActivation * (0.32 + this.eyeReverbAmount * 0.82);
+    const roomBlend = clamp(roomWet * 0.72, 0, 0.78);
     const reverbReturnGain = 0.78 - roomFeedback * 0.24;
     const roomLeft = cleanWave(
       (hairLeft * 0.96
-        + this.eyeDampedLeft * roomBlend * reverbReturnGain * (1 + eyelidImbalance * 0.12))
+        + this.eyeDampedLeft * roomBlend * reverbReturnGain)
         / (0.96 + roomBlend * 0.28),
     );
     const roomRight = cleanWave(
       (hairRight * 0.96
-        + this.eyeDampedRight * roomBlend * reverbReturnGain * (1 - eyelidImbalance * 0.12))
+        + this.eyeDampedRight * roomBlend * reverbReturnGain)
         / (0.96 + roomBlend * 0.28),
     );
 
-    // Closing either colored lid adds whole-mix fuzz. Dividing tanh by its
+    // Only the right colored lid adds whole-mix fuzz. Dividing tanh by its
     // drive preserves unity slope around quiet signals, while the parallel
     // blend adds harmonics without the usual distortion-volume jump.
-    const eyelidAverage = (leftEyeClosure + rightEyeClosure) * 0.5;
-    const eyelidFuzz = smoothstep(
-      Math.max(leftEyeClosure, rightEyeClosure) * 0.72 + eyelidAverage * 0.28,
-    );
-    const fuzzDrive = 1 + eyelidFuzz * 7;
-    const fuzzBlend = eyelidFuzz * 0.62;
+    const eyelidFuzz = rightLidFuzz;
+    const fuzzDrive = 1 + eyelidFuzz * 13;
+    const fuzzBlend = eyelidFuzz * 0.84;
     const fuzzLeft = Math.tanh(roomLeft * fuzzDrive) / fuzzDrive;
     const fuzzRight = Math.tanh(roomRight * fuzzDrive) / fuzzDrive;
     this.left = cleanWave(roomLeft * (1 - fuzzBlend) + fuzzLeft * fuzzBlend);

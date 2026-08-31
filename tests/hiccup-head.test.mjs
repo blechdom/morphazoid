@@ -3630,8 +3630,11 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(html, /missing-front-tooth gap/i);
   assert.match(html, /FWEE[\s\S]*upper incisor (?:is )?missing/i);
   assert.match(html, /id="sequenceLength"[^>]*min="1"[^>]*max="64"[^>]*value="16"/);
-  assert.match(html, /id="sequenceLengthNumber"[^>]*min="1"[^>]*max="64"[^>]*value="16"/);
-  assert.match(html, /id="sequenceLengthOut"[\s\S]*?16 steps/);
+  assert.doesNotMatch(html, /id="sequenceLengthNumber"/);
+  assert.match(html, /id="sequenceLengthEntry"[^>]*type="number"[^>]*min="1"[^>]*max="64"[^>]*value="16"/);
+  for (const length of [4, 8, 16, 24, 32, 64]) {
+    assert.match(html, new RegExp(`data-sequence-length="${length}"`));
+  }
   assert.doesNotMatch(html, /id="effectContourGrid"|hiccup-head-effect-contour/i);
   assert.doesNotMatch(html, /per-step face contours|draw their .* contours/i);
   assert.doesNotMatch(html, /preset loads its own face effects|Drag eyes, nose, ears|drag either hand to slap/i);
@@ -3658,7 +3661,7 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
 
   assert.match(css, /\.hiccup-head-workspace\s*\{[\s\S]*?grid-template-rows:/);
   assert.match(css, /\.hiccup-head-sequence-grid\s*\{[\s\S]*?repeat\(var\(--hiccup-head-sequence-steps, 32\),/);
-  assert.match(css, /grid-template-rows:\s*20px repeat\(var\(--hiccup-head-sequence-sounds,\s*37\),/);
+  assert.match(css, /grid-template-rows:\s*27px repeat\(var\(--hiccup-head-sequence-sounds,\s*37\),/);
   assert.doesNotMatch(css, /\.hiccup-head-effect-contour-grid/);
   assert.match(css, /\.hiccup-head-grid-scroll\s*\{[\s\S]*?overflow:/);
   assert.match(css, /\.hiccup-head-step-cell:focus-visible/);
@@ -3682,7 +3685,7 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(app, /function setSequenceLength\(value,/);
   assert.doesNotMatch(app, /\[16, 32, 48, 64\]/);
   assert.match(app, /sequenceLength\s*=\s*clamp\([\s\S]{0,160}1,\s*HICCUP_HEAD_STEP_COUNT,?\s*\)/);
-  assert.match(app, /\$\("sequenceLengthNumber"\)\?\.addEventListener\("change"/);
+  assert.match(app, /document\.querySelectorAll\("\[data-sequence-length\]"\)/);
   assert.match(app, /--hiccup-head-sequence-steps/);
   assert.match(app, /for \(let step = 0; step < sequenceLength; step \+= 1\)/);
   assert.match(app, /sequenceStepIntervalSeconds\(state\.tempo, state\.swing, absoluteStep\)/);
