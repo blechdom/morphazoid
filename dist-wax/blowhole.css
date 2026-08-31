@@ -204,7 +204,6 @@
 }
 
 .blowhole-valve-state small,
-.blowhole-stage-readouts small,
 .blowhole-timeline-stats small {
   color: var(--ocean-muted);
   font-size: 0.57rem;
@@ -259,17 +258,6 @@
   outline-offset: -4px;
 }
 
-.blowhole-stage-instructions {
-  position: absolute;
-  right: 22px;
-  bottom: 18px;
-  margin: 0;
-  color: rgba(184, 222, 221, 0.54);
-  font-size: 0.58rem;
-  font-weight: 770;
-  letter-spacing: 0.11em;
-}
-
 .blowhole-signal-legend {
   position: absolute;
   top: 18px;
@@ -301,23 +289,6 @@
 .blowhole-signal-legend .is-tissue { color: var(--tissue); }
 .blowhole-signal-legend .is-sound { color: var(--sound); }
 
-.blowhole-stage-readouts {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  border-top: 1px solid var(--ocean-line);
-  background: rgba(3, 15, 20, 0.74);
-}
-
-.blowhole-stage-readouts > span {
-  display: grid;
-  min-width: 0;
-  padding: 12px 15px;
-  border-right: 1px solid var(--ocean-line);
-}
-
-.blowhole-stage-readouts > span:last-child { border-right: 0; }
-
-.blowhole-stage-readouts output,
 .blowhole-timeline-stats output {
   margin-top: 4px;
   overflow: hidden;
@@ -1175,9 +1146,6 @@
 
 @media (max-width: 1180px) {
   .blowhole-instrument { grid-template-columns: minmax(0, 1fr) 360px; }
-  .blowhole-stage-readouts { grid-template-columns: repeat(2, 1fr); }
-  .blowhole-stage-readouts > span:nth-child(2) { border-right: 0; }
-  .blowhole-stage-readouts > span:nth-child(-n + 2) { border-bottom: 1px solid var(--ocean-line); }
 }
 
 @media (max-width: 900px) {
@@ -1198,11 +1166,8 @@
   .blowhole-timeline-card > header { align-items: start; padding: 11px; }
   .blowhole-valve-state { padding: 7px; }
   .blowhole-valve-state small { display: none; }
-  .blowhole-stage-instructions { display: none; }
   .blowhole-signal-legend { top: 10px; left: 11px; gap: 8px; }
   .blowhole-signal-legend span { font-size: 0.53rem; }
-  .blowhole-stage-readouts { grid-template-columns: 1fr 1fr; }
-  .blowhole-stage-readouts > span { padding: 9px; }
   .blowhole-timeline-card > header { display: grid; }
   .blowhole-timeline-stats { justify-content: space-between; gap: 8px; }
   .blowhole-timeline-stats > span { min-width: 0; }

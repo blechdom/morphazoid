@@ -2,7 +2,6 @@ import {
   BLOWHOLE_CALLS,
   BLOWHOLE_DEFAULTS,
   BLOWHOLE_LIMITS,
-  blowholeCallAudibleShift,
   blowholeCall,
   blowholePropagationPreset,
   createBlowholeState,
@@ -38,6 +37,10 @@ const CALL_GESTURE_PATH = Object.freeze([
   "dolphin-search-clicks",
   "dolphin-terminal-buzz",
 ]);
+const FAMILY_ENTRY_CALLS = Object.freeze({
+  odontocete: "orca-pulsed-call",
+  mysticete: BLOWHOLE_DEFAULTS.callId,
+});
 const CALL_PATH_LEFT = 96;
 const CALL_PATH_RIGHT = 904;
 const CALL_PATH_Y = 594;
@@ -248,18 +251,6 @@ const PROPAGATION_RECEIVERS = Object.freeze({
   "air-windy": "airborne receiver",
   "water-choppy": "submerged hydrophone",
 });
-
-function formatFrequency(value) {
-  const frequency = Math.max(0, Number(value) || 0);
-  if (frequency >= 100_000) return `${Math.round(frequency / 1_000)} kHz`;
-  if (frequency >= 10_000) return `${(frequency / 1_000).toFixed(1)} kHz`;
-  if (frequency >= 1_000) return `${(frequency / 1_000).toFixed(2)} kHz`;
-  return `${frequency < 100 ? frequency.toFixed(1) : Math.round(frequency)} Hz`;
-}
-
-function formatFrequencyRange(range) {
-  return `${formatFrequency(range[0])}–${formatFrequency(range[1])}`;
-}
 
 function registerLabel(call) {
   if (call.family === "mysticete") {
@@ -704,13 +695,6 @@ function updateFamilyCopy() {
     if (label) label.textContent = copy[`${key}Label`];
     if (help) help.textContent = copy[`${key}Help`];
   }
-  $("sourceReadout").textContent = call.id === "bottlenose-signature-whistle"
-    ? "left phonic lips"
-    : ["dolphin-search-clicks", "dolphin-terminal-buzz"].includes(call.id)
-      ? "right phonic lips"
-      : call.id === "orca-pulsed-call"
-        ? "M1 phonic-lip source · side unassigned"
-      : copy.source;
   const blueComparative = call.id === "blue-whale-b-call";
   $("evidenceText").textContent = blueComparative
     ? "The baleen-whale U-fold family mechanism is supported by sei, minke, and humpback larynges. Applying that mechanism to this Northeast Pacific blue-whale call is comparative anatomical inference, not direct blue-whale phonation data."
@@ -753,16 +737,6 @@ function updateFamilyCopy() {
   updateValvePresentation();
 }
 
-function monitorSummary(physicalFrequencyHz) {
-  if (state.monitorMode === "physical") {
-    return physicalFrequencyHz > 23_500 ? "physical · above Nyquist" : "physical band · 1:1";
-  }
-  const shiftOctaves = blowholeCallAudibleShift(currentCall());
-  if (!shiftOctaves) return "audible · 1:1";
-  const direction = shiftOctaves > 0 ? "+" : "";
-  return `${direction}${shiftOctaves} oct → ${formatFrequency(physicalFrequencyHz * 2 ** shiftOctaves)}`;
-}
-
 function displayPhase() {
   if (manualHeld || telemetry.manual) return 0.45;
   if (telemetry.active && telemetry.callId === state.callId) return clamp(telemetry.phase);
@@ -779,18 +753,6 @@ function updateReadouts() {
   const call = currentCall();
   const phase = displayPhase();
   const readout = deriveBlowholeReadout(state, phase);
-  const physical = telemetry.active && telemetry.physicalFrequencyHz
-    ? telemetry.physicalFrequencyHz
-    : readout.physicalFrequencyHz;
-  $("physicalReadout").textContent = telemetry.active
-    ? `${formatFrequency(physical)} live`
-    : formatFrequencyRange(call.frequencyRangeHz);
-  $("monitorReadout").textContent = monitorSummary(physical);
-  $("airReadout").textContent = call.family === "odontocete"
-    ? call.id === "sperm-whale-coda"
-      ? `${formatPercent(state.recycle)} right nasal return`
-      : `${formatPercent(state.recycle)} nasal return`
-    : `${formatPercent(state.recycle)} sac coupling · memory`;
   $("timelineSpecies").textContent = call.species;
   $("timelineCall").textContent = call.label.replace(call.species, "").trim() || call.label;
   $("registerReadout").textContent = registerLabel(call);
@@ -872,8 +834,8 @@ function setCall(callId, { announceState = true } = {}) {
 }
 
 function setFamily(family) {
-  const match = BLOWHOLE_CALLS.find((call) => call.family === family);
-  if (match) setCall(match.id);
+  const callId = FAMILY_ENTRY_CALLS[family];
+  if (callId) setCall(callId);
 }
 
 function resetAll() {

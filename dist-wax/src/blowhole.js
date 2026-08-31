@@ -44,7 +44,9 @@ export const BLOWHOLE_LIMITS = Object.freeze({
   level: Object.freeze([0, 1]),
   durationMs: Object.freeze([80, 30_000]),
   physicalFrequencyHz: Object.freeze([10, 200_000]),
-  audibleFrequencyHz: Object.freeze([40, 12_000]),
+  // A comfort-focused speaker proxy. Factual source frequencies remain in
+  // `physicalFrequencyHz` and are never rewritten by this monitor ceiling.
+  audibleFrequencyHz: Object.freeze([40, 6_000]),
 });
 
 export const BLOWHOLE_DEFAULTS = Object.freeze({
@@ -392,11 +394,11 @@ export const BLOWHOLE_CALLS = Object.freeze([
     sourceFamily: SOURCE_FAMILY.ODONTOCETE,
     register: "stereotyped pulsed social call",
     durationMs: 1_450,
-    description: "A rapid M1 phonic-lip tissue pulse train whose repetition rate is its fundamental; nonlinear motion supplies the harmonic call spectrum.",
-    physicalRange: { frequencyHz: [500, 10_000], pulseRateHz: [500, 10_000], durationSeconds: [0.3, 2.5] },
+    description: "A resident-orca M1 phonic-lip pulse train modeled at a 250–2,000 Hz repetition/fundamental range; nonlinear motion supplies the brighter harmonic spectrum.",
+    physicalRange: { frequencyHz: [250, 2_000], pulseRateHz: [250, 2_000], durationSeconds: [0.3, 2.5] },
     anatomy: odontoceteAnatomy(1),
     sourcePath: ODONTOCETE_PATH,
-    controlDefaults: { pressure: 0.78, closure: 0.7, focus: 0.76, roughness: 0.38, pulseRateHz: 1_200 },
+    controlDefaults: { pressure: 0.78, closure: 0.7, focus: 0.76, roughness: 0.38, pulseRateHz: 700 },
     voiceRatios: [1],
     pulseLockedToFundamental: true,
     lanes: {

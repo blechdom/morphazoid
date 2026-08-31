@@ -13,6 +13,7 @@ import {
   BLOWHOLE_PROPAGATION_PRESETS,
   BLOWHOLE_SOURCE_FAMILIES,
   blowholeCall,
+  blowholeCallAudibleShift,
   blowholePropagationPreset,
   createBlowholeRandom,
   createBlowholeState,
@@ -440,9 +441,9 @@ test("audible monitoring octave-folds only the monitor pitch and preserves factu
     { physical: 15, audible: 60, octaves: 2 },
     { physical: 40, audible: 40, octaves: 0 },
     { physical: 440, audible: 440, octaves: 0 },
-    { physical: 20_000, audible: 10_000, octaves: -1 },
-    { physical: 130_000, audible: 8_125, octaves: -4 },
-    { physical: 200_000, audible: 6_250, octaves: -5 },
+    { physical: 20_000, audible: 5_000, octaves: -2 },
+    { physical: 130_000, audible: 4_062.5, octaves: -5 },
+    { physical: 200_000, audible: 3_125, octaves: -6 },
   ];
   for (const expected of cases) {
     const mapped = mapPhysicalToAudible(expected.physical, "audible");
@@ -457,7 +458,7 @@ test("audible monitoring octave-folds only the monitor pitch and preserves factu
 
   const physical = mapPhysicalToAudible(130_000, "physical");
   assert.equal(physical.physicalFrequencyHz, 130_000);
-  assert.equal(physical.audibleFrequencyHz, 8_125);
+  assert.equal(physical.audibleFrequencyHz, 4_062.5);
   assert.equal(physical.monitorFrequencyHz, 130_000);
   assert.equal(physical.monitorMode, "physical");
   assert.equal(physical.physicallyAudible, false);
@@ -487,6 +488,27 @@ test("audible monitoring octave-folds only the monitor pitch and preserves factu
   }
 });
 
+test("odontocete audible proxies use the comfort band without rewriting physical calls", () => {
+  assert.deepEqual(BLOWHOLE_LIMITS.audibleFrequencyHz, [40, 6_000]);
+  assert.equal(blowholeCallAudibleShift("bottlenose-signature-whistle"), -2);
+  assert.equal(blowholeCallAudibleShift("dolphin-search-clicks"), -5);
+  assert.equal(blowholeCallAudibleShift("dolphin-terminal-buzz"), -5);
+  assert.equal(blowholeCallAudibleShift("orca-pulsed-call"), 0);
+  assert.equal(blowholeCallAudibleShift("sperm-whale-coda"), -3);
+  for (const call of BLOWHOLE_CALLS.filter(({ family }) => family === "odontocete")) {
+    for (let index = 0; index <= 100; index += 1) {
+      const plan = createBlowholeVoicePlan(createBlowholeState(call.id), index / 100);
+      for (const voice of plan.voices) {
+        assertInRange(
+          voice.monitorFrequencyHz,
+          BLOWHOLE_LIMITS.audibleFrequencyHz,
+          `${call.id}@${index / 100} comfort monitor`,
+        );
+      }
+    }
+  }
+});
+
 test("the manual pulse-rate control does not rewrite authored call contours", () => {
   for (const call of BLOWHOLE_CALLS.filter(({ physicalRange }) => physicalRange.pulseRateHz[1] > 0)) {
     const slow = createBlowholeState(call.id, { pulseRateHz: 0 });
@@ -504,8 +526,9 @@ test("the manual pulse-rate control does not rewrite authored call contours", ()
 test("the orca M1 preset locks pulse repetition to f0 and leaves source side unassigned", () => {
   const call = blowholeCall("orca-pulsed-call");
   assert.equal(call.pulseLockedToFundamental, true);
-  assert.deepEqual(call.physicalRange.frequencyHz, [500, 10_000]);
+  assert.deepEqual(call.physicalRange.frequencyHz, [250, 2_000]);
   assert.deepEqual(call.physicalRange.pulseRateHz, call.physicalRange.frequencyHz);
+  assert.equal(call.controlDefaults.pulseRateHz, 700);
   for (const phase of [0, 0.2, 0.5, 0.8, 1]) {
     const gesture = evaluateBlowholeGesture(call, phase, createBlowholeState(call.id));
     const plan = createBlowholeVoicePlan(createBlowholeState(call.id), phase);
@@ -1166,7 +1189,12 @@ test("the page, app, and styles expose the complete accessible physical-instrume
   assert.match(html, /id="blowholeFact">paired nares · sealed underwater/);
   assert.match(tagWithId(html, "select", "callSelect"), /\bname="call-preset"/i);
   assert.match(html, /id="familyCode">MYSTICETE</);
-  assert.match(html, /id="physicalReadout">80–700 Hz</);
+  assert.doesNotMatch(html, /DRAG ORGANS|SCRUB MOAN|HYBRINX DESCENDANT/);
+  assert.doesNotMatch(html, /blowhole-stage-readouts/);
+  for (const id of ["stageInstructions", "sourceReadout", "physicalReadout", "monitorReadout", "airReadout"]) {
+    assert.doesNotMatch(html, new RegExp(`id=["']${id}["']`));
+  }
+  assert.match(html, /<p>CALL GESTURE<\/p>/);
 
   const labeledControls = [
     "level",
@@ -1276,6 +1304,8 @@ test("the page, app, and styles expose the complete accessible physical-instrume
     app,
     /const CALL_GESTURE_PATH = Object\.freeze\(\[\s*"blue-whale-b-call",\s*"humpback-moan",\s*"humpback-two-voice-phrase",\s*"bottlenose-signature-whistle",\s*"orca-pulsed-call",\s*"sperm-whale-coda",\s*"dolphin-search-clicks",\s*"dolphin-terminal-buzz",\s*\]\);/,
   );
+  assert.match(app, /const FAMILY_ENTRY_CALLS = Object\.freeze\(\{\s*odontocete: "orca-pulsed-call",\s*mysticete: BLOWHOLE_DEFAULTS\.callId,\s*\}\);/);
+  assert.match(app, /function setFamily\(family\) \{\s*const callId = FAMILY_ENTRY_CALLS\[family\];\s*if \(callId\) setCall\(callId\);\s*\}/);
   assert.match(app, /Math\.round\(clamp\(Number\(value\), 0, CALL_GESTURE_PATH\.length - 1\)\)/);
   assert.match(app, /\$\("callPath"\)\?\.addEventListener\("input",[\s\S]*?setCallPathIndex\(event\.target\.value\)/);
   assert.match(app, /function drawCallGesturePath\(context\)/);

@@ -102,6 +102,8 @@ The worklet is an original, compact playable reduction of those mechanisms. It d
 
 For tonal registers, a selected phonic-lip side is a pressure-gated nonlinear oscillator. Tension and scale set the effective tissue frequency; closure changes the open fraction and harmonic slope. The bottlenose signature whistle uses the left side, the bottlenose click gestures use the right, and the orca M1 reduction uses one source whose anatomical side is deliberately left unassigned. Its pulse repetition and oscillator fundamental are one contour, not a slow amplitude gate over a separate carrier. The sperm coda uses one right source and a separate long-head reflection path.
 
+The orca preset keeps pulse repetition/fundamental separate from total emitted bandwidth. Ford's resident-killer-whale recordings found most pulsed-call repetition rates at 250–2,000 Hz, while primary energy was usually 1–6 kHz and occasional higher components extended above 30 kHz: [Ford 1989](https://doi.org/10.1139/z89-105). Population and ecotype matter: a NOAA-led study of southeastern Chukchi Sea calls measured mean primary-low-frequency-component minima, maxima, and peaks of 611, 857, and 724 Hz respectively: [Madrigal et al. 2021](https://repository.library.noaa.gov/view/noaa/30991/noaa_30991_DS1.pdf). Blowhole therefore models 250–2,000 Hz as the generic resident M1 pulse-rate/fundamental range and lets nonlinear harmonics create brightness; it does not mislabel a 10 kHz harmonic as the default fundamental.
+
 For `M0`, a phase accumulator at the call's pulse-rate contour produces finite-width collision events. Closure sets an 8–100 μs source-pulse window at the requested 48 kHz render rate. Each event excites short damped cranial modes centered on the call's physical click band. In audible-monitor mode, an ultrasound mapping moves only that center band into the speaker band; click spacing, gesture duration, and physical-frequency readouts remain unchanged. A separate bounded pneumatic reservoir makes nasal recycling retain drive and reduce instability; short acoustic delay lines model sac or head reflection rather than pretending that delayed audio is recycled air.
 
 ```text
@@ -127,7 +129,7 @@ Real odontocete clicks can extend well above 100 kHz, outside a 48 kHz browser a
 
 - ultrasound is compressed into a high but audible carrier band;
 - infrasonic/very-low components are raised into a speaker-useful bass band;
-- signals already inside the 40 Hz–12 kHz speaker-useful monitor band remain at 1:1 frequency;
+- signals already inside the comfort-focused 40 Hz–6 kHz speaker monitor band remain at 1:1 frequency;
 - octave folding outside that band is shared by all simultaneous voices, so time contours, pulse intervals, voice relationships, and physical readouts stay unchanged.
 
 `Physical band` removes that musical convenience, but browser Nyquist filtering and the listener's hardware still limit the result. Neither mode is a calibrated underwater-source simulation.
