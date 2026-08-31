@@ -1,0 +1,174 @@
+.mz-button {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, color-mix(in oklab, var(--mz-active-accent) 55%, transparent));
+  --mz-active-accent-glow: var(--accent-glow, color-mix(in oklab, var(--mz-active-accent) 22%, transparent));
+
+  display: inline-flex;
+  min-height: var(--mz-control-height);
+  padding: 8px 14px;
+  border: 1px solid var(--mz-color-line-strong);
+  border-radius: 0;
+  color: var(--mz-color-muted);
+  background: transparent;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: var(--mz-font-mono);
+  font-size: var(--mz-font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  transition:
+    border-color var(--mz-duration-fast) var(--mz-ease-out),
+    box-shadow var(--mz-duration-fast) var(--mz-ease-out),
+    color var(--mz-duration-fast) var(--mz-ease-out),
+    background-color var(--mz-duration-fast) var(--mz-ease-out);
+}
+
+.mz-button:hover:not(:disabled) {
+  border-color: var(--mz-active-accent-soft);
+  color: var(--mz-color-ink);
+  box-shadow: inset 0 0 10px var(--mz-active-accent-glow);
+}
+
+.mz-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.mz-button--primary,
+.mz-button[aria-pressed="true"] {
+  border-color: var(--mz-active-accent);
+  color: var(--mz-color-bg-deep);
+  background: var(--mz-active-accent);
+  box-shadow: 0 0 14px var(--mz-active-accent-glow);
+}
+
+.mz-button--quiet {
+  min-height: var(--mz-control-height-compact);
+  padding-inline: 9px;
+  border-color: transparent;
+}
+
+.mz-button--danger {
+  --mz-active-accent: var(--mz-color-danger);
+}
+
+.mz-button--compact {
+  min-height: var(--mz-control-height-compact);
+  padding: 6px 10px;
+  font-size: var(--mz-font-size-xs);
+}
+
+.mz-button--square {
+  width: var(--mz-control-height);
+  padding: 0;
+  aspect-ratio: 1;
+}
+
+.mz-button--play {
+  width: var(--mz-control-height);
+  padding: 0;
+  border-radius: 50%;
+  aspect-ratio: 1;
+}
+
+.mz-button--play .mz-button__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.mz-button__transport-icon {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 18px;
+}
+
+.mz-button__transport-icon::before {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 10px solid currentColor;
+  content: "";
+}
+
+.mz-button--play[aria-pressed="true"] .mz-button__transport-icon::before {
+  inset: 2px 3px;
+  border: 0;
+  background: linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px, currentColor 8px 12px);
+}
+
+.mz-button--audio {
+  min-width: 104px;
+}
+
+.mz-button--audio.mz-button--square {
+  min-width: var(--mz-control-height);
+}
+
+.mz-button--audio.mz-button--square .mz-button__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.mz-button__audio-icon {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.mz-button__audio-icon::before {
+  position: absolute;
+  top: 6px;
+  left: 1px;
+  width: 6px;
+  height: 7px;
+  background: currentColor;
+  clip-path: polygon(0 25%, 40% 25%, 100% 0, 100% 100%, 40% 75%, 0 75%);
+  content: "";
+}
+
+.mz-button__audio-icon::after {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  width: 7px;
+  height: 11px;
+  border-right: 1px solid currentColor;
+  border-radius: 50%;
+  content: "";
+}
+
+.mz-button--audio[data-audio-state="starting"] {
+  cursor: progress;
+  border-color: var(--mz-active-accent-soft);
+  color: var(--mz-active-accent);
+  animation: mz-button-pulse 900ms ease-in-out infinite alternate;
+}
+
+.mz-button--audio[data-audio-state="error"] {
+  --mz-active-accent: var(--mz-color-danger);
+  color: var(--mz-color-danger);
+}
+
+.mz-button--audio[data-audio-attention="true"]:not(:disabled) {
+  box-shadow: 0 0 0 1px var(--mz-active-accent-soft), 0 0 18px var(--mz-active-accent-glow);
+}
+
+@keyframes mz-button-pulse {
+  to { box-shadow: 0 0 18px var(--mz-active-accent-glow); }
+}

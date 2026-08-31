@@ -1,0 +1,45 @@
+:root {
+  color-scheme: dark;
+
+  --mz-color-bg: #07090b;
+  --mz-color-bg-deep: #050608;
+  --mz-color-panel: #0b0e11;
+  --mz-color-panel-high: #0f1316;
+  --mz-color-ink: #dbe4e0;
+  --mz-color-muted: #77837e;
+  --mz-color-faint: #454e4b;
+  --mz-color-line: rgba(214, 232, 226, 0.09);
+  --mz-color-line-strong: rgba(214, 232, 226, 0.18);
+  --mz-color-accent: #5fe8c4;
+  --mz-color-accent-soft: color-mix(in oklab, var(--mz-color-accent) 55%, transparent);
+  --mz-color-accent-glow: color-mix(in oklab, var(--mz-color-accent) 22%, transparent);
+  --mz-color-brass: #e8c46b;
+  --mz-color-blue: #7db4ff;
+  --mz-color-violet: #c79bff;
+  --mz-color-orange: #ffb86b;
+  --mz-color-danger: #ff826f;
+
+  --mz-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --mz-font-size-xs: 9px;
+  --mz-font-size-sm: 10px;
+  --mz-font-size-md: 11px;
+  --mz-font-size-base: 13px;
+  --mz-line-height: 1.45;
+
+  --mz-space-1: 3px;
+  --mz-space-2: 6px;
+  --mz-space-3: 8px;
+  --mz-space-4: 11px;
+  --mz-space-5: 14px;
+  --mz-space-6: 18px;
+  --mz-space-7: 22px;
+  --mz-space-8: 32px;
+
+  --mz-control-height: 44px;
+  --mz-control-height-compact: 32px;
+  --mz-focus-width: 2px;
+  --mz-focus-offset: 3px;
+  --mz-duration-fast: 120ms;
+  --mz-duration-normal: 180ms;
+  --mz-ease-out: cubic-bezier(0.2, 0.75, 0.25, 1);
+}

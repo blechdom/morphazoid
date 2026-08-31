@@ -9,6 +9,11 @@ import {
   createPainter,
 } from "./src/physics-common.js";
 import { createPhysicsScene, PHYSICS_SCENE_INDEX } from "./src/physics-scenes.js";
+import {
+  createChoiceSwitch,
+  createRangeField,
+  createSelectField,
+} from "./src/ui/index.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -69,137 +74,64 @@ function sceneValue(control) {
 }
 
 function makeRangeControl(control) {
-  const label = document.createElement("label");
-  label.className = "control";
-  const heading = document.createElement("span");
-  const name = document.createElement("b");
-  name.textContent = control.label;
-  const output = document.createElement("output");
-  output.htmlFor = `physics-${control.key}`;
-  heading.append(name, output);
-  const input = document.createElement("input");
-  input.id = `physics-${control.key}`;
-  input.type = "range";
-  input.min = String(control.min);
-  input.max = String(control.max);
-  input.step = String(control.step);
-  input.value = String(sceneValue(control));
-  const update = () => {
-    output.textContent = formatControlValue(control, sceneValue(control));
-  };
-  input.addEventListener("input", () => {
-    scene.setParam(control.key, Number(input.value));
-    update();
-    scheduleFrame();
+  return createRangeField({
+    id: `physics-${control.key}`,
+    label: control.label,
+    min: control.min,
+    max: control.max,
+    step: control.step,
+    value: sceneValue(control),
+    formatValue: (value) => formatControlValue(control, value),
+    onInput(value) {
+      scene.setParam(control.key, Number(value));
+      scheduleFrame();
+    },
   });
-  label.append(heading, input);
-  update();
-  return label;
 }
 
 function makeSelectControl(control) {
-  const label = document.createElement("label");
-  label.className = "select-control";
-  label.htmlFor = `physics-${control.key}`;
-  const name = document.createElement("span");
-  name.className = "field-label";
-  name.textContent = control.label;
-  const shell = document.createElement("span");
-  shell.className = "select-shell";
-  const select = document.createElement("select");
-  select.id = `physics-${control.key}`;
-  for (const optionSpec of control.options ?? []) {
-    const option = document.createElement("option");
-    if (typeof optionSpec === "object") {
-      option.value = String(optionSpec.value);
-      option.textContent = optionSpec.label;
-    } else {
-      option.value = String(optionSpec);
-      option.textContent = String(optionSpec);
-    }
-    select.append(option);
-  }
-  select.value = String(sceneValue(control));
-  select.addEventListener("change", () => {
-    scene.setParam(control.key, select.value);
-    renderSceneInformation(true);
-    scheduleFrame();
+  return createSelectField({
+    id: `physics-${control.key}`,
+    label: control.label,
+    options: control.options,
+    value: sceneValue(control),
+    onChange(value) {
+      scene.setParam(control.key, value);
+      renderSceneInformation(true);
+      scheduleFrame();
+    },
   });
-  shell.append(select);
-  label.append(name, shell);
-  return label;
 }
 
 function makeToggleControl(control) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "control";
-  const label = document.createElement("b");
-  label.textContent = control.label;
-  const switcher = document.createElement("div");
-  switcher.className = "physics-toggle";
-  switcher.setAttribute("role", "group");
-  switcher.setAttribute("aria-label", control.label);
-  const off = document.createElement("button");
-  const on = document.createElement("button");
-  off.type = "button";
-  on.type = "button";
-  off.textContent = "Off";
-  on.textContent = "On";
-  const paint = () => {
-    const enabled = Boolean(sceneValue(control));
-    setPressed(off, !enabled);
-    setPressed(on, enabled);
-  };
-  off.addEventListener("click", () => {
-    scene.setParam(control.key, false);
-    paint();
-    scheduleFrame();
+  return createChoiceSwitch({
+    label: control.label,
+    value: Boolean(sceneValue(control)),
+    choices: [
+      { value: false, label: "Off" },
+      { value: true, label: "On" },
+    ],
+    groupClassName: "physics-toggle",
+    onChange(value) {
+      scene.setParam(control.key, Boolean(value));
+      scheduleFrame();
+    },
   });
-  on.addEventListener("click", () => {
-    scene.setParam(control.key, true);
-    paint();
-    scheduleFrame();
-  });
-  switcher.append(off, on);
-  wrapper.append(label, switcher);
-  paint();
-  return wrapper;
 }
 
 function makeTimeScaleControl() {
-  const control = {
-    key: "timeScale",
+  return createRangeField({
+    id: "physics-timeScale",
     label: "Time scale",
     min: 0.15,
     max: 2,
     step: 0.05,
-    format: (value) => `${Number(value).toFixed(2)}×`,
-  };
-  const label = document.createElement("label");
-  label.className = "control";
-  const heading = document.createElement("span");
-  const name = document.createElement("b");
-  name.textContent = control.label;
-  const output = document.createElement("output");
-  output.htmlFor = "physics-timeScale";
-  const input = document.createElement("input");
-  input.id = "physics-timeScale";
-  input.type = "range";
-  input.min = String(control.min);
-  input.max = String(control.max);
-  input.step = String(control.step);
-  input.value = String(globalState.timeScale);
-  const update = () => {
-    output.textContent = control.format(globalState.timeScale);
-  };
-  input.addEventListener("input", () => {
-    globalState.timeScale = Number(input.value);
-    update();
+    value: globalState.timeScale,
+    formatValue: (value) => `${Number(value).toFixed(2)}×`,
+    onInput(value) {
+      globalState.timeScale = Number(value);
+    },
   });
-  heading.append(name, output);
-  label.append(heading, input);
-  update();
-  return label;
 }
 
 function renderPhysicsControls() {

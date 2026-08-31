@@ -1,0 +1,55 @@
+.mz-select-field {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, color-mix(in oklab, var(--mz-active-accent) 55%, transparent));
+
+  display: grid;
+  min-width: 0;
+  margin: 0 0 13px;
+  color: var(--mz-color-ink);
+  font-family: var(--mz-font-mono);
+  gap: var(--mz-space-3);
+}
+
+.mz-select-field__shell {
+  position: relative;
+  display: block;
+}
+
+.mz-select-field__shell::after {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid var(--mz-active-accent);
+  border-bottom: 1px solid var(--mz-active-accent);
+  pointer-events: none;
+  content: "";
+  transform: translateY(-65%) rotate(45deg);
+}
+
+.mz-select-field__select {
+  width: 100%;
+  min-height: var(--mz-control-height);
+  padding: 8px 38px 8px 11px;
+  border: 1px solid var(--mz-color-line-strong);
+  border-radius: 0;
+  cursor: pointer;
+  color: var(--mz-color-ink);
+  background: var(--mz-color-bg-deep);
+  appearance: none;
+  font-family: var(--mz-font-mono);
+  font-size: var(--mz-font-size-md);
+}
+
+.mz-select-field__select:hover:not(:disabled) {
+  border-color: var(--mz-active-accent-soft);
+}
+
+.mz-select-field.is-disabled {
+  opacity: 0.48;
+}
+
+.mz-select-field.is-disabled select {
+  cursor: not-allowed;
+}

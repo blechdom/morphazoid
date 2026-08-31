@@ -1253,7 +1253,7 @@ test("top Audio buttons expose icon-only accessible on/off speaker controls", as
   assert.equal(customButton.querySelector(".audio-speaker-icon"), null);
 
   const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
-  assert.match(css, /--audio-control-width:\s*44px/);
+  assert.match(css, /--audio-control-width:\s*var\(--mz-control-height\)/);
   assert.match(css, /\.audio-button\s*\{[^}]*width: var\(--audio-control-width\);[^}]*height: 44px;/s);
   assert.match(
     css,

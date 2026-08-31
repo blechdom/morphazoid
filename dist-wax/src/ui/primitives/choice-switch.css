@@ -1,0 +1,58 @@
+.mz-choice-field {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, color-mix(in oklab, var(--mz-active-accent) 55%, transparent));
+  --mz-active-accent-glow: var(--accent-glow, color-mix(in oklab, var(--mz-active-accent) 22%, transparent));
+
+  display: grid;
+  min-width: 0;
+  margin: 0 0 var(--mz-space-4);
+  color: var(--mz-color-ink);
+  font-family: var(--mz-font-mono);
+  gap: var(--mz-space-2);
+}
+
+.mz-choice-switch {
+  display: grid;
+  margin: 0;
+  padding: var(--mz-space-1);
+  border: 1px solid var(--mz-color-line-strong);
+  background: var(--mz-color-bg-deep);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--mz-space-1);
+}
+
+.mz-choice-switch__option {
+  min-height: 40px;
+  padding: 8px 7px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--mz-color-muted);
+  background: transparent;
+  font-family: var(--mz-font-mono);
+  font-size: var(--mz-font-size-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mz-choice-switch__option:hover:not(:disabled) {
+  color: var(--mz-color-ink);
+}
+
+.mz-choice-switch__option:disabled {
+  cursor: not-allowed;
+  color: var(--mz-color-faint);
+  opacity: 0.55;
+}
+
+.mz-choice-switch__option[aria-pressed="true"] {
+  border-color: var(--mz-active-accent-soft);
+  color: var(--mz-active-accent);
+  background: var(--mz-active-accent-glow);
+  box-shadow: inset 0 0 10px var(--mz-active-accent-glow);
+}
+
+.mz-choice-switch.compact .mz-choice-switch__option {
+  min-height: var(--mz-control-height-compact);
+  font-size: var(--mz-font-size-xs);
+}

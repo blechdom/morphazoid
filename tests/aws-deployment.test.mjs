@@ -610,6 +610,9 @@ test("site builder publishes runtime files without development material", async 
     for (const path of [
       "tests",
       ".github",
+      ".storybook",
+      "stories",
+      "storybook-static",
       "scripts",
       "package.json",
       "README.md",

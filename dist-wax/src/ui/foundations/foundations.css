@@ -1,0 +1,74 @@
+:where(.mz-ui, [data-mz-ui]) {
+  min-width: 0;
+  color: var(--mz-color-ink);
+  background: var(--mz-color-bg);
+  font-family: var(--mz-font-mono);
+  font-size: var(--mz-font-size-base);
+  line-height: var(--mz-line-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+:where(
+  .mz-button,
+  .mz-range-field,
+  .mz-select-field,
+  .mz-choice-field,
+  .mz-control-section
+),
+:where(
+  .mz-button,
+  .mz-range-field,
+  .mz-select-field,
+  .mz-choice-field,
+  .mz-control-section
+) *,
+:where(
+  .mz-button,
+  .mz-range-field,
+  .mz-select-field,
+  .mz-choice-field,
+  .mz-control-section
+) *::before,
+:where(
+  .mz-button,
+  .mz-range-field,
+  .mz-select-field,
+  .mz-choice-field,
+  .mz-control-section
+) *::after {
+  box-sizing: border-box;
+}
+
+:where(.mz-button, .mz-range-field input, .mz-select-field select, .mz-choice-switch button) {
+  color: inherit;
+  font: inherit;
+}
+
+:where(.mz-button, .mz-range-field input, .mz-select-field select, .mz-choice-switch button):focus-visible,
+.mz-control-section > summary:focus-visible {
+  outline: var(--mz-focus-width) solid var(--mz-active-accent, var(--mz-color-accent));
+  outline-offset: var(--mz-focus-offset);
+}
+
+.mz-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.mz-button, .mz-range-field input, .mz-select-field select, .mz-choice-switch button) {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+  }
+
+  .mz-button--audio[data-audio-state="starting"] {
+    animation: none !important;
+  }
+}

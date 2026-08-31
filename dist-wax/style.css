@@ -1,23 +1,26 @@
+@import url("./src/ui/index.css");
+
 :root {
-  --bg: #07090b;
-  --bg-deep: #050608;
-  --panel: #0b0e11;
-  --panel-high: #0f1316;
-  --ink: #dbe4e0;
-  --muted: #77837e;
-  --faint: #454e4b;
-  --line: rgba(214, 232, 226, 0.09);
-  --line-strong: rgba(214, 232, 226, 0.18);
-  --accent: #5fe8c4;
+  /* Legacy aliases keep existing pages stable while tokens move to src/ui. */
+  --bg: var(--mz-color-bg);
+  --bg-deep: var(--mz-color-bg-deep);
+  --panel: var(--mz-color-panel);
+  --panel-high: var(--mz-color-panel-high);
+  --ink: var(--mz-color-ink);
+  --muted: var(--mz-color-muted);
+  --faint: var(--mz-color-faint);
+  --line: var(--mz-color-line);
+  --line-strong: var(--mz-color-line-strong);
+  --accent: var(--mz-color-accent);
   --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
   --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
-  --brass: #e8c46b;
+  --brass: var(--mz-color-brass);
   --point: #fff3d6;
-  --blue: #7db4ff;
-  --violet: #c79bff;
-  --orange: #ffb86b;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
-  --audio-control-width: 44px;
+  --blue: var(--mz-color-blue);
+  --violet: var(--mz-color-violet);
+  --orange: var(--mz-color-orange);
+  --mono: var(--mz-font-mono);
+  --audio-control-width: var(--mz-control-height);
 }
 
 * {
@@ -4888,21 +4891,6 @@ select:hover {
     -webkit-text-fill-color: GrayText;
   }
 }
-.shared-amplitude-control { display:grid; margin:14px 0; gap:8px; }
-.shared-amplitude-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.shared-amplitude-heading > div,.shared-amplitude-presets { display:flex; gap:4px; }
-.shared-amplitude-heading button,.shared-amplitude-presets button { min-height:25px; padding:0 7px; border:1px solid var(--line-strong); color:var(--muted); background:var(--bg-deep); font-size:7px; text-transform:uppercase; }
-.shared-amplitude-heading button[aria-pressed="true"],.shared-amplitude-presets button[aria-pressed="true"] { color:var(--accent); border-color:var(--accent-soft); background:var(--accent-glow); }
-.shared-amplitude-presets { display:grid; grid-template-columns:repeat(4,1fr); }
-.shared-amplitude-editor { position:relative; height:108px; margin:5px 7px 2px; touch-action:none; }
-.shared-amplitude-editor svg { position:absolute; inset:6px 0; width:100%; height:96px; overflow:visible; }
-.shared-amplitude-editor path { fill:none; stroke:var(--accent); stroke-width:1.5; vector-effect:non-scaling-stroke; }
-.shared-amplitude-editor button { position:absolute; width:22px; height:22px; padding:0; transform:translate(-50%,-50%); border:1px solid var(--accent); border-radius:50%; color:var(--ink); background:var(--bg-deep); font-size:7px; }
-.shared-amplitude-editor.is-disabled { opacity:.3; }
-.shared-amplitude-time-axis { display:flex; justify-content:space-between; margin:-4px 7px 2px; color:var(--faint); font:6px/1.2 var(--mono); text-transform:uppercase; letter-spacing:.04em; }
-.shared-amplitude-level { margin-top:0; }
-.shared-amplitude-control > small { color:var(--faint); font-size:7px; }
-
 /* Monitor-only MIDI output telemetry. Values here are candidates, never routes. */
 .midi-output-monitor {
   width: 100%;

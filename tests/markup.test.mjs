@@ -361,7 +361,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.amplitude-timing-row\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(css, /\.header-level\s*\{[\s\S]*?height:\s*44px/);
   assert.match(css, /\.mapping-source-help\s*\{/);
-  assert.match(css, /--audio-control-width:\s*44px/);
+  assert.match(css, /--audio-control-width:\s*var\(--mz-control-height\)/);
   assert.match(css, /\.audio-strip\s*\{[\s\S]*?grid-template-columns:\s*minmax\(96px,\s*140px\)\s+var\(--audio-control-width\)/);
   assert.match(css, /\.audio-button > :not\(\.audio-speaker-icon\),\s*\.audio-speaker-copy\s*\{[^}]*clip-path:\s*inset\(50%\) !important;/s);
   assert.match(css, /\.audio-button::before,\s*\.audio-speaker-icon\s*\{[\s\S]*?-webkit-mask:\s*url\("data:image\/svg\+xml/);
@@ -401,8 +401,16 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.equal(manifest.dependencies, undefined);
   assert.deepEqual(
     Object.keys(manifest.devDependencies ?? {}).sort(),
-    ["@axe-core/playwright", "@playwright/test"],
-    "browser QA dependencies must remain development-only",
+    [
+      "@axe-core/playwright",
+      "@playwright/test",
+      "@storybook/addon-a11y",
+      "@storybook/addon-docs",
+      "@storybook/html-vite",
+      "storybook",
+      "vite",
+    ],
+    "browser QA and component-catalog tooling must remain development-only",
   );
   assert.doesNotMatch(packageJson, /next|react|typescript/i);
 });

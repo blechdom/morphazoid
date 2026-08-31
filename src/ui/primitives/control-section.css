@@ -1,0 +1,113 @@
+.mz-control-section {
+  --mz-section-accent: var(--mz-color-accent);
+  --mz-active-accent: var(--accent, var(--mz-section-accent));
+  --mz-active-accent-glow: var(--accent-glow, color-mix(in oklab, var(--mz-active-accent) 22%, transparent));
+
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--mz-color-line);
+  color: var(--mz-color-ink);
+  background: var(--mz-color-panel);
+  font-family: var(--mz-font-mono);
+}
+
+.mz-control-section[data-section="play"] { --mz-section-accent: #5fe8c4; }
+.mz-control-section[data-section="form"] { --mz-section-accent: #e8c46b; }
+.mz-control-section[data-section="rotation"],
+.mz-control-section[data-section="structure"],
+.mz-control-section[data-section="output"] { --mz-section-accent: #ffb86b; }
+.mz-control-section[data-section="winding"] { --mz-section-accent: #ff826f; }
+.mz-control-section[data-section="sound"] { --mz-section-accent: #7db4ff; }
+.mz-control-section[data-section="mapping"] { --mz-section-accent: #c79bff; }
+
+/* Existing pages theme descendants through --accent; retain that contract. */
+.mz-control-section[data-section] {
+  --accent: var(--mz-section-accent);
+  --accent-soft: color-mix(in oklab, var(--mz-section-accent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--mz-section-accent) 22%, transparent);
+}
+
+.mz-control-section__summary {
+  display: flex;
+  min-height: 52px;
+  padding: 0 var(--mz-space-7);
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mz-space-5);
+  background: linear-gradient(90deg, var(--mz-active-accent-glow), transparent 42%);
+  box-shadow: inset 2px 0 0 var(--mz-active-accent);
+}
+
+.mz-control-section__summary::-webkit-details-marker {
+  display: none;
+}
+
+.mz-control-section__summary::after {
+  margin-left: var(--mz-space-2);
+  color: var(--mz-active-accent);
+  content: "+";
+  font-size: 16px;
+}
+
+.mz-control-section[open] > .mz-control-section__summary {
+  border-bottom: 1px solid var(--mz-color-line);
+  background: linear-gradient(90deg, var(--mz-active-accent-glow), transparent 68%);
+}
+
+.mz-control-section[open] > .mz-control-section__summary::after {
+  content: "−";
+}
+
+.mz-control-section--static > .mz-control-section__summary {
+  cursor: default;
+  border-bottom: 1px solid var(--mz-color-line);
+  background: linear-gradient(90deg, var(--mz-active-accent-glow), transparent 68%);
+}
+
+.mz-control-section--static > .mz-control-section__summary::after {
+  display: none;
+}
+
+.mz-control-section__title {
+  margin: 0;
+  color: var(--mz-active-accent);
+  font-size: var(--mz-font-size-md);
+  font-variant-caps: all-small-caps;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+}
+
+.mz-control-section__state {
+  overflow: hidden;
+  margin-left: auto;
+  color: var(--mz-color-muted);
+  font-size: var(--mz-font-size-xs);
+  letter-spacing: 0.07em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mz-control-section__body {
+  padding: 15px var(--mz-space-7) 9px;
+}
+
+@media (forced-colors: active) {
+  .mz-button,
+  .mz-range-field__input::-webkit-slider-thumb,
+  .mz-range-field__input::-moz-range-thumb,
+  .mz-select-field__select,
+  .mz-choice-switch,
+  .mz-choice-switch__option[aria-pressed="true"] {
+    border-color: ButtonText;
+  }
+
+  .mz-button[aria-pressed="true"],
+  .mz-choice-switch__option[aria-pressed="true"] {
+    color: HighlightText;
+    background: Highlight;
+  }
+}
