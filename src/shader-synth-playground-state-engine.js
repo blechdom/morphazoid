@@ -86,6 +86,20 @@ export function shaderSynthPlaygroundStatePersistentByteSize(kind, sampleRate = 
   return Math.ceil((vec4Count * BYTES_PER_VEC4) / 16) * 16;
 }
 
+function spectralFftSizeFromParams(params = []) {
+  const selector = Number(params[0] ?? 2);
+  if (selector < 0.5) return 256;
+  if (selector < 1.5) return 512;
+  if (selector < 2.5) return 1024;
+  return 2048;
+}
+
+function spectralSegmentCount(chunkSamples, fftSize) {
+  // The first analysis can require a full window; every later boundary is at
+  // most one half-window away. Two guard iterations cover either phase.
+  return Math.ceil(Math.max(1, Number(chunkSamples)) / Math.max(128, fftSize / 2)) + 2;
+}
+
 function resetSignature(kind, params = []) {
   return (RESET_PARAM_INDICES[Number(kind)] ?? [])
     .map((index) => Number(params[index] ?? 0).toPrecision(9))
@@ -150,8 +164,8 @@ struct GraphNode {
 struct StateStageInfo {
   nodeIndex: u32,
   kind: u32,
-  padding0: u32,
-  padding1: u32,
+  fftSize: u32,
+  spectralSegments: u32,
 }
 
 @group(0) @binding(0) var<uniform> render_info: RenderInfo;
@@ -160,6 +174,7 @@ struct StateStageInfo {
 @group(0) @binding(3) var<storage, read_write> state_output: array<vec2<f32>>;
 @group(0) @binding(4) var<storage, read_write> persistent_state: array<vec4<f32>>;
 @group(0) @binding(5) var<uniform> state_stage: StateStageInfo;
+var<private> state_lane: u32;
 
 fn hashU32(value: u32) -> f32 {
   var word = value;
@@ -550,71 +565,150 @@ fn spectralDistance(point: vec2<f32>, shape: u32, extent: f32) -> f32 {
   return abs(length(point) - fract(angle * 3.0 + 1.0) * extent) - extent * 0.14;
 }
 
+fn spectralDelayedInput(node: GraphNode, sample: u32, writePosition: u32, delay: u32) -> vec2<f32> {
+  // Samples already rendered in this chunk are available directly from the
+  // captured graph signal. Older samples remain in the persistent input ring.
+  // Keeping the reads in a phase before ring writes avoids storage races when
+  // a window-size crossfade uses two different delay lengths.
+  if (sample >= delay) { return stateInput(node, 0u, sample - delay); }
+  let readPosition = (writePosition + MAX_SPECTRAL_FRAMES - delay) % MAX_SPECTRAL_FRAMES;
+  return persistent_state[1u + readPosition].xy;
+}
+
 fn renderSpectralSdf(node: GraphNode) {
-  if (!stateIsContinuous()) {
-    resetPersistentState();
-    var initialHeader = persistent_state[0];
-    initialHeader.y = bitcast<f32>(0u);
-    initialHeader.w = bitcast<f32>(0u);
-    persistent_state[0] = initialHeader;
+  let lane = state_lane;
+  let needsReset = !stateIsContinuous();
+  if (needsReset) {
+    for (var index = lane; index < arrayLength(&persistent_state); index += SPECTRAL_BANDS) {
+      persistent_state[index] = vec4<f32>(0.0);
+    }
   }
+  storageBarrier();
+  if (needsReset && lane == 0u) {
+    persistent_state[0] = vec4<f32>(0.0, bitcast<f32>(0u), 0.0, bitcast<f32>(0u));
+  }
+  storageBarrier();
+
   var header = persistent_state[0];
   var writePosition = bitcast<u32>(header.y) % MAX_SPECTRAL_FRAMES;
   var samplesSeen = bitcast<u32>(header.w);
+  var chunkCursor = 0u;
   let spectrumBase = 1u + MAX_SPECTRAL_FRAMES;
   let previousFftSize = selectedFftSize(node.previous0.x);
-  let targetFftSize = selectedFftSize(node.target0.x);
+  // This selector is mirrored into the stage uniform by updatePatch. Unlike a
+  // storage-buffer value, it is uniform for control-flow/barrier validation.
+  let targetFftSize = clamp(state_stage.fftSize, 256u, MAX_SPECTRAL_FRAMES);
   let sizeChanged = previousFftSize != targetFftSize;
-  for (var sample = 0u; sample < render_info.sampleCount; sample += 1u) {
-    let p0 = params0(node, sample);
-    let p1 = params1(node, sample);
-    let ramp = transitionRamp(sample);
-    var sizeRamp = ramp;
-    let sizeParameterSpan = node.target0.x - node.previous0.x;
-    if (abs(sizeParameterSpan) > 0.0001) {
-      sizeRamp = clamp((p0.x - node.previous0.x) / sizeParameterSpan, 0.0, 1.0);
-    }
-    let fftSize = targetFftSize;
-    let hop = fftSize / 2u;
-    let input = stateInput(node, 0u, sample);
-    let previousDryPosition = (writePosition + MAX_SPECTRAL_FRAMES - previousFftSize) % MAX_SPECTRAL_FRAMES;
-    let targetDryPosition = (writePosition + MAX_SPECTRAL_FRAMES - targetFftSize) % MAX_SPECTRAL_FRAMES;
-    let alignedDry = mix(
-      persistent_state[1u + previousDryPosition].xy,
-      persistent_state[1u + targetDryPosition].xy,
-      sizeRamp
-    );
-    let ringValue = persistent_state[1u + writePosition];
-    let wet = ringValue.zw;
-    persistent_state[1u + writePosition] = vec4<f32>(input, 0.0, 0.0);
-    samplesSeen += 1u;
-    if (samplesSeen >= fftSize && samplesSeen % hop == 0u) {
-      for (var band = 0u; band < SPECTRAL_BANDS; band += 1u) {
-        let bin = u32(round(f32(band) * f32(fftSize / 2u) / f32(SPECTRAL_BANDS - 1u)));
-        var coefficient = vec4<f32>(0.0);
-        for (var n = 0u; n < MAX_SPECTRAL_FRAMES; n += 1u) {
-          if (n >= fftSize) { break; }
-          let readPosition = (writePosition + MAX_SPECTRAL_FRAMES - n) % MAX_SPECTRAL_FRAMES;
-          let frameSample = persistent_state[1u + readPosition].xy;
-          let window = 0.5 - 0.5 * cos(TAU * f32(n) / f32(max(fftSize - 1u, 1u)));
-          let angle = -TAU * f32(bin * n) / f32(fftSize);
-          let basis = vec2<f32>(cos(angle), sin(angle)) * window;
-          coefficient += vec4<f32>(frameSample.x * basis, frameSample.y * basis);
-        }
-        coefficient /= f32(fftSize);
-        let magnitude = tanh((length(coefficient.xy) + length(coefficient.zw)) * 3.0);
-        let frameCoordinate = fract(f32(samplesSeen / hop) * 0.037) * 2.0 - 1.0;
-        var point = vec2<f32>(f32(bin) / f32(fftSize / 2u) * 2.0 - 1.0, frameCoordinate + magnitude * 0.3);
-        let angle = p0.w * TAU;
-        point = vec2<f32>(point.x * cos(angle) - point.y * sin(angle), point.x * sin(angle) + point.y * cos(angle));
-        let distance = spectralDistance(point, u32(clamp(round(p0.y), 0.0, 5.0)), clamp(p0.z, 0.03, 1.5));
-        let edge = clamp(p1.x, 0.001, 0.35);
-        let inside = 1.0 - smoothstep(-edge, edge, distance);
-        let signedDepth = clamp(p1.y, -1.0, 1.0);
-        let mask = clamp(1.0 - abs(signedDepth) + select(1.0 - inside, inside, signedDepth >= 0.0) * abs(signedDepth), 0.0, 1.0);
-        persistent_state[spectrumBase + band] = coefficient * mask;
+  let fftSize = targetFftSize;
+  let hop = fftSize / 2u;
+
+  // A fixed, CPU-derived number of segment iterations keeps every barrier in
+  // uniform control flow. Inactive tail segments still cross the barriers but
+  // perform no storage work.
+  for (var segmentIndex = 0u; segmentIndex < state_stage.spectralSegments; segmentIndex += 1u) {
+    var segmentCount = 0u;
+    var completesAnalysisFrame = false;
+    if (chunkCursor < render_info.sampleCount) {
+      let remaining = render_info.sampleCount - chunkCursor;
+      var untilAnalysis = fftSize - min(samplesSeen, fftSize);
+      if (samplesSeen >= fftSize) {
+        let remainder = samplesSeen % hop;
+        untilAnalysis = select(hop - remainder, hop, remainder == 0u);
       }
+      segmentCount = min(remaining, max(untilAnalysis, 1u));
+      completesAnalysisFrame = segmentCount == max(untilAnalysis, 1u);
+    }
+
+    // First consume the existing dry/OLA ring into unique output slots. This
+    // phase is read-only for persistent storage so dual-latency crossfades do
+    // not race input writes elsewhere in the same segment.
+    for (var localSample = lane; localSample < segmentCount; localSample += SPECTRAL_BANDS) {
+      let sample = chunkCursor + localSample;
+      let sampleWritePosition = (writePosition + localSample) % MAX_SPECTRAL_FRAMES;
+      let p0 = params0(node, sample);
+      let p1 = params1(node, sample);
+      let ramp = transitionRamp(sample);
+      var sizeRamp = ramp;
+      let sizeParameterSpan = node.target0.x - node.previous0.x;
+      if (abs(sizeParameterSpan) > 0.0001) {
+        sizeRamp = clamp((p0.x - node.previous0.x) / sizeParameterSpan, 0.0, 1.0);
+      }
+      let alignedDry = mix(
+        spectralDelayedInput(node, sample, sampleWritePosition, previousFftSize),
+        spectralDelayedInput(node, sample, sampleWritePosition, targetFftSize),
+        sizeRamp
+      );
+      let wet = persistent_state[1u + sampleWritePosition].zw;
+      let wetTransition = select(1.0, smootherstep01(sizeRamp), sizeChanged);
+      writeStateSample(sample, softClip(mix(
+        alignedDry,
+        wet * clamp(p1.w, 0.0, 1.5),
+        clamp(p1.z, 0.0, 1.0) * wetTransition
+      )));
+    }
+    storageBarrier();
+
+    // Then ingest and clear the same unique ring slots in parallel.
+    for (var localSample = lane; localSample < segmentCount; localSample += SPECTRAL_BANDS) {
+      let sample = chunkCursor + localSample;
+      let sampleWritePosition = (writePosition + localSample) % MAX_SPECTRAL_FRAMES;
+      persistent_state[1u + sampleWritePosition] = vec4<f32>(stateInput(node, 0u, sample), 0.0, 0.0);
+    }
+    storageBarrier();
+
+    chunkCursor += segmentCount;
+    writePosition = (writePosition + segmentCount) % MAX_SPECTRAL_FRAMES;
+    samplesSeen += segmentCount;
+
+    // Exactly one lane owns each of the 64 bounded-DFT bands.
+    if (completesAnalysisFrame && lane < SPECTRAL_BANDS) {
+      let band = lane;
+      let bin = u32(round(f32(band) * f32(fftSize / 2u) / f32(SPECTRAL_BANDS - 1u)));
+      var coefficient = vec4<f32>(0.0);
+      let phaseStep = -TAU * f32(bin) / f32(fftSize);
+      let phaseRotation = vec2<f32>(cos(phaseStep), sin(phaseStep));
+      let windowStep = TAU / f32(max(fftSize - 1u, 1u));
+      let windowRotation = vec2<f32>(cos(windowStep), sin(windowStep));
+      var phaseBasis = vec2<f32>(1.0, 0.0);
+      var windowBasis = vec2<f32>(1.0, 0.0);
       for (var n = 0u; n < MAX_SPECTRAL_FRAMES; n += 1u) {
+        if (n >= fftSize) { break; }
+        let readPosition = (writePosition + MAX_SPECTRAL_FRAMES - 1u - n) % MAX_SPECTRAL_FRAMES;
+        let frameSample = persistent_state[1u + readPosition].xy;
+        let window = 0.5 - 0.5 * windowBasis.x;
+        let basis = phaseBasis * window;
+        coefficient += vec4<f32>(frameSample.x * basis, frameSample.y * basis);
+        phaseBasis = vec2<f32>(
+          phaseBasis.x * phaseRotation.x - phaseBasis.y * phaseRotation.y,
+          phaseBasis.x * phaseRotation.y + phaseBasis.y * phaseRotation.x
+        );
+        windowBasis = vec2<f32>(
+          windowBasis.x * windowRotation.x - windowBasis.y * windowRotation.y,
+          windowBasis.x * windowRotation.y + windowBasis.y * windowRotation.x
+        );
+      }
+      coefficient /= f32(fftSize);
+      let magnitude = tanh((length(coefficient.xy) + length(coefficient.zw)) * 3.0);
+      let frameCoordinate = fract(f32(samplesSeen / hop) * 0.037) * 2.0 - 1.0;
+      var point = vec2<f32>(f32(bin) / f32(fftSize / 2u) * 2.0 - 1.0, frameCoordinate + magnitude * 0.3);
+      let eventSample = max(chunkCursor, 1u) - 1u;
+      let p0 = params0(node, eventSample);
+      let p1 = params1(node, eventSample);
+      let angle = p0.w * TAU;
+      point = vec2<f32>(point.x * cos(angle) - point.y * sin(angle), point.x * sin(angle) + point.y * cos(angle));
+      let distance = spectralDistance(point, u32(clamp(round(p0.y), 0.0, 5.0)), clamp(p0.z, 0.03, 1.5));
+      let edge = clamp(p1.x, 0.001, 0.35);
+      let inside = 1.0 - smoothstep(-edge, edge, distance);
+      let signedDepth = clamp(p1.y, -1.0, 1.0);
+      let mask = clamp(1.0 - abs(signedDepth) + select(1.0 - inside, inside, signedDepth >= 0.0) * abs(signedDepth), 0.0, 1.0);
+      persistent_state[spectrumBase + band] = coefficient * mask;
+    }
+    storageBarrier();
+
+    // Lanes own disjoint future OLA slots. Each sums the full band bank for
+    // its n values, avoiding atomics while retaining all 64 bands.
+    if (completesAnalysisFrame) {
+      for (var n = lane; n < MAX_SPECTRAL_FRAMES; n += SPECTRAL_BANDS) {
         if (n >= fftSize) { break; }
         var resynth = vec2<f32>(0.0);
         for (var band = 0u; band < SPECTRAL_BANDS; band += 1u) {
@@ -625,23 +719,20 @@ fn renderSpectralSdf(node: GraphNode) {
           resynth += vec2<f32>(dot(coefficient.xy, basis), dot(coefficient.zw, basis));
         }
         let window = 0.5 - 0.5 * cos(TAU * f32(n) / f32(max(fftSize - 1u, 1u)));
-        let outputPosition = (writePosition + 1u + n) % MAX_SPECTRAL_FRAMES;
+        let outputPosition = (writePosition + n) % MAX_SPECTRAL_FRAMES;
         let stored = persistent_state[1u + outputPosition];
         persistent_state[1u + outputPosition] = vec4<f32>(stored.xy, stored.zw + resynth * window * 2.0);
       }
     }
-    let wetTransition = select(1.0, smootherstep01(sizeRamp), sizeChanged);
-    writeStateSample(sample, softClip(mix(
-      alignedDry,
-      wet * clamp(p1.w, 0.0, 1.5),
-      clamp(p1.z, 0.0, 1.0) * wetTransition
-    )));
-    writePosition = (writePosition + 1u) % MAX_SPECTRAL_FRAMES;
+    storageBarrier();
   }
-  header = persistent_state[0];
-  header.y = bitcast<f32>(writePosition);
-  header.w = bitcast<f32>(samplesSeen);
-  markStateContinuous(header);
+
+  if (lane == 0u) {
+    header = persistent_state[0];
+    header.y = bitcast<f32>(writePosition);
+    header.w = bitcast<f32>(samplesSeen);
+    markStateContinuous(header);
+  }
 }
 
 fn flowIndex(bank: u32, particle: u32) -> u32 {
@@ -816,18 +907,30 @@ fn renderRaymarchResonator(node: GraphNode) {
   markStateContinuous(persistent_state[0]);
 }
 
-@compute @workgroup_size(1)
-fn renderStateNode(@builtin(global_invocation_id) global_id: vec3<u32>) {
-  if (global_id.x != 0u || state_stage.nodeIndex >= render_info.nodeCount) { return; }
+@compute @workgroup_size(64)
+fn renderStateNode(
+  @builtin(workgroup_id) workgroup_id: vec3<u32>,
+  @builtin(local_invocation_index) lane: u32,
+) {
+  if (workgroup_id.x != 0u || state_stage.nodeIndex >= render_info.nodeCount) { return; }
+  state_lane = lane;
   let node = graph_nodes[state_stage.nodeIndex];
   switch state_stage.kind {
-    case 105u: { let params = node.target0; renderCellularAutomaton(node); }
-    case 106u: { let params = node.target0; renderReactionDiffusion(node); }
-    case 107u: { let params = node.target0; renderFeedbackLattice(node); }
-    case 108u: { let params = node.target0; renderSpectralSdf(node); }
-    case 109u: { let params = node.target0; renderFlowAdvection(node); }
-    case 110u: { let params = node.target0; renderRaymarchResonator(node); }
-    default: {}
+    case 108u: {
+      let params = node.target0;
+      renderSpectralSdf(node);
+    }
+    default: {
+      if (lane != 0u) { return; }
+      switch state_stage.kind {
+        case 105u: { let params = node.target0; renderCellularAutomaton(node); }
+        case 106u: { let params = node.target0; renderReactionDiffusion(node); }
+        case 107u: { let params = node.target0; renderFeedbackLattice(node); }
+        case 109u: { let params = node.target0; renderFlowAdvection(node); }
+        case 110u: { let params = node.target0; renderRaymarchResonator(node); }
+        default: {}
+      }
+    }
   }
 }
 `;
@@ -955,6 +1058,7 @@ export class ShaderSynthPlaygroundStateEngine {
       id: node.id,
       kind: node.kind,
       nodeIndex: node.nodeIndex,
+      params: [...node.params],
       resetSignature: resetSignature(node.kind, node.params),
       persistentByteSize,
       persistentBuffer,
@@ -967,10 +1071,21 @@ export class ShaderSynthPlaygroundStateEngine {
 
   writeNodeInfo(resource) {
     resource.nodeIndex = Number(resource.nodeIndex) >>> 0;
+    resource.fftSize = resource.kind === 108
+      ? spectralFftSizeFromParams(resource.params)
+      : 0;
+    resource.spectralSegments = resource.kind === 108
+      ? spectralSegmentCount(this.chunkSamples, resource.fftSize)
+      : 0;
     this.device.queue.writeBuffer(
       resource.infoBuffer,
       0,
-      new Uint32Array([resource.nodeIndex, resource.kind, 0, 0]),
+      new Uint32Array([
+        resource.nodeIndex,
+        resource.kind,
+        resource.fftSize,
+        resource.spectralSegments,
+      ]),
     );
   }
 
@@ -1032,9 +1147,15 @@ export class ShaderSynthPlaygroundStateEngine {
         if (resource) this.destroyNodeResource(resource);
         resource = this.createNodeResource(node);
         this.nodeResources.set(node.id, resource);
-      } else if (resource.nodeIndex !== node.nodeIndex) {
+      } else {
+        const nextFftSize = node.kind === 108
+          ? spectralFftSizeFromParams(node.params)
+          : 0;
+        const nodeInfoChanged = resource.nodeIndex !== node.nodeIndex
+          || resource.fftSize !== nextFftSize;
         resource.nodeIndex = node.nodeIndex;
-        this.writeNodeInfo(resource);
+        resource.params = [...node.params];
+        if (nodeInfoChanged) this.writeNodeInfo(resource);
       }
       resource.resetSignature = signature;
       if (needsReplacement || graphBindingsChanged || !resource.bindGroup) {
