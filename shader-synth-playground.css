@@ -226,6 +226,39 @@
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+.module-hear-picker {
+  display: grid;
+  padding: 12px 14px 5px;
+  gap: 5px;
+}
+
+.module-hear-picker > span {
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#moduleHearSelect {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+#moduleHearSelect:hover,
+#moduleHearSelect:focus-visible {
+  border-color: var(--accent);
+  outline: 0;
+}
+
 .module-palette {
   display: grid;
   min-height: 120px;
@@ -317,7 +350,7 @@
   background:
     linear-gradient(115deg, color-mix(in oklab, var(--module-color, var(--accent)) 4%, transparent), transparent 65%),
     var(--bg-deep);
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 5px;
 }
@@ -2817,6 +2850,10 @@
 
   .module-search {
     margin: 5px 16px 9px;
+  }
+
+  .module-hear-picker {
+    padding: 4px 16px 5px;
   }
 
   .module-palette {

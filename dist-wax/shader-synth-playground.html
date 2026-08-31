@@ -12,7 +12,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260830-random-note" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260830-smooth-controls" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -66,6 +66,14 @@
             <a href="webgpu-dsp-primitives.html">142 in atlas <span aria-hidden="true">→</span></a>
           </div>
         </header>
+
+        <label class="module-hear-picker" for="moduleHearSelect">
+          <span>Hear a module</span>
+          <select id="moduleHearSelect" aria-label="Hear one module in a complete audition patch" aria-describedby="moduleHearHelp">
+            <option value="">Choose a module…</option>
+          </select>
+          <small class="sr-only" id="moduleHearHelp">Choosing a module replaces the graph with its supporting audition patch and starts audio.</small>
+        </label>
 
         <label class="module-search" for="moduleSearch">
           <span class="sr-only">Search modules</span>
@@ -297,7 +305,7 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260830-random-note"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260830-smooth-controls"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

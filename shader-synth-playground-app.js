@@ -13,7 +13,7 @@ import {
   sanitizeShaderPlaygroundPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "./src/shader-synth-playground.js?v=20260830-compile-status";
+} from "./src/shader-synth-playground.js?v=20260830-smooth-controls";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -843,6 +843,38 @@ function moduleSearchText(module) {
     .toLocaleLowerCase();
 }
 
+function renderHearMenu() {
+  const select = $("moduleHearSelect");
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Choose a module…";
+  const fragments = [placeholder];
+  const grouped = new Map();
+  for (const module of modules) {
+    const category = module.category || "utility";
+    if (!grouped.has(category)) grouped.set(category, []);
+    grouped.get(category).push(module);
+  }
+  const categories = [...grouped.keys()].sort((left, right) => {
+    const leftIndex = CATEGORY_ORDER.indexOf(left);
+    const rightIndex = CATEGORY_ORDER.indexOf(right);
+    return (leftIndex < 0 ? CATEGORY_ORDER.length : leftIndex)
+      - (rightIndex < 0 ? CATEGORY_ORDER.length : rightIndex);
+  });
+  for (const category of categories) {
+    const group = document.createElement("optgroup");
+    group.label = CATEGORY_LABELS[category] ?? category;
+    for (const module of grouped.get(category)) {
+      const option = document.createElement("option");
+      option.value = module.id;
+      option.textContent = module.label;
+      group.append(option);
+    }
+    fragments.push(group);
+  }
+  select.replaceChildren(...fragments);
+}
+
 function renderPalette() {
   const query = $("moduleSearch").value.trim().toLocaleLowerCase();
   const terms = query.split(/\s+/).filter(Boolean);
@@ -902,13 +934,6 @@ function renderPalette() {
       name.textContent = module.label;
       nameButton.append(name);
 
-      const hear = document.createElement("button");
-      hear.type = "button";
-      hear.className = "module-action-button";
-      hear.dataset.auditionModule = module.id;
-      hear.textContent = "Hear";
-      hear.setAttribute("aria-label", `Audition ${module.label} in a complete patch`);
-
       const add = document.createElement("button");
       add.type = "button";
       add.className = "module-action-button module-add-button";
@@ -916,7 +941,7 @@ function renderPalette() {
       add.textContent = "+";
       add.setAttribute("aria-label", `Add ${module.label} to the patch`);
 
-      row.append(nameButton, hear, add);
+      row.append(nameButton, add);
       list.append(row);
     }
     fragments.push(section);
@@ -2403,13 +2428,14 @@ async function togglePlay() {
 }
 
 $("moduleSearch").addEventListener("input", renderPalette);
+$("moduleHearSelect").addEventListener("change", (event) => {
+  const moduleId = event.target.value;
+  if (!moduleId) return;
+  auditionModule(moduleId);
+  event.target.value = "";
+  void startAudio({ play: true });
+});
 $("modulePalette").addEventListener("click", (event) => {
-  const audition = event.target.closest("[data-audition-module]");
-  if (audition) {
-    auditionModule(audition.dataset.auditionModule);
-    void startAudio({ play: true });
-    return;
-  }
   const add = event.target.closest("[data-add-module]");
   if (add) addModule(add.dataset.addModule);
 });
@@ -2585,6 +2611,7 @@ globalThis.addEventListener?.("pagehide", () => {
 if (globalThis.matchMedia?.("(max-width: 720px)")?.matches) {
   $("patchControlsPanel").open = false;
 }
+renderHearMenu();
 renderPalette();
 renderPerformanceNoteButtons();
 $("playableModuleCount").textContent = String(modules.length);

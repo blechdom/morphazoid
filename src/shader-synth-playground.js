@@ -92,6 +92,22 @@ function encodedAudioMatches(first, second) {
   return true;
 }
 
+function encodedTopologyMatches(first, second) {
+  if (!first || !second) return false;
+  if (first.nodeCount !== second.nodeCount || first.outputIndex !== second.outputIndex) return false;
+  if (first.order.length !== second.order.length || first.order.some((id, index) => id !== second.order[index])) return false;
+  for (let nodeIndex = 0; nodeIndex < second.nodeCount; nodeIndex += 1) {
+    const offset = nodeIndex * FLOATS_PER_NODE;
+    // Kind and the three encoded input routes are the graph topology. Knob
+    // values live in the remaining slots and can flow into the existing
+    // monotonic queue without replacing scheduled AudioBufferSource nodes.
+    for (let slot = 0; slot < 4; slot += 1) {
+      if (first.data[offset + slot] !== second.data[offset + slot]) return false;
+    }
+  }
+  return true;
+}
+
 const port = (id, label, type, options = {}) => freeze({
   id,
   label,
@@ -1830,6 +1846,7 @@ override SAMPLE_RATE: f32 = 44100.0;
 override WORKGROUP_SIZE: u32 = 256u;
 const PI: f32 = 3.141592653589793;
 const TAU: f32 = 6.283185307179586;
+const PARAMETER_TRANSITION_SECONDS: f32 = 0.035;
 const MAX_GRAPH_NODES: u32 = 16u;
 const MAJOR_SCALE: array<f32, 7> = array<f32, 7>(0.0, 2.0, 4.0, 5.0, 7.0, 9.0, 11.0);
 const MINOR_SCALE: array<f32, 7> = array<f32, 7>(0.0, 2.0, 3.0, 5.0, 7.0, 8.0, 10.0);
@@ -2451,7 +2468,11 @@ fn render(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let transitionActive = render_info.rampActive != 0u || render_info.organRampActive != 0u;
   var ramp = 1.0;
   if (transitionActive && render_info.sampleCount > 1u) {
-    ramp = f32(sample) / f32(render_info.sampleCount - 1u);
+    let transitionSamples = min(
+      render_info.sampleCount - 1u,
+      max(u32(round(SAMPLE_RATE * PARAMETER_TRANSITION_SECONDS)), 1u)
+    );
+    ramp = smootherstep01(f32(min(sample, transitionSamples)) / f32(transitionSamples));
   }
   let previousOrganRankOffset = select(9u, 0u, render_info.organRampActive != 0u);
   var previousValues: array<vec2<f32>, 16>;
@@ -2782,7 +2803,8 @@ export class ShaderSynthPlaygroundAudio {
     this.organRankRevision += 1;
     this.pendingOrganRankRamp = true;
     this.writeOrganRankTransition();
-    if (this.running) this.refreshSchedule();
+    // Match the 303 control path: keep the audible timeline intact and let
+    // the next normally rendered chunk consume the latest rank bank.
     return this.organRanks;
   }
 
@@ -2806,6 +2828,7 @@ export class ShaderSynthPlaygroundAudio {
   updatePatch(patch = this.patch) {
     const encoded = encodeShaderPlaygroundPatch(patch, this.previousParams);
     const audioChanged = !encodedAudioMatches(this.encodedPatch, encoded);
+    const topologyChanged = !encodedTopologyMatches(this.encodedPatch, encoded);
     this.patch = encoded.patch;
     if (!audioChanged && this.encodedPatch) {
       this.encodedPatch = { ...this.encodedPatch, patch: encoded.patch };
@@ -2836,7 +2859,11 @@ export class ShaderSynthPlaygroundAudio {
     this.patchRevision += 1;
     this.pendingRamp = true;
     if (this.device && this.nodeBuffer) this.device.queue.writeBuffer(this.nodeBuffer, 0, encoded.data);
-    if (this.running) this.refreshSchedule();
+    // Parameter-only edits arrive many times per pointer drag. Replacing the
+    // future queue for every event caused repeated 100 ms handoffs and could
+    // replay a late chunk. Keep the 303-style stable queue for knobs; reserve
+    // queue replacement for an actual node/routing change.
+    if (this.running && topologyChanged) this.refreshSchedule();
     return this.patch;
   }
 

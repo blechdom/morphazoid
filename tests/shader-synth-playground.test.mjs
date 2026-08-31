@@ -559,7 +559,7 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   assert.match(css, /\.patch-node\.is-selected\s*\{[\s\S]*?border-color: var\(--node-color, var\(--accent\)\)/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeWidth/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeHeight/);
-  assert.match(html, /shader-synth-playground\.css\?v=20260830-random-note/);
+  assert.match(html, /shader-synth-playground\.css\?v=20260830-smooth-controls/);
 });
 
 test("three-way sum and product require and encode all three input slots", () => {
@@ -1188,11 +1188,13 @@ test("patch sanitization clamps parameters and bounds graph size", () => {
   assert.equal(patch.nodes[0].params.waveform, 3);
 });
 
-test("the WGSL is a fixed sample-parallel graph interpreter with safe patch crossfades", () => {
+test("the WGSL is a fixed sample-parallel graph interpreter with eased patch morphs", () => {
   assert.match(SHADER_PLAYGROUND_SHADER, /var previousValues: array<vec2<f32>, 16>/);
   assert.match(SHADER_PLAYGROUND_SHADER, /var targetValues: array<vec2<f32>, 16>/);
   assert.match(SHADER_PLAYGROUND_SHADER, /switch kind/);
   assert.match(SHADER_PLAYGROUND_SHADER, /mix\(previousValues\[outputIndex\], targetValues\[outputIndex\], ramp\)/);
+  assert.match(SHADER_PLAYGROUND_SHADER, /const PARAMETER_TRANSITION_SECONDS: f32 = 0\.035/);
+  assert.match(SHADER_PLAYGROUND_SHADER, /ramp = smootherstep01\(f32\(min\(sample, transitionSamples\)\) \/ f32\(transitionSamples\)\)/);
   assert.match(SHADER_PLAYGROUND_SHADER, /fn phaseAtSample/);
   assert.match(SHADER_PLAYGROUND_SHADER, /render_info\.baseSample \+ sample/);
   assert.match(SHADER_PLAYGROUND_SHADER, /performancePitch: f32/);
@@ -1523,7 +1525,7 @@ test("rapid parameter edits continue from each rendered intermediate target", ()
   assert.equal(writes.at(-1)[voiceOffset + 12], 330);
 });
 
-test("live patch edits replace one future queue boundary without touching master transport", () => {
+test("knob edits preserve the queue while topology edits replace one future boundary", () => {
   const engine = new ShaderSynthPlaygroundAudio({});
   const initial = createShaderPlaygroundPatch("pm-bell");
   const edit = createShaderPlaygroundPatch("pm-bell");
@@ -1542,39 +1544,47 @@ test("live patch edits replace one future queue boundary without touching master
     { source: oldSources[1], generation: 0, offset: 8.1, startAt: 2.12, endAt: 2.22 },
     { source: oldSources[2], generation: 0, offset: 8.2, startAt: 2.22, endAt: 2.32 },
   ];
+  engine.renderSampleOffset = 8300;
+  engine.renderOffset = 8.3;
+  engine.nextStartTime = 2.32;
   let queueRequests = 0;
   engine.queueFill = () => { queueRequests += 1; };
 
   engine.updatePatch(edit);
-  assert.equal(engine.queueGeneration, 1);
-  assert.equal(engine.renderSampleOffset, 8100, "replacement renders the first safe future chunk's timeline");
-  assert.equal(engine.nextStartTime, 2.12);
-  assert.equal(engine.pendingQueueHandoff.generation, 1);
-  assert.deepEqual([...engine.pendingQueueHandoff.sources], oldSources);
-  assert.equal(queueRequests, 1);
+  assert.equal(engine.queueGeneration, 0, "a knob does not replace already scheduled audio");
+  assert.equal(engine.renderSampleOffset, 8300, "parameter edits keep the sample timeline monotonic");
+  assert.equal(engine.nextStartTime, 2.32);
+  assert.equal(engine.pendingQueueHandoff, null);
+  assert.equal(queueRequests, 0);
   assert.equal(engine.playbackEnabled, false, "a live edit cannot toggle transport");
 
   edit.nodes.find(({ id }) => id === "voice").params.frequency = 330;
   engine.updatePatch(edit);
-  assert.equal(engine.queueGeneration, 1, "rapid edits coalesce instead of starving an in-flight replacement");
-  assert.equal(queueRequests, 2);
-  assert.equal(engine.deferredQueueRefresh, true);
+  assert.equal(engine.queueGeneration, 0, "rapid knob edits cannot churn queue generations");
+  assert.equal(queueRequests, 0);
+  assert.equal(engine.deferredQueueRefresh, false);
 
   for (let frequency = 340; frequency <= 440; frequency += 10) {
     edit.nodes.find(({ id }) => id === "voice").params.frequency = frequency;
     engine.updatePatch(edit);
   }
-  assert.equal(engine.queueGeneration, 1, "a drag cannot repeatedly invalidate the handoff generation");
+  assert.equal(engine.queueGeneration, 0, "a whole drag leaves the audible queue intact");
+  assert.equal(engine.encodedPatch.paramsByNode.get("voice")[0], 440, "the next GPU chunk receives the latest target");
 
-  engine.pendingQueueHandoff = null;
-  engine.deferredQueueRefresh = false;
-  engine.renderingPromise = Promise.resolve();
-  for (let frequency = 450; frequency <= 550; frequency += 10) {
-    edit.nodes.find(({ id }) => id === "voice").params.frequency = frequency;
-    engine.updatePatch(edit);
-  }
-  assert.equal(engine.queueGeneration, 1, "events during a GPU fill defer one refresh rather than discarding the fill");
-  assert.equal(engine.deferredQueueRefresh, true);
+  const topologyEdit = createShaderPlaygroundPatch("pm-bell");
+  topologyEdit.nodes.find(({ id }) => id === "voice").params.frequency = 440;
+  topologyEdit.connections.push({
+    id: "shape-pan-position",
+    from: { node: "shape", port: "out" },
+    to: { node: "pan", port: "position" },
+  });
+  engine.updatePatch(topologyEdit);
+  assert.equal(engine.queueGeneration, 1, "a routing edit still creates one safe replacement generation");
+  assert.equal(engine.renderSampleOffset, 8100, "the replacement begins at the first safe queued boundary");
+  assert.equal(engine.nextStartTime, 2.12);
+  assert.equal(engine.pendingQueueHandoff.generation, 1);
+  assert.deepEqual([...engine.pendingQueueHandoff.sources], oldSources);
+  assert.equal(queueRequests, 1);
 });
 
 test("organ-rank transitions commit the bank that rendered while preserving newer edits", () => {
@@ -1670,7 +1680,7 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
     readFile(new URL("webgpu-synths.html", ROOT), "utf8"),
   ]);
   for (const id of [
-    "audioButton", "playgroundPlayButton", "modulePalette", "graphViewport", "patchCables", "patchNodes",
+    "audioButton", "playgroundPlayButton", "moduleHearSelect", "modulePalette", "graphViewport", "patchCables", "patchNodes",
     "nodeInspector", "nodeControls", "parameterResponseCanvas", "parameterBehavior", "selectedNodeShader", "scopeCanvas",
     "presetButtons", "organRankSection", "organRankControls", "resetOrganRanks",
     "patchControlsPanel", "patchControls", "patchControlCount",
@@ -1702,6 +1712,9 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(css, /\.patch-organ-ranks/);
   assert.match(css, /\.patch-organ-rank-knobs/);
   assert.match(app, /function renderPatchControls\(\)/);
+  assert.match(app, /function renderHearMenu\(\)/);
+  assert.match(app, /\$\("moduleHearSelect"\)\.addEventListener\("change"[\s\S]*?auditionModule\(moduleId\)[\s\S]*?startAudio\(\{ play: true \}\)/);
+  assert.doesNotMatch(app, /dataset\.auditionModule/);
   assert.match(app, /for \(const param of module\.params\)/);
   assert.match(app, /input\.dataset\.nodeId = node\.id/);
   assert.match(app, /input\.dataset\.paramId = param\.id/);

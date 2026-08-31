@@ -428,6 +428,7 @@ override WORKGROUP_SIZE: u32 = 256u;
 
 const PI: f32 = 3.141592653589793;
 const TAU: f32 = 6.283185307179586;
+const PARAMETER_TRANSITION_SECONDS: f32 = 0.035;
 const LN_1000: f32 = 6.907755278982137;
 const MAX_GRAPH_NODES: u32 = 16u;
 const MAX_DELAY_TAPS: u32 = 6u;
@@ -925,7 +926,11 @@ fn processPostGraphFx(@builtin(global_invocation_id) globalId: vec3<u32>) {
   let sampleIndex = render_info.baseSample + sample;
   var ramp = 1.0;
   if (render_info.rampActive != 0u && render_info.sampleCount > 1u) {
-    ramp = f32(sample) / f32(render_info.sampleCount - 1u);
+    let transitionSamples = min(
+      render_info.sampleCount - 1u,
+      max(u32(round(SAMPLE_RATE * PARAMETER_TRANSITION_SECONDS)), 1u)
+    );
+    ramp = smootherstep01(f32(min(sample, transitionSamples)) / f32(transitionSamples));
   }
   var previousSignal = input_chunk[sample];
   var targetSignal = previousSignal;
