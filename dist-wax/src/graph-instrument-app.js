@@ -10,15 +10,16 @@ import {
   GraphDrumAudio,
   graphDrumPercussionVoice,
   graphDrumStyleIsKarplus,
+  graphDrumStyleUsesContinuousPitch,
   graphDrumStyleUsesPhysicalEngine,
   sanitizeGraphDrumPercussionStyle,
-} from "./graph-drum-audio.js?v=graph-instruments-20260830-3";
+} from "./graph-drum-audio.js?v=graph-instruments-20260830-4";
 import {
   GRAPH_PRESETS,
   edgeAudioParameters,
   generateGraph,
   graphSinkNodeIds,
-} from "./graph-delay.js?v=graph-instruments-20260830-3";
+} from "./graph-delay.js?v=graph-instruments-20260830-4";
 import {
   GRAPH_INSTRUMENT_PATCHES,
   MAX_GRAPH_EVENT_SCHEDULE,
@@ -30,11 +31,11 @@ import {
   graphSynthVoice,
   mappedGraphDrumVoice,
   scheduleGraphPulse,
-} from "./graph-instruments.js?v=graph-instruments-20260830-3";
+} from "./graph-instruments.js?v=graph-instruments-20260830-4";
 import {
   MAX_GRAPH_SYNTH_ACTIVE_VOICES,
   GraphSynthAudio,
-} from "./graph-synth-audio.js?v=graph-instruments-20260830-3";
+} from "./graph-synth-audio.js?v=graph-instruments-20260830-4";
 
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.09;
@@ -678,7 +679,7 @@ export function initializeGraphInstrument({
   async function launchSeedMidi(note, velocity = 0.9) {
     const midi = Math.round(clamp(note, 0, 127, 60));
     state.seedNote = midi;
-    if (instrumentMode === "synth") state.baseFrequency = midiFrequency(midi);
+    state.baseFrequency = midiFrequency(midi);
     syncControls();
     await ensureAudio();
     return launchPulseAt((audio.context?.currentTime ?? 0) + 0.025, {
@@ -742,12 +743,17 @@ export function initializeGraphInstrument({
   function drumMapping(event, run) {
     const graph = run?.graph ?? displayModel ?? model;
     const voiceOffset = run?.seedOffset ?? 0;
+    const continuousPitch = graphDrumStyleUsesContinuousPitch(state.percussionStyle);
     const voiceIndex = graphDrumVoiceIndex(event, graph, {
       mode: state.mappingMode,
       voiceOffset,
     });
     const mapped = mappedGraphDrumVoice(voices[voiceIndex], event, graph, {
       mappingMode: state.mappingMode,
+      pitchMapping: continuousPitch ? "progress" : "height",
+      baseFrequency: continuousPitch
+        ? run?.rootFrequency ?? state.baseFrequency
+        : undefined,
       pitchDepth: state.pitchDepth,
       turnPitchDepth: state.turnPitchDepth,
       characterDepth: state.characterDepth,
@@ -1257,6 +1263,11 @@ export function initializeGraphInstrument({
       $("mappingLegendDetail" + index).textContent = detail;
     });
     if (instrumentMode === "drums") {
+      if ($("pitchDepthLabel")) {
+        $("pitchDepthLabel").textContent = graphDrumStyleUsesContinuousPitch(
+          state.percussionStyle,
+        ) ? "Progress → pitch" : "Height → pitch";
+      }
       const style = GRAPH_DRUM_PERCUSSION_STYLES.find(({ id }) => id === state.percussionStyle)
         ?? GRAPH_DRUM_PERCUSSION_STYLES[0];
       $("mappingSummary").textContent = `${details.label} · ${style.label.toLowerCase()}`;
@@ -1601,7 +1612,7 @@ export function initializeGraphInstrument({
     after: () => {
       state.seedNote = Math.round(clamp(state.seedNote, 0, 127, 60));
       $("seedNote").value = String(state.seedNote);
-      if (instrumentMode === "synth") state.baseFrequency = midiFrequency(state.seedNote);
+      state.baseFrequency = midiFrequency(state.seedNote);
     },
   });
   bindRange("tempo", "tempo", { custom: true });

@@ -67,6 +67,12 @@ export function graphDrumStyleUsesPhysicalEngine(style) {
   return safeStyle === "rattlesnake-physical" || graphDrumStyleIsKarplus(safeStyle);
 }
 
+/** Rattlesnake voices use graph-rooted pitch instead of categorical bank tuning. */
+export function graphDrumStyleUsesContinuousPitch(style) {
+  const safeStyle = sanitizeGraphDrumPercussionStyle(style);
+  return safeStyle === "rattlesnake" || safeStyle === "rattlesnake-physical";
+}
+
 export function graphDrumPercussionVoice(sourceVoice = {}, { style } = {}) {
   const percussionStyle = sanitizeGraphDrumPercussionStyle(style);
   const voiceIndex = Math.round(clamp(sourceVoice.voiceIndex, 0, 15, 0));

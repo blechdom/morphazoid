@@ -255,6 +255,18 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.equal(controller.soundedEventCount, 0, "seed-note input must not add an attack");
   assert.equal(audioEngine.context, null, "seed-note input must not start audio");
 
+  if (mode === "drums") {
+    elements.get("percussionStyle").value = "rattlesnake";
+    listeners.get("percussionStyle:change")({
+      currentTarget: elements.get("percussionStyle"),
+    });
+    flushAnimationFrames(frameNow + 10);
+    assert.equal(controller.state.percussionStyle, "rattlesnake");
+    assert.equal(elements.get("pitchDepthLabel").textContent, "Progress → pitch");
+    assert.equal(controller.pulseCount, 0, "Rattlesnake selection must not launch a pulse");
+    assert.equal(controller.soundedEventCount, 0, "Rattlesnake selection must not add attacks");
+  }
+
   const firstSeedTriggerIndex = audioTriggers.length;
   await listeners.get("pulseButton:click")();
   flushAnimationFrames(frameNow + 20);
@@ -264,8 +276,8 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.ok(controller.soundedEventCount > 0, "Pulse should schedule audible graph attacks");
   assert.equal(audioTriggers.length, controller.soundedEventCount);
   if (mode === "drums") {
-    assert.ok(audioTriggers.every(({ voice }) => voice.percussionStyle === "karplus-tines"));
-    assert.ok(audioTriggers.every(({ voice }) => voice.family === "karplus"));
+    assert.ok(audioTriggers.every(({ voice }) => voice.percussionStyle === "rattlesnake"));
+    assert.ok(audioTriggers.every(({ voice }) => voice.family === "rattle"));
   }
   assert.ok(
     controller.pulseTemplate.audioEvents.every(({ kind }) => kind === "node"),
@@ -311,13 +323,14 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.ok(controller.soundedEventCount > attacksBeforeSeedMove);
   const spaceSeedVoice = audioTriggers[spaceSeedTriggerIndex]?.voice;
   assert.ok(spaceSeedVoice, "Space must use the selected seed note for an audible run");
-  if (mode === "synth") {
+  if (mode === "synth" || mode === "drums") {
     const expectedRatio = 2 ** (4 / 12);
     assert.ok(
       Math.abs(spaceSeedVoice.frequency / firstSeedVoice.frequency - expectedRatio) < 1e-9,
-      "Send one and Space must derive their synth roots from the selected seed note",
+      "Send one and Space must derive pitched roots from the selected seed note",
     );
-  } else {
+  }
+  if (mode === "drums") {
     assert.notEqual(
       spaceSeedVoice.voiceIndex,
       firstSeedVoice.voiceIndex,

@@ -25,6 +25,7 @@ import {
 } from "../src/graph-instrument-app.js";
 import { edgeAudioParameters, generateGraph } from "../src/graph-delay.js";
 import { GRAPH_DRUM_PERCUSSION_STYLES } from "../src/graph-drum-audio.js";
+import { cloneDefaultFmDrumVoices } from "../src/fm-drums.js";
 
 const closeTo = (actual, expected, epsilon = 1e-12) => {
   assert.ok(
@@ -808,6 +809,63 @@ test("graph drum mappings always select the 16-voice bank and bound voice parame
     aliased.voiceIndex,
     graphDrumVoiceIndex(turnEvent, graph, { mode: "degree-turn" }),
   );
+});
+
+test("graph-progress drum pitch is smooth and root-relative without changing bank selection", () => {
+  const graph = generateGraph({ type: "chain", nodeCount: 10, density: 0, seed: 1 });
+  const voices = cloneDefaultFmDrumVoices();
+  const events = graph.nodes.map((node, depth) => ({
+    nodeId: node.id,
+    depth,
+    localTurn: 0,
+    cumulativeTurn: 0,
+    cumulativeSemitones: 0,
+    feedbackCount: 0,
+    amplitude: 1,
+  }));
+  const indices = events.map((event) => graphDrumVoiceIndex(event, graph, {
+    mode: "position-grid",
+  }));
+  assert.deepEqual(indices, [4, 4, 5, 5, 5, 6, 6, 6, 7, 7]);
+  assert.deepEqual(indices.map((index) => voices[index].frequency), [
+    82, 82, 124, 124, 124, 191, 191, 191, 4_820, 4_820,
+  ]);
+
+  const rootFrequency = 261.6255653005986;
+  const mapAtRoot = (root) => events.map((event, index) => mappedGraphDrumVoice(
+    voices[indices[index]],
+    event,
+    graph,
+    {
+      mappingMode: "position-grid",
+      pitchMapping: "progress",
+      baseFrequency: root,
+      pitchDepth: 12,
+      turnPitchDepth: 0,
+    },
+  ).frequency);
+  const frequencies = mapAtRoot(rootFrequency);
+  assert.equal(new Set(frequencies).size, graph.nodes.length);
+  assert.ok(frequencies.every((frequency, index) => (
+    index === 0 || frequency > frequencies[index - 1]
+  )));
+  frequencies.forEach((frequency, index) => {
+    const semitones = (graph.nodes[index].x * 2 - 1) * 12;
+    closeTo(frequency, rootFrequency * 2 ** (semitones / 12));
+  });
+  const sameEventDifferentMaterial = [voices[4], voices[7]].map((voice) => (
+    mappedGraphDrumVoice(voice, events[4], graph, {
+      mappingMode: "position-grid",
+      pitchMapping: "progress",
+      baseFrequency: rootFrequency,
+      pitchDepth: 12,
+      turnPitchDepth: 0,
+    }).frequency
+  ));
+  closeTo(sameEventDifferentMaterial[0], sameEventDifferentMaterial[1]);
+
+  const octaveHigher = mapAtRoot(rootFrequency * 2);
+  octaveHigher.forEach((frequency, index) => closeTo(frequency, frequencies[index] * 2));
 });
 
 test("degree-turn and path-phase drum modes use their named graph dimensions", () => {

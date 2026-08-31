@@ -185,7 +185,7 @@ test("Graph pages cannot mix refreshed markup with stale Graph runtime modules",
     readFile(new URL("src/graph-instruments.js", root), "utf8"),
     readFile(new URL("scripts/dev-server.py", root), "utf8"),
   ]);
-  const version = "graph-instruments-20260830-3";
+  const version = "graph-instruments-20260830-4";
 
   assert.match(drums, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));
   assert.match(synth, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));

@@ -4,7 +4,7 @@ import {
   graphEdgeSwitchMultipliers,
   relativeTurnRadians,
   turnPitchSemitones,
-} from "./graph-delay.js?v=graph-instruments-20260830-3";
+} from "./graph-delay.js?v=graph-instruments-20260830-4";
 
 // Dense and cyclic graphs can revisit nodes many times. Keep their event queue
 // explicitly bounded even though the editable instruments stop at 32 nodes.
@@ -659,9 +659,10 @@ export function mappedGraphDrumVoice(baseVoice = {}, event = {}, graph = {}, opt
     0.84,
   )
     ** positiveInteger(event.feedbackCount, 0, MAX_GRAPH_FEEDBACK_PASSES);
-  const verticalSemitones = (0.5 - clamp(node.y, 0, 1, 0.5))
-    * 2
-    * clamp(pitchDepth, 0, 24, 9);
+  const pitchPosition = options.pitchMapping === "progress"
+    ? clamp(node.x, 0, 1, 0.5) * 2 - 1
+    : (0.5 - clamp(node.y, 0, 1, 0.5)) * 2;
+  const positionSemitones = pitchPosition * clamp(pitchDepth, 0, 24, 9);
   const requestedTurnDepth = Number(options.turnPitchDepth);
   const turnSemitones = Number.isFinite(requestedTurnDepth)
     ? clamp(
@@ -672,8 +673,14 @@ export function mappedGraphDrumVoice(baseVoice = {}, event = {}, graph = {}, opt
       0,
     ) * clamp(requestedTurnDepth, 0, 48, 9)
     : finite(event.cumulativeSemitones) * clamp(turnPitchAmount, 0, 2, 0.35);
-  const semitones = verticalSemitones + turnSemitones;
-  const baseFrequency = clamp(baseVoice?.frequency, 20, 12_000, 60);
+  const semitones = positionSemitones + turnSemitones;
+  const requestedBaseFrequency = Number(options.baseFrequency);
+  const baseFrequency = clamp(
+    Number.isFinite(requestedBaseFrequency) ? requestedBaseFrequency : baseVoice?.frequency,
+    20,
+    12_000,
+    60,
+  );
   const baseTone = clamp(baseVoice?.tone, 0, 1, 0.5);
   const baseModIndex = clamp(baseVoice?.modIndex, 0, 20, 3);
   const baseLevel = clamp(baseVoice?.level ?? baseVoice?.gain, 0, 1, 0.7);

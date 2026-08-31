@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="micmic.css" />
     <link rel="stylesheet" href="graph-delay.css" />
     <link rel="stylesheet" href="l-system-drums.css" />
-    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-3" />
+    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-4" />
   </head>
   <body class="micmic-page graph-delay-page graph-instrument-page graph-drums-page" data-graph-instrument="drums">
     <header class="masthead">
@@ -172,7 +172,7 @@
             <label class="select-control" for="mappingMode"><span class="field-label">Node → voice</span><span class="select-shell"><select id="mappingMode"><option value="position-grid" selected>Stage position</option><option value="degree-turn">Degree × incoming turn</option><option value="path-phase">Path depth × cycle pass</option></select></span></label>
             <p class="graph-mapping-description" id="mappingDescription">Each node's 4 × 4 stage position chooses one drum.</p>
             <div class="graph-mapping-legend" aria-label="Graph drum mapping legend"><span><b id="mappingLegendLabel0">Vertical</b><small id="mappingLegendDetail0">drum row</small></span><span><b id="mappingLegendLabel1">Horizontal</b><small id="mappingLegendDetail1">voice column</small></span><span><b id="mappingLegendLabel2">Edge turn</b><small id="mappingLegendDetail2">tuning</small></span><span><b id="mappingLegendLabel3">Cycle pass</b><small id="mappingLegendDetail3">level + tone loss</small></span></div>
-            <label class="control" for="pitchDepth"><span><b>Height → pitch</b><output id="pitchDepthOut" for="pitchDepth">12 st</output></span><input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" /></label>
+            <label class="control" for="pitchDepth"><span><b id="pitchDepthLabel">Height → pitch</b><output id="pitchDepthOut" for="pitchDepth">12 st</output></span><input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" /></label>
             <label class="control" for="turnPitchDepth"><span><b>Turn → pitch</b><output id="turnPitchDepthOut" for="turnPitchDepth">9 st</output></span><input id="turnPitchDepth" type="range" min="0" max="24" step="1" value="9" /></label>
             <label class="control" for="characterDepth"><span><b>Graph → character</b><output id="characterDepthOut" for="characterDepth">72%</output></span><input id="characterDepth" type="range" min="0" max="1" step="0.01" value="0.72" /></label>
           </div>
@@ -194,6 +194,6 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="graph-drums-app.js?v=graph-instruments-20260830-3"></script>
+    <script type="module" src="graph-drums-app.js?v=graph-instruments-20260830-4"></script>
   </body>
 </html>

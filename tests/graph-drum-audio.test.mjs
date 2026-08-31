@@ -8,6 +8,7 @@ import {
   GraphDrumAudio,
   graphDrumPercussionVoice,
   graphDrumStyleIsKarplus,
+  graphDrumStyleUsesContinuousPitch,
   graphDrumStyleUsesPhysicalEngine,
   graphDrumTriggerPlan,
   sanitizeGraphDrumPercussionStyle,
@@ -50,6 +51,9 @@ test("Graph drums expose FM, real Rattlesnake, and three bounded Karplus banks",
   assert.equal(sanitizeGraphDrumPercussionStyle("missing"), "drum-bank");
   assert.equal(graphDrumStyleUsesPhysicalEngine("rattlesnake"), false);
   assert.equal(graphDrumStyleUsesPhysicalEngine("rattlesnake-physical"), true);
+  assert.equal(graphDrumStyleUsesContinuousPitch("rattlesnake"), true);
+  assert.equal(graphDrumStyleUsesContinuousPitch("rattlesnake-physical"), true);
+  assert.equal(graphDrumStyleUsesContinuousPitch("circuit"), false);
   assert.equal(graphDrumStyleIsKarplus("karplus-tines"), true);
 
   const original = { ...baseVoice };
@@ -67,7 +71,13 @@ test("Graph drums expose FM, real Rattlesnake, and three bounded Karplus banks",
   const rattlePlan = graphDrumTriggerPlan(rattlesnake);
   assert.equal(rattlePlan.engine, "rattlesnake");
   assert.equal(rattlePlan.settings.model, "hybrid");
+  assert.equal(rattlePlan.frequency, baseVoice.frequency);
   assert.match(rattlesnake.name, /^Physical Rattle/);
+
+  const fmRattlesnake = graphDrumPercussionVoice(baseVoice, { style: "rattlesnake" });
+  const fmRattlePlan = graphDrumTriggerPlan(fmRattlesnake);
+  assert.equal(fmRattlePlan.engine, "fm");
+  assert.equal(fmRattlePlan.frequency, baseVoice.frequency);
 
   for (const style of ["karplus-strong", "karplus-tines", "karplus-objects"]) {
     const voice = graphDrumPercussionVoice(baseVoice, { style });
