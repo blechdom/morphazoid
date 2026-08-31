@@ -64,6 +64,7 @@ test("shared graph instrument patches retain the selected safe graph-delay contr
     assert.ok(patch.timeCurve >= 0.25 && patch.timeCurve <= 3);
     assert.ok(patch.feedback >= 0 && patch.feedback <= 0.92);
     assert.ok(patch.nodePass >= 0 && patch.nodePass <= 1);
+    assert.ok(patch.nodeCount >= 3 && patch.nodeCount <= MAX_GRAPH_INSTRUMENT_NODES);
     assert.ok(typeof patch.description === "string" && patch.description.length > 20);
     assert.ok(Object.isFrozen(patch));
   }
@@ -495,13 +496,13 @@ test("event, depth, feedback-pass, horizon, and amplitude bounds stop cyclic exp
   );
 });
 
-test("the maximum 128-node chain traverses every sequential node", () => {
+test("the maximum 32-node chain traverses every sequential node", () => {
   const graph = generateGraph({
     type: "chain",
     nodeCount: MAX_GRAPH_INSTRUMENT_NODES,
     maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
   });
-  assert.equal(MAX_GRAPH_INSTRUMENT_NODES, 128);
+  assert.equal(MAX_GRAPH_INSTRUMENT_NODES, 32);
   assert.equal(graph.nodes.length, MAX_GRAPH_INSTRUMENT_NODES);
   assert.equal(graph.edges.length, MAX_GRAPH_INSTRUMENT_NODES - 1);
 
@@ -524,7 +525,7 @@ test("the maximum 128-node chain traverses every sequential node", () => {
   closeTo(events.at(-1).time, (MAX_GRAPH_INSTRUMENT_NODES - 1) * 0.004, 1e-10);
 });
 
-test("the scheduler hard-caps oversized graph input at 128 nodes", () => {
+test("the scheduler hard-caps oversized graph input at 32 nodes", () => {
   const oversized = generateGraph({
     type: "chain",
     nodeCount: 512,
@@ -552,7 +553,7 @@ test("the scheduler hard-caps oversized graph input at 128 nodes", () => {
   }
 });
 
-test("a 128-node ring can complete multiple decaying feedback laps", () => {
+test("a 32-node ring can complete multiple decaying feedback laps", () => {
   const graph = generateGraph({
     type: "ring",
     nodeCount: MAX_GRAPH_INSTRUMENT_NODES,
@@ -577,7 +578,7 @@ test("a 128-node ring can complete multiple decaying feedback laps", () => {
   closeTo(rootReturns[2].amplitude, 0.72 ** 2, 1e-10);
 });
 
-test("a dense cyclic 128-node schedule stays bounded and deterministic without shrinking topology", () => {
+test("a dense cyclic 32-node schedule stays bounded and deterministic without shrinking topology", () => {
   const graph = generateGraph({
     type: "smallworld",
     nodeCount: MAX_GRAPH_INSTRUMENT_NODES,

@@ -79,7 +79,7 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
     ]) assert.match(html, new RegExp(`option value="${topology}"`));
     assert.match(html, /Cycles are (?:musical|note) feedback/);
     assert.match(html, /id="randomGraphButton"[^>]*>Random<\/button>/);
-    assert.match(html, /id="nodeCount"[^>]*max="128"/);
+    assert.match(html, /id="nodeCount"[^>]*max="32"/);
     assert.match(html, /id="distanceRatio"[^>]*min="1"[^>]*max="12"[^>]*step="0\.01"/);
     assert.match(html, /At 1×, every edge uses the minimum time/);
     assert.doesNotMatch(html, /id="timeScale"|Distance → extra time/);
@@ -102,6 +102,21 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
         && html.indexOf('id="seedNote"') < html.indexOf('id="delaySection"'),
       "the compact seed-note control belongs in Play instead of over the graph",
     );
+    assert.ok(
+      html.indexOf('id="playSection"') < html.indexOf('id="topology"')
+        && html.indexOf('id="topology"') < html.indexOf('id="delaySection"')
+        && html.indexOf('id="playSection"') < html.indexOf('id="baseDelay"')
+        && html.indexOf('id="baseDelay"') < html.indexOf('id="delaySection"'),
+      "Graph shape and Edge time / speed belong in the top Play panel",
+    );
+    for (const uniqueId of ["topology", "baseDelay", "baseDelayOut", "nodeCount"]) {
+      assert.equal(
+        (html.match(new RegExp(`id="${uniqueId}"`, "g")) ?? []).length,
+        1,
+        `${uniqueId} must have one authoritative control`,
+      );
+    }
+    assert.match(html, /<b>Edge time \/ speed<\/b>/);
     assert.doesNotMatch(html, /id="seedPulseButton"|id="seedKeyboard"|id="seedOctave(?:Down|Out|Up)"/);
     assert.doesNotMatch(html, /data-seed-semitone|class="[^"]*graph-seed-keyboard/);
     assert.match(html, /Drag nodes to change edge times/);
@@ -127,13 +142,14 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
   assert.match(css, /\.graph-drum-map/);
   assert.match(css, /\.graph-instrument-page \.graph-preset-grid\s*\{[^}]*repeat\(4,/s);
   assert.match(css, /\.graph-seed-note-control\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
+  assert.match(css, /\.graph-play-primary-grid\s*\{[^}]*grid-template-columns:/s);
   assert.doesNotMatch(css, /\.graph-seed-(?:keyboard|keyboard-head|keys)\b/);
   assert.doesNotMatch(css, /\.graph-pulse-control\b/);
   assert.match(app, /scheduleGraphPulse/);
   assert.match(app, /new GraphDrumAudio\(runtime\)/);
   assert.match(app, /horizonSeconds: 1_024/);
   assert.match(app, /maxNodes: MAX_GRAPH_INSTRUMENT_NODES/);
-  assert.match(core, /MAX_GRAPH_INSTRUMENT_NODES = 128/);
+  assert.match(core, /MAX_GRAPH_INSTRUMENT_NODES = 32/);
   assert.match(drumAudio, /class GraphDrumAudio/);
   assert.match(drumAudio, /new FmDrumAudio\(runtime\)/);
   assert.match(drumAudio, /new LinearDrumAudio\(runtime\)/);
@@ -169,7 +185,7 @@ test("Graph pages cannot mix refreshed markup with stale Graph runtime modules",
     readFile(new URL("src/graph-instruments.js", root), "utf8"),
     readFile(new URL("scripts/dev-server.py", root), "utf8"),
   ]);
-  const version = "graph-instruments-20260830-2";
+  const version = "graph-instruments-20260830-3";
 
   assert.match(drums, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));
   assert.match(synth, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));

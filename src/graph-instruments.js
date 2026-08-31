@@ -4,13 +4,13 @@ import {
   graphEdgeSwitchMultipliers,
   relativeTurnRadians,
   turnPitchSemitones,
-} from "./graph-delay.js?v=graph-instruments-20260830-2";
+} from "./graph-delay.js?v=graph-instruments-20260830-3";
 
 // Dense and cyclic graphs can revisit nodes many times. Keep their event queue
-// explicitly bounded even though the editable instruments stop at 128 nodes.
+// explicitly bounded even though the editable instruments stop at 32 nodes.
 export const MAX_GRAPH_EVENT_SCHEDULE = 8_192;
 export const MIN_GRAPH_EVENT_AMPLITUDE = 0.001;
-export const MAX_GRAPH_INSTRUMENT_NODES = 128;
+export const MAX_GRAPH_INSTRUMENT_NODES = 32;
 export const MAX_GRAPH_INSTRUMENT_TURN_ROUTES = 4_096;
 export const MAX_GRAPH_EQUAL_DIVISIONS = 360;
 

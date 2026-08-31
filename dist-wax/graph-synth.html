@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="micmic.css" />
     <link rel="stylesheet" href="graph-delay.css" />
     <link rel="stylesheet" href="l-system-drums.css" />
-    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-2" />
+    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-3" />
   </head>
   <body class="micmic-page graph-delay-page graph-instrument-page graph-synth-page" data-graph-instrument="synth">
     <header class="masthead">
@@ -46,6 +46,10 @@
               <button class="graph-pulse-action" id="pulseButton" type="button">Send one graph note</button>
               <button class="graph-pulse-action graph-random-action" id="randomGraphButton" type="button" aria-label="Create a random graph">Random</button>
             </div>
+            <div class="graph-play-primary-grid" aria-label="Primary graph sound controls">
+              <label class="select-control" for="topology"><span class="field-label">Graph shape</span><span class="select-shell"><select id="topology" aria-describedby="topologyDescription"><optgroup label="Directed acyclic graphs"><option value="chain">Delay Chain</option><option value="tree">Branching Tree</option><option value="dag" selected>Layered DAG</option><option value="bipartite">Bipartite Field</option></optgroup><optgroup label="Cyclic and network graphs"><option value="ring">Directed Ring</option><option value="smallworld">Small World</option><option value="hub">Hub + Spokes</option><option value="mesh">Feedback Mesh</option><option value="modular">Modular Islands</option><option value="random">Seeded Random</option></optgroup></select></span></label>
+              <label class="control" for="baseDelay"><span><b>Edge time / speed</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
+            </div>
             <div class="graph-pulse-grid">
               <label class="control graph-seed-note-control" for="seedNote"><span><b>Seed note</b><output id="seedNoteOut" for="seedNote">A3 · 57</output></span><input id="seedNote" name="pitch" type="range" min="0" max="127" step="1" value="57" /></label>
               <label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
@@ -62,7 +66,6 @@
           <div class="group-body">
             <label class="select-control" for="triggerScope"><span class="field-label">Attack points</span><span class="select-shell"><select id="triggerScope"><option value="all" selected>Every node arrival</option><option value="leaves">Leaf / sink nodes only</option></select></span></label>
             <label class="control" for="nodePass"><span><b>Node pass-through</b><output id="nodePassOut" for="nodePass">100%</output></span><input id="nodePass" type="range" min="0.2" max="1" step="0.01" value="1" /></label>
-            <label class="control" for="baseDelay"><span><b>Minimum edge time</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
             <label class="control" for="distanceRatio"><span><b>Distance-time ratio</b><output id="distanceRatioOut" for="distanceRatio">1.94×</output></span><input id="distanceRatio" type="range" min="1" max="12" step="0.01" value="1.94" /></label>
             <label class="control" for="timeCurve"><span><b>Length response</b><output id="timeCurveOut" for="timeCurve">0.90</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="0.9" /></label>
             <small class="growth-parameter-note graph-distance-note">At 1×, every edge uses the minimum time. Longer drawn segments scale proportionally, up to the 2 s safety limit.</small>
@@ -89,9 +92,8 @@
             <p class="growth-preset-description" id="graphPatchDescription">Close crossing times make a tight cascade on every beat.</p>
             <section class="recursion-parameter-cluster graph-generator-cluster">
               <h3 class="parameter-cluster-title">Graph generator</h3>
-              <label class="select-control" for="topology"><span class="field-label">Graph shape</span><span class="select-shell"><select id="topology"><optgroup label="Directed acyclic graphs"><option value="chain">Delay Chain</option><option value="tree">Branching Tree</option><option value="dag" selected>Layered DAG</option><option value="bipartite">Bipartite Field</option></optgroup><optgroup label="Cyclic and network graphs"><option value="ring">Directed Ring</option><option value="smallworld">Small World</option><option value="hub">Hub + Spokes</option><option value="mesh">Feedback Mesh</option><option value="modular">Modular Islands</option><option value="random">Seeded Random</option></optgroup></select></span></label>
               <p class="graph-mapping-description" id="topologyDescription">Several forward-only routes cross between ordered layers.</p>
-              <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="128" step="1" value="10" /></label>
+              <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="32" step="1" value="10" /></label>
               <label class="control" for="density"><span><b>Connection density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
               <label class="control" for="seed"><span><b>Graph seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
               <button class="mini-action" id="newGraphButton" type="button">Next seed</button>
@@ -166,7 +168,7 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="graph-synth-app.js?v=graph-instruments-20260830-2"></script>
+    <script type="module" src="graph-synth-app.js?v=graph-instruments-20260830-3"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

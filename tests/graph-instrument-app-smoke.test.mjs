@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { generateGraph } from "../src/graph-delay.js";
 import { initializeGraphInstrument } from "../src/graph-instrument-app.js";
+import { MAX_GRAPH_INSTRUMENT_NODES } from "../src/graph-instruments.js";
 
 async function exerciseLiveEditRegression(mode, htmlFile) {
   const html = await readFile(new URL(`../${htmlFile}`, import.meta.url), "utf8");
@@ -89,6 +90,12 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   const documentListeners = new Map();
   const runtime = {
     Math,
+    crypto: {
+      getRandomValues(values) {
+        values[0] = 0xffff_ffff;
+        return values;
+      },
+    },
     devicePixelRatio: 1,
     document: null,
     localStorage: { getItem() { return null; } },
@@ -409,6 +416,15 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.equal(controller.soundedEventCount, attackCountBeforeTempo, "node motion must not add attacks");
   assert.match(elements.get("liveStatus").textContent, /edge times were recalculated/);
 
+  const pulsesBeforeRandom = controller.pulseCount;
+  const attacksBeforeRandom = controller.soundedEventCount;
+  listeners.get("randomGraphButton:click")();
+  assert.equal(controller.state.nodeCount, MAX_GRAPH_INSTRUMENT_NODES);
+  assert.equal(controller.model.nodes.length, MAX_GRAPH_INSTRUMENT_NODES);
+  assert.equal(elements.get("nodeCount").value, String(MAX_GRAPH_INSTRUMENT_NODES));
+  assert.equal(controller.pulseCount, pulsesBeforeRandom, "Random must not launch a graph run");
+  assert.equal(controller.soundedEventCount, attacksBeforeRandom, "Random must not add attacks");
+
   elements.get("topology").value = "chain";
   listeners.get("topology:change")({ currentTarget: elements.get("topology") });
   elements.get("nodeCount").value = "512";
@@ -417,17 +433,17 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   listeners.get("triggerScope:change")({ currentTarget: elements.get("triggerScope") });
 
   const largeTemplate = controller.pulseTemplate;
-  assert.equal(controller.model.nodes.length, 128);
-  assert.equal(controller.state.nodeCount, 128);
-  assert.equal(elements.get("nodeCount").value, "128");
-  assert.equal(largeTemplate.reachedNodeCount, 128);
-  assert.ok(largeTemplate.tailSeconds > 7, "the complete 128-node route should retain its full tail");
+  assert.equal(controller.model.nodes.length, MAX_GRAPH_INSTRUMENT_NODES);
+  assert.equal(controller.state.nodeCount, MAX_GRAPH_INSTRUMENT_NODES);
+  assert.equal(elements.get("nodeCount").value, String(MAX_GRAPH_INSTRUMENT_NODES));
+  assert.equal(largeTemplate.reachedNodeCount, MAX_GRAPH_INSTRUMENT_NODES);
+  assert.ok(largeTemplate.tailSeconds > 1, "the complete 32-node route should retain its full tail");
   assert.ok(
-    largeTemplate.audioEvents.some(({ nodeId }) => nodeId === 127),
+    largeTemplate.audioEvents.some(({ nodeId }) => nodeId === MAX_GRAPH_INSTRUMENT_NODES - 1),
     "leaf-only audio must retain the end of a long route",
   );
   assert.ok(
-    largeTemplate.events.some(({ nodeId }) => nodeId === 127),
+    largeTemplate.events.some(({ nodeId }) => nodeId === MAX_GRAPH_INSTRUMENT_NODES - 1),
     "every sounded leaf keeps a corresponding route cue",
   );
 
@@ -439,7 +455,7 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
     const continuousTemplate = controller.pulseTemplate;
     assert.equal(controller.state.triggerScope, "all");
     assert.equal(continuousTemplate.articulation, "edge");
-    assert.equal(continuousTemplate.audioEvents.length, 127);
+    assert.equal(continuousTemplate.audioEvents.length, MAX_GRAPH_INSTRUMENT_NODES - 1);
     assert.ok(continuousTemplate.audioEvents.every(({ gateSeconds }) => gateSeconds > 0));
   }
 
@@ -471,6 +487,10 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   listeners.get("topology:change")({ currentTarget: elements.get("topology") });
   elements.get("density").value = "1";
   listeners.get("density:input")({ currentTarget: elements.get("density") });
+  elements.get("baseDelay").value = "20";
+  listeners.get("baseDelay:input")({ currentTarget: elements.get("baseDelay") });
+  elements.get("distanceRatio").value = "1";
+  listeners.get("distanceRatio:input")({ currentTarget: elements.get("distanceRatio") });
   elements.get("triggerScope").value = "all";
   listeners.get("triggerScope:change")({ currentTarget: elements.get("triggerScope") });
   if (mode === "synth") {
@@ -482,20 +502,23 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
     nodeCount: controller.state.nodeCount,
     density: controller.state.density,
     seed: controller.state.seed,
-    maxNodes: 128,
+    maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
   });
-  assert.equal(controller.model.nodes.length, 128);
+  assert.equal(controller.model.nodes.length, MAX_GRAPH_INSTRUMENT_NODES);
   assert.equal(
     controller.model.edges.length,
     requestedDenseGraph.edges.length,
     "audio protection must retain every route in the requested dense topology",
   );
-  assert.ok(controller.model.edges.length > 3_000, "the overload fixture must stay genuinely dense");
+  assert.ok(
+    controller.model.edges.length > MAX_GRAPH_INSTRUMENT_NODES * 7,
+    "the overload fixture must stay genuinely dense",
+  );
   const strokesBeforeDenseFrame = strokeCallCount;
   flushAnimationFrames(frameNow + 20);
   const denseFrameStrokeCount = strokeCallCount - strokesBeforeDenseFrame;
   assert.ok(
-    denseFrameStrokeCount < controller.model.edges.length / 8,
+    denseFrameStrokeCount <= controller.model.nodes.length + 4,
     `dense routes should be painted in batches rather than one canvas stroke per edge (${denseFrameStrokeCount} strokes for ${controller.model.edges.length} routes)`,
   );
 

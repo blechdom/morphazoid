@@ -158,6 +158,18 @@
   gap: 8px;
 }
 
+.graph-play-primary-grid {
+  display: grid;
+  margin-bottom: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 8px;
+}
+
+.graph-play-primary-grid .select-control {
+  margin: 0;
+}
+
 .graph-pulse-grid .select-control {
   margin: 0;
 }

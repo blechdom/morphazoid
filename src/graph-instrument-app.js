@@ -12,13 +12,13 @@ import {
   graphDrumStyleIsKarplus,
   graphDrumStyleUsesPhysicalEngine,
   sanitizeGraphDrumPercussionStyle,
-} from "./graph-drum-audio.js?v=graph-instruments-20260830-2";
+} from "./graph-drum-audio.js?v=graph-instruments-20260830-3";
 import {
   GRAPH_PRESETS,
   edgeAudioParameters,
   generateGraph,
   graphSinkNodeIds,
-} from "./graph-delay.js?v=graph-instruments-20260830-2";
+} from "./graph-delay.js?v=graph-instruments-20260830-3";
 import {
   GRAPH_INSTRUMENT_PATCHES,
   MAX_GRAPH_EVENT_SCHEDULE,
@@ -30,11 +30,11 @@ import {
   graphSynthVoice,
   mappedGraphDrumVoice,
   scheduleGraphPulse,
-} from "./graph-instruments.js?v=graph-instruments-20260830-2";
+} from "./graph-instruments.js?v=graph-instruments-20260830-3";
 import {
   MAX_GRAPH_SYNTH_ACTIVE_VOICES,
   GraphSynthAudio,
-} from "./graph-synth-audio.js?v=graph-instruments-20260830-2";
+} from "./graph-synth-audio.js?v=graph-instruments-20260830-3";
 
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.09;
@@ -968,7 +968,7 @@ export function initializeGraphInstrument({
   }
 
   function edgeControlsVisible() {
-    return model.nodes.length <= 96 && model.edges.length <= 512;
+    return model.nodes.length <= MAX_GRAPH_INSTRUMENT_NODES && model.edges.length <= 192;
   }
 
   function drawEdge(edge) {
@@ -1467,7 +1467,7 @@ export function initializeGraphInstrument({
   function randomizeGraph() {
     const topologyIds = Object.keys(GRAPH_PRESETS);
     state.topology = topologyIds[randomGraphInteger(0, topologyIds.length - 1)] ?? "random";
-    // Bias toward nimble graphs while keeping the full 128-node range
+    // Bias toward nimble graphs while keeping the full 32-node range
     // discoverable from the one-click randomizer.
     state.nodeCount = Math.round(
       6 + randomGraphUnit() ** 1.7 * (MAX_GRAPH_INSTRUMENT_NODES - 6),
