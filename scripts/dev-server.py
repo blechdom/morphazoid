@@ -15,6 +15,14 @@ PORT_ATTEMPTS = 100
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
+class DevelopmentRequestHandler(SimpleHTTPRequestHandler):
+    """Serve the live worktree without reusing stale browser assets."""
+
+    def end_headers(self) -> None:
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -27,7 +35,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def create_server(start_port: int) -> ThreadingHTTPServer:
-    handler = partial(SimpleHTTPRequestHandler, directory=str(PROJECT_ROOT))
+    handler = partial(DevelopmentRequestHandler, directory=str(PROJECT_ROOT))
 
     for port in range(start_port, start_port + PORT_ATTEMPTS):
         try:
