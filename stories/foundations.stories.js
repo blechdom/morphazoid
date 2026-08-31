@@ -83,11 +83,14 @@ export const TypographyAndSpacing = {
     );
 
     const type = document.createElement("div");
-    type.className = "mz-type-specimen";
+    type.className = "mz-type-role-grid";
     type.innerHTML = `
-      <div class="mz-type-specimen__display">Geometric instruments</div>
-      <div class="mz-type-specimen__label">Sound mapping</div>
-      <div class="mz-type-specimen__body">One visual grammar across synthesis, motion, form, and performance controls.</div>
+      <div class="mz-type-role"><code>panel title</code><h2 class="mz-control-section__title mz-type-role__sample">Sound</h2></div>
+      <div class="mz-type-role"><code>panel state</code><span class="mz-control-section__state mz-type-role__sample">Sine oscillators</span></div>
+      <div class="mz-type-role"><code>field label</code><b class="mz-field__label mz-type-role__sample">Base frequency</b></div>
+      <div class="mz-type-role"><code>field output</code><output class="mz-field__output mz-type-role__sample">110 Hz</output></div>
+      <div class="mz-type-role"><code>stage HUD</code><span class="mz-hud-label mz-type-role__sample">3 operators · audio off</span></div>
+      <div class="mz-type-role"><code>control note</code><p class="mz-control-note mz-type-role__sample">Changes the fundamental before pitch mapping is applied.</p></div>
     `;
 
     const spacing = document.createElement("div");

@@ -1,13 +1,10 @@
 import { createAmplitudeControl } from "../src/ui/patterns/index.js";
+import { createControlSection } from "../src/ui/index.js";
 import "./catalog.css";
 
 const PRESETS = ["pluck", "note", "sustain", "pad"];
 
 function renderAmplitude({ label, timing, preset, level, enabled, swell }) {
-  const frame = document.createElement("section");
-  frame.className = "mz-envelope-story";
-  frame.dataset.section = "sound";
-
   const host = document.createElement("div");
   const controller = createAmplitudeControl(host, { label, timing });
 
@@ -16,8 +13,16 @@ function renderAmplitude({ label, timing, preset, level, enabled, swell }) {
   }
   controller.applyState({ enabled, swell, level });
 
-  frame.append(host);
-  return frame;
+  const panel = document.createElement("div");
+  panel.className = "mz-story-panel";
+  panel.append(createControlSection({
+    title: "Sound",
+    state: timing === "milliseconds" ? "Timed envelope" : "Contact envelope",
+    section: "sound",
+    collapsible: false,
+    children: host,
+  }));
+  return panel;
 }
 
 export default {

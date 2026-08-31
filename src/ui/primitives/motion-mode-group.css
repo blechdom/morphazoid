@@ -1,0 +1,75 @@
+.mz-motion-mode-group,
+.transport-button-array {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, var(--mz-color-accent-soft));
+  --mz-active-accent-glow: var(--accent-glow, var(--mz-color-accent-glow));
+
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, 42px);
+  align-items: stretch;
+  font-family: var(--mono, var(--mz-font-mono));
+}
+
+.mz-motion-mode-group > button,
+.transport-button-array > button {
+  display: grid;
+  width: 42px;
+  min-width: 42px;
+  height: var(--mz-control-height);
+  min-height: var(--mz-control-height);
+  padding: 2px;
+  border: 1px solid var(--line-strong, var(--mz-color-line-strong));
+  cursor: pointer;
+  color: var(--muted, var(--mz-color-muted));
+  background: transparent;
+  align-content: center;
+  justify-items: center;
+}
+
+.mz-motion-mode-group > button + button,
+.transport-button-array > button + button {
+  border-left: 0;
+}
+
+.mz-motion-mode-group > button span,
+.transport-button-array > button span {
+  color: var(--ink, var(--mz-color-ink));
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 9px var(--mz-active-accent-soft);
+}
+
+.mz-motion-mode-group > button small,
+.transport-button-array > button small {
+  margin-top: 3px;
+  font-size: var(--mz-font-size-3xs);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.mz-motion-mode-group > button:hover:not(:disabled),
+.mz-motion-mode-group > button:focus-visible,
+.mz-motion-mode-group > button[aria-pressed="true"],
+.transport-button-array > button:hover:not(:disabled),
+.transport-button-array > button:focus-visible,
+.transport-button-array > button[aria-pressed="true"] {
+  border-color: var(--mz-active-accent-soft);
+  color: var(--mz-active-accent);
+  background: var(--mz-active-accent-glow);
+}
+
+.mz-motion-mode-group > button:hover:not(:disabled) span,
+.mz-motion-mode-group > button:focus-visible span,
+.mz-motion-mode-group > button[aria-pressed="true"] span,
+.transport-button-array > button:hover:not(:disabled) span,
+.transport-button-array > button:focus-visible span,
+.transport-button-array > button[aria-pressed="true"] span {
+  color: var(--mz-active-accent);
+}
+
+.mz-motion-mode-group > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}

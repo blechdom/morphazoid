@@ -9,12 +9,8 @@ function renderPanelButton(args) {
 }
 
 function makeStateMatrix() {
-  const root = document.createElement("section");
-  root.className = "mz-story mz-story--narrow";
-  root.innerHTML = `
-    <h1>Common Morphazoid buttons</h1>
-    <p class="mz-story__intro">The specimens use the same mini-action, circular transport, and square speaker treatments as production pages. They never create an AudioContext or start a transport.</p>
-  `;
+  const root = document.createElement("div");
+  root.className = "mz-state-list";
 
   const groups = [
     {
@@ -55,11 +51,12 @@ function makeStateMatrix() {
 
   groups.forEach(({ title, buttons }) => {
     const surface = document.createElement("div");
-    surface.className = "mz-story__surface";
-    const heading = document.createElement("h2");
+    surface.className = "mz-state-list__item";
+    const heading = document.createElement("span");
+    heading.className = "mz-state-list__label";
     heading.textContent = title;
     const row = document.createElement("div");
-    row.className = "mz-story__row";
+    row.className = "mz-state-list__content";
     row.append(...buttons.map((options) => createButton(options)));
     surface.append(heading, row);
     root.append(surface);

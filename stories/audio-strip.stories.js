@@ -9,12 +9,8 @@ function renderAudioStrip(args) {
 }
 
 function renderLifecycle() {
-  const root = document.createElement("section");
-  root.className = "mz-story mz-story--narrow";
-  root.innerHTML = `
-    <h1>Audio lifecycle</h1>
-    <p class="mz-story__intro">These are deterministic interface states. No story opens an AudioContext or requests a device.</p>
-  `;
+  const root = document.createElement("div");
+  root.className = "mz-state-list";
 
   const states = [
     ["Off", { audioState: "off" }],
@@ -26,13 +22,17 @@ function renderLifecycle() {
 
   for (const [title, options] of states) {
     const surface = document.createElement("div");
-    surface.className = "mz-story__surface mz-story__surface--audio";
-    const heading = document.createElement("h2");
+    surface.className = "mz-state-list__item";
+    const heading = document.createElement("span");
+    heading.className = "mz-state-list__label";
     heading.textContent = title;
-    surface.append(heading, createAudioStrip({
+    const content = document.createElement("div");
+    content.className = "mz-state-list__content";
+    content.append(createAudioStrip({
       level: 0.56,
       ...options,
     }));
+    surface.append(heading, content);
     root.append(surface);
   }
   return root;

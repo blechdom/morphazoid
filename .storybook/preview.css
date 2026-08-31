@@ -1,0 +1,17 @@
+html,
+body {
+  color: var(--mz-color-ink);
+  background: var(--mz-color-bg);
+  font-family: var(--mz-font-mono);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.mz-preview-root {
+  display: contents;
+}

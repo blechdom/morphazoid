@@ -20,11 +20,18 @@
   --mz-color-danger: #ff826f;
 
   --mz-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --mz-font-size-3xs: 7px;
+  --mz-font-size-2xs: 8px;
   --mz-font-size-xs: 9px;
   --mz-font-size-sm: 10px;
   --mz-font-size-md: 11px;
   --mz-font-size-base: 13px;
   --mz-line-height: 1.45;
+  --mz-tracking-label: 0.04em;
+  --mz-tracking-state: 0.07em;
+  --mz-tracking-hud: 0.13em;
+  --mz-tracking-subsection: 0.18em;
+  --mz-tracking-section: 0.28em;
 
   --mz-space-1: 3px;
   --mz-space-2: 6px;

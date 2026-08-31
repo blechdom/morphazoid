@@ -1,0 +1,149 @@
+.mz-signal-monitor {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, var(--mz-color-accent-soft));
+  --mz-active-accent-glow: var(--accent-glow, var(--mz-color-accent-glow));
+
+  position: relative;
+  width: min(100%, 820px);
+  min-width: 0;
+  min-height: 320px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line, var(--mz-color-line));
+  color: var(--ink, var(--mz-color-ink));
+  background:
+    linear-gradient(rgba(214, 232, 226, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214, 232, 226, 0.028) 1px, transparent 1px),
+    radial-gradient(circle at 50% 48%, var(--mz-active-accent-glow), transparent 38%),
+    var(--bg-deep, var(--mz-color-bg-deep));
+  background-size: 44px 44px, 44px 44px, auto, auto;
+  aspect-ratio: 19 / 9;
+  font-family: var(--mono, var(--mz-font-mono));
+}
+
+.mz-signal-monitor__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+}
+
+.mz-signal-monitor__heading {
+  position: absolute;
+  z-index: 2;
+  bottom: 28px;
+  left: 28px;
+  display: grid;
+  max-width: min(520px, calc(100% - 56px));
+  color: inherit;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.mz-signal-monitor__kicker,
+.mz-signal-monitor__title,
+.mz-signal-monitor__subtitle {
+  margin: 0;
+}
+
+.mz-signal-monitor__kicker {
+  color: var(--mz-active-accent);
+  font-size: var(--mz-font-size-sm);
+  letter-spacing: var(--mz-tracking-hud);
+  text-transform: uppercase;
+}
+
+.mz-signal-monitor__title {
+  color: var(--ink, var(--mz-color-ink));
+  font-size: clamp(22px, 4vw, 34px);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.mz-signal-monitor__subtitle {
+  max-width: 58ch;
+  color: var(--muted, var(--mz-color-muted));
+  font-size: var(--mz-font-size-sm);
+  letter-spacing: var(--mz-tracking-label);
+  line-height: 1.45;
+}
+
+.mz-signal-monitor__meta {
+  top: 16px;
+  right: 18px;
+  left: 18px;
+}
+
+.mz-signal-monitor__legend {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  left: 18px;
+  display: flex;
+  color: var(--muted, var(--mz-color-muted));
+  align-items: center;
+  gap: 14px;
+  font-size: var(--mz-font-size-2xs);
+  letter-spacing: var(--mz-tracking-state);
+  text-transform: uppercase;
+}
+
+.mz-signal-monitor__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mz-signal-monitor__legend i {
+  width: 12px;
+  height: 2px;
+  background: var(--mz-legend-color, var(--mz-active-accent));
+  box-shadow: 0 0 7px color-mix(in oklab, var(--mz-legend-color, var(--mz-active-accent)) 55%, transparent);
+}
+
+.mz-signal-monitor__axis {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  color: var(--faint, var(--mz-color-faint));
+  pointer-events: none;
+  font-size: var(--mz-font-size-3xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.mz-signal-monitor__axis--x {
+  right: 34px;
+  bottom: 10px;
+  left: 34px;
+  justify-content: space-between;
+}
+
+.mz-signal-monitor__axis--y {
+  top: 58px;
+  bottom: 54px;
+  left: 10px;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (max-width: 600px) {
+  .mz-signal-monitor {
+    width: 100%;
+    min-height: 260px;
+    aspect-ratio: 4 / 3;
+  }
+
+  .mz-signal-monitor__canvas {
+    min-height: 260px;
+  }
+
+  .mz-signal-monitor__heading {
+    bottom: 26px;
+    left: 18px;
+  }
+
+  .mz-signal-monitor__subtitle {
+    max-width: 38ch;
+    font-size: var(--mz-font-size-xs);
+  }
+}

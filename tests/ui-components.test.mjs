@@ -6,8 +6,18 @@ import {
   createAudioStrip,
   createChoiceSwitch,
   createControlSection,
+  createMidiStatus,
+  createMotionModeGroup,
+  createNumberStepper,
+  createOptionCardGroup,
+  createPeakMeter,
   createRangeField,
   createSelectField,
+  createSignalMonitor,
+  createSignedSegmentMeter,
+  createStatusReadout,
+  createStepButton,
+  createStereoMeter,
 } from "../src/ui/index.js";
 
 class FakeClassList {
@@ -303,4 +313,126 @@ test("control section retains native append and scopes content helpers to its bo
     stateLive: "polite",
   }, doc);
   assert.equal(liveSection.stateElement.getAttribute("aria-live"), "polite");
+});
+
+test("status readout and bounded number stepper expose compact state APIs", () => {
+  const doc = new FakeDocument();
+  const readout = createStatusReadout({ label: "Schedule", value: "I7 only", live: true }, doc);
+  assert.equal(readout.classList.contains("structure-readout"), true);
+  assert.equal(readout.output.getAttribute("aria-live"), "polite");
+  assert.equal(readout.value, "I7 only");
+  readout.setValue("I1 → I7");
+  readout.setTone("warning");
+  assert.equal(readout.value, "I1 → I7");
+  assert.equal(readout.getAttribute("data-tone"), "warning");
+
+  const changes = [];
+  const stepper = createNumberStepper({
+    label: "Playhead count",
+    value: 2,
+    min: 1,
+    max: 3,
+    onChange: (value) => changes.push(value),
+  }, doc);
+  stepper.incrementButton.dispatchEvent({ type: "click" });
+  stepper.incrementButton.dispatchEvent({ type: "click" });
+  assert.equal(stepper.value, 3);
+  assert.equal(stepper.incrementButton.disabled, true);
+  stepper.decrementButton.dispatchEvent({ type: "click" });
+  assert.deepEqual(changes, [3, 2]);
+  stepper.setDisabled(true);
+  stepper.decrementButton.dispatchEvent({ type: "click" });
+  assert.equal(stepper.value, 2);
+
+  const unevenStepper = createNumberStepper({ value: 9, min: 0, max: 10, step: 3 }, doc);
+  unevenStepper.incrementButton.dispatchEvent({ type: "click" });
+  assert.equal(unevenStepper.value, 10, "an uneven final interval still reaches max");
+  assert.equal(unevenStepper.incrementButton.disabled, true);
+  unevenStepper.decrementButton.dispatchEvent({ type: "click" });
+  assert.equal(unevenStepper.value, 9, "decrement returns to the preceding step");
+});
+
+test("preset, motion and sequencer-step primitives retain typed UI state", () => {
+  const doc = new FakeDocument();
+  let selected;
+  const presets = createOptionCardGroup({
+    label: "Character",
+    value: "salt",
+    options: [
+      { value: "salt", label: "Salt lattice", description: "Crystalline" },
+      { value: "ember", label: "Slow ember" },
+    ],
+    onChange: (value) => { selected = value; },
+  }, doc);
+  assert.equal(presets.buttons.length, 2);
+  assert.equal(presets.buttons[0].getAttribute("aria-pressed"), "true");
+  presets.buttons[1].dispatchEvent({ type: "click" });
+  assert.equal(presets.value, "ember");
+  assert.equal(selected, "ember");
+
+  const changes = [];
+  const motion = createMotionModeGroup({
+    direction: "forward",
+    mode: "loop",
+    onDirectionChange: (value) => changes.push(value),
+    onModeChange: (value) => changes.push(value),
+  }, doc);
+  motion.directionButton.dispatchEvent({ type: "click" });
+  motion.pingPongButton.dispatchEvent({ type: "click" });
+  assert.equal(motion.direction, "reverse");
+  assert.equal(motion.mode, "pingpong");
+  assert.deepEqual(changes, ["reverse", "pingpong"]);
+
+  let levelChange;
+  const step = createStepButton({ index: 6, level: 0.76, current: true, onChange: (value) => { levelChange = value; } }, doc);
+  assert.equal(step.getAttribute("aria-pressed"), "true");
+  assert.equal(step.getAttribute("aria-current"), "step");
+  step.dispatchEvent({ type: "click" });
+  assert.equal(step.level, 0);
+  assert.equal(levelChange, 0);
+  step.setOutsideLoop(true);
+  step.dispatchEvent({ type: "click" });
+  assert.equal(step.level, 0);
+});
+
+test("MIDI, meter and signal views accept injected state without device ownership", () => {
+  const doc = new FakeDocument();
+  const midi = createMidiStatus({ state: "receiving", deviceLabel: "Keystep 37", controlled: true }, doc);
+  assert.equal(midi.toggle.getAttribute("aria-pressed"), "true");
+  assert.equal(midi.statusElement.textContent, "Keystep 37");
+  assert.equal(midi.classList.contains("is-receiving"), true);
+  midi.setState("error");
+  assert.equal(midi.classList.contains("is-error"), true);
+
+  const stereo = createStereoMeter({ left: 0.66, right: 1 }, doc);
+  assert.equal(stereo.leftMeter.value, 0.66);
+  assert.equal(stereo.rightChannel.classList.contains("is-clipping"), true);
+  stereo.setLevels({ left: 0, right: 0, active: false });
+  assert.deepEqual(stereo.levels, { left: 0, right: 0 });
+  assert.equal(stereo.active, false);
+
+  const peak = createPeakMeter({ label: "Input", value: 0.58, peak: 0.81 }, doc);
+  assert.equal(peak.getAttribute("role"), "meter");
+  assert.equal(peak.output.textContent, "58%");
+  peak.setValue(0.9, 1);
+  assert.equal(peak.classList.contains("is-clipping"), true);
+
+  const signed = createSignedSegmentMeter({ value: -0.72 }, doc);
+  assert.equal(signed.getAttribute("aria-valuenow"), "-0.72");
+  signed.setValue(0.5);
+  assert.equal(signed.value, 0.5);
+
+  const monitor = createSignalMonitor({
+    title: "Oscilloscope",
+    variant: "scope",
+    meta: "512 samples",
+    legend: [{ label: "Waveform", color: "mint" }],
+    xAxis: ["-1", "0", "+1"],
+  }, doc);
+  assert.equal(monitor.canvas.getAttribute("role"), "img");
+  assert.equal(monitor.children[0], monitor.heading, "figcaption is the figure's first child");
+  assert.equal(monitor.titleElement.textContent, "Oscilloscope");
+  assert.equal(monitor.legend.children.length, 1);
+  assert.equal(monitor.xAxis.children.length, 3);
+  assert.equal(monitor.draw(() => {}), undefined);
 });

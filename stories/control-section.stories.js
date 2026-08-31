@@ -89,13 +89,6 @@ function renderSection(args) {
 }
 
 function renderAccentGallery() {
-  const root = document.createElement("section");
-  root.className = "mz-story";
-  root.innerHTML = `
-    <h1>Semantic section accents</h1>
-    <p class="mz-story__intro">Section color communicates control scope. Collapsed specimens keep the comparison compact; Sound is open to show body treatment.</p>
-  `;
-
   const gallery = document.createElement("div");
   gallery.className = "mz-section-gallery";
   const labels = {
@@ -119,8 +112,7 @@ function renderAccentGallery() {
     }));
   });
 
-  root.append(gallery);
-  return wrapPanel(root);
+  return wrapPanel(gallery);
 }
 
 export default {

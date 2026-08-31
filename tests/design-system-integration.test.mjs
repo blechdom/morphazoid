@@ -24,6 +24,12 @@ test("the production stylesheet consumes the shared design tokens and controls",
   assert.match(entrypoint, /primitives\/range-field\.css/);
   assert.match(entrypoint, /patterns\/audio-strip\.css/);
   assert.match(entrypoint, /patterns\/amplitude-control\.css/);
+  assert.match(entrypoint, /primitives\/option-card-group\.css/);
+  assert.match(entrypoint, /primitives\/number-stepper\.css/);
+  assert.match(entrypoint, /primitives\/step-button\.css/);
+  assert.match(entrypoint, /patterns\/midi-status\.css/);
+  assert.match(entrypoint, /patterns\/level-meter\.css/);
+  assert.match(entrypoint, /patterns\/signal-monitor\.css/);
   assert.match(foundations, /prefers-reduced-motion:[\s\S]*animation: none !important;/);
   assert.doesNotMatch(
     style,

@@ -10,15 +10,41 @@ the interface.
 - **Foundations** define color, typography, spacing, borders, focus, motion, and
   control-size tokens.
 - **Primitives** create native buttons, range fields, select fields, choice
-  switches, and disclosure sections.
+  switches, disclosure sections, readouts, number steppers, preset pickers,
+  motion-mode groups, and individual sequencer-step cells.
 - **Patterns** compose primitives into audio transports, instrument headers,
-  control panels, status displays, and navigation. The masthead audio strip and
-  amplitude envelope editor are exported through `src/ui/patterns/index.js`.
+  control panels, status displays, meters, MIDI status, signal-monitor shells,
+  and navigation. The masthead audio strip and amplitude envelope editor are
+  exported through `src/ui/patterns/index.js`.
 - **Themes** map the shared semantic tokens to a product surface. The primary
   instruments and Morphazoidical may keep distinct visual themes while sharing
   interaction and accessibility contracts.
 - **Instrument UI** stays with its instrument when it represents domain
   behavior, such as a tract editor, sequencer, shader graph, or Canvas stage.
+
+## Reusable component inventory
+
+The current shared surface follows recurring production contracts rather than
+trying to make every instrument look identical:
+
+| Area | Shared component | Application-owned behavior |
+| --- | --- | --- |
+| Selection | `createSelectField`, `createChoiceSwitch`, `createOptionCardGroup` | Applying synth modes, presets, patches, or algorithms |
+| Transport | `createButton`, `createMotionModeGroup`, `createNumberStepper` | Clocks, playheads, recording, and audio scheduling |
+| Sequencing | `createStepButton` | Grid keyboard model, exclusivity, patterns, lanes, and scheduler |
+| Status | `createStatusReadout`, `createMidiStatus` | Web MIDI permission, routing, device managers, and telemetry |
+| Level display | `createStereoMeter`, `createPeakMeter`, `createSignedSegmentMeter` | Audio analysis, peak decay, and animation loops |
+| Signal display | `createSignalMonitor` | Canvas rendering, analyzer nodes, animation, and instrument geometry |
+
+`createSignalMonitor()` provides the repeated canvas, title/subtitle, HUD,
+legend, and axis contract. Existing pure renderers in
+`src/chaotic-synth-visuals.js` draw waveforms, logarithmic spectra, and
+spectrograms into its canvas. This keeps Storybook deterministic and static
+while allowing production instruments to supply live samples.
+
+The shared navigation now consumes `createMidiStatus()` and
+`createStereoMeter()` directly. Their factories expose legacy class aliases so
+the production CSS and page tests can migrate incrementally.
 
 ## Component contract
 
@@ -71,6 +97,11 @@ Pass `toggle: false` to a play button used as a one-shot trigger.
 range without creating an `AudioContext`. Applications own the engine and feed
 its lifecycle back through `setAudioState()`.
 
+The same boundary applies to hardware and visual stories: MIDI examples never
+call `requestMIDIAccess()`, meters never create analyzers, and signal stories
+render fixed arrays. The resulting Storybook build is static frontend output;
+no Next.js, server rendering, or runtime Node process is required.
+
 ## Story organization
 
 Stories are grouped from general to specific:
@@ -79,7 +110,6 @@ Stories are grouped from general to specific:
 Foundations/
 Primitives/
 Patterns/
-Instruments/
 ```
 
 Every interactive primitive should cover its default, active, disabled,

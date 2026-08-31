@@ -1865,6 +1865,8 @@ test("header settings meter and browser output chooser report real shared output
   assert.equal(control.meter, control.leftMeter);
   assert.equal(control.leftMeter.value, 0.31);
   assert.equal(control.rightMeter.value, 0.62);
+  assert.equal(control.leftMeter.getAttribute("aria-valuenow"), "0.31");
+  assert.equal(control.rightMeter.getAttribute("aria-valuenow"), "0.62");
   assert.equal(
     control.leftMeter.getAttribute("aria-valuetext"),
     "Left channel 31% output signal",

@@ -7,6 +7,7 @@ import { installBrowserMidiAdapter } from "./src/browser-midi-adapter.js";
 import { instrumentMidiCapabilityForId } from "./src/instrument-midi-capabilities.js";
 import { initializeMidiOutputMonitor } from "./src/midi-output-preview.js";
 import { initializeChaoticViewportControls } from "./src/chaotic-viewport-controls.js";
+import { createMidiStatus, createStereoMeter } from "./src/ui/index.js";
 
 const LEGACY_SETTINGS_KEYS = [
   "morphazoid:shape:audio:v1",
@@ -1073,60 +1074,36 @@ export function createMidiToolbar(
 ) {
   const suffix = idSuffix ? `-${String(idSuffix).replace(/[^a-z\d_-]/gi, "-")}` : "";
   const capability = instrumentMidiCapabilityForId(routeId);
-  const toolbar = element(doc, "div", "midi-toolbar");
-  toolbar.setAttribute("role", "group");
-  toolbar.setAttribute("aria-label", "MIDI and computer keyboard controls");
+  const midiStatus = createMidiStatus({
+    ariaLabel: "MIDI and computer keyboard controls",
+    controlled: true,
+    interactive: false,
+    state: "off",
+  }, doc);
+  const toolbar = midiStatus;
+  toolbar.className = "midi-toolbar";
   toolbar.hidden = true;
-
-  const toggle = element(doc, "button", "midi-toggle");
-  toggle.type = "button";
+  const toggle = midiStatus.toggle;
   toggle.id = `sharedMidiToggle${suffix}`;
-  toggle.setAttribute("aria-pressed", "false");
   toggle.setAttribute("aria-label", "Turn MIDI input on");
   toggle.setAttribute("title", "MIDI input off");
-  const dot = element(doc, "span", "midi-status-dot");
-  dot.setAttribute("aria-hidden", "true");
-  const toggleTitle = element(doc, "b", "", "MIDI");
-  const toggleState = element(doc, "small", "", "off");
-  const activityLight = element(doc, "span", "midi-activity-light");
-  activityLight.setAttribute("aria-hidden", "true");
-  toggle.append(dot, toggleTitle, toggleState, activityLight);
+  const toggleState = midiStatus.statusElement;
+  const activityLight = midiStatus.activityLight;
 
-  const meterShell = element(doc, "div", "header-output-meter-shell");
-  meterShell.setAttribute("role", "group");
-  meterShell.setAttribute("aria-label", "Stereo audio output levels");
+  const meterShell = createStereoMeter({
+    active: false,
+    ariaLabel: "Stereo audio output levels",
+    left: 0,
+    right: 0,
+  }, doc);
   meterShell.setAttribute("title", "Stereo audio output · inactive");
   meterShell.hidden = true;
-  const createOutputChannel = (side, compactLabel) => {
-    const channel = element(
-      doc,
-      "div",
-      `header-output-channel header-output-channel-${side.toLowerCase()}`,
-    );
-    const label = element(doc, "span", "header-output-channel-label", compactLabel);
-    label.setAttribute("aria-hidden", "true");
-    const channelMeter = element(doc, "meter", "header-output-meter", "0%");
-    channelMeter.min = 0;
-    channelMeter.max = 1;
-    channelMeter.low = 0.18;
-    channelMeter.high = 0.72;
-    channelMeter.optimum = 0.5;
-    channelMeter.value = 0;
-    channelMeter.setAttribute("min", "0");
-    channelMeter.setAttribute("max", "1");
-    channelMeter.setAttribute("value", "0");
-    channelMeter.setAttribute("aria-label", `${side} audio output level`);
-    channelMeter.setAttribute("aria-valuetext", `${side} channel has no output signal`);
-    channel.append(label, channelMeter);
-    return { channel, meter: channelMeter };
-  };
-  const leftOutput = createOutputChannel("Left", "L");
-  const rightOutput = createOutputChannel("Right", "R");
+  const leftOutput = { channel: meterShell.leftChannel, meter: meterShell.leftMeter };
+  const rightOutput = { channel: meterShell.rightChannel, meter: meterShell.rightMeter };
   const leftMeter = leftOutput.meter;
   const rightMeter = rightOutput.meter;
   // Keep the original `meter` handle as a backwards-compatible alias.
   const meter = leftMeter;
-  meterShell.append(leftOutput.channel, rightOutput.channel);
 
   const details = element(doc, "details", "header-settings-menu");
   details.hidden = true;
@@ -1368,6 +1345,7 @@ export function createMidiToolbar(
       channelMeter.value = displayedValue;
       channelMeter.textContent = `${percentage}%`;
       channelMeter.setAttribute("value", String(displayedValue));
+      channelMeter.setAttribute("aria-valuenow", String(displayedValue));
       channelMeter.setAttribute(
         "aria-valuetext",
         clipped
@@ -1569,6 +1547,7 @@ export function createMidiToolbar(
     unsubscribeMessages();
     unsubscribeAudioOutput();
     clearActivity();
+    midiStatus.destroy();
     toggle.removeEventListener?.("click", handleToggle);
     select.removeEventListener?.("change", handleProfileChange);
     midiInputSelect.removeEventListener?.("change", handleMidiInputChange);

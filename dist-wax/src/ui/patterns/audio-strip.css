@@ -3,9 +3,11 @@
   display: grid;
   min-width: 0;
   margin-left: auto;
+  color: var(--ink, var(--mz-color-ink));
   grid-template-columns: minmax(96px, 140px) var(--audio-control-width, var(--mz-control-height));
   align-items: center;
   gap: 12px;
+  font-family: var(--mono, var(--mz-font-mono));
 }
 
 .audio-strip .header-level,

@@ -1,0 +1,124 @@
+.mz-midi-status,
+.midi-toolbar {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, var(--mz-color-accent-soft));
+  --mz-active-accent-glow: var(--accent-glow, var(--mz-color-accent-glow));
+
+  position: relative;
+  display: flex;
+  height: var(--mz-control-height);
+  min-width: 0;
+  align-items: stretch;
+  color: var(--mz-color-ink);
+  font-family: var(--mono, var(--mz-font-mono));
+}
+
+.mz-midi-status__toggle,
+.midi-toggle {
+  display: grid;
+  width: 80px;
+  min-width: 80px;
+  min-height: var(--mz-control-height);
+  padding: 0 9px;
+  border: 1px solid var(--line-strong, var(--mz-color-line-strong));
+  cursor: pointer;
+  color: var(--muted, var(--mz-color-muted));
+  background: color-mix(in oklab, var(--bg-deep, var(--mz-color-bg-deep)) 88%, transparent);
+  grid-template-columns: 8px minmax(0, 1fr) 7px;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 7px;
+  text-align: left;
+}
+
+.mz-midi-status__toggle:hover:not(:disabled),
+.midi-toggle:hover:not(:disabled) {
+  border-color: var(--mz-active-accent-soft);
+  color: var(--ink, var(--mz-color-ink));
+}
+
+.mz-midi-status__toggle:disabled,
+.midi-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.mz-midi-status__status,
+.midi-status-dot {
+  width: 7px;
+  height: 7px;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.mz-midi-status__toggle b,
+.midi-toggle b {
+  grid-column: 2;
+  color: inherit;
+  font-size: var(--mz-font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.mz-midi-status__toggle small,
+.midi-toggle small {
+  grid-column: 2;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted, var(--mz-color-muted));
+  font-size: var(--mz-font-size-2xs);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mz-midi-status__activity,
+.midi-activity-light {
+  width: 7px;
+  height: 7px;
+  grid-column: 3;
+  grid-row: 1 / -1;
+  align-self: center;
+  border: 1px solid color-mix(in oklab, currentColor 55%, transparent);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.mz-midi-status.is-receiving .mz-midi-status__activity,
+.midi-toolbar.is-receiving .midi-activity-light {
+  border-color: var(--brass, var(--mz-color-brass));
+  background: var(--brass, var(--mz-color-brass));
+  box-shadow: 0 0 9px color-mix(in oklab, var(--brass, var(--mz-color-brass)) 72%, transparent);
+}
+
+.mz-midi-status__toggle[aria-pressed="true"],
+.midi-toggle[aria-pressed="true"] {
+  border-color: var(--mz-active-accent);
+  color: var(--bg-deep, var(--mz-color-bg-deep));
+  background: var(--mz-active-accent);
+  box-shadow: 0 0 14px var(--mz-active-accent-glow);
+}
+
+.mz-midi-status__toggle[aria-pressed="true"] .mz-midi-status__status,
+.midi-toggle[aria-pressed="true"] .midi-status-dot {
+  border-color: var(--bg-deep, var(--mz-color-bg-deep));
+  background: var(--bg-deep, var(--mz-color-bg-deep));
+}
+
+.mz-midi-status__toggle[aria-pressed="true"] small,
+.midi-toggle[aria-pressed="true"] small {
+  color: color-mix(in oklab, var(--bg-deep, var(--mz-color-bg-deep)) 72%, transparent);
+}
+
+.mz-midi-status.is-error .mz-midi-status__status,
+.midi-toolbar.is-error .midi-status-dot {
+  border-color: var(--orange, var(--mz-color-orange));
+  background: var(--orange, var(--mz-color-orange));
+  box-shadow: 0 0 7px color-mix(in oklab, var(--orange, var(--mz-color-orange)) 55%, transparent);
+}

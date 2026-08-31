@@ -132,7 +132,7 @@ export function createAmplitudeControl(host, {
     if (!host) return;
     host.className = "shared-amplitude-control";
     const releaseTime = formatTime(timedAmplitudeEnvelopeDurationMs(state.points));
-    host.innerHTML = `<div class="shared-amplitude-heading"><span class="field-label">${label}</span><div><button type="button" data-action="toggle" aria-pressed="${state.enabled}">${state.enabled ? "On" : "Off"}</button>${usesMilliseconds ? "" : `<button type="button" data-action="swell" aria-pressed="${state.swell}" ${state.enabled ? "" : "disabled"}>${state.swell ? "Swell on" : "Swell off"}</button>`}</div></div>
+    host.innerHTML = `<div class="shared-amplitude-heading"><span class="field-label mz-field__label">${label}</span><div><button type="button" data-action="toggle" aria-pressed="${state.enabled}">${state.enabled ? "On" : "Off"}</button>${usesMilliseconds ? "" : `<button type="button" data-action="swell" aria-pressed="${state.swell}" ${state.enabled ? "" : "disabled"}>${state.swell ? "Swell on" : "Swell off"}</button>`}</div></div>
       <div class="shared-amplitude-presets">${PRESETS.map((preset) => `<button type="button" data-preset="${preset}" aria-pressed="${state.preset === preset}" ${state.enabled ? "" : "disabled"}>${preset}</button>`).join("")}</div>
       <div class="shared-amplitude-editor ${usesMilliseconds ? "is-timed" : ""} ${state.enabled ? "" : "is-disabled"}" data-editor>
         <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true"><path d="${pathData()}" /></svg>
@@ -142,8 +142,8 @@ export function createAmplitudeControl(host, {
         }).join("")}
       </div>
       ${usesMilliseconds ? `<div class="shared-amplitude-time-axis"><span>0 ms</span><span>log time</span><span>Release ${releaseTime}</span></div>` : ""}
-      <label class="control shared-amplitude-level"><span><b>Envelope level</b><output>${Math.round(state.level * 100)}%</output></span><input data-level type="range" min="0" max="1" step="0.01" value="${state.level}" /></label>
-      <small>${usesMilliseconds ? "Node positions are milliseconds · Release sets total duration" : state.swell ? "Edge midpoint → corner peak → midpoint" : "Contact/corner trigger → release"}</small>`;
+      <label class="control mz-range-field shared-amplitude-level"><span class="mz-field__heading"><b class="mz-field__label">Envelope level</b><output class="mz-field__output">${Math.round(state.level * 100)}%</output></span><input class="mz-range-field__input" data-level type="range" min="0" max="1" step="0.01" value="${state.level}" /></label>
+      <small class="mz-control-note">${usesMilliseconds ? "Node positions are milliseconds · Release sets total duration" : state.swell ? "Edge midpoint → corner peak → midpoint" : "Contact/corner trigger → release"}</small>`;
   }
 
   function pointFromEvent(event) {
