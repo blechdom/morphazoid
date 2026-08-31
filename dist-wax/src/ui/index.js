@@ -3,3 +3,4 @@ export { createRangeField } from "./primitives/range-field.js";
 export { createSelectField } from "./primitives/select-field.js";
 export { createChoiceSwitch } from "./primitives/choice-switch.js";
 export { createControlSection } from "./primitives/control-section.js";
+export { createAudioStrip } from "./patterns/audio-strip.js";

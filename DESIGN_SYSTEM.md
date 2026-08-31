@@ -12,9 +12,8 @@ the interface.
 - **Primitives** create native buttons, range fields, select fields, choice
   switches, and disclosure sections.
 - **Patterns** compose primitives into audio transports, instrument headers,
-  control panels, status displays, and navigation. The existing amplitude
-  envelope editor is the first pattern exported through
-  `src/ui/patterns/index.js`.
+  control panels, status displays, and navigation. The masthead audio strip and
+  amplitude envelope editor are exported through `src/ui/patterns/index.js`.
 - **Themes** map the shared semantic tokens to a product surface. The primary
   instruments and Morphazoidical may keep distinct visual themes while sharing
   interaction and accessibility contracts.
@@ -62,6 +61,16 @@ and `destroy`. Patterns with heavier dependencies have their own entry points;
 for example, the amplitude editor is exported by `src/ui/patterns/index.js` so
 importing a basic field does not also load its audio-envelope math.
 
+Button variants deliberately mirror recurring production roles: `mini` for
+compact local actions, `reset` for the full-width panel reset, `play` for the
+circular transport, and `audio` for the square speaker switch. `default`
+remains a generic button and is not an alias for the smaller `mini-action`.
+Pass `toggle: false` to a play button used as a one-shot trigger.
+
+`createAudioStrip()` composes the production audio switch and master-level
+range without creating an `AudioContext`. Applications own the engine and feed
+its lifecycle back through `setAudioState()`.
+
 ## Story organization
 
 Stories are grouped from general to specific:
@@ -92,15 +101,25 @@ Create the static component catalog with:
 npm run build:storybook
 ```
 
+Build the complete deployable site, including the catalog at `/storybook/`,
+with:
+
+```sh
+npm run build:deploy
+```
+
 Storybook's development server and Vite are development/build tools only. The
 generated catalog is static HTML, CSS, and JavaScript and does not require a
-Node or server-rendered application at runtime.
+Node or server-rendered application at runtime. GitHub Pages and AWS CI builds
+use `build:deploy`, which keeps Storybook authoring files out of the normal site
+copy and adds only the generated catalog under `dist/storybook/`.
 
-Publish `storybook-static/` as its own static artifact. It is intentionally
-excluded from the Morphazoid release bundle. The current CloudFront response
-policy sends `X-Frame-Options: DENY`, which would block Storybook's preview
-iframe; a catalog deployed there needs a separate hostname/policy or a scoped
-`frame-ancestors 'self'` / `SAMEORIGIN` equivalent.
+The AWS distribution keeps `X-Frame-Options: DENY` for the application and uses
+a dedicated `/storybook/*` behavior with `SAMEORIGIN` plus
+`frame-ancestors 'self'`, allowing only Storybook's own same-origin preview
+frame. After this behavior is introduced or changed, apply `infra/site.yml`
+once with the infrastructure bootstrap script; the regular CI role deploys
+site content but intentionally cannot modify CloudFormation.
 
 ## Migration rule
 
@@ -109,7 +128,9 @@ a project-wide contract. Migrate one page family at a time, retaining legacy
 selectors until the family passes the existing Node, Playwright, responsive,
 and accessibility checks.
 
-The geometric-physics page family is the first migrated consumer. Good next
-families are the repeated FM drum fields, shared audio/play state controls, and
-static panel-section markup. Canvas editors, sequencers, and synthesis engines
-should stay instrument-owned and compose these primitives at their edges.
+The geometric-physics page family is the first migrated consumer. Shared
+audio, play, mini-action, reset, and choice-switch styling now resolves through
+the component layer while legacy page class names remain valid. Good next
+families are the repeated FM drum fields and static panel-section markup.
+Canvas editors, sequencers, and synthesis engines should stay instrument-owned
+and compose these primitives at their edges.

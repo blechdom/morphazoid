@@ -7,11 +7,18 @@ const READING_METHODS = [
   { value: "radial", label: "Radar" },
 ];
 
+function renderChoice(args) {
+  const panel = document.createElement("div");
+  panel.className = "mz-story-panel";
+  panel.append(createChoiceSwitch(args));
+  return panel;
+}
+
 export default {
   title: "Primitives/Choice Switch",
   component: createChoiceSwitch,
   tags: ["autodocs"],
-  render: (args) => createChoiceSwitch(args),
+  render: renderChoice,
   args: {
     label: "Playhead type",
     value: "trace",

@@ -22,6 +22,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
       - run: npm run verify
 
   deploy:
@@ -35,8 +38,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build the public site and hosted WAX site
-        run: npm run build:site
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build the public site, WAX site, and component catalog
+        run: npm run build:deploy
+      - name: Verify the component catalog artifact
+        run: |
+          test -f dist/storybook/index.html
+          test -f dist/storybook/iframe.html
+          test -f dist/storybook/index.json
+          npm run check:storybook-dist
       - uses: actions/configure-pages@v5
         with:
           enablement: true
@@ -46,3 +58,15 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Smoke-test the component catalog
+        run: |
+          page_url="${{ steps.deployment.outputs.page_url }}"
+          curl --fail --silent --show-error \
+            --retry 8 --retry-all-errors --retry-delay 5 \
+            "${page_url%/}/storybook/" >/dev/null
+          curl --fail --silent --show-error \
+            --retry 8 --retry-all-errors --retry-delay 5 \
+            "${page_url%/}/storybook/iframe.html" >/dev/null
+          curl --fail --silent --show-error \
+            --retry 8 --retry-all-errors --retry-delay 5 \
+            "${page_url%/}/storybook/index.json" >/dev/null

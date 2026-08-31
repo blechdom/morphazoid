@@ -17,9 +17,29 @@ if ! command -v aws >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ $# -eq 0 || ! -d "$artifact_dir" ]]; then
-  node "$repo_root/scripts/build-release-site.mjs" "$artifact_dir"
+if [[ $# -eq 0 ]]; then
+  (
+    cd "$repo_root"
+    npm run build:deploy
+  )
+elif [[ ! -d "$artifact_dir" ]]; then
+  echo "Artifact directory does not exist: $artifact_dir" >&2
+  echo "Build the complete deployable site first with: npm run build:deploy" >&2
+  exit 1
 fi
+
+if [[ ! -d "$artifact_dir" ]]; then
+  echo "Deployment build did not create the artifact directory: $artifact_dir" >&2
+  exit 1
+fi
+
+for required_storybook_file in index.html iframe.html index.json; do
+  if [[ ! -f "$artifact_dir/storybook/$required_storybook_file" ]]; then
+    echo "Artifact is incomplete: missing storybook/$required_storybook_file" >&2
+    echo "Build the complete deployable site first with: npm run build:deploy" >&2
+    exit 1
+  fi
+done
 
 aws_args=(--region "$region")
 if [[ -n "${AWS_PROFILE:-}" ]]; then

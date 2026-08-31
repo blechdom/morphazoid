@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   createButton,
+  createAudioStrip,
   createChoiceSwitch,
   createControlSection,
   createRangeField,
@@ -118,14 +119,17 @@ test("button exposes native states and optional transport/audio controllers", ()
   assert.equal(button.tagName, "BUTTON");
   assert.equal(button.type, "button");
   assert.equal(button.classList.contains("audio-button"), true);
+  assert.equal(button.getAttribute("data-audio-icon-ready"), "true");
   assert.equal(button.getAttribute("data-audio-state"), "starting");
   assert.equal(button.getAttribute("data-audio-attention"), "true");
   assert.equal(button.getAttribute("aria-pressed"), "false");
+  assert.equal(button.getAttribute("aria-label"), "Starting audio");
   button.dispatchEvent({ type: "click" });
   assert.equal(clicks, 1);
 
   button.setAudioState("on");
   assert.equal(button.getAttribute("aria-pressed"), "true");
+  assert.equal(button.getAttribute("aria-label"), "Turn audio off");
   button.setDisabled(true);
   button.dispatchEvent({ type: "click" });
   assert.equal(clicks, 1, "disabled buttons do not invoke callbacks in synthetic runtimes");
@@ -134,6 +138,50 @@ test("button exposes native states and optional transport/audio controllers", ()
   assert.equal(toggle.getAttribute("aria-pressed"), "false");
   toggle.dispatchEvent({ type: "click" });
   assert.equal(toggle.getAttribute("aria-pressed"), "true");
+
+  const generic = createButton({ label: "Generic" }, doc);
+  const mini = createButton({ label: "Reset 90°", variant: "mini" }, doc);
+  const reset = createButton({ label: "Reset all parameters", variant: "reset" }, doc);
+  assert.equal(generic.classList.contains("mini-action"), false);
+  assert.equal(mini.classList.contains("mini-action"), true);
+  assert.equal(reset.classList.contains("reset-all-button"), true);
+
+  const playToggle = createButton({ label: "Play", variant: "play" }, doc);
+  assert.equal(playToggle.getAttribute("aria-pressed"), "false");
+  assert.deepEqual(
+    playToggle.iconElement.children.map((child) => child.getAttribute("class")),
+    ["transport-play", "transport-pause"],
+  );
+  const playTrigger = createButton({ label: "Pluck", variant: "play", toggle: false }, doc);
+  assert.equal(playTrigger.getAttribute("aria-pressed"), null);
+  playTrigger.dispatchEvent({ type: "click" });
+  assert.equal(playTrigger.getAttribute("aria-pressed"), null);
+});
+
+test("audio strip composes the production speaker switch and master level", () => {
+  const doc = new FakeDocument();
+  const levels = [];
+  const strip = createAudioStrip({
+    audioState: "off",
+    level: 0.56,
+    onLevelInput: (value) => levels.push(value),
+  }, doc);
+
+  assert.equal(strip.classList.contains("audio-strip"), true);
+  assert.equal(strip.getAttribute("role"), "group");
+  assert.equal(strip.audioButton.classList.contains("audio-button"), true);
+  assert.equal(strip.audioButton.getAttribute("aria-label"), "Turn audio on");
+  assert.equal(strip.levelField.classList.contains("header-level"), true);
+  assert.equal(strip.levelOutput.textContent, "56%");
+  strip.levelInput.value = "0.65";
+  strip.levelInput.dispatchEvent({ type: "input" });
+  assert.equal(strip.level, 0.65);
+  assert.equal(strip.levelOutput.textContent, "65%");
+  assert.deepEqual(levels, [0.65]);
+  strip.setAudioState("on");
+  assert.equal(strip.audioState, "on");
+  strip.setLevelDisabled(true);
+  assert.equal(strip.levelInput.disabled, true);
 });
 
 test("range field keeps its output, value and callbacks synchronized", () => {
@@ -237,6 +285,7 @@ test("control section retains native append and scopes content helpers to its bo
   assert.equal(section.tagName, "DETAILS");
   assert.equal(section.open, false);
   assert.equal(section.getAttribute("data-section"), "sound");
+  assert.equal(section.stateElement.getAttribute("aria-live"), null);
   assert.equal(section.body.children[0], child);
   assert.equal(Object.hasOwn(section, "append"), false, "native append is not shadowed");
 
@@ -247,4 +296,11 @@ test("control section retains native append and scopes content helpers to its bo
   section.setState("Active");
   assert.equal(section.isOpen, true);
   assert.equal(section.stateElement.textContent, "Active");
+
+  const liveSection = createControlSection({
+    title: "Output",
+    state: "Ready",
+    stateLive: "polite",
+  }, doc);
+  assert.equal(liveSection.stateElement.getAttribute("aria-live"), "polite");
 });

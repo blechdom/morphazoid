@@ -10,31 +10,6 @@
   font-family: var(--mz-font-mono);
 }
 
-.mz-field__heading {
-  display: flex;
-  min-width: 0;
-  margin-bottom: var(--mz-space-1);
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.mz-field__label {
-  color: var(--mz-color-ink);
-  font-size: var(--mz-font-size-md);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-
-.mz-field__output {
-  overflow: hidden;
-  color: var(--mz-color-muted);
-  font-size: var(--mz-font-size-sm);
-  font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .mz-range-field__input {
   width: 100%;
   height: 40px;
@@ -72,14 +47,6 @@
   border-radius: 50%;
   background: var(--mz-color-bg-deep);
   box-shadow: 0 0 8px var(--mz-active-accent-glow);
-}
-
-.mz-field__description {
-  display: block;
-  margin: 2px 0 var(--mz-space-2);
-  color: var(--mz-color-muted);
-  font-size: var(--mz-font-size-xs);
-  line-height: 1.55;
 }
 
 .mz-range-field.is-disabled {

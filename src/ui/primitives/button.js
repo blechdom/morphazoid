@@ -7,12 +7,54 @@ import {
   setClassState,
 } from "../internal.js";
 
-const BUTTON_VARIANTS = new Set(["default", "primary", "quiet", "danger", "play", "audio"]);
+const BUTTON_VARIANTS = new Set([
+  "default",
+  "mini",
+  "reset",
+  "primary",
+  "quiet",
+  "danger",
+  "play",
+  "audio",
+]);
 const BUTTON_SIZES = new Set(["default", "compact", "square"]);
 const AUDIO_STATES = new Set(["off", "starting", "on", "error"]);
+const AUDIO_STATE_LABELS = {
+  off: ["Turn audio on", "Audio off"],
+  starting: ["Starting audio", "Starting audio"],
+  on: ["Turn audio off", "Audio on"],
+  error: ["Audio unavailable", "Audio unavailable"],
+};
 
 function normalizedChoice(value, choices, fallback) {
   return choices.has(value) ? value : fallback;
+}
+
+function createSvgElement(doc, name) {
+  if (typeof doc.createElementNS === "function") {
+    return doc.createElementNS("http://www.w3.org/2000/svg", name);
+  }
+  return doc.createElement(name);
+}
+
+function appendTransportIcons(icon, doc) {
+  const play = createSvgElement(doc, "svg");
+  play.setAttribute("class", "transport-play");
+  play.setAttribute("viewBox", "0 0 24 24");
+  play.setAttribute("aria-hidden", "true");
+  const playPath = createSvgElement(doc, "path");
+  playPath.setAttribute("d", "M8 5.5 18 12 8 18.5Z");
+  play.append(playPath);
+
+  const pause = createSvgElement(doc, "svg");
+  pause.setAttribute("class", "transport-pause");
+  pause.setAttribute("viewBox", "0 0 24 24");
+  pause.setAttribute("aria-hidden", "true");
+  const pausePath = createSvgElement(doc, "path");
+  pausePath.setAttribute("d", "M8 6v12M16 6v12");
+  pause.append(pausePath);
+
+  icon.append(play, pause);
 }
 
 /**
@@ -23,12 +65,15 @@ export function createButton(options = {}, doc = globalThis.document) {
   requireDocument(doc);
   const variant = normalizedChoice(options.variant, BUTTON_VARIANTS, "default");
   const size = normalizedChoice(options.size, BUTTON_SIZES, "default");
+  const isToggle = typeof options.toggle === "boolean" ? options.toggle : variant === "play";
   const button = doc.createElement("button");
   button.type = options.type ?? "button";
   button.className = classNames(
     "mz-button",
     `mz-button--${variant}`,
     size !== "default" && `mz-button--${size}`,
+    variant === "mini" && "mini-action",
+    variant === "reset" && "reset-all-button",
     variant === "play" && "play-button",
     variant === "audio" && "audio-button",
     options.className,
@@ -46,13 +91,16 @@ export function createButton(options = {}, doc = globalThis.document) {
     options.iconClassName,
   );
   icon.setAttribute("aria-hidden", "true");
-  if (options.icon !== undefined && options.icon !== null) appendContent(icon, options.icon, doc);
+  if (variant === "play" && options.icon === undefined) appendTransportIcons(icon, doc);
+  else if (options.icon !== undefined && options.icon !== null) appendContent(icon, options.icon, doc);
 
   const label = doc.createElement("span");
   label.className = "mz-button__label";
   label.textContent = String(options.label ?? "Button");
   if (options.icon !== undefined || variant === "play" || variant === "audio") button.append(icon);
   button.append(label);
+
+  if (variant === "audio") button.setAttribute("data-audio-icon-ready", "true");
 
   if (!options.ariaLabel && (variant === "play" || variant === "audio")) {
     button.setAttribute("aria-label", label.textContent);
@@ -71,7 +119,12 @@ export function createButton(options = {}, doc = globalThis.document) {
   const setAudioState = (state) => {
     const next = normalizedChoice(state, AUDIO_STATES, "off");
     button.setAttribute("data-audio-state", next);
-    if (variant === "audio") setPressed(next === "on");
+    if (variant === "audio") {
+      setPressed(next === "on");
+      const [ariaLabel, title] = AUDIO_STATE_LABELS[next];
+      if (!options.ariaLabel) button.setAttribute("aria-label", ariaLabel);
+      if (!options.title) button.title = title;
+    }
     return next;
   };
   const setAttention = (attention) => {
@@ -81,7 +134,7 @@ export function createButton(options = {}, doc = globalThis.document) {
   };
 
   if (typeof options.pressed === "boolean") setPressed(options.pressed);
-  else if (options.toggle || variant === "play") setPressed(false);
+  else if (isToggle) setPressed(false);
   if (variant === "audio") {
     setAudioState(options.audioState ?? (options.pressed ? "on" : "off"));
   }
@@ -90,7 +143,7 @@ export function createButton(options = {}, doc = globalThis.document) {
 
   const onClick = (event) => {
     if (button.disabled) return;
-    if (options.toggle) setPressed(button.getAttribute("aria-pressed") !== "true");
+    if (isToggle) setPressed(button.getAttribute("aria-pressed") !== "true");
     options.onClick?.(event, button);
   };
   button.addEventListener("click", onClick);

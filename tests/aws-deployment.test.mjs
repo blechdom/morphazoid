@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -636,6 +636,127 @@ test("site builder publishes runtime files without development material", async 
   }
 });
 
+test("AWS deploy helper builds the complete default artifact and rejects missing explicit artifacts", async () => {
+  const temporary = await mkdtemp(join(tmpdir(), "morphazoid-deploy-helper-"));
+  const scriptsDirectory = join(temporary, "scripts");
+  const binDirectory = join(temporary, "bin");
+  const callLog = join(temporary, "calls.log");
+
+  try {
+    await Promise.all([
+      mkdir(scriptsDirectory, { recursive: true }),
+      mkdir(binDirectory, { recursive: true }),
+    ]);
+    await Promise.all([
+      readFile(new URL("../scripts/deploy-aws-site.sh", import.meta.url), "utf8").then((source) => (
+        writeFile(join(scriptsDirectory, "deploy-aws-site.sh"), source, "utf8")
+      )),
+      writeFile(
+        join(binDirectory, "npm"),
+        [
+          "#!/usr/bin/env bash",
+          "set -euo pipefail",
+          "printf 'npm %s\\n' \"$*\" >> \"$TEST_LOG\"",
+          "if [[ \"$*\" = \"run build:deploy\" ]]; then",
+          "  mkdir -p \"$PWD/dist/storybook\"",
+          "  touch \"$PWD/dist/storybook/index.html\"",
+          "  touch \"$PWD/dist/storybook/iframe.html\"",
+          "  touch \"$PWD/dist/storybook/index.json\"",
+          "fi",
+          "",
+        ].join("\n"),
+        { mode: 0o755 },
+      ),
+      writeFile(
+        join(binDirectory, "aws"),
+        [
+          "#!/usr/bin/env bash",
+          "set -euo pipefail",
+          "printf 'aws %s\\n' \"$*\" >> \"$TEST_LOG\"",
+          "",
+        ].join("\n"),
+        { mode: 0o755 },
+      ),
+    ]);
+
+    const environment = {
+      ...process.env,
+      PATH: `${binDirectory}:${process.env.PATH}`,
+      TEST_LOG: callLog,
+      AWS_PROFILE: "",
+      AWS_SITE_BUCKET: "test-site-bucket",
+      AWS_CLOUDFRONT_DISTRIBUTION_ID: "TESTDISTRIBUTION",
+      DRY_RUN: "true",
+    };
+
+    const defaultRun = await execFileAsync("bash", ["scripts/deploy-aws-site.sh"], {
+      cwd: temporary,
+      env: environment,
+    });
+    assert.match(defaultRun.stdout, /Dry run complete/);
+    assert.equal(await exists(join(temporary, "dist")), true);
+
+    const initialCalls = await readFile(callLog, "utf8");
+    assert.match(initialCalls, /^npm run build:deploy$/m);
+    assert.match(initialCalls, /^aws s3 sync /m);
+    assert.ok(
+      initialCalls.indexOf("npm run build:deploy") < initialCalls.indexOf("aws s3 sync"),
+      "the complete deployment build must finish before the S3 sync",
+    );
+
+    await assert.rejects(
+      execFileAsync("bash", ["scripts/deploy-aws-site.sh", "missing-custom-artifact"], {
+        cwd: temporary,
+        env: environment,
+      }),
+      (error) => {
+        assert.equal(error.code, 1);
+        assert.match(error.stderr, /Artifact directory does not exist:/);
+        assert.match(error.stderr, /npm run build:deploy/);
+        return true;
+      },
+    );
+    assert.equal(
+      await readFile(callLog, "utf8"),
+      initialCalls,
+      "a missing explicit artifact must fail before npm or AWS is invoked",
+    );
+
+    const incompleteArtifact = join(temporary, "incomplete-artifact");
+    await mkdir(incompleteArtifact);
+    await assert.rejects(
+      execFileAsync("bash", ["scripts/deploy-aws-site.sh", incompleteArtifact], {
+        cwd: temporary,
+        env: environment,
+      }),
+      (error) => {
+        assert.equal(error.code, 1);
+        assert.match(error.stderr, /Artifact is incomplete: missing storybook\/index\.html/);
+        return true;
+      },
+    );
+    assert.equal(
+      await readFile(callLog, "utf8"),
+      initialCalls,
+      "an incomplete explicit artifact must fail before AWS is invoked",
+    );
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("AWS bootstrap instructions install locked dependencies before building", async () => {
+  const bootstrap = await readFile(
+    new URL("../scripts/bootstrap-aws-site.sh", import.meta.url),
+    "utf8",
+  );
+  const instructions = bootstrap.slice(bootstrap.indexOf("Then publish once locally:"));
+
+  assert.match(instructions, /npm ci/);
+  assert.match(instructions, /npm run build:deploy/);
+  assert.ok(instructions.indexOf("npm ci") < instructions.indexOf("npm run build:deploy"));
+});
+
 test("CloudFormation keeps the origin private and CI permissions narrow", async () => {
   const template = await readFile(new URL("../infra/site.yml", import.meta.url), "utf8");
 
@@ -648,9 +769,15 @@ test("CloudFormation keeps the origin private and CI permissions narrow", async 
   assert.match(template, /Type:\s+AAAA/);
   assert.match(template, /Runtime:\s+cloudfront-js-2\.0/);
   assert.match(template, /request\.uri\.endsWith\('\/'\)/);
+  assert.match(template, /request\.uri === '\/storybook'/);
   assert.match(template, /token\.actions\.githubusercontent\.com:sub:\s+!Ref GitHubOidcSubject/);
   assert.match(template, /Header:\s+Permissions-Policy/);
   assert.match(template, /Value:\s+microphone=\(self\), camera=\(self\), geolocation=\(\)/);
+  assert.match(template, /PathPattern:\s+\/storybook\/\*/);
+  assert.match(template, /ResponseHeadersPolicyId:\s+!Ref StorybookSecurityHeaders/);
+  assert.match(template, /FrameOption:\s+SAMEORIGIN/);
+  assert.match(template, /ContentSecurityPolicy:\s+"frame-ancestors 'self'"/);
+  assert.match(template, /FrameOption:\s+DENY/);
   assert.match(template, /Sid:\s+DenyInsecureTransport/);
   assert.match(template, /cloudfront:CreateInvalidation/);
   assert.doesNotMatch(template, /PolicyName:[\s\S]*?route53:\*/);
@@ -659,11 +786,16 @@ test("CloudFormation keeps the origin private and CI permissions narrow", async 
 
 test("AWS workflow verifies before OIDC deployment and uses repository variables", async () => {
   const workflow = await readFile(new URL("../.github/workflows/deploy-aws.yml", import.meta.url), "utf8");
+  const preflightStart = workflow.indexOf("- name: Verify CloudFront is ready for Storybook");
+  const publishStart = workflow.indexOf("- name: Publish static files");
+  const s3SyncStart = workflow.indexOf("aws s3 sync");
 
   assert.match(workflow, /pull_request:/);
   assert.match(workflow, /push:\s*\n\s+branches:\s+\[main\]/);
+  assert.match(workflow, /npm ci/);
   assert.match(workflow, /npm run verify/);
-  assert.match(workflow, /npm run build:site/);
+  assert.match(workflow, /npm run build:deploy/);
+  assert.match(workflow, /npm run check:storybook-dist/);
   assert.match(workflow, /actions\/upload-artifact@v7/);
   assert.match(workflow, /actions\/download-artifact@v8/);
   assert.match(workflow, /aws-actions\/configure-aws-credentials@v6\.2\.3/);
@@ -675,7 +807,34 @@ test("AWS workflow verifies before OIDC deployment and uses repository variables
   assert.match(workflow, /vars\.AWS_DEPLOY_ROLE_ARN/);
   assert.match(workflow, /vars\.AWS_SITE_BUCKET/);
   assert.match(workflow, /vars\.AWS_CLOUDFRONT_DISTRIBUTION_ID/);
+  assert.ok(preflightStart >= 0, "the deploy job must include the CloudFront preflight");
+  assert.ok(
+    preflightStart < publishStart && preflightStart < s3SyncStart,
+    "the CloudFront policy preflight must finish before any S3 publication",
+  );
+  const preflight = workflow.slice(preflightStart, publishStart);
+  assert.match(preflight, /https:\/\/morphazoid\.com\/storybook\/__cloudfront-policy-probe__/);
+  assert.match(preflight, /probe object is intentionally/);
+  assert.match(preflight, /x-frame-options:[^\n]*DENY/i);
+  assert.match(preflight, /x-frame-options:[^\n]*SAMEORIGIN/i);
+  assert.match(preflight, /content-security-policy:[^\n]*frame-ancestors/i);
+  const probeUrlIndex = preflight.indexOf("__cloudfront-policy-probe__");
+  const probeCurlStart = preflight.lastIndexOf("curl ", probeUrlIndex);
+  const probeCurl = preflight.slice(probeCurlStart, probeUrlIndex);
+  assert.ok(probeCurlStart >= 0, "the Storybook preflight must make an HTTP request");
+  assert.match(probeCurl, /--head/);
+  assert.doesNotMatch(
+    probeCurl,
+    /--fail/,
+    "an intentionally absent Storybook probe object must not fail on its HTTP status",
+  );
   assert.match(workflow, /cloudfront wait invalidation-completed/);
   assert.match(workflow, /https:\/\/morphazoid\.com\/morphazoidical\//);
+  assert.match(workflow, /https:\/\/morphazoid\.com\/storybook\//);
+  assert.match(workflow, /https:\/\/morphazoid\.com\/storybook\/iframe\.html/);
+  assert.match(workflow, /https:\/\/morphazoid\.com\/storybook\/index\.json/);
+  assert.match(workflow, /x-frame-options:[^\n]*DENY/i);
+  assert.match(workflow, /x-frame-options:[^\n]*SAMEORIGIN/i);
+  assert.match(workflow, /content-security-policy:[^\n]*frame-ancestors/i);
   assert.doesNotMatch(workflow, /AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY/);
 });

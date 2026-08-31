@@ -38,7 +38,9 @@ export function createControlSection(options = {}, doc = globalThis.document) {
 
   const stateElement = doc.createElement("span");
   stateElement.className = classNames("mz-control-section__state", "section-state", options.stateClassName);
-  stateElement.setAttribute("aria-live", options.stateLive ?? "polite");
+  if (options.stateLive) {
+    stateElement.setAttribute("aria-live", options.stateLive === true ? "polite" : String(options.stateLive));
+  }
   const initialState = options.state ?? options.summary;
   stateElement.textContent = initialState === undefined || initialState === null ? "" : String(initialState);
   if (stateElement.textContent || options.showEmptyState) summaryElement.append(stateElement);

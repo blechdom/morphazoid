@@ -1,30 +1,38 @@
 import { createButton } from "../src/ui/index.js";
 import "./catalog.css";
 
+function renderPanelButton(args) {
+  const panel = document.createElement("div");
+  panel.className = "mz-story-panel";
+  panel.append(createButton(args));
+  return panel;
+}
+
 function makeStateMatrix() {
   const root = document.createElement("section");
   root.className = "mz-story mz-story--narrow";
   root.innerHTML = `
-    <h1>Button states</h1>
-    <p class="mz-story__intro">Visual states are data only. These specimens never create an AudioContext or start a transport.</p>
+    <h1>Common Morphazoid buttons</h1>
+    <p class="mz-story__intro">The specimens use the same mini-action, circular transport, and square speaker treatments as production pages. They never create an AudioContext or start a transport.</p>
   `;
 
   const groups = [
     {
-      title: "Actions",
+      title: "Compact actions",
       buttons: [
-        { label: "Default", variant: "default" },
-        { label: "Primary", variant: "primary" },
+        { label: "Reset 90°", variant: "mini" },
+        { label: "Apply mapping", variant: "primary", size: "compact" },
         { label: "Quiet", variant: "quiet" },
-        { label: "Delete", variant: "danger" },
-        { label: "Disabled", variant: "default", disabled: true },
+        { label: "Delete bank", variant: "danger" },
+        { label: "Disabled", variant: "mini", disabled: true },
       ],
     },
     {
       title: "Transport",
       buttons: [
-        { label: "Play", variant: "play", size: "square", pressed: false },
-        { label: "Pause", variant: "play", size: "square", pressed: true },
+        { label: "Play", variant: "play", size: "square", toggle: true, pressed: false },
+        { label: "Pause", variant: "play", size: "square", toggle: true, pressed: true },
+        { label: "Pluck selected string", variant: "play", size: "square", toggle: false },
       ],
     },
     {
@@ -35,6 +43,12 @@ function makeStateMatrix() {
         { label: "Audio on", variant: "audio", size: "square", audioState: "on" },
         { label: "Audio error", variant: "audio", size: "square", audioState: "error" },
         { label: "Audio needs attention", variant: "audio", size: "square", audioState: "off", attention: true },
+      ],
+    },
+    {
+      title: "Panel reset",
+      buttons: [
+        { label: "Reset all parameters", variant: "reset" },
       ],
     },
   ];
@@ -60,10 +74,9 @@ export default {
   tags: ["autodocs"],
   render: (args) => createButton(args),
   args: {
-    label: "Reset form",
-    variant: "default",
+    label: "Reset vertices",
+    variant: "mini",
     size: "default",
-    pressed: false,
     disabled: false,
     audioState: "off",
     attention: false,
@@ -71,7 +84,7 @@ export default {
   argTypes: {
     variant: {
       control: "select",
-      options: ["default", "primary", "quiet", "danger", "play", "audio"],
+      options: ["default", "mini", "reset", "primary", "quiet", "danger", "play", "audio"],
     },
     size: {
       control: "select",
@@ -98,10 +111,50 @@ export default {
 
 export const Playground = {};
 
+export const Generic = {
+  args: {
+    label: "Generic action",
+    variant: "default",
+  },
+};
+
+export const MiniAction = {
+  args: {
+    label: "Reset 90°",
+    variant: "mini",
+  },
+};
+
+export const PanelReset = {
+  render: renderPanelButton,
+  args: {
+    label: "Reset all parameters",
+    variant: "reset",
+  },
+};
+
 export const Primary = {
   args: {
     label: "Apply mapping",
     variant: "primary",
+  },
+};
+
+export const AudioOff = {
+  args: {
+    label: "Audio",
+    variant: "audio",
+    size: "square",
+    audioState: "off",
+  },
+};
+
+export const AudioOn = {
+  args: {
+    label: "Audio",
+    variant: "audio",
+    size: "square",
+    audioState: "on",
   },
 };
 
@@ -110,7 +163,17 @@ export const PlayRunning = {
     label: "Pause playhead",
     variant: "play",
     size: "square",
+    toggle: true,
     pressed: true,
+  },
+};
+
+export const PlayTrigger = {
+  args: {
+    label: "Pluck selected string",
+    variant: "play",
+    size: "square",
+    toggle: false,
   },
 };
 
@@ -123,9 +186,19 @@ export const AudioStarting = {
   },
 };
 
+export const AudioUnavailable = {
+  args: {
+    label: "Audio",
+    variant: "audio",
+    size: "square",
+    audioState: "error",
+  },
+};
+
 export const Disabled = {
   args: {
     label: "Unavailable",
+    variant: "mini",
     disabled: true,
   },
 };

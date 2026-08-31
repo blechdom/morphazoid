@@ -11,23 +11,35 @@
   gap: var(--mz-space-2);
 }
 
+.choice-switch,
 .mz-choice-switch {
   display: grid;
-  margin: 0;
+  margin: 6px 0 12px;
   padding: var(--mz-space-1);
-  border: 1px solid var(--mz-color-line-strong);
-  background: var(--mz-color-bg-deep);
+  border: 1px solid var(--line-strong, var(--mz-color-line-strong));
+  background: var(--bg-deep, var(--mz-color-bg-deep));
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: var(--mz-space-1);
 }
 
+/* The factory wraps the legacy rocker in a field; keep its spacing on the field
+   instead of stacking the raw-markup switch margins on top. */
+.mz-choice-field > .mz-field__label {
+  margin-bottom: 0;
+}
+
+.mz-choice-field > .mz-choice-switch {
+  margin: 0;
+}
+
+.choice-switch button,
 .mz-choice-switch__option {
   min-height: 40px;
   padding: 8px 7px;
   border: 1px solid transparent;
   cursor: pointer;
-  color: var(--mz-color-muted);
+  color: var(--muted, var(--mz-color-muted));
   background: transparent;
   font-family: var(--mz-font-mono);
   font-size: var(--mz-font-size-sm);
@@ -35,24 +47,27 @@
   text-transform: uppercase;
 }
 
+.choice-switch button:hover:not(:disabled),
 .mz-choice-switch__option:hover:not(:disabled) {
-  color: var(--mz-color-ink);
+  color: var(--ink, var(--mz-color-ink));
 }
 
+.choice-switch button:disabled,
 .mz-choice-switch__option:disabled {
   cursor: not-allowed;
-  color: var(--mz-color-faint);
+  color: var(--faint, var(--mz-color-faint));
   opacity: 0.55;
 }
 
+.choice-switch button[aria-pressed="true"],
 .mz-choice-switch__option[aria-pressed="true"] {
-  border-color: var(--mz-active-accent-soft);
-  color: var(--mz-active-accent);
-  background: var(--mz-active-accent-glow);
-  box-shadow: inset 0 0 10px var(--mz-active-accent-glow);
+  border-color: var(--accent-soft, var(--mz-active-accent-soft));
+  color: var(--accent, var(--mz-active-accent));
+  background: var(--accent-glow, var(--mz-active-accent-glow));
+  box-shadow: inset 0 0 10px var(--accent-glow, var(--mz-active-accent-glow));
 }
 
+.choice-switch.compact button,
 .mz-choice-switch.compact .mz-choice-switch__option {
-  min-height: var(--mz-control-height-compact);
   font-size: var(--mz-font-size-xs);
 }

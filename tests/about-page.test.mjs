@@ -16,6 +16,10 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /Project (?:reference|guide)/i);
   assert.match(html, /<nav class="tabs" aria-label="Morphazoid main menu"><\/nav>/);
   assert.match(html, /<option value="" selected>choose<\/option>/);
+  assert.match(
+    html,
+    /<a class="about-header-link" href="storybook\/">Design system<\/a>/,
+  );
   assert.doesNotMatch(html, /href="(?:plugins|instruments|about)\.html"/);
   assert.match(html, /id="homeInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
   assert.match(html, /src="instrument-catalog-app\.js\?v=catalog-[^"]+"/);
@@ -167,6 +171,8 @@ test("About document styles remain independently scrollable on instrument breakp
   assert.match(css, /\.about-shell\s*\{[^}]*overflow-y: auto;/);
   assert.match(css, /\.about-shell\s*\{[^}]*flex: 1 1 auto;/);
   assert.match(css, /\.about-header-label\s*\{[^}]*color: var\(--muted\);/);
+  assert.match(css, /\.about-header-link\s*\{[^}]*min-height: 44px;/);
+  assert.match(css, /\.about-header-link:hover\s*\{[^}]*color: var\(--ink\);/);
   assert.match(css, /\.about-footer\s*\{[^}]*color: var\(--muted\);/);
   assert.match(css, /@media \(max-width: 560px\)/);
 });

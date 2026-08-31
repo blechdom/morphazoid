@@ -9,17 +9,23 @@ const SYNTH_OPTIONS = [
   { value: "pm", label: "PM synthesis · mapped phase depth" },
 ];
 
+function renderSelect(args) {
+  const panel = document.createElement("div");
+  panel.className = "mz-story-panel";
+  panel.append(createSelectField(args));
+  return panel;
+}
+
 export default {
   title: "Primitives/Select Field",
   component: createSelectField,
   tags: ["autodocs"],
-  render: (args) => createSelectField(args),
+  render: renderSelect,
   args: {
     label: "Synth",
     name: "synth-mode",
     value: "sine",
     options: SYNTH_OPTIONS,
-    description: "Choose a voice model; synthesis remains outside the UI component.",
     disabled: false,
   },
   argTypes: {
@@ -39,6 +45,12 @@ export default {
 };
 
 export const SynthMode = {};
+
+export const WithDescription = {
+  args: {
+    description: "Choose a voice model; synthesis remains outside the UI component.",
+  },
+};
 
 export const LongOptions = {
   args: {

@@ -9,6 +9,13 @@ import "./catalog.css";
 
 const SECTIONS = ["play", "form", "rotation", "winding", "sound", "mapping", "output"];
 
+function wrapPanel(child) {
+  const panel = document.createElement("div");
+  panel.className = "mz-story-panel";
+  panel.append(child);
+  return panel;
+}
+
 function makeBody(section) {
   if (section === "play") {
     const row = document.createElement("div");
@@ -75,10 +82,10 @@ function makeBody(section) {
 }
 
 function renderSection(args) {
-  return createControlSection({
+  return wrapPanel(createControlSection({
     ...args,
     children: makeBody(args.section),
-  });
+  }));
 }
 
 function renderAccentGallery() {
@@ -113,7 +120,7 @@ function renderAccentGallery() {
   });
 
   root.append(gallery);
-  return root;
+  return wrapPanel(root);
 }
 
 export default {
@@ -174,6 +181,23 @@ export const LongSummary = {
     state: "Angular position combined with tile and edge shape",
     section: "mapping",
     open: false,
+  },
+};
+
+export const CustomAccent = {
+  args: {
+    title: "Analysis",
+    state: "Custom scope",
+    section: "analysis",
+    attributes: {
+      style: "--mz-section-accent: #ff79c6",
+    },
+  },
+};
+
+export const LiveSummary = {
+  args: {
+    stateLive: "polite",
   },
 };
 

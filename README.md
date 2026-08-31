@@ -162,6 +162,9 @@ Continuous voices render in an AudioWorklet. Moving geometry sends short look-ah
 
 <https://blechdom.github.io/morphazoid/>
 
+The live [UI component catalog](https://blechdom.github.io/morphazoid/storybook/)
+documents reusable tokens, controls, patterns, and interaction states.
+
 ## Development
 
 ```sh
@@ -175,6 +178,10 @@ The reusable UI primitives and design tokens are documented in
 [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md). Run the component catalog locally with
 `npm run storybook`, or generate its static HTML/CSS/JavaScript output with
 `npm run build:storybook`.
+
+`npm run build:deploy` assembles the production site, hosted WAX site, and
+component catalog together under `dist/`; Storybook is published at
+`dist/storybook/`.
 
 ## Checks
 
