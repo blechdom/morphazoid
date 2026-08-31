@@ -778,29 +778,50 @@ function syncPatchStatus() {
 }
 
 function syncExecutionShape() {
-  const activeHistoryModules = [...new Set(patchNodes()
-    .map((node) => nodeModuleId(node))
+  const activeModuleIds = patchNodes().map((node) => nodeModuleId(node));
+  const activeHistoryModules = [...new Set(activeModuleIds
     .filter((moduleId) => HISTORY_MODULE_IDS.has(moduleId)))];
+  const activeStatefulModules = [...new Set(activeModuleIds
+    .filter((moduleId) => moduleById.get(moduleId)?.stateful))];
   const hasHistoryPass = activeHistoryModules.length > 0;
+  const hasStatePass = activeStatefulModules.length > 0;
+  const hasExtraGpuPass = hasHistoryPass || hasStatePass;
   const historyStage = $("gpuHistoryPass");
   const historyDivider = $("gpuHistoryPassDivider");
   const flow = $("executionFlowStrip");
-  historyStage.hidden = !hasHistoryPass;
-  historyDivider.hidden = !hasHistoryPass;
-  flow.classList.toggle("has-history-pass", hasHistoryPass);
+  historyStage.hidden = !hasExtraGpuPass;
+  historyDivider.hidden = !hasExtraGpuPass;
+  historyStage.innerHTML = hasStatePass
+    ? `GPU state <b>${hasHistoryPass ? "State + FX" : "Ordered passes"}</b>`
+    : "GPU history <b>Post FX</b>";
+  flow.classList.toggle("has-history-pass", hasExtraGpuPass);
   flow.setAttribute(
     "aria-label",
-    hasHistoryPass
-      ? "Current audio path: CPU to GPU, sample pass, GPU history and post effects pass, then one GPU to CPU readback"
+    hasStatePass
+      ? `Current audio path: CPU to GPU, sample graph, ${activeStatefulModules.length} ordered GPU state ${activeStatefulModules.length === 1 ? "pass" : "passes"}${hasHistoryPass ? ", post effects" : ""}, then one GPU to CPU readback`
+      : hasHistoryPass
+        ? "Current audio path: CPU to GPU, sample pass, GPU history and post effects pass, then one GPU to CPU readback"
       : "Current audio path: CPU to GPU, sample pass, then one GPU to CPU readback",
   );
 
   const historyLane = $("blockStateLane");
   const postFxLane = $("separateGpuPassLane");
-  historyLane.classList.toggle("is-active-path", hasHistoryPass);
-  postFxLane.classList.toggle("is-active-path", hasHistoryPass);
+  historyLane.classList.toggle("is-active-path", hasExtraGpuPass);
+  postFxLane.classList.toggle("is-active-path", hasExtraGpuPass);
 
-  if (hasHistoryPass) {
+  if (hasStatePass) {
+    const stateLabels = activeStatefulModules
+      .map((moduleId) => moduleById.get(moduleId)?.label ?? moduleId)
+      .join(", ");
+    const historySuffix = hasHistoryPass
+      ? " The terminal history effects then run before the same final readback."
+      : "";
+    $("sampleInvocationModel").textContent = `The sample graph captures connected signals on the GPU. Each active state module runs in graph order, and the graph is reevaluated so later modules receive its new output.${historySuffix}`;
+    $("blockStateHeading").textContent = "Active GPU state";
+    $("blockStateDescription").textContent = `${stateLabels} keep private state only while their nodes are in this patch.`;
+    $("separateGpuPassHeading").textContent = "Ordered state passes";
+    $("separateGpuPassDescription").textContent = "Intermediate graph signals, grids, spectral history, and modal state remain on the GPU. Only the completed stereo chunk returns to the CPU.";
+  } else if (hasHistoryPass) {
     const labels = activeHistoryModules
       .map((moduleId) => moduleById.get(moduleId)?.label ?? moduleId)
       .join(", ");
@@ -812,9 +833,9 @@ function syncExecutionShape() {
   } else {
     $("sampleInvocationModel").textContent = "One GPU invocation computes one sample and evaluates every visible module. CPU transfers happen around the finished chunk, never between nodes.";
     $("blockStateHeading").textContent = "Block / state";
-    $("blockStateDescription").textContent = "History, ordered feedback, or shared memory support recursive filters, delay lines, and waveguides. No current module uses this path.";
+    $("blockStateDescription").textContent = "History, ordered feedback, and shared memory support recursive filters, evolving grids, spectral windows, and resonators. Their private GPU storage exists only while a matching module is present.";
     $("separateGpuPassHeading").textContent = "Separate GPU pass";
-    $("separateGpuPassDescription").textContent = "FFT, reduction, long convolution, and physical grids exchange intermediate buffers between dispatches. No current module uses this path.";
+    $("separateGpuPassDescription").textContent = "Block transforms, reductions, and physical grids exchange intermediate GPU buffers between dispatches before the single final readback.";
   }
 }
 

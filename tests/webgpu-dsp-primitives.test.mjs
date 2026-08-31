@@ -31,7 +31,7 @@ function assertUniqueIds(records, label) {
 test("Shader Synth Primitives exports complete, uniquely identified primitive data", () => {
   assertUniqueIds(WEBGPU_DSP_CATEGORIES, "DSP categories");
   assertUniqueIds(WEBGPU_DSP_PRIMITIVES, "DSP primitives");
-  assert.equal(WEBGPU_DSP_PRIMITIVES.length, 142, "the atlas count and initial page count should stay aligned");
+  assert.equal(WEBGPU_DSP_PRIMITIVES.length, 145, "the atlas count and initial page count should stay aligned");
 
   const statuses = new Set();
   for (const primitive of WEBGPU_DSP_PRIMITIVES) {
@@ -97,8 +97,15 @@ test("the atlas documents the live geometry-to-time primitives with primary shad
     assert.match(`${entry.audio} ${entry.note}`, /X\/Y|coordinate|distance|field|cell|tile/i);
   }
 
-  for (const id of ["cellular-automaton-score", "reaction-diffusion-score-lattice", "geometric-feedback-lattice"]) {
-    assert.equal(WEBGPU_DSP_PRIMITIVES.find((primitive) => primitive.id === id)?.status, "block");
+  for (const id of [
+    "cellular-automaton-score",
+    "reaction-diffusion-score-lattice",
+    "geometric-feedback-lattice",
+    "spectral-sdf",
+    "flow-field-advection",
+    "raymarch-resonator",
+  ]) {
+    assert.equal(WEBGPU_DSP_PRIMITIVES.find((primitive) => primitive.id === id)?.status, "live");
   }
 });
 
@@ -161,7 +168,7 @@ test("the companion page exposes filters, a semantic table, and technical notes"
   assert.match(app, /class="primitive-source"/);
   assert.match(app, /primitive\.source\?\.url/);
   assert.match(css, /\.primitive-source/);
-  assert.match(html, />142 primitives</);
+  assert.match(html, />145 primitives</);
   assert.doesNotMatch(app, /WEBGPU_DSP_RECIPES|data-add-sketch|recipeStrip/);
   assert.match(css, /overflow-x:\s*(?:auto|scroll)/);
   assert.match(css, /@media\s*\(max-width:\s*\d+px\)/);

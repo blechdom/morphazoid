@@ -1266,6 +1266,27 @@ const SOURCE_AUDITION_CONTROL_INPUT = Object.freeze({
   "wavefold-table-oscillator": "scan",
 });
 
+const EFFECT_AUDITION_OVERRIDES = Object.freeze({
+  "geometric-feedback-lattice": Object.freeze({
+    source: "procedural-kick",
+    sourceLabel: "Procedural Kick",
+    sourceParams: Object.freeze({ rate: 1.7, frequency: 48, drop: 4.8, decay: 0.2, click: 0.38, drive: 1.5, level: 0.58 }),
+    focusParams: Object.freeze({ size: 11, delay: 27, feedback: 0.84, coupling: 0.7, folds: 5, rotation: 0.093, damping: 0.44, mix: 0.72 }),
+  }),
+  "spectral-sdf": Object.freeze({
+    source: "supersaw",
+    sourceLabel: "Supersaw",
+    sourceParams: Object.freeze({ frequency: 82.41, voices: 7, detune: 23, spread: 0.82, driftRate: 0.16, driftDepth: 0.18, waveform: 0, level: 0.46 }),
+    focusParams: Object.freeze({ fftSize: 2, shape: 3, size: 0.64, rotation: 0.11, edge: 0.07, depth: 0.8, mix: 0.84, level: 1.08 }),
+  }),
+  "raymarch-resonator": Object.freeze({
+    source: "procedural-kick",
+    sourceLabel: "Procedural Kick",
+    sourceParams: Object.freeze({ rate: 2.1, frequency: 62, drop: 5.6, decay: 0.12, click: 0.64, drive: 1.25, level: 0.46 }),
+    focusParams: Object.freeze({ modes: 26, shape: 2, size: 1.15, reflectivity: 0.965, damping: 0.34, brightness: 0.3, stereo: 0.84, mix: 0.9 }),
+  }),
+});
+
 function buildModuleAudition(spec, sequence) {
   const slug = `audition-${spec.id}`;
   const comboId = `combo-${String(sequence).padStart(3, "0")}-${slug}`;
@@ -1469,10 +1490,16 @@ function buildModuleAudition(spec, sequence) {
       edge("stereo-out", "stereo", "out", "out", "signal"),
     ]);
   } else if (spec.auditionKind === "effect") {
-    route = `Oscillator → ${spec.name} → Pan → Output`;
+    const audition = EFFECT_AUDITION_OVERRIDES[spec.id] ?? {
+      source: "oscillator",
+      sourceLabel: "Oscillator",
+      sourceParams: { frequency: 110, waveform: 1, level: 0.52 },
+      focusParams: {},
+    };
+    route = `${audition.sourceLabel} → ${spec.name} → Pan → Output`;
     patch = comboGraph(comboId, name, [
-      node("source", "oscillator", 25, 100, { frequency: 110, waveform: 1, level: 0.52 }),
-      node("focus", spec.id, 345, 100),
+      node("source", audition.source, 25, 100, audition.sourceParams),
+      node("focus", spec.id, 345, 100, audition.focusParams),
       node("pan", "pan", 690, 115, { pan: 0, depth: 0 }), comboOutput(0.6),
     ], [
       edge("source-focus", "source", "out", "focus", focusInput),
