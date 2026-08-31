@@ -26,6 +26,7 @@ const EXPECTED_STATEFUL_KINDS = Object.freeze([105, 106, 107, 108, 109, 110]);
 const STATEFUL_MODULES = stateful.SHADER_SYNTH_PLAYGROUND_STATEFUL_MODULES;
 const STATEFUL_KINDS = stateful.SHADER_SYNTH_PLAYGROUND_STATEFUL_KINDS;
 const STATEFUL_SHADER = stateful.SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER;
+const StatefulEngine = stateful.ShaderSynthPlaygroundStateEngine;
 
 function countMatches(source, expression) {
   return [...source.matchAll(expression)].length;
@@ -45,6 +46,21 @@ function wgslFunction(name) {
   assert.ok(start >= 0, `missing stateful WGSL function ${name}`);
   const next = STATEFUL_SHADER.indexOf("\nfn ", start + 4);
   return next >= 0 ? STATEFUL_SHADER.slice(start, next) : STATEFUL_SHADER.slice(start);
+}
+
+function encodedStateNodes(kinds = []) {
+  const data = new Float32Array(kinds.length * 20);
+  const order = kinds.map((_, index) => `state-${index}`);
+  const nodes = kinds.map((kind, index) => {
+    data[index * 20] = kind;
+    return { id: order[index], type: EXPECTED_STATEFUL_IDS[EXPECTED_STATEFUL_KINDS.indexOf(kind)] };
+  });
+  return {
+    data,
+    order,
+    patch: { nodes, connections: [] },
+    paramsByNode: new Map(order.map((id) => [id, [1, 2, 3, 4, 5, 6, 7, 8]])),
+  };
 }
 
 test("six stateful visual modules own unique registry kinds 105 through 110", () => {
@@ -166,6 +182,52 @@ test("stateful WGSL owns six cases and a dedicated ordered compute entry point",
   );
 });
 
+test("state engine allocates lazily and destroys private buffers with the last active node", () => {
+  const buffers = [];
+  const device = {
+    queue: { writeBuffer() {} },
+    createBuffer(descriptor) {
+      const buffer = {
+        descriptor,
+        destroyCount: 0,
+        destroy() { this.destroyCount += 1; },
+      };
+      buffers.push(buffer);
+      return buffer;
+    },
+    createBindGroup(descriptor) { return { descriptor }; },
+  };
+  const pipeline = { getBindGroupLayout() { return {}; } };
+  const engine = new StatefulEngine(device, {
+    usage: { STORAGE: 1, COPY_DST: 2, UNIFORM: 4 },
+    sampleRate: 48000,
+    chunkSamples: 128,
+    maxNodes: SHADER_PLAYGROUND_LIMITS.maxNodes,
+    renderInfoBuffer: {},
+    nodeBuffer: {},
+  }).setPipeline(pipeline);
+
+  assert.equal(engine.sync(encodedStateNodes()), false);
+  assert.equal(engine.active, false);
+  assert.equal(buffers.length, 0, "an ordinary patch must not allocate state scratch or private buffers");
+
+  assert.equal(engine.sync(encodedStateNodes([105])), true);
+  assert.equal(engine.active, true);
+  assert.equal(engine.allocationSummary.nodeCount, 1);
+  assert.ok(engine.allocationSummary.scratchBytes > 0);
+  assert.ok(engine.allocationSummary.persistentBytes > 0);
+  assert.equal(buffers.length, 4, "one node needs two shared scratch, one private state, and one stage-info buffer");
+  assert.equal(buffers.every(({ destroyCount }) => destroyCount === 0), true);
+
+  assert.equal(engine.sync(encodedStateNodes()), true);
+  assert.equal(engine.active, false);
+  assert.equal(engine.allocationSummary.scratchBytes, 0);
+  assert.equal(engine.allocationSummary.persistentBytes, 0);
+  assert.equal(buffers.every(({ destroyCount }) => destroyCount === 1), true, "last-node removal must destroy all state allocations");
+  assert.equal(engine.sync(encodedStateNodes()), false, "repeated empty synchronization must not allocate or destroy again");
+  assert.equal(buffers.every(({ destroyCount }) => destroyCount === 1), true);
+});
+
 test("large state resources are conditional, state passes are active-only, and shutdown destroys them", async () => {
   const [coreSource, stateEngineSource] = await Promise.all([
     readFile(new URL("src/shader-synth-playground.js", ROOT), "utf8"),
@@ -185,10 +247,10 @@ test("large state resources are conditional, state passes are active-only, and s
   );
 
   const renderSource = ShaderSynthPlaygroundAudio.prototype.renderChunk.toString();
-  assert.ok(
-    /if\s*\([^)]*(?:stateful[\w.]*?(?:count|length)|activeStateful)[^)]*(?:>\s*0|length|active)[^)]*\)\s*\{[\s\S]{0,5000}?(?:dispatchWorkgroups|encode\w*stateful|dispatch\w*stateful)/i.test(renderSource)
-      || /if\s*\([^)]*(?:count|length|active|needed|required)[^)]*\)\s*\{[\s\S]{0,5000}?dispatchWorkgroups/i.test(stateEngineSource),
-    "state update/render passes must be encoded only when a stateful node is active",
+  assert.match(
+    renderSource,
+    /if\s*\(activeStateful\)\s*\{[\s\S]{0,3000}?orderedResources[\s\S]{0,1000}?encodeNodePass\([\s\S]{0,500}?encodeGraphPass\(\)/,
+    "each ordered state pass and causal graph rerun must remain inside the active-state guard",
   );
 
   const stopSource = ShaderSynthPlaygroundAudio.prototype.stop.toString();
