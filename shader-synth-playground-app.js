@@ -13,7 +13,7 @@ import {
   sanitizeShaderPlaygroundPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "./src/shader-synth-playground.js?v=20260830-atlas-dsp";
+} from "./src/shader-synth-playground.js?v=20260831-visual-state";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,

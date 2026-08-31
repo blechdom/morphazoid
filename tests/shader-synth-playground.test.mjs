@@ -682,7 +682,7 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   assert.match(css, /\.patch-node\.is-selected\s*\{[\s\S]*?border-color: var\(--node-color, var\(--accent\)\)/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeWidth/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeHeight/);
-  assert.match(html, /shader-synth-playground\.css\?v=20260830-atlas-dsp/);
+  assert.match(html, /shader-synth-playground\.css\?v=20260831-visual-state/);
 });
 
 test("three-way sum and product require and encode all three input slots", () => {
@@ -1897,7 +1897,7 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.doesNotMatch(html, /module-coverage|playableModuleCount|83\s*playable|142\s*in atlas/);
   assert.doesNotMatch(app, /playableModuleCount/);
   assert.match(app, /section\.open = Boolean\(query\);/);
-  assert.match(app, /shader-synth-playground\.js\?v=20260830-atlas-dsp/);
+  assert.match(app, /shader-synth-playground\.js\?v=20260831-visual-state/);
   assert.match(engineSource, /shader-synth-playground-fx\.js\?v=20260830-atlas-dsp/);
   assert.match(css, /\.patch-node/);
   assert.match(css, /\.patch-cable/);
