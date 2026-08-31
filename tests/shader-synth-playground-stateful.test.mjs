@@ -48,6 +48,21 @@ function wgslFunction(name) {
   return next >= 0 ? STATEFUL_SHADER.slice(start, next) : STATEFUL_SHADER.slice(start);
 }
 
+function wgslBlock(source, marker) {
+  const markerStart = source.indexOf(marker);
+  assert.ok(markerStart >= 0, `missing WGSL block marker: ${marker}`);
+  const blockStart = source.indexOf("{", markerStart + marker.length);
+  assert.ok(blockStart >= 0, `missing WGSL block body: ${marker}`);
+  let depth = 0;
+  for (let index = blockStart; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] !== "}") continue;
+    depth -= 1;
+    if (depth === 0) return source.slice(blockStart + 1, index);
+  }
+  assert.fail(`unterminated WGSL block: ${marker}`);
+}
+
 function encodedStateNodes(kinds = []) {
   const data = new Float32Array(kinds.length * 20);
   const order = kinds.map((_, index) => `state-${index}`);
@@ -118,6 +133,11 @@ test("stateful visual modules expose bounded typed I/O and packed audible parame
 });
 
 test("every stateful visual module has one valid dedicated Hear graph", () => {
+  const effectExcitationById = new Map([
+    ["geometric-feedback-lattice", "procedural-kick"],
+    ["spectral-sdf", "supersaw"],
+    ["raymarch-resonator", "procedural-kick"],
+  ]);
   for (const module of STATEFUL_MODULES) {
     assert.ok(module.auditionKind, `${module.id} needs a Hear strategy`);
     const auditions = SHADER_PLAYGROUND_COMBOS.filter((combo) => (
@@ -143,6 +163,15 @@ test("every stateful visual module has one valid dedicated Hear graph", () => {
       const expected = new Float32Array([focus.params[parameter.id]])[0];
       assert.equal(encoded.data[focusOffset + 12 + index], expected, `${module.id}.${parameter.id} target slot drifted`);
     });
+
+    const expectedExcitation = effectExcitationById.get(module.id);
+    if (expectedExcitation) {
+      assert.equal(
+        audition.patch.nodes.find(({ id }) => id === "source")?.type,
+        expectedExcitation,
+        `${module.id} Hear graph must retain its characteristic excitation source`,
+      );
+    }
   }
 });
 
@@ -184,6 +213,63 @@ test("stateful WGSL owns six cases and a dedicated ordered compute entry point",
     /createComputePipeline(?:Async)?\s*\(/,
     "the state engine must own a dedicated GPU compute pipeline",
   );
+});
+
+test("Spectral SDF keeps its 64-lane ordered state-pass contract", () => {
+  assert.equal(
+    stateful.SHADER_SYNTH_PLAYGROUND_STATE_ENGINE_LIMITS.spectralBands,
+    64,
+    "the runtime allocation and dispatch contract must retain exactly 64 spectral bands",
+  );
+  assert.equal(
+    countMatches(STATEFUL_SHADER, /const\s+SPECTRAL_BANDS\s*:\s*u32\s*=\s*64u\s*;/g),
+    1,
+    "WGSL must retain the same 64-band bound",
+  );
+  assert.match(
+    STATEFUL_SHADER,
+    /@compute\s+@workgroup_size\s*\(\s*64\s*\)\s*fn\s+renderStateNode\s*\(/,
+    "the ordered state entry point must launch one lane per spectral band",
+  );
+
+  const entry = wgslFunction("renderStateNode");
+  const spectralDispatch = entry.indexOf("case 108u:");
+  const laneZeroGuard = entry.indexOf("if (lane != 0u)");
+  assert.ok(spectralDispatch >= 0, "kind 108 must have an entry-point dispatch");
+  assert.ok(laneZeroGuard > spectralDispatch, "kind 108 must dispatch before the lane-zero-only branch");
+  assert.match(
+    entry.slice(spectralDispatch, laneZeroGuard),
+    /renderSpectralSdf\s*\(\s*node\s*\)/,
+    "all 64 lanes must invoke the Spectral SDF renderer",
+  );
+  for (const kind of [105, 106, 107, 109, 110]) {
+    assert.ok(
+      entry.indexOf(`case ${kind}u:`) > laneZeroGuard,
+      `non-spectral kind ${kind} must remain behind the lane-zero guard`,
+    );
+  }
+
+  const spectralRenderer = wgslFunction("renderSpectralSdf");
+  const segmentLoop = wgslBlock(
+    spectralRenderer,
+    "for (var segmentIndex = 0u; segmentIndex < state_stage.spectralSegments; segmentIndex += 1u)",
+  );
+  assert.equal(
+    countMatches(segmentLoop, /storageBarrier\s*\(\s*\)\s*;/g),
+    4,
+    "each spectral hop must barrier after output, ingest, band analysis, and overlap-add",
+  );
+
+  const analysisLoop = wgslBlock(
+    spectralRenderer,
+    "for (var n = 0u; n < MAX_SPECTRAL_FRAMES; n += 1u)",
+  );
+  assert.doesNotMatch(
+    analysisLoop,
+    /\b(?:cos|sin)\s*\(/,
+    "the 64-band DFT inner loop must advance cached oscillator rotations instead of evaluating trig per sample",
+  );
+  assert.match(spectralRenderer, /phaseRotation[\s\S]*windowRotation/, "DFT analysis needs cached phase and window rotations");
 });
 
 test("every packed stateful parameter is read by its dedicated WGSL renderer", () => {
