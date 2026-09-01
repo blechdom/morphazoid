@@ -1,0 +1,957 @@
+/* Enveloper: nested 1 -> 3 -> 9 envelope-tree instrument. */
+
+.enveloper-page {
+  --accent: #b59cff;
+  --accent-soft: color-mix(in oklab, #b59cff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #b59cff 22%, transparent);
+  --enveloper-parent: #b59cff;
+  --enveloper-branch: #55d9ff;
+  --enveloper-child: #5fe8c4;
+  --enveloper-leaf-warm: #e8c46b;
+  --enveloper-leaf-hot: #ff9278;
+  --enveloper-pulse: #fff3d6;
+  --enveloper-card: color-mix(in oklab, var(--panel-high) 90%, transparent);
+}
+
+.enveloper-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 410px);
+}
+
+.enveloper-stage-wrap {
+  min-height: 420px;
+  background:
+    linear-gradient(color-mix(in oklab, var(--enveloper-parent) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--enveloper-branch) 2.5%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 13%, color-mix(in oklab, var(--enveloper-parent) 12%, transparent), transparent 36%),
+    radial-gradient(ellipse at 50% 58%, color-mix(in oklab, var(--enveloper-branch) 8%, transparent), transparent 45%),
+    radial-gradient(ellipse at 50% 96%, color-mix(in oklab, var(--enveloper-leaf-warm) 7%, transparent), transparent 37%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto, auto;
+}
+
+.enveloper-stage-wrap::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--enveloper-parent) 4%, transparent), transparent 25%),
+    linear-gradient(0deg, color-mix(in oklab, var(--enveloper-leaf-hot) 3%, transparent), transparent 22%);
+  content: "";
+}
+
+.enveloper-page #stage {
+  position: relative;
+  z-index: 1;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.enveloper-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.enveloper-page #stage.is-node-hover:not(.is-dragging),
+.enveloper-page #stage.is-leaf-hover:not(.is-dragging) {
+  cursor: grab;
+}
+
+.enveloper-generation-key,
+.enveloper-axis-key,
+.enveloper-stage-hud,
+.enveloper-invitation {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.enveloper-generation-key {
+  top: 18px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.enveloper-generation-key span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.enveloper-generation-key b {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .02em;
+}
+
+.enveloper-generation-key span:first-child b {
+  color: var(--enveloper-parent);
+}
+
+.enveloper-generation-key span:nth-of-type(2) b {
+  color: var(--enveloper-branch);
+}
+
+.enveloper-generation-key span:last-child b {
+  color: var(--enveloper-leaf-warm);
+}
+
+.enveloper-generation-key > i {
+  color: var(--line-strong);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.enveloper-stage-hud {
+  top: 17px;
+  right: 20px;
+  display: grid;
+  justify-items: end;
+  color: var(--muted);
+  gap: 3px;
+  font-size: 7px;
+  letter-spacing: .09em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.enveloper-stage-hud span:last-child {
+  color: color-mix(in oklab, var(--enveloper-leaf-warm) 72%, var(--ink));
+}
+
+.enveloper-axis-key {
+  bottom: 18px;
+  left: 20px;
+  display: flex;
+  color: var(--faint);
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.enveloper-axis-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.enveloper-axis-key i {
+  position: relative;
+  display: block;
+  width: 19px;
+  height: 8px;
+  border: 1px solid currentColor;
+  background: var(--bg-deep);
+}
+
+.enveloper-axis-key .enveloper-key-split {
+  color: var(--enveloper-branch);
+}
+
+.enveloper-axis-key .enveloper-key-split::before,
+.enveloper-axis-key .enveloper-key-split::after {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: var(--bg-deep);
+  content: "";
+  transform: translateY(-50%);
+}
+
+.enveloper-axis-key .enveloper-key-split::before {
+  left: 3px;
+}
+
+.enveloper-axis-key .enveloper-key-split::after {
+  right: 3px;
+}
+
+.enveloper-axis-key .enveloper-key-leaf {
+  border-color: color-mix(in oklab, var(--enveloper-leaf-warm) 70%, transparent);
+  color: var(--enveloper-leaf-warm);
+  background:
+    linear-gradient(90deg, transparent 48%, currentColor 49% 51%, transparent 52%),
+    linear-gradient(transparent 48%, currentColor 49% 51%, transparent 52%),
+    var(--bg-deep);
+}
+
+.enveloper-axis-key .enveloper-key-leaf::after {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  content: "";
+}
+
+.enveloper-invitation {
+  right: 20px;
+  bottom: 17px;
+  display: grid;
+  max-width: min(330px, 43%);
+  padding: 7px 9px;
+  border-right: 1px solid color-mix(in oklab, var(--enveloper-parent) 45%, transparent);
+  color: var(--faint);
+  justify-items: end;
+  gap: 2px;
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--bg-deep) 82%, transparent));
+  text-align: right;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.enveloper-invitation b {
+  color: var(--enveloper-parent);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.enveloper-invitation span {
+  font-size: 7px;
+  letter-spacing: .035em;
+  line-height: 1.45;
+}
+
+.enveloper-invitation.is-hidden,
+.enveloper-stage-wrap.has-interacted .enveloper-invitation {
+  opacity: 0;
+  transform: translateY(5px);
+}
+
+/* Panel identity and tree state */
+
+.enveloper-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--enveloper-parent) 4%, transparent), transparent 250px),
+    var(--panel);
+}
+
+.enveloper-tree-card {
+  position: relative;
+  overflow: hidden;
+  padding: 17px 21px 16px;
+  border-bottom: 1px solid var(--line-strong);
+  background:
+    radial-gradient(circle at 12% 5%, color-mix(in oklab, var(--enveloper-parent) 16%, transparent), transparent 44%),
+    radial-gradient(circle at 82% 100%, color-mix(in oklab, var(--enveloper-branch) 8%, transparent), transparent 50%),
+    color-mix(in oklab, var(--panel-high) 88%, transparent);
+}
+
+.enveloper-tree-card::after {
+  position: absolute;
+  right: -20px;
+  bottom: -37px;
+  width: 116px;
+  height: 78px;
+  border: 1px solid color-mix(in oklab, var(--enveloper-leaf-warm) 14%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+  content: "";
+  transform: rotate(-12deg);
+}
+
+.enveloper-tree-card-heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.enveloper-tree-card-heading p {
+  margin: 0 0 3px;
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.enveloper-tree-card-heading h2 {
+  display: flex;
+  margin: 0;
+  color: var(--enveloper-parent);
+  align-items: center;
+  gap: 8px;
+  font-size: 27px;
+  font-weight: 400;
+  letter-spacing: -.06em;
+  line-height: 1;
+}
+
+.enveloper-tree-card-heading h2 i {
+  color: var(--faint);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.enveloper-tree-card-heading h2 i:first-of-type {
+  color: color-mix(in oklab, var(--enveloper-parent) 50%, var(--enveloper-branch));
+}
+
+.enveloper-tree-card-heading h2 i:last-of-type {
+  color: color-mix(in oklab, var(--enveloper-branch) 52%, var(--enveloper-leaf-warm));
+}
+
+.enveloper-tree-card-heading output {
+  min-width: 52px;
+  padding: 5px 7px;
+  border: 1px solid color-mix(in oklab, var(--enveloper-child) 28%, var(--line));
+  color: var(--enveloper-child);
+  background: color-mix(in oklab, var(--enveloper-child) 4%, var(--bg-deep));
+  font-size: 7px;
+  letter-spacing: .1em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.enveloper-tree-metrics {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  margin: 15px 0 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.enveloper-tree-metrics > div {
+  display: grid;
+  min-width: 0;
+  min-height: 45px;
+  padding: 7px 8px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: center;
+  gap: 2px;
+}
+
+.enveloper-tree-metrics dt,
+.enveloper-tree-metrics dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enveloper-tree-metrics dt {
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.enveloper-tree-metrics dd {
+  color: var(--ink);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.enveloper-tree-metrics > div:first-child dd {
+  color: var(--enveloper-leaf-warm);
+}
+
+/* Section accents */
+
+.enveloper-page .control-section.enveloper-play {
+  --accent: var(--enveloper-parent);
+  --accent-soft: color-mix(in oklab, var(--enveloper-parent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--enveloper-parent) 20%, transparent);
+}
+
+.enveloper-page .control-section.enveloper-structure {
+  --accent: var(--enveloper-branch);
+  --accent-soft: color-mix(in oklab, var(--enveloper-branch) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--enveloper-branch) 19%, transparent);
+}
+
+.enveloper-page .control-section.enveloper-selection {
+  --accent: var(--enveloper-leaf-warm);
+  --accent-soft: color-mix(in oklab, var(--enveloper-leaf-warm) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--enveloper-leaf-warm) 18%, transparent);
+}
+
+.enveloper-page .control-section.enveloper-sound {
+  --accent: var(--enveloper-child);
+  --accent-soft: color-mix(in oklab, var(--enveloper-child) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--enveloper-child) 18%, transparent);
+}
+
+/* Transport and presets */
+
+.enveloper-transport-row {
+  display: grid;
+  margin-bottom: 13px;
+  grid-template-columns: 48px minmax(0, 1fr) 62px;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.enveloper-transport-row .play-button {
+  width: 48px;
+  min-height: 48px;
+}
+
+.enveloper-position-control {
+  margin: 0;
+  padding: 0 2px;
+  align-content: center;
+}
+
+.enveloper-position-control input[type="range"] {
+  height: 25px;
+}
+
+.enveloper-restart {
+  display: grid;
+  min-width: 0;
+  min-height: 48px;
+  padding: 4px 6px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  place-content: center;
+  cursor: pointer;
+  gap: 1px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.enveloper-restart span {
+  font-size: 6px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.enveloper-restart:hover,
+.enveloper-restart:focus-visible {
+  border-color: var(--enveloper-parent);
+  color: var(--enveloper-parent);
+  background: color-mix(in oklab, var(--enveloper-parent) 7%, var(--bg-deep));
+}
+
+.enveloper-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.enveloper-preset-grid button {
+  --preset-color: var(--enveloper-parent);
+  display: grid;
+  min-width: 0;
+  min-height: 50px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  background: transparent;
+  align-content: center;
+  cursor: pointer;
+  gap: 2px;
+  text-align: left;
+}
+
+.enveloper-preset-grid button:nth-child(2) {
+  --preset-color: var(--enveloper-branch);
+}
+
+.enveloper-preset-grid button:nth-child(3) {
+  --preset-color: var(--enveloper-leaf-warm);
+}
+
+.enveloper-preset-grid button:nth-child(4) {
+  --preset-color: var(--enveloper-leaf-hot);
+}
+
+.enveloper-preset-grid button b {
+  overflow: hidden;
+  color: color-mix(in oklab, var(--ink) 76%, var(--preset-color));
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: .055em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.enveloper-preset-grid button small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: .025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enveloper-preset-grid button:hover,
+.enveloper-preset-grid button:focus-visible {
+  border-color: color-mix(in oklab, var(--preset-color) 32%, var(--line));
+  background: color-mix(in oklab, var(--preset-color) 4%, transparent);
+}
+
+.enveloper-preset-grid button[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--preset-color) 62%, var(--line));
+  color: var(--preset-color);
+  background: color-mix(in oklab, var(--preset-color) 10%, var(--bg-deep));
+  box-shadow: inset 2px 0 0 var(--preset-color);
+}
+
+.enveloper-preset-grid button[aria-pressed="true"] b {
+  color: var(--preset-color);
+}
+
+.enveloper-preset-description {
+  min-height: 2.8em;
+  margin: 10px 0 4px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.enveloper-audio-error {
+  margin: 10px 0 4px;
+  padding: 9px 10px;
+  border-left: 2px solid var(--enveloper-leaf-hot);
+  color: #ffb2a8;
+  background: color-mix(in oklab, var(--enveloper-leaf-hot) 6%, transparent);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+/* Inheritance */
+
+.enveloper-inheritance-diagram {
+  display: grid;
+  margin: 0 0 12px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+}
+
+.enveloper-inheritance-diagram span {
+  display: grid;
+  min-height: 38px;
+  padding: 5px 6px;
+  border: 1px solid currentColor;
+  place-content: center;
+  font-size: 6px;
+  letter-spacing: .055em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.enveloper-inheritance-diagram > i {
+  color: var(--faint);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.enveloper-inheritance-diagram .is-root {
+  color: var(--enveloper-parent);
+  background: color-mix(in oklab, var(--enveloper-parent) 5%, var(--bg-deep));
+}
+
+.enveloper-inheritance-diagram .is-child {
+  color: var(--enveloper-branch);
+  background: color-mix(in oklab, var(--enveloper-branch) 5%, var(--bg-deep));
+}
+
+.enveloper-inheritance-diagram .is-leaf {
+  color: var(--enveloper-leaf-warm);
+  background: color-mix(in oklab, var(--enveloper-leaf-warm) 5%, var(--bg-deep));
+}
+
+.enveloper-note {
+  margin: 3px 0 14px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.enveloper-even-action,
+.enveloper-preview-action {
+  width: 100%;
+  margin: 1px 0 8px;
+  border-color: color-mix(in oklab, var(--accent) 28%, var(--line-strong));
+  color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+  background: color-mix(in oklab, var(--accent) 4%, var(--bg-deep));
+  letter-spacing: .045em;
+}
+
+.enveloper-even-action:hover,
+.enveloper-even-action:focus-visible,
+.enveloper-preview-action:hover,
+.enveloper-preview-action:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 14px color-mix(in oklab, var(--accent) 13%, transparent);
+}
+
+/* Selected leaf and inspectors */
+
+.enveloper-leaf-selector {
+  display: grid;
+  margin: 0 0 12px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.enveloper-leaf-selector button {
+  --leaf-color: var(--enveloper-leaf-warm);
+  min-width: 0;
+  min-height: 40px;
+  padding: 5px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.enveloper-leaf-selector button:nth-child(3n + 2) {
+  --leaf-color: color-mix(in oklab, var(--enveloper-leaf-warm) 62%, var(--enveloper-leaf-hot));
+}
+
+.enveloper-leaf-selector button:nth-child(3n) {
+  --leaf-color: var(--enveloper-leaf-hot);
+}
+
+.enveloper-leaf-selector button:hover,
+.enveloper-leaf-selector button:focus-visible {
+  border-color: color-mix(in oklab, var(--leaf-color) 38%, var(--line));
+  color: var(--ink);
+  background: color-mix(in oklab, var(--leaf-color) 5%, transparent);
+}
+
+.enveloper-leaf-selector button[aria-pressed="true"] {
+  border-color: var(--leaf-color);
+  color: var(--leaf-color);
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--leaf-color) 16%, transparent), transparent 66%),
+    var(--bg-deep);
+  box-shadow: inset 0 -2px 0 var(--leaf-color), 0 0 10px color-mix(in oklab, var(--leaf-color) 11%, transparent);
+}
+
+#leafInspector,
+#nodeInspector {
+  position: relative;
+  margin: 0 0 7px;
+  padding: 13px 12px 4px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 55%),
+    color-mix(in oklab, var(--bg-deep) 82%, transparent);
+}
+
+#leafInspector::before,
+#nodeInspector::before {
+  position: absolute;
+  top: -1px;
+  left: 12px;
+  width: 36px;
+  height: 1px;
+  background: var(--accent);
+  content: "";
+}
+
+.enveloper-range-poles {
+  display: flex;
+  margin-top: -7px;
+  color: var(--faint);
+  justify-content: space-between;
+  font-size: 6px;
+  font-style: normal;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.enveloper-range-poles i {
+  font-style: normal;
+}
+
+.enveloper-preview-action {
+  margin-top: 4px;
+}
+
+.enveloper-selection .control output,
+.enveloper-sound .control output {
+  color: color-mix(in oklab, var(--accent) 72%, var(--ink));
+  font-variant-numeric: tabular-nums;
+}
+
+.enveloper-page .reset-all-row {
+  padding-bottom: calc(22px + env(safe-area-inset-bottom));
+}
+
+.enveloper-page .reset-all-button:hover,
+.enveloper-page .reset-all-button:focus-visible {
+  border-color: var(--enveloper-leaf-hot);
+  color: color-mix(in oklab, var(--enveloper-leaf-hot) 68%, var(--ink));
+  background: color-mix(in oklab, var(--enveloper-leaf-hot) 6%, transparent);
+}
+
+@media (max-width: 1200px) {
+  .enveloper-shell {
+    grid-template-columns: minmax(0, 1fr) 350px;
+  }
+
+  .enveloper-generation-key {
+    gap: 7px;
+  }
+
+  .enveloper-invitation {
+    max-width: 38%;
+  }
+}
+
+@media (max-width: 960px) {
+  .enveloper-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(330px, 50dvh, 460px) minmax(0, 1fr);
+  }
+
+  .enveloper-stage-wrap {
+    min-height: 0;
+  }
+
+  .enveloper-tree-card {
+    padding-right: clamp(20px, 5vw, 46px);
+    padding-left: clamp(20px, 5vw, 46px);
+  }
+
+  .enveloper-tree-metrics {
+    max-width: 560px;
+  }
+
+  .enveloper-invitation {
+    max-width: min(340px, 45%);
+  }
+}
+
+@media (max-width: 650px) {
+  .enveloper-shell {
+    grid-template-rows: clamp(270px, 42dvh, 340px) minmax(0, 1fr);
+  }
+
+  .enveloper-generation-key {
+    top: 8px;
+    right: 10px;
+    left: 10px;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .enveloper-generation-key span {
+    gap: 3px;
+  }
+
+  .enveloper-generation-key b {
+    font-size: 9px;
+  }
+
+  .enveloper-stage-hud {
+    top: 31px;
+    right: 11px;
+    left: 11px;
+    display: flex;
+    overflow: hidden;
+    justify-content: space-between;
+    gap: 12px;
+    white-space: nowrap;
+  }
+
+  .enveloper-stage-hud span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .enveloper-axis-key {
+    bottom: 8px;
+    left: 11px;
+    gap: 8px;
+  }
+
+  .enveloper-invitation {
+    right: 10px;
+    bottom: 7px;
+    max-width: 122px;
+    padding: 5px 7px;
+  }
+
+  .enveloper-invitation span {
+    display: none;
+  }
+
+  .enveloper-tree-card {
+    padding: 13px 20px 12px;
+  }
+
+  .enveloper-tree-card-heading h2 {
+    font-size: 23px;
+  }
+
+  .enveloper-tree-metrics {
+    margin-top: 11px;
+  }
+
+  .enveloper-tree-metrics > div {
+    min-height: 40px;
+    padding: 6px;
+  }
+
+  .enveloper-transport-row {
+    grid-template-columns: 48px minmax(0, 1fr) 58px;
+    gap: 6px;
+  }
+
+  .enveloper-preset-grid button {
+    min-height: 47px;
+  }
+}
+
+@media (max-width: 420px) {
+  .enveloper-shell {
+    grid-template-rows: clamp(255px, 40dvh, 315px) minmax(0, 1fr);
+  }
+
+  .enveloper-generation-key {
+    font-size: 6px;
+  }
+
+  .enveloper-generation-key > i {
+    font-size: 7px;
+  }
+
+  .enveloper-stage-hud {
+    font-size: 6px;
+  }
+
+  .enveloper-axis-key span:last-child {
+    display: none;
+  }
+
+  .enveloper-invitation {
+    max-width: 110px;
+  }
+
+  .enveloper-tree-card-heading p {
+    font-size: 6px;
+  }
+
+  .enveloper-tree-card-heading output {
+    min-width: 46px;
+  }
+
+  .enveloper-tree-metrics dd {
+    font-size: 8px;
+  }
+
+  .enveloper-preset-grid button {
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  .enveloper-inheritance-diagram {
+    gap: 3px;
+  }
+
+  .enveloper-inheritance-diagram span {
+    padding-right: 3px;
+    padding-left: 3px;
+    font-size: 5.5px;
+  }
+}
+
+@media (max-width: 960px) and (max-height: 560px) {
+  .enveloper-shell {
+    grid-template-rows: clamp(170px, 44dvh, 220px) minmax(0, 1fr);
+  }
+
+  .enveloper-generation-key {
+    top: 6px;
+  }
+
+  .enveloper-stage-hud {
+    top: 27px;
+  }
+
+  .enveloper-axis-key,
+  .enveloper-invitation {
+    bottom: 5px;
+  }
+
+  .enveloper-invitation span {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .enveloper-restart,
+  .enveloper-preset-grid button,
+  .enveloper-leaf-selector button,
+  .enveloper-even-action,
+  .enveloper-preview-action {
+    min-height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enveloper-invitation {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .enveloper-tree-card,
+  .enveloper-tree-metrics,
+  .enveloper-tree-metrics > div,
+  .enveloper-preset-grid,
+  .enveloper-preset-grid button,
+  .enveloper-inheritance-diagram span,
+  .enveloper-leaf-selector,
+  .enveloper-leaf-selector button,
+  #leafInspector,
+  #nodeInspector,
+  .enveloper-restart {
+    border-color: CanvasText;
+  }
+
+  .enveloper-preset-grid button[aria-pressed="true"],
+  .enveloper-leaf-selector button[aria-pressed="true"] {
+    color: HighlightText;
+    background: Highlight;
+    box-shadow: none;
+  }
+
+  .enveloper-axis-key i,
+  .enveloper-axis-key i::before,
+  .enveloper-axis-key i::after {
+    border-color: CanvasText;
+  }
+}

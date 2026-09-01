@@ -124,6 +124,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "escape-dust",
     "linebreaker",
     "striped-staircase",
+    "enveloper",
     "orbital-ferris",
   ]),
 });
@@ -186,6 +187,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "cantor-lock",
   "quantum-square-dance",
   "orbital-ferris",
+  "enveloper",
 ]);
 
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);

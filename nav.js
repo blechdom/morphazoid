@@ -239,6 +239,7 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("fractals-recursion", "Fractals & Recursion", [
     { id: "l-system", label: "L-System", href: "l-system.html" },
     { id: "recursion", label: "Recursion", href: "recursion.html" },
+    { id: "enveloper", label: "Enveloper", href: "enveloper.html" },
     { id: "julia", label: "Julia", href: "julia.html" },
     {
       id: "striped-staircase",

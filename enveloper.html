@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07070b" />
+    <meta
+      name="description"
+      content="Enveloper — a 1 to 3 to 9 tree of nested envelopes whose leaves are pitch and timbre controlled FM notes."
+    />
+    <title>Enveloper — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="enveloper.css" />
+  </head>
+  <body class="enveloper-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab" href="recursion.html">recursion</a>
+        <a class="tab active" href="enveloper.html" aria-current="page">enveloper</a>
+        <a class="tab" href="julia.html">julia</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="enveloper.html" selected>enveloper</option>
+          <option value="julia.html">julia</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>FM level</b><output id="levelOut" for="level">46%</output></span>
+          <input id="level" aria-label="Enveloper FM level" type="range" min="0" max="0.8" step="0.01" value="0.46" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell enveloper-shell" id="enveloper">
+      <section class="stage enveloper-stage" aria-labelledby="sceneTitle">
+        <h1 class="sr-only" id="sceneTitle">Enveloper</h1>
+        <div class="stage-wrap enveloper-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="application"
+            aria-label="A nested one to three to nine envelope tree. Drag envelope nodes to reshape time and level, or drag a leaf orb for FM timbre and pitch."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A nested envelope tree ending in nine FM note pads.
+          </canvas>
+
+          <div class="enveloper-generation-key" aria-hidden="true">
+            <span><b>01</b> parent</span>
+            <i>→</i>
+            <span><b>03</b> envelopes</span>
+            <i>→</i>
+            <span><b>09</b> FM leaves</span>
+          </div>
+
+          <div class="enveloper-axis-key" aria-hidden="true">
+            <span><i class="enveloper-key-split"></i>split + level</span>
+            <span><i class="enveloper-key-leaf"></i>timbre × pitch</span>
+          </div>
+
+          <div class="enveloper-stage-hud" aria-hidden="true">
+            <span id="stageTimeReadout">9.00 S CYCLE</span>
+            <span id="stageLeafReadout">LEAF 01 · 215.2 HZ · GLASS 18%</span>
+          </div>
+
+          <div class="enveloper-invitation" id="stageInvitation" aria-hidden="true">
+            <b>shape the family</b>
+            <span>drag hollow nodes for time + level · drag a leaf orb for sound</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel enveloper-panel" aria-label="Enveloper controls">
+        <section class="enveloper-tree-card" aria-labelledby="treeStateTitle">
+          <div class="enveloper-tree-card-heading">
+            <div>
+              <p>Envelope tree</p>
+              <h2 id="treeStateTitle">1 <i>→</i> 3 <i>→</i> 9</h2>
+            </div>
+            <output id="treeState">ready</output>
+          </div>
+          <dl class="enveloper-tree-metrics">
+            <div><dt>Selected</dt><dd id="selectedShort">leaf 01</dd></div>
+            <div><dt>Duration</dt><dd id="selectedDuration">1.00 s</dd></div>
+            <div><dt>Voice</dt><dd id="selectedVoice">215.2 Hz</dd></div>
+          </dl>
+        </section>
+
+        <details class="group control-section enveloper-play" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Tree clock</h2>
+            <span class="section-state" id="playSummary">paused · 9.00 s</span>
+          </summary>
+          <div class="group-body">
+            <div class="enveloper-transport-row">
+              <button
+                class="play-button"
+                id="playButton"
+                type="button"
+                data-primary-transport
+                aria-pressed="false"
+                aria-label="Play the envelope tree"
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control enveloper-position-control" for="position">
+                <span><b>Cycle position</b><output id="positionOut" for="position">0%</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.001" value="0" />
+              </label>
+              <button class="enveloper-restart" id="restartButton" type="button">↶<span>restart</span></button>
+            </div>
+
+            <div class="enveloper-preset-grid" id="presetButtons" role="group" aria-label="Envelope tree presets">
+              <button type="button" data-preset="balanced" aria-pressed="true"><b>Canopy</b><small>balanced bloom</small></button>
+              <button type="button" data-preset="long-middle"><b>Long middle</b><small>weighted limbs</small></button>
+              <button type="button" data-preset="falling-glass"><b>Glass rain</b><small>falling bright drops</small></button>
+              <button type="button" data-preset="constellation"><b>Constellation</b><small>scattered signals</small></button>
+            </div>
+            <p class="enveloper-preset-description" id="presetDescription">Three even limbs open into nine gently offset FM notes.</p>
+            <p class="enveloper-audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section enveloper-structure" data-section="structure">
+          <summary class="group-summary">
+            <h2 class="group-title">Inheritance</h2>
+            <span class="section-state" id="structureSummary">4 nodes × 4 envelopes</span>
+          </summary>
+          <div class="group-body">
+            <div class="enveloper-inheritance-diagram" aria-hidden="true">
+              <span class="is-root">parent curve</span>
+              <i>×</i>
+              <span class="is-child">child curve</span>
+              <i>=</i>
+              <span class="is-leaf">leaf strength</span>
+            </div>
+            <p class="enveloper-note">
+              Every curve has four nodes and therefore three children. Move an interior node left: the child before it gets shorter and the child after it gets longer. Move any node vertically to change the inherited strength.
+            </p>
+            <label class="control" for="cycleSeconds">
+              <span><b>Whole-tree duration</b><output id="cycleSecondsOut" for="cycleSeconds">9.00 s</output></span>
+              <input id="cycleSeconds" type="range" min="4" max="16" step="0.25" value="9" />
+            </label>
+            <button class="mini-action enveloper-even-action" id="evenSplitsButton" type="button">Make every split even</button>
+          </div>
+        </details>
+
+        <details class="group control-section enveloper-selection" data-section="mapping">
+          <summary class="group-summary">
+            <h2 class="group-title">Selected element</h2>
+            <span class="section-state" id="selectionSummary">leaf 01 · pitch + timbre</span>
+          </summary>
+          <div class="group-body">
+            <div class="enveloper-leaf-selector" id="leafSelector" role="group" aria-label="Select an FM leaf">
+              <button type="button" data-leaf="0" aria-pressed="true">1</button>
+              <button type="button" data-leaf="1">2</button>
+              <button type="button" data-leaf="2">3</button>
+              <button type="button" data-leaf="3">4</button>
+              <button type="button" data-leaf="4">5</button>
+              <button type="button" data-leaf="5">6</button>
+              <button type="button" data-leaf="6">7</button>
+              <button type="button" data-leaf="7">8</button>
+              <button type="button" data-leaf="8">9</button>
+            </div>
+
+            <div id="leafInspector">
+              <label class="control" for="selectedTimbre">
+                <span><b>Leaf X · FM timbre</b><output id="selectedTimbreOut" for="selectedTimbre">42%</output></span>
+                <input id="selectedTimbre" type="range" min="0" max="1" step="0.01" value="0.42" />
+                <small class="enveloper-range-poles"><i>pure</i><i>metallic</i></small>
+              </label>
+              <label class="control" for="selectedPitch">
+                <span><b>Leaf Y · pitch</b><output id="selectedPitchOut" for="selectedPitch">130.8 Hz</output></span>
+                <input id="selectedPitch" type="range" min="0" max="1" step="0.005" value="0.4" />
+                <small class="enveloper-range-poles"><i>low</i><i>high</i></small>
+              </label>
+              <button class="mini-action enveloper-preview-action" id="previewButton" type="button">Preview selected leaf</button>
+            </div>
+
+            <div id="nodeInspector" hidden>
+              <label class="control" for="selectedNodeTime">
+                <span><b>Node time</b><output id="selectedNodeTimeOut" for="selectedNodeTime">33%</output></span>
+                <input id="selectedNodeTime" type="range" min="0" max="1" step="0.002" value="0.333" />
+              </label>
+              <label class="control" for="selectedNodeLevel">
+                <span><b>Node level</b><output id="selectedNodeLevelOut" for="selectedNodeLevel">70%</output></span>
+                <input id="selectedNodeLevel" type="range" min="0" max="1" step="0.01" value="0.7" />
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section enveloper-sound" data-section="sound">
+          <summary class="group-summary">
+            <h2 class="group-title">FM field</h2>
+            <span class="section-state" id="soundSummary">B2 · 30 semitone span</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="baseMidi">
+              <span><b>Bottom pitch</b><output id="baseMidiOut" for="baseMidi">B2 · 123.5 Hz</output></span>
+              <input id="baseMidi" type="range" min="24" max="60" step="1" value="47" />
+            </label>
+            <label class="control" for="pitchSpan">
+              <span><b>Vertical pitch span</b><output id="pitchSpanOut" for="pitchSpan">30 st</output></span>
+              <input id="pitchSpan" type="range" min="12" max="48" step="1" value="30" />
+            </label>
+            <label class="control" for="fmAmount">
+              <span><b>FM field depth</b><output id="fmAmountOut" for="fmAmount">100%</output></span>
+              <input id="fmAmount" type="range" min="0.25" max="1.5" step="0.01" value="1" />
+            </label>
+            <p class="enveloper-note">Inside every leaf, left to right raises FM index, ratio, and brightness together. Bottom to top moves logarithmically through the selected pitch span.</p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset Enveloper</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Drag a hollow envelope node horizontally to divide time between its neighboring children and vertically to change its level. Drag a colored leaf orb horizontally for FM timbre and vertically for pitch. Number keys 1 through 9 select leaves. Arrow keys adjust the selected element; Shift makes a larger change. Space operates the visible transport.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="enveloper-app.js"></script>
+  </body>
+</html>

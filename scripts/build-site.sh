@@ -90,6 +90,12 @@ for worktree_runtime_file in \
   striped-staircase-app.js \
   src/striped-staircase.js \
   src/striped-staircase-audio.js \
+  enveloper.html \
+  enveloper.css \
+  enveloper-app.js \
+  src/enveloper.js \
+  src/enveloper-audio.js \
+  assets/instruments/enveloper.webp \
   alien-larynx.html \
   alien-larynx.css \
   alien-larynx-app.js \
@@ -523,6 +529,12 @@ required_files=(
   src/striped-staircase.js
   src/striped-staircase-audio.js
   assets/instruments/striped-staircase.webp
+  enveloper.html
+  enveloper.css
+  enveloper-app.js
+  src/enveloper.js
+  src/enveloper-audio.js
+  assets/instruments/enveloper.webp
   alien-larynx.html
   alien-larynx.css
   alien-larynx-app.js

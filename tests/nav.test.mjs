@@ -255,7 +255,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 120);
+  assert.equal(tools.length, 121);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -536,6 +536,18 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "l-system-drums", href: "l-system-drums.html" },
       { id: "graph-drums", href: "graph-drums.html" },
       { id: "linear-drums-machine", href: "linear-drums-machine.html" },
+    ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "fractals-recursion")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "l-system", href: "l-system.html" },
+      { id: "recursion", href: "recursion.html" },
+      { id: "enveloper", href: "enveloper.html" },
+      { id: "julia", href: "julia.html" },
+      { id: "striped-staircase", href: "striped-staircase.html" },
     ],
   );
   assert.deepEqual(
