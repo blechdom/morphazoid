@@ -140,6 +140,12 @@ export const TOOL_GROUPS = Object.freeze([
       href: "rubix.html",
     },
     {
+      id: "constellation",
+      label: "Constellation",
+      href: "constellation.html",
+      imageHref: "assets/instruments/graph-synth.webp",
+    },
+    {
       id: "sliding-puzzle",
       label: "Sliding Puzzle Sequencer",
       href: "sliding-puzzle.html",

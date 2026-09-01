@@ -1,0 +1,1612 @@
+.constellation-page {
+  --constellation-cyan: #70e3e8;
+  --constellation-cyan-pale: #c7fcfb;
+  --constellation-violet: #b299ff;
+  --constellation-pink: #ff82c8;
+  --constellation-lime: #a7e879;
+  --constellation-gold: #e8c46b;
+  --constellation-orange: #ff956f;
+  --constellation-panel: #090d12;
+  --constellation-deep: #04070a;
+  --constellation-line: rgba(149, 206, 216, 0.16);
+  --constellation-line-strong: rgba(162, 224, 233, 0.3);
+  --accent: var(--constellation-cyan);
+  --accent-soft: color-mix(in oklab, var(--constellation-cyan) 54%, transparent);
+  --accent-glow: color-mix(in oklab, var(--constellation-cyan) 22%, transparent);
+  min-width: 320px;
+  min-height: 100dvh;
+  overflow: hidden;
+  color: #dce8e9;
+  background: var(--constellation-deep);
+}
+
+.constellation-page button,
+.constellation-page select,
+.constellation-page input {
+  font: inherit;
+}
+
+.constellation-masthead {
+  border-color: var(--constellation-line);
+  background: rgba(5, 8, 11, 0.97);
+}
+
+.constellation-shell {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  background:
+    radial-gradient(circle at 38% -20%, rgba(112, 227, 232, 0.08), transparent 32%),
+    radial-gradient(circle at 78% 0%, rgba(178, 153, 255, 0.07), transparent 28%),
+    var(--constellation-deep);
+}
+
+.composition-bar {
+  position: relative;
+  z-index: 8;
+  display: grid;
+  min-width: 0;
+  min-height: 82px;
+  border-bottom: 1px solid var(--constellation-line);
+  background:
+    linear-gradient(90deg, rgba(112, 227, 232, 0.045), transparent 30%, rgba(178, 153, 255, 0.035)),
+    rgba(6, 10, 14, 0.96);
+  grid-template-columns: minmax(188px, 1.1fr) minmax(190px, 1fr) auto minmax(148px, 0.75fr) minmax(146px, 0.72fr);
+  align-items: stretch;
+}
+
+.composition-identity,
+.preset-control,
+.transport-cluster,
+.tempo-control,
+.transport-clock {
+  min-width: 0;
+  border-left: 1px solid var(--constellation-line);
+}
+
+.composition-identity {
+  display: grid;
+  padding: 12px 18px 11px clamp(16px, 2.5vw, 32px);
+  border-left: 0;
+  align-content: center;
+  gap: 2px;
+}
+
+.composition-kicker,
+.preset-control > span:first-child,
+.tempo-control > span b,
+.transport-clock small,
+.workspace-panel-heading > span,
+.projection-heading span,
+.section-readout > span {
+  color: color-mix(in oklab, var(--constellation-cyan) 65%, #607378);
+  font: 700 7px/1.1 var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.composition-identity h1 {
+  margin: 2px 0 0;
+  color: #efffff;
+  font: 650 clamp(17px, 1.5vw, 23px)/1 var(--display, var(--mono));
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-shadow: 0 0 22px rgba(112, 227, 232, 0.16);
+}
+
+.composition-identity p {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: #74888c;
+  font: 600 7px/1.2 var(--mono);
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.preset-control,
+.tempo-control {
+  display: grid;
+  padding: 12px 14px;
+  align-content: center;
+  gap: 8px;
+}
+
+.constellation-select-shell {
+  position: relative;
+  display: block;
+}
+
+.constellation-select-shell::after {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid var(--constellation-cyan);
+  border-bottom: 1px solid var(--constellation-cyan);
+  pointer-events: none;
+  content: "";
+  transform: translateY(-72%) rotate(45deg);
+}
+
+#presetSelect {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--constellation-line-strong);
+  border-radius: 0;
+  color: var(--constellation-cyan-pale);
+  background: #05090c;
+  font: 700 9px/1 var(--mono);
+  letter-spacing: 0.04em;
+  appearance: none;
+}
+
+#presetSelect:hover,
+#presetSelect:focus-visible {
+  border-color: var(--constellation-cyan);
+}
+
+.preset-description {
+  display: block;
+  overflow: hidden;
+  color: #52666b;
+  font: 600 6px/1.35 var(--mono);
+  letter-spacing: .025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transport-cluster {
+  display: grid;
+  padding: 12px;
+  grid-template-columns: repeat(3, 54px);
+  align-content: center;
+  gap: 5px;
+}
+
+.transport-cluster button {
+  display: grid;
+  min-width: 0;
+  min-height: 46px;
+  padding: 5px 3px;
+  border: 1px solid var(--constellation-line-strong);
+  color: #8da0a5;
+  background: rgba(2, 5, 8, 0.8);
+  cursor: pointer;
+  place-items: center;
+  gap: 3px;
+}
+
+.transport-cluster button span {
+  font: 600 12px/1 var(--mono);
+}
+
+.transport-cluster button b {
+  font: 720 6px/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.transport-cluster button:hover,
+.transport-cluster button:focus-visible {
+  border-color: var(--constellation-cyan);
+  color: var(--constellation-cyan-pale);
+  background: rgba(112, 227, 232, 0.06);
+}
+
+.transport-cluster .transport-play {
+  color: var(--constellation-cyan);
+}
+
+.transport-cluster .transport-play[aria-pressed="true"] {
+  border-color: var(--constellation-cyan);
+  color: #041011;
+  background: var(--constellation-cyan);
+  box-shadow: 0 0 18px rgba(112, 227, 232, 0.22);
+}
+
+.transport-cluster .transport-stop {
+  color: var(--constellation-orange);
+}
+
+.transport-cluster .transport-loop[aria-pressed="true"] {
+  border-color: var(--constellation-violet);
+  color: #f3edff;
+  background: rgba(178, 153, 255, 0.18);
+}
+
+.tempo-control > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tempo-control output {
+  color: var(--constellation-cyan-pale);
+  font: 700 9px/1 var(--mono);
+  white-space: nowrap;
+}
+
+.tempo-control input {
+  width: 100%;
+}
+
+.transport-clock {
+  display: grid;
+  padding: 12px 16px;
+  align-content: center;
+  gap: 8px;
+}
+
+.transport-clock output {
+  overflow: hidden;
+  color: #edfefe;
+  font: 700 10px/1 var(--mono);
+  letter-spacing: 0.055em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.view-switcher {
+  position: relative;
+  z-index: 7;
+  display: grid;
+  min-width: 0;
+  min-height: 58px;
+  border-bottom: 1px solid var(--constellation-line);
+  background: rgba(5, 8, 11, 0.95);
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.28fr);
+}
+
+.view-tabs {
+  display: flex;
+  min-width: 0;
+  padding-left: clamp(8px, 1.8vw, 24px);
+  align-items: stretch;
+}
+
+.view-tabs button {
+  position: relative;
+  display: flex;
+  min-width: 160px;
+  padding: 8px 18px;
+  border: 0;
+  border-right: 1px solid var(--constellation-line);
+  color: #75898e;
+  background: transparent;
+  cursor: pointer;
+  align-items: center;
+  gap: 10px;
+}
+
+.view-tabs button::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: transparent;
+  content: "";
+}
+
+.view-tabs button:hover {
+  color: #c9d8da;
+  background: rgba(112, 227, 232, 0.035);
+}
+
+.view-tabs button[aria-selected="true"] {
+  color: var(--constellation-cyan-pale);
+  background: linear-gradient(180deg, rgba(112, 227, 232, 0.06), transparent);
+}
+
+.view-tabs button[aria-selected="true"]::after {
+  background: var(--constellation-cyan);
+  box-shadow: 0 0 10px rgba(112, 227, 232, 0.35);
+}
+
+.view-tabs button > span:last-child {
+  display: grid;
+  min-width: 0;
+  text-align: left;
+  gap: 4px;
+}
+
+.view-tabs b {
+  overflow: hidden;
+  font: 700 9px/1 var(--mono);
+  letter-spacing: 0.055em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.view-tabs small {
+  overflow: hidden;
+  color: #52666b;
+  font: 650 6px/1 var(--mono);
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.view-tab-mark {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+}
+
+.timeline-mark {
+  background: repeating-linear-gradient(180deg, transparent 0 4px, currentColor 4px 5px);
+  opacity: 0.72;
+}
+
+.timeline-mark::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 7px;
+  width: 1px;
+  background: var(--constellation-cyan);
+  content: "";
+}
+
+.flow-mark::before,
+.flow-mark::after,
+.constellation-mark::before,
+.constellation-mark::after {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.flow-mark::before {
+  top: 8px;
+  left: 1px;
+  width: 6px;
+  height: 6px;
+  box-shadow: 15px -6px currentColor, 15px 6px currentColor;
+}
+
+.flow-mark::after {
+  top: 10px;
+  left: 6px;
+  width: 13px;
+  height: 1px;
+  border-radius: 0;
+  background: currentColor;
+  box-shadow: 2px -4px currentColor, 2px 4px currentColor;
+  transform: rotate(0deg);
+}
+
+.constellation-mark::before {
+  top: 3px;
+  left: 2px;
+  width: 5px;
+  height: 5px;
+  box-shadow: 14px 3px currentColor, 6px 13px currentColor;
+}
+
+.constellation-mark::after {
+  top: 10px;
+  left: 5px;
+  width: 15px;
+  height: 1px;
+  border-radius: 0;
+  background: currentColor;
+  transform: rotate(27deg);
+}
+
+.section-readout {
+  display: grid;
+  min-width: 0;
+  padding: 10px 18px;
+  border-left: 1px solid var(--constellation-line);
+  align-content: center;
+  gap: 5px;
+}
+
+.section-readout h2 {
+  overflow: hidden;
+  margin: 0;
+  color: #eefefe;
+  font: 700 11px/1 var(--mono);
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.composition-workspace {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-columns: clamp(184px, 16vw, 236px) minmax(360px, 1fr) clamp(214px, 18vw, 284px);
+}
+
+.instrument-drawer,
+.inspector-panel {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(112, 227, 232, 0.025), transparent 38%),
+    var(--constellation-panel);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.instrument-drawer {
+  border-right: 1px solid var(--constellation-line);
+}
+
+.inspector-panel {
+  border-left: 1px solid var(--constellation-line);
+}
+
+.workspace-panel-heading {
+  padding: 15px 14px 13px;
+  border-bottom: 1px solid var(--constellation-line);
+}
+
+.workspace-panel-heading h2 {
+  margin: 5px 0 0;
+  color: #e9f9f9;
+  font: 720 11px/1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-panel-heading p {
+  margin: 7px 0 0;
+  color: #667b80;
+  font: 600 7px/1.45 var(--mono);
+  letter-spacing: 0.025em;
+}
+
+.instrument-browser,
+.inspector {
+  min-height: 0;
+  padding: 9px;
+  overflow: auto;
+  scrollbar-color: #26373b transparent;
+  scrollbar-width: thin;
+}
+
+.panel-loading {
+  margin: 10px;
+  color: #61757a;
+  font: 650 7px/1.5 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.constellation-instrument-card {
+  --instrument-color: var(--constellation-cyan);
+  cursor: grab;
+}
+
+.constellation-instrument-card:active {
+  cursor: grabbing;
+}
+
+.constellation-instrument-image {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border: 1px solid color-mix(in oklab, var(--instrument-color) 34%, transparent);
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--instrument-color) 8%, #030608);
+}
+
+.constellation-instrument-copy {
+  display: grid;
+  min-width: 0;
+  align-self: stretch;
+  align-content: center;
+}
+
+.constellation-instrument-copy small {
+  display: -webkit-box !important;
+  overflow: hidden;
+  line-height: 1.4 !important;
+  text-overflow: initial !important;
+  white-space: normal !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.constellation-instrument-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .7fr);
+  gap: 5px;
+}
+
+.constellation-instrument-actions :is(button, a) {
+  display: grid;
+  min-height: 26px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklab, var(--instrument-color) 35%, transparent);
+  color: color-mix(in oklab, var(--instrument-color) 82%, white);
+  background: color-mix(in oklab, var(--instrument-color) 8%, #03070a);
+  font: 700 6px/1 var(--mono);
+  letter-spacing: .08em;
+  text-decoration: none;
+  text-transform: uppercase;
+  cursor: pointer;
+  place-items: center;
+}
+
+.constellation-instrument-actions :is(button, a):hover,
+.constellation-instrument-actions :is(button, a):focus-visible {
+  border-color: var(--instrument-color);
+  color: #fff;
+  background: color-mix(in oklab, var(--instrument-color) 18%, #03070a);
+}
+
+.instrument-card,
+.instrument-browser > button,
+.instrument-browser > article {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  margin: 0 0 6px;
+  padding: 8px;
+  overflow: hidden;
+  border: 1px solid var(--constellation-line);
+  color: #cbdadb;
+  background: rgba(3, 7, 10, 0.72);
+  text-align: left;
+  cursor: pointer;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.instrument-card:hover,
+.instrument-card:focus-visible,
+.instrument-browser > button:hover,
+.instrument-browser > button:focus-visible {
+  border-color: var(--instrument-color, var(--constellation-cyan));
+  color: #f2ffff;
+  background: color-mix(in oklab, var(--instrument-color, var(--constellation-cyan)) 8%, #05090c);
+}
+
+.instrument-card img,
+.instrument-browser > button img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.instrument-card b,
+.instrument-browser > button b {
+  display: block;
+  overflow: hidden;
+  font: 720 8px/1.15 var(--mono);
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.instrument-card small,
+.instrument-browser > button small {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #60757a;
+  font: 620 6px/1.25 var(--mono);
+  letter-spacing: 0.035em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.projection-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #030609;
+}
+
+.projection-view {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.projection-view[hidden] {
+  display: none !important;
+}
+
+.projection-heading {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-width: 0;
+  min-height: 50px;
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--constellation-line);
+  background: rgba(4, 8, 11, 0.91);
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.projection-heading h3 {
+  margin: 4px 0 0;
+  color: #e9fbfb;
+  font: 720 11px/1 var(--mono);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.projection-heading p {
+  width: min(450px, 54%);
+  margin: 0;
+  color: #62777c;
+  font: 600 7px/1.45 var(--mono);
+  text-align: right;
+}
+
+.projection-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+  background:
+    linear-gradient(rgba(112, 227, 232, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(112, 227, 232, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 50% 45%, rgba(112, 227, 232, 0.035), transparent 48%),
+    #03070a;
+  background-size: 32px 32px, 32px 32px, auto, auto;
+  scrollbar-color: #284047 transparent;
+  scrollbar-width: thin;
+  touch-action: none;
+}
+
+.projection-canvas:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--constellation-cyan);
+}
+
+.flow-canvas {
+  background:
+    radial-gradient(circle, rgba(178, 153, 255, 0.12) 1px, transparent 1.5px),
+    radial-gradient(circle at 50% 45%, rgba(178, 153, 255, 0.05), transparent 48%),
+    #03070a;
+  background-size: 24px 24px, auto, auto;
+}
+
+.constellation-canvas {
+  background:
+    radial-gradient(circle at 17% 22%, rgba(255, 255, 255, 0.42) 0 0.5px, transparent 1px),
+    radial-gradient(circle at 78% 28%, rgba(112, 227, 232, 0.45) 0 0.5px, transparent 1px),
+    radial-gradient(circle at 62% 76%, rgba(178, 153, 255, 0.42) 0 0.5px, transparent 1px),
+    radial-gradient(circle at 45% 45%, rgba(178, 153, 255, 0.055), transparent 50%),
+    #020509;
+  background-size: 31px 29px, 47px 43px, 59px 53px, auto, auto;
+}
+
+.projection-canvas > svg,
+.projection-canvas > .timeline-editor,
+.projection-canvas > .flow-editor,
+.projection-canvas > .constellation-editor {
+  display: block;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.projection-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  color: #42565b;
+  pointer-events: none;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  font: 650 7px/1 var(--mono);
+  letter-spacing: 0.16em;
+}
+
+.projection-empty i {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(112, 227, 232, 0.22);
+  border-radius: 50%;
+  box-shadow: 0 0 22px rgba(112, 227, 232, 0.08);
+}
+
+/* Projected timeline ----------------------------------------------------- */
+
+.constellation-section-strip {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  min-height: 36px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--constellation-line);
+  background: rgba(4, 8, 11, .96);
+  gap: 5px;
+}
+
+.constellation-section-chip {
+  min-width: max-content;
+  min-height: 25px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in oklab, var(--section-color) 24%, var(--constellation-line));
+  color: #6d8287;
+  background: #05090c;
+  font: 680 6.5px/1 var(--mono);
+  letter-spacing: .055em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.constellation-section-chip:hover,
+.constellation-section-chip:focus-visible,
+.constellation-section-chip[aria-pressed="true"] {
+  border-color: var(--section-color);
+  color: color-mix(in oklab, var(--section-color) 75%, white);
+  background: color-mix(in oklab, var(--section-color) 10%, #05090c);
+  box-shadow: inset 0 -2px var(--section-color);
+}
+
+.constellation-timeline-surface {
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0 calc(var(--beat-size) - 1px),
+      rgba(112, 227, 232, .045) calc(var(--beat-size) - 1px) var(--beat-size)),
+    repeating-linear-gradient(90deg,
+      transparent 0 calc(var(--bar-size) - 1px),
+      rgba(112, 227, 232, .12) calc(var(--bar-size) - 1px) var(--bar-size));
+}
+
+.constellation-ruler {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 42px;
+  border-bottom: 1px solid var(--constellation-line-strong);
+  color: #5e7479;
+  background: rgba(3, 7, 10, .9);
+}
+
+.constellation-ruler span {
+  position: absolute;
+  bottom: 8px;
+  padding-left: 6px;
+  font: 650 7px/1 var(--mono);
+  transform: translateX(-1px);
+}
+
+.constellation-ruler span::before {
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 1px;
+  height: 7px;
+  background: var(--constellation-line-strong);
+  content: "";
+}
+
+.constellation-lane-row {
+  position: absolute;
+  right: 0;
+  left: 0;
+  border-bottom: 1px solid var(--constellation-line);
+  background: linear-gradient(90deg, rgba(112, 227, 232, .016), transparent 56%);
+}
+
+.constellation-lane-row:nth-of-type(even) {
+  background: linear-gradient(90deg, rgba(178, 153, 255, .018), transparent 56%);
+}
+
+.constellation-lane-label {
+  position: sticky;
+  z-index: 9;
+  left: 0;
+  display: grid;
+  width: 158px;
+  height: 100%;
+  padding: 0 12px 0 17px;
+  border: 0;
+  border-right: 1px solid var(--constellation-line-strong);
+  color: #bfd0d2;
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--instrument-color) 8%, transparent), transparent),
+    rgba(5, 9, 12, .97);
+  align-content: center;
+  text-align: left;
+  cursor: pointer;
+  gap: 6px;
+}
+
+.constellation-lane-label::before {
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 7px;
+  width: 2px;
+  background: var(--instrument-color);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--instrument-color) 45%, transparent);
+  content: "";
+}
+
+.constellation-lane-label b {
+  overflow: hidden;
+  font: 700 7px/1 var(--mono);
+  letter-spacing: .045em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.constellation-lane-label small {
+  overflow: hidden;
+  color: #50656a;
+  font: 650 6px/1 var(--mono);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.constellation-lane-label:hover,
+.constellation-lane-label:focus-visible {
+  color: #fff;
+  background-color: color-mix(in oklab, var(--instrument-color) 10%, #05090c);
+}
+
+.constellation-clip {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  min-width: 34px;
+  padding: 8px 11px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--instrument-color) 48%, transparent);
+  border-left: 3px solid var(--instrument-color);
+  border-radius: 3px;
+  color: #d9e5e6;
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--instrument-color) 13%, transparent), transparent 70%),
+    rgba(7, 13, 17, .95);
+  box-shadow: inset 0 0 18px color-mix(in oklab, var(--instrument-color) 4%, transparent);
+  text-align: left;
+  cursor: grab;
+  align-content: space-between;
+  touch-action: none;
+}
+
+.constellation-clip:hover,
+.constellation-clip:focus-visible,
+.constellation-clip.is-selected {
+  z-index: 6;
+  border-color: var(--instrument-color);
+  outline: 0;
+  box-shadow:
+    inset 0 0 22px color-mix(in oklab, var(--instrument-color) 10%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--instrument-color) 25%, transparent),
+    0 0 18px color-mix(in oklab, var(--instrument-color) 12%, transparent);
+}
+
+.constellation-clip.is-dragging {
+  cursor: grabbing;
+  opacity: .78;
+}
+
+.constellation-clip.is-sounding {
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--instrument-color) 28%, transparent), transparent 78%),
+    rgba(8, 17, 21, .98);
+  box-shadow: inset 0 0 30px color-mix(in oklab, var(--instrument-color) 15%, transparent);
+}
+
+.constellation-clip-copy {
+  display: grid;
+  min-width: 0;
+  pointer-events: none;
+  gap: 5px;
+}
+
+.constellation-clip-copy b,
+.constellation-clip-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.constellation-clip-copy b {
+  color: color-mix(in oklab, var(--instrument-color) 74%, white);
+  font: 720 7px/1 var(--mono);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.constellation-clip-copy small {
+  color: #647a7f;
+  font: 630 6px/1 var(--mono);
+  text-transform: uppercase;
+}
+
+.constellation-clip-pattern {
+  display: flex;
+  height: 12px;
+  min-width: 0;
+  pointer-events: none;
+  align-items: end;
+  gap: 2px;
+}
+
+.constellation-clip-pattern i {
+  width: 3px;
+  height: 2px;
+  flex: 0 1 5px;
+  background: color-mix(in oklab, var(--instrument-color) 18%, transparent);
+}
+
+.constellation-clip-pattern i.is-on {
+  height: 10px;
+  background: color-mix(in oklab, var(--instrument-color) 74%, white 6%);
+  opacity: var(--step-level);
+}
+
+.constellation-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  border-left: 1px solid color-mix(in oklab, var(--instrument-color) 18%, transparent);
+  cursor: ew-resize;
+}
+
+.constellation-clip[data-preview]::after {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  padding: 3px 5px;
+  color: #fff;
+  background: #010304;
+  content: attr(data-preview);
+  font: 650 6px/1 var(--mono);
+}
+
+.constellation-playhead {
+  position: absolute;
+  z-index: 12;
+  width: 1px;
+  pointer-events: none;
+  background: #fff;
+  box-shadow: 0 0 8px var(--constellation-cyan), 0 0 16px rgba(112, 227, 232, .42);
+}
+
+.constellation-playhead::before {
+  position: absolute;
+  top: -6px;
+  left: -4px;
+  width: 9px;
+  height: 6px;
+  background: var(--constellation-cyan);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  content: "";
+}
+
+/* Flow graph and whole-work Constellation ------------------------------- */
+
+.constellation-flow-svg,
+.constellation-form-svg {
+  width: 100%;
+  height: calc(100% - 36px);
+  min-height: 430px !important;
+  overflow: visible;
+  color: #5f8288;
+  user-select: none;
+  touch-action: none;
+}
+
+.constellation-flow-edge,
+.constellation-section-edge {
+  fill: none;
+  stroke: rgba(112, 227, 232, .35);
+  stroke-width: 1.6;
+  color: rgba(112, 227, 232, .65);
+}
+
+.constellation-flow-edge.is-choice,
+.constellation-section-edge.is-choice {
+  stroke: rgba(255, 130, 200, .72);
+  stroke-dasharray: 7 6;
+  color: var(--constellation-pink);
+}
+
+.constellation-edge-label {
+  fill: #789095;
+  paint-order: stroke;
+  stroke: #03070a;
+  stroke-width: 5px;
+  font: 650 10px/1 var(--mono);
+  letter-spacing: .04em;
+}
+
+.constellation-flow-node {
+  cursor: grab;
+  outline: none;
+  touch-action: none;
+}
+
+.constellation-flow-node > :is(rect, circle, path) {
+  fill: rgba(6, 12, 16, .96);
+  stroke: rgba(112, 227, 232, .52);
+  stroke-width: 1.5;
+  transition: fill .12s ease, stroke .12s ease, filter .12s ease;
+}
+
+.constellation-flow-node.is-clip > rect {
+  fill: color-mix(in oklab, var(--node-color, var(--constellation-violet)) 9%, #050a0d);
+  stroke: color-mix(in oklab, var(--node-color, var(--constellation-violet)) 68%, transparent);
+}
+
+.constellation-flow-node.is-fork > path {
+  stroke: var(--constellation-gold);
+}
+
+.constellation-flow-node.is-join > path {
+  stroke: var(--constellation-cyan);
+}
+
+.constellation-flow-node:is(:hover, :focus-visible, .is-selected, .is-active) > :is(rect, circle, path) {
+  fill: color-mix(in oklab, var(--node-color, var(--constellation-cyan)) 18%, #050a0d);
+  stroke: var(--node-color, var(--constellation-cyan));
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 8px color-mix(in oklab, var(--node-color, var(--constellation-cyan)) 28%, transparent));
+}
+
+.constellation-flow-node-title {
+  fill: #dcebec;
+  pointer-events: none;
+  font: 700 10px/1 var(--mono);
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+
+.constellation-flow-node-detail {
+  fill: #6a8287;
+  pointer-events: none;
+  font: 630 8px/1 var(--mono);
+}
+
+.constellation-svg-note {
+  fill: #435a60;
+  font: 650 8px/1 var(--mono);
+  letter-spacing: .1em;
+}
+
+.constellation-section-node {
+  cursor: grab;
+  outline: none;
+  touch-action: none;
+}
+
+.constellation-section-halo {
+  fill: color-mix(in oklab, var(--section-color) 3%, transparent);
+  stroke: color-mix(in oklab, var(--section-color) 22%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+}
+
+.constellation-section-core {
+  fill: color-mix(in oklab, var(--section-color) 8%, #04080b);
+  stroke: color-mix(in oklab, var(--section-color) 58%, transparent);
+  stroke-width: 1.5;
+}
+
+.constellation-section-node:is(:hover, :focus-visible, .is-selected, .is-active) .constellation-section-core {
+  fill: color-mix(in oklab, var(--section-color) 20%, #04080b);
+  stroke: var(--section-color);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 12px color-mix(in oklab, var(--section-color) 40%, transparent));
+}
+
+.constellation-section-node.is-active .constellation-section-halo {
+  stroke: var(--section-color);
+  stroke-width: 2;
+}
+
+.constellation-section-title {
+  fill: #e3eeee;
+  pointer-events: none;
+  font: 700 9px/1 var(--mono);
+  text-transform: uppercase;
+}
+
+.constellation-section-detail {
+  fill: #6c8186;
+  pointer-events: none;
+  font: 620 7px/1 var(--mono);
+}
+
+.constellation-section-satellite {
+  fill: var(--section-color);
+  opacity: .75;
+  pointer-events: none;
+}
+
+/* Inspector ------------------------------------------------------------- */
+
+.constellation-inspector-empty {
+  padding: 14px 12px;
+  border: 1px dashed var(--constellation-line-strong);
+  color: #70868b;
+  background: rgba(3, 7, 10, .55);
+}
+
+.constellation-inspector-empty b {
+  color: #d9e9ea;
+  font: 700 9px/1 var(--mono);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.constellation-inspector-empty p {
+  margin: 9px 0 0;
+  font: 620 7px/1.55 var(--mono);
+}
+
+.constellation-inspector-heading {
+  position: relative;
+  margin: 0 0 14px;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid color-mix(in oklab, var(--instrument-color) 30%, transparent);
+  background: color-mix(in oklab, var(--instrument-color) 7%, #05090c);
+}
+
+.constellation-inspector-heading::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--instrument-color);
+  content: "";
+}
+
+.constellation-inspector-heading small {
+  color: color-mix(in oklab, var(--instrument-color) 72%, white);
+  font: 680 6px/1 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.constellation-inspector-heading h3 {
+  margin: 6px 0 0;
+  overflow: hidden;
+  color: #f0ffff;
+  font: 720 10px/1 var(--mono);
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.constellation-inspector-field {
+  padding: 8px 9px;
+  border: 1px solid var(--constellation-line);
+  background: rgba(3, 7, 10, .52);
+}
+
+.constellation-inspector-field > span {
+  color: #82969a !important;
+}
+
+.constellation-inspector-field input[type="text"] {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--constellation-line-strong);
+  color: #dce9ea;
+  background: #030609;
+  font: 650 8px/1 var(--mono);
+}
+
+.constellation-inspector-readout {
+  display: grid;
+  margin: 12px 0;
+  border-top: 1px solid var(--constellation-line);
+}
+
+.constellation-inspector-readout > div {
+  display: grid;
+  padding: 7px 3px;
+  border-bottom: 1px solid var(--constellation-line);
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.constellation-inspector-readout :is(dt, dd) {
+  margin: 0;
+  overflow: hidden;
+  font: 630 6.5px/1.35 var(--mono);
+  text-overflow: ellipsis;
+}
+
+.constellation-inspector-readout dt {
+  color: #5c7277;
+  text-transform: uppercase;
+}
+
+.constellation-inspector-readout dd {
+  color: #a9babc;
+}
+
+.constellation-open-instrument {
+  display: grid;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--constellation-line-strong);
+  color: var(--constellation-cyan);
+  background: rgba(112, 227, 232, .05);
+  font: 700 6.5px/1 var(--mono);
+  letter-spacing: .06em;
+  text-decoration: none;
+  text-transform: uppercase;
+  place-items: center;
+}
+
+.constellation-open-instrument:hover,
+.constellation-open-instrument:focus-visible {
+  border-color: var(--constellation-cyan);
+  color: #fff;
+}
+
+.inspector-placeholder {
+  display: grid;
+  min-height: 150px;
+  padding: 22px 14px;
+  border: 1px dashed var(--constellation-line-strong);
+  color: #64797e;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.inspector-placeholder span {
+  color: var(--constellation-violet);
+  font-size: 24px;
+}
+
+.inspector-placeholder p {
+  max-width: 190px;
+  margin: 0;
+  font: 600 7px/1.55 var(--mono);
+}
+
+.inspector :is(label, .inspector-field) {
+  display: grid;
+  margin: 0 0 10px;
+  gap: 6px;
+}
+
+.inspector label > span,
+.inspector-field > span {
+  display: flex;
+  color: #819499;
+  font: 680 7px/1 var(--mono);
+  letter-spacing: 0.055em;
+  justify-content: space-between;
+  gap: 8px;
+  text-transform: uppercase;
+}
+
+.inspector input,
+.inspector select {
+  width: 100%;
+}
+
+.inspector button {
+  min-height: 34px;
+  border: 1px solid var(--constellation-line-strong);
+  color: var(--constellation-cyan-pale);
+  background: #05090c;
+}
+
+.composition-status {
+  display: flex;
+  min-width: 0;
+  min-height: 27px;
+  padding: 0 clamp(12px, 2vw, 24px);
+  overflow: hidden;
+  border-top: 1px solid var(--constellation-line);
+  color: #53676c;
+  background: #05080b;
+  align-items: center;
+  gap: clamp(14px, 3vw, 36px);
+  font: 650 6px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.composition-status span:first-child {
+  color: #88a7aa;
+}
+
+.status-light {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--constellation-lime);
+  box-shadow: 0 0 8px rgba(167, 232, 121, 0.55);
+}
+
+@media (max-width: 1180px) {
+  .composition-bar {
+    grid-template-columns: minmax(170px, 1fr) minmax(170px, 0.9fr) auto minmax(145px, 0.65fr);
+  }
+
+  .transport-clock {
+    display: none;
+  }
+
+  .composition-workspace {
+    grid-template-columns: 190px minmax(340px, 1fr) 224px;
+  }
+
+  .view-tabs button {
+    min-width: 145px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .constellation-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .constellation-shell {
+    min-height: calc(100dvh - 54px);
+    overflow: visible;
+    grid-template-rows: auto auto minmax(660px, 1fr) auto;
+  }
+
+  .composition-bar {
+    grid-template-columns: minmax(170px, 1fr) minmax(180px, 1fr) auto;
+  }
+
+  .tempo-control {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--constellation-line);
+    border-left: 0;
+    grid-template-columns: 100px minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .view-switcher {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .section-readout {
+    display: none;
+  }
+
+  .view-tabs {
+    padding-left: 0;
+  }
+
+  .view-tabs button {
+    min-width: 0;
+    padding: 9px 10px;
+    flex: 1 1 33.333%;
+    justify-content: center;
+  }
+
+  .view-tabs small {
+    display: none;
+  }
+
+  .composition-workspace {
+    overflow: visible;
+    grid-template-columns: 164px minmax(0, 1fr);
+    grid-template-rows: minmax(440px, 1fr) 190px;
+  }
+
+  .instrument-drawer {
+    grid-row: 1;
+  }
+
+  .projection-stage {
+    min-height: 440px;
+  }
+
+  .inspector-panel {
+    grid-column: 1 / -1;
+    grid-template-columns: 164px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    border-top: 1px solid var(--constellation-line);
+    border-left: 0;
+  }
+
+  .inspector-panel .workspace-panel-heading {
+    border-right: 1px solid var(--constellation-line);
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .composition-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .composition-identity {
+    padding-left: 14px;
+  }
+
+  .composition-identity p,
+  .composition-kicker {
+    display: none;
+  }
+
+  .preset-control {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    border-top: 1px solid var(--constellation-line);
+    border-left: 0;
+  }
+
+  .transport-cluster {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 7px;
+    grid-template-columns: repeat(3, 46px);
+  }
+
+  .transport-cluster button {
+    min-height: 44px;
+  }
+
+  .tempo-control {
+    grid-row: 3;
+  }
+
+  .view-tab-mark {
+    display: none;
+  }
+
+  .view-tabs button {
+    padding: 11px 5px;
+  }
+
+  .view-tabs b {
+    font-size: 7px;
+  }
+
+  .composition-workspace {
+    display: flex;
+    min-height: 760px;
+    flex-direction: column;
+  }
+
+  .projection-stage {
+    min-height: 470px;
+    order: 1;
+  }
+
+  .instrument-drawer {
+    min-height: 170px;
+    max-height: 220px;
+    border-top: 1px solid var(--constellation-line);
+    border-right: 0;
+    order: 2;
+  }
+
+  .instrument-drawer .workspace-panel-heading,
+  .inspector-panel .workspace-panel-heading {
+    padding: 10px 12px;
+  }
+
+  .instrument-browser {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .instrument-card,
+  .instrument-browser > button,
+  .instrument-browser > article {
+    width: 154px;
+    min-width: 154px;
+    margin: 0 6px 0 0;
+  }
+
+  .inspector-panel {
+    display: grid;
+    min-height: 190px;
+    max-height: 270px;
+    grid-template-columns: 125px minmax(0, 1fr);
+    order: 3;
+  }
+
+  .projection-heading {
+    padding: 9px 11px;
+  }
+
+  .projection-heading p {
+    display: none;
+  }
+
+  .composition-status {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 390px) {
+  .transport-cluster {
+    grid-template-columns: repeat(3, 42px);
+  }
+
+  .composition-identity h1 {
+    font-size: 15px;
+  }
+
+  .view-tabs b {
+    font-size: 6.5px;
+    letter-spacing: 0.025em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .constellation-page *,
+  .constellation-page *::before,
+  .constellation-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .transport-cluster button,
+  .view-tabs button,
+  .projection-canvas,
+  .instrument-card,
+  .instrument-browser > button {
+    border: 1px solid CanvasText;
+  }
+
+  .view-tabs button[aria-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -3px;
+  }
+}

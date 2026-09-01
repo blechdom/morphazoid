@@ -87,6 +87,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "pink-trombonazoid",
     "colony-syrinx",
     "vocalzoid",
+    "constellation",
     "sliding-puzzle",
     "hyper-rubix",
     "webgpu-synths",
@@ -170,6 +171,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "vector-flight",
   "pink-trombonazoid",
   "vocalzoid",
+  "constellation",
   "sliding-puzzle",
   "hyper-rubix",
   "webgpu-synths",
@@ -217,7 +219,7 @@ const midiOutputExtraIds = new Set([
   "l-system",
   "julia",
 ]);
-const noMidiOutputIds = new Set(["pink-trombonazoid", "vocalzoid"]);
+const noMidiOutputIds = new Set(["pink-trombonazoid", "vocalzoid", "constellation"]);
 
 export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
   Object.entries(NOTE_MODE_IDS).flatMap(([noteMode, ids]) => ids.map((id) => Object.freeze({

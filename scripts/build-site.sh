@@ -292,6 +292,11 @@ for worktree_runtime_file in \
   src/rubix-webgpu-303.js \
   src/rubix-visibility.js \
   assets/instruments/rubix.webp \
+  constellation.html \
+  constellation.css \
+  constellation-app.js \
+  src/constellation-composer.js \
+  src/constellation-audio.js \
   sliding-puzzle.html \
   sliding-puzzle.css \
   sliding-puzzle-app.js \
@@ -933,6 +938,11 @@ required_files=(
   src/rubix-webgpu-303.js
   src/rubix-visibility.js
   assets/instruments/rubix.webp
+  constellation.html
+  constellation.css
+  constellation-app.js
+  src/constellation-composer.js
+  src/constellation-audio.js
   sliding-puzzle.html
   sliding-puzzle.css
   sliding-puzzle-app.js

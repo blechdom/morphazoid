@@ -113,6 +113,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose one bank or preset, then drag the cube or enable Random Twists; in WebGPU 303 mode, sticker row, column, edge, current face, and visibility reshape each acid step.",
     ["Pointer"],
   ),
+  constellation: define(
+    "Graph composition workstation",
+    "Builds larger musical forms as connected sections whose beat-valued routes project into an editable layered timeline without surrendering the graph as the timing authority.",
+    "Turn on audio, choose a rhythm-and-sound preset, then edit its sections in Constellation, Flow Graph, or Projected Timeline view.",
+    ["Built-in synth", "Built-in drums", "Pointer", "Projected timeline"],
+  ),
   "sliding-puzzle": define(
     "2D puzzle sequencer",
     "Reads a resizable 2 × 2 through 8 × 8 square or rectangular tile field as either a serial score or Rubix-style parallel rows, with four fixed home-row colors and one moving silent cell.",
