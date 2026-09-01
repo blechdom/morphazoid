@@ -8,7 +8,7 @@ import {
   physicalVoiceParameters,
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
-} from "./hiccup-head.js?v=5d283dfce98f";
+} from "./hiccup-head.js?v=5d263cff8697";
 
 // Hiccup Head's tract is a single, persistent Kelly-Lochbaum volume-flow tube.
 // The scattering convention, losses, and 44-section source geometry follow
@@ -42,6 +42,7 @@ const REFLECTION_LIMIT = 0.9995;
 const DENORMAL_LIMIT = 1e-20;
 const NASAL_BYPASS_EPSILON = 0.000001;
 const OUTPUT_CEILING = 0.72;
+const LID_HIGHPASS_OCTAVES = Math.log2(10_000 / 30);
 const TOOTH_TINE_MINIMUM_HZ = 80;
 const TOOTH_TINE_MAXIMUM_HZ = 4_800;
 const TOOTH_TINE_COUNT = 12;
@@ -78,6 +79,18 @@ const GESTURE_SOURCE_GAIN = Object.freeze({
   lala: 1.24,
 });
 const GESTURE_OUTPUT_GAIN = Object.freeze({
+  bop: 2.4,
+  boop: 2.35,
+  pop: 2.2,
+  shh: 2.15,
+  pff: 2.6,
+  hiccup: 3,
+  mwah: 2.35,
+  kiss: 2.5,
+  pbpb: 2.15,
+  tomhi: 1.7,
+  braap: 1.7,
+  brush: 1.7,
   rattle: 0.35,
 });
 // Open/modal voices must remain physically audible on small speakers even
@@ -242,19 +255,69 @@ function arraysAreFinite(arrays, lengths = []) {
 
 // Ears, bilateral hair, and eyes are global face parameters after the one
 // resonating tract. Ears own only fixed short width; each hair side owns its
-// own feedback delay; outward eyes open the cross-fed room. Inward eye travel
-// and lid closure remain smoothed visual telemetry without changing the sound.
+// own feedback delay; outward/crossed eyes open two characters of the diffused
+// room, and the independently smoothed lids drive post-effect bus processing.
 class FaceSpace {
-  constructor(rate) {
+  constructor(rate, externalReverb = false) {
     this.rate = rate;
-    this.widthBuffer = new Float64Array(Math.ceil(rate * 0.0015) + 4);
+    this.externalReverb = Boolean(externalReverb);
+    // Three fixed all-pass sections per side share exactly the same 5.17 ms
+    // total delay but use different section lengths. Their difference supplies
+    // a stable stereo side without a moving comb or a left/right Haas lead.
+    const matchedWidthFrames = Math.max(12, Math.round(rate * 0.00517));
+    const widthLeftFrames = Math.max(4, Math.round(rate * 0.00073));
+    const widthLeftTailFrames = Math.max(4, Math.round(rate * 0.00161));
+    const widthRightFrames = Math.max(4, Math.round(rate * 0.00103));
+    const widthRightTailFrames = Math.max(4, Math.round(rate * 0.00197));
+    this.widthLeftBuffer = new Float64Array(widthLeftFrames);
+    this.widthLeftTailBuffer = new Float64Array(widthLeftTailFrames);
+    this.widthLeftThirdBuffer = new Float64Array(Math.max(
+      4,
+      matchedWidthFrames - widthLeftFrames - widthLeftTailFrames,
+    ));
+    this.widthRightBuffer = new Float64Array(widthRightFrames);
+    this.widthRightTailBuffer = new Float64Array(widthRightTailFrames);
+    this.widthRightThirdBuffer = new Float64Array(Math.max(
+      4,
+      matchedWidthFrames - widthRightFrames - widthRightTailFrames,
+    ));
+    // Compatibility alias retained for diagnostics that predate matched ears.
+    this.widthBuffer = this.widthLeftBuffer;
     this.leftHairBuffer = new Float64Array(Math.ceil(rate * 0.46) + 4);
     this.rightHairBuffer = new Float64Array(Math.ceil(rate * 0.46) + 4);
-    this.eyeLeftBuffer = new Float64Array(Math.ceil(rate * 0.39) + 4);
-    this.eyeRightBuffer = new Float64Array(Math.ceil(rate * 0.39) + 4);
+    this.eyeLeftBuffer = new Float64Array(
+      externalReverb ? 4 : Math.ceil(rate * 0.39) + 4,
+    );
+    this.eyeRightBuffer = new Float64Array(
+      externalReverb ? 4 : Math.ceil(rate * 0.39) + 4,
+    );
+    this.eyeDiffuseLeftA = new Float64Array(
+      externalReverb ? 4 : Math.max(4, Math.round(rate * 0.00473)),
+    );
+    this.eyeDiffuseLeftB = new Float64Array(
+      externalReverb ? 4 : Math.max(4, Math.round(rate * 0.01117)),
+    );
+    this.eyeDiffuseRightA = new Float64Array(
+      externalReverb ? 4 : Math.max(4, Math.round(rate * 0.00631)),
+    );
+    this.eyeDiffuseRightB = new Float64Array(
+      externalReverb ? 4 : Math.max(4, Math.round(rate * 0.01379)),
+    );
     // Read-only compatibility alias for diagnostics which knew the old buffer.
     this.earBuffer = this.leftHairBuffer;
     this.widthIndex = 0;
+    this.widthLeftIndex = 0;
+    this.widthLeftTailIndex = 0;
+    this.widthLeftThirdIndex = 0;
+    this.widthRightIndex = 0;
+    this.widthRightTailIndex = 0;
+    this.widthRightThirdIndex = 0;
+    this.widthSideLow = 0;
+    this.widthSideHighpassAlpha = 1 - Math.exp(-Math.PI * 2 * 120 / rate);
+    this.eyeDiffuseLeftAIndex = 0;
+    this.eyeDiffuseLeftBIndex = 0;
+    this.eyeDiffuseRightAIndex = 0;
+    this.eyeDiffuseRightBIndex = 0;
     this.hairIndex = 0;
     this.eyeIndex = 0;
     this.earAmount = 0;
@@ -264,14 +327,13 @@ class FaceSpace {
     this.rightHairAngle = 0;
     this.eyeAmount = 0;
     this.eyeReverbAmount = 0;
+    this.eyelidHighpassAmount = 0;
     this.eyelidFuzzAmount = 0;
     this.eyeDampedLeft = 0;
     this.eyeDampedRight = 0;
     this.eyeClosureAmount = 0;
     this.leftEyeClosureAmount = 0;
     this.rightEyeClosureAmount = 0;
-    this.lidToneLeft = 0;
-    this.lidToneRight = 0;
     this.left = 0;
     this.right = 0;
     this.stereoDelayMs = 0;
@@ -297,7 +359,16 @@ class FaceSpace {
       this.rightHairBuffer,
       this.eyeLeftBuffer,
       this.eyeRightBuffer,
-      this.widthBuffer,
+      this.eyeDiffuseLeftA,
+      this.eyeDiffuseLeftB,
+      this.eyeDiffuseRightA,
+      this.eyeDiffuseRightB,
+      this.widthLeftBuffer,
+      this.widthLeftTailBuffer,
+      this.widthLeftThirdBuffer,
+      this.widthRightBuffer,
+      this.widthRightTailBuffer,
+      this.widthRightThirdBuffer,
     ]);
     this.finiteAuditBufferIndex = 0;
     this.finiteAuditOffset = 0;
@@ -310,6 +381,15 @@ class FaceSpace {
     const upper = (lower + 1) % length;
     const mix = position - lower;
     return buffer[lower] + (buffer[upper] - buffer[lower]) * mix;
+  }
+
+  _allpass(buffer, indexKey, input, coefficient) {
+    const index = this[indexKey];
+    const delayed = buffer[index];
+    const output = delayed - input * coefficient;
+    buffer[index] = clamp(input + output * coefficient, -1.5, 1.5);
+    this[indexKey] = (index + 1) % buffer.length;
+    return cleanWave(output);
   }
 
   process(left, right, configuration) {
@@ -351,20 +431,8 @@ class FaceSpace {
       this.eyeClosureAmount = 0;
     }
 
-    const mono = cleanWave((left + right) * Math.SQRT1_2);
-    this.widthBuffer[this.widthIndex] = clamp(mono, -1.5, 1.5);
-    const widthDelayFrames = this.rate * 0.00078;
-    const widthTap = this._tap(this.widthBuffer, this.widthIndex, widthDelayFrames);
-    this.widthIndex = (this.widthIndex + 1) % this.widthBuffer.length;
     const midpoint = (left + right) * 0.5;
     const inputSide = (left - right) * 0.5;
-    this.stereoWidth = 1 + this.earAmount * 1.4;
-    const earWidthCurve = this.earAmount * this.earAmount;
-    const decorrelatedSide = (mono - widthTap) * earWidthCurve * 2.1;
-    const widenedSide = inputSide * this.stereoWidth + decorrelatedSide;
-    const earLeft = cleanWave(midpoint + widenedSide);
-    const earRight = cleanWave(midpoint - widenedSide);
-    this.stereoDelayMs = this.earAmount * widthDelayFrames / this.rate * 1_000;
 
     const leftCurve = smoothstep(this.leftHairLength);
     const rightCurve = smoothstep(this.rightHairLength);
@@ -401,104 +469,201 @@ class FaceSpace {
       leftHairTap * leftDelayBlend * (0.76 - this.leftHairFeedback * 0.12)
       + rightHairTap * rightDelayBlend * (0.76 - this.rightHairFeedback * 0.12)
     ) / Math.max(1, 1 + (leftDelayBlend + rightDelayBlend) * 0.18);
-    const hairLeft = cleanWave(earLeft * 0.94 + centeredDelay);
-    const hairRight = cleanWave(earRight * 0.94 + centeredDelay);
+    const hairActivity = Math.max(leftCurve, rightCurve);
+    const hairDryGain = 1 - hairActivity * 0.06;
+    const hairMidpoint = cleanWave(midpoint * hairDryGain + centeredDelay);
+    const hairInputSide = inputSide * hairDryGain;
+
+    // Ears widen the complete dry + centered-hair result. The fixed matched-
+    // total all-pass field creates only a side signal; it cancels exactly when
+    // folded to mono and has no parameter-modulated delay or coefficient.
+    const earCurve = Math.sqrt(this.earAmount);
+    const widthCoefficient = 0.35;
+    const widthLeftHead = this._allpass(
+      this.widthLeftBuffer,
+      "widthLeftIndex",
+      hairMidpoint,
+      widthCoefficient,
+    );
+    const widthLeftTail = this._allpass(
+      this.widthLeftTailBuffer,
+      "widthLeftTailIndex",
+      widthLeftHead,
+      widthCoefficient,
+    );
+    const phaseLeft = this._allpass(
+      this.widthLeftThirdBuffer,
+      "widthLeftThirdIndex",
+      widthLeftTail,
+      widthCoefficient,
+    );
+    const widthRightHead = this._allpass(
+      this.widthRightBuffer,
+      "widthRightIndex",
+      hairMidpoint,
+      widthCoefficient,
+    );
+    const widthRightTail = this._allpass(
+      this.widthRightTailBuffer,
+      "widthRightTailIndex",
+      widthRightHead,
+      widthCoefficient,
+    );
+    const phaseRight = this._allpass(
+      this.widthRightThirdBuffer,
+      "widthRightThirdIndex",
+      widthRightTail,
+      widthCoefficient,
+    );
+    const rawDecorrelatedSide = (phaseLeft - phaseRight) * 0.5;
+    this.widthSideLow += (
+      rawDecorrelatedSide - this.widthSideLow
+    ) * this.widthSideHighpassAlpha;
+    const decorrelatedSide = rawDecorrelatedSide - this.widthSideLow;
+    // Preserve a restrained center of travel, then open decisively near the
+    // fully stretched ears. Both terms remain an anti-symmetric side field,
+    // so the widened result folds back to the untouched hair midpoint.
+    const existingSideGain = 1 + this.earAmount * 1.25;
+    const diffuseSideGain = earCurve * (0.35 + this.earAmount * 0.65);
+    const widenedSide = hairInputSide * existingSideGain
+      + decorrelatedSide * diffuseSideGain;
+    const hairLeft = cleanWave(hairMidpoint + widenedSide);
+    const hairRight = cleanWave(hairMidpoint - widenedSide);
+    this.widthIndex = this.widthLeftIndex;
+    this.stereoWidth = existingSideGain;
+    this.stereoDelayMs = 0;
     this.hairAmount = Math.max(this.leftHairLength, this.rightHairLength);
     this.hairDelayMs = (this.leftHairDelayMs + this.rightHairDelayMs) * 0.5;
     this.hairFeedback = Math.max(this.leftHairFeedback, this.rightHairFeedback);
     this.hairMix = Math.max(this.leftHairMix, this.rightHairMix);
 
-    const eyeDistance = Math.abs(this.eyeAmount);
-    // Keep the small resting divergence dry; once the eyes visibly move, jump
-    // into an audible wet range instead of spending most travel near silence.
-    const eyeActivation = smoothstep(clamp((eyeDistance - 0.04) / 0.26));
-    this.eyeReverbAmount = eyeActivation * (0.18 + smoothstep(eyeDistance) * 0.82);
-    // Inward gaze is a short bright plate, centered open eyes are dry, outward
-    // gaze grows into a long dark cathedral, and lids thicken either character.
-    const eyeCharacter = clamp((this.eyeAmount + 1) * 0.5);
-    const leftLidDarken = smoothstep(leftEyeClosure);
-    const rightLidFuzz = smoothstep(rightEyeClosure);
-    const lidDelayScale = 1 + leftLidDarken * 0.16;
+    const cathedralAmount = smoothstep(clamp(Math.max(0, this.eyeAmount) / 0.9));
+    const plateAmount = smoothstep(clamp(Math.max(0, -this.eyeAmount) / 0.9));
+    const eyeActivation = Math.max(cathedralAmount, plateAmount);
+    const leftLidHighpass = leftEyeClosure ** 0.75;
+    const rightLidFuzz = rightEyeClosure;
+    this.eyeReverbAmount = eyeActivation;
+    this.eyelidHighpassAmount = leftLidHighpass;
+    this.eyelidFuzzAmount = rightLidFuzz;
+    if (this.externalReverb) {
+      // Captured native convolution owns only the pupils' room. Lid telemetry
+      // continues through the worklet so fuzz remains immediate and physical.
+      this.left = hairLeft;
+      this.right = hairRight;
+      return;
+    }
+
+    // Restore the original smooth cross-fed room that gave Hiccup Head its
+    // cathedral tail. Outward eyes grow that room; crossed eyes shorten the
+    // same network into a restrained plate, and straight eyes remain dry.
+    const diffusion = 0.48 + plateAmount * 0.1 + cathedralAmount * 0.18;
+    const diffusedLeftA = this._allpass(
+      this.eyeDiffuseLeftA,
+      "eyeDiffuseLeftAIndex",
+      hairLeft,
+      diffusion,
+    );
+    const diffusedLeft = this._allpass(
+      this.eyeDiffuseLeftB,
+      "eyeDiffuseLeftBIndex",
+      diffusedLeftA,
+      diffusion * 0.93,
+    );
+    const diffusedRightA = this._allpass(
+      this.eyeDiffuseRightA,
+      "eyeDiffuseRightAIndex",
+      hairRight,
+      diffusion * 0.96,
+    );
+    const diffusedRight = this._allpass(
+      this.eyeDiffuseRightB,
+      "eyeDiffuseRightBIndex",
+      diffusedRightA,
+      diffusion * 0.9,
+    );
     const roomLeftDelay = this.rate * (
-      0.009 + eyeCharacter * 0.058 + this.eyeReverbAmount * 0.014 + leftLidDarken * 0.01
-    ) * lidDelayScale;
+      0.042 + plateAmount * 0.012 + cathedralAmount * 0.1
+    );
     const roomRightDelay = this.rate * (
-      0.013 + eyeCharacter * 0.077 + this.eyeReverbAmount * 0.019 + leftLidDarken * 0.014
-    ) * lidDelayScale;
-    // Three incommensurate taps blur discrete repeats into a plate at crossed
-    // positions and a dense, long cathedral field as the gaze moves outward.
-    const reflectedLeft = (
-      this._tap(this.eyeLeftBuffer, this.eyeIndex, roomLeftDelay * 0.47) * 0.34
-      + this._tap(this.eyeLeftBuffer, this.eyeIndex, roomLeftDelay * 0.73) * 0.29
-      + this._tap(this.eyeLeftBuffer, this.eyeIndex, roomLeftDelay) * 0.37
+      0.057 + plateAmount * 0.016 + cathedralAmount * 0.148
     );
-    const reflectedRight = (
-      this._tap(this.eyeRightBuffer, this.eyeIndex, roomRightDelay * 0.53) * 0.31
-      + this._tap(this.eyeRightBuffer, this.eyeIndex, roomRightDelay * 0.79) * 0.33
-      + this._tap(this.eyeRightBuffer, this.eyeIndex, roomRightDelay) * 0.36
-    );
+    const reflectedLeft = this._tap(this.eyeLeftBuffer, this.eyeIndex, roomLeftDelay);
+    const reflectedRight = this._tap(this.eyeRightBuffer, this.eyeIndex, roomRightDelay);
     const roomDamping = clamp(
-      0.2 - eyeCharacter * 0.09 - leftLidDarken * 0.13,
-      0.028,
+      0.2 + plateAmount * 0.06 - cathedralAmount * 0.095,
+      0.075,
       0.27,
     );
     this.eyeDampedLeft += (reflectedLeft - this.eyeDampedLeft) * roomDamping;
     this.eyeDampedRight += (reflectedRight - this.eyeDampedRight) * roomDamping * 0.92;
     const roomFeedback = clamp(
-      0.38 + this.eyeReverbAmount * 0.34 + eyeCharacter * 0.18 + leftLidDarken * 0.1,
-      0.34,
-      0.88,
+      0.34 + plateAmount * 0.45 + cathedralAmount * 0.49,
+      0.28,
+      0.86,
     );
     this.eyeLeftBuffer[this.eyeIndex] = clamp(
-      hairLeft * (0.38 + this.eyeReverbAmount * 0.2)
+      diffusedLeft * (0.22 + eyeActivation * 0.12)
         + this.eyeDampedRight * roomFeedback,
       -1.5,
       1.5,
     );
     this.eyeRightBuffer[this.eyeIndex] = clamp(
-      hairRight * (0.38 + this.eyeReverbAmount * 0.2)
+      diffusedRight * (0.22 + eyeActivation * 0.12)
         + this.eyeDampedLeft * roomFeedback,
       -1.5,
       1.5,
     );
     this.eyeIndex = (this.eyeIndex + 1) % this.eyeLeftBuffer.length;
-    const roomWet = eyeActivation * (0.52 + this.eyeReverbAmount * 0.92);
-    const roomBlend = clamp(roomWet, 0, 0.92);
-    const reverbReturnGain = 0.94 - roomFeedback * 0.12;
+    const roomWet = plateAmount * 0.74 + cathedralAmount * 0.8;
+    const earlyField = 0.16 + plateAmount * 0.18 + cathedralAmount * 0.08;
+    const wetLeft = diffusedLeft * earlyField
+      + this.eyeDampedLeft * (1 - earlyField * 0.35);
+    const wetRight = diffusedRight * earlyField
+      + this.eyeDampedRight * (1 - earlyField * 0.35);
     const roomLeft = cleanWave(
-      (hairLeft * (0.98 - roomBlend * 0.32)
-        + this.eyeDampedLeft * roomBlend * reverbReturnGain)
-        / (0.98 + roomBlend * 0.12),
+      hairLeft * (1 - roomWet * 0.2) + wetLeft * roomWet,
     );
     const roomRight = cleanWave(
-      (hairRight * (0.98 - roomBlend * 0.32)
-        + this.eyeDampedRight * roomBlend * reverbReturnGain)
-        / (0.98 + roomBlend * 0.12),
+      hairRight * (1 - roomWet * 0.2) + wetRight * roomWet,
     );
 
-    // The left lid audibly darkens the whole mix, even when the eyes are in
-    // their dry center position. The right lid's level-matched waveshaper is
-    // applied again after the output presence stage below so it cannot be
-    // erased by that stage's safety saturation.
-    const lidToneAlpha = 0.86 - leftLidDarken * 0.82;
-    this.lidToneLeft += (roomLeft - this.lidToneLeft) * lidToneAlpha;
-    this.lidToneRight += (roomRight - this.lidToneRight) * lidToneAlpha;
-    const eyelidFuzz = rightLidFuzz;
-    const darkBlend = leftLidDarken * 0.88;
-    this.left = cleanWave(roomLeft * (1 - darkBlend) + this.lidToneLeft * darkBlend);
-    this.right = cleanWave(roomRight * (1 - darkBlend) + this.lidToneRight * darkBlend);
-    this.eyelidFuzzAmount = eyelidFuzz;
+    // Lids are global post-effect gestures. Their DSP runs after the presence
+    // stage below, so this room remains independent and naturally decaying.
+    this.left = roomLeft;
+    this.right = roomRight;
+    this.eyelidHighpassAmount = leftLidHighpass;
+    this.eyelidFuzzAmount = rightLidFuzz;
   }
 
   reset() {
-    this.widthBuffer.fill(0);
+    this.widthLeftBuffer.fill(0);
+    this.widthLeftTailBuffer.fill(0);
+    this.widthLeftThirdBuffer.fill(0);
+    this.widthRightBuffer.fill(0);
+    this.widthRightTailBuffer.fill(0);
+    this.widthRightThirdBuffer.fill(0);
     this.leftHairBuffer.fill(0);
     this.rightHairBuffer.fill(0);
     this.eyeLeftBuffer.fill(0);
     this.eyeRightBuffer.fill(0);
+    this.eyeDiffuseLeftA.fill(0);
+    this.eyeDiffuseLeftB.fill(0);
+    this.eyeDiffuseRightA.fill(0);
+    this.eyeDiffuseRightB.fill(0);
     this.widthIndex = 0;
+    this.widthLeftIndex = 0;
+    this.widthLeftTailIndex = 0;
+    this.widthLeftThirdIndex = 0;
+    this.widthRightIndex = 0;
+    this.widthRightTailIndex = 0;
+    this.widthRightThirdIndex = 0;
+    this.widthSideLow = 0;
     this.hairIndex = 0;
     this.eyeIndex = 0;
+    this.eyeDiffuseLeftAIndex = 0;
+    this.eyeDiffuseLeftBIndex = 0;
+    this.eyeDiffuseRightAIndex = 0;
+    this.eyeDiffuseRightBIndex = 0;
     this.earAmount = 0;
     this.leftHairLength = 0;
     this.rightHairLength = 0;
@@ -506,10 +671,13 @@ class FaceSpace {
     this.rightHairAngle = 0;
     this.eyeAmount = 0;
     this.eyeReverbAmount = 0;
+    this.eyelidHighpassAmount = 0;
     this.eyelidFuzzAmount = 0;
     this.eyeDampedLeft = 0;
     this.eyeDampedRight = 0;
     this.eyeClosureAmount = 0;
+    this.leftEyeClosureAmount = 0;
+    this.rightEyeClosureAmount = 0;
     this.left = 0;
     this.right = 0;
     this.stereoDelayMs = 0;
@@ -536,13 +704,18 @@ class FaceSpace {
       && Number.isFinite(this.rightHairAngle)
       && Number.isFinite(this.eyeAmount)
       && Number.isFinite(this.eyeReverbAmount)
+      && Number.isFinite(this.eyelidHighpassAmount)
+      && Number.isFinite(this.eyelidFuzzAmount)
       && Number.isFinite(this.eyeClosureAmount)
+      && Number.isFinite(this.leftEyeClosureAmount)
+      && Number.isFinite(this.rightEyeClosureAmount)
       && Number.isFinite(this.eyeDampedLeft)
       && Number.isFinite(this.eyeDampedRight)
       && Number.isFinite(this.left)
       && Number.isFinite(this.right)
       && Number.isFinite(this.stereoDelayMs)
       && Number.isFinite(this.stereoWidth)
+      && Number.isFinite(this.widthSideLow)
       && Number.isFinite(this.leftHairDelayMs)
       && Number.isFinite(this.rightHairDelayMs)
       && Number.isFinite(this.leftHairFeedback)
@@ -552,12 +725,42 @@ class FaceSpace {
       && Number.isInteger(this.widthIndex)
       && this.widthIndex >= 0
       && this.widthIndex < this.widthBuffer.length
+      && Number.isInteger(this.widthLeftIndex)
+      && this.widthLeftIndex >= 0
+      && this.widthLeftIndex < this.widthLeftBuffer.length
+      && Number.isInteger(this.widthLeftTailIndex)
+      && this.widthLeftTailIndex >= 0
+      && this.widthLeftTailIndex < this.widthLeftTailBuffer.length
+      && Number.isInteger(this.widthLeftThirdIndex)
+      && this.widthLeftThirdIndex >= 0
+      && this.widthLeftThirdIndex < this.widthLeftThirdBuffer.length
+      && Number.isInteger(this.widthRightIndex)
+      && this.widthRightIndex >= 0
+      && this.widthRightIndex < this.widthRightBuffer.length
+      && Number.isInteger(this.widthRightTailIndex)
+      && this.widthRightTailIndex >= 0
+      && this.widthRightTailIndex < this.widthRightTailBuffer.length
+      && Number.isInteger(this.widthRightThirdIndex)
+      && this.widthRightThirdIndex >= 0
+      && this.widthRightThirdIndex < this.widthRightThirdBuffer.length
       && Number.isInteger(this.hairIndex)
       && this.hairIndex >= 0
       && this.hairIndex < this.leftHairBuffer.length
       && Number.isInteger(this.eyeIndex)
       && this.eyeIndex >= 0
-      && this.eyeIndex < this.eyeLeftBuffer.length;
+      && this.eyeIndex < this.eyeLeftBuffer.length
+      && Number.isInteger(this.eyeDiffuseLeftAIndex)
+      && this.eyeDiffuseLeftAIndex >= 0
+      && this.eyeDiffuseLeftAIndex < this.eyeDiffuseLeftA.length
+      && Number.isInteger(this.eyeDiffuseLeftBIndex)
+      && this.eyeDiffuseLeftBIndex >= 0
+      && this.eyeDiffuseLeftBIndex < this.eyeDiffuseLeftB.length
+      && Number.isInteger(this.eyeDiffuseRightAIndex)
+      && this.eyeDiffuseRightAIndex >= 0
+      && this.eyeDiffuseRightAIndex < this.eyeDiffuseRightA.length
+      && Number.isInteger(this.eyeDiffuseRightBIndex)
+      && this.eyeDiffuseRightBIndex >= 0
+      && this.eyeDiffuseRightBIndex < this.eyeDiffuseRightB.length;
   }
 
   auditFiniteWindow(windowSize = FACE_FINITE_AUDIT_WINDOW) {
@@ -870,7 +1073,7 @@ class CompliantCheekBranch {
     // is negative while suction rises, positive on the release rebound.
     const suctionCollisionScale = frame?.soundId === "slurp"
       ? 0.28
-      : frame?.soundId === "mwah"
+      : frame?.soundId === "mwah" || frame?.soundId === "kiss"
         ? 0.24
         : 0.12;
     this.collisionDrive -= suctionChange * suctionCollisionScale;
@@ -2097,7 +2300,7 @@ class OrganicMouthTract {
 
     const lipImpulse = finite(frame.lipImpulse, 0);
     if (frame.soundId !== "pff" && lipImpulse > this.previousLipImpulse + 0.04) {
-      const kissBoost = frame.soundId === "mwah" ? 1.42 : 1;
+      const kissBoost = frame.soundId === "kiss" ? 2.2 : frame.soundId === "mwah" ? 1.42 : 1;
       lip.releaseBoost = Math.max(lip.releaseBoost, lipImpulse * kissBoost);
     }
     const primaryAmount = finite(frame.constriction, 0);
@@ -3256,6 +3459,74 @@ class HiccupHeadGestureController {
   }
 }
 
+function initializeStableFuzz(state, rate) {
+  state.lidFuzzEnvelope = 0;
+  state.lidFuzzOutputLeft = 0;
+  state.lidFuzzOutputRight = 0;
+  state.lidFuzzEnvelopeAttackAlpha = timeAlpha(0.5, rate);
+  state.lidFuzzEnvelopeReleaseAlpha = timeAlpha(60, rate);
+}
+
+function resetStableFuzz(state) {
+  state.lidFuzzEnvelope = 0;
+  state.lidFuzzOutputLeft = 0;
+  state.lidFuzzOutputRight = 0;
+}
+
+function envelopeRoundedFuzzSample(sample, envelope, drive) {
+  const drivenInput = sample / envelope * drive;
+  // A continuously rounded denominator flattens the waveform without the
+  // cubic clip's abrupt upper-harmonic edge. It remains a same-sample static
+  // shaper: no delayed copy, tone filter, or phase-offset parallel path.
+  return drivenInput / Math.sqrt(1 + drivenInput * drivenInput) * envelope * 0.74;
+}
+
+function processStableFuzz(state, left, right, amount) {
+  const lidFuzz = clamp(finite(amount, 0));
+  if (lidFuzz <= 0.0001) {
+    resetStableFuzz(state);
+    state.lidFuzzOutputLeft = left;
+    state.lidFuzzOutputRight = right;
+    return;
+  }
+  // Normalize the clipping threshold to a linked stereo envelope. Unlike the
+  // former wet/dry power matcher, this does not mathematically cancel drive on
+  // quiet sounds: a whisper and a kick receive the same harmonic shape while
+  // retaining their original relative scale. The static rounded curve has no
+  // delay, filter, or parallel phase path, so it cannot produce a flange.
+  const inputPeak = Math.max(Math.abs(left), Math.abs(right));
+  const envelopeAlpha = inputPeak > state.lidFuzzEnvelope
+    ? state.lidFuzzEnvelopeAttackAlpha
+    : state.lidFuzzEnvelopeReleaseAlpha;
+  state.lidFuzzEnvelope += (
+    inputPeak - state.lidFuzzEnvelope
+  ) * envelopeAlpha;
+  // Use the current linked peak immediately for transients while the follower
+  // supplies the slower inter-sample reference. A plosive therefore reaches
+  // the flat top without being attenuated during the envelope attack window.
+  const envelope = Math.max(0.0001, state.lidFuzzEnvelope, inputPeak);
+  const drive = 1 + 9 * lidFuzz ** 1.1;
+  const shapedLeft = envelopeRoundedFuzzSample(left, envelope, drive);
+  const shapedRight = envelopeRoundedFuzzSample(right, envelope, drive);
+  const blend = lidFuzz * 0.99;
+  state.lidFuzzOutputLeft = clamp(
+    left * (1 - blend) + shapedLeft * blend,
+    -OUTPUT_CEILING,
+    OUTPUT_CEILING,
+  );
+  state.lidFuzzOutputRight = clamp(
+    right * (1 - blend) + shapedRight * blend,
+    -OUTPUT_CEILING,
+    OUTPUT_CEILING,
+  );
+}
+
+function stableFuzzIsFinite(state) {
+  return Number.isFinite(state.lidFuzzEnvelope)
+    && Number.isFinite(state.lidFuzzOutputLeft)
+    && Number.isFinite(state.lidFuzzOutputRight);
+}
+
 class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
   constructor(options = {}) {
     super();
@@ -3264,8 +3535,11 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     this.configuration = sanitizeHiccupHeadState(
       options.processorOptions?.configuration ?? HICCUP_HEAD_DEFAULTS,
     );
+    this.externalFuzz = Boolean(options.processorOptions?.externalFuzz);
+    this.externalHighpass = Boolean(options.processorOptions?.externalHighpass);
+    this.externalReverb = Boolean(options.processorOptions?.externalReverb);
     this.tract = new OrganicMouthTract(this.rate, this.configuration);
-    this.faceSpace = new FaceSpace(this.rate);
+    this.faceSpace = new FaceSpace(this.rate, this.externalReverb);
     this.gesture = null;
     this.queue = [];
     this.renderedFrames = 0;
@@ -3284,10 +3558,17 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     this.dcInputRight = 0;
     this.dcOutputLeft = 0;
     this.dcOutputRight = 0;
+    this.lidHighpassLowLeft = 0;
+    this.lidHighpassLowRight = 0;
+    this.lidHighpassLowLeftB = 0;
+    this.lidHighpassLowRightB = 0;
+    initializeStableFuzz(this, this.rate);
     this.lastFrame = this.tract.currentFrame;
     this.renderLeft = 0;
     this.renderRight = 0;
     this.radiationGain = 1;
+    this.warmupToken = null;
+    this.warmupFramesRemaining = 0;
     this.port.onmessage = (event) => this._handleMessage(event.data);
   }
 
@@ -3365,6 +3646,11 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
 
   _handleMessage(message = {}) {
     if (!message || typeof message !== "object") return;
+    if (message.type === "warmup") {
+      this.warmupToken = String(message.token ?? "");
+      this.warmupFramesRemaining = Math.max(1, Math.round(this.rate * 0.04));
+      return;
+    }
     if (message.type === "configure") {
       this.configuration = sanitizeHiccupHeadState(
         { ...this.configuration, ...(message.configuration ?? {}) },
@@ -3410,6 +3696,11 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     this.dcInputRight = 0;
     this.dcOutputLeft = 0;
     this.dcOutputRight = 0;
+    this.lidHighpassLowLeft = 0;
+    this.lidHighpassLowRight = 0;
+    this.lidHighpassLowLeftB = 0;
+    this.lidHighpassLowRightB = 0;
+    resetStableFuzz(this);
   }
 
   _beginGesture(event, absoluteFrame) {
@@ -3497,6 +3788,11 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     this.dcInputRight = 0;
     this.dcOutputLeft = 0;
     this.dcOutputRight = 0;
+    this.lidHighpassLowLeft = 0;
+    this.lidHighpassLowRight = 0;
+    this.lidHighpassLowLeftB = 0;
+    this.lidHighpassLowRightB = 0;
+    resetStableFuzz(this);
     this.lastPeak = 0;
     this.lastRms = 0;
     this.radiationGain = 1;
@@ -3577,20 +3873,50 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     const postVelocity = 0.42 + finite(this.gesture?.velocity, 0.65) * 0.58;
     boundedLeft *= postVelocity;
     boundedRight *= postVelocity;
-    // Right-lid fuzz is peak-normalized, clearly colored, and cannot create a
-    // large level jump. At full closure it is unmistakably rough rather than
-    // merely quieter.
+    // Right-lid fuzz is a warm, level-trimmed saturation after the presence
+    // stage. It has no delay line or phase branch, so it can become obviously
+    // rough without ever turning into a flange.
     const lidFuzz = this.faceSpace.eyelidFuzzAmount;
-    if (lidFuzz > 0.0001) {
-      const drive = 1 + lidFuzz * 10;
-      const normalization = Math.max(0.001, Math.tanh(drive));
-      const fuzzLeft = Math.tanh((boundedLeft / OUTPUT_CEILING) * drive)
-        / normalization * OUTPUT_CEILING;
-      const fuzzRight = Math.tanh((boundedRight / OUTPUT_CEILING) * drive)
-        / normalization * OUTPUT_CEILING;
-      const blend = lidFuzz * 0.82;
-      boundedLeft = boundedLeft * (1 - blend) + fuzzLeft * blend;
-      boundedRight = boundedRight * (1 - blend) + fuzzRight * blend;
+    if (!this.externalFuzz) {
+      processStableFuzz(this, boundedLeft, boundedRight, lidFuzz);
+      boundedLeft = this.lidFuzzOutputLeft;
+      boundedRight = this.lidFuzzOutputRight;
+    }
+    if (!this.externalHighpass) {
+      // Two cascaded poles make the compatibility sweep decisive even on an
+      // engine too old to expose the native resonant Biquad used in browsers.
+      const lidHighpass = this.faceSpace.eyelidHighpassAmount;
+      const highpassCutoffHz = 30 * 2 ** (lidHighpass * LID_HIGHPASS_OCTAVES);
+      const highpassAlpha = 1 - Math.exp(
+        -Math.PI * 2 * highpassCutoffHz / this.rate,
+      );
+      this.lidHighpassLowLeft += (
+        boundedLeft - this.lidHighpassLowLeft
+      ) * highpassAlpha;
+      this.lidHighpassLowRight += (
+        boundedRight - this.lidHighpassLowRight
+      ) * highpassAlpha;
+      const highpassLeftA = boundedLeft - this.lidHighpassLowLeft;
+      const highpassRightA = boundedRight - this.lidHighpassLowRight;
+      this.lidHighpassLowLeftB += (
+        highpassLeftA - this.lidHighpassLowLeftB
+      ) * highpassAlpha;
+      this.lidHighpassLowRightB += (
+        highpassRightA - this.lidHighpassLowRightB
+      ) * highpassAlpha;
+      const highpassLeft = highpassLeftA - this.lidHighpassLowLeftB;
+      const highpassRight = highpassRightA - this.lidHighpassLowRightB;
+      const highpassMakeup = 1 + lidHighpass * 0.32;
+      boundedLeft = clamp(
+        (boundedLeft * (1 - lidHighpass) + highpassLeft * lidHighpass) * highpassMakeup,
+        -OUTPUT_CEILING,
+        OUTPUT_CEILING,
+      );
+      boundedRight = clamp(
+        (boundedRight * (1 - lidHighpass) + highpassRight * lidHighpass) * highpassMakeup,
+        -OUTPUT_CEILING,
+        OUTPUT_CEILING,
+      );
     }
 
     this.gesture?.advance();
@@ -3615,6 +3941,11 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     if (
       !Number.isFinite(boundedLeft)
       || !Number.isFinite(boundedRight)
+      || !Number.isFinite(this.lidHighpassLowLeft)
+      || !Number.isFinite(this.lidHighpassLowRight)
+      || !Number.isFinite(this.lidHighpassLowLeftB)
+      || !Number.isFinite(this.lidHighpassLowRightB)
+      || !stableFuzzIsFinite(this)
       || !faceScalarsAreFinite
       || !modelAuditIsFinite
     ) {
@@ -3720,6 +4051,7 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       rightHairMix: this.faceSpace.rightHairMix,
       eyeDivergence: this.faceSpace.eyeAmount,
       eyeReverbAmount: this.faceSpace.eyeReverbAmount,
+      eyelidHighpassAmount: this.faceSpace.eyelidHighpassAmount,
       eyeClosure: this.faceSpace.eyeClosureAmount,
       leftEyeClosure: this.faceSpace.leftEyeClosureAmount,
       rightEyeClosure: this.faceSpace.rightEyeClosureAmount,
@@ -3744,6 +4076,18 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     }
     this.tract.measurePressureForBlock(left.length);
     this.renderedFrames += left.length;
+    if (this.warmupToken !== null) {
+      this.warmupFramesRemaining -= left.length;
+      if (this.warmupFramesRemaining <= 0) {
+        this.port.postMessage({
+          type: "render-ready",
+          token: this.warmupToken,
+          renderedFrames: this.renderedFrames,
+        });
+        this.warmupToken = null;
+        this.warmupFramesRemaining = 0;
+      }
+    }
     this.lastPeak += (peak - this.lastPeak) * 0.22;
     this.lastRms += (Math.sqrt(squareSum / left.length) - this.lastRms) * 0.22;
     this.blockCounter += 1;
@@ -3755,4 +4099,124 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
   }
 }
 
+class HiccupHeadFacePostProcessor extends AudioWorkletProcessor {
+  constructor(options = {}) {
+    super();
+    this.rate = sampleRate;
+    this.externalHighpass = Boolean(options.processorOptions?.externalHighpass);
+    const configuration = options.processorOptions?.configuration ?? HICCUP_HEAD_DEFAULTS;
+    const sharedClosure = clamp(finite(configuration.eyeClosure, 0));
+    this.targetLeftClosure = clamp(finite(configuration.leftEyeClosure, sharedClosure));
+    this.targetRightClosure = clamp(finite(configuration.rightEyeClosure, sharedClosure));
+    this.leftClosure = this.targetLeftClosure;
+    this.rightClosure = this.targetRightClosure;
+    this.closureAlpha = timeAlpha(24, this.rate);
+    this.lidHighpassLowLeft = 0;
+    this.lidHighpassLowRight = 0;
+    this.lidHighpassLowLeftB = 0;
+    this.lidHighpassLowRightB = 0;
+    initializeStableFuzz(this, this.rate);
+    this.port.onmessage = (event) => this._handleMessage(event.data);
+  }
+
+  _handleMessage(message = {}) {
+    if (!message || typeof message !== "object") return;
+    if (message.type === "configure") {
+      const configuration = message.configuration ?? {};
+      const sharedClosure = clamp(finite(configuration.eyeClosure, 0));
+      this.targetLeftClosure = clamp(finite(
+        configuration.leftEyeClosure,
+        sharedClosure,
+      ));
+      this.targetRightClosure = clamp(finite(
+        configuration.rightEyeClosure,
+        sharedClosure,
+      ));
+      return;
+    }
+    if (message.type === "silence" || message.type === "panic") this._resetHistory();
+  }
+
+  _resetHistory() {
+    this.lidHighpassLowLeft = 0;
+    this.lidHighpassLowRight = 0;
+    this.lidHighpassLowLeftB = 0;
+    this.lidHighpassLowRightB = 0;
+    resetStableFuzz(this);
+  }
+
+  process(inputs, outputs) {
+    const input = inputs[0];
+    const output = outputs[0];
+    const outputLeft = output?.[0];
+    const outputRight = output?.[1] ?? outputLeft;
+    if (!outputLeft) return true;
+    const inputLeft = input?.[0];
+    const inputRight = input?.[1] ?? inputLeft;
+    if (!inputLeft) {
+      outputLeft.fill(0);
+      if (outputRight !== outputLeft) outputRight?.fill(0);
+      this._resetHistory();
+      return true;
+    }
+
+    for (let frame = 0; frame < outputLeft.length; frame += 1) {
+      this.leftClosure += (
+        this.targetLeftClosure - this.leftClosure
+      ) * this.closureAlpha;
+      this.rightClosure += (
+        this.targetRightClosure - this.rightClosure
+      ) * this.closureAlpha;
+      let left = finite(inputLeft[frame], 0);
+      let right = finite(inputRight?.[frame], left);
+      processStableFuzz(this, left, right, this.rightClosure);
+      left = this.lidFuzzOutputLeft;
+      right = this.lidFuzzOutputRight;
+
+      if (!this.externalHighpass) {
+        const highpassAmount = clamp(this.leftClosure) ** 0.75;
+        const highpassCutoffHz = 30 * 2 ** (
+          highpassAmount * LID_HIGHPASS_OCTAVES
+        );
+        const highpassAlpha = 1 - Math.exp(
+          -Math.PI * 2 * highpassCutoffHz / this.rate,
+        );
+        this.lidHighpassLowLeft += (left - this.lidHighpassLowLeft) * highpassAlpha;
+        this.lidHighpassLowRight += (right - this.lidHighpassLowRight) * highpassAlpha;
+        const highpassLeftA = left - this.lidHighpassLowLeft;
+        const highpassRightA = right - this.lidHighpassLowRight;
+        this.lidHighpassLowLeftB += (
+          highpassLeftA - this.lidHighpassLowLeftB
+        ) * highpassAlpha;
+        this.lidHighpassLowRightB += (
+          highpassRightA - this.lidHighpassLowRightB
+        ) * highpassAlpha;
+        const highpassLeft = highpassLeftA - this.lidHighpassLowLeftB;
+        const highpassRight = highpassRightA - this.lidHighpassLowRightB;
+        const highpassMakeup = 1 + highpassAmount * 0.32;
+        left = clamp(
+          (left * (1 - highpassAmount) + highpassLeft * highpassAmount) * highpassMakeup,
+          -1.5,
+          1.5,
+        );
+        right = clamp(
+          (right * (1 - highpassAmount) + highpassRight * highpassAmount) * highpassMakeup,
+          -1.5,
+          1.5,
+        );
+      }
+
+      if (!Number.isFinite(left) || !Number.isFinite(right) || !stableFuzzIsFinite(this)) {
+        this._resetHistory();
+        left = 0;
+        right = 0;
+      }
+      outputLeft[frame] = left;
+      if (outputRight) outputRight[frame] = right;
+    }
+    return true;
+  }
+}
+
 registerProcessor("hiccup-head-physical-model", HiccupHeadPhysicalProcessor);
+registerProcessor("hiccup-head-face-post", HiccupHeadFacePostProcessor);

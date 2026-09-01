@@ -1,6 +1,9 @@
 const MANAGERS = new WeakMap();
 const METER_INTERVAL_MS = 1000 / 30;
-const DEFAULT_FFT_SIZE = 256;
+// A 2,048-frame window overlaps at the 30 Hz UI sampling rate, so plosives do
+// not disappear into the gaps between meter reads. This changes visualization
+// only; the audible output path remains direct and untouched.
+const DEFAULT_FFT_SIZE = 2_048;
 const SILENCE_FLOOR = 0.001;
 
 function frozenOutputDevice(id, label) {

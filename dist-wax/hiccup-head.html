@@ -11,6 +11,8 @@
     />
     <title>Hiccup Head · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=a41910c0eb49" as="fetch" type="audio/wav" crossorigin="anonymous" />
+    <link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav?v=d62e40ecbca2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="hiccup-head.css?v=72fbb21ac9b3" />
   </head>
@@ -48,8 +50,8 @@
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
-          <span><b>Output</b><output id="levelOut" for="level">68%</output></span>
-          <input id="level" aria-label="Hiccup Head output level" type="range" min="0" max="0.82" step="0.01" value="0.68" />
+          <span><b>Output</b><output id="levelOut" for="level">76%</output></span>
+          <input id="level" aria-label="Hiccup Head output level" type="range" min="0" max="0.82" step="0.01" value="0.76" />
         </label>
       </div>
     </header>
@@ -61,7 +63,7 @@
             <canvas
               id="stage"
               tabindex="0"
-              aria-label="A large purple-outline goofball beatbox face with two matched circular eyes, a big #FF0000-red circular nose, oval green thinning lips, and one missing upper front tooth. Click the nose to honk or drag it to change nasality. Tap any of its thirty-nine colored face dots or twelve dry wood teeth; KISS leaves a fading lipstick print and BRUSH sweeps a visible toothbrush across the teeth. Pull out the tongue; drag either eye in two dimensions, the ears, and independent side hair tips. Blue slap mitts appear only while dragging SLAP or SMACK."
+              aria-label="A large purple-outline goofball beatbox face with two matched circular eyes, a big #FF0000-red circular nose, oval green thinning lips, and one missing upper front tooth. Click the nose to quack or drag it to change nasality. Tap any of its thirty-nine colored face dots or twelve dry wood teeth; KISS leaves a fading lipstick print and BRUSH sweeps a visible toothbrush across the teeth. Pull out the tongue; drag either eye in two dimensions, the ears, and independent side hair tips. Blue slap mitts appear only while dragging SLAP or SMACK."
               aria-describedby="canvasInstructions liveStatus"
             >
               A large playable pink-purple outline goofball face with thirty-nine colored trigger dots, fading lipstick kisses, a toothbrush gliss, a whistling tooth gap, independent two-dimensional side hair, and hidden-at-rest blue slap mitts.
@@ -320,8 +322,8 @@
               <small>Pull inward for a bright plate, center the open eyes for dry sound, or pull outward for a dark cathedral.</small>
             </label>
             <label class="control" for="eyebrowEmphasis">
-              <span><b>Eyebrow emphasis</b><output id="eyebrowEmphasisOut" for="eyebrowEmphasis">32%</output></span>
-              <input id="eyebrowEmphasis" type="range" min="0" max="0.75" step="0.01" value="0.32" />
+              <span><b>Eyebrow emphasis</b><output id="eyebrowEmphasisOut" for="eyebrowEmphasis">70%</output></span>
+              <input id="eyebrowEmphasis" type="range" min="0" max="0.9" step="0.01" value="0.7" />
               <small>Sets how much the five-position left and right eyebrow accent patterns boost selected steps.</small>
             </label>
             <label class="control" for="silliness">
@@ -360,7 +362,7 @@
             <p><b>HIC! + EEF!</b> add a caught diaphragm/glottal rebound and folded ingressive–egressive breath contours inside the same one-mouth tract.</p>
             <p><b>AAH / OOH / WAIL / YODEL / GROWL / HOLLER / HUM / RATTLE</b> open the throat into wider vowel areas, vibrato, register breaks, false-fold roughness, and sustained resonant tissue motion.</p>
             <p><b>VOICE COLLECTIONS</b> hold up to eight alternate fold and tract characters. Solo one, cycle predictably, or choose randomly; only one character drives the persistent mouth for each event.</p>
-            <p><b>NOSE / EARS / SIDE HAIR / EYES / BROWS</b> expose the nasal branch, short ear-controlled stereo width, separate hair feedback delays, eye-controlled plate/room/cathedral reverb, and a two-anchor amplitude contour. Centered open eyes are dry, inward gaze is a bright plate, outward gaze is a dark cathedral, and eyelid closure thickens the room without gating or softening it. Delay, Reverb, Nasal, and Stereo amounts and bypass switches stay independent of presets, mutation, and reset.</p>
+            <p><b>NOSE / EARS / SIDE HAIR / EYES / BROWS</b> expose the nasal branch, balanced ear-controlled stereo width, separate hair feedback delays, real captured EMT plate and York Minster convolution, and two five-position rhythmic accent patterns. Centered eyes are dry, inward gaze is a warm plate, and outward gaze is a thick cathedral late field without a discrete echo tap. Closing the left eyelid sweeps a resonant post-effects high-pass across the complete instrument; closing the right progressively fuzzes the complete dry and reverberant mix at a matched level. Delay, Reverb, Nasal, and Stereo amounts and bypass switches stay independent of presets, mutation, and reset.</p>
           </div>
         </details>
 
@@ -371,7 +373,7 @@
     <p class="sr-only" id="canvasInstructions">
       Tap any of thirty-nine colored trigger dots on clear face regions, twelve visible tooth tines, the visible missing-front-tooth gap, or a displayed pad shortcut to play the face, throat, breath, tongue, tooth, and mouth sounds. KISS leaves a fading lipstick print at a different face position; BRUSH sweeps a visible toothbrush across all twelve teeth.
       The blue hands stay hidden at rest. Drag the SLAP or SMACK face dot onto different cheeks, jaw, forehead, or mouth zones to reveal a mitt and make a resonant strike.
-      Drag either eye inward for bright plate reverb, outward for a dark cathedral, or downward to close the lids and thicken the room without gating or softening it. Drag either eyebrow up or down to shape the two-anchor loop amplitude contour,
+      Drag either eye inward for warm plate reverb or outward for the York Minster cathedral late field. Drag the left eyelid down for a post-effects high-pass sweep or the right eyelid down for stable-volume whole-mix fuzz. Drag either eyebrow among five snapped rhythmic emphasis positions,
       the nose to change nasal tone, either ear for stereo width, either side-hair tip in two dimensions for its own feedback amount and delay time, and the tongue tip beyond the lips.
       Face presets move the anatomy, while the four effect switches and their live face-controlled amounts stay unchanged.
       Drag the mouth anatomy beyond human ranges. Set the sequence to any whole-number length from one through
@@ -381,7 +383,8 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
-    <script type="module" src="hiccup-head-app.js?v=bcd0de3481ad"></script>
+    <link rel="modulepreload" href="src/hiccup-head-processor.js?v=hiccup-head-tract-20260831-19" />
+    <script type="module" src="hiccup-head-app.js?v=6f7ac9fb94bb"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>
