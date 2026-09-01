@@ -13,10 +13,12 @@ import {
   combToothAnchor,
   combToothWarpOffset,
   elasticReleaseProfile,
+  fabricFieldModulation,
   fabricGesturePull,
   fabricImpactPattern,
   normalizedResonanceQ,
   rotateFabricCoordinate,
+  rotateFabricVector,
   sanitizeMoireDroneParams,
   spectralFftMaskGain,
   spectralWarpedCombGate,
@@ -138,14 +140,9 @@ let pointerRawCurrentY = 0;
 let pointerPullAmount = 0;
 let pointerDidDrag = false;
 let pointerLastRippleTime = 0;
-let pointerWakeCount = 0;
 let pointerWakeTravel = 0;
 let keyboardSculptX = 0;
 let keyboardSculptY = 0;
-let visualPullAnchorX = 0;
-let visualPullAnchorY = 0;
-let visualPullOffsetX = 0;
-let visualPullOffsetY = 0;
 let visualSculptGestureActive = false;
 let visualSculptGestureEnvelope = 0;
 let visualSculptGestureStrength = 0;
@@ -161,10 +158,34 @@ let currentVisualSculpt = Object.freeze({
   character: state.settings.qCharacter,
   fftSharpness: state.settings.fftSharpness,
   warp: 0,
+  fabricTailResponse: 0,
+  fabricTailWarpOctaves: 0,
+  fabricTailWeftResponse: 0,
+  fieldSpreadX: 0,
+  fieldSpreadY: 0,
+  fieldFocus: 0.5,
 });
 let displayedPropagationCount = -1;
 let disposed = false;
+let fabricInteractionGeneration = 0;
+let pointerInteractionGeneration = 0;
 const propagationVector = { x: 0, y: 0, value: 0 };
+const fabricVector = { x: 0, y: 0, value: 0 };
+const visualFabricFieldState = {};
+const visualFabricTail = {
+  active: false,
+  response: 0,
+  depth: 0,
+  warpOctaves: 0,
+  weftResponse: 0,
+  focus: 0.5,
+  centroidX: 0,
+  centroidY: 0,
+  spreadX: 0,
+  spreadY: 0,
+  counterMotion: 0,
+  widthScale: 1,
+};
 
 const invertUnit = (value) => 1 - Number(value);
 
@@ -272,6 +293,16 @@ function clampVisual(value, low, high, fallback = low) {
 function reflectVisualUnit(value) {
   const doubled = wrapUnit(Number(value) * 0.5) * 2;
   return doubled <= 1 ? doubled : 2 - doubled;
+}
+
+function visualPlanarResponse(value) {
+  return Math.tanh(clampVisual(value, -1.5, 1.5, 0) * 1.35);
+}
+
+function visualPlanarOctaves(value, fabricDepth) {
+  return visualPlanarResponse(value) * (
+    0.58 + clampVisual(fabricDepth, 0, 2, 0.55) * 0.61
+  );
 }
 
 function spectralFilterBlendLabel(value) {
@@ -464,6 +495,45 @@ function resetVisualSculptGesture() {
   visualSculptGestureCurrentY = 0;
   visualSculptGestureDeltaY = 0;
   visualSculptGestureWidthScale = 1;
+  visualFabricTail.active = false;
+  visualFabricTail.response = 0;
+  visualFabricTail.depth = 0;
+  visualFabricTail.warpOctaves = 0;
+  visualFabricTail.weftResponse = 0;
+  visualFabricTail.focus = 0.5;
+  visualFabricTail.centroidX = 0;
+  visualFabricTail.centroidY = 0;
+  visualFabricTail.spreadX = 0;
+  visualFabricTail.spreadY = 0;
+  visualFabricTail.counterMotion = 0;
+  visualFabricTail.widthScale = 1;
+}
+
+function updateVisualFabricTail(settings = state.settings) {
+  const fieldState = visualFabric.sampleFieldState(
+    effectiveFabricAngle(),
+    visualFabricFieldState,
+  );
+  fabricFieldModulation(fieldState, settings.fabricDepth, visualFabricTail);
+  visualFabricTail.active = visualFabricTail.response > 1e-7;
+  visualFabricTail.centroidX = fieldState.centroidX;
+  visualFabricTail.centroidY = fieldState.centroidY;
+  visualFabricTail.focus = clampVisual(
+    (fieldState.centroidX + 1) * 0.5,
+    0,
+    1,
+    0.5,
+  );
+  visualFabricTail.widthScale = 2 ** clampVisual(
+    fieldState.centroidY * 0.9
+      + visualFabricTail.weftResponse * 1.35
+      + (visualFabricTail.response - 0.5) * 0.45
+      + visualFabricTail.spreadX * visualFabricTail.response * 1.22,
+    -2.3,
+    2.3,
+    0,
+  );
+  return visualFabricTail;
 }
 
 function captureVisualSculptGesture(
@@ -532,38 +602,51 @@ function visualSculptGeometry() {
   const settings = state.settings;
   const periodic = sculptUsesRegions(settings.spectralSculptMode);
   const directResponse = visualDirectGestureResponse();
+  const fabricTail = updateVisualFabricTail(settings);
   const directDepth = directResponse * (
     0.7 + visualSculptGestureStrength * 0.28
   );
+  const physicalFabricDepth = fabricTail.active
+    ? fabricTail.response * (0.72 + fabricTail.response * 0.58)
+    : directResponse * (0.72 + visualSculptGestureStrength * 0.58);
+  const physicalCombWarp = fabricTail.active
+    ? fabricTail.response * (1.5 + fabricTail.response * 1.65)
+    : directResponse * (1.5 + visualSculptGestureStrength * 1.65);
+  const physicalPluckCut = fabricTail.active
+    ? fabricTail.response * (0.7 + fabricTail.response * 0.28)
+    : directResponse * (0.7 + visualSculptGestureStrength * 0.28);
   const effectiveFabricDepth = Math.max(
     settings.fabricDepth,
-    directResponse * (0.72 + visualSculptGestureStrength * 0.58),
+    physicalFabricDepth,
   );
-  const effectiveCombWarp = Math.max(
-    settings.combWarp,
-    directResponse * (1.5 + visualSculptGestureStrength * 1.65),
-  );
-  const effectivePluckCut = Math.max(
-    settings.pluckCut,
-    directResponse * (0.7 + visualSculptGestureStrength * 0.28),
-  );
+  const effectiveCombWarp = Math.max(settings.combWarp, physicalCombWarp);
+  const effectivePluckCut = Math.max(settings.pluckCut, physicalPluckCut);
   const movingFocus = periodic
     ? wrapUnit(settings.combOffset + state.combPhase)
     : reflectVisualUnit(settings.combOffset + state.combPhase * 2);
   const configuredPositionInfluence = clampVisual(
     settings.gestureCoupling * visualSculptGestureEnvelope, 0, 1, 0,
   );
-  const positionInfluence = Math.max(
-    configuredPositionInfluence,
-    directResponse * (0.78 + visualSculptGestureStrength * 0.2),
-  );
-  const shapeInfluence = Math.max(
-    configuredPositionInfluence * (0.16 + visualSculptGestureStrength * 0.84),
-    directResponse * (0.68 + visualSculptGestureStrength * 0.3),
-  );
-  const gestureTarget = periodic
-    ? wrapUnit(-visualSculptGestureFocus * settings.combTeeth)
+  const positionInfluence = fabricTail.active
+    ? fabricTail.response * 0.92
+    : Math.max(
+      configuredPositionInfluence,
+      directResponse * (0.78 + visualSculptGestureStrength * 0.2),
+    );
+  const shapeInfluence = fabricTail.active
+    ? fabricTail.response * 0.86
+    : Math.max(
+      configuredPositionInfluence * (
+        0.16 + visualSculptGestureStrength * 0.84
+      ),
+      directResponse * (0.68 + visualSculptGestureStrength * 0.3),
+    );
+  const interactionFocus = fabricTail.active
+    ? fabricTail.focus
     : visualSculptGestureFocus;
+  const gestureTarget = periodic
+    ? wrapUnit(-interactionFocus * settings.combTeeth)
+    : interactionFocus;
   const rawDelta = gestureTarget - movingFocus;
   const focusDelta = periodic ? rawDelta - Math.round(rawDelta) : rawDelta;
   let focus = periodic
@@ -571,15 +654,22 @@ function visualSculptGeometry() {
     : movingFocus + focusDelta * positionInfluence;
   let width = clampVisual(
     settings.combWidth
-      * visualSculptGestureWidthScale ** shapeInfluence,
+      * (
+        fabricTail.active
+          ? fabricTail.widthScale
+          : visualSculptGestureWidthScale
+      ) ** shapeInfluence,
     0.02,
     0.48,
     settings.combWidth,
   );
+  const physicalContactStrength = fabricTail.active
+    ? fabricTail.response
+    : visualSculptGestureStrength;
   const contactDepth = settings.combDepth >= 0.999
-    ? 0.6 + visualSculptGestureStrength * 0.4
+    ? 0.6 + physicalContactStrength * 0.4
     : settings.combDepth + (1 - settings.combDepth)
-      * (0.25 + visualSculptGestureStrength * 0.75);
+      * (0.25 + physicalContactStrength * 0.75);
   const pressureAmount = Math.max(
     clampVisual(
       settings.gestureCoupling * visualSculptGestureEnvelope * settings.pluckCut,
@@ -588,6 +678,7 @@ function visualSculptGeometry() {
       0,
     ),
     directResponse,
+    fabricTail.response,
   );
   const depth = clampVisual(
     settings.combDepth + (contactDepth - settings.combDepth) * pressureAmount,
@@ -595,23 +686,48 @@ function visualSculptGeometry() {
     1,
     settings.combDepth,
   );
-  const character = clampVisual(
-    settings.qCharacter + (
-      visualSculptGestureCurrentY * 0.12
+  const characterMotion = fabricTail.active
+    ? fabricTail.centroidY * 0.12
+      + fabricTail.weftResponse * 0.5
+      + fabricTail.response * 0.12
+      + fabricTail.spreadY * fabricTail.response * 0.28
+    : visualSculptGestureCurrentY * 0.12
       + visualSculptGestureDeltaY * 0.38
-      + visualSculptGestureStrength * (0.18 + settings.pluckCut * 0.18)
-    ) * shapeInfluence,
+      + visualSculptGestureStrength * (0.18 + settings.pluckCut * 0.18);
+  const character = clampVisual(
+    settings.qCharacter + characterMotion * shapeInfluence,
     0,
     1,
     settings.qCharacter,
   );
   let warp = 0;
   if (!periodic) {
-    const anchorX = focus * 2 - 1;
-    const anchorY = visualSculptGestureEnvelope > 1e-5
-      ? visualSculptGestureCurrentY
-      : settings.originY;
-    const fabric = visualFabric.sample(anchorX, anchorY, effectiveFabricAngle());
+    const useTugAnchor = visualSculptGestureActive || fabricTail.active;
+    const anchorX = fabricTail.active
+      ? fabricTail.centroidX
+      : (useTugAnchor ? pointerAudioAnchorX : focus * 2 - 1);
+    const anchorY = fabricTail.active
+      ? fabricTail.centroidY
+      : (useTugAnchor ? pointerAudioAnchorY : settings.originY);
+    const localAnchor = rotateFabricCoordinate(
+      anchorX,
+      anchorY,
+      effectiveFabricAngle(),
+    );
+    visualFabric.sampleVectorLocal(localAnchor.x, localAnchor.y, fabricVector);
+    const fabric = fabricVector.value;
+    const planar = visualPlanarOctaves(
+      fabricVector.x,
+      effectiveFabricDepth,
+    ) * (0.65 + effectiveCombWarp * 0.35)
+      + fabricTail.warpOctaves * 0.42;
+    const planarY = clampVisual(
+      visualPlanarResponse(fabricVector.y)
+        + fabricTail.weftResponse * 0.42,
+      -1,
+      1,
+      0,
+    );
     const propagation = visualPropagation.sample(
       anchorX,
       anchorY,
@@ -629,10 +745,11 @@ function visualSculptGeometry() {
       combWarp: effectiveCombWarp,
       octaveSpan,
       teeth: 1,
+      planar,
     });
     focus = reflectVisualUnit(focus + warp);
     width = clampVisual(
-      width * (1
+      width * 2 ** (planarY * (0.9 + effectivePluckCut * 0.7)) * (1
         + Math.abs(propagation) * effectivePluckCut * 2.2
         + Math.abs(fabric) * effectivePluckCut * 0.45),
       0.02,
@@ -645,8 +762,8 @@ function visualSculptGeometry() {
     focus,
     width,
     depth,
-    qDepth: Math.max(depth * settings.qCutDepth, directDepth),
-    fftDepth: Math.max(depth * settings.fftCutDepth, directDepth),
+    qDepth: Math.max(depth * settings.qCutDepth, directDepth, fabricTail.depth),
+    fftDepth: Math.max(depth * settings.fftCutDepth, directDepth, fabricTail.depth),
     fabricDepth: effectiveFabricDepth,
     combWarp: effectiveCombWarp,
     pluckCut: effectivePluckCut,
@@ -658,16 +775,24 @@ function visualSculptGeometry() {
       settings.fftSharpness,
     ),
     warp,
+    fabricTailResponse: fabricTail.response,
+    fabricTailWarpOctaves: fabricTail.warpOctaves,
+    fabricTailWeftResponse: fabricTail.weftResponse,
+    fieldSpreadX: fabricTail.spreadX,
+    fieldSpreadY: fabricTail.spreadY,
+    fieldFocus: fabricTail.focus,
   };
 }
 
-function resetVisualDynamics({ resetComb = true } = {}) {
+function resetVisualDynamics({
+  resetComb = true,
+  invalidateInteraction = true,
+} = {}) {
+  if (invalidateInteraction) fabricInteractionGeneration += 1;
   if (!syncVisualFabricTopology()) {
     visualFabric.reset((state.settings.seed ^ 0xa511e9b3) >>> 0);
   }
   visualPropagation.reset((state.settings.seed ^ 0x3c6ef372) >>> 0);
-  visualPullOffsetX = 0;
-  visualPullOffsetY = 0;
   visualPropagation.setActiveLimit(state.settings.propagationVoices);
   resetVisualSculptGesture();
   if (resetComb) {
@@ -699,7 +824,33 @@ function updateVisualCombGeometry() {
       continue;
     }
     const anchor = combToothAnchor(stage, teeth);
-    const fabric = visualFabric.sample(anchor.x, anchor.y, fabricAngle);
+    const localAnchor = rotateFabricCoordinate(anchor.x, anchor.y, fabricAngle);
+    visualFabric.sampleVectorLocal(localAnchor.x, localAnchor.y, fabricVector);
+    const fabric = fabricVector.value;
+    const undeformedPosition = wrapUnit((stage - phase) / teeth);
+    const rawTailDistance = Math.abs(
+      undeformedPosition - currentVisualSculpt.fieldFocus,
+    );
+    const tailDistance = Math.min(rawTailDistance, 1 - rawTailDistance);
+    const tailRadius = Math.max(
+      0.035,
+      0.72 / teeth + currentVisualSculpt.fieldSpreadX * 0.5,
+    );
+    const tailWeight = currentVisualSculpt.fabricTailResponse > 1e-5
+      ? Math.exp(-0.5 * (tailDistance / tailRadius) ** 2)
+      : 0;
+    const planar = visualPlanarOctaves(
+      fabricVector.x,
+      currentVisualSculpt.fabricDepth,
+    ) * (0.65 + currentVisualSculpt.combWarp * 0.35)
+      + currentVisualSculpt.fabricTailWarpOctaves * tailWeight;
+    const planarY = clampVisual(
+      visualPlanarResponse(fabricVector.y)
+        + currentVisualSculpt.fabricTailWeftResponse * tailWeight,
+      -1,
+      1,
+      0,
+    );
     const propagation = visualPropagation.sample(
       anchor.x,
       anchor.y,
@@ -713,12 +864,15 @@ function updateVisualCombGeometry() {
       combWarp: currentVisualSculpt.combWarp,
       octaveSpan,
       teeth,
+      planar,
     });
     visualCombWarps[stage] = warp;
     visualCombPositions[stage] = wrapUnit((stage - phase) / teeth + warp);
     visualCombWidths[stage] = Math.max(0.02, Math.min(
       0.48,
-      currentVisualSculpt.width * (1
+      currentVisualSculpt.width
+        * 2 ** (planarY * (0.9 + currentVisualSculpt.pluckCut * 0.7))
+        * (1
         + Math.abs(propagation) * currentVisualSculpt.pluckCut * 3.5
         + Math.abs(fabric) * currentVisualSculpt.pluckCut * 0.35),
     ));
@@ -1109,9 +1263,19 @@ function renderPresets() {
 }
 
 function setParameter(key, value, { announceChange = false } = {}) {
+  const invalidatesFabric = key === "fabricSections"
+    || key === "fabricPatchwork"
+    || key === "seed";
+  const previousValue = state.settings[key];
   state.settings = {
     ...manualFabricSettings({ ...state.settings, [key]: value }),
   };
+  if (invalidatesFabric && state.settings[key] !== previousValue) {
+    // A topology change clears both membranes. Invalidate any release that is
+    // still awaiting first-use audio startup so it cannot resurrect the old
+    // gesture into only the audio copy of the new sheet.
+    fabricInteractionGeneration += 1;
+  }
   state.preset = null;
   updateInterface();
   if (announceChange) announce(`${key} changed.`);
@@ -1152,7 +1316,12 @@ function ensureAudioOn() {
     try {
       updateAudioParameters();
       await audio.start();
-      resetVisualDynamics();
+      // A first gesture can finish while AudioWorklet startup is still in
+      // flight. Never erase a held or freely moving visible sheet when that
+      // asynchronous startup completes.
+      if (!staticGridHasDeformation()) {
+        resetVisualDynamics({ invalidateInteraction: false });
+      }
       state.audioOn = true;
       updateInterface();
       announce("Audio on.");
@@ -1209,40 +1378,6 @@ function stagePointFromEvent(event) {
   };
 }
 
-function holdVisualFabricAtPointer() {
-  visualPullAnchorX = pointerAnchorX;
-  visualPullAnchorY = pointerAnchorY;
-  // Pointer capture keeps reporting motion beyond the canvas. Preserve that
-  // strain for the visibly grabbed sheet while the audible focus remains on
-  // the clamped stage edge.
-  visualPullOffsetX = clampVisual(
-    pointerRawCurrentX - pointerAnchorX,
-    -2,
-    2,
-    pointerCurrentX - pointerAnchorX,
-  );
-  visualPullOffsetY = clampVisual(
-    pointerRawCurrentY - pointerAnchorY,
-    -2,
-    2,
-    pointerCurrentY - pointerAnchorY,
-  );
-}
-
-function visualPullOffsetAt(x, y) {
-  const displacement = Math.hypot(visualPullOffsetX, visualPullOffsetY);
-  if (displacement < 0.0001) return { x: 0, y: 0, weight: 0 };
-  const radius = 0.3 + Math.min(0.28, displacement * 0.38);
-  const dx = x - visualPullAnchorX;
-  const dy = y - visualPullAnchorY;
-  const weight = Math.exp(-0.5 * (dx * dx + dy * dy) / (radius * radius));
-  return {
-    x: visualPullOffsetX * weight * 0.9,
-    y: visualPullOffsetY * weight * 0.9,
-    weight,
-  };
-}
-
 function currentAudioGesture(timestamp = performance.now()) {
   const velocityAge = Math.max(0, Number(timestamp) - pointerLastMotionTime);
   const velocityDecay = velocityAge >= 240
@@ -1264,18 +1399,27 @@ function currentAudioGesture(timestamp = performance.now()) {
     distance: pull.distance,
     velocityX: pull.velocityX,
     velocityY: pull.velocityY,
+    fabricAngle: effectiveFabricAngle(),
   };
 }
 
 function applyPointerTug(amount = pointerPullAmount) {
-  holdVisualFabricAtPointer();
   const gesture = currentAudioGesture();
-  const movingGrab = rotateFabricCoordinate(
-    pointerCurrentX,
-    pointerCurrentY,
-    effectiveFabricAngle(),
+  const fabricAngle = gesture.fabricAngle;
+  const materialAnchor = rotateFabricCoordinate(
+    pointerAnchorX,
+    pointerAnchorY,
+    fabricAngle,
   );
-  visualFabric.tug(movingGrab.x, movingGrab.y, amount);
+  const materialOffset = rotateFabricVector(
+    gesture.deltaX,
+    gesture.deltaY,
+    fabricAngle,
+  );
+  visualFabric.tug(materialAnchor.x, materialAnchor.y, amount, {
+    offsetX: materialOffset.x,
+    offsetY: materialOffset.y,
+  });
   captureVisualSculptGesture(
     pointerAudioAnchorX,
     pointerAudioAnchorY,
@@ -1284,75 +1428,17 @@ function applyPointerTug(amount = pointerPullAmount) {
     true,
   );
   audio.tugFabric(
-    pointerCurrentX,
-    pointerCurrentY,
+    pointerAudioAnchorX,
+    pointerAudioAnchorY,
     amount,
     gesture,
   );
-}
-
-function directGrabWakeProfile(amount = pointerPullAmount, gesture = currentAudioGesture()) {
-  const strain = clampVisual(Number(gesture.distance) / 0.9, 0, 1, 0);
-  const speed = clampVisual(
-    Math.hypot(Number(gesture.velocityX) || 0, Number(gesture.velocityY) || 0) / 8,
-    0,
-    1,
-    0,
-  );
-  const polarity = amount < 0 ? -1 : 1;
-  return {
-    force: polarity * clampVisual(
-      0.68 + strain * 0.28 + speed * 0.18,
-      0.68,
-      1.14,
-      0.68,
-    ),
-    radius: clampVisual(
-      0.12 + strain * 0.12 + (1 - speed) * 0.08,
-      0.12,
-      0.32,
-      0.2,
-    ),
-  };
-}
-
-function triggerDirectGrabWake(x, y, amount, gesture) {
-  const wake = directGrabWakeProfile(amount, gesture);
-  triggerElasticWaveAt(x, y, wake.force, wake.radius, gesture);
-}
-
-function emitFirstGrabWake(timestamp = performance.now()) {
-  if (
-    pointerId === null
-    || !pointerDidDrag
-    || pointerWakeCount !== 0
-    || !state.audioOn
-  ) return false;
-
-  const now = Number(timestamp) || performance.now();
-  const gesture = currentAudioGesture();
-  // Claim this one-shot before dispatch so neither the readiness callback nor
-  // another captured move can duplicate it.
-  pointerWakeCount = 1;
-  pointerWakeTravel = 0;
-  pointerLastRippleTime = now;
-  triggerDirectGrabWake(
-    pointerCurrentX,
-    pointerCurrentY,
-    pointerPullAmount,
-    gesture,
-  );
-  // A propagation launch is physical rather than a remembered direct gesture.
-  // Restore the live fixed point so the held hand keeps owning the fabric.
-  applyPointerTug(pointerPullAmount);
-  return true;
 }
 
 function maybeEmitGrabRipple(timestamp = performance.now()) {
   if (
     pointerId === null
     || !pointerDidDrag
-    || pointerWakeCount === 0
   ) return false;
   const rate = state.settings.grabRippleRate;
   if (rate <= 0.001) return false;
@@ -1385,7 +1471,6 @@ function maybeEmitGrabRipple(timestamp = performance.now()) {
     0.42,
     0.18,
   );
-  pointerWakeCount += 1;
   pointerWakeTravel = 0;
   pointerLastRippleTime = now;
   triggerElasticWaveAt(
@@ -1460,15 +1545,14 @@ function tugFabricFromPointer(event) {
   // the gesture/audio state for every sample, but let RAF paint it once.
   if (samplePointerEvent(event, { drawNow: false })) {
     const timestamp = Number(event.timeStamp) || performance.now();
-    if (!emitFirstGrabWake(timestamp)) maybeEmitGrabRipple(timestamp);
+    maybeEmitGrabRipple(timestamp);
   }
 }
 
 function staticGridHasDeformation() {
   return pointerId !== null
     || visualPropagation.activeCount > 0
-    || visualFabric.energy > 0.0001
-    || Math.hypot(visualPullOffsetX, visualPullOffsetY) > 0.0005;
+    || visualFabric.energy > 0.0001;
 }
 
 function staticGridPoint(x, y, deform, fabricAngle) {
@@ -1476,8 +1560,8 @@ function staticGridPoint(x, y, deform, fabricAngle) {
   const baseY = (y + 1) * 0.5 * canvasHeight;
   if (!deform) return { x: baseX, y: baseY };
   const settings = state.settings;
-  const fabricSurface = visualFabric.sample(x, y, fabricAngle)
-    * currentVisualSculpt.fabricDepth;
+  visualFabric.sampleVector(x, y, fabricAngle, fabricVector);
+  const fabricSurface = fabricVector.value * currentVisualSculpt.fabricDepth;
   visualPropagation.sampleVector(
     x,
     y,
@@ -1487,12 +1571,21 @@ function staticGridPoint(x, y, deform, fabricAngle) {
   const fabricScale = Math.min(34, Math.min(canvasWidth, canvasHeight) * 0.045);
   const waveScale = Math.min(110, Math.min(canvasWidth, canvasHeight) * 0.14)
     * settings.propagationDepth;
-  const pull = visualPullOffsetAt(x * 0.92, y * 0.86);
   return {
-    x: baseX + pull.x * canvasWidth * 0.5
+    x: baseX + clampVisual(
+      fabricVector.x * canvasWidth * 0.45,
+      -canvasWidth * 0.72,
+      canvasWidth * 0.72,
+      0,
+    )
       + clampVisual(fabricSurface * fabricScale * 0.4, -32, 32, 0)
       + clampVisual(propagationVector.x * waveScale, -110, 110, 0),
-    y: baseY + pull.y * canvasHeight * 0.5
+    y: baseY + clampVisual(
+      fabricVector.y * canvasHeight * 0.45,
+      -canvasHeight * 0.72,
+      canvasHeight * 0.72,
+      0,
+    )
       - clampVisual(fabricSurface * fabricScale, -44, 44, 0)
       + clampVisual(propagationVector.y * waveScale, -110, 110, 0),
   };
@@ -1556,7 +1649,8 @@ function drawEmbeddedCombGaps() {
   context2d.globalCompositeOperation = isRidge ? "screen" : "source-over";
   for (let stage = 0; stage < settings.combTeeth; stage += 1) {
     const anchor = combToothAnchor(stage, settings.combTeeth);
-    const fabric = visualFabric.sample(anchor.x, anchor.y, fabricAngle);
+    visualFabric.sampleVector(anchor.x, anchor.y, fabricAngle, fabricVector);
+    const fabric = fabricVector.value;
     const propagation = visualPropagation.sample(
       anchor.x,
       anchor.y,
@@ -1570,12 +1664,10 @@ function drawEmbeddedCombGaps() {
       Math.abs(propagation) * currentVisualSculpt.pluckCut
       + Math.abs(fabric) * 0.35
     ));
-    const spectralX = visualCombPositions[stage] * 2 - 1;
-    const pullOffset = visualPullOffsetAt(spectralX * 0.9, anchor.y * 0.84);
     const x = visualCombPositions[stage] * canvasWidth
-      + pullOffset.x * canvasWidth * 0.28;
+      + fabricVector.x * canvasWidth * 0.28;
     const y = (anchor.y * 0.42 + 0.5) * canvasHeight
-      + pullOffset.y * canvasHeight * 0.5
+      + fabricVector.y * canvasHeight * 0.42
       - deformation * canvasHeight * 0.045;
     const radiusX = Math.min(30, 5
       + currentVisualSculpt.width * 27
@@ -1637,19 +1729,19 @@ function drawBroadSculptRegions() {
     const y = (row + 0.5) / rows * 2 - 1;
     for (let column = 0; column < columns; column += 1) {
       const x = (column + 0.5) / columns * 2 - 1;
-      const fabric = visualFabric.sample(x, y, fabricAngle);
+      visualFabric.sampleVector(x, y, fabricAngle, fabricVector);
+      const fabric = fabricVector.value;
       const propagation = visualPropagation.sample(
         x,
         y,
         settings.propagationInterference,
       );
-      const pull = visualPullOffsetAt(x * 0.92, y * 0.86);
       const surfaceWarp = (
         fabric * sculpt.fabricDepth
         + propagation * settings.propagationDepth
       ) / octaveSpan * sculpt.combWarp * 0.28;
       const position = clampVisual(
-        (x + 1) * 0.5 - surfaceWarp - pull.x * 0.16,
+        (x + fabricVector.x + 1) * 0.5 - surfaceWarp,
         0,
         1,
         0.5,
@@ -1918,7 +2010,9 @@ function draw(timestamp, force = false) {
   const frameInterval = pointerId !== null
     ? 0
     : reducedMotion
-      ? (visualPropagation.activeCount > 0 ? 1_000 / 15 : 250)
+      ? (visualFabric.energy > 0.0001
+          ? 1_000 / 30
+          : (visualPropagation.activeCount > 0 ? 1_000 / 15 : 250))
       : 1_000 / (
         staticGridHasDeformation() || visualSculptGestureEnvelope > 1e-7
           ? ACTIVE_DEFORMATION_FRAME_RATE
@@ -2095,6 +2189,8 @@ $("stage").addEventListener("pointerdown", (event) => {
     || (event.pointerType !== "touch" && event.button !== 0)
   ) return;
   event.preventDefault();
+  fabricInteractionGeneration += 1;
+  pointerInteractionGeneration = fabricInteractionGeneration;
   const point = stagePointFromEvent(event);
   pointerId = event.pointerId;
   pointerStartX = event.clientX;
@@ -2113,9 +2209,7 @@ $("stage").addEventListener("pointerdown", (event) => {
   pointerRawCurrentX = point.rawX;
   pointerRawCurrentY = point.rawY;
   pointerLastRippleTime = pointerStartTime;
-  pointerWakeCount = 0;
   pointerWakeTravel = 0;
-  holdVisualFabricAtPointer();
   pointerPullAmount = fabricGesturePull({
     anchorX: pointerAudioAnchorX,
     anchorY: pointerAudioAnchorY,
@@ -2132,9 +2226,14 @@ $("stage").addEventListener("pointerdown", (event) => {
   applyPointerTug(pointerPullAmount);
   draw(performance.now(), true);
   const pressedPointerId = event.pointerId;
+  const pressedInteractionGeneration = pointerInteractionGeneration;
   void ensureAudioOn().then((ready) => {
-    if (ready && pointerId === pressedPointerId) {
-      if (!emitFirstGrabWake(performance.now())) applyPointerTug(pointerPullAmount);
+    if (
+      ready
+      && pointerId === pressedPointerId
+      && pressedInteractionGeneration === fabricInteractionGeneration
+    ) {
+      applyPointerTug(pointerPullAmount);
     }
   });
 });
@@ -2173,6 +2272,7 @@ async function releasePointer(event, { cancelled = false } = {}) {
     samplePointerEvent(event, { drawNow: false });
   }
   const releasedId = pointerId;
+  const releaseInteractionGeneration = pointerInteractionGeneration;
   const wasDrag = pointerDidDrag;
   const releaseAnchorX = pointerAnchorX;
   const releaseAnchorY = pointerAnchorY;
@@ -2192,58 +2292,45 @@ async function releasePointer(event, { cancelled = false } = {}) {
     false,
   );
   const releaseFrequency = frequencyAtStageX(releaseCurrentX);
-  const releaseRadius = 0.13 + state.settings.fabricInertia * 0.08;
   const releasedAt = Number(event?.timeStamp) || performance.now();
   const wasQuickTap = !wasDrag && releasedAt - pointerStartTime <= 350;
   const audioWasReady = state.audioOn;
+  const releaseVelocity = rotateFabricVector(
+    releaseGesture.velocityX,
+    releaseGesture.velocityY,
+    releaseGesture.fabricAngle,
+  );
   pointerId = null;
   pointerDidDrag = false;
-  visualPullAnchorX = releaseAnchorX;
-  visualPullAnchorY = releaseAnchorY;
   canvas.classList.remove("is-grabbed", "is-pulling");
-  visualFabric.release();
-  if (wasDrag && !cancelled) {
-    triggerElasticWaveAt(
-      releaseCurrentX,
-      releaseCurrentY,
-      releasePull,
-      releaseRadius,
-      releaseGesture,
-      { sendAudio: false },
-    );
-  }
-  // The direct on-screen pull, like the direct audio override, belongs only
-  // to contact. Any released motion now comes from the shared fabric impulse.
-  visualPullOffsetX = 0;
-  visualPullOffsetY = 0;
-  audio.releaseFabric(releaseGesture);
+  // Release only removes the material constraint. The retained vertex
+  // positions and measured hand velocity now create the visible/audible flop.
+  visualFabric.release({
+    velocityX: releaseVelocity.x,
+    velocityY: releaseVelocity.y,
+  });
+  if (audioWasReady) audio.releaseFabric(releaseGesture);
   if (canvas.hasPointerCapture?.(releasedId)) canvas.releasePointerCapture(releasedId);
   pointerPullAmount = 0;
   draw(performance.now(), true);
   if (cancelled) return;
   const audioReady = audioWasReady || await ensureAudioOn();
-  if (!audioReady) return;
+  if (
+    !audioReady
+    || disposed
+    || releaseInteractionGeneration !== fabricInteractionGeneration
+  ) return;
   if (!wasQuickTap) {
-    if (wasDrag || !audioWasReady) {
-      if (!audioWasReady) {
-        // Starting audio resets both simulations. Replay the same derived
-        // membrane initial condition visually before dispatching it.
-        triggerElasticWaveAt(
-          releaseCurrentX,
-          releaseCurrentY,
-          releasePull,
-          releaseRadius,
-          releaseGesture,
-          { sendAudio: false },
-        );
-      }
-      audio.kickFabric(
-        releaseCurrentX,
-        releaseCurrentY,
+    if (!audioWasReady) {
+      // Audio startup creates a fresh membrane. Rebuild the final held vector
+      // once, then remove its constraint, instead of substituting a wave.
+      audio.tugFabric(
+        releaseAudioAnchorX,
+        releaseAudioAnchorY,
         releasePull,
-        releaseRadius,
         releaseGesture,
       );
+      audio.releaseFabric(releaseGesture);
     }
     announce(`${wasDrag ? "Pulled" : "Held"} ${spectralSculptLabel().toLowerCase()} near ${formatFrequency(releaseFrequency)} released with ${percent(Math.abs(releasePull))} intensity.`);
     return;
@@ -2344,6 +2431,7 @@ globalThis.addEventListener("blur", () => releasePointer(undefined, { cancelled:
 
 globalThis.addEventListener("pagehide", () => {
   disposed = true;
+  fabricInteractionGeneration += 1;
   releasePointer(undefined, { cancelled: true });
   cancelAnimationFrame(animationFrame);
   resizeObserver?.disconnect();
