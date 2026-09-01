@@ -62,8 +62,8 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
       "stage", "audioButton", "playButton", "pulseButton", "seedNote", "seedNoteOut",
       "tempo", "pulseDivision", "randomGraphButton",
       "graphPatch", "graphPatchGrid", "topology", "nodeCount", "density", "seed",
-      "newGraphButton", "arrangeGraphButton", "scatterGraphButton", "openAllSwitchesButton",
-      "triggerScope", "nodePass", "baseDelay", "distanceRatio",
+      "newGraphButton", "arrangeGraphButton", "randomizeNodePositionsButton", "openAllSwitchesButton",
+      "triggerScope", "attackLaneCount", "attackLaneNote", "nodePass", "baseDelay", "distanceRatio",
       "timeCurve", "feedback", "feedbackTone", "motionSection", "motionSummary",
       "nodeMotionPlayButton", "nodeMotionMode", "nodeMotionSpeed", "nodeMotionSpeedOut",
       "nodeMotionAmount", "nodeMotionAmountOut", "mappingMode", "mappingReadout",
@@ -78,13 +78,67 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
       "hub", "mesh", "modular", "random",
     ]) assert.match(html, new RegExp(`option value="${topology}"`));
     assert.match(html, /Cycles are (?:musical|note) feedback/);
-    assert.match(html, /id="randomGraphButton"[^>]*>Random<\/button>/);
+    assert.match(html, /id="randomGraphButton"[^>]*>Random graph<\/button>/);
+    assert.match(html, /id="randomizeNodePositionsButton"[^>]*>Randomize positions<\/button>/);
+    const playSection = html.slice(
+      html.indexOf('id="playSection"'),
+      html.indexOf('id="delaySection"'),
+    );
+    const transportRow = playSection.slice(
+      playSection.indexOf('class="graph-transport-actions"'),
+      playSection.indexOf('class="graph-play-primary-grid"'),
+    );
+    const tempoRow = playSection.slice(
+      playSection.indexOf('class="graph-tempo-row"'),
+      playSection.indexOf('class="select-control graph-pulse-interval-control"'),
+    );
+    const topologySection = html.slice(
+      html.indexOf('id="topologySection"'),
+      html.indexOf('id="motionSection"'),
+    );
+    const primaryControls = playSection.slice(
+      playSection.indexOf('class="graph-play-primary-grid"'),
+      playSection.indexOf('class="graph-pulse-grid"'),
+    );
+    const delaySection = html.slice(
+      html.indexOf('id="delaySection"'),
+      html.indexOf('id="topologySection"'),
+    );
+    assert.match(transportRow, /id="pulseButton"/);
+    assert.match(transportRow, /id="randomGraphButton"/);
+    assert.doesNotMatch(transportRow, /id="playButton"/);
+    assert.match(tempoRow, /id="playButton"/);
+    assert.match(tempoRow, /id="tempo"/);
+    assert.ok(
+      playSection.indexOf('id="seedNote"') < playSection.indexOf('class="graph-tempo-row"')
+        && playSection.indexOf('class="graph-tempo-row"') < playSection.indexOf('id="pulseDivision"'),
+      "Play and Pulse Tempo belong immediately below Seed Note and above Pulse Interval",
+    );
+    assert.match(playSection, /id="randomizeNodePositionsButton"/);
+    assert.ok(
+      primaryControls.indexOf('id="baseDelay"') < primaryControls.indexOf('id="distanceRatio"')
+        && primaryControls.indexOf('id="distanceRatio"') < primaryControls.indexOf('class="growth-parameter-note graph-distance-note"'),
+      "Distance-time ratio belongs directly below Minimum edge time in the top timing controls",
+    );
+    assert.doesNotMatch(delaySection, /id="distanceRatio(?:Out)?"/);
+    assert.doesNotMatch(topologySection, /id="randomizeNodePositionsButton"/);
     assert.match(html, /id="nodeCount"[^>]*max="32"/);
     assert.match(html, /id="distanceRatio"[^>]*min="1"[^>]*max="12"[^>]*step="0\.01"/);
     assert.match(html, /At 1×, every edge uses the minimum time/);
     assert.doesNotMatch(html, /id="timeScale"|Distance → extra time/);
     assert.match(html, /option value="all"/);
     assert.match(html, /option value="leaves"/);
+    assert.match(delaySection, /<span class="field-label">Attack separation<\/span>/);
+    assert.match(delaySection, /<option value="1" selected>Natural polyphony<\/option>/);
+    assert.match(delaySection, /<option value="2">2-lane round robin<\/option>/);
+    assert.match(delaySection, /<option value="4">4-lane round robin<\/option>/);
+    assert.match(delaySection, /Each admitted attack already gets an independent voice/);
+    assert.match(delaySection, /audio-safety-thinned attacks stay thinned/);
+    assert.ok(
+      delaySection.indexOf('id="triggerScope"') < delaySection.indexOf('id="attackLaneCount"')
+        && delaySection.indexOf('id="attackLaneCount"') < delaySection.indexOf('id="nodePass"'),
+      "Attack separation belongs beside the attack-point policy in Time + feedback",
+    );
     assert.doesNotMatch(html, /id="edgeSubdivisions"/);
     assert.doesNotMatch(html, /option value="subdivisions"/);
     const seedNoteInput = html.match(/<input\b[^>]*id="seedNote"[^>]*>/)?.[0] ?? "";
@@ -107,24 +161,30 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
         && html.indexOf('id="topology"') < html.indexOf('id="delaySection"')
         && html.indexOf('id="playSection"') < html.indexOf('id="baseDelay"')
         && html.indexOf('id="baseDelay"') < html.indexOf('id="delaySection"'),
-      "Graph shape and Edge speed belong in the top Play panel",
+      "Graph shape and Minimum edge time belong in the top Play panel",
     );
-    for (const uniqueId of ["topology", "baseDelay", "baseDelayOut", "nodeCount"]) {
+    for (const uniqueId of [
+      "topology", "baseDelay", "baseDelayOut", "distanceRatio", "distanceRatioOut",
+      "attackLaneCount", "attackLaneNote", "nodeCount",
+    ]) {
       assert.equal(
         (html.match(new RegExp(`id="${uniqueId}"`, "g")) ?? []).length,
         1,
         `${uniqueId} must have one authoritative control`,
       );
     }
-    assert.match(html, /<b>Edge speed<\/b>/);
+    assert.match(html, /<b>Minimum edge time<\/b>/);
     const edgeSpeedInput = html.match(/<input\b[^>]*id="baseDelay"[^>]*>/)?.[0] ?? "";
     assert.match(edgeSpeedInput, /min="20"/);
     assert.match(edgeSpeedInput, /max="600"/);
     assert.match(edgeSpeedInput, /step="1"/);
     assert.match(edgeSpeedInput, /value="62"/);
     assert.match(edgeSpeedInput, /dir="rtl"/);
-    assert.match(edgeSpeedInput, /aria-label="Edge speed, slow to fast"/);
-    assert.match(html, /id="baseDelayOut"[^>]*>968 BPM eq\. · 62 ms<\/output>/);
+    assert.match(edgeSpeedInput, /aria-label="Minimum edge time, slow to fast"/);
+    assert.match(edgeSpeedInput, /title="Slow at the left, fast at the right\./);
+    assert.match(html, /id="baseDelayOut"[^>]*>62 ms<\/output>/);
+    const edgeSpeedControl = html.match(/<label class="control graph-edge-speed-control"[^>]*>[\s\S]*?id="baseDelay"[\s\S]*?<\/label>/)?.[0] ?? "";
+    assert.doesNotMatch(edgeSpeedControl, /BPM|tempo equivalent/i);
     assert.match(html, /<b>Pulse tempo<\/b>/);
     assert.doesNotMatch(html, /id="seedPulseButton"|id="seedKeyboard"|id="seedOctave(?:Down|Out|Up)"/);
     assert.doesNotMatch(html, /data-seed-semitone|class="[^"]*graph-seed-keyboard/);
@@ -143,6 +203,11 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
   assert.match(synth, /<option value="equal"[^>]*>Equal octave divisions<\/option>/);
   assert.match(synth, /<option value="just">Just ratios · non-equal<\/option>/);
   assert.match(synth, /id="edoDivisions"[^>]*min="1"[^>]*max="360"[^>]*step="1"/);
+  assert.match(synth, /<b>Full-turn pitch travel<\/b>/);
+  assert.match(synth, /id="turnPitchScaleOut"[^>]*>1\.10 oct \/ 360°<\/output>/);
+  assert.match(synth, /id="turnPitchScale"[^>]*min="0"[^>]*max="4"[^>]*value="1\.1"/);
+  assert.match(synth, /<b>Position \/ Shepard span<\/b>/);
+  assert.match(synth, /id="pitchRangeNote"[^>]*>Inherited-turn notes ignore this span/);
   assert.match(synth, /<option value="edge">Continuous · hold for edge time<\/option>/);
   assert.doesNotMatch(synth, /<option value="(?:major|minor|pentatonic|whole-tone|chromatic)"/);
 
@@ -152,6 +217,10 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
   assert.match(css, /\.graph-instrument-page \.graph-preset-grid\s*\{[^}]*repeat\(4,/s);
   assert.match(css, /\.graph-seed-note-control\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
   assert.match(css, /\.graph-play-primary-grid\s*\{[^}]*grid-template-columns:/s);
+  assert.match(css, /\.graph-tempo-row\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
+  assert.match(css, /\.graph-edge-timing-stack\s*\{[^}]*display:\s*grid/s);
+  assert.match(css, /\.graph-edge-speed-control > span > b,[\s\S]*?\.graph-distance-ratio-control > span > b\s*\{[^}]*white-space:\s*nowrap/s);
+  assert.match(css, /\.graph-play-primary-grid \.graph-distance-note\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
   assert.doesNotMatch(css, /\.graph-seed-(?:keyboard|keyboard-head|keys)\b/);
   assert.doesNotMatch(css, /\.graph-pulse-control\b/);
   assert.match(app, /scheduleGraphPulse/);
@@ -169,11 +238,20 @@ test("Graph Drum Machine and Graph Synth expose the shared graph-feedback workbe
   assert.match(app, /startAt/);
   assert.match(app, /edge\.feedbackEdge/);
   assert.match(app, /feedbackTone/);
+  assert.match(app, /assignGraphAttackLanes/);
+  assert.match(app, /applyGraphAttackSeparation/);
+  assert.match(app, /attackLaneCount/);
+  assert.match(app, /octavesPerTurn: state\.turnPitchScale/);
+  assert.match(app, /if \(!voice\.inAudibleRange\) return "out-of-range"/);
+  assert.match(app, /frameAudioEventScanCount < MAX_AUDIO_EVENT_SCANS_PER_FRAME/);
+  assert.match(app, /run\.articulation === "edge" && run\.audioIndex > 0/);
   assert.match(app, /morphazoid:midi-input/);
   assert.match(app, /bindRange\("seedNote",\s*"seedNote"/);
   assert.doesNotMatch(app, /seedPulseButton|seedKeyboard|seedOctave|data-seed-semitone/);
   assert.match(app, /patch\.pulseBeats \?\? patch\.pulseDivision/);
   assert.match(app, /randomGraphButton[^\n]*addEventListener\("click", randomizeGraph\)/);
+  assert.match(app, /rebuildModel\(\{ randomizePositions: true \}\)/);
+  assert.match(app, /randomizeNodePositionsButton[^\n]*addEventListener\("click", randomizeNodePositions\)/);
   assert.match(app, /const MAX_VISIBLE_RUNS = 4/);
   assert.doesNotMatch(app, /2\.5 \+ amplitude \* 4/);
   assert.doesNotMatch(app, /10 \+ age \* 70/);
@@ -194,7 +272,7 @@ test("Graph pages cannot mix refreshed markup with stale Graph runtime modules",
     readFile(new URL("src/graph-instruments.js", root), "utf8"),
     readFile(new URL("scripts/dev-server.py", root), "utf8"),
   ]);
-  const version = "graph-instruments-20260830-5";
+  const version = "graph-instruments-20260830-13";
 
   assert.match(drums, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));
   assert.match(synth, new RegExp(`href="graph-instruments\\.css\\?v=${version}"`));

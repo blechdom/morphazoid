@@ -20,9 +20,13 @@ import {
   tuneGraphSemitones,
 } from "../src/graph-instruments.js";
 import {
+  applyGraphAttackSeparation,
+  assignGraphAttackLanes,
   graphEdgeSpeedReadout,
+  graphAttackLanePosition,
   graphInstrumentDefaultState,
   graphInstrumentPresetState,
+  sanitizeGraphAttackLaneCount,
 } from "../src/graph-instrument-app.js";
 import { edgeAudioParameters, generateGraph } from "../src/graph-delay.js";
 import { GRAPH_DRUM_PERCUSSION_STYLES } from "../src/graph-drum-audio.js";
@@ -35,12 +39,96 @@ const closeTo = (actual, expected, epsilon = 1e-12) => {
   );
 };
 
-test("graph edge-speed readout preserves milliseconds and shows BPM equivalent", () => {
-  assert.equal(graphEdgeSpeedReadout(600), "100 BPM eq. · 600 ms");
-  assert.equal(graphEdgeSpeedReadout(62), "968 BPM eq. · 62 ms");
-  assert.equal(graphEdgeSpeedReadout(20), "3000 BPM eq. · 20 ms");
-  assert.equal(graphEdgeSpeedReadout(Number.NaN), "968 BPM eq. · 62 ms");
-  assert.equal(graphEdgeSpeedReadout(10_000), "100 BPM eq. · 600 ms");
+test("graph edge-speed readout uses clamped milliseconds without a tempo equivalent", () => {
+  assert.equal(graphEdgeSpeedReadout(600), "600 ms");
+  assert.equal(graphEdgeSpeedReadout(62), "62 ms");
+  assert.equal(graphEdgeSpeedReadout(20), "20 ms");
+  assert.equal(graphEdgeSpeedReadout(Number.NaN), "62 ms");
+  assert.equal(graphEdgeSpeedReadout(10_000), "600 ms");
+});
+
+test("round-robin attack lanes alternate safely without changing note identity or timing", () => {
+  assert.equal(sanitizeGraphAttackLaneCount(1), 1);
+  assert.equal(sanitizeGraphAttackLaneCount("2"), 2);
+  assert.equal(sanitizeGraphAttackLaneCount(4), 4);
+  for (const invalid of [0, 2.4, 3, 8, Number.NaN, null, undefined]) {
+    assert.equal(sanitizeGraphAttackLaneCount(invalid), 1);
+  }
+
+  const events = Array.from({ length: 6 }, (_, index) => ({
+    nodeId: index,
+    audioStartOffset: index * 0.02,
+    frequency: 220 + index,
+  }));
+  const twoLanes = assignGraphAttackLanes(events, 2);
+  const fourLanes = assignGraphAttackLanes(events, 4);
+  assert.deepEqual(twoLanes.map(({ attackLane }) => attackLane), [0, 1, 0, 1, 0, 1]);
+  assert.deepEqual(fourLanes.map(({ attackLane }) => attackLane), [0, 1, 2, 3, 0, 1]);
+  assert.ok(twoLanes.every(({ attackLaneCount }) => attackLaneCount === 2));
+  assert.ok(fourLanes.every(({ attackLaneCount }) => attackLaneCount === 4));
+  assert.deepEqual(
+    fourLanes.map(({ nodeId, audioStartOffset, frequency }) => ({
+      nodeId,
+      audioStartOffset,
+      frequency,
+    })),
+    events,
+    "lane assignment must preserve event order, timing, and pitch",
+  );
+  assert.ok(fourLanes.every((event, index) => event !== events[index]));
+  assert.ok(events.every((event) => !Object.hasOwn(event, "attackLane")));
+  assert.deepEqual(
+    Array.from({ length: 4 }, (_, lane) => graphAttackLanePosition(lane, 4)),
+    [-0.78, 0.78, -0.26, 0.26],
+  );
+
+  const synthVoice = {
+    frequency: 440,
+    semitones: 7,
+    gain: 0.42,
+    pan: 0,
+    brightness: 0.6,
+  };
+  const synthLeft = applyGraphAttackSeparation(
+    synthVoice,
+    { attackLane: 0, attackLaneCount: 2 },
+    "synth",
+  );
+  const synthRight = applyGraphAttackSeparation(
+    synthVoice,
+    { attackLane: 1, attackLaneCount: 2 },
+    "synth",
+  );
+  assert.equal(synthLeft.frequency, synthVoice.frequency);
+  assert.equal(synthRight.semitones, synthVoice.semitones);
+  assert.equal(synthLeft.gain, synthVoice.gain);
+  assert.ok(synthLeft.pan < 0 && synthRight.pan > 0);
+  assert.ok(synthLeft.brightness < synthRight.brightness);
+
+  const drumVoice = {
+    voiceIndex: 9,
+    frequency: 110,
+    level: 0.64,
+    tone: 0.5,
+    modIndex: 4,
+    decay: 0.28,
+  };
+  const drumLeft = applyGraphAttackSeparation(
+    drumVoice,
+    { attackLane: 0, attackLaneCount: 2 },
+    "drums",
+  );
+  const drumRight = applyGraphAttackSeparation(
+    drumVoice,
+    { attackLane: 1, attackLaneCount: 2 },
+    "drums",
+  );
+  for (const key of ["voiceIndex", "frequency", "level", "decay"]) {
+    assert.equal(drumLeft[key], drumVoice[key]);
+    assert.equal(drumRight[key], drumVoice[key]);
+  }
+  assert.ok(drumLeft.tone < drumRight.tone);
+  assert.ok(drumLeft.modIndex < drumRight.modIndex);
 });
 
 const LEGACY_GRAPH_INSTRUMENT_TIME_SCALES = Object.freeze({
@@ -120,6 +208,7 @@ test("both instruments initialize and reset to the timing of their selected pres
   for (const mode of ["drums", "synth"]) {
     const state = graphInstrumentDefaultState(mode);
     assert.equal(state.graphPatch, "layeredGlass");
+    assert.equal(state.attackLaneCount, 1);
     for (const key of [
       "topology", "nodeCount", "density", "seed", "tempo", "nodePass",
       "baseDelay", "distanceRatio", "timeCurve", "feedback",
@@ -212,7 +301,7 @@ test("graph presets preserve synth controls while drum presets retain their soun
     "output", "seedNote",
     "mappingMode", "tuningMode", "edoDivisions", "soundMode",
     "baseFrequency", "pitchRange", "turnPitchScale",
-    "modulationIndex", "modulationRatio", "articulation", "noteDuration",
+    "modulationIndex", "modulationRatio", "articulation", "attackLaneCount", "noteDuration",
     "attack", "decay", "sustain", "release", "stereoSpread",
   ];
   const drumStyles = new Set();
@@ -255,6 +344,7 @@ test("graph presets preserve synth controls while drum presets retain their soun
     for (const state of [drums, synthPreset]) {
       assert.equal(state.graphPatch, name);
       assert.equal(Object.hasOwn(state, "edgeSubdivisions"), false);
+      assert.equal(Object.hasOwn(state, "attackLaneCount"), false);
       assert.equal(state.feedbackTone, patch.feedbackTone);
     }
     assert.equal(drums.triggerScope, patch.triggerScope);
@@ -296,7 +386,7 @@ test("graph presets preserve synth controls while drum presets retain their soun
     });
     const arrivals = scheduleGraphPulse(graph, {
       ...loadedSynth,
-      pitchScale: loadedSynth.turnPitchScale,
+      octavesPerTurn: loadedSynth.turnPitchScale,
       maxEvents: 1,
     });
     assert.equal(arrivals.length, 1, `${name} must retain an immediate source arrival`);
@@ -343,6 +433,7 @@ test("graph presets preserve synth controls while drum presets retain their soun
   assert.equal(defaultSynth.output, 0.64);
   assert.equal(defaultSynth.soundMode, "fm");
   assert.equal(defaultSynth.edoDivisions, 19);
+  assert.equal(defaultSynth.turnPitchScale, 1.1);
   assert.equal(GRAPH_INSTRUMENT_PATCHES.hubScatter.drums.percussionStyle, "drum-bank");
 });
 
@@ -410,6 +501,49 @@ test("a directed ring returns at the exact lap time with one decay per lap", () 
   const afterFeedback = events.find(({ nodeId, depth }) => nodeId === 0 && depth === 3);
   closeTo(beforeFeedback.amplitude, 1);
   closeTo(afterFeedback.amplitude, 0.5);
+
+  const pitchedEvents = scheduleGraphPulse(graph, {
+    baseDelay: 100,
+    distanceRatio: 1,
+    nodePass: 1,
+    feedback: 0.5,
+    minAmplitude: 1e-9,
+    maxFeedbackPasses: 2,
+    horizonSeconds: 2,
+    octavesPerTurn: 2,
+  });
+  const repeatedNode = pitchedEvents.filter(({ nodeId }) => nodeId === 1);
+  closeTo(
+    repeatedNode[1].cumulativeSemitones - repeatedNode[0].cumulativeSemitones,
+    -24,
+  );
+  closeTo(
+    repeatedNode[2].cumulativeSemitones - repeatedNode[1].cumulativeSemitones,
+    -24,
+  );
+
+  const mirroredEvents = scheduleGraphPulse({
+    ...graph,
+    nodes: graph.nodes.map((node) => ({ ...node, y: 1 - node.y })),
+  }, {
+    baseDelay: 100,
+    distanceRatio: 1,
+    nodePass: 1,
+    feedback: 0.5,
+    minAmplitude: 1e-9,
+    maxFeedbackPasses: 2,
+    horizonSeconds: 2,
+    octavesPerTurn: 2,
+  });
+  const mirroredNode = mirroredEvents.filter(({ nodeId }) => nodeId === 1);
+  closeTo(
+    mirroredNode[1].cumulativeSemitones - mirroredNode[0].cumulativeSemitones,
+    24,
+  );
+  closeTo(
+    mirroredNode[2].cumulativeSemitones - mirroredNode[1].cumulativeSemitones,
+    24,
+  );
 });
 
 test("closed graph switches stop their route without changing deterministic ordering", () => {
@@ -985,7 +1119,7 @@ test("pure, arbitrary equal-division, and just tuning preserve their lattice con
   assert.equal(justVoice.tuningMode, "just");
 });
 
-test("scale quantization and graph synth voices remain deterministic and bounded", () => {
+test("scale quantization and graph synth voices preserve explicit frequency range state", () => {
   assert.deepEqual(GRAPH_SYNTH_SCALES.major, [0, 2, 4, 5, 7, 9, 11]);
   assert.equal(quantizeGraphSemitones(1, "major"), 0);
   assert.equal(quantizeGraphSemitones(3, "major"), 2);
@@ -1029,7 +1163,11 @@ test("scale quantization and graph synth voices remain deterministic and bounded
     release: 99,
     duration: 99,
   });
-  assert.ok(voice.frequency >= 20 && voice.frequency <= 20_000);
+  assert.ok(voice.frequency > 20_000);
+  assert.equal(voice.frequencyBand, "above-range");
+  assert.equal(voice.inAudibleRange, false);
+  assert.equal(voice.pitchRangeBehavior, "unbounded");
+  assert.equal(voice.rawSemitones, voice.routeSemitones);
   assert.ok(voice.gain >= 0 && voice.gain <= 1);
   assert.equal(voice.level, voice.gain);
   assert.ok(voice.pan >= -1 && voice.pan <= 1);
@@ -1056,6 +1194,77 @@ test("scale quantization and graph synth voices remain deterministic and bounded
     release: 99,
     duration: 99,
   }));
+});
+
+test("inherited turns keep accumulating while Shepard wraps and position maps stay bounded", () => {
+  const graph = { nodes: [{ id: 0, x: 0.5, y: 0.5 }], edges: [], entries: [0] };
+  const event = (cumulativeSemitones) => ({
+    nodeId: 0,
+    time: 0,
+    amplitude: 1,
+    cumulativeSemitones,
+    depth: 0,
+    feedbackCount: 0,
+  });
+  const options = {
+    mappingMode: "turn",
+    pitchRange: 2,
+    tuningMode: "pure",
+    rootFrequency: 440,
+    soundMode: "fm",
+  };
+  const firstLap = graphSynthVoice(event(-24), graph, options);
+  const secondLap = graphSynthVoice(event(-48), graph, options);
+  const thirdLap = graphSynthVoice(event(-72), graph, options);
+  assert.deepEqual(
+    [firstLap.rawSemitones, secondLap.rawSemitones, thirdLap.rawSemitones],
+    [-24, -48, -72],
+  );
+  closeTo(firstLap.frequency, 110);
+  closeTo(secondLap.frequency, 27.5);
+  closeTo(thirdLap.frequency, 6.875);
+  assert.deepEqual(
+    [firstLap.frequencyBand, secondLap.frequencyBand, thirdLap.frequencyBand],
+    ["audible", "audible", "below-range"],
+  );
+  assert.equal(thirdLap.inAudibleRange, false);
+
+  const subAudioRoot = graphSynthVoice(event(0), graph, {
+    ...options,
+    rootMidiNote: 0,
+  });
+  closeTo(subAudioRoot.frequency, 440 * 2 ** ((0 - 69) / 12));
+  assert.equal(subAudioRoot.frequencyBand, "below-range");
+  assert.equal(subAudioRoot.inAudibleRange, false);
+
+  for (const boundary of [20, 20_000]) {
+    const boundaryVoice = graphSynthVoice(
+      event(12 * Math.log2(boundary / 440)),
+      graph,
+      options,
+    );
+    assert.ok(Math.abs(boundaryVoice.frequency - boundary) <= boundary * 1e-12);
+    assert.equal(boundaryVoice.frequencyBand, "audible");
+    assert.equal(boundaryVoice.inAudibleRange, true);
+  }
+
+  const shepard = graphSynthVoice(event(-30), graph, {
+    ...options,
+    soundMode: "shepard",
+  });
+  assert.equal(shepard.routeSemitones, -30);
+  assert.equal(shepard.rawSemitones, -6);
+  assert.equal(shepard.pitchRangeBehavior, "wrap");
+
+  const position = graphSynthVoice(event(500), {
+    nodes: [{ id: 0, x: 1, y: 0 }], edges: [], entries: [0],
+  }, {
+    mappingMode: "progress",
+    pitchRange: 2,
+    quantize: false,
+  });
+  assert.equal(position.rawSemitones, 12);
+  assert.equal(position.pitchRangeBehavior, "clamp");
 });
 
 test("graph synth UI mapping and sound aliases produce scheduler-ready voices", () => {

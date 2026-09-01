@@ -111,6 +111,19 @@ test("derived percussion parameters evolve without discrete family jumps", () =>
   assert.ok(linearDrumParameters(16_000).weights.air > .99);
 });
 
+test("duration-preserving synthesis keeps decay fixed while pitch morphs", () => {
+  const settings = { model: "hybrid", decay: 0.42 };
+  const low = linearDrumParameters(110, settings, { preserveDuration: true });
+  const high = linearDrumParameters(880, settings, { preserveDuration: true });
+  assert.equal(low.decay, 0.42);
+  assert.equal(high.decay, 0.42);
+  assert.notEqual(
+    linearDrumParameters(110, settings).decay,
+    linearDrumParameters(880, settings).decay,
+    "the physical model may still use natural pitch-dependent decay when not locked",
+  );
+});
+
 test("global controls and alternate body models sanitize to safe ranges", () => {
   const settings = sanitizeLinearDrumSettings({
     rangeMin: -4,

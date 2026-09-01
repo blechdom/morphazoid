@@ -4,7 +4,7 @@ import {
   graphEdgeSwitchMultipliers,
   relativeTurnRadians,
   turnPitchSemitones,
-} from "./graph-delay.js?v=graph-instruments-20260830-5";
+} from "./graph-delay.js?v=graph-instruments-20260830-13";
 
 // Dense and cyclic graphs can revisit nodes many times. Keep their event queue
 // explicitly bounded even though the editable instruments stop at 32 nodes.
@@ -13,6 +13,7 @@ export const MIN_GRAPH_EVENT_AMPLITUDE = 0.001;
 export const MAX_GRAPH_INSTRUMENT_NODES = 32;
 export const MAX_GRAPH_INSTRUMENT_TURN_ROUTES = 4_096;
 export const MAX_GRAPH_EQUAL_DIVISIONS = 360;
+const FREQUENCY_RANGE_EPSILON = 1e-12;
 
 const DEFAULT_GRAPH_EVENT_HORIZON_SECONDS = 16;
 const DEFAULT_GRAPH_EVENT_DEPTH = 128;
@@ -29,6 +30,13 @@ const finite = (value, fallback = 0) => {
 const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => (
   Math.min(maximum, Math.max(minimum, finite(value, fallback)))
 );
+
+const wrapCentered = (value, span) => {
+  const width = Math.max(0, finite(span));
+  if (width <= 0) return 0;
+  const wrapped = ((finite(value) + width * 0.5) % width + width) % width;
+  return wrapped - width * 0.5;
+};
 
 const positiveInteger = (value, fallback, maximum = Infinity) => Math.min(
   maximum,
@@ -365,6 +373,14 @@ export function scheduleGraphPulse(graph, options = {}) {
   const model = normalizedGraph(graph);
   if (!model.nodes.length) return [];
   const settings = { ...(options.patch ?? {}), ...options };
+  const requestedOctavesPerTurn = Number(settings.octavesPerTurn);
+  const hasOctavesPerTurn = settings.octavesPerTurn !== null
+    && settings.octavesPerTurn !== undefined
+    && settings.octavesPerTurn !== ""
+    && Number.isFinite(requestedOctavesPerTurn);
+  const pitchSettings = hasOctavesPerTurn
+    ? { ...settings, pitchScale: requestedOctavesPerTurn * 0.5 }
+    : settings;
   const limits = graphEventLimits(settings);
   if (limits.maxEvents === 0) return [];
   const inputAmplitude = clamp(settings.amplitude, 0, 1, 1);
@@ -463,7 +479,7 @@ export function scheduleGraphPulse(graph, options = {}) {
       const time = event.time + edge.delaySeconds;
       if (time > limits.horizonSeconds + 1e-12) continue;
       const localTurn = relativeTurnRadians(previous, pivot, model.nodes[edge.to]);
-      const localSemitones = turnPitchSemitones(localTurn, settings);
+      const localSemitones = turnPitchSemitones(localTurn, pitchSettings);
       const pathIdentity = descendantPathIdentity(event, edge, index);
       const nextEvent = {
         nodeId: edge.to,
@@ -827,7 +843,7 @@ const GRAPH_SYNTH_MAPPING_MODES = new Set(["turn", "height", "degree", "progress
 const GRAPH_SYNTH_AUDIO_MODES = new Set(["sine", "fm", "pm", "shepard"]);
 const GRAPH_SYNTH_WAVEFORMS = new Set(["sine", "triangle", "sawtooth", "square"]);
 
-/** Convert a graph arrival into a bounded, scheduler-ready synth voice. */
+/** Convert a graph arrival into a scheduler-ready synth voice. */
 export function graphSynthVoice(event = {}, graph = {}, options = {}) {
   const nodeId = Math.max(0, Math.floor(finite(event.nodeId)));
   const node = graph?.nodes?.[nodeId] ?? { x: 0.5, y: 0.5 };
@@ -836,9 +852,20 @@ export function graphSynthVoice(event = {}, graph = {}, options = {}) {
     : GRAPH_SYNTH_MAPPING_MODES.has(options.mode)
       ? options.mode
       : "turn";
+  const requestedSoundMode = typeof options.soundMode === "string"
+    ? options.soundMode
+    : typeof options.mode === "string" && !GRAPH_SYNTH_MAPPING_MODES.has(options.mode)
+      ? options.mode
+      : "sine";
+  const mode = GRAPH_SYNTH_AUDIO_MODES.has(requestedSoundMode)
+    ? requestedSoundMode
+    : "sine";
+  const requestedRootFrequency = Number(options.rootFrequency ?? options.baseFrequency);
   const rootFrequency = Number.isFinite(Number(options.rootMidiNote))
     ? 440 * 2 ** ((clamp(options.rootMidiNote, 0, 127, 45) - 69) / 12)
-    : clamp(options.rootFrequency ?? options.baseFrequency, 20, 20_000, 110);
+    : Number.isFinite(requestedRootFrequency) && requestedRootFrequency > 0
+      ? requestedRootFrequency
+      : 110;
   const pitchRange = clamp(options.pitchRange, 0, 8, 2);
   const pitchSpanSemitones = pitchRange * 12;
   const halfPitchSpan = pitchSpanSemitones * 0.5;
@@ -857,13 +884,24 @@ export function graphSynthVoice(event = {}, graph = {}, options = {}) {
   }
   const positionPitchDepth = clamp(options.positionPitchDepth, 0, 24, 0);
   const depthPitch = finite(options.depthSemitones, 0) * Math.max(0, finite(event.depth));
-  const rawSemitones = finite(options.transpose) + clamp(
+  const mappedInterval = (
     mappedSemitones
       + (0.5 - clamp(node.y, 0, 1, 0.5)) * 2 * positionPitchDepth
-      + depthPitch,
-    -halfPitchSpan,
-    halfPitchSpan,
-    0,
+      + depthPitch
+  );
+  // Inherited turns describe route winding, so ordinary notes must continue
+  // accumulating through every cycle. Shepard uses the selected span as a
+  // circular window; bounded coordinate mappings retain the legacy clamp.
+  const pitchRangeApplied = mappingMode !== "turn" || mode === "shepard";
+  const pitchRangeBehavior = mappingMode === "turn"
+    ? mode === "shepard" ? "wrap" : "unbounded"
+    : "clamp";
+  const rawSemitones = finite(options.transpose) + (
+    pitchRangeBehavior === "wrap"
+      ? wrapCentered(mappedInterval, pitchSpanSemitones)
+      : pitchRangeBehavior === "clamp"
+        ? clamp(mappedInterval, -halfPitchSpan, halfPitchSpan, 0)
+        : finite(mappedInterval)
   );
   const requestedTuningMode = options.tuningMode ?? options.tuning;
   const tuningMode = ["pure", "continuous", "free", "equal", "just"].includes(
@@ -891,8 +929,28 @@ export function graphSynthVoice(event = {}, graph = {}, options = {}) {
     options.maxFrequency,
     minimumFrequency,
     20_000,
-    Math.max(minimumFrequency, 16_000),
+    Math.max(minimumFrequency, 20_000),
   );
+  const log2Frequency = Math.log2(rootFrequency) + semitones / 12;
+  const frequency = 2 ** log2Frequency;
+  const minimumRenderFrequency = minimumFrequency * (1 - FREQUENCY_RANGE_EPSILON);
+  const maximumRenderFrequency = maximumFrequency * (1 + FREQUENCY_RANGE_EPSILON);
+  const frequencyBand = frequency < minimumRenderFrequency
+    ? "below-range"
+    : frequency > maximumRenderFrequency
+      ? "above-range"
+      : "audible";
+  const shepardWidth = Math.round(clamp(options.shepardWidth, 3, 7, 5));
+  const shepardCenter = (shepardWidth - 1) * 0.5;
+  const inAudibleRange = mode === "shepard"
+    ? Array.from({ length: shepardWidth }, (_, index) => (
+      frequency * 2 ** (index - shepardCenter)
+    )).some((partialFrequency) => (
+      Number.isFinite(partialFrequency)
+      && partialFrequency >= minimumRenderFrequency
+      && partialFrequency <= maximumRenderFrequency
+    ))
+    : frequencyBand === "audible";
   const amplitude = clamp(event.amplitude, 0, 1, 1);
   const voiceCount = Math.max(1, finite(options.eventCount ?? options.voiceCount, 1));
   const gain = clamp(
@@ -920,14 +978,6 @@ export function graphSynthVoice(event = {}, graph = {}, options = {}) {
     20_000,
     6_000,
   );
-  const requestedSoundMode = typeof options.soundMode === "string"
-    ? options.soundMode
-    : typeof options.mode === "string" && !GRAPH_SYNTH_MAPPING_MODES.has(options.mode)
-      ? options.mode
-      : "sine";
-  const mode = GRAPH_SYNTH_AUDIO_MODES.has(requestedSoundMode)
-    ? requestedSoundMode
-    : "sine";
   const requestedWaveform = typeof options.waveform === "string"
     ? options.waveform
     : requestedSoundMode;
@@ -952,11 +1002,19 @@ export function graphSynthVoice(event = {}, graph = {}, options = {}) {
     feedbackCount,
     mappingMode,
     pitchRange,
+    pitchRangeApplied,
+    pitchRangeBehavior,
+    routeSemitones: finite(mappedInterval),
     rawSemitones,
     semitones,
     tuningMode: tuningMode ?? "legacy-scale",
     edoDivisions,
-    frequency: clamp(rootFrequency * 2 ** (semitones / 12), minimumFrequency, maximumFrequency),
+    frequency,
+    log2Frequency,
+    frequencyBand,
+    minimumFrequency,
+    maximumFrequency,
+    inAudibleRange,
     gain,
     level: gain,
     pan,
@@ -967,6 +1025,7 @@ export function graphSynthVoice(event = {}, graph = {}, options = {}) {
     mode,
     soundMode: requestedSoundMode,
     waveform,
+    shepardWidth,
     modulationIndex,
     modIndex: modulationIndex,
     modulationRatio,

@@ -204,6 +204,32 @@ test("Graph Synth audio is lazy and applies an output selected before start", as
   )));
 });
 
+test("Graph Synth skips out-of-range pitches instead of clamping boundary oscillators", async () => {
+  const { runtime, created } = makeRuntime();
+  const audio = new GraphSynthAudio(runtime);
+  for (const frequency of [19.9, 20_000.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const rendered = await audio.trigger({ frequency, gain: 0.5 });
+    assert.equal(rendered.scheduled, false);
+    assert.equal(rendered.skipped, true);
+    assert.equal(rendered.skipReason, "frequency-range");
+    assert.equal(graphSynthSourceCost({ frequency }), 0);
+  }
+  assert.equal(audio.context, null, "silent range exits must not start Web Audio");
+  assert.equal(created.contexts.length, 0);
+  assert.equal(created.oscillators.length, 0);
+
+  const derivedLowBoundary = 440 * 2 ** Math.log2(20 / 440);
+  const derivedHighBoundary = 440 * 2 ** Math.log2(20_000 / 440);
+  const lowBoundary = await audio.trigger({ frequency: derivedLowBoundary, gain: 0.2 });
+  const highBoundary = await audio.trigger({ frequency: derivedHighBoundary, gain: 0.2 });
+  assert.equal(lowBoundary.scheduled, true);
+  assert.equal(highBoundary.scheduled, true);
+  assert.deepEqual(
+    created.oscillators.slice(-2).map(({ frequency }) => frequency.value),
+    [derivedLowBoundary, derivedHighBoundary],
+  );
+});
+
 test("Graph Synth closes and detaches a partially built output graph", async () => {
   const { runtime, created } = makeRuntime();
   const BaseContext = runtime.AudioContext;
@@ -497,20 +523,24 @@ test("Graph Synth silence cancels future voices and fades active voices", async 
   assert.ok(active.filter.disconnectCount > 0);
 });
 
-test("Graph Synth caps started voices without leaving stolen sources live", async () => {
+test("Graph Synth thins overflow without hard-cutting a live oscillator", async () => {
   const { runtime, created } = makeRuntime();
   const audio = new GraphSynthAudio(runtime);
   await audio.start();
   assert.equal(MAX_GRAPH_SYNTH_ACTIVE_VOICES, 64);
+  let overflow;
   for (let index = 0; index <= MAX_GRAPH_SYNTH_ACTIVE_VOICES; index += 1) {
-    await audio.trigger({ frequency: 80 + index, gain: 0.1 }, {
+    overflow = await audio.trigger({ frequency: 80 + index, gain: 0.1 }, {
       startAt: 1,
       decaySeconds: 1,
     });
   }
   assert.equal(audio.activeVoices.size, MAX_GRAPH_SYNTH_ACTIVE_VOICES);
-  assert.equal(created.oscillators[0].stops.at(-1), 1);
-  assert.ok(created.oscillators[0].disconnectCount > 0);
+  assert.equal(overflow.scheduled, false);
+  assert.equal(overflow.skipReason, "voice-budget");
+  assert.equal(created.oscillators.length, MAX_GRAPH_SYNTH_ACTIVE_VOICES);
+  assert.ok(created.oscillators[0].stops.at(-1) > 2);
+  assert.equal(created.oscillators[0].disconnectCount, 0);
 });
 
 test("Graph Synth keeps earlier future voices when the pending pool is full", async () => {

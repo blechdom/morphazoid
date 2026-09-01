@@ -89,10 +89,11 @@ test("lattice sample mapping keeps the recorded voice character audible", () => 
   assert.ok(mapped.tone > DEFAULT_SAMPLE_DRUM_VOICES[11].tone);
 });
 
-test("SampleDrumAudio decodes samples once and reuses AudioBuffers from memory", async () => {
+test("SampleDrumAudio reuses buffers and lets faster pitch shorten the sample", async () => {
   let contextCount = 0;
   let fetchCount = 0;
   let startCount = 0;
+  const sampleSources = [];
   const param = (value = 0) => ({
     value,
     setValueAtTime(next) { this.value = next; },
@@ -134,13 +135,18 @@ test("SampleDrumAudio decodes samples once and reuses AudioBuffers from memory",
     }
 
     createBufferSource() {
-      return node({
+      const source = node({
         playbackRate: param(1),
+        starts: [],
+        stops: [],
         start() {
           startCount += 1;
+          this.starts.push(...arguments);
         },
-        stop() {},
+        stop(time) { this.stops.push(time); },
       });
+      sampleSources.push(source);
+      return source;
     }
 
     createBiquadFilter() {
@@ -174,10 +180,16 @@ test("SampleDrumAudio decodes samples once and reuses AudioBuffers from memory",
   });
   const voice = DEFAULT_SAMPLE_DRUM_VOICES[0];
   await audio.trigger(voice);
-  await audio.trigger(voice);
+  await audio.trigger({ ...voice, pitch: 12 });
   assert.equal(contextCount, 1);
   assert.equal(fetchCount, 1);
   assert.equal(startCount, 2);
+  assert.equal(sampleSources[0].playbackRate.value, 1);
+  assert.equal(sampleSources[1].playbackRate.value, 2);
+  assert.ok(
+    sampleSources[1].stops[0] < sampleSources[0].stops[0],
+    "an octave-up sample should finish sooner instead of being time-stretched",
+  );
   assert.equal(audio.loadedSampleCount, 1);
   assert.equal(await audio.preload([voice, voice]), 1);
   assert.equal(fetchCount, 1);

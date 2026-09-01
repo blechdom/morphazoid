@@ -348,6 +348,12 @@ test("FM drum hits follow absolute audio time and reuse one noise buffer", async
   assert.deepEqual(oscillators.slice(4, 6).map(({ starts }) => starts), [[5.075], [5.075]]);
   assert.deepEqual(noiseSources[2].starts, [5.075]);
 
+  await audio.trigger({ ...noisyVoice, frequency: noisyVoice.frequency * 2 }, { startAt: 5.2 });
+  const unpitchedDuration = oscillators[0].stops[0] - oscillators[0].starts[0];
+  const octaveUpDuration = oscillators[6].stops[0] - oscillators[6].starts[0];
+  assert.ok(Math.abs(octaveUpDuration - unpitchedDuration) < 1e-12,
+    "synth-drum pitch should not rescale its envelope duration");
+
   assert.equal(buffers.length, 1, "repeated hits should not regenerate white noise");
   assert.equal(buffers[0].frameCount, 2_500);
   assert.ok(noiseSources.every(({ buffer }) => buffer === buffers[0]));
