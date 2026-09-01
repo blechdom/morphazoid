@@ -13,6 +13,7 @@ import {
   clamp,
   clonePattern,
   cycleStepVelocity,
+  hiccupHeadFaceEffectTargets,
   hiccupHeadGeometry,
   hiccupHeadPattern,
   hiccupHeadPreset,
@@ -27,7 +28,7 @@ import {
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
   sequenceStepIntervalSeconds,
-} from "./src/hiccup-head.js?v=hiccup-head-model-20260830-8";
+} from "./src/hiccup-head.js?v=hiccup-head-model-20260831-7";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
 
@@ -207,23 +208,10 @@ function seededCheckerIndex(step, salt) {
   return (value >>> 0);
 }
 
-function randomCheckerPair(random = Math.random) {
-  const firstIndex = Math.min(
-    SKIN_CHECKER_PALETTE.length - 1,
-    Math.floor(random() * SKIN_CHECKER_PALETTE.length),
-  );
-  const secondDraw = Math.min(
-    SKIN_CHECKER_PALETTE.length - 2,
-    Math.floor(random() * (SKIN_CHECKER_PALETTE.length - 1)),
-  );
-  const secondIndex = secondDraw >= firstIndex ? secondDraw + 1 : secondDraw;
-  return Object.freeze([
-    SKIN_CHECKER_PALETTE[firstIndex],
-    SKIN_CHECKER_PALETTE[secondIndex],
-  ]);
-}
-
-const STOPPED_SKIN_CHECKER_COLORS = randomCheckerPair();
+const STOPPED_SKIN_CHECKER_COLORS = Object.freeze([
+  "rgb(22, 20, 24)",
+  "rgb(250, 246, 232)",
+]);
 
 const SEQUENCE_SKIN_CHECKER_COLORS = Object.freeze(Array.from(
   { length: HICCUP_HEAD_STEP_COUNT },
@@ -272,7 +260,8 @@ const faceEffectEnabled = Object.seal({
 });
 
 let state = hiccupHeadState("rubber-face");
-let eyebrowEmphasis = 0.32;
+const DEFAULT_EYEBROW_EMPHASIS = 0.7;
+let eyebrowEmphasis = DEFAULT_EYEBROW_EMPHASIS;
 let pattern = normalizePatternColumns(clonePattern(hiccupHeadPattern(state.patternId)));
 let currentPatternId = state.patternId;
 let sequenceLength = Math.min(16, HICCUP_HEAD_STEP_COUNT);
@@ -283,7 +272,8 @@ let activeVoiceSlot = -1;
 let voiceSlots = createDefaultVoiceSlots();
 let audioContext = null;
 let graph = null;
-let startingAudio = false;
+let audioStartupPromise = null;
+let audioGraphWarmed = false;
 let sequencePlaying = false;
 let schedulerTimer = 0;
 let manualConfigurationResetTimer = 0;
@@ -318,6 +308,7 @@ let tongueTipGeometry = null;
 let kissMarks = [];
 let kissMarkCursor = 0;
 let brushSweep = null;
+let nextBrushDirection = 1;
 let noseHonkStartedAt = -Infinity;
 const handPlacements = {
   left: { x: -0.62, y: 0.1 },
@@ -466,9 +457,6 @@ function audioConfiguration(overrides = null) {
   }
   if (!faceEffectEnabled.reverb) {
     configuration.eyeDivergence = 0;
-    configuration.eyeClosure = 0;
-    configuration.leftEyeClosure = 0;
-    configuration.rightEyeClosure = 0;
   }
   if (!faceEffectEnabled.nasal) configuration.nasalMix = 0;
   if (!faceEffectEnabled.stereo) configuration.earSpread = 0;
@@ -497,10 +485,201 @@ function toggleFaceEffect(key) {
 }
 
 function postConfiguration(overrides = null) {
+  const configuration = audioConfiguration(overrides);
   graph?.sourceNode?.port.postMessage({
     type: "configure",
-    configuration: audioConfiguration(overrides),
+    configuration,
   });
+  graph?.facePostNode?.port.postMessage({
+    type: "configure",
+    configuration,
+  });
+  updateNativeFaceEffects(configuration);
+}
+
+function startOutputPrimer(context) {
+  if (
+    typeof context?.createOscillator !== "function"
+    || typeof context?.createGain !== "function"
+    || !context.destination
+  ) return () => {};
+  try {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 23;
+    // Non-zero audio wakes sleeping phone/Bluetooth routes; 23 Hz at -94 dB
+    // remains inaudible and is removed before transport begins.
+    gain.gain.value = 0.00002;
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    let stopped = false;
+    return () => {
+      if (stopped) return;
+      stopped = true;
+      const stopTime = context.currentTime + 0.025;
+      try {
+        gain.gain.setValueAtTime(gain.gain.value, context.currentTime);
+        gain.gain.linearRampToValueAtTime(0, stopTime);
+        oscillator.stop(stopTime + 0.005);
+      } catch {
+        try { oscillator.stop(); } catch { /* already stopped */ }
+      }
+      oscillator.onended = () => {
+        try { oscillator.disconnect(); } catch { /* already disconnected */ }
+        try { gain.disconnect(); } catch { /* already disconnected */ }
+      };
+    };
+  } catch {
+    return () => {};
+  }
+}
+
+const WARM_ROOM_IMPULSE_URLS = Object.freeze({
+  plate: new URL(
+    "./assets/audio/hiccup-head-emt140-warm-plate.wav?v=hiccup-head-ir-20260831-2",
+    import.meta.url,
+  ),
+  cathedral: new URL(
+    "./assets/audio/hiccup-head-york-minster-warm-hall.wav?v=hiccup-head-ir-20260831-2",
+    import.meta.url,
+  ),
+});
+
+let warmRoomImpulseDataPromise = null;
+const WARM_ROOM_FETCH_TIMEOUT_MS = 4_000;
+
+async function fetchWarmRoomImpulse(roomId, url) {
+  const controller = typeof globalThis.AbortController === "function"
+    ? new globalThis.AbortController()
+    : null;
+  let timeoutId = 0;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller?.abort();
+      reject(new Error(`${roomId} reverb took too long to load.`));
+    }, WARM_ROOM_FETCH_TIMEOUT_MS);
+  });
+  try {
+    const response = await Promise.race([
+      fetch(url, controller ? { signal: controller.signal } : undefined),
+      timeout,
+    ]);
+    if (!response.ok) throw new Error(`Could not load ${roomId} reverb (${response.status}).`);
+    return [roomId, await response.arrayBuffer()];
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function preloadWarmRoomImpulseData() {
+  if (!warmRoomImpulseDataPromise) {
+    const attempt = Promise.all(
+      Object.entries(WARM_ROOM_IMPULSE_URLS).map(
+        ([roomId, url]) => fetchWarmRoomImpulse(roomId, url),
+      ),
+    ).then((entries) => Object.fromEntries(entries));
+    warmRoomImpulseDataPromise = attempt;
+    // A transient cache/network failure must not poison audio for the whole
+    // page lifetime. A later graph initialization gets a fresh bounded retry.
+    void attempt.catch(() => {
+      if (warmRoomImpulseDataPromise === attempt) warmRoomImpulseDataPromise = null;
+    });
+  }
+  return warmRoomImpulseDataPromise;
+}
+
+async function decodeWarmRoomBuffers(context) {
+  if (typeof context?.decodeAudioData !== "function" || typeof fetch !== "function") {
+    return null;
+  }
+  try {
+    const encoded = await preloadWarmRoomImpulseData();
+    const [plate, cathedral] = await Promise.all([
+      context.decodeAudioData(encoded.plate.slice(0)),
+      context.decodeAudioData(encoded.cathedral.slice(0)),
+    ]);
+    return { cathedral, plate };
+  } catch (error) {
+    console.warn("Hiccup Head warm room impulses were unavailable; keeping the pupil room dry.", error);
+    return null;
+  }
+}
+
+function glideAudioParam(parameter, value, context, timeConstant = 0.025) {
+  if (!parameter || !Number.isFinite(value) || !context) return;
+  const now = context.currentTime;
+  if (typeof parameter.cancelScheduledValues === "function") {
+    parameter.cancelScheduledValues(now);
+  }
+  if (typeof parameter.setTargetAtTime === "function") {
+    parameter.setTargetAtTime(value, now, timeConstant);
+  } else {
+    parameter.value = value;
+  }
+}
+
+function updateNativeFaceEffects(configuration, targetGraph = graph) {
+  const effects = targetGraph?.nativeFaceEffects;
+  const context = targetGraph?.context;
+  if (!effects || !context) return;
+  const targets = hiccupHeadFaceEffectTargets(configuration, faceEffectEnabled);
+  glideAudioParam(effects.roomDryGain?.gain, targets.roomDryGain, context, 0.025);
+  glideAudioParam(effects.plateSendGain?.gain, targets.plateSendGain, context, 0.03);
+  glideAudioParam(
+    effects.cathedralSendGain?.gain,
+    targets.cathedralSendGain,
+    context,
+    0.04,
+  );
+  glideAudioParam(effects.plateReturnGain?.gain, targets.roomWetGate, context, 0.02);
+  glideAudioParam(effects.cathedralReturnGain?.gain, targets.roomWetGate, context, 0.02);
+  // One in-series filter is the complete left-lid sweep. There is no parallel
+  // dry copy to comb against it, so moving the lid cannot sound like a flange.
+  glideAudioParam(effects.highpass?.frequency, targets.highpassCutoffHz, context, 0.016);
+  glideAudioParam(effects.highpass?.Q, targets.highpassQ, context, 0.02);
+  glideAudioParam(
+    effects.highpassMakeupGain?.gain,
+    targets.highpassMakeupGain,
+    context,
+    0.018,
+  );
+}
+
+function clearNativeRoomHistory(targetGraph = graph) {
+  const effects = targetGraph?.nativeFaceEffects;
+  const context = targetGraph?.context;
+  if (!effects || !context || typeof context.createConvolver !== "function") return;
+  for (const roomId of ["plate", "cathedral"]) {
+    const convolverKey = `${roomId}Convolver`;
+    const sendGain = effects[`${roomId}SendGain`];
+    const returnFilter = effects[`${roomId}ReturnHighpass`];
+    const previous = effects[convolverKey];
+    if (!sendGain || !returnFilter || !previous?.buffer) continue;
+    const replacement = context.createConvolver();
+    replacement.normalize = true;
+    replacement.buffer = previous.buffer;
+    try { sendGain.disconnect(previous); } catch { sendGain.disconnect(); }
+    try { previous.disconnect(); } catch { /* already disconnected */ }
+    sendGain.connect(replacement);
+    replacement.connect(returnFilter);
+    effects[convolverKey] = replacement;
+  }
+}
+
+async function disposeAudioGraph() {
+  const retiringGraph = graph;
+  const retiringContext = audioContext;
+  graph = null;
+  audioContext = null;
+  audioGraphWarmed = false;
+  if (!retiringGraph && !retiringContext) return;
+  retiringGraph?.sourceNode?.port.postMessage({ type: "silence" });
+  retiringGraph?.facePostNode?.port.postMessage({ type: "silence" });
+  retiringGraph?.outputPrimerStop?.();
+  retiringGraph?.releaseOutput?.();
+  try { await retiringContext?.close?.(); } catch { /* context is already closed */ }
 }
 
 async function createAudioGraph() {
@@ -508,17 +687,62 @@ async function createAudioGraph() {
   if (!Context) throw new Error("This browser does not provide Web Audio.");
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
-  await context.audioWorklet.addModule(new URL(
-    "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260831-9",
-    import.meta.url,
-  ));
+  const outputPrimerStop = startOutputPrimer(context);
+  // Resume synchronously inside the click/keypress activation. Waiting for the
+  // worklet module first can lose mobile Safari's user-activation window.
+  const earlyResume = context.resume();
+  let warmRoomBuffers = null;
+  try {
+    [, , warmRoomBuffers] = await Promise.all([
+      earlyResume,
+      context.audioWorklet.addModule(new URL(
+        "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260831-19",
+        import.meta.url,
+      )),
+      decodeWarmRoomBuffers(context),
+    ]);
+  } catch (error) {
+    outputPrimerStop();
+    try { await context.close(); } catch { /* context never fully opened */ }
+    throw error;
+  }
+  let releaseOutput = null;
+  try {
+  const nativeHighpassAvailable = typeof context.createBiquadFilter === "function";
+  const nativeReverbAvailable = Boolean(
+    warmRoomBuffers?.plate && warmRoomBuffers?.cathedral,
+  ) && [
+    "createBiquadFilter",
+    "createConvolver",
+    "createGain",
+  ].every((method) => typeof context[method] === "function");
   const sourceNode = new AudioWorkletNode(context, "hiccup-head-physical-model", {
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [2],
     channelCount: 2,
     channelCountMode: "explicit",
-    processorOptions: { configuration: audioConfiguration() },
+    processorOptions: {
+      configuration: audioConfiguration(),
+      externalFuzz: true,
+      // The dedicated post-room worklet owns the compatibility sweep when a
+      // native Biquad is unavailable, so filtering never moves before fuzz.
+      externalHighpass: true,
+      // If captured IRs cannot load, stay clean and dry. The rejected
+      // feedback/all-pass fallback sounded metallic and delay-like.
+      externalReverb: true,
+    },
+  });
+  const facePostNode = new AudioWorkletNode(context, "hiccup-head-face-post", {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    outputChannelCount: [2],
+    channelCount: 2,
+    channelCountMode: "explicit",
+    processorOptions: {
+      configuration: audioConfiguration(),
+      externalHighpass: nativeHighpassAvailable,
+    },
   });
   const masterGain = context.createGain();
   const compressor = context.createDynamicsCompressor();
@@ -531,11 +755,110 @@ async function createAudioGraph() {
   compressor.release.value = 0.16;
   analyser.fftSize = 1024;
   analyser.smoothingTimeConstant = 0.5;
-  sourceNode.connect(masterGain);
+  let nativeFaceEffects = {};
+  let postRoomNode = sourceNode;
+  if (nativeReverbAvailable) {
+    const roomDryGain = context.createGain();
+    const roomBus = context.createGain();
+    const plateSendGain = context.createGain();
+    const plateConvolver = context.createConvolver();
+    const plateReturnHighpass = context.createBiquadFilter();
+    const plateReturnLowpass = context.createBiquadFilter();
+    const plateReturnGain = context.createGain();
+    const cathedralSendGain = context.createGain();
+    const cathedralConvolver = context.createConvolver();
+    const cathedralReturnHighpass = context.createBiquadFilter();
+    const cathedralReturnLowpass = context.createBiquadFilter();
+    const cathedralReturnGain = context.createGain();
+
+    roomDryGain.gain.value = 1;
+    roomBus.gain.value = 1;
+    plateSendGain.gain.value = 0;
+    plateReturnGain.gain.value = 0;
+    cathedralSendGain.gain.value = 0;
+    cathedralReturnGain.gain.value = 0;
+    plateConvolver.normalize = true;
+    plateConvolver.buffer = warmRoomBuffers.plate;
+    cathedralConvolver.normalize = true;
+    cathedralConvolver.buffer = warmRoomBuffers.cathedral;
+    plateReturnHighpass.type = "highpass";
+    plateReturnHighpass.frequency.value = 120;
+    plateReturnHighpass.Q.value = 0.45;
+    plateReturnLowpass.type = "lowpass";
+    plateReturnLowpass.frequency.value = 7_200;
+    plateReturnLowpass.Q.value = 0.45;
+    cathedralReturnHighpass.type = "highpass";
+    cathedralReturnHighpass.frequency.value = 100;
+    cathedralReturnHighpass.Q.value = 0.45;
+    cathedralReturnLowpass.type = "lowpass";
+    cathedralReturnLowpass.frequency.value = 5_800;
+    cathedralReturnLowpass.Q.value = 0.45;
+
+    sourceNode.connect(roomDryGain);
+    roomDryGain.connect(roomBus);
+    sourceNode.connect(plateSendGain);
+    plateSendGain.connect(plateConvolver);
+    plateConvolver.connect(plateReturnHighpass);
+    plateReturnHighpass.connect(plateReturnLowpass);
+    plateReturnLowpass.connect(plateReturnGain);
+    plateReturnGain.connect(roomBus);
+    sourceNode.connect(cathedralSendGain);
+    cathedralSendGain.connect(cathedralConvolver);
+    cathedralConvolver.connect(cathedralReturnHighpass);
+    cathedralReturnHighpass.connect(cathedralReturnLowpass);
+    cathedralReturnLowpass.connect(cathedralReturnGain);
+    cathedralReturnGain.connect(roomBus);
+
+    postRoomNode = roomBus;
+    nativeFaceEffects = {
+      cathedralConvolver,
+      cathedralReturnGain,
+      cathedralReturnHighpass,
+      cathedralReturnLowpass,
+      cathedralSendGain,
+      plateConvolver,
+      plateReturnGain,
+      plateReturnHighpass,
+      plateReturnLowpass,
+      plateSendGain,
+      roomBus,
+      roomDryGain,
+    };
+  }
+  // Fuzz belongs after the pupil room. Closing the right lid roughens the
+  // complete dry + reverberant face, with no phase-offset parallel branch.
+  postRoomNode.connect(facePostNode);
+  postRoomNode = facePostNode;
+  if (nativeHighpassAvailable) {
+    const highpass = context.createBiquadFilter();
+    const highpassMakeupGain = context.createGain();
+    highpass.type = "highpass";
+    highpass.frequency.value = 30;
+    highpass.Q.value = 0.707;
+    highpassMakeupGain.gain.value = 1;
+    postRoomNode.connect(highpass);
+    highpass.connect(highpassMakeupGain);
+    highpassMakeupGain.connect(masterGain);
+    nativeFaceEffects.highpass = highpass;
+    nativeFaceEffects.highpassMakeupGain = highpassMakeupGain;
+  } else {
+    // The worklet owns a compact fallback sweep for older Web Audio engines.
+    postRoomNode.connect(masterGain);
+  }
   masterGain.connect(compressor);
   compressor.connect(analyser);
-  const releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
+  releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
+  let warmupSerial = 0;
+  const pendingWarmups = new Map();
   sourceNode.port.onmessage = (event) => {
+    if (event.data?.type === "render-ready") {
+      const pending = pendingWarmups.get(event.data.token);
+      if (pending) {
+        pendingWarmups.delete(event.data.token);
+        pending.resolve(event.data);
+      }
+      return;
+    }
     if (event.data?.type !== "telemetry") return;
     telemetry = { ...telemetry, ...event.data };
     if (
@@ -551,13 +874,53 @@ async function createAudioGraph() {
     "error",
     "The Hiccup Head physical model stopped unexpectedly. Reload the page to reset it.",
   );
-  return { context, sourceNode, masterGain, compressor, analyser, releaseOutput };
+  facePostNode.onprocessorerror = () => setAudioPresentation(
+    "error",
+    "The Hiccup Head face effects stopped unexpectedly. Reload the page to reset them.",
+  );
+  const awaitRenderReady = (timeoutMilliseconds = 2_500) => {
+    const token = `hiccup-ready-${Date.now()}-${warmupSerial += 1}`;
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        pendingWarmups.delete(token);
+        reject(new Error("The audio renderer did not become ready in time."));
+      }, timeoutMilliseconds);
+      pendingWarmups.set(token, {
+        resolve: (message) => {
+          clearTimeout(timeout);
+          resolve(message);
+        },
+      });
+      sourceNode.port.postMessage({ type: "warmup", token });
+    });
+  };
+  context.addEventListener?.("statechange", () => {
+    if (context.state !== "running") audioGraphWarmed = false;
+  });
+  const createdGraph = {
+    context,
+    sourceNode,
+    facePostNode,
+    masterGain,
+    compressor,
+    analyser,
+    nativeFaceEffects,
+    releaseOutput,
+    outputPrimerStop,
+    awaitRenderReady,
+  };
+  updateNativeFaceEffects(audioConfiguration(), createdGraph);
+  return createdGraph;
+  } catch (error) {
+    outputPrimerStop();
+    releaseOutput?.();
+    try { await context.close(); } catch { /* failed graph is already closed */ }
+    throw error;
+  }
 }
 
-async function ensureAudio() {
-  if (startingAudio) return false;
+async function initializeAudio() {
   if (!graph) {
-    startingAudio = true;
     setAudioPresentation("starting");
     try {
       graph = await createAudioGraph();
@@ -565,29 +928,58 @@ async function ensureAudio() {
     } catch (error) {
       console.error(error);
       setAudioPresentation("error", error?.message || "Unable to start Hiccup Head audio.");
-      startingAudio = false;
       return false;
     }
-    startingAudio = false;
   }
   try {
+    const needsWarmup = !audioGraphWarmed || audioContext.state !== "running";
+    if (needsWarmup && !graph.outputPrimerStop) {
+      graph.outputPrimerStop = startOutputPrimer(audioContext);
+    }
     unlockAudioContext(audioContext);
     await audioContext.resume();
     postConfiguration();
+    if (needsWarmup) {
+      // A running state alone is not proof that the render thread has consumed
+      // audio. The worklet acknowledges only after 40 ms of actual quanta.
+      await graph.awaitRenderReady();
+      if (audioContext.state !== "running") {
+        throw new Error("The browser suspended audio while it was starting.");
+      }
+      const deviceLatency = Number(audioContext.baseLatency || 0)
+        + Number(audioContext.outputLatency || 0);
+      const outputSettleMilliseconds = clamp(deviceLatency * 1_250 + 45, 65, 420);
+      await new Promise((resolve) => setTimeout(resolve, outputSettleMilliseconds));
+      graph.outputPrimerStop?.();
+      graph.outputPrimerStop = null;
+      audioGraphWarmed = true;
+    }
     setAudioPresentation("on");
     return true;
   } catch (error) {
+    graph?.outputPrimerStop?.();
+    if (graph) graph.outputPrimerStop = null;
     console.error(error);
     setAudioPresentation("error", error?.message || "The browser blocked audio startup.");
     return false;
   }
 }
 
+function ensureAudio() {
+  // Audio button, play button, pads, and face triggers may arrive during the
+  // same cold start. They all await one initialization instead of the later
+  // request being discarded by a `startingAudio` boolean.
+  if (audioStartupPromise) return audioStartupPromise;
+  audioStartupPromise = initializeAudio().finally(() => {
+    audioStartupPromise = null;
+  });
+  return audioStartupPromise;
+}
+
 async function toggleAudio() {
   if (audioContext?.state === "running") {
     stopSequence();
-    graph.sourceNode.port.postMessage({ type: "silence" });
-    await audioContext.suspend();
+    await disposeAudioGraph();
     setAudioPresentation("off");
     announce("Hiccup Head audio off");
     return;
@@ -733,7 +1125,10 @@ function postStrike(
     brightness: clamp(Number(rawToothTine.brightness) || 0, 0, 1),
     toothIndex: Math.round(clamp(Number(rawToothTine.toothIndex) || 0, 0, 11)),
   } : null;
-  const safeEventDetails = toothTine ? { toothTine } : null;
+  const brushDirection = eventDetails?.brushDirection === -1 ? -1 : 1;
+  const safeEventDetails = toothTine || soundId === "brush"
+    ? { ...(toothTine ? { toothTine } : {}), ...(soundId === "brush" ? { brushDirection } : {}) }
+    : null;
   graph.sourceNode.port.postMessage({
     type: "strike",
     soundId: hiccupHeadSound(soundId).id,
@@ -763,23 +1158,29 @@ async function triggerSound(soundId, velocity = 1, configuration = null, eventDe
     ?? (sound.id === "smack" ? handStrikeConfiguration("right") : null);
   const strikeConfiguration = transientConfiguration ?? state;
   const voiceChoice = voiceChoiceForSound(sound.id, performance.now());
-  postStrike(sound.id, velocity, 0, null, strikeConfiguration, voiceChoice, eventDetails);
+  const brushDirection = sound.id === "brush" ? nextBrushDirection : 1;
+  if (sound.id === "brush") nextBrushDirection *= -1;
+  const strikeEventDetails = sound.id === "brush"
+    ? { ...(eventDetails ?? {}), brushDirection }
+    : eventDetails;
+  postStrike(sound.id, velocity, 0, null, strikeConfiguration, voiceChoice, strikeEventDetails);
   if (sound.id === "brush") {
-    // Twelve sample-addressed tooth contacts make one rising dry-wood gliss;
-    // only the BRUSH event owns the UI animation.
-    for (let index = 0; index < TOOTH_TINE_PROFILES.length; index += 1) {
-      const profile = TOOTH_TINE_PROFILES[index];
+    // The tooth contacts and visible brush alternate direction together.
+    const traversal = TOOTH_TINE_PROFILES.map((profile, toothIndex) => ({ profile, toothIndex }));
+    if (brushDirection < 0) traversal.reverse();
+    for (let travelIndex = 0; travelIndex < traversal.length; travelIndex += 1) {
+      const { profile, toothIndex } = traversal[travelIndex];
       graph.sourceNode.port.postMessage({
         type: "strike",
         soundId: "tlik",
-        velocity: clamp(velocity * (0.5 + index * 0.008), 0.01, 0.72),
-        delaySeconds: 0.025 + index * 0.044,
+        velocity: clamp(velocity * (0.5 + travelIndex * 0.008), 0.01, 0.72),
+        delaySeconds: 0.025 + travelIndex * 0.044,
         configuration: audioConfiguration(strikeConfiguration),
         toothTine: {
           frequencyHz: profile.frequencyHz,
-          position: 0.28 + (index % 4) * 0.13,
+          position: 0.28 + (toothIndex % 4) * 0.13,
           brightness: profile.brightness,
-          toothIndex: index,
+          toothIndex,
         },
       });
     }
@@ -796,49 +1197,54 @@ async function triggerSound(soundId, velocity = 1, configuration = null, eventDe
 }
 
 async function triggerNoseHonk() {
-  noseHonkStartedAt = performance.now();
   if (!(await ensureAudio())) return false;
-  const firstHonkConfiguration = sanitizeHiccupHeadState({
+  noseHonkStartedAt = performance.now();
+  const duckConfiguration = sanitizeHiccupHeadState({
     ...state,
-    lungPressure: Math.max(0.94, state.lungPressure),
-    nasalMix: 0.88,
-    mouthOpening: 0.08,
-    lipRounding: 1.08,
+    lungPressure: 0.96,
+    nasalMix: 0.82,
+    mouthOpening: 0.09,
+    lipRounding: 0.08,
+    lipTension: 0.78,
+    cheekVolume: 0.38,
     cheekTension: 0.82,
-    tractLengthM: 0.19,
-    dooPitch: 7,
-    decay: 0.48,
+    tonguePosition: 1.2,
+    tongueCurl: 0.38,
+    tractLengthM: 0.125,
+    silliness: 0.86,
+    decay: 0.68,
   }, state);
-  const secondHonkConfiguration = sanitizeHiccupHeadState({
-    ...firstHonkConfiguration,
-    tractLengthM: 0.235,
-    lipRounding: 0.9,
-    dooPitch: -2,
-    decay: 0.62,
-  }, firstHonkConfiguration);
-  const voiceChoice = voiceChoiceForSound("doo", performance.now());
-  const honkVoice = voiceChoice?.voice ? sanitizeHiccupHeadVoice({
-    ...voiceChoice.voice,
-    breathiness: 0.06,
-    roughness: 0.38,
-    subharmonicMix: 0.16,
-    vibratoDepthSemitones: 0.12,
-    tractScale: 0.94,
-  }, voiceChoice.voice) : null;
-  for (const [delaySeconds, velocity, configuration] of [
-    [0, 0.9, firstHonkConfiguration],
-    [0.105, 0.78, secondHonkConfiguration],
-  ]) {
-    graph.sourceNode.port.postMessage({
-      type: "strike",
-      soundId: "doo",
-      velocity,
-      delaySeconds,
-      configuration: audioConfiguration(configuration),
-      ...(honkVoice ? { voice: honkVoice } : {}),
-    });
-  }
-  announce("HONK-ONK: a two-stage closed-mouth bicycle and goose horn");
+  const duckVoice = sanitizeHiccupHeadVoice({
+    characterId: "reed",
+    pitchOffsetSemitones: 12,
+    breathiness: 0.08,
+    roughness: 0.52,
+    subharmonicMix: 0.2,
+    vibratoRateHz: 2.8,
+    vibratoDepthSemitones: 0.06,
+    tractScale: 0.82,
+    modulation: {
+      source: "triangle",
+      target: "pitch",
+      depth: 0.36,
+      rateHz: 2.2,
+      phase: 0.5,
+    },
+  });
+  graph.sourceNode.port.postMessage({
+    type: "strike",
+    soundId: "hiccup",
+    velocity: 0.78,
+    delaySeconds: 0,
+    configuration: audioConfiguration(duckConfiguration),
+    voice: duckVoice,
+  });
+  clearTimeout(manualConfigurationResetTimer);
+  manualConfigurationResetTimer = setTimeout(() => {
+    manualConfigurationResetTimer = 0;
+    postConfiguration();
+  }, 320);
+  announce("QUACK: one short nasal duck call");
   return true;
 }
 
@@ -923,10 +1329,18 @@ function browSequenceGain(step, leftBrow, rightBrow, amount = eyebrowEmphasis) {
   const rightOffset = rightPeriod * 0.5;
   const rightHit = rightPeriod > 0
     && ((oneBasedStep - rightOffset) % rightPeriod + rightPeriod) % rightPeriod === 0;
-  // Keep accented hits at their programmed velocity and lower the surrounding
-  // steps. This creates audible emphasis even when an accent note is already
-  // at velocity 1 and cannot be boosted further without clipping.
-  return leftHit || rightHit ? 1 : 1 - clamp(amount, 0, 0.75) * 0.82;
+  // Brows change groove chiefly by ducking the spaces around their anchors.
+  // This avoids clipping already-loud programmed cells while making the chosen
+  // on/off-beat pulse unmistakable. Both brows down is a true unity bypass.
+  const emphasis = clamp(amount, 0, 0.9);
+  if (leftPeriod === 0 && rightPeriod === 0) return 1;
+  // Count the two masks independently. A right-brow offbeat can land on a
+  // left-brow anchor at several snapped period combinations; collapsing the
+  // pair with `leftHit || rightHit` made the right brow audibly disappear.
+  const hitCount = Number(leftHit) + Number(rightHit);
+  return hitCount > 0
+    ? (1 + emphasis * 0.32) ** hitCount
+    : 10 ** (-12 * emphasis / 20);
 }
 
 function scheduleSequence() {
@@ -1002,7 +1416,10 @@ async function startSequence({ restart = false } = {}) {
   if (restart || !sequencePlaying) {
     sequenceStep = 0;
     absoluteStep = 0;
-    nextStepTime = audioContext.currentTime + 0.055;
+    // The graph has already warmed in ensureAudio. This lead supplies the
+    // first physical closure with its full preparation interval while keeping
+    // the audible strike and painted step locked to the same timestamp.
+    nextStepTime = audioContext.currentTime + 0.072;
   }
   sequencePlaying = true;
   $("playButton").setAttribute("aria-pressed", "true");
@@ -1805,8 +2222,20 @@ function resetAll() {
   manualConfigurationResetTimer = 0;
   state = withPersistentFaceEffects({ ...HICCUP_HEAD_DEFAULTS }, state);
   setPreset(HICCUP_HEAD_DEFAULTS.presetId, { announceState: false });
+  state.leftBrow = HICCUP_HEAD_DEFAULTS.leftBrow;
+  state.rightBrow = HICCUP_HEAD_DEFAULTS.rightBrow;
+  eyebrowEmphasis = DEFAULT_EYEBROW_EMPHASIS;
+  if ($("eyebrowEmphasis")) $("eyebrowEmphasis").value = String(eyebrowEmphasis);
+  if ($("eyebrowEmphasisOut")) {
+    $("eyebrowEmphasisOut").value = formatPercent(eyebrowEmphasis);
+    $("eyebrowEmphasisOut").textContent = formatPercent(eyebrowEmphasis);
+  }
+  syncControls();
+  postConfiguration();
   setCurrentPattern(HICCUP_HEAD_DEFAULTS.patternId, { announceState: false });
   graph?.sourceNode?.port.postMessage({ type: "silence" });
+  graph?.facePostNode?.port.postMessage({ type: "silence" });
+  clearNativeRoomHistory();
   soundAnimation = null;
   kissMarks = [];
   brushSweep = null;
@@ -1837,6 +2266,14 @@ function resetAll() {
 function resetFaceEffects() {
   const neutral = HICCUP_HEAD_DEFAULTS;
   for (const key of PRESET_INDEPENDENT_EFFECT_PARAMETERS) state[key] = neutral[key];
+  state.leftBrow = neutral.leftBrow;
+  state.rightBrow = neutral.rightBrow;
+  eyebrowEmphasis = DEFAULT_EYEBROW_EMPHASIS;
+  if ($("eyebrowEmphasis")) $("eyebrowEmphasis").value = String(eyebrowEmphasis);
+  if ($("eyebrowEmphasisOut")) {
+    $("eyebrowEmphasisOut").value = formatPercent(eyebrowEmphasis);
+    $("eyebrowEmphasisOut").textContent = formatPercent(eyebrowEmphasis);
+  }
   // Reset returns the physical controls to useful neutral positions. Effects
   // remain enabled because this single reset button is also the only FX UI.
   state.leftHairLength = Math.max(state.leftHairLength, 0.34);
@@ -2203,7 +2640,11 @@ function flushVisualQueue(now) {
       kissMarks.push({ x, y, born: now, hue: (kissMarkCursor * 47) % 110 });
       kissMarks = kissMarks.slice(-10);
     }
-    if (sound.id === "brush") brushSweep = { born: now, duration: 520 };
+    if (sound.id === "brush") brushSweep = {
+      born: now,
+      duration: 520,
+      direction: event.eventDetails?.brushDirection === -1 ? -1 : 1,
+    };
     activeMouthSoundId = sound.id;
     flashSound(sound.id, event.velocity, event.voiceChoice);
   }
@@ -2217,6 +2658,10 @@ function morphDisplayedPose(target, now, isSpeaking) {
   const next = { ...target };
   for (const [key, value] of Object.entries(target)) {
     if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    if (key === "leftBrow" || key === "rightBrow") {
+      next[key] = normalizedBrowValue(value);
+      continue;
+    }
     const previous = Number(displayedPose[key]);
     next[key] = Number.isFinite(previous) ? previous + (value - previous) * amount : value;
   }
@@ -2679,9 +3124,12 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   const gazePhase = prefersReducedMotion ? 0.72 : now * 0.00125;
   for (const side of [-1, 1]) {
     const leftEye = side < 0;
-    const eyeClosure = clamp(Number(
+    const independentEyeClosure = Number(
       leftEye ? pose.leftEyeClosure : pose.rightEyeClosure,
-    ) || Number(pose.eyeClosure) || 0);
+    );
+    const eyeClosure = clamp(Number.isFinite(independentEyeClosure)
+      ? independentEyeClosure
+      : Number(pose.eyeClosure) || 0);
     const eyeX = cx + side * rx * 0.34;
     const eyeY = featureY - ry * 0.43;
     const eyeRadius = Math.min(rx, ry) * 0.235 * (1 + goofballEnergy * 0.06);
@@ -2808,32 +3256,19 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
 
   // One oversized glossy clown-red circle exposes the live nasal resonator.
   const noseX = cx + Math.sin(gazePhase * 0.7) * rx * goofballEnergy * 0.008;
-  const noseY = featureY - ry * (0.025 + pose.nasalMix * 0.34);
   const noseHonkAge = now - noseHonkStartedAt;
-  const noseHonkAmount = noseHonkAge >= 0 && noseHonkAge < 460
-    ? Math.sin((noseHonkAge / 460) * Math.PI) ** 0.7
+  const noseHonkAmount = noseHonkAge >= 0 && noseHonkAge < 320
+    ? Math.sin((noseHonkAge / 320) * Math.PI) ** 0.7
     : 0;
+  // Lifting the red nose opens the nasal branch, whether changed by mutation,
+  // a preset, or direct manipulation.
+  const noseY = featureY + ry * 0.045 - ry * pose.nasalMix * 0.32
+    - ry * noseHonkAmount * 0.14;
   const noseRadius = Math.min(rx, ry)
     * (0.135 + pose.nasalMix * 0.022)
     * (1 + noseHonkAmount * 0.28);
   context.strokeStyle = `rgba(101, 223, 232, ${0.22 + pose.nasalMix * 0.5})`;
   context.lineWidth = 1.35;
-  if (pose.nasalMix > 0.02) {
-    context.save();
-    context.globalAlpha = 0.2 + pose.nasalMix * 0.42;
-    context.beginPath();
-    context.moveTo(cx, mouthY - opening * 0.58);
-    context.bezierCurveTo(
-      cx + rx * 0.14,
-      mouthY - ry * 0.18,
-      noseX + noseRadius * 0.72,
-      noseY + noseRadius * 0.7,
-      noseX + noseRadius * 0.36,
-      noseY,
-    );
-    context.stroke();
-    context.restore();
-  }
   context.beginPath();
   context.moveTo(cx - rx * 0.015, featureY - ry * 0.42);
   context.bezierCurveTo(
@@ -2977,14 +3412,12 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     // pressure build-up, without inventing a second visual mouth layer.
     liveOpening *= clamp(0.06 + physicalLipAperture * 1.3, 0.06, 1.55);
   }
-  const noseClearanceOpening = Math.max(
-    ry * 0.045,
-    mouthY - (noseY + noseRadius * 1.12),
-  );
+  // Mouth aperture follows only mouth/lip articulation. Nose size, nasal mix,
+  // and the quack bounce never clamp or otherwise move the mouth.
   liveOpening = clamp(
     liveOpening,
     Math.max(1.2, ry * 0.004),
-    Math.min(ry * 0.56, noseClearanceOpening),
+    ry * 0.56,
   );
 
   const lipRimWidth = clamp(Math.min(rx, ry) * 0.04, 5, 10);
@@ -3249,7 +3682,7 @@ function drawHotspot(context, hotspot, active) {
   context.stroke();
   context.shadowBlur = 0;
 
-  if (["slap", "smack", "kiss"].includes(hotspot.soundId)) {
+  if (["slap", "smack", "kiss", "brush"].includes(hotspot.soundId)) {
     context.strokeStyle = "rgba(45, 17, 28, 0.92)";
     context.lineWidth = Math.max(1.2, hotspot.r * 0.16);
     context.lineCap = "round";
@@ -3259,6 +3692,13 @@ function drawHotspot(context, hotspot, active) {
       context.quadraticCurveTo(hotspot.x - hotspot.r * 0.2, hotspot.y - hotspot.r * 0.5, hotspot.x, hotspot.y - hotspot.r * 0.08);
       context.quadraticCurveTo(hotspot.x + hotspot.r * 0.2, hotspot.y - hotspot.r * 0.5, hotspot.x + hotspot.r * 0.58, hotspot.y);
       context.quadraticCurveTo(hotspot.x, hotspot.y + hotspot.r * 0.58, hotspot.x - hotspot.r * 0.58, hotspot.y);
+    } else if (hotspot.soundId === "brush") {
+      context.moveTo(hotspot.x - hotspot.r * 0.58, hotspot.y + hotspot.r * 0.34);
+      context.lineTo(hotspot.x + hotspot.r * 0.54, hotspot.y - hotspot.r * 0.34);
+      for (const offset of [-0.28, 0, 0.28]) {
+        context.moveTo(hotspot.x - hotspot.r * (0.5 - offset), hotspot.y + hotspot.r * 0.17);
+        context.lineTo(hotspot.x - hotspot.r * (0.34 - offset), hotspot.y + hotspot.r * 0.48);
+      }
     } else {
       context.arc(hotspot.x, hotspot.y + hotspot.r * 0.08, hotspot.r * 0.34, 0, Math.PI * 2);
       for (const finger of [-0.3, 0, 0.3]) {
@@ -3335,12 +3775,14 @@ function drawBrushSweep(context, now) {
   }
   const first = toothTines[0];
   const last = toothTines.at(-1);
-  const x = first.x + (last.x - first.x) * phase;
+  const travelPhase = brushSweep.direction < 0 ? 1 - phase : phase;
+  const x = first.x + (last.x - first.x) * travelPhase;
   const y = first.y - first.height * 0.72;
   const brushLength = Math.max(38, Math.abs(last.x - first.x) * 0.42);
   context.save();
   context.translate(x, y);
-  context.rotate(-0.28 + Math.sin(phase * Math.PI) * 0.18);
+  context.rotate((brushSweep.direction < 0 ? Math.PI - 0.28 : -0.28)
+    + Math.sin(phase * Math.PI) * 0.18);
   context.strokeStyle = "rgba(19, 76, 142, 0.98)";
   context.lineWidth = 9;
   context.lineCap = "round";
@@ -3412,7 +3854,7 @@ function buildHitGeometry(layout, pose) {
   const nodeRadius = clamp(Math.min(rx, ry) * 0.035, 7, 10);
   const tractLimits = HICCUP_HEAD_LIMITS.tractLengthM;
   const tractProgress = (pose.tractLengthM - tractLimits[0]) / Math.max(0.001, tractLimits[1] - tractLimits[0]);
-  const noseY = featureY - ry * (0.025 + pose.nasalMix * 0.34);
+  const noseY = featureY + ry * 0.045 - ry * pose.nasalMix * 0.32;
   const noseRadius = Math.min(rx, ry) * (0.135 + pose.nasalMix * 0.022);
   const visibleEarSpread = Math.max(HICCUP_HEAD_DEFAULTS.earSpread, pose.earSpread);
   const earOffset = rx * (0.88 + visibleEarSpread * 0.64);
@@ -3439,8 +3881,8 @@ function buildHitGeometry(layout, pose) {
     { id: "right-hair", key: "rightHairLength", lengthKey: "rightHairLength", angleKey: "rightHairAngle", label: "RIGHT HAIR 2D", color: "#bb8cff", x: rightSideHair.tipX, y: rightSideHair.tipY, r: nodeRadius * 1.42, feature: "hair", hairSide: 1, labelSide: 1 },
     { id: "left-eye", key: "eyeDivergence", label: "REVERB ↔", color: "#bb8cff", x: leftEyeX, y: featureY - ry * 0.43, r: nodeRadius * 1.35, axis: "x-invert", scale: leftEyeRx * 1.56, feature: "eye-gaze", labelSide: -1 },
     { id: "right-eye", key: "eyeDivergence", label: "REVERB ↔", color: "#bb8cff", x: rightEyeX, y: featureY - ry * 0.43, r: nodeRadius * 1.35, axis: "x", scale: rightEyeRx * 1.56, feature: "eye-gaze", labelSide: 1 },
-    { id: "left-lid", key: "leftEyeClosure", label: "DARKEN ↓", color: "#f47ead", x: cx - rx * 0.34 - eyeRadius * 0.88, y: featureY - ry * 0.43 + eyeRadius * clamp(pose.leftEyeClosure) * 0.7, r: nodeRadius * 1.08, axis: "y", scale: eyeRadius * 1.25, feature: "lid", labelSide: -1 },
-    { id: "right-lid", key: "rightEyeClosure", label: "FUZZ ↓", color: "#9d67d8", x: cx + rx * 0.34 + eyeRadius * 0.88, y: featureY - ry * 0.43 + eyeRadius * clamp(pose.rightEyeClosure) * 0.7, r: nodeRadius * 1.08, axis: "y", scale: eyeRadius * 1.25, feature: "lid", labelSide: 1 },
+    { id: "left-lid", key: "leftEyeClosure", label: "HPF ↓", color: "#f47ead", x: cx - rx * 0.34 - eyeRadius * 0.88, y: featureY - ry * 0.43 + eyeRadius * clamp(pose.leftEyeClosure) * 0.7, r: nodeRadius * 1.08, axis: "y", scale: eyeRadius * 0.7, feature: "lid", labelSide: -1 },
+    { id: "right-lid", key: "rightEyeClosure", label: "FUZZ ↓", color: "#9d67d8", x: cx + rx * 0.34 + eyeRadius * 0.88, y: featureY - ry * 0.43 + eyeRadius * clamp(pose.rightEyeClosure) * 0.7, r: nodeRadius * 1.08, axis: "y", scale: eyeRadius * 0.7, feature: "lid", labelSide: 1 },
     { id: "left-brow", key: "leftBrow", label: "ACCENT L", color: "#ff4f7e", x: leftBrow.x, y: leftBrow.y, r: nodeRadius * 1.3, axis: "y-invert", scale: Math.max(24, leftBrow.eyeRy * 1.13), step: 0.25, feature: "brow", labelSide: -1 },
     { id: "right-brow", key: "rightBrow", label: "ACCENT R", color: "#2dcbda", x: rightBrow.x, y: rightBrow.y, r: nodeRadius * 1.3, axis: "y-invert", scale: Math.max(24, rightBrow.eyeRy * 1.13), step: 0.25, feature: "brow", labelSide: 1 },
     { id: "left-cheek", key: "cheekVolume", label: "cheek volume", color: hiccupHeadSound("slap").color, x: cx - rx * (0.48 + pose.cheekVolume * 0.32), y: cy - ry * 0.05, r: nodeRadius, axis: "x-invert", scale: rx * 0.5 },
@@ -3768,12 +4210,16 @@ function drawStage(now = performance.now()) {
   // repaint at 24fps so dense sequencing cannot starve the worklet.
   if (usesCompactCanvas() && now - lastCanvasPaintAt < 1000 / 24) return;
   lastCanvasPaintAt = now;
-  // The nose horn uses the tract for audio, but its performance animation is
-  // deliberately nose-only: suppress its DOO telemetry pose while it honks.
+  // The nose quack uses the tract for audio, but its performance animation is
+  // deliberately nose-only: suppress physical telemetry while the nose bobs.
   const noseHonkVisualActive = now - noseHonkStartedAt >= 0
-    && now - noseHonkStartedAt < 720;
+    && now - noseHonkStartedAt < 360;
   const physicalStatus = noseHonkVisualActive ? null : physicalTelemetryStatus(now);
   const motion = activeMotion(now, physicalStatus);
+  if (noseHonkVisualActive) {
+    motion.doo = 0;
+    motion.hum = 0;
+  }
   let strongestId = HICCUP_HEAD_SOUNDS[0].id;
   let strongestAmount = -Infinity;
   for (const sound of HICCUP_HEAD_SOUNDS) {
@@ -4177,7 +4623,7 @@ function bindControls() {
     input.addEventListener("input", () => setStateValue(spec.key, Number(input.value)));
   }
   $("eyebrowEmphasis")?.addEventListener("input", () => {
-    eyebrowEmphasis = clamp(Number($("eyebrowEmphasis").value), 0, 0.75);
+    eyebrowEmphasis = clamp(Number($("eyebrowEmphasis").value), 0, 0.9);
     $("eyebrowEmphasisOut").value = formatPercent(eyebrowEmphasis);
     $("eyebrowEmphasisOut").textContent = formatPercent(eyebrowEmphasis);
   });
@@ -4317,9 +4763,12 @@ function bindControls() {
 }
 
 function initialize() {
+  // Begin the two small local IR requests before the first user gesture so
+  // audio activation does not wait on storage or network latency.
+  void preloadWarmRoomImpulseData().catch(() => {});
   canvas.setAttribute(
     "aria-description",
-    "Tap any colored face dot for its sound, any visible upper tooth for its short irregular dry-wood knock, or the missing front-tooth gap to whistle FWEE. Drag either pupil horizontally to move both pupils in mirrored directions and shape reverb. Drag the left lid down to darken the reverb or the right lid down for stable-volume fuzz. Drag either eyebrow among five rhythmic accent positions. Drag each side-hair tip in two dimensions.",
+    "Tap any colored face dot for its sound, any visible upper tooth for its short irregular dry-wood knock, or the missing front-tooth gap to whistle FWEE. Drag either pupil horizontally to move both pupils in mirrored directions and shape reverb. Drag the left lid down for a post-effects high-pass sweep or the right lid down for stable-volume fuzz. Drag either eyebrow among five rhythmic accent positions. Drag each side-hair tip in two dimensions.",
   );
   syncControlLimits();
   populateSelects();
@@ -4346,6 +4795,8 @@ function initialize() {
     if (document.hidden) {
       stopSequence({ announceState: false });
       graph?.sourceNode?.port.postMessage({ type: "silence" });
+      graph?.facePostNode?.port.postMessage({ type: "silence" });
+      clearNativeRoomHistory();
     }
   });
   globalThis.addEventListener("pagehide", () => {
@@ -4357,6 +4808,7 @@ function initialize() {
     resizeObserver.disconnect();
     stageVisibilityObserver?.disconnect();
     graph?.sourceNode?.port.postMessage({ type: "silence" });
+    graph?.facePostNode?.port.postMessage({ type: "silence" });
     graph?.releaseOutput?.();
     audioContext?.close?.();
   }, { once: true });

@@ -72,15 +72,195 @@ export const HICCUP_HEAD_DEFAULTS = Object.freeze({
   eyeClosure: 0,
   leftEyeClosure: 0,
   rightEyeClosure: 0,
-  leftBrow: 0.5,
-  rightBrow: 0.5,
+  leftBrow: 0,
+  rightBrow: 0,
   silliness: 0.56,
   decay: 0.92,
   tempo: 118,
   swing: 0.1,
   humanize: 0.06,
-  level: 0.68,
+  level: 0.76,
 });
+
+// Native Web Audio convolution replaces the former pair of long feedback taps.
+// These dense, deterministic room profiles contain no isolated reflections, so
+// the eyes can move from a bright plate to a large cathedral without turning
+// the room into a tempo-like echo. Compact layouts use a shorter allocation to
+// protect phone memory while retaining a multi-second low-frequency tail.
+export const HICCUP_HEAD_ROOM_PROFILES = Object.freeze({
+  plate: Object.freeze({
+    durationSeconds: 1.65,
+    compactDurationSeconds: 1.45,
+    lowRt60Seconds: 1.45,
+    highRt60Seconds: 0.95,
+    onsetSeconds: 0.003,
+    attackSeconds: 0.007,
+    lowSplitHz: 1_600,
+    highDampingStart: 0.76,
+    highDampingEnd: 0.4,
+    lowWeight: 0.72,
+    highWeight: 0.9,
+    energy: 0.9,
+    seed: 0x706c6174,
+  }),
+  cathedral: Object.freeze({
+    durationSeconds: 3.8,
+    compactDurationSeconds: 3.2,
+    lowRt60Seconds: 3.5,
+    highRt60Seconds: 2.05,
+    onsetSeconds: 0.008,
+    attackSeconds: 0.015,
+    lowSplitHz: 850,
+    highDampingStart: 0.52,
+    highDampingEnd: 0.18,
+    lowWeight: 1.22,
+    highWeight: 0.58,
+    energy: 0.95,
+    seed: 0x63617468,
+  }),
+});
+
+const smoothUnit = (value) => {
+  const amount = clamp(value);
+  return amount * amount * (3 - 2 * amount);
+};
+
+/**
+ * Generate two energy-normalized room channels for a ConvolverNode. The LCG,
+ * continuous noise field, and independent channel seeds make this repeatable,
+ * diffuse, and stereo without sparse peaks that can be heard as delay taps.
+ */
+export function hiccupHeadRoomImpulseChannels(
+  roomId = "cathedral",
+  sampleRate = 48_000,
+  { compact = false } = {},
+) {
+  const profile = HICCUP_HEAD_ROOM_PROFILES[roomId]
+    ?? HICCUP_HEAD_ROOM_PROFILES.cathedral;
+  const rate = Math.round(clamp(sampleRate, 8_000, 192_000));
+  const durationSeconds = compact
+    ? profile.compactDurationSeconds
+    : profile.durationSeconds;
+  const length = Math.max(1, Math.round(rate * durationSeconds));
+  const onsetFrames = Math.max(0, Math.round(rate * profile.onsetSeconds));
+  const attackFrames = Math.max(1, Math.round(rate * profile.attackSeconds));
+  const finalFadeFrames = Math.max(1, Math.round(rate * 0.04));
+  const lowSplitAlpha = 1 - Math.exp(-Math.PI * 2 * profile.lowSplitHz / rate);
+  const dcAlpha = 1 - Math.exp(-Math.PI * 2 * 14 / rate);
+  const lowDecay = 10 ** (-3 / (profile.lowRt60Seconds * rate));
+  const highDecay = 10 ** (-3 / (profile.highRt60Seconds * rate));
+  const channels = [];
+
+  for (let channel = 0; channel < 2; channel += 1) {
+    const samples = new Float32Array(length);
+    let seed = (profile.seed ^ Math.imul(channel + 1, 0x45d9f3b)) >>> 0;
+    let lowBand = 0;
+    let dampedHigh = 0;
+    let dc = 0;
+    let lowEnvelope = 1;
+    let highEnvelope = 1;
+    let energy = 0;
+    for (let index = onsetFrames; index < length; index += 1) {
+      seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+      const noise = seed / 0xffff_ffff * 2 - 1;
+      lowBand += (noise - lowBand) * lowSplitAlpha;
+      const highBand = noise - lowBand;
+      const progress = (index - onsetFrames) / Math.max(1, length - onsetFrames - 1);
+      const highDamping = profile.highDampingStart
+        + (profile.highDampingEnd - profile.highDampingStart) * progress;
+      dampedHigh += (highBand - dampedHigh) * highDamping;
+      let value = lowBand * profile.lowWeight * lowEnvelope
+        + dampedHigh * profile.highWeight * highEnvelope;
+      dc += (value - dc) * dcAlpha;
+      value -= dc;
+      const attack = Math.min(1, (index - onsetFrames + 1) / attackFrames);
+      const remaining = length - index;
+      const finalFade = Math.min(1, remaining / finalFadeFrames);
+      value *= attack * finalFade;
+      samples[index] = value;
+      energy += value * value;
+      lowEnvelope *= lowDecay;
+      highEnvelope *= highDecay;
+    }
+    const scale = profile.energy / Math.sqrt(Math.max(1e-12, energy));
+    for (let index = onsetFrames; index < length; index += 1) {
+      samples[index] *= scale;
+    }
+    channels.push(samples);
+  }
+
+  return Object.freeze({
+    channels,
+    compact: Boolean(compact),
+    durationSeconds,
+    roomId: HICCUP_HEAD_ROOM_PROFILES[roomId] ? roomId : "cathedral",
+    sampleRate: rate,
+  });
+}
+
+export function hiccupHeadFuzzCurve(size = 4_096) {
+  const length = Math.round(clamp(size, 256, 65_536));
+  const curve = new Float32Array(length);
+  const drive = 1.8;
+  const normalization = Math.tanh(drive);
+  for (let index = 0; index < length; index += 1) {
+    const input = index / (length - 1) * 2 - 1;
+    curve[index] = Math.tanh(input * drive) / normalization;
+  }
+  return curve;
+}
+
+/**
+ * Convert face positions into smoothed native-node targets. Keeping this pure
+ * makes gain matching testable and ensures presets, mutation, and live drags
+ * all use exactly the same mapping.
+ */
+export function hiccupHeadFaceEffectTargets(source = {}, enabled = {}) {
+  const divergence = clamp(finiteOr(source.eyeDivergence, 0), -1, 1);
+  const cathedralAmount = smoothUnit(Math.max(0, divergence) / 0.9);
+  const plateAmount = smoothUnit(Math.max(0, -divergence) / 0.9);
+  const reverbEnabled = enabled.reverb !== false;
+  // Both captured IRs are shaped toward their diffuse late fields. These sends
+  // can therefore make the sustained tail obvious without bringing back the
+  // close early-room signature that dominated the previous eye extremes.
+  const cathedralSendGain = reverbEnabled ? cathedralAmount * 0.36 : 0;
+  const plateSendGain = reverbEnabled ? plateAmount * 0.38 : 0;
+  // Convolution is an added room return, not a replacement for the face.
+  // Keeping the direct anchor at unity prevents wet eyes from making every
+  // mouth sound smaller or farther away.
+  const roomDryGain = 1;
+
+  const sharedClosure = clamp(finiteOr(source.eyeClosure, 0));
+  const leftClosure = clamp(finiteOr(source.leftEyeClosure, sharedClosure));
+  const rightClosure = clamp(finiteOr(source.rightEyeClosure, sharedClosure));
+  const highpassAmount = leftClosure ** 0.75;
+  const fuzzDriveGain = 1 + 9 * rightClosure ** 1.1;
+  const fuzzMix = rightClosure * 0.99;
+  return Object.freeze({
+    cathedralAmount,
+    cathedralSendGain,
+    plateAmount,
+    plateSendGain,
+    roomDryGain,
+    roomWetGate: reverbEnabled ? 1 : 0,
+    highpassAmount,
+    // A front-loaded travel curve makes every quarter of the lid audible;
+    // makeup offsets the perceived energy loss without bypassing the filter.
+    highpassCutoffHz: 30 * 2 ** (highpassAmount * Math.log2(10_000 / 30)),
+    highpassQ: 0.707 + highpassAmount * 2,
+    highpassMakeupGain: 1 + highpassAmount * 0.32,
+    // Compatibility telemetry: the actual Biquad is always in series, with
+    // its cutoff—not a parallel dry/wet blend—performing the sweep.
+    highpassDryGain: 0,
+    highpassWetGain: 1,
+    fuzzAmount: rightClosure,
+    fuzzDriveGain,
+    fuzzDryGain: 1 - fuzzMix,
+    fuzzWetGain: fuzzMix * 0.74,
+    // The post-worklet rounded fuzz has no tone-filter or delayed phase branch.
+    fuzzToneHz: 0,
+  });
+}
 
 // Hiccup Head uses one continuous oral tube. The section count and tongue
 // landmarks deliberately match the 44-section Pink Trombone convention used
@@ -683,7 +863,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
       nasalMix: 0.14, earSpread: 0.18,
       leftHairLength: 0.12, rightHairLength: 0.16,
       leftHairAngle: -0.82, rightHairAngle: -0.62, eyeDivergence: 0.08, eyeClosure: 0,
-      leftBrow: 0.62, rightBrow: 0.46,
+      leftBrow: 0, rightBrow: 0,
       silliness: 0.56, decay: 0.92,
     }),
   }),
@@ -1252,6 +1432,10 @@ export function hiccupHeadState(presetId = HICCUP_HEAD_DEFAULTS.presetId, overri
 
 export function cycleStepVelocity(value) {
   const current = velocity(value);
+  // A newly painted step starts with a confident roughly two-thirds strike.
+  // The quiet 42% tier remains loadable from existing patterns, then advances
+  // to the same 72% performance level on its next click.
+  if (current <= 0.001) return 0.72;
   const index = HICCUP_HEAD_VELOCITIES.findIndex((candidate) => Math.abs(candidate - current) < 0.02);
   if (index >= 0) return HICCUP_HEAD_VELOCITIES[(index + 1) % HICCUP_HEAD_VELOCITIES.length];
   return HICCUP_HEAD_VELOCITIES.find((candidate) => candidate > current) ?? 0;
@@ -2827,6 +3011,13 @@ export function hiccupHeadGestureFrame(
         : clamp(sampled),
     ];
   }));
+  if (sound.id === "kiss") {
+    channels.suction = clamp(channels.suction * 1.7);
+    channels.lipImpulse = clamp(channels.lipImpulse * 1.9);
+    channels.voicing *= 0.12;
+    channels.aspiration *= 0.18;
+    channels.pressure = clamp(channels.pressure * 0.82);
+  }
   const pose = hiccupHeadPoseForSound(sound.id, state, channels.poseMix);
   channels.velum = clamp(
     pose.nasalMix * 0.98 + channels.velum * (1 - pose.nasalMix * 0.18),
