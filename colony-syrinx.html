@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#050806" />
     <meta
       name="description"
-      content="Colony Syrinx is a continuously breathing polyphonic organism whose lungs, paired throats, plumbing, mouths, and evolution contours can all be regenerated."
+      content="A configurable pressure-network voice with variable lungs, vocal-fold sources, routes, mouth resonators, excitation materials, and modulation contours."
     />
     <title>Colony Syrinx — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -53,12 +53,12 @@
       <section class="colony-workspace" aria-labelledby="pageTitle">
         <header class="colony-titlebar">
           <div class="colony-title-copy">
-            <p id="engineTitle">PRESSURE-OPERATED MULTI-MOUTH PREDATOR / AIR ENGINE 01</p>
+            <p id="engineTitle">MULTI-SOURCE VOCAL NETWORK / AIR</p>
             <h1 id="pageTitle"><span>COLONY</span><i>/</i><span>SYRINX</span></h1>
           </div>
           <p class="colony-thesis">
-            One breath circulates through a mutable colony of lungs, incompatible paired throats,
-            and three hostile mouths. Curves bend the organism continuously; they do not trigger notes.
+            Lung, vocal-fold-source, route, mouth-resonator, and contour counts are variable.
+            Continuous contours control pressure, tension, routing, and articulation.
           </p>
           <dl class="colony-counts" aria-label="Anatomy count">
             <div><dt>lungs</dt><dd id="activeLungCount">16</dd></div>
@@ -68,33 +68,51 @@
           </dl>
         </header>
 
+        <section class="colony-calls" aria-labelledby="callBankTitle">
+          <header class="colony-section-heading call-bank-heading">
+            <div><span>CALL PRESETS</span><h2 id="callBankTitle">Short calls</h2></div>
+            <output id="selectedCallReadout">Select a call</output>
+          </header>
+          <div class="call-bank" id="callBank" role="group" aria-label="Short call presets"></div>
+        </section>
+
         <section class="colony-anatomy" aria-labelledby="anatomyTitle">
-          <div class="colony-section-heading">
+          <div class="colony-section-heading anatomy-heading">
             <div>
-              <span>01 / LIVING MANIFOLD</span>
-              <h2 id="anatomyTitle">Pressure becomes an argument</h2>
+              <span>ANATOMY</span>
+              <h2 id="anatomyTitle">Pressure network</h2>
             </div>
-            <div class="anatomy-legend" aria-label="Diagram legend">
-              <span><i class="is-pressure"></i> pressure</span>
-              <span><i class="is-voice"></i> source</span>
-              <span><i class="is-route"></i> open route</span>
-              <span><i class="is-return"></i> reflected load</span>
+            <div class="anatomy-heading-actions">
+              <div class="anatomy-legend" aria-label="Diagram legend">
+                <span><i class="is-pressure"></i> pressure</span>
+                <span><i class="is-voice"></i> source</span>
+                <span><i class="is-route"></i> open route</span>
+                <span><i class="is-return"></i> reflected load</span>
+              </div>
+              <div class="graph-tools" role="group" aria-label="Pressure network layout">
+                <button id="randomizeGraphButton" type="button">Randomize network</button>
+                <button id="scatterGraphButton" type="button">Scatter organs</button>
+                <button id="resetGraphButton" type="button">Reset arrangement</button>
+                <button id="graphMotionButton" type="button" aria-pressed="true">Live motion</button>
+              </div>
             </div>
           </div>
 
-          <div class="colony-body-scroll" tabindex="0" aria-label="Scrollable live anatomy diagram">
+          <div class="colony-body-scroll" aria-label="Scrollable live anatomy editor">
             <figure class="colony-body-stage">
               <svg
                 class="colony-body"
                 viewBox="0 0 1200 620"
-                role="img"
+                role="group"
+                aria-roledescription="interactive pressure network"
                 aria-labelledby="colonyBodyTitle colonyBodyDescription"
                 preserveAspectRatio="xMidYMid meet"
               >
-                <title id="colonyBodyTitle">Live Colony Syrinx pressure anatomy</title>
+                <title id="colonyBodyTitle">Editable Colony Syrinx pressure anatomy</title>
                 <desc id="colonyBodyDescription">
-                  Up to sixteen asymmetric breathing sacs feed four reservoirs and eight vocal folds.
-                  Two continuously morphing plumbing maps drive as many as three hostile mouths.
+                  Drag organs to arrange them. Drag organ handles to deform pressure, folds, jaws,
+                  and tongues. Pull a source port onto a mouth port to patch a route. Drag a route
+                  to set its aperture.
                 </desc>
                 <defs>
                   <radialGradient id="colonyLungFill" cx="38%" cy="32%" r="78%">
@@ -122,10 +140,10 @@
                   <path id="colonyGarden" d="M44 118 C55 66 104 58 149 73 C196 48 255 59 301 88 C325 104 332 132 314 151 C288 176 245 160 212 154 C174 171 135 153 111 143 C77 156 45 144 44 118Z" />
                 </defs>
 
-                <path class="body-aura" d="M28 308 C57 77 243 13 404 76 C506 115 522 41 642 64 C769 89 808 33 943 72 C1083 113 1180 197 1170 311 C1160 434 1063 546 932 552 C798 559 763 500 649 548 C536 595 481 517 386 552 C215 614 55 518 28 308Z" />
+                <path class="body-aura" data-graph-background d="M28 308 C57 77 243 13 404 76 C506 115 522 41 642 64 C769 89 808 33 943 72 C1083 113 1180 197 1170 311 C1160 434 1063 546 932 552 C798 559 763 500 649 548 C536 595 481 517 386 552 C215 614 55 518 28 308Z" />
                 <path class="body-ghost-vessel" d="M38 309 C162 270 264 346 358 310 C425 284 466 337 515 309 C634 242 754 374 860 309" />
 
-                <g class="reservoir-veins" aria-hidden="true">
+                <g class="reservoir-veins static-anatomy-guide" aria-hidden="true">
                   <path d="M68 113 C164 121 267 104 358 118" />
                   <path d="M66 235 C161 225 269 251 358 244" />
                   <path d="M66 378 C170 363 265 389 358 378" />
@@ -133,14 +151,14 @@
                   <path class="reservoir-spine" d="M358 118 C375 167 338 201 358 244 C379 291 337 333 358 378 C378 421 343 459 358 505" />
                 </g>
 
-                <g class="lung-garden-membranes" aria-hidden="true">
+                <g class="lung-garden-membranes static-anatomy-guide" aria-hidden="true">
                   <use href="#colonyGarden" />
                   <use href="#colonyGarden" transform="translate(0 126)" />
                   <use href="#colonyGarden" transform="translate(0 260)" />
                   <use href="#colonyGarden" transform="translate(0 387)" />
                 </g>
 
-                <g class="lung-colony" aria-label="Sixteen asymmetric breathing sacs">
+                <g class="lung-colony" aria-label="Breathing organs">
                   <g class="vessel-lung is-enabled" data-vessel-lung="1" transform="translate(65 108) rotate(-7) scale(.68)"><use href="#colonySacA" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
                   <g class="vessel-lung is-enabled" data-vessel-lung="2" transform="translate(137 77) rotate(5) scale(.56)"><use href="#colonySacB" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
                   <g class="vessel-lung is-enabled" data-vessel-lung="3" transform="translate(208 124) rotate(-3) scale(.64)"><use href="#colonySacC" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
@@ -162,21 +180,24 @@
                   <g class="vessel-lung is-enabled" data-vessel-lung="16" transform="translate(286 478) rotate(-5) scale(.58)"><use href="#colonySacA" /><path d="M39 7 C18 5 3 4 -18 -20 M3 4 C-8 10 -18 22 -23 33" /></g>
                 </g>
 
-                <g class="source-bridges" aria-hidden="true">
+                <g class="source-bridges static-anatomy-guide" aria-hidden="true">
                   <path d="M358 118 C392 118 409 117 436 117" />
                   <path d="M358 244 C392 244 409 244 436 244" />
                   <path d="M358 378 C392 378 409 378 436 378" />
                   <path d="M358 505 C392 505 409 505 436 505" />
                 </g>
 
-                <g class="fold-sources" aria-label="Up to four paired-fold sound sources">
-                  <g class="vessel-source is-enabled" data-vessel-source="1" transform="translate(478 117)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P1 · ROAR / 2 FOLDS</text></g>
-                  <g class="vessel-source is-enabled" data-vessel-source="2" transform="translate(478 244)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P2 · SPLIT / 2 FOLDS</text></g>
-                  <g class="vessel-source is-enabled" data-vessel-source="3" transform="translate(478 378)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P3 · RATTLE / 2 FOLDS</text></g>
-                  <g class="vessel-source is-enabled" data-vessel-source="4" transform="translate(478 505)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P4 · SHRIEK / 2 FOLDS</text></g>
+                <g id="routeHitVessels" class="route-hit-vessels" aria-hidden="true"></g>
+
+                <g class="fold-sources" aria-label="Vocal-fold sources">
+                  <g class="vessel-source is-enabled" data-vessel-source="1" transform="translate(478 117)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P1 · COLLISION FOLDS</text></g>
+                  <g class="vessel-source is-enabled" data-vessel-source="2" transform="translate(478 244)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P2 · SPLIT SYRINX</text></g>
+                  <g class="vessel-source is-enabled" data-vessel-source="3" transform="translate(478 378)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P3 · PULSE MEMBRANE</text></g>
+                  <g class="vessel-source is-enabled" data-vessel-source="4" transform="translate(478 505)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P4 · JET SYRINX</text></g>
                 </g>
 
-                <g class="route-vessels" aria-label="Twelve source to mouth routes">
+                <g id="lungFeedVessels" class="lung-feed-vessels" aria-hidden="true"></g>
+                <g class="route-vessels" aria-label="Source-to-mouth routes">
                   <path class="vessel-route mouth-a is-open" data-vessel-route="1-1" d="M516 106 C624 64 732 84 875 115" />
                   <path class="vessel-route mouth-b is-open" data-vessel-route="1-2" d="M518 115 C647 119 730 220 870 287" />
                   <path class="vessel-route mouth-c" data-vessel-route="1-3" d="M516 124 C623 166 753 405 874 483" />
@@ -193,15 +214,16 @@
                   <path class="vessel-route mouth-b" data-vessel-route="4-2" d="M518 504 C633 473 746 352 870 299" />
                   <path class="vessel-route mouth-c is-open" data-vessel-route="4-3" d="M516 514 C638 541 759 514 874 493" />
                 </g>
+                <path id="routeDraft" class="route-draft" d="" hidden aria-hidden="true" />
 
-                <g class="mouth-organs" aria-label="Three radiating mouths">
+                <g class="mouth-organs" aria-label="Mouth resonators">
                   <g class="vessel-mouth mouth-a" data-vessel-mouth="1" transform="translate(878 118)">
                     <path class="mouth-root" d="M-9 0 C14 -2 24 -1 39 0" />
                     <path class="mouth-upper" d="M37 0 C58 -34 91 -61 128 -48 C151 -70 192 -58 216 -33 C244 -31 260 -11 286 0 C255 7 231 17 205 18 C169 9 132 22 96 14 C69 13 51 7 37 0Z" />
                     <path class="mouth-lower" d="M37 0 C72 5 101 21 132 15 C163 39 205 30 235 17 C257 15 273 7 286 0 C267 44 229 73 184 67 C151 85 102 63 74 42 C56 28 45 13 37 0Z" />
                     <path class="mouth-tongue" d="M63 17 C105 7 149 25 207 9 C190 43 143 55 96 42 C82 38 70 29 63 17Z" />
                     <path class="mouth-teeth" d="M78 9 L90 30 L103 10 L116 32 L131 11 L146 29 L162 9 M175 17 L189 39 L202 15 L216 34 L231 12" />
-                    <text x="65" y="-61">M1 · SUBHARMONIC MAW</text>
+                    <text x="65" y="-61">M1 · SUBHARMONIC TRACT</text>
                   </g>
                   <g class="vessel-mouth mouth-b" data-vessel-mouth="2" transform="translate(874 293)">
                     <path class="mouth-root" d="M-9 0 C12 -2 25 -1 43 0" />
@@ -209,7 +231,7 @@
                     <path class="mouth-lower" d="M39 0 C69 5 93 19 121 12 C147 31 181 26 203 14 C228 16 247 7 265 0 C239 30 210 49 169 45 C138 58 96 44 70 29 C56 20 46 9 39 0Z" />
                     <path class="mouth-tongue" d="M68 14 C101 6 132 20 184 7 C167 30 130 39 92 30 C80 27 72 21 68 14Z" />
                     <path class="mouth-teeth" d="M73 7 L83 25 L94 7 L105 28 L117 8 L129 27 L142 7 L154 25 L168 7 L180 23 L194 6 M104 22 L114 38 L126 20 L138 39 L151 18 L164 35" />
-                    <text x="65" y="-49">M2 · VOWEL BITER</text>
+                    <text x="65" y="-49">M2 · VOWEL TRACT</text>
                   </g>
                   <g class="vessel-mouth mouth-c" data-vessel-mouth="3" transform="translate(878 491)">
                     <path class="mouth-root" d="M-9 0 C13 -1 26 0 44 0" />
@@ -217,20 +239,19 @@
                     <path class="mouth-lower" d="M40 0 C68 4 89 14 111 9 C132 25 157 20 175 11 C195 12 212 5 226 0 C208 19 181 30 150 25 C126 34 96 27 72 18 C56 12 47 5 40 0Z" />
                     <path class="mouth-tongue" d="M88 8 C110 3 132 12 164 4 C153 17 130 22 105 17 C96 15 91 12 88 8Z" />
                     <path class="mouth-teeth" d="M69 5 L77 17 L86 5 L95 19 L105 5 L115 19 L125 4 L136 18 L147 4 L158 16 L170 3" />
-                    <text x="65" y="-35">M3 · NEEDLE SCREAM</text>
+                    <text x="65" y="-35">M3 · JET TRACT</text>
                   </g>
                 </g>
 
                 <g class="body-labels" aria-hidden="true">
-                  <text x="45" y="45">MUTABLE LUNGS / PRESSURE GARDENS</text>
-                  <text id="bodyFoldCount" x="430" y="45">8 FOLDS / 4 PAIRS</text>
-                  <text id="bodyRouteCount" x="621" y="45">9 FLOWING / 12 LIVING</text>
-                  <path d="M38 55 H303" /><path d="M427 55 H531" /><path d="M617 55 H850" />
+                  <text x="38" y="38">DRAG ORGANS · PULL PORTS · BEND VESSELS</text>
+                  <text id="bodyFoldCount" x="38" y="58">VOCAL FOLDS</text>
+                  <text id="bodyRouteCount" x="38" y="76">ROUTES</text>
                 </g>
               </svg>
               <figcaption>
-                <span><i></i> pressure grows left to right</span>
-                <b>Every bright vessel is a playable valve. Closed mouths return pressure upstream.</b>
+                <span><i></i> animated pressure and flow</span>
+                <b>Move an organ by its body. Pull colored handles to shape sound. Pull a source port to a mouth, or drag a vessel to change its aperture. Hold Shift for the alternate routing layer.</b>
               </figcaption>
             </figure>
           </div>
@@ -239,7 +260,7 @@
             <div class="anatomy-flow">
               <section class="lung-system flow-module" aria-labelledby="lungBankTitle">
                 <header class="flow-module-heading">
-                  <div><span>A / RESERVOIRS</span><h3 id="lungBankTitle">16 lungs</h3></div>
+                  <div><span>RESERVOIRS</span><h3 id="lungBankTitle">Lungs</h3></div>
                   <output id="lungPressureReadout">6.8 kPa</output>
                 </header>
 
@@ -286,33 +307,33 @@
 
               <section class="source-system flow-module" aria-labelledby="sourceRackTitle">
                 <header class="flow-module-heading">
-                  <div><span>B / PHONATORS</span><h3 id="sourceRackTitle">4 incompatible pairs</h3></div>
+                  <div><span>VOCAL SOURCES</span><h3 id="sourceRackTitle">Vocal folds</h3></div>
                   <output id="foldCountReadout">8 folds</output>
                 </header>
                 <div class="source-rack" id="sourceRack">
                   <article class="source-card" id="source1" data-source="1">
-                    <header><button id="source1Enable" type="button" aria-pressed="true"><i></i>P1 · ROAR</button><output id="source1Frequency">62 Hz</output></header>
+                    <header><button id="source1Enable" type="button" aria-pressed="true"><i></i>P1 · COLLISION FOLDS</button><output id="source1Frequency">62 Hz</output></header>
                     <div class="fold-pair" aria-label="Folds 1 and 2 vibrating">
                       <span class="fold" id="fold1Meter"><i></i></span><b>↕</b><span class="fold" id="fold2Meter"><i></i></span>
                     </div>
                     <label for="source1Tension"><span>tension</span><output id="source1TensionOut" for="source1Tension">28%</output><input id="source1Tension" type="range" min="0" max="1" step="0.01" value="0.28" /></label>
                   </article>
                   <article class="source-card" id="source2" data-source="2">
-                    <header><button id="source2Enable" type="button" aria-pressed="true"><i></i>P2 · SPLIT</button><output id="source2Frequency">326 Hz</output></header>
+                    <header><button id="source2Enable" type="button" aria-pressed="true"><i></i>P2 · SPLIT SYRINX</button><output id="source2Frequency">326 Hz</output></header>
                     <div class="fold-pair" aria-label="Folds 3 and 4 vibrating">
                       <span class="fold" id="fold3Meter"><i></i></span><b>↕</b><span class="fold" id="fold4Meter"><i></i></span>
                     </div>
                     <label for="source2Tension"><span>tension</span><output id="source2TensionOut" for="source2Tension">43%</output><input id="source2Tension" type="range" min="0" max="1" step="0.01" value="0.43" /></label>
                   </article>
                   <article class="source-card" id="source3" data-source="3">
-                    <header><button id="source3Enable" type="button" aria-pressed="true"><i></i>P3 · RATTLE</button><output id="source3Frequency">180 Hz</output></header>
+                    <header><button id="source3Enable" type="button" aria-pressed="true"><i></i>P3 · PULSE MEMBRANE</button><output id="source3Frequency">180 Hz</output></header>
                     <div class="fold-pair" aria-label="Folds 5 and 6 vibrating">
                       <span class="fold" id="fold5Meter"><i></i></span><b>↕</b><span class="fold" id="fold6Meter"><i></i></span>
                     </div>
                     <label for="source3Tension"><span>tension</span><output id="source3TensionOut" for="source3Tension">61%</output><input id="source3Tension" type="range" min="0" max="1" step="0.01" value="0.61" /></label>
                   </article>
                   <article class="source-card" id="source4" data-source="4">
-                    <header><button id="source4Enable" type="button" aria-pressed="true"><i></i>P4 · SHRIEK</button><output id="source4Frequency">1284 Hz</output></header>
+                    <header><button id="source4Enable" type="button" aria-pressed="true"><i></i>P4 · JET SYRINX</button><output id="source4Frequency">1284 Hz</output></header>
                     <div class="fold-pair" aria-label="Folds 7 and 8 vibrating">
                       <span class="fold" id="fold7Meter"><i></i></span><b>↕</b><span class="fold" id="fold8Meter"><i></i></span>
                     </div>
@@ -325,62 +346,62 @@
 
               <section class="route-system flow-module" aria-labelledby="routeMatrixTitle">
                 <header class="flow-module-heading">
-                  <div><span>C / VALVES</span><h3 id="routeMatrixTitle">4 × 3 route matrix</h3></div>
+                  <div><span>ROUTES</span><h3 id="routeMatrixTitle">Route matrix</h3></div>
                   <output id="routeCountReadout">9 / 12 open</output>
                 </header>
                 <div class="route-matrix" id="routeMatrix" role="group" aria-label="Source to mouth routing valves">
                   <span class="route-corner">SRC</span>
-                  <span class="route-column mouth-a"><b>M1</b><small>MAW</small></span>
-                  <span class="route-column mouth-b"><b>M2</b><small>BITER</small></span>
-                  <span class="route-column mouth-c"><b>M3</b><small>SCREAM</small></span>
+                  <span class="route-column mouth-a"><b>M1</b><small>LOW TRACT</small></span>
+                  <span class="route-column mouth-b"><b>M2</b><small>VOWEL TRACT</small></span>
+                  <span class="route-column mouth-c"><b>M3</b><small>JET TRACT</small></span>
 
                   <span class="route-row"><b>P1</b><small>62 HZ</small></span>
-                  <button id="route-s1-m1" class="route-valve" type="button" data-route="1-1" data-source="1" data-mouth="1" aria-label="Route source 1 to subharmonic maw, MIDI C2" aria-pressed="true"><i></i><small>C2</small></button>
-                  <button id="route-s1-m2" class="route-valve" type="button" data-route="1-2" data-source="1" data-mouth="2" aria-label="Route source 1 to vowel biter, MIDI C sharp 2" aria-pressed="true"><i></i><small>C♯2</small></button>
-                  <button id="route-s1-m3" class="route-valve" type="button" data-route="1-3" data-source="1" data-mouth="3" aria-label="Route source 1 to needle scream, MIDI D2" aria-pressed="false"><i></i><small>D2</small></button>
+                  <button id="route-s1-m1" class="route-valve" type="button" data-route="1-1" data-source="1" data-mouth="1" aria-label="Route source 1 to subharmonic tract, MIDI C2" aria-pressed="true"><i></i><small>C2</small></button>
+                  <button id="route-s1-m2" class="route-valve" type="button" data-route="1-2" data-source="1" data-mouth="2" aria-label="Route source 1 to vowel tract, MIDI C sharp 2" aria-pressed="true"><i></i><small>C♯2</small></button>
+                  <button id="route-s1-m3" class="route-valve" type="button" data-route="1-3" data-source="1" data-mouth="3" aria-label="Route source 1 to jet tract, MIDI D2" aria-pressed="false"><i></i><small>D2</small></button>
 
                   <span class="route-row"><b>P2</b><small>326 HZ</small></span>
-                  <button id="route-s2-m1" class="route-valve" type="button" data-route="2-1" data-source="2" data-mouth="1" aria-label="Route source 2 to subharmonic maw, MIDI D sharp 2" aria-pressed="true"><i></i><small>D♯2</small></button>
-                  <button id="route-s2-m2" class="route-valve" type="button" data-route="2-2" data-source="2" data-mouth="2" aria-label="Route source 2 to vowel biter, MIDI E2" aria-pressed="true"><i></i><small>E2</small></button>
-                  <button id="route-s2-m3" class="route-valve" type="button" data-route="2-3" data-source="2" data-mouth="3" aria-label="Route source 2 to needle scream, MIDI F2" aria-pressed="true"><i></i><small>F2</small></button>
+                  <button id="route-s2-m1" class="route-valve" type="button" data-route="2-1" data-source="2" data-mouth="1" aria-label="Route source 2 to subharmonic tract, MIDI D sharp 2" aria-pressed="true"><i></i><small>D♯2</small></button>
+                  <button id="route-s2-m2" class="route-valve" type="button" data-route="2-2" data-source="2" data-mouth="2" aria-label="Route source 2 to vowel tract, MIDI E2" aria-pressed="true"><i></i><small>E2</small></button>
+                  <button id="route-s2-m3" class="route-valve" type="button" data-route="2-3" data-source="2" data-mouth="3" aria-label="Route source 2 to jet tract, MIDI F2" aria-pressed="true"><i></i><small>F2</small></button>
 
                   <span class="route-row"><b>P3</b><small>180 HZ</small></span>
-                  <button id="route-s3-m1" class="route-valve" type="button" data-route="3-1" data-source="3" data-mouth="1" aria-label="Route source 3 to subharmonic maw, MIDI F sharp 2" aria-pressed="false"><i></i><small>F♯2</small></button>
-                  <button id="route-s3-m2" class="route-valve" type="button" data-route="3-2" data-source="3" data-mouth="2" aria-label="Route source 3 to vowel biter, MIDI G2" aria-pressed="true"><i></i><small>G2</small></button>
-                  <button id="route-s3-m3" class="route-valve" type="button" data-route="3-3" data-source="3" data-mouth="3" aria-label="Route source 3 to needle scream, MIDI G sharp 2" aria-pressed="true"><i></i><small>G♯2</small></button>
+                  <button id="route-s3-m1" class="route-valve" type="button" data-route="3-1" data-source="3" data-mouth="1" aria-label="Route source 3 to subharmonic tract, MIDI F sharp 2" aria-pressed="false"><i></i><small>F♯2</small></button>
+                  <button id="route-s3-m2" class="route-valve" type="button" data-route="3-2" data-source="3" data-mouth="2" aria-label="Route source 3 to vowel tract, MIDI G2" aria-pressed="true"><i></i><small>G2</small></button>
+                  <button id="route-s3-m3" class="route-valve" type="button" data-route="3-3" data-source="3" data-mouth="3" aria-label="Route source 3 to jet tract, MIDI G sharp 2" aria-pressed="true"><i></i><small>G♯2</small></button>
 
                   <span class="route-row"><b>P4</b><small>1284 HZ</small></span>
-                  <button id="route-s4-m1" class="route-valve" type="button" data-route="4-1" data-source="4" data-mouth="1" aria-label="Route source 4 to subharmonic maw, MIDI A2" aria-pressed="true"><i></i><small>A2</small></button>
-                  <button id="route-s4-m2" class="route-valve" type="button" data-route="4-2" data-source="4" data-mouth="2" aria-label="Route source 4 to vowel biter, MIDI A sharp 2" aria-pressed="false"><i></i><small>A♯2</small></button>
-                  <button id="route-s4-m3" class="route-valve" type="button" data-route="4-3" data-source="4" data-mouth="3" aria-label="Route source 4 to needle scream, MIDI B2" aria-pressed="true"><i></i><small>B2</small></button>
+                  <button id="route-s4-m1" class="route-valve" type="button" data-route="4-1" data-source="4" data-mouth="1" aria-label="Route source 4 to subharmonic tract, MIDI A2" aria-pressed="true"><i></i><small>A2</small></button>
+                  <button id="route-s4-m2" class="route-valve" type="button" data-route="4-2" data-source="4" data-mouth="2" aria-label="Route source 4 to vowel tract, MIDI A sharp 2" aria-pressed="false"><i></i><small>A♯2</small></button>
+                  <button id="route-s4-m3" class="route-valve" type="button" data-route="4-3" data-source="4" data-mouth="3" aria-label="Route source 4 to jet tract, MIDI B2" aria-pressed="true"><i></i><small>B2</small></button>
                 </div>
-                <p class="matrix-note"><span>MIDI NOTES OPEN PATHS</span><b>Opening one valve retunes every other load.</b></p>
+                <p class="matrix-note"><span>MIDI CONTROLS ROUTE APERTURE</span><b>Route changes alter coupled back-pressure.</b></p>
                 <div class="flow-port is-in" aria-hidden="true"><span></span></div>
                 <div class="flow-port is-out" aria-hidden="true"><span></span></div>
               </section>
 
               <section class="mouth-system flow-module" aria-labelledby="mouthRackTitle">
                 <header class="flow-module-heading">
-                  <div><span>D / RADIATORS</span><h3 id="mouthRackTitle">3 mouths</h3></div>
-                  <output id="mouthCountReadout">3 continuous exits</output>
+                  <div><span>MOUTH RESONATORS</span><h3 id="mouthRackTitle">Mouths</h3></div>
+                  <output id="mouthCountReadout">3 active</output>
                 </header>
                 <div class="mouth-rack" id="mouthRack">
                   <article class="mouth-card mouth-a" id="mouth1" data-mouth="1">
-                    <header><span><b>M1 / SUBHARMONIC MAW</b><small>false-fold collision · broad lips</small></span><output id="mouth1State">OPEN</output></header>
+                    <header><span><b>M1 / SUBHARMONIC TRACT</b><small>false-fold collision · broad lips</small></span><output id="mouth1State">OPEN</output></header>
                     <div class="mouth-shape" aria-hidden="true"><span class="upper-lip"></span><i class="tongue"></i><span class="lower-lip"></span><b class="air-jet"></b></div>
                     <div class="mouth-stats"><span><small>aperture</small><b>84 mm</b></span><span><small>tongue</small><b>1.00×</b></span></div>
                     <label for="mouth1Aperture"><span>lips</span><output id="mouth1ApertureOut" for="mouth1Aperture">74%</output><input id="mouth1Aperture" type="range" min="0" max="1" step="0.01" value="0.74" /></label>
                     <label for="mouth1Tongue"><span>tongue</span><output id="mouth1TongueOut" for="mouth1Tongue">31%</output><input id="mouth1Tongue" type="range" min="0" max="1" step="0.01" value="0.31" /></label>
                   </article>
                   <article class="mouth-card mouth-b" id="mouth2" data-mouth="2">
-                    <header><span><b>M2 / VOWEL BITER</b><small>moving tongue · fricative teeth</small></span><output id="mouth2State">PULSE</output></header>
+                    <header><span><b>M2 / VOWEL TRACT</b><small>moving tongue · fricative teeth</small></span><output id="mouth2State">PULSE</output></header>
                     <div class="mouth-shape" aria-hidden="true"><span class="upper-lip"></span><i class="tongue"></i><span class="lower-lip"></span><b class="air-jet"></b></div>
                     <div class="mouth-stats"><span><small>aperture</small><b>42 mm</b></span><span><small>tongue</small><b>0.46×</b></span></div>
                     <label for="mouth2Aperture"><span>lips</span><output id="mouth2ApertureOut" for="mouth2Aperture">48%</output><input id="mouth2Aperture" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
                     <label for="mouth2Tongue"><span>tongue</span><output id="mouth2TongueOut" for="mouth2Tongue">58%</output><input id="mouth2Tongue" type="range" min="0" max="1" step="0.01" value="0.58" /></label>
                   </article>
                   <article class="mouth-card mouth-c" id="mouth3" data-mouth="3">
-                    <header><span><b>M3 / NEEDLE SCREAM</b><small>jet whistle · ratchet tongue</small></span><output id="mouth3State">SHUT</output></header>
+                    <header><span><b>M3 / JET TRACT</b><small>jet whistle · ratchet tongue</small></span><output id="mouth3State">SHUT</output></header>
                     <div class="mouth-shape" aria-hidden="true"><span class="upper-lip"></span><i class="tongue"></i><span class="lower-lip"></span><b class="air-jet"></b></div>
                     <div class="mouth-stats"><span><small>aperture</small><b>12 mm</b></span><span><small>tongue</small><b>0.16×</b></span></div>
                     <label for="mouth3Aperture"><span>lips</span><output id="mouth3ApertureOut" for="mouth3Aperture">48%</output><input id="mouth3Aperture" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
@@ -395,12 +416,12 @@
 
         <section class="colony-sequencer" aria-labelledby="sequencerTitle">
           <header class="colony-section-heading sequencer-heading">
-            <div><span>02 / EVOLUTION FIELD</span><h2 id="sequencerTitle">One flowing breath, six continuous contours</h2></div>
-            <div class="sequence-position" aria-live="polite"><span>LOOPING FIELD</span><output id="stepReadout">PHASE 000°</output></div>
+            <div><span>MODULATION</span><h2 id="sequencerTitle">Continuous parameter contours</h2></div>
+            <div class="sequence-position"><span>CONTOUR PHASE</span><output id="stepReadout">PHASE 000°</output></div>
           </header>
           <div class="contour-intro">
-            <p>Drag a point vertically. Breath never becomes a trigger: these closed curves continuously reshape pressure, fold tension, plumbing, and each mouth.</p>
-            <button id="mutateMotionButton" type="button"><b>Mutate curves</b><small>keep this body</small></button>
+            <p>Drag points vertically. The contours modulate reservoir pressure, vocal-fold tension, route aperture, and mouth articulation.</p>
+            <button id="mutateMotionButton" type="button"><b>Randomize contours</b><small>preserve anatomy</small></button>
           </div>
           <div class="sequence-scroll contour-scroll" tabindex="0" aria-label="Scrollable continuous evolution contour editor">
             <div class="sequence-lanes contour-lanes" id="contourLanes" data-contour-count="6"></div>
@@ -412,7 +433,7 @@
         <section class="colony-transport" aria-label="Transport">
           <button id="playButton" type="button" data-primary-transport aria-pressed="false">
             <span class="colony-play-icon" id="playIcon" aria-hidden="true"></span>
-            <span><b>Flow the freak</b><small id="playState">continuous evolution · space / P</small></span>
+            <span><b>Play continuous flow</b><small id="playState">continuous modulation · space / P</small></span>
           </button>
           <button id="panicButton" type="button">
             <span aria-hidden="true">×</span><span><b>Close all</b><small>release pressure</small></span>
@@ -420,69 +441,71 @@
         </section>
 
         <section class="colony-console-section generator-section" aria-labelledby="generatorTitle">
-          <div class="console-heading"><span>BODY GENERATOR</span><output id="seedReadout">SEED 436F6C6F</output></div>
-          <h2 id="generatorTitle">Regrow the instrument</h2>
+          <div class="console-heading"><span>RANDOMIZATION</span><output id="seedReadout">SEED 436F6C6F</output></div>
+          <h2 id="generatorTitle">Randomize parameters</h2>
           <div class="organ-count-controls">
-            <label for="lungCount"><span><b>Lungs</b><output id="lungCountOut" for="lungCount">16</output></span><input id="lungCount" type="range" min="4" max="16" step="1" value="16" /></label>
+            <label for="lungCount"><span><b>Lungs</b><output id="lungCountOut" for="lungCount">16</output></span><input id="lungCount" type="range" min="1" max="16" step="1" value="16" /></label>
             <label for="throatCount"><span><b>Paired throats</b><output id="throatCountOut" for="throatCount">4</output></span><input id="throatCount" type="range" min="1" max="4" step="1" value="4" /></label>
+            <label for="foldCount"><span><b>Vocal folds</b><output id="foldCountOut" for="foldCount">8</output></span><input id="foldCount" type="range" min="0" max="8" step="1" value="8" /></label>
             <label for="mouthCount"><span><b>Mouths</b><output id="mouthCountOut" for="mouthCount">3</output></span><input id="mouthCount" type="range" min="1" max="3" step="1" value="3" /></label>
-            <label for="connectionDensity"><span><b>Plumbing density</b><output id="connectionDensityOut" for="connectionDensity">62%</output></span><input id="connectionDensity" type="range" min="0.15" max="1" step="0.01" value="0.62" /></label>
+            <label for="routeCount"><span><b>Routes</b><output id="routeCountOut" for="routeCount">9</output></span><input id="routeCount" type="range" min="0" max="12" step="1" value="9" /></label>
+            <label for="contourCount"><span><b>Contours</b><output id="contourCountOut" for="contourCount">6</output></span><input id="contourCount" type="range" min="1" max="6" step="1" value="6" /></label>
           </div>
           <div class="generator-actions" role="group" aria-label="Randomize Colony Syrinx">
-            <button id="randomizeAllButton" type="button"><b>NEW CREATURE</b><small>everything</small></button>
-            <button id="randomizeBodyButton" type="button"><b>BODY</b><small>organs + shapes</small></button>
-            <button id="randomizeRoutesButton" type="button"><b>PLUMBING</b><small>two route maps</small></button>
-            <button id="randomizeMotionButton" type="button"><b>MOTION</b><small>curve families</small></button>
+            <button id="randomizeAllButton" type="button"><b>ALL SETTINGS</b><small>all parameters</small></button>
+            <button id="randomizeBodyButton" type="button"><b>ANATOMY</b><small>organs and shapes</small></button>
+            <button id="randomizeRoutesButton" type="button"><b>ROUTING</b><small>route maps</small></button>
+            <button id="randomizeMotionButton" type="button"><b>CONTOURS</b><small>modulation shapes</small></button>
           </div>
         </section>
 
         <section class="colony-console-section medium-section" aria-labelledby="mediumTitle">
-          <div class="console-heading"><span>MEDIUM</span><output id="engineStatus">AIR ENGINE ONLINE</output></div>
-          <h2 id="mediumTitle">What moves through it?</h2>
+          <div class="console-heading"><span>MATERIAL</span><output id="engineStatus">AIR</output></div>
+          <h2 id="mediumTitle">Excitation material</h2>
           <label class="medium-select" for="mediumSelect">
             <span class="medium-symbol" aria-hidden="true">≈</span>
-            <span><b>Flow medium</b><small>engine architecture</small></span>
+            <span><b>Material</b><small>air, water, or pellets</small></span>
             <select id="mediumSelect">
               <option value="air" selected>Air</option>
-              <option value="hydraulic">Hydraulic · water hammer</option>
-              <option value="granular">Granular · pellet avalanche</option>
+              <option value="hydraulic">Water</option>
+              <option value="granular">Pellets</option>
             </select>
           </label>
-          <div class="future-engines" aria-label="Alternate material engines">
-            <span><i></i><b>Hydraulic</b><small>water hammer / bubbles</small><em>EXPERIMENT</em></span>
-            <span><i></i><b>Granular</b><small>pellets / jams / avalanches</small><em>EXPERIMENT</em></span>
+          <div class="material-behaviors" aria-label="Material behavior">
+            <span><i></i><b>Water</b><small>impacts and bubbles</small></span>
+            <span><i></i><b>Pellets</b><small>impacts, jams, and avalanches</small></span>
           </div>
         </section>
 
         <section class="colony-console-section breath-section" aria-labelledby="breathTitle">
-          <div class="console-heading"><span>BREATH DRIVE</span><output id="breathReadout">resting</output></div>
-          <h2 id="breathTitle">Feed the reservoirs</h2>
+          <div class="console-heading"><span>PRESSURE DRIVE</span><output id="breathReadout">resting</output></div>
+          <h2 id="breathTitle">Pressure input</h2>
           <button class="breath-button" id="breathButton" type="button" aria-pressed="false" aria-keyshortcuts="B">
             <span class="breath-organ" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            <span><b>HOLD FOR CONTINUOUS BREATH</b><small>B / MIDI sustain / pointer pressure</small></span>
+            <span><b>MANUAL PRESSURE</b><small>B / MIDI sustain / pointer pressure</small></span>
           </button>
           <div class="breath-meter" id="breathMeter" aria-label="Breath pressure meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i><span></span></div>
           <label class="colony-control" for="lungPressure">
             <span><b>Lung pressure</b><output id="lungPressureOut" for="lungPressure">68%</output></span>
             <input id="lungPressure" type="range" min="0" max="1" step="0.01" value="0.68" />
-            <small>Sets the shared charge beneath one unbroken, internally shifting exhale.</small>
+            <small>Sets reservoir pressure and excitation level.</small>
           </label>
         </section>
 
         <section class="colony-console-section" aria-labelledby="behaviorTitle">
-          <div class="console-heading"><span>COLONY BEHAVIOR</span><output id="clockReadout">16.0 S</output></div>
-          <h2 id="behaviorTitle">One body, one evolving field</h2>
+          <div class="console-heading"><span>ROUTE CONTROL</span><output id="clockReadout">16.0 S</output></div>
+          <h2 id="behaviorTitle">Continuous modulation</h2>
           <label class="colony-select-control" for="performanceMode">
-            <span><b>Valve behavior</b><small>who decides when a path opens</small></span>
+            <span><b>Valve behavior</b><small>route control source</small></span>
             <select id="performanceMode">
-              <option value="direct">Direct · note is valve</option>
-              <option value="organ" selected>Organ · held paths latch</option>
-              <option value="colony">Colony · pressure decides</option>
+              <option value="direct">Direct · MIDI aperture</option>
+              <option value="organ" selected>Latch · held routes</option>
+              <option value="colony">Pressure · automatic routes</option>
             </select>
           </label>
           <label class="colony-control" for="tempo">
             <span><b>Evolution duration</b><output id="tempoOut" for="tempo">16.0 s</output></span>
-            <input id="tempo" type="range" min="4" max="40" step="0.5" value="16" />
+            <input id="tempo" type="range" min="1" max="40" step="0.5" value="16" />
           </label>
           <label class="colony-control" for="swing">
             <span><b>Contour depth</b><output id="swingOut" for="swing">78%</output></span>
@@ -491,12 +514,12 @@
           <label class="colony-control" for="coupling">
             <span><b>Back-pressure coupling</b><output id="couplingOut" for="coupling">32%</output></span>
             <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.32" />
-            <small>Closing one mouth pushes its reflected load into the other folds.</small>
+            <small>Mouth closure returns load to connected vocal folds.</small>
           </label>
           <label class="colony-control" for="valveSlew">
             <span><b>Valve slew</b><output id="valveSlewOut" for="valveSlew">18 ms</output></span>
             <input id="valveSlew" type="range" min="1" max="180" step="1" value="18" />
-            <small>Fast clicks become pressure shocks; slow motion bends the manifold.</small>
+            <small>Sets route transition time and pressure transients.</small>
           </label>
           <label class="colony-control" for="reservoirLoss">
             <span><b>Reservoir leak</b><output id="reservoirLossOut" for="reservoirLoss">21%</output></span>
@@ -505,8 +528,8 @@
         </section>
 
         <section class="colony-console-section colony-readouts" aria-labelledby="readoutTitle">
-          <div class="console-heading"><span>LIVE BODY</span><output id="phaseReadout">PHASE 000°</output></div>
-          <h2 id="readoutTitle">Plumbing under tension</h2>
+          <div class="console-heading"><span>OUTPUT</span><output id="phaseReadout">PHASE 000°</output></div>
+          <h2 id="readoutTitle">Pressure and flow</h2>
           <dl>
             <div><dt>manifold</dt><dd id="manifoldReadout">6.8 kPa</dd></div>
             <div><dt>flow</dt><dd id="flowReadout">0.00 L/s</dd></div>
@@ -516,9 +539,9 @@
             <div><dt>MIDI input</dt><dd id="midiReadout">not connected</dd></div>
           </dl>
           <button class="midi-learn-button" id="midiLearnButton" type="button">
-            <span aria-hidden="true">⌨</span><span><b>Learn twelve valves</b><small>C2–B2 default map · velocity = aperture</small></span>
+            <span aria-hidden="true">⌨</span><span><b>Learn MIDI route map</b><small>C2 base note · velocity controls aperture</small></span>
           </button>
-          <p id="statusText" role="status">Audio sleeps. The valve map and anatomy remain editable.</p>
+          <p id="statusText" role="status">Audio off. Controls remain editable.</p>
           <p class="audio-error" id="audioError" role="alert" hidden></p>
         </section>
       </aside>

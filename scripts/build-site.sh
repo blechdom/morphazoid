@@ -116,6 +116,7 @@ for worktree_runtime_file in \
   colony-syrinx.html \
   colony-syrinx.css \
   colony-syrinx-app.js \
+  src/colony-syrinx-graph.js \
   src/colony-syrinx.js \
   src/colony-syrinx-processor.js \
   assets/instruments/colony-syrinx.webp \

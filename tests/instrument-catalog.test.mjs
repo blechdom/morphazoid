@@ -369,8 +369,9 @@ test("Colony Syrinx is a continuous mutable pressure-network voice with page-own
   assert.equal(instrument?.href, "colony-syrinx.html");
   assert.equal(instrument?.imageHref, "assets/instruments/colony-syrinx.webp");
   assert.equal(instrument?.kind, "Mutable pressure-network voice");
-  assert.match(instrument?.description ?? "", /one expressive breath/i);
-  assert.match(instrument?.description ?? "", /two morphing plumbing maps/i);
+  assert.match(instrument?.description ?? "", /variable lungs/i);
+  assert.match(instrument?.description ?? "", /air, water, or pellet excitation/i);
+  assert.match(instrument?.start ?? "", /short call/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
     ["voice-synths"],

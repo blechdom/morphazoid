@@ -176,7 +176,7 @@ export const COLONY_SYRINX_LUNG_PHASES = Object.freeze(Array.from(
 export const COLONY_SYRINX_MOUTH_ARCHETYPES = deepFreeze([
   {
     id: "maw",
-    label: "Maw / bass exhale",
+    label: "Low tract / bass outlet",
     opening: 0.72,
     tongueSize: 0.92,
     tonguePosition: 0.28,
@@ -333,6 +333,7 @@ export const DEFAULT_COLONY_SYRINX_STATE = deepFreeze({
   level: 0.58,
   lungEnabled: Array(COLONY_SYRINX_LUNG_COUNT).fill(true),
   phonatorEnabled: Array(COLONY_SYRINX_PHONATOR_COUNT).fill(true),
+  foldEnabled: Array(COLONY_SYRINX_FOLD_COUNT).fill(true),
   mouthEnabled: Array(COLONY_SYRINX_MOUTH_COUNT).fill(true),
   banks: DEFAULT_BANKS,
   phonators: DEFAULT_PHONATORS,
@@ -636,6 +637,12 @@ export function sanitizeColonySyrinxState(source = {}, fallback = DEFAULT_COLONY
     base.phonatorEnabled,
     DEFAULT_COLONY_SYRINX_STATE.phonatorEnabled,
     COLONY_SYRINX_PHONATOR_COUNT,
+  );
+  result.foldEnabled = sanitizeBooleanVector(
+    value.foldEnabled,
+    base.foldEnabled,
+    DEFAULT_COLONY_SYRINX_STATE.foldEnabled,
+    COLONY_SYRINX_FOLD_COUNT,
   );
   result.mouthEnabled = sanitizeBooleanVector(
     value.mouthEnabled,
@@ -986,7 +993,7 @@ const evaluateSanitizedContours = (state, timeSeconds = 0, options = {}) => {
     },
   );
   // Independent cyclic mouths can briefly converge on closure. Lift the
-  // living outlets together only during that overlap so the organism retains
+  // active outlets together only during that overlap so the network retains
   // one pressure-bearing exit; an individual mouth can still reach zero while
   // another carries the breath. The max-based correction is value-continuous.
   const maximumMouthOpening = Math.max(...mouthOpenings);
@@ -1117,8 +1124,8 @@ const randomizedRouteMatrix = (phonatorEnabled, mouthEnabled, random) => (
 );
 
 /**
- * Deterministically mutate anatomy, plumbing, motion, or the complete beast.
- * The fixed arrays remain DSP maxima; enabled vectors define the living subset.
+ * Deterministically mutate anatomy, plumbing, motion, or the complete configuration.
+ * The fixed arrays remain DSP maxima; enabled vectors define the active subset.
  */
 export function randomizeColonySyrinxState(configuration, options = {}) {
   const base = sanitizeColonySyrinxState(configuration);
@@ -1135,6 +1142,7 @@ export function randomizeColonySyrinxState(configuration, options = {}) {
     seed,
     lungEnabled: base.lungEnabled.slice(),
     phonatorEnabled: base.phonatorEnabled.slice(),
+    foldEnabled: base.foldEnabled.slice(),
     mouthEnabled: base.mouthEnabled.slice(),
     banks: base.banks.map((bank) => ({ ...bank })),
     phonators: base.phonators.map((phonator) => ({ ...phonator })),
@@ -1147,25 +1155,25 @@ export function randomizeColonySyrinxState(configuration, options = {}) {
   };
 
   if (scope === "anatomy" || scope === "all") {
+    const lungCount = 1 + Math.floor(random() * COLONY_SYRINX_LUNG_COUNT);
     const phonatorCount = 1 + Math.floor(random() * COLONY_SYRINX_PHONATOR_COUNT);
     const mouthCount = 1 + Math.floor(random() * COLONY_SYRINX_MOUTH_COUNT);
+    next.lungEnabled = enabledSubset(COLONY_SYRINX_LUNG_COUNT, lungCount, random);
     next.phonatorEnabled = enabledSubset(
       COLONY_SYRINX_PHONATOR_COUNT,
       phonatorCount,
       random,
     );
+    const eligibleFolds = next.phonatorEnabled.flatMap((enabled, phonatorIndex) => (
+      enabled ? [phonatorIndex * 2, phonatorIndex * 2 + 1] : []
+    ));
+    const foldCount = Math.floor(random() * (eligibleFolds.length + 1));
+    const selectedFolds = new Set(shuffleWith(eligibleFolds, random).slice(0, foldCount));
+    next.foldEnabled = Array.from(
+      { length: COLONY_SYRINX_FOLD_COUNT },
+      (_, index) => selectedFolds.has(index),
+    );
     next.mouthEnabled = enabledSubset(COLONY_SYRINX_MOUTH_COUNT, mouthCount, random);
-    next.lungEnabled.fill(false);
-    for (let phonatorIndex = 0; phonatorIndex < COLONY_SYRINX_PHONATOR_COUNT; phonatorIndex += 1) {
-      if (!next.phonatorEnabled[phonatorIndex]) continue;
-      const lungCount = 1 + Math.floor(random() * COLONY_SYRINX_LUNGS_PER_BANK);
-      const enabled = enabledSubset(COLONY_SYRINX_LUNGS_PER_BANK, lungCount, random);
-      enabled.forEach((isEnabled, lungOffset) => {
-        next.lungEnabled[
-          phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK + lungOffset
-        ] = isEnabled;
-      });
-    }
     next.banks = next.banks.map(() => ({
       drive: randomRange(random, 0.48, 1.34),
       compliance: randomRange(random, 0.42, 2.2),
@@ -1245,15 +1253,35 @@ export function randomizeColonySyrinxState(configuration, options = {}) {
   if (!next.phonatorEnabled.some(Boolean)) {
     next.phonatorEnabled[Math.floor(random() * COLONY_SYRINX_PHONATOR_COUNT)] = true;
   }
+  if (!next.lungEnabled.some(Boolean)) {
+    next.lungEnabled[Math.floor(random() * COLONY_SYRINX_LUNG_COUNT)] = true;
+  }
   if (!next.mouthEnabled.some(Boolean)) {
     next.mouthEnabled[Math.floor(random() * COLONY_SYRINX_MOUTH_COUNT)] = true;
   }
-  for (let phonatorIndex = 0; phonatorIndex < COLONY_SYRINX_PHONATOR_COUNT; phonatorIndex += 1) {
-    if (!next.phonatorEnabled[phonatorIndex]) continue;
-    const start = phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK;
-    const bankLungs = next.lungEnabled.slice(start, start + COLONY_SYRINX_LUNGS_PER_BANK);
-    if (!bankLungs.some(Boolean)) {
-      next.lungEnabled[start + Math.floor(random() * COLONY_SYRINX_LUNGS_PER_BANK)] = true;
+  next.foldEnabled = next.foldEnabled.map((enabled, foldIndex) => (
+    enabled && next.phonatorEnabled[Math.floor(foldIndex / 2)]
+  ));
+  const pressurePathPhonator = next.phonatorEnabled.findIndex((enabled, phonatorIndex) => (
+    enabled
+      && next.lungEnabled
+        .slice(
+          phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK,
+          (phonatorIndex + 1) * COLONY_SYRINX_LUNGS_PER_BANK,
+        )
+        .some(Boolean)
+  ));
+  if (pressurePathPhonator < 0) {
+    const activePhonators = next.phonatorEnabled
+      .map((enabled, index) => enabled ? index : -1)
+      .filter((index) => index >= 0);
+    const targetPhonator = activePhonators[Math.floor(random() * activePhonators.length)];
+    const targetLung = targetPhonator * COLONY_SYRINX_LUNGS_PER_BANK
+      + Math.floor(random() * COLONY_SYRINX_LUNGS_PER_BANK);
+    if (!next.lungEnabled[targetLung]) {
+      const sourceLung = next.lungEnabled.findIndex(Boolean);
+      next.lungEnabled[sourceLung] = false;
+      next.lungEnabled[targetLung] = true;
     }
   }
   if (scope === "anatomy" || scope === "plumbing" || scope === "all") {
@@ -1272,6 +1300,240 @@ export function randomizeColonySyrinxState(configuration, options = {}) {
   }
   next.breath = Math.max(COLONY_SYRINX_CONTINUOUS_BREATH_FLOOR, next.breath);
   return sanitizeColonySyrinxState(next, base);
+}
+
+const CALL_RECIPE_ROWS = [
+  ["air-collision-bass-fall", "Air / collision source / bass outlet / falling pressure", "air", 1.2, 2, [0], 1, [0], 1, "fall"],
+  ["air-split-speech-rise", "Air / split syrinx / speech outlet / rising aperture", "air", 1.8, 3, [1], 2, [1], 1, "rise"],
+  ["air-pulse-click-opening", "Air / pulse membrane / click outlet / narrow opening", "air", 2.5, 1, [2], 1, [2], 1, "opening"],
+  ["air-needle-click-bend", "Air / needle syrinx / click outlet / tension bend", "air", 3.3, 4, [3], 2, [2], 1, "bend"],
+  ["air-crossed-bass-speech", "Air / crossed sources / bass-speech transfer", "air", 4.1, 5, [0, 1], 3, [0, 1], 4, "exchange"],
+  ["air-three-source-mouth-exchange", "Air / three sources / mouth exchange", "air", 5.2, 6, [0, 1, 2], 4, [0, 1, 2], 7, "offset"],
+  ["air-four-source-bass-descent", "Air / four sources / bass outlet / coupled descent", "air", 6.8, 9, [0, 1, 2, 3], 5, [0], 4, "descent"],
+  ["air-full-dense-morph", "Air / maximum organ counts / dense route morph", "air", 9.5, 16, [0, 1, 2, 3], 8, [0, 1, 2], 12, "dense"],
+  ["water-collision-bass-release", "Water / collision source / bass outlet / pressure release", "water", 1.4, 1, [0], 1, [0], 1, "fall"],
+  ["water-split-speech-sweep", "Water / split syrinx / speech outlet / cavity sweep", "water", 2.1, 4, [1], 2, [1], 1, "rise"],
+  ["water-pulse-dual-opening", "Water / pulse membrane / bass-click outlets / fast opening", "water", 2.9, 2, [2], 1, [0, 2], 2, "opening"],
+  ["water-needle-click-jet", "Water / needle syrinx / click outlet / narrow jet", "water", 3.7, 3, [3], 2, [2], 1, "bend"],
+  ["water-crossed-speech-routes", "Water / crossed sources / speech outlet / route exchange", "water", 4.6, 5, [0, 1], 3, [1], 2, "exchange"],
+  ["water-three-source-reflection", "Water / three sources / bass-speech outlets / reflected load", "water", 5.8, 9, [0, 1, 2], 5, [0, 1], 5, "offset"],
+  ["water-four-source-closure", "Water / four sources / three outlets / slow closure", "water", 7.4, 12, [0, 1, 2, 3], 6, [0, 1, 2], 9, "descent"],
+  ["water-full-dense-morph", "Water / maximum organ counts / dense route morph", "water", 9.8, 16, [0, 1, 2, 3], 8, [0, 1, 2], 12, "dense"],
+  ["pellets-collision-bass-release", "Pellets / collision source / bass outlet / granular release", "pellets", 1.1, 1, [0], 1, [0], 1, "fall"],
+  ["pellets-split-click-aperture", "Pellets / split syrinx / click outlet / intermittent aperture", "pellets", 1.7, 2, [1], 2, [2], 1, "rise"],
+  ["pellets-pulse-speech-sweep", "Pellets / pulse membrane / speech outlet / vowel sweep", "pellets", 2.4, 3, [2], 1, [1], 1, "opening"],
+  ["pellets-needle-click-release", "Pellets / needle syrinx / click outlet / jam release", "pellets", 3.2, 2, [3], 2, [2], 1, "bend"],
+  ["pellets-crossed-obstruction", "Pellets / crossed sources / bass-click outlets / route obstruction", "pellets", 4, 5, [0, 1], 3, [0, 2], 4, "exchange"],
+  ["pellets-three-source-transfer", "Pellets / three sources / three outlets / migrating obstruction", "pellets", 5, 7, [0, 1, 2], 4, [0, 1, 2], 7, "offset"],
+  ["pellets-four-source-pressure", "Pellets / four sources / speech-click outlets / pressure variation", "pellets", 6.5, 10, [0, 1, 2, 3], 7, [1, 2], 6, "descent"],
+  ["pellets-full-dense-morph", "Pellets / maximum organ counts / dense route morph", "pellets", 8.8, 16, [0, 1, 2, 3], 8, [0, 1, 2], 12, "dense"],
+];
+
+export const COLONY_SYRINX_CALLS = deepFreeze(CALL_RECIPE_ROWS.map(([
+  id,
+  label,
+  mediumId,
+  durationSeconds,
+  lungCount,
+  phonatorIndices,
+  foldCount,
+  mouthIndices,
+  routeCount,
+  motionProfile,
+]) => ({
+  schemaVersion: 1,
+  id,
+  label,
+  mediumId,
+  durationSeconds,
+  counts: {
+    lungs: lungCount,
+    phonators: phonatorIndices.length,
+    folds: foldCount,
+    mouths: mouthIndices.length,
+    routes: routeCount,
+  },
+  phonatorIndices,
+  mouthIndices,
+  motionProfile,
+  seed: normalizedSeed(id),
+})));
+
+export const COLONY_SYRINX_CALL_COUNT = COLONY_SYRINX_CALLS.length;
+
+const maskFromIndices = (length, indices) => {
+  const selected = new Set(indices);
+  return Array.from({ length }, (_, index) => selected.has(index));
+};
+
+const callLungMask = (phonatorIndices, count, random) => {
+  const eligible = phonatorIndices.flatMap((phonatorIndex) => Array.from(
+    { length: COLONY_SYRINX_LUNGS_PER_BANK },
+    (_, offset) => phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK + offset,
+  ));
+  const selected = new Set();
+  for (const phonatorIndex of phonatorIndices) {
+    selected.add(phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK + Math.floor(
+      random() * COLONY_SYRINX_LUNGS_PER_BANK,
+    ));
+  }
+  for (const index of shuffleWith(eligible, random)) {
+    if (selected.size >= count) break;
+    selected.add(index);
+  }
+  return maskFromIndices(COLONY_SYRINX_LUNG_COUNT, selected);
+};
+
+const callFoldMask = (phonatorIndices, count, random) => {
+  const activePhonators = [...new Set(phonatorIndices)].filter((phonatorIndex) => (
+    Number.isInteger(phonatorIndex)
+      && phonatorIndex >= 0
+      && phonatorIndex < COLONY_SYRINX_PHONATOR_COUNT
+  ));
+  const eligible = activePhonators.flatMap((phonatorIndex) => [
+    phonatorIndex * 2,
+    phonatorIndex * 2 + 1,
+  ]);
+  const targetCount = clampInteger(count, 0, eligible.length, 0);
+  const selected = new Set();
+  if (targetCount >= activePhonators.length) {
+    for (const phonatorIndex of activePhonators) {
+      selected.add(phonatorIndex * 2 + Math.floor(random() * 2));
+    }
+  }
+  for (const foldIndex of shuffleWith(eligible, random)) {
+    if (selected.size >= targetCount) break;
+    selected.add(foldIndex);
+  }
+  return maskFromIndices(COLONY_SYRINX_FOLD_COUNT, selected);
+};
+
+const callRouteMatrices = (recipe, random) => {
+  const eligible = shuffleWith(recipe.phonatorIndices.flatMap((phonatorIndex) => (
+    recipe.mouthIndices.map((mouthIndex) => ({ phonatorIndex, mouthIndex }))
+  )), random);
+  const selected = [];
+  const routeKey = ({ phonatorIndex, mouthIndex }) => `${phonatorIndex}:${mouthIndex}`;
+  const selectedKeys = new Set();
+  const add = (route) => {
+    if (!route || selectedKeys.has(routeKey(route))) return;
+    selected.push(route);
+    selectedKeys.add(routeKey(route));
+  };
+  for (const phonatorIndex of recipe.phonatorIndices) {
+    add(eligible.find((route) => route.phonatorIndex === phonatorIndex));
+  }
+  for (const mouthIndex of recipe.mouthIndices) {
+    add(eligible.find((route) => route.mouthIndex === mouthIndex));
+  }
+  for (const route of eligible) {
+    if (selected.length >= recipe.counts.routes) break;
+    add(route);
+  }
+  const primary = Array.from(
+    { length: COLONY_SYRINX_PHONATOR_COUNT },
+    () => Array(COLONY_SYRINX_MOUTH_COUNT).fill(0),
+  );
+  const alternate = primary.map((row) => row.slice());
+  selected.forEach(({ phonatorIndex, mouthIndex }, index) => {
+    const amount = randomRange(random, 0.34, 1);
+    primary[phonatorIndex][mouthIndex] = amount;
+    alternate[phonatorIndex][mouthIndex] = clamp(
+      1.18 - amount * 0.72 + (index % 2) * 0.14,
+      0.24,
+      1,
+    );
+  });
+  return { primary, alternate };
+};
+
+const callMotionValue = (profile, laneIndex, phase, noise) => {
+  const arch = Math.sin(Math.PI * phase) ** 0.72;
+  const plateau = smoothstep(0, 0.18, phase) * (1 - smoothstep(0.72, 1, phase));
+  const wave = 0.5 + Math.sin(TWO_PI * phase) * 0.5;
+  const offsetWave = 0.5 + Math.sin(TWO_PI * phase + laneIndex * 1.74) * 0.5;
+  if (profile === "fall") return laneIndex === 1 || laneIndex === 2 ? phase : 1 - phase * 0.92;
+  if (profile === "rise") return laneIndex === 0 ? arch : phase * 0.92;
+  if (profile === "opening") return laneIndex === 0 ? arch : laneIndex === 2 ? 0.18 : plateau;
+  if (profile === "bend") return laneIndex === 0 ? plateau : laneIndex === 1 ? wave : 1 - phase * 0.74;
+  if (profile === "exchange") {
+    if (laneIndex === 2 || laneIndex === 4) return phase;
+    if (laneIndex === 3) return 1 - phase;
+    return laneIndex === 0 ? arch : wave;
+  }
+  if (profile === "offset") return laneIndex === 0 ? arch : offsetWave;
+  if (profile === "descent") return laneIndex < 2 ? 1 - phase * 0.72 : offsetWave;
+  return laneIndex === 0 ? 0.58 + plateau * 0.4 : mix(offsetWave, noise, 0.26);
+};
+
+const materializeCallContours = (state, recipe, random) => state.contours.map((contour, laneIndex) => ({
+  ...contour,
+  points: contour.points.map((noise, pointIndex) => clamp(mix(
+    noise,
+    callMotionValue(
+      recipe.motionProfile,
+      laneIndex,
+      pointIndex / Math.max(1, COLONY_SYRINX_CONTOUR_POINT_COUNT - 1),
+      random(),
+    ),
+    recipe.mediumId === "pellets" ? 0.72 : recipe.mediumId === "water" ? 0.86 : 0.8,
+  ))),
+  shape: recipe.mediumId === "water"
+    ? "spline"
+    : recipe.mediumId === "pellets" && laneIndex % 2 ? "linear" : contour.shape,
+  rate: clamp(
+    contour.rate * (recipe.motionProfile === "dense" ? 0.58 : 0.78),
+    ...COLONY_SYRINX_LIMITS.contourRate,
+  ),
+  depth: clamp(0.68 + random() * 0.32),
+  muted: false,
+}));
+
+export function colonySyrinxCallById(id) {
+  return COLONY_SYRINX_CALLS.find((recipe) => recipe.id === id) ?? null;
+}
+
+/** Build one deterministic, continuous 1–10 second call state. */
+export function createColonySyrinxCallState(reference = 0, fallback = DEFAULT_COLONY_SYRINX_STATE) {
+  const requested = typeof reference === "string"
+    ? colonySyrinxCallById(reference)
+    : COLONY_SYRINX_CALLS[wrap(reference, COLONY_SYRINX_CALL_COUNT)];
+  const recipe = requested ?? COLONY_SYRINX_CALLS[0];
+  const random = seededRandom(recipe.seed ^ 0x43a11ced);
+  const randomized = randomizeColonySyrinxState(fallback, {
+    scope: "all",
+    seed: recipe.seed,
+  });
+  const phonatorEnabled = maskFromIndices(
+    COLONY_SYRINX_PHONATOR_COUNT,
+    recipe.phonatorIndices,
+  );
+  const mouthEnabled = maskFromIndices(COLONY_SYRINX_MOUTH_COUNT, recipe.mouthIndices);
+  const routes = callRouteMatrices(recipe, random);
+  const materialControls = recipe.mediumId === "water"
+    ? { pressureGain: 1.56, crossCoupling: 0.68, colonyAmount: 0.2, leak: 0.022 }
+    : recipe.mediumId === "pellets"
+      ? { pressureGain: 1.82, crossCoupling: 0.46, colonyAmount: 0.7, leak: 0.032 }
+      : { pressureGain: 1.24, crossCoupling: 0.38, colonyAmount: 0.28, leak: 0.046 };
+  const callState = {
+    ...randomized,
+    ...materialControls,
+    mediumId: recipe.mediumId,
+    contourDurationSeconds: recipe.durationSeconds,
+    breath: recipe.mediumId === "air" ? 0.78 : 0.88,
+    level: recipe.mediumId === "air" ? 0.72 : recipe.mediumId === "water" ? 0.76 : 0.8,
+    valveSlewMs: recipe.mediumId === "water"
+      ? randomRange(random, 48, 136)
+      : recipe.mediumId === "pellets" ? randomRange(random, 6, 34) : randomRange(random, 12, 72),
+    lungEnabled: callLungMask(recipe.phonatorIndices, recipe.counts.lungs, random),
+    phonatorEnabled,
+    foldEnabled: callFoldMask(recipe.phonatorIndices, recipe.counts.folds, random),
+    mouthEnabled,
+    routes: routes.primary,
+    alternateRoutes: routes.alternate,
+  };
+  callState.contours = materializeCallContours(callState, recipe, random);
+  return sanitizeColonySyrinxState(callState, fallback);
 }
 
 const evaluateSanitizedStep = (state, stepIndex, options = {}) => {
@@ -1555,7 +1817,7 @@ export function stepColonySyrinx(
     for (let lungIndex = 0; lungIndex < COLONY_SYRINX_LUNG_COUNT; lungIndex += 1) {
       const bankIndex = Math.floor(lungIndex / COLONY_SYRINX_LUNGS_PER_BANK);
       const bank = state.banks[bankIndex];
-      const enabled = state.lungEnabled[lungIndex] && state.phonatorEnabled[bankIndex];
+      const enabled = state.lungEnabled[lungIndex];
       const phase = fract(
         runtime.timeSeconds * state.breathRateBpm / 60 + COLONY_SYRINX_LUNG_PHASES[lungIndex],
       );
@@ -1584,7 +1846,16 @@ export function stepColonySyrinx(
       );
     }
     const activeReservoirIndices = state.phonatorEnabled
-      .map((enabled, index) => enabled ? index : -1)
+      .map((enabled, index) => (
+        enabled || state.lungEnabled
+          .slice(
+            index * COLONY_SYRINX_LUNGS_PER_BANK,
+            (index + 1) * COLONY_SYRINX_LUNGS_PER_BANK,
+          )
+          .some(Boolean)
+          ? index
+          : -1
+      ))
       .filter((index) => index >= 0);
     const reservoirMean = activeReservoirIndices.length
       ? activeReservoirIndices.reduce(
@@ -1594,7 +1865,7 @@ export function stepColonySyrinx(
       : 0;
     const couplingAlpha = timeAlpha(state.crossCoupling * 2.4, h);
     for (let bankIndex = 0; bankIndex < COLONY_SYRINX_BANK_COUNT; bankIndex += 1) {
-      if (state.phonatorEnabled[bankIndex]) {
+      if (activeReservoirIndices.includes(bankIndex)) {
         runtime.reservoirPressures[bankIndex] += (
           reservoirMean - runtime.reservoirPressures[bankIndex]
         ) * couplingAlpha;
@@ -1618,7 +1889,12 @@ export function stepColonySyrinx(
         0,
         runtime.reservoirPressures[route.phonatorIndex] - runtime.mouthPressures[route.mouthIndex],
       );
-      const foldOpening = 0.08 + (1 - phonator.closure) ** 1.45 * 0.92;
+      const firstFold = route.phonatorIndex * 2;
+      const activeFoldFraction = (
+        Number(state.foldEnabled[firstFold]) + Number(state.foldEnabled[firstFold + 1])
+      ) * 0.5;
+      const voicedFoldOpening = 0.08 + (1 - phonator.closure) ** 1.45 * 0.92;
+      const foldOpening = mix(1, voicedFoldOpening, activeFoldFraction);
       const aperture = runtime.routeApertures[routeIndex];
       let jam = runtime.routeJams[routeIndex];
       if (medium.jamBuild > 0) {
@@ -1736,7 +2012,12 @@ export function stepColonySyrinx(
       medium.phonationThreshold + 0.7,
       pressure,
     );
-    const level = clamp(pressureVoicing * closureVoicing * (0.18 + load * 0.82));
+    const enabledFoldCount = Number(state.foldEnabled[firstFold])
+      + Number(state.foldEnabled[firstFold + 1]);
+    const foldScale = Math.sqrt(enabledFoldCount * 0.5);
+    const level = clamp(
+      pressureVoicing * closureVoicing * (0.18 + load * 0.82) * foldScale,
+    );
     const couplingBend = (runtime.meanPressure - pressure) * state.crossCoupling * 2.4;
     const pressureBend = pressure * (state.mediumId === "air" ? 1.8 : 0.72);
     const tension = clamp(phonator.tension + runtime.tensionOffset);
@@ -1744,15 +2025,23 @@ export function stepColonySyrinx(
     const frequency = clamp(phonator.frequencyHz * 2 ** (semitones / 12), 8, 20_000);
     runtime.phonatorLevels[phonatorIndex] = level;
     runtime.phonatorTensions[phonatorIndex] = tension;
-    runtime.phonatorFrequenciesHz[phonatorIndex] = frequency;
+    runtime.phonatorFrequenciesHz[phonatorIndex] = enabledFoldCount > 0 ? frequency : 0;
     const flutterCents = Math.sin(
       runtime.timeSeconds * (1.7 + phonatorIndex * 0.37) * TWO_PI + phonatorIndex,
     ) * phonator.roughness * 18;
     const detuneCents = phonator.asymmetry * 52 + flutterCents;
-    runtime.foldFrequenciesHz[firstFold] = clamp(frequency * 2 ** (-detuneCents / 1_200), 8, 20_000);
-    runtime.foldFrequenciesHz[firstFold + 1] = clamp(frequency * 2 ** (detuneCents / 1_200), 8, 20_000);
-    runtime.foldActivities[firstFold] = clamp(level * (1 - phonator.asymmetry * 0.14));
-    runtime.foldActivities[firstFold + 1] = clamp(level * (1 + phonator.asymmetry * 0.14));
+    runtime.foldFrequenciesHz[firstFold] = state.foldEnabled[firstFold]
+      ? clamp(frequency * 2 ** (-detuneCents / 1_200), 8, 20_000)
+      : 0;
+    runtime.foldFrequenciesHz[firstFold + 1] = state.foldEnabled[firstFold + 1]
+      ? clamp(frequency * 2 ** (detuneCents / 1_200), 8, 20_000)
+      : 0;
+    runtime.foldActivities[firstFold] = state.foldEnabled[firstFold]
+      ? clamp(level * (1 - phonator.asymmetry * 0.14))
+      : 0;
+    runtime.foldActivities[firstFold + 1] = state.foldEnabled[firstFold + 1]
+      ? clamp(level * (1 + phonator.asymmetry * 0.14))
+      : 0;
   }
 
   return freezeRuntime(runtime);

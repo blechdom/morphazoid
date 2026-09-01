@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   COLONY_SYRINX_BANK_COUNT,
+  COLONY_SYRINX_CALL_COUNT,
+  COLONY_SYRINX_CALLS,
   COLONY_SYRINX_CONTOUR_IDS,
   COLONY_SYRINX_CONTOUR_POINT_COUNT,
   COLONY_SYRINX_CONTOUR_SHAPES,
@@ -24,12 +26,14 @@ import {
   DEFAULT_COLONY_SYRINX_RUNTIME,
   DEFAULT_COLONY_SYRINX_STATE,
   colonySyrinxLaneStepDurationSeconds,
+  colonySyrinxCallById,
   colonySyrinxMidiNoteForRoute,
   colonySyrinxRouteCoordinates,
   colonySyrinxRouteFromMidiNote,
   colonySyrinxRouteIndex,
   colonySyrinxStepDurationSeconds,
   createColonySyrinxRuntime,
+  createColonySyrinxCallState,
   createColonySyrinxState,
   evaluateColonySyrinxContours,
   evaluateColonySyrinxStep,
@@ -83,6 +87,113 @@ test("Colony Syrinx topology is exactly sixteen lungs, eight folds, twelve route
   );
 });
 
+test("the call atlas contains twenty-four unique deterministic recipes across all materials", () => {
+  assert.equal(COLONY_SYRINX_CALL_COUNT, 24);
+  assert.equal(COLONY_SYRINX_CALLS.length, COLONY_SYRINX_CALL_COUNT);
+  assert.equal(new Set(COLONY_SYRINX_CALLS.map(({ id }) => id)).size, 24);
+  assert.equal(new Set(COLONY_SYRINX_CALLS.map(({ seed }) => seed)).size, 24);
+
+  const materialCounts = Object.fromEntries(
+    Object.keys(COLONY_SYRINX_MEDIA).map((mediumId) => [
+      mediumId,
+      COLONY_SYRINX_CALLS.filter((call) => call.mediumId === mediumId).length,
+    ]),
+  );
+  assert.deepEqual(materialCounts, { air: 8, water: 8, pellets: 8 });
+
+  COLONY_SYRINX_CALLS.forEach((call, index) => {
+    assert.ok(call.durationSeconds >= 1 && call.durationSeconds <= 10, call.id);
+    assert.strictEqual(colonySyrinxCallById(call.id), call);
+    const byId = createColonySyrinxCallState(call.id);
+    assert.deepEqual(byId, createColonySyrinxCallState(call.id), `${call.id} must repeat`);
+    assert.deepEqual(byId, createColonySyrinxCallState(index), `${call.id} index lookup`);
+  });
+  assert.equal(colonySyrinxCallById("missing-call"), null);
+});
+
+test("call metadata matches every enabled organ and both materialized route maps", () => {
+  for (const call of COLONY_SYRINX_CALLS) {
+    const state = createColonySyrinxCallState(call.id);
+    const counts = {
+      lungs: state.lungEnabled.filter(Boolean).length,
+      phonators: state.phonatorEnabled.filter(Boolean).length,
+      folds: state.foldEnabled.filter(Boolean).length,
+      mouths: state.mouthEnabled.filter(Boolean).length,
+      routes: state.routes.flat().filter((aperture) => aperture > 0).length,
+    };
+    assert.deepEqual(counts, call.counts, `${call.id} metadata`);
+    assert.equal(
+      state.alternateRoutes.flat().filter((aperture) => aperture > 0).length,
+      call.counts.routes,
+      `${call.id} alternate route count`,
+    );
+    assert.equal(state.mediumId, call.mediumId);
+    assert.equal(state.contourDurationSeconds, call.durationSeconds);
+    assert.deepEqual(
+      state.phonatorEnabled.map((enabled, index) => enabled ? index : -1).filter((index) => index >= 0),
+      call.phonatorIndices,
+    );
+    assert.deepEqual(
+      state.mouthEnabled.map((enabled, index) => enabled ? index : -1).filter((index) => index >= 0),
+      call.mouthIndices,
+    );
+
+    for (let phonatorIndex = 0; phonatorIndex < COLONY_SYRINX_PHONATOR_COUNT; phonatorIndex += 1) {
+      const lungs = state.lungEnabled.slice(
+        phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK,
+        (phonatorIndex + 1) * COLONY_SYRINX_LUNGS_PER_BANK,
+      );
+      const folds = state.foldEnabled.slice(phonatorIndex * 2, phonatorIndex * 2 + 2);
+      if (state.phonatorEnabled[phonatorIndex]) {
+        assert.ok(lungs.some(Boolean), `${call.id} source ${phonatorIndex} needs a lung`);
+        assert.ok(folds.some(Boolean), `${call.id} source ${phonatorIndex} needs a fold`);
+      } else {
+        assert.ok(lungs.every((enabled) => !enabled), `${call.id} inactive source lungs`);
+        assert.ok(folds.every((enabled) => !enabled), `${call.id} inactive source folds`);
+      }
+      for (let mouthIndex = 0; mouthIndex < COLONY_SYRINX_MOUTH_COUNT; mouthIndex += 1) {
+        if (!state.phonatorEnabled[phonatorIndex] || !state.mouthEnabled[mouthIndex]) {
+          assert.equal(state.routes[phonatorIndex][mouthIndex], 0);
+          assert.equal(state.alternateRoutes[phonatorIndex][mouthIndex], 0);
+        }
+      }
+    }
+  }
+});
+
+test("the call atlas covers the complete variable anatomy ranges", () => {
+  const values = (key) => COLONY_SYRINX_CALLS.map(({ counts }) => counts[key]);
+  const range = (key) => [Math.min(...values(key)), Math.max(...values(key))];
+  assert.deepEqual(range("lungs"), [1, COLONY_SYRINX_LUNG_COUNT]);
+  assert.deepEqual(range("phonators"), [1, COLONY_SYRINX_PHONATOR_COUNT]);
+  assert.deepEqual(range("folds"), [1, COLONY_SYRINX_FOLD_COUNT]);
+  assert.deepEqual(range("mouths"), [1, COLONY_SYRINX_MOUTH_COUNT]);
+  assert.deepEqual(range("routes"), [1, COLONY_SYRINX_ROUTE_COUNT]);
+  assert.deepEqual(
+    [...new Set(values("phonators"))].sort((left, right) => left - right),
+    [1, 2, 3, 4],
+  );
+  assert.deepEqual(
+    [...new Set(values("mouths"))].sort((left, right) => left - right),
+    [1, 2, 3],
+  );
+  assert.deepEqual(
+    [...new Set(values("folds"))].sort((left, right) => left - right),
+    [1, 2, 3, 4, 5, 6, 7, 8],
+  );
+  assert.ok(
+    COLONY_SYRINX_CALLS.some(({ counts }) => (
+      counts.phonators === 1 && counts.folds === 1
+    )),
+    "the atlas should include a unilateral one-fold source",
+  );
+  assert.ok(
+    COLONY_SYRINX_CALLS.some(({ counts }) => counts.folds % 2 === 1),
+    "the atlas should include odd fold counts",
+  );
+  assert.equal(new Set(COLONY_SYRINX_CALLS.map(({ motionProfile }) => motionProfile)).size, 8);
+});
+
 test("defaults and hostile input sanitize into a complete fixed-size state without mutation", () => {
   assert.deepEqual(sanitizeColonySyrinxState(), DEFAULT_COLONY_SYRINX_STATE);
   const fallback = createColonySyrinxState({ mediumId: "water", breath: 0.42 });
@@ -100,6 +211,7 @@ test("defaults and hostile input sanitize into a complete fixed-size state witho
     midiBaseNote: 999,
     lungEnabled: [false, 0, 1, null],
     phonatorEnabled: [false, 1, null, "yes"],
+    foldEnabled: [false, 0, 1, null, "yes", undefined, {}, [], false, false],
     mouthEnabled: [0, "open", false],
     banks: [{ drive: -10, compliance: Infinity, leak: 8 }],
     phonators: [{ frequencyHz: -1, tension: 8, closure: -8, asymmetry: 8 }],
@@ -129,9 +241,11 @@ test("defaults and hostile input sanitize into a complete fixed-size state witho
   assert.equal(state.sequence.length, 16);
   assert.equal(state.lungEnabled.length, 16);
   assert.equal(state.phonatorEnabled.length, 4);
+  assert.equal(state.foldEnabled.length, 8);
   assert.equal(state.mouthEnabled.length, 3);
   assert.deepEqual(state.lungEnabled.slice(0, 4), [false, false, true, true]);
   assert.deepEqual(state.phonatorEnabled, [false, true, true, true]);
+  assert.deepEqual(state.foldEnabled, [false, false, true, true, true, true, true, true]);
   assert.deepEqual(state.mouthEnabled, [false, true, false]);
   assert.equal(state.contourDurationSeconds, 1);
   assert.ok(Number.isInteger(state.seed));
@@ -328,11 +442,41 @@ test("motion-only randomization never repairs or mutates closed plumbing", () =>
   assert.deepEqual(result.alternateRoutes, closed.alternateRoutes);
 });
 
-test("random anatomy varies active counts and every primary and alternate graph has no orphan organ", () => {
+test("plumbing preserves a foldless body while repairing an unvoiced pressure path", () => {
+  const foldless = createColonySyrinxState({
+    lungEnabled: Array.from({ length: COLONY_SYRINX_LUNG_COUNT }, (_, index) => index === 0),
+    phonatorEnabled: [false, false, true, false],
+    foldEnabled: Array(COLONY_SYRINX_FOLD_COUNT).fill(false),
+    mouthEnabled: [false, true, false],
+    routes: Array.from({ length: COLONY_SYRINX_PHONATOR_COUNT }, () => (
+      Array(COLONY_SYRINX_MOUTH_COUNT).fill(0)
+    )),
+    alternateRoutes: Array.from({ length: COLONY_SYRINX_PHONATOR_COUNT }, () => (
+      Array(COLONY_SYRINX_MOUTH_COUNT).fill(0)
+    )),
+  });
+  const result = randomizeColonySyrinxState(foldless, { scope: "plumbing", seed: 117 });
+  assert.deepEqual(result.foldEnabled, foldless.foldEnabled);
+  assert.equal(result.lungEnabled.filter(Boolean).length, 1, "lung repair must preserve its count");
+  assert.equal(result.phonatorEnabled.filter(Boolean).length, 1);
+  assert.equal(result.mouthEnabled.filter(Boolean).length, 1);
+  assert.ok(result.lungEnabled.slice(8, 12).some(Boolean));
+  assert.ok(result.routes[2][1] > 0.04);
+  assert.ok(result.alternateRoutes[2][1] > 0.04);
+
+  const motion = randomizeColonySyrinxState(result, { scope: "motion", seed: 118 });
+  assert.deepEqual(motion.foldEnabled, result.foldEnabled);
+});
+
+test("random anatomy varies fold count independently and retains a routed pressure path", () => {
   const phonatorCounts = new Set();
+  const foldCounts = new Set();
   const mouthCounts = new Set();
   const lungCounts = new Set();
-  for (let seed = 1; seed <= 32; seed += 1) {
+  const foldsByPhonatorCount = new Map();
+  let foundIndependentFoldCount = false;
+  let foundFoldlessState = false;
+  for (let seed = 1; seed <= 64; seed += 1) {
     const state = randomizeColonySyrinxState(DEFAULT_COLONY_SYRINX_STATE, {
       scope: "all",
       seed,
@@ -343,16 +487,44 @@ test("random anatomy varies active counts and every primary and alternate graph 
     const activeMouths = state.mouthEnabled
       .map((enabled, index) => enabled ? index : -1)
       .filter((index) => index >= 0);
+    const activeFolds = state.foldEnabled
+      .map((enabled, index) => enabled ? index : -1)
+      .filter((index) => index >= 0);
     phonatorCounts.add(activePhonators.length);
+    foldCounts.add(activeFolds.length);
     mouthCounts.add(activeMouths.length);
     lungCounts.add(state.lungEnabled.filter(Boolean).length);
-    assert.ok(activePhonators.length >= 1 && activePhonators.length <= 4);
-    assert.ok(activeMouths.length >= 1 && activeMouths.length <= 3);
-
-    for (const phonatorIndex of activePhonators) {
-      const start = phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK;
-      assert.ok(state.lungEnabled.slice(start, start + 4).some(Boolean));
+    if (!foldsByPhonatorCount.has(activePhonators.length)) {
+      foldsByPhonatorCount.set(activePhonators.length, new Set());
     }
+    foldsByPhonatorCount.get(activePhonators.length).add(activeFolds.length);
+    foundIndependentFoldCount ||= activeFolds.length !== activePhonators.length * 2;
+    foundFoldlessState ||= activeFolds.length === 0;
+    assert.ok(activePhonators.length >= 1 && activePhonators.length <= 4);
+    assert.ok(activeFolds.length <= activePhonators.length * 2);
+    assert.ok(activeMouths.length >= 1 && activeMouths.length <= 3);
+    for (const foldIndex of activeFolds) {
+      assert.equal(
+        state.phonatorEnabled[Math.floor(foldIndex / 2)],
+        true,
+        `seed ${seed} enabled fold ${foldIndex} belongs to a disabled source`,
+      );
+    }
+
+    const pressurePathPhonators = activePhonators.filter((phonatorIndex) => {
+      const start = phonatorIndex * COLONY_SYRINX_LUNGS_PER_BANK;
+      const hasLung = state.lungEnabled.slice(start, start + 4).some(Boolean);
+      const hasRoute = activeMouths.some((mouthIndex) => (
+        state.routes[phonatorIndex][mouthIndex] > 0.04
+          || state.alternateRoutes[phonatorIndex][mouthIndex] > 0.04
+      ));
+      return hasLung && hasRoute;
+    });
+    assert.ok(
+      pressurePathPhonators.length >= 1,
+      `seed ${seed} needs a lung/source/route pressure path`,
+    );
+
     for (const matrix of [state.routes, state.alternateRoutes]) {
       for (let phonatorIndex = 0; phonatorIndex < 4; phonatorIndex += 1) {
         for (let mouthIndex = 0; mouthIndex < 3; mouthIndex += 1) {
@@ -370,6 +542,13 @@ test("random anatomy varies active counts and every primary and alternate graph 
     }
   }
   assert.ok(phonatorCounts.size > 1, "phonator count should vary across seeds");
+  assert.ok(foldCounts.size > 1, "fold count should vary across seeds");
+  assert.ok(foundFoldlessState, "anatomy randomization should be able to select zero folds");
+  assert.ok(foundIndependentFoldCount, "fold count must not be derived from throat count");
+  assert.ok(
+    [...foldsByPhonatorCount.values()].some((counts) => counts.size > 1),
+    "the same throat count should permit different fold counts",
+  );
   assert.ok(mouthCounts.size > 1, "mouth count should vary across seeds");
   assert.ok(lungCounts.size > 1, "lung count should vary across seeds");
 });
@@ -518,6 +697,7 @@ test("individual lung toggles remove their bank supply while preserving fixed te
 test("disabled phonators and mouths remain silent while fixed telemetry dimensions stay intact", () => {
   const state = createColonySyrinxState({
     phonatorEnabled: [false, true, false, false],
+    foldEnabled: [false, false, true, false, false, false, false, false],
     mouthEnabled: [false, false, true],
     lungEnabled: Array.from({ length: 16 }, (_, index) => index >= 4 && index < 8),
     routes: [
@@ -534,7 +714,11 @@ test("disabled phonators and mouths remain silent while fixed telemetry dimensio
     [false, true, false, false],
   );
   assert.ok(runtime.foldFrequenciesHz.slice(0, 2).every((frequency) => frequency === 0));
+  assert.ok(runtime.foldFrequenciesHz[2] > 0);
+  assert.equal(runtime.foldFrequenciesHz[3], 0);
   assert.ok(runtime.foldFrequenciesHz.slice(4).every((frequency) => frequency === 0));
+  assert.ok(runtime.foldActivities[2] > 0);
+  assert.equal(runtime.foldActivities[3], 0);
   assert.deepEqual(runtime.mouthFlows.slice(0, 2), [0, 0]);
   assert.ok(runtime.mouthFlows[2] > 0);
   for (const { index, phonatorIndex, mouthIndex } of COLONY_SYRINX_TOPOLOGY.routes) {

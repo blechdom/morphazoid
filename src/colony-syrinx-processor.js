@@ -24,8 +24,12 @@ const TELEMETRY_RATE_HZ = 24;
 const SOURCE_OVERSAMPLE = 2;
 const MAX_SOURCE_RATE = 384_000;
 const CONTINUOUS_CONTOUR_COUNT = 6;
+const CALL_MINIMUM_SECONDS = 0.05;
+const CALL_MAXIMUM_SECONDS = 120;
+const CALL_ATTACK_SECONDS = 0.035;
+const CALL_RELEASE_SECONDS = 0.14;
 
-const FREAK_SOURCE_PROFILES = Object.freeze([
+const VOCAL_SOURCE_PROFILES = Object.freeze([
   Object.freeze({
     id: "collision-roar",
     model: "twoMass",
@@ -149,6 +153,12 @@ function smoothstep(edge0, edge1, value) {
 
 function clean(value) {
   return Number.isFinite(value) && Math.abs(value) >= SILENCE_FLOOR ? value : 0;
+}
+
+function foldEnabled(configuration, foldIndex) {
+  const phonatorIndex = Math.floor(foldIndex / 2);
+  return configuration.phonatorEnabled?.[phonatorIndex] !== false
+    && configuration.foldEnabled?.[foldIndex] !== false;
 }
 
 function interpolateMouthGesture(mouthIndex, phase) {
@@ -579,6 +589,15 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     this.transportPlaying = initialPlaying == null
       ? this.configuration.sequencerEnabled
       : Boolean(initialPlaying);
+    this.callActive = false;
+    this.callOutputMuted = false;
+    this.callDurationSamples = 0;
+    this.callRenderedSamples = 0;
+    this.callAttackSamples = 0;
+    this.callReleaseSamples = 0;
+    this.callEndedPosted = false;
+    this.callId = null;
+    this.callToken = null;
     this.runtime = createColonySyrinxRuntime();
     this.activeSeed = (
       Number(processorOptions.seed ?? initial.seed ?? this.configuration.seed) || 0x436f6c6f
@@ -600,7 +619,7 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     this.sourceRate = Math.min(this.rate * SOURCE_OVERSAMPLE, MAX_SOURCE_RATE);
     this.sourceStepsPerOutput = this.sourceRate / this.rate;
     this.sourceStepPhase = 0;
-    this.sourceEngines = FREAK_SOURCE_PROFILES.map((profile, index) => (
+    this.sourceEngines = VOCAL_SOURCE_PROFILES.map((profile, index) => (
       new SyrinxSourceEngine({
         sampleRate: this.sourceRate,
         model: profile.model,
@@ -644,7 +663,7 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       (_, index) => new MouthLoad(this.rate, index),
     );
     this._configureMouths();
-    this._configureFreakSources();
+    this._configureVocalSources();
     for (let index = 0; index < this.sourceEngines.length; index += 1) {
       this.sourceEngines[index].reset(this.activeSeed + index * 0x9e37);
     }
@@ -684,16 +703,22 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     }
   }
 
-  _configureFreakSources() {
+  _configureVocalSources() {
     for (let bank = 0; bank < COLONY_SYRINX_PHONATOR_COUNT; bank += 1) {
-      const profile = FREAK_SOURCE_PROFILES[bank];
+      const profile = VOCAL_SOURCE_PROFILES[bank];
       const phonator = this.configuration.phonators[bank];
-      const enabled = this.configuration.phonatorEnabled?.[bank] !== false;
       const firstFold = bank * 2;
-      const runtimeFrequency = (
-        this.runtime.foldFrequenciesHz[firstFold]
-        + this.runtime.foldFrequenciesHz[firstFold + 1]
-      ) * 0.5;
+      const secondFold = firstFold + 1;
+      const firstFoldEnabled = foldEnabled(this.configuration, firstFold);
+      const secondFoldEnabled = foldEnabled(this.configuration, secondFold);
+      const enabledFoldCount = Number(firstFoldEnabled) + Number(secondFoldEnabled);
+      const enabled = enabledFoldCount > 0;
+      const runtimeFrequency = enabledFoldCount > 0
+        ? (
+          (firstFoldEnabled ? this.runtime.foldFrequenciesHz[firstFold] : 0)
+          + (secondFoldEnabled ? this.runtime.foldFrequenciesHz[secondFold] : 0)
+        ) / enabledFoldCount
+        : 0;
       const baseFrequency = runtimeFrequency > 1
         ? runtimeFrequency
         : phonator.frequencyHz;
@@ -739,7 +764,10 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
         this.sourceRate * 0.2,
         120,
       );
-      this.sourceFrequenciesHz[bank] = frequencyHz;
+      this.sourceFrequenciesHz[bank] = enabled ? frequencyHz : 0;
+      const sourceBalance = firstFoldEnabled && secondFoldEnabled
+        ? clamp(profile.asymmetry * 0.44, -1, 1, 0)
+        : firstFoldEnabled ? -1 : secondFoldEnabled ? 1 : 0;
       this.sourceEngines[bank].setParameters({
         model: profile.model,
         frequencyHz,
@@ -763,11 +791,10 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
         ),
         pulseRateHz: profile.pulseRateHz * (0.84 + tensionContour * 0.32) + bank * 2.5,
         coupling: profile.coupling,
-        sourceBalance: clamp(profile.asymmetry * 0.44, -1, 1, 0),
+        sourceBalance,
         feedback: clamp(profile.feedback + this.configuration.crossCoupling * 0.18),
         outputGain: profile.outputGain,
       });
-      if (!enabled) this.sourceFrequenciesHz[bank] = 0;
       if (pressure > 0.0005) {
         this.sourceSleeping[bank] = 0;
         this.sourceIdleSamples[bank] = 0;
@@ -801,7 +828,7 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
         this.configuredBreath = this.configuration.breath;
       }
       this._configureMouths();
-      this._configureFreakSources();
+      this._configureVocalSources();
       if (this.configuration.seed !== previousSeed) this._reseed(this.configuration.seed);
       this.controlCountdown = 0;
       return;
@@ -814,10 +841,57 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       } else if (Number.isFinite(requested)) {
         this.breathActive = requested > 0;
       }
+      if (this.breathActive && !this.callActive) this.callOutputMuted = false;
+      this.controlCountdown = 0;
+      return;
+    }
+    if (message.type === "call") {
+      if (!Boolean(message.playing ?? message.running)) {
+        this._cancelCall();
+        this.transportPlaying = false;
+        this.controlCountdown = 0;
+        return;
+      }
+      const fallbackDuration = clamp(
+        this.configuration.contourDurationSeconds,
+        CALL_MINIMUM_SECONDS,
+        CALL_MAXIMUM_SECONDS,
+        8,
+      );
+      const durationSeconds = clamp(
+        message.durationSeconds ?? message.duration,
+        CALL_MINIMUM_SECONDS,
+        CALL_MAXIMUM_SECONDS,
+        fallbackDuration,
+      );
+      const reset = message.reset !== false;
+      if (reset) this._panic();
+      else this._cancelCall();
+      this.callDurationSamples = Math.max(1, Math.round(durationSeconds * this.rate));
+      this.callRenderedSamples = 0;
+      this.callAttackSamples = Math.max(1, Math.min(
+        Math.round(CALL_ATTACK_SECONDS * this.rate),
+        Math.floor(this.callDurationSamples * 0.2),
+      ));
+      this.callReleaseSamples = Math.max(1, Math.min(
+        Math.round(CALL_RELEASE_SECONDS * this.rate),
+        Math.floor(this.callDurationSamples * 0.35),
+      ));
+      this.callActive = true;
+      this.callOutputMuted = false;
+      this.callEndedPosted = false;
+      this.callId = typeof message.callId === "string" ? message.callId : null;
+      this.callToken = typeof message.callToken === "string" || Number.isFinite(message.callToken)
+        ? message.callToken
+        : null;
+      this.transportPlaying = true;
+      if (reset) this._resetClock();
+      this._prechargeCall();
       this.controlCountdown = 0;
       return;
     }
     if (message.type === "transport") {
+      this._cancelCall();
       if (message.playing != null || message.running != null) {
         this.transportPlaying = Boolean(message.playing ?? message.running);
       }
@@ -838,6 +912,88 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       return;
     }
     if (message.type === "panic") this._panic();
+  }
+
+  _cancelCall() {
+    this.callActive = false;
+    this.callOutputMuted = false;
+    this.callDurationSamples = 0;
+    this.callRenderedSamples = 0;
+    this.callAttackSamples = 0;
+    this.callReleaseSamples = 0;
+    this.callEndedPosted = false;
+    this.callId = null;
+    this.callToken = null;
+  }
+
+  _prechargeCall() {
+    const mediumScale = this.configuration.mediumId === "pellets"
+      ? 0.72
+      : this.configuration.mediumId === "water" ? 0.56 : 0.38;
+    const charge = clamp(
+      this.configuredBreath * this.configuration.pressureGain * mediumScale,
+      0,
+      COLONY_SYRINX_MAX_PRESSURE,
+    );
+    const lungPressures = Array.from(
+      { length: this.runtime.lungPressures.length },
+      (_, index) => this.configuration.lungEnabled[index]
+        ? charge * (0.82 + (index % 4) * 0.045)
+        : 0,
+    );
+    const reservoirPressures = Array.from(
+      { length: COLONY_SYRINX_BANK_COUNT },
+      (_, bank) => this.configuration.lungEnabled
+        .slice(bank * 4, bank * 4 + 4)
+        .some(Boolean)
+        ? charge * (0.7 + this.configuration.banks[bank].drive * 0.12)
+        : 0,
+    );
+    this.runtime = createColonySyrinxRuntime({
+      ...this.runtime,
+      lungPressures,
+      reservoirPressures,
+    });
+    this.breathValue = this.configuredBreath;
+  }
+
+  _callEnvelope() {
+    if (this.callOutputMuted) return 0;
+    if (!this.callActive || this.callDurationSamples <= 0) return 1;
+    const sampleIndex = Math.min(
+      this.callRenderedSamples,
+      this.callDurationSamples - 1,
+    );
+    const attackProgress = this.callAttackSamples <= 1
+      ? 1
+      : clamp(sampleIndex / (this.callAttackSamples - 1));
+    const samplesAfter = this.callDurationSamples - 1 - sampleIndex;
+    const releaseProgress = this.callReleaseSamples <= 1
+      ? (samplesAfter > 0 ? 1 : 0)
+      : clamp(samplesAfter / (this.callReleaseSamples - 1));
+    return smoothstep(0, 1, attackProgress) * smoothstep(0, 1, releaseProgress);
+  }
+
+  _finishCall() {
+    if (!this.callActive) return;
+    const callId = this.callId;
+    const callToken = this.callToken;
+    this.callRenderedSamples = this.callDurationSamples;
+    this.callActive = false;
+    this.callOutputMuted = true;
+    this.transportPlaying = false;
+    this.controlCountdown = 0;
+    if (this.callEndedPosted) return;
+    this.callEndedPosted = true;
+    this.port.postMessage({
+      type: "call-ended",
+      durationSeconds: this.callDurationSamples / this.rate,
+      renderedSamples: this.callRenderedSamples,
+      callId,
+      callToken,
+    });
+    this.callId = null;
+    this.callToken = null;
   }
 
   _setClockStep(step, laneSteps) {
@@ -877,6 +1033,7 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
   }
 
   _panic() {
+    this._cancelCall();
     this.breathActive = false;
     this.transportPlaying = false;
     this.breathValue = 0;
@@ -1036,8 +1193,14 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     this.configuration.breath = clamp(this.breathValue);
 
     if (this.transportPlaying) {
-      const duration = clamp(this.configuration.contourDurationSeconds, 1, 120, 8);
-      this.evolutionCycles += seconds / duration;
+      if (this.callActive && this.callDurationSamples > 0) {
+        this.evolutionCycles = this.callDurationSamples <= 1
+          ? 1
+          : clamp(this.callRenderedSamples / (this.callDurationSamples - 1));
+      } else {
+        const duration = clamp(this.configuration.contourDurationSeconds, 1, 120, 8);
+        this.evolutionCycles += seconds / duration;
+      }
     }
     const options = { phase: this.evolutionCycles };
     if (!this.transportPlaying) {
@@ -1052,7 +1215,7 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     );
     this._updateContinuousBreathMotion(seconds);
     this.impactEnvelope = Math.max(this.impactEnvelope, this.runtime.impact);
-    this._configureFreakSources();
+    this._configureVocalSources();
 
     for (let index = 0; index < COLONY_SYRINX_MOUTH_COUNT; index += 1) {
       const enabled = this.configuration.mouthEnabled?.[index] !== false;
@@ -1114,16 +1277,30 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
   _renderPhonator(phonatorIndex, noise, sourceSteps) {
     const firstFold = phonatorIndex * 2;
     const secondFold = firstFold + 1;
-    const enabled = this.configuration.phonatorEnabled?.[phonatorIndex] !== false;
-    this.foldLevels[firstFold] += (
-      (enabled ? this.runtime.foldActivities[firstFold] : 0) - this.foldLevels[firstFold]
-    ) * 0.0024;
-    this.foldLevels[secondFold] += (
-      (enabled ? this.runtime.foldActivities[secondFold] : 0) - this.foldLevels[secondFold]
-    ) * 0.0024;
-    const activity = clamp(
-      (this.foldLevels[firstFold] + this.foldLevels[secondFold]) * 0.5,
-    );
+    const firstFoldEnabled = foldEnabled(this.configuration, firstFold);
+    const secondFoldEnabled = foldEnabled(this.configuration, secondFold);
+    const enabledFoldCount = Number(firstFoldEnabled) + Number(secondFoldEnabled);
+    const enabled = enabledFoldCount > 0;
+    if (firstFoldEnabled) {
+      this.foldLevels[firstFold] += (
+        this.runtime.foldActivities[firstFold] - this.foldLevels[firstFold]
+      ) * 0.0024;
+    } else {
+      this.foldLevels[firstFold] = 0;
+    }
+    if (secondFoldEnabled) {
+      this.foldLevels[secondFold] += (
+        this.runtime.foldActivities[secondFold] - this.foldLevels[secondFold]
+      ) * 0.0024;
+    } else {
+      this.foldLevels[secondFold] = 0;
+    }
+    const activity = enabledFoldCount > 0
+      ? clamp(
+        (this.foldLevels[firstFold] + this.foldLevels[secondFold]) / enabledFoldCount,
+      )
+      : 0;
+    const foldScale = Math.sqrt(enabledFoldCount * 0.5);
     const routeOffset = phonatorIndex * COLONY_SYRINX_MOUTH_COUNT;
     const connectedAperture = Math.max(
       this.runtime.routeApertures[routeOffset],
@@ -1174,7 +1351,7 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
     } else {
       source = Math.tanh(source * 1.64) + (source - previousSource) * 0.18;
     }
-    source = clamp(clean(source), -1.8, 1.8, 0);
+    source = clamp(clean(source * foldScale), -1.8, 1.8, 0);
     if (sourceGate <= 1e-5) {
       this.sourceIdleSamples[phonatorIndex] += sourceSteps;
       if (this.sourceIdleSamples[phonatorIndex] >= this.sourceRate * 0.08) {
@@ -1197,35 +1374,43 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       1,
       0,
     );
-    const firstDisplacement = clamp(
-      source * (1 - pairDifference * 0.28) + pairDifference * activity * 0.16,
-      -1,
-      1,
-      0,
-    );
-    const secondDisplacement = clamp(
-      source * (1 + pairDifference * 0.28) - pairDifference * activity * 0.16,
-      -1,
-      1,
-      0,
-    );
+    const firstDisplacement = firstFoldEnabled
+      ? clamp(
+        source * (1 - pairDifference * 0.28) + pairDifference * activity * 0.16,
+        -1,
+        1,
+        0,
+      )
+      : 0;
+    const secondDisplacement = secondFoldEnabled
+      ? clamp(
+        source * (1 + pairDifference * 0.28) - pairDifference * activity * 0.16,
+        -1,
+        1,
+        0,
+      )
+      : 0;
     const frequency = this.sourceFrequenciesHz[phonatorIndex];
     const previousFirst = this.foldDisplacements[firstFold];
     const previousSecond = this.foldDisplacements[secondFold];
     this.foldDisplacements[firstFold] = clean(firstDisplacement);
     this.foldDisplacements[secondFold] = clean(secondDisplacement);
-    this.foldVelocities[firstFold] = clamp(
-      (firstDisplacement - previousFirst) * this.rate,
-      -this.rate,
-      this.rate,
-      0,
-    );
-    this.foldVelocities[secondFold] = clamp(
-      (secondDisplacement - previousSecond) * this.rate,
-      -this.rate,
-      this.rate,
-      0,
-    );
+    this.foldVelocities[firstFold] = firstFoldEnabled
+      ? clamp(
+        (firstDisplacement - previousFirst) * this.rate,
+        -this.rate,
+        this.rate,
+        0,
+      )
+      : 0;
+    this.foldVelocities[secondFold] = secondFoldEnabled
+      ? clamp(
+        (secondDisplacement - previousSecond) * this.rate,
+        -this.rate,
+        this.rate,
+        0,
+      )
+      : 0;
     return source;
   }
 
@@ -1250,7 +1435,7 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       this.impactEnvelope *= 0.972;
       // Millions of particles produce a continuous avalanche bed even when
       // individual impacts are sparse. Square-root scaling keeps low-flow
-      // creatures audible; the linked output limiter contains dense jams.
+      // configurations audible; the linked output limiter contains dense jams.
       const avalanche = Math.sqrt(clamp(
         activity + this.runtime.totalFlow * 0.18,
       ));
@@ -1470,6 +1655,10 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       { length: COLONY_SYRINX_PHONATOR_COUNT },
       (_, index) => this.configuration.phonatorEnabled?.[index] !== false,
     ).filter(Boolean).length;
+    const activeFoldCount = Array.from(
+      { length: COLONY_SYRINX_FOLD_COUNT },
+      (_, index) => foldEnabled(this.configuration, index),
+    ).filter(Boolean).length;
     const activeMouthCount = Array.from(
       { length: COLONY_SYRINX_MOUTH_COUNT },
       (_, index) => this.configuration.mouthEnabled?.[index] !== false,
@@ -1491,7 +1680,12 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       type: "telemetry",
       reservoirs: Array.from(runtime.reservoirPressures),
       lungs: Array.from(runtime.lungPressures),
-      folds: Array.from(runtime.foldActivities),
+      folds: Array.from(
+        { length: COLONY_SYRINX_FOLD_COUNT },
+        (_, index) => foldEnabled(this.configuration, index)
+          ? runtime.foldActivities[index]
+          : 0,
+      ),
       routes: Array.from(runtime.routeFlows),
       mouths: Array.from(runtime.mouthFlows),
       step: Math.floor(contourPhase * COLONY_SYRINX_SEQUENCE_LENGTH)
@@ -1503,9 +1697,20 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       contourValues,
       flow: runtime.totalFlow,
       load,
-      foldDisplacements: Array.from(this.foldDisplacements),
-      foldFrequenciesHz: Array.from(runtime.foldFrequenciesHz),
+      foldDisplacements: Array.from(
+        { length: COLONY_SYRINX_FOLD_COUNT },
+        (_, index) => foldEnabled(this.configuration, index)
+          ? this.foldDisplacements[index]
+          : 0,
+      ),
+      foldFrequenciesHz: Array.from(
+        { length: COLONY_SYRINX_FOLD_COUNT },
+        (_, index) => foldEnabled(this.configuration, index)
+          ? runtime.foldFrequenciesHz[index]
+          : 0,
+      ),
       routeApertures: Array.from(runtime.routeApertures),
+      mouthApertures: Array.from(runtime.mouthApertures),
       mouthPressures: Array.from(runtime.mouthPressures),
       mouthLoads: Array.from(this.mouthLoads),
       mouthGestures: this.mouths.map((mouth) => mouth.gestureIndex),
@@ -1518,14 +1723,22 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       activeCounts: {
         lungs: activeLungCount,
         phonators: activePhonatorCount,
+        folds: activeFoldCount,
         mouths: activeMouthCount,
         routes: activeRouteCount,
       },
       activeLungCount,
       activePhonatorCount,
+      activeFoldCount,
       activeMouthCount,
       activeRouteCount,
-      sourceModels: FREAK_SOURCE_PROFILES.map((profile) => profile.id),
+      callActive: this.callActive,
+      callId: this.callId,
+      callToken: this.callToken,
+      callProgress: this.callDurationSamples > 0
+        ? clamp(this.callRenderedSamples / this.callDurationSamples)
+        : 0,
+      sourceModels: VOCAL_SOURCE_PROFILES.map((profile) => profile.id),
       sourceFrequenciesHz: Array.from(this.sourceFrequenciesHz),
       mediumId: this.configuration.mediumId,
       limiterGain: this.limiterGain,
@@ -1550,10 +1763,11 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
         this.controlElapsedSamples = 0;
         this.controlCountdown += this.controlQuantum;
       }
+      const callEnvelope = this._callEnvelope();
       this._renderFrame();
       if (this.frameLimited) limitedFrames += 1;
-      const left = this.renderedLeft;
-      const right = this.renderedRight;
+      const left = this.renderedLeft * callEnvelope;
+      const right = this.renderedRight * callEnvelope;
       output[0][frame] = left;
       if (output[1]) output[1][frame] = right;
       for (let channel = 2; channel < output.length; channel += 1) {
@@ -1565,6 +1779,10 @@ class ColonySyrinxPressureProcessor extends AudioWorkletProcessor {
       this.controlCountdown -= 1;
       this.controlElapsedSamples += 1;
       this.telemetryCountdown -= 1;
+      if (this.callActive) {
+        this.callRenderedSamples += 1;
+        if (this.callRenderedSamples >= this.callDurationSamples) this._finishCall();
+      }
     }
 
     const blockRms = Math.sqrt(squareSum / Math.max(1, frameCount));
