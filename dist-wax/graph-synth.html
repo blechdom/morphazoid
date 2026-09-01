@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="micmic.css" />
     <link rel="stylesheet" href="graph-delay.css" />
     <link rel="stylesheet" href="l-system-drums.css" />
-    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-5" />
+    <link rel="stylesheet" href="graph-instruments.css?v=graph-instruments-20260830-13" />
   </head>
   <body class="micmic-page graph-delay-page graph-instrument-page graph-synth-page" data-graph-instrument="synth">
     <header class="masthead">
@@ -42,18 +42,25 @@
           <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">paused · 126 BPM · 1 beat</span></summary>
           <div class="group-body">
             <div class="graph-transport-actions">
-              <button class="play-button" id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play graph note pulses"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
               <button class="graph-pulse-action" id="pulseButton" type="button">Send one graph note</button>
-              <button class="graph-pulse-action graph-random-action" id="randomGraphButton" type="button" aria-label="Create a random graph">Random</button>
+              <button class="graph-pulse-action graph-random-action" id="randomGraphButton" type="button" aria-label="Create a random graph with randomized node positions">Random graph</button>
             </div>
             <div class="graph-play-primary-grid" aria-label="Primary graph sound controls">
               <label class="select-control" for="topology"><span class="field-label">Graph shape</span><span class="select-shell"><select id="topology" aria-describedby="topologyDescription"><optgroup label="Directed acyclic graphs"><option value="chain">Delay Chain</option><option value="tree">Branching Tree</option><option value="dag" selected>Layered DAG</option><option value="bipartite">Bipartite Field</option></optgroup><optgroup label="Cyclic and network graphs"><option value="ring">Directed Ring</option><option value="smallworld">Small World</option><option value="hub">Hub + Spokes</option><option value="mesh">Feedback Mesh</option><option value="modular">Modular Islands</option><option value="random">Seeded Random</option></optgroup></select></span></label>
-              <label class="control" for="baseDelay"><span><b>Edge speed</b><output id="baseDelayOut" for="baseDelay">968 BPM eq. · 62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" dir="rtl" aria-label="Edge speed, slow to fast" aria-valuetext="968 BPM equivalent, 62 milliseconds" title="Slow at the left, fast at the right. BPM is the equivalent rate for one minimum-length edge; Pulse tempo controls graph-note launches." /></label>
+              <div class="graph-edge-timing-stack">
+                <label class="control graph-edge-speed-control" for="baseDelay"><span><b>Minimum edge time</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" dir="rtl" aria-label="Minimum edge time, slow to fast" aria-valuetext="62 milliseconds" title="Slow at the left, fast at the right. Pulse tempo controls graph-note launches." /></label>
+                <label class="control graph-distance-ratio-control" for="distanceRatio"><span><b>Distance-time ratio</b><output id="distanceRatioOut" for="distanceRatio">1.94×</output></span><input id="distanceRatio" type="range" min="1" max="12" step="0.01" value="1.94" /></label>
+              </div>
+              <small class="growth-parameter-note graph-distance-note">At 1×, every edge uses the minimum time. Higher values make longer drawn segments take proportionally longer, up to the 2 s safety limit.</small>
+              <button class="mini-action graph-node-position-action" id="randomizeNodePositionsButton" type="button" title="Randomize node positions without changing graph connections">Randomize positions</button>
             </div>
             <div class="graph-pulse-grid">
               <label class="control graph-seed-note-control" for="seedNote"><span><b>Seed note</b><output id="seedNoteOut" for="seedNote">A3 · 57</output></span><input id="seedNote" name="pitch" type="range" min="0" max="127" step="1" value="57" /></label>
-              <label class="control" for="tempo"><span><b>Pulse tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
-              <label class="select-control" for="pulseDivision"><span class="field-label">Pulse interval</span><span class="select-shell"><select id="pulseDivision"><option value="0.5">Every 1/2 beat</option><option value="1" selected>Every beat</option><option value="2">Every 2 beats</option><option value="4">Every 4 beats</option></select></span></label>
+              <div class="graph-tempo-row">
+                <button class="play-button" id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play graph note pulses"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+                <label class="control" for="tempo"><span><b>Pulse tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span><input id="tempo" name="tempo" type="range" min="35" max="220" step="1" value="126" /></label>
+              </div>
+              <label class="select-control graph-pulse-interval-control" for="pulseDivision"><span class="field-label">Pulse interval</span><span class="select-shell"><select id="pulseDivision"><option value="0.5">Every 1/2 beat</option><option value="1" selected>Every beat</option><option value="2">Every 2 beats</option><option value="4">Every 4 beats</option></select></span></label>
             </div>
             <small class="growth-parameter-note graph-seed-note-note">MIDI In and computer keys launch their own seed notes; this value sets Play, Send, and Space.</small>
             <p class="graph-cycle-note"><b>Cycles are note feedback.</b> A returning voice waits for the full cycle, keeps its inherited pitch, and comes back quieter and darker.</p>
@@ -65,10 +72,10 @@
           <summary class="group-summary"><h2 class="group-title">Time + feedback</h2><span class="section-state" id="delaySummary">62–120 ms · acyclic</span></summary>
           <div class="group-body">
             <label class="select-control" for="triggerScope"><span class="field-label">Attack points</span><span class="select-shell"><select id="triggerScope"><option value="all" selected>Every node arrival</option><option value="leaves">Leaf / sink nodes only</option></select></span></label>
+            <label class="select-control" for="attackLaneCount"><span class="field-label">Attack separation</span><span class="select-shell"><select id="attackLaneCount" aria-describedby="attackLaneNote"><option value="1" selected>Natural polyphony</option><option value="2">2-lane round robin</option><option value="4">4-lane round robin</option></select></span></label>
+            <small class="growth-parameter-note graph-attack-lane-note" id="attackLaneNote">Each admitted attack already gets an independent voice. Lanes rotate subtle tone and stereo position to help overlaps read separately; audio-safety-thinned attacks stay thinned.</small>
             <label class="control" for="nodePass"><span><b>Node pass-through</b><output id="nodePassOut" for="nodePass">100%</output></span><input id="nodePass" type="range" min="0.2" max="1" step="0.01" value="1" /></label>
-            <label class="control" for="distanceRatio"><span><b>Distance-time ratio</b><output id="distanceRatioOut" for="distanceRatio">1.94×</output></span><input id="distanceRatio" type="range" min="1" max="12" step="0.01" value="1.94" /></label>
             <label class="control" for="timeCurve"><span><b>Length response</b><output id="timeCurveOut" for="timeCurve">0.90</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="0.9" /></label>
-            <small class="growth-parameter-note graph-distance-note">At 1×, every edge uses the minimum time. Longer drawn segments scale proportionally, up to the 2 s safety limit.</small>
             <label class="control" for="feedback"><span><b>Cycle amplitude return</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
             <label class="control" for="feedbackTone"><span><b>Cycle brightness retention</b><output id="feedbackToneOut" for="feedbackTone">78%</output></span><input id="feedbackTone" type="range" min="0.2" max="1" step="0.01" value="0.78" /></label>
             <small class="growth-parameter-note" id="feedbackSafetyNote">Acyclic · the feedback controls are dormant.</small>
@@ -99,7 +106,6 @@
               <button class="mini-action" id="newGraphButton" type="button">Next seed</button>
               <div class="graph-layout-actions" role="group" aria-label="Topology-preserving node layouts">
                 <button class="mini-action" id="arrangeGraphButton" type="button" title="Restore a stable symmetric layout without changing graph connections">Arrange</button>
-                <button class="mini-action" id="scatterGraphButton" type="button" title="Scatter node positions without changing graph connections">Scatter</button>
               </div>
               <button class="mini-action" id="openAllSwitchesButton" type="button" disabled>Open all graph switches</button>
             </section>
@@ -128,11 +134,12 @@
             <label class="select-control" for="mappingMode"><span class="field-label">Graph → pitch</span><span class="select-shell"><select id="mappingMode"><option value="turn" selected>Inherited route turns</option><option value="height">Node height</option><option value="degree">Node degree</option><option value="progress">Left-to-right progress</option></select></span></label>
             <p class="graph-mapping-description" id="mappingDescription">Every turn adds a local interval to the pitch inherited from the previous route.</p>
             <div class="graph-mapping-legend" aria-label="Graph synth mapping legend"><span><b id="mappingLegendLabel0">Turn</b><small id="mappingLegendDetail0">inherited pitch</small></span><span><b id="mappingLegendLabel1">Node height</b><small id="mappingLegendDetail1">stereo + alternate pitch</small></span><span><b id="mappingLegendLabel2">Degree</b><small id="mappingLegendDetail2">modulation</small></span><span><b id="mappingLegendLabel3">Cycle pass</b><small id="mappingLegendDetail3">level + brightness loss</small></span></div>
-            <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">2.00 oct</output></span><input id="pitchRange" type="range" min="0" max="5" step="0.05" value="2" /></label>
+            <label class="control" for="turnPitchScale"><span><b>Full-turn pitch travel</b><output id="turnPitchScaleOut" for="turnPitchScale">1.10 oct / 360°</output></span><input id="turnPitchScale" type="range" min="0" max="4" step="0.01" value="1.1" /></label>
+            <label class="control" for="pitchRange"><span><b>Position / Shepard span</b><output id="pitchRangeOut" for="pitchRange">2.00 oct</output></span><input id="pitchRange" type="range" min="0" max="5" step="0.05" value="2" aria-describedby="pitchRangeNote" /></label>
+            <small class="growth-parameter-note" id="pitchRangeNote">Inherited-turn notes ignore this span and keep accumulating through every cycle.</small>
             <label class="select-control" for="tuningMode"><span class="field-label">Pitch system</span><span class="select-shell"><select id="tuningMode"><option value="pure">Pure angle · continuous</option><option value="equal" selected>Equal octave divisions</option><option value="just">Just ratios · non-equal</option></select></span></label>
             <label class="control" for="edoDivisions"><span><b>Equal divisions / octave</b><output id="edoDivisionsOut" for="edoDivisions">19</output></span><input id="edoDivisions" type="range" min="1" max="360" step="1" value="19" /></label>
             <small class="growth-parameter-note">Any integer division is available: 6 gives whole tone and 12 gives chromatic. Pure angle bypasses the lattice at floating-point resolution; Just ratios is a separate non-equal option.</small>
-            <label class="control" for="turnPitchScale"><span><b>Turn → octave span</b><output id="turnPitchScaleOut" for="turnPitchScale">0.55 oct / 180°</output></span><input id="turnPitchScale" type="range" min="0" max="2" step="0.01" value="0.55" /></label>
           </div>
         </details>
 
@@ -168,7 +175,7 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="graph-synth-app.js?v=graph-instruments-20260830-5"></script>
+    <script type="module" src="graph-synth-app.js?v=graph-instruments-20260830-13"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

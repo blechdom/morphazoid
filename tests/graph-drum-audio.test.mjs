@@ -163,6 +163,7 @@ test("Graph drum audio translates clocks and bounds Karplus rendering", async ()
   assert.equal(physicalAudio.triggers[0][2].engine, "rattlesnake");
   assert.equal(physicalAudio.triggers[0][2].startAt, 100.4);
   assert.equal(physicalAudio.triggers[0][2].minimumVelocity, 0.001);
+  assert.equal(physicalAudio.triggers[0][2].preserveDuration, true);
 
   const rattleResults = [];
   for (let index = 0; index < MAX_GRAPH_RATTLESNAKE_ATTACKS_PER_SECOND + 1; index += 1) {

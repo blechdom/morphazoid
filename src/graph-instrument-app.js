@@ -13,13 +13,13 @@ import {
   graphDrumStyleUsesContinuousPitch,
   graphDrumStyleUsesPhysicalEngine,
   sanitizeGraphDrumPercussionStyle,
-} from "./graph-drum-audio.js?v=graph-instruments-20260830-5";
+} from "./graph-drum-audio.js?v=graph-instruments-20260830-13";
 import {
   GRAPH_PRESETS,
   edgeAudioParameters,
   generateGraph,
   graphSinkNodeIds,
-} from "./graph-delay.js?v=graph-instruments-20260830-5";
+} from "./graph-delay.js?v=graph-instruments-20260830-13";
 import {
   GRAPH_INSTRUMENT_PATCHES,
   MAX_GRAPH_EVENT_SCHEDULE,
@@ -31,11 +31,11 @@ import {
   graphSynthVoice,
   mappedGraphDrumVoice,
   scheduleGraphPulse,
-} from "./graph-instruments.js?v=graph-instruments-20260830-5";
+} from "./graph-instruments.js?v=graph-instruments-20260830-13";
 import {
   MAX_GRAPH_SYNTH_ACTIVE_VOICES,
   GraphSynthAudio,
-} from "./graph-synth-audio.js?v=graph-instruments-20260830-5";
+} from "./graph-synth-audio.js?v=graph-instruments-20260830-13";
 
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.09;
@@ -45,6 +45,7 @@ const MAX_ACTIVE_RUNS = 64;
 const MAX_DRUM_EVENTS_PER_PULSE = 768;
 const MAX_SYNTH_EVENTS_PER_PULSE = 1_024;
 const MAX_AUDIO_ATTACKS_PER_FRAME = 96;
+const MAX_AUDIO_EVENT_SCANS_PER_FRAME = MAX_SYNTH_EVENTS_PER_PULSE * 2;
 const MAX_IN_FLIGHT_AUDIO_TRIGGERS = 64;
 const AUDIO_FAILURE_THRESHOLD = 3;
 const AUDIO_FAILURE_WINDOW_MS = 500;
@@ -72,6 +73,73 @@ const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {
   return Math.min(maximum, Math.max(minimum, Number.isFinite(number) ? number : fallback));
 };
 
+const GRAPH_ATTACK_LANE_COUNTS = new Set([1, 2, 4]);
+
+export function sanitizeGraphAttackLaneCount(value) {
+  const count = Number(value);
+  return GRAPH_ATTACK_LANE_COUNTS.has(count) ? count : 1;
+}
+
+export function assignGraphAttackLanes(events, requestedLaneCount = 1) {
+  const laneCount = sanitizeGraphAttackLaneCount(requestedLaneCount);
+  return (Array.isArray(events) ? events : []).map((event, index) => ({
+    ...event,
+    attackLane: index % laneCount,
+    attackLaneCount: laneCount,
+  }));
+}
+
+export function graphAttackLanePosition(attackLane = 0, requestedLaneCount = 1) {
+  const laneCount = sanitizeGraphAttackLaneCount(requestedLaneCount);
+  if (laneCount === 1) return 0;
+  const lane = ((Math.floor(Number(attackLane) || 0) % laneCount) + laneCount) % laneCount;
+  const positions = laneCount === 2
+    ? [-0.6, 0.6]
+    : [-0.78, 0.78, -0.26, 0.26];
+  return positions[lane] ?? 0;
+}
+
+export function applyGraphAttackSeparation(voice = {}, event = {}, mode = "synth") {
+  const attackLaneCount = sanitizeGraphAttackLaneCount(event.attackLaneCount);
+  const attackLane = ((Math.floor(Number(event.attackLane) || 0) % attackLaneCount)
+    + attackLaneCount) % attackLaneCount;
+  const lanePosition = graphAttackLanePosition(attackLane, attackLaneCount);
+  if (attackLaneCount === 1) {
+    return { ...voice, attackLane, attackLaneCount, attackLanePosition: lanePosition };
+  }
+  if (mode === "drums") {
+    return {
+      ...voice,
+      tone: clamp((voice.tone ?? 0.5) + lanePosition * 0.09),
+      modIndex: clamp((voice.modIndex ?? 0) * (1 + lanePosition * 0.08), 0, 20),
+      attackLane,
+      attackLaneCount,
+      attackLanePosition: lanePosition,
+    };
+  }
+  const brightness = clamp((voice.brightness ?? voice.tone ?? 0.5) + lanePosition * 0.1);
+  return {
+    ...voice,
+    pan: clamp((voice.pan ?? 0) * 0.65 + lanePosition * 0.5, -1, 1),
+    brightness,
+    tone: brightness,
+    attackLane,
+    attackLaneCount,
+    attackLanePosition: lanePosition,
+  };
+}
+
+function graphAttackEventForRun(event = {}, run = null) {
+  const attackLaneCount = sanitizeGraphAttackLaneCount(event.attackLaneCount);
+  if (attackLaneCount === 1) return event;
+  const runOffset = Math.floor(Number(run?.id) || 0);
+  return {
+    ...event,
+    attackLane: ((Math.floor(Number(event.attackLane) || 0) + runOffset)
+      % attackLaneCount + attackLaneCount) % attackLaneCount,
+  };
+}
+
 const percent = (value) => `${Math.round(clamp(value) * 100)}%`;
 
 const DRUM_MAPPING_DETAILS = Object.freeze({
@@ -95,7 +163,7 @@ const DRUM_MAPPING_DETAILS = Object.freeze({
 const SYNTH_MAPPING_DETAILS = Object.freeze({
   turn: Object.freeze({
     label: "inherited turns",
-    description: "Every turn adds a local interval to the pitch inherited from the previous route.",
+    description: "Every turn adds a local interval to the inherited pitch; cycles keep accumulating instead of stopping at a pitch boundary.",
     legend: [["Turn", "inherited pitch"], ["Node height", "stereo"], ["Degree", "modulation"], ["Cycle pass", "level + brightness loss"]],
   }),
   height: Object.freeze({
@@ -156,11 +224,12 @@ export function graphInstrumentDefaultState(mode = "synth") {
     pitchRange: 2,
     tuningMode: "equal",
     edoDivisions: instrumentMode === "synth" ? 19 : 12,
-    turnPitchScale: 0.55,
+    turnPitchScale: 1.1,
     soundMode: instrumentMode === "synth" ? "fm" : "sine",
     modulationIndex: 2.8,
     modulationRatio: 2,
     articulation: "trigger",
+    attackLaneCount: 1,
     noteDuration: 210,
     attack: 8,
     decay: 90,
@@ -208,7 +277,7 @@ function midiFrequency(note) {
 
 export function graphEdgeSpeedReadout(delayMilliseconds) {
   const milliseconds = Math.round(clamp(delayMilliseconds, 20, 600, 62));
-  return `${Math.round(60_000 / milliseconds)} BPM eq. · ${milliseconds} ms`;
+  return `${milliseconds} ms`;
 }
 
 /** Initialize either authored Graph instrument page without touching globals at import time. */
@@ -261,6 +330,7 @@ export function initializeGraphInstrument({
   let latestEvent = null;
   let disposed = false;
   let frameAttackCount = 0;
+  let frameAudioEventScanCount = 0;
   let nodeWalkOffsets = [];
   let nodeWalkVelocities = [];
   let lastMotionTemplateTime = -Infinity;
@@ -554,7 +624,7 @@ export function initializeGraphInstrument({
       timeCurve: state.timeCurve,
       nodePass: state.nodePass,
       feedback: state.feedback,
-      pitchScale: state.turnPitchScale,
+      octavesPerTurn: state.turnPitchScale,
       horizonSeconds: 1_024,
       maxEvents: eventCap,
       maxFeedbackPasses: 24,
@@ -583,7 +653,7 @@ export function initializeGraphInstrument({
     const visualBase = coalesceGraphEvents(markedEvents, coalesceOptions);
     const audibleMarkedEvents = markedEvents.filter((event) => event.audible);
     const triggerEvents = coalesceGraphEvents(audibleMarkedEvents, coalesceOptions);
-    const audioEvents = (instrumentMode === "synth" && state.articulation === "edge"
+    const orderedAudioEvents = (instrumentMode === "synth" && state.articulation === "edge"
       ? markedEvents
         .filter((event) => (
           event.kind === "node"
@@ -603,6 +673,7 @@ export function initializeGraphInstrument({
         || String(first.pathKey).localeCompare(String(second.pathKey))
       ))
       .slice(0, maximum);
+    const audioEvents = assignGraphAttackLanes(orderedAudioEvents, state.attackLaneCount);
     // Every sounded node must keep a matching route cue. Fill whatever visual
     // capacity remains with the earliest non-audible geometry events.
     const visualIdentity = (event) => [
@@ -768,12 +839,16 @@ export function initializeGraphInstrument({
     });
     return {
       voiceIndex,
-      voice: graphDrumPercussionVoice(mapped, { style: state.percussionStyle }),
+      voice: applyGraphAttackSeparation(
+        graphDrumPercussionVoice(mapped, { style: state.percussionStyle }),
+        graphAttackEventForRun(event, run),
+        "drums",
+      ),
     };
   }
 
   function synthMapping(event, run) {
-    return graphSynthVoice(event, run?.graph ?? displayModel ?? model, {
+    return applyGraphAttackSeparation(graphSynthVoice(event, run?.graph ?? displayModel ?? model, {
       mode: state.mappingMode,
       mappingMode: state.mappingMode,
       baseFrequency: run?.rootFrequency ?? state.baseFrequency,
@@ -787,7 +862,7 @@ export function initializeGraphInstrument({
       stereoSpread: state.stereoSpread,
       spread: state.stereoSpread,
       feedbackTone: state.feedbackTone,
-    });
+    }), graphAttackEventForRun(event, run), "synth");
   }
 
   function flashDrum(index) {
@@ -804,7 +879,10 @@ export function initializeGraphInstrument({
       return `NODE ${event.nodeId + 1} · PASS ${event.feedbackCount} → ${voice.name.toUpperCase()} · ${percent(event.amplitude * run.velocity)}`;
     }
     const voice = synthMapping({ ...event, amplitude: event.amplitude * run.velocity }, run);
-    return `NODE ${event.nodeId + 1} · PASS ${event.feedbackCount} → ${noteName(voice.frequency)} · ${percent(event.amplitude * run.velocity)}`;
+    const pitch = voice.inAudibleRange
+      ? noteName(voice.frequency)
+      : `${voice.semitones >= 0 ? "+" : ""}${voice.semitones.toFixed(2)} ST · ${voice.frequencyBand === "below-range" ? "BELOW 20 HZ" : "ABOVE 20 KHZ"}`;
+    return `NODE ${event.nodeId + 1} · PASS ${event.feedbackCount} → ${pitch} · ${percent(event.amplitude * run.velocity)}`;
   }
 
   function triggerAudioEvent(run, event, startAt) {
@@ -822,7 +900,8 @@ export function initializeGraphInstrument({
       return submitted;
     }
     const voice = synthMapping(scaledEvent, run);
-    return submitAudioTrigger(run, () => audio.trigger(voice, {
+    if (!voice.inAudibleRange) return "out-of-range";
+    const submitted = submitAudioTrigger(run, () => audio.trigger(voice, {
       startAt,
       graphRunId: run.id,
       attackSeconds: state.attack / 1_000,
@@ -833,6 +912,7 @@ export function initializeGraphInstrument({
       sustainLevel: state.sustain,
       releaseSeconds: state.release / 1_000,
     }));
+    return submitted ? "submitted" : "rejected";
   }
 
   function firstAudioEventAtOrAfter(events, offset, startIndex = 0) {
@@ -867,7 +947,7 @@ export function initializeGraphInstrument({
           : MAX_AUDIO_ATTACKS_PER_FRAME;
   }
 
-  function scheduleRunAudio(run, now, attackLimit) {
+  function scheduleRunAudio(run, now, attackLimit, scanAllowance) {
     if (!state.audio || !audio.context) return;
     const dueOffset = now + AUDIO_LOOKAHEAD_SECONDS - run.launchTime;
     const dueEnd = firstAudioEventAfter(run.audioEvents, dueOffset, run.audioIndex);
@@ -884,20 +964,41 @@ export function initializeGraphInstrument({
       attackLimit - frameAttackCount,
       MAX_IN_FLIGHT_AUDIO_TRIGGERS - inFlightAudioTriggers.size,
     ));
-    if (!audioSchedulingAvailable() || available === 0) {
+    if (
+      !audioSchedulingAvailable()
+      || available === 0
+      || scanAllowance <= 0
+      || frameAudioEventScanCount >= MAX_AUDIO_EVENT_SCANS_PER_FRAME
+    ) {
       shedAudioEventCount += dueEnd - run.audioIndex;
       run.audioIndex = dueEnd;
       return;
     }
 
-    const admittedEnd = Math.min(dueEnd, run.audioIndex + available);
-    for (let index = run.audioIndex; index < admittedEnd; index += 1) {
+    let scannedEnd = run.audioIndex;
+    let submittedCount = 0;
+    let scannedCount = 0;
+    while (
+      scannedEnd < dueEnd
+      && submittedCount < available
+      && scannedCount < scanAllowance
+      && frameAudioEventScanCount < MAX_AUDIO_EVENT_SCANS_PER_FRAME
+    ) {
+      const index = scannedEnd;
       const event = run.audioEvents[index];
       const startAt = run.launchTime + event.audioStartOffset;
-      if (triggerAudioEvent(run, event, Math.max(now, startAt))) frameAttackCount += 1;
-      else shedAudioEventCount += 1;
+      const status = triggerAudioEvent(run, event, Math.max(now, startAt));
+      if (status === "submitted" || status === true) {
+        frameAttackCount += 1;
+        submittedCount += 1;
+      } else if (status !== "out-of-range") {
+        shedAudioEventCount += 1;
+      }
+      scannedEnd += 1;
+      scannedCount += 1;
+      frameAudioEventScanCount += 1;
     }
-    shedAudioEventCount += dueEnd - admittedEnd;
+    shedAudioEventCount += dueEnd - scannedEnd;
     run.audioIndex = dueEnd;
   }
 
@@ -1186,11 +1287,18 @@ export function initializeGraphInstrument({
     const now = timelineNow(safeFrameTime);
     updateClock(now);
     frameAttackCount = 0;
+    frameAudioEventScanCount = 0;
     const attackLimit = audioAttackLimit();
     // Fresh manual and MIDI graph notes get first claim on bounded Web Audio
     // capacity, so an older dense tail cannot make a new gesture inaudible.
     for (let index = activeRuns.length - 1; index >= 0; index -= 1) {
-      scheduleRunAudio(activeRuns[index], now, attackLimit);
+      const remainingRuns = index + 1;
+      const remainingScans = Math.max(
+        0,
+        MAX_AUDIO_EVENT_SCANS_PER_FRAME - frameAudioEventScanCount,
+      );
+      const scanAllowance = Math.floor(remainingScans / remainingRuns);
+      scheduleRunAudio(activeRuns[index], now, attackLimit, scanAllowance);
     }
     for (const run of activeRuns) {
       updateRunVisuals(run, now);
@@ -1282,7 +1390,20 @@ export function initializeGraphInstrument({
         : state.tuningMode === "just"
           ? "just ratios"
           : `${Math.round(state.edoDivisions)} equal divisions`;
-      $("mappingSummary").textContent = `${details.label} · ${tuning}`;
+      const turnScale = `${state.turnPitchScale.toFixed(2)} oct / 360°`;
+      $("mappingSummary").textContent = state.mappingMode === "turn"
+        ? `${details.label} · ${turnScale} · ${tuning}`
+        : `${details.label} · ${tuning}`;
+      const turnIgnoresRange = state.mappingMode === "turn" && state.soundMode !== "shepard";
+      if ($("pitchRange")) $("pitchRange").disabled = turnIgnoresRange;
+      if ($("turnPitchScale")) $("turnPitchScale").disabled = state.mappingMode !== "turn";
+      if ($("pitchRangeNote")) {
+        $("pitchRangeNote").textContent = turnIgnoresRange
+          ? "Inherited-turn notes ignore this span and keep accumulating through every cycle."
+          : state.mappingMode === "turn" && state.soundMode === "shepard"
+            ? "Shepard mode wraps inherited pitch through this span; it does not pin at either endpoint."
+            : "Node position is mapped across this total pitch span.";
+      }
     }
   }
 
@@ -1338,7 +1459,7 @@ export function initializeGraphInstrument({
     scheduleFrame();
   }
 
-  function rebuildModel({ silence = true } = {}) {
+  function rebuildModel({ silence = true, randomizePositions = false } = {}) {
     state.nodeCount = Math.round(clamp(state.nodeCount, 3, MAX_GRAPH_INSTRUMENT_NODES, 10));
     $("nodeCount").value = String(state.nodeCount);
     model = generateGraph({
@@ -1348,6 +1469,7 @@ export function initializeGraphInstrument({
       seed: state.seed,
       maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
     });
+    if (randomizePositions) randomizeModelNodePositions();
     displayModel = model;
     reverseEdgeKeys = new Set(model.edges.map((edge) => `${edge.to}>${edge.from}`));
     edgeSwitchStates = new Map(model.edges.map((edge) => [edgeKey(edge), true]));
@@ -1392,6 +1514,7 @@ export function initializeGraphInstrument({
       modulationIndex: state.modulationIndex,
       modulationRatio: state.modulationRatio,
       articulation: state.articulation,
+      attackLaneCount: state.attackLaneCount,
       noteDuration: state.noteDuration,
       attack: state.attack,
       decay: state.decay,
@@ -1429,7 +1552,7 @@ export function initializeGraphInstrument({
       baseFrequency: (value) => `${Math.round(value)} Hz`,
       pitchRange: (value) => `${Number(value).toFixed(2)} oct`,
       edoDivisions: (value) => String(Math.round(value)),
-      turnPitchScale: (value) => `${Number(value).toFixed(2)} oct / 180°`,
+      turnPitchScale: (value) => `${Number(value).toFixed(2)} oct / 360°`,
       modulationIndex: (value) => Number(value).toFixed(2),
       modulationRatio: (value) => `${Number(value).toFixed(2)}×`,
       noteDuration: (value) => `${Math.round(value)} ms`,
@@ -1447,7 +1570,7 @@ export function initializeGraphInstrument({
       if (id === "baseDelay") {
         $(id)?.setAttribute?.(
           "aria-valuetext",
-          formatted.replace(" BPM eq. · ", " BPM equivalent, ").replace(" ms", " milliseconds"),
+          formatted.replace(" ms", " milliseconds"),
         );
       }
     }
@@ -1501,8 +1624,8 @@ export function initializeGraphInstrument({
     state.seed = ((Math.round(state.seed) - 1 + seedOffset) % 99) + 1;
     markCustom();
     syncControls();
-    $("liveStatus").textContent = `Random ${GRAPH_PRESETS[state.topology].label.toLowerCase()} graph: ${state.nodeCount} nodes, seed ${state.seed}.`;
-    rebuildModel();
+    rebuildModel({ randomizePositions: true });
+    $("liveStatus").textContent = `Random ${GRAPH_PRESETS[state.topology].label.toLowerCase()} graph with randomized node positions: ${state.nodeCount} nodes, seed ${state.seed}.`;
   }
 
   function firstFutureVisualIndex(events, elapsed) {
@@ -1536,6 +1659,11 @@ export function initializeGraphInstrument({
         run.articulation !== template.articulation
         || run.triggerScope !== template.triggerScope
       ) continue;
+      // A continuous edge voice already has its gate end scheduled in Web
+      // Audio. Retiming only the following unscheduled edge would create a gap
+      // or flam at their seam, so active continuous runs keep their launch-time
+      // clock while new pulses adopt the edited geometry.
+      if (run.articulation === "edge" && run.audioIndex > 0) continue;
       const elapsed = Math.max(0, now - run.launchTime);
       const retainedAudio = run.audioEvents.slice(0, run.audioIndex);
       const alreadyScheduledPaths = new Set(
@@ -1577,18 +1705,46 @@ export function initializeGraphInstrument({
     $("liveStatus").textContent = "Canonical symmetric layout restored without launching a new pulse.";
   }
 
-  function scatterGraph() {
+  function randomizeModelNodePositions() {
+    let placementState = Math.floor(randomGraphUnit() * 0x1_0000_0000) >>> 0;
+    const placementUnit = () => {
+      placementState = (placementState + 0x6d2b79f5) >>> 0;
+      let value = placementState;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 0x1_0000_0000;
+    };
+    const minimumDistance = Math.max(0.065, 0.16 / Math.sqrt(
+      Math.max(1, model.nodes.length / 8),
+    ));
+    const placed = [];
     for (const node of model.nodes) {
-      node.x = clamp(node.x + (randomGraphUnit() * 2 - 1) * 0.22, 0.02, 0.98, node.x);
-      node.y = clamp(node.y + (randomGraphUnit() * 2 - 1) * 0.22, 0.02, 0.98, node.y);
+      let candidate = { x: 0.5, y: 0.5 };
+      for (let attempt = 0; attempt < 64; attempt += 1) {
+        candidate = {
+          x: 0.02 + placementUnit() * 0.96,
+          y: 0.02 + placementUnit() * 0.96,
+        };
+        if (placed.every((other) => Math.hypot(
+          candidate.x - other.x,
+          candidate.y - other.y,
+        ) >= minimumDistance)) break;
+      }
+      node.x = candidate.x;
+      node.y = candidate.y;
+      placed.push(candidate);
     }
+  }
+
+  function randomizeNodePositions() {
+    randomizeModelNodePositions();
     displayModel = model;
     resetNodeWalkState();
     markCustom();
     invalidatePulseTemplate({ clearRuns: false });
     refreshActiveRunGeometry(model, { retime: true });
     updateUi();
-    $("liveStatus").textContent = "Node positions scattered; connectivity and transport phase were preserved.";
+    $("liveStatus").textContent = "Node positions randomized; graph connections and transport phase were preserved.";
   }
 
   function bindRange(id, key, {
@@ -1704,6 +1860,13 @@ export function initializeGraphInstrument({
     invalidatePulseTemplate({ clearRuns: false });
     updateUi();
   });
+  $("attackLaneCount")?.addEventListener("change", (event) => {
+    state.attackLaneCount = sanitizeGraphAttackLaneCount(event.currentTarget.value);
+    event.currentTarget.value = String(state.attackLaneCount);
+    markCustom();
+    invalidatePulseTemplate({ clearRuns: false });
+    updateUi();
+  });
   $("nodeMotionMode").addEventListener("change", (event) => {
     state.nodeMotionMode = ["wiggle", "orbit", "random"].includes(event.currentTarget.value)
       ? event.currentTarget.value
@@ -1725,7 +1888,7 @@ export function initializeGraphInstrument({
   });
   $("randomGraphButton").addEventListener("click", randomizeGraph);
   $("arrangeGraphButton").addEventListener("click", arrangeGraph);
-  $("scatterGraphButton").addEventListener("click", scatterGraph);
+  $("randomizeNodePositionsButton").addEventListener("click", randomizeNodePositions);
   $("nodeMotionPlayButton").addEventListener("click", () => {
     if (reducedMotionQuery?.matches) {
       state.nodeMoving = false;

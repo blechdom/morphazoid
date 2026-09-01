@@ -3,7 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { generateGraph } from "../src/graph-delay.js";
 import { initializeGraphInstrument } from "../src/graph-instrument-app.js";
-import { MAX_GRAPH_INSTRUMENT_NODES } from "../src/graph-instruments.js";
+import {
+  MAX_GRAPH_INSTRUMENT_NODES,
+  graphSynthVoice,
+} from "../src/graph-instruments.js";
 
 async function exerciseLiveEditRegression(mode, htmlFile) {
   const html = await readFile(new URL(`../${htmlFile}`, import.meta.url), "utf8");
@@ -174,11 +177,38 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.ok(controller);
   assert.ok(rafQueue.length > 0, "initialization should request a render frame");
   flushAnimationFrames();
-  assert.equal(elements.get("baseDelayOut").textContent, "968 BPM eq. · 62 ms");
+  assert.equal(elements.get("baseDelayOut").textContent, "62 ms");
   assert.equal(
     attributes.get("baseDelay:aria-valuetext"),
-    "968 BPM equivalent, 62 milliseconds",
+    "62 milliseconds",
   );
+  assert.equal(controller.state.attackLaneCount, 1);
+  assert.equal(elements.get("attackLaneCount").value, "1");
+  assert.ok(
+    controller.pulseTemplate.audioEvents.every(({ attackLane, attackLaneCount }) => (
+      attackLane === 0 && attackLaneCount === 1
+    )),
+    "natural polyphony should leave every event in the neutral lane",
+  );
+  elements.get("attackLaneCount").value = "4";
+  listeners.get("attackLaneCount:change")({
+    currentTarget: elements.get("attackLaneCount"),
+  });
+  const fourLaneTemplate = controller.pulseTemplate;
+  assert.equal(controller.state.attackLaneCount, 4);
+  assert.equal(elements.get("attackLaneCount").value, "4");
+  assert.ok(fourLaneTemplate.audioEvents.length >= 4);
+  assert.deepEqual(
+    fourLaneTemplate.audioEvents.slice(0, 8).map(({ attackLane }) => attackLane),
+    Array.from(
+      { length: Math.min(8, fourLaneTemplate.audioEvents.length) },
+      (_, index) => index % 4,
+    ),
+  );
+  assert.equal(controller.pulseCount, 0, "lane selection must not launch a pulse");
+  assert.equal(controller.activeRunCount, 0, "lane selection must not create a graph run");
+  assert.equal(controller.soundedEventCount, 0, "lane selection must not add attacks");
+  assert.equal(audioEngine.context, null, "lane selection must not start audio by itself");
 
   if (mode === "drums") {
     elements.get("percussionStyle").value = "karplus-tines";
@@ -222,10 +252,26 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
     rangeValue("release", 810);
     rangeValue("stereoSpread", 0.39);
 
+    assert.equal(elements.get("pitchRange").disabled, false);
+    assert.equal(elements.get("turnPitchScale").disabled, true);
+    assert.equal(elements.get("turnPitchScaleOut").textContent, "0.83 oct / 360°");
+    assert.match(elements.get("pitchRangeNote").textContent, /Node position/);
+
+    selectValue("mappingMode", "turn");
+    assert.equal(elements.get("pitchRange").disabled, true);
+    assert.equal(elements.get("turnPitchScale").disabled, false);
+    assert.match(elements.get("pitchRangeNote").textContent, /keep accumulating/);
+    selectValue("soundMode", "shepard");
+    assert.equal(elements.get("pitchRange").disabled, false);
+    assert.match(elements.get("pitchRangeNote").textContent, /wraps inherited pitch/);
+    selectValue("mappingMode", "progress");
+    assert.match(elements.get("pitchRangeNote").textContent, /Node position/);
+    selectValue("soundMode", "pm");
+
     const synthControlKeys = [
       "output", "seedNote", "triggerScope", "mappingMode", "characterDepth", "baseFrequency",
       "pitchRange", "tuningMode", "edoDivisions", "turnPitchScale", "soundMode",
-      "modulationIndex", "modulationRatio", "articulation", "noteDuration", "attack",
+      "modulationIndex", "modulationRatio", "articulation", "attackLaneCount", "noteDuration", "attack",
       "decay", "sustain", "release", "stereoSpread",
     ];
     const synthControlSnapshot = Object.fromEntries(
@@ -290,6 +336,8 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   );
   const firstSeedVoice = audioTriggers[firstSeedTriggerIndex]?.voice;
   assert.ok(firstSeedVoice, "Send one must use the selected seed note for an audible run");
+  assert.equal(firstSeedVoice.attackLaneCount, 4);
+  assert.ok(firstSeedVoice.attackLane >= 0 && firstSeedVoice.attackLane < 4);
 
   const arcsBeforeActiveFrame = arcCalls.length;
   audioEngine.context.currentTime += 0.08;
@@ -300,6 +348,104 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
     "playback should reuse the fixed graph nodes instead of adding moving or expanding circles",
   );
   assert.equal(audioTriggers.length, controller.soundedEventCount);
+
+  if (mode === "synth") {
+    await new Promise((resolve) => setImmediate(resolve));
+    const restore = controller.state;
+    const changeControl = (id, value, eventType) => {
+      elements.get(id).value = String(value);
+      listeners.get(`${id}:${eventType}`)({ currentTarget: elements.get(id) });
+    };
+    changeControl("topology", "hub", "change");
+    changeControl("nodeCount", 8, "input");
+    changeControl("density", 1, "input");
+    changeControl("baseDelay", 20, "input");
+    changeControl("distanceRatio", 1, "input");
+    changeControl("nodePass", 1, "input");
+    changeControl("feedback", 0.74, "input");
+    changeControl("triggerScope", "all", "change");
+    changeControl("mappingMode", "turn", "change");
+    changeControl("tuningMode", "pure", "change");
+    changeControl("turnPitchScale", 4, "input");
+    changeControl("soundMode", "fm", "change");
+    changeControl("seedNote", 0, "input");
+
+    const reentryTemplate = controller.pulseTemplate;
+    const mappedReentryVoices = reentryTemplate.audioEvents.map((event) => graphSynthVoice(
+      event,
+      controller.model,
+      {
+        mappingMode: "turn",
+        rootMidiNote: 0,
+        tuningMode: "pure",
+        soundMode: "fm",
+      },
+    ));
+    assert.equal(mappedReentryVoices[0].inAudibleRange, false);
+    assert.ok(
+      mappedReentryVoices.slice(1).some(({ inAudibleRange }) => inAudibleRange),
+      "a positive inherited turn must be able to bring a sub-audio seed back into range",
+    );
+    const triggersBeforeReentry = audioTriggers.length;
+    const soundedBeforeReentry = controller.soundedEventCount;
+    const shedBeforeReentry = controller.shedAudioEventCount;
+    await controller.launchPulse();
+    flushAnimationFrames(frameNow + 20);
+    const reentryTriggers = audioTriggers.slice(triggersBeforeReentry);
+    assert.ok(reentryTriggers.length > 0, "later in-range arrivals must survive silent seeds");
+    assert.equal(
+      controller.soundedEventCount - soundedBeforeReentry,
+      reentryTriggers.length,
+      "out-of-range arrivals must not consume the attack count",
+    );
+    assert.equal(
+      controller.shedAudioEventCount,
+      shedBeforeReentry,
+      "intentional out-of-range arrivals are not overload drops",
+    );
+    assert.ok(reentryTriggers.every(({ voice }) => (
+      voice.frequency >= 20 * (1 - 1e-12)
+      && voice.frequency <= 20_000 * (1 + 1e-12)
+    )));
+
+    changeControl("topology", "bipartite", "change");
+    changeControl("nodeCount", MAX_GRAPH_INSTRUMENT_NODES, "input");
+    changeControl("density", 1, "input");
+    changeControl("turnPitchScale", 0, "input");
+    changeControl("seedNote", 69, "input");
+    const triggersBeforeSilentFlood = audioTriggers.length;
+    const soundedBeforeSilentFlood = controller.soundedEventCount;
+    const olderAudibleRun = await controller.launchPulse();
+    changeControl("seedNote", 0, "input");
+    for (let index = 0; index < 7; index += 1) await controller.launchPulse();
+    flushAnimationFrames(frameNow + 20);
+    const fairShareTriggers = audioTriggers.slice(triggersBeforeSilentFlood);
+    assert.ok(
+      fairShareTriggers.length > 0,
+      "newer silent floods must leave scan capacity for an older audible run",
+    );
+    assert.ok(fairShareTriggers.every(({ options }) => (
+      options.graphRunId === olderAudibleRun.id
+    )));
+    assert.equal(
+      controller.soundedEventCount - soundedBeforeSilentFlood,
+      fairShareTriggers.length,
+    );
+
+    changeControl("topology", restore.topology, "change");
+    changeControl("nodeCount", restore.nodeCount, "input");
+    changeControl("density", restore.density, "input");
+    changeControl("baseDelay", restore.baseDelay, "input");
+    changeControl("distanceRatio", restore.distanceRatio, "input");
+    changeControl("nodePass", restore.nodePass, "input");
+    changeControl("feedback", restore.feedback, "input");
+    changeControl("triggerScope", restore.triggerScope, "change");
+    changeControl("mappingMode", restore.mappingMode, "change");
+    changeControl("tuningMode", restore.tuningMode, "change");
+    changeControl("turnPitchScale", restore.turnPitchScale, "input");
+    changeControl("soundMode", restore.soundMode, "change");
+    changeControl("seedNote", restore.seedNote, "input");
+  }
 
   const runsBeforeSeedMove = controller.activeRunCount;
   const pulsesBeforeSeedMove = controller.pulseCount;
@@ -409,6 +555,24 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.equal(controller.scheduledPulseTime, scheduledPulseBeforeTempo, "distance ratio input must preserve transport phase");
   assert.equal(controller.soundedEventCount, attackCountBeforeTempo, "distance ratio input must not add attacks");
 
+  elements.get("attackLaneCount").value = "2";
+  listeners.get("attackLaneCount:change")({
+    currentTarget: elements.get("attackLaneCount"),
+  });
+  flushAnimationFrames(frameNow + 10);
+  assert.equal(controller.state.attackLaneCount, 2);
+  assert.deepEqual(
+    controller.pulseTemplate.audioEvents.slice(0, 6).map(({ attackLane }) => attackLane),
+    Array.from(
+      { length: Math.min(6, controller.pulseTemplate.audioEvents.length) },
+      (_, index) => index % 2,
+    ),
+  );
+  assert.equal(controller.pulseCount, pulseCountBeforeTempo, "lane selection must not launch another pulse");
+  assert.equal(controller.activeRunCount, activeRunsBeforeTempo, "lane selection must preserve active runs");
+  assert.equal(controller.scheduledPulseTime, scheduledPulseBeforeTempo, "lane selection must preserve transport phase");
+  assert.equal(controller.soundedEventCount, attackCountBeforeTempo, "lane selection must not add attacks");
+
   const node = controller.model.nodes[0];
   const nodeX = 63 + node.x * 774;
   const nodeY = 48 + node.y * 504;
@@ -434,14 +598,67 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   assert.equal(controller.soundedEventCount, attackCountBeforeTempo, "node motion must not add attacks");
   assert.match(elements.get("liveStatus").textContent, /edge times were recalculated/);
 
+  const positionsBeforeRandomize = controller.model.nodes.map(({ x, y }) => [x, y]);
+  const connectionsBeforeRandomize = controller.model.edges.map(({ from, to }) => [from, to]);
+  const generatorBeforeRandomize = Object.fromEntries(
+    ["topology", "nodeCount", "density", "seed"].map((key) => [key, controller.state[key]]),
+  );
+  const pulsesBeforePositionRandomize = controller.pulseCount;
+  const runsBeforePositionRandomize = controller.activeRunCount;
+  const attacksBeforePositionRandomize = controller.soundedEventCount;
+  const clockBeforePositionRandomize = controller.scheduledPulseTime;
+  listeners.get("randomizeNodePositionsButton:click")();
+  const positionsAfterRandomize = controller.model.nodes.map(({ x, y }) => [x, y]);
+  assert.notDeepEqual(positionsAfterRandomize, positionsBeforeRandomize);
+  assert.ok(positionsAfterRandomize.every(([x, y]) => (
+    x >= 0.02 && x <= 0.98 && y >= 0.02 && y <= 0.98
+  )));
+  assert.deepEqual(
+    controller.model.edges.map(({ from, to }) => [from, to]),
+    connectionsBeforeRandomize,
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ["topology", "nodeCount", "density", "seed"].map((key) => [key, controller.state[key]]),
+    ),
+    generatorBeforeRandomize,
+  );
+  assert.equal(controller.pulseCount, pulsesBeforePositionRandomize);
+  assert.equal(controller.activeRunCount, runsBeforePositionRandomize);
+  assert.equal(controller.soundedEventCount, attacksBeforePositionRandomize);
+  assert.equal(controller.scheduledPulseTime, clockBeforePositionRandomize);
+  assert.match(elements.get("liveStatus").textContent, /Node positions randomized/);
+
   const pulsesBeforeRandom = controller.pulseCount;
   const attacksBeforeRandom = controller.soundedEventCount;
   listeners.get("randomGraphButton:click")();
+  assert.equal(controller.state.topology, "random");
   assert.equal(controller.state.nodeCount, MAX_GRAPH_INSTRUMENT_NODES);
   assert.equal(controller.model.nodes.length, MAX_GRAPH_INSTRUMENT_NODES);
   assert.equal(elements.get("nodeCount").value, String(MAX_GRAPH_INSTRUMENT_NODES));
+  const canonicalRandomGraph = generateGraph({
+    type: controller.state.topology,
+    nodeCount: controller.state.nodeCount,
+    density: controller.state.density,
+    seed: controller.state.seed,
+    maxNodes: MAX_GRAPH_INSTRUMENT_NODES,
+  });
+  assert.notDeepEqual(
+    controller.model.nodes.map(({ x, y }) => [x, y]),
+    canonicalRandomGraph.nodes.map(({ x, y }) => [x, y]),
+    "Random graph must randomize node placement as well as graph topology",
+  );
+  assert.ok(controller.model.nodes.every(({ x, y }) => (
+    x >= 0.02 && x <= 0.98 && y >= 0.02 && y <= 0.98
+  )));
+  assert.deepEqual(
+    controller.model.edges.map(({ from, to }) => [from, to]),
+    canonicalRandomGraph.edges.map(({ from, to }) => [from, to]),
+    "Random placement must preserve the newly generated graph connections",
+  );
   assert.equal(controller.pulseCount, pulsesBeforeRandom, "Random must not launch a graph run");
   assert.equal(controller.soundedEventCount, attacksBeforeRandom, "Random must not add attacks");
+  assert.match(elements.get("liveStatus").textContent, /randomized node positions/);
 
   elements.get("topology").value = "chain";
   listeners.get("topology:change")({ currentTarget: elements.get("topology") });
@@ -508,10 +725,10 @@ async function exerciseLiveEditRegression(mode, htmlFile) {
   elements.get("baseDelay").value = "20";
   listeners.get("baseDelay:input")({ currentTarget: elements.get("baseDelay") });
   assert.equal(controller.state.baseDelay, 20, "Edge speed must remain stored in milliseconds");
-  assert.equal(elements.get("baseDelayOut").textContent, "3000 BPM eq. · 20 ms");
+  assert.equal(elements.get("baseDelayOut").textContent, "20 ms");
   assert.equal(
     attributes.get("baseDelay:aria-valuetext"),
-    "3000 BPM equivalent, 20 milliseconds",
+    "20 milliseconds",
   );
   elements.get("distanceRatio").value = "1";
   listeners.get("distanceRatio:input")({ currentTarget: elements.get("distanceRatio") });

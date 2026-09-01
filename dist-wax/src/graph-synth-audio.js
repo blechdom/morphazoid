@@ -3,6 +3,7 @@ import { connectAudioOutput } from "./audio-output-manager.js";
 
 const MIN_FREQUENCY = 20;
 const MAX_FREQUENCY = 20_000;
+const FREQUENCY_RANGE_EPSILON = 1e-12;
 export const MAX_GRAPH_SYNTH_ACTIVE_VOICES = 64;
 export const MAX_GRAPH_SYNTH_LIVE_SOURCES = 256;
 export const MAX_GRAPH_SYNTH_SOURCE_STARTS_PER_SECOND = 512;
@@ -20,6 +21,31 @@ function finite(value, fallback) {
 
 function clamp(value, minimum, maximum, fallback = minimum) {
   return Math.min(maximum, Math.max(minimum, finite(value, fallback)));
+}
+
+function requestedVoiceFrequency(source = {}) {
+  if (source?.frequency === undefined) return 220;
+  return Number(source.frequency);
+}
+
+function frequencyIsInRenderBand(frequency) {
+  return Number.isFinite(frequency)
+    && frequency >= MIN_FREQUENCY * (1 - FREQUENCY_RANGE_EPSILON)
+    && frequency <= MAX_FREQUENCY * (1 + FREQUENCY_RANGE_EPSILON);
+}
+
+function voiceFrequencyIsRenderable(source = {}) {
+  if (source?.inAudibleRange === false || source?.frequencyInRange === false) return false;
+  const frequency = requestedVoiceFrequency(source);
+  if (!Number.isFinite(frequency) || frequency <= 0) return false;
+  if (source?.mode !== "shepard") {
+    return frequencyIsInRenderBand(frequency);
+  }
+  const width = Math.round(clamp(source.shepardWidth, 3, 7, 5));
+  const center = (width - 1) * 0.5;
+  return Array.from({ length: width }, (_, index) => (
+    frequency * 2 ** (index - center)
+  )).some(frequencyIsInRenderBand);
 }
 
 function cancelledAudioStart() {
@@ -73,7 +99,7 @@ function sanitizeVoice(source = {}) {
     ...candidate,
     mode,
     waveform,
-    frequency: clamp(candidate.frequency, MIN_FREQUENCY, MAX_FREQUENCY, 220),
+    frequency: finite(candidate.frequency, 220),
     gain: clamp(candidate.gain ?? candidate.level, 0, 1, 0.28),
     pan: clamp(candidate.pan, -1, 1, 0),
     modulationIndex: clamp(
@@ -97,6 +123,7 @@ function sanitizeVoice(source = {}) {
 
 /** Estimate native source-node cost before allocating any Web Audio nodes. */
 export function graphSynthSourceCost(source = {}) {
+  if (!voiceFrequencyIsRenderable(source)) return 0;
   const voice = sanitizeVoice(source);
   if (voice.mode === "fm" || voice.mode === "pm") return 2;
   if (voice.mode !== "shepard") return 1;
@@ -104,7 +131,7 @@ export function graphSynthSourceCost(source = {}) {
   let partials = 0;
   for (let index = 0; index < voice.shepardWidth; index += 1) {
     const frequency = voice.frequency * 2 ** (index - center);
-    if (frequency >= MIN_FREQUENCY && frequency <= MAX_FREQUENCY) partials += 1;
+    if (frequencyIsInRenderBand(frequency)) partials += 1;
   }
   return Math.max(1, partials);
 }
@@ -282,6 +309,15 @@ export class GraphSynthAudio {
     sustainLevel,
     releaseSeconds,
   } = {}) {
+    if (!voiceFrequencyIsRenderable(spec)) {
+      return Object.freeze({
+        ...(spec && typeof spec === "object" ? spec : {}),
+        frequency: requestedVoiceFrequency(spec),
+        scheduled: false,
+        skipped: true,
+        skipReason: "frequency-range",
+      });
+    }
     let voice = sanitizeVoice(spec);
     if (voice.gain <= 0) return Object.freeze({ ...voice, scheduled: false });
     const context = await this.start();
@@ -574,7 +610,7 @@ export class GraphSynthAudio {
     for (let index = 0; index < count; index += 1) {
       const octave = index - center;
       const frequency = voice.frequency * 2 ** octave;
-      if (frequency < MIN_FREQUENCY || frequency > MAX_FREQUENCY) continue;
+      if (!frequencyIsInRenderBand(frequency)) continue;
       weights.push({ octave, frequency, weight: Math.exp(-0.5 * (octave / 1.25) ** 2) });
     }
     if (!weights.length) weights.push({ octave: 0, frequency: voice.frequency, weight: 1 });
@@ -634,11 +670,15 @@ export class GraphSynthAudio {
         continue;
       }
 
-      // Once every retained voice has started, keep the original bounded-pool
-      // behavior: the oldest live voice yields to the new attack.
-      const oldest = this.activeVoices.values().next().value;
-      if (!oldest) break;
-      this.#cancelVoice(oldest, now, true);
+      // Hard-stopping a live oscillator at an arbitrary phase creates a click.
+      // Once every retained voice has started, thin the excess attack instead;
+      // future reservations above are still safe to replace before they sound.
+      return {
+        admitted: false,
+        reason: this.activeVoices.size >= MAX_GRAPH_SYNTH_ACTIVE_VOICES
+          ? "voice-budget"
+          : "live-source-budget",
+      };
     }
     return { admitted: true, reason: null };
   }

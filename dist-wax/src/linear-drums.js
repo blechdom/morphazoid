@@ -639,6 +639,13 @@ export function linearDrumParameters(frequency, sourceSettings = {}, performance
     * (effectiveSettings.decay / LINEAR_DRUM_DEFAULTS.decay);
   const pitchedDecay = effectiveSettings.decay
     * interpolatePitchedValue(pitchedWeights, "decayScale");
+  // A synthesized voice can change pitch without changing its clock. Graph
+  // Drum uses this path so frequency morphs retain the selected envelope
+  // length; sample percussion intentionally keeps rate-scaled duration in its
+  // separate SampleDrumAudio engine.
+  const envelopeDecay = performance.preserveDuration === true
+    ? settings.decay
+    : isPitched ? pitchedDecay : drumDecay;
   const drumNoiseMix = interpolateArchetypeValue(weights, "noiseMix")
     * effectiveSettings.strikeNoise;
   const pitchedNoiseMix = (
@@ -665,7 +672,7 @@ export function linearDrumParameters(frequency, sourceSettings = {}, performance
     pitchedRatios: Object.freeze(pitchedRatios),
     pitchedGains: Object.freeze(pitchedGains),
     attack: effectiveSettings.attack,
-    decay: isPitched ? pitchedDecay : drumDecay,
+    decay: envelopeDecay,
     highDamping: isPitched
       ? interpolatePitchedValue(pitchedWeights, "highDamping")
       : interpolateArchetypeValue(weights, "highDamping"),
@@ -824,6 +831,7 @@ export class LinearDrumAudio {
     if (context !== this.context || context.state === "closed") throw cancelledAudioStart();
     const parameters = linearDrumParameters(frequency, sourceSettings, {
       vertical: options.performanceY,
+      preserveDuration: options.preserveDuration,
     });
     const minimumVelocity = clamp(finiteOr(options.minimumVelocity, .05), .001, .05);
     const velocity = clamp(finiteOr(options.velocity, .82), minimumVelocity, 1);

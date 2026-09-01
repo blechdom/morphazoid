@@ -98,13 +98,26 @@
 .graph-transport-actions {
   display: grid;
   margin-bottom: 12px;
-  grid-template-columns: 46px minmax(0, 1fr) 76px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.graph-transport-actions .play-button {
+.graph-tempo-row {
+  display: grid;
+  grid-column: 1 / -1;
+  margin: 0;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.graph-tempo-row .play-button {
   width: 46px;
   min-height: 46px;
+}
+
+.graph-tempo-row .control {
+  margin: 0;
 }
 
 .graph-pulse-action {
@@ -162,7 +175,7 @@
   display: grid;
   margin-bottom: 10px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: end;
+  align-items: start;
   gap: 8px;
 }
 
@@ -170,8 +183,48 @@
   margin: 0;
 }
 
+.graph-edge-timing-stack {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.graph-edge-timing-stack .control {
+  margin: 0;
+}
+
+.graph-edge-timing-stack .control > span {
+  gap: 4px;
+}
+
+.graph-edge-timing-stack .control output {
+  flex: 0 0 auto;
+  font-size: 9px;
+}
+
+.graph-edge-speed-control > span > b,
+.graph-distance-ratio-control > span > b {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.graph-play-primary-grid .graph-distance-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.graph-play-primary-grid .graph-node-position-action {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 0;
+}
+
 .graph-pulse-grid .select-control {
   margin: 0;
+}
+
+.graph-pulse-interval-control {
+  grid-column: 1 / -1;
 }
 
 .graph-seed-note-control {
@@ -205,7 +258,7 @@
 .graph-layout-actions {
   display: grid;
   margin: 8px 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 6px;
 }
 
@@ -330,7 +383,10 @@
 
 @media (max-width: 520px) {
   .graph-transport-actions {
-    grid-template-columns: 46px minmax(0, 1fr) 72px;
+    gap: 6px;
+  }
+
+  .graph-tempo-row {
     gap: 6px;
   }
 

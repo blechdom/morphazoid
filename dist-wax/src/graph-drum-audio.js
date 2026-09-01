@@ -307,6 +307,7 @@ export class GraphDrumAudio {
       velocity: plan.velocity,
       minimumVelocity: 0.001,
       performanceY: plan.performanceY,
+      preserveDuration: true,
       startAt: translatedStartAt,
     });
   }
