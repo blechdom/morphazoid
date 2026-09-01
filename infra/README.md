@@ -11,6 +11,8 @@ Production uses:
 The stack must be deployed in `us-east-1` because CloudFront certificates must
 exist there. `www.morphazoid.com` redirects to the apex domain, and directory
 paths such as `/morphazoidical/` resolve to their `index.html`.
+The component catalog is published at `/storybook/`; only that cache behavior
+allows same-origin framing, which Storybook needs for its preview pane.
 
 ## Prerequisites
 
@@ -57,10 +59,27 @@ into GitHub repository variables using the printed `gh variable set` commands.
 The workflow uses the GitHub `production` environment. In repository settings,
 restrict that environment to the `main` branch and add reviewers if desired.
 
+### Required before the first Storybook deployment
+
+For an existing Morphazoid stack, run the bootstrap command from the branch
+that contains the new `infra/site.yml` **before merging or publishing the first
+Storybook artifact**:
+
+```bash
+AWS_PROFILE=morphazoid ./scripts/bootstrap-aws-site.sh
+```
+
+Wait for the CloudFormation update to finish successfully before allowing CI
+or a manual deployment to sync content. The routine GitHub deploy role cannot
+change CloudFront. Its preflight therefore verifies the root and `/storybook/*`
+framing policies before `aws s3 sync` and stops without modifying S3 when the
+stack has not been updated.
+
 ## Initial or manual content deployment
 
 ```bash
-./scripts/build-site.sh dist
+npm ci
+npm run build:deploy
 AWS_PROFILE=morphazoid ./scripts/deploy-aws-site.sh dist
 ```
 

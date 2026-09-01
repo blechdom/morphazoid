@@ -1,0 +1,83 @@
+.mz-step-button {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, var(--mz-color-accent-soft));
+  --mz-active-accent-glow: var(--accent-glow, var(--mz-color-accent-glow));
+
+  position: relative;
+  display: grid;
+  width: 38px;
+  min-width: 38px;
+  min-height: 56px;
+  padding: 6px 5px;
+  border: 1px solid var(--line, var(--mz-color-line));
+  cursor: pointer;
+  color: var(--muted, var(--mz-color-muted));
+  background: var(--bg-deep, var(--mz-color-bg-deep));
+  align-content: space-between;
+  justify-items: center;
+  font-family: var(--mono, var(--mz-font-mono));
+}
+
+.mz-step-button::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  content: "";
+  opacity: 0;
+}
+
+.mz-step-button:hover:not(:disabled),
+.mz-step-button:focus-visible {
+  border-color: var(--mz-active-accent-soft);
+  color: var(--mz-active-accent);
+  background: var(--mz-active-accent-glow);
+}
+
+.mz-step-button__number {
+  font-size: var(--mz-font-size-3xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.mz-step-button__indicator {
+  display: block;
+  width: 15px;
+  height: 5px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+
+.mz-step-button[aria-pressed="true"] {
+  border-color: var(--mz-active-accent-soft);
+  color: var(--mz-active-accent);
+  background: var(--mz-active-accent-glow);
+}
+
+.mz-step-button[aria-pressed="true"] .mz-step-button__indicator {
+  height: var(--mz-step-height, 20px);
+  border-radius: 8px 8px 3px 3px;
+  background: currentColor;
+  box-shadow: 0 0 8px var(--mz-active-accent-soft);
+}
+
+.mz-step-button.is-current::after,
+.mz-step-button[data-current="true"]::after {
+  opacity: 1;
+}
+
+.mz-step-button.is-loop-end {
+  border-right: 2px solid var(--mz-active-accent);
+}
+
+.mz-step-button.is-outside-loop {
+  cursor: default;
+  color: var(--muted, var(--mz-color-muted));
+  background: color-mix(in oklab, var(--mz-color-bg-deep) 78%, black);
+}
+
+.mz-step-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}

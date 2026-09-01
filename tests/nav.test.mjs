@@ -1252,25 +1252,28 @@ test("top Audio buttons expose icon-only accessible on/off speaker controls", as
   assert.equal(customButton.getAttribute("title"), "Audio on");
   assert.equal(customButton.querySelector(".audio-speaker-icon"), null);
 
-  const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
-  assert.match(css, /--audio-control-width:\s*44px/);
-  assert.match(css, /\.audio-button\s*\{[^}]*width: var\(--audio-control-width\);[^}]*height: 44px;/s);
+  const [css, buttonCss] = await Promise.all([
+    readFile(new URL("../style.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/ui/primitives/button.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(css, /--audio-control-width:\s*var\(--mz-control-height\)/);
+  assert.match(buttonCss, /\.audio-button,[\s\S]*?\.mz-button--audio\s*\{[^}]*width:\s*var\(--audio-control-width,[^;]+;[^}]*height:\s*var\(--mz-control-height\);/s);
   assert.match(
-    css,
+    buttonCss,
     /\.audio-button > :not\(\.audio-speaker-icon\),\s*\.audio-speaker-copy\s*\{[^}]*position: absolute !important;[^}]*width: 1px !important;[^}]*clip-path: inset\(50%\) !important;/s,
     "authored Audio copy is visually hidden but remains available as the no-script accessible name",
   );
   assert.match(
-    css,
+    buttonCss,
     /\.audio-button::before,\s*\.audio-speaker-icon\s*\{[^}]*mask: url\("data:image\/svg\+xml/s,
     "a CSS speaker-off icon is present even before JavaScript normalization",
   );
-  assert.doesNotMatch(css, /\.audio-button > :not\(\.audio-speaker-icon\)[^}]*display:\s*none/s);
-  assert.match(css, /m16 9 6 6M22 9l-6 6/);
-  assert.match(css, /\.audio-button\[aria-pressed="true"\]\s*\{[^}]*color: var\(--bg-deep\);[^}]*background: var\(--accent\);[^}]*box-shadow:/s);
+  assert.doesNotMatch(buttonCss, /\.audio-button > :not\(\.audio-speaker-icon\)[^}]*display:\s*none/s);
+  assert.match(buttonCss, /m16 9 6 6M22 9l-6 6/);
+  assert.match(buttonCss, /\.audio-button\[aria-pressed="true"\]\s*\{[^}]*color:\s*var\(--bg-deep,[^)]+\)\);[^}]*background:\s*var\(--accent,[^)]+\)\);[^}]*box-shadow:/s);
   assert.match(
-    css,
-    /@media\s*\(pointer:\s*coarse\)\s*\{[\s\S]*?\.audio-button,\s*#playButton,\s*\[data-primary-transport\]\s*\{[^}]*min-width:\s*48px;[^}]*min-height:\s*48px/s,
+    buttonCss,
+    /@media\s*\(pointer:\s*coarse\)\s*\{[\s\S]*?\.audio-button,[\s\S]*?\[data-primary-transport\]\s*\{[^}]*min-width:\s*48px;[^}]*min-height:\s*48px/s,
   );
 });
 
@@ -1862,6 +1865,8 @@ test("header settings meter and browser output chooser report real shared output
   assert.equal(control.meter, control.leftMeter);
   assert.equal(control.leftMeter.value, 0.31);
   assert.equal(control.rightMeter.value, 0.62);
+  assert.equal(control.leftMeter.getAttribute("aria-valuenow"), "0.31");
+  assert.equal(control.rightMeter.getAttribute("aria-valuenow"), "0.62");
   assert.equal(
     control.leftMeter.getAttribute("aria-valuetext"),
     "Left channel 31% output signal",
@@ -2214,7 +2219,10 @@ test("pagehide disables MIDI, retains BFCache painting, and destroys on final ex
 });
 
 test("mapped tablet and phone headers keep MIDI and output controls visible", async () => {
-  const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
+  const [css, audioStripCss] = await Promise.all([
+    readFile(new URL("../style.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/ui/patterns/audio-strip.css", import.meta.url), "utf8"),
+  ]);
   assert.match(
     css,
     /@media \(max-width: 900px\)[\s\S]*?\.wordmark \{[\s\S]*?display: inline-flex;[\s\S]*?width: 28px;[\s\S]*?overflow: hidden;[\s\S]*?flex: 0 0 28px;/,
@@ -2296,10 +2304,14 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   assert.match(css, /\.header-output-meter-shell \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/s);
   assert.match(css, /\.header-output-meter-shell \{[^}]*width: 22px;[^}]*gap: 0;/s);
   assert.match(css, /\.header-output-channel-label \{[^}]*font-size: 7px;/s);
-  assert.match(css, /\.midi-toolbar\.is-receiving \.midi-activity-light \{/);
   assert.match(
     css,
-    /\.audio-strip \{[\s\S]*?grid-template-columns: minmax\(96px, 140px\) var\(--audio-control-width\);/,
+    /\.midi-toolbar\.is-receiving \.midi-activity-light \{[^}]*background: var\(--mz-color-danger\);/s,
+    "MIDI receive activity uses the red danger token against the green active control",
+  );
+  assert.match(
+    audioStripCss,
+    /\.audio-strip,[\s\S]*?grid-template-columns: minmax\(96px, 140px\) var\(--audio-control-width, var\(--mz-control-height\)\);/,
   );
 });
 

@@ -63,7 +63,10 @@ test("primary transports are visible outside closed authored disclosures", async
 });
 
 test("authored Audio buttons have an icon-only CSS fallback before the shared module loads", async () => {
-  const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
+  const css = await readFile(
+    new URL("../src/ui/primitives/button.css", import.meta.url),
+    "utf8",
+  );
   assert.match(
     css,
     /\.audio-button > :not\(\.audio-speaker-icon\),\s*\.audio-speaker-copy\s*\{[^}]*position:\s*absolute !important;[^}]*width:\s*1px !important;[^}]*clip-path:\s*inset\(50%\) !important;/s,
@@ -83,7 +86,7 @@ test("authored Audio buttons have an icon-only CSS fallback before the shared mo
   );
   assert.match(
     css,
-    /\.audio-button\[aria-pressed="true"\]\s*\{[^}]*background:\s*var\(--accent\);[^}]*box-shadow:/s,
+    /\.audio-button\[aria-pressed="true"\]\s*\{[^}]*background:\s*var\(--accent,[^)]+\)\);[^}]*box-shadow:/s,
     "Audio on uses a filled, glowing treatment as well as a different icon",
   );
 

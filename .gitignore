@@ -2,6 +2,7 @@
 PanGPA.log
 node_modules/
 dist/
+storybook-static/
 
 # Playwright browser-test artifacts
 playwright-report/

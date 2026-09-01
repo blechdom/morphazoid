@@ -57,6 +57,18 @@ export function rewriteWaxAdapterImports(source) {
   return source.replaceAll('from "../../src/', 'from "../src/');
 }
 
+export function rewriteWaxHostedLinks(html, htmlPath, outputDirectory) {
+  if (typeof html !== "string") throw new TypeError("HTML source must be a string");
+  const storybookPath = browserPath(path.relative(
+    path.dirname(htmlPath),
+    path.resolve(outputDirectory, "..", "storybook"),
+  ));
+  return html.replace(
+    /href=(["'])storybook\/\1/g,
+    `href="${storybookPath}/"`,
+  );
+}
+
 async function listHtmlFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
@@ -100,7 +112,7 @@ export async function addWaxLayer(outputDirectory, options = {}) {
     const bootstrapSource = waxBootstrapPathFor(htmlPath, outputDirectory);
     const adapterSource = waxUniversalAdapterPathFor(htmlPath, outputDirectory);
     const transformed = injectWaxUniversalAdapter(
-      injectWaxBootstrap(html, bootstrapSource),
+      injectWaxBootstrap(rewriteWaxHostedLinks(html, htmlPath, outputDirectory), bootstrapSource),
       adapterSource,
     );
     if (transformed !== html) await writeFile(htmlPath, transformed, "utf8");

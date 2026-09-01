@@ -59,6 +59,14 @@
   background: var(--accent);
 }
 
+.fm-bank-actions .is-primary:hover,
+.fm-bank-actions .is-primary:focus-visible {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: color-mix(in oklab, var(--accent) 84%, white);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
 .fm-pad-grid {
   display: grid;
   padding: 18px 0;

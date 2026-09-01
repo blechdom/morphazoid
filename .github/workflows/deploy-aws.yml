@@ -21,10 +21,18 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      - name: Install locked dependencies
+        run: npm ci
       - name: Verify application
         run: npm run verify
-      - name: Build public artifact
-        run: npm run build:site
+      - name: Build public artifact and component catalog
+        run: npm run build:deploy
+      - name: Verify the component catalog artifact
+        run: |
+          test -f dist/storybook/index.html
+          test -f dist/storybook/iframe.html
+          test -f dist/storybook/index.json
+          npm run check:storybook-dist
       - uses: actions/upload-artifact@v7
         with:
           name: morphazoid-site
@@ -62,6 +70,28 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
           role-session-name: morphazoid-${{ github.run_id }}
+      - name: Verify CloudFront is ready for Storybook
+        run: |
+          root_headers="$(mktemp)"
+          storybook_headers="$(mktemp)"
+          trap 'rm -f "$root_headers" "$storybook_headers"' EXIT
+
+          curl --fail --silent --show-error --head \
+            --retry 4 --retry-all-errors --retry-delay 2 \
+            https://morphazoid.com/ >"$root_headers"
+
+          # Do not use --fail for this request. The probe object is intentionally
+          # absent before the first Storybook upload, but its CloudFront behavior
+          # must still add the scoped response headers to the origin's 403 response.
+          curl --silent --show-error --head \
+            --retry 4 --retry-all-errors --retry-delay 2 \
+            https://morphazoid.com/storybook/__cloudfront-policy-probe__ \
+            >"$storybook_headers"
+
+          grep -iE "^x-frame-options:[[:space:]]*DENY[[:space:]]*$" "$root_headers"
+          grep -iE "^x-frame-options:[[:space:]]*SAMEORIGIN[[:space:]]*$" "$storybook_headers"
+          grep -iE "^content-security-policy:[[:space:]]*frame-ancestors[[:space:]]+'self'[[:space:]]*$" \
+            "$storybook_headers"
       - name: Publish static files
         run: |
           aws s3 sync site/ "s3://${{ vars.AWS_SITE_BUCKET }}/" \
@@ -98,6 +128,24 @@ jobs:
           curl --fail --silent --show-error \
             --retry 8 --retry-all-errors --retry-delay 5 \
             https://morphazoid.com/morphazoidical/ >/dev/null
+          curl --fail --silent --show-error \
+            --retry 8 --retry-all-errors --retry-delay 5 \
+            https://morphazoid.com/storybook/ >/dev/null
+          curl --fail --silent --show-error \
+            --retry 8 --retry-all-errors --retry-delay 5 \
+            https://morphazoid.com/storybook/iframe.html >/dev/null
+          curl --fail --silent --show-error \
+            --retry 8 --retry-all-errors --retry-delay 5 \
+            https://morphazoid.com/storybook/index.json >/dev/null
+          curl --fail --silent --show-error --head \
+            https://morphazoid.com/ \
+            | grep -iE "^x-frame-options:[[:space:]]*DENY"
+          curl --fail --silent --show-error --head \
+            https://morphazoid.com/storybook/ \
+            | grep -iE "^x-frame-options:[[:space:]]*SAMEORIGIN"
+          curl --fail --silent --show-error --head \
+            https://morphazoid.com/storybook/ \
+            | grep -iE "^content-security-policy:.*frame-ancestors[[:space:]]+'self'"
           curl --fail --silent --show-error --head \
             https://morphazoid.com/src/contour-synth-processor.js \
             | grep -iE "^content-type:.*javascript"

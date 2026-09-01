@@ -1,0 +1,58 @@
+.mz-range-field {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, color-mix(in oklab, var(--mz-active-accent) 55%, transparent));
+  --mz-active-accent-glow: var(--accent-glow, color-mix(in oklab, var(--mz-active-accent) 22%, transparent));
+
+  display: grid;
+  min-width: 0;
+  margin: 0 0 var(--mz-space-4);
+  color: var(--mz-color-ink);
+  font-family: var(--mz-font-mono);
+}
+
+.mz-range-field__input {
+  width: 100%;
+  height: 40px;
+  margin: 0;
+  cursor: ew-resize;
+  appearance: none;
+  background: transparent;
+}
+
+.mz-range-field__input::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--mz-color-line-strong);
+}
+
+.mz-range-field__input::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  margin-top: -7px;
+  border: 1px solid var(--mz-active-accent);
+  border-radius: 50%;
+  background: var(--mz-color-bg-deep);
+  box-shadow: 0 0 8px var(--mz-active-accent-glow);
+  appearance: none;
+}
+
+.mz-range-field__input::-moz-range-track {
+  height: 1px;
+  background: var(--mz-color-line-strong);
+}
+
+.mz-range-field__input::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--mz-active-accent);
+  border-radius: 50%;
+  background: var(--mz-color-bg-deep);
+  box-shadow: 0 0 8px var(--mz-active-accent-glow);
+}
+
+.mz-range-field.is-disabled {
+  opacity: 0.48;
+}
+
+.mz-range-field.is-disabled input {
+  cursor: not-allowed;
+}

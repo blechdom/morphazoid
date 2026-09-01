@@ -1,0 +1,157 @@
+:where(.mz-ui, [data-mz-ui]) {
+  min-width: 0;
+  color: var(--mz-color-ink);
+  background: var(--mz-color-bg);
+  font-family: var(--mz-font-mono);
+  font-size: var(--mz-font-size-base);
+  line-height: var(--mz-line-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+:where(.mz-ui, [data-mz-ui]) :where(button, input, select, textarea) {
+  font: inherit;
+}
+
+:where(
+  .mz-button,
+  .mz-range-field,
+  .mz-select-field,
+  .mz-choice-field,
+  .mz-control-section,
+  .mz-status-readout,
+  .mz-number-stepper,
+  .mz-option-card-group,
+  .mz-motion-mode-group,
+  .mz-step-button,
+  .mz-midi-status,
+  .mz-stereo-meter,
+  .mz-peak-meter,
+  .mz-signed-meter,
+  .mz-signal-monitor
+),
+:where(
+  .mz-button,
+  .mz-range-field,
+  .mz-select-field,
+  .mz-choice-field,
+  .mz-control-section,
+  .mz-status-readout,
+  .mz-number-stepper,
+  .mz-option-card-group,
+  .mz-motion-mode-group,
+  .mz-step-button,
+  .mz-midi-status,
+  .mz-stereo-meter,
+  .mz-peak-meter,
+  .mz-signed-meter,
+  .mz-signal-monitor
+) *,
+:where(
+  .mz-button,
+  .mz-range-field,
+  .mz-select-field,
+  .mz-choice-field,
+  .mz-control-section,
+  .mz-status-readout,
+  .mz-number-stepper,
+  .mz-option-card-group,
+  .mz-motion-mode-group,
+  .mz-step-button,
+  .mz-midi-status,
+  .mz-stereo-meter,
+  .mz-peak-meter,
+  .mz-signed-meter,
+  .mz-signal-monitor
+) *::before,
+:where(
+  .mz-button,
+  .mz-range-field,
+  .mz-select-field,
+  .mz-choice-field,
+  .mz-control-section,
+  .mz-status-readout,
+  .mz-number-stepper,
+  .mz-option-card-group,
+  .mz-motion-mode-group,
+  .mz-step-button,
+  .mz-midi-status,
+  .mz-stereo-meter,
+  .mz-peak-meter,
+  .mz-signed-meter,
+  .mz-signal-monitor
+) *::after {
+  box-sizing: border-box;
+}
+
+:where(.mz-button, .mz-range-field input, .mz-select-field select, .mz-choice-switch button) {
+  color: inherit;
+  font: inherit;
+}
+
+:where(
+  .mz-button,
+  .mz-range-field input,
+  .mz-select-field select,
+  .mz-choice-switch button,
+  .mz-number-stepper button,
+  .mz-option-card-group button,
+  .mz-motion-mode-group button,
+  .mz-step-button,
+  .mz-midi-status button
+):focus-visible,
+.mz-control-section > summary:focus-visible {
+  outline: var(--mz-focus-width) solid var(--mz-active-accent, var(--mz-color-accent));
+  outline-offset: var(--mz-focus-offset);
+}
+
+.mz-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.mz-subsection-title {
+  margin: 0;
+  color: var(--mz-active-accent, var(--mz-color-accent));
+  font-size: var(--mz-font-size-2xs);
+  font-weight: 500;
+  letter-spacing: var(--mz-tracking-subsection);
+  text-transform: uppercase;
+}
+
+.mz-hud-label {
+  color: var(--mz-color-muted);
+  font-size: var(--mz-font-size-sm);
+  letter-spacing: var(--mz-tracking-hud);
+  text-transform: uppercase;
+}
+
+.mz-control-note {
+  margin: 2px 0 var(--mz-space-5);
+  color: var(--mz-color-muted);
+  font-size: var(--mz-font-size-xs);
+  line-height: 1.55;
+}
+
+.mz-readout {
+  color: var(--mz-active-accent, var(--mz-color-accent));
+  font-size: var(--mz-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.mz-button, .mz-range-field input, .mz-select-field select, .mz-choice-switch button) {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+  }
+
+  .mz-button--audio[data-audio-state="starting"] {
+    animation: none !important;
+  }
+}

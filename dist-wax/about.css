@@ -12,6 +12,24 @@
   white-space: nowrap;
 }
 
+.about-header-link {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--muted);
+  align-items: center;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.about-header-link:hover {
+  color: var(--ink);
+}
+
 .about-shell {
   min-height: 0;
   padding: clamp(34px, 6vw, 82px) clamp(18px, 5vw, 72px) 80px;

@@ -1,0 +1,50 @@
+.mz-status-readout,
+.structure-readout {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+
+  display: flex;
+  min-height: 31px;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--line, var(--mz-color-line));
+  color: var(--mz-color-ink);
+  background: var(--panel-high, var(--mz-color-panel-high));
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--mono, var(--mz-font-mono));
+}
+
+.mz-status-readout__label,
+.structure-readout b {
+  overflow: hidden;
+  color: var(--muted, var(--mz-color-muted));
+  font-size: var(--mz-font-size-xs);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mz-status-readout__value,
+.structure-readout output {
+  overflow: hidden;
+  color: var(--mz-active-accent);
+  font-size: var(--mz-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mz-status-readout[data-tone="muted"] .mz-status-readout__value {
+  color: var(--mz-color-muted);
+}
+
+.mz-status-readout[data-tone="warning"] .mz-status-readout__value {
+  color: var(--mz-color-orange);
+}
+
+.mz-status-readout[data-tone="danger"] .mz-status-readout__value {
+  color: var(--mz-color-danger);
+}

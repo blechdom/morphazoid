@@ -103,6 +103,15 @@ Resources:
               }
             };
           }
+          if (request.uri === '/storybook') {
+            return {
+              statusCode: 301,
+              statusDescription: 'Moved Permanently',
+              headers: {
+                location: { value: '/storybook/' }
+              }
+            };
+          }
           if (request.uri.endsWith('/')) {
             request.uri += 'index.html';
           }
@@ -120,6 +129,35 @@ Resources:
             Override: true
           FrameOptions:
             FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 63072000
+            IncludeSubdomains: false
+            Preload: false
+            Override: true
+        CustomHeadersConfig:
+          Items:
+            - Header: Permissions-Policy
+              Value: microphone=(self), camera=(self), geolocation=()
+              Override: true
+
+  StorybookSecurityHeaders:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub ${AWS::StackName}-storybook-security
+        Comment: Same-origin framing for the Morphazoid component catalog.
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: "frame-ancestors 'self'"
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: SAMEORIGIN
             Override: true
           ReferrerPolicy:
             ReferrerPolicy: strict-origin-when-cross-origin
@@ -160,6 +198,24 @@ Resources:
           ResponseHeadersPolicyId: !Ref SiteSecurityHeaders
           TargetOriginId: private-site-bucket
           ViewerProtocolPolicy: redirect-to-https
+        CacheBehaviors:
+          - AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            Compress: true
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt SiteRequestFunction.FunctionARN
+            PathPattern: /storybook/*
+            ResponseHeadersPolicyId: !Ref StorybookSecurityHeaders
+            TargetOriginId: private-site-bucket
+            ViewerProtocolPolicy: redirect-to-https
         DefaultRootObject: index.html
         Enabled: true
         HttpVersion: http2and3

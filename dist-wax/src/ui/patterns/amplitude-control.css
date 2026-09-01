@@ -1,0 +1,127 @@
+.shared-amplitude-control {
+  --mz-active-accent: var(--accent, var(--mz-color-accent));
+  --mz-active-accent-soft: var(--accent-soft, color-mix(in oklab, var(--mz-active-accent) 55%, transparent));
+  --mz-active-accent-glow: var(--accent-glow, color-mix(in oklab, var(--mz-active-accent) 22%, transparent));
+
+  display: grid;
+  margin: 14px 0;
+  min-width: 0;
+  color: var(--ink, var(--mz-color-ink));
+  font-family: var(--mono, var(--mz-font-mono));
+  gap: 8px;
+}
+
+.shared-amplitude-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shared-amplitude-heading > div,
+.shared-amplitude-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.shared-amplitude-heading button,
+.shared-amplitude-presets button {
+  min-height: 25px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong, var(--mz-color-line-strong));
+  color: var(--muted, var(--mz-color-muted));
+  background: var(--bg-deep, var(--mz-color-bg-deep));
+  cursor: pointer;
+  font-family: var(--mono, var(--mz-font-mono));
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.shared-amplitude-heading > .field-label,
+.shared-amplitude-heading > .mz-field__label {
+  color: var(--ink, var(--mz-color-ink));
+  font: 500 var(--mz-font-size-md)/1.2 var(--mono, var(--mz-font-mono));
+  letter-spacing: var(--mz-tracking-label);
+}
+
+.shared-amplitude-heading button[aria-pressed="true"],
+.shared-amplitude-presets button[aria-pressed="true"] {
+  color: var(--mz-active-accent);
+  border-color: var(--mz-active-accent-soft);
+  background: var(--mz-active-accent-glow);
+}
+
+.shared-amplitude-heading button:disabled,
+.shared-amplitude-presets button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.shared-amplitude-presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.shared-amplitude-editor {
+  position: relative;
+  height: 108px;
+  margin: 5px 7px 2px;
+  touch-action: none;
+}
+
+.shared-amplitude-editor svg {
+  position: absolute;
+  inset: 6px 0;
+  width: 100%;
+  height: 96px;
+  overflow: visible;
+}
+
+.shared-amplitude-editor path {
+  fill: none;
+  stroke: var(--mz-active-accent);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.shared-amplitude-editor button {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--mz-active-accent);
+  border-radius: 50%;
+  color: var(--ink, var(--mz-color-ink));
+  background: var(--bg-deep, var(--mz-color-bg-deep));
+  cursor: grab;
+  font-family: var(--mono, var(--mz-font-mono));
+  font-size: 7px;
+}
+
+.shared-amplitude-editor button:active {
+  cursor: grabbing;
+}
+
+.shared-amplitude-editor.is-disabled {
+  opacity: 0.3;
+}
+
+.shared-amplitude-time-axis {
+  display: flex;
+  margin: -4px 7px 2px;
+  color: var(--faint, var(--mz-color-faint));
+  justify-content: space-between;
+  font: 6px/1.2 var(--mono, var(--mz-font-mono));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.shared-amplitude-level {
+  margin-top: 0;
+}
+
+.shared-amplitude-control > small {
+  color: var(--muted, var(--mz-color-muted));
+  font-size: var(--mz-font-size-xs);
+}

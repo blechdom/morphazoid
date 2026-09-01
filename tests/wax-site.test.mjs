@@ -9,6 +9,7 @@ import {
   addWaxLayer,
   injectWaxBootstrap,
   injectWaxUniversalAdapter,
+  rewriteWaxHostedLinks,
   rewriteWaxAdapterImports,
   waxBootstrapPathFor,
   waxUniversalAdapterPathFor,
@@ -173,6 +174,30 @@ test("the copied adapter rewrites source-tree imports for the public artifact", 
   assert.throws(() => rewriteWaxAdapterImports(null), /source must be a string/);
 });
 
+test("WAX pages keep the deployed component catalog rooted beside the WAX site", () => {
+  const outputDirectory = path.join("tmp", "public", "dist-wax");
+  assert.equal(
+    rewriteWaxHostedLinks(
+      '<a href="storybook/">Design system</a>',
+      path.join(outputDirectory, "index.html"),
+      outputDirectory,
+    ),
+    '<a href="../storybook/">Design system</a>',
+  );
+  assert.equal(
+    rewriteWaxHostedLinks(
+      '<a href="storybook/">Design system</a>',
+      path.join(outputDirectory, "nested", "index.html"),
+      outputDirectory,
+    ),
+    '<a href="../../storybook/">Design system</a>',
+  );
+  assert.throws(
+    () => rewriteWaxHostedLinks(null, "index.html", outputDirectory),
+    /HTML source must be a string/,
+  );
+});
+
 test("canonical source pages do not load the WAX-only bootstrap", async () => {
   const htmlFiles = await listSourceHtml(repositoryRoot);
   assert.ok(htmlFiles.length >= 85, "the check should cover the complete Morphazoid page set");
@@ -202,6 +227,10 @@ test("GitHub Pages deploys the freshly generated release tree", async () => {
     path.join(repositoryRoot, ".github", "workflows", "pages.yml"),
     "utf8",
   );
-  assert.match(workflow, /run: npm run build:site/);
+  assert.match(workflow, /run: npm ci/);
+  assert.match(workflow, /run: npm run build:deploy/);
+  assert.match(workflow, /npm run check:storybook-dist/);
   assert.match(workflow, /path: dist\b/);
+  assert.match(workflow, /storybook\/iframe\.html/);
+  assert.match(workflow, /storybook\/index\.json/);
 });

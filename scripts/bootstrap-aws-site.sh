@@ -147,6 +147,7 @@ Configure these GitHub repository variables:
 
 Then publish once locally:
 
-  npm run build:site
+  npm ci
+  npm run build:deploy
   AWS_STACK_NAME="$stack_name" AWS_PROFILE="${AWS_PROFILE:-}" ./scripts/deploy-aws-site.sh dist
 OUTPUTS

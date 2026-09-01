@@ -152,13 +152,18 @@ Shape mapping always uses fixed stage/screen axes; there is no form-local coordi
 
 On small screens the stage stays visible while the controls scroll independently. Play, Form, Sound, Mapping, and Output are collapsible so the most useful controls can stay close together during performance.
 
-Morphazoid is built with plain HTML, CSS, JavaScript modules, Canvas, and Web Audio—there is no framework or build step.
+Morphazoid runs on plain HTML, CSS, JavaScript modules, Canvas, and Web Audio;
+there is no application framework or required production build step. Optional
+development tools can build static documentation and release artifacts.
 
 Continuous voices render in an AudioWorklet. Moving geometry sends short look-ahead trajectories to that render thread, while transport time prefers the audio clock and the canvas follows it. Canvas resolution is pixel-budgeted on large/retina windows so display work cannot grow without bound.
 
 ## Play online
 
 <https://blechdom.github.io/morphazoid/>
+
+The live [UI component catalog](https://blechdom.github.io/morphazoid/storybook/)
+documents reusable tokens, controls, patterns, and interaction states.
 
 ## Development
 
@@ -168,6 +173,15 @@ npm run dev
 
 Open the localhost URL printed by the server. It starts at port `3435` and
 automatically tries the next port when that address is already in use.
+
+The reusable UI primitives and design tokens are documented in
+[DESIGN_SYSTEM.md](DESIGN_SYSTEM.md). Run the component catalog locally with
+`npm run storybook`, or generate its static HTML/CSS/JavaScript output with
+`npm run build:storybook`.
+
+`npm run build:deploy` assembles the production site, hosted WAX site, and
+component catalog together under `dist/`; Storybook is published at
+`dist/storybook/`.
 
 ## Checks
 

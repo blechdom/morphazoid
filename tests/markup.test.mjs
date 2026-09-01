@@ -5,12 +5,15 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("the mobile instrument markup exposes the complete compact control surface", async () => {
-  const [html, css, app, packageJson] = await Promise.all([
+  const [html, siteCss, buttonCss, audioStripCss, app, packageJson] = await Promise.all([
     readFile(new URL("shape.html", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),
+    readFile(new URL("src/ui/primitives/button.css", root), "utf8"),
+    readFile(new URL("src/ui/patterns/audio-strip.css", root), "utf8"),
     readFile(new URL("app.js", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
   ]);
+  const css = `${siteCss}\n${buttonCss}\n${audioStripCss}`;
 
   assert.match(html, /<script\s+type="module"\s+src="app\.js"><\/script>/);
   assert.match(html, /<canvas[\s\S]+?id="stage"/);
@@ -359,10 +362,10 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.amplitude-preset-strip\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*1fr\)/);
   assert.match(css, /#amplitudeEnvelopePresets\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5,\s*1fr\)/);
   assert.match(css, /\.amplitude-timing-row\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums/);
-  assert.match(css, /\.header-level\s*\{[\s\S]*?height:\s*44px/);
+  assert.match(css, /\.header-level,[\s\S]*?height:\s*var\(--mz-control-height\)/);
   assert.match(css, /\.mapping-source-help\s*\{/);
-  assert.match(css, /--audio-control-width:\s*44px/);
-  assert.match(css, /\.audio-strip\s*\{[\s\S]*?grid-template-columns:\s*minmax\(96px,\s*140px\)\s+var\(--audio-control-width\)/);
+  assert.match(css, /--audio-control-width:\s*var\(--mz-control-height\)/);
+  assert.match(css, /\.audio-strip,[\s\S]*?grid-template-columns:\s*minmax\(96px,\s*140px\)\s+var\(--audio-control-width,/);
   assert.match(css, /\.audio-button > :not\(\.audio-speaker-icon\),\s*\.audio-speaker-copy\s*\{[^}]*clip-path:\s*inset\(50%\) !important;/s);
   assert.match(css, /\.audio-button::before,\s*\.audio-speaker-icon\s*\{[\s\S]*?-webkit-mask:\s*url\("data:image\/svg\+xml/);
   assert.match(css, /@media\s*\(pointer:\s*coarse\)[\s\S]*?\.head-option-toggle\s*\{[\s\S]*?width:\s*36px/);
@@ -399,10 +402,23 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.equal(manifest.name, "morphazoid");
   assert.equal(manifest.type, "module");
   assert.equal(manifest.dependencies, undefined);
+  assert.equal(
+    manifest.scripts["build:deploy"],
+    "npm run build:site && npm run build:storybook -- --output-dir dist/storybook",
+    "the release tree must be built before Storybook is added beneath dist/storybook",
+  );
   assert.deepEqual(
     Object.keys(manifest.devDependencies ?? {}).sort(),
-    ["@axe-core/playwright", "@playwright/test"],
-    "browser QA dependencies must remain development-only",
+    [
+      "@axe-core/playwright",
+      "@playwright/test",
+      "@storybook/addon-a11y",
+      "@storybook/addon-docs",
+      "@storybook/html-vite",
+      "storybook",
+      "vite",
+    ],
+    "browser QA and component-catalog tooling must remain development-only",
   );
   assert.doesNotMatch(packageJson, /next|react|typescript/i);
 });
