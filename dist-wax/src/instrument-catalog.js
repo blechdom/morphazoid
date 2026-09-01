@@ -216,8 +216,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "colony-syrinx": define(
     "Mutable pressure-network voice",
-    "Sustains one expressive breath through a regenerating body of up to sixteen lungs, eight coupled folds, two morphing plumbing maps, and three differently shaped mouths whose continuous contours push pressure back through the whole organism.",
-    "Turn on audio, flow the creature, then draw its breath, tension, plumbing, and mouth contours or regenerate its organs, shapes, routes, and motion from a seed.",
+    "Routes variable lungs, vocal-fold sources, paths, and mouth resonators through continuous pressure, tension, routing, and articulation contours with air, water, or pellet excitation.",
+    "Turn on audio and select a short call, or start continuous flow; then edit anatomy counts, route connections, excitation material, and modulation contours.",
     ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
   ),
   blowhole: define(
