@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260829-9";
+} from "../nav.js?v=catalog-20260829-10";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -352,6 +352,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose a source, turn on audio, then raise the recursion depth and switch visual views.",
     ["Mic input", "File input"],
   ),
+  enveloper: define(
+    "Nested-envelope FM sequencer",
+    "Embeds three child envelopes inside one parent envelope, then divides them into nine FM notes whose durations and inherited levels follow both generations of the tree.",
+    "Turn on audio and start the tree clock, drag hollow envelope nodes to redistribute time and level, then drag each leaf horizontally for timbre and vertically for pitch.",
+    ["Pointer", "Built-in synth", "Recursive sequencing"],
+  ),
   julia: define(
     "Synth",
     "Traces a Julia-set boundary and maps left and right turns to cyclic Shepard pitch.",
@@ -672,6 +678,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "graph-drums": Object.freeze(["fractals-recursion"]),
   "graph-synth": Object.freeze(["fractals-recursion"]),
+  enveloper: Object.freeze(["sequencers"]),
   "fm-drums": Object.freeze(["geometry-drums"]),
   "linear-drums": Object.freeze(["geometry-drums"]),
   "sample-drums": Object.freeze(["geometry-drums"]),
