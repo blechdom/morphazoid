@@ -2751,7 +2751,7 @@ document.addEventListener("keydown", (event) => {
     !event.defaultPrevented
     && !event.isComposing
     && !event.repeat
-    && event.shiftKey
+    && !event.shiftKey
     && !event.ctrlKey
     && !event.metaKey
     && !event.altKey

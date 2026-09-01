@@ -1929,7 +1929,8 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(app, /function selectAdjacentPatch\(direction\)[\s\S]*?dispatchEvent\(new Event\("change", \{ bubbles: true \}\)\)/);
   assert.match(app, /\$\("previousPatch"\)\.addEventListener\("click"[\s\S]*?selectAdjacentPatch\(-1\)/);
   assert.match(app, /\$\("nextPatch"\)\.addEventListener\("click"[\s\S]*?selectAdjacentPatch\(1\)/);
-  assert.match(app, /event\.shiftKey[\s\S]*?\["ArrowLeft", "ArrowRight"\]\.includes\(event\.key\)[\s\S]*?selectAdjacentPatch/);
+  assert.match(app, /!event\.shiftKey[\s\S]*?\["ArrowLeft", "ArrowRight"\]\.includes\(event\.key\)[\s\S]*?selectAdjacentPatch/);
+  assert.match(html, /aria-keyshortcuts="ArrowLeft"[\s\S]*?aria-keyshortcuts="ArrowRight"/);
   assert.doesNotMatch(app, /dataset\.auditionModule/);
   assert.match(app, /for \(const param of module\.params\)/);
   assert.match(app, /input\.dataset\.nodeId = node\.id/);
