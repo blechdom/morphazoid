@@ -157,6 +157,9 @@ for worktree_runtime_file in \
   hiccup-head-app.js \
   src/hiccup-head.js \
   src/hiccup-head-processor.js \
+  assets/audio/hiccup-head-emt140-warm-plate.wav \
+  assets/audio/hiccup-head-york-minster-warm-hall.wav \
+  assets/audio/HICCUP_HEAD_REVERB_ATTRIBUTION.md \
   assets/instruments/hiccup-head.webp \
   src/tongue-physics.js \
   src/tongue-performance.js \
@@ -588,6 +591,9 @@ required_files=(
   hiccup-head-app.js
   src/hiccup-head.js
   src/hiccup-head-processor.js
+  assets/audio/hiccup-head-emt140-warm-plate.wav
+  assets/audio/hiccup-head-york-minster-warm-hall.wav
+  assets/audio/HICCUP_HEAD_REVERB_ATTRIBUTION.md
   assets/instruments/hiccup-head.webp
   src/tongue-physics.js
   src/tongue-performance.js

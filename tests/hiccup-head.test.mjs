@@ -997,8 +997,8 @@ test("new grunts, moans, tongue gestures, and the softened PFRR keep distinct ph
   assert.equal(HICCUP_HEAD_DEFAULTS.eyeClosure, 0);
   assert.deepEqual(HICCUP_HEAD_LIMITS.leftBrow, [0, 1]);
   assert.deepEqual(HICCUP_HEAD_LIMITS.rightBrow, [0, 1]);
-  assert.equal(HICCUP_HEAD_DEFAULTS.leftBrow, 0.5);
-  assert.equal(HICCUP_HEAD_DEFAULTS.rightBrow, 0.5);
+  assert.equal(HICCUP_HEAD_DEFAULTS.leftBrow, 0);
+  assert.equal(HICCUP_HEAD_DEFAULTS.rightBrow, 0);
   assert.ok(
     HICCUP_HEAD_PRESETS.some(({ settings }) => (
       Number.isFinite(settings.leftBrow)
@@ -1188,8 +1188,9 @@ test("velocity cycling and swing preserve every loop duration from one through s
   for (let index = 0; index < HICCUP_HEAD_VELOCITIES.length; index += 1) {
     velocityCycle.push(cycleStepVelocity(velocityCycle.at(-1)));
   }
-  assert.deepEqual(velocityCycle, [0, 0.42, 0.72, 1, 0]);
-  assert.equal(cycleStepVelocity(-10), 0.42);
+  assert.deepEqual(velocityCycle, [0, 0.72, 1, 0, 0.72]);
+  assert.equal(cycleStepVelocity(-10), 0.72);
+  assert.equal(cycleStepVelocity(0.42), 0.72);
   assert.equal(cycleStepVelocity(0.6), 0.72);
   assert.equal(cycleStepVelocity(10), 0);
 
@@ -3089,9 +3090,9 @@ test.skip("Hiccup Head worklet renders thirty-nine distinct gestures through exa
     );
     assert.ok(openNose.processor.tract.nose.opening > 0.95);
     assert.ok(wideEars.processor.faceSpace.earAmount > 0.99);
-    assert.ok(wideEars.processor.faceSpace.stereoWidth > 2.35);
-    assert.ok(wideEars.processor.faceSpace.stereoDelayMs > 0.7);
-    assert.ok(wideEars.processor.faceSpace.stereoDelayMs < 0.9);
+    assert.ok(wideEars.processor.faceSpace.stereoWidth > 1.89);
+    assert.ok(wideEars.processor.faceSpace.stereoWidth <= 1.9);
+    assert.equal(wideEars.processor.faceSpace.stereoDelayMs, 0);
     assert.equal(wideEars.processor.faceSpace.hairAmount, 0);
     assert.equal(wideEars.processor.faceSpace.hairFeedback, 0);
     assert.equal(wideEars.processor.faceSpace.hairMix, 0);
@@ -3894,11 +3895,11 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(processor, /collisionRadiationAlpha/);
   assert.match(
     processor,
-    /const GESTURE_SOURCE_GAIN = Object\.freeze\(\{\s*bop: 2\.2,\s*boop: 2,\s*hiccup: 2\.35,\s*aah: 1\.025,\s*ooh: 1\.035,\s*wail: 0\.8,\s*yodel: 0\.84,\s*growl: 1\.02,\s*holler: 0\.565,\s*hum: 0\.33,\s*moan: 1\.025,\s*lala: 1\.02,\s*\}\)/,
+    /const GESTURE_SOURCE_GAIN = Object\.freeze\(\{\s*bop: 2\.2,\s*boop: 2,\s*hiccup: 2\.35,\s*aah: 1\.025,\s*ooh: 1\.035,\s*wail: 0\.8,\s*yodel: 0\.84,\s*growl: 1\.02,\s*holler: 0\.565,\s*hum: 0\.33,\s*moan: 1\.025,\s*lala: 1\.24,\s*\}\)/,
   );
   assert.match(
     processor,
-    /const GESTURE_OUTPUT_GAIN = Object\.freeze\(\{\s*rattle: 0\.35,\s*\}\)/,
+    /const GESTURE_OUTPUT_GAIN = Object\.freeze\(\{[\s\S]*?bop: 2\.4,[\s\S]*?hiccup: 3,[\s\S]*?kiss: 2\.5,[\s\S]*?brush: 1\.7,[\s\S]*?rattle: 0\.35,[\s\S]*?\}\)/,
   );
   assert.match(processor, /GESTURE_SOURCE_GAIN\[this\.sound\.id\] \?\? 1/);
   assert.match(processor, /GESTURE_OUTPUT_GAIN\[this\.gesture\?\.sound\.id\] \?\? 1/);
