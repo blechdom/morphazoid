@@ -271,7 +271,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 125);
+  assert.equal(tools.length, 126);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -628,6 +628,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
       { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
       { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
+      { id: "creaturazoid", label: "Creaturazoid", href: "creaturazoid.html" },
       { id: "colony-syrinx", label: "Monstrozoid", href: "monstrozoid.html" },
       { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
@@ -886,6 +887,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   );
   assert.equal(resolveActiveTool(`${SITE_ROOT}hiccup-head.html`, SITE_ROOT)?.id, "hiccup-head");
   assert.equal(resolveActiveTool(`${SITE_ROOT}jaw-jam.html`, SITE_ROOT)?.id, "jaw-jam");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}creaturazoid.html`, SITE_ROOT)?.id, "creaturazoid");
   assert.equal(resolveActiveTool(`${SITE_ROOT}harmonica.html`, SITE_ROOT)?.id, "harmonica");
   for (const page of ["monstrozoid.html", "monsterzoid.html", "colony-syrinx.html"]) {
     assert.equal(resolveActiveTool(`${SITE_ROOT}${page}`, SITE_ROOT)?.id, "colony-syrinx");

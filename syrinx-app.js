@@ -14,7 +14,7 @@ import {
   resolveSourceControls,
   sampleModulationWave,
   sanitizeSyrinxState,
-} from "./src/syrinx.js?v=syrinx-ui-20260821-4";
+} from "./src/syrinx.js?v=syrinx-ui-20260902-5";
 import { connectAudioOutput } from "./src/audio-output-manager.js?v=syrinx-ui-20260819-1";
 import { unlockAudioContext } from "./src/audio.js?v=syrinx-ui-20260819-1";
 import {

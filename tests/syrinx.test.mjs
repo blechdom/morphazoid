@@ -25,6 +25,7 @@ const ANIMAL_IDS = Object.freeze([
   "cat",
   "horse",
   "reddeer",
+  "moose",
   "hyena",
   "wildboar",
   "cow",
@@ -143,6 +144,7 @@ test("animal presets cover four physical source families with complete playable 
   assert.equal(animalState("dog").sourceModel, "mammal");
   assert.equal(animalState("elephant").sourceModel, "mammal");
   assert.equal(animalState("alligator").sourceModel, "mammal");
+  assert.equal(animalState("moose").sourceModel, "mammal");
   assert.equal(animalState("songbird").sourceModel, "bird");
   assert.equal(animalState("raven").sourceModel, "bird");
   assert.equal(animalState("bullfrog").sourceModel, "frog");
@@ -154,6 +156,7 @@ test("new researched mammals expose additive call banks without replacing legacy
     cat: ["cat-meow", "cat-purr"],
     horse: ["horse-whinny", "horse-nicker"],
     reddeer: ["reddeer-common-roar", "reddeer-harsh-roar"],
+    moose: ["moose-bull-grunt", "moose-cow-moan"],
     hyena: ["hyena-whoop", "hyena-giggle"],
     wildboar: ["wildboar-grunt", "wildboar-squeal"],
     cow: ["cow-moo", "cow-contact"],
@@ -163,6 +166,38 @@ test("new researched mammals expose additive call banks without replacing legacy
     assert.deepEqual(callsForAnimal(animalId).map(({ id }) => id), callIds);
   }
   assert.equal(resolveSourceControls(interpolateGesture("cat-purr", 0.5, animalState("cat"))).frequencyHz >= 25, true);
+});
+
+test("moose uses a measured-basis bull grunt and a conservative modeled cow moan", () => {
+  const moose = ANIMALS.moose;
+  const bullGrunt = CALL_GESTURES["moose-bull-grunt"];
+  const cowMoan = CALL_GESTURES["moose-cow-moan"];
+
+  assert.equal(moose.model, "mammal");
+  assert.equal(moose.baseFrequencyHz, 125);
+  assert.equal(resolveSourceControls(animalState("moose")).frequencyHz, 125);
+  assert.equal(moose.tractLengthM, 0.6);
+  assert.deepEqual(moose.tractRangeM, [0.52, 0.68]);
+  assert.deepEqual(moose.callIds, ["moose-bull-grunt", "moose-cow-moan"]);
+
+  assert.equal(bullGrunt.durationMs, 240);
+  assert.equal(bullGrunt.frequencyRatio, 1);
+  assert.equal(cowMoan.durationMs, 1_500);
+  assert.equal(cowMoan.frequencyRatio, 1.18);
+  assert.ok(cowMoan.durationMs > bullGrunt.durationMs * 6);
+
+  assert.equal(bullGrunt.curves.tractLengthM, undefined);
+  assert.equal(cowMoan.curves.tractLengthM, undefined);
+  const baseline = animalState("moose");
+  for (const call of [bullGrunt, cowMoan]) {
+    for (const phase of [0, 0.25, 0.5, 0.75, 1]) {
+      assert.equal(
+        interpolateGesture(call, phase, baseline).tractLengthM,
+        baseline.tractLengthM,
+        `${call.id} must not invent red-deer-like tract extension`,
+      );
+    }
+  }
 });
 
 test("randomization preserves selected animal, call, loop, and safe bounds", () => {
@@ -348,7 +383,12 @@ test("the Syrinx worklet joins each source family to a finite variable-length tr
     ProcessorConstructor = Constructor;
   };
 
-  const { tractDiameterAt, tractSectionCount } = await import(
+  const {
+    TRACT_DIAMETER_PROFILE_LIMITS_CM,
+    TRACT_DIAMETER_SCALE_LIMITS,
+    tractDiameterAt,
+    tractSectionCount,
+  } = await import(
     `../src/syrinx-processor.js?test=${Date.now()}`
   );
   assert.equal(processorName, "syrinx-physical-model");
@@ -373,6 +413,93 @@ test("the Syrinx worklet joins each source family to a finite variable-length tr
   for (const profile of profileSignatures) {
     assert.ok(profile.every((diameter) => Number.isFinite(diameter) && diameter > 0));
   }
+
+  await t.test("a custom tract profile remains identical across source families", () => {
+    const positions = [0, 0.13, 0.36, 0.59, 0.81, 1];
+    const sharedBody = {
+      tractDiameterProfile: [0.48, 1.24, 2.1, 1.56, 2.72],
+      tractDiameterScale: 1.18,
+      mouthOpening: 0.64,
+      tongueEnabled: false,
+    };
+    const identities = [
+      { animalId: "lion", model: "twoMass" },
+      { animalId: "raven", model: "syrinx" },
+      { animalId: "bullfrog", model: "frog" },
+      { animalId: "mouse", model: "whistle" },
+    ];
+    const signatures = identities.map((identity) => positions.map((position) => (
+      tractDiameterAt(position, { ...identity, ...sharedBody })
+    )));
+    for (const signature of signatures.slice(1)) {
+      assert.deepEqual(signature, signatures[0]);
+    }
+    assert.notDeepEqual(
+      signatures[0],
+      positions.map((position) => tractDiameterAt(position, {
+        animalId: "lion",
+        model: "twoMass",
+        mouthOpening: sharedBody.mouthOpening,
+        tongueEnabled: false,
+      })),
+      "the explicit body tube must take precedence over the lion prior",
+    );
+  });
+
+  await t.test("custom diameters and tube scale are clamped to safe bounds", () => {
+    const [minimumDiameter, maximumDiameter] = TRACT_DIAMETER_PROFILE_LIMITS_CM;
+    const [minimumScale, maximumScale] = TRACT_DIAMETER_SCALE_LIMITS;
+    const base = {
+      tractDiameterProfile: [1, 2],
+      mouthOpening: 1,
+      tongueEnabled: false,
+    };
+    assert.equal(tractDiameterAt(0, { ...base, tractDiameterScale: 2 }), 2);
+    assert.equal(tractDiameterAt(0, { ...base, tractDiameterScale: -100 }), minimumScale);
+    assert.equal(tractDiameterAt(0, { ...base, tractDiameterScale: 100 }), maximumScale);
+    assert.equal(
+      tractDiameterAt(0, { ...base, tractDiameterScale: Number.NaN }),
+      1,
+      "a non-finite scale must fall back to unity",
+    );
+    assert.equal(tractDiameterAt(0, {
+      ...base,
+      tractDiameterProfile: [-100, -20],
+    }), minimumDiameter);
+    assert.equal(tractDiameterAt(0, {
+      ...base,
+      tractDiameterProfile: [100, 20],
+    }), maximumDiameter);
+  });
+
+  await t.test("malformed custom profiles safely retain the native prior", () => {
+    const positions = [0, 0.27, 0.65, 1];
+    const native = {
+      animalId: "wolf",
+      model: "twoMass",
+      mouthOpening: 0.58,
+      tongueEnabled: false,
+    };
+    const nativeSignature = positions.map((position) => tractDiameterAt(position, native));
+    for (const malformed of [null, [], [1], [1, Number.NaN], [1, Infinity], "1,2"]) {
+      const fallback = positions.map((position) => tractDiameterAt(position, {
+        ...native,
+        tractDiameterProfile: malformed,
+      }));
+      assert.deepEqual(fallback, nativeSignature);
+      assert.ok(fallback.every((diameter) => Number.isFinite(diameter) && diameter > 0));
+    }
+    const scaledNative = positions.map((position) => tractDiameterAt(position, {
+      ...native,
+      tractDiameterScale: 2,
+    }));
+    const scaledFallback = positions.map((position) => tractDiameterAt(position, {
+      ...native,
+      tractDiameterProfile: [1, Number.NaN],
+      tractDiameterScale: 2,
+    }));
+    assert.deepEqual(scaledFallback, scaledNative, "profile and scale validation must be independent");
+  });
 
   const speedOfSound = 343;
   const waveguideRateForTest = (outputRate) => (

@@ -224,6 +224,29 @@ export const CALL_GESTURES = Object.freeze({
     asymmetry: [[0, 0.14], [0.45, 0.32], [1, 0.24]],
     roughness: [[0, 0.18], [0.42, 0.46], [1, 0.24]],
   }),
+  "moose-bull-grunt": pulse("moose-bull-grunt", "Bull grunt", 240, {
+    pressure: [[0, 0], [0.04, 0.96], [0.3, 1], [0.7, 0.55], [1, 0]],
+    tension: [[0, -0.08], [0.55, -0.04], [1, -0.1]],
+    adduction: [[0, 0.05], [0.08, 0.16], [0.7, 0.1], [1, -0.1]],
+    mouthOpening: [[0, -0.22], [0.26, -0.12], [1, -0.2]],
+    cavityCoupling: [[0, 0.08], [0.5, 0.13], [1, 0.08]],
+    asymmetry: [[0, 0.06], [0.36, 0.18], [1, 0.08]],
+    roughness: [[0, 0.12], [0.35, 0.28], [1, 0.14]],
+  }),
+  // Cow calls are documented as longer and spectrally higher than bull calls,
+  // but published wild-call measurements do not isolate their F0. This gentle
+  // 1.18 ratio is therefore a conservative modeled distinction, not a claimed
+  // measurement. Neither moose gesture invents red-deer-like tract extension.
+  "moose-cow-moan": held("moose-cow-moan", "Modeled cow moan", 1_500, {
+    frequencyRatio: 1.18,
+    pressure: [[0, 0], [0.16, 0.68], [0.48, 0.94], [0.82, 0.78], [1, 0]],
+    tension: [[0, -0.08], [0.5, -0.03], [1, -0.09]],
+    adduction: [[0, -0.02], [0.22, 0.08], [0.8, 0.05], [1, -0.1]],
+    mouthOpening: [[0, -0.18], [0.32, -0.06], [0.78, 0.06], [1, -0.14]],
+    cavityCoupling: [[0, 0.12], [0.5, 0.2], [1, 0.1]],
+    asymmetry: [[0, 0.02], [0.56, 0.08], [1, 0.03]],
+    roughness: [[0, 0.03], [0.5, 0.1], [1, 0.04]],
+  }),
   "hyena-whoop": held("hyena-whoop", "Rising whoop", 1_950, {
     levelTrim: 0.6,
     pressure: [[0, 0], [0.1, 0.72], [0.68, 0.98], [1, 0]],
@@ -382,6 +405,16 @@ export const ANIMALS = Object.freeze({
     manualLevelTrim: 0.37,
     controls: { pressure: 0.8, tension: 0.3, adduction: 0.78, sourceScale: 0.86, mouthOpening: 0.62, cavityCoupling: 0.34, asymmetry: 0.18, sourceBalance: 0.5, roughness: 0.3 },
     callIds: ["reddeer-common-roar", "reddeer-harsh-roar"],
+  }),
+  moose: freezeAnimal({
+    id: "moose", label: "Moose", group: "Mammals & reptiles", model: "mammal",
+    apparatus: "large cervid larynx represented by two-mass folds", baseFrequencyHz: 125, tractLengthM: 0.6,
+    frequencyRangeHz: [70, 260], tractRangeM: [0.52, 0.68],
+    rangeBasis: "125 Hz / 0.24 s bull mating grunt + conservative adult cow-call model",
+    cavityFrequencyHz: 150, description: "Short repeated bull grunt and longer modeled cow moan through a stable long tract.",
+    manualLevelTrim: 0.43,
+    controls: { pressure: 0.76, tension: 0.27, adduction: 0.8, sourceScale: 0.94, mouthOpening: 0.38, cavityCoupling: 0.48, asymmetry: 0.18, sourceBalance: 0.5, roughness: 0.44 },
+    callIds: ["moose-bull-grunt", "moose-cow-moan"],
   }),
   hyena: freezeAnimal({
     id: "hyena", label: "Spotted hyena", group: "Mammals & reptiles", model: "mammal",
