@@ -516,7 +516,7 @@
 
 .enveloper-preset-grid button small {
   overflow: hidden;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 7px;
   letter-spacing: .025em;
   text-overflow: ellipsis;
