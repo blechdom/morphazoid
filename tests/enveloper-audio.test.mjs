@@ -89,6 +89,42 @@ test("Enveloper derives a useful timbre and clamps unsafe leaf values", () => {
   assert.equal(mapped.envelope.gateSeconds + mapped.envelope.releaseSeconds, mapped.voice.durationSeconds);
 });
 
+test("Enveloper sanitizes, orders, and freezes optional FM contours", () => {
+  const mapped = deriveEnveloperLeafTrigger({
+    frequencyHz: 330,
+    frequencyEnvelope: [
+      { time: 1.4, value: 40_000 },
+      { time: 0.5, value: 440 },
+      { time: -0.25, value: 10 },
+      { time: 0.5, value: 660 },
+      { time: Number.NaN, value: 880 },
+    ],
+    modulationIndexEnvelope: [
+      { time: 1, value: 99 },
+      { time: 0, value: -4 },
+      null,
+    ],
+  });
+
+  assert.deepEqual(mapped.voice.frequencyEnvelope, [
+    { time: 0, value: ENVELOPER_AUDIO_LIMITS.minFrequencyHz },
+    { time: 0.5, value: 660 },
+    { time: 1, value: ENVELOPER_AUDIO_LIMITS.maxFrequencyHz },
+  ]);
+  assert.deepEqual(mapped.voice.modulationIndexEnvelope, [
+    { time: 0, value: 0 },
+    { time: 1, value: ENVELOPER_AUDIO_LIMITS.maxModulationIndex },
+  ]);
+  assert.equal(Object.isFrozen(mapped.voice.frequencyEnvelope), true);
+  assert.equal(Object.isFrozen(mapped.voice.frequencyEnvelope[0]), true);
+  assert.equal(Object.isFrozen(mapped.voice.modulationIndexEnvelope), true);
+  assert.equal(Object.isFrozen(mapped.voice.modulationIndexEnvelope[0]), true);
+
+  const scalarOnly = deriveEnveloperLeafTrigger({ frequencyHz: 220 });
+  assert.equal("frequencyEnvelope" in scalarOnly.voice, false);
+  assert.equal("modulationIndexEnvelope" in scalarOnly.voice, false);
+});
+
 test("Enveloper facade arms explicitly, forwards absolute time, and releases its engine", async () => {
   const engine = new FakeGraphSynthAudio();
   const audio = new EnveloperAudio({}, { engine });

@@ -14,7 +14,15 @@ test("Enveloper exposes an explicit three-generation editor and separate transpo
   assert.match(html, /parent curve[\s\S]*child curve[\s\S]*leaf strength/i);
   assert.equal((html.match(/data-leaf="[0-8]"/g) ?? []).length, 9);
   assert.match(html, /Leaf X · FM timbre/);
-  assert.match(html, /Leaf Y · pitch/);
+  assert.match(html, /Leaf Y · base pitch/);
+  assert.match(html, /data-leaf-count="9"/);
+  assert.match(html, /data-contours-per-leaf="2"/);
+  assert.equal((html.match(/data-envelope-kind="pitch"/g) ?? []).length, 4);
+  assert.equal((html.match(/data-envelope-kind="index"/g) ?? []).length, 4);
+  assert.match(html, /Pitch envelope node 4 level/);
+  assert.match(html, /FM index envelope node 4 level/);
+  assert.match(html, /parent \+ child slope[^<]*bends the violet pitch contour/i);
+  assert.match(html, /id="ancestorBendOut"/);
   assert.match(html, /script type="module" src="enveloper-app\.js"/);
 });
 
@@ -25,6 +33,17 @@ test("Enveloper app keeps audio explicit and maps every stage interaction", asyn
   assert.match(app, /new EnveloperAudio/);
   assert.match(app, /function drawEnvelope/);
   assert.match(app, /function drawLeaves/);
+  assert.match(app, /function drawLeafContour/);
+  assert.equal((app.match(/if \(drawLeafContour\(ctx, \{/g) ?? []).length, 2);
+  assert.match(app, /effectivePitchContour[\s\S]*event\.frequencyEnvelope/);
+  assert.match(app, /effectiveIndexContour[\s\S]*event\.modulationIndexEnvelope/);
+  assert.match(app, /canvas\.dataset\.renderedLeafContours/);
+  assert.match(app, /function updateSelectedLeafEnvelope/);
+  assert.match(app, /updateSelectedLeafEnvelope[\s\S]*sanitizeEnveloperState/);
+  assert.match(app, /function updateSelectedNode[\s\S]*changesSound[\s\S]*rescheduleCurrentLeaf/);
+  assert.match(app, /function sliceAutomationEnvelope/);
+  assert.match(app, /point\.value \* state\.fmAmount/);
+  assert.match(app, /event\.inheritedGlideSemitones/);
   assert.match(app, /function processAudioCrossings/);
   assert.match(app, /function joinCurrentLeaf/);
   assert.match(app, /if \(!state\.audioOn \|\| !audio\.engineRunning\) return/);
@@ -42,6 +61,9 @@ test("Enveloper keeps all three generations available in compact layouts", async
   assert.match(css, /@media \(max-width: 960px\)/);
   assert.match(css, /@media \(max-width: 650px\)/);
   assert.match(css, /@media \(max-width: 960px\) and \(max-height: 560px\)/);
+  assert.match(css, /--enveloper-pitch-contour:\s*#c4a7ff/);
+  assert.match(css, /--enveloper-index-contour:\s*#59e8ff/);
+  assert.match(css, /\.enveloper-contour-fields/);
   assert.match(app, /const usableHeight = Math\.max\(92,/);
   assert.doesNotMatch(css, /\.enveloper-page\s+\.enveloper-stage[^}]*display:\s*none/);
 });

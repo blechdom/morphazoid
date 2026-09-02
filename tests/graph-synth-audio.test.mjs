@@ -307,6 +307,104 @@ test("Graph Synth follows absolute audio time and honors feedback-darkened brigh
   assert.equal(late.startAt, 4, "an absolute request in the past starts safely now");
 });
 
+test("Graph Synth schedules independent pitch and FM-index contours over one note", async () => {
+  const { runtime, created } = makeRuntime();
+  const audio = new GraphSynthAudio(runtime);
+  await audio.start();
+
+  const rendered = await audio.trigger({
+    mode: "fm",
+    frequency: 220,
+    modulationRatio: 2,
+    modulationIndex: 1,
+    frequencyEnvelope: [
+      { time: 0, value: 200 },
+      { time: 0.5, value: 400 },
+      { time: 1, value: 300 },
+    ],
+    modulationIndexEnvelope: [
+      { time: 0, value: 1 },
+      { time: 0.3, value: 3 },
+      { time: 1, value: 2 },
+    ],
+  }, {
+    startAt: 2,
+    gateSeconds: 0.8,
+    releaseSeconds: 0.2,
+  });
+
+  assert.equal(rendered.endAt, 3);
+  assert.deepEqual(rendered.frequencyEnvelope, [
+    { time: 0, value: 200 },
+    { time: 0.5, value: 400 },
+    { time: 1, value: 300 },
+  ]);
+  assert.equal(Object.isFrozen(rendered.frequencyEnvelope), true);
+  assert.equal(Object.isFrozen(rendered.frequencyEnvelope[0]), true);
+  assert.deepEqual(created.oscillators[0].frequency.calls, [
+    ["set", 200, 2],
+    ["exponential", 400, 2.5],
+    ["exponential", 300, 3],
+  ]);
+  assert.deepEqual(created.oscillators[1].frequency.calls, [
+    ["set", 400, 2],
+    ["exponential", 800, 2.5],
+    ["exponential", 600, 3],
+  ]);
+
+  const deviationCalls = created.gains.at(-1).gain.calls;
+  assert.ok(deviationCalls.length > 4, "FM interaction is sampled between contour knots");
+  assert.ok(deviationCalls.length <= 72, "dense FM automation remains bounded");
+  const deviationAt = (time) => deviationCalls.find(([, , at]) => (
+    Math.abs(at - time) < 1e-12
+  ));
+  assert.deepEqual(deviationAt(2).slice(0, 1), ["set"]);
+  assert.deepEqual(deviationAt(2.3).slice(0, 1), ["linear"]);
+  assert.deepEqual(deviationAt(2.5).slice(0, 1), ["linear"]);
+  assert.deepEqual(deviationAt(3).slice(0, 1), ["linear"]);
+  const expectedDeviation = new Map([
+    [2, 400],
+    [2.125, (2_200 / 3) * 2 ** 0.25],
+    [2.3, 1_200 * 2 ** 0.6],
+    [2.5, 15_200 / 7],
+    [3, 1_200],
+  ]);
+  for (const [time, expected] of expectedDeviation) {
+    assert.ok(Math.abs(deviationAt(time)[1] - expected) < 1e-9);
+  }
+});
+
+test("Graph Synth retains scalar FM scheduling when contours are absent", async () => {
+  const { runtime, created } = makeRuntime();
+  const audio = new GraphSynthAudio(runtime);
+  await audio.start();
+
+  const rendered = await audio.trigger({
+    mode: "fm",
+    frequency: 220,
+    modulationRatio: 2,
+    modulationIndex: 3,
+  }, {
+    startAt: 1.25,
+    attackSeconds: 0.01,
+    decaySeconds: 0.24,
+  });
+
+  assert.equal(rendered.endAt, 1.5);
+  assert.equal("frequencyEnvelope" in rendered, false);
+  assert.equal("modulationIndexEnvelope" in rendered, false);
+  assert.deepEqual(created.oscillators[0].frequency.calls, [
+    ["set", 220, 1.25],
+  ]);
+  assert.deepEqual(created.oscillators[1].frequency.calls, [
+    ["set", 440, 1.25],
+  ]);
+  assert.deepEqual(created.gains.at(-1).gain.calls, [
+    ["set", 1_320, 1.25],
+    ["linear", 0, 1.5],
+  ]);
+});
+
 test("Graph Synth schedules a full ADSR around an exact edge gate", async () => {
   const { runtime, created } = makeRuntime();
   const audio = new GraphSynthAudio(runtime);
