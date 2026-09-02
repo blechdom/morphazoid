@@ -1331,31 +1331,64 @@
 }
 
 @media (max-width: 900px) {
-  .surround-field-page {
+  html {
     height: auto;
     min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body.surround-field-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
   }
 
   .surround-shell {
     display: block;
+    overflow: visible;
+    flex: 0 0 auto;
   }
 
   .surround-stage {
+    position: relative;
+    top: auto;
     border-right: 0;
   }
 
   .surround-stage-wrap {
     height: min(72vh, 680px);
     min-height: 520px;
+    touch-action: pan-y pinch-zoom;
   }
 
   .surround-panel {
     overflow: visible;
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
     border-top: 1px solid rgba(215, 255, 82, 0.12);
   }
 
   .panel-transport {
-    position: static;
+    position: fixed;
+    z-index: 40;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding: 8px max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    border-top: 1px solid rgba(215, 255, 82, 0.28);
+    box-shadow: 0 -12px 28px rgba(2, 4, 3, 0.72);
+    grid-template-columns: minmax(0, 1fr) minmax(118px, 0.72fr);
+    gap: 8px;
+  }
+
+  .panel-transport .timing-priority {
+    min-height: 54px;
+    align-content: center;
+  }
+
+  .panel-transport .timing-priority span {
+    display: none;
   }
 }
 
@@ -1380,8 +1413,8 @@
   }
 
   .surround-stage-wrap {
-    height: 590px;
-    min-height: 590px;
+    height: clamp(460px, 68dvh, 590px);
+    min-height: 460px;
   }
 
   .surround-identity {

@@ -49,7 +49,7 @@ test("Play leads the right-hand controls and exposes audio timing priority", () 
   assert.match(html, /AUDIO TIMING PRIORITY/);
   assert.match(html, /id="timingDetail">25 ms scheduler · 160 ms lookahead/);
   assert.match(css, /\.panel-transport\s*\{[\s\S]*?position: sticky/);
-  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.panel-transport\s*\{[\s\S]*?position: static/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.panel-transport\s*\{[\s\S]*?position: fixed[\s\S]*?top: auto/);
 });
 
 test("audio clock schedules sound while animation remains visual-only", () => {
@@ -82,5 +82,10 @@ test("the room stays playable on pointer, keyboard, and mobile", () => {
   assert.match(app, /event\.preventDefault\(\)/);
   assert.match(app, /setPointerCapture/);
   assert.match(css, /@media \(max-width: 650px\)/);
-  assert.match(css, /touch-action: none/);
+  assert.match(css, /\.sound-emitter\s*\{[\s\S]*?touch-action: none/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?html\s*\{[\s\S]*?overflow-y: auto/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?body\.surround-field-page\s*\{[\s\S]*?overflow: visible/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.surround-shell\s*\{[\s\S]*?overflow: visible[\s\S]*?flex: 0 0 auto/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.surround-stage\s*\{[\s\S]*?position: relative/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.surround-stage-wrap\s*\{[\s\S]*?touch-action: pan-y pinch-zoom/);
 });
