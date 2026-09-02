@@ -21,6 +21,35 @@ function clamp(value, minimum, maximum, fallback = minimum) {
   return Math.min(maximum, Math.max(minimum, finite(value, fallback)));
 }
 
+function sanitizeAutomationEnvelope(points, minimum, maximum) {
+  if (!Array.isArray(points)) return null;
+  const normalized = [];
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    if (!point || typeof point !== "object") continue;
+    const time = Number(point.time);
+    const value = Number(point.value);
+    if (!Number.isFinite(time) || !Number.isFinite(value)) continue;
+    normalized.push({
+      time: clamp(time, 0, 1, 0),
+      value: clamp(value, minimum, maximum, minimum),
+      sourceIndex: index,
+    });
+  }
+  if (!normalized.length) return null;
+  normalized.sort((left, right) => (
+    left.time - right.time || left.sourceIndex - right.sourceIndex
+  ));
+
+  const unique = [];
+  for (const point of normalized) {
+    const frozen = Object.freeze({ time: point.time, value: point.value });
+    if (unique.at(-1)?.time === point.time) unique[unique.length - 1] = frozen;
+    else unique.push(frozen);
+  }
+  return Object.freeze(unique);
+}
+
 /**
  * Convert one derived leaf event into the Graph Synth voice and ADSR contracts.
  * Gate plus release always equals the bounded timeline duration, so a leaf owns
@@ -61,6 +90,16 @@ export function deriveEnveloperLeafTrigger(event = {}) {
     1,
     0.35 + 0.65 * timbre,
   );
+  const frequencyEnvelope = sanitizeAutomationEnvelope(
+    source.frequencyEnvelope,
+    limits.minFrequencyHz,
+    limits.maxFrequencyHz,
+  );
+  const modulationIndexEnvelope = sanitizeAutomationEnvelope(
+    source.modulationIndexEnvelope,
+    0,
+    limits.maxModulationIndex,
+  );
 
   // The minimum duration leaves room for GraphSynthAudio's 15 ms minimum
   // decay, while longer notes receive a compact attack and release cap.
@@ -86,6 +125,8 @@ export function deriveEnveloperLeafTrigger(event = {}) {
       timbre,
       modulationIndex,
       modulationRatio,
+      ...(frequencyEnvelope ? { frequencyEnvelope } : {}),
+      ...(modulationIndexEnvelope ? { modulationIndexEnvelope } : {}),
       brightness,
       filterQ: clamp(source.filterQ, 0.1, 18, 0.7),
       durationSeconds,

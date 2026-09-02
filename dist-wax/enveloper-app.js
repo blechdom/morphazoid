@@ -33,6 +33,11 @@ const DEFAULT_UI = Object.freeze({
   fmAmount: 1,
 });
 
+const LEAF_CONTOUR_COLORS = Object.freeze({
+  pitch: "#c4a7ff",
+  index: "#59e8ff",
+});
+
 const audio = new EnveloperAudio(globalThis);
 audio.setLevel(DEFAULT_UI.level);
 
@@ -112,12 +117,78 @@ function timeline() {
   return deriveEnveloperTimeline(state.tree, soundOptions());
 }
 
-function soundingEvent(event, durationSeconds = event.durationSeconds) {
+function automationPoints(points) {
+  if (!Array.isArray(points)) return [];
+  return points
+    .map((point) => ({
+      time: clamp(point?.time),
+      value: Number(point?.value),
+    }))
+    .filter((point) => Number.isFinite(point.value))
+    .sort((left, right) => left.time - right.time);
+}
+
+function sampleAutomationValue(points, normalizedTime, fallback = 0) {
+  const source = automationPoints(points);
+  if (source.length === 0) return fallback;
+  const time = clamp(normalizedTime);
+  if (time <= source[0].time) return source[0].value;
+  for (let index = 1; index < source.length; index += 1) {
+    const left = source[index - 1];
+    const right = source[index];
+    if (time > right.time) continue;
+    const width = right.time - left.time;
+    if (width <= 0) return right.value;
+    return lerp(left.value, right.value, (time - left.time) / width);
+  }
+  return source.at(-1).value;
+}
+
+function sliceAutomationEnvelope(points, startProgress = 0) {
+  const source = automationPoints(points);
+  if (source.length === 0) return null;
+  const start = clamp(startProgress);
+  if (start <= 0) return source;
+  const startValue = sampleAutomationValue(source, start, source[0].value);
+  if (start >= 1 - 1e-6) {
+    return [
+      { time: 0, value: startValue },
+      { time: 1, value: startValue },
+    ];
+  }
+  const remaining = 1 - start;
+  const sliced = [{ time: 0, value: startValue }];
+  for (const point of source) {
+    if (point.time <= start + 1e-6) continue;
+    sliced.push({
+      time: clamp((point.time - start) / remaining),
+      value: point.value,
+    });
+  }
+  if (sliced.at(-1).time < 1 - 1e-6) {
+    sliced.push({ time: 1, value: source.at(-1).value });
+  }
+  return sliced;
+}
+
+function soundingEvent(
+  event,
+  durationSeconds = event.durationSeconds,
+  startProgress = 0,
+) {
+  const frequencyEnvelope = sliceAutomationEnvelope(event.frequencyEnvelope, startProgress);
+  const indexEnvelope = sliceAutomationEnvelope(event.modulationIndexEnvelope, startProgress);
+  const modulationIndexEnvelope = indexEnvelope?.map((point) => ({
+    ...point,
+    value: clamp(point.value * state.fmAmount, 0, 12),
+  }));
   return {
     ...event,
     durationSeconds: Math.max(0.025, durationSeconds),
     amplitude: clamp(event.amplitude * 0.38, 0, 0.38),
     modulationIndex: clamp(event.modulationIndex * state.fmAmount, 0, 12),
+    ...(frequencyEnvelope ? { frequencyEnvelope } : {}),
+    ...(modulationIndexEnvelope ? { modulationIndexEnvelope } : {}),
   };
 }
 
@@ -200,12 +271,46 @@ function updateSelectedLeaf(changes, { announceChange = false } = {}) {
   }
 }
 
+function rescheduleCurrentLeaf() {
+  const score = currentScore();
+  audio.silence();
+  state.lastProcessedScore = score;
+  if (state.playing) joinCurrentLeaf();
+}
+
+function updateSelectedLeafEnvelope(kind, nodeIndex, level, { announceChange = false } = {}) {
+  if (state.selection.kind !== "leaf") return;
+  const field = kind === "pitch" ? "pitchEnvelope" : "indexEnvelope";
+  const leafIndex = state.selection.leafIndex;
+  const leaf = state.tree.leaves[leafIndex];
+  const sourceNodes = leaf[field]?.nodes;
+  if (!Array.isArray(sourceNodes) || !sourceNodes[nodeIndex]) return;
+  const nodes = sourceNodes.map((node, index) => ({
+    time: node.time,
+    level: index === nodeIndex ? clamp(level) : node.level,
+  }));
+  state.tree.leaves[leafIndex] = {
+    ...leaf,
+    [field]: { nodes },
+  };
+  state.tree = sanitizeEnveloperState(state.tree);
+  state.activePresetId = null;
+  rescheduleCurrentLeaf();
+  syncUi();
+  if (announceChange) {
+    const nextLevel = state.tree.leaves[leafIndex][field].nodes[nodeIndex].level;
+    announce(`${kind === "pitch" ? "Pitch" : "FM index"} contour node ${nodeIndex + 1}, ${Math.round(nextLevel * 100)} percent.`);
+  }
+}
+
 function updateSelectedNode(changes, { announceChange = false } = {}) {
   const selected = selectedNode();
   if (!selected) return;
+  const changesSound = Number.isFinite(changes.time) || Number.isFinite(changes.level);
   const next = updateEnveloperNode(selected.envelope, state.selection.nodeIndex, changes);
   replaceEnvelope(state.selection.kind, selected.branchIndex, next);
   state.activePresetId = null;
+  if (changesSound) rescheduleCurrentLeaf();
   syncUi();
   if (announceChange) {
     const node = selectedNode().node;
@@ -412,6 +517,92 @@ function leafColor(timbre, alpha = 1) {
   return `hsla(${hue} 86% 69% / ${alpha})`;
 }
 
+function rawLeafContour(envelope, fallbackLevel) {
+  const fallbackTimes = [0, 1 / 3, 2 / 3, 1];
+  return fallbackTimes.map((time, index) => ({
+    time: clamp(envelope?.nodes?.[index]?.time ?? time),
+    level: clamp(envelope?.nodes?.[index]?.level ?? fallbackLevel),
+  }));
+}
+
+function effectivePitchContour(event, leaf) {
+  const points = automationPoints(event.frequencyEnvelope);
+  if (points.length < 2) return rawLeafContour(leaf.pitchEnvelope, leaf.pitch);
+  const options = soundOptions();
+  const minimum = options.minimumFrequencyHz;
+  const maximum = Math.max(minimum + 1e-6, options.maximumFrequencyHz);
+  const span = Math.log(maximum / minimum);
+  return points.map((point) => ({
+    time: point.time,
+    level: clamp(Math.log(Math.max(minimum, point.value) / minimum) / span),
+  }));
+}
+
+function effectiveIndexContour(event, leaf) {
+  const points = automationPoints(event.modulationIndexEnvelope);
+  if (points.length < 2) return rawLeafContour(leaf.indexEnvelope, leaf.timbre);
+  const maximumIndex = Math.max(1e-6, Number(event.modulationIndex) || 0);
+  return points.map((point) => ({
+    time: point.time,
+    level: clamp(point.value / maximumIndex),
+  }));
+}
+
+function drawLeafContour(ctx, {
+  points,
+  xStart,
+  xEnd,
+  top,
+  bottom,
+  color,
+  dashed = false,
+  emphasized = false,
+}) {
+  if (!Array.isArray(points) || points.length < 2 || xEnd <= xStart) return false;
+  const coordinates = points.map((point) => ({
+    x: lerp(xStart, xEnd, clamp(point.time)),
+    y: envelopeY(top, bottom, point.level),
+  }));
+  const trace = () => {
+    ctx.beginPath();
+    coordinates.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+  };
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (dashed) ctx.setLineDash([3, 2.5]);
+  trace();
+  ctx.strokeStyle = "rgba(2,3,7,0.92)";
+  ctx.lineWidth = emphasized ? 4.6 : 3.8;
+  ctx.stroke();
+  trace();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = emphasized ? 2.25 : 1.7;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = emphasized ? 7 : 3;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+
+  if (emphasized && xEnd - xStart > 30 && bottom - top > 16) {
+    for (const point of coordinates) {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = "#05060a";
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  return true;
+}
+
 function drawConnectors(ctx, layout, events, rootPoints) {
   const focusBranch = selectionBranch();
   ctx.save();
@@ -455,6 +646,7 @@ function drawConnectors(ctx, layout, events, rootPoints) {
 
 function drawLeaves(ctx, layout, events, activeIndex) {
   const leafHeight = Math.max(22, layout.leafBottom - layout.leafTop);
+  let renderedContours = 0;
   for (const event of events) {
     const leaf = state.tree.leaves[event.index];
     const x = canvasX(layout, event.normalizedStart);
@@ -487,6 +679,32 @@ function drawLeaves(ctx, layout, events, activeIndex) {
       ctx.stroke();
       ctx.setLineDash([]);
     }
+
+    const contourInsetX = Math.min(7, Math.max(0.25, width * 0.08));
+    const contourInsetY = Math.min(7, Math.max(3, leafHeight * 0.13));
+    const contourLeft = x + contourInsetX;
+    const contourRight = right - contourInsetX;
+    const contourTop = layout.leafTop + contourInsetY;
+    const contourBottom = layout.leafBottom - contourInsetY;
+    if (drawLeafContour(ctx, {
+      points: effectivePitchContour(event, leaf),
+      xStart: contourLeft,
+      xEnd: contourRight,
+      top: contourTop,
+      bottom: contourBottom,
+      color: LEAF_CONTOUR_COLORS.pitch,
+      emphasized: selected || active,
+    })) renderedContours += 1;
+    if (drawLeafContour(ctx, {
+      points: effectiveIndexContour(event, leaf),
+      xStart: contourLeft,
+      xEnd: contourRight,
+      top: contourTop,
+      bottom: contourBottom,
+      color: LEAF_CONTOUR_COLORS.index,
+      dashed: true,
+      emphasized: selected || active,
+    })) renderedContours += 1;
 
     const padX = Math.min(12, width * 0.22);
     const padY = Math.min(12, leafHeight * 0.2);
@@ -526,6 +744,7 @@ function drawLeaves(ctx, layout, events, activeIndex) {
       orbY,
     });
   }
+  canvas.dataset.renderedLeafContours = String(renderedContours);
 }
 
 function drawPlayhead(ctx, layout, phase) {
@@ -625,6 +844,29 @@ function syncPresetButtons() {
     : "Custom tree — timing, inheritance, or leaf sound has been edited.";
 }
 
+function syncLeafContourControls(leaf) {
+  for (const input of $("leafInspector").querySelectorAll("[data-envelope-kind][data-envelope-node]")) {
+    const kind = input.dataset.envelopeKind;
+    const field = kind === "pitch" ? "pitchEnvelope" : "indexEnvelope";
+    const nodeIndex = Number(input.dataset.envelopeNode);
+    const level = clamp(leaf[field]?.nodes?.[nodeIndex]?.level ?? 0.5);
+    const percentage = Math.round(level * 100);
+    input.value = String(level);
+    input.setAttribute("aria-valuetext", `${percentage} percent`);
+    const output = $(`${input.id}Out`);
+    if (output) output.textContent = `${percentage}%`;
+  }
+}
+
+function frequencyContourLabel(event) {
+  const values = automationPoints(event.frequencyEnvelope).map((point) => point.value);
+  if (values.length < 2) return formatFrequency(event.frequencyHz);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  if (maximum - minimum < Math.max(0.01, minimum * 0.001)) return formatFrequency(minimum);
+  return `${formatFrequency(minimum)}–${formatFrequency(maximum)}`;
+}
+
 function syncSelectionUi() {
   const events = timeline();
   const leafIndex = selectedLeafIndex();
@@ -643,7 +885,10 @@ function syncSelectionUi() {
     $("selectedPitch").value = String(leaf.pitch);
     $("selectedTimbreOut").textContent = `${Math.round(leaf.timbre * 100)}%`;
     $("selectedPitchOut").textContent = `${noteNameFromFrequency(event.frequencyHz)} · ${formatFrequency(event.frequencyHz)}`;
-    $("selectionSummary").textContent = `leaf ${String(leafIndex + 1).padStart(2, "0")} · pitch + timbre`;
+    syncLeafContourControls(leaf);
+    const inheritedGlide = Number(event.inheritedGlideSemitones) || 0;
+    $("ancestorBendOut").textContent = `Ancestor bend ${Math.abs(inheritedGlide) < 0.05 ? "0.0" : `${inheritedGlide > 0 ? "+" : ""}${inheritedGlide.toFixed(1)}`} st`;
+    $("selectionSummary").textContent = `leaf ${String(leafIndex + 1).padStart(2, "0")} · base XY + contours`;
     $("selectedShort").textContent = `leaf ${String(leafIndex + 1).padStart(2, "0")}`;
   } else {
     const selected = selectedNode();
@@ -670,11 +915,11 @@ function syncSelectionUi() {
   }
 
   $("selectedDuration").textContent = `${event.durationSeconds.toFixed(2)} s`;
-  $("selectedVoice").textContent = formatFrequency(event.frequencyHz);
+  $("selectedVoice").textContent = frequencyContourLabel(event);
   canvas.setAttribute(
     "aria-label",
     isLeaf
-      ? `Nested envelope tree. Leaf ${leafIndex + 1} selected at ${formatFrequency(event.frequencyHz)} and ${Math.round(state.tree.leaves[leafIndex].timbre * 100)} percent FM timbre.`
+      ? `Nested envelope tree. Leaf ${leafIndex + 1} selected at base pitch ${formatFrequency(event.frequencyHz)} and ${Math.round(state.tree.leaves[leafIndex].timbre * 100)} percent base FM timbre. Its violet pitch contour includes the parent and child slope; cyan shows FM index.`
       : `Nested envelope tree. ${$("selectionSummary").textContent} selected.`,
   );
 }
@@ -712,15 +957,27 @@ function updateFrameUi(now) {
   const phase = cyclePhase(score);
   const events = timeline();
   const active = eventAtPhase(events, phase);
+  const eventSpan = Math.max(1e-6, active.normalizedEnd - active.normalizedStart);
+  const leafProgress = clamp((phase - active.normalizedStart) / eventSpan);
+  const frequency = sampleAutomationValue(
+    active.frequencyEnvelope,
+    leafProgress,
+    active.frequencyHz,
+  );
+  const modulationIndex = clamp(sampleAutomationValue(
+    active.modulationIndexEnvelope,
+    leafProgress,
+    active.modulationIndex,
+  ) * state.fmAmount, 0, 12);
   $("position").value = String(phase);
   $("positionOut").textContent = `${Math.round(phase * 100)}%`;
-  $("stageLeafReadout").textContent = `LEAF ${String(active.index + 1).padStart(2, "0")} · ${formatFrequency(active.frequencyHz).toUpperCase()} · FM ${Math.round(active.timbre * 100)}%`;
+  $("stageLeafReadout").textContent = `LEAF ${String(active.index + 1).padStart(2, "0")} · ${formatFrequency(frequency).toUpperCase()} · FM INDEX ${modulationIndex.toFixed(1)}`;
 }
 
-function triggerEvent(event, durationSeconds = event.durationSeconds) {
+function triggerEvent(event, durationSeconds = event.durationSeconds, startProgress = 0) {
   if (!state.audioOn || !audio.engineRunning) return;
   void audio.triggerLeaf(
-    soundingEvent(event, durationSeconds),
+    soundingEvent(event, durationSeconds, startProgress),
     audio.currentTime + 0.004,
   ).catch(showError);
 }
@@ -731,7 +988,9 @@ function joinCurrentLeaf() {
   const phase = cyclePhase();
   const event = eventAtPhase(events, phase);
   const remaining = Math.max(0.025, (event.normalizedEnd - phase) * state.tree.cycleSeconds);
-  triggerEvent(event, remaining);
+  const eventSpan = Math.max(1e-6, event.normalizedEnd - event.normalizedStart);
+  const leafProgress = clamp((phase - event.normalizedStart) / eventSpan);
+  triggerEvent(event, remaining, leafProgress);
 }
 
 function processAudioCrossings(score) {
@@ -1048,6 +1307,25 @@ function bindControls() {
   });
   $("selectedPitch").addEventListener("input", (event) => {
     updateSelectedLeaf({ pitch: Number(event.target.value) });
+  });
+  $("leafInspector").addEventListener("input", (event) => {
+    const input = event.target.closest("[data-envelope-kind][data-envelope-node]");
+    if (!input) return;
+    updateSelectedLeafEnvelope(
+      input.dataset.envelopeKind,
+      Number(input.dataset.envelopeNode),
+      Number(input.value),
+    );
+  });
+  $("leafInspector").addEventListener("change", (event) => {
+    const input = event.target.closest("[data-envelope-kind][data-envelope-node]");
+    if (!input || state.selection.kind !== "leaf") return;
+    const kind = input.dataset.envelopeKind;
+    const field = kind === "pitch" ? "pitchEnvelope" : "indexEnvelope";
+    const nodeIndex = Number(input.dataset.envelopeNode);
+    const level = state.tree.leaves[state.selection.leafIndex][field]?.nodes?.[nodeIndex]?.level;
+    if (!Number.isFinite(level)) return;
+    announce(`${kind === "pitch" ? "Pitch" : "FM index"} contour node ${nodeIndex + 1}, ${Math.round(level * 100)} percent.`);
   });
   $("selectedNodeTime").addEventListener("input", (event) => {
     updateSelectedNode({ time: Number(event.target.value) });

@@ -31,6 +31,8 @@ export const ENVELOPER_LIMITS = Object.freeze({
   modulationRatio: Object.freeze({ minimum: 0.5, maximum: 8 }),
   brightness: Object.freeze({ minimum: 0.18, maximum: 1 }),
   pan: Object.freeze({ minimum: -1, maximum: 1 }),
+  pitchEnvelopeSemitones: Object.freeze({ minimum: 0, maximum: 24 }),
+  inheritedGlideSemitones: Object.freeze({ minimum: 0, maximum: 12 }),
 });
 
 export const ENVELOPER_SOUND_DEFAULTS = Object.freeze({
@@ -42,10 +44,33 @@ export const ENVELOPER_SOUND_DEFAULTS = Object.freeze({
   minimumBrightness: 0.18,
   maximumBrightness: 1,
   stereoSpread: 0.72,
+  leafPitchEnvelopeSemitones: 7,
+  rootSlopeSemitones: 7,
+  branchSlopeSemitones: 5,
+  maximumInheritedGlideSemitones: 12,
 });
 
 const FALLBACK_TIMES = Object.freeze([0, 1 / 3, 2 / 3, 1]);
 const FALLBACK_LEVELS = Object.freeze([0.7, 1, 0.8, 0.6]);
+const LEAF_ENVELOPE_TIMES = Object.freeze([
+  Object.freeze([0, 0.24, 0.68, 1]),
+  Object.freeze([0, 0.36, 0.76, 1]),
+  Object.freeze([0, 0.28, 0.6, 1]),
+]);
+const LEAF_PITCH_LEVELS = Object.freeze([
+  Object.freeze([0.5, 0.58, 0.46, 0.52]),
+  Object.freeze([0.48, 0.4, 0.6, 0.5]),
+  Object.freeze([0.52, 0.62, 0.54, 0.45]),
+  Object.freeze([0.46, 0.55, 0.43, 0.5]),
+  Object.freeze([0.5, 0.44, 0.57, 0.48]),
+]);
+const LEAF_INDEX_LEVELS = Object.freeze([
+  Object.freeze([0.34, 0.88, 0.58, 0.42]),
+  Object.freeze([0.52, 0.3, 0.82, 0.48]),
+  Object.freeze([0.26, 0.66, 0.94, 0.38]),
+  Object.freeze([0.44, 0.9, 0.36, 0.62]),
+  Object.freeze([0.6, 0.4, 0.76, 0.28]),
+]);
 
 function finite(value, fallback) {
   const number = Number(value);
@@ -83,6 +108,21 @@ function presetEnvelope(times, levels) {
   };
 }
 
+/** Deterministic, restrained dual-contour defaults for a leaf index. */
+export function createDefaultEnveloperLeafEnvelopes(index = 0) {
+  const safeIndex = Math.abs(Math.trunc(finite(index, 0))) % ENVELOPER_STRUCTURE.leafCount;
+  return {
+    pitchEnvelope: presetEnvelope(
+      LEAF_ENVELOPE_TIMES[safeIndex % LEAF_ENVELOPE_TIMES.length],
+      LEAF_PITCH_LEVELS[safeIndex % LEAF_PITCH_LEVELS.length],
+    ),
+    indexEnvelope: presetEnvelope(
+      LEAF_ENVELOPE_TIMES[(safeIndex + 1) % LEAF_ENVELOPE_TIMES.length],
+      LEAF_INDEX_LEVELS[(safeIndex + 2) % LEAF_INDEX_LEVELS.length],
+    ),
+  };
+}
+
 function presetState({
   cycleSeconds,
   rootTimes,
@@ -97,7 +137,11 @@ function presetState({
     branches: branchTimes.map((times, index) => (
       presetEnvelope(times, branchLevels[index])
     )),
-    leaves: leaves.map(([pitch, timbre]) => ({ pitch, timbre })),
+    leaves: leaves.map(([pitch, timbre], index) => ({
+      pitch,
+      timbre,
+      ...createDefaultEnveloperLeafEnvelopes(index),
+    })),
   };
 }
 
@@ -279,12 +323,26 @@ export function updateEnveloperNode(envelope, index, changes = {}) {
   return next;
 }
 
-/** Clamp one leaf's editable XY pad coordinates. */
-export function sanitizeEnveloperLeaf(leaf, fallback = { pitch: 0.5, timbre: 0.5 }) {
+/** Clamp one leaf's editable XY pad coordinates and dual four-node contours. */
+export function sanitizeEnveloperLeaf(
+  leaf,
+  fallback = { pitch: 0.5, timbre: 0.5 },
+  index = 0,
+) {
   const source = leaf && typeof leaf === "object" ? leaf : {};
+  const fallbackLeaf = fallback && typeof fallback === "object" ? fallback : {};
+  const contourDefaults = createDefaultEnveloperLeafEnvelopes(index);
   return {
-    pitch: clamp(source.pitch ?? source.y, 0, 1, clamp(fallback?.pitch, 0, 1, 0.5)),
-    timbre: clamp(source.timbre ?? source.x, 0, 1, clamp(fallback?.timbre, 0, 1, 0.5)),
+    pitch: clamp(source.pitch ?? source.y, 0, 1, clamp(fallbackLeaf.pitch, 0, 1, 0.5)),
+    timbre: clamp(source.timbre ?? source.x, 0, 1, clamp(fallbackLeaf.timbre, 0, 1, 0.5)),
+    pitchEnvelope: sanitizeEnveloperEnvelope(
+      source.pitchEnvelope,
+      fallbackLeaf.pitchEnvelope ?? contourDefaults.pitchEnvelope,
+    ),
+    indexEnvelope: sanitizeEnveloperEnvelope(
+      source.indexEnvelope,
+      fallbackLeaf.indexEnvelope ?? contourDefaults.indexEnvelope,
+    ),
   };
 }
 
@@ -318,7 +376,7 @@ export function sanitizeEnveloperState(
       sanitizeEnveloperEnvelope(source?.branches?.[index], fallback?.branches?.[index])
     )),
     leaves: Array.from({ length: ENVELOPER_STRUCTURE.leafCount }, (_, index) => (
-      sanitizeEnveloperLeaf(source?.leaves?.[index], fallback?.leaves?.[index])
+      sanitizeEnveloperLeaf(source?.leaves?.[index], fallback?.leaves?.[index], index)
     )),
   };
 }
@@ -440,6 +498,125 @@ export function enveloperLeafTimbre(timbre, options = {}) {
 }
 
 /**
+ * Return a finite -1..1 direction/steepness for one envelope segment.
+ *
+ * Arctangent bounds very short, steep segments without erasing their sign.
+ */
+export function enveloperNormalizedSlope(startNode, endNode) {
+  const startTime = nodeTime(startNode, 0);
+  const endTime = nodeTime(endNode, 1);
+  const duration = endTime - startTime;
+  if (!(duration > 0)) return 0;
+  const startLevel = clamp(nodeLevel(startNode, 0.5), 0, 1, 0.5);
+  const endLevel = clamp(nodeLevel(endNode, 0.5), 0, 1, 0.5);
+  return clamp(
+    (2 / Math.PI) * Math.atan((endLevel - startLevel) / duration),
+    -1,
+    1,
+    0,
+  );
+}
+
+function optionValue(options, names, fallback) {
+  for (const name of names) {
+    if (options?.[name] != null) return options[name];
+  }
+  return fallback;
+}
+
+function leafPitchEnvelopeSemitones(options = {}) {
+  return clamp(
+    optionValue(
+      options,
+      [
+        "leafPitchEnvelopeSemitones",
+        "leafPitchRangeSemitones",
+        "maximumLeafPitchSemitones",
+      ],
+      ENVELOPER_SOUND_DEFAULTS.leafPitchEnvelopeSemitones,
+    ),
+    ENVELOPER_LIMITS.pitchEnvelopeSemitones.minimum,
+    ENVELOPER_LIMITS.pitchEnvelopeSemitones.maximum,
+    ENVELOPER_SOUND_DEFAULTS.leafPitchEnvelopeSemitones,
+  );
+}
+
+/** Combine the signed root and branch segment slopes into one bounded glide. */
+export function enveloperInheritedGlideSemitones(
+  rootStartNode,
+  rootEndNode,
+  branchStartNode,
+  branchEndNode,
+  options = {},
+) {
+  const limits = ENVELOPER_LIMITS.inheritedGlideSemitones;
+  const rootSemitones = clamp(
+    optionValue(
+      options,
+      ["rootSlopeSemitones", "rootGlideSemitones"],
+      ENVELOPER_SOUND_DEFAULTS.rootSlopeSemitones,
+    ),
+    limits.minimum,
+    limits.maximum,
+    ENVELOPER_SOUND_DEFAULTS.rootSlopeSemitones,
+  );
+  const branchSemitones = clamp(
+    optionValue(
+      options,
+      ["branchSlopeSemitones", "childSlopeSemitones", "branchGlideSemitones"],
+      ENVELOPER_SOUND_DEFAULTS.branchSlopeSemitones,
+    ),
+    limits.minimum,
+    limits.maximum,
+    ENVELOPER_SOUND_DEFAULTS.branchSlopeSemitones,
+  );
+  const maximumGlide = clamp(
+    options.maximumInheritedGlideSemitones,
+    limits.minimum,
+    limits.maximum,
+    ENVELOPER_SOUND_DEFAULTS.maximumInheritedGlideSemitones,
+  );
+  return clamp(
+    enveloperNormalizedSlope(rootStartNode, rootEndNode) * rootSemitones
+      + enveloperNormalizedSlope(branchStartNode, branchEndNode) * branchSemitones,
+    -maximumGlide,
+    maximumGlide,
+    0,
+  );
+}
+
+function frequencyEnvelopeForLeaf(leaf, baseFrequencyHz, inheritedGlide, options) {
+  const contourSemitones = leafPitchEnvelopeSemitones(options);
+  return Object.freeze(leaf.pitchEnvelope.nodes.map((node) => {
+    // A pitch level of 0.5 is neutral. The inherited glide is a total start-to-
+    // end interval, centered on the base pitch to avoid a permanent transpose.
+    const leafOffset = (node.level - 0.5) * 2 * contourSemitones;
+    const inheritedOffset = (node.time - 0.5) * inheritedGlide;
+    return Object.freeze({
+      time: node.time,
+      value: clamp(
+        baseFrequencyHz * 2 ** ((leafOffset + inheritedOffset) / 12),
+        ENVELOPER_LIMITS.frequencyHz.minimum,
+        ENVELOPER_LIMITS.frequencyHz.maximum,
+        baseFrequencyHz,
+      ),
+    });
+  }));
+}
+
+function modulationIndexEnvelopeForLeaf(leaf, baseModulationIndex) {
+  return Object.freeze(leaf.indexEnvelope.nodes.map((node) => Object.freeze({
+    time: node.time,
+    value: clamp(
+      baseModulationIndex * node.level,
+      ENVELOPER_LIMITS.modulationIndex.minimum,
+      ENVELOPER_LIMITS.modulationIndex.maximum,
+      0,
+    ),
+  })));
+}
+
+/**
  * Derive the nine chronologically ordered FM events for one complete cycle.
  *
  * The root split owns each branch's total duration; the branch split allocates
@@ -485,6 +662,24 @@ export function deriveEnveloperTimeline(candidate = DEFAULT_ENVELOPER_STATE, opt
       const parentLevel = sampleNodes(state.root.nodes, normalizedMidpoint);
       const childLevel = sampleNodes(branch.nodes, localMidpoint);
       const timbre = enveloperLeafTimbre(leaf.timbre, options);
+      const frequencyHz = enveloperLeafFrequency(leaf.pitch, options);
+      const inheritedGlideSemitones = enveloperInheritedGlideSemitones(
+        state.root.nodes[branchIndex],
+        state.root.nodes[branchIndex + 1],
+        branch.nodes[leafInBranch],
+        branch.nodes[leafInBranch + 1],
+        options,
+      );
+      const frequencyEnvelope = frequencyEnvelopeForLeaf(
+        leaf,
+        frequencyHz,
+        inheritedGlideSemitones,
+        options,
+      );
+      const modulationIndexEnvelope = modulationIndexEnvelopeForLeaf(
+        leaf,
+        timbre.modulationIndex,
+      );
 
       events.push(Object.freeze({
         id: `leaf-${index + 1}`,
@@ -499,8 +694,10 @@ export function deriveEnveloperTimeline(candidate = DEFAULT_ENVELOPER_STATE, opt
         durationSeconds: normalizedDuration * cycleSeconds,
         pitch: leaf.pitch,
         timbre: timbre.timbre,
-        frequencyHz: enveloperLeafFrequency(leaf.pitch, options),
+        frequencyHz,
+        frequencyEnvelope,
         modulationIndex: timbre.modulationIndex,
+        modulationIndexEnvelope,
         modulationRatio: timbre.modulationRatio,
         brightness: timbre.brightness,
         pan: ENVELOPER_STRUCTURE.leafCount === 1
@@ -508,6 +705,7 @@ export function deriveEnveloperTimeline(candidate = DEFAULT_ENVELOPER_STATE, opt
           : (-1 + (2 * index) / (ENVELOPER_STRUCTURE.leafCount - 1)) * stereoSpread,
         parentLevel,
         childLevel,
+        inheritedGlideSemitones,
         amplitude: clamp(parentLevel * childLevel, 0, 1, 0),
       }));
     }

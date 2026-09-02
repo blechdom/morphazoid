@@ -11,6 +11,9 @@ export const MAX_GRAPH_SYNTH_SOURCE_START_BURST = 256;
 const SILENCE_FLOOR = 0.0001;
 const SILENCE_FADE_SECONDS = 0.025;
 const SOURCE_STOP_PADDING = 0.012;
+// A fixed normalized grid bounds AudioParam work while closely tracking the
+// nonlinear product of an exponential pitch contour and a linear index curve.
+const FM_DEVIATION_SUBDIVISIONS = 64;
 const WAVEFORMS = new Set(["sine", "triangle", "sawtooth", "square"]);
 const MODES = new Set(["sine", "fm", "pm", "shepard"]);
 
@@ -91,11 +94,128 @@ function cancelParam(parameter, time, value = 0) {
   }
 }
 
+function sanitizeAutomationEnvelope(points, minimum, maximum) {
+  if (!Array.isArray(points)) return null;
+  const normalized = [];
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    if (!point || typeof point !== "object") continue;
+    const time = Number(point.time);
+    const value = Number(point.value);
+    if (!Number.isFinite(time) || !Number.isFinite(value)) continue;
+    normalized.push({
+      time: clamp(time, 0, 1, 0),
+      value: clamp(value, minimum, maximum, minimum),
+      sourceIndex: index,
+    });
+  }
+  if (!normalized.length) return null;
+  normalized.sort((left, right) => (
+    left.time - right.time || left.sourceIndex - right.sourceIndex
+  ));
+
+  const unique = [];
+  for (const point of normalized) {
+    const frozen = Object.freeze({ time: point.time, value: point.value });
+    if (unique.at(-1)?.time === point.time) unique[unique.length - 1] = frozen;
+    else unique.push(frozen);
+  }
+  return Object.freeze(unique);
+}
+
+function envelopeValueAt(points, time, fallback, exponential = false) {
+  if (!points?.length) return fallback;
+  const first = points[0];
+  if (time <= first.time) {
+    if (first.time <= 0) return first.value;
+    const progress = time / first.time;
+    return exponential
+      ? fallback * (first.value / fallback) ** progress
+      : fallback + (first.value - fallback) * progress;
+  }
+  for (let index = 1; index < points.length; index += 1) {
+    const right = points[index];
+    if (time > right.time) continue;
+    const left = points[index - 1];
+    const progress = (time - left.time) / Math.max(Number.EPSILON, right.time - left.time);
+    return exponential
+      ? left.value * (right.value / left.value) ** progress
+      : left.value + (right.value - left.value) * progress;
+  }
+  return points.at(-1).value;
+}
+
+function scheduleFrequencyEnvelope(parameter, points, fallback, startsAt, endsAt, transform) {
+  const mapValue = typeof transform === "function" ? transform : (value) => value;
+  if (!points?.length) {
+    setParam(parameter, "setValueAtTime", mapValue(fallback), startsAt);
+    return;
+  }
+  const duration = Math.max(0, endsAt - startsAt);
+  if (points[0].time > 0) {
+    setParam(parameter, "setValueAtTime", mapValue(fallback), startsAt);
+  }
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    const time = startsAt + duration * point.time;
+    const method = index === 0 && point.time <= 0
+      ? "setValueAtTime"
+      : "exponentialRampToValueAtTime";
+    setParam(parameter, method, mapValue(point.value), time);
+  }
+}
+
+function scheduleFmDeviation(parameter, voice, startsAt, endsAt) {
+  const controlTimes = new Set([0, 1]);
+  if (voice.frequencyEnvelope?.length) {
+    for (let index = 1; index < FM_DEVIATION_SUBDIVISIONS; index += 1) {
+      controlTimes.add(index / FM_DEVIATION_SUBDIVISIONS);
+    }
+  }
+  for (const point of voice.frequencyEnvelope ?? []) controlTimes.add(point.time);
+  for (const point of voice.modulationIndexEnvelope ?? []) controlTimes.add(point.time);
+  const duration = Math.max(0, endsAt - startsAt);
+  [...controlTimes].sort((left, right) => left - right).forEach((time, index) => {
+    const carrierFrequency = envelopeValueAt(
+      voice.frequencyEnvelope,
+      time,
+      voice.frequency,
+      true,
+    );
+    const modulationFrequency = clamp(
+      carrierFrequency * voice.modulationRatio,
+      MIN_FREQUENCY,
+      MAX_FREQUENCY,
+    );
+    const modulationIndex = envelopeValueAt(
+      voice.modulationIndexEnvelope,
+      time,
+      voice.modulationIndex,
+    );
+    setParam(
+      parameter,
+      index === 0 ? "setValueAtTime" : "linearRampToValueAtTime",
+      modulationFrequency * modulationIndex,
+      startsAt + duration * time,
+    );
+  });
+}
+
 function sanitizeVoice(source = {}) {
   const candidate = source && typeof source === "object" ? source : {};
   const mode = MODES.has(candidate.mode) ? candidate.mode : "sine";
   const waveform = WAVEFORMS.has(candidate.waveform) ? candidate.waveform : "sine";
-  return {
+  const frequencyEnvelope = sanitizeAutomationEnvelope(
+    candidate.frequencyEnvelope,
+    MIN_FREQUENCY,
+    MAX_FREQUENCY,
+  );
+  const modulationIndexEnvelope = sanitizeAutomationEnvelope(
+    candidate.modulationIndexEnvelope,
+    0,
+    20,
+  );
+  const voice = {
     ...candidate,
     mode,
     waveform,
@@ -119,6 +239,11 @@ function sanitizeVoice(source = {}) {
     shepardWidth: Math.round(clamp(candidate.shepardWidth, 3, 7, 5)),
     shepardRate: clamp(candidate.shepardRate, -4, 4, 0),
   };
+  if (frequencyEnvelope) voice.frequencyEnvelope = frequencyEnvelope;
+  else delete voice.frequencyEnvelope;
+  if (modulationIndexEnvelope) voice.modulationIndexEnvelope = modulationIndexEnvelope;
+  else delete voice.modulationIndexEnvelope;
+  return voice;
 }
 
 /** Estimate native source-node cost before allocating any Web Audio nodes. */
@@ -535,7 +660,17 @@ export class GraphSynthAudio {
   }) {
     const carrier = context.createOscillator();
     carrier.type = voice.waveform;
-    setParam(carrier.frequency, "setValueAtTime", voice.frequency, startsAt);
+    if (voice.mode === "fm" && voice.frequencyEnvelope?.length) {
+      scheduleFrequencyEnvelope(
+        carrier.frequency,
+        voice.frequencyEnvelope,
+        voice.frequency,
+        startsAt,
+        endsAt,
+      );
+    } else {
+      setParam(carrier.frequency, "setValueAtTime", voice.frequency, startsAt);
+    }
     sources.push(carrier);
     nodes.push(carrier);
 
@@ -548,14 +683,33 @@ export class GraphSynthAudio {
         MAX_FREQUENCY,
       );
       modulator.type = "sine";
-      setParam(modulator.frequency, "setValueAtTime", modulationFrequency, startsAt);
-      setParam(
-        modulation.gain,
-        "setValueAtTime",
-        modulationFrequency * voice.modulationIndex,
-        startsAt,
-      );
-      setParam(modulation.gain, "linearRampToValueAtTime", 0, endsAt);
+      if (voice.frequencyEnvelope?.length) {
+        scheduleFrequencyEnvelope(
+          modulator.frequency,
+          voice.frequencyEnvelope,
+          voice.frequency,
+          startsAt,
+          endsAt,
+          (frequency) => clamp(
+            frequency * voice.modulationRatio,
+            MIN_FREQUENCY,
+            MAX_FREQUENCY,
+          ),
+        );
+      } else {
+        setParam(modulator.frequency, "setValueAtTime", modulationFrequency, startsAt);
+      }
+      if (voice.frequencyEnvelope?.length || voice.modulationIndexEnvelope?.length) {
+        scheduleFmDeviation(modulation.gain, voice, startsAt, endsAt);
+      } else {
+        setParam(
+          modulation.gain,
+          "setValueAtTime",
+          modulationFrequency * voice.modulationIndex,
+          startsAt,
+        );
+        setParam(modulation.gain, "linearRampToValueAtTime", 0, endsAt);
+      }
       safeConnect(modulator, modulation);
       safeConnect(modulation, carrier.frequency);
       sources.push(modulator);

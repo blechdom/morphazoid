@@ -1,5 +1,5 @@
-import { FAVE_TOOL_IDS } from "./nav.js?v=catalog-20260902-1";
-import { INSTRUMENTS } from "./src/instrument-catalog.js?v=catalog-20260902-1";
+import { FAVE_TOOL_IDS } from "./nav.js?v=catalog-20260902-2";
+import { INSTRUMENTS } from "./src/instrument-catalog.js?v=catalog-20260902-2";
 
 const ALL_TAG_ID = "all";
 

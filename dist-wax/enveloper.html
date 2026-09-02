@@ -55,7 +55,9 @@
             id="stage"
             tabindex="0"
             role="application"
-            aria-label="A nested one to three to nine envelope tree. Drag envelope nodes to reshape time and level, or drag a leaf orb for FM timbre and pitch."
+            data-leaf-count="9"
+            data-contours-per-leaf="2"
+            aria-label="A nested one to three to nine envelope tree. Every leaf contains a violet pitch contour and cyan FM index contour. Drag envelope nodes to reshape time and level, or drag a leaf orb for base FM timbre and pitch."
             aria-describedby="canvasInstructions liveStatus"
           >
             A nested envelope tree ending in nine FM note pads.
@@ -71,12 +73,14 @@
 
           <div class="enveloper-axis-key" aria-hidden="true">
             <span><i class="enveloper-key-split"></i>split + level</span>
-            <span><i class="enveloper-key-leaf"></i>timbre × pitch</span>
+            <span><i class="enveloper-key-leaf"></i>base timbre × pitch</span>
+            <span><i class="enveloper-key-pitch"></i>pitch contour</span>
+            <span><i class="enveloper-key-index"></i>FM index</span>
           </div>
 
           <div class="enveloper-stage-hud" aria-hidden="true">
             <span id="stageTimeReadout">9.00 S CYCLE</span>
-            <span id="stageLeafReadout">LEAF 01 · 215.2 HZ · GLASS 18%</span>
+            <span id="stageLeafReadout">LEAF 01 · 215.2 HZ · FM INDEX 0.9</span>
           </div>
 
           <div class="enveloper-invitation" id="stageInvitation" aria-hidden="true">
@@ -152,7 +156,7 @@
               <span class="is-leaf">leaf strength</span>
             </div>
             <p class="enveloper-note">
-              Every curve has four nodes and therefore three children. Move an interior node left: the child before it gets shorter and the child after it gets longer. Move any node vertically to change the inherited strength.
+              Every curve has four nodes and therefore three children. Move an interior node left: the child before it gets shorter and the child after it gets longer. Move any node vertically to change inherited strength; the parent and child slopes also bend the pitch contours in their leaves.
             </p>
             <label class="control" for="cycleSeconds">
               <span><b>Whole-tree duration</b><output id="cycleSecondsOut" for="cycleSeconds">9.00 s</output></span>
@@ -187,10 +191,66 @@
                 <small class="enveloper-range-poles"><i>pure</i><i>metallic</i></small>
               </label>
               <label class="control" for="selectedPitch">
-                <span><b>Leaf Y · pitch</b><output id="selectedPitchOut" for="selectedPitch">130.8 Hz</output></span>
+                <span><b>Leaf Y · base pitch</b><output id="selectedPitchOut" for="selectedPitch">130.8 Hz</output></span>
                 <input id="selectedPitch" type="range" min="0" max="1" step="0.005" value="0.4" />
                 <small class="enveloper-range-poles"><i>low</i><i>high</i></small>
               </label>
+
+              <section class="enveloper-contour-editor" aria-labelledby="leafContourTitle">
+                <div class="enveloper-contour-heading">
+                  <h3 id="leafContourTitle">Leaf modulation contours</h3>
+                  <p><span class="is-pitch">Pitch</span><span class="is-index">FM index</span></p>
+                </div>
+                <p class="enveloper-contour-note">
+                  <span>The parent + child slope above bends the violet pitch contour below it.</span>
+                  <output id="ancestorBendOut">Ancestor bend +0.0 st</output>
+                </p>
+                <div class="enveloper-contour-fields">
+                  <fieldset class="enveloper-contour-field is-pitch" data-contour="pitch">
+                    <legend><i aria-hidden="true"></i>Pitch bend</legend>
+                    <div class="enveloper-contour-nodes">
+                      <label class="enveloper-contour-node" for="pitchEnvelopeLevel0">
+                        <span><b>Node 1</b><output id="pitchEnvelopeLevel0Out" for="pitchEnvelopeLevel0">50%</output></span>
+                        <input id="pitchEnvelopeLevel0" data-envelope-kind="pitch" data-envelope-node="0" aria-label="Pitch envelope node 1 level" type="range" min="0" max="1" step="0.01" value="0.5" />
+                      </label>
+                      <label class="enveloper-contour-node" for="pitchEnvelopeLevel1">
+                        <span><b>Node 2</b><output id="pitchEnvelopeLevel1Out" for="pitchEnvelopeLevel1">50%</output></span>
+                        <input id="pitchEnvelopeLevel1" data-envelope-kind="pitch" data-envelope-node="1" aria-label="Pitch envelope node 2 level" type="range" min="0" max="1" step="0.01" value="0.5" />
+                      </label>
+                      <label class="enveloper-contour-node" for="pitchEnvelopeLevel2">
+                        <span><b>Node 3</b><output id="pitchEnvelopeLevel2Out" for="pitchEnvelopeLevel2">50%</output></span>
+                        <input id="pitchEnvelopeLevel2" data-envelope-kind="pitch" data-envelope-node="2" aria-label="Pitch envelope node 3 level" type="range" min="0" max="1" step="0.01" value="0.5" />
+                      </label>
+                      <label class="enveloper-contour-node" for="pitchEnvelopeLevel3">
+                        <span><b>Node 4</b><output id="pitchEnvelopeLevel3Out" for="pitchEnvelopeLevel3">50%</output></span>
+                        <input id="pitchEnvelopeLevel3" data-envelope-kind="pitch" data-envelope-node="3" aria-label="Pitch envelope node 4 level" type="range" min="0" max="1" step="0.01" value="0.5" />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset class="enveloper-contour-field is-index" data-contour="index">
+                    <legend><i aria-hidden="true"></i>FM index</legend>
+                    <div class="enveloper-contour-nodes">
+                      <label class="enveloper-contour-node" for="indexEnvelopeLevel0">
+                        <span><b>Node 1</b><output id="indexEnvelopeLevel0Out" for="indexEnvelopeLevel0">50%</output></span>
+                        <input id="indexEnvelopeLevel0" data-envelope-kind="index" data-envelope-node="0" aria-label="FM index envelope node 1 level" type="range" min="0" max="1" step="0.01" value="0.5" />
+                      </label>
+                      <label class="enveloper-contour-node" for="indexEnvelopeLevel1">
+                        <span><b>Node 2</b><output id="indexEnvelopeLevel1Out" for="indexEnvelopeLevel1">50%</output></span>
+                        <input id="indexEnvelopeLevel1" data-envelope-kind="index" data-envelope-node="1" aria-label="FM index envelope node 2 level" type="range" min="0" max="1" step="0.01" value="0.5" />
+                      </label>
+                      <label class="enveloper-contour-node" for="indexEnvelopeLevel2">
+                        <span><b>Node 3</b><output id="indexEnvelopeLevel2Out" for="indexEnvelopeLevel2">50%</output></span>
+                        <input id="indexEnvelopeLevel2" data-envelope-kind="index" data-envelope-node="2" aria-label="FM index envelope node 3 level" type="range" min="0" max="1" step="0.01" value="0.5" />
+                      </label>
+                      <label class="enveloper-contour-node" for="indexEnvelopeLevel3">
+                        <span><b>Node 4</b><output id="indexEnvelopeLevel3Out" for="indexEnvelopeLevel3">50%</output></span>
+                        <input id="indexEnvelopeLevel3" data-envelope-kind="index" data-envelope-node="3" aria-label="FM index envelope node 4 level" type="range" min="0" max="1" step="0.01" value="0.5" />
+                      </label>
+                    </div>
+                  </fieldset>
+                </div>
+              </section>
               <button class="mini-action enveloper-preview-action" id="previewButton" type="button">Preview selected leaf</button>
             </div>
 
@@ -235,7 +295,7 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        Drag a hollow envelope node horizontally to divide time between its neighboring children and vertically to change its level. Drag a colored leaf orb horizontally for FM timbre and vertically for pitch. Number keys 1 through 9 select leaves. Arrow keys adjust the selected element; Shift makes a larger change. Space operates the visible transport.
+        Drag a hollow envelope node horizontally to divide time between its neighboring children and vertically to change its level. Parent and child slopes bend the violet pitch contours in the leaves. Drag a colored leaf orb horizontally for base FM timbre and vertically for base pitch. Use the selected leaf controls to edit four pitch-envelope levels and four FM-index-envelope levels. Number keys 1 through 9 select leaves. Arrow keys adjust the selected element; Shift makes a larger change. Space operates the visible transport.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

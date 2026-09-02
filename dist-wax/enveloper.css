@@ -9,6 +9,8 @@
   --enveloper-child: #5fe8c4;
   --enveloper-leaf-warm: #e8c46b;
   --enveloper-leaf-hot: #ff9278;
+  --enveloper-pitch-contour: #c4a7ff;
+  --enveloper-index-contour: #59e8ff;
   --enveloper-pulse: #fff3d6;
   --enveloper-card: color-mix(in oklab, var(--panel-high) 90%, transparent);
 }
@@ -199,6 +201,22 @@
   background: currentColor;
   box-shadow: 0 0 6px currentColor;
   content: "";
+}
+
+.enveloper-axis-key .enveloper-key-pitch,
+.enveloper-axis-key .enveloper-key-index {
+  height: 8px;
+  border: 0;
+  background: linear-gradient(165deg, transparent 42%, currentColor 44% 56%, transparent 58%);
+}
+
+.enveloper-axis-key .enveloper-key-pitch {
+  color: var(--enveloper-pitch-contour);
+}
+
+.enveloper-axis-key .enveloper-key-index {
+  color: var(--enveloper-index-contour);
+  background: repeating-linear-gradient(165deg, transparent 0 4px, currentColor 4px 7px, transparent 7px 10px);
 }
 
 .enveloper-invitation {
@@ -695,6 +713,159 @@
   font-style: normal;
 }
 
+.enveloper-contour-editor {
+  margin: 13px -2px 3px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+
+.enveloper-contour-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.enveloper-contour-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.enveloper-contour-heading p {
+  display: flex;
+  margin: 0;
+  color: var(--faint);
+  gap: 8px;
+  font-size: 6px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.enveloper-contour-heading span,
+.enveloper-contour-field legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.enveloper-contour-heading span::before,
+.enveloper-contour-field legend i {
+  width: 12px;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 0 5px currentColor;
+  content: "";
+}
+
+.enveloper-contour-heading .is-pitch {
+  color: var(--enveloper-pitch-contour);
+}
+
+.enveloper-contour-heading .is-index {
+  color: var(--enveloper-index-contour);
+}
+
+.enveloper-contour-heading .is-index::before {
+  background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 5px);
+}
+
+.enveloper-contour-note {
+  display: grid;
+  margin: 7px 0 10px;
+  color: var(--muted);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.enveloper-contour-note output {
+  padding: 3px 5px;
+  border: 1px solid color-mix(in oklab, var(--enveloper-pitch-contour) 35%, var(--line));
+  color: color-mix(in oklab, var(--enveloper-pitch-contour) 80%, var(--ink));
+  background: color-mix(in oklab, var(--enveloper-pitch-contour) 5%, var(--bg-deep));
+  font-size: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .035em;
+  white-space: nowrap;
+}
+
+.enveloper-contour-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.enveloper-contour-field {
+  --contour-color: var(--enveloper-pitch-contour);
+  --accent: var(--contour-color);
+  --accent-glow: color-mix(in oklab, var(--contour-color) 22%, transparent);
+  min-width: 0;
+  padding: 5px 7px 6px;
+  margin: 0;
+  border: 1px solid color-mix(in oklab, var(--contour-color) 25%, var(--line));
+  background: color-mix(in oklab, var(--contour-color) 3%, var(--bg-deep));
+}
+
+.enveloper-contour-field.is-index {
+  --contour-color: var(--enveloper-index-contour);
+}
+
+.enveloper-contour-field legend {
+  padding: 0 4px;
+  color: var(--contour-color);
+  font-size: 6px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.enveloper-contour-field.is-index legend i {
+  background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 5px);
+}
+
+.enveloper-contour-nodes {
+  display: grid;
+  gap: 1px;
+}
+
+.enveloper-contour-node {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1fr;
+}
+
+.enveloper-contour-node > span {
+  display: flex;
+  margin-bottom: -5px;
+  color: var(--faint);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.enveloper-contour-node b {
+  font-weight: 500;
+}
+
+.enveloper-contour-node output {
+  color: color-mix(in oklab, var(--contour-color) 76%, var(--ink));
+}
+
+.enveloper-contour-node input[type="range"] {
+  height: 29px;
+}
+
 .enveloper-preview-action {
   margin-top: 4px;
 }
@@ -797,6 +968,10 @@
     gap: 8px;
   }
 
+  .enveloper-axis-key span:nth-child(n + 3) {
+    display: none;
+  }
+
   .enveloper-invitation {
     right: 10px;
     bottom: 7px;
@@ -852,10 +1027,6 @@
     font-size: 6px;
   }
 
-  .enveloper-axis-key span:last-child {
-    display: none;
-  }
-
   .enveloper-invitation {
     max-width: 110px;
   }
@@ -885,6 +1056,23 @@
     padding-right: 3px;
     padding-left: 3px;
     font-size: 5.5px;
+  }
+
+  .enveloper-contour-heading {
+    align-items: start;
+  }
+
+  .enveloper-contour-heading p {
+    gap: 5px;
+  }
+
+  .enveloper-contour-note {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .enveloper-contour-note output {
+    justify-self: start;
   }
 }
 
@@ -919,6 +1107,10 @@
   .enveloper-preview-action {
     min-height: 48px;
   }
+
+  .enveloper-contour-node input[type="range"] {
+    height: 38px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -936,6 +1128,8 @@
   .enveloper-inheritance-diagram span,
   .enveloper-leaf-selector,
   .enveloper-leaf-selector button,
+  .enveloper-contour-field,
+  .enveloper-contour-note output,
   #leafInspector,
   #nodeInspector,
   .enveloper-restart {

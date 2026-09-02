@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260902-1";
+} from "../nav.js?v=catalog-20260902-2";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -360,9 +360,9 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   enveloper: define(
     "Nested-envelope FM sequencer",
-    "Embeds three child envelopes inside one parent envelope, then divides them into nine FM notes whose durations and inherited levels follow both generations of the tree.",
-    "Turn on audio and start the tree clock, drag hollow envelope nodes to redistribute time and level, then drag each leaf horizontally for timbre and vertically for pitch.",
-    ["Pointer", "Built-in synth", "Recursive sequencing"],
+    "Embeds three child envelopes inside one parent envelope, then divides them into nine FM notes with editable pitch and index contours; each ancestor segment's slope becomes inherited pitch glide.",
+    "Turn on audio and start the tree clock, drag parent and child nodes to reshape time, level, and inherited bend, then set each leaf's base sound and its two modulation contours.",
+    ["Pointer", "Built-in synth", "Recursive sequencing", "Pitch contours"],
   ),
   julia: define(
     "Synth",
