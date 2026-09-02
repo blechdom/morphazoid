@@ -1,16 +1,27 @@
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import {
   AUDIO_TIMING,
+  DEFAULT_TEST_SIGNAL,
+  TEST_SIGNALS,
+  TEST_TRIM_RANGE,
   channelSummary,
   clamp,
   clampPosition,
   computeSpeakerGains,
+  createLfePinkNoiseSamples,
+  createPinkNoiseSamples,
+  dbfsToGain,
   makeLayouts,
   outputModeFor,
   planAudioEvents,
   projectPoint,
   speakerPan,
 } from "./src/surround-field.js";
+import {
+  MAX_RECORDING_SECONDS,
+  SurroundFieldRecorder,
+  buildStemArchive,
+} from "./src/surround-field-recorder.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -28,8 +39,10 @@ const DEFAULTS = Object.freeze({
   voice: "halo",
   color: 0.62,
   release: 0.9,
-  level: 0.28,
+  level: 0.55,
   forcePreview: false,
+  testSignal: DEFAULT_TEST_SIGNAL,
+  testTrimDb: TEST_TRIM_RANGE.defaultValue,
 });
 
 const state = {
@@ -49,18 +62,41 @@ const state = {
   padEnergy: new Map(),
   testEnergy: [],
   gains: [],
+  recording: false,
+  recordingStarting: false,
+  recordingFinishing: false,
+  recordingStartedAt: 0,
+  recordingStopTimer: 0,
+  recordingClockTimer: 0,
+  recordingElapsed: 0,
+  recordingDownloadUrl: "",
+  recordingFilename: "",
+  lastRecording: null,
+  recordingLayout: null,
+  fileLoading: false,
 };
 
 class SurroundAudio {
   constructor() {
     this.context = null;
     this.voiceInput = null;
+    this.patchInput = null;
     this.toneFilter = null;
     this.compressor = null;
     this.master = null;
     this.speakerRoutes = [];
     this.releaseOutput = null;
     this.outputNode = null;
+    this.previewBus = null;
+    this.previewLimiter = null;
+    this.captureBus = null;
+    this.recorder = null;
+    this.loadedFileBuffer = null;
+    this.loadedFileName = "";
+    this.fileSource = null;
+    this.pinkNoiseBuffer = null;
+    this.lfePinkNoiseBuffer = null;
+    this.onFileStateChange = null;
     this.enabled = false;
     this.startPromise = null;
     this.level = state.level;
@@ -77,11 +113,19 @@ class SurroundAudio {
   buildBaseGraph() {
     const context = this.context;
     this.voiceInput = context.createGain();
+    this.patchInput = context.createGain();
     this.toneFilter = context.createBiquadFilter();
     this.compressor = context.createDynamicsCompressor();
     this.master = context.createGain();
 
     this.voiceInput.gain.value = 0.82;
+    this.voiceInput.channelCount = 1;
+    this.voiceInput.channelCountMode = "explicit";
+    this.voiceInput.channelInterpretation = "speakers";
+    this.patchInput.gain.value = 1;
+    this.patchInput.channelCount = 1;
+    this.patchInput.channelCountMode = "explicit";
+    this.patchInput.channelInterpretation = "speakers";
     this.toneFilter.type = "lowpass";
     this.toneFilter.Q.value = 1.1;
     this.compressor.threshold.value = -18;
@@ -120,6 +164,8 @@ class SurroundAudio {
 
   disable() {
     this.enabled = false;
+    this.stopFile();
+    this.cancelScheduledTests(null, true);
     const token = ++this.suspendToken;
     if (!this.context || !this.master) return;
     const now = this.context.currentTime;
@@ -135,14 +181,21 @@ class SurroundAudio {
     this.releaseOutput?.();
     this.releaseOutput = null;
     try { this.master?.disconnect(); } catch { /* The old route may already be detached. */ }
+    try { this.patchInput?.disconnect(); } catch { /* The old patch route may already be detached. */ }
     for (const route of this.speakerRoutes) {
       for (const node of route.nodes) {
         try { node.disconnect(); } catch { /* Best-effort graph teardown. */ }
       }
     }
+    try { this.captureBus?.disconnect(); } catch { /* The capture bus may already be detached. */ }
     try { this.outputNode?.disconnect(); } catch { /* Best-effort graph teardown. */ }
+    try { this.previewBus?.disconnect(); } catch { /* Best-effort graph teardown. */ }
+    try { this.previewLimiter?.disconnect(); } catch { /* Best-effort graph teardown. */ }
     this.speakerRoutes = [];
+    this.captureBus = null;
     this.outputNode = null;
+    this.previewBus = null;
+    this.previewLimiter = null;
   }
 
   rebuildRoutes(layout, forcePreview) {
@@ -166,72 +219,69 @@ class SurroundAudio {
       }
     }
 
-    if (mode === "discrete") {
-      const merger = context.createChannelMerger(layout.speakers.length);
-      merger.channelInterpretation = "discrete";
-      this.outputNode = merger;
-      layout.speakers.forEach((speaker, index) => {
-        const spatialGain = context.createGain();
-        spatialGain.gain.value = 0;
-        const nodes = [spatialGain];
-        this.master.connect(spatialGain);
-        let routeEntry = spatialGain;
-        if (speaker.kind === "lfe") {
-          const lowpass = context.createBiquadFilter();
-          lowpass.type = "lowpass";
-          lowpass.frequency.value = 120;
-          lowpass.Q.value = 0.7;
-          spatialGain.connect(lowpass);
-          routeEntry = lowpass;
-          nodes.push(lowpass);
-        }
-        routeEntry.connect(merger, 0, index);
-        this.speakerRoutes.push({ spatialGain, testTarget: routeEntry, nodes, targetIndex: index });
-      });
-      this.releaseOutput = connectAudioOutput(context, merger);
-    } else {
+    const virtualBus = context.createChannelMerger(layout.speakers.length);
+    virtualBus.channelInterpretation = "discrete";
+    this.captureBus = virtualBus;
+    let stereoBus = null;
+    if (mode === "preview") {
       try {
         context.destination.channelCount = Math.min(2, this.deviceChannels);
         context.destination.channelInterpretation = "speakers";
       } catch {
         // Some destinations expose fixed channel configuration; stereo nodes still down-mix safely.
       }
-      const stereoBus = context.createGain();
+      stereoBus = context.createGain();
       stereoBus.channelCount = 2;
       stereoBus.channelCountMode = "explicit";
       stereoBus.channelInterpretation = "speakers";
       stereoBus.gain.value = 0.92;
-      this.outputNode = stereoBus;
-      layout.speakers.forEach((speaker) => {
-        const spatialGain = context.createGain();
-        const panner = context.createStereoPanner();
-        spatialGain.gain.value = 0;
-        panner.pan.value = speaker.kind === "lfe" ? 0 : speakerPan(speaker);
-        const nodes = [spatialGain, panner];
-        this.master.connect(spatialGain);
-        let routeEntry = spatialGain;
-        if (speaker.kind === "lfe") {
-          const lowpass = context.createBiquadFilter();
-          lowpass.type = "lowpass";
-          lowpass.frequency.value = 120;
-          lowpass.Q.value = 0.7;
-          spatialGain.connect(lowpass);
-          lowpass.connect(panner);
-          routeEntry = lowpass;
-          nodes.push(lowpass);
-        } else {
-          spatialGain.connect(panner);
-        }
-        panner.connect(stereoBus);
-        this.speakerRoutes.push({
-          spatialGain,
-          testTarget: speaker.kind === "lfe" ? routeEntry : panner,
-          nodes,
-          targetIndex: 0,
-        });
-      });
-      this.releaseOutput = connectAudioOutput(context, stereoBus);
+      const limiter = context.createDynamicsCompressor();
+      limiter.threshold.value = -3;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.001;
+      limiter.release.value = 0.08;
+      stereoBus.connect(limiter);
+      this.previewBus = stereoBus;
+      this.previewLimiter = limiter;
     }
+
+    layout.speakers.forEach((speaker) => {
+      const targetIndex = Math.round(clamp(speaker.channel - 1, 0, layout.speakers.length - 1));
+      const spatialGain = context.createGain();
+      const channelBus = context.createGain();
+      spatialGain.gain.value = 0;
+      channelBus.gain.value = 1;
+      channelBus.channelCount = 1;
+      channelBus.channelCountMode = "explicit";
+      channelBus.channelInterpretation = "speakers";
+      const nodes = [spatialGain, channelBus];
+      this.master.connect(spatialGain);
+      this.patchInput.connect(spatialGain);
+
+      if (speaker.kind === "lfe") {
+        const lowpass = context.createBiquadFilter();
+        lowpass.type = "lowpass";
+        lowpass.frequency.value = 120;
+        lowpass.Q.value = 0.7;
+        spatialGain.connect(lowpass).connect(channelBus);
+        nodes.push(lowpass);
+      } else {
+        spatialGain.connect(channelBus);
+      }
+
+      channelBus.connect(virtualBus, 0, targetIndex);
+      if (stereoBus) {
+        const panner = context.createStereoPanner();
+        panner.pan.value = speaker.kind === "lfe" ? 0 : speakerPan(speaker);
+        channelBus.connect(panner).connect(stereoBus);
+        nodes.push(panner);
+      }
+      this.speakerRoutes.push({ spatialGain, channelBus, testTarget: channelBus, nodes, targetIndex });
+    });
+
+    this.outputNode = mode === "discrete" ? virtualBus : this.previewLimiter;
+    this.releaseOutput = connectAudioOutput(context, this.outputNode);
 
     this.mode = mode;
     this.routeSignature = signature;
@@ -263,7 +313,7 @@ class SurroundAudio {
   }
 
   setLevel(value) {
-    this.level = clamp(value, 0, 0.68);
+    this.level = clamp(value, 0, 1);
     if (!this.context || !this.master || !this.enabled) return;
     this.master.gain.setTargetAtTime(Math.max(0.0001, this.level ** 1.35), this.context.currentTime, 0.025);
   }
@@ -273,6 +323,56 @@ class SurroundAudio {
     if (!this.context || !this.toneFilter) return;
     this.toneFilter.frequency.setTargetAtTime(520 + this.color ** 1.4 * 10_500, this.context.currentTime, 0.03);
     this.toneFilter.Q.setTargetAtTime(0.7 + this.color * 3.4, this.context.currentTime, 0.03);
+  }
+
+  async loadFile(file) {
+    if (!this.context || !file) throw new Error("Start audio before loading a patch source.");
+    const encoded = await file.arrayBuffer();
+    const decoded = await this.context.decodeAudioData(encoded);
+    this.stopFile();
+    this.loadedFileBuffer = decoded;
+    this.loadedFileName = file.name || "loaded audio";
+    return Object.freeze({ name: this.loadedFileName, duration: this.loadedFileBuffer.duration });
+  }
+
+  playFile() {
+    if (!this.enabled || !this.context || !this.loadedFileBuffer || !this.patchInput) return false;
+    this.stopFile();
+    const source = this.context.createBufferSource();
+    source.buffer = this.loadedFileBuffer;
+    source.connect(this.patchInput);
+    source.onended = () => {
+      if (this.fileSource !== source) return;
+      try { source.disconnect(); } catch { /* The file source may already be detached. */ }
+      this.fileSource = null;
+      this.onFileStateChange?.();
+    };
+    this.fileSource = source;
+    source.start(this.context.currentTime + 0.006);
+    this.onFileStateChange?.();
+    return true;
+  }
+
+  stopFile() {
+    const source = this.fileSource;
+    if (!source) return;
+    this.fileSource = null;
+    source.onended = null;
+    try { source.stop(); } catch { /* The file source may already have ended. */ }
+    try { source.disconnect(); } catch { /* The file source may already be detached. */ }
+    this.onFileStateChange?.();
+  }
+
+  async startRecording(channelCount) {
+    if (!this.context || !this.captureBus) throw new Error("Start audio before recording channels.");
+    if (!this.recorder || this.recorder.context !== this.context) {
+      this.recorder = new SurroundFieldRecorder(this.context);
+    }
+    await this.recorder.start(this.captureBus, channelCount);
+  }
+
+  stopRecording() {
+    return this.recorder?.stop() ?? Promise.resolve(null);
   }
 
   trigger(midi, voice = state.voice, release = state.release, velocity = 0.78, when = null, group = "manual") {
@@ -339,49 +439,92 @@ class SurroundAudio {
     }
   }
 
-  testSpeaker(index, when = null, group = "manual") {
+  testSpeaker(index, when = null, group = "manual", signalId = state.testSignal, trimDb = state.testTrimDb) {
     if (!this.enabled || !this.context || !this.speakerRoutes[index]) return false;
     const context = this.context;
     const route = this.speakerRoutes[index];
     const speaker = currentLayout().speakers[index];
+    const signal = TEST_SIGNALS[signalId] ?? TEST_SIGNALS[DEFAULT_TEST_SIGNAL];
     const requestedTime = Number(when);
     const start = Number.isFinite(requestedTime)
       ? Math.max(context.currentTime + 0.006, requestedTime)
       : context.currentTime + 0.006;
-    const oscillator = context.createOscillator();
+    const duration = signal.durationSeconds;
     const gain = context.createGain();
-    oscillator.type = speaker.kind === "lfe" ? "sine" : "triangle";
-    oscillator.frequency.setValueAtTime(speaker.kind === "lfe" ? 72 : 430 + (index % 8) * 38, start);
-    if (speaker.kind !== "lfe") oscillator.frequency.exponentialRampToValueAtTime(710 + (index % 8) * 42, start + 0.14);
+    let source;
+    let targetGain;
+
+    if (signal.id === "pink") {
+      const lfe = speaker.kind === "lfe";
+      const cachedBuffer = lfe ? this.lfePinkNoiseBuffer : this.pinkNoiseBuffer;
+      if (!cachedBuffer || cachedBuffer.sampleRate !== context.sampleRate) {
+        const frames = Math.ceil(context.sampleRate * (signal.durationSeconds + 0.05));
+        const samples = lfe
+          ? createLfePinkNoiseSamples(frames, context.sampleRate, signal.referenceDbfs)
+          : createPinkNoiseSamples(frames, signal.referenceDbfs);
+        const buffer = context.createBuffer(1, samples.length, context.sampleRate);
+        buffer.copyToChannel(samples, 0);
+        if (lfe) this.lfePinkNoiseBuffer = buffer;
+        else this.pinkNoiseBuffer = buffer;
+      }
+      source = context.createBufferSource();
+      source.buffer = lfe ? this.lfePinkNoiseBuffer : this.pinkNoiseBuffer;
+      targetGain = dbfsToGain(clamp(trimDb, TEST_TRIM_RANGE.minimum, TEST_TRIM_RANGE.maximum));
+    } else {
+      const oscillator = context.createOscillator();
+      oscillator.type = "sine";
+      if (signal.id === "tone") {
+        oscillator.frequency.setValueAtTime(speaker.kind === "lfe" ? 80 : 1000, start);
+      } else {
+        oscillator.frequency.setValueAtTime(speaker.kind === "lfe" ? 42 : 360, start);
+        oscillator.frequency.exponentialRampToValueAtTime(
+          speaker.kind === "lfe" ? 105 : 1800,
+          start + duration - 0.04,
+        );
+      }
+      source = oscillator;
+      targetGain = dbfsToGain(
+        signal.referenceDbfs + clamp(trimDb, TEST_TRIM_RANGE.minimum, TEST_TRIM_RANGE.maximum),
+      );
+    }
+
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(0.075, start + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
-    oscillator.connect(gain);
-    if (this.mode === "discrete") gain.connect(this.outputNode, 0, index);
-    else gain.connect(route.testTarget);
-    oscillator.start(start);
-    oscillator.stop(start + 0.3);
-    const record = { oscillator, gain, start, group };
+    gain.gain.exponentialRampToValueAtTime(targetGain, start + 0.012);
+    gain.gain.setValueAtTime(targetGain, start + duration - 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    source.connect(gain).connect(route.testTarget);
+    source.start(start);
+    source.stop(start + duration + 0.01);
+    const record = { source, gain, start, group };
     this.activeTests.add(record);
-    oscillator.onended = () => {
+    source.onended = () => {
       this.activeTests.delete(record);
-      try { oscillator.disconnect(); gain.disconnect(); } catch { /* Test chirp already collected. */ }
+      try { source.disconnect(); gain.disconnect(); } catch { /* Test signal already collected. */ }
     };
     return true;
   }
 
-  cancelScheduledTests(group) {
+  cancelScheduledTests(group, includeActive = false) {
     if (!this.context) return;
     const now = this.context.currentTime;
     for (const record of this.activeTests) {
-      if (record.group !== group || record.start <= now + 0.002) continue;
-      try { record.oscillator.stop(now); } catch { /* The queued chirp may already be ending. */ }
+      if (group && record.group !== group) continue;
+      const active = record.start <= now + 0.002;
+      if (active && !includeActive) continue;
+      if (active) {
+        try {
+          record.gain.gain.cancelScheduledValues(now);
+          record.gain.gain.setTargetAtTime(0.0001, now, 0.004);
+        } catch { /* The test envelope may already have ended. */ }
+      }
+      try { record.source.stop(active ? now + 0.02 : now); } catch { /* The test source may already be ending. */ }
     }
   }
 }
 
 const audio = new SurroundAudio();
 let audioSchedulerTimer = 0;
+let recordingFinalizePromise = null;
 
 function layouts() {
   return makeLayouts(state.customCount);
@@ -537,11 +680,15 @@ function renderMeters() {
   const meters = $("channelMeters");
   meters.replaceChildren();
   currentLayout().speakers.forEach((speaker, index) => {
-    const row = document.createElement("div");
+    const row = document.createElement("button");
+    row.type = "button";
     row.className = "channel-meter";
     row.dataset.index = String(index);
     row.dataset.kind = speaker.kind;
+    row.setAttribute("aria-label", `Test channel ${speaker.channel}, ${speaker.label}`);
+    row.title = `Test CH ${speaker.channel} · ${speaker.label}`;
     row.innerHTML = `<b>CH ${String(speaker.channel).padStart(2, "0")}</b><span>${speaker.label}</span><i></i>`;
+    row.addEventListener("click", () => void testSpeaker(index));
     meters.append(row);
   });
 }
@@ -621,11 +768,15 @@ function renderOutputStatus() {
 
 function renderControls() {
   const layout = currentLayout();
+  const signal = TEST_SIGNALS[state.testSignal] ?? TEST_SIGNALS[DEFAULT_TEST_SIGNAL];
+  const recordingBusy = state.recording || state.recordingStarting || state.recordingFinishing;
   setPressed("[data-layout]", "layout", state.layoutId);
   setPressed("[data-view]", "view", state.view);
   setPressed("[data-motion]", "motion", state.motion);
   setPressed("[data-voice]", "voice", state.voice);
   setPressed("[data-route]", "route", state.forcePreview ? "preview" : "auto");
+  setPressed("[data-test-signal]", "testSignal", state.testSignal);
+  $("audioButton").disabled = state.recordingStarting || state.recordingFinishing;
   $("audioButton").setAttribute("aria-pressed", String(state.audioOn));
   $("sequenceButton").setAttribute("aria-pressed", String(state.sequenceOn));
   $("sequenceButton").disabled = state.transportStarting;
@@ -642,10 +793,50 @@ function renderControls() {
   setText("colorOut", `${Math.round(state.color * 100)}%`);
   setText("releaseOut", `${Math.round(state.release * 1000)} ms`);
   setText("levelOut", `${Math.round(state.level * 100)}%`);
+  setText("testSignalSummary", `${signal.label} · ${signal.referenceDbfs} dBFS ${signal.referenceUnit.toLowerCase()}`);
+  setText("testTrimOut", `${state.testTrimDb > 0 ? "+" : ""}${state.testTrimDb} dB`);
+  setText("sweepSignal", `${signal.label} · ${signal.referenceDbfs + state.testTrimDb} dBFS ${signal.referenceUnit.toLowerCase()}`);
+
+  $("recordButton").setAttribute("aria-pressed", String(state.recording));
+  $("recordButton").disabled = state.recordingStarting || state.recordingFinishing;
+  setText("recordIcon", state.recording ? "■" : state.recordingFinishing ? "…" : "●");
+  setText("recordLabel", state.recording ? "Stop + prepare stems" : state.recordingFinishing ? "Preparing stems" : "Record channels");
+  $("downloadRecording").disabled = !state.recordingDownloadUrl || recordingBusy;
+  $("patchFile").disabled = state.fileLoading || recordingBusy;
+  $("filePlayButton").disabled = state.fileLoading || !audio.loadedFileBuffer || !state.audioOn;
+  $("filePlayButton").setAttribute("aria-pressed", String(Boolean(audio.fileSource)));
+  setText("filePlayLabel", audio.fileSource ? "Stop loaded audio" : "Play through field");
+  setText(
+    "fileSourceState",
+    state.fileLoading
+      ? "decoding…"
+      : audio.loadedFileBuffer
+        ? `${audio.loadedFileName} · ${audio.loadedFileBuffer.duration.toFixed(1)} s`
+        : "no file loaded",
+  );
+  setText(
+    "recordStatus",
+    state.recordingStarting
+      ? "starting the synchronized channel tap…"
+      : state.recording
+        ? `${state.recordingElapsed.toFixed(1)} / ${MAX_RECORDING_SECONDS.toFixed(1)} s · ${layout.speakers.length} channels`
+        : state.recordingFinishing
+          ? "preparing synchronized mono WAV stems…"
+          : state.lastRecording
+            ? `${state.lastRecording.channelCount} stems · ${state.lastRecording.duration.toFixed(2)} s · ready`
+            : `ready · ${MAX_RECORDING_SECONDS} s maximum`,
+  );
+  for (const control of document.querySelectorAll("[data-layout], [data-route]")) control.disabled = recordingBusy;
+  $("speakerCount").disabled = recordingBusy;
+  $("resetAll").disabled = state.recordingStarting || state.recordingFinishing;
   renderOutputStatus();
 }
 
 function setLayout(layoutId) {
+  if (state.recording || state.recordingStarting || state.recordingFinishing) {
+    announce("Stop the channel recording before changing the speaker layout.");
+    return;
+  }
   stopSweep();
   state.layoutId = layoutId;
   const layout = currentLayout();
@@ -739,13 +930,201 @@ async function ensureAudio() {
   }
 }
 
-function disableAudio() {
-  state.audioOn = false;
+function clearRecordingTimers() {
+  window.clearTimeout(state.recordingStopTimer);
+  window.clearInterval(state.recordingClockTimer);
+  state.recordingStopTimer = 0;
+  state.recordingClockTimer = 0;
+}
+
+function revokeRecordingDownload() {
+  if (state.recordingDownloadUrl) URL.revokeObjectURL(state.recordingDownloadUrl);
+  state.recordingDownloadUrl = "";
+  state.recordingFilename = "";
+}
+
+function updateRecordingClock() {
+  if (!state.recording) return;
+  state.recordingElapsed = Math.min(
+    MAX_RECORDING_SECONDS,
+    Math.max(0, performanceSeconds() - state.recordingStartedAt),
+  );
+  setText(
+    "recordStatus",
+    `${state.recordingElapsed.toFixed(1)} / ${MAX_RECORDING_SECONDS.toFixed(1)} s · ${state.recordingLayout?.speakers.length ?? currentLayout().speakers.length} channels`,
+  );
+}
+
+function handleRecordingError(error) {
+  clearRecordingTimers();
+  state.recording = false;
+  state.recordingStarting = false;
+  state.recordingFinishing = false;
+  state.recordingLayout = null;
+  const message = error?.message ?? "Unable to record the channel buses.";
+  setText("audioError", message);
+  $("audioError").hidden = false;
+  announce(message);
+  renderControls();
+}
+
+function finalizeChannelRecording(capture) {
+  if (recordingFinalizePromise) return recordingFinalizePromise;
+  recordingFinalizePromise = (async () => {
+    clearRecordingTimers();
+    state.recording = false;
+    state.recordingStarting = false;
+    state.recordingFinishing = true;
+    renderControls();
+
+    try {
+      if (!capture || capture.frames <= 0) throw new Error("The channel recording did not contain any audio frames.");
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      const layout = state.recordingLayout ?? currentLayout();
+      const archive = buildStemArchive(capture, layout.speakers, layout.name, new Date());
+      revokeRecordingDownload();
+      const blob = new Blob([archive.bytes], { type: "application/zip" });
+      state.recordingDownloadUrl = URL.createObjectURL(blob);
+      state.recordingFilename = archive.filename;
+      state.lastRecording = Object.freeze({
+        channelCount: archive.channelCount,
+        duration: archive.duration,
+        clippedSamples: archive.clippedSamples,
+        peaks: capture.peaks,
+        reason: capture.reason,
+      });
+      announce(
+        `${archive.channelCount} synchronized channel stems are ready to download${archive.clippedSamples ? `; ${archive.clippedSamples} samples exceeded full scale` : ""}.`,
+      );
+    } catch (error) {
+      handleRecordingError(error);
+    } finally {
+      state.recordingLayout = null;
+      state.recordingFinishing = false;
+      recordingFinalizePromise = null;
+      renderControls();
+    }
+  })();
+  return recordingFinalizePromise;
+}
+
+async function startChannelRecording() {
+  if (state.recording || state.recordingStarting || state.recordingFinishing) return;
+  state.recordingStarting = true;
+  state.recordingElapsed = 0;
+  renderControls();
+  try {
+    if (!state.audioOn && !(await ensureAudio())) {
+      state.recordingStarting = false;
+      renderControls();
+      return;
+    }
+    const layout = currentLayout();
+    state.recordingLayout = Object.freeze({
+      name: layout.name,
+      speakers: Object.freeze([...layout.speakers]),
+    });
+    await audio.startRecording(state.recordingLayout.speakers.length);
+    audio.recorder.onfinish = (capture) => void finalizeChannelRecording(capture);
+    audio.recorder.onerror = handleRecordingError;
+    revokeRecordingDownload();
+    state.lastRecording = null;
+    state.recordingStarting = false;
+    state.recording = true;
+    state.recordingStartedAt = performanceSeconds();
+    state.recordingClockTimer = window.setInterval(updateRecordingClock, 100);
+    state.recordingStopTimer = window.setTimeout(
+      () => void stopChannelRecording("limit"),
+      MAX_RECORDING_SECONDS * 1000 - 150,
+    );
+    renderControls();
+    announce(`Recording ${state.recordingLayout.speakers.length} synchronized virtual output channels.`);
+  } catch (error) {
+    state.recordingLayout = null;
+    handleRecordingError(error);
+  }
+}
+
+async function stopChannelRecording(reason = "manual") {
+  if (state.recordingFinishing) return recordingFinalizePromise;
+  if (!state.recording && !state.recordingStarting && !audio.recorder?.active) return null;
+  clearRecordingTimers();
+  updateRecordingClock();
+  state.recording = false;
+  state.recordingStarting = false;
+  state.recordingFinishing = true;
+  renderControls();
+  try {
+    let capture = await audio.stopRecording();
+    if (capture && reason === "limit" && capture.reason === "stopped") {
+      capture = Object.freeze({ ...capture, reason: "limit" });
+    }
+    return await finalizeChannelRecording(capture);
+  } catch (error) {
+    handleRecordingError(error);
+    return null;
+  }
+}
+
+async function toggleChannelRecording() {
+  if (state.recording) await stopChannelRecording();
+  else await startChannelRecording();
+}
+
+function downloadChannelRecording() {
+  if (!state.recordingDownloadUrl || !state.recordingFilename) return;
+  const anchor = document.createElement("a");
+  anchor.href = state.recordingDownloadUrl;
+  anchor.download = state.recordingFilename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  announce(`Downloading ${state.recordingFilename}.`);
+}
+
+async function loadPatchFile(file) {
+  if (!file || state.fileLoading) return;
+  if (!state.audioOn && !(await ensureAudio())) return;
+  state.fileLoading = true;
+  renderControls();
+  try {
+    const loaded = await audio.loadFile(file);
+    announce(`${loaded.name} loaded. Play it through the coral source, then move the source to route it.`);
+  } catch (error) {
+    const message = error?.message ?? "Unable to decode that audio file.";
+    setText("audioError", message);
+    $("audioError").hidden = false;
+    announce(message);
+  } finally {
+    state.fileLoading = false;
+    renderControls();
+  }
+}
+
+async function togglePatchFilePlayback() {
+  if (audio.fileSource) {
+    audio.stopFile();
+    announce("Loaded audio stopped.");
+    return;
+  }
+  if (!state.audioOn && !(await ensureAudio())) return;
+  if (audio.playFile()) announce("Loaded audio is playing through the movable sound source.");
+}
+
+async function disableAudio() {
+  if (state.recordingStarting) {
+    announce("Wait for channel recording to finish starting before turning audio off.");
+    return;
+  }
+  if (state.recordingFinishing && recordingFinalizePromise) await recordingFinalizePromise;
   state.sequenceOn = false;
   clearSequenceVisuals();
   audio.cancelScheduledVoices("sequence");
   stopAudioScheduler();
   stopSweep();
+  audio.stopFile();
+  if (state.recording || audio.recorder?.active) await stopChannelRecording();
+  state.audioOn = false;
   audio.disable();
   renderControls();
 }
@@ -788,18 +1167,21 @@ async function testSpeaker(index) {
   if (!audio.testSpeaker(index)) return;
   state.testEnergy[index] = 1;
   audio.activity = Math.max(audio.activity, 0.62);
-  const node = document.querySelector(`.speaker-node[data-index="${index}"]`);
-  node?.classList.add("is-testing");
-  window.setTimeout(() => node?.classList.remove("is-testing"), 310);
+  const nodes = document.querySelectorAll(`[data-index="${index}"].speaker-node, [data-index="${index}"].channel-meter`);
+  for (const node of nodes) node.classList.add("is-testing");
+  const signal = TEST_SIGNALS[state.testSignal] ?? TEST_SIGNALS[DEFAULT_TEST_SIGNAL];
+  window.setTimeout(() => {
+    for (const node of nodes) node.classList.remove("is-testing");
+  }, signal.durationSeconds * 1000 + 60);
   const speaker = currentLayout().speakers[index];
-  announce(`Testing channel ${speaker.channel}, ${speaker.label}.`);
+  announce(`Testing channel ${speaker.channel}, ${speaker.label}, with ${signal.label} at ${signal.referenceDbfs + state.testTrimDb} dBFS ${signal.referenceUnit.toLowerCase()}.`);
 }
 
 function stopSweep() {
   state.sweeping = false;
   for (const timer of state.sweepTimers) window.clearTimeout(timer);
   state.sweepTimers = [];
-  audio.cancelScheduledTests("sweep");
+  audio.cancelScheduledTests("sweep", true);
   $("sweepButton")?.setAttribute("aria-pressed", "false");
 }
 
@@ -809,9 +1191,12 @@ function scheduleSweepVisual(index, when) {
     if (!state.sweeping) return;
     state.testEnergy[index] = 1;
     audio.activity = Math.max(audio.activity, 0.62);
-    const node = document.querySelector(`.speaker-node[data-index="${index}"]`);
-    node?.classList.add("is-testing");
-    window.setTimeout(() => node?.classList.remove("is-testing"), 310);
+    const nodes = document.querySelectorAll(`[data-index="${index}"].speaker-node, [data-index="${index}"].channel-meter`);
+    for (const node of nodes) node.classList.add("is-testing");
+    const signal = TEST_SIGNALS[state.testSignal] ?? TEST_SIGNALS[DEFAULT_TEST_SIGNAL];
+    window.setTimeout(() => {
+      for (const node of nodes) node.classList.remove("is-testing");
+    }, signal.durationSeconds * 1000 + 60);
   }, delay);
   state.sweepTimers.push(timer);
 }
@@ -825,13 +1210,14 @@ async function toggleSweep() {
   if (!state.audioOn && !(await ensureAudio())) return;
   state.sweeping = true;
   $("sweepButton").setAttribute("aria-pressed", "true");
+  const signal = TEST_SIGNALS[state.testSignal] ?? TEST_SIGNALS[DEFAULT_TEST_SIGNAL];
   const start = audio.context.currentTime + AUDIO_TIMING.minimumLeadSeconds;
   currentLayout().speakers.forEach((_, index) => {
-    const when = start + index * AUDIO_TIMING.sweepStepSeconds;
-    audio.testSpeaker(index, when, "sweep");
+    const when = start + index * signal.sweepStepSeconds;
+    audio.testSpeaker(index, when, "sweep", state.testSignal, state.testTrimDb);
     scheduleSweepVisual(index, when);
   });
-  const duration = (currentLayout().speakers.length - 1) * AUDIO_TIMING.sweepStepSeconds + 0.34;
+  const duration = (currentLayout().speakers.length - 1) * signal.sweepStepSeconds + signal.durationSeconds + 0.06;
   const completionTimer = window.setTimeout(() => {
     if (!state.sweeping) return;
     stopSweep();
@@ -869,7 +1255,13 @@ function announce(message) {
   setText("liveStatus", message);
 }
 
-function resetAll() {
+async function resetAll() {
+  if (state.recordingStarting) {
+    announce("Wait for channel recording to finish starting before resetting.");
+    return;
+  }
+  if (state.recordingFinishing && recordingFinalizePromise) await recordingFinalizePromise;
+  if (state.recording || audio.recorder?.active) await stopChannelRecording();
   stopSweep();
   clearSequenceVisuals();
   audio.cancelScheduledVoices("sequence");
@@ -888,6 +1280,8 @@ function resetAll() {
   state.release = DEFAULTS.release;
   state.level = DEFAULTS.level;
   state.forcePreview = DEFAULTS.forcePreview;
+  state.testSignal = DEFAULTS.testSignal;
+  state.testTrimDb = DEFAULTS.testTrimDb;
   state.sequenceOn = false;
   state.transportStarting = false;
   $("speakerCount").value = String(state.customCount);
@@ -897,6 +1291,8 @@ function resetAll() {
   $("color").value = String(state.color);
   $("release").value = String(state.release);
   $("level").value = String(state.level);
+  $("testTrim").value = String(state.testTrimDb);
+  audio.stopFile();
   audio.setLevel(state.level);
   audio.setColor(state.color);
   setLayout(state.layoutId);
@@ -905,12 +1301,12 @@ function resetAll() {
 
 function bindControls() {
   $("audioButton").addEventListener("click", () => {
-    if (state.audioOn) disableAudio();
+    if (state.audioOn) void disableAudio();
     else void ensureAudio();
   });
   $("sequenceButton").addEventListener("click", () => void toggleSequence());
   $("sweepButton").addEventListener("click", () => void toggleSweep());
-  $("resetAll").addEventListener("click", resetAll);
+  $("resetAll").addEventListener("click", () => void resetAll());
   $("centerSource").addEventListener("click", () => {
     setMotion("manual");
     state.position = { x: 0, y: 0, z: state.position.z };
@@ -939,6 +1335,14 @@ function bindControls() {
       state.forcePreview = button.dataset.route === "preview";
       if (audio.context) audio.rebuildRoutes(currentLayout(), state.forcePreview);
       renderControls();
+    });
+  }
+  for (const button of document.querySelectorAll("[data-test-signal]")) {
+    button.addEventListener("click", () => {
+      stopSweep();
+      state.testSignal = button.dataset.testSignal;
+      renderControls();
+      announce(`${TEST_SIGNALS[state.testSignal].label} selected for speaker tests.`);
     });
   }
   for (const button of document.querySelectorAll("[data-note]")) {
@@ -983,6 +1387,22 @@ function bindControls() {
     audio.setLevel(state.level);
     renderControls();
   });
+  $("testTrim").addEventListener("input", (event) => {
+    state.testTrimDb = clamp(
+      Number(event.target.value),
+      TEST_TRIM_RANGE.minimum,
+      TEST_TRIM_RANGE.maximum,
+    );
+    renderControls();
+  });
+
+  $("recordButton").addEventListener("click", () => void toggleChannelRecording());
+  $("downloadRecording").addEventListener("click", downloadChannelRecording);
+  $("patchFile").addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (file) void loadPatchFile(file);
+  });
+  $("filePlayButton").addEventListener("click", () => void togglePatchFilePlayback());
 
   $("emitter").addEventListener("pointerdown", beginEmitterDrag);
   $("emitter").addEventListener("pointermove", moveEmitter);
@@ -1015,7 +1435,7 @@ function bindControls() {
       event.preventDefault();
       void toggleSequence();
     }
-    if (event.code === "Escape" && state.audioOn) disableAudio();
+    if (event.code === "Escape" && state.audioOn) void disableAudio();
   });
 
   window.addEventListener("morphazoid:midi-input", (event) => {
@@ -1029,6 +1449,13 @@ function bindControls() {
       // the universal adapter does not start an unrelated fallback control.
       event.preventDefault();
     }
+  });
+
+  window.addEventListener("pagehide", () => {
+    clearRecordingTimers();
+    audio.recorder?.cancel();
+    audio.stopFile();
+    revokeRecordingDownload();
   });
 }
 
@@ -1081,6 +1508,12 @@ function exposeDebugState() {
       audioSchedulerRunning: Boolean(audioSchedulerTimer),
       nextPhraseAt: state.nextPhraseAt,
       gainCount: state.gains.length,
+      testSignal: state.testSignal,
+      testTrimDb: state.testTrimDb,
+      recording: state.recording,
+      recordingFinishing: state.recordingFinishing,
+      routeTargetIndices: Object.freeze(audio.speakerRoutes.map(({ targetIndex }) => targetIndex)),
+      lastRecording: state.lastRecording,
     }),
     selectLayout: setLayout,
   });
@@ -1090,6 +1523,7 @@ function initialize() {
   state.motionStartedAt = performanceSeconds();
   state.testEnergy = Array(currentLayout().speakers.length).fill(0);
   state.gains = computeSpeakerGains(currentLayout().speakers, state.position, state.focus);
+  audio.onFileStateChange = renderControls;
   bindControls();
   renderRoomGeometry();
   renderSpeakerLayer();

@@ -882,6 +882,11 @@
   --accent-glow: rgba(255, 197, 103, 0.09) !important;
 }
 
+.recorder-section {
+  --accent: var(--field-cyan) !important;
+  --accent-glow: rgba(84, 230, 208, 0.09) !important;
+}
+
 .layout-grid {
   display: grid;
   margin-bottom: 14px;
@@ -1129,6 +1134,101 @@
   background: rgba(255, 197, 103, 0.05);
 }
 
+.test-signal-heading {
+  display: flex;
+  margin: 15px 0 7px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.test-signal-heading b {
+  color: rgba(243, 240, 223, 0.86);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.test-signal-heading span {
+  overflow: hidden;
+  color: rgba(255, 217, 150, 0.86);
+  font: 7px/1.3 var(--mono);
+  text-align: right;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.test-signal-grid {
+  display: grid;
+  margin-bottom: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.test-signal-grid button {
+  display: grid;
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 7px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: rgba(243, 240, 223, 0.76);
+  background: transparent;
+  align-content: center;
+  justify-items: start;
+  gap: 4px;
+  text-align: left;
+}
+
+.test-signal-grid b {
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.test-signal-grid small {
+  color: rgba(243, 240, 223, 0.66);
+  font: 6px/1.3 var(--mono);
+  white-space: nowrap;
+}
+
+.test-signal-grid button:hover,
+.test-signal-grid button:focus-visible,
+.test-signal-grid button[aria-pressed="true"] {
+  border-color: #ffc567;
+  color: #ffd996;
+  background: rgba(255, 197, 103, 0.06);
+}
+
+.test-signal-grid button[aria-pressed="true"] small {
+  color: rgba(255, 217, 150, 0.82);
+}
+
+.test-trim-control {
+  margin-bottom: 10px;
+}
+
+.test-trim-control > span b {
+  color: rgba(243, 240, 223, 0.86);
+}
+
+.test-trim-control output {
+  color: rgba(243, 240, 223, 0.76);
+}
+
+.test-trim-control > small {
+  display: flex;
+  margin-top: -6px;
+  color: rgba(243, 240, 223, 0.64);
+  font: 6px/1.4 var(--mono);
+  justify-content: space-between;
+}
+
+.test-trim-control > small i {
+  font-style: normal;
+}
+
 .sweep-button {
   display: grid;
   width: 100%;
@@ -1154,7 +1254,7 @@
 }
 
 .sweep-button small {
-  color: rgba(243, 240, 223, 0.3);
+  color: rgba(243, 240, 223, 0.68);
   font-size: 6px;
   text-transform: uppercase;
 }
@@ -1166,7 +1266,7 @@
 }
 
 .sweep-button[aria-pressed="true"] small {
-  color: rgba(8, 10, 9, 0.55);
+  color: rgba(8, 10, 9, 0.82);
 }
 
 .channel-meters {
@@ -1183,21 +1283,47 @@
 
 .channel-meter {
   display: grid;
-  min-height: 25px;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 3px 5px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+  font: inherit;
   grid-template-columns: 22px 34px minmax(0, 1fr);
   align-items: center;
   gap: 6px;
+  text-align: left;
+}
+
+.channel-meter:hover,
+.channel-meter:focus-visible,
+.channel-meter.is-testing {
+  border-color: color-mix(in oklab, var(--meter-color, #ffc567) 58%, transparent);
+  background: color-mix(in oklab, var(--meter-color, #ffc567) 7%, transparent);
+}
+
+.channel-meter:focus-visible {
+  outline: 1px solid var(--meter-color, #ffc567);
+  outline-offset: -2px;
+}
+
+.channel-meter.is-testing > b,
+.channel-meter.is-testing > span {
+  color: var(--meter-color, #ffc567);
 }
 
 .channel-meter > b {
-  color: rgba(243, 240, 223, 0.26);
+  color: rgba(243, 240, 223, 0.66);
   font-size: 6px;
   font-weight: 500;
 }
 
 .channel-meter > span {
   overflow: hidden;
-  color: rgba(243, 240, 223, 0.5);
+  color: rgba(243, 240, 223, 0.78);
   font-size: 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1231,7 +1357,7 @@
 
 .calibration-note {
   margin: 11px 0 3px;
-  color: rgba(243, 240, 223, 0.34);
+  color: rgba(243, 240, 223, 0.68);
   font-size: 8px;
   line-height: 1.55;
 }
@@ -1239,6 +1365,173 @@
 .calibration-note b {
   color: #ffc567;
   font-weight: 600;
+}
+
+.patch-source,
+.recording-console {
+  padding: 11px;
+  border: 1px solid rgba(84, 230, 208, 0.14);
+  background: rgba(84, 230, 208, 0.025);
+}
+
+.patch-file-label {
+  display: flex;
+  margin-bottom: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.patch-file-label b {
+  color: rgba(243, 240, 223, 0.86);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.patch-file-label span {
+  color: rgba(243, 240, 223, 0.66);
+  font-size: 7px;
+}
+
+.patch-file-input {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin: 0 0 8px;
+  color: rgba(243, 240, 223, 0.76);
+  font: 7px/1.3 var(--mono);
+}
+
+.patch-file-input::file-selector-button {
+  min-height: 36px;
+  padding: 0 10px;
+  margin-right: 8px;
+  border: 1px solid rgba(84, 230, 208, 0.28);
+  cursor: pointer;
+  color: var(--field-cyan);
+  background: rgba(84, 230, 208, 0.04);
+  font: 7px/1 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.file-play-button {
+  display: grid;
+  width: 100%;
+  min-height: 51px;
+  padding: 8px 10px;
+  border: 1px solid rgba(84, 230, 208, 0.24);
+  cursor: pointer;
+  color: var(--field-cyan);
+  background: rgba(84, 230, 208, 0.025);
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  text-align: left;
+}
+
+.file-play-button > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.file-play-button b {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.file-play-button small {
+  overflow: hidden;
+  color: rgba(243, 240, 223, 0.68);
+  font: 6px/1.3 var(--mono);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.file-play-button:hover:not(:disabled),
+.file-play-button:focus-visible,
+.file-play-button[aria-pressed="true"] {
+  color: #08100e;
+  background: var(--field-cyan);
+}
+
+.file-play-button[aria-pressed="true"] small {
+  color: rgba(8, 16, 14, 0.82);
+}
+
+.file-play-button:disabled,
+.record-button:disabled,
+.download-recording:disabled,
+.patch-file-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.recording-console {
+  margin-top: 8px;
+}
+
+.record-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+
+.record-button,
+.download-recording {
+  min-height: 46px;
+  padding: 8px 9px;
+  border: 1px solid rgba(243, 240, 223, 0.13);
+  cursor: pointer;
+  color: rgba(243, 240, 223, 0.58);
+  background: transparent;
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.record-button {
+  display: grid;
+  border-color: rgba(255, 112, 76, 0.3);
+  color: #ff9277;
+  grid-template-columns: 17px minmax(0, 1fr);
+  align-items: center;
+  text-align: left;
+}
+
+.record-button:hover:not(:disabled),
+.record-button:focus-visible,
+.record-button[aria-pressed="true"] {
+  color: #080a09;
+  background: var(--field-coral);
+}
+
+.download-recording:hover:not(:disabled),
+.download-recording:focus-visible {
+  border-color: var(--field-cyan);
+  color: var(--field-cyan);
+  background: rgba(84, 230, 208, 0.06);
+}
+
+.record-status {
+  min-height: 1.3em;
+  margin: 8px 0 0;
+  color: rgba(84, 230, 208, 0.9);
+  font: 7px/1.3 var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.patch-note {
+  margin: 11px 0 3px;
+  color: rgba(243, 240, 223, 0.68);
+  font-size: 8px;
+  line-height: 1.55;
 }
 
 .web-audio-fact {
@@ -1500,6 +1793,35 @@
 
   .group-summary {
     padding: 0 16px;
+  }
+
+  .test-signal-grid button,
+  .channel-meter,
+  .patch-file-input,
+  .file-play-button,
+  .record-button,
+  .download-recording {
+    min-height: 48px;
+  }
+
+  .channel-meters {
+    max-height: 240px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .record-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (pointer: coarse) {
+  .test-signal-grid button,
+  .channel-meter,
+  .file-play-button,
+  .record-button,
+  .download-recording,
+  .patch-file-input::file-selector-button {
+    min-height: 48px;
   }
 }
 

@@ -106,6 +106,8 @@ test("site builder publishes runtime files without development material", async 
       "surround-field.css",
       "surround-field-app.js",
       "src/surround-field.js",
+      "src/surround-field-recorder.js",
+      "src/surround-field-recorder-processor.js",
       "assets/instruments/surround-field.webp",
       "pink-trombonazoid.html",
       "pink-trombonazoid.css",

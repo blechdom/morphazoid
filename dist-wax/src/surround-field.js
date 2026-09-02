@@ -3,6 +3,108 @@
 // visual custom array at that portable floor.
 export const DEMO_MAX_CHANNELS = 32;
 
+export const DEFAULT_TEST_SIGNAL = "pink";
+export const TEST_TRIM_RANGE = Object.freeze({ minimum: -24, maximum: 6, defaultValue: 0 });
+export const TEST_SIGNALS = Object.freeze({
+  pink: Object.freeze({
+    id: "pink",
+    label: "Pink noise",
+    detail: "speaker calibration",
+    referenceDbfs: -20,
+    referenceUnit: "RMS",
+    durationSeconds: 0.9,
+    sweepStepSeconds: 1.05,
+  }),
+  tone: Object.freeze({
+    id: "tone",
+    label: "1 kHz tone",
+    detail: "line alignment",
+    referenceDbfs: -18,
+    referenceUnit: "PEAK",
+    durationSeconds: 0.9,
+    sweepStepSeconds: 1.05,
+  }),
+  chirp: Object.freeze({
+    id: "chirp",
+    label: "ID chirp",
+    detail: "quick routing check",
+    referenceDbfs: -18,
+    referenceUnit: "PEAK",
+    durationSeconds: 0.32,
+    sweepStepSeconds: 0.46,
+  }),
+});
+
+export function dbfsToGain(dbfs) {
+  const value = Number(dbfs);
+  return Number.isFinite(value) ? 10 ** (value / 20) : 0;
+}
+
+export function signalRms(samples) {
+  if (!samples?.length) return 0;
+  let squareSum = 0;
+  for (const sample of samples) squareSum += Number(sample) ** 2;
+  return Math.sqrt(squareSum / samples.length);
+}
+
+export function createPinkNoiseSamples(frameCount, targetDbfs = -20, seed = 0x53463332) {
+  const length = Math.max(1, Math.floor(Number(frameCount) || 1));
+  const samples = new Float32Array(length);
+  let randomState = (Number(seed) >>> 0) || 0x53463332;
+  let b0 = 0;
+  let b1 = 0;
+  let b2 = 0;
+  let b3 = 0;
+  let b4 = 0;
+  let b5 = 0;
+  let b6 = 0;
+
+  for (let index = 0; index < length; index += 1) {
+    randomState ^= randomState << 13;
+    randomState ^= randomState >>> 17;
+    randomState ^= randomState << 5;
+    const white = ((randomState >>> 0) / 0xffffffff) * 2 - 1;
+    b0 = 0.99886 * b0 + white * 0.0555179;
+    b1 = 0.99332 * b1 + white * 0.0750759;
+    b2 = 0.969 * b2 + white * 0.153852;
+    b3 = 0.8665 * b3 + white * 0.3104856;
+    b4 = 0.55 * b4 + white * 0.5329522;
+    b5 = -0.7616 * b5 - white * 0.016898;
+    samples[index] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+    b6 = white * 0.115926;
+  }
+
+  const rms = signalRms(samples) || 1;
+  const scale = dbfsToGain(targetDbfs) / rms;
+  for (let index = 0; index < samples.length; index += 1) samples[index] *= scale;
+  return samples;
+}
+
+export function createLfePinkNoiseSamples(
+  frameCount,
+  sampleRate,
+  targetDbfs = -20,
+  seed = 0x4c464533,
+) {
+  const safeSampleRate = Math.max(8_000, Number(sampleRate) || 48_000);
+  const samples = createPinkNoiseSamples(frameCount, -12, seed);
+  const lowpassCoefficient = 1 - Math.exp((-2 * Math.PI * 120) / safeSampleRate);
+  const dcCoefficient = 1 - Math.exp((-2 * Math.PI * 20) / safeSampleRate);
+  let lowpassed = 0;
+  let dcEstimate = 0;
+
+  for (let index = 0; index < samples.length; index += 1) {
+    lowpassed += lowpassCoefficient * (samples[index] - lowpassed);
+    dcEstimate += dcCoefficient * (lowpassed - dcEstimate);
+    samples[index] = lowpassed - dcEstimate;
+  }
+
+  const rms = signalRms(samples) || 1;
+  const scale = dbfsToGain(targetDbfs) / rms;
+  for (let index = 0; index < samples.length; index += 1) samples[index] *= scale;
+  return samples;
+}
+
 const round = (value, places = 4) => Number(value.toFixed(places));
 
 // Timers only wake the scheduler. Every onset is placed on the Web Audio
@@ -92,10 +194,10 @@ export function makeLayouts(customRingCount = 8) {
     speaker("right", "R", 2, polar(0.92, 30)),
     speaker("center", "C", 3, polar(0.92, 0)),
     speaker("sub", "LFE", 4, { x: -0.97, y: -0.28, z: -0.16, azimuth: -76 }, "lfe"),
-    speaker("left-side", "Ls", 5, polar(0.92, -100)),
-    speaker("right-side", "Rs", 6, polar(0.92, 100)),
-    speaker("left-rear", "Lrs", 7, polar(0.92, -145)),
-    speaker("right-rear", "Rrs", 8, polar(0.92, 145)),
+    speaker("left-rear", "Lrs", 5, polar(0.92, -145)),
+    speaker("right-rear", "Rrs", 6, polar(0.92, 145)),
+    speaker("left-side", "Ls", 7, polar(0.92, -100)),
+    speaker("right-side", "Rs", 8, polar(0.92, 100)),
     speaker("top-front-left", "Tfl", 9, { x: -0.55, y: -0.58, z: 0.95, azimuth: -44 }, "height"),
     speaker("top-front-right", "Tfr", 10, { x: 0.55, y: -0.58, z: 0.95, azimuth: 44 }, "height"),
     speaker("top-rear-left", "Trl", 11, { x: -0.55, y: 0.58, z: 0.95, azimuth: -136 }, "height"),

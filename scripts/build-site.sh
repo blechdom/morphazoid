@@ -84,6 +84,8 @@ for worktree_runtime_file in \
   surround-field.css \
   surround-field-app.js \
   src/surround-field.js \
+  src/surround-field-recorder.js \
+  src/surround-field-recorder-processor.js \
   assets/instruments/surround-field.webp \
   striped-staircase.html \
   striped-staircase.css \

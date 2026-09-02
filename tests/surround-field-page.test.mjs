@@ -30,11 +30,42 @@ test("output capability copy distinguishes graph channels from physical outputs"
 test("audio routing has real discrete and explicit stereo-preview paths", () => {
   assert.match(app, /createChannelMerger\(layout\.speakers\.length\)/);
   assert.match(app, /channelInterpretation = "discrete"/);
-  assert.match(app, /routeEntry\.connect\(merger, 0, index\)/);
+  assert.match(app, /channelBus\.connect\(virtualBus, 0, targetIndex\)/);
+  assert.match(app, /speaker\.channel - 1/);
   assert.match(app, /createStereoPanner\(\)/);
-  assert.match(app, /connectAudioOutput\(context, merger\)/);
+  assert.match(app, /connectAudioOutput\(context, this\.outputNode\)/);
+  assert.match(app, /limiter\.threshold\.value = -3/);
   assert.match(app, /speaker\.kind === "lfe"/);
   assert.match(app, /lowpass\.frequency\.value = 120/);
+});
+
+test("speaker tests expose calibrated sources and tappable channel controls", () => {
+  for (const signal of ["pink", "tone", "chirp"]) {
+    assert.match(html, new RegExp(`data-test-signal="${signal}"`));
+  }
+  assert.match(html, /Pink noise[\s\S]+−20 dBFS RMS/);
+  assert.match(html, /1 kHz tone[\s\S]+−18 dBFS PEAK/);
+  assert.match(html, /id="testTrim"[^>]+min="-24" max="6"/);
+  assert.match(html, /id="level"[^>]+max="1"[^>]+value="0\.55"/);
+  assert.match(app, /level: 0\.55/);
+  assert.match(html, /OS volume, interface, amplifier, and room determine the resulting SPL/);
+  assert.match(app, /document\.createElement\("button"\)[\s\S]+className = "channel-meter"/);
+  assert.match(app, /createLfePinkNoiseSamples/);
+  assert.match(app, /source\.connect\(gain\)\.connect\(route\.testTarget\)/);
+  assert.match(css, /\.channel-meter:[\s\S]*?focus-visible/);
+});
+
+test("local audio can enter at unity and synchronized stems can be captured", () => {
+  for (const id of ["patchFile", "filePlayButton", "recordButton", "downloadRecording", "recordStatus"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(html, /enters at unity/);
+  assert.match(html, /synchronized mono WAV stems/);
+  assert.match(app, /source\.connect\(this\.patchInput\)/);
+  assert.match(app, /await audio\.startRecording/);
+  assert.match(app, /buildStemArchive\(capture/);
+  assert.match(app, /URL\.createObjectURL/);
+  assert.match(app, /MAX_RECORDING_SECONDS \* 1000 - 150/);
 });
 
 test("Play leads the right-hand controls and exposes audio timing priority", () => {
@@ -71,7 +102,7 @@ test("audio clock schedules sound while animation remains visual-only", () => {
   const transport = app.slice(transportStart, transportEnd);
   assert.ok(transport.indexOf("await ensureAudio()") < transport.indexOf("state.sequenceOn = true"));
   assert.match(transport, /audio\.cancelScheduledVoices\("sequence"\)/);
-  assert.match(app, /audio\.testSpeaker\(index, when, "sweep"\)/);
+  assert.match(app, /audio\.testSpeaker\(index, when, "sweep", state\.testSignal, state\.testTrimDb\)/);
 });
 
 test("the room stays playable on pointer, keyboard, and mobile", () => {

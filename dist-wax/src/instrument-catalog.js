@@ -45,9 +45,9 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "surround-field": define(
     "Multichannel spatial instrument",
-    "Places a playable synth source inside 7:4:1, 4:1, eight-speaker circle, eight-speaker cube, and two-to-thirty-two-channel custom arrays, with visible equal-power sends and per-output calibration.",
-    "Turn on audio to probe the active device, choose an array, then drag the coral source, play the A–K pads, orbit a phrase, or test each numbered output.",
-    ["Pointer", "Built-in synth", "Spatial audio", "Discrete output", "Device probe"],
+    "Places synth or imported audio inside 7:4:1, 4:1, eight-speaker circle, eight-speaker cube, and two-to-thirty-two-channel custom arrays, with calibrated speaker tests and synchronized channel-stem capture.",
+    "Turn on audio, choose an array, then test a numbered speaker, move the coral source, load an audio file, or record the virtual outputs as mono WAV stems.",
+    ["Pointer", "Built-in synth", "Audio file", "Spatial audio", "Discrete output", "Channel stems", "Device probe"],
   ),
   lattice: define(
     "Synth",
