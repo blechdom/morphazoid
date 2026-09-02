@@ -1,4 +1,5 @@
-import { INSTRUMENTS } from "./src/instrument-catalog.js?v=catalog-20260829-10";
+import { FAVE_TOOL_IDS } from "./nav.js?v=catalog-20260902-1";
+import { INSTRUMENTS } from "./src/instrument-catalog.js?v=catalog-20260902-1";
 
 const ALL_TAG_ID = "all";
 
@@ -89,6 +90,17 @@ export function instrumentMatchesTag(instrument, tagId) {
   return tagId === ALL_TAG_ID || instrument.tags.some(({ id }) => id === tagId);
 }
 
+export function orderHomepageInstruments(instruments) {
+  const instrumentById = new Map(instruments.map((instrument) => [instrument.id, instrument]));
+  const favoriteIds = new Set(FAVE_TOOL_IDS);
+  const shapes = instrumentById.get("combo");
+  return [
+    ...FAVE_TOOL_IDS.map((id) => instrumentById.get(id)).filter(Boolean),
+    ...instruments.filter(({ id }) => !favoriteIds.has(id) && id !== "combo"),
+    ...(shapes ? [shapes] : []),
+  ];
+}
+
 function catalogueTags(records) {
   const seen = new Set();
   const tags = [];
@@ -110,7 +122,7 @@ function catalogueTags(records) {
   return tags;
 }
 
-function createTagFilter(doc, records, experiments) {
+function createTagFilter(doc, records, experiments, deferredAppGrid) {
   const filter = element(doc, "div", "catalogue-tag-filter");
   filter.setAttribute("role", "group");
   filter.setAttribute("aria-label", "Filter instruments by tag");
@@ -124,6 +136,8 @@ function createTagFilter(doc, records, experiments) {
       if (matches && instrument.status) visibleExperiments += 1;
     }
     experiments.hidden = visibleExperiments === 0;
+    deferredAppGrid.hidden = records.find(({ instrument }) => instrument.id === "combo")
+      ?.card.hidden ?? true;
     for (const button of buttons) {
       button.setAttribute(
         "aria-pressed",
@@ -152,13 +166,16 @@ export function renderInstrumentCatalog(root) {
   if (!root?.ownerDocument) return null;
   const doc = root.ownerDocument;
   const grid = element(doc, "div", "instrument-catalog-grid");
+  const homepageInstruments = orderHomepageInstruments(INSTRUMENTS);
+  const displayIndexById = new Map(homepageInstruments.map(({ id }, index) => [id, index]));
   const records = INSTRUMENTS.map((instrument, index) => ({
     instrument,
-    card: createCard(doc, instrument, index),
+    card: createCard(doc, instrument, displayIndexById.get(instrument.id) ?? index),
   }));
-  const instrumentCards = records
-    .filter(({ instrument }) => !instrument.status)
-    .map(({ card }) => card);
+  const recordById = new Map(records.map((record) => [record.instrument.id, record]));
+  const instrumentCards = homepageInstruments
+    .filter((instrument) => !instrument.status && instrument.id !== "combo")
+    .map(({ id }) => recordById.get(id).card);
   const experimentCards = records
     .filter(({ instrument }) => instrument.status)
     .map(({ card }) => card);
@@ -177,15 +194,25 @@ export function renderInstrumentCatalog(root) {
   experimentGrid.append(...experimentCards);
   experiments.append(experimentsHeading, experimentGrid);
 
-  const { filter, setActiveTag } = createTagFilter(doc, records, experiments);
+  const deferredAppGrid = element(doc, "div", "instrument-catalog-grid");
+  const shapesCard = recordById.get("combo")?.card;
+  if (shapesCard) deferredAppGrid.append(shapesCard);
 
-  root.replaceChildren(filter, grid, experiments);
+  const { filter, setActiveTag } = createTagFilter(
+    doc,
+    records,
+    experiments,
+    deferredAppGrid,
+  );
+
+  root.replaceChildren(filter, grid, experiments, deferredAppGrid);
   return Object.freeze({
     root,
     filter,
     grid,
     experiments,
     experimentGrid,
+    deferredAppGrid,
     cards: Object.freeze(records.map(({ card }) => card)),
     setActiveTag,
   });

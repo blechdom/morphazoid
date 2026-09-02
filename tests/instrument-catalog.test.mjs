@@ -171,7 +171,7 @@ test("Slippery Resynthesis catalogues its FFT resynthesis and both local input p
   assert.ok(instrument?.features.includes("MIDI"));
   assert.equal(instrument?.features.includes("Computer keys"), false);
   assert.ok(instrument?.features.includes("Speech-detail resynthesis"));
-  assert.ok(instrument?.tags.some(({ id }) => id === "faves"));
+  assert.equal(instrument?.tags.some(({ id }) => id === "faves"), false);
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis")?.noteMode, "processor");
 });
 
@@ -202,7 +202,7 @@ test("Fabric Filter catalogues its two-dimensional noise-filter collision engine
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("MIDI"));
   assert.equal(instrument?.features.includes("Computer keys"), false);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["barber-shop-poles", "faves"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["barber-shop-poles"]);
   const midi = instrumentMidiCapabilityForId("moire-drone");
   assert.equal(midi?.noteMode, "processor");
   assert.equal(midi?.audioInput, false);
@@ -218,7 +218,7 @@ test("Modular Shader Synth is a sequencer instrument with shared GPU artwork", (
   assert.equal(instrument?.imageHref, "assets/instruments/webgpu-synths.webp");
   assert.match(instrument?.description ?? "", /editable graph/i);
   assert.match(instrument?.description ?? "", /WGSL compute shaders/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers", "faves"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers"]);
   assert.ok(instrument?.features.includes("WebGPU"));
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("Built-in synth"));
@@ -326,7 +326,7 @@ test("Pink Trombonazoid is an articulatory voice sequencer without generic note 
   assert.match(instrument?.description ?? "", /physical vocal tract/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["voice-synths", "sequencers", "faves"],
+    ["voice-synths", "sequencers"],
   );
   assert.ok(instrument?.features.includes("Built-in source"));
   assert.ok(instrument?.features.includes("Pointer"));
@@ -352,7 +352,7 @@ test("Hiccup Head is a monophonic physical beatbox sequencer with page-owned dru
   assert.match(instrument?.start ?? "", /one gesture per column/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["voice-synths", "sequencers"],
+    ["voice-synths", "sequencers", "faves"],
   );
   assert.ok(instrument?.features.includes("Built-in source"));
   assert.ok(instrument?.features.includes("Pointer"));
@@ -454,7 +454,7 @@ test("catalogue tag matching includes secondary tags", () => {
   assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "geometry"), false);
   assert.equal(instrumentMatchesTag(instrumentById("fm-drums"), "geometry-drums"), true);
   assert.equal(instrumentMatchesTag(instrumentById("shape"), "faves"), true);
-  assert.equal(instrumentMatchesTag(instrumentById("lattice"), "faves"), false);
+  assert.equal(instrumentMatchesTag(instrumentById("lattice"), "faves"), true);
 });
 
 test("catalogue tag controls hide experiments until All is restored", () => {
@@ -499,7 +499,6 @@ test("catalogue tag controls hide experiments until All is restored", () => {
   assert.deepEqual(filterLabels, [
     "All",
     "Faves",
-    "Apps",
     "Geometry Synths",
     "Drum Machines",
     "Sequencers",
@@ -511,7 +510,16 @@ test("catalogue tag controls hide experiments until All is restored", () => {
     "Misc",
     "Instruments",
     "Algorithmic Sequencers",
+    "Apps",
   ]);
+  const homeCardIds = rendered.grid.children.map(({ dataset }) => dataset.instrumentId);
+  assert.deepEqual(homeCardIds.slice(0, FAVE_TOOL_IDS.length), FAVE_TOOL_IDS);
+  assert.equal(homeCardIds.includes("combo"), false);
+  assert.deepEqual(
+    rendered.deferredAppGrid.children.map(({ dataset }) => dataset.instrumentId),
+    ["combo"],
+  );
+  assert.equal(rendered.root.children.at(-1), rendered.deferredAppGrid);
 
   const favesButton = rendered.filter.children.find(
     ({ dataset }) => dataset.catalogueTag === "faves",
@@ -523,9 +531,16 @@ test("catalogue tag controls hide experiments until All is restored", () => {
     false,
   );
   assert.equal(
-    rendered.cards.find(({ dataset }) => dataset.instrumentId === "lattice").hidden,
+    rendered.cards.find(({ dataset }) => dataset.instrumentId === "moire-drone").hidden,
     true,
   );
+  assert.deepEqual(
+    rendered.grid.children
+      .filter(({ hidden }) => !hidden)
+      .map(({ dataset }) => dataset.instrumentId),
+    FAVE_TOOL_IDS,
+  );
+  assert.equal(rendered.deferredAppGrid.hidden, true);
   assert.equal(favesButton.attributes.get("aria-pressed"), "true");
 
   const chaoticButton = rendered.filter.children.find(
@@ -545,6 +560,7 @@ test("catalogue tag controls hide experiments until All is restored", () => {
 
   rendered.filter.children[0].click();
   assert.equal(rendered.experiments.hidden, false);
+  assert.equal(rendered.deferredAppGrid.hidden, false);
   assert.equal(rendered.cards.every(({ hidden }) => !hidden), true);
 });
 
@@ -705,7 +721,7 @@ test("card renderer separates in-development experiments from the main catalogue
   assert.ok(app.indexOf("image.loading =") < app.indexOf("image.src = instrument.imageHref"));
   assert.match(app, /grid\.append\(\.\.\.instrumentCards\)/);
   assert.match(app, /experimentGrid\.append\(\.\.\.experimentCards\)/);
-  assert.match(app, /root\.replaceChildren\(filter, grid, experiments\)/);
+  assert.match(app, /root\.replaceChildren\(filter, grid, experiments, deferredAppGrid\)/);
   assert.match(app, /catalogue-tag-filter/);
   assert.match(app, /Filter instruments by tag/);
   assert.match(app, /button\.dataset\.catalogueTag = tag\.id/);

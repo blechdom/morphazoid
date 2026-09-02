@@ -236,10 +236,25 @@ class FakeDocument {
 }
 
 test("tool registry is categorized, unique, and includes Morphazoidical", () => {
+  assert.deepEqual(FAVE_TOOL_IDS, [
+    "shape",
+    "solid",
+    "hyper",
+    "rubix",
+    "hyper-rubix",
+    "hybrinx",
+    "hiccup-head",
+    "jaw-harp",
+    "micmic",
+    "l-system",
+    "graph-delay",
+    "graph-synth",
+    "lattice",
+    "spiral",
+  ]);
   assert.deepEqual(
     TOOL_GROUPS.map((group) => group.label),
     [
-      "Apps",
       "Geometry Synths",
       "Drum Machines",
       "Sequencers",
@@ -252,6 +267,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       "Instruments",
       "Algorithmic Sequencers",
       "Experiments",
+      "Apps",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
@@ -1012,6 +1028,12 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   );
   assert.equal(groupNodes.every(({ tagName }) => tagName === "DETAILS"), true);
   assert.equal(groupNodes[0].getAttribute("data-group-id"), "faves");
+  assert.equal(groupNodes.at(-1).getAttribute("data-group-id"), "apps");
+  assert.deepEqual(
+    groupNodes.at(-1).findAll((node) => node.classList.contains("instrument-picker-link"))
+      .map((link) => link.getAttribute("data-tool-id")),
+    ["combo"],
+  );
   assert.equal(groupNodes[0].open, true);
   assert.equal(
     groupNodes.find((group) => group.getAttribute("data-group-id") === "fractals-recursion").open,
@@ -1084,6 +1106,11 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.deepEqual(
     doc.select.children.map((group) => group.label),
     basePickerGroups.map((group) => group.label),
+  );
+  assert.equal(doc.select.children.at(-1).label, "Apps");
+  assert.deepEqual(
+    doc.select.children.at(-1).children.map((option) => option.textContent),
+    ["Shapes"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   const orbitalFerrisOption = doc.select.findAll(

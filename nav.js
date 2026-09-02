@@ -56,16 +56,15 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "hyper",
   "rubix",
   "hyper-rubix",
-  "pink-trombonazoid",
   "hybrinx",
-  "ouroborousel",
-  "lattice-drums",
+  "hiccup-head",
+  "jaw-harp",
   "micmic",
-  "webgpu-synths",
-  "shader-synth-playground",
-  "sandy-syrup-delay",
-  "slippery-resynthesis",
-  "moire-drone",
+  "l-system",
+  "graph-delay",
+  "graph-synth",
+  "lattice",
+  "spiral",
 ]);
 
 /**
@@ -76,9 +75,6 @@ export const FAVE_TOOL_IDS = Object.freeze([
  * associated with the same top-level tool.
  */
 export const TOOL_GROUPS = Object.freeze([
-  freezeGroup("apps", "Apps", [
-    { id: "combo", label: "Shapes", href: "shapes.html" },
-  ]),
   freezeGroup("geometry", "Geometry Synths", [
     { id: "shape", label: "Shape", href: "shape.html" },
     { id: "lattice", label: "Lattice", href: "lattice.html" },
@@ -399,6 +395,9 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "escape-dust", label: "Escape Dust", href: "escape-dust.html" },
     { id: "linebreaker", label: "Linebreaker", href: "linebreaker.html" },
   ], { picker: false }),
+  freezeGroup("apps", "Apps", [
+    { id: "combo", label: "Shapes", href: "shapes.html" },
+  ]),
 ]);
 
 export const SITE_LINKS = Object.freeze([]);
