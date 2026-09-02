@@ -7,9 +7,9 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Sliding Puzzle Sequencer — resize a square or rectangular note puzzle, slide complete lines around one audible rest, play tiles serially or all rows in parallel, rotate, scramble, and unwind."
+      content="Morphazoid Sliding Puzzle — resize a square or rectangular note puzzle, slide complete lines around one audible rest, play tiles serially or all rows in parallel, rotate, scramble, and unwind."
     />
-    <title>Sliding Puzzle Sequencer — Morphazoid</title>
+    <title>Sliding Puzzle — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="sliding-puzzle.css" />
@@ -23,7 +23,7 @@
 
       <nav class="tabs" aria-label="Instrument">
         <a class="tab" href="rubix.html">rubix</a>
-        <a class="tab active sliding-puzzle-tab" href="sliding-puzzle.html" aria-current="page">slide</a>
+        <a class="tab active sliding-puzzle-tab" href="sliding-puzzle.html" aria-current="page">sliding puzzle</a>
         <a class="tab" href="hyper-rubix.html">hyper rubix</a>
         <a class="tab" href="webgpu-303.html">webgpu 303</a>
         <a class="tab" href="webgpu-synths.html">gpu shader synths</a>
@@ -64,7 +64,7 @@
         <div class="stage-wrap sliding-puzzle-stage-wrap" id="stageWrap">
           <div class="sliding-puzzle-heading">
             <p>PERMUTATION · <b id="stageScoreLabel">15 NOTES + ONE REST</b></p>
-            <h1 id="slidingPuzzleTitle">Slide</h1>
+            <h1 id="slidingPuzzleTitle">Sliding Puzzle</h1>
             <span>the gap writes the rhythm</span>
           </div>
 
@@ -110,7 +110,7 @@
         </div>
       </section>
 
-      <aside class="panel sliding-puzzle-panel" aria-label="Sliding Puzzle Sequencer controls">
+      <aside class="panel sliding-puzzle-panel" aria-label="Sliding Puzzle controls">
         <div class="sliding-status-strip">
           <b id="puzzleState">Solved · 4 × 4 · 15 notes / one rest</b>
           <small id="sequenceState">Lines together · 4 steps · 0° · Soft FM kit</small>

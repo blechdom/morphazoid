@@ -494,7 +494,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     tools.find((tool) => tool.id === "sliding-puzzle"),
     {
       id: "sliding-puzzle",
-      label: "Sliding Puzzle Sequencer",
+      label: "Sliding Puzzle",
       href: "sliding-puzzle.html",
     },
   );

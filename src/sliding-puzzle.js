@@ -1,5 +1,5 @@
 /**
- * Pure state and score helpers for the Morphazoid Sliding Puzzle Sequencer.
+ * Pure state and score helpers for Morphazoid Sliding Puzzle.
  *
  * The empty cell is represented by 0. Pressing any tile in the same row or
  * column shifts the complete intervening line toward that cell, so every

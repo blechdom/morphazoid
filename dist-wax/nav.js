@@ -143,7 +143,7 @@ export const TOOL_GROUPS = Object.freeze([
     },
     {
       id: "sliding-puzzle",
-      label: "Sliding Puzzle Sequencer",
+      label: "Sliding Puzzle",
       href: "sliding-puzzle.html",
     },
     {

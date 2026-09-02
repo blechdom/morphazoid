@@ -62,7 +62,7 @@ test("the rectangular sliding-puzzle page ships complete local assets and metada
   const { html } = await pageSources();
   assert.match(html, /^<!doctype html>/i);
   assert.match(html, /<html lang="en">/);
-  assert.match(html, /<title>Sliding Puzzle Sequencer — Morphazoid<\/title>/);
+  assert.match(html, /<title>Sliding Puzzle — Morphazoid<\/title>/);
   assert.match(
     html,
     /name="description"[\s\S]*resize a square or rectangular note puzzle[\s\S]*serially or all rows in parallel[\s\S]*rotate, scramble/i,
@@ -72,6 +72,7 @@ test("the rectangular sliding-puzzle page ships complete local assets and metada
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   assert.match(html, /<script type="module" src="sliding-puzzle-app\.js"><\/script>/);
   assert.match(html, /href="sliding-puzzle\.html" aria-current="page"/);
+  assert.match(html, /<h1 id="slidingPuzzleTitle">Sliding Puzzle<\/h1>/);
   assert.match(html, /<option value="sliding-puzzle\.html" selected>sliding puzzle<\/option>/);
 
   const urls = [...html.matchAll(/\b(?:href|src)="([^"]+)"/g)].map((match) => match[1]);
