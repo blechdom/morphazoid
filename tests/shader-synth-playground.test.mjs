@@ -12,11 +12,15 @@ import {
   SHADER_PLAYGROUND_SHADER,
   ShaderSynthPlaygroundAudio,
   canConnectShaderPlaygroundPorts,
+  createShaderPlaygroundShader,
+  createShaderPlaygroundShaderForPatch,
   createShaderPlaygroundCombo,
   createShaderPlaygroundPatch,
   encodeShaderPlaygroundPatch,
   layoutShaderPlaygroundPatch,
   sanitizeShaderPlaygroundPatch,
+  shaderPlaygroundShaderKindsForPatch,
+  shaderPlaygroundShaderMaskForPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
 } from "../src/shader-synth-playground.js";
@@ -27,10 +31,16 @@ import {
   SHADER_SYNTH_PLAYGROUND_FX_MODULES,
   SHADER_SYNTH_PLAYGROUND_FX_SHADER,
   SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER,
+  createShaderSynthPlaygroundFxShader,
   isShaderSynthPlaygroundFxKind,
   shaderSynthPlaygroundFxHistoryByteSize,
+  shaderSynthPlaygroundFxHistoryByteSizeForPatch,
   shaderSynthPlaygroundFxHistoryFrames,
+  shaderSynthPlaygroundFxHistoryFramesForPatch,
+  shaderSynthPlaygroundFxMaxLookbackFrames,
+  shaderSynthPlaygroundFxKindsForPatch,
   shaderSynthPlaygroundFxNodes,
+  shaderSynthPlaygroundFxShaderKeyForPatch,
 } from "../src/shader-synth-playground-fx.js";
 import {
   SHADER_SYNTH_PLAYGROUND_EXTRA_CASES,
@@ -682,7 +692,7 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   assert.match(css, /\.patch-node\.is-selected\s*\{[\s\S]*?border-color: var\(--node-color, var\(--accent\)\)/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeWidth/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeHeight/);
-  assert.match(html, /shader-synth-playground\.css\?v=20260831-preset-controls/);
+  assert.match(html, /shader-synth-playground\.css\?v=20260902-monotonic-play-note/);
 });
 
 test("three-way sum and product require and encode all three input slots", () => {
@@ -1026,16 +1036,22 @@ test("history effects expose explicit core and extended kinds, bounded history h
   assert.ok(SHADER_SYNTH_PLAYGROUND_FX_LIMITS.historySeconds > longestPublicReadSeconds);
 
   const historyFrames = shaderSynthPlaygroundFxHistoryFrames(48000, 4800);
-  assert.equal(historyFrames, 1048576);
-  assert.equal(historyFrames & (historyFrames - 1), 0, "history length remains a power of two");
+  assert.equal(historyFrames, 604928);
+  assert.equal(historyFrames % 256, 0, "history length remains storage aligned");
   assert.ok(historyFrames >= 48000 * SHADER_SYNTH_PLAYGROUND_FX_LIMITS.historySeconds + 4800 + 2);
   assert.equal(
     shaderSynthPlaygroundFxHistoryByteSize(48000, 4800),
     historyFrames * SHADER_SYNTH_PLAYGROUND_FX_LIMITS.historyRegions * 2 * Float32Array.BYTES_PER_ELEMENT,
   );
+  assert.equal(
+    shaderSynthPlaygroundFxHistoryByteSize(48000, 4800, 2),
+    historyFrames * 2 * 2 * Float32Array.BYTES_PER_ELEMENT,
+    "a one-effect chain allocates only dry and wet history regions",
+  );
 
   assert.match(SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER, /fn captureDryHistory/);
-  assert.match(SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER, /historyFrames = arrayLength\(&fx_history\) \/ 4u/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER, /activeRegions = clamp\(\(render_info\.padding2 >> 8u\)/);
+  assert.match(SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER, /historyFrames = arrayLength\(&fx_history\) \/ activeRegions/);
   assert.match(SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER, /fx_history\[\(render_info\.baseSample \+ sample\) % historyFrames\] = dry_chunk\[sample\]/);
   assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /fn processPostGraphFx/);
   assert.match(SHADER_SYNTH_PLAYGROUND_FX_SHADER, /fn historyAt/);
@@ -1113,6 +1129,129 @@ test("history effects expose explicit core and extended kinds, bounded history h
     ]),
     [[1, 0, 1, 1], [2, 1, 2, 3]],
   );
+});
+
+test("exact FX shaders retain only selected cases and their complete helper closure", () => {
+  const fullFunctions = new Set([...SHADER_SYNTH_PLAYGROUND_FX_SHADER.matchAll(/\bfn\s+([A-Za-z_]\w*)\s*\(/g)]
+    .map((match) => match[1]));
+  const applyEffectCases = (shader) => {
+    const applyStart = shader.indexOf("fn applyEffect(");
+    const applyEnd = shader.indexOf("\nfn finalizeOutput(", applyStart);
+    return [...shader.slice(applyStart, applyEnd).matchAll(/^    case (\d+)u:/gm)]
+      .map((match) => Number(match[1]));
+  };
+
+  for (const effect of SHADER_SYNTH_PLAYGROUND_FX_MODULES) {
+    const patch = { nodes: [{ id: "effect", type: effect.id }] };
+    const shader = createShaderSynthPlaygroundFxShader(patch);
+    const definedFunctions = new Set([...shader.matchAll(/\bfn\s+([A-Za-z_]\w*)\s*\(/g)]
+      .map((match) => match[1]));
+    const unresolvedHelpers = [...new Set([...shader.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)]
+      .map((match) => match[1])
+      .filter((name) => fullFunctions.has(name) && !definedFunctions.has(name)))];
+
+    assert.deepEqual(applyEffectCases(shader), [effect.kind], `${effect.id} must retain only its applyEffect case`);
+    assert.deepEqual(unresolvedHelpers, [], `${effect.id} pruned a helper that its effect still calls`);
+    assert.ok(
+      shader.length < SHADER_SYNTH_PLAYGROUND_FX_SHADER.length * 0.35,
+      `${effect.id} exact shader should be materially smaller than the complete catalog`,
+    );
+  }
+
+  const repeatedChain = {
+    nodes: [
+      { type: "vibrato" },
+      { type: "delay" },
+      { type: "vibrato" },
+      { kind: SHADER_SYNTH_PLAYGROUND_FX_KINDS.spectralGate },
+      { type: { kind: SHADER_SYNTH_PLAYGROUND_FX_KINDS.reverb } },
+      { type: "oscillator" },
+    ],
+  };
+  assert.deepEqual(shaderSynthPlaygroundFxKindsForPatch(repeatedChain), [29, 30, 64, 65]);
+  assert.equal(shaderSynthPlaygroundFxShaderKeyForPatch(repeatedChain), "29,30,64,65");
+  assert.deepEqual(applyEffectCases(createShaderSynthPlaygroundFxShader(repeatedChain)), [29, 30, 64, 65]);
+
+  const completeCatalogPatch = {
+    nodes: SHADER_SYNTH_PLAYGROUND_FX_MODULES.map(({ id }) => ({ type: id })),
+  };
+  assert.equal(
+    createShaderSynthPlaygroundFxShader(completeCatalogPatch),
+    SHADER_SYNTH_PLAYGROUND_FX_SHADER,
+    "selecting every effect preserves the complete public catalog source byte-for-byte",
+  );
+});
+
+test("patch-aware FX history rings cover every effect's true maximum read and one current chunk", () => {
+  const sampleRate = 48000;
+  const chunkFrames = 4800;
+  const expected = new Map([
+    ["delay", { lookback: 600000, frames: 604928 }],
+    ["reverb", { lookback: 600000, frames: 604928 }],
+    ["recombobulator", { lookback: 600000, frames: 604928 }],
+    ["spectral-resynth", { lookback: 127, frames: 5120 }],
+    ["flanger", { lookback: 1058, frames: 5888 }],
+    ["chorus", { lookback: 2593, frames: 7424 }],
+    ["doppler-sweep", { lookback: 48001, frames: 52992 }],
+    ["fft-robotizer", { lookback: 127, frames: 5120 }],
+    ["spectral-gate", { lookback: 127, frames: 5120 }],
+    ["fir-lowpass", { lookback: 30, frames: 4864 }],
+    ["fir-highpass", { lookback: 30, frames: 4864 }],
+    ["fir-bandpass", { lookback: 30, frames: 4864 }],
+    ["sample-rate-reducer", { lookback: 1919, frames: 6912 }],
+    ["vibrato", { lookback: 9518, frames: 14336 }],
+  ]);
+  assert.equal(expected.size, SHADER_SYNTH_PLAYGROUND_FX_MODULES.length);
+
+  for (const effect of SHADER_SYNTH_PLAYGROUND_FX_MODULES) {
+    const sizing = expected.get(effect.id);
+    assert.ok(sizing, `${effect.id} needs an audited history bound`);
+    const patch = { nodes: [{ id: "effect", type: effect.id }] };
+    const lookback = shaderSynthPlaygroundFxMaxLookbackFrames(effect.kind, sampleRate);
+    const frames = shaderSynthPlaygroundFxHistoryFramesForPatch(patch, sampleRate, chunkFrames);
+    assert.equal(lookback, sizing.lookback, `${effect.id} maximum read drifted`);
+    assert.equal(frames, sizing.frames, `${effect.id} history allocation drifted`);
+    assert.equal(frames % 256, 0, `${effect.id} ring must remain storage aligned`);
+    assert.ok(
+      frames >= lookback + chunkFrames + 2,
+      `${effect.id} ring must retain its oldest read while the current chunk is written`,
+    );
+    assert.equal(
+      shaderSynthPlaygroundFxHistoryByteSizeForPatch(patch, sampleRate, chunkFrames, 2),
+      frames * 2 * 2 * Float32Array.BYTES_PER_ELEMENT,
+    );
+  }
+
+  const shortChain = { nodes: [
+    { type: "fir-lowpass" },
+    { type: "spectral-gate" },
+    { type: "chorus" },
+  ] };
+  assert.equal(
+    shaderSynthPlaygroundFxHistoryFramesForPatch(shortChain, sampleRate, chunkFrames),
+    7424,
+    "a chain uses its longest member rather than adding independent lookbacks",
+  );
+  assert.equal(
+    shaderSynthPlaygroundFxHistoryFramesForPatch(
+      { nodes: [...shortChain.nodes, { type: "reverb" }] },
+      sampleRate,
+      chunkFrames,
+    ),
+    604928,
+    "a long-history effect retains the established 12.5-second ring",
+  );
+  assert.equal(
+    shaderSynthPlaygroundFxHistoryFramesForPatch({ nodes: [] }, sampleRate, chunkFrames),
+    4864,
+    "even an empty patch reserves and aligns one complete in-flight chunk",
+  );
+  assert.equal(
+    shaderSynthPlaygroundFxHistoryFramesForPatch(null, sampleRate, chunkFrames),
+    shaderSynthPlaygroundFxHistoryFrames(sampleRate, chunkFrames),
+    "omitting a patch preserves the complete-catalog public default",
+  );
+  assert.equal(shaderSynthPlaygroundFxMaxLookbackFrames(999, sampleRate), 0);
 });
 
 test("every history-effect parameter is packed into and consumed from its matching WGSL slot", () => {
@@ -1386,7 +1525,12 @@ test("the WGSL is a fixed sample-parallel graph interpreter with eased patch mor
   assert.match(SHADER_PLAYGROUND_SHADER, /var previousValues: array<vec2<f32>, 16>/);
   assert.match(SHADER_PLAYGROUND_SHADER, /var targetValues: array<vec2<f32>, 16>/);
   assert.match(SHADER_PLAYGROUND_SHADER, /switch kind/);
-  assert.match(SHADER_PLAYGROUND_SHADER, /mix\(previousValues\[outputIndex\], targetValues\[outputIndex\], ramp\)/);
+  assert.match(SHADER_PLAYGROUND_SHADER, /let previousSignal = previousValues\[outputIndex\]/);
+  assert.match(SHADER_PLAYGROUND_SHADER, /let targetSignal = targetValues\[outputIndex\]/);
+  assert.match(SHADER_PLAYGROUND_SHADER, /let mixedSignal = mix\(previousSignal, targetSignal, ramp\)/);
+  assert.match(SHADER_PLAYGROUND_SHADER, /let previousFinal = finalizeGraphOutput\(mixedSignal, outputNode\.previous0\)/);
+  assert.match(SHADER_PLAYGROUND_SHADER, /let targetFinal = finalizeGraphOutput\(mixedSignal, outputNode\.target0\)/);
+  assert.match(SHADER_PLAYGROUND_SHADER, /mix\(previousFinal, targetFinal, ramp\)/);
   assert.match(SHADER_PLAYGROUND_SHADER, /const PARAMETER_TRANSITION_SECONDS: f32 = 0\.035/);
   assert.match(SHADER_PLAYGROUND_SHADER, /ramp = smootherstep01\(f32\(min\(sample, transitionSamples\)\) \/ f32\(transitionSamples\)\)/);
   assert.match(SHADER_PLAYGROUND_SHADER, /fn phaseAtSample/);
@@ -1423,6 +1567,56 @@ test("the WGSL is a fixed sample-parallel graph interpreter with eased patch mor
   assert.doesNotMatch(SHADER_PLAYGROUND_SHADER, /textureStore|atomicAdd/);
 });
 
+test("runtime graph shaders include only helper families used by the selected patch", () => {
+  const pmBell = createShaderPlaygroundPatch("pm-bell");
+  const pmMask = shaderPlaygroundShaderMaskForPatch(pmBell);
+  const pmShader = createShaderPlaygroundShader(pmMask);
+  const organ = createShaderPlaygroundPatch("gpu-organ-lanes");
+  const organShader = createShaderPlaygroundShader(shaderPlaygroundShaderMaskForPatch(organ));
+
+  assert.equal(pmMask, 0, "the core PM patch needs no optional shader family");
+  assert.ok(pmShader.length < SHADER_PLAYGROUND_SHADER.length / 2);
+  assert.match(pmShader, /case 7u:/, "the selected core FM renderer remains present");
+  assert.doesNotMatch(pmShader, /case 40u:/, "unused extra renderers are omitted");
+  assert.match(organShader, /case 40u:/, "an extra-family patch retains its organ renderer");
+  assert.equal(createShaderPlaygroundShader(), SHADER_PLAYGROUND_SHADER);
+});
+
+test("every shipped patch specialization retains its exact evaluator cases and helper dependencies", () => {
+  const knownFunctions = new Set([...SHADER_PLAYGROUND_SHADER.matchAll(/\bfn\s+([A-Za-z_]\w*)\s*\(/g)]
+    .map((match) => match[1]));
+  const patches = [
+    ...SHADER_PLAYGROUND_PRESETS.map(({ id }) => [`preset:${id}`, createShaderPlaygroundPatch(id)]),
+    ...SHADER_PLAYGROUND_COMBOS.map(({ id }) => [`combo:${id}`, createShaderPlaygroundCombo(id)]),
+  ];
+
+  for (const [patchId, patch] of patches) {
+    const shader = createShaderPlaygroundShaderForPatch(patch);
+    const definedFunctions = new Set([...shader.matchAll(/\bfn\s+([A-Za-z_]\w*)\s*\(/g)]
+      .map((match) => match[1]));
+    const unresolvedHelpers = [...new Set([...shader.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)]
+      .map((match) => match[1])
+      .filter((name) => knownFunctions.has(name) && !definedFunctions.has(name)))];
+    assert.deepEqual(unresolvedHelpers, [], `${patchId} pruned a helper that its evaluator still calls`);
+
+    const evaluator = shader.slice(shader.indexOf("fn evaluateNode("), shader.indexOf("@compute @workgroup_size"));
+    const retainedKinds = [...new Set([...evaluator.matchAll(/^    case (\d+)u:/gm)]
+      .map((match) => Number(match[1])))]
+      .sort((left, right) => left - right);
+    assert.deepEqual(
+      retainedKinds,
+      shaderPlaygroundShaderKindsForPatch(patch),
+      `${patchId} must retain exactly the module kinds encoded by its graph`,
+    );
+  }
+
+  const mirrorFold = createShaderPlaygroundCombo("combo-165-audition-mirror-fold-sequencer");
+  const geometryShader = createShaderPlaygroundShaderForPatch(mirrorFold);
+  assert.match(geometryShader, /fn extraStepCoordinates\(/, "geometry sequencers retain their shared step helper");
+  assert.match(geometryShader, /fn extraEdgeGate\(/, "geometry sequencers retain their shared gate helper");
+  assert.doesNotMatch(geometryShader, /^    case 40u:/m, "a geometry helper dependency does not retain unrelated extra renderers");
+});
+
 test("runtime support and the audio class report WebGPU and Web Audio independently", () => {
   assert.deepEqual(shaderPlaygroundSupport({}), { audio: false, webgpu: false, ready: false });
   const runtime = {
@@ -1440,6 +1634,8 @@ test("runtime support and the audio class report WebGPU and Web Audio independen
     workgroupSize: 256,
     bufferedChunks: 2.5,
     schedulePadding: 0.05,
+    startupChunks: 3,
+    maximumBufferSeconds: 1.2,
   });
 });
 
@@ -1468,7 +1664,7 @@ test("startup stays pending until the first GPU audio chunk is ready", async () 
   engine.writeOrganRankTransition = () => {};
   engine.updatePatch = (patch) => { engine.patch = patch; };
   engine.fillBuffer = (options) => {
-    assert.deepEqual(options, { forceFirstChunk: true, maxChunks: 1 });
+    assert.deepEqual(options, { forceFirstChunk: true, maxChunks: 3, deferPlayback: true });
     return new Promise((resolve) => { finishFirstChunk = resolve; });
   };
   engine.queueFill = () => { queuedRefillCount += 1; };
@@ -1571,6 +1767,84 @@ test("serial GPU readbacks retain exact sample offsets and gapless Web Audio sta
     ["set", 0, starts[0]],
     ["ramp", engine.output, starts[0] + 0.012],
   ]);
+});
+
+test("startup reserve is fully rendered before its first contiguous Web Audio start", async () => {
+  const starts = [];
+  const startsSeenDuringRender = [];
+  const context = {
+    currentTime: 4,
+    createBuffer(_channels, length, sampleRate) {
+      const channels = [new Float32Array(length), new Float32Array(length)];
+      return {
+        duration: length / sampleRate,
+        getChannelData(index) { return channels[index]; },
+      };
+    },
+    createBufferSource() {
+      return { connect() {}, start(when) { starts.push(when); } };
+    },
+  };
+  const runtime = { performance: { now: () => context.currentTime * 1000 } };
+  const engine = new ShaderSynthPlaygroundAudio(runtime, { chunkDuration: 0.1 });
+  engine.context = context;
+  engine.input = {};
+  engine.master = { gain: { value: 0 } };
+  engine.running = true;
+  engine.playbackEnabled = true;
+  engine.sampleRate = 40;
+  engine.chunkSamples = 4;
+  engine.renderSampleOffset = 0;
+  engine.renderOffset = 0;
+  engine.nextStartTime = context.currentTime;
+  engine.renderChunk = async () => {
+    startsSeenDuringRender.push(starts.length);
+    context.currentTime += 0.12;
+    return new Float32Array(engine.chunkSamples * 2);
+  };
+
+  await engine.fillBuffer({ forceFirstChunk: true, maxChunks: 3, deferPlayback: true });
+
+  assert.deepEqual(startsSeenDuringRender, [0, 0, 0]);
+  assert.equal(starts.length, 3);
+  assert.ok(starts[0] >= context.currentTime + 0.044);
+  for (let index = 1; index < starts.length; index += 1) {
+    assert.ok(Math.abs(starts[index] - starts[index - 1] - 0.1) < 1e-9);
+  }
+});
+
+test("over-budget rendering yields after a finite fill and raises underrun protection", async () => {
+  const context = {
+    currentTime: 8,
+    createBuffer(_channels, length, sampleRate) {
+      const channels = [new Float32Array(length), new Float32Array(length)];
+      return {
+        duration: length / sampleRate,
+        getChannelData(index) { return channels[index]; },
+      };
+    },
+    createBufferSource() { return { connect() {}, start() {} }; },
+  };
+  const runtime = { performance: { now: () => context.currentTime * 1000 } };
+  const engine = new ShaderSynthPlaygroundAudio(runtime, { chunkDuration: 0.1 });
+  engine.context = context;
+  engine.input = {};
+  engine.running = true;
+  engine.sampleRate = 40;
+  engine.chunkSamples = 4;
+  engine.nextStartTime = 8.06;
+  let renders = 0;
+  engine.renderChunk = async () => {
+    renders += 1;
+    context.currentTime += 0.14;
+    return new Float32Array(engine.chunkSamples * 2);
+  };
+
+  await engine.fillBuffer();
+
+  assert.equal(renders, 3, "one refill turn cannot become an endless catch-up loop");
+  assert.ok(engine.underrunCount >= 1);
+  assert.ok(engine.performanceSummary.bufferTargetSeconds > 0.3);
 });
 
 test("MIDI pitch refresh keeps the old queue audible until a rendered replacement can crossfade", async () => {
@@ -1679,6 +1953,383 @@ test("MIDI pitch refresh keeps the old queue audible until a rendered replacemen
   assert.deepEqual(newGainEvents.at(-1), ["disconnect"]);
 });
 
+test("a replacement fades in and clears its handoff after the old queue naturally ends", async () => {
+  const gainEvents = [];
+  const context = {
+    currentTime: 4,
+    createGain() {
+      return {
+        gain: {
+          value: 1,
+          cancelScheduledValues(time) { gainEvents.push(["cancel", time]); },
+          setValueAtTime(value, time) { gainEvents.push(["set", value, time]); },
+          linearRampToValueAtTime(value, time) { gainEvents.push(["ramp", value, time]); },
+        },
+        connect() {},
+        disconnect() {},
+      };
+    },
+    createBuffer(_channels, length, sampleRate) {
+      const channels = [new Float32Array(length), new Float32Array(length)];
+      return {
+        duration: length / sampleRate,
+        getChannelData(index) { return channels[index]; },
+      };
+    },
+    createBufferSource() { return { connect() {}, start() {} }; },
+  };
+  const engine = new ShaderSynthPlaygroundAudio({}, { chunkDuration: 0.1 });
+  engine.context = context;
+  engine.input = {};
+  engine.running = true;
+  engine.sampleRate = 100;
+  engine.chunkSamples = 10;
+  engine.queueGeneration = 1;
+  engine.nextStartTime = 3.5;
+  engine.pendingQueueHandoff = { generation: 1, sources: new Set() };
+
+  assert.equal(engine.scheduleRenderedChunk(new Float32Array(20), {
+    queueGeneration: 1,
+    offset: 2,
+    firstInFill: true,
+  }), true);
+
+  assert.equal(engine.pendingQueueHandoff, null);
+  assert.deepEqual(gainEvents.slice(0, 2), [
+    ["cancel", 4.012],
+    ["set", 0, 4.012],
+  ]);
+  assert.equal(gainEvents[2][0], "ramp");
+  assert.equal(gainEvents[2][1], 1);
+  assert.ok(Math.abs(gainEvents[2][2] - 4.024) < 1e-9);
+});
+
+test("a late replacement schedules the monotonic tail instead of rendering a discarded catch-up backlog", async () => {
+  const starts = [];
+  const renderedBaseSamples = [];
+  const makeGain = () => ({
+    gain: {
+      value: 1,
+      cancelScheduledValues() {},
+      cancelAndHoldAtTime() {},
+      setValueAtTime() {},
+      linearRampToValueAtTime() {},
+    },
+    connect() {},
+    disconnect() {},
+  });
+  const context = {
+    currentTime: 3,
+    createGain: makeGain,
+    createBuffer(_channels, length, sampleRate) {
+      const channels = [new Float32Array(length), new Float32Array(length)];
+      return {
+        duration: length / sampleRate,
+        getChannelData(index) { return channels[index]; },
+      };
+    },
+    createBufferSource() {
+      return {
+        connect() {},
+        start(when, offset = 0) { starts.push({ when, offset }); },
+      };
+    },
+  };
+  const runtime = { performance: { now: () => context.currentTime * 1000 } };
+  const engine = new ShaderSynthPlaygroundAudio(runtime, { chunkDuration: 0.1 });
+  engine.context = context;
+  engine.input = {};
+  engine.running = true;
+  engine.playbackEnabled = true;
+  engine.sampleRate = 100;
+  engine.chunkSamples = 10;
+  engine.renderSampleOffset = 850;
+  engine.renderOffset = 8.5;
+  engine.nextStartTime = 3.52;
+  engine.hasScheduledPlayback = true;
+  for (let index = 0; index < 5; index += 1) {
+    const source = {};
+    engine.sources.add(source);
+    engine.sourceGains.set(source, makeGain());
+    engine.scheduledChunks.push({
+      source,
+      generation: 0,
+      offset: 8 + index * 0.1,
+      startAt: 3.02 + index * 0.1,
+      endAt: 3.12 + index * 0.1,
+      duration: 0.1,
+    });
+  }
+  engine.queueFill = () => {};
+  engine.renderChunk = async (baseSample) => {
+    renderedBaseSamples.push(baseSample);
+    // Simulate a cold shader compile that outlasts the entire old queue. A
+    // catch-up scheduler would now render and discard about eighteen seconds
+    // of 100 ms blocks before the replacement could become audible.
+    if (renderedBaseSamples.length === 1) context.currentTime = 5.31;
+    return new Float32Array(engine.chunkSamples * 2);
+  };
+
+  engine.refreshSchedule();
+  assert.equal(engine.renderSampleOffset, 850, "preset changes retain the already-rendered sample tail");
+  assert.equal(engine.nextStartTime, 3.52);
+  await engine.fillBuffer({ forceFirstChunk: true, maxChunks: 3 });
+
+  assert.deepEqual(renderedBaseSamples, [850, 860, 870]);
+  assert.equal(starts.length, 3, "the first complete replacement block becomes audible immediately after compilation");
+  assert.ok(Math.abs(starts[0].when - 5.322) < 1e-9);
+  assert.equal(starts[0].offset, 0, "a late replacement never trims or skips its rendered PCM");
+  for (let index = 1; index < starts.length; index += 1) {
+    assert.ok(Math.abs(starts[index].when - starts[index - 1].when - 0.1) < 1e-9);
+  }
+  const replacements = engine.scheduledChunks.slice(-3);
+  assert.deepEqual(replacements.map(({ generation }) => generation), [1, 1, 1]);
+  assert.deepEqual(replacements.map(({ offset }) => offset), [8.5, 8.6, 8.7]);
+  assert.ok(Math.abs(engine.nextStartTime - 5.622) < 1e-9);
+  assert.equal(engine.renderSampleOffset, 880);
+  assert.ok(engine.underrunCount >= 1, "the Web Audio delay is measured without corrupting the sample clock");
+});
+
+test("a refresh during GPU readback cannot leak the new patch into the old queue generation", async () => {
+  const starts = [];
+  const rendered = [];
+  let finishFirstRender;
+  let patchName = "old";
+  const context = {
+    currentTime: 10,
+    createBuffer(_channels, length, sampleRate) {
+      const channels = [new Float32Array(length), new Float32Array(length)];
+      return {
+        duration: length / sampleRate,
+        getChannelData(index) { return channels[index]; },
+      };
+    },
+    createBufferSource() {
+      return { connect() {}, start(when) { starts.push(when); } };
+    },
+  };
+  const engine = new ShaderSynthPlaygroundAudio({}, { chunkDuration: 0.1 });
+  engine.context = context;
+  engine.input = {};
+  engine.running = true;
+  engine.sampleRate = 100;
+  engine.chunkSamples = 10;
+  engine.renderSampleOffset = 100;
+  engine.renderOffset = 1;
+  engine.nextStartTime = 10.2;
+  engine.queueFill = () => {};
+  engine.renderChunk = async (baseSample) => {
+    const renderedPatch = patchName;
+    rendered.push({ baseSample, patch: renderedPatch });
+    if (rendered.length === 1) await new Promise((resolve) => { finishFirstRender = resolve; });
+    return new Float32Array(engine.chunkSamples * 2);
+  };
+
+  const fill = engine.fillBuffer({ maxChunks: 3 });
+  engine.renderingPromise = fill;
+  await Promise.resolve();
+  patchName = "new";
+  engine.refreshSchedule();
+  finishFirstRender();
+  await fill;
+
+  assert.deepEqual(rendered, [{ baseSample: 100, patch: "old" }]);
+  assert.deepEqual(starts, [], "superseded GPU work cannot enter the audible old generation");
+  assert.equal(engine.renderSampleOffset, 100, "discarded GPU work cannot advance the audible sample clock");
+  assert.equal(engine.nextStartTime, 10.2);
+  assert.equal(engine.queueGeneration, 0);
+  assert.equal(engine.deferredQueueRefresh, true, "the owning queue wrapper will perform one handoff");
+});
+
+test("a rapid second refresh supersedes an in-flight handoff without entering a deferred retry loop", async () => {
+  const starts = [];
+  const renderedBaseSamples = [];
+  let finishFirstRender;
+  const makeGain = () => ({
+    gain: {
+      value: 1,
+      cancelScheduledValues() {},
+      cancelAndHoldAtTime() {},
+      setValueAtTime() {},
+      linearRampToValueAtTime() {},
+    },
+    connect() {},
+    disconnect() {},
+  });
+  const context = {
+    currentTime: 10,
+    createGain: makeGain,
+    createBuffer(_channels, length, sampleRate) {
+      const channels = [new Float32Array(length), new Float32Array(length)];
+      return {
+        duration: length / sampleRate,
+        getChannelData(index) { return channels[index]; },
+      };
+    },
+    createBufferSource() {
+      return { connect() {}, start(when) { starts.push(when); } };
+    },
+  };
+  const engine = new ShaderSynthPlaygroundAudio({}, { chunkDuration: 0.1 });
+  engine.context = context;
+  engine.input = {};
+  engine.running = true;
+  engine.sampleRate = 100;
+  engine.chunkSamples = 10;
+  engine.renderSampleOffset = 140;
+  engine.renderOffset = 1.4;
+  engine.nextStartTime = 10.42;
+  const originalSources = [];
+  for (let index = 0; index < 3; index += 1) {
+    const source = {};
+    originalSources.push(source);
+    engine.sources.add(source);
+    engine.sourceGains.set(source, makeGain());
+    engine.scheduledChunks.push({
+      source,
+      generation: 0,
+      offset: 1.1 + index * 0.1,
+      startAt: 10.12 + index * 0.1,
+      endAt: 10.22 + index * 0.1,
+      duration: 0.1,
+    });
+  }
+  engine.queueFill = () => {};
+  engine.renderChunk = async (baseSample) => {
+    renderedBaseSamples.push(baseSample);
+    if (renderedBaseSamples.length === 1) {
+      await new Promise((resolve) => { finishFirstRender = resolve; });
+    }
+    return new Float32Array(engine.chunkSamples * 2);
+  };
+
+  engine.refreshSchedule();
+  assert.equal(engine.queueGeneration, 1);
+  assert.equal(engine.pendingQueueHandoff.generation, 1);
+  assert.equal(engine.renderSampleOffset, 140);
+  assert.equal(engine.nextStartTime, 10.42);
+  const staleFill = engine.fillBuffer({ forceFirstChunk: true, maxChunks: 1 });
+  engine.renderingPromise = staleFill;
+  await Promise.resolve();
+
+  engine.refreshSchedule();
+  assert.equal(engine.queueGeneration, 2, "the latest interaction owns a fresh generation immediately");
+  assert.equal(engine.pendingQueueHandoff.generation, 2);
+  assert.deepEqual([...engine.pendingQueueHandoff.sources], originalSources);
+  assert.equal(engine.renderSampleOffset, 140, "the already-rendered sample tail is retained");
+  assert.equal(engine.nextStartTime, 10.42);
+  assert.equal(engine.deferredQueueRefresh, false);
+
+  finishFirstRender();
+  await staleFill;
+  assert.deepEqual(starts, [], "the superseded first replacement is discarded");
+  assert.equal(engine.renderSampleOffset, 140);
+
+  engine.renderingPromise = null;
+  await engine.fillBuffer({ forceFirstChunk: true, maxChunks: 1 });
+  assert.deepEqual(renderedBaseSamples, [140, 140]);
+  assert.equal(starts.length, 1);
+  assert.ok(Math.abs(starts[0] - 10.42) < 1e-9);
+  assert.equal(engine.scheduledChunks.at(-1).generation, 2);
+  assert.equal(engine.pendingQueueHandoff, null, "the newest generation completes the retained handoff");
+});
+
+test("cold graph, effect, and state pipelines compile together and activate as one current set", async () => {
+  const preparationSource = ShaderSynthPlaygroundAudio.prototype.preparePatchPipelines.toString();
+  const renderSource = ShaderSynthPlaygroundAudio.prototype.renderChunk.toString();
+  assert.match(preparationSource, /await Promise\.all\(\[/);
+  assert.match(renderSource, /await this\.preparePatchPipelines/);
+  assert.match(renderSource, /const queueGeneration = this\.queueGeneration/);
+  assert.ok(
+    renderSource.indexOf("const queueGeneration = this.queueGeneration")
+      < renderSource.indexOf("await this.preparePatchPipelines"),
+    "queue ownership must be captured before cold compilation can yield to a newer patch",
+  );
+  assert.match(
+    renderSource,
+    /queueGeneration === this\.queueGeneration && !this\.deferredQueueRefresh/,
+    "a deferred refresh must also prevent an unheard render from committing transition anchors",
+  );
+  const patch = createShaderPlaygroundCombo("combo-233-audition-spectral-vocoder");
+  const delayModule = SHADER_PLAYGROUND_MODULES.find(({ id }) => id === "delay");
+  patch.nodes.splice(-1, 0, {
+    id: "cold-fx",
+    type: "delay",
+    x: 880,
+    y: 115,
+    params: Object.fromEntries(delayModule.params.map((param) => [param.id, param.default])),
+  });
+  patch.connections = patch.connections.filter(({ id }) => id !== "pan-out");
+  patch.connections.push(
+    { id: "pan-fx", from: { node: "pan", port: "out" }, to: { node: "cold-fx", port: "signal" } },
+    { id: "fx-out", from: { node: "cold-fx", port: "out" }, to: { node: "out", port: "signal" } },
+  );
+  const encoded = encodeShaderPlaygroundPatch(patch);
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((complete) => { resolve = complete; });
+    return { promise, resolve };
+  };
+  const graph = deferred();
+  const effects = deferred();
+  const stateful = deferred();
+  const calls = [];
+  const engine = new ShaderSynthPlaygroundAudio({});
+  engine.device = { id: "device" };
+  engine.statefulEngine = {
+    setPipeline(pipeline, key) { calls.push(["activate-state", pipeline, key]); },
+    setNodeAsset() {},
+    sync() { return false; },
+  };
+  engine.pipeline = { id: "old-graph" };
+  engine.graphPipelineKey = "old-graph";
+  engine.fxPipeline = { id: "old-fx" };
+  engine.fxPipelineKey = "old-fx";
+  engine.statefulPipeline = { id: "old-state" };
+  engine.statefulPipelineKey = "old-state";
+  engine.ensureGraphPipeline = (_patch, options) => {
+    calls.push(["graph", options.activate]);
+    return graph.promise;
+  };
+  engine.ensureFxPipeline = (_patch, options) => {
+    calls.push(["effects", options.activate]);
+    return effects.promise;
+  };
+  engine.ensureStatefulPipeline = (_patch, options) => {
+    calls.push(["state", options.activate]);
+    return stateful.promise;
+  };
+  engine.syncFxHistoryResources = () => false;
+  engine.rebuildGraphBindGroup = () => { calls.push(["bind-graph"]); };
+  engine.rebuildFxBindGroups = () => { calls.push(["bind-effects"]); };
+
+  const preparing = engine.preparePatchPipelines(encoded);
+  assert.deepEqual(calls, [
+    ["graph", false],
+    ["effects", false],
+    ["state", false],
+  ], "all independent compilation requests begin before any one completes");
+  graph.resolve({ id: "new-graph" });
+  effects.resolve({ id: "new-fx" });
+  await Promise.resolve();
+  assert.equal(engine.graphPipelineKey, "old-graph", "a partial compile cannot replace the audible pipeline");
+  stateful.resolve({ id: "new-state" });
+  const prepared = await preparing;
+  assert.equal(engine.graphPipelineKey, "old-graph", "preparation alone does not activate a mixed set");
+
+  engine.encodedPatch = encodeShaderPlaygroundPatch(createShaderPlaygroundPatch("pm-bell"));
+  assert.equal(engine.activatePreparedPatchPipelines(prepared), false, "a superseded preset cannot become active");
+  assert.equal(engine.graphPipelineKey, "old-graph");
+
+  engine.encodedPatch = encoded;
+  engine.fxStageCount = 1;
+  assert.equal(engine.activatePreparedPatchPipelines(prepared), true);
+  assert.equal(engine.pipeline.id, "new-graph");
+  assert.equal(engine.fxPipeline.id, "new-fx");
+  assert.equal(engine.statefulPipeline.id, "new-state");
+  assert.deepEqual(calls.slice(-3).map(([kind]) => kind), ["activate-state", "bind-graph", "bind-effects"]);
+});
+
 test("rapid parameter edits continue from each rendered intermediate target", () => {
   const initial = createShaderPlaygroundPatch("pm-bell");
   const firstEdit = createShaderPlaygroundPatch("pm-bell");
@@ -1774,8 +2425,8 @@ test("knob edits preserve the queue while topology edits replace one future boun
   });
   engine.updatePatch(topologyEdit);
   assert.equal(engine.queueGeneration, 1, "a routing edit still creates one safe replacement generation");
-  assert.equal(engine.renderSampleOffset, 8100, "the replacement begins at the first safe queued boundary");
-  assert.equal(engine.nextStartTime, 2.12);
+  assert.equal(engine.renderSampleOffset, 8300, "the replacement begins at the current rendered sample tail");
+  assert.equal(engine.nextStartTime, 2.32);
   assert.equal(engine.pendingQueueHandoff.generation, 1);
   assert.deepEqual([...engine.pendingQueueHandoff.sources], oldSources);
   assert.equal(queueRequests, 1);
@@ -1865,6 +2516,65 @@ test("dynamic pattern-control ceilings follow Steps without changing registry li
   assert.match(app, /for \(const rawParam of module\.params\)[\s\S]*?effectiveParameterDescriptor/);
 });
 
+test("performance note-on requests one GPU queue handoff after pitch and one-shot reset", async () => {
+  const app = await readFile(new URL("shader-synth-playground-app.js", ROOT), "utf8");
+  const handoffSource = app.match(
+    /function requestPerformanceNoteHandoff\(engine, applyPitch\) \{[\s\S]*?\n\}/,
+  )?.[0];
+  assert.ok(handoffSource, "the note handoff helper must remain directly testable");
+  const requestPerformanceNoteHandoff = Function(`"use strict"; return (${handoffSource});`)();
+
+  const samplerEvents = [];
+  const samplerEngine = {
+    refreshSchedule() { samplerEvents.push("refresh"); },
+    triggerPerformanceNote() {
+      samplerEvents.push("reset");
+      this.refreshSchedule();
+      return 1;
+    },
+  };
+  assert.equal(requestPerformanceNoteHandoff(
+    samplerEngine,
+    ({ refresh }) => samplerEvents.push(`pitch:${refresh}`),
+  ), 1);
+  assert.deepEqual(
+    samplerEvents,
+    ["pitch:false", "reset", "refresh"],
+    "pitch must be committed before the sampler-owned single refresh",
+  );
+
+  const oscillatorEvents = [];
+  const oscillatorEngine = {
+    refreshSchedule() { oscillatorEvents.push("refresh"); },
+    triggerPerformanceNote() {
+      oscillatorEvents.push("reset:none");
+      return 0;
+    },
+  };
+  assert.equal(requestPerformanceNoteHandoff(
+    oscillatorEngine,
+    ({ refresh }) => oscillatorEvents.push(`pitch:${refresh}`),
+  ), 0);
+  assert.deepEqual(
+    oscillatorEvents,
+    ["pitch:false", "reset:none", "refresh"],
+    "a non-sampler patch still gets exactly one explicit pitch refresh",
+  );
+
+  const midiNoteOnSource = app.slice(
+    app.indexOf("function handleMidiNoteOn"),
+    app.indexOf("function handleMidiNoteOff"),
+  );
+  const onscreenNoteSource = app.slice(
+    app.indexOf("async function auditionPerformanceNote"),
+    app.indexOf("async function auditionRandomPerformanceNote"),
+  );
+  for (const noteOnSource of [midiNoteOnSource, onscreenNoteSource]) {
+    assert.match(noteOnSource, /requestPerformanceNoteHandoff\(state\.engine, applyMidiPerformance\)/);
+    assert.doesNotMatch(noteOnSource, /triggerPerformanceNote\?\.\(\)|applyMidiPerformance\(\)/);
+  }
+});
+
 test("the page exposes a real graph editor, inspector, transport, and shared instrument header", async () => {
   const [html, css, app, engineSource, primitives, synth] = await Promise.all([
     readFile(new URL("shader-synth-playground.html", ROOT), "utf8"),
@@ -1900,8 +2610,8 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.doesNotMatch(html, /id=["']moduleSearch["']/);
   assert.doesNotMatch(app, /function renderPalette\(/);
   assert.match(app, /function renderAddMenu\(\)[\s\S]*?for \(const module of modules\)[\s\S]*?option\.value = module\.id[\s\S]*?select\.dataset\.moduleCount = String\(modules\.length\)/);
-  assert.match(app, /shader-synth-playground\.js\?v=20260831-modules125/);
-  assert.match(engineSource, /shader-synth-playground-fx\.js\?v=20260830-atlas-dsp/);
+  assert.match(app, /shader-synth-playground\.js\?v=20260902-monotonic-play-note/);
+  assert.match(engineSource, /shader-synth-playground-fx\.js\?v=20260902-monotonic-play-note/);
   assert.match(css, /\.patch-node/);
   assert.match(css, /\.patch-cable/);
   assert.match(css, /\.patch-node\.is-selected/);
@@ -1929,6 +2639,7 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(app, /function selectAdjacentPatch\(direction\)[\s\S]*?dispatchEvent\(new Event\("change", \{ bubbles: true \}\)\)/);
   assert.match(app, /\$\("previousPatch"\)\.addEventListener\("click"[\s\S]*?selectAdjacentPatch\(-1\)/);
   assert.match(app, /\$\("nextPatch"\)\.addEventListener\("click"[\s\S]*?selectAdjacentPatch\(1\)/);
+  assert.match(app, /presetArrowConflictTarget[\s\S]*?select:not\(#patchSelect\)[\s\S]*?&& !presetArrowConflictTarget[\s\S]*?selectAdjacentPatch/);
   assert.match(app, /!event\.shiftKey[\s\S]*?\["ArrowLeft", "ArrowRight"\]\.includes\(event\.key\)[\s\S]*?selectAdjacentPatch/);
   assert.match(html, /aria-keyshortcuts="ArrowLeft"[\s\S]*?aria-keyshortcuts="ArrowRight"/);
   assert.doesNotMatch(app, /dataset\.auditionModule/);
@@ -1991,26 +2702,39 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(html, /id="gpuLookaheadDuration">~300 ms queued<\/output>/);
   assert.doesNotMatch(`${app}\n${html}`, /createOscillator\s*\(/);
   assert.match(html, /id="performanceNotesTitle">Play notes<\/b>/);
+  assert.match(html, /id="performancePlayNote"[^>]*aria-label="Play the selected note"[^>]*>Play note<\/button>/);
   assert.match(html, /id="performanceRandomNote"[^>]*aria-label="Choose and play a random note"[^>]*>Random note<\/button>/);
   assert.match(html, /id="performanceNoteButtons"[^>]*aria-label="Play notes from C3 to C4"/);
   assert.match(html, /id="performanceOctaveDown"/);
   assert.match(html, /id="performanceOctaveUp"/);
   assert.match(html, /id="midiNoteState"[^>]*>C3<\/output>/);
-  assert.match(html, /id="performanceNoteHint">Click to start · MIDI on: Z–M \/ Q–U<\/p>/);
+  assert.match(html, /id="performanceNoteHint">Play note or choose a key · MIDI on: Z–M \/ Q–U<\/p>/);
   assert.match(html, /id="playgroundPlayLabel">Run patch<\/span>/);
   assert.match(html, /id="gpuState" role="status" aria-live="polite">checking<\/dd>/);
   assert.match(app, /audioPhase: null/);
   assert.match(app, /button: "Compiling shaders…"/);
   assert.match(app, /gpu: "rendering first chunk"/);
   assert.match(app, /setAttribute\("aria-busy", String\(starting\)\)/);
-  assert.match(ShaderSynthPlaygroundAudio.prototype.initGpu.toString(), /createComputePipelineAsync/);
-  assert.match(ShaderSynthPlaygroundAudio.prototype.start.toString(), /fillBuffer\(\{ forceFirstChunk: true, maxChunks: 1 \}\)/);
+  const initGpuSource = ShaderSynthPlaygroundAudio.prototype.initGpu.toString();
+  assert.match(initGpuSource, /createComputePipelineAsync/);
+  assert.match(initGpuSource, /powerPreference: "high-performance"/);
+  assert.doesNotMatch(initGpuSource, /SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER/);
+  assert.match(
+    ShaderSynthPlaygroundAudio.prototype.ensureStatefulPipeline.toString(),
+    /shaderSynthPlaygroundStateShaderVariantForEncoded/,
+    "only the active state renderers compile on first use",
+  );
+  assert.match(ShaderSynthPlaygroundAudio.prototype.start.toString(), /maxChunks: STARTUP_PRIME_CHUNKS/);
+  assert.match(ShaderSynthPlaygroundAudio.prototype.start.toString(), /deferPlayback: true/);
   assert.match(css, /\.performance-notes\s*\{/);
   assert.match(css, /\.performance-note-buttons\s*\{[\s\S]*?grid-template-columns: repeat\(7,/);
   assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.performance-notes\s*\{[\s\S]*?width: 100%/);
   assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.performance-note,[\s\S]*?min-height: 44px/);
   assert.match(app, /function renderPerformanceNoteButtons\(\)/);
   assert.match(app, /async function auditionPerformanceNote\(note\)[\s\S]*?startAudio\(\{ play: true \}\)/);
+  assert.match(app, /async function auditionSelectedPerformanceNote\(\)[\s\S]*?auditionPerformanceNote\(performanceMidiVoice\(\)\?\.note \?\? performanceBaseNote\(\)\)/);
+  assert.match(app, /performancePlayNote"\)\.addEventListener\("click"[\s\S]*?auditionSelectedPerformanceNote\(\)/);
+  assert.match(app, /\$\("performancePlayNote"\)[\s\S]*?disabled = disabled/);
   const randomNoteSource = app.match(/function randomPerformanceNote\(baseNote, noteCount, random = Math\.random\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(randomNoteSource);
   const randomPerformanceNote = Function(`"use strict"; return (${randomNoteSource});`)();
@@ -2021,14 +2745,14 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(app, /async function auditionRandomPerformanceNote\(\)[\s\S]*?auditionPerformanceNote\(note\)/);
   assert.match(app, /performanceRandomNote"\)\.addEventListener\("click"[\s\S]*?auditionRandomPerformanceNote\(\)/);
   assert.match(app, /\$\("performanceRandomNote"\)\.disabled = disabled/);
-  assert.match(css, /\.performance-random-note\s*\{/);
-  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.performance-random-note,[\s\S]*?min-height: 44px/);
+  assert.match(css, /\.performance-play-note,[\s\S]*?\.performance-random-note\s*\{/);
+  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.performance-play-note,[\s\S]*?\.performance-random-note,[\s\S]*?min-height: 44px/);
   assert.match(app, /performanceNoteButtons[\s\S]*?data-performance-note/);
   assert.match(app, /morphazoid:midi-input/);
   assert.match(app, /MIDI_PATCH_ROOT_NOTE = 48/);
   assert.match(app, /setPerformancePitch\?\.\(performancePitch, \{ refresh \}\)/);
   assert.match(app, /MIDI note input is a pitch overlay/);
-  assert.match(app, /async function auditionPerformanceNote\(note\)[\s\S]*?triggerPerformanceNote\?\.\(\)/);
+  assert.match(app, /async function auditionPerformanceNote\(note\)[\s\S]*?requestPerformanceNoteHandoff\(state\.engine, applyMidiPerformance\)/);
   assert.match(app, /Playback stays where it is/);
   assert.doesNotMatch(app, /midiVelocityGain/);
   const midiNoteHandlers = app.slice(
@@ -2036,7 +2760,6 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
     app.indexOf("function handleMidiControlChange"),
   );
   assert.doesNotMatch(midiNoteHandlers, /state\.playing|setPlaybackEnabled|setOutput|startAudio/);
-  assert.match(midiNoteHandlers, /applyMidiPerformance\(\)/);
-  assert.match(midiNoteHandlers, /triggerPerformanceNote\?\.\(\)/);
+  assert.match(midiNoteHandlers, /requestPerformanceNoteHandoff\(state\.engine, applyMidiPerformance\)/);
   assert.doesNotMatch(html, /minus and plus change velocity/i);
 });

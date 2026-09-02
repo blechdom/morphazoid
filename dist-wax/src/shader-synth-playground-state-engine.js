@@ -992,6 +992,289 @@ fn renderStateNode(
 }
 `;
 
+// The full shader above remains the canonical, inspectable catalog source. The
+// audio runtime can compile a much smaller variant containing only the renderer
+// families that the current graph can actually dispatch. Keeping specialization
+// here, beside the state-kind registry, prevents the runtime from maintaining a
+// second kind-to-WGSL mapping that can drift as modules are added.
+const STATE_SHADER_VARIANT_VERSION = "state-kinds-v1";
+const STATE_SHADER_ENTRY_MARKER = "@compute @workgroup_size(64)\nfn renderStateNode(";
+const STATE_SHADER_RENDERERS = freeze([
+  freeze({ kind: 105, functionName: "renderCellularAutomaton", parallel: false }),
+  freeze({ kind: 106, functionName: "renderReactionDiffusion", parallel: false }),
+  freeze({ kind: 107, functionName: "renderFeedbackLattice", parallel: false }),
+  freeze({ kind: 108, functionName: "renderSpectralSdf", parallel: true }),
+  freeze({ kind: 109, functionName: "renderFlowAdvection", parallel: false }),
+  freeze({ kind: 110, functionName: "renderRaymarchResonator", parallel: false }),
+  freeze({ kind: 111, functionName: "renderSequenceLane", parallel: false }),
+  freeze({ kind: 112, functionName: "renderUploadedWavetable", parallel: false }),
+  freeze({ kind: 113, functionName: "renderGpuSamplerGranulator", parallel: false }),
+  freeze({ kind: 114, functionName: "renderSpatializer", parallel: false }),
+  freeze({ kind: 115, functionName: "renderRecursiveFilter", parallel: false }),
+  freeze({ kind: 116, functionName: "renderFeedbackNetwork", parallel: false }),
+  freeze({ kind: 117, functionName: "renderWavefieldSolver", parallel: true }),
+  freeze({ kind: 118, functionName: "renderSpectralTransport", parallel: false }),
+  freeze({ kind: 119, functionName: "renderAdvancedDynamics", parallel: false }),
+  freeze({ kind: 120, functionName: "renderConvolutionSpace", parallel: true }),
+  freeze({ kind: 121, functionName: "renderMassiveBank", parallel: false }),
+  freeze({ kind: 122, functionName: "renderAudioAnalysisField", parallel: false }),
+  freeze({ kind: 123, functionName: "renderDdspResynth", parallel: false }),
+  freeze({ kind: 124, functionName: "renderSpectralVocoder", parallel: false }),
+  freeze({ kind: 125, functionName: "renderNeuralProcessor", parallel: false }),
+]);
+const STATE_SHADER_RENDERER_BY_KIND = new Map(
+  STATE_SHADER_RENDERERS.map((renderer) => [renderer.kind, renderer]),
+);
+const STATE_SHADER_VARIANT_CACHE = new Map();
+
+function normalizedStateShaderKinds(kinds = []) {
+  const candidates = typeof kinds === "number"
+    ? [kinds]
+    : Array.from(kinds ?? []);
+  const normalized = [];
+  for (const candidate of candidates) {
+    const rawKind = candidate && typeof candidate === "object" ? candidate.kind : candidate;
+    const kind = Number(rawKind);
+    if (!Number.isInteger(kind) || !STATE_SHADER_RENDERER_BY_KIND.has(kind)) {
+      throw new RangeError(`Unknown shader playground state kind: ${String(rawKind)}`);
+    }
+    normalized.push(kind);
+  }
+  return [...new Set(normalized)].sort((left, right) => left - right);
+}
+
+function stateShaderEntryPoint(kinds) {
+  const renderers = kinds.map((kind) => STATE_SHADER_RENDERER_BY_KIND.get(kind));
+  const parallel = renderers.filter((renderer) => renderer.parallel);
+  const serial = renderers.filter((renderer) => !renderer.parallel);
+  const cases = (entries, indentation) => entries
+    .map(({ kind, functionName }) => `${indentation}case ${kind}u: { ${functionName}(node); }`)
+    .join("\n");
+
+  let dispatch;
+  if (parallel.length > 0 && serial.length > 0) {
+    dispatch = `  switch state_stage.kind {
+${cases(parallel, "    ")}
+    default: {
+      if (lane != 0u) { return; }
+      switch state_stage.kind {
+${cases(serial, "        ")}
+        default: {}
+      }
+    }
+  }`;
+  } else if (parallel.length > 0) {
+    dispatch = `  switch state_stage.kind {
+${cases(parallel, "    ")}
+    default: {}
+  }`;
+  } else {
+    dispatch = `  if (lane != 0u) { return; }
+  switch state_stage.kind {
+${cases(serial, "    ")}
+    default: {}
+  }`;
+  }
+
+  return /* wgsl */ `@compute @workgroup_size(64)
+fn renderStateNode(
+  @builtin(workgroup_id) workgroup_id: vec3<u32>,
+  @builtin(local_invocation_index) lane: u32,
+) {
+  // Exact renderer variants do not necessarily read every shared resource.
+  // Keep the six-binding runtime contract stable across auto-layout pipelines.
+  // nodeIndex is always a real graph index, so this reserved sentinel is inert.
+  if (state_stage.nodeIndex == 0xffffffffu) {
+    let bindingSentinel = f32(render_info.nodeCount)
+      + graph_nodes[0].header.x
+      + graph_signals[0].x
+      + persistent_state[0].x;
+    state_output[0] = vec2<f32>(bindingSentinel);
+    return;
+  }
+  if (workgroup_id.x != 0u || state_stage.nodeIndex >= render_info.nodeCount) { return; }
+  state_lane = lane;
+  let node = graph_nodes[state_stage.nodeIndex];
+${dispatch}
+}
+`;
+}
+
+function wgslFunctionDeclarations(source) {
+  const declarations = [];
+  let index = 0;
+  let braceDepth = 0;
+  let blockCommentDepth = 0;
+  let lineComment = false;
+
+  while (index < source.length) {
+    if (lineComment) {
+      if (source[index] === "\n") lineComment = false;
+      index += 1;
+      continue;
+    }
+    if (blockCommentDepth > 0) {
+      if (source.startsWith("/*", index)) {
+        blockCommentDepth += 1;
+        index += 2;
+      } else if (source.startsWith("*/", index)) {
+        blockCommentDepth -= 1;
+        index += 2;
+      } else {
+        index += 1;
+      }
+      continue;
+    }
+    if (source.startsWith("//", index)) {
+      lineComment = true;
+      index += 2;
+      continue;
+    }
+    if (source.startsWith("/*", index)) {
+      blockCommentDepth = 1;
+      index += 2;
+      continue;
+    }
+    if (source[index] === "{") {
+      braceDepth += 1;
+      index += 1;
+      continue;
+    }
+    if (source[index] === "}") {
+      braceDepth = Math.max(0, braceDepth - 1);
+      index += 1;
+      continue;
+    }
+    if (braceDepth !== 0 || !/[A-Za-z_]/.test(source[index])) {
+      index += 1;
+      continue;
+    }
+
+    const tokenStart = index;
+    index += 1;
+    while (index < source.length && /[A-Za-z0-9_]/.test(source[index])) index += 1;
+    if (source.slice(tokenStart, index) !== "fn") continue;
+    const nameMatch = source.slice(index).match(/^\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/);
+    if (!nameMatch) throw new Error("Malformed top-level WGSL function declaration.");
+    const name = nameMatch[1];
+
+    let cursor = index + nameMatch[0].length;
+    let functionDepth = 0;
+    let functionLineComment = false;
+    let functionBlockCommentDepth = 0;
+    let bodyStarted = false;
+    for (; cursor < source.length; cursor += 1) {
+      if (functionLineComment) {
+        if (source[cursor] === "\n") functionLineComment = false;
+        continue;
+      }
+      if (functionBlockCommentDepth > 0) {
+        if (source.startsWith("/*", cursor)) {
+          functionBlockCommentDepth += 1;
+          cursor += 1;
+        } else if (source.startsWith("*/", cursor)) {
+          functionBlockCommentDepth -= 1;
+          cursor += 1;
+        }
+        continue;
+      }
+      if (source.startsWith("//", cursor)) {
+        functionLineComment = true;
+        cursor += 1;
+        continue;
+      }
+      if (source.startsWith("/*", cursor)) {
+        functionBlockCommentDepth = 1;
+        cursor += 1;
+        continue;
+      }
+      if (source[cursor] === "{") {
+        bodyStarted = true;
+        functionDepth += 1;
+      } else if (source[cursor] === "}" && bodyStarted) {
+        functionDepth -= 1;
+        if (functionDepth === 0) {
+          cursor += 1;
+          break;
+        }
+      }
+    }
+    if (!bodyStarted || functionDepth !== 0) throw new Error(`Unterminated WGSL function: ${name}`);
+    declarations.push({ name, start: tokenStart, end: cursor, source: source.slice(tokenStart, cursor) });
+    index = cursor;
+  }
+  return declarations;
+}
+
+function wgslWithoutComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/\/\/[^\n\r]*/g, " ");
+}
+
+function retainReachableWgslFunctions(source, rootName) {
+  const declarations = wgslFunctionDeclarations(source);
+  const byName = new Map(declarations.map((declaration) => [declaration.name, declaration]));
+  if (!byName.has(rootName)) throw new Error(`Missing WGSL entry point: ${rootName}`);
+  const reachable = new Set([rootName]);
+  const pending = [rootName];
+  while (pending.length > 0) {
+    const name = pending.pop();
+    const declaration = byName.get(name);
+    const callPattern = /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g;
+    for (const match of wgslWithoutComments(declaration.source).matchAll(callPattern)) {
+      const called = match[1];
+      if (!byName.has(called) || reachable.has(called)) continue;
+      reachable.add(called);
+      pending.push(called);
+    }
+  }
+
+  let result = "";
+  let cursor = 0;
+  for (const declaration of declarations) {
+    result += source.slice(cursor, declaration.start);
+    if (reachable.has(declaration.name)) result += declaration.source;
+    cursor = declaration.end;
+  }
+  result += source.slice(cursor);
+  return result;
+}
+
+/** Stable cache key for an exact set of active persistent-state module kinds. */
+export function shaderSynthPlaygroundStateShaderKey(kinds = []) {
+  const normalized = normalizedStateShaderKinds(kinds);
+  return `${STATE_SHADER_VARIANT_VERSION}:${normalized.length ? normalized.join(",") : "none"}`;
+}
+
+/**
+ * Build a valid state compute shader whose entry point and reachable helper
+ * graph contain only the requested renderer families.
+ */
+export function shaderSynthPlaygroundStateShaderVariant(kinds = []) {
+  const normalized = normalizedStateShaderKinds(kinds);
+  const key = shaderSynthPlaygroundStateShaderKey(normalized);
+  const cached = STATE_SHADER_VARIANT_CACHE.get(key);
+  if (cached) return cached;
+  const entryStart = SHADER_SYNTH_PLAYGROUND_STATE_SHADER.lastIndexOf(STATE_SHADER_ENTRY_MARKER);
+  if (entryStart < 0) throw new Error("The full state shader entry point could not be specialized.");
+  const library = SHADER_SYNTH_PLAYGROUND_STATE_SHADER.slice(0, entryStart);
+  const code = retainReachableWgslFunctions(`${library}${stateShaderEntryPoint(normalized)}`, "renderStateNode");
+  const variant = freeze({ key, kinds: freeze([...normalized]), code });
+  STATE_SHADER_VARIANT_CACHE.set(key, variant);
+  return variant;
+}
+
+export function buildShaderSynthPlaygroundStateShader(kinds = []) {
+  return shaderSynthPlaygroundStateShaderVariant(kinds).code;
+}
+
+export function shaderSynthPlaygroundStateShaderVariantForEncoded(encoded) {
+  return shaderSynthPlaygroundStateShaderVariant(
+    shaderSynthPlaygroundStateEngineNodes(encoded).map(({ kind }) => kind),
+  );
+}
+
 function destroyBuffer(buffer) {
   try { buffer?.destroy?.(); } catch { /* optional cleanup */ }
 }
@@ -1028,6 +1311,7 @@ export class ShaderSynthPlaygroundStateEngine {
     this.renderInfoBuffer = renderInfoBuffer;
     this.nodeBuffer = nodeBuffer;
     this.pipeline = null;
+    this.pipelineKey = null;
     this.graphSignalBuffer = null;
     this.stateOutputBuffer = null;
     this.nodeResources = new Map();
@@ -1037,8 +1321,9 @@ export class ShaderSynthPlaygroundStateEngine {
     this.persistentBytes = 0;
   }
 
-  async init() {
-    const module = this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_STATE_SHADER });
+  async init(kinds = Object.values(SHADER_SYNTH_PLAYGROUND_STATE_ENGINE_KINDS)) {
+    const variant = shaderSynthPlaygroundStateShaderVariant(kinds);
+    const module = this.device.createShaderModule({ code: variant.code });
     const descriptor = {
       layout: "auto",
       compute: {
@@ -1050,11 +1335,20 @@ export class ShaderSynthPlaygroundStateEngine {
     this.pipeline = typeof this.device.createComputePipelineAsync === "function"
       ? await this.device.createComputePipelineAsync(descriptor)
       : this.device.createComputePipeline(descriptor);
+    this.pipelineKey = variant.key;
     return this;
   }
 
-  setPipeline(pipeline) {
+  setPipeline(pipeline, pipelineKey = null) {
+    const normalizedKey = pipelineKey == null ? null : String(pipelineKey);
+    const pipelineChanged = this.pipeline !== pipeline || this.pipelineKey !== normalizedKey;
     this.pipeline = pipeline;
+    this.pipelineKey = normalizedKey;
+    if (pipelineChanged) {
+      // Bind groups created from an automatic layout are pipeline-specific.
+      // sync() will rebuild them against the replacement layout before encode.
+      for (const resource of this.nodeResources.values()) resource.bindGroup = null;
+    }
     return this;
   }
 
@@ -1345,6 +1639,7 @@ export class ShaderSynthPlaygroundStateEngine {
     this.orderedResources = [];
     this.releaseStatefulResourceBuffers();
     this.pipeline = null;
+    this.pipelineKey = null;
     this.persistentBytes = 0;
   }
 }

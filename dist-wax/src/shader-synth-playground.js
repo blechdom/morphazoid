@@ -2,13 +2,14 @@ import { connectAudioOutput } from "./audio-output-manager.js";
 import {
   SHADER_SYNTH_PLAYGROUND_FX_MODULES,
   SHADER_SYNTH_PLAYGROUND_FX_LIMITS,
-  SHADER_SYNTH_PLAYGROUND_FX_SHADER,
   SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER,
+  createShaderSynthPlaygroundFxShader,
   isShaderSynthPlaygroundFxKind,
-  shaderSynthPlaygroundFxHistoryByteSize,
-  shaderSynthPlaygroundFxHistoryFrames,
+  shaderSynthPlaygroundFxHistoryByteSizeForPatch,
+  shaderSynthPlaygroundFxHistoryFramesForPatch,
+  shaderSynthPlaygroundFxShaderKeyForPatch,
   shaderSynthPlaygroundFxNodes,
-} from "./shader-synth-playground-fx.js?v=20260830-atlas-dsp";
+} from "./shader-synth-playground-fx.js?v=20260902-monotonic-play-note";
 import { createShaderPlaygroundScenes } from "./shader-synth-playground-scenes.js";
 import {
   SHADER_SYNTH_PLAYGROUND_EXTRA_CASES,
@@ -38,10 +39,11 @@ import {
 import {
   SHADER_SYNTH_PLAYGROUND_STATEFUL_CASES,
   SHADER_SYNTH_PLAYGROUND_STATEFUL_MODULES,
-  SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER,
   ShaderSynthPlaygroundStateEngine,
-} from "./shader-synth-playground-stateful.js?v=20260831-modules125";
-import { isShaderSynthPlaygroundStateAssetKind } from "./shader-synth-playground-state-engine.js?v=20260831-modules125";
+  shaderSynthPlaygroundStateEngineNodes,
+  shaderSynthPlaygroundStateShaderVariantForEncoded,
+} from "./shader-synth-playground-stateful.js?v=20260902-monotonic-play-note";
+import { isShaderSynthPlaygroundStateAssetKind } from "./shader-synth-playground-state-engine.js?v=20260902-monotonic-play-note";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -62,6 +64,14 @@ const ORGAN_RANK_BUFFER_SIZE = ORGAN_RANK_FLOATS * 2 * Float32Array.BYTES_PER_EL
 const MAX_BUFFERED_CHUNKS = 2.5;
 const SCHEDULE_PADDING_SECONDS = 0.05;
 const SCHEDULE_LEAD_SECONDS = 0.012;
+const STARTUP_LEAD_SECONDS = 0.045;
+const STARTUP_PRIME_CHUNKS = 3;
+const MAX_CHUNKS_PER_FILL = 3;
+const MAX_ADAPTIVE_BUFFER_SECONDS = 1.2;
+const RENDER_TIMING_WINDOW = 24;
+const MAX_CACHED_GRAPH_PIPELINES = 16;
+const MAX_CACHED_FX_PIPELINES = 8;
+const MAX_CACHED_STATE_PIPELINES = 8;
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -82,6 +92,13 @@ function organRanksEqual(first, second) {
 
 function cloneParamMap(params = new Map()) {
   return new Map([...params].map(([id, values]) => [id, [...values]]));
+}
+
+function rememberPipeline(cache, key, pipeline, limit) {
+  cache.delete(key);
+  cache.set(key, pipeline);
+  while (cache.size > limit) cache.delete(cache.keys().next().value);
+  return pipeline;
 }
 
 function paramMapsEqual(first = new Map(), second = new Map()) {
@@ -176,15 +193,16 @@ export const SHADER_PLAYGROUND_LAYOUT_DEFAULTS = freeze({
   marginBottom: 20,
 });
 
-// The readback path is deliberately buffered like the standalone WebGPU 303:
-// one 100 ms GPU render at a time, with roughly 300 ms scheduled ahead. The
-// extra lead absorbs mapAsync/browser-main-thread jitter before it can open a
-// gap between adjacent AudioBufferSourceNodes.
+// Match the standalone WebGPU 303's responsive steady-state lookahead. The
+// scheduler may raise this floor after measured pressure or a real underrun;
+// first-use pipeline compilation is handled separately from normal buffering.
 export const SHADER_PLAYGROUND_RUNTIME_DEFAULTS = freeze({
   chunkDuration: 0.1,
   workgroupSize: 256,
   bufferedChunks: MAX_BUFFERED_CHUNKS,
   schedulePadding: SCHEDULE_PADDING_SECONDS,
+  startupChunks: STARTUP_PRIME_CHUNKS,
+  maximumBufferSeconds: MAX_ADAPTIVE_BUFFER_SECONDS,
 });
 
 export const SHADER_PLAYGROUND_MODULES = freeze([
@@ -1937,7 +1955,226 @@ export function encodeShaderPlaygroundPatch(candidate, previousParams = new Map(
   return { data, patch, order: result.order, nodeCount: orderedNodes.length, outputIndex, paramsByNode: nextParams };
 }
 
-export const SHADER_PLAYGROUND_SHADER = /* wgsl */ `
+const SHADER_PLAYGROUND_SHADER_GROUPS = freeze({
+  extra: 1 << 0,
+  geometry: 1 << 1,
+  found: 1 << 2,
+  atlas: 1 << 3,
+  routing: 1 << 4,
+  stateful: 1 << 5,
+});
+const SHADER_PLAYGROUND_ALL_SHADER_GROUPS = Object.values(SHADER_PLAYGROUND_SHADER_GROUPS)
+  .reduce((mask, group) => mask | group, 0);
+const SHADER_PLAYGROUND_MODULE_GROUP = new Map([
+  ...SHADER_SYNTH_PLAYGROUND_EXTRA_MODULES.map(({ id }) => [id, SHADER_PLAYGROUND_SHADER_GROUPS.extra]),
+  ...SHADER_SYNTH_PLAYGROUND_GEOMETRY_MODULES.map(({ id }) => [id, SHADER_PLAYGROUND_SHADER_GROUPS.geometry]),
+  ...SHADER_SYNTH_PLAYGROUND_FOUND_MODULES.map(({ id }) => [id, SHADER_PLAYGROUND_SHADER_GROUPS.found]),
+  ...SHADER_SYNTH_PLAYGROUND_ATLAS_MODULES.map(({ id }) => [id, SHADER_PLAYGROUND_SHADER_GROUPS.atlas]),
+  ...SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_MODULES.map(({ id }) => [id, SHADER_PLAYGROUND_SHADER_GROUPS.routing]),
+  ...SHADER_SYNTH_PLAYGROUND_STATEFUL_MODULES.map(({ id }) => [id, SHADER_PLAYGROUND_SHADER_GROUPS.stateful]),
+]);
+
+export function shaderPlaygroundShaderMaskForPatch(patch) {
+  return (patch?.nodes ?? []).reduce(
+    (mask, graphNode) => mask | (SHADER_PLAYGROUND_MODULE_GROUP.get(graphNode?.type) ?? 0),
+    0,
+  );
+}
+
+export function shaderPlaygroundShaderKindsForPatch(patch) {
+  return [...new Set((patch?.nodes ?? [])
+    .map((graphNode) => MODULE_BY_ID.get(String(graphNode?.type ?? ""))?.kind)
+    .filter((kind) => Number.isFinite(kind)))]
+    .sort((left, right) => left - right);
+}
+
+export function shaderPlaygroundShaderKeyForPatch(patch) {
+  return `${shaderPlaygroundShaderMaskForPatch(patch)}:${shaderPlaygroundShaderKindsForPatch(patch).join(",")}`;
+}
+
+function matchingWgslBrace(source, openingIndex) {
+  let depth = 0;
+  let lineComment = false;
+  let blockCommentDepth = 0;
+  for (let index = openingIndex; index < source.length; index += 1) {
+    const current = source[index];
+    const next = source[index + 1];
+    if (lineComment) {
+      if (current === "\n") lineComment = false;
+      continue;
+    }
+    if (blockCommentDepth > 0) {
+      if (current === "/" && next === "*") {
+        blockCommentDepth += 1;
+        index += 1;
+      } else if (current === "*" && next === "/") {
+        blockCommentDepth -= 1;
+        index += 1;
+      }
+      continue;
+    }
+    if (current === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      blockCommentDepth = 1;
+      index += 1;
+      continue;
+    }
+    if (current === "{") depth += 1;
+    else if (current === "}" && --depth === 0) return index;
+  }
+  return -1;
+}
+
+function nextWgslOpeningBrace(source, startIndex, limit = source.length) {
+  let lineComment = false;
+  let blockCommentDepth = 0;
+  for (let index = startIndex; index < limit; index += 1) {
+    const current = source[index];
+    const next = source[index + 1];
+    if (lineComment) {
+      if (current === "\n") lineComment = false;
+      continue;
+    }
+    if (blockCommentDepth > 0) {
+      if (current === "/" && next === "*") {
+        blockCommentDepth += 1;
+        index += 1;
+      } else if (current === "*" && next === "/") {
+        blockCommentDepth -= 1;
+        index += 1;
+      }
+      continue;
+    }
+    if (current === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+    } else if (current === "/" && next === "*") {
+      blockCommentDepth = 1;
+      index += 1;
+    } else if (current === "{") return index;
+  }
+  return -1;
+}
+
+function filterWgslEvaluateCases(source, activeKinds) {
+  if (!activeKinds) return source;
+  const keep = new Set(activeKinds.map((kind) => Math.round(Number(kind))));
+  const functionStart = source.indexOf("fn evaluateNode(");
+  const switchStart = source.indexOf("switch kind", functionStart);
+  const switchOpen = nextWgslOpeningBrace(source, switchStart);
+  const switchClose = matchingWgslBrace(source, switchOpen);
+  if (functionStart < 0 || switchStart < 0 || switchOpen < 0 || switchClose < 0) return source;
+  const cases = [];
+  let cursor = switchOpen + 1;
+  while (cursor < switchClose) {
+    const remainder = source.slice(cursor, switchClose);
+    const marker = remainder.match(/\b(?:case\s+\d+u\s*:|default\s*:)/);
+    if (!marker) break;
+    const caseStart = cursor + marker.index;
+    const caseOpen = nextWgslOpeningBrace(source, caseStart, switchClose);
+    if (caseOpen < 0) break;
+    const caseClose = matchingWgslBrace(source, caseOpen);
+    if (caseClose < 0 || caseClose > switchClose) break;
+    const clause = source.slice(caseStart, caseClose + 1);
+    const kindMatch = clause.match(/^case\s+(\d+)u\s*:/);
+    if (!kindMatch || keep.has(Number(kindMatch[1]))) cases.push(clause.trim());
+    cursor = caseClose + 1;
+  }
+  return `${source.slice(0, switchOpen + 1)}\n    ${cases.join("\n    ")}\n  ${source.slice(switchClose)}`;
+}
+
+function topLevelWgslFunctions(source) {
+  const functions = [];
+  let depth = 0;
+  let lineComment = false;
+  let blockCommentDepth = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    const current = source[index];
+    const next = source[index + 1];
+    if (lineComment) {
+      if (current === "\n") lineComment = false;
+      continue;
+    }
+    if (blockCommentDepth > 0) {
+      if (current === "/" && next === "*") {
+        blockCommentDepth += 1;
+        index += 1;
+      } else if (current === "*" && next === "/") {
+        blockCommentDepth -= 1;
+        index += 1;
+      }
+      continue;
+    }
+    if (current === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      blockCommentDepth = 1;
+      index += 1;
+      continue;
+    }
+    if (current === "{") {
+      depth += 1;
+      continue;
+    }
+    if (current === "}") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (
+      depth !== 0
+      || source.slice(index, index + 2) !== "fn"
+      || /[A-Za-z0-9_]/.test(source[index - 1] ?? "")
+      || /[A-Za-z0-9_]/.test(source[index + 2] ?? "")
+    ) continue;
+    const header = source.slice(index).match(/^fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/);
+    if (!header) continue;
+    const opening = nextWgslOpeningBrace(source, index + header[0].length);
+    const closing = matchingWgslBrace(source, opening);
+    if (opening < 0 || closing < 0) continue;
+    functions.push({ name: header[1], start: index, end: closing + 1, source: source.slice(index, closing + 1) });
+    index = closing;
+  }
+  return functions;
+}
+
+function removeUnusedWgslFunctions(source) {
+  const functions = topLevelWgslFunctions(source);
+  const byName = new Map(functions.map((entry) => [entry.name, entry]));
+  const retained = new Set(["render", "evaluateNode"]);
+  const queue = [...retained];
+  while (queue.length) {
+    const current = byName.get(queue.shift());
+    if (!current) continue;
+    for (const candidate of functions) {
+      if (retained.has(candidate.name)) continue;
+      if (new RegExp(`\\b${candidate.name}\\s*\\(`).test(current.source)) {
+        retained.add(candidate.name);
+        queue.push(candidate.name);
+      }
+    }
+  }
+  let specialized = source;
+  for (const entry of [...functions].reverse()) {
+    if (!retained.has(entry.name)) {
+      specialized = specialized.slice(0, entry.start) + specialized.slice(entry.end);
+    }
+  }
+  return specialized;
+}
+
+export function createShaderPlaygroundShader(
+  groupMask = SHADER_PLAYGROUND_ALL_SHADER_GROUPS,
+  activeKinds = null,
+) {
+  const mask = Math.max(0, Math.trunc(finiteOr(groupMask, SHADER_PLAYGROUND_ALL_SHADER_GROUPS)));
+  const shader = /* wgsl */ `
 override SAMPLE_RATE: f32 = 44100.0;
 override WORKGROUP_SIZE: u32 = 256u;
 const PI: f32 = 3.141592653589793;
@@ -1991,6 +2228,11 @@ fn hashU32(value: u32) -> f32 {
 
 fn softClip(value: vec2<f32>) -> vec2<f32> {
   return value / (vec2<f32>(1.0) + abs(value));
+}
+
+fn finalizeGraphOutput(value: vec2<f32>, params: vec4<f32>) -> vec2<f32> {
+  let ceiling = clamp(params.y, 0.2, 1.0);
+  return clamp(softClip(value * params.x) * 1.7, vec2<f32>(-ceiling), vec2<f32>(ceiling));
 }
 
 fn polyBlep(phase: f32, increment: f32) -> f32 {
@@ -2161,11 +2403,13 @@ fn chebyshevSeries(value: vec2<f32>, order: u32, tilt: f32) -> vec2<f32> {
   return sum / max(weight, 1.0);
 }
 
-${SHADER_SYNTH_PLAYGROUND_EXTRA_HELPERS}
-${SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS}
-${SHADER_SYNTH_PLAYGROUND_FOUND_HELPERS}
-${SHADER_SYNTH_PLAYGROUND_ATLAS_HELPERS}
-${SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_HELPERS}
+${mask & (SHADER_PLAYGROUND_SHADER_GROUPS.extra | SHADER_PLAYGROUND_SHADER_GROUPS.geometry)
+    ? SHADER_SYNTH_PLAYGROUND_EXTRA_HELPERS
+    : ""}
+${mask & SHADER_PLAYGROUND_SHADER_GROUPS.geometry ? SHADER_SYNTH_PLAYGROUND_GEOMETRY_HELPERS : ""}
+${mask & SHADER_PLAYGROUND_SHADER_GROUPS.found ? SHADER_SYNTH_PLAYGROUND_FOUND_HELPERS : ""}
+${mask & SHADER_PLAYGROUND_SHADER_GROUPS.atlas ? SHADER_SYNTH_PLAYGROUND_ATLAS_HELPERS : ""}
+${mask & SHADER_PLAYGROUND_SHADER_GROUPS.routing ? SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_HELPERS : ""}
 
 fn evaluateNode(
   kind: u32,
@@ -2256,12 +2500,12 @@ fn evaluateNode(
       let multiplied = softClip(inputA * inputB * inputC * max(p0.y, 0.5) * 4.0);
       result = mix(parallel, multiplied, clamp(p0.x, 0.0, 1.0)) * p0.z;
     }
-    ${SHADER_SYNTH_PLAYGROUND_EXTRA_CASES}
-    ${SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES}
-    ${SHADER_SYNTH_PLAYGROUND_FOUND_CASES}
-    ${SHADER_SYNTH_PLAYGROUND_ATLAS_CASES}
-    ${SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_CASES}
-    ${SHADER_SYNTH_PLAYGROUND_STATEFUL_CASES}
+    ${mask & SHADER_PLAYGROUND_SHADER_GROUPS.extra ? SHADER_SYNTH_PLAYGROUND_EXTRA_CASES : ""}
+    ${mask & SHADER_PLAYGROUND_SHADER_GROUPS.geometry ? SHADER_SYNTH_PLAYGROUND_GEOMETRY_CASES : ""}
+    ${mask & SHADER_PLAYGROUND_SHADER_GROUPS.found ? SHADER_SYNTH_PLAYGROUND_FOUND_CASES : ""}
+    ${mask & SHADER_PLAYGROUND_SHADER_GROUPS.atlas ? SHADER_SYNTH_PLAYGROUND_ATLAS_CASES : ""}
+    ${mask & SHADER_PLAYGROUND_SHADER_GROUPS.routing ? SHADER_SYNTH_PLAYGROUND_ATLAS_ROUTING_CASES : ""}
+    ${mask & SHADER_PLAYGROUND_SHADER_GROUPS.stateful ? SHADER_SYNTH_PLAYGROUND_STATEFUL_CASES : ""}
     case 12u: {
       let driven = (inputA + vec2<f32>(p0.w)) * max(p0.x, 1.0);
       let shaped = mix(softClip(driven), sin(driven * PI), clamp(p0.y, 0.0, 1.0));
@@ -2575,6 +2819,13 @@ fn evaluateNode(
 fn render(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let sample = global_id.x;
   if (sample >= render_info.sampleCount || sample >= arrayLength(&sound_chunk)) { return; }
+  // Keep the shared bind-group ABI stable when a patch specialization does
+  // not contain an organ renderer. nodeCount is validated to <=16 on the CPU,
+  // but remains a runtime uniform so the compiler retains binding 3.
+  if (render_info.nodeCount == 0xffffffffu && arrayLength(&organ_rank) > 0u) {
+    sound_chunk[sample] = vec2<f32>(organ_rank[0].x);
+    return;
+  }
   let sampleIndex = render_info.baseSample + sample;
   let transitionActive = render_info.rampActive != 0u || render_info.organRampActive != 0u;
   var ramp = 1.0;
@@ -2599,7 +2850,7 @@ fn render(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let bypassed = graphNode.header.x < 0.0;
     let kind = u32(round(abs(graphNode.header.x)));
     var stateValue = vec2<f32>(0.0);
-    if (render_info.stateActive != 0u) {
+    if ((render_info.stateActive & 1u) != 0u) {
       stateValue = state_output[nodeIndex * render_info.sampleCount + sample];
     }
     let previousInputA = readInput(&previousValues, graphNode.header.y);
@@ -2637,13 +2888,46 @@ fn render(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     previousValues[nodeIndex] = previousResult;
     targetValues[nodeIndex] = targetResult;
-    if (render_info.stateActive != 0u) {
+    if ((render_info.stateActive & 1u) != 0u) {
       graph_signals[nodeIndex * render_info.sampleCount + sample] = mix(previousResult, targetResult, ramp);
     }
   }
   let outputIndex = min(render_info.outputIndex, MAX_GRAPH_NODES - 1u);
-  sound_chunk[sample] = mix(previousValues[outputIndex], targetValues[outputIndex], ramp);
+  let previousSignal = previousValues[outputIndex];
+  let targetSignal = targetValues[outputIndex];
+  // With no terminal history chain, finish the signal here and avoid a
+  // second all-effects pipeline entirely. Bits 8–15 carry the number of
+  // allocated history regions; zero means this is the final graph pass.
+  if (((render_info.stateActive >> 8u) & 255u) == 0u) {
+    let outputNode = graph_nodes[outputIndex];
+    // Match the established final FX pass exactly: graph parameters are
+    // crossfaded first, then both output-gain branches receive that same
+    // signal. Moving the nonlinear soft ceiling inside the graph crossfade
+    // changes the transition curve and sounds rough during rapid knob edits.
+    let mixedSignal = mix(previousSignal, targetSignal, ramp);
+    let previousFinal = finalizeGraphOutput(mixedSignal, outputNode.previous0);
+    let targetFinal = finalizeGraphOutput(mixedSignal, outputNode.target0);
+    sound_chunk[sample] = clamp(mix(previousFinal, targetFinal, ramp), vec2<f32>(-0.98), vec2<f32>(0.98));
+  } else {
+    sound_chunk[sample] = mix(previousSignal, targetSignal, ramp);
+  }
 }`;
+  return activeKinds
+    ? removeUnusedWgslFunctions(filterWgslEvaluateCases(shader, activeKinds))
+    : shader;
+}
+
+export function createShaderPlaygroundShaderForPatch(patch) {
+  return createShaderPlaygroundShader(
+    shaderPlaygroundShaderMaskForPatch(patch),
+    shaderPlaygroundShaderKindsForPatch(patch),
+  );
+}
+
+// The complete shader remains public for the primitive/reference page and its
+// coverage tests. The audio runtime compiles only the helper/case families
+// actually present in the current patch.
+export const SHADER_PLAYGROUND_SHADER = createShaderPlaygroundShader();
 
 function gpuConstants(runtime) {
   const usage = runtime.GPUBufferUsage ?? globalThis.GPUBufferUsage;
@@ -2709,11 +2993,21 @@ export class ShaderSynthPlaygroundAudio {
     this.releaseAudioOutput = null;
     this.device = null;
     this.pipeline = null;
+    this.graphPipelineKey = null;
+    this.graphPipelines = new Map();
+    this.graphPipelinePromises = new Map();
     this.bindGroup = null;
     this.historyCapturePipeline = null;
+    this.historyCapturePipelinePromise = null;
     this.historyCaptureBindGroup = null;
     this.fxPipeline = null;
+    this.fxPipelineKey = null;
+    this.fxPipelines = new Map();
+    this.fxPipelinePromises = new Map();
     this.statefulPipeline = null;
+    this.statefulPipelineKey = null;
+    this.statefulPipelines = new Map();
+    this.statefulPipelinePromises = new Map();
     this.statefulEngine = null;
     this.pendingNodeAssets = new Map();
     this.stateGraphFallbackBuffer = null;
@@ -2729,6 +3023,7 @@ export class ShaderSynthPlaygroundAudio {
     this.fxOutputBuffer = null;
     this.fxHistoryBuffer = null;
     this.fxHistoryFrames = 0;
+    this.fxHistoryRegions = 0;
     this.fxHistoryAllocated = false;
     this.mapBuffer = null;
     this.chunkSamples = 0;
@@ -2737,6 +3032,11 @@ export class ShaderSynthPlaygroundAudio {
     this.renderOffset = 0;
     this.renderSampleOffset = 0;
     this.nextStartTime = 0;
+    this.bufferTargetSeconds = this.chunkDuration * MAX_BUFFERED_CHUNKS + SCHEDULE_PADDING_SECONDS;
+    this.renderDurations = [];
+    this.renderDurationP95 = 0;
+    this.underrunCount = 0;
+    this.lastRenderIncludedCompile = false;
     this.timeoutId = null;
     this.renderingPromise = null;
     this.running = false;
@@ -2756,6 +3056,7 @@ export class ShaderSynthPlaygroundAudio {
     this.sources = new Set();
     this.sourceGains = new Map();
     this.scheduledChunks = [];
+    this.hasScheduledPlayback = false;
     this.pendingQueueHandoff = null;
     this.deferredQueueRefresh = false;
     this.visualTimers = new Set();
@@ -2774,6 +3075,51 @@ export class ShaderSynthPlaygroundAudio {
     } catch (error) {
       this.runtime.console?.error?.("Shader playground status callback failed.", error);
     }
+  }
+
+  clockMilliseconds() {
+    const now = this.runtime.performance?.now?.();
+    return Number.isFinite(now) ? now : Date.now();
+  }
+
+  recordRenderDuration(durationSeconds) {
+    const duration = Math.max(0, finiteOr(durationSeconds, 0));
+    if (duration <= 0) return;
+    this.renderDurations.push(duration);
+    if (this.renderDurations.length > RENDER_TIMING_WINDOW) this.renderDurations.shift();
+    const ordered = [...this.renderDurations].sort((left, right) => left - right);
+    this.renderDurationP95 = ordered[Math.min(
+      ordered.length - 1,
+      Math.ceil(ordered.length * 0.95) - 1,
+    )];
+    const measuredTarget = this.renderDurationP95 * 4 + SCHEDULE_PADDING_SECONDS;
+    this.bufferTargetSeconds = clamp(
+      Math.max(this.bufferTargetSeconds, measuredTarget),
+      this.chunkDuration * MAX_BUFFERED_CHUNKS + SCHEDULE_PADDING_SECONDS,
+      MAX_ADAPTIVE_BUFFER_SECONDS,
+    );
+  }
+
+  recordUnderrun(gapSeconds) {
+    const gap = Math.max(0, finiteOr(gapSeconds, 0));
+    this.underrunCount += 1;
+    this.bufferTargetSeconds = clamp(
+      Math.max(
+        this.bufferTargetSeconds + this.chunkDuration,
+        this.bufferTargetSeconds + gap * 2,
+      ),
+      this.chunkDuration * MAX_BUFFERED_CHUNKS + SCHEDULE_PADDING_SECONDS,
+      MAX_ADAPTIVE_BUFFER_SECONDS,
+    );
+  }
+
+  get performanceSummary() {
+    return freeze({
+      renderP95Seconds: this.renderDurationP95,
+      bufferTargetSeconds: this.bufferTargetSeconds,
+      queueLeadSeconds: this.context ? Math.max(0, this.nextStartTime - this.context.currentTime) : 0,
+      underruns: this.underrunCount,
+    });
   }
 
   async start(patch = this.patch) {
@@ -2811,13 +3157,25 @@ export class ShaderSynthPlaygroundAudio {
     this.updatePatch(this.patch);
     this.renderOffset = 0;
     this.renderSampleOffset = 0;
-    this.nextStartTime = this.context.currentTime + 0.06;
+    this.nextStartTime = this.context.currentTime;
+    this.bufferTargetSeconds = this.chunkDuration * MAX_BUFFERED_CHUNKS + SCHEDULE_PADDING_SECONDS;
+    this.renderDurations = [];
+    this.renderDurationP95 = 0;
+    this.underrunCount = 0;
     this.scheduledChunks = [];
+    this.hasScheduledPlayback = false;
     this.pendingQueueHandoff = null;
     this.deferredQueueRefresh = false;
     this.running = true;
     this.reportStatus("rendering");
-    const prime = this.fillBuffer({ forceFirstChunk: true, maxChunks: 1 });
+    // Render a contiguous reserve before scheduling the first source. Merely
+    // requesting several ordinary fills would still let chunk one start while
+    // the following chunks were blocked on GPU readback.
+    const prime = this.fillBuffer({
+      forceFirstChunk: true,
+      maxChunks: STARTUP_PRIME_CHUNKS,
+      deferPlayback: true,
+    });
     this.renderingPromise = prime;
     try {
       await prime;
@@ -2834,7 +3192,7 @@ export class ShaderSynthPlaygroundAudio {
 
   async initGpu() {
     const { usage } = gpuConstants(this.runtime);
-    const adapter = await this.runtime.navigator.gpu.requestAdapter();
+    const adapter = await this.runtime.navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     if (!adapter) throw new Error("No WebGPU adapter was found.");
     this.device = await adapter.requestDevice();
     this.chunkSamples = Math.max(128, Math.round(this.sampleRate * this.chunkDuration));
@@ -2850,6 +3208,7 @@ export class ShaderSynthPlaygroundAudio {
     this.stateGraphFallbackBuffer = this.device.createBuffer({ size: 16, usage: usage.STORAGE });
     this.stateOutputFallbackBuffer = this.device.createBuffer({ size: 16, usage: usage.STORAGE });
     this.fxHistoryFrames = 0;
+    this.fxHistoryRegions = 0;
     this.fxHistoryAllocated = false;
     this.fxHistoryBuffer = this.device.createBuffer({
       size: 16,
@@ -2862,44 +3221,65 @@ export class ShaderSynthPlaygroundAudio {
       usage: usage.UNIFORM | usage.COPY_DST,
     });
     this.mapBuffer = this.device.createBuffer({ size: this.chunkBufferSize, usage: usage.MAP_READ | usage.COPY_DST });
-    const module = this.device.createShaderModule({ code: SHADER_PLAYGROUND_SHADER });
+    const graphPipelineKey = shaderPlaygroundShaderKeyForPatch(this.patch);
+    const module = this.device.createShaderModule({ code: createShaderPlaygroundShaderForPatch(this.patch) });
     const pipelineDescriptor = {
       layout: "auto",
       compute: { module, entryPoint: "render", constants: { SAMPLE_RATE: this.sampleRate, WORKGROUP_SIZE: this.workgroupSize } },
     };
-    const historyCaptureModule = this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER });
-    const historyCapturePipelineDescriptor = {
-      layout: "auto",
-      compute: { module: historyCaptureModule, entryPoint: "captureDryHistory", constants: { WORKGROUP_SIZE: this.workgroupSize } },
-    };
-    const fxModule = this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_FX_SHADER });
-    const fxPipelineDescriptor = {
-      layout: "auto",
-      compute: { module: fxModule, entryPoint: "processPostGraphFx", constants: { SAMPLE_RATE: this.sampleRate, WORKGROUP_SIZE: this.workgroupSize } },
-    };
-    const statefulModule = this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER });
-    const statefulPipelineDescriptor = {
-      layout: "auto",
-      compute: { module: statefulModule, entryPoint: "renderStateNode", constants: { SAMPLE_RATE: this.sampleRate } },
-    };
+    const initialFxCount = shaderSynthPlaygroundFxNodes(this.patch).length;
+    const initialFxKey = initialFxCount > 0
+      ? shaderSynthPlaygroundFxShaderKeyForPatch(this.patch)
+      : null;
+    const historyCapturePipelineDescriptor = initialFxCount > 0
+      ? {
+        layout: "auto",
+        compute: {
+          module: this.device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER }),
+          entryPoint: "captureDryHistory",
+          constants: { WORKGROUP_SIZE: this.workgroupSize },
+        },
+      }
+      : null;
+    const fxPipelineDescriptor = initialFxCount > 0
+      ? {
+        layout: "auto",
+        compute: {
+          module: this.device.createShaderModule({ code: createShaderSynthPlaygroundFxShader(this.patch) }),
+          entryPoint: "processPostGraphFx",
+          constants: { SAMPLE_RATE: this.sampleRate, WORKGROUP_SIZE: this.workgroupSize },
+        },
+      }
+      : null;
     this.reportStatus("compiling");
     if (typeof this.device.createComputePipelineAsync === "function") {
       [
         this.pipeline,
         this.historyCapturePipeline,
         this.fxPipeline,
-        this.statefulPipeline,
       ] = await Promise.all([
         this.device.createComputePipelineAsync(pipelineDescriptor),
-        this.device.createComputePipelineAsync(historyCapturePipelineDescriptor),
-        this.device.createComputePipelineAsync(fxPipelineDescriptor),
-        this.device.createComputePipelineAsync(statefulPipelineDescriptor),
+        historyCapturePipelineDescriptor
+          ? this.device.createComputePipelineAsync(historyCapturePipelineDescriptor)
+          : Promise.resolve(null),
+        fxPipelineDescriptor
+          ? this.device.createComputePipelineAsync(fxPipelineDescriptor)
+          : Promise.resolve(null),
       ]);
     } else {
       this.pipeline = this.device.createComputePipeline(pipelineDescriptor);
-      this.historyCapturePipeline = this.device.createComputePipeline(historyCapturePipelineDescriptor);
-      this.fxPipeline = this.device.createComputePipeline(fxPipelineDescriptor);
-      this.statefulPipeline = this.device.createComputePipeline(statefulPipelineDescriptor);
+      this.historyCapturePipeline = historyCapturePipelineDescriptor
+        ? this.device.createComputePipeline(historyCapturePipelineDescriptor)
+        : null;
+      this.fxPipeline = fxPipelineDescriptor
+        ? this.device.createComputePipeline(fxPipelineDescriptor)
+        : null;
+    }
+    this.graphPipelineKey = graphPipelineKey;
+    rememberPipeline(this.graphPipelines, graphPipelineKey, this.pipeline, MAX_CACHED_GRAPH_PIPELINES);
+    this.fxPipelineKey = this.fxPipeline ? initialFxKey : null;
+    if (this.fxPipeline && initialFxKey !== null) {
+      rememberPipeline(this.fxPipelines, initialFxKey, this.fxPipeline, MAX_CACHED_FX_PIPELINES);
     }
     this.statefulEngine = new ShaderSynthPlaygroundStateEngine(this.device, {
       usage,
@@ -2908,7 +3288,7 @@ export class ShaderSynthPlaygroundAudio {
       maxNodes: MAX_NODES,
       renderInfoBuffer: this.renderInfoBuffer,
       nodeBuffer: this.nodeBuffer,
-    }).setPipeline(this.statefulPipeline);
+    });
     for (const asset of this.pendingNodeAssets.values()) {
       this.statefulEngine.setNodeAsset(asset.nodeId, asset.kind, asset.left, asset.right);
     }
@@ -2916,9 +3296,302 @@ export class ShaderSynthPlaygroundAudio {
     this.rebuildFxBindGroups();
   }
 
+  async ensureHistoryCapturePipeline() {
+    if (this.historyCapturePipeline) return this.historyCapturePipeline;
+    if (this.historyCapturePipelinePromise) return this.historyCapturePipelinePromise;
+    if (!this.device) throw new Error("The WebGPU effect-history renderer is not initialized.");
+    const device = this.device;
+    const task = (async () => {
+      const descriptor = {
+        layout: "auto",
+        compute: {
+          module: device.createShaderModule({ code: SHADER_SYNTH_PLAYGROUND_HISTORY_CAPTURE_SHADER }),
+          entryPoint: "captureDryHistory",
+          constants: { WORKGROUP_SIZE: this.workgroupSize },
+        },
+      };
+      const pipeline = typeof device.createComputePipelineAsync === "function"
+        ? await device.createComputePipelineAsync(descriptor)
+        : device.createComputePipeline(descriptor);
+      if (this.device !== device) {
+        throw new Error("The WebGPU effect-history renderer was stopped while compiling.");
+      }
+      this.historyCapturePipeline = pipeline;
+      this.rebuildFxBindGroups();
+      return pipeline;
+    })();
+    this.historyCapturePipelinePromise = task;
+    try {
+      return await task;
+    } finally {
+      if (this.historyCapturePipelinePromise === task) this.historyCapturePipelinePromise = null;
+    }
+  }
+
+  async ensureFxPipeline(patch, { activate = true } = {}) {
+    const requiredKey = shaderSynthPlaygroundFxShaderKeyForPatch(patch);
+    if (this.fxPipeline && this.fxPipelineKey === requiredKey) return this.fxPipeline;
+    if (!this.device) throw new Error("The WebGPU effects renderer is not initialized.");
+    const cached = this.fxPipelines.get(requiredKey);
+    if (cached) {
+      rememberPipeline(this.fxPipelines, requiredKey, cached, MAX_CACHED_FX_PIPELINES);
+      if (activate) {
+        this.fxPipeline = cached;
+        this.fxPipelineKey = requiredKey;
+        this.syncFxHistoryResources(this.fxStageCount);
+        this.rebuildFxBindGroups();
+      }
+      return cached;
+    }
+    const device = this.device;
+    let task = this.fxPipelinePromises.get(requiredKey);
+    if (!task) {
+      this.reportStatus("compiling-effects");
+      const shaderSource = createShaderSynthPlaygroundFxShader(patch);
+      task = (async () => {
+        const descriptor = {
+          layout: "auto",
+          compute: {
+            module: device.createShaderModule({ code: shaderSource }),
+            entryPoint: "processPostGraphFx",
+            constants: { SAMPLE_RATE: this.sampleRate, WORKGROUP_SIZE: this.workgroupSize },
+          },
+        };
+        const pipelineTask = typeof device.createComputePipelineAsync === "function"
+          ? device.createComputePipelineAsync(descriptor)
+          : device.createComputePipeline(descriptor);
+        const [pipeline] = await Promise.all([
+          pipelineTask,
+          this.ensureHistoryCapturePipeline(),
+        ]);
+        return pipeline;
+      })();
+      this.fxPipelinePromises.set(requiredKey, task);
+    }
+    try {
+      const pipeline = await task;
+      if (this.device !== device) {
+        throw new Error("The WebGPU effects renderer was stopped while compiling.");
+      }
+      rememberPipeline(this.fxPipelines, requiredKey, pipeline, MAX_CACHED_FX_PIPELINES);
+      if (activate) {
+        this.fxPipeline = pipeline;
+        this.fxPipelineKey = requiredKey;
+        this.syncFxHistoryResources(this.fxStageCount);
+        this.rebuildFxBindGroups();
+      }
+      return pipeline;
+    } finally {
+      if (this.fxPipelinePromises.get(requiredKey) === task) {
+        this.fxPipelinePromises.delete(requiredKey);
+      }
+    }
+  }
+
+  async ensureGraphPipeline(patch, { activate = true } = {}) {
+    const requiredKey = shaderPlaygroundShaderKeyForPatch(patch);
+    if (this.pipeline && this.graphPipelineKey === requiredKey) return this.pipeline;
+    if (!this.device) throw new Error("The WebGPU graph renderer is not initialized.");
+    const cached = this.graphPipelines.get(requiredKey);
+    if (cached) {
+      rememberPipeline(this.graphPipelines, requiredKey, cached, MAX_CACHED_GRAPH_PIPELINES);
+      if (activate) {
+        this.pipeline = cached;
+        this.graphPipelineKey = requiredKey;
+        this.rebuildGraphBindGroup();
+      }
+      return cached;
+    }
+    const device = this.device;
+    let task = this.graphPipelinePromises.get(requiredKey);
+    if (!task) {
+      this.reportStatus("compiling-patch");
+      // Build the exact source synchronously. The editor may select another
+      // patch while the browser compiles this one, but its key and source must
+      // remain a matched cache entry.
+      const shaderSource = createShaderPlaygroundShaderForPatch(patch);
+      task = (async () => {
+        const module = device.createShaderModule({ code: shaderSource });
+        const descriptor = {
+          layout: "auto",
+          compute: {
+            module,
+            entryPoint: "render",
+            constants: { SAMPLE_RATE: this.sampleRate, WORKGROUP_SIZE: this.workgroupSize },
+          },
+        };
+        return typeof device.createComputePipelineAsync === "function"
+          ? device.createComputePipelineAsync(descriptor)
+          : device.createComputePipeline(descriptor);
+      })();
+      this.graphPipelinePromises.set(requiredKey, task);
+    }
+    try {
+      const pipeline = await task;
+      if (this.device !== device) {
+        throw new Error("The WebGPU graph renderer was stopped while compiling.");
+      }
+      rememberPipeline(this.graphPipelines, requiredKey, pipeline, MAX_CACHED_GRAPH_PIPELINES);
+      if (activate) {
+        this.pipeline = pipeline;
+        this.graphPipelineKey = requiredKey;
+        this.rebuildGraphBindGroup();
+      }
+      return pipeline;
+    } finally {
+      if (this.graphPipelinePromises.get(requiredKey) === task) {
+        this.graphPipelinePromises.delete(requiredKey);
+      }
+    }
+  }
+
+  async ensureStatefulPipeline(encodedPatch, { activate = true } = {}) {
+    const variant = shaderSynthPlaygroundStateShaderVariantForEncoded(encodedPatch);
+    if (this.statefulPipeline && this.statefulPipelineKey === variant.key) return this.statefulPipeline;
+    if (!this.device || !this.statefulEngine) {
+      throw new Error("The WebGPU state renderer is not initialized.");
+    }
+    const cached = this.statefulPipelines.get(variant.key);
+    if (cached) {
+      rememberPipeline(this.statefulPipelines, variant.key, cached, MAX_CACHED_STATE_PIPELINES);
+      if (activate) {
+        this.statefulPipeline = cached;
+        this.statefulPipelineKey = variant.key;
+        this.statefulEngine.setPipeline(cached, variant.key);
+        const graphBindingsChanged = this.encodedPatch
+          ? this.statefulEngine.sync(this.encodedPatch)
+          : false;
+        if (graphBindingsChanged || this.encodedPatch) this.rebuildGraphBindGroup();
+      }
+      return cached;
+    }
+    const device = this.device;
+    let task = this.statefulPipelinePromises.get(variant.key);
+    if (!task) {
+      this.reportStatus("compiling-state");
+      task = (async () => {
+        const statefulModule = device.createShaderModule({ code: variant.code });
+        const descriptor = {
+          layout: "auto",
+          compute: {
+            module: statefulModule,
+            entryPoint: "renderStateNode",
+            constants: { SAMPLE_RATE: this.sampleRate },
+          },
+        };
+        return typeof device.createComputePipelineAsync === "function"
+          ? device.createComputePipelineAsync(descriptor)
+          : device.createComputePipeline(descriptor);
+      })();
+      this.statefulPipelinePromises.set(variant.key, task);
+    }
+    try {
+      const pipeline = await task;
+      if (this.device !== device || !this.statefulEngine) {
+        throw new Error("The WebGPU state renderer was stopped while compiling.");
+      }
+      rememberPipeline(this.statefulPipelines, variant.key, pipeline, MAX_CACHED_STATE_PIPELINES);
+      if (activate) {
+        this.statefulPipeline = pipeline;
+        this.statefulPipelineKey = variant.key;
+        this.statefulEngine.setPipeline(pipeline, variant.key);
+        for (const asset of this.pendingNodeAssets.values()) {
+          this.statefulEngine.setNodeAsset(asset.nodeId, asset.kind, asset.left, asset.right);
+        }
+        const graphBindingsChanged = this.encodedPatch
+          ? this.statefulEngine.sync(this.encodedPatch)
+          : false;
+        if (graphBindingsChanged || this.encodedPatch) this.rebuildGraphBindGroup();
+      }
+      return pipeline;
+    } finally {
+      if (this.statefulPipelinePromises.get(variant.key) === task) {
+        this.statefulPipelinePromises.delete(variant.key);
+      }
+    }
+  }
+
+  async preparePatchPipelines(encodedPatch = this.encodedPatch) {
+    if (!encodedPatch?.patch || !this.device || !this.statefulEngine) {
+      throw new Error("The WebGPU patch renderers are not initialized.");
+    }
+    const device = this.device;
+    const graphKey = shaderPlaygroundShaderKeyForPatch(encodedPatch.patch);
+    const fxCount = shaderSynthPlaygroundFxNodes(encodedPatch.patch).length;
+    const fxKey = fxCount > 0
+      ? shaderSynthPlaygroundFxShaderKeyForPatch(encodedPatch.patch)
+      : null;
+    const stateVariant = shaderSynthPlaygroundStateShaderVariantForEncoded(encodedPatch);
+    // Exact graph, effect, and state shaders are independent compilation
+    // units. Compile them together so a cold preset switch pays the longest
+    // first-use compile, not the sum of all three. `activate: false` keeps the
+    // currently audible renderer coherent until the complete set is ready.
+    const [graphPipeline, fxPipeline, statefulPipeline] = await Promise.all([
+      this.ensureGraphPipeline(encodedPatch.patch, { activate: false }),
+      fxCount > 0
+        ? this.ensureFxPipeline(encodedPatch.patch, { activate: false })
+        : Promise.resolve(null),
+      stateVariant.kinds.length > 0
+        ? this.ensureStatefulPipeline(encodedPatch, { activate: false })
+        : Promise.resolve(null),
+    ]);
+    if (this.device !== device || !this.statefulEngine) {
+      throw new Error("The WebGPU patch renderers were stopped while compiling.");
+    }
+    return {
+      device,
+      encodedPatch,
+      graphKey,
+      graphPipeline,
+      fxCount,
+      fxKey,
+      fxPipeline,
+      stateKey: stateVariant.key,
+      stateKinds: stateVariant.kinds,
+      statefulPipeline,
+    };
+  }
+
+  preparedPipelinesMatchCurrentPatch(prepared) {
+    if (!prepared || prepared.device !== this.device || !this.encodedPatch?.patch) return false;
+    const currentStateVariant = shaderSynthPlaygroundStateShaderVariantForEncoded(this.encodedPatch);
+    const currentFxCount = shaderSynthPlaygroundFxNodes(this.encodedPatch.patch).length;
+    return prepared.graphKey === shaderPlaygroundShaderKeyForPatch(this.encodedPatch.patch)
+      && prepared.fxCount === currentFxCount
+      && prepared.fxKey === (currentFxCount > 0
+        ? shaderSynthPlaygroundFxShaderKeyForPatch(this.encodedPatch.patch)
+        : null)
+      && prepared.stateKey === currentStateVariant.key;
+  }
+
+  activatePreparedPatchPipelines(prepared) {
+    if (!this.preparedPipelinesMatchCurrentPatch(prepared) || !this.statefulEngine) return false;
+    this.pipeline = prepared.graphPipeline;
+    this.graphPipelineKey = prepared.graphKey;
+    if (prepared.fxPipeline) {
+      this.fxPipeline = prepared.fxPipeline;
+      this.fxPipelineKey = prepared.fxKey;
+    }
+    if (prepared.statefulPipeline) {
+      this.statefulPipeline = prepared.statefulPipeline;
+      this.statefulPipelineKey = prepared.stateKey;
+      this.statefulEngine.setPipeline(prepared.statefulPipeline, prepared.stateKey);
+      for (const asset of this.pendingNodeAssets.values()) {
+        this.statefulEngine.setNodeAsset(asset.nodeId, asset.kind, asset.left, asset.right);
+      }
+    }
+    this.statefulEngine.sync(this.encodedPatch);
+    if (prepared.fxCount > 0) this.syncFxHistoryResources(prepared.fxCount);
+    // Bind groups are rebuilt only after every selected pipeline is active,
+    // preventing a mixed old/new layout from being observed between awaits.
+    this.rebuildGraphBindGroup();
+    if (prepared.fxCount > 0) this.rebuildFxBindGroups();
+    return true;
+  }
+
   rebuildFxBindGroups() {
     if (
-      !this.device || !this.historyCapturePipeline || !this.fxPipeline
+      !this.device || !this.historyCapturePipeline
       || !this.renderInfoBuffer || !this.nodeBuffer || !this.chunkBuffer || !this.fxOutputBuffer
       || !this.fxHistoryBuffer || !this.fxStageInfoBuffer
     ) return;
@@ -2930,6 +3603,10 @@ export class ShaderSynthPlaygroundAudio {
         { binding: 2, resource: { buffer: this.fxHistoryBuffer } },
       ],
     });
+    if (!this.fxPipeline) {
+      this.fxBindGroups = [];
+      return;
+    }
     const fxLayout = this.fxPipeline.getBindGroupLayout(0);
     this.fxBindGroups = Array.from(
       { length: SHADER_SYNTH_PLAYGROUND_FX_LIMITS.maxChainEffects },
@@ -2958,11 +3635,35 @@ export class ShaderSynthPlaygroundAudio {
   syncFxHistoryResources(activeFxCount) {
     if (!this.device || !this.fxPipeline || !this.fxHistoryBuffer) return false;
     const needed = Number(activeFxCount) > 0;
-    if (needed === this.fxHistoryAllocated && this.fxHistoryBuffer) return false;
+    const historyPatch = this.encodedPatch?.patch ?? this.patch;
+    const historyRegions = needed
+      ? Math.min(
+        SHADER_SYNTH_PLAYGROUND_FX_LIMITS.historyRegions,
+        Math.max(2, Math.trunc(Number(activeFxCount)) + 1),
+      )
+      : 0;
+    const historyFrames = needed
+      ? shaderSynthPlaygroundFxHistoryFramesForPatch(
+        historyPatch,
+        this.sampleRate,
+        this.chunkSamples,
+      )
+      : 0;
+    if (
+      needed === this.fxHistoryAllocated
+      && historyRegions === this.fxHistoryRegions
+      && historyFrames === this.fxHistoryFrames
+      && this.fxHistoryBuffer
+    ) return false;
     const { usage } = gpuConstants(this.runtime);
     let replacement;
     if (needed) {
-      const byteSize = shaderSynthPlaygroundFxHistoryByteSize(this.sampleRate, this.chunkSamples);
+      const byteSize = shaderSynthPlaygroundFxHistoryByteSizeForPatch(
+        historyPatch,
+        this.sampleRate,
+        this.chunkSamples,
+        historyRegions,
+      );
       const limits = [
         Number(this.device.limits?.maxStorageBufferBindingSize),
         Number(this.device.limits?.maxBufferSize),
@@ -2972,13 +3673,14 @@ export class ShaderSynthPlaygroundAudio {
         throw new Error(`GPU effect history needs ${byteSize} bytes, but this device allows ${limit}.`);
       }
       replacement = this.device.createBuffer({ size: byteSize, usage: usage.STORAGE });
-      this.fxHistoryFrames = shaderSynthPlaygroundFxHistoryFrames(this.sampleRate, this.chunkSamples);
+      this.fxHistoryFrames = historyFrames;
     } else {
       replacement = this.device.createBuffer({ size: 16, usage: usage.STORAGE });
       this.fxHistoryFrames = 0;
     }
     try { this.fxHistoryBuffer?.destroy?.(); } catch { /* optional cleanup */ }
     this.fxHistoryBuffer = replacement;
+    this.fxHistoryRegions = historyRegions;
     this.fxHistoryAllocated = needed;
     this.rebuildFxBindGroups();
     return true;
@@ -3051,7 +3753,14 @@ export class ShaderSynthPlaygroundAudio {
       return this.patch;
     }
     this.encodedPatch = encoded;
-    const statefulBindingsChanged = this.statefulEngine?.sync(encoded) ?? false;
+    const activeStateNodes = shaderSynthPlaygroundStateEngineNodes(encoded);
+    // A state-free patch must not pay to compile the 21-renderer state
+    // catalog. The first active state patch is synchronized after its lazy
+    // pipeline has finished inside renderChunk().
+    const statefulBindingsChanged = this.statefulEngine
+      && (this.statefulPipeline || activeStateNodes.length === 0)
+      ? this.statefulEngine.sync(encoded)
+      : false;
     if (statefulBindingsChanged) this.rebuildGraphBindGroup();
     const orderIndex = new Map(encoded.order.map((id, index) => [id, index]));
     const effectNodes = shaderSynthPlaygroundFxNodes(encoded);
@@ -3169,42 +3878,39 @@ export class ShaderSynthPlaygroundAudio {
 
   refreshSchedule() {
     if (!this.running || !this.context) return false;
+    // A second note/topology change can supersede a replacement whose first
+    // chunk is still rendering. Keep the original audible sources and current
+    // monotonic sample tail, but transfer ownership to a fresh generation so the
+    // in-flight result is discarded and the latest patch can take over. If we
+    // merely deferred again, the still-pending handoff would make every retry
+    // defer forever without ever scheduling a replacement.
+    if (this.pendingQueueHandoff) {
+      this.deferredQueueRefresh = false;
+      this.queueGeneration += 1;
+      this.pendingQueueHandoff.generation = this.queueGeneration;
+      this.queueFill();
+      return true;
+    }
     // Keep any current multi-chunk fill generation alive. Continuous pointer
     // input marks one deferred refresh instead of invalidating every in-flight
     // GPU readback and starving the audible queue.
-    if (this.pendingQueueHandoff || this.renderingPromise) {
+    if (this.renderingPromise) {
       this.deferredQueueRefresh = true;
       this.queueFill();
       return true;
     }
     this.deferredQueueRefresh = false;
-    const audibleGeneration = this.queueGeneration;
     this.queueGeneration += 1;
-    const now = finiteOr(this.context.currentTime, 0);
     // GPU readback can take most of a chunk on slower devices. Keep every
     // already scheduled source audible while the replacement generation is
     // rendering; fillBuffer performs the handoff only after its first buffer
-    // exists. This also leaves the master/play state completely untouched.
+    // exists. The replacement begins at the current rendered tail: unlike a
+    // stateless visual shader, resident DSP history cannot be rewound to an
+    // earlier queued boundary without advancing it twice.
     this.pendingQueueHandoff = {
       generation: this.queueGeneration,
       sources: new Set(this.sources),
     };
-    const minimumBoundary = now + Math.max(this.chunkDuration, SCHEDULE_PADDING_SECONDS);
-    const replacementBoundary = this.scheduledChunks
-      .filter((chunk) => (
-        chunk.generation === audibleGeneration
-        && Number.isFinite(chunk.offset)
-        && Number.isFinite(chunk.startAt)
-        && chunk.startAt >= minimumBoundary
-      ))
-      .sort((first, second) => first.startAt - second.startAt)[0] ?? null;
-    if (replacementBoundary) {
-      this.renderSampleOffset = Math.max(0, Math.round(replacementBoundary.offset * this.sampleRate));
-      this.renderOffset = this.renderSampleOffset / this.sampleRate;
-      this.nextStartTime = replacementBoundary.startAt;
-    } else {
-      this.nextStartTime = now + SCHEDULE_LEAD_SECONDS;
-    }
     this.queueFill();
     return true;
   }
@@ -3225,13 +3931,16 @@ export class ShaderSynthPlaygroundAudio {
   handoffScheduledQueue(generation, sourceGain, startAt) {
     const handoff = this.pendingQueueHandoff;
     if (!handoff || handoff.generation !== generation) return false;
+    // The prior queue may have ended while a cold shader was compiling. Fade
+    // the replacement itself regardless, so that recovery from a real gap is
+    // as click-free as an overlapping handoff.
+    if (sourceGain?.gain) scheduleFirstChunkFade(sourceGain.gain, 1, startAt);
     const oldSources = [...handoff.sources].filter((source) => this.sources.has(source));
     if (oldSources.length === 0) {
       this.pendingQueueHandoff = null;
-      return false;
+      return true;
     }
     const fadeEnd = startAt + SCHEDULE_LEAD_SECONDS;
-    if (sourceGain?.gain) scheduleFirstChunkFade(sourceGain.gain, 1, startAt);
     for (const source of oldSources) {
       const oldGain = this.sourceGains.get(source);
       if (oldGain?.gain) {
@@ -3247,19 +3956,91 @@ export class ShaderSynthPlaygroundAudio {
     return true;
   }
 
+  scheduleRenderedChunk(chunk, { queueGeneration, offset, firstInFill = false } = {}) {
+    if (!this.context || !this.input) return false;
+    const desiredStart = this.nextStartTime;
+    const minimumStart = this.context.currentTime + SCHEDULE_LEAD_SECONDS;
+    // Match the standalone WebGPU 303's underrun behavior: sample time is
+    // strictly monotonic even when compilation or readback misses the planned
+    // Web Audio start. Schedule the complete next sample block at a safe time
+    // instead of rendering and discarding an unbounded backlog. The latter can
+    // never catch up when a patch takes at least one block duration to render,
+    // leaving the instrument permanently silent after a preset change.
+    const audioBuffer = this.context.createBuffer(NUM_CHANNELS, this.chunkSamples, this.sampleRate);
+    const left = audioBuffer.getChannelData(0);
+    const right = audioBuffer.getChannelData(1);
+    for (let index = 0; index < this.chunkSamples; index += 1) {
+      left[index] = chunk[index * 2];
+      right[index] = chunk[index * 2 + 1];
+    }
+    const source = this.context.createBufferSource();
+    source.buffer = audioBuffer;
+    const sourceGain = this.connectScheduledSource(source);
+    source.onended = () => {
+      this.sources.delete(source);
+      const endedGain = this.sourceGains.get(source);
+      this.sourceGains.delete(source);
+      try { endedGain?.disconnect?.(); } catch { /* optional Web Audio cleanup */ }
+      this.pendingQueueHandoff?.sources.delete(source);
+      this.scheduledChunks = this.scheduledChunks.filter((entry) => entry.source !== source);
+    };
+    this.sources.add(source);
+    const queueWasEmpty = this.scheduledChunks.length === 0;
+    const coverageEnd = this.scheduledChunks.reduce(
+      (latest, scheduled) => Math.max(latest, finiteOr(scheduled.endAt, 0)),
+      0,
+    );
+    if (
+      this.hasScheduledPlayback
+      && this.nextStartTime < minimumStart
+      && coverageEnd < minimumStart
+    ) {
+      this.recordUnderrun(minimumStart - Math.max(this.nextStartTime, coverageEnd));
+    }
+    const startAt = Math.max(minimumStart, desiredStart);
+    const endAt = startAt + audioBuffer.duration;
+    this.scheduledChunks.push({
+      source,
+      gain: sourceGain,
+      generation: queueGeneration,
+      offset,
+      startAt,
+      endAt,
+      duration: audioBuffer.duration,
+    });
+    const handedOff = firstInFill
+      && this.handoffScheduledQueue(queueGeneration, sourceGain, startAt);
+    if (queueWasEmpty && this.playbackEnabled && !handedOff) {
+      scheduleFirstChunkFade(this.master?.gain, this.output, startAt);
+    }
+    source.start(startAt);
+    this.hasScheduledPlayback = true;
+    this.nextStartTime = endAt;
+    this.queueChunkVisualization(chunk, {
+      sampleRate: this.sampleRate,
+      offset,
+      startAt,
+      duration: audioBuffer.duration,
+    });
+    return true;
+  }
+
   queueFill(delay = 0) {
     if (!this.running || this.renderingPromise || this.timeoutId !== null) return;
     const setTimer = this.runtime.setTimeout ?? globalThis.setTimeout;
     this.timeoutId = setTimer(() => {
       this.timeoutId = null;
-      const task = this.fillBuffer().catch((error) => this.handleError(error)).finally(() => {
+      const task = this.fillBuffer({ maxChunks: MAX_CHUNKS_PER_FILL }).catch((error) => this.handleError(error)).finally(() => {
         if (this.renderingPromise === task) {
           this.renderingPromise = null;
           if (this.running && this.deferredQueueRefresh) {
             this.deferredQueueRefresh = false;
             this.refreshSchedule();
           } else if (this.running) {
-            this.queueFill(this.chunkDuration * 220);
+            const queueLead = this.context ? this.nextStartTime - this.context.currentTime : 0;
+            this.queueFill(queueLead < this.bufferTargetSeconds
+              ? 0
+              : this.chunkDuration * 220);
           }
         }
       });
@@ -3267,70 +4048,72 @@ export class ShaderSynthPlaygroundAudio {
     }, Math.max(0, delay));
   }
 
-  async fillBuffer({ forceFirstChunk = false, maxChunks = Number.POSITIVE_INFINITY } = {}) {
+  async fillBuffer({
+    forceFirstChunk = false,
+    maxChunks = MAX_CHUNKS_PER_FILL,
+    deferPlayback = false,
+  } = {}) {
     if (!this.context || !this.input) return;
     const queueGeneration = this.queueGeneration;
-    const horizon = this.chunkDuration * MAX_BUFFERED_CHUNKS + SCHEDULE_PADDING_SECONDS;
     const chunkLimit = Number.isFinite(Number(maxChunks))
       ? Math.max(1, Math.trunc(Number(maxChunks)))
-      : Number.POSITIVE_INFINITY;
+      : MAX_CHUNKS_PER_FILL;
+    const preparedChunks = [];
+    let renderedChunkCount = 0;
     let scheduledChunkCount = 0;
     while (
       this.running
       && queueGeneration === this.queueGeneration
       && this.context
-      && scheduledChunkCount < chunkLimit
+      && renderedChunkCount < chunkLimit
       && (
-        (scheduledChunkCount === 0 && forceFirstChunk)
-        || this.nextStartTime - this.context.currentTime < horizon
+        (renderedChunkCount === 0 && forceFirstChunk)
+        || this.nextStartTime - this.context.currentTime < this.bufferTargetSeconds
       )
     ) {
       const baseSample = this.renderSampleOffset;
       const offset = baseSample / this.sampleRate;
+      this.lastRenderIncludedCompile = false;
+      const renderStarted = this.clockMilliseconds();
       const chunk = await this.renderChunk(baseSample);
       if (!this.running || queueGeneration !== this.queueGeneration || !this.context || !this.input) return;
-      const audioBuffer = this.context.createBuffer(NUM_CHANNELS, this.chunkSamples, this.sampleRate);
-      const left = audioBuffer.getChannelData(0);
-      const right = audioBuffer.getChannelData(1);
-      for (let index = 0; index < this.chunkSamples; index += 1) {
-        left[index] = chunk[index * 2];
-        right[index] = chunk[index * 2 + 1];
+      // A pitch/topology refresh requested during GPU readback owns the next
+      // audible sample interval. Do not let this older fill continue with the
+      // newly mutated patch under the old queue generation; its finally block
+      // will perform the single replacement handoff.
+      if (this.deferredQueueRefresh) return;
+      if (!this.lastRenderIncludedCompile) {
+        this.recordRenderDuration((this.clockMilliseconds() - renderStarted) / 1000);
       }
-      const source = this.context.createBufferSource();
-      source.buffer = audioBuffer;
-      const sourceGain = this.connectScheduledSource(source);
-      source.onended = () => {
-        this.sources.delete(source);
-        const endedGain = this.sourceGains.get(source);
-        this.sourceGains.delete(source);
-        try { endedGain?.disconnect?.(); } catch { /* optional Web Audio cleanup */ }
-        this.pendingQueueHandoff?.sources.delete(source);
-        this.scheduledChunks = this.scheduledChunks.filter((entry) => entry.source !== source);
-      };
-      this.sources.add(source);
-      const queueWasEmpty = this.scheduledChunks.length === 0;
-      const startAt = Math.max(this.context.currentTime + SCHEDULE_LEAD_SECONDS, this.nextStartTime);
-      const endAt = startAt + audioBuffer.duration;
-      this.scheduledChunks.push({
-        source,
-        gain: sourceGain,
-        generation: queueGeneration,
-        offset,
-        startAt,
-        endAt,
-        duration: audioBuffer.duration,
-      });
-      const handedOff = scheduledChunkCount === 0
-        && this.handoffScheduledQueue(queueGeneration, sourceGain, startAt);
-      if (queueWasEmpty && this.playbackEnabled && !handedOff) {
-        scheduleFirstChunkFade(this.master?.gain, this.output, startAt);
+      const prepared = { chunk, queueGeneration, offset };
+      if (deferPlayback) {
+        preparedChunks.push(prepared);
+        scheduledChunkCount += 1;
+      } else {
+        const scheduled = this.scheduleRenderedChunk(prepared.chunk, {
+          queueGeneration: prepared.queueGeneration,
+          offset: prepared.offset,
+          firstInFill: scheduledChunkCount === 0,
+        });
+        if (scheduled) scheduledChunkCount += 1;
       }
-      source.start(startAt);
-      scheduledChunkCount += 1;
-      this.nextStartTime = endAt;
+      renderedChunkCount += 1;
       this.renderSampleOffset = baseSample + this.chunkSamples;
       this.renderOffset = this.renderSampleOffset / this.sampleRate;
-      this.queueChunkVisualization(chunk, { sampleRate: this.sampleRate, offset, startAt, duration: audioBuffer.duration });
+    }
+    if (deferPlayback && preparedChunks.length) {
+      if (!this.running || queueGeneration !== this.queueGeneration || !this.context || !this.input) return;
+      // Nothing has been handed to Web Audio yet. Establish the first start
+      // only after every primed PCM chunk exists, then schedule the reserve as
+      // one contiguous timeline.
+      this.nextStartTime = Math.max(this.nextStartTime, this.context.currentTime + STARTUP_LEAD_SECONDS);
+      preparedChunks.forEach((prepared, index) => {
+        this.scheduleRenderedChunk(prepared.chunk, {
+          queueGeneration: prepared.queueGeneration,
+          offset: prepared.offset,
+          firstInFill: index === 0,
+        });
+      });
     }
   }
 
@@ -3368,16 +4151,58 @@ export class ShaderSynthPlaygroundAudio {
   async renderChunk(baseSample) {
     if (
       !this.device || !this.pipeline || !this.bindGroup
-      || !this.historyCapturePipeline || !this.historyCaptureBindGroup
-      || !this.fxPipeline || this.fxBindGroups.length === 0
-      || !this.statefulPipeline || !this.statefulEngine
+      || !this.statefulEngine
       || !this.renderInfoBuffer || !this.chunkBuffer || !this.organRankBuffer || !this.fxOutputBuffer || !this.fxHistoryBuffer || !this.fxStageInfoBuffer
       || !this.mapBuffer || !this.encodedPatch
     ) {
       throw new Error("The WebGPU playground renderer is not initialized.");
     }
-    const { mapMode } = gpuConstants(this.runtime);
+    // Capture ownership before any first-use compilation await. A topology
+    // change may replace the queue while shaders compile; that superseded
+    // render must not commit parameter/rank transition anchors that will
+    // never be scheduled or heard.
     const queueGeneration = this.queueGeneration;
+    let compiledPipeline = false;
+    while (true) {
+      const requiredGraphKey = shaderPlaygroundShaderKeyForPatch(this.encodedPatch.patch);
+      const requiredFxCount = shaderSynthPlaygroundFxNodes(this.encodedPatch.patch).length;
+      const requiredFxKey = requiredFxCount > 0
+        ? shaderSynthPlaygroundFxShaderKeyForPatch(this.encodedPatch.patch)
+        : null;
+      const requiredStateVariant = shaderSynthPlaygroundStateShaderVariantForEncoded(this.encodedPatch);
+      const graphReady = requiredGraphKey === this.graphPipelineKey;
+      const fxReady = requiredFxCount === 0 || requiredFxKey === this.fxPipelineKey;
+      const stateReady = requiredStateVariant.kinds.length === 0
+        || requiredStateVariant.key === this.statefulPipelineKey;
+      if (graphReady && fxReady && stateReady) break;
+      this.lastRenderIncludedCompile = true;
+      compiledPipeline = true;
+      const prepared = await this.preparePatchPipelines(this.encodedPatch);
+      // A fast second preset selection may supersede the patch whose shaders
+      // just finished. Cache that completed work, but never activate its
+      // mixed pipeline set; prepare the current selection on the next turn.
+      this.activatePreparedPatchPipelines(prepared);
+    }
+    if (
+      this.fxStageCount > 0
+      && (
+        !this.fxPipeline
+        || !this.historyCapturePipeline
+        || !this.historyCaptureBindGroup
+        || this.fxBindGroups.length < this.fxStageCount
+      )
+    ) {
+      throw new Error("The WebGPU effects renderer is not ready.");
+    }
+    // updatePatch synchronizes immediately after the first pipeline exists.
+    // Repeating the cheap topology check here also covers a patch that changed
+    // while an asynchronous first-use compile was in flight.
+    const statefulBindingsChanged = this.statefulEngine.sync(this.encodedPatch);
+    if (statefulBindingsChanged) this.rebuildGraphBindGroup();
+    if (this.statefulEngine.active && !this.statefulPipeline) {
+      throw new Error("The WebGPU state renderer is not ready.");
+    }
+    const { mapMode } = gpuConstants(this.runtime);
     const info = new ArrayBuffer(RENDER_INFO_SIZE);
     const view = new DataView(info);
     view.setUint32(0, Math.max(0, Math.round(baseSample)) >>> 0, true);
@@ -3393,7 +4218,8 @@ export class ShaderSynthPlaygroundAudio {
     const organRankRampActive = this.pendingOrganRankRamp;
     view.setUint32(24, organRankRampActive ? 1 : 0, true);
     const activeStateful = Boolean(this.statefulEngine?.active);
-    view.setUint32(28, activeStateful ? 1 : 0, true);
+    const renderFlags = (activeStateful ? 1 : 0) | ((this.fxHistoryRegions & 255) << 8);
+    view.setUint32(28, renderFlags, true);
     this.device.queue.writeBuffer(this.renderInfoBuffer, 0, info);
     const revision = this.patchRevision;
     const encoder = this.device.createCommandEncoder();
@@ -3421,7 +4247,7 @@ export class ShaderSynthPlaygroundAudio {
       historyPass.dispatchWorkgroups(Math.ceil(this.chunkSamples / this.workgroupSize));
       historyPass.end();
     }
-    const fxPassCount = Math.max(1, this.fxStageCount);
+    const fxPassCount = this.fxStageCount;
     for (let stageIndex = 0; stageIndex < fxPassCount; stageIndex += 1) {
       const fxPass = encoder.beginComputePass();
       fxPass.setPipeline(this.fxPipeline);
@@ -3431,7 +4257,9 @@ export class ShaderSynthPlaygroundAudio {
       fxPass.dispatchWorkgroups(Math.ceil(this.chunkSamples / this.workgroupSize));
       fxPass.end();
     }
-    const renderedBuffer = fxPassCount % 2 === 0 ? this.chunkBuffer : this.fxOutputBuffer;
+    const renderedBuffer = fxPassCount === 0 || fxPassCount % 2 === 0
+      ? this.chunkBuffer
+      : this.fxOutputBuffer;
     encoder.copyBufferToBuffer(renderedBuffer, 0, this.mapBuffer, 0, this.chunkBufferSize);
     this.device.queue.submit([encoder.finish()]);
     await this.mapBuffer.mapAsync(mapMode.READ, 0, this.chunkBufferSize);
@@ -3440,10 +4268,11 @@ export class ShaderSynthPlaygroundAudio {
     this.mapBuffer.unmap();
     // A superseded render is discarded by fillBuffer. Do not let it advance
     // transition anchors that were never scheduled or heard.
-    if (queueGeneration === this.queueGeneration) {
+    if (queueGeneration === this.queueGeneration && !this.deferredQueueRefresh) {
       this.commitRamp(revision, renderedParams, rampActive);
       this.commitOrganRankRamp(organRankRevision, renderedOrganRanks, organRankRampActive);
     }
+    if (compiledPipeline) this.reportStatus("ready");
     return result;
   }
 
@@ -3470,6 +4299,7 @@ export class ShaderSynthPlaygroundAudio {
     }
     this.sourceGains.clear();
     this.scheduledChunks = [];
+    this.hasScheduledPlayback = false;
     this.pendingQueueHandoff = null;
     this.deferredQueueRefresh = false;
     const context = this.context;
@@ -3498,11 +4328,21 @@ export class ShaderSynthPlaygroundAudio {
     try { this.device?.destroy?.(); } catch { /* Device.destroy is optional. */ }
     this.device = null;
     this.pipeline = null;
+    this.graphPipelineKey = null;
+    this.graphPipelines.clear();
+    this.graphPipelinePromises.clear();
     this.bindGroup = null;
     this.historyCapturePipeline = null;
+    this.historyCapturePipelinePromise = null;
     this.historyCaptureBindGroup = null;
     this.fxPipeline = null;
+    this.fxPipelineKey = null;
+    this.fxPipelines.clear();
+    this.fxPipelinePromises.clear();
     this.statefulPipeline = null;
+    this.statefulPipelineKey = null;
+    this.statefulPipelines.clear();
+    this.statefulPipelinePromises.clear();
     this.fxBindGroups = [];
     this.fxStageInfoBuffer = null;
     this.fxStageInfoStride = 0;
@@ -3514,6 +4354,7 @@ export class ShaderSynthPlaygroundAudio {
     this.fxOutputBuffer = null;
     this.fxHistoryBuffer = null;
     this.fxHistoryFrames = 0;
+    this.fxHistoryRegions = 0;
     this.fxHistoryAllocated = false;
     this.stateGraphFallbackBuffer = null;
     this.stateOutputFallbackBuffer = null;

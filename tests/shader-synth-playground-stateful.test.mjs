@@ -39,6 +39,29 @@ const VISUAL_STATEFUL_MODULES = stateful.SHADER_SYNTH_PLAYGROUND_VISUAL_STATE_MO
 const VISUAL_STATEFUL_KINDS = stateful.SHADER_SYNTH_PLAYGROUND_VISUAL_STATE_KINDS;
 const ADVANCED_STATEFUL_MODULES = stateful.SHADER_SYNTH_PLAYGROUND_ADVANCED_STATE_MODULES;
 const StatefulEngine = stateful.ShaderSynthPlaygroundStateEngine;
+const STATE_RENDERER_BY_KIND = new Map([
+  [105, "renderCellularAutomaton"],
+  [106, "renderReactionDiffusion"],
+  [107, "renderFeedbackLattice"],
+  [108, "renderSpectralSdf"],
+  [109, "renderFlowAdvection"],
+  [110, "renderRaymarchResonator"],
+  [111, "renderSequenceLane"],
+  [112, "renderUploadedWavetable"],
+  [113, "renderGpuSamplerGranulator"],
+  [114, "renderSpatializer"],
+  [115, "renderRecursiveFilter"],
+  [116, "renderFeedbackNetwork"],
+  [117, "renderWavefieldSolver"],
+  [118, "renderSpectralTransport"],
+  [119, "renderAdvancedDynamics"],
+  [120, "renderConvolutionSpace"],
+  [121, "renderMassiveBank"],
+  [122, "renderAudioAnalysisField"],
+  [123, "renderDdspResynth"],
+  [124, "renderSpectralVocoder"],
+  [125, "renderNeuralProcessor"],
+]);
 
 function countMatches(source, expression) {
   return [...source.matchAll(expression)].length;
@@ -148,6 +171,72 @@ test("stateful barrel combines six visual and fifteen advanced modules without k
       `${module.id} needs explicit stateful runtime metadata`,
     );
   }
+});
+
+test("state shader variants retain only renderers reachable from their exact active kinds", () => {
+  const fullLength = STATEFUL_SHADER.length;
+  assert.ok(fullLength > 100_000, "the complete documentation shader should retain the entire catalog");
+
+  for (const [kind, renderer] of STATE_RENDERER_BY_KIND) {
+    const variant = stateful.shaderSynthPlaygroundStateShaderVariant([kind]);
+    assert.equal(variant.key, `state-kinds-v1:${kind}`);
+    assert.deepEqual(variant.kinds, [kind]);
+    assert.match(variant.code, /@compute @workgroup_size\(64\)/);
+    assert.match(variant.code, new RegExp(`case ${kind}u: \\{ ${renderer}\\(node\\); \\}`));
+    assert.match(variant.code, new RegExp(`fn ${renderer}\\(`));
+    assert.ok(
+      variant.code.length < fullLength * 0.15,
+      `kind ${kind} specialization should be materially smaller than the full catalog`,
+    );
+    for (const [otherKind, otherRenderer] of STATE_RENDERER_BY_KIND) {
+      if (otherKind === kind) continue;
+      assert.doesNotMatch(
+        variant.code,
+        new RegExp(`fn ${otherRenderer}\\(`),
+        `kind ${kind} must not retain renderer ${otherRenderer}`,
+      );
+    }
+  }
+});
+
+test("state shader variant keys sort, deduplicate, cache, and derive from encoded graphs", () => {
+  const first = stateful.shaderSynthPlaygroundStateShaderVariant([120, 105, 120, 108]);
+  const second = stateful.shaderSynthPlaygroundStateShaderVariant([{ kind: 108 }, { kind: 120 }, { kind: 105 }]);
+  assert.equal(first, second, "equivalent exact kind sets should reuse one immutable variant");
+  assert.equal(first.key, "state-kinds-v1:105,108,120");
+  assert.deepEqual(first.kinds, [105, 108, 120]);
+  assert.equal(stateful.shaderSynthPlaygroundStateShaderKey([120, 105, 108]), first.key);
+  assert.equal(stateful.buildShaderSynthPlaygroundStateShader([105, 108, 120]), first.code);
+  assert.ok(first.code.length < STATEFUL_SHADER.length * 0.3);
+
+  const encoded = encodedStateNodes([120, 105, 120, 108]);
+  const fromEncoded = stateful.shaderSynthPlaygroundStateShaderVariantForEncoded(encoded);
+  assert.equal(fromEncoded, first);
+
+  const empty = stateful.shaderSynthPlaygroundStateShaderVariant([]);
+  assert.equal(empty.key, "state-kinds-v1:none");
+  assert.deepEqual(empty.kinds, []);
+  assert.match(empty.code, /fn renderStateNode\(/);
+  assert.doesNotMatch(empty.code, /fn render(?:CellularAutomaton|NeuralProcessor)\(/);
+  const emptyEntry = wgslBlock(empty.code, "fn renderStateNode(");
+  for (const bindingName of [
+    "render_info",
+    "graph_nodes",
+    "graph_signals",
+    "state_output",
+    "persistent_state",
+    "state_stage",
+  ]) {
+    assert.match(
+      emptyEntry,
+      new RegExp(`\\b${bindingName}\\b`),
+      `every exact auto layout must retain runtime binding ${bindingName}`,
+    );
+  }
+  assert.throws(
+    () => stateful.shaderSynthPlaygroundStateShaderVariant([999]),
+    /Unknown shader playground state kind: 999/,
+  );
 });
 
 test("all stateful modules expose bounded typed I/O and packed audible parameters", () => {
@@ -553,6 +642,52 @@ test("state engine allocates lazily and destroys private buffers with the last a
   assert.equal(buffers.every(({ destroyCount }) => destroyCount === 1), true, "last-node removal must destroy all state allocations");
   assert.equal(engine.sync(encodedStateNodes()), false, "repeated empty synchronization must not allocate or destroy again");
   assert.equal(buffers.every(({ destroyCount }) => destroyCount === 1), true);
+});
+
+test("changing an exact state pipeline invalidates auto-layout bind groups", () => {
+  const bindGroups = [];
+  const device = {
+    queue: { writeBuffer() {} },
+    createBuffer(descriptor) {
+      return { descriptor, destroy() {} };
+    },
+    createBindGroup(descriptor) {
+      const bindGroup = { descriptor };
+      bindGroups.push(bindGroup);
+      return bindGroup;
+    },
+  };
+  const firstLayout = {};
+  const secondLayout = {};
+  const firstPipeline = { getBindGroupLayout() { return firstLayout; } };
+  const secondPipeline = { getBindGroupLayout() { return secondLayout; } };
+  const engine = new StatefulEngine(device, {
+    usage: { STORAGE: 1, COPY_DST: 2, UNIFORM: 4 },
+    sampleRate: 48000,
+    chunkSamples: 128,
+    maxNodes: SHADER_PLAYGROUND_LIMITS.maxNodes,
+    renderInfoBuffer: {},
+    nodeBuffer: {},
+  }).setPipeline(firstPipeline, "state-kinds-v1:105");
+
+  const encoded = encodedStateNodes([105]);
+  engine.sync(encoded);
+  const resource = engine.orderedResources[0];
+  const firstBindGroup = resource.bindGroup;
+  assert.equal(firstBindGroup.descriptor.layout, firstLayout);
+
+  engine.setPipeline(secondPipeline, "state-kinds-v1:106");
+  assert.equal(resource.bindGroup, null, "a replacement auto layout must invalidate the old bind group");
+  engine.sync(encoded);
+  assert.notEqual(resource.bindGroup, firstBindGroup);
+  assert.equal(resource.bindGroup.descriptor.layout, secondLayout);
+  assert.equal(bindGroups.length, 2);
+
+  const currentBindGroup = resource.bindGroup;
+  engine.setPipeline(secondPipeline, "state-kinds-v1:106");
+  assert.equal(resource.bindGroup, currentBindGroup, "reusing the same pipeline and key should preserve its bind group");
+  engine.sync(encoded);
+  assert.equal(bindGroups.length, 2);
 });
 
 test("state engine releases and recreates resources across active, bypassed, and active states", () => {

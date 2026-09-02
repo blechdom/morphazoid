@@ -116,5 +116,5 @@ test("the atlas renders searchable coverage links and the playground accepts mod
   assert.equal(requestedModuleId("", valid), null);
 
   assert.match(playgroundApp, /initialModuleId[\s\S]*?auditionModule\(initialModuleId\)/);
-  assert.match(playgroundApp, /Press Run patch or play a note to hear it/);
+  assert.match(playgroundApp, /Press Play note, choose a key, or run the patch/);
 });

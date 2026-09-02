@@ -64,7 +64,11 @@ export {
   SHADER_SYNTH_PLAYGROUND_STATE_SHADER,
   SHADER_SYNTH_PLAYGROUND_STATE_SHADER as SHADER_SYNTH_PLAYGROUND_STATEFUL_SHADER,
   ShaderSynthPlaygroundStateEngine,
+  buildShaderSynthPlaygroundStateShader,
   isShaderSynthPlaygroundStateEngineKind,
   shaderSynthPlaygroundStateEngineNodes,
   shaderSynthPlaygroundStatePersistentByteSize,
-} from "./shader-synth-playground-state-engine.js?v=20260831-modules125";
+  shaderSynthPlaygroundStateShaderKey,
+  shaderSynthPlaygroundStateShaderVariant,
+  shaderSynthPlaygroundStateShaderVariantForEncoded,
+} from "./shader-synth-playground-state-engine.js?v=20260902-monotonic-play-note";

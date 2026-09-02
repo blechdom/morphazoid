@@ -13,7 +13,7 @@ import {
   sanitizeShaderPlaygroundPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "./src/shader-synth-playground.js?v=20260831-modules125";
+} from "./src/shader-synth-playground.js?v=20260902-monotonic-play-note";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -445,6 +445,12 @@ function syncPerformanceNoteButtons(voice = performanceMidiVoice()) {
     button.setAttribute("aria-pressed", String(active));
     button.disabled = disabled;
   }
+  const playNoteButton = $("performancePlayNote");
+  if (playNoteButton) {
+    const note = selectedNote ?? baseNote;
+    playNoteButton.disabled = disabled;
+    playNoteButton.setAttribute("aria-label", `Play selected note ${midiNoteName(note)}`);
+  }
   $("performanceRandomNote").disabled = disabled;
   $("performanceOctaveDown").disabled = disabled || state.performanceOctave <= PERFORMANCE_OCTAVE_MIN;
   $("performanceOctaveUp").disabled = disabled || state.performanceOctave >= PERFORMANCE_OCTAVE_MAX;
@@ -533,6 +539,17 @@ function applyMidiPerformance({ refresh = true } = {}) {
   syncMidiReadout(voice);
 }
 
+function requestPerformanceNoteHandoff(engine, applyPitch) {
+  // Commit the new pitch before a sampler reset can refresh the GPU queue.
+  // triggerPerformanceNote owns that refresh when it actually restarts a
+  // One-shot sampler; ordinary patches need one explicit refresh instead.
+  applyPitch({ refresh: false });
+  if (!engine) return 0;
+  const restarted = engine.triggerPerformanceNote?.() ?? 0;
+  if (restarted <= 0) engine.refreshSchedule?.();
+  return restarted;
+}
+
 function releaseMidiNotes(channelKey = null, sourceId = null) {
   const sourcePrefix = sourceId ? `${String(sourceId)}:` : null;
   for (const [key, voice] of [...state.midi.notes]) {
@@ -570,8 +587,7 @@ function handleMidiNoteOn(message) {
   // Re-inserting an already-held note makes it the unambiguous last-note voice.
   state.midi.notes.delete(key);
   state.midi.notes.set(key, voice);
-  state.engine?.triggerPerformanceNote?.();
-  applyMidiPerformance();
+  requestPerformanceNoteHandoff(state.engine, applyMidiPerformance);
   announce(`${midiNoteName(voice.note)} selected. Playback stays where it is.`);
 }
 
@@ -636,8 +652,7 @@ async function auditionPerformanceNote(note) {
   };
   state.midi.notes.set(voice.key, voice);
   state.midi.latchedVoice = { ...voice };
-  state.engine?.triggerPerformanceNote?.();
-  applyMidiPerformance();
+  requestPerformanceNoteHandoff(state.engine, applyMidiPerformance);
   const started = await startAudio({ play: true });
   if (started) announce(`${midiNoteName(selectedNote)} selected and the patch is running. Other notes retune it; One-shot samplers restart.`);
 }
@@ -651,6 +666,10 @@ async function auditionRandomPerformanceNote() {
     note = baseNote + ((note - baseNote + 1) % noteCount);
   }
   await auditionPerformanceNote(note);
+}
+
+async function auditionSelectedPerformanceNote() {
+  await auditionPerformanceNote(performanceMidiVoice()?.note ?? performanceBaseNote());
 }
 
 function selectMidiProgram(program) {
@@ -2417,6 +2436,9 @@ function syncTransport() {
   const startup = {
     preparing: { button: "Preparing GPU…", gpu: "preparing GPU", hint: "Preparing Web Audio and the GPU device…" },
     compiling: { button: "Compiling shaders…", gpu: "compiling shaders", hint: "Compiling the WebGPU audio shaders…" },
+    "compiling-patch": { button: "Compiling patch…", gpu: "compiling selected modules", hint: "Compiling only the GPU modules used by this patch…" },
+    "compiling-effects": { button: "Compiling effects…", gpu: "compiling selected effects", hint: "Compiling only the GPU effects used by this patch…" },
+    "compiling-state": { button: "Compiling module…", gpu: "compiling persistent DSP", hint: "Compiling this persistent GPU module for its first use…" },
     rendering: { button: "Rendering audio…", gpu: "rendering first chunk", hint: "Rendering the first GPU audio chunk…" },
   }[state.audioPhase] ?? null;
   const starting = Boolean(startup || state.audioStartPromise);
@@ -2443,7 +2465,7 @@ function syncTransport() {
       ? startup.hint
       : state.playing
         ? "Keys / MIDI retune while running"
-        : "Click to start · MIDI on: Z–M / Q–U";
+        : "Play note or choose a key · MIDI on: Z–M / Q–U";
   syncPerformanceNoteButtons();
   syncPatchStatus();
   const selectedNode = findNode(state.selectedNodeId);
@@ -2457,8 +2479,9 @@ function syncExecutionReadout(engine = state.engine) {
   const duration = Number(engine?.chunkDuration) || SHADER_PLAYGROUND_RUNTIME_DEFAULTS.chunkDuration;
   const sampleRate = Number(engine?.sampleRate) || 44100;
   const sampleCount = Number(engine?.chunkSamples) || Math.round(sampleRate * duration);
-  const lookahead = duration * SHADER_PLAYGROUND_RUNTIME_DEFAULTS.bufferedChunks
-    + SHADER_PLAYGROUND_RUNTIME_DEFAULTS.schedulePadding;
+  const lookahead = Number(engine?.bufferTargetSeconds)
+    || duration * SHADER_PLAYGROUND_RUNTIME_DEFAULTS.bufferedChunks
+      + SHADER_PLAYGROUND_RUNTIME_DEFAULTS.schedulePadding;
   $("gpuChunkDuration").textContent = `~${Math.round(duration * 1000)} ms chunk`;
   $("gpuChunkSampleCount").textContent = `${sampleCount.toLocaleString()} samples @ ${(sampleRate / 1000).toFixed(1)} kHz`;
   $("gpuChunkChannelCount").textContent = "stereo";
@@ -2499,8 +2522,10 @@ async function startAudio({ play = state.playing } = {}) {
   nextEngine.setChunkHandler((...args) => receiveChunk(...args));
   nextEngine.setStatusHandler?.((phase) => {
     if (state.engine !== nextEngine) return;
-    if (!["preparing", "compiling", "rendering"].includes(phase)) return;
-    state.audioPhase = phase;
+    if (phase === "ready") state.audioPhase = null;
+    else if (["preparing", "compiling", "compiling-patch", "compiling-effects", "compiling-state", "rendering"].includes(phase)) {
+      state.audioPhase = phase;
+    } else return;
     syncTransport();
   });
   nextEngine.setErrorHandler((error) => {
@@ -2528,7 +2553,7 @@ async function startAudio({ play = state.playing } = {}) {
     nextEngine.updatePatch(state.patch);
     syncExecutionReadout(nextEngine);
     syncTransport();
-    announce(state.playing ? "WebGPU audio is on and the patch is running." : "WebGPU audio is ready. Press Run patch or choose a note to hear it.");
+    announce(state.playing ? "WebGPU audio is on and the patch is running." : "WebGPU audio is ready. Press Play note, choose a key, or run the patch.");
     return true;
   }).catch(async (error) => {
     await nextEngine.stop().catch(() => {});
@@ -2726,6 +2751,7 @@ $("performanceNoteButtons").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-performance-note]");
   if (button) void auditionPerformanceNote(Number(button.dataset.performanceNote));
 });
+$("performancePlayNote").addEventListener("click", () => { void auditionSelectedPerformanceNote(); });
 $("performanceRandomNote").addEventListener("click", () => { void auditionRandomPerformanceNote(); });
 $("performanceOctaveDown").addEventListener("click", () => shiftPerformanceOctave(-1));
 $("performanceOctaveUp").addEventListener("click", () => shiftPerformanceOctave(1));
@@ -2746,7 +2772,7 @@ $("graphViewport").addEventListener("pointerdown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  const shortcutTarget = event.target?.closest?.("a, input, textarea, select, button, summary, [contenteditable]:not([contenteditable='false']), [role='button'], [role='slider'], .patch-node");
+  const presetArrowConflictTarget = event.target?.closest?.("input, textarea, select:not(#patchSelect), [contenteditable]:not([contenteditable='false']), [role='slider'], .patch-node");
   if (
     !event.defaultPrevented
     && !event.isComposing
@@ -2755,7 +2781,7 @@ document.addEventListener("keydown", (event) => {
     && !event.ctrlKey
     && !event.metaKey
     && !event.altKey
-    && !shortcutTarget
+    && !presetArrowConflictTarget
     && ["ArrowLeft", "ArrowRight"].includes(event.key)
   ) {
     event.preventDefault();
@@ -2824,7 +2850,7 @@ if (initialModuleId) {
   auditionModule(initialModuleId);
   $("moduleHearSelect").value = initialModuleId;
   syncHearModuleButton();
-  announce(`${moduleById.get(initialModuleId).label} audition loaded. Press Run patch or play a note to hear it.`);
+  announce(`${moduleById.get(initialModuleId).label} audition loaded. Press Play note, choose a key, or run the patch.`);
 }
 
 const initialPanel = new URLSearchParams(globalThis.location?.search ?? "").get("panel");

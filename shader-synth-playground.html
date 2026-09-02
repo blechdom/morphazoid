@@ -11,7 +11,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260831-preset-controls" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260902-monotonic-play-note" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -215,6 +215,7 @@
           <section class="performance-notes" aria-labelledby="performanceNotesTitle">
             <header class="performance-notes-heading">
               <b id="performanceNotesTitle">Play notes</b>
+              <button class="performance-play-note" id="performancePlayNote" type="button" aria-label="Play the selected note">Play note</button>
               <button class="performance-random-note" id="performanceRandomNote" type="button" aria-label="Choose and play a random note">Random note</button>
               <div class="performance-octave" role="group" aria-label="On-screen keyboard octave">
                 <button id="performanceOctaveDown" type="button" aria-label="Move note keyboard down one octave">−</button>
@@ -223,7 +224,7 @@
               </div>
             </header>
             <div class="performance-note-buttons" id="performanceNoteButtons" role="group" aria-label="Play notes from C3 to C4"></div>
-            <p id="performanceNoteHint">Click to start · MIDI on: Z–M / Q–U</p>
+            <p id="performanceNoteHint">Play note or choose a key · MIDI on: Z–M / Q–U</p>
             <dl class="scope-metrics" id="scopeReadout">
               <div><dt>GPU</dt><dd id="gpuState" role="status" aria-live="polite">checking</dd></div>
               <div><dt>Signal</dt><dd id="signalLevel">silent</dd></div>
@@ -335,6 +336,6 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260831-arrow-presets"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260902-arrow-preset"></script>
   </body>
 </html>

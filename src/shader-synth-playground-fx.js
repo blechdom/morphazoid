@@ -3,6 +3,7 @@
 // that oldest read intact while the current chunk is being written.
 const FX_HISTORY_SECONDS = 12.5;
 const FX_MIN_HISTORY_FRAMES = 1024;
+const FX_HISTORY_PADDING_FRAMES = 2;
 const FX_MAX_CHAIN_EFFECTS = 3;
 const FX_HISTORY_REGIONS = FX_MAX_CHAIN_EFFECTS + 1;
 
@@ -466,11 +467,79 @@ export function shaderSynthPlaygroundFxNodes(encodedPatch) {
   });
 }
 
-function nextPowerOfTwo(value) {
-  let result = 1;
-  const target = Math.max(1, Math.ceil(Number(value) || 1));
-  while (result < target) result *= 2;
-  return result;
+function normalizedFxSampleRate(sampleRate) {
+  return Math.min(384000, Math.max(8000, Number(sampleRate) || 44100));
+}
+
+/**
+ * Maximum history index read by one effect at any value in its public
+ * parameter range. This is intentionally kind-based instead of following the
+ * current knob values, so live parameter changes never require reallocating a
+ * GPU ring. Interpolation safety is added by the history sizing functions.
+ */
+export function shaderSynthPlaygroundFxMaxLookbackFrames(kind, sampleRate) {
+  const rate = normalizedFxSampleRate(sampleRate);
+  const numericKind = Number(kind);
+  if ([
+    SHADER_SYNTH_PLAYGROUND_FX_KINDS.delay,
+    SHADER_SYNTH_PLAYGROUND_FX_KINDS.reverb,
+    SHADER_SYNTH_PLAYGROUND_FX_KINDS.recombobulator,
+  ].includes(numericKind)) {
+    // Retain the established 12.5-second capacity: it covers the 12-second
+    // delay train, 12.4-second room read, and 12.002-second recombination read.
+    return Math.ceil(rate * FX_HISTORY_SECONDS);
+  }
+  if ([
+    SHADER_SYNTH_PLAYGROUND_FX_KINDS.spectralResynth,
+    SHADER_SYNTH_PLAYGROUND_FX_KINDS.fftRobotizer,
+    SHADER_SYNTH_PLAYGROUND_FX_KINDS.spectralGate,
+  ].includes(numericKind)) {
+    return 127; // The maximum 128-sample causal window reads lags 0..127.
+  }
+  if (numericKind === SHADER_SYNTH_PLAYGROUND_FX_KINDS.flanger) {
+    // softenedHistoryAt adds an older fractional read to the 12 + 10 ms tap.
+    return Math.floor(rate * 0.022 + 1) + 1;
+  }
+  if (numericKind === SHADER_SYNTH_PLAYGROUND_FX_KINDS.chorus) {
+    // fractionalHistoryAt reads one sample beyond the 40 + 14 ms tap.
+    return Math.floor(rate * 0.054) + 1;
+  }
+  if (numericKind === SHADER_SYNTH_PLAYGROUND_FX_KINDS.dopplerSweep) {
+    // fractionalHistoryAt reads one sample beyond the one-second far point.
+    return Math.floor(rate) + 1;
+  }
+  if (numericKind === SHADER_SYNTH_PLAYGROUND_FX_KINDS.vibrato) {
+    const pitchRatioExcursion = 2 ** (100 / 1200) - 1;
+    const maximumSweep = pitchRatioExcursion * rate / (4 * 0.15);
+    // At the widest, slowest triangular sweep, centerDelay is sweep + two
+    // samples and the positive orbit adds the same sweep once more.
+    const maximumRequestedDelay = maximumSweep * 2 + 2;
+    return Math.floor(maximumRequestedDelay + 1) + 1;
+  }
+  if ([
+    SHADER_SYNTH_PLAYGROUND_FX_KINDS.firLowpass,
+    SHADER_SYNTH_PLAYGROUND_FX_KINDS.firHighpass,
+    SHADER_SYNTH_PLAYGROUND_FX_KINDS.firBandpass,
+  ].includes(numericKind)) {
+    return 30; // The fixed 31-tap span reads history indices 0..30.
+  }
+  if (numericKind === SHADER_SYNTH_PLAYGROUND_FX_KINDS.sampleRateReducer) {
+    const maximumHold = Math.max(Math.round(rate / 50), 1);
+    return maximumHold * 2 - 1; // Previous capture plus the current hold cell.
+  }
+  return 0;
+}
+
+function alignedFxHistoryFrames(maxLookbackFrames, chunkFrames) {
+  const chunk = Math.max(0, Math.round(Number(chunkFrames) || 0));
+  const lookback = Math.max(0, Math.ceil(Number(maxLookbackFrames) || 0));
+  // One complete current chunk remains protected from ring overwrite while a
+  // later effect pass reads it. Two extra frames cover fractional/soft reads.
+  const required = Math.max(
+    FX_MIN_HISTORY_FRAMES,
+    lookback + chunk + FX_HISTORY_PADDING_FRAMES,
+  );
+  return Math.ceil(required / 256) * 256;
 }
 
 /**
@@ -478,14 +547,59 @@ function nextPowerOfTwo(value) {
  * that the same effect dispatch can still need when the ring wraps.
  */
 export function shaderSynthPlaygroundFxHistoryFrames(sampleRate, chunkFrames = 0) {
-  const rate = Math.min(384000, Math.max(8000, Number(sampleRate) || 44100));
-  const chunk = Math.max(0, Math.round(Number(chunkFrames) || 0));
-  return Math.max(FX_MIN_HISTORY_FRAMES, nextPowerOfTwo(Math.ceil(rate * FX_HISTORY_SECONDS) + chunk + 2));
+  return alignedFxHistoryFrames(
+    Math.ceil(normalizedFxSampleRate(sampleRate) * FX_HISTORY_SECONDS),
+    chunkFrames,
+  );
 }
 
-export function shaderSynthPlaygroundFxHistoryByteSize(sampleRate, chunkFrames = 0) {
+/**
+ * Patch-aware counterpart to shaderSynthPlaygroundFxHistoryFrames. Passing no
+ * patch deliberately preserves the complete-catalog allocation.
+ */
+export function shaderSynthPlaygroundFxHistoryFramesForPatch(
+  patch,
+  sampleRate,
+  chunkFrames = 0,
+) {
+  if (patch == null) return shaderSynthPlaygroundFxHistoryFrames(sampleRate, chunkFrames);
+  const lookback = shaderSynthPlaygroundFxKindsForPatch(patch).reduce(
+    (maximum, kind) => Math.max(
+      maximum,
+      shaderSynthPlaygroundFxMaxLookbackFrames(kind, sampleRate),
+    ),
+    0,
+  );
+  return alignedFxHistoryFrames(lookback, chunkFrames);
+}
+
+export function shaderSynthPlaygroundFxHistoryByteSize(
+  sampleRate,
+  chunkFrames = 0,
+  historyRegions = FX_HISTORY_REGIONS,
+) {
+  const regions = Math.min(
+    FX_HISTORY_REGIONS,
+    Math.max(1, Math.round(Number(historyRegions) || FX_HISTORY_REGIONS)),
+  );
   return shaderSynthPlaygroundFxHistoryFrames(sampleRate, chunkFrames)
-    * FX_HISTORY_REGIONS
+    * regions
+    * 2
+    * Float32Array.BYTES_PER_ELEMENT;
+}
+
+export function shaderSynthPlaygroundFxHistoryByteSizeForPatch(
+  patch,
+  sampleRate,
+  chunkFrames = 0,
+  historyRegions = FX_HISTORY_REGIONS,
+) {
+  const regions = Math.min(
+    FX_HISTORY_REGIONS,
+    Math.max(1, Math.round(Number(historyRegions) || FX_HISTORY_REGIONS)),
+  );
+  return shaderSynthPlaygroundFxHistoryFramesForPatch(patch, sampleRate, chunkFrames)
+    * regions
     * 2
     * Float32Array.BYTES_PER_ELEMENT;
 }
@@ -514,7 +628,8 @@ struct RenderInfo {
 fn captureDryHistory(@builtin(global_invocation_id) globalId: vec3<u32>) {
   let sample = globalId.x;
   if (sample >= render_info.sampleCount || sample >= arrayLength(&dry_chunk)) { return; }
-  let historyFrames = arrayLength(&fx_history) / ${FX_HISTORY_REGIONS}u;
+  let activeRegions = clamp((render_info.padding2 >> 8u) & 255u, 1u, ${FX_HISTORY_REGIONS}u);
+  let historyFrames = arrayLength(&fx_history) / activeRegions;
   if (historyFrames == 0u) { return; }
   // Region zero always owns the dry, pre-effect timeline. Later ordered FX
   // dispatches fill one additional region per stage.
@@ -636,14 +751,16 @@ fn phaseAtSample(sampleIndex: u32, rate: f32) -> f32 {
 }
 
 fn historyAt(sampleIndex: u32, delaySamples: u32) -> vec2<f32> {
-  let historyFrames = arrayLength(&fx_history) / FX_HISTORY_REGIONS;
+  let activeRegions = clamp((render_info.padding2 >> 8u) & 255u, 1u, FX_HISTORY_REGIONS);
+  let historyFrames = arrayLength(&fx_history) / activeRegions;
   if (historyFrames == 0u || delaySamples > sampleIndex) { return vec2<f32>(0.0); }
-  let region = min(fx_stage.inputHistoryRegion, FX_HISTORY_REGIONS - 1u);
+  let region = min(fx_stage.inputHistoryRegion, activeRegions - 1u);
   return fx_history[region * historyFrames + (sampleIndex - delaySamples) % historyFrames];
 }
 
 fn fractionalHistoryAt(sampleIndex: u32, requestedDelay: f32) -> vec2<f32> {
-  let historyFrames = arrayLength(&fx_history) / FX_HISTORY_REGIONS;
+  let activeRegions = clamp((render_info.padding2 >> 8u) & 255u, 1u, FX_HISTORY_REGIONS);
+  let historyFrames = arrayLength(&fx_history) / activeRegions;
   if (historyFrames < 3u) { return vec2<f32>(0.0); }
   let boundedDelay = clamp(requestedDelay, 1.0, f32(historyFrames - 2u));
   let whole = u32(floor(boundedDelay));
@@ -651,9 +768,10 @@ fn fractionalHistoryAt(sampleIndex: u32, requestedDelay: f32) -> vec2<f32> {
 }
 
 fn writeStageHistory(sampleIndex: u32, signal: vec2<f32>) {
-  let historyFrames = arrayLength(&fx_history) / FX_HISTORY_REGIONS;
+  let activeRegions = clamp((render_info.padding2 >> 8u) & 255u, 1u, FX_HISTORY_REGIONS);
+  let historyFrames = arrayLength(&fx_history) / activeRegions;
   if (historyFrames == 0u) { return; }
-  let region = min(fx_stage.outputHistoryRegion, FX_HISTORY_REGIONS - 1u);
+  let region = min(fx_stage.outputHistoryRegion, activeRegions - 1u);
   fx_history[region * historyFrames + sampleIndex % historyFrames] = signal;
 }
 
@@ -1198,3 +1316,203 @@ fn processPostGraphFx(@builtin(global_invocation_id) globalId: vec3<u32>) {
   sound_chunk[sample] = clamp(mix(previousFinal, targetFinal, ramp), vec2<f32>(-0.98), vec2<f32>(0.98));
 }
 `;
+
+export function shaderSynthPlaygroundFxKindsForPatch(patch) {
+  const kindById = new Map(SHADER_SYNTH_PLAYGROUND_FX_MODULES.map(({ id, kind }) => [id, kind]));
+  return [...new Set(shaderSynthPlaygroundFxNodes(patch)
+    .map((node) => node?.kind ?? node?.type?.kind ?? kindById.get(node?.type))
+    .map(Number)
+    .filter((kind) => isShaderSynthPlaygroundFxKind(kind)))]
+    .sort((left, right) => left - right);
+}
+
+export function shaderSynthPlaygroundFxShaderKeyForPatch(patch) {
+  return shaderSynthPlaygroundFxKindsForPatch(patch).join(",");
+}
+
+function fxMatchingWgslBrace(source, openingIndex) {
+  let depth = 0;
+  let lineComment = false;
+  let blockCommentDepth = 0;
+  for (let index = openingIndex; index < source.length; index += 1) {
+    const current = source[index];
+    const next = source[index + 1];
+    if (lineComment) {
+      if (current === "\n") lineComment = false;
+      continue;
+    }
+    if (blockCommentDepth > 0) {
+      if (current === "/" && next === "*") {
+        blockCommentDepth += 1;
+        index += 1;
+      } else if (current === "*" && next === "/") {
+        blockCommentDepth -= 1;
+        index += 1;
+      }
+      continue;
+    }
+    if (current === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      blockCommentDepth = 1;
+      index += 1;
+      continue;
+    }
+    if (current === "{") depth += 1;
+    else if (current === "}" && --depth === 0) return index;
+  }
+  return -1;
+}
+
+function fxNextWgslOpeningBrace(source, startIndex, limit = source.length) {
+  let lineComment = false;
+  let blockCommentDepth = 0;
+  for (let index = startIndex; index < limit; index += 1) {
+    const current = source[index];
+    const next = source[index + 1];
+    if (lineComment) {
+      if (current === "\n") lineComment = false;
+      continue;
+    }
+    if (blockCommentDepth > 0) {
+      if (current === "/" && next === "*") {
+        blockCommentDepth += 1;
+        index += 1;
+      } else if (current === "*" && next === "/") {
+        blockCommentDepth -= 1;
+        index += 1;
+      }
+      continue;
+    }
+    if (current === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+    } else if (current === "/" && next === "*") {
+      blockCommentDepth = 1;
+      index += 1;
+    } else if (current === "{") return index;
+  }
+  return -1;
+}
+
+function filterFxApplyCases(source, activeKinds) {
+  const keep = new Set(activeKinds.map((kind) => Math.round(Number(kind))));
+  const functionStart = source.indexOf("fn applyEffect(");
+  const switchStart = source.indexOf("switch kind", functionStart);
+  const switchOpen = fxNextWgslOpeningBrace(source, switchStart);
+  const switchClose = fxMatchingWgslBrace(source, switchOpen);
+  if (functionStart < 0 || switchStart < 0 || switchOpen < 0 || switchClose < 0) return source;
+  const clauses = [];
+  let cursor = switchOpen + 1;
+  while (cursor < switchClose) {
+    const marker = source.slice(cursor, switchClose).match(/\b(?:case\s+\d+u\s*:|default\s*:)/);
+    if (!marker) break;
+    const clauseStart = cursor + marker.index;
+    const clauseOpen = fxNextWgslOpeningBrace(source, clauseStart, switchClose);
+    if (clauseOpen < 0) break;
+    const clauseClose = fxMatchingWgslBrace(source, clauseOpen);
+    if (clauseClose < 0 || clauseClose > switchClose) break;
+    const clause = source.slice(clauseStart, clauseClose + 1);
+    const kindMatch = clause.match(/^case\s+(\d+)u\s*:/);
+    if (!kindMatch || keep.has(Number(kindMatch[1]))) clauses.push(clause.trim());
+    cursor = clauseClose + 1;
+  }
+  return `${source.slice(0, switchOpen + 1)}\n    ${clauses.join("\n    ")}\n  ${source.slice(switchClose)}`;
+}
+
+function fxTopLevelWgslFunctions(source) {
+  const functions = [];
+  let depth = 0;
+  let lineComment = false;
+  let blockCommentDepth = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    const current = source[index];
+    const next = source[index + 1];
+    if (lineComment) {
+      if (current === "\n") lineComment = false;
+      continue;
+    }
+    if (blockCommentDepth > 0) {
+      if (current === "/" && next === "*") {
+        blockCommentDepth += 1;
+        index += 1;
+      } else if (current === "*" && next === "/") {
+        blockCommentDepth -= 1;
+        index += 1;
+      }
+      continue;
+    }
+    if (current === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      blockCommentDepth = 1;
+      index += 1;
+      continue;
+    }
+    if (current === "{") {
+      depth += 1;
+      continue;
+    }
+    if (current === "}") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (
+      depth !== 0
+      || source.slice(index, index + 2) !== "fn"
+      || /[A-Za-z0-9_]/.test(source[index - 1] ?? "")
+      || /[A-Za-z0-9_]/.test(source[index + 2] ?? "")
+    ) continue;
+    const header = source.slice(index).match(/^fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/);
+    if (!header) continue;
+    const opening = fxNextWgslOpeningBrace(source, index + header[0].length);
+    const closing = fxMatchingWgslBrace(source, opening);
+    if (opening < 0 || closing < 0) continue;
+    functions.push({ name: header[1], start: index, end: closing + 1, source: source.slice(index, closing + 1) });
+    index = closing;
+  }
+  return functions;
+}
+
+function removeUnusedFxWgslFunctions(source) {
+  const functions = fxTopLevelWgslFunctions(source);
+  const byName = new Map(functions.map((entry) => [entry.name, entry]));
+  const retained = new Set(["processPostGraphFx", "applyEffect"]);
+  const queue = [...retained];
+  while (queue.length) {
+    const current = byName.get(queue.shift());
+    if (!current) continue;
+    for (const candidate of functions) {
+      if (retained.has(candidate.name)) continue;
+      if (new RegExp(`\\b${candidate.name}\\s*\\(`).test(current.source)) {
+        retained.add(candidate.name);
+        queue.push(candidate.name);
+      }
+    }
+  }
+  let specialized = source;
+  for (const entry of [...functions].reverse()) {
+    if (!retained.has(entry.name)) {
+      specialized = specialized.slice(0, entry.start) + specialized.slice(entry.end);
+    }
+  }
+  return specialized;
+}
+
+/**
+ * Compile only the effect implementations present in one patch. The complete
+ * shader remains exported above for documentation and coverage auditing.
+ */
+export function createShaderSynthPlaygroundFxShader(patch) {
+  const activeKinds = shaderSynthPlaygroundFxKindsForPatch(patch);
+  return removeUnusedFxWgslFunctions(filterFxApplyCases(
+    SHADER_SYNTH_PLAYGROUND_FX_SHADER,
+    activeKinds,
+  ));
+}
