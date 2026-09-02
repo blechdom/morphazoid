@@ -115,15 +115,9 @@
         </div>
 
         <section class="performance-deck" aria-labelledby="keyboardTitle">
-          <div class="deck-transport">
-            <button class="field-play" id="sequenceButton" type="button" data-primary-transport aria-pressed="false">
-              <span aria-hidden="true">▶</span>
-              <span><b>Orbit phrase</b><small id="sequenceState">ready · audio off</small></span>
-            </button>
-            <div class="deck-title">
-              <p id="keyboardTitle">PLAY THE FIELD</p>
-              <span>click pads or use A S D F G H J K</span>
-            </div>
+          <div class="deck-title">
+            <p id="keyboardTitle">PLAY THE FIELD</p>
+            <span>click pads or use A S D F G H J K</span>
           </div>
           <div class="note-pads" id="notePads" role="group" aria-label="Surround Field note pads">
             <button type="button" data-note="48"><kbd>A</kbd><b>C</b><small>48</small></button>
@@ -139,6 +133,18 @@
       </section>
 
       <aside class="panel surround-panel" aria-label="Surround Field controls">
+        <section class="panel-transport" id="panelTransport" data-state="off" aria-label="Audio-clock transport">
+          <button class="field-play" id="sequenceButton" type="button" data-primary-transport aria-pressed="false">
+            <span id="sequenceIcon" aria-hidden="true">▶</span>
+            <span><b>Orbit phrase</b><small id="sequenceState">ready · audio off</small></span>
+          </button>
+          <div class="timing-priority" aria-live="polite">
+            <small>AUDIO TIMING PRIORITY</small>
+            <b id="timingClock">AUDIO CLOCK · ARMED</b>
+            <span id="timingDetail">25 ms scheduler · 160 ms lookahead</span>
+          </div>
+        </section>
+
         <section class="output-console" id="outputConsole" aria-labelledby="outputConsoleTitle">
           <div class="console-heading">
             <div><small id="outputConsoleTitle">LIVE OUTPUT</small><b id="outputModeLabel">NOT PROBED</b></div>

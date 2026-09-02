@@ -1,11 +1,13 @@
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import {
+  AUDIO_TIMING,
   channelSummary,
   clamp,
   clampPosition,
   computeSpeakerGains,
   makeLayouts,
   outputModeFor,
+  planAudioEvents,
   projectPoint,
   speakerPan,
 } from "./src/surround-field.js";
@@ -35,12 +37,15 @@ const state = {
   position: { ...DEFAULTS.position },
   audioOn: false,
   sequenceOn: false,
+  transportStarting: false,
   phraseIndex: 0,
   nextPhraseAt: 0,
-  motionTime: 0,
+  sequenceTimers: new Set(),
+  motionStartedAt: 0,
+  motionPhase: 0,
   dragging: false,
   sweeping: false,
-  sweepTimer: 0,
+  sweepTimers: [],
   padEnergy: new Map(),
   testEnergy: [],
   gains: [],
@@ -57,13 +62,14 @@ class SurroundAudio {
     this.releaseOutput = null;
     this.outputNode = null;
     this.enabled = false;
-    this.starting = false;
+    this.startPromise = null;
     this.level = state.level;
     this.color = state.color;
     this.mode = "unprobed";
     this.deviceChannels = null;
     this.routeSignature = "";
     this.activeVoices = new Set();
+    this.activeTests = new Set();
     this.activity = 0;
     this.suspendToken = 0;
   }
@@ -89,10 +95,9 @@ class SurroundAudio {
     this.setColor(this.color);
   }
 
-  async start(layout, forcePreview) {
-    if (this.starting) return this.context;
-    this.starting = true;
-    try {
+  start(layout, forcePreview) {
+    if (this.startPromise) return this.startPromise;
+    const startPromise = (async () => {
       if (!this.context || this.context.state === "closed") {
         const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
         if (!AudioContextClass) throw new Error("Web Audio is unavailable in this browser.");
@@ -106,9 +111,11 @@ class SurroundAudio {
       this.rebuildRoutes(layout, forcePreview);
       this.setLevel(this.level);
       return this.context;
-    } finally {
-      this.starting = false;
-    }
+    })();
+    this.startPromise = startPromise;
+    return startPromise.finally(() => {
+      if (this.startPromise === startPromise) this.startPromise = null;
+    });
   }
 
   disable() {
@@ -231,11 +238,27 @@ class SurroundAudio {
     this.setSpatialGains(state.gains);
   }
 
-  setSpatialGains(gains) {
+  setSpatialGains(gains, when = null) {
     if (!this.context) return;
     const now = this.context.currentTime;
+    const requestedTime = Number(when);
+    const scheduled = Number.isFinite(requestedTime) && requestedTime > now;
+    const targetTime = scheduled ? requestedTime : now;
     this.speakerRoutes.forEach(({ spatialGain }, index) => {
-      spatialGain.gain.setTargetAtTime(clamp(gains[index] ?? 0, 0, 1), now, 0.018);
+      const parameter = spatialGain.gain;
+      if (!scheduled) {
+        try {
+          if (typeof parameter.cancelAndHoldAtTime === "function") parameter.cancelAndHoldAtTime(now);
+          else {
+            const heldValue = parameter.value;
+            parameter.cancelScheduledValues(now);
+            parameter.setValueAtTime(heldValue, now);
+          }
+        } catch {
+          parameter.cancelScheduledValues(now);
+        }
+      }
+      parameter.setTargetAtTime(clamp(gains[index] ?? 0, 0, 1), targetTime, 0.018);
     });
   }
 
@@ -252,10 +275,13 @@ class SurroundAudio {
     this.toneFilter.Q.setTargetAtTime(0.7 + this.color * 3.4, this.context.currentTime, 0.03);
   }
 
-  trigger(midi, voice = state.voice, release = state.release, velocity = 0.78) {
+  trigger(midi, voice = state.voice, release = state.release, velocity = 0.78, when = null, group = "manual") {
     if (!this.enabled || !this.context || !this.voiceInput || this.activeVoices.size >= 28) return false;
     const context = this.context;
-    const start = context.currentTime + 0.004;
+    const requestedTime = Number(when);
+    const start = Number.isFinite(requestedTime)
+      ? Math.max(context.currentTime + 0.006, requestedTime)
+      : context.currentTime + 0.006;
     const duration = clamp(release, 0.18, 2.4);
     const frequency = 440 * 2 ** ((Number(midi) - 69) / 12);
     const envelope = context.createGain();
@@ -280,16 +306,16 @@ class SurroundAudio {
       const oscillator = context.createOscillator();
       const partialGain = context.createGain();
       oscillator.type = type;
-      oscillator.frequency.value = frequency * ratio;
-      oscillator.detune.value = detune;
-      partialGain.gain.value = amount;
+      oscillator.frequency.setValueAtTime(frequency * ratio, start);
+      oscillator.detune.setValueAtTime(detune, start);
+      partialGain.gain.setValueAtTime(amount, start);
       oscillator.connect(partialGain).connect(envelope);
       oscillator.start(start);
       oscillator.stop(start + duration + 0.04);
       oscillators.push({ oscillator, partialGain });
     }
 
-    const record = { oscillators, envelope, voiceFilter };
+    const record = { oscillators, envelope, voiceFilter, start, group };
     this.activeVoices.add(record);
     oscillators[0].oscillator.onended = () => {
       this.activeVoices.delete(record);
@@ -299,16 +325,29 @@ class SurroundAudio {
         try { item.oscillator.disconnect(); item.partialGain.disconnect(); } catch { /* Voice already collected. */ }
       }
     };
-    this.activity = Math.max(this.activity, velocity);
     return true;
   }
 
-  testSpeaker(index) {
+  cancelScheduledVoices(group) {
+    if (!this.context) return;
+    const now = this.context.currentTime;
+    for (const record of this.activeVoices) {
+      if (record.group !== group || record.start <= now + 0.002) continue;
+      for (const { oscillator } of record.oscillators) {
+        try { oscillator.stop(now); } catch { /* The queued source may already be ending. */ }
+      }
+    }
+  }
+
+  testSpeaker(index, when = null, group = "manual") {
     if (!this.enabled || !this.context || !this.speakerRoutes[index]) return false;
     const context = this.context;
     const route = this.speakerRoutes[index];
     const speaker = currentLayout().speakers[index];
-    const start = context.currentTime + 0.005;
+    const requestedTime = Number(when);
+    const start = Number.isFinite(requestedTime)
+      ? Math.max(context.currentTime + 0.006, requestedTime)
+      : context.currentTime + 0.006;
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     oscillator.type = speaker.kind === "lfe" ? "sine" : "triangle";
@@ -322,15 +361,27 @@ class SurroundAudio {
     else gain.connect(route.testTarget);
     oscillator.start(start);
     oscillator.stop(start + 0.3);
+    const record = { oscillator, gain, start, group };
+    this.activeTests.add(record);
     oscillator.onended = () => {
+      this.activeTests.delete(record);
       try { oscillator.disconnect(); gain.disconnect(); } catch { /* Test chirp already collected. */ }
     };
-    this.activity = Math.max(this.activity, 0.62);
     return true;
+  }
+
+  cancelScheduledTests(group) {
+    if (!this.context) return;
+    const now = this.context.currentTime;
+    for (const record of this.activeTests) {
+      if (record.group !== group || record.start <= now + 0.002) continue;
+      try { record.oscillator.stop(now); } catch { /* The queued chirp may already be ending. */ }
+    }
   }
 }
 
 const audio = new SurroundAudio();
+let audioSchedulerTimer = 0;
 
 function layouts() {
   return makeLayouts(state.customCount);
@@ -338,6 +389,70 @@ function layouts() {
 
 function currentLayout() {
   return layouts()[state.layoutId] ?? layouts()[DEFAULTS.layoutId];
+}
+
+function performanceSeconds() {
+  return performance.now() / 1000;
+}
+
+function motionCyclesAt(time = performanceSeconds()) {
+  return state.motionPhase + Math.max(0, time - state.motionStartedAt) * state.orbitRate;
+}
+
+function reanchorMotionClock(time = performanceSeconds()) {
+  if (state.motion !== "manual") state.motionPhase = motionCyclesAt(time) % 1;
+  state.motionStartedAt = time;
+}
+
+function motionPositionAt(time) {
+  const phase = motionCyclesAt(time) * TAU;
+  const position = state.motion === "orbit"
+    ? { x: Math.sin(phase) * 0.62, y: -Math.cos(phase) * 0.62, z: state.position.z }
+    : { x: Math.sin(phase * 0.91) * 0.63, y: Math.sin(phase * 1.47 + 1.2) * 0.52, z: state.position.z };
+  return clampPosition(position);
+}
+
+function scheduleAudioTimeline() {
+  if (!audio.enabled || !audio.context || audio.context.state !== "running") return;
+  const now = audio.context.currentTime;
+
+  if (state.sequenceOn) {
+    const plan = planAudioEvents({ nextAt: state.nextPhraseAt, now });
+    state.phraseIndex += plan.skipped;
+    for (const when of plan.times) {
+      const midi = PHRASE[state.phraseIndex % PHRASE.length];
+      state.phraseIndex += 1;
+      if (audio.trigger(midi, state.voice, state.release, 0.78, when, "sequence")) {
+        pulsePadVisualAt(midi, null, when, 0.78, "sequence");
+      }
+    }
+    state.nextPhraseAt = plan.nextAt;
+  }
+
+  if (state.motion !== "manual") {
+    const spatialAt = now + AUDIO_TIMING.lookaheadSeconds;
+    const visualTime = performanceSeconds() + (spatialAt - now);
+    const position = motionPositionAt(visualTime);
+    const gains = computeSpeakerGains(currentLayout().speakers, position, state.focus);
+    audio.setSpatialGains(gains, spatialAt);
+  }
+}
+
+function stopAudioScheduler() {
+  window.clearInterval(audioSchedulerTimer);
+  audioSchedulerTimer = 0;
+}
+
+function syncAudioScheduler() {
+  const shouldRun = state.audioOn && (state.sequenceOn || state.motion !== "manual");
+  if (!shouldRun) {
+    stopAudioScheduler();
+    return;
+  }
+  if (!audioSchedulerTimer) {
+    scheduleAudioTimeline();
+    audioSchedulerTimer = window.setInterval(scheduleAudioTimeline, AUDIO_TIMING.schedulerIntervalMs);
+  }
 }
 
 function setPressed(selector, attribute, value) {
@@ -431,11 +546,11 @@ function renderMeters() {
   });
 }
 
-function updateSpatialDisplay() {
+function updateSpatialDisplay({ updateAudio = true } = {}) {
   const layout = currentLayout();
   state.position = { ...clampPosition(state.position) };
   state.gains = computeSpeakerGains(layout.speakers, state.position, state.focus);
-  audio.setSpatialGains(state.gains);
+  if (updateAudio) audio.setSpatialGains(state.gains);
 
   const emitterPoint = projectPoint(state.position, state.view);
   const listenerPoint = projectPoint({ x: 0, y: 0, z: 0 }, state.view);
@@ -486,6 +601,22 @@ function renderOutputStatus() {
   setText("calibrationSummary", `${layout.speakers.length} virtual · ${audio.deviceChannels ? `${audio.deviceChannels} device` : "unprobed"}`);
   setText("audioState", state.audioOn ? `${actualMode} · ${audio.deviceChannels} ch` : audio.deviceChannels ? "off" : "off · probe device");
   setText("sequenceState", state.sequenceOn ? `${state.motion} · playing` : state.audioOn ? "ready · audio on" : "ready · audio off");
+  const reportedLatency = audio.context
+    ? (Number(audio.context.baseLatency) || 0) + (Number(audio.context.outputLatency) || 0)
+    : 0;
+  const clockState = state.transportStarting
+    ? "STARTING AUDIO"
+    : state.sequenceOn
+      ? "AUDIO CLOCK · PLAYING"
+      : state.audioOn
+        ? "AUDIO CLOCK · READY"
+        : "AUDIO CLOCK · ARMED";
+  setText("timingClock", clockState);
+  setText(
+    "timingDetail",
+    `${AUDIO_TIMING.schedulerIntervalMs} ms scheduler · ${Math.round(AUDIO_TIMING.lookaheadSeconds * 1000)} ms lookahead${reportedLatency > 0 ? ` · ${Math.round(reportedLatency * 1000)} ms reported path` : ""}`,
+  );
+  if ($("panelTransport")) $("panelTransport").dataset.state = state.sequenceOn ? "playing" : state.audioOn ? "ready" : "off";
 }
 
 function renderControls() {
@@ -497,6 +628,8 @@ function renderControls() {
   setPressed("[data-route]", "route", state.forcePreview ? "preview" : "auto");
   $("audioButton").setAttribute("aria-pressed", String(state.audioOn));
   $("sequenceButton").setAttribute("aria-pressed", String(state.sequenceOn));
+  $("sequenceButton").disabled = state.transportStarting;
+  setText("sequenceIcon", state.sequenceOn ? "■" : "▶");
   setText("speakerCountOut", `${state.customCount} speakers`);
   setText("arraySummary", `${layout.name} · ${layout.speakers.length} channels`);
   setText("motionSummary", `${state.motion} · ${state.position.z > 0.66 ? "upper" : state.position.z > 0.12 ? "raised" : "floor"}`);
@@ -534,8 +667,17 @@ function setView(view) {
 }
 
 function setMotion(motion) {
+  const now = performanceSeconds();
+  if (state.motion !== "manual") reanchorMotionClock(now);
+  if (motion !== "manual" && state.motion === "manual") {
+    let phase = Math.atan2(state.position.x, -state.position.y) / TAU;
+    if (phase < 0) phase += 1;
+    state.motionPhase = phase;
+  }
   state.motion = motion;
-  if (motion !== "manual") state.motionTime = performance.now() / 1000;
+  state.motionStartedAt = now;
+  audio.setSpatialGains(state.gains);
+  syncAudioScheduler();
   renderControls();
 }
 
@@ -555,7 +697,7 @@ function beginEmitterDrag(event) {
   if (event.button !== undefined && event.button !== 0) return;
   event.preventDefault();
   state.dragging = true;
-  state.motion = "manual";
+  setMotion("manual");
   $("emitter").classList.add("is-dragging");
   $("emitter").setPointerCapture?.(event.pointerId);
   state.position = { ...positionFromPointer(event) };
@@ -583,10 +725,12 @@ async function ensureAudio() {
     await audio.start(currentLayout(), state.forcePreview);
     state.audioOn = true;
     $("audioError").hidden = true;
+    syncAudioScheduler();
     renderControls();
     return true;
   } catch (error) {
     state.audioOn = false;
+    stopAudioScheduler();
     $("audioError").hidden = false;
     setText("audioError", error?.message ?? "Unable to start audio.");
     announce(error?.message ?? "Unable to start audio.");
@@ -598,19 +742,44 @@ async function ensureAudio() {
 function disableAudio() {
   state.audioOn = false;
   state.sequenceOn = false;
+  clearSequenceVisuals();
+  audio.cancelScheduledVoices("sequence");
+  stopAudioScheduler();
   stopSweep();
   audio.disable();
   renderControls();
 }
 
-async function triggerNote(midi, pad = null, velocity = 0.78) {
-  if (!state.audioOn && !(await ensureAudio())) return;
-  if (audio.trigger(midi, state.voice, state.release, clamp(velocity, 0.1, 1))) {
+function clearSequenceVisuals() {
+  for (const timer of state.sequenceTimers) window.clearTimeout(timer);
+  state.sequenceTimers.clear();
+}
+
+function pulsePadVisualAt(midi, pad = null, when = null, velocity = 0.78, group = "manual") {
+  const pulse = () => {
     const key = String(midi);
     state.padEnergy.set(key, 1);
+    audio.activity = Math.max(audio.activity, velocity);
     const button = pad ?? document.querySelector(`[data-note="${midi}"]`);
     button?.classList.add("is-playing");
     window.setTimeout(() => button?.classList.remove("is-playing"), 120);
+  };
+  const delay = audio.context && Number.isFinite(Number(when))
+    ? Math.max(0, (Number(when) - audio.context.currentTime) * 1000)
+    : 0;
+  if (delay > 1) {
+    const timer = window.setTimeout(() => {
+      state.sequenceTimers.delete(timer);
+      pulse();
+    }, delay);
+    if (group === "sequence") state.sequenceTimers.add(timer);
+  } else pulse();
+}
+
+async function triggerNote(midi, pad = null, velocity = 0.78) {
+  if (!state.audioOn && !(await ensureAudio())) return;
+  if (audio.trigger(midi, state.voice, state.release, clamp(velocity, 0.1, 1))) {
+    pulsePadVisualAt(midi, pad, null, clamp(velocity, 0.1, 1));
   }
 }
 
@@ -618,6 +787,7 @@ async function testSpeaker(index) {
   if (!state.audioOn && !(await ensureAudio())) return;
   if (!audio.testSpeaker(index)) return;
   state.testEnergy[index] = 1;
+  audio.activity = Math.max(audio.activity, 0.62);
   const node = document.querySelector(`.speaker-node[data-index="${index}"]`);
   node?.classList.add("is-testing");
   window.setTimeout(() => node?.classList.remove("is-testing"), 310);
@@ -627,9 +797,23 @@ async function testSpeaker(index) {
 
 function stopSweep() {
   state.sweeping = false;
-  window.clearTimeout(state.sweepTimer);
-  state.sweepTimer = 0;
+  for (const timer of state.sweepTimers) window.clearTimeout(timer);
+  state.sweepTimers = [];
+  audio.cancelScheduledTests("sweep");
   $("sweepButton")?.setAttribute("aria-pressed", "false");
+}
+
+function scheduleSweepVisual(index, when) {
+  const delay = Math.max(0, (when - audio.context.currentTime) * 1000);
+  const timer = window.setTimeout(() => {
+    if (!state.sweeping) return;
+    state.testEnergy[index] = 1;
+    audio.activity = Math.max(audio.activity, 0.62);
+    const node = document.querySelector(`.speaker-node[data-index="${index}"]`);
+    node?.classList.add("is-testing");
+    window.setTimeout(() => node?.classList.remove("is-testing"), 310);
+  }, delay);
+  state.sweepTimers.push(timer);
 }
 
 async function toggleSweep() {
@@ -641,31 +825,44 @@ async function toggleSweep() {
   if (!state.audioOn && !(await ensureAudio())) return;
   state.sweeping = true;
   $("sweepButton").setAttribute("aria-pressed", "true");
-  let index = 0;
-  const step = () => {
+  const start = audio.context.currentTime + AUDIO_TIMING.minimumLeadSeconds;
+  currentLayout().speakers.forEach((_, index) => {
+    const when = start + index * AUDIO_TIMING.sweepStepSeconds;
+    audio.testSpeaker(index, when, "sweep");
+    scheduleSweepVisual(index, when);
+  });
+  const duration = (currentLayout().speakers.length - 1) * AUDIO_TIMING.sweepStepSeconds + 0.34;
+  const completionTimer = window.setTimeout(() => {
     if (!state.sweeping) return;
-    void testSpeaker(index);
-    index += 1;
-    if (index >= currentLayout().speakers.length) {
-      state.sweepTimer = window.setTimeout(() => {
-        stopSweep();
-        announce("Channel sweep complete.");
-      }, 440);
-      return;
-    }
-    state.sweepTimer = window.setTimeout(step, 520);
-  };
-  step();
+    stopSweep();
+    announce("Channel sweep complete.");
+  }, duration * 1000);
+  state.sweepTimers.push(completionTimer);
 }
 
-function toggleSequence() {
-  state.sequenceOn = !state.sequenceOn;
+async function toggleSequence() {
+  if (state.transportStarting) return;
   if (state.sequenceOn) {
-    if (state.motion === "manual") setMotion("orbit");
-    state.nextPhraseAt = performance.now();
-    void ensureAudio();
+    state.sequenceOn = false;
+    clearSequenceVisuals();
+    audio.cancelScheduledVoices("sequence");
+    syncAudioScheduler();
+    renderControls();
+    return;
   }
+  state.transportStarting = true;
   renderControls();
+  try {
+    if (!state.audioOn && !(await ensureAudio())) return;
+    if (state.motion === "manual") setMotion("orbit");
+    state.sequenceOn = true;
+    state.nextPhraseAt = audio.context.currentTime + AUDIO_TIMING.startLeadSeconds;
+    scheduleAudioTimeline();
+    syncAudioScheduler();
+  } finally {
+    state.transportStarting = false;
+    renderControls();
+  }
 }
 
 function announce(message) {
@@ -674,12 +871,17 @@ function announce(message) {
 
 function resetAll() {
   stopSweep();
+  clearSequenceVisuals();
+  audio.cancelScheduledVoices("sequence");
+  stopAudioScheduler();
   state.layoutId = DEFAULTS.layoutId;
   state.customCount = DEFAULTS.customCount;
   state.view = DEFAULTS.view;
   state.position = { ...DEFAULTS.position };
   state.focus = DEFAULTS.focus;
   state.motion = DEFAULTS.motion;
+  state.motionStartedAt = performanceSeconds();
+  state.motionPhase = 0;
   state.orbitRate = DEFAULTS.orbitRate;
   state.voice = DEFAULTS.voice;
   state.color = DEFAULTS.color;
@@ -687,6 +889,7 @@ function resetAll() {
   state.level = DEFAULTS.level;
   state.forcePreview = DEFAULTS.forcePreview;
   state.sequenceOn = false;
+  state.transportStarting = false;
   $("speakerCount").value = String(state.customCount);
   $("orbitRate").value = String(state.orbitRate);
   $("focus").value = String(state.focus);
@@ -705,11 +908,11 @@ function bindControls() {
     if (state.audioOn) disableAudio();
     else void ensureAudio();
   });
-  $("sequenceButton").addEventListener("click", toggleSequence);
+  $("sequenceButton").addEventListener("click", () => void toggleSequence());
   $("sweepButton").addEventListener("click", () => void toggleSweep());
   $("resetAll").addEventListener("click", resetAll);
   $("centerSource").addEventListener("click", () => {
-    state.motion = "manual";
+    setMotion("manual");
     state.position = { x: 0, y: 0, z: state.position.z };
     updateSpatialDisplay();
     renderControls();
@@ -750,7 +953,10 @@ function bindControls() {
     setLayout("custom");
   });
   $("orbitRate").addEventListener("input", (event) => {
+    reanchorMotionClock();
     state.orbitRate = Number(event.target.value);
+    audio.setSpatialGains(state.gains);
+    scheduleAudioTimeline();
     renderControls();
   });
   $("focus").addEventListener("input", (event) => {
@@ -786,7 +992,7 @@ function bindControls() {
     const step = event.shiftKey ? 0.08 : 0.025;
     if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     event.preventDefault();
-    state.motion = "manual";
+    setMotion("manual");
     if (event.key === "ArrowLeft") state.position.x -= step;
     if (event.key === "ArrowRight") state.position.x += step;
     if (event.key === "ArrowUp") state.position.y -= step;
@@ -807,7 +1013,7 @@ function bindControls() {
     }
     if (event.code === "Space") {
       event.preventDefault();
-      toggleSequence();
+      void toggleSequence();
     }
     if (event.code === "Escape" && state.audioOn) disableAudio();
   });
@@ -827,28 +1033,18 @@ function bindControls() {
 }
 
 function animate(timestamp) {
+  if (animate.lastPaint !== undefined && timestamp - animate.lastPaint < 1000 / 30) {
+    requestAnimationFrame(animate);
+    return;
+  }
+  animate.lastPaint = timestamp;
   const now = timestamp / 1000;
   const delta = Math.min(0.05, Math.max(0, now - (animate.lastTime ?? now)));
   animate.lastTime = now;
 
   if (state.motion !== "manual" && !state.dragging) {
-    state.motionTime += delta;
-    const phase = state.motionTime * state.orbitRate * TAU;
-    if (state.motion === "orbit") {
-      state.position.x = Math.sin(phase) * 0.62;
-      state.position.y = -Math.cos(phase) * 0.62;
-    } else {
-      state.position.x = Math.sin(phase * 0.91) * 0.63;
-      state.position.y = Math.sin(phase * 1.47 + 1.2) * 0.52;
-    }
-    updateSpatialDisplay();
-  }
-
-  if (state.sequenceOn && timestamp >= state.nextPhraseAt) {
-    const midi = PHRASE[state.phraseIndex % PHRASE.length];
-    state.phraseIndex += 1;
-    state.nextPhraseAt = timestamp + 310;
-    void triggerNote(midi);
+    state.position = { ...motionPositionAt(now) };
+    updateSpatialDisplay({ updateAudio: false });
   }
 
   audio.activity *= Math.exp(-delta * 3.3);
@@ -882,6 +1078,8 @@ function exposeDebugState() {
       deviceChannels: audio.deviceChannels,
       audioOn: state.audioOn,
       sequenceOn: state.sequenceOn,
+      audioSchedulerRunning: Boolean(audioSchedulerTimer),
+      nextPhraseAt: state.nextPhraseAt,
       gainCount: state.gains.length,
     }),
     selectLayout: setLayout,
@@ -889,6 +1087,7 @@ function exposeDebugState() {
 }
 
 function initialize() {
+  state.motionStartedAt = performanceSeconds();
   state.testEnergy = Array(currentLayout().speakers.length).fill(0);
   state.gains = computeSpeakerGains(currentLayout().speakers, state.position, state.focus);
   bindControls();

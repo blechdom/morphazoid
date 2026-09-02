@@ -5,6 +5,58 @@ export const DEMO_MAX_CHANNELS = 32;
 
 const round = (value, places = 4) => Number(value.toFixed(places));
 
+// Timers only wake the scheduler. Every onset is placed on the Web Audio
+// rendering timeline, far enough ahead that layout and paint work cannot
+// decide when a note begins.
+export const AUDIO_TIMING = Object.freeze({
+  schedulerIntervalMs: 25,
+  lookaheadSeconds: 0.16,
+  minimumLeadSeconds: 0.025,
+  startLeadSeconds: 0.06,
+  phraseStepSeconds: 0.31,
+  sweepStepSeconds: 0.52,
+  maxEventsPerTick: 8,
+});
+
+export function planAudioEvents({
+  nextAt,
+  now,
+  lookahead = AUDIO_TIMING.lookaheadSeconds,
+  interval = AUDIO_TIMING.phraseStepSeconds,
+  minimumLead = AUDIO_TIMING.minimumLeadSeconds,
+  maxEvents = AUDIO_TIMING.maxEventsPerTick,
+} = {}) {
+  const currentTime = Number.isFinite(Number(now)) ? Math.max(0, Number(now)) : 0;
+  const lead = Math.max(0.001, Number(minimumLead) || AUDIO_TIMING.minimumLeadSeconds);
+  const horizon = currentTime + Math.max(lead, Number(lookahead) || AUDIO_TIMING.lookaheadSeconds);
+  const step = Math.max(0.001, Number(interval) || AUDIO_TIMING.phraseStepSeconds);
+  const eventLimit = Math.max(1, Math.floor(Number(maxEvents) || AUDIO_TIMING.maxEventsPerTick));
+  const earliest = currentTime + lead;
+  let cursor = Number(nextAt);
+  let skipped = 0;
+
+  if (!Number.isFinite(cursor)) cursor = earliest;
+  if (cursor < earliest) {
+    // Preserve the musical grid but advance past missed subdivisions. A late
+    // main-thread wakeup must never collapse a backlog into an audible burst.
+    skipped = Math.ceil((earliest - cursor) / step);
+    cursor += skipped * step;
+    if (cursor < earliest) cursor = earliest;
+  }
+
+  const times = [];
+  while (cursor < horizon && times.length < eventLimit) {
+    times.push(cursor);
+    cursor += step;
+  }
+
+  return Object.freeze({
+    times: Object.freeze(times),
+    nextAt: cursor,
+    skipped,
+  });
+}
+
 export function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, Number(value) || 0));
 }

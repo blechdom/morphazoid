@@ -37,6 +37,43 @@ test("audio routing has real discrete and explicit stereo-preview paths", () => 
   assert.match(app, /lowpass\.frequency\.value = 120/);
 });
 
+test("Play leads the right-hand controls and exposes audio timing priority", () => {
+  const panelStart = html.indexOf('<aside class="panel surround-panel"');
+  const panelEnd = html.indexOf("</aside>", panelStart);
+  const play = html.indexOf('id="sequenceButton"');
+  const output = html.indexOf('id="outputConsole"');
+  const deckStart = html.indexOf('<section class="performance-deck"');
+  assert.ok(panelStart >= 0 && panelStart < play && play < output && output < panelEnd);
+  assert.equal((html.match(/id="sequenceButton"/g) ?? []).length, 1);
+  assert.doesNotMatch(html.slice(deckStart, panelStart), /id="sequenceButton"/);
+  assert.match(html, /AUDIO TIMING PRIORITY/);
+  assert.match(html, /id="timingDetail">25 ms scheduler · 160 ms lookahead/);
+  assert.match(css, /\.panel-transport\s*\{[\s\S]*?position: sticky/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.panel-transport\s*\{[\s\S]*?position: static/);
+});
+
+test("audio clock schedules sound while animation remains visual-only", () => {
+  const schedulerStart = app.indexOf("function scheduleAudioTimeline()");
+  const schedulerEnd = app.indexOf("function stopAudioScheduler()", schedulerStart);
+  const scheduler = app.slice(schedulerStart, schedulerEnd);
+  const animateStart = app.indexOf("function animate(timestamp)");
+  const animateEnd = app.indexOf("function exposeDebugState()", animateStart);
+  const animation = app.slice(animateStart, animateEnd);
+  assert.match(scheduler, /audio\.context\.currentTime/);
+  assert.match(scheduler, /planAudioEvents\(\{ nextAt: state\.nextPhraseAt, now \}\)/);
+  assert.match(scheduler, /audio\.trigger\(midi,[\s\S]*?when, "sequence"\)/);
+  assert.match(app, /window\.setInterval\(scheduleAudioTimeline, AUDIO_TIMING\.schedulerIntervalMs\)/);
+  assert.doesNotMatch(animation, /triggerNote|nextPhraseAt|PHRASE/);
+  assert.match(animation, /updateSpatialDisplay\(\{ updateAudio: false \}\)/);
+
+  const transportStart = app.indexOf("async function toggleSequence()");
+  const transportEnd = app.indexOf("function announce", transportStart);
+  const transport = app.slice(transportStart, transportEnd);
+  assert.ok(transport.indexOf("await ensureAudio()") < transport.indexOf("state.sequenceOn = true"));
+  assert.match(transport, /audio\.cancelScheduledVoices\("sequence"\)/);
+  assert.match(app, /audio\.testSpeaker\(index, when, "sweep"\)/);
+});
+
 test("the room stays playable on pointer, keyboard, and mobile", () => {
   assert.match(html, /aria-label="Sound position\. Drag to move; use arrow keys/);
   assert.match(html, /click pads or use A S D F G H J K/);

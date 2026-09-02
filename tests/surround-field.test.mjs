@@ -2,13 +2,40 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AUDIO_TIMING,
   channelSummary,
   clampPosition,
   computeSpeakerGains,
   makeLayouts,
   outputModeFor,
+  planAudioEvents,
   projectPoint,
 } from "../src/surround-field.js";
+
+test("audio lookahead planner keeps events on an absolute timeline", () => {
+  const plan = planAudioEvents({
+    nextAt: 10,
+    now: 9.9,
+    lookahead: 0.8,
+    interval: AUDIO_TIMING.phraseStepSeconds,
+    maxEvents: 3,
+  });
+  assert.deepEqual(plan.times, [10, 10.31, 10.620000000000001]);
+  assert.ok(Math.abs(plan.nextAt - 10.93) < 1e-9);
+  assert.equal(plan.skipped, 0);
+});
+
+test("late audio scheduler ticks skip missed subdivisions instead of bursting", () => {
+  const plan = planAudioEvents({ nextAt: 9.8, now: 10 });
+  assert.equal(plan.skipped, 1);
+  assert.equal(plan.times.length, 1);
+  assert.ok(plan.times[0] >= 10 + AUDIO_TIMING.minimumLeadSeconds);
+
+  const veryLate = planAudioEvents({ nextAt: 5, now: 10 });
+  assert.ok(veryLate.skipped > 1);
+  assert.ok(veryLate.times.length <= 1);
+  assert.ok(veryLate.times.every((time) => time >= 10 + AUDIO_TIMING.minimumLeadSeconds));
+});
 
 test("Surround Field includes every requested layout", () => {
   const layouts = makeLayouts();
