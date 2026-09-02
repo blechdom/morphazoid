@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Creaturazoid drives 50 animal voices and body-percussion gestures through one persistent, wildly morphable Hybrinx body whose size, roundness, airway, and enveloped motion stay put while the rhythm changes."
+    />
+    <title>Creaturazoid · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="creaturazoid.css?v=creaturazoid-20260902-9" />
+  </head>
+  <body class="creaturazoid-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="hybrinx.html">hybrinx</a>
+        <a class="tab" href="hiccup-head.html">hiccup head</a>
+        <a class="tab active" href="creaturazoid.html" aria-current="page">creaturazoid</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="hybrinx.html">hybrinx</option>
+          <option value="hiccup-head.html">hiccup head</option>
+          <option value="creaturazoid.html" selected>creaturazoid</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="creaturazoid-audio-eye" aria-hidden="true"></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" aria-label="Creaturazoid output level" type="range" min="0" max="0.82" step="0.01" value="0.48" />
+        </label>
+      </div>
+    </header>
+
+    <main class="creaturazoid-shell" id="creaturazoid">
+      <div class="creaturazoid-workspace">
+        <section class="creaturazoid-stage" aria-label="Interactive front-view horned mammal-bird hybrid specimen">
+          <div class="creaturazoid-stage-wrap" id="stageWrap">
+            <canvas
+              id="stage"
+              tabindex="0"
+              aria-label="A front-view horned mammal-bird hybrid whose feathered wings, eyes, beak-muzzle, tongue, teeth, forelegs, hooves, tail, vibrating neck, lungs, and belly exaggerate each sounding gesture around restrained draggable anatomy controls."
+              aria-describedby="canvasInstructions liveStatus"
+            >
+              A forward-facing horned mammal-bird chimera with one wildly morphing physical airway.
+            </canvas>
+
+            <div class="creaturazoid-stage-title">
+              <small>one persistent body · every call inhabits it</small>
+              <h1>CREATURAZOID</h1>
+            </div>
+
+            <div class="creaturazoid-monophony-badge" aria-label="Monophonic architecture">
+              <span class="creaturazoid-pulse-dot" aria-hidden="true"></span>
+              <span><b>ONE AIRWAY</b><small>calls change · body stays</small></span>
+            </div>
+
+            <div class="creaturazoid-live-card" aria-live="polite">
+              <span><small>now sounding</small><output id="stageSoundReadout">body waiting</output></span>
+              <span><small>retarget</small><output id="stageMorphReadout">44 ms</output></span>
+            </div>
+
+            <p class="creaturazoid-audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </section>
+
+        <div class="creaturazoid-workspace-splitter" aria-hidden="true"><i></i><i></i><i></i></div>
+
+        <section class="creaturazoid-sequencer" aria-labelledby="sequencerTitle">
+          <header class="creaturazoid-sequencer-header">
+            <div class="creaturazoid-transport">
+              <button id="playButton" type="button" aria-pressed="false" data-primary-transport>
+                <span class="creaturazoid-play-glyph" aria-hidden="true"></span>
+                <span><b id="playLabel">Play</b><small id="playState">space · 32 steps</small></span>
+              </button>
+              <button id="restartButton" type="button" title="Back to first step" aria-label="Back to first step"><span aria-hidden="true">|◀</span></button>
+            </div>
+
+            <h2 class="sr-only" id="sequencerTitle">Creaturazoid monophonic call sequencer</h2>
+
+            <div class="creaturazoid-sequence-length" role="group" aria-labelledby="sequenceLengthLabel">
+              <span><b id="sequenceLengthLabel">Length</b><output id="sequenceLengthOut" for="sequenceLength">32</output></span>
+              <input id="sequenceLength" type="range" min="1" max="64" step="1" value="32" aria-labelledby="sequenceLengthLabel" aria-controls="sequenceGrid" />
+              <div class="creaturazoid-length-presets" aria-label="Sequence length presets">
+                <button type="button" data-sequence-length="8">8</button>
+                <button type="button" data-sequence-length="16">16</button>
+                <button type="button" data-sequence-length="32">32</button>
+                <button type="button" data-sequence-length="64">64</button>
+              </div>
+            </div>
+
+            <label class="creaturazoid-pattern-picker" for="patternSelect">
+              <span>Sequence preset</span>
+              <span class="creaturazoid-picker-row">
+                <select id="patternSelect" aria-label="Creaturazoid sequence preset"></select>
+                <button id="nextPatternButton" type="button" title="Next sequence preset" aria-label="Next sequence preset">▶</button>
+              </span>
+            </label>
+
+            <button class="creaturazoid-sequence-action" id="randomPatternButton" type="button"><b>Scatter</b><small>one per step</small></button>
+            <button class="creaturazoid-sequence-action" id="clearPatternButton" type="button"><b>Clear</b><small>leave rests</small></button>
+
+            <label class="creaturazoid-mini-control" for="tempo">
+              <span><b>Tempo</b><output id="tempoOut" for="tempo">128 BPM</output></span>
+              <input id="tempo" name="tempo" type="range" min="48" max="360" step="1" value="128" />
+            </label>
+            <label class="creaturazoid-mini-control" for="swing">
+              <span><b>Swing</b><output id="swingOut" for="swing">22%</output></span>
+              <input id="swing" type="range" min="0" max="0.46" step="0.01" value="0.22" />
+            </label>
+          </header>
+
+          <div class="creaturazoid-grid-scroll" tabindex="0" aria-label="Scrollable animal-call sequence grid">
+            <div
+              class="creaturazoid-sequence-grid"
+              id="sequenceGrid"
+              role="grid"
+              aria-label="Creature calls by sequence step. Each column can contain one call only; choosing another call replaces it."
+              aria-rowcount="51"
+              aria-colcount="33"
+            ></div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="panel creaturazoid-panel" aria-label="Creaturazoid controls">
+        <section class="creaturazoid-preset-deck" aria-labelledby="bodyPresetTitle">
+          <div class="creaturazoid-body-picker">
+            <span id="bodyPresetTitle">Persistent body shape</span>
+            <span class="creaturazoid-picker-row">
+              <select id="presetSelect" aria-label="Persistent Creaturazoid body shape"></select>
+              <button id="nextPresetButton" type="button" title="Next persistent body shape" aria-label="Next persistent body shape">▶</button>
+            </span>
+          </div>
+          <label class="creaturazoid-anatomy-picker" for="anatomySelect">
+            <span>Skeleton / feather plan</span>
+            <select id="anatomySelect">
+              <option value="scapular-wings">Crown horns + scapular plumage</option>
+              <option value="branchial-mantle">Lateral horns + branchial fan</option>
+              <option value="costal-glider">Antler forks + costal feathers</option>
+            </select>
+          </label>
+          <p id="presetDescription">One absolute body size and resonance shapes every call; changing the rhythm never replaces it.</p>
+          <div class="creaturazoid-body-metrics" role="group" aria-label="Persistent body metrics">
+            <span><small>Body size</small><output id="bodySizeReadout">100% · middleweight</output></span>
+            <span><small>Body motion</small><output id="bodyMotionReadout">contoured · call-local</output></span>
+          </div>
+          <button id="randomizeButton" type="button"><span aria-hidden="true">↝</span><span><b>Mutate this body</b><small>body parameters change · sequence stays intact</small></span></button>
+        </section>
+
+        <section class="creaturazoid-airway-card" aria-labelledby="airwayTitle">
+          <header><small>Hybrinx physical core</small><h2 id="airwayTitle">one travelling air column</h2></header>
+          <div aria-hidden="true"><span>LUNGS</span><i></i><span>SOURCE</span><i></i><span>TRACT</span><i></i><span>OUTLET</span></div>
+          <p>Calls retarget this one persistent body. Rhythm presets never replace it or stack a second creature.</p>
+        </section>
+
+        <section class="creaturazoid-pad-section" aria-labelledby="padBankTitle">
+          <header><h2 id="padBankTitle">Voices &amp; body percussion</h2><small>50 gestures · keys · pads · sequence</small></header>
+          <div class="creaturazoid-pad-bank" id="padGrid" aria-label="Playable Creaturazoid call pads"></div>
+        </section>
+
+        <div class="creaturazoid-model-hud" aria-live="polite">
+          <span><small>Current call</small><output id="soundReadout">ready to morph</output></span>
+          <span><small>Source anatomy</small><output id="sourceReadout">two-mass larynx</output></span>
+          <span><small>Physical tract</small><output id="tractReadout">17.0 cm</output></span>
+          <span><small>Air pressure</small><output id="pressureReadout">resting</output></span>
+        </div>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary"><h2 class="group-title">Lungs, larynx &amp; muzzle</h2><span class="section-state" id="bodySummary">127% lungs · +18% muzzle</span></summary>
+          <div class="group-body">
+            <label class="control" for="pressure"><span><b>Lung pressure</b><output id="pressureOut" for="pressure">127%</output></span><input id="pressure" type="range" min="0.2" max="1.8" step="0.01" value="1.27" /><small>Scales every native pressure contour before it reaches the one active source.</small></label>
+            <label class="control" for="bodyScale"><span><b>Absolute body size</b><output id="bodyScaleOut" for="bodyScale">100%</output></span><input id="bodyScale" type="range" min="0.55" max="1.35" step="0.01" value="1" aria-describedby="bodyScaleHelp" /><small id="bodyScaleHelp">Sets the size of the persistent specimen that every mammal, bird, frog, and whistle gesture must inhabit.</small></label>
+            <label class="control" for="bodyRoundness"><span><b>Body roundness</b><output id="bodyRoundnessOut" for="bodyRoundness">center</output></span><input id="bodyRoundness" type="range" min="-1" max="1" step="0.01" value="0" aria-describedby="bodyRoundnessHelp" /><small id="bodyRoundnessHelp">Moves the same torso and airway from tiny and narrow through broad, fat, and deep without choosing a species.</small></label>
+            <label class="control" for="morph"><span><b>Body imprint</b><output id="morphOut" for="morph">82%</output></span><input id="morph" type="range" min="0" max="1" step="0.01" value="0.82" /><small>Sets how strongly this absolute body shape colors every incoming native call contour.</small></label>
+            <label class="control" for="tension"><span><b>Source tension</b><output id="tensionOut" for="tension">−28%</output></span><input id="tension" type="range" min="-1" max="1" step="0.01" value="-0.28" /><small>Offsets fold, syringeal, membrane, and jet regimes without changing the selected call.</small></label>
+            <label class="control" for="pitch"><span><b>Body pitch</b><output id="pitchOut" for="pitch">−1 st</output></span><input id="pitch" type="range" min="-24" max="24" step="1" value="-1" /><small>Transposes each call's excitation after it has entered the selected body size.</small></label>
+            <label class="control" for="beak"><span><b>Muzzle / beak aperture</b><output id="beakOut" for="beak">+18%</output></span><input id="beak" type="range" min="-1" max="1" step="0.01" value="0.18" /><small>Closes or opens the persistent outlet around each native mouth trajectory.</small></label>
+            <label class="control" for="tract"><span><b>Throat length</b><output id="tractOut" for="tract">149%</output></span><input id="tract" type="range" min="0.3" max="3.25" step="0.01" value="1.49" /><small>Scales one propagation path from a pinched little tube to a deep impossible chamber.</small></label>
+            <label class="control" for="attackMs"><span><b>Rhythmic attack</b><output id="attackMsOut" for="attackMs">24 ms</output></span><input id="attackMs" type="range" min="8" max="48" step="1" value="24" aria-describedby="attackMsHelp" /><small id="attackMsHelp">Caps the opening pressure rise so occupied steps speak on the beat while every later peak and modulation envelope remains intact.</small></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form" open>
+          <summary class="group-summary"><h2 class="group-title">Cheeks, nostrils &amp; throat</h2><span class="section-state" id="cavitySummary">+22% cavity · +58% rough</span></summary>
+          <div class="group-body">
+            <label class="control" for="cavity"><span><b>Cheek cavity</b><output id="cavityOut" for="cavity">+22%</output></span><input id="cavity" type="range" min="-1" max="1" step="0.01" value="0.22" /><small>Moves the coupled side resonators that color frogs, birds, and long throats differently.</small></label>
+            <label class="control" for="roughness"><span><b>Throat roughness</b><output id="roughnessOut" for="roughness">+58%</output></span><input id="roughness" type="range" min="-1" max="1" step="0.01" value="0.58" /><small>Pushes the current nonlinear source toward clean tone, rattle, fry, or biphonation.</small></label>
+            <label class="control" for="split"><span><b>Source split</b><output id="splitOut" for="split">+46%</output></span><input id="split" type="range" min="-1" max="1" step="0.01" value="0.46" /><small>Changes bilateral mismatch for the paired source and irregularity elsewhere.</small></label>
+            <label class="control" for="balance"><span><b>Nostril balance</b><output id="balanceOut" for="balance">−16%</output></span><input id="balance" type="range" min="-1" max="1" step="0.01" value="-0.16" /><small>Moves energy between the two source sides and the paired forward nostril display.</small></label>
+            <label class="control" for="morphMs"><span><b>Call retarget</b><output id="morphMsOut" for="morphMs">44 ms</output></span><input id="morphMs" type="range" min="12" max="240" step="1" value="44" /><small>How quickly source and articulation retarget between calls inside the unchanged body. It never crossfades a second voice.</small></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping" open>
+          <summary class="group-summary"><h2 class="group-title">Horns, wings &amp; modulation</h2><span class="section-state" id="modulationSummary">5.2 Hz vibrato · cavity triangle</span></summary>
+          <div class="group-body">
+            <label class="control" for="vibratoRate"><span><b>Left-wing vibrato rate</b><output id="vibratoRateOut" for="vibratoRate">5.2 Hz</output></span><input id="vibratoRate" type="range" min="0" max="20" step="0.1" value="5.2" /><small>Move the left wingtip control to pace pitch motion.</small></label>
+            <label class="control" for="vibratoDepth"><span><b>Right-wing vibrato depth</b><output id="vibratoDepthOut" for="vibratoDepth">0.46 st</output></span><input id="vibratoDepth" type="range" min="0" max="6" step="0.05" value="0.46" /><small>Move the right wingtip control to widen or settle pitch motion.</small></label>
+            <label class="control" for="timbre"><span><b>Feather timbre</b><output id="timbreOut" for="timbre">−18%</output></span><input id="timbre" type="range" min="-1" max="1" step="0.01" value="-0.18" /><small>Moves every source between heavy, dark body tone and small bright feather tone.</small></label>
+            <label class="control" for="modulationTarget"><span><b>Feather motion target</b></span><select id="modulationTarget"><option value="cavity">cheek cavity</option><option value="roughness">throat roughness</option><option value="beak">beak aperture</option><option value="pressure">lung pressure</option><option value="split">source split</option><option value="balance">source balance</option></select></label>
+            <label class="control" for="modulationShape"><span><b>Feather motion shape</b></span><select id="modulationShape"><option value="sine">sine</option><option value="triangle">triangle</option><option value="square">square</option><option value="sample-hold">sample &amp; hold</option></select></label>
+            <label class="control" for="modulationRate"><span><b>Feather motion rate</b><output id="modulationRateOut" for="modulationRate">3.4 Hz</output></span><input id="modulationRate" type="range" min="0" max="20" step="0.05" value="3.4" /></label>
+            <label class="control" for="modulationDepth"><span><b>Feather motion depth</b><output id="modulationDepthOut" for="modulationDepth">52%</output></span><input id="modulationDepth" type="range" min="0" max="1" step="0.01" value="0.52" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section creaturazoid-model-notes" data-section="output">
+          <summary class="group-summary"><h2 class="group-title">What is physical here?</h2><span class="section-state">four sources · one tract</span></summary>
+          <div class="group-body">
+            <p><b>Mammal calls</b> drive a nonlinear two-mass larynx. <b>Bird calls</b> drive independently detunable paired syringeal labia. <b>Frogs</b> use pressure-driven membranes with sac/head modes, and <b>mouse gestures</b> use an impinging-jet whistle mapped into the audible range.</p>
+            <p><b>The body is persistent and absolute.</b> Its size, roundness, source tissue, throat, cavity, and outlet shape every one of the 50 voices and body gestures. Pads and rhythm presets replace only the gesture; they never load another creature.</p>
+            <p><b>Body percussion is still physical.</b> Hisses use unvoiced airway turbulence; hooves, feet, jaws, claws, tongues, tails, and feather vanes excite deterministic body and cavity modes inside the same monophonic worklet. No recordings are used.</p>
+            <p><b>Native motion remains articulated.</b> Multi-peak pressure, pitch, closure, mouth, cavity, roughness, split, and balance contours survive inside the selected body. Each onset also restarts call-local Speed and Depth envelopes, so modulation can accelerate, widen, settle, and surge across one sound.</p>
+            <p><b>The creature is monophonic.</b> Every pad and sequencer column targets one persistent AudioWorklet and one travelling-wave airway. The short rhythmic attack makes each occupied step speak promptly while later pulses and long releases keep their authored shape.</p>
+            <p><b>Visible anatomy performs.</b> Voices inflate the belly and lungs, telescope the neck, and throw open the mouth. Stomps drop the forelegs into impact rings; footsteps alternate hooves; claws rake sideways; the tail whips; feathers ruffle independently; panting pumps the lungs; lapping throws the tongue; and crunching snaps the jaw and teeth. Every hit pulses the palette.</p>
+            <p><b>Output dynamics are controlled.</b> A fast soft-knee compressor catches the most explosive cross-species peaks while preserving velocity accents and quiet micro-calls.</p>
+          </div>
+        </details>
+
+        <button class="creaturazoid-reset" id="resetButton" type="button" data-reset-all data-reset-in-place>Reset creature &amp; pattern</button>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Choose a persistent body shape, then use the labeled pads or computer keys to play voices and body percussion through it. The body size, roundness, source tissue, throat, cavity, and outlet stay consistent when the gesture or rhythm preset changes. Each sound exaggerates its matching anatomy: horns recoil, feathered bird wings flare or ruffle, eyes enlarge, a toothed or beaked mouth opens, the tongue laps, the jaw crunches, the belly and lungs pant, the neck vibrates, forelegs stomp, hooves alternate through footsteps, claws rake, and the tail whips. Louder onsets deform the creature farther and the colors change with the rhythm. Drag the restrained opaque anatomy controls: lungs change pressure, the muzzle changes aperture, the neck changes tract length, cheek arches change cavity and roughness, the throat changes call retarget time, and the wings set vibrato and call-local Speed and Depth modulation. Native multi-peak contours remain intact, while the short rhythmic attack keeps occupied steps on the beat. Empty sequence columns let long calls keep sounding; a later occupied column retargets the same body into its next voice or percussion gesture. Each step holds at most one onset. Space starts and stops the sequence and Escape silences the creature.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js?v=catalog-20260902-1"></script>
+    <link rel="modulepreload" href="src/syrinx-processor.js?v=creaturazoid-body-20260902-2" />
+    <script type="module" src="creaturazoid-app.js?v=creaturazoid-20260902-11"></script>
+  </body>
+</html>

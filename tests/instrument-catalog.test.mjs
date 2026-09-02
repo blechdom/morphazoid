@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 121);
+  assert.equal(INSTRUMENTS.length, 122);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -400,6 +400,35 @@ test("Digestazoid is a tactile digestive physical model with page-owned pressure
   assert.ok(instrument?.features.includes("MIDI"));
 
   const midi = instrumentMidiCapabilityForId("digestazoid");
+  assert.equal(midi?.noteMode, "drums");
+  assert.equal(midi?.midiOutput, true);
+  assert.equal(midi?.computerKeyboardMode, "page");
+});
+
+test("Creaturazoid intersperses creature voices and body percussion in one shared body", () => {
+  const instrument = instrumentById("creaturazoid");
+  assert.equal(instrument?.label, "Creaturazoid");
+  assert.equal(instrument?.href, "creaturazoid.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/creaturazoid.webp");
+  assert.equal(instrument?.kind, "Monophonic creature voice and body sequencer");
+  assert.equal(
+    instrument?.description,
+    "Routes 50 gestures—36 animal voices plus 14 procedural hisses, impacts, scrapes, wing sounds, breaths, feeding clicks, and locomotion—through one persistent absolute Hybrinx body.",
+  );
+  assert.equal(
+    instrument?.start,
+    "Turn on audio, choose a persistent body and rhythm, then intersperse vocal calls with body percussion; every rectangular step retargets the same airway and body-cavity resonator.",
+  );
+  assert.deepEqual(
+    instrument?.tags.map(({ id }) => id),
+    ["voice-synths", "sequencers"],
+  );
+  assert.deepEqual(
+    instrument?.features,
+    ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP", "MIDI"],
+  );
+
+  const midi = instrumentMidiCapabilityForId("creaturazoid");
   assert.equal(midi?.noteMode, "drums");
   assert.equal(midi?.midiOutput, true);
   assert.equal(midi?.computerKeyboardMode, "page");

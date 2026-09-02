@@ -23,6 +23,12 @@ const DENORMAL_LIMIT = 1e-20;
 const TELEMETRY_BLOCKS = 12;
 const MAX_VOICE_SOURCES = 7;
 
+// Public tract profiles are expressed in centimeters, like the species priors
+// below. Keep user-supplied tubes broad enough for creature-scale morphing but
+// bounded away from collapsed or numerically extreme waveguide sections.
+export const TRACT_DIAMETER_PROFILE_LIMITS_CM = Object.freeze([0.04, 8]);
+export const TRACT_DIAMETER_SCALE_LIMITS = Object.freeze([0.25, 4]);
+
 // Species-informed diameter priors in centimeters. These are deliberately
 // coarse playable area functions, not claims of individualized CT geometry.
 // Length is handled by propagation delay; these points only describe shape.
@@ -72,24 +78,52 @@ export function tractSectionCount(tractLengthM, rate = 48_000) {
   return Math.max(MIN_SECTIONS, Math.min(MAX_SECTIONS, sections));
 }
 
+function finiteTractDiameterProfile(candidate) {
+  if (!Array.isArray(candidate) || candidate.length < 2) return null;
+  for (const diameter of candidate) {
+    if (!Number.isFinite(diameter)) return null;
+  }
+  return candidate;
+}
+
 export function tractDiameterAt(position, configuration = {}) {
   const x = clamp(position);
   const model = syrinxSourceModelId(configuration.model ?? configuration.sourceModel);
   const mouthOpening = clamp(configuration.mouthOpening, 0, 1);
   const family = model === "twoMass" ? "mammal" : model;
-  const profile = TRACT_DIAMETER_PROFILES[configuration.animalId]
+  const customProfile = finiteTractDiameterProfile(configuration.tractDiameterProfile);
+  const profile = customProfile
+    ?? TRACT_DIAMETER_PROFILES[configuration.animalId]
     ?? TRACT_DIAMETER_PROFILES[family]
     ?? TRACT_DIAMETER_PROFILES.mammal;
+  const requestedScale = configuration.tractDiameterScale;
+  const diameterScale = Number.isFinite(requestedScale)
+    ? clamp(requestedScale, ...TRACT_DIAMETER_SCALE_LIMITS)
+    : 1;
   const scaled = x * (profile.length - 1);
   const leftIndex = Math.min(profile.length - 1, Math.floor(scaled));
   const rightIndex = Math.min(profile.length - 1, leftIndex + 1);
   const amount = scaled - leftIndex;
-  let diameter = profile[leftIndex] + (profile[rightIndex] - profile[leftIndex]) * amount;
+  let leftDiameter = profile[leftIndex];
+  let rightDiameter = profile[rightIndex];
+  let endDiameter = profile[profile.length - 1];
+  if (customProfile) {
+    leftDiameter = clamp(leftDiameter, ...TRACT_DIAMETER_PROFILE_LIMITS_CM);
+    rightDiameter = clamp(rightDiameter, ...TRACT_DIAMETER_PROFILE_LIMITS_CM);
+    endDiameter = clamp(endDiameter, ...TRACT_DIAMETER_PROFILE_LIMITS_CM);
+  }
+  // Preserve the exact legacy arithmetic path when no scaling is requested.
+  if (diameterScale !== 1) {
+    leftDiameter *= diameterScale;
+    rightDiameter *= diameterScale;
+    endDiameter *= diameterScale;
+  }
+  let diameter = leftDiameter + (rightDiameter - leftDiameter) * amount;
 
   const mouthBlend = clamp((x - 0.72) / 0.28);
   const lipDiameter = Math.max(
     0.04,
-    profile[profile.length - 1] * (0.18 + mouthOpening * 1.04),
+    endDiameter * (0.18 + mouthOpening * 1.04),
   );
   diameter += (lipDiameter - diameter) * mouthBlend * mouthBlend;
   diameter = applyTonguesToDiameter(x, diameter, configuration);
@@ -601,6 +635,10 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
     return oral * (1 - cavity * 0.32) + resonant * cavity;
   }
 
+  // Subclasses can add sound generated inside the same physical node before
+  // the shared metering pass observes the completed output block.
+  _postProcessOutput(_output) {}
+
   process(_inputs, outputs) {
     const output = outputs[0];
     if (!output?.[0]) return true;
@@ -681,6 +719,12 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
       rightOutput[frame] = right;
       this.previousOutputLeft = left;
       this.previousOutputRight = right;
+    }
+
+    this._postProcessOutput(output);
+    for (let frame = 0; frame < leftOutput.length; frame += 1) {
+      const left = leftOutput[frame];
+      const right = rightOutput[frame];
       const magnitude = Math.max(Math.abs(left), Math.abs(right));
       peak = Math.max(peak, magnitude);
       squareSum += (left * left + right * right) * 0.5;

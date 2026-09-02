@@ -186,6 +186,7 @@ export const TOOL_GROUPS = Object.freeze([
       href: "tongued-beasts.html",
     },
     { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
+    { id: "creaturazoid", label: "Creaturazoid", href: "creaturazoid.html" },
     {
       id: "colony-syrinx",
       label: "Monstrozoid",

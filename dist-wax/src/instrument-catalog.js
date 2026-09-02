@@ -226,6 +226,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose a host beast and native call, then play or loop it while the live timeline traces every sounding parameter contour beneath the animal.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
+  creaturazoid: define(
+    "Monophonic creature voice and body sequencer",
+    "Routes 50 gestures—36 animal voices plus 14 procedural hisses, impacts, scrapes, wing sounds, breaths, feeding clicks, and locomotion—through one persistent absolute Hybrinx body.",
+    "Turn on audio, choose a persistent body and rhythm, then intersperse vocal calls with body percussion; every rectangular step retargets the same airway and body-cavity resonator.",
+    ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
+  ),
   "colony-syrinx": define(
     "Mutable pressure-network voice",
     "Routes variable lungs, vocal-fold sources, paths, and mouth resonators through continuous pressure, tension, routing, articulation, impact, and resonance contours.",
@@ -698,6 +704,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   "jaw-jam": Object.freeze(["voice-synths"]),
   "pink-trombonazoid": Object.freeze(["sequencers"]),
   hybrinx: Object.freeze(["sequencers"]),
+  creaturazoid: Object.freeze(["sequencers"]),
   blowhole: Object.freeze(["sequencers"]),
   "hiccup-head": Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
