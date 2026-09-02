@@ -1610,3 +1610,1188 @@
     outline-offset: -3px;
   }
 }
+
+/* Recursive typed graph workspace -------------------------------------- */
+
+.constellation-page {
+  --signal-trigger: var(--constellation-gold);
+  --signal-audio: var(--constellation-cyan);
+  --signal-control: var(--constellation-violet);
+  --signal-trigger-soft: color-mix(in oklab, var(--signal-trigger) 18%, transparent);
+  --signal-audio-soft: color-mix(in oklab, var(--signal-audio) 18%, transparent);
+  --signal-control-soft: color-mix(in oklab, var(--signal-control) 18%, transparent);
+}
+
+/* The breadcrumb is the hierarchy: graph nodes open graphs, not sections. */
+
+.section-readout:has(.graph-breadcrumb) {
+  padding-block: 7px;
+  gap: 3px;
+}
+
+.section-readout:has(.graph-breadcrumb) > span {
+  color: #74898d;
+}
+
+.graph-breadcrumb {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  align-items: center;
+  gap: 5px;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.graph-breadcrumb::-webkit-scrollbar {
+  display: none;
+}
+
+.graph-breadcrumb-item {
+  min-width: 0;
+  padding: 2px 0;
+  overflow: hidden;
+  border: 0;
+  color: #789095;
+  background: transparent;
+  font: 700 7px/1 var(--mono);
+  letter-spacing: .055em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.graph-breadcrumb-item:hover,
+.graph-breadcrumb-item:focus-visible {
+  color: var(--constellation-cyan-pale);
+  outline: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--constellation-cyan);
+  text-underline-offset: 3px;
+}
+
+.graph-breadcrumb-item:disabled {
+  max-width: 148px;
+  color: #e9fafa;
+  cursor: default;
+  opacity: 1;
+  text-decoration: none;
+}
+
+.graph-breadcrumb-separator {
+  color: #34484d;
+  font: 600 7px/1 var(--mono);
+}
+
+.section-readout:has(.graph-breadcrumb) h2 {
+  color: #6f8589;
+  font-size: 7px;
+  letter-spacing: .08em;
+}
+
+/* Device and graph palette --------------------------------------------- */
+
+.constellation-palette-filters {
+  position: sticky;
+  z-index: 12;
+  top: -9px;
+  display: grid;
+  margin: -9px -9px 9px;
+  padding: 9px;
+  border-bottom: 1px solid var(--constellation-line);
+  background: rgba(7, 11, 15, .98);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.constellation-palette-filters button {
+  min-height: 25px;
+  padding: 0 6px;
+  border: 1px solid var(--constellation-line);
+  color: #60767b;
+  background: #04080b;
+  font: 700 6px/1 var(--mono);
+  letter-spacing: .075em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.constellation-palette-filters button:hover,
+.constellation-palette-filters button:focus-visible {
+  border-color: rgba(112, 227, 232, .48);
+  color: #c9efef;
+  outline: 0;
+}
+
+.constellation-palette-filters button[aria-pressed="true"] {
+  border-color: var(--constellation-cyan);
+  color: #ecffff;
+  background: rgba(112, 227, 232, .1);
+  box-shadow: inset 0 -2px var(--constellation-cyan);
+}
+
+.constellation-instrument-card[data-device-kind] {
+  border-left: 2px solid var(--instrument-color);
+}
+
+.constellation-device-kind {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin-bottom: 4px;
+  padding: 2px 4px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--instrument-color) 28%, transparent);
+  color: color-mix(in oklab, var(--instrument-color) 72%, #dff 28%);
+  background: color-mix(in oklab, var(--instrument-color) 7%, #04080b);
+  font: 720 5.5px/1 var(--mono);
+  letter-spacing: .11em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.constellation-instrument-card[data-device-kind="trigger"] .constellation-device-kind {
+  --instrument-color: var(--signal-trigger);
+}
+
+.constellation-instrument-card[data-device-kind="control"] .constellation-device-kind {
+  --instrument-color: var(--signal-control);
+}
+
+.constellation-instrument-card[data-device-kind="sound"] .constellation-device-kind,
+.constellation-instrument-card[data-device-kind="effect"] .constellation-device-kind,
+.constellation-instrument-card[data-device-kind="routing"] .constellation-device-kind {
+  --instrument-color: var(--signal-audio);
+}
+
+.constellation-instrument-card[data-device-kind="graphs"] .constellation-device-kind {
+  --instrument-color: var(--constellation-pink);
+}
+
+.constellation-instrument-card[data-device-kind] .constellation-instrument-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Shared graph toolbar and signal key ---------------------------------- */
+
+.constellation-graph-toolbar {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  min-height: 38px;
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--constellation-line);
+  background: rgba(4, 8, 11, .97);
+  align-items: center;
+  gap: 12px;
+}
+
+.constellation-signal-legend {
+  display: flex;
+  min-width: max-content;
+  align-items: center;
+  gap: 10px;
+}
+
+.constellation-signal-legend span {
+  --signal-color: #819398;
+  display: inline-flex;
+  color: color-mix(in oklab, var(--signal-color) 72%, #dff 28%);
+  align-items: center;
+  gap: 5px;
+  font: 720 6px/1 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.constellation-signal-legend .is-trigger {
+  --signal-color: var(--signal-trigger);
+}
+
+.constellation-signal-legend .is-audio {
+  --signal-color: var(--signal-audio);
+}
+
+.constellation-signal-legend .is-control {
+  --signal-color: var(--signal-control);
+}
+
+.constellation-signal-legend i {
+  display: block;
+  width: 21px;
+  height: 2px;
+  background: var(--signal-color);
+  box-shadow: 0 0 6px color-mix(in oklab, var(--signal-color) 35%, transparent);
+}
+
+.constellation-signal-legend .is-trigger i {
+  background: repeating-linear-gradient(90deg, var(--signal-color) 0 5px, transparent 5px 8px);
+}
+
+.constellation-signal-legend .is-control i {
+  height: 1px;
+  background: repeating-linear-gradient(90deg, var(--signal-color) 0 2px, transparent 2px 5px);
+}
+
+.constellation-connect-prompt {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: #61767a;
+  font: 680 6px/1 var(--mono);
+  letter-spacing: .08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.constellation-connect-prompt.is-connecting {
+  color: #f1ffff;
+  text-shadow: 0 0 9px rgba(112, 227, 232, .32);
+}
+
+.constellation-cancel-connect {
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 149, 111, .5);
+  color: var(--constellation-orange);
+  background: rgba(255, 149, 111, .06);
+  font: 700 6px/1 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.constellation-cancel-connect:hover,
+.constellation-cancel-connect:focus-visible {
+  border-color: var(--constellation-orange);
+  color: #fff;
+  outline: 0;
+}
+
+/* Typed connections, ports, and recursive nodes ------------------------ */
+
+.constellation-device-graph {
+  width: max(100%, 760px);
+  height: calc(100% - 38px);
+  min-height: 430px;
+  overflow: visible;
+}
+
+.constellation-typed-edge {
+  --signal-color: var(--signal-audio);
+  color: var(--signal-color);
+  cursor: pointer;
+  outline: none;
+}
+
+.constellation-typed-edge.is-trigger {
+  --signal-color: var(--signal-trigger);
+}
+
+.constellation-typed-edge.is-audio {
+  --signal-color: var(--signal-audio);
+}
+
+.constellation-typed-edge.is-control {
+  --signal-color: var(--signal-control);
+}
+
+.constellation-typed-edge .constellation-flow-edge {
+  stroke: color-mix(in oklab, var(--signal-color) 66%, transparent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.constellation-typed-edge.is-trigger .constellation-flow-edge {
+  stroke-dasharray: 8 5;
+}
+
+.constellation-typed-edge.is-audio .constellation-flow-edge {
+  stroke-width: 2.4;
+}
+
+.constellation-typed-edge.is-control .constellation-flow-edge {
+  stroke-width: 1.7;
+  stroke-dasharray: 2 6;
+}
+
+.constellation-typed-edge .constellation-edge-label {
+  fill: color-mix(in oklab, var(--signal-color) 70%, #dceced 30%);
+}
+
+.constellation-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18;
+  pointer-events: stroke;
+}
+
+.constellation-typed-edge:is(:hover, :focus-visible, .is-selected) .constellation-flow-edge {
+  stroke: var(--signal-color);
+  stroke-width: 3.25;
+  filter: drop-shadow(0 0 5px color-mix(in oklab, var(--signal-color) 52%, transparent));
+}
+
+.constellation-typed-edge.is-selected .constellation-edge-label {
+  fill: #fff;
+  font-weight: 760;
+}
+
+.constellation-device-graph.is-live .constellation-typed-edge.is-active .constellation-flow-edge {
+  stroke: var(--signal-color);
+  stroke-width: 3.4;
+  filter: drop-shadow(0 0 7px color-mix(in oklab, var(--signal-color) 68%, transparent));
+  animation: constellation-signal-travel .55s linear infinite;
+}
+
+@keyframes constellation-signal-travel {
+  to {
+    stroke-dashoffset: -26;
+  }
+}
+
+.constellation-port {
+  --signal-color: var(--signal-audio);
+  cursor: crosshair;
+  outline: none;
+}
+
+.constellation-port.is-trigger {
+  --signal-color: var(--signal-trigger);
+}
+
+.constellation-port.is-audio {
+  --signal-color: var(--signal-audio);
+}
+
+.constellation-port.is-control {
+  --signal-color: var(--signal-control);
+}
+
+.constellation-port circle {
+  fill: #03070a;
+  stroke: var(--signal-color);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.constellation-port text {
+  fill: color-mix(in oklab, var(--signal-color) 52%, #718489 48%);
+  pointer-events: none;
+  font: 680 7px/1 var(--mono);
+  letter-spacing: .025em;
+}
+
+.constellation-port.is-out circle {
+  fill: color-mix(in oklab, var(--signal-color) 22%, #03070a);
+}
+
+.constellation-port:is(:hover, :focus-visible) circle,
+.constellation-port.is-compatible:is(:hover, :focus-visible) circle {
+  fill: var(--signal-color);
+  stroke: #fff;
+  stroke-width: 2.8;
+  filter: drop-shadow(0 0 7px color-mix(in oklab, var(--signal-color) 72%, transparent));
+}
+
+.constellation-port:is(:hover, :focus-visible) text {
+  fill: #fff;
+}
+
+.constellation-port.is-incompatible {
+  pointer-events: none;
+  opacity: .16;
+}
+
+.constellation-device-graph:has(.constellation-connect-prompt.is-connecting) .constellation-port.is-compatible circle,
+.projection-canvas:has(.constellation-connect-prompt.is-connecting) .constellation-port.is-compatible circle {
+  animation: constellation-port-ready .9s ease-in-out infinite alternate;
+}
+
+@keyframes constellation-port-ready {
+  to {
+    fill: color-mix(in oklab, var(--signal-color) 45%, #03070a);
+    filter: drop-shadow(0 0 8px color-mix(in oklab, var(--signal-color) 62%, transparent));
+  }
+}
+
+.constellation-flow-node.is-subgraph > rect:first-child {
+  fill: color-mix(in oklab, var(--node-color, var(--constellation-pink)) 11%, #05090c);
+  stroke: var(--node-color, var(--constellation-pink));
+  stroke-width: 2;
+}
+
+.constellation-flow-node .constellation-subgraph-inner {
+  fill: transparent;
+  stroke: color-mix(in oklab, var(--node-color, var(--constellation-pink)) 42%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  pointer-events: none;
+}
+
+.constellation-subgraph-mark {
+  fill: var(--node-color, var(--constellation-pink));
+  pointer-events: none;
+  font: 800 17px/1 var(--mono);
+}
+
+.constellation-flow-node.is-subgraph:is(:hover, :focus-visible, .is-selected) .constellation-subgraph-inner {
+  fill: transparent;
+  stroke: color-mix(in oklab, var(--node-color, var(--constellation-pink)) 75%, white 25%);
+}
+
+.constellation-device-graph.is-live .constellation-flow-node.is-active > rect:first-child {
+  fill: color-mix(in oklab, var(--node-color, var(--constellation-cyan)) 24%, #050a0d);
+  stroke: var(--node-color, var(--constellation-cyan));
+  filter: drop-shadow(0 0 10px color-mix(in oklab, var(--node-color, var(--constellation-cyan)) 48%, transparent));
+}
+
+/* Runtime ledger ------------------------------------------------------- */
+
+.constellation-flow-ledger {
+  position: absolute;
+  z-index: 28;
+  right: 10px;
+  bottom: 10px;
+  display: grid;
+  width: min(265px, calc(100% - 20px));
+  max-height: 142px;
+  padding: 9px 10px;
+  overflow: auto;
+  border: 1px solid rgba(178, 153, 255, .24);
+  color: #788c90;
+  background: rgba(4, 7, 11, .93);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .26);
+  gap: 5px;
+  scrollbar-width: thin;
+}
+
+.constellation-flow-ledger > b {
+  margin-bottom: 2px;
+  color: #cbbdff;
+  font: 750 6px/1 var(--mono);
+  letter-spacing: .14em;
+}
+
+.constellation-flow-ledger > span {
+  --signal-color: #7d9095;
+  display: block;
+  padding: 4px 6px;
+  overflow: hidden;
+  border-left: 2px solid var(--signal-color);
+  color: color-mix(in oklab, var(--signal-color) 60%, #c9d7d9 40%);
+  background: color-mix(in oklab, var(--signal-color) 6%, transparent);
+  font: 650 6px/1.25 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.constellation-flow-ledger > .is-trigger {
+  --signal-color: var(--signal-trigger);
+}
+
+.constellation-flow-ledger > .is-audio {
+  --signal-color: var(--signal-audio);
+}
+
+.constellation-flow-ledger > .is-control {
+  --signal-color: var(--signal-control);
+}
+
+/* Projected trigger/control event vocabulary --------------------------- */
+
+.constellation-timeline-event,
+.constellation-event,
+[data-projected-event-id] {
+  --signal-color: var(--signal-trigger);
+  position: absolute;
+  z-index: 6;
+  display: grid;
+  min-width: 14px;
+  min-height: 28px;
+  padding: 4px 7px;
+  border: 1px solid color-mix(in oklab, var(--signal-color) 66%, transparent);
+  border-radius: 2px;
+  color: color-mix(in oklab, var(--signal-color) 68%, white 32%);
+  background: color-mix(in oklab, var(--signal-color) 12%, #05090c);
+  box-shadow: inset 0 -2px color-mix(in oklab, var(--signal-color) 36%, transparent);
+  font: 700 6px/1 var(--mono);
+  cursor: pointer;
+  place-items: center;
+}
+
+:is(.constellation-timeline-event, .constellation-event, [data-projected-event-id])[data-signal-type="audio"],
+:is(.constellation-timeline-event, .constellation-event, [data-projected-event-id]).is-audio {
+  --signal-color: var(--signal-audio);
+}
+
+:is(.constellation-timeline-event, .constellation-event, [data-projected-event-id])[data-signal-type="control"],
+:is(.constellation-timeline-event, .constellation-event, [data-projected-event-id]).is-control {
+  --signal-color: var(--signal-control);
+}
+
+:is(.constellation-timeline-event, .constellation-event, [data-projected-event-id]):hover,
+:is(.constellation-timeline-event, .constellation-event, [data-projected-event-id]):focus-visible,
+:is(.constellation-timeline-event, .constellation-event, [data-projected-event-id]).is-selected {
+  z-index: 9;
+  border-color: #fff;
+  outline: 0;
+  color: #fff;
+  background: color-mix(in oklab, var(--signal-color) 24%, #05090c);
+  box-shadow: 0 0 14px color-mix(in oklab, var(--signal-color) 28%, transparent);
+}
+
+.constellation-event-span,
+.constellation-projection-span {
+  --signal-color: var(--signal-control);
+  position: absolute;
+  z-index: 3;
+  min-width: 3px;
+  border: 1px solid color-mix(in oklab, var(--signal-color) 30%, transparent);
+  border-left: 2px solid var(--signal-color);
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(135deg,
+      color-mix(in oklab, var(--signal-color) 9%, transparent) 0 5px,
+      transparent 5px 10px),
+    rgba(5, 9, 12, .72);
+  pointer-events: none;
+}
+
+.constellation-event-provenance,
+[data-event-provenance] {
+  color: #6d8387;
+  font: 650 5.5px/1.25 var(--mono);
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+
+/* Responsive recursive workspace -------------------------------------- */
+
+@media (max-width: 900px) {
+  .section-readout:has(.graph-breadcrumb) {
+    display: grid;
+    min-height: 40px;
+    padding: 7px 11px;
+    border-top: 1px solid var(--constellation-line);
+    border-left: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-readout:has(.graph-breadcrumb) h2 {
+    max-width: 100px;
+  }
+
+  .constellation-graph-toolbar {
+    gap: 8px;
+  }
+
+  .constellation-connect-prompt {
+    margin-left: 4px;
+  }
+}
+
+@media (max-width: 620px) {
+  .section-readout:has(.graph-breadcrumb) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .section-readout:has(.graph-breadcrumb) > span,
+  .section-readout:has(.graph-breadcrumb) h2 {
+    display: none;
+  }
+
+  .graph-breadcrumb-item:disabled {
+    max-width: 180px;
+  }
+
+  .constellation-palette-filters {
+    position: sticky;
+    left: 0;
+    display: flex;
+    min-width: max-content;
+    margin: -9px 6px -9px -9px;
+    border-right: 1px solid var(--constellation-line);
+    border-bottom: 0;
+    flex: 0 0 auto;
+    align-items: center;
+  }
+
+  .constellation-palette-filters button {
+    min-width: max-content;
+  }
+
+  .constellation-graph-toolbar {
+    width: max(100%, 760px);
+  }
+
+  .constellation-signal-legend {
+    gap: 7px;
+  }
+
+  .constellation-connect-prompt {
+    max-width: 230px;
+  }
+
+  .constellation-flow-ledger {
+    right: 6px;
+    bottom: 6px;
+    width: min(235px, calc(100% - 12px));
+    max-height: 112px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .constellation-device-graph.is-live .constellation-typed-edge.is-active .constellation-flow-edge,
+  .projection-canvas:has(.constellation-connect-prompt.is-connecting) .constellation-port.is-compatible circle {
+    animation: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .graph-breadcrumb-item:focus-visible,
+  .constellation-palette-filters button:focus-visible,
+  .constellation-typed-edge:focus-visible,
+  .constellation-port:focus-visible,
+  :is(.constellation-timeline-event, .constellation-event, [data-projected-event-id]):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .constellation-typed-edge .constellation-flow-edge,
+  .constellation-port circle,
+  .constellation-flow-node.is-subgraph > rect:first-child {
+    stroke: CanvasText;
+  }
+}
+
+/* Exact projected-timeline layout -------------------------------------- */
+
+.constellation-timeline-toolbar {
+  position: sticky;
+  z-index: 34;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--constellation-line);
+  background: rgba(4, 8, 11, .98);
+  align-items: center;
+  gap: 12px;
+}
+
+.constellation-timeline-hint {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: #60757a;
+  font: 680 6px/1 var(--mono);
+  letter-spacing: .08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.constellation-projection-warning {
+  min-width: max-content;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 149, 111, .32);
+  color: var(--constellation-orange);
+  background: rgba(255, 149, 111, .06);
+  font: 700 5.5px/1 var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.constellation-timeline-viewport {
+  width: 100%;
+  height: calc(100% - 38px);
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: #284047 transparent;
+  scrollbar-width: thin;
+}
+
+.constellation-timeline-surface {
+  display: block;
+  min-width: 100%;
+  min-height: 100%;
+  overflow: visible;
+  background:
+    linear-gradient(90deg, rgba(112, 227, 232, .018), transparent 54%),
+    #03070a;
+}
+
+.constellation-timeline-ruler {
+  position: sticky;
+  z-index: 23;
+  top: 0;
+  display: grid;
+  width: 100%;
+  height: 42px;
+  border-bottom: 1px solid var(--constellation-line-strong);
+  color: #5e7479;
+  background: rgba(3, 7, 10, .97);
+  grid-template-columns: 164px minmax(0, 1fr);
+}
+
+.constellation-timeline-corner {
+  position: sticky;
+  z-index: 25;
+  left: 0;
+  display: flex;
+  padding: 0 12px;
+  border-right: 1px solid var(--constellation-line-strong);
+  color: #71878b;
+  background: #05090c;
+  align-items: center;
+  font: 720 6px/1 var(--mono);
+  letter-spacing: .12em;
+}
+
+.constellation-ruler-track {
+  position: relative;
+  height: 100%;
+}
+
+.constellation-ruler-tick {
+  position: absolute;
+  bottom: 8px;
+  padding-left: 5px;
+  color: #52676c;
+  font: 650 6px/1 var(--mono);
+}
+
+.constellation-ruler-tick::after {
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 1px;
+  height: 6px;
+  background: rgba(112, 227, 232, .11);
+  content: "";
+}
+
+.constellation-ruler-tick.is-bar {
+  color: #9ab0b3;
+  font-weight: 760;
+}
+
+.constellation-ruler-tick.is-bar::after {
+  height: 10px;
+  background: rgba(112, 227, 232, .32);
+}
+
+.constellation-timeline-row {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 72px;
+  border-bottom: 1px solid var(--constellation-line);
+  background: linear-gradient(90deg, rgba(112, 227, 232, .015), transparent 54%);
+  grid-template-columns: 164px minmax(0, 1fr);
+}
+
+.constellation-timeline-row:nth-child(odd) {
+  background: linear-gradient(90deg, rgba(178, 153, 255, .018), transparent 54%);
+}
+
+.constellation-timeline-row .constellation-lane-label {
+  --instrument-color: var(--lane-color, var(--constellation-cyan));
+  position: sticky;
+  z-index: 20;
+  left: 0;
+  width: auto;
+  height: 72px;
+  padding: 0 11px 0 17px;
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--lane-color, var(--constellation-cyan)) 8%, transparent), transparent),
+    rgba(5, 9, 12, .98);
+}
+
+.constellation-timeline-row .constellation-lane-label::before {
+  background: var(--lane-color, var(--constellation-cyan));
+  box-shadow: 0 0 8px color-mix(in oklab, var(--lane-color, var(--constellation-cyan)) 45%, transparent);
+}
+
+.constellation-timeline-row .constellation-lane-label:hover,
+.constellation-timeline-row .constellation-lane-label:focus-visible {
+  background-color: color-mix(in oklab, var(--lane-color, var(--constellation-cyan)) 9%, #05090c);
+}
+
+.constellation-lane-signals {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+}
+
+.constellation-lane-signals i {
+  --signal-color: #819398;
+  display: inline-block;
+  padding: 2px 4px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--signal-color) 28%, transparent);
+  color: color-mix(in oklab, var(--signal-color) 68%, #cbd8da 32%);
+  background: color-mix(in oklab, var(--signal-color) 6%, transparent);
+  font: 700 5px/1 var(--mono);
+  letter-spacing: .06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.constellation-lane-signals .is-trigger {
+  --signal-color: var(--signal-trigger);
+}
+
+.constellation-lane-signals .is-audio {
+  --signal-color: var(--signal-audio);
+}
+
+.constellation-lane-signals .is-control {
+  --signal-color: var(--signal-control);
+}
+
+.constellation-lane-track {
+  position: relative;
+  height: 72px;
+  overflow: hidden;
+}
+
+.constellation-grid-line {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(112, 227, 232, .045);
+  pointer-events: none;
+}
+
+.constellation-grid-line.is-bar {
+  background: rgba(112, 227, 232, .14);
+}
+
+.constellation-signal-span {
+  --signal-color: var(--signal-audio);
+  position: absolute;
+  z-index: 2;
+  top: 31px;
+  height: 7px;
+  border-top: 1px solid color-mix(in oklab, var(--signal-color) 46%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--signal-color) 22%, transparent);
+  background:
+    repeating-linear-gradient(90deg,
+      color-mix(in oklab, var(--signal-color) 13%, transparent) 0 7px,
+      transparent 7px 12px);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--signal-color) 8%, transparent);
+  pointer-events: none;
+}
+
+.constellation-signal-span.is-trigger {
+  --signal-color: var(--signal-trigger);
+}
+
+.constellation-signal-span.is-control {
+  --signal-color: var(--signal-control);
+}
+
+.constellation-projected-event {
+  --signal-color: var(--signal-trigger);
+  top: 19px;
+  height: 34px;
+  min-width: 7px;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid color-mix(in oklab, var(--signal-color) 72%, transparent);
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--signal-color) 32%, transparent), transparent),
+    #071014;
+  box-shadow:
+    inset 0 -3px color-mix(in oklab, var(--signal-color) 45%, transparent),
+    0 0 8px color-mix(in oklab, var(--signal-color) 12%, transparent);
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.constellation-projected-event.is-audio {
+  --signal-color: var(--signal-audio);
+}
+
+.constellation-projected-event.is-control {
+  --signal-color: var(--signal-control);
+  top: 23px;
+  height: 26px;
+  min-height: 26px;
+  border-style: dotted;
+}
+
+.constellation-projected-event.is-playable::before {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  left: 2px;
+  height: 3px;
+  background: var(--signal-color);
+  content: "";
+  opacity: .72;
+}
+
+.constellation-projected-event:is(:hover, :focus-visible, .is-selected, .is-current) {
+  z-index: 10;
+  border-color: #fff;
+  outline: 0;
+  background: color-mix(in oklab, var(--signal-color) 30%, #071014);
+  box-shadow: 0 0 14px color-mix(in oklab, var(--signal-color) 52%, transparent);
+}
+
+.constellation-projected-event.is-current {
+  animation: constellation-event-fire .42s ease-out infinite alternate;
+}
+
+.constellation-projected-event.is-dragging {
+  z-index: 12;
+  cursor: grabbing;
+  opacity: .78;
+}
+
+@keyframes constellation-event-fire {
+  to {
+    filter: brightness(1.55);
+  }
+}
+
+.constellation-timeline-playhead {
+  position: absolute;
+  z-index: 26;
+  top: 42px;
+  bottom: 0;
+  width: 1px;
+  pointer-events: none;
+  background: #fff;
+  box-shadow: 0 0 8px var(--constellation-cyan), 0 0 16px rgba(112, 227, 232, .42);
+}
+
+.constellation-timeline-playhead::before {
+  position: absolute;
+  top: -6px;
+  left: -4px;
+  width: 9px;
+  height: 6px;
+  background: var(--constellation-cyan);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  content: "";
+}
+
+/* Typed inspector ------------------------------------------------------ */
+
+.inspector > .constellation-inspector-heading {
+  --instrument-color: var(--constellation-cyan);
+  margin-bottom: 10px;
+}
+
+.constellation-inspector-heading > span {
+  color: var(--constellation-cyan);
+  font: 720 6px/1 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.constellation-inspector-heading > p {
+  margin: 8px 0 0;
+  color: #6f8387;
+  font: 620 6.5px/1.48 var(--mono);
+}
+
+.inspector > .constellation-inspector-readout {
+  display: grid;
+  margin: 0;
+  padding: 8px 5px;
+  border-top: 0;
+  border-bottom: 1px solid var(--constellation-line);
+  grid-template-columns: 68px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+}
+
+.inspector > .constellation-inspector-readout > span {
+  color: #5f7479;
+  font: 670 6px/1.3 var(--mono);
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.inspector > .constellation-inspector-readout > b {
+  overflow: hidden;
+  color: #b8c8ca;
+  font: 670 6.5px/1.35 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.inspector > .constellation-inspector-field {
+  margin: 9px 0 0;
+}
+
+.constellation-inspector-field input:is([type="text"], [type="number"]) {
+  min-height: 31px;
+  padding: 0 8px;
+  border: 1px solid var(--constellation-line-strong);
+  color: #dce9ea;
+  background: #030609;
+  font: 650 8px/1 var(--mono);
+}
+
+.constellation-inspector-field input:focus-visible {
+  border-color: var(--constellation-cyan);
+  outline: 0;
+  box-shadow: 0 0 0 1px rgba(112, 227, 232, .16);
+}
+
+.constellation-inspector-field:has(input[type="checkbox"]) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.constellation-inspector-field input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--constellation-cyan);
+}
+
+.constellation-inspector-ports {
+  display: grid;
+  margin: 10px 0;
+  padding: 8px;
+  border: 1px solid var(--constellation-line);
+  background: rgba(3, 7, 10, .52);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.constellation-inspector-ports > span {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  color: #71868a;
+  font: 700 6px/1 var(--mono);
+  letter-spacing: .1em;
+}
+
+.constellation-inspector-ports button {
+  --signal-color: #819398;
+  min-width: 0;
+  min-height: 27px;
+  padding: 0 6px;
+  overflow: hidden;
+  border-color: color-mix(in oklab, var(--signal-color) 38%, transparent);
+  color: color-mix(in oklab, var(--signal-color) 68%, #d7e3e4 32%);
+  background: color-mix(in oklab, var(--signal-color) 6%, #05090c);
+  font: 680 5.5px/1 var(--mono);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.constellation-inspector-ports button.is-trigger {
+  --signal-color: var(--signal-trigger);
+}
+
+.constellation-inspector-ports button.is-audio {
+  --signal-color: var(--signal-audio);
+}
+
+.constellation-inspector-ports button.is-control {
+  --signal-color: var(--signal-control);
+}
+
+.constellation-inspector-ports button:hover,
+.constellation-inspector-ports button:focus-visible {
+  border-color: var(--signal-color);
+  color: #fff;
+  outline: 0;
+}
+
+.inspector > :is(.constellation-primary-action, .constellation-danger-action) {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 10px;
+  padding: 0 9px;
+  font: 720 6.5px/1 var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.inspector > .constellation-primary-action {
+  border-color: rgba(112, 227, 232, .42);
+  color: var(--constellation-cyan-pale);
+  background: rgba(112, 227, 232, .07);
+}
+
+.inspector > .constellation-danger-action {
+  border-color: rgba(255, 149, 111, .42);
+  color: var(--constellation-orange);
+  background: rgba(255, 149, 111, .06);
+}
+
+.inspector > :is(.constellation-primary-action, .constellation-danger-action):hover,
+.inspector > :is(.constellation-primary-action, .constellation-danger-action):focus-visible {
+  border-color: currentColor;
+  color: #fff;
+  outline: 0;
+}
+
+@media (max-width: 620px) {
+  .constellation-timeline-toolbar {
+    width: max(100%, 620px);
+  }
+
+  .constellation-timeline-hint {
+    margin-left: 4px;
+  }
+
+  .constellation-timeline-corner {
+    padding-inline: 9px;
+  }
+
+  .constellation-timeline-row .constellation-lane-label {
+    height: 68px;
+    padding-right: 8px;
+    padding-left: 15px;
+  }
+
+  .constellation-lane-track {
+    height: 68px;
+  }
+
+  .constellation-inspector-ports {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .constellation-projected-event.is-current {
+    animation: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .constellation-projected-event,
+  .constellation-inspector-ports button,
+  .inspector > :is(.constellation-primary-action, .constellation-danger-action) {
+    border: 1px solid CanvasText;
+  }
+}

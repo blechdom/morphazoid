@@ -114,10 +114,10 @@ const CATALOG_DETAILS = Object.freeze({
     ["Pointer"],
   ),
   constellation: define(
-    "Graph composition workstation",
-    "Builds larger musical forms as connected sections whose beat-valued routes project into an editable layered timeline without surrendering the graph as the timing authority.",
-    "Turn on audio, choose a rhythm-and-sound preset, then edit its sections in Constellation, Flow Graph, or Projected Timeline view.",
-    ["Built-in synth", "Built-in drums", "Pointer", "Projected timeline"],
+    "Recursive signal-flow workstation",
+    "Patches trigger, audio, and control-flow graphs whose devices can open into nested graphs, while a live trace and projected timeline expose the same recursive network at work.",
+    "Choose a patch, connect compatible typed ports, double-click a graph node to enter its subgraph, then switch between Constellation, Live Flow, and Projected Timeline.",
+    ["Built-in synth", "Built-in drums", "Pointer", "Recursive graphs", "Projected timeline"],
   ),
   "sliding-puzzle": define(
     "2D puzzle sequencer",

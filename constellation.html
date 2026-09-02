@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#05070a" />
     <meta
       name="description"
-      content="Morphazoid Constellation — compose connected musical sections in a graph and edit the same timing as a projected, layered timeline."
+      content="Morphazoid Constellation — patch recursive sound, effect, trigger, and control graphs, then inspect their projected timing."
     />
     <title>Constellation — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -59,40 +59,31 @@
     <main class="constellation-shell" id="constellationApp">
       <header class="composition-bar">
         <div class="composition-identity">
-          <span class="composition-kicker">GRAPH COMPOSITION WORKSTATION</span>
+          <span class="composition-kicker">RECURSIVE AUDIO GRAPH WORKSTATION</span>
           <h1>Constellation</h1>
-          <p>One timing graph, three projections.</p>
+          <p>Graphs contain graphs. Trigger flow creates time; audio and control shape sound.</p>
         </div>
 
         <label class="preset-control" for="presetSelect">
-          <span>Composition preset</span>
+          <span>Patch preset</span>
           <span class="constellation-select-shell">
             <select id="presetSelect">
-              <option value="neon-causeway" selected>Neon Causeway</option>
-              <option value="polyrhythm-garden">Polyrhythm Garden</option>
-              <option value="coral-feedback">Coral Feedback</option>
-              <option value="machine-bloom">Machine Bloom</option>
-              <option value="lunar-procession">Lunar Procession</option>
-              <option value="fractured-club">Fractured Club</option>
-              <option value="constellation-choir">Constellation Choir</option>
-              <option value="small-world-suite">Small World Suite</option>
-              <option value="perimeter-funk">Perimeter Funk</option>
-              <option value="slow-orbit">Slow Orbit</option>
+              <option value="pulse-cascade" selected>Pulse Cascade</option>
             </select>
           </span>
           <small class="preset-description" id="presetDescription">
-            A four-on-the-floor graph opens into glass arpeggios, a dark bridge, and a wide return.
+            A clock fans into percussion and a nested synth, then both signals pass through independent effects.
           </small>
         </label>
 
-        <div class="transport-cluster" aria-label="Composition transport">
+        <div class="transport-cluster" aria-label="Patch transport">
           <button
             class="transport-play"
             id="playButton"
             type="button"
             data-primary-transport
             aria-pressed="false"
-            aria-label="Play composition"
+            aria-label="Run patch"
           >
             <span aria-hidden="true">▶</span><b>Play</b>
           </button>
@@ -115,18 +106,18 @@
         </div>
       </header>
 
-      <section class="view-switcher" aria-label="Composition view">
-        <div class="view-tabs" role="tablist" aria-label="Timing graph projections">
+      <section class="view-switcher" aria-label="Patch view">
+        <div class="view-tabs" role="tablist" aria-label="Graph views">
           <button
-            id="timelineViewButton"
+            id="constellationViewButton"
             type="button"
             role="tab"
-            data-view="timeline"
-            aria-controls="timelineView"
+            data-view="constellation"
+            aria-controls="constellationView"
             aria-selected="true"
           >
-            <span class="view-tab-mark timeline-mark" aria-hidden="true"></span>
-            <span><b>Projected Timeline</b><small>chronology + layers</small></span>
+            <span class="view-tab-mark constellation-mark" aria-hidden="true"></span>
+            <span><b>Constellation</b><small>patch + subgraphs</small></span>
           </button>
           <button
             id="flowViewButton"
@@ -138,25 +129,26 @@
             tabindex="-1"
           >
             <span class="view-tab-mark flow-mark" aria-hidden="true"></span>
-            <span><b>Flow Graph</b><small>forks + joins + time</small></span>
+            <span><b>Live Flow</b><small>signals in motion</small></span>
           </button>
           <button
-            id="constellationViewButton"
+            id="timelineViewButton"
             type="button"
             role="tab"
-            data-view="constellation"
-            aria-controls="constellationView"
+            data-view="timeline"
+            aria-controls="timelineView"
             aria-selected="false"
             tabindex="-1"
           >
-            <span class="view-tab-mark constellation-mark" aria-hidden="true"></span>
-            <span><b>Constellation</b><small>whole-work form</small></span>
+            <span class="view-tab-mark timeline-mark" aria-hidden="true"></span>
+            <span><b>Projected Timeline</b><small>trigger + control forecast</small></span>
           </button>
         </div>
 
         <div class="section-readout">
-          <span>SELECTED SECTION</span>
-          <h2 id="sectionTitle">01 · Ignition</h2>
+          <span>ACTIVE GRAPH</span>
+          <nav id="graphBreadcrumb" class="graph-breadcrumb" aria-label="Current graph"></nav>
+          <h2 id="sectionTitle">Patch</h2>
         </div>
       </section>
 
@@ -164,28 +156,29 @@
         <aside class="instrument-drawer" aria-labelledby="instrumentBrowserTitle">
           <header class="workspace-panel-heading">
             <span>INSERT</span>
-            <h2 id="instrumentBrowserTitle">Instruments</h2>
-            <p>Choose a voice, then add it to the selected section.</p>
+            <h2 id="instrumentBrowserTitle">Devices &amp; Graphs</h2>
+            <p>Add a sound, effect, trigger, control, router, or empty subgraph to the active graph.</p>
           </header>
           <div id="instrumentBrowser" class="instrument-browser" aria-live="polite">
-            <p class="panel-loading">Loading instrument library…</p>
+            <p class="panel-loading">Loading graph library…</p>
           </div>
         </aside>
 
-        <section class="projection-stage" aria-label="Composition editor">
+        <section class="projection-stage" aria-label="Recursive graph editor">
           <section
-            class="projection-view is-active"
+            class="projection-view"
             id="timelineView"
             role="tabpanel"
             aria-labelledby="timelineViewButton"
             data-projection="timeline"
+            hidden
           >
             <header class="projection-heading">
               <div>
-                <span>GRAPH SOLVED LEFT → RIGHT</span>
+                <span>GRAPH UNFOLDED INTO TIME</span>
                 <h3>Projected Timeline</h3>
               </div>
-              <p>Drag a clip to rewrite its incoming edge time. Resize it to rewrite its route into the join.</p>
+              <p>Upcoming trigger and control events predicted from the graph. Drag an event to edit the rule that produced it.</p>
             </header>
             <div
               id="timelineCanvas"
@@ -196,11 +189,11 @@
               aria-describedby="timelineInstructions"
             >
               <div class="projection-empty" aria-hidden="true">
-                <i></i><span>PROJECTING SECTION GRAPH…</span>
+                <i></i><span>PROJECTING GRAPH EVENTS…</span>
               </div>
             </div>
             <p class="sr-only" id="timelineInstructions">
-              The timeline is derived from graph edge times. Select a clip to inspect it; use the controls exposed by the editor to move or resize it.
+              The timeline is derived from trigger and control rules. Select an event to reveal its source graph; dragging edits its generating rule.
             </p>
           </section>
 
@@ -214,57 +207,56 @@
           >
             <header class="projection-heading">
               <div>
-                <span>SECTION CAUSALITY</span>
-                <h3>Flow Graph</h3>
+                <span>THE SAME GRAPH, RUNNING</span>
+                <h3>Live Flow</h3>
               </div>
-              <p>Edges carry exact beats. Forks launch layers; joins wait for their incoming paths.</p>
+              <p>Watch trigger, audio, and control signals move through the currently open graph.</p>
             </header>
             <div
               id="flowCanvas"
               class="projection-canvas flow-canvas"
               role="application"
               tabindex="0"
-              aria-label="Section flow graph editor"
+              aria-label="Live signal flow graph"
               aria-describedby="flowInstructions"
             >
               <div class="projection-empty" aria-hidden="true">
-                <i></i><span>BUILDING FLOW GRAPH…</span>
+                <i></i><span>OBSERVING SIGNAL FLOW…</span>
               </div>
             </div>
             <p class="sr-only" id="flowInstructions">
-              Select a route or node to inspect it. Moving instrument nodes changes layout; editing a route value changes musical time.
+              This is the same topology as Constellation with runtime activity overlaid. Moving a node changes layout only.
             </p>
           </section>
 
           <section
-            class="projection-view"
+            class="projection-view is-active"
             id="constellationView"
             role="tabpanel"
             aria-labelledby="constellationViewButton"
             data-projection="constellation"
-            hidden
           >
             <header class="projection-heading">
               <div>
-                <span>WHOLE-WORK FORM</span>
+                <span>CURRENT GRAPH</span>
                 <h3>Constellation</h3>
               </div>
-              <p>Each star is a section. Connections choose the route through the larger work.</p>
+              <p>Patch graphs together with typed ports. Double-click any graph node to enter its signal-flow subgraph.</p>
             </header>
             <div
               id="constellationCanvas"
               class="projection-canvas constellation-canvas"
               role="application"
               tabindex="0"
-              aria-label="Whole-work constellation editor"
+              aria-label="Recursive graph patch editor"
               aria-describedby="constellationInstructions"
             >
               <div class="projection-empty" aria-hidden="true">
-                <i></i><span>PLACING SECTIONS…</span>
+                <i></i><span>PLACING DEVICE GRAPHS…</span>
               </div>
             </div>
             <p class="sr-only" id="constellationInstructions">
-              Select a section to open it in the Flow Graph and Projected Timeline. Connections describe the larger composition route.
+              Gold connections are triggers, cyan connections are audio, and violet connections are control. Select an output port, then an input port, to connect graphs.
             </p>
           </section>
         </section>
@@ -273,22 +265,23 @@
           <header class="workspace-panel-heading">
             <span>SELECTION</span>
             <h2 id="inspectorTitle">Inspector</h2>
-            <p>Exact graph timing remains authoritative.</p>
+            <p>Edit a graph, primitive, typed connection, port, or projected event.</p>
           </header>
           <div id="inspector" class="inspector" aria-live="polite">
             <div class="inspector-placeholder">
               <span aria-hidden="true">◇</span>
-              <p>Select a clip, node, route, or section to edit its musical relationship.</p>
+              <p>Select a graph, primitive, typed connection, port, or projected event.</p>
             </div>
           </div>
         </aside>
       </div>
 
-      <footer class="composition-status" aria-label="Composition status">
-        <span><i class="status-light" aria-hidden="true"></i> GRAPH IS THE CLOCK</span>
-        <span>EDGE TIME → PROJECTED POSITION</span>
-        <span>FORK → LAYER</span>
-        <span>JOIN → SYNC</span>
+      <footer class="composition-status" aria-label="Patch status">
+        <span><i class="status-light" aria-hidden="true"></i> AUDIO CLOCK RUNNING</span>
+        <span>GOLD → TRIGGER</span>
+        <span>CYAN → AUDIO</span>
+        <span>VIOLET → CONTROL</span>
+        <span>DOUBLE-CLICK → ENTER GRAPH</span>
       </footer>
       <p class="sr-only" id="liveStatus" aria-live="polite" aria-atomic="true"></p>
     </main>
