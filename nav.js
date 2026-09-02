@@ -168,6 +168,11 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Pink Trombonazoid",
       href: "pink-trombonazoid.html",
     },
+    {
+      id: "throat-singing",
+      label: "Throat Singing",
+      href: "throat-singing.html",
+    },
     { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
     {
       id: "tongued-beasts",

@@ -47,6 +47,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "graph-synth",
     "image-to-instrument-3",
     "throatazoid",
+    "throat-singing",
     "syrinx",
     "tongued-beasts",
     "hybrinx",
@@ -143,6 +144,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "image-to-instrument-3",
   "throatazoid",
+  "throat-singing",
   "tongued-beasts",
   "blowhole",
   "jaw-harp",

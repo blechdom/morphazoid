@@ -132,6 +132,12 @@ for worktree_runtime_file in \
   pink-trombonazoid-app.js \
   src/pink-trombonazoid.js \
   assets/instruments/pink-trombonazoid.webp \
+  throat-singing.html \
+  throat-singing.css \
+  throat-singing-app.js \
+  src/throat-singing.js \
+  THROAT_SINGING_RESEARCH.md \
+  assets/instruments/throat-singing.webp \
   hyper-syrinx.html \
   hyper-syrinx.css \
   hyper-syrinx-app.js \
@@ -578,6 +584,12 @@ required_files=(
   pink-trombonazoid-app.js
   src/pink-trombonazoid.js
   assets/instruments/pink-trombonazoid.webp
+  throat-singing.html
+  throat-singing.css
+  throat-singing-app.js
+  src/throat-singing.js
+  THROAT_SINGING_RESEARCH.md
+  assets/instruments/throat-singing.webp
   hyper-syrinx.html
   hyper-syrinx.css
   hyper-syrinx-app.js

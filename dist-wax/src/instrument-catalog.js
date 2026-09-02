@@ -202,6 +202,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Enter a word, turn on audio, press Say word, then reshape its phoneme timing and articulatory automation lanes.",
     ["Built-in source", "Pointer"],
   ),
+  "throat-singing": define(
+    "Physical overtone voice",
+    "Keeps a pressure-driven glottal drone and a tract-selected upper melody inside one 44-section airway, with two constrictions, converging F2/F3 resonances, and optional ventricular-fold period division.",
+    "Turn on audio, choose a Tuvan style or comparison preset, then retune the drone with A S D F G H J K while selecting harmonics or dragging the tongue and pharynx controls.",
+    ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
+  ),
   syrinx: define(
     "Physical animal voice",
     "Models mammal folds, paired bird labia, frog membranes, and a rodent jet whistle through species-bounded vocal anatomy.",
