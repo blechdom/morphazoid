@@ -314,6 +314,19 @@
   line-height: 1.4;
 }
 
+.jaw-style-source {
+  width: fit-content;
+  color: var(--jaw-copper);
+  font-size: 7px;
+  line-height: 1.4;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.jaw-style-source[hidden] {
+  display: none;
+}
+
 .jaw-vowel-row {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -348,6 +361,50 @@
 
 .jaw-vowel-row button[aria-pressed="true"] small {
   color: rgba(4, 16, 14, 0.62);
+}
+
+.jaw-vowel-sequencer {
+  display: grid;
+  padding: 11px;
+  border: 1px solid rgba(118, 223, 211, 0.18);
+  background: linear-gradient(135deg, rgba(118, 223, 211, 0.055), transparent 64%);
+  gap: 8px;
+}
+
+.jaw-preset-deck .jaw-vowel-sequencer .jaw-select-control {
+  margin-bottom: 0;
+}
+
+.jaw-vowel-sequencer > small {
+  color: var(--jaw-muted);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.jaw-vowel-mode {
+  display: grid;
+  grid-template-columns: 0.62fr 1fr 1fr;
+  gap: 4px;
+}
+
+.jaw-vowel-mode button {
+  min-width: 0;
+  min-height: 33px;
+  padding: 6px 4px;
+  border: 1px solid rgba(118, 223, 211, 0.2);
+  cursor: pointer;
+  color: var(--jaw-muted);
+  background: #050706;
+  font: 620 7px/1.15 var(--mono);
+}
+
+.jaw-vowel-mode button:hover,
+.jaw-vowel-mode button:focus-visible,
+.jaw-vowel-mode button[aria-pressed="true"] {
+  border-color: var(--jaw-cyan);
+  color: #04100e;
+  background: var(--jaw-cyan);
+  outline: none;
 }
 
 .jaw-randomize-button {

@@ -4,10 +4,17 @@ import {
   JAW_HARP_PRESETS,
   JAW_HARP_RANDOM_LIMITS,
   JAW_HARP_RHYTHMS,
+  JAW_HARP_STYLE_CUSTOM_ID,
+  JAW_HARP_STYLE_GESTURE_KEYS,
+  JAW_HARP_STYLE_REFERENCES,
+  JAW_HARP_STYLE_SETTING_KEYS,
+  JAW_HARP_VOWEL_SEQUENCES,
   MAX_TINE_PULL,
   VOWEL_PRESETS,
+  applyJawHarpStyle,
   applyVowel,
   breathCycleFlow,
+  breathLobeBoundaryCount,
   clamp,
   dominantHarmonic,
   effectiveBreathRateBpm,
@@ -15,14 +22,20 @@ import {
   jawHarpRhythm,
   jawHarpRhythmHit,
   jawHarpState,
+  jawHarpStyle,
+  jawHarpStyleGesture,
+  jawHarpVowelSequence,
+  jawHarpVowelSequenceStep,
   mouthFormants,
   mouthGeometry,
+  naturalTineStrike,
   pluckForceFromPull,
   randomizeJawHarpState,
   reedMaterialProperties,
   repeatIntervalMs,
   sanitizeJawHarpState,
   tineReleaseMotion,
+  vowelPreset,
 } from "./src/jaw-harp.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
@@ -55,12 +68,19 @@ const CONTROL_SPECS = Object.freeze([
   { key: "repeatSwing", format: (value) => `${Math.round(value * 100)}%` },
 ]);
 const TEMPO_SLIDER_TICKS = Object.freeze([36, 60, 120, 240, 480]);
+const STYLE_SETTING_KEYS = new Set(JAW_HARP_STYLE_SETTING_KEYS);
 // Randomized models can legitimately retain a near-zero performance force. Keep
 // that setting intact, but use a dependable strike for the one-shot audition.
 const RANDOMIZE_AUDITION_FORCE_FLOOR = JAW_HARP_DEFAULTS.pluckForce;
 
 let state = jawHarpState("khomus");
 let activeVowelId = "a";
+let sequencedVowelId = null;
+let vowelSequenceActiveStep = 0;
+let vowelSequenceNextStep = 0;
+let vowelSequenceBreathDirection = -1;
+let referencePerformanceBaseline = null;
+let referenceGestureStep = 0;
 let audioContext = null;
 let graph = null;
 let audioPresentationStatus = "off";
@@ -77,6 +97,7 @@ let pointerDrag = null;
 let tineIsHeld = false;
 let tineReleaseGeneration = 0;
 let performanceIntentGeneration = 0;
+let pluckRequestSerial = 0;
 let animationFrame = 0;
 let lastPluckAt = -Infinity;
 let pluckFlash = 0;
@@ -87,6 +108,8 @@ let nextRepeatAt = 0;
 let repeatClockParkSerial = 0;
 let repeatClockParkOwner = 0;
 let breathCycleStartedAt = performance.now();
+let breathSequenceLastAt = breathCycleStartedAt;
+let breathSequencePhase = 0;
 let manualBreathDirection = 0;
 let manualBreathGeneration = 0;
 let manualBreathOwner = null;
@@ -194,12 +217,87 @@ function requestAudioState(on) {
   return audioTransitionGeneration;
 }
 
-function audioConfiguration() {
-  return { ...state };
+function sequencedMouthPreset() {
+  return state.vowelSequenceMode === "off" || !sequencedVowelId
+    ? null
+    : vowelPreset(sequencedVowelId);
+}
+
+function mouthPresentationState() {
+  const vowel = sequencedMouthPreset();
+  return vowel
+    ? sanitizeJawHarpState({ ...state, ...vowel.settings, vowelId: vowel.id }, state)
+    : state;
+}
+
+function audioConfiguration(performanceGesture = null) {
+  const {
+    styleId: _styleId,
+    vowelSequenceId: _vowelSequenceId,
+    vowelSequenceMode: _vowelSequenceMode,
+    ...configuration
+  } = state;
+  const safeGesture = {};
+  if (performanceGesture) {
+    for (const key of JAW_HARP_STYLE_GESTURE_KEYS) {
+      if (Object.hasOwn(performanceGesture, key)) safeGesture[key] = performanceGesture[key];
+    }
+  }
+  const vowel = sequencedMouthPreset();
+  return vowel
+    ? { ...configuration, ...safeGesture, ...vowel.settings, vowelId: vowel.id }
+    : { ...configuration, ...safeGesture };
 }
 
 function postConfiguration() {
   graph?.sourceNode?.port.postMessage({ type: "configure", configuration: audioConfiguration() });
+}
+
+function setSequencedVowelStep(step) {
+  const sequence = jawHarpVowelSequence(state.vowelSequenceId);
+  vowelSequenceActiveStep = ((Math.trunc(Number(step) || 0) % sequence.steps.length)
+    + sequence.steps.length) % sequence.steps.length;
+  sequencedVowelId = jawHarpVowelSequenceStep(
+    sequence.id,
+    vowelSequenceActiveStep,
+  ).id;
+}
+
+function resetBreathSequenceClock(time = performance.now(), phase = breathCyclePhaseAt(time)) {
+  breathSequenceLastAt = time;
+  breathSequencePhase = ((Number(phase) % 1) + 1) % 1;
+}
+
+function resetVowelSequence({ post = true, present = true, time = performance.now() } = {}) {
+  vowelSequenceActiveStep = 0;
+  vowelSequenceNextStep = 0;
+  sequencedVowelId = null;
+  if (state.vowelSequenceMode !== "off") {
+    setSequencedVowelStep(0);
+    if (state.vowelSequenceMode === "breath") vowelSequenceNextStep = 1;
+  }
+  resetBreathSequenceClock(time);
+  vowelSequenceBreathDirection = breathSequencePhase < state.breathBalance ? -1 : 1;
+  if (post) postConfiguration();
+  if (present) updatePresentation();
+}
+
+function postNextReferenceGesture() {
+  const gesture = jawHarpStyleGesture(state.styleId, referenceGestureStep);
+  if (!graph) return false;
+  if (state.vowelSequenceMode === "pluck") {
+    setSequencedVowelStep(vowelSequenceNextStep);
+  }
+  graph.sourceNode.port.postMessage({
+    type: "configure",
+    configuration: audioConfiguration(gesture),
+  });
+  if (gesture) referenceGestureStep += 1;
+  if (state.vowelSequenceMode === "pluck") {
+    vowelSequenceNextStep = vowelSequenceActiveStep + 1;
+    updateVowelSequencePresentation();
+  }
+  return true;
 }
 
 function breathLabel(flow = breathFlowForDisplay()) {
@@ -233,17 +331,65 @@ function anchorBreathCyclePhase(phase = 0, time = performance.now()) {
 
 function resetBreathCycle(phase = 0) {
   const wrapped = anchorBreathCyclePhase(phase);
+  resetBreathSequenceClock(performance.now(), wrapped);
+  if (state.vowelSequenceMode === "breath") {
+    vowelSequenceBreathDirection = wrapped < state.breathBalance ? -1 : 1;
+  }
   graph?.sourceNode?.port.postMessage({ type: "breath-cycle-reset", phase: wrapped });
 }
 
 function preserveBreathCyclePhase(previousPhase, time = performance.now()) {
   anchorBreathCyclePhase(previousPhase, time);
+  resetBreathSequenceClock(time, previousPhase);
+  if (state.vowelSequenceMode === "breath") {
+    vowelSequenceBreathDirection = previousPhase < state.breathBalance ? -1 : 1;
+  }
 }
 
 function breathFlowAt(time = performance.now()) {
   if (manualBreathDirection) return manualBreathDirection * state.breathDepth;
   if (!state.autoBreath) return 0;
   return breathCycleFlow(state, breathCyclePhaseAt(time));
+}
+
+function updateBreathVowelSequence(time = performance.now()) {
+  if (
+    state.vowelSequenceMode !== "breath"
+    || !state.autoBreath
+    || manualBreathDirection
+  ) {
+    resetBreathSequenceClock(time);
+    return 0;
+  }
+  const elapsedMs = Math.max(0, time - breathSequenceLastAt);
+  const elapsedCycles = elapsedMs * effectiveBreathRateBpm(state) / 60_000;
+  const boundaries = breathLobeBoundaryCount(
+    breathSequencePhase,
+    elapsedCycles,
+    state.breathBalance,
+  );
+  breathSequencePhase = (breathSequencePhase + elapsedCycles) % 1;
+  breathSequenceLastAt = time;
+  if (!boundaries) return 0;
+  setSequencedVowelStep(vowelSequenceActiveStep + boundaries);
+  vowelSequenceNextStep = vowelSequenceActiveStep + 1;
+  vowelSequenceBreathDirection = breathSequencePhase < state.breathBalance ? -1 : 1;
+  postConfiguration();
+  updateVowelSequencePresentation();
+  return boundaries;
+}
+
+function followManualBreathWithVowel(direction, time = performance.now()) {
+  if (state.vowelSequenceMode !== "breath") return false;
+  const nextDirection = direction < 0 ? -1 : 1;
+  resetBreathSequenceClock(time);
+  if (nextDirection === vowelSequenceBreathDirection) return false;
+  vowelSequenceBreathDirection = nextDirection;
+  setSequencedVowelStep(vowelSequenceActiveStep + 1);
+  vowelSequenceNextStep = vowelSequenceActiveStep + 1;
+  postConfiguration();
+  updateVowelSequencePresentation();
+  return true;
 }
 
 function updateBreathPresentation(flow = breathFlowForDisplay()) {
@@ -273,6 +419,7 @@ async function beginManualBreath(direction, owner) {
   const breathGeneration = ++manualBreathGeneration;
   manualBreathOwner = owner;
   manualBreathDirection = requestedDirection;
+  followManualBreathWithVowel(requestedDirection);
   updateBreathPresentation(requestedDirection * state.breathDepth);
   if (!(await ensureAudio())) {
     if (
@@ -307,17 +454,22 @@ function endManualBreath(direction, owner) {
   manualBreathDirection = 0;
   manualBreathOwner = null;
   const flow = breathFlowAt();
+  if (state.autoBreath) {
+    const phase = breathCyclePhaseAt();
+    followManualBreathWithVowel(phase < state.breathBalance ? -1 : 1);
+  }
   releaseManualBreath();
   updateBreathPresentation(flow);
 }
 
 function toggleBreathCycle() {
   state = sanitizeJawHarpState({ ...state, autoBreath: !state.autoBreath }, state);
+  markReferencePerformanceCustom("autoBreath");
   resetBreathCycle(state.autoBreath ? state.breathBalance * 0.5 : 0);
   postConfiguration();
   const flow = breathFlowAt();
   commandedBreathFlow = flow;
-  updateBreathPresentation(flow);
+  updatePresentation();
   announce(`Automatic breath cycle ${state.autoBreath ? "on" : "off"}`);
 }
 
@@ -429,6 +581,10 @@ async function ensureAudio() {
       return false;
     }
     postConfiguration();
+    activeGraph.sourceNode.port.postMessage({
+      type: "breath-cycle-reset",
+      phase: breathCyclePhaseAt(),
+    });
     if (tineIsHeld) activeGraph.sourceNode.port.postMessage({ type: "hold-tine" });
     setAudioPresentation("on");
     return true;
@@ -477,7 +633,8 @@ async function toggleAudio() {
 }
 
 async function pluck({
-  force = state.pluckForce,
+  force,
+  velocity = 1,
   direction = state.pluckDirection,
   position = state.pluckPosition,
   automatic = false,
@@ -485,17 +642,33 @@ async function pluck({
 } = {}) {
   if (tineIsHeld) return false;
   const intentGeneration = performanceIntentGeneration;
-  if (!audioGraphIsRunning() && !(await ensureAudio())) return false;
-  if (intentGeneration !== performanceIntentGeneration || tineIsHeld) return false;
-  const strength = clamp(
-    force,
-    JAW_HARP_LIMITS.pluckForce[0],
-    JAW_HARP_LIMITS.pluckForce[1],
+  const requestSerial = ++pluckRequestSerial;
+  const startupNeeded = !audioGraphIsRunning();
+  if (startupNeeded && !(await ensureAudio())) return false;
+  if (
+    intentGeneration !== performanceIntentGeneration
+    || tineIsHeld
+    || (startupNeeded && requestSerial !== pluckRequestSerial)
+  ) return false;
+  const requestedForce = Number(force);
+  const strength = Number.isFinite(requestedForce)
+    ? clamp(requestedForce, JAW_HARP_LIMITS.pluckForce[0], JAW_HARP_LIMITS.pluckForce[1])
+    : naturalTineStrike(state, { velocity, direction, position }).force;
+  const strikeDirection = Number(direction) < 0 ? -1 : 1;
+  const strikePosition = clamp(
+    Number(position),
+    JAW_HARP_LIMITS.pluckPosition[0],
+    JAW_HARP_LIMITS.pluckPosition[1],
   );
+  postNextReferenceGesture();
   graph.sourceNode.port.postMessage({
-    type: "pluck", force: strength, direction, position, automatic,
+    type: "strike-tine",
+    force: strength,
+    direction: strikeDirection,
+    position: strikePosition,
+    automatic,
   });
-  presentPluck(direction, announcePluck, strength);
+  presentPluck(strikeDirection, announcePluck, strength);
   return true;
 }
 
@@ -553,14 +726,17 @@ async function auditionRandomizedModel() {
     RANDOMIZE_AUDITION_FORCE_FLOOR,
     JAW_HARP_RANDOM_LIMITS.pluckForce[1],
   );
-  graph.sourceNode.port.postMessage({
-    type: "pluck",
+  const struck = await pluck({
     force,
     direction: state.pluckDirection,
     position: state.pluckPosition,
     automatic: true,
+    announcePluck: false,
   });
-  presentPluck(state.pluckDirection, false, force);
+  if (!struck) {
+    releaseDeferredRepeat();
+    return false;
+  }
   if (state.repeat) {
     // This preview is rhythm step zero. Advance the clock so the animation
     // frame that follows Randomize cannot immediately add a second strike.
@@ -599,6 +775,7 @@ async function releaseTine({
     JAW_HARP_LIMITS.pluckForce[0],
     JAW_HARP_LIMITS.pluckForce[1],
   );
+  postNextReferenceGesture();
   graph.sourceNode.port.postMessage({
     type: "release-tine", force: strength, direction, position,
   });
@@ -613,7 +790,7 @@ function clearPointerInteraction() {
   pointerDrag = null;
   canvas.classList.remove("is-dragging");
   if (canvas.hasPointerCapture?.(drag.pointerId)) canvas.releasePointerCapture?.(drag.pointerId);
-  if (drag.type === "reed") $("pluckState").textContent = "space · pull canvas trigger";
+  if (drag.type === "reed") $("pluckState").textContent = "space · varied finger pull";
   return drag;
 }
 
@@ -624,7 +801,7 @@ function cancelHeldTine() {
   graph?.sourceNode?.port.postMessage({ type: "release-tine" });
   tineIsHeld = false;
   visualTineRelease = null;
-  $("pluckState").textContent = "space · pull canvas trigger";
+  $("pluckState").textContent = "space · varied finger pull";
 }
 
 function cancelManualBreath({ present = true } = {}) {
@@ -670,6 +847,7 @@ async function toggleRepeat() {
   state = sanitizeJawHarpState({ ...state, repeat: next }, state);
   repeatStep = 0;
   repeatHitCount = 0;
+  referenceGestureStep = 0;
   nextRepeatAt = performance.now();
   updateTransportPresentation();
   postConfiguration();
@@ -680,6 +858,7 @@ function toggleBreathLink() {
   const changedAt = performance.now();
   const previousPhase = breathCyclePhaseAt(changedAt);
   state = sanitizeJawHarpState({ ...state, breathLinked: !state.breathLinked }, state);
+  markReferencePerformanceCustom("breathLinked");
   preserveBreathCyclePhase(previousPhase, changedAt);
   commandedBreathFlow = breathFlowAt(changedAt);
   updatePresentation();
@@ -691,6 +870,7 @@ function setRhythm(rhythmId) {
   const changedAt = performance.now();
   const previousPhase = breathCyclePhaseAt(changedAt);
   state = sanitizeJawHarpState({ ...state, rhythmId }, state);
+  markReferencePerformanceCustom("rhythmId");
   repeatStep = 0;
   repeatHitCount = 0;
   nextRepeatAt = changedAt;
@@ -702,8 +882,8 @@ function setRhythm(rhythmId) {
 
 function setDirection(direction) {
   state = sanitizeJawHarpState({ ...state, pluckDirection: direction }, state);
-  $("pluckOutward").setAttribute("aria-pressed", String(state.pluckDirection > 0));
-  $("pluckInward").setAttribute("aria-pressed", String(state.pluckDirection < 0));
+  markReferencePerformanceCustom("pluckDirection");
+  updatePresentation();
   postConfiguration();
 }
 
@@ -711,11 +891,23 @@ function setControl(key, value, { mouth = false, announceChange = false } = {}) 
   const changedAt = performance.now();
   const previousState = state;
   const previousPhase = breathCyclePhaseAt(changedAt);
-  state = sanitizeJawHarpState({ ...state, [key]: value }, state);
+  state = sanitizeJawHarpState({
+    ...state,
+    ...(mouth ? { vowelSequenceMode: "off" } : {}),
+    [key]: value,
+  }, state);
+  if (mouth) {
+    sequencedVowelId = null;
+    vowelSequenceActiveStep = 0;
+    vowelSequenceNextStep = 0;
+  }
+  markReferencePerformanceCustom(key);
   if (["repeatRateBpm", "repeatSwing"].includes(key)) {
     retimeRepeatClock(previousState, changedAt);
   }
-  if (
+  if (key === "breathBalance") {
+    preserveBreathCyclePhase(previousPhase, changedAt);
+  } else if (
     ["breathRateBpm", "repeatRateBpm", "breathsPerLoop"].includes(key)
     && effectiveBreathRateBpm(previousState) !== effectiveBreathRateBpm(state)
   ) preserveBreathCyclePhase(previousPhase, changedAt);
@@ -753,6 +945,9 @@ function loadHarp(presetId) {
     level: state.level,
     pluckDirection: state.pluckDirection,
     vowelId: state.vowelId,
+    vowelSequenceId: state.vowelSequenceId,
+    vowelSequenceMode: state.vowelSequenceMode,
+    styleId: state.styleId,
   };
   state = jawHarpState(presetId, retained);
   updatePresentation();
@@ -768,20 +963,154 @@ function loadHarp(presetId) {
   }
 }
 
+function markReferencePerformanceCustom(...keys) {
+  if (!keys.some((key) => STYLE_SETTING_KEYS.has(key))) return false;
+  referencePerformanceBaseline = null;
+  referenceGestureStep = 0;
+  if (state.styleId === JAW_HARP_STYLE_CUSTOM_ID) return false;
+  state = sanitizeJawHarpState({ ...state, styleId: JAW_HARP_STYLE_CUSTOM_ID }, state);
+  return true;
+}
+
+function captureReferencePerformanceBaseline() {
+  if (referencePerformanceBaseline) return;
+  const settings = {};
+  for (const key of JAW_HARP_STYLE_SETTING_KEYS) settings[key] = state[key];
+  referencePerformanceBaseline = {
+    settings,
+    activeVowelId,
+    styleId: state.styleId,
+  };
+}
+
+function auditionReferencePerformance() {
+  if (!audioGraphIsRunning() || tineIsHeld) return false;
+  const auditionedAt = performance.now();
+  if (state.repeat) nextRepeatAt = Infinity;
+  void pluck({ automatic: true, announcePluck: false });
+  if (state.repeat) {
+    // The preview is beat one of the newly selected phrase. Continue at beat
+    // two instead of inheriting a rest or direction from the previous style.
+    repeatStep = 1;
+    repeatHitCount = 1;
+    nextRepeatAt = auditionedAt
+      + repeatIntervalMs(state.repeatRateBpm, 0, state.repeatSwing) * 0.5;
+    renderPulseMap();
+  }
+  return true;
+}
+
+function loadReferencePerformance(styleId) {
+  if (styleId === JAW_HARP_STYLE_CUSTOM_ID) {
+    if (!referencePerformanceBaseline) {
+      referenceGestureStep = 0;
+      state = sanitizeJawHarpState({ ...state, styleId: JAW_HARP_STYLE_CUSTOM_ID }, state);
+      updatePresentation();
+      postConfiguration();
+      announce("Current performance kept as a custom setup");
+      return;
+    }
+    const changedAt = performance.now();
+    const previousState = state;
+    const previousPhase = breathCyclePhaseAt(changedAt);
+    const baseline = referencePerformanceBaseline;
+    referencePerformanceBaseline = null;
+    referenceGestureStep = 0;
+    state = sanitizeJawHarpState({
+      ...state,
+      ...baseline.settings,
+      styleId: baseline.styleId,
+    }, previousState);
+    repeatStep = 0;
+    repeatHitCount = 0;
+    nextRepeatAt = changedAt;
+    activeVowelId = baseline.activeVowelId;
+    preserveBreathCyclePhase(previousPhase, changedAt);
+    resetVowelSequence({ post: false, present: false, time: changedAt });
+    commandedBreathFlow = breathFlowAt(changedAt);
+    updatePresentation();
+    postConfiguration();
+    if (manualBreathDirection) {
+      sendManualBreath(manualBreathDirection * state.breathDepth);
+    }
+    auditionReferencePerformance();
+    announce("Current performance restored; physical instrument edits kept");
+    return;
+  }
+  const style = jawHarpStyle(styleId);
+  if (!style) return;
+  captureReferencePerformanceBaseline();
+  referenceGestureStep = 0;
+  const changedAt = performance.now();
+  const previousState = state;
+  const previousPhase = breathCyclePhaseAt(changedAt);
+  const retainedLevel = state.level;
+  const retainedRepeat = state.repeat;
+  state = applyJawHarpStyle(state, style.id);
+  state = sanitizeJawHarpState({
+    ...state,
+    level: retainedLevel,
+    repeat: retainedRepeat,
+  }, previousState);
+  repeatStep = 0;
+  repeatHitCount = 0;
+  nextRepeatAt = changedAt;
+  preserveBreathCyclePhase(previousPhase, changedAt);
+  commandedBreathFlow = breathFlowAt(changedAt);
+  activeVowelId = null;
+  resetVowelSequence({ post: false, present: false, time: changedAt });
+  updatePresentation();
+  postConfiguration();
+  if (manualBreathDirection) {
+    sendManualBreath(manualBreathDirection * state.breathDepth);
+  }
+  auditionReferencePerformance();
+  announce(`${style.label} reference performance loaded; physical instrument unchanged`);
+}
+
 function loadVowel(vowelId) {
-  state = applyVowel(state, vowelId);
+  state = applyVowel({ ...state, vowelSequenceMode: "off" }, vowelId);
+  markReferencePerformanceCustom("tonguePosition");
   activeVowelId = vowelId;
+  sequencedVowelId = null;
+  vowelSequenceActiveStep = 0;
+  vowelSequenceNextStep = 0;
   updatePresentation();
   postConfiguration();
   announce(`${VOWEL_PRESETS.find(({ id }) => id === vowelId)?.phoneme ?? vowelId} mouth shape loaded`);
 }
 
+function setVowelSequence(sequenceId) {
+  state = sanitizeJawHarpState({ ...state, vowelSequenceId: sequenceId }, state);
+  markReferencePerformanceCustom("vowelSequenceId");
+  resetVowelSequence();
+  announce(`${jawHarpVowelSequence(state.vowelSequenceId).label} vowel phrase selected`);
+}
+
+function setVowelSequenceMode(mode) {
+  state = sanitizeJawHarpState({ ...state, vowelSequenceMode: mode }, state);
+  markReferencePerformanceCustom("vowelSequenceMode");
+  resetVowelSequence();
+  const labels = {
+    off: "Vowel phrase off; manual mouth restored",
+    pluck: "Vowel phrase follows sounding plucks",
+    breath: "Vowel phrase follows inhale and exhale turns",
+  };
+  announce(labels[state.vowelSequenceMode]);
+}
+
 function randomizeModel() {
   const randomizedAt = performance.now();
+  referencePerformanceBaseline = null;
+  referenceGestureStep = 0;
   cancelHeldTine();
   cancelManualBreath({ present: false });
   graph?.sourceNode?.port.postMessage({ type: "silence" });
   state = randomizeJawHarpState(state);
+  state = sanitizeJawHarpState({
+    ...state,
+    styleId: JAW_HARP_STYLE_CUSTOM_ID,
+  }, state);
   repeatStep = 0;
   repeatHitCount = 0;
   nextRepeatAt = randomizedAt;
@@ -792,18 +1121,47 @@ function randomizeModel() {
   lastBreathTelemetryAt = -Infinity;
   visualTineRelease = null;
   activeVowelId = null;
+  resetVowelSequence({ post: false, present: false });
   updatePresentation();
   postConfiguration();
   void auditionRandomizedModel();
   announce(`Jaw-harp model randomized · ${state.repeat ? `${Math.round(state.repeatRateBpm)} BPM repeat` : "repeat off"}`);
 }
 
+function updateVowelSequencePresentation() {
+  const sequence = jawHarpVowelSequence(state.vowelSequenceId);
+  const soundingVowelId = sequencedVowelId ?? activeVowelId;
+  for (const button of $("vowelButtons").querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.vowel === soundingVowelId));
+  }
+  $("vowelSequenceSelect").value = sequence.id;
+  for (const button of document.querySelectorAll("[data-vowel-sequence-mode]")) {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.vowelSequenceMode === state.vowelSequenceMode),
+    );
+  }
+  const mouthState = mouthPresentationState();
+  const geometry = mouthGeometry(mouthState);
+  const harmonic = dominantHarmonic(mouthState);
+  const phoneme = soundingVowelId
+    ? VOWEL_PRESETS.find(({ id }) => id === soundingVowelId)?.phoneme
+    : "custom";
+  const phrase = state.vowelSequenceMode === "off"
+    ? ""
+    : ` · step ${vowelSequenceActiveStep + 1}/${sequence.steps.length} · ${state.vowelSequenceMode}`;
+  $("mouthSummary").textContent = `${phoneme}${phrase} · ${(geometry.lengthM * 100).toFixed(1)} cm cavity`;
+  $("harmonicReadout").textContent = `${harmonic.index} × · ${formatFrequency(harmonic.frequencyHz)}`;
+  $("cavityReadout").textContent = `${(geometry.lengthM * 100).toFixed(1)} cm · ${Math.round(geometry.volumeMl)} ml`;
+}
+
 function updatePresentation() {
   const preset = jawHarpPreset(state.presetId);
   const material = reedMaterialProperties(state);
-  const geometry = mouthGeometry(state);
-  const formants = mouthFormants(state);
-  const harmonic = dominantHarmonic(state);
+  const mouthState = mouthPresentationState();
+  const geometry = mouthGeometry(mouthState);
+  const formants = mouthFormants(mouthState);
+  const harmonic = dominantHarmonic(mouthState);
   for (const specification of CONTROL_SPECS) {
     const input = $(specification.key);
     if (!input) continue;
@@ -816,14 +1174,25 @@ function updatePresentation() {
   updateRangeFill($("level"));
   $("harpSelect").value = state.presetId;
   $("harpDescription").textContent = `${preset.description} Material model: ${preset.material.youngsModulusGPa} GPa · ${Math.round(material.densityKgM3)} kg/m³ · loss ${preset.material.internalLossFactor}.`;
-  for (const button of $("vowelButtons").querySelectorAll("button")) {
-    button.setAttribute("aria-pressed", String(button.dataset.vowel === activeVowelId));
+  const style = jawHarpStyle(state.styleId);
+  $("styleSelect").value = style?.id ?? JAW_HARP_STYLE_CUSTOM_ID;
+  $("styleDescription").textContent = style
+    ? `${style.description}${referencePerformanceBaseline ? " Choose Current / Custom to restore the performance you had before browsing styles." : ""}`
+    : "Manual performance edits are active. The selected physical instrument and material model are unchanged.";
+  const styleSource = $("styleSource");
+  styleSource.hidden = !style;
+  if (style) {
+    styleSource.href = style.source.url;
+    styleSource.textContent = `Reference: ${style.source.label} · ${style.source.license} · suggested body: ${jawHarpPreset(style.recommendedPresetId).label} (not changed)`;
+  } else {
+    styleSource.removeAttribute("href");
+    styleSource.textContent = "";
   }
+  updateVowelSequencePresentation();
   $("reedReadout").textContent = formatFrequency(state.reedFrequencyHz);
   $("harmonicReadout").textContent = `${harmonic.index} × · ${formatFrequency(harmonic.frequencyHz)}`;
   $("cavityReadout").textContent = `${(geometry.lengthM * 100).toFixed(1)} cm · ${Math.round(geometry.volumeMl)} ml`;
   $("reedSummary").textContent = `${Math.round(state.reedFrequencyHz)} Hz · ${preset.family}`;
-  $("mouthSummary").textContent = `${activeVowelId ? VOWEL_PRESETS.find(({ id }) => id === activeVowelId)?.phoneme : "custom"} · ${(geometry.lengthM * 100).toFixed(1)} cm cavity`;
   $("couplingSummary").textContent = `${formatPercent(state.cavityCoupling)} mouth · ${formatPercent(state.frameCoupling)} frame`;
   const rhythm = jawHarpRhythm(state.rhythmId);
   $("rhythmSummary").textContent = `${Math.round(state.repeatRateBpm)} BPM · ${rhythm.label} · ${state.breathLinked ? `${state.breathsPerLoop}× breath` : "free breath"}`;
@@ -864,6 +1233,24 @@ function buildPresets() {
     option.textContent = `${preset.label} · ${preset.family}`;
     return option;
   }));
+  const customStyleOption = document.createElement("option");
+  customStyleOption.value = JAW_HARP_STYLE_CUSTOM_ID;
+  customStyleOption.textContent = "Current / Custom";
+  const styleGroups = JAW_HARP_PRESETS.map((preset) => {
+    const group = document.createElement("optgroup");
+    group.label = `${preset.label} / ${preset.family}`;
+    group.append(...JAW_HARP_STYLE_REFERENCES
+      .filter((style) => style.recommendedPresetId === preset.id)
+      .map((style) => {
+        const option = document.createElement("option");
+        option.value = style.id;
+        option.textContent = style.label;
+        return option;
+      }));
+    return group;
+  });
+  $("styleSelect").replaceChildren(...styleGroups, customStyleOption);
+  $("styleSelectLabel").textContent = `Reference performance · ${JAW_HARP_STYLE_REFERENCES.length} studies`;
   $("vowelButtons").replaceChildren(...VOWEL_PRESETS.map((vowel) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -872,6 +1259,12 @@ function buildPresets() {
     button.setAttribute("aria-pressed", String(vowel.id === activeVowelId));
     button.addEventListener("click", () => loadVowel(vowel.id));
     return button;
+  }));
+  $("vowelSequenceSelect").replaceChildren(...JAW_HARP_VOWEL_SEQUENCES.map((sequence) => {
+    const option = document.createElement("option");
+    option.value = sequence.id;
+    option.textContent = sequence.label;
+    return option;
   }));
   $("rhythmSelect").replaceChildren(...JAW_HARP_RHYTHMS.map((rhythm) => {
     const option = document.createElement("option");
@@ -889,6 +1282,11 @@ function installControls() {
   $("breathsPerLoop").addEventListener("change", (event) => setControl("breathsPerLoop", Number(event.currentTarget.value), { announceChange: true }));
   $("breathLinkButton").addEventListener("click", toggleBreathLink);
   $("harpSelect").addEventListener("change", (event) => loadHarp(event.currentTarget.value));
+  $("styleSelect").addEventListener("change", (event) => loadReferencePerformance(event.currentTarget.value));
+  $("vowelSequenceSelect").addEventListener("change", (event) => setVowelSequence(event.currentTarget.value));
+  for (const button of document.querySelectorAll("[data-vowel-sequence-mode]")) {
+    button.addEventListener("click", () => setVowelSequenceMode(button.dataset.vowelSequenceMode));
+  }
   $("randomizeButton").addEventListener("click", randomizeModel);
   $("pluckOutward").addEventListener("click", () => setDirection(1));
   $("pluckInward").addEventListener("click", () => setDirection(-1));
@@ -939,12 +1337,18 @@ function installControls() {
   }
   $("level").addEventListener("input", (event) => setControl("level", Number(event.currentTarget.value)));
   $("resetAll").addEventListener("click", () => {
+    referencePerformanceBaseline = null;
+    referenceGestureStep = 0;
     cancelHeldTine();
     cancelManualBreath({ present: false });
     state = { ...JAW_HARP_DEFAULTS };
     resetBreathCycle(state.breathBalance * 0.5);
     releaseManualBreath();
     activeVowelId = "a";
+    sequencedVowelId = null;
+    vowelSequenceActiveStep = 0;
+    vowelSequenceNextStep = 0;
+    resetBreathSequenceClock();
     updatePresentation();
     postConfiguration();
     announce("Jaw harp restored to Temir khomus and open A mouth");
@@ -964,12 +1368,23 @@ function resizeCanvas() {
   drawing.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 }
 
-function lipExtensionPixels(lipVisual, faceWidth, lipX) {
-  const maximumRetraction = Math.min(58, Math.max(34, faceWidth * 0.2));
-  const availableProtrusion = Math.max(30, cssWidth - lipX - 42);
+function responsiveAnatomyScale(width, height, compact) {
+  if (compact) return 1;
+  return clamp(Math.min(width / 1_085, height / 657), 1, 1.42);
+}
+
+function lipExtensionPixels(lipVisual, faceWidth, lipX, anatomyScale) {
+  const maximumRetraction = Math.min(
+    58 * anatomyScale,
+    Math.max(34 * anatomyScale, faceWidth * 0.2),
+  );
+  const availableProtrusion = Math.max(
+    30 * anatomyScale,
+    cssWidth - lipX - 42,
+  );
   const maximumProtrusion = Math.min(
-    72,
-    Math.max(48, faceWidth * 0.17),
+    72 * anatomyScale,
+    Math.max(48 * anatomyScale, faceWidth * 0.17),
     availableProtrusion,
   );
   if (lipVisual < 0) {
@@ -979,21 +1394,32 @@ function lipExtensionPixels(lipVisual, faceWidth, lipX) {
 }
 
 function layout() {
+  const mouthState = mouthPresentationState();
   const compact = cssHeight < 400 || cssWidth < 670;
+  const anatomyScale = responsiveAnatomyScale(cssWidth, cssHeight, compact);
   const mouthY = cssHeight * (compact ? 0.55 : 0.51);
-  const faceWidth = Math.min(cssWidth * (compact ? 0.52 : 0.47), compact ? 360 : 510);
+  const faceWidth = Math.min(
+    cssWidth * (compact ? 0.52 : 0.47),
+    (compact ? 360 : 510) * anatomyScale,
+  );
   const lipX = cssWidth * (compact ? 0.69 : 0.7);
   const throatX = lipX - faceWidth * 0.62;
-  const jawTravel = Math.min(76, cssHeight * 0.14);
-  const jawVisual = articulationToVisual(state.jawOpening);
-  const tonguePositionVisual = articulationToVisual(state.tonguePosition);
-  const tongueHeightVisual = articulationToVisual(state.tongueHeight);
-  const lipVisual = articulationToVisual(state.lipRounding);
-  const maximumReachableJawGap = Math.max(6, cssHeight - mouthY - 94);
+  const jawTravel = Math.min(76 * anatomyScale, cssHeight * 0.14);
+  const jawVisual = articulationToVisual(mouthState.jawOpening);
+  const tonguePositionVisual = articulationToVisual(mouthState.tonguePosition);
+  const tongueHeightVisual = articulationToVisual(mouthState.tongueHeight);
+  const lipVisual = articulationToVisual(mouthState.lipRounding);
+  const maximumReachableJawGap = Math.max(
+    6 * anatomyScale,
+    cssHeight - mouthY - 94 * anatomyScale,
+  );
   const jawGap = clamp(
-    24 + jawVisual * jawTravel,
-    6,
-    Math.min(24 + ARTICULATION_VISUAL_MAX * jawTravel, maximumReachableJawGap),
+    24 * anatomyScale + jawVisual * jawTravel,
+    6 * anatomyScale,
+    Math.min(
+      24 * anatomyScale + ARTICULATION_VISUAL_MAX * jawTravel,
+      maximumReachableJawGap,
+    ),
   );
   const tongueX = clamp(
     throatX + (lipX - throatX) * (0.28 + tonguePositionVisual * 0.55),
@@ -1001,15 +1427,21 @@ function layout() {
     cssWidth - 28,
   );
   const tongueY = clamp(
-    mouthY + jawGap * 0.55 - tongueHeightVisual * (jawGap * 0.72 + 28),
+    mouthY + jawGap * 0.55
+      - tongueHeightVisual * (jawGap * 0.72 + 28 * anatomyScale),
     28,
     cssHeight - 28,
   );
-  const lipExtension = lipExtensionPixels(lipVisual, faceWidth, lipX);
+  const lipExtension = lipExtensionPixels(
+    lipVisual,
+    faceWidth,
+    lipX,
+    anatomyScale,
+  );
   const noseProjection = Math.min(
-    104,
-    Math.max(78, faceWidth * 0.43),
-    Math.max(72, cssWidth - lipX - 18),
+    104 * anatomyScale,
+    Math.max(78 * anatomyScale, faceWidth * 0.43),
+    Math.max(72 * anatomyScale, cssWidth - lipX - 18),
   );
   const harpBowX = Math.max(compact ? 55 : 190, lipX - faceWidth * 0.92);
   const releaseMotion = visualTineRelease && !prefersReducedMotion
@@ -1024,8 +1456,8 @@ function layout() {
     ? Math.tanh(pointerDrag.pull / 1.22) * Math.min(148, cssHeight * 0.28)
     : releaseMotion * Math.min(96, cssHeight * 0.18);
   const triggerX = clamp(
-    lipX + 104 + lipExtension * 0.42,
-    harpBowX + 86,
+    lipX + 104 * anatomyScale + lipExtension * 0.42,
+    harpBowX + 86 * anatomyScale,
     cssWidth - 30,
   );
   const padRight = Math.min(
@@ -1067,22 +1499,23 @@ function layout() {
   rhythmPad.y = rhythmPad.bottom
     - rangeUnit(state.repeatSwing, JAW_HARP_LIMITS.repeatSwing) * (rhythmPad.bottom - rhythmPad.top);
   const focusPad = {
-    left: throatX + 8,
-    right: lipX - 20,
-    top: mouthY - 17,
-    bottom: mouthY + 17,
+    left: throatX + 8 * anatomyScale,
+    right: lipX - 20 * anatomyScale,
+    top: mouthY - 17 * anatomyScale,
+    bottom: mouthY + 17 * anatomyScale,
   };
   focusPad.x = focusPad.left
     + rangeUnit(state.formantFocus, JAW_HARP_LIMITS.formantFocus) * (focusPad.right - focusPad.left);
   focusPad.y = focusPad.bottom
     - rangeUnit(state.cavityCoupling, JAW_HARP_LIMITS.cavityCoupling) * (focusPad.bottom - focusPad.top);
   const glottisY = mouthY + jawGap * 1.06;
-  const glottisLeft = throatX + 4;
-  const glottisRight = throatX + 34;
+  const glottisLeft = throatX + 4 * anatomyScale;
+  const glottisRight = throatX + 34 * anatomyScale;
   const glottisX = glottisLeft
     + rangeUnit(state.glottisOpening, JAW_HARP_LIMITS.glottisOpening) * (glottisRight - glottisLeft);
   return {
     compact,
+    anatomyScale,
     mouthY,
     faceWidth,
     lipX,
@@ -1243,51 +1676,85 @@ function drawNode(x, y, color, label, type, radius = 7) {
 }
 
 function drawHair(model, topY, backX) {
-  const { compact, throatX, lipX, mouthY } = model;
-  const crestY = Math.max(12, topY - (compact ? 8 : 13));
-  const frontX = lipX - (compact ? 29 : 42);
+  const {
+    compact, anatomyScale, throatX, lipX, mouthY,
+  } = model;
+  const crestY = Math.max(12, topY - (compact ? 8 : 13) * anatomyScale);
+  const frontX = lipX - (compact ? 29 : 42) * anatomyScale;
   const headOverlapY = compact ? 3 : 5;
+  const frontHairY = topY + 28 + headOverlapY;
+  const backHairY = topY + 49 + headOverlapY;
   drawing.save();
   drawing.beginPath();
-  drawing.moveTo(backX - 4, mouthY + 8);
-  drawing.bezierCurveTo(backX - 31, mouthY - 18, backX - 36, topY + 48, throatX + 10, crestY + 9);
-  drawing.lineTo(throatX + 36, crestY);
-  drawing.lineTo(throatX + 47, crestY + 12);
-  drawing.lineTo(throatX + 65, crestY + 2);
-  drawing.lineTo(throatX + 78, crestY + 16);
-  drawing.lineTo(throatX + 96, crestY + 8);
+  drawing.moveTo(backX - 4 * anatomyScale, mouthY + 8 * anatomyScale);
   drawing.bezierCurveTo(
-    frontX - 17,
-    crestY + 11,
-    frontX - 7,
-    topY + 14,
+    backX - 31 * anatomyScale,
+    mouthY - 18 * anatomyScale,
+    backX - 36 * anatomyScale,
+    topY + 48 * anatomyScale,
+    throatX + 10 * anatomyScale,
+    crestY + 9 * anatomyScale,
+  );
+  drawing.lineTo(throatX + 36 * anatomyScale, crestY);
+  drawing.lineTo(throatX + 47 * anatomyScale, crestY + 12 * anatomyScale);
+  drawing.lineTo(throatX + 65 * anatomyScale, crestY + 2 * anatomyScale);
+  drawing.lineTo(throatX + 78 * anatomyScale, crestY + 16 * anatomyScale);
+  drawing.lineTo(throatX + 96 * anatomyScale, crestY + 8 * anatomyScale);
+  drawing.bezierCurveTo(
+    frontX - 17 * anatomyScale,
+    crestY + 11 * anatomyScale,
+    frontX - 7 * anatomyScale,
+    topY + 14 * anatomyScale,
     frontX,
-    topY + 28 + headOverlapY,
+    topY + (frontHairY - topY) * anatomyScale,
   );
   drawing.bezierCurveTo(
-    frontX - 28,
-    topY + 20 + headOverlapY,
-    throatX + 27,
-    topY + 31 + headOverlapY,
-    throatX - 5,
-    topY + 49 + headOverlapY,
+    frontX - 28 * anatomyScale,
+    topY + (20 + headOverlapY) * anatomyScale,
+    throatX + 27 * anatomyScale,
+    topY + (31 + headOverlapY) * anatomyScale,
+    throatX - 5 * anatomyScale,
+    topY + (backHairY - topY) * anatomyScale,
   );
-  drawing.bezierCurveTo(backX + 8, topY + 68, backX + 7, mouthY - 11, backX - 4, mouthY + 8);
+  drawing.bezierCurveTo(
+    backX + 8 * anatomyScale,
+    topY + 68 * anatomyScale,
+    backX + 7 * anatomyScale,
+    mouthY - 11 * anatomyScale,
+    backX - 4 * anatomyScale,
+    mouthY + 8 * anatomyScale,
+  );
   drawing.closePath();
   drawing.fillStyle = "rgba(70, 55, 43, 0.48)";
   drawing.fill();
   strokePath("#b77a4e", 1, 0.54);
   drawing.beginPath();
-  drawing.moveTo(throatX + 16, topY + 24);
-  drawing.bezierCurveTo(throatX + 31, topY + 12, throatX + 43, topY + 25, throatX + 55, topY + 11);
-  drawing.moveTo(throatX + 53, topY + 25);
-  drawing.bezierCurveTo(throatX + 69, topY + 11, throatX + 79, topY + 26, throatX + 92, topY + 15);
+  drawing.moveTo(throatX + 16 * anatomyScale, topY + 24 * anatomyScale);
+  drawing.bezierCurveTo(
+    throatX + 31 * anatomyScale,
+    topY + 12 * anatomyScale,
+    throatX + 43 * anatomyScale,
+    topY + 25 * anatomyScale,
+    throatX + 55 * anatomyScale,
+    topY + 11 * anatomyScale,
+  );
+  drawing.moveTo(throatX + 53 * anatomyScale, topY + 25 * anatomyScale);
+  drawing.bezierCurveTo(
+    throatX + 69 * anatomyScale,
+    topY + 11 * anatomyScale,
+    throatX + 79 * anatomyScale,
+    topY + 26 * anatomyScale,
+    throatX + 92 * anatomyScale,
+    topY + 15 * anatomyScale,
+  );
   strokePath("#df9d5a", 0.75, 0.28);
   drawing.restore();
 }
 
 function drawEye(model) {
-  const { compact, lipX, mouthY } = model;
+  const {
+    compact, anatomyScale, lipX, mouthY,
+  } = model;
   const normalizedFlow = clamp(
     visualBreathFlow / Math.max(0.2, state.breathDepth),
     -1,
@@ -1295,10 +1762,12 @@ function drawEye(model) {
   );
   const exhale = Math.max(0, normalizedFlow);
   const inhale = Math.max(0, -normalizedFlow);
-  const eyeX = lipX - (compact ? 4 : 7);
-  const eyeY = mouthY - (compact ? 70 : 84);
-  const halfWidth = (compact ? 8.8 : 10.5) * (1 + exhale * 0.06);
-  const halfHeight = (compact ? 3.5 : 4.1) * (1 + exhale * 0.36 - inhale * 0.11);
+  const eyeX = lipX - (compact ? 4 : 7) * anatomyScale;
+  const eyeY = mouthY - (compact ? 70 : 84) * anatomyScale;
+  const halfWidth = (compact ? 8.8 : 10.5)
+    * anatomyScale * (1 + exhale * 0.06);
+  const halfHeight = (compact ? 3.5 : 4.1)
+    * anatomyScale * (1 + exhale * 0.36 - inhale * 0.11);
   drawing.save();
   drawing.beginPath();
   drawing.moveTo(eyeX - halfWidth, eyeY);
@@ -1309,119 +1778,259 @@ function drawEye(model) {
   drawing.fill();
   strokePath("#9ea59f", 0.8, 0.82);
   drawing.beginPath();
-  drawing.arc(eyeX + halfWidth * 0.16, eyeY, Math.max(1.25, halfHeight * 0.68), 0, Math.PI * 2);
+  drawing.arc(
+    eyeX + halfWidth * 0.16,
+    eyeY,
+    Math.max(1.25 * anatomyScale, halfHeight * 0.68),
+    0,
+    Math.PI * 2,
+  );
   drawing.fillStyle = "rgba(118, 223, 211, 0.72)";
   drawing.fill();
   drawing.beginPath();
-  drawing.arc(eyeX + halfWidth * 0.18, eyeY, Math.max(0.65, halfHeight * 0.3), 0, Math.PI * 2);
+  drawing.arc(
+    eyeX + halfWidth * 0.18,
+    eyeY,
+    Math.max(0.65 * anatomyScale, halfHeight * 0.3),
+    0,
+    Math.PI * 2,
+  );
   drawing.fillStyle = "#111715";
   drawing.fill();
   drawing.beginPath();
-  drawing.moveTo(eyeX - halfWidth - 1, eyeY - halfHeight - 4);
-  drawing.quadraticCurveTo(eyeX, eyeY - halfHeight - 7 - exhale, eyeX + halfWidth + 2, eyeY - halfHeight - 4);
+  drawing.moveTo(
+    eyeX - halfWidth - anatomyScale,
+    eyeY - halfHeight - 4 * anatomyScale,
+  );
+  drawing.quadraticCurveTo(
+    eyeX,
+    eyeY - halfHeight - (7 + exhale) * anatomyScale,
+    eyeX + halfWidth + 2 * anatomyScale,
+    eyeY - halfHeight - 4 * anatomyScale,
+  );
   strokePath("#8a6043", 1, 0.64);
   drawing.restore();
 }
 
 function drawHead(model) {
+  const mouthState = mouthPresentationState();
   const {
-    throatX, lipX, mouthY, faceWidth, jawGap, lipExtension, noseProjection,
+    anatomyScale, throatX, lipX, mouthY, faceWidth, jawGap, lipExtension,
+    noseProjection,
   } = model;
-  const topY = mouthY - Math.min(230, cssHeight * 0.35);
+  const topY = mouthY - Math.min(230 * anatomyScale, cssHeight * 0.35);
   const backX = throatX - faceWidth * 0.18;
   drawHair(model, topY, backX);
   drawing.beginPath();
   drawing.moveTo(backX, mouthY + jawGap * 1.85);
-  drawing.bezierCurveTo(backX - 25, mouthY + 40, backX - 32, topY + 58, throatX + 20, topY);
   drawing.bezierCurveTo(
-    lipX - 40,
-    topY - 12,
+    backX - 25 * anatomyScale,
+    mouthY + 40 * anatomyScale,
+    backX - 32 * anatomyScale,
+    topY + 58 * anatomyScale,
+    throatX + 20 * anatomyScale,
+    topY,
+  );
+  drawing.bezierCurveTo(
+    lipX - 40 * anatomyScale,
+    topY - 12 * anatomyScale,
     lipX + noseProjection * 0.47,
-    topY + 48,
+    topY + 48 * anatomyScale,
     lipX + noseProjection * 0.49,
-    mouthY - 101,
+    mouthY - 101 * anatomyScale,
   );
   drawing.bezierCurveTo(
     lipX + noseProjection * 0.7,
-    mouthY - 100,
+    mouthY - 100 * anatomyScale,
     lipX + noseProjection,
-    mouthY - 84,
+    mouthY - 84 * anatomyScale,
     lipX + noseProjection * 0.92,
-    mouthY - 61,
+    mouthY - 61 * anatomyScale,
   );
   drawing.bezierCurveTo(
     lipX + noseProjection * 0.84,
-    mouthY - 49,
+    mouthY - 49 * anatomyScale,
     lipX + noseProjection * 0.64,
-    mouthY - 47,
+    mouthY - 47 * anatomyScale,
     lipX + noseProjection * 0.53,
-    mouthY - 50,
+    mouthY - 50 * anatomyScale,
   );
-  drawing.bezierCurveTo(lipX + 37, mouthY - 30, lipX + 29 + lipExtension, mouthY - 14, lipX + 23 + lipExtension, mouthY - 7);
-  drawing.bezierCurveTo(lipX + 34 + lipExtension, mouthY + 2, lipX + 34 + lipExtension, mouthY + 13, lipX + 19 + lipExtension, mouthY + 17);
-  drawing.bezierCurveTo(lipX + 36, mouthY + 50, lipX + 30, mouthY + jawGap + 46, lipX - 20, mouthY + jawGap + 78);
-  drawing.bezierCurveTo(lipX - 90, mouthY + jawGap + 126, throatX - 12, mouthY + jawGap + 126, backX, mouthY + jawGap * 1.85);
+  drawing.bezierCurveTo(
+    lipX + 37 * anatomyScale,
+    mouthY - 30 * anatomyScale,
+    lipX + 29 * anatomyScale + lipExtension,
+    mouthY - 14 * anatomyScale,
+    lipX + 23 * anatomyScale + lipExtension,
+    mouthY - 7 * anatomyScale,
+  );
+  drawing.bezierCurveTo(
+    lipX + 34 * anatomyScale + lipExtension,
+    mouthY + 2 * anatomyScale,
+    lipX + 34 * anatomyScale + lipExtension,
+    mouthY + 13 * anatomyScale,
+    lipX + 19 * anatomyScale + lipExtension,
+    mouthY + 17 * anatomyScale,
+  );
+  drawing.bezierCurveTo(
+    lipX + 36 * anatomyScale,
+    mouthY + 50 * anatomyScale,
+    lipX + 30 * anatomyScale,
+    mouthY + jawGap + 46 * anatomyScale,
+    lipX - 20 * anatomyScale,
+    mouthY + jawGap + 78 * anatomyScale,
+  );
+  drawing.bezierCurveTo(
+    lipX - 90 * anatomyScale,
+    mouthY + jawGap + 126 * anatomyScale,
+    throatX - 12 * anatomyScale,
+    mouthY + jawGap + 126 * anatomyScale,
+    backX,
+    mouthY + jawGap * 1.85,
+  );
   strokePath("#6e756f", 1.15, 0.75);
 
   drawEye(model);
   drawing.beginPath();
-  drawing.moveTo(lipX + noseProjection * 0.68, mouthY - 57);
+  drawing.moveTo(
+    lipX + noseProjection * 0.68,
+    mouthY - 57 * anatomyScale,
+  );
   drawing.quadraticCurveTo(
     lipX + noseProjection * 0.76,
-    mouthY - 62,
+    mouthY - 62 * anatomyScale,
     lipX + noseProjection * 0.82,
-    mouthY - 56,
+    mouthY - 56 * anatomyScale,
   );
   strokePath("#9a7c68", 0.9, 0.62);
 
   drawing.beginPath();
-  drawing.moveTo(lipX + 21 + lipExtension, mouthY - 5);
-  drawing.bezierCurveTo(lipX - 24, mouthY - 14, throatX + 72, mouthY - 30, throatX + 22, mouthY + 2);
-  drawing.bezierCurveTo(throatX - 4, mouthY + 20, throatX + 2, mouthY + jawGap * 0.9, throatX + 24, mouthY + jawGap * 1.2);
-  drawing.bezierCurveTo(throatX + 74, mouthY + jawGap * 0.74, lipX - 36, mouthY + jawGap * 0.83, lipX + 18 + lipExtension, mouthY + 12);
+  drawing.moveTo(
+    lipX + 21 * anatomyScale + lipExtension,
+    mouthY - 5 * anatomyScale,
+  );
+  drawing.bezierCurveTo(
+    lipX - 24 * anatomyScale,
+    mouthY - 14 * anatomyScale,
+    throatX + 72 * anatomyScale,
+    mouthY - 30 * anatomyScale,
+    throatX + 22 * anatomyScale,
+    mouthY + 2 * anatomyScale,
+  );
+  drawing.bezierCurveTo(
+    throatX - 4 * anatomyScale,
+    mouthY + 20 * anatomyScale,
+    throatX + 2 * anatomyScale,
+    mouthY + jawGap * 0.9,
+    throatX + 24 * anatomyScale,
+    mouthY + jawGap * 1.2,
+  );
+  drawing.bezierCurveTo(
+    throatX + 74 * anatomyScale,
+    mouthY + jawGap * 0.74,
+    lipX - 36 * anatomyScale,
+    mouthY + jawGap * 0.83,
+    lipX + 18 * anatomyScale + lipExtension,
+    mouthY + 12 * anatomyScale,
+  );
   drawing.closePath();
   drawing.fillStyle = "rgba(118, 223, 211, 0.055)";
   drawing.fill();
   strokePath("#76dfd3", 1.15, 0.54);
 
   drawing.beginPath();
-  const tongueLipX = lipX + 15 + lipExtension * 0.72;
-  drawing.moveTo(tongueLipX, mouthY + 12);
-  drawing.bezierCurveTo(model.tongueX + 64, mouthY + jawGap * 0.72, model.tongueX + 44, model.tongueY + 3, model.tongueX, model.tongueY);
-  drawing.bezierCurveTo(model.tongueX - 66, model.tongueY + 2, throatX + 34, mouthY + jawGap * 0.8, throatX + 24, mouthY + jawGap * 1.2);
-  drawing.bezierCurveTo(throatX + 94, mouthY + jawGap * 1.18, lipX - 58, mouthY + jawGap * 1.22, tongueLipX, mouthY + 12);
+  const tongueLipX = lipX + 15 * anatomyScale + lipExtension * 0.72;
+  drawing.moveTo(tongueLipX, mouthY + 12 * anatomyScale);
+  drawing.bezierCurveTo(
+    model.tongueX + 64 * anatomyScale,
+    mouthY + jawGap * 0.72,
+    model.tongueX + 44 * anatomyScale,
+    model.tongueY + 3 * anatomyScale,
+    model.tongueX,
+    model.tongueY,
+  );
+  drawing.bezierCurveTo(
+    model.tongueX - 66 * anatomyScale,
+    model.tongueY + 2 * anatomyScale,
+    throatX + 34 * anatomyScale,
+    mouthY + jawGap * 0.8,
+    throatX + 24 * anatomyScale,
+    mouthY + jawGap * 1.2,
+  );
+  drawing.bezierCurveTo(
+    throatX + 94 * anatomyScale,
+    mouthY + jawGap * 1.18,
+    lipX - 58 * anatomyScale,
+    mouthY + jawGap * 1.22,
+    tongueLipX,
+    mouthY + 12 * anatomyScale,
+  );
   drawing.closePath();
   drawing.fillStyle = "rgba(186, 154, 246, 0.12)";
   drawing.fill();
   strokePath("#ba9af6", 1.3, 0.7);
 
   drawing.beginPath();
-  drawing.moveTo(lipX + 40, mouthY + jawGap + 53);
-  drawing.bezierCurveTo(lipX - 20, mouthY + jawGap + 75, throatX + 72, mouthY + jawGap * 1.55, throatX + 18, mouthY + jawGap * 1.22);
+  drawing.moveTo(
+    lipX + 40 * anatomyScale,
+    mouthY + jawGap + 53 * anatomyScale,
+  );
+  drawing.bezierCurveTo(
+    lipX - 20 * anatomyScale,
+    mouthY + jawGap + 75 * anatomyScale,
+    throatX + 72 * anatomyScale,
+    mouthY + jawGap * 1.55,
+    throatX + 18 * anatomyScale,
+    mouthY + jawGap * 1.22,
+  );
   strokePath("#aeb4ae", 1, 0.42);
 
   drawing.beginPath();
-  drawing.moveTo(throatX + 17, model.glottisY - 13);
+  drawing.moveTo(
+    throatX + 17 * anatomyScale,
+    model.glottisY - 13 * anatomyScale,
+  );
   drawing.lineTo(model.glottisX, model.glottisY);
-  drawing.lineTo(throatX + 17, model.glottisY + 13);
+  drawing.lineTo(
+    throatX + 17 * anatomyScale,
+    model.glottisY + 13 * anatomyScale,
+  );
   strokePath("#ee786d", 2, 0.7);
 
-  const formants = mouthFormants(state).frequenciesHz;
-  const waveCount = clamp(3 + Math.round(articulationToVisual(state.formantFocus) * 5), 1, 16);
+  const formants = mouthFormants(mouthState).frequenciesHz;
+  const waveCount = clamp(3 + Math.round(articulationToVisual(mouthState.formantFocus) * 5), 1, 16);
   for (let index = 0; index < waveCount; index += 1) {
     const amount = (index + 0.5) / waveCount;
     const x = throatX + (lipX - throatX) * amount;
-    const radius = 5 + Math.sin(amount * Math.PI) * (8 + state.cavityCoupling * 11);
+    const radius = anatomyScale
+      * (5 + Math.sin(amount * Math.PI) * (8 + mouthState.cavityCoupling * 11));
     drawing.beginPath();
-    drawing.arc(x, mouthY + 3, radius, -Math.PI * 0.55, Math.PI * 0.55);
+    drawing.arc(
+      x,
+      mouthY + 3 * anatomyScale,
+      radius,
+      -Math.PI * 0.55,
+      Math.PI * 0.55,
+    );
     strokePath(index % 2 ? "#76dfd3" : "#f0c46e", 0.8, 0.15 + telemetry.energy * 0.25);
   }
   drawing.fillStyle = "rgba(118, 223, 211, 0.62)";
-  drawing.font = "7px ui-monospace, SFMono-Regular, Consolas, monospace";
+  drawing.font = `${Math.min(9, 7 * anatomyScale)}px ui-monospace, SFMono-Regular, Consolas, monospace`;
   drawing.textAlign = "left";
-  drawing.fillText(`F1 ${Math.round(formants[0])}`, throatX + 36, mouthY - 40);
-  drawing.fillText(`F2 ${Math.round(formants[1])}`, throatX + 95, mouthY - 40);
-  drawing.fillText(`F3 ${Math.round(formants[2])}`, throatX + 154, mouthY - 40);
+  drawing.fillText(
+    `F1 ${Math.round(formants[0])}`,
+    throatX + 36 * anatomyScale,
+    mouthY - 40 * anatomyScale,
+  );
+  drawing.fillText(
+    `F2 ${Math.round(formants[1])}`,
+    throatX + 95 * anatomyScale,
+    mouthY - 40 * anatomyScale,
+  );
+  drawing.fillText(
+    `F3 ${Math.round(formants[2])}`,
+    throatX + 154 * anatomyScale,
+    mouthY - 40 * anatomyScale,
+  );
 }
 
 function drawBreathFlow(model) {
@@ -1430,9 +2039,10 @@ function drawBreathFlow(model) {
     Math.abs(flow) / Math.max(0.001, JAW_HARP_LIMITS.breathFlow[1]),
   ));
   if (amount < 0.02) return;
+  const { anatomyScale } = model;
   const exhaling = flow > 0;
-  const startX = model.throatX + 24;
-  const endX = model.triggerX + 38;
+  const startX = model.throatX + 24 * anatomyScale;
+  const endX = model.triggerX + 38 * anatomyScale;
   const direction = exhaling ? 1 : -1;
   const color = exhaling ? "#f0c46e" : "#68bff1";
   const rateMotion = logarithmicUnit(
@@ -1446,88 +2056,95 @@ function drawBreathFlow(model) {
     const travel = (time + index / 9) % 1;
     const position = exhaling ? travel : 1 - travel;
     const x = startX + (endX - startX) * position;
-    const y = model.mouthY + Math.sin(index * 2.17 + time * Math.PI * 2) * (3 + amount * 5);
-    const length = 7 + amount * 11;
+    const y = model.mouthY + Math.sin(index * 2.17 + time * Math.PI * 2)
+      * anatomyScale * (3 + amount * 5);
+    const length = anatomyScale * (7 + amount * 11);
     drawing.beginPath();
     drawing.moveTo(x - direction * length * 0.5, y);
     drawing.lineTo(x + direction * length * 0.5, y);
-    drawing.lineTo(x + direction * (length * 0.5 - 4), y - 3);
+    drawing.lineTo(
+      x + direction * (length * 0.5 - 4 * anatomyScale),
+      y - 3 * anatomyScale,
+    );
     drawing.moveTo(x + direction * length * 0.5, y);
-    drawing.lineTo(x + direction * (length * 0.5 - 4), y + 3);
+    drawing.lineTo(
+      x + direction * (length * 0.5 - 4 * anatomyScale),
+      y + 3 * anatomyScale,
+    );
     strokePath(color, 1.05, 0.16 + amount * 0.52);
   }
   drawing.fillStyle = color;
   drawing.globalAlpha = 0.7;
-  drawing.font = "650 7px ui-monospace, SFMono-Regular, Consolas, monospace";
+  drawing.font = `650 ${Math.min(9, 7 * anatomyScale)}px ui-monospace, SFMono-Regular, Consolas, monospace`;
   drawing.textAlign = "center";
-  drawing.fillText(exhaling ? "EXHALE · PRESSURE OUT" : "INHALE · PRESSURE IN", (startX + endX) * 0.5, model.mouthY + 29);
+  drawing.fillText(
+    exhaling ? "EXHALE · PRESSURE OUT" : "INHALE · PRESSURE IN",
+    (startX + endX) * 0.5,
+    model.mouthY + 29 * anatomyScale,
+  );
   drawing.restore();
 }
 
 function drawHarp(model) {
-  const { harpBowX, lipX, mouthY, triggerX, triggerY } = model;
-  const gap = 15;
-  const frameEnd = lipX + 10;
+  const {
+    anatomyScale, harpBowX, lipX, mouthY, triggerX, triggerY,
+  } = model;
+  const gap = 15 * anatomyScale;
+  const frameEnd = lipX + 10 * anatomyScale;
   drawing.lineCap = "round";
   drawing.beginPath();
   drawing.moveTo(frameEnd, mouthY - gap);
-  drawing.lineTo(harpBowX + 28, mouthY - gap);
-  drawing.bezierCurveTo(harpBowX - 22, mouthY - gap, harpBowX - 22, mouthY + gap, harpBowX + 28, mouthY + gap);
+  drawing.lineTo(harpBowX + 28 * anatomyScale, mouthY - gap);
+  drawing.bezierCurveTo(
+    harpBowX - 22 * anatomyScale,
+    mouthY - gap,
+    harpBowX - 22 * anatomyScale,
+    mouthY + gap,
+    harpBowX + 28 * anatomyScale,
+    mouthY + gap,
+  );
   drawing.lineTo(frameEnd, mouthY + gap);
-  strokePath("#df9d5a", 5.5, 0.25);
+  strokePath("#df9d5a", 5.5 * anatomyScale, 0.25);
   drawing.beginPath();
   drawing.moveTo(frameEnd, mouthY - gap);
-  drawing.lineTo(harpBowX + 28, mouthY - gap);
-  drawing.bezierCurveTo(harpBowX - 22, mouthY - gap, harpBowX - 22, mouthY + gap, harpBowX + 28, mouthY + gap);
+  drawing.lineTo(harpBowX + 28 * anatomyScale, mouthY - gap);
+  drawing.bezierCurveTo(
+    harpBowX - 22 * anatomyScale,
+    mouthY - gap,
+    harpBowX - 22 * anatomyScale,
+    mouthY + gap,
+    harpBowX + 28 * anatomyScale,
+    mouthY + gap,
+  );
   drawing.lineTo(frameEnd, mouthY + gap);
-  strokePath("#df9d5a", 1.35, 0.95);
+  strokePath("#df9d5a", 1.35 * anatomyScale, 0.95);
 
   drawing.beginPath();
-  drawing.moveTo(harpBowX + 2, mouthY);
+  drawing.moveTo(harpBowX + 2 * anatomyScale, mouthY);
   drawing.quadraticCurveTo((harpBowX + triggerX) * 0.5, mouthY - (triggerY - mouthY) * 0.42, triggerX, triggerY);
-  strokePath("#f0c46e", 2.1, 0.95);
+  strokePath("#f0c46e", 2.1 * anatomyScale, 0.95);
   drawing.beginPath();
-  drawing.moveTo(triggerX, triggerY - 16);
-  drawing.lineTo(triggerX, triggerY + 16);
-  drawing.lineTo(triggerX + 10, triggerY + 20);
-  strokePath("#f0c46e", 2.2, 0.95);
+  drawing.moveTo(triggerX, triggerY - 16 * anatomyScale);
+  drawing.lineTo(triggerX, triggerY + 16 * anatomyScale);
+  drawing.lineTo(
+    triggerX + 10 * anatomyScale,
+    triggerY + 20 * anatomyScale,
+  );
+  strokePath("#f0c46e", 2.2 * anatomyScale, 0.95);
 
   drawing.fillStyle = "rgba(223, 157, 90, 0.64)";
-  drawing.font = "600 7px ui-monospace, SFMono-Regular, Consolas, monospace";
+  drawing.font = `600 ${Math.min(9, 7 * anatomyScale)}px ui-monospace, SFMono-Regular, Consolas, monospace`;
   drawing.textAlign = "center";
-  drawing.fillText("FRAME", harpBowX + 70, mouthY + 38);
-  drawing.fillText("FREE REED", (harpBowX + triggerX) * 0.5, mouthY - 28);
-}
-
-function drawSpectrum(model) {
-  if (model.compact) return;
-  const harmonic = dominantHarmonic(state);
-  const left = Math.max(30, cssWidth * 0.48);
-  const right = cssWidth - 34;
-  const baseline = cssHeight - 57;
-  const maximumHarmonic = Math.max(24, harmonic.index);
-  const count = Math.min(maximumHarmonic, Math.max(8, Math.floor((right - left) / 8)));
-  drawing.fillStyle = "rgba(140, 145, 140, 0.62)";
-  drawing.font = "6px ui-monospace, SFMono-Regular, Consolas, monospace";
-  drawing.textAlign = "left";
-  drawing.fillText("REED HARMONICS / MOUTH-SELECTED PARTIAL", left, baseline - 52);
-  for (let bar = 0; bar < count; bar += 1) {
-    const index = count === maximumHarmonic
-      ? bar + 1
-      : Math.round(1 + bar / Math.max(1, count - 1) * (maximumHarmonic - 1));
-    const x = left + bar / Math.max(1, count - 1) * (right - left);
-    const selected = index === harmonic.index;
-    const height = selected ? 42 : Math.max(5, 28 / Math.sqrt(index));
-    drawing.beginPath();
-    drawing.moveTo(x, baseline);
-    drawing.lineTo(x, baseline - height);
-    strokePath(selected ? "#76dfd3" : "#df9d5a", selected ? 2 : 1, selected ? 0.95 : 0.34);
-    if (selected) {
-      drawing.fillStyle = "#76dfd3";
-      drawing.textAlign = "center";
-      drawing.fillText(`${index}×`, x, baseline - height - 7);
-    }
-  }
+  drawing.fillText(
+    "FRAME",
+    harpBowX + 70 * anatomyScale,
+    mouthY + 38 * anatomyScale,
+  );
+  drawing.fillText(
+    "FREE REED",
+    (harpBowX + triggerX) * 0.5,
+    mouthY - 28 * anatomyScale,
+  );
 }
 
 function drawStage() {
@@ -1547,8 +2164,8 @@ function drawStage() {
   drawHead(model);
   drawBreathFlow(model);
   drawHarp(model);
-  drawSpectrum(model);
   const effectiveAirRate = effectiveBreathRateBpm(state);
+  const mouthState = mouthPresentationState();
   drawParameterPad(
     model.airPad,
     "#68bff1",
@@ -1575,23 +2192,41 @@ function drawStage() {
   drawParameterPad(
     model.focusPad,
     "#76dfd3",
-    model.compact ? "RESONATOR" : `RESONATOR ${Math.round(state.cavityCoupling * 100)}%`,
+    model.compact ? "RESONATOR" : `RESONATOR ${Math.round(mouthState.cavityCoupling * 100)}%`,
     "FOCUS →",
     "COUPLE ↑",
   );
-  drawNode(model.triggerX + 6, model.triggerY, "#f0c46e", "PULL / PLUCK", "reed", 8);
+  drawNode(
+    model.triggerX + 6 * model.anatomyScale,
+    model.triggerY,
+    "#f0c46e",
+    "PULL / PLUCK",
+    "reed",
+    8,
+  );
   drawNode(model.airPad.x, model.airPad.y, "#68bff1", "BREATH", "air", 8);
   drawNode(model.rhythmPad.x, model.rhythmPad.y, "#f0c46e", "TEMPO", "rhythm", 8);
   drawNode(model.tongueX, model.tongueY, "#ba9af6", "TONGUE", "tongue", 7);
   drawNode(
-    clamp(model.lipX + 24 + model.lipExtension, 22, cssWidth - 22),
-    model.mouthY + 5,
+    clamp(
+      model.lipX + 24 * model.anatomyScale + model.lipExtension,
+      22,
+      cssWidth - 22,
+    ),
+    model.mouthY + 5 * model.anatomyScale,
     "#76dfd3",
     "LIPS",
     "lips",
     7,
   );
-  drawNode(model.lipX - 20, model.mouthY + model.jawGap + 74, "#ee786d", "JAW", "jaw", 7);
+  drawNode(
+    model.lipX - 20 * model.anatomyScale,
+    model.mouthY + model.jawGap + 74 * model.anatomyScale,
+    "#ee786d",
+    "JAW",
+    "jaw",
+    7,
+  );
   drawNode(model.focusPad.x, model.focusPad.y, "#76dfd3", "FOCUS / CAVITY", "focus", 7);
   drawNode(model.glottisX, model.glottisY, "#ee786d", "GLOTTIS", "glottis", 7);
   pluckFlash *= prefersReducedMotion ? 0 : 0.91;
@@ -1640,8 +2275,14 @@ function interactionAt(point) {
     && point.y >= model.rhythmPad.top
     && point.y <= model.rhythmPad.bottom
   ) return { type: "rhythm", x: point.x, y: point.y, radius: 0 };
-  const reedStart = { x: model.harpBowX + 2, y: model.mouthY };
-  const reedEnd = { x: model.triggerX + 8, y: model.triggerY };
+  const reedStart = {
+    x: model.harpBowX + 2 * model.anatomyScale,
+    y: model.mouthY,
+  };
+  const reedEnd = {
+    x: model.triggerX + 8 * model.anatomyScale,
+    y: model.triggerY,
+  };
   if (distanceToSegment(point, reedStart, reedEnd) <= 24) {
     return { type: "reed", x: model.triggerX, y: model.triggerY, radius: 24 };
   }
@@ -1689,7 +2330,7 @@ function setFromPointer(type, point, drag) {
     const glottisUnit = rangeUnit(
       drag.startValues.glottisOpening,
       JAW_HARP_LIMITS.glottisOpening,
-    ) + dx / 30;
+    ) + dx / (30 * model.anatomyScale);
     patch = { glottisOpening: rangeValue(glottisUnit, JAW_HARP_LIMITS.glottisOpening) };
     mouthChanged = true;
   } else if (type === "air") {
@@ -1728,6 +2369,13 @@ function setFromPointer(type, point, drag) {
   const previousState = state;
   const previousPhase = breathCyclePhaseAt(changedAt);
   state = sanitizeJawHarpState({ ...state, ...patch }, state);
+  if (mouthChanged) {
+    state = sanitizeJawHarpState({ ...state, vowelSequenceMode: "off" }, state);
+    sequencedVowelId = null;
+    vowelSequenceActiveStep = 0;
+    vowelSequenceNextStep = 0;
+  }
+  markReferencePerformanceCustom(...Object.keys(patch));
   if (mouthChanged) activeVowelId = null;
   if ("repeatRateBpm" in patch || "repeatSwing" in patch) {
     retimeRepeatClock(previousState, changedAt);
@@ -1877,13 +2525,41 @@ function installKeyboard() {
   });
 }
 
+function handleMidiInput(event) {
+  const { message, routeId, source } = event.detail ?? {};
+  if (!message || (routeId && routeId !== "jaw-harp")) return;
+  if (
+    source === "wax"
+    && document.documentElement.dataset.morphazoidWaxOutputMode === "midi"
+  ) return;
+  const isNoteOn = message.type === "noteOn" && Number(message.velocity) > 0;
+  const isNoteOff = message.type === "noteOff"
+    || (message.type === "noteOn" && Number(message.velocity) <= 0);
+  if (!isNoteOn && !isNoteOff) return;
+  // Claim the event synchronously so browser and WAX fallbacks cannot add a
+  // second click or discard velocity while audio startup is awaited.
+  event.preventDefault();
+  if (isNoteOff) return;
+  const numericNote = Number(message.note);
+  const note = clamp(Number.isFinite(numericNote) ? Math.round(numericNote) : 60, 0, 127);
+  const frequency = clamp(
+    440 * (2 ** ((note - 69) / 12)),
+    JAW_HARP_LIMITS.reedFrequencyHz[0],
+    JAW_HARP_LIMITS.reedFrequencyHz[1],
+  );
+  const velocity = clamp((Number(message.velocity) || 1) / 127, 0.01, 1);
+  setControl("reedFrequencyHz", frequency);
+  void pluck({ velocity, automatic: true, announcePluck: false });
+}
+
 function tick(time) {
+  updateBreathVowelSequence(time);
   if (state.repeat && graph && audioContext?.state === "running" && time >= nextRepeatAt) {
     const hit = jawHarpRhythmHit(state, repeatStep);
     if (hit.active && !tineIsHeld) {
       pluck({
         automatic: true,
-        force: state.pluckForce * hit.velocity,
+        velocity: hit.velocity,
         direction: repeatHitCount % 2 ? -state.pluckDirection : state.pluckDirection,
       });
       repeatHitCount += 1;
@@ -1915,6 +2591,7 @@ installCanvasInteractions();
 installKeyboard();
 updatePresentation();
 resizeCanvas();
+globalThis.addEventListener("morphazoid:midi-input", handleMidiInput);
 globalThis.addEventListener("resize", resizeCanvas);
 globalThis.addEventListener("blur", cancelTransientPerformance);
 document.addEventListener("visibilitychange", () => {

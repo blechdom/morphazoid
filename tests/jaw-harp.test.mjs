@@ -9,19 +9,32 @@ import {
   JAW_HARP_PRESETS,
   JAW_HARP_RANDOM_LIMITS,
   JAW_HARP_RHYTHMS,
+  JAW_HARP_STYLE_CUSTOM_ID,
+  JAW_HARP_STYLE_GESTURE_KEYS,
+  JAW_HARP_STYLE_REFERENCES,
+  JAW_HARP_STYLE_SETTING_KEYS,
+  JAW_HARP_VOWEL_SEQUENCES,
+  JAW_HARP_VOWEL_SEQUENCE_MODES,
   MAX_TINE_PULL,
   VOWEL_PRESETS,
+  applyJawHarpStyle,
   applyVowel,
   breathCycleFlow,
   breathCycleIntervalMs,
+  breathLobeBoundaryCount,
   dominantHarmonic,
   effectiveBreathRateBpm,
   jawHarpState,
+  jawHarpStyle,
+  jawHarpStyleGesture,
   jawHarpRhythmHit,
   jawHarpRhythmLoopMs,
+  jawHarpVowelSequence,
+  jawHarpVowelSequenceStep,
   linkedBreathIntervalMs,
   mouthFormants,
   mouthGeometry,
+  naturalTineStrike,
   pluckForceFromPull,
   randomizeJawHarpState,
   reedMaterialProperties,
@@ -49,6 +62,276 @@ test("jaw-harp presets describe distinct physical reeds", () => {
     assert.ok(preset.material.internalLossFactor > 0);
     assert.ok(preset.material.elasticLimitStrain > 0);
   }
+  const defaultVoice = jawHarpState("khomus");
+  assert.deepEqual(
+    [
+      defaultVoice.reedFrequencyHz,
+      defaultVoice.reedDecaySeconds,
+      defaultVoice.reedStiffness,
+      defaultVoice.pluckForce,
+      defaultVoice.pluckPosition,
+      defaultVoice.frameCoupling,
+      defaultVoice.dryResonance,
+    ],
+    [76, 4.4, 0.72, 0.92, 0.29, 0.4, 0.14],
+  );
+  assert.deepEqual(
+    JAW_HARP_PRESETS.map(({ id, settings, material }) => ({ id, settings, material })),
+    [
+      {
+        id: "khomus",
+        settings: {
+          reedFrequencyHz: 76, reedDecaySeconds: 4.4, reedStiffness: 0.72,
+          pluckForce: 0.92, pluckPosition: 0.29, frameCoupling: 0.4,
+        },
+        material: {
+          brightness: 0.72, inharmonicity: 1.25, lossTilt: 0.72,
+          frameRatio: 0.78, frameBandwidth: 0.72, contact: 0.86, airResponse: 0.88,
+          youngsModulusGPa: 200, densityKgM3: 7_800,
+          internalLossFactor: 0.0001, elasticLimitStrain: 0.009,
+        },
+      },
+      {
+        id: "munnharpe",
+        settings: {
+          reedFrequencyHz: 92, reedDecaySeconds: 2.7, reedStiffness: 0.82,
+          pluckForce: 0.66, pluckPosition: 0.24, frameCoupling: 0.48,
+        },
+        material: {
+          brightness: 1.34, inharmonicity: 1.12, lossTilt: 1.18,
+          frameRatio: 1.32, frameBandwidth: 0.58, contact: 1.2, airResponse: 1.08,
+          youngsModulusGPa: 210, densityKgM3: 7_800,
+          internalLossFactor: 0.00008, elasticLimitStrain: 0.0095,
+        },
+      },
+      {
+        id: "marranzanu",
+        settings: {
+          reedFrequencyHz: 108, reedDecaySeconds: 1.9, reedStiffness: 0.76,
+          pluckForce: 0.78, pluckPosition: 0.2, frameCoupling: 0.62,
+        },
+        material: {
+          brightness: 1.08, inharmonicity: 0.92, lossTilt: 1.46,
+          frameRatio: 1.72, frameBandwidth: 1.34, contact: 1.52, airResponse: 0.82,
+          youngsModulusGPa: 200, densityKgM3: 7_850,
+          internalLossFactor: 0.00024, elasticLimitStrain: 0.0065,
+        },
+      },
+      {
+        id: "kubing",
+        settings: {
+          reedFrequencyHz: 56, reedDecaySeconds: 0.62, reedStiffness: 0.28,
+          pluckForce: 0.58, pluckPosition: 0.46, frameCoupling: 0.74,
+        },
+        material: {
+          brightness: 0.48, inharmonicity: 0.38, lossTilt: 2.08,
+          frameRatio: 0.58, frameBandwidth: 0.92, contact: 0.54, airResponse: 0.68,
+          youngsModulusGPa: 10.6, densityKgM3: 630,
+          internalLossFactor: 0.015, elasticLimitStrain: 0.006,
+        },
+      },
+      {
+        id: "dan-moi",
+        settings: {
+          reedFrequencyHz: 126, reedDecaySeconds: 2.25, reedStiffness: 0.56,
+          pluckForce: 0.48, pluckPosition: 0.4, frameCoupling: 0.24,
+        },
+        material: {
+          brightness: 1.62, inharmonicity: 0.74, lossTilt: 0.94,
+          frameRatio: 1.08, frameBandwidth: 0.5, contact: 0.62, airResponse: 1.34,
+          youngsModulusGPa: 105, densityKgM3: 8_500,
+          internalLossFactor: 0.0015, elasticLimitStrain: 0.0035,
+        },
+      },
+    ],
+  );
+});
+
+test("reference performances are pure, idempotent, bounded, and preserve exact physical state", () => {
+  assert.equal(JAW_HARP_STYLE_REFERENCES.length, 16);
+  assert.ok(Object.isFrozen(JAW_HARP_STYLE_REFERENCES));
+  assert.ok(Object.isFrozen(JAW_HARP_STYLE_GESTURE_KEYS));
+  assert.ok(Object.isFrozen(JAW_HARP_STYLE_SETTING_KEYS));
+  assert.equal(
+    new Set(JAW_HARP_STYLE_REFERENCES.map(({ id }) => id)).size,
+    JAW_HARP_STYLE_REFERENCES.length,
+  );
+  assert.equal(new Set(JAW_HARP_STYLE_SETTING_KEYS).size, JAW_HARP_STYLE_SETTING_KEYS.length);
+  assert.deepEqual(
+    new Set(JAW_HARP_STYLE_REFERENCES.map(({ recommendedPresetId }) => recommendedPresetId)),
+    new Set(JAW_HARP_PRESETS.map(({ id }) => id)),
+    "the reference catalog should cover every physical harp body",
+  );
+  for (const requiredId of [
+    "appalachian-corn-shuck",
+    "southern-jawharp-blues",
+    "double-take-bounce",
+    "studio-sproing",
+  ]) {
+    assert.ok(jawHarpStyle(requiredId), `missing reference performance ${requiredId}`);
+  }
+  const physicalKeys = [...new Set([
+    "presetId",
+    ...JAW_HARP_PRESETS.flatMap(({ settings }) => Object.keys(settings)),
+    "dryResonance",
+    "level",
+    "repeat",
+  ])];
+  const styleKeys = new Set(JAW_HARP_STYLE_SETTING_KEYS);
+  const gestureKeys = new Set(JAW_HARP_STYLE_GESTURE_KEYS);
+  assert.ok([...gestureKeys].every((key) => styleKeys.has(key)));
+  const presetSnapshot = structuredClone(JAW_HARP_PRESETS);
+  const presetObjectReferences = JAW_HARP_PRESETS.map(({ settings, material }) => ({
+    settings,
+    material,
+  }));
+  assert.ok(physicalKeys.every((key) => !styleKeys.has(key)));
+  for (const [styleIndex, style] of JAW_HARP_STYLE_REFERENCES.entries()) {
+    assert.equal(jawHarpStyle(style.id), style);
+    assert.ok(Object.isFrozen(style));
+    assert.ok(Object.isFrozen(style.source));
+    assert.ok(Object.isFrozen(style.settings));
+    assert.ok(Object.isFrozen(style.gestureSteps));
+    assert.ok(style.gestureSteps.every(Object.isFrozen));
+    assert.ok(JAW_HARP_PRESETS.some(({ id }) => id === style.recommendedPresetId));
+    assert.match(style.source.url, /^https:\/\//);
+    assert.ok(style.source.label && style.source.license);
+    assert.deepEqual(Object.keys(style.settings).sort(), [...styleKeys].sort());
+    assert.ok(Object.keys(style.settings).every((key) => !physicalKeys.includes(key)));
+    for (const [key, value] of Object.entries(style.settings)) {
+      if (key === "autoBreath" || key === "breathLinked") {
+        assert.equal(typeof value, "boolean", `${style.id} ${key} must be boolean`);
+      } else if (key === "rhythmId") {
+        assert.ok(JAW_HARP_RHYTHMS.some(({ id }) => id === value), `${style.id} has an unknown rhythm`);
+      } else if (key === "pluckDirection") {
+        assert.ok(value === -1 || value === 1, `${style.id} has an invalid pluck direction`);
+      } else if (key === "vowelSequenceId") {
+        assert.ok(
+          JAW_HARP_VOWEL_SEQUENCES.some(({ id }) => id === value),
+          `${style.id} has an unknown vowel phrase`,
+        );
+      } else if (key === "vowelSequenceMode") {
+        assert.ok(
+          JAW_HARP_VOWEL_SEQUENCE_MODES.includes(value),
+          `${style.id} has an unknown vowel phrase mode`,
+        );
+      } else {
+        assert.ok(Number.isFinite(value), `${style.id} ${key} must be finite`);
+        assert.ok(
+          value >= JAW_HARP_LIMITS[key][0] && value <= JAW_HARP_LIMITS[key][1],
+          `${style.id} ${key} escaped its model limits`,
+        );
+      }
+    }
+    for (const [presetIndex, preset] of JAW_HARP_PRESETS.entries()) {
+      const original = Object.freeze(jawHarpState(preset.id, {
+        reedFrequencyHz: 43 + presetIndex * 23,
+        reedDecaySeconds: 0.77 + presetIndex * 1.21,
+        reedStiffness: 0.09 + presetIndex * 0.17,
+        pluckForce: 0.123 + presetIndex * 0.61,
+        pluckPosition: 0.11 + presetIndex * 0.16,
+        frameCoupling: 0.13 + presetIndex * 0.14,
+        dryResonance: 0.07 + presetIndex * 0.18,
+        level: 0.19 + presetIndex * 0.11,
+        repeat: presetIndex % 2 === 0,
+      }));
+      const originalSnapshot = structuredClone(original);
+      const styled = applyJawHarpStyle(original, style.id);
+      const expected = sanitizeJawHarpState({
+        ...original,
+        ...style.settings,
+        styleId: style.id,
+      }, original);
+      assert.deepEqual(original, originalSnapshot, `${style.id} mutated its source state`);
+      assert.deepEqual(styled, expected, `${style.id} applied keys outside its declared layer`);
+      assert.equal(styled.styleId, style.id);
+      for (const key of physicalKeys) {
+        assert.equal(styled[key], original[key], `${style.id} changed ${preset.id} ${key}`);
+      }
+      assert.ok(Number.isFinite(effectiveBreathRateBpm(styled)));
+      assert.deepEqual(
+        applyJawHarpStyle(styled, style.id),
+        styled,
+        `${style.id} was not idempotent`,
+      );
+      const nextStyle = JAW_HARP_STYLE_REFERENCES[
+        (styleIndex + 1) % JAW_HARP_STYLE_REFERENCES.length
+      ];
+      assert.deepEqual(
+        applyJawHarpStyle(styled, nextStyle.id),
+        applyJawHarpStyle(original, nextStyle.id),
+        `${style.id} leaked settings into ${nextStyle.id}`,
+      );
+    }
+  }
+  const original = jawHarpState("munnharpe", {
+    reedFrequencyHz: 147,
+    reedDecaySeconds: 6.7,
+    reedStiffness: 0.17,
+    pluckForce: 3.37,
+    pluckPosition: 0.81,
+    frameCoupling: 0.23,
+    dryResonance: 0.91,
+    repeat: true,
+    level: 0.27,
+  });
+  const custom = applyJawHarpStyle(original, "not-a-reference");
+  assert.deepEqual(
+    custom,
+    sanitizeJawHarpState({ ...original, styleId: JAW_HARP_STYLE_CUSTOM_ID }, original),
+  );
+  assert.deepEqual(JAW_HARP_PRESETS, presetSnapshot);
+  for (const [index, preset] of JAW_HARP_PRESETS.entries()) {
+    assert.equal(preset.settings, presetObjectReferences[index].settings);
+    assert.equal(preset.material, presetObjectReferences[index].material);
+  }
+  const cartoon = jawHarpStyle(JAW_HARP_DEFAULTS.styleId);
+  for (const key of JAW_HARP_STYLE_SETTING_KEYS) {
+    assert.equal(JAW_HARP_DEFAULTS[key], cartoon.settings[key], `default ${key} drifted`);
+  }
+});
+
+test("reference gesture sequences wrap safely and cannot alter physical controls", () => {
+  const forbiddenKeys = new Set([
+    "presetId",
+    ...JAW_HARP_PRESETS.flatMap(({ settings }) => Object.keys(settings)),
+    "dryResonance",
+    "level",
+    "repeat",
+    "styleId",
+    "vowelId",
+    "breathFlow",
+  ]);
+  const gestureKeys = new Set(JAW_HARP_STYLE_GESTURE_KEYS);
+  for (const style of JAW_HARP_STYLE_REFERENCES) {
+    const { gestureSteps } = style;
+    if (!gestureSteps.length) {
+      for (const step of [-3, -1, 0, 1, 20, NaN, Infinity]) {
+        assert.equal(jawHarpStyleGesture(style.id, step), null);
+      }
+      continue;
+    }
+    assert.equal(jawHarpStyleGesture(style.id, 0), gestureSteps[0]);
+    assert.equal(jawHarpStyleGesture(style.id, gestureSteps.length), gestureSteps[0]);
+    assert.equal(jawHarpStyleGesture(style.id, -1), gestureSteps.at(-1));
+    assert.equal(jawHarpStyleGesture(style.id, gestureSteps.length * 11 + 1), gestureSteps[1 % gestureSteps.length]);
+    assert.equal(jawHarpStyleGesture(style.id, -gestureSteps.length * 9 - 1), gestureSteps.at(-1));
+    assert.equal(jawHarpStyleGesture(style.id, NaN), gestureSteps[0]);
+    assert.equal(jawHarpStyleGesture(style.id, Infinity), gestureSteps[0]);
+    for (const gesture of gestureSteps) {
+      assert.ok(Object.keys(gesture).length > 0, `${style.id} contains an empty gesture`);
+      for (const [key, value] of Object.entries(gesture)) {
+        assert.ok(gestureKeys.has(key), `${style.id} gesture used undeclared key ${key}`);
+        assert.ok(!forbiddenKeys.has(key), `${style.id} gesture changed protected key ${key}`);
+        assert.ok(Number.isFinite(value), `${style.id} gesture ${key} must be finite`);
+        assert.ok(
+          value >= JAW_HARP_LIMITS[key][0] && value <= JAW_HARP_LIMITS[key][1],
+          `${style.id} gesture ${key} escaped its model limits`,
+        );
+      }
+    }
+  }
+  assert.equal(jawHarpStyleGesture("not-a-reference", 0), null);
 });
 
 test("spring steel and bamboo material models preserve their measured contrast", () => {
@@ -95,9 +378,48 @@ test("time-expanded tine motion keeps powerful second and third rebounds", () =>
 test("vowel postures move formants without moving the reed fundamental", () => {
   const starting = jawHarpState("khomus");
   const results = VOWEL_PRESETS.map(({ id }) => applyVowel(starting, id));
-  assert.deepEqual(results.map(({ reedFrequencyHz }) => reedFrequencyHz), Array(5).fill(74));
+  assert.deepEqual(
+    results.map(({ reedFrequencyHz }) => reedFrequencyHz),
+    Array(5).fill(JAW_HARP_DEFAULTS.reedFrequencyHz),
+  );
   assert.equal(new Set(results.map((state) => Math.round(mouthFormants(state).focusFrequencyHz))).size, 5);
   assert.ok(dominantHarmonic(results[2]).index > dominantHarmonic(results[4]).index);
+});
+
+test("vowel phrase catalog is immutable, complete, and wraps every sequence safely", () => {
+  assert.deepEqual(JAW_HARP_VOWEL_SEQUENCE_MODES, ["off", "pluck", "breath"]);
+  assert.ok(Object.isFrozen(JAW_HARP_VOWEL_SEQUENCE_MODES));
+  assert.equal(JAW_HARP_VOWEL_SEQUENCES.length, 6);
+  assert.ok(Object.isFrozen(JAW_HARP_VOWEL_SEQUENCES));
+  assert.equal(
+    new Set(JAW_HARP_VOWEL_SEQUENCES.map(({ id }) => id)).size,
+    JAW_HARP_VOWEL_SEQUENCES.length,
+  );
+  assert.deepEqual(jawHarpVowelSequence("a-i-o-i").steps, ["a", "i", "o", "i"]);
+
+  const vowelIds = new Set(VOWEL_PRESETS.map(({ id }) => id));
+  for (const sequence of JAW_HARP_VOWEL_SEQUENCES) {
+    assert.ok(Object.isFrozen(sequence));
+    assert.ok(Object.isFrozen(sequence.steps));
+    assert.ok(sequence.id && sequence.label && sequence.steps.length >= 2);
+    assert.ok(sequence.steps.every((id) => vowelIds.has(id)));
+    assert.equal(jawHarpVowelSequence(sequence.id), sequence);
+    assert.equal(jawHarpVowelSequenceStep(sequence.id, 0).id, sequence.steps[0]);
+    assert.equal(jawHarpVowelSequenceStep(sequence.id, sequence.steps.length).id, sequence.steps[0]);
+    assert.equal(jawHarpVowelSequenceStep(sequence.id, -1).id, sequence.steps.at(-1));
+    assert.equal(jawHarpVowelSequenceStep(sequence.id, NaN).id, sequence.steps[0]);
+    assert.equal(jawHarpVowelSequenceStep(sequence.id, Infinity).id, sequence.steps[0]);
+  }
+  assert.equal(jawHarpVowelSequence("not-a-phrase"), JAW_HARP_VOWEL_SEQUENCES[0]);
+  assert.equal(jawHarpVowelSequenceStep("not-a-phrase", 2).id, "o");
+
+  const sanitized = sanitizeJawHarpState({
+    ...JAW_HARP_DEFAULTS,
+    vowelSequenceId: "not-a-phrase",
+    vowelSequenceMode: "not-a-mode",
+  });
+  assert.equal(sanitized.vowelSequenceId, JAW_HARP_VOWEL_SEQUENCES[0].id);
+  assert.equal(sanitized.vowelSequenceMode, "off");
 });
 
 test("human vowels and impossible mouth corners remain finite and ordered", () => {
@@ -182,6 +504,8 @@ test("state sanitization and deterministic randomization stay bounded and refres
   );
   assert.equal(randomized.presetId, "marranzanu");
   assert.equal(randomized.vowelId, "i");
+  assert.equal(randomized.vowelSequenceId, "a-o-e-a");
+  assert.equal(randomized.vowelSequenceMode, "pluck");
   assert.equal(randomized.rhythmId, "two-one");
   assert.equal(randomized.repeat, false);
   assert.equal(randomized.autoBreath, true);
@@ -216,9 +540,19 @@ test("randomization favors playable tempos while preserving rare extremes", () =
   )).length / states.length;
   const denseRhythmShare = states.filter(({ rhythmId }) => rhythmId === "quarter-eighths").length
     / states.length;
+  const sequencedVowelShare = states.filter(({ vowelSequenceMode }) => vowelSequenceMode !== "off").length
+    / states.length;
   assert.ok(repeatShare > 0.19 && repeatShare < 0.25, `repeat share was ${repeatShare}`);
   assert.ok(drillShare < 0.03, `fast recurring share was ${drillShare}`);
   assert.ok(denseRhythmShare < 0.1, `dense rhythm share was ${denseRhythmShare}`);
+  assert.ok(
+    sequencedVowelShare > 0.62 && sequencedVowelShare < 0.69,
+    `sequenced vowel share was ${sequencedVowelShare}`,
+  );
+  assert.deepEqual(
+    new Set(states.map(({ vowelSequenceId }) => vowelSequenceId)),
+    new Set(JAW_HARP_VOWEL_SEQUENCES.map(({ id }) => id)),
+  );
 
   const inside = (value, limits) => value >= limits[0] && value <= limits[1];
   for (const state of states) {
@@ -239,6 +573,9 @@ test("randomization favors playable tempos while preserving rare extremes", () =
       assert.ok(inside(state[key], JAW_HARP_RANDOM_LIMITS.mouthArticulation));
     }
     assert.ok(inside(state.glottisOpening, JAW_HARP_RANDOM_LIMITS.glottisOpening));
+    assert.ok(JAW_HARP_VOWEL_SEQUENCES.some(({ id }) => id === state.vowelSequenceId));
+    assert.ok(JAW_HARP_VOWEL_SEQUENCE_MODES.includes(state.vowelSequenceMode));
+    assert.ok(state.autoBreath || state.vowelSequenceMode !== "breath");
     assert.ok(inside(
       state.dryResonance,
       state.autoBreath
@@ -263,6 +600,40 @@ test("pull distance maps symmetrically across a much wider attack range", () => 
   assert.ok(forces[0] < 0.01);
   assert.ok(forces.at(-1) > 1.8);
   assert.ok(pluckForceFromPull(MAX_TINE_PULL, 4) > 3.9);
+});
+
+test("natural tine strikes are deterministic, velocity-sensitive released pulls", () => {
+  const source = jawHarpState("khomus", {
+    pluckForce: 1.2,
+    pluckDirection: -1,
+    pluckPosition: 0.31,
+  });
+  const draws = [0, 0.5, 1];
+  let drawIndex = 0;
+  const centered = naturalTineStrike(source, {}, () => draws[drawIndex++]);
+  assert.equal(drawIndex, 3);
+  assert.ok(Object.isFrozen(centered));
+  assert.ok(Math.abs(centered.pull - 1.135) < 1e-12);
+  assert.equal(centered.force, pluckForceFromPull(centered.pull, source.pluckForce));
+  assert.equal(centered.direction, -1);
+  assert.equal(centered.position, 0.31);
+
+  const quiet = naturalTineStrike(source, { velocity: 0 }, () => 0);
+  const ordinary = naturalTineStrike(source, { velocity: 1 }, () => 0);
+  const emphatic = naturalTineStrike(source, { velocity: 1 }, () => 1);
+  assert.ok(quiet.pull < ordinary.pull && ordinary.pull < emphatic.pull);
+  assert.ok(quiet.force < ordinary.force && ordinary.force < emphatic.force);
+  assert.ok(quiet.force >= JAW_HARP_LIMITS.pluckForce[0]);
+  assert.ok(emphatic.force <= JAW_HARP_LIMITS.pluckForce[1]);
+  assert.deepEqual(
+    naturalTineStrike(source, { direction: 9, position: 99 }, () => Infinity),
+    Object.freeze({
+      pull: 1.135,
+      force: pluckForceFromPull(1.135, source.pluckForce),
+      direction: 1,
+      position: JAW_HARP_LIMITS.pluckPosition[1],
+    }),
+  );
 });
 
 test("swing preserves each two-pluck pair duration", () => {
@@ -317,6 +688,20 @@ test("automatic breath is a bounded signed inhale-exhale cycle", () => {
   assert.ok(breathCycleFlow(extreme, 0.51) > 2.99);
 });
 
+test("breath vowel sequencing counts every inhale and exhale boundary", () => {
+  assert.equal(breathLobeBoundaryCount(0, 0.39, 0.4), 0);
+  assert.equal(breathLobeBoundaryCount(0, 0.4, 0.4), 1);
+  assert.equal(breathLobeBoundaryCount(0, 1, 0.4), 2);
+  assert.equal(breathLobeBoundaryCount(0.35, 0.1, 0.4), 1);
+  assert.equal(breathLobeBoundaryCount(0.9, 0.2, 0.4), 1);
+  assert.equal(breathLobeBoundaryCount(0.35, 1.2, 0.4), 3);
+  assert.equal(breathLobeBoundaryCount(0.2, 3.7, 0.46), 7);
+  assert.equal(breathLobeBoundaryCount(-0.1, 0.2, 0.4), 1);
+  assert.equal(breathLobeBoundaryCount(0.4, 0, 0.4), 0);
+  assert.equal(breathLobeBoundaryCount(0.2, -2, 0.4), 0);
+  assert.equal(breathLobeBoundaryCount(0.99, 4.75, 0.4), 10);
+});
+
 test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
   const previousRate = globalThis.sampleRate;
   const previousBase = globalThis.AudioWorkletProcessor;
@@ -334,7 +719,13 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     Processor = Constructor;
   };
   try {
-    await import(`../src/jaw-harp-processor.js?test=${Date.now()}`);
+    const { fastSine } = await import(`../src/jaw-harp-processor.js?test=${Date.now()}`);
+    let maximumSineError = 0;
+    for (let index = -8_192; index <= 16_384; index += 1) {
+      const phase = (index + 0.371) * Math.PI / 4_096;
+      maximumSineError = Math.max(maximumSineError, Math.abs(fastSine(phase) - Math.sin(phase)));
+    }
+    assert.ok(maximumSineError < 1e-7, `sine-table error was ${maximumSineError}`);
     const processor = new Processor({ processorOptions: { configuration: JAW_HARP_DEFAULTS } });
     processor._handleMessage({ type: "pluck", force: 0.72, direction: 1, position: 0.32 });
     let squareSum = 0;
@@ -425,6 +816,120 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
       for (let index = 0; index < length; index += 1) energy += samples[index] ** 2;
       return Math.sqrt(energy / Math.max(1, length));
     };
+    const windowRms = (samples, start, end) => {
+      let energy = 0;
+      for (let index = start; index < end; index += 1) energy += samples[index] ** 2;
+      return Math.sqrt(energy / Math.max(1, end - start));
+    };
+    const modalEnergy = (voice) => voice.amplitudes.reduce(
+      (sum, amplitude) => sum + amplitude * amplitude,
+      0,
+    );
+
+    const releasedFromHold = new Processor({ processorOptions: { configuration: {
+      ...JAW_HARP_DEFAULTS,
+      autoBreath: false,
+    } } });
+    const quickFingerStrike = new Processor({ processorOptions: { configuration: {
+      ...JAW_HARP_DEFAULTS,
+      autoBreath: false,
+    } } });
+    const equivalentStrike = {
+      force: 1.17,
+      direction: -1,
+      position: 0.41,
+    };
+    releasedFromHold._handleMessage({ type: "hold-tine" });
+    releasedFromHold._handleMessage({ type: "release-tine", ...equivalentStrike });
+    quickFingerStrike._handleMessage({ type: "strike-tine", ...equivalentStrike });
+    assert.deepEqual(
+      Array.from(quickFingerStrike.amplitudes),
+      Array.from(releasedFromHold.amplitudes),
+      "a resting button/MIDI/repeat strike should start with held-release modal amplitudes",
+    );
+    assert.deepEqual(
+      Array.from(quickFingerStrike.phases),
+      Array.from(releasedFromHold.phases),
+      "a resting button/MIDI/repeat strike should start at released displacement",
+    );
+    assert.equal(quickFingerStrike.attackEnvelope, releasedFromHold.attackEnvelope);
+    assert.equal(quickFingerStrike.clickEnvelope, releasedFromHold.clickEnvelope);
+    assert.equal(quickFingerStrike.hasBeenPlucked, true);
+
+    const repeatingStrike = new Processor({ processorOptions: { configuration: {
+      ...JAW_HARP_DEFAULTS,
+      autoBreath: false,
+      dryResonance: 1,
+    } } });
+    for (let strikeIndex = 0; strikeIndex < 12; strikeIndex += 1) {
+      if (strikeIndex) renderProcessor(repeatingStrike, 3);
+      const amplitudesBefore = Float64Array.from(repeatingStrike.amplitudes);
+      const energyBefore = modalEnergy(repeatingStrike);
+      repeatingStrike._handleMessage({
+        type: "strike-tine",
+        force: 0.9,
+        direction: strikeIndex % 2 ? -1 : 1,
+        position: strikeIndex % 3 ? 0.31 : 0.67,
+        automatic: true,
+      });
+      assert.ok(
+        repeatingStrike.amplitudes.every((amplitude, index) => (
+          amplitude + 1e-12 >= amplitudesBefore[index]
+        )),
+        `released-displacement strike ${strikeIndex + 1} reduced modal energy`,
+      );
+      assert.ok(modalEnergy(repeatingStrike) + 1e-12 >= energyBefore);
+      assert.ok(repeatingStrike.attackEnvelope >= 0.899);
+      const attack = renderProcessor(repeatingStrike, 4);
+      assert.ok(rmsOf(attack, 384) > 0.002, `strike ${strikeIndex + 1} lost its attack`);
+      assert.ok(attack.every(Number.isFinite));
+      assert.ok(attack.every((sample) => Math.abs(sample) < 0.95));
+    }
+
+    for (const style of JAW_HARP_STYLE_REFERENCES) {
+      const configuration = applyJawHarpStyle(
+        jawHarpState(style.recommendedPresetId),
+        style.id,
+      );
+      const voice = new Processor({ processorOptions: { configuration } });
+      voice._handleMessage({ type: "hold-tine" });
+      voice._handleMessage({
+        type: "release-tine",
+        force: configuration.pluckForce,
+        direction: configuration.pluckDirection,
+        position: configuration.pluckPosition,
+      });
+      const rendered = renderProcessor(voice, 160);
+      let peak = 0;
+      let squareSum = 0;
+      for (const sample of rendered) {
+        assert.ok(Number.isFinite(sample), `${style.id} rendered a non-finite sample`);
+        peak = Math.max(peak, Math.abs(sample));
+        squareSum += sample * sample;
+      }
+      const styleRms = Math.sqrt(squareSum / rendered.length);
+      assert.ok(styleRms > 0.001, `${style.id} rendered too quietly (${styleRms})`);
+      assert.ok(peak > 0.005, `${style.id} had no audible attack (${peak})`);
+      assert.ok(peak < 0.98, `${style.id} exceeded the worklet bound (${peak})`);
+    }
+    const defaultReleaseVoice = new Processor({
+      processorOptions: { configuration: JAW_HARP_DEFAULTS },
+    });
+    defaultReleaseVoice._handleMessage({ type: "hold-tine" });
+    defaultReleaseVoice._handleMessage({
+      type: "release-tine",
+      force: JAW_HARP_DEFAULTS.pluckForce,
+      direction: JAW_HARP_DEFAULTS.pluckDirection,
+      position: JAW_HARP_DEFAULTS.pluckPosition,
+    });
+    const defaultRelease = renderProcessor(defaultReleaseVoice, 60);
+    const defaultAttackRms = windowRms(defaultRelease, 0, 960);
+    const defaultBodyRms = windowRms(defaultRelease, 960, 4_800);
+    assert.ok(defaultAttackRms >= defaultBodyRms * 0.5);
+    assert.ok(Math.max(...defaultRelease.map(Math.abs)) < 0.95);
+    assert.ok(defaultReleaseVoice.strikePresence < 0.01);
+    assert.ok(defaultReleaseVoice.decays[0] ** 48_000 > 0.78);
+    assert.ok(defaultReleaseVoice.decays[0] ** 48_000 < 0.82);
     const randomizedAuditionState = jawHarpState("kubing", {
       autoBreath: false,
       dryResonance: JAW_HARP_RANDOM_LIMITS.dryResonanceWithoutBreath[0],
@@ -466,12 +971,22 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     };
     for (let index = 0; index < 16; index += 1) {
       const configuration = randomizeJawHarpState(JAW_HARP_DEFAULTS, auditionRandom);
-      const voice = new Processor({ processorOptions: { configuration } });
+      const sequenceVowel = configuration.vowelSequenceMode === "off"
+        ? null
+        : jawHarpVowelSequenceStep(configuration.vowelSequenceId, 0);
+      const audibleConfiguration = sequenceVowel
+        ? sanitizeJawHarpState({
+          ...configuration,
+          ...sequenceVowel.settings,
+          vowelId: sequenceVowel.id,
+        }, configuration)
+        : configuration;
+      const voice = new Processor({ processorOptions: { configuration: audibleConfiguration } });
       voice._handleMessage({
         type: "pluck",
-        force: Math.max(JAW_HARP_DEFAULTS.pluckForce, configuration.pluckForce),
-        direction: configuration.pluckDirection,
-        position: configuration.pluckPosition,
+        force: Math.max(JAW_HARP_DEFAULTS.pluckForce, audibleConfiguration.pluckForce),
+        direction: audibleConfiguration.pluckDirection,
+        position: audibleConfiguration.pluckPosition,
         automatic: true,
       });
       const samples = renderProcessor(voice, 48);
@@ -629,6 +1144,10 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
       voice._handleMessage({
         type: "release-tine", force: 1, direction: 1, position: 0.32,
       });
+      // Measure the material/modal rebound separately from the intentionally
+      // short contact transient that gives the default voice its clear attack.
+      voice.attackEnvelope = 0;
+      voice.strikePresence = 0;
       const period = Math.round(48_000 / configuration.reedFrequencyHz);
       const cycles = [];
       for (let cycle = 0; cycle < 3; cycle += 1) {
@@ -760,13 +1279,25 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     });
     held._handleMessage({ type: "breath", flow: 3, manual: true });
     held._handleMessage({ type: "pluck", force: 1, direction: 1, position: 0.32 });
-    held.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    const ringingOutput = new Float32Array(128);
+    held.process([], [[ringingOutput, new Float32Array(128)]]);
     held._handleMessage({ type: "hold-tine" });
     const heldOutput = new Float32Array(128);
     const heldOutputRight = new Float32Array(128);
     held.process([], [[heldOutput, heldOutputRight]]);
-    assert.ok(heldOutput.every((sample) => sample === 0));
-    assert.ok(heldOutputRight.every((sample) => sample === 0));
+    assert.ok(heldOutput.some((sample) => Math.abs(sample) > 1e-5));
+    assert.ok(heldOutputRight.some((sample) => Math.abs(sample) > 1e-5));
+    const fadedBoundaryJump = Math.abs(heldOutput[0] - ringingOutput[ringingOutput.length - 1]);
+    const hardCutBoundaryJump = Math.abs(ringingOutput[ringingOutput.length - 1]);
+    assert.ok(fadedBoundaryJump < hardCutBoundaryJump);
+    const heldFadeTail = new Float32Array(128);
+    held.process([], [[heldFadeTail, new Float32Array(128)]]);
+    assert.ok(heldFadeTail.some((sample) => Math.abs(sample) > 1e-5));
+    assert.equal(heldFadeTail[heldFadeTail.length - 1], 0);
+    const fullyHeldOutput = new Float32Array(128);
+    held.process([], [[fullyHeldOutput, new Float32Array(128)]]);
+    assert.ok(fullyHeldOutput.every((sample) => sample === 0));
+    assert.equal(held.tineHoldFading, false);
     held._handleMessage({ type: "pluck", force: 4, direction: 1, position: 0.32, automatic: true });
     const suppressedOutput = new Float32Array(128);
     const suppressedOutputRight = new Float32Array(128);
@@ -974,6 +1505,15 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(html, /id="breathsPerLoop"/);
   assert.match(html, /id="breathLinkButton"/);
   assert.match(html, /id="dryResonance"/);
+  assert.match(html, /Physical harp \/ material/);
+  assert.match(html, /id="harpSelect" aria-label="Jaw harp physical body and material preset"/);
+  assert.match(html, /id="styleSelect"[\s\S]*?aria-describedby="styleDescription styleSource"/);
+  assert.match(html, /id="styleSource"[\s\S]*?target="_blank"[\s\S]*?rel="noopener noreferrer"/);
+  assert.match(html, /id="vowelSequenceSelect"[\s\S]*?aria-describedby="vowelSequenceHelp"/);
+  assert.match(html, /data-vowel-sequence-mode="off"[\s\S]*?data-vowel-sequence-mode="pluck"[\s\S]*?data-vowel-sequence-mode="breath"/);
+  assert.match(html, /Breath mode steps once at every inhale\/exhale turn/);
+  assert.ok(html.indexOf('id="randomizeButton"') < html.indexOf('id="vowelSequenceSelect"'));
+  assert.ok(html.indexOf('id="vowelSequenceSelect"') < html.indexOf('class="jaw-model-hud"'));
   assert.match(html, /src="jaw-harp-app\.js"/);
   for (const key of [
     "pluckForce",
@@ -1003,8 +1543,22 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(html, /focus and cavity node in two dimensions/);
   assert.match(html, /glottis node\s+horizontally/);
   assert.match(css, /\.jaw-harp-page \.shell/);
+  assert.match(css, /\.jaw-style-source/);
   assert.match(css, /@media \(max-width: 650px\)/);
   assert.match(app, /new AudioWorkletNode\(context, "jaw-harp-physical-model"/);
+  const audioConfigurationBlock = app.slice(
+    app.indexOf("function audioConfiguration("),
+    app.indexOf("function breathLabel("),
+  );
+  assert.match(audioConfigurationBlock, /styleId: _styleId/);
+  assert.match(audioConfigurationBlock, /for \(const key of JAW_HARP_STYLE_GESTURE_KEYS\)/);
+  assert.match(audioConfigurationBlock, /function postNextReferenceGesture\(\)/);
+  assert.match(audioConfigurationBlock, /jawHarpStyleGesture\(state\.styleId, referenceGestureStep\)/);
+  assert.match(audioConfigurationBlock, /jawHarpVowelSequenceStep\(/);
+  assert.match(audioConfigurationBlock, /state\.vowelSequenceMode === "pluck"/);
+  assert.match(audioConfigurationBlock, /configuration: audioConfiguration\(gesture\)/);
+  assert.match(app, /function updateBreathVowelSequence\(/);
+  assert.match(app, /breathLobeBoundaryCount\(/);
   assert.match(app, /pointerdown/);
   assert.match(app, /pluckForceFromPull\(drag\.pull, state\.pluckForce\)/);
   assert.match(app, /tineReleaseMotion\(/);
@@ -1052,7 +1606,7 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(auditionBlock, /auditionBreathPhase = state\.autoBreath \? state\.breathBalance \* 0\.5 : 0/);
   assert.match(auditionBlock, /resetBreathCycle\(auditionBreathPhase\)/);
   assert.match(auditionBlock, /clamp\([\s\S]*?RANDOMIZE_AUDITION_FORCE_FLOOR,[\s\S]*?JAW_HARP_RANDOM_LIMITS\.pluckForce\[1\]/);
-  assert.match(auditionBlock, /type: "pluck"/);
+  assert.match(auditionBlock, /const struck = await pluck\(/);
   assert.match(auditionBlock, /automatic: true/);
   assert.match(auditionBlock, /repeatStep = 1/);
   assert.match(auditionBlock, /repeatHitCount = 1/);
@@ -1064,6 +1618,8 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(randomizeBlock, /nextRepeatAt = randomizedAt/);
   assert.match(randomizeBlock, /startingBreathPhase = state\.autoBreath \? state\.breathBalance \* 0\.5 : 0/);
   assert.match(randomizeBlock, /resetBreathCycle\(startingBreathPhase\)/);
+  assert.match(randomizeBlock, /resetVowelSequence\(\{ post: false, present: false \}\)/);
+  assert.doesNotMatch(randomizeBlock, /vowelSequenceMode:\s*"off"/);
   assert.match(randomizeBlock, /commandedBreathFlow = breathFlowAt\(\)/);
   assert.match(randomizeBlock, /void auditionRandomizedModel\(\)/);
   assert.ok(
@@ -1108,23 +1664,65 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
     app.indexOf("async function pluck("),
     app.indexOf("function presentPluck("),
   );
-  assert.match(pluckBlock, /!audioGraphIsRunning\(\) && !\(await ensureAudio\(\)\)/);
+  assert.match(pluckBlock, /startupNeeded = !audioGraphIsRunning\(\)/);
+  assert.match(pluckBlock, /startupNeeded && !\(await ensureAudio\(\)\)/);
+  assert.match(pluckBlock, /startupNeeded && requestSerial !== pluckRequestSerial/);
+  assert.match(pluckBlock, /naturalTineStrike\(state, \{ velocity, direction, position \}\)\.force/);
+  assert.match(pluckBlock, /postNextReferenceGesture\(\)/);
+  assert.match(pluckBlock, /type: "strike-tine"/);
+  assert.doesNotMatch(pluckBlock, /type: "pluck"/);
   const releaseTineBlock = app.slice(
     app.indexOf("async function releaseTine("),
     app.indexOf("function clearPointerInteraction("),
   );
   assert.match(releaseTineBlock, /audioGraphIsRunning\(\) \? true : await ensureAudio\(\)/);
+  assert.match(releaseTineBlock, /postNextReferenceGesture\(\)/);
+  assert.match(releaseTineBlock, /type: "release-tine"/);
   const loadHarpBlock = app.slice(
     app.indexOf("function loadHarp("),
     app.indexOf("function loadVowel("),
   );
   assert.match(loadHarpBlock, /audioGraphIsRunning\(\) && !tineIsHeld/);
+  const referencePerformanceBlock = app.slice(
+    app.indexOf("function markReferencePerformanceCustom("),
+    app.indexOf("function loadVowel("),
+  );
+  assert.match(referencePerformanceBlock, /referencePerformanceBaseline/);
+  assert.match(referencePerformanceBlock, /applyJawHarpStyle\(state, style\.id\)/);
+  assert.match(referencePerformanceBlock, /level: retainedLevel/);
+  assert.match(referencePerformanceBlock, /repeat: retainedRepeat/);
+  assert.match(referencePerformanceBlock, /\.\.\.baseline\.settings/);
+  assert.match(referencePerformanceBlock, /preserveBreathCyclePhase\(previousPhase, changedAt\)/);
+  assert.doesNotMatch(referencePerformanceBlock, /type: "silence"/);
+  const midiBlock = app.slice(
+    app.indexOf("function handleMidiInput("),
+    app.indexOf("function tick("),
+  );
+  assert.match(midiBlock, /message\.type === "noteOn"/);
+  assert.match(midiBlock, /event\.preventDefault\(\)/);
+  assert.match(midiBlock, /source === "wax"[\s\S]*?morphazoidWaxOutputMode === "midi"/);
+  assert.match(midiBlock, /Number\.isFinite\(numericNote\)/);
+  assert.match(midiBlock, /setControl\("reedFrequencyHz", frequency\)/);
+  assert.match(midiBlock, /Number\(message\.velocity\)[\s\S]*?\/ 127/);
+  assert.match(midiBlock, /void pluck\(\{ velocity, automatic: true, announcePluck: false \}\)/);
+  const tickBlock = app.slice(app.indexOf("function tick("), app.indexOf("buildPresets();"));
+  assert.match(tickBlock, /updateBreathVowelSequence\(time\)/);
+  assert.match(tickBlock, /velocity: hit\.velocity/);
+  assert.match(app, /function followManualBreathWithVowel\(/);
+  assert.match(app, /manualBreathDirection[\s\S]*?resetBreathSequenceClock\(time\)/);
+  assert.match(app, /addEventListener\("morphazoid:midi-input", handleMidiInput\)/);
+  assert.match(app, /function responsiveAnatomyScale\(width, height, compact\)/);
+  assert.match(app, /\(compact \? 360 : 510\) \* anatomyScale/);
+  assert.match(app, /230 \* anatomyScale/);
   assert.match(app, /function drawHair\(/);
   assert.match(app, /const headOverlapY = compact \? 3 : 5/);
-  assert.match(app, /topY \+ 28 \+ headOverlapY/);
-  assert.match(app, /topY \+ 49 \+ headOverlapY/);
+  assert.match(app, /const frontHairY = topY \+ 28 \+ headOverlapY/);
+  assert.match(app, /const backHairY = topY \+ 49 \+ headOverlapY/);
+  assert.match(app, /topY \+ \(frontHairY - topY\) \* anatomyScale/);
+  assert.match(app, /topY \+ \(backHairY - topY\) \* anatomyScale/);
   assert.match(app, /function drawEye\(/);
   assert.match(app, /1 \+ exhale \* 0\.36 - inhale \* 0\.11/);
+  assert.doesNotMatch(app, /function drawSpectrum\(|MOUTH-SELECTED PARTIAL/);
   assert.match(app, /function lipExtensionPixels\(/);
   assert.match(app, /maximumRetraction/);
   assert.match(app, /maximumProtrusion/);
@@ -1136,11 +1734,22 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(app, /pointercancel", cancelPointer/);
   assert.match(processor, /registerProcessor\("jaw-harp-physical-model"/);
   assert.match(processor, /class StateVariableBandpass/);
+  assert.match(processor, /message\.type === "strike-tine"/);
   assert.match(processor, /maximum displacement with zero velocity/);
+  assert.match(processor, /fast finger strike adds another released-displacement state/);
   assert.match(processor, /retrigger supplies energy without phase-braking/);
   assert.match(processor, /COEFFICIENT_REED/);
   assert.match(processor, /coefficientMaskForKey/);
   assert.match(processor, /_updateCoefficients\(coefficientMask = COEFFICIENT_ALL\)/);
+  assert.match(processor, /const SINE_TABLE = new Float64Array\(SINE_TABLE_SIZE\)/);
+  assert.match(processor, /const INHALE_AIR_WEIGHTS_DRY = new Float64Array\(MODE_COUNT\)/);
+  assert.match(processor, /const EXHALE_AIR_WEIGHTS_WET = new Float64Array\(MODE_COUNT\)/);
+  const renderSourceBlock = processor.slice(
+    processor.indexOf("  _renderSource()"),
+    processor.indexOf("  _radiate(source, side)"),
+  );
+  assert.match(renderSourceBlock, /fastSine\(phase\)/);
+  assert.doesNotMatch(renderSourceBlock, /Math\.sin|Math\.pow\(harmonic|% \(Math\.PI \* 2\)/);
   const radiateBlock = processor.match(/_radiate\(source, side\) \{[\s\S]*?^  \}/m)?.[0] ?? "";
   assert.match(processor, /const INHALE_FORMANT_WEIGHTS = Object\.freeze\(\[/);
   assert.match(processor, /const EXHALE_FORMANT_WEIGHTS = Object\.freeze\(\[/);

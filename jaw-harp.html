@@ -82,7 +82,7 @@
         <div class="jaw-transport" aria-label="Jaw harp transport">
           <button id="pluckButton" type="button" data-primary-transport>
             <span class="jaw-pluck-icon" aria-hidden="true"><i></i></span>
-            <span><b>Pluck reed</b><small id="pluckState">space · pull canvas trigger</small></span>
+            <span><b>Pluck reed</b><small id="pluckState">space · varied finger pull</small></span>
           </button>
           <button id="repeatButton" type="button" aria-pressed="false">
             <span aria-hidden="true">↻</span>
@@ -90,21 +90,46 @@
           </button>
         </div>
 
-        <section class="jaw-preset-deck" aria-label="Harp and vowel presets">
+        <section class="jaw-preset-deck" aria-label="Physical material, reference performance, and vowel presets">
           <label for="harpSelect">
-            <span>Jaw-harp instrument</span>
-            <select id="harpSelect" aria-label="Jaw harp physical preset"></select>
+            <span>Physical harp / material</span>
+            <select id="harpSelect" aria-label="Jaw harp physical body and material preset"></select>
           </label>
           <p id="harpDescription">Low, elastic steel tongue with a long bloom and a strong, dark harmonic ladder.</p>
+          <label for="styleSelect">
+            <span id="styleSelectLabel">Reference performance</span>
+            <select id="styleSelect" aria-label="Jaw harp reference performance" aria-describedby="styleDescription styleSource"></select>
+          </label>
+          <p id="styleDescription">
+            Bright elastic studio twang with a clear contact snap and a roomy vowel bloom.
+          </p>
+          <a class="jaw-style-source" id="styleSource" href="#" target="_blank" rel="noopener noreferrer">
+            Reference: Snoopy-style jaw harp · CC0 1.0
+          </a>
           <div class="jaw-vowel-row" id="vowelButtons" role="group" aria-label="Mouth vowel shapes"></div>
           <button class="jaw-randomize-button" id="randomizeButton" type="button">
             <span aria-hidden="true">✦</span>
-            <span><b>Randomize the physical model</b><small>fresh playable body, reed, mouth, audible breath + weighted rhythm</small></span>
+            <span><b>Randomize sound + performance</b><small>fresh playable body, reed, vowels, audible breath + weighted rhythm</small></span>
           </button>
+          <div class="jaw-vowel-sequencer" aria-labelledby="vowelSequenceTitle">
+            <label class="jaw-select-control" for="vowelSequenceSelect">
+              <span>
+                <b id="vowelSequenceTitle">Vowel phrase</b>
+                <small>A mouth-shape sequence that can follow the hand or the inhale/exhale turns.</small>
+              </span>
+              <select id="vowelSequenceSelect" aria-describedby="vowelSequenceHelp"></select>
+            </label>
+            <div class="jaw-vowel-mode" role="group" aria-label="Vowel phrase timing">
+              <button type="button" data-vowel-sequence-mode="off" aria-pressed="true">Off</button>
+              <button type="button" data-vowel-sequence-mode="pluck" aria-pressed="false">With plucks</button>
+              <button type="button" data-vowel-sequence-mode="breath" aria-pressed="false">With breath</button>
+            </div>
+            <small id="vowelSequenceHelp">Rests do not advance the phrase. Breath mode steps once at every inhale/exhale turn.</small>
+          </div>
         </section>
 
         <div class="jaw-model-hud" aria-live="polite">
-          <span><small>Reed fundamental</small><output id="reedReadout">74 Hz</output></span>
+          <span><small>Reed fundamental</small><output id="reedReadout">76 Hz</output></span>
           <span><small>Harmonic focus</small><output id="harmonicReadout">12 × · 888 Hz</output></span>
           <span><small>Oral cavity</small><output id="cavityReadout">15.8 cm · 114 ml</output></span>
           <span><small>Signed airflow</small><output id="breathReadout">rest</output></span>
@@ -114,32 +139,32 @@
         <details class="group control-section" data-section="sound" open>
           <summary class="group-summary">
             <h2 class="group-title">Free reed</h2>
-            <span class="section-state" id="reedSummary">74 Hz · forged steel</span>
+            <span class="section-state" id="reedSummary">76 Hz · forged steel</span>
           </summary>
           <div class="group-body">
             <label class="control" for="reedFrequencyHz">
-              <span><b>Reed fundamental</b><output id="reedFrequencyHzOut" for="reedFrequencyHz">74 Hz</output></span>
-              <input id="reedFrequencyHz" type="range" min="38" max="180" step="1" value="74" />
+              <span><b>Reed fundamental</b><output id="reedFrequencyHzOut" for="reedFrequencyHz">76 Hz</output></span>
+              <input id="reedFrequencyHz" type="range" min="38" max="180" step="1" value="76" />
               <small>Changes the cantilever tongue's rest frequency. Mouth motion leaves this pitch in place.</small>
             </label>
             <label class="control" for="reedDecaySeconds">
-              <span><b>Mechanical decay</b><output id="reedDecaySecondsOut" for="reedDecaySeconds">3.8 s</output></span>
-              <input id="reedDecaySeconds" type="range" min="0.35" max="8" step="0.05" value="3.8" />
+              <span><b>Mechanical decay</b><output id="reedDecaySecondsOut" for="reedDecaySeconds">4.4 s</output></span>
+              <input id="reedDecaySeconds" type="range" min="0.35" max="8" step="0.05" value="4.4" />
               <small>Energy loss in the tongue, root, frame, lips, and teeth.</small>
             </label>
             <label class="control" for="reedStiffness">
-              <span><b>Lamella stiffness</b><output id="reedStiffnessOut" for="reedStiffness">68%</output></span>
-              <input id="reedStiffness" type="range" min="0" max="1" step="0.01" value="0.68" />
+              <span><b>Lamella stiffness</b><output id="reedStiffnessOut" for="reedStiffness">72%</output></span>
+              <input id="reedStiffness" type="range" min="0" max="1" step="0.01" value="0.72" />
               <small>Tilts modal loss and high-partial stretch from soft bamboo toward hard metal.</small>
             </label>
             <label class="control" for="pluckPosition">
-              <span><b>Pluck point</b><output id="pluckPositionOut" for="pluckPosition">32%</output></span>
-              <input id="pluckPosition" type="range" min="0.08" max="0.92" step="0.01" value="0.32" />
+              <span><b>Pluck point</b><output id="pluckPositionOut" for="pluckPosition">29%</output></span>
+              <input id="pluckPosition" type="range" min="0.08" max="0.92" step="0.01" value="0.29" />
               <small>Moves the excitation comb along the flexible tongue.</small>
             </label>
             <label class="control" for="pluckForce">
-              <span><b>Tine tension scale</b><output id="pluckForceOut" for="pluckForce">72%</output></span>
-              <input id="pluckForce" type="range" min="0.005" max="4" step="0.005" value="0.72" />
+              <span><b>Tine tension scale</b><output id="pluckForceOut" for="pluckForce">92%</output></span>
+              <input id="pluckForce" type="range" min="0.005" max="4" step="0.005" value="0.92" />
               <small>Scales initial displacement and contact attack. Canvas pull distance spans whisper taps through 400% overpulls.</small>
             </label>
           </div>
@@ -240,13 +265,13 @@
               <small>Balances direct lamella radiation against the moving oral modes, then over-couples them above 100%.</small>
             </label>
             <label class="control" for="dryResonance">
-              <span><b>Unbreathed resonance</b><output id="dryResonanceOut" for="dryResonance">6%</output></span>
-              <input id="dryResonance" type="range" min="0" max="1" step="0.01" value="0.06" />
+              <span><b>Unbreathed resonance</b><output id="dryResonanceOut" for="dryResonance">14%</output></span>
+              <input id="dryResonance" type="range" min="0" max="1" step="0.01" value="0.14" />
               <small>At minimum, an unbreathed pluck is only a soft mechanical tick; signed breath opens the mouth resonance.</small>
             </label>
             <label class="control" for="frameCoupling">
-              <span><b>Frame / teeth coupling</b><output id="frameCouplingOut" for="frameCoupling">36%</output></span>
-              <input id="frameCoupling" type="range" min="0" max="1" step="0.01" value="0.36" />
+              <span><b>Frame / teeth coupling</b><output id="frameCouplingOut" for="frameCoupling">40%</output></span>
+              <input id="frameCoupling" type="range" min="0" max="1" step="0.01" value="0.4" />
               <small>Adds the damped structural mode and contact click transmitted through the frame.</small>
             </label>
             <label class="control" for="glottisOpening">
@@ -339,7 +364,7 @@
         alternating swing without restarting the breath pattern. Drag the tongue node in two dimensions, the jaw node
         vertically, and the lip node horizontally. Drag the focus and cavity node in two dimensions, or the glottis node
         horizontally, to reshape the resonator. Equivalent labeled controls are available in the control panel.
-        Space or Enter plucks the reed. A, E, I, O, and U load mouth shapes. Number keys one through five load harp bodies.
+        Space or Enter plucks the reed. A, E, I, O, and U load mouth shapes and turn off vowel sequencing. Number keys one through five load harp bodies.
         R toggles the repeater. Left bracket holds inhale, right bracket holds exhale, and Escape stops it.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
