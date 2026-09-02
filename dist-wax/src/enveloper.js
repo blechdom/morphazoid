@@ -25,7 +25,9 @@ export const ENVELOPER_STRUCTURE = Object.freeze({
 export const ENVELOPER_MIN_SPLIT_GAP = 0.08;
 
 export const ENVELOPER_LIMITS = Object.freeze({
-  cycleSeconds: Object.freeze({ minimum: 0.75, maximum: 120 }),
+  // Four seconds plus the nested 8% split floor keeps every playable leaf at
+  // or above the FM renderer's 25 ms minimum duration.
+  cycleSeconds: Object.freeze({ minimum: 4, maximum: 120 }),
   frequencyHz: Object.freeze({ minimum: 20, maximum: 20_000 }),
   modulationIndex: Object.freeze({ minimum: 0, maximum: 14 }),
   modulationRatio: Object.freeze({ minimum: 0.5, maximum: 8 }),

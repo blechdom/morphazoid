@@ -95,6 +95,7 @@ for worktree_runtime_file in \
   enveloper-app.js \
   src/enveloper.js \
   src/enveloper-audio.js \
+  src/enveloper-transport.js \
   assets/instruments/enveloper.webp \
   alien-larynx.html \
   alien-larynx.css \
@@ -539,6 +540,7 @@ required_files=(
   enveloper-app.js
   src/enveloper.js
   src/enveloper-audio.js
+  src/enveloper-transport.js
   assets/instruments/enveloper.webp
   alien-larynx.html
   alien-larynx.css

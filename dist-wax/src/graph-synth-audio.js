@@ -906,6 +906,23 @@ export class GraphSynthAudio {
     voice.pendingSources?.clear?.();
   }
 
+  /**
+   * Remove voices which have not begun without disturbing the voice currently
+   * sounding. Editors use this to invalidate their lookahead queue immediately
+   * while a coalesced replacement is prepared.
+   */
+  cancelScheduled() {
+    if (!this.context) return 0;
+    const now = finite(this.context.currentTime, 0);
+    let cancelled = 0;
+    for (const voice of [...this.activeVoices]) {
+      if (voice.startAt <= now + 1e-6) continue;
+      this.#cancelVoice(voice, now);
+      cancelled += 1;
+    }
+    return cancelled;
+  }
+
   silence() {
     if (!this.context) {
       for (const voice of [...this.activeVoices]) this.#cleanupVoice(voice);

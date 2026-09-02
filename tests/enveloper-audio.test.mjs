@@ -12,6 +12,7 @@ class FakeGraphSynthAudio {
     this.outputCalls = [];
     this.triggerCalls = [];
     this.silenceCalls = 0;
+    this.cancelScheduledCalls = 0;
     this.closeCalls = 0;
   }
 
@@ -31,6 +32,11 @@ class FakeGraphSynthAudio {
 
   silence() {
     this.silenceCalls += 1;
+  }
+
+  cancelScheduled() {
+    this.cancelScheduledCalls += 1;
+    return 2;
   }
 
   async close() {
@@ -161,7 +167,18 @@ test("Enveloper facade arms explicitly, forwards absolute time, and releases its
 
   audio.silence();
   assert.equal(engine.silenceCalls, 1);
+  assert.equal(audio.cancelScheduled(), 2);
+  assert.equal(engine.cancelScheduledCalls, 1);
   await audio.close();
   assert.equal(engine.closeCalls, 1);
   assert.equal(audio.engineRunning, false);
+});
+
+test("Enveloper falls back to a full silence when its engine cannot cancel only future voices", () => {
+  const engine = new FakeGraphSynthAudio();
+  engine.cancelScheduled = undefined;
+  const audio = new EnveloperAudio({}, { engine });
+
+  audio.cancelScheduled();
+  assert.equal(engine.silenceCalls, 1);
 });

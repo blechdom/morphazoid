@@ -467,6 +467,96 @@
   background: color-mix(in oklab, var(--enveloper-parent) 7%, var(--bg-deep));
 }
 
+.enveloper-timing-priority {
+  display: grid;
+  min-height: 41px;
+  margin: 0 0 13px;
+  padding: 7px 9px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--enveloper-parent) 4%, transparent) 1px, transparent 1px),
+    color-mix(in oklab, var(--bg-deep) 92%, transparent);
+  background-size: 12px 100%, auto;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.enveloper-timing-priority > i {
+  display: grid;
+  width: 20px;
+  height: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: end;
+  gap: 2px;
+}
+
+.enveloper-timing-priority > i span {
+  display: block;
+  height: 4px;
+  border-top: 1px solid currentColor;
+}
+
+.enveloper-timing-priority > i span:nth-child(2) {
+  height: 9px;
+}
+
+.enveloper-timing-priority > i span:nth-child(3) {
+  height: 13px;
+}
+
+.enveloper-timing-priority > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.enveloper-timing-priority b,
+.enveloper-timing-priority output,
+.enveloper-timing-priority small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enveloper-timing-priority b {
+  color: color-mix(in oklab, var(--ink) 72%, var(--enveloper-parent));
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.enveloper-timing-priority output,
+.enveloper-timing-priority small {
+  color: var(--faint);
+  font-size: 6.5px;
+  letter-spacing: .035em;
+}
+
+.enveloper-timing-priority small {
+  text-align: right;
+}
+
+.enveloper-timing-priority[data-state="audio"] {
+  border-color: color-mix(in oklab, var(--enveloper-child) 30%, var(--line-strong));
+  color: var(--enveloper-child);
+}
+
+.enveloper-timing-priority[data-state="audio"] b {
+  color: var(--enveloper-child);
+}
+
+.enveloper-timing-priority[data-state="audio"] output {
+  color: color-mix(in oklab, var(--enveloper-child) 66%, var(--ink));
+}
+
+.enveloper-timing-priority[data-state="syncing"] {
+  color: var(--enveloper-leaf-warm);
+}
+
 .enveloper-preset-grid {
   display: grid;
   padding: 3px;
@@ -1048,6 +1138,14 @@
     padding-left: 6px;
   }
 
+  .enveloper-timing-priority {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .enveloper-timing-priority small {
+    display: none;
+  }
+
   .enveloper-inheritance-diagram {
     gap: 3px;
   }
@@ -1125,6 +1223,7 @@
   .enveloper-tree-metrics > div,
   .enveloper-preset-grid,
   .enveloper-preset-grid button,
+  .enveloper-timing-priority,
   .enveloper-inheritance-diagram span,
   .enveloper-leaf-selector,
   .enveloper-leaf-selector button,

@@ -415,6 +415,23 @@ test("the derived nine-event timeline tiles one cycle without gaps or overlaps",
   assert.equal(Object.isFrozen(timeline[0].modulationIndexEnvelope[0]), true);
 });
 
+test("the model keeps every nested leaf long enough for exact FM rendering", () => {
+  const state = createEnveloperState();
+  state.cycleSeconds = 0.75;
+  const minimumTimes = [0, ENVELOPER_MIN_SPLIT_GAP, ENVELOPER_MIN_SPLIT_GAP * 2, 1];
+  state.root.nodes.forEach((node, index) => { node.time = minimumTimes[index]; });
+  state.branches.forEach((branch) => {
+    branch.nodes.forEach((node, index) => { node.time = minimumTimes[index]; });
+  });
+
+  const timeline = deriveEnveloperTimeline(state);
+  assert.equal(
+    timeline.at(-1).endSeconds,
+    ENVELOPER_LIMITS.cycleSeconds.minimum,
+  );
+  assert.ok(timeline.every(({ durationSeconds }) => durationSeconds >= 0.025));
+});
+
 test("moving a root split shortens its left subtree and lengthens its right subtree", () => {
   const state = createEnveloperState();
   const before = deriveEnveloperTimeline(state);

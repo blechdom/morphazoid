@@ -10,6 +10,12 @@ import {
   updateEnveloperNode,
 } from "./src/enveloper.js";
 import { EnveloperAudio } from "./src/enveloper-audio.js";
+import {
+  ENVELOPER_AUDIO_TIMING,
+  enveloperEventAtScore,
+  enveloperScoreAtAudioTime,
+  planEnveloperAudioWindow,
+} from "./src/enveloper-transport.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum = 0, maximum = 1) => (
@@ -37,6 +43,8 @@ const LEAF_CONTOUR_COLORS = Object.freeze({
   pitch: "#c4a7ff",
   index: "#59e8ff",
 });
+const AUDIO_RECONCILE_DELAY_MS = 42;
+const MANUAL_PREVIEW_LEAD_SECONDS = 0.008;
 
 const audio = new EnveloperAudio(globalThis);
 audio.setLevel(DEFAULT_UI.level);
@@ -49,11 +57,19 @@ const state = {
   fmAmount: DEFAULT_UI.fmAmount,
   activePresetId: DEFAULT_ENVELOPER_PRESET_ID,
   playing: false,
+  transportFrozen: false,
   audioOn: false,
   audioStarting: false,
   scoreSeconds: 0,
   scoreAnchorPerformance: performance.now(),
-  lastProcessedScore: 0,
+  scoreAnchorSeconds: 0,
+  audioAnchorTime: null,
+  audioAnchorPending: false,
+  visualScoreFloor: 0,
+  nextEventOrdinal: 0,
+  transportRevision: 0,
+  scheduledRevision: -1,
+  audioDropCount: 0,
   selection: { kind: "leaf", leafIndex: 0 },
   drag: null,
   activeLeafIndex: 0,
@@ -69,6 +85,12 @@ let frameId = 0;
 let hitRegions = [];
 let latestLayout = null;
 let lastUiFrame = -Infinity;
+let cachedTimeline = null;
+let cachedTimelineRevision = -1;
+let audioSchedulerId = 0;
+let audioResyncTimer = 0;
+let observedAudioContext = null;
+let audioResumePromise = null;
 
 function announce(message) {
   const live = $("liveStatus");
@@ -114,7 +136,18 @@ function soundOptions() {
 }
 
 function timeline() {
-  return deriveEnveloperTimeline(state.tree, soundOptions());
+  if (cachedTimeline && cachedTimelineRevision === state.transportRevision) {
+    return cachedTimeline;
+  }
+  cachedTimeline = deriveEnveloperTimeline(state.tree, soundOptions());
+  cachedTimelineRevision = state.transportRevision;
+  return cachedTimeline;
+}
+
+function invalidateTimeline() {
+  state.transportRevision += 1;
+  cachedTimeline = null;
+  cachedTimelineRevision = -1;
 }
 
 function automationPoints(points) {
@@ -192,9 +225,70 @@ function soundingEvent(
   };
 }
 
+function performanceScore(now = performance.now()) {
+  return state.scoreSeconds + Math.max(0, now - state.scoreAnchorPerformance) / 1_000;
+}
+
+function hasAudioClock() {
+  return state.audioOn
+    && audio.context
+    && Number.isFinite(state.audioAnchorTime)
+    && Number.isFinite(state.scoreAnchorSeconds);
+}
+
+function scoreAtAudioTime(audioTime) {
+  const effectiveAudioTime = state.audioAnchorPending
+    ? Math.max(state.audioAnchorTime, Number(audioTime) || 0)
+    : audioTime;
+  return enveloperScoreAtAudioTime({
+    scoreAnchorSeconds: state.scoreAnchorSeconds,
+    audioAnchorTime: state.audioAnchorTime,
+    audioTime: effectiveAudioTime,
+  });
+}
+
+function visualAudioTime(now = performance.now()) {
+  const audioContext = audio.context;
+  const currentTime = Number(audioContext?.currentTime);
+  if (!Number.isFinite(currentTime)) return 0;
+  try {
+    const timestamp = audioContext.getOutputTimestamp?.();
+    const contextTime = Number(timestamp?.contextTime);
+    const performanceTime = Number(timestamp?.performanceTime);
+    const timestampAge = (now - performanceTime) / 1_000;
+    if (
+      Number.isFinite(contextTime)
+      && contextTime >= 0
+      && Number.isFinite(performanceTime)
+      && performanceTime > 0
+      && timestampAge >= -0.1
+      && timestampAge <= 1
+    ) {
+      return Math.min(currentTime, Math.max(0, contextTime + timestampAge));
+    }
+  } catch {
+    // Some hosts expose getOutputTimestamp before an output device is ready.
+  }
+  const baseLatency = Math.max(0, Number(audioContext.baseLatency) || 0);
+  const outputLatency = Math.max(0, Number(audioContext.outputLatency) || 0);
+  const fallbackLatency = baseLatency + outputLatency;
+  return Math.max(0, currentTime - fallbackLatency);
+}
+
+function authoritativeScore(now = performance.now()) {
+  if (!state.playing) return state.scoreSeconds;
+  if (state.transportFrozen) return state.scoreSeconds;
+  if (hasAudioClock()) return scoreAtAudioTime(Number(audio.context.currentTime) || 0);
+  return performanceScore(now);
+}
+
 function currentScore(now = performance.now()) {
   if (!state.playing) return state.scoreSeconds;
-  return state.scoreSeconds + Math.max(0, now - state.scoreAnchorPerformance) / 1_000;
+  if (state.transportFrozen) return state.scoreSeconds;
+  if (hasAudioClock()) {
+    return Math.max(state.visualScoreFloor, scoreAtAudioTime(visualAudioTime(now)));
+  }
+  return performanceScore(now);
 }
 
 function cyclePhase(score = currentScore()) {
@@ -244,8 +338,13 @@ function keepPhaseWhileChanging(mutator) {
   mutator();
   state.tree = sanitizeEnveloperState(state.tree);
   state.scoreSeconds = phase * state.tree.cycleSeconds;
+  state.visualScoreFloor = state.scoreSeconds;
   state.scoreAnchorPerformance = now;
-  state.lastProcessedScore = state.scoreSeconds;
+  if (hasAudioClock()) {
+    state.scoreAnchorSeconds = state.scoreSeconds;
+    state.audioAnchorTime = Number(audio.context.currentTime) || 0;
+  }
+  invalidateTimeline();
 }
 
 function replaceEnvelope(kind, branchIndex, envelope) {
@@ -263,19 +362,14 @@ function updateSelectedLeaf(changes, { announceChange = false } = {}) {
     ...(Number.isFinite(changes.timbre) ? { timbre: clamp(changes.timbre) } : {}),
   };
   state.tree = sanitizeEnveloperState(state.tree);
+  invalidateTimeline();
   state.activePresetId = null;
+  queueAudioReconciliation();
   syncUi();
   if (announceChange) {
     const leaf = state.tree.leaves[index];
     announce(`Leaf ${index + 1}: ${formatFrequency(effectiveLeafFrequency(leaf))}, timbre ${Math.round(leaf.timbre * 100)} percent.`);
   }
-}
-
-function rescheduleCurrentLeaf() {
-  const score = currentScore();
-  audio.silence();
-  state.lastProcessedScore = score;
-  if (state.playing) joinCurrentLeaf();
 }
 
 function updateSelectedLeafEnvelope(kind, nodeIndex, level, { announceChange = false } = {}) {
@@ -294,8 +388,9 @@ function updateSelectedLeafEnvelope(kind, nodeIndex, level, { announceChange = f
     [field]: { nodes },
   };
   state.tree = sanitizeEnveloperState(state.tree);
+  invalidateTimeline();
   state.activePresetId = null;
-  rescheduleCurrentLeaf();
+  queueAudioReconciliation();
   syncUi();
   if (announceChange) {
     const nextLevel = state.tree.leaves[leafIndex][field].nodes[nodeIndex].level;
@@ -310,7 +405,10 @@ function updateSelectedNode(changes, { announceChange = false } = {}) {
   const next = updateEnveloperNode(selected.envelope, state.selection.nodeIndex, changes);
   replaceEnvelope(state.selection.kind, selected.branchIndex, next);
   state.activePresetId = null;
-  if (changesSound) rescheduleCurrentLeaf();
+  if (changesSound) {
+    invalidateTimeline();
+    queueAudioReconciliation();
+  }
   syncUi();
   if (announceChange) {
     const node = selectedNode().node;
@@ -867,6 +965,55 @@ function frequencyContourLabel(event) {
   return `${formatFrequency(minimum)}–${formatFrequency(maximum)}`;
 }
 
+function syncTimingStatus() {
+  const timingPriority = $("timingPriority");
+  const timingClock = $("timingClock");
+  const timingDetail = $("timingDetail");
+  const contextState = audio.contextState;
+  const clockSource = hasAudioClock() ? "audio-context" : "performance";
+  const schedulerState = audioSchedulerId ? "running" : "stopped";
+  const attributes = {
+    clockSource,
+    schedulerState,
+    schedulerIntervalMs: String(ENVELOPER_AUDIO_TIMING.schedulerIntervalMilliseconds),
+    lookaheadMs: String(Math.round(ENVELOPER_AUDIO_TIMING.lookaheadSeconds * 1_000)),
+    transportRevision: String(state.transportRevision),
+    nextEventOrdinal: String(state.nextEventOrdinal),
+    audioDropCount: String(state.audioDropCount),
+  };
+  for (const target of [canvas, timingPriority].filter(Boolean)) {
+    Object.assign(target.dataset, attributes);
+  }
+
+  if (!timingPriority || !timingClock || !timingDetail) return;
+  const setText = (element, value) => {
+    if (element.textContent !== value) element.textContent = value;
+  };
+  if (!state.audioOn) {
+    timingPriority.dataset.state = "off";
+    setText(timingClock, "Visual clock · audio off");
+    setText(timingDetail, `${ENVELOPER_AUDIO_TIMING.schedulerIntervalMilliseconds} ms scheduler · ${Math.round(ENVELOPER_AUDIO_TIMING.lookaheadSeconds * 1_000)} ms lookahead when armed`);
+    return;
+  }
+  if (state.transportFrozen) {
+    timingPriority.dataset.state = "syncing";
+    setText(timingClock, "Audio clock · paused");
+    setText(timingDetail, "Transport is frozen until the page and audio clock resume");
+    return;
+  }
+  if (contextState !== "running") {
+    timingPriority.dataset.state = "syncing";
+    setText(timingClock, `Audio clock · ${contextState}`);
+    setText(timingDetail, "Playback will resync when the audio clock resumes");
+    return;
+  }
+  timingPriority.dataset.state = "audio";
+  setText(timingClock, state.playing ? "AudioContext clock · authoritative" : "AudioContext clock · ready");
+  setText(timingDetail, state.playing
+    ? `${ENVELOPER_AUDIO_TIMING.schedulerIntervalMilliseconds} ms scheduler · ${Math.round(ENVELOPER_AUDIO_TIMING.lookaheadSeconds * 1_000)} ms lookahead`
+    : "Paused · exact audio timing is ready");
+}
+
 function syncSelectionUi() {
   const events = timeline();
   const leafIndex = selectedLeafIndex();
@@ -941,6 +1088,7 @@ function syncGlobalControls() {
   $("treeState").textContent = state.playing ? "growing" : state.activePresetId ? "ready" : "custom";
   $("playButton").setAttribute("aria-pressed", String(state.playing));
   $("playButton").setAttribute("aria-label", state.playing ? "Pause the envelope tree" : "Play the envelope tree");
+  syncTimingStatus();
 }
 
 function syncUi() {
@@ -974,52 +1122,291 @@ function updateFrameUi(now) {
   $("stageLeafReadout").textContent = `LEAF ${String(active.index + 1).padStart(2, "0")} · ${formatFrequency(frequency).toUpperCase()} · FM INDEX ${modulationIndex.toFixed(1)}`;
 }
 
-function triggerEvent(event, durationSeconds = event.durationSeconds, startProgress = 0) {
+function triggerEvent(
+  event,
+  durationSeconds = event.durationSeconds,
+  startProgress = 0,
+  startAt = audio.currentTime + MANUAL_PREVIEW_LEAD_SECONDS,
+) {
   if (!state.audioOn || !audio.engineRunning) return;
+  const absoluteStart = Number.isFinite(Number(startAt))
+    ? Number(startAt)
+    : audio.currentTime + MANUAL_PREVIEW_LEAD_SECONDS;
+  canvas.dataset.lastAudioStart = absoluteStart.toFixed(6);
   void audio.triggerLeaf(
     soundingEvent(event, durationSeconds, startProgress),
-    audio.currentTime + 0.004,
-  ).catch(showError);
-}
-
-function joinCurrentLeaf() {
-  if (!state.playing || !state.audioOn || !audio.engineRunning) return;
-  const events = timeline();
-  const phase = cyclePhase();
-  const event = eventAtPhase(events, phase);
-  const remaining = Math.max(0.025, (event.normalizedEnd - phase) * state.tree.cycleSeconds);
-  const eventSpan = Math.max(1e-6, event.normalizedEnd - event.normalizedStart);
-  const leafProgress = clamp((phase - event.normalizedStart) / eventSpan);
-  triggerEvent(event, remaining, leafProgress);
-}
-
-function processAudioCrossings(score) {
-  if (!state.playing) {
-    state.lastProcessedScore = score;
-    return;
-  }
-  const previous = state.lastProcessedScore;
-  state.lastProcessedScore = score;
-  if (!state.audioOn || !audio.engineRunning || score <= previous) return;
-  const cycle = state.tree.cycleSeconds;
-  if (score - previous > Math.max(1, cycle * 1.5)) {
-    joinCurrentLeaf();
-    return;
-  }
-  const events = timeline();
-  const firstCycle = Math.floor(previous / cycle);
-  const lastCycle = Math.floor(score / cycle);
-  for (let cycleIndex = firstCycle; cycleIndex <= lastCycle; cycleIndex += 1) {
-    for (const event of events) {
-      const boundary = cycleIndex * cycle + event.startSeconds;
-      if (boundary > previous + 1e-5 && boundary <= score + 1e-5) triggerEvent(event);
+    absoluteStart,
+  ).then((result) => {
+    if (result?.scheduled !== false || !result.skipReason) return;
+    // Admission failures are intentional drops: replaying them later would
+    // trade one missing onset for an off-grid burst and break timing priority.
+    state.audioDropCount += 1;
+    for (const target of [canvas, $("timingPriority")].filter(Boolean)) {
+      target.dataset.audioDropCount = String(state.audioDropCount);
+      target.dataset.lastAudioDrop = String(result.skipReason);
     }
+  }).catch(showError);
+}
+
+function stopAudioScheduler() {
+  if (audioSchedulerId) globalThis.clearInterval(audioSchedulerId);
+  audioSchedulerId = 0;
+  canvas.dataset.audioScheduler = "stopped";
+  if ($("timingPriority")) $("timingPriority").dataset.schedulerState = "stopped";
+}
+
+function startAudioScheduler() {
+  if (!audioSchedulerId) {
+    audioSchedulerId = globalThis.setInterval(
+      scheduleAudioWindow,
+      ENVELOPER_AUDIO_TIMING.schedulerIntervalMilliseconds,
+    );
   }
+  canvas.dataset.audioScheduler = "running";
+  if ($("timingPriority")) $("timingPriority").dataset.schedulerState = "running";
+}
+
+function clearAudioReconciliation() {
+  if (audioResyncTimer) globalThis.clearTimeout(audioResyncTimer);
+  audioResyncTimer = 0;
+}
+
+function scheduleCurrentFragment(scoreSeconds, startAt) {
+  const occurrence = enveloperEventAtScore({
+    events: timeline(),
+    cycleSeconds: state.tree.cycleSeconds,
+    scoreSeconds,
+  });
+  if (!occurrence) return null;
+  state.nextEventOrdinal = occurrence.nextEventOrdinal;
+  const remaining = Math.max(0, occurrence.endSeconds - scoreSeconds);
+  if (remaining + 1e-9 < ENVELOPER_AUDIO_TIMING.minimumLeadSeconds) {
+    canvas.dataset.currentFragment = "skipped-short";
+    return occurrence;
+  }
+  canvas.dataset.currentFragment = "scheduled";
+  triggerEvent(occurrence.event, remaining, occurrence.progress, startAt);
+  return occurrence;
+}
+
+function scheduleAudioWindow({ recoverLate = true } = {}) {
+  if (
+    !state.playing
+    || !state.audioOn
+    || !audio.engineRunning
+    || state.scheduledRevision !== state.transportRevision
+    || !hasAudioClock()
+  ) return;
+
+  const nowAudioTime = Number(audio.context.currentTime) || 0;
+  const plan = planEnveloperAudioWindow({
+    events: timeline(),
+    cycleSeconds: state.tree.cycleSeconds,
+    nextEventOrdinal: state.nextEventOrdinal,
+    scoreAnchorSeconds: state.scoreAnchorSeconds,
+    audioAnchorTime: state.audioAnchorTime,
+    nowAudioTime,
+    lookaheadSeconds: ENVELOPER_AUDIO_TIMING.lookaheadSeconds,
+    minimumLeadSeconds: ENVELOPER_AUDIO_TIMING.minimumLeadSeconds,
+    maxEvents: ENVELOPER_AUDIO_TIMING.maxEvents,
+  });
+
+  if (plan.skippedCount > 0 && recoverLate) {
+    canvas.dataset.lateRecovery = String(plan.skippedCount);
+    canvas.dataset.lateRecoveryMode = "single-fragment";
+    reconcileAudioTransport({
+      scoreSeconds: scoreAtAudioTime(nowAudioTime),
+      freezeUntilStart: false,
+      reason: "late-wakeup",
+      leadSeconds: ENVELOPER_AUDIO_TIMING.minimumLeadSeconds,
+    });
+    return;
+  }
+
+  let skippedShortEntries = 0;
+  for (const entry of plan.entries) {
+    if (entry.durationSeconds + 1e-9 < ENVELOPER_AUDIO_TIMING.minimumLeadSeconds) {
+      skippedShortEntries += 1;
+      continue;
+    }
+    triggerEvent(entry.event, entry.durationSeconds, entry.progress, entry.startAt);
+  }
+  state.nextEventOrdinal = plan.nextEventOrdinal;
+  canvas.dataset.nextEventOrdinal = String(state.nextEventOrdinal);
+  canvas.dataset.scheduledEntries = String(plan.entries.length);
+  canvas.dataset.skippedShortEntries = String(skippedShortEntries);
+  if ($("timingPriority")) {
+    $("timingPriority").dataset.nextEventOrdinal = String(state.nextEventOrdinal);
+  }
+}
+
+function reconcileAudioTransport({
+  scoreSeconds = authoritativeScore(),
+  freezeUntilStart = false,
+  reason = "change",
+  leadSeconds = ENVELOPER_AUDIO_TIMING.startLeadSeconds,
+} = {}) {
+  clearAudioReconciliation();
+  if (!state.playing || !state.audioOn || !audio.engineRunning || document.hidden) {
+    state.scheduledRevision = -1;
+    return;
+  }
+
+  const nowAudioTime = Number(audio.context.currentTime) || 0;
+  const safeLead = Math.max(
+    ENVELOPER_AUDIO_TIMING.minimumLeadSeconds,
+    Number(leadSeconds) || ENVELOPER_AUDIO_TIMING.startLeadSeconds,
+  );
+  const safeStartAt = nowAudioTime + safeLead;
+  const safeScore = Math.max(0, Number(scoreSeconds) || 0);
+  const visualScoreBeforeAnchor = freezeUntilStart ? safeScore : currentScore();
+  state.scoreSeconds = safeScore;
+  state.scoreAnchorPerformance = performance.now();
+  state.scoreAnchorSeconds = safeScore;
+  state.audioAnchorTime = freezeUntilStart ? safeStartAt : nowAudioTime;
+  state.audioAnchorPending = freezeUntilStart;
+  state.visualScoreFloor = Math.max(0, Number(visualScoreBeforeAnchor) || 0);
+  const fragmentScore = freezeUntilStart ? safeScore : scoreAtAudioTime(safeStartAt);
+
+  audio.silence();
+  state.scheduledRevision = state.transportRevision;
+  scheduleCurrentFragment(fragmentScore, safeStartAt);
+  scheduleAudioWindow({ recoverLate: false });
+  startAudioScheduler();
+  canvas.dataset.transportRevision = String(state.transportRevision);
+  canvas.dataset.transportResync = reason;
+  canvas.dataset.transportLeadMs = String(Math.round(safeLead * 1_000));
+  syncTimingStatus();
+}
+
+function queueAudioReconciliation({
+  immediate = false,
+  freezeUntilStart = false,
+  reason = "edit",
+  leadSeconds = ENVELOPER_AUDIO_TIMING.minimumLeadSeconds,
+} = {}) {
+  state.scheduledRevision = -1;
+  if (!state.playing || !state.audioOn || document.hidden) return;
+  if (!audio.engineRunning) {
+    void resumeAudioTransport(`${reason}-resume`);
+    return;
+  }
+  if (immediate) {
+    reconcileAudioTransport({
+      scoreSeconds: authoritativeScore(),
+      freezeUntilStart,
+      reason,
+      leadSeconds,
+    });
+    return;
+  }
+  if (!audioResyncTimer) {
+    stopAudioScheduler();
+    if (typeof audio.cancelScheduled === "function") audio.cancelScheduled();
+    else audio.silence();
+  }
+  clearAudioReconciliation();
+  audioResyncTimer = globalThis.setTimeout(() => {
+    audioResyncTimer = 0;
+    reconcileAudioTransport({
+      scoreSeconds: authoritativeScore(),
+      freezeUntilStart,
+      reason,
+      leadSeconds,
+    });
+  }, AUDIO_RECONCILE_DELAY_MS);
+}
+
+function flushAudioReconciliation(reason = "edit-commit") {
+  if (!audioResyncTimer) return;
+  reconcileAudioTransport({
+    scoreSeconds: authoritativeScore(),
+    freezeUntilStart: false,
+    reason,
+    leadSeconds: ENVELOPER_AUDIO_TIMING.minimumLeadSeconds,
+  });
+}
+
+function handleAudioContextStateChange() {
+  syncTimingStatus();
+  if (!state.audioOn || !state.playing || document.hidden) return;
+  if (audio.engineRunning) {
+    if (state.scheduledRevision === state.transportRevision && audioSchedulerId) return;
+    reconcileAudioTransport({
+      scoreSeconds: state.scheduledRevision < 0 ? state.scoreSeconds : currentScore(),
+      freezeUntilStart: true,
+      reason: "context-resume",
+    });
+    return;
+  }
+  state.scoreSeconds = currentScore();
+  clearAudioReconciliation();
+  stopAudioScheduler();
+  state.scheduledRevision = -1;
+  audio.silence();
+}
+
+function observeAudioContext() {
+  if (observedAudioContext === audio.context) return;
+  const contextChanged = Boolean(observedAudioContext && observedAudioContext !== audio.context);
+  observedAudioContext?.removeEventListener?.("statechange", handleAudioContextStateChange);
+  observedAudioContext = audio.context;
+  observedAudioContext?.addEventListener?.("statechange", handleAudioContextStateChange);
+  if (contextChanged) {
+    state.audioAnchorTime = null;
+    state.audioAnchorPending = false;
+    state.scheduledRevision = -1;
+    canvas.dataset.audioContext = "recreated";
+  }
+}
+
+async function failAudioRuntime(error) {
+  const now = performance.now();
+  const handoffScore = currentScore(now);
+  state.scoreSeconds = handoffScore;
+  state.scoreAnchorPerformance = now;
+  state.scoreAnchorSeconds = handoffScore;
+  state.visualScoreFloor = handoffScore;
+  state.audioAnchorTime = null;
+  state.audioAnchorPending = false;
+  state.audioOn = false;
+  state.scheduledRevision = -1;
+  clearAudioReconciliation();
+  stopAudioScheduler();
+  audio.silence();
+  $("audioButton").setAttribute("aria-pressed", "false");
+  $("audioState").textContent = "off";
+  showError(error);
+  syncTimingStatus();
+  try { await audio.close(); } catch { /* The failed context is already unusable. */ }
+}
+
+function resumeAudioTransport(reason = "context-resume") {
+  if (audioResumePromise) return audioResumePromise;
+  const request = audio.start().then(() => {
+    observeAudioContext();
+    if (
+      state.playing
+      && state.audioOn
+      && !document.hidden
+      && state.scheduledRevision !== state.transportRevision
+    ) {
+      reconcileAudioTransport({
+        scoreSeconds: state.scoreSeconds,
+        freezeUntilStart: true,
+        reason,
+      });
+    }
+  }).catch(async (error) => {
+    if (error?.name !== "AbortError") await failAudioRuntime(error);
+  }).finally(() => {
+    if (audioResumePromise === request) audioResumePromise = null;
+  });
+  audioResumePromise = request;
+  return request;
 }
 
 function animate(now) {
-  const score = currentScore(now);
-  processAudioCrossings(score);
   updateFrameUi(now);
   draw();
   frameId = requestAnimationFrame(animate);
@@ -1028,14 +1415,27 @@ function animate(now) {
 function setPlaying(playing) {
   const now = performance.now();
   if (state.playing === Boolean(playing)) return;
-  if (state.playing) state.scoreSeconds = currentScore(now) % state.tree.cycleSeconds;
+  if (state.playing) {
+    state.scoreSeconds = currentScore(now) % state.tree.cycleSeconds;
+  }
   state.playing = Boolean(playing);
   state.scoreAnchorPerformance = now;
-  state.lastProcessedScore = state.scoreSeconds;
   if (state.playing) {
-    joinCurrentLeaf();
+    if (state.audioOn && audio.engineRunning) {
+      reconcileAudioTransport({
+        scoreSeconds: state.scoreSeconds,
+        freezeUntilStart: true,
+        reason: "play",
+      });
+    } else if (state.audioOn) {
+      state.scheduledRevision = -1;
+      void resumeAudioTransport("play-resume");
+    }
     announce(state.audioOn ? "Envelope tree playing." : "Audio is off — turn it on to hear playback");
   } else {
+    clearAudioReconciliation();
+    stopAudioScheduler();
+    state.scheduledRevision = -1;
     audio.silence();
     announce("Envelope tree paused.");
   }
@@ -1047,9 +1447,20 @@ function restartTransport() {
   const now = performance.now();
   state.scoreSeconds = 0;
   state.scoreAnchorPerformance = now;
-  state.lastProcessedScore = 0;
+  state.scoreAnchorSeconds = 0;
+  state.audioAnchorTime = state.audioOn && audio.context ? audio.currentTime : null;
+  state.audioAnchorPending = state.audioOn && Boolean(audio.context);
+  state.visualScoreFloor = 0;
+  state.nextEventOrdinal = 0;
+  state.scheduledRevision = -1;
+  clearAudioReconciliation();
+  stopAudioScheduler();
   audio.silence();
-  if (state.playing) triggerEvent(timeline()[0]);
+  if (state.playing && state.audioOn && audio.engineRunning) {
+    reconcileAudioTransport({ scoreSeconds: 0, freezeUntilStart: true, reason: "restart" });
+  } else if (state.playing && state.audioOn) {
+    void resumeAudioTransport("restart-resume");
+  }
   updateFrameUi(now);
   draw();
   announce(state.playing ? "Envelope tree restarted at leaf 1." : "Cycle position returned to the beginning.");
@@ -1059,12 +1470,34 @@ async function toggleAudio() {
   if (state.audioStarting) return;
   clearError();
   if (state.audioOn) {
+    state.audioStarting = true;
+    $("audioButton").disabled = true;
+    const now = performance.now();
+    const handoffScore = currentScore(now);
+    state.scoreSeconds = handoffScore;
+    state.scoreAnchorPerformance = now;
+    state.scoreAnchorSeconds = handoffScore;
+    state.visualScoreFloor = handoffScore;
+    state.audioAnchorTime = null;
+    state.audioAnchorPending = false;
     state.audioOn = false;
     $("audioButton").setAttribute("aria-pressed", "false");
     $("audioState").textContent = "off";
+    clearAudioReconciliation();
+    stopAudioScheduler();
+    state.scheduledRevision = -1;
     audio.silence();
-    await audio.close();
-    announce("Enveloper audio off. The tree clock is unchanged.");
+    syncTimingStatus();
+    try {
+      await audio.close();
+      announce("Enveloper audio off. The tree clock is unchanged.");
+    } catch (error) {
+      showError(error);
+    } finally {
+      state.audioStarting = false;
+      $("audioButton").disabled = false;
+      syncTimingStatus();
+    }
     return;
   }
   state.audioStarting = true;
@@ -1072,11 +1505,25 @@ async function toggleAudio() {
   $("audioState").textContent = "starting";
   try {
     await audio.start();
+    observeAudioContext();
     audio.setLevel(state.level);
+    const now = performance.now();
+    const handoffScore = state.playing ? performanceScore(now) : state.scoreSeconds;
     state.audioOn = true;
     $("audioButton").setAttribute("aria-pressed", "true");
     $("audioState").textContent = "on";
-    joinCurrentLeaf();
+    if (state.playing) {
+      reconcileAudioTransport({
+        scoreSeconds: handoffScore,
+        freezeUntilStart: false,
+        reason: "audio-enable",
+      });
+    } else {
+      state.scoreAnchorSeconds = handoffScore;
+      state.audioAnchorTime = audio.currentTime;
+      state.audioAnchorPending = false;
+      syncTimingStatus();
+    }
     announce(state.playing
       ? "Enveloper audio on, joined at the current leaf."
       : "Enveloper audio on. Press play or preview a leaf.");
@@ -1089,14 +1536,26 @@ async function toggleAudio() {
   } finally {
     state.audioStarting = false;
     $("audioButton").disabled = false;
+    syncTimingStatus();
   }
 }
 
-function previewSelectedLeaf() {
-  if (!state.audioOn || !audio.engineRunning) {
+async function previewSelectedLeaf() {
+  if (!state.audioOn) {
     announce("Audio is off — turn it on to hear the selected leaf");
     return;
   }
+  if (!audio.engineRunning) {
+    try {
+      await audio.start();
+      observeAudioContext();
+      syncTimingStatus();
+    } catch (error) {
+      await failAudioRuntime(error);
+      return;
+    }
+  }
+  if (!state.audioOn || !audio.engineRunning) return;
   const event = selectedEvent();
   triggerEvent(event, Math.min(0.85, Math.max(0.18, event.durationSeconds)));
   announce(`Previewing leaf ${event.index + 1}, ${formatFrequency(event.frequencyHz)}.`);
@@ -1106,16 +1565,27 @@ function applyPreset(id) {
   const preset = ENVELOPER_PRESETS.find((item) => item.id === id);
   if (!preset) return;
   const now = performance.now();
-  const wasPlaying = state.playing;
+  clearAudioReconciliation();
+  stopAudioScheduler();
   audio.silence();
   state.tree = createEnveloperState(id);
+  invalidateTimeline();
   state.activePresetId = id;
   state.scoreSeconds = 0;
   state.scoreAnchorPerformance = now;
-  state.lastProcessedScore = 0;
+  state.scoreAnchorSeconds = 0;
+  state.audioAnchorTime = state.audioOn && audio.context ? audio.currentTime : null;
+  state.audioAnchorPending = state.audioOn && Boolean(audio.context);
+  state.visualScoreFloor = 0;
+  state.nextEventOrdinal = 0;
+  state.scheduledRevision = -1;
   state.selection = { kind: "leaf", leafIndex: 0 };
   syncUi();
-  if (wasPlaying) triggerEvent(timeline()[0]);
+  if (state.playing && state.audioOn && audio.engineRunning) {
+    reconcileAudioTransport({ scoreSeconds: 0, freezeUntilStart: true, reason: "preset" });
+  } else if (state.playing && state.audioOn) {
+    void resumeAudioTransport("preset-resume");
+  }
   announce(`${preset.label} envelope tree selected.`);
 }
 
@@ -1126,16 +1596,19 @@ function evenSplits() {
     branch.nodes.forEach((node, index) => { node.time = times[index]; });
   });
   state.tree = sanitizeEnveloperState(state.tree);
+  invalidateTimeline();
   state.activePresetId = null;
-  audio.silence();
-  state.lastProcessedScore = currentScore();
+  queueAudioReconciliation({ immediate: true, reason: "even-splits" });
   syncUi();
   announce("All parent and child timing splits are even.");
 }
 
 function resetAll() {
+  clearAudioReconciliation();
+  stopAudioScheduler();
   audio.silence();
   state.tree = createEnveloperState();
+  invalidateTimeline();
   Object.assign(state, {
     level: DEFAULT_UI.level,
     baseMidi: DEFAULT_UI.baseMidi,
@@ -1144,12 +1617,21 @@ function resetAll() {
     activePresetId: DEFAULT_ENVELOPER_PRESET_ID,
     scoreSeconds: 0,
     scoreAnchorPerformance: performance.now(),
-    lastProcessedScore: 0,
+    scoreAnchorSeconds: 0,
+    audioAnchorTime: state.audioOn && audio.context ? audio.currentTime : null,
+    audioAnchorPending: state.audioOn && Boolean(audio.context),
+    visualScoreFloor: 0,
+    nextEventOrdinal: 0,
+    scheduledRevision: -1,
     selection: { kind: "leaf", leafIndex: 0 },
   });
   audio.setLevel(state.level);
   syncUi();
-  if (state.playing) triggerEvent(timeline()[0]);
+  if (state.playing && state.audioOn && audio.engineRunning) {
+    reconcileAudioTransport({ scoreSeconds: 0, freezeUntilStart: true, reason: "reset" });
+  } else if (state.playing && state.audioOn) {
+    void resumeAudioTransport("reset-resume");
+  }
   announce("Enveloper reset to the balanced canopy.");
 }
 
@@ -1237,6 +1719,7 @@ function endPointer(event) {
   canvas.releasePointerCapture?.(event.pointerId);
   if (completed.kind === "leaf") updateSelectedLeaf({}, { announceChange: true });
   else updateSelectedNode({}, { announceChange: true });
+  flushAudioReconciliation("pointer-commit");
 }
 
 function nudgeSelection(key, large) {
@@ -1261,7 +1744,7 @@ function bindControls() {
   $("audioButton").addEventListener("click", () => { void toggleAudio(); });
   $("playButton").addEventListener("click", () => setPlaying(!state.playing));
   $("restartButton").addEventListener("click", restartTransport);
-  $("previewButton").addEventListener("click", previewSelectedLeaf);
+  $("previewButton").addEventListener("click", () => { void previewSelectedLeaf(); });
   $("evenSplitsButton").addEventListener("click", evenSplits);
   $("resetAll").addEventListener("click", resetAll);
 
@@ -1273,33 +1756,42 @@ function bindControls() {
   $("position").addEventListener("input", (event) => {
     const now = performance.now();
     state.scoreSeconds = clamp(Number(event.target.value)) * state.tree.cycleSeconds;
+    state.visualScoreFloor = state.scoreSeconds;
     state.scoreAnchorPerformance = now;
-    state.lastProcessedScore = state.scoreSeconds;
-    audio.silence();
-    if (state.playing) joinCurrentLeaf();
+    if (state.audioOn && audio.context) {
+      state.scoreAnchorSeconds = state.scoreSeconds;
+      state.audioAnchorTime = audio.currentTime;
+      state.audioAnchorPending = false;
+    }
+    queueAudioReconciliation({ reason: "seek" });
     updateFrameUi(now);
     draw();
   });
   $("cycleSeconds").addEventListener("input", (event) => {
     keepPhaseWhileChanging(() => { state.tree.cycleSeconds = Number(event.target.value); });
     state.activePresetId = null;
-    audio.silence();
-    if (state.playing) joinCurrentLeaf();
+    queueAudioReconciliation({ reason: "cycle-duration" });
     syncUi();
   });
   $("baseMidi").addEventListener("input", (event) => {
     state.baseMidi = Math.round(Number(event.target.value));
     state.activePresetId = null;
+    invalidateTimeline();
+    queueAudioReconciliation({ reason: "base-pitch" });
     syncUi();
   });
   $("pitchSpan").addEventListener("input", (event) => {
     state.pitchSpan = Math.round(Number(event.target.value));
     state.activePresetId = null;
+    invalidateTimeline();
+    queueAudioReconciliation({ reason: "pitch-span" });
     syncUi();
   });
   $("fmAmount").addEventListener("input", (event) => {
     state.fmAmount = Number(event.target.value);
     state.activePresetId = null;
+    invalidateTimeline();
+    queueAudioReconciliation({ reason: "fm-amount" });
     syncUi();
   });
   $("selectedTimbre").addEventListener("input", (event) => {
@@ -1325,6 +1817,7 @@ function bindControls() {
     const nodeIndex = Number(input.dataset.envelopeNode);
     const level = state.tree.leaves[state.selection.leafIndex][field]?.nodes?.[nodeIndex]?.level;
     if (!Number.isFinite(level)) return;
+    flushAudioReconciliation("leaf-contour-commit");
     announce(`${kind === "pitch" ? "Pitch" : "FM index"} contour node ${nodeIndex + 1}, ${Math.round(level * 100)} percent.`);
   });
   $("selectedNodeTime").addEventListener("input", (event) => {
@@ -1333,6 +1826,19 @@ function bindControls() {
   $("selectedNodeLevel").addEventListener("input", (event) => {
     updateSelectedNode({ level: Number(event.target.value) });
   });
+  for (const input of [
+    $("position"),
+    $("cycleSeconds"),
+    $("baseMidi"),
+    $("pitchSpan"),
+    $("fmAmount"),
+    $("selectedTimbre"),
+    $("selectedPitch"),
+    $("selectedNodeTime"),
+    $("selectedNodeLevel"),
+  ]) {
+    input.addEventListener("change", () => flushAudioReconciliation("control-commit"));
+  }
 
   $("presetButtons").addEventListener("click", (event) => {
     const button = event.target.closest("[data-preset]");
@@ -1361,24 +1867,93 @@ function bindControls() {
     }
     if (event.key === "Enter") {
       event.preventDefault();
-      previewSelectedLeaf();
+      void previewSelectedLeaf();
     }
   });
 }
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    if (state.playing) {
+      state.scoreSeconds = currentScore();
+      state.scoreAnchorPerformance = performance.now();
+      state.transportFrozen = true;
+    }
+    clearAudioReconciliation();
+    stopAudioScheduler();
+    state.scheduledRevision = -1;
     audio.silence();
+    syncTimingStatus();
     return;
   }
-  state.lastProcessedScore = currentScore();
-  joinCurrentLeaf();
+  const wasFrozen = state.transportFrozen;
+  const frozenScore = state.scoreSeconds;
+  state.transportFrozen = false;
+  state.scoreAnchorPerformance = performance.now();
+  if (!wasFrozen || !state.playing || !state.audioOn) {
+    syncTimingStatus();
+    return;
+  }
+  if (audio.engineRunning) {
+    reconcileAudioTransport({
+      scoreSeconds: frozenScore,
+      freezeUntilStart: true,
+      reason: "visible",
+    });
+    return;
+  }
+  void resumeAudioTransport("visible-resume");
 });
 
-window.addEventListener("pagehide", () => {
+window.addEventListener("pagehide", (event) => {
   if (frameId) cancelAnimationFrame(frameId);
+  frameId = 0;
+  if (state.playing && !state.transportFrozen) {
+    state.scoreSeconds = currentScore();
+    state.scoreAnchorPerformance = performance.now();
+    state.transportFrozen = true;
+  }
+  clearAudioReconciliation();
+  stopAudioScheduler();
+  state.scheduledRevision = -1;
+  audio.silence();
+  if (event.persisted) {
+    canvas.dataset.pageLifecycle = "cached";
+    syncTimingStatus();
+    return;
+  }
+  observedAudioContext?.removeEventListener?.("statechange", handleAudioContextStateChange);
+  observedAudioContext = null;
   void audio.close();
-}, { once: true });
+});
+
+window.addEventListener("pageshow", (event) => {
+  if (!frameId) frameId = requestAnimationFrame(animate);
+  if (!event.persisted) return;
+  const wasFrozen = state.transportFrozen;
+  const frozenScore = state.scoreSeconds;
+  canvas.dataset.pageLifecycle = "restored";
+  observeAudioContext();
+  if (document.hidden || !wasFrozen) {
+    syncTimingStatus();
+    return;
+  }
+  state.transportFrozen = false;
+  state.scoreAnchorPerformance = performance.now();
+  if (!state.playing || !state.audioOn) {
+    syncTimingStatus();
+    return;
+  }
+  if (audio.engineRunning) {
+    reconcileAudioTransport({
+      scoreSeconds: frozenScore,
+      freezeUntilStart: true,
+      reason: "pageshow",
+    });
+    return;
+  }
+  void resumeAudioTransport("pageshow-resume");
+});
 
 bindControls();
 syncUi();

@@ -131,6 +131,15 @@
               <button class="enveloper-restart" id="restartButton" type="button">↶<span>restart</span></button>
             </div>
 
+            <div class="enveloper-timing-priority" id="timingPriority" data-state="off" role="status" aria-live="polite">
+              <i aria-hidden="true"><span></span><span></span><span></span></i>
+              <div>
+                <b>Audio timing priority</b>
+                <output id="timingClock">Visual clock · audio off</output>
+              </div>
+              <small id="timingDetail">25 ms scheduler · 160 ms lookahead</small>
+            </div>
+
             <div class="enveloper-preset-grid" id="presetButtons" role="group" aria-label="Envelope tree presets">
               <button type="button" data-preset="balanced" aria-pressed="true"><b>Canopy</b><small>balanced bloom</small></button>
               <button type="button" data-preset="long-middle"><b>Long middle</b><small>weighted limbs</small></button>

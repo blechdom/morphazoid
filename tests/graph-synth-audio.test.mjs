@@ -621,6 +621,36 @@ test("Graph Synth silence cancels future voices and fades active voices", async 
   assert.ok(active.filter.disconnectCount > 0);
 });
 
+test("Graph Synth can invalidate future voices without cutting the active voice", async () => {
+  const { runtime } = makeRuntime();
+  const audio = new GraphSynthAudio(runtime);
+  await audio.start();
+  audio.context.currentTime = 1;
+  await audio.trigger({ frequency: 180, gain: 0.4 }, {
+    startAt: 1,
+    decaySeconds: 0.5,
+  });
+  await audio.trigger({ frequency: 240, gain: 0.3 }, {
+    startAt: 1.7,
+    decaySeconds: 0.4,
+  });
+  const [active, future] = [...audio.activeVoices];
+
+  audio.context.currentTime = 1.1;
+  assert.equal(audio.cancelScheduled(), 1);
+
+  assert.equal(future.cleaned, true);
+  assert.equal(audio.activeVoices.has(future), false);
+  assert.equal(future.sources[0].stops.at(-1), 1.1);
+  assert.equal(active.cleaned, false);
+  assert.equal(audio.activeVoices.has(active), true);
+  assert.equal(active.sources[0].stops.at(-1) > 1.1, true);
+  assert.equal(
+    active.amplitude.gain.calls.some(([method, time]) => method === "hold" && time === 1.1),
+    false,
+  );
+});
+
 test("Graph Synth thins overflow without hard-cutting a live oscillator", async () => {
   const { runtime, created } = makeRuntime();
   const audio = new GraphSynthAudio(runtime);

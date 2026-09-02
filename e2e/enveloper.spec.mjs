@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("Enveloper keeps its visual clock separate from explicit audio", async ({ page }) => {
+test("Enveloper hands silent playback to an audio-priority transport", async ({ page }) => {
   await page.goto("/enveloper.html", { waitUntil: "domcontentloaded" });
 
   const audio = page.locator("#audioButton");
@@ -9,6 +9,8 @@ test("Enveloper keeps its visual clock separate from explicit audio", async ({ p
 
   await expect(audio).toHaveAttribute("aria-pressed", "false");
   await expect(play).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#timingPriority")).toHaveAttribute("data-state", "off");
+  await expect(page.locator("#stage")).toHaveAttribute("data-clock-source", "performance");
 
   await play.click();
   await expect(play).toHaveAttribute("aria-pressed", "true");
@@ -18,13 +20,124 @@ test("Enveloper keeps its visual clock separate from explicit audio", async ({ p
   await audio.click();
   await expect(audio).toHaveAttribute("aria-pressed", "true");
   await expect(play).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#timingPriority")).toHaveAttribute("data-state", "audio");
+  await expect(page.locator("#timingClock")).toContainText("AudioContext clock");
+  await expect(page.locator("#stage")).toHaveAttribute("data-clock-source", "audio-context");
+  await expect(page.locator("#stage")).toHaveAttribute("data-scheduler-state", "running");
+  await expect(page.locator("#stage")).toHaveAttribute("data-scheduler-interval-ms", "25");
+  await expect(page.locator("#stage")).toHaveAttribute("data-lookahead-ms", "160");
+  await expect(page.locator("#stage")).toHaveAttribute("data-transport-lead-ms", "60");
+  await expect.poll(async () => Number(await page.locator("#stage").getAttribute("data-next-event-ordinal"))).toBeGreaterThan(0);
+
+  const stage = page.locator("#stage");
+  const revisionBeforeEdit = Number(await stage.getAttribute("data-transport-revision"));
+  await page.locator("#fmAmount").evaluate((input) => {
+    input.value = "1.2";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await expect.poll(async () => Number(await stage.getAttribute("data-transport-revision"))).toBeGreaterThan(revisionBeforeEdit);
+  await expect(stage).toHaveAttribute("data-transport-resync", "fm-amount");
+  await expect(stage).toHaveAttribute("data-transport-lead-ms", "25");
+  await expect(stage).toHaveAttribute("data-scheduler-state", "running");
+
+  await page.locator("#cycleSeconds").evaluate((input) => {
+    input.value = "4";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await expect(stage).toHaveAttribute("data-transport-resync", "cycle-duration");
+  await page.locator("#evenSplitsButton").evaluate((button) => button.click());
+  await expect(stage).toHaveAttribute("data-transport-resync", "even-splits");
+  await expect(stage).toHaveAttribute("data-scheduler-state", "running");
+
+  await page.evaluate(() => {
+    const until = performance.now() + 700;
+    while (performance.now() < until) { /* Deliberately delay only the wake-up timer. */ }
+  });
+  await expect.poll(async () => Number(await stage.getAttribute("data-late-recovery"))).toBeGreaterThan(0);
+  await expect(stage).toHaveAttribute("data-late-recovery-mode", "single-fragment");
+  await expect(stage).toHaveAttribute("data-transport-lead-ms", "25");
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+  });
+  await expect(stage).toHaveAttribute("data-page-lifecycle", "cached");
+  await expect(stage).toHaveAttribute("data-scheduler-state", "stopped");
+  const frozenPosition = Number(await position.inputValue());
+  await page.waitForTimeout(90);
+  expect(Number(await position.inputValue())).toBeCloseTo(frozenPosition, 5);
+  await page.evaluate(() => {
+    window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+  });
+  await expect(stage).toHaveAttribute("data-page-lifecycle", "restored");
+  await expect(stage).toHaveAttribute("data-scheduler-state", "running");
+  await expect.poll(async () => Number(await position.inputValue())).not.toBeCloseTo(frozenPosition, 3);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+    window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+  });
+  await expect(stage).toHaveAttribute("data-page-lifecycle", "restored");
+  await expect(stage).toHaveAttribute("data-scheduler-state", "stopped");
+  await expect(page.locator("#timingPriority")).toHaveAttribute("data-state", "syncing");
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, value: false });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(stage).toHaveAttribute("data-scheduler-state", "running");
+  await expect(stage).toHaveAttribute("data-transport-resync", "visible");
+
+  await play.click();
+  await expect(play).toHaveAttribute("aria-pressed", "false");
+  await expect(stage).toHaveAttribute("data-scheduler-state", "stopped");
+  await play.click();
+  await expect(play).toHaveAttribute("aria-pressed", "true");
+  await expect(stage).toHaveAttribute("data-scheduler-state", "running");
 
   await audio.click();
   await expect(audio).toHaveAttribute("aria-pressed", "false");
   await expect(play).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#timingPriority")).toHaveAttribute("data-state", "off");
+  await expect(page.locator("#stage")).toHaveAttribute("data-clock-source", "performance");
+  await expect(page.locator("#stage")).toHaveAttribute("data-scheduler-state", "stopped");
 
   await play.click();
   await expect(play).toHaveAttribute("aria-pressed", "false");
+});
+
+test("Enveloper resumes a suspended audio clock from Play", async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeAudioContext = window.AudioContext ?? window.webkitAudioContext;
+    if (!NativeAudioContext) return;
+    class ObservableAudioContext extends NativeAudioContext {
+      constructor(...args) {
+        super(...args);
+        window.__enveloperAudioContext = this;
+      }
+    }
+    if (window.AudioContext) window.AudioContext = ObservableAudioContext;
+    else window.webkitAudioContext = ObservableAudioContext;
+  });
+  await page.goto("/enveloper.html", { waitUntil: "domcontentloaded" });
+
+  const audio = page.locator("#audioButton");
+  const play = page.locator("#playButton");
+  const stage = page.locator("#stage");
+  await audio.click();
+  await expect(audio).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => window.__enveloperAudioContext.suspend());
+  await expect(page.locator("#timingPriority")).toHaveAttribute("data-state", "syncing");
+
+  await page.waitForTimeout(80);
+  await page.locator("#restartButton").click();
+  await expect.poll(async () => Number(await page.locator("#position").inputValue())).toBeLessThan(0.005);
+  await expect(stage).toHaveAttribute("data-scheduler-state", "stopped");
+
+  await play.click();
+  await expect(play).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#timingPriority")).toHaveAttribute("data-state", "audio");
+  await expect(stage).toHaveAttribute("data-scheduler-state", "running");
+  await expect(stage).toHaveAttribute("data-transport-resync", /play-resume|context-resume/);
 });
 
 test("Enveloper exposes all nine leaf XY and dual-contour controls without requiring the canvas", async ({ page }) => {

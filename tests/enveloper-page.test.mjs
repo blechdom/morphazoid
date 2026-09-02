@@ -23,6 +23,9 @@ test("Enveloper exposes an explicit three-generation editor and separate transpo
   assert.match(html, /FM index envelope node 4 level/);
   assert.match(html, /parent \+ child slope[^<]*bends the violet pitch contour/i);
   assert.match(html, /id="ancestorBendOut"/);
+  assert.match(html, /id="timingPriority"[^>]*data-state="off"/);
+  assert.match(html, /id="timingClock"/);
+  assert.match(html, /id="timingDetail"/);
   assert.match(html, /script type="module" src="enveloper-app\.js"/);
 });
 
@@ -31,6 +34,9 @@ test("Enveloper app keeps audio explicit and maps every stage interaction", asyn
 
   assert.match(app, /deriveEnveloperTimeline/);
   assert.match(app, /new EnveloperAudio/);
+  assert.match(app, /ENVELOPER_AUDIO_TIMING/);
+  assert.match(app, /enveloperScoreAtAudioTime/);
+  assert.match(app, /planEnveloperAudioWindow/);
   assert.match(app, /function drawEnvelope/);
   assert.match(app, /function drawLeaves/);
   assert.match(app, /function drawLeafContour/);
@@ -40,16 +46,36 @@ test("Enveloper app keeps audio explicit and maps every stage interaction", asyn
   assert.match(app, /canvas\.dataset\.renderedLeafContours/);
   assert.match(app, /function updateSelectedLeafEnvelope/);
   assert.match(app, /updateSelectedLeafEnvelope[\s\S]*sanitizeEnveloperState/);
-  assert.match(app, /function updateSelectedNode[\s\S]*changesSound[\s\S]*rescheduleCurrentLeaf/);
+  assert.match(app, /function updateSelectedNode[\s\S]*changesSound[\s\S]*queueAudioReconciliation/);
   assert.match(app, /function sliceAutomationEnvelope/);
   assert.match(app, /point\.value \* state\.fmAmount/);
   assert.match(app, /event\.inheritedGlideSemitones/);
-  assert.match(app, /function processAudioCrossings/);
-  assert.match(app, /function joinCurrentLeaf/);
+  assert.match(app, /function scheduleAudioWindow/);
+  assert.match(app, /globalThis\.setInterval\([\s\S]*scheduleAudioWindow[\s\S]*schedulerIntervalMilliseconds/);
+  assert.match(app, /planEnveloperAudioWindow\([\s\S]*nowAudioTime[\s\S]*lookaheadSeconds/);
+  assert.match(app, /triggerEvent\(entry\.event, entry\.durationSeconds, entry\.progress, entry\.startAt\)/);
+  assert.match(app, /plan\.skippedCount > 0[\s\S]*late-wakeup/);
+  assert.match(app, /function scheduleCurrentFragment[\s\S]*minimumLeadSeconds[\s\S]*skipped-short/);
+  assert.doesNotMatch(app, /function processAudioCrossings/);
+  assert.doesNotMatch(app, /function joinCurrentLeaf/);
+  const animate = app.match(/function animate\(now\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.doesNotMatch(animate, /audio\.|triggerEvent|scheduleAudioWindow/);
+  assert.match(app, /function visualAudioTime[\s\S]*getOutputTimestamp[\s\S]*outputLatency/);
+  assert.match(app, /function timeline\(\)[\s\S]*cachedTimelineRevision/);
+  assert.match(app, /AUDIO_RECONCILE_DELAY_MS = 42/);
+  assert.match(app, /timingPriority\.dataset\.state/);
+  assert.match(app, /function resumeAudioTransport/);
+  assert.match(app, /transportFrozen/);
+  assert.match(app, /function keepPhaseWhileChanging[\s\S]*cyclePhase\(currentScore\(now\)\)/);
+  assert.match(app, /audioDropCount[\s\S]*lastAudioDrop/);
+  assert.match(app, /replaying them later would[\s\S]*off-grid burst/);
+  assert.match(app, /leadSeconds = ENVELOPER_AUDIO_TIMING\.minimumLeadSeconds/);
   assert.match(app, /if \(!state\.audioOn \|\| !audio\.engineRunning\) return/);
   assert.match(app, /pointerdown/);
   assert.match(app, /ArrowLeft/);
-  assert.match(app, /pagehide[\s\S]*audio\.close/);
+  assert.match(app, /visibilitychange[\s\S]*stopAudioScheduler[\s\S]*visible/);
+  assert.match(app, /pagehide[\s\S]*event\.persisted[\s\S]*audio\.close/);
+  assert.match(app, /pageshow[\s\S]*requestAnimationFrame\(animate\)[\s\S]*document\.hidden \|\| !wasFrozen[\s\S]*pageshow-resume/);
 });
 
 test("Enveloper keeps all three generations available in compact layouts", async () => {

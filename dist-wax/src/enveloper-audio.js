@@ -206,6 +206,13 @@ export class EnveloperAudio {
     return this.engine.silence?.();
   }
 
+  cancelScheduled() {
+    if (typeof this.engine.cancelScheduled === "function") {
+      return this.engine.cancelScheduled();
+    }
+    return this.engine.silence?.();
+  }
+
   async close() {
     await this.engine.close?.();
   }
