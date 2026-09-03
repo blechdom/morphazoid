@@ -474,11 +474,15 @@ test("state sanitization and deterministic randomization stay bounded and refres
     tonguePosition: -4,
     tongueHeight: 9,
     repeatRateBpm: 9999,
+    breathNoiseAmount: 4,
+    breathFilter: 9,
     pluckDirection: -7,
   });
   assert.equal(unsafe.tonguePosition, -2);
   assert.equal(unsafe.tongueHeight, 3);
   assert.equal(unsafe.repeatRateBpm, 480);
+  assert.equal(unsafe.breathNoiseAmount, 1);
+  assert.equal(unsafe.breathFilter, 1);
   assert.equal(unsafe.pluckDirection, -1);
   const randomized = randomizeJawHarpState({
     ...JAW_HARP_DEFAULTS,
@@ -513,6 +517,8 @@ test("state sanitization and deterministic randomization stay bounded and refres
   assert.equal(randomized.breathsPerLoop, 1);
   assert.equal(randomized.pluckDirection, 1);
   assert.equal(randomized.breathFlow, 0);
+  assert.equal(randomized.breathNoiseAmount, 0.12 + (0.58 - 0.12) * (0.5 ** 1.35));
+  assert.equal(randomized.breathFilter, 0.06 + (0.82 - 0.06) * (0.5 ** 1.45));
 });
 
 test("randomization favors playable tempos while preserving rare extremes", () => {
@@ -565,6 +571,7 @@ test("randomization favors playable tempos while preserving rare extremes", () =
       "cavityCoupling",
       "frameCoupling",
       "breathDepth",
+      "breathNoiseAmount",
       "breathRateBpm",
       "breathBalance",
       "formantFocus",
@@ -719,7 +726,23 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     Processor = Constructor;
   };
   try {
-    const { fastSine } = await import(`../src/jaw-harp-processor.js?test=${Date.now()}`);
+    const { breathTextureGain, fastSine } = await import(
+      `../src/jaw-harp-processor.js?test=${Date.now()}`
+    );
+    assert.equal(breathTextureGain(0), 0);
+    assert.equal(breathTextureGain(0.01), 0);
+    assert.equal(breathTextureGain(0.018), 0);
+    assert.ok(breathTextureGain(0.05) < 0.005);
+    assert.ok(breathTextureGain(0.1) < 0.025);
+    assert.ok(breathTextureGain(0.32) > breathTextureGain(0.1) * 8);
+    assert.equal(breathTextureGain(1), 1);
+    const breathTextureCurve = Array.from(
+      { length: 101 },
+      (_, index) => breathTextureGain(index / 100),
+    );
+    assert.ok(breathTextureCurve.every(
+      (gain, index) => index === 0 || gain >= breathTextureCurve[index - 1],
+    ));
     let maximumSineError = 0;
     for (let index = -8_192; index <= 16_384; index += 1) {
       const phase = (index + 0.371) * Math.PI / 4_096;
@@ -824,6 +847,141 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     const modalEnergy = (voice) => voice.amplitudes.reduce(
       (sum, amplitude) => sum + amplitude * amplitude,
       0,
+    );
+
+    const turbulenceVoice = (breathNoiseAmount, breathFilter = 0.36) => {
+      const voice = new Processor({ processorOptions: { configuration: {
+        ...JAW_HARP_DEFAULTS,
+        autoBreath: false,
+        breathNoiseAmount,
+        breathFilter,
+      } } });
+      voice._handleMessage({ type: "breath", flow: 1, manual: true });
+      voice._handleMessage({ type: "pluck", force: 0.72, direction: 1, position: 0.32 });
+      return voice;
+    };
+    const cleanBreathVoice = turbulenceVoice(0);
+    const texturedBreathVoice = turbulenceVoice(1);
+    assert.deepEqual(
+      Array.from(texturedBreathVoice.amplitudes),
+      Array.from(cleanBreathVoice.amplitudes),
+      "breath texture must not alter the pluck excitation",
+    );
+    const turbulence = new Float64Array(8_192);
+    let turbulenceSquareSum = 0;
+    let differenceSquareSum = 0;
+    let turbulenceMean = 0;
+    for (let index = 0; index < turbulence.length; index += 1) {
+      const cleanSource = cleanBreathVoice._renderSource();
+      const texturedSource = texturedBreathVoice._renderSource();
+      assert.equal(
+        texturedSource,
+        cleanSource,
+        "breath texture must stay out of the nonlinear reed source",
+      );
+      const sample = texturedBreathVoice.breathTexture;
+      turbulence[index] = sample;
+      turbulenceSquareSum += sample * sample;
+      turbulenceMean += sample;
+      if (index > 0) differenceSquareSum += (sample - turbulence[index - 1]) ** 2;
+    }
+    const turbulenceRms = Math.sqrt(turbulenceSquareSum / turbulence.length);
+    const turbulenceDifferenceRms = Math.sqrt(
+      differenceSquareSum / (turbulence.length - 1),
+    );
+    assert.ok(turbulence.every(Number.isFinite));
+    assert.ok(turbulenceRms > 0.005, `breath texture RMS was ${turbulenceRms}`);
+    assert.ok(
+      turbulenceDifferenceRms / turbulenceRms < 0.65,
+      "breath texture retained too much sample-to-sample white-noise edge",
+    );
+    assert.ok(
+      Math.abs(turbulenceMean / turbulence.length) < turbulenceRms * 0.08,
+      "breath texture accumulated a low-frequency pressure offset",
+    );
+
+    const quietTextureVoice = turbulenceVoice(0.03);
+    let quietTextureSquareSum = 0;
+    for (let index = 0; index < turbulence.length; index += 1) {
+      quietTextureVoice._renderSource();
+      quietTextureSquareSum += quietTextureVoice.breathTexture ** 2;
+    }
+    const quietTextureRms = Math.sqrt(quietTextureSquareSum / turbulence.length);
+    assert.ok(
+      quietTextureRms < turbulenceRms * 0.002,
+      `the low-end breath setting was not effectively clean (${quietTextureRms})`,
+    );
+
+    const textureEdgeRatio = (breathFilter) => {
+      const voice = turbulenceVoice(1, breathFilter);
+      let sum = 0;
+      let difference = 0;
+      let previous = 0;
+      for (let index = 0; index < turbulence.length; index += 1) {
+        voice._renderSource();
+        const sample = voice.breathTexture;
+        sum += sample * sample;
+        if (index > 0) difference += (sample - previous) ** 2;
+        previous = sample;
+      }
+      return Math.sqrt(difference / (turbulence.length - 1))
+        / Math.sqrt(sum / turbulence.length);
+    };
+    const darkTextureEdge = textureEdgeRatio(0);
+    const neutralTextureEdge = textureEdgeRatio(0.5);
+    const openTextureEdge = textureEdgeRatio(1);
+    assert.ok(
+      darkTextureEdge < neutralTextureEdge && neutralTextureEdge < openTextureEdge,
+      "the breath filter must get progressively brighter across its range",
+    );
+    assert.ok(
+      openTextureEdge > darkTextureEdge * 2.5,
+      "the breath filter must span distinctly dark and open turbulence",
+    );
+    assert.ok(openTextureEdge < 1, "even fully open breath must remain colored, not white");
+
+    const tractOnlyTexture = turbulenceVoice(1, 1);
+    tractOnlyTexture.breathTexture = 1;
+    tractOnlyTexture.breathFlow = 1;
+    tractOnlyTexture._radiate(0, -1);
+    assert.ok(
+      tractOnlyTexture.mouthFiltersLeft.some(({ band }) => Math.abs(band) > 0),
+      "breath texture must excite the mouth formants",
+    );
+    assert.equal(
+      tractOnlyTexture.frameFilterLeft.band,
+      0,
+      "breath texture must not excite the metallic frame resonator",
+    );
+
+    const vowelA = new Processor({ processorOptions: { configuration: applyVowel({
+      ...JAW_HARP_DEFAULTS,
+      autoBreath: false,
+    }, "a") } });
+    const vowelI = new Processor({ processorOptions: { configuration: applyVowel({
+      ...JAW_HARP_DEFAULTS,
+      autoBreath: false,
+    }, "i") } });
+    vowelA.breathFlow = 1;
+    vowelI.breathFlow = 1;
+    let vowelTextureDifference = 0;
+    let vowelTextureEnergy = 0;
+    for (let index = 0; index < 4_096; index += 1) {
+      // Probe near the A mouth's first formant, which the I posture moves far
+      // lower. Only the breath branch is active for this comparison.
+      const texture = Math.sin(index * Math.PI * 2 * 800 / 48_000) * 0.05;
+      vowelA.breathTexture = texture;
+      vowelI.breathTexture = texture;
+      const aSample = vowelA._radiate(0, -1);
+      const iSample = vowelI._radiate(0, -1);
+      if (index > 256) {
+        vowelTextureDifference += (aSample - iSample) ** 2;
+        vowelTextureEnergy += aSample * aSample + iSample * iSample;
+      }
+    }
+    assert.ok(
+      Math.sqrt(vowelTextureDifference / vowelTextureEnergy) > 0.3,
+      "isolated breath texture must follow changing mouth/vowel formants",
     );
 
     const releasedFromHold = new Processor({ processorOptions: { configuration: {
@@ -1125,17 +1283,43 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     };
     const tractFrequencyBefore = selectiveGlottis.mouthFiltersLeft[0].frequency;
     const frameFrequencyBefore = selectiveGlottis.frameFilterLeft.frequency;
+    const breathColorBefore = selectiveGlottis.breathNoiseColorInhale;
     selectiveGlottis.frequencies[0] = 12_345;
     selectiveGlottis.decays[0] = 0.12345;
     selectiveGlottis._handleMessage({
       type: "configure", configuration: { glottisOpening: 3 },
     });
     selectiveGlottis._approachConfiguration(128);
-    assert.deepEqual(coefficientMasks, [2]);
+    assert.deepEqual(coefficientMasks, [18]);
     assert.equal(selectiveGlottis.frequencies[0], 12_345);
     assert.equal(selectiveGlottis.decays[0], 0.12345);
     assert.notEqual(selectiveGlottis.mouthFiltersLeft[0].frequency, tractFrequencyBefore);
     assert.equal(selectiveGlottis.frameFilterLeft.frequency, frameFrequencyBefore);
+    assert.notEqual(selectiveGlottis.breathNoiseColorInhale, breathColorBefore);
+
+    const selectiveBreathFilter = new Processor({ processorOptions: { configuration: {
+      ...JAW_HARP_DEFAULTS,
+      autoBreath: false,
+    } } });
+    const breathFilterMasks = [];
+    const updateBreathFilterCoefficients = selectiveBreathFilter._updateCoefficients.bind(
+      selectiveBreathFilter,
+    );
+    selectiveBreathFilter._updateCoefficients = (mask) => {
+      breathFilterMasks.push(mask);
+      return updateBreathFilterCoefficients(mask);
+    };
+    const breathFilterTractBefore = selectiveBreathFilter.mouthFiltersLeft[0].frequency;
+    const breathFilterFrameBefore = selectiveBreathFilter.frameFilterLeft.frequency;
+    const breathFilterColorBefore = selectiveBreathFilter.breathNoiseColorInhale;
+    selectiveBreathFilter._handleMessage({
+      type: "configure", configuration: { breathFilter: 1 },
+    });
+    selectiveBreathFilter._approachConfiguration(128);
+    assert.deepEqual(breathFilterMasks, [16]);
+    assert.equal(selectiveBreathFilter.mouthFiltersLeft[0].frequency, breathFilterTractBefore);
+    assert.equal(selectiveBreathFilter.frameFilterLeft.frequency, breathFilterFrameBefore);
+    assert.ok(selectiveBreathFilter.breathNoiseColorInhale > breathFilterColorBefore);
 
     const rawReleaseCycleRms = (presetId) => {
       const configuration = jawHarpState(presetId, { autoBreath: false, dryResonance: 1 });
@@ -1505,6 +1689,14 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(html, /id="breathsPerLoop"/);
   assert.match(html, /id="breathLinkButton"/);
   assert.match(html, /id="dryResonance"/);
+  assert.match(html, /Breath filter \/ color/);
+  assert.match(html, /same live mouth and formant resonator/);
+  assert.match(html, /id="breathXYPad"[\s\S]*?data-jaw-xy-pad="air"[\s\S]*?data-x-control="breathRateBpm"[\s\S]*?data-y-control="breathDepth"/);
+  assert.match(html, /id="breathXYThumb"[\s\S]*?data-jaw-xy-thumb/);
+  assert.match(html, /id="breathXYReadout"/);
+  assert.match(html, /id="rhythmXYPad"[\s\S]*?data-jaw-xy-pad="rhythm"[\s\S]*?data-x-control="repeatRateBpm"[\s\S]*?data-y-control="repeatSwing"/);
+  assert.match(html, /id="rhythmXYThumb"[\s\S]*?data-jaw-xy-thumb/);
+  assert.match(html, /id="rhythmXYReadout"/);
   assert.match(html, /Physical harp \/ material/);
   assert.match(html, /id="harpSelect" aria-label="Jaw harp physical body and material preset"/);
   assert.match(html, /id="styleSelect"[\s\S]*?aria-describedby="styleDescription styleSource"/);
@@ -1524,6 +1716,8 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
     "formantFocus",
     "cavityCoupling",
     "glottisOpening",
+    "breathNoiseAmount",
+    "breathFilter",
     "breathDepth",
     "breathRateBpm",
     "breathBalance",
@@ -1538,12 +1732,15 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
     assert.deepEqual([minimum, maximum], JAW_HARP_LIMITS[key], `${key} HTML and model limits match`);
   }
   assert.match(html, /<option value="16">16 breaths \/ loop<\/option>/);
-  assert.match(html, /Drag anywhere in the BREATH pad in two dimensions:[\s\S]*twenty per second/);
-  assert.match(html, /Drag anywhere in the TEMPO pad horizontally from[\s\S]*vertically for[\s\S]*alternating swing/);
+  assert.match(html, /side panel, drag the Breath gesture XY pad in two dimensions:[\s\S]*twenty per second/i);
+  assert.match(html, /Drag the Hand clock XY pad horizontally from[\s\S]*vertically[\s\S]*alternating swing/);
   assert.match(html, /focus and cavity node in two dimensions/);
   assert.match(html, /glottis node\s+horizontally/);
   assert.match(css, /\.jaw-harp-page \.shell/);
   assert.match(css, /\.jaw-style-source/);
+  assert.match(css, /\.jaw-xy-pad\s*\{[\s\S]*?touch-action:\s*none/);
+  assert.match(css, /\.jaw-xy-thumb\s*\{[\s\S]*?--jaw-xy-top/);
+  assert.match(css, /grid-template-rows:\s*minmax\(285px, 48dvh\)/);
   assert.match(css, /@media \(max-width: 650px\)/);
   assert.match(app, /new AudioWorkletNode\(context, "jaw-harp-physical-model"/);
   const audioConfigurationBlock = app.slice(
@@ -1582,17 +1779,20 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(app, /type === "glottis"/);
   assert.match(app, /breathRateBpm: logarithmicValue\(/);
   assert.match(app, /repeatRateBpm: logarithmicValue\(/);
-  assert.match(app, /const TEMPO_SLIDER_TICKS = Object\.freeze\(\[36, 60, 120, 240, 480\]\)/);
-  assert.match(app, /function drawTempoSlider\(/);
-  assert.match(app, /drawNode\(model\.airPad\.x, model\.airPad\.y, "#68bff1", "BREATH"/);
-  assert.match(app, /drawNode\(model\.rhythmPad\.x, model\.rhythmPad\.y, "#f0c46e", "TEMPO"/);
-  assert.match(app, /effectiveAirRate = effectiveBreathRateBpm\(state\)/);
-  assert.match(app, /1\/MIN ← CYCLE SPEED → 20\/SEC/);
-  assert.match(app, /LINKED? ×\$\{multiplier\.toFixed/);
-  assert.match(app, /state\.breathLinked[\s\S]*?"FREE"/);
-  assert.match(app, /REPEAT \$\{state\.repeat \? "ON" : "OFF"\}/);
-  assert.match(app, /point\.x >= model\.airPad\.left/);
-  assert.match(app, /point\.x >= model\.rhythmPad\.left/);
+  assert.match(app, /function installXYPadInteractions\(\)/);
+  assert.match(app, /querySelectorAll\("\[data-jaw-xy-pad\]"\)/);
+  assert.match(app, /if \(pointerId !== null\) return/);
+  assert.match(app, /pad\.setPointerCapture\?\.\(event\.pointerId\)/);
+  assert.match(app, /ArrowLeft:\s*\[-1, 0\]/);
+  assert.match(app, /ArrowUp:\s*\[0, 1\]/);
+  assert.match(app, /const patch = xyPadPatch\(/);
+  assert.match(app, /if \(patch\) commitParameterPatch\(patch\)/);
+  assert.match(app, /function updateXYPadPresentation\(\)/);
+  assert.match(app, /breathXYReadout/);
+  assert.match(app, /rhythmXYReadout/);
+  assert.match(app, /formatCycleRate\(effectiveRate\)/);
+  assert.doesNotMatch(app, /model\.airPad|model\.rhythmPad/);
+  assert.doesNotMatch(app, /function drawAirPadDetails|function drawRhythmPadDetails|function drawTempoSlider/);
   assert.match(app, /const RANDOMIZE_AUDITION_FORCE_FLOOR = JAW_HARP_DEFAULTS\.pluckForce/);
   const auditionBlock = app.match(/async function auditionRandomizedModel\([\s\S]*?^\}/m)?.[0] ?? "";
   assert.match(auditionBlock, /intentGeneration = performanceIntentGeneration/);
@@ -1628,8 +1828,6 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   );
   assert.match(app, /sendManualBreath\(manualBreathDirection \* state\.breathDepth\)/);
   assert.match(app, /function drawParameterPad\(/);
-  assert.match(app, /function drawAirPadDetails\(/);
-  assert.match(app, /function drawRhythmPadDetails\(/);
   assert.match(app, /function retimeRepeatClock\(/);
   assert.match(app, /function preserveBreathCyclePhase\(/);
   const setControlBlock = app.slice(
@@ -1637,7 +1835,7 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
     app.indexOf("function loadHarp("),
   );
   const pointerControlBlock = app.slice(
-    app.indexOf("function setFromPointer("),
+    app.indexOf("function commitParameterPatch("),
     app.indexOf("function installCanvasInteractions("),
   );
   assert.doesNotMatch(setControlBlock, /resetBreathCycle|repeatStep = 0|repeatHitCount = 0/);
@@ -1683,6 +1881,8 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
     app.indexOf("function loadVowel("),
   );
   assert.match(loadHarpBlock, /audioGraphIsRunning\(\) && !tineIsHeld/);
+  assert.match(loadHarpBlock, /breathNoiseAmount: state\.breathNoiseAmount/);
+  assert.match(loadHarpBlock, /breathFilter: state\.breathFilter/);
   const referencePerformanceBlock = app.slice(
     app.indexOf("function markReferencePerformanceCustom("),
     app.indexOf("function loadVowel("),
@@ -1712,6 +1912,10 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(app, /manualBreathDirection[\s\S]*?resetBreathSequenceClock\(time\)/);
   assert.match(app, /addEventListener\("morphazoid:midi-input", handleMidiInput\)/);
   assert.match(app, /function responsiveAnatomyScale\(width, height, compact\)/);
+  assert.match(app, /Math\.min\(width \/ 460, height \/ 330\), 0\.68, 1/);
+  assert.match(app, /const mouthY = cssHeight \* \(compact \? 0\.48 : 0\.51\)/);
+  assert.match(app, /cssHeight - mouthY - 132 \* anatomyScale/);
+  assert.match(app, /mouthY \+ jawGap \+ 126 \* anatomyScale/);
   assert.match(app, /\(compact \? 360 : 510\) \* anatomyScale/);
   assert.match(app, /230 \* anatomyScale/);
   assert.match(app, /function drawHair\(/);

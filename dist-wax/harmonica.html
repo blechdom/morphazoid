@@ -7,9 +7,9 @@
     <meta name="theme-color" content="#050707" />
     <meta
       name="description"
-      content="Harmonica is a playable ten-hole blues physical model with draw and blow bends, overbends, slaps, shakes, wah, growl, tongue blocks, chords, and breath rhythms."
+      content="Harmonicazoid is a playable ten-hole blues physical model with independent keys and reed bodies, draw and blow bends, tongue blocks, hand cup, chords, and breath rhythms."
     />
-    <title>Harmonica · Morphazoid</title>
+    <title>Harmonicazoid · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="jaw-harp.css" />
@@ -26,7 +26,7 @@
         <a class="tab" href="throatazoid.html">throatazoid</a>
         <a class="tab" href="syrinx.html">syrinx</a>
         <a class="tab" href="jaw-harp.html">jaw harp</a>
-        <a class="tab active" href="harmonica.html" aria-current="page">harmonica</a>
+        <a class="tab active" href="harmonica.html" aria-current="page">harmonicazoid</a>
         <a class="tab" href="breath-atlas.html">breath atlas</a>
         <a class="tab" href="karplus-strong.html">karplus strong</a>
       </nav>
@@ -37,7 +37,7 @@
           <option value="throatazoid.html">throatazoid</option>
           <option value="syrinx.html">syrinx</option>
           <option value="jaw-harp.html">jaw harp</option>
-          <option value="harmonica.html" selected>harmonica</option>
+          <option value="harmonica.html" selected>harmonicazoid</option>
           <option value="breath-atlas.html">breath atlas</option>
           <option value="karplus-strong.html">karplus strong</option>
         </select>
@@ -50,18 +50,18 @@
         </button>
         <label class="header-level" for="level">
           <span><b>Output</b><output id="levelOut" for="level">50%</output></span>
-          <input id="level" aria-label="Harmonica output level" type="range" min="0" max="0.82" step="0.01" value="0.5" />
+          <input id="level" aria-label="Harmonicazoid output level" type="range" min="0" max="0.82" step="0.01" value="0.5" />
         </label>
       </div>
     </header>
 
     <main class="shell" id="harmonica">
-      <section class="stage harmonica-stage" aria-label="Interactive harmonica physical model">
+      <section class="stage harmonica-stage" aria-label="Interactive Harmonicazoid physical model">
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive ten-hole harmonica. Hold the upper half of a chamber to blow or the lower half to draw. Drag HOLE / MOUTH horizontally to select a chamber and vertically to choose a one-hole single note, two-hole double-stop, or three- to four-hole chord. Drag AIR for pressure and cycle speed, BLUES for technique amount and rate, BEND for paired-reed bending and gap, CUP horizontally for cover-hand filtering and vertically for growl, and the mouth nodes for tongue, lips, and tract shape."
+            aria-label="Interactive Harmonicazoid with five simultaneous views. Hold the warm Blow or cool Draw half of the note rail to sound a chamber. Drag either edge of the lip bracket to cover one through five holes, the tongue for block and height, the bend ladder for bend and reed gap, the hands for cup and growl, or the breath ribbon for air and rhythm."
             aria-describedby="canvasInstructions liveStatus"
           >
             A ten-hole diatonic harmonica with separate blow and draw reeds and an interactive vocal tract.
@@ -69,63 +69,93 @@
 
           <div class="jaw-stage-heading harmonica-stage-heading" aria-hidden="true">
             <p>20 FREE REEDS × SIGNED PRESSURE × PLAYER-CONTROLLED TRACT</p>
-            <h1>HARMO<br />NICA</h1>
-            <small>ten chambers / opposing blow + draw reeds / bends, overbends + Southern blues articulation</small>
+            <h1>HARMONI<br />CAZOID</h1>
+            <small>note rail / lip + tongue / bend ladder / hand cup / breath rhythm</small>
           </div>
 
           <p class="jaw-drag-hint harmonica-drag-hint" aria-hidden="true">
-            HOLD A CHAMBER TO BLOW / DRAW · DRAG AIR, BLUES, BEND + CUP FILTER<br />
-            HOLE / MOUTH: ↔ CHAMBER · ↕ 1 / 2 / 3 / 4-HOLE APERTURE
+            FIVE LINKED VIEWS · HOLD WARM BLOW / COOL DRAW · DRAG EACH LABELED NODE<br />
+            PULL EITHER LIP-BRACKET EDGE: 1–5 HOLES · BEND LADDER SNAPS TO SEMITONE STOPS
           </p>
           <p class="jaw-audio-error" id="audioError" role="alert" hidden></p>
         </div>
       </section>
 
-      <aside class="panel" aria-label="Harmonica controls">
-        <div class="jaw-transport harmonica-transport" aria-label="Harmonica breath transport">
+      <aside class="panel" aria-label="Harmonicazoid controls">
+        <div class="jaw-transport harmonica-transport" aria-label="Harmonicazoid breath transport">
           <button id="drawButton" type="button" aria-pressed="false">
             <span class="harmonica-flow-icon" aria-hidden="true">←</span>
-            <span><b>Draw</b><small>hold · [ key</small></span>
+            <span><b>Draw</b><small>hold · [ / S</small></span>
           </button>
-          <button id="blowButton" type="button" data-primary-transport aria-pressed="false">
+          <button id="blowButton" type="button" aria-pressed="false">
             <span class="harmonica-flow-icon" aria-hidden="true">→</span>
-            <span><b>Blow</b><small>hold · ] key</small></span>
+            <span><b>Blow</b><small>hold · ] / W</small></span>
           </button>
-          <button id="breathCycleButton" type="button" aria-pressed="false">
+          <button id="breathCycleButton" type="button" data-primary-transport aria-pressed="true">
             <span aria-hidden="true">↔</span>
-            <span><b>Auto</b><small id="breathCycleState">off</small></span>
+            <span><b>Auto</b><small id="breathCycleState">Space · Slow drag ↔ 24/min</small></span>
           </button>
         </div>
 
-        <section class="jaw-preset-deck harmonica-preset-deck" aria-label="Harmonica instrument and hole selection">
-          <label for="presetSelect">
-            <span>Harmonica body</span>
-            <select id="presetSelect" aria-label="Harmonica physical preset"></select>
-          </label>
-          <p id="presetDescription">Standard C Richter tuning with bright bronze reeds and the familiar blow/draw chord layout.</p>
-          <div class="harmonica-hole-grid" id="holeButtons" role="group" aria-label="Harmonica holes">
-            <button class="harmonica-hole-button" type="button" data-hole="1" aria-label="Hole 1; blow C4; draw D4"><b>1</b><small>C / D</small></button>
-            <button class="harmonica-hole-button" type="button" data-hole="2" aria-label="Hole 2; blow E4; draw G4"><b>2</b><small>E / G</small></button>
-            <button class="harmonica-hole-button" type="button" data-hole="3" aria-label="Hole 3; blow G4; draw B4"><b>3</b><small>G / B</small></button>
-            <button class="harmonica-hole-button" type="button" data-hole="4" aria-label="Hole 4; blow C5; draw D5"><b>4</b><small>C / D</small></button>
-            <button class="harmonica-hole-button" type="button" data-hole="5" aria-label="Hole 5; blow E5; draw F5"><b>5</b><small>E / F</small></button>
-            <button class="harmonica-hole-button" type="button" data-hole="6" aria-label="Hole 6; blow G5; draw A5"><b>6</b><small>G / A</small></button>
-            <button class="harmonica-hole-button" type="button" data-hole="7" aria-label="Hole 7; blow C6; draw B5"><b>7</b><small>C / B</small></button>
-            <button class="harmonica-hole-button" type="button" data-hole="8" aria-label="Hole 8; blow E6; draw D6"><b>8</b><small>E / D</small></button>
-            <button class="harmonica-hole-button" type="button" data-hole="9" aria-label="Hole 9; blow G6; draw F6"><b>9</b><small>G / F</small></button>
-            <button class="harmonica-hole-button" type="button" data-hole="10" aria-label="Hole 10; blow C7; draw A6"><b>10</b><small>C / A</small></button>
+        <label class="control harmonica-speed-control" for="breathRateBpm">
+          <span>
+            <b>Speed · breath rhythm</b>
+            <output id="breathRateBpmOut" for="breathRateBpm">24 cycles/min</output>
+          </span>
+          <input id="breathRateBpm" type="range" min="1" max="1200" step="1" value="24" />
+          <small>Sets the pace of Auto breathing, from one slow draw/blow cycle per minute to twenty per second.</small>
+        </label>
+
+        <label class="control harmonica-speed-control harmonica-breath-shift-control" for="breathShiftSlop">
+          <span>
+            <b>Breath shift · pristine ↔ sloppy</b>
+            <output id="breathShiftSlopOut" for="breathShiftSlop">sloppy</output>
+          </span>
+          <input id="breathShiftSlop" type="range" min="0" max="1" step="0.01" value="0.84" />
+          <small>Pristine crosses pressure cleanly through zero. Sloppy lets the departing reed ring while the next reed rises, with adjacent-hole breath smear.</small>
+        </label>
+
+        <section class="jaw-preset-deck harmonica-preset-deck" aria-label="Harmonicazoid body, key, and hole selection">
+          <div class="harmonica-identity-selects">
+            <label for="presetSelect">
+              <span>Reed body</span>
+              <select id="presetSelect" aria-label="Harmonicazoid reed body and material"></select>
+            </label>
+            <label for="keySelect">
+              <span>Instrument key</span>
+              <select id="keySelect" aria-label="Harmonicazoid key"></select>
+            </label>
+          </div>
+          <p id="presetDescription">Bright phosphor-bronze reeds with a balanced traditional response and familiar blow/draw articulation. Tuned independently to C.</p>
+          <div class="harmonica-hole-selector" id="holeSelector">
+            <div class="harmonica-hole-grid" id="holeButtons" role="group" aria-label="Harmonica holes">
+              <button class="harmonica-hole-button" type="button" data-hole="1" aria-label="Hole 1; blow C4; draw D4"><b>1</b><small>C / D</small></button>
+              <button class="harmonica-hole-button" type="button" data-hole="2" aria-label="Hole 2; blow E4; draw G4"><b>2</b><small>E / G</small></button>
+              <button class="harmonica-hole-button" type="button" data-hole="3" aria-label="Hole 3; blow G4; draw B4"><b>3</b><small>G / B</small></button>
+              <button class="harmonica-hole-button" type="button" data-hole="4" aria-label="Hole 4; blow C5; draw D5"><b>4</b><small>C / D</small></button>
+              <button class="harmonica-hole-button" type="button" data-hole="5" aria-label="Hole 5; blow E5; draw F5"><b>5</b><small>E / F</small></button>
+              <button class="harmonica-hole-button" type="button" data-hole="6" aria-label="Hole 6; blow G5; draw A5"><b>6</b><small>G / A</small></button>
+              <button class="harmonica-hole-button" type="button" data-hole="7" aria-label="Hole 7; blow C6; draw B5"><b>7</b><small>C / B</small></button>
+              <button class="harmonica-hole-button" type="button" data-hole="8" aria-label="Hole 8; blow E6; draw D6"><b>8</b><small>E / D</small></button>
+              <button class="harmonica-hole-button" type="button" data-hole="9" aria-label="Hole 9; blow G6; draw F6"><b>9</b><small>G / F</small></button>
+              <button class="harmonica-hole-button" type="button" data-hole="10" aria-label="Hole 10; blow C7; draw A6"><b>10</b><small>C / A</small></button>
+            </div>
+            <div class="harmonica-hole-window" id="holeWindow">
+              <button class="harmonica-hole-window-handle is-left" id="holeWindowLeft" type="button" aria-label="Move the left edge of the mouth aperture"><span aria-hidden="true">‹</span></button>
+              <button class="harmonica-hole-window-handle is-right" id="holeWindowRight" type="button" aria-label="Move the right edge of the mouth aperture"><span aria-hidden="true">›</span></button>
+            </div>
           </div>
           <fieldset class="harmonica-aperture-selector" aria-describedby="mouthApertureHelp">
             <legend>Mouth aperture · covered holes</legend>
             <div class="harmonica-aperture-heading">
-              <output id="mouthApertureReadout">1-hole single note</output>
-              <small id="mouthApertureHelp">Choose here, use the width slider below, or drag HOLE / MOUTH vertically on the canvas.</small>
+              <output id="mouthApertureReadout">2-hole double-stop</output>
+              <small id="mouthApertureHelp">Choose a width or pull either edge of the outlined mouth window across the ten holes.</small>
             </div>
             <div class="harmonica-aperture-grid" id="chordWidthButtons" role="group" aria-label="Mouth aperture width">
-              <button type="button" data-chord-width="1" aria-pressed="true" aria-label="One-hole mouth aperture; single note">
+              <button type="button" data-chord-width="1" aria-pressed="false" aria-label="One-hole mouth aperture; single note">
                 <b>1</b><small>single note</small>
               </button>
-              <button type="button" data-chord-width="2" aria-pressed="false" aria-label="Two-hole mouth aperture; double-stop">
+              <button type="button" data-chord-width="2" aria-pressed="true" aria-label="Two-hole mouth aperture; double-stop">
                 <b>2</b><small>double-stop</small>
               </button>
               <button type="button" data-chord-width="3" aria-pressed="false" aria-label="Three-hole mouth aperture; chord">
@@ -133,6 +163,9 @@
               </button>
               <button type="button" data-chord-width="4" aria-pressed="false" aria-label="Four-hole mouth aperture; chord">
                 <b>4</b><small>chord</small>
+              </button>
+              <button type="button" data-chord-width="5" aria-pressed="false" aria-label="Five-hole mouth aperture; broad chord">
+                <b>5</b><small>broad chord</small>
               </button>
             </div>
           </fieldset>
@@ -145,35 +178,48 @@
         <details class="group control-section harmonica-blues-deck" data-section="blues" open>
           <summary class="group-summary">
             <h2 class="group-title">Southern blues technique</h2>
-            <span class="section-state" id="bluesSummary">clean · either direction</span>
+            <span class="section-state" id="bluesSummary">growl · either direction</span>
           </summary>
           <div class="group-body harmonica-blues-body">
             <div class="harmonica-position-context" aria-describedby="bluesPositionDescription">
               <span><small>Position</small><b>2nd · cross harp</b></span>
               <p id="bluesPositionDescription">
-                On a C harp, second position centers G: draw notes carry the tonal gravity, while blow notes answer and
-                turn the phrase. Choose a gesture, then hold or scrub a chamber to play it.
+                Second position centers the fifth above the selected harp key: draw notes carry the tonal gravity, while
+                blow notes answer and turn the phrase. Choose a gesture, then hold or scrub a chamber to play it.
               </p>
             </div>
 
             <div class="harmonica-blues-selects">
+              <label class="jaw-select-control harmonica-blues-select" for="performancePresetSelect">
+                <span><b>Performance preset</b><small>Whole-player breath, mouth, bend, tongue, and hand setup.</small></span>
+                <select id="performancePresetSelect" aria-describedby="performancePresetDescription">
+                  <option value="midnight-growl">Midnight Growl</option>
+                </select>
+              </label>
               <label class="jaw-select-control harmonica-blues-select" for="bluesTechniqueSelect">
                 <span><b>Technique</b><small>Sets the breath, bend, tongue, and hand gesture.</small></span>
                 <select id="bluesTechniqueSelect" aria-describedby="techniqueDescription">
-                  <option value="clean">Clean / straight tone</option>
+                  <option value="growl">Growl</option>
                 </select>
               </label>
               <label class="jaw-select-control harmonica-blues-select" for="bluesRhythmSelect">
                 <span><b>Breath rhythm · Auto draw ↔ blow</b><small>Choose a pattern, then switch Auto on; N cycles the choices.</small></span>
                 <select id="bluesRhythmSelect" aria-describedby="rhythmDescription">
-                  <option value="free">Free / manual phrasing</option>
+                  <option value="slow-drag">Slow drag</option>
                 </select>
               </label>
             </div>
 
+            <div
+              class="harmonica-breath-score"
+              id="breathScore"
+              role="img"
+              aria-label="Current automatic breath pattern"
+            ></div>
+
             <div class="harmonica-performance-guide" aria-label="Automatic breath and cup filter guide">
               <p><b>Auto draw ↔ blow</b><span>The selected breath rhythm alternates inhaled and exhaled reed attacks whenever Auto is on.</span></p>
-              <p><b>CUP filter</b><span>Drag CUP right to close and darken the cover-hand filter, left to open it, and vertically to add growl.</span></p>
+              <p><b>CUP resonator</b><span>Drag CUP right to close and lower the moving hand-cavity formant, left to open and brighten it, and vertically to add growl.</span></p>
             </div>
 
             <section class="harmonica-technique-palette" aria-labelledby="bluesTechniquePaletteTitle">
@@ -190,45 +236,56 @@
             </section>
 
             <div class="harmonica-blues-descriptions">
-              <p><b>Technique</b><span id="techniqueDescription">A clean reed response with no scripted ornament.</span></p>
-              <p><b>Rhythm</b><span id="rhythmDescription">Free breath follows the draw, blow, canvas, or MIDI controls directly.</span></p>
+              <p><b>Performance</b><span id="performancePresetDescription">Draw-heavy slow drag with a nearly closed hand cavity, throat dirt, and deep reed loading.</span></p>
+              <p><b>Technique</b><span id="techniqueDescription">Low vocal modulation coupled into the reed flow.</span></p>
+              <p><b>Rhythm</b><span id="rhythmDescription">Long low draws drag into small breathy answers and deliberate space.</span></p>
             </div>
 
             <div class="harmonica-blues-controls" aria-label="Southern blues expression controls">
               <label class="control" for="techniqueAmount">
-                <span><b>Technique amount</b><output id="techniqueAmountOut" for="techniqueAmount">100%</output></span>
-                <input id="techniqueAmount" type="range" min="0" max="2" step="0.01" value="1" />
+                <span><b>Technique amount</b><output id="techniqueAmountOut" for="techniqueAmount">122%</output></span>
+                <input id="techniqueAmount" type="range" min="0" max="2" step="0.01" value="1.22" />
                 <small>Moves from a straight tone through the learned gesture to an exaggerated 200% articulation.</small>
               </label>
               <label class="control" for="techniqueRateHz">
-                <span><b>Gesture rate</b><output id="techniqueRateHzOut" for="techniqueRateHz">5.5 Hz</output></span>
-                <input id="techniqueRateHz" type="range" min="0.1" max="30" step="0.1" value="5.5" />
+                <span><b>Gesture rate</b><output id="techniqueRateHzOut" for="techniqueRateHz">22.0 Hz</output></span>
+                <input id="techniqueRateHz" type="range" min="0.1" max="30" step="0.1" value="22" />
                 <small>Controls shakes, flutter, vibrato, and repeated attacks from a crawl to inhuman speed.</small>
               </label>
               <label class="control" for="breathAttackMs">
-                <span><b>Breath attack</b><output id="breathAttackMsOut" for="breathAttackMs">18 ms</output></span>
-                <input id="breathAttackMs" type="range" min="0" max="500" step="1" value="18" />
+                <span><b>Breath attack</b><output id="breathAttackMsOut" for="breathAttackMs">12 ms</output></span>
+                <input id="breathAttackMs" type="range" min="0" max="500" step="1" value="12" />
                 <small>Sets how quickly pressure reaches the reeds, from a hard zero-time edge to a half-second swell.</small>
               </label>
               <label class="control" for="breathReleaseMs">
-                <span><b>Breath release</b><output id="breathReleaseMsOut" for="breathReleaseMs">90 ms</output></span>
-                <input id="breathReleaseMs" type="range" min="0" max="1000" step="1" value="90" />
+                <span><b>Breath release</b><output id="breathReleaseMsOut" for="breathReleaseMs">176 ms</output></span>
+                <input id="breathReleaseMs" type="range" min="0" max="1000" step="1" value="176" />
                 <small>Controls the tail after airflow stops, from a clipped cutoff to a one-second pressure fall.</small>
               </label>
               <label class="control" for="handCup">
-                <span><b>Hand cup / wah</b><output id="handCupOut" for="handCup">15%</output></span>
-                <input id="handCup" type="range" min="0" max="1" step="0.01" value="0.15" />
+                <span><b>Hand cup / wah</b><output id="handCupOut" for="handCup">90%</output></span>
+                <input id="handCup" type="range" min="0" max="1" step="0.01" value="0.9" />
                 <small>Closes the cover-hand cavity for darker wah color and resonant hand shading.</small>
               </label>
+              <label class="control" for="cupMotionDepth">
+                <span><b>Cup motion</b><output id="cupMotionDepthOut" for="cupMotionDepth">32%</output></span>
+                <input id="cupMotionDepth" type="range" min="0" max="1" step="0.01" value="0.32" />
+                <small>Cycles the hands between their open and cupped positions at the gesture rate.</small>
+              </label>
               <label class="control" for="growl">
-                <span><b>Growl drive</b><output id="growlOut" for="growl">0%</output></span>
-                <input id="growl" type="range" min="0" max="2" step="0.01" value="0" />
+                <span><b>Growl drive</b><output id="growlOut" for="growl">128%</output></span>
+                <input id="growl" type="range" min="0" max="2" step="0.01" value="1.28" />
                 <small>Adds vocal roughness from clear tone through an intentionally overdriven 200% growl.</small>
               </label>
               <label class="control" for="tongueBlock">
-                <span><b>Tongue block</b><output id="tongueBlockOut" for="tongueBlock">0%</output></span>
-                <input id="tongueBlock" type="range" min="0" max="1" step="0.01" value="0" />
+                <span><b>Tongue block</b><output id="tongueBlockOut" for="tongueBlock">24%</output></span>
+                <input id="tongueBlock" type="range" min="0" max="1" step="0.01" value="0.24" />
                 <small>Moves from open pucker toward slaps, splits, and octave-blocked chamber groups.</small>
+              </label>
+              <label class="control" for="tongueMotionDepth">
+                <span><b>Tongue motion</b><output id="tongueMotionDepthOut" for="tongueMotionDepth">26%</output></span>
+                <input id="tongueMotionDepth" type="range" min="0" max="1" step="0.01" value="0.26" />
+                <small>Pulses the tongue block against the breath rhythm for less static articulations.</small>
               </label>
               <label class="control" for="overbend">
                 <span><b>Overblow / overdraw</b><output id="overbendOut" for="overbend">0%</output></span>
@@ -236,8 +293,8 @@
                 <small>Forces the opposing reed through overblow and overdraw territory, then 50% beyond it.</small>
               </label>
               <label class="control" for="rhythmSwing">
-                <span><b>Rhythm swing</b><output id="rhythmSwingOut" for="rhythmSwing">0%</output></span>
-                <input id="rhythmSwing" type="range" min="-0.45" max="0.45" step="0.01" value="0" />
+                <span><b>Rhythm swing</b><output id="rhythmSwingOut" for="rhythmSwing">30%</output></span>
+                <input id="rhythmSwing" type="range" min="-0.45" max="0.45" step="0.01" value="0.3" />
                 <small>Pushes the train or shuffle subdivision from 45% reverse swing through straight to 45% laid back.</small>
               </label>
             </div>
@@ -266,32 +323,32 @@
         </details>
 
         <div class="jaw-model-hud harmonica-model-hud">
-          <span><small>Selected chamber</small><output id="holeReadout">4 · C5 / D5</output></span>
-          <span><small>Sounding reed</small><output id="noteReadout">rest</output></span>
-          <span><small>Signed airflow</small><output id="breathReadout">rest</output></span>
-          <span><small>Paired-reed bend</small><output id="bendReadout">0 semitones</output></span>
-          <span><small>Vocal load</small><output id="tractReadout">88% · 660 Hz</output></span>
+          <span><small>Selected chamber</small><output id="holeReadout">2 · E4 / G4</output></span>
+          <span><small>Sounding reed</small><output id="noteReadout">rest · E4 / G4</output></span>
+          <span><small>Signed airflow</small><output id="breathReadout">resting</output></span>
+          <span><small>Paired-reed bend</small><output id="bendReadout">1.04 semitones</output></span>
+          <span><small>Vocal load</small><output id="tractReadout">150% · 829 Hz</output></span>
         </div>
 
         <details class="group control-section" data-section="instrument" open>
           <summary class="group-summary">
             <h2 class="group-title">Comb + embouchure</h2>
-            <span class="section-state" id="instrumentSummary">hole 4 · single note</span>
+            <span class="section-state" id="instrumentSummary">C · hole 2 · 2-hole double-stop</span>
           </summary>
           <div class="group-body">
             <label class="control" for="hole">
-              <span><b>Anchor hole</b><output id="holeOut" for="hole">4</output></span>
-              <input id="hole" type="range" min="1" max="10" step="1" value="4" />
-              <small>Anchors the mouth window. Number keys 1–9 and 0 select all ten holes directly.</small>
+              <span><b>Anchor hole</b><output id="holeOut" for="hole">2</output></span>
+              <input id="hole" type="range" min="1" max="10" step="1" value="2" />
+              <small>Anchors the mouth window. Number keys select directly; A / D or ← / → step across holes.</small>
             </label>
             <label class="control" for="chordWidth">
-              <span><b>Embouchure width</b><output id="chordWidthOut" for="chordWidth">1 hole</output></span>
-              <input id="chordWidth" type="range" min="1" max="4" step="1" value="1" />
-              <small>Moves from a single-hole pucker through a four-chamber chord aperture.</small>
+              <span><b>Embouchure width</b><output id="chordWidthOut" for="chordWidth">2-hole double-stop</output></span>
+              <input id="chordWidth" type="range" min="1" max="5" step="1" value="2" />
+              <small>Moves from a single-hole pucker through a five-chamber broad chord aperture.</small>
             </label>
             <label class="control" for="embouchure">
-              <span><b>Lip cup / projection</b><output id="embouchureOut" for="embouchure">36%</output></span>
-              <input id="embouchure" type="range" min="-2" max="3" step="0.01" value="0.36" />
+              <span><b>Lip cup / projection</b><output id="embouchureOut" for="embouchure">92%</output></span>
+              <input id="embouchure" type="range" min="-2" max="3" step="0.01" value="0.92" />
               <small>Extends past tight human puckers into impossible reverse and projected mouth chambers.</small>
             </label>
           </div>
@@ -300,22 +357,17 @@
         <details class="group control-section jaw-breath-section" data-section="breath" open>
           <summary class="group-summary">
             <h2 class="group-title">Signed breath</h2>
-            <span class="section-state" id="breathSummary">manual · resting</span>
+            <span class="section-state" id="breathSummary">auto · resting</span>
           </summary>
           <div class="group-body">
             <label class="control" for="breathPressure">
-              <span><b>Breath pressure</b><output id="breathPressureOut" for="breathPressure">82%</output></span>
-              <input id="breathPressure" type="range" min="0" max="3" step="0.01" value="0.82" />
+              <span><b>Breath pressure</b><output id="breathPressureOut" for="breathPressure">126%</output></span>
+              <input id="breathPressure" type="range" min="0" max="3" step="0.01" value="1.26" />
               <small>Drives attack, level, reed closure, pitch load, and turbulence up to 300% impossible pressure.</small>
             </label>
-            <label class="control" for="breathRateBpm">
-              <span><b>Automatic breath rate</b><output id="breathRateBpmOut" for="breathRateBpm">36 cycles/min</output></span>
-              <input id="breathRateBpm" type="range" min="1" max="1200" step="1" value="36" />
-              <small>Runs one draw/blow cycle per minute through twenty cycles per second.</small>
-            </label>
             <label class="control" for="breathBalance">
-              <span><b>Draw / blow duration</b><output id="breathBalanceOut" for="breathBalance">50 / 50</output></span>
-              <input id="breathBalance" type="range" min="0.02" max="0.98" step="0.01" value="0.5" />
+              <span><b>Draw / blow duration</b><output id="breathBalanceOut" for="breathBalance">76 / 24</output></span>
+              <input id="breathBalance" type="range" min="0.02" max="0.98" step="0.01" value="0.76" />
               <small>Moves 2–98% of the automatic cycle into drawing.</small>
             </label>
             <div class="jaw-breath-meter" id="breathMeter" aria-hidden="true">
@@ -327,13 +379,13 @@
         <details class="group control-section" data-section="reeds" open>
           <summary class="group-summary">
             <h2 class="group-title">Opposing reed pair</h2>
-            <span class="section-state" id="reedSummary">bronze · 72% gap</span>
+            <span class="section-state" id="reedSummary">phosphor-bronze reeds · 72% gap</span>
           </summary>
           <div class="group-body">
             <label class="control" for="bend">
-              <span><b>Paired-reed bend</b><output id="bendOut" for="bend">0%</output></span>
-              <input id="bend" type="range" min="0" max="1.5" step="0.01" value="0" />
-              <small>Runs through the normal hole-specific bend and then 50% beyond the playable range.</small>
+              <span><b>Paired-reed bend</b><output id="bendOut" for="bend">52%</output></span>
+              <input id="bend" type="range" min="0" max="1.5" step="0.01" value="0.52" />
+              <small>Runs through the normal hole-specific bend and then 50% beyond it. ↑ / ↓ move through semitone stops.</small>
             </label>
             <label class="control" for="reedGap">
               <span><b>Reed gap</b><output id="reedGapOut" for="reedGap">72%</output></span>
@@ -361,12 +413,12 @@
         <details class="group control-section" data-section="mouth" open>
           <summary class="group-summary">
             <h2 class="group-title">Vocal-tract load</h2>
-            <span class="section-state" id="mouthSummary">tongue 42 / 38 · throat 50</span>
+            <span class="section-state" id="mouthSummary">tongue 18 / 38 · throat 18</span>
           </summary>
           <div class="group-body">
             <label class="control" for="tonguePosition">
-              <span><b>Tongue front / back</b><output id="tonguePositionOut" for="tonguePosition">42%</output></span>
-              <input id="tonguePosition" type="range" min="-2" max="3" step="0.01" value="0.42" />
+              <span><b>Tongue front / back</b><output id="tonguePositionOut" for="tonguePosition">18%</output></span>
+              <input id="tonguePosition" type="range" min="-2" max="3" step="0.01" value="0.18" />
               <small>Moves beyond the human tract in both directions and retunes the bend-loading cavity.</small>
             </label>
             <label class="control" for="tongueHeight">
@@ -375,13 +427,13 @@
               <small>Ranges from a virtual cavity below the jaw to impossible palatal closure.</small>
             </label>
             <label class="control" for="throatOpening">
-              <span><b>Throat opening</b><output id="throatOpeningOut" for="throatOpening">50%</output></span>
-              <input id="throatOpening" type="range" min="-2" max="3" step="0.01" value="0.5" />
+              <span><b>Throat opening</b><output id="throatOpeningOut" for="throatOpening">18%</output></span>
+              <input id="throatOpening" type="range" min="-2" max="3" step="0.01" value="0.18" />
               <small>Extends from reverse closure to a three-times-human rear cavity.</small>
             </label>
             <label class="control" for="vocalTractCoupling">
-              <span><b>Vocal feedback</b><output id="vocalTractCouplingOut" for="vocalTractCoupling">88%</output></span>
-              <input id="vocalTractCoupling" type="range" min="0" max="2" step="0.01" value="0.88" />
+              <span><b>Vocal feedback</b><output id="vocalTractCouplingOut" for="vocalTractCoupling">150%</output></span>
+              <input id="vocalTractCoupling" type="range" min="0" max="2" step="0.01" value="1.5" />
               <small>Crosses from direct reed radiation through normal tract loading into 200% feedback.</small>
             </label>
           </div>
@@ -390,32 +442,32 @@
         <details class="group control-section" data-section="motion" open>
           <summary class="group-summary">
             <h2 class="group-title">Hand + throat motion</h2>
-            <span class="section-state" id="motionSummary">5.2 Hz vibrato · subtle tremolo</span>
+            <span class="section-state" id="motionSummary">Growl · 22.0 Hz · 122%</span>
           </summary>
           <div class="group-body">
             <label class="control" for="vibratoRateHz">
-              <span><b>Pitch vibrato rate</b><output id="vibratoRateHzOut" for="vibratoRateHz">5.2 Hz</output></span>
-              <input id="vibratoRateHz" type="range" min="0" max="18" step="0.1" value="5.2" />
+              <span><b>Pitch vibrato rate</b><output id="vibratoRateHzOut" for="vibratoRateHz">3.8 Hz</output></span>
+              <input id="vibratoRateHz" type="range" min="0" max="18" step="0.1" value="3.8" />
               <small>Runs from still pitch through an inhuman eighteen-cycle throat vibrato.</small>
             </label>
             <label class="control" for="vibratoDepth">
-              <span><b>Pitch vibrato depth</b><output id="vibratoDepthOut" for="vibratoDepth">8%</output></span>
-              <input id="vibratoDepth" type="range" min="0" max="2" step="0.01" value="0.08" />
+              <span><b>Pitch vibrato depth</b><output id="vibratoDepthOut" for="vibratoDepth">20%</output></span>
+              <input id="vibratoDepth" type="range" min="0" max="2" step="0.01" value="0.2" />
               <small>Reaches a two-semitone pitch excursion at maximum pressure.</small>
             </label>
             <label class="control" for="tremoloRateHz">
-              <span><b>Hand tremolo rate</b><output id="tremoloRateHzOut" for="tremoloRateHz">5.2 Hz</output></span>
-              <input id="tremoloRateHz" type="range" min="0.1" max="30" step="0.1" value="5.2" />
+              <span><b>Hand tremolo rate</b><output id="tremoloRateHzOut" for="tremoloRateHz">4.4 Hz</output></span>
+              <input id="tremoloRateHz" type="range" min="0.1" max="30" step="0.1" value="4.4" />
               <small>Moves from slow hand shading to thirty pulses per second.</small>
             </label>
             <label class="control" for="tremoloDepth">
-              <span><b>Hand tremolo depth</b><output id="tremoloDepthOut" for="tremoloDepth">5%</output></span>
-              <input id="tremoloDepth" type="range" min="0" max="1" step="0.01" value="0.05" />
+              <span><b>Hand tremolo depth</b><output id="tremoloDepthOut" for="tremoloDepth">13%</output></span>
+              <input id="tremoloDepth" type="range" min="0" max="1" step="0.01" value="0.13" />
               <small>Scales the cover-hand amplitude motion from absent to complete chopping.</small>
             </label>
             <label class="control" for="stereoSpread">
-              <span><b>Comb stereo width</b><output id="stereoSpreadOut" for="stereoSpread">24%</output></span>
-              <input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.24" />
+              <span><b>Comb stereo width</b><output id="stereoSpreadOut" for="stereoSpread">18%</output></span>
+              <input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.18" />
               <small>Places low and high chambers across the stereo field.</small>
             </label>
           </div>
@@ -424,7 +476,7 @@
         <section class="jaw-model-note harmonica-model-note" aria-labelledby="harmonicaModelTitle">
           <header>
             <span>Model topology</span>
-            <strong id="harmonicaModelTitle">Pressure, two reeds, nonlinear player load</strong>
+            <strong id="harmonicaModelTitle">Harmonicazoid · pressure, two reeds, nonlinear player load</strong>
           </header>
           <p>
             Every chamber owns a blow reed and a draw reed. Signed pressure selects the primary tongue; the opposing
@@ -434,7 +486,7 @@
             <span><b>lungs</b><small>signed pressure</small></span><i aria-hidden="true">→</i>
             <span><b>reed pair</b><small>gap + bend</small></span><i aria-hidden="true">→</i>
             <span><b>mouth</b><small>feedback load</small></span><i aria-hidden="true">→</i>
-            <span><b>covers</b><small>air + stereo</small></span>
+            <span><b>hand cup</b><small>moving resonance</small></span>
           </div>
         </section>
 
@@ -445,18 +497,21 @@
 
       <p class="sr-only" id="canvasInstructions">
         Hold the upper half of a numbered chamber to blow its upper reed, or hold the lower half to draw its lower reed.
-        Move across the ten chambers while holding to glissando. Drag HOLE / MOUTH horizontally to select the anchor
-        chamber and vertically to change the mouth aperture between a one-hole single note, two-hole double-stop, and
-        three- or four-hole chord. Drag AIR horizontally for logarithmic automatic breath speed and vertically for pressure.
-        Drag BEND horizontally for paired-reed bend and vertically for reed gap.
-        Drag BLUES horizontally for technique rate and vertically for amount. Drag TONGUE in two dimensions,
-        and drag CUP horizontally to open or close the cover-hand filter and vertically for growl. Drag LIPS inward or
+        Move across the ten chambers while holding to glissando. Drag the HOLE / MOUTH node horizontally to select the
+        anchor chamber and vertically to change the aperture. Pull either edge of the outlined mouth window in the
+        control panel or either round edge of the canvas lip bracket to cover one through five holes directly.
+        Use the Speed slider or drag AIR horizontally for logarithmic automatic breath speed and vertically for pressure.
+        The Breath Shift slider ranges from a precise pressure reversal to a loose handoff with departing-reed ring,
+        arriving-reed rise, and neighboring-chamber smear.
+        Drag BEND vertically through hole-specific semitone stops and horizontally for reed gap.
+        Drag the rhythm node horizontally for technique rate and vertically for amount. Drag TONGUE horizontally for tongue block and vertically for height,
+        and drag CUP horizontally to sweep the cover-hand cavity resonance and vertically for growl. Drag LIPS inward or
         outward, and drag TRACT horizontally for throat opening and vertically for vocal feedback. The Breath rhythm
         selector drives patterned draw and blow attacks while Auto is on.
-        Equivalent labeled controls follow the diagram. Number keys one through nine and zero select holes. Left bracket
-        holds Draw, right bracket holds Blow, and Space holds Blow while the canvas is focused. Canvas arrow keys step holes,
-        minus and equals change chord width, A E I O U load mouth postures, B cycles techniques, N cycles rhythms,
-        R toggles automatic breath, and Escape stops air.
+        Equivalent labeled controls follow the diagram. Number keys one through nine and zero select holes. A and D or the
+        left and right arrows step holes; S or left bracket holds Draw, W or right bracket holds Blow, and X stops air.
+        Up and down arrows move between bend stops. Minus and equals change chord width. Shift plus A E I O U loads mouth
+        postures, B cycles techniques, N cycles rhythms, Space or R toggles automatic breath, and Escape stops air.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

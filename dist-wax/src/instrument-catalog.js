@@ -252,8 +252,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   harmonica: define(
     "Southern blues free-reed instrument",
-    "Models a ten-hole diatonic harmonica as paired blow and draw reeds for single notes, double-stops, chords, bends, scoops, dips, falls, shakes, slaps, hand wah, throat vibrato, flutter, growl, octave tongue blocks, overbends, and signed blues breath rhythms.",
-    "Turn on audio, choose a one- to four-hole mouth aperture and a blues gesture, then hold blow or draw; shape its rhythm, breath envelope, cover-hand filter, tongue, tract, bend, or overbend in real time.",
+    "Models a three-octave, ten-hole diatonic harmonica as paired blow and draw reeds, with independent keys and reed bodies, one- to five-hole apertures, bends, tongue blocks, a moving hand-cavity resonance, and signed blues breath rhythms.",
+    "Turn on audio, choose Midnight Growl or another performance, then hold Blow or Draw; pull either lip-window edge, reshape the tongue and bend, sweep the hand cup, or move Breath Shift from pristine to sloppy.",
     ["Built-in source", "Pointer", "Computer keys", "MIDI expression", "Physical-model DSP"],
   ),
   "hiccup-head": define(

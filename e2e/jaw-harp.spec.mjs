@@ -91,3 +91,48 @@ test("Jaw Harp respects WAX MIDI-only routing", async ({ page }) => {
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#reedFrequencyHzOut")).toHaveText("76 Hz");
 });
+
+test("Jaw Harp panel XY pads stay clear of the mobile head and control both axes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("jaw-harp.html", { waitUntil: "load" });
+
+  const stageBox = await page.locator("#stageWrap").boundingBox();
+  const breathPad = page.locator("#breathXYPad");
+  const breathBox = await breathPad.boundingBox();
+  expect(stageBox).not.toBeNull();
+  expect(breathBox).not.toBeNull();
+  expect(stageBox.height).toBeGreaterThanOrEqual(285);
+  expect(breathBox.y).toBeGreaterThanOrEqual(stageBox.y + stageBox.height - 1);
+
+  await breathPad.scrollIntoViewIfNeeded();
+  const visibleBreathBox = await breathPad.boundingBox();
+  await page.mouse.move(
+    visibleBreathBox.x + visibleBreathBox.width * 0.82,
+    visibleBreathBox.y + visibleBreathBox.height * 0.18,
+  );
+  await page.mouse.down();
+  await page.mouse.up();
+  expect(Number(await page.locator("#breathRateBpm").inputValue())).toBeGreaterThan(250);
+  expect(Number(await page.locator("#breathDepth").inputValue())).toBeGreaterThan(2.2);
+  await expect(page.locator("#breathXYReadout")).toContainText("pressure");
+
+  const rhythmPad = page.locator("#rhythmXYPad");
+  await rhythmPad.scrollIntoViewIfNeeded();
+  const tempoBefore = Number(await page.locator("#repeatRateBpm").inputValue());
+  const swingBefore = Number(await page.locator("#repeatSwing").inputValue());
+  await rhythmPad.focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowUp");
+  expect(Number(await page.locator("#repeatRateBpm").inputValue())).toBeGreaterThan(tempoBefore);
+  expect(Number(await page.locator("#repeatSwing").inputValue())).toBeGreaterThan(swingBefore);
+
+  await page.locator("#breathNoiseAmount").fill("0");
+  await expect(page.locator("#breathNoiseAmountOut")).toHaveText("0%");
+
+  const breathFilter = page.locator("#breathFilter");
+  await expect(breathFilter).toHaveValue("0.36");
+  await breathFilter.fill("0");
+  await expect(page.locator("#breathFilterOut")).toHaveText("0% open");
+  await breathFilter.fill("1");
+  await expect(page.locator("#breathFilterOut")).toHaveText("100% open");
+});

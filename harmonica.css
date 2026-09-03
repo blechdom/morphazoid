@@ -55,7 +55,7 @@
 }
 
 .harmonica-drag-hint {
-  color: rgba(216, 223, 220, 0.68);
+  display: none;
 }
 
 .harmonica-transport {
@@ -101,10 +101,82 @@
   text-align: center;
 }
 
+.harmonica-speed-control {
+  margin: 0;
+  padding: 11px 16px 9px;
+  border-bottom: 1px solid rgba(227, 106, 93, 0.28);
+  background:
+    linear-gradient(90deg, rgba(227, 106, 93, 0.105), rgba(240, 189, 105, 0.035) 58%, transparent),
+    #070909;
+}
+
+.harmonica-speed-control > span {
+  margin-bottom: 0;
+}
+
+.harmonica-speed-control b {
+  color: var(--harmonica-steel);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.harmonica-speed-control output {
+  color: var(--harmonica-red);
+  font-size: 8px;
+}
+
+.harmonica-speed-control input[type="range"] {
+  height: 30px;
+}
+
+.harmonica-speed-control small {
+  color: var(--jaw-muted);
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.harmonica-breath-shift-control {
+  padding-top: 9px;
+  background:
+    linear-gradient(90deg, rgba(105, 213, 221, 0.075), rgba(227, 106, 93, 0.08) 54%, rgba(240, 189, 105, 0.07)),
+    #070909;
+}
+
+.harmonica-breath-shift-control output {
+  color: var(--harmonica-blow);
+}
+
 .harmonica-preset-deck {
   background:
     linear-gradient(135deg, rgba(227, 106, 93, 0.055), transparent 58%),
     #080a0a;
+}
+
+.harmonica-identity-selects {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1.45fr) minmax(105px, 0.55fr);
+  gap: 8px;
+}
+
+.harmonica-identity-selects label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.harmonica-identity-selects label > span {
+  color: var(--jaw-muted);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.harmonica-identity-selects select {
+  min-width: 0;
 }
 
 .harmonica-aperture-selector {
@@ -152,7 +224,7 @@
 .harmonica-aperture-grid {
   display: grid;
   min-width: 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 5px;
 }
 
@@ -285,6 +357,65 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
+}
+
+.harmonica-blues-selects .harmonica-blues-select:first-child {
+  grid-column: 1 / -1;
+}
+
+.harmonica-breath-score {
+  display: grid;
+  min-width: 0;
+  min-height: 38px;
+  padding: 4px;
+  border: 1px solid rgba(105, 213, 221, 0.2);
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(105, 213, 221, 0.045), transparent 48%, rgba(240, 189, 105, 0.045)),
+    #050707;
+  grid-auto-columns: minmax(22px, 1fr);
+  grid-auto-flow: column;
+  gap: 3px;
+}
+
+.harmonica-breath-score:empty {
+  display: none;
+}
+
+.harmonica-breath-score > * {
+  display: grid;
+  min-width: 0;
+  min-height: 28px;
+  border: 1px solid rgba(216, 223, 220, 0.1);
+  color: var(--jaw-muted);
+  background: rgba(216, 223, 220, 0.025);
+  font-size: 8px;
+  font-weight: 700;
+  place-items: center;
+}
+
+.harmonica-breath-score > [data-direction="draw"],
+.harmonica-breath-score > [data-flow="-1"],
+.harmonica-breath-score > .is-draw {
+  border-color: rgba(105, 213, 221, 0.24);
+  color: var(--harmonica-draw);
+  background: rgba(105, 213, 221, 0.055);
+}
+
+.harmonica-breath-score > [data-direction="blow"],
+.harmonica-breath-score > [data-flow="1"],
+.harmonica-breath-score > .is-blow {
+  border-color: rgba(240, 189, 105, 0.24);
+  color: var(--harmonica-blow);
+  background: rgba(240, 189, 105, 0.055);
+}
+
+.harmonica-breath-score > .is-current,
+.harmonica-breath-score > [aria-current="step"] {
+  border-color: var(--harmonica-red);
+  color: #080505;
+  background: var(--harmonica-red);
+  box-shadow: 0 0 12px rgba(227, 106, 93, 0.2);
 }
 
 .harmonica-blues-select {
@@ -520,19 +651,84 @@
   font-size: 8px;
 }
 
+.harmonica-hole-selector {
+  position: relative;
+  min-width: 0;
+  margin-top: 10px;
+}
+
 .harmonica-hole-grid {
   display: grid;
-  margin-top: 10px;
   border-top: 1px solid rgba(216, 223, 220, 0.14);
   border-left: 1px solid rgba(216, 223, 220, 0.14);
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--harmonica-hole-count, 10), minmax(0, 1fr));
+}
+
+.harmonica-hole-window {
+  position: absolute;
+  z-index: 2;
+  top: -3px;
+  bottom: -3px;
+  left: 0;
+  width: 10%;
+  border: 2px solid var(--harmonica-red);
+  pointer-events: none;
+  box-shadow:
+    0 0 0 1px rgba(5, 7, 7, 0.82),
+    0 0 14px rgba(227, 106, 93, 0.28),
+    inset 0 0 10px rgba(227, 106, 93, 0.08);
+  transition: left 90ms linear, width 90ms linear;
+}
+
+.harmonica-hole-window.is-dragging {
+  transition: none;
+}
+
+.harmonica-hole-window-handle {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #f2a196;
+  pointer-events: auto;
+  cursor: ew-resize;
+  color: #050707;
+  background: var(--harmonica-red);
+  box-shadow: 0 2px 9px rgba(0, 0, 0, 0.55);
+  transform: translateY(-50%);
+  touch-action: none;
+}
+
+.harmonica-hole-window-handle.is-left {
+  left: -10px;
+}
+
+.harmonica-hole-window-handle.is-right {
+  right: -10px;
+}
+
+.harmonica-hole-window-handle span {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.harmonica-hole-window-handle:hover,
+.harmonica-hole-window-handle:focus-visible {
+  color: #fff7ed;
+  background: #a94840;
+  outline: 2px solid #fff7ed;
+  outline-offset: 2px;
 }
 
 .harmonica-hole-button {
   display: grid;
   min-width: 0;
-  min-height: 44px;
-  padding: 5px 3px;
+  min-height: 48px;
+  padding: 5px 1px;
   border: 0;
   border-right: 1px solid rgba(216, 223, 220, 0.14);
   border-bottom: 1px solid rgba(216, 223, 220, 0.14);
@@ -580,6 +776,13 @@
   background: rgba(227, 106, 93, 0.11);
 }
 
+.harmonica-hole-button.is-tongue-blocked:not([aria-pressed="true"]) {
+  color: rgba(169, 155, 239, 0.72);
+  background:
+    linear-gradient(rgba(169, 155, 239, 0.16), rgba(169, 155, 239, 0.16)),
+    rgba(5, 7, 7, 0.72);
+}
+
 .harmonica-hole-button.is-technique-hole:not([aria-pressed="true"]) {
   color: var(--harmonica-steel);
   background:
@@ -610,6 +813,15 @@
 
 .harmonica-page .control input[type="range"] {
   --range-progress: 50%;
+  background: transparent;
+}
+
+.harmonica-page .control input[type="range"]::-webkit-slider-runnable-track {
+  background:
+    linear-gradient(90deg, var(--harmonica-red) var(--range-progress), rgba(216, 223, 220, 0.18) var(--range-progress));
+}
+
+.harmonica-page .control input[type="range"]::-moz-range-track {
   background:
     linear-gradient(90deg, var(--harmonica-red) var(--range-progress), rgba(216, 223, 220, 0.18) var(--range-progress));
 }
@@ -654,6 +866,20 @@
 }
 
 @media (max-width: 650px) {
+  .harmonica-stage-heading h1 {
+    font-size: clamp(22px, 7.2vw, 31px);
+    line-height: 0.8;
+  }
+
+  .harmonica-stage-heading p {
+    max-width: 270px;
+    font-size: 5.5px;
+  }
+
+  .harmonica-identity-selects {
+    grid-template-columns: minmax(0, 1.35fr) minmax(92px, 0.65fr);
+  }
+
   .harmonica-transport {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -672,11 +898,24 @@
   }
 
   .harmonica-hole-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--harmonica-hole-count, 10), minmax(0, 1fr));
   }
 
   .harmonica-hole-button {
-    min-height: 44px;
+    min-height: 46px;
+  }
+
+  .harmonica-hole-button b {
+    font-size: 8px;
+  }
+
+  .harmonica-hole-button small {
+    font-size: 5px;
+  }
+
+  .harmonica-speed-control {
+    padding-right: 12px;
+    padding-left: 12px;
   }
 
   .harmonica-aperture-heading,

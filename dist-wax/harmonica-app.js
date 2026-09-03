@@ -1,10 +1,15 @@
 import {
   HARMONICA_BLUES_RHYTHMS,
   HARMONICA_DEFAULTS,
+  HARMONICA_HOLE_COUNT,
+  HARMONICA_KEYS,
   HARMONICA_LIMITS,
+  HARMONICA_PERFORMANCE_CUSTOM_ID,
+  HARMONICA_PERFORMANCE_PRESETS,
   HARMONICA_PRESETS,
   HARMONICA_TECHNIQUES,
   activeHoles,
+  applyHarmonicaPerformancePreset,
   applyHarmonicaTechnique,
   bendRangeSemitones,
   clamp,
@@ -12,9 +17,11 @@ import {
   harmonicaBluesRhythm,
   harmonicaBluesRhythmFlow,
   harmonicaBreathCycleFlow,
+  harmonicaKey,
   harmonicaMaterialProperties,
   harmonicaMouthFormants,
   harmonicaOverbendTarget,
+  harmonicaPerformancePreset,
   harmonicaPreset,
   harmonicaReedFrequency,
   harmonicaReedPair,
@@ -38,6 +45,9 @@ const CONTROL_SPECS = Object.freeze([
   { key: "embouchure", format: formatPercent },
   { key: "breathPressure", format: formatPercent },
   { key: "breathRateBpm", format: (value) => `${Math.round(value)} cycles/min` },
+  { key: "breathShiftSlop", format: (value) => (
+    value < 0.16 ? "pristine" : value > 0.78 ? "sloppy" : `${Math.round(value * 100)}% overlap`
+  ) },
   { key: "breathBalance", format: (value) => `${Math.round(value * 100)} / ${Math.round((1 - value) * 100)}` },
   { key: "breathAttackMs", format: (value) => `${Math.round(value)} ms` },
   { key: "breathReleaseMs", format: (value) => `${Math.round(value)} ms` },
@@ -50,8 +60,10 @@ const CONTROL_SPECS = Object.freeze([
   { key: "techniqueAmount", format: formatPercent },
   { key: "techniqueRateHz", format: (value) => `${value.toFixed(1)} Hz` },
   { key: "handCup", format: formatPercent },
+  { key: "cupMotionDepth", format: formatPercent },
   { key: "growl", format: formatPercent },
   { key: "tongueBlock", format: formatPercent },
+  { key: "tongueMotionDepth", format: formatPercent },
   { key: "rhythmSwing", format: formatPercent },
   { key: "tonguePosition", format: formatPercent },
   { key: "tongueHeight", format: formatPercent },
@@ -109,6 +121,13 @@ let lastLiveReadoutAt = -Infinity;
 let handles = [];
 let holeRegions = [];
 let pointerDrag = null;
+let aperturePointerDrag = null;
+
+const renderedHoleCount = Math.max(
+  1,
+  Math.min(HARMONICA_HOLE_COUNT, $("holeButtons")?.querySelectorAll("[data-hole]").length ?? HARMONICA_HOLE_COUNT),
+);
+$("holeButtons")?.style.setProperty("--harmonica-hole-count", String(renderedHoleCount));
 
 function formatPercent(value) {
   return `${Math.round(value * 100)}%`;
@@ -127,6 +146,64 @@ function canvasMouthApertureLabel(compact = false) {
   if (width === 1) return "MOUTH · 1";
   if (width === 2) return "MOUTH · 2 STOP";
   return `MOUTH · ${width} CHORD`;
+}
+
+function mouthApertureRange(source = state) {
+  const holes = activeHoles(source);
+  return {
+    first: Math.min(...holes),
+    last: Math.max(...holes),
+    width: holes.length,
+  };
+}
+
+function aperturePatch(first, last) {
+  const maximumWidth = Math.min(5, HARMONICA_LIMITS.chordWidth[1]);
+  const requestedWidth = Math.round(last) - Math.round(first) + 1;
+  const width = Math.round(clamp(requestedWidth, 1, maximumWidth));
+  const clampedFirst = Math.round(clamp(first, 1, renderedHoleCount - width + 1));
+  const clampedLast = clampedFirst + width - 1;
+  // A side tongue block exposes the right-most chamber. A pucker uses the
+  // same slightly right-heavy centering convention as activeHoles().
+  const hole = state.tongueBlock > 0.01
+    ? clampedLast
+    : clampedFirst + Math.floor((width - 1) / 2);
+  return { hole, chordWidth: width };
+}
+
+function apertureDescription(source = state) {
+  const holes = activeHoles(source);
+  return `${formatMouthAperture(holes.length)}; covering holes ${holes.join(", ")}`;
+}
+
+function setApertureRange(first, last, { announceChange = false } = {}) {
+  state = sanitizeHarmonicaState({
+    ...state,
+    ...aperturePatch(first, last),
+    performancePresetId: HARMONICA_PERFORMANCE_CUSTOM_ID,
+  }, state);
+  updatePresentation();
+  postConfiguration();
+  if (announceChange) announce(`Mouth aperture ${apertureDescription()}`);
+}
+
+function updateHoleWindow() {
+  const window = $("holeWindow");
+  if (!window) return;
+  const { first, last, width } = mouthApertureRange();
+  window.style.left = `${((first - 1) / renderedHoleCount) * 100}%`;
+  window.style.width = `${(width / renderedHoleCount) * 100}%`;
+  window.dataset.firstHole = String(first);
+  window.dataset.lastHole = String(last);
+  window.title = `Mouth covers holes ${first}${last === first ? "" : `–${last}`}; pull either handle`;
+  $("holeWindowLeft")?.setAttribute(
+    "aria-label",
+    `Left edge of mouth aperture at hole ${first}; use left and right arrow keys to resize`,
+  );
+  $("holeWindowRight")?.setAttribute(
+    "aria-label",
+    `Right edge of mouth aperture at hole ${last}; use left and right arrow keys to resize`,
+  );
 }
 
 function formatFrequency(value) {
@@ -202,15 +279,26 @@ function releaseManualBreath() {
 }
 
 function resetBreathCycle(phase = 0) {
-  breathCycleStartedAt = performance.now();
+  const resetAt = performance.now();
+  breathCycleStartedAt = resetAt
+    - ((phase % 1 + 1) % 1) * (60_000 / state.breathRateBpm);
   graph?.sourceNode?.port.postMessage({ type: "breath-cycle-reset", phase });
+}
+
+function breathCyclePhaseAt(time = performance.now(), sourceState = state) {
+  const elapsed = Math.max(0, time - breathCycleStartedAt);
+  return (elapsed / (60_000 / sourceState.breathRateBpm)) % 1;
+}
+
+function retainBreathCyclePhase(phase, time = performance.now()) {
+  const wrapped = ((phase % 1) + 1) % 1;
+  breathCycleStartedAt = time - wrapped * (60_000 / state.breathRateBpm);
 }
 
 function breathFlowAt(time = performance.now()) {
   if (manualBreathDirection) return manualBreathDirection * state.breathPressure;
   if (!state.autoBreath) return 0;
-  const elapsed = Math.max(0, time - breathCycleStartedAt);
-  const phase = (elapsed / (60_000 / state.breathRateBpm)) % 1;
+  const phase = breathCyclePhaseAt(time);
   return state.bluesRhythmId === "free"
     ? harmonicaBreathCycleFlow(state, phase)
     : harmonicaBluesRhythmFlow(state, phase);
@@ -247,13 +335,62 @@ function updateBreathPresentation(flow = breathFlowForDisplay()) {
       : `Start automatic draw and blow with the selected ${rhythm.label} rhythm`,
   );
   $("breathCycleState").textContent = state.autoBreath
-    ? `${rhythm.label} ↔ ${Math.round(state.breathRateBpm)}/min`
-    : "draw ↔ blow · off";
+    ? `Space · ${rhythm.label} ↔ ${Math.round(state.breathRateBpm)}/min`
+    : "Space · draw ↔ blow · off";
   const meters = [...$("breathMeter").querySelectorAll("i")];
   const amount = clamp(Math.abs(flow) / 3);
   const half = flow < 0 ? 0 : 4;
   const active = amount < 0.008 ? -1 : half + Math.min(3, Math.floor(amount * 4));
   meters.forEach((meter, index) => meter.classList.toggle("is-current", index === active));
+  updateBreathScore(rhythm);
+}
+
+function updateBreathScore(rhythm = harmonicaBluesRhythm(state.bluesRhythmId)) {
+  const score = $("breathScore");
+  if (!score) return;
+  const steps = rhythm.steps.length > 0 ? rhythm.steps : [-1, 1];
+  const signature = `${rhythm.id}:${steps.join(",")}`;
+  if (score.dataset.signature !== signature) {
+    score.dataset.signature = signature;
+    score.replaceChildren(...steps.map((velocity, index) => {
+      const cell = document.createElement("span");
+      cell.className = velocity < 0
+        ? "is-draw"
+        : velocity > 0 ? "is-blow" : "is-rest";
+      cell.dataset.step = String(index);
+      cell.textContent = velocity < 0 ? "↓" : velocity > 0 ? "↑" : "·";
+      cell.title = velocity < 0
+        ? `Step ${index + 1}: draw ${Math.round(Math.abs(velocity) * 100)}%`
+        : velocity > 0
+          ? `Step ${index + 1}: blow ${Math.round(velocity * 100)}%`
+          : `Step ${index + 1}: breath rest`;
+      return cell;
+    }));
+  }
+  let activeStep = -1;
+  if (state.autoBreath && !manualBreathDirection) {
+    const phase = breathCyclePhaseAt();
+    const baseDuration = 1 / steps.length;
+    let start = 0;
+    for (let index = 0; index < steps.length; index += 1) {
+      const duration = baseDuration
+        * (1 + (index % 2 === 0 ? state.rhythmSwing : -state.rhythmSwing));
+      if (phase < start + duration || index === steps.length - 1) {
+        activeStep = index;
+        break;
+      }
+      start += duration;
+    }
+  }
+  for (const cell of score.children) {
+    cell.classList.toggle("is-current", Number(cell.dataset.step) === activeStep);
+  }
+  score.setAttribute(
+    "aria-label",
+    `${rhythm.label}: ${steps.map((velocity) => (
+      velocity < 0 ? "draw" : velocity > 0 ? "blow" : "rest"
+    )).join(", ")}`,
+  );
 }
 
 async function createAudioGraph() {
@@ -293,7 +430,7 @@ async function createAudioGraph() {
     };
     sourceNode.onprocessorerror = () => setAudioPresentation(
       "error",
-      "The harmonica physical model stopped unexpectedly. Reload the page to reset it.",
+      "The Harmonicazoid physical model stopped unexpectedly. Reload the page to reset it.",
     );
     return { context, sourceNode, masterGain, compressor, analyser, releaseOutput };
   } catch (error) {
@@ -323,7 +460,7 @@ async function ensureAudio() {
         .catch((error) => {
           console.error(error);
           if (pageIsActive && audioDesiredOn && lifecycleGeneration === pageLifecycleGeneration) {
-            setAudioPresentation("error", error?.message || "Unable to start harmonica audio.");
+            setAudioPresentation("error", error?.message || "Unable to start Harmonicazoid audio.");
           }
           return false;
         })
@@ -457,9 +594,16 @@ function updateHoleButtons(flow = breathFlowForDisplay()) {
       "is-technique-hole",
       technique.id !== "clean" && (techniqueHoles.size === 0 || techniqueHoles.has(hole)),
     );
-    button.classList.toggle("is-sounding-draw", covered.has(hole) && flow < -0.025);
-    button.classList.toggle("is-sounding-blow", covered.has(hole) && flow > 0.025);
+    const tongueBlocked = covered.has(hole)
+      && hole !== state.hole
+      && state.tongueBlock > 0.01
+      && technique.id !== "octave-tongue-block";
+    const transmitted = !tongueBlocked || state.tongueBlock < 0.94;
+    button.classList.toggle("is-tongue-blocked", tongueBlocked);
+    button.classList.toggle("is-sounding-draw", covered.has(hole) && transmitted && flow < -0.025);
+    button.classList.toggle("is-sounding-blow", covered.has(hole) && transmitted && flow > 0.025);
   }
+  updateHoleWindow();
 }
 
 function updatePresentation() {
@@ -476,21 +620,32 @@ function updatePresentation() {
   $("levelOut").textContent = formatPercent(state.level);
   updateRangeFill($("level"));
   $("presetSelect").value = state.presetId;
+  $("keySelect").value = state.keyId;
+  if ($("performancePresetSelect")) $("performancePresetSelect").value = state.performancePresetId;
   const preset = harmonicaPreset(state.presetId);
+  const key = harmonicaKey(state.keyId);
   const technique = harmonicaTechnique(state.bluesTechniqueId);
   const bluesRhythm = harmonicaBluesRhythm(state.bluesRhythmId);
+  const performancePreset = state.performancePresetId === HARMONICA_PERFORMANCE_CUSTOM_ID
+    ? null
+    : harmonicaPerformancePreset(state.performancePresetId);
   const material = harmonicaMaterialProperties(state);
   const pair = harmonicaReedPair(state, state.hole);
   const flow = breathFlowForDisplay();
   const direction = Math.abs(flow) > 0.025 ? Math.sign(flow) : state.breathDirection;
   const reed = harmonicaReedFrequency(state, state.hole, direction);
   const formants = harmonicaMouthFormants(state);
-  $("presetDescription").textContent = preset.description;
+  $("presetDescription").textContent = `${preset.description} Tuned independently to ${key.label}.`;
   if ($("bluesTechniqueSelect")) $("bluesTechniqueSelect").value = technique.id;
   if ($("bluesRhythmSelect")) $("bluesRhythmSelect").value = bluesRhythm.id;
   if ($("techniqueDescription")) $("techniqueDescription").textContent = technique.description;
   if ($("rhythmDescription")) {
     $("rhythmDescription").textContent = `${bluesRhythm.description} Auto alternates draw and blow with this pattern; N cycles rhythms.`;
+  }
+  if ($("performancePresetDescription")) {
+    $("performancePresetDescription").textContent = performancePreset
+      ? performancePreset.description
+      : "Custom keeps your current hand, tongue, breath, bend, and gesture edits together.";
   }
   if ($("bluesSummary")) {
     const directionLabel = technique.direction < 0
@@ -521,7 +676,7 @@ function updatePresentation() {
       ? `${reed.bendSemitones.toFixed(2)} semitones · ${direction < 0 ? "draw" : "blow"}`
       : `no ${direction < 0 ? "draw" : "blow"} bend on hole ${state.hole}`;
   $("tractReadout").textContent = `${Math.round(state.vocalTractCoupling * 100)}% · ${formatFrequency(formants.bendTargetHz)}`;
-  $("instrumentSummary").textContent = `hole ${state.hole} · ${formatMouthAperture(state.chordWidth)}`;
+  $("instrumentSummary").textContent = `${key.label} · hole ${state.hole} · ${formatMouthAperture(state.chordWidth)}`;
   $("reedSummary").textContent = `${preset.family} · ${Math.round(state.reedGap * 100)}% gap`;
   $("mouthSummary").textContent = `tongue ${Math.round(state.tonguePosition * 100)} / ${Math.round(state.tongueHeight * 100)} · throat ${Math.round(state.throatOpening * 100)}`;
   $("motionSummary").textContent = `${technique.label} · ${state.techniqueRateHz.toFixed(1)} Hz · ${Math.round(state.techniqueAmount * 100)}%`;
@@ -531,8 +686,16 @@ function updatePresentation() {
 }
 
 function setControl(key, value, { announceChange = false } = {}) {
-  state = sanitizeHarmonicaState({ ...state, [key]: value }, state);
-  if (["breathRateBpm", "breathBalance", "rhythmSwing"].includes(key)) resetBreathCycle();
+  const changedAt = performance.now();
+  const previousPhase = breathCyclePhaseAt(changedAt);
+  state = sanitizeHarmonicaState({
+    ...state,
+    [key]: value,
+    performancePresetId: key === "level"
+      ? state.performancePresetId
+      : HARMONICA_PERFORMANCE_CUSTOM_ID,
+  }, state);
+  if (key === "breathRateBpm") retainBreathCyclePhase(previousPhase, changedAt);
   updatePresentation();
   if (key === "level" && graph?.masterGain && audioContext) {
     graph.masterGain.gain.setTargetAtTime(state.level, audioContext.currentTime, 0.025);
@@ -560,11 +723,13 @@ function selectHole(hole, { announceChange = false } = {}) {
 
 function loadPreset(presetId) {
   const retained = {
+    keyId: state.keyId,
     hole: state.hole,
     chordWidth: state.chordWidth,
     breathDirection: state.breathDirection,
     breathPressure: state.breathPressure,
     breathRateBpm: state.breathRateBpm,
+    breathShiftSlop: state.breathShiftSlop,
     breathBalance: state.breathBalance,
     autoBreath: state.autoBreath,
     bluesTechniqueId: state.bluesTechniqueId,
@@ -574,8 +739,10 @@ function loadPreset(presetId) {
     breathAttackMs: state.breathAttackMs,
     breathReleaseMs: state.breathReleaseMs,
     handCup: state.handCup,
+    cupMotionDepth: state.cupMotionDepth,
     growl: state.growl,
     tongueBlock: state.tongueBlock,
+    tongueMotionDepth: state.tongueMotionDepth,
     overbend: state.overbend,
     rhythmSwing: state.rhythmSwing,
     bend: state.bend,
@@ -589,6 +756,7 @@ function loadPreset(presetId) {
     tremoloRateHz: state.tremoloRateHz,
     tremoloDepth: state.tremoloDepth,
     stereoSpread: state.stereoSpread,
+    performancePresetId: state.performancePresetId,
     level: state.level,
   };
   state = harmonicaState(presetId, retained);
@@ -597,25 +765,52 @@ function loadPreset(presetId) {
   announce(`${harmonicaPreset(presetId).label} physical body loaded`);
 }
 
-function randomizeModel() {
-  state = randomizeHarmonicaState(state);
-  resetBreathCycle();
-  if (manualBreathDirection) sendManualBreath(manualBreathDirection * state.breathPressure);
+function loadKey(keyId) {
+  const key = harmonicaKey(keyId);
+  state = sanitizeHarmonicaState({ ...state, keyId: key.id }, state);
   updatePresentation();
   postConfiguration();
-  announce("Harmonica technique, rhythm, reeds, breath, mouth, bend, and motion randomized");
+  announce(`${key.label} Harmonicazoid loaded; reed body retained`);
+}
+
+async function randomizeModel() {
+  const randomizedAt = performance.now();
+  const previousPhase = breathCyclePhaseAt(randomizedAt);
+  state = randomizeHarmonicaState(state);
+  retainBreathCyclePhase(previousPhase, randomizedAt);
+  updatePresentation();
+  postConfiguration();
+  if (!(await ensureAudio())) return;
+  if (manualBreathDirection) sendManualBreath(manualBreathDirection * state.breathPressure);
+  announce(`${harmonicaPerformancePreset(state.performancePresetId).label} variation playing · breath, mouth, reeds, and motion randomized`);
 }
 
 function buildPresetOptions() {
   $("presetSelect").replaceChildren(...HARMONICA_PRESETS.map((preset) => {
     const option = document.createElement("option");
     option.value = preset.id;
-    option.textContent = `${preset.label} · ${preset.family}`;
+    option.textContent = preset.label;
+    return option;
+  }));
+  $("keySelect").replaceChildren(...HARMONICA_KEYS.map((key) => {
+    const option = document.createElement("option");
+    option.value = key.id;
+    option.textContent = key.label;
     return option;
   }));
 }
 
 function buildBluesControls() {
+  $("performancePresetSelect")?.replaceChildren(
+    Object.assign(document.createElement("option"), {
+      value: HARMONICA_PERFORMANCE_CUSTOM_ID,
+      textContent: "Custom performance",
+    }),
+    ...HARMONICA_PERFORMANCE_PRESETS.map((performancePreset) => Object.assign(
+      document.createElement("option"),
+      { value: performancePreset.id, textContent: performancePreset.label },
+    )),
+  );
   $("bluesTechniqueSelect")?.replaceChildren(...HARMONICA_TECHNIQUES.map((technique) => {
     const option = document.createElement("option");
     option.value = technique.id;
@@ -652,10 +847,21 @@ function buildBluesControls() {
   }));
 }
 
+function loadPerformancePreset(performancePresetId, { announceChange = true } = {}) {
+  const performancePreset = harmonicaPerformancePreset(performancePresetId);
+  const changedAt = performance.now();
+  const previousPhase = breathCyclePhaseAt(changedAt);
+  state = applyHarmonicaPerformancePreset(state, performancePreset.id);
+  retainBreathCyclePhase(previousPhase, changedAt);
+  if (manualBreathDirection) sendManualBreath(manualBreathDirection * state.breathPressure);
+  updatePresentation();
+  postConfiguration();
+  if (announceChange) announce(`${performancePreset.label} performance playing`);
+}
+
 function loadBluesTechnique(techniqueId, { announceChange = true } = {}) {
   const technique = harmonicaTechnique(techniqueId);
   state = applyHarmonicaTechnique(state, technique.id);
-  resetBreathCycle();
   if (manualBreathDirection && technique.direction) {
     changeManualBreath(technique.direction, manualBreathOwner);
   } else if (manualBreathDirection) {
@@ -670,8 +876,11 @@ function loadBluesTechnique(techniqueId, { announceChange = true } = {}) {
 
 function setBluesRhythm(rhythmId, { announceChange = true } = {}) {
   const rhythm = harmonicaBluesRhythm(rhythmId);
-  state = sanitizeHarmonicaState({ ...state, bluesRhythmId: rhythm.id }, state);
-  resetBreathCycle();
+  state = sanitizeHarmonicaState({
+    ...state,
+    bluesRhythmId: rhythm.id,
+    performancePresetId: HARMONICA_PERFORMANCE_CUSTOM_ID,
+  }, state);
   updatePresentation();
   postConfiguration();
   if (announceChange) announce(`${rhythm.label} breath rhythm loaded`);
@@ -717,6 +926,90 @@ function installHoldButton(button, direction) {
   });
 }
 
+function installApertureWindowInteractions() {
+  const rail = $("holeButtons");
+  const window = $("holeWindow");
+  if (!rail || !window) return;
+
+  const finishDrag = (event, handle) => {
+    if (!aperturePointerDrag || aperturePointerDrag.pointerId !== event.pointerId) return;
+    aperturePointerDrag = null;
+    window.classList.remove("is-dragging");
+    if (handle.hasPointerCapture?.(event.pointerId)) handle.releasePointerCapture?.(event.pointerId);
+    announce(`Mouth aperture ${apertureDescription()}`);
+  };
+
+  for (const [edge, handle] of [
+    ["left", $("holeWindowLeft")],
+    ["right", $("holeWindowRight")],
+  ]) {
+    if (!handle) continue;
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const range = mouthApertureRange();
+      aperturePointerDrag = {
+        edge,
+        pointerId: event.pointerId,
+        first: range.first,
+        last: range.last,
+      };
+      handle.setPointerCapture?.(event.pointerId);
+      window.classList.add("is-dragging");
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (!aperturePointerDrag || aperturePointerDrag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      const bounds = rail.getBoundingClientRect();
+      const unit = clamp((event.clientX - bounds.left) / Math.max(1, bounds.width));
+      const maximumWidth = Math.min(5, HARMONICA_LIMITS.chordWidth[1]);
+      if (edge === "left") {
+        const boundary = Math.round(unit * renderedHoleCount) + 1;
+        const first = clamp(
+          boundary,
+          Math.max(1, aperturePointerDrag.last - maximumWidth + 1),
+          aperturePointerDrag.last,
+        );
+        setApertureRange(first, aperturePointerDrag.last);
+      } else {
+        const boundary = Math.round(unit * renderedHoleCount);
+        const last = clamp(
+          boundary,
+          aperturePointerDrag.first,
+          Math.min(renderedHoleCount, aperturePointerDrag.first + maximumWidth - 1),
+        );
+        setApertureRange(aperturePointerDrag.first, last);
+      }
+    });
+    handle.addEventListener("pointerup", (event) => finishDrag(event, handle));
+    handle.addEventListener("pointercancel", (event) => finishDrag(event, handle));
+    handle.addEventListener("lostpointercapture", (event) => finishDrag(event, handle));
+    handle.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      event.preventDefault();
+      const direction = event.key === "ArrowLeft" ? -1 : 1;
+      const range = mouthApertureRange();
+      const maximumWidth = Math.min(5, HARMONICA_LIMITS.chordWidth[1]);
+      if (edge === "left") {
+        const first = clamp(
+          range.first + direction,
+          Math.max(1, range.last - maximumWidth + 1),
+          range.last,
+        );
+        setApertureRange(first, range.last, { announceChange: true });
+      } else {
+        const last = clamp(
+          range.last + direction,
+          range.first,
+          Math.min(renderedHoleCount, range.first + maximumWidth - 1),
+        );
+        setApertureRange(range.first, last, { announceChange: true });
+      }
+    });
+  }
+}
+
 function installControls() {
   $("audioButton").addEventListener("click", toggleAudio);
   $("breathCycleButton").addEventListener("click", toggleBreathCycle);
@@ -727,6 +1020,11 @@ function installControls() {
   }
   $("level").addEventListener("input", (event) => setControl("level", Number(event.currentTarget.value)));
   $("presetSelect").addEventListener("change", (event) => loadPreset(event.currentTarget.value));
+  $("keySelect").addEventListener("change", (event) => loadKey(event.currentTarget.value));
+  $("performancePresetSelect")?.addEventListener("change", (event) => {
+    if (event.currentTarget.value === HARMONICA_PERFORMANCE_CUSTOM_ID) return;
+    loadPerformancePreset(event.currentTarget.value);
+  });
   $("bluesTechniqueSelect")?.addEventListener("change", (event) => {
     loadBluesTechnique(event.currentTarget.value);
   });
@@ -742,16 +1040,17 @@ function installControls() {
       setControl("chordWidth", Number(button.dataset.chordWidth), { announceChange: true });
     });
   }
+  installApertureWindowInteractions();
   $("resetAll").addEventListener("click", () => {
     cancelManualBreath({ present: false });
-    state = { ...HARMONICA_DEFAULTS };
+    state = harmonicaState(HARMONICA_DEFAULTS.presetId);
     resetBreathCycle();
     updatePresentation();
     postConfiguration();
     if (graph?.masterGain && audioContext) {
       graph.masterGain.gain.setTargetAtTime(state.level, audioContext.currentTime, 0.025);
     }
-    announce("Harmonica restored to C Richter, clean tone, free breath, hole four, and a single-note embouchure");
+    announce(`${harmonicaPerformancePreset(state.performancePresetId).label} restored on a C ${harmonicaPreset(state.presetId).label.toLowerCase()} harp`);
   });
 }
 
@@ -776,38 +1075,74 @@ function articulationToVisual(value) {
 }
 
 function layout() {
-  const compact = cssHeight < 400 || cssWidth < 670;
-  const combLeft = compact ? 16 : Math.max(148, cssWidth * 0.16);
-  const combRight = compact ? cssWidth * 0.72 : cssWidth * 0.73;
-  const combY = cssHeight * (compact ? 0.58 : 0.56);
-  const combHeight = Math.min(compact ? 78 : 126, cssHeight * (compact ? 0.3 : 0.2));
-  const combTop = combY - combHeight * 0.5;
-  const combBottom = combY + combHeight * 0.5;
-  const holeWidth = (combRight - combLeft) / 10;
+  const compact = cssHeight < 470 || cssWidth < 700;
+  const margin = compact ? 9 : clamp(cssWidth * 0.035, 24, 42);
+  const gap = compact ? 7 : 12;
+  const stageTop = compact ? 9 : 24;
+  const stageBottom = cssHeight - (compact ? 9 : 22);
+  const availableHeight = Math.max(190, stageBottom - stageTop);
+  const noteHeight = compact
+    ? clamp(availableHeight * 0.31, 62, 88)
+    : clamp(availableHeight * 0.24, 108, 146);
+  const notePanel = {
+    left: margin,
+    right: cssWidth - margin,
+    top: stageTop,
+    bottom: stageTop + noteHeight,
+  };
+  const lowerTop = notePanel.bottom + gap;
+  let mouthPanel;
+  let bendPanel;
+  let cupPanel;
+  let breathPanel;
+  if (compact) {
+    const columnGap = gap;
+    const rowGap = gap;
+    const middle = margin + (cssWidth - margin * 2 - columnGap) * 0.53;
+    const rowHeight = Math.max(52, (stageBottom - lowerTop - rowGap) * 0.5);
+    mouthPanel = { left: margin, right: middle, top: lowerTop, bottom: lowerTop + rowHeight };
+    bendPanel = { left: middle + columnGap, right: cssWidth - margin, top: lowerTop, bottom: lowerTop + rowHeight };
+    cupPanel = { left: margin, right: middle, top: lowerTop + rowHeight + rowGap, bottom: stageBottom };
+    breathPanel = { left: middle + columnGap, right: cssWidth - margin, top: lowerTop + rowHeight + rowGap, bottom: stageBottom };
+  } else {
+    const breathHeight = clamp(availableHeight * 0.17, 76, 102);
+    const mainBottom = stageBottom - breathHeight - gap;
+    const usableWidth = cssWidth - margin * 2 - gap * 2;
+    const mouthWidth = usableWidth * 0.43;
+    const bendWidth = usableWidth * 0.24;
+    mouthPanel = { left: margin, right: margin + mouthWidth, top: lowerTop, bottom: mainBottom };
+    bendPanel = { left: mouthPanel.right + gap, right: mouthPanel.right + gap + bendWidth, top: lowerTop, bottom: mainBottom };
+    cupPanel = { left: bendPanel.right + gap, right: cssWidth - margin, top: lowerTop, bottom: mainBottom };
+    breathPanel = { left: margin, right: cssWidth - margin, top: mainBottom + gap, bottom: stageBottom };
+  }
+
+  const combLeft = notePanel.left + (compact ? 7 : 14);
+  const combRight = notePanel.right - (compact ? 7 : 14);
+  const combTop = notePanel.top + (compact ? 17 : 27);
+  const combBottom = notePanel.bottom - (compact ? 7 : 12);
+  const combY = (combTop + combBottom) * 0.5;
+  const combHeight = combBottom - combTop;
+  const holeWidth = (combRight - combLeft) / renderedHoleCount;
   const holeCenter = combLeft + (state.hole - 0.5) * holeWidth;
-  const airWidth = compact ? 60 : 112;
-  const airHeight = compact ? 40 : 66;
-  const airLeft = compact ? 16 : 34;
-  const airTop = clamp(
-    combTop - (compact ? 72 : 112),
-    compact ? 82 : 164,
-    Math.max(compact ? 82 : 164, combTop - airHeight - 26),
-  );
+  const breathInnerTop = breathPanel.top + (compact ? 26 : 30);
+  const breathInnerBottom = breathPanel.bottom - (compact ? 6 : 10);
+  const breathInnerWidth = breathPanel.right - breathPanel.left;
+  const breathSplit = breathPanel.left + breathInnerWidth * (compact ? 0.48 : 0.5);
   const airPad = {
-    left: airLeft,
-    right: airLeft + airWidth,
-    top: airTop,
-    bottom: airTop + airHeight,
+    left: breathPanel.left + (compact ? 5 : 12),
+    right: breathSplit - gap * 0.5,
+    top: breathInnerTop,
+    bottom: breathInnerBottom,
   };
   airPad.x = airPad.left
-    + logarithmicUnit(state.breathRateBpm, HARMONICA_LIMITS.breathRateBpm) * airWidth;
+    + logarithmicUnit(state.breathRateBpm, HARMONICA_LIMITS.breathRateBpm) * (airPad.right - airPad.left);
   airPad.y = airPad.bottom
-    - rangeUnit(state.breathPressure, HARMONICA_LIMITS.breathPressure) * airHeight;
+    - rangeUnit(state.breathPressure, HARMONICA_LIMITS.breathPressure) * (airPad.bottom - airPad.top);
   const rhythmPad = {
-    left: airPad.right + (compact ? 16 : 24),
-    right: airPad.right + (compact ? 76 : 136),
-    top: airPad.top,
-    bottom: airPad.bottom,
+    left: breathSplit + gap * 0.5,
+    right: breathPanel.right - (compact ? 5 : 12),
+    top: breathInnerTop,
+    bottom: breathInnerBottom,
   };
   rhythmPad.x = rhythmPad.left
     + logarithmicUnit(state.techniqueRateHz, HARMONICA_LIMITS.techniqueRateHz)
@@ -815,42 +1150,35 @@ function layout() {
   rhythmPad.y = rhythmPad.bottom
     - rangeUnit(state.techniqueAmount, HARMONICA_LIMITS.techniqueAmount)
       * (rhythmPad.bottom - rhythmPad.top);
-  const chamberWidth = compact ? 68 : 118;
-  const chamberHeight = compact ? 54 : 88;
-  const chamberLeft = combRight - chamberWidth;
-  const chamber = {
-    left: chamberLeft,
-    right: chamberLeft + chamberWidth,
-    top: combTop - (compact ? 70 : 132),
-    bottom: combTop - (compact ? 16 : 34),
-  };
+  const chamber = { ...bendPanel };
   const bendPad = {
-    left: chamber.left + 10,
-    right: chamber.right - 10,
-    top: chamber.top + 12,
-    bottom: chamber.bottom - 10,
+    left: bendPanel.left + (compact ? 15 : 28),
+    right: bendPanel.right - (compact ? 12 : 26),
+    top: bendPanel.top + (compact ? 20 : 34),
+    bottom: bendPanel.bottom - (compact ? 11 : 24),
   };
-  bendPad.x = bendPad.left + rangeUnit(state.bend, HARMONICA_LIMITS.bend) * (bendPad.right - bendPad.left);
-  bendPad.y = bendPad.bottom - rangeUnit(state.reedGap, HARMONICA_LIMITS.reedGap) * (bendPad.bottom - bendPad.top);
-  const lipX = combRight + 3;
-  const throatX = cssWidth - (compact ? 17 : 34);
-  const mouthTop = combY - (compact ? 42 : 66);
-  const mouthBottom = combY + (compact ? 42 : 66);
+  bendPad.x = bendPad.left + rangeUnit(state.reedGap, HARMONICA_LIMITS.reedGap) * (bendPad.right - bendPad.left);
+  bendPad.y = bendPad.bottom - rangeUnit(state.bend, HARMONICA_LIMITS.bend) * (bendPad.bottom - bendPad.top);
+  const lipX = mouthPanel.left + (compact ? 7 : 15);
+  const throatX = mouthPanel.right - (compact ? 7 : 15);
+  const mouthTop = mouthPanel.top + (compact ? 18 : 30);
+  const mouthBottom = mouthPanel.bottom - (compact ? 7 : 18);
+  const mouthWidth = throatX - lipX;
   const tonguePad = {
-    left: lipX + 8,
-    right: Math.max(lipX + 38, throatX - (compact ? 8 : 28)),
-    top: mouthTop + 8,
-    bottom: mouthBottom - 8,
+    left: lipX + (compact ? 8 : 18),
+    right: lipX + mouthWidth * 0.7,
+    top: mouthTop + (compact ? 8 : 15),
+    bottom: mouthBottom - (compact ? 8 : 15),
   };
   tonguePad.x = tonguePad.left
-    + rangeUnit(state.tonguePosition, HARMONICA_LIMITS.tonguePosition) * (tonguePad.right - tonguePad.left);
+    + rangeUnit(state.tongueBlock, HARMONICA_LIMITS.tongueBlock) * (tonguePad.right - tonguePad.left);
   tonguePad.y = tonguePad.bottom
     - rangeUnit(state.tongueHeight, HARMONICA_LIMITS.tongueHeight) * (tonguePad.bottom - tonguePad.top);
   const tractPad = {
-    left: Math.max(lipX + 20, throatX - (compact ? 34 : 66)),
-    right: throatX,
-    top: mouthTop - (compact ? 9 : 18),
-    bottom: mouthBottom + (compact ? 9 : 18),
+    left: lipX + mouthWidth * 0.77,
+    right: throatX - (compact ? 2 : 4),
+    top: mouthTop + (compact ? 5 : 10),
+    bottom: mouthBottom - (compact ? 5 : 10),
   };
   tractPad.x = tractPad.left
     + rangeUnit(state.throatOpening, HARMONICA_LIMITS.throatOpening) * (tractPad.right - tractPad.left);
@@ -858,16 +1186,13 @@ function layout() {
     - rangeUnit(state.vocalTractCoupling, HARMONICA_LIMITS.vocalTractCoupling) * (tractPad.bottom - tractPad.top);
   const coveredHoles = activeHoles(state);
   const apertureCenter = coveredHoles.reduce((sum, hole) => sum + hole, 0) / coveredHoles.length;
-  const embouchureY = combTop - 12 - (state.chordWidth - 1) * (compact ? 2.5 : 4);
+  const embouchureY = combTop - (compact ? 3 : 7);
   const lipReach = articulationToVisual(state.embouchure) * (compact ? 12 : 20);
-  const cupWidth = compact ? 56 : 94;
-  const cupHeight = compact ? 34 : 54;
-  const cupTop = combBottom + (compact ? 13 : 18);
   const cupPad = {
-    left: combRight - cupWidth - (compact ? 3 : 12),
-    right: combRight - (compact ? 3 : 12),
-    top: cupTop,
-    bottom: Math.max(cupTop + 12, Math.min(cssHeight - 18, cupTop + cupHeight)),
+    left: cupPanel.left + (compact ? 9 : 22),
+    right: cupPanel.right - (compact ? 9 : 22),
+    top: cupPanel.top + (compact ? 20 : 38),
+    bottom: cupPanel.bottom - (compact ? 9 : 25),
   };
   cupPad.x = cupPad.left
     + rangeUnit(state.handCup, HARMONICA_LIMITS.handCup) * (cupPad.right - cupPad.left);
@@ -875,6 +1200,11 @@ function layout() {
     - rangeUnit(state.growl, HARMONICA_LIMITS.growl) * (cupPad.bottom - cupPad.top);
   return {
     compact,
+    notePanel,
+    mouthPanel,
+    bendPanel,
+    cupPanel,
+    breathPanel,
     combLeft,
     combRight,
     combY,
@@ -897,7 +1227,7 @@ function layout() {
     embouchureX: combLeft + (apertureCenter - 0.5) * holeWidth,
     embouchureY,
     lipsX: lipX + 13 + lipReach,
-    lipsY: combY + 2,
+    lipsY: mouthPanel.top + (mouthPanel.bottom - mouthPanel.top) * (compact ? 0.58 : 0.55),
   };
 }
 
@@ -957,68 +1287,277 @@ function drawParameterPad(pad, color, title, xAxis, yAxis) {
   drawing.restore();
 }
 
+function drawViewFrame(rect, index, title, detail, color) {
+  drawing.save();
+  drawing.fillStyle = "rgba(5, 8, 8, 0.86)";
+  drawing.fillRect(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
+  drawing.strokeStyle = color;
+  drawing.globalAlpha = 0.32;
+  drawing.lineWidth = 0.8;
+  drawing.strokeRect(rect.left + 0.5, rect.top + 0.5, rect.right - rect.left - 1, rect.bottom - rect.top - 1);
+  drawing.globalAlpha = 0.88;
+  drawing.fillStyle = color;
+  drawing.font = "700 6px ui-monospace, SFMono-Regular, Consolas, monospace";
+  drawing.textAlign = "left";
+  drawing.fillText(`${index} · ${title}`, rect.left + 7, rect.top + 11);
+  if (detail && rect.right - rect.left > 230) {
+    drawing.globalAlpha = 0.52;
+    drawing.textAlign = "right";
+    drawing.fillText(detail, rect.right - 7, rect.top + 11);
+  }
+  drawing.restore();
+}
+
 function drawMouth(model) {
-  const { compact, lipX, throatX, combY, mouthTop, mouthBottom, tonguePad } = model;
-  const cup = articulationToVisual(state.embouchure);
-  const lipReach = cup < 0 ? cup * (compact ? 18 : 30) : cup * (compact ? 12 : 20);
-  const topY = combY - (compact ? 88 : 142);
-  const eyeFlow = clamp(visualBreathFlow / Math.max(0.2, state.breathPressure), -1, 1);
-  const eyeOpen = 1 + Math.max(0, eyeFlow) * 0.28 - Math.max(0, -eyeFlow) * 0.08;
+  const { compact, mouthPanel, tonguePad, tractPad } = model;
+  const panelWidth = mouthPanel.right - mouthPanel.left;
+  const panelHeight = mouthPanel.bottom - mouthPanel.top;
+  const covered = new Set(activeHoles(state));
+  const coveredList = [...covered];
+  const lastCovered = Math.max(...coveredList);
+  const lipProjection = articulationToVisual(state.embouchure);
+  const telemetryIsLive = performance.now() - lastBreathTelemetryAt < 250;
+  const visibleTongueBlock = telemetryIsLive && Number.isFinite(telemetry.effectiveTongueBlock)
+    ? telemetry.effectiveTongueBlock
+    : state.tongueBlock;
+  const tongueAmount = rangeUnit(visibleTongueBlock, HARMONICA_LIMITS.tongueBlock);
+  const tongueHeight = rangeUnit(state.tongueHeight, HARMONICA_LIMITS.tongueHeight);
+  drawViewFrame(
+    mouthPanel,
+    "02",
+    "LIP / TONGUE",
+    `${state.chordWidth} COVERED · ${Math.round(visibleTongueBlock * 100)}% BLOCK`,
+    "#e36a5d",
+  );
   drawing.save();
 
-  drawing.beginPath();
-  drawing.moveTo(lipX + 14, combY + 8 + lipReach * 0.2);
-  drawing.bezierCurveTo(lipX + 5 + lipReach, combY + 18, lipX + 5 + lipReach, combY + 28, lipX + 24, combY + 31);
-  drawing.bezierCurveTo(lipX + 7, combY + 65, throatX - 8, mouthBottom + 62, throatX, mouthBottom + 20);
-  drawing.bezierCurveTo(throatX + 12, combY - 8, throatX + 9, topY + 24, lipX + 48, topY);
-  drawing.bezierCurveTo(lipX + 20, topY - 3, lipX - 30, combY - 82, lipX - 38, combY - 61);
-  drawing.bezierCurveTo(lipX - 49, combY - 48, lipX - 23, combY - 33, lipX + 3, combY - 34);
-  drawing.bezierCurveTo(lipX + 10, combY - 18, lipX + 2 + lipReach, combY - 10, lipX + 13, combY - 7);
-  strokePath("#77807b", 1.1, 0.68);
+  // A front-on cartoon mouth makes the relationship between lips, tongue and
+  // holes readable at a glance. The earlier technical outline was too easy to
+  // mistake for another parameter plot.
+  const mouthLeft = mouthPanel.left + (compact ? 8 : 20);
+  const mouthRight = tractPad.left - (compact ? 4 : 10);
+  const mouthWidth = Math.max(24, mouthRight - mouthLeft);
+  const mouthCenterX = (mouthLeft + mouthRight) * 0.5;
+  const mouthCenterY = mouthPanel.top + panelHeight * (compact ? 0.58 : 0.55);
+  const lipHalfHeight = clamp(
+    panelHeight * (compact ? 0.21 : 0.19) + Math.abs(lipProjection) * (compact ? 1.5 : 5),
+    compact ? 10 : 24,
+    compact ? 22 : 62,
+  );
+  const lipPinch = clamp(0.78 - lipProjection * 0.12, 0.42, 1.12);
 
+  // Cheeks / lower face silhouette.
   drawing.beginPath();
-  drawing.moveTo(throatX - 3, topY + 10);
-  drawing.bezierCurveTo(throatX - 22, topY - 9, lipX + 43, topY - 12, lipX + 35, topY + 10);
-  drawing.lineTo(lipX + 48, topY + 16);
-  drawing.lineTo(lipX + 34, topY + 22);
-  drawing.lineTo(lipX + 50, topY + 29);
-  drawing.bezierCurveTo(throatX - 15, topY + 20, throatX - 4, combY - 45, throatX + 2, combY - 10);
+  drawing.moveTo(mouthLeft - mouthWidth * 0.035, mouthCenterY - lipHalfHeight * 0.58);
+  drawing.bezierCurveTo(
+    mouthLeft + mouthWidth * 0.08,
+    mouthPanel.top + (compact ? 17 : 28),
+    mouthRight - mouthWidth * 0.08,
+    mouthPanel.top + (compact ? 17 : 28),
+    mouthRight + mouthWidth * 0.035,
+    mouthCenterY - lipHalfHeight * 0.58,
+  );
+  drawing.bezierCurveTo(
+    mouthRight + mouthWidth * 0.02,
+    mouthCenterY + lipHalfHeight * 1.45,
+    mouthLeft - mouthWidth * 0.02,
+    mouthCenterY + lipHalfHeight * 1.45,
+    mouthLeft - mouthWidth * 0.035,
+    mouthCenterY - lipHalfHeight * 0.58,
+  );
   drawing.closePath();
-  drawing.fillStyle = "rgba(72, 48, 43, 0.42)";
+  drawing.fillStyle = "rgba(211, 151, 111, 0.12)";
   drawing.fill();
-  strokePath("#b86f60", 0.8, 0.45);
+  strokePath("#8d5848", compact ? 0.8 : 1.2, 0.45);
 
+  // A simple nose anchors this as a face even in the smallest two-column view.
+  const noseY = mouthCenterY - lipHalfHeight * 1.35;
   drawing.beginPath();
-  drawing.moveTo(lipX + 12 + lipReach, combY - 6);
-  drawing.bezierCurveTo(lipX + 35, mouthTop, throatX - 28, mouthTop + 2, throatX - 5, combY - 10);
-  drawing.bezierCurveTo(throatX - 18, combY + 20, lipX + 42, mouthBottom, lipX + 12 + lipReach, combY + 8);
+  drawing.moveTo(mouthCenterX, noseY - lipHalfHeight * 0.42);
+  drawing.quadraticCurveTo(
+    mouthCenterX - mouthWidth * 0.035,
+    noseY + lipHalfHeight * 0.08,
+    mouthCenterX - mouthWidth * 0.07,
+    noseY + lipHalfHeight * 0.24,
+  );
+  drawing.quadraticCurveTo(
+    mouthCenterX,
+    noseY + lipHalfHeight * 0.38,
+    mouthCenterX + mouthWidth * 0.07,
+    noseY + lipHalfHeight * 0.24,
+  );
+  drawing.fillStyle = "rgba(211, 151, 111, 0.34)";
+  drawing.fill();
+  strokePath("#b36d55", compact ? 0.7 : 1.1, 0.62);
+  drawing.fillStyle = "rgba(46, 20, 17, 0.72)";
+  drawing.beginPath();
+  drawing.ellipse(mouthCenterX - mouthWidth * 0.025, noseY + lipHalfHeight * 0.23, compact ? 1 : 1.8, compact ? 0.7 : 1.1, 0, 0, Math.PI * 2);
+  drawing.ellipse(mouthCenterX + mouthWidth * 0.025, noseY + lipHalfHeight * 0.23, compact ? 1 : 1.8, compact ? 0.7 : 1.1, 0, 0, Math.PI * 2);
+  drawing.fill();
+
+  // Bold outer lips and a dark mouth cavity.
+  drawing.beginPath();
+  drawing.moveTo(mouthLeft, mouthCenterY);
+  drawing.bezierCurveTo(
+    mouthLeft + mouthWidth * 0.2,
+    mouthCenterY - lipHalfHeight * 1.05,
+    mouthLeft + mouthWidth * 0.38,
+    mouthCenterY - lipHalfHeight * 0.8,
+    mouthCenterX,
+    mouthCenterY - lipHalfHeight * 0.58,
+  );
+  drawing.bezierCurveTo(
+    mouthLeft + mouthWidth * 0.65,
+    mouthCenterY - lipHalfHeight * 0.85,
+    mouthRight - mouthWidth * 0.16,
+    mouthCenterY - lipHalfHeight * 0.96,
+    mouthRight,
+    mouthCenterY,
+  );
+  drawing.bezierCurveTo(
+    mouthRight - mouthWidth * 0.2,
+    mouthCenterY + lipHalfHeight * 1.08,
+    mouthLeft + mouthWidth * 0.2,
+    mouthCenterY + lipHalfHeight * 1.08,
+    mouthLeft,
+    mouthCenterY,
+  );
   drawing.closePath();
-  drawing.fillStyle = "rgba(105, 213, 221, 0.055)";
+  const lipGradient = drawing.createLinearGradient(0, mouthCenterY - lipHalfHeight, 0, mouthCenterY + lipHalfHeight);
+  lipGradient.addColorStop(0, "#f58b7f");
+  lipGradient.addColorStop(0.5, "#b9474e");
+  lipGradient.addColorStop(1, "#7d2939");
+  drawing.fillStyle = lipGradient;
   drawing.fill();
-  strokePath("#69d5dd", 1, 0.48);
+  strokePath("#ffb0a2", compact ? 1.1 : 2, 0.85);
 
+  const cavityLeft = mouthLeft + mouthWidth * 0.075;
+  const cavityRight = mouthRight - mouthWidth * 0.075;
+  const cavityWidth = cavityRight - cavityLeft;
   drawing.beginPath();
-  drawing.moveTo(lipX + 17 + lipReach * 0.72, combY + 7);
-  drawing.bezierCurveTo(tonguePad.x - 15, combY + 31, tonguePad.x + 18, tonguePad.y, tonguePad.x, tonguePad.y);
-  drawing.bezierCurveTo(tonguePad.x - 22, tonguePad.y, throatX - 34, combY + 27, throatX - 9, combY + 18);
-  strokePath("#a99bef", 1.35, 0.72);
-
-  const eyeX = lipX + (compact ? 27 : 39);
-  const eyeY = combY - (compact ? 61 : 93);
-  const eyeWidth = compact ? 6.5 : 8.5;
-  const eyeHeight = (compact ? 2.4 : 3.2) * eyeOpen;
-  drawing.beginPath();
-  drawing.moveTo(eyeX - eyeWidth, eyeY);
-  drawing.quadraticCurveTo(eyeX, eyeY - eyeHeight, eyeX + eyeWidth, eyeY);
-  drawing.quadraticCurveTo(eyeX, eyeY + eyeHeight, eyeX - eyeWidth, eyeY);
+  drawing.moveTo(cavityLeft, mouthCenterY);
+  drawing.bezierCurveTo(
+    cavityLeft + cavityWidth * 0.22,
+    mouthCenterY - lipHalfHeight * 0.52 * lipPinch,
+    cavityRight - cavityWidth * 0.22,
+    mouthCenterY - lipHalfHeight * 0.52 * lipPinch,
+    cavityRight,
+    mouthCenterY,
+  );
+  drawing.bezierCurveTo(
+    cavityRight - cavityWidth * 0.2,
+    mouthCenterY + lipHalfHeight * 0.6 * lipPinch,
+    cavityLeft + cavityWidth * 0.2,
+    mouthCenterY + lipHalfHeight * 0.6 * lipPinch,
+    cavityLeft,
+    mouthCenterY,
+  );
   drawing.closePath();
-  drawing.fillStyle = "rgba(224, 231, 227, 0.76)";
+  drawing.fillStyle = "#1a090d";
   drawing.fill();
-  strokePath("#9ea7a2", 0.7, 0.68);
+  strokePath("#5b202d", compact ? 0.7 : 1.2, 0.95);
+
+  // The tongue stays visible even at zero block so the anatomy remains clear;
+  // its reach and height follow the same physical controls as the DSP.
+  const tongueLeft = cavityLeft + cavityWidth * 0.08;
+  const tongueRight = tongueLeft + cavityWidth * (0.24 + tongueAmount * 0.58);
+  const tongueY = mouthCenterY - lipHalfHeight * (0.05 + tongueHeight * 0.22);
+  const tongueThickness = clamp(lipHalfHeight * 0.42, compact ? 4 : 8, compact ? 8 : 18);
   drawing.beginPath();
-  drawing.arc(eyeX - 1, eyeY, Math.max(0.8, eyeHeight * 0.45), 0, Math.PI * 2);
-  drawing.fillStyle = "#69d5dd";
+  drawing.moveTo(tongueLeft, tongueY + tongueThickness * 0.45);
+  drawing.bezierCurveTo(
+    tongueLeft + cavityWidth * 0.15,
+    tongueY - tongueThickness * 0.7,
+    tongueRight - tongueThickness * 0.55,
+    tongueY - tongueThickness * 0.72,
+    tongueRight,
+    tongueY,
+  );
+  drawing.bezierCurveTo(
+    tongueRight - tongueThickness * 0.25,
+    tongueY + tongueThickness * 0.65,
+    tongueLeft + cavityWidth * 0.08,
+    tongueY + tongueThickness * 0.85,
+    tongueLeft,
+    tongueY + tongueThickness * 0.45,
+  );
+  drawing.closePath();
+  drawing.fillStyle = "#e8799b";
   drawing.fill();
+  strokePath("#ffabc2", compact ? 0.7 : 1.2, 0.95);
+
+  // A recognizable ten-hole harmonica sits between the lips.
+  const railLeft = mouthLeft + mouthWidth * 0.025;
+  const railRight = mouthRight - mouthWidth * 0.025;
+  const railWidth = railRight - railLeft;
+  const slotWidth = railWidth / renderedHoleCount;
+  const railHeight = clamp(lipHalfHeight * 0.62, compact ? 7 : 12, compact ? 13 : 25);
+  const railTop = mouthCenterY + lipHalfHeight * 0.02;
+  const railBottom = railTop + railHeight;
+  const metal = drawing.createLinearGradient(0, railTop, 0, railBottom);
+  metal.addColorStop(0, "#f5efe0");
+  metal.addColorStop(0.25, "#aaa79d");
+  metal.addColorStop(0.52, "#4b4f4d");
+  metal.addColorStop(1, "#d2a957");
+  drawing.fillStyle = metal;
+  drawing.fillRect(railLeft - 2, railTop - 2, railWidth + 4, railHeight + 4);
+  drawing.strokeStyle = "#f0bd69";
+  drawing.lineWidth = compact ? 0.8 : 1.4;
+  drawing.strokeRect(railLeft - 2, railTop - 2, railWidth + 4, railHeight + 4);
+  for (let hole = 1; hole <= renderedHoleCount; hole += 1) {
+    const left = railLeft + (hole - 1) * slotWidth + 0.6;
+    const isCovered = covered.has(hole);
+    const isTongueBlocked = isCovered
+      && hole !== state.hole
+      && tongueAmount > 0.01;
+    drawing.fillStyle = isCovered ? "#3f2518" : "#080a09";
+    drawing.fillRect(left, railTop, Math.max(1, slotWidth - 1.2), railBottom - railTop);
+    drawing.strokeStyle = hole === state.hole ? "#fff0c7" : "rgba(216, 223, 220, 0.42)";
+    drawing.lineWidth = hole === state.hole ? (compact ? 0.8 : 1.3) : 0.6;
+    drawing.strokeRect(left, railTop, Math.max(1, slotWidth - 1.2), railBottom - railTop);
+    if (isTongueBlocked) {
+      drawing.fillStyle = `rgba(232, 121, 155, ${0.2 + tongueAmount * 0.72})`;
+      drawing.fillRect(left, railTop, Math.max(1, slotWidth - 1.2), railBottom - railTop);
+    }
+  }
+
+  // Lip rims sit in front of the instrument so it visibly passes into a mouth.
+  drawing.beginPath();
+  drawing.moveTo(mouthLeft + mouthWidth * 0.03, mouthCenterY - 1);
+  drawing.quadraticCurveTo(mouthCenterX, mouthCenterY - lipHalfHeight * 0.92, mouthRight - mouthWidth * 0.03, mouthCenterY - 1);
+  strokePath("#ff9d91", compact ? 1.4 : 2.6, 0.96);
+  drawing.beginPath();
+  drawing.moveTo(mouthLeft + mouthWidth * 0.05, railBottom + 1);
+  drawing.quadraticCurveTo(mouthCenterX, mouthCenterY + lipHalfHeight * 1.02, mouthRight - mouthWidth * 0.05, railBottom + 1);
+  strokePath("#b94755", compact ? 1.4 : 2.6, 0.96);
+
+  // Side cutaway for the throat / resonant tract.
+  const throatCenterX = (tractPad.left + tractPad.right) * 0.5;
+  const throatCenterY = (tractPad.top + tractPad.bottom) * 0.48;
+  const throatRadiusX = Math.max(3, (tractPad.right - tractPad.left) * 0.34);
+  const throatRadiusY = Math.max(6, (tractPad.bottom - tractPad.top) * 0.24);
+  drawing.beginPath();
+  drawing.ellipse(throatCenterX, throatCenterY, throatRadiusX, throatRadiusY, 0, 0, Math.PI * 2);
+  drawing.fillStyle = "rgba(105, 213, 221, 0.13)";
+  drawing.fill();
+  strokePath("#69d5dd", compact ? 0.8 : 1.2, 0.78);
+  const throatOpening = rangeUnit(state.throatOpening, HARMONICA_LIMITS.throatOpening);
+  drawing.beginPath();
+  drawing.moveTo(throatCenterX, throatCenterY + throatRadiusY * 0.75);
+  drawing.lineTo(throatCenterX, tractPad.bottom - 2);
+  strokePath("#69d5dd", 1 + throatOpening * (compact ? 2 : 4), 0.35 + throatOpening * 0.5);
+
+  drawing.fillStyle = "rgba(255, 196, 189, 0.9)";
+  drawing.font = `700 ${compact ? 4.5 : 6}px ui-monospace, SFMono-Regular, Consolas, monospace`;
+  drawing.textAlign = "left";
+  drawing.fillText("LIPS", mouthLeft + 2, mouthCenterY - lipHalfHeight - (compact ? 2 : 5));
+  drawing.fillStyle = "rgba(255, 171, 194, 0.92)";
+  drawing.fillText("TONGUE", tongueLeft, Math.min(railTop - 3, tongueY - tongueThickness * 0.62));
+  drawing.fillStyle = "rgba(105, 213, 221, 0.76)";
+  drawing.textAlign = "center";
+  drawing.fillText("THROAT", throatCenterX, tractPad.bottom - (compact ? 0 : 5));
+  drawing.fillStyle = "rgba(216, 223, 220, 0.5)";
+  drawing.fillText(state.hole === lastCovered ? "OPEN EDGE" : "OPEN ANCHOR", mouthCenterX, mouthPanel.bottom - 4);
   drawing.restore();
 }
 
@@ -1026,53 +1565,311 @@ function drawBluesCup(model) {
   const phase = prefersReducedMotion
     ? 0
     : (performance.now() / 1_000 * state.techniqueRateHz) % 1;
-  const wahPhase = 0.5 + 0.5 * Math.sin(Math.PI * 2 * phase);
   const wahWet = state.bluesTechniqueId === "hand-wah"
     ? clamp(state.techniqueAmount)
     : 0;
-  const effectiveCup = state.handCup * (1 - wahWet * 0.88 * (1 - wahPhase));
+  const telemetryIsLive = performance.now() - lastBreathTelemetryAt < 250;
+  const effectiveCup = telemetryIsLive && Number.isFinite(telemetry.effectiveHandCup)
+    ? telemetry.effectiveHandCup
+    : state.handCup;
   const closure = rangeUnit(effectiveCup, HARMONICA_LIMITS.handCup);
   const growlAmount = rangeUnit(state.growl, HARMONICA_LIMITS.growl);
-  const inset = closure * (model.compact ? 15 : 28);
-  const left = model.combRight - (model.compact ? 46 : 82);
-  const right = model.throatX - (model.compact ? 1 : 8);
-  const top = model.combTop - (model.compact ? 8 : 16) + inset * 0.22;
-  const bottom = model.combBottom + (model.compact ? 30 : 52) - inset * 0.35;
+  const { cupPanel, cupPad, compact } = model;
+  const panelWidth = cupPanel.right - cupPanel.left;
+  const panelHeight = cupPanel.bottom - cupPanel.top;
+  const centerX = (cupPanel.left + cupPanel.right) * 0.5;
+  const centerY = cupPanel.top + panelHeight * (compact ? 0.58 : 0.55);
+  const harpWidth = panelWidth * (compact ? 0.49 : 0.5);
+  const harpHeight = clamp(panelHeight * 0.105, compact ? 7 : 12, compact ? 12 : 22);
+  const opening = (1 - closure) * panelWidth * (compact ? 0.25 : 0.31);
+  const supportSkin = "#d79768";
+  const cupSkin = "#c76f58";
+  const skinLight = "#f2bd8c";
+  const skinShadow = "#6e3c2c";
+  const fallbackHandResonanceHz = 460 + Math.pow(1 - closure, 1.35) * 2_760;
+  const reportedHandResonanceHz = Number(telemetry.handResonanceFrequencyHz);
+  const handResonanceFrequencyHz = telemetryIsLive
+    && Number.isFinite(reportedHandResonanceHz)
+    && reportedHandResonanceHz > 0
+    ? reportedHandResonanceHz
+    : fallbackHandResonanceHz;
+  const resonanceUnit = clamp((handResonanceFrequencyHz - 460) / 2_760);
+  const digitWidth = clamp(harpHeight * 0.48, compact ? 3.5 : 5, compact ? 6.5 : 9);
+  const supportPalmWidth = clamp(harpWidth * 0.56, compact ? 34 : 62, compact ? 58 : 96);
+  const supportPalmHeight = clamp(harpHeight * 1.75, compact ? 14 : 24, compact ? 25 : 39);
+  const cupPalmWidth = clamp(harpWidth * 0.38, compact ? 24 : 38, compact ? 44 : 70);
+  const cupPalmHeight = clamp(harpHeight * 4.25, compact ? 34 : 56, compact ? 64 : 96);
+  const cupPivotX = centerX + harpWidth * 0.54 + opening * 0.78;
+  const cupPivotY = centerY + harpHeight * 0.6;
+  const cupAngle = 0.03 + (1 - closure) * 0.18;
+  drawViewFrame(
+    cupPanel,
+    "04",
+    "HANDS / CUP",
+    `${Math.round(closure * 100)}% CUP · HAND ${Math.round(handResonanceFrequencyHz)} HZ${wahWet > 0 ? " · WAH" : ""}`,
+    "#f0bd69",
+  );
   drawing.save();
+
+  // The hand resonance lives in the asymmetric gap between the right cover
+  // and the moving cup hand, rather than between two mirrored palms.
+  const cavityPulse = prefersReducedMotion
+    ? 0.35
+    : (Math.sin(phase * Math.PI * 2) + 1) * 0.5;
+  const cavityCenterX = centerX + harpWidth * 0.42 + opening * 0.35;
+  drawing.save();
+  drawing.setLineDash(compact ? [2, 3] : [3, 4]);
+  for (let ring = 0; ring < 4; ring += 1) {
+    const spread = (ring + cavityPulse) / 4;
+    drawing.beginPath();
+    drawing.ellipse(
+      cavityCenterX,
+      centerY,
+      Math.max(3, harpHeight * (0.32 + spread * 0.54) + opening * 0.38),
+      harpHeight * (0.66 + spread * (0.68 + resonanceUnit * 0.7)),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    drawing.strokeStyle = `rgba(${Math.round(105 + resonanceUnit * 64)}, ${Math.round(213 - resonanceUnit * 58)}, 221, ${0.08 + (1 - spread) * 0.2})`;
+    drawing.lineWidth = compact ? 0.7 : 1.1;
+    drawing.stroke();
+  }
+  drawing.restore();
+
+  // A small filled core keeps the acoustic hand cavity visible when nearly shut.
   drawing.beginPath();
-  drawing.moveTo(left, top);
-  drawing.bezierCurveTo(
-    model.combRight + 18 - inset,
-    top - 12,
-    right - 5,
-    model.combY - 38 + inset,
-    right,
-    model.combY,
+  drawing.ellipse(
+    cavityCenterX,
+    centerY,
+    Math.max(2.5, opening * 0.34 + harpHeight * 0.22),
+    harpHeight * 1.1,
+    0,
+    0,
+    Math.PI * 2,
   );
-  drawing.bezierCurveTo(
-    right - 4,
-    model.combY + 42 - inset,
-    model.combRight + 12 - inset,
-    bottom + 10,
-    left,
-    bottom,
+  drawing.fillStyle = `rgba(105, 213, 221, ${0.04 + (1 - closure) * 0.14})`;
+  drawing.fill();
+  strokePath("#69d5dd", compact ? 0.8 : 1.2, 0.28 + (1 - closure) * 0.5);
+
+  const drawSupportPalm = () => {
+    const left = centerX - harpWidth * 0.62;
+    const right = left + supportPalmWidth;
+    const top = centerY + harpHeight * 0.42;
+    const bottom = top + supportPalmHeight;
+    const wristY = bottom + harpHeight * 1.28;
+    drawing.beginPath();
+    drawing.moveTo(left, top + supportPalmHeight * 0.3);
+    drawing.bezierCurveTo(
+      left + supportPalmWidth * 0.04,
+      top,
+      left + supportPalmWidth * 0.25,
+      top - supportPalmHeight * 0.08,
+      right - supportPalmHeight * 0.3,
+      top,
+    );
+    drawing.quadraticCurveTo(
+      right + supportPalmHeight * 0.22,
+      top + supportPalmHeight * 0.34,
+      right - supportPalmHeight * 0.02,
+      bottom,
+    );
+    drawing.lineTo(left + supportPalmWidth * 0.4, bottom + supportPalmHeight * 0.08);
+    drawing.lineTo(left + supportPalmWidth * 0.12, wristY);
+    drawing.lineTo(left - supportPalmWidth * 0.15, wristY - harpHeight * 0.34);
+    drawing.lineTo(left + supportPalmWidth * 0.03, bottom - supportPalmHeight * 0.08);
+    drawing.quadraticCurveTo(left - supportPalmHeight * 0.16, top + supportPalmHeight * 0.68, left, top + supportPalmHeight * 0.3);
+    drawing.closePath();
+    const palmGradient = drawing.createRadialGradient(
+      right - supportPalmWidth * 0.3,
+      top + supportPalmHeight * 0.15,
+      1,
+      (left + right) * 0.5,
+      (top + bottom) * 0.5,
+      supportPalmWidth * 0.68,
+    );
+    palmGradient.addColorStop(0, skinLight);
+    palmGradient.addColorStop(0.72, supportSkin);
+    palmGradient.addColorStop(1, skinShadow);
+    drawing.fillStyle = palmGradient;
+    drawing.fill();
+    strokePath("#f0bd69", compact ? 0.9 : 1.5, 0.92);
+    drawing.beginPath();
+    drawing.moveTo(left - supportPalmWidth * 0.11, wristY - harpHeight * 0.5);
+    drawing.lineTo(left + supportPalmWidth * 0.18, wristY - harpHeight * 0.08);
+    strokePath("#3e2823", compact ? 1.2 : 2, 0.78);
+    drawing.beginPath();
+    drawing.moveTo(left + supportPalmWidth * 0.32, bottom - supportPalmHeight * 0.24);
+    drawing.quadraticCurveTo(
+      left + supportPalmWidth * 0.53,
+      bottom - supportPalmHeight * 0.43,
+      right - supportPalmWidth * 0.08,
+      bottom - supportPalmHeight * 0.34,
+    );
+    strokePath("#7c4635", compact ? 0.6 : 0.9, 0.72);
+  };
+
+  const drawCupPalm = () => {
+    drawing.save();
+    drawing.translate(cupPivotX, cupPivotY);
+    drawing.rotate(cupAngle);
+    const width = cupPalmWidth;
+    const height = cupPalmHeight;
+    drawing.beginPath();
+    drawing.moveTo(-width * 0.3, -height * 0.48);
+    drawing.bezierCurveTo(width * 0.04, -height * 0.67, width * 0.56, -height * 0.44, width * 0.62, -height * 0.08);
+    drawing.bezierCurveTo(width * 0.68, height * 0.2, width * 0.46, height * 0.4, width * 0.3, height * 0.53);
+    drawing.lineTo(width * 0.78, height * 0.78);
+    drawing.lineTo(width * 0.38, height * 0.94);
+    drawing.lineTo(-width * 0.04, height * 0.57);
+    drawing.bezierCurveTo(-width * 0.4, height * 0.43, -width * 0.5, height * 0.17, -width * 0.34, height * 0.02);
+    drawing.bezierCurveTo(-width * 0.52, -height * 0.13, -width * 0.5, -height * 0.36, -width * 0.3, -height * 0.48);
+    drawing.closePath();
+    const cupGradient = drawing.createRadialGradient(-width * 0.12, -height * 0.28, 1, width * 0.08, 0, height * 0.68);
+    cupGradient.addColorStop(0, "#efa37f");
+    cupGradient.addColorStop(0.7, cupSkin);
+    cupGradient.addColorStop(1, "#63312d");
+    drawing.fillStyle = cupGradient;
+    drawing.fill();
+    strokePath("#e36a5d", compact ? 0.9 : 1.5, 0.94);
+    drawing.beginPath();
+    drawing.moveTo(width * 0.16, height * 0.58);
+    drawing.lineTo(width * 0.62, height * 0.81);
+    strokePath("#4a2423", compact ? 1.2 : 2, 0.84);
+    drawing.beginPath();
+    drawing.moveTo(-width * 0.22, height * 0.28);
+    drawing.quadraticCurveTo(width * 0.02, height * 0.12, width * 0.3, height * 0.2);
+    strokePath("#7c3b34", compact ? 0.6 : 0.9, 0.76);
+    drawing.restore();
+  };
+
+  const strokeFinger = (startX, startY, controlX, controlY, endX, endY, color = supportSkin, width = digitWidth) => {
+    drawing.beginPath();
+    drawing.moveTo(startX, startY);
+    drawing.quadraticCurveTo(controlX, controlY, endX, endY);
+    drawing.lineCap = "round";
+    drawing.strokeStyle = skinShadow;
+    drawing.lineWidth = width + (compact ? 1.5 : 2.5);
+    drawing.globalAlpha = 0.96;
+    drawing.stroke();
+    drawing.strokeStyle = color;
+    drawing.lineWidth = width;
+    drawing.stroke();
+    drawing.globalAlpha = 1;
+  };
+
+  drawSupportPalm();
+  const visibleFingers = compact ? 3 : 4;
+  for (let finger = 0; finger < visibleFingers; finger += 1) {
+    const spread = finger / Math.max(1, visibleFingers - 1);
+    strokeFinger(
+      centerX - harpWidth * (0.54 - spread * 0.23),
+      centerY + harpHeight * (0.78 + spread * 0.1),
+      centerX - harpWidth * (0.5 - spread * 0.17),
+      centerY - harpHeight * (1.26 - spread * 0.12),
+      centerX - harpWidth * (0.43 - spread * 0.21),
+      centerY - harpHeight * (0.66 - spread * 0.08),
+      supportSkin,
+      digitWidth * (0.9 - spread * 0.08),
+    );
+  }
+
+  drawCupPalm();
+  drawing.save();
+  drawing.translate(cupPivotX, cupPivotY);
+  drawing.rotate(cupAngle);
+  for (let finger = 0; finger < visibleFingers; finger += 1) {
+    const spread = finger / Math.max(1, visibleFingers - 1);
+    strokeFinger(
+      cupPalmWidth * (0.03 + spread * 0.08),
+      -cupPalmHeight * (0.3 - spread * 0.17),
+      -cupPalmWidth * (0.52 - spread * 0.08),
+      -cupPalmHeight * (0.55 - spread * 0.09),
+      -cupPalmWidth * (0.66 - spread * 0.12),
+      -cupPalmHeight * (0.33 - spread * 0.11),
+      cupSkin,
+      digitWidth * (0.94 - spread * 0.08),
+    );
+  }
+  drawing.restore();
+
+  // Bright instrument body keeps the object legible between the two hands.
+  const metal = drawing.createLinearGradient(0, centerY - harpHeight, 0, centerY + harpHeight);
+  metal.addColorStop(0, "#fff8e7");
+  metal.addColorStop(0.22, "#c9cdca");
+  metal.addColorStop(0.5, "#4b504d");
+  metal.addColorStop(1, "#d2a957");
+  drawing.fillStyle = metal;
+  drawing.fillRect(centerX - harpWidth * 0.5, centerY - harpHeight, harpWidth, harpHeight * 2);
+  drawing.strokeStyle = "#f0bd69";
+  drawing.lineWidth = compact ? 0.9 : 1.5;
+  drawing.strokeRect(centerX - harpWidth * 0.5, centerY - harpHeight, harpWidth, harpHeight * 2);
+  const holeWidth = harpWidth / renderedHoleCount;
+  for (let hole = 0; hole < renderedHoleCount; hole += 1) {
+    const x = centerX - harpWidth * 0.5 + hole * holeWidth + holeWidth * 0.19;
+    drawing.fillStyle = hole + 1 === state.hole ? "#e36a5d" : "#0a0c0b";
+    drawing.fillRect(x, centerY - harpHeight * 0.34, holeWidth * 0.62, harpHeight * 0.72);
+  }
+
+  // The fixed support thumb braces only the left third; it no longer meets a
+  // mirrored thumb in the middle.
+  strokeFinger(
+    centerX - harpWidth * 0.5,
+    centerY + harpHeight * 1.34,
+    centerX - harpWidth * 0.36,
+    centerY + harpHeight * 0.33,
+    centerX - harpWidth * 0.13,
+    centerY + harpHeight * 0.48,
+    supportSkin,
+    digitWidth * 1.16,
   );
-  drawing.strokeStyle = `rgba(240, 189, 105, ${0.12 + closure * 0.58})`;
-  drawing.lineWidth = 1 + closure * 2.2;
-  drawing.stroke();
+
+  // The moving thumb hooks under the right cover in the cup hand's own
+  // rotated coordinate space, stopping well before the support thumb.
+  drawing.save();
+  drawing.translate(cupPivotX, cupPivotY);
+  drawing.rotate(cupAngle);
+  strokeFinger(
+    cupPalmWidth * 0.04,
+    cupPalmHeight * 0.3,
+    -cupPalmWidth * 0.46,
+    cupPalmHeight * 0.16,
+    -cupPalmWidth * 0.66,
+    -cupPalmHeight * 0.01,
+    cupSkin,
+    digitWidth * 1.14,
+  );
+  drawing.restore();
+
+  // A bold sweep beside the moving hand shows the open/close throw. Its
+  // length follows the actual effective cup value coming back from the DSP.
+  const motionLeft = centerX + harpWidth * 0.52;
+  const motionRight = Math.min(cupPanel.right - 5, motionLeft + Math.max(8, opening * 0.92));
+  const motionY = cupPanel.top + (compact ? 14 : 28);
   drawing.beginPath();
-  drawing.moveTo(left + 7, top + 5);
-  drawing.bezierCurveTo(
-    model.combRight + 7 - inset * 0.8,
-    model.combY - 24,
-    model.combRight + 8 - inset * 0.8,
-    model.combY + 24,
-    left + 7,
-    bottom - 5,
-  );
-  drawing.strokeStyle = `rgba(227, 106, 93, ${0.08 + closure * 0.4})`;
-  drawing.lineWidth = 0.8 + closure;
-  drawing.stroke();
+  drawing.moveTo(motionLeft, motionY);
+  drawing.lineTo(motionRight, motionY);
+  drawing.moveTo(motionLeft, motionY);
+  drawing.lineTo(motionLeft + (compact ? 3 : 5), motionY - (compact ? 2 : 3));
+  drawing.moveTo(motionLeft, motionY);
+  drawing.lineTo(motionLeft + (compact ? 3 : 5), motionY + (compact ? 2 : 3));
+  drawing.moveTo(motionRight, motionY);
+  drawing.lineTo(motionRight - (compact ? 3 : 5), motionY - (compact ? 2 : 3));
+  drawing.moveTo(motionRight, motionY);
+  drawing.lineTo(motionRight - (compact ? 3 : 5), motionY + (compact ? 2 : 3));
+  strokePath("#e36a5d", compact ? 0.8 : 1.2, 0.55 + (1 - closure) * 0.36);
+
+  if (!compact) {
+    drawing.font = "700 6px ui-monospace, SFMono-Regular, Consolas, monospace";
+    drawing.textAlign = "center";
+    drawing.fillStyle = "rgba(240, 189, 105, 0.82)";
+    drawing.fillText("SUPPORT HAND", centerX - harpWidth * 0.34, cupPanel.bottom - 8);
+    drawing.fillStyle = "rgba(227, 106, 93, 0.86)";
+    drawing.fillText("MOVING CUP HAND", Math.min(cupPanel.right - 36, cupPivotX), cupPanel.bottom - 8);
+    drawing.fillStyle = "rgba(105, 213, 221, 0.75)";
+    drawing.fillText(closure > 0.72 ? "HAND CAVITY" : "OPEN AIR GAP", cavityCenterX, cupPanel.top + 25);
+  }
+
   if (growlAmount > 0.01) {
     drawing.strokeStyle = `rgba(169, 155, 239, ${0.18 + growlAmount * 0.52})`;
     drawing.lineWidth = 0.8 + growlAmount * 1.2;
@@ -1080,8 +1877,8 @@ function drawBluesCup(model) {
       drawing.beginPath();
       for (let point = 0; point <= 18; point += 1) {
         const unit = point / 18;
-        const x = model.lipX + 22 + (model.throatX - model.lipX - 32) * unit;
-        const y = model.combY + 12 + line * 5
+        const x = centerX - harpWidth * 0.45 + harpWidth * 0.9 * unit;
+        const y = centerY + line * (compact ? 2 : 4)
           + Math.sin(unit * Math.PI * 5 + phase * Math.PI * 2 + line * 1.4) * growlAmount * 4;
         if (point === 0) drawing.moveTo(x, y);
         else drawing.lineTo(x, y);
@@ -1089,149 +1886,180 @@ function drawBluesCup(model) {
       drawing.stroke();
     }
   }
+
+  // Quiet axes retain the draggable control affordance without boxing the art.
+  drawing.strokeStyle = "rgba(169, 155, 239, 0.13)";
+  drawing.lineWidth = 0.7;
+  drawing.beginPath();
+  drawing.moveTo(cupPad.left, cupPad.bottom);
+  drawing.lineTo(cupPad.right, cupPad.bottom);
+  drawing.moveTo(cupPad.left, cupPad.top);
+  drawing.lineTo(cupPad.left, cupPad.bottom);
+  drawing.stroke();
   drawing.restore();
 }
 
 function drawHarmonica(model) {
   const {
-    compact, combLeft, combRight, combTop, combBottom, combY, holeWidth, chamber,
+    compact, notePanel, combLeft, combRight, combTop, combBottom, combY, holeWidth,
   } = model;
   const covered = new Set(activeHoles(state));
   const flow = visualBreathFlow;
   const soundingDirection = flow < -0.02 ? -1 : flow > 0.02 ? 1 : 0;
   const overbendSpeaking = Boolean(telemetry.overbendActive) && soundingDirection !== 0;
-  const blowReedSpeaking = soundingDirection > 0
-    ? !overbendSpeaking
-    : soundingDirection < 0 && overbendSpeaking;
-  const drawReedSpeaking = soundingDirection < 0
-    ? !overbendSpeaking
-    : soundingDirection > 0 && overbendSpeaking;
-  const pairedMotionScale = clamp(
-    Number.isFinite(telemetry.passiveReedGain)
-      ? telemetry.passiveReedGain
-      : state.bend * state.vocalTractCoupling * 0.34,
-    0,
-    0.62,
+  const key = harmonicaKey(state.keyId);
+  const preset = harmonicaPreset(state.presetId);
+  drawViewFrame(
+    notePanel,
+    "01",
+    "NOTE / HOLE",
+    `${key.label} RICHTER · ${preset.label.toUpperCase()} · 3 OCTAVES`,
+    "#d8dfdc",
   );
-  const metal = drawing.createLinearGradient(combLeft, combTop, combLeft, combBottom);
-  metal.addColorStop(0, "rgba(228, 234, 231, 0.42)");
-  metal.addColorStop(0.2, "rgba(95, 104, 99, 0.28)");
-  metal.addColorStop(0.5, "rgba(15, 18, 17, 0.9)");
-  metal.addColorStop(0.8, "rgba(95, 104, 99, 0.28)");
-  metal.addColorStop(1, "rgba(228, 234, 231, 0.38)");
+
+  const metal = drawing.createLinearGradient(0, combTop, 0, combBottom);
+  metal.addColorStop(0, "rgba(236, 239, 232, 0.74)");
+  metal.addColorStop(0.13, "rgba(67, 73, 70, 0.72)");
+  metal.addColorStop(0.48, "rgba(8, 10, 10, 0.98)");
+  metal.addColorStop(0.87, "rgba(80, 73, 60, 0.7)");
+  metal.addColorStop(1, "rgba(232, 218, 184, 0.68)");
   drawing.fillStyle = metal;
-  drawing.fillRect(combLeft - 7, combTop - 8, combRight - combLeft + 14, combBottom - combTop + 16);
-  drawing.strokeStyle = "rgba(216, 223, 220, 0.72)";
-  drawing.lineWidth = 1;
-  drawing.strokeRect(combLeft - 7, combTop - 8, combRight - combLeft + 14, combBottom - combTop + 16);
-  drawing.fillStyle = "rgba(151, 38, 35, 0.52)";
-  drawing.fillRect(combLeft, combTop + 14, combRight - combLeft, combBottom - combTop - 28);
+  drawing.fillRect(combLeft - 5, combTop - 4, combRight - combLeft + 10, combBottom - combTop + 8);
+  drawing.strokeStyle = "rgba(240, 229, 197, 0.64)";
+  drawing.lineWidth = compact ? 0.7 : 1;
+  drawing.strokeRect(combLeft - 5, combTop - 4, combRight - combLeft + 10, combBottom - combTop + 8);
 
   holeRegions = [];
-  for (let hole = 1; hole <= 10; hole += 1) {
-    const left = combLeft + (hole - 1) * holeWidth + 2;
-    const right = combLeft + hole * holeWidth - 2;
-    const top = combTop + 18;
-    const bottom = combBottom - 18;
+  for (let hole = 1; hole <= renderedHoleCount; hole += 1) {
+    const left = combLeft + (hole - 1) * holeWidth + 1;
+    const right = combLeft + hole * holeWidth - 1;
     const pair = harmonicaReedPair(state, hole);
     const isCovered = covered.has(hole);
-    const isCenter = hole === state.hole;
-    const activeColor = overbendSpeaking
-      ? "#a99bef"
-      : soundingDirection < 0 ? "#69d5dd" : soundingDirection > 0 ? "#f0bd69" : "#e36a5d";
-    drawing.fillStyle = isCovered ? "rgba(227, 106, 93, 0.16)" : "rgba(3, 5, 5, 0.92)";
-    drawing.fillRect(left, top, right - left, bottom - top);
-    drawing.strokeStyle = isCenter ? activeColor : "rgba(216, 223, 220, 0.24)";
-    drawing.lineWidth = isCenter ? 1.6 : 0.7;
-    drawing.strokeRect(left, top, right - left, bottom - top);
+    const isSelected = hole === state.hole;
+    const tongueBlocked = isCovered
+      && hole !== state.hole
+      && state.tongueBlock > 0.01
+      && state.bluesTechniqueId !== "octave-tongue-block";
+    const tongueTransmission = tongueBlocked ? 1 - state.tongueBlock * 0.94 : 1;
+    const activeDirection = isCovered && tongueTransmission > 0.08 ? soundingDirection : 0;
+    const selectedColor = activeDirection < 0
+      ? "#69d5dd"
+      : activeDirection > 0 ? "#f0bd69" : "#e36a5d";
+
+    drawing.fillStyle = isCovered ? "rgba(227, 106, 93, 0.12)" : "rgba(2, 4, 4, 0.82)";
+    drawing.fillRect(left, combTop, right - left, combBottom - combTop);
+    drawing.strokeStyle = isSelected ? selectedColor : "rgba(216, 223, 220, 0.2)";
+    drawing.lineWidth = isSelected ? (compact ? 1 : 1.5) : 0.6;
+    drawing.strokeRect(left, combTop, right - left, combBottom - combTop);
+
+    const motion = activeDirection && isCovered
+      ? clamp(telemetry.displacement, -1.2, 1.2) * (compact ? 1.4 : 3.4)
+      : 0;
     const centerX = (left + right) * 0.5;
-    const centerY = (top + bottom) * 0.5;
-    const motion = isCovered ? clamp(telemetry.displacement, -1.4, 1.4) * (compact ? 2.5 : 5) : 0;
-    const pairedMotion = motion * pairedMotionScale;
+    const topCenterY = combTop + (combY - combTop) * 0.52;
+    const bottomCenterY = combY + (combBottom - combY) * 0.48;
     drawing.beginPath();
-    drawing.moveTo(left + 4, centerY - 9);
-    drawing.lineTo(right - 4, centerY - 9 + (blowReedSpeaking ? motion : pairedMotion));
-    strokePath(blowReedSpeaking && isCovered ? (overbendSpeaking ? "#a99bef" : "#f0bd69") : "#aab2ae", 1.1, isCovered ? 0.9 : 0.36);
+    drawing.moveTo(left + 3, topCenterY);
+    drawing.lineTo(right - 3, topCenterY + (activeDirection > 0 ? motion : 0));
+    strokePath(activeDirection > 0 ? (overbendSpeaking ? "#a99bef" : "#f0bd69") : "#9fa7a3", compact ? 0.75 : 1.1, isCovered ? 0.86 * tongueTransmission : 0.28);
     drawing.beginPath();
-    drawing.moveTo(left + 4, centerY + 9);
-    drawing.lineTo(right - 4, centerY + 9 + (drawReedSpeaking ? motion : pairedMotion));
-    strokePath(drawReedSpeaking && isCovered ? (overbendSpeaking ? "#a99bef" : "#69d5dd") : "#aab2ae", 1.1, isCovered ? 0.9 : 0.36);
-    drawing.fillStyle = isCenter ? "#e36a5d" : "rgba(216, 223, 220, 0.68)";
-    drawing.font = `${compact ? 6 : 8}px ui-monospace, SFMono-Regular, Consolas, monospace`;
+    drawing.moveTo(left + 3, bottomCenterY);
+    drawing.lineTo(right - 3, bottomCenterY + (activeDirection < 0 ? motion : 0));
+    strokePath(activeDirection < 0 ? (overbendSpeaking ? "#a99bef" : "#69d5dd") : "#9fa7a3", compact ? 0.75 : 1.1, isCovered ? 0.86 * tongueTransmission : 0.28);
+
     drawing.textAlign = "center";
-    drawing.fillText(String(hole), centerX, centerY + 2);
-    if (!compact || isCenter) {
-      drawing.fillStyle = "rgba(240, 189, 105, 0.78)";
-      drawing.fillText(pair.blowName, centerX, combTop + 10);
-      drawing.fillStyle = "rgba(105, 213, 221, 0.78)";
-      drawing.fillText(pair.drawName, centerX, combBottom - 5);
+    drawing.font = `700 ${compact ? 5 : 7}px ui-monospace, SFMono-Regular, Consolas, monospace`;
+    drawing.fillStyle = activeDirection > 0 && isCovered ? "#f0bd69" : "rgba(240, 189, 105, 0.68)";
+    drawing.fillText(compact ? pair.blowName.replace(/\d+$/, "") : pair.blowName, centerX, combTop + (compact ? 7 : 11));
+    drawing.fillStyle = isSelected ? "#e36a5d" : "rgba(216, 223, 220, 0.68)";
+    drawing.fillText(String(hole), centerX, combY + (compact ? 2 : 3));
+    drawing.fillStyle = activeDirection < 0 && isCovered ? "#69d5dd" : "rgba(105, 213, 221, 0.68)";
+    drawing.fillText(compact ? pair.drawName.replace(/\d+$/, "") : pair.drawName, centerX, combBottom - (compact ? 3 : 5));
+
+    if (tongueBlocked) {
+      drawing.fillStyle = `rgba(169, 155, 239, ${0.08 + state.tongueBlock * 0.38})`;
+      drawing.fillRect(left, combTop, right - left, combBottom - combTop);
     }
-    holeRegions.push({ type: "play-hole", hole, direction: 1, left, right, top, bottom: centerY });
-    holeRegions.push({ type: "play-hole", hole, direction: -1, left, right, top: centerY, bottom });
+    holeRegions.push({ type: "play-hole", hole, direction: 1, left, right, top: combTop, bottom: combY });
+    holeRegions.push({ type: "play-hole", hole, direction: -1, left, right, top: combY, bottom: combBottom });
   }
 
-  const firstCovered = Math.min(...covered);
-  const lastCovered = Math.max(...covered);
-  const lipWindowLeft = combLeft + (firstCovered - 1) * holeWidth;
-  const lipWindowRight = combLeft + lastCovered * holeWidth;
-  drawing.fillStyle = "rgba(227, 106, 93, 0.08)";
-  drawing.fillRect(lipWindowLeft, combTop - 12, lipWindowRight - lipWindowLeft, combBottom - combTop + 24);
-  drawing.strokeStyle = "rgba(227, 106, 93, 0.72)";
-  drawing.strokeRect(lipWindowLeft, combTop - 12, lipWindowRight - lipWindowLeft, combBottom - combTop + 24);
+  const coveredList = [...covered];
+  const firstCovered = Math.min(...coveredList);
+  const lastCovered = Math.max(...coveredList);
+  const bracketLeft = combLeft + (firstCovered - 1) * holeWidth;
+  const bracketRight = combLeft + lastCovered * holeWidth;
+  drawing.strokeStyle = "rgba(227, 106, 93, 0.86)";
+  drawing.lineWidth = compact ? 1 : 1.4;
+  drawing.beginPath();
+  drawing.moveTo(bracketLeft, combTop - (compact ? 2 : 5));
+  drawing.lineTo(bracketLeft, combTop - (compact ? 6 : 10));
+  drawing.lineTo(bracketRight, combTop - (compact ? 6 : 10));
+  drawing.lineTo(bracketRight, combTop - (compact ? 2 : 5));
+  drawing.stroke();
 
-  const selectedPair = harmonicaReedPair(state, state.hole);
-  drawing.fillStyle = "rgba(5, 7, 7, 0.9)";
-  drawing.fillRect(chamber.left, chamber.top, chamber.right - chamber.left, chamber.bottom - chamber.top);
-  drawing.strokeStyle = "rgba(216, 223, 220, 0.34)";
-  drawing.strokeRect(chamber.left, chamber.top, chamber.right - chamber.left, chamber.bottom - chamber.top);
-  drawing.beginPath();
-  drawing.moveTo(model.holeCenter - holeWidth * 0.45, combTop);
-  drawing.lineTo(chamber.left, chamber.bottom);
-  drawing.moveTo(model.holeCenter + holeWidth * 0.45, combTop);
-  drawing.lineTo(chamber.right, chamber.bottom);
-  strokePath("#d8dfdc", 0.7, 0.25);
-  drawing.fillStyle = "rgba(216, 223, 220, 0.62)";
-  drawing.font = "650 6px ui-monospace, SFMono-Regular, Consolas, monospace";
-  drawing.textAlign = "center";
-  drawing.fillText(
-    compact
-      ? `CH ${state.hole} · ${selectedPair.blowName.replace(/\d+$/, "")} / ${selectedPair.drawName.replace(/\d+$/, "")}`
-      : `CHAMBER ${state.hole} · ${selectedPair.blowName} / ${selectedPair.drawName}`,
-    (chamber.left + chamber.right) * 0.5,
-    chamber.top - 7,
-  );
-  drawing.beginPath();
-  drawing.moveTo(chamber.left + 12, chamber.top + 18);
-  const primaryChamberMotion = clamp(telemetry.displacement, -1, 1) * 7;
-  const pairedChamberMotion = primaryChamberMotion * pairedMotionScale;
-  drawing.lineTo(chamber.right - 12, chamber.top + 18 + (blowReedSpeaking ? primaryChamberMotion : pairedChamberMotion));
-  strokePath(blowReedSpeaking ? (overbendSpeaking ? "#a99bef" : "#f0bd69") : "#9da5a1", 2, blowReedSpeaking ? 0.94 : 0.42);
-  drawing.beginPath();
-  drawing.moveTo(chamber.left + 12, chamber.bottom - 17);
-  drawing.lineTo(chamber.right - 12, chamber.bottom - 17 + (drawReedSpeaking ? primaryChamberMotion : pairedChamberMotion));
-  strokePath(drawReedSpeaking ? (overbendSpeaking ? "#a99bef" : "#69d5dd") : "#9da5a1", 2, drawReedSpeaking ? 0.94 : 0.42);
+  const bracketY = combTop - (compact ? 6 : 10);
+  const edgeRadius = compact ? 3.5 : 5;
+  for (const [type, x, direction] of [
+    ["aperture-left", bracketLeft, 1],
+    ["aperture-right", bracketRight, -1],
+  ]) {
+    drawing.beginPath();
+    drawing.arc(x, bracketY, edgeRadius, 0, Math.PI * 2);
+    drawing.fillStyle = "#e36a5d";
+    drawing.fill();
+    drawing.strokeStyle = "rgba(255, 235, 222, 0.92)";
+    drawing.lineWidth = compact ? 0.7 : 1;
+    drawing.stroke();
+    drawing.beginPath();
+    drawing.moveTo(x - direction * edgeRadius * 0.45, bracketY);
+    drawing.lineTo(x + direction * edgeRadius * 0.4, bracketY);
+    drawing.lineTo(x + direction * edgeRadius * 0.05, bracketY - edgeRadius * 0.35);
+    drawing.moveTo(x + direction * edgeRadius * 0.4, bracketY);
+    drawing.lineTo(x + direction * edgeRadius * 0.05, bracketY + edgeRadius * 0.35);
+    strokePath("#050707", compact ? 0.65 : 0.9, 0.9);
+    handles.push({ type, x, y: bracketY, radius: edgeRadius + (compact ? 8 : 10) });
+  }
+
+  drawing.save();
+  drawing.font = `700 ${compact ? 4.5 : 6}px ui-monospace, SFMono-Regular, Consolas, monospace`;
+  drawing.textAlign = "left";
+  drawing.fillStyle = "rgba(240, 189, 105, 0.78)";
+  drawing.fillText("BLOW", combLeft, combTop + (compact ? 7 : 11));
+  drawing.fillStyle = "rgba(105, 213, 221, 0.78)";
+  drawing.fillText("DRAW", combLeft, combBottom - (compact ? 3 : 5));
+  drawing.restore();
 }
 
 function drawBreathFlow(model) {
+  const { breathPanel, compact } = model;
   const flow = visualBreathFlow;
   const amount = Math.sqrt(clamp(Math.abs(flow) / 3));
-  if (amount < 0.02) return;
   const blowing = flow > 0;
-  const startX = model.combLeft - 24;
-  const endX = model.throatX - 3;
+  const startX = breathPanel.left + (compact ? 8 : 16);
+  const endX = breathPanel.right - (compact ? 8 : 16);
   const direction = blowing ? -1 : 1;
   const color = blowing ? "#f0bd69" : "#69d5dd";
   const rateMotion = logarithmicUnit(state.breathRateBpm, HARMONICA_LIMITS.breathRateBpm);
   const time = prefersReducedMotion
     ? 0.42
     : performance.now() * (0.0006 + amount * 0.0015 + rateMotion * 0.003);
+  drawViewFrame(
+    breathPanel,
+    "05",
+    "BREATH / RHYTHM",
+    `${breathLabel(flow).toUpperCase()} · ${harmonicaBluesRhythm(state.bluesRhythmId).label.toUpperCase()}`,
+    "#69d5dd",
+  );
+  if (amount < 0.02) return;
   drawing.save();
   drawing.lineCap = "round";
-  for (let index = 0; index < 10; index += 1) {
-    const travel = (time + index / 10) % 1;
+  const centerY = (breathPanel.top + breathPanel.bottom) * 0.5;
+  for (let index = 0; index < (compact ? 5 : 10); index += 1) {
+    const travel = (time + index / (compact ? 5 : 10)) % 1;
     const position = blowing ? 1 - travel : travel;
     const x = startX + (endX - startX) * position;
-    const y = model.combY + Math.sin(index * 1.9 + time * Math.PI * 2) * (3 + amount * 5);
+    const y = centerY + Math.sin(index * 1.9 + time * Math.PI * 2) * (2 + amount * (compact ? 2 : 4));
     const length = 6 + amount * 10;
     drawing.beginPath();
     drawing.moveTo(x - direction * length * 0.5, y);
@@ -1245,31 +2073,87 @@ function drawBreathFlow(model) {
 }
 
 function drawPitchMap(model) {
-  if (model.compact) return;
-  const top = cssHeight - 92;
-  const bottom = cssHeight - 48;
-  const minimumMidi = harmonicaReedPair(state, 1).blowMidi;
-  const maximumMidi = harmonicaReedPair(state, 10).blowMidi;
-  drawing.fillStyle = "rgba(216, 223, 220, 0.5)";
-  drawing.font = "6px ui-monospace, SFMono-Regular, Consolas, monospace";
-  drawing.textAlign = "left";
-  drawing.fillText("RICHTER MAP · BLOW ABOVE / DRAW BELOW", model.combLeft, top - 12);
-  for (let hole = 1; hole <= 10; hole += 1) {
-    const pair = harmonicaReedPair(state, hole);
-    const x = model.combLeft + (hole - 0.5) * model.holeWidth;
-    const blowY = bottom - (pair.blowMidi - minimumMidi) / Math.max(1, maximumMidi - minimumMidi) * (bottom - top);
-    const drawY = bottom - (pair.drawMidi - minimumMidi) / Math.max(1, maximumMidi - minimumMidi) * (bottom - top);
+  const { bendPanel, bendPad, compact } = model;
+  const flow = visualBreathFlow;
+  const direction = Math.abs(flow) > 0.025 ? Math.sign(flow) : state.breathDirection;
+  const directionLabel = direction < 0 ? "DRAW" : "BLOW";
+  const directionColor = direction < 0 ? "#69d5dd" : "#f0bd69";
+  const available = bendRangeSemitones(state.hole, direction);
+  const maximumSemitones = Math.max(1, available * HARMONICA_LIMITS.bend[1]);
+  const requestedSemitones = available * state.bend;
+  const overbendTarget = harmonicaOverbendTarget(state, state.hole, direction);
+  drawViewFrame(
+    bendPanel,
+    "03",
+    "BEND / REEDS",
+    `H${state.hole} ${directionLabel} · ${available || 0} STOPS`,
+    directionColor,
+  );
+  drawing.save();
+  drawing.fillStyle = "rgba(227, 106, 93, 0.025)";
+  drawing.fillRect(bendPad.left, bendPad.top, bendPad.right - bendPad.left, bendPad.bottom - bendPad.top);
+  drawing.strokeStyle = "rgba(227, 106, 93, 0.22)";
+  drawing.strokeRect(bendPad.left, bendPad.top, bendPad.right - bendPad.left, bendPad.bottom - bendPad.top);
+  const railX = bendPad.left + (bendPad.right - bendPad.left) * 0.42;
+  drawing.beginPath();
+  drawing.moveTo(railX, bendPad.top);
+  drawing.lineTo(railX, bendPad.bottom);
+  strokePath(directionColor, compact ? 0.8 : 1.2, 0.5);
+
+  if (available > 0) {
+    const lastStop = Math.floor(maximumSemitones + 1e-6);
+    for (let semitone = 0; semitone <= lastStop; semitone += 1) {
+      const y = bendPad.bottom - semitone / maximumSemitones * (bendPad.bottom - bendPad.top);
+      const normal = semitone <= available;
+      const bendAmount = semitone / available;
+      const target = harmonicaReedFrequency({ ...state, bend: bendAmount }, state.hole, direction);
+      drawing.beginPath();
+      drawing.moveTo(railX - (normal ? 6 : 3), y);
+      drawing.lineTo(railX + (normal ? 7 : 4), y);
+      strokePath(normal ? directionColor : "#a99bef", normal ? 1.1 : 0.8, normal ? 0.82 : 0.52);
+      drawing.fillStyle = normal ? "rgba(216, 223, 220, 0.7)" : "rgba(169, 155, 239, 0.66)";
+      drawing.font = `650 ${compact ? 4.5 : 6}px ui-monospace, SFMono-Regular, Consolas, monospace`;
+      drawing.textAlign = "left";
+      drawing.fillText(`${semitone === 0 ? "OPEN" : `−${semitone}`} ${target.noteName}`, railX + (compact ? 8 : 10), y + 2);
+    }
+    const requestY = bendPad.bottom - requestedSemitones / maximumSemitones * (bendPad.bottom - bendPad.top);
     drawing.beginPath();
-    drawing.arc(x, blowY, hole === state.hole ? 2.6 : 1.6, 0, Math.PI * 2);
-    drawing.fillStyle = "#f0bd69";
-    drawing.globalAlpha = hole === state.hole ? 0.95 : 0.4;
+    drawing.arc(railX, requestY, compact ? 3 : 4, 0, Math.PI * 2);
+    drawing.fillStyle = requestedSemitones > available ? "#a99bef" : "#e36a5d";
     drawing.fill();
-    drawing.beginPath();
-    drawing.arc(x, drawY, hole === state.hole ? 2.6 : 1.6, 0, Math.PI * 2);
-    drawing.fillStyle = "#69d5dd";
-    drawing.fill();
+    if (Math.abs(flow) > 0.025 && Number.isFinite(telemetry.bendSemitones)) {
+      const actualY = bendPad.bottom - clamp(telemetry.bendSemitones / maximumSemitones) * (bendPad.bottom - bendPad.top);
+      drawing.beginPath();
+      drawing.moveTo(railX - (compact ? 10 : 15), actualY);
+      drawing.lineTo(railX - (compact ? 3 : 5), actualY);
+      strokePath("#d8dfdc", compact ? 1 : 1.5, 0.9);
+    }
+  } else {
+    drawing.fillStyle = "rgba(216, 223, 220, 0.62)";
+    drawing.font = `650 ${compact ? 5 : 7}px ui-monospace, SFMono-Regular, Consolas, monospace`;
+    drawing.textAlign = "center";
+    drawing.fillText(`NO NORMAL ${directionLabel} BEND`, (bendPad.left + bendPad.right) * 0.5, (bendPad.top + bendPad.bottom) * 0.5);
   }
-  drawing.globalAlpha = 1;
+
+  const reedLeft = bendPad.left + 3;
+  const reedRight = railX - (compact ? 9 : 14);
+  const reedMotion = clamp(telemetry.displacement, -1, 1) * (compact ? 2 : 4);
+  drawing.beginPath();
+  drawing.moveTo(reedLeft, bendPad.top + (bendPad.bottom - bendPad.top) * 0.28);
+  drawing.quadraticCurveTo((reedLeft + reedRight) * 0.5, bendPad.top + 4, reedRight, bendPad.top + (bendPad.bottom - bendPad.top) * 0.28 + reedMotion);
+  strokePath("#f0bd69", compact ? 0.8 : 1.2, direction > 0 ? 0.9 : 0.38);
+  drawing.beginPath();
+  drawing.moveTo(reedLeft, bendPad.bottom - (bendPad.bottom - bendPad.top) * 0.28);
+  drawing.quadraticCurveTo((reedLeft + reedRight) * 0.5, bendPad.bottom - 4, reedRight, bendPad.bottom - (bendPad.bottom - bendPad.top) * 0.28 - reedMotion);
+  strokePath("#69d5dd", compact ? 0.8 : 1.2, direction < 0 ? 0.9 : 0.38);
+
+  if (overbendTarget.legal) {
+    drawing.fillStyle = "rgba(169, 155, 239, 0.72)";
+    drawing.font = `650 ${compact ? 4.5 : 6}px ui-monospace, SFMono-Regular, Consolas, monospace`;
+    drawing.textAlign = "right";
+    drawing.fillText(`OVER ${overbendTarget.noteName}`, bendPanel.right - 6, bendPanel.bottom - 4);
+  }
+  drawing.restore();
 }
 
 function drawStage() {
@@ -1287,43 +2171,29 @@ function drawStage() {
   const model = layout();
   const technique = harmonicaTechnique(state.bluesTechniqueId);
   handles = [];
+  drawHarmonica(model);
+  drawMouth(model);
+  drawPitchMap(model);
+  drawBluesCup(model);
+  drawBreathFlow(model);
   drawParameterPad(
     model.airPad,
     "#69d5dd",
-    model.compact ? "AIR" : `AIR ${Math.round(state.breathRateBpm)}/MIN · ${Math.round(state.breathPressure * 100)}%`,
+    model.compact ? "" : `AIR · ${Math.round(state.breathRateBpm)}/MIN · ${Math.round(state.breathPressure * 100)}%`,
     "RATE",
     "PRESS",
   );
   drawParameterPad(
     model.rhythmPad,
     "#f0bd69",
-    model.compact ? "BLUES" : `${technique.label.toUpperCase()} · ${state.techniqueRateHz.toFixed(1)} HZ · ${Math.round(state.techniqueAmount * 100)}%`,
+    model.compact ? "" : `${technique.label.toUpperCase()} · ${state.techniqueRateHz.toFixed(1)} HZ · ${Math.round(state.techniqueAmount * 100)}%`,
     "RATE",
     "AMOUNT",
   );
-  drawParameterPad(
-    model.cupPad,
-    "#a99bef",
-    model.compact ? "CUP" : `CUP FILTER ${Math.round(state.handCup * 100)}% · GROWL ${Math.round(state.growl * 100)}%`,
-    "FILTER",
-    "GROWL",
-  );
-  drawMouth(model);
-  drawHarmonica(model);
-  drawBluesCup(model);
-  drawParameterPad(
-    model.bendPad,
-    "#e36a5d",
-    model.compact ? "BEND" : `BEND ${Math.round(state.bend * 100)}% · GAP ${Math.round(state.reedGap * 100)}%`,
-    "BEND",
-    "GAP",
-  );
-  drawBreathFlow(model);
-  drawPitchMap(model);
   drawNode(model.airPad.x, model.airPad.y, "#69d5dd", "AIR", "air", 8);
-  drawNode(model.rhythmPad.x, model.rhythmPad.y, "#f0bd69", model.compact ? "BLUES" : "TECHNIQUE", "rhythm", 8);
-  drawNode(model.cupPad.x, model.cupPad.y, "#a99bef", model.compact ? "CUP" : "CUP / GROWL", "cup", 7);
-  drawNode(model.bendPad.x, model.bendPad.y, "#e36a5d", model.compact ? "BEND" : "BEND / GAP", "bend", 7);
+  drawNode(model.rhythmPad.x, model.rhythmPad.y, "#f0bd69", model.compact ? "PULSE" : "RHYTHM", "rhythm", 8);
+  drawNode(model.cupPad.x, model.cupPad.y, "#a99bef", model.compact ? "CUP" : "CLOSE / GROWL", "cup", 7);
+  drawNode(model.bendPad.x, model.bendPad.y, "#e36a5d", model.compact ? "" : "BEND / GAP", "bend", 7);
   drawNode(model.embouchureX, model.embouchureY, "#e36a5d", canvasMouthApertureLabel(model.compact), "embouchure", 7);
   drawNode(model.tonguePad.x, model.tonguePad.y, "#a99bef", model.compact ? "TNG" : "TONGUE", "tongue", 7);
   drawNode(model.lipsX, model.lipsY, "#e36a5d", model.compact ? "LIP" : "LIPS", "lips", 7);
@@ -1368,7 +2238,7 @@ function playableRegionAt(point) {
     hole: Math.round(clamp(
       Math.floor((point.x - model.combLeft) / Math.max(1, model.holeWidth)) + 1,
       1,
-      10,
+      renderedHoleCount,
     )),
     direction: point.y < model.combY ? 1 : -1,
   };
@@ -1421,16 +2291,44 @@ function setFromPointer(type, point, drag) {
   } else if (type === "bend") {
     const width = Math.max(1, model.bendPad.right - model.bendPad.left);
     const height = Math.max(1, model.bendPad.bottom - model.bendPad.top);
+    let bendValue = rangeValue(
+      rangeUnit(drag.startValues.bend, HARMONICA_LIMITS.bend) - dy / height,
+      HARMONICA_LIMITS.bend,
+    );
+    const direction = Math.abs(visualBreathFlow) > 0.025
+      ? Math.sign(visualBreathFlow)
+      : state.breathDirection;
+    const available = bendRangeSemitones(state.hole, direction);
+    if (available > 0) {
+      const semitones = bendValue * available;
+      const nearestStop = Math.round(semitones);
+      if (Math.abs(semitones - nearestStop) < 0.13) bendValue = nearestStop / available;
+    }
     patch = {
-      bend: rangeValue(
-        rangeUnit(drag.startValues.bend, HARMONICA_LIMITS.bend) + dx / width,
-        HARMONICA_LIMITS.bend,
-      ),
+      bend: bendValue,
       reedGap: rangeValue(
-        rangeUnit(drag.startValues.reedGap, HARMONICA_LIMITS.reedGap) - dy / height,
+        rangeUnit(drag.startValues.reedGap, HARMONICA_LIMITS.reedGap) + dx / width,
         HARMONICA_LIMITS.reedGap,
       ),
     };
+  } else if (type === "aperture-left" || type === "aperture-right") {
+    const deltaHoles = Math.round(dx / Math.max(1, model.holeWidth));
+    const maximumWidth = Math.min(5, HARMONICA_LIMITS.chordWidth[1]);
+    if (type === "aperture-left") {
+      const first = clamp(
+        drag.startValues.apertureFirst + deltaHoles,
+        Math.max(1, drag.startValues.apertureLast - maximumWidth + 1),
+        drag.startValues.apertureLast,
+      );
+      patch = aperturePatch(first, drag.startValues.apertureLast);
+    } else {
+      const last = clamp(
+        drag.startValues.apertureLast + deltaHoles,
+        drag.startValues.apertureFirst,
+        Math.min(renderedHoleCount, drag.startValues.apertureFirst + maximumWidth - 1),
+      );
+      patch = aperturePatch(drag.startValues.apertureFirst, last);
+    }
   } else if (type === "embouchure") {
     patch = {
       hole: drag.startValues.hole + dx / Math.max(1, model.holeWidth),
@@ -1440,8 +2338,8 @@ function setFromPointer(type, point, drag) {
     const width = Math.max(42, model.tonguePad.right - model.tonguePad.left);
     const height = Math.max(42, model.tonguePad.bottom - model.tonguePad.top);
     patch = {
-      tonguePosition: drag.startValues.tonguePosition
-        + dx / width * (HARMONICA_LIMITS.tonguePosition[1] - HARMONICA_LIMITS.tonguePosition[0]),
+      tongueBlock: drag.startValues.tongueBlock
+        + dx / width * (HARMONICA_LIMITS.tongueBlock[1] - HARMONICA_LIMITS.tongueBlock[0]),
       tongueHeight: drag.startValues.tongueHeight
         - dy / height * (HARMONICA_LIMITS.tongueHeight[1] - HARMONICA_LIMITS.tongueHeight[0]),
     };
@@ -1492,6 +2390,7 @@ function installCanvasInteractions() {
     const owner = playable
       ? { type: "canvas-hole", pointerId: event.pointerId }
       : null;
+    const apertureRange = mouthApertureRange();
     pointerDrag = {
       type: handle?.type ?? "play-hole",
       pointerId: event.pointerId,
@@ -1503,6 +2402,8 @@ function installCanvasInteractions() {
       startValues: {
         hole: state.hole,
         chordWidth: state.chordWidth,
+        apertureFirst: apertureRange.first,
+        apertureLast: apertureRange.last,
         embouchure: state.embouchure,
         breathPressure: state.breathPressure,
         breathRateBpm: state.breathRateBpm,
@@ -1510,6 +2411,7 @@ function installCanvasInteractions() {
         reedGap: state.reedGap,
         tonguePosition: state.tonguePosition,
         tongueHeight: state.tongueHeight,
+        tongueBlock: state.tongueBlock,
         throatOpening: state.throatOpening,
         vocalTractCoupling: state.vocalTractCoupling,
         techniqueRateHz: state.techniqueRateHz,
@@ -1550,6 +2452,9 @@ function installCanvasInteractions() {
     if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
     const drag = clearPointerInteraction();
     if (drag?.type === "play-hole") endManualBreath(drag.direction, drag.owner);
+    else if (drag?.type === "aperture-left" || drag?.type === "aperture-right") {
+      announce(`Mouth aperture ${apertureDescription()}`);
+    }
   };
   const cancelPointer = (event) => {
     if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
@@ -1573,7 +2478,8 @@ function loadVowel(vowelId) {
 function installKeyboard() {
   const drawOwner = { type: "keyboard", key: "[" };
   const blowOwner = { type: "keyboard", key: "]" };
-  const spaceOwner = { type: "keyboard", key: " " };
+  const wasdDrawOwner = { type: "keyboard", key: "s" };
+  const wasdBlowOwner = { type: "keyboard", key: "w" };
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -1587,7 +2493,7 @@ function installKeyboard() {
       midiBreath = null;
       postConfiguration();
       updatePresentation();
-      announce("Harmonica stopped");
+      announce("Harmonicazoid stopped");
       return;
     }
     if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -1599,19 +2505,32 @@ function installKeyboard() {
     } else if (event.key === "0" && !event.repeat) {
       event.preventDefault();
       selectHole(10, { announceChange: true });
-    } else if (["ArrowLeft", "ArrowDown"].includes(event.key) && event.target === canvas) {
+    } else if ((key === "a" || event.key === "ArrowLeft") && !event.shiftKey && !event.repeat) {
       event.preventDefault();
       selectHole(state.hole - 1, { announceChange: true });
-    } else if (["ArrowRight", "ArrowUp"].includes(event.key) && event.target === canvas) {
+    } else if ((key === "d" || event.key === "ArrowRight") && !event.shiftKey && !event.repeat) {
       event.preventDefault();
       selectHole(state.hole + 1, { announceChange: true });
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      const direction = Math.abs(visualBreathFlow) > 0.025 ? Math.sign(visualBreathFlow) : state.breathDirection;
+      const stops = Math.max(1, bendRangeSemitones(state.hole, direction));
+      setControl("bend", state.bend + 1 / stops, { announceChange: true });
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      const direction = Math.abs(visualBreathFlow) > 0.025 ? Math.sign(visualBreathFlow) : state.breathDirection;
+      const stops = Math.max(1, bendRangeSemitones(state.hole, direction));
+      setControl("bend", state.bend - 1 / stops, { announceChange: true });
     } else if (event.key === "-") {
       event.preventDefault();
       setControl("chordWidth", state.chordWidth - 1, { announceChange: true });
     } else if (["=", "+"].includes(event.key)) {
       event.preventDefault();
       setControl("chordWidth", state.chordWidth + 1, { announceChange: true });
-    } else if ("aeiou".includes(key) && !event.repeat) {
+    } else if (event.shiftKey && "aeiou".includes(key) && !event.repeat) {
+      event.preventDefault();
+      loadVowel(key);
+    } else if (["e", "i", "o", "u"].includes(key) && !event.repeat) {
       event.preventDefault();
       loadVowel(key);
     } else if (key === "r" && !event.repeat) {
@@ -1631,15 +2550,28 @@ function installKeyboard() {
     } else if (event.key === "]" && !event.repeat) {
       event.preventDefault();
       void beginManualBreath(1, blowOwner);
-    } else if (event.key === " " && event.target === canvas && !event.repeat) {
+    } else if (key === "s" && !event.repeat) {
       event.preventDefault();
-      void beginManualBreath(1, spaceOwner);
+      void beginManualBreath(-1, wasdDrawOwner);
+    } else if (key === "w" && !event.repeat) {
+      event.preventDefault();
+      void beginManualBreath(1, wasdBlowOwner);
+    } else if (key === "x" && !event.repeat) {
+      event.preventDefault();
+      cancelManualBreath({ present: false });
+      state = sanitizeHarmonicaState({ ...state, autoBreath: false }, state);
+      commandedBreathFlow = 0;
+      graph?.sourceNode?.port.postMessage({ type: "silence" });
+      postConfiguration();
+      updatePresentation();
+      announce("Harmonicazoid air stopped");
     }
   });
   document.addEventListener("keyup", (event) => {
     if (event.key === "[") endManualBreath(-1, drawOwner);
     if (event.key === "]") endManualBreath(1, blowOwner);
-    if (event.key === " ") endManualBreath(1, spaceOwner);
+    if (event.key.toLowerCase() === "s") endManualBreath(-1, wasdDrawOwner);
+    if (event.key.toLowerCase() === "w") endManualBreath(1, wasdBlowOwner);
   });
 }
 
@@ -1648,7 +2580,7 @@ let midiBreath = null;
 function nearestReedForMidi(note) {
   let nearest = null;
   let nearestDistance = Infinity;
-  for (let hole = 1; hole <= 10; hole += 1) {
+  for (let hole = 1; hole <= renderedHoleCount; hole += 1) {
     const pair = harmonicaReedPair(state, hole);
     for (const candidate of [
       { hole, direction: 1, midi: pair.blowMidi },
@@ -1754,10 +2686,18 @@ function updateLiveReadouts(flow) {
     const effectiveBend = telemetryMatches && Number.isFinite(telemetry.bendSemitones)
       ? telemetry.bendSemitones
       : reed.bendSemitones;
+    const chordNames = harmonicaActiveReeds(state, flow)
+      .filter(({ hole }) => (
+        hole === state.hole
+        || state.tongueBlock < 0.94
+        || state.bluesTechniqueId === "octave-tongue-block"
+      ))
+      .map(({ noteName }) => noteName)
+      .join(" + ");
     $("noteReadout").textContent = overbendSpeaking
       ? `${direction < 0 ? "overdraw" : "overblow"} ${overbendTarget.noteName} · ${formatFrequency(frequency)}`
       : state.chordWidth > 1
-      ? `${state.chordWidth}-hole ${direction < 0 ? "draw" : "blow"} chord · ${formatFrequency(frequency)} centroid`
+      ? `${direction < 0 ? "draw" : "blow"} ${chordNames} · ${formatFrequency(frequency)} centroid`
       : `${direction < 0 ? "draw" : "blow"} ${reed.noteName} · ${formatFrequency(frequency)}`;
     $("bendReadout").textContent = state.overbend > 0.01 && overbendTarget.legal
       ? `${overbendSpeaking ? "speaking" : "armed"} ${direction < 0 ? "overdraw" : "overblow"} ${overbendTarget.noteName} · ${Math.round(state.overbend * 100)}% choke`

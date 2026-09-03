@@ -1,6 +1,8 @@
 import {
+  HARMONICA_HOLE_COUNT,
   HARMONICA_LIMITS,
   activeHoles,
+  harmonicaBreathShiftProfile,
   harmonicaBluesRhythm,
   harmonicaMaterialProperties,
   harmonicaMouthFormants,
@@ -11,12 +13,13 @@ import {
   sanitizeHarmonicaState,
 } from "./harmonica.js";
 
-const HOLE_COUNT = 10;
+const HOLE_COUNT = HARMONICA_HOLE_COUNT;
 const REED_COUNT = HOLE_COUNT * 2;
 const TELEMETRY_BLOCKS = 8;
 const SILENCE_FLOOR = 1e-10;
 const DISCRETE_KEYS = new Set([
   "presetId",
+  "keyId",
   "hole",
   "chordWidth",
   "breathDirection",
@@ -24,6 +27,7 @@ const DISCRETE_KEYS = new Set([
   "bluesTechniqueId",
   "bluesRhythmId",
 ]);
+const CROSSFADED_CONFIGURATION_KEYS = new Set(["presetId", "keyId"]);
 const BEND_TECHNIQUES = new Set([
   "draw-bend",
   "blow-bend",
@@ -94,6 +98,7 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     this.overbendTargets = Array(REED_COUNT).fill(null);
     this.holeWeights = new Float64Array(HOLE_COUNT);
     this.baseHoleWeights = new Float64Array(HOLE_COUNT);
+    this.apertureHoleWeights = new Float64Array(HOLE_COUNT);
     this.openHoleIndices = [];
     this.slapHoleProfile = new Float64Array(HOLE_COUNT);
     this.mouthFiltersLeft = Array.from({ length: 3 }, () => new StateVariableBandpass(this.rate));
@@ -103,6 +108,8 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     this.combFilterRight = new StateVariableBandpass(this.rate);
     this.coverFilterLeft = new StateVariableBandpass(this.rate);
     this.coverFilterRight = new StateVariableBandpass(this.rate);
+    this.handResonatorLeft = new StateVariableBandpass(this.rate);
+    this.handResonatorRight = new StateVariableBandpass(this.rate);
     this.noiseState = 0x4861726d;
     this.breathNoiseState = 0;
     this.sourceDcLeft = 0;
@@ -120,7 +127,16 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     this.techniquePhase = 0;
     this.techniqueAgeSeconds = 10;
     this.lastBreathDirection = 0;
+    this.lastRequestedBreathDirection = 0;
+    this.breathShiftSamplesRemaining = 0;
     this.tongueSlapEnvelope = 0;
+    this.chamberBleedEnvelope = 0;
+    this.holeMotionEnergy = 0;
+    this.holeMotionDirection = 0;
+    this.effectiveTongueBlock = this.configuration.tongueBlock;
+    this.effectiveHandCup = this.configuration.handCup;
+    this.handResonanceFrequencyHz = 0;
+    this.handResonanceGain = 0;
     this.handLowpassLeft = 0;
     this.handLowpassRight = 0;
     this.growlNoiseState = 0;
@@ -156,7 +172,9 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
         ...this.targetConfiguration,
         ...(message.configuration ?? {}),
       }, this.targetConfiguration);
-      if (nextConfiguration.presetId !== this.configuration.presetId) {
+      if ([...CROSSFADED_CONFIGURATION_KEYS].some(
+        (key) => nextConfiguration[key] !== this.configuration[key],
+      )) {
         this.presetTransition = "out";
       }
       this.targetConfiguration = nextConfiguration;
@@ -219,7 +237,18 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     this.rhythmOnsetPending = false;
     this.articulationArmed = true;
     this.lastBreathDirection = 0;
+    this.lastRequestedBreathDirection = 0;
+    this.breathShiftSamplesRemaining = 0;
     this.tongueSlapEnvelope = 0;
+    this.chamberBleedEnvelope = 0;
+    this.holeMotionEnergy = 0;
+    this.holeMotionDirection = 0;
+    this.apertureHoleWeights.set(this.baseHoleWeights);
+    this.holeWeights.set(this.baseHoleWeights);
+    this.effectiveTongueBlock = this.configuration.tongueBlock;
+    this.effectiveHandCup = this.configuration.handCup;
+    this.handResonanceFrequencyHz = 0;
+    this.handResonanceGain = 0;
     this.techniqueBendContour = 0;
     this.overbendActive = false;
     this.overbendReleaseActive = false;
@@ -234,6 +263,8 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
       this.combFilterRight,
       this.coverFilterLeft,
       this.coverFilterRight,
+      this.handResonatorLeft,
+      this.handResonatorRight,
     ]) filter.reset();
   }
 
@@ -242,8 +273,8 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     const next = { ...this.configuration };
     let changed = false;
     for (const [key, value] of Object.entries(this.targetConfiguration)) {
-      if (key === "presetId" && this.presetTransition === "out") continue;
-      if (key === "presetId" && this.presetTransition === "swap") {
+      if (CROSSFADED_CONFIGURATION_KEYS.has(key) && this.presetTransition === "out") continue;
+      if (CROSSFADED_CONFIGURATION_KEYS.has(key) && this.presetTransition === "swap") {
         if (next[key] !== value) {
           next[key] = value;
           changed = true;
@@ -253,6 +284,17 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
       }
       if (DISCRETE_KEYS.has(key) || typeof value !== "number") {
         if (next[key] !== value) {
+          if (key === "hole") {
+            const distance = Math.abs(value - next[key]);
+            this.holeMotionDirection = Math.sign(value - next[key]);
+            this.holeMotionEnergy = clamp(0.58 + distance * 0.09, 0, 1);
+            this.chamberBleedEnvelope = Math.max(
+              this.chamberBleedEnvelope,
+              clamp(0.46 + distance * 0.08, 0, 1),
+            );
+          } else if (key === "chordWidth") {
+            this.holeMotionEnergy = Math.max(this.holeMotionEnergy, 0.38);
+          }
           next[key] = value;
           changed = true;
         }
@@ -285,6 +327,7 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     this.formants = harmonicaMouthFormants(state);
     this.technique = harmonicaTechnique(state.bluesTechniqueId);
     this.bluesRhythm = harmonicaBluesRhythm(state.bluesRhythmId);
+    this.breathShiftProfile = harmonicaBreathShiftProfile(state);
     const rhythmStepCount = this.bluesRhythm.steps.length;
     this.rhythmStepDurations = this.bluesRhythm.steps.map((_, index) => (
       (1 / Math.max(1, rhythmStepCount))
@@ -298,6 +341,27 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     this.breathAttackCoefficient = coefficientForMilliseconds(state.breathAttackMs);
     this.breathReleaseCoefficient = coefficientForMilliseconds(state.breathReleaseMs);
     this.slapDecay = Math.exp(-1 / (this.rate * 0.038));
+    // The signed air column always crosses zero. Player slop lives around that
+    // crossing as finite reed inertia and a moving lip aperture, never as
+    // physically impossible simultaneous inward/outward lung pressure.
+    this.breathShiftPressureCoefficient = 1 - Math.exp(
+      -1 / (this.rate * this.breathShiftProfile.pressureTimeSeconds),
+    );
+    this.breathShiftAttackCoefficient = 1 - Math.exp(
+      -1 / (this.rate * this.breathShiftProfile.reedAttackSeconds),
+    );
+    this.breathShiftReleaseCoefficient = 1 - Math.exp(
+      -1 / (this.rate * this.breathShiftProfile.reedTailSeconds),
+    );
+    this.holeSlideCoefficient = 1 - Math.exp(
+      -1 / (this.rate * this.breathShiftProfile.holeSlideSeconds),
+    );
+    this.holeMotionDecay = Math.exp(
+      -1 / (this.rate * (0.026 + this.breathShiftProfile.holeSlideSeconds * 1.05)),
+    );
+    this.chamberBleedDecay = Math.exp(
+      -1 / (this.rate * (0.018 + this.breathShiftProfile.amount * 0.042)),
+    );
     this.pitchApproach = 1 - Math.exp(-1 / (this.rate * 0.0045));
     this.pairApproach = 1 - Math.exp(-1 / (this.rate * 0.007));
     this.chokeCloseCoefficient = 1 - Math.exp(-1 / (this.rate * 0.002));
@@ -333,6 +397,7 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
         -Math.pow((index - center) / Math.max(0.8, holes.length * 0.56), 2),
       );
     });
+    if (resetFrequencies) this.apertureHoleWeights.set(this.baseHoleWeights);
     for (let index = 0; index < HOLE_COUNT; index += 1) {
       this.slapHoleProfile[index] = Math.exp(
         -Math.pow((index - (state.hole - 1)) / 1.28, 2),
@@ -440,17 +505,27 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     return 0;
   }
 
-  _updateTechniqueHoleWeights(direction) {
+  _updateTechniqueHoleWeights(direction, effectiveTongueBlock = this.configuration.tongueBlock) {
     const state = this.configuration;
     const id = state.bluesTechniqueId;
-    this.holeWeights.set(this.baseHoleWeights);
+    for (let index = 0; index < HOLE_COUNT; index += 1) {
+      const target = this.baseHoleWeights[index];
+      const difference = target - this.apertureHoleWeights[index];
+      this.apertureHoleWeights[index] += difference * this.holeSlideCoefficient;
+      if (Math.abs(difference) < 1e-8) this.apertureHoleWeights[index] = target;
+    }
+    this.holeWeights.set(this.apertureHoleWeights);
+    this.holeMotionEnergy *= this.holeMotionDecay;
+    if (this.holeMotionEnergy < SILENCE_FLOOR) this.holeMotionEnergy = 0;
 
     const openHoles = this.openHoleIndices;
-    if (state.tongueBlock > 0 && openHoles.length > 2) {
-      const attenuation = 1 - state.tongueBlock * 0.94;
-      for (let index = 1; index < openHoles.length - 1; index += 1) {
-        this.holeWeights[openHoles[index]] *= attenuation;
+    if (effectiveTongueBlock > 0 && openHoles.length > 1) {
+      const attenuation = 1 - effectiveTongueBlock * 0.94;
+      const anchor = state.hole - 1;
+      for (const holeIndex of openHoles) {
+        if (holeIndex !== anchor) this.holeWeights[holeIndex] *= attenuation;
       }
+      this.holeWeights[anchor] += (1 - this.holeWeights[anchor]) * effectiveTongueBlock;
     }
 
     const center = state.hole - 1;
@@ -469,14 +544,14 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
       const octave = direction < 0
         ? DRAW_OCTAVE_PARTNERS[center]
         : (center <= 6 ? center + 3 : -1);
-      const wet = clamp(state.techniqueAmount * Math.max(0.2, state.tongueBlock), 0, 1);
+      const wet = clamp(state.techniqueAmount * Math.max(0.2, effectiveTongueBlock), 0, 1);
       this.holeWeights[center] = Math.max(this.holeWeights[center], 1);
       if (octave >= 0) {
         this.holeWeights[octave] = Math.max(this.holeWeights[octave], wet);
         const first = Math.min(center, octave);
         const last = Math.max(center, octave);
         for (let index = first + 1; index < last; index += 1) {
-          this.holeWeights[index] *= 1 - state.tongueBlock;
+          this.holeWeights[index] *= 1 - effectiveTongueBlock;
         }
       }
     }
@@ -487,6 +562,29 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
         this.holeWeights[index] = Math.max(
           this.holeWeights[index],
           chord * this.tongueSlapEnvelope,
+        );
+      }
+    }
+
+    // A breath onset or lateral slide briefly exposes the chamber dividers.
+    // This is tonal reed bleed—adjacent pitched chambers—not a noise burst.
+    const growlBleed = clamp(state.growl / 2) * 0.32;
+    const tongueSeal = 1 - effectiveTongueBlock * 0.9;
+    const chamberBleed = clamp(
+      this.chamberBleedEnvelope
+        * this.breathShiftProfile.chamberBleed
+        * (1 + growlBleed)
+        * tongueSeal,
+      0,
+      0.32,
+    );
+    if (chamberBleed > SILENCE_FLOOR) {
+      const anchor = state.hole - 1;
+      for (const neighbor of [anchor - 1, anchor + 1]) {
+        if (neighbor < 0 || neighbor >= HOLE_COUNT) continue;
+        this.holeWeights[neighbor] = Math.max(
+          this.holeWeights[neighbor],
+          chamberBleed,
         );
       }
     }
@@ -539,6 +637,29 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
       this.rhythmOnsetPending = false;
     }
     const targetFlow = this.manualBreathFlow ?? this._automaticBreathFlow();
+    const requestedDirection = Math.abs(targetFlow) > 1e-7
+      ? Math.sign(targetFlow)
+      : 0;
+    if (
+      !this.silenced
+      && requestedDirection !== 0
+      && this.lastRequestedBreathDirection !== 0
+      && requestedDirection !== this.lastRequestedBreathDirection
+    ) {
+      this.breathShiftSamplesRemaining = Math.max(
+        this.breathShiftSamplesRemaining,
+        Math.round(
+          Math.max(
+            this.breathShiftProfile.reedTailSeconds,
+            state.breathReleaseMs / 1_000 * 1.12,
+          ) * this.rate,
+        ),
+      );
+    }
+    if (requestedDirection !== 0) {
+      this.lastRequestedBreathDirection = requestedDirection;
+    }
+    const breathShiftActive = this.breathShiftSamplesRemaining > 0;
     if (this.silenced) {
       this.breathFlow = 0;
     } else {
@@ -546,9 +667,15 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
         || targetFlow === 0
         || Math.sign(targetFlow) === Math.sign(this.breathFlow);
       const increasing = sameDirection && Math.abs(targetFlow) > Math.abs(this.breathFlow);
-      const coefficient = increasing
+      const ordinaryCoefficient = increasing
         ? this.breathAttackCoefficient
         : this.breathReleaseCoefficient;
+      const coefficient = breathShiftActive
+        ? Math.min(
+          ordinaryCoefficient,
+          this.breathShiftPressureCoefficient,
+        )
+        : ordinaryCoefficient;
       this.breathFlow += (targetFlow - this.breathFlow) * coefficient;
     }
     if (Math.abs(this.breathFlow) < 1e-7 && Math.abs(targetFlow) < 1e-7) this.breathFlow = 0;
@@ -577,6 +704,16 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
       this.rhythmOnsetPending = false;
       this.articulationArmed = false;
       this.techniqueAgeSeconds = 0;
+      this.chamberBleedEnvelope = Math.max(
+        this.chamberBleedEnvelope,
+        clamp(
+          0.34
+            + this.breathShiftProfile.amount * 0.42
+            + clamp(state.growl / 2) * 0.16,
+          0,
+          0.92,
+        ),
+      );
       if (state.bluesTechniqueId === "tongue-slap") {
         this.tongueSlapEnvelope = clamp(state.techniqueAmount, 0, 2);
       } else if (state.bluesTechniqueId === "train-chug") {
@@ -590,26 +727,75 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     this.techniquePhase = (
       this.techniquePhase + state.techniqueRateHz / this.rate
     ) % 1;
+    const techniqueWave = Math.sin(Math.PI * 2 * this.techniquePhase);
+    const techniquePulse = 0.5 + 0.5 * techniqueWave;
+    const tonguePulse = 0.5 + 0.5 * Math.sin(
+      Math.PI * 2 * this.techniquePhase + Math.PI * 0.36,
+    );
+    const authoredCupMotion = clamp(state.cupMotionDepth);
+    const techniqueCupMotion = state.bluesTechniqueId === "hand-wah"
+      ? clamp(state.techniqueAmount)
+      : 0;
+    const cupMotionDepth = clamp(
+      authoredCupMotion + techniqueCupMotion * (1 - authoredCupMotion),
+    );
+    const authoredTongueMotion = clamp(state.tongueMotionDepth);
+    const techniqueTongueMotion = state.bluesTechniqueId === "flutter"
+      ? clamp(state.techniqueAmount)
+      : 0;
+    const tongueMotionDepth = clamp(
+      authoredTongueMotion + techniqueTongueMotion * (1 - authoredTongueMotion),
+    );
+    this.effectiveHandCup = clamp(
+      state.handCup * (1 - cupMotionDepth * 0.92 * (1 - techniquePulse)),
+    );
+    // Tongue motion opens around the authored closure rather than erasing it.
+    // Flutter can still articulate a single clean hole by introducing a small,
+    // rapidly moving occlusion even when the static tongue-block value is zero.
+    this.effectiveTongueBlock = clamp(
+      state.tongueBlock * (1 - tongueMotionDepth * 0.84 * (1 - tonguePulse))
+        + techniqueTongueMotion * tonguePulse * 0.34 * (1 - state.tongueBlock),
+    );
     this.tongueSlapEnvelope *= this.slapDecay;
     if (this.tongueSlapEnvelope < SILENCE_FLOOR) this.tongueSlapEnvelope = 0;
-    this._updateTechniqueHoleWeights(direction);
-    const attack = this.reedAttackCoefficient;
-    const release = this.reedReleaseCoefficient;
+    this._updateTechniqueHoleWeights(direction, this.effectiveTongueBlock);
+    // A moving comb leaks and sheds a little pressure at the chamber divider.
+    // Keep the disturbance subtle: the overlapping reeds provide the audible
+    // slide, while this prevents the transition from feeling digitally exact.
+    drive *= 1 - this.holeMotionEnergy * 0.075;
+    const attack = breathShiftActive
+      ? Math.min(this.reedAttackCoefficient, this.breathShiftAttackCoefficient)
+      : this.reedAttackCoefficient;
+    const release = breathShiftActive
+      ? Math.min(this.reedReleaseCoefficient, this.breathShiftReleaseCoefficient)
+      : this.reedReleaseCoefficient;
     const pitchApproach = this.pitchApproach;
     const pairApproach = this.pairApproach;
     this.vibratoPhase = (this.vibratoPhase + state.vibratoRateHz / this.rate) % 1;
     this.tremoloPhase = (this.tremoloPhase + state.tremoloRateHz / this.rate) % 1;
-    const techniqueWave = Math.sin(Math.PI * 2 * this.techniquePhase);
-    const techniquePulse = 0.5 + 0.5 * techniqueWave;
-    const wahWet = state.bluesTechniqueId === "hand-wah"
-      ? clamp(state.techniqueAmount, 0, 1)
-      : 0;
-    const handClosure = state.handCup * (1 - wahWet * 0.88 * (1 - techniquePulse));
-    const tongueOcclusion = state.tongueBlock * 0.3;
-    this.radiationCup = clamp(handClosure + tongueOcclusion, 0, 1);
+    const tongueOcclusion = this.effectiveTongueBlock * 0.3;
+    this.radiationCup = clamp(this.effectiveHandCup + tongueOcclusion, 0, 1);
     const handCutoffHz = 380 + Math.pow(1 - this.radiationCup, 2) * 9_400;
     this.handFilterCoefficient = 1 - Math.exp(-Math.PI * 2 * handCutoffHz / this.rate);
-    this.tongueRadiationGain = 1 - state.tongueBlock * 0.11;
+    // The cover hand is also a small, leaky Helmholtz cavity. Closing it lowers
+    // and sharpens a moving resonance; opening it raises and broadens that peak.
+    // Keeping filter state between coefficient moves produces the audible wah
+    // sweep without rebuilding or hard-switching the signal path.
+    const handOpening = 1 - this.effectiveHandCup;
+    this.handResonanceFrequencyHz = 460 + Math.pow(handOpening, 1.35) * 2_760;
+    const handResonanceBandwidthHz = 105 + Math.pow(handOpening, 0.72) * 1_180;
+    this.handResonanceGain = this.effectiveHandCup
+      * (0.2 + this.effectiveHandCup * 0.34)
+      * (1 + cupMotionDepth * 0.16);
+    this.handResonatorLeft.configure(
+      this.handResonanceFrequencyHz * 0.992,
+      handResonanceBandwidthHz,
+    );
+    this.handResonatorRight.configure(
+      this.handResonanceFrequencyHz * 1.008,
+      handResonanceBandwidthHz * 1.04,
+    );
+    this.tongueRadiationGain = 1 - this.effectiveTongueBlock * 0.11;
     if (state.bluesTechniqueId === "flutter") {
       drive *= clamp(1 - state.techniqueAmount * 0.62 * techniquePulse, 0.08, 1);
     } else if (state.bluesTechniqueId === "throat-vibrato") {
@@ -634,6 +820,11 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
       + Math.sin(Math.PI * 6 * this.techniquePhase + 0.31) * 0.2
       + this.growlNoiseState * 0.26;
     const growlAmplitude = clamp(1 + growlWave * growlAmount * 0.24, 0.38, 1.62);
+    // A vocal growl roughens phase and upper partial balance as well as level.
+    // These bounded sidebands make the effect read as throat/reed interaction
+    // rather than broadband distortion.
+    const growlPhaseWarp = growlWave * growlAmount * 0.052;
+    const growlTwang = growlAmount * (0.014 + state.brightness * 0.012);
     let left = 0;
     let right = 0;
     let displacement = 0;
@@ -818,9 +1009,9 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
       ) continue;
       const primaryPhase = this.phases[primaryIndex];
       const opposingPhase = this.phases[opposingIndex];
-      const primaryNeutral = Math.sin(primaryPhase);
+      const primaryNeutral = Math.sin(primaryPhase + growlPhaseWarp);
       // The passive tongue is mounted in the opposite orientation.
-      const opposingNeutral = -Math.sin(opposingPhase);
+      const opposingNeutral = -Math.sin(opposingPhase - growlPhaseWarp * 0.78);
       const primaryMotion = primaryNeutral * primaryEnvelope;
       const opposingMotion = opposingNeutral * opposingEnvelope;
       this.reedVelocities[primaryIndex] = primaryMotion - this.reedPositions[primaryIndex];
@@ -834,13 +1025,15 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
         primaryNeutral
         + pairFeedback
         + Math.sin(primaryPhase * 2 + orientation * 0.16) * secondAmount
-        + Math.sin(primaryPhase * 3 - orientation * 0.22) * thirdAmount
+        + Math.sin(primaryPhase * 3 - orientation * 0.22 + growlPhaseWarp * 1.7)
+          * (thirdAmount + growlTwang)
       ) * saturation) / saturation;
       const opposingPulse = Math.tanh((
         opposingNeutral
         - pairFeedback * 0.58
         + Math.sin(opposingPhase * 2 - orientation * 0.12) * secondAmount * 0.82
-        + Math.sin(opposingPhase * 3 + orientation * 0.2) * thirdAmount * 0.72
+        + Math.sin(opposingPhase * 3 + orientation * 0.2 - growlPhaseWarp * 1.25)
+          * (thirdAmount * 0.72 + growlTwang * 0.58)
       ) * saturation) / saturation;
       const reedGain = tremolo
         * (0.68 + state.brightness * 0.23)
@@ -875,6 +1068,10 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     const directionalNoise = direction < 0 ? -breathNoise * 0.92 : breathNoise;
     left += directionalNoise;
     right += directionalNoise * 0.97;
+    const slideNoise = (rawNoise * 0.42 + this.breathNoiseState * 0.58)
+      * magnitude * this.holeMotionEnergy * (0.018 + state.airLeak * 0.035);
+    left += slideNoise * (this.holeMotionDirection < 0 ? 1 : 0.82);
+    right += slideNoise * (this.holeMotionDirection > 0 ? 1 : 0.82);
     if (this.tongueSlapEnvelope > 0) {
       const slapNoise = (
         rawNoise * 0.72 + this.breathNoiseState * 0.28
@@ -897,6 +1094,9 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     const presetFade = this._advancePresetFade();
     this.renderedSourceLeft = left * apertureNormalization * presetFade;
     this.renderedSourceRight = right * apertureNormalization * presetFade;
+    this.chamberBleedEnvelope *= this.chamberBleedDecay;
+    if (this.chamberBleedEnvelope < SILENCE_FLOOR) this.chamberBleedEnvelope = 0;
+    if (this.breathShiftSamplesRemaining > 0) this.breathShiftSamplesRemaining -= 1;
   }
 
   _radiate(source, side) {
@@ -904,9 +1104,17 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     const filters = side < 0 ? this.mouthFiltersLeft : this.mouthFiltersRight;
     const combFilter = side < 0 ? this.combFilterLeft : this.combFilterRight;
     const coverFilter = side < 0 ? this.coverFilterLeft : this.coverFilterRight;
+    const handCup = this.effectiveHandCup;
     let cavity = 0;
     for (let index = 0; index < 3; index += 1) {
-      cavity += filters[index].process(source) * this.formantFocusWeights[index];
+      const cupFormantWeight = index === 0
+        ? 1 + handCup * 0.68
+        : index === 1
+          ? 1 + handCup * 0.16
+          : 1 - handCup * 0.42;
+      cavity += filters[index].process(source)
+        * this.formantFocusWeights[index]
+        * cupFormantWeight;
     }
     const coupling = state.vocalTractCoupling;
     const normal = Math.min(1, coupling);
@@ -924,13 +1132,23 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
     // so the raw control never becomes visually active but acoustically inert.
     const cup = this.radiationCup;
     const coefficient = this.handFilterCoefficient;
+    const handResonator = side < 0 ? this.handResonatorLeft : this.handResonatorRight;
+    const handResonance = handResonator.process(emitted) * this.handResonanceGain;
     if (side < 0) {
       this.handLowpassLeft += (emitted - this.handLowpassLeft) * coefficient;
-      return (emitted * (1 - cup * 0.9) + this.handLowpassLeft * cup * 0.9)
+      return (
+        emitted * (1 - cup * 0.9)
+        + this.handLowpassLeft * cup * 0.9
+        + handResonance
+      )
         * this.tongueRadiationGain;
     }
     this.handLowpassRight += (emitted - this.handLowpassRight) * coefficient;
-    return (emitted * (1 - cup * 0.9) + this.handLowpassRight * cup * 0.9)
+    return (
+      emitted * (1 - cup * 0.9)
+      + this.handLowpassRight * cup * 0.9
+      + handResonance
+    )
       * this.tongueRadiationGain;
   }
 
@@ -988,6 +1206,12 @@ class HarmonicaPhysicalProcessor extends AudioWorkletProcessor {
         techniqueAgeSeconds: this.techniqueAgeSeconds,
         techniqueBendContour: this.techniqueBendContour,
         tongueSlapEnvelope: this.tongueSlapEnvelope,
+        holeMotionEnergy: this.holeMotionEnergy,
+        breathShiftSlop: this.configuration.breathShiftSlop,
+        breathShiftActive: this.breathShiftSamplesRemaining > 0,
+        effectiveHandCup: this.effectiveHandCup,
+        handResonanceFrequencyHz: this.handResonanceFrequencyHz,
+        effectiveTongueBlock: this.effectiveTongueBlock,
         rhythmStepIndex: this.rhythmStepIndex,
         overbendActive: this.overbendActive,
         overbendReleaseActive: this.overbendReleaseActive,

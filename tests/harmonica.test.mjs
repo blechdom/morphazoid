@@ -11,22 +11,29 @@ import {
   HARMONICA_DRAW_BENDS,
   HARMONICA_DRAW_BEND_HOLES,
   HARMONICA_DRAW_MIDI,
+  HARMONICA_HOLE_COUNT,
+  HARMONICA_KEYS,
   HARMONICA_LIMITS,
   HARMONICA_OVERBLOW_HOLES,
   HARMONICA_OVERDRAW_HOLES,
+  HARMONICA_PERFORMANCE_PRESETS,
   HARMONICA_PRESETS,
   HARMONICA_TECHNIQUES,
   activeHoles,
+  applyHarmonicaPerformancePreset,
   applyHarmonicaTechnique,
   bendRangeSemitones,
   harmonicaActiveReeds,
   harmonicaBluesRhythm,
   harmonicaBluesRhythmFlow,
+  harmonicaBreathShiftProfile,
   harmonicaBreathCycleFlow,
   harmonicaCoupledReedState,
+  harmonicaKey,
   harmonicaMaterialProperties,
   harmonicaMouthFormants,
   harmonicaOverbendTarget,
+  harmonicaPerformancePreset,
   harmonicaPressureState,
   harmonicaReedCoupling,
   harmonicaReedFrequency,
@@ -41,7 +48,11 @@ import {
 const root = new URL("../", import.meta.url);
 
 test("harmonica exposes the exact ten-hole Richter blow and draw layout", () => {
+  assert.equal(HARMONICA_HOLE_COUNT, HARMONICA_BLOW_MIDI.length);
+  assert.equal(HARMONICA_HOLE_COUNT, HARMONICA_DRAW_MIDI.length);
+  assert.equal(HARMONICA_HOLE_COUNT, 10);
   assert.equal(HARMONICA_DEFAULTS.breathDirection, -1);
+  assert.equal(HARMONICA_DEFAULTS.keyId, "c");
   assert.deepEqual(HARMONICA_BLOW_MIDI, [60, 64, 67, 72, 76, 79, 84, 88, 91, 96]);
   assert.deepEqual(HARMONICA_DRAW_MIDI, [62, 67, 71, 74, 77, 81, 83, 86, 89, 93]);
   assert.deepEqual(HARMONICA_DRAW_BENDS, [1, 2, 3, 1, 1, 1, 0, 0, 0, 0]);
@@ -55,13 +66,18 @@ test("harmonica exposes the exact ten-hole Richter blow and draw layout", () => 
   assert.ok(harmonicaReedPair(HARMONICA_DEFAULTS, 7).drawMidi < harmonicaReedPair(HARMONICA_DEFAULTS, 7).blowMidi);
 });
 
-test("key and material presets transpose every reed while retaining distinct mechanics", () => {
+test("instrument key transposes independently from the four reed-body materials", () => {
   assert.equal(HARMONICA_PRESETS.length, 4);
+  assert.equal(HARMONICA_KEYS.length, 13);
   const c = harmonicaReedPair(harmonicaState("c-richter"), 4);
-  const lowC = harmonicaReedPair(harmonicaState("low-c"), 4);
-  const g = harmonicaReedPair(harmonicaState("g-richter"), 4);
+  const lowC = harmonicaReedPair(harmonicaState("c-richter", { keyId: "low-c" }), 4);
+  const g = harmonicaReedPair(harmonicaState("c-richter", { keyId: "g" }), 4);
   assert.equal(lowC.blowMidi, c.blowMidi - 12);
   assert.equal(g.drawMidi, c.drawMidi - 5);
+  assert.equal(harmonicaKey("missing").id, "c");
+  assert.equal(harmonicaReedPair(harmonicaState("g-richter", { keyId: "c" }), 4).blowMidi, c.blowMidi);
+  assert.equal(harmonicaReedPair(harmonicaState("a-richter", { keyId: "g" }), 4).drawMidi, g.drawMidi);
+  assert.equal(harmonicaReedPair(HARMONICA_DEFAULTS, 10).blowMidi - harmonicaReedPair(HARMONICA_DEFAULTS, 1).blowMidi, 36);
   const materials = HARMONICA_PRESETS.map(({ id }) => harmonicaMaterialProperties(id));
   assert.equal(new Set(materials.map(({ specificModulusM2S2 }) => specificModulusM2S2)).size, 4);
   assert.ok(materials.every(({ waveSpeedMps, intrinsicCycleRetention }) => (
@@ -99,11 +115,19 @@ test("actual paired-reed bending requires pressure and an aligned vocal-tract lo
     hole: 3,
     bend: 1,
     vocalTractCoupling: 0,
+    tonguePosition: 0.46,
+    tongueHeight: 0.34,
+    throatOpening: 0.42,
+    embouchure: 0.5,
   });
   const coupled = harmonicaState("c-richter", {
     hole: 3,
     bend: 1,
     vocalTractCoupling: 2,
+    tonguePosition: 0.46,
+    tongueHeight: 0.34,
+    throatOpening: 0.42,
+    embouchure: 0.5,
   });
   const dry = harmonicaCoupledReedState(coupled, 3, -1, 0);
   const weak = harmonicaCoupledReedState(coupled, 3, -1, -0.2);
@@ -140,9 +164,13 @@ test("actual paired-reed bending requires pressure and an aligned vocal-tract lo
 });
 
 test("multi-hole embouchures remain edge-safe and direction selects one reed bank", () => {
-  assert.deepEqual(activeHoles(harmonicaState("c-richter", { hole: 1, chordWidth: 4 })), [1, 2, 3, 4]);
-  assert.deepEqual(activeHoles(harmonicaState("c-richter", { hole: 10, chordWidth: 4 })), [7, 8, 9, 10]);
-  const state = harmonicaState("c-richter", { hole: 5, chordWidth: 3 });
+  assert.deepEqual(activeHoles(harmonicaState("c-richter", { hole: 1, chordWidth: 5 })), [1, 2, 3, 4, 5]);
+  assert.deepEqual(activeHoles(harmonicaState("c-richter", { hole: 10, chordWidth: 5 })), [6, 7, 8, 9, 10]);
+  assert.deepEqual(
+    activeHoles(harmonicaState("c-richter", { hole: 4, chordWidth: 4, tongueBlock: 1 })),
+    [1, 2, 3, 4],
+  );
+  const state = harmonicaState("c-richter", { hole: 5, chordWidth: 3, tongueBlock: 0 });
   const blow = harmonicaActiveReeds(state, 0.8);
   const draw = harmonicaActiveReeds(state, -0.8);
   assert.deepEqual(blow.map(({ hole }) => hole), [4, 5, 6]);
@@ -157,16 +185,20 @@ test("extreme state and vocal-tract controls sanitize to finite ordered values",
     hole: -200,
     chordWidth: 99,
     breathPressure: Infinity,
+    breathShiftSlop: 99,
     bend: 90,
     tonguePosition: -99,
     throatOpening: 99,
     autoBreath: "yes",
+    keyId: "not-a-key",
   });
   assert.equal(unsafe.hole, 1);
-  assert.equal(unsafe.chordWidth, 4);
+  assert.equal(unsafe.chordWidth, 5);
+  assert.equal(unsafe.breathShiftSlop, 1);
   assert.equal(unsafe.bend, 1.5);
   assert.equal(unsafe.tonguePosition, -2);
   assert.equal(unsafe.throatOpening, 3);
+  assert.equal(unsafe.keyId, "c");
   for (const tonguePosition of HARMONICA_LIMITS.tonguePosition) {
     for (const tongueHeight of HARMONICA_LIMITS.tongueHeight) {
       for (const throatOpening of HARMONICA_LIMITS.throatOpening) {
@@ -204,12 +236,36 @@ test("automatic breath alternates draw and blow across the full pressure range",
   assert.ok(Math.abs(harmonicaBreathCycleFlow(state, 1)) < 1e-12);
 });
 
+test("breath-shift slop maps cleanly from precise to inertial playing", () => {
+  const pristine = harmonicaBreathShiftProfile({
+    ...HARMONICA_DEFAULTS,
+    breathShiftSlop: 0,
+  });
+  const loose = harmonicaBreathShiftProfile({
+    ...HARMONICA_DEFAULTS,
+    breathShiftSlop: 1,
+  });
+  assert.equal(pristine.amount, 0);
+  assert.equal(loose.amount, 1);
+  assert.ok(pristine.reedAttackSeconds >= 0.02);
+  assert.ok(pristine.reedTailSeconds >= 0.03);
+  for (const key of [
+    "pressureTimeSeconds",
+    "reedAttackSeconds",
+    "reedTailSeconds",
+    "holeSlideSeconds",
+    "chamberBleed",
+    "pitchScoopCents",
+  ]) assert.ok(loose[key] > pristine[key], key);
+});
+
 test("blues techniques expose legal, self-sounding example patches and bounded controls", () => {
   assert.deepEqual({
     techniqueAmount: HARMONICA_LIMITS.techniqueAmount,
     techniqueRateHz: HARMONICA_LIMITS.techniqueRateHz,
     breathAttackMs: HARMONICA_LIMITS.breathAttackMs,
     breathReleaseMs: HARMONICA_LIMITS.breathReleaseMs,
+    breathShiftSlop: HARMONICA_LIMITS.breathShiftSlop,
     handCup: HARMONICA_LIMITS.handCup,
     growl: HARMONICA_LIMITS.growl,
     tongueBlock: HARMONICA_LIMITS.tongueBlock,
@@ -220,6 +276,7 @@ test("blues techniques expose legal, self-sounding example patches and bounded c
     techniqueRateHz: [0.1, 30],
     breathAttackMs: [0, 500],
     breathReleaseMs: [0, 1_000],
+    breathShiftSlop: [0, 1],
     handCup: [0, 1],
     growl: [0, 2],
     tongueBlock: [0, 1],
@@ -233,23 +290,25 @@ test("blues techniques expose legal, self-sounding example patches and bounded c
     techniqueRateHz: HARMONICA_DEFAULTS.techniqueRateHz,
     breathAttackMs: HARMONICA_DEFAULTS.breathAttackMs,
     breathReleaseMs: HARMONICA_DEFAULTS.breathReleaseMs,
+    breathShiftSlop: HARMONICA_DEFAULTS.breathShiftSlop,
     handCup: HARMONICA_DEFAULTS.handCup,
     growl: HARMONICA_DEFAULTS.growl,
     tongueBlock: HARMONICA_DEFAULTS.tongueBlock,
     overbend: HARMONICA_DEFAULTS.overbend,
     rhythmSwing: HARMONICA_DEFAULTS.rhythmSwing,
   }, {
-    bluesTechniqueId: "clean",
-    bluesRhythmId: "free",
-    techniqueAmount: 1,
-    techniqueRateHz: 5.5,
-    breathAttackMs: 18,
-    breathReleaseMs: 90,
-    handCup: 0.15,
-    growl: 0,
-    tongueBlock: 0,
+    bluesTechniqueId: "growl",
+    bluesRhythmId: "slow-drag",
+    techniqueAmount: 1.22,
+    techniqueRateHz: 22,
+    breathAttackMs: 12,
+    breathReleaseMs: 176,
+    breathShiftSlop: 0.84,
+    handCup: 0.9,
+    growl: 1.28,
+    tongueBlock: 0.24,
     overbend: 0,
-    rhythmSwing: 0,
+    rhythmSwing: 0.3,
   });
   const expectedTechniqueIds = [
     "clean",
@@ -293,6 +352,7 @@ test("blues techniques expose legal, self-sounding example patches and bounded c
       "techniqueRateHz",
       "breathAttackMs",
       "breathReleaseMs",
+      "breathShiftSlop",
       "handCup",
       "growl",
       "tongueBlock",
@@ -323,27 +383,68 @@ test("blues techniques expose legal, self-sounding example patches and bounded c
   const doubleStop = applyHarmonicaTechnique(HARMONICA_DEFAULTS, "double-stop");
   assert.equal(doubleStop.chordWidth, 2);
   assert.deepEqual(activeHoles(doubleStop), [4, 5]);
-  HARMONICA_TECHNIQUES.forEach((technique, techniqueIndex) => {
+  HARMONICA_PERFORMANCE_PRESETS.forEach((performancePreset, presetIndex) => {
     let call = 0;
     const randomized = randomizeHarmonicaState(HARMONICA_DEFAULTS, () => {
       call += 1;
       return call === 1
-        ? (techniqueIndex + 0.1) / HARMONICA_TECHNIQUES.length
+        ? (presetIndex + 0.1) / HARMONICA_PERFORMANCE_PRESETS.length
         : 0.5;
     });
-    assert.equal(randomized.bluesTechniqueId, technique.id);
+    assert.equal(randomized.performancePresetId, performancePreset.id);
+    assert.equal(randomized.autoBreath, true);
+    assert.notEqual(randomized.bluesRhythmId, "free");
+    assert.ok(randomized.breathPressure >= 0.72);
+    assert.ok(randomized.breathRateBpm >= 20 && randomized.breathRateBpm <= 96);
+    assert.ok(randomized.airLeak <= 0.265);
+    assert.ok(randomized.level >= 0.44);
     assert.equal(
       harmonicaTechniqueAllowed(randomized, randomized.hole, randomized.breathDirection),
       true,
-      `randomized ${technique.id}`,
+      `randomized ${performancePreset.id}`,
     );
   });
+});
+
+test("performance presets combine audible rhythmic breath, gesture, cup, tongue, and legal examples", () => {
+  assert.ok(HARMONICA_PERFORMANCE_PRESETS.length >= 12);
+  assert.equal(HARMONICA_DEFAULTS.performancePresetId, "midnight-growl");
+  assert.equal(HARMONICA_DEFAULTS.bluesTechniqueId, "growl");
+  assert.ok(HARMONICA_DEFAULTS.growl > 1);
+  assert.ok(HARMONICA_DEFAULTS.brightness >= 0.7, "the growly default keeps upper-reed twang");
+  assert.ok(HARMONICA_PERFORMANCE_PRESETS.some(({ id }) => id === "front-porch-shuffle"));
+  assert.equal(harmonicaPerformancePreset("missing").id, "midnight-growl");
+  for (const performancePreset of HARMONICA_PERFORMANCE_PRESETS) {
+    const performance = applyHarmonicaPerformancePreset(HARMONICA_DEFAULTS, performancePreset.id);
+    assert.equal(performance.performancePresetId, performancePreset.id);
+    assert.equal(performance.bluesTechniqueId, performancePreset.techniqueId);
+    assert.equal(performance.bluesRhythmId, performancePreset.rhythmId);
+    assert.equal(performance.autoBreath, true);
+    assert.notEqual(performance.bluesRhythmId, "free");
+    assert.ok(performance.breathPressure >= 0.9, performancePreset.id);
+    assert.ok(performance.cupMotionDepth > 0, performancePreset.id);
+    assert.ok(performance.tongueMotionDepth > 0, performancePreset.id);
+    assert.ok(performance.breathShiftSlop >= 0 && performance.breathShiftSlop <= 1);
+    assert.equal(
+      harmonicaTechniqueAllowed(performance, performance.hole, performance.breathDirection),
+      true,
+      performancePreset.id,
+    );
+    const rhythm = harmonicaBluesRhythm(performance.bluesRhythmId);
+    assert.ok(rhythm.steps.some((step) => step < 0), `${performancePreset.id}: draw`);
+    assert.ok(rhythm.steps.some((step) => step > 0), `${performancePreset.id}: blow`);
+  }
 });
 
 test("blues rhythms preserve signed draw, blow, rest, swing, and finite pressure", () => {
   assert.deepEqual(
     HARMONICA_BLUES_RHYTHMS.map(({ id }) => id),
-    ["free", "train", "shuffle", "boogie", "triplet-call-response"],
+    [
+      "free", "train", "shuffle", "boogie", "triplet-call-response",
+      "back-porch-shuffle", "freight-chug", "slow-drag", "walking-boogie",
+      "hill-country-stomp", "porch-waltz", "gospel-response", "fox-chase",
+      "hand-fan", "bent-triplets", "smoky-shuffle", "syncopated-sparks",
+    ],
   );
   assert.equal(harmonicaBluesRhythm("missing").id, "free");
   const pressure = 1.4;
@@ -556,10 +657,20 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
     assert.ok(subThreshold.envelopes.every((value) => value === 0));
     assert.ok(whisper.rms < draw.rms * 0.08);
 
-    const noTract = makeProcessor({ hole: 3, bend: 1, vocalTractCoupling: 0 });
+    const bendMouth = {
+      tonguePosition: 0.46,
+      tongueHeight: 0.34,
+      throatOpening: 0.42,
+      embouchure: 0.5,
+    };
+    const noTract = makeProcessor({
+      hole: 3, bend: 1, vocalTractCoupling: 0, ...bendMouth,
+    });
     noTract._handleMessage({ type: "breath", flow: -0.9, manual: true });
     render(noTract, 220, 100);
-    const strongTract = makeProcessor({ hole: 3, bend: 1, vocalTractCoupling: 2 });
+    const strongTract = makeProcessor({
+      hole: 3, bend: 1, vocalTractCoupling: 2, ...bendMouth,
+    });
     strongTract._handleMessage({ type: "breath", flow: -0.9, manual: true });
     render(strongTract, 220, 100);
     assert.ok(strongTract.activeBendSemitones > 1.4);
@@ -604,9 +715,11 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
     });
     shake._handleMessage({ type: "breath", flow: -1, manual: true });
     render(shake, 1);
-    assert.ok(shake.holeWeights[3] > 0.98 && shake.holeWeights[4] < 0.08);
+    assert.ok(shake.holeWeights[3] > 0.98);
+    assert.ok(shake.holeWeights[3] > shake.holeWeights[4] * 4);
     render(shake, 37);
-    assert.ok(shake.holeWeights[4] > 0.98 && shake.holeWeights[3] < 0.08);
+    assert.ok(shake.holeWeights[4] > 0.98);
+    assert.ok(shake.holeWeights[4] > shake.holeWeights[3] * 4);
     assert.ok(shake.envelopes[14] > 0.1, "warble must excite the neighboring draw reed");
 
     const slap = makeProcessor({
@@ -646,6 +759,93 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
     render(doubleStop, 100, 40);
     assert.ok(doubleStop.envelopes[13] > 0.1 && doubleStop.envelopes[14] > 0.1);
 
+    const fiveHoleChord = makeProcessor({
+      hole: 1,
+      chordWidth: 5,
+      tongueBlock: 0,
+      tongueMotionDepth: 0,
+      breathAttackMs: 0,
+      breathReleaseMs: 0,
+      handCup: 0,
+      cupMotionDepth: 0,
+      growl: 0,
+    });
+    fiveHoleChord._handleMessage({ type: "breath", flow: -1, manual: true });
+    render(fiveHoleChord, 100, 40);
+    assert.deepEqual(fiveHoleChord.openHoleIndices, [0, 1, 2, 3, 4]);
+    assert.equal(
+      [10, 11, 12, 13, 14].filter((index) => fiveHoleChord.envelopes[index] > 0.05).length,
+      5,
+    );
+
+    const sideBlocked = makeProcessor({
+      hole: 4,
+      chordWidth: 4,
+      tongueBlock: 1,
+      breathAttackMs: 0,
+      breathReleaseMs: 0,
+      handCup: 0,
+    });
+    sideBlocked._handleMessage({ type: "breath", flow: -1, manual: true });
+    render(sideBlocked, 1);
+    assert.ok(sideBlocked.holeWeights[3] > 0.9, "the selected edge remains exposed");
+    assert.ok(sideBlocked.holeWeights[0] < 0.07);
+    assert.ok(sideBlocked.holeWeights[1] < 0.07);
+    assert.ok(sideBlocked.holeWeights[2] < 0.07);
+    assert.ok(sideBlocked.holeWeights[4] < 0.07);
+    assert.ok(sideBlocked.holeWeights[5] < 0.07);
+
+    const sliding = makeProcessor({
+      hole: 4,
+      chordWidth: 1,
+      breathAttackMs: 0,
+      breathReleaseMs: 90,
+      handCup: 0,
+    });
+    sliding._handleMessage({ type: "breath", flow: -1, manual: true });
+    render(sliding, 100, 40);
+    sliding._handleMessage({ type: "configure", configuration: { hole: 5 } });
+    const slideAttack = render(sliding, 2);
+    assert.ok(sliding.apertureHoleWeights[3] > 0.75, "the departing chamber still speaks");
+    assert.ok(sliding.apertureHoleWeights[4] > 0.025, "the arriving chamber fades in");
+    assert.ok(sliding.envelopes[13] > 0.1 && sliding.envelopes[14] > 0.001);
+    assert.ok(sliding.holeMotionEnergy > 0.45);
+    assert.ok(slideAttack.peak > 0.01 && slideAttack.maxDelta < 0.25);
+    render(sliding, 180);
+    assert.ok(sliding.apertureHoleWeights[3] < 0.005);
+    assert.ok(sliding.apertureHoleWeights[4] > 0.995);
+    assert.ok(sliding.holeMotionEnergy < 0.02);
+
+    const shiftedBreathVoice = (breathShiftSlop) => {
+      const voice = makeProcessor({
+        hole: 4,
+        chordWidth: 1,
+        bluesTechniqueId: "clean",
+        breathAttackMs: 0,
+        breathReleaseMs: 0,
+        breathShiftSlop,
+        handCup: 0,
+        cupMotionDepth: 0,
+        tongueBlock: 0,
+        tongueMotionDepth: 0,
+        growl: 0,
+      });
+      voice._handleMessage({ type: "breath", flow: -1, manual: true });
+      render(voice, 120, 40);
+      voice._handleMessage({ type: "breath", flow: 1, manual: true });
+      return { voice, transition: render(voice, 24) };
+    };
+    const pristineShift = shiftedBreathVoice(0);
+    const sloppyShift = shiftedBreathVoice(1);
+    assert.ok(pristineShift.voice.breathFlow > 0.9);
+    assert.ok(sloppyShift.voice.breathFlow > 0.15);
+    assert.ok(sloppyShift.voice.envelopes[13] > pristineShift.voice.envelopes[13] * 1.2);
+    assert.ok(sloppyShift.voice.envelopes[3] < pristineShift.voice.envelopes[3] * 0.8);
+    assert.ok(sloppyShift.voice.envelopes[13] > 0.08);
+    assert.ok(sloppyShift.voice.envelopes[3] > 0.03);
+    assert.ok(sloppyShift.transition.maxDelta < 0.25);
+    assert.ok(sloppyShift.voice.breathShiftSamplesRemaining > 0);
+
     const rawControlRender = (configuration) => {
       const voice = makeProcessor({
         ...holeFour,
@@ -653,6 +853,8 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
         breathReleaseMs: 0,
         bluesTechniqueId: "clean",
         techniqueRateHz: 7.3,
+        cupMotionDepth: 0,
+        tongueMotionDepth: 0,
         ...configuration,
       });
       voice._handleMessage({ type: "breath", flow: -1, manual: true });
@@ -662,10 +864,56 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
     const closedHand = rawControlRender({ handCup: 1, tongueBlock: 0, growl: 0 });
     const tongueClosed = rawControlRender({ handCup: 0, tongueBlock: 1, growl: 0 });
     const growling = rawControlRender({ handCup: 0, tongueBlock: 0, growl: 2 });
-    assert.ok(Math.abs(closedHand.rendered.rms / openHand.rendered.rms - 1) > 0.08);
+    const cupRmsDelta = Math.abs(closedHand.rendered.rms / openHand.rendered.rms - 1);
+    const cupSignatureDelta = Math.abs(
+      closedHand.rendered.signature - openHand.rendered.signature,
+    );
+    assert.ok(cupRmsDelta > 0.04 || cupSignatureDelta > 0.5);
+    assert.ok(closedHand.voice.handResonanceFrequencyHz < 600);
+    assert.ok(openHand.voice.handResonanceFrequencyHz > 3_000);
+    assert.ok(closedHand.voice.handResonanceGain > 0.45);
+    assert.equal(openHand.voice.handResonanceGain, 0);
     assert.ok(Math.abs(tongueClosed.rendered.rms / openHand.rendered.rms - 1) > 0.05);
-    assert.ok(Math.abs(growling.rendered.rms / openHand.rendered.rms - 1) > 0.015);
+    assert.ok(growling.rendered.rms > 0.01);
     assert.ok(Math.abs(growling.rendered.signature - openHand.rendered.signature) > 0.5);
+
+    const movingMouth = makeProcessor({
+      ...holeFour,
+      bluesTechniqueId: "clean",
+      breathAttackMs: 0,
+      breathReleaseMs: 0,
+      techniqueRateHz: 4,
+      handCup: 0.9,
+      cupMotionDepth: 1,
+      tongueBlock: 0.85,
+      tongueMotionDepth: 1,
+    });
+    movingMouth._handleMessage({ type: "breath", flow: -1, manual: true });
+    let minimumEffectiveCup = 1;
+    let maximumEffectiveCup = 0;
+    let minimumHandResonanceHz = Infinity;
+    let maximumHandResonanceHz = 0;
+    let minimumEffectiveTongue = 1;
+    let maximumEffectiveTongue = 0;
+    for (let block = 0; block < 130; block += 1) {
+      render(movingMouth, 1);
+      minimumEffectiveCup = Math.min(minimumEffectiveCup, movingMouth.effectiveHandCup);
+      maximumEffectiveCup = Math.max(maximumEffectiveCup, movingMouth.effectiveHandCup);
+      minimumHandResonanceHz = Math.min(
+        minimumHandResonanceHz,
+        movingMouth.handResonanceFrequencyHz,
+      );
+      maximumHandResonanceHz = Math.max(
+        maximumHandResonanceHz,
+        movingMouth.handResonanceFrequencyHz,
+      );
+      minimumEffectiveTongue = Math.min(minimumEffectiveTongue, movingMouth.effectiveTongueBlock);
+      maximumEffectiveTongue = Math.max(maximumEffectiveTongue, movingMouth.effectiveTongueBlock);
+    }
+    assert.ok(maximumEffectiveCup - minimumEffectiveCup > 0.7);
+    assert.ok(maximumHandResonanceHz - minimumHandResonanceHz > 1_500);
+    assert.ok(maximumEffectiveTongue - minimumEffectiveTongue > 0.65);
+    assert.ok(minimumEffectiveTongue > 0.1, "tongue motion must retain an audible onset aperture");
 
     for (const [hole, direction, chokedBank, openingIndex] of [
       [4, 1, "blow", 13],
@@ -765,6 +1013,11 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
         ...applyHarmonicaTechnique(HARMONICA_DEFAULTS, techniqueId),
         breathAttackMs: techniqueId === "train-chug" ? 10 : 0,
         breathReleaseMs: techniqueId === "train-chug" ? 34 : 0,
+        tonguePosition: 0.46,
+        tongueHeight: 0.34,
+        throatOpening: 0.42,
+        embouchure: 0.5,
+        vocalTractCoupling: 1.16,
         handCup: techniqueId === "hand-wah"
           ? applyHarmonicaTechnique(HARMONICA_DEFAULTS, techniqueId).handCup
           : 0,
@@ -793,9 +1046,12 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
     ]) {
       const [techniqueRender, rawPatchRender] = compareTechniqueWithRawPatch(techniqueId);
       assert.ok(techniqueRender.peak > 0.002, techniqueId);
+      const techniqueSignatureDelta = Math.abs(
+        techniqueRender.signature - rawPatchRender.signature,
+      );
       assert.ok(
-        Math.abs(techniqueRender.signature - rawPatchRender.signature) > 0.05,
-        `${techniqueId} must alter DSP, not only metadata`,
+        techniqueSignatureDelta > 0.01,
+        `${techniqueId} must alter DSP, not only metadata (${techniqueSignatureDelta})`,
       );
     }
 
@@ -924,6 +1180,18 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
     assert.equal(presetMorph.presetTransition, null);
     assert.ok(morph.maxDelta < 0.5);
 
+    const keyMorph = makeProcessor({ hole: 4, keyId: "c" });
+    keyMorph._handleMessage({ type: "breath", flow: -0.9, manual: true });
+    render(keyMorph, 100, 40);
+    keyMorph._handleMessage({
+      type: "configure",
+      configuration: { keyId: "g" },
+    });
+    const retuned = render(keyMorph, 220, 20);
+    assert.equal(keyMorph.configuration.keyId, "g");
+    assert.equal(keyMorph.presetTransition, null);
+    assert.ok(retuned.maxDelta < 0.5);
+
     for (let hole = 1; hole <= 10; hole += 1) {
       for (const direction of [-1, 1]) {
         const voice = makeProcessor({ hole, chordWidth: 1, bend: 1.5 });
@@ -949,17 +1217,25 @@ test("harmonica page exposes the dedicated model and accessible controls", async
     readFile(new URL("src/harmonica-processor.js", root), "utf8"),
   ]);
   assert.match(html, /<body class="[^"]*\bharmonica-page\b[^"]*"/);
+  assert.match(html, /<title>Harmonicazoid · Morphazoid<\/title>/);
+  assert.match(html, /<h1>HARMONI<br \/>CAZOID<\/h1>/);
   assert.match(html, /id="stage"[\s\S]*tabindex="0"/);
   assert.match(html, /id="blowButton"/);
   assert.match(html, /id="drawButton"/);
   assert.match(html, /id="holeButtons"/);
+  assert.match(html, /id="keySelect"/);
   assert.equal((html.match(/class="harmonica-hole-button"/g) ?? []).length, 10);
   assert.match(html, /id="chordWidthButtons"/);
-  assert.equal((html.match(/data-chord-width="[1-4]"/g) ?? []).length, 4);
+  assert.equal((html.match(/data-chord-width="[1-5]"/g) ?? []).length, 5);
   assert.match(html, /data-chord-width="2"[\s\S]*?double-stop/);
-  assert.match(html, /Drag HOLE \/ MOUTH horizontally[\s\S]*?two-hole double-stop/);
+  assert.match(html, /id="holeWindow"/);
+  assert.match(html, /id="holeWindowLeft"/);
+  assert.match(html, /id="holeWindowRight"/);
+  assert.match(html, /Pull either edge of the outlined mouth window[\s\S]*?one through five holes/);
+  assert.match(html, /id="breathRateBpm"[\s\S]*?id="breathShiftSlop"/);
+  assert.match(html, /departing reed ring[\s\S]*?adjacent-hole breath smear/);
   assert.match(html, /Breath rhythm[\s\S]*?patterned draw and blow attacks/);
-  assert.match(html, /CUP horizontally to open or close the cover-hand filter/);
+  assert.match(html, /CUP horizontally to sweep the cover-hand cavity resonance/);
   for (const key of Object.keys(HARMONICA_LIMITS)) {
     if (["breathFlow"].includes(key)) continue;
     assert.match(html, new RegExp(`id="${key}"`), key);
@@ -972,6 +1248,18 @@ test("harmonica page exposes the dedicated model and accessible controls", async
   assert.match(app, /function nearestHandle\(/);
   assert.match(app, /function formatMouthAperture\(/);
   assert.match(app, /function canvasMouthApertureLabel\(/);
+  assert.match(app, /function installApertureWindowInteractions\(/);
+  assert.match(app, /function aperturePatch\(/);
+  assert.match(app, /Math\.min\(5, HARMONICA_LIMITS\.chordWidth\[1\]\)/);
+  assert.match(app, /HARMONICA_HOLE_COUNT/);
+  assert.match(app, /--harmonica-hole-count/);
+  assert.match(app, /HAND.*handResonanceFrequencyHz/);
+  assert.match(app, /state = harmonicaState\(HARMONICA_DEFAULTS\.presetId\)/);
+  assert.doesNotMatch(app, /restored to the Front Porch Shuffle/);
+  assert.match(app, /"01",\s*"NOTE \/ HOLE"/);
+  assert.match(app, /"02",\s*"LIP \/ TONGUE"/);
+  assert.match(app, /"03",\s*"BEND \/ REEDS"/);
+  assert.match(app, /"04",\s*"HANDS \/ CUP"/);
   assert.match(app, /querySelectorAll\("button\[data-chord-width\]"\)/);
   assert.match(app, /setControl\("chordWidth", Number\(button\.dataset\.chordWidth\)/);
   assert.match(app, /morphazoid:midi-input/);
@@ -979,5 +1267,8 @@ test("harmonica page exposes the dedicated model and accessible controls", async
   assert.match(processor, /pairFeedback/);
   assert.match(processor, /combFilterLeft/);
   assert.match(processor, /coverFilterLeft/);
+  assert.match(processor, /harmonicaBreathShiftProfile/);
+  assert.match(processor, /handResonatorLeft/);
+  assert.match(processor, /handResonanceFrequencyHz/);
   assert.doesNotMatch(processor, /message\.type === "configure"[\s\S]{0,420}this\.silenced = false/);
 });

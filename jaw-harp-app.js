@@ -62,12 +62,13 @@ const CONTROL_SPECS = Object.freeze([
   { key: "dryResonance", format: formatPercent },
   { key: "glottisOpening", format: formatPercent, mouth: true },
   { key: "breathDepth", format: formatPercent },
+  { key: "breathNoiseAmount", format: formatPercent },
+  { key: "breathFilter", format: (value) => `${Math.round(value * 100)}% open` },
   { key: "breathRateBpm", format: (value) => `${Math.round(value)} cycles/min` },
   { key: "breathBalance", format: (value) => `${Math.round(value * 100)} / ${Math.round((1 - value) * 100)}` },
   { key: "repeatRateBpm", format: (value) => `${Math.round(value)} BPM` },
   { key: "repeatSwing", format: (value) => `${Math.round(value * 100)}%` },
 ]);
-const TEMPO_SLIDER_TICKS = Object.freeze([36, 60, 120, 240, 480]);
 const STYLE_SETTING_KEYS = new Set(JAW_HARP_STYLE_SETTING_KEYS);
 // Randomized models can legitimately retain a near-zero performance force. Keep
 // that setting intact, but use a dependable strike for the one-shot audition.
@@ -931,6 +932,8 @@ function loadHarp(presetId) {
     glottisOpening: state.glottisOpening,
     cavityCoupling: state.cavityCoupling,
     breathDepth: state.breathDepth,
+    breathNoiseAmount: state.breathNoiseAmount,
+    breathFilter: state.breathFilter,
     breathRateBpm: state.breathRateBpm,
     breathBalance: state.breathBalance,
     autoBreath: state.autoBreath,
@@ -1155,6 +1158,49 @@ function updateVowelSequencePresentation() {
   $("cavityReadout").textContent = `${(geometry.lengthM * 100).toFixed(1)} cm · ${Math.round(geometry.volumeMl)} ml`;
 }
 
+function updateXYPadPresentation() {
+  const breathPad = $("breathXYPad");
+  const rhythmPad = $("rhythmXYPad");
+  if (!breathPad || !rhythmPad) return;
+
+  const breathRateUnit = logarithmicUnit(
+    state.breathRateBpm,
+    JAW_HARP_LIMITS.breathRateBpm,
+  );
+  const breathPressureUnit = rangeUnit(
+    state.breathDepth,
+    JAW_HARP_LIMITS.breathDepth,
+  );
+  breathPad.style.setProperty("--jaw-xy-left", `${(breathRateUnit * 100).toFixed(2)}%`);
+  breathPad.style.setProperty("--jaw-xy-top", `${((1 - breathPressureUnit) * 100).toFixed(2)}%`);
+  const pressurePercent = Math.round(state.breathDepth * 100);
+  const effectiveRate = effectiveBreathRateBpm(state);
+  const multiplier = state.breathRateBpm / JAW_HARP_DEFAULTS.breathRateBpm;
+  const breathRateLabel = state.breathLinked
+    ? `×${multiplier.toFixed(multiplier >= 10 ? 1 : 2)} · ${formatCycleRate(effectiveRate)} actual`
+    : formatCycleRate(state.breathRateBpm);
+  $("breathXYReadout").textContent = `${breathRateLabel} · ${pressurePercent}% pressure`;
+  breathPad.setAttribute(
+    "aria-label",
+    `Breath gesture: ${breathRateLabel}, ${pressurePercent} percent pressure`,
+  );
+
+  const tempoUnit = logarithmicUnit(
+    state.repeatRateBpm,
+    JAW_HARP_LIMITS.repeatRateBpm,
+  );
+  const swingUnit = rangeUnit(state.repeatSwing, JAW_HARP_LIMITS.repeatSwing);
+  rhythmPad.style.setProperty("--jaw-xy-left", `${(tempoUnit * 100).toFixed(2)}%`);
+  rhythmPad.style.setProperty("--jaw-xy-top", `${((1 - swingUnit) * 100).toFixed(2)}%`);
+  const swingPercent = Math.round(state.repeatSwing * 100);
+  const signedSwing = `${swingPercent >= 0 ? "+" : ""}${swingPercent}%`;
+  $("rhythmXYReadout").textContent = `${Math.round(state.repeatRateBpm)} BPM · ${signedSwing} swing`;
+  rhythmPad.setAttribute(
+    "aria-label",
+    `Hand clock: ${Math.round(state.repeatRateBpm)} BPM and ${signedSwing} swing`,
+  );
+}
+
 function updatePresentation() {
   const preset = jawHarpPreset(state.presetId);
   const material = reedMaterialProperties(state);
@@ -1206,6 +1252,7 @@ function updatePresentation() {
   $("motionReadout").textContent = telemetry.rms > 0.0004 ? `${Math.round(clamp(telemetry.energy) * 100)}% energy` : "resting";
   $("pluckOutward").setAttribute("aria-pressed", String(state.pluckDirection > 0));
   $("pluckInward").setAttribute("aria-pressed", String(state.pluckDirection < 0));
+  updateXYPadPresentation();
   updateBreathPresentation();
   updateTransportPresentation();
   telemetry.formants = telemetry.formants ?? formants.frequenciesHz;
@@ -1369,7 +1416,7 @@ function resizeCanvas() {
 }
 
 function responsiveAnatomyScale(width, height, compact) {
-  if (compact) return 1;
+  if (compact) return clamp(Math.min(width / 460, height / 330), 0.68, 1);
   return clamp(Math.min(width / 1_085, height / 657), 1, 1.42);
 }
 
@@ -1397,7 +1444,7 @@ function layout() {
   const mouthState = mouthPresentationState();
   const compact = cssHeight < 400 || cssWidth < 670;
   const anatomyScale = responsiveAnatomyScale(cssWidth, cssHeight, compact);
-  const mouthY = cssHeight * (compact ? 0.55 : 0.51);
+  const mouthY = cssHeight * (compact ? 0.48 : 0.51);
   const faceWidth = Math.min(
     cssWidth * (compact ? 0.52 : 0.47),
     (compact ? 360 : 510) * anatomyScale,
@@ -1411,7 +1458,7 @@ function layout() {
   const lipVisual = articulationToVisual(mouthState.lipRounding);
   const maximumReachableJawGap = Math.max(
     6 * anatomyScale,
-    cssHeight - mouthY - 94 * anatomyScale,
+    cssHeight - mouthY - 132 * anatomyScale,
   );
   const jawGap = clamp(
     24 * anatomyScale + jawVisual * jawTravel,
@@ -1460,44 +1507,6 @@ function layout() {
     harpBowX + 86 * anatomyScale,
     cssWidth - 30,
   );
-  const padRight = Math.min(
-    cssWidth - 18,
-    Math.max(compact ? 124 : 130, harpBowX - 14),
-  );
-  const padWidth = compact
-    ? clamp(padRight - 12, 96, 108)
-    : clamp(padRight - 18, 112, 164);
-  const padHeight = compact ? 60 : 76;
-  const padLeft = Math.max(16, padRight - padWidth);
-  const airTop = clamp(
-    mouthY - (compact ? 72 : 118),
-    compact ? 84 : 150,
-    Math.max(compact ? 84 : 150, cssHeight - padHeight - (compact ? 104 : 194)),
-  );
-  const rhythmBottom = Math.min(
-    cssHeight - (compact ? 26 : 54),
-    mouthY + (compact ? 100 : 170),
-  );
-  const airPad = {
-    left: padLeft,
-    right: padRight,
-    top: airTop,
-    bottom: airTop + padHeight,
-  };
-  airPad.x = airPad.left
-    + logarithmicUnit(state.breathRateBpm, JAW_HARP_LIMITS.breathRateBpm) * (airPad.right - airPad.left);
-  airPad.y = airPad.bottom
-    - rangeUnit(state.breathDepth, JAW_HARP_LIMITS.breathDepth) * (airPad.bottom - airPad.top);
-  const rhythmPad = {
-    left: padLeft,
-    right: padRight,
-    top: rhythmBottom - padHeight,
-    bottom: rhythmBottom,
-  };
-  rhythmPad.x = rhythmPad.left
-    + logarithmicUnit(state.repeatRateBpm, JAW_HARP_LIMITS.repeatRateBpm) * (rhythmPad.right - rhythmPad.left);
-  rhythmPad.y = rhythmPad.bottom
-    - rangeUnit(state.repeatSwing, JAW_HARP_LIMITS.repeatSwing) * (rhythmPad.bottom - rhythmPad.top);
   const focusPad = {
     left: throatX + 8 * anatomyScale,
     right: lipX - 20 * anatomyScale,
@@ -1527,8 +1536,6 @@ function layout() {
     tongueY,
     lipExtension,
     noseProjection,
-    airPad,
-    rhythmPad,
     focusPad,
     glottisX,
     glottisY,
@@ -1575,83 +1582,6 @@ function drawParameterPad(pad, color, title, xAxis, yAxis) {
   drawing.textAlign = "center";
   drawing.globalAlpha = 0.66;
   drawing.fillText(xAxis, (pad.left + pad.right) * 0.5, pad.bottom + 12);
-  drawing.restore();
-}
-
-function drawAirPadDetails(pad) {
-  const narrow = pad.right - pad.left < 120;
-  const flow = breathFlowForDisplay();
-  const amount = Math.round(clamp(Math.abs(flow) / Math.max(0.01, state.breathDepth)) * 100);
-  const multiplier = state.breathRateBpm / JAW_HARP_DEFAULTS.breathRateBpm;
-  const mode = manualBreathDirection
-    ? "MANUAL BREATH"
-    : state.autoBreath
-      ? narrow
-        ? `AUTO · ${state.breathLinked ? `LINK ×${multiplier.toFixed(multiplier >= 10 ? 1 : 2)}` : "FREE"}`
-        : `AUTO · ${state.breathLinked ? `LINKED ×${multiplier.toFixed(multiplier >= 10 ? 1 : 2)}` : "FREE"} · IN ${Math.round(state.breathBalance * 100)} / OUT ${Math.round((1 - state.breathBalance) * 100)}`
-      : narrow ? "AUTO OFF · HOLD BREATH" : "AUTO OFF · HOLD IN / OUT";
-  const phase = !manualBreathDirection && state.autoBreath && Math.abs(flow) < 0.025
-    ? "TURNAROUND · AIR ≈ 0"
-    : flow < 0
-      ? `← INHALE ${amount}%`
-      : flow > 0
-        ? `EXHALE ${amount}% →`
-        : "REST · AIR 0%";
-  drawing.save();
-  drawing.fillStyle = "#68bff1";
-  drawing.font = `650 ${pad.right - pad.left < 100 ? 6.2 : 7.2}px ui-monospace, SFMono-Regular, Consolas, monospace`;
-  drawing.globalAlpha = 0.82;
-  drawing.textAlign = "center";
-  drawing.fillText(mode, (pad.left + pad.right) * 0.5, pad.top + 11);
-  drawing.globalAlpha = 0.94;
-  drawing.fillText(phase, (pad.left + pad.right) * 0.5, pad.bottom - 7);
-  drawing.restore();
-}
-
-function drawRhythmPadDetails(pad) {
-  const rhythm = jawHarpRhythm(state.rhythmId);
-  drawing.save();
-  drawing.fillStyle = "#f0c46e";
-  drawing.font = `650 ${pad.right - pad.left < 100 ? 6.2 : 7.2}px ui-monospace, SFMono-Regular, Consolas, monospace`;
-  drawing.globalAlpha = 0.78;
-  drawing.textAlign = "center";
-  drawing.fillText(
-    `REPEAT ${state.repeat ? "ON" : "OFF"} · ${rhythm.steps.length}-STEP LOOP`,
-    (pad.left + pad.right) * 0.5,
-    pad.top + 11,
-  );
-  drawing.restore();
-}
-
-function drawTempoSlider(pad) {
-  const railY = clamp(pad.y, pad.top, pad.bottom);
-  const tempoX = clamp(pad.x, pad.left, pad.right);
-  const width = Math.max(1, pad.right - pad.left);
-  const tickHeight = Math.max(3, Math.min(5, (pad.bottom - pad.top) * 0.1));
-  drawing.save();
-  drawing.strokeStyle = "#f0c46e";
-  drawing.lineCap = "round";
-  drawing.globalAlpha = 0.68;
-  drawing.lineWidth = 2;
-  drawing.beginPath();
-  drawing.moveTo(pad.left, railY);
-  drawing.lineTo(pad.right, railY);
-  drawing.stroke();
-  drawing.globalAlpha = 0.72;
-  drawing.lineWidth = 0.8;
-  for (const bpm of TEMPO_SLIDER_TICKS) {
-    const x = pad.left
-      + logarithmicUnit(bpm, JAW_HARP_LIMITS.repeatRateBpm) * width;
-    drawing.beginPath();
-    drawing.moveTo(x, railY - tickHeight);
-    drawing.lineTo(x, railY + tickHeight);
-    drawing.stroke();
-  }
-  drawing.globalAlpha = 0.26;
-  drawing.beginPath();
-  drawing.moveTo(tempoX, pad.top);
-  drawing.lineTo(tempoX, pad.bottom);
-  drawing.stroke();
   drawing.restore();
 }
 
@@ -2164,31 +2094,7 @@ function drawStage() {
   drawHead(model);
   drawBreathFlow(model);
   drawHarp(model);
-  const effectiveAirRate = effectiveBreathRateBpm(state);
   const mouthState = mouthPresentationState();
-  drawParameterPad(
-    model.airPad,
-    "#68bff1",
-    model.compact
-      ? `BREATH ${formatCycleRate(effectiveAirRate)}`
-      : `BREATH ${formatCycleRate(effectiveAirRate)} · ${Math.round(state.breathDepth * 100)}%`,
-    state.breathLinked
-      ? model.compact ? "×.02 ← RATE → ×28.6" : "×0.02 ← BREATH MULTIPLIER → ×28.6"
-      : model.compact ? "SLOW ← SPEED → FAST" : "1/MIN ← CYCLE SPEED → 20/SEC",
-    model.compact ? "PRESS ↑" : "PRESSURE ↑",
-  );
-  drawAirPadDetails(model.airPad);
-  drawParameterPad(
-    model.rhythmPad,
-    "#f0c46e",
-    model.compact
-      ? `TEMPO ${Math.round(state.repeatRateBpm)} BPM`
-      : `PLUCK ${Math.round(state.repeatRateBpm)} BPM · ${state.repeatSwing >= 0 ? "+" : ""}${Math.round(state.repeatSwing * 100)}%`,
-    "36 ← BPM → 480",
-    "SWING ↑",
-  );
-  drawTempoSlider(model.rhythmPad);
-  drawRhythmPadDetails(model.rhythmPad);
   drawParameterPad(
     model.focusPad,
     "#76dfd3",
@@ -2204,8 +2110,6 @@ function drawStage() {
     "reed",
     8,
   );
-  drawNode(model.airPad.x, model.airPad.y, "#68bff1", "BREATH", "air", 8);
-  drawNode(model.rhythmPad.x, model.rhythmPad.y, "#f0c46e", "TEMPO", "rhythm", 8);
   drawNode(model.tongueX, model.tongueY, "#ba9af6", "TONGUE", "tongue", 7);
   drawNode(
     clamp(
@@ -2263,18 +2167,6 @@ function interactionAt(point) {
   const node = nearestHandle(point);
   if (node) return node;
   const model = layout();
-  if (
-    point.x >= model.airPad.left
-    && point.x <= model.airPad.right
-    && point.y >= model.airPad.top
-    && point.y <= model.airPad.bottom
-  ) return { type: "air", x: point.x, y: point.y, radius: 0 };
-  if (
-    point.x >= model.rhythmPad.left
-    && point.x <= model.rhythmPad.right
-    && point.y >= model.rhythmPad.top
-    && point.y <= model.rhythmPad.bottom
-  ) return { type: "rhythm", x: point.x, y: point.y, radius: 0 };
   const reedStart = {
     x: model.harpBowX + 2 * model.anatomyScale,
     y: model.mouthY,
@@ -2289,82 +2181,7 @@ function interactionAt(point) {
   return null;
 }
 
-function setFromPointer(type, point, drag) {
-  const model = layout();
-  const dx = point.x - drag.startX;
-  const dy = point.y - drag.startY;
-  const horizontalSpan = Math.max(90, model.lipX - model.throatX);
-  const verticalSpan = Math.max(90, cssHeight * 0.36);
-  let patch = null;
-  let mouthChanged = false;
-  if (type === "tongue") {
-    const position = drag.startValues.tonguePosition + dx / horizontalSpan * 2.5;
-    const height = drag.startValues.tongueHeight - dy / verticalSpan * 2.5;
-    patch = { tonguePosition: position, tongueHeight: height };
-    mouthChanged = true;
-  } else if (type === "jaw") {
-    const jawOpening = drag.startValues.jawOpening + dy / verticalSpan * 2.5;
-    patch = { jawOpening };
-    mouthChanged = true;
-  } else if (type === "lips") {
-    const lipRounding = drag.startValues.lipRounding + dx / horizontalSpan * 3.5;
-    patch = { lipRounding };
-    mouthChanged = true;
-  } else if (type === "focus") {
-    const width = Math.max(1, model.focusPad.right - model.focusPad.left);
-    const height = Math.max(1, model.focusPad.bottom - model.focusPad.top);
-    const formantUnit = rangeUnit(
-      drag.startValues.formantFocus,
-      JAW_HARP_LIMITS.formantFocus,
-    ) + dx / width;
-    const couplingUnit = rangeUnit(
-      drag.startValues.cavityCoupling,
-      JAW_HARP_LIMITS.cavityCoupling,
-    ) - dy / height;
-    patch = {
-      formantFocus: rangeValue(formantUnit, JAW_HARP_LIMITS.formantFocus),
-      cavityCoupling: rangeValue(couplingUnit, JAW_HARP_LIMITS.cavityCoupling),
-    };
-    mouthChanged = true;
-  } else if (type === "glottis") {
-    const glottisUnit = rangeUnit(
-      drag.startValues.glottisOpening,
-      JAW_HARP_LIMITS.glottisOpening,
-    ) + dx / (30 * model.anatomyScale);
-    patch = { glottisOpening: rangeValue(glottisUnit, JAW_HARP_LIMITS.glottisOpening) };
-    mouthChanged = true;
-  } else if (type === "air") {
-    const width = Math.max(1, model.airPad.right - model.airPad.left);
-    const height = Math.max(1, model.airPad.bottom - model.airPad.top);
-    const rateUnit = logarithmicUnit(
-      drag.startValues.breathRateBpm,
-      JAW_HARP_LIMITS.breathRateBpm,
-    ) + dx / width;
-    const pressureUnit = rangeUnit(
-      drag.startValues.breathDepth,
-      JAW_HARP_LIMITS.breathDepth,
-    ) - dy / height;
-    patch = {
-      breathRateBpm: logarithmicValue(rateUnit, JAW_HARP_LIMITS.breathRateBpm),
-      breathDepth: rangeValue(pressureUnit, JAW_HARP_LIMITS.breathDepth),
-    };
-  } else if (type === "rhythm") {
-    const width = Math.max(1, model.rhythmPad.right - model.rhythmPad.left);
-    const height = Math.max(1, model.rhythmPad.bottom - model.rhythmPad.top);
-    const tempoUnit = logarithmicUnit(
-      drag.startValues.repeatRateBpm,
-      JAW_HARP_LIMITS.repeatRateBpm,
-    ) + dx / width;
-    const swingUnit = rangeUnit(
-      drag.startValues.repeatSwing,
-      JAW_HARP_LIMITS.repeatSwing,
-    ) - dy / height;
-    patch = {
-      repeatRateBpm: logarithmicValue(tempoUnit, JAW_HARP_LIMITS.repeatRateBpm),
-      repeatSwing: rangeValue(swingUnit, JAW_HARP_LIMITS.repeatSwing),
-    };
-  }
-  if (!patch) return;
+function commitParameterPatch(patch, { mouthChanged = false } = {}) {
   const changedAt = performance.now();
   const previousState = state;
   const previousPhase = breathCyclePhaseAt(changedAt);
@@ -2391,6 +2208,46 @@ function setFromPointer(type, point, drag) {
   }
 }
 
+function setFromPointer(type, point, drag) {
+  const model = layout();
+  const dx = point.x - drag.startX;
+  const dy = point.y - drag.startY;
+  const horizontalSpan = Math.max(90, model.lipX - model.throatX);
+  const verticalSpan = Math.max(90, cssHeight * 0.36);
+  let patch = null;
+  if (type === "tongue") {
+    const position = drag.startValues.tonguePosition + dx / horizontalSpan * 2.5;
+    const height = drag.startValues.tongueHeight - dy / verticalSpan * 2.5;
+    patch = { tonguePosition: position, tongueHeight: height };
+  } else if (type === "jaw") {
+    patch = { jawOpening: drag.startValues.jawOpening + dy / verticalSpan * 2.5 };
+  } else if (type === "lips") {
+    patch = { lipRounding: drag.startValues.lipRounding + dx / horizontalSpan * 3.5 };
+  } else if (type === "focus") {
+    const width = Math.max(1, model.focusPad.right - model.focusPad.left);
+    const height = Math.max(1, model.focusPad.bottom - model.focusPad.top);
+    const formantUnit = rangeUnit(
+      drag.startValues.formantFocus,
+      JAW_HARP_LIMITS.formantFocus,
+    ) + dx / width;
+    const couplingUnit = rangeUnit(
+      drag.startValues.cavityCoupling,
+      JAW_HARP_LIMITS.cavityCoupling,
+    ) - dy / height;
+    patch = {
+      formantFocus: rangeValue(formantUnit, JAW_HARP_LIMITS.formantFocus),
+      cavityCoupling: rangeValue(couplingUnit, JAW_HARP_LIMITS.cavityCoupling),
+    };
+  } else if (type === "glottis") {
+    const glottisUnit = rangeUnit(
+      drag.startValues.glottisOpening,
+      JAW_HARP_LIMITS.glottisOpening,
+    ) + dx / (30 * model.anatomyScale);
+    patch = { glottisOpening: rangeValue(glottisUnit, JAW_HARP_LIMITS.glottisOpening) };
+  }
+  if (patch) commitParameterPatch(patch, { mouthChanged: true });
+}
+
 function installCanvasInteractions() {
   canvas.addEventListener("pointerdown", (event) => {
     if (event.button !== undefined && event.button !== 0) return;
@@ -2412,10 +2269,6 @@ function installCanvasInteractions() {
         formantFocus: state.formantFocus,
         cavityCoupling: state.cavityCoupling,
         glottisOpening: state.glottisOpening,
-        breathDepth: state.breathDepth,
-        breathRateBpm: state.breathRateBpm,
-        repeatRateBpm: state.repeatRateBpm,
-        repeatSwing: state.repeatSwing,
       },
       pull: 0,
     };
@@ -2477,6 +2330,94 @@ function installCanvasInteractions() {
   canvas.addEventListener("pointerup", releasePointer);
   canvas.addEventListener("pointercancel", cancelPointer);
   canvas.addEventListener("lostpointercapture", cancelPointer);
+}
+
+function xyPadPatch(type, horizontalUnit, verticalUnit) {
+  if (type === "air") {
+    return {
+      breathRateBpm: logarithmicValue(horizontalUnit, JAW_HARP_LIMITS.breathRateBpm),
+      breathDepth: rangeValue(verticalUnit, JAW_HARP_LIMITS.breathDepth),
+    };
+  }
+  if (type === "rhythm") {
+    return {
+      repeatRateBpm: logarithmicValue(horizontalUnit, JAW_HARP_LIMITS.repeatRateBpm),
+      repeatSwing: rangeValue(verticalUnit, JAW_HARP_LIMITS.repeatSwing),
+    };
+  }
+  return null;
+}
+
+function currentXYPadUnits(type) {
+  if (type === "air") {
+    return {
+      horizontal: logarithmicUnit(state.breathRateBpm, JAW_HARP_LIMITS.breathRateBpm),
+      vertical: rangeUnit(state.breathDepth, JAW_HARP_LIMITS.breathDepth),
+    };
+  }
+  if (type === "rhythm") {
+    return {
+      horizontal: logarithmicUnit(state.repeatRateBpm, JAW_HARP_LIMITS.repeatRateBpm),
+      vertical: rangeUnit(state.repeatSwing, JAW_HARP_LIMITS.repeatSwing),
+    };
+  }
+  return null;
+}
+
+function installXYPadInteractions() {
+  for (const pad of document.querySelectorAll("[data-jaw-xy-pad]")) {
+    const type = pad.dataset.jawXyPad;
+    let pointerId = null;
+    const updateFromPointer = (event) => {
+      const bounds = pad.getBoundingClientRect();
+      const horizontal = clamp((event.clientX - bounds.left) / Math.max(1, bounds.width));
+      const vertical = 1 - clamp((event.clientY - bounds.top) / Math.max(1, bounds.height));
+      const patch = xyPadPatch(type, horizontal, vertical);
+      if (patch) commitParameterPatch(patch);
+    };
+    pad.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      if (pointerId !== null) return;
+      event.preventDefault();
+      pointerId = event.pointerId;
+      pad.setPointerCapture?.(event.pointerId);
+      pad.classList.add("is-dragging");
+      updateFromPointer(event);
+    });
+    pad.addEventListener("pointermove", (event) => {
+      if (pointerId !== event.pointerId) return;
+      event.preventDefault();
+      updateFromPointer(event);
+    });
+    const releasePointer = (event) => {
+      if (pointerId !== event.pointerId) return;
+      pointerId = null;
+      pad.classList.remove("is-dragging");
+      if (pad.hasPointerCapture?.(event.pointerId)) pad.releasePointerCapture?.(event.pointerId);
+    };
+    pad.addEventListener("pointerup", releasePointer);
+    pad.addEventListener("pointercancel", releasePointer);
+    pad.addEventListener("lostpointercapture", releasePointer);
+    pad.addEventListener("keydown", (event) => {
+      const direction = {
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowDown: [0, -1],
+        ArrowUp: [0, 1],
+      }[event.key];
+      if (!direction) return;
+      event.preventDefault();
+      const step = event.shiftKey ? 0.05 : 0.0125;
+      const current = currentXYPadUnits(type);
+      if (!current) return;
+      const patch = xyPadPatch(
+        type,
+        current.horizontal + direction[0] * step,
+        current.vertical + direction[1] * step,
+      );
+      if (patch) commitParameterPatch(patch);
+    });
+  }
 }
 
 function installKeyboard() {
@@ -2588,6 +2529,7 @@ function tick(time) {
 buildPresets();
 installControls();
 installCanvasInteractions();
+installXYPadInteractions();
 installKeyboard();
 updatePresentation();
 resizeCanvas();

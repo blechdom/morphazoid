@@ -59,7 +59,7 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive jaw harp and cutaway profile. Pull and release the copper reed trigger to pluck. Drag the larger BREATH pad anywhere to change cycle speed and pressure without interrupting its inhale-exhale phase. Drag the TEMPO pad anywhere horizontally from 36 to 480 BPM and vertically for swing. Drag the mouth, cavity, and glottis nodes to reshape the resonator."
+            aria-label="Interactive jaw harp and cutaway profile. Pull and release the copper reed trigger to pluck. Drag the mouth, cavity, and glottis nodes to reshape the resonator. Breath and tempo XY controls are in the side panel."
             aria-describedby="canvasInstructions liveStatus"
           >
             A plucked jaw harp reed coupled to an interactive cutaway mouth resonator.
@@ -72,7 +72,7 @@
           </div>
 
           <p class="jaw-drag-hint" aria-hidden="true">
-            PULL + RELEASE · BREATH SPEED ↔ / PRESSURE ↕ · TEMPO ↔ / SWING ↕ · SHAPE MOUTH + THROAT
+            PULL + RELEASE · SHAPE MOUTH + THROAT · BREATH + TEMPO XY IN PANEL
           </p>
           <p class="jaw-audio-error" id="audioError" role="alert" hidden></p>
         </div>
@@ -196,6 +196,39 @@
                 <small id="breathCycleState">74 cycles/min · hand-clock × rate</small>
               </span>
             </button>
+            <div class="jaw-xy-control jaw-xy-control-breath" data-jaw-xy-control="breath">
+              <div class="jaw-xy-heading">
+                <span><b>Breath gesture</b><small>speed ↔ / pressure ↕</small></span>
+                <output id="breathXYReadout" aria-live="off">42 cycles/min · 72% pressure</output>
+              </div>
+              <button
+                class="jaw-xy-pad"
+                id="breathXYPad"
+                type="button"
+                data-jaw-xy-pad="air"
+                data-x-control="breathRateBpm"
+                data-y-control="breathDepth"
+                aria-label="Breath gesture: 42 cycles per minute and 72 percent pressure"
+                aria-describedby="breathXYHelp"
+                aria-controls="breathRateBpm breathDepth"
+                style="--jaw-xy-left: 52.7%; --jaw-xy-top: 76%;"
+              >
+                <span class="jaw-xy-axis jaw-xy-axis-y" aria-hidden="true">PRESSURE</span>
+                <span class="jaw-xy-axis jaw-xy-axis-x" aria-hidden="true">SLOW ← SPEED → FAST</span>
+                <span class="jaw-xy-thumb" id="breathXYThumb" data-jaw-xy-thumb aria-hidden="true"></span>
+              </button>
+              <small class="jaw-xy-help" id="breathXYHelp">Drag anywhere. Horizontal sets cycle speed; vertical sets air pressure. Arrow keys make fine adjustments.</small>
+            </div>
+            <label class="control" for="breathNoiseAmount">
+              <span><b>Breath noise amount</b><output id="breathNoiseAmountOut" for="breathNoiseAmount">32%</output></span>
+              <input id="breathNoiseAmount" type="range" min="0" max="1" step="0.01" value="0.32" />
+              <small>Blends air into the reed on a perceptual curve. The low end fades to genuinely minimal breath instead of a constant noise floor.</small>
+            </label>
+            <label class="control" for="breathFilter">
+              <span><b>Breath filter / color</b><output id="breathFilterOut" for="breathFilter">36% open</output></span>
+              <input id="breathFilter" type="range" min="0" max="1" step="0.01" value="0.36" />
+              <small>Move left for soft, dark air or right for brighter air. The turbulence enters the same live mouth and formant resonator as the jaw-harp tone.</small>
+            </label>
             <label class="control" for="breathDepth">
               <span><b>Breath pressure</b><output id="breathDepthOut" for="breathDepth">72%</output></span>
               <input id="breathDepth" type="range" min="0" max="3" step="0.01" value="0.72" />
@@ -296,6 +329,29 @@
               <span><b>Gesture loop</b><small>Rests and unequal force accents replace the plain metronome.</small></span>
               <select id="rhythmSelect"></select>
             </label>
+            <div class="jaw-xy-control jaw-xy-control-rhythm" data-jaw-xy-control="rhythm">
+              <div class="jaw-xy-heading">
+                <span><b>Hand clock</b><small>tempo ↔ / swing ↕</small></span>
+                <output id="rhythmXYReadout" aria-live="off">148 BPM · +8% swing</output>
+              </div>
+              <button
+                class="jaw-xy-pad"
+                id="rhythmXYPad"
+                type="button"
+                data-jaw-xy-pad="rhythm"
+                data-x-control="repeatRateBpm"
+                data-y-control="repeatSwing"
+                aria-label="Hand clock: 148 BPM and plus 8 percent swing"
+                aria-describedby="rhythmXYHelp"
+                aria-controls="repeatRateBpm repeatSwing"
+                style="--jaw-xy-left: 54.6%; --jaw-xy-top: 40.5%;"
+              >
+                <span class="jaw-xy-axis jaw-xy-axis-y" aria-hidden="true">SWING</span>
+                <span class="jaw-xy-axis jaw-xy-axis-x" aria-hidden="true">36 ← BPM → 480</span>
+                <span class="jaw-xy-thumb" id="rhythmXYThumb" data-jaw-xy-thumb aria-hidden="true"></span>
+              </button>
+              <small class="jaw-xy-help" id="rhythmXYHelp">Drag anywhere. Horizontal sets pluck tempo; vertical sets alternating swing. Arrow keys make fine adjustments.</small>
+            </div>
             <label class="control" for="repeatRateBpm">
               <span><b>Rhythm tempo</b><output id="repeatRateBpmOut" for="repeatRateBpm">148 BPM</output></span>
               <input id="repeatRateBpm" type="range" min="36" max="480" step="1" value="148" />
@@ -358,10 +414,10 @@
       <p class="sr-only" id="canvasInstructions">
         Pull the copper reed trigger up or down and release it to pluck. Hold the Inhale or Exhale button to drive
         the vibrating reed manually, or leave Automatic breath cycle on for rhythmic bidirectional airflow.
-        Drag anywhere in the BREATH pad in two dimensions: horizontal changes breath speed from one cycle per minute
-        to twenty per second without restarting the current breath, and vertical changes pressure from zero through
-        three hundred percent. Drag anywhere in the TEMPO pad horizontally from 36 to 480 BPM and vertically for
-        alternating swing without restarting the breath pattern. Drag the tongue node in two dimensions, the jaw node
+        In the side panel, drag the Breath gesture XY pad in two dimensions: horizontal changes breath speed from one
+        cycle per minute to twenty per second without restarting the current breath, and vertical changes pressure from
+        zero through three hundred percent. Drag the Hand clock XY pad horizontally from 36 to 480 BPM and vertically
+        for alternating swing without restarting the breath pattern. Drag the tongue node in two dimensions, the jaw node
         vertically, and the lip node horizontally. Drag the focus and cavity node in two dimensions, or the glottis node
         horizontally, to reshape the resonator. Equivalent labeled controls are available in the control panel.
         Space or Enter plucks the reed. A, E, I, O, and U load mouth shapes and turn off vowel sequencing. Number keys one through five load harp bodies.
