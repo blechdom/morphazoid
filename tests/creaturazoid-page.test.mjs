@@ -152,7 +152,8 @@ test("body, attack, vibrato, and modulation controls are present and wired to th
   assert.match(html, /Skeleton \/ feather plan/);
   assert.match(html, /Body imprint/);
   assert.match(html, /Call retarget/);
-  assert.match(html, /Rhythmic attack/);
+  assert.match(html, /Pad attack/);
+  assert.match(html, /Sequence onsets crop each weak native prefix/);
   assert.match(html, /id="bodyScale"[^>]+min="0\.55"[^>]+max="1\.35"/);
   assert.match(html, /id="bodyRoundness"[^>]+min="-1"[^>]+max="1"/);
   assert.match(html, /id="attackMs"[^>]+min="8"[^>]+max="48"/);
@@ -215,7 +216,8 @@ test("body presets are persistent physical shapes while calls retain local multi
   assert.match(html, /body is persistent and absolute/i);
   assert.match(html, /Multi-peak pressure, pitch, closure, mouth, cavity, roughness, split, and balance contours survive/i);
   assert.match(html, /call-local Speed and Depth envelopes/i);
-  assert.match(html, /short rhythmic attack makes each occupied step speak promptly/i);
+  assert.match(html, /each weak native lead-in is cropped/i);
+  assert.match(html, /Measured per-sound makeup lifts quiet voices/i);
   assert.doesNotMatch(html, />Creature preset</i);
 });
 
@@ -255,10 +257,15 @@ test("one AudioWorklet node receives sample-addressed contours for one physical 
 
   assert.match(app, /frame:\s*Math\.round\(eventTime \* audioContext\.sampleRate\)/);
   assert.match(app, /const serial = \+\+serialCounter;/);
-  assert.match(app, /const contourOffsets = creaturazoidContourOffsets\(duration, [^)]+\);/);
+  assert.match(app, /creaturazoidContourOffsets\(duration, state, sound, \{ sequenced \}\)/);
+  assert.match(app, /creaturazoidSequenceDurationSeconds\(sound\)/);
+  assert.match(app, /scheduleSound\(event\.sound, event\.velocity, time, \{ visual: false, sequenced: true \}\)/);
   assert.match(app, /events\.push\(\{[\s\S]*?serial,[\s\S]*?begin:\s*index === 0/);
   assert.match(app, /begin:\s*index === 0/);
   assert.match(app, /contact:\s*index === 0 && sound\.articulation\?\.contact/);
+  assert.match(app, /startPhase:\s*sequenceOnsetPhase/);
+  assert.match(app, /makeupGain:\s*creaturazoidLevelMakeup\(sound\)/);
+  assert.match(app, /bodyGainTrim:\s*creaturazoidBodyLevelTrim\(sound, stateSnapshot\)/);
   assert.match(app, /events\.push\(\{[\s\S]*?velocity:\s*clamp\(velocity\),[\s\S]*?configuration:/);
   for (const field of [
     "airwayGate", "articulationVoicing", "articulationPressure", "turbulence",
@@ -276,6 +283,7 @@ test("each scheduled gesture drives an exaggerated sound-specific anatomy pose",
   assert.match(app, /const phase = visual[\s\S]*?visual\.duration/);
   assert.match(app, /const velocity = visual \? clamp\(visual\.velocity\) : 0;/);
   assert.match(app, /performanceState\?\.pressure/);
+  assert.match(app, /const actionPhase = clamp\(finiteOr\(performanceState\?\.articulationPhase, phase\)\)/);
 
   for (const response of [
     "mouthOpen",
@@ -354,16 +362,17 @@ test("the specimen uses luminous translucent anatomy with strong outlines and op
   assert.match(controls, /context\.fillStyle = pointerDrag\?\.id === handle\.id/);
 });
 
-test("loud cross-species attacks are trimmed, compressed, and kept rhythmically aligned", () => {
+test("cross-species attacks are cropped, leveled, and kept rhythmically aligned", () => {
   assert.match(app, /mammal:\s*1,/);
   assert.match(app, /bird:\s*0\.82,/);
   assert.match(app, /frog:\s*0\.88,/);
   assert.match(app, /rodent:\s*0\.72,/);
+  assert.match(app, /outputGain:\s*clamp\(0\.82/);
   assert.match(app, /compressor\.threshold\.value = -18;/);
   assert.match(app, /compressor\.knee\.value = 18;/);
   assert.match(app, /compressor\.ratio\.value = 6;/);
   assert.match(app, /compressor\.attack\.value = 0\.002;/);
-  assert.match(app, /compressor\.release\.value = 0\.16;/);
+  assert.match(app, /compressor\.release\.value = 0\.08;/);
   assert.match(app, /makeupGain\.gain\.value = 1\.12;/);
 
   const sourceToCompressor = app.indexOf("sourceNode.connect(compressor);");
@@ -396,8 +405,23 @@ test("the dedicated processor subclasses the Hybrinx physical model and rejects 
   assert.match(processor, /_beginCreatureContact\(event\.contact/);
   assert.match(
     processor,
-    /_postProcessOutput\(output\)\s*\{\s*this\._mixCreatureContact\(output\);/,
+    /_postProcessOutput\(output\)\s*\{\s*this\._mixCreatureContact\(output\);\s*this\._applyCreatureMakeup\(output\);/,
   );
+  assert.match(processor, /bodyGainTrim:\s*clamp\(event\.bodyGainTrim \?\? 1, 1, 3\.75\)/);
+  assert.match(processor, /const eventMakeupGain = event\.makeupGain \* \(event\.bodyGainTrim \?\? 1\)/);
+  assert.match(processor, /this\.creatureMakeupGain = eventMakeupGain/);
+  assert.match(processor, /eventMakeupGain > this\.creatureMakeupGain \* 1\.5/);
+  assert.match(processor, /this\.creatureMakeupDelayRemaining = isolateMakeupRise/);
+  assert.match(processor, /configuration\.resetTract \|\| isolateMakeupRise/);
+  assert.match(processor, /for \(const source of this\.sources\) source\.reset\(\)/);
+  assert.match(processor, /this\.creatureMakeupRampFrames = Math\.max\(1, Math\.round\(this\.workletRate \* 0\.0005\)\)/);
+  assert.match(processor, /source\.current\.pressure = source\.target\.pressure/);
+  assert.match(processor, /source\.current\.outputGain = source\.target\.outputGain/);
+  assert.match(processor, /source\.target\.model === "whistle"/);
+  assert.match(processor, /const primedAmplitude = clamp\(Math\.sqrt\(growth \/ 64\) \* 0\.5, 0\.08, 1\.1\)/);
+  assert.match(processor, /primedAmplitude \* 1\.25/);
+  assert.match(processor, /this\.creatureAttackTransitionFrames/);
+  assert.match(processor, /const startPhase = clamp\(profile\.startPhase \?\? 0\)/);
   assert.match(processor, /343 \/ \(4 \* tractLengthM\)/);
   assert.match(
     processor,

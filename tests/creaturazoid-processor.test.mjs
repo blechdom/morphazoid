@@ -24,6 +24,28 @@ globalThis.registerProcessor = (name, Processor) => {
 const { CreaturazoidPhysicalProcessor } = await import(
   "../src/creaturazoid-processor.js?creaturazoid-processor-test=1"
 );
+const {
+  CREATURAZOID_BODY_PRESETS,
+  creaturazoidBodyPreset,
+  creaturazoidBodyLevelTrim,
+  creaturazoidLevelMakeup,
+  creaturazoidSound,
+  creaturazoidState,
+  resolveCreaturazoidEventState,
+} = await import("../src/creaturazoid.js?creaturazoid-processor-integration-test=1");
+const {
+  ANIMALS,
+  clamp: clampSyrinx,
+  resolveSourceControls,
+  resolveSyrinxPresetGain,
+} = await import("../src/syrinx.js?creaturazoid-processor-integration-test=1");
+
+const FAMILY_OUTPUT_TRIM = Object.freeze({
+  mammal: 1,
+  bird: 0.82,
+  frog: 0.88,
+  rodent: 0.72,
+});
 
 function configuration(pressure, voiceCount = 7) {
   return {
@@ -43,10 +65,10 @@ function configuration(pressure, voiceCount = 7) {
   };
 }
 
-function processor() {
+function processor(initialConfiguration = configuration(0, 1)) {
   return new CreaturazoidPhysicalProcessor({
     processorOptions: {
-      configuration: configuration(0, 1),
+      configuration: initialConfiguration,
     },
   });
 }
@@ -82,7 +104,78 @@ function rms(channel) {
   return Math.sqrt(channel.reduce((sum, sample) => sum + sample * sample, 0) / channel.length);
 }
 
-function renderContactBlocks(profile, blockCount = 1, soundId = "test-contact", velocity = 1) {
+function rhythmicConfiguration(soundId, bodyPresetId) {
+  const sound = creaturazoidSound(soundId);
+  const state = creaturazoidState(bodyPresetId);
+  const body = creaturazoidBodyPreset(bodyPresetId);
+  const performanceState = resolveCreaturazoidEventState(sound, {
+    state,
+    phase: 0,
+    elapsedSeconds: 0,
+    velocity: 1,
+    sequenced: true,
+  });
+  const animal = ANIMALS[performanceState.animalId];
+  const articulation = performanceState.articulation ?? {};
+  return {
+    sound,
+    configuration: {
+      source: {
+        ...resolveSourceControls(performanceState),
+        outputGain: clampSyrinx(0.82
+          * (FAMILY_OUTPUT_TRIM[animal.model] ?? 0.82)
+          * resolveSyrinxPresetGain(performanceState)
+          * clampSyrinx(articulation.sourceGain ?? 1, 0, 1.5), 0, 1.5),
+        voiceCount: 1,
+        voiceSpreadCents: 0,
+      },
+      tract: {
+        animalId: animal.id,
+        model: animal.model,
+        tractLengthM: performanceState.tractLengthM,
+        tractDiameterProfile: performanceState.tractDiameterProfile
+          ?? state.tractDiameterProfile
+          ?? body.tractDiameterProfile,
+        tractDiameterScale: performanceState.tractDiameterScale
+          ?? state.tractDiameterScale
+          ?? body.tractDiameterScale,
+        mouthOpening: performanceState.mouthOpening,
+        cavityCoupling: performanceState.cavityCoupling,
+        cavityFrequencyHz: performanceState.cavityFrequencyHz
+          ?? state.cavityFrequencyHz
+          ?? body.cavityFrequencyHz,
+        cavityBranches: 2,
+        airwayGate: clampSyrinx(articulation.airwayGate ?? 1),
+        lateralBypass: 0,
+        turbulence: clampSyrinx(
+          performanceState.roughness * 0.16 + (articulation.turbulence ?? 0),
+          0,
+          1.5,
+        ),
+        articulationVoicing: clampSyrinx(articulation.voicing ?? 1),
+        articulationPressure: performanceState.active
+          ? performanceState.pressure * clampSyrinx(articulation.pressure ?? 1)
+          : 0,
+        burstGain: clampSyrinx(articulation.burstGain ?? 0, 0, 1.5),
+        burstFrequencyHz: clampSyrinx(articulation.burstFrequencyHz ?? 1_050, 80, 12_000),
+        flowDirection: Number(articulation.flowDirection) < 0 ? -1 : 1,
+        flutterHz: body.modulationTarget === "beak" ? state.modulationRateHz : 0,
+        flutterDepth: body.modulationTarget === "beak" ? state.modulationDepth * 0.16 : 0,
+        sourceBalance: performanceState.sourceBalance * 2 - 1,
+        asymmetry: performanceState.asymmetry,
+      },
+      resetTract: false,
+    },
+  };
+}
+
+function renderContactBlocks(
+  profile,
+  blockCount = 1,
+  soundId = "test-contact",
+  velocity = 1,
+  makeupGain = 1,
+) {
   const instance = processor();
   instance._handleCreatureMessage({
     type: "schedule",
@@ -92,6 +185,7 @@ function renderContactBlocks(profile, blockCount = 1, soundId = "test-contact", 
       begin: true,
       soundId,
       velocity,
+      makeupGain,
       contact: profile,
       configuration: configuration(0, 1),
     }],
@@ -240,6 +334,36 @@ test("silence invalidates queued calls and leaves the physical source at rest", 
   });
 });
 
+test("silence de-clicks a boosted live tail without turning attenuation upward", () => {
+  const boosted = processor();
+  boosted.creatureMakeupGain = 7;
+  boosted.creatureMakeupTarget = 7;
+  boosted._handleCreatureMessage({
+    type: "silence",
+    serial: 22,
+    source: configuration(0.8, 1).source,
+    tract: configuration(0.8, 1).tract,
+  });
+  assert.equal(boosted.creatureMakeupGain, 7);
+  assert.equal(boosted.creatureMakeupTarget, 1);
+  assert.equal(boosted.creatureMakeupRampRemaining, Math.round(48_000 * 0.0005));
+  render(boosted, 0);
+  assert.equal(boosted.creatureMakeupGain, 1);
+
+  const attenuated = processor();
+  attenuated.creatureMakeupGain = 0.36;
+  attenuated.creatureMakeupTarget = 0.36;
+  attenuated._handleCreatureMessage({
+    type: "silence",
+    serial: 23,
+    source: configuration(0.8, 1).source,
+    tract: configuration(0.8, 1).tract,
+  });
+  assert.equal(attenuated.creatureMakeupGain, 0.36);
+  assert.equal(attenuated.creatureMakeupTarget, 0.36);
+  assert.equal(attenuated.creatureMakeupRampRemaining, 0);
+});
+
 test("body-contact gestures render deterministically inside the single physical node", () => {
   const renderContact = () => {
     const instance = processor();
@@ -277,6 +401,293 @@ test("body-contact excitation follows sequencer velocity", () => {
 
   assert.ok(rms(loud) > rms(quiet) * 2.2);
   assert.ok(rms(loudScrape) > rms(quietScrape) * 2.2);
+});
+
+test("calibrated makeup raises quiet complete gestures before telemetry", () => {
+  const scrape = {
+    ...contact("feather"),
+    gain: 0.34,
+    strikes: [],
+    scrapeRateHz: 19,
+    scrapeGain: [[0, 1], [1, 1]],
+  };
+  const reference = renderContactBlocks(scrape, 20, "feather-ruffle", 1, 1);
+  const lifted = renderContactBlocks(scrape, 20, "feather-ruffle", 1, 4.14);
+
+  assert.equal(lifted.instance.creatureMakeupTarget, 4.14);
+  assert.ok(lifted.instance.creatureMakeupGain > 4.13);
+  assert.ok(rms(lifted.samples) > rms(reference.samples) * 3.4);
+  assert.ok(
+    lifted.instance.port.messages.filter((message) => message.type === "telemetry").at(-1).rms
+      > reference.instance.port.messages.filter((message) => message.type === "telemetry").at(-1).rms * 3,
+  );
+});
+
+test("every onset latches its own makeup without inheriting the previous sound", () => {
+  const instance = processor();
+  const begin = (serial, makeupGain) => instance._applyCreatureEvent({
+    frame: 0,
+    serial,
+    begin: true,
+    sequenced: true,
+    soundId: `gain-${makeupGain}`,
+    label: "GAIN",
+    velocity: 1,
+    makeupGain,
+    contact: null,
+    configuration: configuration(0.72, 1),
+  });
+
+  begin(80, 7);
+  assert.equal(instance.creatureMakeupGain, 1);
+  assert.equal(instance.creatureMakeupRampRemaining, Math.round(48_000 * 0.0005));
+  render(instance, 0);
+  assert.equal(instance.creatureMakeupGain, 7);
+  begin(81, 0.36);
+  assert.equal(instance.creatureMakeupGain, 0.36);
+  assert.equal(instance.creatureMakeupRampRemaining, 0);
+  begin(82, 7);
+  assert.equal(instance.creatureMakeupGain, 0.36);
+  assert.equal(instance.creatureMakeupRampRemaining, Math.round(48_000 * 0.0005));
+  render(instance, 128);
+  assert.equal(instance.creatureMakeupGain, 7);
+  assert.equal(instance.creatureMakeupTarget, 7);
+});
+
+test("body-resonance correction has a separate bounded gain stage", () => {
+  const instance = processor();
+  instance._handleCreatureMessage({
+    type: "schedule",
+    events: [{
+      frame: 0,
+      serial: 83,
+      begin: true,
+      sequenced: true,
+      soundId: "purr",
+      velocity: 1,
+      makeupGain: 6.8,
+      bodyGainTrim: 3.75,
+      contact: null,
+      configuration: configuration(0, 1),
+    }],
+  });
+  render(instance, 0);
+
+  assert.equal(instance.creatureMakeupTarget, 25.5);
+  assert.equal(instance.creatureMakeupGain, 25.5);
+
+  const clamped = processor();
+  clamped._handleCreatureMessage({
+    type: "schedule",
+    events: [{
+      frame: 0,
+      serial: 84,
+      begin: true,
+      soundId: "bounded",
+      velocity: 1,
+      makeupGain: 99,
+      bodyGainTrim: 99,
+      contact: null,
+      configuration: configuration(0, 1),
+    }],
+  });
+  render(clamped, 0);
+  assert.equal(clamped.creatureMakeupTarget, 7 * 3.75);
+});
+
+test("a large body correction cannot amplify the displaced gesture tail", () => {
+  const bodyId = "pocket-needle";
+  const first = rhythmicConfiguration("yip", bodyId);
+  const next = rhythmicConfiguration("purr", bodyId);
+  const instance = processor({
+    ...first.configuration,
+    source: { ...first.configuration.source, pressure: 0 },
+  });
+  instance._applyCreatureEvent({
+    frame: 0,
+    serial: 85,
+    begin: true,
+    sequenced: true,
+    soundId: first.sound.id,
+    label: first.sound.label,
+    velocity: 1,
+    makeupGain: creaturazoidLevelMakeup(first.sound),
+    bodyGainTrim: creaturazoidBodyLevelTrim(first.sound, bodyId),
+    contact: null,
+    configuration: first.configuration,
+  });
+  const priorSamples = [];
+  for (let block = 0; block < 24; block += 1) {
+    priorSamples.push(...render(instance, block * 128)[0]);
+  }
+  assert.ok(rms(priorSamples.slice(-512)) > 0.01, "first gesture must leave an audible tail");
+
+  instance._applyCreatureEvent({
+    frame: 24 * 128,
+    serial: 86,
+    begin: true,
+    sequenced: true,
+    soundId: next.sound.id,
+    label: next.sound.label,
+    velocity: 1,
+    makeupGain: creaturazoidLevelMakeup(next.sound),
+    bodyGainTrim: creaturazoidBodyLevelTrim(next.sound, bodyId),
+    contact: null,
+    configuration: next.configuration,
+  });
+  assert.equal(instance.creatureMakeupTarget, 25.5);
+  assert.equal(instance.creatureMakeupDelayRemaining, Math.round(48_000 * 0.002));
+  assert.equal(instance.transitionRemaining, Math.round(48_000 * 0.002));
+
+  const onsetSamples = [];
+  for (let block = 24; block < 28; block += 1) {
+    onsetSamples.push(...render(instance, block * 128)[0]);
+  }
+  const onsetRms = rms(onsetSamples);
+  const onsetPeak = Math.max(...onsetSamples.map(Math.abs));
+  assert.ok(onsetRms < 0.4, `corrected purr transition RMS spiked to ${onsetRms}`);
+  assert.ok(onsetPeak < 1, `corrected purr transition peaked at ${onsetPeak}`);
+  assert.equal(instance.creatureMakeupGain, 25.5);
+});
+
+test("cropped contacts skip discarded strikes and fire an edge strike immediately", () => {
+  const cropped = {
+    ...contact("tail"),
+    durationMs: 1_000,
+    startPhase: 0.7,
+    strikes: [
+      { phase: 0.2, gain: 1, modeRatio: 1, noiseMix: 0.5, decayMs: 80 },
+      { phase: 0.7, gain: 1, modeRatio: 8, noiseMix: 0.9, decayMs: 40 },
+    ],
+  };
+  const instance = processor();
+  instance._handleCreatureMessage({
+    type: "schedule",
+    events: [{
+      frame: 0,
+      serial: 91,
+      begin: true,
+      soundId: "tail-whip",
+      velocity: 1,
+      contact: cropped,
+      configuration: configuration(0, 1),
+    }],
+  });
+  render(instance, 0);
+
+  assert.equal(instance.creatureContact.nextStrike, 2);
+  assert.ok(instance.creatureContactVoices.length > 0);
+  assert.ok(instance.creatureContactVoices.every(({ incrementOne }) => incrementOne > 0.02));
+  assert.ok(instance.creatureContact.age >= Math.round(0.7 * 48_000) + 128);
+});
+
+test("sequenced crops land source pressure on the exact scheduled frame", () => {
+  const instance = processor();
+  instance.sources[0].current.outputGain = 0;
+  instance.sources[0].target.outputGain = 0;
+  instance._handleCreatureMessage({
+    type: "schedule",
+    events: [{
+      frame: 0,
+      serial: 92,
+      begin: true,
+      sequenced: true,
+      soundId: "rumble",
+      velocity: 1,
+      makeupGain: 2.2,
+      configuration: {
+        ...configuration(0.73, 1),
+        source: { ...configuration(0.73, 1).source, outputGain: 0.82 },
+      },
+    }],
+  });
+  render(instance, 0);
+
+  assert.equal(instance.sources[0].target.pressure, 0.73);
+  assert.equal(instance.sources[0].current.pressure, 0.73);
+  assert.equal(instance.sources[0].current.outputGain, 0.82);
+  assert.equal(instance.creatureMakeupTarget, 2.2);
+  assert.equal(instance.creatureMakeupGain, 2.2);
+});
+
+test("sequenced cross-family crops bypass the inherited slow model crossfade", () => {
+  const instance = processor();
+  instance._applyCreatureEvent({
+    frame: 0,
+    serial: 93,
+    begin: true,
+    sequenced: true,
+    soundId: "roar",
+    label: "ROAR",
+    velocity: 1,
+    makeupGain: 1,
+    contact: null,
+    configuration: {
+      source: {
+        model: "twoMass",
+        pressure: 0.78,
+        frequencyHz: 118,
+        outputGain: 0.82,
+        voiceCount: 1,
+      },
+      tract: {
+        animalId: "lion",
+        model: "mammal",
+        tractLengthM: 0.34,
+        mouthOpening: 0.58,
+        cavityCoupling: 0.4,
+      },
+    },
+  });
+
+  assert.equal(instance.configuration.model, "twoMass");
+  assert.equal(instance.transitionRemaining, Math.round(48_000 * 0.002));
+  assert.ok(instance.transitionRemaining < instance.transitionLength);
+  assert.equal(instance.sources[0].current.pressure, 0.78);
+  assert.equal(instance.sources[0].current.outputGain, 0.82);
+});
+
+test("cropped mouse whistles put useful energy on the beat without level spikes", () => {
+  for (const body of CREATURAZOID_BODY_PRESETS) {
+    for (const soundId of ["sweep", "ticks"]) {
+      const { sound, configuration: eventConfiguration } = rhythmicConfiguration(soundId, body.id);
+      const instance = processor({
+        ...eventConfiguration,
+        source: {
+          ...eventConfiguration.source,
+          model: "twoMass",
+          pressure: 0,
+          frequencyHz: 110,
+        },
+      });
+      instance._handleCreatureMessage({
+        type: "schedule",
+        events: [{
+          frame: 0,
+          serial: 94,
+          begin: true,
+          sequenced: true,
+          soundId,
+          label: sound.label,
+          velocity: 1,
+          makeupGain: creaturazoidLevelMakeup(sound),
+          contact: null,
+          configuration: eventConfiguration,
+        }],
+      });
+      const samples = [];
+      for (let block = 0; block < 4; block += 1) {
+        samples.push(...render(instance, block * 128)[0]);
+      }
+
+      const onsetRms = rms(samples);
+      const onsetPeak = Math.max(...samples.map(Math.abs));
+      assert.ok(instance.sources[0].whistleAmplitude >= 0.08);
+      assert.ok(onsetRms > 0.02, `${body.id}/${soundId} first 10.7 ms RMS was ${onsetRms}`);
+      assert.ok(onsetRms < 0.18, `${body.id}/${soundId} first 10.7 ms RMS spiked to ${onsetRms}`);
+      assert.ok(onsetPeak < 0.5, `${body.id}/${soundId} first 10.7 ms peaked at ${onsetPeak}`);
+    }
+  }
 });
 
 test("continuous scrape and rustle excitation is filtered by the current body and cavity", () => {
