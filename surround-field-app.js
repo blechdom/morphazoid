@@ -790,21 +790,9 @@ function renderOutputStatus() {
   const summary = channelSummary(audio.deviceChannels, layout.speakers.length, state.forcePreview);
   const actualMode = audio.context ? audio.mode : summary.mode;
   const label = actualMode === "discrete" ? "Physical discrete" : actualMode === "preview" ? "Stereo preview" : summary.label;
-  const detail = audio.context
-    ? actualMode === "discrete"
-      ? `${layout.speakers.length} numbered channels are connected directly. Verify the interface mapping by ear.`
-      : `${layout.speakers.length} virtual speakers are equal-power folded into ${audio.deviceChannels} device channels.`
-    : summary.detail;
-  const deviceText = audio.deviceChannels ? String(audio.deviceChannels) : "?";
 
-  $("outputConsole").dataset.mode = actualMode;
   $("stageCapability").dataset.mode = actualMode;
-  setText("outputModeLabel", label.toUpperCase());
   setText("stageMode", label.toUpperCase());
-  setText("deviceChannels", `${deviceText} CH`);
-  setText("hardwareChannels", deviceText);
-  setText("patchChannels", layout.speakers.length);
-  setText("outputDetail", detail);
   setText("calibrationSummary", `${layout.speakers.length} virtual · ${audio.deviceChannels ? `${audio.deviceChannels} device` : "unprobed"}`);
   setText("audioState", state.audioOn ? `${actualMode} · ${audio.deviceChannels} ch` : audio.deviceChannels ? "off" : "off · probe device");
   setText("sequenceState", state.sequenceOn ? `${state.motion} · playing` : state.audioOn ? "ready · audio on" : "ready · audio off");

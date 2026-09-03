@@ -26,8 +26,10 @@ test("Surround for Safety exposes every requested array and the custom 32-channe
   assert.match(html, /commonly written 7\.1\.4/);
 });
 
-test("output capability copy distinguishes graph channels from physical outputs", () => {
-  assert.match(html, /GRAPH[\s\S]+demo ceiling[\s\S]+PATCH[\s\S]+virtual speakers[\s\S]+DEVICE[\s\S]+reported outputs/);
+test("the compact panel omits the live-output console while retaining capability guidance", () => {
+  assert.doesNotMatch(html, /id="outputConsole"|LIVE OUTPUT|demo ceiling|reported outputs/);
+  assert.doesNotMatch(app, /\$\("outputConsole"\)|outputModeLabel|hardwareChannels|patchChannels|outputDetail/);
+  assert.doesNotMatch(css, /\.output-console|\.console-heading|\.console-route/);
   assert.match(html, /destination\.maxChannelCount/);
   assert.match(html, /at least 32 channels/);
   assert.match(html, /Stereo preview/);
@@ -93,9 +95,9 @@ test("Play leads the right-hand controls and exposes audio timing priority", () 
   const panelStart = html.indexOf('<aside class="panel surround-panel"');
   const panelEnd = html.indexOf("</aside>", panelStart);
   const play = html.indexOf('id="sequenceButton"');
-  const output = html.indexOf('id="outputConsole"');
+  const array = html.indexOf('data-section="array"');
   const deckStart = html.indexOf('<section class="performance-deck"');
-  assert.ok(panelStart >= 0 && panelStart < play && play < output && output < panelEnd);
+  assert.ok(panelStart >= 0 && panelStart < play && play < array && array < panelEnd);
   assert.equal((html.match(/id="sequenceButton"/g) ?? []).length, 1);
   assert.doesNotMatch(html.slice(deckStart, panelStart), /id="sequenceButton"/);
   assert.match(html, /AUDIO TIMING PRIORITY/);

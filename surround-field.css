@@ -731,107 +731,6 @@
   color: var(--field-cyan);
 }
 
-.output-console {
-  padding: 17px 21px 15px;
-  border-bottom: 1px solid rgba(215, 255, 82, 0.13);
-  background:
-    linear-gradient(120deg, rgba(215, 255, 82, 0.08), transparent 58%),
-    #070a08;
-}
-
-.console-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.console-heading > div {
-  display: grid;
-  gap: 3px;
-}
-
-.console-heading small {
-  color: rgba(243, 240, 223, 0.32);
-  font-size: 7px;
-  letter-spacing: 0.15em;
-}
-
-.console-heading b {
-  color: rgba(243, 240, 223, 0.76);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-}
-
-.console-heading > span {
-  padding: 4px 7px;
-  border: 1px solid rgba(243, 240, 223, 0.13);
-  color: rgba(243, 240, 223, 0.5);
-  font-size: 8px;
-}
-
-.output-console[data-mode="discrete"] .console-heading b,
-.output-console[data-mode="discrete"] .console-heading > span {
-  border-color: rgba(215, 255, 82, 0.35);
-  color: var(--field-lime);
-}
-
-.output-console[data-mode="preview"] .console-heading b,
-.output-console[data-mode="preview"] .console-heading > span {
-  border-color: rgba(255, 112, 76, 0.35);
-  color: #ff9277;
-}
-
-.console-route {
-  display: grid;
-  margin-top: 14px;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
-  align-items: center;
-  gap: 6px;
-}
-
-.console-route > div {
-  display: grid;
-  padding: 8px;
-  border: 1px solid rgba(243, 240, 223, 0.08);
-  gap: 2px;
-}
-
-.console-route small {
-  color: rgba(243, 240, 223, 0.28);
-  font-size: 6px;
-  letter-spacing: 0.12em;
-}
-
-.console-route b {
-  color: var(--field-cream);
-  font-size: 18px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.console-route span {
-  overflow: hidden;
-  color: rgba(243, 240, 223, 0.22);
-  font-size: 6px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.console-route > i {
-  color: rgba(215, 255, 82, 0.3);
-  font-size: 10px;
-  font-style: normal;
-}
-
-.output-console > p {
-  margin: 12px 0 0;
-  color: rgba(243, 240, 223, 0.36);
-  font-size: 8px;
-  line-height: 1.55;
-}
-
-.output-console code,
 .web-audio-fact code {
   color: rgba(215, 255, 82, 0.72);
   font: inherit;
@@ -1802,7 +1701,6 @@
     min-height: 54px;
   }
 
-  .output-console,
   .group-body {
     padding-right: 16px;
     padding-left: 16px;
