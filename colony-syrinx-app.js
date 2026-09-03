@@ -13,6 +13,7 @@ import {
   COLONY_SYRINX_TOPOLOGY,
   colonySyrinxRouteFromMidiNote,
   createColonySyrinxCallState,
+  formatColonySyrinxPreset,
   randomizeColonySyrinxState,
   sampleColonySyrinxContour,
   sanitizeColonySyrinxState,
@@ -20,12 +21,16 @@ import {
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
 import {
+  applyColonySyrinxGraphAcoustics,
   colonySyrinxEndpointEligible,
+  colonySyrinxGraphLayoutFromOrganLayout,
   colonySyrinxLungFeedGeometries,
+  colonySyrinxOrganLayoutFromGraph,
   colonySyrinxRouteGeometries,
   createColonySyrinxGraphLayout,
   moveColonySyrinxGraphNode,
 } from "./src/colony-syrinx-graph.js";
+import { createMonstrozoidBodyGeometry } from "./src/monstrozoid-body.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum = 0, maximum = 1) => (
@@ -60,6 +65,16 @@ const CONTOUR_META = Object.freeze([
 const CONTOUR_RATE_OPTIONS = Object.freeze([0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]);
 const SVG_NS = "http://www.w3.org/2000/svg";
 const GRAPH_VIEWBOX = Object.freeze({ width: 1200, height: 620 });
+const GRAPH_TAP_DISTANCE_PX = 8;
+const GRAPH_TOUCH_TAP_DISTANCE_PX = 12;
+const GRAPH_BODY_HOLD_MS = 140;
+const SPATIAL_ARTICULATION_MODES = Object.freeze({
+  lung: Object.freeze(["tone", "sustained", "throb", "puff"]),
+  source: Object.freeze(["tone", "pulse", "mouth-call", "sustained"]),
+  mouth0: Object.freeze(["tone", "mouth-call", "sustained", "lip-pop"]),
+  mouth1: Object.freeze(["tone", "mouth-call", "sustained", "plosive"]),
+  mouth2: Object.freeze(["tone", "pulse", "tongue-click", "impact"]),
+});
 
 const lungButtons = Array.from(document.querySelectorAll("[data-lung]"));
 const sourceCards = Array.from(document.querySelectorAll(".source-card[data-source]"));
@@ -87,20 +102,30 @@ const mouthVessels = Array.from(
 );
 const lungGardenMembranes = Array.from(document.querySelectorAll(".lung-garden-membranes use"));
 const colonyBody = document.querySelector(".colony-body");
+const monsterBodyShell = colonyBody?.querySelector(".monster-body-shell");
+const monsterDeformationPaths = Array.from(
+  colonyBody?.querySelectorAll(".monster-deformation-web path") ?? [],
+);
+const alienLimbPaths = Array.from(colonyBody?.querySelectorAll(".alien-limb") ?? []);
 const lungFeedVessels = $("lungFeedVessels");
 const routeHitVessels = $("routeHitVessels");
 const routeDraft = $("routeDraft");
+const spatialTriggerFeedback = $("spatialTriggerFeedback");
+const dragSoundFeedback = $("dragSoundFeedback");
 let routeHitPaths = [];
 let lungFeedPaths = [];
 
 let audioContext = null;
 let graph = null;
 let audioStarting = false;
+let audioStartPromise = null;
 let transportPlaying = false;
 let callActive = false;
 let activeCallId = null;
 let activeCallToken = null;
 let nextCallToken = 0;
+let activeSpatialCall = null;
+let nextSpatialAuditionIntent = 0;
 let breathActive = false;
 let sustainActive = false;
 let breathPointerHeld = false;
@@ -135,20 +160,35 @@ let telemetry = {
   callActive: false,
   callProgress: 0,
 };
-const DEFAULT_CALL_ID = "air-crossed-bass-speech";
+const DEFAULT_CALL_ID = COLONY_SYRINX_CALLS[0]?.id ?? "air-clean-low-tone";
 let selectedCallId = DEFAULT_CALL_ID;
 let state = createColonySyrinxCallState(selectedCallId);
-let anatomyShapeSeed = state.seed;
-let graphLayoutSeed = anatomyShapeSeed;
-let graphLayout = createColonySyrinxGraphLayout({ seed: graphLayoutSeed });
-let graphMotionEnabled = true;
+let graphLayout = colonySyrinxGraphLayoutFromOrganLayout(state.organLayout);
+let graphLayoutSeed = graphLayout.seed;
+let anatomyShapeSeed = graphLayoutSeed;
+let graphMotionEnabled = Boolean(state.organMotionEnabled);
 let graphGesture = null;
 let graphConfigurationFrame = 0;
 let lastGraphTelemetryRender = -Infinity;
+let lastGraphAcousticMotionPost = -Infinity;
 const heldRoutes = new Map();
 const deferredRouteReleases = new Set();
 const keyOwners = new Set();
 let contourPostFrame = 0;
+let presetTextCache = "";
+const compactLayoutQuery = globalThis.matchMedia?.("(max-width: 940px)") ?? null;
+
+function placePrimaryControls() {
+  const primary = document.querySelector(".colony-primary-section");
+  const consoleRail = document.querySelector(".colony-console");
+  const mobileMount = $("mobilePrimaryMount");
+  if (!primary || !consoleRail || !mobileMount) return;
+  if (compactLayoutQuery?.matches) {
+    if (primary.parentElement !== mobileMount) mobileMount.append(primary);
+    return;
+  }
+  if (primary.parentElement !== consoleRail) consoleRail.prepend(primary);
+}
 
 function routeValue(matrix, routeIndex) {
   const route = COLONY_SYRINX_TOPOLOGY.routes[routeIndex];
@@ -184,14 +224,15 @@ function routeMatrix(kind = "primary") {
   return result;
 }
 
-function stateFromControls() {
-  return sanitizeColonySyrinxState({
+function stateFromControls(layout = graphLayout) {
+  const controls = sanitizeColonySyrinxState({
     ...state,
     sequencerEnabled: transportPlaying,
     midiBaseNote,
     routes: routeMatrix("primary"),
     alternateRoutes: routeMatrix("alternate"),
   }, state);
+  return applyColonySyrinxGraphAcoustics(controls, layout);
 }
 
 function announce(message) {
@@ -380,19 +421,66 @@ function graphNode(kind, index, layout = graphLayout) {
   return layout?.nodes?.[graphNodeId(kind, index)] ?? null;
 }
 
+function alignGraphLayout(layout) {
+  const nodes = Object.fromEntries(Object.entries(layout.nodes).map(([id, node]) => {
+    let x = node.x;
+    let y = node.y;
+    if (node.kind === "lung") {
+      x = 82 + (node.index % 4) * 88;
+      y = 92 + Math.floor(node.index / 4) * 145;
+    } else if (node.kind === "source") {
+      x = 520;
+      y = 92 + node.index * 145;
+    } else if (node.kind === "mouth") {
+      x = 826;
+      y = 145 + node.index * 165;
+    }
+    return [id, { ...node, x, y, rotation: 0 }];
+  }));
+  return { ...layout, nodes };
+}
+
+function persistGraphLayoutInState() {
+  const organLayout = colonySyrinxOrganLayoutFromGraph(graphLayout);
+  graphLayoutSeed = organLayout.seed;
+  state = sanitizeColonySyrinxState({ ...state, organLayout }, state);
+  return organLayout;
+}
+
+function hydrateGraphLayoutFromState({ resetSeed = true } = {}) {
+  graphLayout = colonySyrinxGraphLayoutFromOrganLayout(state.organLayout);
+  graphLayoutSeed = graphLayout.seed;
+  if (resetSeed) anatomyShapeSeed = graphLayout.seed;
+  // Collision repair can make the rendered position slightly different from
+  // pasted coordinates, so the share text always records what is on screen.
+  persistGraphLayoutInState();
+  renderGraphLayout();
+}
+
+function graphLayoutChanged({ custom = true, configure = true } = {}) {
+  persistGraphLayoutInState();
+  if (custom) markStateCustom();
+  renderGraphLayout();
+  if (configure) scheduleGraphConfiguration();
+}
+
 function graphGeometryPath(geometry) {
   return typeof geometry === "string" ? geometry : geometry?.d ?? "";
 }
 
-function rebuildGraphLayout(seed = graphLayoutSeed) {
+function rebuildGraphLayout(seed = graphLayoutSeed, { scattered = false } = {}) {
   graphLayoutSeed = Number(seed) >>> 0;
-  graphLayout = createColonySyrinxGraphLayout({ seed: graphLayoutSeed });
+  const generated = createColonySyrinxGraphLayout({ seed: graphLayoutSeed });
+  graphLayout = scattered ? generated : alignGraphLayout(generated);
+  persistGraphLayoutInState();
   renderGraphLayout();
 }
 
 function scatterGraphLayout() {
   graphLayoutSeed = hash32(graphLayoutSeed + 0x9e3779b9);
-  rebuildGraphLayout(graphLayoutSeed);
+  rebuildGraphLayout(graphLayoutSeed, { scattered: true });
+  markStateCustom();
+  scheduleGraphConfiguration();
   announce(`Organs rearranged; layout seed ${graphLayoutSeed.toString(16).toUpperCase().padStart(8, "0")}`);
 }
 
@@ -423,7 +511,8 @@ function buildAnatomyGraph() {
     vessel.dataset.organKind = "lung";
     vessel.dataset.organIndex = String(index);
     vessel.setAttribute("role", "button");
-    vessel.setAttribute("aria-label", `Lung ${index + 1}. Drag its body to move it; drag the colored handle to change bank drive and compliance; double click to disable.`);
+    vessel.setAttribute("aria-keyshortcuts", "A");
+    vessel.setAttribute("aria-label", `Lung ${index + 1}. Press A to audition; drag its body to move and sound it, changing pressure and loading; drag the diamond handle to change bank drive and compliance; double click to disable.`);
     const grab = createSvgElement("circle", "graph-node-grab", { r: 43 });
     vessel.insertBefore(grab, vessel.firstChild);
     vessel.append(createSvgElement("circle", "graph-param-handle lung-shape-handle", {
@@ -445,7 +534,8 @@ function buildAnatomyGraph() {
     vessel.dataset.organKind = "source";
     vessel.dataset.organIndex = String(index);
     vessel.setAttribute("role", "button");
-    vessel.setAttribute("aria-label", `Vocal source ${index + 1}. Drag its body to move it; drag either fold handle to change tension and closure; double click to disable.`);
+    vessel.setAttribute("aria-keyshortcuts", "A");
+    vessel.setAttribute("aria-label", `Vocal source ${index + 1}. Press A to audition; drag its body to move and sound it, changing pitch and tension; drag either fold handle to change tension and closure; double click to disable.`);
     vessel.insertBefore(createSvgElement("circle", "graph-node-grab", { r: 45 }), vessel.firstChild);
     const port = vessel.querySelector(":scope > circle:not(.graph-node-grab)");
     port?.classList.add("source-port");
@@ -477,7 +567,8 @@ function buildAnatomyGraph() {
     vessel.dataset.organKind = "mouth";
     vessel.dataset.organIndex = String(index);
     vessel.setAttribute("role", "button");
-    vessel.setAttribute("aria-label", `Mouth ${index + 1}. Drag its body to move it; drag the jaw and tongue handles to articulate it.`);
+    vessel.setAttribute("aria-keyshortcuts", "A");
+    vessel.setAttribute("aria-label", `Mouth ${index + 1}. Press A to audition; drag its body to move and sound it, changing tract length and resonance; drag the jaw and tongue handles to articulate it.`);
     vessel.insertBefore(createSvgElement("ellipse", "graph-node-grab mouth-grab", {
       cx: 132,
       cy: 0,
@@ -537,11 +628,46 @@ function graphMotionLayout(timeSeconds, levels = {}) {
   return { ...graphLayout, nodes };
 }
 
+function renderMonsterBody(layout) {
+  if (!monsterBodyShell || !layout?.nodes) return;
+  const geometry = createMonstrozoidBodyGeometry(layout, state);
+  monsterBodyShell.setAttribute("d", geometry.shell);
+  monsterDeformationPaths.forEach((path, index) => {
+    path.toggleAttribute("hidden", index > 0);
+    if (index === 0) path.setAttribute("d", geometry.web);
+  });
+  alienLimbPaths.forEach((path, index) => {
+    const limb = geometry.limbs[index];
+    path.toggleAttribute("hidden", !limb);
+    if (limb) path.setAttribute("d", limb);
+  });
+  colonyBody.style.setProperty("--monster-center-x", geometry.center.x.toFixed(2));
+  colonyBody.style.setProperty("--monster-center-y", geometry.center.y.toFixed(2));
+}
+
 function renderGraphLayout(levels = {}) {
   if (!colonyBody || !graphLayout?.nodes) return;
-  const renderLayout = graphMotionLayout(performance.now() / 1000, levels);
+  const renderTime = performance.now();
+  const renderLayout = graphMotionLayout(renderTime / 1000, levels);
+  renderMonsterBody(renderLayout);
+  if (
+    graphMotionEnabled
+    && !graphGesture
+    && graph?.sourceNode
+    && !callActive
+    && breathingNow()
+    && renderTime - lastGraphAcousticMotionPost >= 80
+  ) {
+    lastGraphAcousticMotionPost = renderTime;
+    graph.sourceNode.port.postMessage({
+      type: "configure",
+      configuration: stateFromControls(renderLayout),
+    });
+  }
   const foldDisplacements = levels.foldDisplacements ?? [];
   const liveMouthApertures = levels.mouthApertures ?? [];
+  const liveMouthFlows = levels.mouths ?? [];
+  const liveContourValues = levels.contourValues ?? [];
 
   lungVessels.forEach((vessel, index) => {
     const node = graphNode("lung", index, renderLayout);
@@ -610,6 +736,10 @@ function renderGraphLayout(levels = {}) {
     const mouth = state.mouths[index];
     const live = audioContext?.state === "running" && (transportPlaying || callActive || breathActive);
     const opening = live ? clamp(liveMouthApertures[index] ?? mouth.opening) : mouth.opening;
+    const flow = live ? clamp(liveMouthFlows[index] ?? 0) : 0;
+    const articulation = live
+      ? clamp(liveContourValues[3 + index] ?? opening)
+      : opening;
     const scale = (node.scale ?? 0.9) * (0.78 + mouth.lipSize * 0.24);
     vessel.setAttribute("transform", `translate(${node.x.toFixed(2)} ${node.y.toFixed(2)}) rotate(${(node.rotation ?? 0).toFixed(2)}) scale(${scale.toFixed(3)})`);
     vessel.dataset.x = graphNode("mouth", index)?.x.toFixed(2) ?? node.x.toFixed(2);
@@ -617,13 +747,35 @@ function renderGraphLayout(levels = {}) {
     vessel.toggleAttribute("hidden", !enabled);
     vessel.setAttribute("tabindex", enabled ? "0" : "-1");
     vessel.setAttribute("aria-disabled", String(!enabled));
-    const jaw = 3 + opening * 24;
-    vessel.querySelector(".mouth-upper")?.setAttribute("transform", `translate(0 ${(-jaw * 0.45).toFixed(2)})`);
-    vessel.querySelector(".mouth-lower")?.setAttribute("transform", `translate(0 ${(jaw * 0.7).toFixed(2)})`);
-    vessel.querySelector(".mouth-teeth")?.setAttribute("transform", `translate(0 ${(jaw * 0.18).toFixed(2)})`);
+    const jaw = 1.5 + opening * 31;
+    const lipSpread = 1 + flow * 0.045;
+    vessel.style.setProperty("--mouth-opening", String(opening));
+    vessel.style.setProperty("--mouth-flow", String(flow));
+    vessel.style.setProperty("--mouth-articulation", String(articulation));
+    vessel.querySelector(".mouth-upper")?.setAttribute(
+      "transform",
+      `translate(0 ${(-jaw * 0.52).toFixed(2)}) scale(${lipSpread.toFixed(3)} ${(0.96 + articulation * 0.08).toFixed(3)})`,
+    );
+    vessel.querySelector(".mouth-lower")?.setAttribute(
+      "transform",
+      `translate(0 ${(jaw * 0.88).toFixed(2)}) scale(${lipSpread.toFixed(3)} ${(0.92 + opening * 0.14).toFixed(3)})`,
+    );
+    vessel.querySelector(".mouth-teeth")?.setAttribute("transform", `translate(0 ${(jaw * 0.26).toFixed(2)})`);
+    const tongueX = (mouth.tonguePosition - 0.5) * 76 + (articulation - 0.5) * 18;
+    const tongueY = jaw * 0.48 - articulation * 10 + flow * 3;
+    const tongueScaleX = 0.66 + mouth.tongueSize * 0.52 + articulation * 0.1;
+    const tongueScaleY = 0.82 + (1 - articulation) * 0.27;
     vessel.querySelector(".mouth-tongue")?.setAttribute(
       "transform",
-      `translate(${((mouth.tonguePosition - 0.5) * 76).toFixed(2)} ${(jaw * 0.42).toFixed(2)}) scale(${(0.68 + mouth.tongueSize * 0.54).toFixed(3)})`,
+      `translate(${tongueX.toFixed(2)} ${tongueY.toFixed(2)}) rotate(${((articulation - 0.5) * 7).toFixed(2)}) scale(${tongueScaleX.toFixed(3)} ${tongueScaleY.toFixed(3)})`,
+    );
+    vessel.querySelector(".monster-pupil")?.setAttribute(
+      "transform",
+      `translate(${((articulation - 0.5) * 7).toFixed(2)} ${((opening - 0.5) * 4).toFixed(2)})`,
+    );
+    vessel.querySelector(".monster-nostril")?.setAttribute(
+      "r",
+      String(([4, 3.5, 3][index] ?? 3.5) * (0.78 + flow * 0.72)),
     );
     const jawHandle = vessel.querySelector(".jaw-shape-handle");
     jawHandle?.setAttribute("cx", String(48 + mouth.lipSize * 38));
@@ -691,6 +843,259 @@ function graphStateChanged() {
   scheduleGraphConfiguration();
 }
 
+function enabledGraphTargets() {
+  return [
+    ...state.lungEnabled.map((enabled, index) => enabled ? { kind: "lung", index } : null),
+    ...state.phonatorEnabled.map((enabled, index) => enabled ? { kind: "source", index } : null),
+    ...state.mouthEnabled.map((enabled, index) => enabled ? { kind: "mouth", index } : null),
+  ].filter(Boolean);
+}
+
+function resolveSpatialAuditionTarget(gesture, point) {
+  if (["lung", "source", "mouth"].includes(gesture?.organKind)) {
+    const masks = {
+      lung: state.lungEnabled,
+      source: state.phonatorEnabled,
+      mouth: state.mouthEnabled,
+    };
+    const index = Number(gesture.organIndex ?? gesture.index);
+    if (masks[gesture.organKind]?.[index]) return { kind: gesture.organKind, index };
+  }
+  let nearest = null;
+  for (const target of enabledGraphTargets()) {
+    const node = graphNode(target.kind, target.index);
+    if (!node) continue;
+    const distance = Math.hypot(point.x - node.x, point.y - node.y);
+    if (!nearest || distance < nearest.distance) nearest = { ...target, distance };
+  }
+  return nearest ? { kind: nearest.kind, index: nearest.index } : null;
+}
+
+function spatialTargetLabel(target) {
+  if (target.kind === "lung") return `Lung ${target.index + 1}`;
+  if (target.kind === "source") return `Vocal source ${target.index + 1}`;
+  return `Mouth ${target.index + 1}`;
+}
+
+function spatialArticulationForTarget(target, point, intensity) {
+  const modeKey = target.kind === "mouth" ? `mouth${target.index}` : target.kind;
+  const modes = SPATIAL_ARTICULATION_MODES[modeKey] ?? SPATIAL_ARTICULATION_MODES.source;
+  let candidates = COLONY_SYRINX_CALLS.filter((recipe) => (
+    recipe.mediumId === state.mediumId && modes.includes(recipe.articulation?.mode)
+  ));
+  if (!candidates.length) {
+    candidates = COLONY_SYRINX_CALLS.filter((recipe) => recipe.mediumId === state.mediumId);
+  }
+  if (!candidates.length) candidates = [...COLONY_SYRINX_CALLS];
+  const locationHash = hash32(
+    state.seed
+      ^ Math.imul(Math.round(point.x) + 1, 0x9e3779b9)
+      ^ Math.imul(Math.round(point.y) + 1, 0x85ebca6b)
+      ^ Math.imul(target.index + 1, target.kind === "mouth" ? 0xc2b2ae35 : 0x27d4eb2f),
+  );
+  const recipe = candidates[locationHash % candidates.length];
+  const ranges = {
+    lung: [2.2, 4],
+    source: [1.5, 3.6],
+    mouth: [1, 3.2],
+  };
+  const [minimum, maximum] = ranges[target.kind] ?? [1, 4];
+  const durationSeconds = clamp(
+    recipe.durationSeconds * (0.72 + intensity * 0.28),
+    minimum,
+    maximum,
+  );
+  const verticalBrightness = clamp(1 - point.y / GRAPH_VIEWBOX.height);
+  return {
+    label: `${spatialTargetLabel(target)} · ${recipe.articulation.mode}`,
+    durationSeconds,
+    articulation: {
+      ...recipe.articulation,
+      strike: clamp(recipe.articulation.strike * (0.58 + intensity * 0.42)),
+      burst: clamp(recipe.articulation.burst * (0.55 + intensity * 0.45)),
+      brightness: clamp(recipe.articulation.brightness * 0.72 + verticalBrightness * 0.28),
+    },
+  };
+}
+
+function spatialAuditionConfiguration(target, point, intensity, articulation, durationSeconds) {
+  const base = stateFromControls();
+  const drivenSources = activePhonatorIndices(base).filter((index) => phonatorHasLung(base, index));
+  const sourceFallbacks = drivenSources.length ? drivenSources : activePhonatorIndices(base);
+  let selectedSources = [];
+  if (target.kind === "lung") {
+    const requested = Math.floor(target.index / (COLONY_SYRINX_LUNG_COUNT / COLONY_SYRINX_PHONATOR_COUNT));
+    selectedSources = sourceFallbacks.includes(requested)
+      ? [requested]
+      : sourceFallbacks.slice().sort((left, right) => Math.abs(left - requested) - Math.abs(right - requested)).slice(0, 1);
+  } else if (target.kind === "source") {
+    selectedSources = sourceFallbacks.includes(target.index)
+      ? [target.index]
+      : sourceFallbacks.slice().sort((left, right) => Math.abs(left - target.index) - Math.abs(right - target.index)).slice(0, 1);
+  }
+
+  const activeMouths = base.mouthEnabled
+    .map((enabled, index) => enabled ? index : -1)
+    .filter((index) => index >= 0);
+  let selectedMouths = target.kind === "mouth" && activeMouths.includes(target.index)
+    ? [target.index]
+    : [];
+  if (target.kind === "mouth") {
+    const connected = sourceFallbacks.filter((sourceIndex) => {
+      const routeIndex = sourceIndex * COLONY_SYRINX_MOUTH_COUNT + target.index;
+      return Math.max(
+        routeValue(base.routes, routeIndex),
+        routeValue(base.alternateRoutes, routeIndex),
+      ) > 0.02;
+    });
+    selectedSources = connected.length ? connected : sourceFallbacks.slice(0, 1);
+  } else {
+    const sourceIndex = selectedSources[0];
+    selectedMouths = activeMouths.filter((mouthIndex) => {
+      const routeIndex = sourceIndex * COLONY_SYRINX_MOUTH_COUNT + mouthIndex;
+      return Math.max(
+        routeValue(base.routes, routeIndex),
+        routeValue(base.alternateRoutes, routeIndex),
+      ) > 0.02;
+    });
+    if (!selectedMouths.length) {
+      selectedMouths = activeMouths.slice().sort((left, right) => {
+        const leftNode = graphNode("mouth", left);
+        const rightNode = graphNode("mouth", right);
+        return Math.abs((leftNode?.y ?? point.y) - point.y)
+          - Math.abs((rightNode?.y ?? point.y) - point.y);
+      }).slice(0, 1);
+    }
+  }
+
+  const sourceSet = new Set(selectedSources);
+  const mouthSet = new Set(selectedMouths);
+  const routes = Array.from({ length: COLONY_SYRINX_PHONATOR_COUNT }, () => (
+    Array(COLONY_SYRINX_MOUTH_COUNT).fill(0)
+  ));
+  const alternateRoutes = routes.map((row) => row.slice());
+  for (const route of COLONY_SYRINX_TOPOLOGY.routes) {
+    if (!base.phonatorEnabled[route.phonatorIndex] || !base.mouthEnabled[route.mouthIndex]) continue;
+    const focused = sourceSet.has(route.phonatorIndex) && mouthSet.has(route.mouthIndex);
+    const primary = routeValue(base.routes, route.index);
+    const alternate = routeValue(base.alternateRoutes, route.index);
+    routes[route.phonatorIndex][route.mouthIndex] = focused
+      ? Math.max(primary, 0.58 + intensity * 0.36)
+      : primary * 0.1;
+    alternateRoutes[route.phonatorIndex][route.mouthIndex] = focused
+      ? alternate * 0.45
+      : alternate * 0.06;
+  }
+  const banks = base.banks.map((bank, index) => sourceSet.has(index) ? {
+    ...bank,
+    drive: Math.max(bank.drive, 0.72 + intensity * 0.58),
+  } : { ...bank });
+  const mouths = base.mouths.map((mouth, index) => mouthSet.has(index) ? {
+    ...mouth,
+    opening: Math.max(mouth.opening, 0.42 + intensity * 0.42),
+    slewMs: Math.min(mouth.slewMs, 28),
+  } : { ...mouth });
+  return sanitizeColonySyrinxState({
+    ...base,
+    breath: Math.max(base.breath, 0.44 + intensity * 0.48),
+    pressureGain: Math.max(base.pressureGain, 0.76 + intensity * 0.82),
+    contourDurationSeconds: durationSeconds,
+    sequencerEnabled: true,
+    articulation,
+    banks,
+    mouths,
+    routes,
+    alternateRoutes,
+  }, base);
+}
+
+function clearSpatialAuditionFeedback() {
+  colonyBody?.classList.remove("is-spatial-auditioning");
+  colonyBody?.querySelectorAll(".is-spatial-auditioning").forEach((element) => {
+    element.classList.remove("is-spatial-auditioning");
+  });
+  spatialTriggerFeedback?.setAttribute("hidden", "");
+}
+
+function setSpatialAuditionFeedback(target, point) {
+  clearSpatialAuditionFeedback();
+  colonyBody?.classList.add("is-spatial-auditioning");
+  colonyBody?.querySelector(`[data-organ-id="${graphNodeId(target.kind, target.index)}"]`)
+    ?.classList.add("is-spatial-auditioning");
+  if (spatialTriggerFeedback && point) {
+    spatialTriggerFeedback.setAttribute(
+      "transform",
+      `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`,
+    );
+    // Restart the short wave even when several locations are tapped rapidly.
+    spatialTriggerFeedback.getBoundingClientRect();
+    spatialTriggerFeedback.removeAttribute("hidden");
+  }
+}
+
+function invalidateSpatialAuditionIntent() {
+  nextSpatialAuditionIntent += 1;
+}
+
+function abandonSpatialAudition({ invalidateIntent = true } = {}) {
+  if (invalidateIntent) invalidateSpatialAuditionIntent();
+  activeSpatialCall = null;
+  clearSpatialAuditionFeedback();
+}
+
+async function playSpatialAudition({ gesture = null, point, pointerType = "", pressure = 0 } = {}) {
+  const target = resolveSpatialAuditionTarget(gesture, point);
+  if (!target) return;
+  const intent = ++nextSpatialAuditionIntent;
+  const resumeContinuous = Boolean(
+    activeSpatialCall?.resumeContinuous || (transportPlaying && !callActive),
+  );
+  if (!(await ensureAudio()) || intent !== nextSpatialAuditionIntent) return;
+  const suppliedPressure = pointerType !== "mouse" && Number(pressure) > 0
+    ? clamp(pressure)
+    : null;
+  const intensity = suppliedPressure ?? clamp(0.48 + (1 - point.y / GRAPH_VIEWBOX.height) * 0.4);
+  const descriptor = spatialArticulationForTarget(target, point, intensity);
+  const configuration = spatialAuditionConfiguration(
+    target,
+    point,
+    intensity,
+    descriptor.articulation,
+    descriptor.durationSeconds,
+  );
+  const callToken = ++nextCallToken;
+  callActive = true;
+  transportPlaying = true;
+  activeCallId = null;
+  activeCallToken = callToken;
+  activeSpatialCall = {
+    ...descriptor,
+    target,
+    callToken,
+    resumeContinuous,
+  };
+  setSpatialAuditionFeedback(target, point);
+  setPlaybackPresentation();
+  syncBreathPresentation();
+  graph?.sourceNode?.port.postMessage({ type: "configure", configuration });
+  graph?.sourceNode?.port.postMessage({
+    type: "breath",
+    active: manualBreathingNow(),
+    value: configuration.breath,
+  });
+  graph?.sourceNode?.port.postMessage({
+    type: "call",
+    playing: true,
+    reset: !resumeContinuous,
+    durationSeconds: descriptor.durationSeconds,
+    callId: `spatial-${target.kind}-${target.index + 1}`,
+    callToken,
+    articulation: descriptor.articulation,
+  });
+  if ($("statusText")) $("statusText").textContent = `${descriptor.label} active.`;
+  announce(`${descriptor.label}; ${formatCallDuration(descriptor.durationSeconds)}`);
+}
+
 function updateGraphParameter(gesture, point) {
   const index = gesture.index;
   const node = graphNode(gesture.organKind, index);
@@ -741,6 +1146,66 @@ function routeDraftPath(sourceIndex, point) {
   return `M${start.x.toFixed(2)} ${start.y.toFixed(2)} C${(start.x + span).toFixed(2)} ${start.y.toFixed(2)} ${(point.x - span).toFixed(2)} ${point.y.toFixed(2)} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
 }
 
+function startGraphBreathGesture(gesture, point = gesture?.start) {
+  if (!gesture || gesture.kind !== "breath" || gesture.breathStarted || !point) return;
+  clearTimeout(gesture.breathTimer);
+  gesture.breathTimer = 0;
+  gesture.breathStarted = true;
+  gesture.breathValue = clamp(1 - point.y / GRAPH_VIEWBOX.height);
+  void beginBreath(
+    gesture.breathValue,
+    () => graphGesture === gesture && gesture.breathStarted,
+  );
+}
+
+function showDragSoundFeedback(gesture, point) {
+  if (!dragSoundFeedback || !point) return;
+  const projected = stateFromControls();
+  const percentValue = (value, maximum = 1) => `${Math.round(clamp(value / maximum) * 100)}%`;
+  let feedback = "POSITION → SOUND";
+  if (gesture?.kind === "route-draw") {
+    feedback = "PATCH PREVIEW · RELEASE ON A MOUTH";
+  } else if (gesture?.kind === "route-aperture") {
+    const matrix = gesture.routeKind === "alternate"
+      ? projected.alternateRoutes
+      : projected.routes;
+    feedback = `ROUTE OPEN ${percentValue(routeValue(matrix, gesture.index))} → SOUND`;
+  } else if (gesture?.organKind === "lung") {
+    const bank = projected.banks[Math.floor(gesture.index / 4)];
+    feedback = `DRIVE ${percentValue(bank?.drive, 1.5)} · LOAD ${percentValue(bank?.compliance, 2.5)} → SOUND`;
+  } else if (gesture?.organKind === "source") {
+    const source = projected.phonators[gesture.index];
+    feedback = `PITCH ${Math.round(source?.frequencyHz ?? 0)} HZ · TENSION ${percentValue(source?.tension)} → SOUND`;
+  } else if (gesture?.kind === "mouth-tongue") {
+    const mouth = projected.mouths[gesture.index];
+    feedback = `TONGUE ${percentValue(mouth?.tonguePosition)} · SIZE ${percentValue(mouth?.tongueSize)} → SOUND`;
+  } else if (gesture?.organKind === "mouth") {
+    const mouth = projected.mouths[gesture.index];
+    feedback = `RESONANCE ${Math.round(mouth?.resonanceHz ?? 0)} HZ · OPEN ${percentValue(mouth?.opening)} → SOUND`;
+  }
+  dragSoundFeedback.setAttribute("transform", `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`);
+  const label = dragSoundFeedback.querySelector("text");
+  if (label) label.textContent = feedback;
+  dragSoundFeedback.removeAttribute("hidden");
+}
+
+function startGraphDragAudition(gesture, point, startedMoving) {
+  if (
+    !startedMoving
+    || transportPlaying
+    || callActive
+    || gesture.dragAuditionStarted
+    || gesture.kind === "route-draw"
+  ) return;
+  gesture.dragAuditionStarted = true;
+  void playSpatialAudition({
+    gesture,
+    point,
+    pointerType: gesture.pointerType,
+    pressure: gesture.pressure,
+  });
+}
+
 function beginGraphGesture(event) {
   if (!colonyBody || event.button !== 0) return;
   const target = event.target instanceof Element ? event.target : null;
@@ -750,7 +1215,7 @@ function beginGraphGesture(event) {
   const sourcePort = target.closest(".source-port[data-source-index]");
   const parameter = target.closest("[data-graph-parameter]");
   const nodeElement = target.closest(".graph-node[data-organ-id]");
-  const background = target.closest("[data-graph-background]");
+  const background = target.closest("[data-spatial-background], [data-graph-background]");
   let gesture = null;
 
   if (routeHit) {
@@ -767,11 +1232,14 @@ function beginGraphGesture(event) {
     gesture = {
       kind: "route-aperture",
       index,
+      organKind: "source",
+      organIndex: phonatorIndex,
       routeKind: kind,
       start: point,
       startAperture: routeValue(matrix, index),
       perpendicular: { x: -dy / length, y: dx / length },
       moved: false,
+      dragAuditionStarted: false,
     };
   } else if (sourcePort) {
     gesture = {
@@ -787,46 +1255,94 @@ function beginGraphGesture(event) {
   } else if (parameter) {
     const kind = parameter.dataset.graphParameter;
     if (kind === "lung-shape") {
-      gesture = { kind, organKind: "lung", index: Number(parameter.dataset.lungIndex), start: point };
+      gesture = { kind, organKind: "lung", index: Number(parameter.dataset.lungIndex), start: point, moved: false, dragAuditionStarted: false };
     } else if (kind === "fold-shape") {
-      gesture = { kind, organKind: "source", index: Number(parameter.dataset.sourceIndex), start: point };
+      gesture = { kind, organKind: "source", index: Number(parameter.dataset.sourceIndex), start: point, moved: false, dragAuditionStarted: false };
     } else if (kind === "mouth-jaw" || kind === "mouth-tongue") {
-      gesture = { kind, organKind: "mouth", index: Number(parameter.dataset.mouthIndex), start: point };
+      gesture = { kind, organKind: "mouth", index: Number(parameter.dataset.mouthIndex), start: point, moved: false, dragAuditionStarted: false };
     }
+    if (gesture) nodeElement?.classList.add("is-graph-dragging");
   } else if (nodeElement) {
+    const organKind = nodeElement.dataset.organKind;
+    const index = Number(nodeElement.dataset.organIndex);
+    const node = graphNode(organKind, index);
     gesture = {
       kind: "move-node",
       id: nodeElement.dataset.organId,
-      organKind: nodeElement.dataset.organKind,
-      index: Number(nodeElement.dataset.organIndex),
+      organKind,
+      index,
       start: point,
+      grabOffset: node ? { x: point.x - node.x, y: point.y - node.y } : { x: 0, y: 0 },
       moved: false,
+      dragAuditionStarted: false,
     };
     nodeElement.classList.add("is-graph-dragging");
   } else if (background) {
-    gesture = { kind: "breath", start: point, moved: false };
-    const amount = clamp(1 - point.y / GRAPH_VIEWBOX.height);
-    beginBreath(amount, () => graphGesture?.kind === "breath");
+    gesture = {
+      kind: "breath",
+      start: point,
+      lastPoint: point,
+      moved: false,
+      breathStarted: false,
+      breathTimer: 0,
+    };
   }
   if (!gesture) return;
   event.preventDefault();
   event.stopPropagation();
-  graphGesture = { ...gesture, pointerId: event.pointerId, target };
+  graphGesture = {
+    ...gesture,
+    pointerId: event.pointerId,
+    pointerType: event.pointerType,
+    pressure: Number(event.pressure) || 0,
+    screenStart: { x: event.clientX, y: event.clientY },
+    target,
+  };
   colonyBody.setPointerCapture?.(event.pointerId);
+  if (graphGesture.kind === "breath") {
+    const heldGesture = graphGesture;
+    heldGesture.breathTimer = setTimeout(() => {
+      if (graphGesture === heldGesture) {
+        startGraphBreathGesture(heldGesture, heldGesture.lastPoint);
+      }
+    }, GRAPH_BODY_HOLD_MS);
+  }
 }
 
 function moveGraphGesture(event) {
   if (!graphGesture || event.pointerId !== graphGesture.pointerId) return;
   const point = svgPointFromEvent(event);
-  const distance = Math.hypot(point.x - graphGesture.start.x, point.y - graphGesture.start.y);
-  graphGesture.moved ||= distance > 5;
+  graphGesture.lastPoint = point;
+  graphGesture.pressure = Math.max(graphGesture.pressure, Number(event.pressure) || 0);
+  const screenDistance = Math.hypot(
+    event.clientX - graphGesture.screenStart.x,
+    event.clientY - graphGesture.screenStart.y,
+  );
+  const tapDistance = graphGesture.pointerType === "touch"
+    ? GRAPH_TOUCH_TAP_DISTANCE_PX
+    : GRAPH_TAP_DISTANCE_PX;
+  const startedMoving = !graphGesture.moved && screenDistance > tapDistance;
+  graphGesture.moved ||= startedMoving;
   if (graphGesture.kind === "move-node") {
-    graphLayout = moveColonySyrinxGraphNode(graphLayout, graphGesture.id, point);
-    renderGraphLayout();
+    if (graphGesture.moved) {
+      const target = {
+        x: point.x - graphGesture.grabOffset.x,
+        y: point.y - graphGesture.grabOffset.y,
+      };
+      graphLayout = moveColonySyrinxGraphNode(graphLayout, graphGesture.id, target);
+      graphLayoutChanged();
+      showDragSoundFeedback(graphGesture, graphLayout.nodes[graphGesture.id] ?? target);
+      startGraphDragAudition(graphGesture, target, startedMoving);
+    }
   } else if (["lung-shape", "fold-shape", "mouth-jaw", "mouth-tongue"].includes(graphGesture.kind)) {
-    updateGraphParameter(graphGesture, point);
+    if (graphGesture.moved) {
+      updateGraphParameter(graphGesture, point);
+      showDragSoundFeedback(graphGesture, point);
+      startGraphDragAudition(graphGesture, point, startedMoving);
+    }
   } else if (graphGesture.kind === "route-draw") {
     routeDraft?.setAttribute("d", routeDraftPath(graphGesture.index, point));
+    if (graphGesture.moved) showDragSoundFeedback(graphGesture, point);
     mouthVessels.forEach((mouth, index) => {
       const node = graphNode("mouth", index);
       mouth?.classList.toggle(
@@ -835,13 +1351,21 @@ function moveGraphGesture(event) {
       );
     });
   } else if (graphGesture.kind === "route-aperture") {
-    const deltaX = point.x - graphGesture.start.x;
-    const deltaY = point.y - graphGesture.start.y;
-    const delta = deltaX * graphGesture.perpendicular.x + deltaY * graphGesture.perpendicular.y;
-    const aperture = clamp(graphGesture.startAperture - delta / 115);
-    setManualRoute(graphGesture.index, aperture, graphGesture.routeKind);
+    if (graphGesture.moved) {
+      const deltaX = point.x - graphGesture.start.x;
+      const deltaY = point.y - graphGesture.start.y;
+      const delta = deltaX * graphGesture.perpendicular.x + deltaY * graphGesture.perpendicular.y;
+      const aperture = clamp(graphGesture.startAperture - delta / 115);
+      setManualRoute(graphGesture.index, aperture, graphGesture.routeKind);
+      showDragSoundFeedback(graphGesture, point);
+      startGraphDragAudition(graphGesture, point, startedMoving);
+    }
   } else if (graphGesture.kind === "breath") {
-    setBreath(true, clamp(1 - point.y / GRAPH_VIEWBOX.height));
+    if (graphGesture.moved) startGraphBreathGesture(graphGesture, point);
+    if (graphGesture.breathStarted) {
+      graphGesture.breathValue = clamp(1 - point.y / GRAPH_VIEWBOX.height);
+      setBreath(true, graphGesture.breathValue);
+    }
   }
   event.preventDefault();
 }
@@ -860,12 +1384,16 @@ function nearestMouthForPoint(point) {
 
 function cancelGraphGesture({ releaseBreath = true } = {}) {
   if (!graphGesture) return;
+  clearTimeout(graphGesture.breathTimer);
   graphGesture.target?.closest?.(".graph-node")?.classList.remove("is-graph-dragging");
   mouthVessels.forEach((mouth) => mouth?.classList.remove("is-route-target"));
   colonyBody?.classList.remove("is-routing");
   routeDraft?.setAttribute("hidden", "");
   routeDraft?.setAttribute("d", "");
-  if (releaseBreath && graphGesture.kind === "breath") setBreath(false);
+  dragSoundFeedback?.setAttribute("hidden", "");
+  if (releaseBreath && graphGesture.kind === "breath" && graphGesture.breathStarted) {
+    setBreath(false);
+  }
   graphGesture = null;
 }
 
@@ -873,6 +1401,7 @@ function endGraphGesture(event) {
   if (!graphGesture || event.pointerId !== graphGesture.pointerId) return;
   const gesture = graphGesture;
   const point = svgPointFromEvent(event);
+  let spatialAudition = null;
   if (gesture.kind === "route-draw") {
     const mouthIndex = nearestMouthForPoint(point);
     if (mouthIndex >= 0) {
@@ -893,12 +1422,27 @@ function endGraphGesture(event) {
     setManualRoute(gesture.index, routeValue(matrix, gesture.index) > 0.02 ? 0 : 1, gesture.routeKind);
   } else if (gesture.kind === "move-node" && gesture.moved) {
     announce(`${gesture.organKind} ${gesture.index + 1} moved`);
+  } else if (gesture.kind === "move-node") {
+    spatialAudition = {
+      gesture,
+      point,
+      pointerType: gesture.pointerType,
+      pressure: Math.max(gesture.pressure, Number(event.pressure) || 0),
+    };
+  } else if (gesture.kind === "breath" && !gesture.moved && !gesture.breathStarted) {
+    spatialAudition = {
+      gesture,
+      point,
+      pointerType: gesture.pointerType,
+      pressure: Math.max(gesture.pressure, Number(event.pressure) || 0),
+    };
   } else if (["lung-shape", "fold-shape", "mouth-jaw", "mouth-tongue"].includes(gesture.kind)) {
     syncControlsFromState();
     announce("Organ shape updated");
   }
   cancelGraphGesture();
   event.preventDefault();
+  if (spatialAudition) void playSpatialAudition(spatialAudition);
 }
 
 function moveFocusedGraphNode(element, key, amount) {
@@ -916,7 +1460,7 @@ function moveFocusedGraphNode(element, key, amount) {
     x: node.x + delta.x,
     y: node.y + delta.y,
   });
-  renderGraphLayout();
+  graphLayoutChanged();
   announce(`${element.dataset.organKind} ${Number(element.dataset.organIndex) + 1} moved`);
 }
 
@@ -967,23 +1511,10 @@ function applyAnatomyPresentation() {
   renderGraphLayout();
 }
 
-function updateMediumPresentation() {
-  const value = $("mediumSelect")?.value ?? "air";
-  const material = value === "air" ? "AIR" : value === "hydraulic" ? "WATER" : "PELLETS";
-  if ($("engineStatus")) $("engineStatus").textContent = material;
-  if ($("engineTitle")) {
-    $("engineTitle").textContent = `MULTI-SOURCE VOCAL NETWORK / ${material}`;
-  }
-}
-
 function syncControlsFromState() {
-  const mediumControl = $("mediumSelect");
-  if (mediumControl) {
-    mediumControl.value = state.mediumId === "water"
-      ? "hydraulic"
-      : state.mediumId === "pellets" ? "granular" : "air";
-  }
-  updateMediumPresentation();
+  graphMotionEnabled = Boolean(state.organMotionEnabled);
+  $("graphMotionButton")?.setAttribute("aria-pressed", String(graphMotionEnabled));
+  colonyBody?.classList.toggle("graph-motion-off", !graphMotionEnabled);
   setRangeControl("level", state.level, percent);
   if ($("performanceMode")) {
     $("performanceMode").value = state.colonyAmount > 0.58
@@ -1028,6 +1559,39 @@ function syncControlsFromState() {
   if ($("clockReadout")) $("clockReadout").textContent = `${state.contourDurationSeconds.toFixed(1)} S`;
   applyAnatomyPresentation();
   renderAllContours();
+  updatePresetTextOutput();
+}
+
+function updatePresetTextOutput() {
+  const output = $("presetTextOutput");
+  if (!output) return;
+  const text = formatColonySyrinxPreset(state);
+  if (text === presetTextCache && output.value === text) return;
+  presetTextCache = text;
+  output.value = text;
+  if ($("presetCopyState")) $("presetCopyState").textContent = "CURRENT";
+  const label = $("copyPresetButton")?.querySelector("b");
+  if (label) label.textContent = "Copy preset text";
+}
+
+async function copyPresetText() {
+  updatePresetTextOutput();
+  const output = $("presetTextOutput");
+  if (!output?.value) return;
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(output.value);
+    copied = true;
+  } catch {
+    output.focus();
+    output.select();
+    copied = Boolean(document.execCommand?.("copy"));
+    output.setSelectionRange(0, 0);
+  }
+  if ($("presetCopyState")) $("presetCopyState").textContent = copied ? "COPIED" : "SELECT TEXT";
+  const label = $("copyPresetButton")?.querySelector("b");
+  if (label) label.textContent = copied ? "Preset text copied" : "Select and copy preset text";
+  announce(copied ? "Complete Monstrozoid preset copied" : "Select the preset text and copy it manually");
 }
 
 function generateRouteMaps(requestedCount) {
@@ -1119,6 +1683,7 @@ function setContourCount(count) {
 }
 
 function mutateCreature(scope) {
+  invalidateSpatialAuditionIntent();
   const nextSeed = (state.seed + 0x9e3779b9) >>> 0;
   state = randomizeColonySyrinxState(state, { scope, seed: nextSeed });
   state = sanitizeColonySyrinxState({
@@ -1131,8 +1696,9 @@ function mutateCreature(scope) {
     })),
   }, state);
   if (scope === "anatomy" || scope === "all") {
-    anatomyShapeSeed = state.seed;
-    rebuildGraphLayout(anatomyShapeSeed);
+    // Use the positions produced by the sound-state randomizer itself. This
+    // keeps Randomize All, the rendered anatomy, and copied preset text exact.
+    hydrateGraphLayoutFromState();
   }
   if (scope === "motion" || scope === "all") {
     const count = 1 + Math.floor(seededUnit(0, 0xc017) * COLONY_SYRINX_LANE_COUNT);
@@ -1161,15 +1727,48 @@ function markStateCustom() {
   updateCallPresentation();
 }
 
+function callDisplayLabel(recipe) {
+  return String(recipe?.label ?? recipe?.id ?? "Call")
+    .replace(/^(?:air|water|pellets)\s*\/\s*/iu, "")
+    .trim();
+}
+
+function callOptionLabel(recipe) {
+  return callDisplayLabel(recipe);
+}
+
+function formatCallDuration(seconds) {
+  const value = Number(seconds);
+  return `${Number(value.toFixed(2))} s`;
+}
+
 function updateCallPresentation() {
   const recipe = selectedCallRecipe();
-  document.querySelectorAll("[data-call-id]").forEach((button) => {
-    const selected = button.dataset.callId === selectedCallId;
-    button.setAttribute("aria-pressed", String(selected));
-    button.classList.toggle("is-playing", button.dataset.callId === activeCallId && callActive);
-  });
+  const activeRecipe = activeCallRecipe();
+  const activeDescriptor = activeSpatialCall ?? activeRecipe;
+  const select = $("callPresetSelect");
+  if (select) select.value = recipe?.id ?? "";
+  const trigger = $("playCallButton");
+  if (trigger) {
+    trigger.disabled = !recipe;
+    trigger.classList.toggle("is-playing", callActive);
+    trigger.setAttribute(
+      "aria-label",
+      callActive && activeDescriptor
+        ? `${callDisplayLabel(activeDescriptor)} active`
+        : recipe ? `Replay ${callDisplayLabel(recipe)}` : "Select a call preset first",
+    );
+  }
+  if ($("playCallLabel")) $("playCallLabel").textContent = callActive ? "Call active" : "Replay";
+  if ($("playCallDetail")) {
+    $("playCallDetail").textContent = (activeDescriptor ?? recipe)
+      ? formatCallDuration((activeDescriptor ?? recipe).durationSeconds)
+      : "select preset";
+  }
+  if ($("callPresetState")) {
+    $("callPresetState").textContent = callActive ? "ACTIVE" : recipe ? "READY" : "CUSTOM";
+  }
   if ($("selectedCallReadout")) {
-    const activeRecipe = activeCallRecipe();
     const counts = recipe?.counts ?? {
       lungs: state.lungEnabled.filter(Boolean).length,
       phonators: state.phonatorEnabled.filter(Boolean).length,
@@ -1180,34 +1779,58 @@ function updateCallPresentation() {
       routes: activeRouteIndices().length,
     };
     const durationSeconds = recipe?.durationSeconds
-      ?? activeRecipe?.durationSeconds
+      ?? activeDescriptor?.durationSeconds
       ?? state.contourDurationSeconds;
-    $("selectedCallReadout").textContent = `${recipe?.label ?? "Custom settings"} · ${durationSeconds.toFixed(1)} s · ${counts.lungs} lungs · ${counts.phonators} sources · ${counts.folds} folds · ${counts.mouths} mouths · ${counts.routes} routes`;
+    $("selectedCallReadout").textContent = `${recipe ? callDisplayLabel(recipe) : "Custom settings"} · ${formatCallDuration(durationSeconds)} · ${counts.lungs} lungs · ${counts.phonators} sources · ${counts.folds} folds · ${counts.mouths} mouths · ${counts.routes} routes`;
   }
 }
 
-function buildCallBank() {
-  const bank = $("callBank");
-  if (!bank) return;
-  bank.replaceChildren();
+function buildCallMenu() {
+  const select = $("callPresetSelect");
+  if (!select) return;
+  select.replaceChildren();
+  const custom = document.createElement("option");
+  custom.value = "";
+  custom.textContent = "Custom settings";
+  custom.disabled = true;
+  select.append(custom);
   for (const recipe of COLONY_SYRINX_CALLS) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "call-preset-button";
-    button.dataset.callId = recipe.id;
-    const pieces = recipe.label.split(" / ");
-    const material = document.createElement("span");
-    material.textContent = pieces.shift() ?? recipe.mediumId;
-    const label = document.createElement("b");
-    label.textContent = pieces.join(" / ");
-    const detail = document.createElement("small");
-    detail.textContent = `${recipe.durationSeconds.toFixed(1)} s · ${recipe.counts.lungs} lungs · ${recipe.counts.phonators} sources · ${recipe.counts.folds} folds · ${recipe.counts.mouths} mouths · ${recipe.counts.routes} routes`;
-    button.setAttribute("aria-label", `${recipe.label}; ${detail.textContent}`);
-    button.append(material, label, detail);
-    button.addEventListener("click", () => playShortCall(recipe.id));
-    bank.append(button);
+    const option = document.createElement("option");
+    option.value = recipe.id;
+    option.dataset.callId = recipe.id;
+    option.textContent = `${callOptionLabel(recipe)} · ${formatCallDuration(recipe.durationSeconds)}`;
+    select.append(option);
   }
   updateCallPresentation();
+}
+
+function selectShortCall(id) {
+  const recipe = COLONY_SYRINX_CALLS.find((candidate) => candidate.id === id);
+  if (!recipe) {
+    updateCallPresentation();
+    return;
+  }
+  invalidateSpatialAuditionIntent();
+  if (callActive) {
+    callActive = false;
+    transportPlaying = false;
+    activeCallId = null;
+    activeCallToken = null;
+    graph?.sourceNode?.port.postMessage({ type: "call", playing: false });
+  }
+  abandonSpatialAudition({ invalidateIntent: false });
+  selectedCallId = recipe.id;
+  state = createColonySyrinxCallState(recipe.id);
+  hydrateGraphLayoutFromState();
+  heldRoutes.clear();
+  deferredRouteReleases.clear();
+  syncControlsFromState();
+  setPlaybackPresentation();
+  postConfiguration();
+  syncBreathPresentation();
+  postBreath();
+  if ($("statusText")) $("statusText").textContent = "Call preset loaded.";
+  announce(`${callDisplayLabel(recipe)} selected`);
 }
 
 function setPlaybackPresentation() {
@@ -1215,7 +1838,7 @@ function setPlaybackPresentation() {
   button?.setAttribute("aria-pressed", String(transportPlaying && !callActive));
   button?.classList.toggle("is-playing", transportPlaying && !callActive);
   if ($("playState")) $("playState").textContent = callActive
-    ? "short call active"
+    ? "call active"
     : transportPlaying ? "continuous modulation active" : "continuous modulation paused";
   $("colonySyrinx")?.classList.toggle("is-running", transportPlaying);
   updateCallPresentation();
@@ -1224,26 +1847,43 @@ function setPlaybackPresentation() {
 function finishShortCall({ announceState = true, callToken = null } = {}) {
   if (activeCallToken != null && callToken !== activeCallToken) return;
   if (!callActive) return;
+  const spatialCall = activeSpatialCall?.callToken === activeCallToken
+    ? activeSpatialCall
+    : null;
   callActive = false;
-  transportPlaying = false;
+  transportPlaying = Boolean(spatialCall?.resumeContinuous);
   activeCallId = null;
   activeCallToken = null;
+  activeSpatialCall = null;
+  clearSpatialAuditionFeedback();
+  if (spatialCall) {
+    postConfiguration();
+    if (transportPlaying) {
+      graph?.sourceNode?.port.postMessage({
+        type: "transport",
+        playing: true,
+        reset: false,
+      });
+    }
+  }
   setPlaybackPresentation();
   syncBreathPresentation();
   postBreath();
-  if ($("statusText")) $("statusText").textContent = "Short call complete.";
-  if (announceState) announce("Short call complete");
+  if ($("statusText")) $("statusText").textContent = transportPlaying
+    ? "Continuous flow active."
+    : spatialCall ? "Spatial audition complete." : "Call complete.";
+  if (announceState) announce(
+    transportPlaying
+      ? "Spatial audition complete; continuous flow resumed"
+      : spatialCall ? "Spatial audition complete" : "Call complete",
+  );
 }
 
 async function playShortCall(id) {
   const recipe = COLONY_SYRINX_CALLS.find((candidate) => candidate.id === id);
+  invalidateSpatialAuditionIntent();
   if (!recipe || !(await ensureAudio())) return;
-  selectedCallId = recipe.id;
-  state = createColonySyrinxCallState(recipe.id);
-  anatomyShapeSeed = state.seed;
-  rebuildGraphLayout(anatomyShapeSeed);
-  heldRoutes.clear();
-  deferredRouteReleases.clear();
+  selectShortCall(recipe.id);
   callActive = true;
   transportPlaying = true;
   activeCallId = recipe.id;
@@ -1260,9 +1900,22 @@ async function playShortCall(id) {
     durationSeconds: recipe.durationSeconds,
     callId: recipe.id,
     callToken: activeCallToken,
+    articulation: recipe.articulation,
   });
-  if ($("statusText")) $("statusText").textContent = "Short call active.";
-  announce(`${recipe.label}; ${recipe.durationSeconds.toFixed(1)} seconds`);
+  if ($("statusText")) $("statusText").textContent = "Call active.";
+  announce(`${callDisplayLabel(recipe)}; ${formatCallDuration(recipe.durationSeconds)}`);
+}
+
+function stepCallPreset(direction = 1) {
+  if (!COLONY_SYRINX_CALLS.length) return;
+  const currentIndex = COLONY_SYRINX_CALLS.findIndex(({ id }) => id === selectedCallId);
+  const fallbackIndex = direction >= 0 ? -1 : 0;
+  const nextIndex = (
+    (currentIndex >= 0 ? currentIndex : fallbackIndex)
+      + (direction >= 0 ? 1 : -1)
+      + COLONY_SYRINX_CALLS.length
+  ) % COLONY_SYRINX_CALLS.length;
+  void playShortCall(COLONY_SYRINX_CALLS[nextIndex].id);
 }
 
 function contourPathData(contour) {
@@ -1557,6 +2210,7 @@ function setAudioPresentation(on, detail = "") {
 }
 
 function postConfiguration() {
+  updatePresetTextOutput();
   graph?.sourceNode?.port.postMessage({
     type: "configure",
     configuration: stateFromControls(),
@@ -1576,7 +2230,7 @@ function syncBreathPresentation() {
   $("colonySyrinx")?.classList.toggle("is-breathing", breathing);
   if ($("breathReadout")) $("breathReadout").textContent = breathing
     ? transportPlaying && !manualBreathingNow()
-      ? callActive ? "short call pressure" : "automatic pressure"
+      ? callActive ? "call pressure" : "automatic pressure"
       : "manual pressure"
     : "resting";
 }
@@ -1629,26 +2283,41 @@ async function createAudioGraph() {
     else if (data?.type === "call-ended") finishShortCall({ callToken: data.callToken });
   };
   sourceNode.onprocessorerror = () => {
-    setAudioPresentation(false, "The pressure network stopped unexpectedly. Reload to reset it.");
+    setAudioPresentation(false, "The sound engine stopped unexpectedly. Reload to reset it.");
   };
   return { context, sourceNode, masterGain, compressor, analyser, releaseOutput };
 }
 
 async function ensureAudio() {
-  if (audioStarting) return false;
   if (!graph) {
-    audioStarting = true;
-    setAudioPresentation(false);
-    try {
-      graph = await createAudioGraph();
-      audioContext = graph.context;
-    } catch (error) {
-      console.error(error);
+    if (!audioStartPromise) {
+      audioStarting = true;
+      setAudioPresentation(false);
+      audioStartPromise = (async () => {
+        try {
+          const createdGraph = await createAudioGraph();
+          graph = createdGraph;
+          audioContext = createdGraph.context;
+          return { ready: true, error: null };
+        } catch (error) {
+          console.error(error);
+          return { ready: false, error };
+        }
+      })();
+    }
+    const startup = audioStartPromise;
+    const result = await startup;
+    if (audioStartPromise === startup) {
+      audioStartPromise = null;
       audioStarting = false;
-      setAudioPresentation(false, error?.message || "Unable to start Colony Syrinx audio.");
+    }
+    if (!result.ready || !graph) {
+      setAudioPresentation(
+        false,
+        result.error?.message || "Unable to start Monstrozoid audio.",
+      );
       return false;
     }
-    audioStarting = false;
   }
   try {
     unlockAudioContext(audioContext);
@@ -1660,8 +2329,8 @@ async function ensureAudio() {
     }
     setAudioPresentation(true);
     if ($("statusText")) $("statusText").textContent = transportPlaying
-      ? callActive ? "Short call active." : "Continuous flow active."
-      : "Audio on. Select a short call, start continuous flow, or add manual pressure.";
+      ? callActive ? "Call active." : "Continuous flow active."
+      : "Audio on. Choose a call, start continuous flow, or add manual pressure.";
     return true;
   } catch (error) {
     console.error(error);
@@ -1671,6 +2340,7 @@ async function ensureAudio() {
 }
 
 async function toggleAudio() {
+  invalidateSpatialAuditionIntent();
   if (audioContext?.state === "running") {
     if (transportPlaying) setTransport(false);
     setBreath(false);
@@ -1678,15 +2348,16 @@ async function toggleAudio() {
     await audioContext.suspend();
     setAudioPresentation(false);
     if ($("statusText")) $("statusText").textContent = "Audio off. Controls remain editable.";
-    announce("Colony Syrinx audio off");
+    announce("Monstrozoid audio off");
     return;
   }
   if (await ensureAudio()) {
-    announce("Colony Syrinx audio on");
+    announce("Monstrozoid audio on");
   }
 }
 
 function setTransport(playing, { reset = false } = {}) {
+  abandonSpatialAudition();
   callActive = false;
   activeCallId = null;
   activeCallToken = null;
@@ -1819,6 +2490,7 @@ function queueRouteStart(index, velocity, owner) {
 }
 
 function panic({ announceState = true } = {}) {
+  abandonSpatialAudition();
   if (transportPlaying) setTransport(false);
   heldRoutes.clear();
   deferredRouteReleases.clear();
@@ -1933,8 +2605,11 @@ function isTypingTarget(target) {
 }
 
 function handleKeyDown(event) {
-  if (event.defaultPrevented || event.repeat || isTypingTarget(event.target)) return;
+  if (event.defaultPrevented || event.repeat) return;
   const key = event.key.toLowerCase();
+  const callMenuArrow = event.target === $("callPresetSelect")
+    && (key === "arrowright" || key === "arrowleft");
+  if (isTypingTarget(event.target) && !callMenuArrow) return;
   if (key === "escape" && graphGesture) {
     event.preventDefault();
     cancelGraphGesture();
@@ -1942,6 +2617,11 @@ function handleKeyDown(event) {
     return;
   }
   if (event.target instanceof Element && event.target.closest(".graph-node, .vessel-route, .graph-tools")) return;
+  if (key === "arrowright" || key === "arrowleft") {
+    event.preventDefault();
+    stepCallPreset(key === "arrowright" ? 1 : -1);
+    return;
+  }
   if (key === "b") {
     event.preventDefault();
     breathKeyHeld = true;
@@ -2100,6 +2780,22 @@ function handleGraphKeyDown(event) {
   }
   const node = target.closest(".graph-node[data-organ-kind]");
   if (!node || parameter) return;
+  if (event.key.toLowerCase() === "a") {
+    event.preventDefault();
+    event.stopPropagation();
+    const organKind = node.dataset.organKind;
+    const index = Number(node.dataset.organIndex);
+    const position = graphNode(organKind, index);
+    if (position) {
+      void playSpatialAudition({
+        gesture: { organKind, index },
+        point: { x: position.x, y: position.y },
+        pointerType: "keyboard",
+        pressure: 0.72,
+      });
+    }
+    return;
+  }
   if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
     event.preventDefault();
     event.stopPropagation();
@@ -2117,19 +2813,33 @@ function handleGraphKeyDown(event) {
 
 function bindControls() {
   $("audioButton")?.addEventListener("click", toggleAudio);
+  $("callPresetSelect")?.addEventListener("change", (event) => {
+    void playShortCall(event.currentTarget.value);
+  });
+  $("playCallButton")?.addEventListener("click", () => {
+    if (selectedCallId) playShortCall(selectedCallId);
+  });
+  $("copyPresetButton")?.addEventListener("click", copyPresetText);
   $("playButton")?.addEventListener("click", toggleTransport);
   $("panicButton")?.addEventListener("click", () => panic());
-  $("randomizeGraphButton")?.addEventListener("click", () => mutateCreature("all"));
   $("scatterGraphButton")?.addEventListener("click", scatterGraphLayout);
   $("resetGraphButton")?.addEventListener("click", () => {
     rebuildGraphLayout(anatomyShapeSeed);
+    markStateCustom();
+    scheduleGraphConfiguration();
     announce("Organ arrangement reset");
   });
   $("graphMotionButton")?.addEventListener("click", () => {
     graphMotionEnabled = !graphMotionEnabled;
+    state = sanitizeColonySyrinxState({
+      ...state,
+      organMotionEnabled: graphMotionEnabled,
+    }, state);
     $("graphMotionButton")?.setAttribute("aria-pressed", String(graphMotionEnabled));
     colonyBody?.classList.toggle("graph-motion-off", !graphMotionEnabled);
     renderGraphLayout();
+    postConfiguration();
+    markStateCustom();
     announce(`Live organ motion ${graphMotionEnabled ? "enabled" : "disabled"}`);
   });
   colonyBody?.addEventListener("pointerdown", beginGraphGesture);
@@ -2304,17 +3014,6 @@ function bindControls() {
     if (Math.round(value) !== actual) setContourCount(value);
   });
 
-  $("mediumSelect")?.addEventListener("change", () => {
-    const value = $("mediumSelect").value;
-    state = sanitizeColonySyrinxState({
-      ...state,
-      mediumId: value === "hydraulic" ? "water" : value === "granular" ? "pellets" : "air",
-    }, state);
-    markStateCustom();
-    updateMediumPresentation();
-    postConfiguration();
-    announce(`${$("mediumSelect").selectedOptions[0]?.textContent ?? value} loaded`);
-  });
   $("performanceMode")?.addEventListener("change", () => {
     const mode = $("performanceMode").value;
     state = sanitizeColonySyrinxState({
@@ -2389,7 +3088,6 @@ function renderTelemetry() {
   const mouths = mouthPressures.map(normalizePressure);
   const bankLevels = safeVector(telemetry.bankLevels ?? telemetry.exhales, 4);
   const contourPhase = wrapUnit(telemetry.contourPhase ?? 0);
-  const callProgress = clamp(telemetry.callProgress ?? 0);
   const contourValues = safeVector(telemetry.contourValues, COLONY_SYRINX_LANE_COUNT);
   const lanePhases = safeVector(telemetry.lanePhases, COLONY_SYRINX_LANE_COUNT);
   if (transportPlaying && !manualBreathingNow() && $("breathReadout")) {
@@ -2484,10 +3182,6 @@ function renderTelemetry() {
     lane.style.setProperty("--contour-value", String(contourValues[index]));
     lane.querySelector(".contour-playhead")?.style.setProperty("--playhead-x", `${phase * 100}%`);
   });
-  const activeCallButton = activeCallId
-    ? document.querySelector(`[data-call-id="${activeCallId}"]`)
-    : null;
-  activeCallButton?.style.setProperty("--call-progress", String(callActive ? callProgress : 0));
   const pressureKpa = meanPressure * 10;
   if ($("lungPressureReadout")) $("lungPressureReadout").textContent = `${pressureKpa.toFixed(1)} kPa`;
   if ($("manifoldReadout")) $("manifoldReadout").textContent = `${pressureKpa.toFixed(1)} kPa`;
@@ -2516,6 +3210,7 @@ function renderTelemetry() {
       foldDisplacements,
       mouths: mouthFlows.map(normalizeFlow),
       mouthApertures,
+      contourValues,
       bankLevels,
     });
   }
@@ -2527,18 +3222,24 @@ function renderTelemetry() {
 function cleanup() {
   cancelAnimationFrame(animationFrame);
   cancelAnimationFrame(graphConfigurationFrame);
+  cancelGraphGesture();
+  abandonSpatialAudition();
   globalThis.removeEventListener("keydown", handleKeyDown);
   globalThis.removeEventListener("keyup", handleKeyUp);
   globalThis.removeEventListener("morphazoid:midi-input", handleMidiInput);
+  compactLayoutQuery?.removeEventListener?.("change", placePrimaryControls);
   graph?.sourceNode?.port.postMessage({ type: "panic" });
   graph?.sourceNode?.disconnect();
   graph?.releaseOutput?.();
   audioContext?.close();
 }
 
-buildCallBank();
+buildCallMenu();
 buildContourEditor();
 buildAnatomyGraph();
+placePrimaryControls();
+compactLayoutQuery?.addEventListener?.("change", placePrimaryControls);
+colonyBody?.classList.toggle("graph-motion-off", !graphMotionEnabled);
 syncControlsFromState();
 bindControls();
 setAudioPresentation(false);

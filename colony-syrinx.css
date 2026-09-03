@@ -1,27 +1,30 @@
 .colony-syrinx-page {
-  --colony-bg: #050806;
-  --colony-panel: #090d0a;
-  --colony-panel-high: #0d130e;
-  --colony-paper: #e8eadc;
-  --colony-muted: #899087;
-  --colony-faint: #555d54;
-  --colony-line: rgba(232, 234, 220, 0.12);
-  --colony-line-strong: rgba(232, 234, 220, 0.24);
-  --colony-lung: #c9f36a;
-  --colony-lung-soft: rgba(201, 243, 106, 0.12);
-  --colony-fold: #ff806b;
-  --colony-fold-soft: rgba(255, 128, 107, 0.12);
-  --mouth-a: #e6bd62;
-  --mouth-b: #64dfd2;
-  --mouth-c: #bb9bf2;
+  --colony-bg: #020403;
+  --colony-panel: #050806;
+  --colony-panel-high: #09100b;
+  --colony-paper: #dce5e3;
+  --colony-silver: #bac7c4;
+  --colony-muted: #8b9994;
+  --colony-faint: #59655f;
+  --colony-line: rgba(220, 229, 227, 0.14);
+  --colony-line-strong: rgba(220, 229, 227, 0.28);
+  --colony-lung: #aaff16;
+  --colony-lung-soft: rgba(170, 255, 22, 0.14);
+  --colony-fold: #bd1233;
+  --colony-fold-soft: rgba(189, 18, 51, 0.16);
+  --colony-orange: #ff5b00;
+  --colony-blood: #bd082f;
+  --mouth-a: #ff5b00;
+  --mouth-b: #9dff00;
+  --mouth-c: #d10937;
   --accent: var(--colony-lung);
-  --accent-soft: rgba(201, 243, 106, 0.5);
-  --accent-glow: rgba(201, 243, 106, 0.16);
+  --accent-soft: rgba(170, 255, 22, 0.5);
+  --accent-glow: rgba(170, 255, 22, 0.18);
   height: 100dvh;
   overflow: hidden;
   color: var(--colony-paper);
   background:
-    radial-gradient(circle at 42% -10%, rgba(201, 243, 106, 0.06), transparent 31rem),
+    radial-gradient(circle at 42% -10%, rgba(170, 255, 22, 0.075), transparent 31rem),
     var(--colony-bg);
 }
 
@@ -92,18 +95,25 @@
   background-size: 30px 30px;
 }
 
+.colony-mobile-primary-mount {
+  display: none;
+}
+
 .colony-titlebar {
+  position: absolute;
+  z-index: 3;
+  top: clamp(14px, 2vw, 25px);
+  right: clamp(18px, 2.8vw, 42px);
+  left: clamp(18px, 2.8vw, 42px);
   display: grid;
-  min-height: 160px;
-  padding: clamp(24px, 3.2vw, 46px) clamp(18px, 2.8vw, 42px) 28px;
-  border-bottom: 1px solid var(--colony-line);
-  background:
-    radial-gradient(circle at 8% 44%, rgba(201, 243, 106, 0.075), transparent 25%),
-    linear-gradient(100deg, rgba(255, 128, 107, 0.025), transparent 60%);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: start;
   column-gap: clamp(24px, 3.4vw, 58px);
-  row-gap: 18px;
+  pointer-events: none;
 }
 
 .colony-title-copy {
@@ -112,49 +122,19 @@
   grid-row: 1;
 }
 
-.colony-title-copy p {
-  margin: 0 0 11px;
-  color: var(--colony-lung);
-  font-size: 8px;
-  font-weight: 760;
-  letter-spacing: 0.19em;
-}
-
 .colony-title-copy h1 {
-  display: flex;
   margin: 0;
-  align-items: center;
   color: var(--colony-paper);
   font-family: Arial, Helvetica, sans-serif;
-  font-size: clamp(42px, 4vw, 66px);
+  font-size: clamp(32px, 3.2vw, 50px);
   font-weight: 900;
   letter-spacing: -0.075em;
-  line-height: 0.76;
+  line-height: 0.8;
   white-space: nowrap;
-}
-
-.colony-title-copy h1 span:last-child {
-  color: transparent;
-  -webkit-text-stroke: 1.2px var(--colony-paper);
-}
-
-.colony-title-copy h1 i {
-  margin: 0 0.16em;
-  color: var(--colony-fold);
-  font-family: Georgia, serif;
-  font-size: 0.62em;
-  font-weight: 400;
-}
-
-.colony-thesis {
-  max-width: 46ch;
-  margin: 0;
-  color: var(--colony-muted);
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 13px;
-  line-height: 1.52;
-  grid-column: 1;
-  grid-row: 2;
+  text-shadow:
+    0 2px 0 #020403,
+    0 0 18px rgba(2, 4, 3, 0.94),
+    0 0 34px rgba(2, 4, 3, 0.86);
 }
 
 .colony-counts {
@@ -163,7 +143,7 @@
   grid-template-columns: repeat(2, 72px);
   gap: 5px;
   grid-column: 2;
-  grid-row: 1 / 3;
+  grid-row: 1;
 }
 
 .colony-counts div {
@@ -192,7 +172,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.colony-calls,
 .colony-anatomy,
 .colony-sequencer {
   border-bottom: 1px solid var(--colony-line);
@@ -226,163 +205,16 @@
   letter-spacing: -0.025em;
 }
 
-.colony-calls {
-  background:
-    radial-gradient(ellipse at 12% 10%, rgba(201, 243, 106, 0.045), transparent 35%),
-    linear-gradient(105deg, rgba(255, 128, 107, 0.018), transparent 62%),
-    #050806;
-}
-
-.call-bank-heading {
-  min-height: 64px;
-}
-
-#selectedCallReadout {
-  min-width: 116px;
-  max-width: min(58vw, 560px);
-  padding: 7px 9px;
-  border: 1px solid rgba(201, 243, 106, 0.22);
-  color: var(--colony-lung);
-  background: rgba(201, 243, 106, 0.025);
-  font-size: 7px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.08em;
-  line-height: 1.45;
-  text-align: right;
-  text-transform: uppercase;
-}
-
-.call-bank {
-  display: grid;
-  padding: 12px clamp(18px, 2.4vw, 34px) 16px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.call-bank > button,
-.call-preset-button {
-  position: relative;
-  display: grid;
-  min-width: 0;
-  min-height: 76px;
-  padding: 8px 9px;
-  overflow: hidden;
-  border: 1px solid rgba(232, 234, 220, 0.12);
-  border-radius: 15px 7px 18px 8px / 8px 17px 7px 16px;
-  cursor: pointer;
-  color: var(--colony-muted);
-  background:
-    linear-gradient(125deg, rgba(201, 243, 106, 0.04), transparent 68%),
-    rgba(7, 11, 8, 0.88);
-  align-content: space-between;
-  gap: 5px;
-  text-align: left;
-  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
-}
-
-.call-bank > button:nth-child(3n + 2),
-.call-preset-button:nth-child(3n + 2) {
-  border-radius: 8px 17px 7px 15px / 16px 8px 18px 7px;
-}
-
-.call-bank > button:nth-child(3n),
-.call-preset-button:nth-child(3n) {
-  border-radius: 17px 8px 13px 7px / 7px 15px 8px 18px;
-}
-
-.call-bank > button :is(b, small, span),
-.call-preset-button :is(b, small, span) {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.call-bank > button b,
-.call-preset-button b {
-  color: var(--colony-paper);
-  font-size: 9px;
-  line-height: 1.35;
-  letter-spacing: 0.045em;
-  white-space: normal;
-}
-
-.call-bank > button small,
-.call-preset-button small {
-  color: var(--colony-faint);
-  font-size: 7px;
-  line-height: 1.35;
-  white-space: normal;
-}
-
-.call-bank > button:hover,
-.call-bank > button:focus-visible,
-.call-preset-button:hover,
-.call-preset-button:focus-visible {
-  border-color: var(--colony-lung);
-  color: var(--colony-paper);
-  background: rgba(201, 243, 106, 0.065);
-  outline: 1px solid var(--colony-lung);
-  outline-offset: -3px;
-}
-
-.call-bank > button[aria-pressed="true"],
-.call-bank > button.is-playing,
-.call-preset-button[aria-pressed="true"],
-.call-preset-button.is-playing {
-  border-color: var(--colony-lung);
-  color: #050806;
-  background: var(--colony-lung);
-  box-shadow: 0 0 17px rgba(201, 243, 106, 0.12);
-}
-
-.call-bank > button[aria-pressed="true"] :is(b, small),
-.call-bank > button.is-playing :is(b, small),
-.call-preset-button[aria-pressed="true"] :is(b, small),
-.call-preset-button.is-playing :is(b, small) {
-  color: inherit;
-}
-
-.anatomy-legend {
-  display: flex;
-  color: var(--colony-faint);
-  align-items: center;
-  gap: 15px;
-  font-size: 6px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.anatomy-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.anatomy-legend i {
-  width: 12px;
-  height: 2px;
-  background: currentColor;
-  box-shadow: 0 0 5px currentColor;
-}
-
-.anatomy-legend .is-pressure { color: var(--colony-lung); }
-.anatomy-legend .is-voice { color: var(--colony-fold); }
-.anatomy-legend .is-route { color: var(--mouth-b); }
-.anatomy-legend .is-return { color: var(--mouth-c); border-top: 1px dashed currentColor; background: transparent; }
-
 .anatomy-heading {
-  min-height: 82px;
-  align-items: flex-start;
-  gap: clamp(16px, 2.6vw, 38px);
+  min-height: 46px;
+  padding-block: 7px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   background:
-    radial-gradient(ellipse at 72% 10%, rgba(100, 223, 210, 0.055), transparent 42%),
+    radial-gradient(ellipse at 72% 10%, rgba(220, 229, 227, 0.055), transparent 42%),
     radial-gradient(ellipse at 22% 100%, rgba(201, 243, 106, 0.04), transparent 45%),
     rgba(5, 8, 6, 0.88);
-}
-
-.anatomy-heading > div:first-child {
-  flex: 0 0 auto;
 }
 
 .anatomy-heading-actions {
@@ -391,8 +223,64 @@
   align-items: center;
   justify-content: flex-end;
   flex: 1 1 auto;
-  flex-wrap: wrap;
-  gap: 9px 17px;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.graph-interaction-key {
+  display: flex;
+  min-width: 0;
+  margin-right: auto;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.graph-interaction-key span {
+  display: grid;
+  min-height: 31px;
+  padding: 4px 9px 4px 30px;
+  border: 1px solid color-mix(in oklab, var(--key-color) 40%, transparent);
+  border-radius: 4px 12px 5px 10px / 11px 5px 12px 4px;
+  color: var(--key-color);
+  background: color-mix(in oklab, var(--key-color) 6%, rgba(2, 4, 3, 0.86));
+  align-content: center;
+  line-height: 1.05;
+  position: relative;
+}
+
+.graph-interaction-key span:nth-child(2) {
+  border-radius: 11px 4px 10px 5px / 4px 12px 5px 11px;
+}
+
+.graph-interaction-key .is-drag { --key-color: var(--colony-lung); }
+.graph-interaction-key .is-shape { --key-color: var(--colony-silver); }
+.graph-interaction-key .is-tap { --key-color: var(--colony-orange); }
+
+.graph-interaction-key i {
+  position: absolute;
+  top: 50%;
+  left: 9px;
+  font-size: 16px;
+  font-style: normal;
+  line-height: 1;
+  text-shadow: 0 0 7px currentColor;
+  transform: translateY(-50%);
+}
+
+.graph-interaction-key b {
+  color: var(--colony-paper);
+  font-size: 6.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.graph-interaction-key small {
+  margin-top: 2px;
+  color: var(--key-color);
+  font-size: 5.5px;
+  font-weight: 680;
+  letter-spacing: .05em;
+  white-space: nowrap;
 }
 
 .graph-tools {
@@ -451,7 +339,7 @@
   border-color: color-mix(in oklab, var(--mouth-b) 72%, var(--colony-lung));
   color: #050806;
   background: color-mix(in oklab, var(--mouth-b) 62%, var(--colony-lung));
-  box-shadow: 0 0 13px rgba(100, 223, 210, 0.13);
+  box-shadow: 0 0 13px rgba(170, 255, 22, 0.16);
 }
 
 .graph-tools button.graph-motion-off,
@@ -478,12 +366,12 @@
   overflow-y: hidden;
   border-bottom: 1px solid rgba(201, 243, 106, 0.13);
   background:
-    radial-gradient(ellipse at 13% 31%, rgba(255, 128, 107, 0.055), transparent 29%),
-    radial-gradient(ellipse at 33% 62%, rgba(201, 243, 106, 0.105), transparent 38%),
-    radial-gradient(ellipse at 72% 32%, rgba(100, 223, 210, 0.075), transparent 34%),
-    radial-gradient(ellipse at 91% 69%, rgba(187, 155, 242, 0.05), transparent 27%),
-    radial-gradient(circle at 50% 50%, rgba(232, 234, 220, 0.027) 0 0.7px, transparent 1px),
-    linear-gradient(173deg, #050806, #020403 69%, #050806);
+    radial-gradient(ellipse at 13% 31%, rgba(189, 8, 47, 0.10), transparent 29%),
+    radial-gradient(ellipse at 33% 62%, rgba(170, 255, 22, 0.12), transparent 38%),
+    radial-gradient(ellipse at 72% 32%, rgba(220, 229, 227, 0.07), transparent 34%),
+    radial-gradient(ellipse at 91% 69%, rgba(255, 91, 0, 0.075), transparent 27%),
+    radial-gradient(circle at 50% 50%, rgba(220, 229, 227, 0.03) 0 0.7px, transparent 1px),
+    linear-gradient(173deg, #020403, #000201 69%, #040604);
   background-size: auto, auto, auto, auto, 19px 19px, auto;
   box-shadow: inset 0 18px 55px rgba(0, 0, 0, 0.22), inset 0 -18px 55px rgba(0, 0, 0, 0.25);
   scrollbar-color: rgba(201, 243, 106, 0.55) rgba(232, 234, 220, 0.04);
@@ -503,9 +391,9 @@
   padding: 5px clamp(10px, 2vw, 26px) 0;
   border-radius: 8% 4% 10% 3% / 6% 13% 5% 11%;
   background:
-    radial-gradient(ellipse at 18% 52%, rgba(255, 128, 107, 0.024), transparent 34%),
-    radial-gradient(ellipse at 55% 45%, rgba(201, 243, 106, 0.025), transparent 43%),
-    radial-gradient(ellipse at 85% 48%, rgba(100, 223, 210, 0.026), transparent 31%);
+    radial-gradient(ellipse at 18% 52%, rgba(189, 8, 47, 0.045), transparent 34%),
+    radial-gradient(ellipse at 55% 45%, rgba(170, 255, 22, 0.035), transparent 43%),
+    radial-gradient(ellipse at 85% 48%, rgba(255, 91, 0, 0.035), transparent 31%);
   box-shadow: inset 0 0 38px rgba(201, 243, 106, 0.018);
 }
 
@@ -531,7 +419,7 @@
 .colony-body-stage::after {
   right: 2%;
   bottom: 11%;
-  border-color: rgba(100, 223, 210, 0.05);
+  border-color: rgba(255, 91, 0, 0.06);
   transform: rotate(16deg);
 }
 
@@ -549,13 +437,18 @@
 }
 
 .colony-body .body-aura {
-  fill: url(#colonyBodyWash);
-  stroke: rgba(201, 243, 106, 0.17);
-  stroke-dasharray: 1 12;
-  stroke-linecap: round;
-  stroke-width: 1.35;
-  filter: url(#colonySoftGlow);
+  fill: color-mix(in oklab, #010201 84%, var(--colony-blood));
+  stroke: color-mix(in oklab, var(--colony-lung) 67%, var(--colony-silver));
+  stroke-dasharray: 1 4 17 5;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 3.1;
+  filter:
+    drop-shadow(0 0 4px rgba(201, 243, 106, 0.28))
+    drop-shadow(0 12px 18px rgba(0, 0, 0, 0.7));
   transition: fill 160ms ease, stroke 160ms ease, filter 160ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
   vector-effect: non-scaling-stroke;
 }
 
@@ -566,10 +459,192 @@
 
 .colony-body .body-aura[data-graph-background]:hover,
 .colony-body .body-aura[data-graph-background]:focus-visible {
-  fill: url(#colonyBodyWash);
-  stroke: rgba(201, 243, 106, 0.38);
+  fill: color-mix(in oklab, #030403 78%, #72193b);
+  stroke: color-mix(in oklab, var(--colony-lung) 76%, #fff0c2);
   outline: none;
-  filter: url(#colonySoftGlow) drop-shadow(0 0 8px rgba(201, 243, 106, 0.11));
+  filter:
+    drop-shadow(0 0 8px rgba(201, 243, 106, 0.42))
+    drop-shadow(0 14px 20px rgba(0, 0, 0, 0.76));
+}
+
+.colony-body .spatial-sound-field {
+  fill: rgba(255, 255, 255, 0.001);
+  cursor: crosshair;
+  pointer-events: all;
+}
+
+.monster-skeleton {
+  color: rgba(207, 220, 217, 0.74);
+  fill: none;
+  pointer-events: none;
+}
+
+.monster-skeleton path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1.7;
+  vector-effect: non-scaling-stroke;
+}
+
+.monster-skeleton .monster-tail {
+  stroke: color-mix(in oklab, var(--colony-blood) 62%, var(--colony-silver));
+  stroke-width: 2.8;
+  filter: drop-shadow(0 0 5px rgba(255, 80, 125, 0.3));
+}
+
+.monster-skeleton .monster-back-spines {
+  stroke: var(--colony-silver);
+  stroke-width: 3.7;
+  filter:
+    drop-shadow(0 0 3px rgba(201, 243, 106, 0.4))
+    drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.75));
+}
+
+.monster-skeleton .monster-neck {
+  stroke-dasharray: 13 4 2 5;
+  stroke-width: 4.4;
+  opacity: 0.48;
+}
+
+.monster-skeleton .monster-neck-a { color: var(--mouth-a); }
+.monster-skeleton .monster-neck-b { color: var(--mouth-b); }
+.monster-skeleton .monster-neck-c { color: var(--mouth-c); }
+
+.monster-skeleton .monster-belly {
+  stroke: color-mix(in oklab, var(--colony-blood) 48%, var(--colony-silver));
+  stroke-dasharray: none;
+  stroke-width: 2.8;
+  filter: drop-shadow(1px 2px 0 rgba(0, 0, 0, 0.75));
+}
+
+.monster-ribs {
+  color: rgba(207, 220, 217, 0.55);
+}
+
+.monster-ribs path {
+  stroke-dasharray: 18 5 2 6;
+  stroke-width: 2.15;
+}
+
+.monster-bone-plates,
+.monster-tendrils,
+.monster-eye-cluster {
+  pointer-events: none;
+}
+
+.monster-skeleton .monster-bone-plates path {
+  fill: rgba(207, 220, 217, 0.1);
+  stroke: rgba(220, 229, 227, 0.76);
+  stroke-width: 1.9;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.72));
+}
+
+.monster-skeleton .monster-tendrils path {
+  stroke: color-mix(in oklab, var(--colony-orange) 68%, var(--colony-blood));
+  stroke-width: 2.65;
+  filter: drop-shadow(0 0 4px rgba(255, 80, 125, 0.3));
+}
+
+.monster-eye-cluster {
+  opacity: 0.9;
+  filter: drop-shadow(0 0 7px rgba(170, 255, 22, 0.58));
+}
+
+.monster-eye-cluster ellipse {
+  fill: #010201;
+  stroke: rgba(220, 229, 227, 0.76);
+  stroke-width: 1.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.monster-eye-cluster > circle[fill="url(#monsterEye)"] {
+  fill: url(#monsterEye);
+  stroke: var(--colony-lung);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+
+.monster-eye-cluster path {
+  stroke: var(--colony-orange);
+  stroke-width: 1.45;
+}
+
+.monster-eye-cluster > circle:nth-of-type(n + 4) {
+  opacity: 0.38;
+}
+
+.alien-limbs,
+.monster-deformation-web {
+  fill: none;
+  pointer-events: none;
+}
+
+.alien-limb {
+  stroke: color-mix(in oklab, var(--colony-blood) 62%, var(--colony-silver));
+  stroke-dasharray: 17 4 2 6;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 3px;
+  opacity: .76;
+  filter:
+    drop-shadow(0 0 4px rgba(189, 8, 47, .52))
+    drop-shadow(2px 3px 0 rgba(0, 0, 0, .78));
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 120ms ease, transform 160ms cubic-bezier(.2, .8, .2, 1), stroke 120ms ease;
+  vector-effect: non-scaling-stroke;
+}
+
+.alien-limb:nth-child(even) {
+  stroke: color-mix(in oklab, var(--colony-orange) 52%, var(--colony-silver));
+  stroke-dasharray: 2 5 12 5;
+}
+
+.monster-deformation-web path {
+  stroke: color-mix(in oklab, var(--colony-lung) 42%, var(--colony-silver));
+  stroke-dasharray: 2 11;
+  stroke-linecap: round;
+  stroke-width: 1.25px;
+  opacity: .28;
+  transition: opacity 120ms ease, stroke-width 120ms ease;
+  vector-effect: non-scaling-stroke;
+}
+
+.colony-body:has(.graph-node.is-graph-dragging) .monster-body-shell {
+  fill: color-mix(in oklab, #010201 75%, var(--colony-blood));
+  stroke: color-mix(in oklab, var(--colony-lung) 76%, var(--colony-silver));
+  stroke-dasharray: 4 3 19 3;
+  transform: scale(1.012, .974) skewX(-1.2deg);
+  filter:
+    drop-shadow(0 0 10px rgba(170, 255, 22, .44))
+    drop-shadow(0 14px 20px rgba(0, 0, 0, .76));
+}
+
+.colony-body:has(.vessel-source.is-graph-dragging) .monster-body-shell {
+  transform: scale(.986, 1.024) skewX(1.5deg);
+}
+
+.colony-body:has(.vessel-mouth.is-graph-dragging) .monster-body-shell {
+  transform: scale(1.018, .968) skewY(-1deg);
+}
+
+.colony-body:has(.graph-node.is-graph-dragging) .monster-deformation-web path {
+  stroke-width: 2.1px;
+  opacity: .82;
+}
+
+.colony-body:has(.graph-node.is-graph-dragging) .alien-limb:nth-child(odd) {
+  stroke: var(--colony-lung);
+  opacity: 1;
+  transform: rotate(-4deg) scale(1.06, .96);
+}
+
+.colony-body:has(.graph-node.is-graph-dragging) .alien-limb:nth-child(even) {
+  stroke: var(--colony-orange);
+  opacity: 1;
+  transform: rotate(5deg) scale(.95, 1.08);
 }
 
 .colony-body .body-ghost-vessel {
@@ -591,12 +666,12 @@
 
 .lung-feed-vessel {
   fill: none;
-  stroke: color-mix(in oklab, var(--colony-lung) 68%, var(--mouth-b));
+  stroke: color-mix(in oklab, var(--colony-lung) 72%, var(--colony-silver));
   stroke-dasharray: 2 9;
   stroke-linecap: round;
   stroke-width: calc(1.4px + var(--pressure, 0) * 2.65px);
   opacity: calc(0.3 + var(--pressure, 0) * 0.65);
-  filter: drop-shadow(0 0 calc(2px + var(--pressure, 0) * 6px) rgba(100, 223, 210, 0.35));
+  filter: drop-shadow(0 0 calc(2px + var(--pressure, 0) * 6px) rgba(170, 255, 22, 0.38));
   pointer-events: none;
   transition: opacity 100ms linear, stroke-width 100ms linear, filter 100ms linear;
   vector-effect: non-scaling-stroke;
@@ -606,7 +681,7 @@
 .lung-feed-vessel.is-pressured {
   stroke-dasharray: 3 8;
   opacity: calc(0.58 + var(--pressure, 0.35) * 0.4);
-  filter: drop-shadow(0 0 calc(4px + var(--pressure, 0.35) * 8px) rgba(100, 223, 210, 0.58));
+  filter: drop-shadow(0 0 calc(4px + var(--pressure, 0.35) * 8px) rgba(170, 255, 22, 0.62));
 }
 
 .colony-shell.is-running .lung-feed-vessel.is-flowing {
@@ -654,10 +729,10 @@
 .reservoir-veins path,
 .source-bridges path {
   fill: none;
-  stroke: rgba(74, 228, 220, 0.54);
+  stroke: rgba(220, 229, 227, 0.54);
   stroke-linecap: round;
   stroke-width: 1.5;
-  filter: drop-shadow(0 0 4px rgba(74, 228, 220, 0.42));
+  filter: drop-shadow(0 0 4px rgba(220, 229, 227, 0.42));
 }
 
 .reservoir-veins path:not(.reservoir-spine) {
@@ -665,51 +740,75 @@
 }
 
 .reservoir-veins .reservoir-spine {
-  stroke: rgba(74, 228, 220, 0.28);
+  stroke: rgba(220, 229, 227, 0.28);
   stroke-width: 6;
 }
 
 .lung-garden-membranes use {
-  fill: rgba(255, 99, 185, .035);
-  stroke: rgba(113, 238, 230, .3);
+  fill: rgba(189, 8, 47, .045);
+  stroke: rgba(220, 229, 227, .3);
   stroke-dasharray: 1 7;
   stroke-width: .8;
   opacity: calc(.55 + var(--exhale, 0) * .45);
-  filter: drop-shadow(0 0 calc(2px + var(--exhale, 0) * 10px) rgba(255, 99, 185, .32));
+  filter: drop-shadow(0 0 calc(2px + var(--exhale, 0) * 10px) rgba(189, 8, 47, .36));
   transition: fill 100ms linear, opacity 100ms linear, filter 100ms linear;
 }
 
 .vessel-lung {
-  color: #ff63b9;
-  opacity: calc(0.34 + var(--pressure, 0.34) * 0.52 + var(--exhale, 0) * .14);
-  filter: drop-shadow(0 0 calc(2px + var(--pressure, 0.34) * 6px) rgba(255, 82, 177, 0.48));
+  color: var(--colony-blood);
+  opacity: calc(0.48 + var(--pressure, 0.34) * 0.4 + var(--exhale, 0) * .12);
+  filter:
+    drop-shadow(1px 2px 0 rgba(0, 0, 0, 0.75))
+    drop-shadow(0 0 calc(1px + var(--pressure, 0.34) * 5px) rgba(189, 8, 47, 0.46));
   transition: opacity 100ms linear, filter 100ms linear;
 }
 
-.vessel-lung use {
-  fill: url(#colonyLungFill);
-  stroke: currentColor;
-  stroke-width: 1.1;
+.vessel-lung .lung-membrane {
+  fill: color-mix(in oklab, #27040e 73%, var(--colony-blood));
+  fill-opacity: calc(0.62 + var(--pressure, 0) * 0.2);
+  stroke: color-mix(in oklab, currentColor 69%, var(--colony-silver));
+  stroke-dasharray: 13 3 2 4;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1.8;
   vector-effect: non-scaling-stroke;
   transform: scale(
-    calc(.93 + var(--pressure, 0) * .04 + var(--exhale, 0) * .07),
-    calc(.9 + var(--pressure, 0) * .06 + var(--exhale, 0) * .13)
+    calc(.95 + var(--pressure, 0) * .03 + var(--exhale, 0) * .06),
+    calc(.91 + var(--pressure, 0) * .08 + var(--exhale, 0) * .15)
   );
   transform-box: fill-box;
-  transform-origin: 82% 50%;
-  transition: transform 130ms ease-out;
+  transform-origin: 88% 48%;
+  transition: transform 130ms ease-out, fill-opacity 130ms linear;
 }
 
-.vessel-lung path {
+.vessel-lung .lung-bronchial-tree,
+.vessel-lung .lung-pleural-folds {
   fill: none;
-  stroke: rgba(113, 238, 230, 0.72);
-  stroke-linecap: round;
-  stroke-width: .85;
+  pointer-events: none;
   vector-effect: non-scaling-stroke;
+}
+
+.vessel-lung .lung-bronchial-tree {
+  stroke: color-mix(in oklab, var(--colony-orange) 72%, var(--colony-silver));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.45;
+  opacity: calc(0.56 + var(--pressure, 0) * 0.34);
+  filter: drop-shadow(0 0 2px rgba(255, 91, 0, 0.54));
+}
+
+.vessel-lung .lung-pleural-folds {
+  stroke: color-mix(in oklab, var(--colony-lung) 45%, var(--colony-silver));
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
+  stroke-width: 0.8;
+  opacity: calc(0.24 + var(--pressure, 0) * 0.26);
 }
 
 .vessel-lung.is-exhaling {
-  filter: drop-shadow(0 0 calc(6px + var(--exhale, 0) * 10px) rgba(255, 82, 177, .72));
+  filter:
+    drop-shadow(1px 2px 0 rgba(0, 0, 0, 0.78))
+    drop-shadow(0 0 calc(5px + var(--exhale, 0) * 9px) rgba(189, 8, 47, .7));
 }
 
 .vessel-lung.is-disabled,
@@ -719,9 +818,9 @@
 }
 
 .vessel-source {
-  color: #ffa755;
+  color: var(--colony-orange);
   opacity: calc(0.48 + var(--activity, 0.32) * 0.52);
-  filter: drop-shadow(0 0 calc(2px + var(--activity, 0.32) * 7px) rgba(255, 167, 85, 0.5));
+  filter: drop-shadow(0 0 calc(2px + var(--activity, 0.32) * 7px) rgba(255, 91, 0, 0.56));
   transition: opacity 90ms linear, filter 90ms linear;
 }
 
@@ -755,7 +854,7 @@
 
 .vessel-source.is-exhaling {
   opacity: 1;
-  filter: drop-shadow(0 0 calc(5px + var(--exhale, 0) * 10px) rgba(255, 167, 85, .78));
+  filter: drop-shadow(0 0 calc(5px + var(--exhale, 0) * 10px) rgba(255, 91, 0, .82));
 }
 
 .route-vessels {
@@ -819,29 +918,217 @@
 .vessel-mouth .mouth-root {
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-dasharray: 2 5;
+  stroke-width: 2.4;
+}
+
+.vessel-mouth .monster-head-shell {
+  fill: color-mix(in oklab, #010201 88%, var(--colony-blood));
+  stroke: color-mix(in oklab, var(--mouth-color) 59%, var(--colony-silver));
+  stroke-dasharray: 15 4 2 5;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 2.65;
+  opacity: calc(0.82 + var(--mouth-flow, 0) * 0.18);
+  pointer-events: none;
+  filter: drop-shadow(
+    0 0 calc(3px + var(--mouth-flow, 0) * 9px)
+    color-mix(in oklab, var(--mouth-color) 48%, transparent)
+  );
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .monster-face-ridge {
+  fill: none;
+  stroke: color-mix(in oklab, var(--mouth-color) 54%, var(--colony-silver));
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1.9;
+  opacity: 0.78;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .monster-head-shell + .monster-face-ridge {
+  stroke-width: 2.7;
+  opacity: 0.96;
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.9));
+}
+
+.vessel-mouth .monster-horn {
+  fill: color-mix(in oklab, var(--colony-silver) 10%, transparent);
+  stroke: var(--colony-silver);
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 2.35;
+  opacity: 0.9;
+  pointer-events: none;
+  filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.78));
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .monster-eye-socket {
+  fill: #010201;
+  stroke: color-mix(in oklab, var(--colony-lung) 56%, var(--colony-silver));
+  stroke-dasharray: 9 2 1 3;
+  stroke-width: 3.2;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 4px rgba(170, 255, 22, .58))
+    drop-shadow(0 2px 0 rgba(0, 0, 0, .9));
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(-9deg) scale(1.08, .86);
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .monster-eye {
+  fill: url(#monsterEye);
+  stroke: var(--colony-lung);
+  stroke-width: 1.55;
+  opacity: calc(0.8 + var(--mouth-flow, 0) * 0.2);
+  pointer-events: none;
+  filter: drop-shadow(
+    0 0 calc(3px + var(--mouth-flow, 0) * 9px)
+    var(--colony-orange)
+  );
+  animation: psycho-eye-flare 1.37s steps(2, jump-none) infinite alternate;
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth.is-sounding .monster-eye {
+  stroke: var(--colony-paper);
+  stroke-width: 2.15;
+  opacity: 1;
+  filter:
+    drop-shadow(0 0 5px var(--colony-lung))
+    drop-shadow(0 0 13px var(--colony-orange));
+}
+
+.vessel-mouth .monster-pupil,
+.vessel-mouth .monster-secondary-pupil {
+  fill: #020301;
+  stroke: rgba(220, 229, 227, 0.76);
+  stroke-width: 0.8;
+  clip-path: polygon(46% 0, 62% 0, 78% 42%, 58% 100%, 40% 100%, 24% 52%);
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .monster-secondary-eye {
+  fill: url(#monsterEye);
+  stroke: var(--colony-orange);
+  stroke-width: 1.15;
+  opacity: calc(0.72 + var(--mouth-flow, 0) * 0.28);
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px var(--colony-orange));
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .monster-nostril {
+  fill: #020301;
+  stroke: color-mix(in oklab, var(--mouth-color) 62%, var(--colony-silver));
+  stroke-width: calc(1.1px + var(--mouth-flow, 0) * 1.45px);
+  opacity: calc(0.72 + var(--mouth-flow, 0) * 0.28);
+  pointer-events: none;
+  filter: drop-shadow(0 0 calc(1px + var(--mouth-flow, 0) * 5px) var(--colony-orange));
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .psycho-eye-rays,
+.vessel-mouth .monster-mad-brow {
+  fill: none;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .psycho-eye-rays {
+  stroke: var(--colony-lung);
+  stroke-dasharray: 4 2;
+  stroke-linecap: square;
+  stroke-width: 1.55;
+  opacity: calc(.58 + var(--mouth-flow, 0) * .42);
+  filter: drop-shadow(0 0 5px var(--colony-lung));
+}
+
+.vessel-mouth .monster-mad-brow {
+  stroke: var(--colony-orange);
+  stroke-linejoin: miter;
+  stroke-width: 3.8;
+  filter:
+    drop-shadow(0 0 4px var(--colony-orange))
+    drop-shadow(1px 2px 0 #000);
+}
+
+.vessel-mouth .mouth-maw {
+  fill: #010101;
+  stroke: var(--colony-blood);
+  stroke-dasharray: 13 3 2 4;
+  stroke-linejoin: miter;
+  stroke-width: 3.2;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 7px rgba(189, 8, 47, .7))
+    drop-shadow(2px 3px 0 rgba(0, 0, 0, .9));
+  vector-effect: non-scaling-stroke;
 }
 
 .vessel-mouth .mouth-upper,
 .vessel-mouth .mouth-lower {
-  fill: color-mix(in oklab, var(--mouth-color) 7%, transparent);
-  stroke: currentColor;
-  stroke-linejoin: round;
-  stroke-width: 2.3;
+  fill: none;
+  stroke: color-mix(in oklab, var(--mouth-color) 67%, var(--colony-silver));
+  stroke-dasharray: 22 3 3 3;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 3.8;
+  filter:
+    drop-shadow(0 0 calc(2px + var(--mouth-flow, 0) * 7px) var(--mouth-color))
+    drop-shadow(1px 3px 0 rgba(0, 0, 0, 0.82));
+  paint-order: stroke fill;
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .jaw-hinge {
+  fill: #020403;
+  stroke: color-mix(in oklab, var(--mouth-color) 58%, var(--colony-silver));
+  stroke-dasharray: 2 2;
+  stroke-width: 3px;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 5px var(--mouth-color))
+    drop-shadow(1px 2px 0 #000);
+  vector-effect: non-scaling-stroke;
+}
+
+.vessel-mouth .mouth-upper {
+  transform-origin: 45% 100%;
+}
+
+.vessel-mouth .mouth-lower {
+  transform-origin: 45% 0;
 }
 
 .vessel-mouth .mouth-tongue {
-  fill: color-mix(in oklab, var(--mouth-color) 24%, transparent);
-  stroke: color-mix(in oklab, var(--mouth-color) 85%, white);
-  stroke-width: 1.2;
+  fill: color-mix(in oklab, var(--colony-blood) 82%, var(--mouth-color));
+  stroke: color-mix(in oklab, var(--colony-blood) 60%, var(--colony-silver));
+  stroke-width: 2.1;
+  opacity: calc(0.82 + var(--mouth-flow, 0) * 0.18);
+  paint-order: stroke fill;
+  filter:
+    drop-shadow(0 -1px 0 rgba(255, 220, 229, 0.45))
+    drop-shadow(0 0 calc(2px + var(--mouth-flow, 0) * 5px) #ff376f);
+  vector-effect: non-scaling-stroke;
 }
 
 .vessel-mouth .mouth-teeth {
   fill: none;
-  stroke: color-mix(in oklab, var(--mouth-color) 48%, white);
+  stroke: color-mix(in oklab, var(--colony-silver) 88%, var(--mouth-color));
   stroke-linecap: square;
   stroke-linejoin: miter;
-  stroke-width: 1.35;
+  stroke-width: 2.15;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 246, 214, 0.52))
+    drop-shadow(1px 2px 0 rgba(0, 0, 0, 0.92));
   vector-effect: non-scaling-stroke;
 }
 
@@ -851,7 +1138,7 @@
 }
 
 .colony-body .graph-node:not(.is-absent) {
-  cursor: grab;
+  cursor: move;
   outline: none;
   transition: opacity 100ms linear, filter 100ms linear;
 }
@@ -864,28 +1151,35 @@
 }
 
 .colony-body .graph-node:not(.is-absent):active {
-  cursor: grabbing;
+  cursor: move;
 }
 
 .colony-body .graph-node-grab {
   fill: rgba(255, 255, 255, 0.001) !important;
-  stroke: transparent !important;
+  stroke: color-mix(in oklab, currentColor 56%, transparent) !important;
+  stroke-dasharray: 1 8;
+  stroke-linecap: square;
   stroke-linejoin: round;
-  stroke-width: 18px !important;
-  cursor: grab;
+  stroke-width: 1.7px !important;
+  opacity: .68;
+  cursor: move;
+  filter: drop-shadow(0 0 3px currentColor);
   pointer-events: all;
   vector-effect: non-scaling-stroke;
+  animation: graph-drag-orbit 8s linear infinite;
 }
 
 .colony-body .graph-node:hover > .graph-node-grab,
 .colony-body .graph-node:focus-visible > .graph-node-grab,
 .colony-body .graph-node-grab:hover,
 .colony-body .graph-node-grab:focus-visible {
-  fill: rgba(201, 243, 106, 0.022) !important;
-  stroke: color-mix(in oklab, currentColor 66%, transparent) !important;
-  stroke-width: 2px !important;
+  fill: color-mix(in oklab, currentColor 5%, transparent) !important;
+  stroke: color-mix(in oklab, currentColor 88%, var(--colony-silver)) !important;
+  stroke-dasharray: 4 4;
+  stroke-width: 2.7px !important;
+  opacity: 1;
   outline: none;
-  filter: drop-shadow(0 0 6px currentColor);
+  filter: drop-shadow(0 0 8px currentColor);
 }
 
 .colony-body :is(
@@ -896,13 +1190,15 @@
   .jaw-shape-handle,
   .tongue-shape-handle
 ) {
-  fill: #050806;
+  fill: color-mix(in oklab, currentColor 20%, #020403);
   stroke: currentColor;
-  stroke-width: 1.65px;
-  opacity: 0.38;
+  stroke-width: 2px;
+  opacity: 0.82;
   outline: none;
   pointer-events: all;
   transition: opacity 100ms ease, fill 100ms ease, stroke-width 100ms ease, filter 100ms ease;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  filter: drop-shadow(0 0 3px currentColor);
   vector-effect: non-scaling-stroke;
 }
 
@@ -975,6 +1271,121 @@
   opacity: 1;
   outline: none;
   filter: drop-shadow(0 0 5px currentColor);
+}
+
+.colony-body .vessel-lung > .graph-node-grab,
+.colony-body .vessel-lung:hover > .graph-node-grab,
+.colony-body .vessel-lung:focus-visible > .graph-node-grab {
+  fill: rgba(255, 255, 255, 0.001) !important;
+  stroke: color-mix(in oklab, var(--colony-lung) 54%, transparent) !important;
+  stroke-dasharray: 1 10;
+  stroke-width: 1.5px !important;
+  opacity: .64;
+  filter: drop-shadow(0 0 3px var(--colony-lung));
+}
+
+.colony-body .vessel-lung .lung-shape-handle {
+  fill: color-mix(in oklab, var(--colony-lung) 22%, #020403);
+  stroke-dasharray: none;
+  stroke-width: 1.75px;
+  opacity: 0.78;
+}
+
+.colony-body .vessel-lung:hover .lung-shape-handle,
+.colony-body .vessel-lung:focus-visible .lung-shape-handle,
+.colony-body .vessel-lung .lung-shape-handle:hover,
+.colony-body .vessel-lung .lung-shape-handle:focus-visible {
+  fill: color-mix(in oklab, var(--colony-lung) 12%, #050806);
+  stroke-width: 1.8px;
+  opacity: 0.82;
+}
+
+.colony-body .graph-node.is-graph-dragging {
+  opacity: 1;
+  filter:
+    brightness(1.28)
+    drop-shadow(0 0 8px currentColor)
+    drop-shadow(0 0 18px currentColor);
+}
+
+.colony-body .graph-node.is-graph-dragging > .graph-node-grab {
+  fill: color-mix(in oklab, currentColor 8%, transparent) !important;
+  stroke: color-mix(in oklab, currentColor 78%, var(--colony-silver)) !important;
+  stroke-dasharray: 5 3;
+  stroke-width: 3px !important;
+  opacity: 1;
+  animation-duration: 780ms;
+}
+
+.drag-sound-feedback {
+  color: var(--colony-lung);
+  pointer-events: none;
+}
+
+.drag-sound-feedback[hidden] {
+  display: none;
+}
+
+.drag-sound-tether {
+  fill: none;
+  stroke: currentColor;
+  stroke-dasharray: 3 4;
+  stroke-linecap: square;
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 5px currentColor);
+  vector-effect: non-scaling-stroke;
+}
+
+.drag-sound-feedback text {
+  fill: var(--colony-paper);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  paint-order: stroke fill;
+  stroke: #020403;
+  stroke-width: 3px;
+  text-anchor: middle;
+}
+
+.spatial-trigger-feedback {
+  color: var(--colony-lung);
+  pointer-events: none;
+}
+
+.spatial-trigger-wave,
+.spatial-trigger-core {
+  fill: none;
+  stroke: currentColor;
+  transform-box: fill-box;
+  transform-origin: center;
+  vector-effect: non-scaling-stroke;
+}
+
+.spatial-trigger-wave {
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 8px currentColor);
+  animation: spatial-trigger-wave 620ms cubic-bezier(.12, .72, .18, 1) both;
+}
+
+.spatial-trigger-core {
+  fill: currentColor;
+  stroke: #050806;
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 0 7px currentColor);
+  animation: spatial-trigger-core 620ms ease-out both;
+}
+
+.colony-body.is-spatial-auditioning .monster-body-shell {
+  stroke: color-mix(in oklab, var(--colony-lung) 76%, #fff0c2);
+  filter:
+    drop-shadow(0 0 7px rgba(201, 243, 106, 0.38))
+    drop-shadow(0 12px 18px rgba(0, 0, 0, 0.72));
+}
+
+.colony-body .graph-node.is-spatial-auditioning {
+  opacity: 1;
+  filter: brightness(1.24) drop-shadow(0 0 11px currentColor);
 }
 
 :is(.colony-body.is-graph-dragging, .is-graph-dragging .colony-body),
@@ -1076,6 +1487,64 @@
   max-width: 58ch;
   font-weight: 500;
   text-align: right;
+}
+
+.anatomy-inspector {
+  border-top: 1px solid rgba(201, 243, 106, 0.08);
+  background: rgba(3, 6, 4, 0.76);
+}
+
+.anatomy-inspector > summary {
+  display: flex;
+  min-height: 43px;
+  padding: 9px clamp(18px, 2.4vw, 34px);
+  cursor: pointer;
+  color: var(--colony-muted);
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  list-style: none;
+}
+
+.anatomy-inspector > summary::-webkit-details-marker {
+  display: none;
+}
+
+.anatomy-inspector > summary::after {
+  color: var(--colony-lung);
+  content: "+";
+  font-size: 17px;
+  line-height: 1;
+}
+
+.anatomy-inspector[open] > summary::after {
+  content: "−";
+}
+
+.anatomy-inspector > summary:hover,
+.anatomy-inspector > summary:focus-visible {
+  color: var(--colony-paper);
+  background: rgba(201, 243, 106, 0.035);
+  outline: none;
+}
+
+.anatomy-inspector > summary span {
+  font-size: 8px;
+  font-weight: 720;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.anatomy-inspector > summary small {
+  margin-left: auto;
+  color: var(--colony-faint);
+  font-size: 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.anatomy-inspector .anatomy-scroll {
+  border-top: 1px solid var(--colony-line);
 }
 
 .anatomy-flow {
@@ -1444,7 +1913,7 @@
 
 .route-system {
   background:
-    radial-gradient(ellipse at 50% 48%, rgba(100, 223, 210, 0.055), transparent 70%),
+    radial-gradient(ellipse at 50% 48%, rgba(170, 255, 22, 0.06), transparent 70%),
     rgba(7, 11, 8, 0.72);
 }
 
@@ -2082,47 +2551,327 @@
   letter-spacing: -0.025em;
 }
 
-.medium-section {
+details.colony-console-section {
+  padding: 0;
+}
+
+details.colony-console-section > .group-summary {
+  min-height: 62px;
+  padding: 13px 17px;
+}
+
+details.colony-console-section > .group-summary h2 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+details.colony-console-section > .group-body {
+  padding: 14px 17px 18px;
+}
+
+.colony-primary-status {
+  min-height: 1.4em;
+  margin: 9px 0 0;
+  color: var(--colony-muted);
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.colony-primary-section {
+  padding-top: 14px;
+  padding-bottom: 14px;
   background:
-    radial-gradient(circle at 5% 24%, rgba(100, 223, 210, 0.075), transparent 31%),
-    rgba(5, 9, 7, 0.55);
+    radial-gradient(ellipse at 8% 12%, rgba(201, 243, 106, 0.07), transparent 42%),
+    linear-gradient(112deg, rgba(255, 128, 107, 0.025), transparent 66%),
+    #050806;
 }
 
-.medium-select {
+.colony-primary-section h2 {
+  margin-bottom: 10px;
+}
+
+.colony-randomize-primary {
   display: grid;
-  min-height: 58px;
-  padding: 8px 9px;
-  border: 1px solid rgba(100, 223, 210, 0.22);
-  background: rgba(100, 223, 210, 0.035);
-  grid-template-columns: 30px minmax(0, 1fr) minmax(96px, 0.82fr);
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 12px;
+  border: 1px solid rgba(201, 243, 106, 0.48);
+  border-radius: 2px;
+  cursor: pointer;
+  color: var(--colony-lung);
+  background:
+    linear-gradient(90deg, rgba(201, 243, 106, 0.11), transparent 74%),
+    rgba(4, 8, 5, 0.82);
+  grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
+  gap: 10px;
+  text-align: left;
 }
 
-.medium-symbol {
-  color: var(--mouth-b);
-  font-size: 25px;
-  line-height: 1;
+.colony-randomize-primary > span:first-child {
+  font-size: 20px;
   text-align: center;
 }
 
-.medium-select b,
-.medium-select small {
+.colony-randomize-primary b,
+.colony-randomize-primary small {
   display: block;
 }
 
-.medium-select b {
-  color: var(--mouth-b);
+.colony-randomize-primary b {
+  font-size: 9px;
+  letter-spacing: 0.035em;
+}
+
+.colony-randomize-primary small {
+  margin-top: 3px;
+  color: var(--colony-muted);
+  font-size: 6px;
+  line-height: 1.35;
+}
+
+.colony-randomize-primary:hover,
+.colony-randomize-primary:focus-visible {
+  color: #050806;
+  background: var(--colony-lung);
+  outline: 1px solid var(--colony-lung);
+  outline-offset: 2px;
+}
+
+.colony-randomize-primary:hover small,
+.colony-randomize-primary:focus-visible small {
+  color: rgba(5, 8, 6, 0.62);
+}
+
+.call-preset-heading {
+  display: flex;
+  margin: 15px 0 6px;
+  color: var(--colony-muted);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 7px;
+  font-weight: 680;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.call-preset-heading output {
+  color: var(--colony-lung);
+  font-size: 6px;
+}
+
+.call-preset-heading label small {
+  margin-left: 5px;
+  color: var(--colony-faint);
+  font-size: 5px;
+  letter-spacing: 0.06em;
+}
+
+.call-preset-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.call-preset-select {
+  display: block;
+  min-width: 0;
+}
+
+.call-preset-select select {
+  width: 100%;
+  height: 44px;
+  min-width: 0;
+  padding: 0 9px;
+  border: 1px solid rgba(201, 243, 106, 0.34);
+  border-radius: 0;
+  color: var(--colony-paper);
+  background: rgba(3, 7, 4, 0.92);
+  font: inherit;
   font-size: 8px;
 }
 
-.medium-select small {
-  margin-top: 2px;
+.call-preset-select select:focus-visible,
+#playCallButton:focus-visible {
+  border-color: var(--colony-lung);
+  outline: 1px solid var(--colony-lung);
+  outline-offset: 2px;
+}
+
+#playCallButton {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid rgba(201, 243, 106, 0.34);
+  cursor: pointer;
+  color: var(--colony-lung);
+  background: rgba(201, 243, 106, 0.035);
+  align-content: center;
+  gap: 2px;
+  text-align: left;
+}
+
+#playCallButton b,
+#playCallButton small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#playCallButton b {
+  font-size: 8px;
+  letter-spacing: 0.045em;
+}
+
+#playCallButton small {
   color: var(--colony-faint);
   font-size: 6px;
 }
 
-.medium-select select,
+#playCallButton:hover:not(:disabled),
+#playCallButton.is-playing {
+  border-color: var(--colony-lung);
+  color: #050806;
+  background: var(--colony-lung);
+}
+
+#playCallButton.is-playing small {
+  color: rgba(5, 8, 6, 0.62);
+}
+
+#playCallButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+#selectedCallReadout {
+  display: block;
+  min-height: 2.8em;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(201, 243, 106, 0.12);
+  color: var(--colony-muted);
+  font-size: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.055em;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.preset-text-section {
+  padding: 0;
+}
+
+.preset-text-section > summary {
+  display: flex;
+  min-height: 64px;
+  padding: 13px 17px;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preset-text-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.preset-text-section > summary::after {
+  color: var(--colony-lung);
+  content: "+";
+  font-size: 16px;
+}
+
+.preset-text-section[open] > summary {
+  border-bottom: 1px solid var(--colony-line);
+}
+
+.preset-text-section[open] > summary::after {
+  content: "−";
+}
+
+.preset-text-section summary b,
+.preset-text-section summary small {
+  display: block;
+}
+
+.preset-text-section summary b {
+  color: var(--colony-paper);
+  font-size: 10px;
+}
+
+.preset-text-section summary small,
+.preset-text-section summary output {
+  margin-top: 3px;
+  color: var(--colony-muted);
+  font-size: 6px;
+}
+
+.preset-text-section summary output {
+  margin-left: auto;
+  letter-spacing: 0.08em;
+}
+
+.preset-text-body {
+  display: grid;
+  padding: 13px 17px 17px;
+  gap: 10px;
+}
+
+.preset-text-body p {
+  margin: 0;
+  color: var(--colony-muted);
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.preset-text-body textarea {
+  display: block;
+  width: 100%;
+  min-height: 112px;
+  resize: vertical;
+  padding: 9px;
+  border: 1px solid var(--colony-line-strong);
+  border-radius: 2px;
+  color: var(--colony-paper);
+  background: #030504;
+  font: 6px/1.45 var(--mono, ui-monospace, monospace);
+}
+
+.preset-text-body button {
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid rgba(201, 243, 106, 0.34);
+  border-radius: 2px;
+  cursor: pointer;
+  color: var(--colony-lung);
+  background: rgba(201, 243, 106, 0.035);
+  text-align: left;
+}
+
+.preset-text-body button b,
+.preset-text-body button small {
+  display: block;
+}
+
+.preset-text-body button b { font-size: 8px; }
+.preset-text-body button small { margin-top: 2px; color: var(--colony-muted); font-size: 6px; }
+
+.preset-text-body button:hover,
+.preset-text-body button:focus-visible {
+  color: #050806;
+  background: var(--colony-lung);
+  outline: 1px solid var(--colony-lung);
+  outline-offset: 2px;
+}
+
 .colony-select-control select {
   width: 100%;
   height: 34px;
@@ -2133,50 +2882,6 @@
   color: var(--colony-paper);
   background: var(--colony-bg);
   font-size: 7px;
-}
-
-.material-behaviors {
-  display: grid;
-  margin-top: 7px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.material-behaviors > span {
-  display: grid;
-  min-width: 0;
-  min-height: 44px;
-  padding: 6px 7px;
-  border: 1px solid var(--colony-line);
-  grid-template-columns: 7px minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  align-items: center;
-  column-gap: 5px;
-}
-
-.material-behaviors i {
-  width: 5px;
-  height: 5px;
-  border: 1px solid var(--colony-muted);
-  border-radius: 50%;
-  grid-row: 1 / -1;
-}
-
-.material-behaviors b {
-  color: var(--colony-paper);
-  font-size: 7px;
-  letter-spacing: 0.05em;
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.material-behaviors small {
-  color: var(--colony-faint);
-  font-size: 6px;
-  line-height: 1.3;
-  white-space: normal;
-  grid-column: 2;
-  grid-row: 2;
 }
 
 .breath-section {
@@ -2381,10 +3086,10 @@
   min-height: 46px;
   margin-top: 8px;
   padding: 7px 9px;
-  border: 1px solid rgba(187, 155, 242, 0.2);
+  border: 1px solid rgba(189, 8, 47, 0.23);
   cursor: pointer;
   color: var(--mouth-c);
-  background: rgba(187, 155, 242, 0.025);
+  background: rgba(189, 8, 47, 0.035);
   grid-template-columns: 22px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
@@ -2395,7 +3100,7 @@
 .midi-learn-button:focus-visible,
 .midi-learn-button[aria-pressed="true"] {
   border-color: var(--mouth-c);
-  background: rgba(187, 155, 242, 0.08);
+  background: rgba(189, 8, 47, 0.10);
 }
 
 .midi-learn-button > span:first-child {
@@ -2573,7 +3278,7 @@
   border-color: var(--mouth-c);
   color: #08050d;
   background: var(--mouth-c);
-  box-shadow: 0 0 18px rgba(187, 155, 242, 0.18);
+  box-shadow: 0 0 18px rgba(189, 8, 47, 0.24);
   animation: colony-midi-learn 880ms ease-in-out infinite alternate;
 }
 
@@ -2623,7 +3328,7 @@
   overflow: hidden;
   background:
     radial-gradient(ellipse at 14% 18%, rgba(255, 128, 107, 0.055), transparent 34%),
-    radial-gradient(ellipse at 82% 76%, rgba(100, 223, 210, 0.05), transparent 38%),
+    radial-gradient(ellipse at 82% 76%, rgba(255, 91, 0, 0.055), transparent 38%),
     linear-gradient(180deg, rgba(201, 243, 106, 0.018), transparent 34%),
     #040705;
 }
@@ -3120,8 +3825,8 @@ circle.contour-point.is-dragging {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(ellipse at 8% 18%, rgba(255, 99, 185, 0.08), transparent 36%),
-    radial-gradient(ellipse at 92% 82%, rgba(100, 223, 210, 0.065), transparent 42%),
+    radial-gradient(ellipse at 8% 18%, rgba(189, 8, 47, 0.10), transparent 36%),
+    radial-gradient(ellipse at 92% 82%, rgba(170, 255, 22, 0.07), transparent 42%),
     linear-gradient(145deg, rgba(201, 243, 106, 0.026), transparent 56%);
 }
 
@@ -3167,7 +3872,7 @@ circle.contour-point.is-dragging {
 
 .organ-count-controls > label:nth-child(even),
 .organ-count-control:nth-child(even) {
-  border-color: rgba(100, 223, 210, 0.14);
+  border-color: rgba(220, 229, 227, 0.16);
   border-radius: 10px 26px 13px 24px / 23px 13px 26px 12px;
 }
 
@@ -3239,12 +3944,12 @@ circle.contour-point.is-dragging {
 }
 
 .generator-actions > button:nth-child(3) {
-  border-color: rgba(100, 223, 210, 0.23);
+  border-color: rgba(170, 255, 22, 0.25);
   color: var(--mouth-b);
 }
 
 .generator-actions > button:nth-child(4) {
-  border-color: rgba(187, 155, 242, 0.23);
+  border-color: rgba(189, 8, 47, 0.25);
   color: var(--mouth-c);
 }
 
@@ -3316,6 +4021,64 @@ circle.contour-point.is-dragging {
 .contour-intro button:active {
   transform: translateY(1px) scale(0.985);
 }
+
+/* Keep the interface on the same rectilinear system as the other Morphazoid
+   panels. Organic geometry belongs to the instrument anatomy, not its UI. */
+.colony-counts div,
+.graph-tools button,
+.colony-body-stage,
+.flow-module,
+.lung-bank,
+.source-card,
+.mouth-card,
+.contour-intro button,
+.contour-lane,
+.contour-lane:nth-child(even),
+.contour-lane:nth-child(3n),
+.contour-controls select,
+.contour-controls input,
+.contour-lane-controls select,
+.contour-lane-controls input,
+.contour-lane > header select,
+.contour-lane > header input,
+.organ-count-control,
+.organ-count-controls > label,
+.organ-count-controls > label:nth-child(even),
+.organ-count-control:nth-child(even),
+.generator-button,
+.generator-actions > button {
+  border-radius: 2px;
+}
+
+.colony-body-stage::before,
+.colony-body-stage::after,
+.colony-sequencer:has(.contour-lanes)::before,
+.contour-lane::before,
+.generator-section::before,
+.generator-button::after,
+.generator-actions > button::after {
+  display: none;
+}
+
+.generator-button:hover,
+.generator-button:focus-visible,
+.generator-actions > button:hover,
+.generator-actions > button:focus-visible,
+.contour-intro button:hover,
+.contour-intro button:focus-visible {
+  transform: translateY(-1px);
+}
+
+.generator-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#randomizeBodyButton { border-color: rgba(255, 128, 107, 0.23); color: var(--colony-fold); }
+#randomizeRoutesButton { border-color: rgba(170, 255, 22, 0.25); color: var(--mouth-b); }
+#randomizeMotionButton { border-color: rgba(189, 8, 47, 0.25); color: var(--mouth-c); }
+#randomizeBodyButton:hover, #randomizeBodyButton:focus-visible { background: var(--colony-fold); }
+#randomizeRoutesButton:hover, #randomizeRoutesButton:focus-visible { background: var(--mouth-b); }
+#randomizeMotionButton:hover, #randomizeMotionButton:focus-visible { background: var(--mouth-c); }
 
 /* Maximum slots stay mounted while active counts change. */
 .lung.is-absent,
@@ -3437,23 +4200,40 @@ circle.contour-point.is-dragging {
   to { opacity: 1; }
 }
 
+@keyframes spatial-trigger-wave {
+  0% { opacity: 0; transform: scale(.35); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: scale(3.6); }
+}
+
+@keyframes spatial-trigger-core {
+  0% { opacity: 0; transform: scale(.4); }
+  20% { opacity: 1; transform: scale(1.45); }
+  100% { opacity: 0; transform: scale(.72); }
+}
+
+@keyframes graph-drag-orbit {
+  to { stroke-dashoffset: -72; }
+}
+
+@keyframes psycho-eye-flare {
+  from { opacity: .78; filter: drop-shadow(0 0 3px var(--colony-lung)); }
+  to { opacity: 1; filter: drop-shadow(0 0 9px var(--colony-orange)); }
+}
+
 @keyframes colony-pressure-live {
   from { filter: brightness(0.9); }
   to { filter: brightness(1.35); }
 }
 
 @keyframes colony-midi-learn {
-  from { box-shadow: 0 0 4px rgba(187, 155, 242, 0.12); }
-  to { box-shadow: 0 0 20px rgba(187, 155, 242, 0.42); }
+  from { box-shadow: 0 0 4px rgba(189, 8, 47, 0.14); }
+  to { box-shadow: 0 0 20px rgba(189, 8, 47, 0.46); }
 }
 
 @media (max-width: 1260px) {
   .colony-shell {
     grid-template-columns: minmax(0, 1fr) 326px;
-  }
-
-  .call-bank {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .colony-titlebar {
@@ -3495,6 +4275,19 @@ circle.contour-point.is-dragging {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .colony-mobile-primary-mount {
+    display: block;
+    border-bottom: 1px solid var(--colony-line);
+  }
+
+  .colony-mobile-primary-mount:empty {
+    display: none;
+  }
+
+  .colony-mobile-primary-mount .colony-primary-section {
+    border-bottom: 0;
+  }
+
   .colony-transport {
     grid-column: 1 / -1;
   }
@@ -3518,14 +4311,17 @@ circle.contour-point.is-dragging {
 
 @media (max-width: 720px) {
   .colony-titlebar {
+    top: 12px;
+    right: 14px;
+    left: 14px;
     min-height: 0;
-    padding: 27px 18px 24px;
+    padding: 0;
     grid-template-columns: 1fr;
-    gap: 19px;
+    gap: 0;
   }
 
   .colony-title-copy h1 {
-    font-size: clamp(38px, 12.5vw, 70px);
+    font-size: clamp(28px, 9vw, 42px);
   }
 
   .colony-thesis {
@@ -3559,16 +4355,6 @@ circle.contour-point.is-dragging {
 
   .graph-tools button {
     flex: 1 1 128px;
-  }
-
-  .call-bank {
-    padding: 10px 12px 14px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .call-bank > button,
-  .call-preset-button {
-    min-height: 76px;
   }
 
   .anatomy-legend {
@@ -3676,20 +4462,6 @@ circle.contour-point.is-dragging {
     white-space: normal;
   }
 
-  .call-bank-heading {
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  #selectedCallReadout {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    font-size: 7px;
-    text-align: left;
-  }
-
   .graph-tools button {
     flex-basis: calc(50% - 3px);
   }
@@ -3762,17 +4534,6 @@ circle.contour-point.is-dragging {
     grid-template-columns: 40px repeat(3, minmax(0, 1fr));
   }
 
-  .material-behaviors {
-    grid-template-columns: 1fr;
-  }
-
-  .medium-select {
-    grid-template-columns: 28px minmax(0, 1fr);
-  }
-
-  .medium-select select {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3788,7 +4549,11 @@ circle.contour-point.is-dragging {
   .colony-shell.is-running .lung-feed-vessel.is-flowing,
   .route-draft,
   .mouth-port.is-route-target,
-  .is-route-target .mouth-port {
+  .is-route-target .mouth-port,
+  .spatial-trigger-wave,
+  .spatial-trigger-core,
+  .graph-node-grab,
+  .vessel-mouth .monster-eye {
     animation: none !important;
   }
 
@@ -3797,8 +4562,7 @@ circle.contour-point.is-dragging {
     transition: none;
   }
 
-  .call-bank > button,
-  .call-preset-button,
+  #playCallButton,
   .graph-tools button,
   .colony-body .graph-node,
   .colony-body :is(
@@ -3817,13 +4581,9 @@ circle.contour-point.is-dragging {
   .route-valve[aria-pressed="true"],
   .lane-steps button[aria-pressed="true"],
   .lung[aria-pressed="true"],
-  .call-bank > button[aria-pressed="true"] {
+  #playCallButton.is-playing {
     outline: 2px solid Highlight;
     outline-offset: -3px;
-  }
-
-  .material-behaviors {
-    opacity: 1;
   }
 
   .graph-tools button,
@@ -3843,12 +4603,97 @@ circle.contour-point.is-dragging {
 
   .route-draft,
   .lung-feed-vessel,
-  .vessel-route {
+  .vessel-route,
+  .spatial-trigger-wave,
+  .spatial-trigger-core {
     stroke: Highlight;
+  }
+
+  .spatial-trigger-core {
+    fill: Highlight;
+  }
+
+  .colony-body .monster-body-shell {
+    fill: Canvas;
+    stroke: CanvasText;
+    filter: none;
+    forced-color-adjust: auto;
+  }
+
+  .colony-body .lung-membrane {
+    fill: Canvas;
+    stroke: CanvasText;
+    filter: none;
+    forced-color-adjust: auto;
+  }
+
+  .colony-body :is(.lung-bronchial-tree, .lung-pleural-folds) {
+    stroke: Highlight;
+    filter: none;
+    forced-color-adjust: auto;
+  }
+
+  .colony-body :is(
+    .monster-tail,
+    .monster-back-spines,
+    .monster-neck,
+    .monster-belly,
+    .monster-leg,
+    .monster-ribs path,
+    .monster-bone-plates path,
+    .monster-tendrils path,
+    .monster-face-ridge,
+    .monster-horn,
+    .mouth-root,
+    .mouth-upper,
+    .mouth-lower,
+    .mouth-tongue,
+    .mouth-teeth
+  ) {
+    stroke: CanvasText;
+    filter: none;
+    forced-color-adjust: auto;
+  }
+
+  .colony-body :is(.monster-head-shell, .monster-eye-socket) {
+    fill: Canvas;
+    stroke: CanvasText;
+    filter: none;
+    forced-color-adjust: auto;
+  }
+
+  .colony-body :is(
+    .monster-bone-plates path,
+    .monster-eye-cluster ellipse,
+    .mouth-upper,
+    .mouth-lower,
+    .mouth-tongue
+  ) {
+    fill: Canvas;
+    forced-color-adjust: auto;
+  }
+
+  .colony-body :is(
+    .monster-eye,
+    .monster-secondary-eye,
+    .monster-eye-cluster > circle[fill="url(#monsterEye)"]
+  ) {
+    fill: Highlight;
+    stroke: CanvasText;
+    filter: none;
+    forced-color-adjust: auto;
+  }
+
+  .colony-body :is(.monster-pupil, .monster-secondary-pupil) {
+    fill: CanvasText;
+    stroke: Canvas;
+    forced-color-adjust: auto;
   }
 }
 
 @media (max-width: 940px) {
+  .colony-primary-section,
+  .preset-text-section,
   .generator-section {
     grid-column: 1 / -1;
   }
@@ -3858,7 +4703,7 @@ circle.contour-point.is-dragging {
   }
 
   .generator-actions {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -4027,5 +4872,230 @@ circle.contour-point.is-dragging {
 
   .is-absent {
     opacity: 0.35 !important;
+  }
+}
+
+/* Compact Monstrozoid presentation. Keep the performance actions first, but
+   make them dense enough that the complete creature remains visible in a
+   phone-height window. The SVG is deliberately taller here so its anatomy
+   does not collapse into an unreadable ribbon. */
+@media (max-width: 720px) {
+  .colony-titlebar {
+    min-height: 0;
+    padding: 0;
+    gap: 0;
+  }
+
+  .colony-title-copy h1 {
+    font-size: clamp(28px, 9vw, 42px);
+    line-height: 0.82;
+    white-space: nowrap;
+  }
+
+  .colony-mobile-primary-mount .colony-primary-section {
+    padding: 9px 12px 10px;
+  }
+
+  .colony-mobile-primary-mount .console-heading {
+    display: none;
+  }
+
+  .colony-mobile-primary-mount .colony-primary-section h2 {
+    margin: 0 0 7px;
+    font-size: 12px;
+  }
+
+  .colony-mobile-primary-mount .colony-randomize-primary {
+    min-height: 47px;
+    padding: 7px 10px;
+  }
+
+  .colony-mobile-primary-mount .call-preset-heading {
+    margin: 8px 0 4px;
+  }
+
+  .colony-mobile-primary-mount :is(.call-preset-select select, #playCallButton) {
+    height: 38px;
+    min-height: 38px;
+  }
+
+  .colony-mobile-primary-mount #selectedCallReadout {
+    min-height: 1.35em;
+    margin-top: 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .colony-mobile-primary-mount .colony-primary-status {
+    min-height: 1.25em;
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .anatomy-heading {
+    min-height: 43px;
+    padding-block: 6px;
+  }
+
+  .anatomy-heading-actions {
+    gap: 5px;
+  }
+
+  .graph-tools {
+    flex-wrap: nowrap;
+  }
+
+  .graph-tools button {
+    min-height: 28px;
+    padding-block: 5px;
+  }
+
+  .colony-body-stage {
+    padding: 0 4px;
+  }
+
+  .colony-body {
+    width: 100%;
+    height: clamp(276px, 77vw, 326px);
+    min-height: 276px;
+  }
+
+  .colony-body .body-labels,
+  .colony-body .vessel-source > text,
+  .colony-body .vessel-mouth > text {
+    display: none;
+  }
+
+  .colony-body .body-aura {
+    stroke-width: 3.3px;
+  }
+
+  .monster-skeleton .monster-back-spines {
+    stroke-width: 3.25px;
+  }
+
+  .monster-skeleton :is(.monster-leg, .monster-tail) {
+    stroke-width: 2.6px;
+  }
+
+  .monster-skeleton .monster-bone-plates path,
+  .monster-skeleton .monster-ribs path {
+    stroke-width: 1.75px;
+  }
+
+  .monster-eye-cluster {
+    opacity: 1;
+  }
+
+  .vessel-mouth .monster-head-shell {
+    stroke-width: 2.75px;
+  }
+
+  .vessel-mouth .monster-horn {
+    stroke-width: 2.55px;
+  }
+
+  .vessel-mouth :is(.mouth-upper, .mouth-lower) {
+    stroke-width: 3px;
+  }
+
+  .vessel-mouth .mouth-teeth {
+    stroke-width: 2px;
+  }
+
+  .colony-body .vessel-route.is-open {
+    stroke-width: 2.1px;
+    opacity: 0.78;
+  }
+
+  .colony-body-stage figcaption {
+    min-height: 27px;
+    margin-top: -2px;
+    padding-block: 5px;
+  }
+
+  .anatomy-inspector > summary {
+    min-height: 39px;
+    padding-block: 7px;
+  }
+}
+
+@media (max-width: 420px) {
+  .colony-titlebar {
+    top: 10px;
+  }
+
+  .anatomy-inspector > summary small {
+    display: none;
+  }
+
+  .colony-body {
+    height: 300px;
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 720px) {
+  .anatomy-heading {
+    min-height: 48px;
+    align-items: center;
+  }
+
+  .anatomy-heading-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .graph-interaction-key small {
+    display: none;
+  }
+
+  .graph-interaction-key span {
+    min-height: 28px;
+    padding-right: 7px;
+  }
+
+  .graph-tools {
+    width: auto;
+  }
+
+  .graph-tools button {
+    min-width: 0;
+    padding-inline: 7px;
+    flex: 0 1 auto;
+  }
+
+  .alien-limb {
+    stroke-width: 2.5px;
+  }
+}
+
+@media (max-width: 420px) {
+  .graph-interaction-key .is-tap {
+    display: none;
+  }
+
+  .graph-interaction-key .is-drag {
+    padding-right: 8px;
+  }
+
+  .graph-interaction-key .is-drag small {
+    display: block;
+    font-size: 5px;
+  }
+
+  .graph-interaction-key .is-shape small {
+    display: block;
+    font-size: 5px;
+  }
+
+  .graph-tools button {
+    padding-inline: 5px;
+    font-size: 5.5px;
   }
 }

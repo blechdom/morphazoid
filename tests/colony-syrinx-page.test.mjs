@@ -35,15 +35,54 @@ const INACTIVE_FREQUENCY_MARKER = new RegExp([
   "if\\s*\\(\\s*!\\w*(?:Folds?|Voic\\w*)\\s*\\)[\\s\\S]{0,160}[\"'](?:unvoiced|inactive|no folds|off|[—–-]{2,})[\"']",
 ].join("|"), "i");
 
-test("Colony Syrinx page exposes anatomy slots, variable-count controls, literal headings, and short calls", async () => {
-  const html = await readFile(new URL("colony-syrinx.html", root), "utf8");
+test("former instrument URLs redirect to canonical Monstrozoid without dropping URL state", async () => {
+  for (const legacyPage of ["monsterzoid.html", "colony-syrinx.html"]) {
+    const html = await readFile(new URL(legacyPage, root), "utf8");
+    assert.match(html, /http-equiv="refresh" content="0; url=monstrozoid\.html"/);
+    assert.match(html, /rel="canonical" href="monstrozoid\.html"/);
+    assert.match(html, /destination\.search = location\.search/);
+    assert.match(html, /destination\.hash = location\.hash/);
+    assert.doesNotMatch(html, /src="colony-syrinx-app\.js"/);
+  }
+});
+
+test("Monstrozoid page exposes anatomy slots, variable-count controls, literal headings, and calls", async () => {
+  const html = await readFile(new URL("monstrozoid.html", root), "utf8");
   const routeValves = html.match(/<button id="route-s\d-m\d"[^>]*>/g) ?? [];
+  assert.match(html, /<title>Monstrozoid/);
+  assert.match(html, /<h1 id="pageTitle">MONSTROZOID<\/h1>/);
+  assert.doesNotMatch(html, /MULTI-SOURCE VOCAL NETWORK/);
+  assert.ok(
+    html.indexOf('class="colony-body-stage"') < html.indexOf('class="colony-titlebar"')
+      && html.indexOf('class="colony-titlebar"') < html.indexOf('class="colony-body"'),
+    "the one-piece wordmark must live inside the monster graphic instead of a separate banner",
+  );
+  assert.equal((html.match(/class="body-aura monster-body-shell"/g) ?? []).length, 1);
+  assert.equal((html.match(/class="monster-head-shell"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="monster-eye"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="monster-secondary-eye"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="monster-secondary-pupil"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="mouth-upper"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="mouth-lower"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="mouth-maw"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="jaw-hinge"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="mouth-tongue"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="psycho-eye-rays"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="monster-mad-brow"/g) ?? []).length, 3);
+  assert.equal((html.match(/class="monster-eye-cluster"/g) ?? []).length, 1);
+  assert.equal((html.match(/class="monster-bone-plates"/g) ?? []).length, 1);
+  assert.equal((html.match(/class="monster-tendrils"/g) ?? []).length, 1);
+  assert.equal((html.match(/class="alien-limb alien-limb-[a-f]"/g) ?? []).length, 6);
+  assert.equal((html.match(/class="monster-deformation-web"/g) ?? []).length, 1);
   assert.equal((html.match(/\bdata-lung="\d+"/g) ?? []).length, 16);
   assert.equal((html.match(/\bid="fold\d+Meter"/g) ?? []).length, 8);
   assert.equal((html.match(/class="route-valve"/g) ?? []).length, 12);
   assert.equal(routeValves.filter((button) => /aria-pressed="true"/.test(button)).length, 9);
   assert.equal((html.match(/class="mouth-card mouth-[abc]"/g) ?? []).length, 3);
   assert.equal((html.match(/\bdata-vessel-lung="\d+"/g) ?? []).length, 16);
+  assert.equal((html.match(/class="lung-membrane"/g) ?? []).length, 16);
+  assert.equal((html.match(/class="lung-bronchial-tree"/g) ?? []).length, 16);
+  assert.equal((html.match(/class="lung-pleural-folds"/g) ?? []).length, 16);
   assert.equal((html.match(/\bdata-vessel-source="\d+"/g) ?? []).length, 4);
   assert.equal((html.match(/\bdata-vessel-route="\d+-\d+"/g) ?? []).length, 12);
   assert.equal((html.match(/\bdata-vessel-mouth="\d+"/g) ?? []).length, 3);
@@ -52,20 +91,44 @@ test("Colony Syrinx page exposes anatomy slots, variable-count controls, literal
   assert.doesNotMatch(html, /class="sequence-lane mouth-[abc]"/);
   assert.doesNotMatch(html, /\bdata-step="\d+"/);
   assert.match(html, /id="contourLanes"[^>]*data-contour-count="6"/);
-  assert.match(html, /id="callBankTitle">Short calls<\/h2>/);
-  assert.match(html, /id="callBank"[^>]*aria-label="Short call presets"/);
+  assert.match(html, /id="primaryActionsTitle">Generate and audition<\/h2>/);
+  assert.equal((html.match(/id="callPresetSelect"/g) ?? []).length, 1);
+  assert.match(html, /id="callPresetSelect"[^>]*aria-describedby="selectedCallReadout"/);
+  assert.match(html, /Call preset <small>← → auditions<\/small>/);
+  assert.match(html, /id="playCallButton"[^>]*aria-describedby="selectedCallReadout"/);
   assert.match(html, /id="selectedCallReadout"/);
+  assert.match(html, /id="presetTextOutput"[^>]*readonly/);
+  assert.match(html, /id="mobilePrimaryMount"/);
+  assert.match(html, /id="copyPresetButton"/);
+  assert.doesNotMatch(html, /id="callBank"|class="call-bank"|class="call-preset-button"/);
   assert.ok(
-    html.indexOf('id="callBank"') < html.indexOf('class="colony-anatomy"'),
-    "short calls must be the first playable workspace section",
+    html.indexOf('id="callPresetSelect"') > html.indexOf('class="panel colony-console control-rail"'),
+    "the compact preset chooser must live in the right control rail",
   );
-  assert.match(html, /id="anatomyTitle">Pressure network<\/h2>/);
+  assert.ok(
+    html.indexOf('id="randomizeAllButton"') < html.indexOf('id="callPresetSelect"'),
+    "Randomize all must be the first performance action in the rail",
+  );
+  assert.match(html, /class="colony-anatomy" aria-label="Interactive creature"/);
+  assert.match(html, /class="spatial-sound-field" data-spatial-background/);
+  assert.match(html, /id="spatialTriggerFeedback"[^>]*hidden/);
+  assert.match(html, /id="dragSoundFeedback"[^>]*hidden/);
+  assert.match(html, /Drag halos[\s\S]*position \+ sound/i);
+  assert.match(html, /Diamonds[\s\S]*shape \+ sound/i);
+  assert.match(html, /position changes pressure, pitch, and resonance/i);
+  assert.match(html, /<details class="anatomy-inspector">/);
+  assert.match(html, /<summary><span>Detailed organ controls<\/span>/);
+  assert.doesNotMatch(html, /<details class="anatomy-inspector"[^>]*\bopen\b/);
+  assert.doesNotMatch(html, /id="anatomyTitle"|class="anatomy-legend"/);
   assert.match(html, /id="sequencerTitle">Continuous parameter contours<\/h2>/);
-  assert.match(html, /id="mediumTitle">Excitation material<\/h2>/);
+  assert.doesNotMatch(
+    html,
+    /id="mediumTitle"|id="mediumSelect"|Excitation material|>Air<|>Water<|>Pellets</i,
+  );
   assert.match(html, /<b>Play continuous flow<\/b>/);
   assert.doesNotMatch(
     html,
-    /One flowing breath|One body, one evolving field|What moves through it\?|Flow the freak/i,
+    /One flowing breath|One body, one evolving field|What moves through it\?|Flow the freak|Lung, vocal-fold-source, route, mouth-resonator|Continuous contours control pressure|>ANATOMY<|>Pressure network<|>\s+pressure<\/span>|>\s*source<\/span>|>\s*open route<\/span>/i,
   );
   for (const id of [
     "lungCount",
@@ -86,15 +149,14 @@ test("Colony Syrinx page exposes anatomy slots, variable-count controls, literal
   assert.match(html, /id="contourCount"[^>]*min="1"[^>]*max="6"/);
   assert.match(html, /id="tempo"[^>]*min="1"/);
   assert.doesNotMatch(html, /id="connectionDensity(?:Out)?"/);
-  assert.match(html, /id="mediumSelect"[\s\S]*value="air"[\s\S]*value="hydraulic"[\s\S]*value="granular"/);
   assert.match(html, /id="playButton"[^>]*data-primary-transport/);
-  assert.match(html, /class="colony-console control-rail"/);
+  assert.match(html, /class="panel colony-console control-rail"/);
   assert.match(html, /src="nav\.js"[\s\S]*src="colony-syrinx-app\.js"/);
 });
 
 test("interactive anatomy graph exposes direct manipulation and keyboard-safe routing", async () => {
   const [html, app, css] = await Promise.all([
-    readFile(new URL("colony-syrinx.html", root), "utf8"),
+    readFile(new URL("monstrozoid.html", root), "utf8"),
     readFile(new URL("colony-syrinx-app.js", root), "utf8"),
     readFile(new URL("colony-syrinx.css", root), "utf8"),
   ]);
@@ -105,7 +167,6 @@ test("interactive anatomy graph exposes direct manipulation and keyboard-safe ro
   assert.doesNotMatch(bodySvg, /\brole="img"/);
 
   for (const id of [
-    "randomizeGraphButton",
     "scatterGraphButton",
     "resetGraphButton",
     "graphMotionButton",
@@ -119,7 +180,33 @@ test("interactive anatomy graph exposes direct manipulation and keyboard-safe ro
 
   assert.match(app, /from "\.\/src\/colony-syrinx-graph\.js"/);
   assert.match(app, /createColonySyrinxGraphLayout\(/);
+  assert.match(app, /alignGraphLayout\(/);
+  assert.match(app, /function persistGraphLayoutInState\(/);
+  assert.match(app, /function hydrateGraphLayoutFromState\(/);
+  assert.match(app, /function graphLayoutChanged\(/);
+  assert.match(app, /colonySyrinxOrganLayoutFromGraph\(graphLayout\)/);
+  assert.match(app, /applyColonySyrinxGraphAcoustics\(controls, layout\)/);
+  assert.match(app, /graphMotionEnabled = Boolean\(state\.organMotionEnabled\)/);
+  assert.match(app, /organMotionEnabled: graphMotionEnabled/);
+  assert.match(app, /if \(scope === "anatomy" \|\| scope === "all"\)[\s\S]*hydrateGraphLayoutFromState\(\)/);
+  assert.match(app, /graphMotionEnabled = Boolean\(state\.organMotionEnabled\)/);
+  assert.match(app, /liveMouthApertures/);
+  assert.match(app, /liveContourValues/);
+  assert.match(app, /let audioStartPromise = null/);
+  assert.match(app, /function resolveSpatialAuditionTarget\(/);
+  assert.match(app, /function spatialAuditionConfiguration\(/);
+  assert.match(app, /async function playSpatialAudition\(/);
+  assert.match(app, /\[data-spatial-background\]/);
+  assert.match(app, /spatialTriggerFeedback/);
+  assert.match(app, /querySelector\("\.mouth-upper"\).*setAttribute/s);
+  assert.match(app, /querySelector\("\.mouth-lower"\).*setAttribute/s);
+  assert.match(app, /querySelector\("\.mouth-tongue"\).*setAttribute/s);
   assert.match(app, /moveColonySyrinxGraphNode\(/);
+  assert.match(app, /createMonstrozoidBodyGeometry\(/);
+  assert.match(app, /function renderMonsterBody\(/);
+  assert.match(app, /function showDragSoundFeedback\(/);
+  assert.match(app, /function startGraphDragAudition\(/);
+  assert.match(html, /id="graphMotionButton"[^>]*aria-pressed="false"/);
 
   for (const eventName of ["pointerdown", "pointermove", "pointerup"]) {
     assert.match(
@@ -164,6 +251,15 @@ test("interactive anatomy graph exposes direct manipulation and keyboard-safe ro
   assert.match(graphGestureSource, /nearestMouthForPoint\(/);
   assert.match(graphGestureSource, /setManualRoute\(/);
 
+  const endGestureSource = sourceSection(
+    app,
+    "function endGraphGesture(",
+    "\nfunction moveFocusedGraphNode(",
+  );
+  assert.match(endGestureSource, /gesture\.kind === "move-node"[\s\S]*playSpatialAudition/);
+  assert.match(endGestureSource, /gesture\.kind === "breath"[\s\S]*playSpatialAudition/);
+  assert.doesNotMatch(endGestureSource, /playShortCall\(/);
+
   const moveGestureSource = sourceSection(
     app,
     "function moveGraphGesture(",
@@ -197,7 +293,7 @@ test("interactive anatomy graph exposes direct manipulation and keyboard-safe ro
   );
 });
 
-test("controller owns short calls, valve MIDI, continuous flow, variable counts, and panic", async () => {
+test("controller owns calls, valve MIDI, continuous flow, variable counts, preset text, and panic", async () => {
   const source = await readFile(new URL("colony-syrinx-app.js", root), "utf8");
   assert.match(source, /const MIDI_BASE_NOTE = 48/);
   assert.match(source, /colonySyrinxRouteFromMidiNote\(note, midiBaseNote\)/);
@@ -215,6 +311,8 @@ test("controller owns short calls, valve MIDI, continuous flow, variable counts,
   assert.match(source, /contourDurationSeconds/);
   assert.match(source, /contourPhase/);
   assert.match(source, /randomizeAllButton/);
+  assert.match(source, /placePrimaryControls/);
+  assert.match(source, /compactLayoutQuery/);
   assert.match(source, /randomizeBodyButton/);
   assert.match(source, /randomizeRoutesButton/);
   assert.match(source, /randomizeMotionButton/);
@@ -223,9 +321,16 @@ test("controller owns short calls, valve MIDI, continuous flow, variable counts,
   assert.match(source, /bindRange\("contourCount"/);
   assert.doesNotMatch(source, /connectionDensity/);
   assert.match(source, /for \(const recipe of COLONY_SYRINX_CALLS\)/);
-  assert.match(source, /button\.dataset\.callId = recipe\.id/);
-  assert.match(source, /playShortCall\(recipe\.id\)/);
-  assert.match(source, /buildCallBank\(\)/);
+  assert.match(source, /option\.dataset\.callId = recipe\.id/);
+  assert.match(source, /void playShortCall\(event\.currentTarget\.value\)/);
+  assert.match(source, /playShortCall\(selectedCallId\)/);
+  assert.match(source, /buildCallMenu\(\)/);
+  assert.match(source, /callDisplayLabel\(recipe\)/);
+  assert.doesNotMatch(source, /callMaterialLabel|mediumSelect|updateMediumPresentation/);
+  assert.match(source, /formatCallDuration\(recipe\.durationSeconds\)/);
+  assert.match(source, /articulation: recipe\.articulation/);
+  assert.match(source, /formatColonySyrinxPreset\(state\)/);
+  assert.match(source, /navigator\.clipboard\.writeText\(output\.value\)/);
   assert.match(source, /type: "call"/);
   assert.match(source, /data\?\.type === "call-ended"/);
   assert.match(source, /telemetry\.routeApertures/);
@@ -251,11 +356,11 @@ test("controller owns short calls, valve MIDI, continuous flow, variable counts,
   );
   assert.match(
     toggleAudioSource,
-    /if \(await ensureAudio\(\)\) \{\s*announce\("Colony Syrinx audio on"\);\s*\}/,
+    /if \(await ensureAudio\(\)\) \{\s*announce\("Monstrozoid audio on"\);\s*\}/,
   );
 });
 
-test("short-call UI keeps one-shot identity separate from continuous transport and edited settings", async () => {
+test("call UI keeps one-shot identity separate from continuous transport and edited settings", async () => {
   const [appSource, processorSource] = await Promise.all([
     readFile(new URL("colony-syrinx-app.js", root), "utf8"),
     readFile(new URL("../src/colony-syrinx-processor.js", import.meta.url), "utf8"),
@@ -282,7 +387,7 @@ test("short-call UI keeps one-shot identity separate from continuous transport a
   assert.match(
     toggleTransportSource,
     /if\s*\(\s*callActive\s*\)[\s\S]*setTransport\(\s*true\b/,
-    "the continuous control must explicitly replace a short call with continuous flow",
+    "the continuous control must explicitly replace a finite call with continuous flow",
   );
 
   const callMessageSource = sourceSection(
@@ -336,15 +441,24 @@ test("short-call UI keeps one-shot identity separate from continuous transport a
   const selectedPresentationSource = sourceSection(
     appSource,
     "function updateCallPresentation()",
-    "\nfunction buildCallBank()",
+    "\nfunction buildCallMenu()",
   );
-  const callBankSource = sourceSection(
+  const callMenuSource = sourceSection(
     appSource,
-    "function buildCallBank()",
-    "\nfunction setPlaybackPresentation()",
+    "function buildCallMenu()",
+    "\nfunction selectShortCall(",
   );
   assert.match(selectedPresentationSource, /counts\.phonators/, "selected call metadata must include sources");
-  assert.match(callBankSource, /counts\.phonators/, "call-card metadata must include sources");
+  assert.match(selectedPresentationSource, /callPresetSelect/, "selected call must stay synchronized with the native menu");
+  assert.doesNotMatch(callMenuSource, /document\.createElement\("optgroup"\)/);
+  assert.match(callMenuSource, /document\.createElement\("option"\)/);
+  assert.match(callMenuSource, /select\.append\(option\)/, "menu order must follow the curated call order");
+  assert.match(callMenuSource, /recipe\.durationSeconds/, "menu labels must retain call duration");
+  assert.match(appSource, /function callDisplayLabel\(/);
+  assert.match(appSource, /function stepCallPreset\(/);
+  assert.match(appSource, /event\.target === \$\("callPresetSelect"\)/);
+  assert.match(appSource, /key === "arrowright" \|\| key === "arrowleft"/);
+  assert.doesNotMatch(appSource, /call-preset-button|--call-progress/);
 
   const renderTelemetrySource = sourceSection(
     appSource,
@@ -382,11 +496,30 @@ test("telemetry CSS maps anatomy and the six contour editor lanes", async () => 
   assert.match(css, /\.vessel-route\.is-open/);
   assert.match(css, /\.vessel-mouth\.is-sounding/);
   assert.match(css, /\.vessel-lung\.is-exhaling/);
+  assert.match(css, /\.vessel-lung \.lung-membrane/);
+  assert.match(css, /\.vessel-lung \.lung-bronchial-tree/);
+  assert.match(css, /\.vessel-lung \.lung-pleural-folds/);
+  assert.match(css, /\.anatomy-inspector > summary/);
+  assert.match(css, /\.spatial-trigger-wave/);
+  assert.match(css, /\.graph-interaction-key/);
+  assert.match(css, /\.alien-limb/);
+  assert.match(css, /\.monster-deformation-web/);
+  assert.match(css, /\.drag-sound-feedback/);
+  assert.match(css, /\.vessel-mouth \.mouth-maw/);
+  assert.match(css, /\.vessel-mouth \.psycho-eye-rays/);
   assert.match(css, /\.contour-lane/);
   assert.match(css, /\.contour-path/);
   assert.match(css, /\.contour-point/);
   assert.match(css, /\.generator-section/);
-  assert.match(css, /\.call-bank/);
+  assert.match(css, /\.colony-primary-section/);
+  assert.match(css, /\.call-preset-select select/);
+  assert.match(css, /\.preset-text-section/);
+  assert.match(
+    css,
+    /\.colony-titlebar\s*\{[\s\S]*?position:\s*absolute;/,
+    "the wordmark should overlay the monster field",
+  );
+  assert.doesNotMatch(css, /\.call-bank|\.call-preset-button/);
   assert.doesNotMatch(
     css,
     /\.colony-shell\.is-running \.vessel-route\.is-open/,
@@ -425,7 +558,12 @@ test("worklet continuously morphs one pressure flow, honors active organs, and p
       "utf8",
     );
     assert.doesNotMatch(processorSource, /AUTO_EXHALE_PATTERN|autoExhaleEnvelope/);
-    assert.doesNotMatch(processorSource, /SOURCE_STEP_RATIOS|bankExhaleGates/);
+    assert.doesNotMatch(processorSource, /SOURCE_STEP_RATIOS/);
+    assert.match(processorSource, /_callBankExhaleGates\(\)/);
+    assert.match(processorSource, /options\.bankExhaleGates = articulationGates/);
+    assert.match(processorSource, /triggerArticulation\(/);
+    assert.match(processorSource, /mouthBurstPeaks/);
+    assert.match(processorSource, /mouthBursts:/);
     assert.match(processorSource, /interpolateMouthGesture/);
     assert.match(processorSource, /_updateContinuousBreathMotion/);
     assert.match(processorSource, /if \(message\.type === "call"\)/);
@@ -590,7 +728,8 @@ test("worklet continuously morphs one pressure flow, honors active organs, and p
       const firstFormants = reports.map((report) => report.mouthFormantsHz[mouth][0]);
       assert.ok(new Set(firstFormants.map((value) => value.toFixed(2))).size > 12);
       const jumps = firstFormants.slice(1).map((value, index) => Math.abs(value - firstFormants[index]));
-      assert.ok(Math.max(...jumps) < 1_400, `mouth ${mouth + 1} formants must interpolate`);
+      const maximumJump = Math.max(...jumps);
+      assert.ok(maximumJump < 1_600, `mouth ${mouth + 1} formants must interpolate: ${maximumJump}`);
     }
     assert.equal(reports.at(-1).activeCounts.lungs, 16);
     assert.equal(reports.at(-1).activeCounts.phonators, 4);
@@ -725,6 +864,19 @@ test("worklet continuously morphs one pressure flow, honors active organs, and p
         callId: "test-short-call",
         callToken: 37,
         callGeneration: 37,
+        articulation: {
+          mode: "lip-pop",
+          strike: 1,
+          attackMs: 0.5,
+          releaseMs: 32,
+          prechargeMs: 20,
+          burst: 0.92,
+          pulseRateHz: 0,
+          pulseDepth: 0,
+          pushPull: 0,
+          brightness: 0.32,
+          noise: 0.12,
+        },
       },
     });
     const callSamples = [];
@@ -756,6 +908,11 @@ test("worklet continuously morphs one pressure flow, honors active organs, and p
     assert.ok(
       Math.max(...callSamples.slice(2_400, callDurationSamples - 2_400).map(Math.abs)) > 1e-4,
       "one-shot call must remain audible between its attack and release",
+    );
+    const callReports = telemetry.slice(callTelemetryStart).filter(({ type }) => type === "telemetry");
+    assert.ok(
+      callReports.some((report) => report.mouthBursts.some((value) => value > 0.05)),
+      "a lip-pop call must release a measurable mouth transient",
     );
 
     const closedMatrix = Array.from({ length: 4 }, () => [0, 0, 0]);

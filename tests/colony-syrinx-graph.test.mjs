@@ -4,11 +4,14 @@ import test from "node:test";
 import {
   COLONY_SYRINX_GRAPH_NODE_IDS,
   COLONY_SYRINX_GRAPH_REGIONS,
+  applyColonySyrinxGraphAcoustics,
   colonySyrinxEndpointEligible,
+  colonySyrinxGraphLayoutFromOrganLayout,
   colonySyrinxGraphNodeCollisionRadius,
   colonySyrinxLungFeedEligible,
   colonySyrinxLungFeedGeometries,
   colonySyrinxLungFeedGeometry,
+  colonySyrinxOrganLayoutFromGraph,
   colonySyrinxRouteGeometries,
   colonySyrinxRouteGeometry,
   createColonySyrinxGraphLayout,
@@ -16,6 +19,12 @@ import {
   moveColonySyrinxGraphNode,
   sanitizeColonySyrinxGraphLayout,
 } from "../src/colony-syrinx-graph.js";
+import {
+  createColonySyrinxState,
+  formatColonySyrinxPreset,
+  parseColonySyrinxPreset,
+  randomizeColonySyrinxState,
+} from "../src/colony-syrinx.js";
 
 const nodesOfKind = (layout, kind) => Object.values(layout.nodes).filter((node) => (
   node.kind === kind
@@ -174,6 +183,88 @@ test("node movement is immutable, region clamped, and resolves active collisions
     [second.x, second.y],
   );
   assertCollisionSpacing(collisionResolved);
+});
+
+test("graph positions compactly round-trip through the shareable sound preset", () => {
+  let layout = createColonySyrinxGraphLayout({ seed: 0xa11e1 });
+  layout = moveColonySyrinxGraphNode(layout, "lung-3", { x: 333, y: 444 });
+  layout = moveColonySyrinxGraphNode(layout, "source-2", { x: 655, y: 118 });
+  layout = moveColonySyrinxGraphNode(layout, "mouth-1", { x: 742, y: 488 });
+  const organLayout = colonySyrinxOrganLayoutFromGraph(layout);
+  const state = createColonySyrinxState({ organLayout });
+  const decoded = parseColonySyrinxPreset(formatColonySyrinxPreset(state));
+  const restored = colonySyrinxGraphLayoutFromOrganLayout(decoded.organLayout);
+
+  assert.deepEqual(decoded.organLayout, organLayout);
+  assert.deepEqual(restored, layout);
+  assert.equal(Object.keys(decoded.organLayout).length, 4);
+  assert.equal(decoded.organLayout.lungs.length, 16);
+  assert.equal(decoded.organLayout.sources.length, 4);
+  assert.equal(decoded.organLayout.mouths.length, 3);
+});
+
+test("randomized anatomy is already collision-safe and round-trips without a hidden repair", () => {
+  for (let seed = 0; seed < 64; seed += 1) {
+    const randomized = randomizeColonySyrinxState(createColonySyrinxState(), {
+      scope: "all",
+      seed,
+    });
+    const graph = colonySyrinxGraphLayoutFromOrganLayout(randomized.organLayout);
+    assertCollisionSpacing(graph);
+    assert.deepEqual(
+      colonySyrinxOrganLayoutFromGraph(graph),
+      randomized.organLayout,
+      `randomized seed ${seed} required an unrecorded collision repair`,
+    );
+  }
+});
+
+test("moving each organ family changes a bounded audio configuration without accumulating", () => {
+  const state = createColonySyrinxState();
+  const layout = colonySyrinxGraphLayoutFromOrganLayout(state.organLayout);
+  const baseline = applyColonySyrinxGraphAcoustics(state, layout);
+  const repeated = applyColonySyrinxGraphAcoustics(state, layout);
+  assert.deepEqual(repeated, baseline, "position projection must be stable");
+
+  const movedLung = moveColonySyrinxGraphNode(layout, "lung-1", { x: 360, y: 500 });
+  const lungSound = applyColonySyrinxGraphAcoustics(state, movedLung);
+  assert.notDeepEqual(lungSound.banks[0], baseline.banks[0]);
+  assert.deepEqual(lungSound.banks.slice(1), baseline.banks.slice(1));
+
+  const movedSource = moveColonySyrinxGraphNode(layout, "source-1", { x: 680, y: 80 });
+  const sourceSound = applyColonySyrinxGraphAcoustics(state, movedSource);
+  assert.notEqual(sourceSound.phonators[0].frequencyHz, baseline.phonators[0].frequencyHz);
+  assert.notEqual(sourceSound.phonators[0].tension, baseline.phonators[0].tension);
+  assert.notDeepEqual(sourceSound.routes[0], baseline.routes[0]);
+
+  const movedMouth = moveColonySyrinxGraphNode(layout, "mouth-1", { x: 900, y: 100 });
+  const mouthSound = applyColonySyrinxGraphAcoustics(state, movedMouth);
+  assert.notEqual(mouthSound.mouths[0].resonanceHz, baseline.mouths[0].resonanceHz);
+  assert.notEqual(mouthSound.mouths[0].opening, baseline.mouths[0].opening);
+  assert.notEqual(mouthSound.routes[0][0], baseline.routes[0][0]);
+
+  for (const projected of [baseline, lungSound, sourceSound, mouthSound]) {
+    assert.ok(projected.banks.every(({ drive, compliance, leak }) => (
+      drive >= 0 && drive <= 1.5 && compliance >= 0.2 && compliance <= 2.5
+        && leak >= 0 && leak <= 0.6
+    )));
+    assert.ok(projected.routes.flat().every((aperture) => aperture >= 0 && aperture <= 1));
+    assert.ok(projected.mouths.every(({ opening, pan, resonanceHz }) => (
+      opening >= 0 && opening <= 1 && pan >= -1 && pan <= 1
+        && resonanceHz >= 20 && resonanceHz <= 12_000
+    )));
+  }
+});
+
+test("moving a disabled lung cannot alter the projected sound", () => {
+  const state = createColonySyrinxState({
+    lungEnabled: [false, ...Array(15).fill(true)],
+  });
+  const layout = colonySyrinxGraphLayoutFromOrganLayout(state.organLayout);
+  const baseline = applyColonySyrinxGraphAcoustics(state, layout);
+  const moved = moveColonySyrinxGraphNode(layout, "lung-1", { x: 370, y: 545 });
+
+  assert.deepEqual(applyColonySyrinxGraphAcoustics(state, moved), baseline);
 });
 
 test("route geometry exposes cubic source and mouth anchors for all twelve model routes", () => {

@@ -1,8 +1,10 @@
 import {
   COLONY_SYRINX_LUNG_COUNT,
   COLONY_SYRINX_MOUTH_COUNT,
+  COLONY_SYRINX_ORGAN_LAYOUT_REGIONS,
   COLONY_SYRINX_PHONATOR_COUNT,
   COLONY_SYRINX_TOPOLOGY,
+  sanitizeColonySyrinxState,
 } from "./colony-syrinx.js";
 
 const deepFreeze = (value) => {
@@ -11,7 +13,7 @@ const deepFreeze = (value) => {
   return Object.freeze(value);
 };
 
-const clamp = (value, minimum, maximum, fallback = minimum) => {
+const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {
   const number = Number(value);
   return Math.min(maximum, Math.max(minimum, Number.isFinite(number) ? number : fallback));
 };
@@ -53,24 +55,15 @@ export const COLONY_SYRINX_GRAPH_VIEWBOX = deepFreeze({
 
 export const COLONY_SYRINX_GRAPH_REGIONS = deepFreeze({
   lung: {
-    minX: 48,
-    maxX: 380,
-    minY: 58,
-    maxY: 562,
+    ...COLONY_SYRINX_ORGAN_LAYOUT_REGIONS.lung,
     gap: 7,
   },
   source: {
-    minX: 340,
-    maxX: 690,
-    minY: 70,
-    maxY: 550,
+    ...COLONY_SYRINX_ORGAN_LAYOUT_REGIONS.source,
     gap: 14,
   },
   mouth: {
-    minX: 720,
-    maxX: 904,
-    minY: 88,
-    maxY: 532,
+    ...COLONY_SYRINX_ORGAN_LAYOUT_REGIONS.mouth,
     gap: 18,
   },
 });
@@ -343,6 +336,160 @@ export function sanitizeColonySyrinxGraphLayout(input, fallback = null) {
   return freezeLayout({ seed, nodes });
 }
 
+/** Convert the renderer's rich node objects into compact preset state. */
+export function colonySyrinxOrganLayoutFromGraph(layout) {
+  const clean = sanitizeColonySyrinxGraphLayout(layout);
+  const positions = (kind, count) => Array.from({ length: count }, (_, index) => {
+    const node = clean.nodes[`${kind}-${index + 1}`];
+    return [node.x, node.y];
+  });
+  return {
+    seed: clean.seed,
+    lungs: positions("lung", COLONY_SYRINX_LUNG_COUNT),
+    sources: positions("source", COLONY_SYRINX_PHONATOR_COUNT),
+    mouths: positions("mouth", COLONY_SYRINX_MOUTH_COUNT),
+  };
+}
+
+/** Restore preset positions while deriving visual variants from the same seed. */
+export function colonySyrinxGraphLayoutFromOrganLayout(organLayout) {
+  const seed = normalizedSeed(organLayout?.seed);
+  const generated = createColonySyrinxGraphLayout({ seed });
+  const positionGroups = {
+    lung: organLayout?.lungs,
+    source: organLayout?.sources,
+    mouth: organLayout?.mouths,
+  };
+  const nodes = Object.fromEntries(Object.entries(generated.nodes).map(([id, node]) => {
+    const point = positionGroups[node.kind]?.[node.index];
+    return [id, {
+      ...node,
+      x: Array.isArray(point) ? point[0] : node.x,
+      y: Array.isArray(point) ? point[1] : node.y,
+    }];
+  }));
+  return sanitizeColonySyrinxGraphLayout({ seed, nodes }, generated);
+}
+
+const normalizedInRegion = (value, region, axis) => {
+  const minimum = axis === "x" ? region.minX : region.minY;
+  const maximum = axis === "x" ? region.maxX : region.maxY;
+  return clamp((value - minimum) / Math.max(1, maximum - minimum), 0, 1, 0.5);
+};
+
+const mean = (values, fallback = 0) => values.length
+  ? values.reduce((sum, value) => sum + value, 0) / values.length
+  : fallback;
+
+/**
+ * Project organ geography into acoustic loading without rewriting the user's
+ * underlying controls. Horizontal travel changes effective tract length;
+ * vertical travel changes pressure/tension. Distances load feeds and routes.
+ * Calling this repeatedly is therefore stable rather than cumulative.
+ */
+export function applyColonySyrinxGraphAcoustics(configuration, layout = null) {
+  const state = sanitizeColonySyrinxState(configuration);
+  const clean = layout?.nodes
+    ? sanitizeColonySyrinxGraphLayout(layout)
+    : colonySyrinxGraphLayoutFromOrganLayout(state.organLayout);
+
+  const banks = state.banks.map((bank, sourceIndex) => {
+    const source = clean.nodes[`source-${sourceIndex + 1}`];
+    const activeLungs = Array.from(
+      { length: COLONY_SYRINX_TOPOLOGY.lungsPerBank },
+      (_, offset) => sourceIndex * COLONY_SYRINX_TOPOLOGY.lungsPerBank + offset,
+    ).filter((lungIndex) => state.lungEnabled[lungIndex]);
+    const distances = activeLungs.map((lungIndex) => {
+      const lung = clean.nodes[`lung-${lungIndex + 1}`];
+      return Math.hypot(source.x - lung.x, source.y - lung.y);
+    });
+    const closeness = 1 - clamp((mean(distances, 360) - 90) / 540, 0, 1, 0.5);
+    const lungY = activeLungs.map((lungIndex) => clean.nodes[`lung-${lungIndex + 1}`].y);
+    const spread = lungY.length > 1
+      ? (Math.max(...lungY) - Math.min(...lungY)) / 504
+      : 0;
+    return {
+      ...bank,
+      drive: clamp(bank.drive * (0.78 + closeness * 0.42), 0, 1.5, bank.drive),
+      compliance: clamp(bank.compliance * (0.86 + spread * 0.56), 0.2, 2.5, bank.compliance),
+      leak: clamp(bank.leak * (1.18 - closeness * 0.28), 0, 0.6, bank.leak),
+    };
+  });
+
+  const phonators = state.phonators.map((phonator, index) => {
+    const node = clean.nodes[`source-${index + 1}`];
+    const x = normalizedInRegion(node.x, COLONY_SYRINX_GRAPH_REGIONS.source, "x");
+    const y = normalizedInRegion(node.y, COLONY_SYRINX_GRAPH_REGIONS.source, "y");
+    const lungs = Array.from(
+      { length: COLONY_SYRINX_TOPOLOGY.lungsPerBank },
+      (_, offset) => clean.nodes[`lung-${index * COLONY_SYRINX_TOPOLOGY.lungsPerBank + offset + 1}`],
+    ).filter((__, offset) => (
+      state.lungEnabled[index * COLONY_SYRINX_TOPOLOGY.lungsPerBank + offset]
+    ));
+    const lungDistance = mean(lungs.map((lung) => Math.hypot(node.x - lung.x, node.y - lung.y)), 360);
+    const separation = clamp((lungDistance - 90) / 540);
+    return {
+      ...phonator,
+      frequencyHz: clamp(
+        phonator.frequencyHz * 2 ** ((x - 0.5) * 0.7 + (0.5 - y) * 0.32),
+        12,
+        12_000,
+        phonator.frequencyHz,
+      ),
+      tension: clamp(phonator.tension + (0.5 - y) * 0.18),
+      roughness: clamp(phonator.roughness + separation * 0.12),
+    };
+  });
+
+  const routeDistance = (sourceIndex, mouthIndex) => {
+    const source = clean.nodes[`source-${sourceIndex + 1}`];
+    const mouth = clean.nodes[`mouth-${mouthIndex + 1}`];
+    return Math.hypot(mouth.x - source.x, mouth.y - source.y);
+  };
+  const loadRoutes = (matrix) => matrix.map((row, sourceIndex) => row.map((aperture, mouthIndex) => {
+    const closeness = 1 - clamp((routeDistance(sourceIndex, mouthIndex) - 120) / 720);
+    return clamp(aperture * (0.72 + closeness * 0.52));
+  }));
+  const routes = loadRoutes(state.routes);
+  const alternateRoutes = loadRoutes(state.alternateRoutes);
+
+  const mouths = state.mouths.map((mouth, mouthIndex) => {
+    const node = clean.nodes[`mouth-${mouthIndex + 1}`];
+    const x = normalizedInRegion(node.x, COLONY_SYRINX_GRAPH_REGIONS.mouth, "x");
+    const y = normalizedInRegion(node.y, COLONY_SYRINX_GRAPH_REGIONS.mouth, "y");
+    const activeSources = state.phonatorEnabled
+      .map((enabled, index) => enabled ? index : -1)
+      .filter((index) => index >= 0);
+    const distance = mean(
+      activeSources.map((sourceIndex) => routeDistance(sourceIndex, mouthIndex)),
+      420,
+    );
+    const length = clamp((distance - 120) / 720, 0, 1, 0.5);
+    return {
+      ...mouth,
+      opening: clamp(mouth.opening + (0.5 - y) * 0.16),
+      cavity: clamp(mouth.cavity + (0.5 - x) * 0.16),
+      resonanceHz: clamp(
+        mouth.resonanceHz * 2 ** ((x - 0.5) * 0.9 + (0.5 - y) * 0.25),
+        20,
+        12_000,
+        mouth.resonanceHz,
+      ),
+      pan: clamp(mouth.pan * 0.72 + (x * 2 - 1) * 0.28, -1, 1, mouth.pan),
+      slewMs: clamp(mouth.slewMs * (0.72 + length * 0.56), 2, 500, mouth.slewMs),
+    };
+  });
+
+  return sanitizeColonySyrinxState({
+    ...state,
+    banks,
+    phonators,
+    routes,
+    alternateRoutes,
+    mouths,
+  }, state);
+}
+
 export function isColonySyrinxGraphNodeEnabled(nodeReference, enabled = null) {
   const id = typeof nodeReference === "string" ? nodeReference : nodeReference?.id;
   const descriptor = descriptorById.get(id);
@@ -520,7 +667,7 @@ export function colonySyrinxRouteGeometry(
   options = null,
 ) {
   const route = routeReferenceToTopology({ sourceIndex, mouthIndex });
-  if (!route) throw new RangeError("Unknown Colony Syrinx route");
+  if (!route) throw new RangeError("Unknown Monstrozoid route");
   return routeGeometryFromLayout(
     sanitizeColonySyrinxGraphLayout(layout),
     route,
@@ -600,12 +747,12 @@ export function colonySyrinxLungFeedGeometry(
 ) {
   const lungIndex = lungReferenceToIndex(lungReference);
   if (lungIndex < 0 || lungIndex >= COLONY_SYRINX_LUNG_COUNT) {
-    throw new RangeError("Unknown Colony Syrinx lung feed");
+    throw new RangeError("Unknown Monstrozoid lung feed");
   }
   const fixedSourceIndex = Math.floor(lungIndex / COLONY_SYRINX_TOPOLOGY.lungsPerBank);
   const requestedSourceIndex = sourceIndex == null ? fixedSourceIndex : sourceIndex;
   if (requestedSourceIndex !== fixedSourceIndex) {
-    throw new RangeError("A Colony Syrinx lung can only feed its fixed source");
+    throw new RangeError("A Monstrozoid lung can only feed its fixed source");
   }
   return feedGeometryFromLayout(
     sanitizeColonySyrinxGraphLayout(layout),

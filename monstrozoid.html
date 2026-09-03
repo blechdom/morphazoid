@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050806" />
+    <meta
+      name="description"
+      content="A configurable multi-organ voice with variable lungs, vocal-fold sources, routes, mouth resonators, and modulation contours."
+    />
+    <title>Monstrozoid — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="colony-syrinx.css" />
+  </head>
+  <body class="colony-syrinx-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="jaw-harp.html">jaw harp</a>
+        <a class="tab" href="hyper-syrinx.html">hyper-syrinx</a>
+        <a class="tab active" href="monstrozoid.html" aria-current="page">monstrozoid</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="jaw-harp.html">jaw harp</option>
+          <option value="hyper-syrinx.html">hyper-syrinx</option>
+          <option value="monstrozoid.html" selected>monstrozoid</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="colony-audio-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">46%</output></span>
+          <input id="level" aria-label="Monstrozoid output level" type="range" min="0" max="0.82" step="0.01" value="0.46" />
+        </label>
+      </div>
+    </header>
+
+    <main class="colony-shell" id="colonySyrinx">
+      <section class="colony-workspace" aria-labelledby="pageTitle">
+        <div class="colony-mobile-primary-mount" id="mobilePrimaryMount"></div>
+
+        <section class="colony-anatomy" aria-label="Interactive creature">
+          <div class="colony-section-heading anatomy-heading">
+            <div class="anatomy-heading-actions">
+              <div class="graph-interaction-key" aria-label="Creature interaction guide">
+                <span class="is-drag"><i aria-hidden="true">&#8597;</i><b>Drag halos</b><small>position + sound</small></span>
+                <span class="is-shape"><i aria-hidden="true">&#9670;</i><b>Diamonds</b><small>drag: shape + sound</small></span>
+                <span class="is-tap"><i aria-hidden="true">&#9678;</i><b>Tap flesh</b><small>triggers a call</small></span>
+              </div>
+              <div class="graph-tools" role="group" aria-label="Creature layout">
+                <button id="scatterGraphButton" type="button">Scatter</button>
+                <button id="resetGraphButton" type="button">Align</button>
+                <button id="graphMotionButton" type="button" aria-pressed="false">Motion</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="colony-body-scroll" aria-label="Scrollable live anatomy editor">
+            <figure class="colony-body-stage">
+              <header class="colony-titlebar">
+                <div class="colony-title-copy">
+                  <h1 id="pageTitle">MONSTROZOID</h1>
+                </div>
+                <dl class="colony-counts" aria-label="Anatomy count">
+                  <div><dt>lungs</dt><dd id="activeLungCount">16</dd></div>
+                  <div><dt>folds</dt><dd id="activeFoldCount">08</dd></div>
+                  <div><dt>routes</dt><dd id="activeRouteCount">09</dd></div>
+                  <div><dt>mouths</dt><dd id="activeMouthCount">03</dd></div>
+                </dl>
+              </header>
+              <svg
+                class="colony-body"
+                viewBox="0 0 1200 620"
+                role="group"
+                aria-roledescription="interactive creature"
+                aria-labelledby="colonyBodyTitle colonyBodyDescription"
+                preserveAspectRatio="none"
+              >
+                <title id="colonyBodyTitle">Editable Monstrozoid</title>
+                <desc id="colonyBodyDescription">
+                  Tap the monster or an organ to trigger sound. Drag any glowing organ to move it;
+                  its position changes the sound. Drag diamond handles to reshape lungs, folds,
+                  jaws, and tongues. Pull a source port onto a mouth port to patch a route.
+                </desc>
+                <defs>
+                  <radialGradient id="colonyLungFill" cx="38%" cy="32%" r="78%">
+                    <stop offset="0" stop-color="#c6ff19" stop-opacity=".52" />
+                    <stop offset=".46" stop-color="#78ff00" stop-opacity=".31" />
+                    <stop offset=".78" stop-color="#c41230" stop-opacity=".15" />
+                    <stop offset="1" stop-color="#ff5a00" stop-opacity=".035" />
+                  </radialGradient>
+                  <linearGradient id="colonyBodyWash" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#b7ff18" stop-opacity=".18" />
+                    <stop offset=".46" stop-color="#d6dfdd" stop-opacity=".10" />
+                    <stop offset=".72" stop-color="#b8072f" stop-opacity=".12" />
+                    <stop offset="1" stop-color="#ff5b00" stop-opacity=".09" />
+                  </linearGradient>
+                  <linearGradient id="monsterHide" x1="0" y1="0" x2="1" y2=".72">
+                    <stop offset="0" stop-color="#a8ff00" stop-opacity=".18" />
+                    <stop offset=".38" stop-color="#e1e8e6" stop-opacity=".08" />
+                    <stop offset=".72" stop-color="#b1072a" stop-opacity=".14" />
+                    <stop offset="1" stop-color="#ff6200" stop-opacity=".07" />
+                  </linearGradient>
+                  <radialGradient id="monsterEye" cx="38%" cy="32%" r="70%">
+                    <stop offset="0" stop-color="#ffffff" />
+                    <stop offset=".18" stop-color="#caff25" />
+                    <stop offset=".52" stop-color="#ff6800" />
+                    <stop offset=".78" stop-color="#bd082d" />
+                    <stop offset="1" stop-color="#020402" />
+                  </radialGradient>
+                  <filter id="colonyGlow" x="-80%" y="-80%" width="260%" height="260%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                  </filter>
+                  <filter id="colonySoftGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="11" />
+                  </filter>
+                  <path id="colonySacA" d="M42 2 C29 -3 33 -20 21 -36 C10 -51 -8 -52 -19 -39 C-29 -52 -45 -41 -47 -23 C-49 -8 -39 4 -36 18 C-33 31 -39 43 -28 52 C-17 61 -4 54 3 43 C13 55 29 47 32 31 C34 20 35 13 47 8 C54 5 53 2 42 2Z" />
+                  <path id="colonySacB" d="M43 -2 C29 -8 34 -25 20 -42 C8 -55 -10 -47 -17 -34 C-32 -46 -48 -33 -45 -15 C-43 -3 -34 5 -38 18 C-44 37 -30 55 -13 57 C-1 58 5 49 8 39 C18 51 34 39 32 23 C31 14 39 10 49 6 C56 2 54 0 43 -2Z" />
+                  <path id="colonySacC" d="M40 5 C27 0 32 -16 21 -28 C12 -39 -1 -42 -12 -32 C-25 -47 -43 -37 -48 -19 C-52 -4 -43 8 -35 18 C-28 28 -31 44 -18 52 C-5 60 7 50 12 40 C23 49 34 36 32 22 C31 14 40 11 49 8 C55 6 52 4 40 5Z" />
+                  <path id="colonySacD" d="M45 0 C31 -7 36 -23 24 -37 C13 -50 -3 -48 -14 -36 C-28 -47 -45 -34 -44 -17 C-43 -4 -34 6 -38 20 C-44 38 -29 54 -12 55 C1 56 7 47 10 36 C20 48 34 36 33 21 C32 13 41 9 51 5 C57 2 55 1 45 0Z" />
+                  <path id="colonyGarden" d="M44 118 C55 66 104 58 149 73 C196 48 255 59 301 88 C325 104 332 132 314 151 C288 176 245 160 212 154 C174 171 135 153 111 143 C77 156 45 144 44 118Z" />
+                </defs>
+
+                <rect class="spatial-sound-field" data-spatial-background x="0" y="0" width="1200" height="620" aria-hidden="true" />
+
+                <path
+                  class="body-aura monster-body-shell"
+                  data-graph-background
+                  d="M31 324 C8 280 28 231 78 219 C109 210 114 180 155 165 L182 121 L211 139 L244 78 L270 119 L314 43 L344 99 L391 29 L415 101 L458 57 L475 112 C522 88 585 119 619 172 C652 181 676 165 705 137 L758 85 L741 153 L808 116 L777 191 L844 172 L800 234 C776 268 766 293 775 329 C803 374 822 410 847 466 L792 438 L833 511 L773 481 L793 570 L732 526 L727 596 L683 542 L650 594 L628 532 L577 574 L578 502 C526 478 479 493 436 478 L418 553 L384 504 L348 581 L321 505 L267 560 L278 480 L216 512 L239 447 C191 427 160 394 145 362 C99 379 54 365 31 324Z"
+                />
+                <g class="alien-limbs" aria-hidden="true">
+                  <path class="alien-limb alien-limb-a" d="M151 350 C105 404 45 430 34 477 C23 524 78 541 98 507 C112 483 82 466 66 486" />
+                  <path class="alien-limb alien-limb-b" d="M246 435 C205 483 201 543 165 570 C140 589 119 568 130 548 C140 532 160 542 151 555" />
+                  <path class="alien-limb alien-limb-c" d="M335 470 C304 521 307 579 278 607 C260 624 239 605 251 589" />
+                  <path class="alien-limb alien-limb-d" d="M451 470 C474 525 459 576 490 603 C517 627 541 601 527 581 C516 566 498 578 509 592" />
+                  <path class="alien-limb alien-limb-e" d="M574 438 C624 477 628 536 670 553 C703 566 720 535 700 518 C684 505 670 522 684 532" />
+                  <path class="alien-limb alien-limb-f" d="M604 181 C633 130 622 83 653 55 C677 33 700 53 689 74 C680 91 662 80 671 65" />
+                </g>
+                <g class="monster-skeleton" aria-hidden="true">
+                  <path class="monster-tail" d="M176 352 C111 392 30 368 25 312 C20 263 67 224 102 246 C134 267 117 312 83 312 C56 312 48 287 64 270 C73 261 84 265 88 275 M88 252 L57 229 L65 270 M70 306 L37 331 L81 316" />
+                  <path class="monster-back-spines" d="M177 151 L204 92 L227 124 L262 61 L285 105 L325 29 L349 84 L393 18 L414 81 L458 42 L462 100 L497 73 L491 120" />
+                  <path class="monster-neck monster-neck-a" d="M562 198 C633 130 732 101 844 129 M639 147 L661 116 M696 126 L718 91 M751 119 L778 84" />
+                  <path class="monster-neck monster-neck-b" d="M608 285 C685 263 762 278 844 299 M675 273 L689 242 M734 276 L753 246 M792 287 L816 260" />
+                  <path class="monster-neck monster-neck-c" d="M566 414 C643 477 739 500 848 480 M640 464 L647 502 M700 485 L706 521 M761 488 L772 526" />
+                  <path class="monster-belly" d="M127 310 C190 328 238 400 326 430 C418 462 523 443 596 407 M199 365 L179 403 M265 405 L238 449 M352 431 L337 476 M451 441 L466 483 M531 422 L558 459" />
+                  <g class="monster-ribs">
+                    <path d="M151 180 C231 141 328 143 399 184 L372 205 L391 225" />
+                    <path d="M131 257 C229 219 344 223 421 267 L388 284 L410 310" />
+                    <path d="M143 337 C235 304 341 310 414 348 L379 364 L397 389" />
+                    <path d="M184 410 C255 386 337 392 397 422 L366 438" />
+                    <path d="M407 123 L429 155 L451 126 L468 164 L492 139 L507 181" />
+                  </g>
+                  <g class="monster-bone-plates">
+                    <path d="M177 204 L205 180 L234 199 L209 219Z M241 172 L273 148 L302 174 L276 194Z M304 153 L337 131 L366 160 L339 181Z" />
+                    <path d="M521 187 L547 161 L570 190 L551 218Z M548 354 L577 329 L597 363 L572 384Z" />
+                  </g>
+                  <g class="monster-tendrils">
+                    <path d="M517 111 C543 70 574 83 568 49 C564 26 535 34 543 55 M537 131 C584 105 611 123 622 86 C629 62 600 50 590 70" />
+                    <path d="M589 418 C615 448 607 481 635 487 C662 493 672 462 653 450 M608 399 C651 414 676 389 696 416 C711 437 691 458 675 445" />
+                  </g>
+                  <g class="monster-deformation-web">
+                    <path d="M79 219 C185 272 249 310 348 302 C444 294 522 222 619 172" />
+                    <path d="M145 362 C237 338 333 350 436 478" />
+                    <path d="M211 139 C289 207 365 234 475 112" />
+                  </g>
+                  <g class="monster-eye-cluster" pointer-events="none">
+                    <ellipse cx="588" cy="260" rx="24" ry="18" fill="#020301" stroke="currentColor" />
+                    <circle cx="591" cy="260" r="10" fill="url(#monsterEye)" stroke="currentColor" />
+                    <path d="M565 257 Q588 238 613 255 M591 250 L591 270" />
+                    <ellipse cx="633" cy="315" rx="20" ry="15" fill="#020301" stroke="currentColor" />
+                    <circle cx="636" cy="315" r="8" fill="url(#monsterEye)" stroke="currentColor" />
+                    <path d="M614 313 Q633 297 653 311 M636 307 L636 323" />
+                    <ellipse cx="581" cy="354" rx="16" ry="12" fill="#020301" stroke="currentColor" />
+                    <circle cx="583" cy="354" r="6" fill="url(#monsterEye)" stroke="currentColor" />
+                    <path d="M566 352 Q581 339 598 350 M583 348 L583 360" />
+                    <circle cx="616" cy="226" r="6" fill="url(#monsterEye)" stroke="currentColor" />
+                    <circle cx="615" cy="226" r="2" fill="#020301" stroke="none" />
+                    <circle cx="610" cy="382" r="5" fill="url(#monsterEye)" stroke="currentColor" />
+                    <circle cx="611" cy="382" r="1.8" fill="#020301" stroke="none" />
+                  </g>
+                </g>
+                <path class="body-ghost-vessel" d="M38 309 C162 270 264 346 358 310 C425 284 466 337 515 309 C634 242 754 374 860 309" />
+
+                <g class="reservoir-veins static-anatomy-guide" aria-hidden="true">
+                  <path d="M68 113 C164 121 267 104 358 118" />
+                  <path d="M66 235 C161 225 269 251 358 244" />
+                  <path d="M66 378 C170 363 265 389 358 378" />
+                  <path d="M68 504 C167 522 264 493 358 505" />
+                  <path class="reservoir-spine" d="M358 118 C375 167 338 201 358 244 C379 291 337 333 358 378 C378 421 343 459 358 505" />
+                </g>
+
+                <g class="lung-garden-membranes static-anatomy-guide" aria-hidden="true">
+                  <use href="#colonyGarden" />
+                  <use href="#colonyGarden" transform="translate(0 126)" />
+                  <use href="#colonyGarden" transform="translate(0 260)" />
+                  <use href="#colonyGarden" transform="translate(0 387)" />
+                </g>
+
+                <g class="lung-colony" aria-label="Breathing organs">
+                  <g class="vessel-lung is-enabled" data-vessel-lung="1" transform="translate(65 108) rotate(-7) scale(.68)"><use class="lung-membrane" href="#colonySacA" /><path class="lung-bronchial-tree" d="M47 7 C27 7 13 3 -10 -27 M18 4 C4 14 -9 28 -24 39 M24 5 C9 -4 2 -17 -3 -31" /><path class="lung-pleural-folds" d="M-37 -17 C-21 -8 -13 3 -12 17 M-31 29 C-15 24 -4 28 4 42" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="2" transform="translate(137 77) rotate(5) scale(.56)"><use class="lung-membrane" href="#colonySacB" /><path class="lung-bronchial-tree" d="M49 6 C29 4 13 0 -13 -31 M20 2 C4 10 -11 24 -27 39 M26 3 C13 -8 8 -20 5 -35" /><path class="lung-pleural-folds" d="M-36 -21 C-18 -10 -11 2 -14 17 M-33 32 C-17 26 -4 31 7 45" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="3" transform="translate(208 124) rotate(-3) scale(.64)"><use class="lung-membrane" href="#colonySacC" /><path class="lung-bronchial-tree" d="M48 8 C26 8 12 3 -10 -24 M18 5 C3 13 -10 25 -22 40 M25 6 C11 -3 3 -15 -2 -28" /><path class="lung-pleural-folds" d="M-38 -14 C-23 -7 -13 5 -13 19 M-29 31 C-14 25 -1 30 10 40" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="4" transform="translate(286 87) rotate(8) scale(.52)"><use class="lung-membrane" href="#colonySacD" /><path class="lung-bronchial-tree" d="M51 5 C29 5 15 0 -9 -31 M21 2 C6 12 -9 27 -25 41 M28 2 C14 -7 7 -21 3 -35" /><path class="lung-pleural-folds" d="M-35 -20 C-19 -10 -10 3 -13 18 M-31 31 C-15 25 -2 30 8 43" /></g>
+
+                  <g class="vessel-lung is-enabled" data-vessel-lung="5" transform="translate(66 233) rotate(6) scale(.61)"><use class="lung-membrane" href="#colonySacB" /><path class="lung-bronchial-tree" d="M49 6 C29 4 13 0 -13 -31 M20 2 C4 10 -11 24 -27 39 M26 3 C13 -8 8 -20 5 -35" /><path class="lung-pleural-folds" d="M-36 -21 C-18 -10 -11 2 -14 17 M-33 32 C-17 26 -4 31 7 45" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="6" transform="translate(139 267) rotate(-7) scale(.54)"><use class="lung-membrane" href="#colonySacD" /><path class="lung-bronchial-tree" d="M51 5 C29 5 15 0 -9 -31 M21 2 C6 12 -9 27 -25 41 M28 2 C14 -7 7 -21 3 -35" /><path class="lung-pleural-folds" d="M-35 -20 C-19 -10 -10 3 -13 18 M-31 31 C-15 25 -2 30 8 43" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="7" transform="translate(211 215) rotate(4) scale(.58)"><use class="lung-membrane" href="#colonySacA" /><path class="lung-bronchial-tree" d="M47 7 C27 7 13 3 -10 -27 M18 4 C4 14 -9 28 -24 39 M24 5 C9 -4 2 -17 -3 -31" /><path class="lung-pleural-folds" d="M-37 -17 C-21 -8 -13 3 -12 17 M-31 29 C-15 24 -4 28 4 42" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="8" transform="translate(287 255) rotate(-8) scale(.65)"><use class="lung-membrane" href="#colonySacC" /><path class="lung-bronchial-tree" d="M48 8 C26 8 12 3 -10 -24 M18 5 C3 13 -10 25 -22 40 M25 6 C11 -3 3 -15 -2 -28" /><path class="lung-pleural-folds" d="M-38 -14 C-23 -7 -13 5 -13 19 M-29 31 C-14 25 -1 30 10 40" /></g>
+
+                  <g class="vessel-lung is-enabled" data-vessel-lung="9" transform="translate(66 370) rotate(-6) scale(.56)"><use class="lung-membrane" href="#colonySacC" /><path class="lung-bronchial-tree" d="M48 8 C26 8 12 3 -10 -24 M18 5 C3 13 -10 25 -22 40 M25 6 C11 -3 3 -15 -2 -28" /><path class="lung-pleural-folds" d="M-38 -14 C-23 -7 -13 5 -13 19 M-29 31 C-14 25 -1 30 10 40" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="10" transform="translate(139 407) rotate(7) scale(.64)"><use class="lung-membrane" href="#colonySacA" /><path class="lung-bronchial-tree" d="M47 7 C27 7 13 3 -10 -27 M18 4 C4 14 -9 28 -24 39 M24 5 C9 -4 2 -17 -3 -31" /><path class="lung-pleural-folds" d="M-37 -17 C-21 -8 -13 3 -12 17 M-31 29 C-15 24 -4 28 4 42" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="11" transform="translate(210 353) rotate(-2) scale(.59)"><use class="lung-membrane" href="#colonySacD" /><path class="lung-bronchial-tree" d="M51 5 C29 5 15 0 -9 -31 M21 2 C6 12 -9 27 -25 41 M28 2 C14 -7 7 -21 3 -35" /><path class="lung-pleural-folds" d="M-35 -20 C-19 -10 -10 3 -13 18 M-31 31 C-15 25 -2 30 8 43" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="12" transform="translate(286 394) rotate(6) scale(.52)"><use class="lung-membrane" href="#colonySacB" /><path class="lung-bronchial-tree" d="M49 6 C29 4 13 0 -13 -31 M20 2 C4 10 -11 24 -27 39 M26 3 C13 -8 8 -20 5 -35" /><path class="lung-pleural-folds" d="M-36 -21 C-18 -10 -11 2 -14 17 M-33 32 C-17 26 -4 31 7 45" /></g>
+
+                  <g class="vessel-lung is-enabled" data-vessel-lung="13" transform="translate(66 504) rotate(7) scale(.61)"><use class="lung-membrane" href="#colonySacD" /><path class="lung-bronchial-tree" d="M51 5 C29 5 15 0 -9 -31 M21 2 C6 12 -9 27 -25 41 M28 2 C14 -7 7 -21 3 -35" /><path class="lung-pleural-folds" d="M-35 -20 C-19 -10 -10 3 -13 18 M-31 31 C-15 25 -2 30 8 43" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="14" transform="translate(138 468) rotate(-8) scale(.54)"><use class="lung-membrane" href="#colonySacC" /><path class="lung-bronchial-tree" d="M48 8 C26 8 12 3 -10 -24 M18 5 C3 13 -10 25 -22 40 M25 6 C11 -3 3 -15 -2 -28" /><path class="lung-pleural-folds" d="M-38 -14 C-23 -7 -13 5 -13 19 M-29 31 C-14 25 -1 30 10 40" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="15" transform="translate(210 522) rotate(3) scale(.67)"><use class="lung-membrane" href="#colonySacB" /><path class="lung-bronchial-tree" d="M49 6 C29 4 13 0 -13 -31 M20 2 C4 10 -11 24 -27 39 M26 3 C13 -8 8 -20 5 -35" /><path class="lung-pleural-folds" d="M-36 -21 C-18 -10 -11 2 -14 17 M-33 32 C-17 26 -4 31 7 45" /></g>
+                  <g class="vessel-lung is-enabled" data-vessel-lung="16" transform="translate(286 478) rotate(-5) scale(.58)"><use class="lung-membrane" href="#colonySacA" /><path class="lung-bronchial-tree" d="M47 7 C27 7 13 3 -10 -27 M18 4 C4 14 -9 28 -24 39 M24 5 C9 -4 2 -17 -3 -31" /><path class="lung-pleural-folds" d="M-37 -17 C-21 -8 -13 3 -12 17 M-31 29 C-15 24 -4 28 4 42" /></g>
+                </g>
+
+                <g class="source-bridges static-anatomy-guide" aria-hidden="true">
+                  <path d="M358 118 C392 118 409 117 436 117" />
+                  <path d="M358 244 C392 244 409 244 436 244" />
+                  <path d="M358 378 C392 378 409 378 436 378" />
+                  <path d="M358 505 C392 505 409 505 436 505" />
+                </g>
+
+                <g id="routeHitVessels" class="route-hit-vessels" aria-hidden="true"></g>
+
+                <g class="fold-sources" aria-label="Vocal-fold sources">
+                  <g class="vessel-source is-enabled" data-vessel-source="1" transform="translate(478 117)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P1 · COLLISION FOLDS</text></g>
+                  <g class="vessel-source is-enabled" data-vessel-source="2" transform="translate(478 244)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P2 · SPLIT SYRINX</text></g>
+                  <g class="vessel-source is-enabled" data-vessel-source="3" transform="translate(478 378)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P3 · PULSE MEMBRANE</text></g>
+                  <g class="vessel-source is-enabled" data-vessel-source="4" transform="translate(478 505)"><path class="fold-left" d="M-34 -35 C-6 -22 -10 -7 -3 0 C-10 8 -6 23 -34 35" /><path class="fold-right" d="M34 -35 C6 -22 10 -7 3 0 C10 8 6 23 34 35" /><circle r="4" /><text x="0" y="55">P4 · JET SYRINX</text></g>
+                </g>
+
+                <g id="lungFeedVessels" class="lung-feed-vessels" aria-hidden="true"></g>
+                <g class="route-vessels" aria-label="Source-to-mouth routes">
+                  <path class="vessel-route mouth-a is-open" data-vessel-route="1-1" d="M516 106 C624 64 732 84 875 115" />
+                  <path class="vessel-route mouth-b is-open" data-vessel-route="1-2" d="M518 115 C647 119 730 220 870 287" />
+                  <path class="vessel-route mouth-c" data-vessel-route="1-3" d="M516 124 C623 166 753 405 874 483" />
+
+                  <path class="vessel-route mouth-a is-open" data-vessel-route="2-1" d="M516 233 C636 186 718 143 875 118" />
+                  <path class="vessel-route mouth-b is-open" data-vessel-route="2-2" d="M518 244 C649 239 731 272 870 291" />
+                  <path class="vessel-route mouth-c is-open" data-vessel-route="2-3" d="M516 254 C632 286 753 419 874 487" />
+
+                  <path class="vessel-route mouth-a" data-vessel-route="3-1" d="M516 367 C620 321 746 172 875 121" />
+                  <path class="vessel-route mouth-b is-open" data-vessel-route="3-2" d="M518 378 C641 364 745 315 870 295" />
+                  <path class="vessel-route mouth-c is-open" data-vessel-route="3-3" d="M516 388 C633 423 746 457 874 490" />
+
+                  <path class="vessel-route mouth-a is-open" data-vessel-route="4-1" d="M516 494 C616 449 734 224 875 124" />
+                  <path class="vessel-route mouth-b" data-vessel-route="4-2" d="M518 504 C633 473 746 352 870 299" />
+                  <path class="vessel-route mouth-c is-open" data-vessel-route="4-3" d="M516 514 C638 541 759 514 874 493" />
+                </g>
+                <path id="routeDraft" class="route-draft" d="" hidden aria-hidden="true" />
+
+                <g class="mouth-organs" aria-label="Mouth resonators">
+                  <g class="vessel-mouth mouth-a" data-vessel-mouth="1" transform="translate(878 118)">
+                    <path class="monster-head-shell" d="M-18 0 C3 -47 39 -82 82 -90 L104 -112 L118 -83 L142 -123 L158 -82 C207 -91 257 -65 286 -31 L318 -17 L295 -4 L322 7 L291 19 C268 66 216 91 158 74 L123 93 L108 69 C68 73 27 46 -18 0Z" />
+                    <path class="monster-face-ridge" d="M126 -75 C164 -105 225 -79 255 -44 L282 -35 L270 -24 C289 -21 303 -12 313 5" />
+                    <path class="monster-face-ridge" d="M158 -62 L178 -73 L199 -62 L222 -70 L248 -53 M235 48 L260 55 L279 36" />
+                    <path class="monster-horn" d="M101 -86 L104 -112 L118 -83 M135 -85 L142 -123 L158 -82 M173 -83 L191 -111 L196 -76" />
+                    <path class="monster-horn" d="M283 -30 L316 -45 L302 -19 M291 18 L319 34 L285 37" />
+                    <path class="psycho-eye-rays" d="M197 -80 L197 -69 M171 -72 L179 -63 M222 -72 L214 -63 M163 -47 L174 -47 M231 -47 L220 -47 M171 -21 L180 -31 M222 -21 L214 -31" />
+                    <ellipse class="monster-eye-socket" cx="197" cy="-47" rx="22" ry="19" />
+                    <circle class="monster-eye" cx="197" cy="-47" r="13" />
+                    <circle class="monster-pupil" cx="201" cy="-47" r="5" />
+                    <path class="monster-mad-brow" d="M174 -68 L198 -57 L222 -71" />
+                    <circle class="monster-nostril" cx="271" cy="-16" r="4" />
+                    <circle class="monster-secondary-eye" cx="164" cy="-56" r="6" fill="url(#monsterEye)" stroke="currentColor" stroke-width="1" pointer-events="none" />
+                    <circle class="monster-secondary-pupil" cx="166" cy="-56" r="2" fill="#020301" pointer-events="none" />
+                    <path class="mouth-root" d="M-9 0 C14 -2 24 -1 39 0" />
+                    <circle class="jaw-hinge" cx="38" cy="0" r="8" />
+                    <path class="mouth-maw" d="M35 0 C76 -27 120 -18 159 -27 C203 -37 256 -20 291 0 C265 36 220 51 179 43 C132 56 76 41 35 0Z" />
+                    <path class="mouth-upper" d="M35 0 L51 -19 L68 -14 L78 -36 L96 -28 L111 -53 L128 -45 L151 -72 L166 -49 L186 -58 L201 -43 L224 -48 L232 -27 L255 -34 L247 -16 L270 -13 L291 0 C259 -1 235 6 205 2 C169 -5 133 8 95 1 C67 5 49 3 35 0Z" />
+                    <path class="mouth-lower" d="M35 0 C68 -1 101 10 131 4 C161 17 199 14 231 7 C254 9 277 3 291 0 L279 25 L262 21 L251 45 L231 40 L217 63 L194 58 L158 82 L140 62 L116 68 L104 51 L82 51 L72 33 L54 31 C43 17 38 6 35 0Z" />
+                    <path class="mouth-tongue" d="M61 18 C104 8 151 27 215 8 L197 24 L216 34 L190 36 C166 54 124 58 92 43 C77 37 67 29 61 18Z" />
+                    <path class="mouth-teeth" d="M66 -2 L79 29 L92 0 M106 -3 L118 20 L131 -2 M145 -4 L158 35 L171 -3 M187 -4 L199 22 L212 -2 M227 -2 L239 31 L253 -1 M83 9 L98 -24 L112 8 M127 9 L143 -28 L159 8 M176 9 L191 -20 L207 8 M221 7 L234 -15 L247 5" />
+                    <path class="monster-face-ridge" d="M265 22 C291 40 291 64 313 69 C326 72 330 56 317 51" />
+                    <text x="65" y="-61">M1 · SUBHARMONIC TRACT</text>
+                  </g>
+                  <g class="vessel-mouth mouth-b" data-vessel-mouth="2" transform="translate(874 293)">
+                    <path class="monster-head-shell" d="M-18 0 C5 -46 46 -78 88 -76 L105 -96 L120 -72 L139 -110 L153 -70 C198 -78 242 -55 270 -25 L298 -14 L278 -2 L303 9 L270 18 C246 59 197 76 145 66 L115 82 L99 62 C59 66 20 39 -18 0Z" />
+                    <path class="monster-face-ridge" d="M119 -65 C156 -91 207 -66 239 -37 L266 -29 L254 -18 C272 -16 287 -8 295 7" />
+                    <path class="monster-face-ridge" d="M145 -51 L163 -63 L182 -52 L205 -59 L231 -42 M219 42 L243 49 L264 33" />
+                    <path class="monster-horn" d="M102 -73 L105 -96 L120 -72 M132 -72 L139 -110 L153 -70 M163 -71 L180 -97 L185 -65" />
+                    <path class="monster-horn" d="M268 -25 L294 -40 L284 -14 M270 18 L297 33 L266 36" />
+                    <path class="psycho-eye-rays" d="M184 -66 L184 -58 M162 -60 L168 -52 M206 -60 L200 -52 M154 -37 L164 -37 M214 -37 L204 -37 M162 -16 L170 -23 M206 -16 L199 -24" />
+                    <ellipse class="monster-eye-socket" cx="184" cy="-37" rx="19" ry="17" />
+                    <circle class="monster-eye" cx="184" cy="-37" r="11" />
+                    <circle class="monster-pupil" cx="188" cy="-37" r="4.5" />
+                    <path class="monster-mad-brow" d="M164 -55 L185 -47 L205 -58" />
+                    <circle class="monster-nostril" cx="250" cy="-12" r="3.5" />
+                    <circle class="monster-secondary-eye" cx="154" cy="-47" r="5" fill="url(#monsterEye)" stroke="currentColor" stroke-width="1" pointer-events="none" />
+                    <circle class="monster-secondary-pupil" cx="156" cy="-47" r="1.8" fill="#020301" pointer-events="none" />
+                    <path class="mouth-root" d="M-9 0 C12 -2 25 -1 43 0" />
+                    <circle class="jaw-hinge" cx="40" cy="0" r="7" />
+                    <path class="mouth-maw" d="M38 0 C72 -24 111 -15 143 -22 C181 -30 231 -17 270 0 C244 31 207 43 171 37 C131 49 81 35 38 0Z" />
+                    <path class="mouth-upper" d="M38 0 L54 -19 L69 -13 L83 -37 L99 -29 L116 -48 L136 -37 L156 -58 L171 -38 L191 -43 L207 -30 L220 -18 L243 -24 L238 -10 L255 -8 L270 0 C243 1 219 9 187 7 C151 0 125 13 89 7 C65 9 49 5 38 0Z" />
+                    <path class="mouth-lower" d="M38 0 C68 -1 94 9 122 3 C148 17 184 15 207 7 C231 10 252 5 270 0 L257 20 L242 17 L232 36 L212 32 L197 51 L171 47 L145 65 L132 48 L109 54 L99 40 L78 39 L68 27 L53 25 C46 14 41 6 38 0Z" />
+                    <path class="mouth-tongue" d="M66 14 C101 6 136 21 191 6 L176 19 L193 27 L170 29 C149 40 116 41 89 31 C78 27 70 21 66 14Z" />
+                    <path class="mouth-teeth" d="M66 -1 L79 26 L92 0 M105 -3 L117 29 L130 -2 M144 -3 L157 32 L171 -2 M185 -3 L197 25 L211 -2 M225 -1 L236 23 L248 0 M83 7 L97 -21 L110 7 M123 8 L137 -25 L151 7 M166 8 L180 -19 L194 7 M206 6 L218 -13 L230 4" />
+                    <path class="monster-face-ridge" d="M245 20 C267 35 267 55 286 60 C298 63 305 49 293 43" />
+                    <text x="65" y="-49">M2 · VOWEL TRACT</text>
+                  </g>
+                  <g class="vessel-mouth mouth-c" data-vessel-mouth="3" transform="translate(878 491)">
+                    <path class="monster-head-shell" d="M-17 0 C6 -35 40 -57 74 -56 L91 -72 L102 -53 L116 -88 L130 -51 C168 -59 207 -40 229 -19 L253 -12 L238 -2 L258 8 L227 14 C206 43 169 56 128 47 L103 61 L90 45 C56 49 18 31 -17 0Z" />
+                    <path class="monster-face-ridge" d="M103 -46 C134 -69 176 -49 202 -27 L224 -23 L216 -13 C230 -11 243 -5 251 7" />
+                    <path class="monster-face-ridge" d="M127 -35 L141 -45 L157 -37 L175 -43 L198 -30" />
+                    <path class="monster-horn" d="M89 -55 L91 -72 L102 -53 M110 -54 L116 -88 L130 -51 M139 -52 L152 -72 L157 -47" />
+                    <path class="monster-horn" d="M227 -19 L250 -31 L240 -10 M227 14 L251 27 L223 29" />
+                    <path class="psycho-eye-rays" d="M158 -53 L158 -46 M140 -47 L146 -40 M177 -47 L171 -40 M133 -27 L142 -27 M184 -27 L176 -27 M141 -9 L148 -16 M177 -9 L170 -16" />
+                    <ellipse class="monster-eye-socket" cx="158" cy="-27" rx="16" ry="14" />
+                    <circle class="monster-eye" cx="158" cy="-27" r="9" />
+                    <circle class="monster-pupil" cx="161" cy="-27" r="3.8" />
+                    <path class="monster-mad-brow" d="M141 -43 L158 -36 L176 -46" />
+                    <circle class="monster-nostril" cx="211" cy="-9" r="3" />
+                    <circle class="monster-secondary-eye" cx="134" cy="-35" r="4.5" fill="url(#monsterEye)" stroke="currentColor" stroke-width="1" pointer-events="none" />
+                    <circle class="monster-secondary-pupil" cx="136" cy="-35" r="1.6" fill="#020301" pointer-events="none" />
+                    <path class="mouth-root" d="M-9 0 C13 -1 26 0 44 0" />
+                    <circle class="jaw-hinge" cx="41" cy="0" r="6" />
+                    <path class="mouth-maw" d="M39 0 C70 -18 102 -11 129 -16 C159 -22 201 -12 229 0 C208 23 179 31 151 27 C119 36 76 26 39 0Z" />
+                    <path class="mouth-upper" d="M39 0 L55 -14 L68 -10 L81 -26 L94 -20 L107 -32 L121 -21 L136 -39 L149 -23 L164 -27 L177 -17 L186 -9 L204 -16 L200 -7 L216 -5 L229 0 C204 1 181 7 156 5 C128 0 104 10 76 5 C58 7 46 4 39 0Z" />
+                    <path class="mouth-lower" d="M39 0 C66 -1 90 7 112 2 C133 13 160 11 179 6 C198 8 215 4 229 0 L219 15 L205 13 L197 27 L181 24 L170 38 L151 28 L132 42 L120 29 L102 34 L94 25 L76 26 L67 18 L54 18 C47 10 43 4 39 0Z" />
+                    <path class="mouth-tongue" d="M82 8 C108 3 135 14 174 3 L163 12 L176 18 L159 19 C145 27 120 28 101 20 C92 17 86 13 82 8Z" />
+                    <path class="mouth-teeth" d="M62 0 L73 21 L84 0 M95 -2 L105 24 L116 -1 M128 -2 L139 27 L150 -1 M162 -2 L172 20 L183 -1 M194 0 L203 17 L213 0 M82 5 L93 -16 L104 5 M115 6 L126 -20 L138 5 M149 6 L160 -15 L172 5 M183 4 L192 -10 L201 3" />
+                    <path class="monster-face-ridge" d="M207 15 C225 27 225 44 241 48 C251 50 256 39 247 34" />
+                    <text x="65" y="-35">M3 · JET TRACT</text>
+                  </g>
+                </g>
+
+                <g id="spatialTriggerFeedback" class="spatial-trigger-feedback" aria-hidden="true" hidden>
+                  <circle class="spatial-trigger-wave" r="18" />
+                  <circle class="spatial-trigger-core" r="4" />
+                </g>
+                <g id="dragSoundFeedback" class="drag-sound-feedback" aria-hidden="true" hidden>
+                  <path class="drag-sound-tether" d="M0 0 C18 -16 37 -16 55 0" />
+                  <text x="28" y="-20">POSITION → SOUND</text>
+                </g>
+
+                <g class="body-labels" aria-hidden="true">
+                  <text x="38" y="38">DRAG GLOWING ORGANS — POSITION SHAPES SOUND</text>
+                  <text id="bodyFoldCount" x="38" y="58">VOCAL FOLDS</text>
+                  <text id="bodyRouteCount" x="38" y="76">ROUTES</text>
+                </g>
+              </svg>
+              <figcaption>
+                <span><i></i> tap = trigger sound</span>
+                  <b><strong>Drag any glowing organ</strong> — its screen position changes pressure, pitch, and resonance. Diamond handles reshape it.</b>
+              </figcaption>
+            </figure>
+          </div>
+
+          <details class="anatomy-inspector">
+            <summary><span>Detailed organ controls</span><small>lungs · folds · routes · mouths</small></summary>
+            <div class="anatomy-scroll">
+              <div class="anatomy-flow">
+              <section class="lung-system flow-module" aria-labelledby="lungBankTitle">
+                <header class="flow-module-heading">
+                  <div><span>RESERVOIRS</span><h3 id="lungBankTitle">Lungs</h3></div>
+                  <output id="lungPressureReadout">6.8 kPa</output>
+                </header>
+
+                <div class="lung-banks" id="lungBanks">
+                  <section class="lung-bank" data-bank="1" aria-label="Lung bank one">
+                    <header><b>R1</b><output id="bank1Pressure">72%</output></header>
+                    <div class="lung-grid">
+                      <button id="lung1" class="lung" type="button" data-lung="1" data-bank="1" aria-label="Lung 1 enabled" aria-pressed="true"><span>01</span><i></i><b style="--fill:.78"></b></button>
+                      <button id="lung2" class="lung" type="button" data-lung="2" data-bank="1" aria-label="Lung 2 enabled" aria-pressed="true"><span>02</span><i></i><b style="--fill:.56"></b></button>
+                      <button id="lung3" class="lung" type="button" data-lung="3" data-bank="1" aria-label="Lung 3 enabled" aria-pressed="true"><span>03</span><i></i><b style="--fill:.36"></b></button>
+                      <button id="lung4" class="lung" type="button" data-lung="4" data-bank="1" aria-label="Lung 4 enabled" aria-pressed="true"><span>04</span><i></i><b style="--fill:.18"></b></button>
+                    </div>
+                  </section>
+                  <section class="lung-bank" data-bank="2" aria-label="Lung bank two">
+                    <header><b>R2</b><output id="bank2Pressure">63%</output></header>
+                    <div class="lung-grid">
+                      <button id="lung5" class="lung" type="button" data-lung="5" data-bank="2" aria-label="Lung 5 enabled" aria-pressed="true"><span>05</span><i></i><b style="--fill:.64"></b></button>
+                      <button id="lung6" class="lung" type="button" data-lung="6" data-bank="2" aria-label="Lung 6 enabled" aria-pressed="true"><span>06</span><i></i><b style="--fill:.43"></b></button>
+                      <button id="lung7" class="lung" type="button" data-lung="7" data-bank="2" aria-label="Lung 7 enabled" aria-pressed="true"><span>07</span><i></i><b style="--fill:.25"></b></button>
+                      <button id="lung8" class="lung" type="button" data-lung="8" data-bank="2" aria-label="Lung 8 enabled" aria-pressed="true"><span>08</span><i></i><b style="--fill:.86"></b></button>
+                    </div>
+                  </section>
+                  <section class="lung-bank" data-bank="3" aria-label="Lung bank three">
+                    <header><b>R3</b><output id="bank3Pressure">81%</output></header>
+                    <div class="lung-grid">
+                      <button id="lung9" class="lung" type="button" data-lung="9" data-bank="3" aria-label="Lung 9 enabled" aria-pressed="true"><span>09</span><i></i><b style="--fill:.32"></b></button>
+                      <button id="lung10" class="lung" type="button" data-lung="10" data-bank="3" aria-label="Lung 10 enabled" aria-pressed="true"><span>10</span><i></i><b style="--fill:.71"></b></button>
+                      <button id="lung11" class="lung" type="button" data-lung="11" data-bank="3" aria-label="Lung 11 enabled" aria-pressed="true"><span>11</span><i></i><b style="--fill:.51"></b></button>
+                      <button id="lung12" class="lung" type="button" data-lung="12" data-bank="3" aria-label="Lung 12 enabled" aria-pressed="true"><span>12</span><i></i><b style="--fill:.22"></b></button>
+                    </div>
+                  </section>
+                  <section class="lung-bank" data-bank="4" aria-label="Lung bank four">
+                    <header><b>R4</b><output id="bank4Pressure">54%</output></header>
+                    <div class="lung-grid">
+                      <button id="lung13" class="lung" type="button" data-lung="13" data-bank="4" aria-label="Lung 13 enabled" aria-pressed="true"><span>13</span><i></i><b style="--fill:.48"></b></button>
+                      <button id="lung14" class="lung" type="button" data-lung="14" data-bank="4" aria-label="Lung 14 enabled" aria-pressed="true"><span>14</span><i></i><b style="--fill:.28"></b></button>
+                      <button id="lung15" class="lung" type="button" data-lung="15" data-bank="4" aria-label="Lung 15 enabled" aria-pressed="true"><span>15</span><i></i><b style="--fill:.82"></b></button>
+                      <button id="lung16" class="lung" type="button" data-lung="16" data-bank="4" aria-label="Lung 16 enabled" aria-pressed="true"><span>16</span><i></i><b style="--fill:.61"></b></button>
+                    </div>
+                  </section>
+                </div>
+                <div class="flow-port is-out" aria-hidden="true"><span></span></div>
+              </section>
+
+              <section class="source-system flow-module" aria-labelledby="sourceRackTitle">
+                <header class="flow-module-heading">
+                  <div><span>VOCAL SOURCES</span><h3 id="sourceRackTitle">Vocal folds</h3></div>
+                  <output id="foldCountReadout">8 folds</output>
+                </header>
+                <div class="source-rack" id="sourceRack">
+                  <article class="source-card" id="source1" data-source="1">
+                    <header><button id="source1Enable" type="button" aria-pressed="true"><i></i>P1 · COLLISION FOLDS</button><output id="source1Frequency">62 Hz</output></header>
+                    <div class="fold-pair" aria-label="Folds 1 and 2 vibrating">
+                      <span class="fold" id="fold1Meter"><i></i></span><b>↕</b><span class="fold" id="fold2Meter"><i></i></span>
+                    </div>
+                    <label for="source1Tension"><span>tension</span><output id="source1TensionOut" for="source1Tension">28%</output><input id="source1Tension" type="range" min="0" max="1" step="0.01" value="0.28" /></label>
+                  </article>
+                  <article class="source-card" id="source2" data-source="2">
+                    <header><button id="source2Enable" type="button" aria-pressed="true"><i></i>P2 · SPLIT SYRINX</button><output id="source2Frequency">326 Hz</output></header>
+                    <div class="fold-pair" aria-label="Folds 3 and 4 vibrating">
+                      <span class="fold" id="fold3Meter"><i></i></span><b>↕</b><span class="fold" id="fold4Meter"><i></i></span>
+                    </div>
+                    <label for="source2Tension"><span>tension</span><output id="source2TensionOut" for="source2Tension">43%</output><input id="source2Tension" type="range" min="0" max="1" step="0.01" value="0.43" /></label>
+                  </article>
+                  <article class="source-card" id="source3" data-source="3">
+                    <header><button id="source3Enable" type="button" aria-pressed="true"><i></i>P3 · PULSE MEMBRANE</button><output id="source3Frequency">180 Hz</output></header>
+                    <div class="fold-pair" aria-label="Folds 5 and 6 vibrating">
+                      <span class="fold" id="fold5Meter"><i></i></span><b>↕</b><span class="fold" id="fold6Meter"><i></i></span>
+                    </div>
+                    <label for="source3Tension"><span>tension</span><output id="source3TensionOut" for="source3Tension">61%</output><input id="source3Tension" type="range" min="0" max="1" step="0.01" value="0.61" /></label>
+                  </article>
+                  <article class="source-card" id="source4" data-source="4">
+                    <header><button id="source4Enable" type="button" aria-pressed="true"><i></i>P4 · JET SYRINX</button><output id="source4Frequency">1284 Hz</output></header>
+                    <div class="fold-pair" aria-label="Folds 7 and 8 vibrating">
+                      <span class="fold" id="fold7Meter"><i></i></span><b>↕</b><span class="fold" id="fold8Meter"><i></i></span>
+                    </div>
+                    <label for="source4Tension"><span>tension</span><output id="source4TensionOut" for="source4Tension">78%</output><input id="source4Tension" type="range" min="0" max="1" step="0.01" value="0.78" /></label>
+                  </article>
+                </div>
+                <div class="flow-port is-in" aria-hidden="true"><span></span></div>
+                <div class="flow-port is-out" aria-hidden="true"><span></span></div>
+              </section>
+
+              <section class="route-system flow-module" aria-labelledby="routeMatrixTitle">
+                <header class="flow-module-heading">
+                  <div><span>ROUTES</span><h3 id="routeMatrixTitle">Route matrix</h3></div>
+                  <output id="routeCountReadout">9 / 12 open</output>
+                </header>
+                <div class="route-matrix" id="routeMatrix" role="group" aria-label="Source to mouth routing valves">
+                  <span class="route-corner">SRC</span>
+                  <span class="route-column mouth-a"><b>M1</b><small>LOW TRACT</small></span>
+                  <span class="route-column mouth-b"><b>M2</b><small>VOWEL TRACT</small></span>
+                  <span class="route-column mouth-c"><b>M3</b><small>JET TRACT</small></span>
+
+                  <span class="route-row"><b>P1</b><small>62 HZ</small></span>
+                  <button id="route-s1-m1" class="route-valve" type="button" data-route="1-1" data-source="1" data-mouth="1" aria-label="Route source 1 to subharmonic tract, MIDI C2" aria-pressed="true"><i></i><small>C2</small></button>
+                  <button id="route-s1-m2" class="route-valve" type="button" data-route="1-2" data-source="1" data-mouth="2" aria-label="Route source 1 to vowel tract, MIDI C sharp 2" aria-pressed="true"><i></i><small>C♯2</small></button>
+                  <button id="route-s1-m3" class="route-valve" type="button" data-route="1-3" data-source="1" data-mouth="3" aria-label="Route source 1 to jet tract, MIDI D2" aria-pressed="false"><i></i><small>D2</small></button>
+
+                  <span class="route-row"><b>P2</b><small>326 HZ</small></span>
+                  <button id="route-s2-m1" class="route-valve" type="button" data-route="2-1" data-source="2" data-mouth="1" aria-label="Route source 2 to subharmonic tract, MIDI D sharp 2" aria-pressed="true"><i></i><small>D♯2</small></button>
+                  <button id="route-s2-m2" class="route-valve" type="button" data-route="2-2" data-source="2" data-mouth="2" aria-label="Route source 2 to vowel tract, MIDI E2" aria-pressed="true"><i></i><small>E2</small></button>
+                  <button id="route-s2-m3" class="route-valve" type="button" data-route="2-3" data-source="2" data-mouth="3" aria-label="Route source 2 to jet tract, MIDI F2" aria-pressed="true"><i></i><small>F2</small></button>
+
+                  <span class="route-row"><b>P3</b><small>180 HZ</small></span>
+                  <button id="route-s3-m1" class="route-valve" type="button" data-route="3-1" data-source="3" data-mouth="1" aria-label="Route source 3 to subharmonic tract, MIDI F sharp 2" aria-pressed="false"><i></i><small>F♯2</small></button>
+                  <button id="route-s3-m2" class="route-valve" type="button" data-route="3-2" data-source="3" data-mouth="2" aria-label="Route source 3 to vowel tract, MIDI G2" aria-pressed="true"><i></i><small>G2</small></button>
+                  <button id="route-s3-m3" class="route-valve" type="button" data-route="3-3" data-source="3" data-mouth="3" aria-label="Route source 3 to jet tract, MIDI G sharp 2" aria-pressed="true"><i></i><small>G♯2</small></button>
+
+                  <span class="route-row"><b>P4</b><small>1284 HZ</small></span>
+                  <button id="route-s4-m1" class="route-valve" type="button" data-route="4-1" data-source="4" data-mouth="1" aria-label="Route source 4 to subharmonic tract, MIDI A2" aria-pressed="true"><i></i><small>A2</small></button>
+                  <button id="route-s4-m2" class="route-valve" type="button" data-route="4-2" data-source="4" data-mouth="2" aria-label="Route source 4 to vowel tract, MIDI A sharp 2" aria-pressed="false"><i></i><small>A♯2</small></button>
+                  <button id="route-s4-m3" class="route-valve" type="button" data-route="4-3" data-source="4" data-mouth="3" aria-label="Route source 4 to jet tract, MIDI B2" aria-pressed="true"><i></i><small>B2</small></button>
+                </div>
+                <p class="matrix-note"><span>MIDI CONTROLS ROUTE APERTURE</span><b>Route changes alter coupled back-pressure.</b></p>
+                <div class="flow-port is-in" aria-hidden="true"><span></span></div>
+                <div class="flow-port is-out" aria-hidden="true"><span></span></div>
+              </section>
+
+              <section class="mouth-system flow-module" aria-labelledby="mouthRackTitle">
+                <header class="flow-module-heading">
+                  <div><span>MOUTH RESONATORS</span><h3 id="mouthRackTitle">Mouths</h3></div>
+                  <output id="mouthCountReadout">3 active</output>
+                </header>
+                <div class="mouth-rack" id="mouthRack">
+                  <article class="mouth-card mouth-a" id="mouth1" data-mouth="1">
+                    <header><span><b>M1 / SUBHARMONIC TRACT</b><small>false-fold collision · broad lips</small></span><output id="mouth1State">OPEN</output></header>
+                    <div class="mouth-shape" aria-hidden="true"><span class="upper-lip"></span><i class="tongue"></i><span class="lower-lip"></span><b class="air-jet"></b></div>
+                    <div class="mouth-stats"><span><small>aperture</small><b>84 mm</b></span><span><small>tongue</small><b>1.00×</b></span></div>
+                    <label for="mouth1Aperture"><span>lips</span><output id="mouth1ApertureOut" for="mouth1Aperture">74%</output><input id="mouth1Aperture" type="range" min="0" max="1" step="0.01" value="0.74" /></label>
+                    <label for="mouth1Tongue"><span>tongue</span><output id="mouth1TongueOut" for="mouth1Tongue">31%</output><input id="mouth1Tongue" type="range" min="0" max="1" step="0.01" value="0.31" /></label>
+                  </article>
+                  <article class="mouth-card mouth-b" id="mouth2" data-mouth="2">
+                    <header><span><b>M2 / VOWEL TRACT</b><small>moving tongue · fricative teeth</small></span><output id="mouth2State">PULSE</output></header>
+                    <div class="mouth-shape" aria-hidden="true"><span class="upper-lip"></span><i class="tongue"></i><span class="lower-lip"></span><b class="air-jet"></b></div>
+                    <div class="mouth-stats"><span><small>aperture</small><b>42 mm</b></span><span><small>tongue</small><b>0.46×</b></span></div>
+                    <label for="mouth2Aperture"><span>lips</span><output id="mouth2ApertureOut" for="mouth2Aperture">48%</output><input id="mouth2Aperture" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
+                    <label for="mouth2Tongue"><span>tongue</span><output id="mouth2TongueOut" for="mouth2Tongue">58%</output><input id="mouth2Tongue" type="range" min="0" max="1" step="0.01" value="0.58" /></label>
+                  </article>
+                  <article class="mouth-card mouth-c" id="mouth3" data-mouth="3">
+                    <header><span><b>M3 / JET TRACT</b><small>jet whistle · ratchet tongue</small></span><output id="mouth3State">SHUT</output></header>
+                    <div class="mouth-shape" aria-hidden="true"><span class="upper-lip"></span><i class="tongue"></i><span class="lower-lip"></span><b class="air-jet"></b></div>
+                    <div class="mouth-stats"><span><small>aperture</small><b>12 mm</b></span><span><small>tongue</small><b>0.16×</b></span></div>
+                    <label for="mouth3Aperture"><span>lips</span><output id="mouth3ApertureOut" for="mouth3Aperture">48%</output><input id="mouth3Aperture" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
+                    <label for="mouth3Tongue"><span>tongue</span><output id="mouth3TongueOut" for="mouth3Tongue">76%</output><input id="mouth3Tongue" type="range" min="0" max="1" step="0.01" value="0.76" /></label>
+                  </article>
+                </div>
+                <div class="flow-port is-in" aria-hidden="true"><span></span></div>
+              </section>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <section class="colony-sequencer" aria-labelledby="sequencerTitle">
+          <header class="colony-section-heading sequencer-heading">
+            <div><span>MODULATION</span><h2 id="sequencerTitle">Continuous parameter contours</h2></div>
+            <div class="sequence-position"><span>CONTOUR PHASE</span><output id="stepReadout">PHASE 000°</output></div>
+          </header>
+          <div class="contour-intro">
+            <p>Drag points vertically. The contours modulate reservoir pressure, vocal-fold tension, route aperture, and mouth articulation.</p>
+            <button id="mutateMotionButton" type="button"><b>Randomize contours</b><small>preserve anatomy</small></button>
+          </div>
+          <div class="sequence-scroll contour-scroll" tabindex="0" aria-label="Scrollable continuous evolution contour editor">
+            <div class="sequence-lanes contour-lanes" id="contourLanes" data-contour-count="6"></div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel colony-console control-rail" aria-label="Monstrozoid controls">
+        <section class="colony-console-section colony-primary-section" aria-labelledby="primaryActionsTitle">
+          <div class="console-heading"><span>MONSTRO GENERATOR</span><output id="seedReadout">SEED 436F6C6F</output></div>
+          <h2 id="primaryActionsTitle">Generate and audition</h2>
+          <button class="colony-randomize-primary" id="randomizeAllButton" type="button">
+            <span aria-hidden="true">✦</span>
+            <span><b>Randomize all parameters</b><small>body · timbre · routing · articulation · contours</small></span>
+          </button>
+          <div class="call-preset-heading">
+            <label for="callPresetSelect">Call preset <small>← → auditions</small></label>
+            <output id="callPresetState">READY</output>
+          </div>
+          <div class="call-preset-control">
+            <label class="call-preset-select" for="callPresetSelect">
+              <span class="sr-only">Call preset; choosing one plays it immediately</span>
+              <select id="callPresetSelect" aria-describedby="selectedCallReadout"></select>
+            </label>
+            <button id="playCallButton" type="button" aria-describedby="selectedCallReadout">
+              <b id="playCallLabel">Replay</b>
+              <small id="playCallDetail">selected call</small>
+            </button>
+          </div>
+          <output id="selectedCallReadout">Select a call</output>
+          <p class="colony-primary-status" id="statusText" role="status">Audio off. Controls remain editable.</p>
+          <p class="audio-error" id="audioError" role="alert" hidden></p>
+        </section>
+
+        <section class="colony-transport" aria-label="Transport">
+          <button id="playButton" type="button" data-primary-transport aria-pressed="false">
+            <span class="colony-play-icon" id="playIcon" aria-hidden="true"></span>
+            <span><b>Play continuous flow</b><small id="playState">continuous modulation · space / P</small></span>
+          </button>
+          <button id="panicButton" type="button">
+            <span aria-hidden="true">×</span><span><b>Close all</b><small>release pressure</small></span>
+          </button>
+        </section>
+
+        <details class="colony-console-section preset-text-section">
+          <summary>
+            <span><b>Preset text</b><small>save or share this sound</small></span>
+            <output id="presetCopyState">READY</output>
+          </summary>
+          <div class="preset-text-body">
+            <p>This text contains the complete sound state. Copy it and paste it back here when you want the random result turned into a built-in preset.</p>
+            <label for="presetTextOutput"><span class="sr-only">Shareable Monstrozoid preset text</span><textarea id="presetTextOutput" rows="7" readonly spellcheck="false"></textarea></label>
+            <button id="copyPresetButton" type="button"><b>Copy preset text</b><small>complete reproducible state</small></button>
+          </div>
+        </details>
+
+        <details class="group control-section colony-console-section generator-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title" id="generatorTitle">Body and modulation</h2>
+            <span class="section-state">variable structure</span>
+          </summary>
+          <div class="group-body">
+            <div class="organ-count-controls">
+              <label for="lungCount"><span><b>Lungs</b><output id="lungCountOut" for="lungCount">16</output></span><input id="lungCount" type="range" min="1" max="16" step="1" value="16" /></label>
+              <label for="throatCount"><span><b>Paired throats</b><output id="throatCountOut" for="throatCount">4</output></span><input id="throatCount" type="range" min="1" max="4" step="1" value="4" /></label>
+              <label for="foldCount"><span><b>Vocal folds</b><output id="foldCountOut" for="foldCount">8</output></span><input id="foldCount" type="range" min="0" max="8" step="1" value="8" /></label>
+              <label for="mouthCount"><span><b>Mouths</b><output id="mouthCountOut" for="mouthCount">3</output></span><input id="mouthCount" type="range" min="1" max="3" step="1" value="3" /></label>
+              <label for="routeCount"><span><b>Routes</b><output id="routeCountOut" for="routeCount">9</output></span><input id="routeCount" type="range" min="0" max="12" step="1" value="9" /></label>
+              <label for="contourCount"><span><b>Contours</b><output id="contourCountOut" for="contourCount">6</output></span><input id="contourCount" type="range" min="1" max="6" step="1" value="6" /></label>
+            </div>
+            <div class="generator-actions" role="group" aria-label="Randomize Monstrozoid">
+              <button id="randomizeBodyButton" type="button"><b>BODY</b><small>organs and shapes</small></button>
+              <button id="randomizeRoutesButton" type="button"><b>ROUTING</b><small>route maps</small></button>
+              <button id="randomizeMotionButton" type="button"><b>CONTOURS</b><small>modulation shapes</small></button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section colony-console-section breath-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title" id="breathTitle">Pressure input</h2>
+            <span class="section-state" id="breathReadout">resting</span>
+          </summary>
+          <div class="group-body">
+            <button class="breath-button" id="breathButton" type="button" aria-pressed="false" aria-keyshortcuts="B">
+              <span class="breath-organ" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span><b>MANUAL PRESSURE</b><small>B / MIDI sustain / pointer pressure</small></span>
+            </button>
+            <div class="breath-meter" id="breathMeter" aria-label="Breath pressure meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i><span></span></div>
+            <label class="colony-control" for="lungPressure">
+              <span><b>Lung pressure</b><output id="lungPressureOut" for="lungPressure">68%</output></span>
+              <input id="lungPressure" type="range" min="0" max="1" step="0.01" value="0.68" />
+              <small>Sets reservoir pressure and excitation level.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section colony-console-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title" id="behaviorTitle">Continuous modulation</h2>
+            <span class="section-state" id="clockReadout">16.0 S</span>
+          </summary>
+          <div class="group-body">
+            <label class="colony-select-control" for="performanceMode">
+              <span><b>Valve behavior</b><small>route control source</small></span>
+              <select id="performanceMode">
+                <option value="direct">Direct · MIDI aperture</option>
+                <option value="organ" selected>Latch · held routes</option>
+                <option value="colony">Pressure · automatic routes</option>
+              </select>
+            </label>
+            <label class="colony-control" for="tempo">
+              <span><b>Evolution duration</b><output id="tempoOut" for="tempo">16.0 s</output></span>
+              <input id="tempo" type="range" min="1" max="40" step="0.5" value="16" />
+            </label>
+            <label class="colony-control" for="swing">
+              <span><b>Contour depth</b><output id="swingOut" for="swing">78%</output></span>
+              <input id="swing" type="range" min="0" max="1" step="0.01" value="0.78" />
+            </label>
+            <label class="colony-control" for="coupling">
+              <span><b>Back-pressure coupling</b><output id="couplingOut" for="coupling">32%</output></span>
+              <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.32" />
+              <small>Mouth closure returns load to connected vocal folds.</small>
+            </label>
+            <label class="colony-control" for="valveSlew">
+              <span><b>Valve slew</b><output id="valveSlewOut" for="valveSlew">18 ms</output></span>
+              <input id="valveSlew" type="range" min="1" max="180" step="1" value="18" />
+              <small>Sets route transition time and pressure transients.</small>
+            </label>
+            <label class="colony-control" for="reservoirLoss">
+              <span><b>Reservoir leak</b><output id="reservoirLossOut" for="reservoirLoss">21%</output></span>
+              <input id="reservoirLoss" type="range" min="0" max="1" step="0.01" value="0.21" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section colony-console-section colony-readouts">
+          <summary class="group-summary">
+            <h2 class="group-title" id="readoutTitle">Pressure and flow</h2>
+            <span class="section-state" id="phaseReadout">PHASE 000°</span>
+          </summary>
+          <div class="group-body">
+            <dl>
+              <div><dt>manifold</dt><dd id="manifoldReadout">6.8 kPa</dd></div>
+              <div><dt>flow</dt><dd id="flowReadout">0.00 L/s</dd></div>
+              <div><dt>open paths</dt><dd id="activePathReadout">09 / 12</dd></div>
+              <div><dt>fold lock</dt><dd id="foldLockReadout">2 + 2</dd></div>
+              <div><dt>reflected load</dt><dd id="loadReadout">31%</dd></div>
+              <div><dt>MIDI input</dt><dd id="midiReadout">not connected</dd></div>
+            </dl>
+            <button class="midi-learn-button" id="midiLearnButton" type="button">
+              <span aria-hidden="true">⌨</span><span><b>Learn MIDI route map</b><small>C2 base note · velocity controls aperture</small></span>
+            </button>
+          </div>
+        </details>
+      </aside>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="colony-syrinx-app.js"></script>
+  </body>
+</html>

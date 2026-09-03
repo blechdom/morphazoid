@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   COLONY_SYRINX_BANK_COUNT,
+  COLONY_SYRINX_ARTICULATION_MODES,
   COLONY_SYRINX_CALL_COUNT,
   COLONY_SYRINX_CALLS,
   COLONY_SYRINX_CONTOUR_IDS,
@@ -18,11 +19,15 @@ import {
   COLONY_SYRINX_MEDIA,
   COLONY_SYRINX_MOUTH_COUNT,
   COLONY_SYRINX_PHONATOR_COUNT,
+  COLONY_SYRINX_PRESET_FORMAT_VERSION,
+  COLONY_SYRINX_PRESET_HEADER,
   COLONY_SYRINX_ROUTE_COUNT,
   COLONY_SYRINX_SEQUENCE_LENGTH,
   COLONY_SYRINX_TOPOLOGY,
   DEFAULT_COLONY_SYRINX_CONTOURS,
+  DEFAULT_COLONY_SYRINX_ARTICULATION,
   DEFAULT_COLONY_SYRINX_LANES,
+  DEFAULT_COLONY_SYRINX_ORGAN_LAYOUT,
   DEFAULT_COLONY_SYRINX_RUNTIME,
   DEFAULT_COLONY_SYRINX_STATE,
   colonySyrinxLaneStepDurationSeconds,
@@ -37,6 +42,8 @@ import {
   createColonySyrinxState,
   evaluateColonySyrinxContours,
   evaluateColonySyrinxStep,
+  formatColonySyrinxPreset,
+  parseColonySyrinxPreset,
   randomizeColonySyrinxState,
   sampleColonySyrinxContour,
   sanitizeColonySyrinxRuntime,
@@ -62,7 +69,7 @@ function runModel(configuration, frames = 480, deltaSeconds = 1 / 120) {
   return runtime;
 }
 
-test("Colony Syrinx topology is exactly sixteen lungs, eight folds, twelve routes, and three mouths", () => {
+test("Monstrozoid topology is exactly sixteen lungs, eight folds, twelve routes, and three mouths", () => {
   assert.equal(COLONY_SYRINX_LUNG_COUNT, 16);
   assert.equal(COLONY_SYRINX_BANK_COUNT, 4);
   assert.equal(COLONY_SYRINX_LUNGS_PER_BANK, 4);
@@ -87,11 +94,11 @@ test("Colony Syrinx topology is exactly sixteen lungs, eight folds, twelve route
   );
 });
 
-test("the call atlas contains twenty-four unique deterministic recipes across all materials", () => {
-  assert.equal(COLONY_SYRINX_CALL_COUNT, 24);
+test("the call atlas contains seventy-two unique deterministic recipes across all materials", () => {
+  assert.equal(COLONY_SYRINX_CALL_COUNT, 72);
   assert.equal(COLONY_SYRINX_CALLS.length, COLONY_SYRINX_CALL_COUNT);
-  assert.equal(new Set(COLONY_SYRINX_CALLS.map(({ id }) => id)).size, 24);
-  assert.equal(new Set(COLONY_SYRINX_CALLS.map(({ seed }) => seed)).size, 24);
+  assert.equal(new Set(COLONY_SYRINX_CALLS.map(({ id }) => id)).size, 72);
+  assert.equal(new Set(COLONY_SYRINX_CALLS.map(({ seed }) => seed)).size, 72);
 
   const materialCounts = Object.fromEntries(
     Object.keys(COLONY_SYRINX_MEDIA).map((mediumId) => [
@@ -99,15 +106,71 @@ test("the call atlas contains twenty-four unique deterministic recipes across al
       COLONY_SYRINX_CALLS.filter((call) => call.mediumId === mediumId).length,
     ]),
   );
-  assert.deepEqual(materialCounts, { air: 8, water: 8, pellets: 8 });
+  assert.deepEqual(materialCounts, { air: 24, water: 24, pellets: 24 });
 
+  const articulationKeys = [
+    "mode",
+    "strike",
+    "attackMs",
+    "releaseMs",
+    "prechargeMs",
+    "burst",
+    "pulseRateHz",
+    "pulseDepth",
+    "pushPull",
+    "brightness",
+    "noise",
+  ].sort();
   COLONY_SYRINX_CALLS.forEach((call, index) => {
     assert.ok(call.durationSeconds >= 1 && call.durationSeconds <= 10, call.id);
+    assert.ok(typeof call.category === "string" && call.category.length > 0, call.id);
+    assert.ok(typeof call.gestureLabel === "string" && call.gestureLabel.length > 8, call.id);
+    assert.ok(typeof call.familyId === "string" && call.familyId.length > 0, call.id);
+    assert.ok(["original", "forked", "migrating"].includes(call.variantId), call.id);
+    assert.ok([0, 1, 2].includes(call.variantIndex), call.id);
+    assert.ok(["soft", "decisive"].includes(call.onsetProfile), call.id);
+    assert.deepEqual(Object.keys(call.articulation).sort(), articulationKeys, `${call.id} articulation`);
+    assert.ok(COLONY_SYRINX_ARTICULATION_MODES.includes(call.articulation.mode), call.id);
+    assert.ok(call.timbre.sources.length === call.counts.phonators, `${call.id} source timbre`);
+    assert.ok(call.timbre.mouths.length === call.counts.mouths, `${call.id} mouth timbre`);
     assert.strictEqual(colonySyrinxCallById(call.id), call);
     const byId = createColonySyrinxCallState(call.id);
     assert.deepEqual(byId, createColonySyrinxCallState(call.id), `${call.id} must repeat`);
     assert.deepEqual(byId, createColonySyrinxCallState(index), `${call.id} index lookup`);
+    assert.deepEqual(byId.articulation, call.articulation, `${call.id} state articulation`);
   });
+  const durationBands = [
+    [1, 2],
+    [2, 4],
+    [4, 7],
+    [7, 10.01],
+  ].map(([minimum, maximum]) => COLONY_SYRINX_CALLS.filter(({ durationSeconds }) => (
+    durationSeconds >= minimum && durationSeconds < maximum
+  )).length);
+  assert.ok(durationBands.every((count) => count >= 6), durationBands.join(", "));
+  assert.equal(new Set(COLONY_SYRINX_CALLS.map(({ durationSeconds }) => durationSeconds)).size, 72);
+  assert.equal(COLONY_SYRINX_CALLS.filter(({ category }) => category === "complex").length, 9);
+  const families = Map.groupBy(COLONY_SYRINX_CALLS, ({ familyId }) => familyId);
+  assert.equal(families.size, 24);
+  for (const family of families.values()) {
+    assert.deepEqual(
+      family.map(({ variantIndex }) => variantIndex).sort((left, right) => left - right),
+      [0, 1, 2],
+    );
+    assert.equal(new Set(family.map(({ durationSeconds }) => durationSeconds)).size, 3);
+  }
+  assert.equal(COLONY_SYRINX_CALLS[0].category, "tonal");
+  assert.ok(COLONY_SYRINX_CALLS.slice(0, 4).every(({ category }) => category === "tonal"));
+  let longestOnsetRun = 1;
+  let onsetRun = 1;
+  for (let index = 5; index < COLONY_SYRINX_CALLS.length; index += 1) {
+    onsetRun = COLONY_SYRINX_CALLS[index].onsetProfile
+      === COLONY_SYRINX_CALLS[index - 1].onsetProfile ? onsetRun + 1 : 1;
+    longestOnsetRun = Math.max(longestOnsetRun, onsetRun);
+  }
+  assert.ok(longestOnsetRun <= 2, `onsets stopped interleaving: ${longestOnsetRun}`);
+  assert.ok(new Set(COLONY_SYRINX_CALLS.map(({ articulation }) => articulation.mode)).size >= 8);
+  assert.ok(COLONY_SYRINX_CALLS.some(({ id }) => id === "air-crossed-bass-speech"));
   assert.equal(colonySyrinxCallById("missing-call"), null);
 });
 
@@ -146,7 +209,11 @@ test("call metadata matches every enabled organ and both materialized route maps
       const folds = state.foldEnabled.slice(phonatorIndex * 2, phonatorIndex * 2 + 2);
       if (state.phonatorEnabled[phonatorIndex]) {
         assert.ok(lungs.some(Boolean), `${call.id} source ${phonatorIndex} needs a lung`);
-        assert.ok(folds.some(Boolean), `${call.id} source ${phonatorIndex} needs a fold`);
+        if (call.counts.folds > 0) {
+          assert.ok(folds.some(Boolean), `${call.id} voiced source ${phonatorIndex} needs a fold`);
+        } else {
+          assert.ok(folds.every((enabled) => !enabled), `${call.id} must remain unvoiced`);
+        }
       } else {
         assert.ok(lungs.every((enabled) => !enabled), `${call.id} inactive source lungs`);
         assert.ok(folds.every((enabled) => !enabled), `${call.id} inactive source folds`);
@@ -161,12 +228,12 @@ test("call metadata matches every enabled organ and both materialized route maps
   }
 });
 
-test("the call atlas covers the complete variable anatomy ranges", () => {
+test("the call atlas covers variable anatomy including foldless pressure percussion", () => {
   const values = (key) => COLONY_SYRINX_CALLS.map(({ counts }) => counts[key]);
   const range = (key) => [Math.min(...values(key)), Math.max(...values(key))];
   assert.deepEqual(range("lungs"), [1, COLONY_SYRINX_LUNG_COUNT]);
   assert.deepEqual(range("phonators"), [1, COLONY_SYRINX_PHONATOR_COUNT]);
-  assert.deepEqual(range("folds"), [1, COLONY_SYRINX_FOLD_COUNT]);
+  assert.deepEqual(range("folds"), [0, COLONY_SYRINX_FOLD_COUNT]);
   assert.deepEqual(range("mouths"), [1, COLONY_SYRINX_MOUTH_COUNT]);
   assert.deepEqual(range("routes"), [1, COLONY_SYRINX_ROUTE_COUNT]);
   assert.deepEqual(
@@ -179,7 +246,7 @@ test("the call atlas covers the complete variable anatomy ranges", () => {
   );
   assert.deepEqual(
     [...new Set(values("folds"))].sort((left, right) => left - right),
-    [1, 2, 3, 4, 5, 6, 7, 8],
+    [0, 1, 2, 3, 4, 5, 6, 7, 8],
   );
   assert.ok(
     COLONY_SYRINX_CALLS.some(({ counts }) => (
@@ -191,7 +258,113 @@ test("the call atlas covers the complete variable anatomy ranges", () => {
     COLONY_SYRINX_CALLS.some(({ counts }) => counts.folds % 2 === 1),
     "the atlas should include odd fold counts",
   );
-  assert.equal(new Set(COLONY_SYRINX_CALLS.map(({ motionProfile }) => motionProfile)).size, 8);
+  const foldless = COLONY_SYRINX_CALLS.filter(({ counts }) => counts.folds === 0);
+  assert.ok(foldless.length >= 6);
+  assert.ok(foldless.every(({ articulation }) => (
+    ["lip-pop", "tongue-click", "plosive", "puff", "pulse", "impact"].includes(articulation.mode)
+  )));
+  assert.ok(new Set(COLONY_SYRINX_CALLS.map(({ motionProfile }) => motionProfile)).size >= 6);
+});
+
+test("curated calls mix soft and decisive bodies while keeping useful registers", () => {
+  const tonal = COLONY_SYRINX_CALLS.filter(({ category }) => category === "tonal");
+  assert.equal(tonal.length, 12);
+  assert.ok(tonal.every(({ durationSeconds, articulation }) => (
+    durationSeconds >= 2 && durationSeconds <= 4
+      && articulation.mode === "tone"
+      && articulation.noise <= 0.5
+      && articulation.brightness <= 0.5
+  )));
+  assert.ok(tonal.some(({ onsetProfile }) => onsetProfile === "soft"));
+  assert.ok(tonal.some(({ onsetProfile }) => onsetProfile === "decisive"));
+
+  const sharp = COLONY_SYRINX_CALLS.filter(({ category }) => (
+    category === "plosive" || category === "percussion"
+  ));
+  assert.equal(sharp.length, 24);
+  assert.ok(sharp.every(({ articulation, onsetProfile }) => (
+    onsetProfile === "decisive"
+      && articulation.attackMs <= 1.5
+      && articulation.prechargeMs >= 18
+      && articulation.releaseMs >= 170
+      && articulation.burst >= 0.8
+  )));
+  assert.ok(sharp.some(({ durationSeconds }) => durationSeconds <= 2.2));
+  assert.ok(sharp.some(({ durationSeconds }) => durationSeconds >= 3 && durationSeconds < 6));
+  assert.ok(sharp.some(({ durationSeconds }) => durationSeconds >= 6));
+
+  for (const call of COLONY_SYRINX_CALLS) {
+    const state = createColonySyrinxCallState(call.id);
+    for (const source of call.timbre.sources) {
+      const voice = state.phonators[source.index];
+      assert.equal(voice.frequencyHz, source.frequencyHz, `${call.id} pitch`);
+      assert.equal(voice.roughness, source.roughness, `${call.id} roughness`);
+      assert.ok(voice.frequencyHz >= 48 && voice.frequencyHz <= 150, `${call.id} moderate register`);
+      if (call.category !== "complex") assert.ok(voice.roughness <= 0.3, `${call.id} restrained noise`);
+    }
+    for (const mouth of call.timbre.mouths) {
+      assert.equal(state.mouths[mouth.index].resonanceHz, mouth.resonanceHz, `${call.id} mouth resonance`);
+      assert.equal(state.mouths[mouth.index].opening, mouth.opening, `${call.id} mouth opening`);
+    }
+  }
+});
+
+test("restrained tones begin with an open pressurized body and soft rattle retains useful drive", () => {
+  for (const call of COLONY_SYRINX_CALLS.filter(({ category }) => category === "tonal")) {
+    const state = createColonySyrinxCallState(call.id);
+    assert.ok(state.contours[0].points[0] >= 0.65, `${call.id} breath onset`);
+    for (const mouthIndex of call.mouthIndices) {
+      assert.ok(state.contours[mouthIndex + 3].points[0] >= 0.68, `${call.id} mouth onset`);
+    }
+    assert.ok(call.articulation.prechargeMs >= 30, `${call.id} precharge`);
+  }
+
+  const lowTone = createColonySyrinxCallState("air-clean-low-tone");
+  assert.ok(lowTone.pressureGain >= 1.3);
+  assert.ok(lowTone.valveSlewMs <= 6);
+  assert.ok(lowTone.mouths[0].slewMs <= 4);
+  assert.ok(evaluateColonySyrinxContours(lowTone, 0, { phase: 0 }).mouthOpenings[0] > 0.5);
+
+  const rattle = createColonySyrinxCallState("pellets-soft-rattle");
+  assert.ok(rattle.pressureGain >= 1.7);
+  assert.ok(rattle.level >= 0.7);
+  assert.ok(rattle.banks[0].drive >= 1.1);
+  assert.ok(rattle.leak + rattle.banks[0].leak < 0.06);
+  assert.ok(rattle.articulation.noise <= 0.6, "more drive must not become abrasive noise");
+  assert.ok(rattle.phonators[0].roughness <= 0.1);
+});
+
+test("finite call contours keep a sealed onset and release without wrapping", () => {
+  const finite = { points: [0, 0.25, 1], shape: "linear", loop: false };
+  assert.equal(sampleColonySyrinxContour(finite, 0), 0);
+  assert.equal(sampleColonySyrinxContour(finite, 1), 1);
+  assert.equal(sampleColonySyrinxContour(finite, 2), 1);
+
+  const pop = createColonySyrinxCallState("air-lip-pop");
+  assert.equal(pop.foldEnabled.filter(Boolean).length, 1, "lip pop keeps a voiced tail");
+  assert.ok(pop.contours.every(({ loop, rate }) => loop === false && rate === 1));
+  const atRest = evaluateColonySyrinxContours(pop, 0, { phase: 0 });
+  const released = evaluateColonySyrinxContours(pop, 0, { phase: 0.16 });
+  const finished = evaluateColonySyrinxContours(pop, 0, { phase: 1 });
+  assert.ok(atRest.mouthOpenings[0] <= 0.04, `sealed onset ${atRest.mouthOpenings[0]}`);
+  assert.ok(released.mouthOpenings[0] > 0.5, `snap opening ${released.mouthOpenings[0]}`);
+  assert.ok(finished.mouthOpenings[0] <= 0.04, `released ending ${finished.mouthOpenings[0]}`);
+
+  const slap = createColonySyrinxCallState("water-lip-slap");
+  assert.equal(slap.foldEnabled.filter(Boolean).length, 1, "lip slap keeps a voiced tail");
+
+  const sharpCalls = COLONY_SYRINX_CALLS.filter(({ category }) => (
+    category === "plosive" || category === "percussion"
+  ));
+  for (const call of sharpCalls) {
+    const state = createColonySyrinxCallState(call.id);
+    const upFront = evaluateColonySyrinxContours(state, 0, { phase: 0.16 });
+    const resonantBody = evaluateColonySyrinxContours(state, 0, { phase: 0.4 });
+    for (const mouthIndex of call.mouthIndices) {
+      assert.ok(upFront.mouthOpenings[mouthIndex] > 0.5, `${call.id} up-front opening`);
+      assert.ok(resonantBody.mouthOpenings[mouthIndex] > 0.1, `${call.id} resonant body`);
+    }
+  }
 });
 
 test("defaults and hostile input sanitize into a complete fixed-size state without mutation", () => {
@@ -205,6 +378,19 @@ test("defaults and hostile input sanitize into a complete fixed-size state witho
     breathRateBpm: -999,
     contourDurationSeconds: -999,
     pressureGain: NaN,
+    articulation: {
+      mode: "explode",
+      strike: 4,
+      attackMs: -8,
+      releaseMs: Infinity,
+      prechargeMs: 9_000,
+      burst: -1,
+      pulseRateHz: 999,
+      pulseDepth: -2,
+      pushPull: 4,
+      brightness: 8,
+      noise: -1,
+    },
     crossCoupling: 99,
     colonyAmount: -99,
     stepsPerBeat: 999,
@@ -247,7 +433,19 @@ test("defaults and hostile input sanitize into a complete fixed-size state witho
   assert.deepEqual(state.phonatorEnabled, [false, true, true, true]);
   assert.deepEqual(state.foldEnabled, [false, false, true, true, true, true, true, true]);
   assert.deepEqual(state.mouthEnabled, [false, true, false]);
-  assert.equal(state.contourDurationSeconds, 1);
+  assert.equal(state.contourDurationSeconds, 0.1);
+  assert.deepEqual(state.articulation, {
+    ...DEFAULT_COLONY_SYRINX_ARTICULATION,
+    strike: 1,
+    attackMs: 0,
+    prechargeMs: 2_000,
+    burst: 0,
+    pulseRateHz: 60,
+    pulseDepth: 0,
+    pushPull: 1,
+    brightness: 1,
+    noise: 0,
+  });
   assert.ok(Number.isInteger(state.seed));
   assert.ok(state.seed >= 0 && state.seed <= 0xffff_ffff);
   assert.ok(state.routes.flat().every((value) => value >= 0 && value <= 1));
@@ -268,6 +466,99 @@ test("defaults and hostile input sanitize into a complete fixed-size state witho
   )));
   assertFiniteTree(state, "state");
   assert.deepEqual(fallback, snapshot, "sanitization must not mutate its fallback");
+});
+
+test("preset text is versioned, deterministic, compact, and losslessly round-trips a random body", () => {
+  const state = randomizeColonySyrinxState(DEFAULT_COLONY_SYRINX_STATE, {
+    scope: "all",
+    seed: 0x51a7e5,
+  });
+  const snapshot = structuredClone(state);
+  const text = formatColonySyrinxPreset(state);
+
+  assert.equal(COLONY_SYRINX_PRESET_FORMAT_VERSION, 2);
+  assert.equal(COLONY_SYRINX_PRESET_HEADER, "MORPHAZOID-PRESET monstrozoid v2");
+  assert.ok(text.startsWith(`${COLONY_SYRINX_PRESET_HEADER}\n{`));
+  assert.ok(text.length < 16_000, `preset text grew unexpectedly large: ${text.length}`);
+  assert.match(text, /"articulation":\{/);
+  assert.match(text, /"contours":\[/);
+  assert.match(text, /"organLayout":\{/);
+  assert.equal(formatColonySyrinxPreset(structuredClone(state)), text);
+
+  const decoded = parseColonySyrinxPreset(`\n${text}\n`);
+  assert.deepEqual(decoded, state);
+  assert.deepEqual(decoded.articulation, state.articulation);
+  assert.deepEqual(decoded.contours, state.contours);
+  assert.deepEqual(decoded.routes, state.routes);
+  assert.deepEqual(decoded.alternateRoutes, state.alternateRoutes);
+  assert.deepEqual(decoded.organLayout, state.organLayout);
+  assert.deepEqual(decoded.sequence, state.sequence);
+  assert.deepEqual(state, snapshot, "formatting must not mutate its source state");
+
+  const legacyMonsterzoidText = text.replace("monstrozoid", "monsterzoid");
+  const legacyColonyText = text.replace("monstrozoid", "colony-syrinx");
+  assert.deepEqual(
+    parseColonySyrinxPreset(legacyMonsterzoidText),
+    state,
+    "Monsterzoid shared presets remain readable",
+  );
+  assert.deepEqual(
+    parseColonySyrinxPreset(legacyColonyText),
+    state,
+    "Colony Syrinx shared presets remain readable",
+  );
+
+  const v1Payload = structuredClone(state);
+  delete v1Payload.organLayout;
+  delete v1Payload.organMotionEnabled;
+  const migratedV1 = parseColonySyrinxPreset(
+    `MORPHAZOID-PRESET monstrozoid v1\n${JSON.stringify(v1Payload)}`,
+  );
+  assert.deepEqual(migratedV1.organLayout, {
+    ...DEFAULT_COLONY_SYRINX_ORGAN_LAYOUT,
+    seed: state.seed,
+  }, "v1 presets gain a canonical layout without losing their sound");
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(migratedV1).filter(([key]) => key !== "organLayout")),
+    { ...v1Payload, organMotionEnabled: false },
+  );
+});
+
+test("preset parsing safely rejects malformed, incomplete, foreign, and wrong-version text", () => {
+  const valid = formatColonySyrinxPreset(DEFAULT_COLONY_SYRINX_STATE);
+  const payload = JSON.parse(valid.slice(valid.indexOf("\n") + 1));
+  const incomplete = structuredClone(payload);
+  delete incomplete.articulation;
+  const truncatedContour = structuredClone(payload);
+  truncatedContour.contours[0].points.pop();
+  const invalidMedium = structuredClone(payload);
+  invalidMedium.mediumId = "vacuum";
+  const missingCurrentLayout = structuredClone(payload);
+  delete missingCurrentLayout.organLayout;
+  const extraField = { ...payload, foreignControl: true };
+  const preset = (body) => `${COLONY_SYRINX_PRESET_HEADER}\n${JSON.stringify(body)}`;
+
+  const invalidTexts = [
+    null,
+    {},
+    "",
+    COLONY_SYRINX_PRESET_HEADER,
+    `${COLONY_SYRINX_PRESET_HEADER}\n{`,
+    `${COLONY_SYRINX_PRESET_HEADER}\n[]`,
+    valid.replace("monstrozoid", "jaw-harp"),
+    valid.replace(" v2\n", " v99\n"),
+    preset(incomplete),
+    preset(truncatedContour),
+    preset(invalidMedium),
+    preset(missingCurrentLayout),
+    preset(extraField),
+    `${valid}${" ".repeat(64_000)}`,
+  ];
+
+  for (const text of invalidTexts) {
+    assert.doesNotThrow(() => parseColonySyrinxPreset(text));
+    assert.equal(parseColonySyrinxPreset(text), null);
+  }
 });
 
 test("six contour lanes replace the default attack grid with a continuously open field", () => {
@@ -411,7 +702,25 @@ test("seeded randomization is deterministic, scoped, and always leaves a breathi
     );
     assert.ok(first.breath >= COLONY_SYRINX_CONTINUOUS_BREATH_FLOOR);
     assert.ok(evaluateColonySyrinxContours(first, 99).continuousBreath > 0);
+    if (scope === "anatomy" || scope === "plumbing") {
+      assert.deepEqual(first.articulation, base.articulation, `${scope} preserves articulation`);
+    } else {
+      assert.notDeepEqual(first.articulation, base.articulation, `${scope} varies articulation`);
+      assert.ok(["flow", "tone", "pulse", "throb", "mouth-call"].includes(first.articulation.mode));
+      assert.ok(first.contours.every(({ loop }) => loop === true));
+    }
+    if (scope === "anatomy" || scope === "all") {
+      assert.notDeepEqual(first.organLayout, base.organLayout, `${scope} varies organ positions`);
+      assert.equal(first.organLayout.seed, first.seed);
+      assert.ok(first.phonators.every(({ frequencyHz }) => frequencyHz <= 613));
+    } else {
+      assert.deepEqual(first.organLayout, base.organLayout, `${scope} preserves organ positions`);
+    }
   }
+  const motionFlags = new Set(Array.from({ length: 32 }, (_, seed) => (
+    randomizeColonySyrinxState(base, { scope: "motion", seed }).organMotionEnabled
+  )));
+  assert.deepEqual(motionFlags, new Set([false, true]), "motion randomization varies live organ motion");
   assert.deepEqual(base, snapshot, "randomization must not mutate its source");
 });
 
@@ -622,6 +931,18 @@ test("bank exhale gates release each four-lung source without changing legacy ca
   const partial = stepColonySyrinx(initial, state, 0, { bankExhaleGates: [0] });
   assert.deepEqual(partial.routeTargets.slice(0, 3), [0, 0, 0]);
   assert.deepEqual(partial.routeTargets.slice(3), Array(9).fill(1));
+
+  let supplied = initial;
+  let withheld = initial;
+  for (let frame = 0; frame < 120; frame += 1) {
+    supplied = stepColonySyrinx(supplied, state, 1 / 120);
+    withheld = stepColonySyrinx(withheld, state, 1 / 120, {
+      bankExhaleGates: [0, 1, 1, 1],
+    });
+  }
+  assert.ok(supplied.lungPressures.slice(0, 4).some((pressure) => pressure > 0.1));
+  assert.deepEqual(withheld.lungPressures.slice(0, 4), [0, 0, 0, 0]);
+  assert.ok(withheld.lungPressures.slice(4).some((pressure) => pressure > 0.1));
 });
 
 test("global swing and lane rates produce bounded pair-preserving durations", () => {
