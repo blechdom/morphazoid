@@ -1,5 +1,6 @@
 import {
   HICCUP_HEAD_DEFAULTS,
+  HICCUP_HEAD_TOOTH_TINE_PROFILES,
   HICCUP_HEAD_TOOTH_GAP_ANATOMY,
   HICCUP_HEAD_TRACT_SECTION_COUNT,
   hiccupHeadGestureFrame,
@@ -8,7 +9,7 @@ import {
   physicalVoiceParameters,
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
-} from "./hiccup-head.js?v=hiccup-head-model-20260831-6";
+} from "./hiccup-head.js?v=hiccup-head-model-20260902-4";
 
 // Hiccup Head's tract is a single, persistent Kelly-Lochbaum volume-flow tube.
 // The scattering convention, losses, and 44-section source geometry follow
@@ -60,14 +61,20 @@ const TOOTH_WOOD_FREQUENCY_OFFSETS_HZ = Object.freeze([
 const TOOTH_WOOD_DECAY_SCALES = Object.freeze([
   0.86, 1.02, 0.9, 1.08, 0.84, 0.98, 1.04, 0.88, 1, 0.82, 1.1, 0.92,
 ]);
+const HICCUP_GESTURE_IDS = new Set(["hiccup", "hiccuplong"]);
+const TONGUE_TRILL_GESTURE_IDS = new Set(["drr", "lala", "rrrr", "lrroll"]);
 // BOP receives a focused pre-tube lift so its stored bilabial release speaks.
 // Sustained vocal outliers are compensated at the same source boundary;
 // rattle keeps its pressure-valve dynamics and receives a smoothed radiation
 // trim after the tube. Other gestures and the output safety knee stay intact.
 const GESTURE_SOURCE_GAIN = Object.freeze({
-  bop: 2.2,
+  bop: 3,
   boop: 2,
+  pop: 3.2,
+  pff: 1.55,
   hiccup: 2.35,
+  kiss: 1.85,
+  grunt: 1.38,
   aah: 1.025,
   ooh: 1.035,
   wail: 0.8,
@@ -77,21 +84,62 @@ const GESTURE_SOURCE_GAIN = Object.freeze({
   hum: 0.33,
   moan: 1.025,
   lala: 1.24,
+  huff: 1.32,
+  waow: 1.08,
+  whoop: 1.08,
+  doodoo: 1.16,
+  llll: 1.18,
+  purr: 1.14,
+  rrrr: 1.24,
+  lrroll: 1.28,
+  lalatrip: 1.22,
+  hiccuplong: 2.5,
+  zzzz: 1.2,
+  ehyeah: 1.04,
 });
 const GESTURE_OUTPUT_GAIN = Object.freeze({
-  bop: 2.4,
+  bop: 1.15,
   boop: 2.35,
-  pop: 2.2,
+  pop: 2.8,
   shh: 2.15,
   pff: 2.6,
   hiccup: 3,
   mwah: 2.35,
-  kiss: 2.5,
+  kiss: 2.7,
   pbpb: 2.15,
-  tomhi: 1.7,
+  tomhi: 2.1,
   braap: 1.7,
-  brush: 1.7,
+  brush: 0.72,
+  huff: 2.1,
+  waow: 0.82,
+  whoop: 0.72,
+  doodoo: 1,
+  llll: 0.75,
+  purr: 0.98,
+  grunt: 1.18,
+  klikklak: 1.55,
+  rrrr: 0.92,
+  lrroll: 0.72,
+  lalatrip: 0.9,
+  hiccuplong: 1.35,
+  zzzz: 1.35,
+  ehyeah: 0.9,
   rattle: 0.35,
+});
+// These trims live after the shared presence knee. They keep highly resonant
+// phrases from pinning the exact same limiter value without weakening the
+// pressure which drives their physical valves and tongue contacts.
+const GESTURE_POST_GAIN = Object.freeze({
+  grunt: 0.36,
+  bop: 0.9,
+  pop: 1.45,
+  slap: 0.86,
+  smack: 0.86,
+  tomhi: 1.6,
+  hiccuplong: 0.62,
+  klikklak: 0.65,
+  lrroll: 1,
+  lalatrip: 1.15,
 });
 // Open/modal voices must remain physically audible on small speakers even
 // when a mutated character pulls the folds below their useful radiation
@@ -107,11 +155,25 @@ const VOCAL_FREQUENCY_FLOOR_HZ = Object.freeze({
   yodel: 52,
   holler: 52,
   hum: 48,
+  grunt: 46,
   moan: 48,
+  waow: 48,
+  whoop: 52,
+  doodoo: 48,
+  llll: 48,
+  purr: 36,
+  rrrr: 48,
+  lrroll: 48,
+  lalatrip: 48,
+  hiccuplong: 48,
+  zzzz: 50,
+  ehyeah: 55,
 });
 
 const RELEASE_PHASES = Object.freeze({
-  bop: 0.35,
+  // BOP's lips part at phase .282. Releasing at .35 used to mute the actual
+  // bilabial crack and leave only a tiny low-frequency after-ring.
+  bop: 0.275,
   boop: 0.43,
   pop: 0.415,
   tlik: 0.545,
@@ -125,6 +187,7 @@ const RELEASE_PHASES = Object.freeze({
   haw: 0.04,
   doo: 0.035,
   mwah: 0.535,
+  kiss: 0.43,
   drr: 0.045,
   burp: 0.04,
   aah: 0.045,
@@ -148,6 +211,20 @@ const RELEASE_PHASES = Object.freeze({
   tomlo: 0.18,
   tomhi: 0.14,
   braap: 0.14,
+  brush: 0.04,
+  huff: 0.04,
+  waow: 0.04,
+  whoop: 0.04,
+  doodoo: 0.055,
+  llll: 0.04,
+  purr: 0.04,
+  klikklak: 0.18,
+  rrrr: 0.045,
+  lrroll: 0.04,
+  lalatrip: 0.04,
+  hiccuplong: 0.35,
+  zzzz: 0.04,
+  ehyeah: 0.04,
 });
 
 const LIVE_PREPARATION_SECONDS = Object.freeze({
@@ -188,6 +265,21 @@ const LIVE_PREPARATION_SECONDS = Object.freeze({
   tomlo: 0.01,
   tomhi: 0.008,
   braap: 0.016,
+  brush: 0.006,
+  kiss: 0.012,
+  huff: 0.014,
+  waow: 0.016,
+  whoop: 0.016,
+  doodoo: 0.014,
+  llll: 0.016,
+  purr: 0.016,
+  klikklak: 0.018,
+  rrrr: 0.014,
+  lrroll: 0.014,
+  lalatrip: 0.014,
+  hiccuplong: 0.018,
+  zzzz: 0.014,
+  ehyeah: 0.016,
 });
 
 const finite = (value, fallback = 0) => (
@@ -1290,7 +1382,8 @@ class PressureDrivenTongueValve {
   }
 
   advance(frame, plan, pressureDrop) {
-    const enabled = frame?.soundId === "drr" && finite(frame?.tongueTrill, 0) > 0.001;
+    const enabled = TONGUE_TRILL_GESTURE_IDS.has(frame?.soundId)
+      && finite(frame?.tongueTrill, 0) > 0.001;
     if (
       !enabled
       && this.positionCm === 0
@@ -1398,7 +1491,7 @@ class PressureDrivenThroatValve {
     const enabled = (
       frame?.soundId === "rattle"
       || frame?.soundId === "grunt"
-      || frame?.soundId === "hiccup"
+      || HICCUP_GESTURE_IDS.has(frame?.soundId)
     ) && finite(frame?.throatRattle, 0) > 0.001;
     if (
       !enabled
@@ -1807,6 +1900,18 @@ class ToothTineResonator {
     this.triggered = true;
   }
 
+  strikeNow(metadata, frame, localPressure, noise) {
+    // BRUSH contacts are imposed by a physical bristle crossing each tooth,
+    // rather than by twelve replacement mouth gestures. Prime the same
+    // release-sensitive cantilever with a completed contact and let its
+    // existing modes continue inside the shared tract.
+    const plantedFrame = { ...frame, tongueContact: 1 };
+    this._beginEvent(metadata, plantedFrame);
+    this.armed = true;
+    this.previousContact = 1;
+    this._strike({ ...frame, tongueContact: 0 }, localPressure, noise);
+  }
+
   advance(frame, plan, localPressure, noise) {
     const metadata = plan?.toothTine ?? null;
     if (metadata !== this.eventToken) this._beginEvent(metadata, frame);
@@ -1957,6 +2062,9 @@ class OrganicMouthTract {
     this.pffTurbulenceAlpha = 1 - Math.exp(
       -Math.PI * 2 * 3_600 / this.substepRate,
     );
+    this.huffTurbulenceAlpha = 1 - Math.exp(
+      -Math.PI * 2 * 1_650 / this.substepRate,
+    );
     this.slurpWetAlpha = 1 - Math.exp(
       -Math.PI * 2 * 1_650 / this.substepRate,
     );
@@ -1986,6 +2094,14 @@ class OrganicMouthTract {
     this.throatValve = new PressureDrivenThroatValve(rate);
     this.toothJet = new PressureDrivenToothGapJet(rate);
     this.toothTine = new ToothTineResonator(rate);
+    this.brushPlanToken = null;
+    this.brushContactIndex = -1;
+    this.brushSweepActive = false;
+    this.brushSweepPhase = 1;
+    this.brushSweepPhaseStep = 0;
+    this.brushSweepDirection = 1;
+    this.brushSweepFrame = null;
+    this.brushCarryActive = false;
     this.articulationSpeedScale = 1;
     this.noseJunction = 4;
     this.cheekJunction = 7;
@@ -1997,10 +2113,12 @@ class OrganicMouthTract {
     this.signedPressure = 0;
     this.lastOralOutput = 0;
     this.lastNasalOutput = 0;
+    this.surfaceContactOutput = 0;
     this.previousLipImpulse = 0;
     this.previousPrimaryConstriction = 0;
     this.previousSecondaryConstriction = 0;
     this.pffTurbulenceMemory = 0;
+    this.huffTurbulenceMemory = 0;
     this.slurpWetMemory = 0;
     this.seals = [
       this._newSeal("lip"),
@@ -2016,6 +2134,9 @@ class OrganicMouthTract {
       delaySeconds: 0,
       decayRate: 260,
       durationSeconds: 0.028,
+      noiseMix: 0.26,
+      surfaceMix: 0,
+      surfaceNoiseMemory: 0,
     }));
     this.handContactSound = "";
     this.previousHandPhase = 1;
@@ -2161,12 +2282,19 @@ class OrganicMouthTract {
       || articulation.soundId === "pff"
       || articulation.soundId === "pbpb"
       || articulation.soundId === "lala"
+      || articulation.soundId === "llll"
+      || articulation.soundId === "klikklak"
+      || articulation.soundId === "rrrr"
+      || articulation.soundId === "lrroll"
+      || articulation.soundId === "lalatrip"
       || articulation.soundId === "slurp"
-      || articulation.soundId === "hiccup"
+      || HICCUP_GESTURE_IDS.has(articulation.soundId)
       || articulation.soundId === "snare"
       || articulation.soundId === "snap"
       || articulation.soundId === "braap"
-      || articulation.soundId === "mwah";
+      || articulation.soundId === "mwah"
+      || articulation.soundId === "kiss"
+      || articulation.soundId === "doodoo";
     const closureAmount = Math.max(
       finite(articulation.lipClosure, 0),
       finite(articulation.constriction, 0),
@@ -2367,7 +2495,10 @@ class OrganicMouthTract {
       this.lipValve.advance(null, null, 0);
     }
 
-    if (this.currentFrame?.soundId === "drr") {
+    if (
+      TONGUE_TRILL_GESTURE_IDS.has(this.currentFrame?.soundId)
+      && finite(this.currentFrame?.tongueTrill, 0) > 0.001
+    ) {
       const tipIndex = mappedConstrictionIndex(
         finite(this.currentFrame.constrictionPosition, 0.84),
         this.sectionCount,
@@ -2399,10 +2530,32 @@ class OrganicMouthTract {
       this.tongueValve.advance(null, null, 0);
     }
 
+    const lateralBypass = clamp(finite(this.currentFrame?.lateralBypass, 0));
+    if (lateralBypass > 0.001) {
+      // Model the two side passages around a planted tongue as their
+      // equivalent acoustic aperture at the tongue-tip constriction. This is
+      // a real parallel path through the oral tube, rather than the previous
+      // shortcut of merely making the blind cheek branch larger.
+      const lateralIndex = mappedConstrictionIndex(
+        finite(this.currentFrame?.constrictionPosition, 0.86),
+        this.sectionCount,
+      );
+      const equivalentDiameter = 0.075 + lateralBypass * 0.5;
+      for (let offset = -1; offset <= 1; offset += 1) {
+        const index = clamp(lateralIndex + offset, 1, this.sectionCount - 2);
+        const edgeScale = offset === 0 ? 1 : 0.78;
+        this.diameter[index] = Math.max(
+          this.diameter[index],
+          equivalentDiameter * edgeScale,
+        );
+      }
+      this.activeConstrictionIndex = lateralIndex;
+    }
+
     if (
       this.currentFrame?.soundId === "rattle"
       || this.currentFrame?.soundId === "grunt"
-      || this.currentFrame?.soundId === "hiccup"
+      || HICCUP_GESTURE_IDS.has(this.currentFrame?.soundId)
     ) {
       const throatIndex = mappedConstrictionIndex(
         finite(this.currentFrame.constrictionPosition, 0.22),
@@ -2452,6 +2605,8 @@ class OrganicMouthTract {
     delaySeconds = 0,
     decayRate = 260,
     durationSeconds = 0.028,
+    noiseMix = 0.26,
+    surfaceMix = 0,
   ) {
     const transient = this.transients.find(({ active }) => !active)
       ?? this.transients.reduce((oldest, candidate) => (
@@ -2464,6 +2619,9 @@ class OrganicMouthTract {
     transient.delaySeconds = clamp(delaySeconds, 0, 0.04);
     transient.decayRate = clamp(decayRate, 45, 520);
     transient.durationSeconds = clamp(durationSeconds, 0.012, 0.12);
+    transient.noiseMix = clamp(noiseMix, 0, 0.88);
+    transient.surfaceMix = clamp(surfaceMix, 0, 0.75);
+    transient.surfaceNoiseMemory = 0;
   }
 
   _scheduleHandContactIfNeeded(frame, plan) {
@@ -2484,6 +2642,10 @@ class OrganicMouthTract {
     }
     this.previousHandPhase = phase;
     const impact = Math.abs(finite(frame.cheekImpulse, 0));
+    // Scheduled gestures prepare their tissue before the audible beat. Palm
+    // contacts must wait for that beat; otherwise the crack is generated in
+    // the muted preparation window and only the sub-bass cheek wobble remains.
+    if (phase < (RELEASE_PHASES[frame.soundId] ?? 0)) return;
     if (this.handContactTriggered || impact < 0.16) return;
     this.handContactTriggered = true;
 
@@ -2502,9 +2664,10 @@ class OrganicMouthTract {
       2,
       this.sectionCount - 2,
     );
-    const baseStrength = (0.21 + brightness * 0.13) * velocity;
+    const contactGain = frame.soundId === "slap" ? 0.68 : 0.74;
+    const baseStrength = (0.21 + brightness * 0.13) * velocity * contactGain;
     const decayRate = 300 - tail * 130 + brightness * 90;
-    const durationSeconds = 0.035 + tail * 0.055;
+    const durationSeconds = 0.045 + tail * 0.07;
     // Palm, fingers, and reflected skin fold arrive as a short asymmetric
     // doublet/triplet; every impulse then propagates through cheek and mouth.
     this._startTransient(
@@ -2513,6 +2676,8 @@ class OrganicMouthTract {
       0,
       decayRate,
       durationSeconds,
+      0.72,
+      0.42,
     );
     this._startTransient(
       clamp(contactIndex + side * (1 + Math.round(brightness * 2)), 1, this.sectionCount - 2),
@@ -2520,6 +2685,8 @@ class OrganicMouthTract {
       spacingSeconds,
       decayRate * 1.18,
       durationSeconds * 0.82,
+      0.62,
+      0.28,
     );
     this._startTransient(
       clamp(contactIndex - side * 2, 1, this.sectionCount - 2),
@@ -2527,6 +2694,8 @@ class OrganicMouthTract {
       spacingSeconds * (2.1 + (1 - brightness) * 0.55),
       decayRate * 0.86,
       durationSeconds,
+      0.5,
+      0.16,
     );
     this.cheek.collisionDrive += side * baseStrength * (0.28 + tail * 0.22);
   }
@@ -2615,6 +2784,31 @@ class OrganicMouthTract {
               * (0.11 + Math.abs(noise) * 0.035);
           if (this.currentFrame?.soundId === "slurp") {
             this._startTransient(index, noisyRelease * 2.35, 0, 140, 0.072);
+          } else if (this.currentFrame?.soundId === "pop" && seal.name === "lip") {
+            // The cheek cavity supplies POP's low body; the short lip-edge
+            // spray stops that body from disappearing on phone speakers.
+            this._startTransient(index, noisyRelease * 1.55, 0, 225, 0.046, 0.58, 0.24);
+          } else if (this.currentFrame?.soundId === "bop" && seal.name === "lip") {
+            // Preserve the bilabial pressure pulse while moving perceptual
+            // weight out of its oversized sub-bass spike.
+            this._startTransient(index, noisyRelease * 1.18, 0, 285, 0.034, 0.62, 0.18);
+          } else if (this.currentFrame?.soundId === "kiss" && seal.name === "lip") {
+            this._startTransient(index, noisyRelease * 1.34, 0, 135, 0.082, 0.38, 0.1);
+          } else if (
+            this.currentFrame?.soundId === "hiccuplong"
+            && seal.name === "lip"
+          ) {
+            // The long body's name ends in /p/. Give its physically stored
+            // bilabial release a bright edge so it survives the preceding
+            // diaphragm catches instead of fading into an inaudible tail.
+            this._startTransient(index, noisyRelease * 2.2, 0, 275, 0.048, 0.7, 0.2);
+          } else if (
+            HICCUP_GESTURE_IDS.has(this.currentFrame?.soundId)
+            && seal.name === "secondary"
+          ) {
+            // A velar release is the audible /k/ in HIC. It is still derived
+            // from the pressure stored behind the modeled rear-tongue seal.
+            this._startTransient(index, noisyRelease * 1.62, 0, 330, 0.036, 0.74, 0.3);
           } else {
             this._startTransient(index, noisyRelease);
           }
@@ -2644,6 +2838,7 @@ class OrganicMouthTract {
   }
 
   _injectTransients(noise) {
+    this.surfaceContactOutput = 0;
     for (const transient of this.transients) {
       if (!transient.active) continue;
       if (transient.delaySeconds > 0) {
@@ -2656,10 +2851,25 @@ class OrganicMouthTract {
       }
       const envelope = transient.strength
         * 2 ** (-transient.ageSeconds * transient.decayRate);
-      const shaped = envelope * (0.74 + noise * 0.26);
+      const noiseMix = clamp(finite(transient.noiseMix, 0.26), 0, 0.88);
+      // The broadband fraction is still injected into the physical tube at
+      // the actual contact site. Higher hand values read as skin/palm cracks;
+      // ordinary oral transients retain their rounder pressure impulse.
+      const shaped = envelope * ((1 - noiseMix) + noise * noiseMix);
       const index = clamp(transient.index, 0, this.sectionCount - 1);
       this.right[index] += shaped * 0.5;
       this.left[index] += shaped * 0.5;
+      if (transient.surfaceMix > 0) {
+        // Skin also radiates directly at impact. Differentiate the contact
+        // noise into a soft high-mid crack while retaining the larger branch
+        // above, which still travels through cheek and mouth resonance.
+        transient.surfaceNoiseMemory += (
+          noise - transient.surfaceNoiseMemory
+        ) * 0.12;
+        this.surfaceContactOutput += (
+          noise - transient.surfaceNoiseMemory
+        ) * Math.abs(envelope) * transient.surfaceMix * 0.52;
+      }
       transient.ageSeconds += 1 / this.substepRate;
     }
   }
@@ -2750,6 +2960,11 @@ class OrganicMouthTract {
         noise - this.pffTurbulenceMemory
       ) * this.pffTurbulenceAlpha;
       radiatedNoise = this.pffTurbulenceMemory;
+    } else if (frame.soundId === "huff") {
+      this.huffTurbulenceMemory += (
+        noise - this.huffTurbulenceMemory
+      ) * this.huffTurbulenceAlpha;
+      radiatedNoise = this.huffTurbulenceMemory;
     } else if (frame.soundId === "slurp") {
       // A wet release is dominated by the tongue/pocket flow, with the top
       // edge of the noise absorbed before it reaches the mouth opening.
@@ -2806,8 +3021,81 @@ class OrganicMouthTract {
 
   _injectToothTine(noise) {
     const metadata = this.currentPlan?.toothTine ?? null;
-    const mayTrigger = metadata && this.currentFrame?.soundId === "tlik";
-    if (!mayTrigger && !this.toothTine.active) {
+    const currentBrush = this.currentFrame?.soundId === "brush" && this.currentPlan;
+    if (this.brushCarryActive && !this.brushSweepActive && !this.toothTine.active) {
+      this.brushCarryActive = false;
+    }
+    const mayTrigger = !this.brushSweepActive
+      && !this.brushCarryActive
+      && metadata
+      && this.currentFrame?.soundId === "tlik";
+    if (currentBrush) {
+      if (this.currentPlan !== this.brushPlanToken) {
+        this.brushPlanToken = this.currentPlan;
+        this.brushContactIndex = -1;
+        this.brushSweepActive = true;
+        this.brushSweepPhase = clamp(finite(this.currentFrame.phase, 0));
+        this.brushSweepPhaseStep = 1 / Math.max(
+          1,
+          finite(this.currentPlan.durationSeconds, 0.54) * this.substepRate,
+        );
+        this.brushSweepDirection = this.currentPlan.brushDirection === -1 ? -1 : 1;
+        this.brushSweepFrame = { ...this.currentFrame };
+        this.brushCarryActive = true;
+      }
+      this.brushSweepPhase = Math.max(
+        this.brushSweepPhase,
+        clamp(finite(this.currentFrame.phase, 0)),
+      );
+      this.brushSweepFrame = this.currentFrame;
+    }
+    const brushing = this.brushSweepActive;
+    if (brushing) {
+      const phase = clamp(this.brushSweepPhase);
+      const sweep = clamp((phase - 0.045) / 0.89);
+      const nextContact = phase < 0.045
+        ? -1
+        : Math.min(
+          HICCUP_HEAD_TOOTH_TINE_PROFILES.length - 1,
+          Math.floor(sweep * HICCUP_HEAD_TOOTH_TINE_PROFILES.length),
+        );
+      while (this.brushContactIndex < nextContact) {
+        this.brushContactIndex += 1;
+        const direction = this.brushSweepDirection;
+        const toothIndex = direction < 0
+          ? HICCUP_HEAD_TOOTH_TINE_PROFILES.length - 1 - this.brushContactIndex
+          : this.brushContactIndex;
+        const profile = HICCUP_HEAD_TOOTH_TINE_PROFILES[toothIndex];
+        const canonicalSection = 35.8
+          + toothIndex / Math.max(1, HICCUP_HEAD_TOOTH_TINE_PROFILES.length - 1) * 6.1;
+        const section = clamp(
+          Math.round(
+            canonicalSection / (HICCUP_HEAD_TRACT_SECTION_COUNT - 1)
+              * (this.sectionCount - 1),
+          ),
+          2,
+          this.sectionCount - 2,
+        );
+        const localPressure = (
+          this._localPressure(section - 1) + this._localPressure(section + 1)
+        ) * 0.5;
+        this.toothTine.strikeNow({
+          frequencyHz: profile.frequencyHz,
+          position: 0.24 + toothIndex / 11 * 0.62,
+          brightness: profile.brightness,
+          toothIndex,
+        }, this.brushSweepFrame, localPressure, noise);
+      }
+      this.brushSweepPhase += this.brushSweepPhaseStep;
+      if (this.brushContactIndex >= HICCUP_HEAD_TOOTH_TINE_PROFILES.length - 1) {
+        this.brushSweepActive = false;
+      }
+    } else if (!currentBrush && this.brushPlanToken) {
+      this.brushPlanToken = null;
+      this.brushContactIndex = -1;
+      this.brushSweepFrame = null;
+    }
+    if (!mayTrigger && !brushing && !this.toothTine.active) {
       if (metadata === this.toothTine.eventToken) return;
       this.toothTine.advance(this.currentFrame, this.currentPlan, 0, noise);
       return;
@@ -2828,14 +3116,31 @@ class OrganicMouthTract {
       ) * 0.5
       : 0;
     const tineFlow = this.toothTine.advance(
-      this.currentFrame,
-      this.currentPlan,
+      brushing ? this.brushSweepFrame : this.currentFrame,
+      brushing ? null : this.currentPlan,
       localPressure,
       noise,
     );
     if (Math.abs(tineFlow) <= 1e-12) return;
-    this.right[Math.min(this.sectionCount - 1, toothIndex + 1)] += tineFlow * 0.66;
-    this.left[Math.max(0, toothIndex - 1)] += tineFlow * 0.34;
+    // A future sealed mouth (especially KISS) may begin preparing while the
+    // prior BRUSH finishes between ticks. Do not trap twelve wood impacts
+    // behind those new lips. Keep a reduced resonant share inside the mouth
+    // and let the rest radiate directly from the exposed tooth surface.
+    const detachedBrush = this.brushCarryActive && !currentBrush;
+    const preparedLipClosure = detachedBrush
+      ? clamp(finite(this.currentFrame?.lipClosure, 0))
+      : 0;
+    const tubeGain = detachedBrush ? 0.7 - preparedLipClosure * 0.42 : 1;
+    this.right[Math.min(this.sectionCount - 1, toothIndex + 1)]
+      += tineFlow * 0.66 * tubeGain;
+    this.left[Math.max(0, toothIndex - 1)]
+      += tineFlow * 0.34 * tubeGain;
+    if (detachedBrush) {
+      this.surfaceContactOutput += tineFlow * (1 - tubeGain) * 0.18;
+    }
+    if (!this.brushSweepActive && !this.toothTine.active) {
+      this.brushCarryActive = false;
+    }
     this.activeConstrictionIndex = toothIndex;
   }
 
@@ -2892,7 +3197,11 @@ class OrganicMouthTract {
     const cheekInput = this._scatterThreePort(
       this.cheekJunction,
       this.cheek.incomingAtJunction,
-      this.cheek.junctionArea,
+      // The lateral tongue aperture is handled at its actual oral location;
+      // only a small fraction of that flow additionally loads the cheek wall.
+      this.cheek.junctionArea * (1 + clamp(
+        finite(this.currentFrame?.lateralBypass, 0),
+      ) * 0.24),
     );
     const normalizedTension = clamp(
       (finite(this.currentFrame?.lipTension, 0.46) + 0.35) / 2,
@@ -2919,11 +3228,12 @@ class OrganicMouthTract {
     this.lastOralOutput = this.right[count - 1];
     this.lastNasalOutput = nasalOutput;
     if (finite(this.configuration?.nasalMix, 0) <= NASAL_BYPASS_EPSILON) {
-      return this.lastOralOutput;
+      return this.lastOralOutput + this.surfaceContactOutput;
     }
     const nasalCoupling = smoothstep(this.nose.opening);
     return this.lastOralOutput * (1 - nasalCoupling * 0.34)
-      + nasalOutput * (0.4 + nasalCoupling * 4.4);
+      + nasalOutput * (0.4 + nasalCoupling * 4.4)
+      + this.surfaceContactOutput;
   }
 
   measurePressureForBlock(frameCount = 128) {
@@ -2956,6 +3266,14 @@ class OrganicMouthTract {
     this.throatValve.reset();
     this.toothJet.reset();
     this.toothTine.reset();
+    this.brushPlanToken = null;
+    this.brushContactIndex = -1;
+    this.brushSweepActive = false;
+    this.brushSweepPhase = 1;
+    this.brushSweepPhaseStep = 0;
+    this.brushSweepDirection = 1;
+    this.brushSweepFrame = null;
+    this.brushCarryActive = false;
     for (const seal of this.seals) {
       seal.sealed = false;
       seal.reservoir = 0;
@@ -2969,11 +3287,13 @@ class OrganicMouthTract {
     this.previousHandPhase = 1;
     this.handContactTriggered = false;
     this.pffTurbulenceMemory = 0;
+    this.huffTurbulenceMemory = 0;
     this.slurpWetMemory = 0;
     this.tractPressure = 0;
     this.signedPressure = 0;
     this.lastOralOutput = 0;
     this.lastNasalOutput = 0;
+    this.surfaceContactOutput = 0;
     this.tailLoss = 1;
   }
 
@@ -3013,8 +3333,16 @@ class OrganicMouthTract {
     this.throatValve.collisionFlow *= keep;
     this.toothJet.amplitude *= keep;
     this.toothJet.flow *= keep;
-    this.toothTine.choke(keep);
+    this.toothTine.choke(
+      this.brushSweepActive || this.brushCarryActive ? Math.max(keep, 0.72) : keep,
+    );
+    if (!this.brushSweepActive && !this.brushCarryActive) {
+      this.brushPlanToken = null;
+      this.brushContactIndex = -1;
+      this.brushSweepFrame = null;
+    }
     this.pffTurbulenceMemory *= keep;
+    this.huffTurbulenceMemory *= keep;
     this.slurpWetMemory *= keep;
     this.signedPressure *= keep;
     this.tractPressure *= keep;
@@ -3026,7 +3354,10 @@ class OrganicMouthTract {
   isFinite() {
     return Number.isFinite(this.tractPressure)
       && Number.isFinite(this.signedPressure)
+      && Number.isFinite(this.brushSweepPhase)
+      && Number.isFinite(this.brushSweepPhaseStep)
       && Number.isFinite(this.pffTurbulenceMemory)
+      && Number.isFinite(this.huffTurbulenceMemory)
       && Number.isFinite(this.slurpWetMemory)
       && this.nose.isFinite()
       && this.cheek.isFinite()
@@ -3053,6 +3384,9 @@ class HiccupHeadGestureController {
     this.braapSourceRadiationAlpha = 1 - Math.exp(
       -Math.PI * 2 * 1_650 / this.substepRate,
     );
+    this.huffSourceRadiationAlpha = 1 - Math.exp(
+      -Math.PI * 2 * 1_250 / this.substepRate,
+    );
     this.diaphragmAttackAlpha = timeAlpha(7, this.substepRate);
     this.diaphragmReleaseAlpha = timeAlpha(38, this.substepRate);
     this.diaphragmReleaseDecay = 1 - timeAlpha(16, this.substepRate);
@@ -3062,14 +3396,25 @@ class HiccupHeadGestureController {
     this.configuration = configuration;
     this.voiceSnapshot = sanitizeHiccupHeadVoice(event.voiceSnapshot ?? {});
     this.toothTine = event.toothTine ?? null;
+    this.brushDirection = event.brushDirection === -1 ? -1 : 1;
+    this.bankOutputGain = clamp(finite(event.bankOutputGain, 1), 0.2, 1.8);
     const basePlan = physicalVoiceParameters(
       this.sound.id,
       configuration,
       this.velocity,
       this.voiceSnapshot,
     );
-    this.plan = this.toothTine
-      ? Object.freeze({ ...basePlan, toothTine: this.toothTine })
+    const requestedDurationSeconds = Number(event.gestureDurationSeconds);
+    const durationSeconds = Number.isFinite(requestedDurationSeconds)
+      ? clamp(requestedDurationSeconds, 0.018, 2.2)
+      : basePlan.durationSeconds;
+    this.plan = this.toothTine || this.sound.id === "brush" || durationSeconds !== basePlan.durationSeconds
+      ? Object.freeze({
+        ...basePlan,
+        durationSeconds,
+        ...(this.toothTine ? { toothTine: this.toothTine } : {}),
+        ...(this.sound.id === "brush" ? { brushDirection: this.brushDirection } : {}),
+      })
       : basePlan;
     this.totalFrames = Math.max(1, Math.ceil(this.plan.durationSeconds * rate));
     this.startPhase = clamp(event.startPhase, 0, 1);
@@ -3081,6 +3426,7 @@ class HiccupHeadGestureController {
     this.vibratoPhase = 0;
     this.irregularPhase = 0;
     this.lipSourceMemory = 0;
+    this.huffSourceMemory = 0;
     this.jitter = 0;
     this.foldCycle = 0;
     this.modulationPhase = this.voiceSnapshot.modulation.phase;
@@ -3176,7 +3522,7 @@ class HiccupHeadGestureController {
   }
 
   _advanceDiaphragm(frame, pressure) {
-    if (this.sound.id !== "hiccup" && this.sound.id !== "eef") {
+    if (!HICCUP_GESTURE_IDS.has(this.sound.id) && this.sound.id !== "eef") {
       this.currentDiaphragmFlow = 0;
       return 0;
     }
@@ -3253,7 +3599,7 @@ class HiccupHeadGestureController {
     const gruntIrregularity = this.sound.id === "grunt"
       ? clamp(finite(this.plan.irregularity, 0.5))
       : 0;
-    const hiccupIrregularity = this.sound.id === "hiccup"
+    const hiccupIrregularity = HICCUP_GESTURE_IDS.has(this.sound.id)
       ? clamp(finite(this.plan.irregularity, 0.6))
       : 0;
     const braapIrregularity = this.sound.id === "braap"
@@ -3263,7 +3609,7 @@ class HiccupHeadGestureController {
       ? 0.16 + burpIrregularity * 0.18
       : this.sound.id === "grunt"
         ? 0.11 + gruntIrregularity * 0.16
-        : this.sound.id === "hiccup"
+        : HICCUP_GESTURE_IDS.has(this.sound.id)
           ? 0.13 + hiccupIrregularity * 0.17
           : this.sound.id === "braap"
             ? 0.12 + braapIrregularity * 0.2
@@ -3328,7 +3674,8 @@ class HiccupHeadGestureController {
       || this.sound.id === "mwah"
       || this.sound.id === "kiss"
       || this.sound.id === "slurp"
-      || this.sound.id === "snap";
+      || this.sound.id === "snap"
+      || this.sound.id === "klikklak";
     let breathFlow = pressure * (
       (storesSuction ? 0 : 0.0025 + breathiness * 0.0038)
       + clamp(aspiration + breathiness * 0.42) * (0.0112 + noise * 0.0078)
@@ -3368,7 +3715,7 @@ class HiccupHeadGestureController {
         Math.sin(this.irregularPhase * Math.PI * 2 + this.jitter * 1.25),
       );
       voicedFlow *= compressionPulse * (0.76 + Math.abs(noise) * 0.28);
-    } else if (this.sound.id === "hiccup") {
+    } else if (HICCUP_GESTURE_IDS.has(this.sound.id)) {
       // The folds stay caught while the diaphragm charges, then the same
       // glottis and tract receive the compliant recoil instead of a sample or
       // a second kick oscillator.
@@ -3400,9 +3747,21 @@ class HiccupHeadGestureController {
       );
       breathFlow *= 0.72 + looseFoldPulse * 0.32;
       voicedFlow *= (0.58 + looseFoldPulse * 0.78) * (0.9 + Math.abs(noise) * 0.12);
+    } else if (this.sound.id === "purr") {
+      // PURR is deliberately regular and slow: a creaky fold pulse, not the
+      // broadband irregularity used by GROWL or the pressure lurch of BURP.
+      const purrRate = 3.1 + clamp(finite(this.plan.irregularity, 0.24)) * 2.2;
+      this.irregularPhase += purrRate / (this.rate * SUBSTEPS);
+      if (this.irregularPhase >= 1) this.irregularPhase -= 1;
+      const creakPulse = 0.22 + 0.78 * Math.max(
+        0,
+        Math.sin(this.irregularPhase * Math.PI * 2),
+      ) ** 1.6;
+      voicedFlow *= creakPulse;
+      breathFlow *= 0.5 + creakPulse * 0.34;
     }
     const plannedDirection = finite(this.plan.airflowDirection, 1) < 0 ? -1 : 1;
-    const hasGestureDirection = this.sound.id === "hiccup" || this.sound.id === "eef";
+    const hasGestureDirection = HICCUP_GESTURE_IDS.has(this.sound.id) || this.sound.id === "eef";
     const direction = hasGestureDirection
       ? clamp(finite(frame.breathDirection, plannedDirection), -1, 1)
       : plannedDirection;
@@ -3411,7 +3770,7 @@ class HiccupHeadGestureController {
       ? 1.82
       : this.sound.id === "slurp"
         ? 1.5
-        : this.sound.id === "hiccup"
+        : HICCUP_GESTURE_IDS.has(this.sound.id)
           ? 5.2
           : this.sound.id === "braap"
             ? 1.45
@@ -3423,6 +3782,13 @@ class HiccupHeadGestureController {
         * lowFrequencyVocalMakeup
         * (GESTURE_SOURCE_GAIN[this.sound.id] ?? 1),
     );
+    if (this.sound.id === "huff") {
+      this.huffSourceMemory = cleanWave(
+        this.huffSourceMemory
+          + (source - this.huffSourceMemory) * this.huffSourceRadiationAlpha,
+      );
+      return this.huffSourceMemory;
+    }
     if (
       this.sound.id !== "pff"
       && this.sound.id !== "pbpb"
@@ -3446,6 +3812,7 @@ class HiccupHeadGestureController {
     return Number.isFinite(this.glottalPhase)
       && Number.isFinite(this.vibratoPhase)
       && Number.isFinite(this.irregularPhase)
+      && Number.isFinite(this.huffSourceMemory)
       && Number.isFinite(this.currentGlottalFrequencyHz)
       && Number.isFinite(this.currentVibratoSemitones)
       && Number.isFinite(this.currentRoughness)
@@ -3567,6 +3934,8 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     this.renderLeft = 0;
     this.renderRight = 0;
     this.radiationGain = 1;
+    this.acousticOwnerSoundId = "";
+    this.acousticOwnerBankOutputGain = 1;
     this.warmupToken = null;
     this.warmupFramesRemaining = 0;
     this.port.onmessage = (event) => this._handleMessage(event.data);
@@ -3597,6 +3966,7 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     const toothTine = soundId === "tlik"
       ? sanitizeToothTine(toothTineSource)
       : null;
+    const brushDirection = soundId === "brush" && message.brushDirection === -1 ? -1 : 1;
     const configurationSnapshot = message.configuration
       && typeof message.configuration === "object"
       ? sanitizeHiccupHeadState(
@@ -3614,7 +3984,12 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       velocity,
       voiceSnapshot ?? {},
     );
-    const totalFrames = Math.max(1, Math.ceil(plan.durationSeconds * this.rate));
+    const requestedDurationSeconds = Number(message.gestureDurationSeconds);
+    const gestureDurationSeconds = Number.isFinite(requestedDurationSeconds)
+      ? clamp(requestedDurationSeconds, 0.018, 2.2)
+      : plan.durationSeconds;
+    const bankOutputGain = clamp(finite(message.bankOutputGain, 1), 0.2, 1.8);
+    const totalFrames = Math.max(1, Math.ceil(gestureDurationSeconds * this.rate));
     const releasePhase = RELEASE_PHASES[soundId] ?? 0.1;
     const livePreparationFrames = Math.min(
       Math.round(this.rate * (LIVE_PREPARATION_SECONDS[soundId] ?? 0.014)),
@@ -3638,9 +4013,13 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       live: delayFrames === 0,
       requestedDelayFrames: delayFrames,
       availablePreparation,
+      livePreparationFrames,
       configurationSnapshot,
       voiceSnapshot,
       toothTine,
+      brushDirection,
+      gestureDurationSeconds,
+      bankOutputGain,
     };
   }
 
@@ -3692,6 +4071,8 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     this.lastPeak = 0;
     this.lastRms = 0;
     this.radiationGain = 1;
+    this.acousticOwnerSoundId = "";
+    this.acousticOwnerBankOutputGain = 1;
     this.dcInputLeft = 0;
     this.dcInputRight = 0;
     this.dcOutputLeft = 0;
@@ -3709,6 +4090,14 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     );
     const hasAcousticMemory = previousGestureWasAudible
       || Math.abs(this.tract.lastOralOutput) + Math.abs(this.tract.lastNasalOutput) > 1e-8;
+    const preparationSoundId = hasAcousticMemory
+      ? previousGestureWasAudible
+        ? this.gesture.sound.id
+        : this.acousticOwnerSoundId
+      : "";
+    const preparationBankOutputGain = previousGestureWasAudible
+      ? this.gesture.bankOutputGain
+      : this.acousticOwnerBankOutputGain;
     if (this.gesture || hasAcousticMemory) this.tract.chokeForRetarget(0.24);
     if (event.configurationSnapshot) {
       this.configuration = sanitizeHiccupHeadState(
@@ -3734,7 +4123,13 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       releaseFrame: Math.max(absoluteFrame + 1, event.releaseFrame),
     };
     this.gesture = new HiccupHeadGestureController(this.rate, startedEvent, this.configuration);
-    this.gesture.muteUntilRelease = !hasAcousticMemory;
+    this.gesture.preparationSoundId = preparationSoundId;
+    this.gesture.preparationBankOutputGain = preparationBankOutputGain;
+    this.gesture.suppressPreparationSource = !event.live && Boolean(preparationSoundId);
+    // With no outgoing sound, preparation is silent. When a scheduled event
+    // inherits a real tail, pass that tail under its outgoing gain identity;
+    // the incoming gesture contributes no source until its release frame.
+    this.gesture.muteUntilRelease = !event.live || !hasAcousticMemory;
     this.lastSoundId = this.gesture.sound.id;
     this.lastFrame = this.gesture.sampleControlFrame();
     const naturalPreparation = Math.max(1, Math.round(event.releasePhase * totalFrames));
@@ -3765,6 +4160,19 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       && absoluteFrame <= this.gesture.releaseFrame + Math.round(this.rate * 0.0025)
       && next.releaseFrame >= this.gesture.releaseFrame
     ) return;
+    const hasAcousticTail = Boolean(this.gesture)
+      || Math.abs(this.tract.lastOralOutput) + Math.abs(this.tract.lastNasalOutput) > 1e-8;
+    if (!next.live && hasAcousticTail) {
+      // Finish the outgoing gesture/tail until the incoming sound's normal
+      // live-preparation window. This keeps a compressed BRUSH's tooth sweep
+      // intact, then gives KISS (or any other sealed gesture) its usual short
+      // silent setup instead of retargeting the tract for the whole lookahead.
+      const tailSafeStartFrame = Math.max(
+        next.startFrame,
+        next.releaseFrame - Math.max(1, finite(next.livePreparationFrames, 1)),
+      );
+      if (absoluteFrame < tailSafeStartFrame) return;
+    }
     if (next.startFrame > absoluteFrame) return;
     const event = this.queue.shift();
     this._beginGesture(event, absoluteFrame);
@@ -3796,12 +4204,26 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     this.lastPeak = 0;
     this.lastRms = 0;
     this.radiationGain = 1;
+    this.acousticOwnerSoundId = "";
+    this.acousticOwnerBankOutputGain = 1;
     this.controlCountdown = 0;
     this.finiteAuditCountdown = 0;
   }
 
   _renderFrame(absoluteFrame) {
     this._triggerDueEvent(absoluteFrame);
+    const gestureReleased = Boolean(
+      this.gesture && absoluteFrame >= this.gesture.releaseFrame,
+    );
+    if (gestureReleased) {
+      this.acousticOwnerSoundId = this.gesture.sound.id;
+      this.acousticOwnerBankOutputGain = this.gesture.bankOutputGain;
+    }
+    const carryingPreparationTail = Boolean(
+      this.gesture
+      && !gestureReleased
+      && this.gesture.preparationSoundId,
+    );
     if (this.controlCountdown <= 0) {
       if (this.gesture) this.lastFrame = this.gesture.sampleControlFrame();
       else this.lastFrame = this.tract._restFrame(this.configuration);
@@ -3821,7 +4243,10 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       this.turbulenceSlow += (rawNoise - this.turbulenceSlow) * 0.09;
       const turbulenceNoise = (this.turbulenceFast - this.turbulenceSlow) * 1.85;
       this.previousNoise = rawNoise;
-      const sourceFlow = this.gesture?.sourceFlow(this.turbulenceFast) ?? 0;
+      const sourceFlow = carryingPreparationTail
+        && this.gesture.suppressPreparationSource
+        ? 0
+        : this.gesture?.sourceFlow(this.turbulenceFast) ?? 0;
       output += this.tract.processSubstep(sourceFlow, turbulenceNoise);
     }
     output /= SUBSTEPS;
@@ -3832,7 +4257,10 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
       || absoluteFrame >= this.gesture.releaseFrame
       || !this.gesture.muteUntilRelease;
     if (!audible) output = 0;
-    const radiationTarget = GESTURE_OUTPUT_GAIN[this.gesture?.sound.id] ?? 1;
+    const acousticSoundId = carryingPreparationTail
+      ? this.gesture.preparationSoundId
+      : this.gesture?.sound.id;
+    const radiationTarget = GESTURE_OUTPUT_GAIN[acousticSoundId] ?? 1;
     this.radiationGain += (
       radiationTarget - this.radiationGain
     ) * this.radiationGainAlpha;
@@ -3868,6 +4296,12 @@ class HiccupHeadPhysicalProcessor extends AudioWorkletProcessor {
     // smooth tanh knee prevents digital clipping at violent face settings.
     let boundedLeft = Math.tanh(presenceLeft * 42) * OUTPUT_CEILING;
     let boundedRight = Math.tanh(presenceRight * 42) * OUTPUT_CEILING;
+    const gesturePostGain = GESTURE_POST_GAIN[acousticSoundId] ?? 1;
+    const bankOutputGain = carryingPreparationTail
+      ? this.gesture.preparationBankOutputGain
+      : this.gesture?.bankOutputGain ?? 1;
+    boundedLeft *= gesturePostGain * bankOutputGain;
+    boundedRight *= gesturePostGain * bankOutputGain;
     // Preserve sequencer velocity contrast after the strong presence stage;
     // otherwise eyebrow accents collapse to almost the same loudness.
     const postVelocity = 0.42 + finite(this.gesture?.velocity, 0.65) * 0.58;

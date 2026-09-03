@@ -59,6 +59,7 @@ export async function fingerprintHiccupHead(outputDirectory) {
   for (const [pathname, version] of Object.entries(roomImpulseVersions)) {
     html = versionReference(html, pathname.replace(/^\.\//, ""), version);
   }
+  html = versionReference(html, "src/hiccup-head-processor.js", processorVersion);
   html = versionReference(html, "hiccup-head.css", cssVersion);
   html = versionReference(html, "hiccup-head-app.js", appVersion);
   await writeFile(htmlPath, html, "utf8");

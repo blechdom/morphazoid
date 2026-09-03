@@ -12,9 +12,12 @@ import {
   HICCUP_HEAD_LIMITS,
   HICCUP_HEAD_PATTERNS,
   HICCUP_HEAD_PRESETS,
+  HICCUP_HEAD_SOUND_BANKS,
+  HICCUP_HEAD_SOUND_BANK_OUTPUT_TRIMS,
   HICCUP_HEAD_SOUNDS,
   HICCUP_HEAD_STEP_COUNT,
   HICCUP_HEAD_TOOTH_GAP_ANATOMY,
+  HICCUP_HEAD_TOOTH_TINE_PROFILES,
   HICCUP_HEAD_TRACT_DIAMETER_FLOOR_CM,
   HICCUP_HEAD_TRACT_LANDMARKS,
   HICCUP_HEAD_TRACT_SECTION_COUNT,
@@ -24,6 +27,8 @@ import {
   HICCUP_HEAD_VOICE_MODULATION_LIMITS,
   HICCUP_HEAD_VOICE_MODULATION_SOURCES,
   HICCUP_HEAD_VOICE_MODULATION_TARGETS,
+  HICCUP_HEAD_VOICE_SOUND_IDS,
+  applyHiccupHeadSoundBank,
   clamp,
   clonePattern,
   cycleStepVelocity,
@@ -35,6 +40,8 @@ import {
   hiccupHeadOralTractProfile,
   hiccupHeadPattern,
   hiccupHeadPoseForSound,
+  hiccupHeadSoundBank,
+  hiccupHeadSoundBankOutputGain,
   hiccupHeadSound,
   hiccupHeadState,
   hiccupHeadTargetOralDiameters,
@@ -97,6 +104,19 @@ const SOUND_IDS = Object.freeze([
   "tomhi",
   "braap",
   "brush",
+  "huff",
+  "waow",
+  "whoop",
+  "doodoo",
+  "llll",
+  "purr",
+  "klikklak",
+  "rrrr",
+  "lrroll",
+  "lalatrip",
+  "hiccuplong",
+  "zzzz",
+  "ehyeah",
 ]);
 
 const SOUND_KEYS = Object.freeze([
@@ -105,6 +125,8 @@ const SOUND_KEYS = Object.freeze([
   "y", "u", "i", "o", "p", "a", "s", "d",
   "f", "g", "h", "j", "k", "l",
   "z", "x", "c", "v", "b", "n", "m", ",", ".",
+  "[", "]", "-", "=", "/", "\\",
+  "'", "`", ":", "!", "?", "@", "#",
 ]);
 
 function assertFiniteTree(value, label = "value", seen = new Set()) {
@@ -133,7 +155,7 @@ function roundedSignature(values) {
   return values.map((value) => Number(value).toFixed(4)).join("|");
 }
 
-test("Hiccup Head preserves its original twenty-five sounds and adds fourteen complete vocal and beatbox identities", () => {
+test("Hiccup Head preserves its original twenty-five sounds and adds twenty-seven complete mouth identities", () => {
   assert.deepEqual(HICCUP_HEAD_SOUNDS.map(({ id }) => id), SOUND_IDS);
   assert.deepEqual(HICCUP_HEAD_SOUNDS.slice(0, 25).map(({ id }) => id), ORIGINAL_SOUND_IDS);
   assert.equal(HICCUP_HEAD_SOUNDS.length, SOUND_IDS.length);
@@ -182,9 +204,369 @@ test("Hiccup Head preserves its original twenty-five sounds and adds fourteen co
       { id: "tomhi", label: "TOM-H", key: "m" },
       { id: "braap", label: "BRRAP", key: "," },
       { id: "brush", label: "BRUSH", key: "." },
+      { id: "huff", label: "HUFF", key: "[" },
+      { id: "waow", label: "WAOW", key: "]" },
+      { id: "whoop", label: "WHOOP", key: "-" },
+      { id: "doodoo", label: "DOO-DOO", key: "=" },
+      { id: "llll", label: "LLLL", key: "/" },
+      { id: "purr", label: "PURR", key: "\\" },
+      { id: "klikklak", label: "KLIK-KLAK", key: "'" },
+      { id: "rrrr", label: "RRRR", key: "`" },
+      { id: "lrroll", label: "L-R-L-R", key: ":" },
+      { id: "lalatrip", label: "LA-LA-LA", key: "!" },
+      { id: "hiccuplong", label: "HICCUP!", key: "?" },
+      { id: "zzzz", label: "ZZZZ", key: "@" },
+      { id: "ehyeah", label: "EH-YEAH", key: "#" },
     ],
   );
   assert.equal(hiccupHeadSound("not-a-mouth-noise").id, "bop");
+});
+
+test("Pink-style singing and breath gaps add six finite, independent physical gestures", () => {
+  const addedIds = ["huff", "waow", "whoop", "doodoo", "llll", "purr"];
+  const signatures = new Set();
+  for (const soundId of addedIds) {
+    const plan = physicalVoiceParameters(soundId, HICCUP_HEAD_DEFAULTS, 1);
+    const pose = hiccupHeadPoseForSound(soundId, HICCUP_HEAD_DEFAULTS);
+    assertFiniteTree(plan, `${soundId}.plan`);
+    assertBoundedState(pose, `${soundId}.pose`);
+    assert.equal(plan.soundId, soundId);
+    assert.equal(plan.family, hiccupHeadSound(soundId).family);
+    assert.ok(plan.durationSeconds > 0.4 && plan.durationSeconds < 1.4);
+    assert.ok(plan.vibratoRateHz >= 0 && plan.vibratoRateHz <= 12);
+    assert.ok(plan.vibratoDepthSemitones >= 0 && plan.vibratoDepthSemitones <= 5);
+    signatures.add(roundedSignature([
+      plan.durationSeconds,
+      plan.glottalFrequencyHz,
+      plan.vibratoRateHz,
+      plan.vibratoDepthSemitones,
+      plan.registerJumpSemitones,
+      plan.noiseCenterHz,
+      ...plan.formantFrequenciesHz,
+    ]));
+  }
+  assert.equal(signatures.size, addedIds.length, "the six gap-filling defaults need distinct plans");
+
+  const huff = hiccupHeadGestureFrame("huff", 0.5);
+  assert.ok(huff.aspiration > 0.9 && huff.voicing < 0.08, "HUFF must fill the long breath region");
+  assert.ok(hiccupHeadGestureFrame("waow", 0.85).vowelMorph > 0.9);
+  assert.ok(hiccupHeadGestureFrame("waow", 0.06).vowelMorph < 0.08);
+  assert.ok(hiccupHeadGestureFrame("waow", 0.22).vowelMorph >= 0.5);
+  assert.ok(hiccupHeadGestureFrame("whoop", 0.5).registerLift > 0.95);
+  assert.ok(hiccupHeadGestureFrame("whoop", 0.1).registerLift < 0.08);
+  assert.ok(hiccupHeadGestureFrame("doodoo", 0.45).voicing < 0.5);
+  assert.ok(hiccupHeadGestureFrame("doodoo", 0.7).registerLift > 0.95);
+  assert.ok(hiccupHeadGestureFrame("llll", 0.5).tongueContact > 0.9);
+  const purrPlan = physicalVoiceParameters("purr", HICCUP_HEAD_DEFAULTS, 1);
+  assert.ok(purrPlan.glottalFrequencyHz < 55);
+  assert.ok(purrPlan.roughness >= 0.5 && purrPlan.subharmonicMix >= 0.6);
+});
+
+test("ZZZZ and EH-YEAH fill sustained fricative and three-vowel tract gaps", () => {
+  const zzzz = hiccupHeadGestureFrame("zzzz", 0.5);
+  assert.ok(zzzz.voicing > 0.8, "ZZZZ needs sustained vocal-fold energy");
+  assert.ok(zzzz.turbulence > 0.8, "ZZZZ needs sustained turbulent energy");
+  assert.ok(zzzz.constrictionPosition >= 0.82 && zzzz.constrictionPosition <= 0.85);
+  assert.ok(zzzz.constriction > 0.6, "the tongue groove must remain physically narrow");
+  assert.ok(zzzz.secondaryConstrictionPosition > 0.94);
+  assert.ok(zzzz.secondaryConstriction > 0.65, "the jet must meet the anterior tooth edge");
+  assert.equal(zzzz.toothJet, 0, "ZZZZ must not reuse the coherent FWEE whistle oscillator");
+
+  const zSlow = physicalVoiceParameters("zzzz", { ...HICCUP_HEAD_DEFAULTS, tempo: 60 }, 0.72);
+  const zFast = physicalVoiceParameters("zzzz", { ...HICCUP_HEAD_DEFAULTS, tempo: 400 }, 0.72);
+  assert.ok(zSlow.durationSeconds > zFast.durationSeconds * 1.5);
+  assert.ok(zFast.durationSeconds > physicalVoiceParameters("shh", HICCUP_HEAD_DEFAULTS, 0.72).durationSeconds * 2.5);
+
+  const eh = hiccupHeadGestureFrame("ehyeah", 0.12);
+  const ee = hiccupHeadGestureFrame("ehyeah", 0.52);
+  const ah = hiccupHeadGestureFrame("ehyeah", 0.9);
+  assert.ok(Math.abs(eh.tongueBodyIndex - 20) < 0.5);
+  assert.ok(Math.abs(eh.tongueBodyDiameterCm - 3.35) < 0.08);
+  assert.ok(Math.abs(ee.tongueBodyIndex - 27.4) < 0.01);
+  assert.ok(Math.abs(ee.tongueBodyDiameterCm - 2.25) < 0.01);
+  assert.ok(Math.abs(ah.tongueBodyIndex - 13) < 0.01);
+  assert.ok(Math.abs(ah.tongueBodyDiameterCm - 2.4) < 0.01);
+  assert.ok(eh.voicing > 0.55 && ee.voicing > 0.9 && ah.voicing > 0.8);
+
+  const ehPlan = physicalVoiceParameters("ehyeah", HICCUP_HEAD_DEFAULTS, 0.72);
+  const waowPlan = physicalVoiceParameters("waow", HICCUP_HEAD_DEFAULTS, 0.72);
+  assert.ok(ehPlan.vibratoRateHz > 4.5);
+  assert.ok(ehPlan.vibratoDepthSemitones > waowPlan.vibratoDepthSemitones + 0.5);
+  assert.ok(
+    physicalVoiceParameters("ehyeah", { ...HICCUP_HEAD_DEFAULTS, tempo: 60 }, 0.72).durationSeconds
+      > physicalVoiceParameters("ehyeah", { ...HICCUP_HEAD_DEFAULTS, tempo: 400 }, 0.72).durationSeconds * 1.5,
+  );
+});
+
+test("ZZZZ and EH-YEAH render present finite bodies without reaching the safety ceiling", async () => {
+  const globalKeys = ["sampleRate", "AudioWorkletProcessor", "registerProcessor"];
+  const originals = new Map(globalKeys.map((key) => [
+    key,
+    Object.getOwnPropertyDescriptor(globalThis, key),
+  ]));
+  const processors = new Map();
+  Object.defineProperty(globalThis, "sampleRate", {
+    configurable: true,
+    writable: true,
+    value: 48_000,
+  });
+  Object.defineProperty(globalThis, "AudioWorkletProcessor", {
+    configurable: true,
+    writable: true,
+    value: class {
+      constructor() {
+        this.messages = [];
+        this.port = {
+          onmessage: null,
+          postMessage: (message) => this.messages.push(message),
+        };
+      }
+    },
+  });
+  Object.defineProperty(globalThis, "registerProcessor", {
+    configurable: true,
+    writable: true,
+    value: (name, Constructor) => processors.set(name, Constructor),
+  });
+
+  try {
+    await import(`../src/hiccup-head-processor.js?zzzz-ehyeah=${Date.now()}-${Math.random()}`);
+    const Processor = processors.get("hiccup-head-physical-model");
+    assert.equal(typeof Processor, "function");
+    const renderMetrics = (soundId) => {
+      const processor = new Processor({ processorOptions: { configuration: HICCUP_HEAD_DEFAULTS } });
+      processor._handleMessage({ type: "strike", soundId, velocity: 0.72 });
+      let energy = 0;
+      let peak = 0;
+      let activeSamples = 0;
+      const frameCount = 480 * 128;
+      for (let block = 0; block < 480; block += 1) {
+        const left = new Float32Array(128);
+        const right = new Float32Array(128);
+        processor.process([], [[left, right]]);
+        for (let index = 0; index < left.length; index += 1) {
+          assert.ok(Number.isFinite(left[index]) && Number.isFinite(right[index]));
+          const mono = (left[index] + right[index]) * 0.5;
+          energy += mono * mono;
+          peak = Math.max(peak, Math.abs(left[index]), Math.abs(right[index]));
+          if (Math.max(Math.abs(left[index]), Math.abs(right[index])) > 1e-5) activeSamples += 1;
+        }
+      }
+      return { rms: Math.sqrt(energy / frameCount), peak, activeSamples };
+    };
+
+    const zzzz = renderMetrics("zzzz");
+    const ehyeah = renderMetrics("ehyeah");
+    assert.ok(zzzz.rms >= 0.03 && zzzz.rms <= 0.12);
+    assert.ok(ehyeah.rms >= 0.025 && ehyeah.rms <= 0.1);
+    assert.ok(zzzz.peak >= 0.12 && zzzz.peak < 0.59);
+    assert.ok(ehyeah.peak >= 0.1 && ehyeah.peak < 0.59);
+    assert.ok(zzzz.activeSamples > 24_000);
+    assert.ok(ehyeah.activeSamples > 30_000);
+  } finally {
+    for (const key of globalKeys) {
+      const descriptor = originals.get(key);
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
+test("seven contrasting sound banks retune anatomy without overwriting live face effects", () => {
+  const expectedIds = [
+    "natural-mouth",
+    "wet-rubber",
+    "tongue-workshop",
+    "open-throat",
+    "rough-cellar",
+    "tiny-cartoon",
+    "air-pockets",
+  ];
+  assert.deepEqual(HICCUP_HEAD_SOUND_BANKS.map(({ id }) => id), expectedIds);
+  assert.equal(new Set(expectedIds).size, HICCUP_HEAD_SOUND_BANKS.length);
+  assert.equal(Object.isFrozen(HICCUP_HEAD_SOUND_BANK_OUTPUT_TRIMS), true);
+
+  const source = sanitizeHiccupHeadState({
+    ...HICCUP_HEAD_DEFAULTS,
+    tempo: 187,
+    swing: 0.23,
+    humanize: 0.17,
+    level: 0.69,
+    nasalMix: 0.83,
+    dooPitch: 7,
+    earSpread: 1.24,
+    leftHairLength: 1.48,
+    rightHairLength: 0.72,
+    leftHairAngle: -0.44,
+    rightHairAngle: 0.58,
+    eyeDivergence: 0.62,
+    leftEyeClosure: 0.31,
+    rightEyeClosure: 0.78,
+    leftBrow: 0.75,
+    rightBrow: 1,
+  });
+  const protectedKeys = [
+    "tempo", "swing", "humanize", "level", "nasalMix", "dooPitch", "earSpread",
+    "leftHairLength", "rightHairLength", "leftHairAngle", "rightHairAngle",
+    "eyeDivergence", "eyeClosure", "leftEyeClosure", "rightEyeClosure",
+    "leftBrow", "rightBrow",
+  ];
+  const signatures = new Set();
+  for (const bank of HICCUP_HEAD_SOUND_BANKS) {
+    assert.equal(hiccupHeadSoundBank(bank.id), bank);
+    assert.equal(Object.isFrozen(bank), true);
+    assert.equal(Object.isFrozen(bank.characterIds), true);
+    assert.equal(Object.isFrozen(bank.settings), true);
+    assert.equal(bank.characterIds.length, 4);
+    assert.ok(bank.label.length > 0 && bank.description.length > 30);
+
+    const applied = applyHiccupHeadSoundBank(source, bank.id, 1);
+    assertBoundedState(applied, bank.id);
+    assertFiniteTree(applied, bank.id);
+    for (const key of protectedKeys) {
+      assert.equal(applied[key], source[key], `${bank.id} must preserve live ${key}`);
+      assert.equal(Object.hasOwn(bank.settings, key), false, `${bank.id} must not own live ${key}`);
+    }
+    signatures.add(roundedSignature([
+      applied.lungPressure,
+      applied.lipTension,
+      applied.lipRounding,
+      applied.cheekVolume,
+      applied.cheekTension,
+      applied.tonguePosition,
+      applied.tongueCurl,
+      applied.tongueOut,
+      applied.mouthOpening,
+      applied.tractLengthM,
+      applied.silliness,
+      applied.decay,
+    ]));
+  }
+  assert.equal(signatures.size, HICCUP_HEAD_SOUND_BANKS.length);
+  assert.deepEqual(applyHiccupHeadSoundBank(source, "natural-mouth", 1), source);
+  assert.deepEqual(applyHiccupHeadSoundBank(source, "rough-cellar", 0), source);
+  assert.equal(hiccupHeadSoundBank("missing-bank"), HICCUP_HEAD_SOUND_BANKS[0]);
+  assert.equal(hiccupHeadSoundBankOutputGain("natural-mouth", "pff"), 1);
+  assert.equal(hiccupHeadSoundBankOutputGain("wet-rubber", "whistle"), 0.76);
+  assert.equal(hiccupHeadSoundBankOutputGain("tongue-workshop", "tlik"), 1.62);
+  assert.equal(hiccupHeadSoundBankOutputGain("open-throat", "pff"), 0.246);
+  assert.equal(hiccupHeadSoundBankOutputGain("rough-cellar", "pff"), 0.683);
+  assert.equal(hiccupHeadSoundBankOutputGain("rough-cellar", "whistle"), 0.73);
+  assert.equal(hiccupHeadSoundBankOutputGain("tiny-cartoon", "pop"), 0.96);
+  assert.equal(hiccupHeadSoundBankOutputGain("tiny-cartoon", "moan"), 0.94);
+  assert.equal(hiccupHeadSoundBankOutputGain("missing-bank", "whistle"), 1);
+
+  const roughState = applyHiccupHeadSoundBank(HICCUP_HEAD_DEFAULTS, "rough-cellar", 1);
+  const roughR = hiccupHeadPoseForSound("rrrr", roughState);
+  const naturalR = hiccupHeadPoseForSound("rrrr", HICCUP_HEAD_DEFAULTS);
+  assert.notEqual(
+    roughR.tractLengthM,
+    naturalR.tractLengthM,
+    "gesture poses must preserve the bank's audible tract-length mutation",
+  );
+  assert.notEqual(
+    roughR.mouthOpening,
+    naturalR.mouthOpening,
+    "gesture poses must apply relative to the selected sound-bank anatomy",
+  );
+});
+
+test("measured bank trims travel with each strike and act after the presence knee", async () => {
+  const [app, processor] = await Promise.all([
+    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("src/hiccup-head-processor.js", root), "utf8"),
+  ]);
+  assert.match(app, /hiccupHeadSoundBankOutputGain\(currentSoundBankId, soundId\)/);
+  assert.match(app, /bankOutputGain !== 1 \? \{ bankOutputGain \} : \{\}/);
+  assert.match(processor, /this\.bankOutputGain = clamp\(finite\(event\.bankOutputGain, 1\), 0\.2, 1\.8\)/);
+  assert.match(processor, /const bankOutputGain = clamp\(finite\(message\.bankOutputGain, 1\), 0\.2, 1\.8\)/);
+  assert.match(
+    processor,
+    /const gesturePostGain = GESTURE_POST_GAIN[\s\S]*?boundedLeft \*= gesturePostGain \* bankOutputGain/,
+  );
+});
+
+test("new tongue phrases and full HICCUP occupy distinct rhythmic articulations", () => {
+  const addedIds = ["klikklak", "rrrr", "lrroll", "lalatrip", "hiccuplong"];
+  const planSignatures = new Set();
+  for (const soundId of addedIds) {
+    const plan = physicalVoiceParameters(soundId, HICCUP_HEAD_DEFAULTS, 1);
+    assertFiniteTree(plan, `${soundId}.plan`);
+    assert.ok(plan.durationSeconds >= 0.3, `${soundId} must not collapse into a tiny plip`);
+    planSignatures.add(roundedSignature([
+      plan.durationSeconds,
+      plan.glottalFrequencyHz,
+      plan.trillFrequencyHz,
+      plan.registerJumpSemitones,
+      plan.roughness,
+      ...plan.formantFrequenciesHz,
+    ]));
+  }
+  assert.equal(planSignatures.size, addedIds.length);
+
+  const countBooleanFalls = (soundId, channel, threshold) => {
+    const states = Array.from({ length: 1_001 }, (_, index) => (
+      hiccupHeadGestureFrame(soundId, index / 1_000)[channel] > threshold
+    ));
+    return states.slice(1).filter((active, index) => states[index] && !active).length;
+  };
+  assert.equal(
+    countBooleanFalls("klikklak", "tongueContact", 0.6),
+    4,
+    "KLIK-KLAK needs four separate tongue-contact releases",
+  );
+  assert.equal(
+    countBooleanFalls("lalatrip", "tongueContact", 0.6),
+    3,
+    "LA-LA-LA needs three separate tongue syllables",
+  );
+  assert.equal(
+    countBooleanFalls("hiccuplong", "diaphragmCatch", 0.5),
+    2,
+    "full HICCUP needs two diaphragm catches",
+  );
+
+  assert.ok(hiccupHeadGestureFrame("rrrr", 0.5).tongueTrill > 0.9);
+  assert.ok(
+    physicalVoiceParameters("rrrr", HICCUP_HEAD_DEFAULTS, 1).durationSeconds
+      > physicalVoiceParameters("drr", HICCUP_HEAD_DEFAULTS, 1).durationSeconds,
+    "RRRR must sustain longer than the compact DRR",
+  );
+  const firstL = hiccupHeadGestureFrame("lrroll", 0.12);
+  const firstR = hiccupHeadGestureFrame("lrroll", 0.32);
+  const secondL = hiccupHeadGestureFrame("lrroll", 0.55);
+  const secondR = hiccupHeadGestureFrame("lrroll", 0.8);
+  assert.ok(firstL.lateralBypass > 0.6 && firstL.tongueTrill < 0.01);
+  assert.ok(firstR.tongueTrill > 0.8 && firstR.lateralBypass < 0.08);
+  assert.ok(secondL.lateralBypass > 0.6 && secondL.tongueTrill < 0.01);
+  assert.ok(secondR.tongueTrill > 0.8 && secondR.lateralBypass < 0.08);
+  assert.ok(hiccupHeadGestureFrame("lalatrip", 0.4).registerLift > 0.45);
+  assert.ok(hiccupHeadGestureFrame("hiccuplong", 0.88).secondaryConstriction > 0.9);
+  assert.ok(
+    physicalVoiceParameters("hiccuplong", HICCUP_HEAD_DEFAULTS, 1).durationSeconds
+      > physicalVoiceParameters("hiccup", HICCUP_HEAD_DEFAULTS, 1).durationSeconds * 1.8,
+  );
+});
+
+test("voice-capable sounds come from model metadata and include formerly omitted mouth voices", async () => {
+  const derivedVoiceIds = HICCUP_HEAD_SOUNDS
+    .filter(({ voiceCapable }) => voiceCapable)
+    .map(({ id }) => id);
+  assert.deepEqual(HICCUP_HEAD_VOICE_SOUND_IDS, derivedVoiceIds);
+  assert.equal(new Set(HICCUP_HEAD_VOICE_SOUND_IDS).size, HICCUP_HEAD_VOICE_SOUND_IDS.length);
+  for (const soundId of [
+    "kiss", "pbpb", "hiccup", "eef", "braap",
+    "huff", "waow", "whoop", "doodoo", "llll", "purr",
+    "rrrr", "lrroll", "lalatrip", "hiccuplong", "zzzz", "ehyeah",
+  ]) {
+    assert.ok(HICCUP_HEAD_VOICE_SOUND_IDS.includes(soundId), `${soundId} needs voice assignment`);
+    assert.equal(hiccupHeadSound(soundId).voiceCapable, true);
+  }
+
+  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  assert.match(app, /HICCUP_HEAD_VOICE_SOUND_IDS,/);
+  assert.match(app, /const VOICE_SOUND_IDS = new Set\(HICCUP_HEAD_VOICE_SOUND_IDS\)/);
+  assert.match(app, /\.filter\(\(sound\) => VOICE_SOUND_IDS\.has\(sound\.id\)\)/);
 });
 
 test("FWEE drives a bounded edge jet through the missing upper-left central incisor", () => {
@@ -236,6 +618,199 @@ test("FWEE drives a bounded edge jet through the missing upper-left central inci
   const target = hiccupHeadTargetOralDiameters(HICCUP_HEAD_DEFAULTS, sustained);
   assert.equal(target.length, HICCUP_HEAD_TRACT_SECTION_COUNT);
   assert.ok(target.every(Number.isFinite));
+});
+
+test("BRUSH sends one composite gesture and sweeps all teeth upward and downward in the worklet", async () => {
+  const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
+  const postStrikeSource = app.slice(
+    app.indexOf("function postStrike("),
+    app.indexOf("async function triggerSound("),
+  );
+  assert.equal(
+    (postStrikeSource.match(/sourceNode\.port\.postMessage\(/g) ?? []).length,
+    1,
+    "BRUSH must remain one worklet event rather than twelve timer messages",
+  );
+  assert.match(postStrikeSource, /soundId === "brush"[\s\S]*?brushDirection = nextBrushDirection[\s\S]*?nextBrushDirection \*= -1/);
+  assert.match(postStrikeSource, /\.\.\.\(soundId === "brush" \? \{ brushDirection \} : \{\}\)/);
+  assert.doesNotMatch(postStrikeSource, /triggerSound\("tlik"|setTimeout\(/);
+
+  const globalKeys = ["sampleRate", "AudioWorkletProcessor", "registerProcessor"];
+  const originals = new Map(globalKeys.map((key) => [
+    key,
+    Object.getOwnPropertyDescriptor(globalThis, key),
+  ]));
+  const processors = new Map();
+  Object.defineProperty(globalThis, "sampleRate", {
+    configurable: true,
+    writable: true,
+    value: 48_000,
+  });
+  Object.defineProperty(globalThis, "AudioWorkletProcessor", {
+    configurable: true,
+    writable: true,
+    value: class {
+      constructor() {
+        this.messages = [];
+        this.port = {
+          onmessage: null,
+          postMessage: (message) => this.messages.push(message),
+        };
+      }
+    },
+  });
+  Object.defineProperty(globalThis, "registerProcessor", {
+    configurable: true,
+    writable: true,
+    value: (name, Constructor) => processors.set(name, Constructor),
+  });
+
+  try {
+    await import(`../src/hiccup-head-processor.js?brush-order=${Date.now()}-${Math.random()}`);
+    const Processor = processors.get("hiccup-head-physical-model");
+    assert.equal(typeof Processor, "function");
+    const ascending = HICCUP_HEAD_TOOTH_TINE_PROFILES.map((_, toothIndex) => toothIndex);
+
+    for (const [direction, expectedContacts] of [[1, ascending], [-1, [...ascending].reverse()]]) {
+      const processor = new Processor({
+        processorOptions: { configuration: HICCUP_HEAD_DEFAULTS },
+      });
+      const contacts = [];
+      const strikeNow = processor.tract.toothTine.strikeNow;
+      processor.tract.toothTine.strikeNow = function recordBrushContact(metadata, ...args) {
+        contacts.push(metadata.toothIndex);
+        return strikeNow.call(this, metadata, ...args);
+      };
+      processor._handleMessage({
+        type: "strike",
+        soundId: "brush",
+        velocity: 0.82,
+        brushDirection: direction,
+      });
+      assert.equal(processor.queue.length, 1, "one BRUSH message must create one queued gesture");
+      assert.equal(processor.queue[0].soundId, "brush");
+      assert.equal(processor.queue[0].brushDirection, direction);
+      assert.equal(processor.queue[0].toothTine, null);
+
+      for (let block = 0; block < 400; block += 1) {
+        processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+      }
+      assert.deepEqual(contacts, expectedContacts);
+      const telemetryContacts = [];
+      for (const message of processor.messages.filter(({ type }) => type === "telemetry")) {
+        const toothIndex = message.toothTineIndex;
+        if (toothIndex < 0 || toothIndex === telemetryContacts.at(-1)) continue;
+        telemetryContacts.push(toothIndex);
+      }
+      assert.deepEqual(
+        telemetryContacts,
+        expectedContacts,
+        "telemetry must reveal the internal ascending or descending tooth contact order",
+      );
+    }
+
+    for (const [direction, expectedContacts] of [[1, ascending], [-1, [...ascending].reverse()]]) {
+      const processor = new Processor({
+        processorOptions: { configuration: HICCUP_HEAD_DEFAULTS },
+      });
+      const contacts = [];
+      const strikeNow = processor.tract.toothTine.strikeNow;
+      processor.tract.toothTine.strikeNow = function recordPreemptedBrush(metadata, ...args) {
+        contacts.push(metadata.toothIndex);
+        return strikeNow.call(this, metadata, ...args);
+      };
+      processor._handleMessage({
+        type: "strike",
+        soundId: "brush",
+        velocity: 0.82,
+        delaySeconds: 0.02,
+        gestureDurationSeconds: 0.024,
+        brushDirection: direction,
+      });
+      processor._handleMessage({
+        type: "strike",
+        soundId: "hiccuplong",
+        velocity: 0.82,
+        delaySeconds: 0.05,
+      });
+      for (let block = 0; block < 100; block += 1) {
+        const left = new Float32Array(128);
+        const right = new Float32Array(128);
+        processor.process([], [[left, right]]);
+        assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
+      }
+      assert.deepEqual(
+        contacts,
+        expectedContacts,
+        "future mouth preparation must not steal BRUSH's internal tooth clock",
+      );
+    }
+
+    const renderBrushKissHandoff = (includeKiss) => {
+      const processor = new Processor({
+        processorOptions: { configuration: HICCUP_HEAD_DEFAULTS },
+      });
+      processor._handleMessage({
+        type: "strike",
+        soundId: "brush",
+        velocity: 0.72,
+        delaySeconds: 0.072,
+        gestureDurationSeconds: 0.092,
+      });
+      if (includeKiss) {
+        processor._handleMessage({
+          type: "strike",
+          soundId: "kiss",
+          velocity: 0.72,
+          delaySeconds: 0.199,
+        });
+      }
+      const frameCount = Math.round(0.58 * 48_000);
+      const left = new Float32Array(frameCount);
+      const right = new Float32Array(frameCount);
+      for (let offset = 0; offset < frameCount; offset += 128) {
+        processor.process([], [[
+          left.subarray(offset, Math.min(frameCount, offset + 128)),
+          right.subarray(offset, Math.min(frameCount, offset + 128)),
+        ]]);
+      }
+      return { left, right };
+    };
+    const brushOnly = renderBrushKissHandoff(false);
+    const brushThenKiss = renderBrushKissHandoff(true);
+    const preservedTailEnd = Math.floor((0.199 - 0.012) * 48_000);
+    assert.deepEqual(
+      brushThenKiss.left.slice(0, preservedTailEnd),
+      brushOnly.left.slice(0, preservedTailEnd),
+      "queued KISS preparation must leave BRUSH and its audible tail untouched",
+    );
+    const preReleasePeak = Math.max(
+      ...brushThenKiss.left.slice(0, Math.floor(0.199 * 48_000)).map(Math.abs),
+      ...brushThenKiss.right.slice(0, Math.floor(0.199 * 48_000)).map(Math.abs),
+    );
+    assert.ok(
+      preReleasePeak < 0.45,
+      "KISS preparation must stay silent instead of pinning the presence ceiling",
+    );
+    const kissPreparationPeak = Math.max(
+      ...brushThenKiss.left.slice(preservedTailEnd, Math.floor(0.199 * 48_000)).map(Math.abs),
+      ...brushThenKiss.right.slice(preservedTailEnd, Math.floor(0.199 * 48_000)).map(Math.abs),
+    );
+    assert.ok(
+      kissPreparationPeak < 0.02,
+      "the final KISS preparation window must not radiate a retarget pulse",
+    );
+    const kissBodyPeak = Math.max(
+      ...brushThenKiss.left.slice(Math.floor(0.38 * 48_000)).map(Math.abs),
+      ...brushThenKiss.right.slice(Math.floor(0.38 * 48_000)).map(Math.abs),
+    );
+    assert.ok(kissBodyPeak > 0.07, "the released KISS must remain audible after BRUSH");
+  } finally {
+    for (const [key, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
 });
 
 test("eight bounded voice characters retune one tract and preserve assignable modulation", () => {
@@ -335,6 +910,40 @@ test("eight bounded voice characters retune one tract and preserve assignable mo
   assert.notDeepEqual(helium.formantFrequenciesHz, monster.formantFrequenciesHz);
 });
 
+test("voice cards expose every base voice parameter separately from the assignable LFO", async () => {
+  const [app, css] = await Promise.all([
+    readFile(new URL("hiccup-head-app.js", root), "utf8"),
+    readFile(new URL("hiccup-head.css", root), "utf8"),
+  ]);
+  const specsStart = app.indexOf("const VOICE_BASE_PARAMETER_SPECS");
+  const specsEnd = app.indexOf("function voiceParameterSummary", specsStart);
+  assert.ok(specsStart >= 0 && specsEnd > specsStart);
+  const specs = app.slice(specsStart, specsEnd);
+  for (const key of Object.keys(HICCUP_HEAD_VOICE_LIMITS)) {
+    assert.match(specs, new RegExp(`key: "${key}"`), `${key} needs an editable base control`);
+  }
+  assert.equal([...specs.matchAll(/\bkey:\s*"/g)].length, 7);
+  assert.match(app, /label: "Base vibrato rate"/);
+  assert.match(app, /label: "Base vibrato depth"/);
+  assert.match(
+    app,
+    /const \[minimum, maximum\] = HICCUP_HEAD_VOICE_LIMITS\[spec\.key\]/,
+    "base sliders must use the model's own bounded ranges",
+  );
+  const parameterSetter = app.slice(
+    app.indexOf("function setVoiceSlotParameters"),
+    app.indexOf("function buildVoiceRack"),
+  );
+  assert.match(parameterSetter, /modulation: slot\.voice\.modulation/);
+  assert.match(app, /baseSummaryTitle\.textContent = "Base voice"/);
+  assert.match(app, /modTitle\.textContent = "Assignable LFO"/);
+  assert.match(app, /depthText\.textContent = "LFO depth"/);
+  assert.match(app, /rateText\.textContent = "LFO rate"/);
+  assert.match(css, /\.hiccup-head-voice-base-grid\s*\{/);
+  assert.match(css, /\.hiccup-head-voice-base-control input\[type="range"\]/);
+  assert.match(css, /\.hiccup-head-voice-mod-title\s*\{/);
+});
+
 test("open-throat gestures expose Pink vowel targets, vibrato, register breaks, and rough anatomy", () => {
   const pinkTargets = {
     hee: [27.4, 2.25, 3],
@@ -379,10 +988,11 @@ test("open-throat gestures expose Pink vowel targets, vibrato, register breaks, 
   assert.ok(rattle.rattleFrequencyHz >= 14 && rattle.rattleFrequencyHz <= 52);
 });
 
-test("open vocals, PFRR, and FWEE breathe longer at slow tempo without changing percussive attacks", () => {
+test("open vocals, shaped breaths, kisses, and FWEE breathe longer at slow tempo without changing hard attacks", () => {
   for (const soundId of [
     "pff", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle", "whistle",
-    "grunt", "moan", "lala", "pbpb", "slurp",
+    "grunt", "moan", "lala", "pbpb", "slurp", "mwah",
+    "huff", "waow", "whoop", "doodoo", "llll", "purr",
   ]) {
     const fast = physicalVoiceParameters(soundId, { ...HICCUP_HEAD_DEFAULTS, tempo: 520 }, 1);
     const medium = physicalVoiceParameters(soundId, { ...HICCUP_HEAD_DEFAULTS, tempo: 118 }, 1);
@@ -391,14 +1001,15 @@ test("open vocals, PFRR, and FWEE breathe longer at slow tempo without changing 
     assert.equal(slow.tempoStepSeconds, 15 / 48);
     assert.ok(fast.durationSeconds < medium.durationSeconds);
     assert.ok(medium.durationSeconds < slow.durationSeconds);
+    const minimumStretch = ["whoop", "llll", "purr"].includes(soundId) ? 2 : 2.25;
     assert.ok(
-      slow.durationSeconds > fast.durationSeconds * 2.25,
+      slow.durationSeconds > fast.durationSeconds * minimumStretch,
       `${soundId} must use the musical room available at slow tempo`,
     );
     assert.ok(slow.durationSeconds <= 1.4, `${soundId} must retain a bounded physical tail`);
   }
 
-  for (const soundId of ["bop", "pop", "tlik", "shack", "slap", "kick", "smack", "mwah"]) {
+  for (const soundId of ["bop", "pop", "tlik", "shack", "slap", "kick", "smack", "kiss"]) {
     assert.equal(
       physicalVoiceParameters(soundId, { ...HICCUP_HEAD_DEFAULTS, tempo: 48 }, 1).durationSeconds,
       physicalVoiceParameters(soundId, { ...HICCUP_HEAD_DEFAULTS, tempo: 520 }, 1).durationSeconds,
@@ -548,9 +1159,8 @@ test("Hiccup Head exposes one finite 44-section Pink-style oral tract across ext
 
 test("Hiccup Head gesture curves drive sequential seals, suction, releases, and signed tissue motion", () => {
   assert.equal(new Set(HICCUP_HEAD_GESTURE_CHANNELS).size, HICCUP_HEAD_GESTURE_CHANNELS.length);
-  const independentlyModeledSoundIds = SOUND_IDS.filter((soundId) => !["kiss", "brush"].includes(soundId));
-  assert.deepEqual(Object.keys(HICCUP_HEAD_GESTURE_TRAJECTORIES), independentlyModeledSoundIds);
-  for (const soundId of independentlyModeledSoundIds) {
+  assert.deepEqual(Object.keys(HICCUP_HEAD_GESTURE_TRAJECTORIES), SOUND_IDS);
+  for (const soundId of SOUND_IDS) {
     const trajectory = HICCUP_HEAD_GESTURE_TRAJECTORIES[soundId];
     assert.equal(trajectory.id, soundId);
     assert.deepEqual(Object.keys(trajectory.curves), HICCUP_HEAD_GESTURE_CHANNELS);
@@ -574,29 +1184,29 @@ test("Hiccup Head gesture curves drive sequential seals, suction, releases, and 
   assert.ok(Number.isFinite(sampleHiccupHeadGestureCurve([[0, Number.NaN], [1, 1]], 0.25)));
 
   const lipIndex = HICCUP_HEAD_TRACT_LANDMARKS.lips;
-  for (const [soundId, sealedPhase, releasedPhase] of [
-    ["bop", 0.25, 0.4],
-    ["boop", 0.32, 0.5],
-  ]) {
-    const sealed = hiccupHeadGestureFrame(soundId, sealedPhase);
-    const released = hiccupHeadGestureFrame(soundId, releasedPhase);
+  const releasedLipTubes = new Map();
+  for (const soundId of ["bop", "boop"]) {
+    const frames = Array.from({ length: 201 }, (_, index) => (
+      hiccupHeadGestureFrame(soundId, index / 200)
+    ));
+    const sealed = frames.reduce((best, frame) => (
+      frame.lipClosure * frame.pressure > best.lipClosure * best.pressure ? frame : best
+    ));
+    const released = frames
+      .filter((frame) => frame.phase > sealed.phase && frame.lipClosure <= 0.01)
+      .reduce((best, frame) => frame.turbulence > best.turbulence ? frame : best);
     const sealedTube = hiccupHeadTargetOralDiameters(HICCUP_HEAD_DEFAULTS, sealed);
     const releasedTube = hiccupHeadTargetOralDiameters(HICCUP_HEAD_DEFAULTS, released);
+    releasedLipTubes.set(soundId, releasedTube[lipIndex]);
     assert.ok(sealed.lipClosure >= 0.99, `${soundId} must build pressure behind sealed lips`);
+    assert.ok(sealed.pressure >= 0.95, `${soundId} must store pressure before release`);
     assert.ok(released.lipClosure <= 0.01, `${soundId} must release the lips`);
     assert.ok(sealedTube[lipIndex] <= HICCUP_HEAD_TRACT_DIAMETER_FLOOR_CM * 1.01);
     assert.ok(releasedTube[lipIndex] > sealedTube[lipIndex] * 20);
     assert.ok(released.turbulence > 0, `${soundId} release must create a local air jet`);
   }
   assert.ok(
-    hiccupHeadTargetOralDiameters(
-      HICCUP_HEAD_DEFAULTS,
-      hiccupHeadGestureFrame("boop", 0.5),
-    )[lipIndex]
-      < hiccupHeadTargetOralDiameters(
-        HICCUP_HEAD_DEFAULTS,
-        hiccupHeadGestureFrame("bop", 0.4),
-      )[lipIndex],
+    releasedLipTubes.get("boop") < releasedLipTubes.get("bop"),
     "BOOP keeps a more rounded projected lip tube than BOP after release",
   );
 
@@ -665,12 +1275,20 @@ test("Hiccup Head gesture curves drive sequential seals, suction, releases, and 
   assert.ok(hiccupHeadGestureFrame("pff", 0.3).lipFlutter > 0.75);
   assert.ok(hiccupHeadGestureFrame("pff", 1).lipFlutter < 0.01);
 
-  const popPull = hiccupHeadGestureFrame("pop", 0.4).cheekImpulse;
-  const popRelease = hiccupHeadGestureFrame("pop", 0.48).cheekImpulse;
-  const slapContact = hiccupHeadGestureFrame("slap", 0.09).cheekImpulse;
-  const slapRebound = hiccupHeadGestureFrame("slap", 0.18).cheekImpulse;
-  assert.ok(popPull < -0.9 && popRelease > 0.5, "POP models inward vacuum then rebound");
-  assert.ok(slapContact < -0.9 && slapRebound > 0.5, "SLAP models skin contact then rebound");
+  const popMotion = Array.from({ length: 201 }, (_, index) => (
+    hiccupHeadGestureFrame("pop", index / 200).cheekImpulse
+  ));
+  const slapMotion = Array.from({ length: 201 }, (_, index) => (
+    hiccupHeadGestureFrame("slap", index / 200).cheekImpulse
+  ));
+  assert.ok(
+    Math.min(...popMotion) < -0.9 && Math.max(...popMotion) > 0.3,
+    "POP models inward vacuum then a smaller dry rebound",
+  );
+  assert.ok(
+    Math.min(...slapMotion) < -0.9 && Math.max(...slapMotion) > 0.65,
+    "SLAP models skin contact then rebound",
+  );
 });
 
 test("Hiccup Head sample-addressed gesture frames complete exactly once and stay finite", () => {
@@ -785,18 +1403,18 @@ test("face geometry, tract formants, and all sound-specific voice plans remain p
   const geometrySignatures = voicePlans.map(({ pose }) => roundedSignature(Object.values(hiccupHeadGeometry(pose))));
   assert.equal(
     new Set(parameterSignatures).size,
-    SOUND_IDS.length - 2,
-    "direct gestures need distinct plans; KISS and BRUSH intentionally reuse their source mouth plans",
+    SOUND_IDS.length,
+    "all gestures, including KISS and composite BRUSH, need distinct physical plans",
   );
   assert.equal(
     new Set(formantSignatures).size,
-    SOUND_IDS.length - 2,
-    "direct sound poses need distinct formants; gesture-only KISS and BRUSH reuse source articulation",
+    SOUND_IDS.length,
+    "all sound poses need distinct formants",
   );
   assert.equal(
     new Set(geometrySignatures).size,
-    SOUND_IDS.length - 2,
-    "direct sound poses need distinct geometry; gesture-only KISS and BRUSH reuse source articulation",
+    SOUND_IDS.length,
+    "all sound poses need distinct face geometry",
   );
   assert.ok(physicalVoiceParameters("shh", HICCUP_HEAD_DEFAULTS, 1).durationSeconds < 0.3);
   assert.ok(physicalVoiceParameters("shack", HICCUP_HEAD_DEFAULTS, 1).durationSeconds < 0.3);
@@ -830,8 +1448,14 @@ test("the expanded bank models body kicks, opposed slaps, reversible breath, pit
     assert.ok(plan.handContactSpacingMs >= 0.7 && plan.handContactSpacingMs <= 4.8);
     assert.ok(plan.handTail >= 0.22 && plan.handTail <= 0.94);
   }
-  assert.ok(hiccupHeadGestureFrame("slap", 0.09).cheekImpulse < -0.9);
-  assert.ok(hiccupHeadGestureFrame("smack", 0.075).cheekImpulse > 0.9);
+  const slapEarlyContacts = Array.from({ length: 81 }, (_, index) => (
+    hiccupHeadGestureFrame("slap", index / 200).cheekImpulse
+  ));
+  const smackEarlyContacts = Array.from({ length: 81 }, (_, index) => (
+    hiccupHeadGestureFrame("smack", index / 200).cheekImpulse
+  ));
+  assert.ok(Math.min(...slapEarlyContacts) < -0.9);
+  assert.ok(Math.max(...smackEarlyContacts) > 0.9);
   for (const soundId of ["slap", "smack"]) {
     const contacts = Array.from({ length: 201 }, (_, index) => (
       hiccupHeadGestureFrame(soundId, index / 200).cheekImpulse
@@ -872,10 +1496,22 @@ test("the expanded bank models body kicks, opposed slaps, reversible breath, pit
     );
   }
 
-  const mwahStored = hiccupHeadGestureFrame("mwah", 0.42);
-  const mwahReleased = hiccupHeadGestureFrame("mwah", 0.54);
+  const mwahFrames = Array.from({ length: 201 }, (_, index) => (
+    hiccupHeadGestureFrame("mwah", index / 200)
+  ));
+  const mwahStored = mwahFrames.reduce((best, frame) => (
+    Math.min(frame.lipClosure, frame.suction) > Math.min(best.lipClosure, best.suction)
+      ? frame
+      : best
+  ));
+  const mwahReleased = mwahFrames
+    .filter((frame) => (
+      frame.phase > mwahStored.phase && frame.lipClosure < 0.01 && frame.suction < 0.01
+    ))
+    .reduce((best, frame) => frame.lipImpulse > best.lipImpulse ? frame : best);
   assert.ok(mwahStored.lipClosure > 0.99 && mwahStored.suction > 0.99);
   assert.ok(mwahReleased.lipClosure < 0.01 && mwahReleased.suction < 0.01);
+  assert.ok(mwahReleased.lipImpulse > 0.8, "MWAH must open into a real lip release");
   assert.ok(hiccupHeadGestureFrame("drr", 0.2).tongueTrill > 0.98);
 
   const burp = physicalVoiceParameters("burp", HICCUP_HEAD_DEFAULTS, 1);
@@ -907,6 +1543,12 @@ test("new grunts, moans, tongue gestures, and the softened PFRR keep distinct ph
   const grunt = hiccupHeadGestureFrame("grunt", 0.3);
   const gruntPlan = physicalVoiceParameters("grunt", HICCUP_HEAD_DEFAULTS, 1);
   assert.ok(grunt.voicing > 0.8 && grunt.throatRattle > 0.65);
+  assert.ok(grunt.nasalMix > 0.7 && grunt.velum > 0.8, "HNNGH needs an open nasal branch");
+  assert.ok(
+    grunt.constriction > 0.85 && grunt.constrictionPosition < 0.3,
+    "HNNGH needs a rear velar tongue closure instead of another open grunt",
+  );
+  assert.ok(grunt.tongueBodyDiameterCm < 0.5, "HNNGH's Pink-style rear tongue target must seal");
   assert.ok(gruntPlan.glottalFrequencyHz < 70);
   assert.ok(gruntPlan.roughness > 0.65 && gruntPlan.subharmonicMix > 0.5);
 
@@ -953,7 +1595,10 @@ test("new grunts, moans, tongue gestures, and the softened PFRR keep distinct ph
   ));
   assert.ok(pffOnset.aspiration < 0.1 && pffOnset.turbulence < 0.05);
   assert.ok(pffBody.lipFlutter > 0.75, "the softer PFRR must retain a pressure-driven lip roll");
-  assert.ok(Math.max(...pffFrames.map(({ turbulence }) => turbulence)) <= 0.201);
+  const pffTurbulence = Math.max(...pffFrames.map(({ turbulence }) => turbulence));
+  const pffFlutter = Math.max(...pffFrames.map(({ lipFlutter }) => lipFlutter));
+  assert.ok(pffTurbulence <= 0.5, "PFRR turbulence must stay softer than a full noise burst");
+  assert.ok(pffFlutter > pffTurbulence + 0.3, "PFRR must read as lip motion, not digital noise");
   assert.ok(Math.max(...pffFrames.map(({ lipImpulse }) => lipImpulse)) <= 0.321);
 
   const addedPercussionIds = ["snare", "snap", "tomlo", "tomhi", "braap"];
@@ -1021,10 +1666,12 @@ test("physical presets and deterministic randomization produce distinct bounded 
     for (const effectKey of [
       "nasalMix", "earSpread", "leftHairLength", "rightHairLength",
       "leftHairAngle", "rightHairAngle", "eyeDivergence", "eyeClosure",
+      "leftEyeClosure", "rightEyeClosure",
     ]) {
-      assert.ok(
+      assert.equal(
         Object.hasOwn(preset.settings, effectKey),
-        `${preset.id} must carry its own ${effectKey} live-control default`,
+        false,
+        `${preset.id} must not carry ignored live-effect field ${effectKey}`,
       );
     }
     const state = hiccupHeadState(preset.id);
@@ -1069,7 +1716,8 @@ test("physical presets and deterministic randomization produce distinct bounded 
     "lungPressure", "lipTension", "lipRounding", "cheekVolume", "cheekTension",
     "tonguePosition", "tongueCurl", "tongueOut", "mouthOpening", "tractLengthM",
     "nasalMix", "dooPitch", "earSpread", "leftHairLength", "rightHairLength",
-    "leftHairAngle", "rightHairAngle", "eyeDivergence", "eyeClosure", "leftBrow", "rightBrow",
+    "leftHairAngle", "rightHairAngle", "eyeDivergence", "eyeClosure",
+    "leftEyeClosure", "rightEyeClosure",
     "silliness", "decay",
   ]) {
     const [low, high] = HICCUP_HEAD_LIMITS[key];
@@ -1077,12 +1725,17 @@ test("physical presets and deterministic randomization produce distinct bounded 
     assert.equal(maximum[key], high, `${key} random draw one must reach its maximum`);
     assert.ok(Math.abs(midpoint[key] - (low + high) / 2) < 1e-12);
   }
+  for (const key of ["leftBrow", "rightBrow"]) {
+    assert.equal(minimum[key], before[key], `${key} must survive whole-face mutation`);
+    assert.equal(midpoint[key], before[key], `${key} must survive whole-face mutation`);
+    assert.equal(maximum[key], before[key], `${key} must survive whole-face mutation`);
+  }
 });
 
-test("patterns expose an exclusive editable thirty-nine-by-sixty-four face-pose grid", () => {
+test("patterns expose an exclusive editable fifty-two-by-sixty-four face-pose grid", () => {
   assert.equal(HICCUP_HEAD_STEP_COUNT, 64);
   assert.deepEqual(HICCUP_HEAD_VELOCITIES, [0, 0.42, 0.72, 1]);
-  assert.equal(HICCUP_HEAD_PATTERNS.length, 17, "the expanded sound bank needs all seventeen rhythms");
+  assert.equal(HICCUP_HEAD_PATTERNS.length, 19, "the expanded sound bank needs all nineteen rhythms");
   assert.equal(new Set(HICCUP_HEAD_PATTERNS.map(({ id }) => id)).size, HICCUP_HEAD_PATTERNS.length);
 
   for (const pattern of HICCUP_HEAD_PATTERNS) {
@@ -1124,6 +1777,25 @@ test("patterns expose an exclusive editable thirty-nine-by-sixty-four face-pose 
     newPercussionIds.every((soundId) => percussionPattern.rows[soundId].some((amount) => amount > 0)),
     "Boots & Cats must preview every added mouth-percussion identity",
   );
+
+  const pinkAtlas = hiccupHeadPattern("pink-mouth-atlas");
+  for (const soundId of [
+    "huff", "waow", "whoop", "doodoo", "llll", "purr", "kiss", "hiccup", "eef", "brush",
+    "zzzz", "ehyeah",
+  ]) {
+    assert.ok(
+      pinkAtlas.rows[soundId].some((amount) => amount > 0),
+      `Pink mouth atlas must preview ${soundId}`,
+    );
+  }
+
+  const tongueMechanics = hiccupHeadPattern("tongue-mechanics");
+  for (const soundId of ["klikklak", "rrrr", "lrroll", "lalatrip", "hiccuplong"]) {
+    assert.ok(
+      tongueMechanics.rows[soundId].some((amount) => amount > 0),
+      `Tongue Mechanics must preview ${soundId}`,
+    );
+  }
 
   const gapTooth = hiccupHeadPattern("gap-tooth-fwee");
   assert.equal(gapTooth.label, "Gap-tooth FWEE");
@@ -1916,7 +2588,7 @@ test.skip("Hiccup Head fills its canvas with a large outlined, translucent-check
   );
 });
 
-test.skip("all thirty-nine Hiccup Head sounds own exactly one feature-safe face polka dot", async () => {
+test.skip("all fifty-two Hiccup Head sounds own exactly one feature-safe face polka dot", async () => {
   const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
   const layoutStart = app.indexOf("const FACE_SOUND_TRIGGER_LAYOUT = Object.freeze([");
   const layoutEnd = app.indexOf("\n]);", layoutStart);
@@ -1938,10 +2610,10 @@ test.skip("all thirty-nine Hiccup Head sounds own exactly one feature-safe face 
     [...expectedSoundIds].sort(),
     "no sequencer sound may exist without a matching face target",
   );
-  assert.equal(new Set(layoutEntries.map(({ soundId }) => soundId)).size, 39);
+  assert.equal(new Set(layoutEntries.map(({ soundId }) => soundId)).size, 52);
   assert.deepEqual(
     layoutEntries.map(({ slot }) => slot).sort((left, right) => left - right),
-    Array.from({ length: 39 }, (_, slot) => slot),
+    Array.from({ length: 52 }, (_, slot) => slot),
     "the mixed face layout must allocate one unique slot per sound",
   );
   assert.deepEqual(
@@ -1955,13 +2627,15 @@ test.skip("all thirty-nine Hiccup Head sounds own exactly one feature-safe face 
     soundId: "hiccup", slot: 16, zone: "diaphragm-catch", label: undefined,
   });
   assert.deepEqual(
-    layoutEntries.slice(-5).map(({ soundId, slot }) => ({ soundId, slot })),
+    layoutEntries.slice(-7).map(({ soundId, slot }) => ({ soundId, slot })),
     [
-      { soundId: "snare", slot: 32 },
-      { soundId: "snap", slot: 33 },
-      { soundId: "tomlo", slot: 34 },
-      { soundId: "tomhi", slot: 35 },
-      { soundId: "braap", slot: 36 },
+      { soundId: "klikklak", slot: 45 },
+      { soundId: "rrrr", slot: 46 },
+      { soundId: "lrroll", slot: 47 },
+      { soundId: "lalatrip", slot: 48 },
+      { soundId: "hiccuplong", slot: 49 },
+      { soundId: "zzzz", slot: 50 },
+      { soundId: "ehyeah", slot: 51 },
     ],
   );
 
@@ -1983,9 +2657,9 @@ test.skip("all thirty-nine Hiccup Head sounds own exactly one feature-safe face 
     y: Number(y),
     region,
   }));
-  assert.equal(dots.length, 37, "every sound must become one face polka dot");
-  assert.equal(new Set(dots.map(({ soundId }) => soundId)).size, 37);
-  assert.equal(new Set(dots.map(({ x, y }) => `${x}:${y}`)).size, 37);
+  assert.equal(dots.length, 52, "every sound must become one face polka dot");
+  assert.equal(new Set(dots.map(({ soundId }) => soundId)).size, 52);
+  assert.equal(new Set(dots.map(({ x, y }) => `${x}:${y}`)).size, 52);
   assert.deepEqual(
     [...dots.map(({ soundId }) => soundId)].sort(),
     [...expectedSoundIds].sort(),
@@ -2024,7 +2698,7 @@ test.skip("all thirty-nine Hiccup Head sounds own exactly one feature-safe face 
   assert.match(
     hitGeometrySource,
     /hotspots = HICCUP_HEAD_SOUNDS\.map\(\(sound, fallbackSlot\) => \{[\s\S]*?const dot = FACE_TRIGGER_DOT_POSITIONS\[sound\.id\][\s\S]*?r: dotRadius,[\s\S]*?hitR: dotHitRadius,[\s\S]*?kind: "dot",[\s\S]*?primary: true/,
-    "all 37 runtime sounds must construct exactly one generous face-dot target",
+    "all 52 runtime sounds must construct exactly one generous face-dot target",
   );
 
   const drawHotspotSource = app.slice(
@@ -2041,7 +2715,7 @@ test.skip("all thirty-nine Hiccup Head sounds own exactly one feature-safe face 
   assert.match(
     app,
     /drawHands\(drawing, motion\)[\s\S]*?drawHandles\(drawing\)[\s\S]*?for \(const hotspot of hotspots\) drawHotspot\(drawing, hotspot, motion\[hotspot\.soundId\] \?\? 0\)/,
-    "all 37 tappable dots must paint last so anatomy cannot cover them",
+    "all 52 tappable dots must paint last so anatomy cannot cover them",
   );
 
   const padSource = app.slice(
@@ -2432,7 +3106,7 @@ test("Hiccup Head keeps DSP safety and telemetry scans bounded on mobile", async
   );
 });
 
-test.skip("Hiccup Head worklet renders thirty-nine distinct gestures through exactly one active mouth", async () => {
+test.skip("Hiccup Head worklet renders fifty-two distinct gestures through exactly one active mouth", async () => {
   const globalKeys = ["sampleRate", "AudioWorkletProcessor", "registerProcessor"];
   const originals = new Map(globalKeys.map((key) => [
     key,
@@ -3607,8 +4281,8 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(html, /<h1>HICCUP HEAD<\/h1>/);
   assert.doesNotMatch(html, /crazed clown beatbox/i);
   assert.doesNotMatch(html, /one face\s*(?:×|x)\s*one mouth/i);
-  assert.match(html, /href="hiccup-head\.css\?v=hiccup-head-20260831-16"/);
-  assert.match(html, /src="hiccup-head-app\.js\?v=hiccup-head-20260831-19"/);
+  assert.match(html, /href="hiccup-head\.css\?v=hiccup-head-20260902-4"/);
+  assert.match(html, /src="hiccup-head-app\.js\?v=hiccup-head-20260902-4"/);
   assert.match(html, /centered open eyes are dry[\s\S]*?bright plate[\s\S]*?dark cathedral/i);
   assert.match(
     html,
@@ -3622,11 +4296,11 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(html, /id="stage"[\s\S]*?tabindex="0"[\s\S]*?aria-label=/);
   assert.match(html, /aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="sequenceGrid"[\s\S]*?role="grid"/);
-  assert.match(html, /aria-rowcount="39"/);
+  assert.match(html, /aria-rowcount="52"/);
   assert.match(html, /aria-colcount="16"/);
   assert.match(html, /Only one (?:sound|gesture|pose) can occupy each step/i);
   assert.match(html, /beyond human ranges|beyond-human/i);
-  assert.match(html, /id="padGrid"[\s\S]*?Thirty-nine playable Hiccup Head sound pads/i);
+  assert.match(html, /id="padGrid"[\s\S]*?Fifty-two playable Hiccup Head sound pads/i);
   assert.match(html, /missing one upper front tooth/i);
   assert.match(html, /missing-front-tooth gap/i);
   assert.match(html, /FWEE[\s\S]*upper incisor (?:is )?missing/i);
@@ -3662,7 +4336,7 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
 
   assert.match(css, /\.hiccup-head-workspace\s*\{[\s\S]*?grid-template-rows:/);
   assert.match(css, /\.hiccup-head-sequence-grid\s*\{[\s\S]*?repeat\(var\(--hiccup-head-sequence-steps, 32\),/);
-  assert.match(css, /grid-template-rows:\s*27px repeat\(var\(--hiccup-head-sequence-sounds,\s*37\),/);
+  assert.match(css, /grid-template-rows:\s*27px repeat\(var\(--hiccup-head-sequence-sounds,\s*52\),/);
   assert.doesNotMatch(css, /\.hiccup-head-effect-contour-grid/);
   assert.match(css, /\.hiccup-head-grid-scroll\s*\{[\s\S]*?overflow:/);
   assert.match(css, /\.hiccup-head-step-cell:focus-visible/);
@@ -3674,9 +4348,9 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(css, /@media \(max-width:\s*680px\)/);
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
 
-  assert.match(app, /from "\.\/src\/hiccup-head\.js\?v=hiccup-head-model-20260829-6"/);
-  assert.match(app, /\.\/src\/hiccup-head-processor\.js\?v=hiccup-head-tract-20260831-9/);
-  assert.match(processor, /from "\.\/hiccup-head\.js\?v=hiccup-head-model-20260829-6"/);
+  assert.match(app, /from "\.\/src\/hiccup-head\.js\?v=hiccup-head-model-20260902-4"/);
+  assert.match(app, /\.\/src\/hiccup-head-processor\.js\?v=hiccup-head-tract-20260902-4/);
+  assert.match(processor, /from "\.\/hiccup-head\.js\?v=hiccup-head-model-20260902-4"/);
   assert.match(app, /"hiccup-head-physical-model"/);
   assert.match(app, /connectAudioOutput\(context, analyser/);
   assert.match(app, /function buildPadGrid\(\)/);
@@ -3895,11 +4569,11 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(processor, /collisionRadiationAlpha/);
   assert.match(
     processor,
-    /const GESTURE_SOURCE_GAIN = Object\.freeze\(\{\s*bop: 2\.2,\s*boop: 2,\s*hiccup: 2\.35,\s*aah: 1\.025,\s*ooh: 1\.035,\s*wail: 0\.8,\s*yodel: 0\.84,\s*growl: 1\.02,\s*holler: 0\.565,\s*hum: 0\.33,\s*moan: 1\.025,\s*lala: 1\.24,\s*\}\)/,
+    /const GESTURE_SOURCE_GAIN = Object\.freeze\(\{[\s\S]*?bop: 3,[\s\S]*?grunt: 1\.38,[\s\S]*?rrrr: 1\.24,[\s\S]*?lrroll: 1\.28,[\s\S]*?lalatrip: 1\.22,[\s\S]*?hiccuplong: 2\.5,[\s\S]*?zzzz: 1\.2,[\s\S]*?ehyeah: 1\.04,[\s\S]*?\}\)/,
   );
   assert.match(
     processor,
-    /const GESTURE_OUTPUT_GAIN = Object\.freeze\(\{[\s\S]*?bop: 2\.4,[\s\S]*?hiccup: 3,[\s\S]*?kiss: 2\.5,[\s\S]*?brush: 1\.7,[\s\S]*?rattle: 0\.35,[\s\S]*?\}\)/,
+    /const GESTURE_OUTPUT_GAIN = Object\.freeze\(\{[\s\S]*?bop: 1\.15,[\s\S]*?pop: 2\.8,[\s\S]*?hiccup: 3,[\s\S]*?kiss: 2\.7,[\s\S]*?brush: 0\.72,[\s\S]*?klikklak: 1\.55,[\s\S]*?rrrr: 0\.92,[\s\S]*?lrroll: 0\.72,[\s\S]*?lalatrip: 0\.9,[\s\S]*?hiccuplong: 1\.35,[\s\S]*?zzzz: 1\.35,[\s\S]*?ehyeah: 0\.9,[\s\S]*?rattle: 0\.35,[\s\S]*?\}\)/,
   );
   assert.match(processor, /GESTURE_SOURCE_GAIN\[this\.sound\.id\] \?\? 1/);
   assert.match(processor, /GESTURE_OUTPUT_GAIN\[this\.gesture\?\.sound\.id\] \?\? 1/);
@@ -3940,7 +4614,7 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
     catalogEntry?.description ?? "",
     /40%-opaque,? step-shifting checkerboard polka-dot goofball face/i,
   );
-  assert.match(catalogEntry?.description ?? "", /thirty-nine exclusive gestures/i);
+  assert.match(catalogEntry?.description ?? "", /fifty-two exclusive gestures/i);
   assert.match(catalogEntry?.description ?? "", /missing-incisor FWEE/i);
   assert.match(catalogEntry?.description ?? "", /twelve pitched dead-wood teeth/i);
   assert.match(catalogEntry?.description ?? "", /open-throat and rough voices/i);

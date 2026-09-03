@@ -8,6 +8,26 @@ export const clamp = (value, minimum = 0, maximum = 1) => (
 
 const freezeSettings = (settings) => Object.freeze({ ...settings });
 
+// Hair, eyes/lids, nose, and ears are live effect controls. The app preserves
+// them across preset changes, so keeping stale values in preset data is both
+// misleading and a second, unused source of truth.
+const FACE_PRESET_LIVE_EFFECT_PARAMETERS = Object.freeze([
+  "leftHairLength",
+  "leftHairAngle",
+  "rightHairLength",
+  "rightHairAngle",
+  "eyeDivergence",
+  "eyeClosure",
+  "leftEyeClosure",
+  "rightEyeClosure",
+  "nasalMix",
+  "earSpread",
+]);
+
+const freezeFacePresetSettings = (settings) => Object.freeze(Object.fromEntries(
+  Object.entries(settings).filter(([key]) => !FACE_PRESET_LIVE_EFFECT_PARAMETERS.includes(key)),
+));
+
 export const HICCUP_HEAD_STEP_COUNT = 64;
 export const HICCUP_HEAD_VELOCITIES = Object.freeze([0, 0.42, 0.72, 1]);
 
@@ -298,6 +318,15 @@ export const HICCUP_HEAD_TOOTH_GAP_ANATOMY = Object.freeze({
   strouhalNumbers: Object.freeze([0.14, 0.2, 0.27]),
 });
 
+// The visible teeth are deliberately imperfect but ordered. The same bank is
+// shared by direct tooth taps, the BRUSH composite gesture, and the canvas so
+// an ascending/descending sweep cannot drift into three separate definitions.
+export const HICCUP_HEAD_TOOTH_TINE_PROFILES = Object.freeze([
+  [130.81, 0.42], [146.83, 0.46], [164.81, 0.5], [196, 0.54],
+  [220, 0.48], [261.63, 0.56], [293.66, 0.5], [329.63, 0.58],
+  [392, 0.52], [440, 0.6], [523.25, 0.54], [587.33, 0.62],
+].map(([frequencyHz, brightness]) => Object.freeze({ frequencyHz, brightness })));
+
 export const HICCUP_HEAD_GESTURE_CHANNELS = Object.freeze([
   "poseMix",
   "pressure",
@@ -317,12 +346,26 @@ export const HICCUP_HEAD_GESTURE_CHANNELS = Object.freeze([
   "aspiration",
   "lipFlutter",
   "tongueTrill",
+  "lateralBypass",
   "tongueExtension",
   "throatRattle",
   "registerLift",
+  "vowelMorph",
   "toothJet",
   "breathDirection",
   "diaphragmCatch",
+]);
+
+// One character snapshot can retune every gesture that contains fold energy,
+// sustained breath, or a tract-dependent body tone. Keeping this inventory in
+// model metadata prevents the app's mutation/assignment UI from silently
+// excluding newer vocal gestures.
+const HICCUP_HEAD_VOICE_CAPABLE_ID_SET = new Set([
+  "bop", "boop", "shack", "pff", "kick", "hee", "haw", "doo", "mwah",
+  "kiss", "drr", "burp", "aah", "ooh", "wail", "yodel", "growl",
+  "holler", "hum", "rattle", "grunt", "moan", "lala", "pbpb", "hiccup",
+  "eef", "tomlo", "tomhi", "braap", "huff", "waow", "whoop", "doodoo",
+  "llll", "purr", "rrrr", "lrroll", "lalatrip", "hiccuplong", "zzzz", "ehyeah",
 ]);
 
 export const HICCUP_HEAD_SOUNDS = Object.freeze([
@@ -563,11 +606,11 @@ export const HICCUP_HEAD_SOUNDS = Object.freeze([
   Object.freeze({
     id: "grunt",
     label: "HNNGH",
-    subtitle: "short chest grunt",
+    subtitle: "velar nasal grunt",
     key: "h",
     family: "rough-vocal",
     color: "#ff805e",
-    description: "A compact chest-pressure pulse closes into rough low folds, then opens through the same living throat as a warm human grunt.",
+    description: "The rear tongue seals toward the soft palate while the velum opens, then the nasal HNNG releases into a compact rough chest grunt.",
   }),
   Object.freeze({
     id: "moan",
@@ -677,13 +720,278 @@ export const HICCUP_HEAD_SOUNDS = Object.freeze([
     color: "#72d9ff",
     description: "A toothbrush sweeps all twelve warm dead-wood teeth in sequence as a visible marimba-like glissando.",
   }),
+  Object.freeze({
+    id: "huff",
+    label: "HUFF",
+    subtitle: "warm rounded breath",
+    key: "[",
+    family: "breath",
+    color: "#8dd7c4",
+    description: "A soft labial constriction turns one long exhale into warm, band-limited breath with a rounded attack and release.",
+  }),
+  Object.freeze({
+    id: "waow",
+    label: "WAOW",
+    subtitle: "moving diphthong",
+    key: "]",
+    family: "open-vocal",
+    color: "#f39b67",
+    description: "The living tongue and lips travel from an open back vowel into a tight rounded vowel during one continuous voiced gesture.",
+  }),
+  Object.freeze({
+    id: "whoop",
+    label: "WHOOP",
+    subtitle: "arched singing call",
+    key: "-",
+    family: "open-vocal",
+    color: "#9bcf5d",
+    description: "An open voice rises through a broad pitch arch, hangs briefly, then falls without swapping out the shared vocal tract.",
+  }),
+  Object.freeze({
+    id: "doodoo",
+    label: "DOO-DOO",
+    subtitle: "pitched two-note phrase",
+    key: "=",
+    family: "vocal",
+    color: "#5cc8c7",
+    description: "Two pressure-separated rounded syllables step between exact pitches inside one breath and one mouth gesture.",
+  }),
+  Object.freeze({
+    id: "llll",
+    label: "LLLL",
+    subtitle: "held lateral tongue",
+    key: "/",
+    family: "tongue-vocal",
+    color: "#b58bea",
+    description: "The tongue tip stays planted while voiced air bends around its sides and resonates through the cheek branch like a sustained wet L.",
+  }),
+  Object.freeze({
+    id: "purr",
+    label: "PURR",
+    subtitle: "slow creaky pulse",
+    key: "\\",
+    family: "rough-vocal",
+    color: "#df8370",
+    description: "Low period-doubled folds feed a slow regular throat pulse, filling the long creaky region without becoming broadband growl noise.",
+  }),
+  Object.freeze({
+    id: "klikklak",
+    label: "KLIK-KLAK",
+    subtitle: "four-place tongue clicks",
+    key: "'",
+    family: "tongue",
+    color: "#4ed6a8",
+    description: "One tongue stores and releases four suction pockets at changing places, making a dry rhythmic klik-klak phrase.",
+  }),
+  Object.freeze({
+    id: "rrrr",
+    label: "RRRR",
+    subtitle: "long pressure-fed rolled R",
+    key: "`",
+    family: "tongue-vocal",
+    color: "#8f79e8",
+    description: "A long voiced breath drives the compliant tongue tip into a slow, clearly sustained human rolled R.",
+  }),
+  Object.freeze({
+    id: "lrroll",
+    label: "L-R-L-R",
+    subtitle: "lateral and rolled alternation",
+    key: ":",
+    family: "tongue-vocal",
+    color: "#4fb9d1",
+    description: "One continuous voice alternates lateral L leaks with front-tip R flutters as a four-cell rhythmic tongue phrase.",
+  }),
+  Object.freeze({
+    id: "lalatrip",
+    label: "LA-LA-LA",
+    subtitle: "three broad tongue syllables",
+    key: "!",
+    family: "tongue-vocal",
+    color: "#e875a6",
+    description: "Three broad alveolar contacts peel into open LA vowels with a small melodic lift across one breath.",
+  }),
+  Object.freeze({
+    id: "hiccuplong",
+    label: "HICCUP!",
+    subtitle: "full double-catch hiccup",
+    key: "?",
+    family: "body-vocal",
+    color: "#ffbd4d",
+    description: "A full-length diaphragm spasm releases into HIC, catches again, and rebounds through a voiced UP-like tail.",
+  }),
+  Object.freeze({
+    id: "zzzz",
+    label: "ZZZZ",
+    subtitle: "voiced alveolar tooth hiss",
+    key: "@",
+    family: "fricative-vocal",
+    color: "#36c8a3",
+    description: "Voiced breath holds a narrow anterior tongue groove at the alveolar ridge and drives sustained turbulent flow across the tooth edge.",
+  }),
+  Object.freeze({
+    id: "ehyeah",
+    label: "EH-YEAH",
+    subtitle: "EH · EE · AH carousel",
+    key: "#",
+    family: "open-vocal",
+    color: "#f09261",
+    description: "A continuously voiced Pink-style tube travels EH to EE to AH with obvious fold vibrato and moving tongue-body formants.",
+  }),
+].map((sound) => Object.freeze({
+  ...sound,
+  voiceCapable: HICCUP_HEAD_VOICE_CAPABLE_ID_SET.has(sound.id),
+})));
+
+export const HICCUP_HEAD_VOICE_SOUND_IDS = Object.freeze(
+  HICCUP_HEAD_SOUNDS.filter(({ voiceCapable }) => voiceCapable).map(({ id }) => id),
+);
+
+const defineSoundBank = (id, label, description, mix, characterIds, settings = {}) => Object.freeze({
+  id,
+  label,
+  description,
+  mix: clamp(mix),
+  characterIds: Object.freeze([...characterIds]),
+  settings: freezeSettings(settings),
+});
+
+// These are contrasting tunings of the same single mouth—not sample packs or
+// simultaneous layers. A bank changes pressure, tissue, and tract bias for
+// every gesture, while its character roster gives voiced gestures an equally
+// obvious fold/register change. Live eyebrows and face effects are untouched.
+export const HICCUP_HEAD_SOUND_BANKS = Object.freeze([
+  defineSoundBank(
+    "natural-mouth",
+    "Natural mouth",
+    "Centered human anatomy with clear modal, chest, reed, and warbling voices.",
+    0,
+    ["natural", "velvet", "reed", "warble"],
+  ),
+  defineSoundBank(
+    "wet-rubber",
+    "Wet rubber",
+    "Loose lips, large damp cheeks, and elastic suction make the whole bank floppy and wet.",
+    0.56,
+    ["velvet", "smoker", "warble", "natural"],
+    {
+      lungPressure: 0.98, lipTension: -0.08, lipRounding: 0.74,
+      cheekVolume: 1.08, cheekTension: 0.08, tonguePosition: 0.42,
+      tongueCurl: 0.72, tongueOut: 0.34, mouthOpening: 0.5,
+      tractLengthM: 0.195, silliness: 0.78, decay: 1.22,
+    },
+  ),
+  defineSoundBank(
+    "tongue-workshop",
+    "Tongue workshop",
+    "A small taut cavity puts tongue contacts, rolled Rs, lateral Ls, and tooth clicks up front.",
+    0.58,
+    ["reed", "choirboy", "natural", "warble"],
+    {
+      lungPressure: 0.9, lipTension: 0.64, lipRounding: 0.04,
+      cheekVolume: 0.48, cheekTension: 0.9, tonguePosition: 1.12,
+      tongueCurl: 1.34, tongueOut: 0.58, mouthOpening: 0.38,
+      tractLengthM: 0.145, silliness: 0.7, decay: 0.78,
+    },
+  ),
+  defineSoundBank(
+    "open-throat",
+    "Open throat",
+    "A broad Pink-style vowel tube favors long singing arcs, vibrato, and full breath reversals.",
+    0.56,
+    ["natural", "velvet", "choirboy", "warble"],
+    {
+      lungPressure: 0.94, lipTension: 0.18, lipRounding: 0.36,
+      cheekVolume: 0.76, cheekTension: 0.18, tonguePosition: -0.08,
+      tongueCurl: -0.08, tongueOut: 0.12, mouthOpening: 1.05,
+      tractLengthM: 0.205, silliness: 0.4, decay: 1.35,
+    },
+  ),
+  defineSoundBank(
+    "rough-cellar",
+    "Rough cellar",
+    "A long, slack tract and heavy folds turn grunts, purrs, burps, and kicks into chesty low creatures.",
+    0.55,
+    ["monster", "smoker", "velvet", "monster"],
+    {
+      lungPressure: 1.04, lipTension: -0.1, lipRounding: 0.58,
+      cheekVolume: 1.15, cheekTension: 0, tonguePosition: -0.14,
+      tongueCurl: -0.12, tongueOut: 0.08, mouthOpening: 0.76,
+      tractLengthM: 0.285, silliness: 0.72, decay: 1.38,
+    },
+  ),
+  defineSoundBank(
+    "tiny-cartoon",
+    "Tiny cartoon",
+    "A pinched miniature tube makes bright toy pops, nasal calls, and impossible little singers.",
+    0.58,
+    ["helium", "reed", "choirboy", "helium"],
+    {
+      lungPressure: 0.9, lipTension: 1.08, lipRounding: 0.96,
+      cheekVolume: 0.3, cheekTension: 1.05, tonguePosition: 1.08,
+      tongueCurl: 0.94, tongueOut: 0.16, mouthOpening: 0.24,
+      tractLengthM: 0.09, silliness: 0.94, decay: 0.68,
+    },
+  ),
+  defineSoundBank(
+    "air-pockets",
+    "Air pockets",
+    "Rounded seals, hollow cheeks, and breathy folds exaggerate inhales, huffs, pops, and suction.",
+    0.56,
+    ["velvet", "smoker", "natural", "choirboy"],
+    {
+      lungPressure: 0.82, lipTension: 0.1, lipRounding: 1.02,
+      cheekVolume: 1.1, cheekTension: 0.14, tonguePosition: 0.7,
+      tongueCurl: 0.9, tongueOut: 0.22, mouthOpening: 0.17,
+      tractLengthM: 0.185, silliness: 0.58, decay: 1.12,
+    },
+  ),
 ]);
+
+// A physical retuning can make one particular gesture couple much more (or
+// less) efficiently to the same tract. These sparse, measured trims sit after
+// the shared presence knee: they preserve each bank's anatomy while keeping a
+// whistle, click, or fricative from unexpectedly vanishing or taking over.
+export const HICCUP_HEAD_SOUND_BANK_OUTPUT_TRIMS = Object.freeze({
+  "natural-mouth": Object.freeze({}),
+  "wet-rubber": Object.freeze({ whistle: 0.76 }),
+  "tongue-workshop": Object.freeze({ tlik: 1.62, drr: 0.93, grunt: 0.94 }),
+  "open-throat": Object.freeze({ tlik: 0.91, pff: 0.246, rrrr: 0.54 }),
+  "rough-cellar": Object.freeze({ pff: 0.683, whistle: 0.73 }),
+  "tiny-cartoon": Object.freeze({ pop: 0.96, grunt: 0.92, moan: 0.94 }),
+  "air-pockets": Object.freeze({}),
+});
+
+const soundBankById = new Map(HICCUP_HEAD_SOUND_BANKS.map((bank) => [bank.id, bank]));
+
+export function hiccupHeadSoundBank(id) {
+  return soundBankById.get(id) ?? HICCUP_HEAD_SOUND_BANKS[0];
+}
+
+export function hiccupHeadSoundBankOutputGain(bankId, soundId) {
+  const bank = hiccupHeadSoundBank(bankId);
+  return clamp(HICCUP_HEAD_SOUND_BANK_OUTPUT_TRIMS[bank.id]?.[soundId] ?? 1, 0.2, 1.8);
+}
+
+export function applyHiccupHeadSoundBank(
+  source = HICCUP_HEAD_DEFAULTS,
+  bankId = HICCUP_HEAD_SOUND_BANKS[0].id,
+  amount = 1,
+) {
+  const state = sanitizeHiccupHeadState(source);
+  const bank = hiccupHeadSoundBank(bankId);
+  const mix = bank.mix * clamp(amount);
+  if (mix <= 0) return state;
+  const result = { ...state };
+  for (const [key, target] of Object.entries(bank.settings)) {
+    if (!Number.isFinite(Number(target)) || !Number.isFinite(Number(state[key]))) continue;
+    result[key] = state[key] + (Number(target) - state[key]) * mix;
+  }
+  return sanitizeHiccupHeadState(result, state);
+}
 
 const soundById = new Map(HICCUP_HEAD_SOUNDS.map((sound) => [sound.id, sound]));
 
-const hiccupHeadModelSoundId = (soundId) => (
-  soundId === "kiss" ? "mwah" : soundId === "brush" ? "tomhi" : soundId
-);
+const hiccupHeadModelSoundId = (soundId) => soundId;
 
 export function hiccupHeadSound(id) {
   return soundById.get(id) ?? HICCUP_HEAD_SOUNDS[0];
@@ -840,8 +1148,8 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
   Object.freeze({
     id: "humming-head",
     label: "Humming head",
-    description: "Closed resonant lips and an open nasal path tuned for the HUM trigger.",
-    settings: freezeSettings({
+    description: "Closed resonant lips, rounded cheeks, and a compact opening tuned for the HUM trigger.",
+    settings: freezeFacePresetSettings({
       lungPressure: 0.62, lipTension: 0.34, lipRounding: 0.72,
       cheekVolume: 0.72, cheekTension: 0.3, tonguePosition: 0.42,
       tongueCurl: 0.18, mouthOpening: 0.035, tractLengthM: 0.19,
@@ -856,7 +1164,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "rubber-face",
     label: "Rubber face",
     description: "A recognizably human beatbox mouth with punchy closures, elastic cheeks, and compact releases.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 0.82, lipTension: 0.46, lipRounding: 0.38,
       cheekVolume: 0.64, cheekTension: 0.42, tonguePosition: 0.58,
       tongueCurl: 0.4, mouthOpening: 0.48, tractLengthM: 0.165,
@@ -871,7 +1179,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "chipmunk-box",
     label: "Chipmunk box",
     description: "A beyond-human pinched tract and projected lips push clicks and kicks into a bright toy register.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 0.74, lipTension: 1.28, lipRounding: 1.08,
       cheekVolume: -0.18, cheekTension: 1.34, tonguePosition: 1.3,
       tongueCurl: 1.24, mouthOpening: 0.24, tractLengthM: 0.05,
@@ -886,7 +1194,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "cavern-gob",
     label: "Cavern gob",
     description: "A half-metre tract, balloon cheeks, and tube-like lips turn each consonant into a low hollow whomp.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 1.08, lipTension: -0.08, lipRounding: 1.52,
       cheekVolume: 1.82, cheekTension: -0.12, tonguePosition: -0.38,
       tongueCurl: 0.08, mouthOpening: 1.24, tractLengthM: 0.46,
@@ -901,7 +1209,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "tin-grin",
     label: "Tin grin",
     description: "Impossible surface tension and a pulled-back grin make tongue and face contacts sharp and metallic.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 0.9, lipTension: 1.48, lipRounding: -0.32,
       cheekVolume: 0.38, cheekTension: 1.52, tonguePosition: 1.08,
       tongueCurl: 1.46, mouthOpening: 0.52, tractLengthM: 0.1,
@@ -916,7 +1224,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "whisper-gremlin",
     label: "PHSHK gremlin",
     description: "Compressed lips and an over-curled tongue favor fast PHSHSHK sprays, puffs, and dry clicks.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 1.12, lipTension: 0.72, lipRounding: 0.86,
       cheekVolume: 1.08, cheekTension: 0.9, tonguePosition: 0.96,
       tongueCurl: 1.54, mouthOpening: 0.14, tractLengthM: 0.19,
@@ -930,7 +1238,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "vowel-engine",
     label: "Vowel engine",
     description: "A supple human-length tract with a mobile tongue and rounded outlet keeps HEE, HAW, and pitched DOO articulate.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 0.7, lipTension: 0.34, lipRounding: 0.74,
       cheekVolume: 0.52, cheekTension: 0.3, tonguePosition: 0.76,
       tongueCurl: 0.28, mouthOpening: 0.46, tractLengthM: 0.172,
@@ -944,7 +1252,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "inside-out",
     label: "Inside-out singer",
     description: "A short bright tube and forward tongue emphasize the reversal between ingressive HEE and egressive HAW.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 0.92, lipTension: 0.78, lipRounding: 0.18,
       cheekVolume: 0.28, cheekTension: 0.68, tonguePosition: 1.28,
       tongueCurl: 0.74, mouthOpening: 0.3, tractLengthM: 0.115,
@@ -957,8 +1265,8 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
   Object.freeze({
     id: "slap-canyon",
     label: "Slap canyon",
-    description: "Loose, oversized cheeks and a deep tract exaggerate alternating hand contacts, kick thumps, and their stereo tail.",
-    settings: freezeSettings({
+    description: "Loose, oversized cheeks and a deep tract give alternating hand contacts and kick thumps an elastic body.",
+    settings: freezeFacePresetSettings({
       lungPressure: 0.58, lipTension: -0.2, lipRounding: 0.26,
       cheekVolume: 1.72, cheekTension: -0.2, tonguePosition: -0.14,
       tongueCurl: 0.02, mouthOpening: 0.72, tractLengthM: 0.34,
@@ -972,7 +1280,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "feral-baron",
     label: "Feral baron",
     description: "Relaxed folds, a long throat, and an unruly tongue favor low burps, suction kisses, and unstable DRR rolls.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 1.18, lipTension: -0.28, lipRounding: 1.1,
       cheekVolume: 1.26, cheekTension: 0.02, tonguePosition: 0.16,
       tongueCurl: 1.34, mouthOpening: 0.82, tractLengthM: 0.3,
@@ -986,7 +1294,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "open-throat",
     label: "Open throat",
     description: "A broad modal pharynx and dropped jaw give AAH, OOH, and HOLLER room to bloom.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 0.84, lipTension: 0.3, lipRounding: 0.16,
       cheekVolume: 0.82, cheekTension: 0.26, tonguePosition: -0.3,
       tongueCurl: -0.24, mouthOpening: 1.28, tractLengthM: 0.19,
@@ -1000,7 +1308,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "head-voice",
     label: "Head voice",
     description: "A compact, lightly braced tract favors WAIL vibrato and a clean YODEL register break.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 0.72, lipTension: 0.78, lipRounding: 0.22,
       cheekVolume: 0.24, cheekTension: 0.72, tonguePosition: 0.72,
       tongueCurl: 0.16, mouthOpening: 0.74, tractLengthM: 0.13,
@@ -1013,8 +1321,8 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
   Object.freeze({
     id: "humming-mask",
     label: "Humming mask",
-    description: "A raised velum control and sealed lips make the nasal branch the main acoustic outlet.",
-    settings: freezeSettings({
+    description: "Sealed lips, a braced tongue, and a compact opening focus the HUM trigger into a warm mask resonance.",
+    settings: freezeFacePresetSettings({
       lungPressure: 0.66, lipTension: 0.54, lipRounding: 0.34,
       cheekVolume: 0.48, cheekTension: 0.44, tonguePosition: 0.52,
       tongueCurl: 0.3, mouthOpening: 0.08, tractLengthM: 0.168,
@@ -1027,8 +1335,8 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
   Object.freeze({
     id: "rattle-cave",
     label: "Rattle cave",
-    description: "A long low tract, loose tissues, and open room exaggerate GROWL and throat RATTLE.",
-    settings: freezeSettings({
+    description: "A long low tract and loose tissues exaggerate GROWL and throat RATTLE.",
+    settings: freezeFacePresetSettings({
       lungPressure: 1.24, lipTension: -0.18, lipRounding: 0.62,
       cheekVolume: 1.38, cheekTension: -0.08, tonguePosition: -0.22,
       tongueCurl: 0.56, mouthOpening: 0.92, tractLengthM: 0.36,
@@ -1042,7 +1350,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "sloppy-oracle",
     label: "Sloppy oracle",
     description: "A long visible tongue, loose lips, and a wet open tract favor LA-LA, DRR, PB-PB, and suction pulls.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 0.76, lipTension: -0.24, lipRounding: 0.34,
       cheekVolume: 0.9, cheekTension: -0.04, tonguePosition: 1.18,
       tongueCurl: -0.34, tongueOut: 1.28, mouthOpening: 0.94,
@@ -1057,7 +1365,7 @@ export const HICCUP_HEAD_PRESETS = Object.freeze([
     id: "moan-cellar",
     label: "Moan cellar",
     description: "A relaxed long tube and low fold register turn grunts and moans into warm, room-sized human shapes.",
-    settings: freezeSettings({
+    settings: freezeFacePresetSettings({
       lungPressure: 0.68, lipTension: -0.16, lipRounding: 0.66,
       cheekVolume: 1.26, cheekTension: -0.1, tonguePosition: -0.24,
       tongueCurl: -0.18, tongueOut: 0.18, mouthOpening: 1.08,
@@ -1360,6 +1668,37 @@ export const HICCUP_HEAD_PATTERNS = Object.freeze([
       slap: phraseRow([[7, 0.62], [15, 0.78]], [[6, 0.68], [15, 0.84]], [[8, 0.72], [15, 0.9]], [[5, 0.76], [14, 0.94]]),
     }),
   }),
+  Object.freeze({
+    id: "pink-mouth-atlas",
+    label: "Pink mouth atlas",
+    rows: freezePatternRows({
+      huff: phraseRow([[0, 0.66]], [[1, 0.72]], [[0, 0.78]], [[2, 0.84]]),
+      waow: phraseRow([[2, 0.78]], [[3, 0.84]], [[2, 0.9]], [[4, 0.94]]),
+      whoop: phraseRow([[4, 0.86]], [[5, 0.92]], [[4, 0.96]], [[6, 1]]),
+      doodoo: phraseRow([[6, 0.72]], [[7, 0.8]], [[6, 0.86]], [[8, 0.92]]),
+      llll: phraseRow([[8, 0.68]], [[9, 0.76]], [[8, 0.82]], [[10, 0.9]]),
+      purr: phraseRow([[10, 0.74]], [[11, 0.82]], [[10, 0.9]], [[12, 0.96]]),
+      kiss: phraseRow([[12, 0.74]], [[13, 0.8]], [[12, 0.86]], [[14, 0.92]]),
+      hiccup: phraseRow([[13, 0.82]], [[14, 0.88]], [[13, 0.94]], [[15, 1]]),
+      eef: phraseRow([[14, 0.76]], [[15, 0.84]], [[14, 0.9]], [[0, 0.96]]),
+      brush: phraseRow([[15, 0.84]], [[0, 0.9]], [[15, 0.96]], [[1, 1]]),
+      zzzz: phraseRow([[1, 0.72]], [[2, 0.8]], [[1, 0.86]], [[3, 0.92]]),
+      ehyeah: phraseRow([[3, 0.8]], [[4, 0.86]], [[3, 0.92]], [[5, 1]]),
+    }),
+  }),
+  Object.freeze({
+    id: "tongue-mechanics",
+    label: "Tongue mechanics",
+    rows: freezePatternRows({
+      kick: phraseRow([[0, 0.9], [8, 0.84]], [[0, 0.94], [8, 0.88]], [[0, 0.96], [10, 0.82]], [[0, 1], [8, 0.9]]),
+      klikklak: phraseRow([[2, 0.82]], [[3, 0.9]], [[2, 0.94]], [[4, 1]]),
+      rrrr: phraseRow([[5, 0.8]], [[6, 0.88]], [[5, 0.94]], [[7, 1]]),
+      lrroll: phraseRow([[9, 0.82]], [[10, 0.9]], [[9, 0.96]], [[11, 1]]),
+      lalatrip: phraseRow([[12, 0.86]], [[13, 0.92]], [[12, 0.98]], [[13, 1]]),
+      hiccup: phraseRow([[14, 0.78]], [[14, 0.84]], [[14, 0.9]], [[14, 0.96]]),
+      hiccuplong: phraseRow([[15, 0.88]], [[15, 0.92]], [[15, 0.96]], [[15, 1]]),
+    }),
+  }),
 ]);
 
 export function hiccupHeadPattern(id) {
@@ -1468,7 +1807,10 @@ export function randomizePattern(random = Math.random, density = 0.22) {
     "aah", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
     "whistle", "whistle", "grunt", "moan", "lala", "pbpb", "slurp",
     "hiccup", "hiccup", "eef", "eef", "snare", "snare", "snap",
-    "tomlo", "tomlo", "tomhi", "tomhi", "braap", "braap",
+    "tomlo", "tomlo", "tomhi", "tomhi", "braap", "braap", "kiss", "brush",
+    "huff", "waow", "whoop", "doodoo", "llll", "purr",
+    "klikklak", "klikklak", "rrrr", "lrroll", "lalatrip", "hiccuplong",
+    "zzzz", "zzzz", "ehyeah", "ehyeah",
   ]);
   for (let step = 0; step < HICCUP_HEAD_STEP_COUNT; step += 1) {
     const downbeatBias = step % 4 === 0 ? 0.15 : 0;
@@ -1514,8 +1856,6 @@ export function randomizeHiccupHeadState(source = HICCUP_HEAD_DEFAULTS, random =
     eyeClosure: pick("eyeClosure"),
     leftEyeClosure: pick("leftEyeClosure"),
     rightEyeClosure: pick("rightEyeClosure"),
-    leftBrow: pick("leftBrow"),
-    rightBrow: pick("rightBrow"),
     silliness: pick("silliness"),
     decay: pick("decay"),
   }, state);
@@ -1950,16 +2290,17 @@ export function hiccupHeadFormants(source = HICCUP_HEAD_DEFAULTS) {
 
 const SOUND_POSES = Object.freeze({
   bop: freezeSettings({
-    mouthOpening: 0.055, lipRounding: -0.12, lipTension: 0.76,
-    cheekVolume: 0.18, tonguePosition: 0.42,
+    mouthOpening: 0.035, lipRounding: -0.26, lipTension: 1.16,
+    cheekVolume: 0.12, cheekTension: 1.26, tonguePosition: 0.72,
+    tractLengthM: 0.13,
   }),
   boop: freezeSettings({
     mouthOpening: 0.07, lipRounding: 1.25, lipTension: 0.52,
     cheekVolume: 0.5, tonguePosition: -0.12,
   }),
   pop: freezeSettings({
-    mouthOpening: 0.025, lipRounding: 0.42, cheekVolume: 1.28,
-    cheekTension: 0.88, tonguePosition: 0.24,
+    mouthOpening: 0.035, lipRounding: 0.26, cheekVolume: 0.82,
+    cheekTension: 1.24, tonguePosition: 0.64, tractLengthM: 0.13,
   }),
   tlik: freezeSettings({
     mouthOpening: 0.36, lipRounding: -0.08, tonguePosition: 1.2,
@@ -1974,8 +2315,8 @@ const SOUND_POSES = Object.freeze({
     cheekVolume: 0.55, tonguePosition: -0.18, tongueCurl: 0.84,
   }),
   slap: freezeSettings({
-    mouthOpening: 0.28, lipRounding: -0.18, cheekVolume: 1.44,
-    cheekTension: 1.08, tonguePosition: 0.12,
+    mouthOpening: 0.46, lipRounding: -0.12, cheekVolume: 1.64,
+    cheekTension: 0.32, tonguePosition: -0.08, tractLengthM: 0.24,
   }),
   pff: freezeSettings({
     mouthOpening: 0.1, lipRounding: 0.48, lipTension: -0.18,
@@ -1987,8 +2328,9 @@ const SOUND_POSES = Object.freeze({
     tongueCurl: -0.08, tractLengthM: 0.28,
   }),
   smack: freezeSettings({
-    mouthOpening: 0.34, lipRounding: -0.24, lipTension: 0.16,
-    cheekVolume: 1.54, cheekTension: 1.14, tonguePosition: 0.04,
+    mouthOpening: 0.18, lipRounding: -0.32, lipTension: 1.18,
+    cheekVolume: 0.64, cheekTension: 1.46, tonguePosition: 0.74,
+    tongueCurl: 0.62, tractLengthM: 0.11,
   }),
   hee: freezeSettings({
     mouthOpening: 0.16, lipRounding: -0.2, lipTension: 0.72,
@@ -2005,6 +2347,11 @@ const SOUND_POSES = Object.freeze({
   mwah: freezeSettings({
     mouthOpening: 0.045, lipRounding: 1.7, lipTension: 0.22,
     cheekVolume: 1.06, cheekTension: 0.5, tonguePosition: 0.08,
+  }),
+  kiss: freezeSettings({
+    mouthOpening: 0.018, lipRounding: 1.78, lipTension: 1.08,
+    cheekVolume: 0.42, cheekTension: 1.18, tonguePosition: 0.58,
+    tongueCurl: 0.22, tractLengthM: 0.12,
   }),
   drr: freezeSettings({
     mouthOpening: 0.32, lipRounding: 0.04, lipTension: 0.28,
@@ -2061,9 +2408,9 @@ const SOUND_POSES = Object.freeze({
     tongueCurl: 1.08, tongueOut: 0.04, nasalMix: 0.015,
   }),
   grunt: freezeSettings({
-    mouthOpening: 0.46, lipRounding: 0.42, lipTension: -0.14,
+    mouthOpening: 0.4, lipRounding: 0.34, lipTension: -0.14,
     cheekVolume: 0.9, cheekTension: 0.02, tonguePosition: -0.28,
-    tongueCurl: -0.12, tongueOut: 0.08, tractLengthM: 0.31,
+    tongueCurl: -0.12, tongueOut: 0.08, tractLengthM: 0.31, nasalMix: 0.78,
   }),
   moan: freezeSettings({
     mouthOpening: 0.82, lipRounding: 0.76, lipTension: -0.08,
@@ -2107,7 +2454,7 @@ const SOUND_POSES = Object.freeze({
   }),
   tomlo: freezeSettings({
     mouthOpening: 0.3, lipRounding: 1.05, lipTension: 0.08,
-    cheekVolume: 1.52, cheekTension: -0.12, tonguePosition: -0.35,
+    cheekVolume: 1.52, cheekTension: 0.65, tonguePosition: -0.35,
     tongueCurl: -0.15, tongueOut: 0.04, tractLengthM: 0.34,
   }),
   tomhi: freezeSettings({
@@ -2120,14 +2467,89 @@ const SOUND_POSES = Object.freeze({
     cheekVolume: 1.32, cheekTension: -0.16, tonguePosition: -0.15,
     tongueCurl: -0.12, tongueOut: 0.04, tractLengthM: 0.28,
   }),
+  brush: freezeSettings({
+    mouthOpening: 0.78, lipRounding: -0.16, lipTension: 0.42,
+    cheekVolume: 0.5, cheekTension: 0.58, tonguePosition: 0.22,
+    tongueCurl: 0.08, tongueOut: 0.02, tractLengthM: 0.17,
+  }),
+  huff: freezeSettings({
+    mouthOpening: 0.24, lipRounding: 0.82, lipTension: 0.18,
+    cheekVolume: 0.86, cheekTension: 0.12, tonguePosition: 0.7,
+    tongueCurl: 0.34, tongueOut: 0.04, tractLengthM: 0.19,
+  }),
+  waow: freezeSettings({
+    mouthOpening: 1.16, lipRounding: 0.28, lipTension: 0.3,
+    cheekVolume: 0.86, cheekTension: 0.18, tonguePosition: -0.3,
+    tongueCurl: -0.18, tongueOut: 0.04, tractLengthM: 0.18,
+  }),
+  whoop: freezeSettings({
+    mouthOpening: 0.86, lipRounding: 0.62, lipTension: 0.58,
+    cheekVolume: 0.6, cheekTension: 0.48, tonguePosition: 0.16,
+    tongueCurl: -0.04, tongueOut: 0.02, tractLengthM: 0.17,
+  }),
+  doodoo: freezeSettings({
+    mouthOpening: 0.2, lipRounding: 1.56, lipTension: 0.5,
+    cheekVolume: 0.62, cheekTension: 0.38, tonguePosition: 0.42,
+    tongueCurl: 0.16, tongueOut: 0.02, tractLengthM: 0.165,
+  }),
+  llll: freezeSettings({
+    mouthOpening: 0.58, lipRounding: -0.04, lipTension: 0.3,
+    cheekVolume: 1.34, cheekTension: 0.22, tonguePosition: 1.28,
+    tongueCurl: 0.94, tongueOut: 0.38, tractLengthM: 0.19,
+  }),
+  purr: freezeSettings({
+    mouthOpening: 0.46, lipRounding: 0.7, lipTension: -0.22,
+    cheekVolume: 1.18, cheekTension: -0.14, tonguePosition: -0.2,
+    tongueCurl: 0.42, tongueOut: 0.02, tractLengthM: 0.29,
+    nasalMix: 0.42,
+  }),
+  klikklak: freezeSettings({
+    mouthOpening: 0.42, lipRounding: -0.12, lipTension: 0.64,
+    cheekVolume: 0.46, cheekTension: 1.14, tonguePosition: 1.34,
+    tongueCurl: 1.48, tongueOut: 0.18, tractLengthM: 0.145,
+  }),
+  rrrr: freezeSettings({
+    mouthOpening: 0.38, lipRounding: 0.02, lipTension: 0.24,
+    cheekVolume: 0.62, cheekTension: 0.38, tonguePosition: 1.22,
+    tongueCurl: 1.48, tongueOut: 0.24, tractLengthM: 0.175,
+  }),
+  lrroll: freezeSettings({
+    mouthOpening: 0.58, lipRounding: -0.04, lipTension: 0.28,
+    cheekVolume: 1.02, cheekTension: 0.3, tonguePosition: 1.26,
+    tongueCurl: 1.14, tongueOut: 0.42, tractLengthM: 0.185,
+  }),
+  lalatrip: freezeSettings({
+    mouthOpening: 0.78, lipRounding: -0.12, lipTension: 0.26,
+    cheekVolume: 0.72, cheekTension: 0.26, tonguePosition: 1.22,
+    tongueCurl: 0.92, tongueOut: 0.74, tractLengthM: 0.18,
+  }),
+  hiccuplong: freezeSettings({
+    mouthOpening: 0.68, lipRounding: 0.2, lipTension: 0.3,
+    cheekVolume: 0.9, cheekTension: 0.24, tonguePosition: 0.02,
+    tongueCurl: 0.18, tongueOut: 0.08, tractLengthM: 0.255,
+  }),
+  zzzz: freezeSettings({
+    mouthOpening: 0.22, lipRounding: -0.12, lipTension: 0.64,
+    cheekVolume: 0.42, cheekTension: 0.62, tonguePosition: 1.46,
+    tongueCurl: 1.02, tongueOut: 0.08, tractLengthM: 0.165,
+  }),
+  ehyeah: freezeSettings({
+    mouthOpening: 0.94, lipRounding: -0.14, lipTension: 0.56,
+    cheekVolume: 0.58, cheekTension: 0.46, tonguePosition: 0.48,
+    tongueCurl: 0.08, tongueOut: 0.04, tractLengthM: 0.165,
+  }),
 });
 
 // Canonical Pink Trombone vowel geometry. These acoustic keyframes move the
 // actual tube independently from the more exaggerated face illustration.
 const SOUND_ACOUSTIC_POSES = Object.freeze({
+  bop: freezeSettings({ tongueBodyIndex: 14.2, tongueBodyDiameterCm: 2.36, lipDiameterCm: 2.45 }),
+  boop: freezeSettings({ tongueBodyIndex: 22.6, tongueBodyDiameterCm: 2.08, lipDiameterCm: 0.62 }),
   hee: freezeSettings({ tongueBodyIndex: 27.4, tongueBodyDiameterCm: 2.25, lipDiameterCm: 3 }),
   haw: freezeSettings({ tongueBodyIndex: 13, tongueBodyDiameterCm: 2.4, lipDiameterCm: 3 }),
   doo: freezeSettings({ tongueBodyIndex: 23, tongueBodyDiameterCm: 2.1, lipDiameterCm: 0.5 }),
+  mwah: freezeSettings({ tongueBodyIndex: 13, tongueBodyDiameterCm: 2.4, lipDiameterCm: 2.8 }),
+  kiss: freezeSettings({ tongueBodyIndex: 25.5, tongueBodyDiameterCm: 1.88, lipDiameterCm: 0.28 }),
   aah: freezeSettings({ tongueBodyIndex: 13, tongueBodyDiameterCm: 2.4, lipDiameterCm: 3 }),
   ooh: freezeSettings({ tongueBodyIndex: 17.7, tongueBodyDiameterCm: 2.05, lipDiameterCm: 0.95 }),
   wail: freezeSettings({ tongueBodyIndex: 27.4, tongueBodyDiameterCm: 2.25, lipDiameterCm: 3 }),
@@ -2136,7 +2558,7 @@ const SOUND_ACOUSTIC_POSES = Object.freeze({
   hum: freezeSettings({ tongueBodyIndex: 23, tongueBodyDiameterCm: 2.1, lipDiameterCm: 0.5 }),
   rattle: freezeSettings({ tongueBodyIndex: 13, tongueBodyDiameterCm: 2.4, lipDiameterCm: 2.6 }),
   whistle: freezeSettings({ tongueBodyIndex: 26.2, tongueBodyDiameterCm: 1.7, lipDiameterCm: 0.42 }),
-  grunt: freezeSettings({ tongueBodyIndex: 14, tongueBodyDiameterCm: 2.3, lipDiameterCm: 2.1 }),
+  grunt: freezeSettings({ tongueBodyIndex: 14, tongueBodyDiameterCm: 0.34, lipDiameterCm: 2.1 }),
   moan: freezeSettings({ tongueBodyIndex: 17.7, tongueBodyDiameterCm: 2.05, lipDiameterCm: 1.7 }),
   lala: freezeSettings({ tongueBodyIndex: 27.4, tongueBodyDiameterCm: 1.8, lipDiameterCm: 2.4 }),
   pbpb: freezeSettings({ tongueBodyIndex: 20, tongueBodyDiameterCm: 2.2, lipDiameterCm: 0.34 }),
@@ -2148,6 +2570,47 @@ const SOUND_ACOUSTIC_POSES = Object.freeze({
   tomlo: freezeSettings({ tongueBodyIndex: 14, tongueBodyDiameterCm: 2.45, lipDiameterCm: 1.6 }),
   tomhi: freezeSettings({ tongueBodyIndex: 21, tongueBodyDiameterCm: 2.15, lipDiameterCm: 1.4 }),
   braap: freezeSettings({ tongueBodyIndex: 17, tongueBodyDiameterCm: 2.2, lipDiameterCm: 0.34 }),
+  huff: freezeSettings({ tongueBodyIndex: 24.8, tongueBodyDiameterCm: 1.76, lipDiameterCm: 0.72 }),
+  waow: freezeSettings({ tongueBodyIndex: 13, tongueBodyDiameterCm: 2.4, lipDiameterCm: 3 }),
+  whoop: freezeSettings({ tongueBodyIndex: 16.4, tongueBodyDiameterCm: 2.34, lipDiameterCm: 2.5 }),
+  doodoo: freezeSettings({ tongueBodyIndex: 23, tongueBodyDiameterCm: 2.1, lipDiameterCm: 0.5 }),
+  llll: freezeSettings({ tongueBodyIndex: 28.6, tongueBodyDiameterCm: 1.56, lipDiameterCm: 2.35 }),
+  purr: freezeSettings({ tongueBodyIndex: 16.8, tongueBodyDiameterCm: 2.1, lipDiameterCm: 1.35 }),
+  klikklak: freezeSettings({ tongueBodyIndex: 28.8, tongueBodyDiameterCm: 1.48, lipDiameterCm: 1.9 }),
+  rrrr: freezeSettings({ tongueBodyIndex: 27.2, tongueBodyDiameterCm: 1.72, lipDiameterCm: 2.25 }),
+  lrroll: freezeSettings({ tongueBodyIndex: 27.8, tongueBodyDiameterCm: 1.62, lipDiameterCm: 2.35 }),
+  lalatrip: freezeSettings({ tongueBodyIndex: 27.4, tongueBodyDiameterCm: 1.8, lipDiameterCm: 2.7 }),
+  hiccuplong: freezeSettings({ tongueBodyIndex: 15.8, tongueBodyDiameterCm: 1.96, lipDiameterCm: 2.3 }),
+  zzzz: freezeSettings({ tongueBodyIndex: 27.8, tongueBodyDiameterCm: 1.52, lipDiameterCm: 2.35 }),
+  ehyeah: freezeSettings({ tongueBodyIndex: 20, tongueBodyDiameterCm: 3.35, lipDiameterCm: 3 }),
+});
+
+// A second Pink-style vowel target is interpolated inside one gesture. These
+// are real tube keyframes, not post-filter formants.
+const SOUND_ACOUSTIC_POSE_ENDS = Object.freeze({
+  mwah: freezeSettings({ tongueBodyIndex: 18.2, tongueBodyDiameterCm: 2.08, lipDiameterCm: 0.82 }),
+  kiss: freezeSettings({ tongueBodyIndex: 20.4, tongueBodyDiameterCm: 2.12, lipDiameterCm: 0.72 }),
+  waow: freezeSettings({ tongueBodyIndex: 23, tongueBodyDiameterCm: 2.1, lipDiameterCm: 0.42 }),
+  whoop: freezeSettings({ tongueBodyIndex: 22.4, tongueBodyDiameterCm: 2.08, lipDiameterCm: 0.66 }),
+  rrrr: freezeSettings({ tongueBodyIndex: 15.2, tongueBodyDiameterCm: 2.3, lipDiameterCm: 2.75 }),
+  lrroll: freezeSettings({ tongueBodyIndex: 18.2, tongueBodyDiameterCm: 2.12, lipDiameterCm: 1.18 }),
+  lalatrip: freezeSettings({ tongueBodyIndex: 13, tongueBodyDiameterCm: 2.4, lipDiameterCm: 3 }),
+  ehyeah: freezeSettings({ tongueBodyIndex: 13, tongueBodyDiameterCm: 2.4, lipDiameterCm: 3 }),
+});
+
+// EH-YEAH needs three real tract targets rather than treating its middle EE
+// as a post-filter color. `vowelMorph` runs 0..1 across EH -> EE -> AH.
+const SOUND_ACOUSTIC_POSE_MIDDLES = Object.freeze({
+  ehyeah: freezeSettings({ tongueBodyIndex: 27.4, tongueBodyDiameterCm: 2.25, lipDiameterCm: 3 }),
+});
+
+const interpolateAcousticPose = (start, end, amount) => ({
+  tongueBodyIndex: start.tongueBodyIndex
+    + (end.tongueBodyIndex - start.tongueBodyIndex) * amount,
+  tongueBodyDiameterCm: start.tongueBodyDiameterCm
+    + (end.tongueBodyDiameterCm - start.tongueBodyDiameterCm) * amount,
+  lipDiameterCm: start.lipDiameterCm
+    + (end.lipDiameterCm - start.lipDiameterCm) * amount,
 });
 
 const freezeGestureCurve = (points) => Object.freeze(points.map(([phase, value]) => (
@@ -2173,9 +2636,11 @@ const GESTURE_CURVE_DEFAULTS = Object.freeze({
   aspiration: Object.freeze([[0, 0], [1, 0]]),
   lipFlutter: Object.freeze([[0, 0], [1, 0]]),
   tongueTrill: Object.freeze([[0, 0], [1, 0]]),
+  lateralBypass: Object.freeze([[0, 0], [1, 0]]),
   tongueExtension: Object.freeze([[0, 0], [1, 0]]),
   throatRattle: Object.freeze([[0, 0], [1, 0]]),
   registerLift: Object.freeze([[0, 0], [1, 0]]),
+  vowelMorph: Object.freeze([[0, 0], [1, 0]]),
   toothJet: Object.freeze([[0, 0], [1, 0]]),
   breathDirection: Object.freeze([[0, 0], [1, 0]]),
   diaphragmCatch: Object.freeze([[0, 0], [1, 0]]),
@@ -2196,17 +2661,17 @@ const defineHiccupHeadGesture = (id, label, curves) => Object.freeze({
  */
 export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
   bop: defineHiccupHeadGesture("bop", "bilabial kick", {
-    poseMix: [[0, 0], [0.045, 1], [0.7, 1], [1, 0]],
-    pressure: [[0, 0.12], [0.08, 0.74], [0.29, 1], [0.36, 0.42], [0.7, 0.08], [1, 0]],
-    lipClosure: [[0, 0.9], [0.05, 1], [0.3, 1], [0.355, 0], [1, 0]],
-    lipImpulse: [[0, 0], [0.3, 0], [0.35, 1], [0.43, 0.08], [1, 0]],
+    poseMix: [[0, 0], [0.035, 1], [0.58, 1], [1, 0]],
+    pressure: [[0, 0.1], [0.07, 0.82], [0.24, 1], [0.285, 0.58], [0.62, 0.42], [0.84, 0.16], [0.96, 0], [1, 0]],
+    lipClosure: [[0, 0.92], [0.04, 1], [0.245, 1], [0.282, 0], [1, 0]],
+    lipImpulse: [[0, 0], [0.24, 0], [0.28, 1], [0.35, 0], [1, 0]],
     constrictionPosition: [[0, 0.995], [1, 0.995]],
-    constriction: [[0, 0.82], [0.05, 1], [0.3, 1], [0.355, 0], [1, 0]],
-    turbulence: [[0, 0], [0.31, 0], [0.355, 0.62], [0.48, 0.06], [1, 0]],
-    cheekImpulse: [[0, 0.12], [0.3, 0.3], [0.36, -0.16], [0.52, 0], [1, 0]],
-    jawImpulse: [[0, 0], [0.35, 0.2], [0.5, 0], [1, 0]],
-    voicing: [[0, 0], [0.34, 0.28], [0.64, 0.08], [1, 0]],
-    aspiration: [[0, 0.05], [0.35, 0.34], [0.54, 0], [1, 0]],
+    constriction: [[0, 0.84], [0.04, 1], [0.245, 1], [0.282, 0], [1, 0]],
+    turbulence: [[0, 0], [0.25, 0], [0.282, 0.94], [0.38, 0.34], [0.49, 0.02], [1, 0]],
+    cheekImpulse: [[0, 0.08], [0.24, 0.22], [0.285, -0.1], [0.42, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.28, 0.12], [0.4, 0], [1, 0]],
+    voicing: [[0, 0], [0.275, 0.2], [0.34, 0.74], [0.72, 0.58], [0.9, 0.08], [1, 0]],
+    aspiration: [[0, 0.02], [0.28, 0.54], [0.42, 0.2], [0.82, 0.06], [0.94, 0], [1, 0]],
   }),
   boop: defineHiccupHeadGesture("boop", "rounded lip kick", {
     poseMix: [[0, 0], [0.055, 1], [0.82, 1], [1, 0]],
@@ -2222,17 +2687,17 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
     aspiration: [[0, 0.03], [0.44, 0.22], [0.63, 0], [1, 0]],
   }),
   pop: defineHiccupHeadGesture("pop", "inward cheek pop", {
-    poseMix: [[0, 0], [0.04, 1], [0.72, 1], [1, 0]],
-    pressure: [[0, 0.05], [0.18, 0.32], [0.36, 0.54], [0.44, 0.18], [0.72, 0.04], [1, 0]],
-    lipClosure: [[0, 0.72], [0.08, 0.92], [0.37, 0.92], [0.42, 0], [1, 0]],
-    lipImpulse: [[0, 0], [0.36, 0], [0.415, 0.74], [0.52, 0], [1, 0]],
+    poseMix: [[0, 0], [0.04, 1], [0.82, 1], [1, 0]],
+    pressure: [[0, 0.03], [0.18, 0.3], [0.36, 0.54], [0.43, 0.3], [0.62, 0.16], [0.82, 0.02], [1, 0]],
+    lipClosure: [[0, 0.76], [0.08, 0.94], [0.37, 0.94], [0.425, 0], [1, 0]],
+    lipImpulse: [[0, 0], [0.36, 0], [0.42, 0.82], [0.58, 0.1], [1, 0]],
     constrictionPosition: [[0, 0.965], [1, 0.965]],
     constriction: [[0, 0.68], [0.1, 0.9], [0.37, 0.9], [0.42, 0], [1, 0]],
-    turbulence: [[0, 0], [0.38, 0], [0.42, 0.35], [0.54, 0], [1, 0]],
+    turbulence: [[0, 0], [0.38, 0], [0.425, 0.72], [0.53, 0.34], [0.68, 0.03], [1, 0]],
     suction: [[0, 0.12], [0.16, 0.62], [0.35, 1], [0.43, 0], [1, 0]],
-    cheekImpulse: [[0, -0.08], [0.34, -0.72], [0.405, -1], [0.46, 0.66], [0.64, 0], [1, 0]],
-    jawImpulse: [[0, 0], [0.42, 0.12], [0.56, 0], [1, 0]],
-    aspiration: [[0, 0], [0.42, 0.18], [0.55, 0], [1, 0]],
+    cheekImpulse: [[0, -0.08], [0.32, -0.7], [0.405, -1], [0.46, 0.34], [0.62, 0.18], [0.82, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.42, 0.1], [0.68, 0], [1, 0]],
+    aspiration: [[0, 0], [0.42, 0.38], [0.56, 0.18], [0.7, 0], [1, 0]],
   }),
   tlik: defineHiccupHeadGesture("tlik", "palatal tongue click", {
     poseMix: [[0, 0], [0.035, 1], [0.75, 1], [1, 0]],
@@ -2282,12 +2747,12 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
     aspiration: [[0, 0.24], [0.1, 0.76], [0.3, 0.58], [0.44, 0.12], [0.72, 0], [0.79, 0.56], [0.9, 0], [1, 0]],
   }),
   slap: defineHiccupHeadGesture("slap", "face-pat impulse", {
-    poseMix: [[0, 0], [0.025, 1], [0.62, 1], [1, 0]],
-    pressure: [[0, 0], [0.09, 0.12], [0.3, 0.04], [1, 0]],
-    turbulence: [[0, 0], [0.075, 0.34], [0.18, 0.06], [1, 0]],
-    cheekImpulse: [[0, 0], [0.055, -0.18], [0.09, -1], [0.15, 0.7], [0.32, -0.2], [0.58, 0], [1, 0]],
-    jawImpulse: [[0, 0], [0.09, 0.42], [0.23, -0.1], [0.5, 0], [1, 0]],
-    aspiration: [[0, 0], [0.08, 0.22], [0.2, 0], [1, 0]],
+    poseMix: [[0, 0], [0.025, 1], [0.84, 1], [1, 0]],
+    pressure: [[0, 0], [0.11, 0.11], [0.52, 0.035], [1, 0]],
+    turbulence: [[0, 0], [0.09, 0.18], [0.34, 0.06], [0.62, 0.02], [1, 0]],
+    cheekImpulse: [[0, 0], [0.07, -0.24], [0.12, -1], [0.22, 0.72], [0.46, -0.34], [0.7, 0.16], [0.86, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.12, 0.5], [0.31, -0.14], [0.62, 0.08], [0.86, 0], [1, 0]],
+    aspiration: [[0, 0], [0.1, 0.15], [0.38, 0.03], [0.72, 0], [1, 0]],
   }),
   pff: defineHiccupHeadGesture("pff", "breathy lip flutter", {
     poseMix: [[0, 0], [0.09, 0.42], [0.2, 1], [0.78, 1], [1, 0]],
@@ -2296,11 +2761,11 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
     lipImpulse: [[0, 0], [0.18, 0.32], [0.31, 0.06], [0.43, 0.28], [0.56, 0.05], [0.68, 0.24], [0.82, 0], [1, 0]],
     constrictionPosition: [[0, 0.995], [1, 0.995]],
     constriction: [[0, 0.82], [0.08, 0.94], [0.2, 0.48], [0.31, 0.1], [0.43, 0.52], [0.56, 0.08], [0.69, 0.44], [0.82, 0.04], [0.96, 0], [1, 0]],
-    turbulence: [[0, 0], [0.12, 0.04], [0.24, 0.2], [0.74, 0.16], [0.9, 0.04], [1, 0]],
+    turbulence: [[0, 0], [0.12, 0.06], [0.24, 0.48], [0.74, 0.38], [0.9, 0.05], [1, 0]],
     cheekImpulse: [[0, 0], [0.18, 0.22], [0.34, 0.12], [0.52, 0.18], [0.78, 0.08], [0.94, 0], [1, 0]],
     jawImpulse: [[0, 0], [0.18, 0.1], [0.54, 0.06], [0.86, 0], [1, 0]],
     voicing: [[0, 0], [0.12, 0.18], [0.3, 0.34], [0.76, 0.28], [0.92, 0], [1, 0]],
-    aspiration: [[0, 0], [0.1, 0.08], [0.24, 0.3], [0.74, 0.24], [0.92, 0.03], [1, 0]],
+    aspiration: [[0, 0], [0.1, 0.1], [0.24, 0.5], [0.74, 0.42], [0.92, 0.03], [1, 0]],
     lipFlutter: [[0, 0], [0.08, 0.18], [0.2, 0.82], [0.76, 0.76], [0.92, 0.04], [1, 0]],
   }),
   kick: defineHiccupHeadGesture("kick", "low-pressure body kick", {
@@ -2312,12 +2777,12 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
     aspiration: [[0, 0], [0.06, 0.1], [0.18, 0], [1, 0]],
   }),
   smack: defineHiccupHeadGesture("smack", "opposite-hand cheek impulse", {
-    poseMix: [[0, 0], [0.018, 1], [0.64, 1], [1, 0]],
-    pressure: [[0, 0], [0.09, 0.08], [0.28, 0.025], [1, 0]],
-    turbulence: [[0, 0], [0.06, 0.42], [0.16, 0.08], [1, 0]],
-    cheekImpulse: [[0, 0], [0.04, -0.14], [0.075, 1], [0.14, -0.78], [0.3, 0.24], [0.62, 0], [1, 0]],
-    jawImpulse: [[0, 0], [0.075, -0.46], [0.2, 0.14], [0.5, 0], [1, 0]],
-    aspiration: [[0, 0], [0.065, 0.18], [0.17, 0], [1, 0]],
+    poseMix: [[0, 0], [0.014, 1], [0.54, 1], [1, 0]],
+    pressure: [[0, 0], [0.055, 0.055], [0.2, 0.01], [1, 0]],
+    turbulence: [[0, 0], [0.045, 0.78], [0.095, 0.12], [0.125, 0.62], [0.19, 0.03], [1, 0]],
+    cheekImpulse: [[0, 0], [0.028, -0.1], [0.052, 1], [0.088, -0.86], [0.125, 0.66], [0.2, -0.22], [0.42, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.052, -0.3], [0.13, 0.08], [0.34, 0], [1, 0]],
+    aspiration: [[0, 0], [0.045, 0.28], [0.16, 0], [1, 0]],
   }),
   hee: defineHiccupHeadGesture("hee", "ingressive HEE", {
     poseMix: [[0, 0], [0.025, 1], [0.84, 1], [1, 0]],
@@ -2352,18 +2817,34 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
     aspiration: [[0, 0.06], [0.05, 0.18], [0.82, 0.1], [0.94, 0], [1, 0]],
   }),
   mwah: defineHiccupHeadGesture("mwah", "sealed suction kiss", {
-    poseMix: [[0, 0], [0.03, 1], [0.82, 1], [1, 0]],
-    pressure: [[0, 0.02], [0.2, 0.12], [0.46, 0.24], [0.55, 0.62], [0.76, 0.34], [0.9, 0.04], [1, 0]],
-    lipClosure: [[0, 0.82], [0.08, 1], [0.48, 1], [0.54, 0], [1, 0]],
-    lipImpulse: [[0, 0], [0.48, 0], [0.53, 1], [0.64, 0.08], [1, 0]],
+    poseMix: [[0, 0], [0.03, 1], [0.9, 1], [1, 0]],
+    pressure: [[0, 0.02], [0.18, 0.12], [0.4, 0.25], [0.48, 0.7], [0.78, 0.62], [0.92, 0.05], [1, 0]],
+    lipClosure: [[0, 0.82], [0.08, 1], [0.39, 1], [0.455, 0], [1, 0]],
+    lipImpulse: [[0, 0], [0.39, 0], [0.45, 0.82], [0.58, 0.05], [1, 0]],
     constrictionPosition: [[0, 0.995], [1, 0.995]],
-    constriction: [[0, 0.76], [0.08, 1], [0.48, 1], [0.54, 0], [1, 0]],
-    turbulence: [[0, 0], [0.48, 0], [0.54, 0.38], [0.68, 0.04], [1, 0]],
-    suction: [[0, 0.16], [0.12, 0.68], [0.42, 1], [0.54, 0], [1, 0]],
-    cheekImpulse: [[0, -0.08], [0.38, -0.58], [0.5, -0.88], [0.56, 0.62], [0.74, 0], [1, 0]],
-    jawImpulse: [[0, 0], [0.52, 0.32], [0.68, 0.08], [0.82, 0], [1, 0]],
-    voicing: [[0, 0], [0.53, 0.62], [0.78, 0.42], [0.9, 0], [1, 0]],
-    aspiration: [[0, 0], [0.52, 0.2], [0.68, 0], [1, 0]],
+    constriction: [[0, 0.76], [0.08, 1], [0.39, 1], [0.455, 0], [1, 0]],
+    turbulence: [[0, 0], [0.4, 0], [0.46, 0.28], [0.62, 0.03], [1, 0]],
+    suction: [[0, 0.16], [0.12, 0.68], [0.36, 1], [0.455, 0], [1, 0]],
+    cheekImpulse: [[0, -0.08], [0.32, -0.58], [0.41, -0.88], [0.48, 0.48], [0.74, 0.08], [0.9, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.45, 0.48], [0.78, 0.32], [0.92, 0], [1, 0]],
+    voicing: [[0, 0], [0.43, 0.48], [0.54, 0.92], [0.82, 0.78], [0.93, 0], [1, 0]],
+    aspiration: [[0, 0], [0.45, 0.18], [0.62, 0.08], [0.9, 0], [1, 0]],
+    vowelMorph: [[0, 0], [0.44, 0], [0.68, 0.72], [0.9, 1], [1, 1]],
+  }),
+  kiss: defineHiccupHeadGesture("kiss", "wet double lip kiss", {
+    poseMix: [[0, 0], [0.025, 1], [0.88, 1], [1, 0]],
+    pressure: [[0, 0.01], [0.16, 0.12], [0.37, 0.22], [0.46, 0.14], [0.58, 0.18], [0.7, 0.24], [0.79, 0.26], [0.86, 0.58], [0.94, 0.42], [0.985, 0], [1, 0]],
+    lipClosure: [[0, 0.9], [0.06, 1], [0.36, 1], [0.43, 0], [0.56, 0.18], [0.62, 0.9], [0.72, 0.92], [0.77, 0], [1, 0]],
+    lipImpulse: [[0, 0], [0.36, 0], [0.425, 1], [0.52, 0], [0.7, 0], [0.765, 0.62], [0.84, 0], [1, 0]],
+    constrictionPosition: [[0, 0.995], [1, 0.995]],
+    constriction: [[0, 0.88], [0.06, 1], [0.36, 1], [0.43, 0], [0.56, 0.16], [0.62, 0.9], [0.72, 0.92], [0.77, 0], [1, 0]],
+    turbulence: [[0, 0], [0.37, 0], [0.43, 0.78], [0.55, 0.08], [0.7, 0], [0.77, 0.46], [0.88, 0.08], [0.96, 0], [1, 0]],
+    suction: [[0, 0.12], [0.1, 0.7], [0.33, 1], [0.43, 0], [0.57, 0.18], [0.64, 0.72], [0.72, 0.82], [0.77, 0], [1, 0]],
+    cheekImpulse: [[0, -0.04], [0.33, -0.48], [0.42, -0.74], [0.46, 0.34], [0.6, -0.1], [0.71, -0.38], [0.78, 0.24], [0.9, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.43, 0.16], [0.6, 0.04], [0.77, 0.1], [0.84, 0.42], [0.95, 0.2], [1, 0]],
+    voicing: [[0, 0], [0.42, 0.16], [0.54, 0.04], [0.75, 0.14], [0.8, 0.48], [0.87, 0.78], [0.95, 0.52], [0.985, 0], [1, 0]],
+    aspiration: [[0, 0], [0.42, 0.42], [0.58, 0.16], [0.76, 0.4], [0.84, 0.24], [0.95, 0.12], [0.985, 0], [1, 0]],
+    vowelMorph: [[0, 0], [0.76, 0], [0.84, 0.56], [0.96, 1], [1, 1]],
   }),
   drr: defineHiccupHeadGesture("drr", "pressure-driven tongue roll", {
     poseMix: [[0, 0], [0.025, 1], [0.9, 1], [1, 0]],
@@ -2485,18 +2966,18 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
     aspiration: [[0, 0.05], [0.05, 0.5], [0.18, 0.34], [0.88, 0.28], [0.97, 0], [1, 0]],
     toothJet: [[0, 0], [0.03, 0], [0.045, 0.5], [0.14, 1], [0.88, 0.92], [0.96, 0.02], [1, 0]],
   }),
-  grunt: defineHiccupHeadGesture("grunt", "short chest grunt", {
-    poseMix: [[0, 0], [0.04, 1], [0.72, 1], [1, 0]],
-    pressure: [[0, 0.04], [0.05, 0.74], [0.18, 1], [0.56, 0.62], [0.8, 0.08], [1, 0]],
+  grunt: defineHiccupHeadGesture("grunt", "velar nasal chest grunt", {
+    poseMix: [[0, 0], [0.04, 1], [0.82, 1], [1, 0]],
+    pressure: [[0, 0.04], [0.05, 0.74], [0.18, 1], [0.66, 0.72], [0.86, 0.08], [1, 0]],
     constrictionPosition: [[0, 0.18], [1, 0.22]],
-    constriction: [[0, 0.18], [0.08, 0.56], [0.58, 0.48], [0.82, 0], [1, 0]],
-    velum: [[0, 0.08], [0.14, 0.26], [0.68, 0.2], [1, 0.06]],
-    turbulence: [[0, 0], [0.08, 0.1], [0.62, 0.08], [0.82, 0], [1, 0]],
+    constriction: [[0, 0.42], [0.08, 0.96], [0.58, 0.9], [0.72, 0.5], [0.86, 0], [1, 0]],
+    velum: [[0, 0.42], [0.1, 0.94], [0.62, 0.88], [0.8, 0.34], [1, 0.08]],
+    turbulence: [[0, 0], [0.08, 0.1], [0.72, 0.08], [0.86, 0], [1, 0]],
     cheekImpulse: [[0, 0], [0.08, 0.22], [0.42, 0.1], [0.76, 0], [1, 0]],
-    jawImpulse: [[0, -0.04], [0.08, 0.34], [0.58, 0.18], [0.82, 0], [1, 0]],
-    voicing: [[0, 0], [0.035, 0.68], [0.14, 1], [0.58, 0.72], [0.82, 0], [1, 0]],
-    aspiration: [[0, 0.02], [0.06, 0.16], [0.58, 0.1], [0.82, 0], [1, 0]],
-    throatRattle: [[0, 0], [0.04, 0.48], [0.16, 0.84], [0.56, 0.56], [0.8, 0], [1, 0]],
+    jawImpulse: [[0, -0.04], [0.08, 0.34], [0.7, 0.18], [0.86, 0], [1, 0]],
+    voicing: [[0, 0], [0.035, 0.68], [0.14, 1], [0.7, 0.78], [0.86, 0], [1, 0]],
+    aspiration: [[0, 0.02], [0.06, 0.16], [0.7, 0.1], [0.86, 0], [1, 0]],
+    throatRattle: [[0, 0], [0.04, 0.48], [0.16, 0.84], [0.68, 0.62], [0.84, 0], [1, 0]],
   }),
   moan: defineHiccupHeadGesture("moan", "open sliding moan", {
     poseMix: [[0, 0], [0.08, 0.62], [0.2, 1], [0.9, 1], [1, 0]],
@@ -2512,16 +2993,16 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
   }),
   lala: defineHiccupHeadGesture("lala", "rolling lateral LA voice", {
     poseMix: [[0, 0], [0.04, 1], [0.92, 1], [1, 0]],
-    pressure: [[0, 0.04], [0.06, 0.66], [0.18, 0.9], [0.86, 0.78], [0.96, 0], [1, 0]],
-    tongueContact: [[0, 0.08], [0.1, 0.66], [0.2, 0.08], [0.31, 0.7], [0.42, 0.08], [0.54, 0.68], [0.65, 0.06], [0.77, 0.64], [0.88, 0.04], [1, 0]],
+    pressure: [[0, 0.04], [0.06, 0.66], [0.1, 0.92], [0.2, 0.1], [0.31, 0.9], [0.42, 0.1], [0.54, 0.88], [0.65, 0.1], [0.77, 0.86], [0.88, 0.08], [0.96, 0], [1, 0]],
+    tongueContact: [[0, 0.02], [0.1, 0.92], [0.2, 0.02], [0.31, 0.94], [0.42, 0.02], [0.54, 0.92], [0.65, 0.02], [0.77, 0.9], [0.88, 0.02], [1, 0]],
     constrictionPosition: [[0, 0.82], [1, 0.88]],
     constriction: [[0, 0.06], [0.1, 0.46], [0.2, 0.1], [0.31, 0.5], [0.42, 0.09], [0.54, 0.47], [0.65, 0.08], [0.77, 0.44], [0.9, 0], [1, 0]],
     velum: [[0, 0.05], [0.16, 0.12], [0.86, 0.1], [1, 0.04]],
     turbulence: [[0, 0], [0.16, 0.08], [0.86, 0.06], [0.96, 0], [1, 0]],
     jawImpulse: [[0, 0], [0.08, 0.42], [0.88, 0.36], [0.96, 0], [1, 0]],
-    voicing: [[0, 0], [0.04, 0.76], [0.14, 1], [0.86, 0.94], [0.96, 0], [1, 0]],
+    voicing: [[0, 0], [0.04, 0.76], [0.1, 1], [0.2, 0.02], [0.31, 1], [0.42, 0.02], [0.54, 1], [0.65, 0.02], [0.77, 0.98], [0.88, 0.02], [0.96, 0], [1, 0]],
     aspiration: [[0, 0], [0.08, 0.16], [0.86, 0.1], [0.96, 0], [1, 0]],
-    tongueTrill: [[0, 0], [0.08, 0.22], [0.86, 0.18], [0.96, 0], [1, 0]],
+    lateralBypass: [[0, 0.08], [0.1, 0.92], [0.2, 0.08], [0.31, 0.94], [0.42, 0.08], [0.54, 0.92], [0.65, 0.08], [0.77, 0.9], [0.9, 0.08], [1, 0]],
     tongueExtension: [[0, 0], [0.06, 0.58], [0.18, 0.92], [0.86, 0.82], [0.97, 0], [1, 0]],
   }),
   pbpb: defineHiccupHeadGesture("pbpb", "voiced PB-PB lip burble", {
@@ -2557,12 +3038,16 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
     pressure: [[0, 0.04], [0.07, 0.48], [0.2, 0.9], [0.31, 1], [0.355, 0.22], [0.43, 0.88], [0.62, 0.34], [0.8, 0.04], [1, 0]],
     constrictionPosition: [[0, 0.13], [0.32, 0.16], [1, 0.2]],
     constriction: [[0, 0.16], [0.08, 0.64], [0.22, 0.94], [0.315, 1], [0.36, 0.08], [0.48, 0.36], [0.72, 0.06], [1, 0]],
+    // A rear-tongue seal supplies the audible final /k/ that distinguishes a
+    // comic "hic" from a generic diaphragm bump.
+    secondaryConstrictionPosition: [[0, 0.51], [1, 0.51]],
+    secondaryConstriction: [[0, 0], [0.48, 0.06], [0.54, 0.9], [0.63, 1], [0.68, 0], [1, 0]],
     velum: [[0, 0.08], [0.18, 0.22], [0.58, 0.14], [1, 0.05]],
-    turbulence: [[0, 0], [0.31, 0.02], [0.365, 0.24], [0.52, 0.08], [0.76, 0], [1, 0]],
+    turbulence: [[0, 0], [0.31, 0.02], [0.365, 0.36], [0.52, 0.08], [0.64, 0], [0.68, 0.82], [0.79, 0.04], [1, 0]],
     cheekImpulse: [[0, 0], [0.18, -0.12], [0.34, 0.26], [0.52, -0.08], [0.76, 0], [1, 0]],
     jawImpulse: [[0, -0.08], [0.28, -0.14], [0.36, 0.74], [0.52, 0.12], [0.78, 0], [1, 0]],
     voicing: [[0, 0], [0.28, 0.08], [0.345, 0.74], [0.43, 1], [0.58, 0.42], [0.76, 0], [1, 0]],
-    aspiration: [[0, 0], [0.3, 0.04], [0.36, 0.3], [0.5, 0.13], [0.72, 0], [1, 0]],
+    aspiration: [[0, 0], [0.3, 0.04], [0.36, 0.42], [0.5, 0.16], [0.64, 0.02], [0.68, 0.58], [0.78, 0], [1, 0]],
     throatRattle: [[0, 0], [0.27, 0.12], [0.35, 0.58], [0.48, 0.3], [0.68, 0], [1, 0]],
     breathDirection: [[0, -0.28], [0.28, -0.18], [0.33, 0], [0.37, 1], [1, 1]],
     diaphragmCatch: [[0, 0.08], [0.08, 0.62], [0.2, 1], [0.315, 1], [0.36, 0.04], [0.45, 0.5], [0.53, 0], [1, 0]],
@@ -2615,18 +3100,18 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
     poseMix: [[0, 0], [0.025, 1], [0.8, 1], [1, 0]],
     pressure: [[0, 0.02], [0.08, 0.16], [0.24, 0.08], [0.62, 0.02], [1, 0]],
     turbulence: [[0, 0], [0.17, 0.08], [0.28, 0], [1, 0]],
-    cheekImpulse: [[0, 0.04], [0.12, 0.22], [0.18, -1], [0.25, 0.82], [0.48, -0.26], [0.8, 0], [1, 0]],
-    jawImpulse: [[0, -0.12], [0.16, -0.34], [0.23, 0.48], [0.56, 0.08], [0.82, 0], [1, 0]],
-    voicing: [[0, 0], [0.17, 0.34], [0.27, 0.56], [0.52, 0.16], [0.72, 0], [1, 0]],
+    cheekImpulse: [[0, 0.04], [0.12, 0.28], [0.18, -1], [0.25, 0.9], [0.52, -0.3], [0.7, 0.18], [0.88, 0], [1, 0]],
+    jawImpulse: [[0, -0.12], [0.16, -0.34], [0.23, 0.48], [0.68, 0.12], [0.88, 0], [1, 0]],
+    voicing: [[0, 0], [0.16, 0.12], [0.22, 0.28], [0.44, 0.1], [0.58, 0], [1, 0]],
     aspiration: [[0, 0], [0.18, 0.1], [0.34, 0], [1, 0]],
   }),
   tomhi: defineHiccupHeadGesture("tomhi", "high taut cheek tom", {
     poseMix: [[0, 0], [0.02, 1], [0.68, 1], [1, 0]],
     pressure: [[0, 0.02], [0.06, 0.14], [0.2, 0.06], [0.5, 0.01], [1, 0]],
     turbulence: [[0, 0], [0.135, 0.18], [0.27, 0], [1, 0]],
-    cheekImpulse: [[0, 0], [0.09, 0.16], [0.14, -0.92], [0.19, 0.66], [0.28, -0.28], [0.38, 0.18], [0.64, 0], [1, 0]],
-    jawImpulse: [[0, -0.06], [0.13, -0.2], [0.19, 0.3], [0.44, 0], [1, 0]],
-    voicing: [[0, 0], [0.14, 0.2], [0.22, 0.36], [0.42, 0.06], [0.56, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.09, 0.16], [0.14, -0.92], [0.19, 0.66], [0.32, -0.3], [0.48, 0.2], [0.72, 0], [1, 0]],
+    jawImpulse: [[0, -0.06], [0.13, -0.2], [0.19, 0.3], [0.58, 0.04], [0.74, 0], [1, 0]],
+    voicing: [[0, 0], [0.14, 0.2], [0.22, 0.36], [0.5, 0.12], [0.68, 0], [1, 0]],
     aspiration: [[0, 0], [0.15, 0.08], [0.3, 0], [1, 0]],
   }),
   braap: defineHiccupHeadGesture("braap", "voiced loose-lip BRRAP", {
@@ -2642,6 +3127,195 @@ export const HICCUP_HEAD_GESTURE_TRAJECTORIES = Object.freeze({
     voicing: [[0, 0], [0.1, 0.36], [0.18, 0.9], [0.78, 0.84], [0.92, 0], [1, 0]],
     aspiration: [[0, 0], [0.12, 0.12], [0.78, 0.16], [0.92, 0], [1, 0]],
     lipFlutter: [[0, 0], [0.06, 0.24], [0.14, 1], [0.8, 0.94], [0.91, 0.2], [0.97, 0], [1, 0]],
+  }),
+  brush: defineHiccupHeadGesture("brush", "bidirectional tooth gliss", {
+    poseMix: [[0, 0], [0.03, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0], [0.08, 0.06], [0.9, 0.04], [1, 0]],
+    jawImpulse: [[0, 0.12], [0.06, 0.5], [0.92, 0.42], [1, 0]],
+    aspiration: [[0, 0], [0.08, 0.04], [0.9, 0.025], [1, 0]],
+  }),
+  huff: defineHiccupHeadGesture("huff", "warm band-limited exhale", {
+    poseMix: [[0, 0], [0.08, 1], [0.91, 1], [1, 0]],
+    pressure: [[0, 0], [0.08, 0.3], [0.2, 0.86], [0.72, 0.72], [0.9, 0.18], [1, 0]],
+    constrictionPosition: [[0, 0.76], [0.64, 0.82], [1, 0.78]],
+    constriction: [[0, 0.08], [0.12, 0.5], [0.8, 0.46], [0.94, 0], [1, 0]],
+    turbulence: [[0, 0], [0.1, 0.32], [0.24, 0.72], [0.72, 0.62], [0.92, 0.08], [1, 0]],
+    cheekImpulse: [[0, 0], [0.16, 0.12], [0.8, 0.06], [0.94, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.1, 0.2], [0.84, 0.14], [0.95, 0], [1, 0]],
+    voicing: [[0, 0], [0.08, 0.12], [0.22, 0.04], [1, 0]],
+    aspiration: [[0, 0], [0.08, 0.5], [0.2, 1], [0.76, 0.9], [0.94, 0], [1, 0]],
+  }),
+  waow: defineHiccupHeadGesture("waow", "open-to-rounded WAOW diphthong", {
+    poseMix: [[0, 0], [0.04, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0.03], [0.05, 0.62], [0.16, 0.92], [0.84, 0.78], [0.96, 0.04], [1, 0]],
+    velum: [[0, 0.04], [0.14, 0.1], [0.86, 0.07], [1, 0.03]],
+    cheekImpulse: [[0, 0], [0.12, 0.14], [0.78, 0.08], [0.95, 0], [1, 0]],
+    jawImpulse: [[0, 0.06], [0.08, 0.88], [0.48, 0.7], [0.84, 0.28], [0.96, 0], [1, 0]],
+    voicing: [[0, 0], [0.035, 0.58], [0.13, 1], [0.86, 0.9], [0.96, 0.02], [1, 0]],
+    aspiration: [[0, 0.1], [0.04, 0.32], [0.2, 0.14], [0.86, 0.1], [0.96, 0], [1, 0]],
+    registerLift: [[0, 0], [0.18, 0.12], [0.68, -0.08], [1, 0]],
+    vowelMorph: [[0, 0], [0.08, 0.02], [0.22, 0.5], [0.46, 0.9], [0.62, 1], [1, 1]],
+  }),
+  whoop: defineHiccupHeadGesture("whoop", "rising and falling WHOOP", {
+    poseMix: [[0, 0], [0.045, 1], [0.95, 1], [1, 0]],
+    pressure: [[0, 0.03], [0.05, 0.58], [0.16, 0.9], [0.82, 0.82], [0.96, 0.04], [1, 0]],
+    velum: [[0, 0.03], [0.14, 0.08], [0.86, 0.05], [1, 0.02]],
+    cheekImpulse: [[0, 0], [0.12, 0.1], [0.86, 0.05], [0.96, 0], [1, 0]],
+    jawImpulse: [[0, 0.04], [0.08, 0.64], [0.44, 0.74], [0.82, 0.52], [0.96, 0], [1, 0]],
+    voicing: [[0, 0], [0.035, 0.55], [0.13, 1], [0.86, 0.94], [0.96, 0.02], [1, 0]],
+    aspiration: [[0, 0.1], [0.05, 0.3], [0.22, 0.12], [0.86, 0.1], [0.96, 0], [1, 0]],
+    registerLift: [[0, 0], [0.12, 0.04], [0.48, 1], [0.68, 0.92], [0.93, 0], [1, 0]],
+    vowelMorph: [[0, 0], [0.18, 0.08], [0.56, 0.72], [0.86, 1], [1, 1]],
+  }),
+  doodoo: defineHiccupHeadGesture("doodoo", "pitched DOO-DOO phrase", {
+    poseMix: [[0, 0], [0.035, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0.02], [0.04, 0.62], [0.12, 0.9], [0.39, 0.78], [0.46, 0.04], [0.53, 0.68], [0.62, 0.94], [0.88, 0.78], [0.96, 0], [1, 0]],
+    tongueContact: [[0, 0.76], [0.055, 1], [0.105, 0.08], [0.45, 0.06], [0.51, 1], [0.57, 0.08], [1, 0]],
+    constrictionPosition: [[0, 0.84], [1, 0.84]],
+    constriction: [[0, 0.66], [0.055, 1], [0.11, 0.08], [0.45, 0.06], [0.51, 1], [0.575, 0.06], [0.9, 0.04], [1, 0]],
+    turbulence: [[0, 0], [0.09, 0.18], [0.18, 0.02], [0.55, 0.2], [0.64, 0.02], [1, 0]],
+    cheekImpulse: [[0, 0], [0.1, 0.1], [0.58, 0.12], [0.9, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.1, 0.18], [0.4, 0.12], [0.55, 0.2], [0.9, 0.14], [0.96, 0], [1, 0]],
+    voicing: [[0, 0], [0.08, 0.7], [0.16, 1], [0.39, 0.88], [0.455, 0], [0.56, 0.72], [0.64, 1], [0.88, 0.9], [0.96, 0], [1, 0]],
+    aspiration: [[0, 0.03], [0.08, 0.16], [0.4, 0.08], [0.46, 0], [0.55, 0.18], [0.9, 0.08], [0.96, 0], [1, 0]],
+    registerLift: [[0, 0], [0.46, 0], [0.52, 1], [0.92, 1], [1, 0]],
+  }),
+  llll: defineHiccupHeadGesture("llll", "held lateral L", {
+    poseMix: [[0, 0], [0.05, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0.03], [0.05, 0.58], [0.16, 0.86], [0.84, 0.74], [0.96, 0], [1, 0]],
+    tongueContact: [[0, 0.2], [0.08, 0.8], [0.16, 0.96], [0.86, 0.92], [0.95, 0], [1, 0]],
+    constrictionPosition: [[0, 0.84], [1, 0.86]],
+    constriction: [[0, 0.14], [0.1, 0.72], [0.86, 0.68], [0.95, 0], [1, 0]],
+    secondaryConstrictionPosition: [[0, 0.64], [1, 0.66]],
+    secondaryConstriction: [[0, 0.04], [0.12, 0.4], [0.86, 0.36], [0.95, 0], [1, 0]],
+    velum: [[0, 0.05], [0.16, 0.14], [0.86, 0.1], [1, 0.04]],
+    turbulence: [[0, 0], [0.12, 0.08], [0.86, 0.06], [0.96, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.14, 0.28], [0.84, 0.2], [0.96, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.1, 0.4], [0.86, 0.34], [0.96, 0], [1, 0]],
+    voicing: [[0, 0], [0.04, 0.62], [0.14, 1], [0.86, 0.94], [0.96, 0], [1, 0]],
+    aspiration: [[0, 0], [0.08, 0.14], [0.86, 0.1], [0.96, 0], [1, 0]],
+    lateralBypass: [[0, 0.08], [0.08, 0.72], [0.18, 0.86], [0.86, 0.82], [0.95, 0.12], [1, 0]],
+    tongueExtension: [[0, 0], [0.08, 0.32], [0.86, 0.28], [0.96, 0], [1, 0]],
+  }),
+  purr: defineHiccupHeadGesture("purr", "slow creaky PURR", {
+    poseMix: [[0, 0], [0.05, 1], [0.95, 1], [1, 0]],
+    pressure: [[0, 0.02], [0.06, 0.48], [0.18, 0.78], [0.86, 0.68], [0.96, 0.02], [1, 0]],
+    constrictionPosition: [[0, 0.2], [0.5, 0.24], [1, 0.2]],
+    constriction: [[0, 0.08], [0.1, 0.42], [0.88, 0.38], [0.96, 0], [1, 0]],
+    velum: [[0, 0.2], [0.12, 0.52], [0.9, 0.48], [1, 0.16]],
+    turbulence: [[0, 0.02], [0.1, 0.12], [0.88, 0.16], [0.97, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.14, 0.16], [0.88, 0.1], [0.96, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.1, 0.34], [0.88, 0.3], [0.96, 0], [1, 0]],
+    voicing: [[0, 0], [0.04, 0.54], [0.14, 0.92], [0.88, 0.84], [0.96, 0], [1, 0]],
+    aspiration: [[0, 0.04], [0.08, 0.18], [0.88, 0.16], [0.96, 0], [1, 0]],
+    throatRattle: [[0, 0], [0.06, 0.28], [0.14, 0.84], [0.24, 0.34], [0.34, 0.9], [0.44, 0.3], [0.54, 0.86], [0.64, 0.32], [0.74, 0.82], [0.86, 0.28], [0.95, 0], [1, 0]],
+  }),
+  klikklak: defineHiccupHeadGesture("klikklak", "four-place tongue click phrase", {
+    poseMix: [[0, 0], [0.025, 1], [0.9, 1], [1, 0]],
+    pressure: [[0, 0.02], [0.08, 0.16], [0.9, 0.12], [1, 0]],
+    tongueContact: [[0, 0.2], [0.06, 1], [0.16, 1], [0.18, 0.02], [0.25, 1], [0.34, 1], [0.37, 0.02], [0.45, 1], [0.55, 1], [0.58, 0.02], [0.68, 1], [0.79, 1], [0.82, 0], [1, 0]],
+    constrictionPosition: [[0, 0.92], [0.18, 0.92], [0.22, 0.76], [0.37, 0.76], [0.41, 0.88], [0.58, 0.88], [0.62, 0.64], [1, 0.64]],
+    constriction: [[0, 0.2], [0.06, 1], [0.16, 1], [0.18, 0.02], [0.25, 1], [0.34, 1], [0.37, 0.02], [0.45, 1], [0.55, 1], [0.58, 0.02], [0.68, 1], [0.79, 1], [0.82, 0], [1, 0]],
+    secondaryConstrictionPosition: [[0, 0.5], [1, 0.5]],
+    secondaryConstriction: [[0, 0.78], [0.04, 1], [0.86, 1], [0.91, 0], [1, 0]],
+    suction: [[0, 0.08], [0.08, 0.82], [0.16, 1], [0.18, 0], [0.27, 0.8], [0.34, 1], [0.37, 0], [0.47, 0.82], [0.55, 1], [0.58, 0], [0.7, 0.84], [0.79, 1], [0.82, 0], [1, 0]],
+    turbulence: [[0, 0], [0.18, 0.68], [0.22, 0], [0.37, 0.56], [0.41, 0], [0.58, 0.72], [0.62, 0], [0.82, 0.62], [0.88, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.14, -0.62], [0.18, 0.5], [0.33, -0.54], [0.37, 0.44], [0.54, -0.66], [0.58, 0.52], [0.78, -0.58], [0.82, 0.46], [0.92, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.18, 0.14], [0.37, 0.1], [0.58, 0.16], [0.82, 0.12], [0.92, 0], [1, 0]],
+    aspiration: [[0, 0], [0.18, 0.26], [0.23, 0], [0.37, 0.2], [0.42, 0], [0.58, 0.28], [0.63, 0], [0.82, 0.22], [0.88, 0], [1, 0]],
+  }),
+  rrrr: defineHiccupHeadGesture("rrrr", "long pressure-driven rolled R", {
+    poseMix: [[0, 0], [0.04, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0.04], [0.05, 0.66], [0.16, 1], [0.88, 0.86], [0.97, 0], [1, 0]],
+    tongueContact: [[0, 0.12], [0.08, 0.3], [0.9, 0.28], [0.97, 0], [1, 0]],
+    constrictionPosition: [[0, 0.87], [1, 0.89]],
+    constriction: [[0, 0.16], [0.08, 0.56], [0.9, 0.52], [0.97, 0], [1, 0]],
+    turbulence: [[0, 0.02], [0.08, 0.32], [0.9, 0.38], [0.97, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.14, 0.14], [0.88, 0.08], [0.96, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.08, 0.34], [0.9, 0.28], [0.97, 0], [1, 0]],
+    voicing: [[0, 0], [0.045, 0.64], [0.15, 1], [0.9, 0.94], [0.97, 0], [1, 0]],
+    aspiration: [[0, 0.06], [0.05, 0.34], [0.9, 0.26], [0.97, 0], [1, 0]],
+    tongueTrill: [[0, 0], [0.06, 0.66], [0.14, 1], [0.9, 0.96], [0.97, 0], [1, 0]],
+    registerLift: [[0, 0], [0.18, 0.08], [0.72, 0.72], [0.94, 1], [1, 0]],
+    vowelMorph: [[0, 0], [0.2, 0.08], [0.68, 0.62], [0.94, 1], [1, 1]],
+  }),
+  lrroll: defineHiccupHeadGesture("lrroll", "alternating lateral L and rolled R", {
+    poseMix: [[0, 0], [0.035, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0.03], [0.05, 0.64], [0.14, 0.94], [0.2, 0.84], [0.235, 0.06], [0.28, 0.88], [0.43, 0.78], [0.465, 0.05], [0.51, 0.9], [0.66, 0.8], [0.695, 0.05], [0.74, 0.88], [0.9, 0.74], [0.97, 0], [1, 0]],
+    tongueContact: [[0, 0.18], [0.06, 0.94], [0.2, 0.92], [0.25, 0.28], [0.43, 0.26], [0.48, 0.94], [0.66, 0.92], [0.71, 0.28], [0.9, 0.26], [0.97, 0], [1, 0]],
+    constrictionPosition: [[0, 0.86], [0.2, 0.86], [0.25, 0.67], [0.43, 0.67], [0.48, 0.86], [0.66, 0.86], [0.71, 0.67], [0.92, 0.67], [1, 0.8]],
+    constriction: [[0, 0.12], [0.06, 0.7], [0.2, 0.68], [0.25, 0.5], [0.43, 0.48], [0.48, 0.7], [0.66, 0.68], [0.71, 0.5], [0.9, 0.48], [0.97, 0], [1, 0]],
+    turbulence: [[0, 0.02], [0.08, 0.1], [0.24, 0.34], [0.43, 0.38], [0.47, 0.1], [0.7, 0.34], [0.9, 0.38], [0.97, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.08, 0.32], [0.24, 0.08], [0.47, 0.3], [0.7, 0.08], [0.9, 0.18], [0.97, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.06, 0.4], [0.9, 0.34], [0.97, 0], [1, 0]],
+    voicing: [[0, 0], [0.04, 0.7], [0.14, 1], [0.2, 0.92], [0.235, 0.02], [0.28, 0.96], [0.43, 0.88], [0.465, 0.02], [0.51, 1], [0.66, 0.9], [0.695, 0.02], [0.74, 0.96], [0.9, 0.86], [0.97, 0], [1, 0]],
+    aspiration: [[0, 0], [0.06, 0.18], [0.9, 0.14], [0.97, 0], [1, 0]],
+    tongueTrill: [[0, 0], [0.18, 0], [0.22, 1], [0.42, 1], [0.46, 0], [0.64, 0], [0.68, 1], [0.88, 1], [0.94, 0], [1, 0]],
+    lateralBypass: [[0, 0], [0.06, 0.86], [0.18, 0.86], [0.22, 0.02], [0.42, 0.02], [0.46, 0.86], [0.64, 0.86], [0.68, 0.02], [0.88, 0.02], [0.94, 0], [1, 0]],
+    vowelMorph: [[0, 0.08], [0.2, 0.12], [0.25, 0.88], [0.43, 1], [0.48, 0.08], [0.66, 0.14], [0.71, 0.86], [0.92, 1], [1, 1]],
+    tongueExtension: [[0, 0], [0.06, 0.34], [0.9, 0.3], [0.97, 0], [1, 0]],
+  }),
+  lalatrip: defineHiccupHeadGesture("lalatrip", "three broad lateral LA syllables", {
+    poseMix: [[0, 0], [0.04, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0.04], [0.05, 0.66], [0.14, 0.94], [0.21, 0.62], [0.31, 0.72], [0.36, 0.08], [0.43, 0.74], [0.49, 0.92], [0.55, 0.58], [0.66, 0.7], [0.71, 0.07], [0.76, 0.76], [0.82, 0.94], [0.9, 0.72], [0.97, 0], [1, 0]],
+    tongueContact: [[0, 0.1], [0.08, 0.96], [0.15, 1], [0.21, 0.04], [0.39, 0.08], [0.43, 0.96], [0.49, 1], [0.55, 0.04], [0.72, 0.08], [0.76, 0.96], [0.82, 1], [0.87, 0.04], [1, 0]],
+    constrictionPosition: [[0, 0.86], [1, 0.88]],
+    constriction: [[0, 0.08], [0.08, 0.58], [0.15, 0.62], [0.21, 0.06], [0.43, 0.58], [0.49, 0.62], [0.55, 0.06], [0.76, 0.58], [0.82, 0.62], [0.87, 0.06], [1, 0]],
+    turbulence: [[0, 0], [0.2, 0.12], [0.28, 0.03], [0.54, 0.14], [0.62, 0.03], [0.86, 0.12], [0.94, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.12, 0.22], [0.45, 0.2], [0.78, 0.22], [0.94, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.2, 0.62], [0.38, 0.34], [0.54, 0.66], [0.7, 0.34], [0.86, 0.68], [0.96, 0], [1, 0]],
+    voicing: [[0, 0], [0.04, 0.72], [0.075, 0.82], [0.14, 0.18], [0.21, 1], [0.31, 0.94], [0.35, 0.02], [0.39, 0.02], [0.43, 0.36], [0.49, 0.16], [0.56, 1], [0.66, 0.92], [0.7, 0.02], [0.74, 0.02], [0.76, 0.34], [0.82, 0.14], [0.88, 1], [0.94, 0.78], [0.97, 0], [1, 0]],
+    aspiration: [[0, 0], [0.05, 0.16], [0.91, 0.1], [0.97, 0], [1, 0]],
+    lateralBypass: [[0, 0], [0.08, 0.6], [0.15, 0.64], [0.22, 0.24], [0.43, 0.6], [0.49, 0.64], [0.56, 0.24], [0.76, 0.6], [0.82, 0.64], [0.88, 0.24], [0.97, 0], [1, 0]],
+    registerLift: [[0, 0], [0.36, 0], [0.4, 0.5], [0.72, 0.5], [0.76, 0.86], [0.94, 0.86], [1, 0]],
+    vowelMorph: [[0, 0.14], [0.2, 0.04], [0.37, 0.34], [0.55, 0.08], [0.7, 0.58], [0.87, 0.12], [0.95, 0.72], [1, 0.72]],
+    tongueExtension: [[0, 0], [0.06, 0.62], [0.9, 0.54], [0.97, 0], [1, 0]],
+  }),
+  hiccuplong: defineHiccupHeadGesture("hiccuplong", "full double-catch hiccup", {
+    poseMix: [[0, 0], [0.035, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0.04], [0.08, 0.54], [0.2, 0.94], [0.31, 1], [0.36, 0.2], [0.46, 0.88], [0.57, 0.38], [0.65, 0.82], [0.7, 0.18], [0.8, 0.76], [0.86, 0.9], [0.92, 1], [0.945, 0.38], [0.985, 0], [1, 0]],
+    lipClosure: [[0, 0], [0.82, 0], [0.86, 0.9], [0.92, 1], [0.945, 0], [1, 0]],
+    lipImpulse: [[0, 0], [0.92, 0], [0.944, 0.88], [0.985, 0], [1, 0]],
+    constrictionPosition: [[0, 0.14], [0.36, 0.18], [0.68, 0.16], [1, 0.22]],
+    constriction: [[0, 0.16], [0.08, 0.68], [0.2, 0.96], [0.31, 1], [0.36, 0.08], [0.5, 0.3], [0.57, 0.86], [0.65, 0.96], [0.7, 0.08], [0.86, 0.18], [0.96, 0], [1, 0]],
+    secondaryConstrictionPosition: [[0, 0.51], [1, 0.51]],
+    secondaryConstriction: [[0, 0], [0.78, 0.08], [0.83, 0.92], [0.89, 1], [0.93, 0], [1, 0]],
+    velum: [[0, 0.08], [0.18, 0.22], [0.86, 0.14], [1, 0.05]],
+    turbulence: [[0, 0], [0.35, 0.34], [0.46, 0.08], [0.69, 0.3], [0.8, 0.1], [0.89, 0.5], [0.945, 0.92], [0.985, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.18, -0.14], [0.36, 0.3], [0.57, -0.1], [0.7, 0.24], [0.9, -0.06], [0.96, 0], [1, 0]],
+    jawImpulse: [[0, -0.08], [0.3, -0.14], [0.37, 0.78], [0.55, 0.34], [0.65, -0.08], [0.71, 0.68], [0.9, 0.42], [0.97, 0], [1, 0]],
+    voicing: [[0, 0], [0.33, 0.12], [0.38, 1], [0.57, 0.72], [0.64, 0.08], [0.7, 0.9], [0.88, 0.48], [0.96, 0], [1, 0]],
+    aspiration: [[0, 0], [0.35, 0.38], [0.54, 0.14], [0.69, 0.34], [0.9, 0.12], [0.945, 0.58], [0.985, 0], [1, 0]],
+    throatRattle: [[0, 0], [0.3, 0.18], [0.36, 0.58], [0.52, 0.24], [0.64, 0.5], [0.72, 0.28], [0.9, 0], [1, 0]],
+    registerLift: [[0, 0], [0.64, 0], [0.7, 0.34], [0.9, 0.34], [0.96, 0], [1, 0]],
+    breathDirection: [[0, -0.5], [0.31, -0.25], [0.35, 0], [0.39, 1], [0.56, 1], [0.6, -0.28], [0.66, 0], [0.7, 1], [1, 1]],
+    diaphragmCatch: [[0, 0.08], [0.08, 0.7], [0.2, 1], [0.31, 1], [0.36, 0.03], [0.5, 0.12], [0.57, 0.72], [0.65, 0.72], [0.7, 0.04], [0.8, 0.25], [0.86, 0], [1, 0]],
+  }),
+  zzzz: defineHiccupHeadGesture("zzzz", "sustained voiced alveolar tooth-edge fricative", {
+    poseMix: [[0, 0], [0.045, 1], [0.94, 1], [1, 0]],
+    pressure: [[0, 0.03], [0.05, 0.58], [0.15, 0.94], [0.88, 0.84], [0.97, 0], [1, 0]],
+    tongueContact: [[0, 0.06], [0.08, 0.34], [0.9, 0.32], [0.97, 0], [1, 0]],
+    constrictionPosition: [[0, 0.825], [0.48, 0.84], [1, 0.835]],
+    constriction: [[0, 0.08], [0.08, 0.66], [0.9, 0.64], [0.97, 0], [1, 0]],
+    secondaryConstrictionPosition: [[0, 0.955], [1, 0.955]],
+    secondaryConstriction: [[0, 0.06], [0.1, 0.72], [0.9, 0.7], [0.97, 0], [1, 0]],
+    velum: [[0, 0.03], [0.12, 0.06], [0.9, 0.05], [1, 0.03]],
+    turbulence: [[0, 0], [0.07, 0.64], [0.16, 1], [0.88, 0.96], [0.97, 0], [1, 0]],
+    cheekImpulse: [[0, 0], [0.12, 0.12], [0.88, 0.08], [0.97, 0], [1, 0]],
+    jawImpulse: [[0, 0], [0.08, 0.28], [0.9, 0.24], [0.97, 0], [1, 0]],
+    voicing: [[0, 0], [0.04, 0.6], [0.14, 0.9], [0.9, 0.86], [0.97, 0], [1, 0]],
+    aspiration: [[0, 0.04], [0.06, 0.44], [0.16, 0.58], [0.9, 0.54], [0.97, 0], [1, 0]],
+  }),
+  ehyeah: defineHiccupHeadGesture("ehyeah", "Pink-style EH to EE to AH carousel", {
+    poseMix: [[0, 0], [0.04, 1], [0.95, 1], [1, 0]],
+    pressure: [[0, 0.03], [0.05, 0.62], [0.15, 0.94], [0.9, 0.82], [0.97, 0], [1, 0]],
+    velum: [[0, 0.04], [0.12, 0.08], [0.9, 0.06], [1, 0.03]],
+    cheekImpulse: [[0, 0], [0.12, 0.16], [0.5, 0.08], [0.76, 0.18], [0.95, 0], [1, 0]],
+    jawImpulse: [[0, 0.04], [0.08, 0.56], [0.28, 0.48], [0.48, 0.24], [0.63, 0.34], [0.78, 0.86], [0.94, 0.78], [0.98, 0], [1, 0]],
+    voicing: [[0, 0], [0.035, 0.64], [0.13, 1], [0.91, 0.94], [0.97, 0], [1, 0]],
+    aspiration: [[0, 0.06], [0.05, 0.24], [0.18, 0.12], [0.9, 0.1], [0.97, 0], [1, 0]],
+    registerLift: [[0, 0], [0.3, 0.08], [0.52, 0.34], [0.7, 0.08], [0.9, -0.08], [1, 0]],
+    vowelMorph: [[0, 0], [0.12, 0.02], [0.34, 0.18], [0.52, 0.5], [0.67, 0.62], [0.76, 0.82], [0.86, 1], [1, 1]],
   }),
 });
 
@@ -2672,7 +3346,10 @@ export function hiccupHeadPoseForSound(soundId, source = HICCUP_HEAD_DEFAULTS, a
   return sanitizeHiccupHeadState(Object.fromEntries(Object.entries(state).map(([key, value]) => [
     key,
     typeof value === "number" && Number.isFinite(pose[key])
-      ? value + (pose[key] - value) * mix
+      // Gesture poses are anatomical movements away from the neutral face,
+      // not replacement heads. Applying their delta preserves the audible
+      // tube/cheek/lip differences created by face mutation and sound banks.
+      ? value + (pose[key] - HICCUP_HEAD_DEFAULTS[key]) * mix
       : value,
   ])), state);
 }
@@ -2710,6 +3387,21 @@ export function physicalVoiceParameters(
     tomlo: 0.26,
     tomhi: 0.22,
     braap: 1.08,
+    brush: 0.08,
+    kiss: 0.58,
+    huff: 0.84,
+    waow: 0.9,
+    whoop: 0.92,
+    doodoo: 0.86,
+    llll: 0.8,
+    purr: 0.86,
+    klikklak: 0.36,
+    rrrr: 0.9,
+    lrroll: 0.88,
+    lalatrip: 0.86,
+    hiccuplong: 1.06,
+    zzzz: 0.94,
+    ehyeah: 1,
   })[sound.id] ?? 1;
   const pressure = clamp(
     state.lungPressure * (0.34 + velocityAmount * 0.82) * pressureScale,
@@ -2717,25 +3409,31 @@ export function physicalVoiceParameters(
     1.8,
   );
   const durationBySound = {
-    bop: 0.15, boop: 0.22, pop: 0.14, tlik: 0.095,
-    shh: 0.14, shack: 0.18, slap: 0.25, pff: 0.22,
-    kick: 0.28, smack: 0.24, hee: 0.2, haw: 0.24,
-    doo: 0.28, mwah: 0.24, drr: 0.31, burp: 0.42,
+    bop: 0.18, boop: 0.34, pop: 0.22, tlik: 0.095,
+    shh: 0.14, shack: 0.18, slap: 0.31, pff: 0.44,
+    kick: 0.28, smack: 0.16, hee: 0.2, haw: 0.24,
+    doo: 0.28, mwah: 0.42, kiss: 0.7, drr: 0.46, burp: 0.42,
     aah: 0.56, ooh: 0.58, wail: 0.68, yodel: 0.72,
     growl: 0.62, holler: 0.52, hum: 0.58, rattle: 0.6,
-    whistle: 0.74, grunt: 0.34, moan: 0.82, lala: 0.62,
-    pbpb: 0.5, slurp: 0.46, hiccup: 0.31, eef: 0.42,
-    snare: 0.22, snap: 0.16, tomlo: 0.34, tomhi: 0.24, braap: 0.52,
+    whistle: 0.74, grunt: 0.46, moan: 0.82, lala: 0.68,
+    pbpb: 0.5, slurp: 0.46, hiccup: 0.38, eef: 0.42,
+    snare: 0.22, snap: 0.16, tomlo: 0.66, tomhi: 0.52, braap: 0.52,
+    brush: 0.54, huff: 0.42, waow: 0.9, whoop: 1.05,
+    doodoo: 0.78, llll: 0.92, purr: 1.12,
+    klikklak: 0.34, rrrr: 0.78, lrroll: 0.74,
+    lalatrip: 0.72, hiccuplong: 1.55,
+    zzzz: 0.82, ehyeah: 1.18,
   };
-  durationBySound.pff = 0.32;
   const tempoAwareSounds = new Set([
     "pff", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle", "whistle",
-    "grunt", "moan", "lala", "pbpb", "slurp", "eef", "braap",
+    "grunt", "moan", "lala", "pbpb", "slurp", "eef", "braap", "mwah", "huff",
+    "waow", "whoop", "doodoo", "llll", "purr",
+    "rrrr", "lrroll", "lalatrip", "hiccuplong", "zzzz", "ehyeah",
   ]);
   const tempoStepSeconds = 15 / state.tempo;
   const baseDuration = durationBySound[sound.id];
   const tempoAwareDuration = tempoAwareSounds.has(sound.id)
-    ? clamp(baseDuration * 0.5 + tempoStepSeconds * 2.2, baseDuration * 0.55, 1.3)
+    ? clamp(baseDuration * 0.5 + tempoStepSeconds * 2.3, baseDuration * 0.55, 1.3)
     : baseDuration;
   // Vocal-fold pitch and closure belong to the larynx, not the lips. Keep
   // their internal gesture parameters independent even though Hiccup Head's UI
@@ -2755,7 +3453,7 @@ export function physicalVoiceParameters(
     yodel: 0.88,
     growl: 0.48,
     holler: 1.28,
-    hum: 0.68,
+    hum: 0.56,
     rattle: 0.52,
     whistle: 1,
     grunt: 0.38,
@@ -2770,6 +3468,18 @@ export function physicalVoiceParameters(
     tomlo: 0.4,
     tomhi: 0.68,
     braap: 0.38,
+    huff: 0.86,
+    waow: 0.9,
+    whoop: 1.08,
+    doodoo: 0.94,
+    llll: 0.82,
+    purr: 0.34,
+    rrrr: 0.82,
+    lrroll: 0.88,
+    lalatrip: 0.94,
+    hiccuplong: 0.62,
+    zzzz: 0.86,
+    ehyeah: 1.05,
   };
   const glottalRatio = glottalRatioBySound[sound.id]
     ?? (sound.id === "boop" ? 0.72 : 1);
@@ -2784,10 +3494,15 @@ export function physicalVoiceParameters(
       - (sound.id === "burp" || sound.id === "growl" ? 0.2 : 0)
       - (sound.id === "grunt" || sound.id === "moan" ? 0.14 : 0)
       + (sound.id === "hiccup" ? 0.12 : 0)
+      + (sound.id === "hiccuplong" ? 0.1 : 0)
+      + (sound.id === "zzzz" ? 0.02 : 0)
+      + (sound.id === "ehyeah" ? 0.08 : 0)
       + (sound.id === "eef" ? 0.1 : 0)
       - (sound.id === "tomlo" ? 0.12 : 0)
       - (sound.id === "braap" ? 0.2 : 0)
+      - (sound.id === "purr" ? 0.22 : 0)
       + (sound.id === "wail" || sound.id === "holler" ? 0.18 : 0)
+      + (sound.id === "whoop" ? 0.12 : 0)
       - voice.breathiness * 0.12
       - voice.roughness * 0.08,
     0.16,
@@ -2819,6 +3534,28 @@ export function physicalVoiceParameters(
     0.00072,
     0.0038,
   );
+  const vibratoRateScale = ({
+    hee: 1.18, haw: 0.76, doo: 1.04, mwah: 0.82,
+    aah: 0.9, ooh: 1.08, holler: 0.72, hum: 0.86,
+    moan: 0.68, lala: 1.14, pbpb: 0.62, waow: 0.88,
+    whoop: 1.04, doodoo: 1.22, llll: 0.8, purr: 0.56,
+    rrrr: 0.84, lrroll: 0.96, lalatrip: 1.08, hiccuplong: 0.88,
+    zzzz: 0.96, ehyeah: 1.04,
+  })[sound.id] ?? 1;
+  const vibratoDepthOffset = ({
+    hee: 0.08, haw: 0.03, doo: 0.12, mwah: 0.18,
+    aah: 0.22, ooh: 0.38, wail: 1.45, yodel: 0.34,
+    holler: 0.12, hum: 0.3, moan: 0.72, lala: 0.2,
+    waow: 0.48, whoop: 0.62, doodoo: 0.1, llll: 0.26,
+    purr: 0.04,
+    rrrr: 0.16, lrroll: 0.22, lalatrip: 0.28, hiccuplong: 0.24,
+    zzzz: 0.08, ehyeah: 1.08,
+  })[sound.id] ?? 0;
+  const longGesture = new Set([
+    "waow", "whoop", "doodoo", "llll", "purr", "rrrr", "lrroll", "lalatrip", "hiccuplong",
+    "zzzz", "ehyeah",
+  ])
+    .has(sound.id);
   return Object.freeze({
     soundId: displaySound.id,
     family: displaySound.family,
@@ -2827,7 +3564,7 @@ export function physicalVoiceParameters(
     durationSeconds: clamp(
       tempoAwareDuration * state.decay * (0.86 + velocityAmount * 0.24),
       0.055,
-      1.4,
+      longGesture ? 1.85 : 1.4,
     ),
     glottalFrequencyHz: clamp(glottalBase * glottalRatio * pitchRatio, 24, 980),
     glottalTenseness,
@@ -2838,25 +3575,25 @@ export function physicalVoiceParameters(
     voiceCharacterId: voice.characterId,
     pitchOffsetSemitones: voice.pitchOffsetSemitones,
     vibratoRateHz: clamp(
-      sound.id === "wail" ? Math.max(5.3, voice.vibratoRateHz)
+      (sound.id === "wail" ? Math.max(5.3, voice.vibratoRateHz)
         : sound.id === "yodel" ? Math.max(4.2, voice.vibratoRateHz)
           : sound.id === "moan" ? Math.max(3.1, voice.vibratoRateHz)
-          : voice.vibratoRateHz,
+            : voice.vibratoRateHz) * vibratoRateScale,
       0,
       12,
     ),
     vibratoDepthSemitones: clamp(
-      voice.vibratoDepthSemitones
-        + (sound.id === "wail" ? 1.45
-          : sound.id === "yodel" ? 0.34
-            : sound.id === "moan" ? 0.72
-              : 0),
+      voice.vibratoDepthSemitones + vibratoDepthOffset,
       0,
       5,
     ),
     breathiness: clamp(
       voice.breathiness
-        + (sound.id === "holler" ? 0.14 : sound.id === "rattle" ? 0.12 : 0),
+        + (sound.id === "holler" ? 0.14
+          : sound.id === "rattle" ? 0.12
+          : sound.id === "huff" ? 0.58
+            : sound.id === "zzzz" ? 0.18
+              : 0),
     ),
     roughness: clamp(Math.max(
       voice.roughness,
@@ -2864,9 +3601,10 @@ export function physicalVoiceParameters(
         : sound.id === "rattle" ? 0.5
           : sound.id === "burp" ? 0.64
             : sound.id === "grunt" ? 0.72
-              : sound.id === "hiccup" ? 0.34
-                : sound.id === "eef" ? 0.24
+              : sound.id === "hiccup" || sound.id === "hiccuplong" ? 0.34
+              : sound.id === "eef" ? 0.24
                   : sound.id === "braap" ? 0.54
+                    : sound.id === "purr" ? 0.5
                     : 0,
     )),
     subharmonicMix: clamp(Math.max(
@@ -2875,14 +3613,23 @@ export function physicalVoiceParameters(
         : sound.id === "rattle" ? 0.3
           : sound.id === "burp" ? 0.42
             : sound.id === "grunt" ? 0.54
-              : sound.id === "hiccup" ? 0.18
-                : sound.id === "eef" ? 0.06
+              : sound.id === "hiccup" || sound.id === "hiccuplong" ? 0.18
+              : sound.id === "eef" ? 0.06
                   : sound.id === "braap" ? 0.38
+                    : sound.id === "purr" ? 0.62
                     : 0,
     )),
     tractScale: voice.tractScale,
     tempoStepSeconds,
-    registerJumpSemitones: sound.id === "yodel" ? 12 : sound.id === "wail" ? 4.5 : 0,
+    registerJumpSemitones: sound.id === "yodel" ? 12
+      : sound.id === "wail" ? 4.5
+        : sound.id === "whoop" ? 15
+          : sound.id === "doodoo" ? 7
+            : sound.id === "lalatrip" ? 5
+              : sound.id === "rrrr" ? -5
+                : sound.id === "hiccuplong" ? 4
+                  : sound.id === "waow" ? 3
+              : 0,
     flutterFrequencyHz: clamp(
       sound.id === "braap"
         ? 14 + Math.max(0, state.lipTension + 0.35) * 18 + pressure * 5
@@ -2914,11 +3661,17 @@ export function physicalVoiceParameters(
     ),
     cavityFrequencyHz: geometry.cavityFrequencyHz,
     noiseCenterHz: clamp(
-      noiseCenterBase * (sound.id === "shh" ? 1.32 : sound.id === "snare" ? 1.48 : 1),
+      noiseCenterBase * (sound.id === "shh" ? 1.32
+        : sound.id === "snare" ? 1.48
+          : sound.id === "huff" ? 0.78
+            : sound.id === "zzzz" ? 1.15
+            : 1),
       650,
       7_600,
     ),
-    noiseBandwidthHz: clamp(780 + state.mouthOpening * 2_200 + state.silliness * 1_400, 320, 4_600),
+    noiseBandwidthHz: sound.id === "zzzz"
+      ? clamp(1_450 + state.mouthOpening * 900 + state.silliness * 620, 1_200, 3_200)
+      : clamp(780 + state.mouthOpening * 2_200 + state.silliness * 1_400, 320, 4_600),
     formantFrequenciesHz: formants.frequenciesHz,
     formantBandwidthsHz: formants.bandwidthsHz,
     nasalFrequencyHz: formants.nasalFrequencyHz,
@@ -2926,7 +3679,11 @@ export function physicalVoiceParameters(
     dooPitch: state.dooPitch,
     airflowDirection: sound.id === "hee" || sound.id === "eef" ? -1 : 1,
     trillFrequencyHz: clamp(
-      22 + state.tongueCurl * 12 + state.lungPressure * 9 + state.silliness * 7,
+      sound.id === "rrrr"
+        ? 19 + state.tongueCurl * 4 + state.lungPressure * 3
+        : sound.id === "lrroll"
+          ? 21 + state.tongueCurl * 5 + state.lungPressure * 3
+          : 22 + state.tongueCurl * 12 + state.lungPressure * 9 + state.silliness * 7,
       16,
       72,
     ),
@@ -2938,8 +3695,9 @@ export function physicalVoiceParameters(
     irregularity: sound.id === "burp" ? clamp(0.62 + state.silliness * 0.36)
       : sound.id === "grunt" ? clamp(0.34 + state.silliness * 0.3)
         : sound.id === "slurp" ? clamp(0.28 + state.silliness * 0.4)
-          : sound.id === "hiccup" ? clamp(0.38 + state.silliness * 0.42)
+          : sound.id === "hiccup" || sound.id === "hiccuplong" ? clamp(0.38 + state.silliness * 0.42)
             : sound.id === "braap" ? clamp(0.46 + state.silliness * 0.42)
+              : sound.id === "purr" ? clamp(0.18 + state.silliness * 0.18)
               : 0,
     diaphragmFrequencyHz: clamp(
       10.5 + state.lungPressure * 5.5 + state.silliness * 3.5,
@@ -3014,9 +3772,9 @@ export function hiccupHeadGestureFrame(
   if (sound.id === "kiss") {
     channels.suction = clamp(channels.suction * 1.7);
     channels.lipImpulse = clamp(channels.lipImpulse * 1.9);
-    channels.voicing *= 0.12;
-    channels.aspiration *= 0.18;
-    channels.pressure = clamp(channels.pressure * 0.82);
+    channels.voicing *= 0.34;
+    channels.aspiration *= 0.4;
+    channels.pressure = clamp(channels.pressure * 0.9);
   }
   const pose = hiccupHeadPoseForSound(sound.id, state, channels.poseMix);
   channels.velum = clamp(
@@ -3040,13 +3798,23 @@ export function hiccupHeadGestureFrame(
     ...HICCUP_HEAD_LIMITS.tongueOut,
   );
   const yodelRegister = channels.registerLift;
+  const acousticStart = SOUND_ACOUSTIC_POSES[modelSoundId];
+  const acousticMiddle = SOUND_ACOUSTIC_POSE_MIDDLES[modelSoundId];
+  const acousticEnd = SOUND_ACOUSTIC_POSE_ENDS[modelSoundId];
+  const vowelMorph = channels.vowelMorph;
   const acousticPose = sound.id === "yodel"
     ? {
       tongueBodyIndex: 13 + (27.4 - 13) * yodelRegister,
       tongueBodyDiameterCm: 2.4 + (2.25 - 2.4) * yodelRegister,
       lipDiameterCm: 3,
     }
-    : SOUND_ACOUSTIC_POSES[modelSoundId];
+    : acousticStart && acousticMiddle && acousticEnd
+      ? vowelMorph <= 0.5
+        ? interpolateAcousticPose(acousticStart, acousticMiddle, vowelMorph * 2)
+        : interpolateAcousticPose(acousticMiddle, acousticEnd, (vowelMorph - 0.5) * 2)
+    : acousticStart && acousticEnd
+      ? interpolateAcousticPose(acousticStart, acousticEnd, vowelMorph)
+      : acousticStart;
   return Object.freeze({
     soundId: sound.id,
     phase,

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   HICCUP_HEAD_DEFAULTS,
+  HICCUP_HEAD_TOOTH_TINE_PROFILES,
   hiccupHeadFaceEffectTargets,
 } from "../src/hiccup-head.js";
 
@@ -647,24 +648,48 @@ test("Hiccup Head keeps FX energy balanced and gives BRUSH tuned marimba steps",
   assert.ok(outputTrimMatch, "gesture output trims must remain explicit and auditable");
   const outputTrims = Function(`return (${outputTrimMatch[1]});`)();
   assert.deepEqual(outputTrims, {
-    bop: 2.4,
+    bop: 1.15,
     boop: 2.35,
-    pop: 2.2,
+    pop: 2.8,
     shh: 2.15,
     pff: 2.6,
     hiccup: 3,
     mwah: 2.35,
-    kiss: 2.5,
+    kiss: 2.7,
     pbpb: 2.15,
-    tomhi: 1.7,
+    tomhi: 2.1,
     braap: 1.7,
-    brush: 1.7,
+    brush: 0.72,
+    huff: 2.1,
+    waow: 0.82,
+    whoop: 0.72,
+    doodoo: 1,
+    llll: 0.75,
+    purr: 0.98,
+    grunt: 1.18,
+    klikklak: 1.55,
+    rrrr: 0.92,
+    lrroll: 0.72,
+    lalatrip: 0.9,
+    hiccuplong: 1.35,
+    zzzz: 1.35,
+    ehyeah: 0.9,
     rattle: 0.35,
   });
-  assert.match(app, /\[130\.81, 0\.42\][\s\S]*?\[587\.33, 0\.62\]/);
-  assert.match(app, /if \(brushDirection < 0\) traversal\.reverse\(\)/);
-  assert.match(app, /delaySeconds: 0\.025 \+ travelIndex \* 0\.044/);
+  assert.deepEqual(
+    HICCUP_HEAD_TOOTH_TINE_PROFILES.map(({ frequencyHz, brightness }) => [frequencyHz, brightness]),
+    [
+      [130.81, 0.42], [146.83, 0.46], [164.81, 0.5], [196, 0.54],
+      [220, 0.48], [261.63, 0.56], [293.66, 0.5], [329.63, 0.58],
+      [392, 0.52], [440, 0.6], [523.25, 0.54], [587.33, 0.62],
+    ],
+  );
+  assert.match(app, /const TOOTH_TINE_PROFILES = HICCUP_HEAD_TOOTH_TINE_PROFILES/);
+  assert.match(app, /brushDirection = nextBrushDirection;[\s\S]*?nextBrushDirection \*= -1/);
+  assert.match(processor, /this\.brushSweepDirection = this\.currentPlan\.brushDirection === -1 \? -1 : 1/);
+  assert.match(processor, /while \(this\.brushContactIndex < nextContact\)[\s\S]*?this\.toothTine\.strikeNow/);
   assert.match(app, /const travelPhase = brushSweep\.direction < 0 \? 1 - phase : phase/);
+  assert.match(app, /const scrub = Math\.sin\(phase \* Math\.PI \* 24\)/);
   assert.match(app, /hotspot\.soundId === "brush"/);
   assert.match(processor, /frame\.soundId === "kiss" \? 2\.2/);
   const reverbBypass = app.slice(

@@ -4,12 +4,17 @@ import {
   HICCUP_HEAD_PATTERNS,
   HICCUP_HEAD_PRESETS,
   HICCUP_HEAD_SOUNDS,
+  HICCUP_HEAD_SOUND_BANKS,
   HICCUP_HEAD_STEP_COUNT,
+  HICCUP_HEAD_TOOTH_TINE_PROFILES,
   HICCUP_HEAD_TRACT_SECTION_COUNT,
   HICCUP_HEAD_VELOCITIES,
   HICCUP_HEAD_VOICE_CHARACTERS,
+  HICCUP_HEAD_VOICE_LIMITS,
   HICCUP_HEAD_VOICE_MODULATION_SOURCES,
   HICCUP_HEAD_VOICE_MODULATION_TARGETS,
+  HICCUP_HEAD_VOICE_SOUND_IDS,
+  applyHiccupHeadSoundBank,
   clamp,
   clonePattern,
   cycleStepVelocity,
@@ -19,6 +24,8 @@ import {
   hiccupHeadPreset,
   hiccupHeadPoseForSound,
   hiccupHeadSound,
+  hiccupHeadSoundBank,
+  hiccupHeadSoundBankOutputGain,
   hiccupHeadState,
   hiccupHeadVoiceCharacter,
   mutateHiccupHeadVoice,
@@ -28,7 +35,7 @@ import {
   sanitizeHiccupHeadState,
   sanitizeHiccupHeadVoice,
   sequenceStepIntervalSeconds,
-} from "./src/hiccup-head.js?v=hiccup-head-model-20260831-7";
+} from "./src/hiccup-head.js?v=hiccup-head-model-20260902-4";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
 
@@ -112,6 +119,19 @@ const FACE_SOUND_TRIGGER_LAYOUT = Object.freeze([
   { soundId: "braap", slot: 36, zone: "jaw-drum" },
   { soundId: "kiss", slot: 37, zone: "kiss-cheek" },
   { soundId: "brush", slot: 38, zone: "tooth-brush" },
+  { soundId: "huff", slot: 39, zone: "upper-breath" },
+  { soundId: "waow", slot: 40, zone: "upper-voice" },
+  { soundId: "whoop", slot: 41, zone: "upper-voice" },
+  { soundId: "doodoo", slot: 42, zone: "upper-voice" },
+  { soundId: "llll", slot: 43, zone: "left-cheek" },
+  { soundId: "purr", slot: 44, zone: "right-cheek" },
+  { soundId: "klikklak", slot: 45, zone: "left-tongue" },
+  { soundId: "rrrr", slot: 46, zone: "left-tongue" },
+  { soundId: "lrroll", slot: 47, zone: "right-tongue" },
+  { soundId: "lalatrip", slot: 48, zone: "left-tongue" },
+  { soundId: "hiccuplong", slot: 49, zone: "diaphragm-catch" },
+  { soundId: "zzzz", slot: 50, zone: "anterior-fricative" },
+  { soundId: "ehyeah", slot: 51, zone: "upper-voice" },
 ]);
 
 const faceSoundTriggerIds = new Set(FACE_SOUND_TRIGGER_LAYOUT.map(({ soundId }) => soundId));
@@ -126,7 +146,7 @@ const faceSoundTriggerById = new Map(
   FACE_SOUND_TRIGGER_LAYOUT.map((trigger) => [trigger.soundId, trigger]),
 );
 const FACE_TRIGGER_DOT_POSITIONS = Object.freeze({
-  // Eight forehead dots clear the thick brow paths and their drag handles.
+  // Twelve forehead dots clear the thick brow paths and their drag handles.
   eef: Object.freeze({ x: -0.18, y: -0.87, region: "forehead" }),
   hee: Object.freeze({ x: 0, y: -0.87, region: "forehead" }),
   haw: Object.freeze({ x: 0.18, y: -0.87, region: "forehead" }),
@@ -152,7 +172,7 @@ const FACE_TRIGGER_DOT_POSITIONS = Object.freeze({
   bop: Object.freeze({ x: 0.72, y: 0.32, region: "right-cheek" }),
   boop: Object.freeze({ x: 0.58, y: 0.26, region: "right-cheek" }),
   pff: Object.freeze({ x: -0.62, y: 0.22, region: "left-cheek" }),
-  pbpb: Object.freeze({ x: -0.76, y: 0.34, region: "left-cheek" }),
+  pbpb: Object.freeze({ x: -0.86, y: -0.12, region: "left-cheek" }),
   mwah: Object.freeze({ x: 0.72, y: 0.48, region: "right-cheek" }),
   slap: Object.freeze({ x: -0.62, y: 0.42, region: "left-cheek" }),
   tlik: Object.freeze({ x: 0.58, y: 0.4, region: "right-cheek" }),
@@ -161,7 +181,7 @@ const FACE_TRIGGER_DOT_POSITIONS = Object.freeze({
   slurp: Object.freeze({ x: -0.54, y: 0.56, region: "left-cheek" }),
   shack: Object.freeze({ x: -0.62, y: 0.68, region: "left-cheek" }),
   shh: Object.freeze({ x: 0.58, y: 0.7, region: "right-cheek" }),
-  whistle: Object.freeze({ x: 0.5, y: 0.6, region: "right-cheek" }),
+  whistle: Object.freeze({ x: 0.86, y: -0.12, region: "right-cheek" }),
   snare: Object.freeze({ x: 0.8, y: 0.04, region: "right-cheek" }),
   snap: Object.freeze({ x: 0.64, y: 0.02, region: "right-cheek" }),
   tomlo: Object.freeze({ x: -0.8, y: 0.04, region: "left-cheek" }),
@@ -169,6 +189,19 @@ const FACE_TRIGGER_DOT_POSITIONS = Object.freeze({
   braap: Object.freeze({ x: 0.8, y: 0.4, region: "right-cheek" }),
   kiss: Object.freeze({ x: -0.5, y: 0.7, region: "left-cheek" }),
   brush: Object.freeze({ x: 0.46, y: 0.72, region: "right-cheek" }),
+  huff: Object.freeze({ x: -0.32, y: -0.8, region: "forehead" }),
+  waow: Object.freeze({ x: 0.32, y: -0.8, region: "forehead" }),
+  whoop: Object.freeze({ x: -0.42, y: -0.62, region: "forehead" }),
+  doodoo: Object.freeze({ x: 0.42, y: -0.62, region: "forehead" }),
+  llll: Object.freeze({ x: -0.86, y: 0.24, region: "left-cheek" }),
+  purr: Object.freeze({ x: 0.86, y: 0.24, region: "right-cheek" }),
+  klikklak: Object.freeze({ x: 0, y: -0.27, region: "forehead" }),
+  rrrr: Object.freeze({ x: -0.22, y: 0.2, region: "left-cheek" }),
+  lrroll: Object.freeze({ x: 0.22, y: 0.2, region: "right-cheek" }),
+  lalatrip: Object.freeze({ x: -0.32, y: 0.02, region: "left-cheek" }),
+  hiccuplong: Object.freeze({ x: 0.32, y: 0.02, region: "right-cheek" }),
+  zzzz: Object.freeze({ x: -0.22, y: -0.7, region: "forehead" }),
+  ehyeah: Object.freeze({ x: 0.22, y: -0.7, region: "forehead" }),
 });
 const faceTriggerDotIds = new Set(Object.keys(FACE_TRIGGER_DOT_POSITIONS));
 if (
@@ -270,6 +303,7 @@ let voiceSelectionMode = "round-robin";
 let voiceCursor = 0;
 let activeVoiceSlot = -1;
 let voiceSlots = createDefaultVoiceSlots();
+let currentSoundBankId = HICCUP_HEAD_SOUND_BANKS[0].id;
 let audioContext = null;
 let graph = null;
 let audioStartupPromise = null;
@@ -309,11 +343,21 @@ let kissMarks = [];
 let kissMarkCursor = 0;
 let brushSweep = null;
 let nextBrushDirection = 1;
+let lastAuditionSoundId = "aah";
 let noseHonkStartedAt = -Infinity;
 const handPlacements = {
   left: { x: -0.62, y: 0.1 },
   right: { x: 0.62, y: 0.14 },
 };
+const SOUND_BANK_AUDITION_IDS = Object.freeze({
+  "natural-mouth": "aah",
+  "wet-rubber": "pbpb",
+  "tongue-workshop": "zzzz",
+  "open-throat": "ehyeah",
+  "rough-cellar": "grunt",
+  "tiny-cartoon": "doodoo",
+  "air-pockets": "eef",
+});
 let pointerDrag = null;
 let animationFrame = 0;
 let pendingCanvasStateUpdate = null;
@@ -362,6 +406,52 @@ function createDefaultVoiceSlots() {
       },
     }),
   }));
+}
+
+function bankedSoundConfiguration(source = state) {
+  return applyHiccupHeadSoundBank(
+    sanitizeHiccupHeadState({ ...state, ...(source ?? {}) }, state),
+    currentSoundBankId,
+  );
+}
+
+function retuneVoiceSlotsForBank(bankId, { mutate = false } = {}) {
+  const bank = hiccupHeadSoundBank(bankId);
+  voiceSlots.forEach((slot, index) => {
+    const character = hiccupHeadVoiceCharacter(
+      bank.characterIds[index % bank.characterIds.length],
+    );
+    const base = sanitizeHiccupHeadVoice({
+      characterId: character.id,
+      ...character.settings,
+      modulation: slot.voice.modulation,
+    });
+    slot.voice = mutate
+      ? mutateHiccupHeadVoice(base, Math.random, 0.64)
+      : base;
+  });
+  voiceCursor = 0;
+  activeVoiceSlot = -1;
+}
+
+function setSoundBank(bankId, { mutate = false, audition = true } = {}) {
+  const bank = hiccupHeadSoundBank(bankId);
+  currentSoundBankId = bank.id;
+  retuneVoiceSlotsForBank(bank.id, { mutate });
+  if ($("soundBankSelect")) $("soundBankSelect").value = bank.id;
+  if ($("soundBankDescription")) $("soundBankDescription").textContent = bank.description;
+  buildVoiceRack();
+  announce(`${bank.label} sound bank${mutate ? " mutated" : " loaded"}`);
+  if (audition) {
+    void auditionCurrentSoundBank(null, SOUND_BANK_AUDITION_IDS[bank.id] ?? "aah");
+  }
+}
+
+function cycleSoundBank(direction = 1, options = {}) {
+  const currentIndex = HICCUP_HEAD_SOUND_BANKS.findIndex(({ id }) => id === currentSoundBankId);
+  const nextIndex = (currentIndex + Math.sign(direction || 1) + HICCUP_HEAD_SOUND_BANKS.length)
+    % HICCUP_HEAD_SOUND_BANKS.length;
+  setSoundBank(HICCUP_HEAD_SOUND_BANKS[nextIndex].id, options);
 }
 
 function formatPercent(value) {
@@ -696,7 +786,7 @@ async function createAudioGraph() {
     [, , warmRoomBuffers] = await Promise.all([
       earlyResume,
       context.audioWorklet.addModule(new URL(
-        "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260831-19",
+        "./src/hiccup-head-processor.js?v=hiccup-head-tract-20260902-4",
         import.meta.url,
       )),
       decodeWarmRoomBuffers(context),
@@ -987,20 +1077,14 @@ async function toggleAudio() {
   if (await ensureAudio()) announce("Hiccup Head audio on");
 }
 
-const VOICE_SOUND_IDS = new Set([
-  "bop", "boop", "pff", "hee", "haw", "doo", "mwah", "drr", "burp",
-  "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
-  "grunt", "moan", "lala",
-]);
+const VOICE_SOUND_IDS = new Set(HICCUP_HEAD_VOICE_SOUND_IDS);
 const TEMPO_STRETCH_SOUND_IDS = new Set([
   "pff", "whistle", "aah", "ooh", "wail", "yodel", "growl", "holler", "hum", "rattle",
-  "grunt", "moan", "lala", "pbpb", "slurp",
+  "grunt", "moan", "lala", "pbpb", "slurp", "mwah", "huff", "waow", "whoop",
+  "doodoo", "llll", "purr", "rrrr", "lrroll", "lalatrip", "hiccuplong",
+  "zzzz", "ehyeah",
 ]);
-const TOOTH_TINE_PROFILES = Object.freeze([
-  [130.81, 0.42], [146.83, 0.46], [164.81, 0.5], [196, 0.54],
-  [220, 0.48], [261.63, 0.56], [293.66, 0.5], [329.63, 0.58],
-  [392, 0.52], [440, 0.6], [523.25, 0.54], [587.33, 0.62],
-].map(([frequencyHz, brightness]) => Object.freeze({ frequencyHz, brightness })));
+const TOOTH_TINE_PROFILES = HICCUP_HEAD_TOOTH_TINE_PROFILES;
 
 function flashSound(soundId, velocity = 1, voiceChoice = null) {
   const sound = hiccupHeadSound(soundId);
@@ -1125,9 +1209,27 @@ function postStrike(
     brightness: clamp(Number(rawToothTine.brightness) || 0, 0, 1),
     toothIndex: Math.round(clamp(Number(rawToothTine.toothIndex) || 0, 0, 11)),
   } : null;
-  const brushDirection = eventDetails?.brushDirection === -1 ? -1 : 1;
-  const safeEventDetails = toothTine || soundId === "brush"
-    ? { ...(toothTine ? { toothTine } : {}), ...(soundId === "brush" ? { brushDirection } : {}) }
+  let brushDirection = 1;
+  if (soundId === "brush") {
+    if (eventDetails?.brushDirection === -1 || eventDetails?.brushDirection === 1) {
+      brushDirection = eventDetails.brushDirection;
+    } else {
+      brushDirection = nextBrushDirection;
+      nextBrushDirection *= -1;
+    }
+  }
+  const requestedGestureDuration = Number(eventDetails?.gestureDurationSeconds);
+  const gestureDurationSeconds = Number.isFinite(requestedGestureDuration)
+    ? clamp(requestedGestureDuration, 0.018, 2.2)
+    : null;
+  const bankOutputGain = hiccupHeadSoundBankOutputGain(currentSoundBankId, soundId);
+  const safeEventDetails = toothTine || soundId === "brush" || gestureDurationSeconds || bankOutputGain !== 1
+    ? {
+      ...(toothTine ? { toothTine } : {}),
+      ...(soundId === "brush" ? { brushDirection } : {}),
+      ...(gestureDurationSeconds ? { gestureDurationSeconds } : {}),
+      ...(bankOutputGain !== 1 ? { bankOutputGain } : {}),
+    }
     : null;
   graph.sourceNode.port.postMessage({
     type: "strike",
@@ -1137,6 +1239,9 @@ function postStrike(
     ...(strikeConfiguration ? { configuration: strikeConfiguration } : {}),
     ...(voiceChoice?.voice ? { voice: voiceChoice.voice } : {}),
     ...(toothTine ? { toothTine } : {}),
+    ...(soundId === "brush" ? { brushDirection } : {}),
+    ...(gestureDurationSeconds ? { gestureDurationSeconds } : {}),
+    ...(bankOutputGain !== 1 ? { bankOutputGain } : {}),
   });
   queueSoundVisual(
     soundId,
@@ -1156,35 +1261,10 @@ async function triggerSound(soundId, velocity = 1, configuration = null, eventDe
   const transientConfiguration = configuration
     ?? (sound.id === "slap" ? handStrikeConfiguration("left") : null)
     ?? (sound.id === "smack" ? handStrikeConfiguration("right") : null);
-  const strikeConfiguration = transientConfiguration ?? state;
+  const strikeConfiguration = bankedSoundConfiguration(transientConfiguration ?? state);
   const voiceChoice = voiceChoiceForSound(sound.id, performance.now());
-  const brushDirection = sound.id === "brush" ? nextBrushDirection : 1;
-  if (sound.id === "brush") nextBrushDirection *= -1;
-  const strikeEventDetails = sound.id === "brush"
-    ? { ...(eventDetails ?? {}), brushDirection }
-    : eventDetails;
-  postStrike(sound.id, velocity, 0, null, strikeConfiguration, voiceChoice, strikeEventDetails);
-  if (sound.id === "brush") {
-    // The tooth contacts and visible brush alternate direction together.
-    const traversal = TOOTH_TINE_PROFILES.map((profile, toothIndex) => ({ profile, toothIndex }));
-    if (brushDirection < 0) traversal.reverse();
-    for (let travelIndex = 0; travelIndex < traversal.length; travelIndex += 1) {
-      const { profile, toothIndex } = traversal[travelIndex];
-      graph.sourceNode.port.postMessage({
-        type: "strike",
-        soundId: "tlik",
-        velocity: clamp(velocity * (0.5 + travelIndex * 0.008), 0.01, 0.72),
-        delaySeconds: 0.025 + travelIndex * 0.044,
-        configuration: audioConfiguration(strikeConfiguration),
-        toothTine: {
-          frequencyHz: profile.frequencyHz,
-          position: 0.28 + (toothIndex % 4) * 0.13,
-          brightness: profile.brightness,
-          toothIndex,
-        },
-      });
-    }
-  }
+  postStrike(sound.id, velocity, 0, null, strikeConfiguration, voiceChoice, eventDetails);
+  lastAuditionSoundId = sound.id;
   clearTimeout(manualConfigurationResetTimer);
   if (transientConfiguration) {
     manualConfigurationResetTimer = setTimeout(() => {
@@ -1193,6 +1273,41 @@ async function triggerSound(soundId, velocity = 1, configuration = null, eventDe
     }, 720);
   }
   announce(`${sound.label}: ${sound.description}`);
+  return true;
+}
+
+async function auditionCurrentSoundBank(preferredSlotIndex = null, preferredSoundId = null) {
+  if (sequencePlaying) return false;
+  const requestedSound = hiccupHeadSound(preferredSoundId ?? lastAuditionSoundId);
+  // Voice mutation cannot reveal itself through a tooth, hand, or other
+  // unvoiced event. Fall back to a sustained vowel for a guaranteed audible
+  // before/after comparison.
+  const sound = VOICE_SOUND_IDS.has(requestedSound.id)
+    ? requestedSound
+    : hiccupHeadSound("aah");
+  if (!(await ensureAudio())) return false;
+  const transientConfiguration = sound.id === "slap"
+    ? handStrikeConfiguration("left")
+    : sound.id === "smack"
+      ? handStrikeConfiguration("right")
+      : state;
+  const preferredSlot = Number.isInteger(preferredSlotIndex)
+    ? voiceSlots[clamp(preferredSlotIndex, 0, voiceSlots.length - 1)]
+    : null;
+  const slot = preferredSlot
+    ?? voiceSlots.find((candidate) => candidate.solo)
+    ?? voiceSlots.find((candidate) => candidate.assignment === sound.id)
+    ?? voiceSlots[0];
+  const slotIndex = Math.max(0, voiceSlots.indexOf(slot));
+  const voice = sanitizeHiccupHeadVoice(slot.voice);
+  postStrike(
+    sound.id,
+    0.86,
+    0,
+    null,
+    bankedSoundConfiguration(transientConfiguration),
+    { slotIndex, voice, label: hiccupHeadVoiceCharacter(voice.characterId).label },
+  );
   return true;
 }
 
@@ -1343,6 +1458,26 @@ function browSequenceGain(step, leftBrow, rightBrow, amount = eyebrowEmphasis) {
     : 10 ** (-12 * emphasis / 20);
 }
 
+function availableGestureSecondsUntilNextNote(step, absoluteStepIndex) {
+  let stepDistance = sequenceLength;
+  for (let offset = 1; offset <= sequenceLength; offset += 1) {
+    const candidateStep = (step + offset) % sequenceLength;
+    if (patternEventsAtStep(pattern, candidateStep)[0]) {
+      stepDistance = offset;
+      break;
+    }
+  }
+  let seconds = 0;
+  for (let offset = 0; offset < stepDistance; offset += 1) {
+    seconds += sequenceStepIntervalSeconds(
+      state.tempo,
+      state.swing,
+      absoluteStepIndex + offset,
+    );
+  }
+  return seconds;
+}
+
 function scheduleSequence() {
   scheduleSequenceAhead(usesCompactCanvas() ? 0.32 : 0.22);
 }
@@ -1384,11 +1519,24 @@ function scheduleSequenceAhead(lookaheadSeconds) {
         1,
       );
       const voiceChoice = voiceChoiceForSound(event.soundId, absoluteStep * 131 + soundIndex);
-      const strikeConfiguration = event.soundId === "slap"
+      const strikeConfigurationBase = event.soundId === "slap"
         ? handStrikeConfiguration("left")
         : event.soundId === "smack"
           ? handStrikeConfiguration("right")
           : state;
+      const strikeConfiguration = bankedSoundConfiguration(strikeConfigurationBase);
+      // BRUSH is one mouth gesture containing twelve tooth contacts. Give it
+      // the entire rest before the next programmed mouth event; only compress
+      // the sweep when an adjacent note genuinely needs the one shared tract.
+      const eventDetails = event.soundId === "brush"
+        ? {
+          gestureDurationSeconds: clamp(
+            availableGestureSecondsUntilNextNote(step, absoluteStep) * 0.78,
+            0.018,
+            0.54,
+          ),
+        }
+        : null;
       postStrike(
         event.soundId,
         sequencedVelocity,
@@ -1396,6 +1544,7 @@ function scheduleSequenceAhead(lookaheadSeconds) {
         step,
         strikeConfiguration,
         voiceChoice,
+        eventDetails,
       );
     }
     visualQueue.push({
@@ -1824,9 +1973,54 @@ function makeVoiceOption(value, label, selectedValue) {
   return option;
 }
 
+const VOICE_BASE_PARAMETER_SPECS = Object.freeze([
+  Object.freeze({
+    key: "pitchOffsetSemitones",
+    label: "Pitch offset",
+    step: 0.1,
+    format: (value) => `${Number(value) >= 0 ? "+" : ""}${Number(value).toFixed(1)} st`,
+  }),
+  Object.freeze({
+    key: "vibratoRateHz",
+    label: "Base vibrato rate",
+    step: 0.05,
+    format: (value) => `${Number(value).toFixed(2)} Hz`,
+  }),
+  Object.freeze({
+    key: "vibratoDepthSemitones",
+    label: "Base vibrato depth",
+    step: 0.01,
+    format: (value) => `${Number(value).toFixed(2)} st`,
+  }),
+  Object.freeze({
+    key: "breathiness",
+    label: "Breathiness",
+    step: 0.01,
+    format: formatPercent,
+  }),
+  Object.freeze({
+    key: "roughness",
+    label: "Roughness",
+    step: 0.01,
+    format: formatPercent,
+  }),
+  Object.freeze({
+    key: "subharmonicMix",
+    label: "Subharmonics",
+    step: 0.01,
+    format: formatPercent,
+  }),
+  Object.freeze({
+    key: "tractScale",
+    label: "Tract scale",
+    step: 0.001,
+    format: (value) => `${Number(value).toFixed(3)}×`,
+  }),
+]);
+
 function voiceParameterSummary(voice) {
   const pitch = Math.round(voice.pitchOffsetSemitones);
-  return `${pitch >= 0 ? "+" : ""}${pitch} st · ${voice.vibratoRateHz.toFixed(1)} Hz · ${Math.round(voice.roughness * 100)}% rough`;
+  return `${pitch >= 0 ? "+" : ""}${pitch} st · base vib ${voice.vibratoRateHz.toFixed(1)} Hz/${voice.vibratoDepthSemitones.toFixed(2)} st · ${Math.round(voice.roughness * 100)}% rough`;
 }
 
 function voiceModulationLabel(value) {
@@ -1856,6 +2050,14 @@ function setVoiceSlotModulation(slot, updates) {
   slot.voice = sanitizeHiccupHeadVoice({
     ...slot.voice,
     modulation: { ...slot.voice.modulation, ...updates },
+  });
+}
+
+function setVoiceSlotParameters(slot, updates) {
+  slot.voice = sanitizeHiccupHeadVoice({
+    ...slot.voice,
+    ...updates,
+    modulation: slot.voice.modulation,
   });
 }
 
@@ -1912,9 +2114,11 @@ function buildVoiceRack({ preserveScroll = true } = {}) {
     mutateButton.textContent = "MUT";
     mutateButton.setAttribute("aria-label", `Mutate voice ${index + 1}`);
     mutateButton.addEventListener("click", () => {
-      slot.voice = mutateHiccupHeadVoice(slot.voice, Math.random, 0.34);
+      slot.voice = mutateHiccupHeadVoice(slot.voice, Math.random, 0.64);
+      voiceCursor = 0;
       buildVoiceRack();
       announce(`Voice ${index + 1} mutated`);
+      void auditionCurrentSoundBank(index);
     });
     controls.append(characterSelect, soloButton, mutateButton);
 
@@ -1937,13 +2141,59 @@ function buildVoiceRack({ preserveScroll = true } = {}) {
     });
     assignmentLabel.append(assignmentText, assignmentSelect);
 
+    const baseDetails = document.createElement("details");
+    baseDetails.className = "hiccup-head-voice-base";
+    const baseSummary = document.createElement("summary");
+    const baseSummaryTitle = document.createElement("b");
+    const baseSummaryHint = document.createElement("span");
+    baseSummaryTitle.textContent = "Base voice";
+    baseSummaryHint.textContent = "starting pitch · timbre · vibrato";
+    baseSummary.append(baseSummaryTitle, baseSummaryHint);
+    const baseGrid = document.createElement("div");
+    baseGrid.className = "hiccup-head-voice-base-grid";
+    for (const spec of VOICE_BASE_PARAMETER_SPECS) {
+      const [minimum, maximum] = HICCUP_HEAD_VOICE_LIMITS[spec.key];
+      const parameterLabel = document.createElement("label");
+      parameterLabel.className = "hiccup-head-voice-base-control";
+      const parameterText = document.createElement("span");
+      parameterText.textContent = spec.label;
+      const parameterInput = document.createElement("input");
+      const parameterId = `voice-${index + 1}-${spec.key}`;
+      parameterInput.id = parameterId;
+      parameterInput.type = "range";
+      parameterInput.min = String(minimum);
+      parameterInput.max = String(maximum);
+      parameterInput.step = String(spec.step);
+      parameterInput.value = String(slot.voice[spec.key]);
+      parameterInput.setAttribute("aria-label", `Voice ${index + 1} ${spec.label.toLowerCase()}`);
+      const parameterOutput = document.createElement("output");
+      parameterOutput.setAttribute("for", parameterId);
+      parameterOutput.value = spec.format(slot.voice[spec.key]);
+      parameterOutput.textContent = parameterOutput.value;
+      parameterInput.addEventListener("input", () => {
+        setVoiceSlotParameters(slot, { [spec.key]: Number(parameterInput.value) });
+        parameterOutput.value = spec.format(slot.voice[spec.key]);
+        parameterOutput.textContent = parameterOutput.value;
+        summary.textContent = voiceParameterSummary(slot.voice);
+      });
+      parameterInput.addEventListener("change", () => announce(
+        `Voice ${index + 1} ${spec.label.toLowerCase()}: ${spec.format(slot.voice[spec.key])}`,
+      ));
+      parameterLabel.append(parameterText, parameterInput, parameterOutput);
+      baseGrid.append(parameterLabel);
+    }
+    baseDetails.append(baseSummary, baseGrid);
+
     const modBlock = document.createElement("div");
     modBlock.className = "hiccup-head-voice-modulation";
+    const modTitle = document.createElement("b");
+    modTitle.className = "hiccup-head-voice-mod-title";
+    modTitle.textContent = "Assignable LFO";
     const modMatrix = document.createElement("div");
     modMatrix.className = "hiccup-head-voice-mod-matrix";
     const sourceSelect = document.createElement("select");
     sourceSelect.className = "hiccup-head-voice-mod-source";
-    sourceSelect.setAttribute("aria-label", `Voice ${index + 1} modulation source`);
+    sourceSelect.setAttribute("aria-label", `Voice ${index + 1} assignable LFO source`);
     sourceSelect.replaceChildren(...HICCUP_HEAD_VOICE_MODULATION_SOURCES.map((source) => (
       makeVoiceOption(source, voiceModulationLabel(source), modulation.source)
     )));
@@ -1953,7 +2203,7 @@ function buildVoiceRack({ preserveScroll = true } = {}) {
     });
     const targetSelect = document.createElement("select");
     targetSelect.className = "hiccup-head-voice-mod-target";
-    targetSelect.setAttribute("aria-label", `Voice ${index + 1} modulation target`);
+    targetSelect.setAttribute("aria-label", `Voice ${index + 1} assignable LFO target`);
     targetSelect.replaceChildren(...HICCUP_HEAD_VOICE_MODULATION_TARGETS.map((target) => (
       makeVoiceOption(target, voiceModulationLabel(target), modulation.target)
     )));
@@ -1966,7 +2216,7 @@ function buildVoiceRack({ preserveScroll = true } = {}) {
     const depthLabel = document.createElement("label");
     depthLabel.className = "hiccup-head-voice-mod-depth-wrap";
     const depthText = document.createElement("span");
-    depthText.textContent = "Depth";
+    depthText.textContent = "LFO depth";
     const depthInput = document.createElement("input");
     depthInput.className = "hiccup-head-voice-mod-depth";
     depthInput.type = "range";
@@ -1974,7 +2224,7 @@ function buildVoiceRack({ preserveScroll = true } = {}) {
     depthInput.max = "1";
     depthInput.step = "0.01";
     depthInput.value = String(modulation.depth);
-    depthInput.setAttribute("aria-label", `Voice ${index + 1} modulation depth`);
+    depthInput.setAttribute("aria-label", `Voice ${index + 1} assignable LFO depth`);
     const depthOutput = document.createElement("output");
     depthOutput.className = "hiccup-head-voice-mod-depth-out";
     depthOutput.value = formatPercent(modulation.depth);
@@ -1985,14 +2235,14 @@ function buildVoiceRack({ preserveScroll = true } = {}) {
       depthOutput.textContent = depthOutput.value;
     });
     depthInput.addEventListener("change", () => announce(
-      `Voice ${index + 1} modulation depth: ${formatPercent(slot.voice.modulation.depth)}`,
+      `Voice ${index + 1} assignable LFO depth: ${formatPercent(slot.voice.modulation.depth)}`,
     ));
     depthLabel.append(depthText, depthInput, depthOutput);
 
     const rateLabel = document.createElement("label");
     rateLabel.className = "hiccup-head-voice-mod-rate-wrap";
     const rateText = document.createElement("span");
-    rateText.textContent = "Rate";
+    rateText.textContent = "LFO rate";
     const rateInput = document.createElement("input");
     rateInput.className = "hiccup-head-voice-mod-rate";
     rateInput.type = "range";
@@ -2000,7 +2250,7 @@ function buildVoiceRack({ preserveScroll = true } = {}) {
     rateInput.max = "20";
     rateInput.step = "0.05";
     rateInput.value = String(modulation.rateHz);
-    rateInput.setAttribute("aria-label", `Voice ${index + 1} modulation rate`);
+    rateInput.setAttribute("aria-label", `Voice ${index + 1} assignable LFO rate`);
     const rateOutput = document.createElement("output");
     rateOutput.className = "hiccup-head-voice-mod-rate-out";
     rateOutput.value = `${modulation.rateHz.toFixed(1)} Hz`;
@@ -2011,11 +2261,11 @@ function buildVoiceRack({ preserveScroll = true } = {}) {
       rateOutput.textContent = rateOutput.value;
     });
     rateInput.addEventListener("change", () => announce(
-      `Voice ${index + 1} modulation rate: ${slot.voice.modulation.rateHz.toFixed(1)} hertz`,
+      `Voice ${index + 1} assignable LFO rate: ${slot.voice.modulation.rateHz.toFixed(1)} hertz`,
     ));
     rateLabel.append(rateText, rateInput, rateOutput);
-    modBlock.append(modMatrix, depthLabel, rateLabel);
-    card.append(header, controls, assignmentLabel, modBlock);
+    modBlock.append(modTitle, modMatrix, depthLabel, rateLabel);
+    card.append(header, controls, assignmentLabel, baseDetails, modBlock);
     return card;
   });
   rack.replaceChildren(...cards);
@@ -2239,6 +2489,7 @@ function resetAll() {
   soundAnimation = null;
   kissMarks = [];
   brushSweep = null;
+  nextBrushDirection = 1;
   displayedPose = { ...state };
   activeMouthSoundId = "";
   activeVoiceSlot = -1;
@@ -2246,12 +2497,18 @@ function resetAll() {
   voiceSelectionMode = "round-robin";
   voiceCursor = 0;
   voiceSlots = createDefaultVoiceSlots();
+  currentSoundBankId = HICCUP_HEAD_SOUND_BANKS[0].id;
+  retuneVoiceSlotsForBank(currentSoundBankId);
   if ($("voiceCount")) $("voiceCount").value = String(voiceCount);
   if ($("voiceCountOut")) {
     $("voiceCountOut").value = String(voiceCount);
     $("voiceCountOut").textContent = String(voiceCount);
   }
   if ($("voiceSelectionMode")) $("voiceSelectionMode").value = "roundRobin";
+  if ($("soundBankSelect")) $("soundBankSelect").value = currentSoundBankId;
+  if ($("soundBankDescription")) {
+    $("soundBankDescription").textContent = hiccupHeadSoundBank(currentSoundBankId).description;
+  }
   buildVoiceRack({ preserveScroll: false });
   Object.assign(handPlacements.left, { x: -0.62, y: 0.1 });
   Object.assign(handPlacements.right, { x: 0.62, y: 0.14 });
@@ -2306,6 +2563,16 @@ function populateSelects() {
   $("patternSelect").replaceChildren(...patternOptions, custom);
   $("presetSelect").value = state.presetId;
   $("patternSelect").value = currentPatternId;
+  $("soundBankSelect")?.replaceChildren(...HICCUP_HEAD_SOUND_BANKS.map((bank) => {
+    const option = document.createElement("option");
+    option.value = bank.id;
+    option.textContent = bank.label;
+    return option;
+  }));
+  if ($("soundBankSelect")) $("soundBankSelect").value = currentSoundBankId;
+  if ($("soundBankDescription")) {
+    $("soundBankDescription").textContent = hiccupHeadSoundBank(currentSoundBankId).description;
+  }
 }
 
 function roundedRect(context, x, y, width, height, radius) {
@@ -2562,6 +2829,25 @@ function activeMotion(now, physicalStatus = physicalTelemetryStatus(now)) {
     if (animation.soundId === "slurp") {
       envelope *= Math.min(1, phase * 7) * (0.72 + Math.sin(phase * 28) * 0.2);
     }
+    if (animation.soundId === "huff") envelope *= 0.76 + Math.sin(phase * Math.PI) * 0.18;
+    if (animation.soundId === "waow") envelope *= 0.72 + phase * 0.24;
+    if (animation.soundId === "whoop") envelope *= 0.76 + Math.sin(phase * Math.PI) * 0.22;
+    if (animation.soundId === "doodoo") envelope *= phase < 0.47 ? 0.94 : 0.78;
+    if (animation.soundId === "llll") envelope *= 0.82 + Math.sin(phase * 18) * 0.08;
+    if (animation.soundId === "purr") envelope *= 0.62 + Math.sin(phase * 36) * 0.28;
+    if (animation.soundId === "klikklak") envelope *= 0.5
+      + (Math.sin(phase * Math.PI * 8 - 0.7) > 0.35 ? 0.48 : -0.2);
+    if (animation.soundId === "rrrr") envelope *= 0.64 + Math.sin(phase * 76) * 0.3;
+    if (animation.soundId === "lrroll") envelope *= 0.7
+      + Math.sin(phase * Math.PI * 8) * 0.2;
+    if (animation.soundId === "lalatrip") envelope *= 0.68
+      + (Math.sin(phase * Math.PI * 6 - 0.5) > -0.15 ? 0.24 : -0.08);
+    if (animation.soundId === "hiccuplong") envelope *= 0.66
+      + Math.sin(phase * Math.PI * 4 - 0.8) * 0.26;
+    if (animation.soundId === "zzzz") envelope *= 0.78
+      + Math.sin(phase * 92) * 0.08;
+    if (animation.soundId === "ehyeah") envelope *= 0.74
+      + Math.sin(phase * 34) * 0.16 + phase * 0.08;
     amounts[animation.soundId] = envelope * animation.velocity;
   }
   return amounts;
@@ -2615,6 +2901,19 @@ function flushVisualQueue(now) {
       hiccup: 460,
       eef: 620,
       brush: 520,
+      huff: 620,
+      waow: 980,
+      whoop: 1120,
+      doodoo: 860,
+      llll: 980,
+      purr: 1180,
+      klikklak: 520,
+      rrrr: 920,
+      lrroll: 900,
+      lalatrip: 880,
+      hiccuplong: 1180,
+      zzzz: 940,
+      ehyeah: 1180,
     };
     const visualTempoScale = TEMPO_STRETCH_SOUND_IDS.has(sound.id)
       ? clamp(Math.sqrt(118 / state.tempo), 0.68, 1.8)
@@ -2895,6 +3194,19 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   const slurp = motion.slurp ?? 0;
   const hiccup = motion.hiccup ?? 0;
   const eef = motion.eef ?? 0;
+  const huff = motion.huff ?? 0;
+  const waow = motion.waow ?? 0;
+  const whoop = motion.whoop ?? 0;
+  const doodoo = motion.doodoo ?? 0;
+  const llll = motion.llll ?? 0;
+  const purr = motion.purr ?? 0;
+  const klikklak = motion.klikklak ?? 0;
+  const rrrr = motion.rrrr ?? 0;
+  const lrroll = motion.lrroll ?? 0;
+  const lalatrip = motion.lalatrip ?? 0;
+  const hiccuplong = motion.hiccuplong ?? 0;
+  const zzzz = motion.zzzz ?? 0;
+  const ehyeah = motion.ehyeah ?? 0;
   const eefPull = eef * Math.sin(now * 0.038);
   const wobble = (slap * -1 + smack * 0.92 + pop * 0.38 + shack * 0.18)
     * (0.018 + state.silliness * 0.025);
@@ -2921,11 +3233,11 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   // A tiny uneven bob and counter-squash makes the face feel rubbery while
   // keeping every control visually stable on a narrow phone. Reduced-motion
   // users get the exact resting pose.
-  context.translate(cx, cy + idleBob - hiccup * ry * 0.028);
+  context.translate(cx, cy + idleBob - (hiccup + hiccuplong * 0.86) * ry * 0.028);
   context.rotate(wobble + idleTilt);
   context.scale(
-    1 + idleSquash + hiccup * 0.035,
-    1 - idleSquash * 0.72 - hiccup * 0.07,
+    1 + idleSquash + (hiccup + hiccuplong * 0.8) * 0.035,
+    1 - idleSquash * 0.72 - (hiccup + hiccuplong * 0.8) * 0.07,
   );
   context.translate(-cx, -cy);
 
@@ -3324,6 +3636,19 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     lala * 0.9,
     pbpb * 0.7,
     slurp * 0.64,
+    huff * 0.34,
+    waow * 0.94,
+    whoop,
+    doodoo * 0.8,
+    llll * 0.72,
+    purr * 0.62,
+    klikklak * 0.34,
+    rrrr * 0.66,
+    lrroll * 0.72,
+    lalatrip * 0.9,
+    hiccuplong * 0.9,
+    zzzz * 0.42,
+    ehyeah,
   );
   const roundedGesture = motion.boop * 0.9
     + motion.pop * 0.46
@@ -3336,7 +3661,13 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     + motion.hum * 0.88
     + moan * 0.3
     + pbpb * 1.05
-    + slurp * 0.84;
+    + slurp * 0.84
+    + huff * 0.62
+    + waow * 0.72
+    + whoop * 0.66
+    + doodoo * 0.96
+    + purr * 0.48
+    + hiccuplong * 0.34;
   const spreadGesture = motion.shh * 0.48
     + motion.tlik * 0.22
     + motion.shack * 0.16
@@ -3350,7 +3681,16 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     + motion.holler * 0.52
     + motion.rattle * 0.18
     + grunt * 0.22
-    + lala * 0.76;
+    + lala * 0.76
+    + waow * 0.54
+    + whoop * 0.42
+    + llll * 0.74
+    + klikklak * 0.36
+    + rrrr * 0.34
+    + lrroll * 0.5
+    + lalatrip * 0.78
+    + zzzz * 0.52
+    + ehyeah * 0.58;
   const flutter = (motion.pff * Math.sin(now * 0.045)
     + motion.drr * Math.sin(now * 0.074)
     + motion.burp * Math.sin(now * 0.026 + Math.sin(now * 0.011))
@@ -3363,7 +3703,16 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
     + lala * Math.sin(now * 0.047)
     + pbpb * Math.sin(now * 0.12)
     + slurp * Math.sin(now * 0.039)
-    + whistle * Math.sin(now * 0.052) * 0.1)
+    + whistle * Math.sin(now * 0.052) * 0.1
+    + purr * Math.sin(now * 0.036) * 0.7
+    + klikklak * Math.sin(now * 0.12) * 0.45
+    + rrrr * Math.sin(now * 0.09) * 0.8
+    + lrroll * Math.sin(now * 0.072) * 0.58
+    + lalatrip * Math.sin(now * 0.05) * 0.42
+    + hiccuplong * Math.sin(now * 0.034) * 0.22
+    + zzzz * Math.sin(now * 0.11) * 0.18
+    + ehyeah * Math.sin(now * 0.036) * 0.34
+    + doodoo * Math.sign(Math.sin(now * 0.022)) * 0.18)
     * (0.08 + state.silliness * 0.06);
   const lipDiameterCm = Number(pose.lipDiameterCm);
   const physicalLipAperture = Number.isFinite(lipDiameterCm)
@@ -3393,6 +3742,7 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
       + motion.yodel * 0.34
       + motion.growl * 0.28
       + motion.holler * 0.5
+      + ehyeah * 0.52
       + motion.rattle * 0.22
       + grunt * 0.26
       + moan * 0.42
@@ -3403,6 +3753,7 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
       - motion.hee * 0.12
       - motion.ooh * 0.08
       - motion.hum * 0.64
+      - zzzz * 0.12
       + flutter,
     0.12,
     3.2,
@@ -3557,13 +3908,20 @@ function drawFace(context, layout, pose, motion, now, checkerStep = -1) {
   const constrictionContact = Number.isFinite(constrictionDiameterCm)
     ? 1 - clamp(constrictionDiameterCm / 1.5)
     : 0;
-  const tongueLift = motion.tlik * liveOpening * 0.55
+  const tongueLift = (motion.tlik + klikklak * 0.82) * liveOpening * 0.55
     + pose.tongueCurl * liveOpening * 0.2
     + constrictionContact * liveOpening * 0.32;
   const tongueOut = clamp(Number(pose.tongueOut) || 0, 0, 1.6);
-  const gestureTongueOut = lala * 0.62 + motion.drr * 0.4 + slurp * 0.82;
+  const gestureTongueOut = lala * 0.62
+    + motion.drr * 0.4
+    + rrrr * 0.5
+    + lrroll * 0.58
+    + lalatrip * 0.72
+    + slurp * 0.82;
   const liveTongueOut = clamp(tongueOut + gestureTongueOut, 0, 1.9);
-  const tongueTipX = tongueX + (slurp - lala * 0.18) * mouthWidth * 0.12;
+  const tongueTipX = tongueX + (
+    slurp - lala * 0.18 + lrroll * Math.sin(now * 0.014) * 0.24
+  ) * mouthWidth * 0.12;
   const tongueTipY = mouthY + liveOpening * 0.78
     + liveTongueOut * (ry * 0.15 + liveOpening * 0.15);
   const tongueTipWidth = mouthWidth * clamp(0.31 - pose.tongueCurl * 0.045, 0.18, 0.4);
@@ -3777,12 +4135,15 @@ function drawBrushSweep(context, now) {
   const last = toothTines.at(-1);
   const travelPhase = brushSweep.direction < 0 ? 1 - phase : phase;
   const x = first.x + (last.x - first.x) * travelPhase;
-  const y = first.y - first.height * 0.72;
+  // The brush traverses the pitches in both directions while the bristles
+  // visibly scrub up and down across every tooth contact.
+  const scrub = Math.sin(phase * Math.PI * 24);
+  const y = first.y - first.height * (0.72 + scrub * 0.22);
   const brushLength = Math.max(38, Math.abs(last.x - first.x) * 0.42);
   context.save();
   context.translate(x, y);
   context.rotate((brushSweep.direction < 0 ? Math.PI - 0.28 : -0.28)
-    + Math.sin(phase * Math.PI) * 0.18);
+    + Math.sin(phase * Math.PI) * 0.18 + scrub * 0.045);
   context.strokeStyle = "rgba(19, 76, 142, 0.98)";
   context.lineWidth = 9;
   context.lineCap = "round";
@@ -3940,6 +4301,18 @@ function buildHitGeometry(layout, pose) {
         const scale = 1 / Math.max(0.001, Math.hypot(mouthDx, mouthDy));
         hotspot.x = cx + mouthDx * scale * mouthRx;
         hotspot.y = mouthY + mouthDy * scale * mouthRy;
+      }
+      // Feature avoidance can push a dot past the circular outline. Pull it
+      // back onto visible skin after every pass so all sounds stay usable by
+      // mouse or touch even at extreme face mutations.
+      const skinRx = Math.max(1, rx - hotspot.r - 2);
+      const skinRy = Math.max(1, ry - hotspot.r - 2);
+      const skinX = (hotspot.x - cx) / skinRx;
+      const skinY = (hotspot.y - cy) / skinRy;
+      const skinDistance = Math.hypot(skinX, skinY);
+      if (skinDistance > 1) {
+        hotspot.x = cx + skinX / skinDistance * skinRx;
+        hotspot.y = cy + skinY / skinDistance * skinRy;
       }
     }
   }
@@ -4709,12 +5082,15 @@ function bindControls() {
     announce(`Voice choice: ${voiceSelectionMode === "random" ? "random per event" : "round robin"}`);
   });
   $("mutateVoicesButton")?.addEventListener("click", () => {
-    for (const slot of voiceSlots.slice(0, voiceCount)) {
-      slot.voice = mutateHiccupHeadVoice(slot.voice, Math.random, 0.4);
-    }
-    buildVoiceRack();
-    announce(`${voiceCount} voice characters mutated`);
+    const alternatives = HICCUP_HEAD_SOUND_BANKS.filter(({ id }) => id !== currentSoundBankId);
+    const nextBank = alternatives[Math.floor(Math.random() * alternatives.length)]
+      ?? HICCUP_HEAD_SOUND_BANKS[0];
+    setSoundBank(nextBank.id, { mutate: true, audition: true });
   });
+  $("soundBankSelect")?.addEventListener("change", () => (
+    setSoundBank($("soundBankSelect").value, { audition: true })
+  ));
+  $("nextSoundBankButton")?.addEventListener("click", () => cycleSoundBank(1));
   $("presetSelect").addEventListener("change", () => setPreset($("presetSelect").value));
   $("nextFacePresetButton")?.addEventListener("click", () => cycleFacePreset(1));
   $("patternSelect").addEventListener("change", () => {

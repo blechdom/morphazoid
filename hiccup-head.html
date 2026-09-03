@@ -6,14 +6,14 @@
     <meta name="theme-color" content="#080507" />
     <meta
       name="description"
-      content="Hiccup Head is a large shape-shifting face-percussion and beatbox physical model with 39 playable gestures, fading KISS marks, a BRUSH tooth gliss, mutable voice collections, and sequences up to 64 steps."
+      content="Hiccup Head is a large shape-shifting face-percussion and beatbox physical model with 52 playable gestures, fading KISS marks, a bidirectional BRUSH tooth gliss, contrasting mutable sound banks, and sequences up to 64 steps."
     />
     <title>Hiccup Head · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=hiccup-head-ir-20260831-2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav?v=hiccup-head-ir-20260831-2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-20260831-16" />
+    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-20260902-4" />
   </head>
   <body class="hiccup-head-page">
     <header class="masthead">
@@ -62,10 +62,10 @@
             <canvas
               id="stage"
               tabindex="0"
-              aria-label="A large purple-outline goofball beatbox face with two matched circular eyes, a big #FF0000-red circular nose, oval green thinning lips, and one missing upper front tooth. Click the nose to quack or drag it to change nasality. Tap any of its thirty-nine colored face dots or twelve dry wood teeth; KISS leaves a fading lipstick print and BRUSH sweeps a visible toothbrush across the teeth. Pull out the tongue; drag either eye in two dimensions, the ears, and independent side hair tips. Blue slap mitts appear only while dragging SLAP or SMACK."
+              aria-label="A large purple-outline goofball beatbox face with two matched circular eyes, a big #FF0000-red circular nose, oval green thinning lips, and one missing upper front tooth. Click the nose to quack or drag it to change nasality. Tap any of its fifty-two colored face dots or twelve dry wood teeth; KISS leaves a fading lipstick print and BRUSH sweeps a visible toothbrush up and down across the teeth. Pull out the tongue; drag either eye in two dimensions, the ears, and independent side hair tips. Blue slap mitts appear only while dragging SLAP or SMACK."
               aria-describedby="canvasInstructions liveStatus"
             >
-              A large playable pink-purple outline goofball face with thirty-nine colored trigger dots, fading lipstick kisses, a toothbrush gliss, a whistling tooth gap, independent two-dimensional side hair, and hidden-at-rest blue slap mitts.
+              A large playable pink-purple outline goofball face with fifty-two colored trigger dots, fading lipstick kisses, a bidirectional toothbrush gliss, a whistling tooth gap, independent two-dimensional side hair, and hidden-at-rest blue slap mitts.
             </canvas>
 
             <div class="hiccup-head-stage-heading" aria-hidden="true">
@@ -136,13 +136,13 @@
             </label>
           </header>
 
-          <div class="hiccup-head-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable thirty-nine-sound sequence with any length from one to sixty-four steps">
+          <div class="hiccup-head-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable fifty-two-sound sequence with any length from one to sixty-four steps">
             <div
               class="hiccup-head-sequence-grid"
               id="sequenceGrid"
               role="grid"
-              aria-label="Thirty-nine Hiccup Head face, throat, breath, tongue, tooth, and mouth sounds by sixteen sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
-              aria-rowcount="39"
+              aria-label="Fifty-two Hiccup Head face, throat, breath, tongue, tooth, and mouth sounds by sixteen sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
+              aria-rowcount="52"
               aria-colcount="16"
             ></div>
           </div>
@@ -158,7 +158,7 @@
               <button id="nextFacePresetButton" type="button" title="Next face preset (Right arrow)" aria-label="Next face preset">▶</button>
             </span>
           </div>
-          <p class="sr-only" id="presetDescription">A playable beatbox face with mutable anatomy and effects.</p>
+          <p class="sr-only" id="presetDescription">A playable beatbox face with mutable anatomy. Eyebrows and live effects stay where you put them.</p>
           <button id="randomizeButton" type="button">
             <span aria-hidden="true">✦</span>
             <span><b>Mutate the whole face</b></span>
@@ -172,6 +172,16 @@
             </div>
             <p class="sr-only" id="voiceCollectionHelp">Voice characters alter the fold and tract parameters selected for each event.</p>
           </header>
+          <div class="hiccup-head-sound-bank-picker">
+            <label for="soundBankSelect">
+              <span>Sound bank</span>
+              <span class="hiccup-head-picker-row">
+                <select id="soundBankSelect" aria-describedby="soundBankDescription"></select>
+                <button id="nextSoundBankButton" type="button" title="Next sound bank" aria-label="Next sound bank">▶</button>
+              </span>
+            </label>
+            <p class="sr-only" id="soundBankDescription">One physical mouth in a centered natural tuning.</p>
+          </div>
           <div class="hiccup-head-voice-toolbar">
             <label class="hiccup-head-voice-count" for="voiceCount">
               <span><b>Voices</b><output id="voiceCountOut" for="voiceCount">4</output></span>
@@ -185,7 +195,7 @@
               </select>
             </label>
             <button class="hiccup-head-voice-mutate-all" id="mutateVoicesButton" type="button" aria-controls="voiceRack">
-              <b>Mutate voices</b>
+              <b>Mutate sound bank</b>
             </button>
           </div>
           <div class="hiccup-head-voice-rack" id="voiceRack" role="list" aria-label="Mutable and soloable voice characters" aria-live="polite"></div>
@@ -195,7 +205,7 @@
           <header class="hiccup-head-pad-heading">
             <h2 id="padBankTitle">Mouth, throat &amp; face</h2>
           </header>
-          <div class="hiccup-head-pad-bank" id="padGrid" aria-label="Thirty-nine playable Hiccup Head sound pads in a four-column grid"></div>
+          <div class="hiccup-head-pad-bank" id="padGrid" aria-label="Fifty-two playable Hiccup Head sound pads in a four-column grid"></div>
         </section>
 
         <div class="hiccup-head-model-hud" aria-live="polite">
@@ -346,7 +356,7 @@
         <details class="group control-section hiccup-head-model-notes" data-section="output">
           <summary class="group-summary">
             <h2 class="group-title">What is physical here?</h2>
-            <span class="section-state">full face · 37 sequential sounds</span>
+            <span class="section-state">full face · 52 sequential sounds</span>
           </summary>
           <div class="group-body">
             <p><b>Shared tract</b> resamples Pink Trombone / Throatazoid's 44-point mouth geometry into a continuously moving, variable-length oral waveguide. Its travelling air waves persist as every new gesture reshapes it.</p>
@@ -370,11 +380,11 @@
     </main>
 
     <p class="sr-only" id="canvasInstructions">
-      Tap any of thirty-nine colored trigger dots on clear face regions, twelve visible tooth tines, the visible missing-front-tooth gap, or a displayed pad shortcut to play the face, throat, breath, tongue, tooth, and mouth sounds. KISS leaves a fading lipstick print at a different face position; BRUSH sweeps a visible toothbrush across all twelve teeth.
+      Tap any of fifty-two colored trigger dots on clear face regions, twelve visible tooth tines, the visible missing-front-tooth gap, or a displayed pad shortcut to play the face, throat, breath, tongue, tooth, and mouth sounds. KISS leaves a fading lipstick print at a different face position; BRUSH alternates rising and falling sweeps across all twelve teeth.
       The blue hands stay hidden at rest. Drag the SLAP or SMACK face dot onto different cheeks, jaw, forehead, or mouth zones to reveal a mitt and make a resonant strike.
       Drag either eye inward for warm plate reverb or outward for the York Minster cathedral late field. Drag the left eyelid down for a post-effects high-pass sweep or the right eyelid down for stable-volume whole-mix fuzz. Drag either eyebrow among five snapped rhythmic emphasis positions,
       the nose to change nasal tone, either ear for stereo width, either side-hair tip in two dimensions for its own feedback amount and delay time, and the tongue tip beyond the lips.
-      Face presets move the anatomy, while the four effect switches and their live face-controlled amounts stay unchanged.
+      Face presets and whole-face mutation move the anatomy, while the eyebrows, four effect switches, and their live face-controlled amounts stay unchanged.
       Drag the mouth anatomy beyond human ranges. Set the sequence to any whole-number length from one through
       sixty-four steps. Each column holds at most one sound; selecting another row replaces that step's old sound.
       The voice collection can cycle or randomly choose among one to eight mutable characters, one per event.
@@ -382,7 +392,7 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
-    <link rel="modulepreload" href="src/hiccup-head-processor.js?v=hiccup-head-tract-20260831-19" />
-    <script type="module" src="hiccup-head-app.js?v=hiccup-head-20260831-29"></script>
+    <link rel="modulepreload" href="src/hiccup-head-processor.js?v=hiccup-head-tract-20260902-4" />
+    <script type="module" src="hiccup-head-app.js?v=hiccup-head-20260902-4"></script>
   </body>
 </html>

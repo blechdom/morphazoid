@@ -47,6 +47,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
       [
         '<link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=stale-plate">',
         '<link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav">',
+        '<link rel="modulepreload" href="src/hiccup-head-processor.js?v=stale-processor">',
         '<link rel="stylesheet" href="hiccup-head.css?v=stale-css">',
         '<script type="module" src="hiccup-head-app.js?v=stale-app"></script>',
         "",
@@ -69,6 +70,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
     new RegExp(`${cathedralPathname.replaceAll(".", "\\.")}\\?v=${cathedralVersion}`),
   );
   assert.match(firstHtml, new RegExp(`hiccup-head-app\\.js\\?v=${first.appVersion}`));
+  assert.match(firstHtml, new RegExp(`src/hiccup-head-processor\\.js\\?v=${first.processorVersion}`));
   assert.match(firstHtml, new RegExp(`hiccup-head-emt140-warm-plate\\.wav\\?v=${firstPlateVersion}`));
   assert.match(firstHtml, new RegExp(`hiccup-head-york-minster-warm-hall\\.wav\\?v=${cathedralVersion}`));
 
@@ -85,6 +87,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   assert.match(secondApp, new RegExp(`${platePathname.replaceAll(".", "\\.")}\\?v=${secondPlateVersion}`));
   assert.doesNotMatch(secondApp, new RegExp(`stale-|${firstPlateVersion}`));
   assert.match(secondHtml, new RegExp(`hiccup-head-app\\.js\\?v=${second.appVersion}`));
+  assert.match(secondHtml, new RegExp(`src/hiccup-head-processor\\.js\\?v=${second.processorVersion}`));
   assert.match(secondHtml, new RegExp(`hiccup-head-emt140-warm-plate\\.wav\\?v=${secondPlateVersion}`));
 
   const secondCathedral = Buffer.from("changed and reprocessed warm cathedral impulse");

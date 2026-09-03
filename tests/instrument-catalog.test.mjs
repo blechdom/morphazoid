@@ -345,7 +345,7 @@ test("Hiccup Head is a monophonic physical beatbox sequencer with page-owned dru
   assert.equal(instrument?.href, "hiccup-head.html");
   assert.equal(instrument?.imageHref, "assets/instruments/hiccup-head.webp");
   assert.equal(instrument?.kind, "Monophonic physical beatbox sequencer");
-  assert.match(instrument?.description ?? "", /thirty-nine exclusive gestures/i);
+  assert.match(instrument?.description ?? "", /fifty-two exclusive gestures/i);
   assert.match(instrument?.description ?? "", /HIC!/i);
   assert.match(instrument?.description ?? "", /mouth KSH snare/i);
   assert.match(instrument?.description ?? "", /twelve pitched dead-wood teeth/i);
