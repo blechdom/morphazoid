@@ -80,6 +80,13 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
     this.creatureContactLowpass = 0;
     this.creatureContactLeft = 0;
     this.creatureContactRight = 0;
+    this.creatureMakeupGain = 1;
+    this.creatureMakeupTarget = 1;
+    this.creatureMakeupRampFrames = Math.max(1, Math.round(this.workletRate * 0.0005));
+    this.creatureMakeupDelayRemaining = 0;
+    this.creatureMakeupRampRemaining = 0;
+    this.creatureMakeupRampStep = 0;
+    this.creatureAttackTransitionFrames = Math.max(1, Math.round(this.workletRate * 0.002));
     this.port.onmessage = (event) => this._handleCreatureMessage(event.data);
   }
 
@@ -96,6 +103,9 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
           soundId: String(event.soundId || ""),
           label: String(event.label || ""),
           velocity: clamp(event.velocity ?? 1),
+          sequenced: Boolean(event.sequenced ?? event.rhythmic),
+          makeupGain: clamp(event.makeupGain ?? 1, 0.36, 7),
+          bodyGainTrim: clamp(event.bodyGainTrim ?? 1, 1, 3.75),
           contact: event.contact && typeof event.contact === "object" ? event.contact : null,
           configuration: event.configuration,
           order: this.creatureOrder,
@@ -121,6 +131,21 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
     if (message.type === "silence") {
       this.creatureQueue.length = 0;
       this._clearCreatureContact();
+      // Silence has no following attack that needs an immediate downward
+      // correction, so de-click any boosted live tail. Never turn an already
+      // attenuated tail upward merely to restore an idle bookkeeping value.
+      this.creatureMakeupTarget = Math.min(1, this.creatureMakeupGain);
+      if (this.creatureMakeupTarget < this.creatureMakeupGain) {
+        this.creatureMakeupDelayRemaining = 0;
+        this.creatureMakeupRampRemaining = this.creatureMakeupRampFrames;
+        this.creatureMakeupRampStep = (
+          this.creatureMakeupTarget - this.creatureMakeupGain
+        ) / this.creatureMakeupRampFrames;
+      } else {
+        this.creatureMakeupDelayRemaining = 0;
+        this.creatureMakeupRampRemaining = 0;
+        this.creatureMakeupRampStep = 0;
+      }
       this.activeCreatureSerial = Math.max(
         this.activeCreatureSerial + 1,
         integer(message.serial, 0, Number.MAX_SAFE_INTEGER, 0),
@@ -170,9 +195,37 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
   }
 
   _applyCreatureEvent(event) {
+    let isolateMakeupRise = false;
     if (event.begin) {
       if (event.serial < this.activeCreatureSerial) return;
       this.activeCreatureSerial = event.serial;
+      // The general sound calibration and the small allowlisted body-null
+      // correction are bounded independently. Keeping the latter separate
+      // lets a genuinely quiet resonance exceed the generic 7x ceiling
+      // without broadening that ceiling for every scheduled message.
+      const eventMakeupGain = event.makeupGain * (event.bodyGainTrim ?? 1);
+      isolateMakeupRise = eventMakeupGain > this.creatureMakeupGain * 1.5;
+      this.creatureMakeupTarget = eventMakeupGain;
+      if (eventMakeupGain <= this.creatureMakeupGain) {
+        // Downward changes are immediate so a loud event can never inherit a
+        // boosted predecessor. Upward changes use only a sub-millisecond
+        // de-click ramp, short enough to remain locked to the sequencer edge.
+        this.creatureMakeupGain = eventMakeupGain;
+        this.creatureMakeupDelayRemaining = 0;
+        this.creatureMakeupRampRemaining = 0;
+        this.creatureMakeupRampStep = 0;
+      } else {
+        // A large upward correction must never multiply the previous call's
+        // stored waveguide energy. Reset that raw tail, keep its old gain
+        // through the short transition, then raise only the new gesture.
+        this.creatureMakeupDelayRemaining = isolateMakeupRise
+          ? (event.sequenced ? this.creatureAttackTransitionFrames : this.transitionLength)
+          : 0;
+        this.creatureMakeupRampRemaining = this.creatureMakeupRampFrames;
+        this.creatureMakeupRampStep = (
+          eventMakeupGain - this.creatureMakeupGain
+        ) / this.creatureMakeupRampFrames;
+      }
       this._beginCreatureContact(event.contact, event.configuration, event.soundId, event.velocity);
       this.port.postMessage({
         type: "creature-event",
@@ -188,8 +241,46 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
       type: "configure",
       source: { ...(configuration.source ?? {}), voiceCount: 1 },
       tract: configuration.tract ?? {},
-      resetTract: Boolean(configuration.resetTract && event.begin),
+      resetTract: Boolean(
+        event.begin && (configuration.resetTract || isolateMakeupRise),
+      ),
     });
+    if (event.begin && isolateMakeupRise) {
+      // The source engine has its own resonant displacement/velocity state.
+      // Clear that alongside the tract or a quiet high-trim gesture could
+      // magnify the prior call even after its waveguide was emptied.
+      for (const source of this.sources) source.reset();
+    }
+    if (event.begin && event.sequenced) {
+      // Rhythmic crops intentionally begin inside an already-energized native
+      // contour. Land breath pressure and closure on that sample instead of
+      // reintroducing the source engine's 12 ms parameter glide.
+      for (const source of this.sources) {
+        source.current.pressure = source.target.pressure;
+        source.current.adduction = source.target.adduction;
+        source.current.outputGain = source.target.outputGain;
+        if (source.target.model === "whistle") {
+          // The authored mouse contour has already spent its cropped prefix
+          // growing the wall-jet oscillation. Give it a modest deterministic
+          // head start instead of either restarting at 0.001 or dropping a
+          // fully developed resonant cycle onto the edge as a level spike.
+          const threshold = 0.16 + source.target.adduction * 0.08;
+          const growth = Math.max(0, (source.target.pressure - threshold) * 90);
+          const primedAmplitude = clamp(Math.sqrt(growth / 64) * 0.5, 0.08, 1.1);
+          // Retain at most a sliver of an existing jet so repeated mouse
+          // gestures stay smooth without inheriting an arbitrary loud state.
+          source.whistleAmplitude = clamp(
+            source.whistleAmplitude,
+            primedAmplitude,
+            primedAmplitude * 1.25,
+          );
+        }
+      }
+      this.transitionRemaining = Math.min(
+        this.transitionRemaining,
+        this.creatureAttackTransitionFrames,
+      );
+    }
   }
 
   _clearCreatureContact() {
@@ -209,6 +300,8 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
       this.workletRate * 4,
       Math.round(this.workletRate * 0.4),
     );
+    const startPhase = clamp(profile.startPhase ?? 0);
+    const startAge = Math.round(startPhase * durationFrames);
     const bodyScale = clamp(profile.bodyScale, 0.45, 1.6);
     const bodyRoundness = clamp(profile.bodyRoundness, -1, 1);
     const tractLengthM = clamp(
@@ -237,6 +330,7 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
         pan: clamp(strike.pan, -1, 1),
       })).sort((left, right) => left.triggerFrame - right.triggerFrame)
       : [];
+    const firstRetainedStrike = strikes.findIndex(({ triggerFrame }) => triggerFrame >= startAge);
     let seed = 0x811c9dc5;
     for (const character of String(soundId || profile.kind || "contact")) {
       seed ^= character.charCodeAt(0);
@@ -244,7 +338,7 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
     }
     this.creatureContactNoiseState = seed >>> 0 || 0xc7ea7e;
     this.creatureContact = {
-      age: 0,
+      age: startAge,
       durationFrames,
       bodyModeHz,
       cavityFrequencyHz,
@@ -266,7 +360,7 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
         this.workletRate,
       ),
       strikes,
-      nextStrike: 0,
+      nextStrike: firstRetainedStrike < 0 ? strikes.length : firstRetainedStrike,
     };
   }
 
@@ -381,8 +475,31 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
     }
   }
 
+  _applyCreatureMakeup(output) {
+    if (!output?.[0]) return;
+    const frameCount = output[0].length;
+    for (let frame = 0; frame < frameCount; frame += 1) {
+      if (this.creatureMakeupDelayRemaining > 0) {
+        this.creatureMakeupDelayRemaining -= 1;
+      } else if (this.creatureMakeupRampRemaining > 0) {
+        this.creatureMakeupGain += this.creatureMakeupRampStep;
+        this.creatureMakeupRampRemaining -= 1;
+        if (this.creatureMakeupRampRemaining === 0) {
+          this.creatureMakeupGain = this.creatureMakeupTarget;
+          this.creatureMakeupRampStep = 0;
+        }
+      }
+      for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
+        const channel = output[channelIndex];
+        if (!channel) continue;
+        channel[frame] *= this.creatureMakeupGain;
+      }
+    }
+  }
+
   _postProcessOutput(output) {
     this._mixCreatureContact(output);
+    this._applyCreatureMakeup(output);
   }
 
   process(inputs, outputs, parameters) {
