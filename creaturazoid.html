@@ -86,7 +86,7 @@
             <div class="creaturazoid-transport">
               <button id="playButton" type="button" aria-pressed="false" data-primary-transport>
                 <span class="creaturazoid-play-glyph" aria-hidden="true"></span>
-                <span><b id="playLabel">Play</b><small id="playState">space · 32 steps</small></span>
+                <span><b id="playLabel">Play</b><small id="playState">32 steps · 126 BPM</small></span>
               </button>
               <button id="restartButton" type="button" title="Back to first step" aria-label="Back to first step"><span aria-hidden="true">|◀</span></button>
             </div>
@@ -97,10 +97,10 @@
               <span><b id="sequenceLengthLabel">Length</b><output id="sequenceLengthOut" for="sequenceLength">32</output></span>
               <input id="sequenceLength" type="range" min="1" max="64" step="1" value="32" aria-labelledby="sequenceLengthLabel" aria-controls="sequenceGrid" />
               <div class="creaturazoid-length-presets" aria-label="Sequence length presets">
-                <button type="button" data-sequence-length="8">8</button>
-                <button type="button" data-sequence-length="16">16</button>
-                <button type="button" data-sequence-length="32">32</button>
-                <button type="button" data-sequence-length="64">64</button>
+                <button type="button" data-sequence-length="8" aria-pressed="false">8</button>
+                <button type="button" data-sequence-length="16" aria-pressed="false">16</button>
+                <button class="is-active" type="button" data-sequence-length="32" aria-pressed="true">32</button>
+                <button type="button" data-sequence-length="64" aria-pressed="false">64</button>
               </div>
             </div>
 
@@ -116,12 +116,12 @@
             <button class="creaturazoid-sequence-action" id="clearPatternButton" type="button"><b>Clear</b><small>leave rests</small></button>
 
             <label class="creaturazoid-mini-control" for="tempo">
-              <span><b>Tempo</b><output id="tempoOut" for="tempo">128 BPM</output></span>
-              <input id="tempo" name="tempo" type="range" min="48" max="360" step="1" value="128" />
+              <span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span>
+              <input id="tempo" name="tempo" type="range" min="48" max="360" step="1" value="126" />
             </label>
             <label class="creaturazoid-mini-control" for="swing">
-              <span><b>Swing</b><output id="swingOut" for="swing">22%</output></span>
-              <input id="swing" type="range" min="0" max="0.46" step="0.01" value="0.22" />
+              <span><b>Swing</b><output id="swingOut" for="swing">8%</output></span>
+              <input id="swing" type="range" min="0" max="0.46" step="0.01" value="0.08" />
             </label>
           </header>
 
@@ -228,6 +228,7 @@
             <p><b>Body percussion is still physical.</b> Hisses use unvoiced airway turbulence; hooves, feet, jaws, claws, tongues, tails, and feather vanes excite deterministic body and cavity modes inside the same monophonic worklet. No recordings are used.</p>
             <p><b>Native motion remains articulated.</b> Multi-peak pressure, pitch, closure, mouth, cavity, roughness, split, and balance contours survive inside the selected body. Each onset also restarts call-local Speed and Depth envelopes, so modulation can accelerate, widen, settle, and surge across one sound.</p>
             <p><b>The creature is monophonic.</b> Every pad and sequencer column targets one persistent AudioWorklet and one travelling-wave airway. The short rhythmic attack makes each occupied step speak promptly while later pulses and long releases keep their authored shape.</p>
+            <p><b>Sequence presets are complete grooves.</b> Each one recalls its own length, tempo, and swing. The dance patterns tile compact sixteen-step creature-percussion motifs; moving any timing control marks the rhythm Custom, while the spacious patterns leave long calls room to unfold.</p>
             <p><b>Visible anatomy performs.</b> Voices inflate the belly and lungs, telescope the neck, and throw open the mouth. Stomps drop the forelegs into impact rings; footsteps alternate hooves; claws rake sideways; the tail whips; feathers ruffle independently; panting pumps the lungs; lapping throws the tongue; and crunching snaps the jaw and teeth. Every hit pulses the palette.</p>
             <p><b>Output dynamics are controlled.</b> A fast soft-knee compressor catches the most explosive cross-species peaks while preserving velocity accents and quiet micro-calls.</p>
           </div>
@@ -244,6 +245,6 @@
 
     <script type="module" src="nav.js?v=catalog-20260902-1"></script>
     <link rel="modulepreload" href="src/syrinx-processor.js?v=creaturazoid-body-20260902-2" />
-    <script type="module" src="creaturazoid-app.js?v=creaturazoid-20260902-11"></script>
+    <script type="module" src="creaturazoid-app.js?v=creaturazoid-20260902-12"></script>
   </body>
 </html>
