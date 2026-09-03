@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260902-4";
+} from "../nav.js?v=catalog-20260902-5";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -433,6 +433,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Streams a WGSL compute-shader acid voice into Web Audio chunks as a separate GPU synthesis instrument.",
     "Use a WebGPU-capable browser, turn on Audio, then shape the pattern, partials, filter, and chunk settings.",
   ),
+  "jaw-jam": define(
+    "Virtuosic monophonic jaw-harp sequencer",
+    "Sequences one physical jaw-harp reed through plucks, pitch-inheriting sustains, and exact hard rests while every step can reshape material, mouth vowel, tine pull, breath power, and breath speed.",
+    "Choose a performance, drag each pluck block vertically for pitch, set its vowel and physical voice, balance PULL with AIR, then run independent pluck and breath clocks at ratios from one breath every three beats through three per beat.",
+    ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP", "Dual clocks"],
+  ),
   "webgpu-synths": define(
     "GPU shader synth laboratory",
     "Runs four control lanes, six adjustable synthesis models, editable additive ranks, a causal FIR, feed-forward delay taps, and waveshaping across two WGSL compute passes.",
@@ -683,6 +689,7 @@ const CATALOG_DETAILS = Object.freeze({
 });
 
 const ADDITIONAL_TAG_IDS = Object.freeze({
+  "jaw-jam": Object.freeze(["voice-synths"]),
   "pink-trombonazoid": Object.freeze(["sequencers"]),
   hybrinx: Object.freeze(["sequencers"]),
   blowhole: Object.freeze(["sequencers"]),

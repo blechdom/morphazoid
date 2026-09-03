@@ -56,6 +56,11 @@ done < <(git -C "$repo_root" ls-files -z)
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  jaw-jam.html \
+  jaw-jam.css \
+  jaw-jam-app.js \
+  src/jaw-jam.js \
+  src/jaw-jam-processor.js \
   breath-atlas.html \
   breath-atlas.css \
   breath-atlas-app.js \
@@ -530,6 +535,11 @@ for catalog_icon in "$repo_root"/assets/instruments/*.webp; do
 done
 
 required_files=(
+  jaw-jam.html
+  jaw-jam.css
+  jaw-jam-app.js
+  src/jaw-jam.js
+  src/jaw-jam-processor.js
   index.html
   midi-guide.html
   shape.html

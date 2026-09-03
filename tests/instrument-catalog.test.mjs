@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 119);
+  assert.equal(INSTRUMENTS.length, 120);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -72,7 +72,9 @@ test("every instrument has factual card copy, a start action, traits, and a tran
       ? "assets/instruments/webgpu-synths.webp"
       : instrument.id === "constellation"
         ? "assets/instruments/graph-synth.webp"
-        : `assets/instruments/${instrument.id}.webp`;
+        : instrument.id === "jaw-jam"
+          ? "assets/instruments/jaw-harp.webp"
+          : `assets/instruments/${instrument.id}.webp`;
     assert.equal(instrument.imageHref, expectedImageHref);
 
     const imageUrl = new URL(instrument.imageHref, root);
@@ -362,6 +364,25 @@ test("Hiccup Head is a monophonic physical beatbox sequencer with page-owned dru
   const midi = instrumentMidiCapabilityForId("hiccup-head");
   assert.equal(midi?.noteMode, "drums");
   assert.equal(midi?.midiOutput, true);
+  assert.equal(midi?.computerKeyboardMode, "page");
+});
+
+test("Jaw Jam is a dual-clock monophonic physical jaw-harp sequencer", () => {
+  const instrument = instrumentById("jaw-jam");
+  assert.equal(instrument?.label, "Jaw Jam");
+  assert.equal(instrument?.href, "jaw-jam.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/jaw-harp.webp");
+  assert.equal(instrument?.kind, "Virtuosic monophonic jaw-harp sequencer");
+  assert.match(instrument?.description ?? "", /plucks, pitch-inheriting sustains, and exact hard rests/i);
+  assert.match(instrument?.start ?? "", /independent pluck and breath clocks/i);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers", "voice-synths"]);
+  assert.ok(instrument?.features.includes("Physical-model DSP"));
+  assert.ok(instrument?.features.includes("Dual clocks"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+
+  const midi = instrumentMidiCapabilityForId("jaw-jam");
+  assert.equal(midi?.noteMode, "pitched");
   assert.equal(midi?.computerKeyboardMode, "page");
 });
 

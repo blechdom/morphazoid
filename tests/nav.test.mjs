@@ -271,7 +271,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 123);
+  assert.equal(tools.length, 124);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -577,6 +577,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "wave-pool", href: "wave-pool.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
+      { id: "jaw-jam", href: "jaw-jam.html" },
       { id: "webgpu-synths", href: "webgpu-synths.html" },
       { id: "shader-synth-playground", href: "shader-synth-playground.html" },
     ],
@@ -883,6 +884,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
     "throat-singing",
   );
   assert.equal(resolveActiveTool(`${SITE_ROOT}hiccup-head.html`, SITE_ROOT)?.id, "hiccup-head");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}jaw-jam.html`, SITE_ROOT)?.id, "jaw-jam");
   assert.equal(resolveActiveTool(`${SITE_ROOT}harmonica.html`, SITE_ROOT)?.id, "harmonica");
   for (const page of ["monstrozoid.html", "monsterzoid.html", "colony-syrinx.html"]) {
     assert.equal(resolveActiveTool(`${SITE_ROOT}${page}`, SITE_ROOT)?.id, "colony-syrinx");

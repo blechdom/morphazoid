@@ -153,6 +153,12 @@ export const TOOL_GROUPS = Object.freeze([
     },
     { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
     { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
+    {
+      id: "jaw-jam",
+      label: "Jaw Jam",
+      href: "jaw-jam.html",
+      imageHref: "assets/instruments/jaw-harp.webp",
+    },
     { id: "webgpu-synths", label: "GPU Shader Synths", href: "webgpu-synths.html" },
     {
       id: "shader-synth-playground",

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050706" />
+    <meta
+      name="description"
+      content="Jaw Jam is a monophonic virtuoso jaw-harp sequencer with independent pluck and breath clocks, per-step pitch, sustain, rest, material, vowel, pull, and airflow articulation."
+    />
+    <title>Jaw Jam · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="jaw-jam.css" />
+  </head>
+  <body class="jaw-jam-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="syrinx.html">syrinx</a>
+        <a class="tab" href="jaw-harp.html">jaw harp</a>
+        <a class="tab active" href="jaw-jam.html" aria-current="page">jaw jam</a>
+        <a class="tab" href="harmonica.html">harmonica</a>
+        <a class="tab" href="hiccup-head.html">hiccup head</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="syrinx.html">syrinx</option>
+          <option value="jaw-harp.html">jaw harp</option>
+          <option value="jaw-jam.html" selected>jaw jam</option>
+          <option value="harmonica.html">harmonica</option>
+          <option value="hiccup-head.html">hiccup head</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">∿</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="Jaw Jam output level" type="range" min="0" max="0.82" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="jaw-jam-shell" id="jawJam">
+      <header class="jaw-jam-hero" aria-labelledby="jawJamTitle">
+        <div class="jaw-jam-title-block">
+          <p>MONOPHONIC FREE-REED PERFORMANCE GRID</p>
+          <h1 id="jawJamTitle">Jaw Jam</h1>
+          <span>pitch / material / mouth / pull + air = pulse</span>
+        </div>
+        <p class="jaw-jam-introduction">
+          Compose one continuous jaw-harp line. Plucks articulate a new pitch, sustains carry the active reed through a new vowel, and rests choke it cleanly. The hand and lungs keep separate clocks.
+        </p>
+      </header>
+
+      <section class="jaw-jam-command-deck" aria-label="Transport and sequence controls">
+        <div class="jaw-jam-transport" aria-label="Transport">
+          <button id="playButton" type="button" aria-pressed="false" data-primary-transport>
+            <span class="jaw-jam-play-glyph" aria-hidden="true"></span>
+            <span><b id="playLabel">Play sequence</b><small id="playState">space · ready at step 1</small></span>
+          </button>
+          <button id="restartButton" type="button" title="Return to the first step" aria-label="Return to the first step">
+            <span aria-hidden="true">|◀</span>
+          </button>
+        </div>
+
+        <div class="jaw-jam-pattern-tools">
+          <label for="patternSelect">
+            <span>Performance</span>
+            <select id="patternSelect" aria-label="Jaw Jam performance pattern"></select>
+          </label>
+          <div class="jaw-jam-action-row" aria-label="Pattern actions">
+            <button id="randomPatternButton" type="button">New phrase</button>
+            <button id="mutatePatternButton" type="button">Mutate</button>
+            <button id="clearPatternButton" type="button">Clear</button>
+          </div>
+        </div>
+
+        <div class="jaw-jam-master-controls" aria-label="Master timing">
+          <label class="jaw-jam-master-control" for="sequenceLength">
+            <span><b>Length</b><output id="sequenceLengthOut" for="sequenceLength">16 steps</output></span>
+            <input id="sequenceLength" type="range" min="1" max="32" step="1" value="16" aria-controls="sequenceLane" />
+          </label>
+          <label class="jaw-jam-master-control" for="tempo">
+            <span><b>Pluck tempo</b><output id="tempoOut" for="tempo">132 BPM</output></span>
+            <input id="tempo" type="range" min="36" max="480" step="1" value="132" />
+          </label>
+          <label class="jaw-jam-master-control" for="swing">
+            <span><b>Swing</b><output id="swingOut" for="swing">8%</output></span>
+            <input id="swing" type="range" min="-0.42" max="0.42" step="0.01" value="0.08" />
+          </label>
+          <label class="jaw-jam-master-control jaw-jam-ratio-control" for="breathRatio">
+            <span><b>Breath ratio</b><output id="breathRatioOut" for="breathRatio">1 breath / beat</output></span>
+            <select id="breathRatio" aria-label="Breath clock ratio to pluck clock">
+              <option value="0.3333333333">1 breath / 3 beats</option>
+              <option value="0.5">1 breath / 2 beats</option>
+              <option value="1" selected>1 breath / beat</option>
+              <option value="2">2 breaths / beat</option>
+              <option value="3">3 breaths / beat</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="jaw-jam-clock-deck" aria-labelledby="clockDeckTitle">
+        <div class="jaw-jam-clock-heading">
+          <p>INDEPENDENT MOTION</p>
+          <h2 id="clockDeckTitle">Hand &amp; lung clocks</h2>
+        </div>
+        <div class="jaw-jam-clock jaw-jam-pluck-clock" id="pluckClock" aria-label="Pluck clock">
+          <div class="jaw-jam-clock-face" aria-hidden="true">
+            <i></i><i></i><i></i><i></i>
+            <span class="jaw-jam-clock-hand" id="pluckClockHand"></span>
+            <b></b>
+          </div>
+          <span><small>PLUCK · COPPER</small><output id="pluckClockReadout">132 BPM · step 1</output></span>
+        </div>
+        <div class="jaw-jam-clock jaw-jam-breath-clock" id="breathClock" aria-label="Breath clock">
+          <div class="jaw-jam-clock-face" aria-hidden="true">
+            <i></i><i></i><i></i><i></i>
+            <span class="jaw-jam-clock-hand" id="breathClockHand"></span>
+            <b></b>
+          </div>
+          <span><small>BREATH · CYAN</small><output id="breathClockReadout">1 × · inhale</output></span>
+        </div>
+        <p class="jaw-jam-clock-note">
+          Pluck events stay on the sequence grid. Breath can turn with each beat, divide the hand clock, or cycle two or three times inside one beat.
+        </p>
+      </section>
+
+      <section class="jaw-jam-performer" aria-labelledby="performerTitle">
+        <div class="jaw-jam-performer-copy">
+          <p>SEQUENCE-DRIVEN PHYSICAL MODEL</p>
+          <h2 id="performerTitle">The score plays the instrument</h2>
+          <p>
+            Every active step moves the reed, mouth and breath together. Copper shows the finger pull; cyan shows the lung clock moving through the selected vowel.
+          </p>
+          <dl aria-label="Animated performer state">
+            <div><dt>Step</dt><dd id="performerStep">01</dd></div>
+            <div><dt>Gesture</dt><dd id="performerGesture">ready</dd></div>
+            <div><dt>Voice</dt><dd id="performerVoice">forged steel</dd></div>
+            <div><dt>Mouth</dt><dd id="performerVowel">/a/</dd></div>
+          </dl>
+        </div>
+        <div class="jaw-jam-performer-stage">
+          <canvas
+            id="performerStage"
+            aria-label="Animated cutaway profile performing the selected Jaw Jam sequence step"
+            aria-describedby="performerTitle performerLegend"
+          >
+            An animated profile plucking a jaw harp while breath moves through the selected mouth shape.
+          </canvas>
+          <div class="jaw-jam-performer-legend" id="performerLegend" aria-hidden="true">
+            <span><i class="is-pull"></i><b>PULL</b><output id="performerPull">78%</output></span>
+            <span><i class="is-air"></i><b>AIR</b><output id="performerAir">82%</output></span>
+            <span><i class="is-pulse"></i><b>PULSE</b><output id="performerPulse">87%</output></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="jaw-jam-sequencer" aria-labelledby="sequencerTitle">
+        <header class="jaw-jam-sequencer-heading">
+          <div>
+            <p>ONE REED · ONE ACTIVE PITCH</p>
+            <h2 id="sequencerTitle">Performance sequence</h2>
+          </div>
+          <div class="jaw-jam-lane-key" aria-label="Sequence lane scale">
+            <span>HIGH</span><i aria-hidden="true"></i><span>LOW</span>
+          </div>
+        </header>
+
+        <div class="jaw-jam-paint-deck">
+          <div class="jaw-jam-paint-tools">
+            <span>DRAW ACROSS STEPS</span>
+            <div class="jaw-jam-paint-toolbar" role="toolbar" aria-label="Sequence paint parameter">
+              <button type="button" data-paint-mode="pitch" aria-pressed="true">Pitch + pluck</button>
+              <button type="button" data-paint-mode="pull" aria-pressed="false">Pull</button>
+              <button type="button" data-paint-mode="air" aria-pressed="false">Air</button>
+              <button type="button" data-paint-mode="rate" aria-pressed="false">Rate</button>
+              <button type="button" data-paint-mode="vowel" aria-pressed="false">Vowel</button>
+              <button type="button" data-paint-mode="voice" aria-pressed="false">Voice</button>
+              <button type="button" data-paint-mode="sustain" aria-pressed="false">Hold</button>
+              <button type="button" data-paint-mode="rest" aria-pressed="false">X rest</button>
+            </div>
+          </div>
+          <div class="jaw-jam-touch-mode" role="group" aria-label="Sequence gesture mode">
+            <button id="drawModeButton" type="button" aria-pressed="true">Draw</button>
+            <button id="scrollModeButton" type="button" aria-pressed="false">Scroll</button>
+          </div>
+          <p id="paintHint">Drag vertically for pitch, then sweep sideways to write several plucks in one gesture. Shift paints rests; Option paints holds.</p>
+        </div>
+
+        <div
+          class="jaw-jam-sequence-scroller"
+          id="sequenceScroller"
+          tabindex="0"
+          role="region"
+          aria-label="Horizontally scrollable Jaw Jam sequence"
+          aria-describedby="sequenceHelp"
+        >
+          <div
+            class="jaw-jam-sequence-lane"
+            id="sequenceLane"
+            role="list"
+            aria-label="Monophonic jaw-harp sequence steps"
+          ></div>
+        </div>
+
+        <section class="jaw-jam-step-inspector" aria-labelledby="stepInspectorTitle">
+          <header>
+            <small>SELECTED STEP</small>
+            <h3 id="stepInspectorTitle">Shape step <output id="selectedStepNumber">01</output></h3>
+            <p id="selectedStepSummary" aria-live="polite">Step 1 · pluck · awaiting sequence</p>
+          </header>
+
+          <div class="jaw-jam-inspector-actions" role="group" aria-label="Selected step action">
+            <button id="stepActionPluck" type="button" data-step-action="pluck" aria-pressed="true">Pluck</button>
+            <button id="stepActionSustain" type="button" data-step-action="sustain" aria-pressed="false">Hold</button>
+            <button id="stepActionRest" type="button" data-step-action="rest" aria-pressed="false">X rest</button>
+          </div>
+
+          <label class="jaw-jam-inspector-select" for="stepVowel">
+            <span>Vowel</span>
+            <select id="stepVowel" aria-label="Selected step vowel"></select>
+          </label>
+
+          <label class="jaw-jam-inspector-select is-voice" for="stepVoice">
+            <span>Voice / material</span>
+            <select id="stepVoice" aria-label="Selected step voice and material"></select>
+          </label>
+
+          <label class="jaw-jam-inspector-slider is-pitch" for="stepPitch">
+            <span><b>Pitch</b><output id="stepPitchOut" for="stepPitch">C3</output></span>
+            <input id="stepPitch" type="range" min="27" max="53" step="1" value="48" />
+          </label>
+
+          <label class="jaw-jam-inspector-slider is-pull" for="stepPull">
+            <span><b>Pull</b><output id="stepPullOut" for="stepPull">78%</output></span>
+            <input id="stepPull" type="range" min="0" max="1" step="0.01" value="0.78" />
+          </label>
+
+          <label class="jaw-jam-inspector-slider is-air" for="stepAir">
+            <span><b>Air</b><output id="stepAirOut" for="stepAir">82%</output></span>
+            <input id="stepAir" type="range" min="0" max="3" step="0.01" value="0.82" />
+          </label>
+
+          <label class="jaw-jam-inspector-slider is-rate" for="stepRate">
+            <span><b>Breath rate</b><output id="stepRateOut" for="stepRate">1.00×</output></span>
+            <input id="stepRate" type="range" min="0.125" max="8" step="0.005" value="1" />
+          </label>
+
+          <div class="jaw-jam-inspector-transport">
+            <button id="auditionButton" type="button">Audition step</button>
+            <button id="panicButton" type="button">Stop sound</button>
+          </div>
+        </section>
+      </section>
+
+      <section class="jaw-jam-monitor" aria-labelledby="monitorTitle">
+        <div class="jaw-jam-performance-readout">
+          <small id="monitorTitle">PERFORMANCE STATE</small>
+          <output id="performanceReadout">ready · one reed · no active pitch</output>
+        </div>
+        <dl class="jaw-jam-telemetry" aria-label="Live jaw-harp telemetry">
+          <div><dt>Energy</dt><dd id="telemetryEnergy">0%</dd></div>
+          <div><dt>Breath</dt><dd id="telemetryBreath">rest</dd></div>
+          <div><dt>Material</dt><dd id="telemetryMaterial">forged steel</dd></div>
+          <div><dt>Vowel</dt><dd id="telemetryVowel">/ɑ/</dd></div>
+          <div><dt>Pitch</dt><dd id="telemetryPitch">—</dd></div>
+        </dl>
+      </section>
+
+      <section class="jaw-jam-guide" aria-labelledby="guideTitle">
+        <div class="jaw-jam-guide-copy">
+          <p>PER-STEP SCORE</p>
+          <h2 id="guideTitle">Read the lane</h2>
+          <p id="sequenceHelp">
+            Choose a brush, press once in the score, and sweep across steps to paint a phrase. Pitch + pluck follows the height of your pointer; Pull, Air, and Rate follow its height too; Vowel and Voice stamp the value in the selected-step editor. Use Scroll mode for one-finger navigation. Copper shows tine pull, cyan shows breath strength, and their shared glow is the combined pulse.
+          </p>
+        </div>
+        <ul class="jaw-jam-legend" aria-label="Sequence notation legend">
+          <li class="is-pluck"><i aria-hidden="true"></i><span><b>Pluck</b><small>new pitch + reed strike</small></span></li>
+          <li class="is-sustain"><i aria-hidden="true"></i><span><b>Sustain</b><small>carry pitch + reshape mouth</small></span></li>
+          <li class="is-rest"><i aria-hidden="true">X</i><span><b>Rest</b><small>stop reed + breath</small></span></li>
+        </ul>
+      </section>
+
+      <p class="jaw-jam-audio-error" id="audioError" role="alert" hidden></p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="jaw-jam-app.js"></script>
+  </body>
+</html>
