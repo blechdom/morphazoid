@@ -32,6 +32,7 @@ import {
   creaturazoidEventsAtStep,
   creaturazoidContourOffsets,
   creaturazoidLevelMakeup,
+  creaturazoidMouthExpression,
   creaturazoidQuickMorphProgress,
   creaturazoidRecommendedSpaceSteps,
   creaturazoidNativeAttackPhase,
@@ -48,6 +49,7 @@ import {
   cycleCreaturazoidDynamics,
   cycleCreaturazoidStep,
   interpolateCreaturazoidMorph,
+  mutateCreaturazoidState,
   resolveCreaturazoidEventState,
   sanitizeCreaturazoidPattern,
   sanitizeCreaturazoidShape,
@@ -67,6 +69,38 @@ const HYBRINX_PALETTE = new Set([
   "#64cfff",
   "#ff7b6f",
 ]);
+
+const MUTATED_GEOMETRY_LIMITS = Object.freeze({
+  bodyScale: [0.55, 1.35],
+  bodyRoundness: [-1, 1],
+  headScale: [0.55, 1.45],
+  neckLength: [0.45, 1.55],
+  neckWidth: [0.45, 1.55],
+  thoraxWidth: [0.55, 1.5],
+  bellyDepth: [0.45, 1.55],
+  muzzleLength: [0.45, 1.55],
+  mouthWidth: [0.5, 1.6],
+  mouthDepth: [0.5, 1.65],
+  jawTaper: [-1, 1],
+  lipCurl: [-1, 1],
+  wingSpan: [0.5, 1.5],
+  hornScale: [0.45, 1.55],
+  eyeScale: [0.55, 1.45],
+  earLength: [0.4, 1.7],
+  earWidth: [0.4, 1.7],
+  earDroop: [-1, 1],
+  earRotation: [-1, 1],
+  tailLength: [0.45, 1.75],
+  tailThickness: [0.35, 1.7],
+  tailCurl: [-1, 1],
+  tailTuft: [0, 1],
+  tongueWidth: [0.45, 1.55],
+});
+
+function cyclingRandom(values) {
+  let index = 0;
+  return () => values[index++ % values.length];
+}
 
 function assertFiniteAndBoundedSyrinxState(state, label = "state") {
   for (const [name, [minimum, maximum]] of Object.entries(CONTROL_LIMITS)) {
@@ -301,6 +335,67 @@ test("eight generic bodies carry morphing mouths, varied ears and tails, and the
   assert.equal(sanitized.tailLength, 1);
 });
 
+test("body mutation is pure, repeatable, and always produces a visibly different specimen", () => {
+  const randomStreams = [
+    [0],
+    [0.5],
+    [1],
+    [0.03, 0.97, 0.24, 0.76, 0.41, 0.89],
+  ];
+
+  for (const preset of CREATURAZOID_BODY_PRESETS) {
+    const original = creaturazoidState(preset.id);
+    const snapshot = structuredClone(original);
+    for (const stream of randomStreams) {
+      const mutated = mutateCreaturazoidState(original, cyclingRandom(stream));
+      const repeated = mutateCreaturazoidState(original, cyclingRandom(stream));
+
+      assert.deepEqual(mutated, repeated, `${preset.id} must support deterministic injected randomness`);
+      assert.deepEqual(original, snapshot, `${preset.id} input state must not be mutated`);
+      assert.notEqual(mutated.anatomyDesignId, original.anatomyDesignId);
+      assert.notEqual(mutated.bodyShape.earType, original.bodyShape.earType);
+      assert.notEqual(mutated.bodyShape.tailType, original.bodyShape.tailType);
+      assert.notEqual(mutated.bodyShape.tongueAnatomy, original.bodyShape.tongueAnatomy);
+      assert.equal(mutated.bodyShape.bodyScale, mutated.bodyScale);
+      assert.equal(mutated.bodyShape.bodyRoundness, mutated.bodyRoundness);
+
+      for (const [field, [minimum, maximum]] of Object.entries(MUTATED_GEOMETRY_LIMITS)) {
+        const before = field === "bodyScale" || field === "bodyRoundness"
+          ? original[field]
+          : original.bodyShape[field];
+        const after = field === "bodyScale" || field === "bodyRoundness"
+          ? mutated[field]
+          : mutated.bodyShape[field];
+        const minimumFraction = field === "bodyScale" ? 0.25 : field === "bodyRoundness" ? 0.27 : 0.22;
+        assert.ok(
+          Math.abs(after - before) + 1e-12 >= (maximum - minimum) * minimumFraction,
+          `${preset.id}.${field} must make a major geometric jump`,
+        );
+      }
+    }
+  }
+});
+
+test("mouth expression identities resolve to six distinct anatomical poses", () => {
+  const expected = new Map([
+    ["growl", ["mean", "mean"]],
+    ["giggle", ["happy", "happy"]],
+    ["lapping", ["hungry", "hungry"]],
+    ["horn-surprise", ["gobsmacked", "gobsmacked"]],
+    ["howl", ["howl", "howl"]],
+    ["caw", ["open-beak", "openBeak"]],
+  ]);
+  const expressions = [];
+  for (const [soundId, [kind, activeChannel]] of expected) {
+    const expression = creaturazoidMouthExpression(soundId);
+    expressions.push(expression);
+    assert.equal(expression.kind, kind);
+    assert.equal(expression[activeChannel], 1);
+    assert.ok(Object.isFrozen(expression));
+  }
+  assert.equal(new Set(expressions.map(({ kind }) => kind)).size, expected.size);
+});
+
 test("the animated Hybrinx tongue stays bounded and gives growls and chirps different tract shapes", () => {
   const state = creaturazoidState("dense-squat", {
     tongueReach: 0.8,
@@ -356,6 +451,29 @@ test("the animated Hybrinx tongue stays bounded and gives growls and chirps diff
   assert.equal(hostile.earSpread, 1);
   assert.equal(hostile.tongueReach, 0);
   assert.equal(hostile.tongueMotion, CREATURAZOID_DEFAULTS.tongueMotion);
+});
+
+test("idle and active tongue travel materially follow the persistent reach control", () => {
+  const reaches = [0, 0.5, 1];
+  const idleExtensions = reaches.map((tongueReach) => creaturazoidTongueState({
+    soundId: "growl",
+    active: false,
+  }, creaturazoidState("dense-squat", { tongueReach })).tongueExtension);
+  const activeExtensions = reaches.map((tongueReach) => creaturazoidTongueState({
+    soundId: "growl",
+    active: true,
+    velocity: 1,
+    pressure: 0.8,
+    articulationPhase: 0.37,
+    callPhase: 0.37,
+    bodyMotion: { envelope: 0.8 },
+    articulation: { motion: "growl" },
+  }, creaturazoidState("dense-squat", { tongueReach })).tongueExtension);
+
+  for (const [label, extensions] of [["idle", idleExtensions], ["active", activeExtensions]]) {
+    assert.ok(extensions[0] < extensions[1] && extensions[1] < extensions[2], `${label} tongue reach must be monotonic`);
+    assert.ok(extensions[2] - extensions[0] > 0.6, `${label} tongue needs materially visible travel`);
+  }
 });
 
 test("one absolute body baseline survives every call family while call identity stays intact", () => {

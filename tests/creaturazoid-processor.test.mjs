@@ -855,6 +855,50 @@ test("cropped release primes preserve sequencer step dynamics", () => {
   assert.ok(highStrength > lowStrength * 1.7);
 });
 
+test("scheduled caw onsets stay audible and bounded under their full makeup across every body", () => {
+  const measurements = [];
+  for (const [bodyIndex, body] of CREATURAZOID_BODY_PRESETS.entries()) {
+    const { sound, configuration: eventConfiguration } = rhythmicConfiguration("caw", body.id);
+    const makeupGain = creaturazoidLevelMakeup(sound);
+    assert.equal(makeupGain, 7);
+    const instance = processor(eventConfiguration);
+    instance._handleCreatureMessage({
+      type: "schedule",
+      events: [{
+        frame: 0,
+        serial: 950 + bodyIndex,
+        begin: true,
+        sequenced: true,
+        soundId: sound.id,
+        label: sound.label,
+        velocity: 1,
+        makeupGain,
+        bodyGainTrim: creaturazoidBodyLevelTrim(sound, body.id),
+        contact: null,
+        configuration: eventConfiguration,
+      }],
+    });
+    const samples = [];
+    for (let block = 0; block < 4; block += 1) {
+      const output = render(instance, block * 128);
+      samples.push(...output[0], ...output[1]);
+    }
+    measurements.push({
+      id: body.id,
+      rms: rms(samples),
+      peak: Math.max(...samples.map(Math.abs)),
+    });
+  }
+
+  const summary = Object.fromEntries(measurements.map(({ id, rms: onsetRms, peak }) => [id, { rms: onsetRms, peak }]));
+  const quietest = measurements.reduce((left, right) => left.rms < right.rms ? left : right);
+  const loudest = measurements.reduce((left, right) => left.rms > right.rms ? left : right);
+  const sharpest = measurements.reduce((left, right) => left.peak > right.peak ? left : right);
+  assert.ok(quietest.rms > 0.012, `${quietest.id} caw onset RMS was ${quietest.rms}; ${JSON.stringify(summary)}`);
+  assert.ok(loudest.rms < 0.45, `${loudest.id} caw onset RMS spiked to ${loudest.rms}; ${JSON.stringify(summary)}`);
+  assert.ok(sharpest.peak < 0.95, `${sharpest.id} caw onset peaked at ${sharpest.peak}; ${JSON.stringify(summary)}`);
+});
+
 test("cropped mouse whistles put useful energy on the beat without level spikes", () => {
   const measurements = [];
   for (const body of CREATURAZOID_BODY_PRESETS) {

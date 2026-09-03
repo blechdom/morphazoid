@@ -71,8 +71,6 @@ test("Creaturazoid exposes three horned, feather-winged anatomical forms and act
 test("the page describes and edits an explicitly monophonic call grid", () => {
   assert.match(html, /Creaturazoid monophonic call sequencer/);
   assert.match(html, /ONE AIRWAY/);
-  assert.match(html, /calls change · body stays/);
-  assert.match(html, /Rhythm presets never replace it or stack a second creature/);
   assert.match(
     html,
     /Each column can contain one call only; choosing another call replaces it\./,
@@ -92,8 +90,6 @@ test("the page describes and edits an explicitly monophonic call grid", () => {
 });
 
 test("sequence presets recall length, tempo, and swing while manual timing becomes custom", () => {
-  assert.match(html, /Sequence presets are complete grooves\./);
-  assert.match(html, /Each one recalls its own length, tempo, and swing\./);
   assert.match(html, /id="tempoOut"[^>]*>126 BPM<\/output>/);
   assert.match(html, /id="tempo"[^>]*value="126"/);
   assert.match(html, /id="swingOut"[^>]*>8%<\/output>/);
@@ -151,31 +147,43 @@ test("body, tongue, ear, attack, vibrato, and modulation controls are present an
   assert.match(app, /\$\("modulationTarget"\)\.addEventListener\("change"/);
   assert.match(app, /\$\("modulationShape"\)\.addEventListener\("change"/);
 
-  assert.match(html, /Persistent body shape/);
-  assert.match(html, /Skeleton \/ feather plan/);
-  assert.match(html, /Body imprint/);
+  const pointerDown = standaloneFunctionBody(app, "handleCanvasPointerDown");
+  assert.match(pointerDown, /hitDistance: distance\(candidate, point\)/);
+  assert.match(pointerDown, /sort\(\(left, right\) => left\.hitDistance - right\.hitDistance\)/);
+
+  assert.match(html, /Body shape preset/);
+  assert.match(html, /Ears \/ horns \/ wings/);
+  assert.match(html, /Body morph/);
   assert.match(html, /Call retarget/);
   assert.match(html, /Pad attack/);
-  assert.match(html, /Sequence onsets crop each weak native prefix/);
   assert.match(html, /id="bodyScale"[^>]+min="0\.55"[^>]+max="1\.35"/);
   assert.match(html, /id="bodyRoundness"[^>]+min="-1"[^>]+max="1"/);
   assert.match(html, /id="attackMs"[^>]+min="8"[^>]+max="48"/);
   assert.match(html, /id="bodySizeReadout"/);
   assert.match(html, /id="bodyMotionReadout"/);
-  assert.match(html, /Mutate this body/);
-  assert.match(html, /body parameters change · sequence stays intact/);
-  assert.match(html, /Left-wing vibrato rate/);
-  assert.match(html, /Right-wing vibrato depth/);
-  assert.match(html, /Ear spread \/ stereo field/);
+  assert.match(html, /Mutate body shape/);
+  assert.match(html, /Left-wing vibrato/);
+  assert.match(html, /Right-wing depth/);
+  assert.match(html, /Ear spread/);
   assert.match(html, /Tongue reach/);
-  assert.match(html, /Tongue articulation/);
+  assert.match(html, /Tongue motion/);
   assert.match(html, /Feather motion target/);
   assert.match(html, /Feather motion shape/);
   assert.match(html, /Feather motion rate/);
   assert.match(html, /Feather motion depth/);
-  assert.match(html, /fast soft-knee compressor/);
-  assert.match(html, /50 voices and body gestures/);
-  assert.match(html, /No recordings are used/);
+  assert.doesNotMatch(html, /class="creaturazoid-airway-card"/);
+  assert.doesNotMatch(html, /class="[^"]*creaturazoid-model-notes/);
+  assert.doesNotMatch(html, /id="presetDescription"/);
+  assert.doesNotMatch(app, /\$\("presetDescription"\)/);
+  const controlLabels = occurrences(html, /<label class="control"[\s\S]*?<\/label>/g)
+    .map(([markup]) => markup);
+  assert.ok(controlLabels.length > 0);
+  assert.ok(controlLabels.every((markup) => !/<small\b/.test(markup)), "parameter rows must not restore helper copy");
+
+  const mutateBody = standaloneFunctionBody(app, "randomizeCreature");
+  assert.match(mutateBody, /state = mutateCreaturazoidState\(state\)/);
+  assert.doesNotMatch(mutateBody, /Math\.random/);
+  assert.match(mutateBody, /bodyMutationVisual = Object\.freeze/);
 
   assert.match(html, /<link rel="stylesheet" href="creaturazoid\.css\?v=[^"]+" \/>/);
   assert.match(html, /<script type="module" src="nav\.js\?v=[^"]+"><\/script>/);
@@ -252,11 +260,9 @@ test("body presets are persistent physical shapes while calls retain local multi
   );
   assert.match(sequencePresetBody, /sanitizeCreaturazoidState|bodyPresetId/);
 
-  assert.match(html, /body is persistent and absolute/i);
-  assert.match(html, /Multi-peak pressure, pitch, closure, mouth, cavity, roughness, split, and balance contours survive/i);
-  assert.match(html, /call-local Speed and Depth envelopes/i);
-  assert.match(html, /each weak native lead-in is cropped/i);
-  assert.match(html, /Measured per-sound makeup lifts quiet voices/i);
+  assert.match(html, /Body shape preset/);
+  assert.match(html, /Mutate body shape/);
+  assert.doesNotMatch(html, /creaturazoid-model-notes/);
   assert.doesNotMatch(html, />Creature preset</i);
 });
 
@@ -339,6 +345,14 @@ test("each scheduled gesture drives an exaggerated sound-specific anatomy pose",
 
   for (const response of [
     "mouthOpen",
+    "mouthExpression",
+    "expressionAmount",
+    "mean",
+    "happy",
+    "hungry",
+    "gobsmacked",
+    "howl",
+    "openBeak",
     "eyeBurst",
     "neckStretch",
     "neckWobble",
@@ -363,6 +377,7 @@ test("each scheduled gesture drives an exaggerated sound-specific anatomy pose",
   ]) {
     assert.match(app, new RegExp(`${response}:|const ${response} =`), `${response} must follow the sounding gesture`);
   }
+  assert.match(app, /const expression = creaturazoidMouthExpression\(sound\)/);
 
   assert.match(app, /function rhythmicPalette\(palette, pose\)/);
   assert.match(app, /const palette = rhythmicPalette\(selectedPalette\(\), pose\);/);
@@ -387,20 +402,33 @@ test("each scheduled gesture drives an exaggerated sound-specific anatomy pose",
   const head = standaloneFunctionBody(app, "drawSpecimenHead");
   assert.match(head, /anatomy\.mouthWidth/);
   assert.match(head, /anatomy\.mouthDepth/);
+  for (const channel of ["mean", "happy", "hungry", "gobsmacked", "howl", "openBeak"]) {
+    assert.match(head, new RegExp(`pose\\.${channel}`), `the head renderer must consume ${channel}`);
+  }
 
   const bodyRestore = app.indexOf("drawSoundProjection(drawing, palette, pose, anatomy);\n  drawing.restore();");
   const stableControls = app.indexOf("drawSpecimenControls(drawing, timeSeconds, palette);", bodyRestore);
   assert.ok(bodyRestore >= 0 && stableControls > bodyRestore, "opaque controls must remain outside the projected body transform");
 });
 
-test("the specimen uses luminous translucent anatomy with strong outlines and opaque controls", () => {
+test("the specimen uses brighter translucent anatomy with thin outlines, pink tissue, and opaque controls", () => {
   assert.match(app, /const SPECIMEN_OPACITY = Object\.freeze\(\{/);
-  assert.match(app, /shellIdle:\s*0\.16/);
-  assert.match(app, /organActive:\s*0\.58/);
+  assert.match(app, /shellIdle:\s*0\.18/);
+  assert.match(app, /shellActive:\s*0\.38/);
+  assert.match(app, /tissueIdle:\s*0\.5/);
+  assert.match(app, /tissueActive:\s*0\.74/);
+  assert.match(app, /organIdle:\s*0\.58/);
+  assert.match(app, /organActive:\s*0\.86/);
+  assert.match(app, /appendageIdle:\s*0\.42/);
+  assert.match(app, /appendageActive:\s*0\.7/);
   assert.match(app, /function specimenColorWithAlpha\(color, opacity\)/);
   assert.match(app, /function specimenFillColor\(color, pose, idleOpacity, activeOpacity\)/);
   assert.match(app, /function specimenOutlineWidth\(scale, weight = 1\)/);
-  assert.match(app, /Math\.max\(2\.2, scale \* 0\.012 \* weight\)/);
+  assert.match(app, /Math\.max\(1\.15, scale \* 0\.0072 \* weight\)/);
+
+  const resize = standaloneFunctionBody(app, "resizeCanvas");
+  assert.match(resize, /width < 560 \? width \* 0\.215 : width \* 0\.33/);
+  assert.match(resize, /Math\.max\(64, Math\.min\(widthScale, height \* 0\.41\)\)/);
 
   const expectedHelperCoverage = [
     ["drawSpecimenTail", 3, 3],
@@ -419,13 +447,17 @@ test("the specimen uses luminous translucent anatomy with strong outlines and op
     );
     assert.ok(
       occurrences(body, /specimenOutlineWidth\(/g).length >= minimumOutlines,
-      `${name} needs scale-aware thick outlines`,
+      `${name} needs scale-aware thin outlines`,
     );
   }
 
   const rhythmColors = standaloneFunctionBody(app, "rhythmicPalette");
   assert.match(rhythmColors, /brightenSpecimenColor/);
   assert.match(rhythmColors, /0\.16 \+ pose\.velocity \* 0\.12/);
+  for (const [index, color] of [[2, "#ff5f87"], [4, "#ff72b6"], [8, "#ff7ba8"]]) {
+    assert.match(rhythmColors, new RegExp(`colors\\[${index}\\] = brightenSpecimenColor\\("${color}"`));
+  }
+  assert.match(css, /--creature-pink:\s*#ff72b6/);
 
   const controls = standaloneFunctionBody(app, "drawSpecimenControls");
   assert.doesNotMatch(controls, /specimenFillColor|specimenOutlineWidth/);

@@ -216,7 +216,7 @@ const CREATURAZOID_ARTICULATIONS = Object.freeze({
     airwayGate: [[0, 0.03], [0.045, 0.03], [0.07, 1], [1, 1]],
     voicing: [[0, 0.35], [0.08, 0.92], [0.72, 0.54], [1, 0]],
     turbulence: [[0, 0.34], [0.18, 0.14], [1, 0]],
-    burstGain: [[0, 0.86], [0.065, 0.86], [0.1, 0], [1, 0]],
+    burstGain: [[0, 0.76], [0.065, 0.76], [0.1, 0], [1, 0]],
     burstFrequencyHz: 1_760,
   }),
   bark: defineArticulation({
@@ -587,6 +587,53 @@ const anatomyDesignById = new Map(CREATURAZOID_ANATOMY_DESIGNS.map((design) => [
 
 export function creaturazoidSound(id) {
   return soundById.get(String(id ?? "")) ?? CREATURAZOID_SOUNDS[0];
+}
+
+const MEAN_MOUTH_SOUNDS = new Set([
+  "roar", "growl", "gator", "harsh", "bark", "snap-bark", "hiss", "cervid", "grunt",
+]);
+const HAPPY_MOUTH_SOUNDS = new Set([
+  "yip", "giggle", "purr", "whoop", "double", "frogtrill",
+]);
+const HUNGRY_MOUTH_SOUNDS = new Set([
+  "lapping", "crunching", "chuff", "nicker", "panting",
+]);
+const GOBSMACKED_MOUTH_SOUNDS = new Set([
+  "horn-surprise", "trumpet", "hoot", "owlpair", "boom", "jumping",
+]);
+const HOWLING_MOUTH_SOUNDS = new Set([
+  "howl", "moan", "bellow", "neigh", "whinny", "moo", "lowmoo",
+]);
+
+/**
+ * Resolve distinct facial mechanics from a sound identity. Channels remain
+ * independent so an owl may be both open-beaked and shocked, while a caw
+ * keeps its bill geometry without borrowing a mammal smile.
+ */
+export function creaturazoidMouthExpression(soundOrId) {
+  const sound = soundOrId && typeof soundOrId === "object"
+    ? creaturazoidSound(soundOrId.id ?? soundOrId.soundId)
+    : creaturazoidSound(soundOrId);
+  const mean = Number(MEAN_MOUTH_SOUNDS.has(sound.id));
+  const happy = Number(HAPPY_MOUTH_SOUNDS.has(sound.id));
+  const hungry = Number(HUNGRY_MOUTH_SOUNDS.has(sound.id));
+  const gobsmacked = Number(GOBSMACKED_MOUTH_SOUNDS.has(sound.id));
+  const howl = Number(HOWLING_MOUTH_SOUNDS.has(sound.id));
+  const openBeak = Number(sound.family === "bird");
+  const kind = mean
+    ? "mean"
+    : happy
+      ? "happy"
+      : hungry
+        ? "hungry"
+        : howl
+          ? "howl"
+          : gobsmacked
+            ? "gobsmacked"
+            : openBeak
+              ? "open-beak"
+              : "neutral";
+  return Object.freeze({ kind, mean, happy, hungry, gobsmacked, howl, openBeak });
 }
 
 export function creaturazoidSoundForKey(key) {
@@ -1162,6 +1209,112 @@ export function creaturazoidState(presetId = CREATURAZOID_DEFAULTS.bodyPresetId,
   });
 }
 
+function differentRandomItem(values, current, randomUnit) {
+  const candidates = values.filter((value) => value !== current);
+  return candidates[Math.min(candidates.length - 1, Math.floor(randomUnit() * candidates.length))]
+    ?? values[0];
+}
+
+/**
+ * Make a visibly new specimen from the current persistent body. Every major
+ * geometry axis crosses a minimum fraction of its range; ear, tail, tongue,
+ * and skeletal plans always change rather than re-rolling the same outline.
+ */
+export function mutateCreaturazoidState(candidate = CREATURAZOID_DEFAULTS, random = Math.random) {
+  const safe = sanitizeCreaturazoidState(candidate);
+  const randomUnit = () => clamp(finiteOr(random(), 0.5));
+  const randomSigned = () => randomUnit() * 2 - 1;
+  const sampleFar = (current, limits, minimumDistance = 0.22) => {
+    const [minimum, maximum] = limits;
+    const span = maximum - minimum;
+    const distance = span * minimumDistance;
+    const leftMaximum = current - distance;
+    const rightMinimum = current + distance;
+    const canMoveLeft = leftMaximum >= minimum;
+    const canMoveRight = rightMinimum <= maximum;
+    const moveLeft = canMoveLeft && (!canMoveRight || randomUnit() < 0.5);
+    if (moveLeft) return minimum + randomUnit() * (leftMaximum - minimum);
+    if (canMoveRight) return rightMinimum + randomUnit() * (maximum - rightMinimum);
+    return current < (minimum + maximum) * 0.5 ? maximum : minimum;
+  };
+
+  const bodyScale = sampleFar(safe.bodyScale, CREATURAZOID_LIMITS.bodyScale, 0.25);
+  const bodyRoundness = sampleFar(safe.bodyRoundness, CREATURAZOID_LIMITS.bodyRoundness, 0.27);
+  const bodyShape = { ...safe.bodyShape, bodyScale, bodyRoundness };
+  for (const name of [
+    "headScale", "neckLength", "neckWidth", "thoraxWidth", "bellyDepth",
+    "muzzleLength", "mouthWidth", "mouthDepth", "jawTaper", "lipCurl",
+    "wingSpan", "hornScale", "eyeScale", "earLength", "earWidth",
+    "earDroop", "earRotation", "tailLength", "tailThickness", "tailCurl",
+    "tailTuft", "tongueWidth",
+  ]) {
+    bodyShape[name] = sampleFar(safe.bodyShape[name], CREATURAZOID_SHAPE_LIMITS[name]);
+  }
+  bodyShape.earType = differentRandomItem(CREATURAZOID_EAR_TYPES, safe.bodyShape.earType, randomUnit);
+  bodyShape.tailType = differentRandomItem(CREATURAZOID_TAIL_TYPES, safe.bodyShape.tailType, randomUnit);
+  bodyShape.tongueAnatomy = differentRandomItem(
+    ["human", "macaque", "canine", "avian"],
+    safe.bodyShape.tongueAnatomy,
+    randomUnit,
+  );
+
+  const bodyState = { ...safe.bodyState };
+  for (const name of [
+    "pressure", "tension", "adduction", "sourceScale", "mouthOpening",
+    "cavityCoupling", "asymmetry", "sourceBalance", "roughness",
+  ]) {
+    const limits = CONTROL_LIMITS[name];
+    bodyState[name] = clamp(
+      safe.bodyState[name] + randomSigned() * (limits[1] - limits[0]) * 0.1,
+      ...limits,
+    );
+  }
+  bodyState.tractLengthM = clamp(
+    safe.bodyState.tractLengthM * (2 ** (randomSigned() * 0.28)),
+    ...CONTROL_LIMITS.tractLengthM,
+  );
+  bodyState.tractDiameterScale = clamp(
+    safe.bodyState.tractDiameterScale * (2 ** (randomSigned() * 0.2)),
+    0.35,
+    1.8,
+  );
+  bodyState.cavityFrequencyHz = clamp(
+    safe.bodyState.cavityFrequencyHz * (2 ** (randomSigned() * 0.28)),
+    80,
+    6_000,
+  );
+  const morphBias = Object.fromEntries(Object.keys(safe.morphBias).map((key) => [
+    key,
+    clamp(safe.morphBias[key] + randomSigned() * 0.38, -1, 1),
+  ]));
+
+  return sanitizeCreaturazoidState({
+    ...safe,
+    anatomyDesignId: differentRandomItem(
+      CREATURAZOID_ANATOMY_DESIGNS.map(({ id }) => id),
+      safe.anatomyDesignId,
+      randomUnit,
+    ),
+    bodyScale,
+    bodyRoundness,
+    attackMs: safe.attackMs + randomSigned() * 8,
+    morph: clamp(safe.morph + randomSigned() * 0.24),
+    pitchSemitones: safe.pitchSemitones + Math.round(randomSigned() * 7),
+    timbre: clamp(safe.timbre + randomSigned() * 0.42, -1, 1),
+    morphTimeMs: safe.morphTimeMs + randomSigned() * 45,
+    vibratoRateHz: safe.vibratoRateHz + randomSigned() * 4,
+    vibratoDepthSemitones: safe.vibratoDepthSemitones + randomSigned() * 1.2,
+    modulationRateHz: safe.modulationRateHz + randomSigned() * 4,
+    modulationDepth: safe.modulationDepth + randomSigned() * 0.3,
+    earSpread: sampleFar(safe.earSpread, CREATURAZOID_LIMITS.earSpread, 0.2),
+    tongueReach: sampleFar(safe.tongueReach, CREATURAZOID_LIMITS.tongueReach, 0.24),
+    tongueMotion: sampleFar(safe.tongueMotion, CREATURAZOID_LIMITS.tongueMotion, 0.2),
+    bodyState,
+    bodyShape,
+    morphBias,
+  }, safe);
+}
+
 function bodyPresetForState(candidate) {
   return creaturazoidBodyPreset(candidate?.bodyPresetId ?? candidate?.voicePresetId);
 }
@@ -1715,7 +1868,7 @@ export function creaturazoidTongueState(performanceState = {}, candidate = CREAT
       0.92,
     ),
     tongueExtension: clamp(
-      0.08 + safe.tongueReach * (active ? 0.58 : 0.12) + envelope * 0.08
+      0.05 + safe.tongueReach * (active ? 0.78 : 0.68) + envelope * 0.08
         + lap * 0.3 + pant * 0.18 + caw * 0.08,
       0.04,
       0.96,
