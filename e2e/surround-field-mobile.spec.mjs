@@ -34,7 +34,7 @@ async function swipeStageUp(page, context, viewport) {
   await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 }
 
-test("Surround Field keeps Play tappable and the room touch-scrollable on phones", async ({ page, context, browserName }) => {
+test("Surround for Safety keeps Play tappable and the room touch-scrollable on phones", async ({ page, context, browserName }) => {
   test.skip(browserName !== "chromium", "touch regression uses Chromium CDP");
 
   for (const layout of layouts) {

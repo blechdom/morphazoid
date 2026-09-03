@@ -1296,7 +1296,7 @@ async function resetAll() {
   audio.setLevel(state.level);
   audio.setColor(state.color);
   setLayout(state.layoutId);
-  announce("Surround Field reset.");
+  announce("Surround for Safety reset.");
 }
 
 function bindControls() {

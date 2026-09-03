@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#080a09" />
     <meta
       name="description"
-      content="Morphazoid Surround Field — place a sound inside 7:4:1, 4:1, eight-speaker circle, cube, and custom multichannel arrays."
+      content="Morphazoid Surround for Safety — place a sound inside 7:4:1, 4:1, eight-speaker circle, cube, and custom multichannel arrays."
     />
-    <title>Surround Field — Morphazoid</title>
+    <title>Surround for Safety — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="surround-field.css" />
@@ -21,13 +21,13 @@
       </a>
       <nav class="tabs" aria-label="Instrument">
         <a class="tab" href="vector-flight.html">vector flight</a>
-        <a class="tab active" href="surround-field.html" aria-current="page">surround field</a>
+        <a class="tab active" href="surround-field.html" aria-current="page">surround for safety</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
           <option value="vector-flight.html">vector flight</option>
-          <option value="surround-field.html" selected>surround field</option>
+          <option value="surround-field.html" selected>surround for safety</option>
         </select>
       </label>
       <div class="audio-strip" aria-label="Audio controls">
@@ -37,7 +37,7 @@
         </button>
         <label class="header-level" for="level">
           <span><b>Program level</b><output id="levelOut" for="level">55%</output></span>
-          <input id="level" aria-label="Surround Field program level" type="range" min="0" max="1" step="0.01" value="0.55" />
+          <input id="level" aria-label="Surround for Safety program level" type="range" min="0" max="1" step="0.01" value="0.55" />
         </label>
       </div>
     </header>
@@ -67,8 +67,8 @@
           </svg>
 
           <header class="surround-identity">
-            <p>MULTICHANNEL SPATIAL INSTRUMENT · SF–32</p>
-            <h1 id="sceneTitle">SURROUND<br /><i>FIELD</i></h1>
+            <p>MULTICHANNEL SPATIAL INSTRUMENT · SFS–32</p>
+            <h1 id="sceneTitle">SURROUND<br /><i>FOR SAFETY</i></h1>
             <span>PLACE THE SOUND / HEAR THE ARRAY</span>
           </header>
 
@@ -118,7 +118,7 @@
             <p id="keyboardTitle">PLAY THE FIELD</p>
             <span>click pads or use A S D F G H J K</span>
           </div>
-          <div class="note-pads" id="notePads" role="group" aria-label="Surround Field note pads">
+          <div class="note-pads" id="notePads" role="group" aria-label="Surround for Safety note pads">
             <button type="button" data-note="48"><kbd>A</kbd><b>C</b><small>48</small></button>
             <button type="button" data-note="50"><kbd>S</kbd><b>D</b><small>50</small></button>
             <button type="button" data-note="51"><kbd>D</kbd><b>E♭</b><small>51</small></button>
@@ -131,7 +131,7 @@
         </section>
       </section>
 
-      <aside class="panel surround-panel" aria-label="Surround Field controls">
+      <aside class="panel surround-panel" aria-label="Surround for Safety controls">
         <section class="panel-transport" id="panelTransport" data-state="off" aria-label="Audio-clock transport">
           <button class="field-play" id="sequenceButton" type="button" data-primary-transport aria-pressed="false">
             <span id="sequenceIcon" aria-hidden="true">▶</span>
@@ -278,12 +278,12 @@
           <summary><span>?</span><b>How many outputs can a browser use?</b><i>+</i></summary>
           <div>
             <p><strong>Graph:</strong> at least 32 channels. <strong>Speakers:</strong> whatever <code>destination.maxChannelCount</code> reports for the active device—commonly 2.</p>
-            <p>Surround Field sends numbered, discrete channels when the full patch fits. Otherwise it preserves the virtual layout as a stereo preview. One multichannel HDMI or USB interface is the reliable setup.</p>
+            <p>Surround for Safety sends numbered, discrete channels when the full patch fits. Otherwise it preserves the virtual layout as a stereo preview. One multichannel HDMI or USB interface is the reliable setup.</p>
             <a href="https://webaudio.github.io/web-audio-api/#AudioDestinationNode" target="_blank" rel="noreferrer">Read the Web Audio specification ↗</a>
           </div>
         </details>
 
-        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset Surround Field</button></div>
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset Surround for Safety</button></div>
       </aside>
 
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>

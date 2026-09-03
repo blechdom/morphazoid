@@ -44,7 +44,7 @@ test("late audio scheduler ticks skip missed subdivisions instead of bursting", 
   assert.ok(veryLate.times.every((time) => time >= 10 + AUDIO_TIMING.minimumLeadSeconds));
 });
 
-test("Surround Field includes every requested layout", () => {
+test("Surround for Safety includes every requested layout", () => {
   const layouts = makeLayouts();
   assert.equal(layouts["7-4-1"].speakers.length, 12);
   assert.equal(layouts["7-4-1"].speakers.filter(({ kind }) => kind === "height").length, 4);

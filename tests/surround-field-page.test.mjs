@@ -9,7 +9,7 @@ const html = await readFile(path.join(repositoryRoot, "surround-field.html"), "u
 const app = await readFile(path.join(repositoryRoot, "surround-field-app.js"), "utf8");
 const css = await readFile(path.join(repositoryRoot, "surround-field.css"), "utf8");
 
-test("Surround Field exposes every requested array and the custom 32-channel ring", () => {
+test("Surround for Safety exposes every requested array and the custom 32-channel ring", () => {
   for (const layout of ["7-4-1", "4-1", "8-circle", "8-cube"]) {
     assert.match(html, new RegExp(`data-layout="${layout}"`));
   }

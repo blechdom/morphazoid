@@ -1691,6 +1691,13 @@
     gap: 10px;
   }
 
+  .surround-field-page .mobile-instrument-nav,
+  .surround-field-page .masthead.has-midi-toolbar .mobile-instrument-nav,
+  .surround-field-page .masthead.has-midi-toolbar .tabs.tools-nav {
+    width: min(184px, calc(100vw - 68px));
+    flex: 0 0 184px;
+  }
+
   .surround-field-page .wordmark > span:last-child,
   .surround-field-page .header-level {
     display: none;
@@ -1811,6 +1818,17 @@
 
   .record-actions {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 360px) {
+  .surround-identity h1 {
+    font-size: 28px;
+  }
+
+  .stage-capability {
+    right: 12px;
+    min-width: 126px;
   }
 }
 

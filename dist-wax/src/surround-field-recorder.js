@@ -155,7 +155,7 @@ export function buildStemArchive(capture, speakers, layoutName, createdAt = new 
   const orderedSpeakers = [...speakers].sort((left, right) => left.channel - right.channel);
   const duration = capture.frames / capture.sampleRate;
   const lines = [
-    "Morphazoid Surround Field channel capture",
+    "Morphazoid Surround for Safety channel capture",
     `Layout: ${layoutName}`,
     `Sample rate: ${capture.sampleRate} Hz`,
     `Duration: ${duration.toFixed(3)} s`,

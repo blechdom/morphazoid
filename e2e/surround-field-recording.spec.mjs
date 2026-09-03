@@ -24,7 +24,7 @@ function sineWaveFile({ sampleRate = 48_000, duration = 0.5, frequency = 440, am
   return buffer;
 }
 
-test("Surround Field records an isolated calibrated channel before stereo fold-down", async ({ page }) => {
+test("Surround for Safety records an isolated calibrated channel before stereo fold-down", async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
