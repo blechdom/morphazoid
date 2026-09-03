@@ -49,8 +49,8 @@
           <span id="playgroundPlayLabel">Run patch</span>
         </button>
         <label class="header-level" for="output">
-          <span><b>Output</b><output id="outputOut" for="output">70%</output></span>
-          <input id="output" aria-label="Modular Shader Synth output level" type="range" min="0" max="1" step="0.01" value="0.7" />
+          <span><b>Output</b><output id="outputOut" for="output">100%</output></span>
+          <input id="output" aria-label="Modular Shader Synth output level" type="range" min="0" max="1" step="0.01" value="1" />
         </label>
       </div>
     </header>
@@ -142,7 +142,7 @@
                   <p id="sampleInvocationModel">One GPU invocation computes one sample and evaluates every visible module. Additive organ ranks are bounded harmonic lanes inside that invocation; the GPU still runs thousands of sample invocations in parallel.</p>
                   <p id="cpuGpuUploadHeading"><b>CPU → GPU:</b> graph changes, parameters, and per-chunk render metadata are written before dispatch.</p>
                   <p id="gpuReadbackHeading"><b>GPU → CPU / Web Audio:</b> the finished stereo buffer is read back once and then scheduled for playback.</p>
-                  <p id="gpuChunkSummary"><output id="gpuChunkSampleCount">4,410 samples @ 44.1 kHz</output> · <output id="gpuChunkChannelCount">stereo</output> · <output id="gpuLookaheadDuration">~300 ms queued</output></p>
+                  <p id="gpuChunkSummary"><output id="gpuChunkSampleCount">4,410 samples @ 44.1 kHz</output> · <output id="gpuChunkChannelCount">stereo</output> · <output id="gpuLookaheadDuration">~200 ms queued</output></p>
                   <p id="graphNodeLimitNote"><output id="graphNodeLimit">16</output> nodes is a fixed-array guardrail in this prototype, not a WebGPU limit.</p>
                 </section>
                 <section class="execution-detail-alternative" id="blockStateLane" aria-labelledby="blockStateHeading">
@@ -336,6 +336,6 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260902-arrow-preset"></script>
+    <script type="module" src="shader-synth-playground-app.js?v=20260902-responsive-handoffs"></script>
   </body>
 </html>

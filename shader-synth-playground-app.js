@@ -13,7 +13,7 @@ import {
   sanitizeShaderPlaygroundPatch,
   shaderPlaygroundSupport,
   validateShaderPlaygroundPatch,
-} from "./src/shader-synth-playground.js?v=20260902-monotonic-play-note";
+} from "./src/shader-synth-playground.js?v=20260902-responsive-handoffs";
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
@@ -2480,8 +2480,7 @@ function syncExecutionReadout(engine = state.engine) {
   const sampleRate = Number(engine?.sampleRate) || 44100;
   const sampleCount = Number(engine?.chunkSamples) || Math.round(sampleRate * duration);
   const lookahead = Number(engine?.bufferTargetSeconds)
-    || duration * SHADER_PLAYGROUND_RUNTIME_DEFAULTS.bufferedChunks
-      + SHADER_PLAYGROUND_RUNTIME_DEFAULTS.schedulePadding;
+    || SHADER_PLAYGROUND_RUNTIME_DEFAULTS.minimumBufferSeconds;
   $("gpuChunkDuration").textContent = `~${Math.round(duration * 1000)} ms chunk`;
   $("gpuChunkSampleCount").textContent = `${sampleCount.toLocaleString()} samples @ ${(sampleRate / 1000).toFixed(1)} kHz`;
   $("gpuChunkChannelCount").textContent = "stereo";

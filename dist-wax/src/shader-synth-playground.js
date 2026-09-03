@@ -61,7 +61,7 @@ const RENDER_INFO_SIZE = 32;
 const FX_STAGE_INFO_SIZE = 16;
 const ORGAN_RANK_FLOATS = WEBGPU_SYNTHS_ORGAN_RANK_COUNT * 4;
 const ORGAN_RANK_BUFFER_SIZE = ORGAN_RANK_FLOATS * 2 * Float32Array.BYTES_PER_ELEMENT;
-const MAX_BUFFERED_CHUNKS = 2.5;
+const MINIMUM_BUFFER_CHUNK_MULTIPLIER = 1.5;
 const SCHEDULE_PADDING_SECONDS = 0.05;
 const SCHEDULE_LEAD_SECONDS = 0.012;
 const STARTUP_LEAD_SECONDS = 0.045;
@@ -69,6 +69,8 @@ const STARTUP_PRIME_CHUNKS = 3;
 const MAX_CHUNKS_PER_FILL = 3;
 const MAX_ADAPTIVE_BUFFER_SECONDS = 1.2;
 const RENDER_TIMING_WINDOW = 24;
+const BUFFER_RECOVERY_HOLD_SECONDS = 3;
+const BUFFER_RECOVERY_CHUNK_FRACTION = 0.05;
 const MAX_CACHED_GRAPH_PIPELINES = 16;
 const MAX_CACHED_FX_PIPELINES = 8;
 const MAX_CACHED_STATE_PIPELINES = 8;
@@ -193,13 +195,14 @@ export const SHADER_PLAYGROUND_LAYOUT_DEFAULTS = freeze({
   marginBottom: 20,
 });
 
-// Match the standalone WebGPU 303's responsive steady-state lookahead. The
-// scheduler may raise this floor after measured pressure or a real underrun;
-// first-use pipeline compilation is handled separately from normal buffering.
+// Keep 100 ms GPU blocks, but refill from a shorter steady-state floor than
+// the fixed 303 queue. Measured render pressure can raise it immediately;
+// stable rendering releases that extra latency again after a safe window.
 export const SHADER_PLAYGROUND_RUNTIME_DEFAULTS = freeze({
   chunkDuration: 0.1,
   workgroupSize: 256,
-  bufferedChunks: MAX_BUFFERED_CHUNKS,
+  output: 1,
+  minimumBufferSeconds: 0.2,
   schedulePadding: SCHEDULE_PADDING_SECONDS,
   startupChunks: STARTUP_PRIME_CHUNKS,
   maximumBufferSeconds: MAX_ADAPTIVE_BUFFER_SECONDS,
@@ -3032,16 +3035,20 @@ export class ShaderSynthPlaygroundAudio {
     this.renderOffset = 0;
     this.renderSampleOffset = 0;
     this.nextStartTime = 0;
-    this.bufferTargetSeconds = this.chunkDuration * MAX_BUFFERED_CHUNKS + SCHEDULE_PADDING_SECONDS;
+    this.minimumBufferSeconds = this.chunkDuration * MINIMUM_BUFFER_CHUNK_MULTIPLIER
+      + SCHEDULE_PADDING_SECONDS;
+    this.bufferTargetSeconds = this.minimumBufferSeconds;
     this.renderDurations = [];
     this.renderDurationP95 = 0;
+    this.stableRenderCount = 0;
+    this.bufferRecoveryNotBeforeMilliseconds = 0;
     this.underrunCount = 0;
     this.lastRenderIncludedCompile = false;
     this.timeoutId = null;
     this.renderingPromise = null;
     this.running = false;
     this.playbackEnabled = false;
-    this.output = 0.7;
+    this.output = SHADER_PLAYGROUND_RUNTIME_DEFAULTS.output;
     this.patch = createShaderPlaygroundPatch();
     this.organRanks = sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS);
     this.previousOrganRanks = sanitizeWebGpuSynthOrganRanks(this.organRanks);
@@ -3085,6 +3092,7 @@ export class ShaderSynthPlaygroundAudio {
   recordRenderDuration(durationSeconds) {
     const duration = Math.max(0, finiteOr(durationSeconds, 0));
     if (duration <= 0) return;
+    this.stableRenderCount += 1;
     this.renderDurations.push(duration);
     if (this.renderDurations.length > RENDER_TIMING_WINDOW) this.renderDurations.shift();
     const ordered = [...this.renderDurations].sort((left, right) => left - right);
@@ -3093,22 +3101,39 @@ export class ShaderSynthPlaygroundAudio {
       Math.ceil(ordered.length * 0.95) - 1,
     )];
     const measuredTarget = this.renderDurationP95 * 4 + SCHEDULE_PADDING_SECONDS;
-    this.bufferTargetSeconds = clamp(
-      Math.max(this.bufferTargetSeconds, measuredTarget),
-      this.chunkDuration * MAX_BUFFERED_CHUNKS + SCHEDULE_PADDING_SECONDS,
+    const desiredTarget = clamp(
+      Math.max(this.minimumBufferSeconds, measuredTarget),
+      this.minimumBufferSeconds,
       MAX_ADAPTIVE_BUFFER_SECONDS,
     );
+    if (desiredTarget >= this.bufferTargetSeconds) {
+      this.bufferTargetSeconds = desiredTarget;
+    } else if (
+      this.stableRenderCount >= RENDER_TIMING_WINDOW
+      && this.clockMilliseconds() >= this.bufferRecoveryNotBeforeMilliseconds
+    ) {
+      // A real underrun raises the reserve immediately, but one old hiccup
+      // must not leave every knob trapped behind a large queue forever.
+      this.bufferTargetSeconds = Math.max(
+        desiredTarget,
+        this.bufferTargetSeconds - this.chunkDuration * BUFFER_RECOVERY_CHUNK_FRACTION,
+      );
+    }
   }
 
-  recordUnderrun(gapSeconds) {
+  recordUnderrun(gapSeconds, { adapt = true } = {}) {
     const gap = Math.max(0, finiteOr(gapSeconds, 0));
     this.underrunCount += 1;
+    this.stableRenderCount = 0;
+    this.bufferRecoveryNotBeforeMilliseconds = this.clockMilliseconds()
+      + BUFFER_RECOVERY_HOLD_SECONDS * 1000;
+    if (!adapt) return;
     this.bufferTargetSeconds = clamp(
       Math.max(
         this.bufferTargetSeconds + this.chunkDuration,
         this.bufferTargetSeconds + gap * 2,
       ),
-      this.chunkDuration * MAX_BUFFERED_CHUNKS + SCHEDULE_PADDING_SECONDS,
+      this.minimumBufferSeconds,
       MAX_ADAPTIVE_BUFFER_SECONDS,
     );
   }
@@ -3158,9 +3183,13 @@ export class ShaderSynthPlaygroundAudio {
     this.renderOffset = 0;
     this.renderSampleOffset = 0;
     this.nextStartTime = this.context.currentTime;
-    this.bufferTargetSeconds = this.chunkDuration * MAX_BUFFERED_CHUNKS + SCHEDULE_PADDING_SECONDS;
+    this.minimumBufferSeconds = this.chunkDuration * MINIMUM_BUFFER_CHUNK_MULTIPLIER
+      + SCHEDULE_PADDING_SECONDS;
+    this.bufferTargetSeconds = this.minimumBufferSeconds;
     this.renderDurations = [];
     this.renderDurationP95 = 0;
+    this.stableRenderCount = 0;
+    this.bufferRecoveryNotBeforeMilliseconds = 0;
     this.underrunCount = 0;
     this.scheduledChunks = [];
     this.hasScheduledPlayback = false;
@@ -3738,7 +3767,7 @@ export class ShaderSynthPlaygroundAudio {
   }
 
   updatePatch(patch = this.patch) {
-    const encoded = encodeShaderPlaygroundPatch(patch, this.previousParams);
+    let encoded = encodeShaderPlaygroundPatch(patch, this.previousParams);
     const audioChanged = !encodedAudioMatches(this.encodedPatch, encoded);
     const topologyChanged = !encodedTopologyMatches(this.encodedPatch, encoded);
     this.patch = encoded.patch;
@@ -3751,6 +3780,15 @@ export class ShaderSynthPlaygroundAudio {
     if (!audioChanged && this.encodedPatch) {
       this.encodedPatch = { ...this.encodedPatch, patch: encoded.patch };
       return this.patch;
+    }
+    if (topologyChanged) {
+      // A whole-graph source crossfade already owns topology changes. Node IDs
+      // are reused across many presets, so carrying their old parameter slots
+      // into a different module kind briefly reinterprets unrelated numbers
+      // (for example oscillator values as wavetable controls). Seed both banks
+      // from the new graph and reserve parameter morphing for actual knob edits.
+      this.previousParams = cloneParamMap(encoded.paramsByNode);
+      encoded = encodeShaderPlaygroundPatch(encoded.patch, this.previousParams);
     }
     this.encodedPatch = encoded;
     const activeStateNodes = shaderSynthPlaygroundStateEngineNodes(encoded);
@@ -3785,7 +3823,7 @@ export class ShaderSynthPlaygroundAudio {
       this.device.queue.writeBuffer(this.fxStageInfoBuffer, 0, stageData);
     }
     this.patchRevision += 1;
-    this.pendingRamp = true;
+    this.pendingRamp = !topologyChanged;
     if (this.device && this.nodeBuffer) this.device.queue.writeBuffer(this.nodeBuffer, 0, encoded.data);
     // Parameter-only edits arrive many times per pointer drag. Replacing the
     // future queue for every event caused repeated 100 ms handoffs and could
@@ -3843,7 +3881,7 @@ export class ShaderSynthPlaygroundAudio {
   }
 
   setOutput(value) {
-    this.output = clamp(finiteOr(value, 0.7), 0, 1);
+    this.output = clamp(finiteOr(value, SHADER_PLAYGROUND_RUNTIME_DEFAULTS.output), 0, 1);
     if (!this.master || !this.context) return;
     if (this.playbackEnabled && this.scheduledChunks.length === 0) {
       this.master.gain.value = 0;
@@ -3995,7 +4033,10 @@ export class ShaderSynthPlaygroundAudio {
       && this.nextStartTime < minimumStart
       && coverageEnd < minimumStart
     ) {
-      this.recordUnderrun(minimumStart - Math.max(this.nextStartTime, coverageEnd));
+      this.recordUnderrun(
+        minimumStart - Math.max(this.nextStartTime, coverageEnd),
+        { adapt: !this.lastRenderIncludedCompile },
+      );
     }
     const startAt = Math.max(minimumStart, desiredStart);
     const endAt = startAt + audioBuffer.duration;
@@ -4030,7 +4071,14 @@ export class ShaderSynthPlaygroundAudio {
     const setTimer = this.runtime.setTimeout ?? globalThis.setTimeout;
     this.timeoutId = setTimer(() => {
       this.timeoutId = null;
-      const task = this.fillBuffer({ maxChunks: MAX_CHUNKS_PER_FILL }).catch((error) => this.handleError(error)).finally(() => {
+      // A replacement should compile/render while the old reserve is still
+      // audible, even when that reserve already exceeds the refill target.
+      // Waiting for the ordinary threshold wastes the safest overlap window
+      // and makes a cold preset feel one whole chunk later than necessary.
+      const task = this.fillBuffer({
+        forceFirstChunk: Boolean(this.pendingQueueHandoff),
+        maxChunks: MAX_CHUNKS_PER_FILL,
+      }).catch((error) => this.handleError(error)).finally(() => {
         if (this.renderingPromise === task) {
           this.renderingPromise = null;
           if (this.running && this.deferredQueueRefresh) {
