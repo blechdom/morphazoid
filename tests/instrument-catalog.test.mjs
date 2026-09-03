@@ -365,15 +365,19 @@ test("Hiccup Head is a monophonic physical beatbox sequencer with page-owned dru
   assert.equal(midi?.computerKeyboardMode, "page");
 });
 
-test("Colony Syrinx is a continuous mutable pressure-network voice with page-owned valve keys", () => {
+test("Monstrozoid is a continuous mutable pressure-network voice with page-owned valve keys", () => {
   const instrument = instrumentById("colony-syrinx");
-  assert.equal(instrument?.label, "Colony Syrinx");
-  assert.equal(instrument?.href, "colony-syrinx.html");
+  assert.equal(instrument?.label, "Monstrozoid");
+  assert.equal(instrument?.href, "monstrozoid.html");
   assert.equal(instrument?.imageHref, "assets/instruments/colony-syrinx.webp");
   assert.equal(instrument?.kind, "Mutable pressure-network voice");
   assert.match(instrument?.description ?? "", /variable lungs/i);
-  assert.match(instrument?.description ?? "", /air, water, or pellet excitation/i);
-  assert.match(instrument?.start ?? "", /short call/i);
+  assert.match(instrument?.description ?? "", /impact, and resonance contours/i);
+  assert.doesNotMatch(
+    `${instrument?.description ?? ""} ${instrument?.start ?? ""}`,
+    /air, water|pellet excitation|excitation material/i,
+  );
+  assert.match(instrument?.start ?? "", /select a call to hear it immediately/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
     ["voice-synths"],

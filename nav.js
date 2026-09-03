@@ -182,8 +182,9 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
     {
       id: "colony-syrinx",
-      label: "Colony Syrinx",
-      href: "colony-syrinx.html",
+      label: "Monstrozoid",
+      href: "monstrozoid.html",
+      legacyHrefs: Object.freeze(["monsterzoid.html", "colony-syrinx.html"]),
     },
     { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
     { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
@@ -454,17 +455,20 @@ export function resolveActiveTool(currentUrl, siteRoot = NAVIGATION_BASE_URL) {
   const currentPath = normalizeNavigationPath(currentUrl, siteRoot);
   if (!currentPath) return null;
   for (const tool of allTools()) {
-    const toolPath = normalizeNavigationPath(tool.href, siteRoot);
-    if (!toolPath) continue;
-    if (tool.match === "directory") {
-      const directory = toolPath.endsWith("/") ? toolPath : `${toolPath}/`;
-      if (
-        currentPath === directory
-        || currentPath === directory.slice(0, -1)
-        || currentPath.startsWith(directory)
-      ) return tool;
-    } else if (currentPath === toolPath) {
-      return tool;
+    const hrefs = [tool.href, ...(tool.legacyHrefs ?? [])];
+    for (const href of hrefs) {
+      const toolPath = normalizeNavigationPath(href, siteRoot);
+      if (!toolPath) continue;
+      if (tool.match === "directory") {
+        const directory = toolPath.endsWith("/") ? toolPath : `${toolPath}/`;
+        if (
+          currentPath === directory
+          || currentPath === directory.slice(0, -1)
+          || currentPath.startsWith(directory)
+        ) return tool;
+      } else if (currentPath === toolPath) {
+        return tool;
+      }
     }
   }
   return null;

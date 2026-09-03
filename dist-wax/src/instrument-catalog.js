@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260902-3";
+} from "../nav.js?v=catalog-20260902-4";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -228,8 +228,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "colony-syrinx": define(
     "Mutable pressure-network voice",
-    "Routes variable lungs, vocal-fold sources, paths, and mouth resonators through continuous pressure, tension, routing, and articulation contours with air, water, or pellet excitation.",
-    "Turn on audio and select a short call, or start continuous flow; then edit anatomy counts, route connections, excitation material, and modulation contours.",
+    "Routes variable lungs, vocal-fold sources, paths, and mouth resonators through continuous pressure, tension, routing, articulation, impact, and resonance contours.",
+    "Turn on audio and select a call to hear it immediately, or start continuous flow; then edit anatomy counts, route connections, vocal behavior, and modulation contours.",
     ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
   ),
   blowhole: define(

@@ -627,7 +627,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
       { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
       { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
-      { id: "colony-syrinx", label: "Colony Syrinx", href: "colony-syrinx.html" },
+      { id: "colony-syrinx", label: "Monstrozoid", href: "monstrozoid.html" },
       { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
       { id: "harmonica", label: "Harmonica", href: "harmonica.html" },
@@ -640,6 +640,11 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       },
       { id: "vocalzoid", label: "Vocalzoid", href: "vocalzoid.html" },
     ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.flatMap((group) => group.tools)
+      .find(({ id }) => id === "colony-syrinx")?.legacyHrefs,
+    ["monsterzoid.html", "colony-syrinx.html"],
   );
   assert.deepEqual(
     TOOL_GROUPS.find((group) => group.id === "mic-fx")?.tools.map(
@@ -879,10 +884,9 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   );
   assert.equal(resolveActiveTool(`${SITE_ROOT}hiccup-head.html`, SITE_ROOT)?.id, "hiccup-head");
   assert.equal(resolveActiveTool(`${SITE_ROOT}harmonica.html`, SITE_ROOT)?.id, "harmonica");
-  assert.equal(
-    resolveActiveTool(`${SITE_ROOT}colony-syrinx.html`, SITE_ROOT)?.id,
-    "colony-syrinx",
-  );
+  for (const page of ["monstrozoid.html", "monsterzoid.html", "colony-syrinx.html"]) {
+    assert.equal(resolveActiveTool(`${SITE_ROOT}${page}`, SITE_ROOT)?.id, "colony-syrinx");
+  }
   assert.equal(resolveActiveTool(`${SITE_ROOT}alien-larynx.html`, SITE_ROOT)?.id, "alien-larynx");
   assert.equal(resolveActiveTool(`${SITE_ROOT}orbital-ferris.html`, SITE_ROOT)?.id, "orbital-ferris");
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT), null);
