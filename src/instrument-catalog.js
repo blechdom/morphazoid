@@ -256,6 +256,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Tap any of fifty-two feature-clear sound dots, the whistle gap, or twelve separately pitched crooked teeth. Choose or mutate among seven contrasting physical sound banks; every bank retunes the same monophonic mouth and auditions its result. KISS leaves a fading lip print at a changing face position, BRUSH sends a visible toothbrush up and down while sweeping both directions across the wood-toned teeth, and blue slap mitts appear only while SLAP or SMACK is dragged. Pull either horizontal-tethered ear for stereo width, and drag each straight side-hair tip in two dimensions—length sets echo amount while angle sets that side's delay time. Matched circular eyes move inward for bright plate reverb, outward for a dark cathedral, and downward to thicken the room; centered open eyes are dry. Use two thick eyebrows as a cyclic sequence-amplitude contour. The large glossy #FF0000 circular nose controls the nasal branch, while the oval green, translucent-striped lips become thinner as the mouth opens. Persistent Delay, Reverb, Nasal, and Stereo switches and live amounts stay put through preset changes, mutation, and reset. Sequence one gesture per column at any length from 1 through 64 steps and up to 520 BPM, then edit or mutate one to eight sequential voice characters—including direct vibrato rate and depth—without layering mouths.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
+  digestazoid: define(
+    "Tactile digestive physical model",
+    "Couples a compliant stomach, peristaltic intestinal and colon chambers, gas, bile-like liquid, viscous sludge, a finite bubble-cloud model, and pressure-driven upper and lower tissue valves into one persistent wet body. Bubble events pass through dirty nucleation, submerged inverse-size rings, neck pinch, surface rupture, viscous glugs, and shared low abdominal modes.",
+    "Turn on audio, push and prod the cutaway organs, hold Inflate or Deflate, pinch and release a valve, pull the lower rubber outlet, or play growl, clustered burble, bubble rupture, slosh, burp, sludge burple, and short or sustained fart gestures.",
+    ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
+  ),
   "breath-atlas": define(
     "Breath physical-model atlas",
     "Compares nineteen mouth and breath instruments through six physical source topologies, from quill-driven strings and bidirectional free reeds to lip valves, flutes, jaw reeds, and mouth bows.",

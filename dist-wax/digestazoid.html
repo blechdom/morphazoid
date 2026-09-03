@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d0905" />
+    <meta
+      name="description"
+      content="Digestazoid is a playable physical model of a compliant stomach, peristaltic intestines, gas and liquid slugs, bubbles, burps, burples, growls, and pressure-driven rubbery farts."
+    />
+    <title>Digestazoid · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="digestazoid.css?v=digestazoid-20260902-3" />
+  </head>
+  <body class="digestazoid-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="pink-trombonazoid.html">pink trombone</a>
+        <a class="tab" href="hiccup-head.html">hiccup head</a>
+        <a class="tab active" href="digestazoid.html" aria-current="page">digestazoid</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="pink-trombonazoid.html">pink trombone</option>
+          <option value="hiccup-head.html">hiccup head</option>
+          <option value="digestazoid.html" selected>digestazoid</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" role="group" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="digestazoid-audio-bubble" aria-hidden="true"><i></i></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="Digestazoid output level" type="range" min="0" max="0.8" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="digestazoid-shell" id="digestazoid">
+      <section class="digestazoid-lab" aria-label="Playable digestive system laboratory">
+        <div class="digestazoid-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Interactive cutaway digestive system. Push the stomach, knead the intestinal coils, stir the gas pocket, pinch valves, or pull the lower rubber outlet."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A tactile cutaway of a stomach, small intestine, colon, and two pressure-driven outlets.
+          </canvas>
+
+          <div class="digestazoid-title" aria-hidden="true">
+            <small>one wet pressure network · no samples · no mercy</small>
+            <h1>DIGESTAZOID</h1>
+          </div>
+
+          <div class="digestazoid-stage-meter">
+            <span><small>palpation</small><output id="contactOut">belly at rest</output></span>
+            <span><small>eruption</small><output id="eventOut">listening</output></span>
+          </div>
+
+          <div class="digestazoid-pressure-rail" role="group" aria-label="Live model pressures">
+            <span><i id="stomachPressureBar"></i><small>stomach</small><output id="stomachPressureOut">0.18</output></span>
+            <span><i id="intestinalPressureBar"></i><small>small gut</small><output id="intestinalPressureOut">0.12</output></span>
+            <span><i id="colonPressureBar"></i><small>colon</small><output id="colonPressureOut">0.16</output></span>
+          </div>
+
+          <div class="digestazoid-inflate-tools" role="group" aria-label="Gas pocket controls">
+            <button id="deflateButton" type="button" aria-label="Hold to deflate the digestive gas pocket"><b>−</b><small>deflate</small></button>
+            <span aria-hidden="true"><i></i><i></i><i></i></span>
+            <button id="inflateButton" type="button" aria-label="Hold to inflate the digestive gas pocket"><b>+</b><small>inflate</small></button>
+          </div>
+
+          <p class="digestazoid-audio-error" id="audioError" role="alert" hidden></p>
+        </div>
+
+        <section class="digestazoid-gesture-deck" aria-labelledby="gestureTitle">
+          <header>
+            <div><small>pressure injuries</small><h2 id="gestureTitle">Make the body misbehave</h2></div>
+            <button id="digestButton" class="digestazoid-digest-button" type="button" aria-pressed="false"><i aria-hidden="true"></i><span><b>Digest</b><small id="digestState">continuous motion off</small></span></button>
+          </header>
+          <div class="digestazoid-pads" id="gesturePads" role="group" aria-label="Digestazoid gesture pads">
+            <button type="button" data-gesture="growl" style="--pad:#b67822"><kbd>1</kbd><b>GROWL</b><small>sub-bass wall torsion</small></button>
+            <button type="button" data-gesture="burble" style="--pad:#78851c"><kbd>2</kbd><b>BURBLE</b><small>gas slugs in slurry</small></button>
+            <button type="button" data-gesture="bubble" style="--pad:#a79b32"><kbd>3</kbd><b>BUBBLE</b><small>pinch · ring · rupture</small></button>
+            <button type="button" data-gesture="slosh" style="--pad:#65713a"><kbd>4</kbd><b>SLOSH</b><small>bile and bolus</small></button>
+            <button type="button" data-gesture="burp" style="--pad:#a44d2a"><kbd>5</kbd><b>BURP</b><small>sour upper valve</small></button>
+            <button type="button" data-gesture="burple" style="--pad:#893b31"><kbd>6</kbd><b>BURPLE</b><small>sludge lifts gas</small></button>
+            <button type="button" data-gesture="fart" style="--pad:#75532c"><kbd>7</kbd><b>FART</b><small>rectal reed blast</small></button>
+            <button type="button" data-gesture="long-fart" style="--pad:#59452e"><kbd>8</kbd><b>LONG ONE</b><small>pressurized membrane</small></button>
+          </div>
+          <p class="digestazoid-gesture-note">Each blow enters the same trapped gas, slurry, wall, and valve state. The mess keeps moving after your hand leaves.</p>
+        </section>
+      </section>
+
+      <aside class="panel digestazoid-panel" aria-label="Digestazoid controls">
+        <section class="digestazoid-preset-deck" aria-labelledby="presetTitle">
+          <div>
+            <span id="presetTitle">Digestive body</span>
+            <span class="digestazoid-picker-row">
+              <select id="presetSelect" aria-label="Digestazoid physical preset"></select>
+              <button id="nextPresetButton" type="button" title="Next physical preset" aria-label="Next physical preset">▶</button>
+            </span>
+          </div>
+          <p id="presetDescription">A pressurized wet abdomen: heavy wall groans, gas slugs, bile wash, and an unstable lower seal.</p>
+          <button id="randomizeButton" type="button"><span aria-hidden="true">⌁</span><span><b>Contaminate the meal</b><small>reroll gas, liquid, sludge &amp; tissue</small></span></button>
+        </section>
+
+        <div class="digestazoid-balance" role="group" aria-label="Current contents">
+          <span style="--content:#8e5726"><small>gas</small><i><b id="gasFillBar"></b></i><output id="gasFillOut">42%</output></span>
+          <span style="--content:#7b7924"><small>liquid</small><i><b id="liquidFillBar"></b></i><output id="liquidFillOut">58%</output></span>
+          <span style="--content:#5f6827"><small>sludge</small><i><b id="sludgeFillBar"></b></i><output id="sludgeFillOut">44%</output></span>
+        </div>
+
+        <details class="group control-section" data-section="contents" open>
+          <summary class="group-summary"><h2 class="group-title">Gas, liquid &amp; sludge</h2><span class="section-state" id="contentsSummary">42% gas · wet</span></summary>
+          <div class="group-body">
+            <label class="control" for="gas"><span><b>Gas pocket</b><output id="gasOut" for="gas">42%</output></span><input id="gas" type="range" min="0" max="1.8" step="0.01" value="0.42" /><small>Changes compressible volume and the pressure available to either outlet.</small></label>
+            <label class="control" for="liquid"><span><b>Liquid load</b><output id="liquidOut" for="liquid">58%</output></span><input id="liquid" type="range" min="0" max="1.5" step="0.01" value="0.58" /><small>Feeds slosh, bubble pinch-off, and wet valve radiation.</small></label>
+            <label class="control" for="sludge"><span><b>Sludge load</b><output id="sludgeOut" for="sludge">44%</output></span><input id="sludge" type="range" min="0" max="1.5" step="0.01" value="0.44" /><small>Adds mass, damping, and irregular slow burples to the intestinal path.</small></label>
+            <label class="control" for="viscosity"><span><b>Viscosity</b><output id="viscosityOut" for="viscosity">52%</output></span><input id="viscosity" type="range" min="0" max="1" step="0.01" value="0.52" /><small>Thin contents hiss and click; thick contents hold pressure then break into slugs.</small></label>
+            <label class="control" for="bubbleSize"><span><b>Bubble size</b><output id="bubbleSizeOut" for="bubbleSize">8.0 mm</output></span><input id="bubbleSize" type="range" min="2" max="22" step="0.5" value="8" /><small>Moves submerged ring pitch, pinch-off time, surface rupture, and the size of visible gas pockets.</small></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="motion" open>
+          <summary class="group-summary"><h2 class="group-title">Peristalsis &amp; soft walls</h2><span class="section-state" id="motionSummary">10/min · 56% squeeze</span></summary>
+          <div class="group-body">
+            <label class="control" for="peristalsisRate"><span><b>Peristalsis rate</b><output id="peristalsisRateOut" for="peristalsisRate">10/min</output></span><input id="peristalsisRate" type="range" min="1" max="72" step="0.5" value="9.5" /><small>A travelling constriction moves pressure and contents through every compartment.</small></label>
+            <label class="control" for="peristalsisDepth"><span><b>Contraction depth</b><output id="peristalsisDepthOut" for="peristalsisDepth">56%</output></span><input id="peristalsisDepth" type="range" min="0" max="1" step="0.01" value="0.56" /><small>Stronger occlusion sharpens single bursts and clustered crepitating sweeps.</small></label>
+            <label class="control" for="stomachCompliance"><span><b>Stomach compliance</b><output id="stomachComplianceOut" for="stomachCompliance">0.88×</output></span><input id="stomachCompliance" type="range" min="0.08" max="1.5" step="0.01" value="0.88" /><small>Soft walls store a push and rebound slowly; tight walls answer with brighter knocks.</small></label>
+            <label class="control" for="gutTension"><span><b>Intestinal tension</b><output id="gutTensionOut" for="gutTension">58%</output></span><input id="gutTension" type="range" min="0" max="1" step="0.01" value="0.58" /><small>Tunes the long lossy tube and its abdominal body modes.</small></label>
+            <label class="control" for="bodyPulse"><span><b>Body pulse</b><output id="bodyPulseOut" for="bodyPulse">61 BPM · 52%</output></span><input id="bodyPulse" type="range" min="0" max="1" step="0.01" value="0.52" /><small>A measured low heartbeat-like double impulse nudges the tissue; it is not a diagnostic simulation.</small></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="valves" open>
+          <summary class="group-summary"><h2 class="group-title">Valves &amp; rubber outlets</h2><span class="section-state" id="valvesSummary">burp 48% · fart 55%</span></summary>
+          <div class="group-body">
+            <label class="control" for="upperValve"><span><b>Upper valve opening</b><output id="upperValveOut" for="upperValve">48%</output></span><input id="upperValve" type="range" min="0" max="1" step="0.01" value="0.48" /><small>Sets the resting aperture; pinching the visible ring stores pressure before an upper release.</small></label>
+            <label class="control" for="pyloricValve"><span><b>Pyloric gate</b><output id="pyloricValveOut" for="pyloricValve">64%</output></span><input id="pyloricValve" type="range" min="0" max="1" step="0.01" value="0.64" /><small>Pinch between stomach and intestine to store a growl, then release it as a burst.</small></label>
+            <label class="control" for="lowerValve"><span><b>Lower valve opening</b><output id="lowerValveOut" for="lowerValve">55%</output></span><input id="lowerValve" type="range" min="0" max="1" step="0.01" value="0.55" /><small>Sets the resting aperture of the paired pressure-driven whoopee-cushion membrane.</small></label>
+            <label class="control" for="outletStretch"><span><b>Outlet stretch</b><output id="outletStretchOut" for="outletStretch">36%</output></span><input id="outletStretch" type="range" min="0" max="1" step="0.01" value="0.36" /><small>Raises the flutter mode and changes how it glides as the pocket deflates.</small></label>
+            <label class="control" for="turbulence"><span><b>Seethe / turbulence</b><output id="turbulenceOut" for="turbulence">54%</output></span><input id="turbulence" type="range" min="0" max="1" step="0.01" value="0.54" /><small>Raises bubble nucleation, ragged surface bursts, and bounded jet noise while pressure drives an open valve.</small></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="listening">
+          <summary class="group-summary"><h2 class="group-title">Listening position &amp; model notes</h2><span class="section-state" id="listeningSummary">room · 54% wet</span></summary>
+          <div class="group-body">
+            <label class="control" for="listeningMode"><span><b>Listening position</b></span><select id="listeningMode"><option value="room">outside the body</option><option value="stethoscope">stethoscope contact</option><option value="inside">inside the tube</option></select><small>Moves between body-filtered radiation, clinical contact, and close internal pressure sound.</small></label>
+            <label class="control" for="wetness"><span><b>Wet coupling</b><output id="wetnessOut" for="wetness">54%</output></span><input id="wetness" type="range" min="0" max="1" step="0.01" value="0.54" /></label>
+            <label class="control" for="bodyResonance"><span><b>Abdominal resonance</b><output id="bodyResonanceOut" for="bodyResonance">56%</output></span><input id="bodyResonance" type="range" min="0" max="1" step="0.01" value="0.56" /></label>
+            <p><b>Physical core:</b> compliant reservoirs exchange pressure through one-way, hysteretic soft valves. Travelling constrictions carry gas–liquid slugs through a lossy gut. Each bubble can grow, pinch off, ring under liquid, open a surface cavity, and burst; upper and lower outlets are pressure-driven tissue oscillators.</p>
+            <p><b>Recording calibration:</b> the four internal gesture families follow measured medical labels—single burst, multiple burst, continuous random sweep, and harmonic sweep. Recordings are references only; every sound is synthesized live.</p>
+            <p><b>Play it directly:</b> push the stomach, knead a coil, stir the stomach gas pocket, pinch a colored valve ring, or pull the lower outlet. Release matters because stored pressure keeps moving after your hand leaves.</p>
+          </div>
+        </details>
+
+        <button class="digestazoid-reset" id="resetButton" type="button" data-reset-all data-reset-in-place>Purge &amp; reset Digestazoid</button>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Push or drag inside the stomach to compress its compliant wall. Drag through the intestinal coils to knead a gas and liquid slug. Press a valve ring to pinch it closed and release to open it. Pull the bottom outlet away from the body to stretch its rubbery membrane, then let go. Use Inflate and Deflate to change the gas pocket. Number keys one through eight play growl, burble, bubble, slosh, burp, burple, fart, and long fart. Space toggles continuous digestion. Escape silences and releases every interaction.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js?v=catalog-20260902-5"></script>
+    <script type="module" src="digestazoid-app.js?v=digestazoid-20260902-3"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

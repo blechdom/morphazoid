@@ -181,6 +181,13 @@ for worktree_runtime_file in \
   assets/audio/hiccup-head-york-minster-warm-hall.wav \
   assets/audio/HICCUP_HEAD_REVERB_ATTRIBUTION.md \
   assets/instruments/hiccup-head.webp \
+  digestazoid.html \
+  digestazoid.css \
+  digestazoid-app.js \
+  src/digestazoid.js \
+  src/digestazoid-processor.js \
+  DIGESTAZOID_RESEARCH.md \
+  assets/instruments/digestazoid.webp \
   src/tongue-physics.js \
   src/tongue-performance.js \
   ANIMAL_VOICE_SYNTHESIS_RESEARCH.md \
@@ -645,6 +652,13 @@ required_files=(
   assets/audio/hiccup-head-york-minster-warm-hall.wav
   assets/audio/HICCUP_HEAD_REVERB_ATTRIBUTION.md
   assets/instruments/hiccup-head.webp
+  digestazoid.html
+  digestazoid.css
+  digestazoid-app.js
+  src/digestazoid.js
+  src/digestazoid-processor.js
+  DIGESTAZOID_RESEARCH.md
+  assets/instruments/digestazoid.webp
   src/tongue-physics.js
   src/tongue-performance.js
   assets/instruments/syrinx.webp

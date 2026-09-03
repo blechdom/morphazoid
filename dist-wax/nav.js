@@ -197,6 +197,12 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "harmonica", label: "Harmonica", href: "harmonica.html" },
     { id: "hiccup-head", label: "Hiccup Head", href: "hiccup-head.html" },
     {
+      id: "digestazoid",
+      label: "Digestazoid",
+      href: "digestazoid.html",
+      imageHref: "assets/instruments/digestazoid.webp",
+    },
+    {
       id: "breath-atlas",
       label: "Breath Atlas",
       href: "breath-atlas.html",

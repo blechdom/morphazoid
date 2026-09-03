@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 120);
+  assert.equal(INSTRUMENTS.length, 121);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -383,6 +383,25 @@ test("Jaw Jam is a dual-clock monophonic physical jaw-harp sequencer", () => {
 
   const midi = instrumentMidiCapabilityForId("jaw-jam");
   assert.equal(midi?.noteMode, "pitched");
+  assert.equal(midi?.computerKeyboardMode, "page");
+});
+
+test("Digestazoid is a tactile digestive physical model with page-owned pressure gestures", () => {
+  const instrument = instrumentById("digestazoid");
+  assert.equal(instrument?.label, "Digestazoid");
+  assert.equal(instrument?.href, "digestazoid.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/digestazoid.webp");
+  assert.equal(instrument?.kind, "Tactile digestive physical model");
+  assert.match(instrument?.description ?? "", /compliant stomach/i);
+  assert.match(instrument?.description ?? "", /viscous sludge/i);
+  assert.match(instrument?.start ?? "", /push and prod/i);
+  assert.ok(instrument?.features.includes("Physical-model DSP"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+  assert.ok(instrument?.features.includes("MIDI"));
+
+  const midi = instrumentMidiCapabilityForId("digestazoid");
+  assert.equal(midi?.noteMode, "drums");
+  assert.equal(midi?.midiOutput, true);
   assert.equal(midi?.computerKeyboardMode, "page");
 });
 
