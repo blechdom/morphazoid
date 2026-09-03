@@ -114,10 +114,10 @@ const CATALOG_DETAILS = Object.freeze({
     ["Pointer"],
   ),
   constellation: define(
-    "Recursive signal-flow workstation",
-    "Patches trigger, audio, and control-flow graphs whose devices can open into nested graphs, while a live trace and projected timeline expose the same recursive network at work.",
-    "Choose a patch, connect compatible typed ports, double-click a graph node to enter its subgraph, then switch between Constellation, Live Flow, and Projected Timeline.",
-    ["Built-in synth", "Built-in drums", "Pointer", "Recursive graphs", "Projected timeline"],
+    "Morphazoid Composer",
+    "Patches clock, MIDI, control, and audio graphs through preset instruments, effects, converters, observers, surround outputs, and recorders; every device can open into a nested graph.",
+    "Load a factory graph, connect compatible typed ports, choose each device preset in the Inspector, monitor signals anywhere, then record the stereo mix or individual stems.",
+    ["Built-in synth", "Built-in drums", "MIDI", "Surround", "Recording", "Signal monitors", "Recursive graphs"],
   ),
   "sliding-puzzle": define(
     "2D puzzle sequencer",

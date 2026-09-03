@@ -318,6 +318,7 @@ for worktree_runtime_file in \
   constellation-app.js \
   src/constellation-composer.js \
   src/constellation-audio.js \
+  src/constellation-analysis.js \
   sliding-puzzle.html \
   sliding-puzzle.css \
   sliding-puzzle-app.js \
@@ -997,6 +998,7 @@ required_files=(
   constellation-app.js
   src/constellation-composer.js
   src/constellation-audio.js
+  src/constellation-analysis.js
   sliding-puzzle.html
   sliding-puzzle.css
   sliding-puzzle-app.js

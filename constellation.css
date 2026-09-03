@@ -37,7 +37,7 @@
   min-height: 0;
   overflow: hidden;
   flex: 1 1 auto;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   background:
     radial-gradient(circle at 38% -20%, rgba(112, 227, 232, 0.08), transparent 32%),
     radial-gradient(circle at 78% 0%, rgba(178, 153, 255, 0.07), transparent 28%),
@@ -252,6 +252,172 @@
   letter-spacing: 0.055em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Composer I/O -------------------------------------------------------- */
+
+.composer-io-bar {
+  position: relative;
+  z-index: 8;
+  display: grid;
+  min-width: 0;
+  min-height: 52px;
+  border-bottom: 1px solid var(--constellation-line);
+  background: rgba(3, 7, 10, .97);
+  grid-template-columns: minmax(200px, .8fr) minmax(128px, .45fr) minmax(230px, 1fr) minmax(126px, .42fr) auto minmax(68px, auto) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.composer-io-summary,
+.composer-midi-button,
+.composer-output-summary,
+.composer-record-mode,
+.composer-record-button,
+.composer-record-state,
+.composer-recording-downloads {
+  min-width: 0;
+  border: 0;
+  border-left: 1px solid var(--constellation-line);
+  background: transparent;
+}
+
+.composer-io-summary,
+.composer-midi-button,
+.composer-output-summary,
+.composer-record-mode {
+  display: grid;
+  padding: 8px 12px;
+  text-align: left;
+  align-content: center;
+  gap: 4px;
+}
+
+.composer-io-summary {
+  border-left: 0;
+  padding-left: clamp(16px, 2.5vw, 32px);
+}
+
+.composer-io-bar :is(span, label > span) {
+  color: #62777b;
+  font: 720 6px/1 var(--mono);
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.composer-io-bar b {
+  overflow: hidden;
+  color: #d7ebec;
+  font: 720 8px/1.1 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-io-bar small {
+  overflow: hidden;
+  color: #53676b;
+  font: 620 6px/1.25 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-output-summary {
+  color: inherit;
+  cursor: pointer;
+}
+
+.composer-midi-button {
+  color: inherit;
+  cursor: pointer;
+}
+
+.composer-midi-button b {
+  color: var(--signal-midi, #7cf29a);
+}
+
+.composer-midi-button:hover,
+.composer-midi-button:focus-visible,
+.composer-midi-button[aria-pressed="true"] {
+  outline: 0;
+  background: rgba(124, 242, 154, .07);
+  box-shadow: inset 0 -1px var(--signal-midi, #7cf29a);
+}
+
+.composer-output-summary:hover,
+.composer-output-summary:focus-visible {
+  outline: 0;
+  background: rgba(112, 227, 232, .06);
+  box-shadow: inset 0 -1px var(--constellation-cyan);
+}
+
+.composer-record-mode select {
+  min-height: 28px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--constellation-line-strong);
+  border-radius: 0;
+  color: #d4e5e7;
+  background: #04080b;
+  font: 680 7px/1 var(--mono);
+}
+
+.composer-record-button {
+  display: inline-flex;
+  min-width: 78px;
+  padding: 0 13px;
+  color: #ff8b85;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.composer-record-button span {
+  color: currentColor;
+  font-size: 13px;
+}
+
+.composer-record-button[aria-pressed="true"] {
+  color: #fff;
+  background: rgba(255, 94, 86, .19);
+  box-shadow: inset 0 -2px #ff5e56;
+}
+
+.composer-record-button:disabled {
+  cursor: not-allowed;
+  opacity: .4;
+}
+
+.composer-record-state {
+  display: grid;
+  padding: 0 10px;
+  color: #768b8f;
+  font: 700 6px/1 var(--mono);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  place-items: center;
+}
+
+.composer-recording-downloads {
+  display: flex;
+  padding: 7px 10px;
+  overflow-x: auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.composer-recording-downloads:empty {
+  display: none;
+}
+
+.composer-recording-downloads a {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  border: 1px solid rgba(167, 232, 121, .32);
+  color: var(--constellation-lime);
+  background: rgba(167, 232, 121, .05);
+  font: 690 6px/1 var(--mono);
+  letter-spacing: .05em;
+  text-decoration: none;
+  text-transform: uppercase;
 }
 
 .view-switcher {
@@ -664,7 +830,7 @@
 .projection-heading p {
   width: min(450px, 54%);
   margin: 0;
-  color: #62777c;
+  color: #71888d;
   font: 600 7px/1.45 var(--mono);
   text-align: right;
 }
@@ -1083,7 +1249,7 @@
   stroke: var(--constellation-cyan);
 }
 
-.constellation-flow-node:is(:hover, :focus-visible, .is-selected, .is-active) > :is(rect, circle, path) {
+.constellation-flow-node:is(:hover, :focus-within, .is-selected, .is-active) > :is(rect, circle, path) {
   fill: color-mix(in oklab, var(--node-color, var(--constellation-cyan)) 18%, #050a0d);
   stroke: var(--node-color, var(--constellation-cyan));
   stroke-width: 2.4;
@@ -1343,7 +1509,7 @@
   padding: 0 clamp(12px, 2vw, 24px);
   overflow: hidden;
   border-top: 1px solid var(--constellation-line);
-  color: #53676c;
+  color: #7b9196;
   background: #05080b;
   align-items: center;
   gap: clamp(14px, 3vw, 36px);
@@ -1367,6 +1533,16 @@
   box-shadow: 0 0 8px rgba(167, 232, 121, 0.55);
 }
 
+.status-light.is-off {
+  background: #3c4c50;
+  box-shadow: none;
+}
+
+.composition-status > span:first-child {
+  display: inline-flex;
+  align-items: center;
+}
+
 @media (max-width: 1180px) {
   .composition-bar {
     grid-template-columns: minmax(170px, 1fr) minmax(170px, 0.9fr) auto minmax(145px, 0.65fr);
@@ -1385,6 +1561,22 @@
     padding-right: 12px;
     padding-left: 12px;
   }
+
+  .composer-io-bar {
+    grid-template-columns: minmax(130px, .65fr) minmax(112px, .45fr) minmax(200px, 1fr) minmax(122px, .55fr) auto minmax(68px, auto);
+  }
+
+  .composer-recording-downloads {
+    display: flex;
+    min-height: 38px;
+    border-top: 1px solid var(--constellation-line);
+    border-left: 0;
+    grid-column: 1 / -1;
+  }
+
+  .composer-recording-downloads:empty {
+    display: none;
+  }
 }
 
 @media (max-width: 900px) {
@@ -1397,7 +1589,7 @@
   .constellation-shell {
     min-height: calc(100dvh - 54px);
     overflow: visible;
-    grid-template-rows: auto auto minmax(660px, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(660px, 1fr) auto;
   }
 
   .composition-bar {
@@ -1410,6 +1602,15 @@
     border-left: 0;
     grid-template-columns: 100px minmax(0, 1fr);
     align-items: center;
+  }
+
+  .composer-io-bar {
+    grid-template-columns: minmax(112px, .45fr) minmax(0, 1fr) minmax(126px, .45fr) auto;
+  }
+
+  .composer-record-state,
+  .composer-io-summary {
+    display: none;
   }
 
   .view-switcher {
@@ -1499,6 +1700,31 @@
     grid-row: 3;
   }
 
+  .composer-io-bar {
+    grid-template-columns: minmax(92px, .4fr) minmax(0, 1fr) minmax(108px, .55fr) auto;
+  }
+
+  .composer-output-summary {
+    border-left: 1px solid var(--constellation-line);
+  }
+
+  .composer-output-summary small {
+    display: none;
+  }
+
+  .composer-midi-button {
+    border-left: 0;
+    padding-inline: 8px;
+  }
+
+  .composer-midi-button small {
+    display: none;
+  }
+
+  .composer-record-mode {
+    padding-inline: 8px;
+  }
+
   .view-tab-mark {
     display: none;
   }
@@ -1536,7 +1762,28 @@
   }
 
   .instrument-browser {
+    display: grid;
+    overflow: hidden;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .constellation-palette-filters {
+    position: relative;
+    top: auto;
     display: flex;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    overflow-x: auto;
+  }
+
+  .constellation-palette-filters button {
+    min-width: 62px;
+    flex: 0 0 auto;
+  }
+
+  .instrument-browser .constellation-instrument-list {
+    display: flex;
+    min-height: 0;
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -1617,9 +1864,11 @@
   --signal-trigger: var(--constellation-gold);
   --signal-audio: var(--constellation-cyan);
   --signal-control: var(--constellation-violet);
+  --signal-midi: #7cf29a;
   --signal-trigger-soft: color-mix(in oklab, var(--signal-trigger) 18%, transparent);
   --signal-audio-soft: color-mix(in oklab, var(--signal-audio) 18%, transparent);
   --signal-control-soft: color-mix(in oklab, var(--signal-control) 18%, transparent);
+  --signal-midi-soft: color-mix(in oklab, var(--signal-midi) 18%, transparent);
 }
 
 /* The breadcrumb is the hierarchy: graph nodes open graphs, not sections. */
@@ -1709,7 +1958,7 @@
   min-height: 25px;
   padding: 0 6px;
   border: 1px solid var(--constellation-line);
-  color: #60767b;
+  color: #70878c;
   background: #04080b;
   font: 700 6px/1 var(--mono);
   letter-spacing: .075em;
@@ -1729,6 +1978,10 @@
   color: #ecffff;
   background: rgba(112, 227, 232, .1);
   box-shadow: inset 0 -2px var(--constellation-cyan);
+}
+
+.constellation-instrument-list {
+  display: contents;
 }
 
 .constellation-instrument-card[data-device-kind] {
@@ -1760,9 +2013,15 @@
   --instrument-color: var(--signal-control);
 }
 
+.constellation-instrument-card[data-device-kind="midi"] .constellation-device-kind,
+.constellation-instrument-card[data-device-kind="converter"] .constellation-device-kind {
+  --instrument-color: var(--signal-midi);
+}
+
 .constellation-instrument-card[data-device-kind="sound"] .constellation-device-kind,
 .constellation-instrument-card[data-device-kind="effect"] .constellation-device-kind,
-.constellation-instrument-card[data-device-kind="routing"] .constellation-device-kind {
+.constellation-instrument-card[data-device-kind="routing"] .constellation-device-kind,
+.constellation-instrument-card[data-device-kind="monitor"] .constellation-device-kind {
   --instrument-color: var(--signal-audio);
 }
 
@@ -1822,6 +2081,10 @@
   --signal-color: var(--signal-control);
 }
 
+.constellation-signal-legend .is-midi {
+  --signal-color: var(--signal-midi);
+}
+
 .constellation-signal-legend i {
   display: block;
   width: 21px;
@@ -1837,6 +2100,11 @@
 .constellation-signal-legend .is-control i {
   height: 1px;
   background: repeating-linear-gradient(90deg, var(--signal-color) 0 2px, transparent 2px 5px);
+}
+
+.constellation-signal-legend .is-midi i {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--signal-color) 0 3px, transparent 3px 5px, var(--signal-color) 5px 9px, transparent 9px 13px);
 }
 
 .constellation-connect-prompt {
@@ -1903,6 +2171,10 @@
   --signal-color: var(--signal-control);
 }
 
+.constellation-typed-edge.is-midi {
+  --signal-color: var(--signal-midi);
+}
+
 .constellation-typed-edge .constellation-flow-edge {
   stroke: color-mix(in oklab, var(--signal-color) 66%, transparent);
   stroke-width: 2;
@@ -1920,6 +2192,11 @@
 .constellation-typed-edge.is-control .constellation-flow-edge {
   stroke-width: 1.7;
   stroke-dasharray: 2 6;
+}
+
+.constellation-typed-edge.is-midi .constellation-flow-edge {
+  stroke-width: 2;
+  stroke-dasharray: 3 3 9 3;
 }
 
 .constellation-typed-edge .constellation-edge-label {
@@ -1973,6 +2250,10 @@
 
 .constellation-port.is-control {
   --signal-color: var(--signal-control);
+}
+
+.constellation-port.is-midi {
+  --signal-color: var(--signal-midi);
 }
 
 .constellation-port circle {
@@ -2042,7 +2323,7 @@
   font: 800 17px/1 var(--mono);
 }
 
-.constellation-flow-node.is-subgraph:is(:hover, :focus-visible, .is-selected) .constellation-subgraph-inner {
+.constellation-flow-node.is-subgraph:is(:hover, :focus-within, .is-selected) .constellation-subgraph-inner {
   fill: transparent;
   stroke: color-mix(in oklab, var(--node-color, var(--constellation-pink)) 75%, white 25%);
 }
@@ -2105,6 +2386,10 @@
   --signal-color: var(--signal-control);
 }
 
+.constellation-flow-ledger > .is-midi {
+  --signal-color: var(--signal-midi);
+}
+
 /* Projected trigger/control event vocabulary --------------------------- */
 
 .constellation-timeline-event,
@@ -2135,6 +2420,11 @@
 :is(.constellation-timeline-event, .constellation-event, [data-projected-event-id])[data-signal-type="control"],
 :is(.constellation-timeline-event, .constellation-event, [data-projected-event-id]).is-control {
   --signal-color: var(--signal-control);
+}
+
+:is(.constellation-timeline-event, .constellation-event, [data-projected-event-id])[data-signal-type="midi"],
+:is(.constellation-timeline-event, .constellation-event, [data-projected-event-id]).is-midi {
+  --signal-color: var(--signal-midi);
 }
 
 :is(.constellation-timeline-event, .constellation-event, [data-projected-event-id]):hover,
@@ -2464,6 +2754,10 @@
   --signal-color: var(--signal-control);
 }
 
+.constellation-lane-signals .is-midi {
+  --signal-color: var(--signal-midi);
+}
+
 .constellation-lane-track {
   position: relative;
   height: 72px;
@@ -2508,6 +2802,10 @@
   --signal-color: var(--signal-control);
 }
 
+.constellation-signal-span.is-midi {
+  --signal-color: var(--signal-midi);
+}
+
 .constellation-projected-event {
   --signal-color: var(--signal-trigger);
   top: 19px;
@@ -2537,6 +2835,57 @@
   height: 26px;
   min-height: 26px;
   border-style: dotted;
+}
+
+.constellation-projected-event.is-midi {
+  --signal-color: var(--signal-midi);
+  top: 21px;
+  height: 30px;
+  min-height: 30px;
+  border-style: dashed;
+}
+
+/* Live observers and numeric control data ----------------------------- */
+
+.constellation-monitor-readout {
+  pointer-events: none;
+}
+
+.constellation-monitor-readout rect {
+  fill: rgba(2, 6, 8, .9);
+  stroke: color-mix(in oklab, var(--node-color, var(--constellation-cyan)) 38%, transparent);
+  stroke-width: 1;
+}
+
+.constellation-monitor-readout text {
+  fill: color-mix(in oklab, var(--node-color, var(--constellation-cyan)) 72%, white 28%);
+  font: 750 7px/1 var(--mono);
+  letter-spacing: .035em;
+}
+
+.constellation-monitor-meter-track {
+  fill: rgba(255, 255, 255, .06);
+}
+
+.constellation-monitor-meter {
+  fill: var(--constellation-lime);
+  filter: drop-shadow(0 0 3px rgba(167, 232, 121, .5));
+  transform-origin: left center;
+}
+
+.constellation-monitor-wave,
+.constellation-monitor-spectrum {
+  fill: none;
+  stroke: var(--node-color, var(--constellation-cyan));
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.constellation-data-value {
+  fill: var(--signal-control);
+  pointer-events: none;
+  font: 780 7px/1 var(--mono);
+  text-anchor: middle;
 }
 
 .constellation-projected-event.is-playable::before {
@@ -2645,7 +2994,8 @@
   margin: 9px 0 0;
 }
 
-.constellation-inspector-field input:is([type="text"], [type="number"]) {
+.constellation-inspector-field input:is([type="text"], [type="number"]),
+.constellation-inspector-field select {
   min-height: 31px;
   padding: 0 8px;
   border: 1px solid var(--constellation-line-strong);
@@ -2654,7 +3004,7 @@
   font: 650 8px/1 var(--mono);
 }
 
-.constellation-inspector-field input:focus-visible {
+.constellation-inspector-field :is(input, select):focus-visible {
   border-color: var(--constellation-cyan);
   outline: 0;
   box-shadow: 0 0 0 1px rgba(112, 227, 232, .16);
@@ -2715,6 +3065,10 @@
 
 .constellation-inspector-ports button.is-control {
   --signal-color: var(--signal-control);
+}
+
+.constellation-inspector-ports button.is-midi {
+  --signal-color: var(--signal-midi);
 }
 
 .constellation-inspector-ports button:hover,

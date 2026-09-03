@@ -7,9 +7,9 @@
     <meta name="theme-color" content="#05070a" />
     <meta
       name="description"
-      content="Morphazoid Constellation — patch recursive sound, effect, trigger, and control graphs, then inspect their projected timing."
+      content="Morphazoid Composer — patch recursive clock, MIDI, sound, effect, analysis, spatial-output, and recording graphs."
     />
-    <title>Constellation — Morphazoid</title>
+    <title>Morphazoid Composer</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="constellation.css" />
@@ -23,7 +23,7 @@
 
       <nav class="tabs" aria-label="Instrument">
         <a class="tab" href="rubix.html">rubix</a>
-        <a class="tab active" href="constellation.html" aria-current="page">constellation</a>
+        <a class="tab active" href="constellation.html" aria-current="page">composer</a>
         <a class="tab" href="graph-synth.html">graph synth</a>
         <a class="tab" href="graph-drums.html">graph drums</a>
       </nav>
@@ -31,7 +31,7 @@
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
           <option value="rubix.html">Rubix Cube Sequencer</option>
-          <option value="constellation.html" selected>Constellation</option>
+          <option value="constellation.html" selected>Morphazoid Composer</option>
           <option value="graph-synth.html">Graph Synth</option>
           <option value="graph-drums.html">Graph Drum Machine</option>
         </select>
@@ -46,7 +46,7 @@
           <span><b>Output</b><output id="outputOut" for="output">58%</output></span>
           <input
             id="output"
-            aria-label="Constellation output level"
+            aria-label="Morphazoid Composer output level"
             type="range"
             min="0"
             max="0.9"
@@ -60,9 +60,9 @@
     <main class="constellation-shell" id="constellationApp">
       <header class="composition-bar">
         <div class="composition-identity">
-          <span class="composition-kicker">RECURSIVE AUDIO GRAPH WORKSTATION</span>
-          <h1>Constellation</h1>
-          <p>Graphs contain graphs. Trigger flow creates time; audio and control shape sound.</p>
+          <span class="composition-kicker">RECURSIVE SIGNAL GRAPH WORKSTATION</span>
+          <h1>Morphazoid Composer</h1>
+          <p>Clock, MIDI, control, and audio flow through instruments, effects, observers, converters, recorders, and graphs inside graphs.</p>
         </div>
 
         <label class="preset-control" for="presetSelect">
@@ -107,6 +107,36 @@
         </div>
       </header>
 
+      <section class="composer-io-bar" aria-label="Composer synchronization, output, and recording">
+        <div class="composer-io-summary">
+          <span>SHARED SYNC</span>
+          <b>One transport · many clocks</b>
+          <small>Trigger and MIDI branches can fan out, divide, loop, and resynchronize.</small>
+        </div>
+        <button class="composer-midi-button" id="midiButton" type="button" aria-pressed="false">
+          <span>MIDI I/O</span>
+          <b id="midiState">off</b>
+          <small>Enable hardware input, clock, and the selected MIDI output.</small>
+        </button>
+        <button class="composer-output-summary" id="outputRouteButton" type="button">
+          <span>SPATIAL OUTPUT</span>
+          <b id="spatialState">Stereo · waiting for audio</b>
+          <small>Select the output graph to choose stereo, surround, or virtual preview.</small>
+        </button>
+        <label class="composer-record-mode" for="recordMode">
+          <span>TAKE TYPE</span>
+          <select id="recordMode">
+            <option value="mix">Stereo mix</option>
+            <option value="stems">Individual stems</option>
+          </select>
+        </label>
+        <button class="composer-record-button" id="recordButton" type="button" aria-pressed="false">
+          <span aria-hidden="true">●</span><b>Record</b>
+        </button>
+        <output class="composer-record-state" id="recordState">ready</output>
+        <div class="composer-recording-downloads" id="recordingDownloads" aria-live="polite"></div>
+      </section>
+
       <section class="view-switcher" aria-label="Patch view">
         <div class="view-tabs" role="tablist" aria-label="Graph views">
           <button
@@ -142,7 +172,7 @@
             tabindex="-1"
           >
             <span class="view-tab-mark timeline-mark" aria-hidden="true"></span>
-            <span><b>Projected Timeline</b><small>trigger + control forecast</small></span>
+            <span><b>Projected Timeline</b><small>trigger + control + MIDI</small></span>
           </button>
         </div>
 
@@ -158,7 +188,7 @@
           <header class="workspace-panel-heading">
             <span>INSERT</span>
             <h2 id="instrumentBrowserTitle">Devices &amp; Graphs</h2>
-            <p>Add a sound, effect, trigger, control, router, or empty subgraph to the active graph.</p>
+            <p>Add clocks, instruments, effects, MIDI, converters, observers, recorders, routers, or empty subgraphs.</p>
           </header>
           <div id="instrumentBrowser" class="instrument-browser" aria-live="polite">
             <p class="panel-loading">Loading graph library…</p>
@@ -179,7 +209,7 @@
                 <span>GRAPH UNFOLDED INTO TIME</span>
                 <h3>Projected Timeline</h3>
               </div>
-              <p>Upcoming trigger and control events predicted from the graph. Drag an event to edit the rule that produced it.</p>
+              <p>Predictable trigger, control, and MIDI events unfolded from the graph. Live audio-analysis values remain in Live Flow.</p>
             </header>
             <div
               id="timelineCanvas"
@@ -194,7 +224,7 @@
               </div>
             </div>
             <p class="sr-only" id="timelineInstructions">
-              The timeline is derived from trigger and control rules. Select an event to reveal its source graph; dragging edits its generating rule.
+              The timeline is derived from predictable trigger, control, and MIDI rules. Select an event to reveal its source graph; dragging edits its generating rule.
             </p>
           </section>
 
@@ -211,7 +241,7 @@
                 <span>THE SAME GRAPH, RUNNING</span>
                 <h3>Live Flow</h3>
               </div>
-              <p>Watch trigger, audio, and control signals move through the currently open graph.</p>
+              <p>Watch trigger, audio, control, and MIDI signals move through the currently open graph.</p>
             </header>
             <div
               id="flowCanvas"
@@ -257,7 +287,7 @@
               </div>
             </div>
             <p class="sr-only" id="constellationInstructions">
-              Gold connections are triggers, cyan connections are audio, and violet connections are control. Select an output port, then an input port, to connect graphs.
+              Gold connections are triggers, cyan connections are audio, violet connections are control data, and green connections are MIDI. Select an output port, then an input port, to connect graphs.
             </p>
           </section>
         </section>
@@ -278,10 +308,11 @@
       </div>
 
       <footer class="composition-status" aria-label="Patch status">
-        <span><i class="status-light" aria-hidden="true"></i> AUDIO CLOCK RUNNING</span>
+        <span><i class="status-light is-off" aria-hidden="true"></i><span id="engineState">AUDIO ENGINE OFF</span></span>
         <span>GOLD → TRIGGER</span>
         <span>CYAN → AUDIO</span>
         <span>VIOLET → CONTROL</span>
+        <span>GREEN → MIDI</span>
         <span>DOUBLE-CLICK → ENTER GRAPH</span>
       </footer>
       <p class="sr-only" id="liveStatus" aria-live="polite" aria-atomic="true"></p>

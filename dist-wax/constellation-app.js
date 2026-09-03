@@ -5,11 +5,20 @@ import {
   SIGNAL_TYPES,
   addConnection,
   addDeviceNode,
+  applyDevicePreset,
+  clockEventBranches,
   clonePatchPreset,
   currentGraph,
+  devicePresets,
   formatBeat,
+  flattenPatch,
   getGraph,
   graphBreadcrumbs,
+  isMidiClockEvent,
+  isMidiNoteAttack,
+  isMidiNoteRelease,
+  midiMessageHasNote,
+  midiMessageType,
   moveGraphNode,
   moveProjectedEvent,
   portsForNode,
@@ -25,12 +34,23 @@ import {
   ConstellationAudio,
   performanceEventsForWindow,
 } from "./src/constellation-audio.js";
+import {
+  frequencyToMidiPitch,
+  frequencyToNormalized,
+  midiNoteToFrequency,
+  normalizedToFrequency,
+} from "./src/constellation-analysis.js";
+import { getSharedMidiManager } from "./src/midi-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
 const EPSILON = 1e-7;
 const LOOKAHEAD_SECONDS = .3;
 const SCHEDULER_INTERVAL_MS = 25;
+const VISUAL_INTERVAL_MS = 1_000 / 30;
+const MAX_LIVE_ROUTE_STEPS = 512;
+const MAX_LIVE_ROUTE_HOPS = 48;
+const MAX_LIVE_ROUTE_DELAY_CYCLES = 2;
 const TIMELINE_GUTTER = 164;
 const MIN_PIXELS_PER_BEAT = 28;
 const MAX_PIXELS_PER_BEAT = 62;
@@ -40,6 +60,7 @@ const SIGNAL_COLORS = Object.freeze({
   trigger: "#e8c46b",
   audio: "#70e3e8",
   control: "#b299ff",
+  midi: "#7cf29a",
 });
 
 const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {
@@ -89,9 +110,19 @@ const dom = {
   graphTitle: $("sectionTitle"),
   transportPosition: $("transportPosition"),
   liveStatus: $("liveStatus"),
+  outputRouteButton: $("outputRouteButton"),
+  spatialState: $("spatialState"),
+  recordMode: $("recordMode"),
+  recordButton: $("recordButton"),
+  recordState: $("recordState"),
+  recordingDownloads: $("recordingDownloads"),
+  midiButton: $("midiButton"),
+  midiState: $("midiState"),
+  engineState: $("engineState"),
 };
 
 const audio = new ConstellationAudio(globalThis);
+const midi = getSharedMidiManager(globalThis);
 const state = {
   patch: clonePatchPreset(PATCH_PRESETS[0]?.id),
   view: "constellation",
@@ -111,10 +142,33 @@ const state = {
   scheduleBeat: 0,
   scheduler: null,
   animationFrame: null,
+  lastVisualAt: Number.NEGATIVE_INFINITY,
   projectionCache: null,
   timelineProjectionCache: null,
   disposed: false,
+  recording: false,
+  recordingStartedAt: 0,
+  recordingUrls: [],
+  monitorSnapshot: null,
+  midiEnabled: false,
+  midiEnabling: false,
+  midiStatus: null,
+  unregisterMidi: null,
+  unsubscribeMidiStatus: null,
+  runtimeNodeState: new Map(),
+  liveClockOccurrences: new Map(),
 };
+
+// A live MIDI note should only be given a synthetic release when this router
+// created the note from a trigger. Keeping the marker private prevents an
+// external note-on from being mistaken for a Composer-owned voice.
+const LIVE_TRIGGER_NOTE = Symbol("morphazoid-live-trigger-note");
+
+function clearMidiRouting() {
+  state.liveClockOccurrences.clear();
+  midi.clearOutput();
+  midi.panic();
+}
 
 function setText(target, value) {
   if (target) target.textContent = String(value);
@@ -213,7 +267,14 @@ function commitPatch(next, { rebuildAudio = true, reschedule = true } = {}) {
   state.patch = next;
   state.projectionCache = null;
   state.timelineProjectionCache = null;
-  if (rebuildAudio) audio.setPatch(state.patch);
+  if (rebuildAudio) {
+    state.runtimeNodeState.clear();
+    audio.setPatch(state.patch);
+  }
+  if (reschedule) {
+    if (state.midiEnabled) clearMidiRouting();
+    else state.liveClockOccurrences.clear();
+  }
   if (reschedule && state.audioOn) {
     if (state.playing) {
       state.absoluteBeat = nowBeat;
@@ -282,12 +343,17 @@ function nodePortPosition(graph, node, portDefinition) {
 }
 
 function edgeDescription(edge) {
-  if (edge.signal === "trigger") {
+  const isSelfLoop = edge.from?.nodeId === edge.to?.nodeId;
+  if (edge.signal === "trigger" || edge.signal === "midi") {
     const delay = finite(edge.timing?.delayBeats, 0);
     const chance = Math.round(clamp(edge.timing?.probability, 0, 1, 1) * 100);
-    return `${delay > 0 ? `+${formatBeat(delay)}b` : "now"}${chance < 100 ? ` · ${chance}%` : ""}`;
+    return `${delay > 0 ? `+${formatBeat(delay)}b` : "now"}${chance < 100 ? ` · ${chance}%` : ""}${edge.feedback || isSelfLoop ? " · loop" : ""}`;
   }
-  if (edge.signal === "control") return `${Math.round(clamp(edge.gain, 0, 2, 1) * 100)}% mod`;
+  if (edge.signal === "control") {
+    const delay = finite(edge.timing?.delayBeats, 0);
+    const chance = Math.round(clamp(edge.timing?.probability, 0, 1, 1) * 100);
+    return `${Math.round(clamp(edge.gain, 0, 2, 1) * 100)}% mod${delay > 0 ? ` · +${formatBeat(delay)}b` : ""}${chance < 100 ? ` · ${chance}%` : ""}${isSelfLoop ? " · loop" : ""}`;
+  }
   return `${Math.round(clamp(edge.gain, 0, 2, 1) * 100)}% signal${edge.feedback ? " · feedback" : ""}`;
 }
 
@@ -327,6 +393,45 @@ function updatePatchReadouts() {
   renderBreadcrumb();
 }
 
+function outputGraphNode() {
+  const root = getGraph(state.patch, state.patch.rootGraphId);
+  return root?.nodes?.find((node) => {
+    if (node.type !== "subgraph") return Boolean(PRIMITIVE_LIBRARY[node.primitiveId]?.output);
+    return getGraph(state.patch, node.graphId)?.nodes?.some((candidate) => {
+      const primitive = PRIMITIVE_LIBRARY[candidate?.primitiveId];
+      return primitive?.output || ["stereo", "surround"].includes(primitive?.runtime?.role);
+    });
+  })
+    ?? root?.nodes?.find((node) => node.deviceId === "output")
+    ?? null;
+}
+
+function updateComposerIoUi() {
+  const outputNode = outputGraphNode();
+  const preset = devicePresets(outputNode?.deviceId).find(({ id }) => id === outputNode?.presetId);
+  const capabilities = audio.outputCapabilities?.() ?? {};
+  const layout = capabilities.layoutName ?? capabilities.layout?.name ?? preset?.label ?? "Stereo";
+  const mode = capabilities.mode ?? (state.audioOn ? "stereo preview" : "waiting for audio");
+  setText(dom.spatialState, `${layout} · ${mode}`);
+  setPressed(dom.midiButton, state.midiEnabled);
+  if (dom.midiButton) dom.midiButton.disabled = state.midiEnabling;
+  const midiOutput = state.midiStatus?.selectedOutput?.name ?? state.midiStatus?.selectedOutput?.label;
+  setText(dom.midiState, state.midiEnabling ? "starting" : state.midiEnabled ? (midiOutput || "on") : "off");
+  setPressed(dom.recordButton, state.recording);
+  if (dom.recordButton) {
+    const supported = audio.recordingCapabilities?.().supported;
+    dom.recordButton.disabled = supported === false || state.audioStarting;
+    const label = dom.recordButton.querySelector("b");
+    if (label) label.textContent = state.recording ? "Stop take" : "Record";
+  }
+  if (state.recording) {
+    const elapsed = Math.max(0, clockNow() - state.recordingStartedAt);
+    setText(dom.recordState, `recording ${elapsed.toFixed(1)}s`);
+  } else if (!dom.recordState?.dataset.message) {
+    setText(dom.recordState, audio.recordingCapabilities?.().supported === false ? "unavailable" : "ready");
+  }
+}
+
 function updateTransportUi() {
   const local = wrappedBeat(absoluteBeatNow());
   const meter = state.patch.meter?.[0] ?? 4;
@@ -341,6 +446,12 @@ function updateTransportUi() {
   if (dom.playButton) dom.playButton.disabled = state.audioStarting;
   const copy = dom.playButton?.querySelector("b");
   if (copy) copy.textContent = state.playing ? "Pause" : "Run";
+  dom.playButton?.setAttribute("aria-label", state.playing ? "Pause patch" : "Run patch");
+  setText(dom.engineState, state.audioOn
+    ? state.playing ? "AUDIO + TRANSPORT RUNNING" : "AUDIO ENGINE ON · TRANSPORT PAUSED"
+    : "AUDIO ENGINE OFF");
+  dom.engineState?.parentElement?.querySelector(".status-light")?.classList.toggle("is-off", !state.audioOn);
+  updateComposerIoUi();
 }
 
 function setView(view, { focus = false } = {}) {
@@ -379,6 +490,17 @@ function leaveGraph() {
   const crumbs = graphBreadcrumbs(state.patch, state.patch.selectedGraphId);
   if (crumbs.length < 2) return;
   openGraph(crumbs.at(-2).graphId);
+}
+
+function revealOutputGraph() {
+  const node = outputGraphNode();
+  if (!node) {
+    announce("This patch has no spatial output graph yet. Insert one from Routing.");
+    return;
+  }
+  openGraph(state.patch.rootGraphId, { selectNodeId: node.id });
+  setView("constellation");
+  announce(`${node.label} selected. Choose its spatial preset in the Inspector.`);
 }
 
 function selectNode(graphId, nodeId) {
@@ -465,7 +587,9 @@ function renderDeviceBrowser() {
   if (!host) return;
   host.replaceChildren();
   const filters = element("div", "constellation-palette-filters");
-  for (const category of ["all", "sound", "effect", "trigger", "control", "routing", "graphs"]) {
+  const categoryOrder = ["all", "sound", "effect", "trigger", "control", "midi", "converter", "monitor", "routing", "graphs"];
+  const availableCategories = new Set(DEVICE_LIBRARY.map(({ category }) => category));
+  for (const category of categoryOrder.filter((category) => category === "all" || availableCategories.has(category))) {
     const button = element("button", "", category);
     button.type = "button";
     button.dataset.paletteCategory = category;
@@ -477,9 +601,10 @@ function renderDeviceBrowser() {
     filters.append(button);
   }
   host.append(filters);
+  const list = element("div", "constellation-instrument-list");
   for (const device of DEVICE_LIBRARY) {
     if (state.paletteCategory !== "all" && state.paletteCategory !== device.category) continue;
-    const card = element("article", "constellation-instrument-card");
+    const card = element("article", "instrument-card constellation-instrument-card");
     card.draggable = true;
     card.dataset.deviceId = device.id;
     card.dataset.deviceKind = device.category;
@@ -491,7 +616,8 @@ function renderDeviceBrowser() {
     image.height = 80;
     image.loading = "lazy";
     const copy = element("div", "constellation-instrument-copy");
-    const type = element("span", "constellation-device-kind", device.category);
+    const presetCount = devicePresets(device.id).length;
+    const type = element("span", "constellation-device-kind", `${device.category}${presetCount ? ` · ${presetCount} preset${presetCount === 1 ? "" : "s"}` : ""}`);
     copy.append(type, element("b", "", device.label), element("small", "", device.description));
     const actions = element("div", "constellation-instrument-actions");
     const add = element("button", "", "Insert graph");
@@ -509,8 +635,9 @@ function renderDeviceBrowser() {
       event.dataTransfer?.setData("text/plain", device.label);
       if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
     });
-    host.append(card);
+    list.append(card);
   }
+  host.append(list);
 }
 
 function signalLegend() {
@@ -596,6 +723,152 @@ function beginNodeDrag(event, graph, node, group, svg) {
   group.addEventListener("pointermove", move);
   group.addEventListener("pointerup", finish);
   group.addEventListener("pointercancel", finish);
+}
+
+function runtimeForNode(node) {
+  if (node?.type === "primitive") return PRIMITIVE_LIBRARY[node.primitiveId]?.runtime ?? null;
+  if (node?.type !== "subgraph") return null;
+  const child = getGraph(state.patch, node.graphId);
+  const owned = child?.nodes?.find((candidate) => (
+    candidate?.type === "primitive" && PRIMITIVE_LIBRARY[candidate.primitiveId]?.runtime
+  ));
+  return owned ? PRIMITIVE_LIBRARY[owned.primitiveId]?.runtime ?? null : null;
+}
+
+function appendNodeTelemetry(group, graph, node) {
+  const runtime = runtimeForNode(node);
+  if (!runtime || !["monitor", "converter"].includes(runtime.kind)) return;
+  const analysis = runtime.analysis ?? runtime.conversion ?? "value";
+  const monitor = svgElement("g", {
+    class: "constellation-monitor-readout",
+    "data-monitor-node-id": node.id,
+    "data-monitor-graph-id": graph.id,
+    "data-monitor-child-graph-id": node.graphId ?? graph.id,
+    "data-monitor-analysis": analysis,
+  });
+  monitor.append(svgElement("rect", { x: -50, y: 8, width: 100, height: 20, rx: 3 }));
+  if (["scope", "waveform"].includes(analysis)) {
+    monitor.append(svgElement("path", { d: "M -46 18 L 46 18", class: "constellation-monitor-wave" }));
+  } else if (["spectrum", "fft", "fft-bands", "audio-to-fft-bands"].includes(analysis)) {
+    monitor.append(svgElement("path", { d: "M -46 24 L -28 18 L -10 21 L 8 12 L 27 16 L 46 10", class: "constellation-monitor-spectrum" }));
+  } else if (["level", "rms-peak", "rms-gate"].includes(analysis)) {
+    monitor.append(
+      svgElement("rect", { x: -45, y: 14, width: 90, height: 8, rx: 2, class: "constellation-monitor-meter-track" }),
+      svgElement("rect", { x: -45, y: 14, width: 0, height: 8, rx: 2, class: "constellation-monitor-meter" }),
+    );
+    if (analysis === "rms-gate") {
+      const value = svgElement("text", { x: 0, y: 21, class: "constellation-data-value constellation-gate-value" });
+      value.textContent = "CLOSED";
+      monitor.append(value);
+    }
+  } else {
+    const value = svgElement("text", { x: 0, y: 21, class: "constellation-data-value" });
+    value.textContent = ["frequency", "fundamental"].includes(analysis) ? "— Hz" : "DATA —";
+    monitor.append(value);
+  }
+  group.append(monitor);
+}
+
+function monitorEntryForNode(snapshot, nodeId, graphId, childGraphId) {
+  const direct = snapshot?.nodes?.[`${graphId}:${nodeId}`]
+    ?? snapshot?.nodes?.[`${childGraphId}:${nodeId}`]
+    ?? snapshot?.controls?.[`${graphId}:${nodeId}`]
+    ?? snapshot?.controls?.[`${childGraphId}:${nodeId}`];
+  const child = getGraph(state.patch, childGraphId);
+  const coreIds = new Set((child?.nodes ?? [])
+    .filter((candidate) => candidate?.type === "primitive" && PRIMITIVE_LIBRARY[candidate.primitiveId]?.runtime)
+    .map((candidate) => candidate.id));
+  const collection = [
+    ...Object.values(snapshot?.nodes ?? {}),
+    ...Object.values(snapshot?.controls ?? {}),
+    ...(Array.isArray(snapshot?.monitors)
+      ? snapshot.monitors
+      : snapshot?.monitors && typeof snapshot.monitors === "object"
+        ? Object.values(snapshot.monitors)
+        : []),
+  ];
+  const match = direct ?? collection.find((entry) => (
+    entry?.nodeId === nodeId
+    || entry?.displayNodeId === nodeId
+    || entry?.graphId === childGraphId && (!coreIds.size || coreIds.has(entry?.nodeId))
+    || String(entry?.key ?? "").startsWith(`${childGraphId}:`) && coreIds.has(String(entry?.key).slice(childGraphId.length + 1))
+    || entry?.parentGraphId === graphId && entry?.instanceNodeId === nodeId
+    || String(entry?.address ?? "").includes(`/${nodeId}/`)
+  )) ?? null;
+  if (!match) return null;
+  const runtimeState = state.runtimeNodeState.get(match.key)
+    ?? state.runtimeNodeState.get(`${match.graphId}:${match.nodeId}`);
+  return runtimeState ? { ...match, ...runtimeState } : match;
+}
+
+function linePath(values, width = 92, height = 14, { spectrum = false } = {}) {
+  const source = Array.from(values ?? []).filter(Number.isFinite);
+  if (!source.length) return `M ${-width / 2} 18 L ${width / 2} 18`;
+  const count = Math.min(source.length, 48);
+  const sampled = Array.from({ length: count }, (_, index) => source[Math.floor(index * source.length / count)] ?? 0);
+  return sampled.map((value, index) => {
+    const normalized = spectrum ? clamp(value, 0, 1, 0) : clamp(value, -1, 1, 0) * .5 + .5;
+    const x = -width / 2 + index / Math.max(1, count - 1) * width;
+    const y = 11 + (1 - normalized) * height;
+    return `${index ? "L" : "M"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+  }).join(" ");
+}
+
+function projectedDataForNode(graphId, nodeId, beat) {
+  const projection = selectedProjection();
+  if (projection.graph?.id !== graphId) return null;
+  const events = projection.events.filter((event) => event.displayNodeId === nodeId && event.beat <= beat + EPSILON);
+  return events.at(-1) ?? projection.events.find((event) => event.displayNodeId === nodeId) ?? null;
+}
+
+function updateMonitorVisuals(panel) {
+  if (!panel) return;
+  const snapshot = state.monitorSnapshot ?? {};
+  const beat = wrappedBeat(absoluteBeatNow());
+  for (const group of panel.querySelectorAll("[data-monitor-node-id]")) {
+    const entry = monitorEntryForNode(
+      snapshot,
+      group.dataset.monitorNodeId,
+      group.dataset.monitorGraphId,
+      group.dataset.monitorChildGraphId,
+    ) ?? {};
+    const analysis = group.dataset.monitorAnalysis;
+    const wave = group.querySelector(".constellation-monitor-wave");
+    const spectrum = group.querySelector(".constellation-monitor-spectrum");
+    const meter = group.querySelector(".constellation-monitor-meter");
+    const value = group.querySelector(".constellation-data-value");
+    if (wave) wave.setAttribute("d", linePath(entry.waveform));
+    if (spectrum) spectrum.setAttribute("d", linePath(entry.spectrum, 92, 14, { spectrum: true }));
+    if (meter) meter.setAttribute("width", String(90 * clamp(entry.rms, 0, 1, 0)));
+    const projected = projectedDataForNode(group.dataset.monitorGraphId, group.dataset.monitorNodeId, beat);
+    if (value && ["frequency", "fundamental"].includes(analysis)) {
+      const hz = finite(entry.dominantFrequencyHz ?? entry.dominantHz ?? entry.frequencyHz, 0);
+      value.textContent = hz > 0 ? `${Math.round(hz)} Hz` : "— Hz";
+    } else if (value?.classList.contains("constellation-gate-value")) {
+      value.textContent = entry.gateOpen ? "OPEN" : `${finite(entry.rms, 0).toFixed(2)}`;
+    } else if (value && projected?.signal === "midi") value.textContent = `MIDI ${Math.round(projected.note ?? 0)}`;
+    else if (value && projected) value.textContent = `DATA ${finite(projected.value, 0).toFixed(3)}`;
+    else if (value && Number.isFinite(Number(entry.value ?? entry.controlValue))) value.textContent = `DATA ${finite(entry.value ?? entry.controlValue, 0).toFixed(3)}`;
+    else if (value) value.textContent = "DATA —";
+
+    const bands = entry.bands ?? {};
+    const low = (finite(bands.sub, 0) + finite(bands.bass, 0)) / 2;
+    const mid = (finite(bands.lowMid, 0) + finite(bands.mid, 0)) / 2;
+    const high = (finite(bands.presence, 0) + finite(bands.air, 0)) / 2;
+    for (const port of group.parentElement?.querySelectorAll?.('[data-port-direction="out"]') ?? []) {
+      const label = port.querySelector("text");
+      if (!label) continue;
+      const name = port.dataset.portLabel ?? port.dataset.portId ?? "out";
+      let numeric = null;
+      if (/low/i.test(name)) numeric = low;
+      else if (/mid/i.test(name)) numeric = mid;
+      else if (/high|air/i.test(name)) numeric = high;
+      else if (/amp|level|envelope/i.test(name)) numeric = finite(entry.rms, 0);
+      else if (/freq|hz/i.test(name)) numeric = finite(entry.dominantFrequencyHz ?? entry.frequencyHz, 0);
+      else if (projected) numeric = projected.signal === "midi" ? projected.note : projected.value;
+      label.textContent = numeric === null ? name : `${name} ${numeric >= 10 ? Math.round(numeric) : finite(numeric, 0).toFixed(2)}`;
+    }
+  }
 }
 
 function renderDeviceGraph(host, { live = false } = {}) {
@@ -706,15 +979,22 @@ function renderDeviceGraph(host, { live = false } = {}) {
     const group = svgElement("g", {
       transform: `translate(${at.x} ${at.y})`,
       class: `constellation-flow-node is-${node.type}${node.type === "subgraph" ? " is-subgraph" : ""}${selected ? " is-selected" : ""}${activity.activeNodeIds.has(node.id) ? " is-active" : ""}`,
-      tabindex: 0,
-      role: "button",
-      "aria-label": `${node.label}, ${nodeCategory(node)}${node.type === "subgraph" ? ", double-click to enter graph" : ""}`,
       "data-device-node-id": node.id,
       "data-node-kind": node.type,
       "data-graph-id": graph.id,
     });
     group.style.setProperty("--node-color", nodeColor(node));
-    const body = svgElement("rect", { x: -64, y: -36, width: 128, height: 72, rx: node.type === "subgraph" ? 18 : 9 });
+    const body = svgElement("rect", {
+      x: -64,
+      y: -36,
+      width: 128,
+      height: 72,
+      rx: node.type === "subgraph" ? 18 : 9,
+      class: "constellation-node-action",
+      tabindex: 0,
+      role: "button",
+      "aria-label": `${node.label}, ${nodeCategory(node)}${node.type === "subgraph" ? ", press Enter to enter graph" : ", press Enter to select"}`,
+    });
     group.append(body);
     if (node.type === "subgraph") {
       group.append(svgElement("rect", { x: -57, y: -29, width: 114, height: 58, rx: 13, class: "constellation-subgraph-inner" }));
@@ -722,11 +1002,14 @@ function renderDeviceGraph(host, { live = false } = {}) {
       graphMark.textContent = "↳";
       group.append(graphMark);
     }
-    const title = svgElement("text", { y: -4, "text-anchor": "middle", class: "constellation-flow-node-title" });
+    const telemetryRuntime = runtimeForNode(node);
+    const hasTelemetry = ["monitor", "converter"].includes(telemetryRuntime?.kind);
+    const title = svgElement("text", { y: hasTelemetry ? -15 : -4, "text-anchor": "middle", class: "constellation-flow-node-title" });
     title.textContent = node.label;
-    const detail = svgElement("text", { y: 15, "text-anchor": "middle", class: "constellation-flow-node-detail" });
+    const detail = svgElement("text", { y: hasTelemetry ? -1 : 15, "text-anchor": "middle", class: "constellation-flow-node-detail" });
     detail.textContent = nodeCategory(node).toUpperCase();
     group.append(title, detail);
+    appendNodeTelemetry(group, graph, node);
 
     for (const portDefinition of portsForNode(state.patch, graph, node)) {
       const portAt = nodePortPosition(graph, node, portDefinition);
@@ -742,6 +1025,7 @@ function renderDeviceGraph(host, { live = false } = {}) {
         role: "button",
         "aria-label": `${node.label} ${portDefinition.label} ${portDefinition.direction} ${portDefinition.signal} port`,
         "data-port-id": portDefinition.id,
+        "data-port-label": portDefinition.label,
         "data-port-kind": portDefinition.signal,
         "data-port-direction": portDefinition.direction,
         "data-node-id": node.id,
@@ -811,6 +1095,7 @@ function renderDeviceGraph(host, { live = false } = {}) {
     });
   });
   host.append(svg);
+  updateMonitorVisuals(host);
 
   if (live) {
     const ledger = element("div", "constellation-flow-ledger");
@@ -991,8 +1276,15 @@ function inspectorReadout(label, value) {
 function inspectorControl(label, options = {}) {
   const wrapper = element("label", "constellation-inspector-field");
   const heading = element("span", "", label);
-  const input = element("input");
-  input.type = options.type ?? "text";
+  const input = options.type === "select" ? element("select") : element("input");
+  if (input.tagName === "INPUT") input.type = options.type ?? "text";
+  if (input.tagName === "SELECT") {
+    for (const choice of options.options ?? []) {
+      const option = element("option", "", choice.label ?? choice.id ?? choice.value);
+      option.value = String(choice.value ?? choice.id ?? "");
+      input.append(option);
+    }
+  }
   if (options.min !== undefined) input.min = String(options.min);
   if (options.max !== undefined) input.max = String(options.max);
   if (options.step !== undefined) input.step = String(options.step);
@@ -1039,6 +1331,51 @@ function renderNodeInspector(host, node, graph) {
 
   if (node.type === "subgraph") {
     const child = getGraph(state.patch, node.graphId);
+    const presets = devicePresets(node.deviceId);
+    if (presets.length) {
+      host.append(inspectorControl("Device preset", {
+        type: "select",
+        value: node.presetId ?? presets[0].id,
+        options: presets.map((preset) => ({ value: preset.id, label: preset.label })),
+        onChange: (input) => {
+          const preset = presets.find(({ id }) => id === input.value);
+          commitPatch(applyDevicePreset(state.patch, graph.id, node.id, input.value));
+          announce(`${node.label}: ${preset?.label ?? input.value} loaded.`);
+        },
+      }));
+      const currentPreset = presets.find(({ id }) => id === (node.presetId ?? presets[0].id));
+      if (currentPreset?.description) host.append(inspectorReadout("Preset", currentPreset.description));
+    }
+    if (node.deviceId === "surround-output") {
+      const position = node.params?.position ?? {};
+      for (const [label, key] of [["Position X", "x"], ["Position Y", "y"], ["Position Z", "z"]]) {
+        host.append(inspectorControl(label, {
+          type: "number",
+          min: -1,
+          max: 1,
+          step: .05,
+          value: finite(position[key], 0),
+          onChange: (input) => commitPatch(updateGraphNode(state.patch, graph.id, node.id, {
+            params: { position: { ...position, [key]: clamp(input.value, -1, 1, 0) } },
+          })),
+        }));
+      }
+      host.append(inspectorControl("Spatial focus", {
+        type: "number",
+        min: 0,
+        max: 1,
+        step: .05,
+        value: finite(node.params?.focus, .58),
+        onChange: (input) => commitPatch(updateGraphNode(state.patch, graph.id, node.id, {
+          params: { focus: clamp(input.value, 0, 1, .58) },
+        })),
+      }));
+      const outputStatus = audio.outputCapabilities?.() ?? {};
+      host.append(inspectorReadout(
+        "Output route",
+        `${outputStatus.layoutName ?? "Stereo"} · ${outputStatus.mode ?? "unprobed"} · ${outputStatus.deviceChannels ?? "?"} hardware channels`,
+      ));
+    }
     host.append(inspectorReadout("Contains", `${child?.nodes?.length ?? 0} nodes · ${child?.edges?.length ?? 0} connections`));
     host.append(actionButton("Enter signal-flow graph ↳", () => enterNodeGraph(node), "constellation-primary-action"));
     return;
@@ -1088,7 +1425,7 @@ function renderEdgeInspector(host, edge, graph) {
   const to = graph.nodes.find(({ id }) => id === edge.to.nodeId);
   host.append(inspectorHeading(`${edge.signal.toUpperCase()} CONNECTION`, `${from?.label ?? "Source"} → ${to?.label ?? "Target"}`, edge.signal === "audio" ? "A continuous signal path. It does not place events in time." : "A control-flow path whose delay and probability participate in event projection."));
   host.append(inspectorReadout("Ports", `${edge.from.portId} → ${edge.to.portId}`));
-  if (edge.signal === "trigger" || edge.signal === "control") {
+  if (edge.signal !== "audio") {
     host.append(inspectorControl("Delay (beats)", {
       type: "number", min: 0, max: cycleBeats(), step: .0625, value: edge.timing?.delayBeats ?? 0,
       onChange: (input) => commitPatch(updateConnection(state.patch, graph.id, edge.id, { delayBeats: input.value }), { rebuildAudio: false }),
@@ -1107,6 +1444,11 @@ function renderEdgeInspector(host, edge, graph) {
       type: "checkbox", checked: edge.feedback,
       onChange: (input) => commitPatch(updateConnection(state.patch, graph.id, edge.id, { feedback: input.checked })),
     }));
+  } else {
+    host.append(inspectorReadout(
+      "Event loops",
+      "This route may feed an earlier node or itself when every cycle has a positive beat delay.",
+    ));
   }
   host.append(actionButton("Delete connection", () => {
     state.selection = null;
@@ -1147,7 +1489,7 @@ function renderInspector() {
   }
   if (!graph || !state.selection) {
     const placeholder = element("div", "inspector-placeholder");
-    placeholder.append(element("span", "", "◇"), element("p", "", "Select a graph, primitive, port, connection, or projected event. Constellation edits topology; Live Flow shows it running; Projected Timeline shows what its rules cause in time."));
+    placeholder.append(element("span", "", "◇"), element("p", "", "Select a graph, primitive, port, connection, monitor, or projected event. Constellation edits the Composer topology; Live Flow shows it running; Projected Timeline shows predictable clock, control, and MIDI consequences."));
     host.append(placeholder);
     return;
   }
@@ -1196,9 +1538,10 @@ function scheduleProjectionWindow(fromBeat, toBeat) {
     const localFrom = Math.max(0, fromBeat - cycleStart);
     const localTo = Math.min(duration, toBeat - cycleStart);
     if (localTo - localFrom <= EPSILON) continue;
-    for (const projectedEvent of performanceEventsForWindow(projection, localFrom, localTo, { includeControl: true })) {
+    for (const projectedEvent of performanceEventsForWindow(projection, localFrom, localTo, { includeControl: true, includeMidi: true })) {
       const eventBeat = cycleStart + projectedEvent.beat;
       const delaySeconds = Math.max(0, (eventBeat - absoluteBeatNow()) * secondsPerBeat());
+      scheduleProjectedMidi(projectedEvent, delaySeconds);
       audio.trigger(projectedEvent, { delaySeconds, secondsPerBeat: secondsPerBeat() }).catch(() => {
         state.audioOn = false;
         updateTransportUi();
@@ -1219,7 +1562,9 @@ function schedulerTick() {
     state.absoluteBeat = cycleBeats();
     state.playing = false;
     clearScheduler();
-    stopAnimation();
+    clearMidiRouting();
+    if (state.audioOn || state.recording) requestAnimation();
+    else stopAnimation();
     audio.silence();
     resetScheduledControl({ beat: state.absoluteBeat, toBase: true });
     syncAudioTransport(state.absoluteBeat);
@@ -1233,8 +1578,515 @@ function schedulerTick() {
   state.scheduleBeat = end;
 }
 
+function midiRuntimeForFlat(flat) {
+  return PRIMITIVE_LIBRARY[flat?.node?.primitiveId]?.runtime ?? null;
+}
+
+function midiIngressNodes(flattened = flattenPatch(state.patch, state.patch.rootGraphId)) {
+  const explicitInputs = flattened.nodes.filter((flat) => midiRuntimeForFlat(flat)?.role === "input");
+  if (explicitInputs.length) return explicitInputs;
+  return flattened.nodes.filter((flat) => midiRuntimeForFlat(flat)?.role === "sync-bridge");
+}
+
+function midiBytesForEvent(event, noteOff = false) {
+  const message = event?.midi ?? event ?? {};
+  const channel = Math.round(clamp(message.channel ?? event?.channel, 0, 15, 0));
+  const type = midiMessageType(event);
+  const raw = Array.from(message.raw ?? event?.raw ?? []);
+  if (!noteOff && raw.length) return raw;
+  if (isMidiClockEvent(event)) return [0xf8];
+  if (type === "start") return [0xfa];
+  if (type === "continue") return [0xfb];
+  if (type === "stop") return [0xfc];
+  if (Number.isFinite(Number(message.controller ?? event?.controller))) {
+    const sourceValue = finite(message.value ?? event?.value, 0);
+    const normalized = sourceValue > 1 ? sourceValue / 127 : sourceValue;
+    return [0xb0 | channel, Math.round(clamp(message.controller ?? event.controller, 0, 127, 1)), Math.round(clamp(normalized, 0, 1, 0) * 127)];
+  }
+  if (!midiMessageHasNote(event)) return [];
+  const note = Math.round(clamp(message.note ?? event?.note, 0, 127, 60));
+  const sourceVelocity = finite(message.velocity ?? event?.velocity ?? event?.value, .8);
+  const normalizedVelocity = sourceVelocity > 1 ? sourceVelocity / 127 : sourceVelocity;
+  const isNoteOff = noteOff || isMidiNoteRelease(event);
+  const velocity = isNoteOff ? 0 : Math.round(clamp(normalizedVelocity, 0, 1, .8) * 127);
+  return [(isNoteOff ? 0x80 : 0x90) | channel, note, velocity];
+}
+
+function emitComposerMidi(event, delaySeconds = 0, { autoRelease = true } = {}) {
+  const timestamp = (globalThis.performance?.now?.() ?? Date.now()) + Math.max(0, delaySeconds) * 1_000;
+  const bytes = midiBytesForEvent(event);
+  const sent = state.midiEnabled && bytes.length ? midi.send(bytes, timestamp) : false;
+  globalThis.dispatchEvent?.(new CustomEvent("morphazoid:composer-midi", {
+    detail: { event, bytes, timestamp, sent, source: "composer" },
+  }));
+  if (autoRelease && bytes.length >= 3 && (bytes[0] & 0xf0) === 0x90 && bytes[2] > 0) {
+    const releaseAt = timestamp + Math.max(.02, finite(event.durationBeats, .25) * secondsPerBeat()) * 1_000;
+    if (state.midiEnabled) midi.send(midiBytesForEvent(event, true), releaseAt);
+  }
+  return sent;
+}
+
+function scheduleProjectedMidi(event, delaySeconds) {
+  if (event?.signal !== "midi") return false;
+  const runtime = PRIMITIVE_LIBRARY[event.primitiveId]?.runtime;
+  if (runtime?.kind !== "midi" || runtime?.role !== "output") return false;
+  emitComposerMidi(event, delaySeconds);
+  return true;
+}
+
+function normalizedMidiValue(message) {
+  const logical = Number(message?.logical?.normalized);
+  if (Number.isFinite(logical)) return clamp(logical, 0, 1, 0);
+  const normalized = Number(message?.normalized);
+  if (Number.isFinite(normalized)) {
+    return midiMessageType(message) === "pitchbend"
+      ? clamp((normalized + 1) / 2, 0, 1, .5)
+      : clamp(normalized, 0, 1, 0);
+  }
+  const type = midiMessageType(message);
+  if (isMidiNoteRelease(message)) return 0;
+  let candidate = null;
+  if (["note", "noteon"].includes(type)) candidate = message?.velocity;
+  else if (type === "controlchange") candidate = message?.value;
+  else if (["polypressure", "channelpressure"].includes(type)) candidate = message?.pressure ?? message?.value;
+  else if (type === "pitchbend") candidate = message?.value;
+  else return null;
+  const rawValue = Number(candidate);
+  if (!Number.isFinite(rawValue)) return ["note", "noteon"].includes(type) ? .8 : null;
+  return clamp(rawValue > 1 ? rawValue / 127 : rawValue, 0, 1, 0);
+}
+
+function liveEventFromMidi(message) {
+  const sourceMessage = message?.midi ?? message?.message ?? message ?? {};
+  const rawNote = sourceMessage.note ?? message?.note;
+  const hasNote = rawNote !== null && rawNote !== undefined && rawNote !== ""
+    && Number.isFinite(Number(rawNote));
+  const type = sourceMessage.type ?? message?.type ?? (hasNote ? "noteOn" : "unknown");
+  const midiMessage = { ...sourceMessage, type };
+  const routedValue = normalizedMidiValue(midiMessage);
+  const wrappedValue = sourceMessage !== message && message?.value !== null
+    && message?.value !== undefined && Number.isFinite(Number(message.value))
+    ? clamp(message.value, 0, 1, routedValue ?? 0)
+    : null;
+  const value = wrappedValue ?? routedValue ?? 0;
+  const semanticEvent = { ...message, midi: midiMessage, type, value };
+  const release = isMidiNoteRelease(semanticEvent);
+  const attack = isMidiNoteAttack(semanticEvent);
+  const sourceVelocity = Number(midiMessage.velocity ?? message?.velocity);
+  const velocity = release
+    ? 0
+    : attack && Number.isFinite(sourceVelocity)
+      ? clamp(sourceVelocity > 1 ? sourceVelocity / 127 : sourceVelocity, 0, 1, value || .8)
+      : attack
+        ? value || .8
+        : value;
+  return {
+    ...message,
+    id: String(message?.id ?? `live-midi:${midiMessage.sourceId ?? "composer"}:${midiMessage.timestamp ?? clockNow()}`),
+    signal: "midi",
+    midi: midiMessage,
+    message: midiMessage,
+    type,
+    note: hasNote ? Math.round(clamp(rawNote, 0, 127, 60)) : null,
+    channel: finite(midiMessage.channel ?? message?.channel, 0),
+    velocity,
+    value,
+    gate: attack ? true : release ? false : null,
+  };
+}
+
+function liveConvertedOutputsForNode(flat, event) {
+  const primitive = flat?.primitive ?? {};
+  const runtime = midiRuntimeForFlat(flat);
+  const conversion = runtime?.conversion;
+  const params = flat?.node?.params ?? {};
+  if (event.signal === "midi" && conversion === "midi-to-frequency") {
+    const note = Number(event.midi?.note ?? event.note);
+    if (!midiMessageHasNote(event) || !Number.isFinite(note)) return [];
+    const frequencyHz = midiNoteToFrequency(note);
+    return [{
+      ...event,
+      signal: "control",
+      midi: null,
+      raw: null,
+      converted: true,
+      frequencyHz,
+      value: frequencyToNormalized(frequencyHz, {
+        minHz: finite(params.minimumHz, 20),
+        maxHz: finite(params.maximumHz, 20_000),
+      }),
+    }];
+  }
+  if (event.signal === "midi" && conversion === "midi-to-control") {
+    const value = normalizedMidiValue(event.message ?? event);
+    if (value === null) return [];
+    return [{ ...event, signal: "control", midi: null, raw: null, converted: true, value }];
+  }
+  if (event.signal === "control" && conversion === "frequency-to-midi") {
+    const frequencyHz = event.frequencyHz !== null && event.frequencyHz !== undefined
+      && Number.isFinite(Number(event.frequencyHz))
+      ? Number(event.frequencyHz)
+      : normalizedToFrequency(event.value, {
+        minHz: finite(params.minimumHz, 20),
+        maxHz: finite(params.maximumHz, 20_000),
+      });
+    const pitch = frequencyToMidiPitch(frequencyHz);
+    if (!pitch) return [];
+    const type = event.gate === false ? "noteOff" : "noteOn";
+    const midiMessage = {
+      type,
+      channel: Math.round(clamp(params.channel, 0, 15, 0)),
+      note: pitch.note,
+      velocity: type === "noteOff" ? 0 : clamp(params.velocity, 0, 1, event.value),
+    };
+    return [{
+      ...event,
+      signal: "midi",
+      midi: midiMessage,
+      message: midiMessage,
+      raw: null,
+      converted: true,
+      type,
+      note: pitch.note,
+      channel: midiMessage.channel,
+      velocity: midiMessage.velocity,
+      frequencyHz,
+      cents: pitch.cents,
+    }];
+  }
+  const emittedSignals = primitive.emits?.[event.signal]
+    ?? [primitive.converts?.[event.signal] ?? event.signal];
+  return emittedSignals.flatMap((signal) => {
+    if (signal === event.signal) return [{ ...event }];
+    if (event.signal === "midi" && signal === "trigger") {
+      if (!isMidiClockEvent(event)) return [];
+      return [{
+        ...event,
+        signal: "trigger",
+        sourceMidi: event.midi,
+        midi: null,
+        message: null,
+        raw: null,
+        type: "trigger",
+        note: null,
+        velocity: 1,
+        value: 1,
+        gate: true,
+      }];
+    }
+    if (event.signal === "trigger" && signal === "midi") {
+      if (conversion === "clock-midi-sync") {
+        const midiMessage = { type: "clock" };
+        return [{
+          ...event,
+          signal: "midi",
+          midi: midiMessage,
+          message: midiMessage,
+          raw: null,
+          type: "clock",
+          note: null,
+          velocity: 0,
+          gate: null,
+        }];
+      }
+      const rootNote = finite(flat?.node?.rootNote, 60);
+      const candidate = event.note !== null && event.note !== undefined
+        && Number.isFinite(Number(event.note))
+        ? Number(event.note)
+        : rootNote + finite(event.noteOffset, 0);
+      const note = Math.round(clamp(candidate, 0, 127, rootNote));
+      const velocity = clamp(event.velocity ?? event.value, 0, 1, .8);
+      const midiMessage = { type: "noteOn", channel: 0, note, velocity };
+      return [{
+        ...event,
+        signal: "midi",
+        midi: midiMessage,
+        message: midiMessage,
+        raw: null,
+        type: "noteOn",
+        note,
+        channel: 0,
+        velocity,
+        gate: true,
+        [LIVE_TRIGGER_NOTE]: true,
+      }];
+    }
+    return [{ ...event, signal }];
+  });
+}
+
+function liveOutputsForNode(flat, event, occurrence) {
+  return clockEventBranches(event, {
+    eventTransform: flat?.primitive?.runtime?.eventTransform,
+    params: flat?.node?.params ?? {},
+    occurrence,
+  }).flatMap((branch) => liveConvertedOutputsForNode(flat, branch.event).map((outputEvent) => ({
+    event: outputEvent,
+    addedDelayBeats: branch.delayBeats,
+    branchIndex: branch.branchIndex,
+  })));
+}
+
+function liveRouteHash(value) {
+  let hash = 2166136261;
+  for (const character of String(value ?? "")) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function liveRouteAdmitted(event, edge, hop) {
+  const probability = clamp(edge?.timing?.probability, 0, 1, 1);
+  if (probability >= 1) return true;
+  return liveRouteHash(`${event.liveRouteKey ?? event.id}:${edge.id}:${hop}`) / 0x1_0000_0000 < probability;
+}
+
+function liveNodeAdmitted(flat, event, occurrence) {
+  if (flat?.node?.primitiveId !== "chance") return true;
+  const probability = clamp(flat.node.params?.probability, 0, 1, .5);
+  if (probability >= 1) return true;
+  return liveRouteHash(`${state.patch.seed}:${event.id}:${flat.address}:${occurrence}:node`)
+    / 0x1_0000_0000 < probability;
+}
+
+function liveOccurrenceForNode(flat, event) {
+  if (event.signal !== "trigger") return null;
+  const occurrence = state.liveClockOccurrences.get(flat.address) ?? 0;
+  state.liveClockOccurrences.set(flat.address, occurrence + 1);
+  return occurrence;
+}
+
+function liveTargetNote(event, node) {
+  const rootNote = finite(node?.rootNote, 60);
+  if (event.signal === "trigger") {
+    return Math.round(clamp(rootNote + finite(event.noteOffset, 0), 0, 127, rootNote));
+  }
+  const sourceNote = event.note ?? event.midi?.note;
+  return sourceNote !== null && sourceNote !== undefined && Number.isFinite(Number(sourceNote))
+    ? Math.round(clamp(sourceNote, 0, 127, rootNote))
+    : Math.round(clamp(rootNote, 0, 127, 60));
+}
+
+function routeLiveEvent(event, startAddresses) {
+  const flattened = flattenPatch(state.patch, state.patch.rootGraphId);
+  const outgoing = new Map();
+  for (const edge of flattened.edges) {
+    if (edge.signal === "audio") continue;
+    if (!outgoing.has(edge.sourceAddress)) outgoing.set(edge.sourceAddress, []);
+    outgoing.get(edge.sourceAddress).push(edge);
+  }
+  const baseEvent = liveEventFromMidi(event);
+  const queue = startAddresses.map((address) => ({ address, event: baseEvent, delayBeats: 0, hops: 0 }));
+  const seen = new Set();
+  let processed = 0;
+  while (queue.length && processed < MAX_LIVE_ROUTE_STEPS) {
+    const current = queue.shift();
+    if (!current || current.hops > MAX_LIVE_ROUTE_HOPS || current.delayBeats > cycleBeats() * MAX_LIVE_ROUTE_DELAY_CYCLES) continue;
+    const key = `${current.address}:${current.event.liveRouteKey ?? current.event.id}:${current.event.signal}:${current.delayBeats.toFixed(6)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    processed += 1;
+    const flat = flattened.nodeByAddress.get(current.address);
+    if (!flat) continue;
+    const primitive = flat?.primitive;
+    const runtime = midiRuntimeForFlat(flat);
+    const occurrence = liveOccurrenceForNode(flat, current.event);
+    if (!liveNodeAdmitted(flat, current.event, occurrence)) continue;
+    const delaySeconds = current.delayBeats * secondsPerBeat();
+    if (current.event.signal === "midi" && runtime?.kind === "midi" && runtime?.role === "output") {
+      emitComposerMidi(current.event, delaySeconds, {
+        autoRelease: current.event[LIVE_TRIGGER_NOTE] === true,
+      });
+    }
+    const playableSignals = primitive?.playableSignals ?? ["trigger"];
+    const attack = current.event.signal === "trigger"
+      || (current.event.signal === "midi" && isMidiNoteAttack(current.event));
+    const velocity = current.event.signal === "trigger"
+      ? clamp(current.event.velocity ?? current.event.value, 0, 1, 1)
+      : clamp(current.event.velocity, 0, 1, 0);
+    if (state.audioOn && primitive?.playable && playableSignals.includes(current.event.signal) && attack && velocity > 0) {
+      audio.trigger({
+        ...current.event,
+        id: `${current.event.id}:${flat.address}:${current.hops}`,
+        address: flat.address,
+        playable: true,
+        note: liveTargetNote(current.event, flat.node),
+        velocity,
+        durationBeats: .5,
+        instrumentType: primitive.instrumentType,
+        soundId: flat.node.soundId ?? flat.node.primitiveId,
+      }, { delaySeconds, secondsPerBeat: secondsPerBeat() }).catch(() => {});
+    }
+    if (state.audioOn && current.event.signal === "control") {
+      audio.trigger({ ...current.event, address: flat.address }, {
+        delaySeconds,
+        secondsPerBeat: secondsPerBeat(),
+      }).catch(() => {});
+    }
+    const outputs = liveOutputsForNode(flat, current.event, occurrence);
+    for (const output of outputs) {
+      const outputEvent = {
+        ...output.event,
+        liveRouteKey: `${current.event.liveRouteKey ?? current.event.id}|${flat.address}:${output.branchIndex}`,
+      };
+      for (const edge of outgoing.get(current.address) ?? []) {
+        if (edge.signal !== outputEvent.signal
+          || !liveRouteAdmitted(outputEvent, edge, current.hops)
+          || queue.length + processed >= MAX_LIVE_ROUTE_STEPS) continue;
+        queue.push({
+          address: edge.targetAddress,
+          event: outputEvent,
+          delayBeats: current.delayBeats
+            + output.addedDelayBeats
+            + Math.max(0, finite(edge.timing?.delayBeats, 0)),
+          hops: current.hops + 1,
+        });
+      }
+    }
+  }
+  return processed;
+}
+
+function routeIncomingMidi(message) {
+  globalThis.dispatchEvent?.(new CustomEvent("morphazoid:composer-midi-input", {
+    detail: { message, source: message?.sourceId ?? "midi" },
+  }));
+  const flattened = flattenPatch(state.patch, state.patch.rootGraphId);
+  return routeLiveEvent(message, midiIngressNodes(flattened).map(({ address }) => address));
+}
+
+function routeRuntimeConverterEvents() {
+  const events = audio.drainRuntimeEvents?.({ maximum: 64 }) ?? [];
+  if (!state.audioOn) return events.length;
+  for (const event of events) {
+    state.runtimeNodeState.set(`${event.graphId}:${event.nodeId}`, {
+      gateOpen: event.midi?.type === "noteOn",
+      lastMidiType: event.midi?.type,
+      note: event.note,
+      value: event.value,
+      frequencyHz: event.frequencyHz,
+    });
+    routeLiveEvent(event, [event.sourceAddress ?? event.address]);
+  }
+  return events.length;
+}
+
+async function toggleMidi() {
+  if (state.midiEnabled) {
+    clearMidiRouting();
+    midi.disable();
+    state.midiEnabled = false;
+    updateTransportUi();
+    announce("Composer MIDI input and output disabled.");
+    return;
+  }
+  state.midiEnabling = true;
+  updateTransportUi();
+  try {
+    await Promise.all([setAudioOn(true), midi.enable()]);
+    state.midiEnabled = true;
+    const ingressCount = midiIngressNodes().length;
+    announce(ingressCount
+      ? `Composer MIDI enabled through ${ingressCount} input ${ingressCount === 1 ? "node" : "nodes"}. Only explicit MIDI Output nodes send to hardware.`
+      : "Composer MIDI enabled, but this patch has no ingress. Insert a MIDI Input or Clock / MIDI Sync graph to route it.");
+  } catch (error) {
+    state.midiEnabled = false;
+    announce(error?.message ?? "MIDI could not be enabled.");
+  } finally {
+    state.midiEnabling = false;
+    updateTransportUi();
+  }
+}
+
+function initializeMidi() {
+  state.unregisterMidi = midi.registerClient({
+    id: "morphazoid-composer",
+    onMessage: routeIncomingMidi,
+    onEnabledChange: (enabled, status) => {
+      state.midiEnabled = Boolean(enabled);
+      state.midiStatus = status;
+      updateTransportUi();
+    },
+  });
+  state.unsubscribeMidiStatus = midi.subscribeStatus?.((status) => {
+    state.midiStatus = status;
+    updateTransportUi();
+  });
+}
+
+function clearRecordingDownloads() {
+  for (const url of state.recordingUrls) globalThis.URL?.revokeObjectURL?.(url);
+  state.recordingUrls = [];
+  dom.recordingDownloads?.replaceChildren();
+}
+
+function renderRecordingTakes(result) {
+  clearRecordingDownloads();
+  const takes = Array.isArray(result?.takes) ? result.takes : [];
+  for (const take of takes) {
+    if (!take?.blob || typeof globalThis.URL?.createObjectURL !== "function") continue;
+    const url = globalThis.URL.createObjectURL(take.blob);
+    state.recordingUrls.push(url);
+    const link = element("a", "", `Download ${take.label ?? take.id ?? "take"}`);
+    link.href = url;
+    link.download = `morphazoid-${String(take.id ?? "take").replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}.${take.extension ?? "webm"}`;
+    dom.recordingDownloads?.append(link);
+  }
+}
+
+async function finishRecording({ discard = false, message = "take ready" } = {}) {
+  if (!state.recording && !audio.recordingState?.().active) return null;
+  try {
+    const result = discard ? await audio.cancelRecording?.() : await audio.stopRecording?.();
+    if (!discard) renderRecordingTakes(result);
+    state.recording = false;
+    state.recordingStartedAt = 0;
+    if (!state.playing && !state.audioOn) stopAnimation();
+    if (dom.recordState) {
+      dom.recordState.dataset.message = message;
+      setText(dom.recordState, message);
+    }
+    updateTransportUi();
+    announce(discard ? "Recording cancelled." : `${result?.takes?.length ?? 0} recording file${result?.takes?.length === 1 ? "" : "s"} ready to download.`);
+    return result;
+  } catch (error) {
+    state.recording = false;
+    state.recordingStartedAt = 0;
+    if (!state.playing && !state.audioOn) stopAnimation();
+    setText(dom.recordState, "recording error");
+    announce(error?.message ?? "The recording could not be completed.");
+    return null;
+  }
+}
+
+async function toggleRecording() {
+  if (state.recording) {
+    await finishRecording();
+    return;
+  }
+  const ready = await setAudioOn(true);
+  if (!ready) return;
+  clearRecordingDownloads();
+  try {
+    const mode = dom.recordMode?.value === "stems" ? "stems" : "mix";
+    const recording = await audio.startRecording?.({ mode });
+    state.recording = Boolean(recording?.active ?? true);
+    state.recordingStartedAt = clockNow();
+    if (dom.recordState) delete dom.recordState.dataset.message;
+    updateTransportUi();
+    announce(mode === "stems" ? "Recording individual graph stems." : "Recording the stereo Composer mix.");
+    requestAnimation();
+  } catch (error) {
+    state.recording = false;
+    setText(dom.recordState, "unavailable");
+    announce(error?.message ?? "Recording is not available in this browser.");
+  }
+}
+
 async function setAudioOn(enabled) {
   if (!enabled) {
+    if (state.recording) await finishRecording({ message: "take ready" });
     const beat = absoluteBeatNow();
     state.absoluteBeat = beat;
     state.transportStartBeat = beat;
@@ -1242,9 +2094,11 @@ async function setAudioOn(enabled) {
     state.playing = false;
     state.audioOn = false;
     state.audioStarting = false;
+    state.runtimeNodeState.clear();
     clearScheduler();
     stopAnimation();
     audio.silence();
+    clearMidiRouting();
     resetScheduledControl({ beat, toBase: true });
     syncAudioTransport(beat);
     updateRuntimeVisuals();
@@ -1268,6 +2122,7 @@ async function setAudioOn(enabled) {
       syncAudioTransport(beat);
       resetScheduledControl({ beat, prime: true, toBase: true });
       schedulerTick();
+      requestAnimation();
       updateTransportUi();
       announce("Audio graph compiled and running.");
       return true;
@@ -1293,8 +2148,10 @@ async function togglePlay() {
     state.playing = false;
     syncAudioTransport(state.absoluteBeat);
     clearScheduler();
-    stopAnimation();
+    if (state.audioOn || state.recording) requestAnimation();
+    else stopAnimation();
     audio.silence();
+    clearMidiRouting();
     resetScheduledControl({ beat: state.absoluteBeat, toBase: false });
     updateRuntimeVisuals();
     announce("Patch paused.");
@@ -1328,8 +2185,10 @@ function stopTransport() {
   state.scheduleBeat = 0;
   syncAudioTransport(0);
   clearScheduler();
-  stopAnimation();
+  if (state.audioOn || state.recording) requestAnimation();
+  else stopAnimation();
   audio.silence();
+  clearMidiRouting();
   resetScheduledControl({ beat: 0, toBase: true });
   updateRuntimeVisuals();
   announce("Patch stopped at the start of its projection window.");
@@ -1344,6 +2203,7 @@ function seekToBeat(beat) {
   }
   state.scheduleBeat = target;
   syncAudioTransport(target);
+  clearMidiRouting();
   if (state.audioOn) {
     audio.silence();
     resetScheduledControl({ beat: target, prime: true, toBase: true });
@@ -1366,6 +2226,7 @@ function changeTempo(value) {
     state.transportStartTime = clockNow();
     state.scheduleBeat = beat;
   }
+  clearMidiRouting();
   if (state.audioOn) {
     audio.silence();
     resetScheduledControl({ beat, prime: true, toBase: true });
@@ -1376,11 +2237,13 @@ function changeTempo(value) {
 }
 
 function loadPreset(id) {
+  if (state.recording) void finishRecording({ discard: true, message: "take cancelled" });
   const wasPlaying = state.playing;
   state.playing = false;
   clearScheduler();
   stopAnimation();
   audio.silence();
+  clearMidiRouting();
   resetScheduledControl({ toBase: true });
   state.patch = clonePatchPreset(id);
   state.tempo = state.patch.tempo;
@@ -1389,6 +2252,7 @@ function loadPreset(id) {
   state.scheduleBeat = 0;
   state.selection = null;
   state.connecting = null;
+  state.runtimeNodeState.clear();
   state.projectionCache = null;
   state.timelineProjectionCache = null;
   audio.setPatch(state.patch);
@@ -1401,6 +2265,8 @@ function loadPreset(id) {
 
 function updateRuntimeVisuals() {
   const beat = wrappedBeat(absoluteBeatNow());
+  state.monitorSnapshot = audio.getMonitorSnapshot?.() ?? audio.monitorSnapshot?.() ?? state.monitorSnapshot;
+  routeRuntimeConverterEvents();
   updateTransportUi();
   const activePanel = state.view === "constellation"
     ? dom.constellationView
@@ -1408,6 +2274,7 @@ function updateRuntimeVisuals() {
       ? dom.flowView
       : dom.timelineView;
   if (!activePanel) return;
+  updateMonitorVisuals(activePanel);
   const projection = selectedProjection();
   const activeNodes = new Set();
   const activeEdges = new Set();
@@ -1436,21 +2303,25 @@ function updateRuntimeVisuals() {
   }
 }
 
-function animationLoop() {
+function animationLoop(timestamp = globalThis.performance?.now?.() ?? Date.now()) {
   state.animationFrame = null;
-  if (state.disposed || !state.playing) return;
-  updateRuntimeVisuals();
+  if (state.disposed || (!state.playing && !state.recording && !state.audioOn)) return;
+  if (timestamp - state.lastVisualAt >= VISUAL_INTERVAL_MS) {
+    state.lastVisualAt = timestamp;
+    updateRuntimeVisuals();
+  }
   requestAnimation();
 }
 
 function requestAnimation() {
-  if (state.disposed || !state.playing || state.animationFrame !== null) return;
+  if (state.disposed || (!state.playing && !state.recording && !state.audioOn) || state.animationFrame !== null) return;
   state.animationFrame = globalThis.requestAnimationFrame?.(animationLoop) ?? null;
 }
 
 function stopAnimation() {
   if (state.animationFrame !== null) globalThis.cancelAnimationFrame?.(state.animationFrame);
   state.animationFrame = null;
+  state.lastVisualAt = Number.NEGATIVE_INFINITY;
 }
 
 function bindInteractions() {
@@ -1470,6 +2341,12 @@ function bindInteractions() {
     setText(dom.outputOut, `${Math.round(state.output * 100)}%`);
   });
   dom.presetSelect?.addEventListener("change", () => loadPreset(dom.presetSelect.value));
+  dom.recordButton?.addEventListener("click", toggleRecording);
+  dom.midiButton?.addEventListener("click", toggleMidi);
+  dom.outputRouteButton?.addEventListener("click", revealOutputGraph);
+  dom.recordMode?.addEventListener("change", () => {
+    announce(dom.recordMode.value === "stems" ? "Individual stem recording selected." : "Stereo mix recording selected.");
+  });
   const viewButtons = [...document.querySelectorAll("[data-view]")];
   viewButtons.forEach((button, index) => {
     button.addEventListener("click", () => setView(button.dataset.view));
@@ -1497,10 +2374,16 @@ function dispose() {
   state.disposed = true;
   clearScheduler();
   stopAnimation();
+  audio.cancelRecording?.();
+  clearRecordingDownloads();
+  state.unregisterMidi?.();
+  state.unsubscribeMidiStatus?.();
+  clearMidiRouting();
   audio.close();
 }
 
 function initialize() {
+  initializeMidi();
   populatePresets();
   renderDeviceBrowser();
   audio.setPatch(state.patch);

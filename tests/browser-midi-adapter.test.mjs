@@ -155,6 +155,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "chaotic-pm",
     "fm-drums",
     "sample-drums",
+    "constellation",
   ]);
   assert.equal(instrumentMidiCapabilityForId("rubix").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("ouroborousel").noteMode, "drums");
@@ -204,13 +205,13 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "karplus-carpet",
     "surround-field",
     "gesturama",
+    "constellation",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
     "boidzoid",
     "vector-flight",
     "pink-trombonazoid",
     "vocalzoid",
-    "constellation",
     "sliding-puzzle",
     "hyper-rubix",
     "webgpu-synths",
@@ -231,6 +232,9 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "enveloper",
   ]);
   assert.equal(instrumentMidiCapabilityForId("spelling-synthesizer").computerKeyboardMode, "page");
+  assert.equal(instrumentMidiCapabilityForId("constellation").midiInputMode, "native");
+  assert.equal(instrumentMidiCapabilityForId("constellation").computerKeyboardMode, "page");
+  assert.equal(instrumentMidiCapabilityForId("constellation").midiOutput, true);
   assert.equal(instrumentMidiCapabilityForId("shape-drums").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("shader-synth-playground").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("recursion").startsAudio, true);

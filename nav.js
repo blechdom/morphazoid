@@ -137,7 +137,7 @@ export const TOOL_GROUPS = Object.freeze([
     },
     {
       id: "constellation",
-      label: "Constellation",
+      label: "Morphazoid Composer",
       href: "constellation.html",
       imageHref: "assets/instruments/graph-synth.webp",
     },

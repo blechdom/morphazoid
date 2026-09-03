@@ -141,6 +141,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
   "chaotic-pm",
   "fm-drums",
   "sample-drums",
+  "constellation",
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
@@ -167,6 +168,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "karplus-carpet",
   "surround-field",
   "gesturama",
+  "constellation",
 ]);
 
 // These pages still expose hardware MIDI for labeled controls, presets, and
@@ -177,7 +179,6 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "vector-flight",
   "pink-trombonazoid",
   "vocalzoid",
-  "constellation",
   "sliding-puzzle",
   "hyper-rubix",
   "webgpu-synths",
@@ -225,7 +226,7 @@ const midiOutputExtraIds = new Set([
   "l-system",
   "julia",
 ]);
-const noMidiOutputIds = new Set(["pink-trombonazoid", "vocalzoid", "constellation"]);
+const noMidiOutputIds = new Set(["pink-trombonazoid", "vocalzoid"]);
 
 export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
   Object.entries(NOTE_MODE_IDS).flatMap(([noteMode, ids]) => ids.map((id) => Object.freeze({
