@@ -4,17 +4,22 @@ import test from "node:test";
 import {
   AUDIO_TIMING,
   DEFAULT_TEST_SIGNAL,
+  METER_FLOOR_DBFS,
+  PROGRAM_GAIN,
   TEST_SIGNALS,
   TEST_TRIM_RANGE,
+  amplitudeToDbfs,
   channelSummary,
   clampPosition,
   computeSpeakerGains,
   createLfePinkNoiseSamples,
   createPinkNoiseSamples,
   dbfsToGain,
+  dbfsToMeterFill,
   makeLayouts,
   outputModeFor,
   planAudioEvents,
+  programLevelToGain,
   projectPoint,
   signalRms,
 } from "../src/surround-field.js";
@@ -93,6 +98,36 @@ test("speaker test signals expose calibrated digital reference levels", () => {
   assert.equal(dbfsToGain(-20), 0.1);
   assert.ok(Math.abs(dbfsToGain(-18) - 0.12589254117941673) < 1e-15);
   assert.equal(dbfsToGain(Number.NaN), 0);
+});
+
+test("program gain is louder at its default while retaining a full mute-to-unity range", () => {
+  assert.deepEqual(PROGRAM_GAIN, {
+    voiceInput: 0.9,
+    envelopePeak: 0.34,
+    levelCurve: 0.75,
+  });
+  assert.equal(programLevelToGain(0), 0);
+  assert.ok(Math.abs(programLevelToGain(0.55) - 0.6386633830041155) < 1e-12);
+  assert.equal(programLevelToGain(1), 1);
+  assert.equal(programLevelToGain(-1), 0);
+  assert.equal(programLevelToGain(2), 1);
+});
+
+test("channel peak meters use a readable logarithmic −60 to 0 dBFS scale", () => {
+  assert.equal(METER_FLOOR_DBFS, -60);
+  assert.equal(amplitudeToDbfs(1), 0);
+  assert.ok(Math.abs(amplitudeToDbfs(dbfsToGain(-18)) + 18) < 1e-12);
+  assert.equal(amplitudeToDbfs(0), -Infinity);
+  assert.equal(amplitudeToDbfs(Infinity), Infinity);
+  assert.equal(dbfsToMeterFill(-60), 0);
+  assert.ok(Math.abs(dbfsToMeterFill(-40) - 1 / 3) < 1e-12);
+  assert.ok(Math.abs(dbfsToMeterFill(-20) - 2 / 3) < 1e-12);
+  assert.ok(Math.abs(dbfsToMeterFill(-18) - 0.7) < 1e-12);
+  assert.ok(Math.abs(dbfsToMeterFill(-6) - 0.9) < 1e-12);
+  assert.equal(dbfsToMeterFill(0), 1);
+  assert.equal(dbfsToMeterFill(-Infinity), 0);
+  assert.equal(dbfsToMeterFill(Infinity), 1);
+  assert.equal(dbfsToMeterFill(-18, -Infinity), 0.7);
 });
 
 test("pink-noise calibration is deterministic and normalized to target RMS", () => {

@@ -10,6 +10,7 @@ test.use({
 });
 
 const layouts = [
+  { name: "small phone portrait", width: 320, height: 568 },
   { name: "phone portrait", width: 390, height: 844 },
   { name: "phone landscape", width: 844, height: 390 },
 ];
@@ -66,6 +67,30 @@ test("Surround for Safety keeps Play tappable and the room touch-scrollable on p
       expect(geometry.rect.bottom).toBeLessThanOrEqual(geometry.viewport.height);
       expect(geometry.pointerEvents).not.toBe("none");
       expect(geometry.hit).toBe(true);
+
+      const titleGeometry = await page.locator(".surround-identity h1").evaluate((title) => {
+        const rect = title.getBoundingClientRect();
+        const stage = title.closest(".surround-stage-wrap").getBoundingClientRect();
+        const capability = document.querySelector(".stage-capability").getBoundingClientRect();
+        const intersectsCapability = !(
+          rect.right <= capability.left
+          || rect.left >= capability.right
+          || rect.bottom <= capability.top
+          || rect.top >= capability.bottom
+        );
+        return {
+          rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+          stage: { left: stage.left, right: stage.right },
+          intersectsCapability,
+          whiteSpace: getComputedStyle(title).whiteSpace,
+          pageOverflow: document.documentElement.scrollWidth - innerWidth,
+        };
+      });
+      expect(titleGeometry.whiteSpace).toBe("nowrap");
+      expect(titleGeometry.rect.left).toBeGreaterThanOrEqual(titleGeometry.stage.left);
+      expect(titleGeometry.rect.right).toBeLessThanOrEqual(titleGeometry.stage.right);
+      expect(titleGeometry.intersectsCapability).toBe(false);
+      expect(titleGeometry.pageOverflow).toBeLessThanOrEqual(0);
 
       await page.touchscreen.tap(
         geometry.rect.left + geometry.rect.width / 2,

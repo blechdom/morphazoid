@@ -5,6 +5,12 @@ export const DEMO_MAX_CHANNELS = 32;
 
 export const DEFAULT_TEST_SIGNAL = "pink";
 export const TEST_TRIM_RANGE = Object.freeze({ minimum: -24, maximum: 6, defaultValue: 0 });
+export const METER_FLOOR_DBFS = -60;
+export const PROGRAM_GAIN = Object.freeze({
+  voiceInput: 0.9,
+  envelopePeak: 0.34,
+  levelCurve: 0.75,
+});
 export const TEST_SIGNALS = Object.freeze({
   pink: Object.freeze({
     id: "pink",
@@ -38,6 +44,26 @@ export const TEST_SIGNALS = Object.freeze({
 export function dbfsToGain(dbfs) {
   const value = Number(dbfs);
   return Number.isFinite(value) ? 10 ** (value / 20) : 0;
+}
+
+export function amplitudeToDbfs(amplitude) {
+  const value = Math.abs(Number(amplitude));
+  if (Number.isNaN(value) || value === 0) return -Infinity;
+  return 20 * Math.log10(value);
+}
+
+export function dbfsToMeterFill(dbfs, floorDbfs = METER_FLOOR_DBFS) {
+  const candidateFloor = Number(floorDbfs);
+  const floor = Number.isFinite(candidateFloor) && candidateFloor < 0
+    ? candidateFloor
+    : METER_FLOOR_DBFS;
+  const value = Number(dbfs);
+  if (!Number.isFinite(value)) return value === Infinity ? 1 : 0;
+  return clamp((value - floor) / -floor, 0, 1);
+}
+
+export function programLevelToGain(value) {
+  return clamp(value, 0, 1) ** PROGRAM_GAIN.levelCurve;
 }
 
 export function signalRms(samples) {

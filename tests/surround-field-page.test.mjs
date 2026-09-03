@@ -9,6 +9,13 @@ const html = await readFile(path.join(repositoryRoot, "surround-field.html"), "u
 const app = await readFile(path.join(repositoryRoot, "surround-field-app.js"), "utf8");
 const css = await readFile(path.join(repositoryRoot, "surround-field.css"), "utf8");
 
+test("the stage uses a compact, single-line Surround for Safety title", () => {
+  const identity = html.match(/<header class="surround-identity">([\s\S]*?)<\/header>/)?.[1] ?? "";
+  assert.match(identity, /^\s*<h1 id="sceneTitle">SURROUND FOR SAFETY<\/h1>\s*$/);
+  assert.doesNotMatch(identity, /MULTICHANNEL SPATIAL INSTRUMENT|PLACE THE SOUND|HEAR THE ARRAY|<br\s*\/?\s*>|<i>/i);
+  assert.match(css, /\.surround-identity h1\s*\{[\s\S]*?font-family: Arial, Helvetica, sans-serif;[\s\S]*?font-size: clamp\(20px, 2\.2vw, 38px\);[\s\S]*?white-space: nowrap;/);
+});
+
 test("Surround for Safety exposes every requested array and the custom 32-channel ring", () => {
   for (const layout of ["7-4-1", "4-1", "8-circle", "8-cube"]) {
     assert.match(html, new RegExp(`data-layout="${layout}"`));
@@ -37,6 +44,11 @@ test("audio routing has real discrete and explicit stereo-preview paths", () => 
   assert.match(app, /limiter\.threshold\.value = -3/);
   assert.match(app, /speaker\.kind === "lfe"/);
   assert.match(app, /lowpass\.frequency\.value = 120/);
+  assert.match(app, /createAnalyser\(\)/);
+  assert.match(app, /analyser\.fftSize = 2048/);
+  assert.match(app, /analyser\.channelCount = 1[\s\S]*?channelCountMode = "explicit"[\s\S]*?channelInterpretation = "discrete"/);
+  assert.match(app, /channelBus\.connect\(analyser\)/);
+  assert.doesNotMatch(app, /analyser\.connect\(virtualBus|analyser\.connect\(panner/);
 });
 
 test("speaker tests expose calibrated sources and tappable channel controls", () => {
@@ -52,6 +64,15 @@ test("speaker tests expose calibrated sources and tappable channel controls", ()
   assert.match(app, /document\.createElement\("button"\)[\s\S]+className = "channel-meter"/);
   assert.match(app, /createLfePinkNoiseSamples/);
   assert.match(app, /source\.connect\(gain\)\.connect\(route\.testTarget\)/);
+  assert.match(app, /getFloatTimeDomainData\(route\.meterSamples\)/);
+  assert.match(app, /amplitudeToDbfs\(peak\)/);
+  assert.match(app, /dbfsToMeterFill\(dbfs\)/);
+  assert.match(app, /programLevelToGain\(this\.level\)/);
+  assert.match(app, /voiceInput\.gain\.value = PROGRAM_GAIN\.voiceInput/);
+  assert.match(app, /velocity \* PROGRAM_GAIN\.envelopePeak/);
+  assert.doesNotMatch(app, /gain \* audio\.activity \* 1\.4 \+ state\.testEnergy/);
+  assert.match(html, /Channel output<\/b><span>Peak dBFS/);
+  assert.match(app, /<output aria-hidden="true">−∞<\/output>/);
   assert.match(css, /\.channel-meter:[\s\S]*?focus-visible/);
 });
 

@@ -2,8 +2,11 @@ import { connectAudioOutput } from "./src/audio-output-manager.js";
 import {
   AUDIO_TIMING,
   DEFAULT_TEST_SIGNAL,
+  METER_FLOOR_DBFS,
+  PROGRAM_GAIN,
   TEST_SIGNALS,
   TEST_TRIM_RANGE,
+  amplitudeToDbfs,
   channelSummary,
   clamp,
   clampPosition,
@@ -11,9 +14,11 @@ import {
   createLfePinkNoiseSamples,
   createPinkNoiseSamples,
   dbfsToGain,
+  dbfsToMeterFill,
   makeLayouts,
   outputModeFor,
   planAudioEvents,
+  programLevelToGain,
   projectPoint,
   speakerPan,
 } from "./src/surround-field.js";
@@ -118,7 +123,7 @@ class SurroundAudio {
     this.compressor = context.createDynamicsCompressor();
     this.master = context.createGain();
 
-    this.voiceInput.gain.value = 0.82;
+    this.voiceInput.gain.value = PROGRAM_GAIN.voiceInput;
     this.voiceInput.channelCount = 1;
     this.voiceInput.channelCountMode = "explicit";
     this.voiceInput.channelInterpretation = "speakers";
@@ -250,12 +255,19 @@ class SurroundAudio {
       const targetIndex = Math.round(clamp(speaker.channel - 1, 0, layout.speakers.length - 1));
       const spatialGain = context.createGain();
       const channelBus = context.createGain();
+      const analyser = context.createAnalyser();
       spatialGain.gain.value = 0;
       channelBus.gain.value = 1;
       channelBus.channelCount = 1;
       channelBus.channelCountMode = "explicit";
       channelBus.channelInterpretation = "speakers";
-      const nodes = [spatialGain, channelBus];
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0;
+      analyser.channelCount = 1;
+      analyser.channelCountMode = "explicit";
+      analyser.channelInterpretation = "discrete";
+      const meterSamples = new Float32Array(analyser.fftSize);
+      const nodes = [spatialGain, channelBus, analyser];
       this.master.connect(spatialGain);
       this.patchInput.connect(spatialGain);
 
@@ -271,13 +283,23 @@ class SurroundAudio {
       }
 
       channelBus.connect(virtualBus, 0, targetIndex);
+      channelBus.connect(analyser);
       if (stereoBus) {
         const panner = context.createStereoPanner();
         panner.pan.value = speaker.kind === "lfe" ? 0 : speakerPan(speaker);
         channelBus.connect(panner).connect(stereoBus);
         nodes.push(panner);
       }
-      this.speakerRoutes.push({ spatialGain, channelBus, testTarget: channelBus, nodes, targetIndex });
+      this.speakerRoutes.push({
+        spatialGain,
+        channelBus,
+        analyser,
+        meterSamples,
+        meterDbfs: -Infinity,
+        testTarget: channelBus,
+        nodes,
+        targetIndex,
+      });
     });
 
     this.outputNode = mode === "discrete" ? virtualBus : this.previewLimiter;
@@ -315,7 +337,45 @@ class SurroundAudio {
   setLevel(value) {
     this.level = clamp(value, 0, 1);
     if (!this.context || !this.master || !this.enabled) return;
-    this.master.gain.setTargetAtTime(Math.max(0.0001, this.level ** 1.35), this.context.currentTime, 0.025);
+    this.master.gain.setTargetAtTime(programLevelToGain(this.level), this.context.currentTime, 0.025);
+  }
+
+  readChannelMeters(deltaSeconds = 0) {
+    if (!this.enabled || this.context?.state !== "running") {
+      return this.speakerRoutes.map((route) => {
+        route.meterDbfs = -Infinity;
+        return { dbfs: -Infinity, fill: 0, clipping: false };
+      });
+    }
+    const releaseDb = Math.max(0, Number(deltaSeconds) || 0) * 36;
+    return this.speakerRoutes.map((route) => {
+      try {
+        route.analyser.getFloatTimeDomainData(route.meterSamples);
+      } catch {
+        route.meterSamples.fill(0);
+      }
+      let peak = 0;
+      for (const sample of route.meterSamples) peak = Math.max(peak, Math.abs(sample));
+      const instantaneousDbfs = amplitudeToDbfs(peak);
+      const previousDbfs = route.meterDbfs;
+      let dbfs = -Infinity;
+
+      if (instantaneousDbfs > METER_FLOOR_DBFS) {
+        dbfs = Math.max(
+          instantaneousDbfs,
+          Number.isFinite(previousDbfs) ? previousDbfs - releaseDb : METER_FLOOR_DBFS,
+        );
+      } else if (Number.isFinite(previousDbfs) && previousDbfs - releaseDb > METER_FLOOR_DBFS) {
+        dbfs = previousDbfs - releaseDb;
+      }
+
+      route.meterDbfs = dbfs;
+      return {
+        dbfs,
+        fill: dbfsToMeterFill(dbfs),
+        clipping: dbfs >= 0,
+      };
+    });
   }
 
   setColor(value) {
@@ -398,7 +458,7 @@ class SurroundAudio {
     voiceFilter.frequency.exponentialRampToValueAtTime(350 + state.color * 4_800, start + duration);
     voiceFilter.Q.value = voice === "pulse" ? 2.8 : 1.1;
     envelope.gain.setValueAtTime(0.0001, start);
-    envelope.gain.exponentialRampToValueAtTime(Math.max(0.0002, velocity * 0.22), start + (voice === "glass" ? 0.004 : 0.018));
+    envelope.gain.exponentialRampToValueAtTime(Math.max(0.0002, velocity * PROGRAM_GAIN.envelopePeak), start + (voice === "glass" ? 0.004 : 0.018));
     envelope.gain.exponentialRampToValueAtTime(0.0001, start + duration);
     envelope.connect(voiceFilter).connect(this.voiceInput);
 
@@ -687,7 +747,7 @@ function renderMeters() {
     row.dataset.kind = speaker.kind;
     row.setAttribute("aria-label", `Test channel ${speaker.channel}, ${speaker.label}`);
     row.title = `Test CH ${speaker.channel} · ${speaker.label}`;
-    row.innerHTML = `<b>CH ${String(speaker.channel).padStart(2, "0")}</b><span>${speaker.label}</span><i></i>`;
+    row.innerHTML = `<b>CH ${String(speaker.channel).padStart(2, "0")}</b><span>${speaker.label}</span><i aria-hidden="true"></i><output aria-hidden="true">−∞</output>`;
     row.addEventListener("click", () => void testSpeaker(index));
     meters.append(row);
   });
@@ -1466,7 +1526,8 @@ function animate(timestamp) {
   }
   animate.lastPaint = timestamp;
   const now = timestamp / 1000;
-  const delta = Math.min(0.05, Math.max(0, now - (animate.lastTime ?? now)));
+  const elapsed = Math.max(0, now - (animate.lastTime ?? now));
+  const delta = Math.min(0.05, elapsed);
   animate.lastTime = now;
 
   if (state.motion !== "manual" && !state.dragging) {
@@ -1478,11 +1539,28 @@ function animate(timestamp) {
   $("emitter").classList.toggle("is-sounding", audio.activity > 0.035);
   const speakerNodes = document.querySelectorAll(".speaker-node");
   const meterNodes = document.querySelectorAll(".channel-meter");
+  const channelMeters = audio.readChannelMeters(Math.min(2, elapsed));
   state.gains.forEach((gain, index) => {
     state.testEnergy[index] = (state.testEnergy[index] ?? 0) * Math.exp(-delta * 5.2);
-    const meter = clamp(gain * audio.activity * 1.4 + state.testEnergy[index], 0, 1);
+    const reading = channelMeters[index] ?? { dbfs: -Infinity, fill: 0, clipping: false };
+    const meterNode = meterNodes[index];
     speakerNodes[index]?.style.setProperty("--gain", String(clamp(gain * 0.78 + state.testEnergy[index] * 0.7, 0, 1)));
-    meterNodes[index]?.style.setProperty("--meter", String(meter));
+    meterNode?.style.setProperty("--meter", String(reading.fill));
+    meterNode?.classList.toggle("is-clipping", reading.clipping);
+    if (meterNode) {
+      const peakDbfs = Number.isFinite(reading.dbfs)
+        ? reading.dbfs.toFixed(2)
+        : "-Infinity";
+      if (meterNode.dataset.peakDbfs !== peakDbfs) meterNode.dataset.peakDbfs = peakDbfs;
+    }
+    const output = meterNode?.querySelector("output");
+    if (output) {
+      const rounded = Math.round(reading.dbfs);
+      const label = Number.isFinite(rounded)
+        ? `${rounded > 0 ? "+" : ""}${rounded}`.replace("-", "−")
+        : "−∞";
+      if (output.textContent !== label) output.textContent = label;
+    }
   });
   for (const [midi, energy] of state.padEnergy) {
     const next = energy * Math.exp(-delta * 7);

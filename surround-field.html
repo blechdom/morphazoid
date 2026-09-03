@@ -67,9 +67,7 @@
           </svg>
 
           <header class="surround-identity">
-            <p>MULTICHANNEL SPATIAL INSTRUMENT · SFS–32</p>
-            <h1 id="sceneTitle">SURROUND<br /><i>FOR SAFETY</i></h1>
-            <span>PLACE THE SOUND / HEAR THE ARRAY</span>
+            <h1 id="sceneTitle">SURROUND FOR SAFETY</h1>
           </header>
 
           <div class="front-marker" aria-hidden="true"><i></i><span>FRONT · 0°</span></div>
@@ -238,8 +236,9 @@
               <small><i>−24 dB</i><i>reference · 0 dB</i><i>+6 dB</i></small>
             </label>
             <button class="sweep-button" id="sweepButton" type="button" aria-pressed="false"><span aria-hidden="true">▶</span><b>Run channel sweep</b><small id="sweepSignal">Pink noise · −20 dBFS rms</small></button>
-            <div class="channel-meters" id="channelMeters" aria-label="Speaker channels. Tap a channel to test it."></div>
-            <p class="calibration-note"><b>Turn down first.</b> These are digital reference levels: pink noise is −20 dBFS RMS; tone and chirp are −18 dBFS peak. Your OS volume, interface, amplifier, and room determine the resulting SPL. Confirm every numbered output by ear. LFE tests are band-limited (the tone is 80 Hz) with no digital +10 dB boost.</p>
+            <div class="channel-meter-heading"><b>Channel output</b><span>Peak dBFS</span></div>
+            <div class="channel-meters" id="channelMeters" aria-label="Speaker channel peak meters in dBFS. Tap a channel to test it."></div>
+            <p class="calibration-note"><b>Turn down first.</b> These are digital reference levels: pink noise is −20 dBFS RMS; tone and chirp are −18 dBFS peak. Meters show virtual-channel sample peaks before stereo preview and device processing, so pink-noise peaks read above their RMS reference. Your OS volume, interface, amplifier, and room determine the resulting SPL. Confirm every numbered output by ear. LFE tests are band-limited (the tone is 80 Hz) with no digital +10 dB boost.</p>
           </div>
         </details>
 

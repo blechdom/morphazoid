@@ -24,6 +24,13 @@ function sineWaveFile({ sampleRate = 48_000, duration = 0.5, frequency = 440, am
   return buffer;
 }
 
+async function setRange(page, selector, value) {
+  await page.locator(selector).evaluate((input, nextValue) => {
+    input.value = String(nextValue);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, value);
+}
+
 test("Surround for Safety records an isolated calibrated channel before stereo fold-down", async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -32,6 +39,8 @@ test("Surround for Safety records an isolated calibrated channel before stereo f
   await settlePage(page);
   await page.locator('[data-layout="7-4-1"]').click();
   await page.locator('[data-test-signal="tone"]').click();
+  await setRange(page, "#level", 0);
+  await expect(page.locator("#levelOut")).toHaveText("0%");
   await page.locator("#recordButton").click();
   await expect(page.locator("#recordButton")).toHaveAttribute("aria-pressed", "true");
 
@@ -42,6 +51,14 @@ test("Surround for Safety records an isolated calibrated channel before stereo f
   const rearLeft = page.locator('.channel-meter[data-index="4"]');
   await expect(rearLeft).toHaveAttribute("aria-label", /channel 5, Lrs/);
   await rearLeft.click();
+  await expect.poll(async () => Number(await rearLeft.getAttribute("data-peak-dbfs"))).toBeGreaterThan(-18.4);
+  const referenceMeter = await rearLeft.evaluate((row) => ({
+    dbfs: Number(row.dataset.peakDbfs),
+    fill: Number(row.style.getPropertyValue("--meter")),
+  }));
+  expect(referenceMeter.dbfs).toBeLessThan(-17.6);
+  expect(referenceMeter.fill).toBeGreaterThan(0.68);
+  expect(referenceMeter.fill).toBeLessThan(0.72);
   await page.waitForTimeout(1050);
   await page.locator("#recordButton").click();
   await expect(page.locator("#downloadRecording")).toBeEnabled({ timeout: 10_000 });
@@ -51,6 +68,7 @@ test("Surround for Safety records an isolated calibrated channel before stereo f
   expect(completed.lastRecording.duration).toBeGreaterThan(0.9);
   expect(completed.lastRecording.peaks[4]).toBeGreaterThan(0.12);
   expect(completed.lastRecording.peaks[4]).toBeLessThan(0.13);
+  expect(completed.lastRecording.clippedSamples).toBe(0);
   completed.lastRecording.peaks.forEach((peak, index) => {
     if (index !== 4) expect(peak).toBeLessThan(0.0001);
   });
@@ -60,6 +78,101 @@ test("Surround for Safety records an isolated calibrated channel before stereo f
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/^surround-field-7-4-1-.*\.zip$/);
   expect(pageErrors).toEqual([]);
+});
+
+test("real channel peak meters follow test trim and clear instead of pinning", async ({ page }) => {
+  await page.goto("surround-field.html", { waitUntil: "load" });
+  await settlePage(page);
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  await page.locator('[data-test-signal="tone"]').click();
+
+  await setRange(page, "#testTrim", -24);
+  const low = page.locator('.channel-meter[data-index="0"]');
+  await low.click();
+  await expect.poll(async () => Number(await low.getAttribute("data-peak-dbfs"))).toBeGreaterThan(-42.5);
+  const lowReading = await low.evaluate((row) => ({
+    dbfs: Number(row.dataset.peakDbfs),
+    fill: Number(row.style.getPropertyValue("--meter")),
+  }));
+  expect(lowReading.dbfs).toBeLessThan(-41.5);
+  expect(lowReading.fill).toBeGreaterThan(0.28);
+  expect(lowReading.fill).toBeLessThan(0.32);
+
+  await setRange(page, "#testTrim", 6);
+  const high = page.locator('.channel-meter[data-index="1"]');
+  await high.click();
+  await expect.poll(async () => Number(await high.getAttribute("data-peak-dbfs"))).toBeGreaterThan(-12.5);
+  const highReading = await high.evaluate((row) => ({
+    dbfs: Number(row.dataset.peakDbfs),
+    fill: Number(row.style.getPropertyValue("--meter")),
+  }));
+  expect(highReading.dbfs).toBeLessThan(-11.5);
+  expect(highReading.fill).toBeGreaterThan(0.78);
+  expect(highReading.fill).toBeLessThan(0.82);
+  expect(highReading.dbfs - lowReading.dbfs).toBeGreaterThan(29);
+  expect(highReading.dbfs - lowReading.dbfs).toBeLessThan(31);
+
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  await expect(high.locator("output")).toHaveText("−∞");
+  expect(Number(await high.getAttribute("data-peak-dbfs"))).toBe(-Infinity);
+});
+
+test("the louder default program remains balanced and below full scale", async ({ page }) => {
+  await page.goto("surround-field.html", { waitUntil: "load" });
+  await settlePage(page);
+  await page.locator("#centerSource").click();
+  await expect(page.locator("#levelOut")).toHaveText("55%");
+  await page.locator("#recordButton").click();
+  await expect(page.locator("#recordButton")).toHaveAttribute("aria-pressed", "true");
+  await page.locator('[data-note="55"]').click();
+  const programMeter = page.locator('.channel-meter[data-index="0"]');
+  await page.waitForFunction(
+    () => Number(document.querySelector('.channel-meter[data-index="0"]')?.dataset.peakDbfs) > -20.5,
+  );
+  const programReading = await programMeter.evaluate((row) => ({
+    dbfs: Number(row.dataset.peakDbfs),
+    fill: Number(row.style.getPropertyValue("--meter")),
+  }));
+  expect(programReading.dbfs).toBeLessThan(-18.5);
+  expect(programReading.fill).toBeGreaterThan(0.65);
+  expect(programReading.fill).toBeLessThan(0.7);
+  await page.waitForTimeout(1050);
+  await page.locator("#recordButton").click();
+  await expect(page.locator("#downloadRecording")).toBeEnabled({ timeout: 10_000 });
+
+  const completed = await page.evaluate(() => window.__SURROUND_FIELD_DEBUG__.getState());
+  expect(completed.lastRecording.channelCount).toBe(8);
+  expect(completed.lastRecording.clippedSamples).toBe(0);
+  completed.lastRecording.peaks.forEach((peak) => {
+    expect(peak).toBeGreaterThan(0.095);
+    expect(peak).toBeLessThan(0.12);
+  });
+  expect(Math.max(...completed.lastRecording.peaks) - Math.min(...completed.lastRecording.peaks)).toBeLessThan(0.002);
+});
+
+test("a full-level eight-note chord retains digital headroom", async ({ page }) => {
+  await page.goto("surround-field.html", { waitUntil: "load" });
+  await settlePage(page);
+  await page.locator("#centerSource").click();
+  await setRange(page, "#level", 1);
+  await expect(page.locator("#levelOut")).toHaveText("100%");
+  await page.locator("#recordButton").click();
+  await expect(page.locator("#recordButton")).toHaveAttribute("aria-pressed", "true");
+  await page.locator(".note-pads button").evaluateAll((buttons) => {
+    for (const button of buttons) {
+      button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+    }
+  });
+  await page.waitForTimeout(1250);
+  await page.locator("#recordButton").click();
+  await expect(page.locator("#downloadRecording")).toBeEnabled({ timeout: 10_000 });
+
+  const completed = await page.evaluate(() => window.__SURROUND_FIELD_DEBUG__.getState());
+  expect(completed.lastRecording.clippedSamples).toBe(0);
+  expect(Math.max(...completed.lastRecording.peaks)).toBeGreaterThan(0.1);
+  expect(Math.max(...completed.lastRecording.peaks)).toBeLessThan(0.95);
 });
 
 test("a local audio file enters at unity and is captured across the virtual field", async ({ page }) => {
@@ -99,6 +212,7 @@ test("new calibration and recorder controls retain readable contrast", async ({ 
     ".test-signal-grid",
     ".test-trim-control",
     ".sweep-button",
+    ".channel-meter-heading",
     ".channel-meters",
     ".calibration-note",
     ".patch-source",
