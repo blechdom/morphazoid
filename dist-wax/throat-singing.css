@@ -93,7 +93,7 @@
   display: grid;
   height: 100%;
   overflow: hidden;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .throat-stage .stage-wrap,
@@ -118,187 +118,6 @@
 
 .throat-stage #stage.is-dragging {
   cursor: grabbing;
-}
-
-.throat-stage-title {
-  position: absolute;
-  z-index: 2;
-  top: clamp(22px, 4vh, 48px);
-  left: clamp(22px, 3vw, 48px);
-  pointer-events: none;
-}
-
-.throat-stage-title p,
-.throat-stage-title strong,
-.throat-stage-title small {
-  display: block;
-  margin: 0;
-}
-
-.throat-stage-title p {
-  color: rgba(215, 179, 92, 0.78);
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-}
-
-.throat-stage-title strong {
-  margin-top: 7px;
-  color: rgba(233, 228, 212, 0.92);
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: clamp(23px, 3.6vw, 49px);
-  font-weight: 350;
-  letter-spacing: -0.045em;
-  line-height: 0.95;
-}
-
-.throat-stage-title strong i {
-  color: var(--throat-gold);
-  font-family: var(--mono);
-  font-size: 0.62em;
-  font-style: normal;
-  vertical-align: 0.1em;
-}
-
-.throat-stage-title small {
-  margin-top: 10px;
-  color: rgba(141, 145, 138, 0.75);
-  font-size: 7px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.throat-style-morph {
-  position: absolute;
-  z-index: 6;
-  top: clamp(112px, 17vh, 154px);
-  left: clamp(22px, 3vw, 48px);
-  width: min(540px, 56%);
-  border: 1px solid rgba(215, 179, 92, 0.22);
-  color: var(--throat-bone);
-  background:
-    linear-gradient(112deg, rgba(215, 179, 92, 0.075), transparent 42%),
-    rgba(5, 7, 6, 0.88);
-  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
-}
-
-.throat-style-morph > summary {
-  display: none;
-}
-
-.throat-style-morph-body {
-  padding: 10px 12px 9px;
-}
-
-.throat-style-morph-heading {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.throat-style-morph-heading > span,
-.throat-style-morph-heading b,
-.throat-style-morph-heading small {
-  min-width: 0;
-}
-
-.throat-style-morph-heading b {
-  color: var(--throat-gold-bright);
-  font-size: 8px;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-}
-
-.throat-style-morph-heading small {
-  margin-left: 7px;
-  color: var(--throat-muted);
-  font-size: 6px;
-  letter-spacing: 0.04em;
-}
-
-.throat-style-morph-heading output {
-  overflow: hidden;
-  color: var(--throat-bone);
-  font-size: 7px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.throat-style-morph-controls {
-  display: grid;
-  min-width: 0;
-  margin-top: 7px;
-  align-items: end;
-  grid-template-columns: minmax(92px, 0.85fr) minmax(118px, 1.35fr) minmax(92px, 0.85fr);
-  gap: 9px;
-}
-
-.throat-style-morph-controls label {
-  display: grid;
-  min-width: 0;
-  color: var(--throat-muted);
-  font-size: 6px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.throat-style-morph-controls select {
-  width: 100%;
-  min-width: 0;
-  height: 31px;
-  margin-top: 3px;
-  padding: 0 25px 0 7px;
-  border: 1px solid rgba(215, 179, 92, 0.2);
-  border-radius: 0;
-  color: var(--throat-bone);
-  background: #090b09;
-  font-size: 7px;
-  text-overflow: ellipsis;
-}
-
-.throat-style-morph-rail > span {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 7px;
-}
-
-.throat-style-morph-rail output {
-  color: var(--throat-gold-bright);
-  font-size: 7px;
-  font-variant-numeric: tabular-nums;
-}
-
-.throat-style-morph-rail input[type="range"] {
-  height: 31px;
-}
-
-.throat-style-morph-rail input[type="range"]::-webkit-slider-runnable-track {
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    var(--throat-gold) 0 var(--range-progress, 0%),
-    rgba(215, 179, 92, 0.2) var(--range-progress, 0%) 100%
-  );
-}
-
-.throat-style-morph-rail input[type="range"]::-moz-range-track {
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    var(--throat-gold) 0 var(--range-progress, 0%),
-    rgba(215, 179, 92, 0.2) var(--range-progress, 0%) 100%
-  );
-}
-
-.throat-style-morph #styleMorphHelp {
-  margin: 4px 0 0;
-  color: rgba(141, 145, 138, 0.82);
-  font-size: 6px;
-  line-height: 1.35;
 }
 
 .throat-spectrum-legend {
@@ -416,104 +235,6 @@
   background: rgba(31, 8, 6, 0.93);
   font-size: 8px;
   line-height: 1.5;
-}
-
-.throat-harmonic-dock {
-  position: relative;
-  z-index: 4;
-  display: grid;
-  min-width: 0;
-  padding: 10px clamp(14px, 2vw, 24px) 12px;
-  border-top: 1px solid rgba(215, 179, 92, 0.2);
-  background:
-    linear-gradient(90deg, rgba(215, 179, 92, 0.055), transparent 52%),
-    #070907;
-  gap: 8px;
-}
-
-.throat-harmonic-heading {
-  display: flex;
-  min-width: 0;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.throat-harmonic-heading > span {
-  min-width: 0;
-}
-
-.throat-harmonic-heading b,
-.throat-harmonic-heading small {
-  display: inline;
-}
-
-.throat-harmonic-heading b {
-  color: var(--throat-gold-bright);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.throat-harmonic-heading small {
-  margin-left: 8px;
-  color: var(--throat-muted);
-  font-size: 7px;
-}
-
-.throat-harmonic-heading output {
-  color: var(--throat-bone);
-  font-size: 8px;
-  font-variant-numeric: tabular-nums;
-}
-
-.throat-harmonic-buttons {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: repeat(17, minmax(25px, 1fr));
-  gap: 3px;
-}
-
-.throat-harmonic-buttons button {
-  position: relative;
-  min-width: 0;
-  min-height: 34px;
-  padding: 4px 1px 3px;
-  border: 1px solid rgba(215, 179, 92, 0.16);
-  cursor: pointer;
-  color: var(--throat-muted);
-  background: rgba(11, 14, 11, 0.88);
-  font-size: 7px;
-  font-variant-numeric: tabular-nums;
-}
-
-.throat-harmonic-buttons button::before {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: var(--harmonic-energy, 2px);
-  max-height: 8px;
-  background: rgba(175, 140, 255, 0.5);
-  content: "";
-  transition: height 70ms linear;
-}
-
-.throat-harmonic-buttons button:hover,
-.throat-harmonic-buttons button:focus-visible {
-  border-color: var(--throat-gold);
-  color: var(--throat-bone);
-}
-
-.throat-harmonic-buttons button[aria-pressed="true"] {
-  border-color: var(--throat-gold-bright);
-  color: #080a07;
-  background: var(--throat-gold-bright);
-  box-shadow: 0 0 16px rgba(242, 217, 134, 0.18);
-}
-
-.throat-harmonic-buttons button[aria-pressed="true"]::before {
-  background: rgba(255, 255, 255, 0.4);
 }
 
 .throat-panel {
@@ -1009,11 +730,6 @@
     display: none;
   }
 
-  .throat-harmonic-buttons {
-    overflow-x: auto;
-    grid-template-columns: repeat(17, 32px);
-    scrollbar-width: thin;
-  }
 }
 
 @media (max-width: 960px) {
@@ -1033,21 +749,7 @@
   .throat-stage {
     position: relative;
     height: 100%;
-    grid-template-rows: minmax(0, 1fr) 76px;
-  }
-
-  .throat-stage-title {
-    top: 18px;
-    left: 20px;
-  }
-
-  .throat-stage-title small {
-    display: none;
-  }
-
-  .throat-style-morph {
-    top: 84px;
-    width: min(520px, calc(100% - 40px));
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .throat-stage-status {
@@ -1071,100 +773,6 @@
     grid-template-rows: clamp(290px, 45dvh, 390px) minmax(0, 1fr);
   }
 
-  .throat-stage {
-    grid-template-rows: minmax(0, 1fr) 67px;
-  }
-
-  .throat-stage-title {
-    top: 12px;
-    left: 13px;
-  }
-
-  .throat-stage-title p {
-    font-size: 6px;
-  }
-
-  .throat-stage-title strong {
-    margin-top: 4px;
-    font-size: clamp(18px, 6.5vw, 28px);
-  }
-
-  .throat-style-morph {
-    top: 47px;
-    right: 9px;
-    left: auto;
-    width: min(240px, calc(100% - 18px));
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
-  }
-
-  .throat-style-morph[open] {
-    width: calc(100% - 18px);
-  }
-
-  .throat-style-morph > summary {
-    display: flex;
-    min-height: 44px;
-    padding: 0 11px;
-    cursor: pointer;
-    list-style: none;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    color: var(--throat-gold-bright);
-    font-size: 7px;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-  }
-
-  .throat-style-morph > summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .throat-style-morph > summary::before {
-    color: var(--throat-gold);
-    content: "+";
-  }
-
-  .throat-style-morph[open] > summary::before {
-    content: "−";
-  }
-
-  .throat-style-morph > summary span {
-    margin-right: auto;
-  }
-
-  .throat-style-morph > summary output {
-    max-width: 52%;
-    overflow: hidden;
-    color: var(--throat-bone);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .throat-style-morph-body {
-    padding: 6px 10px 9px;
-    border-top: 1px solid rgba(215, 179, 92, 0.15);
-  }
-
-  .throat-style-morph-heading {
-    display: none;
-  }
-
-  .throat-style-morph-controls {
-    margin-top: 0;
-    grid-template-columns: minmax(88px, 1fr) minmax(104px, 1.25fr) minmax(88px, 1fr);
-    gap: 6px;
-  }
-
-  .throat-style-morph-controls select,
-  .throat-style-morph-rail input[type="range"] {
-    height: 36px;
-  }
-
-  .throat-style-morph #styleMorphHelp {
-    margin-top: 2px;
-  }
-
   .throat-stage-status {
     right: 10px;
     bottom: 9px;
@@ -1181,19 +789,6 @@
     display: block;
     border: 1px solid rgba(215, 179, 92, 0.18);
     text-align: right;
-  }
-
-  .throat-harmonic-dock {
-    padding: 7px 10px 9px;
-    gap: 5px;
-  }
-
-  .throat-harmonic-heading small {
-    display: none;
-  }
-
-  .throat-harmonic-buttons button {
-    min-height: 30px;
   }
 
   .throat-transport {
@@ -1235,23 +830,6 @@
     grid-template-rows: clamp(265px, 43dvh, 340px) minmax(0, 1fr);
   }
 
-  .throat-stage {
-    grid-template-rows: minmax(0, 1fr) 64px;
-  }
-
-  .throat-stage-title p {
-    display: none;
-  }
-
-  .throat-stage-title strong {
-    margin-top: 0;
-    font-size: 19px;
-  }
-
-  .throat-harmonic-heading output {
-    font-size: 7px;
-  }
-
   .throat-model-hud {
     grid-template-columns: 1fr;
   }
@@ -1263,15 +841,8 @@
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .throat-stage-title,
   .throat-stage-status,
   .throat-drag-hint {
     display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .throat-harmonic-buttons button::before {
-    transition: none;
   }
 }

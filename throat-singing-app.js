@@ -6,7 +6,6 @@ import {
   dualFocusTargets,
   harmonicFrequencyHz,
   heardDroneFrequencyHz,
-  interpolateThroatSingingStates,
   modulateThroatSingingPerformance,
   sanitizeThroatSingingState,
   throatSingingState,
@@ -14,7 +13,7 @@ import {
   throatSingingWaveguideDeformations,
   trueFoldFrequencyForDroneHz,
   ventricularFoldSupercycle,
-  voicelessInhaleGainCurve,
+  vocalFryModulationSupercycle,
 } from "./src/throat-singing.js";
 import { glottalHarmonics } from "./src/throatazoid.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
@@ -38,13 +37,13 @@ const NOTE_KEYS = Object.freeze([
   { key: "k", label: "D3", frequency: 146.832 },
 ]);
 const EXTRA_DEFAULTS = Object.freeze({
-  inhaleAudibility: 0.4,
   phantomAirways: 1,
   impossibleFocus: 0,
   sourceInstability: 0,
 });
 const styleExtras = (values) => Object.freeze({ ...EXTRA_DEFAULTS, ...values });
 const EXTRA_STYLE_VALUES = Object.freeze({
+  "open-drone": styleExtras({ sublingualCoupling: 0.06, pulseRate: 0, pulseDepth: 0 }),
   sygyt: styleExtras({ sublingualCoupling: 0.3, pulseRate: 0, pulseDepth: 0 }),
   xoomei: styleExtras({ sublingualCoupling: 0.2, pulseRate: 0, pulseDepth: 0 }),
   kargyraa: styleExtras({ sublingualCoupling: 0.06, pulseRate: 0.55, pulseDepth: 0.08 }),
@@ -53,13 +52,7 @@ const EXTRA_STYLE_VALUES = Object.freeze({
   "western-overtone": styleExtras({ sublingualCoupling: 0.12, pulseRate: 0, pulseDepth: 0 }),
   "low-chant": styleExtras({ sublingualCoupling: 0.04, pulseRate: 0.32, pulseDepth: 0.08 }),
 });
-const MORPH_EXTRA_KEYS = Object.freeze([
-  "sublingualCoupling",
-  "pulseRate",
-  "pulseDepth",
-]);
 const RUNTIME_EXTRA_KEYS = new Set([
-  "inhaleAudibility",
   "phantomAirways",
   "impossibleFocus",
   "sourceInstability",
@@ -67,10 +60,10 @@ const RUNTIME_EXTRA_KEYS = new Set([
 
 const CONTROL_BINDINGS = Object.freeze([
   { id: "trueFoldHz", key: "trueFoldHz", format: (value) => `${Math.round(value)} Hz` },
-  { id: "breathPressure", key: "intensity", format: formatPercent },
+  { id: "sourcePressure", key: "intensity", format: formatPercent },
   { id: "adduction", key: "foldTenseness", format: formatPercent },
-  { id: "aspiration", key: "breathiness", format: formatPercent },
-  { id: "inhaleAudibility", key: "inhaleAudibility", extra: true, format: formatPercent },
+  { id: "vocalFry", key: "creakAmount", format: formatPercent },
+  { id: "growlRoughness", key: "roughness", format: formatPercent },
   { id: "ventricularCoupling", key: "falseFoldCoupling", format: formatPercent },
   { id: "periodDivision", key: "falseFoldDivision", format: formatDivision },
   { id: "harmonicNumber", key: "harmonicNumber", format: (value) => `H${Math.round(value)}` },
@@ -101,13 +94,10 @@ const CONTROL_BINDINGS = Object.freeze([
   { id: "level", key: "level", format: formatPercent },
 ]);
 
-let state = throatSingingState("sygyt", { level: 0.34 });
-let extras = { ...EXTRA_STYLE_VALUES.sygyt };
-let activeStyleId = "sygyt";
-let modelProvenance = { kind: "preset", id: "sygyt" };
-let styleMorphSelection = { fromId: "sygyt", toId: "xoomei", amount: 0 };
-let styleMorphFocus = null;
-let morphAudioFrame = 0;
+let state = throatSingingState("open-drone", { level: 0.28 });
+let extras = { ...EXTRA_STYLE_VALUES["open-drone"] };
+let activeStyleId = "open-drone";
+let modelProvenance = { kind: "preset", id: "open-drone" };
 let audioContext = null;
 let graph = null;
 let audioOn = false;
@@ -132,8 +122,6 @@ let spectrum = new Float32Array(2048);
 let currentPerformance = modulateThroatSingingPerformance(state, 0);
 let currentFocus = currentPerformance.focus;
 let pageActive = true;
-let inhaleActive = false;
-let inhaleTimer = 0;
 let sourceWaveTransitionGeneration = 0;
 let sourceWaveMuted = false;
 
@@ -194,29 +182,14 @@ function compactStyleLabel(style) {
 }
 
 function styleScopeLabel(style) {
-  return style.isTuvan ? "Tuvan reference" : "non-Tuvan comparison";
-}
-
-function geometricLerp(from, to, amount) {
-  const safeFrom = Math.max(0.0001, Number(from) || 0.0001);
-  const safeTo = Math.max(0.0001, Number(to) || 0.0001);
-  return safeFrom * Math.pow(safeTo / safeFrom, clamp(amount));
+  if (style.isTuvan) return "Tuvan reference";
+  return style.isExploration ? "Synthetic exploration" : "non-Tuvan comparison";
 }
 
 function markCustomEdit() {
   sourceWaveTransitionGeneration += 1;
   sourceWaveMuted = false;
-  styleMorphFocus = null;
   if (modelProvenance.kind === "custom") return;
-  if (modelProvenance.kind === "morph") {
-    modelProvenance = {
-      kind: "custom",
-      fromId: modelProvenance.fromId,
-      toId: modelProvenance.toId,
-      amount: modelProvenance.amount,
-    };
-    return;
-  }
   modelProvenance = { kind: "custom", fromId: modelProvenance.id };
 }
 
@@ -234,23 +207,9 @@ function provenancePresentation() {
   }
 
   const from = styleById(modelProvenance.fromId);
-  const to = modelProvenance.toId ? styleById(modelProvenance.toId) : null;
-  if (modelProvenance.kind === "morph" && to) {
-    const scope = from.isTuvan === to.isTuvan
-      ? "Synthetic interpolation · not a named tradition"
-      : "Tuvan reference + non-Tuvan comparison · exploratory";
-    return {
-      heading: `${scope}${labSuffix}`,
-      description: `Reference endpoints: ${from.label} (${styleScopeLabel(from)}) and ${to.label} (${styleScopeLabel(to)}). This position interpolates the synthesizer’s source, airway, focus, and motion controls.`,
-    };
-  }
-
-  const origin = to
-    ? `${compactStyleLabel(from)} and ${compactStyleLabel(to)}`
-    : compactStyleLabel(from);
   return {
-    heading: `Custom edit · from ${to ? "synthetic endpoints" : styleScopeLabel(from)}${labSuffix}`,
-    description: `Custom engine state derived from ${origin}; it is not a named singing tradition.`,
+    heading: `Custom edit · from ${styleScopeLabel(from)}${labSuffix}`,
+    description: `Custom engine state derived from ${compactStyleLabel(from)}; it is not a named singing tradition.`,
   };
 }
 
@@ -264,116 +223,6 @@ function updateRangeFill(input) {
   const maximum = Number(input.max) || 1;
   const progress = clamp((Number(input.value) - minimum) / Math.max(1e-9, maximum - minimum));
   input.style.setProperty("--range-progress", `${(progress * 100).toFixed(2)}%`);
-}
-
-function morphEndpointStates() {
-  return {
-    fromStyle: styleById(styleMorphSelection.fromId),
-    toStyle: styleById(styleMorphSelection.toId),
-    fromState: throatSingingState(styleMorphSelection.fromId),
-    toState: throatSingingState(styleMorphSelection.toId),
-  };
-}
-
-function updateStyleMorphControls() {
-  const fromInput = $("styleMorphFrom");
-  const toInput = $("styleMorphTo");
-  const input = $("styleMorph");
-  if (!fromInput || !toInput || !input) return;
-  const amount = clamp(styleMorphSelection.amount);
-  const from = styleById(styleMorphSelection.fromId);
-  const to = styleById(styleMorphSelection.toId);
-  const fromLabel = compactStyleLabel(from);
-  const toLabel = compactStyleLabel(to);
-  fromInput.value = from.id;
-  toInput.value = to.id;
-  input.value = String(amount);
-  updateRangeFill(input);
-  $("styleMorphAmountOut").textContent = formatPercent(amount);
-
-  let label;
-  let valueText;
-  if (amount <= 0.0005 || from.id === to.id) {
-    label = `${fromLabel} · exact`;
-    valueText = `${from.label}, exact preset`;
-  } else if (amount >= 0.9995) {
-    label = `${toLabel} · exact`;
-    valueText = `${to.label}, exact preset`;
-  } else {
-    label = `${fromLabel} → ${toLabel} · ${formatPercent(amount)}`;
-    valueText = `${formatPercent(amount)} from ${from.label} toward ${to.label}; exploratory synthesis`;
-  }
-  $("styleMorphOut").textContent = label;
-  $("styleMorphSummary").textContent = label;
-  input.setAttribute("aria-valuetext", valueText);
-}
-
-function scheduleMorphAudioUpdate() {
-  if (morphAudioFrame) return;
-  morphAudioFrame = requestAnimationFrame((now) => {
-    morphAudioFrame = 0;
-    applyAudioParameters(false, now);
-  });
-}
-
-function applyStyleMorph(amount, { announceChange = false } = {}) {
-  sourceWaveTransitionGeneration += 1;
-  sourceWaveMuted = false;
-  styleMorphSelection.amount = clamp(amount);
-  const mix = styleMorphSelection.amount;
-  const { fromStyle, toStyle, fromState, toState } = morphEndpointStates();
-  const priorLevel = state.level;
-  const priorActive = state.active;
-  const next = interpolateThroatSingingStates(fromState, toState, mix);
-  state = sanitizedAppState({
-    ...next,
-    active: priorActive,
-    level: priorLevel,
-  }, next);
-
-  for (const key of MORPH_EXTRA_KEYS) {
-    const fromValue = EXTRA_STYLE_VALUES[fromStyle.id]?.[key] ?? EXTRA_DEFAULTS[key] ?? 0;
-    const toValue = EXTRA_STYLE_VALUES[toStyle.id]?.[key] ?? EXTRA_DEFAULTS[key] ?? 0;
-    extras[key] = lerp(fromValue, toValue, mix);
-  }
-
-  const exactFrom = mix <= 0.0005 || fromStyle.id === toStyle.id;
-  const exactTo = mix >= 0.9995 && fromStyle.id !== toStyle.id;
-  if (exactFrom || exactTo) {
-    const exactStyle = exactTo ? toStyle : fromStyle;
-    activeStyleId = exactStyle.id;
-    modelProvenance = { kind: "preset", id: exactStyle.id };
-    styleMorphFocus = null;
-  } else {
-    activeStyleId = mix < 0.5 ? fromStyle.id : toStyle.id;
-    modelProvenance = {
-      kind: "morph",
-      fromId: fromStyle.id,
-      toId: toStyle.id,
-      amount: mix,
-    };
-    styleMorphFocus = {
-      droneHz: geometricLerp(
-        heardDroneFrequencyHz(fromState),
-        heardDroneFrequencyHz(toState),
-        mix,
-      ),
-      targetHz: geometricLerp(
-        harmonicFrequencyHz(fromState),
-        harmonicFrequencyHz(toState),
-        mix,
-      ),
-    };
-  }
-  lastTractSignature = "";
-  updateStyleMorphControls();
-  updateReadouts();
-  scheduleMorphAudioUpdate();
-  if (announceChange) {
-    announce(exactFrom || exactTo
-      ? `${(exactTo ? toStyle : fromStyle).label}, exact preset.`
-      : `${formatPercent(mix)} from ${fromStyle.label} toward ${toStyle.label}. Exploratory synthesis, not a named tradition.`);
-  }
 }
 
 function controlValue(binding) {
@@ -407,13 +256,8 @@ function gestureOffsetAt(now = performance.now()) {
 function performanceAt(now = performance.now()) {
   const performanceState = modulateThroatSingingPerformance(state, performanceElapsed(now));
   const harmonicOffset = gestureOffsetAt(now);
-  const pitchScale = performanceState.trueFoldHz / Math.max(1, state.trueFoldHz);
-  const baseDroneHz = styleMorphFocus
-    ? styleMorphFocus.droneHz * pitchScale
-    : performanceState.heardDroneHz;
-  const baseHarmonic = styleMorphFocus
-    ? styleMorphFocus.targetHz / styleMorphFocus.droneHz
-    : state.harmonicNumber;
+  const baseDroneHz = performanceState.heardDroneHz;
+  const baseHarmonic = state.harmonicNumber;
   const targetHarmonic = clamp(
     baseHarmonic + harmonicOffset,
     THROAT_SINGING_LIMITS.harmonicNumber[0],
@@ -436,13 +280,16 @@ function updateReadouts(now = performance.now()) {
   currentFocus = currentPerformance.focus;
   const drone = currentPerformance.heardDroneHz;
   const closurePattern = closurePatternFrequencyHz(state);
-  const harmonicFrequency = styleMorphFocus?.targetHz ?? harmonicFrequencyHz(state);
+  const harmonicFrequency = harmonicFrequencyHz(state);
   const provenance = provenancePresentation();
   const merged = currentFocus.merged || state.formantConvergence >= 0.9;
   $("levelOut").textContent = formatPercent(state.level);
   $("traditionOut").textContent = provenance.heading;
   $("styleDescription").textContent = provenance.description;
-  $("foldReadout").textContent = `${Math.round(state.trueFoldHz)} Hz · ${state.foldTenseness >= 0.67 ? "pressed" : "modal"}`;
+  const sourceQuality = state.creakAmount >= 0.15
+    ? "creaky"
+    : state.foldTenseness >= 0.67 ? "pressed" : "modal";
+  $("foldReadout").textContent = `${Math.round(state.trueFoldHz)} Hz · ${sourceQuality}`;
   $("ventricularReadout").textContent = state.falseFoldCoupling < 0.08
     ? state.falseFoldDivision > 1 ? `${state.falseFoldDivision}:1 armed · folds open` : "folds open"
     : `${state.falseFoldDivision}:1 · ${formatPercent(state.falseFoldCoupling)} · ${Math.round(closurePattern)} Hz pattern`;
@@ -450,8 +297,10 @@ function updateReadouts(now = performance.now()) {
   $("tractReadout").textContent = `${merged ? "merged F2/F3" : "split F2/F3"} · ${state.tractLengthCm.toFixed(1)} cm`;
   $("sourceSummary").textContent = state.falseFoldDivision > 1
     ? `${Math.round(state.trueFoldHz)} Hz folds · ${Math.round(closurePattern)} Hz pattern`
-    : `${Math.round(state.trueFoldHz)} Hz folds · one pulse`;
-  $("focusSummary").textContent = `H${currentPerformance.targetHarmonic.toFixed(styleMorphFocus ? 1 : 0)} · ${merged ? "F2/F3 merged" : `${Math.round(currentFocus.separationHz)} Hz split`}`;
+    : state.creakAmount >= 0.08
+      ? `${Math.round(state.trueFoldHz)} Hz folds · creak ${formatPercent(state.creakAmount)}`
+      : `${Math.round(state.trueFoldHz)} Hz folds · one pulse`;
+  $("focusSummary").textContent = `H${currentPerformance.targetHarmonic.toFixed(0)} · ${merged ? "F2/F3 merged" : `${Math.round(currentFocus.separationHz)} Hz split`}`;
   $("motionSummary").textContent = state.motionRateHz > 0.05 || extras.pulseRate > 0.05
     ? `${state.motionRateHz.toFixed(1)} Hz focus · ${extras.pulseRate.toFixed(1)} Hz pulse`
     : "steady focus";
@@ -461,7 +310,6 @@ function updateReadouts(now = performance.now()) {
     : extras.impossibleFocus > 0.01 || extras.sourceInstability > 0.01
       ? `${formatPercent(extras.impossibleFocus)} focus · ${formatPercent(extras.sourceInstability)} instability`
       : "human model intact";
-  $("harmonicFrequencyOut").textContent = `H${currentPerformance.targetHarmonic.toFixed(styleMorphFocus ? 1 : 0)} · ${Math.round(harmonicFrequency).toLocaleString()} Hz`;
   $("stageDroneOut").textContent = formatFrequency(currentPerformance.heardDroneHz);
   $("stageOvertoneOut").textContent = `H${currentPerformance.targetHarmonic.toFixed(1)} · ${formatFrequency(currentFocus.targetHz)}`;
   $("stageFormantOut").textContent = merged
@@ -469,20 +317,10 @@ function updateReadouts(now = performance.now()) {
     : `F2 ↔ F3 · ${Math.round(currentFocus.separationHz)} Hz`;
 
   for (const binding of CONTROL_BINDINGS) updateControl(binding);
-  if (styleMorphFocus) {
-    $("harmonicNumberOut").textContent = `H${currentPerformance.targetHarmonic.toFixed(1)} · morph`;
-  }
-  updateStyleMorphControls();
   document.querySelectorAll("[data-style-id]").forEach((button) => {
     setPressed(
       button,
       modelProvenance.kind === "preset" && button.dataset.styleId === modelProvenance.id,
-    );
-  });
-  document.querySelectorAll("[data-harmonic]").forEach((button) => {
-    setPressed(
-      button,
-      !styleMorphFocus && Number(button.dataset.harmonic) === state.harmonicNumber,
     );
   });
   document.querySelectorAll("[data-note-frequency]").forEach((button) => {
@@ -533,19 +371,20 @@ function performSilentModelSwap(commit) {
 
 function loadStyle(styleId, { announceChange = true, preserveRuntime = true } = {}) {
   const next = throatSingingState(styleId);
-  syncStyleMorphToPreset(next.styleId);
   performSilentModelSwap((immediate) => {
-    state = sanitizedAppState({ ...next, level: state.level }, next);
+    state = sanitizedAppState({
+      ...next,
+      level: preserveRuntime ? state.level : next.level,
+    }, next);
     const runtimeExtras = preserveRuntime
       ? Object.fromEntries([...RUNTIME_EXTRA_KEYS].map((key) => [key, extras[key]]))
       : {};
     extras = {
-      ...(EXTRA_STYLE_VALUES[styleId] ?? EXTRA_STYLE_VALUES.sygyt),
+      ...(EXTRA_STYLE_VALUES[styleId] ?? EXTRA_STYLE_VALUES["open-drone"]),
       ...runtimeExtras,
     };
     activeStyleId = next.styleId;
     modelProvenance = { kind: "preset", id: next.styleId };
-    styleMorphFocus = null;
     performanceStartedAt = performance.now();
     lastTractSignature = "";
     updateReadouts();
@@ -566,75 +405,11 @@ function buildStyleButtons() {
     button.dataset.styleId = style.id;
     button.title = style.evidence?.notice ?? style.description;
     const compactLabel = style.label.replace(/ — comparison$/, "");
-    button.innerHTML = `<b>${compactLabel}</b><small>${style.isTuvan ? "Tuvan" : "comparison"}</small>`;
+    const scope = style.isTuvan ? "Tuvan" : style.isExploration ? "explore" : "comparison";
+    button.innerHTML = `<b>${compactLabel}</b><small>${scope}</small>`;
     button.addEventListener("click", () => loadStyle(style.id));
     root.append(button);
   }
-}
-
-function populateMorphSelect(select) {
-  select.replaceChildren();
-  const groups = [
-    { label: "Tuvan reference presets", entries: THROAT_SINGING_STYLE_PRESETS.filter(({ isTuvan }) => isTuvan) },
-    { label: "Non-Tuvan comparisons", entries: THROAT_SINGING_STYLE_PRESETS.filter(({ isTuvan }) => !isTuvan) },
-  ];
-  for (const group of groups) {
-    const optgroup = document.createElement("optgroup");
-    optgroup.label = group.label;
-    for (const style of group.entries) {
-      const option = document.createElement("option");
-      option.value = style.id;
-      option.textContent = style.label;
-      optgroup.append(option);
-    }
-    select.append(optgroup);
-  }
-}
-
-function installStyleMorphControls() {
-  const fromInput = $("styleMorphFrom");
-  const toInput = $("styleMorphTo");
-  const amountInput = $("styleMorph");
-  populateMorphSelect(fromInput);
-  populateMorphSelect(toInput);
-  fromInput.addEventListener("change", () => {
-    styleMorphSelection.fromId = fromInput.value;
-    applyStyleMorph(styleMorphSelection.amount, { announceChange: true });
-  });
-  toInput.addEventListener("change", () => {
-    styleMorphSelection.toId = toInput.value;
-    applyStyleMorph(styleMorphSelection.amount, { announceChange: true });
-  });
-  amountInput.addEventListener("input", () => applyStyleMorph(Number(amountInput.value)));
-  amountInput.addEventListener("change", () => applyStyleMorph(
-    Number(amountInput.value),
-    { announceChange: true },
-  ));
-  updateStyleMorphControls();
-
-  const compactQuery = globalThis.matchMedia?.("(max-width: 650px)");
-  const panel = $("styleMorphPanel");
-  const adaptPanel = (event = compactQuery) => {
-    if (panel && event) panel.open = !event.matches;
-  };
-  adaptPanel();
-  compactQuery?.addEventListener?.("change", adaptPanel);
-}
-
-function syncStyleMorphToPreset(styleId) {
-  const selectedIndex = THROAT_SINGING_STYLE_PRESETS.findIndex(({ id }) => id === styleId);
-  const fallbackIndex = selectedIndex >= 0 ? selectedIndex : 0;
-  let toId = styleMorphSelection.toId;
-  if (toId === styleId) {
-    const neighbor = THROAT_SINGING_STYLE_PRESETS[
-      fallbackIndex < THROAT_SINGING_STYLE_PRESETS.length - 1
-        ? fallbackIndex + 1
-        : Math.max(0, fallbackIndex - 1)
-    ];
-    toId = neighbor.id;
-  }
-  styleMorphSelection = { fromId: styleId, toId, amount: 0 };
-  updateStyleMorphControls();
 }
 
 function setHarmonic(harmonic, { announceChange = true } = {}) {
@@ -649,20 +424,6 @@ function setHarmonic(harmonic, { announceChange = true } = {}) {
   applyAudioParameters();
   if (announceChange) {
     announce(`Focused harmonic H${requested}, ${formatFrequency(harmonicFrequencyHz(state))}.`);
-  }
-}
-
-function buildHarmonicButtons() {
-  const root = $("harmonicButtons");
-  root.replaceChildren();
-  for (const harmonic of HARMONICS) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.harmonic = String(harmonic);
-    button.textContent = `H${harmonic}`;
-    button.title = `Focus harmonic ${harmonic}`;
-    button.addEventListener("click", () => setHarmonic(harmonic));
-    root.append(button);
   }
 }
 
@@ -711,23 +472,6 @@ function installControls() {
       }
     });
   }
-}
-
-function createNoiseSource(audio, seconds = 2) {
-  if (!audio.createBuffer || !audio.createBufferSource) return null;
-  const sampleRate = audio.sampleRate || 48_000;
-  const buffer = audio.createBuffer(1, Math.ceil(sampleRate * seconds), sampleRate);
-  const samples = buffer.getChannelData(0);
-  let seed = 0x71a0f11d;
-  for (let index = 0; index < samples.length; index += 1) {
-    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
-    samples[index] = seed / 0x8000_0000 - 1;
-  }
-  const source = audio.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-  source.start();
-  return source;
 }
 
 function makeSoftClipCurve(size = 4096, drive = 1.55) {
@@ -783,54 +527,6 @@ function crossfadeWaveGains(gains, fromIndex, toIndex, immediate = false) {
   if (immediate && fromIndex !== toIndex) gains[fromIndex]?.gain?.setValueAtTime?.(0, now);
 }
 
-function cancelInhale({ refresh = true } = {}) {
-  if (inhaleTimer) clearTimeout(inhaleTimer);
-  inhaleTimer = 0;
-  inhaleActive = false;
-  const parameter = graph?.inhaleGain?.gain;
-  if (parameter && audioContext) {
-    const now = audioContext.currentTime;
-    if (typeof parameter.cancelAndHoldAtTime === "function") parameter.cancelAndHoldAtTime(now);
-    else parameter.cancelScheduledValues?.(now);
-    parameter.setTargetAtTime?.(0, now, 0.006);
-  }
-  if (refresh) setAudioPresentation(audioOn ? "on" : "off");
-}
-
-async function triggerVoicelessInhale({ afterRelease = false } = {}) {
-  if (extras.inhaleAudibility <= 0.001) {
-    cancelInhale();
-    announce("Audible inhale is muted.");
-    return false;
-  }
-  if (!audioOn) {
-    await setAudioEnabled(true);
-    if (!audioOn) return false;
-  }
-  const parameter = graph?.inhaleGain?.gain;
-  if (!parameter || !audioContext) return false;
-  cancelInhale({ refresh: false });
-  const now = audioContext.currentTime;
-  const onsetSeconds = 0.018;
-  const durationSeconds = 0.46;
-  const curve = voicelessInhaleGainCurve(extras.inhaleAudibility);
-  if (typeof parameter.cancelAndHoldAtTime === "function") parameter.cancelAndHoldAtTime(now);
-  else parameter.cancelScheduledValues?.(now);
-  parameter.setValueAtTime?.(parameter.value, now);
-  parameter.linearRampToValueAtTime?.(0, now + 0.008);
-  parameter.setValueCurveAtTime?.(curve, now + onsetSeconds, durationSeconds);
-  parameter.setValueAtTime?.(0, now + onsetSeconds + durationSeconds + 0.002);
-  inhaleActive = true;
-  setAudioPresentation("on");
-  inhaleTimer = setTimeout(() => {
-    inhaleTimer = 0;
-    inhaleActive = false;
-    setAudioPresentation(audioOn ? "on" : "off");
-  }, (onsetSeconds + durationSeconds + 0.04) * 1_000);
-  announce(`${afterRelease ? "Drone released. " : ""}Voiceless breath intake. This is an ordinary inhale, not inspiratory phonation.`);
-  return true;
-}
-
 async function createPhysicalTract(audio) {
   if (!audio.audioWorklet?.addModule || typeof globalThis.AudioWorkletNode !== "function") return null;
   try {
@@ -869,19 +565,14 @@ function buildAudioGraph(audio, physicalTract) {
   const dividerDepth = audio.createGain();
   const roughnessOscillator = audio.createOscillator();
   const roughnessDepth = audio.createGain();
+  const roughnessAmplitudeDepth = audio.createGain();
+  const creakOscillator = audio.createOscillator();
+  const creakPitchDepth = audio.createGain();
+  const creakAmplitudeDepth = audio.createGain();
   const instabilityOscillator = audio.createOscillator();
   const instabilityDepth = audio.createGain();
   const pulseOscillator = audio.createOscillator();
   const pulseDepth = audio.createGain();
-  const breathNoise = createNoiseSource(audio);
-  const breathHighpass = audio.createBiquadFilter();
-  const breathLowpass = audio.createBiquadFilter();
-  const breathGain = audio.createGain();
-  const inhaleHighpass = audio.createBiquadFilter();
-  const inhalePeakLow = audio.createBiquadFilter();
-  const inhalePeakHigh = audio.createBiquadFilter();
-  const inhaleShelf = audio.createBiquadFilter();
-  const inhaleGain = audio.createGain();
   const sourceLowpass = audio.createBiquadFilter();
   const pressureGain = audio.createGain();
   const sourceBus = audio.createGain();
@@ -914,34 +605,22 @@ function buildAudioGraph(audio, physicalTract) {
   roughnessOscillator.type = "sine";
   roughnessOscillator.frequency.value = 19.7;
   roughnessDepth.gain.value = 0;
+  roughnessAmplitudeDepth.gain.value = 0;
+  const creakCycle = vocalFryModulationSupercycle();
+  creakOscillator.setPeriodicWave(audio.createPeriodicWave(
+    creakCycle.real,
+    creakCycle.imaginary,
+    { disableNormalization: true },
+  ));
+  creakOscillator.frequency.value = 24;
+  creakPitchDepth.gain.value = 0;
+  creakAmplitudeDepth.gain.value = 0;
   instabilityOscillator.type = "triangle";
   instabilityOscillator.frequency.value = 7.13;
   instabilityDepth.gain.value = 0;
   pulseOscillator.type = "sine";
   pulseOscillator.frequency.value = 0.01;
   pulseDepth.gain.value = 0;
-  breathHighpass.type = "highpass";
-  breathHighpass.frequency.value = 420;
-  breathHighpass.Q.value = 0.707;
-  breathLowpass.type = "lowpass";
-  breathLowpass.frequency.value = 7_600;
-  breathLowpass.Q.value = 0.707;
-  breathGain.gain.value = 0;
-  inhaleHighpass.type = "highpass";
-  inhaleHighpass.frequency.value = 140;
-  inhaleHighpass.Q.value = 0.707;
-  inhalePeakLow.type = "peaking";
-  inhalePeakLow.frequency.value = 500;
-  inhalePeakLow.Q.value = 0.9;
-  inhalePeakLow.gain.value = 3;
-  inhalePeakHigh.type = "peaking";
-  inhalePeakHigh.frequency.value = 1_550;
-  inhalePeakHigh.Q.value = 1.05;
-  inhalePeakHigh.gain.value = 6;
-  inhaleShelf.type = "highshelf";
-  inhaleShelf.frequency.value = 2_600;
-  inhaleShelf.gain.value = -8;
-  inhaleGain.gain.value = 0;
   sourceLowpass.type = "lowpass";
   sourceLowpass.frequency.value = 7_500;
   sourceLowpass.Q.value = 0.75;
@@ -1000,6 +679,13 @@ function buildAudioGraph(audio, physicalTract) {
   roughnessDepth.connect(glottalOscillatorB.detune);
   roughnessDepth.connect(dividerOscillator.detune);
   roughnessDepth.connect(dividerOscillatorB.detune);
+  connect(roughnessOscillator, roughnessAmplitudeDepth);
+  roughnessAmplitudeDepth.connect(pressureGain.gain);
+  connect(creakOscillator, creakPitchDepth);
+  creakPitchDepth.connect(glottalOscillator.detune);
+  creakPitchDepth.connect(glottalOscillatorB.detune);
+  connect(creakOscillator, creakAmplitudeDepth);
+  creakAmplitudeDepth.connect(pressureGain.gain);
   connect(instabilityOscillator, instabilityDepth);
   instabilityDepth.connect(glottalOscillator.detune);
   instabilityDepth.connect(glottalOscillatorB.detune);
@@ -1010,18 +696,6 @@ function buildAudioGraph(audio, physicalTract) {
   connect(pressureGain, sourceBus);
   connect(pulseOscillator, pulseDepth);
   pulseDepth.connect(pressureGain.gain);
-  if (breathNoise) {
-    connect(breathNoise, breathHighpass);
-    connect(breathHighpass, breathLowpass);
-    connect(breathLowpass, breathGain);
-    connect(breathGain, sourceBus);
-    connect(breathNoise, inhaleHighpass);
-    connect(inhaleHighpass, inhalePeakLow);
-    connect(inhalePeakLow, inhalePeakHigh);
-    connect(inhalePeakHigh, inhaleShelf);
-    connect(inhaleShelf, inhaleGain);
-    connect(inhaleGain, mix);
-  }
 
   if (physicalTract) {
     connect(sourceBus, physicalTract, 0, 0);
@@ -1062,6 +736,7 @@ function buildAudioGraph(audio, physicalTract) {
     dividerOscillator,
     dividerOscillatorB,
     roughnessOscillator,
+    creakOscillator,
     instabilityOscillator,
     pulseOscillator,
   ]) {
@@ -1081,19 +756,15 @@ function buildAudioGraph(audio, physicalTract) {
     dividerDepth,
     roughnessOscillator,
     roughnessDepth,
+    roughnessAmplitudeDepth,
+    creakOscillator,
+    creakPitchDepth,
+    creakAmplitudeDepth,
+    creakCycle,
     instabilityOscillator,
     instabilityDepth,
     pulseOscillator,
     pulseDepth,
-    breathNoise,
-    breathHighpass,
-    breathLowpass,
-    breathGain,
-    inhaleHighpass,
-    inhalePeakLow,
-    inhalePeakHigh,
-    inhaleShelf,
-    inhaleGain,
     sourceLowpass,
     pressureGain,
     sourceBus,
@@ -1152,7 +823,11 @@ async function ensureAudioGraph() {
 
 function updateGlottalWaveform(performanceState, immediate = false) {
   if (!graph?.glottalOscillator?.setPeriodicWave || !audioContext?.createPeriodicWave) return;
-  const waveKey = (Math.round(performanceState.foldTenseness * 24) / 24).toFixed(3);
+  const sourceTenseness = clamp(
+    performanceState.foldTenseness
+      + performanceState.creakAmount * 0.22,
+  );
+  const waveKey = (Math.round(sourceTenseness * 24) / 24).toFixed(3);
   if (waveKey === lastWaveKey) return;
   const { real, imaginary } = glottalHarmonics(Number(waveKey), 72, 1024);
   const wave = audioContext.createPeriodicWave(real, imaginary, { disableNormalization: false });
@@ -1278,6 +953,7 @@ function applyAudioParameters(immediate = false, now = performance.now()) {
   currentFocus = performanceState.focus;
   const live = singing && audioOn && audioContext.state === "running";
   const pressure = performanceState.intensity;
+  const creak = performanceState.creakAmount;
   const coupling = performanceState.falseFoldCoupling;
   const division = performanceState.falseFoldDivision;
   const ventricularCycle = updateVentricularWaveform(performanceState, immediate || !live);
@@ -1290,11 +966,25 @@ function applyAudioParameters(immediate = false, now = performance.now()) {
   const closureCompensation = clamp(1 / gateRms, 1, 1.25);
   const pulseDepth = extras.pulseDepth;
   const gate = live ? 1 : 0;
-  const pulseBase = gate * pressure * (1 - pulseDepth * 0.34) * closureCompensation;
+  const voicedPressure = pressure * (1 - creak * 0.16);
+  const pulseBase = gate * voicedPressure * (1 - pulseDepth * 0.34) * closureCompensation;
 
   updateGlottalWaveform(performanceState, immediate || !live);
   setAudioParam(graph.glottalOscillator.frequency, performanceState.trueFoldHz, immediate, 0.025);
   setAudioParam(graph.glottalOscillators?.[1]?.frequency, performanceState.trueFoldHz, immediate, 0.025);
+  setAudioParam(
+    graph.creakOscillator.frequency,
+    performanceState.trueFoldHz * (graph.creakCycle?.baseFrequencyRatio ?? 0.2),
+    immediate,
+    0.035,
+  );
+  setAudioParam(graph.creakPitchDepth.gain, creak * (34 + creak * 56), immediate, 0.055);
+  setAudioParam(
+    graph.creakAmplitudeDepth.gain,
+    gate * pressure * creak * 0.24,
+    immediate || !live,
+    0.05,
+  );
   setAudioParam(
     graph.dividerOscillator.frequency,
     performanceState.trueFoldHz / Math.max(1, division),
@@ -1312,9 +1002,15 @@ function applyAudioParameters(immediate = false, now = performance.now()) {
   setAudioParam(graph.roughnessOscillator.frequency, 17 + performanceState.roughness * 16, immediate, 0.08);
   setAudioParam(
     graph.roughnessDepth.gain,
-    performanceState.roughness * 19 + extras.sourceInstability * 32,
+    performanceState.roughness * 28 + extras.sourceInstability * 32,
     immediate,
     0.07,
+  );
+  setAudioParam(
+    graph.roughnessAmplitudeDepth.gain,
+    gate * pressure * performanceState.roughness * 0.1,
+    immediate || !live,
+    0.06,
   );
   setAudioParam(
     graph.instabilityOscillator.frequency,
@@ -1326,12 +1022,6 @@ function applyAudioParameters(immediate = false, now = performance.now()) {
   setAudioParam(graph.pulseOscillator.frequency, Math.max(0.01, extras.pulseRate), immediate, 0.08);
   setAudioParam(graph.pulseDepth.gain, gate * pressure * pulseDepth * 0.34, immediate || !live, 0.04);
   setAudioParam(graph.pressureGain.gain, pulseBase, immediate || !live, live ? 0.045 : 0.018);
-  setAudioParam(
-    graph.breathGain.gain,
-    gate * pressure * performanceState.breathiness * 0.18,
-    immediate || !live,
-    0.055,
-  );
   setAudioParam(
     graph.sourceLowpass.frequency,
     3_200 + performanceState.foldTenseness * 8_800,
@@ -1381,7 +1071,7 @@ function applyAudioParameters(immediate = false, now = performance.now()) {
     immediate,
     0.05,
   );
-  setAudioParam(graph.bodyGain.gain, 0.1 + performanceState.breathiness * 0.1, immediate, 0.05);
+  setAudioParam(graph.bodyGain.gain, 0.13 + creak * 0.06, immediate, 0.05);
   setAudioParam(graph.droneLowpass.frequency, 620 + heardDroneFrequencyHz(performanceState) * 2.2, immediate, 0.04);
   setAudioParam(
     graph.masterGain.gain,
@@ -1420,11 +1110,9 @@ function setAudioPresentation(status) {
   $("audioButton").disabled = status === "starting";
   setPressed($("singButton"), singing);
   $("singButtonLabel").textContent = singing ? "Release drone" : "Begin drone";
-  $("singState").textContent = inhaleActive
-    ? "inhaling · voiceless breath intake"
-    : singing
-      ? "sounding · click to release"
-      : audioOn ? "ready · space or click" : "space · click to latch";
+  $("singState").textContent = singing
+    ? "sounding · click to release"
+    : audioOn ? "ready · space or click" : "space · click to latch";
 }
 
 async function setAudioEnabled(enabled) {
@@ -1434,7 +1122,6 @@ async function setAudioEnabled(enabled) {
     : ++audioGeneration;
   audioWanted = nextWanted;
   if (!enabled) {
-    cancelInhale({ refresh: false });
     singing = false;
     audioOn = false;
     setAudioPresentation("off");
@@ -1467,32 +1154,18 @@ async function setAudioEnabled(enabled) {
 
 async function setSinging(enabled) {
   const next = Boolean(enabled);
-  const wasSinging = singing;
   if (next && !audioOn) {
     await setAudioEnabled(true);
     if (!audioOn) return;
   }
-  if (next) cancelInhale({ refresh: false });
   singing = next;
   if (next && !Number.isFinite(performanceStartedAt)) performanceStartedAt = performance.now();
   lastTractSignature = "";
   setAudioPresentation(audioOn ? "on" : "off");
   applyAudioParameters();
-  if (wasSinging && !next && extras.inhaleAudibility > 0.001 && audioOn) {
-    await triggerVoicelessInhale({ afterRelease: true });
-    return;
-  }
   announce(next
     ? `Drone sounding at ${formatFrequency(heardDroneFrequencyHz(state))}; H${state.harmonicNumber} focused at ${formatFrequency(harmonicFrequencyHz(state))}.`
     : "Drone released.");
-}
-
-async function auditionInhale() {
-  if (singing) {
-    await setSinging(false);
-    return;
-  }
-  await triggerVoicelessInhale();
 }
 
 function triggerGesture() {
@@ -1516,7 +1189,6 @@ function safeDisconnect(node) {
 async function destroyAudio() {
   audioGeneration += 1;
   audioWanted = false;
-  cancelInhale({ refresh: false });
   audioOn = false;
   singing = false;
   const context = audioContext;
@@ -1760,20 +1432,17 @@ function drawTube(context, profile, geometry, now) {
   });
   context.stroke();
 
-  if (singing || inhaleActive) {
-    const inhaling = inhaleActive && !singing;
+  if (singing) {
     const bubbleCount = prefersReducedMotion ? 4 : 11;
     for (let index = 0; index < bubbleCount; index += 1) {
       const travel = ((now * 0.00012 * (0.55 + state.intensity) + index / bubbleCount) % 1 + 1) % 1;
-      const phase = inhaling ? 1 - travel : travel;
+      const phase = travel;
       const pointIndex = Math.min(geometry.points.length - 1, Math.floor(phase * geometry.points.length));
       const point = geometry.points[pointIndex];
       const focused = Math.abs(phase - 0.73) < 0.13;
       context.beginPath();
       context.arc(point.x, point.y, focused ? 2.2 + tractPressure * 2 : 1.4 + tractPressure, 0, TAU);
-      context.fillStyle = inhaling
-        ? "rgba(112,217,207,0.66)"
-        : focused ? "rgba(242,217,134,0.75)" : "rgba(255,124,105,0.48)";
+      context.fillStyle = focused ? "rgba(242,217,134,0.75)" : "rgba(255,124,105,0.48)";
       context.fill();
     }
   }
@@ -1868,12 +1537,12 @@ function updateHandles() {
   const focusRight = cssWidth * 0.82;
   const focusTop = cssHeight * 0.3;
   const focusBottom = cssHeight * 0.56;
-  const handleHarmonic = styleMorphFocus ? currentPerformance.targetHarmonic : state.harmonicNumber;
+  const handleHarmonic = state.harmonicNumber;
   const harmonicUnit = (handleHarmonic - 4) / 16;
   handles = [
     {
       id: "tongue",
-      label: `OVERTONE FOCUS · H${handleHarmonic.toFixed(styleMorphFocus ? 1 : 0)}`,
+      label: `OVERTONE FOCUS · H${handleHarmonic.toFixed(0)}`,
       x: lerp(focusLeft, focusRight, harmonicUnit),
       y: lerp(focusBottom, focusTop, state.formantConvergence),
       radius: 10,
@@ -1915,14 +1584,9 @@ function draw(now = performance.now()) {
   updateHandles();
   for (const handle of handles) drawHandle(drawing, handle);
 
-  if (graph?.analyser && (singing || inhaleActive) && audioOn) {
+  if (graph?.analyser && singing && audioOn) {
     graph.analyser.getFloatFrequencyData(spectrum);
   }
-  document.querySelectorAll("[data-harmonic]").forEach((button) => {
-    const energy = harmonicEnergy(Number(button.dataset.harmonic), performanceState);
-    button.style.setProperty("--harmonic-energy", `${Math.round(2 + energy * 8)}px`);
-  });
-
   const gestureAge = now - gestureStartedAt;
   if (gestureAge >= 0 && gestureAge < 1_850) {
     $("gestureButton").classList.add("is-active");
@@ -1959,7 +1623,7 @@ function applyPointerDrag(point) {
       ...state,
       harmonicNumber: harmonic,
       formantConvergence: convergence,
-      alveolarConstriction: clamp(0.34 + convergence * 0.66),
+      alveolarConstriction: clamp(0.1 + convergence * 0.9),
     }, state);
   } else if (pointerDrag.id === "pharynx") {
     const amount = 1 - clamp((point.y - cssHeight * 0.38) / (cssHeight * 0.28));
@@ -2039,16 +1703,9 @@ function keyboardTargetIsEditable(target) {
 globalThis.addEventListener("keydown", (event) => {
   if (event.repeat || keyboardTargetIsEditable(event.target)) return;
   const key = event.key.toLowerCase();
-  if (key === "m") {
+  if (event.code === "Space") {
     event.preventDefault();
-    $("styleMorphPanel").open = true;
-    $("styleMorph").focus();
-    announce("Preset morph focused. Use the arrow keys, Page Up and Page Down, Home or End.");
-    return;
-  }
-  if (key === "i") {
-    event.preventDefault();
-    auditionInhale();
+    setSinging(!singing);
     return;
   }
   const note = NOTE_KEYS.find((entry) => entry.key === key);
@@ -2070,15 +1727,13 @@ $("audioButton").addEventListener("click", () => setAudioEnabled(!audioWanted));
 $("singButton").addEventListener("click", () => setSinging(!singing));
 $("gestureButton").addEventListener("click", triggerGesture);
 $("resetButton").addEventListener("click", () => {
-  cancelInhale({ refresh: false });
-  loadStyle("sygyt", { announceChange: false, preserveRuntime: false });
+  loadStyle("open-drone", { announceChange: false, preserveRuntime: false });
   setAudioPresentation(audioOn ? "on" : "off");
-  announce("Throat Singing reset to the Sygyt starting model.");
+  announce("Throat Singing reset to the open discovery drone.");
 });
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    cancelInhale({ refresh: false });
     singing = false;
     setAudioPresentation(audioOn ? "on" : "off");
     applyAudioParameters();
@@ -2098,8 +1753,6 @@ resizeObserver?.observe(stageWrap);
 globalThis.addEventListener("resize", resizeCanvas, { passive: true });
 
 buildStyleButtons();
-installStyleMorphControls();
-buildHarmonicButtons();
 buildNoteButtons();
 installControls();
 resizeCanvas();

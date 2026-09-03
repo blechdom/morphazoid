@@ -16,10 +16,8 @@ import {
   harmonicFrequencyHz,
   harmonicLabel,
   heardDroneFrequencyHz,
-  interpolateThroatSingingStates,
   modulateThroatSingingPerformance,
   sampleThroatSingingMotion,
-  sampleVoicelessInhaleEnvelope,
   sanitizeThroatSingingState,
   throatSingingPreset,
   throatSingingState,
@@ -30,10 +28,11 @@ import {
   trueFoldFrequencyForDroneHz,
   trueFoldFrequencyHz,
   ventricularFoldSupercycle,
-  voicelessInhaleGainCurve,
+  vocalFryModulationSupercycle,
 } from "../src/throat-singing.js";
 
 const expectedPresetIds = [
+  "open-drone",
   "sygyt",
   "xoomei",
   "kargyraa",
@@ -43,12 +42,12 @@ const expectedPresetIds = [
   "low-chant",
 ];
 
-test("style presets separate five Tuvan styles from two labeled comparisons", () => {
+test("style presets separate a neutral exploration, five Tuvan styles, and two comparisons", () => {
   assert.equal(THROAT_SINGING_PRESETS, THROAT_SINGING_STYLE_PRESETS);
   assert.deepEqual(THROAT_SINGING_STYLE_PRESETS.map(({ id }) => id), expectedPresetIds);
   assert.deepEqual(
     THROAT_SINGING_STYLE_PRESETS.filter(({ isTuvan }) => isTuvan).map(({ id }) => id),
-    expectedPresetIds.slice(0, 5),
+    ["sygyt", "xoomei", "kargyraa", "borbangnadyr", "ezengileer"],
   );
   for (const entry of THROAT_SINGING_STYLE_PRESETS) {
     assert.equal(Object.isFrozen(entry), true);
@@ -58,14 +57,17 @@ test("style presets separate five Tuvan styles from two labeled comparisons", ()
     assert.ok(entry.evidence.notice.length > 60);
   }
   assert.match(throatSingingPreset("xoomei").label, /Xöömei.*Khöömei/u);
+  assert.match(throatSingingPreset("open-drone").culturalScope, /exploration/i);
   assert.match(throatSingingPreset("western-overtone").culturalScope, /Non-Tuvan/);
   assert.match(throatSingingPreset("low-chant").description, /no claimed Tuvan/i);
-  assert.equal(throatSingingPreset("missing").id, "sygyt");
+  assert.equal(throatSingingPreset("missing").id, "open-drone");
+  assert.ok(THROAT_SINGING_STYLE_PRESETS.every(({ settings }) => !("breathiness" in settings)));
 });
 
 test("defaults and sanitization are stable, finite, bounded, and alias anatomy terms", () => {
   assert.equal(DEFAULT_THROAT_SINGING_STATE, THROAT_SINGING_DEFAULTS);
   assert.equal(Object.isFrozen(THROAT_SINGING_DEFAULTS), true);
+  assert.equal("breathiness" in THROAT_SINGING_LIMITS, false);
   const state = sanitizeThroatSingingState({
     styleId: "not-a-style",
     active: 1,
@@ -73,18 +75,20 @@ test("defaults and sanitization are stable, finite, bounded, and alias anatomy t
     falseFoldDivision: 2.6,
     harmonicNumber: 10.7,
     intensity: -8,
+    creakAmount: 8,
     formantConvergence: 9,
     pharyngealConstriction: 0.41,
     oralConstriction: 0.73,
     tractLengthCm: 90,
     motionShape: "not-a-wave",
   });
-  assert.equal(state.styleId, "sygyt");
+  assert.equal(state.styleId, "open-drone");
   assert.equal(state.active, true);
   assert.equal(state.trueFoldHz, THROAT_SINGING_DEFAULTS.trueFoldHz);
   assert.equal(state.falseFoldDivision, 3);
   assert.equal(state.harmonicNumber, 11);
   assert.equal(state.intensity, THROAT_SINGING_LIMITS.intensity[0]);
+  assert.equal(state.creakAmount, THROAT_SINGING_LIMITS.creakAmount[1]);
   assert.equal(state.formantConvergence, THROAT_SINGING_LIMITS.formantConvergence[1]);
   assert.equal(state.uvularConstriction, 0.41);
   assert.equal(state.pharyngealConstriction, 0.41);
@@ -99,64 +103,26 @@ test("defaults and sanitization are stable, finite, bounded, and alias anatomy t
   assert.equal(kargyraa.level, THROAT_SINGING_LIMITS.level[1]);
 });
 
-test("whole-model preset morphs are exact at endpoints and safe across discrete topology", () => {
+test("the default open drone is gentle while Sygyt remains intentionally selectable", () => {
+  const open = throatSingingState();
   const sygyt = throatSingingState("sygyt");
-  const kargyraa = throatSingingState("kargyraa");
-  const sygytSnapshot = structuredClone(sygyt);
-  const kargyraaSnapshot = structuredClone(kargyraa);
-
-  assert.deepEqual(interpolateThroatSingingStates(sygyt, kargyraa, 0), sygyt);
-  assert.deepEqual(interpolateThroatSingingStates(sygyt, kargyraa, 1), kargyraa);
-  const quarter = interpolateThroatSingingStates(sygyt, kargyraa, 0.25);
-  assert.ok(Math.abs(quarter.trueFoldHz - 150 * Math.pow(120 / 150, 0.25)) < 1e-9);
-  assert.equal(quarter.intensity, sygyt.intensity + (kargyraa.intensity - sygyt.intensity) * 0.25);
-  assert.equal(quarter.harmonicNumber, Math.round(sygyt.harmonicNumber + 0.25 * (kargyraa.harmonicNumber - sygyt.harmonicNumber)));
-  assert.equal(quarter.falseFoldDivision, 1);
-
-  const midpoint = interpolateThroatSingingStates(sygyt, kargyraa, 0.5);
-  assert.equal(midpoint.falseFoldDivision, 2);
-  assert.equal(midpoint.falseFoldCoupling, 0);
-  assert.equal(midpoint.pharyngealConstriction, midpoint.uvularConstriction);
-  assert.equal(midpoint.oralConstriction, midpoint.alveolarConstriction);
-  for (const [key, [minimum, maximum]] of Object.entries(THROAT_SINGING_LIMITS)) {
-    assert.ok(Number.isFinite(midpoint[key]), `${key} should be finite`);
-    assert.ok(midpoint[key] >= minimum && midpoint[key] <= maximum, `${key} should be bounded`);
-  }
-
-  const shapeMidpoint = interpolateThroatSingingStates(
-    throatSingingState("borbangnadyr"),
-    throatSingingState("ezengileer"),
-    0.5,
-  );
-  assert.equal(shapeMidpoint.motionShape, "stirrup");
-  assert.equal(shapeMidpoint.motionDepth, 0);
-  assert.equal(shapeMidpoint.amplitudeMotionDepth, 0);
-  assert.deepEqual(sygyt, sygytSnapshot);
-  assert.deepEqual(kargyraa, kargyraaSnapshot);
-});
-
-test("every preset pair stays finite and bounded across the whole morph rail", () => {
-  for (const fromPreset of THROAT_SINGING_STYLE_PRESETS) {
-    for (const toPreset of THROAT_SINGING_STYLE_PRESETS) {
-      const from = throatSingingState(fromPreset.id);
-      const to = throatSingingState(toPreset.id);
-      for (const amount of [0.01, 0.25, 0.49, 0.5, 0.51, 0.75, 0.99]) {
-        const state = interpolateThroatSingingStates(from, to, amount);
-        for (const [key, [minimum, maximum]] of Object.entries(THROAT_SINGING_LIMITS)) {
-          assert.ok(Number.isFinite(state[key]), `${fromPreset.id}→${toPreset.id} ${key}`);
-          assert.ok(state[key] >= minimum && state[key] <= maximum);
-        }
-        assert.ok([from.motionShape, to.motionShape].includes(state.motionShape));
-        assert.ok([from.falseFoldDivision, to.falseFoldDivision].includes(state.falseFoldDivision));
-      }
-    }
-  }
+  assert.equal(open.styleId, "open-drone");
+  assert.equal(open.harmonicNumber, 8);
+  assert.ok(harmonicFrequencyHz(open) <= 1_000);
+  assert.ok(open.formantConvergence <= 0.25);
+  assert.ok(open.alveolarConstriction <= 0.5);
+  assert.ok(open.level <= 0.3);
+  assert.equal(dualFocusTargets(open).merged, false);
+  assert.equal(sygyt.harmonicNumber, 12);
+  assert.equal(harmonicFrequencyHz(sygyt), 1_800);
+  assert.ok(sygyt.formantConvergence > 0.9);
 });
 
 test("generic Low Chant leaves the ventricular folds effectively open", () => {
   const lowChant = throatSingingState("low-chant");
   assert.ok(lowChant.falseFoldCoupling < FALSE_FOLD_AUDIBILITY_THRESHOLD);
   assert.equal(heardDroneFrequencyHz(lowChant), lowChant.trueFoldHz);
+  assert.ok(lowChant.creakAmount > throatSingingState("sygyt").creakAmount);
 });
 
 test("true folds, false-fold period division, drone, harmonic, and labels remain distinct", () => {
@@ -245,18 +211,34 @@ test("ventricular supercycle creates a bounded closure mask and real divided com
   assert.ok(sourceMagnitude(1) > sourceMagnitude(2) * 0.24);
 });
 
-test("voiceless inhale envelope is bounded, one-shot, and level-scaled", () => {
-  assert.equal(sampleVoicelessInhaleEnvelope(-1), 0);
-  assert.equal(sampleVoicelessInhaleEnvelope(0), 0);
-  assert.equal(sampleVoicelessInhaleEnvelope(1), 0);
-  assert.ok(sampleVoicelessInhaleEnvelope(0.5) > 0.99);
-  const muted = voicelessInhaleGainCurve(0, 64);
-  const audible = voicelessInhaleGainCurve(0.4, 128);
-  assert.ok([...muted].every((value) => value === 0));
-  assert.equal(audible[0], 0);
-  assert.equal(audible.at(-1), 0);
-  assert.ok(Math.max(...audible) > 0.06 && Math.max(...audible) < 0.08);
-  assert.ok([...audible].every((value) => Number.isFinite(value) && value >= 0 && value <= 0.24));
+test("vocal-fry modulation is a finite five-cycle pattern distinct from ventricular closure", () => {
+  const cycle = vocalFryModulationSupercycle();
+  assert.equal(cycle.cycleCount, 5);
+  assert.equal(cycle.baseFrequencyRatio, 0.2);
+  assert.equal(cycle.real.length, cycle.imaginary.length);
+  assert.equal(cycle.real[0], 0);
+  assert.equal(cycle.imaginary[0], 0);
+  assert.ok(Math.abs(cycle.mean) < 1e-6);
+  assert.ok(cycle.minimum < -0.4);
+  assert.ok(cycle.maximum > 0.55);
+  assert.ok([...cycle.real, ...cycle.imaginary].every(Number.isFinite));
+
+  let reconstructedMinimum = Infinity;
+  let reconstructedMaximum = -Infinity;
+  for (let index = 0; index < 2048; index += 1) {
+    const phase = (index + 0.5) / 2048;
+    let sample = 0;
+    for (let harmonic = 1; harmonic < cycle.real.length; harmonic += 1) {
+      const angle = Math.PI * 2 * harmonic * phase;
+      sample += cycle.real[harmonic] * Math.cos(angle)
+        + cycle.imaginary[harmonic] * Math.sin(angle);
+    }
+    reconstructedMinimum = Math.min(reconstructedMinimum, sample);
+    reconstructedMaximum = Math.max(reconstructedMaximum, sample);
+  }
+  assert.ok(reconstructedMinimum > -0.55);
+  assert.ok(reconstructedMaximum < 0.7);
+  assert.ok(reconstructedMaximum - reconstructedMinimum > 0.8);
 });
 
 test("F2 and F3 converge symmetrically on the selected harmonic", () => {
@@ -326,6 +308,9 @@ test("waveguide configuration is a complete one-mouth Throatazoid processor stat
   assert.deepEqual(config.pressureSource, config.pressureSources[0]);
   assert.equal(config.pressureSources[0].open, true);
   assert.equal(config.performanceGate, 1);
+  assert.equal(config.articulationVoicing, 1);
+  assert.equal("exciterBreath" in config, false);
+  assert.equal("breathiness" in config.source, false);
   assert.deepEqual(
     config.tractDeformations.map(({ id }) => id),
     ["uvular-pharyngeal", "alveolar-oral", "anterior-expansion"],
@@ -364,20 +349,20 @@ test("performance modulation is deterministic, bounded, and leaves its input unt
   assert.ok(first.focus.f2Hz < first.focus.f3Hz);
   assert.equal(first.harmonicNumber, borbangnadyr.harmonicNumber);
   assert.equal(first.foldFrequencyHz, first.trueFoldHz);
-  assert.ok(first.breathPressure >= 0 && first.breathPressure <= 1);
+  assert.ok(first.sourcePressure >= 0 && first.sourcePressure <= 1);
   assert.ok(first.focusAmount >= 0 && first.focusAmount <= 1);
   assert.equal(Object.isFrozen(first), true);
 
   const gestured = modulateThroatSingingPerformance(borbangnadyr, 0.037, {
     harmonicOffset: 3,
     foldFrequencyHz: 166,
-    breathPressure: 0.91,
+    sourcePressure: 0.91,
     focusAmount: 0.99,
     focusOffsetSemitones: 1,
   });
   assert.equal(gestured.harmonicNumber, borbangnadyr.harmonicNumber + 3);
   assert.equal(gestured.foldFrequencyHz, 166);
-  assert.equal(gestured.breathPressure, 0.91);
+  assert.equal(gestured.sourcePressure, 0.91);
   assert.equal(gestured.focusAmount, 0.99);
   assert.equal(gestured.intensity, 0.91);
   assert.ok(gestured.focusFrequencyHz > gestured.selectedHarmonicHz);

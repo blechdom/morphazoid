@@ -11,58 +11,43 @@ test("Throat Singing keeps named styles, anatomy, and harmonic selection in one 
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto("throat-singing.html", { waitUntil: "load" });
 
-  await expect(page.locator("#styleButtons button")).toHaveCount(7);
-  await expect(page.locator("#harmonicButtons button")).toHaveCount(17);
+  await expect(page.locator("#styleButtons button")).toHaveCount(8);
+  await expect(page.locator("#harmonicButtons")).toHaveCount(0);
+  await expect(page.locator(".throat-stage-title, .throat-harmonic-dock")).toHaveCount(0);
   await expect(page.locator("#noteButtons button")).toHaveCount(8);
-  await expect(page.locator("#traditionOut")).toContainText("Tuvan");
-  await expect(page.locator("#stageOvertoneOut")).toContainText("H12");
+  await expect(page.locator("#harmonicNumber")).toBeVisible();
+  await expect(page.locator("#traditionOut")).toContainText("Synthetic exploration");
+  await expect(page.locator("#stageOvertoneOut")).toContainText("H8");
   await expect(page.locator("#periodDivision")).toHaveAttribute("max", "7");
-  await expect(page.locator("#inhaleAudibilityOut")).toHaveText("40%");
+  await expect(page.locator("#vocalFryOut")).toHaveText("0%");
+  await expect(page.locator("#growlRoughnessOut")).toHaveText("8%");
+  await expect(page.locator("#focusAmountOut")).toHaveText("22%");
+  await expect(page.locator("#oralConstrictionOut")).toHaveText("30%");
+  await expect(page.getByRole("button", { name: /^Open drone/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("Speculative sound lab.")).toHaveCount(1);
+
+  await page.getByRole("button", { name: /^Sygyt/ }).click();
+  await expect(page.locator("#stageOvertoneOut")).toContainText("H12");
+  await expect(page.locator("#oralConstrictionOut")).toHaveText("98%");
 
   await page.getByRole("button", { name: /^Kargyraa/ }).click();
   await expect(page.locator("#periodDivisionOut")).toContainText("2 fold cycles");
   await expect(page.locator("#ventricularReadout")).toContainText("2:1");
 
-  await page.locator('[data-harmonic="8"]').click();
+  await page.locator("#harmonicNumber").fill("8");
   await expect(page.locator("#harmonicNumberOut")).toHaveText("H8");
   await expect(page.locator("#styleDescription")).not.toContainText("authentic");
   await expect(page.locator("#resetButton")).toHaveAttribute("data-reset-in-place", "");
 
-  await page.locator('[data-harmonic="8"]').focus();
+  await page.locator("#harmonicNumber").focus();
   await page.keyboard.press("Space");
   await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "false");
-  expect(pageErrors).toEqual([]);
-});
 
-test("Throat Singing morphs the actual model between honest preset endpoints", async ({ page }) => {
-  const pageErrors = [];
-  page.on("pageerror", (error) => pageErrors.push(error.message));
-  await page.goto("throat-singing.html", { waitUntil: "load" });
-
-  await expect(page.locator("#styleMorphFrom option")).toHaveCount(7);
-  await expect(page.locator("#styleMorphTo option")).toHaveCount(7);
-  await page.locator("#level").fill("0.22");
-  await page.locator("#styleMorphFrom").selectOption("sygyt");
-  await page.locator("#styleMorphTo").selectOption("kargyraa");
-  await page.locator("#styleMorph").fill("0.5");
-
-  await expect(page.locator("#styleMorphAmountOut")).toHaveText("50%");
-  await expect(page.locator("#traditionOut")).toContainText("not a named tradition");
-  await expect(page.locator("#trueFoldHzOut")).toHaveText("134 Hz");
-  await expect(page.locator("#ventricularCouplingOut")).toHaveText("0%");
-  await expect(page.locator("#harmonicNumberOut")).toContainText("morph");
-  await expect(page.locator("#levelOut")).toHaveText("22%");
-  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
-  await expect(page.locator('#styleButtons button[aria-pressed="true"]')).toHaveCount(0);
-
-  await page.locator("#styleMorph").focus();
-  await page.keyboard.press("Home");
-  await expect(page.locator("#styleMorphOut")).toContainText("Sygyt · exact");
-  await expect(page.getByRole("button", { name: /^Sygyt/ })).toHaveAttribute("aria-pressed", "true");
-  await page.keyboard.press("End");
-  await expect(page.locator("#styleMorphOut")).toContainText("Kargyraa · exact");
-  await expect(page.getByRole("button", { name: /^Kargyraa/ })).toHaveAttribute("aria-pressed", "true");
+  await page.locator("#stage").focus();
+  await page.keyboard.press("Space");
+  await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Space");
+  await expect(page.locator("#singButton")).toHaveAttribute("aria-pressed", "false");
   expect(pageErrors).toEqual([]);
 });
 
@@ -78,9 +63,11 @@ test("Throat Singing produces bounded output and releases it", async ({ page }) 
   await waitForAudioState(page, true, 5_000);
 
   await page.evaluate(() => { globalThis.__throatSingingResetProbe = "still-here"; });
-  await page.locator('[data-harmonic="8"]').click();
+  await page.locator("#harmonicNumber").fill("12");
   await page.locator("#resetButton").click();
-  await expect(page.locator("#harmonicNumberOut")).toHaveText("H12");
+  await expect(page.locator("#harmonicNumberOut")).toHaveText("H8");
+  await expect(page.locator("#levelOut")).toHaveText("28%");
+  await expect(page.getByRole("button", { name: /^Open drone/ })).toHaveAttribute("aria-pressed", "true");
   await expect(singButton).toHaveAttribute("aria-pressed", "true");
   expect(await page.evaluate(() => globalThis.__throatSingingResetProbe)).toBe("still-here");
 
@@ -90,16 +77,21 @@ test("Throat Singing produces bounded output and releases it", async ({ page }) 
   expect(envelope.summary.maxPeak).toBeGreaterThan(0.001);
   expect(envelope.summary.clippedSamples).toBe(0);
 
-  await page.locator("#styleMorphFrom").selectOption("sygyt");
-  await page.locator("#styleMorphTo").selectOption("low-chant");
-  for (const amount of [0.2, 0.45, 0.7, 1]) {
-    await page.locator("#styleMorph").fill(String(amount));
-  }
-  await expect(page.locator("#styleMorphOut")).toContainText("Low chant · exact");
-  const morphEnvelope = await sampleAudioEnvelope(page, { durationMs: 450, intervalMs: 45 });
-  expect(morphEnvelope.summary.finite).toBe(true);
-  expect(morphEnvelope.summary.activeSamples).toBeGreaterThan(0);
-  expect(morphEnvelope.summary.clippedSamples).toBe(0);
+  await page.locator("#vocalFry").fill("0.88");
+  await page.locator("#growlRoughness").fill("0.82");
+  await expect(page.locator("#vocalFryOut")).toHaveText("88%");
+  await expect(page.locator("#growlRoughnessOut")).toHaveText("82%");
+  const textureEnvelope = await sampleAudioEnvelope(page, { durationMs: 500, intervalMs: 50 });
+  expect(textureEnvelope.summary.finite).toBe(true);
+  expect(textureEnvelope.summary.activeSamples).toBeGreaterThan(0);
+  expect(textureEnvelope.summary.clippedSamples).toBe(0);
+
+  await page.getByRole("button", { name: /^Low chant/ }).click();
+  await expect(page.getByRole("button", { name: /^Low chant/ })).toHaveAttribute("aria-pressed", "true");
+  const presetEnvelope = await sampleAudioEnvelope(page, { durationMs: 450, intervalMs: 45 });
+  expect(presetEnvelope.summary.finite).toBe(true);
+  expect(presetEnvelope.summary.activeSamples).toBeGreaterThan(0);
+  expect(presetEnvelope.summary.clippedSamples).toBe(0);
 
   await page.locator("#periodDivision").fill("7");
   await page.locator("#ventricularCoupling").fill("1");
@@ -116,16 +108,8 @@ test("Throat Singing produces bounded output and releases it", async ({ page }) 
 
   await singButton.click();
   await expect(singButton).toHaveAttribute("aria-pressed", "false");
-  await expect(page.locator("#singState")).toContainText("inhaling");
-  const inhaleEnvelope = await sampleAudioEnvelope(page, { durationMs: 320, intervalMs: 40 });
-  expect(inhaleEnvelope.summary.finite).toBe(true);
-  expect(inhaleEnvelope.summary.activeSamples).toBeGreaterThan(0);
-  expect(inhaleEnvelope.summary.clippedSamples).toBe(0);
-  await expect(page.locator("#singState")).toContainText("ready", { timeout: 1_000 });
-
-  await page.locator("#stage").focus();
-  await page.keyboard.press("i");
-  await expect(page.locator("#singState")).toContainText("inhaling");
+  await expect(page.locator("#singState")).toContainText("ready");
+  await waitForStableAudioState(page, false);
 
   await audioButton.click();
   await expect(audioButton).toHaveAttribute("aria-pressed", "false");
@@ -146,6 +130,7 @@ test("Throat Singing de-clicks a live Sygyt to Low Chant preset switch", async (
   });
 
   await page.goto("throat-singing.html", { waitUntil: "load" });
+  await page.getByRole("button", { name: /^Sygyt/ }).click();
   await page.locator("#audioButton").click();
   await page.locator("#singButton").click();
   await waitForAudioState(page, true, 5_000);
@@ -304,12 +289,8 @@ test("Throat Singing remains operable without horizontal page overflow on a phon
     overflow: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
     canvasWidth: document.querySelector("#stage")?.getBoundingClientRect().width ?? 0,
     singVisible: Boolean(document.querySelector("#singButton")?.getClientRects().length),
-    morphOpen: document.querySelector("#styleMorphPanel")?.open,
-    morphSummaryHeight: document.querySelector("#styleMorphPanel > summary")?.getBoundingClientRect().height ?? 0,
   }));
   expect(layout.overflow).toBeLessThanOrEqual(1);
   expect(layout.canvasWidth).toBeGreaterThan(300);
   expect(layout.singVisible).toBe(true);
-  expect(layout.morphOpen).toBe(false);
-  expect(layout.morphSummaryHeight).toBeGreaterThanOrEqual(44);
 });

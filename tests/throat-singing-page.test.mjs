@@ -25,10 +25,12 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
   assert.match(html, /id="stage"[\s\S]*aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="singButton"[\s\S]*data-primary-transport/);
   assert.match(html, /id="singButton"[\s\S]*aria-keyshortcuts="Space"/);
-  assert.match(html, /id="inhaleAudibility"/);
-  assert.match(html, /voiceless filtered breath[\s\S]*not inspiratory phonation/i);
-  assert.match(html, /id="styleMorphPanel"[\s\S]*id="styleMorphFrom"[\s\S]*id="styleMorph"[\s\S]*id="styleMorphTo"/);
-  assert.match(html, /Interior positions are exploratory synthesis, not named singing traditions/);
+  assert.match(html, /id="sourcePressure"/);
+  assert.match(html, /id="vocalFry"[\s\S]*id="growlRoughness"/);
+  assert.match(html, /id="harmonicNumber"/);
+  assert.match(html, /Explore first · named approaches/);
+  assert.doesNotMatch(html, /id="(?:aspiration|inhaleAudibility|styleMorph)/);
+  assert.doesNotMatch(html, /throat-stage-title|throat-harmonic-dock|id="harmonicButtons"/);
   assert.match(html, /Beyond anatomy[\s\S]*Speculative sound lab/);
   assert.match(html, /id="phantomAirways"[\s\S]*id="impossibleFocus"[\s\S]*id="sourceInstability"/);
   assert.match(html, /id="resetButton"[\s\S]*data-reset-in-place/);
@@ -38,7 +40,6 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
   assert.match(html, /https:\/\/ich\.unesco\.org\/en\/RL\/mongolian-traditional-art-of-khoomei-00396/);
 
   assert.match(css, /@media \(max-width: 650px\)/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /:focus-visible/);
 
   assert.match(app, /new globalThis\.AudioWorkletNode\(audio, "throatazoid-tract"/);
@@ -46,15 +47,16 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
   assert.match(app, /glottalHarmonics/);
   assert.match(app, /dividerOscillator\.frequency/);
   assert.match(app, /ventricularFoldSupercycle/);
+  assert.match(app, /vocalFryModulationSupercycle/);
+  assert.match(app, /creakAmplitudeDepth/);
+  assert.match(app, /roughnessAmplitudeDepth/);
   assert.match(app, /dividerOscillator\.setPeriodicWave/);
-  assert.match(app, /interpolateThroatSingingStates/);
   assert.match(app, /glottalOscillators/);
   assert.match(app, /crossfadeWaveGains/);
   assert.match(app, /sourceWaveMuted/);
   assert.doesNotMatch(app, /dividerOscillator\.type\s*=\s*"square"/);
-  assert.match(app, /connect\(inhaleGain, mix\)/);
-  assert.match(app, /setValueCurveAtTime/);
-  assert.match(app, /key === "i"/);
+  assert.doesNotMatch(app, /(?:breathNoise|breathGain|inhaleGain|inhaleAudibility|interpolateThroatSingingStates|styleMorph)/);
+  assert.doesNotMatch(app, /key === "[im]"/);
   assert.match(app, /dualFocusTargets/);
   assert.doesNotMatch(app, /\bfetch\s*\(/);
   assert.doesNotMatch([html, css, app].join("\n"), /\.(?:wav|mp3|ogg|flac|aiff?)\b/i);
@@ -77,8 +79,10 @@ test("Throat Singing ships one research-labelled physical-model page", async () 
   assert.match(research, /Kargyraa is not an unrelated octave-down oscillator/);
   assert.match(research, /Katajjaq remains out of scope/);
   assert.match(research, /Tongue, whistle-like percept, and actual whistles/);
-  assert.match(research, /Breath intake versus inspiratory phonation/);
+  assert.match(research, /Neutral discovery state/);
   assert.match(research, /Source-filter coupling and speculative extensions/);
+  assert.match(research, /Vocal fry and growl-like roughness/);
+  assert.doesNotMatch(research, /\b(?:breathiness|inhaleAudibility)\b/);
 });
 
 test("Throat Singing is adjacent to its tract lineage and owns its keyboard", () => {

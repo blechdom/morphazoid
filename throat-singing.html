@@ -45,7 +45,7 @@
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
-          <span><b>Output</b><output id="levelOut" for="level">34%</output></span>
+          <span><b>Output</b><output id="levelOut" for="level">28%</output></span>
           <input
             id="level"
             aria-label="Throat singing output level"
@@ -53,7 +53,7 @@
             min="0"
             max="0.7"
             step="0.01"
-            value="0.34"
+            value="0.28"
           />
         </label>
       </div>
@@ -72,55 +72,6 @@
             A side-view vocal tract with a harmonic spectrum, two constrictions, and true and false vocal folds.
           </canvas>
 
-          <div class="throat-stage-title" aria-hidden="true">
-            <p>ONE AIR COLUMN · TWO PITCH PERCEPTS</p>
-            <strong>DRONE <i>→</i> OVERTONE</strong>
-            <small>fold source / 44-section airway / merged F2 + F3 focus</small>
-          </div>
-
-          <details class="throat-style-morph" id="styleMorphPanel" open>
-            <summary>
-              <span>Preset morph</span>
-              <output id="styleMorphSummary">Sygyt · exact</output>
-            </summary>
-            <div class="throat-style-morph-body" role="group" aria-labelledby="styleMorphTitle">
-              <div class="throat-style-morph-heading">
-                <span>
-                  <b id="styleMorphTitle">Whole-model morph</b>
-                  <small>source + airway + focus + motion</small>
-                </span>
-                <output id="styleMorphOut" for="styleMorph">Sygyt · exact</output>
-              </div>
-              <div class="throat-style-morph-controls">
-                <label for="styleMorphFrom">
-                  <span>From</span>
-                  <select id="styleMorphFrom" aria-label="Morph from preset"></select>
-                </label>
-                <label class="throat-style-morph-rail" for="styleMorph">
-                  <span>Mix <output id="styleMorphAmountOut" for="styleMorph">0%</output></span>
-                  <input
-                    id="styleMorph"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.001"
-                    value="0"
-                    aria-keyshortcuts="M"
-                    aria-describedby="styleMorphHelp"
-                    aria-valuetext="Sygyt, exact preset"
-                  />
-                </label>
-                <label for="styleMorphTo">
-                  <span>To</span>
-                  <select id="styleMorphTo" aria-label="Morph to preset"></select>
-                </label>
-              </div>
-              <p id="styleMorphHelp">
-                Interior positions are exploratory synthesis, not named singing traditions.
-              </p>
-            </div>
-          </details>
-
           <div class="throat-spectrum-legend" aria-hidden="true">
             <span><i class="is-drone"></i> drone</span>
             <span><i class="is-focus"></i> selected harmonic</span>
@@ -128,9 +79,9 @@
           </div>
 
           <div class="throat-stage-status">
-            <span><small>heard drone</small><output id="stageDroneOut">146 Hz</output></span>
-            <span><small>focused overtone</small><output id="stageOvertoneOut">H10 · 1.46 kHz</output></span>
-            <span><small>duplex formant</small><output id="stageFormantOut">F2 ≈ F3</output></span>
+            <span><small>heard drone</small><output id="stageDroneOut">110 Hz</output></span>
+            <span><small>focused overtone</small><output id="stageOvertoneOut">H8 · 880 Hz</output></span>
+            <span><small>duplex formant</small><output id="stageFormantOut">F2 ↔ F3</output></span>
           </div>
 
           <p class="throat-drag-hint" aria-hidden="true">
@@ -139,16 +90,6 @@
           <p class="throat-audio-error" id="audioError" role="alert" hidden></p>
         </div>
 
-        <div class="throat-harmonic-dock" aria-labelledby="harmonicDockTitle">
-          <div class="throat-harmonic-heading">
-            <span>
-              <b id="harmonicDockTitle">Overtone ladder</b>
-              <small>select one partial of the drone</small>
-            </span>
-            <output id="harmonicFrequencyOut">H10 · 1,460 Hz</output>
-          </div>
-          <div class="throat-harmonic-buttons" id="harmonicButtons" role="group" aria-label="Target harmonic"></div>
-        </div>
       </section>
 
       <aside class="panel throat-panel" aria-label="Throat singing controls">
@@ -165,20 +106,20 @@
 
         <section class="throat-style-deck" aria-labelledby="styleTitle">
           <div class="throat-style-heading">
-            <span><small>Tuvan core + comparisons</small><b id="styleTitle">Singing approach</b></span>
-            <output id="traditionOut">Tuvan · Sygyt</output>
+            <span><small>Explore first · named approaches</small><b id="styleTitle">Singing approach</b></span>
+            <output id="traditionOut">Synthetic exploration · Open drone</output>
           </div>
           <div class="throat-style-buttons" id="styleButtons" role="group" aria-label="Singing approach presets"></div>
           <p id="styleDescription">
-            A bright, whistle-like Tuvan approach modeled by narrowing the F2/F3 focus around one high harmonic.
+            A gentler open drone with the tongue lowered and a broad focus; shape the airway to uncover upper harmonics.
           </p>
         </section>
 
         <div class="throat-model-hud">
-          <span><small>true folds</small><output id="foldReadout">146 Hz · pressed</output></span>
-          <span><small>ventricular folds</small><output id="ventricularReadout">uncoupled</output></span>
-          <span><small>focus peak</small><output id="focusReadout">1.46 kHz · 72 Hz</output></span>
-          <span><small>tract shape</small><output id="tractReadout">2 constrictions</output></span>
+          <span><small>true folds</small><output id="foldReadout">110 Hz · modal</output></span>
+          <span><small>ventricular folds</small><output id="ventricularReadout">folds open</output></span>
+          <span><small>focus peak</small><output id="focusReadout">880 Hz · 300 Hz BW</output></span>
+          <span><small>tract shape</small><output id="tractReadout">split F2/F3 · 18.0 cm</output></span>
         </div>
 
         <section class="throat-note-bank" aria-labelledby="noteBankTitle">
@@ -192,35 +133,34 @@
         <details class="group control-section throat-source-section" data-section="sound" open>
           <summary class="group-summary">
             <h2 class="group-title">Laryngeal source</h2>
-            <span class="section-state" id="sourceSummary">146 Hz · pressed</span>
+            <span class="section-state" id="sourceSummary">110 Hz folds · one pulse</span>
           </summary>
           <div class="group-body">
             <label class="control" for="trueFoldHz">
-              <span><b>True-fold frequency</b><output id="trueFoldHzOut" for="trueFoldHz">146 Hz</output></span>
-              <input id="trueFoldHz" type="range" min="55" max="360" step="1" value="146" />
+              <span><b>True-fold frequency</b><output id="trueFoldHzOut" for="trueFoldHz">110 Hz</output></span>
+              <input id="trueFoldHz" type="range" min="55" max="360" step="1" value="110" />
               <small>The repeating vocal-fold source. Kargyraa can place the heard period below it.</small>
             </label>
-            <label class="control" for="breathPressure">
-              <span><b>Subglottal pressure</b><output id="breathPressureOut" for="breathPressure">68%</output></span>
-              <input id="breathPressure" type="range" min="0" max="1" step="0.01" value="0.68" />
-              <small>Drives the fold pulse, aspiration, and visible pressure flow.</small>
+            <label class="control" for="sourcePressure">
+              <span><b>Source pressure</b><output id="sourcePressureOut" for="sourcePressure">62%</output></span>
+              <input id="sourcePressure" type="range" min="0" max="1" step="0.01" value="0.62" />
+              <small>Drives the voiced fold pulse and the visible source-flow display.</small>
             </label>
             <label class="control" for="adduction">
-              <span><b>Adduction / pressedness</b><output id="adductionOut" for="adduction">78%</output></span>
-              <input id="adduction" type="range" min="0" max="1" step="0.01" value="0.78" />
+              <span><b>Adduction / pressedness</b><output id="adductionOut" for="adduction">56%</output></span>
+              <input id="adduction" type="range" min="0" max="1" step="0.01" value="0.56" />
               <small>Strengthens closure and upper harmonics before the tract selects one.</small>
             </label>
-            <label class="control" for="aspiration">
-              <span><b>Aspiration</b><output id="aspirationOut" for="aspiration">7%</output></span>
-              <input id="aspiration" type="range" min="0" max="0.5" step="0.01" value="0.07" />
-              <small>Breath noise mixed at the glottis; soft xöömei uses more than focused sygyt.</small>
+            <label class="control" for="vocalFry">
+              <span><b>Vocal fry / creak</b><output id="vocalFryOut" for="vocalFry">0%</output></span>
+              <input id="vocalFry" type="range" min="0" max="1" step="0.01" value="0" />
+              <small>Adds a five-cycle pattern of irregular true-fold timing and pulse strength. This is a creak proxy, not ventricular-fold growl.</small>
             </label>
-            <label class="control" for="inhaleAudibility">
-              <span><b>Audible inhale on release</b><output id="inhaleAudibilityOut" for="inhaleAudibility">40%</output></span>
-              <input id="inhaleAudibility" type="range" min="0" max="1" step="0.01" value="0.4" />
-              <small>A short, voiceless filtered breath after release—not inspiratory phonation. Press I to audition it.</small>
+            <label class="control" for="growlRoughness">
+              <span><b>Growl / source roughness</b><output id="growlRoughnessOut" for="growlRoughness">8%</output></span>
+              <input id="growlRoughness" type="range" min="0" max="1" step="0.01" value="0.08" />
+              <small>Fast pitch and amplitude perturbation. Pair it with ventricular coupling for broader growl-like color; growl mechanisms vary.</small>
             </label>
-
             <div class="throat-divider"><span>FALSE / VENTRICULAR FOLDS</span></div>
             <label class="control" for="ventricularCoupling">
               <span><b>Ventricular-fold coupling</b><output id="ventricularCouplingOut" for="ventricularCoupling">4%</output></span>
@@ -238,37 +178,37 @@
         <details class="group control-section throat-focus-section" data-section="mapping" open>
           <summary class="group-summary">
             <h2 class="group-title">Overtone focus</h2>
-            <span class="section-state" id="focusSummary">H10 · F2/F3 merged</span>
+            <span class="section-state" id="focusSummary">H8 · 510 Hz split</span>
           </summary>
           <div class="group-body">
             <label class="control" for="harmonicNumber">
-              <span><b>Selected harmonic</b><output id="harmonicNumberOut" for="harmonicNumber">H10</output></span>
-              <input id="harmonicNumber" type="range" min="4" max="20" step="1" value="10" />
+              <span><b>Selected harmonic</b><output id="harmonicNumberOut" for="harmonicNumber">H8</output></span>
+              <input id="harmonicNumber" type="range" min="4" max="20" step="1" value="8" />
               <small>The tongue, jaw, lips, and pharynx move a resonance between existing harmonics. “Whistle-like” describes the percept, not a separate whistle tone.</small>
             </label>
             <label class="control" for="focusAmount">
-              <span><b>Formant convergence</b><output id="focusAmountOut" for="focusAmount">88%</output></span>
-              <input id="focusAmount" type="range" min="0" max="1" step="0.01" value="0.88" />
+              <span><b>Formant convergence</b><output id="focusAmountOut" for="focusAmount">22%</output></span>
+              <input id="focusAmount" type="range" min="0" max="1" step="0.01" value="0.22" />
               <small>Pulls F2 and F3 together and narrows the audible spectral window.</small>
             </label>
             <label class="control" for="pharynxConstriction">
-              <span><b>Upper-pharynx / uvular</b><output id="pharynxConstrictionOut" for="pharynxConstriction">62%</output></span>
-              <input id="pharynxConstriction" type="range" min="0" max="1" step="0.01" value="0.62" />
+              <span><b>Upper-pharynx / uvular</b><output id="pharynxConstrictionOut" for="pharynxConstriction">35%</output></span>
+              <input id="pharynxConstriction" type="range" min="0" max="1" step="0.01" value="0.35" />
               <small>Reshapes the rear cavity and steers the center of the focused pair.</small>
             </label>
             <label class="control" for="oralConstriction">
-              <span><b>Alveolar / oral</b><output id="oralConstrictionOut" for="oralConstriction">84%</output></span>
-              <input id="oralConstriction" type="range" min="0" max="1" step="0.01" value="0.84" />
+              <span><b>Alveolar / oral</b><output id="oralConstrictionOut" for="oralConstriction">30%</output></span>
+              <input id="oralConstriction" type="range" min="0" max="1" step="0.01" value="0.3" />
               <small>Forms the front constriction associated with a tightly focused sygyt spectrum.</small>
             </label>
             <label class="control" for="lipRounding">
-              <span><b>Lip rounding</b><output id="lipRoundingOut" for="lipRounding">18%</output></span>
-              <input id="lipRounding" type="range" min="0" max="1" step="0.01" value="0.18" />
+              <span><b>Lip rounding</b><output id="lipRoundingOut" for="lipRounding">12%</output></span>
+              <input id="lipRounding" type="range" min="0" max="1" step="0.01" value="0.12" />
               <small>Lengthens the front cavity and darkens the broader vowel envelope.</small>
             </label>
             <label class="control" for="sublingualCoupling">
-              <span><b>Sublingual branch</b><output id="sublingualCouplingOut" for="sublingualCoupling">28%</output></span>
-              <input id="sublingualCoupling" type="range" min="0" max="1" step="0.01" value="0.28" />
+              <span><b>Sublingual branch</b><output id="sublingualCouplingOut" for="sublingualCoupling">6%</output></span>
+              <input id="sublingualCoupling" type="range" min="0" max="1" step="0.01" value="0.06" />
               <small>An exploratory short cavity below the tongue, informed by 2026 copy-synthesis work.</small>
             </label>
           </div>
@@ -281,12 +221,12 @@
           </summary>
           <div class="group-body">
             <label class="control" for="vibratoDepth">
-              <span><b>Drone vibrato</b><output id="vibratoDepthOut" for="vibratoDepth">12 cents</output></span>
-              <input id="vibratoDepth" type="range" min="0" max="80" step="1" value="12" />
+              <span><b>Drone vibrato</b><output id="vibratoDepthOut" for="vibratoDepth">9 cents</output></span>
+              <input id="vibratoDepth" type="range" min="0" max="80" step="1" value="9" />
             </label>
             <label class="control" for="vibratoRate">
-              <span><b>Vibrato rate</b><output id="vibratoRateOut" for="vibratoRate">5.1 Hz</output></span>
-              <input id="vibratoRate" type="range" min="2" max="9" step="0.1" value="5.1" />
+              <span><b>Vibrato rate</b><output id="vibratoRateOut" for="vibratoRate">4.4 Hz</output></span>
+              <input id="vibratoRate" type="range" min="2" max="9" step="0.1" value="4.4" />
             </label>
             <label class="control" for="ornamentRate">
               <span><b>Overtone ornament</b><output id="ornamentRateOut" for="ornamentRate">0.0 Hz</output></span>
@@ -300,7 +240,7 @@
             <label class="control" for="pulseRate">
               <span><b>Pressure pulse</b><output id="pulseRateOut" for="pulseRate">0.0 Hz</output></span>
               <input id="pulseRate" type="range" min="0" max="10" step="0.1" value="0" />
-              <small>Rhythmic breath emphasis for ezengileer-like motion; it is not a cultural transcription.</small>
+              <small>Rhythmic source-level emphasis for ezengileer-like motion; it is not a cultural transcription.</small>
             </label>
             <label class="control" for="pulseDepth">
               <span><b>Pulse depth</b><output id="pulseDepthOut" for="pulseDepth">0%</output></span>
@@ -348,7 +288,7 @@
             </p>
 
             <div class="throat-signal-path" aria-label="Synthesizer signal path">
-              <span><b>folds</b><small>LF-like pulse + period division</small></span>
+              <span><b>folds</b><small>LF-like pulse + creak + period division</small></span>
               <i aria-hidden="true">→</i>
               <span><b>airway</b><small>44 variable-area tube sections</small></span>
               <i aria-hidden="true">→</i>
@@ -359,7 +299,7 @@
               <li><b>Sygyt:</b> dynamic MRI and transmission-line modeling support two tract constrictions and a narrow merged-formant peak that selects one source harmonic.</li>
               <li><b>Kargyraa:</b> high-speed imaging supports ventricular folds closing once for every two true-fold cycles, producing period doubling rather than a separate bass oscillator.</li>
               <li><b>False folds vary:</b> a 2025 endoscopic study across 18 Inner Mongolian Hoomei productions found contacting false folds important in some productions and confirmed posterior-tract narrowing in an examined production.</li>
-              <li><b>Breathing:</b> aspiration is exhaled noise during voice; the release sound here is an open-glottis, voiceless intake. Inspiratory phonation is a separate technique with reversed airflow and different fold motion.</li>
+              <li><b>Fry and roughness differ:</b> creak can combine low or irregular f0, constricted closure, and multiple pulsing; supraglottal growl-like sounds can use periodic or aperiodic structures above the true folds. The two controls remain separate here.</li>
               <li><b>Western overtone singing:</b> related F2/F3 clustering can arise from different articulatory strategies, so it remains a comparison rather than a Tuvan preset.</li>
               <li><b>Mongolian Khöömei:</b> a related but distinct living tradition includes deep and whistled families; this page does not relabel its Tuvan Xöömei starting point as Mongolian.</li>
               <li><b>Inuit katajjaq:</b> a paired, alternating throat-song game is structurally different from this solo sustained-drone model, so it is intentionally not reduced to a preset here.</li>
@@ -373,7 +313,8 @@
               <a href="https://pubmed.ncbi.nlm.nih.gov/34860148/" target="_blank" rel="noopener noreferrer">Sundberg et al. · overtone tract shape</a>
               <a href="https://pubmed.ncbi.nlm.nih.gov/40410061/" target="_blank" rel="noopener noreferrer">Fan et al. 2025 · 18 Hoomei types</a>
               <a href="https://pubmed.ncbi.nlm.nih.gov/42025569/" target="_blank" rel="noopener noreferrer">Warner &amp; Johnson 2026 · ventricular airflow</a>
-              <a href="https://pubmed.ncbi.nlm.nih.gov/26706750/" target="_blank" rel="noopener noreferrer">Vanhecke et al. · inspiratory phonation</a>
+              <a href="https://pubmed.ncbi.nlm.nih.gov/24687091/" target="_blank" rel="noopener noreferrer">Bailly et al. · ventricular-fold dynamics</a>
+              <a href="https://pages.ucsd.edu/~mgarellek/files/Keating_etal_2015_ICPhS.pdf" target="_blank" rel="noopener noreferrer">Keating et al. · creaky-voice dimensions</a>
               <a href="https://pubmed.ncbi.nlm.nih.gov/28839006/" target="_blank" rel="noopener noreferrer">Azola et al. · oral whistling anatomy</a>
               <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2811547/" target="_blank" rel="noopener noreferrer">Titze · nonlinear source–filter coupling</a>
               <a href="https://pubmed.ncbi.nlm.nih.gov/42627765/" target="_blank" rel="noopener noreferrer">Traser et al. 2026 · extreme vocal styles</a>
@@ -403,7 +344,7 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        Use the harmonic buttons or number keys 4 through 9 to choose an overtone. On the canvas, arrow keys move the overtone focus; hold Shift for larger steps. Space begins or releases the drone. Release plays a voiceless breath intake when Audible inhale is above zero; press I to audition it. This is not inspiratory phonation. Keys A, S, D, F, G, H, J, and K select drone notes.
+        Use the Selected harmonic control or number keys 4 through 9 to choose an overtone. On the canvas, arrow keys move the overtone focus; hold Shift for larger steps. Space begins or releases the drone. Keys A, S, D, F, G, H, J, and K select drone notes.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

@@ -39,7 +39,7 @@ const numericLimits = {
   harmonicNumber: [4, 24],
   intensity: [0, 1],
   foldTenseness: [0, 1],
-  breathiness: [0, 1],
+  creakAmount: [0, 1],
   roughness: [0, 1],
   falseFoldCoupling: [0, 1],
   formantConvergence: [0, 1],
@@ -93,6 +93,7 @@ function preset({
     label,
     culturalScope,
     isTuvan: culturalScope === "Tuvan",
+    isExploration: culturalScope === "Synthetic exploration",
     role,
     description,
     evidence: {
@@ -103,19 +104,52 @@ function preset({
   });
 }
 
-const COMMON_FOCUSED_VALUES = Object.freeze({
+const COMMON_SOURCE_VALUES = Object.freeze({
   falseFoldDivision: 1,
   falseFoldCoupling: 0.04,
+  creakAmount: 0,
   tractLengthCm: 17.2,
   lipRounding: 0.08,
   level: 0.36,
 });
 
 /**
- * These presets deliberately distinguish Tuvan names from the two comparison
- * presets. Values are bounded synthesis controls, not population averages.
+ * These presets distinguish five Tuvan references, two comparisons, and one
+ * neutral exploration state. Values are synthesis controls, not population averages.
  */
 export const THROAT_SINGING_STYLE_PRESETS = Object.freeze([
+  preset({
+    id: "open-drone",
+    label: "Open drone",
+    culturalScope: "Synthetic exploration",
+    role: "neutral overtone-discovery drone",
+    description: "A gentler open drone with the tongue lowered and a broad focus; shape the airway to uncover upper harmonics.",
+    approximation: "This synthetic orientation state is deliberately neutral and unfocused. It is a starting point for exploring the model, not a named singing tradition or a claim about vocal technique.",
+    values: {
+      ...COMMON_SOURCE_VALUES,
+      trueFoldHz: 110,
+      harmonicNumber: 8,
+      intensity: 0.62,
+      foldTenseness: 0.56,
+      roughness: 0.08,
+      formantConvergence: 0.22,
+      formantSeparationHz: 700,
+      focusBandwidthHz: 300,
+      uvularConstriction: 0.35,
+      alveolarConstriction: 0.3,
+      frontCavityExpansion: 0.38,
+      tractLengthCm: 18,
+      mouthOpening: 0.72,
+      lipRounding: 0.12,
+      vibratoRateHz: 4.4,
+      vibratoDepthCents: 9,
+      motionRateHz: 0.35,
+      motionDepth: 0.025,
+      amplitudeMotionDepth: 0.02,
+      motionShape: "sine",
+      level: 0.28,
+    },
+  }),
   preset({
     id: "sygyt",
     label: "Sygyt",
@@ -124,12 +158,11 @@ export const THROAT_SINGING_STYLE_PRESETS = Object.freeze([
     description: "A bright, narrow upper harmonic over a steady modal drone.",
     approximation: "The 150 Hz source and twelfth-harmonic 1.8 kHz focus reproduce the worked model example in Bergevin et al.; the named-style timbre settings are a playable approximation.",
     values: {
-      ...COMMON_FOCUSED_VALUES,
+      ...COMMON_SOURCE_VALUES,
       trueFoldHz: 150,
       harmonicNumber: 12,
       intensity: 0.76,
       foldTenseness: 0.8,
-      breathiness: 0.05,
       roughness: 0.08,
       formantConvergence: 0.97,
       formantSeparationHz: 520,
@@ -154,12 +187,11 @@ export const THROAT_SINGING_STYLE_PRESETS = Object.freeze([
     description: "A rounder drone and gentler focused harmonic with more audible voice body.",
     approximation: "The dual-constriction topology is MRI-informed; control values describe a synthetic representative rather than one authoritative Xöömei production.",
     values: {
-      ...COMMON_FOCUSED_VALUES,
+      ...COMMON_SOURCE_VALUES,
       trueFoldHz: 145,
       harmonicNumber: 9,
       intensity: 0.72,
       foldTenseness: 0.65,
-      breathiness: 0.12,
       roughness: 0.16,
       formantConvergence: 0.88,
       formantSeparationHz: 560,
@@ -185,13 +217,12 @@ export const THROAT_SINGING_STYLE_PRESETS = Object.freeze([
     description: "A period-divided bass drone with strong ventricular-fold color and a broad overtone focus.",
     approximation: "Half-rate ventricular-fold closure is evidence-based from a single-singer imaging study; the remaining timbre and tract values are conservative synthesis approximations.",
     values: {
-      ...COMMON_FOCUSED_VALUES,
+      ...COMMON_SOURCE_VALUES,
       trueFoldHz: 120,
       falseFoldDivision: 2,
       harmonicNumber: 16,
       intensity: 0.8,
       foldTenseness: 0.5,
-      breathiness: 0.08,
       roughness: 0.7,
       falseFoldCoupling: 0.92,
       formantConvergence: 0.7,
@@ -220,12 +251,11 @@ export const THROAT_SINGING_STYLE_PRESETS = Object.freeze([
     description: "A rolling focus gesture carried by a warm drone rather than a stationary whistle.",
     approximation: "Borbangnadyr varies among performers and may ornament other style families; this preset represents its rolling character as bounded tract and level modulation.",
     values: {
-      ...COMMON_FOCUSED_VALUES,
+      ...COMMON_SOURCE_VALUES,
       trueFoldHz: 140,
       harmonicNumber: 9,
       intensity: 0.72,
       foldTenseness: 0.64,
-      breathiness: 0.13,
       roughness: 0.2,
       formantConvergence: 0.86,
       formantSeparationHz: 570,
@@ -251,12 +281,11 @@ export const THROAT_SINGING_STYLE_PRESETS = Object.freeze([
     description: "A gently asymmetric two-pulse motion in level and spectral focus.",
     approximation: "The stirrup association is cultural terminology, not a measured oscillator waveform; the two-pulse gesture is an intentionally labeled synthesis interpretation.",
     values: {
-      ...COMMON_FOCUSED_VALUES,
+      ...COMMON_SOURCE_VALUES,
       trueFoldHz: 132,
       harmonicNumber: 10,
       intensity: 0.7,
       foldTenseness: 0.62,
-      breathiness: 0.14,
       roughness: 0.18,
       formantConvergence: 0.84,
       formantSeparationHz: 580,
@@ -282,12 +311,11 @@ export const THROAT_SINGING_STYLE_PRESETS = Object.freeze([
     description: "A clean modal source with a wider, less extreme movable overtone focus.",
     approximation: "This broad comparison does not represent a single Western school or performer and is kept explicitly separate from the five Tuvan presets.",
     values: {
-      ...COMMON_FOCUSED_VALUES,
+      ...COMMON_SOURCE_VALUES,
       trueFoldHz: 140,
       harmonicNumber: 10,
       intensity: 0.68,
       foldTenseness: 0.6,
-      breathiness: 0.1,
       roughness: 0.08,
       formantConvergence: 0.76,
       formantSeparationHz: 590,
@@ -313,13 +341,13 @@ export const THROAT_SINGING_STYLE_PRESETS = Object.freeze([
     description: "A low modal chant with broad resonances and no claimed Tuvan overtone focus.",
     approximation: "This deliberately generic comparison is not labeled Tibetan, Tuvan, Mongolian, or as any other culture-specific chant practice.",
     values: {
-      ...COMMON_FOCUSED_VALUES,
+      ...COMMON_SOURCE_VALUES,
       trueFoldHz: 82,
       harmonicNumber: 8,
       intensity: 0.7,
       foldTenseness: 0.42,
-      breathiness: 0.16,
       roughness: 0.24,
+      creakAmount: 0.24,
       falseFoldCoupling: 0.04,
       formantConvergence: 0.24,
       formantSeparationHz: 680,
@@ -348,14 +376,14 @@ const presetById = new Map(
   THROAT_SINGING_STYLE_PRESETS.map((entry) => [entry.id, entry]),
 );
 
-export function throatSingingPreset(id = "sygyt") {
-  return presetById.get(id) ?? presetById.get("sygyt");
+export function throatSingingPreset(id = "open-drone") {
+  return presetById.get(id) ?? presetById.get("open-drone");
 }
 
 export const THROAT_SINGING_DEFAULTS = deepFreeze({
-  styleId: "sygyt",
+  styleId: "open-drone",
   active: false,
-  ...throatSingingPreset("sygyt").settings,
+  ...throatSingingPreset("open-drone").settings,
 });
 
 export const DEFAULT_THROAT_SINGING_STATE = THROAT_SINGING_DEFAULTS;
@@ -406,7 +434,7 @@ export function sanitizeThroatSingingState(
   return result;
 }
 
-export function throatSingingState(styleId = "sygyt", overrides = {}) {
+export function throatSingingState(styleId = "open-drone", overrides = {}) {
   const selected = throatSingingPreset(styleId);
   return sanitizeThroatSingingState({
     ...THROAT_SINGING_DEFAULTS,
@@ -414,55 +442,6 @@ export function throatSingingState(styleId = "sygyt", overrides = {}) {
     ...overrides,
     styleId: selected.id,
   });
-}
-
-/**
- * Interpolate the complete playable model between two authored states.
- *
- * Most controls follow a continuous linear path. Source pitch follows a
- * perceptually even exponential path. The two categorical controls switch at
- * the midpoint; their audible depths are brought to zero there first, so a
- * waveform or period-topology change cannot create a discontinuity.
- */
-export function interpolateThroatSingingStates(
-  fromCandidate = THROAT_SINGING_DEFAULTS,
-  toCandidate = THROAT_SINGING_DEFAULTS,
-  amount = 0,
-) {
-  const from = sanitizeThroatSingingState(fromCandidate);
-  const to = sanitizeThroatSingingState(toCandidate, from);
-  const mix = clamp(amount);
-  if (mix === 0) return sanitizeThroatSingingState(from, from);
-  if (mix === 1) return sanitizeThroatSingingState(to, to);
-
-  const values = {
-    styleId: mix < 0.5 ? from.styleId : to.styleId,
-    active: mix < 0.5 ? from.active : to.active,
-  };
-  for (const key of Object.keys(THROAT_SINGING_LIMITS)) {
-    values[key] = from[key] + (to[key] - from[key]) * mix;
-  }
-
-  // Pitch is perceived logarithmically, so equal rail travel yields equal
-  // musical intervals instead of bunching most of the change at one end.
-  values.trueFoldHz = from.trueFoldHz * Math.pow(to.trueFoldHz / from.trueFoldHz, mix);
-  values.harmonicNumber = Math.round(values.harmonicNumber);
-  values.falseFoldDivision = mix < 0.5
-    ? from.falseFoldDivision
-    : to.falseFoldDivision;
-  values.motionShape = mix < 0.5 ? from.motionShape : to.motionShape;
-
-  const midpointDistance = Math.abs(mix * 2 - 1);
-  const topologyFade = midpointDistance * midpointDistance * (3 - 2 * midpointDistance);
-  if (from.falseFoldDivision !== to.falseFoldDivision) {
-    values.falseFoldCoupling *= topologyFade;
-  }
-  if (from.motionShape !== to.motionShape) {
-    values.motionDepth *= topologyFade;
-    values.amplitudeMotionDepth *= topologyFade;
-  }
-
-  return sanitizeThroatSingingState(values, mix < 0.5 ? from : to);
 }
 
 /** Resolve the true-vocal-fold repetition frequency represented by a state. */
@@ -597,6 +576,77 @@ export function ventricularFoldSupercycle(
   });
 }
 
+/**
+ * Build a smooth five-cycle modulation pattern for a creaky / vocal-fry proxy.
+ *
+ * Vocal fry is not just noise: measured creak can contain irregular or
+ * multiply pulsed glottal cycles with changing timing and amplitude. This
+ * deterministic supercycle is applied to the true-fold source's detune and
+ * gain at f0 / 5. The `creakAmount` control scales it smoothly in the audio
+ * graph; it remains distinct from the ventricular-fold closure oscillator.
+ */
+export function vocalFryModulationSupercycle(
+  { harmonicCount = 48, sampleCount = 960 } = {},
+) {
+  const cycleCount = 5;
+  let samples = Math.round(clamp(finiteOr(sampleCount, 960), 240, 4096));
+  samples += (cycleCount - samples % cycleCount) % cycleCount;
+  const harmonics = Math.round(clamp(
+    finiteOr(harmonicCount, 48),
+    8,
+    Math.min(96, Math.floor(samples / 2) - 1),
+  ));
+  const real = new Float32Array(harmonics + 1);
+  const imaginary = new Float32Array(harmonics + 1);
+  const contour = new Float32Array(samples);
+  const pulsePattern = Object.freeze([0.62, -0.48, 0.16, -0.3, 0]);
+  const smoothstep = (value) => {
+    const amount = clamp(value);
+    return amount * amount * (3 - 2 * amount);
+  };
+  let sum = 0;
+  let minimum = Infinity;
+  let maximum = -Infinity;
+
+  for (let index = 0; index < samples; index += 1) {
+    const position = (index + 0.5) / samples * cycleCount;
+    const pulseIndex = Math.min(cycleCount - 1, Math.floor(position));
+    const pulsePhase = position - pulseIndex;
+    const from = pulsePattern[pulseIndex];
+    const to = pulsePattern[(pulseIndex + 1) % cycleCount];
+    const value = from + (to - from) * smoothstep(pulsePhase);
+    contour[index] = value;
+    sum += value;
+    minimum = Math.min(minimum, value);
+    maximum = Math.max(maximum, value);
+  }
+
+  const mean = sum / samples;
+  for (let harmonic = 1; harmonic <= harmonics; harmonic += 1) {
+    let cosine = 0;
+    let sine = 0;
+    for (let index = 0; index < samples; index += 1) {
+      const phase = (index + 0.5) / samples;
+      const value = contour[index] - mean;
+      const angle = TAU * harmonic * phase;
+      cosine += value * Math.cos(angle);
+      sine += value * Math.sin(angle);
+    }
+    real[harmonic] = cosine * 2 / samples;
+    imaginary[harmonic] = sine * 2 / samples;
+  }
+
+  return Object.freeze({
+    real,
+    imaginary,
+    cycleCount,
+    mean,
+    minimum,
+    maximum,
+    baseFrequencyRatio: 1 / cycleCount,
+  });
+}
+
 export function trueFoldFrequencyForDroneHz(droneHz, requestedDivision = 1) {
   const division = Math.round(clamp(
     requestedDivision,
@@ -605,28 +655,6 @@ export function trueFoldFrequencyForDroneHz(droneHz, requestedDivision = 1) {
   return clamp(
     Math.max(1, finiteOr(droneHz, heardDroneFrequencyHz())) * division,
     ...THROAT_SINGING_LIMITS.trueFoldHz,
-  );
-}
-
-/** A short open-glottis breath-intake envelope, separate from phonation. */
-export function sampleVoicelessInhaleEnvelope(phase = 0) {
-  const position = finiteOr(phase, 0);
-  if (position <= 0 || position >= 1) return 0;
-  const smoothstep = (value) => {
-    const amount = clamp(value);
-    return amount * amount * (3 - 2 * amount);
-  };
-  const attack = smoothstep(position / 0.12);
-  const release = 1 - smoothstep((position - 0.58) / 0.42);
-  return clamp(attack * release);
-}
-
-export function voicelessInhaleGainCurve(audibility = 0.4, sampleCount = 128) {
-  const count = Math.round(clamp(finiteOr(sampleCount, 128), 32, 512));
-  const peak = 0.24 * Math.pow(clamp(audibility), 1.35);
-  return Float32Array.from(
-    { length: count },
-    (_, index) => peak * sampleVoicelessInhaleEnvelope(index / (count - 1)),
   );
 }
 
@@ -921,7 +949,7 @@ export function throatSingingWaveguideConfig(
     articulationPlace: tongue.position,
     articulationIndex: profile.deformations[1].centerSection,
     articulationAperture: 1,
-    articulationVoicing: clamp(1 - state.breathiness * 0.72),
+    articulationVoicing: 1,
     articulationManner: "vowel",
     glottalClosure: 0,
     fricationGain: 0,
@@ -930,7 +958,6 @@ export function throatSingingWaveguideConfig(
     exciterPitch: state.trueFoldHz,
     exciterIntensity: state.intensity,
     exciterTenseness: state.foldTenseness,
-    exciterBreath: state.breathiness,
     exciterWobble: state.roughness,
     sourceMode: "glottis",
     pressureSourceCount: 1,
@@ -965,9 +992,13 @@ export function throatSingingWaveguideConfig(
     areasCm2: profile.areasCm2,
     reflectionCoefficients: reflections,
     deformations: profile.deformations,
-    glottalReflection: 0.74 + state.foldTenseness * 0.08,
+    glottalReflection: clamp(
+      0.74 + state.foldTenseness * 0.08 + state.creakAmount * 0.03,
+      0.68,
+      0.86,
+    ),
     lipReflection: -0.82 - state.lipRounding * 0.1,
-    junctionLoss: clamp(0.9994 - state.breathiness * 0.0007 - state.roughness * 0.00045, 0.996, 0.9995),
+    junctionLoss: clamp(0.9994 - state.roughness * 0.00045, 0.996, 0.9995),
     source: {
       trueFoldHz: state.trueFoldHz,
       heardDroneHz: heardDroneFrequencyHz(state),
@@ -975,7 +1006,7 @@ export function throatSingingWaveguideConfig(
       falseFoldCoupling: state.falseFoldCoupling,
       intensity: state.intensity,
       foldTenseness: state.foldTenseness,
-      breathiness: state.breathiness,
+      creakAmount: state.creakAmount,
       roughness: state.roughness,
     },
     focus: dualFocusTargets(state),
@@ -1040,9 +1071,9 @@ export function modulateThroatSingingPerformance(
     0.5,
     1.42,
   );
-  const breathPressure = clamp(finiteOr(
-    requestedGesture.breathPressure,
-    base.intensity * amplitudeScale * (1 - base.breathiness * 0.18),
+  const sourcePressure = clamp(finiteOr(
+    requestedGesture.sourcePressure,
+    base.intensity * amplitudeScale,
   ));
   const focusAmount = clamp(finiteOr(
     requestedGesture.focusAmount,
@@ -1052,7 +1083,7 @@ export function modulateThroatSingingPerformance(
     ...base,
     trueFoldHz: foldFrequencyHz,
     harmonicNumber,
-    intensity: breathPressure,
+    intensity: sourcePressure,
     formantConvergence: focusAmount,
     uvularConstriction: base.uvularConstriction
       + motionWave * base.motionDepth * 0.2 * motionScale
@@ -1073,7 +1104,7 @@ export function modulateThroatSingingPerformance(
     ...modulated,
     harmonicNumber,
     foldFrequencyHz,
-    breathPressure,
+    sourcePressure,
     focusAmount,
     elapsedSeconds: elapsed,
     motionPhase,

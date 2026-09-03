@@ -8,13 +8,14 @@ Research checked 2026-09-02. This document records why the instrument is modeled
 - **Sygyt**, **Xöömei**, and **Kargyraa** are the three core Tuvan starting points represented here. **Borbangnadyr** and **Ezengileer** are treated as characteristic embellishments, not unrelated vocal organs or globally fixed waveforms.
 - **Mongolian Khöömei** is a living tradition with its own terminology, transmission, and social contexts. UNESCO groups its many techniques into deep `kharkhiraa` and whistled `isgeree Khöömei`. These facts inform the model but do not make a Tuvan-labelled preset “Mongolian.”
 - **Western overtone singing** is a separately labelled comparison preset because its focused-harmonic acoustics provide useful independent evidence for F2/F3 clustering.
+- **Open drone** is a neutral synthetic exploration state, not a named tradition. It starts broad and low so the whistle-like overtone emerges through interaction rather than sounding automatically.
 - **Inuit katajjaq / katajjaniq is not part of this preset family.** Avataq describes katajjaq as throat songs executed by two singers, usually women, and katajjaniq as a traditional game and women’s oral tradition in Nunavik. That paired, interactive form is structurally and culturally different from this solo sustained-drone instrument; no “Inuit” preset is provided.
 
 ## Local implementation audit
 
 | Local instrument | What is useful | Decision for this page | Important limit |
 | --- | --- | --- | --- |
-| **Throatazoid / Pink Trombone lineage** (`throatazoid.html`, `src/throatazoid.js`, `src/throatazoid-tract-processor.js`) | A 44-section bidirectional travelling-wave tract, tongue/lip constrictions, nasal branches, turbulence and release transients; internal glottal periodic-wave and aspiration sources. | Keep the 44-section tract convention and shared audio-output/unlock infrastructure. Use one human airway and make the two research-motivated constrictions explicit. | The live engine helpers are private to `throatazoid-app.js`; the tract is a reduced 1-D circular-equivalent tube, not a measured three-dimensional singer anatomy. |
+| **Throatazoid / Pink Trombone lineage** (`throatazoid.html`, `src/throatazoid.js`, `src/throatazoid-tract-processor.js`) | A 44-section bidirectional travelling-wave tract, tongue/lip constrictions, nasal branches, turbulence and release transients, plus an internal periodic glottal source. | Keep the 44-section tract convention and shared audio-output/unlock infrastructure. Use one human airway and make the two research-motivated constrictions explicit. | The live engine helpers are private to `throatazoid-app.js`; the tract is a reduced 1-D circular-equivalent tube, not a measured three-dimensional singer anatomy. |
 | **Pink Trombonazoid** (`pink-trombonazoid.html`, `src/pink-trombonazoid.js`, `src/spelling-synthesizer-audio.js`) | Immutable phoneme/event compilation, editable automation lanes, and the same Throatazoid worklet driven by several harmonic glottal sources. | Reuse its smooth event/control-update discipline only if a phrase sequencer is added later. | Its public façade is word/phone-centric and its `TubeSpellingEngine` is private; it is the wrong primary API for continuous overtone gestures. |
 | **Hybrinx** (`hybrinx.html`, `src/hybrinx-timeline.js`, `syrinx-app.js`, `src/syrinx-processor.js`) | Immutable gesture curves; pressure/tension/adduction controls; a physical source feeding a variable-area waveguide; accessible resizable performance layout. | Borrow the gesture-language idea for overtone motion and pressure pulses. Keep throat-specific state in a dedicated module. | Hybrinx is a mode inside the large Syrinx app. Its timeline is coupled to animal calls, tongue state and DOM IDs, and its CSS depends on a five-file cascade. |
 | **Jaw Harp** (`jaw-harp.html`, `src/jaw-harp.js`, `src/jaw-harp-processor.js`, `jaw-harp-app.js`) | Clean page/app/pure-model/worklet separation, robust lazy audio startup and page lifecycle, harmonic focus display, and formant/resonator controls. | Follow its architecture and lifecycle pattern; keep the drone and selected harmonic simultaneously legible. | Its source is a 96-mode metal reed plus resonators. That is a useful overtone-interface reference, not a human larynx model. |
@@ -27,13 +28,19 @@ There is no local `pink-trombone.html`: **Throatazoid** is the direct live Pink 
 
 Bergevin et al. combined audio, dynamic MRI and transmission-line modeling for Sygyt-style Tuvan singing. The glottal harmonic array remained stable through the focused transition, with little evidence of subharmonics; a linear source-filter explanation was sufficient. Singers brought upper formants together into a narrow focus, principally in the 1–2 kHz octave band. Modeling identified two useful articulatory regions: an alveolar/oral constriction governing the sharp focused state and a uvular/upper-pharyngeal constriction helping move its frequency. Small tract changes can therefore create a large spectral transition.
 
-**Mapping decision:** do not synthesize Sygyt as a drone plus an independent whistle oscillator. Generate one periodic, harmonic-rich true-fold source; retain a low/drone path; tune a paired F2/F3 focus to an integer harmonic of that same source. The Sygyt starting point is true folds `150 Hz`, division `1`, heard drone `150 Hz`, `H12`, and focus `1.8 kHz`, matching the paper’s worked model scale. Harmonic buttons remain a tract-filter gesture, not additional notes.
+**Mapping decision:** do not synthesize Sygyt as a drone plus an independent whistle oscillator. Generate one periodic, harmonic-rich true-fold source; retain a low/drone path; tune a paired F2/F3 focus to an integer harmonic of that same source. The selectable Sygyt preset is true folds `150 Hz`, division `1`, heard drone `150 Hz`, `H12`, and focus `1.8 kHz`, matching the paper’s worked model scale. The Selected harmonic control, canvas focus, and number keys remain tract-filter gestures, not additional notes.
+
+### Neutral discovery state
+
+The page opens on a deliberately unmerged tract envelope rather than the narrow Sygyt focus. This reduces both initial brightness and the chance of presenting a synthetic extreme as the default form of the tradition.
+
+**Mapping decision:** `Open drone` uses true folds `110 Hz`, `H8` (`880 Hz`), convergence `0.22`, bandwidth `300 Hz`, oral constriction `0.30`, and output level `0.28`. Its F2/F3 pair remains split. Moving the overtone handle upward raises convergence and oral constriction together; the mapping `oral = 0.10 + 0.90 × convergence` preserves the low starting tongue position while still reaching a near-Sygyt focus at the top.
 
 ### Xöömei and named Tuvan styles: practitioner terminology
 
 Alash’s practitioner-facing account calls Sygyt a high, sharp whistled style; Xöömei a middle-range style with an airy whistle; and Kargyraa a low style with a growling undertone and upper overtones. It explicitly says Xöömei is both a particular style and a general term. The Alash *Achai* terminology notes further characterize Xöömei as keeping drone and overtones at more comparable levels, Sygyt as reinforcing the high melody while muting the drone, and Kargyraa as involving the false vocal folds.
 
-**Mapping decision:** Xöömei uses a wider/weaker focus and more audible source body than Sygyt: true folds `145 Hz`, division `1`, `H9` (`1305 Hz`), convergence `0.88`, bandwidth `105 Hz`, breathiness `0.12`, roughness `0.16`. These are playable defaults, not measured population means.
+**Mapping decision:** Xöömei uses a wider/weaker focus and more audible source body than Sygyt: true folds `145 Hz`, division `1`, `H9` (`1305 Hz`), convergence `0.88`, bandwidth `105 Hz`, roughness `0.16`. These are playable defaults, not measured population means.
 
 ### Kargyraa: synchronized ventricular-fold period division
 
@@ -51,11 +58,11 @@ The tongue is an articulator, not the high sound source in this model. In Sygyt 
 
 **Mapping decision:** the canvas handle is `Overtone focus`; “whistle-like” remains a description of the percept. There is no independent whistle oscillator.
 
-### Breath intake versus inspiratory phonation
+### Vocal fry and growl-like roughness
 
-Ordinary audible intake is principally turbulent, unvoiced flow through an open glottis. Inspiratory phonation is a distinct extended technique in which the folds vibrate during inward flow. Vanhecke et al. found an inverted mucosal wave, lower closed quotient, greater noise, and a steeper harmonic slope during trained inspiratory phonation; MRI work also reports posture changes in the tongue, epiglottis, mouth floor, and teeth.
+Vocal fry / creak is not interchangeable with ventricular-fold growl or broadband noise. Keating et al. describe several creak dimensions, including low and irregular f0, glottal constriction, damping, and multiple pulsing. Childers and Lee measured short, abruptly closing fry pulses and one, two, or three glottal openings per low-frequency cycle. Bailly et al. found slow, periodic, and aperiodic ventricular-fold dynamics across throat singing, growls, and other gestures; depending on the regime, the supraglottal motion may alter, enhance, or suppress true-fold vibration.
 
-**Mapping decision:** releasing the drone can play a `460 ms` voiceless noise envelope with weak `500 Hz` and `1.55 kHz` resonances. It bypasses the overtone-focus branch and is explicitly labelled a perceptual proxy, not reversed airflow through the one-dimensional waveguide and not inspiratory singing. `Aspiration` remains noise during exhaled phonation.
+**Mapping decision:** `Vocal fry / creak` smoothly adds a deterministic five-cycle true-fold timing and amplitude pattern at `f0 / 5`, plus a modest move toward sharper closure and lower voiced drive. It is a musically stable multiple-pulsing proxy, not a self-oscillating tissue simulation or a claim that all fry repeats every five cycles. `Growl / source roughness` adds 17–33 Hz pitch and amplitude perturbation; paired with the separate ventricular coupling and 2:1 or 3:1 closure control, it broadens growl-like color without claiming that every vocal “growl” uses false folds. The compressor and output ceiling remain after both paths.
 
 ### Borbangnadyr and Ezengileer: overlays, not source engines
 
@@ -115,13 +122,14 @@ The model accepts true-fold frequency `50–360 Hz`, integer period division `1�
 
 | Preset | True folds / division | Heard drone | Harmonic focus | Convergence / bandwidth | False-fold coupling | Named motion |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Open drone | 110 Hz / 1 | 110 Hz | H8 / 880 Hz | 0.22 / 300 Hz | 0.04 | 0.35 Hz sine, depth 0.025 |
 | Sygyt | 150 Hz / 1 | 150 Hz | H12 / 1800 Hz | 0.97 / 58 Hz | 0.04 | 0.72 Hz sine, depth 0.06 |
 | Xöömei / Khöömei | 145 Hz / 1 | 145 Hz | H9 / 1305 Hz | 0.88 / 105 Hz | 0.04 | 0.58 Hz sine, depth 0.08 |
 | Kargyraa | 120 Hz / 2 | 60 Hz | H16 / 960 Hz | 0.70 / 168 Hz | 0.92 | 0.90 Hz sine, depth 0.08 |
 | Borbangnadyr | 140 Hz / 1 | 140 Hz | H9 / 1260 Hz | 0.86 / 112 Hz | 0.04 | 5.4 Hz triangle, depth 0.42 |
 | Ezengileer | 132 Hz / 1 | 132 Hz | H10 / 1320 Hz | 0.84 / 122 Hz | 0.04 | 2.6 Hz stirrup, depth 0.28 |
 | Western overtone — comparison | 140 Hz / 1 | 140 Hz | H10 / 1400 Hz | 0.76 / 142 Hz | 0.04 | 0.45 Hz sine, depth 0.07 |
-| Low chant — comparison | 82 Hz / 1 | 82 Hz | H8 / 656 Hz | 0.24 / 280 Hz | 0.12 | 0.32 Hz sine, depth 0.04 |
+| Low chant — comparison | 82 Hz / 1 | 82 Hz | H8 / 656 Hz | 0.24 / 280 Hz | 0.04 | 0.32 Hz sine, depth 0.04 |
 
 ### Tract geometry and waveguide
 
@@ -131,7 +139,7 @@ The model accepts true-fold frequency `50–360 Hz`, integer period division `1�
 - Place the anterior expansion at `14.75 cm`, radius `0.90 cm`, adding up to `2.1 cm²` before the lips.
 - Map the lip area as `(0.42 + 2.25 * mouthOpening) * (1 - 0.42 * lipRounding)` and clamp all section areas to `0.045–12 cm²`.
 - At each junction, use reflection `(A_left - A_right) / (A_left + A_right)`, clamped to `±0.999`.
-- Map glottal reflection to `0.74 + 0.08 * foldTenseness`; lip reflection to `-0.82 - 0.10 * lipRounding`; spatial/junction retention to `clamp(0.9994 - 0.0007 * breathiness - 0.00045 * roughness, 0.996, 0.9995)`.
+- Map glottal reflection to `0.74 + 0.08 * foldTenseness + 0.03 * creakAmount`; lip reflection to `-0.82 - 0.10 * lipRounding`; spatial/junction retention to `clamp(0.9994 - 0.00045 * roughness, 0.996, 0.9995)`.
 - Smooth all interactive audio changes. The focused branch and audible low body are normalized before the output compressor/ceiling so increasing convergence does not create an unsafe level jump.
 
 ### Control semantics
@@ -141,15 +149,15 @@ The model accepts true-fold frequency `50–360 Hz`, integer period division `1�
 | Drone pitch | `trueFoldHz` | True-fold repetition rate; not always the heard low pitch in a divided Kargyraa state. |
 | Ventricular coupling | `falseFoldCoupling` | Depth of synchronized alternate/periodic pulse suppression and rough color. |
 | Closure period | `falseFoldDivision` | Integer period relationship; `2` yields a heard drone one octave below the true-fold repetition rate. |
-| Breath pressure | `intensity` | Source drive and level, with bounded gain compensation. |
+| Source pressure | `intensity` | Voiced source drive and level, with bounded gain compensation. |
 | Adduction / pressedness | `foldTenseness` | Pulse sharpness, high-harmonic supply and glottal reflection. |
-| Aspiration / roughness | `breathiness`, `roughness` | Noise and small loss/jitter terms, not additional pitches. |
+| Vocal fry / creak | `creakAmount` | Five-cycle true-fold timing/amplitude variation and source-closure shift; distinct from ventricular motion. |
+| Growl / source roughness | `roughness` | Fast source pitch/amplitude perturbation that can broaden the ventricular growl proxy. |
 | Selected overtone | `harmonicNumber` | Integer partial of the heard drone used as the F2/F3 target. |
 | Overtone focus | `harmonicNumber`, `alveolarConstriction`, `formantConvergence` | Tongue/jaw/lip/pharynx-driven selection and Q-like merger of existing harmonics. |
 | Pharynx / overtone position | `uvularConstriction` | Moves/skews the focus and deforms the rear cavity. |
 | Lips / front cavity | `mouthOpening`, `lipRounding`, `frontCavityExpansion` | Front-cavity/F3 color and radiation. |
 | Ornament | `motionShape`, `motionRateHz`, `motionDepth`, `amplitudeMotionDepth` | Bounded synchronized tract and level movement. |
-| Audible inhale | `inhaleAudibility` | A one-shot, voiceless filtered-noise intake after release; not inspiratory phonation. |
 | Beyond anatomy | `phantomAirways`, `impossibleFocus`, `sourceInstability` | Explicitly fictional multi-outlet, hyper-focused, and quasiperiodic extensions. |
 
 ## Model limitations and non-claims
@@ -157,13 +165,13 @@ The model accepts true-fold frequency `50–360 Hz`, integer period division `1�
 1. **Not an authenticity model.** Named defaults are audible hypotheses selected from acoustic, anatomical and practitioner descriptions. They are not measurements of an average Tuvan, Mongolian, Inuit, or Western singer and cannot encode pedagogy, language, repertoire, place, social function or embodied expertise.
 2. **Evidence is small and style-specific.** The Kargyraa imaging result is from one male singer; the Western MRI paper is a one-singer case study. The eLife Sygyt result must not be generalized to all Xöömei or throat-singing mechanisms.
 3. **Reduced larynx.** Periodic pulse suppression approximates ventricular-fold coupling but omits the ICMC 2×2 model’s four moving masses, pressure-dependent self-oscillation, tissue collision, ventricle aerodynamics and possible period-three regimes.
-4. **Reduced airway.** A 1-D, 44-section circular-equivalent tube cannot reproduce three-dimensional lateral channels, exact tongue shape, piriform fossae, dynamic epilaryngeal geometry, teeth, detailed nasal coupling, radiation or individual anatomy. The hand-authored Gaussian centers are model landmarks, not universally fixed human coordinates.
-5. **Formant helper, not proof.** The paired focus stage intentionally stabilizes and exposes F2/F3 convergence. Its bandwidth and displayed gain estimate are design controls, not outputs of a validated inverse vocal-tract solver.
-6. **Experimental sublingual branch.** The 2026 preprint shows copy-synthesis benefit in its system; it does not establish a second sublingual biological oscillator. Keep the branch labelled experimental and removable.
-7. **Main-thread gestures are approximate.** UI-rate motion is smoothed into the audio graph; it is not a sample-accurate biomechanical simulation. Fast source coupling belongs in the AudioWorklet.
-8. **No vocal-health inference.** The synthesizer must not tell users how to force ventricular-fold phonation or imply that matching a control position is safe technique.
-9. **Katajjaq remains out of scope.** A credible katajjaq work would need a separate two-performer, alternating/interactive design and Inuit-led sources. Avataq’s cited lexicon alone supports the two-singer/usually-women description, not a detailed aerodynamic model.
-10. **The inhale is not reverse-flow CFD.** It is a short source-filter noise model outside the voiced tract path; it makes performance breathing audible without pretending that the worklet changes aerodynamic direction.
+4. **Creak and roughness are bounded proxies.** The five-cycle creak waveform and fast roughness modulation create audible multipulsing, jitter and shimmer, but they do not solve a nonlinear glottal tissue model or reproduce every fry, distortion, rattle, or aryepiglottic growl mechanism.
+5. **Reduced airway.** A 1-D, 44-section circular-equivalent tube cannot reproduce three-dimensional lateral channels, exact tongue shape, piriform fossae, dynamic epilaryngeal geometry, teeth, detailed nasal coupling, radiation or individual anatomy. The hand-authored Gaussian centers are model landmarks, not universally fixed human coordinates.
+6. **Formant helper, not proof.** The paired focus stage intentionally stabilizes and exposes F2/F3 convergence. Its bandwidth and displayed gain estimate are design controls, not outputs of a validated inverse vocal-tract solver.
+7. **Experimental sublingual branch.** The 2026 preprint shows copy-synthesis benefit in its system; it does not establish a second sublingual biological oscillator. Keep the branch labelled experimental and removable.
+8. **Main-thread gestures are approximate.** UI-rate motion is smoothed into the audio graph; it is not a sample-accurate biomechanical simulation. Fast source coupling belongs in the AudioWorklet.
+9. **No vocal-health inference.** The synthesizer must not tell users how to force ventricular-fold phonation or imply that matching a control position is safe technique.
+10. **Katajjaq remains out of scope.** A credible katajjaq work would need a separate two-performer, alternating/interactive design and Inuit-led sources. Avataq’s cited lexicon alone supports the two-singer/usually-women description, not a detailed aerodynamic model.
 11. **The creature lab is intentionally impossible.** Multiple parallel mouths and supra-human resonator Q are bounded synthesis affordances, not claims about human or animal anatomy. The “instability” control is a proxy, not proof that a chaotic attractor is being simulated.
 
 ## Source register
@@ -178,14 +186,14 @@ The model accepts true-fold frequency `50–360 Hz`, integer period division `1�
 - Rui Fan et al., “Physiological Basis of Polyphonic Overtones in Hoomei—False Vocal Folds or Vocal Tract Resonance?”, *Journal of Voice* (2025), PMID 40410061: <https://pubmed.ncbi.nlm.nih.gov/40410061/> — DOI <https://doi.org/10.1016/j.jvoice.2025.04.032>
 - Geddy Warner and Aaron M. Johnson, “Increased Respiratory Drive in Sustained Ventricular Vocal Fold Phonation,” *Journal of Voice* (2026), PMID 42025569: <https://pubmed.ncbi.nlm.nih.gov/42025569/> — DOI <https://doi.org/10.1016/j.jvoice.2026.03.035>
 - Per-Åke Lindestad et al., “Ventricular fold vibration in voice production,” *Logopedics Phoniatrics Vocology* 29(4) (2004), PMID 15764210: <https://pubmed.ncbi.nlm.nih.gov/15764210/>
+- Lucie Bailly et al., “Ventricular-fold dynamics in human phonation,” *Journal of Speech, Language, and Hearing Research* 57(4) (2014), PMID 24687091: <https://pubmed.ncbi.nlm.nih.gov/24687091/> — DOI <https://doi.org/10.1044/2014_JSLHR-S-12-0418>
+- Patricia Keating et al., “Creaky voice and prosodic boundaries in Spanish: an acoustic study,” *Proceedings of ICPhS* (2015): <https://pages.ucsd.edu/~mgarellek/files/Keating_etal_2015_ICPhS.pdf>
+- Donald G. Childers and C. K. Lee, “Vocal quality factors: Analysis, synthesis, and perception,” *Journal of the Acoustical Society of America* 90(5) (1991): <https://linguistics.berkeley.edu/~kjohnson/LSA317/Childers%26Lee1991.pdf> — DOI <https://doi.org/10.1121/1.402044>
 - Christian T. Herbst et al., “Freddie Mercury—acoustic analysis of speaking fundamental frequency, vibrato, and subharmonics,” *Logopedics Phoniatrics Vocology* 42(1) (2017), PMID 27079680: <https://pubmed.ncbi.nlm.nih.gov/27079680/>
 - Ingo R. Titze, “Nonlinear source–filter coupling in phonation: Theory,” *Journal of the Acoustical Society of America* 123(5) (2008): <https://pmc.ncbi.nlm.nih.gov/articles/PMC2811547/>
 - Louisa Traser et al., “Vocal tract configuration and acoustic transfer characteristics in mechanisms of extreme vocal styles—A pilot study,” *Journal of the Acoustical Society of America* 160(2) (2026), PMID 42627765: <https://pubmed.ncbi.nlm.nih.gov/42627765/>
 - Daniel Azola et al., “The physiology of oral whistling: a combined radiographic and MRI analysis,” *Journal of Applied Physiology* 124(1) (2018), PMID 28839006: <https://pubmed.ncbi.nlm.nih.gov/28839006/>
 - Matthias Echternach et al., “Biomechanics of sound production in high-pitched classical singing,” *Scientific Reports* 14 (2024), PMID 38849382: <https://pubmed.ncbi.nlm.nih.gov/38849382/>
-- Françoise Vanhecke et al., “Physiology and Acoustics of Inspiratory Phonation,” *Journal of Voice* 30(6) (2016), PMID 26706750: <https://pubmed.ncbi.nlm.nih.gov/26706750/>
-- Louisa Traser et al., “Vocal Tract Morphology in Inhaling Singing: An MRI-Based Study,” *Journal of Voice* 31(3) (2017), PMID 26122925: <https://pubmed.ncbi.nlm.nih.gov/26122925/>
-- Stefan Werner et al., “Inhalation Duration and Speech Intensity,” *Interspeech 2021*: <https://www.isca-archive.org/interspeech_2021/werner21_interspeech.html>
 
 ### Practitioner terminology and living heritage
 
