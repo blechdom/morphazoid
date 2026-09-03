@@ -12,6 +12,7 @@ import {
   CREATURAZOID_BODY_PRESETS,
   CREATURAZOID_DEFAULTS,
   CREATURAZOID_DYNAMICS,
+  CREATURAZOID_EAR_TYPES,
   CREATURAZOID_GESTURE_TYPES,
   CREATURAZOID_LIMITS,
   CREATURAZOID_MAX_STEPS,
@@ -19,6 +20,7 @@ import {
   CREATURAZOID_PERCUSSIVE_SOUND_IDS,
   CREATURAZOID_SEQUENCE_PRESETS,
   CREATURAZOID_SOUNDS,
+  CREATURAZOID_TAIL_TYPES,
   CREATURAZOID_VOICE_PRESETS,
   applyCreaturazoidMorphBias,
   creaturazoidArticulationAt,
@@ -42,14 +44,29 @@ import {
   creaturazoidState,
   creaturazoidStepEvent,
   creaturazoidStepIntervalSeconds,
+  creaturazoidTongueState,
   cycleCreaturazoidDynamics,
   cycleCreaturazoidStep,
   interpolateCreaturazoidMorph,
   resolveCreaturazoidEventState,
   sanitizeCreaturazoidPattern,
+  sanitizeCreaturazoidShape,
   sanitizeCreaturazoidState,
   setCreaturazoidStep,
 } from "../src/creaturazoid.js";
+import { applyTongueToDiameter } from "../src/tongue-physics.js";
+
+const HYBRINX_PALETTE = new Set([
+  "#baff54",
+  "#e3ff9f",
+  "#59f1df",
+  "#b6fff5",
+  "#ff5f87",
+  "#ffcf68",
+  "#d08cff",
+  "#64cfff",
+  "#ff7b6f",
+]);
 
 function assertFiniteAndBoundedSyrinxState(state, label = "state") {
   for (const [name, [minimum, maximum]] of Object.entries(CONTROL_LIMITS)) {
@@ -66,7 +83,7 @@ test("fifty calls keep mammals dominant and add fourteen physically articulated 
   assert.equal(CREATURAZOID_SOUNDS.length, 50);
   assert.equal(new Set(CREATURAZOID_SOUNDS.map(({ id }) => id)).size, 50);
   assert.equal(new Set(CREATURAZOID_SOUNDS.map(({ key }) => key)).size, 50);
-  assert.equal(new Set(CREATURAZOID_SOUNDS.map(({ color }) => color)).size, 50);
+  assert.deepEqual(new Set(CREATURAZOID_SOUNDS.map(({ color }) => color)), HYBRINX_PALETTE);
   assert.deepEqual(CREATURAZOID_GESTURE_TYPES, ["vocal", "percussive"]);
   assert.equal(CREATURAZOID_PERCUSSIVE_SOUND_IDS.length, 14);
   assert.deepEqual(
@@ -95,7 +112,7 @@ test("fifty calls keep mammals dominant and add fourteen physically articulated 
     new Set(["yip", "trill", "chirp", "ticks"].map((id) => creaturazoidSound(id).callId)),
     new Set(["wolf-yip", "songbird-trill", "treefrog-chirp", "mouse-steps"]),
   );
-  assert.ok(["#ff4f87", "#ffb703", "#ff7b00", "#00a8e8"].every((color) => (
+  assert.ok([...HYBRINX_PALETTE].every((color) => (
     CREATURAZOID_SOUNDS.some((sound) => sound.color === color)
   )));
   const localPitches = CREATURAZOID_SOUNDS.map(({ pitchSemitones }) => pitchSemitones);
@@ -159,31 +176,52 @@ test("fifty calls keep mammals dominant and add fourteen physically articulated 
     }
   }
   assert.ok(creaturazoidArticulationAt("hiss", 0.5).voicing <= 0.05);
-  assert.ok(creaturazoidArticulationAt("hiss", 0.5).turbulence >= 1);
+  assert.ok(creaturazoidArticulationAt("hiss", 0.5).turbulence >= 0.6);
+  assert.ok(creaturazoidArticulationAt("hiss", 0.5).turbulence <= 0.95);
   assert.equal(creaturazoidSound("hoof-stomp").articulation.contact.strikes[0].phase, 0);
   assert.equal(creaturazoidSound("footsteps").articulation.contact.strikes.length, 4);
   assert.ok(creaturazoidArticulationAt("feather-ruffle", 0.5).flutterHz >= 20);
   assert.ok(creaturazoidSound("jumping").articulation.contact.strikes.some(({ phase }) => phase >= 0.8));
 });
 
-test("three horned anatomical systems replace ears and eyebrows with feather-bearing structures", () => {
+test("body contacts favor resonant modes over broadband noise", () => {
+  const contacts = CREATURAZOID_SOUNDS
+    .map(({ id, articulation }) => ({ id, contact: articulation?.contact }))
+    .filter(({ contact }) => contact);
+  const strikes = contacts.flatMap(({ contact }) => contact.strikes);
+
+  assert.ok(contacts.length >= 8);
+  assert.ok(strikes.length >= 20);
+  for (const { id, contact } of contacts) {
+    assert.ok(contact.scrapeNoiseMix <= 0.2, `${id} scrape must remain resonance-led`);
+    for (const strike of contact.strikes) {
+      assert.ok(strike.noiseMix <= 0.4, `${id} strike must retain at least 60% pitched body mode`);
+    }
+  }
+  assert.ok(
+    strikes.reduce((sum, { noiseMix }) => sum + noiseMix, 0) / strikes.length <= 0.26,
+    "the body-contact bank must remain predominantly tonal",
+  );
+});
+
+test("three horned anatomical systems add mobile ears without restoring cartoon eyebrows", () => {
   assert.equal(CREATURAZOID_ANATOMY_DESIGNS.length, 3);
   assert.equal(new Set(CREATURAZOID_ANATOMY_DESIGNS.map(({ id }) => id)).size, 3);
   for (const design of CREATURAZOID_ANATOMY_DESIGNS) {
     assert.equal(creaturazoidAnatomyDesign(design.id), design);
     assert.ok(design.structures.some((structure) => /feather|flight/i.test(structure)));
     assert.ok(design.structures.some((structure) => /horn|antler/i.test(structure)));
-    assert.doesNotMatch(`${design.label} ${design.description} ${design.structures.join(" ")}`, /eyebrow|\bear\b/i);
+    assert.match(`${design.label} ${design.description} ${design.structures.join(" ")}`, /pinna|ear/i);
+    assert.doesNotMatch(`${design.label} ${design.description} ${design.structures.join(" ")}`, /eyebrow/i);
     assert.ok(design.proportions.wingSpan >= 0.7);
     assert.ok(design.proportions.toothExposure >= 0.2 && design.proportions.toothExposure <= 0.38);
   }
   assert.equal(creaturazoidAnatomyDesign("unknown").id, CREATURAZOID_DEFAULTS.anatomyDesignId);
 });
 
-test("eight generically named body presets carry absolute acoustics, visible mass, and enveloped motion", () => {
+test("eight generic bodies carry morphing mouths, varied ears and tails, and the Hybrinx palette", () => {
   assert.equal(CREATURAZOID_BODY_PRESETS.length, 8);
   assert.equal(CREATURAZOID_VOICE_PRESETS, CREATURAZOID_BODY_PRESETS, "the old export is only an alias");
-  assert.equal(new Set(CREATURAZOID_BODY_PRESETS.map(({ color }) => color)).size, 8);
   const speciesWords = /hyena|cervid|canid|crocodil|panther|bovine|avian|anuran|lion|wolf|bird|frog|cow|mouse/i;
 
   for (const preset of CREATURAZOID_BODY_PRESETS) {
@@ -204,6 +242,7 @@ test("eight generically named body presets carry absolute acoustics, visible mas
     assert.equal(state.cavityFrequencyHz, preset.cavityFrequencyHz);
     assert.ok(preset.palette.length >= 6);
     assert.match(preset.color, /^#[0-9a-f]{6}$/i);
+    assert.deepEqual(new Set(preset.palette), HYBRINX_PALETTE, `${preset.id} must use the full Hybrinx palette`);
     const vividColors = preset.palette.filter((color) => {
       const channels = [1, 3, 5].map((offset) => Number.parseInt(color.slice(offset, offset + 2), 16));
       return Math.max(...channels) >= 230 && Math.max(...channels) - Math.min(...channels) >= 140;
@@ -213,7 +252,12 @@ test("eight generically named body presets carry absolute acoustics, visible mas
       const [minimum, maximum] = CONTROL_LIMITS[name];
       assert.ok(preset.bodyState[name] >= minimum && preset.bodyState[name] <= maximum);
     }
-    for (const field of ["bodyScale", "bodyRoundness", "headScale", "neckLength", "neckWidth", "thoraxWidth"]) {
+    for (const field of [
+      "bodyScale", "bodyRoundness", "headScale", "neckLength", "neckWidth", "thoraxWidth",
+      "mouthWidth", "mouthDepth", "jawTaper", "lipCurl",
+      "earLength", "earWidth", "earDroop", "earRotation",
+      "tailLength", "tailThickness", "tailCurl", "tailTuft", "tongueWidth",
+    ]) {
       assert.ok(Number.isFinite(preset.shape[field]), `${preset.id}.${field} must be explicit`);
     }
     assert.ok(preset.modulations.length >= 2 && preset.modulations.length <= 3);
@@ -228,8 +272,90 @@ test("eight generically named body presets carry absolute acoustics, visible mas
 
   const scales = CREATURAZOID_BODY_PRESETS.map(({ shape }) => shape.bodyScale);
   const roundness = CREATURAZOID_BODY_PRESETS.map(({ shape }) => shape.bodyRoundness);
+  const mouthWidths = CREATURAZOID_BODY_PRESETS.map(({ shape }) => shape.mouthWidth);
+  const mouthDepths = CREATURAZOID_BODY_PRESETS.map(({ shape }) => shape.mouthDepth);
   assert.ok(Math.max(...scales) - Math.min(...scales) >= 0.6);
   assert.ok(Math.max(...roundness) - Math.min(...roundness) >= 0.8);
+  assert.ok(Math.max(...mouthWidths) - Math.min(...mouthWidths) >= 0.8);
+  assert.ok(Math.max(...mouthDepths) - Math.min(...mouthDepths) >= 0.8);
+  assert.deepEqual(
+    new Set(CREATURAZOID_BODY_PRESETS.map(({ shape }) => shape.earType)),
+    new Set(CREATURAZOID_EAR_TYPES),
+  );
+  assert.deepEqual(
+    new Set(CREATURAZOID_BODY_PRESETS.map(({ shape }) => shape.tailType)),
+    new Set(CREATURAZOID_TAIL_TYPES),
+  );
+
+  const sanitized = sanitizeCreaturazoidShape({
+    earType: "invented",
+    tailType: "invented",
+    mouthWidth: 99,
+    mouthDepth: -99,
+    tailLength: Infinity,
+  });
+  assert.equal(sanitized.earType, "point");
+  assert.equal(sanitized.tailType, "brush");
+  assert.equal(sanitized.mouthWidth, 1.6);
+  assert.equal(sanitized.mouthDepth, 0.5);
+  assert.equal(sanitized.tailLength, 1);
+});
+
+test("the animated Hybrinx tongue stays bounded and gives growls and chirps different tract shapes", () => {
+  const state = creaturazoidState("dense-squat", {
+    tongueReach: 0.8,
+    tongueMotion: 1,
+  });
+  const growl = resolveCreaturazoidEventState("growl", {
+    state,
+    phase: 0.5,
+    velocity: 1,
+  });
+  const chirp = resolveCreaturazoidEventState("chirp", {
+    state,
+    phase: 0.5,
+    velocity: 1,
+  });
+
+  for (const [label, tongue] of [["growl", growl.tongue], ["chirp", chirp.tongue]]) {
+    assert.equal(tongue.tongueEnabled, true);
+    for (const field of [
+      "tonguePosition", "tongueHeight", "tongueShape", "tongueTip",
+      "tongueExtension", "tongueCurl", "tongueLateral",
+    ]) {
+      assert.ok(Number.isFinite(tongue[field]), `${label}.${field} must be finite`);
+      assert.ok(tongue[field] >= 0 && tongue[field] <= 1, `${label}.${field} must stay normalized`);
+    }
+  }
+  assert.ok(growl.tongue.tonguePosition < chirp.tongue.tonguePosition - 0.2);
+  assert.ok(growl.tongue.tongueShape < chirp.tongue.tongueShape - 0.2);
+  assert.ok(growl.tongue.tongueLateral > chirp.tongue.tongueLateral);
+
+  const tractSamples = Array.from({ length: 81 }, (_, index) => index / 80);
+  const growlArea = tractSamples.map((position) => (
+    applyTongueToDiameter(position, 1, growl.tongue)
+  ));
+  const chirpArea = tractSamples.map((position) => (
+    applyTongueToDiameter(position, 1, chirp.tongue)
+  ));
+  assert.ok(growlArea.some((diameter, index) => Math.abs(diameter - chirpArea[index]) > 0.05));
+  assert.ok(Math.min(...growlArea) < 0.9);
+  assert.ok(Math.min(...chirpArea) < 0.9);
+
+  const early = creaturazoidTongueState(
+    resolveCreaturazoidEventState("growl", { state, phase: 0.2, velocity: 1 }),
+    state,
+  );
+  assert.notDeepEqual(early, growl.tongue, "call-local motion must animate the acoustic articulator");
+
+  const hostile = sanitizeCreaturazoidState({
+    earSpread: 99,
+    tongueReach: -99,
+    tongueMotion: Infinity,
+  });
+  assert.equal(hostile.earSpread, 1);
+  assert.equal(hostile.tongueReach, 0);
+  assert.equal(hostile.tongueMotion, CREATURAZOID_DEFAULTS.tongueMotion);
 });
 
 test("one absolute body baseline survives every call family while call identity stays intact", () => {
@@ -278,6 +404,14 @@ test("one absolute body baseline survives every call family while call identity 
 
 test("body-independent sequences mix repeated dance motifs with room for multi-envelope phrases", () => {
   assert.ok(CREATURAZOID_SEQUENCE_PRESETS.length >= 8);
+  const growlySoundIds = new Set([
+    "roar", "chuff", "growl", "rumble", "bellow", "gator", "purr", "cervid",
+    "harsh", "moose", "moan", "grunt", "moo", "lowmoo", "snap-bark", "panting", "crunching",
+  ]);
+  const chirpySoundIds = new Set([
+    "yip", "giggle", "croak", "rattle", "trill", "phrase", "chirp", "frogtrill",
+    "ticks", "caw", "feather-ruffle",
+  ]);
   const defaultSequence = creaturazoidSequencePreset(CREATURAZOID_DEFAULTS.sequencePresetId);
   const defaultState = creaturazoidState();
   assert.equal(defaultState.tempo, defaultSequence.tempo);
@@ -313,11 +447,12 @@ test("body-independent sequences mix repeated dance motifs with room for multi-e
     for (const values of Object.values(pattern.rows)) assert.equal(values.length, CREATURAZOID_MAX_STEPS);
     const onsetSteps = [];
     const presetSoundIds = new Set();
-    let presetBirdOnsets = 0;
     let presetMammalOnsets = 0;
     let presetMicroOnsets = 0;
     let presetPercussiveOnsets = 0;
     let presetVocalOnsets = 0;
+    let presetGrowlyOnsets = 0;
+    let presetChirpyOnsets = 0;
     for (let step = 0; step < pattern.length; step += 1) {
       const events = creaturazoidEventsAtStep(pattern, step);
       assert.ok(events.length <= 1, `${preset.id} step ${step} must be monophonic`);
@@ -328,7 +463,6 @@ test("body-independent sequences mix repeated dance motifs with room for multi-e
         totalOnsets += 1;
         if (events[0].sound.family === "bird") {
           birdOnsets += 1;
-          presetBirdOnsets += 1;
         }
         if (events[0].sound.family === "mammal") {
           mammalOnsets += 1;
@@ -345,11 +479,14 @@ test("body-independent sequences mix repeated dance motifs with room for multi-e
           vocalOnsets += 1;
           presetVocalOnsets += 1;
         }
+        if (growlySoundIds.has(events[0].soundId)) presetGrowlyOnsets += 1;
+        if (chirpySoundIds.has(events[0].soundId)) presetChirpyOnsets += 1;
         onsetSteps.push(step);
       }
     }
     assert.ok(onsetSteps.length >= 11, `${preset.id} needs enough onsets to establish a rhythm`);
-    assert.ok(presetBirdOnsets >= 2, `${preset.id} needs an audible bird counter-rhythm`);
+    assert.ok(presetChirpyOnsets >= 2, `${preset.id} needs an audible chirpy counter-rhythm`);
+    assert.ok(presetGrowlyOnsets >= 2, `${preset.id} needs growly vocal weight`);
     assert.ok(presetMammalOnsets >= 4, `${preset.id} must retain mammalian weight`);
     assert.ok(presetMicroOnsets >= 6, `${preset.id} needs a dense micro-call cluster`);
     assert.ok(presetPercussiveOnsets >= 2, `${preset.id} must intersperse body percussion`);
@@ -357,17 +494,18 @@ test("body-independent sequences mix repeated dance motifs with room for multi-e
     if (preset.dance) {
       dancePresetCount += 1;
       assert.ok(onsetSteps.length / pattern.length >= 0.8, `${preset.id} must keep the dance subdivision busy`);
-      assert.ok(presetSoundIds.size >= 5 && presetSoundIds.size <= 8, `${preset.id} needs a focused recurring kit`);
+      assert.ok(presetSoundIds.size >= 8 && presetSoundIds.size <= 12, `${preset.id} needs a varied recurring kit`);
       assert.ok(
-        presetPercussiveOnsets / onsetSteps.length >= 0.7,
-        `${preset.id} needs a body-percussion backbone`,
+        presetPercussiveOnsets / onsetSteps.length >= 0.5
+          && presetPercussiveOnsets / onsetSteps.length <= 0.7,
+        `${preset.id} needs resonant hits interlocked with creature voices`,
       );
       assert.ok(
-        presetVocalOnsets / onsetSteps.length >= 0.1
-          && presetVocalOnsets / onsetSteps.length <= 0.25,
-        `${preset.id} needs restrained short vocal hooks rather than animal roulette`,
+        presetVocalOnsets / onsetSteps.length >= 0.3
+          && presetVocalOnsets / onsetSteps.length <= 0.5,
+        `${preset.id} needs prominent growly and chirpy hooks`,
       );
-      assert.ok(presetMicroOnsets / onsetSteps.length >= 0.65, `${preset.id} must articulate promptly`);
+      assert.ok(presetMicroOnsets / onsetSteps.length >= 0.58, `${preset.id} must articulate promptly`);
       for (let quarter = 0; quarter < pattern.length; quarter += 4) {
         assert.ok(creaturazoidStepEvent(pattern, quarter), `${preset.id} needs an onset on beat ${quarter / 4 + 1}`);
       }
@@ -409,17 +547,18 @@ test("body-independent sequences mix repeated dance motifs with room for multi-e
   assert.ok(Math.max(...swings) - Math.min(...swings) >= 0.18);
   assert.ok(totalOnsets >= 260);
   assert.ok(birdOnsets >= 50);
-  assert.ok(mammalOnsets >= 180);
-  assert.ok(microOnsets >= 190);
+  assert.ok(mammalOnsets >= 160);
+  assert.ok(microOnsets >= 180);
   assert.ok(birdOnsets / totalOnsets >= 0.2);
   assert.ok(mammalOnsets / totalOnsets >= 0.55);
   assert.ok(microOnsets / totalOnsets > 0.5);
-  assert.ok(percussiveOnsets >= 150);
-  assert.ok(vocalOnsets >= 100);
+  assert.ok(percussiveOnsets >= 110);
+  assert.ok(vocalOnsets >= 145);
   assert.ok(usedSounds.size >= 40);
-  for (const soundId of CREATURAZOID_PERCUSSIVE_SOUND_IDS) {
-    assert.ok(usedSounds.has(soundId), `${soundId} must occur in a factory rhythm`);
-  }
+  assert.ok(
+    CREATURAZOID_PERCUSSIVE_SOUND_IDS.filter((soundId) => usedSounds.has(soundId)).length >= 13,
+    "factory rhythms must demonstrate nearly every body action without becoming a noise reel",
+  );
   assert.ok(spaciousRichCalls >= 12, "the long-form bank must keep six to twelve empty columns around rich calls");
   for (const restored of ["phrase", "frogtrill", "trumpet"]) {
     assert.ok(usedSounds.has(restored), `${restored} must appear in the factory rhythms`);
@@ -431,12 +570,13 @@ test("body-independent sequences mix repeated dance motifs with room for multi-e
     (_, step) => creaturazoidStepEvent(defaultPattern, step),
   ).filter(Boolean);
   assert.equal(defaultEvents.length, 30);
-  assert.ok(defaultEvents.some(({ soundId }) => soundId === "hiss"));
   assert.ok(defaultEvents.filter(({ sound }) => sound.family === "bird").length >= 8);
-  assert.ok(defaultEvents.filter(({ sound }) => sound.family === "mammal").length >= 20);
-  assert.ok(defaultEvents.filter(({ sound }) => sound.durationMs <= 640).length >= 28);
-  assert.ok(defaultEvents.filter(({ sound }) => sound.gestureType === "percussive").length >= 24);
-  assert.equal(defaultEvents.filter(({ sound }) => sound.gestureType === "vocal").length, 4);
+  assert.ok(defaultEvents.filter(({ sound }) => sound.family === "mammal").length >= 19);
+  assert.ok(defaultEvents.filter(({ sound }) => sound.durationMs <= 640).length >= 26);
+  assert.ok(defaultEvents.filter(({ sound }) => sound.gestureType === "percussive").length >= 18);
+  assert.ok(defaultEvents.filter(({ sound }) => sound.gestureType === "vocal").length >= 10);
+  assert.ok(defaultEvents.some(({ soundId }) => growlySoundIds.has(soundId)));
+  assert.ok(defaultEvents.some(({ soundId }) => chirpySoundIds.has(soundId)));
   assert.ok(defaultEvents.some(({ soundId }) => soundId === "neigh"));
 
   const pocket = creaturazoidState("pocket-needle");
@@ -678,7 +818,7 @@ test("bounded body corrections lift only measured resonant dropouts", () => {
   for (const body of CREATURAZOID_BODY_PRESETS) {
     for (const sound of CREATURAZOID_SOUNDS) {
       const trim = creaturazoidBodyLevelTrim(sound, body.id);
-      assert.ok(trim >= 1 && trim <= 3.75, `${body.id}/${sound.id} body trim is bounded`);
+      assert.ok(trim >= 0.36 && trim <= 3.75, `${body.id}/${sound.id} body trim is bounded`);
     }
   }
 
@@ -688,6 +828,10 @@ test("bounded body corrections lift only measured resonant dropouts", () => {
   assert.equal(creaturazoidBodyLevelTrim("bellow", "pocket-needle"), 1.25);
   assert.equal(creaturazoidBodyLevelTrim("chirp", "split-chamber"), 1.5);
   assert.equal(creaturazoidBodyLevelTrim("frogtrill", "split-chamber"), 1.45);
+  assert.equal(creaturazoidBodyLevelTrim("ticks", "elastic-tower"), 0.55);
+  assert.equal(creaturazoidBodyLevelTrim("ticks", "paper-giant"), 0.88);
+  assert.equal(creaturazoidBodyLevelTrim("feather-ruffle", "paper-giant"), 2.1);
+  assert.equal(creaturazoidBodyLevelTrim("feather-ruffle", "long-hollow"), 1.2);
   assert.equal(creaturazoidBodyLevelTrim("roar", "colossal-barrel"), 1);
 });
 

@@ -1,10 +1,12 @@
 import {
   CREATURAZOID_ANATOMY_DESIGNS,
   CREATURAZOID_DYNAMICS,
+  CREATURAZOID_EAR_TYPES,
   CREATURAZOID_LIMITS,
   CREATURAZOID_MAX_STEPS,
   CREATURAZOID_SEQUENCE_PRESETS,
   CREATURAZOID_SOUNDS,
+  CREATURAZOID_TAIL_TYPES,
   CREATURAZOID_BODY_PRESETS,
   creaturazoidAnatomyDesign,
   creaturazoidContourOffsets,
@@ -16,6 +18,7 @@ import {
   creaturazoidState,
   creaturazoidStepEvent,
   creaturazoidStepIntervalSeconds,
+  creaturazoidTongueState,
   creaturazoidBodyPreset,
   creaturazoidBodyLevelTrim,
   cycleCreaturazoidStep,
@@ -27,7 +30,7 @@ import {
   sanitizeCreaturazoidPattern,
   sanitizeCreaturazoidState,
   setCreaturazoidStep,
-} from "./src/creaturazoid.js?v=creaturazoid-model-20260902-7";
+} from "./src/creaturazoid.js?v=creaturazoid-model-20260903-8";
 import {
   ANIMALS,
   CALL_GESTURES,
@@ -40,6 +43,7 @@ import {
 } from "./src/syrinx.js?v=creaturazoid-core-20260902-2";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
+import { tongueAirwayAperture } from "./src/tongue-physics.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -282,6 +286,16 @@ function physicalConfiguration(performanceState) {
   const animal = ANIMALS[performanceState.animalId] ?? ANIMALS.raven;
   const body = selectedBodyPreset();
   const articulation = performanceState.articulation ?? {};
+  const tongue = performanceState.tongue ?? creaturazoidTongueState(performanceState, state);
+  const articulationGate = clamp(articulation.airwayGate ?? 1);
+  const tongueAperture = tongueAirwayAperture(tongue);
+  const tongueGateDepth = articulation.motion === "lap" || articulation.motion === "crunch"
+    ? 0.78
+    : articulation.motion === "pant" || performanceState.sourceFamily === "bird"
+      ? 0.34
+      : 0.16;
+  const tongueGate = 1 - (1 - tongueAperture) * tongueGateDepth;
+  const effectiveAirwayGate = Math.min(articulationGate, tongueGate);
   const source = {
     ...resolveSourceControls(performanceState),
     outputGain: clamp(0.82
@@ -307,7 +321,11 @@ function physicalConfiguration(performanceState) {
       ?? state.cavityFrequencyHz
       ?? body.cavityFrequencyHz,
     cavityBranches: 2,
-    airwayGate: clamp(articulation.airwayGate ?? 1),
+    ...tongue,
+    earSpread: state.earSpread,
+    // Keep authored closures, while letting the animated tongue add a second
+    // real valve contribution instead of acting as a decorative drawing.
+    airwayGate: effectiveAirwayGate,
     lateralBypass: 0,
     turbulence: clamp(
       performanceState.roughness * 0.16 + (articulation.turbulence ?? 0),
@@ -320,6 +338,18 @@ function physicalConfiguration(performanceState) {
       : 0,
     burstGain: clamp(articulation.burstGain ?? 0, 0, 1.5),
     burstFrequencyHz: clamp(articulation.burstFrequencyHz ?? 1_050, 80, 12_000),
+    onsetBurstPrime: performanceState.sequenced
+      && performanceState.gesturePhase <= 0.0001
+      && effectiveAirwayGate >= 0.2
+      ? clamp(
+        Math.sqrt(clamp(articulation.pressure ?? 0))
+          * clamp(articulation.burstGain ?? 0, 0, 1.5)
+          * (0.24 + clamp(performanceState.velocity ?? 1) * 0.76)
+          * 0.78,
+        0,
+        1.1,
+      )
+      : 0,
     flowDirection: Number(articulation.flowDirection) < 0 ? -1 : 1,
     flutterHz: Math.max(
       clamp(articulation.flutterHz ?? 0, 0, 60),
@@ -345,7 +375,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.audioWorklet.addModule(new URL(
-    "./src/creaturazoid-processor.js?v=creaturazoid-worklet-20260902-5",
+    "./src/creaturazoid-processor.js?v=creaturazoid-worklet-20260903-6",
     import.meta.url,
   ));
   const configuration = restingConfiguration();
@@ -507,7 +537,12 @@ function scheduleSound(
         pressure: targetState.pressure,
         level: targetState.level,
         active: targetState.active,
+        velocity: targetState.velocity,
+        sequenced: targetState.sequenced,
         gesturePhase: targetState.gesturePhase,
+        authoredPhase: targetState.authoredPhase,
+        callPhase: targetState.callPhase,
+        articulationPhase: targetState.articulationPhase,
         sourceFrequencyRatio: targetState.sourceFrequencyRatio,
         effectivePitchSemitones: targetState.effectivePitchSemitones,
         bodyMotion: targetState.bodyMotion,
@@ -519,6 +554,7 @@ function scheduleSound(
         tractDiameterScale: targetState.tractDiameterScale,
         cavityFrequencyHz: targetState.cavityFrequencyHz,
         articulation: targetState.articulation,
+        tongue: targetState.tongue,
         gestureType: targetState.gestureType,
       };
     }
@@ -1040,6 +1076,21 @@ function randomizeCreature() {
     40,
     8_000,
   );
+  const bodyShape = { ...state.bodyShape };
+  for (const name of [
+    "mouthWidth", "mouthDepth", "jawTaper", "lipCurl", "earLength",
+    "earWidth", "earDroop", "earRotation", "tailLength", "tailThickness",
+    "tailCurl", "tailTuft", "tongueWidth",
+  ]) {
+    bodyShape[name] = finiteOr(bodyShape[name], name.includes("Taper") || name.includes("Curl") || name.includes("Droop") || name.includes("Rotation") ? 0 : 1)
+      + randomSigned() * (name.startsWith("tail") || name.startsWith("ear") ? 0.28 : 0.2);
+  }
+  if (Math.random() < 0.46) {
+    bodyShape.earType = CREATURAZOID_EAR_TYPES[Math.floor(Math.random() * CREATURAZOID_EAR_TYPES.length)];
+  }
+  if (Math.random() < 0.38) {
+    bodyShape.tailType = CREATURAZOID_TAIL_TYPES[Math.floor(Math.random() * CREATURAZOID_TAIL_TYPES.length)];
+  }
   state = sanitizeCreaturazoidState({
     ...state,
     bodyPresetId: state.bodyPresetId,
@@ -1054,7 +1105,11 @@ function randomizeCreature() {
     vibratoDepthSemitones: state.vibratoDepthSemitones + randomSigned() * 1.2,
     modulationRateHz: state.modulationRateHz + randomSigned() * 4,
     modulationDepth: state.modulationDepth + randomSigned() * 0.3,
+    earSpread: state.earSpread + randomSigned() * 0.24,
+    tongueReach: state.tongueReach + randomSigned() * 0.24,
+    tongueMotion: state.tongueMotion + randomSigned() * 0.28,
     bodyState,
+    bodyShape,
     morphBias,
   }, state);
   syncControls();
@@ -1065,24 +1120,29 @@ function randomizeCreature() {
 function scatterPattern() {
   let next = sanitizeCreaturazoidPattern({}, pattern.length);
   const dynamics = CREATURAZOID_DYNAMICS.slice(1);
-  const percussion = CREATURAZOID_SOUNDS.filter(({ gestureType }) => gestureType === "percussive");
-  const compactVoices = CREATURAZOID_SOUNDS.filter(({ gestureType, durationMs }) => (
-    gestureType === "vocal" && durationMs <= 1_000
-  ));
+  const bodyHits = [
+    "hoof-stomp", "snap-bark", "footsteps", "lapping", "crunching", "jumping",
+    "tail-whip", "feather-ruffle",
+  ].map(creaturazoidSound);
+  const growlBank = [
+    "growl", "grunt", "chuff", "gator", "rumble", "purr", "lowmoo", "croak",
+  ].map(creaturazoidSound);
+  const chirpBank = [
+    "chirp", "frogtrill", "trill", "ticks", "yip", "caw", "rattle", "giggle",
+  ].map(creaturazoidSound);
   const longVoices = CREATURAZOID_SOUNDS.filter(({ gestureType, durationMs }) => (
     gestureType === "vocal" && durationMs > 1_000
   ));
-  const birds = CREATURAZOID_SOUNDS.filter(({ family }) => family === "bird");
   let step = Math.floor(Math.random() * 2);
   let lastSoundId = "";
   while (step < pattern.length) {
     const roll = Math.random();
-    let pool = roll < 0.58
-      ? percussion
-      : roll < 0.78
-        ? compactVoices
+    let pool = roll < 0.28
+      ? bodyHits
+      : roll < 0.62
+        ? growlBank
         : roll < 0.9
-          ? birds
+          ? chirpBank
           : longVoices;
     if (pool.length > 1) pool = pool.filter(({ id }) => id !== lastSoundId);
     const sound = pool[Math.floor(Math.random() * pool.length)] ?? CREATURAZOID_SOUNDS[0];
@@ -1090,17 +1150,19 @@ function scatterPattern() {
     next = setCreaturazoidStep(next, step, sound.id, velocity);
     lastSoundId = sound.id;
     const nativeSpace = creaturazoidRecommendedSpaceSteps(sound, state.tempo);
-    step += sound.gestureType === "percussive"
-      ? 1 + Math.floor(Math.random() * 3)
-      : sound.durationMs <= 1_000
-        ? 2 + Math.floor(Math.random() * 4)
-        : Math.max(6, Math.round(nativeSpace * (0.72 + Math.random() * 0.34)));
+    step += bodyHits.includes(sound)
+      ? 1 + Math.floor(Math.random() * 2)
+      : chirpBank.includes(sound)
+        ? 1 + Math.floor(Math.random() * 3)
+        : growlBank.includes(sound)
+          ? 2 + Math.floor(Math.random() * 3)
+          : Math.max(6, Math.round(nativeSpace * (0.72 + Math.random() * 0.34)));
   }
   pattern = next;
   markPatternCustom();
   buildSequenceGrid({ preserveScroll: false });
   if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
-  announce("Creature scatter: body percussion, bird cuts, and short calls interlock around breathing room for long voices");
+  announce("Random rhythm: resonant body hits interlock with growls, chirps, and breathing room for long voices");
 }
 
 function clearPattern() {
@@ -1209,6 +1271,20 @@ const CONTROL_BINDINGS = Object.freeze([
     format: formatSigned,
   },
   {
+    id: "tongueReach",
+    output: "tongueReachOut",
+    read: () => state.tongueReach,
+    write: (value) => { state = sanitizeCreaturazoidState({ ...state, tongueReach: value }, state); },
+    format: formatPercent,
+  },
+  {
+    id: "tongueMotion",
+    output: "tongueMotionOut",
+    read: () => state.tongueMotion,
+    write: (value) => { state = sanitizeCreaturazoidState({ ...state, tongueMotion: value }, state); },
+    format: formatPercent,
+  },
+  {
     id: "attackMs",
     output: "attackMsOut",
     read: () => state.attackMs,
@@ -1228,6 +1304,13 @@ const CONTROL_BINDINGS = Object.freeze([
     read: () => state.vibratoRateHz,
     write: (value) => { state = sanitizeCreaturazoidState({ ...state, vibratoRateHz: value }, state); },
     format: (value) => `${value.toFixed(1)} Hz`,
+  },
+  {
+    id: "earSpread",
+    output: "earSpreadOut",
+    read: () => state.earSpread,
+    write: (value) => { state = sanitizeCreaturazoidState({ ...state, earSpread: value }, state); },
+    format: formatPercent,
   },
   {
     id: "vibratoDepth",
@@ -1300,8 +1383,8 @@ function syncControls() {
     `${preset.modulations.length} envelopes · ${Math.round(state.attackMs)} ms attack`,
   );
   $("bodySummary").textContent = `${formatPercent(state.bodyScale)} body · ${formatSigned(state.bodyRoundness)} roundness · ${formatPercent(1 + state.morphBias.pressure * 0.8)} lungs`;
-  $("cavitySummary").textContent = `${formatSigned(state.morphBias.cavityCoupling)} cavity · ${formatSigned(state.morphBias.roughness)} rough`;
-  $("modulationSummary").textContent = `${preset.modulations.length} body envelopes · ${state.vibratoRateHz.toFixed(1)} Hz vibrato · ${modulationTarget} ${state.modulationShape}`;
+  $("cavitySummary").textContent = `${formatSigned(state.morphBias.cavityCoupling)} cavity · ${formatPercent(state.tongueReach)} tongue · ${formatSigned(state.morphBias.roughness)} rough`;
+  $("modulationSummary").textContent = `${formatPercent(state.earSpread)} ears · ${preset.modulations.length} body envelopes · ${state.vibratoRateHz.toFixed(1)} Hz vibrato · ${modulationTarget} ${state.modulationShape}`;
   setTransportPresentation();
 }
 
@@ -1407,8 +1490,12 @@ function bindControls() {
   $("nextPatternButton").addEventListener("click", () => setSequencePreset(
     cyclePreset(CREATURAZOID_SEQUENCE_PRESETS, currentPatternId).id,
   ));
-  $("randomizeButton").addEventListener("click", randomizeCreature);
-  $("randomPatternButton").addEventListener("click", scatterPattern);
+  document.querySelectorAll('[data-creaturazoid-action="mutate-body"]').forEach((button) => {
+    button.addEventListener("click", randomizeCreature);
+  });
+  document.querySelectorAll('[data-creaturazoid-action="randomize-rhythm"]').forEach((button) => {
+    button.addEventListener("click", scatterPattern);
+  });
   $("clearPatternButton").addEventListener("click", clearPattern);
   $("resetButton").addEventListener("click", () => {
     stopSequence({ announceState: false });
@@ -1434,7 +1521,10 @@ function resizeCanvas() {
   canvas.height = Math.max(1, Math.round(height * dpr));
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
-  const scale = Math.max(80, Math.min(width * 0.37, height * 0.45));
+  // Compact stages reserve lateral room for the longest pinnae, active flight
+  // feathers, and tail sweep instead of cropping those appendages at the glass.
+  const widthScale = width < 560 ? width * 0.24 : width * 0.37;
+  const scale = Math.max(72, Math.min(widthScale, height * 0.45));
   canvasMetrics = Object.freeze({
     width,
     height,
@@ -1579,6 +1669,7 @@ function familyPose(sound, timeSeconds, performanceState) {
     ? clamp(Math.max(finiteOr(performanceState?.pressure), finiteOr(telemetry.pressure) * 1.4))
     : clamp(finiteOr(telemetry.pressure) * 0.3);
   const motion = sound?.articulation?.motion ?? "vocal";
+  const tongue = performanceState?.tongue ?? creaturazoidTongueState(performanceState, state);
   const actionPhase = clamp(finiteOr(performanceState?.articulationPhase, phase));
   const actionCycle = active && !prefersReducedMotion
     ? Math.max(0, Math.cos(actionPhase * Math.PI * 8)) ** 6
@@ -1598,13 +1689,22 @@ function familyPose(sound, timeSeconds, performanceState) {
     )
     : 0;
   const tongueFlick = active
-    ? clamp((motion === "lap" ? actionCycle : 0) + (motion === "pant" ? actionCycle * 0.58 : 0))
+    ? clamp(
+      (motion === "lap" ? actionCycle : 0)
+      + (motion === "pant" ? actionCycle * 0.58 : 0)
+      + Math.abs(finiteOr(tongue.tongueCurl, 0.5) - 0.5) * contourEnvelope * 0.72,
+    )
     : 0;
   const featherRuffle = active && motion === "ruffle"
     ? clamp(0.36 + irregularCycle * 0.94)
     : 0;
   const clawSwipe = active && motion === "claw" ? irregularCycle * velocity : 0;
   const tailSweep = active && motion === "whip" ? Math.sin(Math.PI * actionPhase) * velocity : 0;
+  const tailMotion = active && !prefersReducedMotion
+    ? Math.sin(elapsed * Math.PI * 2 * (1.2 + state.modulationRateHz * 0.12))
+      * (0.08 + contourEnvelope * 0.14)
+      + tailSweep * 0.92
+    : 0;
   const footStrike = active
     ? (motion === "stomp"
       ? onset
@@ -1642,7 +1742,10 @@ function familyPose(sound, timeSeconds, performanceState) {
       jawSnap * 0.88 + tongueFlick * 0.44 + (motion === "hiss" ? 0.28 : 0),
     ), 0, 1.35)
     : 0;
-  const eyeBurst = active ? clamp(onset * 0.72 + drive * (0.26 + velocity * 0.34)) : 0;
+  const eyeBurst = active ? clamp(onset * 0.36 + drive * (0.12 + velocity * 0.16), 0, 0.48) : 0;
+  const earTwitch = active
+    ? clamp(onset * 0.5 + Math.abs(oscillation) * 0.36 + Math.abs(bodyTremor) * 0.2)
+    : 0;
   const neckStretch = active
     ? (0.055 + bird * 0.17 + mammal * 0.075 + rodent * 0.045 + frog * 0.03)
       * (0.52 + velocity * 0.72)
@@ -1675,11 +1778,15 @@ function familyPose(sound, timeSeconds, performanceState) {
     motion,
     jawSnap,
     tongueFlick,
+    tongue,
     nostrilFlare,
     hornKick,
     featherRuffle,
     bodyDrop,
     tailSweep,
+    tailMotion,
+    earTwitch,
+    earSplay: clamp(state.earSpread + drive * 0.12 + earTwitch * 0.08),
     clawSwipe,
     footStrike,
     headBob,
@@ -1720,7 +1827,7 @@ function specimenFillColor(color, pose, idleOpacity, activeOpacity) {
 }
 
 function specimenOutlineWidth(scale, weight = 1) {
-  return Math.max(2, scale * 0.01 * weight);
+  return Math.max(2.2, scale * 0.012 * weight);
 }
 
 function brightenSpecimenColor(color, amount) {
@@ -2012,6 +2119,9 @@ function controlHandlePositions(timeSeconds = 0) {
     { id: "tract", label: "L", ...bodyStagePoint(0, 0.47) },
     { id: "cavity", label: "C", ...bodyStagePoint(-anatomy.skullWidth * 0.72, 0.01) },
     { id: "roughness", label: "R", ...bodyStagePoint(anatomy.skullWidth * 0.72, 0.01) },
+    { id: "earSpread", label: "E", ...bodyStagePoint(-anatomy.skullWidth * 0.82 - state.earSpread * 0.16, -0.25) },
+    { id: "earSpread", label: "E", ...bodyStagePoint(anatomy.skullWidth * 0.82 + state.earSpread * 0.16, -0.25) },
+    { id: "tongueReach", label: "TG", ...bodyStagePoint(0, anatomy.muzzleLength + 0.05 + state.tongueReach * 0.25) },
     { id: "morphMs", label: "M", ...bodyStagePoint(0, 0.76) },
     { id: "vibratoRate", label: "VR", ...bodyStagePoint(-anatomy.wingSpan - vibrato * 0.018, wingY) },
     { id: "vibratoDepth", label: "VD", ...bodyStagePoint(anatomy.wingSpan + vibrato * 0.018, wingY) },
@@ -2089,6 +2199,10 @@ function activeAnatomyDesign() {
     skullHeight: anatomy.skullHeight * headScale * (1 - roundness * 0.04),
     muzzleWidth: anatomy.muzzleWidth * Math.sqrt(headScale) * (1 + roundness * 0.06),
     muzzleLength: anatomy.muzzleLength * finiteOr(shape.muzzleLength, 1),
+    mouthWidth: finiteOr(shape.mouthWidth, 1) * (1 + roundness * 0.16),
+    mouthDepth: finiteOr(shape.mouthDepth, 1) * (1 + roundness * 0.08),
+    jawTaper: clamp(finiteOr(shape.jawTaper, 0) - roundness * 0.18, -1, 1),
+    lipCurl: clamp(finiteOr(shape.lipCurl, 0) + roundness * 0.12, -1, 1),
     neckLength: anatomy.neckLength * finiteOr(shape.neckLength, 1),
     neckWidth: anatomy.neckWidth * finiteOr(shape.neckWidth, 1),
     thoraxWidth: anatomy.thoraxWidth * finiteOr(shape.thoraxWidth, 1),
@@ -2098,17 +2212,28 @@ function activeAnatomyDesign() {
     jawDepth: anatomy.jawDepth * (0.82 + finiteOr(shape.bellyDepth, 1) * 0.18),
     eyeScale: finiteOr(shape.eyeScale, 1),
     bellyDepth: finiteOr(shape.bellyDepth, 1),
+    earType: shape.earType ?? "point",
+    earLength: finiteOr(shape.earLength, 1),
+    earWidth: finiteOr(shape.earWidth, 1),
+    earDroop: clamp(finiteOr(shape.earDroop, 0), -1, 1),
+    earRotation: clamp(finiteOr(shape.earRotation, 0), -1, 1),
+    tailType: shape.tailType ?? "brush",
+    tailLength: finiteOr(shape.tailLength, 1),
+    tailThickness: finiteOr(shape.tailThickness, 1),
+    tailCurl: clamp(finiteOr(shape.tailCurl, 0), -1, 1),
+    tailTuft: clamp(finiteOr(shape.tailTuft, 0.5)),
+    tongueWidth: finiteOr(shape.tongueWidth, 1),
   });
 }
 
 function drawSpecimenBackdrop(context, palette, anatomy, pose) {
   const { width, height, cx, cy, scale } = canvasMetrics;
-  context.fillStyle = "#05040a";
+  context.fillStyle = "#030806";
   context.fillRect(0, 0, width, height);
   const aura = context.createRadialGradient(cx, cy * 0.92, scale * 0.08, cx, cy, scale * 1.18);
   aura.addColorStop(0, `${palette[0]}${pose.active ? "42" : "16"}`);
   aura.addColorStop(0.42, `${palette[2]}${pose.active ? "24" : "0d"}`);
-  aura.addColorStop(1, "rgba(5, 4, 10, 0)");
+  aura.addColorStop(1, "rgba(3, 8, 6, 0)");
   context.fillStyle = aura;
   context.fillRect(0, 0, width, height);
   const spacing = Math.max(30, Math.min(54, width / 18));
@@ -2155,6 +2280,193 @@ function drawSpecimenBackdrop(context, palette, anatomy, pose) {
   context.fillText(`${anatomy.code} // ${anatomy.label.toUpperCase()}`, 18, height - 18);
   context.fillStyle = palette[0];
   context.fillRect(18, height - 10, Math.min(92, width * 0.15), 1);
+}
+
+function drawSpecimenTail(context, timeSeconds, palette, pose, anatomy) {
+  const { cx, cy, scale } = canvasMetrics;
+  const bodyBalance = finiteOr(state.bodyState?.sourceBalance, 0.5);
+  // Keep the root anatomically attached while source balance crosses center;
+  // balance bends the tail, but must never teleport it to the other hip.
+  const side = 1;
+  const length = clamp(anatomy.tailLength, 0.45, 1.75);
+  const thickness = clamp(anatomy.tailThickness, 0.35, 1.7);
+  const curl = clamp(anatomy.tailCurl, -1, 1);
+  const compactReach = canvasMetrics.width < 560 ? 0.72 : 1;
+  const idleMotion = prefersReducedMotion
+    ? 0
+    : Math.sin(timeSeconds * (1.1 + state.modulationRateHz * 0.08) + bodyBalance * 5) * 0.035;
+  const motion = pose.tailMotion + idleMotion;
+  const root = stagePoint(side * anatomy.thoraxWidth * 0.52, 0.69);
+  const reach = (0.32 + length * 0.34 + pose.tailSweep * 0.22) * compactReach;
+  const tip = stagePoint(
+    side * (anatomy.thoraxWidth * 0.72 + reach),
+    0.5 - curl * 0.22 - motion * 0.28,
+  );
+  const controlOne = {
+    x: cx + side * scale * (anatomy.thoraxWidth * 0.9 + length * 0.12),
+    y: cy + scale * (0.8 + curl * 0.13 + motion * 0.12),
+  };
+  const controlTwo = {
+    x: cx + side * scale * (anatomy.thoraxWidth * 0.78 + reach * 0.82),
+    y: cy + scale * (0.56 - curl * 0.3 - motion * 0.34),
+  };
+
+  context.beginPath();
+  context.moveTo(root.x, root.y);
+  context.bezierCurveTo(controlOne.x, controlOne.y, controlTwo.x, controlTwo.y, tip.x, tip.y);
+  context.strokeStyle = "rgba(1, 5, 4, 0.94)";
+  context.lineWidth = scale * (0.035 + thickness * 0.035 + pose.tailSweep * 0.018);
+  context.stroke();
+  context.beginPath();
+  context.moveTo(root.x, root.y);
+  context.bezierCurveTo(controlOne.x, controlOne.y, controlTwo.x, controlTwo.y, tip.x, tip.y);
+  context.strokeStyle = specimenFillColor(
+    palette[4],
+    pose,
+    SPECIMEN_OPACITY.appendageIdle + 0.12,
+    SPECIMEN_OPACITY.appendageActive + 0.2,
+  );
+  context.lineWidth = scale * (0.016 + thickness * 0.024 + pose.tailSweep * 0.012);
+  context.stroke();
+
+  const tuft = clamp(anatomy.tailTuft, 0, 1);
+  if (anatomy.tailType === "fan") {
+    for (let feather = 0; feather < 6; feather += 1) {
+      const unit = feather / 5 - 0.5;
+      const featherTip = {
+        x: tip.x + side * scale * (0.11 + tuft * 0.11 - Math.abs(unit) * 0.025),
+        y: tip.y + scale * unit * (0.28 + tuft * 0.1),
+      };
+      pathFeather(context, tip.x, tip.y, featherTip.x, featherTip.y, scale * (0.025 + tuft * 0.022));
+      context.fillStyle = specimenFillColor(
+        palette[(feather + 1) % palette.length],
+        pose,
+        SPECIMEN_OPACITY.appendageIdle + 0.08,
+        SPECIMEN_OPACITY.appendageActive + 0.14,
+      );
+      context.strokeStyle = palette[7];
+      context.lineWidth = specimenOutlineWidth(scale, 0.58);
+      context.fill();
+      context.stroke();
+    }
+  } else if (anatomy.tailType === "brush") {
+    for (let barb = 0; barb < 7; barb += 1) {
+      const angle = -0.9 + barb * 0.3 + motion * 0.25;
+      context.beginPath();
+      context.moveTo(tip.x, tip.y);
+      context.lineTo(
+        tip.x + side * scale * Math.cos(angle) * (0.09 + tuft * 0.1),
+        tip.y + scale * Math.sin(angle) * (0.09 + tuft * 0.1),
+      );
+      context.strokeStyle = palette[(barb + 2) % palette.length];
+      context.lineWidth = specimenOutlineWidth(scale, 0.68);
+      context.stroke();
+    }
+  } else if (anatomy.tailType === "tuft") {
+    context.beginPath();
+    context.ellipse(
+      tip.x + side * scale * 0.035,
+      tip.y,
+      scale * (0.045 + tuft * 0.055),
+      scale * (0.07 + tuft * 0.08),
+      side * (0.35 + motion * 0.18),
+      0,
+      Math.PI * 2,
+    );
+    context.fillStyle = specimenFillColor(palette[2], pose, 0.34, 0.72);
+    context.strokeStyle = palette[7];
+    context.lineWidth = specimenOutlineWidth(scale, 0.9);
+    context.fill();
+    context.stroke();
+  } else {
+    context.beginPath();
+    context.moveTo(tip.x - side * scale * 0.018, tip.y - scale * 0.018);
+    context.lineTo(tip.x + side * scale * (0.06 + tuft * 0.04), tip.y);
+    context.lineTo(tip.x - side * scale * 0.018, tip.y + scale * 0.018);
+    context.closePath();
+    context.fillStyle = palette[2];
+    context.fill();
+  }
+}
+
+function drawSpecimenEars(context, palette, pose, anatomy) {
+  const { cx, cy, scale } = canvasMetrics;
+  const spread = clamp(pose.earSplay, 0, 1.2);
+  const earLength = scale * (0.13 + anatomy.earLength * 0.13);
+  const earWidth = scale * (0.055 + anatomy.earWidth * 0.075);
+  const droop = anatomy.earDroop;
+  const rotation = anatomy.earRotation;
+
+  const traceEar = () => {
+    context.beginPath();
+    if (anatomy.earType === "round") {
+      context.ellipse(earLength * 0.54, droop * earLength * 0.18, earLength * 0.54, earWidth, 0, 0, Math.PI * 2);
+    } else if (anatomy.earType === "drop") {
+      context.moveTo(0, -earWidth * 0.52);
+      context.bezierCurveTo(earLength * 0.7, -earWidth, earLength * 1.08, earWidth * (0.9 + droop), earLength * 0.55, earWidth * (1.45 + droop));
+      context.bezierCurveTo(earLength * 0.18, earWidth * 1.15, -earWidth * 0.16, earWidth * 0.45, 0, -earWidth * 0.52);
+      context.closePath();
+    } else if (anatomy.earType === "fan") {
+      context.moveTo(0, earWidth * 0.6);
+      context.lineTo(earLength * 0.64, earWidth * 1.12);
+      context.lineTo(earLength, earWidth * 0.34);
+      context.lineTo(earLength * 0.9, -earWidth * 0.92);
+      context.lineTo(earLength * 0.38, -earWidth * 1.18);
+      context.lineTo(0, -earWidth * 0.5);
+      context.closePath();
+    } else if (anatomy.earType === "wide") {
+      context.moveTo(0, -earWidth * 0.46);
+      context.bezierCurveTo(earLength * 0.38, -earWidth * 1.25, earLength, -earWidth * 0.62, earLength * 1.08, 0);
+      context.bezierCurveTo(earLength * 0.88, earWidth * 0.78, earLength * 0.22, earWidth * 1.08, 0, earWidth * 0.42);
+      context.closePath();
+    } else if (anatomy.earType === "long") {
+      context.moveTo(0, -earWidth * 0.45);
+      context.bezierCurveTo(earLength * 0.34, -earWidth, earLength * 0.88, -earWidth * 0.5, earLength * 1.25, 0);
+      context.bezierCurveTo(earLength * 0.76, earWidth * 0.68, earLength * 0.25, earWidth * 0.82, 0, earWidth * 0.42);
+      context.closePath();
+    } else {
+      context.moveTo(0, earWidth * 0.55);
+      context.lineTo(earLength * 1.08, -earWidth * (0.24 + 0.55 * (1 - droop)));
+      context.lineTo(earLength * 0.64, earWidth * 0.9);
+      context.closePath();
+    }
+  };
+
+  for (const side of [-1, 1]) {
+    const base = stagePoint(
+      side * (anatomy.skullWidth * 0.68 + spread * 0.08),
+      -0.25 + droop * 0.035,
+    );
+    context.save();
+    context.translate(base.x, base.y);
+    context.rotate(side * (rotation * 0.42 + pose.earTwitch * 0.18));
+    context.scale(side, 1);
+    traceEar();
+    context.fillStyle = specimenFillColor(
+      side < 0 ? palette[3] : palette[4],
+      pose,
+      SPECIMEN_OPACITY.appendageIdle + 0.08,
+      SPECIMEN_OPACITY.appendageActive + 0.18,
+    );
+    context.strokeStyle = palette[7];
+    context.lineWidth = specimenOutlineWidth(scale, 1.05);
+    context.fill();
+    context.stroke();
+    context.beginPath();
+    context.moveTo(earLength * 0.08, 0);
+    context.quadraticCurveTo(earLength * 0.48, droop * earWidth * 0.35, earLength * 0.82, 0);
+    context.strokeStyle = specimenColorWithAlpha("#59f1df", 0.82);
+    context.lineWidth = specimenOutlineWidth(scale, 0.62);
+    context.stroke();
+    if (pose.active && pose.earTwitch > 0.06) {
+      context.translate(earLength * (0.035 + pose.earTwitch * 0.04), -earWidth * 0.04);
+      traceEar();
+      context.strokeStyle = specimenColorWithAlpha("#baff54", 0.22 + pose.earTwitch * 0.44);
+      context.lineWidth = specimenOutlineWidth(scale, 0.62);
+      context.stroke();
+    }
+    context.restore();
+  }
 }
 
 function drawSpecimenWings(context, timeSeconds, palette, pose, anatomy) {
@@ -2530,30 +2842,6 @@ function drawSpecimenLimbsAndActions(context, palette, pose, anatomy) {
     }
   }
 
-  if (pose.tailSweep > 0.02) {
-    const direction = Math.sin(pose.phase * Math.PI * 2) >= 0 ? 1 : -1;
-    const root = stagePoint(direction * anatomy.thoraxWidth * 0.7, 0.72);
-    const tip = stagePoint(direction * (anatomy.thoraxWidth + 0.74 * pose.tailSweep), 0.42 - pose.tailSweep * 0.28);
-    context.beginPath();
-    context.moveTo(root.x, root.y);
-    context.quadraticCurveTo(
-      cx + direction * scale * (anatomy.thoraxWidth + 0.28),
-      cy + scale * (0.78 - pose.tailSweep * 0.56),
-      tip.x,
-      tip.y,
-    );
-    context.strokeStyle = "rgba(2, 3, 7, 0.9)";
-    context.lineWidth = scale * 0.052;
-    context.stroke();
-    context.strokeStyle = palette[4];
-    context.lineWidth = scale * 0.032;
-    context.stroke();
-    context.beginPath();
-    context.arc(tip.x, tip.y, scale * 0.035, 0, Math.PI * 2);
-    context.fillStyle = palette[8 % palette.length];
-    context.fill();
-  }
-
   if (pose.clawSwipe > 0.04) {
     const side = Math.sin(pose.phase * Math.PI * 7) >= 0 ? 1 : -1;
     for (let claw = 0; claw < 4; claw += 1) {
@@ -2578,11 +2866,37 @@ function drawSpecimenHorns(context, palette, pose, anatomy, skullWidth, top) {
   const flare = pose.active
     ? pose.drive * 0.14 + Math.abs(pose.pulse) * 0.035 + pose.hornKick * 0.13
     : 0;
+  const hornAsymmetry = clamp(finiteOr(state.bodyState?.asymmetry, 0)) * 0.08;
+  const asymmetryDirection = finiteOr(state.bodyState?.sourceBalance, 0.5) >= 0.5 ? 1 : -1;
   for (const side of [-1, 1]) {
     const baseX = cx + side * scale * skullWidth * 0.62;
     const baseY = top + scale * 0.13;
-    const hornWidth = anatomy.hornWidth + flare;
-    const hornHeight = anatomy.hornHeight + flare * 0.72;
+    const sideGrowth = 1 + side * asymmetryDirection * hornAsymmetry;
+    const hornWidth = (anatomy.hornWidth + flare) * sideGrowth;
+    const hornHeight = (anatomy.hornHeight + flare * 0.72) * sideGrowth;
+
+    // A translucent vascular root keeps every horn attached to the frontal
+    // bone; the brighter external branch is the harder keratin sheath.
+    context.beginPath();
+    context.ellipse(
+      baseX,
+      baseY,
+      scale * (0.065 + hornWidth * 0.08),
+      scale * (0.045 + hornWidth * 0.055),
+      side * -0.18,
+      0,
+      Math.PI * 2,
+    );
+    context.fillStyle = specimenFillColor(
+      palette[6],
+      pose,
+      SPECIMEN_OPACITY.organIdle,
+      SPECIMEN_OPACITY.organActive,
+    );
+    context.fill();
+    context.strokeStyle = palette[7];
+    context.lineWidth = specimenOutlineWidth(scale, 0.72);
+    context.stroke();
 
     if (anatomy.hornType === "ram") {
       const centerX = cx + side * scale * (skullWidth + hornWidth * 0.16);
@@ -2592,27 +2906,27 @@ function drawSpecimenHorns(context, palette, pose, anatomy, skullWidth, top) {
         centerX,
         centerY,
         scale * (hornWidth * 0.58 + flare * 0.2),
-        side < 0 ? Math.PI * 0.26 : Math.PI * 0.74,
-        side < 0 ? Math.PI * 2.05 : -Math.PI * 1.05,
+        side < 0 ? Math.PI * 0.34 : Math.PI * 0.66,
+        side < 0 ? Math.PI * 1.62 : -Math.PI * 0.62,
         side > 0,
       );
       context.strokeStyle = "rgba(3, 3, 8, 0.92)";
-      context.lineWidth = scale * (0.092 + flare * 0.06);
+      context.lineWidth = scale * (0.068 + flare * 0.045);
       context.stroke();
-      context.strokeStyle = side < 0 ? palette[5] : palette[2];
-      context.lineWidth = scale * (0.064 + flare * 0.04);
+      context.strokeStyle = "#e3ff9f";
+      context.lineWidth = scale * (0.038 + flare * 0.026);
       context.stroke();
       context.beginPath();
-      context.arc(centerX, centerY, scale * (hornWidth * 0.28), 0, Math.PI * 2);
-      context.fillStyle = specimenFillColor(
-        palette[7],
-        pose,
-        SPECIMEN_OPACITY.appendageIdle,
-        SPECIMEN_OPACITY.appendageActive,
+      context.arc(
+        centerX,
+        centerY,
+        scale * (hornWidth * 0.3),
+        side < 0 ? Math.PI * 0.42 : Math.PI * 0.58,
+        side < 0 ? Math.PI * 1.35 : -Math.PI * 0.35,
+        side > 0,
       );
-      context.fill();
-      context.strokeStyle = palette[0];
-      context.lineWidth = specimenOutlineWidth(scale, 0.72);
+      context.strokeStyle = specimenColorWithAlpha("#59f1df", 0.86);
+      context.lineWidth = specimenOutlineWidth(scale, 0.64);
       context.stroke();
     } else if (anatomy.hornType === "antler") {
       const tipX = cx + side * scale * (skullWidth + hornWidth * (0.72 + flare));
@@ -2630,7 +2944,7 @@ function drawSpecimenHorns(context, palette, pose, anatomy, skullWidth, top) {
       context.strokeStyle = "rgba(3, 3, 8, 0.92)";
       context.lineWidth = scale * 0.052;
       context.stroke();
-      context.strokeStyle = side < 0 ? palette[2] : palette[5];
+      context.strokeStyle = "#e3ff9f";
       context.lineWidth = scale * 0.031;
       context.stroke();
       for (let tine = 0; tine < 3; tine += 1) {
@@ -2643,8 +2957,17 @@ function drawSpecimenHorns(context, palette, pose, anatomy, skullWidth, top) {
           rootX + side * scale * hornWidth * (0.34 + tine * 0.1 + flare),
           rootY - scale * hornHeight * (0.2 + tine * 0.055),
         );
-        context.strokeStyle = palette[(tine + 4) % palette.length];
-        context.lineWidth = scale * (0.023 - tine * 0.003);
+        context.strokeStyle = "rgba(3, 8, 6, 0.94)";
+        context.lineWidth = scale * (0.032 - tine * 0.003);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(rootX, rootY);
+        context.lineTo(
+          rootX + side * scale * hornWidth * (0.34 + tine * 0.1 + flare),
+          rootY - scale * hornHeight * (0.2 + tine * 0.055),
+        );
+        context.strokeStyle = tine === 1 ? "#59f1df" : "#e3ff9f";
+        context.lineWidth = scale * (0.017 - tine * 0.002);
         context.stroke();
       }
     } else {
@@ -2733,51 +3056,64 @@ function drawSpecimenHead(context, palette, pose, anatomy) {
   for (const side of [-1, 1]) {
     const orbit = stagePoint(side * skullWidth * 0.49, -0.21);
     const eyeScale = finiteOr(anatomy.eyeScale, 1)
-      * (1 + pose.eyeBurst * (1.18 + pose.bird * 0.28 + pose.rodent * 0.35));
+      * (1 + pose.eyeBurst * (0.24 + pose.bird * 0.08));
     const eyeX = orbit.x + side * scale * pose.eyeBurst * 0.018;
     const eyeY = orbit.y - scale * pose.eyeBurst * 0.012;
+
+    // A faceted orbital socket and nictitating lid replace the round,
+    // sparkling toy eyes. These are fixed bony planes, not eyebrows.
+    context.beginPath();
+    context.moveTo(eyeX - side * scale * 0.092 * eyeScale, eyeY - scale * 0.044 * eyeScale);
+    context.lineTo(eyeX + side * scale * 0.068 * eyeScale, eyeY - scale * 0.058 * eyeScale);
+    context.lineTo(eyeX + side * scale * 0.082 * eyeScale, eyeY + scale * 0.034 * eyeScale);
+    context.lineTo(eyeX - side * scale * 0.072 * eyeScale, eyeY + scale * 0.052 * eyeScale);
+    context.closePath();
+    context.fillStyle = specimenFillColor(palette[6], pose, 0.2, 0.42);
+    context.strokeStyle = palette[7];
+    context.lineWidth = specimenOutlineWidth(scale, 0.82);
+    context.fill();
+    context.stroke();
     context.beginPath();
     context.ellipse(
       eyeX,
       eyeY,
-      scale * 0.066 * eyeScale,
-      scale * (0.054 + pose.rodent * 0.006) * eyeScale,
-      0,
+      scale * 0.047 * eyeScale,
+      scale * (0.032 + pose.eyeBurst * 0.006) * eyeScale,
+      side * -0.08,
       0,
       Math.PI * 2,
     );
-    context.fillStyle = palette[7];
+    context.fillStyle = specimenColorWithAlpha("#e3ff9f", pose.active ? 0.88 : 0.68);
     context.strokeStyle = palette[6];
-    context.lineWidth = specimenOutlineWidth(scale, 0.9 + pose.eyeBurst * 0.34);
+    context.lineWidth = specimenOutlineWidth(scale, 0.78 + pose.eyeBurst * 0.16);
     context.fill();
     context.stroke();
+    const pupilX = eyeX + side * state.morphBias.sourceBalance * scale * 0.014;
     context.beginPath();
-    context.arc(
-      eyeX + side * state.morphBias.sourceBalance * scale * 0.014,
+    context.ellipse(
+      pupilX,
       eyeY,
-      scale * (0.029 + pose.eyeBurst * 0.024 + pose.rodent * 0.009),
+      scale * (0.008 + pose.eyeBurst * 0.003),
+      scale * (0.026 + pose.eyeBurst * 0.004),
+      side * 0.05,
       0,
       Math.PI * 2,
     );
-    context.fillStyle = palette[(side < 0 ? 3 : 8) % palette.length];
+    context.fillStyle = "#030806";
     context.fill();
-    context.strokeStyle = "rgba(3, 3, 8, 0.9)";
-    context.lineWidth = specimenOutlineWidth(scale, 0.62);
+    context.beginPath();
+    context.moveTo(eyeX - side * scale * 0.041 * eyeScale, eyeY + scale * 0.013);
+    context.lineTo(eyeX + side * scale * 0.042 * eyeScale, eyeY - scale * 0.009);
+    context.strokeStyle = specimenColorWithAlpha("#59f1df", 0.72);
+    context.lineWidth = specimenOutlineWidth(scale, 0.46);
     context.stroke();
+
     context.beginPath();
-    context.arc(
-      eyeX + side * state.morphBias.sourceBalance * scale * 0.014,
-      eyeY,
-      scale * (0.012 + pose.eyeBurst * 0.008),
-      0,
-      Math.PI * 2,
-    );
-    context.fillStyle = "#05040a";
-    context.fill();
-    context.beginPath();
-    context.arc(eyeX - side * scale * 0.016, eyeY - scale * 0.017, scale * (0.007 + pose.eyeBurst * 0.004), 0, Math.PI * 2);
-    context.fillStyle = "#ffffff";
-    context.fill();
+    context.moveTo(eyeX - side * scale * 0.096 * eyeScale, eyeY - scale * 0.058 * eyeScale);
+    context.lineTo(eyeX + side * scale * 0.074 * eyeScale, eyeY - scale * 0.073 * eyeScale);
+    context.strokeStyle = specimenColorWithAlpha(palette[5], 0.9);
+    context.lineWidth = specimenOutlineWidth(scale, 0.9);
+    context.stroke();
 
     // The zygomatic arch sits below the orbit. It provides mammalian cheek
     // structure without becoming an expressive eyebrow.
@@ -2818,7 +3154,9 @@ function drawSpecimenHead(context, palette, pose, anatomy) {
   );
   const muzzleTop = cy - scale * 0.115;
   const muzzleBottom = cy + scale * (
-    anatomy.muzzleLength + state.morphBias.mouthOpening * 0.028 + pose.mouthOpen * 0.018
+    anatomy.muzzleLength * (0.84 + anatomy.mouthDepth * 0.16)
+      + state.morphBias.mouthOpening * 0.028
+      + pose.mouthOpen * 0.018
   );
 
   // A long, broad nasal bridge replaces the former pointed beak wedge.
@@ -2839,12 +3177,18 @@ function drawSpecimenHead(context, palette, pose, anatomy) {
   context.fill();
   context.stroke();
 
+  const muzzleJawHalf = muzzleWidth * clamp(0.57 - anatomy.jawTaper * 0.14, 0.38, 0.76);
+  const muzzleSideHalf = muzzleWidth * clamp(0.88 - anatomy.jawTaper * 0.045, 0.76, 0.94);
   context.beginPath();
-  context.moveTo(cx - muzzleWidth * 0.74, muzzleTop);
-  context.bezierCurveTo(cx - muzzleWidth, muzzleTop + scale * 0.025, cx - muzzleWidth, muzzleBottom - scale * 0.025, cx - muzzleWidth * 0.7, muzzleBottom);
-  context.quadraticCurveTo(cx, muzzleBottom + scale * 0.045, cx + muzzleWidth * 0.7, muzzleBottom);
-  context.bezierCurveTo(cx + muzzleWidth, muzzleBottom - scale * 0.025, cx + muzzleWidth, muzzleTop + scale * 0.025, cx + muzzleWidth * 0.74, muzzleTop);
-  context.quadraticCurveTo(cx, muzzleTop + scale * 0.025, cx - muzzleWidth * 0.74, muzzleTop);
+  context.moveTo(cx - muzzleWidth * 0.7, muzzleTop);
+  context.lineTo(cx - muzzleSideHalf, muzzleTop + scale * 0.038);
+  context.lineTo(cx - muzzleWidth * 0.78, muzzleBottom - scale * 0.02);
+  context.lineTo(cx - muzzleJawHalf, muzzleBottom + scale * 0.018);
+  context.quadraticCurveTo(cx, muzzleBottom + scale * 0.055, cx + muzzleJawHalf, muzzleBottom + scale * 0.018);
+  context.lineTo(cx + muzzleWidth * 0.78, muzzleBottom - scale * 0.02);
+  context.lineTo(cx + muzzleSideHalf, muzzleTop + scale * 0.038);
+  context.lineTo(cx + muzzleWidth * 0.7, muzzleTop);
+  context.quadraticCurveTo(cx, muzzleTop + scale * 0.02, cx - muzzleWidth * 0.7, muzzleTop);
   context.closePath();
   context.fillStyle = specimenFillColor(
     palette[0],
@@ -2919,26 +3263,41 @@ function drawSpecimenHead(context, palette, pose, anatomy) {
   }
 
   const mouthTop = muzzleBottom - scale * 0.027;
-  const mouthHalf = muzzleWidth * (0.58 + pose.mouthOpen * 0.18 + pose.beakMorph * 0.08);
-  const mouthGap = scale * (0.018 + pose.mouthOpen * (0.2 + pose.bird * 0.045) + pose.jawSnap * 0.055);
+  const mouthHalf = clamp(
+    muzzleWidth * anatomy.mouthWidth * (0.48 + pose.mouthOpen * 0.12 + pose.beakMorph * 0.06),
+    scale * 0.105,
+    scale * 0.5,
+  );
+  const mouthGap = scale * anatomy.mouthDepth * (
+    0.014 + pose.mouthOpen * (0.17 + pose.bird * 0.035) + pose.jawSnap * 0.045
+  );
+  const asymmetry = clamp(
+    finiteOr(state.bodyState?.asymmetry, 0) * 0.5
+      + (finiteOr(state.bodyState?.sourceBalance, 0.5) - 0.5),
+    -0.5,
+    0.5,
+  );
+  const leftCornerY = mouthTop + scale * (anatomy.lipCurl * 0.018 - asymmetry * 0.012);
+  const rightCornerY = mouthTop + scale * (anatomy.lipCurl * 0.018 + asymmetry * 0.012);
+  const lowerTaper = clamp(0.34 + (1 - anatomy.jawTaper) * 0.2, 0.24, 0.68);
   context.beginPath();
-  context.moveTo(cx - mouthHalf, mouthTop);
-  context.quadraticCurveTo(cx, mouthTop - mouthGap * 0.12, cx + mouthHalf, mouthTop);
+  context.moveTo(cx - mouthHalf, leftCornerY);
+  context.quadraticCurveTo(cx, mouthTop - mouthGap * (0.08 + anatomy.lipCurl * 0.08), cx + mouthHalf, rightCornerY);
   context.bezierCurveTo(
-    cx + mouthHalf * 0.88,
-    mouthTop + mouthGap * 0.82,
-    cx + mouthHalf * 0.42,
-    mouthTop + mouthGap,
+    cx + mouthHalf * (0.9 - anatomy.jawTaper * 0.08),
+    rightCornerY + mouthGap * 0.76,
+    cx + mouthHalf * lowerTaper,
+    mouthTop + mouthGap * (1 + anatomy.jawTaper * 0.08),
     cx,
-    mouthTop + mouthGap * 1.04,
+    mouthTop + mouthGap * (1.04 + anatomy.mouthDepth * 0.06),
   );
   context.bezierCurveTo(
-    cx - mouthHalf * 0.42,
-    mouthTop + mouthGap,
-    cx - mouthHalf * 0.88,
-    mouthTop + mouthGap * 0.82,
+    cx - mouthHalf * lowerTaper,
+    mouthTop + mouthGap * (1 + anatomy.jawTaper * 0.08),
+    cx - mouthHalf * (0.9 - anatomy.jawTaper * 0.08),
+    leftCornerY + mouthGap * 0.76,
     cx - mouthHalf,
-    mouthTop,
+    leftCornerY,
   );
   context.closePath();
   context.fillStyle = "rgba(34, 6, 21, 0.76)";
@@ -2947,68 +3306,98 @@ function drawSpecimenHead(context, palette, pose, anatomy) {
   context.fill();
   context.stroke();
 
-  // A muscular tongue follows a slower secondary pulse and can project beyond
-  // the jaw on hard attacks, like a nestling begging at the camera.
-  const tongueDrop = mouthGap * (0.52 + pose.mouthOpen * 0.2)
-    + scale * (pose.onset * pose.velocity * 0.045 + pose.tongueFlick * 0.18);
+  // The exact Hybrinx tongue state that reshapes the waveguide is rendered as
+  // one muscular hydrostat: reach, focus, curl and side leak are not decorative.
+  const tongue = pose.tongue;
+  const tongueExtension = clamp(finiteOr(tongue?.tongueExtension, state.tongueReach));
+  const tongueCurl = clamp(finiteOr(tongue?.tongueCurl, 0.5));
+  const tongueLateral = clamp(finiteOr(tongue?.tongueLateral, 0.12));
+  const tongueFocus = clamp(finiteOr(tongue?.tongueShape, 0.48));
+  const tongueRootWidth = mouthHalf * clamp(
+    (0.38 + anatomy.tongueWidth * 0.18) * (1 - tongueFocus * 0.2),
+    0.28,
+    0.68,
+  );
+  const tongueTipX = cx + scale * (
+    (tongueLateral - 0.18) * 0.34 + pose.secondPulse * 0.016
+  );
+  const tongueTipY = mouthTop + mouthGap * 0.68 + scale * (
+    0.035 + tongueExtension * 0.31 + pose.tongueFlick * 0.07
+  );
+  const curlLift = (tongueCurl - 0.5) * scale * 0.15;
   context.beginPath();
-  context.moveTo(cx - mouthHalf * 0.42, mouthTop + mouthGap * 0.64);
+  context.moveTo(cx - tongueRootWidth, mouthTop + mouthGap * 0.58);
   context.bezierCurveTo(
-    cx - mouthHalf * 0.25,
-    mouthTop + tongueDrop,
-    cx - scale * pose.secondPulse * 0.012,
-    mouthTop + tongueDrop * 1.08,
-    cx,
-    mouthTop + tongueDrop * 1.12,
+    cx - tongueRootWidth * 0.82,
+    mouthTop + mouthGap + scale * tongueExtension * 0.12,
+    tongueTipX - tongueRootWidth * (0.28 + tongueFocus * 0.18),
+    tongueTipY + curlLift,
+    tongueTipX,
+    tongueTipY,
   );
   context.bezierCurveTo(
-    cx + mouthHalf * 0.28,
-    mouthTop + tongueDrop * 1.04,
-    cx + mouthHalf * 0.4,
-    mouthTop + mouthGap * 0.72,
-    cx + mouthHalf * 0.42,
-    mouthTop + mouthGap * 0.64,
+    tongueTipX + tongueRootWidth * (0.3 + tongueFocus * 0.14),
+    tongueTipY + curlLift * 0.82,
+    cx + tongueRootWidth * 0.82,
+    mouthTop + mouthGap + scale * tongueExtension * 0.1,
+    cx + tongueRootWidth,
+    mouthTop + mouthGap * 0.58,
   );
   context.closePath();
-  context.fillStyle = specimenFillColor(
-    palette[8 % palette.length],
-    pose,
-    SPECIMEN_OPACITY.organIdle + 0.16,
-    SPECIMEN_OPACITY.organActive + 0.16,
-  );
-  context.strokeStyle = palette[1];
-  context.lineWidth = specimenOutlineWidth(scale, 0.72);
+  context.fillStyle = specimenColorWithAlpha("#ff5f87", pose.active ? 0.94 : 0.38);
+  context.strokeStyle = "#ffb4c6";
+  context.lineWidth = specimenOutlineWidth(scale, 0.96);
   context.fill();
   context.stroke();
   context.beginPath();
-  context.moveTo(cx, mouthTop + mouthGap * 0.72);
-  context.lineTo(cx, mouthTop + tongueDrop * 1.04);
-  context.strokeStyle = specimenColorWithAlpha(palette[7], 0.72);
-  context.lineWidth = Math.max(1.5, scale * 0.005);
+  context.moveTo(cx, mouthTop + mouthGap * 0.66);
+  context.quadraticCurveTo(
+    tongueTipX - scale * (tongueCurl - 0.5) * 0.03,
+    tongueTipY - scale * 0.035,
+    tongueTipX,
+    tongueTipY - scale * 0.008,
+  );
+  context.strokeStyle = specimenColorWithAlpha("#ffcf68", 0.68);
+  context.lineWidth = specimenOutlineWidth(scale, 0.42);
   context.stroke();
+  for (let papilla = 0; papilla < 4; papilla += 1) {
+    const unit = (papilla + 1) / 6;
+    const px = cx + (tongueTipX - cx) * unit + (papilla % 2 ? 1 : -1) * tongueRootWidth * 0.18;
+    const py = mouthTop + mouthGap * 0.72 + (tongueTipY - mouthTop - mouthGap * 0.72) * unit;
+    context.beginPath();
+    context.arc(px, py, Math.max(1.1, scale * 0.006), 0, Math.PI * 2);
+    context.fillStyle = specimenColorWithAlpha("#ffb4c6", pose.active ? 0.9 : 0.54);
+    context.fill();
+  }
 
   const toothExposure = proportions.toothExposure ?? 0.1;
-  const toothCount = pose.active ? 9 : 5;
-  for (let index = 0; index < toothCount; index += 1) {
-    const unit = (index + 0.5) / toothCount;
-    const x = cx - mouthHalf * 0.8 + mouthHalf * 1.6 * unit;
-    const toothWidth = mouthHalf * (pose.active ? 0.12 : 0.16);
-    const canine = index === 1 || index === toothCount - 2;
-    const toothHeight = scale * (
-      0.016
-      + toothExposure * 0.06
-      + pose.mouthOpen * (canine ? 0.07 : 0.038)
-    );
-    context.beginPath();
-    context.moveTo(x - toothWidth * 0.48, mouthTop + scale * 0.003);
-    context.lineTo(x + toothWidth * 0.48, mouthTop + scale * 0.003);
-    context.lineTo(x, mouthTop + toothHeight);
-    context.closePath();
-    context.fillStyle = "#fff7db";
-    context.strokeStyle = "rgba(15, 7, 12, 0.82)";
-    context.lineWidth = 1;
-    context.fill();
-    context.stroke();
+  const toothActivation = clamp(
+    pose.mouthOpen * 1.45 + pose.jawSnap * 0.72 + pose.beakMorph * 0.38,
+  );
+  if (toothActivation > 0.07) {
+    const toothPositions = [0.07, 0.2, 0.34, 0.49, 0.63, 0.78, 0.92];
+    for (let index = 0; index < toothPositions.length; index += 1) {
+      const unit = toothPositions[index];
+      const x = cx - mouthHalf * 0.84 + mouthHalf * 1.68 * unit;
+      const toothWidth = mouthHalf * (index % 3 === 0 ? 0.12 : 0.09);
+      const canine = index === 1 || index === toothPositions.length - 2;
+      const toothHeight = scale * toothActivation * (
+        0.012
+        + toothExposure * (canine ? 0.075 : 0.045)
+        + pose.mouthOpen * (canine ? 0.058 : 0.027)
+        + (index % 2) * 0.007
+      );
+      context.beginPath();
+      context.moveTo(x - toothWidth * 0.48, mouthTop + scale * 0.003);
+      context.lineTo(x + toothWidth * 0.48, mouthTop + scale * 0.003);
+      context.lineTo(x, mouthTop + toothHeight);
+      context.closePath();
+      context.fillStyle = "#e3ff9f";
+      context.strokeStyle = "rgba(3, 8, 6, 0.92)";
+      context.lineWidth = 1;
+      context.fill();
+      context.stroke();
+    }
   }
   if (pose.mouthOpen > 0.18) {
     const lowerCount = 6;
@@ -3022,7 +3411,7 @@ function drawSpecimenHead(context, palette, pose, anatomy) {
       context.lineTo(x + mouthHalf * 0.045, baseY);
       context.lineTo(x, baseY - height);
       context.closePath();
-      context.fillStyle = "#fff7db";
+      context.fillStyle = "#b6fff5";
       context.fill();
     }
   }
@@ -3046,7 +3435,9 @@ function drawSpecimenHead(context, palette, pose, anatomy) {
     }
   }
 
-  const larynx = stagePoint(0, 0.29);
+  // Keep the vibrating larynx below the oral articulator so its diagnostic
+  // rings do not camouflage the tongue as it projects out of the jaw.
+  const larynx = stagePoint(0, 0.34 + anatomy.muzzleLength * 0.18);
   const throatVolume = proportions.throatVolume ?? 0.7;
   const throatRadius = scale * (
     0.066
@@ -3185,6 +3576,7 @@ function drawCreature(timeSeconds) {
   drawing.translate(cx, cy - scale * pose.jump);
   drawing.scale(projectX, projectY);
   drawing.translate(-cx, -cy);
+  drawSpecimenTail(drawing, timeSeconds, palette, pose, anatomy);
   drawSpecimenWings(drawing, timeSeconds, palette, pose, anatomy);
   drawSpecimenThorax(drawing, palette, pose, anatomy);
   drawSpecimenLimbsAndActions(drawing, palette, pose, anatomy);
@@ -3193,6 +3585,8 @@ function drawCreature(timeSeconds) {
     scale * (pose.neckWobble + pose.tailSweep * 0.035),
     -scale * (pose.neckStretch + pose.headBob),
   );
+  drawSpecimenEars(drawing, palette, pose, anatomy);
+  drawing.lineJoin = "miter";
   drawSpecimenHead(drawing, palette, pose, anatomy);
   drawing.restore();
   drawSoundProjection(drawing, palette, pose, anatomy);
@@ -3259,6 +3653,8 @@ function updateHandleFromPointer(id, point) {
   else if (id === "tract") value = 2 ** (clamp((ny - 0.47) / 0.13, -1, 1) * 1.7);
   else if (id === "cavity") value = clamp((-nx - anatomy.skullWidth * 0.72) / 0.08, -1, 1);
   else if (id === "roughness") value = clamp((nx - anatomy.skullWidth * 0.72) / 0.08, -1, 1);
+  else if (id === "earSpread") value = clamp((Math.abs(nx) - anatomy.skullWidth * 0.72) / 0.32, 0, 1);
+  else if (id === "tongueReach") value = clamp((ny - anatomy.muzzleLength - 0.05) / 0.25, 0, 1);
   else if (id === "split") value = clamp((nx + 0.11) * 6, -1, 1);
   else if (id === "balance") value = clamp((nx - 0.11) * 6, -1, 1);
   else if (id === "morphMs") value = 12 + clamp((ny - 0.68) / 0.15) * 228;

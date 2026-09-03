@@ -87,6 +87,29 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
     this.creatureMakeupRampRemaining = 0;
     this.creatureMakeupRampStep = 0;
     this.creatureAttackTransitionFrames = Math.max(1, Math.round(this.workletRate * 0.002));
+    // The pinnae create a matched-total, decorrelated all-pass field. Unlike a
+    // Haas delay, neither side leads and the mono fold-down remains untouched.
+    const matchedEarFrames = Math.max(12, Math.round(this.workletRate * 0.00517));
+    const earLeftA = Math.max(4, Math.round(this.workletRate * 0.00073));
+    const earLeftB = Math.max(4, Math.round(this.workletRate * 0.00161));
+    const earRightA = Math.max(4, Math.round(this.workletRate * 0.00103));
+    const earRightB = Math.max(4, Math.round(this.workletRate * 0.00197));
+    this.creatureEarLeftA = new Float64Array(earLeftA);
+    this.creatureEarLeftB = new Float64Array(earLeftB);
+    this.creatureEarLeftC = new Float64Array(Math.max(4, matchedEarFrames - earLeftA - earLeftB));
+    this.creatureEarRightA = new Float64Array(earRightA);
+    this.creatureEarRightB = new Float64Array(earRightB);
+    this.creatureEarRightC = new Float64Array(Math.max(4, matchedEarFrames - earRightA - earRightB));
+    this.creatureEarLeftAIndex = 0;
+    this.creatureEarLeftBIndex = 0;
+    this.creatureEarLeftCIndex = 0;
+    this.creatureEarRightAIndex = 0;
+    this.creatureEarRightBIndex = 0;
+    this.creatureEarRightCIndex = 0;
+    this.creatureEarAmount = 0;
+    this.creatureEarSmoothing = 1 - Math.exp(-1 / (this.workletRate * 0.024));
+    this.creatureEarSideLow = 0;
+    this.creatureEarHighpass = 1 - Math.exp(-Math.PI * 2 * 120 / this.workletRate);
     this.port.onmessage = (event) => this._handleCreatureMessage(event.data);
   }
 
@@ -105,7 +128,7 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
           velocity: clamp(event.velocity ?? 1),
           sequenced: Boolean(event.sequenced ?? event.rhythmic),
           makeupGain: clamp(event.makeupGain ?? 1, 0.36, 7),
-          bodyGainTrim: clamp(event.bodyGainTrim ?? 1, 1, 3.75),
+          bodyGainTrim: clamp(event.bodyGainTrim ?? 1, 0.36, 3.75),
           contact: event.contact && typeof event.contact === "object" ? event.contact : null,
           configuration: event.configuration,
           order: this.creatureOrder,
@@ -131,6 +154,7 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
     if (message.type === "silence") {
       this.creatureQueue.length = 0;
       this._clearCreatureContact();
+      this._clearCreatureEarWidth();
       // Silence has no following attack that needs an immediate downward
       // correction, so de-click any boosted live tail. Never turn an already
       // attenuated tail upward merely to restore an idle bookkeeping value.
@@ -245,11 +269,47 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
         event.begin && (configuration.resetTract || isolateMakeupRise),
       ),
     });
+    if (event.begin && event.sequenced) {
+      // The synthetic release enters before the per-sound makeup stage. Scale
+      // it inversely so a quiet call's large calibration gain cannot turn a
+      // compact beat-edge prime into the loudest sound in the instrument.
+      const eventMakeup = Math.max(
+        1,
+        (event.makeupGain ?? 1) * (event.bodyGainTrim ?? 1),
+      );
+      const onsetBurstPrime = clamp(
+        (configuration.tract?.onsetBurstPrime ?? 0) / eventMakeup,
+        0,
+        1.1,
+      );
+      if (onsetBurstPrime > 0) {
+        // Cropped rhythmic gestures begin just after their native closed valve.
+        // Prime that stored release once so the transient lands on the grid
+        // edge instead of waiting for another close/open cycle to occur.
+        this.transientStrength = Math.max(this.transientStrength, onsetBurstPrime);
+        this.transientAge = 0;
+        this.transientFrequencyHz = clamp(
+          configuration.tract?.burstFrequencyHz ?? this.transientFrequencyHz,
+          80,
+          this.workletRate * 0.38,
+        );
+        this.pressureEnergy = 0;
+        this.releaseBurstGain = 0;
+        // The prime is the release that would otherwise be detected on this
+        // first open sample. Mark that transition consumed so the inherited
+        // waveguide does not replace the normalized prime with the zeroed
+        // stored-pressure calculation before it can sound.
+        const primedAirwayGate = clamp(this.baseAirwayGate ?? 1);
+        this.previousAirwayGate = primedAirwayGate;
+        this.currentAirwayGate = primedAirwayGate;
+      }
+    }
     if (event.begin && isolateMakeupRise) {
       // The source engine has its own resonant displacement/velocity state.
       // Clear that alongside the tract or a quiet high-trim gesture could
       // magnify the prior call even after its waveguide was emptied.
       for (const source of this.sources) source.reset();
+      this._clearCreatureEarWidth();
     }
     if (event.begin && event.sequenced) {
       // Rhythmic crops intentionally begin inside an already-energized native
@@ -289,6 +349,33 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
     this.creatureContactLowpass = 0;
     this.creatureContactLeft = 0;
     this.creatureContactRight = 0;
+  }
+
+  _clearCreatureEarWidth() {
+    for (const buffer of [
+      this.creatureEarLeftA,
+      this.creatureEarLeftB,
+      this.creatureEarLeftC,
+      this.creatureEarRightA,
+      this.creatureEarRightB,
+      this.creatureEarRightC,
+    ]) buffer.fill(0);
+    this.creatureEarLeftAIndex = 0;
+    this.creatureEarLeftBIndex = 0;
+    this.creatureEarLeftCIndex = 0;
+    this.creatureEarRightAIndex = 0;
+    this.creatureEarRightBIndex = 0;
+    this.creatureEarRightCIndex = 0;
+    this.creatureEarSideLow = 0;
+  }
+
+  _creatureAllpass(buffer, indexKey, input, coefficient = 0.35) {
+    const index = this[indexKey];
+    const delayed = buffer[index];
+    const output = delayed - input * coefficient;
+    buffer[index] = clamp(input + output * coefficient, -1.5, 1.5);
+    this[indexKey] = (index + 1) % buffer.length;
+    return Number.isFinite(output) ? output : 0;
   }
 
   _beginCreatureContact(profile, configuration = {}, soundId = "", velocity = 1) {
@@ -347,6 +434,7 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
       gain: clamp(profile.gain, 0, 1.5) * eventVelocity,
       velocity: eventVelocity,
       brightness: clamp(profile.brightness),
+      scrapeNoiseMix: clamp(profile.scrapeNoiseMix ?? 0.18, 0, 0.45),
       scrapeRateHz: clamp(profile.scrapeRateHz, 0, 60),
       scrapeGain: Array.isArray(profile.scrapeGain) ? profile.scrapeGain : [[0, 0], [1, 0]],
       scrapeBodyFilter: bandpassState(
@@ -448,7 +536,7 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
       const bodyWeight = 0.86 + contact.bodyScale * 0.3 + contact.bodyRoundness * 0.16;
       const cavityWeight = 0.58 + (1 - contact.bodyScale / 1.6) * 0.18;
       const scrape = (
-        scrapeNoise * 0.38
+        scrapeNoise * contact.scrapeNoiseMix
         + bodyResonance * bodyWeight
         + cavityResonance * cavityWeight
       ) * scrapeEnvelope * rasp * 0.74;
@@ -470,8 +558,58 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
     const right = output[1] ?? left;
     for (let frame = 0; frame < left.length; frame += 1) {
       this._renderCreatureContactFrame();
-      left[frame] = Math.tanh(left[frame] * 1.04 + this.creatureContactLeft * 0.7) * 0.96;
-      right[frame] = Math.tanh(right[frame] * 1.04 + this.creatureContactRight * 0.7) * 0.96;
+      left[frame] = Math.tanh(left[frame] * 1.04 + this.creatureContactLeft * 0.48) * 0.96;
+      right[frame] = Math.tanh(right[frame] * 1.04 + this.creatureContactRight * 0.48) * 0.96;
+    }
+  }
+
+  _applyCreatureEarWidth(output) {
+    if (!output?.[0]) return;
+    const left = output[0];
+    const right = output[1] ?? left;
+    const target = clamp(this.configuration.earSpread ?? 0);
+    for (let frame = 0; frame < left.length; frame += 1) {
+      this.creatureEarAmount += (target - this.creatureEarAmount) * this.creatureEarSmoothing;
+      const midpoint = (left[frame] + right[frame]) * 0.5;
+      const inputSide = (left[frame] - right[frame]) * 0.5;
+      const leftA = this._creatureAllpass(
+        this.creatureEarLeftA,
+        "creatureEarLeftAIndex",
+        midpoint,
+      );
+      const leftB = this._creatureAllpass(
+        this.creatureEarLeftB,
+        "creatureEarLeftBIndex",
+        leftA,
+      );
+      const phaseLeft = this._creatureAllpass(
+        this.creatureEarLeftC,
+        "creatureEarLeftCIndex",
+        leftB,
+      );
+      const rightA = this._creatureAllpass(
+        this.creatureEarRightA,
+        "creatureEarRightAIndex",
+        midpoint,
+      );
+      const rightB = this._creatureAllpass(
+        this.creatureEarRightB,
+        "creatureEarRightBIndex",
+        rightA,
+      );
+      const phaseRight = this._creatureAllpass(
+        this.creatureEarRightC,
+        "creatureEarRightCIndex",
+        rightB,
+      );
+      const rawSide = (phaseLeft - phaseRight) * 0.5;
+      this.creatureEarSideLow += (rawSide - this.creatureEarSideLow) * this.creatureEarHighpass;
+      const decorrelatedSide = rawSide - this.creatureEarSideLow;
+      const amount = this.creatureEarAmount;
+      const widenedSide = inputSide * (1 + amount * 0.8)
+        + decorrelatedSide * Math.sqrt(amount) * (0.25 + amount * 0.45);
+      left[frame] = midpoint + widenedSide;
+      right[frame] = midpoint - widenedSide;
     }
   }
 
@@ -499,6 +637,7 @@ class CreaturazoidPhysicalProcessor extends SyrinxPhysicalProcessor {
 
   _postProcessOutput(output) {
     this._mixCreatureContact(output);
+    this._applyCreatureEarWidth(output);
     this._applyCreatureMakeup(output);
   }
 

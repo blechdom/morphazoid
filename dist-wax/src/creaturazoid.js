@@ -9,6 +9,7 @@ import {
   sampleModulationWave,
   sanitizeSyrinxState,
 } from "./syrinx.js";
+import { sanitizeTongueState } from "./tongue-physics.js";
 
 const finiteOr = (value, fallback) => (
   Number.isFinite(Number(value)) ? Number(value) : fallback
@@ -38,8 +39,27 @@ export const CREATURAZOID_LIMITS = Object.freeze({
   attackMs: Object.freeze([8, 48]),
   bodyScale: Object.freeze([0.55, 1.35]),
   bodyRoundness: Object.freeze([-1, 1]),
+  earSpread: Object.freeze([0, 1]),
+  tongueReach: Object.freeze([0, 1]),
+  tongueMotion: Object.freeze([0, 1]),
   level: Object.freeze([0, 1]),
 });
+
+export const CREATURAZOID_EAR_TYPES = Object.freeze([
+  "round",
+  "point",
+  "drop",
+  "fan",
+  "long",
+  "wide",
+]);
+
+export const CREATURAZOID_TAIL_TYPES = Object.freeze([
+  "brush",
+  "whip",
+  "tuft",
+  "fan",
+]);
 
 export const CREATURAZOID_MORPH_CONTROLS = Object.freeze([
   "pressure",
@@ -114,6 +134,7 @@ function freezeContact(contact) {
     kind: String(contact.kind ?? "impact"),
     gain: clamp(finiteOr(contact.gain, 1), 0, 1.5),
     brightness: clamp(finiteOr(contact.brightness, 0.5)),
+    scrapeNoiseMix: clamp(finiteOr(contact.scrapeNoiseMix, 0.18), 0, 0.45),
     scrapeRateHz: clamp(finiteOr(contact.scrapeRateHz, 0), 0, 60),
     scrapeGain: Object.freeze(scrapeGain.map(([phase, amount]) => Object.freeze([
       clamp(phase),
@@ -161,20 +182,20 @@ const CREATURAZOID_ARTICULATIONS = Object.freeze({
     pressure: [[0, 0], [0.035, 0.72], [0.18, 1], [0.78, 0.86], [1, 0]],
     airwayGate: [[0, 0.28], [0.08, 0.42], [0.72, 0.3], [1, 0.72]],
     voicing: 0,
-    turbulence: [[0, 0], [0.04, 1.45], [0.72, 1.18], [1, 0]],
+    turbulence: [[0, 0], [0.04, 0.9], [0.72, 0.76], [1, 0]],
     burstFrequencyHz: 6_800,
     sourceGain: 0,
   }),
   stomp: defineArticulation({
     id: "stomp", mechanism: "hoof impact coupled into the chest cavity", motion: "stomp",
-    contact: { kind: "hoof", gain: 1.3, brightness: 0.18, strikes: [
-      { phase: 0, gain: 1, modeRatio: 0.62, noiseMix: 0.42, decayMs: 220 },
-      { phase: 0.09, gain: 0.38, modeRatio: 1.8, noiseMix: 0.74, decayMs: 72 },
+    contact: { kind: "hoof", gain: 1.3, brightness: 0.12, strikes: [
+      { phase: 0, gain: 1, modeRatio: 0.62, noiseMix: 0.18, decayMs: 220 },
+      { phase: 0.09, gain: 0.38, modeRatio: 1.8, noiseMix: 0.28, decayMs: 72 },
     ] },
     pressure: [[0, 1], [0.12, 0.84], [0.42, 0.26], [1, 0]],
     airwayGate: [[0, 0.02], [0.085, 0.02], [0.105, 1], [1, 1]],
     voicing: [[0, 0.08], [0.2, 0.02], [1, 0]],
-    turbulence: [[0, 0.5], [0.16, 0.12], [1, 0]],
+    turbulence: [[0, 0.22], [0.16, 0.06], [1, 0]],
     burstGain: [[0, 1.5], [0.11, 1.5], [0.14, 0], [1, 0]],
     burstFrequencyHz: [[0, 86], [0.3, 118], [1, 82]],
     sourceGain: 0.12,
@@ -210,118 +231,118 @@ const CREATURAZOID_ARTICULATIONS = Object.freeze({
   }),
   claw: defineArticulation({
     id: "claw", mechanism: "repeating keratin claw scrapes", motion: "claw",
-    contact: { kind: "claw", gain: 0.88, brightness: 0.86, scrapeRateHz: 17, scrapeGain: [[0, 0], [0.03, 1], [0.84, 0.72], [1, 0]], strikes: [
-      { phase: 0.03, gain: 0.4, modeRatio: 5.5, noiseMix: 0.9, decayMs: 44, pan: -0.7 },
-      { phase: 0.22, gain: 0.34, modeRatio: 7.2, noiseMix: 0.94, decayMs: 38, pan: 0.65 },
-      { phase: 0.47, gain: 0.44, modeRatio: 6.1, noiseMix: 0.9, decayMs: 48, pan: -0.55 },
-      { phase: 0.74, gain: 0.3, modeRatio: 8.4, noiseMix: 0.96, decayMs: 34, pan: 0.7 },
+    contact: { kind: "claw", gain: 0.88, brightness: 0.52, scrapeNoiseMix: 0.12, scrapeRateHz: 17, scrapeGain: [[0, 0], [0.03, 1], [0.84, 0.72], [1, 0]], strikes: [
+      { phase: 0.03, gain: 0.4, modeRatio: 5.5, noiseMix: 0.32, decayMs: 44, pan: -0.7 },
+      { phase: 0.22, gain: 0.34, modeRatio: 7.2, noiseMix: 0.38, decayMs: 38, pan: 0.65 },
+      { phase: 0.47, gain: 0.44, modeRatio: 6.1, noiseMix: 0.34, decayMs: 48, pan: -0.55 },
+      { phase: 0.74, gain: 0.3, modeRatio: 8.4, noiseMix: 0.4, decayMs: 34, pan: 0.7 },
     ] },
     pressure: [[0, 0.28], [0.08, 0.82], [0.32, 0.5], [0.48, 0.94], [0.72, 0.55], [0.86, 0.84], [1, 0]],
     airwayGate: [[0, 0.24], [0.18, 0.48], [0.38, 0.2], [0.58, 0.52], [0.78, 0.18], [1, 0.7]],
-    voicing: 0,
-    turbulence: [[0, 0.18], [0.08, 1.36], [0.3, 0.48], [0.48, 1.48], [0.7, 0.42], [0.86, 1.18], [1, 0]],
+    voicing: 0.18,
+    turbulence: [[0, 0.08], [0.08, 0.46], [0.3, 0.18], [0.48, 0.52], [0.7, 0.16], [0.86, 0.42], [1, 0]],
     burstFrequencyHz: [[0, 4_800], [0.55, 7_200], [1, 3_600]],
     flutterHz: 22,
     flutterDepth: 0.34,
-    sourceGain: 0,
+    sourceGain: 0.16,
   }),
   whip: defineArticulation({
     id: "whip", mechanism: "tail-driven air rush ending in a keratin crack", motion: "whip",
-    contact: { kind: "tail", gain: 1.08, brightness: 0.9, scrapeRateHz: 7, scrapeGain: [[0, 0], [0.06, 0.2], [0.58, 1], [0.73, 0.08], [1, 0]], strikes: [
-      { phase: 0.7, gain: 1.2, modeRatio: 9.5, noiseMix: 0.9, decayMs: 34, pan: 0.82 },
+    contact: { kind: "tail", gain: 1.08, brightness: 0.58, scrapeNoiseMix: 0.08, scrapeRateHz: 7, scrapeGain: [[0, 0], [0.06, 0.2], [0.58, 1], [0.73, 0.08], [1, 0]], strikes: [
+      { phase: 0.7, gain: 1.2, modeRatio: 7.2, noiseMix: 0.22, decayMs: 42, pan: 0.82 },
     ] },
     pressure: [[0, 0], [0.12, 0.38], [0.48, 0.92], [0.62, 1], [0.82, 0.3], [1, 0]],
     airwayGate: [[0, 0.82], [0.56, 0.32], [0.62, 0.02], [0.69, 0.02], [0.72, 1], [1, 1]],
-    voicing: 0,
-    turbulence: [[0, 0.08], [0.2, 0.54], [0.55, 1.42], [0.7, 0.22], [1, 0]],
+    voicing: 0.14,
+    turbulence: [[0, 0.04], [0.2, 0.22], [0.55, 0.48], [0.7, 0.1], [1, 0]],
     burstGain: [[0, 0], [0.58, 1.42], [0.72, 1.42], [0.75, 0], [1, 0]],
-    burstFrequencyHz: [[0, 2_200], [0.7, 9_400], [1, 5_000]],
-    sourceGain: 0,
+    burstFrequencyHz: [[0, 1_400], [0.7, 5_200], [1, 2_600]],
+    sourceGain: 0.18,
   }),
   footsteps: defineArticulation({
     id: "footsteps", mechanism: "four alternating paw-and-hoof contacts", motion: "footsteps",
-    contact: { kind: "feet", gain: 1.04, brightness: 0.24, strikes: [
-      { phase: 0, gain: 0.78, modeRatio: 0.72, noiseMix: 0.38, decayMs: 150, pan: -0.5 },
-      { phase: 0.24, gain: 1, modeRatio: 0.88, noiseMix: 0.34, decayMs: 180, pan: 0.5 },
-      { phase: 0.48, gain: 0.72, modeRatio: 0.68, noiseMix: 0.42, decayMs: 140, pan: -0.42 },
-      { phase: 0.72, gain: 0.94, modeRatio: 0.82, noiseMix: 0.36, decayMs: 170, pan: 0.42 },
+    contact: { kind: "feet", gain: 1.04, brightness: 0.15, strikes: [
+      { phase: 0, gain: 0.78, modeRatio: 0.72, noiseMix: 0.18, decayMs: 150, pan: -0.5 },
+      { phase: 0.24, gain: 1, modeRatio: 0.88, noiseMix: 0.16, decayMs: 180, pan: 0.5 },
+      { phase: 0.48, gain: 0.72, modeRatio: 0.68, noiseMix: 0.2, decayMs: 140, pan: -0.42 },
+      { phase: 0.72, gain: 0.94, modeRatio: 0.82, noiseMix: 0.18, decayMs: 170, pan: 0.42 },
     ] },
     pressure: [[0, 0.92], [0.14, 0.18], [0.24, 0.88], [0.38, 0.16], [0.48, 1], [0.62, 0.18], [0.72, 0.82], [0.88, 0.14], [1, 0]],
     airwayGate: [[0, 0.02], [0.045, 0.02], [0.065, 1], [0.22, 1], [0.24, 0.02], [0.285, 0.02], [0.305, 1], [0.46, 1], [0.48, 0.02], [0.525, 0.02], [0.545, 1], [0.7, 1], [0.72, 0.02], [0.765, 0.02], [0.785, 1], [1, 1]],
-    voicing: 0.03,
-    turbulence: [[0, 0.34], [0.14, 0], [0.24, 0.28], [0.38, 0], [0.48, 0.4], [0.62, 0], [0.72, 0.3], [0.88, 0], [1, 0]],
+    voicing: 0.12,
+    turbulence: [[0, 0.15], [0.14, 0], [0.24, 0.12], [0.38, 0], [0.48, 0.15], [0.62, 0], [0.72, 0.12], [0.88, 0], [1, 0]],
     burstGain: 1.28,
     burstFrequencyHz: [[0, 118], [0.3, 96], [0.55, 132], [0.8, 88], [1, 80]],
-    sourceGain: 0.04,
+    sourceGain: 0.12,
   }),
   ruffle: defineArticulation({
     id: "ruffle", mechanism: "layered feather-vane flutter", motion: "ruffle",
-    contact: { kind: "feather", gain: 0.7, brightness: 0.78, scrapeRateHz: 24, scrapeGain: [[0, 0], [0.04, 0.86], [0.22, 0.5], [0.4, 1], [0.62, 0.46], [0.78, 0.84], [1, 0]], strikes: [] },
+    contact: { kind: "feather", gain: 0.34, brightness: 0.2, scrapeNoiseMix: 0.025, scrapeRateHz: 19, scrapeGain: [[0, 0], [0.04, 0.62], [0.22, 0.38], [0.4, 0.76], [0.62, 0.34], [0.78, 0.64], [1, 0]], strikes: [] },
     pressure: [[0, 0], [0.06, 0.62], [0.28, 0.86], [0.55, 0.48], [0.76, 0.9], [1, 0]],
     airwayGate: [[0, 0.46], [0.32, 0.7], [0.62, 0.38], [1, 0.74]],
-    voicing: 0,
-    turbulence: [[0, 0], [0.05, 1.06], [0.22, 0.54], [0.38, 1.3], [0.58, 0.46], [0.76, 1.14], [1, 0]],
-    burstFrequencyHz: 5_600,
+    voicing: 0.58,
+    turbulence: [[0, 0], [0.05, 0.065], [0.22, 0.03], [0.38, 0.075], [0.58, 0.025], [0.76, 0.06], [1, 0]],
+    burstFrequencyHz: 3_600,
     flutterHz: [[0, 13], [0.5, 24], [1, 9]],
     flutterDepth: [[0, 0.42], [0.5, 0.82], [1, 0]],
-    sourceGain: 0,
+    sourceGain: 0.42,
   }),
   pant: defineArticulation({
     id: "pant", mechanism: "four short open-mouth breath pulses", motion: "pant",
     pressure: [[0, 0.12], [0.06, 0.86], [0.18, 0.1], [0.3, 0.92], [0.42, 0.1], [0.54, 1], [0.66, 0.1], [0.78, 0.82], [0.92, 0.08], [1, 0]],
     airwayGate: [[0, 0.36], [0.08, 0.96], [0.2, 0.38], [0.32, 0.98], [0.44, 0.36], [0.56, 1], [0.68, 0.38], [0.8, 0.96], [1, 0.5]],
-    voicing: 0.04,
-    turbulence: [[0, 0.18], [0.06, 1.12], [0.18, 0.08], [0.3, 1.18], [0.42, 0.08], [0.54, 1.26], [0.66, 0.08], [0.78, 1.04], [0.94, 0], [1, 0]],
-    burstFrequencyHz: 2_600,
+    voicing: 0.38,
+    turbulence: [[0, 0.04], [0.06, 0.2], [0.18, 0.02], [0.3, 0.22], [0.42, 0.02], [0.54, 0.24], [0.66, 0.02], [0.78, 0.19], [0.94, 0], [1, 0]],
+    burstFrequencyHz: 1_900,
     flutterHz: 7,
     flutterDepth: 0.18,
-    sourceGain: 0,
+    sourceGain: 0.3,
   }),
   lap: defineArticulation({
     id: "lap", mechanism: "repeating tongue-and-palate wet clicks", motion: "lap",
-    contact: { kind: "wet", gain: 0.72, brightness: 0.42, strikes: [
-      { phase: 0.06, gain: 0.82, modeRatio: 1.25, noiseMix: 0.56, decayMs: 72, pan: -0.2 },
-      { phase: 0.3, gain: 0.94, modeRatio: 1.4, noiseMix: 0.5, decayMs: 68, pan: 0.2 },
-      { phase: 0.54, gain: 1, modeRatio: 1.16, noiseMix: 0.58, decayMs: 76, pan: -0.16 },
-      { phase: 0.78, gain: 0.88, modeRatio: 1.32, noiseMix: 0.52, decayMs: 70, pan: 0.16 },
+    contact: { kind: "wet", gain: 0.72, brightness: 0.28, strikes: [
+      { phase: 0.06, gain: 0.82, modeRatio: 1.25, noiseMix: 0.16, decayMs: 72, pan: -0.2 },
+      { phase: 0.3, gain: 0.94, modeRatio: 1.4, noiseMix: 0.14, decayMs: 68, pan: 0.2 },
+      { phase: 0.54, gain: 1, modeRatio: 1.16, noiseMix: 0.18, decayMs: 76, pan: -0.16 },
+      { phase: 0.78, gain: 0.88, modeRatio: 1.32, noiseMix: 0.16, decayMs: 70, pan: 0.16 },
     ] },
     pressure: [[0, 0.82], [0.16, 0.12], [0.24, 0.9], [0.4, 0.12], [0.48, 0.96], [0.64, 0.12], [0.72, 0.86], [0.9, 0.08], [1, 0]],
     airwayGate: [[0, 0.02], [0.055, 0.02], [0.075, 0.86], [0.22, 0.86], [0.24, 0.02], [0.295, 0.02], [0.315, 0.88], [0.46, 0.88], [0.48, 0.02], [0.535, 0.02], [0.555, 0.9], [0.7, 0.9], [0.72, 0.02], [0.775, 0.02], [0.795, 0.88], [1, 0.88]],
-    voicing: 0.04,
-    turbulence: [[0, 0.18], [0.08, 0.5], [0.2, 0.04], [0.32, 0.54], [0.44, 0.04], [0.56, 0.58], [0.68, 0.04], [0.8, 0.48], [1, 0]],
+    voicing: 0.18,
+    turbulence: [[0, 0.08], [0.08, 0.22], [0.2, 0.02], [0.32, 0.24], [0.44, 0.02], [0.56, 0.24], [0.68, 0.02], [0.8, 0.2], [1, 0]],
     burstGain: 0.88,
     burstFrequencyHz: [[0, 1_260], [0.5, 1_820], [1, 980]],
-    sourceGain: 0.03,
+    sourceGain: 0.18,
   }),
   crunch: defineArticulation({
     id: "crunch", mechanism: "irregular tooth fractures and jaw grit", motion: "crunch",
-    contact: { kind: "teeth", gain: 0.98, brightness: 0.7, scrapeRateHz: 11, scrapeGain: [[0, 0.2], [0.08, 0.64], [0.72, 0.42], [1, 0]], strikes: [
-      { phase: 0, gain: 1, modeRatio: 3, noiseMix: 0.74, decayMs: 72 },
-      { phase: 0.27, gain: 0.76, modeRatio: 5, noiseMix: 0.82, decayMs: 46, pan: -0.18 },
-      { phase: 0.56, gain: 1.14, modeRatio: 2.5, noiseMix: 0.68, decayMs: 88, pan: 0.15 },
-      { phase: 0.82, gain: 0.62, modeRatio: 4.2, noiseMix: 0.86, decayMs: 38 },
+    contact: { kind: "teeth", gain: 0.98, brightness: 0.42, scrapeNoiseMix: 0.1, scrapeRateHz: 11, scrapeGain: [[0, 0.2], [0.08, 0.64], [0.72, 0.42], [1, 0]], strikes: [
+      { phase: 0, gain: 1, modeRatio: 3, noiseMix: 0.28, decayMs: 72 },
+      { phase: 0.27, gain: 0.76, modeRatio: 5, noiseMix: 0.32, decayMs: 46, pan: -0.18 },
+      { phase: 0.56, gain: 1.14, modeRatio: 2.5, noiseMix: 0.24, decayMs: 88, pan: 0.15 },
+      { phase: 0.82, gain: 0.62, modeRatio: 4.2, noiseMix: 0.34, decayMs: 38 },
     ] },
     pressure: [[0, 0.96], [0.14, 0.28], [0.27, 0.86], [0.43, 0.22], [0.56, 1], [0.72, 0.24], [0.82, 0.72], [1, 0]],
     airwayGate: [[0, 0.02], [0.07, 0.02], [0.09, 1], [0.25, 1], [0.27, 0.02], [0.34, 0.02], [0.36, 1], [0.54, 1], [0.56, 0.02], [0.63, 0.02], [0.65, 1], [0.8, 1], [0.82, 0.02], [0.87, 0.02], [0.89, 1], [1, 1]],
-    voicing: 0.02,
-    turbulence: [[0, 0.72], [0.18, 0.2], [0.3, 1.16], [0.46, 0.18], [0.58, 1.42], [0.74, 0.22], [0.84, 0.94], [1, 0]],
+    voicing: 0.22,
+    turbulence: [[0, 0.28], [0.18, 0.08], [0.3, 0.36], [0.46, 0.08], [0.58, 0.42], [0.74, 0.08], [0.84, 0.32], [1, 0]],
     burstGain: [[0, 1.22], [0.4, 0.92], [0.68, 1.48], [1, 0.72]],
-    burstFrequencyHz: [[0, 2_400], [0.35, 4_600], [0.68, 1_700], [1, 5_800]],
-    sourceGain: 0.02,
+    burstFrequencyHz: [[0, 1_300], [0.35, 2_600], [0.68, 900], [1, 2_200]],
+    sourceGain: 0.22,
   }),
   jump: defineArticulation({
     id: "jump", mechanism: "launch compression followed by a landing thump", motion: "jump",
-    contact: { kind: "landing", gain: 1.2, brightness: 0.2, strikes: [
-      { phase: 0, gain: 0.46, modeRatio: 0.82, noiseMix: 0.42, decayMs: 130, pan: -0.14 },
-      { phase: 0.8, gain: 1.2, modeRatio: 0.52, noiseMix: 0.5, decayMs: 260, pan: 0.12 },
+    contact: { kind: "landing", gain: 1.2, brightness: 0.12, strikes: [
+      { phase: 0, gain: 0.46, modeRatio: 0.82, noiseMix: 0.2, decayMs: 130, pan: -0.14 },
+      { phase: 0.8, gain: 1.2, modeRatio: 0.52, noiseMix: 0.24, decayMs: 260, pan: 0.12 },
     ] },
     pressure: [[0, 0.94], [0.16, 0.26], [0.5, 0.08], [0.74, 0.22], [0.79, 1], [0.92, 0.2], [1, 0]],
     airwayGate: [[0, 0.02], [0.065, 0.02], [0.09, 1], [0.74, 1], [0.76, 0.02], [0.825, 0.02], [0.85, 1], [1, 1]],
-    voicing: [[0, 0.12], [0.18, 0.02], [0.72, 0], [0.88, 0.08], [1, 0]],
-    turbulence: [[0, 0.46], [0.16, 0.08], [0.7, 0.02], [0.8, 0.54], [1, 0]],
+    voicing: [[0, 0.18], [0.18, 0.08], [0.72, 0.04], [0.88, 0.16], [1, 0]],
+    turbulence: [[0, 0.2], [0.16, 0.04], [0.7, 0.02], [0.8, 0.2], [1, 0]],
     burstGain: [[0, 1.18], [0.2, 0], [0.72, 0], [0.84, 1.5], [1, 0]],
     burstFrequencyHz: [[0, 142], [0.5, 260], [0.82, 92], [1, 80]],
-    sourceGain: 0.08,
+    sourceGain: 0.16,
   }),
 });
 
@@ -376,7 +397,7 @@ const CREATURAZOID_LEVEL_MAKEUP = Object.freeze({
   chirp: 0.36,
   frogtrill: 0.37,
   sweep: 1.7,
-  ticks: 1.78,
+  ticks: 3.05,
   trumpet: 1,
   neigh: 1,
   hiss: 6.81,
@@ -387,7 +408,7 @@ const CREATURAZOID_LEVEL_MAKEUP = Object.freeze({
   clawing: 3.23,
   "tail-whip": 2.93,
   footsteps: 1,
-  "feather-ruffle": 3.73,
+  "feather-ruffle": 5.75,
   panting: 4.29,
   lapping: 4.63,
   crunching: 1.75,
@@ -416,6 +437,12 @@ const CREATURAZOID_BODY_SOUND_LEVEL_TRIM = Object.freeze({
     frogtrill: 1.45,
     purr: 1.25,
   }),
+  // The jet's cropped edge lands directly on very efficient, lightly built
+  // resonators in these two bodies; attenuate only that pairing rather than
+  // holding every quieter body below the audible onset floor.
+  "elastic-tower": Object.freeze({ ticks: 0.55 }),
+  "paper-giant": Object.freeze({ ticks: 0.88, "feather-ruffle": 2.1 }),
+  "long-hollow": Object.freeze({ "feather-ruffle": 1.2 }),
 });
 
 function defineSound({
@@ -470,56 +497,56 @@ function defineSound({
 // the largest body family, while lower-register bird calls and four compact
 // verified gestures provide enough vocabulary for rhythmic cross-family cuts.
 export const CREATURAZOID_SOUNDS = Object.freeze([
-  defineSound({ id: "roar", label: "ROAR", key: "1", color: "#d85b32", animalId: "lion", callId: "lion-roar", pitchSemitones: 0, timbre: -0.32 }),
-  defineSound({ id: "chuff", label: "CHUFF", key: "2", color: "#ba6a38", animalId: "lion", callId: "lion-grunt", pitchSemitones: 3, timbre: 0.12 }),
-  defineSound({ id: "howl", label: "HOWL", key: "3", color: "#55718e", animalId: "wolf", callId: "wolf-howl", pitchSemitones: 1, timbre: -0.05 }),
-  defineSound({ id: "yip", label: "YIP", key: "z", color: "#ff4f87", animalId: "wolf", callId: "wolf-yip", pitchSemitones: -3, timbre: 0.36 }),
-  defineSound({ id: "bark", label: "BARK", key: "4", color: "#986445", animalId: "dog", callId: "dog-bark", pitchSemitones: 4, timbre: 0.18 }),
-  defineSound({ id: "growl", label: "GROWL", key: "8", color: "#7c4937", animalId: "dog", callId: "dog-growl", pitchSemitones: -3, timbre: -0.55 }),
-  defineSound({ id: "rumble", label: "RUMBLE", key: "9", color: "#68706c", animalId: "elephant", callId: "elephant-rumble", pitchSemitones: 2, timbre: -0.62 }),
-  defineSound({ id: "bellow", label: "BELLOW", key: "0", color: "#556743", animalId: "alligator", callId: "alligator-bellow", pitchSemitones: 0, timbre: -0.48 }),
-  defineSound({ id: "gator", label: "GATOR", key: "t", color: "#77864a", animalId: "alligator", callId: "alligator-grunt", pitchSemitones: 4, timbre: -0.22 }),
-  defineSound({ id: "purr", label: "PURR", key: "5", color: "#9b7167", animalId: "cat", callId: "cat-purr", pitchSemitones: -2, timbre: -0.4 }),
-  defineSound({ id: "whinny", label: "WHINNY", key: "6", color: "#8a624b", animalId: "horse", callId: "horse-whinny", pitchSemitones: 3, timbre: 0.24 }),
-  defineSound({ id: "nicker", label: "NICKER", key: "y", color: "#735945", animalId: "horse", callId: "horse-nicker", pitchSemitones: 1, timbre: -0.16 }),
-  defineSound({ id: "cervid", label: "CERVID", key: "i", color: "#8f7a4c", animalId: "reddeer", callId: "reddeer-common-roar", pitchSemitones: 0, timbre: -0.24 }),
-  defineSound({ id: "harsh", label: "HARSH", key: "o", color: "#695843", animalId: "reddeer", callId: "reddeer-harsh-roar", pitchSemitones: 2, timbre: -0.58 }),
-  defineSound({ id: "moose", label: "MOOSE", key: "g", color: "#756c4b", animalId: "moose", callId: "moose-bull-grunt", pitchSemitones: 0, timbre: -0.38 }),
-  defineSound({ id: "moan", label: "MOAN", key: "h", color: "#81755f", animalId: "moose", callId: "moose-cow-moan", pitchSemitones: -2, timbre: -0.52 }),
-  defineSound({ id: "whoop", label: "WHOOP", key: "p", color: "#895b5b", animalId: "hyena", callId: "hyena-whoop", pitchSemitones: 1, timbre: -0.15 }),
-  defineSound({ id: "giggle", label: "GIGGLE", key: "a", color: "#a26858", animalId: "hyena", callId: "hyena-giggle", pitchSemitones: 4, timbre: 0.18 }),
-  defineSound({ id: "grunt", label: "GRUNT", key: "s", color: "#754b3c", animalId: "wildboar", callId: "wildboar-grunt", pitchSemitones: 2, timbre: -0.36 }),
-  defineSound({ id: "moo", label: "MOO", key: "d", color: "#af8d62", animalId: "cow", callId: "cow-moo", pitchSemitones: -1, timbre: -0.32 }),
-  defineSound({ id: "lowmoo", label: "LOW MOO", key: "f", color: "#887156", animalId: "cow", callId: "cow-contact", pitchSemitones: -3, timbre: -0.5 }),
-  defineSound({ id: "croak", label: "CROAK", key: "7", color: "#536171", animalId: "raven", callId: "raven-croak", pitchSemitones: 1, timbre: -0.08 }),
-  defineSound({ id: "rattle", label: "RATTLE", key: "j", color: "#4d7e8e", animalId: "raven", callId: "raven-rattle", pitchSemitones: 4, timbre: 0.3 }),
-  defineSound({ id: "coo", label: "COO", key: "q", color: "#867c91", animalId: "dove", callId: "dove-coo", pitchSemitones: 0, timbre: -0.18 }),
-  defineSound({ id: "double", label: "DOUBLE", key: "k", color: "#9a6f9d", animalId: "dove", callId: "dove-double", pitchSemitones: 3, timbre: 0.12 }),
-  defineSound({ id: "hoot", label: "HOOT", key: "w", color: "#9b8965", animalId: "owl", callId: "owl-hoot", pitchSemitones: -1, timbre: -0.3 }),
-  defineSound({ id: "owlpair", label: "OWL 2", key: "l", color: "#c58d58", animalId: "owl", callId: "owl-double", pitchSemitones: 2, timbre: -0.02 }),
-  defineSound({ id: "trill", label: "CHIRR", key: "c", color: "#ffb703", animalId: "songbird", callId: "songbird-trill", pitchSemitones: -24, timbre: 0.34 }),
-  defineSound({ id: "phrase", label: "PHRASE", key: "b", color: "#ff4fd8", animalId: "songbird", callId: "songbird-phrase", pitchSemitones: -20, timbre: 0.24 }),
-  defineSound({ id: "boom", label: "BOOM", key: "e", color: "#52734b", animalId: "bullfrog", callId: "bullfrog-call", pitchSemitones: 0, timbre: -0.38 }),
-  defineSound({ id: "gunk", label: "GUNK", key: "r", color: "#6f844d", animalId: "bullfrog", callId: "bullfrog-grunt", pitchSemitones: 4, timbre: 0.14 }),
-  defineSound({ id: "chirp", label: "CHIRP", key: "x", color: "#ff7b00", animalId: "treefrog", callId: "treefrog-chirp", pitchSemitones: -24, timbre: 0.46 }),
-  defineSound({ id: "frogtrill", label: "RIPPLE", key: "n", color: "#b7f000", animalId: "treefrog", callId: "treefrog-trill", pitchSemitones: -20, timbre: 0.3 }),
-  defineSound({ id: "sweep", label: "JET", key: "u", color: "#756278", animalId: "mouse", callId: "mouse-sweep", pitchSemitones: -24, timbre: 0.38 }),
-  defineSound({ id: "ticks", label: "TICKS", key: "v", color: "#00a8e8", animalId: "mouse", callId: "mouse-steps", pitchSemitones: -24, timbre: 0.5 }),
-  defineSound({ id: "trumpet", label: "BLARE", key: "m", color: "#ff365c", animalId: "elephant", callId: "elephant-trumpet", pitchSemitones: -4, timbre: 0.12 }),
-  defineSound({ id: "neigh", label: "NEIGH", key: "!", color: "#e76f51", animalId: "horse", callId: "horse-whinny", articulationId: "neigh", durationMs: 980, sequenceOnsetPhase: 0.045, pitchSemitones: 1, timbre: 0.2 }),
-  defineSound({ id: "hiss", label: "HISS", key: "@", color: "#2a9d8f", animalId: "cat", callId: "cat-purr", articulationId: "hiss", durationMs: 520, sequenceOnsetPhase: 0.035, pitchSemitones: 2, timbre: 0.7 }),
-  defineSound({ id: "hoof-stomp", label: "STOMP", key: "#", color: "#6d4c41", animalId: "horse", callId: "horse-nicker", articulationId: "stomp", durationMs: 240, sequenceOnsetPhase: 0, pitchSemitones: -12, timbre: -0.84 }),
-  defineSound({ id: "horn-surprise", label: "HORN!", key: "$", color: "#f94144", animalId: "elephant", callId: "elephant-trumpet", articulationId: "horn", durationMs: 620, sequenceOnsetPhase: 0.055, pitchSemitones: 1, timbre: 0.36 }),
-  defineSound({ id: "caw", label: "CAW", key: "%", color: "#577590", animalId: "raven", callId: "raven-croak", articulationId: "caw", durationMs: 360, sequenceOnsetPhase: 0.07, pitchSemitones: -3, timbre: -0.2 }),
-  defineSound({ id: "snap-bark", label: "BARK!", key: "^", color: "#f3722c", animalId: "dog", callId: "dog-bark", articulationId: "bark", durationMs: 190, sequenceOnsetPhase: 0.075, pitchSemitones: -2, timbre: -0.18 }),
-  defineSound({ id: "clawing", label: "CLAW", key: "&", color: "#bc6c25", animalId: "cat", callId: "cat-purr", articulationId: "claw", durationMs: 540, sequenceOnsetPhase: 0.03, pitchSemitones: 7, timbre: 0.76 }),
-  defineSound({ id: "tail-whip", label: "TAILWHIP", key: "*", color: "#9d4edd", animalId: "lion", callId: "lion-grunt", articulationId: "whip", durationMs: 340, sequenceOnsetPhase: 0.58, pitchSemitones: 8, timbre: 0.62 }),
-  defineSound({ id: "footsteps", label: "STEPS", key: "(", color: "#8d6e63", animalId: "horse", callId: "horse-nicker", articulationId: "footsteps", durationMs: 760, sequenceOnsetPhase: 0, pitchSemitones: -10, timbre: -0.72 }),
-  defineSound({ id: "feather-ruffle", label: "RUFFLE", key: ")", color: "#43aa8b", animalId: "raven", callId: "raven-rattle", articulationId: "ruffle", durationMs: 680, sequenceOnsetPhase: 0.04, pitchSemitones: -2, timbre: 0.72 }),
-  defineSound({ id: "panting", label: "PANT", key: "-", color: "#f8961e", animalId: "dog", callId: "dog-bark", articulationId: "pant", durationMs: 860, sequenceOnsetPhase: 0, pitchSemitones: -5, timbre: 0.34 }),
-  defineSound({ id: "lapping", label: "LAP", key: "=", color: "#00b4d8", animalId: "cat", callId: "cat-purr", articulationId: "lap", durationMs: 720, sequenceOnsetPhase: 0.06, pitchSemitones: 3, timbre: 0.48 }),
-  defineSound({ id: "crunching", label: "CRUNCH", key: "[", color: "#90be6d", animalId: "wildboar", callId: "wildboar-grunt", articulationId: "crunch", durationMs: 560, sequenceOnsetPhase: 0, pitchSemitones: -1, timbre: 0.42 }),
-  defineSound({ id: "jumping", label: "JUMP", key: "]", color: "#f9c74f", animalId: "bullfrog", callId: "bullfrog-grunt", articulationId: "jump", durationMs: 620, sequenceOnsetPhase: 0, pitchSemitones: -8, timbre: -0.4 }),
+  defineSound({ id: "roar", label: "ROAR", key: "1", color: "#ff7b6f", animalId: "lion", callId: "lion-roar", pitchSemitones: 0, timbre: -0.32 }),
+  defineSound({ id: "chuff", label: "CHUFF", key: "2", color: "#ffcf68", animalId: "lion", callId: "lion-grunt", pitchSemitones: 3, timbre: 0.12 }),
+  defineSound({ id: "howl", label: "HOWL", key: "3", color: "#64cfff", animalId: "wolf", callId: "wolf-howl", pitchSemitones: 1, timbre: -0.05 }),
+  defineSound({ id: "yip", label: "YIP", key: "z", color: "#ff5f87", animalId: "wolf", callId: "wolf-yip", pitchSemitones: -3, timbre: 0.36 }),
+  defineSound({ id: "bark", label: "BARK", key: "4", color: "#ff7b6f", animalId: "dog", callId: "dog-bark", pitchSemitones: 4, timbre: 0.18 }),
+  defineSound({ id: "growl", label: "GROWL", key: "8", color: "#d08cff", animalId: "dog", callId: "dog-growl", pitchSemitones: -3, timbre: -0.55 }),
+  defineSound({ id: "rumble", label: "RUMBLE", key: "9", color: "#59f1df", animalId: "elephant", callId: "elephant-rumble", pitchSemitones: 2, timbre: -0.62 }),
+  defineSound({ id: "bellow", label: "BELLOW", key: "0", color: "#baff54", animalId: "alligator", callId: "alligator-bellow", pitchSemitones: 0, timbre: -0.48 }),
+  defineSound({ id: "gator", label: "GATOR", key: "t", color: "#e3ff9f", animalId: "alligator", callId: "alligator-grunt", pitchSemitones: 4, timbre: -0.22 }),
+  defineSound({ id: "purr", label: "PURR", key: "5", color: "#ff5f87", animalId: "cat", callId: "cat-purr", pitchSemitones: -2, timbre: -0.4 }),
+  defineSound({ id: "whinny", label: "WHINNY", key: "6", color: "#ffcf68", animalId: "horse", callId: "horse-whinny", pitchSemitones: 3, timbre: 0.24 }),
+  defineSound({ id: "nicker", label: "NICKER", key: "y", color: "#ff7b6f", animalId: "horse", callId: "horse-nicker", pitchSemitones: 1, timbre: -0.16 }),
+  defineSound({ id: "cervid", label: "CERVID", key: "i", color: "#e3ff9f", animalId: "reddeer", callId: "reddeer-common-roar", pitchSemitones: 0, timbre: -0.24 }),
+  defineSound({ id: "harsh", label: "HARSH", key: "o", color: "#d08cff", animalId: "reddeer", callId: "reddeer-harsh-roar", pitchSemitones: 2, timbre: -0.58 }),
+  defineSound({ id: "moose", label: "MOOSE", key: "g", color: "#baff54", animalId: "moose", callId: "moose-bull-grunt", pitchSemitones: 0, timbre: -0.38 }),
+  defineSound({ id: "moan", label: "MOAN", key: "h", color: "#b6fff5", animalId: "moose", callId: "moose-cow-moan", pitchSemitones: -2, timbre: -0.52 }),
+  defineSound({ id: "whoop", label: "WHOOP", key: "p", color: "#64cfff", animalId: "hyena", callId: "hyena-whoop", pitchSemitones: 1, timbre: -0.15 }),
+  defineSound({ id: "giggle", label: "GIGGLE", key: "a", color: "#ff5f87", animalId: "hyena", callId: "hyena-giggle", pitchSemitones: 4, timbre: 0.18 }),
+  defineSound({ id: "grunt", label: "GRUNT", key: "s", color: "#ff7b6f", animalId: "wildboar", callId: "wildboar-grunt", pitchSemitones: 2, timbre: -0.36 }),
+  defineSound({ id: "moo", label: "MOO", key: "d", color: "#ffcf68", animalId: "cow", callId: "cow-moo", pitchSemitones: -1, timbre: -0.32 }),
+  defineSound({ id: "lowmoo", label: "LOW MOO", key: "f", color: "#baff54", animalId: "cow", callId: "cow-contact", pitchSemitones: -3, timbre: -0.5 }),
+  defineSound({ id: "croak", label: "CROAK", key: "7", color: "#64cfff", animalId: "raven", callId: "raven-croak", pitchSemitones: 1, timbre: -0.08 }),
+  defineSound({ id: "rattle", label: "RATTLE", key: "j", color: "#59f1df", animalId: "raven", callId: "raven-rattle", pitchSemitones: 4, timbre: 0.3 }),
+  defineSound({ id: "coo", label: "COO", key: "q", color: "#d08cff", animalId: "dove", callId: "dove-coo", pitchSemitones: 0, timbre: -0.18 }),
+  defineSound({ id: "double", label: "DOUBLE", key: "k", color: "#ff5f87", animalId: "dove", callId: "dove-double", pitchSemitones: 3, timbre: 0.12 }),
+  defineSound({ id: "hoot", label: "HOOT", key: "w", color: "#ffcf68", animalId: "owl", callId: "owl-hoot", pitchSemitones: -1, timbre: -0.3 }),
+  defineSound({ id: "owlpair", label: "OWL 2", key: "l", color: "#e3ff9f", animalId: "owl", callId: "owl-double", pitchSemitones: 2, timbre: -0.02 }),
+  defineSound({ id: "trill", label: "CHIRR", key: "c", color: "#baff54", animalId: "songbird", callId: "songbird-trill", pitchSemitones: -24, timbre: 0.34 }),
+  defineSound({ id: "phrase", label: "PHRASE", key: "b", color: "#59f1df", animalId: "songbird", callId: "songbird-phrase", pitchSemitones: -20, timbre: 0.24 }),
+  defineSound({ id: "boom", label: "BOOM", key: "e", color: "#64cfff", animalId: "bullfrog", callId: "bullfrog-call", pitchSemitones: 0, timbre: -0.38 }),
+  defineSound({ id: "gunk", label: "GUNK", key: "r", color: "#baff54", animalId: "bullfrog", callId: "bullfrog-grunt", pitchSemitones: 4, timbre: 0.14 }),
+  defineSound({ id: "chirp", label: "CHIRP", key: "x", color: "#ffcf68", animalId: "treefrog", callId: "treefrog-chirp", pitchSemitones: -24, timbre: 0.46 }),
+  defineSound({ id: "frogtrill", label: "RIPPLE", key: "n", color: "#59f1df", animalId: "treefrog", callId: "treefrog-trill", pitchSemitones: -20, timbre: 0.3 }),
+  defineSound({ id: "sweep", label: "JET", key: "u", color: "#d08cff", animalId: "mouse", callId: "mouse-sweep", pitchSemitones: -24, timbre: 0.38 }),
+  defineSound({ id: "ticks", label: "TICKS", key: "v", color: "#64cfff", animalId: "mouse", callId: "mouse-steps", pitchSemitones: -24, timbre: 0.5 }),
+  defineSound({ id: "trumpet", label: "BLARE", key: "m", color: "#ff7b6f", animalId: "elephant", callId: "elephant-trumpet", pitchSemitones: -4, timbre: 0.12 }),
+  defineSound({ id: "neigh", label: "NEIGH", key: "!", color: "#ffcf68", animalId: "horse", callId: "horse-whinny", articulationId: "neigh", durationMs: 980, sequenceOnsetPhase: 0.045, pitchSemitones: 1, timbre: 0.2 }),
+  defineSound({ id: "hiss", label: "HISS", key: "@", color: "#59f1df", animalId: "cat", callId: "cat-purr", articulationId: "hiss", durationMs: 520, sequenceOnsetPhase: 0.035, pitchSemitones: 2, timbre: 0.7 }),
+  defineSound({ id: "hoof-stomp", label: "STOMP", key: "#", color: "#baff54", animalId: "horse", callId: "horse-nicker", articulationId: "stomp", durationMs: 240, sequenceOnsetPhase: 0, pitchSemitones: -12, timbre: -0.84 }),
+  defineSound({ id: "horn-surprise", label: "HORN!", key: "$", color: "#ff7b6f", animalId: "elephant", callId: "elephant-trumpet", articulationId: "horn", durationMs: 620, sequenceOnsetPhase: 0.055, pitchSemitones: 1, timbre: 0.36 }),
+  defineSound({ id: "caw", label: "CAW", key: "%", color: "#64cfff", animalId: "raven", callId: "raven-croak", articulationId: "caw", durationMs: 360, sequenceOnsetPhase: 0.07, pitchSemitones: -3, timbre: -0.2 }),
+  defineSound({ id: "snap-bark", label: "BARK!", key: "^", color: "#ff5f87", animalId: "dog", callId: "dog-bark", articulationId: "bark", durationMs: 190, sequenceOnsetPhase: 0.075, pitchSemitones: -2, timbre: -0.18 }),
+  defineSound({ id: "clawing", label: "CLAW", key: "&", color: "#ffcf68", animalId: "cat", callId: "cat-purr", articulationId: "claw", durationMs: 540, sequenceOnsetPhase: 0.03, pitchSemitones: 7, timbre: 0.76 }),
+  defineSound({ id: "tail-whip", label: "TAILWHIP", key: "*", color: "#d08cff", animalId: "lion", callId: "lion-grunt", articulationId: "whip", durationMs: 340, sequenceOnsetPhase: 0.58, pitchSemitones: 8, timbre: 0.62 }),
+  defineSound({ id: "footsteps", label: "STEPS", key: "(", color: "#baff54", animalId: "horse", callId: "horse-nicker", articulationId: "footsteps", durationMs: 760, sequenceOnsetPhase: 0, pitchSemitones: -10, timbre: -0.72 }),
+  defineSound({ id: "feather-ruffle", label: "RUFFLE", key: ")", color: "#59f1df", animalId: "raven", callId: "raven-rattle", articulationId: "ruffle", durationMs: 680, sequenceOnsetPhase: 0.04, pitchSemitones: -2, timbre: 0.72 }),
+  defineSound({ id: "panting", label: "PANT", key: "-", color: "#ff7b6f", animalId: "dog", callId: "dog-bark", articulationId: "pant", durationMs: 860, sequenceOnsetPhase: 0.06, pitchSemitones: -5, timbre: 0.34 }),
+  defineSound({ id: "lapping", label: "LAP", key: "=", color: "#ff5f87", animalId: "cat", callId: "cat-purr", articulationId: "lap", durationMs: 720, sequenceOnsetPhase: 0.06, pitchSemitones: 3, timbre: 0.48 }),
+  defineSound({ id: "crunching", label: "CRUNCH", key: "[", color: "#e3ff9f", animalId: "wildboar", callId: "wildboar-grunt", articulationId: "crunch", durationMs: 560, sequenceOnsetPhase: 0, pitchSemitones: -1, timbre: 0.42 }),
+  defineSound({ id: "jumping", label: "JUMP", key: "]", color: "#ffcf68", animalId: "bullfrog", callId: "bullfrog-grunt", articulationId: "jump", durationMs: 620, sequenceOnsetPhase: 0, pitchSemitones: -8, timbre: -0.4 }),
 ]);
 
 const soundById = new Map(CREATURAZOID_SOUNDS.map((sound) => [sound.id, sound]));
@@ -530,28 +557,28 @@ export const CREATURAZOID_PERCUSSIVE_SOUND_IDS = Object.freeze(
 );
 
 // The drawing layer may use these normalized anatomical proportions directly.
-// None includes ears or eyebrows: horn crowns, feather vanes, exposed breath
-// organs, and an extensible neck carry the silhouette and its expression.
+// Mobile pinnae join the horn crowns, feather vanes, exposed breath organs,
+// and extensible neck; bony orbital shelves replace cartoon eyebrows.
 export const CREATURAZOID_ANATOMY_DESIGNS = Object.freeze([
   Object.freeze({
     id: "scapular-wings",
-    label: "Crown horns + scapular plumage",
-    description: "Paired crown horns recoil above a mammalian skull while feathered forelimbs flare from the visible pectoral girdle.",
-    structures: Object.freeze(["crown horns", "pectoral girdle", "primary flight feathers", "extensible laryngeal tract"]),
+    label: "Crown horns + scapular plumage + mobile pinnae",
+    description: "Paired crown horns and mobile pinnae recoil above a mammalian skull while feathered forelimbs flare from the visible pectoral girdle.",
+    structures: Object.freeze(["crown horns", "mobile pinnae", "pectoral girdle", "primary flight feathers", "extensible laryngeal tract"]),
     proportions: Object.freeze({ wingSpan: 0.96, wingSweep: 0.48, beakLength: 0.42, cheekVolume: 0.24, throatVolume: 0.72, toothExposure: 0.34 }),
   }),
   Object.freeze({
     id: "branchial-mantle",
-    label: "Lateral horns + branchial fan",
-    description: "Lateral horn scoops bracket opercular cheeks, a broad resonant throat sac, and a compact fan of secondary feathers.",
-    structures: Object.freeze(["lateral horns", "opercular folds", "secondary feathers", "inflatable vocal sac"]),
+    label: "Lateral horns + branchial fan + ear valves",
+    description: "Lateral horn scoops and broad ear valves bracket opercular cheeks, a resonant throat sac, and a compact fan of secondary feathers.",
+    structures: Object.freeze(["lateral horns", "ear valves", "opercular folds", "secondary feathers", "inflatable vocal sac"]),
     proportions: Object.freeze({ wingSpan: 0.7, wingSweep: 0.22, beakLength: 0.3, cheekVolume: 0.62, throatVolume: 0.94, toothExposure: 0.22 }),
   }),
   Object.freeze({
     id: "costal-glider",
-    label: "Antler forks + costal feathers",
-    description: "Forked antlers and rib-mounted flight feathers expose an oversized lung pair beneath a long feeding neck.",
-    structures: Object.freeze(["forked antlers", "costal feather rays", "inflatable lung pair", "nasal capsule"]),
+    label: "Antler forks + costal feathers + pinnae",
+    description: "Forked antlers, directional pinnae, and rib-mounted flight feathers expose an oversized lung pair beneath a long feeding neck.",
+    structures: Object.freeze(["forked antlers", "directional pinnae", "costal feather rays", "inflatable lung pair", "nasal capsule"]),
     proportions: Object.freeze({ wingSpan: 0.86, wingSweep: 0.76, beakLength: 0.24, cheekVolume: 0.18, throatVolume: 0.58, toothExposure: 0.28 }),
   }),
 ]);
@@ -652,21 +679,90 @@ export function sanitizeCreaturazoidBodyState(source = {}, fallback = {}) {
   return Object.freeze(state);
 }
 
+const CREATURAZOID_SHAPE_LIMITS = Object.freeze({
+  bodyScale: CREATURAZOID_LIMITS.bodyScale,
+  bodyRoundness: CREATURAZOID_LIMITS.bodyRoundness,
+  headScale: Object.freeze([0.55, 1.45]),
+  neckLength: Object.freeze([0.45, 1.55]),
+  neckWidth: Object.freeze([0.45, 1.55]),
+  thoraxWidth: Object.freeze([0.55, 1.5]),
+  bellyDepth: Object.freeze([0.45, 1.55]),
+  muzzleLength: Object.freeze([0.45, 1.55]),
+  mouthWidth: Object.freeze([0.5, 1.6]),
+  mouthDepth: Object.freeze([0.5, 1.65]),
+  jawTaper: Object.freeze([-1, 1]),
+  lipCurl: Object.freeze([-1, 1]),
+  wingSpan: Object.freeze([0.5, 1.5]),
+  hornScale: Object.freeze([0.45, 1.55]),
+  eyeScale: Object.freeze([0.55, 1.45]),
+  earLength: Object.freeze([0.4, 1.7]),
+  earWidth: Object.freeze([0.4, 1.7]),
+  earDroop: Object.freeze([-1, 1]),
+  earRotation: Object.freeze([-1, 1]),
+  tailLength: Object.freeze([0.45, 1.75]),
+  tailThickness: Object.freeze([0.35, 1.7]),
+  tailCurl: Object.freeze([-1, 1]),
+  tailTuft: Object.freeze([0, 1]),
+  tongueWidth: Object.freeze([0.45, 1.55]),
+});
+
+const CREATURAZOID_SHAPE_DEFAULTS = Object.freeze({
+  bodyScale: 1,
+  bodyRoundness: 0,
+  headScale: 1,
+  neckLength: 1,
+  neckWidth: 1,
+  thoraxWidth: 1,
+  bellyDepth: 1,
+  muzzleLength: 1,
+  mouthWidth: 1,
+  mouthDepth: 1,
+  jawTaper: 0,
+  lipCurl: 0,
+  wingSpan: 1,
+  hornScale: 1,
+  eyeScale: 1,
+  earLength: 1,
+  earWidth: 1,
+  earDroop: 0,
+  earRotation: 0,
+  tailLength: 1,
+  tailThickness: 1,
+  tailCurl: 0,
+  tailTuft: 0.5,
+  tongueWidth: 1,
+  earType: "point",
+  tailType: "brush",
+  tongueAnatomy: "canine",
+});
+
+export function sanitizeCreaturazoidShape(source = {}, fallback = CREATURAZOID_SHAPE_DEFAULTS) {
+  const candidate = source && typeof source === "object" ? source : {};
+  const base = fallback && typeof fallback === "object" ? fallback : CREATURAZOID_SHAPE_DEFAULTS;
+  const shape = Object.fromEntries(Object.entries(CREATURAZOID_SHAPE_LIMITS).map(([name, limits]) => [
+    name,
+    clamp(
+      finiteOr(candidate[name], finiteOr(base[name], CREATURAZOID_SHAPE_DEFAULTS[name])),
+      limits[0],
+      limits[1],
+    ),
+  ]));
+  const earType = String(candidate.earType ?? base.earType ?? CREATURAZOID_SHAPE_DEFAULTS.earType);
+  const tailType = String(candidate.tailType ?? base.tailType ?? CREATURAZOID_SHAPE_DEFAULTS.tailType);
+  const tongueAnatomy = String(
+    candidate.tongueAnatomy ?? base.tongueAnatomy ?? CREATURAZOID_SHAPE_DEFAULTS.tongueAnatomy,
+  );
+  shape.earType = CREATURAZOID_EAR_TYPES.includes(earType) ? earType : CREATURAZOID_SHAPE_DEFAULTS.earType;
+  shape.tailType = CREATURAZOID_TAIL_TYPES.includes(tailType) ? tailType : CREATURAZOID_SHAPE_DEFAULTS.tailType;
+  shape.tongueAnatomy = ["human", "macaque", "canine", "avian"].includes(tongueAnatomy)
+    ? tongueAnatomy
+    : CREATURAZOID_SHAPE_DEFAULTS.tongueAnatomy;
+  return Object.freeze(shape);
+}
+
 function defineBodyPreset({ bodyState, shape, response, palette, modulations, settings, ...preset }) {
   const frozenBodyState = sanitizeCreaturazoidBodyState(bodyState);
-  const frozenShape = Object.freeze({
-    bodyScale: clamp(shape.bodyScale, ...CREATURAZOID_LIMITS.bodyScale),
-    bodyRoundness: clamp(shape.bodyRoundness, ...CREATURAZOID_LIMITS.bodyRoundness),
-    headScale: clamp(shape.headScale, 0.55, 1.45),
-    neckLength: clamp(shape.neckLength, 0.45, 1.55),
-    neckWidth: clamp(shape.neckWidth, 0.45, 1.55),
-    thoraxWidth: clamp(shape.thoraxWidth, 0.55, 1.5),
-    bellyDepth: clamp(shape.bellyDepth, 0.45, 1.55),
-    muzzleLength: clamp(shape.muzzleLength, 0.45, 1.55),
-    wingSpan: clamp(shape.wingSpan, 0.5, 1.5),
-    hornScale: clamp(shape.hornScale, 0.45, 1.55),
-    eyeScale: clamp(shape.eyeScale, 0.55, 1.45),
-  });
+  const frozenShape = sanitizeCreaturazoidShape(shape);
   const frozenResponse = Object.freeze({
     attackMs: clamp(response.attackMs, ...CREATURAZOID_LIMITS.attackMs),
     retargetMs: clamp(response.retargetMs, ...CREATURAZOID_LIMITS.morphTimeMs),
@@ -705,11 +801,11 @@ export const CREATURAZOID_BODY_PRESETS = Object.freeze([
   defineBodyPreset({
     id: "colossal-barrel", label: "Colossal Barrel",
     description: "An immense round reservoir with a long, broad airway and slow-moving walls.",
-    modulationTarget: "roughness", palette: ["#ff6238", "#ff2e88", "#8b5cf6", "#00d9ff", "#ffd23f", "#f7f3ff"],
+    modulationTarget: "roughness", palette: ["#baff54", "#59f1df", "#ff5f87", "#ffcf68", "#d08cff", "#64cfff", "#ff7b6f", "#e3ff9f", "#b6fff5"],
     bodyState: { pressure: 0.92, tension: 0.24, adduction: 0.72, sourceScale: 0.94, tractLengthM: 0.62, mouthOpening: 0.58, cavityCoupling: 0.78, asymmetry: 0.28, sourceBalance: 0.46, roughness: 0.68, tractDiameterProfile: [1.45, 1.62, 1.72, 1.66, 1.5, 1.3, 1.12, 0.96], tractDiameterScale: 1.68, cavityFrequencyHz: 180 },
-    shape: { bodyScale: 1.25, bodyRoundness: 0.96, headScale: 1.02, neckLength: 0.72, neckWidth: 1.28, thoraxWidth: 1.34, bellyDepth: 1.42, muzzleLength: 0.92, wingSpan: 1.04, hornScale: 1.22, eyeScale: 0.86 },
+    shape: { bodyScale: 1.25, bodyRoundness: 0.96, headScale: 0.9, neckLength: 0.98, neckWidth: 1.12, thoraxWidth: 1.34, bellyDepth: 1.42, muzzleLength: 1.08, mouthWidth: 1.18, mouthDepth: 1.32, jawTaper: 0.22, lipCurl: -0.08, wingSpan: 1.04, hornScale: 1.22, eyeScale: 0.72, earType: "drop", earLength: 1.2, earWidth: 1.35, earDroop: 0.8, earRotation: -0.2, tailType: "brush", tailLength: 0.9, tailThickness: 1.5, tailCurl: 0.55, tailTuft: 0.9, tongueAnatomy: "canine", tongueWidth: 1.35 },
     response: { attackMs: 34, retargetMs: 34, deformationGain: 1.24 },
-    settings: { anatomyDesignId: "branchial-mantle", pitchSemitones: -8, timbre: -0.48, vibratoRateHz: 2.2, vibratoDepthSemitones: 0.24, modulationRateHz: 2.6, modulationDepth: 0.68, modulationShape: "triangle" },
+    settings: { anatomyDesignId: "costal-glider", pitchSemitones: -8, timbre: -0.48, vibratoRateHz: 2.2, vibratoDepthSemitones: 0.24, modulationRateHz: 2.6, modulationDepth: 0.68, modulationShape: "triangle", earSpread: 0.72, tongueReach: 0.68, tongueMotion: 0.38 },
     modulations: [
       { target: "roughness", shape: "triangle", phase: 0.1, speed: [[0, 1.4], [0.5, 3.1], [1, 1.2]], depth: [[0, 0.12], [0.38, 0.72], [1, 0.18]] },
       { target: "cavityCoupling", shape: "sine", phase: 0.35, speed: [[0, 0.5], [0.7, 1.6], [1, 0.7]], depth: [[0, 0.1], [0.55, 0.62], [1, 0.16]] },
@@ -719,11 +815,11 @@ export const CREATURAZOID_BODY_PRESETS = Object.freeze([
   defineBodyPreset({
     id: "pocket-needle", label: "Pocket Needle",
     description: "A tiny angular body with a pinched tube, light source, and immediate reflexes.",
-    modulationTarget: "beak", palette: ["#ffb703", "#ff4fd8", "#00d9ff", "#6c4cff", "#fff1c1", "#ff643d"],
+    modulationTarget: "beak", palette: ["#59f1df", "#ffcf68", "#ff5f87", "#baff54", "#64cfff", "#d08cff", "#b6fff5", "#ff7b6f", "#e3ff9f"],
     bodyState: { pressure: 0.58, tension: 0.78, adduction: 0.34, sourceScale: 0.14, tractLengthM: 0.035, mouthOpening: 0.72, cavityCoupling: 0.16, asymmetry: 0.12, sourceBalance: 0.56, roughness: 0.08, tractDiameterProfile: [0.38, 0.34, 0.3, 0.26, 0.24, 0.2, 0.18, 0.16], tractDiameterScale: 0.46, cavityFrequencyHz: 3_900 },
-    shape: { bodyScale: 0.62, bodyRoundness: -0.78, headScale: 0.7, neckLength: 0.62, neckWidth: 0.52, thoraxWidth: 0.6, bellyDepth: 0.54, muzzleLength: 1.28, wingSpan: 0.72, hornScale: 0.62, eyeScale: 1.2 },
+    shape: { bodyScale: 0.62, bodyRoundness: -0.78, headScale: 0.7, neckLength: 0.62, neckWidth: 0.52, thoraxWidth: 0.6, bellyDepth: 0.54, muzzleLength: 1.28, mouthWidth: 0.62, mouthDepth: 0.58, jawTaper: 0.85, lipCurl: -0.4, wingSpan: 0.72, hornScale: 0.62, eyeScale: 0.86, earType: "point", earLength: 0.7, earWidth: 0.55, earDroop: -0.7, earRotation: 0.7, tailType: "whip", tailLength: 1.4, tailThickness: 0.45, tailCurl: -0.4, tailTuft: 0.12, tongueAnatomy: "macaque", tongueWidth: 0.58 },
     response: { attackMs: 10, retargetMs: 14, deformationGain: 0.92 },
-    settings: { anatomyDesignId: "costal-glider", pitchSemitones: 9, timbre: 0.62, vibratoRateHz: 9.4, vibratoDepthSemitones: 1.1, modulationRateHz: 8.2, modulationDepth: 0.56, modulationShape: "sample-hold" },
+    settings: { anatomyDesignId: "costal-glider", pitchSemitones: 9, timbre: 0.62, vibratoRateHz: 9.4, vibratoDepthSemitones: 1.1, modulationRateHz: 8.2, modulationDepth: 0.56, modulationShape: "sample-hold", earSpread: 0.32, tongueReach: 0.38, tongueMotion: 0.9 },
     modulations: [
       { target: "tension", shape: "sample-hold", phase: 0.2, speed: [[0, 8], [0.45, 15], [1, 9]], depth: [[0, 0.08], [0.16, 0.62], [0.82, 0.46], [1, 0]] },
       { target: "mouthOpening", shape: "square", phase: 0, speed: [[0, 6], [0.5, 12], [1, 7]], depth: [[0, 0], [0.08, 0.7], [0.72, 0.3], [1, 0]] },
@@ -733,11 +829,11 @@ export const CREATURAZOID_BODY_PRESETS = Object.freeze([
   defineBodyPreset({
     id: "long-hollow", label: "Long Hollow",
     description: "A narrow extended throat with widely spaced resonances and a light-walled chest.",
-    modulationTarget: "cavity", palette: ["#7a5cff", "#00cfff", "#ff5d9e", "#ff9f1c", "#ffe45e", "#e9e1ff"],
+    modulationTarget: "cavity", palette: ["#64cfff", "#baff54", "#d08cff", "#59f1df", "#ff7b6f", "#ffcf68", "#e3ff9f", "#b6fff5", "#ff5f87"],
     bodyState: { pressure: 0.75, tension: 0.38, adduction: 0.55, sourceScale: 0.62, tractLengthM: 0.78, mouthOpening: 0.48, cavityCoupling: 0.82, asymmetry: 0.16, sourceBalance: 0.5, roughness: 0.28, tractDiameterProfile: [0.62, 0.58, 0.5, 0.42, 0.38, 0.46, 0.54, 0.66], tractDiameterScale: 0.84, cavityFrequencyHz: 260 },
-    shape: { bodyScale: 1.04, bodyRoundness: -0.48, headScale: 0.84, neckLength: 1.48, neckWidth: 0.64, thoraxWidth: 0.78, bellyDepth: 0.7, muzzleLength: 1.12, wingSpan: 1.12, hornScale: 1.08, eyeScale: 0.9 },
+    shape: { bodyScale: 1.04, bodyRoundness: -0.48, headScale: 0.84, neckLength: 1.48, neckWidth: 0.64, thoraxWidth: 0.78, bellyDepth: 0.7, muzzleLength: 1.12, mouthWidth: 0.78, mouthDepth: 1.4, jawTaper: 0.65, lipCurl: 0.2, wingSpan: 1.12, hornScale: 1.08, eyeScale: 0.82, earType: "long", earLength: 1.6, earWidth: 0.48, earDroop: -0.3, earRotation: 0.2, tailType: "tuft", tailLength: 1.55, tailThickness: 0.55, tailCurl: 0.2, tailTuft: 0.7, tongueAnatomy: "canine", tongueWidth: 0.78 },
     response: { attackMs: 28, retargetMs: 30, deformationGain: 1.08 },
-    settings: { anatomyDesignId: "costal-glider", pitchSemitones: -4, timbre: -0.16, vibratoRateHz: 4.1, vibratoDepthSemitones: 0.52, modulationRateHz: 3.3, modulationDepth: 0.52, modulationShape: "sine" },
+    settings: { anatomyDesignId: "costal-glider", pitchSemitones: -4, timbre: -0.16, vibratoRateHz: 4.1, vibratoDepthSemitones: 0.52, modulationRateHz: 3.3, modulationDepth: 0.52, modulationShape: "sine", earSpread: 0.64, tongueReach: 0.82, tongueMotion: 0.56 },
     modulations: [
       { target: "cavityCoupling", shape: "sine", phase: 0.25, speed: [[0, 0.6], [0.5, 2.3], [1, 0.8]], depth: [[0, 0.06], [0.42, 0.78], [1, 0.12]] },
       { target: "tractLengthM", shape: "triangle", phase: 0, speed: [[0, 0.3], [0.55, 1.1], [1, 0.4]], depth: [[0, 0], [0.3, 0.42], [0.8, 0.66], [1, 0]] },
@@ -746,11 +842,11 @@ export const CREATURAZOID_BODY_PRESETS = Object.freeze([
   defineBodyPreset({
     id: "dense-squat", label: "Dense Squat",
     description: "A low compact mass with thick closure, a short pipe, and abrasive internal surfaces.",
-    modulationTarget: "roughness", palette: ["#ff7a18", "#e93f33", "#735dff", "#00cfff", "#ffc43d", "#fff0ca"],
+    modulationTarget: "roughness", palette: ["#ff7b6f", "#ffcf68", "#baff54", "#ff5f87", "#59f1df", "#d08cff", "#e3ff9f", "#64cfff", "#b6fff5"],
     bodyState: { pressure: 0.88, tension: 0.28, adduction: 0.8, sourceScale: 0.86, tractLengthM: 0.13, mouthOpening: 0.42, cavityCoupling: 0.7, asymmetry: 0.42, sourceBalance: 0.44, roughness: 0.8, tractDiameterProfile: [1.3, 1.42, 1.5, 1.44, 1.34, 1.2, 1.04, 0.9], tractDiameterScale: 1.48, cavityFrequencyHz: 320 },
-    shape: { bodyScale: 1.08, bodyRoundness: 0.9, headScale: 1.22, neckLength: 0.5, neckWidth: 1.32, thoraxWidth: 1.38, bellyDepth: 1.18, muzzleLength: 0.72, wingSpan: 0.7, hornScale: 0.92, eyeScale: 0.76 },
+    shape: { bodyScale: 1.08, bodyRoundness: 0.9, headScale: 1.22, neckLength: 0.5, neckWidth: 1.32, thoraxWidth: 1.38, bellyDepth: 1.18, muzzleLength: 0.72, mouthWidth: 1.45, mouthDepth: 0.8, jawTaper: -0.45, lipCurl: 0.75, wingSpan: 0.7, hornScale: 0.92, eyeScale: 0.72, earType: "round", earLength: 0.75, earWidth: 1.2, earDroop: 0.15, earRotation: -0.4, tailType: "brush", tailLength: 0.7, tailThickness: 1.65, tailCurl: 0.8, tailTuft: 1, tongueAnatomy: "canine", tongueWidth: 1.4 },
     response: { attackMs: 18, retargetMs: 20, deformationGain: 1.32 },
-    settings: { anatomyDesignId: "branchial-mantle", pitchSemitones: -6, timbre: -0.7, vibratoRateHz: 3.1, vibratoDepthSemitones: 0.3, modulationRateHz: 5.4, modulationDepth: 0.74, modulationShape: "square" },
+    settings: { anatomyDesignId: "branchial-mantle", pitchSemitones: -6, timbre: -0.7, vibratoRateHz: 3.1, vibratoDepthSemitones: 0.3, modulationRateHz: 5.4, modulationDepth: 0.74, modulationShape: "square", earSpread: 0.52, tongueReach: 0.58, tongueMotion: 0.72 },
     modulations: [
       { target: "roughness", shape: "sample-hold", phase: 0.7, speed: [[0, 4], [0.45, 9], [1, 5]], depth: [[0, 0.2], [0.34, 0.86], [0.76, 0.64], [1, 0.1]] },
       { target: "adduction", shape: "square", phase: 0.1, speed: [[0, 2], [0.5, 6], [1, 3]], depth: [[0, 0.05], [0.2, 0.58], [0.9, 0.4], [1, 0]] },
@@ -759,11 +855,11 @@ export const CREATURAZOID_BODY_PRESETS = Object.freeze([
   defineBodyPreset({
     id: "elastic-tower", label: "Elastic Tower",
     description: "A tall spring-loaded column whose neck, outlet, and source bend at different speeds.",
-    modulationTarget: "pressure", palette: ["#52b6ff", "#ad5cff", "#ff4fb8", "#ff704d", "#00e5ff", "#ffd166"],
+    modulationTarget: "pressure", palette: ["#d08cff", "#59f1df", "#baff54", "#64cfff", "#ff5f87", "#ffcf68", "#b6fff5", "#ff7b6f", "#e3ff9f"],
     bodyState: { pressure: 0.72, tension: 0.52, adduction: 0.48, sourceScale: 0.45, tractLengthM: 0.46, mouthOpening: 0.66, cavityCoupling: 0.44, asymmetry: 0.22, sourceBalance: 0.52, roughness: 0.25, tractDiameterProfile: [0.72, 0.66, 0.58, 0.52, 0.62, 0.74, 0.82, 0.76], tractDiameterScale: 0.76, cavityFrequencyHz: 650 },
-    shape: { bodyScale: 0.94, bodyRoundness: -0.1, headScale: 0.8, neckLength: 1.4, neckWidth: 0.7, thoraxWidth: 0.76, bellyDepth: 0.82, muzzleLength: 0.92, wingSpan: 1.28, hornScale: 1.16, eyeScale: 1.02 },
+    shape: { bodyScale: 0.94, bodyRoundness: -0.1, headScale: 0.8, neckLength: 1.4, neckWidth: 0.7, thoraxWidth: 0.76, bellyDepth: 0.82, muzzleLength: 0.92, mouthWidth: 0.85, mouthDepth: 1.25, jawTaper: 0.55, lipCurl: -0.25, wingSpan: 1.28, hornScale: 1.16, eyeScale: 0.84, earType: "fan", earLength: 1.25, earWidth: 1.3, earDroop: -0.4, earRotation: 0.55, tailType: "fan", tailLength: 1.2, tailThickness: 0.75, tailCurl: -0.65, tailTuft: 0.85, tongueAnatomy: "macaque", tongueWidth: 0.9 },
     response: { attackMs: 20, retargetMs: 24, deformationGain: 1.18 },
-    settings: { anatomyDesignId: "scapular-wings", pitchSemitones: 2, timbre: 0.12, vibratoRateHz: 6.8, vibratoDepthSemitones: 0.92, modulationRateHz: 5.8, modulationDepth: 0.62, modulationShape: "triangle" },
+    settings: { anatomyDesignId: "scapular-wings", pitchSemitones: 2, timbre: 0.12, vibratoRateHz: 6.8, vibratoDepthSemitones: 0.92, modulationRateHz: 5.8, modulationDepth: 0.62, modulationShape: "triangle", earSpread: 0.78, tongueReach: 0.72, tongueMotion: 0.84 },
     modulations: [
       { target: "pressure", shape: "triangle", phase: 0, speed: [[0, 2.5], [0.5, 7.5], [1, 3]], depth: [[0, 0], [0.15, 0.64], [0.72, 0.48], [1, 0]] },
       { target: "mouthOpening", shape: "sine", phase: 0.33, speed: [[0, 1.2], [0.6, 5], [1, 1.5]], depth: [[0, 0.08], [0.5, 0.82], [1, 0.14]] },
@@ -773,11 +869,11 @@ export const CREATURAZOID_BODY_PRESETS = Object.freeze([
   defineBodyPreset({
     id: "wide-bladder", label: "Wide Bladder",
     description: "A broad inflatable cavity with a soft source and a heavily breathing lower body.",
-    modulationTarget: "cavity", palette: ["#ff3cac", "#00dcff", "#2458ff", "#ffe03b", "#ff8c42", "#f5eeff"],
+    modulationTarget: "cavity", palette: ["#ff5f87", "#baff54", "#59f1df", "#d08cff", "#ffcf68", "#64cfff", "#ff7b6f", "#b6fff5", "#e3ff9f"],
     bodyState: { pressure: 0.82, tension: 0.32, adduction: 0.58, sourceScale: 0.72, tractLengthM: 0.24, mouthOpening: 0.32, cavityCoupling: 0.95, asymmetry: 0.2, sourceBalance: 0.5, roughness: 0.42, tractDiameterProfile: [1.62, 1.72, 1.78, 1.7, 1.54, 1.36, 1.18, 1], tractDiameterScale: 1.76, cavityFrequencyHz: 140 },
-    shape: { bodyScale: 1.14, bodyRoundness: 1, headScale: 0.92, neckLength: 0.64, neckWidth: 1.2, thoraxWidth: 1.46, bellyDepth: 1.5, muzzleLength: 0.7, wingSpan: 0.76, hornScale: 0.84, eyeScale: 0.9 },
+    shape: { bodyScale: 1.14, bodyRoundness: 1, headScale: 0.92, neckLength: 0.64, neckWidth: 1.2, thoraxWidth: 1.46, bellyDepth: 1.5, muzzleLength: 0.7, mouthWidth: 1.55, mouthDepth: 1.1, jawTaper: -0.65, lipCurl: 0.55, wingSpan: 0.76, hornScale: 0.84, eyeScale: 0.78, earType: "wide", earLength: 0.65, earWidth: 1.6, earDroop: 0.35, earRotation: -0.65, tailType: "tuft", tailLength: 0.85, tailThickness: 1.2, tailCurl: 0.9, tailTuft: 0.8, tongueAnatomy: "human", tongueWidth: 1.5 },
     response: { attackMs: 30, retargetMs: 32, deformationGain: 1.4 },
-    settings: { anatomyDesignId: "branchial-mantle", pitchSemitones: -5, timbre: -0.34, vibratoRateHz: 2.8, vibratoDepthSemitones: 0.34, modulationRateHz: 4.2, modulationDepth: 0.78, modulationShape: "sine" },
+    settings: { anatomyDesignId: "branchial-mantle", pitchSemitones: -5, timbre: -0.34, vibratoRateHz: 2.8, vibratoDepthSemitones: 0.34, modulationRateHz: 4.2, modulationDepth: 0.78, modulationShape: "sine", earSpread: 0.82, tongueReach: 0.76, tongueMotion: 0.48 },
     modulations: [
       { target: "cavityCoupling", shape: "sine", phase: 0, speed: [[0, 0.7], [0.5, 3.2], [1, 0.9]], depth: [[0, 0], [0.24, 0.9], [0.82, 0.72], [1, 0]] },
       { target: "pressure", shape: "square", phase: 0.4, speed: [[0, 1.8], [0.6, 4.8], [1, 2]], depth: [[0, 0.08], [0.35, 0.54], [1, 0.06]] },
@@ -786,11 +882,11 @@ export const CREATURAZOID_BODY_PRESETS = Object.freeze([
   defineBodyPreset({
     id: "split-chamber", label: "Split Chamber",
     description: "A deliberately uneven paired body with two differently loaded sides and a shifting center.",
-    modulationTarget: "split", palette: ["#a855f7", "#ff2fb3", "#00d4ff", "#ffe338", "#ff643d", "#eee6ff"],
+    modulationTarget: "split", palette: ["#59f1df", "#d08cff", "#ff5f87", "#64cfff", "#baff54", "#ff7b6f", "#ffcf68", "#e3ff9f", "#b6fff5"],
     bodyState: { pressure: 0.68, tension: 0.56, adduction: 0.52, sourceScale: 0.48, tractLengthM: 0.3, mouthOpening: 0.54, cavityCoupling: 0.62, asymmetry: 0.82, sourceBalance: 0.3, roughness: 0.52, tractDiameterProfile: [0.92, 1.22, 0.76, 1.18, 0.7, 1.08, 0.66, 0.9], tractDiameterScale: 1.04, cavityFrequencyHz: 520 },
-    shape: { bodyScale: 0.96, bodyRoundness: 0.14, headScale: 1.04, neckLength: 0.9, neckWidth: 0.92, thoraxWidth: 1, bellyDepth: 0.94, muzzleLength: 0.9, wingSpan: 1.16, hornScale: 1.34, eyeScale: 1.08 },
+    shape: { bodyScale: 0.96, bodyRoundness: 0.14, headScale: 1.04, neckLength: 0.9, neckWidth: 0.92, thoraxWidth: 1, bellyDepth: 0.94, muzzleLength: 0.9, mouthWidth: 1.12, mouthDepth: 0.92, jawTaper: 0.1, lipCurl: -0.6, wingSpan: 1.16, hornScale: 1.34, eyeScale: 0.88, earType: "point", earLength: 1.1, earWidth: 0.72, earDroop: -0.2, earRotation: 0.35, tailType: "whip", tailLength: 1.3, tailThickness: 0.7, tailCurl: 0, tailTuft: 0.25, tongueAnatomy: "canine", tongueWidth: 1 },
     response: { attackMs: 16, retargetMs: 18, deformationGain: 1.26 },
-    settings: { anatomyDesignId: "scapular-wings", pitchSemitones: 0, timbre: 0.08, vibratoRateHz: 7.2, vibratoDepthSemitones: 0.78, modulationRateHz: 6.4, modulationDepth: 0.82, modulationShape: "sample-hold" },
+    settings: { anatomyDesignId: "scapular-wings", pitchSemitones: 0, timbre: 0.08, vibratoRateHz: 7.2, vibratoDepthSemitones: 0.78, modulationRateHz: 6.4, modulationDepth: 0.82, modulationShape: "sample-hold", earSpread: 0.9, tongueReach: 0.64, tongueMotion: 0.8 },
     modulations: [
       { target: "asymmetry", shape: "sample-hold", phase: 0.13, speed: [[0, 3], [0.45, 11], [1, 4]], depth: [[0, 0.1], [0.22, 0.92], [0.75, 0.7], [1, 0.12]] },
       { target: "sourceBalance", shape: "triangle", phase: 0.55, speed: [[0, 1], [0.6, 6], [1, 2]], depth: [[0, 0.18], [0.48, 0.88], [1, 0.2]] },
@@ -800,11 +896,11 @@ export const CREATURAZOID_BODY_PRESETS = Object.freeze([
   defineBodyPreset({
     id: "paper-giant", label: "Paper-Thin Giant",
     description: "A huge but lightly built frame with an open outlet, thin walls, and fluttering resonances.",
-    modulationTarget: "balance", palette: ["#ff5d9e", "#db3a8f", "#5267ff", "#00dcff", "#ff9b42", "#fff0f7"],
+    modulationTarget: "balance", palette: ["#baff54", "#64cfff", "#ff7b6f", "#59f1df", "#d08cff", "#ffcf68", "#e3ff9f", "#b6fff5", "#ff5f87"],
     bodyState: { pressure: 0.62, tension: 0.68, adduction: 0.3, sourceScale: 0.28, tractLengthM: 0.58, mouthOpening: 0.78, cavityCoupling: 0.38, asymmetry: 0.55, sourceBalance: 0.64, roughness: 0.14, tractDiameterProfile: [0.52, 0.46, 0.42, 0.38, 0.34, 0.4, 0.48, 0.6], tractDiameterScale: 0.56, cavityFrequencyHz: 450 },
-    shape: { bodyScale: 1.2, bodyRoundness: -0.88, headScale: 0.9, neckLength: 1.24, neckWidth: 0.54, thoraxWidth: 0.72, bellyDepth: 0.62, muzzleLength: 1.3, wingSpan: 1.48, hornScale: 1.46, eyeScale: 1.14 },
+    shape: { bodyScale: 1.2, bodyRoundness: -0.88, headScale: 0.9, neckLength: 1.24, neckWidth: 0.54, thoraxWidth: 0.72, bellyDepth: 0.62, muzzleLength: 1.3, mouthWidth: 0.65, mouthDepth: 1.6, jawTaper: 0.9, lipCurl: -0.75, wingSpan: 1.48, hornScale: 1.46, eyeScale: 0.82, earType: "fan", earLength: 1.45, earWidth: 1.35, earDroop: -0.5, earRotation: 0.8, tailType: "fan", tailLength: 1.7, tailThickness: 0.4, tailCurl: -0.8, tailTuft: 1, tongueAnatomy: "avian", tongueWidth: 0.55 },
     response: { attackMs: 14, retargetMs: 16, deformationGain: 1.12 },
-    settings: { anatomyDesignId: "costal-glider", pitchSemitones: 5, timbre: 0.48, vibratoRateHz: 8.6, vibratoDepthSemitones: 1.26, modulationRateHz: 7.6, modulationDepth: 0.66, modulationShape: "triangle" },
+    settings: { anatomyDesignId: "costal-glider", pitchSemitones: 5, timbre: 0.48, vibratoRateHz: 8.6, vibratoDepthSemitones: 1.26, modulationRateHz: 7.6, modulationDepth: 0.66, modulationShape: "triangle", earSpread: 0.7, tongueReach: 0.88, tongueMotion: 0.7 },
     modulations: [
       { target: "sourceBalance", shape: "triangle", phase: 0.2, speed: [[0, 2], [0.5, 8], [1, 3]], depth: [[0, 0.12], [0.42, 0.86], [1, 0.16]] },
       { target: "mouthOpening", shape: "square", phase: 0.6, speed: [[0, 4], [0.6, 12], [1, 5]], depth: [[0, 0], [0.14, 0.62], [0.8, 0.48], [1, 0]] },
@@ -859,47 +955,47 @@ function repeatSequencePhrase(length, phrase) {
 
 export const CREATURAZOID_SEQUENCE_PRESETS = Object.freeze([
   defineSequencePreset({
-    id: "hoof-and-hiss", label: "Hoof House", color: "#ff6b35", length: 32, tempo: 126, swing: 0.08, dance: true,
-    events: [[0, "hoof-stomp", 1], [1, "caw", 0.42], [2, "hiss", 0.72], [4, "snap-bark", 1], [5, "caw", 0.42], [6, "tail-whip", 0.72], [7, "yip", 0.72], [8, "hoof-stomp", 1], [9, "caw", 0.42], [10, "hiss", 0.72], [11, "tail-whip", 0.42], [12, "snap-bark", 1], [13, "caw", 0.42], [14, "chuff", 0.72], [15, "tail-whip", 1], [16, "hoof-stomp", 1], [17, "caw", 0.42], [18, "hiss", 0.72], [20, "snap-bark", 1], [21, "caw", 0.42], [22, "hoof-stomp", 0.72], [23, "yip", 0.72], [24, "hoof-stomp", 1], [25, "caw", 0.42], [26, "tail-whip", 0.72], [27, "chuff", 0.42], [28, "snap-bark", 1], [29, "caw", 0.42], [30, "neigh", 0.72], [31, "tail-whip", 1]],
+    id: "hoof-and-hiss", label: "Hoof House", color: "#ff7b6f", length: 32, tempo: 126, swing: 0.08, dance: true,
+    events: [[0, "hoof-stomp", 1], [1, "caw", 0.42], [2, "growl", 0.72], [4, "snap-bark", 1], [5, "caw", 0.42], [6, "chirp", 0.72], [7, "yip", 0.72], [8, "hoof-stomp", 1], [9, "caw", 0.42], [10, "grunt", 0.72], [11, "frogtrill", 0.42], [12, "snap-bark", 1], [13, "caw", 0.42], [14, "chuff", 0.72], [15, "tail-whip", 1], [16, "hoof-stomp", 1], [17, "caw", 0.42], [18, "growl", 0.72], [20, "snap-bark", 1], [21, "caw", 0.42], [22, "hoof-stomp", 0.72], [23, "yip", 0.72], [24, "hoof-stomp", 1], [25, "caw", 0.42], [26, "chirp", 0.72], [27, "chuff", 0.42], [28, "snap-bark", 1], [29, "caw", 0.42], [30, "neigh", 0.72], [31, "yip", 1]],
   }),
   defineSequencePreset({
-    id: "feeding-frenzy", label: "Feeding Funk", color: "#00d4ff", length: 32, tempo: 116, swing: 0.32, dance: true,
-    events: repeatSequencePhrase(32, [[0, "hoof-stomp", 1], [1, "lapping", 0.42], [2, "crunching", 0.72], [4, "snap-bark", 1], [5, "lapping", 0.42], [6, "crunching", 0.72], [7, "gunk", 0.72], [8, "hoof-stomp", 1], [9, "lapping", 0.42], [10, "crunching", 0.72], [11, "feather-ruffle", 0.42], [12, "snap-bark", 1], [13, "lapping", 0.42], [14, "crunching", 0.72], [15, "chuff", 1]]),
+    id: "feeding-frenzy", label: "Feeding Funk", color: "#59f1df", length: 32, tempo: 116, swing: 0.32, dance: true,
+    events: repeatSequencePhrase(32, [[0, "hoof-stomp", 1], [1, "lapping", 0.42], [2, "growl", 0.72], [4, "snap-bark", 1], [5, "lapping", 0.42], [6, "chirp", 0.72], [7, "gunk", 0.72], [8, "hoof-stomp", 1], [9, "lapping", 0.42], [10, "grunt", 0.72], [11, "frogtrill", 0.42], [12, "snap-bark", 1], [13, "lapping", 0.42], [14, "crunching", 0.72], [15, "chuff", 1]]),
   }),
   defineSequencePreset({
-    id: "stampede-signal", label: "Stampede Techno", color: "#ff3158", length: 64, tempo: 144, swing: 0.1, dance: true,
-    events: [...repeatSequencePhrase(64, [[0, "hoof-stomp", 1], [1, "footsteps", 0.42], [2, "caw", 0.72], [3, "grunt", 0.42], [4, "hoof-stomp", 0.72], [5, "footsteps", 0.42], [6, "caw", 0.72], [7, "tail-whip", 1], [8, "hoof-stomp", 1], [9, "footsteps", 0.42], [10, "caw", 0.72], [11, "chuff", 0.72], [12, "hoof-stomp", 0.72], [13, "footsteps", 0.42], [14, "snap-bark", 1]]), [31, "horn-surprise", 1], [63, "horn-surprise", 1]],
+    id: "stampede-signal", label: "Stampede Techno", color: "#ff5f87", length: 64, tempo: 144, swing: 0.1, dance: true,
+    events: [...repeatSequencePhrase(64, [[0, "hoof-stomp", 1], [1, "growl", 0.42], [2, "caw", 0.72], [3, "grunt", 0.42], [4, "hoof-stomp", 0.72], [5, "chirp", 0.42], [6, "caw", 0.72], [7, "frogtrill", 1], [8, "hoof-stomp", 1], [9, "chuff", 0.42], [10, "caw", 0.72], [11, "growl", 0.72], [12, "hoof-stomp", 0.72], [13, "footsteps", 0.42], [14, "snap-bark", 1]]), [31, "horn-surprise", 1], [63, "horn-surprise", 1]],
   }),
   defineSequencePreset({
-    id: "creature-parade", label: "Hyena Breaks", color: "#ff9f1c", length: 32, tempo: 142, swing: 0.18, dance: true,
-    events: [[0, "hoof-stomp", 1], [1, "caw", 0.42], [3, "hoof-stomp", 0.72], [4, "snap-bark", 1], [5, "clawing", 0.42], [6, "yip", 0.72], [7, "tail-whip", 0.72], [8, "hoof-stomp", 1], [9, "caw", 0.42], [10, "hoof-stomp", 0.72], [12, "snap-bark", 1], [13, "clawing", 0.42], [14, "grunt", 0.72], [15, "caw", 0.72], [16, "hoof-stomp", 1], [17, "caw", 0.42], [18, "tail-whip", 0.42], [19, "hoof-stomp", 0.72], [20, "snap-bark", 1], [21, "clawing", 0.42], [23, "yip", 1], [24, "hoof-stomp", 1], [25, "caw", 0.42], [26, "hoof-stomp", 0.72], [27, "grunt", 0.42], [28, "snap-bark", 1], [30, "yip", 0.72], [31, "caw", 1]],
+    id: "creature-parade", label: "Hyena Breaks", color: "#ffcf68", length: 32, tempo: 142, swing: 0.18, dance: true,
+    events: [[0, "hoof-stomp", 1], [1, "caw", 0.42], [3, "hoof-stomp", 0.72], [4, "snap-bark", 1], [5, "growl", 0.42], [6, "yip", 0.72], [7, "chirp", 0.72], [8, "hoof-stomp", 1], [9, "caw", 0.42], [10, "hoof-stomp", 0.72], [12, "snap-bark", 1], [13, "giggle", 0.42], [14, "grunt", 0.72], [15, "caw", 0.72], [16, "hoof-stomp", 1], [17, "caw", 0.42], [18, "frogtrill", 0.42], [19, "hoof-stomp", 0.72], [20, "snap-bark", 1], [21, "chuff", 0.42], [23, "yip", 1], [24, "hoof-stomp", 1], [25, "caw", 0.42], [26, "hoof-stomp", 0.72], [27, "growl", 0.42], [28, "snap-bark", 1], [30, "yip", 0.72], [31, "caw", 1]],
   }),
   defineSequencePreset({
-    id: "murmuration", label: "Ruffle Garage", color: "#c77dff", length: 32, tempo: 132, swing: 0.32, dance: true,
-    events: [[0, "hoof-stomp", 1], [1, "caw", 0.42], [2, "hiss", 0.72], [4, "snap-bark", 1], [5, "feather-ruffle", 0.72], [8, "hoof-stomp", 1], [9, "caw", 0.42], [10, "hiss", 0.72], [11, "tail-whip", 0.42], [12, "snap-bark", 1], [13, "yip", 0.42], [14, "yip", 0.72], [15, "tail-whip", 1], [16, "hoof-stomp", 1], [17, "caw", 0.42], [18, "hiss", 0.72], [20, "snap-bark", 1], [21, "feather-ruffle", 0.72], [24, "hoof-stomp", 1], [25, "caw", 0.42], [26, "hiss", 0.72], [27, "tail-whip", 0.42], [28, "snap-bark", 1], [29, "yip", 0.42], [30, "chuff", 0.72], [31, "tail-whip", 1]],
+    id: "murmuration", label: "Ruffle Garage", color: "#d08cff", length: 32, tempo: 132, swing: 0.32, dance: true,
+    events: [[0, "hoof-stomp", 1], [1, "caw", 0.42], [2, "growl", 0.72], [4, "snap-bark", 1], [5, "feather-ruffle", 0.72], [8, "hoof-stomp", 1], [9, "caw", 0.42], [10, "croak", 0.72], [11, "chirp", 0.42], [12, "snap-bark", 1], [13, "yip", 0.42], [14, "frogtrill", 0.72], [15, "chuff", 1], [16, "hoof-stomp", 1], [17, "caw", 0.42], [18, "growl", 0.72], [20, "snap-bark", 1], [21, "feather-ruffle", 0.72], [24, "hoof-stomp", 1], [25, "caw", 0.42], [26, "grunt", 0.72], [27, "chirp", 0.42], [28, "snap-bark", 1], [29, "yip", 0.42], [30, "chuff", 0.72], [31, "frogtrill", 1]],
   }),
   defineSequencePreset({
-    id: "owl-blinks", label: "Howl / owl relay", color: "#526b7b", length: 64, tempo: 112, swing: 0.16,
+    id: "owl-blinks", label: "Howl / owl relay", color: "#64cfff", length: 64, tempo: 112, swing: 0.16,
     events: [[0, "howl", 1], [14, "chirp", 0.42], [15, "yip", 1], [16, "feather-ruffle", 0.42], [17, "owlpair", 0.72], [29, "ticks", 0.42], [30, "bark", 0.72], [31, "trumpet", 1], [41, "hoot", 0.72], [48, "phrase", 1], [58, "moose", 0.42], [59, "rattle", 0.72], [60, "footsteps", 0.72], [61, "chuff", 1], [62, "gunk", 0.42]],
   }),
   defineSequencePreset({
-    id: "swamp-skip", label: "Swamp skip", color: "#64764c", length: 32, tempo: 146, swing: 0.3,
+    id: "swamp-skip", label: "Swamp skip", color: "#baff54", length: 32, tempo: 146, swing: 0.3,
     events: [[0, "bellow", 1], [9, "chirp", 0.42], [10, "gunk", 1], [11, "bark", 0.72], [12, "clawing", 0.42], [13, "croak", 0.42], [15, "frogtrill", 1], [24, "moose", 0.42], [25, "rattle", 1], [27, "grunt", 0.72], [28, "chirp", 1], [29, "panting", 0.72], [30, "yip", 0.72], [31, "ticks", 1]],
   }),
   defineSequencePreset({
-    id: "nervous-comet", label: "Bovine birdbath", color: "#756759", length: 64, tempo: 96, swing: 0.12,
+    id: "nervous-comet", label: "Bovine birdbath", color: "#e3ff9f", length: 64, tempo: 96, swing: 0.12,
     events: [[0, "lowmoo", 1], [12, "chirp", 0.42], [13, "yip", 0.72], [14, "tail-whip", 1], [15, "coo", 0.72], [24, "moose", 0.42], [25, "ticks", 0.72], [27, "double", 1], [36, "gunk", 0.42], [37, "moo", 1], [48, "phrase", 0.72], [58, "bark", 0.42], [59, "rattle", 1], [60, "hoof-stomp", 0.72], [61, "sweep", 0.72], [62, "chuff", 1]],
   }),
   defineSequencePreset({
-    id: "fang-and-feather", label: "Fang & feather", color: "#a85635", length: 64, tempo: 124, swing: 0.26,
+    id: "fang-and-feather", label: "Fang & feather", color: "#ff7b6f", length: 64, tempo: 124, swing: 0.26,
     events: [[0, "roar", 1], [14, "chirp", 0.42], [15, "yip", 1], [16, "feather-ruffle", 0.42], [17, "rattle", 0.72], [26, "grunt", 1], [27, "croak", 0.42], [28, "clawing", 0.72], [29, "chuff", 0.72], [32, "frogtrill", 1], [42, "growl", 0.72], [51, "moose", 0.42], [52, "bark", 1], [54, "owlpair", 0.72], [62, "gator", 0.42], [63, "ticks", 1]],
   }),
   defineSequencePreset({
-    id: "rose-migration", label: "Antler migration", color: "#9a8056", length: 64, tempo: 108, swing: 0.18,
+    id: "rose-migration", label: "Antler migration", color: "#b6fff5", length: 64, tempo: 108, swing: 0.18,
     events: [[0, "cervid", 1], [13, "chirp", 0.42], [14, "moose", 1], [15, "footsteps", 0.72], [16, "phrase", 0.72], [27, "chuff", 0.72], [28, "rattle", 0.42], [29, "jumping", 1], [30, "yip", 1], [32, "whinny", 1], [43, "ticks", 0.72], [44, "bark", 1], [46, "croak", 0.42], [48, "owlpair", 1], [59, "nicker", 0.42], [60, "gunk", 1], [62, "moose", 0.42]],
   }),
   defineSequencePreset({
-    id: "whole-menagerie", label: "Menagerie pinball", color: "#59735d", length: 64, tempo: 152, swing: 0.2,
+    id: "whole-menagerie", label: "Menagerie pinball", color: "#59f1df", length: 64, tempo: 152, swing: 0.2,
     events: [[0, "rumble", 1], [12, "chirp", 0.42], [13, "moose", 1], [14, "hoof-stomp", 1], [15, "phrase", 0.72], [26, "bark", 0.42], [27, "rattle", 1], [28, "crunching", 0.72], [29, "gunk", 0.72], [30, "yip", 1], [32, "giggle", 1], [40, "croak", 0.42], [41, "chuff", 0.72], [43, "double", 1], [48, "frogtrill", 0.72], [58, "sweep", 0.72], [59, "gator", 0.42], [61, "ticks", 0.42], [62, "trumpet", 1]],
   }),
 ]);
@@ -942,6 +1038,9 @@ export const CREATURAZOID_DEFAULTS = Object.freeze({
   attackMs: CREATURAZOID_BODY_PRESETS[0].settings.attackMs,
   bodyScale: CREATURAZOID_BODY_PRESETS[0].settings.bodyScale,
   bodyRoundness: CREATURAZOID_BODY_PRESETS[0].settings.bodyRoundness,
+  earSpread: CREATURAZOID_BODY_PRESETS[0].settings.earSpread,
+  tongueReach: CREATURAZOID_BODY_PRESETS[0].settings.tongueReach,
+  tongueMotion: CREATURAZOID_BODY_PRESETS[0].settings.tongueMotion,
   level: 0.48,
   biologicalLock: false,
   bodyState: CREATURAZOID_BODY_PRESETS[0].bodyState,
@@ -1020,13 +1119,13 @@ export function sanitizeCreaturazoidState(source = {}, fallback = CREATURAZOID_D
     candidate.bodyState,
     base.bodyState ?? bodyPreset.bodyState,
   );
-  result.bodyShape = Object.freeze({
+  result.bodyShape = sanitizeCreaturazoidShape({
     ...bodyPreset.shape,
     ...(base.bodyShape ?? {}),
     ...(candidate.bodyShape ?? {}),
     bodyScale: result.bodyScale,
     bodyRoundness: result.bodyRoundness,
-  });
+  }, bodyPreset.shape);
   result.tractDiameterProfile = result.bodyState.tractDiameterProfile;
   result.tractDiameterScale = result.bodyState.tractDiameterScale;
   result.cavityFrequencyHz = result.bodyState.cavityFrequencyHz;
@@ -1191,7 +1290,7 @@ export function creaturazoidBodyLevelTrim(eventOrId, candidate = CREATURAZOID_DE
   const bodyId = creaturazoidBodyPreset(requestedBodyId).id;
   const familyTrim = CREATURAZOID_BODY_FAMILY_LEVEL_TRIM[bodyId]?.[sound.family] ?? 1;
   const soundTrim = CREATURAZOID_BODY_SOUND_LEVEL_TRIM[bodyId]?.[sound.id] ?? 1;
-  return clamp(familyTrim * soundTrim, 1, 3.75);
+  return clamp(familyTrim * soundTrim, 0.36, 3.75);
 }
 
 /**
@@ -1524,6 +1623,117 @@ function applyBodyMotion(candidate, sound, callPhase, globalState) {
   });
 }
 
+const GROWLY_TONGUE_SOUND_IDS = new Set([
+  "roar", "chuff", "growl", "rumble", "bellow", "gator", "purr",
+  "cervid", "harsh", "moose", "moan", "grunt", "moo", "lowmoo",
+  "snap-bark", "panting", "crunching",
+]);
+
+const CHIRPY_TONGUE_SOUND_IDS = new Set([
+  "yip", "giggle", "croak", "rattle", "trill", "phrase", "chirp",
+  "frogtrill", "ticks", "caw", "feather-ruffle",
+]);
+
+/**
+ * Resolve the visible tongue and the Hybrinx area-function articulator from
+ * one shared state. Body dimensions provide the persistent anatomy; each
+ * gesture only moves that attached organ through a call-local trajectory.
+ */
+export function creaturazoidTongueState(performanceState = {}, candidate = CREATURAZOID_DEFAULTS) {
+  const safe = sanitizeCreaturazoidState(candidate);
+  const shape = safe.bodyShape ?? bodyPresetForState(safe).shape;
+  const soundId = String(performanceState.soundId ?? "growl");
+  const articulationMotion = String(performanceState.articulation?.motion ?? "vocal");
+  const phase = clamp(
+    performanceState.articulationPhase
+      ?? performanceState.authoredPhase
+      ?? performanceState.gesturePhase
+      ?? 0,
+  );
+  const callPhase = clamp(performanceState.callPhase ?? phase);
+  const active = Boolean(performanceState.active);
+  const velocity = clamp(performanceState.velocity ?? 0);
+  const envelope = active
+    ? clamp(performanceState.bodyMotion?.envelope ?? performanceState.pressure ?? 0)
+    : 0;
+  const motionAmount = safe.tongueMotion * envelope * (0.35 + velocity * 0.65);
+  const voicedWave = active
+    ? Math.sin(callPhase * Math.PI * (4 + safe.tongueMotion * 12)) * motionAmount
+    : 0;
+  const fourBeatContact = active
+    ? Math.max(0, Math.cos(phase * Math.PI * 8)) ** 6
+    : 0;
+  const irregularContact = active
+    ? Math.max(0, Math.sin(phase * Math.PI * 7 + 0.38)) ** 4
+    : 0;
+  const growly = GROWLY_TONGUE_SOUND_IDS.has(soundId) ? 1 : 0;
+  const chirpy = CHIRPY_TONGUE_SOUND_IDS.has(soundId) ? 1 : 0;
+  const lap = articulationMotion === "lap" ? fourBeatContact : 0;
+  const crunch = articulationMotion === "crunch" ? irregularContact : 0;
+  const pant = articulationMotion === "pant" ? fourBeatContact : 0;
+  const caw = articulationMotion === "caw" ? Math.max(0, 1 - phase * 7) : 0;
+  const roundness = clamp(safe.bodyRoundness, -1, 1);
+  // A physically broader mouth needs more lift to displace a comparable
+  // fraction of its airway; very small bodies get relief so chirps stay fast.
+  const bodyOcclusionLift = clamp(
+    Math.max(0, roundness) * 0.12 + Math.max(0, safe.bodyScale - 1) * 0.18,
+    0,
+    0.2,
+  );
+  const compactRelief = clamp(
+    Math.max(0, -roundness) * 0.055 + Math.max(0, 0.8 - safe.bodyScale) * 0.08,
+    0,
+    0.08,
+  );
+
+  return Object.freeze(sanitizeTongueState({
+    tongueEnabled: true,
+    tongueAnatomy: shape.tongueAnatomy ?? "canine",
+    tonguePosition: clamp(
+      0.4 - roundness * 0.08 - growly * 0.09 + chirpy * 0.31
+        + voicedWave * 0.11 + lap * 0.18 - crunch * 0.09,
+      0.16,
+      0.9,
+    ),
+    tongueHeight: clamp(
+      0.3 + safe.tongueMotion * 0.13 + growly * 0.08 + chirpy * 0.24
+        + bodyOcclusionLift - compactRelief
+        + Math.max(0, voicedWave) * 0.2 + lap * 0.45 + crunch * 0.4 + caw * 0.12,
+      0.16,
+      0.92,
+    ),
+    tongueShape: clamp(
+      0.38 - growly * 0.16 + chirpy * 0.34 + Math.abs(voicedWave) * 0.14 + crunch * 0.18,
+      0.16,
+      0.88,
+    ),
+    tongueTip: clamp(
+      0.28 + chirpy * 0.3 + bodyOcclusionLift * 0.65 - compactRelief * 0.5
+        + Math.max(0, voicedWave) * 0.22
+        + lap * 0.46 + crunch * 0.42 + caw * 0.18,
+      0.1,
+      0.92,
+    ),
+    tongueExtension: clamp(
+      0.08 + safe.tongueReach * (active ? 0.58 : 0.12) + envelope * 0.08
+        + lap * 0.3 + pant * 0.18 + caw * 0.08,
+      0.04,
+      0.96,
+    ),
+    tongueCurl: clamp(
+      0.46 + finiteOr(shape.lipCurl, 0) * 0.12 + voicedWave * 0.22
+        + lap * 0.24 - pant * 0.18 + crunch * 0.3,
+      0.08,
+      0.94,
+    ),
+    tongueLateral: clamp(
+      0.1 + growly * 0.1 + Math.abs(voicedWave) * 0.12 + pant * 0.08 + lap * 0.04,
+      0.05,
+      0.38,
+    ),
+  }));
+}
+
 /**
  * Resolves one sequencer event into a complete, unlocked Hybrinx state.
  * The second argument may be either a Creaturazoid state or an options object
@@ -1600,7 +1810,7 @@ export function resolveCreaturazoidEventState(eventOrId, stateOrOptions = CREATU
     modulators: bodyMotionResolution.modulators,
   });
 
-  return {
+  const resolved = {
     ...sounding,
     soundId: sound.id,
     sourceFamily: sound.family,
@@ -1628,6 +1838,8 @@ export function resolveCreaturazoidEventState(eventOrId, stateOrOptions = CREATU
     gestureType: sound.gestureType,
     sequenced,
   };
+  resolved.tongue = creaturazoidTongueState(resolved, globalState);
+  return resolved;
 }
 
 export function creaturazoidQuickMorphProgress(elapsedMs, durationMs = CREATURAZOID_QUICK_MORPH.durationMs) {

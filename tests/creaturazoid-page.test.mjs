@@ -35,24 +35,24 @@ test("Creaturazoid exposes three horned, feather-winged anatomical forms and act
   assert.match(html, /aria-label="Interactive front-view horned mammal-bird hybrid specimen"/);
   assert.match(
     html,
-    /aria-label="A front-view horned mammal-bird hybrid whose feathered wings, eyes, beak-muzzle, tongue, teeth, forelegs, hooves, tail, vibrating neck, lungs, and belly exaggerate each sounding gesture around restrained draggable anatomy controls\."/,
+    /aria-label="A front-view horned mammal-bird hybrid whose varied mobile ears, feathered wings, slit eyes, morphing muzzle, physical tongue, irregular teeth, forelegs, hooves, morphing tail, vibrating neck, lungs, and belly exaggerate each sounding gesture around restrained draggable anatomy controls\."/,
   );
   assert.match(html, /A forward-facing horned mammal-bird chimera with one wildly morphing physical airway\./);
 
   for (const anatomy of [
-    "horns",
-    "feathered bird wings",
-    "eyes enlarge",
-    "beaked mouth",
-    "tongue",
-    "teeth",
+    "horns recoil",
+    "ears twitch",
+    "feathered wings flare",
+    "slit eyes tense",
+    "physical tongue",
+    "irregular teeth",
     "belly",
     "lungs",
     "cheek arches",
-    "neck vibrates",
+    "neck",
     "forelegs stomp",
     "claws rake",
-    "tail whips",
+    "persistent tail whips",
   ]) {
     assert.match(html, new RegExp(anatomy, "i"), `${anatomy} needs accessible instructions`);
   }
@@ -127,7 +127,7 @@ test("sequence presets recall length, tempo, and swing while manual timing becom
   assert.match(app, /\$\("swing"\)\.addEventListener\("input", \(\) => \{[\s\S]{0,420}?markPatternCustom\(\)/);
 });
 
-test("body, attack, vibrato, and modulation controls are present and wired to the page module", () => {
+test("body, tongue, ear, attack, vibrato, and modulation controls are present and wired", () => {
   const rangeIds = [
     "bodyScale",
     "bodyRoundness",
@@ -138,6 +138,9 @@ test("body, attack, vibrato, and modulation controls are present and wired to th
     "vibratoDepth",
     "modulationRate",
     "modulationDepth",
+    "earSpread",
+    "tongueReach",
+    "tongueMotion",
   ];
   for (const id of [...rangeIds, "modulationTarget", "modulationShape"]) {
     assert.match(html, new RegExp(`(?:for|id)="${id}"`), `missing ${id} control`);
@@ -163,6 +166,9 @@ test("body, attack, vibrato, and modulation controls are present and wired to th
   assert.match(html, /body parameters change · sequence stays intact/);
   assert.match(html, /Left-wing vibrato rate/);
   assert.match(html, /Right-wing vibrato depth/);
+  assert.match(html, /Ear spread \/ stereo field/);
+  assert.match(html, /Tongue reach/);
+  assert.match(html, /Tongue articulation/);
   assert.match(html, /Feather motion target/);
   assert.match(html, /Feather motion shape/);
   assert.match(html, /Feather motion rate/);
@@ -177,6 +183,39 @@ test("body, attack, vibrato, and modulation controls are present and wired to th
   assert.match(app, /from "\.\/src\/creaturazoid\.js\?v=[^"]+"/);
   assert.match(app, /from "\.\/src\/syrinx\.js\?v=[^"]+"/);
   assert.match(app, /\.\/src\/creaturazoid-processor\.js\?v=/);
+});
+
+test("mobile actions precede the sequencer while the stage stays fixed above the lower scroller", () => {
+  const belowStageIndex = html.indexOf('<div class="creaturazoid-below-stage">');
+  const mobileActionsIndex = html.indexOf('<div class="creaturazoid-mobile-actions"');
+  const sequencerIndex = html.indexOf('<section class="creaturazoid-sequencer"');
+  const panelIndex = html.indexOf('<aside class="panel creaturazoid-panel"');
+  assert.ok(
+    belowStageIndex >= 0
+      && mobileActionsIndex > belowStageIndex
+      && sequencerIndex > mobileActionsIndex
+      && panelIndex > sequencerIndex,
+    "the mobile mutate/randomize strip must sit above the sequencer and parameter panel",
+  );
+  assert.match(html, /id="mobileMutateButton"[^>]+data-creaturazoid-action="mutate-body"/);
+  assert.match(html, /id="mobileRandomPatternButton"[^>]+data-creaturazoid-action="randomize-rhythm"/);
+
+  const bindings = standaloneFunctionBody(app, "bindControls");
+  assert.match(bindings, /querySelectorAll\('\[data-creaturazoid-action="mutate-body"\]'\)/);
+  assert.match(bindings, /querySelectorAll\('\[data-creaturazoid-action="randomize-rhythm"\]'\)/);
+
+  const mobileStart = css.indexOf("@media (max-width: 960px)");
+  const narrowStart = css.indexOf("@media (max-width: 680px)", mobileStart);
+  const desktopCss = css.slice(0, mobileStart);
+  const mobileCss = css.slice(mobileStart, narrowStart);
+  assert.ok(mobileStart >= 0 && narrowStart > mobileStart);
+  assert.match(desktopCss, /\.creaturazoid-mobile-actions\s*\{\s*display:\s*none/);
+  assert.match(mobileCss, /\.creaturazoid-page\s*\{[\s\S]*?overflow:\s*hidden/);
+  assert.match(mobileCss, /\.creaturazoid-shell\s*\{[\s\S]*?height:\s*calc\(100dvh - 58px\)[\s\S]*?grid-template-rows:\s*clamp\(260px, 44dvh, 420px\) minmax\(0, 1fr\)/);
+  assert.match(mobileCss, /\.creaturazoid-stage\s*\{[\s\S]*?grid-row:\s*1/);
+  assert.match(mobileCss, /\.creaturazoid-below-stage\s*\{[\s\S]*?overflow-y:\s*auto[\s\S]*?grid-row:\s*2/);
+  assert.match(mobileCss, /\.creaturazoid-mobile-actions\s*\{[\s\S]*?position:\s*sticky[\s\S]*?top:\s*0[\s\S]*?display:\s*grid/);
+  assert.match(mobileCss, /#randomPatternButton,\s*\.creaturazoid-preset-deck #randomizeButton\s*\{\s*display:\s*none/);
 });
 
 test("body presets are persistent physical shapes while calls retain local multi-envelope motion", () => {
@@ -222,7 +261,10 @@ test("body presets are persistent physical shapes while calls retain local multi
 });
 
 test("the instrument uses Morphazoid black surfaces and Hiccup-style rectangular steps", () => {
-  assert.match(css, /--creature-paper:\s*#080507/);
+  assert.match(css, /--creature-paper:\s*#030806/);
+  for (const color of ["#baff54", "#e3ff9f", "#59f1df", "#b6fff5", "#ff5f87", "#ffcf68", "#d08cff", "#64cfff", "#ff7b6f"]) {
+    assert.match(`${css}\n${model}`, new RegExp(color), `${color} must survive from the Hybrinx palette`);
+  }
   assert.match(css, /grid-template-columns:\s*108px repeat\(var\(--sequence-steps\), minmax\(32px, 1fr\)\)/);
   assert.match(css, /grid-auto-rows:\s*29px/);
   assert.match(css, /\.creaturazoid-grid-cell\s*\{[\s\S]*?border-radius:\s*0/);
@@ -267,10 +309,20 @@ test("one AudioWorklet node receives sample-addressed contours for one physical 
   assert.match(app, /makeupGain:\s*creaturazoidLevelMakeup\(sound\)/);
   assert.match(app, /bodyGainTrim:\s*creaturazoidBodyLevelTrim\(sound, stateSnapshot\)/);
   assert.match(app, /events\.push\(\{[\s\S]*?velocity:\s*clamp\(velocity\),[\s\S]*?configuration:/);
+  const scheduler = standaloneFunctionBody(app, "scheduleSound");
+  assert.match(scheduler, /velocity:\s*targetState\.velocity/);
+  assert.match(scheduler, /sequenced:\s*targetState\.sequenced/);
   for (const field of [
     "airwayGate", "articulationVoicing", "articulationPressure", "turbulence",
     "burstGain", "burstFrequencyHz", "flutterHz", "flutterDepth", "flowDirection",
   ]) assert.match(app, new RegExp(`${field}:`), `${field} must reach the physical tract`);
+  const physicalConfiguration = standaloneFunctionBody(app, "physicalConfiguration");
+  assert.match(physicalConfiguration, /const tongue = performanceState\.tongue \?\? creaturazoidTongueState/);
+  assert.match(physicalConfiguration, /\.\.\.tongue/);
+  assert.match(physicalConfiguration, /earSpread:\s*state\.earSpread/);
+  assert.match(physicalConfiguration, /const effectiveAirwayGate = Math\.min\(articulationGate, tongueGate\)/);
+  assert.match(physicalConfiguration, /performanceState\.sequenced[\s\S]*?effectiveAirwayGate >= 0\.2/);
+  assert.match(physicalConfiguration, /0\.24 \+ clamp\(performanceState\.velocity \?\? 1\) \* 0\.76/);
   assert.equal(
     occurrences(app, /postMessage\(\{ type: "schedule", events \}\)/g).length,
     1,
@@ -303,6 +355,9 @@ test("each scheduled gesture drives an exaggerated sound-specific anatomy pose",
     "featherRuffle",
     "bodyDrop",
     "tailSweep",
+    "tailMotion",
+    "earTwitch",
+    "earSplay",
     "clawSwipe",
     "footStrike",
   ]) {
@@ -312,13 +367,26 @@ test("each scheduled gesture drives an exaggerated sound-specific anatomy pose",
   assert.match(app, /function rhythmicPalette\(palette, pose\)/);
   assert.match(app, /const palette = rhythmicPalette\(selectedPalette\(\), pose\);/);
   assert.match(app, /drawSpecimenWings\(drawing, timeSeconds, palette, pose, anatomy\);/);
+  assert.match(app, /drawSpecimenTail\(drawing, timeSeconds, palette, pose, anatomy\);/);
   assert.match(app, /drawSpecimenThorax\(drawing, palette, pose, anatomy\);/);
   assert.match(app, /drawSpecimenLimbsAndActions\(drawing, palette, pose, anatomy\);/);
   assert.match(app, /drawSpecimenHead\(drawing, palette, pose, anatomy\);/);
+  assert.match(app, /drawSpecimenEars\(drawing, palette, pose, anatomy\);/);
   assert.match(app, /drawSoundProjection\(drawing, palette, pose, anatomy\);/);
   assert.match(app, /drawSpecimenHorns\(context, palette, pose, anatomy, skullWidth, top\);/);
-  assert.match(app, /A muscular tongue follows/);
-  assert.match(app, /const toothCount = pose\.active \? 9 : 5;/);
+  assert.match(app, /The exact Hybrinx tongue state that reshapes the waveguide is rendered/);
+  assert.match(app, /const toothPositions = \[0\.07, 0\.2, 0\.34, 0\.49, 0\.63, 0\.78, 0\.92\];/);
+  assert.match(app, /const canine = index === 1 \|\| index === toothPositions\.length - 2;/);
+
+  const anatomy = standaloneFunctionBody(app, "activeAnatomyDesign");
+  for (const field of [
+    "mouthWidth", "mouthDepth", "jawTaper", "lipCurl",
+    "earType", "earLength", "earWidth", "earDroop", "earRotation",
+    "tailType", "tailLength", "tailThickness", "tailCurl", "tailTuft", "tongueWidth",
+  ]) assert.match(anatomy, new RegExp(`${field}:`), `${field} must follow the selected body`);
+  const head = standaloneFunctionBody(app, "drawSpecimenHead");
+  assert.match(head, /anatomy\.mouthWidth/);
+  assert.match(head, /anatomy\.mouthDepth/);
 
   const bodyRestore = app.indexOf("drawSoundProjection(drawing, palette, pose, anatomy);\n  drawing.restore();");
   const stableControls = app.indexOf("drawSpecimenControls(drawing, timeSeconds, palette);", bodyRestore);
@@ -332,9 +400,11 @@ test("the specimen uses luminous translucent anatomy with strong outlines and op
   assert.match(app, /function specimenColorWithAlpha\(color, opacity\)/);
   assert.match(app, /function specimenFillColor\(color, pose, idleOpacity, activeOpacity\)/);
   assert.match(app, /function specimenOutlineWidth\(scale, weight = 1\)/);
-  assert.match(app, /Math\.max\(2, scale \* 0\.01 \* weight\)/);
+  assert.match(app, /Math\.max\(2\.2, scale \* 0\.012 \* weight\)/);
 
   const expectedHelperCoverage = [
+    ["drawSpecimenTail", 3, 3],
+    ["drawSpecimenEars", 1, 3],
     ["drawSpecimenWings", 3, 4],
     ["drawSpecimenThorax", 4, 5],
     ["drawSpecimenLimbsAndActions", 1, 1],
@@ -405,10 +475,13 @@ test("the dedicated processor subclasses the Hybrinx physical model and rejects 
   assert.match(processor, /_beginCreatureContact\(event\.contact/);
   assert.match(
     processor,
-    /_postProcessOutput\(output\)\s*\{\s*this\._mixCreatureContact\(output\);\s*this\._applyCreatureMakeup\(output\);/,
+    /_postProcessOutput\(output\)\s*\{\s*this\._mixCreatureContact\(output\);\s*this\._applyCreatureEarWidth\(output\);\s*this\._applyCreatureMakeup\(output\);/,
   );
-  assert.match(processor, /bodyGainTrim:\s*clamp\(event\.bodyGainTrim \?\? 1, 1, 3\.75\)/);
+  assert.match(processor, /bodyGainTrim:\s*clamp\(event\.bodyGainTrim \?\? 1, 0\.36, 3\.75\)/);
   assert.match(processor, /const eventMakeupGain = event\.makeupGain \* \(event\.bodyGainTrim \?\? 1\)/);
+  assert.match(processor, /\(configuration\.tract\?\.onsetBurstPrime \?\? 0\) \/ eventMakeup/);
+  assert.match(processor, /this\.previousAirwayGate = primedAirwayGate/);
+  assert.match(processor, /this\.currentAirwayGate = primedAirwayGate/);
   assert.match(processor, /this\.creatureMakeupGain = eventMakeupGain/);
   assert.match(processor, /eventMakeupGain > this\.creatureMakeupGain \* 1\.5/);
   assert.match(processor, /this\.creatureMakeupDelayRemaining = isolateMakeupRise/);
