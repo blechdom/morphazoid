@@ -17,13 +17,17 @@ import {
   creaturazoidStepEvent,
   creaturazoidStepIntervalSeconds,
   creaturazoidBodyPreset,
+  creaturazoidBodyLevelTrim,
   cycleCreaturazoidStep,
   interpolateCreaturazoidMorph,
+  creaturazoidLevelMakeup,
+  creaturazoidSequenceDurationSeconds,
+  creaturazoidSequenceOnsetPhase,
   resolveCreaturazoidEventState,
   sanitizeCreaturazoidPattern,
   sanitizeCreaturazoidState,
   setCreaturazoidStep,
-} from "./src/creaturazoid.js?v=creaturazoid-model-20260902-6";
+} from "./src/creaturazoid.js?v=creaturazoid-model-20260902-7";
 import {
   ANIMALS,
   CALL_GESTURES,
@@ -245,6 +249,7 @@ function displayPerformanceState(nowSeconds = audioContext?.currentTime ?? perfo
     phase,
     elapsedSeconds: Math.max(0, nowSeconds - visual.time),
     velocity: visual.velocity,
+    sequenced: visual.sequenced,
   });
 }
 
@@ -279,10 +284,10 @@ function physicalConfiguration(performanceState) {
   const articulation = performanceState.articulation ?? {};
   const source = {
     ...resolveSourceControls(performanceState),
-    outputGain: 0.82
+    outputGain: clamp(0.82
       * (FAMILY_OUTPUT_TRIM[animal.model] ?? 0.82)
       * resolveSyrinxPresetGain(performanceState)
-      * clamp(articulation.sourceGain ?? 1, 0, 1.5),
+      * clamp(articulation.sourceGain ?? 1, 0, 1.5), 0, 1.5),
     voiceCount: 1,
     voiceSpreadCents: 0,
   };
@@ -340,7 +345,7 @@ async function createAudioGraph() {
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
   await context.audioWorklet.addModule(new URL(
-    "./src/creaturazoid-processor.js?v=creaturazoid-worklet-20260902-4",
+    "./src/creaturazoid-processor.js?v=creaturazoid-worklet-20260902-5",
     import.meta.url,
   ));
   const configuration = restingConfiguration();
@@ -367,7 +372,7 @@ async function createAudioGraph() {
   compressor.knee.value = 18;
   compressor.ratio.value = 6;
   compressor.attack.value = 0.002;
-  compressor.release.value = 0.16;
+  compressor.release.value = 0.08;
   makeupGain.gain.value = 1.12;
   analyser.fftSize = 1_024;
   analyser.smoothingTimeConstant = 0.7;
@@ -440,18 +445,27 @@ function previousStateAt(time) {
     phase,
     elapsedSeconds: Math.max(0, time - previous.time),
     velocity: previous.velocity,
+    sequenced: previous.sequenced,
   });
 }
 
-function scheduleSound(soundOrId, velocity = 0.72, when = null, { visual = true } = {}) {
+function scheduleSound(
+  soundOrId,
+  velocity = 0.72,
+  when = null,
+  { visual = true, sequenced = false } = {},
+) {
   if (!graph?.sourceNode || !audioContext) return null;
   const sound = typeof soundOrId === "string" ? creaturazoidSound(soundOrId) : soundOrId;
   const startTime = Math.max(
     audioContext.currentTime + 0.006,
     finiteOr(when, audioContext.currentTime + 0.02),
   );
-  const duration = clamp(sound.durationMs / 1_000, 0.08, 3.2);
-  const contourOffsets = creaturazoidContourOffsets(duration, state, sound);
+  const sequenceOnsetPhase = sequenced ? creaturazoidSequenceOnsetPhase(sound) : 0;
+  const duration = sequenced
+    ? creaturazoidSequenceDurationSeconds(sound)
+    : clamp(sound.durationMs / 1_000, 0.08, 3.2);
+  const contourOffsets = creaturazoidContourOffsets(duration, state, sound, { sequenced });
   const serial = ++serialCounter;
   const stateSnapshot = sanitizeCreaturazoidState({ ...state, morphBias: { ...state.morphBias } }, state);
   const fromState = previousStateAt(startTime)
@@ -460,6 +474,7 @@ function scheduleSound(soundOrId, velocity = 0.72, when = null, { visual = true 
       phase: 0,
       elapsedSeconds: 0,
       velocity: 0,
+      sequenced,
     });
   const events = [];
 
@@ -472,6 +487,7 @@ function scheduleSound(soundOrId, velocity = 0.72, when = null, { visual = true 
       phase,
       elapsedSeconds: offsetSeconds,
       velocity,
+      sequenced,
     });
     const morphProgress = creaturazoidQuickMorphProgress(
       offsetSeconds * 1_000,
@@ -517,6 +533,9 @@ function scheduleSound(soundOrId, velocity = 0.72, when = null, { visual = true 
       soundId: sound.id,
       label: sound.label,
       velocity: clamp(velocity),
+      sequenced,
+      makeupGain: creaturazoidLevelMakeup(sound),
+      bodyGainTrim: creaturazoidBodyLevelTrim(sound, stateSnapshot),
       contact: index === 0 && sound.articulation?.contact
         ? {
           ...sound.articulation.contact,
@@ -526,6 +545,7 @@ function scheduleSound(soundOrId, velocity = 0.72, when = null, { visual = true 
           bodyRoundness: stateSnapshot.bodyRoundness,
           tractLengthM: performanceState.tractLengthM,
           cavityFrequencyHz: performanceState.cavityFrequencyHz,
+          startPhase: sequenceOnsetPhase,
         }
         : null,
       configuration: physicalConfiguration(performanceState),
@@ -540,6 +560,7 @@ function scheduleSound(soundOrId, velocity = 0.72, when = null, { visual = true 
     velocity: clamp(velocity),
     state: stateSnapshot,
     serial,
+    sequenced,
   });
   if (visual) {
     scheduledSteps.push(Object.freeze({
@@ -549,6 +570,7 @@ function scheduleSound(soundOrId, velocity = 0.72, when = null, { visual = true 
       duration,
       velocity: clamp(velocity),
       serial,
+      sequenced,
     }));
     scheduledSteps.sort((left, right) => left.time - right.time);
   }
@@ -559,7 +581,7 @@ function scheduleSequenceEvent(step, time) {
   const event = creaturazoidStepEvent(pattern, step);
   let scheduled = null;
   if (event) {
-    scheduled = scheduleSound(event.sound, event.velocity, time, { visual: false });
+    scheduled = scheduleSound(event.sound, event.velocity, time, { visual: false, sequenced: true });
   }
   scheduledSteps.push(Object.freeze({
     time: scheduled?.time ?? time,
@@ -568,6 +590,7 @@ function scheduleSequenceEvent(step, time) {
     duration: scheduled?.duration ?? 0,
     velocity: event?.velocity ?? 0,
     serial: scheduled?.serial ?? serialCounter,
+    sequenced: scheduled?.sequenced ?? true,
   }));
 }
 
@@ -680,6 +703,7 @@ function retargetActiveSound() {
     phase,
     elapsedSeconds: Math.max(0, audioContext.currentTime - activeVisualEvent.time),
     velocity: activeVisualEvent.velocity,
+    sequenced: activeVisualEvent.sequenced,
   });
   performanceState = applySelectedModulation(
     performanceState,
@@ -779,7 +803,7 @@ function buildSequenceGrid({ preserveScroll = true } = {}) {
   for (let onsetStep = 0; onsetStep < pattern.length; onsetStep += 1) {
     const onset = creaturazoidStepEvent(pattern, onsetStep);
     if (!onset) continue;
-    const duration = onset.sound.durationMs / 1_000 || 0;
+    const duration = creaturazoidSequenceDurationSeconds(onset.sound);
     let elapsed = 0;
     for (let step = onsetStep + 1; step < pattern.length; step += 1) {
       elapsed += creaturazoidStepIntervalSeconds(state.tempo, state.swing, step - 1);
@@ -1555,14 +1579,15 @@ function familyPose(sound, timeSeconds, performanceState) {
     ? clamp(Math.max(finiteOr(performanceState?.pressure), finiteOr(telemetry.pressure) * 1.4))
     : clamp(finiteOr(telemetry.pressure) * 0.3);
   const motion = sound?.articulation?.motion ?? "vocal";
+  const actionPhase = clamp(finiteOr(performanceState?.articulationPhase, phase));
   const actionCycle = active && !prefersReducedMotion
-    ? Math.max(0, Math.cos(phase * Math.PI * 8)) ** 6
+    ? Math.max(0, Math.cos(actionPhase * Math.PI * 8)) ** 6
     : 0;
   const irregularCycle = active && !prefersReducedMotion
-    ? Math.max(0, Math.sin(phase * Math.PI * 7 + 0.4)) ** 4
+    ? Math.max(0, Math.sin(actionPhase * Math.PI * 7 + 0.4)) ** 4
     : 0;
   const landing = active
-    ? Math.exp(-(((phase - 0.8) / 0.055) ** 2)) * velocity
+    ? Math.exp(-(((actionPhase - 0.8) / 0.055) ** 2)) * velocity
     : 0;
   const bodyOnly = ["stomp", "footsteps", "jump", "claw", "whip", "ruffle"].includes(motion);
   const jawSnap = active
@@ -1579,7 +1604,7 @@ function familyPose(sound, timeSeconds, performanceState) {
     ? clamp(0.36 + irregularCycle * 0.94)
     : 0;
   const clawSwipe = active && motion === "claw" ? irregularCycle * velocity : 0;
-  const tailSweep = active && motion === "whip" ? Math.sin(Math.PI * phase) * velocity : 0;
+  const tailSweep = active && motion === "whip" ? Math.sin(Math.PI * actionPhase) * velocity : 0;
   const footStrike = active
     ? (motion === "stomp"
       ? onset
@@ -1591,7 +1616,7 @@ function familyPose(sound, timeSeconds, performanceState) {
     : 0;
   const bodyDrop = footStrike * (motion === "jump" ? 0.075 : 0.105) * velocity;
   const actionLift = active && motion === "jump" && !prefersReducedMotion
-    ? Math.sin(Math.PI * clamp(phase / 0.8)) * 0.16 * velocity
+    ? Math.sin(Math.PI * clamp(actionPhase / 0.8)) * 0.16 * velocity
     : 0;
   const nostrilFlare = active && ["hiss", "neigh", "horn", "pant"].includes(motion)
     ? clamp(contourEnvelope * 0.72 + onset * 0.42)
@@ -1630,6 +1655,7 @@ function familyPose(sound, timeSeconds, performanceState) {
   return Object.freeze({
     family,
     phase,
+    actionPhase,
     active,
     velocity,
     envelope: contourEnvelope,
