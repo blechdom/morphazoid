@@ -271,8 +271,14 @@ test("one absolute body baseline survives every call family while call identity 
   assert.ok(expanded.cavityFrequencyHz < compact.cavityFrequencyHz);
 });
 
-test("body-independent sequences mix micro-clusters with room for multi-envelope phrases", () => {
+test("body-independent sequences mix repeated dance motifs with room for multi-envelope phrases", () => {
   assert.ok(CREATURAZOID_SEQUENCE_PRESETS.length >= 8);
+  const defaultSequence = creaturazoidSequencePreset(CREATURAZOID_DEFAULTS.sequencePresetId);
+  const defaultState = creaturazoidState();
+  assert.equal(defaultState.tempo, defaultSequence.tempo);
+  assert.equal(defaultState.swing, defaultSequence.swing);
+  assert.equal(defaultState.patternLength, defaultSequence.length);
+
   const lengths = new Set();
   const dynamics = new Set();
   const usedSounds = new Set();
@@ -285,6 +291,8 @@ test("body-independent sequences mix micro-clusters with room for multi-envelope
   let percussiveOnsets = 0;
   let vocalOnsets = 0;
   let spaciousRichCalls = 0;
+  let dancePresetCount = 0;
+  let spaciousPresetCount = 0;
   for (const preset of CREATURAZOID_SEQUENCE_PRESETS) {
     assert.equal(Object.hasOwn(preset, "voicePresetId"), false, `${preset.id} must not select a voice`);
     assert.equal(Object.hasOwn(preset, "bodyPresetId"), false, `${preset.id} must not replace the body`);
@@ -341,12 +349,34 @@ test("body-independent sequences mix micro-clusters with room for multi-envelope
     assert.ok(presetMicroOnsets >= 6, `${preset.id} needs a dense micro-call cluster`);
     assert.ok(presetPercussiveOnsets >= 2, `${preset.id} must intersperse body percussion`);
     assert.ok(presetVocalOnsets >= 2, `${preset.id} must intersperse vocal calls`);
-    if (["hoof-and-hiss", "feeding-frenzy", "stampede-signal"].includes(preset.id)) {
-      assert.ok(presetPercussiveOnsets >= 10, `${preset.id} needs a body-percussion backbone`);
+    if (preset.dance) {
+      dancePresetCount += 1;
+      assert.ok(onsetSteps.length / pattern.length >= 0.8, `${preset.id} must keep the dance subdivision busy`);
+      assert.ok(presetSoundIds.size >= 5 && presetSoundIds.size <= 8, `${preset.id} needs a focused recurring kit`);
       assert.ok(
-        presetVocalOnsets / (presetPercussiveOnsets + presetVocalOnsets) >= 0.2,
-        `${preset.id} must remain at least one-fifth vocal`,
+        presetPercussiveOnsets / onsetSteps.length >= 0.7,
+        `${preset.id} needs a body-percussion backbone`,
       );
+      assert.ok(
+        presetVocalOnsets / onsetSteps.length >= 0.1
+          && presetVocalOnsets / onsetSteps.length <= 0.25,
+        `${preset.id} needs restrained short vocal hooks rather than animal roulette`,
+      );
+      assert.ok(presetMicroOnsets / onsetSteps.length >= 0.65, `${preset.id} must articulate promptly`);
+      for (let quarter = 0; quarter < pattern.length; quarter += 4) {
+        assert.ok(creaturazoidStepEvent(pattern, quarter), `${preset.id} needs an onset on beat ${quarter / 4 + 1}`);
+      }
+      let repeatedPhaseRoles = 0;
+      for (let phase = 0; phase < 16; phase += 1) {
+        const roleIds = [];
+        for (let phraseStart = 0; phraseStart < pattern.length; phraseStart += 16) {
+          roleIds.push(creaturazoidStepEvent(pattern, phraseStart + phase)?.soundId ?? "");
+        }
+        if (roleIds[0] && roleIds.every((soundId) => soundId === roleIds[0])) repeatedPhaseRoles += 1;
+      }
+      assert.ok(repeatedPhaseRoles >= 8, `${preset.id} needs an audible sixteen-step ostinato`);
+    } else {
+      spaciousPresetCount += 1;
     }
     const circularGaps = [];
     for (let index = 0; index < onsetSteps.length; index += 1) {
@@ -360,26 +390,32 @@ test("body-independent sequences mix micro-clusters with room for multi-envelope
       if (pressureKeys >= 7 && emptySteps >= 6 && emptySteps <= 12) spaciousRichCalls += 1;
     }
     assert.ok(Math.min(...circularGaps) <= 2, `${preset.id} needs a tight rhythmic figure`);
-    assert.ok(Math.max(...circularGaps) >= 8, `${preset.id} needs breathing room around a phrase`);
+    if (preset.dance) {
+      assert.ok(Math.max(...circularGaps) <= 3, `${preset.id} cannot lose the floor to a long random gap`);
+    } else {
+      assert.ok(Math.max(...circularGaps) >= 8, `${preset.id} needs breathing room around a phrase`);
+    }
   }
+  assert.ok(dancePresetCount >= 5);
+  assert.ok(spaciousPresetCount >= 5);
   assert.deepEqual(lengths, new Set([32, 64]));
   assert.ok(dynamics.has(0.42) && dynamics.has(0.72) && dynamics.has(1));
   assert.ok(Math.max(...tempos) - Math.min(...tempos) >= 50);
   assert.ok(Math.max(...swings) - Math.min(...swings) >= 0.18);
-  assert.ok(totalOnsets >= 150);
-  assert.ok(birdOnsets >= 30);
-  assert.ok(mammalOnsets >= 90);
-  assert.ok(microOnsets >= 99);
+  assert.ok(totalOnsets >= 260);
+  assert.ok(birdOnsets >= 50);
+  assert.ok(mammalOnsets >= 180);
+  assert.ok(microOnsets >= 190);
   assert.ok(birdOnsets / totalOnsets >= 0.2);
   assert.ok(mammalOnsets / totalOnsets >= 0.55);
   assert.ok(microOnsets / totalOnsets > 0.5);
-  assert.ok(percussiveOnsets >= 40);
-  assert.ok(vocalOnsets >= 80);
-  assert.ok(usedSounds.size >= 44);
+  assert.ok(percussiveOnsets >= 150);
+  assert.ok(vocalOnsets >= 100);
+  assert.ok(usedSounds.size >= 40);
   for (const soundId of CREATURAZOID_PERCUSSIVE_SOUND_IDS) {
     assert.ok(usedSounds.has(soundId), `${soundId} must occur in a factory rhythm`);
   }
-  assert.ok(spaciousRichCalls >= 16, "multi-peak calls need six to twelve empty columns to unfold");
+  assert.ok(spaciousRichCalls >= 12, "the long-form bank must keep six to twelve empty columns around rich calls");
   for (const restored of ["phrase", "frogtrill", "trumpet"]) {
     assert.ok(usedSounds.has(restored), `${restored} must appear in the factory rhythms`);
   }
@@ -389,13 +425,14 @@ test("body-independent sequences mix micro-clusters with room for multi-envelope
     { length: defaultPattern.length },
     (_, step) => creaturazoidStepEvent(defaultPattern, step),
   ).filter(Boolean);
-  assert.equal(defaultEvents.length, 19);
+  assert.equal(defaultEvents.length, 30);
   assert.ok(defaultEvents.some(({ soundId }) => soundId === "hiss"));
-  assert.ok(defaultEvents.filter(({ sound }) => sound.family === "bird").length >= 3);
-  assert.ok(defaultEvents.filter(({ sound }) => sound.family === "mammal").length >= 12);
-  assert.ok(defaultEvents.filter(({ sound }) => sound.durationMs <= 640).length >= 12);
-  assert.ok(defaultEvents.filter(({ sound }) => sound.gestureType === "percussive").length >= 10);
-  assert.ok(defaultEvents.filter(({ sound }) => sound.gestureType === "vocal").length >= 4);
+  assert.ok(defaultEvents.filter(({ sound }) => sound.family === "bird").length >= 8);
+  assert.ok(defaultEvents.filter(({ sound }) => sound.family === "mammal").length >= 20);
+  assert.ok(defaultEvents.filter(({ sound }) => sound.durationMs <= 640).length >= 28);
+  assert.ok(defaultEvents.filter(({ sound }) => sound.gestureType === "percussive").length >= 24);
+  assert.equal(defaultEvents.filter(({ sound }) => sound.gestureType === "vocal").length, 4);
+  assert.ok(defaultEvents.some(({ soundId }) => soundId === "neigh"));
 
   const pocket = creaturazoidState("pocket-needle");
   for (const sequence of CREATURAZOID_SEQUENCE_PRESETS) {

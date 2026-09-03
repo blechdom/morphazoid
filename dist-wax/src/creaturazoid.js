@@ -751,22 +751,39 @@ function defineSequencePreset({ length, events, ...preset }) {
   });
 }
 
+// Hiccup Head earns its pulse by repeating a legible sixteen-step phrase.
+// Creaturazoid keeps the same dance-floor grammar, but assigns each role to a
+// physical creature action and still retargets only one shared body at a time.
+function repeatSequencePhrase(length, phrase) {
+  const events = [];
+  for (let phraseStart = 0; phraseStart < length; phraseStart += 16) {
+    for (const [step, soundId, velocity] of phrase) {
+      if (phraseStart + step < length) events.push([phraseStart + step, soundId, velocity]);
+    }
+  }
+  return events;
+}
+
 export const CREATURAZOID_SEQUENCE_PRESETS = Object.freeze([
   defineSequencePreset({
-    id: "hoof-and-hiss", label: "Hoof & hiss", color: "#e76f51", length: 32, tempo: 136, swing: 0.18,
-    events: [[0, "hoof-stomp", 1], [2, "chuff", 0.42], [3, "hiss", 0.72], [4, "footsteps", 0.72], [6, "clawing", 0.42], [7, "snap-bark", 1], [8, "hoof-stomp", 0.72], [10, "lapping", 0.42], [11, "yip", 0.72], [12, "tail-whip", 1], [14, "crunching", 0.72], [15, "rattle", 0.42], [16, "neigh", 1], [24, "jumping", 1], [26, "feather-ruffle", 0.42], [27, "chirp", 0.72], [28, "hoof-stomp", 1], [30, "hoot", 0.72], [31, "tail-whip", 0.42]],
+    id: "hoof-and-hiss", label: "Hoof House", color: "#ff6b35", length: 32, tempo: 126, swing: 0.08, dance: true,
+    events: [[0, "hoof-stomp", 1], [1, "caw", 0.42], [2, "hiss", 0.72], [4, "snap-bark", 1], [5, "caw", 0.42], [6, "tail-whip", 0.72], [7, "yip", 0.72], [8, "hoof-stomp", 1], [9, "caw", 0.42], [10, "hiss", 0.72], [11, "tail-whip", 0.42], [12, "snap-bark", 1], [13, "caw", 0.42], [14, "chuff", 0.72], [15, "tail-whip", 1], [16, "hoof-stomp", 1], [17, "caw", 0.42], [18, "hiss", 0.72], [20, "snap-bark", 1], [21, "caw", 0.42], [22, "hoof-stomp", 0.72], [23, "yip", 0.72], [24, "hoof-stomp", 1], [25, "caw", 0.42], [26, "tail-whip", 0.72], [27, "chuff", 0.42], [28, "snap-bark", 1], [29, "caw", 0.42], [30, "neigh", 0.72], [31, "tail-whip", 1]],
   }),
   defineSequencePreset({
-    id: "feeding-frenzy", label: "Feeding frenzy", color: "#00b4d8", length: 32, tempo: 118, swing: 0.34,
-    events: [[0, "grunt", 1], [8, "lapping", 0.42], [9, "crunching", 0.72], [10, "chuff", 0.42], [11, "crunching", 1], [12, "panting", 0.72], [14, "feather-ruffle", 0.42], [15, "caw", 0.72], [16, "purr", 1], [24, "jumping", 1], [25, "clawing", 0.42], [27, "hiss", 0.72], [28, "hoof-stomp", 1], [30, "hoot", 0.72], [31, "tail-whip", 0.42]],
+    id: "feeding-frenzy", label: "Feeding Funk", color: "#00d4ff", length: 32, tempo: 116, swing: 0.32, dance: true,
+    events: repeatSequencePhrase(32, [[0, "hoof-stomp", 1], [1, "lapping", 0.42], [2, "crunching", 0.72], [4, "snap-bark", 1], [5, "lapping", 0.42], [6, "crunching", 0.72], [7, "gunk", 0.72], [8, "hoof-stomp", 1], [9, "lapping", 0.42], [10, "crunching", 0.72], [11, "feather-ruffle", 0.42], [12, "snap-bark", 1], [13, "lapping", 0.42], [14, "crunching", 0.72], [15, "chuff", 1]]),
   }),
   defineSequencePreset({
-    id: "stampede-signal", label: "Stampede signal", color: "#f94144", length: 64, tempo: 144, swing: 0.12,
-    events: [[0, "horn-surprise", 1], [8, "hoof-stomp", 1], [10, "footsteps", 0.42], [12, "grunt", 0.72], [14, "caw", 0.42], [15, "snap-bark", 1], [16, "neigh", 1], [26, "tail-whip", 1], [27, "clawing", 0.42], [28, "jumping", 0.72], [30, "feather-ruffle", 0.42], [32, "howl", 1], [44, "chuff", 0.72], [46, "hoof-stomp", 1], [48, "panting", 0.42], [50, "lapping", 0.42], [52, "crunching", 0.72], [54, "hoot", 1], [56, "horn-surprise", 0.72], [62, "rattle", 0.42], [63, "tail-whip", 1]],
+    id: "stampede-signal", label: "Stampede Techno", color: "#ff3158", length: 64, tempo: 144, swing: 0.1, dance: true,
+    events: [...repeatSequencePhrase(64, [[0, "hoof-stomp", 1], [1, "footsteps", 0.42], [2, "caw", 0.72], [3, "grunt", 0.42], [4, "hoof-stomp", 0.72], [5, "footsteps", 0.42], [6, "caw", 0.72], [7, "tail-whip", 1], [8, "hoof-stomp", 1], [9, "footsteps", 0.42], [10, "caw", 0.72], [11, "chuff", 0.72], [12, "hoof-stomp", 0.72], [13, "footsteps", 0.42], [14, "snap-bark", 1]]), [31, "horn-surprise", 1], [63, "horn-surprise", 1]],
   }),
   defineSequencePreset({
-    id: "creature-parade", label: "Hyena hopscotch", color: "#b85d47", length: 32, tempo: 128, swing: 0.22,
-    events: [[0, "phrase", 1], [9, "chirp", 0.42], [10, "yip", 0.72], [11, "ticks", 0.42], [12, "hoof-stomp", 1], [13, "moose", 0.72], [14, "chuff", 1], [16, "frogtrill", 1], [25, "bark", 0.72], [26, "rattle", 0.42], [27, "tail-whip", 0.72], [28, "gunk", 0.42], [29, "giggle", 1], [31, "moose", 0.72]],
+    id: "creature-parade", label: "Hyena Breaks", color: "#ff9f1c", length: 32, tempo: 142, swing: 0.18, dance: true,
+    events: [[0, "hoof-stomp", 1], [1, "caw", 0.42], [3, "hoof-stomp", 0.72], [4, "snap-bark", 1], [5, "clawing", 0.42], [6, "yip", 0.72], [7, "tail-whip", 0.72], [8, "hoof-stomp", 1], [9, "caw", 0.42], [10, "hoof-stomp", 0.72], [12, "snap-bark", 1], [13, "clawing", 0.42], [14, "grunt", 0.72], [15, "caw", 0.72], [16, "hoof-stomp", 1], [17, "caw", 0.42], [18, "tail-whip", 0.42], [19, "hoof-stomp", 0.72], [20, "snap-bark", 1], [21, "clawing", 0.42], [23, "yip", 1], [24, "hoof-stomp", 1], [25, "caw", 0.42], [26, "hoof-stomp", 0.72], [27, "grunt", 0.42], [28, "snap-bark", 1], [30, "yip", 0.72], [31, "caw", 1]],
+  }),
+  defineSequencePreset({
+    id: "murmuration", label: "Ruffle Garage", color: "#c77dff", length: 32, tempo: 132, swing: 0.32, dance: true,
+    events: [[0, "hoof-stomp", 1], [1, "caw", 0.42], [2, "hiss", 0.72], [4, "snap-bark", 1], [5, "feather-ruffle", 0.72], [8, "hoof-stomp", 1], [9, "caw", 0.42], [10, "hiss", 0.72], [11, "tail-whip", 0.42], [12, "snap-bark", 1], [13, "yip", 0.42], [14, "yip", 0.72], [15, "tail-whip", 1], [16, "hoof-stomp", 1], [17, "caw", 0.42], [18, "hiss", 0.72], [20, "snap-bark", 1], [21, "feather-ruffle", 0.72], [24, "hoof-stomp", 1], [25, "caw", 0.42], [26, "hiss", 0.72], [27, "tail-whip", 0.42], [28, "snap-bark", 1], [29, "yip", 0.42], [30, "chuff", 0.72], [31, "tail-whip", 1]],
   }),
   defineSequencePreset({
     id: "owl-blinks", label: "Howl / owl relay", color: "#526b7b", length: 64, tempo: 112, swing: 0.16,
@@ -787,10 +804,6 @@ export const CREATURAZOID_SEQUENCE_PRESETS = Object.freeze([
   defineSequencePreset({
     id: "rose-migration", label: "Antler migration", color: "#9a8056", length: 64, tempo: 108, swing: 0.18,
     events: [[0, "cervid", 1], [13, "chirp", 0.42], [14, "moose", 1], [15, "footsteps", 0.72], [16, "phrase", 0.72], [27, "chuff", 0.72], [28, "rattle", 0.42], [29, "jumping", 1], [30, "yip", 1], [32, "whinny", 1], [43, "ticks", 0.72], [44, "bark", 1], [46, "croak", 0.42], [48, "owlpair", 1], [59, "nicker", 0.42], [60, "gunk", 1], [62, "moose", 0.42]],
-  }),
-  defineSequencePreset({
-    id: "murmuration", label: "Murmuration game", color: "#777080", length: 32, tempo: 138, swing: 0.32,
-    events: [[0, "owlpair", 0.72], [10, "chirp", 1], [11, "yip", 0.42], [12, "ticks", 0.72], [13, "feather-ruffle", 0.42], [14, "frogtrill", 1], [23, "moose", 0.72], [24, "rattle", 0.42], [25, "tail-whip", 0.72], [26, "bark", 1], [27, "croak", 0.72], [29, "gunk", 0.72], [30, "giggle", 0.42]],
   }),
   defineSequencePreset({
     id: "whole-menagerie", label: "Menagerie pinball", color: "#59735d", length: 64, tempo: 152, swing: 0.2,
@@ -814,14 +827,16 @@ const legacyBodyPresetIds = Object.freeze({
 export const CREATURAZOID_PRESETS = CREATURAZOID_BODY_PRESETS;
 export const CREATURAZOID_PATTERNS = CREATURAZOID_SEQUENCE_PRESETS;
 
+const defaultSequencePreset = sequencePresetById.get("hoof-and-hiss");
+
 export const CREATURAZOID_DEFAULTS = Object.freeze({
   bodyPresetId: "colossal-barrel",
   voicePresetId: "colossal-barrel",
-  sequencePresetId: "hoof-and-hiss",
+  sequencePresetId: defaultSequencePreset.id,
   anatomyDesignId: CREATURAZOID_BODY_PRESETS[0].settings.anatomyDesignId,
-  tempo: 128,
-  swing: 0.22,
-  patternLength: 32,
+  tempo: defaultSequencePreset.tempo,
+  swing: defaultSequencePreset.swing,
+  patternLength: defaultSequencePreset.length,
   morph: CREATURAZOID_BODY_PRESETS[0].settings.morph,
   pitchSemitones: CREATURAZOID_BODY_PRESETS[0].settings.pitchSemitones,
   vibratoRateHz: CREATURAZOID_BODY_PRESETS[0].settings.vibratoRateHz,

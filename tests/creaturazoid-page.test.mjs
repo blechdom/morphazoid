@@ -91,6 +91,42 @@ test("the page describes and edits an explicitly monophonic call grid", () => {
   assert.match(app, /row\.setAttribute\("role", "row"\);/);
 });
 
+test("sequence presets recall length, tempo, and swing while manual timing becomes custom", () => {
+  assert.match(html, /Sequence presets are complete grooves\./);
+  assert.match(html, /Each one recalls its own length, tempo, and swing\./);
+  assert.match(html, /id="tempoOut"[^>]*>126 BPM<\/output>/);
+  assert.match(html, /id="tempo"[^>]*value="126"/);
+  assert.match(html, /id="swingOut"[^>]*>8%<\/output>/);
+  assert.match(html, /id="swing"[^>]*value="0\.08"/);
+
+  const loadPreset = standaloneFunctionBody(app, "setSequencePreset");
+  assert.match(loadPreset, /sanitizeCreaturazoidPattern\(preset, preset\.length\)/);
+  assert.match(loadPreset, /tempo:\s*preset\.tempo/);
+  assert.match(loadPreset, /swing:\s*preset\.swing/);
+  assert.match(loadPreset, /patternLength:\s*preset\.length/);
+  assert.match(loadPreset, /sequencePresetId:\s*preset\.id/);
+  assert.match(loadPreset, /syncControls\(\);/);
+  assert.match(loadPreset, /buildSequenceGrid\(\{ preserveScroll: false \}\);/);
+  assert.match(loadPreset, /if \(sequenceRunning\) resetSequenceSchedule/);
+  assert.match(loadPreset, /BPM[\s\S]*percent swing/);
+
+  const sync = standaloneFunctionBody(app, "syncControls");
+  assert.match(sync, /\$\("sequenceLength"\)\.value = String\(pattern\.length\)/);
+  assert.match(sync, /\$\("tempo"\)\.value = String\(state\.tempo\)/);
+  assert.match(sync, /\$\("swing"\)\.value = String\(state\.swing\)/);
+  assert.match(sync, /button\.classList\.toggle\("is-active", active\)/);
+  assert.match(sync, /button\.setAttribute\("aria-pressed", String\(active\)\)/);
+
+  const scheduler = standaloneFunctionBody(app, "schedulerTick");
+  assert.match(scheduler, /nextStepNumber % pattern\.length/);
+  assert.match(scheduler, /creaturazoidStepIntervalSeconds\(state\.tempo, state\.swing, nextStepNumber\)/);
+  const custom = standaloneFunctionBody(app, "markPatternCustom");
+  assert.match(custom, /currentPatternId = "custom"/);
+  assert.match(custom, /Custom rhythm/);
+  assert.match(app, /\$\("tempo"\)\.addEventListener\("input", \(\) => \{[\s\S]{0,420}?markPatternCustom\(\)/);
+  assert.match(app, /\$\("swing"\)\.addEventListener\("input", \(\) => \{[\s\S]{0,420}?markPatternCustom\(\)/);
+});
+
 test("body, attack, vibrato, and modulation controls are present and wired to the page module", () => {
   const rangeIds = [
     "bodyScale",

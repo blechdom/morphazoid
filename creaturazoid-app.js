@@ -23,7 +23,7 @@ import {
   sanitizeCreaturazoidPattern,
   sanitizeCreaturazoidState,
   setCreaturazoidStep,
-} from "./src/creaturazoid.js?v=creaturazoid-model-20260902-5";
+} from "./src/creaturazoid.js?v=creaturazoid-model-20260902-6";
 import {
   ANIMALS,
   CALL_GESTURES,
@@ -725,8 +725,8 @@ function setTransportPresentation() {
   $("playButton").setAttribute("aria-pressed", String(sequenceRunning));
   $("playLabel").textContent = sequenceRunning ? "Stop" : "Play";
   $("playState").textContent = sequenceRunning
-    ? `${currentStep < 0 ? "counting in" : `step ${currentStep + 1}`} · monophonic`
-    : `space · ${pattern.length} steps`;
+    ? `${Math.round(state.tempo)} BPM · ${currentStep < 0 ? "counting in" : `step ${currentStep + 1}`} · monophonic`
+    : `${pattern.length} steps · ${Math.round(state.tempo)} BPM`;
 }
 
 function setActivePad(soundId) {
@@ -882,10 +882,16 @@ function buildSequenceGrid({ preserveScroll = true } = {}) {
   updateGridPlayhead();
 }
 
-function editSequenceCell(soundId, step) {
-  pattern = cycleCreaturazoidStep(pattern, step, soundId);
+function markPatternCustom() {
   currentPatternId = "custom";
   $("patternSelect").value = "custom";
+  const option = $("patternSelect").querySelector('option[value="custom"]');
+  if (option) option.textContent = `Custom rhythm · ${pattern.length} steps · ${Math.round(state.tempo)} BPM · ${Math.round(state.swing * 100)}% swing`;
+}
+
+function editSequenceCell(soundId, step) {
+  pattern = cycleCreaturazoidStep(pattern, step, soundId);
+  markPatternCustom();
   buildSequenceGrid();
   if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
   const event = creaturazoidStepEvent(pattern, step);
@@ -906,11 +912,12 @@ function populateSelects() {
   const patternSelect = $("patternSelect");
   const custom = document.createElement("option");
   custom.value = "custom";
-  custom.textContent = "Custom creature";
+  custom.textContent = "Custom rhythm";
   patternSelect.append(custom, ...CREATURAZOID_SEQUENCE_PRESETS.map((preset) => {
     const option = document.createElement("option");
     option.value = preset.id;
-    option.textContent = `${preset.label} · ${preset.length}`;
+    option.textContent = `${preset.label} · ${preset.length} steps · ${Math.round(preset.tempo)} BPM · ${Math.round(preset.swing * 100)}% swing`;
+    option.title = `${preset.label}: ${preset.length} steps, ${Math.round(preset.tempo)} BPM, ${Math.round(preset.swing * 100)} percent swing`;
     return option;
   }));
 
@@ -969,7 +976,7 @@ function setSequencePreset(id, { announceState = true } = {}) {
   buildSequenceGrid({ preserveScroll: false });
   if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
   if (announceState) {
-    announce(`${preset.label}: ${preset.length} steps; the current body shape remains locked`);
+    announce(`${preset.label}: ${preset.length} steps, ${Math.round(preset.tempo)} BPM, ${Math.round(preset.swing * 100)} percent swing; the current body shape remains locked`);
   }
 }
 
@@ -1066,8 +1073,7 @@ function scatterPattern() {
         : Math.max(6, Math.round(nativeSpace * (0.72 + Math.random() * 0.34)));
   }
   pattern = next;
-  currentPatternId = "custom";
-  $("patternSelect").value = "custom";
+  markPatternCustom();
   buildSequenceGrid({ preserveScroll: false });
   if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
   announce("Creature scatter: body percussion, bird cuts, and short calls interlock around breathing room for long voices");
@@ -1075,8 +1081,7 @@ function scatterPattern() {
 
 function clearPattern() {
   pattern = sanitizeCreaturazoidPattern({}, pattern.length);
-  currentPatternId = "custom";
-  $("patternSelect").value = "custom";
+  markPatternCustom();
   buildSequenceGrid();
   if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
   announce("Sequence cleared to rests");
@@ -1087,7 +1092,7 @@ function setPatternLength(value) {
   if (length === pattern.length) return;
   pattern = sanitizeCreaturazoidPattern(pattern, length);
   state = sanitizeCreaturazoidState({ ...state, patternLength: length }, state);
-  currentPatternId = "custom";
+  markPatternCustom();
   syncControls();
   buildSequenceGrid({ preserveScroll: false });
   if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
@@ -1233,12 +1238,23 @@ const CONTROL_BINDINGS = Object.freeze([
 function syncControls() {
   $("presetSelect").value = state.bodyPresetId;
   $("patternSelect").value = currentPatternId;
+  const customPatternOption = $("patternSelect").querySelector('option[value="custom"]');
+  if (customPatternOption) {
+    customPatternOption.textContent = currentPatternId === "custom"
+      ? `Custom rhythm · ${pattern.length} steps · ${Math.round(state.tempo)} BPM · ${Math.round(state.swing * 100)}% swing`
+      : "Custom rhythm";
+  }
   const preset = selectedBodyPreset();
   $("presetDescription").textContent = preset.description;
   $("presetSelect").style.setProperty("--preset-color", preset.color);
   $("anatomySelect").value = state.anatomyDesignId;
   $("sequenceLength").value = String(pattern.length);
   outputStateValue($("sequenceLengthOut"), String(pattern.length));
+  document.querySelectorAll("[data-sequence-length]").forEach((button) => {
+    const active = Number(button.dataset.sequenceLength) === pattern.length;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   $("tempo").value = String(state.tempo);
   outputStateValue($("tempoOut"), `${Math.round(state.tempo)} BPM`);
   $("swing").value = String(state.swing);
@@ -1300,12 +1316,25 @@ function bindControls() {
     updateMasterLevel();
   });
   $("tempo").addEventListener("input", () => {
+    const previousTempo = state.tempo;
     state = sanitizeCreaturazoidState({ ...state, tempo: finiteOr($("tempo").value, state.tempo) }, state);
+    if (state.tempo !== previousTempo) markPatternCustom();
     outputStateValue($("tempoOut"), `${Math.round(state.tempo)} BPM`);
+    setTransportPresentation();
+  });
+  $("tempo").addEventListener("change", () => {
+    if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.04 });
+    announce(`Custom rhythm tempo: ${Math.round(state.tempo)} BPM`);
   });
   $("swing").addEventListener("input", () => {
+    const previousSwing = state.swing;
     state = sanitizeCreaturazoidState({ ...state, swing: finiteOr($("swing").value, state.swing) }, state);
+    if (state.swing !== previousSwing) markPatternCustom();
     outputStateValue($("swingOut"), formatPercent(state.swing));
+  });
+  $("swing").addEventListener("change", () => {
+    if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.04 });
+    announce(`Custom rhythm swing: ${formatPercent(state.swing)}`);
   });
   $("modulationTarget").addEventListener("change", () => {
     modulationTarget = MODULATION_TARGETS[$("modulationTarget").value] ? $("modulationTarget").value : "cavity";
