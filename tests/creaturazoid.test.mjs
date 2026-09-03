@@ -25,12 +25,17 @@ import {
   creaturazoidAttackPhase,
   creaturazoidAnatomyDesign,
   creaturazoidBodyBaseline,
+  creaturazoidBodyLevelTrim,
   creaturazoidBodyPreset,
   creaturazoidEventsAtStep,
   creaturazoidContourOffsets,
+  creaturazoidLevelMakeup,
   creaturazoidQuickMorphProgress,
   creaturazoidRecommendedSpaceSteps,
   creaturazoidNativeAttackPhase,
+  creaturazoidRhythmicGesturePhase,
+  creaturazoidSequenceDurationSeconds,
+  creaturazoidSequenceOnsetPhase,
   creaturazoidSequencePreset,
   creaturazoidSound,
   creaturazoidSoundForKey,
@@ -574,6 +579,116 @@ test("unarticulated vocal calls retain their authored attack and release silence
     assert.ok(attack.pressure <= 1e-12, `${soundId} attack must begin silent`);
     assert.ok(release.pressure <= 1e-12, `${soundId} release must return to silence`);
   }
+});
+
+test("sequenced calls crop weak lead-ins while pads retain the complete attack", () => {
+  const state = creaturazoidState("colossal-barrel");
+  for (const sound of CREATURAZOID_SOUNDS) {
+    const onset = creaturazoidSequenceOnsetPhase(sound);
+    const mapped = Array.from({ length: 201 }, (_, index) => (
+      creaturazoidRhythmicGesturePhase(sound, index / 200)
+    ));
+    assert.ok(onset >= 0 && onset <= 0.9, `${sound.id} onset is bounded`);
+    assert.equal(mapped[0], onset);
+    assert.equal(mapped.at(-1), 1);
+    assert.ok(mapped.every((value, index) => index === 0 || value >= mapped[index - 1]));
+    assert.ok(Math.abs(
+      creaturazoidSequenceDurationSeconds(sound)
+        - sound.durationMs / 1_000 * (1 - onset)
+    ) < 1e-12);
+
+    const pad = resolveCreaturazoidEventState(sound, { state, phase: 0, velocity: 1 });
+    const beat = resolveCreaturazoidEventState(sound, {
+      state,
+      phase: 0,
+      velocity: 1,
+      sequenced: true,
+    });
+    const release = resolveCreaturazoidEventState(sound, {
+      state,
+      phase: 1,
+      velocity: 1,
+      sequenced: true,
+    });
+    assert.equal(pad.authoredPhase, 0);
+    assert.equal(beat.authoredPhase, onset);
+    assert.equal(beat.callPhase, onset);
+    assert.equal(beat.articulationPhase, onset);
+    assert.equal(release.callPhase, 1);
+    assert.ok(release.pressure <= 1e-12, `${sound.id} cropped release returns to silence`);
+    if (sound.gestureType === "vocal") {
+      assert.ok(pad.pressure <= 1e-12, `${sound.id} pad retains its silent first frame`);
+      assert.ok(beat.pressure > 0.05, `${sound.id} sequence begins in audible breath`);
+    }
+  }
+
+  assert.equal(creaturazoidSequenceOnsetPhase("hoof-stomp"), 0);
+  assert.equal(creaturazoidSequenceOnsetPhase("tail-whip"), 0.58);
+  assert.equal(creaturazoidSequenceOnsetPhase("lapping"), 0.06);
+});
+
+test("cropped contour snapshots preserve every retained authored keyframe in real time", () => {
+  const state = creaturazoidState("dense-squat");
+  for (const sound of CREATURAZOID_SOUNDS) {
+    const onset = creaturazoidSequenceOnsetPhase(sound);
+    const nativeDuration = sound.durationMs / 1_000;
+    const duration = creaturazoidSequenceDurationSeconds(sound);
+    const offsets = creaturazoidContourOffsets(duration, state, sound, { sequenced: true });
+    const curves = [
+      ...Object.values(CALL_GESTURES[sound.callId].curves),
+      ...Object.values(sound.articulation?.curves ?? {}),
+    ];
+    for (const points of curves) {
+      for (const [authoredPhase] of points) {
+        if (authoredPhase + 1e-12 < onset) continue;
+        const expectedOffset = (authoredPhase - onset) * nativeDuration;
+        assert.ok(
+          offsets.some((offset) => Math.abs(offset - expectedOffset) < 1e-12),
+          `${sound.id} retains authored keyframe ${authoredPhase}`,
+        );
+        const timelinePhase = duration > 0 ? expectedOffset / duration : 1;
+        assert.ok(Math.abs(
+          creaturazoidRhythmicGesturePhase(sound, timelinePhase) - authoredPhase
+        ) < 1e-12, `${sound.id} maps keyframe ${authoredPhase} exactly`);
+      }
+    }
+  }
+});
+
+test("calibrated event makeup lifts soft gestures and reins in pathological peaks", () => {
+  for (const sound of CREATURAZOID_SOUNDS) {
+    assert.ok(Number.isFinite(sound.levelMakeup));
+    assert.ok(creaturazoidLevelMakeup(sound) >= 0.36);
+    assert.ok(creaturazoidLevelMakeup(sound) <= 7);
+  }
+  assert.equal(creaturazoidLevelMakeup("roar"), 1);
+  assert.ok(creaturazoidLevelMakeup("rumble") > 2);
+  assert.ok(creaturazoidLevelMakeup("purr") > 6.7);
+  assert.ok(creaturazoidLevelMakeup("croak") > 3);
+  assert.ok(creaturazoidLevelMakeup("hiss") > 6.8);
+  assert.equal(creaturazoidLevelMakeup("caw"), 7);
+  assert.ok(creaturazoidLevelMakeup("lapping") > 4.6);
+  assert.ok(creaturazoidLevelMakeup("hoof-stomp") > 1.3);
+  assert.ok(creaturazoidLevelMakeup("chirp") < 0.4);
+  assert.ok(creaturazoidLevelMakeup("frogtrill") < 0.4);
+  assert.ok(creaturazoidLevelMakeup("moo") < 0.7);
+});
+
+test("bounded body corrections lift only measured resonant dropouts", () => {
+  for (const body of CREATURAZOID_BODY_PRESETS) {
+    for (const sound of CREATURAZOID_SOUNDS) {
+      const trim = creaturazoidBodyLevelTrim(sound, body.id);
+      assert.ok(trim >= 1 && trim <= 3.75, `${body.id}/${sound.id} body trim is bounded`);
+    }
+  }
+
+  assert.equal(creaturazoidBodyLevelTrim("purr", "pocket-needle"), 3.75);
+  assert.equal(creaturazoidBodyLevelTrim("rumble", "pocket-needle"), 2.375);
+  assert.equal(creaturazoidBodyLevelTrim("trumpet", "pocket-needle"), 2.275);
+  assert.equal(creaturazoidBodyLevelTrim("bellow", "pocket-needle"), 1.25);
+  assert.equal(creaturazoidBodyLevelTrim("chirp", "split-chamber"), 1.5);
+  assert.equal(creaturazoidBodyLevelTrim("frogtrill", "split-chamber"), 1.45);
+  assert.equal(creaturazoidBodyLevelTrim("roar", "colossal-barrel"), 1);
 });
 
 test("enveloped body modulation is multi-target, event-relative, and deterministic", () => {

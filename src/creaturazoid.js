@@ -336,7 +336,96 @@ const freezeMorphBias = (source = {}) => Object.freeze(Object.fromEntries(
   ]),
 ));
 
-function defineSound({ animalId, callId, articulationId = null, durationMs = null, ...sound }) {
+// Robust output calibration from 400 deterministic renders: every gesture in
+// every persistent body, measured as its maximum sliding 50 ms stereo RMS
+// after rhythmic cropping and physical contact mixing. Quiet medians rise
+// toward 0.14; a worst-body safety pass reins in resonant outliers. This gain
+// remains upstream of the shared compressor and independent of step velocity.
+const CREATURAZOID_LEVEL_MAKEUP = Object.freeze({
+  roar: 1,
+  chuff: 1,
+  howl: 1,
+  yip: 1,
+  bark: 1,
+  growl: 1,
+  rumble: 2.36,
+  bellow: 1,
+  gator: 1,
+  purr: 6.8,
+  whinny: 1,
+  nicker: 1.31,
+  cervid: 1,
+  harsh: 1,
+  moose: 1,
+  moan: 1,
+  whoop: 1,
+  giggle: 1,
+  grunt: 1.57,
+  moo: 0.69,
+  lowmoo: 2.22,
+  croak: 3.4,
+  rattle: 4.05,
+  coo: 4.08,
+  double: 3.23,
+  hoot: 3.26,
+  owlpair: 3.78,
+  trill: 4.77,
+  phrase: 3.96,
+  boom: 0.63,
+  gunk: 1,
+  chirp: 0.36,
+  frogtrill: 0.37,
+  sweep: 1.7,
+  ticks: 1.78,
+  trumpet: 1,
+  neigh: 1,
+  hiss: 6.81,
+  "hoof-stomp": 1.32,
+  "horn-surprise": 1,
+  caw: 7,
+  "snap-bark": 1,
+  clawing: 3.23,
+  "tail-whip": 2.93,
+  footsteps: 1,
+  "feather-ruffle": 3.73,
+  panting: 4.29,
+  lapping: 4.63,
+  crunching: 1.75,
+  jumping: 1,
+});
+
+// Two extreme resonators still contain family-specific nulls after the global
+// sound calibration. These compact corrections were measured separately so a
+// Pocket Needle purr or a Split Chamber frog does not vanish, while the other
+// six bodies and louder calls retain their natural contrast.
+const CREATURAZOID_BODY_FAMILY_LEVEL_TRIM = Object.freeze({
+  "pocket-needle": Object.freeze({ mammal: 1.25 }),
+});
+
+const CREATURAZOID_BODY_SOUND_LEVEL_TRIM = Object.freeze({
+  "pocket-needle": Object.freeze({
+    purr: 3,
+    rumble: 1.9,
+    trumpet: 1.82,
+    nicker: 1.35,
+    lowmoo: 1.34,
+    "horn-surprise": 1.36,
+  }),
+  "split-chamber": Object.freeze({
+    chirp: 1.5,
+    frogtrill: 1.45,
+    purr: 1.25,
+  }),
+});
+
+function defineSound({
+  animalId,
+  callId,
+  articulationId = null,
+  durationMs = null,
+  sequenceOnsetPhase = null,
+  ...sound
+}) {
   const animal = ANIMALS[animalId];
   const gesture = CALL_GESTURES[callId];
   const articulation = articulationId ? CREATURAZOID_ARTICULATIONS[articulationId] : null;
@@ -360,6 +449,10 @@ function defineSound({ animalId, callId, articulationId = null, durationMs = nul
     gestureType: articulation ? "percussive" : "vocal",
     articulation,
     durationMs: resolvedDurationMs,
+    sequenceOnsetPhase: sequenceOnsetPhase == null
+      ? null
+      : clamp(finiteOr(sequenceOnsetPhase, 0), 0, 0.9),
+    levelMakeup: clamp(CREATURAZOID_LEVEL_MAKEUP[sound.id] ?? 1, 0.36, 7),
     // Hiccup semantics: the onset owns one column and the gesture sounds
     // through following rest columns until the next onset retargets the body.
     recommendedSpaceSteps: integerInRange(
@@ -413,20 +506,20 @@ export const CREATURAZOID_SOUNDS = Object.freeze([
   defineSound({ id: "sweep", label: "JET", key: "u", color: "#756278", animalId: "mouse", callId: "mouse-sweep", pitchSemitones: -24, timbre: 0.38 }),
   defineSound({ id: "ticks", label: "TICKS", key: "v", color: "#00a8e8", animalId: "mouse", callId: "mouse-steps", pitchSemitones: -24, timbre: 0.5 }),
   defineSound({ id: "trumpet", label: "BLARE", key: "m", color: "#ff365c", animalId: "elephant", callId: "elephant-trumpet", pitchSemitones: -4, timbre: 0.12 }),
-  defineSound({ id: "neigh", label: "NEIGH", key: "!", color: "#e76f51", animalId: "horse", callId: "horse-whinny", articulationId: "neigh", durationMs: 980, pitchSemitones: 1, timbre: 0.2 }),
-  defineSound({ id: "hiss", label: "HISS", key: "@", color: "#2a9d8f", animalId: "cat", callId: "cat-purr", articulationId: "hiss", durationMs: 520, pitchSemitones: 2, timbre: 0.7 }),
-  defineSound({ id: "hoof-stomp", label: "STOMP", key: "#", color: "#6d4c41", animalId: "horse", callId: "horse-nicker", articulationId: "stomp", durationMs: 240, pitchSemitones: -12, timbre: -0.84 }),
-  defineSound({ id: "horn-surprise", label: "HORN!", key: "$", color: "#f94144", animalId: "elephant", callId: "elephant-trumpet", articulationId: "horn", durationMs: 620, pitchSemitones: 1, timbre: 0.36 }),
-  defineSound({ id: "caw", label: "CAW", key: "%", color: "#577590", animalId: "raven", callId: "raven-croak", articulationId: "caw", durationMs: 360, pitchSemitones: -3, timbre: -0.2 }),
-  defineSound({ id: "snap-bark", label: "BARK!", key: "^", color: "#f3722c", animalId: "dog", callId: "dog-bark", articulationId: "bark", durationMs: 190, pitchSemitones: -2, timbre: -0.18 }),
-  defineSound({ id: "clawing", label: "CLAW", key: "&", color: "#bc6c25", animalId: "cat", callId: "cat-purr", articulationId: "claw", durationMs: 540, pitchSemitones: 7, timbre: 0.76 }),
-  defineSound({ id: "tail-whip", label: "TAILWHIP", key: "*", color: "#9d4edd", animalId: "lion", callId: "lion-grunt", articulationId: "whip", durationMs: 340, pitchSemitones: 8, timbre: 0.62 }),
-  defineSound({ id: "footsteps", label: "STEPS", key: "(", color: "#8d6e63", animalId: "horse", callId: "horse-nicker", articulationId: "footsteps", durationMs: 760, pitchSemitones: -10, timbre: -0.72 }),
-  defineSound({ id: "feather-ruffle", label: "RUFFLE", key: ")", color: "#43aa8b", animalId: "raven", callId: "raven-rattle", articulationId: "ruffle", durationMs: 680, pitchSemitones: -2, timbre: 0.72 }),
-  defineSound({ id: "panting", label: "PANT", key: "-", color: "#f8961e", animalId: "dog", callId: "dog-bark", articulationId: "pant", durationMs: 860, pitchSemitones: -5, timbre: 0.34 }),
-  defineSound({ id: "lapping", label: "LAP", key: "=", color: "#00b4d8", animalId: "cat", callId: "cat-purr", articulationId: "lap", durationMs: 720, pitchSemitones: 3, timbre: 0.48 }),
-  defineSound({ id: "crunching", label: "CRUNCH", key: "[", color: "#90be6d", animalId: "wildboar", callId: "wildboar-grunt", articulationId: "crunch", durationMs: 560, pitchSemitones: -1, timbre: 0.42 }),
-  defineSound({ id: "jumping", label: "JUMP", key: "]", color: "#f9c74f", animalId: "bullfrog", callId: "bullfrog-grunt", articulationId: "jump", durationMs: 620, pitchSemitones: -8, timbre: -0.4 }),
+  defineSound({ id: "neigh", label: "NEIGH", key: "!", color: "#e76f51", animalId: "horse", callId: "horse-whinny", articulationId: "neigh", durationMs: 980, sequenceOnsetPhase: 0.045, pitchSemitones: 1, timbre: 0.2 }),
+  defineSound({ id: "hiss", label: "HISS", key: "@", color: "#2a9d8f", animalId: "cat", callId: "cat-purr", articulationId: "hiss", durationMs: 520, sequenceOnsetPhase: 0.035, pitchSemitones: 2, timbre: 0.7 }),
+  defineSound({ id: "hoof-stomp", label: "STOMP", key: "#", color: "#6d4c41", animalId: "horse", callId: "horse-nicker", articulationId: "stomp", durationMs: 240, sequenceOnsetPhase: 0, pitchSemitones: -12, timbre: -0.84 }),
+  defineSound({ id: "horn-surprise", label: "HORN!", key: "$", color: "#f94144", animalId: "elephant", callId: "elephant-trumpet", articulationId: "horn", durationMs: 620, sequenceOnsetPhase: 0.055, pitchSemitones: 1, timbre: 0.36 }),
+  defineSound({ id: "caw", label: "CAW", key: "%", color: "#577590", animalId: "raven", callId: "raven-croak", articulationId: "caw", durationMs: 360, sequenceOnsetPhase: 0.07, pitchSemitones: -3, timbre: -0.2 }),
+  defineSound({ id: "snap-bark", label: "BARK!", key: "^", color: "#f3722c", animalId: "dog", callId: "dog-bark", articulationId: "bark", durationMs: 190, sequenceOnsetPhase: 0.075, pitchSemitones: -2, timbre: -0.18 }),
+  defineSound({ id: "clawing", label: "CLAW", key: "&", color: "#bc6c25", animalId: "cat", callId: "cat-purr", articulationId: "claw", durationMs: 540, sequenceOnsetPhase: 0.03, pitchSemitones: 7, timbre: 0.76 }),
+  defineSound({ id: "tail-whip", label: "TAILWHIP", key: "*", color: "#9d4edd", animalId: "lion", callId: "lion-grunt", articulationId: "whip", durationMs: 340, sequenceOnsetPhase: 0.58, pitchSemitones: 8, timbre: 0.62 }),
+  defineSound({ id: "footsteps", label: "STEPS", key: "(", color: "#8d6e63", animalId: "horse", callId: "horse-nicker", articulationId: "footsteps", durationMs: 760, sequenceOnsetPhase: 0, pitchSemitones: -10, timbre: -0.72 }),
+  defineSound({ id: "feather-ruffle", label: "RUFFLE", key: ")", color: "#43aa8b", animalId: "raven", callId: "raven-rattle", articulationId: "ruffle", durationMs: 680, sequenceOnsetPhase: 0.04, pitchSemitones: -2, timbre: 0.72 }),
+  defineSound({ id: "panting", label: "PANT", key: "-", color: "#f8961e", animalId: "dog", callId: "dog-bark", articulationId: "pant", durationMs: 860, sequenceOnsetPhase: 0, pitchSemitones: -5, timbre: 0.34 }),
+  defineSound({ id: "lapping", label: "LAP", key: "=", color: "#00b4d8", animalId: "cat", callId: "cat-purr", articulationId: "lap", durationMs: 720, sequenceOnsetPhase: 0.06, pitchSemitones: 3, timbre: 0.48 }),
+  defineSound({ id: "crunching", label: "CRUNCH", key: "[", color: "#90be6d", animalId: "wildboar", callId: "wildboar-grunt", articulationId: "crunch", durationMs: 560, sequenceOnsetPhase: 0, pitchSemitones: -1, timbre: 0.42 }),
+  defineSound({ id: "jumping", label: "JUMP", key: "]", color: "#f9c74f", animalId: "bullfrog", callId: "bullfrog-grunt", articulationId: "jump", durationMs: 620, sequenceOnsetPhase: 0, pitchSemitones: -8, timbre: -0.4 }),
 ]);
 
 const soundById = new Map(CREATURAZOID_SOUNDS.map((sound) => [sound.id, sound]));
@@ -1061,17 +1154,61 @@ export function creaturazoidAttackPhase(eventOrId, normalizedPhase, candidate = 
   );
 }
 
-export const creaturazoidRhythmicGesturePhase = creaturazoidAttackPhase;
+/** The first authored phase worth putting directly on a sequencer edge.
+ * Vocal calls jump to their established 65%-pressure attack point. Physical
+ * actions use an explicit acoustic onset so a closed airway, an approaching
+ * claw, or the wind-up of a tail does not consume the rhythmic slot. */
+export function creaturazoidSequenceOnsetPhase(eventOrId) {
+  const sound = eventFrom(eventOrId);
+  return sound.sequenceOnsetPhase == null
+    ? creaturazoidNativeAttackPhase(sound)
+    : clamp(sound.sequenceOnsetPhase, 0, 0.9);
+}
+
+/** Crop, rather than squeeze, the weak native prefix. This constant timeline
+ * translation preserves the duration between every retained peak and motion
+ * keyframe while putting useful acoustic energy on phase zero. */
+export function creaturazoidRhythmicGesturePhase(eventOrId, normalizedPhase) {
+  const phase = clamp(normalizedPhase);
+  const onset = creaturazoidSequenceOnsetPhase(eventOrId);
+  return phase >= 1 ? 1 : onset + phase * (1 - onset);
+}
+
+export function creaturazoidSequenceDurationSeconds(eventOrId) {
+  const sound = eventFrom(eventOrId);
+  return sound.durationMs / 1_000 * (1 - creaturazoidSequenceOnsetPhase(sound));
+}
+
+export function creaturazoidLevelMakeup(eventOrId) {
+  return clamp(eventFrom(eventOrId).levelMakeup ?? 1, 0.36, 7);
+}
+
+export function creaturazoidBodyLevelTrim(eventOrId, candidate = CREATURAZOID_DEFAULTS) {
+  const sound = eventFrom(eventOrId);
+  const requestedBodyId = typeof candidate === "string"
+    ? candidate
+    : candidate?.bodyPresetId ?? candidate?.voicePresetId;
+  const bodyId = creaturazoidBodyPreset(requestedBodyId).id;
+  const familyTrim = CREATURAZOID_BODY_FAMILY_LEVEL_TRIM[bodyId]?.[sound.family] ?? 1;
+  const soundTrim = CREATURAZOID_BODY_SOUND_LEVEL_TRIM[bodyId]?.[sound.id] ?? 1;
+  return clamp(familyTrim * soundTrim, 1, 3.75);
+}
 
 /**
  * Sample-addressed control times for one physical gesture. Eight points per
  * fastest modulation cycle keep vibrato fluid, while explicit morph markers
  * ensure that even the 12 ms body transition cannot fall between snapshots.
  */
-export function creaturazoidContourOffsets(durationSeconds, candidate = CREATURAZOID_DEFAULTS, soundOrId = null) {
+export function creaturazoidContourOffsets(
+  durationSeconds,
+  candidate = CREATURAZOID_DEFAULTS,
+  soundOrId = null,
+  options = {},
+) {
   const duration = clamp(finiteOr(durationSeconds, 0.08), 0.001, 3.2);
   const safe = sanitizeCreaturazoidState(candidate);
   const preset = bodyPresetForState(safe);
+  const sequenced = Boolean(options?.sequenced ?? options?.rhythmic);
   const nominalRate = Math.max(0.001, preset.settings.modulationRateHz);
   const bodyRateScale = safe.modulationRateHz / nominalRate;
   const fastestBodyMotionHz = Math.max(0, ...preset.modulations.flatMap(({ speed }) => (
@@ -1100,9 +1237,27 @@ export function creaturazoidContourOffsets(durationSeconds, candidate = CREATURA
     const sound = typeof soundOrId === "object"
       ? creaturazoidSound(soundOrId.id ?? soundOrId.soundId)
       : creaturazoidSound(soundOrId);
+    const onset = sequenced ? creaturazoidSequenceOnsetPhase(sound) : 0;
+    const addAuthoredPhase = (phase) => {
+      const authored = clamp(finiteOr(phase, 0));
+      if (authored + 1e-12 < onset) return;
+      offsets.add(clamp((authored - onset) / Math.max(1e-9, 1 - onset)) * duration);
+    };
+    for (const points of Object.values(CALL_GESTURES[sound.callId]?.curves ?? {})) {
+      for (const [phase] of points) addAuthoredPhase(phase);
+    }
+    for (const modulation of preset.modulations) {
+      for (const [phase] of modulation.speed) addAuthoredPhase(phase);
+      for (const [phase] of modulation.depth) addAuthoredPhase(phase);
+    }
     if (sound.articulation) {
       for (const points of Object.values(sound.articulation.curves)) {
-        for (const [phase] of points) offsets.add(clamp(phase) * duration);
+        for (const [phase] of points) addAuthoredPhase(phase);
+      }
+      const contact = sound.articulation.contact;
+      if (contact) {
+        for (const [phase] of contact.scrapeGain) addAuthoredPhase(phase);
+        for (const strike of contact.strikes) addAuthoredPhase(strike.phase);
       }
     }
   }
@@ -1277,6 +1432,7 @@ function eventResolutionOptions(stateOrOptions, maybeOptions) {
   const candidate = stateOrOptions && typeof stateOrOptions === "object" ? stateOrOptions : {};
   const isOptions = [
     "state", "globalState", "phase", "gesturePhase", "elapsedSeconds", "velocity", "dynamic",
+    "sequenced", "rhythmic",
   ].some((name) => Object.hasOwn(candidate, name));
   if (isOptions) return { ...candidate, state: candidate.state ?? candidate.globalState ?? candidate };
   return { ...(maybeOptions ?? {}), state: candidate };
@@ -1379,7 +1535,13 @@ export function resolveCreaturazoidEventState(eventOrId, stateOrOptions = CREATU
   const globalState = sanitizeCreaturazoidState(options.state);
   const phase = clamp(options.phase ?? options.gesturePhase ?? 0);
   const velocity = clamp(options.velocity ?? options.dynamic ?? 1);
-  const callPhase = creaturazoidAttackPhase(sound, phase, globalState);
+  const sequenced = Boolean(options.sequenced ?? options.rhythmic);
+  const authoredPhase = sequenced
+    ? creaturazoidRhythmicGesturePhase(sound, phase)
+    : phase;
+  const callPhase = sequenced
+    ? authoredPhase
+    : creaturazoidAttackPhase(sound, phase, globalState);
   const base = creaturazoidBodyBaseline(sound, globalState);
   const effectiveTimbre = clamp(
     globalState.timbre + sound.timbre * 0.42,
@@ -1397,14 +1559,17 @@ export function resolveCreaturazoidEventState(eventOrId, stateOrOptions = CREATU
   const gestured = interpolateGesture(sound.callId, callPhase, timbreState);
   const bodyMotionResolution = applyBodyMotion(gestured, sound, callPhase, globalState);
   const modulated = bodyMotionResolution.host;
-  const articulation = creaturazoidArticulationAt(sound, phase);
+  const articulationPhase = sequenced ? authoredPhase : phase;
+  const articulation = creaturazoidArticulationAt(sound, articulationPhase);
   const articulatedPressure = sound.articulation
     ? Math.max(
       modulated.pressure * articulation.voicing,
       base.pressure * articulation.pressure,
     )
     : modulated.pressure;
-  const localSeconds = phase * sound.durationMs / 1_000;
+  const localSeconds = phase * sound.durationMs / 1_000 * (
+    sequenced ? 1 - creaturazoidSequenceOnsetPhase(sound) : 1
+  );
   const vibratoValue = sampleModulationWave("sine", localSeconds * globalState.vibratoRateHz);
   const effectivePitchSemitones = clamp(
     globalState.pitchSemitones
@@ -1442,6 +1607,7 @@ export function resolveCreaturazoidEventState(eventOrId, stateOrOptions = CREATU
     active: phase < 1 && velocity > 0,
     biologicalLock: false,
     gesturePhase: phase,
+    authoredPhase,
     callPhase,
     sourceFrequencyRatio,
     effectivePitchSemitones,
@@ -1458,7 +1624,9 @@ export function resolveCreaturazoidEventState(eventOrId, stateOrOptions = CREATU
     velocity,
     morphTimeMs: globalState.morphTimeMs,
     articulation,
+    articulationPhase,
     gestureType: sound.gestureType,
+    sequenced,
   };
 }
 
