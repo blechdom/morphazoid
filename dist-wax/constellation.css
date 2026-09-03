@@ -849,7 +849,8 @@
   background-size: 32px 32px, 32px 32px, auto, auto;
   scrollbar-color: #284047 transparent;
   scrollbar-width: thin;
-  touch-action: none;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
 }
 
 .projection-canvas:focus-visible {
@@ -2146,10 +2147,11 @@
 /* Typed connections, ports, and recursive nodes ------------------------ */
 
 .constellation-device-graph {
-  width: max(100%, 760px);
-  height: calc(100% - 38px);
-  min-height: 430px;
+  width: max(100%, var(--graph-surface-width, 1000px));
+  height: max(calc(100% - 38px), var(--graph-surface-height, 600px));
+  min-height: var(--graph-surface-height, 600px) !important;
   overflow: visible;
+  touch-action: pan-x pan-y;
 }
 
 .constellation-typed-edge {

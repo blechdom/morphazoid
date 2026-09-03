@@ -12,6 +12,46 @@ async function graphTopology(canvas) {
   }));
 }
 
+async function graphLayout(canvas) {
+  return canvas.evaluate((host) => {
+    const svg = host.querySelector(".constellation-device-graph");
+    const nodes = [...host.querySelectorAll("[data-device-node-id]")].map((node) => {
+      const body = node.querySelector(":scope > .constellation-node-action");
+      const bounds = body?.getBoundingClientRect();
+      return bounds ? {
+        id: node.getAttribute("data-device-node-id"),
+        left: bounds.left,
+        right: bounds.right,
+        top: bounds.top,
+        bottom: bounds.bottom,
+      } : null;
+    }).filter(Boolean);
+    const overlaps = [];
+    for (let firstIndex = 0; firstIndex < nodes.length; firstIndex += 1) {
+      for (let secondIndex = firstIndex + 1; secondIndex < nodes.length; secondIndex += 1) {
+        const first = nodes[firstIndex];
+        const second = nodes[secondIndex];
+        if (
+          first.left < second.right - 1
+          && first.right > second.left + 1
+          && first.top < second.bottom - 1
+          && first.bottom > second.top + 1
+        ) overlaps.push(`${first.id}:${second.id}`);
+      }
+    }
+    return {
+      density: svg?.dataset.graphDensity ?? null,
+      surfaceWidth: Number(svg?.dataset.graphSurfaceWidth),
+      surfaceHeight: Number(svg?.dataset.graphSurfaceHeight),
+      clientWidth: host.clientWidth,
+      clientHeight: host.clientHeight,
+      scrollWidth: host.scrollWidth,
+      scrollHeight: host.scrollHeight,
+      overlaps,
+    };
+  });
+}
+
 test("Morphazoid Composer views expose the same recursive typed patch", async ({ page }) => {
   const diagnostics = [];
   page.on("pageerror", (error) => diagnostics.push(error.message));
@@ -26,6 +66,15 @@ test("Morphazoid Composer views expose the same recursive typed patch", async ({
   const rootTopology = await graphTopology(constellation);
   expect(rootTopology.graphPath).toBeTruthy();
   expect(rootTopology.nodes.length).toBeGreaterThan(4);
+  const rootLayout = await graphLayout(constellation);
+  expect(rootLayout).toMatchObject({
+    density: "spacious",
+    surfaceWidth: 1760,
+    surfaceHeight: 960,
+    overlaps: [],
+  });
+  expect(rootLayout.scrollWidth).toBeGreaterThan(rootLayout.clientWidth);
+  expect(rootLayout.scrollHeight).toBeGreaterThan(rootLayout.clientHeight);
   expect([...new Set(rootTopology.edges.map((edge) => edge.split(":").at(-1)))].sort()).toEqual([
     "audio",
     "control",
@@ -299,6 +348,10 @@ test("Morphazoid Composer remains navigable across graph views in a narrow viewp
 
   await expect(page.locator("#constellationCanvas")).toBeVisible();
   await expect(page.locator("#constellationCanvas [data-device-node-id]").first()).toBeVisible();
+  const narrowLayout = await graphLayout(page.locator("#constellationCanvas"));
+  expect(narrowLayout.density).toBe("spacious");
+  expect(narrowLayout.scrollWidth).toBeGreaterThan(narrowLayout.clientWidth);
+  expect(narrowLayout.overlaps).toEqual([]);
   await expect(page.locator("#graphBreadcrumb")).toBeVisible();
   await expect(page.locator("#instrumentBrowser")).toBeVisible();
   await expect(page.locator("#instrumentBrowser .constellation-instrument-card").first()).toBeVisible();

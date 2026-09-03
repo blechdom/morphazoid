@@ -54,8 +54,13 @@ const MAX_LIVE_ROUTE_DELAY_CYCLES = 2;
 const TIMELINE_GUTTER = 164;
 const MIN_PIXELS_PER_BEAT = 28;
 const MAX_PIXELS_PER_BEAT = 62;
-const GRAPH_WIDTH = 1_000;
-const GRAPH_HEIGHT = 520;
+const GRAPH_PADDING_X = 72;
+const GRAPH_PADDING_Y = 54;
+const GRAPH_SURFACE_TIERS = Object.freeze([
+  Object.freeze({ maximumNodes: 12, width: 1_000, height: 600, density: "standard" }),
+  Object.freeze({ maximumNodes: 22, width: 1_440, height: 800, density: "expanded" }),
+  Object.freeze({ maximumNodes: Number.POSITIVE_INFINITY, width: 1_760, height: 960, density: "spacious" }),
+]);
 const SIGNAL_COLORS = Object.freeze({
   trigger: "#e8c46b",
   audio: "#70e3e8",
@@ -326,15 +331,29 @@ function nodeCategory(node) {
   return node?.type === "port" ? `${node.signal} ${node.direction}` : "node";
 }
 
-function graphPoint(node) {
+function graphSurfaceGeometry(graph) {
+  const nodeCount = Array.isArray(graph?.nodes) ? graph.nodes.length : 0;
+  const tier = GRAPH_SURFACE_TIERS.find(({ maximumNodes }) => nodeCount <= maximumNodes)
+    ?? GRAPH_SURFACE_TIERS.at(-1);
   return {
-    x: 72 + clamp(node?.x, 0, 1, .5) * 856,
-    y: 54 + clamp(node?.y, 0, 1, .5) * 412,
+    ...tier,
+    paddingX: GRAPH_PADDING_X,
+    paddingY: GRAPH_PADDING_Y,
+    spanX: tier.width - GRAPH_PADDING_X * 2,
+    spanY: tier.height - GRAPH_PADDING_Y * 2,
+  };
+}
+
+function graphPoint(graph, node) {
+  const geometry = graphSurfaceGeometry(graph);
+  return {
+    x: geometry.paddingX + clamp(node?.x, 0, 1, .5) * geometry.spanX,
+    y: geometry.paddingY + clamp(node?.y, 0, 1, .5) * geometry.spanY,
   };
 }
 
 function nodePortPosition(graph, node, portDefinition) {
-  const at = graphPoint(node);
+  const at = graphPoint(graph, node);
   const ports = portsForNode(state.patch, graph, node).filter(({ direction }) => direction === portDefinition.direction);
   const index = Math.max(0, ports.findIndex(({ id }) => id === portDefinition.id));
   const spacing = Math.min(20, 58 / Math.max(1, ports.length));
@@ -685,10 +704,25 @@ function updateFlowLedger(beat = wrappedBeat(absoluteBeatNow()), ledger = dom.fl
 }
 
 function graphSvgPoint(event, svg) {
+  const point = svg.createSVGPoint?.();
+  const matrix = svg.getScreenCTM?.();
+  if (point && matrix) {
+    try {
+      point.x = event.clientX;
+      point.y = event.clientY;
+      const transformed = point.matrixTransform(matrix.inverse());
+      return { x: transformed.x, y: transformed.y };
+    } catch {
+      // Fall through to proportional coordinates for older SVG implementations.
+    }
+  }
   const bounds = svg.getBoundingClientRect();
+  const viewBox = svg.viewBox?.baseVal;
+  const width = finite(viewBox?.width, finite(svg.dataset.graphSurfaceWidth, 1_000));
+  const height = finite(viewBox?.height, finite(svg.dataset.graphSurfaceHeight, 600));
   return {
-    x: (event.clientX - bounds.left) * GRAPH_WIDTH / Math.max(1, bounds.width),
-    y: (event.clientY - bounds.top) * GRAPH_HEIGHT / Math.max(1, bounds.height),
+    x: (event.clientX - bounds.left) * width / Math.max(1, bounds.width),
+    y: (event.clientY - bounds.top) * height / Math.max(1, bounds.height),
   };
 }
 
@@ -697,13 +731,17 @@ function beginNodeDrag(event, graph, node, group, svg) {
   event.preventDefault();
   event.stopPropagation();
   let moved = false;
+  const geometry = graphSurfaceGeometry(graph);
   group.setPointerCapture?.(event.pointerId);
   const move = (moveEvent) => {
     const point = graphSvgPoint(moveEvent, svg);
-    const x = clamp((point.x - 72) / 856, 0, 1, node.x);
-    const y = clamp((point.y - 54) / 412, 0, 1, node.y);
+    const x = clamp((point.x - geometry.paddingX) / geometry.spanX, 0, 1, node.x);
+    const y = clamp((point.y - geometry.paddingY) / geometry.spanY, 0, 1, node.y);
     moved ||= Math.abs(x - node.x) > .002 || Math.abs(y - node.y) > .002;
-    group.setAttribute("transform", `translate(${72 + x * 856} ${54 + y * 412})`);
+    group.setAttribute(
+      "transform",
+      `translate(${geometry.paddingX + x * geometry.spanX} ${geometry.paddingY + y * geometry.spanY})`,
+    );
     group.dataset.previewX = String(x);
     group.dataset.previewY = String(y);
   };
@@ -873,9 +911,12 @@ function updateMonitorVisuals(panel) {
 
 function renderDeviceGraph(host, { live = false } = {}) {
   if (!host) return;
+  const previousScrollLeft = host.scrollLeft;
+  const previousScrollTop = host.scrollTop;
   host.replaceChildren();
   const graph = currentGraph(state.patch);
   if (!graph) return;
+  const geometry = graphSurfaceGeometry(graph);
   const toolbar = element("div", "constellation-graph-toolbar");
   toolbar.append(signalLegend());
   const prompt = element(
@@ -883,7 +924,7 @@ function renderDeviceGraph(host, { live = false } = {}) {
     `constellation-connect-prompt${state.connecting ? " is-connecting" : ""}`,
     state.connecting
       ? `CONNECT ${state.connecting.signal.toUpperCase()} · SELECT AN INPUT`
-      : live ? "LIVE OVERLAY · SAME TOPOLOGY" : "SELECT AN OUTPUT PORT, THEN AN INPUT",
+      : `${live ? "LIVE OVERLAY · SAME TOPOLOGY" : "SELECT AN OUTPUT PORT, THEN AN INPUT"}${geometry.density === "standard" ? "" : " · SCROLL TO EXPLORE"}`,
   );
   toolbar.append(prompt);
   if (state.connecting) {
@@ -895,12 +936,17 @@ function renderDeviceGraph(host, { live = false } = {}) {
   host.append(toolbar);
 
   const svg = svgElement("svg", {
-    viewBox: `0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`,
+    viewBox: `0 0 ${geometry.width} ${geometry.height}`,
     class: `constellation-flow-svg constellation-device-graph${live ? " is-live" : ""}`,
     role: "group",
     "aria-label": `${graph.label} ${live ? "live signal flow" : "patch graph"}`,
     "data-graph-path": graph.id,
+    "data-graph-density": geometry.density,
+    "data-graph-surface-width": geometry.width,
+    "data-graph-surface-height": geometry.height,
   });
+  svg.style.setProperty("--graph-surface-width", `${geometry.width}px`);
+  svg.style.setProperty("--graph-surface-height", `${geometry.height}px`);
   const markerPrefix = live ? "flow" : "patch";
   const defs = svgElement("defs");
   for (const signal of SIGNAL_TYPES) {
@@ -972,7 +1018,7 @@ function renderDeviceGraph(host, { live = false } = {}) {
   }
 
   for (const node of graph.nodes) {
-    const at = graphPoint(node);
+    const at = graphPoint(graph, node);
     const selected = state.selection?.kind === "node"
       && state.selection.graphId === graph.id
       && state.selection.nodeId === node.id;
@@ -1090,11 +1136,13 @@ function renderDeviceGraph(host, { live = false } = {}) {
     event.preventDefault();
     const point = graphSvgPoint(event, svg);
     insertDevice(deviceId, {
-      x: clamp((point.x - 72) / 856, 0, 1, .5),
-      y: clamp((point.y - 54) / 412, 0, 1, .5),
+      x: clamp((point.x - geometry.paddingX) / geometry.spanX, 0, 1, .5),
+      y: clamp((point.y - geometry.paddingY) / geometry.spanY, 0, 1, .5),
     });
   });
   host.append(svg);
+  host.scrollLeft = previousScrollLeft;
+  host.scrollTop = previousScrollTop;
   updateMonitorVisuals(host);
 
   if (live) {

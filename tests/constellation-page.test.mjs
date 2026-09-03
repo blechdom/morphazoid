@@ -153,6 +153,11 @@ test("Composer app binds recursive navigation, presets, MIDI, recording, spatial
   assert.match(app, /renderDeviceGraph\(dom\.constellationCanvas,\s*\{\s*live:\s*false\s*\}\)/);
   assert.match(app, /renderDeviceGraph\(dom\.flowCanvas,\s*\{\s*live:\s*true\s*\}\)/);
   assert.match(app, /Layout is deliberately independent from musical time and audio topology\./);
+  assert.match(app, /function graphSurfaceGeometry\(/);
+  assert.match(app, /data-graph-density/);
+  assert.match(app, /data-graph-surface-width/);
+  assert.match(app, /svg\.createSVGPoint/);
+  assert.match(app, /matrix\.inverse\(\)/);
   assert.match(app, /devicePresets\(node\.deviceId\)/);
   assert.match(app, /applyDevicePreset\(state\.patch, graph\.id, node\.id, input\.value\)/);
   assert.match(app, /function appendNodeTelemetry\(/);
@@ -204,6 +209,9 @@ test("Composer styles recursive devices, all four signal kinds, live observers, 
   }
   assert.match(css, /@media \(max-width: 620px\)/);
   assert.match(css, /prefers-reduced-motion/);
+  assert.match(css, /--graph-surface-width/);
+  assert.match(css, /--graph-surface-height/);
+  assert.match(css, /touch-action:\s*pan-x pan-y/);
 });
 
 test("Composer catalogue copy presents preset modules, observation, surround, and recording rather than a song arranger", async () => {
