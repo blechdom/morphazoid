@@ -181,8 +181,15 @@ test("Hiccup Head keeps one stable mouth, colored lids, and nose clearance", asy
   );
   assert.match(oralOpening, /const lipRimWidth = clamp\(Math\.min\(rx, ry\) \* 0\.04, 5, 10\)/);
   assert.match(oralOpening, /context\.ellipse\(cx, mouthY, mouthWidth, liveOpening/);
-  assert.equal(oralOpening.match(/context\.ellipse\(/g)?.length, 1);
-  assert.match(oralOpening, /context\.fill\(\);\s*context\.stroke\(\);/);
+  const canonicalMouthEllipses = oralOpening.match(/context\.ellipse\(\s*cx,\s*mouthY,/g) ?? [];
+  assert.ok(canonicalMouthEllipses.length >= 1);
+  assert.equal(
+    canonicalMouthEllipses.length,
+    oralOpening.match(/context\.ellipse\(/g)?.length,
+    "every skin must reuse the one canonical mouth center",
+  );
+  assert.match(oralOpening, /source padding or asymmetry from ever reading as a second mouth/);
+  assert.match(oralOpening, /context\.clip\("evenodd"\)/);
   assert.doesNotMatch(oralOpening, /outerMouthWidth|lipGradient|stripe/);
 });
 
@@ -243,14 +250,20 @@ test("Hiccup Head keeps mutation audible and freckles clear of anatomy", async (
   assert.match(app, /const mouthDistance = Math\.hypot\(mouthDx, mouthDy\)/);
 });
 
-test("Hiccup Head stays centered and preserves the mobile sequencer row", async () => {
+test("Hiccup Head stays centered and keeps the mobile one-lane sequencer nearby", async () => {
   const [app, css] = await Promise.all([
     readFile(new URL("hiccup-head-app.js", root), "utf8"),
     readFile(new URL("hiccup-head.css", root), "utf8"),
   ]);
   assert.match(app, /const cx = cssWidth \* 0\.5/);
   assert.doesNotMatch(app, /headingClearance/);
-  assert.match(css, /grid-template-rows:[\s\S]*?minmax\(250px,[\s\S]*?8px[\s\S]*?minmax\(360px/);
+  const mobile = css.slice(css.indexOf("@media (max-width: 960px)"));
+  assert.match(mobile, /\.hiccup-head-shell\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(mobile, /\.hiccup-head-workspace\s*\{[\s\S]*?display:\s*contents/);
+  assert.match(mobile, /\.hiccup-head-stage\s*\{[\s\S]*?position:\s*sticky[\s\S]*?top:\s*0/);
+  assert.match(css, /\.hiccup-head-step-slot\s*\{[\s\S]*?grid-template-rows:\s*208px 24px/);
+  assert.match(mobile, /\.hiccup-head-step-slot\s*\{[\s\S]*?grid-template-rows:\s*150px 44px/);
+  assert.doesNotMatch(css, /\.hiccup-head-step-number/);
 });
 
 test("Hiccup Head loads black and warm white, then varies distinct step checker pairs", async () => {

@@ -4,23 +4,37 @@ import { readFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
 
-test("step headings are passive and the transport always loops the full sequence", async () => {
+test("there is no redundant step-number row and transport always loops the full sequence", async () => {
   const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
   assert.doesNotMatch(app, /stepRangeDrag|setLoopRange|queueSequenceStep|releaseSubloop/);
   assert.match(app, /sequenceStep = \(sequenceStep \+ 1\) % sequenceLength/);
-  assert.match(app, /const heading = document\.createElement\("span"\)/);
+  assert.doesNotMatch(app, /hiccup-head-step-number|gridHeadingsByStep/);
 });
 
-test("the grid shows programmed rows with replace and add sound menus", async () => {
+test("the grid is one monophonic lane with a numbered sound selector below every trigger", async () => {
   const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
-  assert.match(app, /function activeSequenceSounds\(\)[\s\S]*?pattern\[id\]\.some/);
-  assert.match(app, /addSoundSelect\.setAttribute\("aria-label", "Add sound row"\)/);
-  assert.match(app, /trigger = document\.createElement\("select"\)/);
-  assert.match(app, /changeSequenceRowSound\(sound\.id, trigger\.value\)/);
-  assert.match(app, /pattern\[nextId\]\[step\] = Math\.max\(pattern\[nextId\]\[step\], pattern\[previousId\]\[step\]\)/);
-  assert.match(app, /sequenceSoundOrder\[rowIndex\] = nextId/);
-  assert.match(app, /sequenceSoundOrder\.push\(soundId\)/);
-  assert.match(app, /new Set\(visibleSounds\.map\(\(\{ id \}\) => id\)\)/);
+  assert.match(app, /\[id, String\(index \+ 1\)\.padStart\(2, "0"\)\]/);
+  assert.match(app, /function soundOptions\(selectedId = ""\)[\s\S]*?emptyOption\.value = ""[\s\S]*?emptyOption\.textContent = "—"[\s\S]*?HICCUP_HEAD_SOUNDS\.forEach/);
+  assert.match(app, /grid\.setAttribute\("aria-rowcount", "1"\)/);
+  assert.match(app, /for \(let step = 0; step < sequenceLength; step \+= 1\)[\s\S]*?slot\.className = "hiccup-head-step-slot"[\s\S]*?cell\.className = "hiccup-head-step-cell"[\s\S]*?selector\.className = "hiccup-head-step-sound-select"[\s\S]*?slot\.append\(cell, preview, selector\)/);
+  assert.match(app, /\$\("sequenceGrid"\)\.addEventListener\("change", handleSequenceGridChange\)/);
+
+  const setStepSound = app.slice(
+    app.indexOf("function setStepSound("),
+    app.indexOf("function handleSequenceGridChange("),
+  );
+  assert.ok(setStepSound.startsWith("function setStepSound("));
+  assert.match(setStepSound, /const nextVelocity = currentEvent\?\.velocity \?\? 0\.72/);
+  assert.match(setStepSound, /clearStepExcept\(step, validNextId\)/);
+  assert.match(setStepSound, /if \(validNextId\)[\s\S]*?pattern\[validNextId\]\[step\] = nextVelocity/);
+  assert.match(setStepSound, /if \(!validNextId\)[\s\S]*?Step \$\{step \+ 1\} cleared/);
+
+  const gridBuilder = app.slice(
+    app.indexOf("function buildSequenceGrid("),
+    app.indexOf("function setSequenceLength("),
+  );
+  assert.doesNotMatch(gridBuilder, /voiceSlots|voiceChoice|voiceSelectionMode|voiceCharacterId/);
+  assert.doesNotMatch(app, /activeSequenceSounds|addSequenceSound|changeSequenceRowSound|sequenceSoundOrder|extraSequenceSoundIds/);
 });
 
 test("the audio clock prebuffers mobile work and skips late-event bursts", async () => {

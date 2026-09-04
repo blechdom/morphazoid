@@ -14,7 +14,7 @@
     <link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=a41910c0eb49" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav?v=d62e40ecbca2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hiccup-head.css?v=d8c09d0b14fa" />
+    <link rel="stylesheet" href="hiccup-head.css?v=171bc2bc5d47" />
   </head>
   <body class="hiccup-head-page">
     <header class="masthead">
@@ -54,6 +54,32 @@
           <input id="level" aria-label="Hiccup Head output level" type="range" min="0" max="0.82" step="0.01" value="0.76" />
         </label>
       </div>
+
+      <div class="hiccup-head-skin-tools" role="group" aria-label="Visual appearance">
+        <label class="hiccup-head-visual-skin" for="visualSkinSelect">
+          <span>Visual skin</span>
+          <select id="visualSkinSelect" aria-label="Visual skin" aria-describedby="visualSkinDescription">
+            <option value="checker">Checkerboard goofball</option>
+            <option value="cutout-collage">Cutout collage</option>
+            <option value="photo-1904">1904 photograph</option>
+            <option value="food-portrait">Food portrait</option>
+            <option value="ascii">ASCII terminal</option>
+            <option value="wild-ink">Zombie Zoid</option>
+          </select>
+        </label>
+        <button
+          class="hiccup-head-webcam-open"
+          id="openWebcamSkinButton"
+          type="button"
+          title="Make a visual skin with the webcam"
+          aria-label="Open webcam cut-up photobooth"
+          aria-haspopup="dialog"
+          aria-controls="webcamSkinDialog"
+        >
+          <span class="hiccup-head-camera-glyph" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="sr-only" id="visualSkinDescription">Visual-only control; changing the skin does not change sound, sequence, presets, or face controls.</p>
     </header>
 
     <main class="hiccup-head-shell" id="hiccup-head">
@@ -63,10 +89,10 @@
             <canvas
               id="stage"
               tabindex="0"
-              aria-label="A large purple-outline goofball beatbox face with two matched circular eyes, a big #FF0000-red circular nose, oval green thinning lips, and one missing upper front tooth. Click the nose to quack or drag it to change nasality. Tap any of its fifty-two colored face dots or twelve dry wood teeth; KISS leaves a fading lipstick print and BRUSH sweeps a visible toothbrush up and down across the teeth. Pull out the tongue; drag either eye in two dimensions, the ears, and independent side hair tips. Blue slap mitts appear only while dragging SLAP or SMACK."
-              aria-describedby="canvasInstructions liveStatus"
+              aria-label="A playable animated Hiccup Head with fifty-two sound triggers, twelve pitched teeth, a whistle gap, and movable face controls. Click the nose to quack or drag it to change nasality."
+              aria-describedby="canvasInstructions visualSkinDescription liveStatus"
             >
-              A large playable pink-purple outline goofball face with fifty-two colored trigger dots, fading lipstick kisses, a bidirectional toothbrush gliss, a whistling tooth gap, independent two-dimensional side hair, and hidden-at-rest blue slap mitts.
+              A playable animated face with fifty-two colored trigger dots, fading kisses, a bidirectional toothbrush gliss, a whistling tooth gap, independent side hair, and hidden-at-rest slap props.
             </canvas>
 
             <div class="hiccup-head-stage-heading" aria-hidden="true">
@@ -84,9 +110,9 @@
         <section class="hiccup-head-sequencer" aria-labelledby="sequencerTitle">
           <header class="hiccup-head-sequencer-header">
             <div class="hiccup-head-transport">
-              <button id="playButton" type="button" aria-pressed="false" data-primary-transport>
+              <button id="playButton" type="button" aria-pressed="false" data-primary-transport title="Play or pause sequence (Space)" aria-label="Play sequence">
                 <span class="hiccup-head-play-glyph" aria-hidden="true"></span>
-                <span><b id="playLabel">Play face</b><small id="playState">space · 16 steps</small></span>
+                <span class="hiccup-head-transport-copy"><b id="playLabel">Play face</b><small id="playState">space · 16 steps</small></span>
               </button>
               <button id="restartButton" type="button" title="Back to beginning" aria-label="Back to beginning">
                 <span aria-hidden="true">|◀</span>
@@ -106,6 +132,7 @@
                   <button type="button" data-sequence-length="16">16</button>
                   <button type="button" data-sequence-length="24">24</button>
                   <button type="button" data-sequence-length="32">32</button>
+                  <button type="button" data-sequence-length="48">48</button>
                   <button type="button" data-sequence-length="64">64</button>
                 </div>
               </div>
@@ -137,13 +164,36 @@
             </label>
           </header>
 
-          <div class="hiccup-head-grid-scroll" tabindex="0" aria-label="Horizontally and vertically scrollable fifty-two-sound sequence with any length from one to sixty-four steps">
+          <div class="hiccup-head-step-context" id="selectedStepContext" role="group" aria-label="Selected sequence step controls" hidden>
+            <label class="hiccup-head-step-editor-velocity" for="selectedStepVelocity">
+              <span>Volume <output id="selectedStepVelocityOut" for="selectedStepVelocity">72%</output></span>
+              <input id="selectedStepVelocity" type="range" min="0.05" max="1" step="0.01" value="0.72" />
+            </label>
+            <div class="hiccup-head-step-editor-span" role="group" aria-label="Sound length in steps">
+              <span>Span <output id="selectedStepSpanOut" for="selectedStepSpan">1</output></span>
+              <span class="hiccup-head-step-span-controls">
+                <button id="extendStepLeftButton" type="button" title="Extend one step to the left" aria-label="Extend selected sound one step to the left">←</button>
+                <input id="selectedStepSpan" type="range" min="1" max="8" step="1" value="1" aria-label="Selected sound length in steps" />
+                <button id="extendStepRightButton" type="button" title="Extend one step to the right" aria-label="Extend selected sound one step to the right">→</button>
+              </span>
+            </div>
+            <label class="hiccup-head-step-editor-mode" for="selectedStepMode">
+              <span>Across span</span>
+              <select id="selectedStepMode">
+                <option value="hold">Hold</option>
+                <option value="repeat">Repeat</option>
+              </select>
+            </label>
+            <button class="hiccup-head-step-clear" id="selectedStepClear" type="button" aria-label="Clear selected sequence step">Clear</button>
+          </div>
+
+          <div class="hiccup-head-grid-scroll" tabindex="0" aria-label="Horizontally scrollable monophonic sequence lane with any length from one to sixty-four steps">
             <div
               class="hiccup-head-sequence-grid"
               id="sequenceGrid"
               role="grid"
-              aria-label="Fifty-two Hiccup Head face, throat, breath, tongue, tooth, and mouth sounds by sixteen sequence steps. Change the length control to any whole number from one through sixty-four. Only one sound can occupy each step; activating a sound replaces any other sound in that column."
-              aria-rowcount="52"
+              aria-label="One Hiccup Head sequence lane with sixteen steps. Each step has one velocity trigger and a sound selector for choosing among the face, throat, breath, tongue, tooth, and mouth sounds. Change the length control to any whole number from one through sixty-four."
+              aria-rowcount="1"
               aria-colcount="16"
             ></div>
           </div>
@@ -164,6 +214,13 @@
             <span aria-hidden="true">✦</span>
             <span><b>Mutate the whole face</b></span>
           </button>
+        </section>
+
+        <section class="hiccup-head-pad-section" aria-labelledby="padBankTitle">
+          <header class="hiccup-head-pad-heading">
+            <h2 id="padBankTitle">Mouth, throat &amp; face</h2>
+          </header>
+          <div class="hiccup-head-pad-bank" id="padGrid" aria-label="Fifty-two playable Hiccup Head sound pads in a four-column grid"></div>
         </section>
 
         <section class="hiccup-head-voice-collection" aria-labelledby="voiceCollectionTitle">
@@ -200,13 +257,6 @@
             </button>
           </div>
           <div class="hiccup-head-voice-rack" id="voiceRack" role="list" aria-label="Mutable and soloable voice characters" aria-live="polite"></div>
-        </section>
-
-        <section class="hiccup-head-pad-section" aria-labelledby="padBankTitle">
-          <header class="hiccup-head-pad-heading">
-            <h2 id="padBankTitle">Mouth, throat &amp; face</h2>
-          </header>
-          <div class="hiccup-head-pad-bank" id="padGrid" aria-label="Fifty-two playable Hiccup Head sound pads in a four-column grid"></div>
         </section>
 
         <div class="hiccup-head-model-hud" aria-live="polite">
@@ -380,21 +430,110 @@
       </aside>
     </main>
 
+    <dialog
+      class="hiccup-head-webcam-dialog"
+      id="webcamSkinDialog"
+      aria-labelledby="webcamSkinTitle"
+      aria-describedby="webcamSkinIntro webcamSkinPrivacy"
+    >
+      <form class="hiccup-head-webcam-sheet" method="dialog">
+        <header class="hiccup-head-webcam-heading">
+          <div>
+            <span>Visual only</span>
+            <h2 id="webcamSkinTitle">Webcam cut-up photobooth</h2>
+          </div>
+          <button id="closeWebcamSkinButton" type="button" aria-label="Close webcam cut-up photobooth">
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+
+        <p id="webcamSkinIntro">
+          Line up your head, hair, eyes, nose, and mouth with the guides. Select a guide to resize it, or drag its outline into place before freezing one frame.
+        </p>
+        <p class="hiccup-head-webcam-privacy" id="webcamSkinPrivacy">
+          The frame stays only in this tab. It is never uploaded or saved; reloading or leaving removes it.
+        </p>
+
+        <div class="hiccup-head-webcam-preview" id="webcamSkinPreview" aria-describedby="webcamSkinStatus webcamSkinError">
+          <div class="hiccup-head-webcam-placeholder" aria-hidden="true">
+            <span>Camera off</span>
+            <small>Start the camera when you are ready.</small>
+          </div>
+          <video
+            id="webcamSkinVideo"
+            autoplay
+            muted
+            playsinline
+            disablepictureinpicture
+            hidden
+            aria-label="Mirrored live webcam preview with movable face-position guides"
+          ></video>
+          <canvas
+            id="webcamSkinFrame"
+            width="768"
+            height="768"
+            hidden
+            role="img"
+            aria-label="Frozen webcam frame with movable face-position guides"
+          >
+            Frozen webcam frame for the local visual skin.
+          </canvas>
+          <div class="hiccup-head-webcam-guides" id="webcamSkinGuides" role="group" aria-label="Movable webcam cut-up guides" hidden>
+            <button type="button" data-webcam-guide="head" aria-label="Select and move the head guide" aria-pressed="true"><span>Head</span></button>
+            <button type="button" data-webcam-guide="hair" aria-label="Select and move the hair guide" aria-pressed="false"><span>Hair</span></button>
+            <button type="button" data-webcam-guide="leftEye" aria-label="Select and move the left eye guide" aria-pressed="false"><span>Left eye</span></button>
+            <button type="button" data-webcam-guide="rightEye" aria-label="Select and move the right eye guide" aria-pressed="false"><span>Right eye</span></button>
+            <button type="button" data-webcam-guide="nose" aria-label="Select and move the nose guide" aria-pressed="false"><span>Nose</span></button>
+            <button type="button" data-webcam-guide="mouth" aria-label="Select and move the mouth guide" aria-pressed="false"><span>Mouth</span></button>
+          </div>
+        </div>
+
+        <div class="hiccup-head-webcam-guide-controls" id="webcamGuideControls" aria-label="Selected guide controls">
+          <label for="webcamGuideSelect">
+            <span>Guide</span>
+            <select id="webcamGuideSelect" aria-label="Guide to adjust" aria-controls="webcamSkinGuides">
+              <option value="head">Head</option>
+              <option value="hair">Hair</option>
+              <option value="leftEye">Left eye</option>
+              <option value="rightEye">Right eye</option>
+              <option value="nose">Nose</option>
+              <option value="mouth">Mouth</option>
+            </select>
+          </label>
+          <label for="webcamGuideSize">
+            <span>Guide size <output id="webcamGuideSizeOut" for="webcamGuideSize">100%</output></span>
+            <input id="webcamGuideSize" type="range" min="60" max="160" step="1" value="100" aria-label="Selected guide size" aria-controls="webcamSkinGuides" />
+          </label>
+        </div>
+
+        <p class="hiccup-head-webcam-status" id="webcamSkinStatus" role="status" aria-live="polite">Camera off. Your instrument keeps its current sound.</p>
+        <p class="hiccup-head-webcam-error" id="webcamSkinError" role="alert" hidden></p>
+
+        <div class="hiccup-head-webcam-actions">
+          <button class="is-primary" id="startWebcamButton" type="button" aria-controls="webcamSkinVideo webcamSkinStatus">Start camera</button>
+          <button class="is-primary" id="freezeWebcamButton" type="button" aria-controls="webcamSkinVideo webcamSkinFrame webcamSkinStatus" disabled hidden>Freeze frame</button>
+          <button id="retakeWebcamButton" type="button" aria-controls="webcamSkinVideo webcamSkinFrame webcamSkinStatus" hidden>Retake</button>
+          <button class="is-primary" id="useWebcamSkinButton" type="button" aria-controls="stage visualSkinSelect" disabled hidden>Use as visual skin</button>
+          <button id="forgetWebcamSkinButton" type="button" aria-controls="stage visualSkinSelect" hidden>Forget photo</button>
+        </div>
+      </form>
+    </dialog>
+
     <p class="sr-only" id="canvasInstructions">
       Tap any of fifty-two colored trigger dots on clear face regions, twelve visible tooth tines, the visible missing-front-tooth gap, or a displayed pad shortcut to play the face, throat, breath, tongue, tooth, and mouth sounds. KISS leaves a fading lipstick print at a different face position; BRUSH alternates rising and falling sweeps across all twelve teeth.
-      The blue hands stay hidden at rest. Drag the SLAP or SMACK face dot onto different cheeks, jaw, forehead, or mouth zones to reveal a mitt and make a resonant strike.
+      Slap props stay hidden at rest. Drag the SLAP or SMACK face dot onto different cheeks, jaw, forehead, or mouth zones to reveal the prop and make a resonant strike. Zombie Zoid turns both props into oversized ice-cream cones and both draggable ears into circular saw blades without changing their sound controls.
       Drag either eye inward for warm plate reverb or outward for the York Minster cathedral late field. Drag the left eyelid down for a post-effects high-pass sweep or the right eyelid down for stable-volume whole-mix fuzz. Drag either eyebrow among five snapped rhythmic emphasis positions,
       the nose to change nasal tone, either ear for stereo width, either side-hair tip in two dimensions for its own feedback amount and delay time, and the tongue tip beyond the lips.
       Face presets and whole-face mutation move the anatomy, while the eyebrows, four effect switches, and their live face-controlled amounts stay unchanged.
       Drag the mouth anatomy beyond human ranges. Set the sequence to any whole-number length from one through
-      sixty-four steps. Each column holds at most one sound; selecting another row replaces that step's old sound.
+      sixty-four steps. Each column holds one velocity trigger with a sound selector directly below it; changing that selector replaces only that step's sound.
       The voice collection can cycle or randomly choose among one to eight mutable characters, one per event.
     </p>
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
     <link rel="modulepreload" href="src/hiccup-head-processor.js?v=150aee324f2c" />
-    <script type="module" src="hiccup-head-app.js?v=b32774290238"></script>
+    <script type="module" src="hiccup-head-app.js?v=5374b9651c84"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

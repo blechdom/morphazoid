@@ -9,6 +9,13 @@ import { fingerprintHiccupHead } from "../scripts/fingerprint-hiccup-head.mjs";
 
 const platePathname = "./assets/audio/hiccup-head-emt140-warm-plate.wav";
 const cathedralPathname = "./assets/audio/hiccup-head-york-minster-warm-hall.wav";
+const skinPathnames = [
+  "./assets/hiccup-head/skins/cut-paper-collage.webp",
+  "./assets/hiccup-head/skins/portrait-1904.webp",
+  "./assets/hiccup-head/skins/pantry-portrait.webp",
+  "./assets/hiccup-head/skins/vintage-magazine-face-fields.webp",
+  "./assets/hiccup-head/skins/wild-ink-decay-fields.webp",
+];
 
 function contentVersion(source) {
   return createHash("sha256").update(source).digest("hex").slice(0, 12);
@@ -20,6 +27,7 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   await Promise.all([
     mkdir(path.join(outputDirectory, "src"), { recursive: true }),
     mkdir(path.join(outputDirectory, "assets", "audio"), { recursive: true }),
+    mkdir(path.join(outputDirectory, "assets", "hiccup-head", "skins"), { recursive: true }),
   ]);
 
   const firstPlate = Buffer.from("first warm plate impulse");
@@ -37,7 +45,8 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
         'const processor = new URL("./src/hiccup-head-processor.js?v=stale-processor", import.meta.url);',
         `const plate = new URL("${platePathname}?v=stale-plate", import.meta.url);`,
         `const cathedral = new URL("${cathedralPathname}", import.meta.url);`,
-        "void processor; void plate; void cathedral;",
+        ...skinPathnames.map((pathname, index) => `const skin${index} = "${pathname}?v=stale-skin";`),
+        "void processor; void plate; void cathedral; void skin0; void skin1; void skin2; void skin3;",
         "",
       ].join("\n"),
     ),
@@ -55,6 +64,10 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
     ),
     writeFile(path.join(outputDirectory, platePathname), firstPlate),
     writeFile(path.join(outputDirectory, cathedralPathname), cathedral),
+    ...skinPathnames.map((pathname, index) => writeFile(
+      path.join(outputDirectory, pathname),
+      Buffer.from(`visual skin ${index}`),
+    )),
   ]);
 
   const first = await fingerprintHiccupHead(outputDirectory);
@@ -64,6 +77,11 @@ test("Hiccup Head publish fingerprints follow both warm room impulse contents", 
   const cathedralVersion = contentVersion(cathedral);
   assert.equal(first.roomImpulseVersions[platePathname], firstPlateVersion);
   assert.equal(first.roomImpulseVersions[cathedralPathname], cathedralVersion);
+  for (const [index, pathname] of skinPathnames.entries()) {
+    const expectedVersion = contentVersion(Buffer.from(`visual skin ${index}`));
+    assert.equal(first.visualSkinVersions[pathname], expectedVersion);
+    assert.match(firstApp, new RegExp(`${pathname.replaceAll(".", "\\.")}\\?v=${expectedVersion}`));
+  }
   assert.match(firstApp, new RegExp(`${platePathname.replaceAll(".", "\\.")}\\?v=${firstPlateVersion}`));
   assert.match(
     firstApp,

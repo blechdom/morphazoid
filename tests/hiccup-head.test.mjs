@@ -1909,7 +1909,7 @@ test.skip("Hiccup Head bounds mobile grid, canvas, and HUD work without hiding i
 
   assert.match(
     app,
-    /function flashSound\([\s\S]*?gridRowTriggersBySound\.get\(sound\.id\)[\s\S]*?padButtonsBySound\.get\(sound\.id\)/,
+    /function flashSound\([\s\S]*?for \(const element of \[padButtonsBySound\.get\(sound\.id\)\]\)/,
   );
   assert.doesNotMatch(
     app,
@@ -1917,11 +1917,11 @@ test.skip("Hiccup Head bounds mobile grid, canvas, and HUD work without hiding i
     "one hit must not flash every sequencer cell in its sound row",
   );
   assert.match(app, /let gridCellsByStep = \[\]/);
-  assert.match(app, /let gridCellsByRow = \[\]/);
+  assert.match(app, /let gridSelectorsByStep = \[\]/);
   assert.match(app, /let gridHeadingsByStep = \[\]/);
   assert.match(
     app,
-    /function updateGridPlayhead\(\)[\s\S]*?gridCellsByStep\[paintedGridStep\][\s\S]*?gridCellsByStep\[visibleStep\][\s\S]*?paintedGridStep = visibleStep/,
+    /function updateGridPlayhead\(\)[\s\S]*?gridCellsByStep\[paintedGridStep\]\?\.classList\.remove\("is-current"\)[\s\S]*?gridCellsByStep\[visibleStep\]\?\.classList\.add\("is-current"\)[\s\S]*?paintedGridStep = visibleStep/,
   );
   assert.doesNotMatch(
     app,
@@ -4296,9 +4296,9 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(html, /id="stage"[\s\S]*?tabindex="0"[\s\S]*?aria-label=/);
   assert.match(html, /aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="sequenceGrid"[\s\S]*?role="grid"/);
-  assert.match(html, /aria-rowcount="52"/);
+  assert.match(html, /aria-rowcount="1"/);
   assert.match(html, /aria-colcount="16"/);
-  assert.match(html, /Only one (?:sound|gesture|pose) can occupy each step/i);
+  assert.match(html, /Each step has one velocity trigger and a sound selector/i);
   assert.match(html, /beyond human ranges|beyond-human/i);
   assert.match(html, /id="padGrid"[\s\S]*?Fifty-two playable Hiccup Head sound pads/i);
   assert.match(html, /missing one upper front tooth/i);
@@ -4336,7 +4336,10 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
 
   assert.match(css, /\.hiccup-head-workspace\s*\{[\s\S]*?grid-template-rows:/);
   assert.match(css, /\.hiccup-head-sequence-grid\s*\{[\s\S]*?repeat\(var\(--hiccup-head-sequence-steps, 32\),/);
-  assert.match(css, /grid-template-rows:\s*27px repeat\(var\(--hiccup-head-sequence-sounds,\s*52\),/);
+  assert.match(css, /\.hiccup-head-sequence-grid\s*\{[\s\S]*?grid-template-rows:\s*24px minmax\(74px, auto\)/);
+  assert.doesNotMatch(css, /repeat\(var\(--hiccup-head-sequence-sounds/);
+  assert.match(css, /\.hiccup-head-step-slot\s*\{[\s\S]*?grid-template-rows:\s*40px 27px/);
+  assert.match(css, /\.hiccup-head-step-sound-select\s*\{/);
   assert.doesNotMatch(css, /\.hiccup-head-effect-contour-grid/);
   assert.match(css, /\.hiccup-head-grid-scroll\s*\{[\s\S]*?overflow:/);
   assert.match(css, /\.hiccup-head-step-cell:focus-visible/);
@@ -4357,6 +4360,12 @@ test.skip("Hiccup Head page, app, accessibility, catalogue, MIDI registry, and b
   assert.match(app, /HICCUP_HEAD_SOUNDS\.map\(\(sound, index\) =>/);
   assert.match(app, /button\.dataset\.padIndex = String\(index\)/);
   assert.match(app, /function buildSequenceGrid\(\)/);
+  assert.match(app, /grid\.setAttribute\("aria-rowcount", "1"\)/);
+  assert.match(app, /slot\.className = "hiccup-head-step-slot"/);
+  assert.match(app, /selector\.className = "hiccup-head-step-sound-select"/);
+  assert.match(app, /slot\.append\(cell, selector\)/);
+  assert.match(app, /emptyOption\.value = ""[\s\S]*?emptyOption\.textContent = "—"/);
+  assert.match(app, /const nextVelocity = currentEvent\?\.velocity \?\? 0\.72/);
   assert.match(app, /function setSequenceLength\(value,/);
   assert.doesNotMatch(app, /\[16, 32, 48, 64\]/);
   assert.match(app, /sequenceLength\s*=\s*clamp\([\s\S]{0,160}1,\s*HICCUP_HEAD_STEP_COUNT,?\s*\)/);

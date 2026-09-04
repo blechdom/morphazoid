@@ -19,6 +19,11 @@
 
 .hiccup-head-page .masthead {
   background: #0b0709;
+  gap: clamp(10px, 1.5vw, 20px);
+}
+
+.hiccup-head-page .audio-strip {
+  flex: 0 1 200px;
 }
 
 .hiccup-head-page .tab.active {
@@ -51,7 +56,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  grid-template-rows: minmax(220px, var(--hiccup-head-stage-height, 1fr)) 8px minmax(210px, var(--hiccup-head-grid-height, 30dvh));
+  grid-template-rows: minmax(220px, var(--hiccup-head-stage-height, 1fr)) 8px minmax(322px, var(--hiccup-head-grid-height, min(40dvh, 370px)));
 }
 
 .hiccup-head-workspace-splitter {
@@ -127,6 +132,504 @@
   margin: 0;
 }
 
+.hiccup-head-skin-tools {
+  display: grid;
+  width: clamp(184px, 18vw, 238px);
+  min-width: 160px;
+  height: 50px;
+  flex: 0 1 238px;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.hiccup-head-skin-tools .hiccup-head-visual-skin {
+  width: 100%;
+  min-width: 0;
+  height: 50px;
+  flex: none;
+}
+
+.hiccup-head-visual-skin {
+  position: relative;
+  display: grid;
+  width: clamp(132px, 14vw, 188px);
+  min-width: 112px;
+  height: 50px;
+  padding: 3px 4px;
+  flex: 0 1 188px;
+  align-content: center;
+  gap: 2px;
+  border: 1px solid rgba(244, 238, 233, 0.16);
+  border-radius: 6px;
+  color: rgba(244, 238, 233, 0.66);
+  background: rgba(8, 5, 7, 0.94);
+  font-size: 7px;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.hiccup-head-visual-skin span {
+  padding: 2px 5px 0;
+}
+
+.hiccup-head-visual-skin select {
+  width: 100%;
+  min-width: 0;
+  height: 31px;
+  min-height: 31px;
+  padding: 4px 27px 4px 8px;
+  border: 1px solid rgba(187, 140, 255, 0.3);
+  border-radius: 6px;
+  color: rgba(244, 238, 233, 0.94);
+  background: rgba(21, 13, 20, 0.94);
+  font: 700 10px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.hiccup-head-visual-skin select:focus-visible {
+  border-color: var(--hiccup-head-coral);
+  outline: 2px solid color-mix(in srgb, var(--hiccup-head-coral) 48%, transparent);
+  outline-offset: 1px;
+}
+
+.hiccup-head-webcam-open {
+  display: grid;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid rgba(101, 223, 232, 0.34);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--hiccup-head-cyan);
+  background: rgba(8, 5, 7, 0.94);
+  place-items: center;
+  line-height: 1;
+}
+
+.hiccup-head-camera-glyph {
+  position: relative;
+  display: block;
+  width: 21px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+}
+
+.hiccup-head-camera-glyph::before {
+  position: absolute;
+  top: -5px;
+  left: 3px;
+  width: 7px;
+  height: 4px;
+  border: 2px solid currentColor;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+  content: "";
+}
+
+.hiccup-head-camera-glyph::after {
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  width: 5px;
+  height: 5px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  content: "";
+}
+
+.hiccup-head-webcam-open:hover {
+  border-color: rgba(101, 223, 232, 0.78);
+  background: rgba(101, 223, 232, 0.08);
+}
+
+.hiccup-head-webcam-open:focus-visible {
+  border-color: var(--hiccup-head-coral);
+  outline: 2px solid color-mix(in srgb, var(--hiccup-head-coral) 48%, transparent);
+  outline-offset: 1px;
+}
+
+.hiccup-head-webcam-dialog {
+  width: min(520px, calc(100vw - 24px));
+  max-width: 520px;
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid rgba(244, 238, 233, 0.24);
+  border-radius: 12px;
+  color: var(--hiccup-head-bone);
+  background: #100b0e;
+  box-shadow: 0 22px 72px rgba(0, 0, 0, 0.72);
+  color-scheme: dark;
+  overscroll-behavior: contain;
+}
+
+.hiccup-head-webcam-dialog::backdrop {
+  background: rgba(3, 2, 3, 0.82);
+}
+
+.hiccup-head-webcam-dialog [hidden] {
+  display: none !important;
+}
+
+.hiccup-head-webcam-sheet {
+  display: grid;
+  margin: 0;
+  padding: 16px;
+  gap: 11px;
+}
+
+.hiccup-head-webcam-heading {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: start;
+  gap: 12px;
+}
+
+.hiccup-head-webcam-heading > div {
+  min-width: 0;
+}
+
+.hiccup-head-webcam-heading span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--hiccup-head-cyan);
+  font-size: 7px;
+  font-weight: 780;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.hiccup-head-webcam-heading h2 {
+  margin: 0;
+  font-size: clamp(17px, 4vw, 24px);
+  font-weight: 610;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+#closeWebcamSkinButton,
+.hiccup-head-webcam-actions button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(244, 238, 233, 0.18);
+  border-radius: 7px;
+  cursor: pointer;
+  color: rgba(244, 238, 233, 0.88);
+  background: rgba(244, 238, 233, 0.055);
+}
+
+#closeWebcamSkinButton {
+  display: grid;
+  width: 44px;
+  padding: 0;
+  place-items: center;
+  font-size: 24px;
+  line-height: 1;
+}
+
+#closeWebcamSkinButton:hover,
+.hiccup-head-webcam-actions button:hover:not(:disabled) {
+  border-color: rgba(255, 111, 121, 0.64);
+  background: rgba(255, 111, 121, 0.09);
+}
+
+#closeWebcamSkinButton:focus-visible,
+.hiccup-head-webcam-actions button:focus-visible {
+  outline: 2px solid var(--hiccup-head-coral);
+  outline-offset: 2px;
+}
+
+#webcamSkinIntro,
+.hiccup-head-webcam-privacy,
+.hiccup-head-webcam-status,
+.hiccup-head-webcam-error {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+#webcamSkinIntro {
+  color: rgba(244, 238, 233, 0.74);
+}
+
+.hiccup-head-webcam-privacy {
+  padding: 8px 10px;
+  border-left: 2px solid var(--hiccup-head-mint);
+  color: rgba(244, 238, 233, 0.86);
+  background: rgba(124, 231, 189, 0.055);
+}
+
+.hiccup-head-webcam-preview {
+  position: relative;
+  isolation: isolate;
+  width: min(100%, 460px);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid rgba(244, 238, 233, 0.22);
+  border-radius: 9px;
+  background: #050405;
+}
+
+.hiccup-head-webcam-placeholder,
+#webcamSkinVideo,
+#webcamSkinFrame,
+.hiccup-head-webcam-guides {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hiccup-head-webcam-placeholder {
+  z-index: 0;
+  display: grid;
+  padding: 24px;
+  color: rgba(244, 238, 233, 0.48);
+  background:
+    linear-gradient(rgba(101, 223, 232, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(101, 223, 232, 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 50% 48%, rgba(255, 111, 121, 0.09), transparent 43%),
+    #080608;
+  background-size: 28px 28px, 28px 28px, auto, auto;
+  place-content: center;
+  gap: 5px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.hiccup-head-webcam-placeholder span {
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+}
+
+.hiccup-head-webcam-placeholder small {
+  max-width: 220px;
+  font-size: 7px;
+  letter-spacing: 0.07em;
+  line-height: 1.4;
+}
+
+#webcamSkinVideo,
+#webcamSkinFrame {
+  z-index: 1;
+  display: block;
+  object-fit: cover;
+  background: #050405;
+}
+
+#webcamSkinVideo {
+  transform: scaleX(-1);
+}
+
+.hiccup-head-webcam-guides {
+  z-index: 2;
+  pointer-events: none;
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide] {
+  position: absolute;
+  z-index: 2;
+  left: var(--webcam-guide-left);
+  top: var(--webcam-guide-top);
+  width: var(--webcam-guide-width);
+  min-width: 44px;
+  height: var(--webcam-guide-height);
+  min-height: 44px;
+  padding: 0;
+  border: 2px dashed rgba(244, 238, 233, 0.9);
+  cursor: move;
+  pointer-events: auto;
+  touch-action: none;
+  color: rgba(244, 238, 233, 0.96);
+  background: rgba(8, 5, 7, 0.025);
+  box-shadow: 0 0 0 1px rgba(8, 5, 7, 0.88), inset 0 0 0 1px rgba(8, 5, 7, 0.72);
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide]:hover,
+.hiccup-head-webcam-guides [data-webcam-guide]:focus-visible,
+.hiccup-head-webcam-guides [data-webcam-guide][aria-pressed="true"] {
+  z-index: 5;
+  border-color: var(--hiccup-head-coral);
+  border-style: solid;
+  background: rgba(255, 111, 121, 0.055);
+}
+
+/* The large head rectangle must stay beneath its smaller feature guides even
+   while selected, otherwise it intercepts every eye/nose/mouth pointer. */
+.hiccup-head-webcam-guides [data-webcam-guide="head"][aria-pressed="true"] {
+  z-index: 1;
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide]:focus-visible {
+  outline: 2px solid rgba(101, 223, 232, 0.96);
+  outline-offset: 3px;
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide] span {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  max-width: calc(100% - 6px);
+  padding: 2px 4px;
+  overflow: hidden;
+  border-radius: 3px;
+  color: #fff;
+  background: rgba(8, 5, 7, 0.82);
+  font-size: 6px;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide="head"] {
+  z-index: 1;
+  --webcam-guide-left: 18%;
+  --webcam-guide-top: 9%;
+  --webcam-guide-width: 64%;
+  --webcam-guide-height: 86%;
+  border-radius: 50%;
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide="hair"] {
+  --webcam-guide-left: 22%;
+  --webcam-guide-top: 7%;
+  --webcam-guide-width: 56%;
+  --webcam-guide-height: 17%;
+  border-radius: 50% 50% 25% 25%;
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide="leftEye"] {
+  --webcam-guide-left: 27.5%;
+  --webcam-guide-top: 33.5%;
+  --webcam-guide-width: 19%;
+  --webcam-guide-height: 13%;
+  border-radius: 50%;
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide="rightEye"] {
+  --webcam-guide-left: 53.5%;
+  --webcam-guide-top: 33.5%;
+  --webcam-guide-width: 19%;
+  --webcam-guide-height: 13%;
+  border-radius: 50%;
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide="nose"] {
+  --webcam-guide-left: 43.5%;
+  --webcam-guide-top: 43%;
+  --webcam-guide-width: 13%;
+  --webcam-guide-height: 20%;
+  border-radius: 50%;
+}
+
+.hiccup-head-webcam-guides [data-webcam-guide="mouth"] {
+  --webcam-guide-left: 33%;
+  --webcam-guide-top: 61.5%;
+  --webcam-guide-width: 34%;
+  --webcam-guide-height: 15%;
+  border-radius: 50%;
+}
+
+.hiccup-head-webcam-guide-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hiccup-head-webcam-guide-controls label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.hiccup-head-webcam-guide-controls label > span {
+  display: flex;
+  min-width: 0;
+  color: rgba(244, 238, 233, 0.64);
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 7px;
+  font-weight: 720;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.hiccup-head-webcam-guide-controls output {
+  color: var(--hiccup-head-cyan);
+}
+
+.hiccup-head-webcam-guide-controls select,
+.hiccup-head-webcam-guide-controls input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.hiccup-head-webcam-guide-controls select {
+  padding: 7px 28px 7px 9px;
+  border: 1px solid rgba(244, 238, 233, 0.18);
+  border-radius: 6px;
+  color: rgba(244, 238, 233, 0.92);
+  background: #171116;
+  font-size: 10px;
+}
+
+.hiccup-head-webcam-guide-controls input[type="range"] {
+  margin: 0;
+  accent-color: var(--hiccup-head-coral);
+}
+
+.hiccup-head-webcam-status {
+  min-height: 14px;
+  color: var(--hiccup-head-mint);
+}
+
+.hiccup-head-webcam-error {
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 111, 121, 0.45);
+  border-radius: 6px;
+  color: #ffc2c7;
+  background: rgba(63, 11, 23, 0.48);
+}
+
+.hiccup-head-webcam-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hiccup-head-webcam-actions button {
+  padding: 8px 10px;
+  font-size: 9px;
+  font-weight: 720;
+}
+
+.hiccup-head-webcam-actions button.is-primary {
+  border-color: rgba(101, 223, 232, 0.54);
+  color: #07100d;
+  background: var(--hiccup-head-mint);
+}
+
+.hiccup-head-webcam-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .hiccup-head-face-effects {
   position: absolute;
   z-index: 5;
@@ -196,28 +699,37 @@
   min-width: 0;
   min-height: 74px;
   border-bottom: 1px solid rgba(244, 238, 233, 0.09);
-  grid-template-columns: minmax(198px, 1fr) 118px minmax(108px, 142px) 68px 62px minmax(108px, 140px) minmax(108px, 140px);
+  grid-template-columns: 96px 118px minmax(108px, 1fr) 68px 62px minmax(108px, 140px) minmax(108px, 140px);
   align-items: stretch;
 }
 
 .hiccup-head-transport {
   display: grid;
+  width: 96px;
   border-right: 1px solid rgba(244, 238, 233, 0.1);
-  grid-template-columns: minmax(126px, 1fr) 68px;
+  grid-template-columns: 52px 44px;
 }
 
 .hiccup-head-transport button {
   display: grid;
   min-width: 0;
-  padding: 9px 11px;
+  min-height: 44px;
+  padding: 0;
   cursor: pointer;
   color: var(--hiccup-head-muted);
   background: transparent;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto;
   align-content: center;
   align-items: center;
-  gap: 9px;
-  text-align: left;
+  gap: 0;
+  place-content: center;
+  text-align: center;
+}
+
+#playButton {
+  width: 52px;
+  min-width: 44px;
+  max-width: 52px;
 }
 
 .hiccup-head-transport button + button {
@@ -232,23 +744,15 @@
   outline-offset: -3px;
 }
 
-.hiccup-head-transport button b,
-.hiccup-head-transport button small {
-  display: block;
+.hiccup-head-transport-copy {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
-}
-
-.hiccup-head-transport button b {
-  font-size: 9px;
-  letter-spacing: 0.04em;
-}
-
-.hiccup-head-transport button small {
-  margin-top: 2px;
-  color: var(--hiccup-head-muted);
-  font-size: 7px;
+  border: 0;
 }
 
 .hiccup-head-play-glyph {
@@ -484,29 +988,40 @@
 
 .hiccup-head-grid-scroll {
   position: relative;
+  display: grid;
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: 8px 10px 11px;
+  padding: 6px 0 8px;
   scrollbar-color: rgba(255, 111, 121, 0.35) transparent;
   scrollbar-width: thin;
+  align-content: start;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
 .hiccup-head-sequence-grid {
-  display: grid;
-  width: max-content;
+  display: block;
+  width: 100%;
   min-width: 100%;
   min-height: 0;
-  grid-template-columns: 108px repeat(var(--hiccup-head-sequence-steps, 32), minmax(32px, 1fr));
-  grid-template-rows: 27px repeat(var(--hiccup-head-sequence-sounds, 52), 29px);
+  padding-bottom: 0;
+}
+
+.hiccup-head-sequence-grid.has-step-context {
+  padding-bottom: 86px;
+}
+
+.hiccup-head-grid-row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(var(--hiccup-head-sequence-columns, 16), minmax(0, 1fr));
   align-content: start;
-  gap: 3px;
+  gap: 0;
 }
 
 .hiccup-head-grid-corner,
-.hiccup-head-step-number {
+.hiccup-head-grid-lane-label {
   display: grid;
   color: rgba(154, 142, 147, 0.64);
   background: #0a0709;
@@ -521,123 +1036,164 @@
   top: 0;
   left: 0;
   box-shadow: 6px 0 12px rgba(8, 5, 7, 0.72);
-  grid-template-columns: minmax(0, 1fr) auto;
   padding: 3px 5px;
   text-align: left;
 }
 
-.hiccup-head-add-row-select {
-  width: 100%;
-  height: 21px;
-  border: 1px solid rgba(187, 140, 255, 0.32);
-  color: var(--hiccup-head-violet);
-  background: #0a0709;
-  font: 700 7px/1 var(--mono);
-}
-
-.hiccup-head-step-number {
-  position: sticky;
-  z-index: 7;
-  top: 0;
-  border-bottom: 1px solid rgba(244, 238, 233, 0.09);
-  border-top: 0;
-  border-right: 0;
-  border-left: 0;
-  cursor: default;
-}
-
-.hiccup-head-step-number:nth-child(4n + 2) {
-  color: var(--hiccup-head-bone);
-}
-
-.hiccup-head-row-trigger {
+.hiccup-head-grid-lane-label {
   position: sticky;
   z-index: 6;
   left: 0;
-  display: block;
   min-width: 0;
-  padding: 0 8px;
-  border-left: 2px solid var(--row-color);
-  cursor: pointer;
-  color: var(--hiccup-head-muted);
-  background: color-mix(in oklab, var(--row-color) 6%, #0b080a);
-  font: 650 7px/1 var(--mono);
+  padding: 8px;
+  border-left: 2px solid var(--hiccup-head-violet);
+  color: var(--hiccup-head-bone);
+  background: #0b080a;
+  font: 650 7px/1.35 var(--mono);
   box-shadow: 6px 0 12px rgba(8, 5, 7, 0.64);
   text-align: left;
 }
 
-.hiccup-head-row-trigger b,
-.hiccup-head-row-trigger small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.hiccup-head-step-slot {
+  --step-selector-height: 24px;
+  --step-cell-height: 208px;
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border-top: 1px solid rgba(244, 238, 233, 0.075);
+  border-right: 1px solid rgba(244, 238, 233, 0.075);
+  border-bottom: 1px solid rgba(244, 238, 233, 0.075);
+  background: rgba(244, 238, 233, 0.018);
+  grid-template-rows: 208px 24px;
+  align-content: start;
+  gap: 0;
 }
 
-.hiccup-head-row-trigger b {
-  color: var(--row-color);
-  font-size: 8px;
-  letter-spacing: 0.08em;
+.hiccup-head-step-slot:nth-child(4n + 1) {
+  border-left: 1px solid rgba(244, 238, 233, 0.2);
 }
 
-.hiccup-head-row-trigger small {
-  font-size: 6px;
-}
-
-.hiccup-head-row-trigger:hover,
-.hiccup-head-row-trigger:focus-visible,
-.hiccup-head-row-trigger.is-hit {
-  color: var(--hiccup-head-bone);
-  background: color-mix(in oklab, var(--row-color) 19%, #0b080a);
-  outline: 1px solid var(--row-color);
-  outline-offset: -2px;
+.hiccup-head-step-slot.is-selected {
+  z-index: 3;
+  box-shadow: inset 0 0 0 2px var(--row-color, var(--hiccup-head-mint));
 }
 
 .hiccup-head-step-cell {
   position: relative;
+  display: grid;
+  width: 100%;
   min-width: 0;
-  min-height: 24px;
-  border: 1px solid rgba(244, 238, 233, 0.1);
+  min-height: 208px;
+  overflow: hidden;
+  border: 0;
+  border-top: 1px solid rgba(244, 238, 233, 0.08);
+  border-bottom: 1px solid rgba(244, 238, 233, 0.08);
+  border-radius: 0;
   cursor: pointer;
-  color: var(--row-color);
-  background: rgba(244, 238, 233, 0.018);
-}
-
-.hiccup-head-step-cell:nth-of-type(4n + 1) {
-  border-left-color: rgba(244, 238, 233, 0.3);
+  color: var(--row-color, var(--hiccup-head-muted));
+  background: color-mix(in oklab, currentColor 3%, #0a0709);
+  grid-template-rows: minmax(0, 1fr) auto 34px;
+  place-items: center;
+  touch-action: manipulation;
 }
 
 .hiccup-head-step-cell::before {
   position: absolute;
-  right: 18%;
-  bottom: 20%;
-  left: 18%;
-  height: 2px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: calc(var(--step-velocity) * 100%);
+  border: 0;
+  border-radius: 0;
   background: currentColor;
-  box-shadow: 0 0 8px color-mix(in oklab, currentColor 45%, transparent);
   content: "";
-  opacity: 0;
-  transform-origin: bottom;
+  opacity: 0.78;
+  transform: none;
+  transform-origin: center bottom;
+  transition: height 80ms linear, opacity 80ms linear;
 }
 
-.hiccup-head-step-cell[data-level="1"]::before {
-  opacity: 0.42;
-  transform: scaleY(1);
+.hiccup-head-step-sound-number {
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: rgba(244, 238, 233, 0.94);
+  font: 850 clamp(6px, 1.1vw, 16px)/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(8, 5, 7, 0.92);
 }
 
-.hiccup-head-step-cell[data-level="2"]::before {
-  height: 34%;
-  opacity: 0.7;
+.hiccup-head-step-velocity-number {
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: rgba(244, 238, 233, 0.82);
+  text-shadow: 0 1px 3px rgba(8, 5, 7, 0.9);
+  font: 800 clamp(6px, 0.78vw, 10px)/1 var(--mono);
+  font-variant-numeric: tabular-nums;
 }
 
-.hiccup-head-step-cell[data-level="3"]::before {
-  top: 18%;
-  height: auto;
-  opacity: 1;
+.hiccup-head-step-audition {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: calc(var(--step-selector-height) + 2px);
+  left: 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 22px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, currentColor 58%, #080507);
+  border-radius: 0;
+  color: currentColor;
+  background: rgba(8, 5, 7, 0.72);
+  cursor: pointer;
+  font: 800 clamp(6px, 0.8vw, 10px)/1 var(--mono);
+}
+
+.hiccup-head-step-audition:hover,
+.hiccup-head-step-audition:focus-visible {
+  color: var(--hiccup-head-bone);
+  background: rgba(8, 5, 7, 0.94);
+  outline: 1px solid currentColor;
+  outline-offset: -2px;
+}
+
+.hiccup-head-step-audition:disabled {
+  cursor: default;
+  opacity: 0.24;
+}
+
+.hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-sound-number,
+.hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-velocity-number {
+  font-size: 6px;
+  line-height: 1;
+  writing-mode: vertical-rl;
 }
 
 .hiccup-head-step-cell[data-level]:not([data-level="0"]) {
-  border-color: color-mix(in oklab, var(--row-color) 54%, transparent);
-  background: color-mix(in oklab, var(--row-color) 12%, transparent);
+  border-color: color-mix(in oklab, var(--row-color, var(--hiccup-head-violet)) 54%, transparent);
+  background: color-mix(in oklab, var(--row-color, var(--hiccup-head-violet)) 12%, transparent);
+}
+
+.hiccup-head-step-slot[data-mode="hold"][data-continuation="true"] .hiccup-head-step-cell::before {
+  opacity: 0.58;
+}
+
+.hiccup-head-step-slot[data-mode="hold"][data-continuation="true"] .hiccup-head-step-sound-number {
+  opacity: 0.34;
+}
+
+.hiccup-head-step-slot.is-selected-span {
+  background: color-mix(in oklab, var(--row-color, var(--hiccup-head-mint)) 7%, #0a0709);
+}
+
+.hiccup-head-step-cell[data-level="0"] .hiccup-head-step-sound-number {
+  color: rgba(244, 238, 233, 0.42);
+  text-shadow: none;
 }
 
 .hiccup-head-step-cell.is-current {
@@ -648,9 +1204,151 @@
 
 .hiccup-head-step-cell:hover,
 .hiccup-head-step-cell:focus-visible {
-  border-color: var(--row-color);
-  outline: 1px solid var(--row-color);
+  border-color: var(--row-color, var(--hiccup-head-violet));
+  outline: 1px solid var(--row-color, var(--hiccup-head-violet));
   outline-offset: 1px;
+}
+
+.hiccup-head-step-sound-select {
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--row-color, var(--hiccup-head-muted)) 38%, transparent);
+  border-radius: 0;
+  color: var(--row-color, var(--hiccup-head-bone));
+  background: #080507;
+  cursor: pointer;
+  font: 800 9px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  text-align: center;
+  text-align-last: center;
+  text-overflow: ellipsis;
+  touch-action: manipulation;
+  appearance: none;
+}
+
+.hiccup-head-step-sound-select:disabled {
+  opacity: 0.72;
+}
+
+.hiccup-head-step-sound-select:hover,
+.hiccup-head-step-sound-select:focus-visible {
+  border-color: var(--row-color, var(--hiccup-head-violet));
+  outline: 1px solid var(--row-color, var(--hiccup-head-violet));
+  outline-offset: 1px;
+}
+
+.hiccup-head-step-context {
+  position: absolute;
+  z-index: 20;
+  top: calc(var(--step-cell-height) + var(--step-selector-height) + 4px);
+  left: 2px;
+  display: grid;
+  width: min(344px, calc(100vw - 24px));
+  min-height: 76px;
+  padding: 6px;
+  border: 1px solid color-mix(in oklab, var(--row-color, var(--hiccup-head-mint)) 62%, #080507);
+  color: var(--hiccup-head-muted);
+  background: rgba(8, 5, 7, 0.97);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.58);
+  grid-template-columns: minmax(82px, 1fr) minmax(116px, 1.15fr) 62px 42px;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.hiccup-head-step-context[hidden] {
+  display: none;
+}
+
+.hiccup-head-step-context > label,
+.hiccup-head-step-context > .hiccup-head-step-editor-span,
+.hiccup-head-step-context > button {
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid rgba(244, 238, 233, 0.09);
+  color: var(--hiccup-head-muted);
+  background: transparent;
+}
+
+.hiccup-head-step-context label,
+.hiccup-head-step-editor-span {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+}
+
+.hiccup-head-step-context label > span,
+.hiccup-head-step-editor-span > span:first-child {
+  display: flex;
+  min-width: 0;
+  color: var(--hiccup-head-muted);
+  justify-content: space-between;
+  gap: 6px;
+  font: 650 6px/1 var(--mono);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.hiccup-head-step-context select {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid rgba(124, 231, 189, 0.25);
+  border-radius: 0;
+  color: var(--hiccup-head-bone);
+  background: #080507;
+  font: 750 8px/1 var(--mono);
+}
+
+.hiccup-head-step-context input[type="range"] {
+  width: 100%;
+  height: 20px;
+  margin: 0;
+}
+
+.hiccup-head-step-span-controls {
+  display: grid;
+  min-width: 116px;
+  grid-template-columns: 28px minmax(54px, 1fr) 28px;
+  align-items: center;
+  gap: 3px;
+}
+
+.hiccup-head-step-span-controls button {
+  width: 28px;
+  height: 25px;
+  padding: 0;
+  border: 1px solid rgba(187, 140, 255, 0.3);
+  color: var(--hiccup-head-lilac);
+  background: rgba(187, 140, 255, 0.06);
+  cursor: pointer;
+}
+
+.hiccup-head-step-context > button {
+  display: grid;
+  min-height: 44px;
+  cursor: pointer;
+  font: 750 7px/1 var(--mono);
+  place-content: center;
+  gap: 3px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.hiccup-head-step-context button:hover,
+.hiccup-head-step-context button:focus-visible,
+.hiccup-head-step-context select:focus-visible,
+.hiccup-head-step-context input:focus-visible {
+  outline: 1px solid var(--hiccup-head-mint);
+  outline-offset: -2px;
+}
+
+.hiccup-head-step-context :disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 /* Control panel */
@@ -1299,6 +1997,15 @@ label.hiccup-head-voice-assignment,
   white-space: nowrap;
 }
 
+.hiccup-head-pad-number {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--pad-color);
+  font: 850 9px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+}
+
 .hiccup-head-pad-bank button b {
   color: var(--pad-color);
   font-size: 8px;
@@ -1441,7 +2148,7 @@ label.hiccup-head-voice-assignment,
 
 @media (max-width: 1500px) {
   .hiccup-head-sequencer-header {
-    grid-template-columns: 182px 112px minmax(120px, 1fr) 62px 58px minmax(105px, 126px) minmax(105px, 126px);
+    grid-template-columns: 96px 112px minmax(120px, 1fr) 62px 58px minmax(105px, 126px) minmax(105px, 126px);
   }
 }
 
@@ -1451,7 +2158,7 @@ label.hiccup-head-voice-assignment,
   }
 
   .hiccup-head-sequencer-header {
-    grid-template-columns: 178px 106px minmax(125px, 1fr) 58px 54px;
+    grid-template-columns: 96px 106px minmax(125px, 1fr) 58px 54px;
     grid-template-rows: 66px 52px;
   }
 
@@ -1468,14 +2175,14 @@ label.hiccup-head-voice-assignment,
   }
 
   .hiccup-head-workspace {
-    grid-template-rows: minmax(280px, 1fr) 8px clamp(300px, 35dvh, 356px);
+    grid-template-rows: minmax(280px, 1fr) 8px clamp(322px, 40dvh, 370px);
   }
 }
 
 @media (max-width: 960px) {
   .hiccup-head-page {
     height: 100dvh;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .hiccup-head-page .masthead {
@@ -1486,34 +2193,41 @@ label.hiccup-head-voice-assignment,
 
   .hiccup-head-shell {
     display: block;
-    height: auto;
+    height: calc(100dvh - 58px);
     min-height: calc(100dvh - 58px);
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
   }
 
   .hiccup-head-workspace {
-    display: grid;
-    height: auto;
-    min-height: 648px;
-    overflow: visible;
-    grid-template-rows:
-      minmax(260px, var(--hiccup-head-stage-height, clamp(280px, 44dvh, 420px)))
-      8px
-      minmax(360px, var(--hiccup-head-grid-height, 360px));
+    display: contents;
+  }
+
+  .hiccup-head-workspace-splitter {
+    display: none;
   }
 
   .hiccup-head-stage {
-    min-height: 0;
+    position: sticky;
+    z-index: 30;
+    top: 0;
+    height: clamp(280px, 44dvh, 420px);
+    min-height: clamp(280px, 44dvh, 420px);
     border-right: 0;
+    background: #080507;
   }
 
   .hiccup-head-sequencer {
+    min-height: 280px;
+    overflow: visible;
     border-right: 0;
+    grid-template-rows: auto auto;
   }
 
   .hiccup-head-grid-scroll {
     overscroll-behavior-x: contain;
-    overscroll-behavior-y: auto;
+    overscroll-behavior-y: none;
   }
 
   .hiccup-head-panel {
@@ -1529,19 +2243,19 @@ label.hiccup-head-voice-assignment,
   }
 
   .hiccup-head-shell {
+    height: calc(100dvh - 54px);
     min-height: calc(100dvh - 54px);
   }
 
   .hiccup-head-workspace {
-    min-height: 618px;
-    grid-template-rows:
-      minmax(250px, var(--hiccup-head-stage-height, clamp(250px, 40dvh, 340px)))
-      8px
-      minmax(360px, var(--hiccup-head-grid-height, 360px));
+    display: contents;
   }
 
   .hiccup-head-stage {
     display: grid;
+    top: 0;
+    height: clamp(250px, 40dvh, 340px);
+    min-height: clamp(250px, 40dvh, 340px);
     grid-template-rows: minmax(0, 1fr);
   }
 
@@ -1554,10 +2268,41 @@ label.hiccup-head-voice-assignment,
     font-size: 28px;
   }
 
+  .hiccup-head-skin-tools {
+    width: clamp(158px, 31vw, 194px);
+    min-width: 158px;
+    height: 44px;
+    flex: 0 1 194px;
+  }
+
+  .hiccup-head-visual-skin {
+    width: clamp(108px, 22vw, 142px);
+    min-width: 108px;
+    height: 44px;
+    padding: 0;
+    flex: 0 1 142px;
+  }
+
+  .hiccup-head-skin-tools .hiccup-head-visual-skin {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    flex: none;
+  }
+
+  .hiccup-head-visual-skin > span {
+    display: none;
+  }
+
+  .hiccup-head-visual-skin select {
+    min-height: 38px;
+    font-size: 9px;
+  }
+
   .hiccup-head-sequencer-header {
-    min-height: 158px;
+    min-height: 134px;
     grid-template-columns: minmax(132px, 1fr) 88px 72px 66px;
-    grid-template-rows: 68px 44px 46px;
+    grid-template-rows: 44px 44px 46px;
   }
 
   .hiccup-head-transport {
@@ -1589,19 +2334,28 @@ label.hiccup-head-voice-assignment,
     grid-row: 3;
   }
 
-  .hiccup-head-sequence-grid {
-    min-width: 100%;
-    grid-template-columns: 100px repeat(var(--hiccup-head-sequence-steps, 32), 40px);
+  .hiccup-head-step-slot {
+    --step-selector-height: 44px;
+    --step-cell-height: 150px;
+    grid-template-rows: 150px 44px;
+    gap: 0;
   }
 
   .hiccup-head-step-cell {
-    min-height: 30px;
+    min-height: 150px;
+  }
+
+  .hiccup-head-step-sound-select {
+    height: 40px;
+    padding-right: 2px;
+    padding-left: 2px;
+    font-size: 7px;
   }
 
   .hiccup-head-step-cell::before,
   .hiccup-head-step-cell.is-current,
   .hiccup-head-grid-corner,
-  .hiccup-head-row-trigger {
+  .hiccup-head-grid-lane-label {
     box-shadow: none;
   }
 
@@ -1648,19 +2402,128 @@ label.hiccup-head-voice-assignment,
   }
 }
 
+@media (max-width: 520px) {
+  .hiccup-head-page .masthead {
+    height: 120px;
+    min-height: 120px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    flex-wrap: wrap;
+    align-content: center;
+    row-gap: 0;
+  }
+
+  .hiccup-head-shell {
+    height: calc(100dvh - 120px);
+    min-height: calc(100dvh - 120px);
+  }
+
+  .hiccup-head-stage {
+    top: 0;
+    height: clamp(220px, 32dvh, 290px);
+    min-height: clamp(220px, 32dvh, 290px);
+  }
+
+  .hiccup-head-skin-tools {
+    width: 100%;
+    min-width: 100%;
+    height: 48px;
+    flex: 1 0 100%;
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+
+  .hiccup-head-visual-skin {
+    display: grid;
+    width: 100%;
+    min-width: 100%;
+    height: 48px;
+    padding: 2px 4px;
+    flex: 1 0 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+  }
+
+  .hiccup-head-skin-tools .hiccup-head-visual-skin {
+    width: 100%;
+    min-width: 0;
+    height: 48px;
+    flex: none;
+  }
+
+  .hiccup-head-visual-skin > span {
+    display: block;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+
+  .hiccup-head-visual-skin select {
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .hiccup-head-webcam-dialog {
+    width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    max-width: none;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    border-radius: 9px;
+  }
+
+  .hiccup-head-webcam-sheet {
+    padding: 11px;
+    gap: 8px;
+  }
+
+  .hiccup-head-webcam-preview {
+    width: min(100%, 360px);
+  }
+
+  .hiccup-head-webcam-guide-controls,
+  .hiccup-head-webcam-actions {
+    gap: 6px;
+  }
+}
+
 @media (max-width: 960px) and (max-height: 560px) {
-  .hiccup-head-workspace {
-    min-height: 568px;
-    grid-template-rows: clamp(200px, 48dvh, 240px) 8px 360px;
+  .hiccup-head-stage {
+    height: clamp(200px, 48dvh, 240px);
+    min-height: clamp(200px, 48dvh, 240px);
+  }
+
+  .hiccup-head-webcam-preview {
+    width: min(100%, 42dvh);
+  }
+
+  .hiccup-head-webcam-dialog {
+    max-height: calc(100dvh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
 }
 
 @media (pointer: coarse) {
+  .hiccup-head-visual-skin select {
+    min-height: 44px;
+  }
+
+  .hiccup-head-step-slot {
+    --step-selector-height: 44px;
+    --step-cell-height: 150px;
+    grid-template-rows: 150px 44px;
+    gap: 0;
+  }
+
   .hiccup-head-step-cell::before,
   .hiccup-head-step-cell.is-current,
   .hiccup-head-grid-corner,
-  .hiccup-head-row-trigger {
+  .hiccup-head-grid-lane-label {
     box-shadow: none;
+  }
+
+  .hiccup-head-step-cell {
+    min-height: 150px;
+  }
+
+  .hiccup-head-step-sound-select {
+    min-height: 44px;
   }
 
   .hiccup-head-step-cell.is-current {

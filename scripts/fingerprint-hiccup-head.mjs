@@ -6,6 +6,13 @@ const roomImpulsePathnames = Object.freeze([
   "./assets/audio/hiccup-head-emt140-warm-plate.wav",
   "./assets/audio/hiccup-head-york-minster-warm-hall.wav",
 ]);
+const visualSkinPathnames = Object.freeze([
+  "./assets/hiccup-head/skins/cut-paper-collage.webp",
+  "./assets/hiccup-head/skins/portrait-1904.webp",
+  "./assets/hiccup-head/skins/pantry-portrait.webp",
+  "./assets/hiccup-head/skins/vintage-magazine-face-fields.webp",
+  "./assets/hiccup-head/skins/wild-ink-decay-fields.webp",
+]);
 
 function contentVersion(source) {
   return createHash("sha256").update(source).digest("hex").slice(0, 12);
@@ -48,6 +55,15 @@ export async function fingerprintHiccupHead(outputDirectory) {
   for (const [pathname, version] of Object.entries(roomImpulseVersions)) {
     app = versionReference(app, pathname, version);
   }
+  const visualSkinVersions = Object.fromEntries(await Promise.all(
+    visualSkinPathnames.map(async (pathname) => {
+      const asset = await readFile(path.join(outputDirectory, pathname));
+      return [pathname, contentVersion(asset)];
+    }),
+  ));
+  for (const [pathname, version] of Object.entries(visualSkinVersions)) {
+    app = versionReference(app, pathname, version);
+  }
   await writeFile(appPath, app, "utf8");
   const appVersion = contentVersion(app);
 
@@ -70,5 +86,6 @@ export async function fingerprintHiccupHead(outputDirectory) {
     modelVersion,
     processorVersion,
     roomImpulseVersions,
+    visualSkinVersions,
   };
 }
