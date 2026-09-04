@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 122);
+  assert.equal(INSTRUMENTS.length, 123);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -588,6 +588,7 @@ test("catalogue tag controls hide experiments until All is restored", () => {
   const homeCardIds = rendered.grid.children.map(({ dataset }) => dataset.instrumentId);
   assert.deepEqual(homeCardIds.slice(0, FAVE_TOOL_IDS.length), FAVE_TOOL_IDS);
   assert.equal(homeCardIds.includes("combo"), false);
+  assert.equal(homeCardIds.includes("l-systems"), true);
   assert.deepEqual(
     rendered.deferredAppGrid.children.map(({ dataset }) => dataset.instrumentId),
     ["combo"],

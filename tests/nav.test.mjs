@@ -271,7 +271,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 126);
+  assert.equal(tools.length, 127);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -1050,7 +1050,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.deepEqual(
     groupNodes.at(-1).findAll((node) => node.classList.contains("instrument-picker-link"))
       .map((link) => link.getAttribute("data-tool-id")),
-    ["combo"],
+    ["combo", "l-systems"],
   );
   assert.equal(groupNodes[0].open, true);
   assert.equal(
@@ -1128,7 +1128,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.equal(doc.select.children.at(-1).label, "Apps");
   assert.deepEqual(
     doc.select.children.at(-1).children.map((option) => option.textContent),
-    ["Shapes"],
+    ["Shapes", "L-Systems"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   const orbitalFerrisOption = doc.select.findAll(
