@@ -823,7 +823,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "chladni-plate", href: "chladni-plate.html" },
       { id: "spring-choir", href: "spring-choir.html" },
       { id: "gear-ratio-drums", href: "gear-ratio-drums.html" },
-      { id: "cellular-automata", href: "automata.html" },
+      { id: "cellular-automata", href: "automatapoeia.html" },
       { id: "prime-sieve", href: "prime-sieve.html" },
       { id: "lissajous-orbits", href: "lissajous-orbits.html" },
       { id: "pendulum-wave", href: "pendulum-wave.html" },
@@ -945,7 +945,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}chladni-plate.html`, SITE_ROOT)?.id, "chladni-plate");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spring-choir.html`, SITE_ROOT)?.id, "spring-choir");
   assert.equal(resolveActiveTool(`${SITE_ROOT}gear-ratio-drums.html`, SITE_ROOT)?.id, "gear-ratio-drums");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}automata.html`, SITE_ROOT)?.id, "cellular-automata");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}automatapoeia.html`, SITE_ROOT)?.id, "cellular-automata");
   assert.equal(resolveActiveTool(`${SITE_ROOT}prime-sieve.html`, SITE_ROOT)?.id, "prime-sieve");
   assert.equal(resolveActiveTool(`${SITE_ROOT}lissajous-orbits.html`, SITE_ROOT)?.id, "lissajous-orbits");
   assert.equal(resolveActiveTool(`${SITE_ROOT}pendulum-wave.html`, SITE_ROOT)?.id, "pendulum-wave");

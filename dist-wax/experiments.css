@@ -129,6 +129,262 @@
   line-height: 1.55;
 }
 
+.automata-rule-lookup {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--panel-high) 82%, transparent);
+}
+
+.automata-rule-lookup > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.automata-rule-lookup code,
+.automata-rule-lookup output {
+  overflow-x: auto;
+  color: var(--ink);
+  font: 600 10px/1.45 var(--mono);
+  white-space: nowrap;
+}
+
+.automata-initial-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.automata-initial-summary b {
+  color: var(--ink);
+}
+
+.automata-initial-summary span {
+  text-align: right;
+}
+
+.automata-rule-family-summary {
+  display: grid;
+  gap: 4px;
+}
+
+.automata-rule-family-summary span {
+  text-align: left;
+}
+
+.automata-control-heading {
+  margin: 8px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--accent);
+  font: 700 9px/1.3 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.automata-control-heading:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.automata-rule-picker {
+  margin-bottom: 10px;
+}
+
+.automata-rule-picker > summary {
+  display: grid;
+  min-height: 72px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--panel-high) 82%, transparent);
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(86px, 112px) auto;
+}
+
+.automata-rule-picker > summary::-webkit-details-marker {
+  display: none;
+}
+
+.automata-rule-picker > summary:hover,
+.automata-rule-picker[open] > summary {
+  border-color: color-mix(in oklab, var(--accent) 62%, var(--line-strong));
+  color: var(--accent);
+}
+
+.automata-rule-picker[open] > summary {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.automata-rule-picker-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.automata-rule-picker-copy > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.automata-rule-picker-copy strong {
+  overflow: hidden;
+  font: 700 15px/1.2 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automata-rule-current-preview {
+  display: block;
+  width: 100%;
+  height: 48px;
+  color: var(--ink);
+  background: #050608;
+  shape-rendering: crispEdges;
+}
+
+.automata-rule-current-preview path {
+  fill: currentColor;
+}
+
+.automata-rule-picker-chevron {
+  font: 700 18px/1 var(--mono);
+  transition: transform 120ms ease;
+}
+
+.automata-rule-picker[open] .automata-rule-picker-chevron {
+  transform: rotate(180deg);
+}
+
+.automata-rule-picker-panel {
+  max-height: min(540px, 65vh);
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: var(--panel);
+}
+
+.automata-rule-atlas-controls input,
+.automata-rule-atlas-controls select {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--panel-high);
+  font: 600 11px/1.2 var(--mono);
+}
+
+.automata-rule-atlas-controls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 12px 10px 0;
+}
+
+.automata-rule-atlas-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.automata-rule-atlas-status {
+  margin: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.automata-rule-atlas-note {
+  margin: -4px 10px 10px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.automata-rule-atlas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+  gap: 6px;
+  padding: 0 10px 12px;
+}
+
+.automata-rule-tile {
+  display: grid;
+  min-width: 0;
+  min-height: 66px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--panel-high) 82%, transparent);
+  cursor: pointer;
+}
+
+.automata-rule-tile:hover,
+.automata-rule-tile[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 10%, var(--panel-high));
+}
+
+.automata-rule-tile svg {
+  display: block;
+  width: 100%;
+  height: 36px;
+  color: var(--ink);
+  background: #050608;
+  shape-rendering: crispEdges;
+}
+
+.automata-rule-tile path {
+  fill: currentColor;
+}
+
+.automata-rule-tile span {
+  align-self: end;
+  overflow: hidden;
+  font: 600 10px/1 var(--mono);
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.automata-rule-stepper {
+  margin-top: 8px;
+}
+
+@media (max-width: 650px) {
+  .automata-rule-atlas-controls input,
+  .automata-rule-atlas-controls select {
+    font-size: 16px;
+  }
+}
+
 .experiment-reference-link {
   display: flex;
   align-items: center;

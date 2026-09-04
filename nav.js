@@ -377,8 +377,8 @@ export const TOOL_GROUPS = Object.freeze([
     },
     {
       id: "cellular-automata",
-      label: "Automata, Automay-to",
-      href: "automata.html",
+      label: "Automatapoeia",
+      href: "automatapoeia.html",
     },
     { id: "prime-sieve", label: "Prime Sieve", href: "prime-sieve.html" },
     {

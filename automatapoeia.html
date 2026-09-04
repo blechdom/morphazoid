@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Automatapoeia - switch exact elementary cellular-automaton rules live and sonify measurable row contours with finite mono synthesis, swing, and ADSR."
+    />
+    <title>Automatapoeia - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="automata" data-tool-id="cellular-automata">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="automatapoeia.html" aria-current="page">automatapoeia</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="automatapoeia.html" selected>automatapoeia</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.48" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell experiment-shell" id="automata">
+      <section class="stage" aria-label="Automatapoeia stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Successive binary rows of an elementary cellular automaton, with off-white live cells and black dead cells."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Elementary cellular automata row scanner.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">AUTOMATA · RULE 30 · FIXED ZERO · AUDIO OFF</span>
+          </div>
+          <div class="experiment-title" aria-hidden="true">
+            <h1>Automatapoeia</h1>
+            <small id="stageCaption">elementary rule 30 · fixed zero boundary</small>
+          </div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">
+          Rows evolve downward. Every cell in a new row is computed from the three cells immediately above it.
+          In Down-connected forms mode, thin vectors join selected cells to their vertical or diagonal descendants.
+        </p>
+        <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+
+      <aside class="panel experiment-panel" aria-label="Automatapoeia controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="experimentTitle">Experiment</h2>
+            <span class="section-state" id="experimentSummary">binary evolution · exact lookup</span>
+          </div>
+          <dl class="experiment-meter-grid">
+            <div><dt>Live density</dt><dd id="metricPrimary">1%</dd></div>
+            <div><dt>Domain walls</dt><dd id="metricSecondary">2</dd></div>
+          </dl>
+        </section>
+
+        <section class="group control-section" aria-labelledby="automataRuleTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="automataRuleTitle">Rule</h2>
+            <span class="section-state" id="patternSummary">Rule 30</span>
+          </div>
+          <div class="group-body">
+            <h3 class="automata-control-heading">Live evolution</h3>
+            <details class="automata-rule-picker" id="caRulePicker">
+              <summary>
+                <span class="automata-rule-picker-copy">
+                  <span>Visual rule selector</span>
+                  <strong id="caRulePickerLabel" aria-live="polite">Rule 30</strong>
+                </span>
+                <svg
+                  class="automata-rule-current-preview"
+                  id="caRuleCurrentPreview"
+                  viewBox="0 0 31 18"
+                  preserveAspectRatio="none"
+                  role="img"
+                  aria-labelledby="caRuleCurrentPreviewTitle"
+                >
+                  <title id="caRuleCurrentPreviewTitle">Periodic preview of Rule 30</title>
+                  <path id="caRuleCurrentPath"></path>
+                </svg>
+                <span class="automata-rule-picker-chevron" aria-hidden="true">⌄</span>
+              </summary>
+              <div class="automata-rule-picker-panel">
+                <div class="automata-rule-atlas-controls">
+                  <label for="caRuleSearch">
+                    <span>Rule number or 8-bit code</span>
+                    <input id="caRuleSearch" type="search" inputmode="numeric" placeholder="30 or 00011110" />
+                  </label>
+                  <label for="caRuleFilter">
+                    <span>Show</span>
+                    <select id="caRuleFilter">
+                      <option value="all">All 256 rules</option>
+                      <option value="representatives">88 symmetry representatives</option>
+                      <option value="family">Selected symmetry family</option>
+                    </select>
+                  </label>
+                </div>
+                <p class="automata-rule-atlas-status" id="caRuleAtlasStatus" aria-live="polite">256 elementary rules</p>
+                <p class="automata-rule-atlas-note">Every thumbnail uses periodic boundaries and the same deterministic random initial row.</p>
+                <div class="automata-rule-atlas-grid" id="caRuleAtlasGrid" role="group" aria-label="Elementary cellular automaton rules"></div>
+              </div>
+            </details>
+            <div class="experiment-button-grid automata-rule-stepper" role="group" aria-label="Step through elementary rules">
+              <button id="previousAutomataRule" type="button" aria-keyshortcuts="ArrowLeft">← Previous</button>
+              <button id="nextAutomataRule" type="button" aria-keyshortcuts="ArrowRight">Next →</button>
+            </div>
+            <label class="control" for="caRule">
+              <span><b>Rule number</b><output id="caRuleOut" for="caRule">30</output></span>
+              <input id="caRule" type="range" min="0" max="255" step="1" value="30" />
+            </label>
+            <div class="automata-rule-lookup" aria-label="Exact Wolfram rule lookup">
+              <span>Neighborhood</span>
+              <code>111&nbsp; 110&nbsp; 101&nbsp; 100&nbsp; 011&nbsp; 010&nbsp; 001&nbsp; 000</code>
+              <span>Next state</span>
+              <output id="caRuleBits">0&nbsp;&nbsp; 0&nbsp;&nbsp; 0&nbsp;&nbsp; 1&nbsp;&nbsp; 1&nbsp;&nbsp; 1&nbsp;&nbsp; 1&nbsp;&nbsp; 0</output>
+            </div>
+            <p class="automata-initial-summary automata-rule-family-summary">
+              <b>Symmetry family</b><span id="caRuleFamilySummary">4-rule symmetry family · 30 · 86 · 135 · 149</span>
+            </p>
+            <label class="select-control" for="caBoundary">
+              <span class="field-label">Boundary condition</span>
+              <span class="select-shell">
+                <select id="caBoundary">
+                  <option value="fixed" selected>Fixed zero</option>
+                  <option value="periodic">Periodic wrap</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caRate">
+              <span><b>Generation rate</b><output id="caRateOut" for="caRate">8.0 rows/s</output></span>
+              <input id="caRate" type="range" min="1" max="24" step="0.1" value="8" />
+            </label>
+            <p class="experiment-reference-copy automata-live-change-copy" id="caLiveChangeSummary">
+              Rule, boundary, rate, and sound changes affect the next generated row. Width and seed density wait for Restart or Reseed.
+            </p>
+            <p class="automata-initial-summary automata-rule-family-summary">
+              <b>Evolution schedule</b><span id="caEvolutionSummary">Rule 30 · fixed zero from generation 1</span>
+            </p>
+            <h3 class="automata-control-heading">Initial setup · restart only</h3>
+            <label class="control" for="caWidth">
+              <span><b>Next restart columns</b><output id="caWidthOut" for="caWidth">73</output></span>
+              <input id="caWidth" type="range" min="25" max="127" step="2" value="73" />
+            </label>
+            <label class="control" for="caDensity">
+              <span><b>Next seed density</b><output id="caDensityOut" for="caDensity">one centered cell</output></span>
+              <input id="caDensity" type="range" min="0" max="1" step="0.01" value="0" />
+            </label>
+            <button class="experiment-action" id="seedAutomata" type="button">Restart / apply initial setup</button>
+            <button class="experiment-action automata-randomize" id="randomizeAutomata" type="button" disabled>Reseed random initial row</button>
+            <p class="automata-initial-summary">
+              <b>Initial row</b><span id="caInitialSummary">single centered cell</span>
+            </p>
+            <p class="experiment-reference-copy automata-method-copy">
+              Off-white cells are 1; black cells are 0. Each next cell is the exact rule bit for its
+              left-center-right neighborhood. A zero density starts from the traditional single live cell.
+            </p>
+          </div>
+        </section>
+
+        <section class="group experiment-card" aria-labelledby="nksOpenProblemsTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="nksOpenProblemsTitle">NKS Open Problems</h2>
+            <span class="section-state">keep exploring</span>
+          </div>
+          <p class="experiment-reference-copy">
+            Stephen Wolfram's open projects include finding clearer ways to show how cellular-automaton rules
+            generate successive rows. This page keeps the binary evolution visible and the boundary condition explicit.
+          </p>
+          <a
+            class="experiment-action experiment-reference-link"
+            href="https://www.wolframscience.com/openproblems/NKSOpenProblems.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Read the official open problems <span aria-hidden="true">↗</span></a>
+        </section>
+
+        <section class="group control-section" aria-labelledby="automataVoiceTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="automataVoiceTitle">Optional sonification</h2>
+            <span class="section-state" id="caVoiceSummary">Rattlesnake × Carpet</span>
+          </div>
+          <div class="group-body">
+            <h3 class="automata-control-heading">Sound geometry</h3>
+            <label class="select-control" for="caPolarity">
+              <span class="field-label">Sonify cells</span>
+              <span class="select-shell">
+                <select id="caPolarity">
+                  <option value="one" selected>Off-white · state 1</option>
+                  <option value="zero">Black · state 0</option>
+                </select>
+              </span>
+            </label>
+            <label class="select-control" for="caObjectMode">
+              <span class="field-label">Sound objects</span>
+              <span class="select-shell">
+                <select id="caObjectMode">
+                  <option value="runs" selected>Horizontal runs</option>
+                  <option value="connected">Down-connected forms</option>
+                </select>
+              </span>
+            </label>
+            <p class="automata-initial-summary automata-rule-family-summary">
+              <b>Structure</b><span id="caStructureSummary">Off-white state 1 · horizontal runs</span>
+            </p>
+            <h3 class="automata-control-heading">Timbre and pitch</h3>
+            <label class="select-control" for="caVoice">
+              <span class="field-label">Synthesis technique</span>
+              <span class="select-shell">
+                <select id="caVoice">
+                  <optgroup label="Physical models">
+                    <option value="rattlesnake" selected>Rattlesnake × Carpet</option>
+                    <option value="karplus-carpet">Karplus Carpet</option>
+                    <option value="ouroboros">Ouroboros Coil</option>
+                  </optgroup>
+                  <optgroup label="Oscillator models">
+                    <option value="modal-fm">Modal-FM Strike</option>
+                    <option value="cascade-pm">Cascading PM</option>
+                    <option value="glass-lattice">Glass Lattice</option>
+                    <option value="wavefold-ribbon">Wavefold Ribbon</option>
+                  </optgroup>
+                  <optgroup label="Noise resonators">
+                    <option value="formant-dust">Formant Dust</option>
+                  </optgroup>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caFrequencyMin">
+              <span><b>Frequency floor</b><output id="caFrequencyMinOut" for="caFrequencyMin">70 Hz</output></span>
+              <input id="caFrequencyMin" type="range" min="20" max="380" step="1" value="70" />
+            </label>
+            <label class="control" for="caFrequencyMax">
+              <span><b>Frequency ceiling</b><output id="caFrequencyMaxOut" for="caFrequencyMax">6.4 kHz</output></span>
+              <input id="caFrequencyMax" type="range" min="400" max="12000" step="25" value="6400" />
+            </label>
+            <label class="select-control" for="caPitchCurve">
+              <span class="field-label">Pitch response</span>
+              <span class="select-shell">
+                <select id="caPitchCurve">
+                  <option value="linear" selected>Linear left → right</option>
+                  <option value="early">Early rise</option>
+                  <option value="late">Late rise</option>
+                  <option value="smooth">Smooth S-curve</option>
+                  <option value="reverse">Reverse right → left</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caPitchTrace">
+              <span><b>Pitch motion trace</b><output id="caPitchTraceOut" for="caPitchTrace">70%</output></span>
+              <input id="caPitchTrace" type="range" min="0" max="1" step="0.01" value="0.7" />
+            </label>
+            <label class="select-control" for="caTimbreSource">
+              <span class="field-label">Timbre driven by</span>
+              <span class="select-shell">
+                <select id="caTimbreSource">
+                  <option value="run-length">Live-run length</option>
+                  <option value="local-walls" selected>Local domain walls</option>
+                  <option value="row-density">Row density</option>
+                  <option value="row-walls">Row domain walls</option>
+                  <option value="activity">Generation activity</option>
+                  <option value="persistence">Vertical persistence</option>
+                  <option value="expansion">Run expansion</option>
+                  <option value="edge-flux">Edge flux</option>
+                  <option value="symmetry">Mirror symmetry</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caTimbreAmount">
+              <span><b>Timbre amount</b><output id="caTimbreAmountOut" for="caTimbreAmount">80%</output></span>
+              <input id="caTimbreAmount" type="range" min="0" max="1" step="0.01" value="0.8" />
+            </label>
+            <h3 class="automata-control-heading">Cellular contour</h3>
+            <label class="select-control" for="caContourSource">
+              <span class="field-label">Contour driven by</span>
+              <span class="select-shell">
+                <select id="caContourSource">
+                  <option value="motion" selected>Run motion</option>
+                  <option value="expansion">Run expansion</option>
+                  <option value="edge-flux">Edge flux</option>
+                  <option value="persistence">Vertical persistence</option>
+                  <option value="birth-death">Birth–death balance</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caContourAmount">
+              <span><b>Contour depth</b><output id="caContourAmountOut" for="caContourAmount">42%</output></span>
+              <input id="caContourAmount" type="range" min="0" max="1" step="0.01" value="0.42" />
+            </label>
+            <h3 class="automata-control-heading">Timing</h3>
+            <label class="select-control" for="caPhraseShape">
+              <span class="field-label">Phrase shape</span>
+              <span class="select-shell">
+                <select id="caPhraseShape">
+                  <option value="bands" selected>Object spans</option>
+                  <option value="centers">Object centers</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="caRhythmDetail">
+              <span><b>Rhythm detail</b><output id="caRhythmDetailOut" for="caRhythmDetail">8 objects</output></span>
+              <input id="caRhythmDetail" type="range" min="1" max="16" step="1" value="8" />
+            </label>
+            <label class="control" for="caTimeSpread">
+              <span><b>Horizontal time spread</b><output id="caTimeSpreadOut" for="caTimeSpread">76%</output></span>
+              <input id="caTimeSpread" type="range" min="0" max="1" step="0.01" value="0.76" />
+            </label>
+            <label class="control" for="caSwing">
+              <span><b>Row swing</b><output id="caSwingOut" for="caSwing">+8%</output></span>
+              <input id="caSwing" type="range" min="-0.42" max="0.42" step="0.01" value="0.08" />
+            </label>
+            <label class="control" for="caStrikeLength">
+              <span><b>Gate / overlap</b><output id="caStrikeLengthOut" for="caStrikeLength">115%</output></span>
+              <input id="caStrikeLength" type="range" min="0.1" max="2" step="0.01" value="1.15" />
+            </label>
+            <h3 class="automata-control-heading">Amplitude envelope</h3>
+            <label class="control" for="caAttack">
+              <span><b>Attack</b><output id="caAttackOut" for="caAttack">12 ms</output></span>
+              <input id="caAttack" type="range" min="0.001" max="0.4" step="0.001" value="0.012" />
+            </label>
+            <label class="control" for="caDecay">
+              <span><b>Decay</b><output id="caDecayOut" for="caDecay">120 ms</output></span>
+              <input id="caDecay" type="range" min="0.005" max="1.5" step="0.005" value="0.12" />
+            </label>
+            <label class="control" for="caSustain">
+              <span><b>Sustain</b><output id="caSustainOut" for="caSustain">72%</output></span>
+              <input id="caSustain" type="range" min="0" max="1" step="0.01" value="0.72" />
+            </label>
+            <label class="control" for="caRelease">
+              <span><b>Release</b><output id="caReleaseOut" for="caRelease">320 ms</output></span>
+              <input id="caRelease" type="range" min="0.005" max="2" step="0.005" value="0.32" />
+            </label>
+            <p class="automata-initial-summary automata-rule-family-summary">
+              <b>Mapping</b><span id="caMappingSummary">70–6400 Hz · Linear left → right · Local domain walls</span>
+            </p>
+            <p class="automata-initial-summary automata-rule-family-summary">
+              <b>Envelope</b><span id="caEnvelopeSummary">Object spans · A 12 · D 120 · S 72% · R 320 ms · gate 115%</span>
+            </p>
+            <p class="automata-initial-summary automata-rule-family-summary">
+              <b>Shape trace</b><span id="caContourSummary">waiting for a generated row</span>
+            </p>
+            <p class="automata-initial-summary automata-rule-family-summary">
+              <b>Row render</b><span id="caRunSummary">audio off</span>
+            </p>
+            <p class="experiment-reference-copy">
+              Audio does not change the automaton. Every generation occupies an exact time slot—even an all-zero row.
+              Finite mono voices can overlap through their release tails; swing preserves the duration of each two-row pair.
+              Horizontal runs read one row at a time. Down-connected forms join vertical and diagonal descendants:
+              open streams trace their contour, while newly closed interior islands sound once as shaped envelopes.
+              The finite diagram—not an imagined off-canvas background—defines black-cell connections.
+              At dense, fast settings, Row render reports any finite object or tail budget used to stay realtime.
+            </p>
+          </div>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="experiments-app.js"></script>
+  </body>
+</html>

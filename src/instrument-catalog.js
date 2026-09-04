@@ -635,9 +635,9 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose tooth counts, then start the gears and change their speed.",
   ),
   "cellular-automata": define(
-    "Algorithmic texture",
-    "Scrolls elementary automata while each generation becomes a short mono black-and-white pulse texture.",
-    "Turn on audio, choose a rule and seed, then hear every new row scan from beginning to end.",
+    "Cellular automaton",
+    "Shows exact binary evolution, all 256 elementary rules, explicit boundaries, and selectable state-1 or state-0 connected forms.",
+    "Change rules without restarting, then hear horizontal runs or downward streams and closed islands through finite mono physical and oscillator voices.",
   ),
   "prime-sieve": define(
     "Algorithmic sequencer",

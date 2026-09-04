@@ -521,6 +521,8 @@ for worktree_runtime_file in \
   chladni-plate.html \
   spring-choir.html \
   gear-ratio-drums.html \
+  automatapoeia.html \
+  automatopoeia.html \
   automata.html \
   cellular-automata.html \
   prime-sieve.html \
@@ -536,6 +538,7 @@ for worktree_runtime_file in \
   orbital-ferris.html \
   experiments.css \
   experiments-app.js \
+  src/automatapoeia.js \
   src/orbital-ferris.js \
   assets/instruments/orbital-ferris.webp
 do
@@ -948,6 +951,8 @@ required_files=(
   chladni-plate.html
   spring-choir.html
   gear-ratio-drums.html
+  automatapoeia.html
+  automatopoeia.html
   automata.html
   cellular-automata.html
   prime-sieve.html
@@ -963,6 +968,7 @@ required_files=(
   orbital-ferris.html
   experiments.css
   experiments-app.js
+  src/automatapoeia.js
   src/orbital-ferris.js
   assets/instruments/orbital-ferris.webp
   fm-drums.html
