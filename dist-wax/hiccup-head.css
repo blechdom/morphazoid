@@ -1094,7 +1094,7 @@
   cursor: crosshair;
   color: var(--row-color, var(--hiccup-head-muted));
   background: color-mix(in oklab, currentColor 3%, #0a0709);
-  grid-template-rows: minmax(0, 1fr) auto 34px;
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   touch-action: none;
 }
@@ -1156,16 +1156,6 @@
   text-shadow: 0 1px 3px rgba(8, 5, 7, 0.92);
 }
 
-.hiccup-head-step-velocity-number {
-  position: relative;
-  z-index: 1;
-  display: block;
-  color: rgba(244, 238, 233, 0.82);
-  text-shadow: 0 1px 3px rgba(8, 5, 7, 0.9);
-  font: 800 clamp(6px, 0.78vw, 10px)/1 var(--mono);
-  font-variant-numeric: tabular-nums;
-}
-
 .hiccup-head-step-audition {
   position: absolute;
   z-index: 2;
@@ -1199,14 +1189,12 @@
 }
 
 .hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-sound-number,
-.hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-velocity-number,
 .hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-hit-mark {
   font-size: 6px;
   line-height: 1;
 }
 
-.hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-sound-number,
-.hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-velocity-number {
+.hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-sound-number {
   writing-mode: vertical-rl;
 }
 

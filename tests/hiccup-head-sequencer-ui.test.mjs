@@ -131,7 +131,8 @@ test("continuous step volume uses zero as the only off state and draws an X hand
   assert.match(css, /\.hiccup-head-step-hit-mark\s*\{[\s\S]*?var\(--step-velocity/);
   assert.match(css, /\.hiccup-head-step-cell[\s\S]*?touch-action:\s*none/);
   assert.match(css, /\.hiccup-head-step-cell\[data-active="true"\]/);
-  assert.match(app, /velocityLabel\.textContent = `\$\{Math\.round\(velocity \* 100\)\}%`/);
+  assert.doesNotMatch(gridBuilder, /hiccup-head-step-velocity-number/);
+  assert.doesNotMatch(css, /\.hiccup-head-step-velocity-number/);
   assert.doesNotMatch(functionNamed(app, "renderCell"), /button\.title\s*=/);
 });
 

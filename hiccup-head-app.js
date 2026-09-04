@@ -2835,8 +2835,6 @@ function renderCell(button, event, ownership = null) {
   if (hitMark) hitMark.hidden = !active;
   const number = button.querySelector(".hiccup-head-step-sound-number");
   if (number) number.textContent = event ? sequenceSoundNumberById.get(sound.id) : "—";
-  const velocityLabel = button.querySelector(".hiccup-head-step-velocity-number");
-  if (velocityLabel) velocityLabel.textContent = `${Math.round(velocity * 100)}%`;
   const previewButton = button.closest(".hiccup-head-step-slot")
     ?.querySelector(".hiccup-head-step-audition");
   if (previewButton) {
@@ -3487,9 +3485,6 @@ function buildSequenceGrid() {
       const soundNumber = document.createElement("span");
       soundNumber.className = "hiccup-head-step-sound-number";
       soundNumber.setAttribute("aria-hidden", "true");
-      const velocityNumber = document.createElement("span");
-      velocityNumber.className = "hiccup-head-step-velocity-number";
-      velocityNumber.setAttribute("aria-hidden", "true");
       const preview = document.createElement("button");
       preview.className = "hiccup-head-step-audition";
       preview.type = "button";
@@ -3499,7 +3494,7 @@ function buildSequenceGrid() {
         event.stopPropagation();
         previewSequenceStep(step);
       });
-      cell.append(volumeLane, soundNumber, velocityNumber);
+      cell.append(volumeLane, soundNumber);
       const selector = document.createElement("select");
       selector.className = "hiccup-head-step-sound-select";
       selector.dataset.step = String(step);

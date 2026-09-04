@@ -49,7 +49,7 @@ test.describe("Hiccup Head single-lane sequencer", () => {
       cell.style.getPropertyValue("--step-velocity")
     )));
     expect(clickedVelocity).toBeCloseTo(0.5, 2);
-    await expect(trigger.locator(".hiccup-head-step-velocity-number")).toHaveText("50%");
+    await expect(trigger.locator(".hiccup-head-step-velocity-number")).toHaveCount(0);
     await expect(trigger).not.toHaveAttribute("title", /.+/);
     const midpointMarkBox = await hitMark.boundingBox();
     expect(Math.abs(midpointMarkBox.y + midpointMarkBox.height / 2 - midpointY)).toBeLessThan(2);
