@@ -50,6 +50,7 @@ test.describe("Hiccup Head single-lane sequencer", () => {
     expect(Math.abs(midpointMarkBox.y + midpointMarkBox.height / 2 - midpointY)).toBeLessThan(2);
     await expect(page.locator("#selectedStepContext")).toBeVisible();
     await expect(page.locator("#selectedStepContext")).not.toContainText(/volume/i);
+    await expect(page.locator("#selectedStepMode")).toHaveCount(0);
 
     const clearLaneBox = await lanes.first().boundingBox();
     await page.mouse.move(

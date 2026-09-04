@@ -187,7 +187,7 @@ test("a dedicated step audition previews audio without editing the pattern", asy
   );
 });
 
-test("span controls stay contextual while volume remains baked into each step", async () => {
+test("hold-span controls stay contextual while volume remains baked into each step", async () => {
   const { app, html } = await readSequencerSources();
   const contextMarkup = html.match(
     /<div\s+class=["']hiccup-head-step-context["'][\s\S]*?<\/div>\s*<div\s+class=["']hiccup-head-grid-scroll["']/,
@@ -200,8 +200,7 @@ test("span controls stay contextual while volume remains baked into each step", 
   assert.match(contextMarkup, /class=["']hiccup-head-step-context["']/);
   assert.doesNotMatch(contextMarkup, /Volume|selectedStepVelocity/i);
   assert.match(contextMarkup, /id=["']selectedStepSpan["'][^>]*type=["']range["'][^>]*min=["']1["'][^>]*max=["']8["']/);
-  assert.match(contextMarkup, /option\s+value=["']hold["']/i);
-  assert.match(contextMarkup, /option\s+value=["']repeat["']/i);
+  assert.doesNotMatch(contextMarkup, /selectedStepMode|Across span|>\s*Repeat\s*</i);
   assert.match(contextMarkup, /id=["']selectedStepClear["']/i);
 
   assert.ok(contextUpdater, "updateSelectedStepContext must remain independently testable");
@@ -214,7 +213,6 @@ test("span controls stay contextual while volume remains baked into each step", 
 
   for (const controlId of [
     "selectedStepSpan",
-    "selectedStepMode",
     "selectedStepClear",
   ]) {
     assert.match(

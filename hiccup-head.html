@@ -13,7 +13,7 @@
     <link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=hiccup-head-ir-20260831-2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav?v=hiccup-head-ir-20260831-2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-volume-paint-20260903-2" />
+    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-hold-only-20260903-3" />
   </head>
   <body class="hiccup-head-page">
     <header class="masthead">
@@ -168,21 +168,14 @@
           </p>
 
           <div class="hiccup-head-step-context" id="selectedStepContext" role="group" aria-label="Selected sequence step controls" hidden>
-            <div class="hiccup-head-step-editor-span" role="group" aria-label="Sound length in steps">
+            <div class="hiccup-head-step-editor-span" role="group" aria-label="Sound hold length in steps">
               <span>Span <output id="selectedStepSpanOut" for="selectedStepSpan">1</output></span>
               <span class="hiccup-head-step-span-controls">
                 <button id="extendStepLeftButton" type="button" title="Extend one step to the left" aria-label="Extend selected sound one step to the left">←</button>
-                <input id="selectedStepSpan" type="range" min="1" max="8" step="1" value="1" aria-label="Selected sound length in steps" />
+                <input id="selectedStepSpan" type="range" min="1" max="8" step="1" value="1" aria-label="Selected sound hold length in steps" />
                 <button id="extendStepRightButton" type="button" title="Extend one step to the right" aria-label="Extend selected sound one step to the right">→</button>
               </span>
             </div>
-            <label class="hiccup-head-step-editor-mode" for="selectedStepMode">
-              <span>Across span</span>
-              <select id="selectedStepMode">
-                <option value="hold">Hold</option>
-                <option value="repeat">Repeat</option>
-              </select>
-            </label>
             <button class="hiccup-head-step-clear" id="selectedStepClear" type="button" aria-label="Clear selected sequence step">Clear</button>
           </div>
 
@@ -532,6 +525,6 @@
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
     <link rel="modulepreload" href="src/hiccup-head-processor.js?v=hiccup-head-tract-20260902-4" />
-    <script type="module" src="hiccup-head-app.js?v=hiccup-head-volume-paint-20260903-2"></script>
+    <script type="module" src="hiccup-head-app.js?v=hiccup-head-hold-only-20260903-3"></script>
   </body>
 </html>

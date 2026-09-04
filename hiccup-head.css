@@ -1283,14 +1283,14 @@
   top: calc(var(--step-cell-height) + var(--step-selector-height) + 4px);
   left: 2px;
   display: grid;
-  width: min(280px, calc(100vw - 24px));
+  width: min(210px, calc(100vw - 24px));
   min-height: 76px;
   padding: 6px;
   border: 1px solid color-mix(in oklab, var(--row-color, var(--hiccup-head-mint)) 62%, #080507);
   color: var(--hiccup-head-muted);
   background: rgba(8, 5, 7, 0.97);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.58);
-  grid-template-columns: minmax(116px, 1fr) 62px 42px;
+  grid-template-columns: minmax(116px, 1fr) 42px;
   align-items: stretch;
   gap: 4px;
 }

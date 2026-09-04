@@ -3336,7 +3336,7 @@ function updateSelectedStepContext() {
   context.hidden = false;
   const row = selectedSlot?.parentElement;
   if (row?.clientWidth) {
-    const contextWidth = Math.min(280, Math.max(220, row.clientWidth - 8));
+    const contextWidth = Math.min(210, Math.max(180, row.clientWidth - 8));
     const slotLeft = selectedSlot.offsetLeft;
     const desiredLeft = clamp(slotLeft, 4, Math.max(4, row.clientWidth - contextWidth - 4));
     context.style.width = `${contextWidth}px`;
@@ -3353,8 +3353,6 @@ function updateSelectedStepContext() {
   $("selectedStepSpanOut").value = String(effectiveSpan);
   $("selectedStepSpanOut").textContent = String(effectiveSpan);
   updateRangeFill($("selectedStepSpan"));
-  $("selectedStepMode").value = metadata.mode;
-  $("selectedStepMode").disabled = !event;
   $("selectedStepClear").disabled = !event;
   $("extendStepLeftButton").disabled = !event
     || selectedSequenceStep <= 0
@@ -3376,18 +3374,7 @@ function setSelectedStepSpan(value) {
   sequenceStepMetadata[selectedSequenceStep] = { ...metadata, spanSteps };
   markPatternCustom();
   renderPattern();
-  announce(`Step ${selectedSequenceStep + 1} spans ${spanSteps} step${spanSteps === 1 ? "" : "s"}`);
-}
-
-function setSelectedStepMode(value) {
-  const event = patternEventForStep(selectedSequenceStep);
-  if (!event) return;
-  const metadata = normalizedSequenceStepMetadata(selectedSequenceStep);
-  const mode = value === "repeat" ? "repeat" : "hold";
-  sequenceStepMetadata[selectedSequenceStep] = { ...metadata, mode };
-  markPatternCustom();
-  renderPattern();
-  announce(`${sequenceSoundLabel(event.sound)} will ${mode === "repeat" ? "repeat on" : "hold across"} its span`);
+  announce(`Step ${selectedSequenceStep + 1} holds for ${spanSteps} step${spanSteps === 1 ? "" : "s"}`);
 }
 
 function extendSelectedStepLeft() {
@@ -3438,9 +3425,6 @@ function previewSequenceStep(step) {
 function bindSequenceStepContextControls() {
   $("selectedStepSpan").addEventListener("input", () => {
     setSelectedStepSpan($("selectedStepSpan").value);
-  });
-  $("selectedStepMode").addEventListener("change", () => {
-    setSelectedStepMode($("selectedStepMode").value);
   });
   $("selectedStepClear").addEventListener("click", clearSelectedStep);
   $("extendStepLeftButton").addEventListener("click", extendSelectedStepLeft);
