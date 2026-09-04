@@ -134,10 +134,9 @@
 
 .hiccup-head-skin-tools {
   display: grid;
-  width: clamp(184px, 18vw, 238px);
-  min-width: 160px;
+  width: 100%;
+  min-width: 0;
   height: 50px;
-  flex: 0 1 238px;
   grid-template-columns: minmax(0, 1fr) 44px;
   align-items: stretch;
   gap: 6px;
@@ -153,11 +152,10 @@
 .hiccup-head-visual-skin {
   position: relative;
   display: grid;
-  width: clamp(132px, 14vw, 188px);
-  min-width: 112px;
+  width: 100%;
+  min-width: 0;
   height: 50px;
   padding: 3px 4px;
-  flex: 0 1 188px;
   align-content: center;
   gap: 2px;
   border: 1px solid rgba(244, 238, 233, 0.16);
@@ -198,8 +196,9 @@
 
 .hiccup-head-webcam-open {
   display: grid;
-  width: 44px;
+  width: 100%;
   min-width: 44px;
+  height: 50px;
   min-height: 44px;
   padding: 0;
   border: 1px solid rgba(101, 223, 232, 0.34);
@@ -1233,6 +1232,13 @@
     #0c090b;
 }
 
+.hiccup-head-skin-deck {
+  display: grid;
+  padding: 11px 15px;
+  border-bottom: 1px solid rgba(101, 223, 232, 0.2);
+  background: linear-gradient(135deg, rgba(101, 223, 232, 0.075), transparent 62%);
+}
+
 .hiccup-head-preset-deck {
   display: grid;
   padding: 13px 15px;
@@ -2141,37 +2147,6 @@ label.hiccup-head-voice-assignment,
     font-size: 28px;
   }
 
-  .hiccup-head-skin-tools {
-    width: clamp(158px, 31vw, 194px);
-    min-width: 158px;
-    height: 44px;
-    flex: 0 1 194px;
-  }
-
-  .hiccup-head-visual-skin {
-    width: clamp(108px, 22vw, 142px);
-    min-width: 108px;
-    height: 44px;
-    padding: 0;
-    flex: 0 1 142px;
-  }
-
-  .hiccup-head-skin-tools .hiccup-head-visual-skin {
-    width: 100%;
-    min-width: 0;
-    height: 44px;
-    flex: none;
-  }
-
-  .hiccup-head-visual-skin > span {
-    display: none;
-  }
-
-  .hiccup-head-visual-skin select {
-    min-height: 38px;
-    font-size: 9px;
-  }
-
   .hiccup-head-sequencer-header {
     min-height: 134px;
     grid-template-columns: minmax(132px, 1fr) 88px 72px 66px;
@@ -2275,63 +2250,10 @@ label.hiccup-head-voice-assignment,
 }
 
 @media (max-width: 520px) {
-  .hiccup-head-page .masthead {
-    height: 120px;
-    min-height: 120px;
-    padding-top: 3px;
-    padding-bottom: 3px;
-    flex-wrap: wrap;
-    align-content: center;
-    row-gap: 0;
-  }
-
-  .hiccup-head-shell {
-    height: calc(100dvh - 120px);
-    min-height: calc(100dvh - 120px);
-  }
-
   .hiccup-head-stage {
     top: 0;
     height: clamp(220px, 32dvh, 290px);
     min-height: clamp(220px, 32dvh, 290px);
-  }
-
-  .hiccup-head-skin-tools {
-    width: 100%;
-    min-width: 100%;
-    height: 48px;
-    flex: 1 0 100%;
-    grid-template-columns: minmax(0, 1fr) 44px;
-  }
-
-  .hiccup-head-visual-skin {
-    display: grid;
-    width: 100%;
-    min-width: 100%;
-    height: 48px;
-    padding: 2px 4px;
-    flex: 1 0 100%;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 7px;
-  }
-
-  .hiccup-head-skin-tools .hiccup-head-visual-skin {
-    width: 100%;
-    min-width: 0;
-    height: 48px;
-    flex: none;
-  }
-
-  .hiccup-head-visual-skin > span {
-    display: block;
-    padding: 0 4px;
-    white-space: nowrap;
-  }
-
-  .hiccup-head-visual-skin select {
-    height: 40px;
-    min-height: 40px;
   }
 
   .hiccup-head-webcam-dialog {

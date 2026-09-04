@@ -13,7 +13,7 @@
     <link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=hiccup-head-ir-20260831-2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav?v=hiccup-head-ir-20260831-2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-direct-steps-20260903-6" />
+    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-skin-row-20260903-1" />
   </head>
   <body class="hiccup-head-page">
     <header class="masthead">
@@ -54,31 +54,6 @@
         </label>
       </div>
 
-      <div class="hiccup-head-skin-tools" role="group" aria-label="Visual appearance">
-        <label class="hiccup-head-visual-skin" for="visualSkinSelect">
-          <span>Visual skin</span>
-          <select id="visualSkinSelect" aria-label="Visual skin" aria-describedby="visualSkinDescription">
-            <option value="checker">Checkerboard goofball</option>
-            <option value="cutout-collage">Cutout collage</option>
-            <option value="photo-1904">1904 photograph</option>
-            <option value="food-portrait">Food portrait</option>
-            <option value="ascii">ASCII terminal</option>
-            <option value="wild-ink">Zombie Zoid</option>
-          </select>
-        </label>
-        <button
-          class="hiccup-head-webcam-open"
-          id="openWebcamSkinButton"
-          type="button"
-          title="Make a visual skin with the webcam"
-          aria-label="Open webcam cut-up photobooth"
-          aria-haspopup="dialog"
-          aria-controls="webcamSkinDialog"
-        >
-          <span class="hiccup-head-camera-glyph" aria-hidden="true"></span>
-        </button>
-      </div>
-      <p class="sr-only" id="visualSkinDescription">Visual-only control; changing the skin does not change sound, sequence, presets, or face controls.</p>
     </header>
 
     <main class="hiccup-head-shell" id="hiccup-head">
@@ -181,6 +156,34 @@
       </div>
 
       <aside class="panel hiccup-head-panel" aria-label="Hiccup Head controls">
+        <section class="hiccup-head-skin-deck" aria-label="Visual appearance controls">
+          <div class="hiccup-head-skin-tools" role="group" aria-label="Visual appearance">
+            <label class="hiccup-head-visual-skin" for="visualSkinSelect">
+              <span>Visual skin</span>
+              <select id="visualSkinSelect" aria-label="Visual skin" aria-describedby="visualSkinDescription">
+                <option value="checker">Checkerboard goofball</option>
+                <option value="cutout-collage">Cutout collage</option>
+                <option value="photo-1904">1904 photograph</option>
+                <option value="food-portrait">Food portrait</option>
+                <option value="ascii">ASCII terminal</option>
+                <option value="wild-ink">Zombie Zoid</option>
+              </select>
+            </label>
+            <button
+              class="hiccup-head-webcam-open"
+              id="openWebcamSkinButton"
+              type="button"
+              title="Make a visual skin with the webcam"
+              aria-label="Open webcam cut-up photobooth"
+              aria-haspopup="dialog"
+              aria-controls="webcamSkinDialog"
+            >
+              <span class="hiccup-head-camera-glyph" aria-hidden="true"></span>
+            </button>
+          </div>
+          <p class="sr-only" id="visualSkinDescription">Visual-only control; changing the skin does not change sound, sequence, presets, or face controls.</p>
+        </section>
+
         <section class="hiccup-head-preset-deck" aria-label="Mutable full-face preset">
           <div class="hiccup-head-face-preset-picker">
             <span>Mutable face preset</span>

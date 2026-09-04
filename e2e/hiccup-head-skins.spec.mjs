@@ -43,23 +43,37 @@ test.describe("Hiccup Head visual skins", () => {
     await expect(selector).toHaveValue("food-portrait");
   });
 
-  test("keeps the selector in the mobile masthead without burying the sequencer", async ({ page }) => {
+  test("keeps visual appearance in one mobile panel row without burying the sequencer", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/hiccup-head.html");
+    const skinDeck = page.locator(".hiccup-head-panel > .hiccup-head-skin-deck");
+    const skinTools = skinDeck.locator(".hiccup-head-skin-tools");
+    const camera = page.locator("#openWebcamSkinButton");
     const selectorBox = await page.locator("#visualSkinSelect").boundingBox();
+    const cameraBox = await camera.boundingBox();
+    const skinToolsBox = await skinTools.boundingBox();
     const mastheadBox = await page.locator(".masthead").boundingBox();
     const stageBox = await page.locator("#stageWrap").boundingBox();
     const sequencerBox = await page.locator(".hiccup-head-sequencer").boundingBox();
+    await expect(page.locator(".masthead #visualSkinSelect, .masthead #openWebcamSkinButton")).toHaveCount(0);
+    await expect(skinDeck).toHaveCount(1);
+    await expect(page.locator(".hiccup-head-panel > .hiccup-head-skin-deck + .hiccup-head-preset-deck")).toHaveCount(1);
     expect(selectorBox).toBeTruthy();
+    expect(cameraBox).toBeTruthy();
+    expect(skinToolsBox).toBeTruthy();
     expect(mastheadBox).toBeTruthy();
     expect(stageBox).toBeTruthy();
     expect(sequencerBox).toBeTruthy();
-    expect(selectorBox.x).toBeGreaterThanOrEqual(mastheadBox.x);
-    expect(selectorBox.x + selectorBox.width).toBeLessThanOrEqual(mastheadBox.x + mastheadBox.width);
-    expect(selectorBox.y).toBeGreaterThanOrEqual(mastheadBox.y);
-    expect(selectorBox.y + selectorBox.height).toBeLessThanOrEqual(mastheadBox.y + mastheadBox.height);
-    expect(selectorBox.y + selectorBox.height).toBeLessThanOrEqual(stageBox.y + 1);
-    expect(mastheadBox.height).toBeGreaterThanOrEqual(96);
+    expect(selectorBox.x).toBeGreaterThanOrEqual(skinToolsBox.x);
+    expect(selectorBox.x + selectorBox.width).toBeLessThanOrEqual(cameraBox.x);
+    expect(cameraBox.x + cameraBox.width).toBeLessThanOrEqual(skinToolsBox.x + skinToolsBox.width);
+    expect(selectorBox.y).toBeGreaterThanOrEqual(skinToolsBox.y);
+    expect(cameraBox.y).toBeGreaterThanOrEqual(skinToolsBox.y);
+    expect(selectorBox.y + selectorBox.height).toBeLessThanOrEqual(skinToolsBox.y + skinToolsBox.height);
+    expect(cameraBox.y + cameraBox.height).toBeLessThanOrEqual(skinToolsBox.y + skinToolsBox.height);
+    expect(cameraBox.width).toBeGreaterThanOrEqual(44);
+    expect(cameraBox.height).toBeGreaterThanOrEqual(44);
+    expect(mastheadBox.height).toBeLessThanOrEqual(60);
     expect(sequencerBox.y).toBeLessThan(430);
 
     const shell = page.locator(".hiccup-head-shell");

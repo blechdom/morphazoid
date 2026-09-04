@@ -575,16 +575,26 @@ test("skin beat render helpers are paint-only and Zombie Zoid retains low-fi ink
 
 });
 
-test("visual skin lives in the masthead and Voice Collection follows the sound pads", async () => {
+test("visual skin and camera share a panel row above the mutable face preset", async () => {
   const html = await readFile(new URL("hiccup-head.html", root), "utf8");
   const mastheadStart = html.indexOf('<header class="masthead">');
   const mastheadEnd = html.indexOf("</header>", mastheadStart);
   const masthead = html.slice(mastheadStart, mastheadEnd);
-  assert.match(masthead, /id="visualSkinSelect"/);
+  assert.doesNotMatch(masthead, /id="(?:visualSkinSelect|openWebcamSkinButton)"/);
 
-  const stageStart = html.indexOf('id="stageWrap"');
-  const stageEnd = html.indexOf("</section>", stageStart);
-  assert.doesNotMatch(html.slice(stageStart, stageEnd), /id="visualSkinSelect"/);
+  const panelStart = html.indexOf('<aside class="panel hiccup-head-panel"');
+  const panelEnd = html.indexOf("</aside>", panelStart);
+  const panel = html.slice(panelStart, panelEnd);
+  const skinDeck = panel.indexOf('class="hiccup-head-skin-deck"');
+  const skinTools = panel.indexOf('class="hiccup-head-skin-tools"');
+  const skinSelect = panel.indexOf('id="visualSkinSelect"');
+  const camera = panel.indexOf('id="openWebcamSkinButton"');
+  const facePreset = panel.indexOf('class="hiccup-head-preset-deck"');
+  assert.ok(panelStart >= 0 && panelEnd > panelStart, "the Hiccup Head control panel must exist");
+  assert.ok(
+    skinDeck >= 0 && skinTools > skinDeck && skinSelect > skinTools && camera > skinSelect && facePreset > camera,
+    "the visual skin selector and camera must share the first panel row above the mutable face preset",
+  );
 
   const pads = html.indexOf('id="padBankTitle"');
   const voices = html.indexOf('id="voiceCollectionTitle"');
