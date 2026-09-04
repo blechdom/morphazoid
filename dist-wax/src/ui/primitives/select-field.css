@@ -75,6 +75,14 @@
     appearance: base-select;
   }
 
+  /* Chromium exposes the closed control as an inline flex box. Center its
+   * selected value just like the instrument-picker trigger instead of
+   * leaving the flex item pinned to the top of taller panel controls. */
+  .mz-select-field__select,
+  .select-shell > select {
+    align-items: center;
+  }
+
   .mz-select-field__select::picker-icon,
   .select-shell > select::picker-icon {
     display: none;

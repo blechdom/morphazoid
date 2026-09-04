@@ -98,10 +98,12 @@ test("legacy filled primary actions keep dark text on hover", async ({ page }) =
   }
 });
 
-test("customizable select highlight follows the component accent", async ({ page }) => {
+test("customizable selects center their value and use the component highlight", async ({ page }) => {
   await loadProductionPage(page);
   const supportsCustomPicker = await page.evaluate(() => CSS.supports("appearance", "base-select"));
   test.skip(!supportsCustomPicker, "Browser retains its native platform picker");
+
+  await expect(page.locator("#tilingType")).toHaveCSS("align-items", "center");
 
   await page.evaluate(() => {
     const field = document.createElement("label");
@@ -118,6 +120,7 @@ test("customizable select highlight follows the component accent", async ({ page
   });
 
   const select = page.locator("#sharedSelectHighlight");
+  await expect(select).toHaveCSS("align-items", "center");
   await select.click();
   const selectedColors = await select.locator("option:checked").evaluate((option) => {
     const style = getComputedStyle(option);

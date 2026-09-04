@@ -70,6 +70,11 @@ test("the production stylesheet consumes the shared design tokens and controls",
   assert.doesNotMatch(choices, /\.choice-switch\.compact[^{]*\{[^}]*min-height:/s);
   assert.match(selects, /@supports \(appearance: base-select\)/);
   assert.match(
+    selects,
+    /\.mz-select-field__select,\s*\.select-shell > select\s*\{[^}]*align-items: center;/s,
+    "customizable selects must vertically center their closed value like the instrument menu",
+  );
+  assert.match(
     midiStatus,
     /\.mz-midi-status\.is-receiving[^{]*\{[^}]*background: var\(--mz-color-danger\);/s,
     "MIDI receive activity must remain distinct from the green active surface",
