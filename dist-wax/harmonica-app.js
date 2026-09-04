@@ -121,13 +121,8 @@ let lastLiveReadoutAt = -Infinity;
 let handles = [];
 let holeRegions = [];
 let pointerDrag = null;
-let aperturePointerDrag = null;
 
-const renderedHoleCount = Math.max(
-  1,
-  Math.min(HARMONICA_HOLE_COUNT, $("holeButtons")?.querySelectorAll("[data-hole]").length ?? HARMONICA_HOLE_COUNT),
-);
-$("holeButtons")?.style.setProperty("--harmonica-hole-count", String(renderedHoleCount));
+const renderedHoleCount = HARMONICA_HOLE_COUNT;
 
 function formatPercent(value) {
   return `${Math.round(value * 100)}%`;
@@ -174,36 +169,6 @@ function aperturePatch(first, last) {
 function apertureDescription(source = state) {
   const holes = activeHoles(source);
   return `${formatMouthAperture(holes.length)}; covering holes ${holes.join(", ")}`;
-}
-
-function setApertureRange(first, last, { announceChange = false } = {}) {
-  state = sanitizeHarmonicaState({
-    ...state,
-    ...aperturePatch(first, last),
-    performancePresetId: HARMONICA_PERFORMANCE_CUSTOM_ID,
-  }, state);
-  updatePresentation();
-  postConfiguration();
-  if (announceChange) announce(`Mouth aperture ${apertureDescription()}`);
-}
-
-function updateHoleWindow() {
-  const window = $("holeWindow");
-  if (!window) return;
-  const { first, last, width } = mouthApertureRange();
-  window.style.left = `${((first - 1) / renderedHoleCount) * 100}%`;
-  window.style.width = `${(width / renderedHoleCount) * 100}%`;
-  window.dataset.firstHole = String(first);
-  window.dataset.lastHole = String(last);
-  window.title = `Mouth covers holes ${first}${last === first ? "" : `–${last}`}; pull either handle`;
-  $("holeWindowLeft")?.setAttribute(
-    "aria-label",
-    `Left edge of mouth aperture at hole ${first}; use left and right arrow keys to resize`,
-  );
-  $("holeWindowRight")?.setAttribute(
-    "aria-label",
-    `Right edge of mouth aperture at hole ${last}; use left and right arrow keys to resize`,
-  );
 }
 
 function formatFrequency(value) {
@@ -578,35 +543,6 @@ async function toggleBreathCycle() {
   announce(`Automatic draw and blow cycle ${next ? "on" : "off"}`);
 }
 
-function updateHoleButtons(flow = breathFlowForDisplay()) {
-  const covered = new Set(activeHoles(state));
-  const technique = harmonicaTechnique(state.bluesTechniqueId);
-  const techniqueHoles = new Set(technique.holes);
-  for (const button of $("holeButtons").querySelectorAll("button[data-hole]")) {
-    const hole = Number(button.dataset.hole);
-    const pair = harmonicaReedPair(state, hole);
-    const shortLabel = `${pair.blowName.replace(/\d+$/, "")} / ${pair.drawName.replace(/\d+$/, "")}`;
-    const accessibleLabel = `Hole ${hole}; blow ${pair.blowName}; draw ${pair.drawName}`;
-    if (button.querySelector("small").textContent !== shortLabel) button.querySelector("small").textContent = shortLabel;
-    if (button.getAttribute("aria-label") !== accessibleLabel) button.setAttribute("aria-label", accessibleLabel);
-    button.setAttribute("aria-pressed", String(hole === state.hole));
-    button.classList.toggle("is-covered", covered.has(hole));
-    button.classList.toggle(
-      "is-technique-hole",
-      technique.id !== "clean" && (techniqueHoles.size === 0 || techniqueHoles.has(hole)),
-    );
-    const tongueBlocked = covered.has(hole)
-      && hole !== state.hole
-      && state.tongueBlock > 0.01
-      && technique.id !== "octave-tongue-block";
-    const transmitted = !tongueBlocked || state.tongueBlock < 0.94;
-    button.classList.toggle("is-tongue-blocked", tongueBlocked);
-    button.classList.toggle("is-sounding-draw", covered.has(hole) && transmitted && flow < -0.025);
-    button.classList.toggle("is-sounding-blow", covered.has(hole) && transmitted && flow > 0.025);
-  }
-  updateHoleWindow();
-}
-
 function updatePresentation() {
   for (const { key, format } of CONTROL_SPECS) {
     const input = $(key);
@@ -682,7 +618,6 @@ function updatePresentation() {
   $("mouthSummary").textContent = `tongue ${Math.round(state.tonguePosition * 100)} / ${Math.round(state.tongueHeight * 100)} · throat ${Math.round(state.throatOpening * 100)}`;
   $("motionSummary").textContent = `${technique.label} · ${state.techniqueRateHz.toFixed(1)} Hz · ${Math.round(state.techniqueAmount * 100)}%`;
   $("presetDescription").dataset.material = `${Math.round(material.youngsModulusPa / 1e9)} GPa · ${Math.round(material.densityKgM3)} kg/m³`;
-  updateHoleButtons(flow);
   updateBreathPresentation(flow);
 }
 
@@ -932,90 +867,6 @@ function installHoldButton(button, direction) {
   });
 }
 
-function installApertureWindowInteractions() {
-  const rail = $("holeButtons");
-  const window = $("holeWindow");
-  if (!rail || !window) return;
-
-  const finishDrag = (event, handle) => {
-    if (!aperturePointerDrag || aperturePointerDrag.pointerId !== event.pointerId) return;
-    aperturePointerDrag = null;
-    window.classList.remove("is-dragging");
-    if (handle.hasPointerCapture?.(event.pointerId)) handle.releasePointerCapture?.(event.pointerId);
-    announce(`Mouth aperture ${apertureDescription()}`);
-  };
-
-  for (const [edge, handle] of [
-    ["left", $("holeWindowLeft")],
-    ["right", $("holeWindowRight")],
-  ]) {
-    if (!handle) continue;
-    handle.addEventListener("pointerdown", (event) => {
-      if (event.button !== undefined && event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const range = mouthApertureRange();
-      aperturePointerDrag = {
-        edge,
-        pointerId: event.pointerId,
-        first: range.first,
-        last: range.last,
-      };
-      handle.setPointerCapture?.(event.pointerId);
-      window.classList.add("is-dragging");
-    });
-    handle.addEventListener("pointermove", (event) => {
-      if (!aperturePointerDrag || aperturePointerDrag.pointerId !== event.pointerId) return;
-      event.preventDefault();
-      const bounds = rail.getBoundingClientRect();
-      const unit = clamp((event.clientX - bounds.left) / Math.max(1, bounds.width));
-      const maximumWidth = Math.min(5, HARMONICA_LIMITS.chordWidth[1]);
-      if (edge === "left") {
-        const boundary = Math.round(unit * renderedHoleCount) + 1;
-        const first = clamp(
-          boundary,
-          Math.max(1, aperturePointerDrag.last - maximumWidth + 1),
-          aperturePointerDrag.last,
-        );
-        setApertureRange(first, aperturePointerDrag.last);
-      } else {
-        const boundary = Math.round(unit * renderedHoleCount);
-        const last = clamp(
-          boundary,
-          aperturePointerDrag.first,
-          Math.min(renderedHoleCount, aperturePointerDrag.first + maximumWidth - 1),
-        );
-        setApertureRange(aperturePointerDrag.first, last);
-      }
-    });
-    handle.addEventListener("pointerup", (event) => finishDrag(event, handle));
-    handle.addEventListener("pointercancel", (event) => finishDrag(event, handle));
-    handle.addEventListener("lostpointercapture", (event) => finishDrag(event, handle));
-    handle.addEventListener("keydown", (event) => {
-      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
-      event.preventDefault();
-      const direction = event.key === "ArrowLeft" ? -1 : 1;
-      const range = mouthApertureRange();
-      const maximumWidth = Math.min(5, HARMONICA_LIMITS.chordWidth[1]);
-      if (edge === "left") {
-        const first = clamp(
-          range.first + direction,
-          Math.max(1, range.last - maximumWidth + 1),
-          range.last,
-        );
-        setApertureRange(first, range.last, { announceChange: true });
-      } else {
-        const last = clamp(
-          range.last + direction,
-          range.first,
-          Math.min(renderedHoleCount, range.first + maximumWidth - 1),
-        );
-        setApertureRange(range.first, last, { announceChange: true });
-      }
-    });
-  }
-}
-
 function installControls() {
   $("audioButton").addEventListener("click", toggleAudio);
   $("breathCycleButton").addEventListener("click", toggleBreathCycle);
@@ -1038,15 +889,11 @@ function installControls() {
     setBluesRhythm(event.currentTarget.value);
   });
   $("randomizeButton").addEventListener("click", randomizeModel);
-  for (const button of $("holeButtons").querySelectorAll("button[data-hole]")) {
-    button.addEventListener("click", () => selectHole(Number(button.dataset.hole), { announceChange: true }));
-  }
   for (const button of $("chordWidthButtons")?.querySelectorAll("button[data-chord-width]") ?? []) {
     button.addEventListener("click", () => {
       setControl("chordWidth", Number(button.dataset.chordWidth), { announceChange: true });
     });
   }
-  installApertureWindowInteractions();
   $("resetAll").addEventListener("click", () => {
     cancelManualBreath({ present: false });
     state = harmonicaState(HARMONICA_DEFAULTS.presetId);
@@ -2843,7 +2690,6 @@ function updateLiveReadouts(flow) {
         ? `${effectiveBend.toFixed(2)} semitones · ${direction < 0 ? "draw" : "blow"}`
         : `no ${direction < 0 ? "draw" : "blow"} bend on hole ${state.hole}`;
   }
-  updateHoleButtons(flow);
   updateBreathPresentation(flow);
 }
 

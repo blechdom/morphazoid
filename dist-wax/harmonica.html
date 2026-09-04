@@ -106,7 +106,7 @@
           <small>Sets the pace of Auto breathing, from one slow draw/blow cycle per minute to twenty per second.</small>
         </label>
 
-        <section class="jaw-preset-deck harmonica-preset-deck" aria-label="Harmonicazoid body, key, and hole selection">
+        <section class="jaw-preset-deck harmonica-preset-deck" aria-label="Harmonicazoid body, key, and mouth aperture">
           <div class="harmonica-identity-selects">
             <label for="presetSelect">
               <span>Reed body</span>
@@ -118,29 +118,11 @@
             </label>
           </div>
           <p id="presetDescription">Bright phosphor-bronze reeds with a balanced traditional response and familiar blow/draw articulation. Tuned independently to C.</p>
-          <div class="harmonica-hole-selector" id="holeSelector">
-            <div class="harmonica-hole-grid" id="holeButtons" role="group" aria-label="Harmonica holes">
-              <button class="harmonica-hole-button" type="button" data-hole="1" aria-label="Hole 1; blow C4; draw D4"><b>1</b><small>C / D</small></button>
-              <button class="harmonica-hole-button" type="button" data-hole="2" aria-label="Hole 2; blow E4; draw G4"><b>2</b><small>E / G</small></button>
-              <button class="harmonica-hole-button" type="button" data-hole="3" aria-label="Hole 3; blow G4; draw B4"><b>3</b><small>G / B</small></button>
-              <button class="harmonica-hole-button" type="button" data-hole="4" aria-label="Hole 4; blow C5; draw D5"><b>4</b><small>C / D</small></button>
-              <button class="harmonica-hole-button" type="button" data-hole="5" aria-label="Hole 5; blow E5; draw F5"><b>5</b><small>E / F</small></button>
-              <button class="harmonica-hole-button" type="button" data-hole="6" aria-label="Hole 6; blow G5; draw A5"><b>6</b><small>G / A</small></button>
-              <button class="harmonica-hole-button" type="button" data-hole="7" aria-label="Hole 7; blow C6; draw B5"><b>7</b><small>C / B</small></button>
-              <button class="harmonica-hole-button" type="button" data-hole="8" aria-label="Hole 8; blow E6; draw D6"><b>8</b><small>E / D</small></button>
-              <button class="harmonica-hole-button" type="button" data-hole="9" aria-label="Hole 9; blow G6; draw F6"><b>9</b><small>G / F</small></button>
-              <button class="harmonica-hole-button" type="button" data-hole="10" aria-label="Hole 10; blow C7; draw A6"><b>10</b><small>C / A</small></button>
-            </div>
-            <div class="harmonica-hole-window" id="holeWindow">
-              <button class="harmonica-hole-window-handle is-left" id="holeWindowLeft" type="button" aria-label="Move the left edge of the mouth aperture"><span aria-hidden="true">‹</span></button>
-              <button class="harmonica-hole-window-handle is-right" id="holeWindowRight" type="button" aria-label="Move the right edge of the mouth aperture"><span aria-hidden="true">›</span></button>
-            </div>
-          </div>
           <fieldset class="harmonica-aperture-selector" aria-describedby="mouthApertureHelp">
             <legend>Mouth aperture · covered holes</legend>
             <div class="harmonica-aperture-heading">
               <output id="mouthApertureReadout">2-hole double-stop</output>
-              <small id="mouthApertureHelp">Choose a width or pull either edge of the outlined mouth window across the ten holes.</small>
+              <small id="mouthApertureHelp">Choose a width here or pull either edge of the mouth bracket in the NOTE / HOLE view.</small>
             </div>
             <div class="harmonica-aperture-grid" id="chordWidthButtons" role="group" aria-label="Mouth aperture width">
               <button type="button" data-chord-width="1" aria-pressed="false" aria-label="One-hole mouth aperture; single note">

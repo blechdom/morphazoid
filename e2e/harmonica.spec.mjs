@@ -49,26 +49,25 @@ test("Harmonicazoid exposes the renamed instrument and all five linked views", a
   expectNoPageErrors(diagnostics);
 });
 
-test("key selection retunes every hole while a body change retains the chosen key", async ({ page }) => {
+test("key selection retunes the canvas note view while a body change retains the chosen key", async ({ page }) => {
   const diagnostics = await openHarmonicazoid(page);
-  const noteLabels = page.locator("#holeButtons .harmonica-hole-button small");
+  const stage = page.locator("#stage");
+  const holeReadout = page.locator("#holeReadout");
   const bodySelect = page.locator("#presetSelect");
   const keySelect = page.locator("#keySelect");
 
-  await expect(noteLabels).toHaveCount(10);
   await expect(keySelect).toHaveValue("c");
-  const cLabels = await noteLabels.allTextContents();
+  await expect(holeReadout).toHaveText("2 · E4 / G4");
   const initialBody = await bodySelect.inputValue();
 
   await keySelect.selectOption("d");
   await expect(keySelect).toHaveValue("d");
-  await expect(noteLabels.first()).toHaveText("D / E");
-  await expect(page.locator('[data-hole="1"]')).toHaveAttribute(
-    "aria-label",
-    "Hole 1; blow D4; draw E4",
-  );
-  const dLabels = await noteLabels.allTextContents();
-  expect(dLabels).not.toEqual(cLabels);
+  await expect(holeReadout).toHaveText("2 · F♯4 / A4");
+  await stage.focus();
+  await page.keyboard.press("1");
+  await expect(holeReadout).toHaveText("1 · D4 / E4");
+  await page.keyboard.press("0");
+  await expect(holeReadout).toHaveText("10 · D7 / B6");
 
   const alternateBody = await bodySelect.locator("option").evaluateAll(
     (options, current) => options.map(({ value }) => value).find((value) => value !== current),
@@ -78,7 +77,7 @@ test("key selection retunes every hole while a body change retains the chosen ke
   await bodySelect.selectOption(alternateBody);
   await expect(bodySelect).toHaveValue(alternateBody);
   await expect(keySelect).toHaveValue("d");
-  expect(await noteLabels.allTextContents()).toEqual(dLabels);
+  await expect(holeReadout).toHaveText("10 · D7 / B6");
 
   expectNoPageErrors(diagnostics);
 });
@@ -124,38 +123,52 @@ test("performance presets and Randomize keep a scored breath groove playing", as
   expectNoPageErrors(diagnostics);
 });
 
-test("mouth-window edges drag across one to five holes and top breath controls stay live", async ({ page }) => {
+test("canvas mouth edges drag across one to five holes and top breath controls stay live", async ({ page }) => {
   const diagnostics = await openHarmonicazoid(page);
-  const rail = page.locator("#holeButtons");
-  const window = page.locator("#holeWindow");
-  const rightHandle = page.locator("#holeWindowRight");
-  const leftHandle = page.locator("#holeWindowLeft");
+  const stage = page.locator("#stage");
 
   await expect(page.locator("#chordWidthButtons button[data-chord-width]")).toHaveCount(5);
-  await expect(window).toHaveAttribute("data-first-hole", "1");
-  await expect(window).toHaveAttribute("data-last-hole", "2");
+  await expect(page.locator("#holeButtons")).toHaveCount(0);
+  await expect(page.locator("#chordWidth")).toHaveValue("2");
+  await expect(page.locator("#hole")).toHaveValue("2");
 
-  const railBox = await rail.boundingBox();
-  const rightBox = await rightHandle.boundingBox();
-  expect(railBox).toBeTruthy();
-  expect(rightBox).toBeTruthy();
-  await page.mouse.move(rightBox.x + rightBox.width / 2, rightBox.y + rightBox.height / 2);
+  const geometry = await stage.evaluate((canvas) => {
+    const bounds = canvas.getBoundingClientRect();
+    const width = bounds.width;
+    const height = bounds.height;
+    const compact = height < 470 || width < 700;
+    const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+    const margin = compact ? 9 : clamp(width * 0.035, 24, 42);
+    const stageTop = compact ? 9 : 24;
+    const stageBottom = height - (compact ? 9 : 22);
+    const availableHeight = Math.max(190, stageBottom - stageTop);
+    const noteHeight = compact
+      ? clamp(availableHeight * 0.31, 62, 88)
+      : clamp(availableHeight * 0.24, 108, 146);
+    const combLeft = margin + (compact ? 7 : 14);
+    const combRight = width - margin - (compact ? 7 : 14);
+    const combTop = stageTop + (compact ? 17 : 27);
+    const bracketY = combTop - (compact ? 6 : 10);
+    return {
+      left: bounds.left + combLeft,
+      y: bounds.top + bracketY,
+      holeWidth: (combRight - combLeft) / 10,
+    };
+  });
+
+  await page.mouse.move(geometry.left + geometry.holeWidth * 2, geometry.y);
   await page.mouse.down();
-  await page.mouse.move(railBox.x + railBox.width * 0.49, railBox.y + railBox.height / 2, { steps: 5 });
+  await page.mouse.move(geometry.left + geometry.holeWidth * 5, geometry.y, { steps: 5 });
   await page.mouse.up();
   await expect(page.locator("#chordWidth")).toHaveValue("5");
-  await expect(window).toHaveAttribute("data-first-hole", "1");
-  await expect(window).toHaveAttribute("data-last-hole", "5");
+  await expect(page.locator("#hole")).toHaveValue("5");
 
-  const leftBox = await leftHandle.boundingBox();
-  expect(leftBox).toBeTruthy();
-  await page.mouse.move(leftBox.x + leftBox.width / 2, leftBox.y + leftBox.height / 2);
+  await page.mouse.move(geometry.left, geometry.y);
   await page.mouse.down();
-  await page.mouse.move(railBox.x + railBox.width * 0.2, railBox.y + railBox.height / 2, { steps: 4 });
+  await page.mouse.move(geometry.left + geometry.holeWidth * 2, geometry.y, { steps: 4 });
   await page.mouse.up();
   await expect(page.locator("#chordWidth")).toHaveValue("3");
-  await expect(window).toHaveAttribute("data-first-hole", "3");
-  await expect(window).toHaveAttribute("data-last-hole", "5");
+  await expect(page.locator("#hole")).toHaveValue("5");
 
   await page.locator("#breathRateBpm").fill("96");
   await expect(page.locator("#breathRateBpmOut")).toHaveText("96 cycles/min");
