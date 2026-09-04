@@ -416,6 +416,7 @@ export const TOOL_GROUPS = Object.freeze([
   ], { picker: false }),
   freezeGroup("apps", "Apps", [
     { id: "combo", label: "Shapes", href: "shapes.html" },
+    { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
   ]),
 ]);
 

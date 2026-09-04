@@ -19,6 +19,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose 2D, 3D, or 4D, then play the same running form continuously, as notes, or as triggers from the responsive Twin Rack panel.",
     ["Built-in synth", "Pointer", "Shared transport", "Self-contained app"],
   ),
+  "l-systems": define(
+    "Recursive instrument app",
+    "A self-contained L-system instrument with one canvas, shared grammar controls, and Continuous, Notes, Triggers, and Mic playing modes.",
+    "Choose a grammar and mix preset, then keep the same branch traversal running while switching between sustained synth, note events, drum triggers, and live mic delay.",
+    ["Built-in synth", "Drum machine", "Mic input", "Shared transport", "Self-contained app"],
+  ),
   shape: define(
     "Synth",
     "Scans a 2D contour with moving points, lines, or rays; each geometric contact shapes pitch, pan, level, and timbre.",
@@ -707,6 +713,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   creaturazoid: Object.freeze(["sequencers"]),
   blowhole: Object.freeze(["sequencers"]),
   "hiccup-head": Object.freeze(["sequencers"]),
+  "l-systems": Object.freeze(["fractals-recursion", "geometry-drums", "mic-fx"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "graph-drums": Object.freeze(["fractals-recursion"]),
   "graph-synth": Object.freeze(["fractals-recursion"]),

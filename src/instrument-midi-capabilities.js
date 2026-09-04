@@ -86,6 +86,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "gravity-lens",
   ]),
   sequence: Object.freeze([
+    "l-systems",
     "boidzoid",
     "vector-flight",
     "pink-trombonazoid",
@@ -206,6 +207,7 @@ const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
 const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
 const processorAudioIds = new Set(["moire-drone", "recursion"]);
 const audioInputIds = new Set([
+  "l-systems",
   "lumber",
   "micmic",
   "graph-delay",

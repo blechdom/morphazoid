@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid L-Systems - synth, drums, and microphone delay in one switchable instrument."
+    />
+    <title>L-Systems - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="l-systems.css" />
+  </head>
+  <body class="l-systems-app-page">
+    <header class="masthead l-systems-masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="l-systems.html" aria-current="page">L-Systems</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="l-systems.html" selected>L-Systems</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.58" />
+        </label>
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" data-audio-state="off">
+          <span class="audio-glyph" aria-hidden="true">O</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="l-systems-app" id="lSystemsApp" data-playing-mode="continuous">
+      <section class="l-systems-stage" aria-label="L-System stage">
+        <div class="l-systems-stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" aria-label="Animated L-system instrument canvas" aria-describedby="stageReadout liveStatus">
+            Animated L-system branches with a moving reader.
+          </canvas>
+          <div class="l-systems-stage-meta" aria-hidden="true">
+            <span id="stageReadout">I7 - 0 heads - paused - audio off</span>
+          </div>
+          <div class="l-systems-stage-meter" aria-hidden="true">
+            <span id="mappingReadout">ANGLE PITCH - FINAL</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="l-systems-panel" aria-label="L-Systems controls">
+        <header class="l-systems-panel-header">
+          <div class="l-systems-mode-switch" id="playingMode" role="tablist" aria-label="L-System playing mode">
+            <button id="modeContinuous" type="button" role="tab" data-playing-mode="continuous" aria-selected="true" aria-controls="synthBank">Continuous</button>
+            <button id="modeNotes" type="button" role="tab" data-playing-mode="notes" aria-selected="false" aria-controls="synthBank" tabindex="-1">Notes</button>
+            <button id="modeTriggers" type="button" role="tab" data-playing-mode="triggers" aria-selected="false" aria-controls="drumsBank" tabindex="-1">Triggers</button>
+            <button id="modeMic" type="button" role="tab" data-playing-mode="mic" aria-selected="false" aria-controls="micBank" tabindex="-1">Mic</button>
+          </div>
+        </header>
+
+        <div class="l-systems-panel-scroll">
+          <section class="l-systems-rack l-systems-play-rack" aria-labelledby="playRackTitle">
+            <header><h2 id="playRackTitle">Transport</h2></header>
+            <div class="l-systems-live-row">
+              <button class="l-systems-transport-button" id="playButton" type="button" aria-pressed="false" aria-label="Play traversal" title="Play">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                <span class="sr-only" id="playButtonLabel">Play</span>
+              </button>
+              <div class="l-systems-motion-bank" id="playheadMotion" role="group" aria-label="Traversal direction and movement">
+                <button class="l-systems-icon-toggle l-systems-direction" id="traversalDirection" type="button" data-direction="forward" aria-label="Traversal direction: forward" title="Direction">
+                  <svg class="direction-forward" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
+                  <svg class="direction-reverse" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" /></svg>
+                  <span class="sr-only" id="traversalDirectionText">forward</span>
+                </button>
+                <button class="l-systems-icon-toggle" id="loopMotion" type="button" data-motion="loop" aria-pressed="true" aria-label="Loop movement" title="Loop">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2.5 21 6.5l-4 4M3 11V9a2.5 2.5 0 0 1 2.5-2.5H21M7 21.5l-4-4 4-4M21 13v2a2.5 2.5 0 0 1-2.5 2.5H3" /></svg>
+                  <span class="sr-only">Loop</span>
+                </button>
+                <button class="l-systems-icon-toggle" id="pingPongMotion" type="button" data-motion="ping-pong" aria-pressed="false" aria-label="Ping-pong movement" title="Ping-pong">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7 3 12l4 5M3 12h18M17 7l4 5-4 5" /></svg>
+                  <span class="sr-only">Ping-pong</span>
+                </button>
+              </div>
+            </div>
+            <label class="control l-systems-primary-range" for="position">
+              <span><b>Reader position</b><output id="positionOut" for="position">0.0%</output></span>
+              <input id="position" type="range" min="0" max="1" step="0.0005" value="0" />
+            </label>
+            <label class="control l-systems-primary-range" for="speed">
+              <span><b>Speed</b><output id="speedOut" for="speed">0.30 cyc/s</output></span>
+              <input id="speed" type="range" min="0" max="3" step="0.01" value="0.3" />
+            </label>
+          </section>
+
+          <section class="l-systems-rack" aria-labelledby="systemRackTitle">
+            <header><h2 id="systemRackTitle">L-system</h2></header>
+            <div class="l-systems-grid">
+              <label class="select-control" for="preset">
+                <span class="field-label">Preset</span>
+                <span class="select-shell"><select id="preset"></select></span>
+              </label>
+              <label class="control" for="iterations">
+                <span><b>Iterations</b><output id="iterationsOut" for="iterations">7</output></span>
+                <input id="iterations" type="range" min="0" max="11" step="1" value="7" />
+              </label>
+              <label class="control" for="angle">
+                <span><b>Branch angle</b><output id="angleOut" for="angle">45 deg</output></span>
+                <input id="angle" type="range" min="0" max="150" step="0.1" value="45" />
+              </label>
+              <label class="control" for="lengthScale">
+                <span><b>Length scale</b><output id="lengthScaleOut" for="lengthScale">72%</output></span>
+                <input id="lengthScale" type="range" min="0.2" max="1.2" step="0.01" value="0.72" />
+              </label>
+              <label class="control l-systems-wide" for="turnAsymmetry">
+                <span><b>Turn asymmetry</b><output id="turnAsymmetryOut" for="turnAsymmetry">even</output></span>
+                <input id="turnAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" />
+              </label>
+            </div>
+            <div class="l-systems-grammar-card">
+              <span>Axiom</span>
+              <code id="axiomReadout">FX</code>
+              <span>Rules</span>
+              <code id="rulesReadout">X -&gt; &gt;[-FX]+FX&lt;</code>
+            </div>
+            <p class="control-note" id="turnAsymmetryNote">Left and right turns are balanced.</p>
+            <p class="control-note" id="taperNote">Branch taper applies to &gt; and &lt; symbols.</p>
+            <p class="audio-error" id="systemError" hidden></p>
+            <button class="mini-action" id="resetSystem" type="button">Reset system</button>
+          </section>
+
+          <section class="l-systems-rack" aria-labelledby="structureRackTitle">
+            <header><h2 id="structureRackTitle">Structure</h2></header>
+            <label class="select-control" for="structureMode">
+              <span class="field-label">Playback structure</span>
+              <span class="select-shell">
+                <select id="structureMode">
+                  <option value="final">Final iteration</option>
+                  <option value="sequence">Iteration sequence</option>
+                  <option value="accumulate">Accumulate</option>
+                  <option value="together">Together</option>
+                  <option value="canon">Canon</option>
+                </select>
+              </span>
+            </label>
+            <div class="l-systems-structure-readout">
+              <b id="structureReadout">FINAL I7</b>
+              <small id="structureDescription">Only the final rewritten structure is scanned.</small>
+            </div>
+          </section>
+
+          <section class="l-systems-rack l-systems-mode-bank is-active" id="synthBank" role="tabpanel" aria-labelledby="modeContinuous" data-mode-bank="synth">
+            <header><h2 id="synthBankTitle">Continuous</h2></header>
+            <div class="l-systems-grid">
+              <label class="select-control" for="pitchSource">
+                <span class="field-label">Pitch source</span>
+                <span class="select-shell">
+                  <select id="pitchSource">
+                    <option value="angle">Turn angle</option>
+                    <option value="height">Stage height</option>
+                    <option value="depth">Branch depth</option>
+                    <option value="progress">Segment progress</option>
+                  </select>
+                </span>
+              </label>
+              <label class="select-control" for="soundMode">
+                <span class="field-label">Voice engine</span>
+                <span class="select-shell">
+                  <select id="soundMode">
+                    <option value="sine">Sine</option>
+                    <option value="fm">FM</option>
+                    <option value="pm">PM</option>
+                    <option value="shepard">Shepard</option>
+                  </select>
+                </span>
+              </label>
+              <label class="control" for="baseFrequency">
+                <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">220 Hz</output></span>
+                <input id="baseFrequency" type="range" min="55" max="880" step="1" value="220" />
+              </label>
+              <label class="control" for="pitchRange">
+                <span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">2.0 oct</output></span>
+                <input id="pitchRange" type="range" min="0" max="6" step="0.1" value="2" />
+              </label>
+              <label class="control" for="depthAmount">
+                <span><b>Depth drive</b><output id="depthAmountOut" for="depthAmount">65%</output></span>
+                <input id="depthAmount" type="range" min="0" max="1" step="0.01" value="0.65" />
+              </label>
+              <label class="control" for="modulationIndex">
+                <span><b>Mod index</b><output id="modulationIndexOut" for="modulationIndex">3.0</output></span>
+                <input id="modulationIndex" type="range" min="0" max="12" step="0.1" value="3" />
+              </label>
+              <label class="control l-systems-wide" for="stereoSpread">
+                <span><b>Stereo spread</b><output id="stereoSpreadOut" for="stereoSpread">90%</output></span>
+                <input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.9" />
+              </label>
+            </div>
+            <div id="amplitudeControl"></div>
+            <div class="l-systems-structure-readout">
+              <b id="polyphonyReadout">AUTO - 128 ready</b>
+              <small id="polyphonyDescription">The synth follows the active branch heads.</small>
+            </div>
+          </section>
+
+          <section class="l-systems-rack l-systems-mode-bank" id="drumsBank" role="tabpanel" aria-labelledby="modeTriggers" data-mode-bank="triggers" hidden>
+            <header><h2>Triggers</h2></header>
+            <div class="l-systems-grid">
+              <label class="control" for="subdivisions">
+                <span><b>Subdivisions</b><output id="subdivisionsOut" for="subdivisions">4</output></span>
+                <input id="subdivisions" type="range" min="1" max="16" step="1" value="4" />
+              </label>
+              <label class="select-control" for="mappingMode">
+                <span class="field-label">Mapping</span>
+                <span class="select-shell"><select id="mappingMode"></select></span>
+              </label>
+              <label class="select-control" for="percussionStyle">
+                <span class="field-label">Style</span>
+                <span class="select-shell"><select id="percussionStyle"></select></span>
+              </label>
+              <label class="control" for="pitchDepth">
+                <span><b>Y tuning</b><output id="pitchDepthOut" for="pitchDepth">12 st</output></span>
+                <input id="pitchDepth" type="range" min="0" max="36" step="1" value="12" />
+              </label>
+              <label class="control" for="anglePitchDepth">
+                <span><b>Angle tuning</b><output id="anglePitchDepthOut" for="anglePitchDepth">12 st</output></span>
+                <input id="anglePitchDepth" type="range" min="0" max="36" step="1" value="12" />
+              </label>
+              <label class="control" for="angleRange">
+                <span><b>Angle range</b><output id="angleRangeOut" for="angleRange">90 deg</output></span>
+                <input id="angleRange" type="range" min="15" max="180" step="1" value="90" />
+              </label>
+              <label class="control l-systems-wide" for="characterDepth">
+                <span><b>Character depth</b><output id="characterDepthOut" for="characterDepth">72%</output></span>
+                <input id="characterDepth" type="range" min="0" max="1" step="0.01" value="0.72" />
+              </label>
+            </div>
+            <p class="control-note" id="mappingDescription">Branch depth chooses the row; inherited turn angle chooses the column.</p>
+            <div class="l-systems-mapping-legend" aria-label="Drum mapping legend">
+              <span><b id="mappingLegendLabel0">Branch depth</b><small id="mappingLegendDetail0">drum row</small></span>
+              <span><b id="mappingLegendLabel1">Turn angle</b><small id="mappingLegendDetail1">voice column</small></span>
+              <span><b id="mappingLegendLabel2">Height + angle</b><small id="mappingLegendDetail2">tuning</small></span>
+              <span><b id="mappingLegendLabel3">Turn + depth</b><small id="mappingLegendDetail3">tone + force</small></span>
+              <span><b id="mappingLegendLabel4">Active heads</b><small id="mappingLegendDetail4">headroom</small></span>
+            </div>
+            <div class="l-system-drum-map" id="drumMap" aria-label="Drum voice map"></div>
+          </section>
+
+          <section class="l-systems-rack l-systems-mode-bank" id="micBank" role="tabpanel" aria-labelledby="modeMic" data-mode-bank="mic" hidden>
+            <header><h2>Mic</h2></header>
+            <div class="l-systems-grid">
+              <label class="control" for="inputTrim">
+                <span><b>Input trim</b><output id="inputTrimOut" for="inputTrim">100%</output></span>
+                <input id="inputTrim" type="range" min="0" max="1.25" step="0.01" value="1" />
+              </label>
+              <label class="control" for="micFeedback">
+                <span><b>Feedback</b><output id="micFeedbackOut" for="micFeedback">38%</output></span>
+                <input id="micFeedback" type="range" min="0" max="0.82" step="0.01" value="0.38" />
+              </label>
+              <label class="control" for="micInterval">
+                <span><b>Timing scale</b><output id="micIntervalOut" for="micInterval">1.00x</output></span>
+                <input id="micInterval" type="range" min="0.25" max="4" step="0.01" value="1" />
+              </label>
+              <label class="control" for="micTimeRatio">
+                <span><b>Depth ratio</b><output id="micTimeRatioOut" for="micTimeRatio">1.00x</output></span>
+                <input id="micTimeRatio" type="range" min="0.2" max="2" step="0.01" value="1" />
+              </label>
+              <label class="control" for="micPitchRange">
+                <span><b>Pitch bend</b><output id="micPitchRangeOut" for="micPitchRange">1.2 oct</output></span>
+                <input id="micPitchRange" type="range" min="0" max="4" step="0.1" value="1.2" />
+              </label>
+              <label class="control" for="micSpread">
+                <span><b>Stereo spread</b><output id="micSpreadOut" for="micSpread">90%</output></span>
+                <input id="micSpread" type="range" min="0" max="1" step="0.01" value="0.9" />
+              </label>
+              <label class="control l-systems-wide" for="micWet">
+                <span><b>Branch send</b><output id="micWetOut" for="micWet">92%</output></span>
+                <input id="micWet" type="range" min="0" max="1" step="0.01" value="0.92" />
+              </label>
+            </div>
+            <div class="l-systems-structure-readout">
+              <b id="micVoiceReadout">MIC IDLE</b>
+              <small id="micDescription">The live microphone is distributed through the active branch heads.</small>
+            </div>
+          </section>
+
+          <section class="l-systems-rack" aria-labelledby="mixRackTitle">
+            <header><h2 id="mixRackTitle">Mix</h2></header>
+            <label class="select-control l-systems-wide" for="mixPreset">
+              <span class="field-label">Mix preset</span>
+              <span class="select-shell"><select id="mixPreset"></select></span>
+            </label>
+            <div class="l-systems-grid">
+              <label class="control" for="continuousLevel">
+                <span><b>Continuous</b><output id="continuousLevelOut" for="continuousLevel">100%</output></span>
+                <input id="continuousLevel" type="range" min="0" max="1.5" step="0.01" value="1" />
+              </label>
+              <label class="control" for="noteLevel">
+                <span><b>Notes</b><output id="noteLevelOut" for="noteLevel">100%</output></span>
+                <input id="noteLevel" type="range" min="0" max="1.5" step="0.01" value="1" />
+              </label>
+              <label class="control" for="triggerLevel">
+                <span><b>Triggers</b><output id="triggerLevelOut" for="triggerLevel">95%</output></span>
+                <input id="triggerLevel" type="range" min="0" max="1.5" step="0.01" value="0.95" />
+              </label>
+              <label class="control" for="micLevel">
+                <span><b>Mic</b><output id="micLevelOut" for="micLevel">112%</output></span>
+                <input id="micLevel" type="range" min="0" max="1.5" step="0.01" value="1.12" />
+              </label>
+            </div>
+            <p class="control-note" id="mixDescription">Continuous, Notes, Triggers, and Mic sit at matching perceived weight.</p>
+          </section>
+
+          <section class="l-systems-rack l-systems-status-rack" aria-labelledby="settingsRackTitle">
+            <header><h2 id="settingsRackTitle">Status</h2></header>
+            <div class="l-systems-status-grid">
+              <span><b>Mode</b><small id="currentModeReadout">Continuous</small></span>
+              <span><b>Traversal</b><small id="currentTraversalReadout">Loop forward</small></span>
+              <span><b>System</b><small id="currentSettingsSummary">I7, 45 deg, 72%</small></span>
+            </div>
+            <p class="audio-error" id="audioError" hidden></p>
+            <button class="mini-action" id="resetAll" type="button">Reset all</button>
+          </section>
+          <div class="l-systems-midi-dock" data-midi-output-monitor-host aria-label="MIDI output monitor"></div>
+        </div>
+      </aside>
+    </main>
+
+    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="l-systems-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

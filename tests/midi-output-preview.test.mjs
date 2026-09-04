@@ -219,6 +219,26 @@ test("trusted range movement previews its formatted value and unassigned 7-bit p
   monitor.destroy();
 });
 
+test("explicit monitor host receives the MIDI Out monitor before generic panels", () => {
+  const doc = new FakeDocument();
+  const dock = new FakeNode("div", doc);
+  dock.setAttribute("data-midi-output-monitor-host", "");
+  doc.panel.append(dock);
+  const querySelector = doc.querySelector.bind(doc);
+  doc.querySelector = (selector) => (
+    selector === "[data-midi-output-monitor-host]" ? dock : querySelector(selector)
+  );
+
+  const monitor = initializeMidiOutputMonitor(doc, fakeRuntime(), {
+    routeId: "l-systems",
+    capability: { midiOutput: true },
+  });
+
+  assert.equal(monitor.monitor.parentNode, dock);
+  assert.equal(doc.panel.children.includes(monitor.monitor), false);
+  monitor.destroy();
+});
+
 test("generic timing uses displayed musical units and rejects rate-shaped non-time controls", () => {
   const doc = new FakeDocument();
   const runtime = fakeRuntime();
