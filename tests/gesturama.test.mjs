@@ -53,6 +53,18 @@ test("Gesturama is a native Morphazoid page with explicit local camera startup",
   assert.match(css, /^\.gesturama-app\s*\{/m);
   assert.doesNotMatch(css, /^:root\s*\{/m);
   assert.doesNotMatch(css, /^\.brand-mark\s*\{/m);
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*?html\s*\{[^}]*height:\s*auto[^}]*overflow-y:\s*auto/s,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*?body\.gesturama-page\s*\{[^}]*height:\s*auto[^}]*overflow-y:\s*auto/s,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*?\.gesturama-app #paint-canvas\s*\{[^}]*touch-action:\s*pan-y/s,
+  );
   assert.match(app, /navigator\.mediaDevices\.getUserMedia/);
   assert.doesNotMatch(app, /document\.documentElement\.style\.setProperty/);
   assert.match(app, /window\.addEventListener\("pagehide"[\s\S]*stopCamera\(\)[\s\S]*audio\.close\(\)/);

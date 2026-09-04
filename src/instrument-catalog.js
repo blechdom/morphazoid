@@ -25,6 +25,18 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose a grammar and mix preset, then keep the same branch traversal running while switching between sustained synth, note events, drum triggers, and live mic delay.",
     ["Built-in synth", "Drum machine", "Mic input", "Shared transport", "Self-contained app"],
   ),
+  "tiles-app": define(
+    "Tile instrument app",
+    "A self-contained lattice and spiral instrument with one canvas, shared isohedral tile controls, sustained synth modes, and FM drum trigger modes.",
+    "Choose Lattice, Lattice Drums, Spiral, or Spiral Drums, then keep the same tile form and reader transport running while switching sound engines.",
+    ["Built-in synth", "Drum machine", "Pointer", "Shared transport", "Self-contained app"],
+  ),
+  "algorithmic-mazes": define(
+    "Build-first dual-graph instrument",
+    "Carves orthogonal, radial, or hexagonal fields as paired passage-center and wall-outline voices, with a distinct visual and sonic process for each maze algorithm.",
+    "Choose a field and builder, replay its construction, then optionally trace, tour, or solve the finished topology.",
+    ["Pointer", "Built-in synth", "SVG export", "Shared transport", "Self-contained app"],
+  ),
   shape: define(
     "Synth",
     "Scans a 2D contour with moving points, lines, or rays; each geometric contact shapes pitch, pan, level, and timbre.",
@@ -64,6 +76,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Geometry synth",
     "Builds original procedural motifs on Euclidean wallpaper groups, similarity recursions, and exact Poincaré-disk reflection tilings whose rendered contours become the playhead paths.",
     "Tap a shape, then follow its literal outline, real shared-border neighbors, or matching pattern family; smaller measured contours naturally recur faster.",
+  ),
+  "penrose-tilings": define(
+    "Aperiodic geometry synth",
+    "Moves five exact Penrose presentations behind one fixed reader: edge paths sustain sine voices, while new physical intersections trigger FM percussion.",
+    "Choose a presentation and local window, then follow the visible signal net and next-edge targets as the tiling moves; angle shear keeps shared edges sealed while clearly leaving canonical geometry.",
+    ["Pointer", "Built-in synth"],
   ),
   spiral: define(
     "Synth",
@@ -275,8 +293,8 @@ const CATALOG_DETAILS = Object.freeze({
     ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
   ),
   "breath-atlas": define(
-    "Breath physical-model atlas",
-    "Compares nineteen mouth and breath instruments through six physical source topologies, from quill-driven strings and bidirectional free reeds to lip valves, flutes, jaw reeds, and mouth bows.",
+    "Mouth-instrument physical-model atlas",
+    "Mouthophones compares nineteen breath-driven and mouth-resonated instruments through six physical source topologies, from quill-driven strings and bidirectional free reeds to lip reeds, edge-tone flutes, lamellophones, and mouth bows.",
     "Choose an instrument by evidence tier, turn on audio, then hold inhale or exhale; for hand-driven strings, pluck, rub, or bow against a linked breath rhythm.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
@@ -635,9 +653,9 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose tooth counts, then start the gears and change their speed.",
   ),
   "cellular-automata": define(
-    "Algorithmic texture",
-    "Scrolls elementary automata while each generation becomes a short mono black-and-white pulse texture.",
-    "Turn on audio, choose a rule and seed, then hear every new row scan from beginning to end.",
+    "Cellular automaton",
+    "Shows exact, live-switchable binary evolution with all 256 elementary rules, 88 symmetry families, explicit boundaries, and measurable shape contours.",
+    "Change rule or boundary without restarting, then sculpt the next rows through finite mono physical, FM/PM, additive, wavefold, or resonant-air voices with swing and ADSR.",
   ),
   "prime-sieve": define(
     "Algorithmic sequencer",

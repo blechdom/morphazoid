@@ -1877,11 +1877,23 @@
 }
 
 @media (max-width: 960px) {
+  html {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
   body.gesturama-page {
     height: auto;
     min-height: 100dvh;
     overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior-y: auto;
+  }
+
+  .gesturama-app #paint-canvas {
+    touch-action: pan-y;
   }
 }
 

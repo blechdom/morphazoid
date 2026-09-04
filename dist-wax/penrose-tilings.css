@@ -1,0 +1,416 @@
+.penrose-tilings-page {
+  --accent: #ff4fd8;
+  --accent-soft: color-mix(in oklab, var(--accent) 58%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 20%, transparent);
+  --penrose-gold: #ff3fc9;
+  --penrose-copper: #ff60a8;
+  --penrose-blue: #8d5cff;
+  --penrose-ice: #d7b9ff;
+  --penrose-paper: #f5eaff;
+}
+
+.penrose-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(370px, 29vw, 450px);
+}
+
+.penrose-stage-wrap {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 48% 50%, rgba(190, 61, 255, 0.15), transparent 48%),
+    radial-gradient(circle at 73% 28%, rgba(255, 55, 182, 0.09), transparent 35%),
+    linear-gradient(126deg, rgba(120, 72, 255, 0.055), transparent 46%, rgba(255, 43, 173, 0.04)),
+    #090711;
+}
+
+.penrose-tilings-page #stage {
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.penrose-stage-wrap.is-scrubbing #stage {
+  cursor: grabbing;
+}
+
+.penrose-view-controls {
+  position: absolute;
+  z-index: 6;
+  top: 20px;
+  right: 18px;
+  display: flex;
+  border: 1px solid color-mix(in oklab, var(--penrose-paper) 20%, transparent);
+  background: color-mix(in oklab, #08090b 86%, transparent);
+  box-shadow: 0 9px 28px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(9px);
+}
+
+.penrose-view-controls button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-right: 1px solid color-mix(in oklab, var(--penrose-paper) 15%, transparent);
+  color: var(--penrose-paper);
+  background: transparent;
+  font: 650 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.penrose-view-controls button:last-child {
+  border-right: 0;
+}
+
+.penrose-view-controls button:hover,
+.penrose-view-controls button:focus-visible {
+  color: #08090b;
+  background: var(--accent);
+}
+
+.penrose-stage-ledger {
+  position: absolute;
+  z-index: 4;
+  right: clamp(18px, 3vw, 34px);
+  bottom: clamp(24px, 3vw, 36px);
+  display: grid;
+  min-width: 190px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklab, var(--penrose-paper) 18%, transparent);
+  pointer-events: none;
+  background: color-mix(in oklab, #08090b 84%, transparent);
+  box-shadow: 0 9px 28px rgba(0, 0, 0, 0.3);
+  gap: 3px;
+  text-align: right;
+  backdrop-filter: blur(8px);
+}
+
+.penrose-stage-ledger > span {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+}
+
+.penrose-stage-ledger strong {
+  color: var(--accent);
+  font: 650 12px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.penrose-stage-ledger small {
+  color: color-mix(in oklab, var(--penrose-paper) 55%, transparent);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.penrose-legend {
+  position: absolute;
+  z-index: 4;
+  right: clamp(18px, 3vw, 34px);
+  bottom: clamp(106px, 10vw, 118px);
+  display: flex;
+  pointer-events: none;
+  color: color-mix(in oklab, var(--penrose-paper) 58%, transparent);
+  gap: 13px;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.penrose-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.penrose-legend b {
+  font: inherit;
+}
+
+.penrose-legend i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transform: rotate(45deg);
+}
+
+.penrose-legend .is-thick {
+  background: var(--penrose-gold);
+}
+
+.penrose-legend .is-thin {
+  background: var(--penrose-blue);
+}
+
+.penrose-tilings-page .stage-meta {
+  top: auto;
+  right: auto;
+  bottom: 17px;
+  left: clamp(22px, 4.2vw, 58px);
+  color: color-mix(in oklab, var(--penrose-paper) 43%, transparent);
+  justify-content: flex-start;
+}
+
+.penrose-panel {
+  background:
+    linear-gradient(180deg, rgba(205, 60, 255, 0.075), transparent 390px),
+    var(--panel);
+}
+
+.penrose-intro {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.62;
+}
+
+.penrose-control-note {
+  display: block;
+  margin-top: 5px;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.penrose-toggle-grid {
+  display: grid;
+  margin-top: 13px;
+  gap: 7px;
+}
+
+.penrose-toggle {
+  display: flex;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.012);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.penrose-toggle span {
+  display: grid;
+  gap: 2px;
+}
+
+.penrose-toggle b {
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.penrose-toggle small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.penrose-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.penrose-toggle.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.penrose-math-ledger {
+  display: grid;
+  margin: 14px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.penrose-math-ledger div {
+  display: grid;
+  min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+}
+
+.penrose-math-ledger dt,
+.penrose-math-ledger dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.penrose-math-ledger dt {
+  color: var(--faint);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.penrose-math-ledger dd {
+  color: var(--ink);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.penrose-transport-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: end;
+  gap: 10px;
+}
+
+.penrose-transport-row .play-button {
+  width: 52px;
+  height: 52px;
+}
+
+.penrose-fm-controls {
+  display: grid;
+  margin-top: 4px;
+  padding: 9px 10px 11px;
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+  gap: 2px;
+}
+
+.penrose-fm-controls[hidden] {
+  display: none;
+}
+
+.penrose-comparison {
+  display: grid;
+  margin: 0;
+  gap: 7px;
+}
+
+.penrose-comparison div {
+  display: grid;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.penrose-comparison div.is-penrose {
+  border-color: color-mix(in oklab, var(--accent) 46%, var(--line));
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+}
+
+.penrose-comparison dt,
+.penrose-comparison dd {
+  margin: 0;
+}
+
+.penrose-comparison dt {
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.penrose-comparison dd {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.penrose-research-copy p {
+  margin: 0 0 11px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.62;
+}
+
+.penrose-research-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.penrose-research-copy b {
+  color: var(--penrose-paper);
+}
+
+.penrose-research-copy .penrose-quote {
+  padding: 11px 12px;
+  border-left: 2px solid var(--accent);
+  color: var(--penrose-paper);
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+.penrose-source-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  gap: 7px;
+}
+
+.penrose-source-list li {
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.penrose-source-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.penrose-source-list a {
+  color: var(--muted);
+  text-decoration-color: color-mix(in oklab, var(--accent) 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.penrose-source-list a:hover,
+.penrose-source-list a:focus-visible {
+  color: var(--accent);
+}
+
+@media (max-width: 980px) {
+  .penrose-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .penrose-stage-ledger {
+    right: 18px;
+    bottom: 18px;
+  }
+
+  .penrose-legend {
+    right: 18px;
+    bottom: 96px;
+  }
+}
+
+@media (max-width: 650px) {
+  .penrose-view-controls {
+    top: auto;
+    right: auto;
+    bottom: 10px;
+    left: 11px;
+  }
+
+  .penrose-stage-ledger {
+    right: 11px;
+    bottom: 10px;
+    min-width: 0;
+    padding: 7px 8px;
+  }
+
+  .penrose-stage-ledger small,
+  .penrose-legend,
+  .penrose-tilings-page .stage-meta {
+    display: none;
+  }
+
+  .penrose-comparison div {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .penrose-tilings-page * {
+    scroll-behavior: auto;
+  }
+}

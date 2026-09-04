@@ -1,0 +1,544 @@
+.algorithmic-mazes-page {
+  --accent: #67e2d0;
+  --accent-soft: color-mix(in oklab, var(--accent) 58%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 18%, transparent);
+  --maze-wall: #efc86f;
+  --maze-passage: #62dfd0;
+  --maze-solution: #ff7f93;
+  --maze-violet: #b598ff;
+  --maze-paper: #edf4ef;
+  background: #07090b;
+}
+
+.maze-audio-glyph {
+  font: 800 13px/1 var(--mono);
+}
+
+.maze-shell {
+  grid-template-columns: minmax(0, 1fr) minmax(350px, 390px);
+  min-height: calc(100svh - 58px);
+}
+
+.maze-stage {
+  min-width: 0;
+}
+
+.maze-stage-wrap {
+  min-height: 560px;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(103, 226, 208, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(239, 200, 111, 0.028) 1px, transparent 1px),
+    #050708;
+  background-size: 36px 36px;
+}
+
+.algorithmic-mazes-page #stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.maze-stage-wrap.is-scrubbing #stage {
+  cursor: ew-resize;
+}
+
+.maze-layer-key {
+  position: absolute;
+  right: 18px;
+  bottom: 48px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  max-width: min(430px, 56%);
+  pointer-events: none;
+}
+
+.maze-layer-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(237, 244, 239, 0.52);
+  font: 700 8px/1.1 var(--mono);
+  text-transform: uppercase;
+}
+
+.maze-layer-key i {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+}
+
+.maze-layer-key .is-wall {
+  color: var(--maze-wall);
+}
+
+.maze-layer-key .is-passage {
+  color: var(--maze-passage);
+}
+
+.maze-layer-key .is-solution {
+  height: 0;
+  border-top: 1px dashed var(--maze-solution);
+  background: transparent;
+}
+
+.maze-phase-track {
+  position: absolute;
+  right: 18px;
+  bottom: 36px;
+  left: 18px;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  background: rgba(237, 244, 239, 0.08);
+}
+
+.maze-phase-track i {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--maze-passage), var(--maze-violet), var(--maze-wall));
+  box-shadow: 0 0 10px rgba(103, 226, 208, 0.38);
+}
+
+.algorithmic-mazes-page .stage-meta {
+  top: auto;
+  bottom: 14px;
+  background: transparent;
+}
+
+.algorithmic-mazes-page .stage-meta span {
+  color: rgba(237, 244, 239, 0.44);
+}
+
+.maze-panel {
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(90deg, rgba(103, 226, 208, 0.025), transparent 38%),
+    var(--panel);
+}
+
+.maze-rack {
+  padding: 15px 18px 17px;
+  border-bottom: 1px solid var(--line);
+}
+
+.maze-rack > header {
+  margin-bottom: 11px;
+}
+
+.maze-rack > header h2 {
+  margin: 0;
+  color: var(--ink);
+  font: 800 11px/1.2 var(--mono);
+  text-transform: uppercase;
+}
+
+.maze-mode-switch,
+.maze-topology-switch {
+  display: grid;
+  width: 100%;
+  margin-bottom: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.maze-mode-switch {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.maze-topology-switch {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.maze-mode-switch button,
+.maze-topology-switch button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 7px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.012);
+  font: 800 8px/1 var(--mono);
+  text-transform: uppercase;
+}
+
+.maze-mode-switch button:last-child,
+.maze-topology-switch button:last-child {
+  border-right: 0;
+}
+
+.maze-mode-switch button:hover,
+.maze-topology-switch button:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.maze-mode-switch button[aria-pressed="true"],
+.maze-topology-switch button[aria-pressed="true"] {
+  color: #03110e;
+  background: var(--accent);
+}
+
+.maze-transport-row {
+  display: grid;
+  grid-template-columns: 44px 36px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 13px;
+}
+
+.algorithmic-mazes-page .play-button,
+.maze-icon-button {
+  width: auto;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.algorithmic-mazes-page .play-button {
+  color: #04110f;
+  background: var(--accent);
+}
+
+.algorithmic-mazes-page .play-button svg,
+.maze-icon-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.algorithmic-mazes-page .play-button .transport-play {
+  fill: currentColor;
+  stroke: none;
+}
+
+.algorithmic-mazes-page .play-button[aria-pressed="true"] .transport-play,
+.algorithmic-mazes-page .play-button[aria-pressed="false"] .transport-pause,
+.maze-icon-button[data-direction="forward"] .direction-reverse,
+.maze-icon-button[data-direction="reverse"] .direction-forward {
+  display: none;
+}
+
+.maze-icon-button:hover {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.maze-cycle-control {
+  margin: 0;
+}
+
+.maze-cycle-control .select-shell,
+.maze-cycle-control select {
+  height: 36px;
+}
+
+.maze-wide-control {
+  margin-top: 12px;
+}
+
+.maze-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.maze-two-column .control,
+.maze-two-column .select-control {
+  min-width: 0;
+  margin: 0;
+}
+
+.maze-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.maze-action-row .mini-action {
+  width: 100%;
+  min-height: 34px;
+}
+
+.maze-generator-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.maze-toggle-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.maze-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  font: 700 8px/1.2 var(--mono);
+  text-transform: uppercase;
+}
+
+.maze-toggle input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.maze-layer-mixer {
+  display: grid;
+  grid-template-columns: minmax(124px, 1fr) minmax(112px, 1fr);
+  gap: 12px;
+  align-items: end;
+  padding: 11px 0 11px 12px;
+  border-left: 2px solid currentColor;
+}
+
+.maze-layer-mixer + .maze-layer-mixer {
+  border-top: 1px solid var(--line);
+}
+
+.maze-layer-mixer.is-passage-layer {
+  color: var(--maze-passage);
+}
+
+.maze-layer-mixer.is-wall-layer {
+  color: var(--maze-wall);
+}
+
+.maze-layer-mixer > div {
+  align-self: center;
+  min-width: 0;
+}
+
+.maze-layer-mixer > div b,
+.maze-layer-mixer > div output {
+  display: block;
+  font-family: var(--mono);
+  letter-spacing: 0;
+}
+
+.maze-layer-mixer > div b {
+  overflow: hidden;
+  color: currentColor;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.maze-layer-mixer > div output {
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.maze-layer-mixer .control {
+  margin: 0;
+}
+
+.maze-layer-mixer .control > span {
+  margin-bottom: 5px;
+}
+
+.maze-polyphony {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.maze-polyphony summary {
+  display: flex;
+  min-height: 36px;
+  color: var(--muted);
+  cursor: pointer;
+  align-items: center;
+  gap: 9px;
+  font: 800 8px/1 var(--mono);
+  list-style: none;
+  text-transform: uppercase;
+}
+
+.maze-polyphony summary::-webkit-details-marker {
+  display: none;
+}
+
+.maze-polyphony summary output {
+  margin-left: auto;
+  color: var(--faint);
+  font-weight: 700;
+}
+
+.maze-polyphony summary::after {
+  width: 12px;
+  color: var(--accent);
+  content: "+";
+  font-size: 12px;
+  text-align: center;
+}
+
+.maze-polyphony[open] summary::after {
+  content: "-";
+}
+
+.maze-polyphony .maze-two-column {
+  margin-top: 4px;
+  padding-bottom: 4px;
+}
+
+.maze-ledger {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.maze-ledger div {
+  min-width: 0;
+  padding: 10px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.maze-ledger dt,
+.maze-ledger dd {
+  margin: 0;
+  font-family: var(--mono);
+  letter-spacing: 0;
+}
+
+.maze-ledger dt {
+  color: var(--faint);
+  font-size: 7px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.maze-ledger dd {
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maze-ledger div:nth-child(2) dd {
+  color: var(--maze-passage);
+}
+
+.maze-ledger div:nth-child(3) dd {
+  color: var(--maze-wall);
+}
+
+.maze-ledger div:nth-child(4) dd {
+  color: var(--maze-violet);
+}
+
+.maze-ledger-rack .audio-error {
+  margin-top: 12px;
+}
+
+@media (max-width: 1100px) {
+  .maze-shell {
+    grid-template-columns: minmax(0, 1fr) 350px;
+  }
+
+  .maze-layer-key {
+    max-width: 50%;
+  }
+}
+
+@media (max-width: 960px) {
+  .maze-shell {
+    min-height: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .maze-stage-wrap,
+  .algorithmic-mazes-page #stage {
+    min-height: 0;
+  }
+
+  .maze-panel {
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 650px) {
+  .maze-layer-key {
+    top: auto;
+    right: 12px;
+    bottom: 46px;
+    left: 12px;
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .maze-phase-track {
+    right: 12px;
+    bottom: 32px;
+    left: 12px;
+  }
+
+  .maze-rack {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+}
+
+@media (max-width: 430px) {
+  .maze-mode-switch button,
+  .maze-topology-switch button {
+    padding: 0 4px;
+    font-size: 7px;
+  }
+
+  .maze-two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .maze-generator-actions .mini-action {
+    padding-right: 4px;
+    padding-left: 4px;
+    font-size: 7px;
+  }
+
+  .maze-ledger {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maze-phase-track i {
+    box-shadow: none;
+  }
+}

@@ -653,6 +653,21 @@ test("non-output routes and WAX hosts do not receive a duplicate browser monitor
   assert.equal(doc.panel.children.length, 0);
 });
 
+test("output-capable pages can start the monitor collapsed", () => {
+  const doc = new FakeDocument();
+  doc.body.setAttribute("data-midi-output-monitor", "collapsed");
+  const monitor = initializeMidiOutputMonitor(doc, fakeRuntime(), {
+    routeId: "algorithmic-mazes",
+    capability: { midiOutput: true },
+  });
+
+  assert.equal(
+    monitor.monitor.querySelector(".midi-output-monitor-disclosure").open,
+    false,
+  );
+  monitor.destroy();
+});
+
 test("finite preview notes leave the monitor's active set after their gate", async () => {
   const doc = new FakeDocument();
   const monitor = initializeMidiOutputMonitor(doc, fakeRuntime(), {

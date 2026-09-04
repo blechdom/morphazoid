@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Algorithmic Mazes - build polygonal mazes through time with paired passage-center and wall-outline voices."
+    />
+    <title>Algorithmic Mazes - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="algorithmic-mazes.css" />
+  </head>
+  <body
+    class="algorithmic-mazes-page"
+    data-tool-id="algorithmic-mazes"
+    data-instrument-info="off"
+    data-midi-output-monitor="collapsed"
+  >
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="graph-delay.html">graph delay</a>
+        <a class="tab" href="l-systems.html">L-systems</a>
+        <a class="tab" href="automatapoeia.html">automatapoeia</a>
+        <a class="tab active" href="algorithmic-mazes.html" aria-current="page">algorithmic mazes</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="graph-delay.html">graph delay</option>
+          <option value="l-systems.html">L-systems</option>
+          <option value="automatapoeia.html">automatapoeia</option>
+          <option value="algorithmic-mazes.html" selected>algorithmic mazes</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph maze-audio-glyph" aria-hidden="true">M</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">52%</output></span>
+          <input id="level" aria-label="Maze output level" type="range" min="0" max="0.8" step="0.01" value="0.52" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell maze-shell" id="algorithmicMazes">
+      <section class="stage maze-stage" aria-label="Algorithmic maze instrument">
+        <div class="stage-wrap maze-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="application"
+            aria-roledescription="dual graph maze instrument"
+            aria-label="A generated maze with sounding playheads on its wall outlines and passage centerlines."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Algorithmic maze with wall and passage playheads.
+          </canvas>
+
+          <div class="maze-layer-key" aria-hidden="true">
+            <span><i class="is-wall"></i>walls</span>
+            <span><i class="is-passage"></i>passages</span>
+            <span><i class="is-solution"></i>route</span>
+          </div>
+          <div class="maze-phase-track" aria-hidden="true"><i id="phaseBar"></i></div>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">140 CELLS / 148 WALLS / 1+1 VOICES</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel maze-panel" aria-label="Algorithmic maze controls">
+        <section class="maze-rack maze-transport-rack" aria-labelledby="transportTitle">
+          <header>
+            <h2 id="transportTitle">Time</h2>
+          </header>
+          <div class="maze-mode-switch" id="mazeMode" role="group" aria-label="Maze performance mode">
+            <button type="button" data-maze-mode="carve" aria-pressed="true">Build</button>
+            <button type="button" data-maze-mode="wander" aria-pressed="false">Trace</button>
+            <button type="button" data-maze-mode="survey" aria-pressed="false">Tour</button>
+          </div>
+          <div class="maze-transport-row">
+            <button class="play-button" id="playButton" type="button" aria-pressed="true" aria-label="Pause maze time" title="Pause">
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            </button>
+            <button class="maze-icon-button" id="directionButton" type="button" data-direction="forward" aria-label="Direction: forward" title="Direction">
+              <svg class="direction-forward" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
+              <svg class="direction-reverse" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" /></svg>
+            </button>
+            <label class="select-control maze-cycle-control" for="cycleBehavior">
+              <span class="sr-only">At cycle end</span>
+              <span class="select-shell">
+                <select id="cycleBehavior">
+                  <option value="hold" selected>Hold built maze</option>
+                  <option value="loop">Repeat build</option>
+                  <option value="evolve">Next seed</option>
+                </select>
+              </span>
+            </label>
+          </div>
+          <label class="control maze-wide-control" for="position">
+            <span><b>Position</b><output id="positionOut" for="position">0.0%</output></span>
+            <input id="position" type="range" min="0" max="1" step="0.0005" value="0" data-no-midi-preview />
+          </label>
+          <label class="control maze-wide-control" for="speed">
+            <span><b>Rate</b><output id="speedOut" for="speed">6.7 openings/s</output></span>
+            <input id="speed" type="range" min="0.005" max="0.3" step="0.001" value="0.045" data-no-midi-preview />
+          </label>
+          <div class="maze-action-row">
+            <button class="mini-action" id="newMazeButton" type="button">New seed</button>
+            <button class="mini-action" id="resetAllButton" type="button">Reset</button>
+          </div>
+        </section>
+
+        <section class="maze-rack" aria-labelledby="fieldTitle">
+          <header>
+            <h2 id="fieldTitle">Generator</h2>
+          </header>
+          <div class="maze-topology-switch" id="topologyButtons" role="group" aria-label="Cell topology">
+            <button type="button" data-maze-topology="orthogonal" aria-pressed="false">Orthogonal</button>
+            <button type="button" data-maze-topology="radial" aria-pressed="true">Radial</button>
+            <button type="button" data-maze-topology="hexagonal" aria-pressed="false">Hexagonal</button>
+          </div>
+          <label class="select-control" for="algorithm">
+            <span class="field-label">Algorithm</span>
+            <span class="select-shell">
+              <select id="algorithm">
+                <option value="backtracker" selected>Backtracker</option>
+                <option value="prim">Randomized Prim</option>
+                <option value="kruskal">Randomized Kruskal</option>
+                <option value="wilson">Wilson walk</option>
+              </select>
+            </span>
+          </label>
+          <div class="maze-two-column">
+            <label class="control" for="size">
+              <span><b>Scale</b><output id="sizeOut" for="size">17</output></span>
+              <input id="size" type="range" min="6" max="28" step="1" value="17" />
+            </label>
+            <label class="control" for="seed">
+              <span><b>Seed</b><output id="seedOut" for="seed">7347</output></span>
+              <input id="seed" type="range" min="1" max="99999" step="1" value="7347" />
+            </label>
+          </div>
+          <label class="control maze-wide-control" for="braid">
+            <span><b>Loops</b><output id="braidOut" for="braid">14%</output></span>
+            <input id="braid" type="range" min="0" max="0.82" step="0.01" value="0.14" />
+          </label>
+          <div class="maze-action-row maze-generator-actions">
+            <button class="mini-action" id="replayCarveButton" type="button">Replay</button>
+            <button class="mini-action" id="solveButton" type="button" aria-pressed="false">Solve</button>
+            <button class="mini-action" id="exportSvgButton" type="button">Export SVG</button>
+          </div>
+        </section>
+
+        <section class="maze-rack" aria-labelledby="vectorTitle">
+          <header>
+            <h2 id="vectorTitle">Shape</h2>
+          </header>
+          <div class="maze-two-column">
+            <label class="control" for="bend">
+              <span><b>Bend</b><output id="bendOut" for="bend">28%</output></span>
+              <input id="bend" type="range" min="0" max="1" step="0.01" value="0.28" />
+            </label>
+            <label class="control" for="twist">
+              <span><b>Twist</b><output id="twistOut" for="twist">+18°</output></span>
+              <input id="twist" type="range" min="-1" max="1" step="0.01" value="0.13" />
+            </label>
+          </div>
+          <label class="control maze-wide-control" for="fieldMotion">
+            <span><b>Motion</b><output id="fieldMotionOut" for="fieldMotion">34%</output></span>
+            <input id="fieldMotion" type="range" min="0" max="1" step="0.01" value="0.34" />
+          </label>
+          <div class="maze-toggle-row">
+            <label class="maze-toggle" for="showPotential"><span>All walls</span><input id="showPotential" type="checkbox" checked /></label>
+            <label class="maze-toggle" for="showSolution"><span>Route</span><input id="showSolution" type="checkbox" /></label>
+          </div>
+        </section>
+
+        <section class="maze-rack" aria-labelledby="headsTitle">
+          <header>
+            <h2 id="headsTitle">Layers</h2>
+          </header>
+          <div class="maze-layer-mixer is-passage-layer">
+            <div>
+              <b>Passage centers</b>
+              <output id="passageLayerOut">72%</output>
+            </div>
+            <label class="control" for="passageLevel"><span><b>Level</b></span><input id="passageLevel" type="range" min="0" max="1" step="0.01" value="0.72" /></label>
+          </div>
+          <div class="maze-layer-mixer is-wall-layer">
+            <div>
+              <b>Wall outlines</b>
+              <output id="wallLayerOut">54%</output>
+            </div>
+            <label class="control" for="wallLevel"><span><b>Level</b></span><input id="wallLevel" type="range" min="0" max="1" step="0.01" value="0.54" /></label>
+          </div>
+          <details class="maze-polyphony">
+            <summary><span>Trace polyphony</span><output id="polyphonyOut">1 + 1 voices</output></summary>
+            <div class="maze-two-column">
+              <label class="control" for="passageHeads">
+                <span><b>Passages</b><output id="passageHeadsOut" for="passageHeads">1</output></span>
+                <input id="passageHeads" type="range" min="0" max="8" step="1" value="1" />
+              </label>
+              <label class="control" for="wallHeads">
+                <span><b>Walls</b><output id="wallHeadsOut" for="wallHeads">1</output></span>
+                <input id="wallHeads" type="range" min="0" max="8" step="1" value="1" />
+              </label>
+            </div>
+          </details>
+        </section>
+
+        <section class="maze-rack" aria-labelledby="soundTitle">
+          <header>
+            <h2 id="soundTitle">Sound</h2>
+          </header>
+          <label class="select-control" for="voiceEngine">
+            <span class="field-label">Voice</span>
+            <span class="select-shell">
+              <select id="voiceEngine">
+                <option value="sine">Sine threads</option>
+                <option value="fm" selected>FM threads</option>
+                <option value="pm">PM threads</option>
+                <option value="shepard">Shepard threads</option>
+              </select>
+            </span>
+          </label>
+          <div class="maze-two-column">
+            <label class="select-control" for="passagePitch">
+              <span class="field-label">Passage pitch</span>
+              <span class="select-shell">
+                <select id="passagePitch">
+                  <option value="depth" selected>Graph depth</option>
+                  <option value="height">Stage height</option>
+                  <option value="turn">Turn direction</option>
+                  <option value="route">Route position</option>
+                </select>
+              </span>
+            </label>
+            <label class="select-control" for="wallPitch">
+              <span class="field-label">Wall pitch</span>
+              <span class="select-shell">
+                <select id="wallPitch">
+                  <option value="orientation" selected>Wall angle</option>
+                  <option value="height">Stage height</option>
+                  <option value="contour">Contour position</option>
+                  <option value="component">Outline component</option>
+                </select>
+              </span>
+            </label>
+          </div>
+          <div class="maze-two-column">
+            <label class="control" for="rootFrequency">
+              <span><b>Root</b><output id="rootFrequencyOut" for="rootFrequency">82.5 Hz</output></span>
+              <input id="rootFrequency" type="range" min="32" max="220" step="0.5" value="82.5" />
+            </label>
+            <label class="control" for="pitchRange">
+              <span><b>Range</b><output id="pitchRangeOut" for="pitchRange">24 st</output></span>
+              <input id="pitchRange" type="range" min="0" max="48" step="1" value="24" />
+            </label>
+          </div>
+          <div class="maze-two-column">
+            <label class="control" for="wallOffset">
+              <span><b>Wall offset</b><output id="wallOffsetOut" for="wallOffset">+12 st</output></span>
+              <input id="wallOffset" type="range" min="-24" max="36" step="1" value="12" />
+            </label>
+            <label class="control" for="nodeAccent">
+              <span><b>Junctions</b><output id="nodeAccentOut" for="nodeAccent">38%</output></span>
+              <input id="nodeAccent" type="range" min="0" max="1" step="0.01" value="0.38" />
+            </label>
+          </div>
+        </section>
+
+        <section class="maze-rack maze-ledger-rack" aria-labelledby="ledgerTitle">
+          <header>
+            <h2 id="ledgerTitle">Stats</h2>
+          </header>
+          <dl class="maze-ledger">
+            <div><dt>Cells</dt><dd id="cellsReadout">140</dd></div>
+            <div><dt>Passages</dt><dd id="passagesReadout">148</dd></div>
+            <div><dt>Walls</dt><dd id="wallsReadout">148</dd></div>
+            <div><dt>Loops</dt><dd id="cyclesReadout">9</dd></div>
+            <div><dt>Dead ends</dt><dd id="deadEndsReadout">18</dd></div>
+            <div><dt>Solution</dt><dd id="solutionReadout">48 edges</dd></div>
+          </dl>
+          <p class="audio-error" id="audioError" role="alert" hidden></p>
+        </section>
+      </aside>
+    </main>
+
+    <p class="sr-only" id="canvasInstructions">
+      Click a cell to move the solver target. Shift-click a cell to move its start. Drag horizontally to scrub time.
+    </p>
+    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="algorithmic-mazes-app.js"></script>
+  </body>
+</html>

@@ -87,7 +87,7 @@ folder.
 53. [ ] Chladni Plate - [open folder](chladni-plate/)
 54. [ ] Spring Choir - [open folder](spring-choir/)
 55. [ ] Gear Ratio Drums - [open folder](gear-ratio-drums/)
-56. [ ] Automata, Automay-to - [open folder](cellular-automata/)
+56. [ ] Automatapoeia - [open folder](cellular-automata/)
 57. [ ] Prime Sieve - [open folder](prime-sieve/)
 58. [ ] Lissajous Orbits - [open folder](lissajous-orbits/)
 59. [ ] Pendulum Wave - [open folder](pendulum-wave/)

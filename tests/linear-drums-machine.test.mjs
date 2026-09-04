@@ -125,5 +125,17 @@ test("the painted drum-machine page exposes its complete editing surface", async
   assert.match(app, /if \(!state\.audioOn \|\| !audio\.context\) return;/);
   assert.match(app, /state\.previousPhase = phase;[\s\S]*state\.lastGlissAt = now;/);
   assert.match(css, /touch-action: none/);
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*?html\s*\{[^}]*height:\s*auto[^}]*overflow-y:\s*auto/s,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*?body\.paint-machine-page\s*\{[^}]*height:\s*auto[^}]*overflow-y:\s*auto/s,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*?\.paint-machine-page #paintStage\s*\{[^}]*touch-action:\s*pan-y/s,
+  );
   assert.match(css, /@media \(max-width: 720px\)/);
 });

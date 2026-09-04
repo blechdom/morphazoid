@@ -20,14 +20,28 @@ const SPECIES = Object.freeze([
 ]);
 
 const SPECIES_FREQUENCY = Object.freeze({
-  elephant: 52,
-  bird: 780,
-  frog: 176,
-  whale: 68,
-  human: 128,
-  machine: 242,
-  hybrid: 265,
+  elephant: 55,
+  bird: 440,
+  frog: 110,
+  whale: 55,
+  human: 220,
+  machine: 220,
+  hybrid: 220,
 });
+
+const TENSION_INTERVALS = Object.freeze([-7, -5, -3, 0, 2, 5, 7]);
+
+function tissueFrequency(item) {
+  const base = SPECIES_FREQUENCY[item.species] ?? SPECIES_FREQUENCY.hybrid;
+  const intervalIndex = Math.round(clamp(item.value) * (TENSION_INTERVALS.length - 1));
+  return clamp(base * 2 ** (TENSION_INTERVALS[intervalIndex] / 12), 28, 4_200);
+}
+
+function tissueWaveform(species) {
+  if (species === "whale") return "sine";
+  if (species === "machine") return "sawtooth";
+  return "triangle";
+}
 
 const STAGES = Object.freeze([
   { id: "air", number: "01", title: "Breath", hint: "pressure sources", color: "#ff7058", parameter: "pressure" },
@@ -87,11 +101,12 @@ function makePreset(id) {
       route: "braid",
       metabolism: 0.34,
       crossCoupling: 0.58,
+      breathTexture: 0.06,
       wetness: 0.27,
       modules: {
         air: [["elephant", 0.82], ["bird", 0.54]],
         gate: [["hybrid", 0.64]],
-        tissue: [["bird", 0.76], ["elephant", 0.24]],
+        tissue: [["bird", 0.58], ["elephant", 0.58]],
         apparatus: [["hybrid", 0.61]],
         trachea: [["elephant", 0.78], ["bird", 0.28]],
         tract: [["elephant", 0.73], ["bird", 0.38]],
@@ -104,6 +119,7 @@ function makePreset(id) {
       route: "all",
       metabolism: 0.62,
       crossCoupling: 0.74,
+      breathTexture: 0.12,
       wetness: 0.14,
       modules: {
         air: [["bird", 0.55], ["bird", 0.63], ["bird", 0.7]],
@@ -121,6 +137,7 @@ function makePreset(id) {
       route: "braid",
       metabolism: 0.48,
       crossCoupling: 0.86,
+      breathTexture: 0.09,
       wetness: 0.42,
       modules: {
         air: [["frog", 0.78], ["elephant", 0.68]],
@@ -138,6 +155,7 @@ function makePreset(id) {
       route: "chain",
       metabolism: 0.22,
       crossCoupling: 0.46,
+      breathTexture: 0.03,
       wetness: 0.65,
       modules: {
         air: [["whale", 0.75], ["machine", 0.42]],
@@ -158,6 +176,7 @@ function makePreset(id) {
     route: source.route,
     metabolism: source.metabolism,
     crossCoupling: source.crossCoupling,
+    breathTexture: source.breathTexture,
     wetness: source.wetness,
     modules: Object.fromEntries(STAGES.map(({ id: stageId }) => [
       stageId,
@@ -186,10 +205,11 @@ function speciesLabel(speciesId) {
   return SPECIES.find(([id]) => id === speciesId)?.[1] ?? "Unknown";
 }
 
-function formatModuleValue(stageId, value) {
-  if (stageId === "trachea") return `${(4 + value * 76).toFixed(1)} cm`;
-  if (stageId === "tract") return `${(2 + value * 58).toFixed(1)} cm`;
-  return `${Math.round(value * 100)}%`;
+function formatModuleValue(item) {
+  if (item.stage === "tissue") return `${Math.round(tissueFrequency(item))} Hz`;
+  if (item.stage === "trachea") return `${(4 + item.value * 76).toFixed(1)} cm`;
+  if (item.stage === "tract") return `${(2 + item.value * 58).toFixed(1)} cm`;
+  return `${Math.round(item.value * 100)}%`;
 }
 
 function routeIndices(sourceCount, targetCount, route = state.route) {
@@ -250,7 +270,7 @@ function buildModuleCard(item, stage, index) {
   card.querySelector(".module-index").textContent = `${stage.number}.${String(index + 1).padStart(2, "0")}`;
   card.querySelector(".module-name").textContent = organName(stage.id, item.species);
   card.querySelector(".module-param-label").textContent = stage.parameter;
-  card.querySelector(".module-value").textContent = formatModuleValue(stage.id, item.value);
+  card.querySelector(".module-value").textContent = formatModuleValue(item);
 
   const speciesSelect = card.querySelector(".module-species");
   speciesSelect.innerHTML = SPECIES.map(([id, label]) => `<option value="${id}">${label} material</option>`).join("");
@@ -270,7 +290,7 @@ function buildModuleCard(item, stage, index) {
     item.value = clamp(slider.value);
     card.style.setProperty("--organ-value", item.value.toFixed(3));
     card.style.setProperty("--module-bend", `${((item.value - 0.5) * 2.8).toFixed(2)}deg`);
-    card.querySelector(".module-value").textContent = formatModuleValue(stage.id, item.value);
+    card.querySelector(".module-value").textContent = formatModuleValue(item);
     state.presetId = "custom";
     updateReadouts();
     scheduleAudioRebuild();
@@ -366,9 +386,11 @@ function updateReadouts() {
   $("headlineEquation").textContent = state.equation;
   $("metabolism").value = String(state.metabolism);
   $("crossCoupling").value = String(state.crossCoupling);
+  $("breathTexture").value = String(state.breathTexture);
   $("wetness").value = String(state.wetness);
   $("metabolismOut").textContent = `${Math.round(state.metabolism * 100)}%`;
   $("crossCouplingOut").textContent = `${Math.round(state.crossCoupling * 100)}%`;
+  $("breathTextureOut").textContent = `${Math.round(state.breathTexture * 100)}%`;
   $("wetnessOut").textContent = `${Math.round(state.wetness * 100)}%`;
 
   const sumMarkup = STAGES.map((stage) => (
@@ -546,20 +568,20 @@ class HyperSyrinxAudio {
     if (stageId === "apparatus") {
       const filter = context.createBiquadFilter();
       filter.type = "lowpass";
-      filter.frequency.value = 900 + item.value * 7_500;
-      filter.Q.value = 0.7 + item.value * 5;
+      filter.frequency.value = 1_100 + item.value * 5_200;
+      filter.Q.value = 0.65 + item.value * 2.2;
       const shaper = context.createWaveShaper();
       const curve = new Float32Array(257);
-      const drive = 1.2 + item.value * 4.8;
+      const drive = 0.85 + item.value * 1.8;
       for (let curveIndex = 0; curveIndex < curve.length; curveIndex += 1) {
         const x = curveIndex / (curve.length - 1) * 2 - 1;
         curve[curveIndex] = Math.tanh(x * drive) / Math.tanh(drive);
       }
       shaper.curve = curve;
       shaper.oversample = "2x";
-      input.connect(filter);
-      filter.connect(shaper);
-      shaper.connect(output);
+      input.connect(shaper);
+      shaper.connect(filter);
+      filter.connect(output);
       nodes.push(filter, shaper);
     } else if (stageId === "trachea") {
       const delay = context.createDelay(0.012);
@@ -579,10 +601,10 @@ class HyperSyrinxAudio {
       formantTwo.type = "peaking";
       formantOne.frequency.value = 220 + (1 - item.value) * 820;
       formantTwo.frequency.value = 900 + item.value * 2_600;
-      formantOne.Q.value = 2.4 + item.value * 7;
-      formantTwo.Q.value = 3 + (1 - item.value) * 6;
-      formantOne.gain.value = 9;
-      formantTwo.gain.value = 7;
+      formantOne.Q.value = 1.8 + item.value * 4.2;
+      formantTwo.Q.value = 2.2 + (1 - item.value) * 4;
+      formantOne.gain.value = 5;
+      formantTwo.gain.value = 3.5;
       input.connect(formantOne);
       formantOne.connect(formantTwo);
       formantTwo.connect(output);
@@ -615,7 +637,7 @@ class HyperSyrinxAudio {
     for (const [sourceIndex] of edges) outCounts.set(sourceIndex, (outCounts.get(sourceIndex) ?? 0) + 1);
     for (const [sourceIndex, targetIndex] of edges) {
       const branch = this.context.createGain();
-      branch.gain.value = 0.78 / Math.sqrt(outCounts.get(sourceIndex) ?? 1);
+      branch.gain.value = 0.62 / Math.sqrt(outCounts.get(sourceIndex) ?? 1);
       sources[sourceIndex].output.connect(branch);
       branch.connect(targets[targetIndex].input);
       branchNodes.push(branch);
@@ -637,10 +659,12 @@ class HyperSyrinxAudio {
     noise.loop = true;
     const noiseFilter = this.context.createBiquadFilter();
     noiseFilter.type = "bandpass";
-    noiseFilter.frequency.value = 650 + sum(anatomy.modules.gate) * 1_400;
-    noiseFilter.Q.value = 0.45;
+    noiseFilter.frequency.value = 1_200 + sum(anatomy.modules.gate) * 900;
+    noiseFilter.Q.value = 1.4;
     const noiseGain = this.context.createGain();
-    noiseGain.gain.value = 0.025 + Math.tanh(sum(anatomy.modules.air) * 0.65) * 0.08;
+    const breathDrive = Math.tanh(sum(anatomy.modules.air) * 0.55);
+    noiseGain.gain.value = anatomy.breathTexture * breathDrive * 0.012
+      / Math.sqrt(Math.max(1, anatomy.modules.tissue.length));
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
 
@@ -652,16 +676,15 @@ class HyperSyrinxAudio {
       const companion = this.context.createOscillator();
       const primaryGain = this.context.createGain();
       const companionGain = this.context.createGain();
-      const base = SPECIES_FREQUENCY[item.species] ?? SPECIES_FREQUENCY.hybrid;
-      const frequency = clamp(base * 2 ** ((item.value - 0.5) * 2.3), 28, 5_600);
-      oscillator.type = item.species === "bird" ? "triangle" : item.species === "machine" ? "square" : "sawtooth";
+      const frequency = tissueFrequency(item);
+      oscillator.type = tissueWaveform(item.species);
       companion.type = "sine";
       oscillator.frequency.value = frequency;
-      companion.frequency.value = frequency * (item.species === "bird" ? 1.996 : 0.501);
-      oscillator.detune.value = (index - (anatomy.modules.tissue.length - 1) / 2) * anatomy.crossCoupling * 18;
+      companion.frequency.value = frequency * 2;
+      oscillator.detune.value = (index - (anatomy.modules.tissue.length - 1) / 2) * anatomy.crossCoupling * 7;
       companion.detune.value = -oscillator.detune.value * 0.6;
-      primaryGain.gain.value = 0.045 / Math.sqrt(anatomy.modules.tissue.length);
-      companionGain.gain.value = 0.022 / Math.sqrt(anatomy.modules.tissue.length);
+      primaryGain.gain.value = 0.075 / Math.sqrt(anatomy.modules.tissue.length);
+      companionGain.gain.value = 0.011 / Math.sqrt(anatomy.modules.tissue.length);
       oscillator.connect(primaryGain);
       companion.connect(companionGain);
       primaryGain.connect(input);
@@ -716,7 +739,7 @@ class HyperSyrinxAudio {
   setExcitation(active) {
     if (!this.context || !this.graph) return;
     const now = this.context.currentTime;
-    const target = active ? 0.7 : 0.0001;
+    const target = active ? 0.46 : 0.0001;
     this.graph.output.gain.cancelScheduledValues(now);
     this.graph.output.gain.setTargetAtTime(target, now, active ? 0.018 : 0.07);
   }
@@ -734,7 +757,7 @@ class HyperSyrinxAudio {
     const metabolism = anatomy.metabolism;
     this.graph.tissueNodes.forEach((voice, index) => {
       const motion = Math.sin(time * (0.00035 + index * 0.00007) + index * 1.71);
-      const drift = motion * metabolism * (16 + anatomy.crossCoupling * 28);
+      const drift = motion * metabolism * (4 + anatomy.crossCoupling * 9);
       voice.oscillator.detune.setTargetAtTime(drift, this.context.currentTime, 0.04);
       voice.companion.detune.setTargetAtTime(-drift * 0.55, this.context.currentTime, 0.05);
     });
@@ -826,6 +849,7 @@ function mutate() {
   }
   state.metabolism = clamp(state.metabolism + (Math.random() - 0.5) * 0.32);
   state.crossCoupling = clamp(state.crossCoupling + (Math.random() - 0.5) * 0.32);
+  state.breathTexture = clamp(state.breathTexture + (Math.random() - 0.5) * 0.18, 0, 0.35);
   state.presetId = "custom";
   state.label = "Mutant organism";
   state.equation = `${state.modules.air.length} BREATHS + ${state.modules.tissue.length} TISSUES → ${state.modules.lips.length} SHARED EXIT${state.modules.lips.length === 1 ? "" : "S"}`;
@@ -849,12 +873,12 @@ for (const button of document.querySelectorAll("[data-route]")) {
   });
 }
 
-for (const id of ["metabolism", "crossCoupling", "wetness"]) {
+for (const id of ["metabolism", "crossCoupling", "breathTexture", "wetness"]) {
   $(id).addEventListener("input", () => {
     state[id] = clamp($(id).value);
     state.presetId = "custom";
     updateReadouts();
-    if (id === "crossCoupling") scheduleAudioRebuild();
+    if (id === "crossCoupling" || id === "breathTexture") scheduleAudioRebuild();
   });
 }
 

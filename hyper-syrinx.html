@@ -131,6 +131,11 @@
             <input id="crossCoupling" type="range" min="0" max="1" step="0.01" value="0.58" />
             <small>How much neighboring tissues pull each other off pitch.</small>
           </label>
+          <label class="hyper-control" for="breathTexture">
+            <span><b>Air noise</b><output id="breathTextureOut" for="breathTexture">6%</output></span>
+            <input id="breathTexture" type="range" min="0" max="1" step="0.01" value="0.06" />
+            <small>Adds turbulent breath around the pitched tissue. Low by default; raise it for hiss and roars.</small>
+          </label>
           <label class="hyper-control" for="wetness">
             <span><b>Shared saliva</b><output id="wetnessOut" for="wetness">27%</output></span>
             <input id="wetness" type="range" min="0" max="1" step="0.01" value="0.27" />

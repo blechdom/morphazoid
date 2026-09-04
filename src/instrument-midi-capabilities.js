@@ -87,6 +87,8 @@ const NOTE_MODE_IDS = Object.freeze({
   ]),
   sequence: Object.freeze([
     "l-systems",
+    "tiles-app",
+    "algorithmic-mazes",
     "boidzoid",
     "vector-flight",
     "pink-trombonazoid",
@@ -104,6 +106,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "nqueens",
     "euclid",
     "escher-tessellation",
+    "penrose-tilings",
     "order-tones",
     "morphazoidical",
     "bell-square",
@@ -200,6 +203,8 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "quantum-square-dance",
   "orbital-ferris",
   "enveloper",
+  "penrose-tilings",
+  "algorithmic-mazes",
 ]);
 
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);

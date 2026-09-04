@@ -176,7 +176,7 @@ async function ensureAudio() {
       audioContext = graph.context;
     } catch (error) {
       console.error(error);
-      setAudioPresentation("error", error?.message || "Unable to start Breath Atlas audio.");
+      setAudioPresentation("error", error?.message || "Unable to start Mouthophones audio.");
       startingAudio = false;
       return false;
     }

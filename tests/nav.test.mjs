@@ -256,6 +256,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     TOOL_GROUPS.map((group) => group.label),
     [
       "Geometry Synths",
+      "Tiles",
       "Drum Machines",
       "Sequencers",
       "Voice Synths",
@@ -271,7 +272,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 127);
+  assert.equal(tools.length, 130);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -527,16 +528,37 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     "experiments",
   );
   assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "apps")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "combo", href: "shapes.html" },
+      { id: "l-systems", href: "l-systems.html" },
+      { id: "tiles-app", href: "tiles.html" },
+      { id: "algorithmic-mazes", href: "algorithmic-mazes.html" },
+    ],
+  );
+  assert.deepEqual(
     TOOL_GROUPS.find((group) => group.id === "geometry")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
     [
       { id: "shape", href: "shape.html" },
-      { id: "lattice", href: "lattice.html" },
-      { id: "spiral", href: "spiral.html" },
       { id: "solid", href: "solid.html" },
       { id: "hyper", href: "hyper.html" },
       { id: "graph-synth", href: "graph-synth.html" },
+    ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "tiles")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "lattice", href: "lattice.html" },
+      { id: "spiral", href: "spiral.html" },
+      { id: "lattice-drums", href: "lattice-drums.html" },
+      { id: "spiral-drums", href: "spiral-drums.html" },
+      { id: "penrose-tilings", href: "penrose-tilings.html" },
     ],
   );
   assert.deepEqual(
@@ -545,8 +567,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "shape-drums", href: "shape-drums.html" },
-      { id: "lattice-drums", href: "lattice-drums.html" },
-      { id: "spiral-drums", href: "spiral-drums.html" },
       { id: "solid-drums", href: "solid-drums.html" },
       { id: "hyper-drums", href: "hyper-drums.html" },
       { id: "l-system-drums", href: "l-system-drums.html" },
@@ -635,7 +655,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "harmonica", label: "Harmonicazoid", href: "harmonica.html" },
       { id: "hiccup-head", label: "Hiccup Head", href: "hiccup-head.html" },
       { id: "digestazoid", label: "Digestazoid", href: "digestazoid.html" },
-      { id: "breath-atlas", label: "Breath Atlas", href: "breath-atlas.html" },
+      { id: "breath-atlas", label: "Mouthophones", href: "mouthophones.html" },
       {
         id: "spelling-synthesizer",
         label: "Spelling Synthesizer",
@@ -823,7 +843,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "chladni-plate", href: "chladni-plate.html" },
       { id: "spring-choir", href: "spring-choir.html" },
       { id: "gear-ratio-drums", href: "gear-ratio-drums.html" },
-      { id: "cellular-automata", href: "automata.html" },
+      { id: "cellular-automata", href: "automatapoeia.html" },
       { id: "prime-sieve", href: "prime-sieve.html" },
       { id: "lissajous-orbits", href: "lissajous-orbits.html" },
       { id: "pendulum-wave", href: "pendulum-wave.html" },
@@ -865,6 +885,10 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}escher-tessellation.html`, SITE_ROOT)?.id,
     "escher-tessellation",
+  );
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}penrose-tilings.html`, SITE_ROOT)?.id,
+    "penrose-tilings",
   );
   assert.equal(resolveActiveTool(`${SITE_ROOT}image-to-instrument-1.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}image-to-instrument-2.html`, SITE_ROOT), null);
@@ -945,7 +969,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}chladni-plate.html`, SITE_ROOT)?.id, "chladni-plate");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spring-choir.html`, SITE_ROOT)?.id, "spring-choir");
   assert.equal(resolveActiveTool(`${SITE_ROOT}gear-ratio-drums.html`, SITE_ROOT)?.id, "gear-ratio-drums");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}automata.html`, SITE_ROOT)?.id, "cellular-automata");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}automatapoeia.html`, SITE_ROOT)?.id, "cellular-automata");
   assert.equal(resolveActiveTool(`${SITE_ROOT}prime-sieve.html`, SITE_ROOT)?.id, "prime-sieve");
   assert.equal(resolveActiveTool(`${SITE_ROOT}lissajous-orbits.html`, SITE_ROOT)?.id, "lissajous-orbits");
   assert.equal(resolveActiveTool(`${SITE_ROOT}pendulum-wave.html`, SITE_ROOT)?.id, "pendulum-wave");
@@ -1050,7 +1074,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.deepEqual(
     groupNodes.at(-1).findAll((node) => node.classList.contains("instrument-picker-link"))
       .map((link) => link.getAttribute("data-tool-id")),
-    ["combo", "l-systems"],
+    ["combo", "l-systems", "tiles-app", "algorithmic-mazes"],
   );
   assert.equal(groupNodes[0].open, true);
   assert.equal(
@@ -1071,6 +1095,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.equal(shapeIcon.tagName, "IMG");
   assert.equal(shapeIcon.src, `${SITE_ROOT}assets/instruments/shape.webp`);
   assert.equal(shapeIcon.alt, "");
+  assert.equal(shapeIcon.loading, "lazy");
   assert.equal(shapeLink.querySelector(".instrument-picker-link-label").textContent, "Shape");
   assert.equal(
     picker.findAll((node) => node.classList.contains("instrument-picker-info")).length,
@@ -1128,7 +1153,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.equal(doc.select.children.at(-1).label, "Apps");
   assert.deepEqual(
     doc.select.children.at(-1).children.map((option) => option.textContent),
-    ["Shapes", "L-Systems"],
+    ["Shapes", "L-Systems", "Tiles", "Algorithmic Mazes"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   const orbitalFerrisOption = doc.select.findAll(

@@ -601,6 +601,30 @@
   }
 }
 
+/* Rattle Snake Skin is taller than the shared fixed mobile shell. Restore
+   document scrolling and allow vertical page swipes to begin on the paint
+   surface without disabling horizontal painting gestures. */
+@media (max-width: 960px) {
+  html {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body.paint-machine-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+  }
+
+  .paint-machine-page #paintStage {
+    touch-action: pan-y;
+  }
+}
+
 @media (max-width: 900px) {
   .paint-workspace {
     display: block;

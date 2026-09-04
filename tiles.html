@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Tiles - lattice and spiral synths plus drum machines in one switchable instrument."
+    />
+    <title>Tiles - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="tiles.css" />
+  </head>
+  <body class="tiles-app-page">
+    <header class="masthead tiles-masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="tiles.html" aria-current="page">Tiles</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="tiles.html" selected>Tiles</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">62%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.62" />
+        </label>
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" data-audio-state="off">
+          <span class="audio-glyph" aria-hidden="true">O</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="tiles-app" id="tilesApp" data-tiles-mode="lattice">
+      <section class="tiles-stage" aria-label="Tiles stage">
+        <div class="tiles-stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" aria-label="Animated tiling instrument canvas" aria-describedby="stageReadout liveStatus">
+            Animated lattice and spiral tilings with a moving reader.
+          </canvas>
+          <div class="tiles-stage-meta" aria-hidden="true">
+            <span id="stageReadout">LATTICE - 0 CONTACTS - PAUSED - AUDIO OFF</span>
+          </div>
+          <div class="tiles-stage-meter" aria-hidden="true">
+            <span id="mappingReadout">SYNTH - HEIGHT</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="tiles-panel" aria-label="Tiles controls">
+        <header class="tiles-panel-header">
+          <div class="tiles-mode-switch" id="tilesMode" role="tablist" aria-label="Tiles mode">
+            <button id="modeLattice" type="button" role="tab" data-tiles-mode="lattice" aria-selected="true" aria-controls="synthBank">Lattice</button>
+            <button id="modeLatticeDrums" type="button" role="tab" data-tiles-mode="lattice-drums" aria-selected="false" aria-controls="drumsBank" tabindex="-1">Lattice Drums</button>
+            <button id="modeSpiral" type="button" role="tab" data-tiles-mode="spiral" aria-selected="false" aria-controls="synthBank" tabindex="-1">Spiral</button>
+            <button id="modeSpiralDrums" type="button" role="tab" data-tiles-mode="spiral-drums" aria-selected="false" aria-controls="drumsBank" tabindex="-1">Spiral Drums</button>
+          </div>
+        </header>
+
+        <div class="tiles-panel-scroll">
+          <section class="tiles-rack tiles-play-rack" aria-labelledby="playRackTitle">
+            <h2 class="sr-only" id="playRackTitle">Transport</h2>
+            <div class="tiles-live-row">
+              <button class="tiles-transport-button" id="playButton" type="button" aria-pressed="false" aria-label="Play reader" title="Play">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                <span class="sr-only" id="playButtonLabel">Play</span>
+              </button>
+              <div class="tiles-motion-bank" id="playheadMotion" role="group" aria-label="Reader direction and movement">
+                <button class="tiles-icon-toggle tiles-direction" id="traversalDirection" type="button" data-direction="forward" aria-label="Reader direction: forward" title="Direction">
+                  <svg class="direction-forward" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
+                  <svg class="direction-reverse" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" /></svg>
+                  <span class="sr-only" id="traversalDirectionText">forward</span>
+                </button>
+                <button class="tiles-icon-toggle" id="loopMotion" type="button" data-motion="loop" aria-pressed="true" aria-label="Loop movement" title="Loop">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2.5 21 6.5l-4 4M3 11V9a2.5 2.5 0 0 1 2.5-2.5H21M7 21.5l-4-4 4-4M21 13v2a2.5 2.5 0 0 1-2.5 2.5H3" /></svg>
+                  <span class="sr-only">Loop</span>
+                </button>
+                <button class="tiles-icon-toggle" id="pingPongMotion" type="button" data-motion="ping-pong" aria-pressed="false" aria-label="Ping-pong movement" title="Ping-pong">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7 3 12l4 5M3 12h18M17 7l4 5-4 5" /></svg>
+                  <span class="sr-only">Ping-pong</span>
+                </button>
+              </div>
+            </div>
+            <label class="control tiles-primary-range" for="position">
+              <span><b>Reader position</b><output id="positionOut" for="position">50.0%</output></span>
+              <input id="position" type="range" min="0" max="1" step="0.0005" value="0.5" />
+            </label>
+            <label class="control tiles-primary-range" for="speed">
+              <span><b>Speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span>
+              <input id="speed" type="range" min="0" max="3" step="0.01" value="0.12" />
+            </label>
+          </section>
+
+          <section class="tiles-rack" aria-labelledby="formRackTitle">
+            <h2 class="sr-only" id="formRackTitle">Tile form</h2>
+            <div class="tiles-grid">
+              <label class="select-control tiles-wide" for="tilingType">
+                <span class="field-label">Tile system</span>
+                <span class="select-shell"><select id="tilingType"></select></span>
+              </label>
+              <label class="control" for="density">
+                <span><b>Density</b><output id="densityOut" for="density">52%</output></span>
+                <input id="density" type="range" min="0" max="1" step="0.01" value="0.52" />
+              </label>
+            </div>
+            <div class="tiles-grid" id="parameterControls" aria-label="Tile parameters"></div>
+            <div class="tiles-grid" id="edgeControls" aria-label="Edge curves"></div>
+            <div class="tiles-action-row">
+              <button class="mini-action" id="resetTile" type="button">Reset tile</button>
+              <button class="mini-action" id="straightenEdges" type="button">Straighten edges</button>
+            </div>
+          </section>
+
+          <section class="tiles-rack tiles-geometry-bank is-active" id="latticeBank" data-geometry-bank="lattice" aria-labelledby="latticeBankTitle">
+            <h2 class="sr-only" id="latticeBankTitle">Lattice reader</h2>
+            <div class="tiles-grid">
+              <label class="control" for="lineAngle">
+                <span><b>Line angle</b><output id="lineAngleOut" for="lineAngle">90 deg</output></span>
+                <input id="lineAngle" type="range" min="0" max="180" step="1" value="90" />
+              </label>
+              <label class="control" for="patternAngle">
+                <span><b>Pattern angle</b><output id="patternAngleOut" for="patternAngle">0 deg</output></span>
+                <input id="patternAngle" type="range" min="-180" max="180" step="1" value="0" />
+              </label>
+            </div>
+          </section>
+
+          <section class="tiles-rack tiles-geometry-bank" id="spiralBank" data-geometry-bank="spiral" aria-labelledby="spiralBankTitle" hidden>
+            <h2 class="sr-only" id="spiralBankTitle">Spiral reader</h2>
+            <div class="tiles-grid">
+              <label class="select-control" for="timePath">
+                <span class="field-label">Reader path</span>
+                <span class="select-shell">
+                  <select id="timePath">
+                    <option value="radius">Radius</option>
+                    <option value="angle">Angle</option>
+                    <option value="spiral">Spiral</option>
+                  </select>
+                </span>
+              </label>
+              <label class="control" for="readerTurns">
+                <span><b>Reader turns</b><output id="readerTurnsOut" for="readerTurns">2.0</output></span>
+                <input id="readerTurns" type="range" min="0.25" max="6" step="0.05" value="2" />
+              </label>
+              <label class="control" for="spiralA">
+                <span><b>Period A</b><output id="spiralAOut" for="spiralA">1</output></span>
+                <input id="spiralA" type="range" min="-6" max="6" step="1" value="1" />
+              </label>
+              <label class="control" for="spiralB">
+                <span><b>Period B</b><output id="spiralBOut" for="spiralB">5</output></span>
+                <input id="spiralB" type="range" min="-8" max="8" step="1" value="5" />
+              </label>
+              <label class="control" for="loopPhase">
+                <span><b>Zoom phase</b><output id="loopPhaseOut" for="loopPhase">0%</output></span>
+                <input id="loopPhase" type="range" min="0" max="1" step="0.001" value="0" />
+              </label>
+              <label class="toggle-control" for="sizeCoupling">
+                <input id="sizeCoupling" type="checkbox" />
+                <span>Size-rate coupling</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="tiles-rack tiles-mode-bank is-active" id="synthBank" role="tabpanel" aria-labelledby="modeLattice" data-mode-bank="synth">
+            <h2 class="sr-only" id="synthBankTitle">Synth response</h2>
+            <div class="tiles-grid">
+              <label class="select-control" for="pitchSource">
+                <span class="field-label">Pitch source</span>
+                <span class="select-shell"><select id="pitchSource"></select></span>
+              </label>
+              <label class="select-control" for="soundMode">
+                <span class="field-label">Voice engine</span>
+                <span class="select-shell">
+                  <select id="soundMode">
+                    <option value="sine">Sine</option>
+                    <option value="fm">FM</option>
+                    <option value="pm">PM</option>
+                    <option value="shepard">Shepard</option>
+                  </select>
+                </span>
+              </label>
+              <label class="control" for="baseFrequency">
+                <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span>
+                <input id="baseFrequency" type="range" min="35" max="440" step="1" value="110" />
+              </label>
+              <label class="control" for="pitchRange">
+                <span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.5 oct</output></span>
+                <input id="pitchRange" type="range" min="0" max="7" step="0.1" value="3.5" />
+              </label>
+              <label class="control" for="contactLevel">
+                <span><b>Contact level</b><output id="contactLevelOut" for="contactLevel">35%</output></span>
+                <input id="contactLevel" type="range" min="0" max="1" step="0.01" value="0.35" />
+              </label>
+              <label class="control" for="stereoWidth">
+                <span><b>Stereo width</b><output id="stereoWidthOut" for="stereoWidth">72%</output></span>
+                <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.72" />
+              </label>
+              <label class="control" for="fmIndex">
+                <span><b>FM index</b><output id="fmIndexOut" for="fmIndex">3.0</output></span>
+                <input id="fmIndex" type="range" min="0" max="12" step="0.1" value="3" />
+              </label>
+              <label class="control" for="pmIndex">
+                <span><b>PM index</b><output id="pmIndexOut" for="pmIndex">2.0</output></span>
+                <input id="pmIndex" type="range" min="0" max="10" step="0.1" value="2" />
+              </label>
+            </div>
+          </section>
+
+          <section class="tiles-rack tiles-mode-bank" id="drumsBank" role="tabpanel" aria-labelledby="modeLatticeDrums" data-mode-bank="drums" hidden>
+            <h2 class="sr-only" id="drumsBankTitle">Drum response</h2>
+            <div class="tiles-grid">
+              <label class="select-control tiles-wide" for="mappingMode">
+                <span class="field-label">Drum mapping</span>
+                <span class="select-shell"><select id="mappingMode"></select></span>
+              </label>
+              <label class="control" for="pitchDepth">
+                <span><b>Pitch depth</b><output id="pitchDepthOut" for="pitchDepth">12 st</output></span>
+                <input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" />
+              </label>
+              <label class="control" for="characterDepth">
+                <span><b>Character</b><output id="characterDepthOut" for="characterDepth">70%</output></span>
+                <input id="characterDepth" type="range" min="0" max="1" step="0.01" value="0.7" />
+              </label>
+              <label class="control tiles-wide" for="strikeLimit">
+                <span><b>Strike limit</b><output id="strikeLimitOut" for="strikeLimit">5</output></span>
+                <input id="strikeLimit" type="range" min="1" max="16" step="1" value="5" />
+              </label>
+            </div>
+            <div class="tiles-drum-map" id="drumMap" aria-label="FM drum voices"></div>
+          </section>
+
+          <p class="tiles-error" id="audioError" hidden></p>
+          <div class="tiles-midi-dock" data-midi-output-monitor-host aria-label="MIDI output monitor"></div>
+        </div>
+      </aside>
+    </main>
+    <p class="sr-only" id="liveStatus" aria-live="polite">Tiles ready.</p>
+    <script type="module" src="nav.js?v=20260822-2"></script>
+    <script type="module" src="tiles-app.js"></script>
+  </body>
+</html>

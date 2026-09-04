@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="syrinx.css?v=syrinx-ui-20260820-2" />
     <link rel="stylesheet" href="syrinx-ui.css?v=syrinx-ui-20260820-2" />
     <link rel="stylesheet" href="tongued-beasts.css?v=syrinx-ui-20260820-5" />
-    <link rel="stylesheet" href="hybrinx.css?v=hybrinx-20260821-4" />
+    <link rel="stylesheet" href="hybrinx.css?v=hybrinx-20260823-1" />
   </head>
   <body class="syrinx-page syrinx-ui-page tongued-beasts-page hybrinx-page">
     <header class="masthead">
@@ -57,7 +57,7 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive hybrid animal sound source, vocal tract, and grafted tongue. Drag the colored anatomy controls, choose a tongue move, or reset the tongue from the viewport."
+            aria-label="Interactive hybrid animal sound source, vocal tract, and grafted tongue. Drag the colored anatomy controls, add a tongue pattern clip, or reset the tongue from the viewport."
             aria-describedby="canvasInstructions liveStatus"
           >
             An animated animal profile with lungs, sound source, vocal tract, tongue, cavities, and mouth.
@@ -78,9 +78,9 @@
               class="viewport-tongue-preset-popover"
               id="viewportTonguePresetPopover"
               role="group"
-              aria-label="Tongue sound and movement presets in viewport"
+              aria-label="Add tongue pattern clips to the call timeline from the viewport"
             >
-              <header><small>instant articulation</small><strong>PRESET TONGUES</strong></header>
+              <header><small>add at playhead</small><strong>TONGUE PATTERNS</strong></header>
               <div class="viewport-tongue-preset-grid">
                 <button type="button" data-tongue-motion="p"><b>P</b><small>pop</small></button>
                 <button type="button" data-tongue-motion="b"><b>B</b><small>buzz</small></button>
@@ -92,7 +92,7 @@
                 <button type="button" data-tongue-motion="gyrate"><b>@</b><small>gyrate</small></button>
                 <button type="button" data-tongue-motion="lick"><b>LICK</b><small>reach</small></button>
                 <button type="button" data-tongue-motion="suck"><b>SUK</b><small>ingressive</small></button>
-                <button class="tongue-free-button" type="button" data-tongue-motion=""><b>HAND</b><small>stop motion</small></button>
+                <button class="tongue-free-button" type="button" data-tongue-motion=""><b>CLEAR</b><small>all clips</small></button>
               </div>
             </div>
           </div>
@@ -139,9 +139,9 @@
         >
           <header class="hybrinx-timeline-header">
             <div class="hybrinx-timeline-heading-copy">
-              <small>drag keys · double-click to add</small>
+              <small>drag keys + tongue clips · presets add at playhead</small>
               <div class="hybrinx-timeline-title-row">
-                <h2 id="hybrinxTimelineHeading">Voice contour timeline</h2>
+                <h2 id="hybrinxTimelineHeading">Voice + tongue timeline</h2>
                 <button
                   class="hybrinx-timeline-add-parameter"
                   id="hybrinxTimelineAddParameter"
@@ -236,13 +236,13 @@
             class="hybrinx-timeline-scroll"
             id="hybrinxTimelineScroll"
             tabindex="0"
-            aria-label="Editable animal call contours; scroll in time and parameters, drag keyframes, add parameters, modulate lanes, and use the Stretch edge"
+            aria-label="Editable animal call timeline; scroll in time and parameters, move or resize tongue pattern clips, drag keyframes, add parameters, modulate lanes, and use the Stretch edge"
           >
             <div
               class="hybrinx-timeline-gutter"
               id="hybrinxTimelineGutter"
               role="group"
-              aria-label="Timeline parameter lanes and modulation controls"
+              aria-label="Timeline tongue pattern, parameter, and modulation lanes"
             ></div>
             <svg
               class="hybrinx-timeline-svg"
@@ -258,7 +258,7 @@
             </svg>
           </div>
           <p class="hybrinx-timeline-description" id="hybrinxTimelineDescription">
-            Raven Croak: eight editable automation lanes, 28 keyframes, 720 ms sounding duration. Drag a diamond to change it, double-click a lane to add one, and drag Stretch to elongate the call.
+            Raven Croak: one tongue pattern lane plus eight editable automation lanes and 28 keyframes. Tongue clips temporarily override the settings beneath them, then release back to those settings.
           </p>
         </section>
       </section>
@@ -327,7 +327,8 @@
             </div>
             <p class="tongue-description" id="tongueDescription">A thick, rounded body with independent tip control and the largest modeled oral constriction range.</p>
             <p class="tongue-impact" id="tongueImpact">The two syringeal sides keep their detuning and biphonation. The tongue reshapes only the shared downstream tract, filtering both sides together before beak radiation.</p>
-            <div class="tongue-motion-presets" aria-label="Tongue sound and movement presets">
+            <p class="tongue-pattern-help">Choose a motion to add a 900 ms override clip at the timeline playhead. Drag the clip to move it, drag its right edge to resize it, or press Delete to remove it.</p>
+            <div class="tongue-motion-presets" aria-label="Add tongue pattern clips to the call timeline">
               <button type="button" data-tongue-motion="p"><b>P</b><small>pop</small></button>
               <button type="button" data-tongue-motion="b"><b>B</b><small>buzz</small></button>
               <button type="button" data-tongue-motion="l"><b>L</b><small>lateral</small></button>
@@ -338,7 +339,7 @@
               <button type="button" data-tongue-motion="gyrate"><b>@</b><small>gyrate</small></button>
               <button type="button" data-tongue-motion="lick"><b>LICK</b><small>reach</small></button>
               <button type="button" data-tongue-motion="suck"><b>SUK</b><small>ingressive</small></button>
-              <button class="tongue-free-button" type="button" data-tongue-motion=""><b>HAND</b><small>stop motion</small></button>
+              <button class="tongue-free-button" type="button" data-tongue-motion=""><b>CLEAR</b><small>all clips</small></button>
             </div>
             <label class="control" for="tonguePosition"><span><b>Body position</b><output id="tonguePositionOut" for="tonguePosition">central</output></span><input id="tonguePosition" type="range" min="0" max="1" step="0.01" value="0.5" /><small>Moves the main constriction from pharyngeal/back to palatal/front.</small></label>
             <label class="control" for="tongueHeight"><span><b>Body height</b><output id="tongueHeightOut" for="tongueHeight">56%</output></span><input id="tongueHeight" type="range" min="0" max="1" step="0.01" value="0.56" /><small>Raises the muscular body, narrowing the tube and strengthening its acoustic reflection.</small></label>
@@ -421,7 +422,7 @@
         <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset Hybrinx</button></div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Grab the pink tongue anywhere in the viewport. Pull sideways to stretch or retract it and move vertically to curl it into or away from airway contact. The editable timeline below shows pressure, pitch, closure, mouth, cavity, roughness, split, and balance. Use Add to place another source, tract, or tongue parameter on the timeline. Each parameter lane has a Mod button that reveals editable Speed and Depth contours. Drag a keyframe to change its time and value, double-click a lane to add a keyframe, delete a focused interior keyframe, and drag Stretch or enter milliseconds to elongate the call. Time zoom and lane zoom enlarge the timeline independently; scroll it horizontally or vertically to reach enlarged contours. Drag the separator between the viewport and timeline to resize them, or focus it and use the arrow keys. Open Tongue moves in the viewport to choose an automatic articulation. Reset Tongue restores its free-hand pose. Space or Enter holds breath while pressed. Escape stops all sound and automatic tongue motion.</p>
+      <p class="sr-only" id="canvasInstructions">Grab the pink tongue anywhere in the viewport. Pull sideways to stretch or retract it and move vertically to curl it into or away from airway contact. The editable timeline below begins with a tongue pattern lane, followed by pressure, pitch, closure, mouth, cavity, roughness, split, and balance. Choose a Tongue preset to add a 900 millisecond clip at the playhead. While that clip plays, its motion overrides the underlying settings; when it ends, those settings resume. Drag a pattern clip to move it, drag its right edge to resize it, or focus it and press Delete to remove it. Use Add to place another source, tract, or tongue parameter on the timeline. Each parameter lane has a Mod button that reveals editable Speed and Depth contours. Drag a keyframe to change its time and value, double-click a lane to add a keyframe, delete a focused interior keyframe, and drag Stretch or enter milliseconds to elongate the call. Time zoom and lane zoom enlarge the timeline independently; scroll it horizontally or vertically to reach enlarged contours. Drag the separator between the viewport and timeline to resize them, or focus it and use the arrow keys. Reset Tongue clears tongue contours and pattern clips. Space or Enter holds breath while pressed. Escape stops sound without deleting the timeline.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js?v=syrinx-ui-20260821-1"></script>

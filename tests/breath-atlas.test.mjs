@@ -25,7 +25,7 @@ import {
 
 const root = new URL("../", import.meta.url);
 
-test("breath atlas covers nineteen instruments across six honest source topologies", () => {
+test("mouthophones covers nineteen instruments across six honest source topologies", () => {
   assert.equal(BREATH_INSTRUMENTS.length, 19);
   assert.equal(new Set(BREATH_INSTRUMENTS.map(({ id }) => id)).size, 19);
   assert.deepEqual(new Set(BREATH_INSTRUMENTS.map(({ topology }) => topology)), new Set(Object.keys(TOPOLOGIES)));
@@ -158,13 +158,14 @@ test("breath-atlas worklet keeps air sources silent at rest and makes dry plucks
 
 test("page exposes signed breath, coupled rhythms, evidence, and physical worklet", async () => {
   const [html, css, app, processor] = await Promise.all([
-    readFile(new URL("breath-atlas.html", root), "utf8"),
+    readFile(new URL("mouthophones.html", root), "utf8"),
     readFile(new URL("breath-atlas.css", root), "utf8"),
     readFile(new URL("breath-atlas-app.js", root), "utf8"),
     readFile(new URL("src/breath-atlas-processor.js", root), "utf8"),
   ]);
   assert.match(html, /class="breath-atlas-page"/);
-  assert.match(html, /collection of nineteen breath and mouth instrument physical models/);
+  assert.match(html, /<title>Mouthophones · Morphazoid<\/title>/);
+  assert.match(html, /collection of nineteen breath-driven and mouth-resonated physical instrument models/);
   assert.doesNotMatch(html, /data-instrument-info="off"/);
   assert.doesNotMatch(html, /class="atlas-heading"/);
   assert.match(html, /id="inhaleButton"/);

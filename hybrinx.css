@@ -645,6 +645,15 @@
   grid-template-columns: minmax(0, 1fr) 39px;
 }
 
+.hybrinx-timeline-gutter-row.is-pattern {
+  background: color-mix(in oklab, var(--hybrinx-chartreuse) 8%, rgba(3, 8, 6, 0.96));
+  grid-template-columns: minmax(0, 1fr) 72px;
+}
+
+.hybrinx-timeline-gutter-row.is-pattern .hybrinx-timeline-gutter-value {
+  color: var(--hybrinx-chartreuse-pale);
+}
+
 .hybrinx-timeline-gutter-label {
   overflow: hidden;
   color: color-mix(in oklab, var(--lane-color, var(--hybrinx-cyan)) 82%, #dce9df);
@@ -765,6 +774,90 @@
   stroke-width: 1;
   stroke-dasharray: 2 3;
   vector-effect: non-scaling-stroke;
+}
+
+.hybrinx-timeline-pattern-lane .hybrinx-timeline-lane-bg {
+  fill: rgba(186, 255, 84, 0.035);
+  stroke: rgba(186, 255, 84, 0.16);
+  cursor: default;
+}
+
+.hybrinx-timeline-pattern-empty {
+  fill: rgba(227, 255, 159, 0.42);
+  font: 650 6.5px/1 var(--mono);
+  letter-spacing: 0.045em;
+  pointer-events: none;
+}
+
+.hybrinx-timeline-pattern {
+  cursor: grab;
+  pointer-events: all;
+  touch-action: none;
+}
+
+.hybrinx-timeline-pattern:active {
+  cursor: grabbing;
+}
+
+.hybrinx-timeline-pattern-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.hybrinx-timeline-pattern-block {
+  fill: color-mix(in oklab, var(--hybrinx-chartreuse) 28%, #07110b);
+  stroke: color-mix(in oklab, var(--hybrinx-chartreuse) 74%, #dce9df);
+  stroke-width: 1;
+  filter: drop-shadow(0 0 3px rgba(186, 255, 84, 0.2));
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.hybrinx-timeline-pattern-label {
+  fill: var(--hybrinx-chartreuse-pale);
+  font: 780 6.5px/1 var(--mono);
+  letter-spacing: 0.055em;
+  pointer-events: none;
+}
+
+.hybrinx-timeline-pattern-resize {
+  stroke: var(--hybrinx-chartreuse-pale);
+  stroke-width: 5;
+  opacity: 0.72;
+  cursor: ew-resize;
+  pointer-events: stroke;
+  vector-effect: non-scaling-stroke;
+}
+
+.hybrinx-timeline-pattern:is(:hover, :focus) .hybrinx-timeline-pattern-block,
+.hybrinx-timeline-pattern.is-active .hybrinx-timeline-pattern-block {
+  fill: var(--hybrinx-chartreuse);
+  stroke: #030806;
+}
+
+.hybrinx-timeline-pattern:is(:hover, :focus) .hybrinx-timeline-pattern-label,
+.hybrinx-timeline-pattern.is-active .hybrinx-timeline-pattern-label {
+  fill: #030806;
+}
+
+.hybrinx-timeline-pattern.is-active .hybrinx-timeline-pattern-block {
+  filter: drop-shadow(0 0 6px rgba(186, 255, 84, 0.75));
+}
+
+.hybrinx-timeline-pattern:focus {
+  outline: none;
+}
+
+.hybrinx-page .tongue-motion-presets button.is-scheduled:not([aria-pressed="true"]) {
+  border-color: color-mix(in oklab, var(--hybrinx-chartreuse) 64%, transparent);
+  box-shadow: inset 0 -2px 0 rgba(186, 255, 84, 0.46);
+}
+
+.tongue-pattern-help {
+  margin: 0 0 8px;
+  color: rgba(220, 233, 223, 0.68);
+  font: 650 7px/1.45 var(--mono);
+  letter-spacing: 0.025em;
 }
 
 .hybrinx-timeline-lane-label {

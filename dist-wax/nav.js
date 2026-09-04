@@ -77,8 +77,6 @@ export const FAVE_TOOL_IDS = Object.freeze([
 export const TOOL_GROUPS = Object.freeze([
   freezeGroup("geometry", "Geometry Synths", [
     { id: "shape", label: "Shape", href: "shape.html" },
-    { id: "lattice", label: "Lattice", href: "lattice.html" },
-    { id: "spiral", label: "Spiral", href: "spiral.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
     {
@@ -87,12 +85,9 @@ export const TOOL_GROUPS = Object.freeze([
       href: "graph-synth.html",
     },
   ]),
-  freezeGroup("geometry-drums", "Drum Machines", [
-    {
-      id: "shape-drums",
-      label: "Shape Drum Machine",
-      href: "shape-drums.html",
-    },
+  freezeGroup("tiles", "Tiles", [
+    { id: "lattice", label: "Lattice", href: "lattice.html" },
+    { id: "spiral", label: "Spiral", href: "spiral.html" },
     {
       id: "lattice-drums",
       label: "Lattice Drum Machine",
@@ -102,6 +97,18 @@ export const TOOL_GROUPS = Object.freeze([
       id: "spiral-drums",
       label: "Spiral Drum Machine",
       href: "spiral-drums.html",
+    },
+    {
+      id: "penrose-tilings",
+      label: "Penrose Tilings",
+      href: "penrose-tilings.html",
+    },
+  ]),
+  freezeGroup("geometry-drums", "Drum Machines", [
+    {
+      id: "shape-drums",
+      label: "Shape Drum Machine",
+      href: "shape-drums.html",
     },
     {
       id: "solid-drums",
@@ -205,8 +212,8 @@ export const TOOL_GROUPS = Object.freeze([
     },
     {
       id: "breath-atlas",
-      label: "Breath Atlas",
-      href: "breath-atlas.html",
+      label: "Mouthophones",
+      href: "mouthophones.html",
     },
     {
       id: "spelling-synthesizer",
@@ -377,8 +384,8 @@ export const TOOL_GROUPS = Object.freeze([
     },
     {
       id: "cellular-automata",
-      label: "Automata, Automay-to",
-      href: "automata.html",
+      label: "Automatapoeia",
+      href: "automatapoeia.html",
     },
     { id: "prime-sieve", label: "Prime Sieve", href: "prime-sieve.html" },
     {
@@ -417,6 +424,12 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("apps", "Apps", [
     { id: "combo", label: "Shapes", href: "shapes.html" },
     { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
+    { id: "tiles-app", label: "Tiles", href: "tiles.html" },
+    {
+      id: "algorithmic-mazes",
+      label: "Algorithmic Mazes",
+      href: "algorithmic-mazes.html",
+    },
   ]),
 ]);
 
@@ -572,6 +585,7 @@ function createInstrumentPicker(doc, activeTool, siteRoot, index) {
       icon.width = 24;
       icon.height = 24;
       icon.decoding = "async";
+      icon.loading = "lazy";
       icon.src = new URL(tool.imageHref ?? `assets/instruments/${tool.id}.webp`, siteRoot).href;
       const label = element(doc, "span", "instrument-picker-link-label", tool.label);
       link.append(icon, label);

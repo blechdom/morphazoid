@@ -205,6 +205,107 @@ test("Hybrinx Add + catalog can append host and tongue parameter lanes exactly o
   assert.equal(store.get(gestureId).curves.tongueCurl, undefined);
 });
 
+test("tongue presets become immutable, call-relative clips in a dedicated override lane", () => {
+  const createStore = requiredExport("createHybrinxGestureStore");
+  const buildModel = requiredExport("buildHybrinxTimelineModel");
+  const store = createStore(CALL_GESTURES);
+  const gestureId = "raven-croak";
+  const baseState = stateForGesture(gestureId);
+
+  store.setDuration(gestureId, 3_000);
+  let gesture = store.addTonguePattern(gestureId, "rolled-r", {
+    startPhase: 0.25,
+    durationMs: 900,
+  });
+  assert.ok(Object.isFrozen(gesture.tonguePatterns));
+  assert.ok(Object.isFrozen(gesture.tonguePatterns[0]));
+  assert.deepEqual(
+    {
+      presetId: gesture.tonguePatterns[0].presetId,
+      startPhase: gesture.tonguePatterns[0].startPhase,
+      endPhase: gesture.tonguePatterns[0].endPhase,
+    },
+    { presetId: "rolled-r", startPhase: 0.25, endPhase: 0.55 },
+    "900 ms occupies 30% of a three-second authored call",
+  );
+
+  const model = buildModel(gesture, baseState, { gestureRate: 1 });
+  assert.equal(model.patternLane.kind, "tongue-patterns");
+  assert.equal(model.patternLane.patterns.length, 1);
+  assert.equal(model.patternLane.patterns[0].label, "Rolled R");
+  assert.ok(Math.abs(model.patternLane.patterns[0].durationMs - 900) < 1e-9);
+  assert.equal(
+    model.rowCount,
+    model.lanes.reduce((count, lane) => count + 1 + (lane.modulation.enabled ? 2 : 0), 1),
+    "the tongue pattern lane occupies one real timeline row",
+  );
+
+  gesture = store.updateTonguePattern(gestureId, 0, { startPhase: 0.9 });
+  assert.equal(gesture.tonguePatterns[0].startPhase, 0.7, "moving a clip keeps it inside the call");
+  assert.equal(gesture.tonguePatterns[0].endPhase, 1);
+  gesture = store.updateTonguePattern(gestureId, 0, { endPhase: 0.86 });
+  assert.equal(gesture.tonguePatterns[0].endPhase, 0.86, "the right edge resizes the override interval");
+
+  const beforeInvalid = gesture;
+  assert.strictEqual(
+    store.addTonguePattern(gestureId, "not-a-pattern", { startPhase: 0.1 }),
+    beforeInvalid,
+    "unknown presets cannot enter the gesture document",
+  );
+  store.removeTonguePattern(gestureId, 0);
+  assert.deepEqual(store.get(gestureId).tonguePatterns, []);
+
+  store.addTonguePattern(gestureId, "lick", { startPhase: 0.1, durationMs: 500 });
+  store.addParameter(gestureId, "sourceScale", baseState, DEFAULT_TONGUE_STATE);
+  const resetTongue = resetStoredTongueAutomation(store, gestureId);
+  assert.deepEqual(resetTongue.tonguePatterns, [], "Reset Tongue clears pattern clips too");
+  assert.ok(resetTongue.laneParameters.includes("sourceScale"), "host automation survives Reset Tongue");
+  assert.equal(resetTongue.durationMs, 3_000, "transport edits survive Reset Tongue");
+});
+
+test("tongue clips override host, tongue, and articulation only inside their timeline interval", () => {
+  const createStore = requiredExport("createHybrinxGestureStore");
+  const applyPerformance = requiredExport("applyHybrinxTimelinePerformance");
+  const resolvePattern = requiredExport("resolveHybrinxTonguePattern");
+  const store = createStore(CALL_GESTURES);
+  const gestureId = "raven-croak";
+  const baseState = stateForGesture(gestureId, { pressure: 0.41, mouthOpening: 0.77 });
+  store.setDuration(gestureId, 3_000);
+  const underlyingGesture = store.get(gestureId);
+  const before = applyPerformance(underlyingGesture, baseState, DEFAULT_TONGUE_STATE, 0.1);
+  const after = applyPerformance(underlyingGesture, baseState, DEFAULT_TONGUE_STATE, 0.5);
+
+  store.addTonguePattern(gestureId, "p", { startPhase: 0.2, durationMs: 600 });
+  store.addTonguePattern(gestureId, "rolled-r", { startPhase: 0.25, durationMs: 300 });
+  const gesture = store.get(gestureId);
+  const beforeClip = applyPerformance(gesture, baseState, DEFAULT_TONGUE_STATE, 0.1);
+  const pOnly = applyPerformance(gesture, baseState, DEFAULT_TONGUE_STATE, 0.22);
+  const overlap = applyPerformance(gesture, baseState, DEFAULT_TONGUE_STATE, 0.3);
+  const afterNested = applyPerformance(gesture, baseState, DEFAULT_TONGUE_STATE, 0.37);
+  const afterClip = applyPerformance(gesture, baseState, DEFAULT_TONGUE_STATE, 0.5);
+
+  assert.equal(beforeClip.pattern, null);
+  assert.equal(beforeClip.articulation.active, false);
+  assert.deepEqual(beforeClip.host, before.host, "settings before a clip are unchanged");
+  assert.deepEqual(beforeClip.tongue, before.tongue);
+  assert.equal(pOnly.pattern.presetId, "p");
+  assert.equal(pOnly.articulation.active, true);
+  assert.equal(pOnly.host.pressure, 0.94, "the pattern's host settings win during its clip");
+  assert.equal(overlap.pattern.presetId, "rolled-r", "the last-starting overlapping clip wins");
+  assert.equal(afterNested.pattern.presetId, "p", "the earlier clip resumes when the nested clip ends");
+  assert.equal(afterClip.pattern, null);
+  assert.equal(afterClip.articulation.active, false);
+  assert.deepEqual(afterClip.host, after.host, "underlying host automation resumes after the clip");
+  assert.deepEqual(afterClip.tongue, after.tongue, "the free-hand tongue pose resumes after the clip");
+
+  const resolved = resolvePattern(gesture, 0.3, { gestureRate: 2 });
+  assert.equal(resolved.presetId, "rolled-r");
+  assert.ok(
+    Math.abs(resolved.elapsedSeconds - 0.075) < 1e-12,
+    "a clip's motion clock is derived from call phase and gesture rate",
+  );
+});
+
 test("per-lane Speed and Depth modulation contours are editable, immutable, and bounded", () => {
   const createStore = requiredExport("createHybrinxGestureStore");
   const buildModel = requiredExport("buildHybrinxTimelineModel");
@@ -669,5 +770,31 @@ test("Hybrinx exposes accessible Add +, per-lane Mod, and independent two-axis z
     app,
     /applyHybrinxTimelinePerformance\([\s\S]{0,360}?gestureRate:\s*state\.gestureRate/,
     "real-time modulation must use the transport's effective call rate",
+  );
+});
+
+test("Hybrinx exposes tongue pattern clips as accessible timeline edits", async () => {
+  const [html, css, timelineSource, app] = await Promise.all([
+    readFile(new URL("hybrinx.html", root), "utf8"),
+    readFile(new URL("hybrinx.css", root), "utf8"),
+    readFile(new URL("src/hybrinx-timeline.js", root), "utf8"),
+    readFile(new URL("syrinx-app.js", root), "utf8"),
+  ]);
+
+  assert.match(html, /Voice \+ tongue timeline/i);
+  assert.match(html, /900 ms override clip at the timeline playhead/i);
+  assert.match(html, /aria-label="[^"]*tongue pattern[^"]*timeline[^"]*"/i);
+  assert.match(css, /\.hybrinx-timeline-pattern\s*\{/);
+  assert.match(css, /\.hybrinx-timeline-pattern-resize\s*\{/);
+  assert.match(timelineSource, /data-tongue-pattern-index/);
+  assert.match(timelineSource, /type:\s*["']tongue-pattern["']/);
+  assert.match(timelineSource, /type:\s*["']remove-tongue-pattern["']/);
+  assert.match(timelineSource, /event\.key\s*===\s*["']Delete["']/);
+  assert.match(app, /hybrinxGestureStore\.addTonguePattern\(/);
+  assert.match(app, /sequenced\.articulation/);
+  assert.match(
+    app,
+    /setTongueMotion\([\s\S]{0,1400}?startPhase[\s\S]{0,500}?durationMs:\s*900/,
+    "preset buttons must place a bounded clip at the current call phase",
   );
 });

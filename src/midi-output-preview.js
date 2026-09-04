@@ -432,7 +432,7 @@ export function initializeMidiOutputMonitor(
   monitor.id = "midiOutputMonitor";
   monitor.dataset.routeId = text(routeId);
   const details = element(doc, "details", "midi-output-monitor-disclosure");
-  details.open = true;
+  details.open = doc.body?.getAttribute?.("data-midi-output-monitor") !== "collapsed";
   const summary = element(doc, "summary", "midi-output-monitor-summary");
   const titleWrap = element(doc, "span", "midi-output-monitor-title");
   const activity = element(doc, "i", "midi-output-monitor-activity");

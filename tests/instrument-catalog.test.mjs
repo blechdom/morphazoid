@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 123);
+  assert.equal(INSTRUMENTS.length, 126);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -573,6 +573,7 @@ test("catalogue tag controls hide experiments until All is restored", () => {
     "All",
     "Faves",
     "Geometry Synths",
+    "Tiles",
     "Drum Machines",
     "Sequencers",
     "Voice Synths",
@@ -657,7 +658,6 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.match(instrumentById("ourorourobouroboros")?.description ?? "", /phase-locked gates/i);
   assert.match(instrumentById("ourorourobouroboros")?.start ?? "", /add or remove Shepard rings/i);
-  assert.match(instrumentById("ourorourobouroboros")?.start ?? "", /audio mix/i);
   assert.ok(instrumentById("ourorourobouroboros")?.features.includes("Built-in synth"));
   assert.ok(instrumentById("ourorourobouroboros")?.features.includes("Pointer"));
   assert.equal(instrumentById("ouroboros")?.kind, "Percussion synth");
@@ -694,6 +694,42 @@ test("input and plug-in availability facts remain explicit", () => {
     instrumentById("escher-tessellation")?.tags.map(({ id }) => id),
     ["experiments"],
   );
+  assert.equal(instrumentById("penrose-tilings")?.label, "Penrose Tilings");
+  assert.equal(instrumentById("penrose-tilings")?.status, null);
+  assert.deepEqual(
+    instrumentById("penrose-tilings")?.tags.map(({ id }) => id),
+    ["tiles"],
+  );
+  assert.deepEqual(
+    INSTRUMENT_GROUPS.find(({ id }) => id === "apps")?.tools.map(({ id }) => id),
+    ["combo", "l-systems", "tiles-app", "algorithmic-mazes"],
+  );
+  assert.deepEqual(
+    instrumentById("tiles-app")?.tags.map(({ id }) => id),
+    ["apps"],
+  );
+  assert.deepEqual(
+    instrumentById("algorithmic-mazes")?.tags.map(({ id }) => id),
+    ["apps"],
+  );
+  const tileIds = [
+    "lattice",
+    "spiral",
+    "lattice-drums",
+    "spiral-drums",
+    "penrose-tilings",
+  ];
+  assert.deepEqual(
+    INSTRUMENT_GROUPS.find(({ id }) => id === "tiles")?.tools.map(({ id }) => id),
+    tileIds,
+  );
+  const faveTileIds = new Set(["lattice", "spiral"]);
+  for (const id of tileIds) {
+    assert.deepEqual(
+      instrumentById(id)?.tags.map(({ id: tagId }) => tagId),
+      ["tiles", ...(faveTileIds.has(id) ? ["faves"] : [])],
+    );
+  }
   assert.ok(instrumentById("lumber")?.features.includes("Mic input"));
   assert.ok(instrumentById("recursion")?.features.includes("File input"));
   assert.equal(instrumentById("hyper-rubix")?.kind, "4D shape sequencer");

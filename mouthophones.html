@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050706" />
+    <meta
+      name="description"
+      content="Mouthophones is a playable collection of nineteen breath-driven and mouth-resonated physical instrument models for Morphazoid."
+    />
+    <title>Mouthophones · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="breath-atlas.css" />
+  </head>
+  <body class="breath-atlas-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="syrinx.html">syrinx</a>
+        <a class="tab" href="jaw-harp.html">jaw harp</a>
+        <a class="tab active" href="mouthophones.html" aria-current="page">mouthophones</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="syrinx.html">syrinx</option>
+          <option value="jaw-harp.html">jaw harp</option>
+          <option value="mouthophones.html" selected>mouthophones</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">≈</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">48%</output></span>
+          <input id="outputLevel" type="range" min="0" max="0.82" step="0.01" value="0.48" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="breathAtlas">
+      <section class="stage breath-stage" aria-label="Breath and mouth instrument physical model">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Animated physical-model schematic. Hold inhale or exhale to drive airflow, then drag the mouth handles to change its resonances."
+            aria-describedby="stageHint liveStatus"
+          >
+            A physical source, signed breath path, resonator, and animated mouth cavity.
+          </canvas>
+
+          <div class="atlas-status" aria-live="polite">
+            <span><small>source</small><b id="sourceReadout">quill-driven string</b></span>
+            <span><small>breath</small><b id="breathReadout">rest — source silent</b></span>
+            <span><small>mouth focus</small><b id="formantReadout">704 · 1452 Hz</b></span>
+          </div>
+
+          <p class="atlas-stage-hint" id="stageHint">
+            HOLD INHALE / EXHALE · DRAG TONGUE + JAW · BREATH PRESSURE IS THE EXCITER
+          </p>
+          <p class="atlas-audio-error" id="audioError" role="alert" hidden></p>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Mouthophones controls">
+        <section class="atlas-selector" aria-label="Instrument model">
+          <label for="instrumentSelect">
+            <span>Physical instrument</span>
+            <select id="instrumentSelect"></select>
+          </label>
+          <div class="atlas-identity">
+            <span id="regionBadge">SOUTHERN AFRICA</span>
+            <span id="topologyBadge">STRING-WIND</span>
+            <span class="evidence-badge" id="evidenceBadge">MEASURED</span>
+          </div>
+          <p id="instrumentDescription"></p>
+          <div class="atlas-model-note">
+            <b>What is physically modeled</b>
+            <p id="modelNote"></p>
+            <a id="modelSource" href="#" target="_blank" rel="noreferrer">Open model source ↗</a>
+          </div>
+        </section>
+
+        <section class="atlas-driver" aria-label="Excitation controls">
+          <div class="atlas-breath-pad" role="group" aria-label="Manual signed airflow">
+            <button id="inhaleButton" type="button" aria-pressed="false">
+              <span aria-hidden="true">←</span><b>Inhale</b><small id="inhaleHint">hold · inward pressure</small>
+            </button>
+            <button id="exhaleButton" type="button" aria-pressed="false">
+              <span aria-hidden="true">→</span><b>Exhale</b><small id="exhaleHint">hold · outward pressure</small>
+            </button>
+          </div>
+          <button id="gestureButton" class="atlas-gesture" type="button" hidden>
+            <span aria-hidden="true" id="gestureGlyph">⌁</span>
+            <span><b id="gestureLabel">Pluck string</b><small id="gestureHint">press or Space · breath shapes the load</small></span>
+          </button>
+          <button id="autoGestureButton" class="atlas-auto atlas-auto-gesture" type="button" aria-pressed="true" hidden>
+            <span aria-hidden="true">⌁</span>
+            <span><b>Rhythmic hand</b><small id="autoGestureState">quarter · eighth · eighth</small></span>
+          </button>
+          <button id="autoBreathButton" class="atlas-auto" type="button" aria-pressed="true">
+            <span aria-hidden="true">↔</span>
+            <span><b>Automatic breath</b><small id="autoBreathState">22 cycles/min · inhale + exhale</small></span>
+          </button>
+        </section>
+
+        <div class="atlas-meter" id="breathMeter" aria-hidden="true">
+          <span>IN</span><i></i><i></i><i></i><i></i><b>0</b><i></i><i></i><i></i><i></i><span>OUT</span>
+        </div>
+
+        <details class="group atlas-control-section atlas-rhythm-section" id="rhythmSection" open hidden>
+          <summary class="group-summary"><h2 class="group-title">Coupled breath + hand</h2><span id="rhythmSummary">1 breath / loop</span></summary>
+          <div class="group-body">
+            <label class="atlas-select-control" for="rhythmSelect">
+              <span><b>Gesture loop</b><small id="rhythmDescription">A long first space followed by two quicker replies.</small></span>
+              <select id="rhythmSelect"></select>
+            </label>
+            <label class="control" for="gestureRateBpm">
+              <span><b>Hand tempo</b><output id="gestureRateBpmOut" for="gestureRateBpm">92 BPM</output></span>
+              <input id="gestureRateBpm" type="range" min="30" max="220" step="1" value="92" />
+              <small>The loop uses an eighth-note grid, but rests and velocity accents keep it from becoming a metronome.</small>
+            </label>
+            <label class="atlas-select-control" for="breathSyncRatio">
+              <span><b>Breath against loop</b><small>Phase-locks pressure to the first hand gesture.</small></span>
+              <select id="breathSyncRatio">
+                <option value="0.5">1 breath / 2 loops</option>
+                <option value="1" selected>1 breath / loop</option>
+                <option value="2">2 breaths / loop</option>
+                <option value="3">3 breaths / loop</option>
+              </select>
+            </label>
+            <button class="atlas-link-button" id="breathLinkButton" type="button" aria-pressed="true">
+              <span aria-hidden="true">⛓</span><span><b>Lock breath to hand</b><small id="breathLinkState">linked · phase resets with loop</small></span>
+            </button>
+            <label class="control" for="dryResonance">
+              <span><b>Unbreathed resonance</b><output id="dryResonanceOut" for="dryResonance">8%</output></span>
+              <input id="dryResonance" type="range" min="0" max="0.35" step="0.01" value="0.08" />
+              <small>At minimum, a dry pluck is only a very soft mechanical tick; signed breath opens the mouth and body resonance.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group atlas-control-section" open>
+          <summary class="group-summary"><h2 class="group-title">Breath drive</h2><span id="breathSummary">signed · 76%</span></summary>
+          <div class="group-body">
+            <label class="control" for="breathPressure">
+              <span><b>Pressure</b><output id="breathPressureOut" for="breathPressure">76%</output></span>
+              <input id="breathPressure" type="range" min="0" max="1" step="0.01" value="0.76" />
+              <small>Scales the pressure difference across the valve, jet, lips, or quill. At zero, every breath-driven source is silent.</small>
+            </label>
+            <label class="control" for="breathRateBpm">
+              <span><b>Breath rhythm</b><output id="breathRateBpmOut" for="breathRateBpm">22 cycles/min</output></span>
+              <input id="breathRateBpm" type="range" min="8" max="96" step="1" value="22" />
+              <small>One cycle contains inward and outward pressure; outward-only instruments rest during the inward half.</small>
+            </label>
+            <label class="control" for="breathBalance">
+              <span><b>In / out duration</b><output id="breathBalanceOut" for="breathBalance">46 / 54</output></span>
+              <input id="breathBalance" type="range" min="0.25" max="0.75" step="0.01" value="0.46" />
+            </label>
+            <label class="control" for="glottisOpening">
+              <span><b>Glottis opening</b><output id="glottisOpeningOut" for="glottisOpening">48%</output></span>
+              <input id="glottisOpening" type="range" min="0" max="1" step="0.01" value="0.48" />
+              <small>Changes the upstream impedance and rear-cavity loss.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group atlas-control-section" open>
+          <summary class="group-summary"><h2 class="group-title">Physical source</h2><span id="sourceSummary">82 Hz · 1.28 m</span></summary>
+          <div class="group-body">
+            <label class="control" for="sourcePitchHz">
+              <span><b>Rest frequency</b><output id="sourcePitchHzOut" for="sourcePitchHz">82 Hz</output></span>
+              <input id="sourcePitchHz" type="range" min="42" max="640" step="1" value="82" />
+              <small>Rest frequency of the string, reed, lip valve, or first pipe mode.</small>
+            </label>
+            <label class="control" for="boreLengthM">
+              <span><b>Acoustic length</b><output id="boreLengthMOut" for="boreLengthM">1.28 m</output></span>
+              <input id="boreLengthM" type="range" min="0.08" max="2.4" step="0.01" value="1.28" />
+              <small>Length of the string, pipe, bore, or coupled sound path.</small>
+            </label>
+            <label class="control" for="damping">
+              <span><b>Mechanical loss</b><output id="dampingOut" for="damping">34%</output></span>
+              <input id="damping" type="range" min="0.05" max="0.92" step="0.01" value="0.34" />
+            </label>
+            <label class="control" for="brightness">
+              <span><b>Valve / edge stiffness</b><output id="brightnessOut" for="brightness">58%</output></span>
+              <input id="brightness" type="range" min="0" max="1" step="0.01" value="0.58" />
+            </label>
+            <label class="control" for="gestureForce">
+              <span><b>Hand force</b><output id="gestureForceOut" for="gestureForce">72%</output></span>
+              <input id="gestureForce" type="range" min="0.05" max="1" step="0.01" value="0.72" />
+              <small>Used only by plucked, rubbed, and bowed sources.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group atlas-control-section" open>
+          <summary class="group-summary"><h2 class="group-title">Living resonator</h2><span id="mouthSummary">open /ɑ/-like cavity</span></summary>
+          <div class="group-body">
+            <label class="control" for="tonguePosition">
+              <span><b>Tongue front / back</b><output id="tonguePositionOut" for="tonguePosition">50%</output></span>
+              <input id="tonguePosition" type="range" min="0" max="1" step="0.01" value="0.5" />
+            </label>
+            <label class="control" for="tongueHeight">
+              <span><b>Tongue height</b><output id="tongueHeightOut" for="tongueHeight">35%</output></span>
+              <input id="tongueHeight" type="range" min="0" max="1" step="0.01" value="0.35" />
+            </label>
+            <label class="control" for="jawOpening">
+              <span><b>Jaw opening</b><output id="jawOpeningOut" for="jawOpening">62%</output></span>
+              <input id="jawOpening" type="range" min="0" max="1" step="0.01" value="0.62" />
+            </label>
+            <label class="control" for="lipRounding">
+              <span><b>Lip rounding</b><output id="lipRoundingOut" for="lipRounding">18%</output></span>
+              <input id="lipRounding" type="range" min="0" max="1" step="0.01" value="0.18" />
+            </label>
+            <label class="control" for="coupling">
+              <span><b>Mouth / body coupling</b><output id="couplingOut" for="coupling">91%</output></span>
+              <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.91" />
+              <small>Balances direct radiation against the moving oral and body resonances.</small>
+            </label>
+          </div>
+        </details>
+
+        <section class="atlas-key" aria-label="Evidence key">
+          <p><b>MEASURED</b> published equations or impedance measurements</p>
+          <p><b>DOCUMENTED</b> established mechanism, comparative parameters</p>
+          <p><b>APPROXIMATION</b> organological reconstruction; deliberately labeled</p>
+        </section>
+      </aside>
+    </main>
+
+    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="breath-atlas-app.js"></script>
+  </body>
+</html>

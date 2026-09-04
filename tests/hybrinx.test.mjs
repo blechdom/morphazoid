@@ -479,7 +479,7 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
     /<body[^>]*class="[^"]*syrinx-ui-page[^"]*tongued-beasts-page[^"]*hybrinx-page[^"]*"/,
   );
   assert.match(html, /href="tongued-beasts\.css\?v=[^"]+"/);
-  assert.match(html, /href="hybrinx\.css\?v=hybrinx-20260821-4"/);
+  assert.match(html, /href="hybrinx\.css\?v=hybrinx-[^"]+"/);
   assert.match(html, /src="syrinx-app\.js\?v=[^"]+"/);
 
   const stage = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";

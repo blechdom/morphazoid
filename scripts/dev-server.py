@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 class DevelopmentRequestHandler(SimpleHTTPRequestHandler):
-    """Serve the live worktree without reusing stale browser assets."""
+    """Serve live workspace files without retaining stale instrument UI assets."""
 
     def end_headers(self) -> None:
         self.send_header("Cache-Control", "no-store")

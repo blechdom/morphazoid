@@ -103,6 +103,7 @@ test("L-System Drum Machine exposes a continuous Shape-style transport", async (
   }
 
   await import(`../l-system-drums-app.js?smoke=${Date.now()}`);
+  frameNow = performance.now();
   assert.ok(rafQueue.length > 0, "startup should schedule an initial render");
   flushAnimationFrames();
 

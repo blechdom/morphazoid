@@ -62,12 +62,32 @@ for worktree_runtime_file in \
   src/jaw-jam.js \
   src/jaw-jam-processor.js \
   breath-atlas.html \
+  mouthophones.html \
   breath-atlas.css \
   breath-atlas-app.js \
   src/breath-atlas.js \
   src/breath-atlas-processor.js \
   assets/instruments/breath-atlas.webp \
   src/shapes-rhythm.js \
+  l-systems.html \
+  l-systems.css \
+  l-systems-app.js \
+  src/l-systems-suite.js \
+  assets/instruments/l-systems.webp \
+  algorithmic-mazes.html \
+  algorithmic-mazes.css \
+  algorithmic-mazes-app.js \
+  src/algorithmic-mazes.js \
+  assets/instruments/algorithmic-mazes.webp \
+  combo.html \
+  shapes.html \
+  combo.css \
+  combo-embed.css \
+  combo-app.js \
+  src/combo-host.js \
+  src/shapes-profile.js \
+  src/shapes-native-bridge.js \
+  assets/instruments/combo.webp \
   shape.html \
   playhead-paint.html \
   playhead-paint.css \
@@ -303,6 +323,12 @@ for worktree_runtime_file in \
   src/escher-contours.js \
   src/escher-performance-audio.js \
   assets/instruments/escher-tessellation.webp \
+  penrose-tilings.html \
+  penrose-tilings.css \
+  penrose-tilings-app.js \
+  src/penrose-tilings.js \
+  src/penrose-world-p2.js \
+  assets/instruments/penrose-tilings.webp \
   spiral-drums.html \
   spiral-drums.css \
   spiral-drums-app.js \
@@ -521,6 +547,8 @@ for worktree_runtime_file in \
   chladni-plate.html \
   spring-choir.html \
   gear-ratio-drums.html \
+  automatapoeia.html \
+  automatopoeia.html \
   automata.html \
   cellular-automata.html \
   prime-sieve.html \
@@ -536,6 +564,7 @@ for worktree_runtime_file in \
   orbital-ferris.html \
   experiments.css \
   experiments-app.js \
+  src/automatapoeia.js \
   src/orbital-ferris.js \
   assets/instruments/orbital-ferris.webp
 do
@@ -553,6 +582,20 @@ required_files=(
   jaw-jam-app.js
   src/jaw-jam.js
   src/jaw-jam-processor.js
+  mouthophones.html
+  l-systems.html
+  l-systems.css
+  l-systems-app.js
+  src/l-systems-suite.js
+  assets/instruments/l-systems.webp
+  combo.html
+  shapes.html
+  combo.css
+  combo-embed.css
+  combo-app.js
+  src/combo-host.js
+  src/shapes-profile.js
+  src/shapes-native-bridge.js
   index.html
   midi-guide.html
   shape.html
@@ -948,6 +991,8 @@ required_files=(
   chladni-plate.html
   spring-choir.html
   gear-ratio-drums.html
+  automatapoeia.html
+  automatopoeia.html
   automata.html
   cellular-automata.html
   prime-sieve.html
@@ -963,6 +1008,7 @@ required_files=(
   orbital-ferris.html
   experiments.css
   experiments-app.js
+  src/automatapoeia.js
   src/orbital-ferris.js
   assets/instruments/orbital-ferris.webp
   fm-drums.html

@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#08090b" />
+    <meta
+      name="description"
+      content="Morphazoid Penrose Tilings — an interactive P3 aperiodic-order instrument built from golden-ratio Robinson subdivision."
+    />
+    <title>Penrose Tilings — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="penrose-tilings.css" />
+  </head>
+  <body class="penrose-tilings-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="escher-tessellation.html">escher</a>
+        <a class="tab active" href="penrose-tilings.html" aria-current="page">penrose tilings</a>
+        <a class="tab" href="order-tones.html">order tones</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="escher-tessellation.html">escher</option>
+          <option value="penrose-tilings.html" selected>penrose tilings</option>
+          <option value="order-tones.html">order tones</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">φ</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" aria-label="Penrose output level" type="range" min="0" max="0.8" step="0.01" value="0.48" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell penrose-shell" id="penroseTilings">
+      <section class="stage penrose-stage" aria-label="Penrose tiling instrument">
+        <div class="stage-wrap penrose-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-keyshortcuts="Space ArrowLeft ArrowRight R H F E P N I = - Home Escape"
+            aria-label="Interactive Penrose tiling moving behind a fixed line reader with approaching edge-path previews."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Interactive P3 Penrose rhomb tiling.
+          </canvas>
+
+          <div class="penrose-view-controls" role="group" aria-label="Penrose view">
+            <button id="zoomOutButton" type="button" aria-label="Zoom out">−</button>
+            <button id="resetViewButton" type="button" aria-label="Reset zoom">φ</button>
+            <button id="zoomInButton" type="button" aria-label="Zoom in">+</button>
+          </div>
+
+          <div class="penrose-stage-ledger" aria-hidden="true">
+            <span>INFLATION FACTOR</span>
+            <strong>φ = <span id="phiReadout">1.618033…</span></strong>
+            <small id="ratioReadout">thick / thin → φ</small>
+          </div>
+
+          <div class="penrose-legend" aria-hidden="true">
+            <span><i class="is-thick"></i><b id="legendPrimary">thick · 72° / 108°</b></span>
+            <span><i class="is-thin"></i><b id="legendSecondary">thin · 36° / 144°</b></span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">GEN 6 · 1,140 RHOMBS · READER READY</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel penrose-panel" aria-label="Penrose tiling controls and research notes">
+        <section class="group control-section always-open" aria-labelledby="structureTitle">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title" id="structureTitle">Aperiodic structure</h2>
+            <span class="section-state" id="structureSummary">P3 · cartwheel · generation 6</span>
+          </div>
+          <div class="group-body">
+            <p class="penrose-intro" id="presentationDescription">
+              This is the P3 form: equal-sided thick and thin rhombs. They fill the Euclidean plane, but their matching hierarchy forbids any translation that makes the whole pattern coincide with itself.
+            </p>
+
+            <label class="select-control" for="presentation">
+              <span class="field-label">Penrose presentation</span>
+              <span class="select-shell">
+                <select id="presentation">
+                  <option value="p3" selected>P3 rhombs · substitution</option>
+                  <option value="pentagrid">P3 rhombs · pentagrid</option>
+                  <option value="p2">P2 kites + darts</option>
+                  <option value="p1">P1 pentagons + star + boat (finite)</option>
+                  <option value="robinson">Robinson golden triangles</option>
+                </select>
+              </span>
+            </label>
+
+            <label class="control" for="generation">
+              <span><b>Subdivision generation</b><output id="generationOut" for="generation">6 · 1,140 rhombs</output></span>
+              <input id="generation" type="range" min="1" max="7" step="1" value="6" />
+              <small class="penrose-control-note">Each step replaces Robinson triangles at a scale of 1 / φ.</small>
+            </label>
+
+            <label class="control" for="variation">
+              <span><b>Local window / pentagrid phase</b><output id="variationOut" for="variation">1 / 64</output></span>
+              <input id="variation" type="range" min="0" max="63" step="1" value="0" />
+              <small class="penrose-control-note">Every setting remains exact. Pentagrid phases select genuinely different cuts; other presentations recenter on another legal local patch.</small>
+            </label>
+
+            <label class="control" for="orientation">
+              <span><b>Pattern orientation</b><output id="orientationOut" for="orientation">0°</output></span>
+              <input id="orientation" type="range" min="0" max="324" step="36" value="0" />
+            </label>
+
+            <label class="control" for="angleWarp">
+              <span><b>Global angle shear</b><output id="angleWarpOut" for="angleWarp">exact · 0%</output></span>
+              <input id="angleWarp" type="range" min="-0.45" max="0.45" step="0.01" value="0" />
+              <small class="penrose-control-note">Zero preserves the vital 36° / 72° geometry. Shearing every shared vertex together keeps the surface seamless, but the result is a visual affine image rather than canonical Penrose rhombs.</small>
+            </label>
+
+            <label class="select-control" for="palette">
+              <span class="field-label">Palette</span>
+              <span class="select-shell">
+                <select id="palette">
+                  <option value="ultraviolet" selected>Ultraviolet bloom</option>
+                  <option value="hot-orchid">Hot orchid</option>
+                  <option value="electric-rose">Electric rose</option>
+                  <option value="plasma-violet">Plasma violet</option>
+                </select>
+              </span>
+            </label>
+
+            <label class="select-control" for="coverage">
+              <span class="field-label">Plane coverage</span>
+              <span class="select-shell">
+                <select id="coverage">
+                  <option value="infinite" selected>Seamless infinite plane</option>
+                  <option value="patch">Finite patch · show boundary</option>
+                </select>
+              </span>
+              <small class="penrose-control-note">The infinite view follows one globally addressed de Bruijn pentagrid. It regenerates only beyond the canvas halo, so no outer edge, wrap, or repeated strip enters the instrument.</small>
+            </label>
+
+            <label class="control" for="colorEnergy">
+              <span><b>Color energy</b><output id="colorEnergyOut" for="colorEnergy">78%</output></span>
+              <input id="colorEnergy" type="range" min="0.35" max="1" step="0.01" value="0.78" />
+            </label>
+
+            <div class="penrose-toggle-grid">
+              <label class="penrose-toggle" for="showTriangles">
+                <span><b>Robinson seams</b><small>the paired half-rhombs</small></span>
+                <input id="showTriangles" type="checkbox" />
+              </label>
+              <label class="penrose-toggle" for="showHierarchy">
+                <span><b>Parent hierarchy</b><small>finite patches only</small></span>
+                <input id="showHierarchy" type="checkbox" />
+              </label>
+              <label class="penrose-toggle" for="showDirections">
+                <span><b>Five directions</b><small>36° edge families</small></span>
+                <input id="showDirections" type="checkbox" checked />
+              </label>
+              <label class="penrose-toggle" for="showOutlines">
+                <span><b>Tile outlines</b><small>geometry stays active for sound</small></span>
+                <input id="showOutlines" type="checkbox" />
+              </label>
+              <label class="penrose-toggle" for="showPaths">
+                <span><b>Signal paths</b><small>the complete playable edge net</small></span>
+                <input id="showPaths" type="checkbox" checked />
+              </label>
+              <label class="penrose-toggle" for="showLookahead">
+                <span><b>Next-edge preview</b><small>paths approaching the reader</small></span>
+                <input id="showLookahead" type="checkbox" checked />
+              </label>
+            </div>
+
+            <dl class="penrose-math-ledger" aria-label="Current Penrose tiling mathematics">
+              <div><dt>Tiles</dt><dd id="tileCountReadout">700 thick · 440 thin</dd></div>
+              <div><dt>Ratio</dt><dd id="tileRatioReadout">1.5909 · tending to φ</dd></div>
+              <div><dt>Order</dt><dd>repetitive and self-similar, never translationally periodic</dd></div>
+              <div><dt>Seed</dt><dd id="seedReadout">ten-triangle sun / cartwheel patch</dd></div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="group control-section always-open" aria-labelledby="playTitle" data-section="play">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title" id="playTitle">Fixed edge reader</h2>
+            <span class="section-state" id="playSummary">paused · endless tiling drifts left</span>
+          </div>
+          <div class="group-body">
+            <div class="penrose-transport-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Move tiling behind the fixed reader" data-primary-transport>
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control" for="position">
+                <span><b>World travel</b><output id="positionOut" for="position">+0.00 u</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.0005" value="0.5" aria-label="Jog the tiling through its infinite plane" data-no-midi-preview />
+              </label>
+            </div>
+
+            <label class="control" for="speed">
+              <span><b>Tiling drift</b><output id="speedOut" for="speed">0.060 u/s</output></span>
+              <input id="speed" type="range" min="0.01" max="0.3" step="0.001" value="0.06" data-no-midi-preview />
+            </label>
+
+            <p class="penrose-control-note">The reader stays vertical at 90°. The tiling travels continuously left through one aperiodic plane—no bounce, wrap, or repeated strip.</p>
+          </div>
+        </section>
+
+        <details class="group control-section" data-section="sound">
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundSummary">position along reader → pitch</span>
+          </summary>
+          <div class="group-body">
+            <p class="penrose-control-note">Sine mode sustains a voice while the reader travels along an edge path. FM percussion triggers only when a new physical edge first enters; shared edges are deduplicated.</p>
+            <label class="select-control" for="soundEngine">
+              <span class="field-label">Sound engine</span>
+              <span class="select-shell">
+                <select id="soundEngine">
+                  <option value="sine" selected>Sine · sustained edge paths</option>
+                  <option value="fm-perc">FM percussion · new intersections</option>
+                </select>
+              </span>
+            </label>
+            <div id="pathControls" class="penrose-fm-controls">
+              <label class="control" for="pathLevel">
+                <span><b>Path sustain</b><output id="pathLevelOut" for="pathLevel">38%</output></span>
+                <input id="pathLevel" type="range" min="0" max="1" step="0.01" value="0.38" />
+              </label>
+              <label class="control" for="pathVoiceCap">
+                <span><b>Centered path voices</b><output id="pathVoiceCapOut" for="pathVoiceCap">10 voices</output></span>
+                <input id="pathVoiceCap" type="range" min="1" max="16" step="1" value="10" />
+              </label>
+            </div>
+            <label class="select-control" for="pitchSource">
+              <span class="field-label">Pitch source</span>
+              <span class="select-shell">
+                <select id="pitchSource">
+                  <option value="family">Five edge-direction families</option>
+                  <option value="tile">Thick / thin neighborhood</option>
+                  <option value="height">Vertical position</option>
+                  <option value="along" selected>Moving intersection along reader</option>
+                  <option value="incidence">Reader / edge incidence</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="baseFrequency">
+              <span><b>Root frequency</b><output id="baseFrequencyOut" for="baseFrequency">82.5 Hz</output></span>
+              <input id="baseFrequency" type="range" min="36" max="220" step="0.5" value="82.5" />
+            </label>
+            <label class="control" for="pitchRange">
+              <span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">19 semitones</output></span>
+              <input id="pitchRange" type="range" min="0" max="36" step="1" value="19" />
+            </label>
+            <label class="control" for="decay">
+              <span><b>Trigger / audition decay</b><output id="decayOut" for="decay">180 ms</output></span>
+              <input id="decay" type="range" min="35" max="900" step="5" value="180" />
+            </label>
+            <div id="fmControls" class="penrose-fm-controls" hidden>
+              <label class="control" for="fmRatio">
+                <span><b>FM ratio</b><output id="fmRatioOut" for="fmRatio">2.00×</output></span>
+                <input id="fmRatio" type="range" min="0.5" max="8" step="0.05" value="2" />
+              </label>
+              <label class="control" for="fmIndex">
+                <span><b>FM index</b><output id="fmIndexOut" for="fmIndex">5.0</output></span>
+                <input id="fmIndex" type="range" min="0" max="18" step="0.1" value="5" />
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section penrose-research-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Why this is different</h2>
+            <span class="section-state">order without a unit cell</span>
+          </summary>
+          <div class="group-body">
+            <dl class="penrose-comparison">
+              <div><dt>Lattice</dt><dd>An isohedral unit cell repeats by translation on the Euclidean plane.</dd></div>
+              <div><dt>Spiral</dt><dd>The periodic lattice is mapped into log-polar space, turning translation into scale-and-rotation recurrence.</dd></div>
+              <div><dt>Escher</dt><dd>Wallpaper symmetries, similarity recursion, and regular hyperbolic tilings organize repeated motifs.</dd></div>
+              <div class="is-penrose"><dt>Penrose</dt><dd>Local matching hierarchy forces a non-periodic Euclidean tiling: structured and recurrent, but with no translational unit cell.</dd></div>
+            </dl>
+          </div>
+        </details>
+
+        <details class="group control-section penrose-research-section">
+          <summary class="group-summary">
+            <h2 class="group-title">Names, mechanics, meaning</h2>
+            <span class="section-state">P1 · P2 · P3 · quasicrystals</span>
+          </summary>
+          <div class="group-body penrose-research-copy">
+            <p><b>P1</b> is Penrose’s original pentagonal family. <b>P2</b> is the kite-and-dart system—the names were supplied by John Conway. <b>P3</b> is the equivalent thick-and-thin rhomb system. This instrument now exposes all three, the Robinson half-tiles, and de Bruijn’s pentagrid construction.</p>
+            <p>There is no finite “all tilings” list: infinitely many global Penrose arrangements exist, and every legal finite patch recurs. The 64-window control samples distinct pentagrid phases while the presentation control covers the standard geometric views. Seamless mode follows a fixed-size cut through one unbounded plane; finite patch reveals an actual generated boundary.</p>
+            <p>The rhombs alone can repeat periodically. Their matching marks, or the equivalent Robinson-triangle substitution used here, are what force aperiodicity. Inflation and deflation reproduce the hierarchy at powers of φ; the thick-to-thin count approaches φ too.</p>
+            <p>The canonical angles are vital: 36°, 72°, 108°, and 144° close the legal vertices and encode the golden ratio. A single tile’s angle cannot change while its neighbors stay fixed. The angle-shear control therefore moves every shared vertex with one affine map, keeping the patch seamless while clearly leaving canonical Penrose geometry.</p>
+            <p>Penrose later said he had been looking for hierarchical models in which simple roots produce large-scale complexity, with a possible connection to cosmology. He anticipated a new crystallographic possibility, but initially doubted nature could assemble it without non-local foresight. The later quasicrystal diffraction results were therefore both startling and gratifying to him.</p>
+            <p class="penrose-quote">“simple structures that produce great complication in large areas”</p>
+          </div>
+        </details>
+
+        <details class="group control-section penrose-research-section">
+          <summary class="group-summary">
+            <h2 class="group-title">Research sources</h2>
+            <span class="section-state">primary + Oxford references</span>
+          </summary>
+          <div class="group-body">
+            <ul class="penrose-source-list">
+              <li><a href="https://doi.org/10.1007/BF03024384" target="_blank" rel="noreferrer">Roger Penrose, “Pentaplexity” (1979)</a></li>
+              <li><a href="https://www.maths.ox.ac.uk/system/files/attachments/A%20is%20for%20Aperiodic%20Tiles%20poster_0.pdf" target="_blank" rel="noreferrer">Roger Penrose / Oxford Mathematics, “A is for Aperiodic Tiles”</a></li>
+              <li><a href="https://ems.press/content/serial-issue-files/13616?nt=1" target="_blank" rel="noreferrer">Interview with Sir Roger Penrose, EMS Newsletter (2001)</a></li>
+              <li><a href="https://alexandria.tue.nl/repository/freearticles/597566.pdf" target="_blank" rel="noreferrer">N. G. de Bruijn, algebraic theory and the pentagrid (1981)</a></li>
+              <li><a href="https://doi.org/10.1103/PhysRevLett.53.1951" target="_blank" rel="noreferrer">Shechtman et al., long-range order without lattice translation (1984)</a></li>
+              <li><a href="https://people.maths.ox.ac.uk/ritter/masterclasses/ritter-lectures-on-penrose-tilings.pdf" target="_blank" rel="noreferrer">Oxford geometry lectures on Penrose tilings</a></li>
+            </ul>
+          </div>
+        </details>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetButton" type="button" data-reset-all data-reset-in-place>Reset Penrose tilings</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Drag horizontally to move the tiling behind the stationary vertical line reader, or tap a tile to inspect and audition it. Use the mouse wheel, Plus, or Minus to zoom. Space plays or pauses the tiling. Left and Right Arrow move the tiling. R toggles Robinson seams, H toggles the parent hierarchy in finite-patch mode, F toggles the five direction guides, E toggles tile outlines, P toggles playable signal paths, N toggles the next-edge preview, I switches between infinite viewport and finite patch, Home resets the view, and Escape switches audio off.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="penrose-tilings-app.js"></script>
+  </body>
+</html>
