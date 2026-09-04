@@ -42,7 +42,8 @@ test("the sequencer stays one tall, unwrapped, zero-gap lane at every length", a
   const gridRules = cssRulesContaining(css, ".hiccup-head-sequence-grid");
   const rowRules = cssRulesContaining(css, ".hiccup-head-grid-row");
   const slotRules = cssRulesContaining(css, ".hiccup-head-step-slot");
-  const barRules = cssRulesContaining(css, ".hiccup-head-step-cell");
+  const cellRules = cssRulesContaining(css, ".hiccup-head-step-cell");
+  const barRules = cssRulesContaining(css, ".hiccup-head-step-volume-lane");
   const laneRules = `${gridRules}\n${rowRules}`;
   const columnsForLength = functionNamed(app, "sequenceColumnsForLength");
 
@@ -76,15 +77,44 @@ test("the sequencer stays one tall, unwrapped, zero-gap lane at every length", a
   );
   assert.match(barRules, /bottom\s*:\s*0/);
   assert.match(
-    barRules,
+    cellRules,
     /min-height\s*:\s*208px/,
     "desktop step rectangles should be as tall as the WebGPU303-inspired lane",
   );
   assert.match(
-    barRules,
+    cellRules,
     /min-height\s*:\s*1(?:4\d|5\d|6\d)px/,
     "small/coarse screens may use a roughly 150px tall step without collapsing it",
   );
+});
+
+test("continuous step volume uses zero as the only off state and draws an X handle", async () => {
+  const { app, css, html } = await readSequencerSources();
+  const velocitySetter = functionNamed(app, "setSequenceStepVelocity");
+  const pointerMapping = functionNamed(app, "sequenceVelocityFromPointer");
+  const gridBuilder = functionNamed(app, "buildSequenceGrid");
+
+  assert.match(html, /id="selectedStepVelocity"[^>]*min="0"[^>]*max="1"[^>]*step="0\.01"/);
+  assert.ok(velocitySetter, "step volume needs one canonical setter");
+  assert.match(velocitySetter, /clamp\(numericVelocity, 0, 1\)/);
+  assert.match(velocitySetter, /const active = velocity > 0/);
+  assert.match(velocitySetter, /if \(active\)[\s\S]*?pattern\[sound\.id\]\[step\] = velocity/);
+  assert.match(velocitySetter, /else \{[\s\S]*?clearStepExcept\(step, ""\)/);
+  assert.doesNotMatch(velocitySetter, /cycleStepVelocity|enabled|disabled/);
+
+  assert.ok(pointerMapping, "pointer height needs a direct volume mapping");
+  assert.match(pointerMapping, /\(rect\.bottom - clientY\) \/ rect\.height/);
+  assert.match(pointerMapping, /return 0/);
+  assert.match(pointerMapping, /Math\.round\(normalized \* 100\) \/ 100/);
+  assert.match(app, /addEventListener\("pointerdown", handleSequenceVelocityPointerDown\)/);
+  assert.match(app, /addEventListener\("pointermove", handleSequenceVelocityPointerMove\)/);
+  assert.match(app, /addEventListener\("pointerup", handleSequenceVelocityPointerEnd\)/);
+  assert.match(app, /event\.detail > 0/);
+
+  assert.match(gridBuilder, /hitMark\.className = "hiccup-head-step-hit-mark"/);
+  assert.match(gridBuilder, /hitMark\.textContent = "×"/);
+  assert.match(css, /\.hiccup-head-step-hit-mark\s*\{[\s\S]*?--step-marker-position/);
+  assert.match(css, /\.hiccup-head-step-cell\[data-active="true"\]/);
 });
 
 test("collapsed sound choices and side pads share one visible sound number", async () => {

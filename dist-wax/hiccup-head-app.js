@@ -17,7 +17,6 @@ import {
   applyHiccupHeadSoundBank,
   clamp,
   clonePattern,
-  cycleStepVelocity,
   hiccupHeadFaceEffectTargets,
   hiccupHeadGeometry,
   hiccupHeadPattern,
@@ -1270,6 +1269,7 @@ const faceEffectEnabled = Object.seal({
 
 let state = hiccupHeadState("rubber-face");
 const DEFAULT_EYEBROW_EMPHASIS = 0.7;
+const DEFAULT_SEQUENCE_STEP_VELOCITY = 0.72;
 let eyebrowEmphasis = DEFAULT_EYEBROW_EMPHASIS;
 let pattern = normalizePatternColumns(clonePattern(hiccupHeadPattern(state.patternId)));
 let currentPatternId = state.patternId;
@@ -1307,6 +1307,7 @@ let gridTabStop = null;
 let sequenceStepMetadata = createSequenceStepMetadata();
 let sequenceStepOwnership = Array(HICCUP_HEAD_STEP_COUNT).fill(null);
 let selectedSequenceStep = -1;
+let sequenceVelocityPointer = null;
 let padButtonsBySound = new Map();
 let cssWidth = 1;
 let cssHeight = 1;
@@ -2812,8 +2813,11 @@ function firstPatternSoundId(source = pattern) {
 }
 
 function cellLabel(sound, step, value) {
-  const strength = ["off", "ghost", "medium", "accent"][soundLevelIndex(value)];
-  return `${sequenceSoundLabel(sound)}, step ${step + 1}, ${strength}. Activate to change velocity.`;
+  const velocity = clamp(Number(value) || 0, 0, 1);
+  if (velocity <= 0) {
+    return `Step ${step + 1}, empty. Click or drag vertically to add ${sequenceSoundLabel(sound)}; zero volume is off.`;
+  }
+  return `${sequenceSoundLabel(sound)}, step ${step + 1}, ${Math.round(velocity * 100)} percent volume. Drag vertically to change it; drag to zero to remove it.`;
 }
 
 function renderCell(button, event, ownership = null) {
@@ -2821,10 +2825,18 @@ function renderCell(button, event, ownership = null) {
   const sound = event?.sound ?? hiccupHeadSound(lastSequenceSoundId);
   const velocity = event?.velocity ?? 0;
   const level = soundLevelIndex(velocity);
+  const active = velocity > 0;
   button.dataset.soundId = event?.sound.id ?? "";
   button.dataset.level = String(level);
+  button.dataset.active = String(active);
   button.style.setProperty("--step-velocity", String(clamp(velocity, 0, 1)));
-  button.setAttribute("aria-pressed", String(level > 0));
+  button.style.setProperty(
+    "--step-marker-position",
+    `${(clamp(velocity, 0.04, 0.96) * 100).toFixed(2)}%`,
+  );
+  button.setAttribute("aria-pressed", String(active));
+  const hitMark = button.querySelector(".hiccup-head-step-hit-mark");
+  if (hitMark) hitMark.hidden = !active;
   const number = button.querySelector(".hiccup-head-step-sound-number");
   if (number) number.textContent = event ? sequenceSoundNumberById.get(sound.id) : "—";
   const velocityLabel = button.querySelector(".hiccup-head-step-velocity-number");
@@ -2846,7 +2858,7 @@ function renderCell(button, event, ownership = null) {
     ? `${sequenceSoundLabel(sound)}, step ${step + 1}, ${ownership.mode === "repeat" ? "repeated" : "held"} from step ${ownership.anchorStep + 1}. Activate to edit the anchor velocity.`
     : event
       ? cellLabel(sound, step, velocity)
-      : `Step ${step + 1}, empty. Activate to add ${sequenceSoundLabel(sound)} at medium velocity.`;
+      : cellLabel(sound, step, 0);
   button.setAttribute("aria-label", label);
   button.title = label;
 }
@@ -2943,10 +2955,127 @@ function focusGridCell(step) {
   target.focus();
 }
 
+function setSequenceStepVelocity(
+  rawStep,
+  rawVelocity,
+  { soundId = "", audition = false, announceState = false } = {},
+) {
+  const step = sequenceAnchorForStep(rawStep);
+  const previousEvent = patternEventForStep(step);
+  const previousMetadata = normalizedSequenceStepMetadata(step);
+  const sound = hiccupHeadSound(soundId || previousEvent?.sound.id || lastSequenceSoundId);
+  const numericVelocity = Number(rawVelocity);
+  const velocity = Number.isFinite(numericVelocity)
+    ? clamp(numericVelocity, 0, 1)
+    : previousEvent?.velocity ?? DEFAULT_SEQUENCE_STEP_VELOCITY;
+  const active = velocity > 0;
+
+  if (active) {
+    clearStepExcept(step, sound.id);
+    pattern[sound.id][step] = velocity;
+    lastSequenceSoundId = sound.id;
+  } else {
+    clearStepExcept(step, "");
+    sequenceStepMetadata[step] = { spanSteps: 1, mode: "hold" };
+  }
+
+  markPatternCustom();
+  rebuildSequenceStepOwnership();
+  if (Boolean(previousEvent) !== active || previousMetadata.spanSteps > 1) {
+    renderPattern();
+  } else {
+    renderPatternColumn(step);
+    updateSelectedStepContext();
+  }
+  if (audition && active) triggerSound(sound.id, velocity);
+  if (announceState) announce(cellLabel(sound, step, velocity));
+  return { active, sound, step, velocity };
+}
+
+function sequenceVelocityFromPointer(cell, clientY) {
+  const rect = cell.getBoundingClientRect();
+  if (!rect.height) return 0;
+  const normalized = clamp((rect.bottom - clientY) / rect.height, 0, 1);
+  // A small bottom landing zone makes an exact rest practical on touchscreens.
+  if (normalized <= 0.025) return 0;
+  return Math.round(normalized * 100) / 100;
+}
+
+function applySequenceVelocityPointer(event) {
+  const edit = sequenceVelocityPointer;
+  if (!edit || event.pointerId !== edit.pointerId) return;
+  const velocity = sequenceVelocityFromPointer(edit.cell, event.clientY);
+  if (velocity === edit.velocity) return;
+  edit.velocity = velocity;
+  setSequenceStepVelocity(edit.step, velocity);
+}
+
+function handleSequenceVelocityPointerDown(event) {
+  const grid = $("sequenceGrid");
+  const cell = event.target.closest?.(".hiccup-head-step-cell");
+  if (!cell || !grid.contains(cell)) return;
+  if (event.button !== undefined && event.button !== 0) return;
+  if (event.isPrimary === false) return;
+  event.preventDefault();
+  const step = sequenceAnchorForStep(Number(cell.dataset.step));
+  selectSequenceStep(step);
+  setGridTabStop(cell);
+  cell.focus({ preventScroll: true });
+  cell.classList.add("is-velocity-editing");
+  cell.setPointerCapture?.(event.pointerId);
+  sequenceVelocityPointer = {
+    cell,
+    pointerId: event.pointerId,
+    step,
+    velocity: -1,
+  };
+  applySequenceVelocityPointer(event);
+}
+
+function handleSequenceVelocityPointerMove(event) {
+  if (!sequenceVelocityPointer || event.pointerId !== sequenceVelocityPointer.pointerId) return;
+  event.preventDefault();
+  applySequenceVelocityPointer(event);
+}
+
+function handleSequenceVelocityPointerEnd(event) {
+  const edit = sequenceVelocityPointer;
+  if (!edit || event.pointerId !== edit.pointerId) return;
+  sequenceVelocityPointer = null;
+  edit.cell.classList.remove("is-velocity-editing");
+  if (edit.cell.hasPointerCapture?.(event.pointerId)) {
+    edit.cell.releasePointerCapture?.(event.pointerId);
+  }
+  const finalEvent = patternEventForStep(edit.step);
+  if (event.type !== "pointercancel" && finalEvent) {
+    triggerSound(finalEvent.sound.id, finalEvent.velocity);
+  }
+  const sound = finalEvent?.sound ?? hiccupHeadSound(lastSequenceSoundId);
+  announce(cellLabel(sound, edit.step, finalEvent?.velocity ?? 0));
+}
+
 function handleGridKeydown(event) {
   const button = event.target.closest?.(".hiccup-head-step-cell");
   if (!button || !$("sequenceGrid").contains(button)) return;
   const step = Number(button.dataset.step);
+  const anchorStep = sequenceAnchorForStep(step);
+  const currentEvent = patternEventForStep(anchorStep);
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    const increment = event.shiftKey ? 0.1 : 0.05;
+    const nextVelocity = event.key === "ArrowUp"
+      ? currentEvent
+        ? clamp(currentEvent.velocity + increment, 0, 1)
+        : DEFAULT_SEQUENCE_STEP_VELOCITY
+      : clamp((currentEvent?.velocity ?? 0) - increment, 0, 1);
+    setSequenceStepVelocity(anchorStep, nextVelocity, { announceState: true });
+    return;
+  }
+  if (event.key === "Delete" || event.key === "Backspace" || event.key === "0") {
+    event.preventDefault();
+    setSequenceStepVelocity(anchorStep, 0, { announceState: true });
+    return;
+  }
   let targetStep = null;
   if (event.key === "ArrowLeft") targetStep = step - 1;
   if (event.key === "ArrowRight") targetStep = step + 1;
@@ -2969,20 +3098,19 @@ function handleSequenceGridClick(event) {
   const grid = $("sequenceGrid");
   const cell = event.target.closest?.(".hiccup-head-step-cell");
   if (!cell || !grid.contains(cell)) return;
+  // Pointer clicks have already written their exact vertical value. A
+  // zero-detail activation comes from the keyboard or assistive technology.
+  if (event.detail > 0) return;
   const step = sequenceAnchorForStep(Number(cell.dataset.step));
   selectSequenceStep(step);
   const currentEvent = patternEventForStep(step);
   const sound = currentEvent?.sound ?? hiccupHeadSound(lastSequenceSoundId);
-  const next = cycleStepVelocity(currentEvent?.velocity ?? 0);
-  if (next > 0) clearStepExcept(step, sound.id);
-  pattern[sound.id][step] = next;
-  if (next <= 0) sequenceStepMetadata[step] = { spanSteps: 1, mode: "hold" };
-  lastSequenceSoundId = sound.id;
   setGridTabStop(cell);
-  markPatternCustom();
-  renderPattern();
-  if (next > 0) triggerSound(sound.id, next);
-  announce(cellLabel(sound, step, next));
+  setSequenceStepVelocity(step, currentEvent?.velocity ?? DEFAULT_SEQUENCE_STEP_VELOCITY, {
+    soundId: sound.id,
+    audition: true,
+    announceState: true,
+  });
 }
 
 function soundOptions(selectedId = "") {
@@ -3116,9 +3244,9 @@ function updateSelectedStepContext() {
     "aria-label",
     `Controls for selected step ${selectedSequenceStep + 1}${event ? `, ${sequenceSoundLabel(event.sound)}` : ", empty"}`,
   );
-  $("selectedStepVelocity").value = String(event?.velocity ?? 0.72);
-  $("selectedStepVelocity").disabled = !event;
-  $("selectedStepVelocityOut").value = `${Math.round((event?.velocity ?? 0.72) * 100)}%`;
+  $("selectedStepVelocity").value = String(event?.velocity ?? 0);
+  $("selectedStepVelocity").disabled = false;
+  $("selectedStepVelocityOut").value = `${Math.round((event?.velocity ?? 0) * 100)}%`;
   $("selectedStepVelocityOut").textContent = $("selectedStepVelocityOut").value;
   updateRangeFill($("selectedStepVelocity"));
   $("selectedStepSpan").max = String(maximumSpan);
@@ -3139,16 +3267,8 @@ function updateSelectedStepContext() {
 }
 
 function setSelectedStepVelocity(value, { announceState = false } = {}) {
-  const event = patternEventForStep(selectedSequenceStep);
-  if (!event) return;
-  const velocity = clamp(Number(value) || event.velocity, 0.05, 1);
-  clearStepExcept(selectedSequenceStep, event.sound.id);
-  pattern[event.sound.id][selectedSequenceStep] = velocity;
-  markPatternCustom();
-  renderPattern();
-  if (announceState) {
-    announce(`${sequenceSoundLabel(event.sound)}, step ${selectedSequenceStep + 1}, ${Math.round(velocity * 100)} percent volume`);
-  }
+  if (selectedSequenceStep < 0) return;
+  setSequenceStepVelocity(selectedSequenceStep, value, { announceState });
 }
 
 function setSelectedStepSpan(value) {
@@ -3284,6 +3404,15 @@ function buildSequenceGrid() {
       cell.dataset.row = "0";
       cell.dataset.step = String(step);
       cell.tabIndex = step === 0 ? 0 : -1;
+      cell.setAttribute("aria-describedby", "sequenceStepHelp");
+      const volumeLane = document.createElement("span");
+      volumeLane.className = "hiccup-head-step-volume-lane";
+      volumeLane.setAttribute("aria-hidden", "true");
+      const hitMark = document.createElement("span");
+      hitMark.className = "hiccup-head-step-hit-mark";
+      hitMark.setAttribute("aria-hidden", "true");
+      hitMark.textContent = "×";
+      volumeLane.append(hitMark);
       const soundNumber = document.createElement("span");
       soundNumber.className = "hiccup-head-step-sound-number";
       soundNumber.setAttribute("aria-hidden", "true");
@@ -3299,7 +3428,7 @@ function buildSequenceGrid() {
         event.stopPropagation();
         previewSequenceStep(step);
       });
-      cell.append(soundNumber, velocityNumber);
+      cell.append(volumeLane, soundNumber, velocityNumber);
       const selector = document.createElement("select");
       selector.className = "hiccup-head-step-sound-select";
       selector.dataset.step = String(step);
@@ -8039,6 +8168,10 @@ function bindControls() {
   $("sequenceGrid").addEventListener("click", handleSequenceGridClick);
   $("sequenceGrid").addEventListener("change", handleSequenceGridChange);
   $("sequenceGrid").addEventListener("pointerdown", handleSequenceGridPickerOpen);
+  $("sequenceGrid").addEventListener("pointerdown", handleSequenceVelocityPointerDown);
+  $("sequenceGrid").addEventListener("pointermove", handleSequenceVelocityPointerMove);
+  $("sequenceGrid").addEventListener("pointerup", handleSequenceVelocityPointerEnd);
+  $("sequenceGrid").addEventListener("pointercancel", handleSequenceVelocityPointerEnd);
   $("sequenceGrid").addEventListener("focusin", handleSequenceGridPickerOpen);
   $("sequenceGrid").addEventListener("focusin", handleSequenceGridFocus);
   $("sequenceGrid").addEventListener("focusout", handleSequenceGridPickerClose);
