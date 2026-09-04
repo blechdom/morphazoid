@@ -1304,9 +1304,6 @@ let paintedGridStep = -1;
 let gridCellsByStep = [];
 let gridSelectorsByStep = [];
 let gridTabStop = null;
-let sequenceStepMetadata = createSequenceStepMetadata();
-let sequenceStepOwnership = Array(HICCUP_HEAD_STEP_COUNT).fill(null);
-let selectedSequenceStep = -1;
 let sequenceVelocityPointer = null;
 let padButtonsBySound = new Map();
 let cssWidth = 1;
@@ -1508,78 +1505,6 @@ function clearStepExcept(step, soundId) {
   for (const sound of HICCUP_HEAD_SOUNDS) {
     if (sound.id !== soundId) pattern[sound.id][step] = 0;
   }
-}
-
-function createSequenceStepMetadata() {
-  return Array.from(
-    { length: HICCUP_HEAD_STEP_COUNT },
-    () => ({ spanSteps: 1, mode: "hold" }),
-  );
-}
-
-function resetSequenceStepMetadata() {
-  sequenceStepMetadata = createSequenceStepMetadata();
-  rebuildSequenceStepOwnership();
-}
-
-function normalizedSequenceStepMetadata(step) {
-  const source = sequenceStepMetadata[step];
-  return {
-    spanSteps: clamp(Math.round(Number(source?.spanSteps) || 1), 1, 8),
-    mode: source?.mode === "repeat" ? "repeat" : "hold",
-  };
-}
-
-function maximumSequenceSpanForAnchor(anchorStep) {
-  if (!Number.isInteger(anchorStep) || anchorStep < 0 || anchorStep >= sequenceLength) return 1;
-  const boundary = Math.min(sequenceLength, anchorStep + 8);
-  let spanSteps = 1;
-  for (let step = anchorStep + 1; step < boundary; step += 1) {
-    if (patternEventForStep(step)) break;
-    spanSteps += 1;
-  }
-  return spanSteps;
-}
-
-// Spans own only empty steps to their right. This cache is rebuilt atomically
-// after edits, so the realtime lookahead loop never searches the DOM or has to
-// resolve overlapping anchors while it is scheduling audio.
-function rebuildSequenceStepOwnership() {
-  const nextOwnership = Array(HICCUP_HEAD_STEP_COUNT).fill(null);
-  for (let anchorStep = 0; anchorStep < sequenceLength; anchorStep += 1) {
-    if (!patternEventForStep(anchorStep)) continue;
-    const metadata = normalizedSequenceStepMetadata(anchorStep);
-    const spanSteps = Math.min(
-      metadata.spanSteps,
-      maximumSequenceSpanForAnchor(anchorStep),
-      sequenceLength - anchorStep,
-    );
-    sequenceStepMetadata[anchorStep] = { ...metadata, spanSteps };
-    for (let offset = 0; offset < spanSteps; offset += 1) {
-      nextOwnership[anchorStep + offset] = {
-        anchorStep,
-        offset,
-        spanSteps,
-        mode: metadata.mode,
-      };
-    }
-  }
-  sequenceStepOwnership = nextOwnership;
-}
-
-function sequenceAnchorForStep(step) {
-  const safeStep = clamp(Math.round(Number(step) || 0), 0, Math.max(0, sequenceLength - 1));
-  return sequenceStepOwnership[safeStep]?.anchorStep ?? safeStep;
-}
-
-function releaseOwnedContinuation(step) {
-  const ownership = sequenceStepOwnership[step];
-  if (!ownership || ownership.offset === 0) return;
-  const metadata = normalizedSequenceStepMetadata(ownership.anchorStep);
-  sequenceStepMetadata[ownership.anchorStep] = {
-    ...metadata,
-    spanSteps: Math.max(1, ownership.offset),
-  };
 }
 
 function setAudioPresentation(status = "off", message = "") {
@@ -2547,15 +2472,11 @@ function browSequenceGain(step, leftBrow, rightBrow, amount = eyebrowEmphasis) {
 }
 
 function scheduledSequenceEventAtStep(step) {
-  const ownership = sequenceStepOwnership[step];
-  if (!ownership) return null;
-  if (ownership.mode === "hold" && ownership.offset > 0) return null;
-  const event = patternEventForStep(ownership.anchorStep);
+  const event = patternEventForStep(step);
   if (!event) return null;
   return {
     soundId: event.sound.id,
     velocity: event.velocity,
-    ownership,
   };
 }
 
@@ -2570,18 +2491,6 @@ function availableGestureSecondsUntilNextNote(step, absoluteStepIndex) {
   }
   let seconds = 0;
   for (let offset = 0; offset < stepDistance; offset += 1) {
-    seconds += sequenceStepIntervalSeconds(
-      state.tempo,
-      state.swing,
-      absoluteStepIndex + offset,
-    );
-  }
-  return seconds;
-}
-
-function sequenceSpanDurationSeconds(spanSteps, absoluteStepIndex) {
-  let seconds = 0;
-  for (let offset = 0; offset < spanSteps; offset += 1) {
     seconds += sequenceStepIntervalSeconds(
       state.tempo,
       state.swing,
@@ -2635,31 +2544,17 @@ function scheduleSequenceAhead(lookaheadSeconds) {
           ? handStrikeConfiguration("right")
           : state;
       const strikeConfiguration = bankedSoundConfiguration(strikeConfigurationBase);
-      const spanSteps = event.ownership?.spanSteps ?? 1;
-      let eventDetails = null;
-      // A held span remains one worklet strike and gets a swing-aware gesture
-      // duration. Span one intentionally follows the old sound path exactly.
-      if (event.ownership?.mode === "hold" && spanSteps > 1) {
-        eventDetails = {
+      // BRUSH is one mouth gesture containing twelve tooth contacts, so its
+      // internal sweep follows the direct distance to the next active step.
+      const eventDetails = event.soundId === "brush"
+        ? {
           gestureDurationSeconds: clamp(
-            sequenceSpanDurationSeconds(spanSteps, absoluteStep) * 0.92,
+            availableGestureSecondsUntilNextNote(step, absoluteStep) * 0.78,
             0.018,
-            2.2,
+            0.54,
           ),
-        };
-      } else if (event.ownership?.mode === "repeat" || spanSteps === 1) {
-        // BRUSH is one mouth gesture containing twelve tooth contacts. In
-        // repeat mode the derived next strike is the next owned physical step.
-        eventDetails = event.soundId === "brush"
-          ? {
-            gestureDurationSeconds: clamp(
-              availableGestureSecondsUntilNextNote(step, absoluteStep) * 0.78,
-              0.018,
-              0.54,
-            ),
-          }
-          : null;
-      }
+        }
+        : null;
       postStrike(
         event.soundId,
         sequencedVelocity,
@@ -2749,7 +2644,6 @@ function restartSequence() {
 function setCurrentPattern(id, { announceState = true } = {}) {
   const preset = hiccupHeadPattern(id);
   pattern = normalizePatternColumns(clonePattern(preset));
-  resetSequenceStepMetadata();
   currentPatternId = preset.id;
   state = sanitizeHiccupHeadState({ ...state, patternId: preset.id }, state);
   $("patternSelect").value = preset.id;
@@ -2773,7 +2667,6 @@ function markPatternCustom() {
 
 function scatterPattern() {
   pattern = normalizePatternColumns(randomizePattern(Math.random, 0.22 + state.silliness * 0.13));
-  resetSequenceStepMetadata();
   markPatternCustom();
   lastSequenceSoundId = firstPatternSoundId(pattern) ?? lastSequenceSoundId;
   buildSequenceGrid();
@@ -2782,7 +2675,6 @@ function scatterPattern() {
 
 function clearPattern() {
   pattern = clonePattern({});
-  resetSequenceStepMetadata();
   markPatternCustom();
   buildSequenceGrid();
   announce("Sequence grid cleared");
@@ -2820,7 +2712,7 @@ function cellLabel(sound, step, value) {
   return `${sequenceSoundLabel(sound)}, step ${step + 1}, ${Math.round(velocity * 100)} percent volume. Drag vertically to change it; drag to zero to remove it.`;
 }
 
-function renderCell(button, event, ownership = null) {
+function renderCell(button, event) {
   const step = Number(button.dataset.step);
   const sound = event?.sound ?? hiccupHeadSound(lastSequenceSoundId);
   const velocity = event?.velocity ?? 0;
@@ -2831,8 +2723,6 @@ function renderCell(button, event, ownership = null) {
   button.dataset.active = String(active);
   button.style.setProperty("--step-velocity", String(clamp(velocity, 0, 1)));
   button.setAttribute("aria-pressed", String(active));
-  const hitMark = button.querySelector(".hiccup-head-step-hit-mark");
-  if (hitMark) hitMark.hidden = !active;
   const number = button.querySelector(".hiccup-head-step-sound-number");
   if (number) number.textContent = event ? sequenceSoundNumberById.get(sound.id) : "—";
   const previewButton = button.closest(".hiccup-head-step-slot")
@@ -2847,13 +2737,9 @@ function renderCell(button, event, ownership = null) {
     );
     previewButton.title = event ? `Hear ${sequenceSoundLabel(sound)}` : "No sound on this step";
   }
-  const continuation = ownership?.offset > 0;
-  const label = continuation
-    ? `${sequenceSoundLabel(sound)}, step ${step + 1}, ${ownership.mode === "repeat" ? "repeated" : "held"} from step ${ownership.anchorStep + 1}. Pointer painting splits this into its own step; keyboard volume edits the anchor.`
-    : event
-      ? cellLabel(sound, step, velocity)
-      : cellLabel(sound, step, 0);
-  button.setAttribute("aria-label", label);
+  button.setAttribute("aria-label", event
+    ? cellLabel(sound, step, velocity)
+    : cellLabel(sound, step, 0));
 }
 
 function updateGridPlayhead() {
@@ -2874,12 +2760,10 @@ function renderPatternColumn(step) {
   const button = gridCellsByStep[step];
   const selector = gridSelectorsByStep[step];
   if (!button || !selector) return;
-  const ownership = sequenceStepOwnership[step];
-  const event = ownership ? patternEventForStep(ownership.anchorStep) : null;
-  const directEvent = patternEventForStep(step);
+  const event = patternEventForStep(step);
   const rowColor = event?.sound.color ?? "var(--hiccup-head-muted)";
   const selectedId = event?.sound.id ?? "";
-  renderCell(button, event, ownership);
+  renderCell(button, event);
   if (selector.dataset.expanded !== "true") {
     selector.replaceChildren(...compactSoundOptions(selectedId));
   }
@@ -2887,36 +2771,21 @@ function renderPatternColumn(step) {
   selector.style.setProperty("--row-color", rowColor);
   const slot = selector.closest(".hiccup-head-step-slot");
   slot?.style.setProperty("--row-color", rowColor);
-  if (slot) {
-    slot.dataset.anchorStep = String(ownership?.anchorStep ?? step);
-    slot.dataset.continuation = String(Boolean(ownership?.offset));
-    slot.dataset.mode = ownership?.mode ?? "hold";
-    slot.classList.toggle("is-selected", step === selectedSequenceStep);
-    slot.classList.toggle(
-      "is-selected-span",
-      Boolean(ownership && ownership.anchorStep === selectedSequenceStep),
-    );
-  }
+
   selector.setAttribute(
     "aria-label",
-    `Sound for step ${step + 1}: ${event ? sequenceSoundLabel(event.sound) : "empty"}${ownership?.offset ? `, owned by step ${ownership.anchorStep + 1}` : ""}`,
+    `Sound for step ${step + 1}: ${event ? sequenceSoundLabel(event.sound) : "empty"}`,
   );
   selector.title = event
-    ? `${sequenceSoundLabel(event.sound)} — ${event.sound.subtitle}${ownership?.offset ? ` · span from step ${ownership.anchorStep + 1}` : ""}`
+    ? `${sequenceSoundLabel(event.sound)} — ${event.sound.subtitle}`
     : `Choose a sound for step ${step + 1}`;
-  selector.dataset.directSoundId = directEvent?.sound.id ?? "";
 }
 
 function renderPattern() {
-  rebuildSequenceStepOwnership();
-  if (selectedSequenceStep >= 0) {
-    selectedSequenceStep = sequenceAnchorForStep(selectedSequenceStep);
-  }
   for (let step = 0; step < sequenceLength; step += 1) {
     renderPatternColumn(step);
   }
   updateGridPlayhead();
-  updateSelectedStepContext();
 }
 
 function setGridTabStop(cell) {
@@ -2924,20 +2793,6 @@ function setGridTabStop(cell) {
   if (gridTabStop) gridTabStop.tabIndex = -1;
   cell.tabIndex = 0;
   gridTabStop = cell;
-}
-
-function selectSequenceStep(step) {
-  selectedSequenceStep = sequenceAnchorForStep(step);
-  for (let physicalStep = 0; physicalStep < sequenceLength; physicalStep += 1) {
-    const slot = gridCellsByStep[physicalStep]?.closest(".hiccup-head-step-slot");
-    const ownership = sequenceStepOwnership[physicalStep];
-    slot?.classList.toggle("is-selected", physicalStep === selectedSequenceStep);
-    slot?.classList.toggle(
-      "is-selected-span",
-      Boolean(ownership && ownership.anchorStep === selectedSequenceStep),
-    );
-  }
-  updateSelectedStepContext();
 }
 
 function focusGridCell(step) {
@@ -2956,13 +2811,11 @@ function setSequenceStepVelocity(
     audition = false,
     announceState = false,
     markCustom = true,
-    rebuildOwnership = true,
     render = true,
   } = {},
 ) {
-  const step = sequenceAnchorForStep(rawStep);
+  const step = clamp(Math.round(Number(rawStep) || 0), 0, Math.max(0, sequenceLength - 1));
   const previousEvent = patternEventForStep(step);
-  const previousMetadata = normalizedSequenceStepMetadata(step);
   const sound = hiccupHeadSound(soundId || previousEvent?.sound.id || lastSequenceSoundId);
   const numericVelocity = Number(rawVelocity);
   const velocity = Number.isFinite(numericVelocity)
@@ -2976,23 +2829,13 @@ function setSequenceStepVelocity(
     lastSequenceSoundId = sound.id;
   } else {
     clearStepExcept(step, "");
-    sequenceStepMetadata[step] = { spanSteps: 1, mode: "hold" };
   }
 
   if (markCustom) markPatternCustom();
-  if (rebuildOwnership) rebuildSequenceStepOwnership();
-  const requiresFullRender = previousMetadata.spanSteps > 1;
-  if (render) {
-    if (requiresFullRender) {
-      renderPattern();
-    } else {
-      renderPatternColumn(step);
-      updateSelectedStepContext();
-    }
-  }
+  if (render) renderPatternColumn(step);
   if (audition && active) triggerSound(sound.id, velocity);
   if (announceState) announce(cellLabel(sound, step, velocity));
-  return { active, requiresFullRender, sound, step, velocity };
+  return { active, sound, step, velocity };
 }
 
 function sequenceVelocityFromPointer(cell, clientY) {
@@ -3009,42 +2852,20 @@ function sequencePaintTargetAtX(edit, clientX) {
 }
 
 function paintSequenceVelocityStep(edit, physicalStep, velocity) {
-  const ownership = sequenceStepOwnership[physicalStep];
-  if (ownership?.offset > 0) {
-    releaseOwnedContinuation(physicalStep);
-    rebuildSequenceStepOwnership();
-    edit.needsOwnershipRebuild = false;
-    edit.requiresFullRender = true;
-  }
   const currentEvent = patternEventForStep(physicalStep);
   const result = setSequenceStepVelocity(physicalStep, velocity, {
     markCustom: false,
-    rebuildOwnership: false,
     render: false,
     soundId: currentEvent?.sound.id ?? edit.soundIds[physicalStep] ?? edit.soundId,
   });
-  edit.needsOwnershipRebuild = true;
-  if (result.requiresFullRender) {
-    rebuildSequenceStepOwnership();
-    edit.needsOwnershipRebuild = false;
-  }
   edit.changedSteps.add(result.step);
-  edit.requiresFullRender ||= result.requiresFullRender;
 }
 
 function renderSequenceVelocityPaint(edit) {
-  if (!edit.changedSteps.size && !edit.requiresFullRender) return;
+  if (!edit.changedSteps.size) return;
   markPatternCustom();
-  if (edit.needsOwnershipRebuild) rebuildSequenceStepOwnership();
-  if (edit.requiresFullRender) {
-    renderPattern();
-  } else {
-    for (const step of edit.changedSteps) renderPatternColumn(step);
-    updateSelectedStepContext();
-  }
+  for (const step of edit.changedSteps) renderPatternColumn(step);
   edit.changedSteps.clear();
-  edit.needsOwnershipRebuild = false;
-  edit.requiresFullRender = false;
 }
 
 function applySequenceVelocityPointer(event, fallbackCell = null) {
@@ -3092,7 +2913,7 @@ function handleSequenceVelocityPointerDown(event) {
   if (event.isPrimary === false) return;
   event.preventDefault();
   const physicalStep = Number(cell.dataset.step);
-  const initialEvent = patternEventForStep(sequenceAnchorForStep(physicalStep));
+  const initialEvent = patternEventForStep(physicalStep);
   const soundId = initialEvent?.sound.id ?? lastSequenceSoundId;
   setGridTabStop(cell);
   cell.classList.add("is-velocity-editing");
@@ -3101,12 +2922,10 @@ function handleSequenceVelocityPointerDown(event) {
     activeCell: cell,
     changedSteps: new Set(),
     lastSample: null,
-    needsOwnershipRebuild: false,
     pointerId: event.pointerId,
-    requiresFullRender: false,
     soundId,
     soundIds: gridCellsByStep.map((_, step) => (
-      patternEventForStep(sequenceAnchorForStep(step))?.sound.id ?? soundId
+      patternEventForStep(step)?.sound.id ?? soundId
     )),
     targets: gridCellsByStep.map((targetCell, step) => ({
       cell: targetCell,
@@ -3136,13 +2955,9 @@ function handleSequenceVelocityPointerEnd(event) {
   if (grid.hasPointerCapture?.(event.pointerId)) {
     grid.releasePointerCapture?.(event.pointerId);
   }
-  if (!edit.lastSample) {
-    updateSelectedStepContext();
-    return;
-  }
-  selectSequenceStep(edit.lastSample.step);
+  if (!edit.lastSample) return;
   if (event.type === "pointercancel") return;
-  const finalStep = sequenceAnchorForStep(edit.lastSample.step);
+  const finalStep = edit.lastSample.step;
   const finalEvent = patternEventForStep(finalStep);
   if (finalEvent) triggerSound(finalEvent.sound.id, finalEvent.velocity);
   const sound = finalEvent?.sound ?? hiccupHeadSound(lastSequenceSoundId);
@@ -3153,8 +2968,7 @@ function handleGridKeydown(event) {
   const button = event.target.closest?.(".hiccup-head-step-cell");
   if (!button || !$("sequenceGrid").contains(button)) return;
   const step = Number(button.dataset.step);
-  const anchorStep = sequenceAnchorForStep(step);
-  const currentEvent = patternEventForStep(anchorStep);
+  const currentEvent = patternEventForStep(step);
   if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     event.preventDefault();
     const increment = event.shiftKey ? 0.1 : 0.05;
@@ -3163,12 +2977,12 @@ function handleGridKeydown(event) {
         ? clamp(currentEvent.velocity + increment, 0, 1)
         : DEFAULT_SEQUENCE_STEP_VELOCITY
       : clamp((currentEvent?.velocity ?? 0) - increment, 0, 1);
-    setSequenceStepVelocity(anchorStep, nextVelocity, { announceState: true });
+    setSequenceStepVelocity(step, nextVelocity, { announceState: true });
     return;
   }
   if (event.key === "Delete" || event.key === "Backspace" || event.key === "0") {
     event.preventDefault();
-    setSequenceStepVelocity(anchorStep, 0, { announceState: true });
+    setSequenceStepVelocity(step, 0, { announceState: true });
     return;
   }
   let targetStep = null;
@@ -3181,15 +2995,6 @@ function handleGridKeydown(event) {
   focusGridCell(targetStep);
 }
 
-function handleSequenceGridFocus(event) {
-  // Hearing a sound is deliberately selection-neutral: previewing must not
-  // open the contextual editor or visually alter the lane.
-  const control = event.target.closest?.(".hiccup-head-step-cell, .hiccup-head-step-sound-select");
-  if (!control || !$("sequenceGrid").contains(control)) return;
-  if (sequenceVelocityPointer && control.matches(".hiccup-head-step-cell")) return;
-  selectSequenceStep(Number(control.dataset.step));
-}
-
 function handleSequenceGridClick(event) {
   const grid = $("sequenceGrid");
   const cell = event.target.closest?.(".hiccup-head-step-cell");
@@ -3197,8 +3002,7 @@ function handleSequenceGridClick(event) {
   // Pointer clicks have already written their exact vertical value. A
   // zero-detail activation comes from the keyboard or assistive technology.
   if (event.detail > 0) return;
-  const step = sequenceAnchorForStep(Number(cell.dataset.step));
-  selectSequenceStep(step);
+  const step = Number(cell.dataset.step);
   const currentEvent = patternEventForStep(step);
   const sound = currentEvent?.sound ?? hiccupHeadSound(lastSequenceSoundId);
   setGridTabStop(cell);
@@ -3236,7 +3040,7 @@ function compactSoundOptions(selectedId = "") {
   const sound = hiccupHeadSound(selectedId);
   const selectedOption = document.createElement("option");
   selectedOption.value = sound.id;
-  selectedOption.textContent = "⌄";
+  selectedOption.textContent = sound.label;
   selectedOption.title = sound.subtitle;
   selectedOption.selected = true;
   return [emptyOption, selectedOption];
@@ -3260,27 +3064,16 @@ function compactStepSoundSelector(selector) {
 
 function setStepSound(step, nextSoundId, { audition = false } = {}) {
   if (!Number.isInteger(step) || step < 0 || step >= sequenceLength) return;
-  const previousOwnership = sequenceStepOwnership[step];
-  const currentEvent = previousOwnership
-    ? patternEventForStep(previousOwnership.anchorStep)
-    : patternEventForStep(step);
+  const currentEvent = patternEventForStep(step);
   const validNextId = sequenceSoundNumberById.has(nextSoundId) ? nextSoundId : "";
   const nextVelocity = currentEvent?.velocity ?? 0.72;
-  if (previousOwnership?.offset > 0) releaseOwnedContinuation(step);
   clearStepExcept(step, validNextId);
   if (validNextId) {
     pattern[validNextId][step] = nextVelocity;
     lastSequenceSoundId = validNextId;
-    if (previousOwnership?.offset > 0) {
-      sequenceStepMetadata[step] = { spanSteps: 1, mode: "hold" };
-    }
-  } else {
-    sequenceStepMetadata[step] = { spanSteps: 1, mode: "hold" };
   }
   markPatternCustom();
-  rebuildSequenceStepOwnership();
-  if (validNextId) selectedSequenceStep = step;
-  renderPattern();
+  renderPatternColumn(step);
   if (!validNextId) {
     announce(`Step ${step + 1} cleared`);
     return;
@@ -3294,6 +3087,7 @@ function handleSequenceGridChange(event) {
   const selector = event.target.closest?.(".hiccup-head-step-sound-select");
   if (!selector || !$("sequenceGrid").contains(selector)) return;
   setStepSound(Number(selector.dataset.step), selector.value);
+  compactStepSoundSelector(selector);
 }
 
 function handleSequenceGridPickerOpen(event) {
@@ -3308,125 +3102,11 @@ function handleSequenceGridPickerClose(event) {
   compactStepSoundSelector(selector);
 }
 
-function updateSelectedStepContext() {
-  const context = $("selectedStepContext");
-  if (!context) return;
-  if (sequenceVelocityPointer) {
-    context.hidden = true;
-    $("sequenceGrid")?.classList.remove("has-step-context");
-    return;
-  }
-  if (selectedSequenceStep < 0) {
-    context.hidden = true;
-    $("sequenceGrid")?.classList.remove("has-step-context");
-    return;
-  }
-  $("sequenceGrid")?.classList.add("has-step-context");
-  selectedSequenceStep = sequenceAnchorForStep(selectedSequenceStep);
-  const event = patternEventForStep(selectedSequenceStep);
-  const metadata = normalizedSequenceStepMetadata(selectedSequenceStep);
-  const maximumSpan = event ? maximumSequenceSpanForAnchor(selectedSequenceStep) : 1;
-  const effectiveSpan = event
-    ? Math.min(metadata.spanSteps, maximumSpan)
-    : 1;
-  const selectedSlot = gridCellsByStep[selectedSequenceStep]?.closest(".hiccup-head-step-slot");
-  if (selectedSlot && context.parentElement !== selectedSlot) selectedSlot.append(context);
-  context.hidden = false;
-  const row = selectedSlot?.parentElement;
-  if (row?.clientWidth) {
-    const contextWidth = Math.min(210, Math.max(180, row.clientWidth - 8));
-    const slotLeft = selectedSlot.offsetLeft;
-    const desiredLeft = clamp(slotLeft, 4, Math.max(4, row.clientWidth - contextWidth - 4));
-    context.style.width = `${contextWidth}px`;
-    context.style.right = "auto";
-    context.style.left = `${desiredLeft - slotLeft}px`;
-  }
-  context.setAttribute(
-    "aria-label",
-    `Controls for selected step ${selectedSequenceStep + 1}${event ? `, ${sequenceSoundLabel(event.sound)}` : ", empty"}`,
-  );
-  $("selectedStepSpan").max = String(maximumSpan);
-  $("selectedStepSpan").value = String(effectiveSpan);
-  $("selectedStepSpan").disabled = !event;
-  $("selectedStepSpanOut").value = String(effectiveSpan);
-  $("selectedStepSpanOut").textContent = String(effectiveSpan);
-  updateRangeFill($("selectedStepSpan"));
-  $("selectedStepClear").disabled = !event;
-  $("extendStepLeftButton").disabled = !event
-    || selectedSequenceStep <= 0
-    || effectiveSpan >= 8
-    || Boolean(patternEventForStep(selectedSequenceStep - 1))
-    || Boolean(sequenceStepOwnership[selectedSequenceStep - 1]);
-  $("extendStepRightButton").disabled = !event || effectiveSpan >= maximumSpan;
-}
-
-function setSelectedStepSpan(value) {
-  const event = patternEventForStep(selectedSequenceStep);
-  if (!event) return;
-  const metadata = normalizedSequenceStepMetadata(selectedSequenceStep);
-  const spanSteps = clamp(
-    Math.round(Number(value) || 1),
-    1,
-    maximumSequenceSpanForAnchor(selectedSequenceStep),
-  );
-  sequenceStepMetadata[selectedSequenceStep] = { ...metadata, spanSteps };
-  markPatternCustom();
-  renderPattern();
-  announce(`Step ${selectedSequenceStep + 1} holds for ${spanSteps} step${spanSteps === 1 ? "" : "s"}`);
-}
-
-function extendSelectedStepLeft() {
-  const anchorStep = selectedSequenceStep;
-  const event = patternEventForStep(anchorStep);
-  const metadata = normalizedSequenceStepMetadata(anchorStep);
-  const previousStep = anchorStep - 1;
-  if (
-    !event
-    || previousStep < 0
-    || metadata.spanSteps >= 8
-    || patternEventForStep(previousStep)
-    || sequenceStepOwnership[previousStep]
-  ) return;
-  clearStepExcept(previousStep, event.sound.id);
-  pattern[event.sound.id][previousStep] = event.velocity;
-  pattern[event.sound.id][anchorStep] = 0;
-  sequenceStepMetadata[previousStep] = {
-    spanSteps: metadata.spanSteps + 1,
-    mode: metadata.mode,
-  };
-  sequenceStepMetadata[anchorStep] = { spanSteps: 1, mode: "hold" };
-  selectedSequenceStep = previousStep;
-  markPatternCustom();
-  renderPattern();
-  announce(`Extended ${sequenceSoundLabel(event.sound)} left to step ${previousStep + 1}`);
-}
-
-function extendSelectedStepRight() {
-  const event = patternEventForStep(selectedSequenceStep);
-  if (!event) return;
-  const metadata = normalizedSequenceStepMetadata(selectedSequenceStep);
-  setSelectedStepSpan(metadata.spanSteps + 1);
-}
-
-function clearSelectedStep() {
-  setStepSound(selectedSequenceStep, "", { audition: false });
-}
-
 function previewSequenceStep(step) {
   // Every `.hiccup-head-step-audition` routes here and never edits pattern state.
-  const anchorStep = sequenceAnchorForStep(step);
-  const event = patternEventForStep(anchorStep);
+  const event = patternEventForStep(step);
   if (!event) return;
   triggerSound(event.sound.id, event.velocity);
-}
-
-function bindSequenceStepContextControls() {
-  $("selectedStepSpan").addEventListener("input", () => {
-    setSelectedStepSpan($("selectedStepSpan").value);
-  });
-  $("selectedStepClear").addEventListener("click", clearSelectedStep);
-  $("extendStepLeftButton").addEventListener("click", extendSelectedStepLeft);
-  $("extendStepRightButton").addEventListener("click", extendSelectedStepRight);
 }
 
 function sequenceColumnsForLength(length) {
@@ -3436,13 +3116,8 @@ function sequenceColumnsForLength(length) {
 
 function buildSequenceGrid() {
   const grid = $("sequenceGrid");
-  const stepContext = $("selectedStepContext");
   const fragment = document.createDocumentFragment();
   paintedGridStep = -1;
-  rebuildSequenceStepOwnership();
-  if (selectedSequenceStep >= 0) {
-    selectedSequenceStep = sequenceAnchorForStep(selectedSequenceStep);
-  }
   gridCellsByStep = Array(sequenceLength).fill(null);
   gridSelectorsByStep = Array(sequenceLength).fill(null);
   gridTabStop = null;
@@ -3477,11 +3152,6 @@ function buildSequenceGrid() {
       const volumeLane = document.createElement("span");
       volumeLane.className = "hiccup-head-step-volume-lane";
       volumeLane.setAttribute("aria-hidden", "true");
-      const hitMark = document.createElement("span");
-      hitMark.className = "hiccup-head-step-hit-mark";
-      hitMark.setAttribute("aria-hidden", "true");
-      hitMark.textContent = "×";
-      volumeLane.append(hitMark);
       const soundNumber = document.createElement("span");
       soundNumber.className = "hiccup-head-step-sound-number";
       soundNumber.setAttribute("aria-hidden", "true");
@@ -3498,8 +3168,7 @@ function buildSequenceGrid() {
       const selector = document.createElement("select");
       selector.className = "hiccup-head-step-sound-select";
       selector.dataset.step = String(step);
-      const ownership = sequenceStepOwnership[step];
-      const event = ownership ? patternEventForStep(ownership.anchorStep) : null;
+      const event = patternEventForStep(step);
       selector.replaceChildren(...compactSoundOptions(event?.sound.id ?? ""));
       // Match keyboard focus order to the visible stack: hit, hear, then choose.
       // Preview stays a sibling because nesting a button inside the hit button
@@ -3513,11 +3182,6 @@ function buildSequenceGrid() {
     fragment.append(row);
   }
   grid.replaceChildren(fragment);
-  if (stepContext && selectedSequenceStep >= 0) {
-    gridCellsByStep[selectedSequenceStep]
-      ?.closest(".hiccup-head-step-slot")
-      ?.append(stepContext);
-  }
   renderPattern();
 }
 
@@ -3531,13 +3195,9 @@ function setSequenceLength(value, { announceState = true } = {}) {
   // absolute timing, and the nearest sensible playhead instead of stopping.
   sequenceStep %= sequenceLength;
   if (visibleStep >= 0) visibleStep %= sequenceLength;
-  if (selectedSequenceStep >= 0) {
-    selectedSequenceStep = clamp(selectedSequenceStep, 0, sequenceLength - 1);
-  }
   visualQueue = visualQueue.map((event) => event.type === "step"
     ? { ...event, step: event.step % sequenceLength }
     : event);
-  rebuildSequenceStepOwnership();
   // Prime nearly half a second of worklet events before rebuilding the lane.
   // Slow phones can then update its visible steps without starving audio.
   if (sequencePlaying) scheduleSequenceAhead(0.42);
@@ -8127,7 +7787,6 @@ function bindControls() {
   $("audioButton").addEventListener("click", toggleAudio);
   $("playButton").addEventListener("click", toggleSequence);
   $("restartButton").addEventListener("click", restartSequence);
-  bindSequenceStepContextControls();
   $("randomPatternButton").addEventListener("click", scatterPattern);
   $("clearPatternButton").addEventListener("click", clearPattern);
   $("randomizeButton").addEventListener("click", randomizeFace);
@@ -8239,7 +7898,6 @@ function bindControls() {
   $("sequenceGrid").addEventListener("pointerup", handleSequenceVelocityPointerEnd);
   $("sequenceGrid").addEventListener("pointercancel", handleSequenceVelocityPointerEnd);
   $("sequenceGrid").addEventListener("focusin", handleSequenceGridPickerOpen);
-  $("sequenceGrid").addEventListener("focusin", handleSequenceGridFocus);
   $("sequenceGrid").addEventListener("focusout", handleSequenceGridPickerClose);
   $("sequenceGrid").addEventListener("keydown", handleGridKeydown);
   canvas.addEventListener("pointerdown", handlePointerDown);

@@ -15,15 +15,15 @@ test.describe("Hiccup Head single-lane sequencer", () => {
     await expect(grid.locator(".hiccup-head-step-sound-number").first()).toHaveText(/^\d{2}$/);
     await expect(
       grid.locator(".hiccup-head-step-sound-select").first().locator("option:checked"),
-    ).toHaveText("⌄");
+    ).toHaveText("BOP");
+    await expect(page.locator("#selectedStepContext")).toHaveCount(0);
+    await expect(grid.locator(".hiccup-head-step-hit-mark")).toHaveCount(0);
 
     const firstCellBox = await grid.locator(".hiccup-head-step-cell").first().boundingBox();
     const lastCellBox = await grid.locator(".hiccup-head-step-cell").last().boundingBox();
     expect(firstCellBox.height).toBeGreaterThanOrEqual(145);
     expect(Math.abs(firstCellBox.y - lastCellBox.y)).toBeLessThanOrEqual(1);
-    await expect(page.locator("#selectedStepContext")).toBeHidden();
     await grid.locator(".hiccup-head-step-audition:not([disabled])").first().click();
-    await expect(page.locator("#selectedStepContext")).toBeHidden();
 
     const initialOptionCounts = await grid.locator(".hiccup-head-step-sound-select")
       .evaluateAll((selectors) => selectors.map(({ options }) => options.length));
@@ -34,9 +34,7 @@ test.describe("Hiccup Head single-lane sequencer", () => {
     const trigger = grid.locator(".hiccup-head-step-cell").first();
     const cells = grid.locator(".hiccup-head-step-cell");
     const lanes = grid.locator(".hiccup-head-step-volume-lane");
-    const hitMark = trigger.locator(".hiccup-head-step-hit-mark");
     await expect(trigger).toHaveAttribute("data-active", "false");
-    await expect(hitMark).toBeHidden();
     await expect(selector.locator("option:checked")).toHaveText("+");
     await expect(page.locator("#selectedStepVelocity")).toHaveCount(0);
 
@@ -44,18 +42,18 @@ test.describe("Hiccup Head single-lane sequencer", () => {
     const midpointY = firstLaneBox.y + firstLaneBox.height * 0.5;
     await page.mouse.click(firstLaneBox.x + firstLaneBox.width / 2, midpointY);
     await expect(trigger).toHaveAttribute("data-active", "true");
-    await expect(hitMark).toBeVisible();
     const clickedVelocity = Number(await trigger.evaluate((cell) => (
       cell.style.getPropertyValue("--step-velocity")
     )));
     expect(clickedVelocity).toBeCloseTo(0.5, 2);
     await expect(trigger.locator(".hiccup-head-step-velocity-number")).toHaveCount(0);
     await expect(trigger).not.toHaveAttribute("title", /.+/);
-    const midpointMarkBox = await hitMark.boundingBox();
-    expect(Math.abs(midpointMarkBox.y + midpointMarkBox.height / 2 - midpointY)).toBeLessThan(2);
-    await expect(page.locator("#selectedStepContext")).toBeVisible();
-    await expect(page.locator("#selectedStepContext")).not.toContainText(/volume/i);
-    await expect(page.locator("#selectedStepMode")).toHaveCount(0);
+    const midpointFillRatio = await trigger.evaluate((cell) => {
+      const lane = cell.querySelector(".hiccup-head-step-volume-lane");
+      const fillHeight = Number.parseFloat(getComputedStyle(lane, "::before").height);
+      return fillHeight / lane.getBoundingClientRect().height;
+    });
+    expect(midpointFillRatio).toBeCloseTo(0.5, 2);
 
     const clearLaneBox = await lanes.first().boundingBox();
     await page.mouse.move(
@@ -69,7 +67,6 @@ test.describe("Hiccup Head single-lane sequencer", () => {
     );
     await page.mouse.up();
     await expect(trigger).toHaveAttribute("data-active", "false");
-    await expect(hitMark).toBeHidden();
     await expect(selector).toHaveValue("");
 
     const paintStart = await lanes.nth(0).boundingBox();
@@ -84,7 +81,6 @@ test.describe("Hiccup Head single-lane sequencer", () => {
       paintEnd.y + paintEnd.height * 0.75,
       { steps: 1 },
     );
-    await expect(page.locator("#selectedStepContext")).toBeHidden();
     for (let step = 0; step < 6; step += 1) {
       await expect(cells.nth(step)).toHaveAttribute("data-active", "true");
     }
@@ -93,7 +89,6 @@ test.describe("Hiccup Head single-lane sequencer", () => {
       (cell) => Number(cell.style.getPropertyValue("--step-velocity")),
     ));
     expect(paintedVelocities).toEqual([0.75, 0.65, 0.55, 0.45, 0.35, 0.25]);
-    await expect(page.locator("#selectedStepContext")).toBeVisible();
 
     const secondSelector = grid.locator(".hiccup-head-step-sound-select").nth(1);
     await selector.focus();
@@ -132,9 +127,7 @@ test.describe("Hiccup Head single-lane sequencer", () => {
     await selector.focus();
     await selector.selectOption("kiss");
     await expect(trigger).toHaveAttribute("data-level", "2");
-    await expect(page.locator("#selectedStepContext")).toBeVisible();
-    await expect(trigger.locator("xpath=../*[@id='selectedStepContext']")).toHaveCount(1);
-    await expect(page.locator("#selectedStepContext")).not.toContainText(/STEP\s*\d+/i);
+    await expect(selector.locator("option:checked")).toHaveText("KISS");
 
     const voiceCards = page.locator("#voiceRack .hiccup-head-voice-card");
     await expect(voiceCards).toHaveCount(4);

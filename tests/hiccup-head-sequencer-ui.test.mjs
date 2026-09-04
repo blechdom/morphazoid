@@ -88,7 +88,7 @@ test("the sequencer stays one tall, unwrapped, zero-gap lane at every length", a
   );
 });
 
-test("continuous step volume uses zero as the only off state and draws an X handle", async () => {
+test("continuous step volume uses zero as the only off state and draws only the fill", async () => {
   const { app, css, html } = await readSequencerSources();
   const velocitySetter = functionNamed(app, "setSequenceStepVelocity");
   const pointerMapping = functionNamed(app, "sequenceVelocityFromPointer");
@@ -118,17 +118,15 @@ test("continuous step volume uses zero as the only off state and draws an X hand
   assert.match(pointerPainter, /for \(let offset = 1; offset <= distance; offset \+= 1\)/);
   assert.match(pointerPainter, /previous\.velocity \+ \(velocity - previous\.velocity\) \* progress/);
   assert.match(stepPainter, /soundIds\[physicalStep\]/, "mixed sounds must survive touching zero");
-  assert.match(stepPainter, /rebuildOwnership:\s*false/);
   assert.match(stepPainter, /markCustom:\s*false/);
-  assert.match(paintRenderer, /if \(edit\.needsOwnershipRebuild\) rebuildSequenceStepOwnership\(\)/);
+  assert.doesNotMatch(paintRenderer, /ownership|requiresFullRender|rebuild/i);
   assert.match(app, /addEventListener\("pointerdown", handleSequenceVelocityPointerDown\)/);
   assert.match(app, /addEventListener\("pointermove", handleSequenceVelocityPointerMove\)/);
   assert.match(app, /addEventListener\("pointerup", handleSequenceVelocityPointerEnd\)/);
   assert.match(app, /event\.detail > 0/);
 
-  assert.match(gridBuilder, /hitMark\.className = "hiccup-head-step-hit-mark"/);
-  assert.match(gridBuilder, /hitMark\.textContent = "×"/);
-  assert.match(css, /\.hiccup-head-step-hit-mark\s*\{[\s\S]*?var\(--step-velocity/);
+  assert.doesNotMatch(gridBuilder, /hitMark|hiccup-head-step-hit-mark|textContent\s*=\s*["']×["']/);
+  assert.doesNotMatch(css, /\.hiccup-head-step-hit-mark/);
   assert.match(css, /\.hiccup-head-step-cell[\s\S]*?touch-action:\s*none/);
   assert.match(css, /\.hiccup-head-step-cell\[data-active="true"\]/);
   assert.doesNotMatch(gridBuilder, /hiccup-head-step-velocity-number/);
@@ -136,7 +134,7 @@ test("continuous step volume uses zero as the only off state and draws an X hand
   assert.doesNotMatch(functionNamed(app, "renderCell"), /button\.title\s*=/);
 });
 
-test("each step shows its sound number once while collapsed choices remain recognizable", async () => {
+test("each step shows its sound number once and its collapsed choice reads the title", async () => {
   const { app } = await readSequencerSources();
   const compactOptions = functionNamed(app, "compactSoundOptions");
   const gridBuilder = functionNamed(app, "buildSequenceGrid");
@@ -145,11 +143,11 @@ test("each step shows its sound number once while collapsed choices remain recog
   assert.ok(compactOptions, "compactSoundOptions must remain independently testable");
   assert.doesNotMatch(compactOptions, /textContent\s*=\s*sequenceSoundNumberById\.get\(sound\.id\)/);
   assert.match(compactOptions, /emptyOption\.textContent\s*=\s*["']\+["']/);
-  assert.match(compactOptions, /selectedOption\.textContent\s*=\s*["']⌄["']/);
+  assert.match(compactOptions, /selectedOption\.textContent\s*=\s*sound\.label/);
   assert.doesNotMatch(
     compactOptions,
     /textContent\s*=\s*sequenceSoundLabel\(sound\)/,
-    "the collapsed value should not spend horizontal space on the sound name",
+    "the collapsed value should show the title without repeating its numeric ID",
   );
   assert.ok(gridBuilder, "buildSequenceGrid must remain independently testable");
   assert.match(gridBuilder, /soundNumber\.className\s*=\s*["']hiccup-head-step-sound-number["']/);
@@ -185,75 +183,37 @@ test("a dedicated step audition previews audio without editing the pattern", asy
     /\b(?:clearStepExcept|cycleStepVelocity|markPatternCustom|setStepSound|renderPattern)\s*\(/,
     "preview must never program, clear, or otherwise mutate the sequence",
   );
-  const gridFocusHandler = functionNamed(app, "handleSequenceGridFocus");
+  assert.doesNotMatch(app, /function\s+handleSequenceGridFocus\s*\(/);
+});
+
+test("steps have no span state or contextual popup", async () => {
+  const { app, css, html } = await readSequencerSources();
+  assert.doesNotMatch(html, /selectedStep|step-context|step-editor-span|step-span-controls/);
+  assert.doesNotMatch(css, /has-step-context|step-context|step-editor-span|step-span-controls|is-selected-span/);
   assert.doesNotMatch(
-    gridFocusHandler,
-    /hiccup-head-step-audition/,
-    "previewing must not select a step or reveal the contextual editor",
-  );
-});
-
-test("hold-span controls stay contextual while volume remains baked into each step", async () => {
-  const { app, html } = await readSequencerSources();
-  const contextMarkup = html.match(
-    /<div\s+class=["']hiccup-head-step-context["'][\s\S]*?<\/div>\s*<div\s+class=["']hiccup-head-grid-scroll["']/,
-  )?.[0] ?? "";
-  const contextUpdater = functionNamed(app, "updateSelectedStepContext");
-
-  assert.doesNotMatch(html, /hiccup-head-selected-step-inspector|id=["']selectedStepInspector["']/);
-  assert.doesNotMatch(html, /id=["']selectedStepLabel["']/);
-  assert.ok(contextMarkup, "the contextual step controls need stable markup");
-  assert.match(contextMarkup, /class=["']hiccup-head-step-context["']/);
-  assert.doesNotMatch(contextMarkup, /Volume|selectedStepVelocity/i);
-  assert.match(contextMarkup, /id=["']selectedStepSpan["'][^>]*type=["']range["'][^>]*min=["']1["'][^>]*max=["']8["']/);
-  assert.doesNotMatch(contextMarkup, /selectedStepMode|Across span|>\s*Repeat\s*</i);
-  assert.match(contextMarkup, /id=["']selectedStepClear["']/i);
-
-  assert.ok(contextUpdater, "updateSelectedStepContext must remain independently testable");
-  assert.match(contextUpdater, /closest\(\s*["']\.hiccup-head-step-slot["']\s*\)/);
-  assert.match(
-    contextUpdater,
-    /selectedSlot\.append\(context\)/,
-    "the contextual controls should move into the selected step rather than consume a full row",
-  );
-
-  for (const controlId of [
-    "selectedStepSpan",
-    "selectedStepClear",
-  ]) {
-    assert.match(
-      app,
-      new RegExp(`(?:\\$\\(["']${controlId}["']\\)|${controlId})[\\s\\S]{0,160}?\\.addEventListener\\(`),
-      `${controlId} must be wired to behavior, not just present in the markup`,
-    );
-  }
-  assert.match(
     app,
-    /function\s+updateSelectedStepContext\s*\(/,
-    "selection changes need to refresh the contextual controls",
+    /sequenceStepMetadata|sequenceStepOwnership|selectedSequenceStep|spanSteps|sequenceSpanDurationSeconds|sequenceAnchorForStep|rebuildSequenceStepOwnership/,
   );
+  assert.doesNotMatch(app, /updateSelectedStepContext|setSelectedStepSpan|extendSelectedStep|bindSequenceStepContextControls/);
 });
 
-test("step span metadata schedules holds and repeats inside the lookahead clock", async () => {
+test("the lookahead clock schedules each physical step directly", async () => {
   const { app } = await readSequencerSources();
+  const eventLookup = functionNamed(app, "scheduledSequenceEventAtStep");
   const schedulingStart = app.search(/function\s+availableGestureSecondsUntilNextNote\s*\(/);
   const schedulingEnd = app.search(/(?:async\s+)?function\s+startSequence\s*\(/);
   assert.ok(schedulingStart >= 0 && schedulingEnd > schedulingStart);
   const scheduling = app.slice(schedulingStart, schedulingEnd);
 
-  assert.match(app, /(?:sequence|step)[A-Za-z]*Metadata|(?:sequence|step)[A-Za-z]*Meta/);
+  assert.match(eventLookup, /patternEventForStep\(step\)/);
+  assert.doesNotMatch(eventLookup, /ownership|anchor|span|hold|repeat/i);
   assert.match(scheduling, /while\s*\(\s*nextStepTime\s*<\s*audioContext\.currentTime\s*\+\s*lookaheadSeconds\s*\)/);
   assert.match(scheduling, /sequenceStepIntervalSeconds\s*\(/);
   assert.match(scheduling, /gestureDurationSeconds/);
-  assert.match(scheduling, /["']hold["']/i);
-  assert.match(scheduling, /["']repeat["']/i);
-  assert.match(scheduling, /\bspan\b|spanSteps|lengthSteps/i);
+  assert.match(scheduling, /event\.soundId\s*===\s*["']brush["']/i);
+  assert.match(scheduling, /availableGestureSecondsUntilNextNote\(step, absoluteStep\)\s*\*\s*0\.78/);
+  assert.doesNotMatch(scheduling, /spanSteps|sequenceSpanDurationSeconds|ownership\?\./);
   assert.match(scheduling, /postStrike\s*\(/);
-  assert.match(
-    scheduling,
-    /(?:for|while)\s*\([^)]*(?:span|lengthSteps|spanSteps)[^)]*\)/i,
-    "repeat mode should visit the steps covered by its span",
-  );
 });
 
 test("Play and Pause stay compact without dropping below a 44px touch target", async () => {
