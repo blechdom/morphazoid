@@ -60,7 +60,7 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive Harmonicazoid with five simultaneous views. Hold the warm Blow or cool Draw half of the note rail to sound a chamber. Drag either edge of the lip bracket to cover one through five holes, the tongue for block and height, the bend ladder for bend and reed gap, the hands for cup and growl, or the breath ribbon for air and rhythm."
+            aria-label="Interactive Harmonicazoid with five simultaneous views and a cartoon player with a round, unfilled head, nose, and hands traced in pink and blue. Hold the warm Blow or cool Draw half of the note rail to sound a chamber. Drag either edge of the lip bracket to cover one through five holes, the tongue for block and height, the bend ladder for bend and reed gap, the hands for cup and growl, or the breath ribbon for air and rhythm."
             aria-describedby="canvasInstructions liveStatus"
           >
             A ten-hole diatonic harmonica with separate blow and draw reeds and an interactive vocal tract.
@@ -103,15 +103,6 @@
           </span>
           <input id="breathRateBpm" type="range" min="1" max="1200" step="1" value="24" />
           <small>Sets the pace of Auto breathing, from one slow draw/blow cycle per minute to twenty per second.</small>
-        </label>
-
-        <label class="control harmonica-speed-control harmonica-breath-shift-control" for="breathShiftSlop">
-          <span>
-            <b>Breath shift · pristine ↔ sloppy</b>
-            <output id="breathShiftSlopOut" for="breathShiftSlop">sloppy</output>
-          </span>
-          <input id="breathShiftSlop" type="range" min="0" max="1" step="0.01" value="0.84" />
-          <small>Pristine crosses pressure cleanly through zero. Sloppy lets the departing reed ring while the next reed rises, with adjacent-hole breath smear.</small>
         </label>
 
         <section class="jaw-preset-deck harmonica-preset-deck" aria-label="Harmonicazoid body, key, and hole selection">
@@ -368,6 +359,11 @@
               <span><b>Draw / blow duration</b><output id="breathBalanceOut" for="breathBalance">76 / 24</output></span>
               <input id="breathBalance" type="range" min="0.02" max="0.98" step="0.01" value="0.76" />
               <small>Moves 2–98% of the automatic cycle into drawing.</small>
+            </label>
+            <label class="control harmonica-breath-shift-control" for="breathShiftSlop">
+              <span><b>Breath shift · pristine ↔ sloppy</b><output id="breathShiftSlopOut" for="breathShiftSlop">sloppy</output></span>
+              <input id="breathShiftSlop" type="range" min="0" max="1" step="0.01" value="0.84" />
+              <small>Pristine makes one clean zero-crossing. Sloppy lets the departing reed ring while the next reed rises, with adjacent-hole breath smear.</small>
             </label>
             <div class="jaw-breath-meter" id="breathMeter" aria-hidden="true">
               <span>DRAW</span><i></i><i></i><i></i><i></i><b>0</b><i></i><i></i><i></i><i></i><span>BLOW</span>

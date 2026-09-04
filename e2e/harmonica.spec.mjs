@@ -36,6 +36,7 @@ test("Harmonicazoid exposes the renamed instrument and all five linked views", a
     { label: "BREATH / RHYTHM", terms: ["breath ribbon", "rhythm"] },
   ];
   expect(canvasDescription).toMatch(/five simultaneous views/iu);
+  expect(canvasDescription).toMatch(/round, unfilled head, nose, and hands traced in pink and blue/iu);
   for (const view of linkedViews) {
     for (const term of view.terms) {
       expect(

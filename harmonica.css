@@ -137,13 +137,6 @@
   line-height: 1.35;
 }
 
-.harmonica-breath-shift-control {
-  padding-top: 9px;
-  background:
-    linear-gradient(90deg, rgba(105, 213, 221, 0.075), rgba(227, 106, 93, 0.08) 54%, rgba(240, 189, 105, 0.07)),
-    #070909;
-}
-
 .harmonica-breath-shift-control output {
   color: var(--harmonica-blow);
 }

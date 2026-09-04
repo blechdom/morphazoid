@@ -846,6 +846,34 @@ test("harmonica worklet couples pressure, tract, paired reeds, and material with
     assert.ok(sloppyShift.transition.maxDelta < 0.25);
     assert.ok(sloppyShift.voice.breathShiftSamplesRemaining > 0);
 
+    const shiftedAuthoredEnvelope = (breathShiftSlop) => {
+      const voice = makeProcessor({
+        hole: 4,
+        chordWidth: 1,
+        bluesTechniqueId: "clean",
+        breathAttackMs: 12,
+        breathReleaseMs: 176,
+        breathShiftSlop,
+        handCup: 0,
+        cupMotionDepth: 0,
+        tongueBlock: 0,
+        tongueMotionDepth: 0,
+        growl: 0,
+      });
+      voice._handleMessage({ type: "breath", flow: -1, manual: true });
+      render(voice, 120, 40);
+      voice._handleMessage({ type: "breath", flow: 1, manual: true });
+      return { voice, transition: render(voice, 24) };
+    };
+    const pristineAuthoredShift = shiftedAuthoredEnvelope(0);
+    const sloppyAuthoredShift = shiftedAuthoredEnvelope(1);
+    assert.ok(pristineAuthoredShift.voice.breathFlow > 0.9);
+    assert.ok(pristineAuthoredShift.voice.envelopes[3] > 0.8);
+    assert.ok(pristineAuthoredShift.voice.envelopes[13] < 0.25);
+    assert.ok(pristineAuthoredShift.transition.maxDelta < 0.25);
+    assert.ok(sloppyAuthoredShift.voice.envelopes[3] < sloppyAuthoredShift.voice.envelopes[13]);
+    assert.ok(pristineAuthoredShift.voice.breathFlow > sloppyAuthoredShift.voice.breathFlow);
+
     const rawControlRender = (configuration) => {
       const voice = makeProcessor({
         ...holeFour,
@@ -1220,6 +1248,7 @@ test("harmonica page exposes the dedicated model and accessible controls", async
   assert.match(html, /<title>Harmonicazoid · Morphazoid<\/title>/);
   assert.match(html, /<h1>HARMONI<br \/>CAZOID<\/h1>/);
   assert.match(html, /id="stage"[\s\S]*tabindex="0"/);
+  assert.match(html, /round, unfilled head, nose, and hands traced in pink and blue/);
   assert.match(html, /id="blowButton"/);
   assert.match(html, /id="drawButton"/);
   assert.match(html, /id="holeButtons"/);
@@ -1232,7 +1261,8 @@ test("harmonica page exposes the dedicated model and accessible controls", async
   assert.match(html, /id="holeWindowLeft"/);
   assert.match(html, /id="holeWindowRight"/);
   assert.match(html, /Pull either edge of the outlined mouth window[\s\S]*?one through five holes/);
-  assert.match(html, /id="breathRateBpm"[\s\S]*?id="breathShiftSlop"/);
+  assert.match(html, /id="breathRateBpm"/);
+  assert.match(html, /data-section="breath"[\s\S]*?id="breathPressure"[\s\S]*?id="breathBalance"[\s\S]*?id="breathShiftSlop"[\s\S]*?id="breathMeter"/);
   assert.match(html, /departing reed ring[\s\S]*?adjacent-hole breath smear/);
   assert.match(html, /Breath rhythm[\s\S]*?patterned draw and blow attacks/);
   assert.match(html, /CUP horizontally to sweep the cover-hand cavity resonance/);
@@ -1248,6 +1278,30 @@ test("harmonica page exposes the dedicated model and accessible controls", async
   assert.match(app, /function nearestHandle\(/);
   assert.match(app, /function formatMouthAperture\(/);
   assert.match(app, /function canvasMouthApertureLabel\(/);
+  assert.match(app, /const playerOutlinePink = "#ff7daf"/);
+  assert.match(app, /const playerOutlineBlue = "#69d5dd"/);
+  assert.match(app, /function strokePlayerOutline\(/);
+  assert.match(app, /drawing\.bezierCurveTo\([\s\S]*?headRight[\s\S]*?headBottom/);
+  assert.match(app, /strokePlayerOutline\(compact \? 1\.15 : 1\.8, 0\.96\)/);
+  assert.match(app, /drawing\.arc\(mouthCenterX, noseY, noseRadius, 0, Math\.PI \* 2\)/);
+  assert.match(app, /const strokeHollowDigit = [\s\S]*?strokePath\(playerOutlineBlue[\s\S]*?strokePath\(playerOutlinePink/);
+  assert.match(app, /const drawSupportPalm = [\s\S]*?drawing\.bezierCurveTo/);
+  assert.match(app, /const drawCupPalm = [\s\S]*?drawing\.bezierCurveTo/);
+  assert.match(app, /const supportIndex = \{/);
+  assert.match(app, /const rightFingers = rightFingerRoots\.map/);
+  assert.match(app, /const handDigits = \[supportIndex, \.\.\.rightFingers\]/);
+  assert.match(app, /Only the curled fingertip is redrawn over the cover/);
+  assert.doesNotMatch(app, /const strokeFinger =|strokeFinger\(/);
+  assert.match(app, /const tongueRight = tongueLeft \+ cavityWidth \* \(0\.38 \+ tongueAmount \* 0\.5\)/);
+  assert.match(app, /const tongueThickness = clamp\(lipHalfHeight \* 0\.62/);
+  assert.match(app, /const tongueBlockedHoles = coveredList\.filter/);
+  assert.match(app, /strokePlayerOutline\(compact \? 1\.65 : 2\.7, 0\.98\)/);
+  assert.doesNotMatch(app, /checkerboardPattern|fillCheckerboardFace|handCheckerPattern/);
+  const playerHeadArt = app.match(/const headTop =[\s\S]*?\/\/ Bold outer lips/)?.[0] ?? "";
+  const playerHandArt = app.match(/const drawSupportPalm =[\s\S]*?\/\/ Bright instrument body/)?.[0] ?? "";
+  assert.doesNotMatch(playerHeadArt, /drawing\.fill\(/);
+  assert.doesNotMatch(playerHandArt, /drawing\.fill\(/);
+  assert.match(app, /const headBreathBob = prefersReducedMotion[\s\S]*?breathUnit \* clamp/);
   assert.match(app, /function installApertureWindowInteractions\(/);
   assert.match(app, /function aperturePatch\(/);
   assert.match(app, /Math\.min\(5, HARMONICA_LIMITS\.chordWidth\[1\]\)/);
@@ -1256,10 +1310,11 @@ test("harmonica page exposes the dedicated model and accessible controls", async
   assert.match(app, /HAND.*handResonanceFrequencyHz/);
   assert.match(app, /state = harmonicaState\(HARMONICA_DEFAULTS\.presetId\)/);
   assert.doesNotMatch(app, /restored to the Front Porch Shuffle/);
-  assert.match(app, /"01",\s*"NOTE \/ HOLE"/);
-  assert.match(app, /"02",\s*"LIP \/ TONGUE"/);
-  assert.match(app, /"03",\s*"BEND \/ REEDS"/);
-  assert.match(app, /"04",\s*"HANDS \/ CUP"/);
+  assert.match(app, /drawViewFrame\(\s*notePanel,\s*"NOTE \/ HOLE"/);
+  assert.match(app, /drawViewFrame\(\s*mouthPanel,\s*"LIP \/ TONGUE"/);
+  assert.match(app, /drawViewFrame\(\s*bendPanel,\s*"BEND \/ REEDS"/);
+  assert.match(app, /drawViewFrame\(\s*cupPanel,\s*"HANDS \/ CUP"/);
+  assert.doesNotMatch(app, /drawViewFrame\([\s\S]{0,60}"0[1-5]"/);
   assert.match(app, /querySelectorAll\("button\[data-chord-width\]"\)/);
   assert.match(app, /setControl\("chordWidth", Number\(button\.dataset\.chordWidth\)/);
   assert.match(app, /morphazoid:midi-input/);

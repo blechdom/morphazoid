@@ -541,6 +541,7 @@ function changeManualBreath(direction, owner) {
   if (!manualBreathDirection || owner !== manualBreathOwner) return;
   manualBreathDirection = direction < 0 ? -1 : 1;
   state = sanitizeHarmonicaState({ ...state, breathDirection: manualBreathDirection }, state);
+  postConfiguration();
   sendManualBreath(manualBreathDirection * state.breathPressure);
   updatePresentation();
 }
@@ -853,9 +854,9 @@ function loadPerformancePreset(performancePresetId, { announceChange = true } = 
   const previousPhase = breathCyclePhaseAt(changedAt);
   state = applyHarmonicaPerformancePreset(state, performancePreset.id);
   retainBreathCyclePhase(previousPhase, changedAt);
-  if (manualBreathDirection) sendManualBreath(manualBreathDirection * state.breathPressure);
   updatePresentation();
   postConfiguration();
+  if (manualBreathDirection) sendManualBreath(manualBreathDirection * state.breathPressure);
   if (announceChange) announce(`${performancePreset.label} performance playing`);
 }
 
@@ -863,12 +864,17 @@ function loadBluesTechnique(techniqueId, { announceChange = true } = {}) {
   const technique = harmonicaTechnique(techniqueId);
   state = applyHarmonicaTechnique(state, technique.id);
   if (manualBreathDirection && technique.direction) {
-    changeManualBreath(technique.direction, manualBreathOwner);
-  } else if (manualBreathDirection) {
-    sendManualBreath(manualBreathDirection * state.breathPressure);
+    manualBreathDirection = technique.direction < 0 ? -1 : 1;
+    state = sanitizeHarmonicaState({
+      ...state,
+      breathDirection: manualBreathDirection,
+    }, state);
   }
   updatePresentation();
   postConfiguration();
+  if (manualBreathDirection) {
+    sendManualBreath(manualBreathDirection * state.breathPressure);
+  }
   if (announceChange) {
     announce(`${technique.label} loaded. ${technique.direction < 0 ? "Draw or inhale" : technique.direction > 0 ? "Blow or exhale" : "Blow or draw"}.`);
   }
@@ -1287,7 +1293,7 @@ function drawParameterPad(pad, color, title, xAxis, yAxis) {
   drawing.restore();
 }
 
-function drawViewFrame(rect, index, title, detail, color) {
+function drawViewFrame(rect, title, detail, color) {
   drawing.save();
   drawing.fillStyle = "rgba(5, 8, 8, 0.86)";
   drawing.fillRect(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
@@ -1299,13 +1305,23 @@ function drawViewFrame(rect, index, title, detail, color) {
   drawing.fillStyle = color;
   drawing.font = "700 6px ui-monospace, SFMono-Regular, Consolas, monospace";
   drawing.textAlign = "left";
-  drawing.fillText(`${index} · ${title}`, rect.left + 7, rect.top + 11);
+  drawing.fillText(title, rect.left + 7, rect.top + 11);
   if (detail && rect.right - rect.left > 230) {
     drawing.globalAlpha = 0.52;
     drawing.textAlign = "right";
     drawing.fillText(detail, rect.right - 7, rect.top + 11);
   }
   drawing.restore();
+}
+
+const playerOutlinePink = "#ff7daf";
+const playerOutlineBlue = "#69d5dd";
+
+function strokePlayerOutline(width = 1, alpha = 1) {
+  drawing.lineCap = "round";
+  drawing.lineJoin = "round";
+  strokePath(playerOutlineBlue, width * 1.9, alpha * 0.84);
+  strokePath(playerOutlinePink, width, alpha);
 }
 
 function drawMouth(model) {
@@ -1324,7 +1340,6 @@ function drawMouth(model) {
   const tongueHeight = rangeUnit(state.tongueHeight, HARMONICA_LIMITS.tongueHeight);
   drawViewFrame(
     mouthPanel,
-    "02",
     "LIP / TONGUE",
     `${state.chordWidth} COVERED · ${Math.round(visibleTongueBlock * 100)}% BLOCK`,
     "#e36a5d",
@@ -1345,55 +1360,86 @@ function drawMouth(model) {
     compact ? 22 : 62,
   );
   const lipPinch = clamp(0.78 - lipProjection * 0.12, 0.42, 1.12);
+  // Hiccup-Head-style character motion stays entirely in the paint pass. It
+  // reads the already-smoothed visual breath value and never feeds the worklet
+  // or schedules audio, so sound remains the priority under load.
+  const maximumBreathMagnitude = Math.max(
+    Math.abs(HARMONICA_LIMITS.breathFlow[0]),
+    HARMONICA_LIMITS.breathFlow[1],
+  );
+  const breathUnit = clamp(visualBreathFlow / maximumBreathMagnitude, -1, 1);
+  const headBreathBob = prefersReducedMotion
+    ? 0
+    : breathUnit * clamp(
+      panelHeight * 0.014,
+      compact ? 0.8 : 2,
+      compact ? 2.2 : 5,
+    );
+  drawing.save();
+  drawing.translate(0, headBreathBob);
 
-  // Cheeks / lower face silhouette.
+  // Return to the original cheek-and-chin silhouette, rounded into a clearer
+  // cartoon head. The player stays open to the dark stage: only its paired
+  // blue and pink contours are painted.
+  const headTop = Math.max(
+    mouthPanel.top + (compact ? 16 : 27),
+    mouthCenterY - mouthWidth * 0.62,
+  );
+  const headBottom = Math.min(
+    mouthPanel.bottom - (compact ? 5 : 10),
+    mouthCenterY + lipHalfHeight * 1.55,
+  );
+  const headLeft = mouthLeft - mouthWidth * 0.055;
+  const headRight = mouthRight + mouthWidth * 0.055;
+  const headHeight = Math.max(20, headBottom - headTop);
+  const headMiddleY = headTop + headHeight * 0.51;
   drawing.beginPath();
-  drawing.moveTo(mouthLeft - mouthWidth * 0.035, mouthCenterY - lipHalfHeight * 0.58);
+  drawing.moveTo(mouthCenterX, headTop);
   drawing.bezierCurveTo(
-    mouthLeft + mouthWidth * 0.08,
-    mouthPanel.top + (compact ? 17 : 28),
-    mouthRight - mouthWidth * 0.08,
-    mouthPanel.top + (compact ? 17 : 28),
-    mouthRight + mouthWidth * 0.035,
-    mouthCenterY - lipHalfHeight * 0.58,
+    headRight - mouthWidth * 0.22,
+    headTop,
+    headRight,
+    headTop + headHeight * 0.2,
+    headRight,
+    headMiddleY,
   );
   drawing.bezierCurveTo(
-    mouthRight + mouthWidth * 0.02,
-    mouthCenterY + lipHalfHeight * 1.45,
-    mouthLeft - mouthWidth * 0.02,
-    mouthCenterY + lipHalfHeight * 1.45,
-    mouthLeft - mouthWidth * 0.035,
-    mouthCenterY - lipHalfHeight * 0.58,
+    headRight,
+    headBottom - headHeight * 0.19,
+    mouthCenterX + mouthWidth * 0.25,
+    headBottom,
+    mouthCenterX,
+    headBottom,
+  );
+  drawing.bezierCurveTo(
+    mouthCenterX - mouthWidth * 0.25,
+    headBottom,
+    headLeft,
+    headBottom - headHeight * 0.19,
+    headLeft,
+    headMiddleY,
+  );
+  drawing.bezierCurveTo(
+    headLeft,
+    headTop + headHeight * 0.2,
+    mouthLeft + mouthWidth * 0.22,
+    headTop,
+    mouthCenterX,
+    headTop,
   );
   drawing.closePath();
-  drawing.fillStyle = "rgba(211, 151, 111, 0.12)";
-  drawing.fill();
-  strokePath("#8d5848", compact ? 0.8 : 1.2, 0.45);
+  strokePlayerOutline(compact ? 1.15 : 1.8, 0.96);
 
-  // A simple nose anchors this as a face even in the smallest two-column view.
+  // A true circular nose keeps the same contour-only player treatment.
   const noseY = mouthCenterY - lipHalfHeight * 1.35;
-  drawing.beginPath();
-  drawing.moveTo(mouthCenterX, noseY - lipHalfHeight * 0.42);
-  drawing.quadraticCurveTo(
-    mouthCenterX - mouthWidth * 0.035,
-    noseY + lipHalfHeight * 0.08,
-    mouthCenterX - mouthWidth * 0.07,
-    noseY + lipHalfHeight * 0.24,
+  const noseRadius = clamp(
+    lipHalfHeight * 0.32,
+    compact ? 2.5 : 5,
+    compact ? 5 : 11,
   );
-  drawing.quadraticCurveTo(
-    mouthCenterX,
-    noseY + lipHalfHeight * 0.38,
-    mouthCenterX + mouthWidth * 0.07,
-    noseY + lipHalfHeight * 0.24,
-  );
-  drawing.fillStyle = "rgba(211, 151, 111, 0.34)";
-  drawing.fill();
-  strokePath("#b36d55", compact ? 0.7 : 1.1, 0.62);
-  drawing.fillStyle = "rgba(46, 20, 17, 0.72)";
   drawing.beginPath();
-  drawing.ellipse(mouthCenterX - mouthWidth * 0.025, noseY + lipHalfHeight * 0.23, compact ? 1 : 1.8, compact ? 0.7 : 1.1, 0, 0, Math.PI * 2);
-  drawing.ellipse(mouthCenterX + mouthWidth * 0.025, noseY + lipHalfHeight * 0.23, compact ? 1 : 1.8, compact ? 0.7 : 1.1, 0, 0, Math.PI * 2);
-  drawing.fill();
+  drawing.arc(mouthCenterX, noseY, noseRadius, 0, Math.PI * 2);
+  strokePlayerOutline(compact ? 0.75 : 1.15, 0.9);
 
   // Bold outer lips and a dark mouth cavity.
   drawing.beginPath();
@@ -1429,7 +1475,7 @@ function drawMouth(model) {
   lipGradient.addColorStop(1, "#7d2939");
   drawing.fillStyle = lipGradient;
   drawing.fill();
-  strokePath("#ffb0a2", compact ? 1.1 : 2, 0.85);
+  strokePlayerOutline(compact ? 1.25 : 2.1, 0.9);
 
   const cavityLeft = mouthLeft + mouthWidth * 0.075;
   const cavityRight = mouthRight - mouthWidth * 0.075;
@@ -1460,9 +1506,9 @@ function drawMouth(model) {
   // The tongue stays visible even at zero block so the anatomy remains clear;
   // its reach and height follow the same physical controls as the DSP.
   const tongueLeft = cavityLeft + cavityWidth * 0.08;
-  const tongueRight = tongueLeft + cavityWidth * (0.24 + tongueAmount * 0.58);
-  const tongueY = mouthCenterY - lipHalfHeight * (0.05 + tongueHeight * 0.22);
-  const tongueThickness = clamp(lipHalfHeight * 0.42, compact ? 4 : 8, compact ? 8 : 18);
+  const tongueRight = tongueLeft + cavityWidth * (0.38 + tongueAmount * 0.5);
+  const tongueY = mouthCenterY - lipHalfHeight * (0.18 + tongueHeight * 0.18);
+  const tongueThickness = clamp(lipHalfHeight * 0.62, compact ? 6 : 12, compact ? 12 : 25);
   drawing.beginPath();
   drawing.moveTo(tongueLeft, tongueY + tongueThickness * 0.45);
   drawing.bezierCurveTo(
@@ -1482,9 +1528,18 @@ function drawMouth(model) {
     tongueY + tongueThickness * 0.45,
   );
   drawing.closePath();
-  drawing.fillStyle = "#e8799b";
+  drawing.fillStyle = "#ff5f9f";
   drawing.fill();
-  strokePath("#ffabc2", compact ? 0.7 : 1.2, 0.95);
+  strokePlayerOutline(compact ? 0.9 : 1.45, 0.96);
+  drawing.beginPath();
+  drawing.moveTo(tongueRight - tongueThickness * 0.08, tongueY - tongueThickness * 0.08);
+  drawing.quadraticCurveTo(
+    tongueRight - tongueThickness * 0.48,
+    tongueY + tongueThickness * 0.14,
+    tongueRight - tongueThickness * 0.62,
+    tongueY + tongueThickness * 0.48,
+  );
+  strokePath("#ffe5ef", compact ? 0.7 : 1.15, 0.8);
 
   // A recognizable ten-hole harmonica sits between the lips.
   const railLeft = mouthLeft + mouthWidth * 0.025;
@@ -1521,15 +1576,35 @@ function drawMouth(model) {
     }
   }
 
+  // Show the tongue actually contacting blocked holes instead of letting the
+  // metal rail hide the anatomy that produces tongue-block articulation.
+  const tongueBlockedHoles = coveredList.filter((hole) => hole !== state.hole);
+  if (tongueBlockedHoles.length && tongueAmount > 0.01) {
+    const firstBlockedHole = Math.min(...tongueBlockedHoles);
+    const lastBlockedHole = Math.max(...tongueBlockedHoles);
+    const contactLeft = railLeft + (firstBlockedHole - 1) * slotWidth + slotWidth * 0.08;
+    const contactRight = railLeft + lastBlockedHole * slotWidth - slotWidth * 0.08;
+    const contactHeight = railHeight * (0.28 + tongueAmount * 0.18);
+    drawing.beginPath();
+    drawing.moveTo(contactLeft, railTop + contactHeight);
+    drawing.quadraticCurveTo((contactLeft + contactRight) * 0.5, railTop - contactHeight * 0.45, contactRight, railTop + contactHeight);
+    drawing.quadraticCurveTo((contactLeft + contactRight) * 0.5, railTop + contactHeight * 1.28, contactLeft, railTop + contactHeight);
+    drawing.closePath();
+    drawing.fillStyle = `rgba(255, 95, 159, ${0.44 + tongueAmount * 0.42})`;
+    drawing.fill();
+    strokePlayerOutline(compact ? 0.65 : 1.05, 0.9);
+  }
+
   // Lip rims sit in front of the instrument so it visibly passes into a mouth.
   drawing.beginPath();
   drawing.moveTo(mouthLeft + mouthWidth * 0.03, mouthCenterY - 1);
   drawing.quadraticCurveTo(mouthCenterX, mouthCenterY - lipHalfHeight * 0.92, mouthRight - mouthWidth * 0.03, mouthCenterY - 1);
-  strokePath("#ff9d91", compact ? 1.4 : 2.6, 0.96);
+  strokePlayerOutline(compact ? 1.65 : 2.7, 0.98);
   drawing.beginPath();
   drawing.moveTo(mouthLeft + mouthWidth * 0.05, railBottom + 1);
   drawing.quadraticCurveTo(mouthCenterX, mouthCenterY + lipHalfHeight * 1.02, mouthRight - mouthWidth * 0.05, railBottom + 1);
-  strokePath("#b94755", compact ? 1.4 : 2.6, 0.96);
+  strokePlayerOutline(compact ? 1.65 : 2.7, 0.98);
+  drawing.restore();
 
   // Side cutaway for the throat / resonant tract.
   const throatCenterX = (tractPad.left + tractPad.right) * 0.5;
@@ -1540,19 +1615,13 @@ function drawMouth(model) {
   drawing.ellipse(throatCenterX, throatCenterY, throatRadiusX, throatRadiusY, 0, 0, Math.PI * 2);
   drawing.fillStyle = "rgba(105, 213, 221, 0.13)";
   drawing.fill();
-  strokePath("#69d5dd", compact ? 0.8 : 1.2, 0.78);
   const throatOpening = rangeUnit(state.throatOpening, HARMONICA_LIMITS.throatOpening);
   drawing.beginPath();
   drawing.moveTo(throatCenterX, throatCenterY + throatRadiusY * 0.75);
   drawing.lineTo(throatCenterX, tractPad.bottom - 2);
   strokePath("#69d5dd", 1 + throatOpening * (compact ? 2 : 4), 0.35 + throatOpening * 0.5);
 
-  drawing.fillStyle = "rgba(255, 196, 189, 0.9)";
   drawing.font = `700 ${compact ? 4.5 : 6}px ui-monospace, SFMono-Regular, Consolas, monospace`;
-  drawing.textAlign = "left";
-  drawing.fillText("LIPS", mouthLeft + 2, mouthCenterY - lipHalfHeight - (compact ? 2 : 5));
-  drawing.fillStyle = "rgba(255, 171, 194, 0.92)";
-  drawing.fillText("TONGUE", tongueLeft, Math.min(railTop - 3, tongueY - tongueThickness * 0.62));
   drawing.fillStyle = "rgba(105, 213, 221, 0.76)";
   drawing.textAlign = "center";
   drawing.fillText("THROAT", throatCenterX, tractPad.bottom - (compact ? 0 : 5));
@@ -1578,14 +1647,10 @@ function drawBluesCup(model) {
   const panelWidth = cupPanel.right - cupPanel.left;
   const panelHeight = cupPanel.bottom - cupPanel.top;
   const centerX = (cupPanel.left + cupPanel.right) * 0.5;
-  const centerY = cupPanel.top + panelHeight * (compact ? 0.58 : 0.55);
-  const harpWidth = panelWidth * (compact ? 0.49 : 0.5);
-  const harpHeight = clamp(panelHeight * 0.105, compact ? 7 : 12, compact ? 12 : 22);
+  const centerY = cupPanel.top + panelHeight * (compact ? 0.48 : 0.46);
+  const harpWidth = panelWidth * (compact ? 0.56 : 0.58);
+  const harpHeight = clamp(panelHeight * 0.115, compact ? 8 : 14, compact ? 14 : 25);
   const opening = (1 - closure) * panelWidth * (compact ? 0.25 : 0.31);
-  const supportSkin = "#d79768";
-  const cupSkin = "#c76f58";
-  const skinLight = "#f2bd8c";
-  const skinShadow = "#6e3c2c";
   const fallbackHandResonanceHz = 460 + Math.pow(1 - closure, 1.35) * 2_760;
   const reportedHandResonanceHz = Number(telemetry.handResonanceFrequencyHz);
   const handResonanceFrequencyHz = telemetryIsLive
@@ -1594,17 +1659,16 @@ function drawBluesCup(model) {
     ? reportedHandResonanceHz
     : fallbackHandResonanceHz;
   const resonanceUnit = clamp((handResonanceFrequencyHz - 460) / 2_760);
-  const digitWidth = clamp(harpHeight * 0.48, compact ? 3.5 : 5, compact ? 6.5 : 9);
-  const supportPalmWidth = clamp(harpWidth * 0.56, compact ? 34 : 62, compact ? 58 : 96);
-  const supportPalmHeight = clamp(harpHeight * 1.75, compact ? 14 : 24, compact ? 25 : 39);
-  const cupPalmWidth = clamp(harpWidth * 0.38, compact ? 24 : 38, compact ? 44 : 70);
-  const cupPalmHeight = clamp(harpHeight * 4.25, compact ? 34 : 56, compact ? 64 : 96);
-  const cupPivotX = centerX + harpWidth * 0.54 + opening * 0.78;
-  const cupPivotY = centerY + harpHeight * 0.6;
-  const cupAngle = 0.03 + (1 - closure) * 0.18;
+  const digitWidth = clamp(harpHeight * 0.48, compact ? 3.8 : 6, compact ? 6.6 : 10.5);
+  const harpLeft = centerX - harpWidth * 0.5;
+  const harpRight = centerX + harpWidth * 0.5;
+  const harpTop = centerY - harpHeight;
+  const harpBottom = centerY + harpHeight;
+  const cupShift = Math.min(opening * 0.42, panelWidth * 0.11);
+  const cupPivotX = Math.min(cupPanel.right - (compact ? 12 : 22), harpRight + harpWidth * 0.16 + cupShift);
+  const cupPivotY = centerY + harpHeight * 0.55;
   drawViewFrame(
     cupPanel,
-    "04",
     "HANDS / CUP",
     `${Math.round(closure * 100)}% CUP · HAND ${Math.round(handResonanceFrequencyHz)} HZ${wahWet > 0 ? " · WAH" : ""}`,
     "#f0bd69",
@@ -1619,8 +1683,8 @@ function drawBluesCup(model) {
   const cavityCenterX = centerX + harpWidth * 0.42 + opening * 0.35;
   drawing.save();
   drawing.setLineDash(compact ? [2, 3] : [3, 4]);
-  for (let ring = 0; ring < 4; ring += 1) {
-    const spread = (ring + cavityPulse) / 4;
+  for (let ring = 0; ring < 2; ring += 1) {
+    const spread = (ring + cavityPulse) / 2;
     drawing.beginPath();
     drawing.ellipse(
       cavityCenterX,
@@ -1652,146 +1716,188 @@ function drawBluesCup(model) {
   drawing.fill();
   strokePath("#69d5dd", compact ? 0.8 : 1.2, 0.28 + (1 - closure) * 0.5);
 
-  const drawSupportPalm = () => {
-    const left = centerX - harpWidth * 0.62;
-    const right = left + supportPalmWidth;
-    const top = centerY + harpHeight * 0.42;
-    const bottom = top + supportPalmHeight;
-    const wristY = bottom + harpHeight * 1.28;
-    drawing.beginPath();
-    drawing.moveTo(left, top + supportPalmHeight * 0.3);
-    drawing.bezierCurveTo(
-      left + supportPalmWidth * 0.04,
-      top,
-      left + supportPalmWidth * 0.25,
-      top - supportPalmHeight * 0.08,
-      right - supportPalmHeight * 0.3,
-      top,
-    );
-    drawing.quadraticCurveTo(
-      right + supportPalmHeight * 0.22,
-      top + supportPalmHeight * 0.34,
-      right - supportPalmHeight * 0.02,
-      bottom,
-    );
-    drawing.lineTo(left + supportPalmWidth * 0.4, bottom + supportPalmHeight * 0.08);
-    drawing.lineTo(left + supportPalmWidth * 0.12, wristY);
-    drawing.lineTo(left - supportPalmWidth * 0.15, wristY - harpHeight * 0.34);
-    drawing.lineTo(left + supportPalmWidth * 0.03, bottom - supportPalmHeight * 0.08);
-    drawing.quadraticCurveTo(left - supportPalmHeight * 0.16, top + supportPalmHeight * 0.68, left, top + supportPalmHeight * 0.3);
-    drawing.closePath();
-    const palmGradient = drawing.createRadialGradient(
-      right - supportPalmWidth * 0.3,
-      top + supportPalmHeight * 0.15,
-      1,
-      (left + right) * 0.5,
-      (top + bottom) * 0.5,
-      supportPalmWidth * 0.68,
-    );
-    palmGradient.addColorStop(0, skinLight);
-    palmGradient.addColorStop(0.72, supportSkin);
-    palmGradient.addColorStop(1, skinShadow);
-    drawing.fillStyle = palmGradient;
-    drawing.fill();
-    strokePath("#f0bd69", compact ? 0.9 : 1.5, 0.92);
-    drawing.beginPath();
-    drawing.moveTo(left - supportPalmWidth * 0.11, wristY - harpHeight * 0.5);
-    drawing.lineTo(left + supportPalmWidth * 0.18, wristY - harpHeight * 0.08);
-    strokePath("#3e2823", compact ? 1.2 : 2, 0.78);
-    drawing.beginPath();
-    drawing.moveTo(left + supportPalmWidth * 0.32, bottom - supportPalmHeight * 0.24);
-    drawing.quadraticCurveTo(
-      left + supportPalmWidth * 0.53,
-      bottom - supportPalmHeight * 0.43,
-      right - supportPalmWidth * 0.08,
-      bottom - supportPalmHeight * 0.34,
-    );
-    strokePath("#7c4635", compact ? 0.6 : 0.9, 0.72);
-  };
-
-  const drawCupPalm = () => {
-    drawing.save();
-    drawing.translate(cupPivotX, cupPivotY);
-    drawing.rotate(cupAngle);
-    const width = cupPalmWidth;
-    const height = cupPalmHeight;
-    drawing.beginPath();
-    drawing.moveTo(-width * 0.3, -height * 0.48);
-    drawing.bezierCurveTo(width * 0.04, -height * 0.67, width * 0.56, -height * 0.44, width * 0.62, -height * 0.08);
-    drawing.bezierCurveTo(width * 0.68, height * 0.2, width * 0.46, height * 0.4, width * 0.3, height * 0.53);
-    drawing.lineTo(width * 0.78, height * 0.78);
-    drawing.lineTo(width * 0.38, height * 0.94);
-    drawing.lineTo(-width * 0.04, height * 0.57);
-    drawing.bezierCurveTo(-width * 0.4, height * 0.43, -width * 0.5, height * 0.17, -width * 0.34, height * 0.02);
-    drawing.bezierCurveTo(-width * 0.52, -height * 0.13, -width * 0.5, -height * 0.36, -width * 0.3, -height * 0.48);
-    drawing.closePath();
-    const cupGradient = drawing.createRadialGradient(-width * 0.12, -height * 0.28, 1, width * 0.08, 0, height * 0.68);
-    cupGradient.addColorStop(0, "#efa37f");
-    cupGradient.addColorStop(0.7, cupSkin);
-    cupGradient.addColorStop(1, "#63312d");
-    drawing.fillStyle = cupGradient;
-    drawing.fill();
-    strokePath("#e36a5d", compact ? 0.9 : 1.5, 0.94);
-    drawing.beginPath();
-    drawing.moveTo(width * 0.16, height * 0.58);
-    drawing.lineTo(width * 0.62, height * 0.81);
-    strokePath("#4a2423", compact ? 1.2 : 2, 0.84);
-    drawing.beginPath();
-    drawing.moveTo(-width * 0.22, height * 0.28);
-    drawing.quadraticCurveTo(width * 0.02, height * 0.12, width * 0.3, height * 0.2);
-    strokePath("#7c3b34", compact ? 0.6 : 0.9, 0.76);
-    drawing.restore();
-  };
-
-  const strokeFinger = (startX, startY, controlX, controlY, endX, endY, color = supportSkin, width = digitWidth) => {
-    drawing.beginPath();
-    drawing.moveTo(startX, startY);
-    drawing.quadraticCurveTo(controlX, controlY, endX, endY);
+  const strokeHollowDigit = (width = digitWidth, alpha = 0.95) => {
     drawing.lineCap = "round";
-    drawing.strokeStyle = skinShadow;
-    drawing.lineWidth = width + (compact ? 1.5 : 2.5);
-    drawing.globalAlpha = 0.96;
-    drawing.stroke();
-    drawing.strokeStyle = color;
-    drawing.lineWidth = width;
-    drawing.stroke();
-    drawing.globalAlpha = 1;
+    drawing.lineJoin = "round";
+    strokePath(playerOutlineBlue, width + (compact ? 2.4 : 3.6), alpha * 0.86);
+    strokePath(playerOutlinePink, width + (compact ? 1.1 : 1.8), alpha);
+    strokePath("#050807", Math.max(1, width - (compact ? 1.5 : 2.2)), 1);
+  };
+
+  const supportOuterX = Math.max(
+    cupPanel.left + (compact ? 8 : 15),
+    harpLeft - harpWidth * 0.27,
+  );
+  const supportInnerX = harpLeft - harpWidth * 0.055;
+  const supportWristY = Math.min(
+    cupPanel.bottom - (compact ? 15 : 26),
+    harpBottom + harpHeight * 3.55,
+  );
+  const cupOuterX = Math.min(
+    cupPanel.right - (compact ? 8 : 15),
+    harpRight + harpWidth * 0.24 + cupShift,
+  );
+  const cupInnerX = harpRight - harpWidth * 0.065 + cupShift * 0.18;
+  const cupWristY = Math.min(
+    cupPanel.bottom - (compact ? 13 : 23),
+    harpBottom + harpHeight * 3.75,
+  );
+
+  // The fixed hand enters from below-left with a flat wrist, broad palm and
+  // a shallow web at the end of the harmonica.
+  const drawSupportPalm = () => {
+    drawing.beginPath();
+    drawing.moveTo(supportOuterX, supportWristY);
+    drawing.bezierCurveTo(
+      supportOuterX + harpWidth * 0.015, harpBottom + harpHeight * 2.85,
+      harpLeft - harpWidth * 0.28, harpBottom + harpHeight * 2.15,
+      harpLeft - harpWidth * 0.2, harpBottom + harpHeight * 1.42,
+    );
+    drawing.bezierCurveTo(
+      harpLeft - harpWidth * 0.32, harpBottom + harpHeight * 0.82,
+      harpLeft - harpWidth * 0.27, harpTop + harpHeight * 0.28,
+      harpLeft - harpWidth * 0.12, harpTop - harpHeight * 0.08,
+    );
+    drawing.bezierCurveTo(
+      harpLeft + harpWidth * 0.025, harpTop - harpHeight * 0.22,
+      harpLeft + harpWidth * 0.14, harpTop + harpHeight * 0.22,
+      harpLeft + harpWidth * 0.12, harpBottom + harpHeight * 0.55,
+    );
+    drawing.bezierCurveTo(
+      harpLeft + harpWidth * 0.1, harpBottom + harpHeight * 1.28,
+      harpLeft + harpWidth * 0.015, harpBottom + harpHeight * 2.12,
+      supportInnerX, supportWristY,
+    );
+    drawing.closePath();
+    strokePlayerOutline(compact ? 1.1 : 1.8, 0.97);
+
+    drawing.beginPath();
+    drawing.moveTo(supportOuterX + harpWidth * 0.02, supportWristY - harpHeight * 0.42);
+    drawing.quadraticCurveTo(
+      (supportOuterX + supportInnerX) * 0.5,
+      supportWristY - harpHeight * 0.2,
+      supportInnerX - harpWidth * 0.012,
+      supportWristY - harpHeight * 0.38,
+    );
+    strokePath(playerOutlineBlue, compact ? 0.65 : 1, 0.65);
+
+    for (let crease = 0; crease < 2; crease += 1) {
+      drawing.beginPath();
+      drawing.moveTo(
+        harpLeft - harpWidth * (0.19 - crease * 0.035),
+        harpBottom + harpHeight * (1.1 + crease * 0.38),
+      );
+      drawing.quadraticCurveTo(
+        harpLeft - harpWidth * 0.08,
+        harpBottom + harpHeight * (0.88 + crease * 0.4),
+        harpLeft + harpWidth * 0.035,
+        harpBottom + harpHeight * (1.05 + crease * 0.34),
+      );
+      strokePath(crease ? playerOutlinePink : playerOutlineBlue, compact ? 0.55 : 0.85, 0.62);
+    }
+  };
+
+  // The moving hand is one continuous C-shaped shell behind the right end:
+  // flat wrist, broad palm, rounded outside wall and a small open cavity.
+  const drawCupPalm = () => {
+    const palmSpan = Math.max(harpWidth * 0.16, cupOuterX - cupInnerX);
+    drawing.beginPath();
+    drawing.moveTo(cupInnerX + palmSpan * 0.18, cupWristY);
+    drawing.bezierCurveTo(
+      cupInnerX + palmSpan * 0.05, harpBottom + harpHeight * 2.9,
+      cupInnerX - harpWidth * 0.025, harpBottom + harpHeight * 2.1,
+      cupInnerX + palmSpan * 0.02, harpBottom + harpHeight * 1.45,
+    );
+    drawing.bezierCurveTo(
+      cupInnerX + palmSpan * 0.02, harpBottom + harpHeight * 0.72,
+      cupInnerX - harpWidth * 0.055, harpTop + harpHeight * 0.5,
+      cupInnerX + palmSpan * 0.04, harpTop - harpHeight * 0.08,
+    );
+    drawing.bezierCurveTo(
+      cupInnerX + palmSpan * 0.34, harpTop - harpHeight * 0.55,
+      cupOuterX - palmSpan * 0.08, harpTop - harpHeight * 0.3,
+      cupOuterX, harpTop + harpHeight * 0.35,
+    );
+    drawing.bezierCurveTo(
+      cupOuterX + palmSpan * 0.08, harpBottom + harpHeight * 0.8,
+      cupOuterX, harpBottom + harpHeight * 1.7,
+      cupOuterX - palmSpan * 0.08, harpBottom + harpHeight * 2.45,
+    );
+    drawing.bezierCurveTo(
+      cupOuterX - palmSpan * 0.05, harpBottom + harpHeight * 3.0,
+      cupOuterX - palmSpan * 0.08, cupWristY,
+      cupOuterX - palmSpan * 0.2, cupWristY,
+    );
+    drawing.closePath();
+    strokePlayerOutline(compact ? 1.1 : 1.8, 0.97);
+
+    drawing.beginPath();
+    drawing.moveTo(cupInnerX + palmSpan * 0.1, cupWristY - harpHeight * 0.42);
+    drawing.quadraticCurveTo(
+      cupInnerX + palmSpan * 0.52,
+      cupWristY - harpHeight * 0.18,
+      cupOuterX - palmSpan * 0.2,
+      cupWristY - harpHeight * 0.38,
+    );
+    strokePath(playerOutlinePink, compact ? 0.65 : 1, 0.68);
+
+    for (let crease = 0; crease < 3; crease += 1) {
+      drawing.beginPath();
+      drawing.moveTo(
+        cupInnerX + palmSpan * (0.16 + crease * 0.08),
+        harpBottom + harpHeight * (0.95 + crease * 0.36),
+      );
+      drawing.quadraticCurveTo(
+        cupInnerX + palmSpan * (0.48 + crease * 0.07),
+        harpBottom + harpHeight * (0.72 + crease * 0.35),
+        cupOuterX - palmSpan * (0.18 - crease * 0.015),
+        harpBottom + harpHeight * (0.98 + crease * 0.31),
+      );
+      strokePath(crease % 2 ? playerOutlinePink : playerOutlineBlue, compact ? 0.5 : 0.8, 0.58);
+    }
+  };
+
+  const supportIndex = {
+    rootX: harpLeft - harpWidth * 0.17,
+    rootY: harpTop + harpHeight * 0.18,
+    controlX: harpLeft - harpWidth * 0.18,
+    controlY: harpTop - harpHeight * 1.5,
+    tipX: harpLeft + harpWidth * 0.24,
+    tipY: harpTop + harpHeight * 0.16,
+    width: digitWidth * 0.88,
+  };
+  // Two broad curled fingers describe the cup without turning its outline
+  // into a comb of nearly identical digits at small panel sizes.
+  const rightFingerRoots = [0.42, 0.02];
+  const rightFingerCrests = [-1.3, -1.72];
+  const rightFingerTips = [0.1, 0.28];
+  const rightPalmSpan = Math.max(harpWidth * 0.16, cupOuterX - cupInnerX);
+  const rightFingers = rightFingerRoots.map((rootHeight, finger) => ({
+    rootX: cupInnerX + rightPalmSpan * (0.2 + finger * 0.18),
+    rootY: harpTop + harpHeight * rootHeight,
+    controlX: cupInnerX + rightPalmSpan * (0.55 + finger * 0.12),
+    controlY: harpTop + harpHeight * rightFingerCrests[finger],
+    tipX: harpRight - harpWidth * rightFingerTips[finger],
+    tipY: harpTop + harpHeight * (0.11 + finger * 0.015),
+    width: digitWidth * (0.82 - finger * 0.045),
+  }));
+  const handDigits = [supportIndex, ...rightFingers];
+
+  const drawBentDigit = (digit, alpha = 0.95) => {
+    drawing.beginPath();
+    drawing.moveTo(digit.rootX, digit.rootY);
+    drawing.quadraticCurveTo(
+      digit.controlX,
+      digit.controlY,
+      digit.tipX,
+      digit.tipY,
+    );
+    strokeHollowDigit(digit.width, alpha);
   };
 
   drawSupportPalm();
-  const visibleFingers = compact ? 3 : 4;
-  for (let finger = 0; finger < visibleFingers; finger += 1) {
-    const spread = finger / Math.max(1, visibleFingers - 1);
-    strokeFinger(
-      centerX - harpWidth * (0.54 - spread * 0.23),
-      centerY + harpHeight * (0.78 + spread * 0.1),
-      centerX - harpWidth * (0.5 - spread * 0.17),
-      centerY - harpHeight * (1.26 - spread * 0.12),
-      centerX - harpWidth * (0.43 - spread * 0.21),
-      centerY - harpHeight * (0.66 - spread * 0.08),
-      supportSkin,
-      digitWidth * (0.9 - spread * 0.08),
-    );
-  }
-
   drawCupPalm();
-  drawing.save();
-  drawing.translate(cupPivotX, cupPivotY);
-  drawing.rotate(cupAngle);
-  for (let finger = 0; finger < visibleFingers; finger += 1) {
-    const spread = finger / Math.max(1, visibleFingers - 1);
-    strokeFinger(
-      cupPalmWidth * (0.03 + spread * 0.08),
-      -cupPalmHeight * (0.3 - spread * 0.17),
-      -cupPalmWidth * (0.52 - spread * 0.08),
-      -cupPalmHeight * (0.55 - spread * 0.09),
-      -cupPalmWidth * (0.66 - spread * 0.12),
-      -cupPalmHeight * (0.33 - spread * 0.11),
-      cupSkin,
-      digitWidth * (0.94 - spread * 0.08),
-    );
-  }
-  drawing.restore();
+  handDigits.forEach((digit, index) => drawBentDigit(digit, index ? 0.94 : 0.9));
 
   // Bright instrument body keeps the object legible between the two hands.
   const metal = drawing.createLinearGradient(0, centerY - harpHeight, 0, centerY + harpHeight);
@@ -1811,35 +1917,71 @@ function drawBluesCup(model) {
     drawing.fillRect(x, centerY - harpHeight * 0.34, holeWidth * 0.62, harpHeight * 0.72);
   }
 
-  // The fixed support thumb braces only the left third; it no longer meets a
-  // mirrored thumb in the middle.
-  strokeFinger(
-    centerX - harpWidth * 0.5,
-    centerY + harpHeight * 1.34,
-    centerX - harpWidth * 0.36,
-    centerY + harpHeight * 0.33,
-    centerX - harpWidth * 0.13,
-    centerY + harpHeight * 0.48,
-    supportSkin,
-    digitWidth * 1.16,
-  );
+  // Only the curled fingertip is redrawn over the cover. The palm and shafts
+  // remain behind it, creating the occlusion that makes a real grip readable.
+  const drawForegroundTip = (digit, color) => {
+    const t = 0.73;
+    const rootToControlX = digit.rootX + (digit.controlX - digit.rootX) * t;
+    const rootToControlY = digit.rootY + (digit.controlY - digit.rootY) * t;
+    const controlToTipX = digit.controlX + (digit.tipX - digit.controlX) * t;
+    const controlToTipY = digit.controlY + (digit.tipY - digit.controlY) * t;
+    const segmentStartX = rootToControlX + (controlToTipX - rootToControlX) * t;
+    const segmentStartY = rootToControlY + (controlToTipY - rootToControlY) * t;
+    drawing.beginPath();
+    drawing.moveTo(segmentStartX, segmentStartY);
+    drawing.quadraticCurveTo(
+      controlToTipX,
+      controlToTipY,
+      digit.tipX,
+      digit.tipY,
+    );
+    strokeHollowDigit(digit.width, 0.98);
 
-  // The moving thumb hooks under the right cover in the cup hand's own
-  // rotated coordinate space, stopping well before the support thumb.
-  drawing.save();
-  drawing.translate(cupPivotX, cupPivotY);
-  drawing.rotate(cupAngle);
-  strokeFinger(
-    cupPalmWidth * 0.04,
-    cupPalmHeight * 0.3,
-    -cupPalmWidth * 0.46,
-    cupPalmHeight * 0.16,
-    -cupPalmWidth * 0.66,
-    -cupPalmHeight * 0.01,
-    cupSkin,
-    digitWidth * 1.14,
+    drawing.beginPath();
+    drawing.moveTo(digit.tipX - digit.width * 0.22, digit.tipY - harpHeight * 0.08);
+    drawing.quadraticCurveTo(
+      digit.tipX,
+      digit.tipY + harpHeight * 0.07,
+      digit.tipX + digit.width * 0.22,
+      digit.tipY - harpHeight * 0.08,
+    );
+    strokePath(color, compact ? 0.5 : 0.8, 0.72);
+  };
+  handDigits.forEach((digit, index) => {
+    drawForegroundTip(digit, index === 0 ? playerOutlineBlue : playerOutlinePink);
+  });
+
+  // The support thumb opposes the index finger across the lower-left cover.
+  drawing.beginPath();
+  drawing.moveTo(
+    harpLeft - harpWidth * 0.1,
+    harpBottom + harpHeight * 1.32,
   );
-  drawing.restore();
+  drawing.bezierCurveTo(
+    harpLeft + harpWidth * 0.02,
+    harpBottom + harpHeight * 1.72,
+    harpLeft + harpWidth * 0.2,
+    harpBottom + harpHeight * 0.82,
+    harpLeft + harpWidth * 0.34,
+    harpBottom - harpHeight * 0.06,
+  );
+  strokeHollowDigit(digitWidth * 1.22);
+
+  // A broad opposing thumb completes the moving hand's C around the harp.
+  drawing.beginPath();
+  drawing.moveTo(
+    cupInnerX + rightPalmSpan * 0.14,
+    harpBottom + harpHeight * 1.2,
+  );
+  drawing.bezierCurveTo(
+    harpRight + cupShift * 0.12,
+    harpBottom + harpHeight * 1.65,
+    centerX + harpWidth * 0.24,
+    harpBottom + harpHeight * 1.08,
+    centerX + harpWidth * 0.1,
+    harpBottom - harpHeight * 0.03,
+  );
+  strokeHollowDigit(digitWidth * 1.3);
 
   // A bold sweep beside the moving hand shows the open/close throw. Its
   // length follows the actual effective cup value coming back from the DSP.
@@ -1911,7 +2053,6 @@ function drawHarmonica(model) {
   const preset = harmonicaPreset(state.presetId);
   drawViewFrame(
     notePanel,
-    "01",
     "NOTE / HOLE",
     `${key.label} RICHTER · ${preset.label.toUpperCase()} · 3 OCTAVES`,
     "#d8dfdc",
@@ -2046,7 +2187,6 @@ function drawBreathFlow(model) {
     : performance.now() * (0.0006 + amount * 0.0015 + rateMotion * 0.003);
   drawViewFrame(
     breathPanel,
-    "05",
     "BREATH / RHYTHM",
     `${breathLabel(flow).toUpperCase()} · ${harmonicaBluesRhythm(state.bluesRhythmId).label.toUpperCase()}`,
     "#69d5dd",
@@ -2084,7 +2224,6 @@ function drawPitchMap(model) {
   const overbendTarget = harmonicaOverbendTarget(state, state.hole, direction);
   drawViewFrame(
     bendPanel,
-    "03",
     "BEND / REEDS",
     `H${state.hole} ${directionLabel} · ${available || 0} STOPS`,
     directionColor,
@@ -2646,7 +2785,6 @@ function handleMidiInput(event) {
   if (isNoteOn) {
     const reed = nearestReedForMidi(note);
     if (!reed) return;
-    if (midiBreath && midiBreath.owner !== owner) cancelManualBreath({ present: false });
     midiBreath = { owner, note, direction: reed.direction };
     const velocity = clamp((Number(message.velocity) || 1) / 127, 0.01, 1);
     state = sanitizeHarmonicaState({
