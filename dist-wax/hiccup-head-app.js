@@ -3232,13 +3232,13 @@ function soundOptions(selectedId = "") {
 function compactSoundOptions(selectedId = "") {
   const emptyOption = document.createElement("option");
   emptyOption.value = "";
-  emptyOption.textContent = "—";
+  emptyOption.textContent = "+";
   emptyOption.selected = !selectedId;
   if (!selectedId || !sequenceSoundNumberById.has(selectedId)) return [emptyOption];
   const sound = hiccupHeadSound(selectedId);
   const selectedOption = document.createElement("option");
   selectedOption.value = sound.id;
-  selectedOption.textContent = sequenceSoundNumberById.get(sound.id);
+  selectedOption.textContent = "⌄";
   selectedOption.title = sound.subtitle;
   selectedOption.selected = true;
   return [emptyOption, selectedOption];

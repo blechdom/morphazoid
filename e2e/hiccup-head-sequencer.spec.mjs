@@ -12,6 +12,10 @@ test.describe("Hiccup Head single-lane sequencer", () => {
     await expect(slots).toHaveCount(16);
     await expect(grid.locator(".hiccup-head-grid-row")).toHaveCount(1);
     await expect(grid.locator(".hiccup-head-step-number")).toHaveCount(0);
+    await expect(grid.locator(".hiccup-head-step-sound-number").first()).toHaveText(/^\d{2}$/);
+    await expect(
+      grid.locator(".hiccup-head-step-sound-select").first().locator("option:checked"),
+    ).toHaveText("⌄");
 
     const firstCellBox = await grid.locator(".hiccup-head-step-cell").first().boundingBox();
     const lastCellBox = await grid.locator(".hiccup-head-step-cell").last().boundingBox();
@@ -33,6 +37,7 @@ test.describe("Hiccup Head single-lane sequencer", () => {
     const hitMark = trigger.locator(".hiccup-head-step-hit-mark");
     await expect(trigger).toHaveAttribute("data-active", "false");
     await expect(hitMark).toBeHidden();
+    await expect(selector.locator("option:checked")).toHaveText("+");
     await expect(page.locator("#selectedStepVelocity")).toHaveCount(0);
 
     const firstLaneBox = await lanes.first().boundingBox();

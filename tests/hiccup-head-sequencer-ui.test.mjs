@@ -135,18 +135,23 @@ test("continuous step volume uses zero as the only off state and draws an X hand
   assert.doesNotMatch(functionNamed(app, "renderCell"), /button\.title\s*=/);
 });
 
-test("collapsed sound choices and side pads share one visible sound number", async () => {
+test("each step shows its sound number once while collapsed choices remain recognizable", async () => {
   const { app } = await readSequencerSources();
   const compactOptions = functionNamed(app, "compactSoundOptions");
+  const gridBuilder = functionNamed(app, "buildSequenceGrid");
   const padBuilder = functionNamed(app, "buildPadGrid");
 
   assert.ok(compactOptions, "compactSoundOptions must remain independently testable");
-  assert.match(compactOptions, /textContent\s*=\s*sequenceSoundNumberById\.get\(sound\.id\)/);
+  assert.doesNotMatch(compactOptions, /textContent\s*=\s*sequenceSoundNumberById\.get\(sound\.id\)/);
+  assert.match(compactOptions, /emptyOption\.textContent\s*=\s*["']\+["']/);
+  assert.match(compactOptions, /selectedOption\.textContent\s*=\s*["']⌄["']/);
   assert.doesNotMatch(
     compactOptions,
     /textContent\s*=\s*sequenceSoundLabel\(sound\)/,
     "the collapsed value should not spend horizontal space on the sound name",
   );
+  assert.ok(gridBuilder, "buildSequenceGrid must remain independently testable");
+  assert.match(gridBuilder, /soundNumber\.className\s*=\s*["']hiccup-head-step-sound-number["']/);
   assert.ok(padBuilder, "buildPadGrid must remain independently testable");
   assert.match(padBuilder, /sequenceSoundNumberById\.get\(sound\.id\)/);
   assert.match(padBuilder, /(?:number|badge)\.textContent\s*=\s*sequenceSoundNumberById\.get\(sound\.id\)/i);
