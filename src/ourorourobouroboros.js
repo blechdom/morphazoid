@@ -55,6 +55,8 @@ const RATTLE_BODY_MIXES = Object.freeze([1, 0.96, 0.82, 0.28]);
 const RATTLE_HARDNESSES = Object.freeze([0.25, 0.42, 0.7, 0.96]);
 
 export const OUROBOROUSEL_PHASE_SEED = 0.1375035237;
+export const OUROBOROUSEL_OUTPUT_CEILING = 0.92;
+export const OUROBOROUSEL_MAX_LEVEL = 1;
 export const OUROBOROUSEL_MATERIAL_MODES = Object.freeze([
   "notes",
   "drums",
@@ -77,7 +79,7 @@ export const OUROBOROUSEL_DEFAULTS = Object.freeze({
   spread: 0.48,
   brightness: 0.68,
   cutoff: 12_000,
-  level: 0.52,
+  level: OUROBOROUSEL_MAX_LEVEL,
 });
 
 export const OUROBOROUSEL_PRESETS = Object.freeze([
@@ -119,7 +121,6 @@ export const OUROBOROUSEL_PRESETS = Object.freeze([
     spread: 0.64,
     brightness: 0.82,
     cutoff: 16_000,
-    level: 0.46,
   }),
   Object.freeze({
     id: "againaconda",
@@ -137,7 +138,6 @@ export const OUROBOROUSEL_PRESETS = Object.freeze([
     spread: 0.25,
     brightness: 0.34,
     cutoff: 7_200,
-    level: 0.58,
   }),
   Object.freeze({
     id: "oops-all-feedback",
@@ -155,7 +155,6 @@ export const OUROBOROUSEL_PRESETS = Object.freeze([
     spread: 0.72,
     brightness: 0.9,
     cutoff: 17_000,
-    level: 0.44,
   }),
   Object.freeze({
     id: "no-exit-only-snare",
@@ -174,7 +173,6 @@ export const OUROBOROUSEL_PRESETS = Object.freeze([
     spread: 0.82,
     brightness: 0.74,
     cutoff: 14_000,
-    level: 0.43,
   }),
 ]);
 
@@ -298,7 +296,12 @@ export function sanitizeOuroborouselParams(params = {}) {
       OUROBOROUSEL_DEFAULTS.brightness,
     ),
     cutoff: clamp(params.cutoff, 800, 18_000, OUROBOROUSEL_DEFAULTS.cutoff),
-    level: clamp(params.level, 0, 0.82, OUROBOROUSEL_DEFAULTS.level),
+    level: clamp(
+      params.level,
+      0,
+      OUROBOROUSEL_MAX_LEVEL,
+      OUROBOROUSEL_DEFAULTS.level,
+    ),
   });
 }
 
@@ -943,11 +946,16 @@ export function calculateOuroborouselLayers({
 function createSoftCeilingCurve(
   length = 2_049,
   drive = 1.4,
-  ceiling = 0.92,
+  ceiling = OUROBOROUSEL_OUTPUT_CEILING,
 ) {
   const size = Math.max(33, Math.round(clamp(length, 33, 65_537, 2_049)));
   const safeDrive = clamp(drive, 0.5, 4, 1.4);
-  const safeCeiling = clamp(ceiling, 0.5, 0.98, 0.92);
+  const safeCeiling = clamp(
+    ceiling,
+    0.5,
+    0.98,
+    OUROBOROUSEL_OUTPUT_CEILING,
+  );
   const scale = Math.tanh(safeDrive);
   const curve = new Float32Array(size);
   for (let index = 0; index < size; index += 1) {
@@ -2196,6 +2204,7 @@ export class OuroborouselAudio {
         .connect(lowpass)
         .connect(compressor)
         .connect(ceiling)
+        // Unity exposes only the headroom already protected by this ceiling.
         .connect(master)
         .connect(analyser);
       this.releaseAudioOutput = connectAudioOutput(context, analyser, {

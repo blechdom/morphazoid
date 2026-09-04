@@ -4,7 +4,9 @@ import test from "node:test";
 
 import {
   OUROBOROUSEL_DEFAULTS,
+  OUROBOROUSEL_MAX_LEVEL,
   OUROBOROUSEL_MATERIAL_MODES,
+  OUROBOROUSEL_OUTPUT_CEILING,
   OUROBOROUSEL_PHASE_SEED,
   OUROBOROUSEL_PRESETS,
   OuroborouselAudio,
@@ -99,7 +101,7 @@ test("Ourorourobouroboros parameters are finite, bounded, integral where require
   assert.equal(sanitized.spread, 1);
   assert.equal(sanitized.brightness, 0);
   assert.equal(sanitized.cutoff, 18_000);
-  assert.equal(sanitized.level, 0.82);
+  assert.equal(sanitized.level, OUROBOROUSEL_MAX_LEVEL);
   assert.ok(Object.isFrozen(sanitized));
   for (const materialMode of OUROBOROUSEL_MATERIAL_MODES) {
     assert.equal(
@@ -306,9 +308,15 @@ test("defaults match the page contract and whimsical presets are complete", () =
     spread: 0.48,
     brightness: 0.68,
     cutoff: 12_000,
-    level: 0.52,
+    level: 1,
   });
   assert.ok(Object.isFrozen(OUROBOROUSEL_DEFAULTS));
+  assert.equal(OUROBOROUSEL_MAX_LEVEL, 1);
+  assert.equal(OUROBOROUSEL_OUTPUT_CEILING, 0.92);
+  assert.ok(
+    OUROBOROUSEL_OUTPUT_CEILING * OUROBOROUSEL_MAX_LEVEL < 1,
+    "unity master must retain the output ceiling's clipping headroom",
+  );
   assert.deepEqual(OUROBOROUSEL_MATERIAL_MODES, ["notes", "drums", "combo"]);
   assert.ok(Object.isFrozen(OUROBOROUSEL_MATERIAL_MODES));
   assert.ok(Object.isFrozen(OUROBOROUSEL_PRESETS));
@@ -331,6 +339,11 @@ test("defaults match the page contract and whimsical presets are complete", () =
     for (const key of Object.keys(OUROBOROUSEL_DEFAULTS)) {
       assert.equal(safe[key], preset[key], `${preset.id}.${key}`);
     }
+    assert.equal(
+      preset.level,
+      OUROBOROUSEL_MAX_LEVEL,
+      `${preset.id} wastes protected output headroom`,
+    );
     if (preset.materialMode === "drums") {
       const fusionOffset = Math.log2(preset.fusionPoint / preset.centerRate);
       assert.ok(
@@ -342,10 +355,11 @@ test("defaults match the page contract and whimsical presets are complete", () =
 });
 
 test("the new page wires its recursive rail, ring stepper, transport, controls, and reset accessibly", async () => {
-  const [markup, app, styles] = await Promise.all([
+  const [markup, app, styles, engine] = await Promise.all([
     readFile(new URL("ourorourobouroboros.html", ROOT), "utf8"),
     readFile(new URL("ourorourobouroboros-app.js", ROOT), "utf8"),
     readFile(new URL("ourorourobouroboros.css", ROOT), "utf8"),
+    readFile(new URL("src/ourorourobouroboros.js", ROOT), "utf8"),
   ]);
 
   assert.match(markup, /<title>Ourorourobouroboros — Morphazoid<\/title>/);
@@ -359,6 +373,13 @@ test("the new page wires its recursive rail, ring stepper, transport, controls, 
   assert.match(markup, /<canvas[^>]+id="stage"[^>]+role="slider"/);
   assert.match(markup, /id="transportButton"[^>]+data-primary-transport/);
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
+  assert.match(markup, /id="levelOut"[^>]*>100%<\/output>/);
+  assert.match(markup, /id="level"[^>]+max="1"[^>]+value="1"/);
+  assert.match(
+    engine,
+    /\.connect\(compressor\)\s*\.connect\(ceiling\)[\s\S]*?\.connect\(master\)/,
+    "the unity master must remain downstream of the protected ceiling",
+  );
   assert.match(markup, /id="liveStatus"[^>]+aria-live="polite"/);
   assert.match(markup, /id="soundSummary">open · bright<\/span>/);
   assert.match(
