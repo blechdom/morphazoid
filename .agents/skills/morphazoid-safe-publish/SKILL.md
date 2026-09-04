@@ -5,7 +5,10 @@ description: Integrate, commit, push, or publish Morphazoid changes from a share
 
 # Morphazoid safe publish
 
-Publish the requested scope without consuming or overwriting another task's work.
+Perform the requested Git or publication operation without consuming or
+overwriting another task's work. Treat each verb as a separate authorization:
+fetch/pull, integrate, stage, commit, push, deploy, and public smoke testing do
+not imply one another. Stop at the last operation the user requested.
 
 ## Audit before mutation
 
@@ -28,8 +31,16 @@ Use a temporary clean worktree when that isolates publishing more safely than di
 
 Run checks appropriate to changed behavior and the production path. Stage explicit files, inspect `git diff --cached`, and compare staged paths with declared scope. Do not include unrelated edits, local configuration, secrets, screenshots, caches, or temporary build output.
 
-## Commit, push, and prove publication
+## Perform only the authorized terminal actions
 
-Create a focused commit message. Push normally; never force-push to bypass non-fast-forward rejection. Verify the intended remote branch contains the commit. If deployment is configured, inspect the run for that exact commit and perform a small production smoke check when practical.
+If a commit was requested, create a focused commit message. If a push was
+requested, push normally and never force-push to bypass a non-fast-forward
+rejection; then verify that the intended remote branch contains the commit. If
+deployment was requested or is an explicitly documented consequence of the
+authorized push, inspect the run for that exact commit and perform a small
+production smoke check when practical. A clean handoff request authorizes a
+report or prepared worktree, not an unrequested commit, push, or deployment.
 
-Report branch, commit hash, pushed paths, verification, deployment status, and preserved local work. "Push attempted" is not "published."
+Report the applicable branch, commit hash, scoped paths, verification,
+deployment status, and preserved local work. Do not report an unrequested stage
+as completed. "Push attempted" is not "published."

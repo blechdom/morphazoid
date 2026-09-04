@@ -1,11 +1,14 @@
 ---
 name: morphazoid-idea-development
-description: Develop or refine a Morphazoid browser-instrument idea from loose musical, visual, biological, geometric, or gestural language. Use for new instruments, major interaction concepts, parameter mappings, presets, modulation, animation, or sound-and-graphic redesign. Do not use for a small isolated bug whose intended behavior is already clear.
+description: Frame or refine a Morphazoid browser-instrument concept from loose musical, visual, biological, geometric, or gestural language before implementation direction is settled. Use when the core gesture, visual-audio mapping, model, or identity needs design; use morphazoid-instrument-development once the implementation or lifecycle scope is concrete. Do not use for a small isolated bug whose intended behavior is already clear.
 ---
 
 # Morphazoid idea development
 
-Turn the idea into a playable relationship between gesture, image, and sound. Preserve its strange character instead of reducing it to a conventional synthesizer panel.
+Turn the idea into a buildable, playable relationship between gesture, image,
+and sound. Preserve its strange character instead of reducing it to a
+conventional synthesizer panel. If implementation is requested after the
+direction is concrete, continue with `morphazoid-instrument-development`.
 
 ## Read the neighborhood
 
@@ -47,10 +50,19 @@ Favor coherent many-to-many mappings over unrelated knobs. Every prominent viewp
 - Preserve useful private state across mode changes.
 - Keep randomization bounded and reversible; do not randomize transport unless requested.
 
-## Make and verify a playable first version
+## Produce the design handoff
 
-Implement the smallest version expressing the full loop: gesture, visual response, sound response, state transition, and recovery. Then deepen range, presets, modulation, and polish without replacing established sounds the user wants preserved.
+Do not edit implementation merely because the user asked to explore or refine an
+idea. Return the compact instrument framing, mapping table, evidence and
+non-claims, smallest playable vertical slice, likely risks, and acceptance
+scenes. Identify any decision that genuinely requires the user.
 
-Test representative extremes, rapid preset/mode changes during playback, repeated hold/release gestures, randomization, and cleanup. Check desktop, portrait, and short landscape. Add pure tests for mappings or generators and interaction tests for continuity. Listen or measure output when labels alone cannot prove sound changed.
+When the user also requests a build, hand the concrete design to
+`morphazoid-instrument-development`; that workflow owns edits, integration, and
+verification. Suggested acceptance scenes should cover representative extremes,
+live preset or mode changes, repeated hold/release gestures, randomization,
+cleanup, desktop, portrait, short landscape, and listening or measurement where
+labels cannot prove sound changed.
 
-End with what became playable, what is researched versus expressive, and what was verified.
+End with what is ready to build and what remains unresolved, not with claims that
+an unimplemented idea is already playable or verified.
