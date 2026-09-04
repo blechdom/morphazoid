@@ -28,66 +28,91 @@ test.describe("Hiccup Head single-lane sequencer", () => {
     await page.locator("#clearPatternButton").click();
     const selector = grid.locator(".hiccup-head-step-sound-select").first();
     const trigger = grid.locator(".hiccup-head-step-cell").first();
+    const cells = grid.locator(".hiccup-head-step-cell");
+    const lanes = grid.locator(".hiccup-head-step-volume-lane");
     const hitMark = trigger.locator(".hiccup-head-step-hit-mark");
     await expect(trigger).toHaveAttribute("data-active", "false");
     await expect(hitMark).toBeHidden();
+    await expect(page.locator("#selectedStepVelocity")).toHaveCount(0);
 
-    const emptyCellBox = await trigger.boundingBox();
-    await trigger.click({
-      position: { x: emptyCellBox.width / 2, y: emptyCellBox.height * 0.33 },
-    });
+    const firstLaneBox = await lanes.first().boundingBox();
+    const midpointY = firstLaneBox.y + firstLaneBox.height * 0.5;
+    await page.mouse.click(firstLaneBox.x + firstLaneBox.width / 2, midpointY);
     await expect(trigger).toHaveAttribute("data-active", "true");
     await expect(hitMark).toBeVisible();
     const clickedVelocity = Number(await trigger.evaluate((cell) => (
       cell.style.getPropertyValue("--step-velocity")
     )));
-    expect(clickedVelocity).toBeGreaterThan(0.64);
-    expect(clickedVelocity).toBeLessThan(0.7);
+    expect(clickedVelocity).toBeCloseTo(0.5, 2);
+    await expect(trigger.locator(".hiccup-head-step-velocity-number")).toHaveText("50%");
+    await expect(trigger).not.toHaveAttribute("title", /.+/);
+    const midpointMarkBox = await hitMark.boundingBox();
+    expect(Math.abs(midpointMarkBox.y + midpointMarkBox.height / 2 - midpointY)).toBeLessThan(2);
     await expect(page.locator("#selectedStepContext")).toBeVisible();
+    await expect(page.locator("#selectedStepContext")).not.toContainText(/volume/i);
 
+    const clearLaneBox = await lanes.first().boundingBox();
     await page.mouse.move(
-      emptyCellBox.x + emptyCellBox.width / 2,
-      emptyCellBox.y + emptyCellBox.height * 0.33,
+      clearLaneBox.x + clearLaneBox.width / 2,
+      clearLaneBox.y + clearLaneBox.height * 0.5,
     );
     await page.mouse.down();
     await page.mouse.move(
-      emptyCellBox.x + emptyCellBox.width / 2,
-      emptyCellBox.y + emptyCellBox.height - 1,
+      clearLaneBox.x + clearLaneBox.width / 2,
+      clearLaneBox.y + clearLaneBox.height,
     );
     await page.mouse.up();
     await expect(trigger).toHaveAttribute("data-active", "false");
     await expect(hitMark).toBeHidden();
     await expect(selector).toHaveValue("");
 
-    const velocitySlider = page.locator("#selectedStepVelocity");
-    await expect(velocitySlider).toBeEnabled();
-    await velocitySlider.evaluate((input) => {
-      input.value = "0.01";
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await expect(trigger).toHaveAttribute("data-active", "true");
-    await expect(hitMark).toBeVisible();
-    const lowMarkBox = await hitMark.boundingBox();
-    const previewBox = await trigger.locator("xpath=../*[@class='hiccup-head-step-audition']").boundingBox();
-    expect(lowMarkBox.y + lowMarkBox.height).toBeLessThanOrEqual(previewBox.y);
-    await velocitySlider.evaluate((input) => {
-      input.value = "0";
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await expect(trigger).toHaveAttribute("data-active", "false");
-    await expect(hitMark).toBeHidden();
-    await velocitySlider.evaluate((input) => {
-      input.value = "0.64";
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await expect(trigger).toHaveAttribute("data-active", "true");
-    await expect(hitMark).toBeVisible();
-    await velocitySlider.evaluate((input) => {
-      input.value = "0";
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await expect(trigger).toHaveAttribute("data-active", "false");
-    await expect(hitMark).toBeHidden();
+    const paintStart = await lanes.nth(0).boundingBox();
+    const paintEnd = await lanes.nth(5).boundingBox();
+    await page.mouse.move(
+      paintStart.x + paintStart.width / 2,
+      paintStart.y + paintStart.height * 0.25,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      paintEnd.x + paintEnd.width / 2,
+      paintEnd.y + paintEnd.height * 0.75,
+      { steps: 1 },
+    );
+    await expect(page.locator("#selectedStepContext")).toBeHidden();
+    for (let step = 0; step < 6; step += 1) {
+      await expect(cells.nth(step)).toHaveAttribute("data-active", "true");
+    }
+    await page.mouse.up();
+    const paintedVelocities = await cells.evaluateAll((stepCells) => stepCells.slice(0, 6).map(
+      (cell) => Number(cell.style.getPropertyValue("--step-velocity")),
+    ));
+    expect(paintedVelocities).toEqual([0.75, 0.65, 0.55, 0.45, 0.35, 0.25]);
+    await expect(page.locator("#selectedStepContext")).toBeVisible();
+
+    const secondSelector = grid.locator(".hiccup-head-step-sound-select").nth(1);
+    await selector.focus();
+    await selector.selectOption("kick");
+    await secondSelector.focus();
+    await secondSelector.selectOption("kiss");
+    const secondLaneBox = await lanes.nth(1).boundingBox();
+    await page.mouse.move(
+      secondLaneBox.x + secondLaneBox.width / 2,
+      secondLaneBox.y + secondLaneBox.height * 0.4,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      secondLaneBox.x + secondLaneBox.width / 2,
+      secondLaneBox.y + secondLaneBox.height,
+    );
+    await expect(secondSelector).toHaveValue("");
+    await page.mouse.move(
+      secondLaneBox.x + secondLaneBox.width / 2,
+      secondLaneBox.y + secondLaneBox.height * 0.6,
+    );
+    await expect(secondSelector).toHaveValue("kiss");
+    await page.mouse.up();
+    await expect(selector).toHaveValue("kick");
+    await expect(secondSelector).toHaveValue("kiss");
 
     await selector.focus();
     await expect(selector.locator("option")).toHaveCount(53);

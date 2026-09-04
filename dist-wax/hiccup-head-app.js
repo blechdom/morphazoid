@@ -2830,17 +2830,13 @@ function renderCell(button, event, ownership = null) {
   button.dataset.level = String(level);
   button.dataset.active = String(active);
   button.style.setProperty("--step-velocity", String(clamp(velocity, 0, 1)));
-  button.style.setProperty(
-    "--step-marker-position",
-    `${(clamp(velocity, 0.04, 0.96) * 100).toFixed(2)}%`,
-  );
   button.setAttribute("aria-pressed", String(active));
   const hitMark = button.querySelector(".hiccup-head-step-hit-mark");
   if (hitMark) hitMark.hidden = !active;
   const number = button.querySelector(".hiccup-head-step-sound-number");
   if (number) number.textContent = event ? sequenceSoundNumberById.get(sound.id) : "—";
   const velocityLabel = button.querySelector(".hiccup-head-step-velocity-number");
-  if (velocityLabel) velocityLabel.textContent = String(Math.round(velocity * 100));
+  if (velocityLabel) velocityLabel.textContent = `${Math.round(velocity * 100)}%`;
   const previewButton = button.closest(".hiccup-head-step-slot")
     ?.querySelector(".hiccup-head-step-audition");
   if (previewButton) {
@@ -2855,12 +2851,11 @@ function renderCell(button, event, ownership = null) {
   }
   const continuation = ownership?.offset > 0;
   const label = continuation
-    ? `${sequenceSoundLabel(sound)}, step ${step + 1}, ${ownership.mode === "repeat" ? "repeated" : "held"} from step ${ownership.anchorStep + 1}. Activate to edit the anchor velocity.`
+    ? `${sequenceSoundLabel(sound)}, step ${step + 1}, ${ownership.mode === "repeat" ? "repeated" : "held"} from step ${ownership.anchorStep + 1}. Pointer painting splits this into its own step; keyboard volume edits the anchor.`
     : event
       ? cellLabel(sound, step, velocity)
       : cellLabel(sound, step, 0);
   button.setAttribute("aria-label", label);
-  button.title = label;
 }
 
 function updateGridPlayhead() {
@@ -2958,7 +2953,14 @@ function focusGridCell(step) {
 function setSequenceStepVelocity(
   rawStep,
   rawVelocity,
-  { soundId = "", audition = false, announceState = false } = {},
+  {
+    soundId = "",
+    audition = false,
+    announceState = false,
+    markCustom = true,
+    rebuildOwnership = true,
+    render = true,
+  } = {},
 ) {
   const step = sequenceAnchorForStep(rawStep);
   const previousEvent = patternEventForStep(step);
@@ -2979,35 +2981,109 @@ function setSequenceStepVelocity(
     sequenceStepMetadata[step] = { spanSteps: 1, mode: "hold" };
   }
 
-  markPatternCustom();
-  rebuildSequenceStepOwnership();
-  if (Boolean(previousEvent) !== active || previousMetadata.spanSteps > 1) {
-    renderPattern();
-  } else {
-    renderPatternColumn(step);
-    updateSelectedStepContext();
+  if (markCustom) markPatternCustom();
+  if (rebuildOwnership) rebuildSequenceStepOwnership();
+  const requiresFullRender = previousMetadata.spanSteps > 1;
+  if (render) {
+    if (requiresFullRender) {
+      renderPattern();
+    } else {
+      renderPatternColumn(step);
+      updateSelectedStepContext();
+    }
   }
   if (audition && active) triggerSound(sound.id, velocity);
   if (announceState) announce(cellLabel(sound, step, velocity));
-  return { active, sound, step, velocity };
+  return { active, requiresFullRender, sound, step, velocity };
 }
 
 function sequenceVelocityFromPointer(cell, clientY) {
-  const rect = cell.getBoundingClientRect();
+  const lane = cell.querySelector(".hiccup-head-step-volume-lane");
+  const rect = lane?.getBoundingClientRect();
+  if (!rect) return 0;
   if (!rect.height) return 0;
   const normalized = clamp((rect.bottom - clientY) / rect.height, 0, 1);
-  // A small bottom landing zone makes an exact rest practical on touchscreens.
-  if (normalized <= 0.025) return 0;
   return Math.round(normalized * 100) / 100;
 }
 
-function applySequenceVelocityPointer(event) {
+function sequencePaintTargetAtX(edit, clientX) {
+  return edit.targets.find(({ rect }) => clientX >= rect.left && clientX <= rect.right) ?? null;
+}
+
+function paintSequenceVelocityStep(edit, physicalStep, velocity) {
+  const ownership = sequenceStepOwnership[physicalStep];
+  if (ownership?.offset > 0) {
+    releaseOwnedContinuation(physicalStep);
+    rebuildSequenceStepOwnership();
+    edit.needsOwnershipRebuild = false;
+    edit.requiresFullRender = true;
+  }
+  const currentEvent = patternEventForStep(physicalStep);
+  const result = setSequenceStepVelocity(physicalStep, velocity, {
+    markCustom: false,
+    rebuildOwnership: false,
+    render: false,
+    soundId: currentEvent?.sound.id ?? edit.soundIds[physicalStep] ?? edit.soundId,
+  });
+  edit.needsOwnershipRebuild = true;
+  if (result.requiresFullRender) {
+    rebuildSequenceStepOwnership();
+    edit.needsOwnershipRebuild = false;
+  }
+  edit.changedSteps.add(result.step);
+  edit.requiresFullRender ||= result.requiresFullRender;
+}
+
+function renderSequenceVelocityPaint(edit) {
+  if (!edit.changedSteps.size && !edit.requiresFullRender) return;
+  markPatternCustom();
+  if (edit.needsOwnershipRebuild) rebuildSequenceStepOwnership();
+  if (edit.requiresFullRender) {
+    renderPattern();
+  } else {
+    for (const step of edit.changedSteps) renderPatternColumn(step);
+    updateSelectedStepContext();
+  }
+  edit.changedSteps.clear();
+  edit.needsOwnershipRebuild = false;
+  edit.requiresFullRender = false;
+}
+
+function applySequenceVelocityPointer(event, fallbackCell = null) {
   const edit = sequenceVelocityPointer;
   if (!edit || event.pointerId !== edit.pointerId) return;
-  const velocity = sequenceVelocityFromPointer(edit.cell, event.clientY);
-  if (velocity === edit.velocity) return;
-  edit.velocity = velocity;
-  setSequenceStepVelocity(edit.step, velocity);
+  const target = sequencePaintTargetAtX(edit, event.clientX)
+    ?? (fallbackCell ? { cell: fallbackCell, step: Number(fallbackCell.dataset.step) } : null);
+  if (!target) return;
+  const velocity = sequenceVelocityFromPointer(target.cell, event.clientY);
+  const previous = edit.lastSample;
+
+  if (target.cell !== edit.activeCell) {
+    edit.activeCell?.classList.remove("is-velocity-editing");
+    target.cell.classList.add("is-velocity-editing");
+    edit.activeCell = target.cell;
+  }
+
+  if (!previous) {
+    paintSequenceVelocityStep(edit, target.step, velocity);
+  } else if (previous.step === target.step) {
+    if (previous.velocity === velocity) return;
+    paintSequenceVelocityStep(edit, target.step, velocity);
+  } else {
+    const distance = Math.abs(target.step - previous.step);
+    const direction = Math.sign(target.step - previous.step);
+    for (let offset = 1; offset <= distance; offset += 1) {
+      const progress = offset / distance;
+      const step = previous.step + direction * offset;
+      const interpolatedVelocity = Math.round(
+        (previous.velocity + (velocity - previous.velocity) * progress) * 100,
+      ) / 100;
+      paintSequenceVelocityStep(edit, step, interpolatedVelocity);
+    }
+  }
+
+  edit.lastSample = { step: target.step, velocity };
+  renderSequenceVelocityPaint(edit);
 }
 
 function handleSequenceVelocityPointerDown(event) {
@@ -3017,19 +3093,32 @@ function handleSequenceVelocityPointerDown(event) {
   if (event.button !== undefined && event.button !== 0) return;
   if (event.isPrimary === false) return;
   event.preventDefault();
-  const step = sequenceAnchorForStep(Number(cell.dataset.step));
-  selectSequenceStep(step);
+  const physicalStep = Number(cell.dataset.step);
+  const initialEvent = patternEventForStep(sequenceAnchorForStep(physicalStep));
+  const soundId = initialEvent?.sound.id ?? lastSequenceSoundId;
   setGridTabStop(cell);
-  cell.focus({ preventScroll: true });
   cell.classList.add("is-velocity-editing");
-  cell.setPointerCapture?.(event.pointerId);
+  grid.classList.add("is-velocity-painting");
   sequenceVelocityPointer = {
-    cell,
+    activeCell: cell,
+    changedSteps: new Set(),
+    lastSample: null,
+    needsOwnershipRebuild: false,
     pointerId: event.pointerId,
-    step,
-    velocity: -1,
+    requiresFullRender: false,
+    soundId,
+    soundIds: gridCellsByStep.map((_, step) => (
+      patternEventForStep(sequenceAnchorForStep(step))?.sound.id ?? soundId
+    )),
+    targets: gridCellsByStep.map((targetCell, step) => ({
+      cell: targetCell,
+      rect: targetCell.getBoundingClientRect(),
+      step,
+    })),
   };
-  applySequenceVelocityPointer(event);
+  cell.focus({ preventScroll: true });
+  grid.setPointerCapture?.(event.pointerId);
+  applySequenceVelocityPointer(event, cell);
 }
 
 function handleSequenceVelocityPointerMove(event) {
@@ -3041,17 +3130,25 @@ function handleSequenceVelocityPointerMove(event) {
 function handleSequenceVelocityPointerEnd(event) {
   const edit = sequenceVelocityPointer;
   if (!edit || event.pointerId !== edit.pointerId) return;
+  if (event.type === "pointerup") applySequenceVelocityPointer(event);
   sequenceVelocityPointer = null;
-  edit.cell.classList.remove("is-velocity-editing");
-  if (edit.cell.hasPointerCapture?.(event.pointerId)) {
-    edit.cell.releasePointerCapture?.(event.pointerId);
+  const grid = $("sequenceGrid");
+  edit.activeCell?.classList.remove("is-velocity-editing");
+  grid.classList.remove("is-velocity-painting");
+  if (grid.hasPointerCapture?.(event.pointerId)) {
+    grid.releasePointerCapture?.(event.pointerId);
   }
-  const finalEvent = patternEventForStep(edit.step);
-  if (event.type !== "pointercancel" && finalEvent) {
-    triggerSound(finalEvent.sound.id, finalEvent.velocity);
+  if (!edit.lastSample) {
+    updateSelectedStepContext();
+    return;
   }
+  selectSequenceStep(edit.lastSample.step);
+  if (event.type === "pointercancel") return;
+  const finalStep = sequenceAnchorForStep(edit.lastSample.step);
+  const finalEvent = patternEventForStep(finalStep);
+  if (finalEvent) triggerSound(finalEvent.sound.id, finalEvent.velocity);
   const sound = finalEvent?.sound ?? hiccupHeadSound(lastSequenceSoundId);
-  announce(cellLabel(sound, edit.step, finalEvent?.velocity ?? 0));
+  announce(cellLabel(sound, finalStep, finalEvent?.velocity ?? 0));
 }
 
 function handleGridKeydown(event) {
@@ -3091,6 +3188,7 @@ function handleSequenceGridFocus(event) {
   // open the contextual editor or visually alter the lane.
   const control = event.target.closest?.(".hiccup-head-step-cell, .hiccup-head-step-sound-select");
   if (!control || !$("sequenceGrid").contains(control)) return;
+  if (sequenceVelocityPointer && control.matches(".hiccup-head-step-cell")) return;
   selectSequenceStep(Number(control.dataset.step));
 }
 
@@ -3215,6 +3313,11 @@ function handleSequenceGridPickerClose(event) {
 function updateSelectedStepContext() {
   const context = $("selectedStepContext");
   if (!context) return;
+  if (sequenceVelocityPointer) {
+    context.hidden = true;
+    $("sequenceGrid")?.classList.remove("has-step-context");
+    return;
+  }
   if (selectedSequenceStep < 0) {
     context.hidden = true;
     $("sequenceGrid")?.classList.remove("has-step-context");
@@ -3233,7 +3336,7 @@ function updateSelectedStepContext() {
   context.hidden = false;
   const row = selectedSlot?.parentElement;
   if (row?.clientWidth) {
-    const contextWidth = Math.min(344, Math.max(240, row.clientWidth - 8));
+    const contextWidth = Math.min(280, Math.max(220, row.clientWidth - 8));
     const slotLeft = selectedSlot.offsetLeft;
     const desiredLeft = clamp(slotLeft, 4, Math.max(4, row.clientWidth - contextWidth - 4));
     context.style.width = `${contextWidth}px`;
@@ -3244,11 +3347,6 @@ function updateSelectedStepContext() {
     "aria-label",
     `Controls for selected step ${selectedSequenceStep + 1}${event ? `, ${sequenceSoundLabel(event.sound)}` : ", empty"}`,
   );
-  $("selectedStepVelocity").value = String(event?.velocity ?? 0);
-  $("selectedStepVelocity").disabled = false;
-  $("selectedStepVelocityOut").value = `${Math.round((event?.velocity ?? 0) * 100)}%`;
-  $("selectedStepVelocityOut").textContent = $("selectedStepVelocityOut").value;
-  updateRangeFill($("selectedStepVelocity"));
   $("selectedStepSpan").max = String(maximumSpan);
   $("selectedStepSpan").value = String(effectiveSpan);
   $("selectedStepSpan").disabled = !event;
@@ -3264,11 +3362,6 @@ function updateSelectedStepContext() {
     || Boolean(patternEventForStep(selectedSequenceStep - 1))
     || Boolean(sequenceStepOwnership[selectedSequenceStep - 1]);
   $("extendStepRightButton").disabled = !event || effectiveSpan >= maximumSpan;
-}
-
-function setSelectedStepVelocity(value, { announceState = false } = {}) {
-  if (selectedSequenceStep < 0) return;
-  setSequenceStepVelocity(selectedSequenceStep, value, { announceState });
 }
 
 function setSelectedStepSpan(value) {
@@ -3343,12 +3436,6 @@ function previewSequenceStep(step) {
 }
 
 function bindSequenceStepContextControls() {
-  $("selectedStepVelocity").addEventListener("input", () => {
-    setSelectedStepVelocity($("selectedStepVelocity").value);
-  });
-  $("selectedStepVelocity").addEventListener("change", () => {
-    setSelectedStepVelocity($("selectedStepVelocity").value, { announceState: true });
-  });
   $("selectedStepSpan").addEventListener("input", () => {
     setSelectedStepSpan($("selectedStepSpan").value);
   });

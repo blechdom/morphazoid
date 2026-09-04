@@ -92,9 +92,16 @@ test("continuous step volume uses zero as the only off state and draws an X hand
   const { app, css, html } = await readSequencerSources();
   const velocitySetter = functionNamed(app, "setSequenceStepVelocity");
   const pointerMapping = functionNamed(app, "sequenceVelocityFromPointer");
+  const pointerPainter = functionNamed(app, "applySequenceVelocityPointer");
+  const stepPainter = functionNamed(app, "paintSequenceVelocityStep");
+  const paintRenderer = functionNamed(app, "renderSequenceVelocityPaint");
   const gridBuilder = functionNamed(app, "buildSequenceGrid");
 
-  assert.match(html, /id="selectedStepVelocity"[^>]*min="0"[^>]*max="1"[^>]*step="0\.01"/);
+  assert.doesNotMatch(
+    html,
+    /id="selectedStepVelocity"|hiccup-head-step-editor-velocity/,
+    "volume belongs inside each step rather than in a floating editor",
+  );
   assert.ok(velocitySetter, "step volume needs one canonical setter");
   assert.match(velocitySetter, /clamp\(numericVelocity, 0, 1\)/);
   assert.match(velocitySetter, /const active = velocity > 0/);
@@ -103,9 +110,17 @@ test("continuous step volume uses zero as the only off state and draws an X hand
   assert.doesNotMatch(velocitySetter, /cycleStepVelocity|enabled|disabled/);
 
   assert.ok(pointerMapping, "pointer height needs a direct volume mapping");
+  assert.match(pointerMapping, /querySelector\("\.hiccup-head-step-volume-lane"\)/);
   assert.match(pointerMapping, /\(rect\.bottom - clientY\) \/ rect\.height/);
-  assert.match(pointerMapping, /return 0/);
   assert.match(pointerMapping, /Math\.round\(normalized \* 100\) \/ 100/);
+  assert.ok(pointerPainter, "held pointer movement needs a grid-wide volume painter");
+  assert.match(pointerPainter, /sequencePaintTargetAtX\(edit, event\.clientX\)/);
+  assert.match(pointerPainter, /for \(let offset = 1; offset <= distance; offset \+= 1\)/);
+  assert.match(pointerPainter, /previous\.velocity \+ \(velocity - previous\.velocity\) \* progress/);
+  assert.match(stepPainter, /soundIds\[physicalStep\]/, "mixed sounds must survive touching zero");
+  assert.match(stepPainter, /rebuildOwnership:\s*false/);
+  assert.match(stepPainter, /markCustom:\s*false/);
+  assert.match(paintRenderer, /if \(edit\.needsOwnershipRebuild\) rebuildSequenceStepOwnership\(\)/);
   assert.match(app, /addEventListener\("pointerdown", handleSequenceVelocityPointerDown\)/);
   assert.match(app, /addEventListener\("pointermove", handleSequenceVelocityPointerMove\)/);
   assert.match(app, /addEventListener\("pointerup", handleSequenceVelocityPointerEnd\)/);
@@ -113,8 +128,11 @@ test("continuous step volume uses zero as the only off state and draws an X hand
 
   assert.match(gridBuilder, /hitMark\.className = "hiccup-head-step-hit-mark"/);
   assert.match(gridBuilder, /hitMark\.textContent = "×"/);
-  assert.match(css, /\.hiccup-head-step-hit-mark\s*\{[\s\S]*?--step-marker-position/);
+  assert.match(css, /\.hiccup-head-step-hit-mark\s*\{[\s\S]*?var\(--step-velocity/);
+  assert.match(css, /\.hiccup-head-step-cell[\s\S]*?touch-action:\s*none/);
   assert.match(css, /\.hiccup-head-step-cell\[data-active="true"\]/);
+  assert.match(app, /velocityLabel\.textContent = `\$\{Math\.round\(velocity \* 100\)\}%`/);
+  assert.doesNotMatch(functionNamed(app, "renderCell"), /button\.title\s*=/);
 });
 
 test("collapsed sound choices and side pads share one visible sound number", async () => {
@@ -169,7 +187,7 @@ test("a dedicated step audition previews audio without editing the pattern", asy
   );
 });
 
-test("selected-step controls are contextual, complete, and reparented into the selected slot", async () => {
+test("span controls stay contextual while volume remains baked into each step", async () => {
   const { app, html } = await readSequencerSources();
   const contextMarkup = html.match(
     /<div\s+class=["']hiccup-head-step-context["'][\s\S]*?<\/div>\s*<div\s+class=["']hiccup-head-grid-scroll["']/,
@@ -180,7 +198,7 @@ test("selected-step controls are contextual, complete, and reparented into the s
   assert.doesNotMatch(html, /id=["']selectedStepLabel["']/);
   assert.ok(contextMarkup, "the contextual step controls need stable markup");
   assert.match(contextMarkup, /class=["']hiccup-head-step-context["']/);
-  assert.match(contextMarkup, /id=["']selectedStepVelocity["'][^>]*type=["']range["']/);
+  assert.doesNotMatch(contextMarkup, /Volume|selectedStepVelocity/i);
   assert.match(contextMarkup, /id=["']selectedStepSpan["'][^>]*type=["']range["'][^>]*min=["']1["'][^>]*max=["']8["']/);
   assert.match(contextMarkup, /option\s+value=["']hold["']/i);
   assert.match(contextMarkup, /option\s+value=["']repeat["']/i);
@@ -195,7 +213,6 @@ test("selected-step controls are contextual, complete, and reparented into the s
   );
 
   for (const controlId of [
-    "selectedStepVelocity",
     "selectedStepSpan",
     "selectedStepMode",
     "selectedStepClear",
