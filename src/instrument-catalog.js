@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260904-1";
+} from "../nav.js?v=catalog-20260904-2";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -522,6 +522,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Edits a sixteen-slot 808/909-style sample bank that can also replace the Lattice Drum Machine synth bank.",
     "Turn on audio or MIDI, hit a pad, then load or trim samples in the selected slot.",
     ["MIDI", "Computer keys", "File input"],
+  ),
+  "object-forge": define(
+    "Two-arch modal tooth instrument",
+    "Turns 32 individually playable upper and lower teeth into a two-layer dental marimba driven by a sample-free AudioWorklet physical model, editable damped modes, spatial excitation, and modal JSON exchange.",
+    "Turn on audio and tap, drag, brush, or chomp the teeth; choose a pitch distribution, then reshape the shared wood, glass, steel, ceramic, bronze, or imported modal body.",
+    ["Built-in source", "Pointer", "Physical-model DSP", "Sample-free AudioWorklet"],
   ),
 
   "sorting-algorithms": define(

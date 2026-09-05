@@ -30,6 +30,7 @@ const EXISTING_MIDI_CLIENTS = new Set([
 
 const ROUTE_ALIASES = Object.freeze({
   "algorithmic-sequencers": "sorting-algorithms",
+  dentaphone: "object-forge",
   "l-mic": "micmic",
 });
 

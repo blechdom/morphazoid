@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { fingerprintDentaphone } from "./fingerprint-dentaphone.mjs";
 import { fingerprintHiccupHead } from "./fingerprint-hiccup-head.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -133,7 +134,10 @@ export async function buildWaxSite(outputArgument = "dist-wax") {
     cwd: repositoryRoot,
     maxBuffer: 10 * 1024 * 1024,
   });
-  await fingerprintHiccupHead(outputDirectory);
+  await Promise.all([
+    fingerprintDentaphone(outputDirectory),
+    fingerprintHiccupHead(outputDirectory),
+  ]);
   return addWaxLayer(outputDirectory);
 }
 

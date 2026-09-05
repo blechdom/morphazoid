@@ -307,6 +307,12 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "karplus-carpet", label: "Karplus Carpet", href: "karplus-carpet.html" },
     { id: "surround-field", label: "Surround for Safety", href: "surround-field.html" },
     { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
+    {
+      id: "object-forge",
+      label: "Dentaphone",
+      href: "dentaphone.html",
+      imageHref: "assets/instruments/dentaphone.webp",
+    },
   ]),
   freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
     { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },

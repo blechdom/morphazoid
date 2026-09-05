@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 127);
+  assert.equal(INSTRUMENTS.length, 128);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -74,6 +74,8 @@ test("every instrument has factual card copy, a start action, traits, and a tran
         ? "assets/instruments/graph-synth.webp"
         : instrument.id === "jaw-jam"
           ? "assets/instruments/jaw-harp.webp"
+          : instrument.id === "object-forge"
+            ? "assets/instruments/dentaphone.webp"
           : `assets/instruments/${instrument.id}.webp`;
     assert.equal(instrument.imageHref, expectedImageHref);
 
@@ -150,6 +152,19 @@ test("temporary Misc group owns the six uncategorized instruments", () => {
     assert.deepEqual(instrumentById(id)?.tags.map(({ id: tagId }) => tagId), ["misc"]);
     assert.equal(instrumentById(id)?.status, null);
   }
+});
+
+test("Dentaphone catalogues its complete sample-free tooth instrument", () => {
+  const instrument = instrumentById("object-forge");
+  assert.equal(instrument?.label, "Dentaphone");
+  assert.equal(instrument?.href, "dentaphone.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/dentaphone.webp");
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["instruments"]);
+  assert.match(instrument?.description ?? "", /32 individually playable upper and lower teeth/i);
+  assert.ok(instrument?.features.includes("Physical-model DSP"));
+  assert.ok(instrument?.features.includes("Sample-free AudioWorklet"));
+  assert.equal(instrumentMidiCapabilityForId("object-forge")?.noteMode, "pitched");
+  assert.equal(instrumentMidiCapabilityForId("object-forge")?.computerKeyboardMode, "page");
 });
 
 test("Plasma Ball is an experiment with no secondary catalogue tags", () => {

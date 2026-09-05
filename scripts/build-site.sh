@@ -42,7 +42,7 @@ while IFS= read -r -d '' source_path; do
   esac
 
   case "$source_path" in
-    *.html|*.css|*.js|*.webp|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
+    *.html|*.css|*.js|*.webp|*.glb|*.LICENSE.txt|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
     vendor/tactile/LICENSE|\
     vendor/cmudict/cmudict-en-us.dict|\
     vendor/cmudict/LICENSE|\
@@ -170,6 +170,27 @@ for worktree_runtime_file in \
   src/throat-singing.js \
   THROAT_SINGING_RESEARCH.md \
   assets/instruments/throat-singing.webp \
+  dentaphone.html \
+  object-forge.html \
+  physical-sounds.css \
+  physical-sounds-app.js \
+  src/dentaphone.js \
+  src/dentaphone-webgl.js \
+  src/physical-sounds.js \
+  src/physical-sounds-processor.js \
+  assets/instruments/dentaphone.webp \
+  assets/dentaphone-upper.webp \
+  assets/dentaphone-lower.webp \
+  assets/dentaphone-chew-apple.webp \
+  assets/dentaphone-chew-crystal.webp \
+  assets/dentaphone-chew-gear.webp \
+  assets/dentaphone-chew-seedpod.webp \
+  assets/dentaphone-toothbrush.webp \
+  assets/models/dentaphone-chomper.glb \
+  assets/models/dentaphone-chomper.LICENSE.txt \
+  vendor/three/loaders/GLTFLoader.js \
+  vendor/three/utils/BufferGeometryUtils.js \
+  vendor/three/utils/SkeletonUtils.js \
   hyper-syrinx.html \
   hyper-syrinx.css \
   hyper-syrinx-app.js \
@@ -749,6 +770,27 @@ required_files=(
   src/throat-singing.js
   THROAT_SINGING_RESEARCH.md
   assets/instruments/throat-singing.webp
+  dentaphone.html
+  object-forge.html
+  physical-sounds.css
+  physical-sounds-app.js
+  src/dentaphone.js
+  src/dentaphone-webgl.js
+  src/physical-sounds.js
+  src/physical-sounds-processor.js
+  assets/instruments/dentaphone.webp
+  assets/dentaphone-upper.webp
+  assets/dentaphone-lower.webp
+  assets/dentaphone-chew-apple.webp
+  assets/dentaphone-chew-crystal.webp
+  assets/dentaphone-chew-gear.webp
+  assets/dentaphone-chew-seedpod.webp
+  assets/dentaphone-toothbrush.webp
+  assets/models/dentaphone-chomper.glb
+  assets/models/dentaphone-chomper.LICENSE.txt
+  vendor/three/loaders/GLTFLoader.js
+  vendor/three/utils/BufferGeometryUtils.js
+  vendor/three/utils/SkeletonUtils.js
   hyper-syrinx.html
   hyper-syrinx.css
   hyper-syrinx-app.js

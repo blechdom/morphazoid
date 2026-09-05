@@ -1,0 +1,1910 @@
+.physical-sound-page {
+  --physical-accent-rgb: 95 232 196;
+  --physical-grid-rgb: 95 232 196;
+  --accent: rgb(var(--physical-accent-rgb));
+  --accent-soft: rgb(var(--physical-accent-rgb) / 0.52);
+  --accent-glow: rgb(var(--physical-accent-rgb) / 0.18);
+  --physical-secondary: #89958f;
+}
+
+.physical-sound-page[data-physical-sound="particle-cabinet"] {
+  --physical-accent-rgb: 232 196 107;
+  --physical-grid-rgb: 232 196 107;
+}
+
+.physical-sound-page[data-physical-sound="impact-ecology"] {
+  --physical-accent-rgb: 255 130 111;
+  --physical-grid-rgb: 255 130 111;
+}
+
+.physical-sound-page[data-physical-sound="object-forge"] {
+  --physical-accent-rgb: 125 180 255;
+  --physical-grid-rgb: 125 180 255;
+}
+
+.dentaphone-page {
+  --dentaphone-hit-rgb: 239 180 103;
+  --dentaphone-label: #fff5dc;
+}
+
+.dentaphone-page[data-dentaphone-material="glass-bowl"] {
+  --dentaphone-hit-rgb: 101 226 244;
+}
+
+.dentaphone-page[data-dentaphone-material="steel-plate"] {
+  --dentaphone-hit-rgb: 183 211 232;
+}
+
+.dentaphone-page[data-dentaphone-material="ceramic-tile"] {
+  --dentaphone-hit-rgb: 255 244 214;
+}
+
+.dentaphone-page[data-dentaphone-material="bronze-bell"] {
+  --dentaphone-hit-rgb: 247 185 62;
+}
+
+.dentaphone-page[data-dentaphone-material="custom"] {
+  --dentaphone-hit-rgb: 207 166 255;
+}
+
+.physical-sound-page[data-physical-sound="bowed-things"] {
+  --physical-accent-rgb: 199 155 255;
+  --physical-grid-rgb: 199 155 255;
+}
+
+.physical-sound-page[data-physical-sound="airflow-objects"] {
+  --physical-accent-rgb: 95 232 196;
+  --physical-grid-rgb: 95 232 196;
+}
+
+.physical-sound-page .physical-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(330px, 27vw, 420px);
+}
+
+.physical-sound-page .stage-wrap {
+  isolation: isolate;
+  background:
+    linear-gradient(rgb(var(--physical-grid-rgb) / 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--physical-grid-rgb) / 0.032) 1px, transparent 1px),
+    radial-gradient(circle at 50% 48%, rgb(var(--physical-accent-rgb) / 0.095), transparent 44%),
+    var(--bg-deep);
+  background-size: 38px 38px, 38px 38px, auto, auto;
+}
+
+.physical-sound-page .stage-wrap::after {
+  position: absolute;
+  z-index: -1;
+  right: 8%;
+  bottom: 11%;
+  width: min(42vw, 520px);
+  height: min(42vw, 520px);
+  border: 1px solid rgb(var(--physical-accent-rgb) / 0.09);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 38px rgb(var(--physical-accent-rgb) / 0.018),
+    0 0 0 76px rgb(var(--physical-accent-rgb) / 0.012);
+  content: "";
+  pointer-events: none;
+}
+
+.physical-sound-page #stage {
+  min-height: 440px;
+  cursor: crosshair;
+}
+
+.physical-sound-page .stage-wrap.is-performing #stage,
+.physical-sound-page .stage-wrap.is-dragging #stage {
+  cursor: grabbing;
+}
+
+.physical-sound-page .stage-meta {
+  top: 18px;
+  left: 20px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.physical-stage-title {
+  position: absolute;
+  z-index: 2;
+  bottom: 24px;
+  left: 24px;
+  width: min(500px, calc(100% - 48px));
+  pointer-events: none;
+}
+
+.physical-stage-kicker {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.physical-stage-title h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(24px, 4vw, 58px);
+  font-weight: 420;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.physical-stage-title p {
+  max-width: 480px;
+  margin: 11px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.stage-gesture-hint {
+  display: inline-flex;
+  margin-top: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  color: color-mix(in oklab, var(--accent) 74%, var(--ink));
+  background: rgb(7 9 11 / 0.56);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.physical-panel {
+  scroll-padding-top: 44px;
+}
+
+.physical-local-nav {
+  position: sticky;
+  z-index: 6;
+  top: 0;
+  display: grid;
+  padding: 7px;
+  border-bottom: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--panel) 94%, transparent);
+  backdrop-filter: blur(12px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.physical-local-nav a {
+  display: grid;
+  min-width: 0;
+  min-height: 33px;
+  padding: 4px 3px;
+  border: 1px solid transparent;
+  color: var(--physical-secondary);
+  place-items: center;
+  font-size: 7px;
+  letter-spacing: 0.055em;
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.physical-local-nav a:hover,
+.physical-local-nav a:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.physical-local-nav a[aria-current="page"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.physical-card {
+  border-bottom: 1px solid var(--line);
+}
+
+.physical-card-heading {
+  display: flex;
+  min-height: 48px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, var(--accent-glow), transparent 62%);
+  box-shadow: inset 2px 0 0 var(--accent);
+  align-items: center;
+  gap: 12px;
+}
+
+.physical-card-heading .group-title {
+  flex: 0 0 auto;
+}
+
+.physical-card-heading .section-state {
+  min-width: 0;
+}
+
+.preset-copy {
+  min-height: 3em;
+  margin: -2px 0 12px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.performance-pad-grid {
+  display: grid;
+  margin-bottom: 9px;
+  grid-template-columns: minmax(0, 1.65fr) repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.performance-button,
+.physical-action {
+  position: relative;
+  min-height: 48px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.performance-button:first-child {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: linear-gradient(135deg, var(--accent-glow), transparent 70%);
+}
+
+.performance-button:hover,
+.performance-button:focus-visible,
+.physical-action:hover,
+.physical-action:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.performance-button[aria-pressed="true"],
+.performance-button.is-held,
+.performance-button:active {
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 22px var(--accent-glow);
+}
+
+.hold-button::after {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  color: currentColor;
+  content: "hold";
+  font-size: 6px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  opacity: 0.58;
+}
+
+.physical-performance-note {
+  margin: 0 0 4px;
+  color: var(--physical-secondary);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.metric-grid {
+  display: grid;
+  margin: 0 0 12px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-grid > div {
+  min-width: 0;
+  padding: 8px 9px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.metric-grid dt,
+.metric-grid dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-grid dt {
+  color: var(--physical-secondary);
+  font-size: 7px;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+}
+
+.metric-grid dd {
+  margin-top: 3px;
+  color: var(--accent);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.physical-sound-page .control output,
+.select-readout {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.physical-sound-page .select-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.physical-sound-page .select-label-row output {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.numeric-field {
+  display: grid;
+  margin: 0 0 12px;
+  gap: 6px;
+}
+
+.numeric-field > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.numeric-field b {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.numeric-field output {
+  color: var(--accent);
+  font-size: 9px;
+}
+
+.numeric-field input[type="number"] {
+  width: 100%;
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  appearance: textfield;
+}
+
+.parameter-divider {
+  margin: 14px 0 12px;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.parameter-caption {
+  display: block;
+  margin: 0 0 10px;
+  color: var(--physical-secondary);
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.json-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.json-editor label {
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.json-editor textarea {
+  width: 100%;
+  min-height: 188px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  resize: vertical;
+  color: color-mix(in oklab, var(--accent) 76%, var(--ink));
+  background: var(--bg-deep);
+  font: 9px/1.55 var(--mono);
+  tab-size: 2;
+}
+
+.json-editor textarea:focus {
+  border-color: var(--accent-soft);
+}
+
+.json-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.json-actions .physical-action {
+  min-height: 40px;
+}
+
+.disclosure {
+  padding: 16px 22px 19px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 52%, transparent);
+}
+
+.disclosure h2 {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.disclosure p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.6;
+}
+
+.source-links {
+  display: flex;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+}
+
+.source-links a {
+  display: inline-flex;
+  min-height: 24px;
+  padding: 4px 2px;
+  align-items: center;
+  color: var(--ink);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  text-transform: uppercase;
+}
+
+.source-links a:hover,
+.source-links a:focus-visible {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.physical-footer-actions {
+  display: grid;
+  padding: 16px 22px 22px;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.physical-footer-actions .physical-action {
+  min-height: 41px;
+}
+
+.status-pill {
+  display: inline-flex;
+  max-width: 100%;
+  margin: 0 0 12px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  color: var(--physical-secondary);
+  background: var(--bg-deep);
+  align-items: center;
+  gap: 6px;
+  font-size: 7px;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.status-pill::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-soft);
+  content: "";
+}
+
+.dentaphone-page .physical-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 28vw, 430px);
+}
+
+.dentaphone-view-tabs {
+  display: grid;
+  min-height: 44px;
+  padding: 6px;
+  border-bottom: 1px solid var(--line-strong);
+  background:
+    linear-gradient(90deg, rgb(var(--dentaphone-hit-rgb) / 0.07), transparent 58%),
+    #04080b;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.dentaphone-view-tabs button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--physical-secondary);
+  background: transparent;
+  font: 650 8px/1.2 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dentaphone-view-tabs button small {
+  margin-left: 5px;
+  color: inherit;
+  font: inherit;
+  font-size: 6px;
+  opacity: 0.58;
+}
+
+.dentaphone-view-tabs button:hover,
+.dentaphone-view-tabs button:focus-visible {
+  border-color: rgb(var(--dentaphone-hit-rgb) / 0.52);
+  color: rgb(var(--dentaphone-hit-rgb));
+  outline: none;
+}
+
+.dentaphone-view-tabs button[aria-selected="true"] {
+  border-color: rgb(var(--dentaphone-hit-rgb) / 0.72);
+  color: rgb(var(--dentaphone-hit-rgb));
+  background: linear-gradient(135deg, rgb(var(--dentaphone-hit-rgb) / 0.16), transparent 72%);
+  box-shadow: inset 0 0 18px rgb(var(--dentaphone-hit-rgb) / 0.05);
+}
+
+.dentaphone-view-tabs button[aria-busy="true"] {
+  cursor: progress;
+}
+
+.dentaphone-3d-status {
+  position: absolute;
+  z-index: 12;
+  top: 14px;
+  left: 50%;
+  display: flex;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  min-height: 34px;
+  padding: 7px 8px 7px 10px;
+  border: 1px solid rgb(var(--dentaphone-hit-rgb) / 0.48);
+  color: rgb(190 220 232 / 0.92);
+  background: rgb(2 9 13 / 0.94);
+  box-shadow: 0 8px 26px rgb(0 0 0 / 0.52), inset 0 0 16px rgb(var(--dentaphone-hit-rgb) / 0.05);
+  font: 650 9px/1.35 var(--mono);
+  letter-spacing: 0.055em;
+  align-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+}
+
+.dentaphone-3d-status[data-state="error"] {
+  border-color: rgb(255 177 73 / 0.68);
+  color: rgb(255 210 143);
+}
+
+.dentaphone-3d-status-light {
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: rgb(var(--dentaphone-hit-rgb) / 0.4);
+  box-shadow: 0 0 9px currentColor;
+  flex: 0 0 auto;
+}
+
+.dentaphone-3d-status[data-state="loading"] .dentaphone-3d-status-light {
+  animation: dentaphone-3d-loading 900ms ease-in-out infinite alternate;
+}
+
+.dentaphone-3d-status[data-state="error"] .dentaphone-3d-status-light {
+  background: rgb(255 177 73 / 0.5);
+}
+
+#dentaphone3dRetry {
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid rgb(255 177 73 / 0.6);
+  cursor: pointer;
+  color: rgb(255 210 143);
+  background: rgb(255 177 73 / 0.08);
+  font: 700 8px/1 var(--mono);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+#dentaphone3dRetry:hover,
+#dentaphone3dRetry:focus-visible {
+  border-color: rgb(255 210 143);
+  background: rgb(255 177 73 / 0.16);
+}
+
+@keyframes dentaphone-3d-loading {
+  from {
+    opacity: 0.38;
+    transform: scale(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dentaphone-page .stage-wrap {
+  display: grid;
+  min-height: calc(610px - 44px);
+  overflow: hidden;
+  background:
+    linear-gradient(rgb(81 183 239 / 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(81 183 239 / 0.055) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, rgb(4 62 91 / 0.72), transparent 51%),
+    #02070b;
+  background-size: 38px 38px, 38px 38px, auto, auto;
+  place-items: center;
+}
+
+.dentaphone-page .stage-wrap::after {
+  display: none;
+}
+
+.dentaphone-artboard {
+  --dentaphone-upper-shift: 0%;
+  --dentaphone-lower-shift: 0%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  height: 100%;
+  aspect-ratio: 3 / 2;
+  touch-action: none;
+  transform: translateX(-50%);
+}
+
+.dentaphone-scene,
+.dentaphone-rig,
+.dentaphone-jaw,
+.dentaphone-arch-hits,
+.dentaphone-food-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.dentaphone-scene {
+  z-index: 2;
+  cursor: default;
+}
+
+.dentaphone-webgl {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 18px 15px rgb(0 0 0 / 0.72))
+    drop-shadow(0 0 28px rgb(var(--dentaphone-hit-rgb) / 0.08));
+  transition: opacity 240ms ease;
+}
+
+.dentaphone-renderer-badge {
+  position: absolute;
+  z-index: 5;
+  right: 3.2%;
+  bottom: 3.4%;
+  padding: 4px 7px;
+  border: 1px solid rgb(var(--dentaphone-hit-rgb) / 0.24);
+  border-radius: 999px;
+  color: rgb(var(--dentaphone-hit-rgb) / 0.72);
+  background: rgb(2 8 10 / 0.64);
+  font: 650 clamp(7px, 0.62vw, 10px)/1 var(--mono);
+  letter-spacing: 0.08em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready {
+  left: 0;
+  width: 100%;
+  aspect-ratio: auto;
+  transform: none;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-webgl,
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-renderer-badge {
+  opacity: 1;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-rig {
+  transform: none;
+  transition: none;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-jaw {
+  z-index: auto;
+  clip-path: none;
+  pointer-events: none;
+  transform: none;
+  transition: none;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-rig.is-chomping .dentaphone-jaw {
+  animation: none;
+  transform: none;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-artwork {
+  opacity: 0;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-arch-hits {
+  pointer-events: none;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-tooth {
+  pointer-events: auto;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-tooth[data-webgl-hidden] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-tooth-note {
+  opacity: 0;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-tooth:hover .dentaphone-tooth-note,
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-tooth.is-hovered .dentaphone-tooth-note,
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-tooth.is-selected .dentaphone-tooth-note,
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-tooth:focus-visible .dentaphone-tooth-note,
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-tooth.is-struck .dentaphone-tooth-note {
+  opacity: 1;
+}
+
+.dentaphone-artboard[data-dentaphone-view-mode="3d"].is-webgl-ready .dentaphone-scene {
+  cursor: grab;
+}
+
+.dentaphone-page .stage-wrap.is-rotating,
+.dentaphone-page .stage-wrap.is-rotating .dentaphone-scene {
+  cursor: grabbing;
+}
+
+.dentaphone-rig {
+  z-index: 2;
+  transform: scale(0.92);
+  transform-origin: 50% 50%;
+  transition: transform 160ms ease-out;
+  will-change: transform;
+}
+
+.dentaphone-jaw {
+  pointer-events: auto;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.dentaphone-jaw--upper {
+  z-index: 3;
+  clip-path: inset(0 0 48% 0);
+  transform: translateY(var(--dentaphone-upper-shift));
+  transform-origin: 50% 46.5%;
+}
+
+.dentaphone-jaw--lower {
+  z-index: 1;
+  clip-path: inset(52% 0 0 0);
+  transform: translateY(var(--dentaphone-lower-shift));
+  transform-origin: 50% 57.5%;
+}
+
+.dentaphone-food-layer {
+  z-index: 2;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.dentaphone-toothbrush {
+  --brush-x: 86%;
+  --brush-y: 17%;
+  --brush-angle: 0deg;
+  --dentaphone-brush-flip: 1;
+  --dentaphone-brush-accent-rgb: var(--dentaphone-hit-rgb);
+  position: absolute;
+  z-index: 7;
+  top: var(--brush-y);
+  left: var(--brush-x);
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateZ(0) rotate(var(--brush-angle));
+  transform-origin: 0 0;
+  transition:
+    top 72ms linear,
+    left 72ms linear,
+    transform 72ms linear,
+    opacity 140ms ease,
+    visibility 0s linear 140ms;
+  visibility: hidden;
+  will-change: top, left, transform, opacity;
+}
+
+.dentaphone-toothbrush img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: clamp(170px, 30vw, 350px);
+  max-width: none;
+  height: auto;
+  filter:
+    drop-shadow(0 10px 8px rgb(0 0 0 / 0.72))
+    drop-shadow(0 0 10px rgb(var(--dentaphone-brush-accent-rgb) / 0.36));
+  opacity: 0.92;
+  pointer-events: none;
+  transform: translate(-89%, -10%) scaleY(var(--dentaphone-brush-flip));
+  transform-origin: 89% 10%;
+  user-select: none;
+}
+
+.dentaphone-toothbrush::after {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgb(var(--dentaphone-brush-accent-rgb) / 0.72);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 4px rgb(var(--dentaphone-brush-accent-rgb) / 0.08),
+    0 0 14px rgb(var(--dentaphone-brush-accent-rgb) / 0.42);
+  content: "";
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+.dentaphone-toothbrush[data-mode="manual"] {
+  --dentaphone-brush-accent-rgb: 95 232 196;
+}
+
+.dentaphone-toothbrush[data-mode="auto"] {
+  --dentaphone-brush-accent-rgb: var(--dentaphone-hit-rgb);
+}
+
+.dentaphone-toothbrush[data-arch="lower"] {
+  --dentaphone-brush-flip: -1;
+}
+
+.dentaphone-toothbrush[data-state="armed"],
+.dentaphone-toothbrush[data-state="starting"],
+.dentaphone-toothbrush[data-state="sweeping"],
+.dentaphone-toothbrush[data-state="brushing"],
+.dentaphone-toothbrush[data-state="manual-ready"],
+.dentaphone-toothbrush[data-state="manual-dragging"] {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.dentaphone-toothbrush[data-state="armed"] img,
+.dentaphone-toothbrush[data-state="manual-ready"] img {
+  opacity: 0.78;
+}
+
+.dentaphone-toothbrush[data-state="starting"]::after,
+.dentaphone-toothbrush[data-state="sweeping"]::after,
+.dentaphone-toothbrush[data-state="brushing"]::after,
+.dentaphone-toothbrush[data-state="manual-dragging"]::after {
+  animation: dentaphone-brush-contact 180ms ease-in-out infinite alternate;
+}
+
+.dentaphone-toothbrush[data-state="off"],
+.dentaphone-toothbrush[data-state="parked"] {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.dentaphone-rig[data-brush-mode="manual"],
+.dentaphone-rig[data-brush-mode="manual"] .dentaphone-jaw,
+.dentaphone-rig[data-brush-mode="manual"] .dentaphone-arch-hits,
+.dentaphone-rig[data-brush-mode="manual"] .dentaphone-tooth,
+.dentaphone-scene:has(.dentaphone-rig[data-brush-mode="manual"]) {
+  cursor: crosshair;
+}
+
+.dentaphone-artboard.is-brush-manual .dentaphone-scene {
+  cursor: crosshair;
+}
+
+@keyframes dentaphone-brush-contact {
+  from {
+    opacity: 0.38;
+    transform: scale(0.78);
+  }
+  to {
+    opacity: 0.9;
+    transform: scale(1.18);
+  }
+}
+
+.dentaphone-food-object,
+.dentaphone-mouth-food,
+.dentaphone-food-layer > img {
+  --dentaphone-food-scale: 1;
+  --dentaphone-food-turn: 0deg;
+  position: absolute;
+  top: 51.5%;
+  left: 50%;
+  display: block;
+  width: clamp(66px, 16%, 158px);
+  height: auto;
+  filter:
+    drop-shadow(0 8px 7px rgb(0 0 0 / 0.72))
+    drop-shadow(0 0 14px rgb(var(--dentaphone-hit-rgb) / 0.18));
+  opacity: 1;
+  object-fit: contain;
+  transform: translate3d(-50%, -50%, 10px) rotate(var(--dentaphone-food-turn)) scale(var(--dentaphone-food-scale));
+  transform-origin: 50% 56%;
+  will-change: opacity, transform, filter;
+}
+
+.dentaphone-food-object.is-entering,
+.dentaphone-mouth-food.is-entering,
+.dentaphone-food-layer[data-state="entering"] > img {
+  animation: dentaphone-food-enter 360ms cubic-bezier(0.18, 0.86, 0.24, 1.18) both;
+}
+
+.dentaphone-food-object.is-chewing,
+.dentaphone-mouth-food.is-chewing,
+.dentaphone-food-layer[data-state="chewing"] > img {
+  animation: dentaphone-food-chew 145ms ease-in-out infinite alternate;
+}
+
+.dentaphone-food-object.is-swallowed,
+.dentaphone-mouth-food.is-swallowed,
+.dentaphone-food-layer[data-state="swallowed"] > img {
+  animation: dentaphone-food-swallow 300ms cubic-bezier(0.55, 0, 1, 0.45) both;
+}
+
+.dentaphone-food-object[data-bite="1"],
+.dentaphone-mouth-food[data-bite="1"],
+.dentaphone-food-layer[data-bite="1"] > img {
+  --dentaphone-food-scale: 0.88;
+}
+
+.dentaphone-food-object[data-bite="2"],
+.dentaphone-mouth-food[data-bite="2"],
+.dentaphone-food-layer[data-bite="2"] > img {
+  --dentaphone-food-scale: 0.72;
+}
+
+.dentaphone-food-object[data-bite="3"],
+.dentaphone-mouth-food[data-bite="3"],
+.dentaphone-food-layer[data-bite="3"] > img {
+  --dentaphone-food-scale: 0.52;
+  opacity: 0.78;
+}
+
+.dentaphone-food-object[data-bite="4"],
+.dentaphone-mouth-food[data-bite="4"],
+.dentaphone-food-layer[data-bite="4"] > img {
+  opacity: 0.62;
+}
+
+.dentaphone-food-object[data-bite="5"],
+.dentaphone-mouth-food[data-bite="5"],
+.dentaphone-food-layer[data-bite="5"] > img {
+  opacity: 0.46;
+}
+
+@keyframes dentaphone-food-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, 24%, 46px) rotate(-12deg) scale(0.54);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, -50%, 10px) rotate(var(--dentaphone-food-turn)) scale(var(--dentaphone-food-scale));
+  }
+}
+
+@keyframes dentaphone-food-chew {
+  from {
+    transform: translate3d(calc(-50% - 2px), calc(-50% + 1px), 10px) rotate(-2deg) scale(var(--dentaphone-food-scale));
+    filter: drop-shadow(0 7px 7px rgb(0 0 0 / 0.68)) brightness(0.96);
+  }
+  to {
+    transform: translate3d(calc(-50% + 2px), calc(-50% - 1px), 10px) rotate(2deg) scale(calc(var(--dentaphone-food-scale) * 0.96));
+    filter: drop-shadow(0 4px 5px rgb(0 0 0 / 0.72)) brightness(1.08);
+  }
+}
+
+@keyframes dentaphone-food-swallow {
+  to {
+    opacity: 0;
+    transform: translate3d(-50%, 38%, -34px) rotate(9deg) scale(0.12);
+    filter: blur(2px) brightness(0.72);
+  }
+}
+
+.dentaphone-food-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  top: 0;
+  left: 0;
+  display: block;
+  width: clamp(62px, 7.5vw, 96px);
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  filter:
+    drop-shadow(0 13px 12px rgb(0 0 0 / 0.72))
+    drop-shadow(0 0 15px rgb(var(--dentaphone-hit-rgb) / 0.38));
+  transform: translate3d(-50%, -50%, 0) rotate(-5deg) scale(1.04);
+  transform-origin: center;
+  transition: filter 120ms ease, transform 120ms ease;
+  will-change: top, left, transform;
+}
+
+.dentaphone-food-drag-ghost.is-over-mouth {
+  filter:
+    drop-shadow(0 8px 8px rgb(0 0 0 / 0.72))
+    drop-shadow(0 0 22px rgb(var(--dentaphone-hit-rgb) / 0.72));
+  transform: translate3d(-50%, -50%, 0) rotate(3deg) scale(0.9);
+}
+
+.dentaphone-food-drag-ghost img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.dentaphone-artwork {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 12px 12px rgb(0 0 0 / 0.5));
+  object-fit: contain;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  user-select: none;
+}
+
+.dentaphone-page #stage {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  cursor: default;
+  pointer-events: none;
+}
+
+.dentaphone-arch-hits {
+  z-index: 3;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.dentaphone-tooth {
+  position: absolute;
+  left: var(--tooth-x);
+  top: var(--tooth-y);
+  width: var(--tooth-width);
+  height: var(--tooth-height);
+  padding: 0;
+  border: 0;
+  border-radius: 48%;
+  cursor: pointer;
+  transform: translate(-50%, -50%) rotate(var(--tooth-angle));
+  color: var(--dentaphone-label);
+  background: transparent;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dentaphone-tooth-crown {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border: 1px solid transparent;
+  border-radius: 48%;
+  background: transparent;
+  transform-origin: center;
+  transition: border-color 100ms ease, background 100ms ease, backdrop-filter 100ms ease, transform 100ms ease, box-shadow 100ms ease;
+}
+
+.dentaphone-tooth-crown::before,
+.dentaphone-tooth-crown::after {
+  content: none;
+}
+
+.dentaphone-tooth-note,
+.dentaphone-tooth-number {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(var(--tooth-counter-angle));
+}
+
+.dentaphone-tooth-note {
+  top: 50%;
+  min-width: 1.65em;
+  padding: 2px 3px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 999px;
+  color: var(--dentaphone-label);
+  background: rgb(0 7 12 / 0.62);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
+  font: 650 clamp(6px, 0.62vw, 9px)/1 var(--mono);
+  letter-spacing: -0.05em;
+  opacity: 0.68;
+  text-align: center;
+  transition: opacity 100ms ease, color 100ms ease, background 100ms ease;
+}
+
+.dentaphone-tooth-number {
+  display: none;
+}
+
+.dentaphone-tooth:hover .dentaphone-tooth-crown,
+.dentaphone-tooth.is-hovered .dentaphone-tooth-crown,
+.dentaphone-tooth.is-selected .dentaphone-tooth-crown,
+.dentaphone-tooth:focus-visible .dentaphone-tooth-crown {
+  border-color: rgb(var(--dentaphone-hit-rgb) / 0.95);
+  background: rgb(var(--dentaphone-hit-rgb) / 0.1);
+  box-shadow:
+    0 0 0 2px rgb(var(--dentaphone-hit-rgb) / 0.38),
+    0 0 18px rgb(var(--dentaphone-hit-rgb) / 0.62),
+    inset 0 0 10px rgb(var(--dentaphone-hit-rgb) / 0.16);
+}
+
+.dentaphone-tooth:hover .dentaphone-tooth-note,
+.dentaphone-tooth.is-hovered .dentaphone-tooth-note,
+.dentaphone-tooth.is-selected .dentaphone-tooth-note,
+.dentaphone-tooth:focus-visible .dentaphone-tooth-note,
+.dentaphone-tooth.is-struck .dentaphone-tooth-note {
+  color: rgb(var(--dentaphone-hit-rgb));
+  background: rgb(0 7 12 / 0.86);
+  opacity: 1;
+}
+
+.dentaphone-tooth:focus-visible {
+  outline: none;
+}
+
+.dentaphone-tooth.is-struck .dentaphone-tooth-crown {
+  animation: dentaphone-tooth-vibration 320ms linear;
+}
+
+@keyframes dentaphone-tooth-vibration {
+  0% {
+    border-color: rgb(var(--dentaphone-hit-rgb));
+    background: rgb(var(--dentaphone-hit-rgb) / 0.28);
+    -webkit-backdrop-filter: brightness(1.65) saturate(1.25);
+    backdrop-filter: brightness(1.65) saturate(1.25);
+    transform: translate(0, 0) rotate(0);
+    box-shadow:
+      0 0 0 2px rgb(var(--dentaphone-hit-rgb) / 0.72),
+      0 0 16px 4px rgb(var(--dentaphone-hit-rgb) / 0.76),
+      inset 0 0 9px rgb(255 255 255 / 0.48);
+  }
+  14% {
+    transform: translate(-1.5px, 0.5px) rotate(-1.2deg);
+  }
+  28% {
+    transform: translate(1.4px, -0.5px) rotate(1.1deg);
+  }
+  42% {
+    transform: translate(-1.2px, 0.4px) rotate(-0.9deg);
+  }
+  56% {
+    transform: translate(1px, -0.35px) rotate(0.75deg);
+  }
+  70% {
+    transform: translate(-0.75px, 0.25px) rotate(-0.5deg);
+  }
+  84% {
+    transform: translate(0.5px, -0.15px) rotate(0.3deg);
+  }
+  100% {
+    border-color: rgb(var(--dentaphone-hit-rgb) / 0.95);
+    background: rgb(var(--dentaphone-hit-rgb) / 0.08);
+    -webkit-backdrop-filter: brightness(1.08);
+    backdrop-filter: brightness(1.08);
+    transform: translate(0, 0) rotate(0);
+    box-shadow:
+      0 0 0 1px rgb(var(--dentaphone-hit-rgb) / 0.35),
+      0 0 6px rgb(var(--dentaphone-hit-rgb) / 0.32);
+  }
+}
+
+.dentaphone-rig.is-chomping .dentaphone-jaw {
+  transition: none;
+}
+
+.dentaphone-rig.is-chomping .dentaphone-jaw--upper {
+  animation: dentaphone-upper-chomp 640ms cubic-bezier(0.18, 0.82, 0.18, 1);
+}
+
+.dentaphone-rig.is-chomping .dentaphone-jaw--lower {
+  animation: dentaphone-lower-chomp 640ms cubic-bezier(0.18, 0.82, 0.18, 1);
+}
+
+@keyframes dentaphone-upper-chomp {
+  0%, 100% {
+    transform: translateY(var(--dentaphone-upper-shift));
+  }
+  42% {
+    transform: translateY(5.8%);
+  }
+  54% {
+    transform: translateY(5.35%);
+  }
+  67% {
+    transform: translateY(4.9%);
+  }
+}
+
+@keyframes dentaphone-lower-chomp {
+  0%, 100% {
+    transform: translateY(var(--dentaphone-lower-shift));
+  }
+  42% {
+    transform: translateY(-5.8%);
+  }
+  54% {
+    transform: translateY(-5.35%);
+  }
+  67% {
+    transform: translateY(-4.9%);
+  }
+}
+
+.dentaphone-view-hint {
+  position: absolute;
+  z-index: 5;
+  bottom: 16px;
+  left: 18px;
+  margin: 0;
+  padding: 5px 7px;
+  border: 1px solid rgb(81 183 239 / 0.2);
+  color: rgb(151 192 209 / 0.72);
+  background: rgb(0 8 13 / 0.72);
+  font: 7px/1.25 var(--mono);
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.dentaphone-layer-label {
+  display: none;
+}
+
+.dentaphone-stage-title {
+  top: auto;
+  bottom: 3.5%;
+  left: 2.5%;
+  width: 22%;
+}
+
+.dentaphone-stage-title h1 {
+  font-size: clamp(18px, 2vw, 31px);
+}
+
+.dentaphone-stage-title p {
+  max-width: 210px;
+  font-size: 8px;
+}
+
+.dentaphone-hud {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: 2.5%;
+  display: grid;
+  width: 22%;
+  transform: translateY(-50%);
+  justify-items: end;
+  pointer-events: none;
+  text-align: right;
+}
+
+.dentaphone-hud span,
+.dentaphone-hud small {
+  color: var(--physical-secondary);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.dentaphone-hud strong {
+  margin: 3px 0;
+  color: rgb(var(--dentaphone-hit-rgb));
+  font: 500 clamp(17px, 2vw, 30px)/1 var(--mono);
+  letter-spacing: -0.06em;
+}
+
+.dentaphone-pitch-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.dentaphone-motion-panel {
+  display: grid;
+  gap: 11px;
+}
+
+.dentaphone-food-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.dentaphone-brush-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.dentaphone-brush-preview {
+  position: relative;
+  display: grid;
+  min-height: 166px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  overflow: hidden;
+  background:
+    linear-gradient(rgb(var(--dentaphone-hit-rgb) / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--dentaphone-hit-rgb) / 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 70% 25%, rgb(var(--dentaphone-hit-rgb) / 0.14), transparent 48%),
+    var(--bg-deep);
+  background-size: 18px 18px, 18px 18px, auto, auto;
+  place-items: center;
+}
+
+.dentaphone-brush-preview img {
+  display: block;
+  width: min(64%, 200px);
+  height: auto;
+  filter:
+    drop-shadow(0 7px 7px rgb(0 0 0 / 0.72))
+    drop-shadow(0 0 8px rgb(var(--dentaphone-hit-rgb) / 0.22));
+  pointer-events: none;
+  user-select: none;
+}
+
+.dentaphone-brush-help {
+  margin: 0;
+  color: var(--physical-secondary);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.dentaphone-brush-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.dentaphone-brush-actions .physical-action {
+  width: 100%;
+  min-height: 44px;
+}
+
+.dentaphone-brush-mode {
+  border-color: rgb(var(--dentaphone-hit-rgb) / 0.42);
+  color: rgb(var(--dentaphone-hit-rgb));
+  background: linear-gradient(135deg, rgb(var(--dentaphone-hit-rgb) / 0.1), transparent 72%);
+}
+
+.dentaphone-brush-mode[aria-pressed="true"],
+.dentaphone-brush-mode.is-active {
+  border-color: rgb(var(--dentaphone-hit-rgb));
+  color: var(--bg-deep);
+  background: rgb(var(--dentaphone-hit-rgb));
+  box-shadow: 0 0 22px rgb(var(--dentaphone-hit-rgb) / 0.18);
+}
+
+.dentaphone-brush-stop {
+  grid-column: 1 / -1;
+}
+
+.dentaphone-food-help {
+  margin: 0;
+  color: var(--physical-secondary);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.dentaphone-food-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.dentaphone-food-button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 74px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-strong);
+  cursor: grab;
+  color: var(--muted);
+  background:
+    radial-gradient(circle at 25% 48%, rgb(var(--dentaphone-hit-rgb) / 0.1), transparent 42%),
+    var(--bg-deep);
+  align-items: center;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+  text-align: left;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dentaphone-food-button img {
+  display: block;
+  width: 48px;
+  height: 48px;
+  filter: drop-shadow(0 5px 5px rgb(0 0 0 / 0.62));
+  object-fit: contain;
+  pointer-events: auto;
+  touch-action: none;
+  transition: filter 120ms ease, transform 120ms ease;
+  user-select: none;
+}
+
+.dentaphone-food-button > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.dentaphone-food-button b,
+.dentaphone-food-button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dentaphone-food-button b {
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dentaphone-food-button small {
+  color: var(--physical-secondary);
+  font: 7px/1.25 var(--mono);
+}
+
+.dentaphone-food-button:hover,
+.dentaphone-food-button:focus-visible,
+.dentaphone-food-button[aria-pressed="true"],
+.dentaphone-food-button.is-selected,
+.dentaphone-food-button.is-dragging {
+  border-color: rgb(var(--dentaphone-hit-rgb) / 0.72);
+  color: rgb(var(--dentaphone-hit-rgb));
+  background:
+    radial-gradient(circle at 25% 48%, rgb(var(--dentaphone-hit-rgb) / 0.2), transparent 48%),
+    rgb(var(--dentaphone-hit-rgb) / 0.045);
+  box-shadow: inset 0 0 18px rgb(var(--dentaphone-hit-rgb) / 0.08);
+}
+
+.dentaphone-food-button:hover img,
+.dentaphone-food-button:focus-visible img,
+.dentaphone-food-button[aria-pressed="true"] img,
+.dentaphone-food-button.is-selected img,
+.dentaphone-food-button.is-dragging img {
+  filter:
+    drop-shadow(0 6px 5px rgb(0 0 0 / 0.68))
+    drop-shadow(0 0 8px rgb(var(--dentaphone-hit-rgb) / 0.42));
+  transform: translateY(-2px) rotate(-2deg) scale(1.06);
+}
+
+.dentaphone-food-button:active,
+.dentaphone-food-button.is-dragging {
+  cursor: grabbing;
+}
+
+.dentaphone-clear-food {
+  width: 100%;
+  min-height: 40px;
+}
+
+.dentaphone-clear-food:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.dentaphone-motion-panel .control {
+  margin: 0;
+}
+
+.dentaphone-motion-buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.dentaphone-3d-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.dentaphone-3d-controls[hidden] {
+  display: none;
+}
+
+.dentaphone-3d-controls .physical-action {
+  width: 100%;
+}
+
+.dentaphone-motion-buttons .physical-action {
+  width: 100%;
+}
+
+.dentaphone-motion-buttons .physical-action:first-child {
+  border-color: rgb(var(--dentaphone-hit-rgb) / 0.42);
+  color: rgb(var(--dentaphone-hit-rgb));
+  background: linear-gradient(135deg, rgb(var(--dentaphone-hit-rgb) / 0.12), transparent 72%);
+}
+
+.dentaphone-motion-buttons .physical-action.is-active {
+  color: var(--bg-deep);
+  background: rgb(var(--dentaphone-hit-rgb));
+}
+
+.dentaphone-range-grid {
+  display: grid;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dentaphone-range-grid > div {
+  display: grid;
+  min-width: 0;
+  padding: 8px 9px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  gap: 3px;
+}
+
+.dentaphone-range-grid span {
+  color: var(--physical-secondary);
+  font-size: 7px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.dentaphone-range-grid output {
+  overflow: hidden;
+  color: var(--accent);
+  font: 10px/1.2 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dentaphone-map-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dentaphone-map-grid .select-control,
+.dentaphone-pitch-panel > .select-control {
+  margin: 0;
+}
+
+@media (max-width: 960px) {
+  .physical-sound-page .physical-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(270px, 46dvh, 430px) minmax(0, 1fr);
+  }
+
+  .dentaphone-page .physical-shell {
+    grid-template-rows: clamp(470px, 62dvh, 640px) minmax(0, 1fr);
+  }
+
+  .dentaphone-page .stage-wrap {
+    min-height: calc(470px - 44px);
+  }
+
+  .dentaphone-rig {
+    transform: scale(0.89);
+  }
+
+  .physical-sound-page #stage {
+    min-height: 0;
+  }
+
+  .physical-stage-title {
+    bottom: 17px;
+    left: 18px;
+    width: min(480px, calc(100% - 36px));
+  }
+
+  .dentaphone-stage-title {
+    top: auto;
+    bottom: 3.5%;
+    left: 2.5%;
+    width: 22%;
+  }
+
+  .physical-stage-title h1 {
+    font-size: clamp(22px, 7vw, 42px);
+  }
+
+  .physical-stage-title p {
+    max-width: 410px;
+  }
+
+  .dentaphone-stage-title h1 {
+    font-size: clamp(18px, 3vw, 28px);
+  }
+}
+
+@media (max-width: 650px) {
+  .physical-sound-page .masthead {
+    gap: 8px;
+  }
+
+  .physical-sound-page .wordmark > span:last-child {
+    display: none;
+  }
+
+  .physical-sound-page .physical-shell {
+    grid-template-rows: clamp(250px, 42dvh, 330px) minmax(0, 1fr);
+  }
+
+  .dentaphone-page .physical-shell {
+    grid-template-rows: clamp(390px, 55dvh, 500px) minmax(0, 1fr);
+  }
+
+  .dentaphone-page .stage-wrap {
+    min-height: calc(390px - 44px);
+  }
+
+  .dentaphone-rig {
+    transform: scale(0.84);
+  }
+
+  .physical-local-nav {
+    padding: 5px;
+    overflow-x: auto;
+    grid-template-columns: repeat(4, minmax(66px, 1fr));
+    scrollbar-width: none;
+  }
+
+  .physical-local-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .physical-stage-title p {
+    display: none;
+  }
+
+  .dentaphone-stage-title,
+  .dentaphone-hud,
+  .dentaphone-page .stage-meta {
+    display: none;
+  }
+
+  .dentaphone-tooth-number {
+    display: none;
+  }
+
+  .physical-stage-title h1 {
+    font-size: clamp(22px, 9vw, 34px);
+  }
+
+  .stage-gesture-hint {
+    margin-top: 9px;
+    font-size: 7px;
+  }
+
+  .physical-sound-page .stage-meta {
+    top: 12px;
+    right: 13px;
+    left: 13px;
+    font-size: 8px;
+  }
+
+  .performance-pad-grid {
+    grid-template-columns: 1.35fr 1fr 1fr;
+  }
+
+  .physical-card-heading,
+  .disclosure,
+  .physical-footer-actions {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+}
+
+@media (max-width: 410px) {
+  .physical-sound-page .audio-copy b,
+  .physical-sound-page .header-level b {
+    display: none;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .performance-pad-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .performance-button:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .dentaphone-food-button {
+    min-height: 68px;
+    padding: 7px;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .dentaphone-food-button img {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 960px) and (max-height: 560px) {
+  .dentaphone-page .physical-shell {
+    grid-template-rows: clamp(209px, calc(52dvh + 44px), 254px) minmax(0, 1fr);
+  }
+
+  .dentaphone-page .stage-wrap {
+    min-height: 0;
+  }
+
+  .dentaphone-page .physical-panel {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .dentaphone-page .dentaphone-view-hint {
+    display: none;
+  }
+
+  .dentaphone-food-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dentaphone-food-button {
+    min-height: 58px;
+    padding: 6px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .dentaphone-food-button img {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .physical-sound-page *,
+  .physical-sound-page *::before,
+  .physical-sound-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .dentaphone-tooth.is-struck .dentaphone-tooth-crown {
+    animation: none !important;
+    border-color: rgb(var(--dentaphone-hit-rgb));
+    background: rgb(var(--dentaphone-hit-rgb) / 0.24);
+    -webkit-backdrop-filter: brightness(1.55) saturate(1.2);
+    backdrop-filter: brightness(1.55) saturate(1.2);
+    box-shadow:
+      0 0 0 2px rgb(var(--dentaphone-hit-rgb) / 0.68),
+      0 0 14px 3px rgb(var(--dentaphone-hit-rgb) / 0.68),
+      inset 0 0 8px rgb(255 255 255 / 0.42);
+  }
+
+  .dentaphone-rig,
+  .dentaphone-jaw,
+  .dentaphone-toothbrush,
+  .dentaphone-toothbrush img,
+  .dentaphone-toothbrush::after,
+  .dentaphone-food-object,
+  .dentaphone-mouth-food,
+  .dentaphone-food-layer > img,
+  .dentaphone-food-drag-ghost {
+    transition: none !important;
+  }
+
+  .dentaphone-rig.is-chomping .dentaphone-jaw--upper {
+    animation: none !important;
+    transform: translateY(5.2%);
+  }
+
+  .dentaphone-rig.is-chomping .dentaphone-jaw--lower {
+    animation: none !important;
+    transform: translateY(-5.2%);
+  }
+
+  .dentaphone-toothbrush,
+  .dentaphone-toothbrush img,
+  .dentaphone-toothbrush::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.physical-sound-page .control.is-inactive {
+  opacity: 0.52;
+}
+
+@media (forced-colors: active) {
+  .physical-sound-page .stage-wrap,
+  .physical-card-heading,
+  .performance-button:first-child {
+    background: Canvas;
+  }
+
+  .physical-local-nav a[aria-current="page"],
+  .performance-button[aria-pressed="true"],
+  .dentaphone-brush-mode[aria-pressed="true"] {
+    border: 2px solid Highlight;
+    color: Highlight;
+    background: Canvas;
+  }
+
+  .dentaphone-tooth.is-struck .dentaphone-tooth-crown {
+    border: 2px solid Highlight;
+  }
+
+  .dentaphone-toothbrush img {
+    filter: none;
+  }
+
+  .dentaphone-toothbrush::after,
+  .dentaphone-brush-preview {
+    border: 2px solid Highlight;
+    box-shadow: none;
+  }
+}

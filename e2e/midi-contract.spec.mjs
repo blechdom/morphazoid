@@ -14,7 +14,7 @@ import {
   sendMidiSequence,
 } from "./helpers/fake-midi.mjs";
 
-test("the MIDI requirement declaration accounts for all 119 catalogue instruments", async ({}, testInfo) => {
+test("the MIDI requirement declaration accounts for all 128 catalogue instruments", async ({}, testInfo) => {
   testInfo.annotations.push({
     type: "scope",
     description: "This registry declares required route-level MIDI availability and mapping ownership. It does not prove that each route currently satisfies the requirement.",
@@ -36,9 +36,9 @@ test("the MIDI requirement declaration accounts for all 119 catalogue instrument
     contentType: "application/json",
   });
 
-  expect(INSTRUMENTS).toHaveLength(119);
-  expect(INSTRUMENT_MIDI_CAPABILITIES).toHaveLength(119);
-  expect(capabilitiesById.size).toBe(119);
+  expect(INSTRUMENTS).toHaveLength(128);
+  expect(INSTRUMENT_MIDI_CAPABILITIES).toHaveLength(128);
+  expect(capabilitiesById.size).toBe(128);
   expect([...capabilitiesById.keys()].sort()).toEqual([...instrumentsById.keys()].sort());
   expect(
     INSTRUMENT_MIDI_CAPABILITIES.filter(({ midiInputMode }) => midiInputMode === "native")

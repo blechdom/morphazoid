@@ -64,7 +64,7 @@ test("Home mounts the only complete menu-ordered catalogue", async () => {
   assert.match(home, /class="mobile-instrument-select"/);
   assert.match(home, /<script type="module" src="nav\.js\?v=catalog-[^"]+"><\/script>/);
   assert.equal([home, about, catalogue].filter((html) => /data-instrument-catalog/.test(html)).length, 1);
-  assert.equal(INSTRUMENTS.length, 127);
+  assert.equal(INSTRUMENTS.length, 128);
   assert.equal(
     INSTRUMENTS.find(({ id }) => id === "escher-tessellation")?.label,
     "Escher",
@@ -193,6 +193,10 @@ test("repository declares Morphazoid's MIT license and keeps third-party terms s
   assert.match(readme, /\[MIT License\]\(LICENSE\)/);
   assert.match(readme, /\[THIRD_PARTY_NOTICES\.md\]\(THIRD_PARTY_NOTICES\.md\)/);
   assert.match(notices, /## Pink Trombone/);
+  assert.match(notices, /## MakeHuman teeth_base/);
+  assert.match(notices, /## Three\.js/);
+  assert.match(notices, /assets\/models\/dentaphone-chomper\.LICENSE\.txt/);
+  assert.match(notices, /vendor\/three\/LICENSE\.txt/);
   assert.match(notices, /## Tactile/);
   assert.match(notices, /## Signalsmith Stretch/);
   assert.match(signalsmithLicense, /Copyright \(c\) 2022 Geraint Luff \/ Signalsmith Audio Ltd\./);

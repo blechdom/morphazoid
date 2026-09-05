@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { buildWaxSite } from "./build-wax-site.mjs";
+import { fingerprintDentaphone } from "./fingerprint-dentaphone.mjs";
 import { fingerprintHiccupHead } from "./fingerprint-hiccup-head.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -18,7 +19,10 @@ export async function buildReleaseSite(outputArgument = "dist") {
     cwd: repositoryRoot,
     maxBuffer: 10 * 1024 * 1024,
   });
-  await fingerprintHiccupHead(outputDirectory);
+  await Promise.all([
+    fingerprintDentaphone(outputDirectory),
+    fingerprintHiccupHead(outputDirectory),
+  ]);
   const waxResult = await buildWaxSite(path.join(outputDirectory, "dist-wax"));
   return {
     outputDirectory,

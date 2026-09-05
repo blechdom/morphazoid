@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Dentaphone — play two complete dental arches as a 32-key physical-model marimba."
+    />
+    <title>Dentaphone — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="physical-sounds.css?v=504c220cf827" />
+  </head>
+  <body
+    class="physical-sound-page dentaphone-page"
+    data-physical-sound="object-forge"
+    data-physical-interface="dentaphone"
+    data-dentaphone-material="wood-bar"
+    data-dentaphone-view-mode="2d"
+  >
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <span class="edition">dentaphone instrument</span>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="dentaphone.html" aria-current="page">Dentaphone</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="dentaphone.html" selected>Dentaphone</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" role="group" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">75%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.85" step="0.01" value="0.75" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell physical-shell" id="physicalSoundRoot">
+      <section class="stage physical-stage dentaphone-stage" aria-label="Dentaphone tooth keyboard">
+        <div class="dentaphone-view-tabs" role="tablist" aria-label="Dentaphone view">
+          <button id="dentaphoneView2d" type="button" role="tab" aria-selected="true" aria-controls="stageWrap" data-dentaphone-view-tab="2d">2D anatomy</button>
+          <button id="dentaphoneView3d" type="button" role="tab" aria-selected="false" aria-controls="stageWrap" aria-describedby="dentaphone3dStatusMessage" tabindex="-1" data-dentaphone-view-tab="3d">3D chomper <small aria-hidden="true">WebGL</small></button>
+        </div>
+        <div class="stage-wrap" id="stageWrap" role="tabpanel" aria-labelledby="dentaphoneView2d">
+          <div class="dentaphone-3d-status" id="dentaphone3dStatus" data-state="idle" hidden>
+            <span class="dentaphone-3d-status-light" aria-hidden="true"></span>
+            <span id="dentaphone3dStatusMessage" role="status" aria-live="polite" aria-atomic="true"></span>
+            <button id="dentaphone3dRetry" type="button" hidden>Retry 3D</button>
+          </div>
+          <div class="dentaphone-artboard" id="dentaphoneArtboard" data-dentaphone-renderer="image" data-dentaphone-view-mode="2d">
+            <canvas
+              id="stage"
+              tabindex="-1"
+              aria-hidden="true"
+            >
+              Two complete playable dental arches.
+            </canvas>
+            <div
+              class="dentaphone-scene"
+              id="dentaphoneScene"
+            >
+              <canvas
+                class="dentaphone-webgl"
+                id="dentaphoneWebgl"
+                aria-hidden="true"
+              >
+                Interactive three-dimensional upper and lower dental arches.
+              </canvas>
+              <span class="dentaphone-renderer-badge" aria-hidden="true">32-TOOTH ANATOMICAL MESH · WEBGL</span>
+              <div
+                class="dentaphone-rig"
+                id="dentaphoneKeyboard"
+                role="group"
+                aria-label="Thirty-two playable teeth mapped directly to the illustrated upper and lower arches"
+                aria-describedby="canvasInstructions"
+                data-brush-mode="off"
+                data-brush-state="off"
+              >
+                <div class="dentaphone-jaw dentaphone-jaw--upper" data-dentaphone-jaw="upper">
+                  <img
+                    class="dentaphone-artwork dentaphone-artwork--upper"
+                    src="assets/dentaphone-upper.webp?v=c16ede041c06"
+                    width="1536"
+                    height="1024"
+                    alt=""
+                    aria-hidden="true"
+                    draggable="false"
+                  />
+                  <div class="dentaphone-arch-hits" data-dentaphone-arch="upper"></div>
+                </div>
+                <div
+                  class="dentaphone-food-layer"
+                  id="dentaphoneFoodLayer"
+                  aria-hidden="true"
+                ></div>
+                <div class="dentaphone-jaw dentaphone-jaw--lower" data-dentaphone-jaw="lower">
+                  <img
+                    class="dentaphone-artwork dentaphone-artwork--lower"
+                    src="assets/dentaphone-lower.webp?v=b1f1d98a5cdc"
+                    width="1536"
+                    height="1024"
+                    alt=""
+                    aria-hidden="true"
+                    draggable="false"
+                  />
+                  <div class="dentaphone-arch-hits" data-dentaphone-arch="lower"></div>
+                </div>
+              </div>
+              <div
+                class="dentaphone-toothbrush"
+                id="dentaphoneToothbrush"
+                data-mode="off"
+                data-state="off"
+                aria-hidden="true"
+              >
+                <img
+                  src="assets/dentaphone-toothbrush.webp?v=bb1ba23adf11"
+                  width="780"
+                  height="660"
+                  alt=""
+                  aria-hidden="true"
+                  draggable="false"
+                />
+              </div>
+            </div>
+          </div>
+          <p class="dentaphone-view-hint" id="dentaphoneViewHint" aria-hidden="true">Tap or drag teeth to play · use the toothbrush to scrub notes</p>
+          <h1 class="sr-only">Dentaphone</h1>
+          <span class="sr-only" id="stageReadout">DENTAPHONE · 32 TEETH · AUDIO OFF</span>
+        </div>
+        <p class="sr-only" id="canvasInstructions">
+          Choose the 2D anatomy or 3D chomper tab. The 2D anatomy stays fixed for playing individual teeth and brushing notes. In 3D, drag empty space to rotate the mouth; jaw opening, Chomp, and food controls are available only in this view. Automatic brush circles both arches; Manual brush lets you drag the bristles over individual teeth, and Park brush stops either mode. Use Tab to enter either dental arch. Left and Right move through an arch; Up and Down move between matching upper and lower teeth; Home and End move to the rear teeth. Press Enter or Space to strike. Drag across teeth for a glissando. A, S, D, F, G, H, J, and K play the first eight lower-arch teeth in the current pitch map.
+        </p>
+        <p class="sr-only" id="dentaphoneSelectionSummary">Selected lower right third molar, tooth 32, C3, Wood Bar.</p>
+        <p class="sr-only" id="liveStatus" role="status" aria-live="polite" aria-atomic="true"></p>
+      </section>
+
+      <aside class="panel physical-panel" aria-label="Dentaphone controls">
+        <section class="physical-card" aria-labelledby="objectPresetTitle">
+          <div class="physical-card-heading">
+            <h2 class="group-title" id="objectPresetTitle">Material &amp; mallet</h2>
+            <span class="section-state" id="presetSummary">Wood bar · 8 modes</span>
+          </div>
+          <div class="group-body">
+            <label class="select-control" for="preset">
+              <span class="field-label">Tooth material</span>
+              <span class="select-shell">
+                <select id="preset" aria-describedby="presetSummary presetDescription">
+                  <option value="bronze-bell">Bronze bell</option>
+                  <option value="wood-bar" selected>Wood bar</option>
+                  <option value="glass-bowl">Glass bowl</option>
+                  <option value="ceramic-tile">Ceramic tile</option>
+                  <option value="steel-plate">Steel plate</option>
+                </select>
+              </span>
+            </label>
+            <p class="preset-copy" id="presetDescription">
+              A free-free wooden bar with the characteristic inharmonic bending-mode sequence.
+            </p>
+            <span class="status-pill">sample-free modal bank</span>
+            <div class="performance-pad-grid" role="group" aria-label="Dentaphone performance" aria-describedby="dentaphoneSelectionSummary">
+              <button class="performance-button" type="button" data-action="strike">Strike selected</button>
+              <button class="performance-button" type="button" data-action="trigger">Soft tap</button>
+              <button class="performance-button" type="button" data-action="stop">Mute</button>
+            </div>
+            <p class="physical-performance-note">Every tooth uses the selected modal body. Tap or drag the arches; keys A S D F G H J K follow the first eight lower teeth in the current map.</p>
+          </div>
+        </section>
+
+        <section class="physical-card dentaphone-food-card" id="dentaphoneFoodCard" hidden aria-labelledby="dentaphoneFoodTitle">
+          <div class="physical-card-heading">
+            <h2 class="group-title" id="dentaphoneFoodTitle">Things to eat</h2>
+            <output class="section-state" id="dentaphoneChewStatus" aria-live="polite" aria-atomic="true">mouth empty</output>
+          </div>
+          <div class="group-body dentaphone-food-panel">
+            <p class="dentaphone-food-help" id="dentaphoneFoodHelp">Tap an object to feed it automatically, or drag it directly into the mouth.</p>
+            <div class="dentaphone-food-grid" role="group" aria-label="Objects for the Dentaphone to eat" aria-describedby="dentaphoneFoodHelp">
+              <button class="dentaphone-food-button" type="button" data-dentaphone-food="apple">
+                <img src="assets/dentaphone-chew-apple.webp?v=2a87c652d8ea" width="512" height="512" alt="" aria-hidden="true" draggable="false" />
+                <span><b>Apple</b><small>arpeggio crunch</small></span>
+              </button>
+              <button class="dentaphone-food-button" type="button" data-dentaphone-food="crystal">
+                <img src="assets/dentaphone-chew-crystal.webp?v=65b954e11475" width="512" height="512" alt="" aria-hidden="true" draggable="false" />
+                <span><b>Crystal</b><small>glass cluster</small></span>
+              </button>
+              <button class="dentaphone-food-button" type="button" data-dentaphone-food="gear">
+                <img src="assets/dentaphone-chew-gear.webp?v=e7469397c4ec" width="512" height="512" alt="" aria-hidden="true" draggable="false" />
+                <span><b>Gear</b><small>ratchet rhythm</small></span>
+              </button>
+              <button class="dentaphone-food-button" type="button" data-dentaphone-food="seedpod">
+                <img src="assets/dentaphone-chew-seedpod.webp?v=063b2da72c29" width="512" height="512" alt="" aria-hidden="true" draggable="false" />
+                <span><b>Seed pod</b><small>scattered roll</small></span>
+              </button>
+            </div>
+            <button class="physical-action dentaphone-clear-food" id="dentaphoneClearFood" type="button">Clear mouth</button>
+          </div>
+        </section>
+
+        <section class="physical-card dentaphone-brush-card" aria-labelledby="dentaphoneBrushTitle">
+          <div class="physical-card-heading">
+            <h2 class="group-title" id="dentaphoneBrushTitle">Toothbrush</h2>
+            <output class="section-state" id="dentaphoneBrushStatus" role="status" aria-live="polite" aria-atomic="true">brush parked</output>
+          </div>
+          <div class="group-body dentaphone-brush-panel">
+            <div class="dentaphone-brush-preview" aria-hidden="true">
+              <img
+                src="assets/dentaphone-toothbrush.webp?v=bb1ba23adf11"
+                width="780"
+                height="660"
+                alt=""
+                aria-hidden="true"
+                draggable="false"
+              />
+            </div>
+            <p class="dentaphone-brush-help" id="dentaphoneBrushHelp">Automatic scrubs back and forth around both arches. Manual lets you drag the bristles over any tooth; every pass triggers its note.</p>
+            <div class="dentaphone-brush-actions" role="group" aria-label="Toothbrush mode" aria-describedby="dentaphoneBrushHelp dentaphoneBrushStatus">
+              <button class="physical-action dentaphone-brush-mode" id="dentaphoneBrushAuto" type="button" aria-pressed="false" aria-controls="dentaphoneToothbrush dentaphoneKeyboard">Auto scrub</button>
+              <button class="physical-action dentaphone-brush-mode" id="dentaphoneBrushManual" type="button" aria-pressed="false" aria-controls="dentaphoneToothbrush dentaphoneKeyboard">Manual brush</button>
+              <button class="physical-action dentaphone-brush-stop" id="dentaphoneBrushStop" type="button" aria-controls="dentaphoneToothbrush dentaphoneKeyboard">Park brush</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="physical-card dentaphone-motion-card" id="dentaphoneMotionCard" hidden aria-labelledby="dentaphoneMotionTitle">
+          <div class="physical-card-heading">
+            <h2 class="group-title" id="dentaphoneMotionTitle">3D mouth &amp; view</h2>
+            <output class="section-state" id="dentaphoneViewSummary">2D · 58% open</output>
+          </div>
+          <div class="group-body dentaphone-motion-panel">
+            <div class="dentaphone-motion-buttons" role="group" aria-label="Jaw animation controls" aria-describedby="dentaphoneMotionHelp">
+              <button class="physical-action" id="dentaphoneChomp" type="button" aria-pressed="false">Chomp</button>
+            </div>
+            <label class="control" for="dentaphoneJawOpen">
+              <span><b>Jaw opening</b><output id="dentaphoneJawOpenOut" for="dentaphoneJawOpen">58% open</output></span>
+              <input id="dentaphoneJawOpen" data-dentaphone-view="open" type="range" min="0" max="1" step="0.01" value="0.58" />
+            </label>
+            <div class="dentaphone-3d-controls" id="dentaphone3dControls" hidden>
+              <button class="physical-action" id="dentaphoneResetView" type="button">Reset 3D view</button>
+              <label class="control" for="dentaphoneYaw">
+                <span><b>Turn</b><output id="dentaphoneYawOut" for="dentaphoneYaw">4° left</output></span>
+                <input id="dentaphoneYaw" data-dentaphone-view="yaw" type="range" min="-26" max="26" step="1" value="-4" />
+              </label>
+              <label class="control" for="dentaphonePitch">
+                <span><b>Tilt</b><output id="dentaphonePitchOut" for="dentaphonePitch">3° up</output></span>
+                <input id="dentaphonePitch" data-dentaphone-view="pitch" type="range" min="-14" max="14" step="1" value="3" />
+              </label>
+            </div>
+            <p class="control-note" id="dentaphoneMotionHelp">In 3D, Chomp closes the modeled arches until opposing teeth meet. Drag empty space to rotate the mouth.</p>
+          </div>
+        </section>
+
+        <section class="physical-card" aria-labelledby="dentaphonePitchTitle">
+          <div class="physical-card-heading">
+            <h2 class="group-title" id="dentaphonePitchTitle">Tooth keyboard</h2>
+            <span class="section-state">two pitch layers</span>
+          </div>
+          <div class="group-body dentaphone-pitch-panel">
+            <div class="dentaphone-range-grid" role="group" aria-label="Current arch ranges">
+              <div><span>Upper · layer B</span><output id="upperPitchRange">C4–D♯5</output></div>
+              <div><span>Lower · layer A</span><output id="lowerPitchRange">C3–D♯4</output></div>
+            </div>
+            <label class="select-control" for="pitchLayout">
+              <span class="field-label">Pitch distribution</span>
+              <span class="select-shell">
+                <select id="pitchLayout" data-dentaphone-pitch="layout">
+                  <option value="marimba-split">Marimba split</option>
+                  <option value="paired-chromatic" selected>Paired chromatic</option>
+                  <option value="twin-diatonic">Twin diatonic</option>
+                  <option value="opposed-arches">Opposed arches</option>
+                </select>
+              </span>
+            </label>
+            <div class="dentaphone-map-grid">
+              <label class="select-control" for="rootPitch">
+                <span class="field-label">Root</span>
+                <span class="select-shell">
+                  <select id="rootPitch" data-dentaphone-pitch="root">
+                    <option value="0" selected>C</option>
+                    <option value="1">C♯</option>
+                    <option value="2">D</option>
+                    <option value="3">D♯</option>
+                    <option value="4">E</option>
+                    <option value="5">F</option>
+                    <option value="6">F♯</option>
+                    <option value="7">G</option>
+                    <option value="8">G♯</option>
+                    <option value="9">A</option>
+                    <option value="10">A♯</option>
+                    <option value="11">B</option>
+                  </select>
+                </span>
+              </label>
+              <label class="select-control" for="pitchOctave">
+                <span class="field-label">Lower register</span>
+                <span class="select-shell">
+                  <select id="pitchOctave" data-dentaphone-pitch="octave">
+                    <option value="1">Octave 1</option>
+                    <option value="2">Octave 2</option>
+                    <option value="3" selected>Octave 3</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+            <p class="control-note">Paired chromatic gives every neighboring tooth the next semitone, with the upper arch one octave above the lower. The other maps split natural notes and accidentals or create parallel and opposed pitch rows. Keyboard focus selects the next tooth without cutting off the current ring.</p>
+          </div>
+        </section>
+
+        <section class="physical-card" aria-labelledby="objectModelTitle">
+          <div class="physical-card-heading">
+            <h2 class="group-title" id="objectModelTitle">Material physics</h2>
+            <span class="section-state">frequency × decay × shape</span>
+          </div>
+          <div class="group-body">
+            <dl class="metric-grid" id="modelMetrics">
+              <div><dt>Active modes</dt><dd data-metric="primary">24</dd></div>
+              <div><dt>Reference</dt><dd data-metric="secondary">146 Hz</dd></div>
+              <div><dt>Energy</dt><dd data-metric="tertiary">0%</dd></div>
+            </dl>
+
+            <label class="control" for="baseFrequencyHz">
+              <span><b>Selected tooth pitch</b><output id="baseFrequencyHzOut" data-output="baseFrequencyHz" for="baseFrequencyHz">146 Hz</output></span>
+              <input id="baseFrequencyHz" data-param="baseFrequencyHz" type="range" min="20" max="4000" step="1" value="146" />
+            </label>
+            <label class="control" for="size">
+              <span><b>Body scale</b><output id="sizeOut" data-output="size" for="size">1.00×</output></span>
+              <input id="size" data-param="size" type="range" min="0.25" max="4" step="0.01" value="1" />
+            </label>
+            <label class="control" for="stiffness">
+              <span><b>Stiffness</b><output id="stiffnessOut" data-output="stiffness" for="stiffness">71%</output></span>
+              <input id="stiffness" data-param="stiffness" type="range" min="0" max="1" step="0.01" value="0.71" />
+            </label>
+            <label class="control" for="damping">
+              <span><b>Material damping</b><output id="dampingOut" data-output="damping" for="damping">24%</output></span>
+              <input id="damping" data-param="damping" type="range" min="0" max="1" step="0.01" value="0.24" />
+            </label>
+            <label class="control" for="modeCount">
+              <span><b>Mode count</b><output id="modeCountOut" data-output="modeCount" for="modeCount">24 modes</output></span>
+              <input id="modeCount" data-param="modeCount" type="range" min="1" max="64" step="1" value="24" />
+            </label>
+            <label class="control" for="strikePosition">
+              <span><b>Tooth strike position</b><output id="strikePositionOut" data-output="strikePosition" for="strikePosition">68%</output></span>
+              <input id="strikePosition" data-param="strikePosition" type="range" min="0" max="1" step="0.01" value="0.68" />
+            </label>
+            <label class="control" for="pickupPosition">
+              <span><b>Listening position</b><output id="pickupPositionOut" data-output="pickupPosition" for="pickupPosition">31%</output></span>
+              <input id="pickupPosition" data-param="pickupPosition" type="range" min="0" max="1" step="0.01" value="0.31" />
+            </label>
+            <label class="control" for="energy">
+              <span><b>Strike force</b><output id="energyOut" data-output="energy" for="energy">59%</output></span>
+              <input id="energy" data-param="energy" type="range" min="0" max="1" step="0.01" value="0.59" />
+            </label>
+            <label class="control" for="brightness">
+              <span><b>Exciter brightness</b><output id="brightnessOut" data-output="brightness" for="brightness">73%</output></span>
+              <input id="brightness" data-param="brightness" type="range" min="0" max="1" step="0.01" value="0.73" />
+            </label>
+            <label class="control" for="stereoWidth">
+              <span><b>Modal spread</b><output id="stereoWidthOut" data-output="stereoWidth" for="stereoWidth">57%</output></span>
+              <input id="stereoWidth" data-param="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.57" />
+            </label>
+          </div>
+        </section>
+
+        <section class="physical-card" aria-labelledby="modalJsonTitle">
+          <div class="physical-card-heading">
+            <h2 class="group-title" id="modalJsonTitle">Mode data</h2>
+            <span class="section-state">JSON · relative ratios</span>
+          </div>
+          <div class="group-body json-editor">
+            <label for="modalJson">Custom modal bank</label>
+            <textarea id="modalJson" spellcheck="false" aria-describedby="modalJsonHelp">{
+  "name": "My resonator",
+  "modes": [
+    { "ratio": 1, "decay": 2.8, "gain": 1, "pan": -0.2 },
+    { "ratio": 2.71, "decay": 2.1, "gain": 0.72, "pan": 0.15 },
+    { "ratio": 5.03, "decay": 1.4, "gain": 0.46, "pan": 0.35 },
+    { "ratio": 8.18, "decay": 0.9, "gain": 0.28, "pan": -0.4 }
+  ]
+}</textarea>
+            <p class="control-note" id="modalJsonHelp">
+              Ratio multiplies the fundamental; decay is T60 in seconds; gain is linear. Optional modeCount limits active rows; referenceStiffness and dispersion define the stiffness transform independently of presets. Pan runs from −1 to +1; strikeNode shapes position response, while strikeWeight supplies an explicit −1 to +1 input weight.
+            </p>
+            <div class="json-actions">
+              <button class="physical-action" type="button" data-action="loadModalJson">Load modal JSON</button>
+              <button class="physical-action" type="button" data-action="copyModalJson">Copy current JSON</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="disclosure" aria-labelledby="objectMethodTitle">
+          <h2 id="objectMethodTitle">What is being modeled?</h2>
+          <p>
+            Each tooth retunes the selected Dentaphone resonator: every partial keeps its own frequency, T60, amplitude, excitation node, and pickup weight. The default 2D view maps all 32 crown regions directly to the illustrated dental plates for tooth playing and brushing. The optional 3D tab uses MakeHuman's complete CC0 dentition, separated into 32 selectable tooth meshes and two animated jaw hinges; both views share the same notes, materials, tooth vibration, and toothbrush, while 3D adds jaw motion, chomping, and food patterns.
+          </p>
+          <div class="source-links">
+            <a href="https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html" target="_blank" rel="noreferrer">MakeHuman teeth_base · 32-tooth source</a>
+            <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noreferrer">3D mesh license · CC0 1.0</a>
+            <a href="https://wellcomecollection.org/works/uvn2xyhp" target="_blank" rel="noreferrer">Davenport dental arches · 1887</a>
+            <a href="https://wellcomecollection.org/works/e3r3tb2q/items?canvas=84" target="_blank" rel="noreferrer">Black dental anatomy · 1897</a>
+            <a href="https://www.ncbi.nlm.nih.gov/books/NBK553376/" target="_blank" rel="noreferrer">Adult arch anatomy</a>
+            <a href="https://dsprelated.com/freebooks/pasp/Modal_Synthesis.html" target="_blank" rel="noreferrer">PASP Modal Synthesis</a>
+            <a href="https://github.com/grame-cncm/faust/blob/master-dev/tools/physicalModeling/mesh2faust/README.md" target="_blank" rel="noreferrer">mesh2faust</a>
+          </div>
+        </section>
+
+        <div class="physical-footer-actions">
+          <button class="physical-action" type="button" data-action="reset">Reset Dentaphone</button>
+          <button class="physical-action" type="button" data-action="stop">Silence</button>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="physical-sounds-app.js?v=d01f3fbec128"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+Dentaphone 3D chomper source notice
+==================================
+
+The mouth and tooth geometry in dentaphone-chomper.glb is adapted from:
+
+  MakeHuman system asset: teeth_base
+  Copyright holders at the September 2020 CC0 release:
+    Data Collection AB
+    Joel Palmius
+    Jonas Hauquier
+  https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html
+
+Official source archive:
+
+  https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip
+  Internal file: teeth/teeth_base/teeth_base.obj
+  Source OBJ SHA-256:
+    f55198069e55d360c4b4cc7ecb1cc292b2c7665753ab8b65eabf46a8783f2875
+
+Source license:
+
+  Creative Commons CC0 1.0 Universal
+  https://creativecommons.org/publicdomain/zero/1.0/
+
+Morphazoid modifications:
+
+  - separated all 32 native tooth shells for one-to-one musical interaction;
+  - classified and named 16 upper and 16 lower teeth;
+  - split the connected mouth shell into independently hinged gum sections;
+  - centered, display-scaled, smoothed, and organized the mesh beneath named
+    upper and lower jaw nodes;
+  - converted the result from Wavefront OBJ to glTF Binary (GLB).
+
+The reproducible conversion script is scripts/build-dentaphone-chomper.py.
+CC0 does not require attribution; this notice preserves source provenance.

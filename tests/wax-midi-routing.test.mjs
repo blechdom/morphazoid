@@ -40,6 +40,7 @@ test("MIDI-only routing never drives a page's native audio transport", () => {
 test("artifact routes resolve catalog ids, including aliases and nested pages", () => {
   assert.equal(routeIdForLocation({ pathname: "/dist-wax/chaotic-fm.html" }), "chaotic-fm");
   assert.equal(routeIdForLocation({ pathname: "/dist-wax/l-mic.html" }), "micmic");
+  assert.equal(routeIdForLocation({ pathname: "/dist-wax/dentaphone.html" }), "object-forge");
   assert.equal(
     routeIdForLocation({ pathname: "/dist-wax/algorithmic-sequencers.html" }),
     "sorting-algorithms",

@@ -1,5 +1,26 @@
 # Third-party notices
 
+## MakeHuman teeth_base
+
+Dentaphone's optional WebGL jaw adapts the MakeHuman system `teeth_base`
+asset. The source contains 32 independent tooth shells and a connected mouth
+shell:
+
+- https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html
+- https://static.makehumancommunity.org/about/license.html
+
+MakeHuman released its system assets under CC0 1.0 Universal. Morphazoid
+separates and names all 32 teeth, splits the mouth shell into independently
+hinged upper and lower sections, recenters and scales the geometry, and converts
+it to GLB. Source details and the exact OBJ hash are in
+`assets/models/dentaphone-chomper.LICENSE.txt`.
+
+The reproducible converter lives only in the Morphazoid source repository at
+`scripts/build-dentaphone-chomper.py`; it is a build and provenance tool, not a
+runtime dependency, and is intentionally omitted from published static-site
+bundles. References to that path in the model's license notice refer to a
+repository checkout.
+
 ## Gilbert generalized Hilbert curve
 
 Paths adapts the recursive two-dimensional Gilbert reference algorithm:
@@ -62,8 +83,9 @@ Knowledge Labels remain applicable.
 
 ## Three.js
 
-Nightingale Manifold and Acoustic Manifold vendor Three.js 0.185.1 for local,
-offline-safe WebGL rendering:
+Dentaphone, Nightingale Manifold, and Acoustic Manifold vendor Three.js 0.185.1
+for local, offline-safe WebGL rendering. Dentaphone also vendors the GLTFLoader
+utilities needed by its anatomical jaw:
 
 - https://threejs.org/
 - https://github.com/mrdoob/three.js
@@ -71,7 +93,8 @@ offline-safe WebGL rendering:
 Copyright © 2010-2026 three.js authors
 
 Three.js is MIT-licensed. The complete license text is in
-`vendor/three/LICENSE.txt`.
+`vendor/three/LICENSE.txt`. Dentaphone's vendored loader utility imports were
+changed only to point at the adjacent local Three.js ESM build.
 
 ## Fluid Music Open Drums / Hyperreal TR-808 and TR-909 samples
 
