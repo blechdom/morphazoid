@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 128);
+  assert.equal(INSTRUMENTS.length, 129);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -70,7 +70,9 @@ test("every instrument has factual card copy, a start action, traits, and a tran
     );
     const expectedImageHref = instrument.id === "shader-synth-playground"
       ? "assets/instruments/webgpu-synths.webp"
-      : instrument.id === "constellation"
+      : instrument.id === "webgpu-chiptune"
+        ? "assets/instruments/webgpu-303.webp"
+        : instrument.id === "constellation"
         ? "assets/instruments/graph-synth.webp"
         : instrument.id === "jaw-jam"
           ? "assets/instruments/jaw-harp.webp"

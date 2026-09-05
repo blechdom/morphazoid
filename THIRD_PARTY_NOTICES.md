@@ -59,6 +59,20 @@ links, license links, and file hashes are recorded in
 
 - Thrush nightingale, common blackbird, and chaffinch recordings: Oona
   Räisänen (Wikimedia Commons user Mysid), public-domain dedications.
+## WebGPU Chiptune / Chiptune (sound) lineage
+
+WebGPU Chiptune translates the active sound path of **Chiptune (sound)** by
+srtuss (2015), Shadertoy shader ID `MljSRt`, from GLSL into WGSL and adds the
+Morphazoid streaming runtime, controls, presets, visualization, and host state
+adapter.
+
+- Original shader: https://www.shadertoy.com/view/MljSRt
+- Author credit in the supplied source: `srtuss, 2015`
+
+The Shadertoy page is not loaded at runtime. The supplied shader text and
+archived metadata did not state a reuse license, so this notice records
+provenance without asserting license terms.
+
 - House cricket recording: Wikimedia Commons user Morray, CC BY 3.0.
 - Field cricket recording: Wikimedia Commons user Thatcher, CC BY-SA 3.0.
 - European field cricket recording: Baudewijn Odé, CC BY-SA 4.0.

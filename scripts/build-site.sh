@@ -465,6 +465,10 @@ for worktree_runtime_file in \
   assets/instruments/ouroborousel.webp \
   ourorourobouroboros.html \
   ourorourobouroboros.css \
+  webgpu-chiptune.html \
+  webgpu-chiptune.css \
+  webgpu-chiptune-app.js \
+  src/webgpu-chiptune.js \
   ourorourobouroboros-app.js \
   src/ourorourobouroboros.js \
   assets/instruments/ourorourobouroboros.webp \
@@ -907,6 +911,10 @@ required_files=(
   assets/audio/vocalzoid-oddvoices-air.wav
   assets/audio/vocalzoid-oddvoices-cicada.wav
   assets/audio/vocalzoid-oddvoices-quake.wav
+  webgpu-chiptune.html
+  webgpu-chiptune.css
+  webgpu-chiptune-app.js
+  src/webgpu-chiptune.js
   assets/audio/vocalzoid-cmu-arctic-bdl.wav
   assets/audio/vocalzoid-cmu-arctic-clb.wav
   assets/audio/vocalzoid-cmu-arctic-jmk.wav

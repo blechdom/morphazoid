@@ -475,6 +475,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Streams a WGSL compute-shader acid voice into Web Audio chunks as a separate GPU synthesis instrument.",
     "Use a WebGPU-capable browser, turn on Audio, then shape the pattern, partials, filter, and chunk settings.",
   ),
+  "webgpu-chiptune": define(
+    "WebGPU tracker synth",
+    "Translates srtuss's 2015 Shadertoy Chiptune sound shader into a live WGSL score with chip voices, drums, noise, and eight-tap ping-pong echo.",
+    "Use a WebGPU-capable browser, start the tracker, turn on Audio to hear it, then drag the score to reshape its deterministic seed and pitch range or open the full active-path controls.",
+    ["WebGPU", "Pointer", "Built-in synth", "Shared transport"],
+  ),
   "jaw-jam": define(
     "Virtuosic monophonic jaw-harp sequencer",
     "Sequences one physical jaw-harp reed through plucks, pitch-inheriting sustains, and exact hard rests while every step can reshape material, mouth vowel, tine pull, breath power, and breath speed.",

@@ -272,7 +272,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 132);
+  assert.equal(tools.length, 133);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -598,6 +598,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "wave-pool", href: "wave-pool.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
+      { id: "webgpu-chiptune", href: "webgpu-chiptune.html" },
       { id: "jaw-jam", href: "jaw-jam.html" },
       { id: "webgpu-synths", href: "webgpu-synths.html" },
       { id: "shader-synth-playground", href: "shader-synth-playground.html" },
@@ -762,6 +763,15 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "webgpu-303",
       label: "WebGPU 303",
       href: "webgpu-303.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "webgpu-chiptune"),
+    {
+      id: "webgpu-chiptune",
+      label: "WebGPU Chiptune",
+      href: "webgpu-chiptune.html",
+      imageHref: "assets/instruments/webgpu-303.webp",
     },
   );
   assert.deepEqual(

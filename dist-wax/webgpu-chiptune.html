@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071015" />
+    <meta
+      name="description"
+      content="Morphazoid WebGPU Chiptune — a playable WGSL port of srtuss's 2015 Shadertoy sound shader."
+    />
+    <title>WebGPU Chiptune - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="webgpu-303.css" />
+    <link rel="stylesheet" href="webgpu-chiptune.css" />
+  </head>
+  <body class="webgpu-303-page webgpu-chiptune-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="rubix.html">rubix</a>
+        <a class="tab" href="sliding-puzzle.html">sliding puzzle</a>
+        <a class="tab" href="hyper-rubix.html">hyper rubix</a>
+        <a class="tab webgpu-303-tab" href="webgpu-303.html">webgpu 303</a>
+        <a
+          class="tab active webgpu-303-tab"
+          href="webgpu-chiptune.html"
+          aria-current="page"
+        >webgpu chiptune</a>
+        <a class="tab webgpu-303-tab" href="webgpu-synths.html">gpu shader synths</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="rubix.html">rubix</option>
+          <option value="sliding-puzzle.html">sliding puzzle</option>
+          <option value="hyper-rubix.html">hyper rubix</option>
+          <option value="webgpu-303.html">webgpu 303</option>
+          <option value="webgpu-chiptune.html" selected>webgpu chiptune</option>
+          <option value="webgpu-synths.html">gpu shader synths</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph webgpu-303-audio-glyph" aria-hidden="true">◆</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">55%</output></span>
+          <input
+            id="output"
+            aria-label="WebGPU Chiptune output level"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0.55"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell webgpu-303-shell" id="webgpuChiptune">
+      <h1 class="sr-only" id="webgpuChiptuneTitle">WebGPU Chiptune</h1>
+      <section class="stage webgpu-303-stage" aria-labelledby="webgpuChiptuneTitle">
+        <div class="stage-wrap webgpu-303-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            role="application"
+            tabindex="0"
+            aria-label="Procedural 32-step chiptune tracker. Horizontal position changes the pattern seed; vertical position changes pitch range. Audio off, transport paused."
+            aria-describedby="webgpuChiptuneDescription trackerInstructions liveStatus"
+          >
+            Procedural chiptune tracker with five pitch lanes.
+          </canvas>
+
+          <div class="webgpu-303-heading">
+            <p>SHADERTOY SOUND · WGSL COMPUTE</p>
+            <div class="chiptune-display-title" aria-hidden="true">WebGPU Chiptune</div>
+            <span id="engineBadge">WGSL sound shader</span>
+          </div>
+
+          <div class="chiptune-gesture-card" aria-hidden="true">
+            <b>TRACKER MORPH</b>
+            <span id="gestureReadout">seed 1.794 · range 1.00x</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">WEBGPU · STANDBY · AUDIO OFF</span>
+          </div>
+        </div>
+
+        <div class="webgpu-stage-knobs" aria-label="WebGPU Chiptune macro controls">
+          <div class="webgpu-stage-knob-actions" aria-label="Patch parameter actions">
+            <button class="mini-action" id="randomizePatch" type="button">Randomize patch</button>
+            <button class="mini-action" id="mutatePatch" type="button">Mutate patch</button>
+          </div>
+          <div
+            class="webgpu-knob-bank"
+            id="knobControls"
+            aria-label="WebGPU Chiptune macro controls"
+          ></div>
+        </div>
+      </section>
+
+      <aside class="panel webgpu-303-panel" aria-label="WebGPU Chiptune controls">
+        <div class="webgpu-status-strip" aria-live="polite">
+          <b id="gpuState">Checking WebGPU</b>
+          <small id="streamState">WGSL tracker engine</small>
+        </div>
+
+        <div class="webgpu-303-credit" aria-label="Original shader credit">
+          <span>Original sound shader</span>
+          <a href="https://www.shadertoy.com/view/MljSRt">
+            Chiptune (sound) by srtuss, 2015 · Shadertoy MljSRt
+          </a>
+        </div>
+
+        <details
+          class="group control-section webgpu-303-section webgpu-303-presets"
+          data-section="play"
+          open
+        >
+          <summary class="group-summary">
+            <h2 class="group-title">Pattern</h2>
+            <span class="section-state" id="patternState">78 BPM · Source Tracker</span>
+          </summary>
+          <div class="group-body">
+            <div class="webgpu-303-transport-row">
+              <button
+                class="play-button webgpu-303-play-button"
+                id="synthPlayButton"
+                type="button"
+                aria-pressed="false"
+                aria-label="Play WebGPU Chiptune"
+                aria-keyshortcuts="Space"
+                title="Play WebGPU Chiptune (Space)"
+                data-primary-transport
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5.5 18 12 8 18.5Z" />
+                </svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 6v12M16 6v12" />
+                </svg>
+              </button>
+              <span class="webgpu-303-transport-copy">
+                <b id="synthPlayLabel">Play chiptune</b>
+                <small id="synthPlayState">paused · Space</small>
+              </span>
+            </div>
+            <div
+              class="webgpu-preset-grid"
+              id="presetButtons"
+              role="group"
+              aria-label="WebGPU Chiptune presets"
+            ></div>
+            <div class="chiptune-control-stack" id="patternControls"></div>
+          </div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Chip Voices</h2>
+            <span class="section-state" id="voiceState">seed 1.794</span>
+          </summary>
+          <div class="group-body chiptune-control-stack" id="voiceControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Drums</h2>
+            <span class="section-state" id="drumState">bus 100%</span>
+          </summary>
+          <div class="group-body chiptune-control-stack" id="drumControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Echo + Mix</h2>
+            <span class="section-state" id="echoState">8 taps</span>
+          </summary>
+          <div class="group-body chiptune-control-stack" id="echoControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="advanced">
+          <summary class="group-summary">
+            <h2 class="group-title">Advanced Source</h2>
+            <span class="section-state" id="advancedState">7-note scale · editable gates</span>
+          </summary>
+          <div class="group-body">
+            <p class="webgpu-credit-note">
+              Edit the source score itself: pitch classes, two 32-step gate lanes,
+              clocks, registers, phrase geometry, envelopes, and circuit balances.
+            </p>
+            <div id="scaleControls"></div>
+            <div id="gateControls"></div>
+            <div
+              class="chiptune-control-stack chiptune-advanced-controls"
+              id="advancedControls"
+            ></div>
+          </div>
+        </details>
+
+        <details
+          class="group control-section webgpu-303-section webgpu-runtime-section"
+          data-section="output"
+        >
+          <summary class="group-summary">
+            <h2 class="group-title">GPU Stream</h2>
+            <span class="section-state" id="runtimeState">256 lanes</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="chunkDuration">
+              <span>
+                <b>Chunk length</b>
+                <output id="chunkDurationOut" for="chunkDuration">100 ms</output>
+              </span>
+              <input
+                id="chunkDuration"
+                type="range"
+                min="0.03"
+                max="0.25"
+                step="0.01"
+                value="0.10"
+              />
+            </label>
+            <label class="select-control" for="workgroupSize">
+              <span>
+                <b>Workgroup</b>
+                <output id="workgroupSizeOut" for="workgroupSize">256 lanes</output>
+              </span>
+              <span class="select-shell">
+                <select id="workgroupSize" aria-label="WebGPU workgroup size">
+                  <option value="32">32 lanes</option>
+                  <option value="64">64 lanes</option>
+                  <option value="128">128 lanes</option>
+                  <option value="256" selected>256 lanes</option>
+                </select>
+              </span>
+            </label>
+            <p class="webgpu-credit-note">
+              The active Shadertoy sound path is translated from GLSL to WGSL and rendered
+              in bounded stereo chunks. Musically meaningful active-path values are editable;
+              numerical stability constants, 12-TET math, BLEP calibration, sample rate, and
+              the safety ceiling remain fixed. Dormant source experiments are intentionally omitted.
+            </p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button
+            class="reset-all-button"
+            id="resetPatch"
+            type="button"
+            data-reset-all
+            data-reset-in-place
+          >
+            Reset source patch
+          </button>
+        </div>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+      </aside>
+
+      <p class="sr-only" id="webgpuChiptuneDescription">
+        A WebGPU compute shader renders a procedural tracker composition with two upper pulse
+        voices, bass, lead, arpeggio, noise percussion, drums, and ping-pong echo into Web Audio.
+      </p>
+      <p class="sr-only" id="trackerInstructions">
+        Focus the tracker and use left or right arrow keys to change its deterministic pattern
+        seed. Use up or down arrow keys to change pitch range. Hold Shift for larger changes.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="webgpu-chiptune-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -107,6 +107,7 @@ test("input processors are conservative previews and musical generators expose u
   assert.equal(waxSupportForId("throatazoid").roles.includes(WAX_ROLE_IDS.audioFx), true);
   assert.equal(waxSupportForId("alien-larynx").roles.includes(WAX_ROLE_IDS.audioFx), true);
   assert.match(waxSupportForId("webgpu-303").caveat, /WebGPU support/i);
+  assert.match(waxSupportForId("webgpu-chiptune").caveat, /WebGPU support/i);
 
   const moire = waxSupportForId("moire-drone");
   assert.equal(moire.recommended, WAX_ROLE_IDS.instrument);
