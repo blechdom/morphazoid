@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06110f" />
+    <meta
+      name="description"
+      content="Nightingale Manifold maps locally analyzed strophe occurrences into a playable 3D acoustic graph with source-aware and physical-model playback."
+    />
+    <title>Nightingale Manifold — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="nightingale-manifold.css" />
+  </head>
+  <body class="manifold-page">
+    <header class="masthead manifold-masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <span class="edition">bioacoustic cartography</span>
+
+      <nav class="tabs manifold-tabs" aria-label="Related bioacoustic instruments">
+        <a class="tab" href="birdsong-lab.html">strophe lab</a>
+        <a class="tab" href="acoustic-manifold.html">acoustic manifold</a>
+        <a class="tab active" href="nightingale-manifold.html" aria-current="page">nightingale manifold</a>
+        <a class="tab" href="crickets.html">crickets</a>
+      </nav>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">62%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.85" step="0.01" value="0.62" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell manifold-shell" id="nightingale-manifold-root">
+      <section class="stage manifold-stage" aria-labelledby="manifold-title">
+        <div class="stage-wrap manifold-stage-wrap">
+          <canvas
+            id="manifold-canvas"
+            tabindex="0"
+            role="region"
+            aria-label="Playable three-dimensional map of nightingale strophe occurrences"
+            aria-describedby="manifold-help manifold-truth status"
+          >
+            A synchronized strophe list is available in the controls panel.
+          </canvas>
+
+          <header class="manifold-stage-heading">
+            <span>acoustic / phrase / sequence</span>
+            <h1 id="manifold-title">Nightingale<br />Manifold</h1>
+            <p>Each glyph is a strophe occurrence: core diameter shows duration, the gap to the wire shell shows relative RMS level, and a compact ribbon reveals its active frames and tone candidates.</p>
+          </header>
+
+          <div class="manifold-stage-meta" aria-hidden="true">
+            <span>3D PCA</span><i></i><span>local analysis</span>
+          </div>
+
+          <div class="manifold-legend" aria-label="Graph legend">
+            <span><i class="legend-node" aria-hidden="true"></i>core diameter duration · shell gap relative RMS · color cluster</span>
+            <span><i class="legend-tone" aria-hidden="true"></i>ribbon · small frames / diamond candidates · amber low → blue high</span>
+            <span><i class="legend-similarity" aria-hidden="true"></i>dotted teal · acoustic similarity</span>
+            <span><i class="legend-sequence" aria-hidden="true"></i>solid amber → observed succession</span>
+            <span><i class="legend-route" aria-hidden="true"></i>lime · playing route</span>
+          </div>
+
+          <div class="manifold-view-tools" aria-label="Map view controls">
+            <button id="reset-view" type="button">Reset view</button>
+          </div>
+
+          <p class="manifold-help" id="manifold-help">
+            Drag empty space to orbit · wheel or pinch to zoom · select a node to inspect it
+          </p>
+          <p class="sr-only" id="manifold-truth">
+            The map is a three-dimensional principal component projection, not a time axis. Solid core diameter encodes duration and the radial gap to the wire shell encodes relative RMS level. Compact ribbons run left to right in local time: small colored beads encode active analysis windows and diamond beads encode silence-gated tone candidates, from lower amber to higher blue dominant spectral peaks. Proximity summarizes acoustic features and does not establish syntax or vocal anatomy. Dotted teal lines show acoustic nearest neighbors. Solid amber arrows show observed temporal succession.
+          </p>
+          <p class="manifold-status" id="status" role="status" aria-live="polite" aria-atomic="true">
+            Preparing the local demonstration…
+          </p>
+        </div>
+
+        <section class="manifold-route" aria-labelledby="route-title">
+          <div class="route-heading">
+            <span>Route</span>
+            <h2 id="route-title">Strophe path</h2>
+          </div>
+          <ol id="route-ribbon" aria-label="Strophes in the playback route">
+            <li class="route-empty">Build a route from the graph</li>
+          </ol>
+          <button id="clear-route" type="button" disabled>Clear</button>
+        </section>
+
+        <div class="manifold-transport" aria-label="Route transport">
+          <label class="transport-mode" for="listen-mode">
+            <span>Listen</span>
+            <select id="listen-mode">
+              <option value="recording">Recording · samples</option>
+              <option value="physical" selected>Physical · no samples</option>
+            </select>
+          </label>
+          <button id="play-route" class="primary-transport" type="button" disabled aria-pressed="false" data-primary-transport>
+            <span aria-hidden="true">▶</span><b>Play route</b><small>physical model</small>
+          </button>
+          <button id="stop-route" type="button" disabled>
+            <span aria-hidden="true">■</span><b>Stop</b><small>all strophes</small>
+          </button>
+          <label class="route-loop" for="loop-route">
+            <input id="loop-route" type="checkbox" />
+            <span><b>Loop</b><small>whole route</small></span>
+          </label>
+        </div>
+      </section>
+
+      <aside class="panel manifold-panel" aria-label="Source, graph, route, and selected strophe controls">
+        <section class="manifold-card source-card" aria-labelledby="source-title">
+          <header class="card-heading">
+            <span>01</span>
+            <div><small>Source</small><h2 id="source-title">Map a song sequence</h2></div>
+          </header>
+
+          <div class="source-well">
+            <div>
+              <strong id="source-label">Procedural thrush-nightingale study</strong>
+              <span>Audio and descriptors stay in this browser.</span>
+            </div>
+            <input
+              class="visually-hidden-file"
+              id="audio-file"
+              type="file"
+              accept="audio/*,.wav,.flac,.ogg,.mp3,.m4a"
+              aria-describedby="source-privacy"
+            />
+            <div class="source-actions">
+              <label class="manifold-button file-button" for="audio-file">Choose audio</label>
+              <button id="load-demo" type="button">Use local demo</button>
+            </div>
+          </div>
+          <p id="source-privacy" class="card-note">
+            The MVP treats an active bout of at least 0.5 s, separated by roughly 0.8 s of silence, as a candidate strophe. That is an operational boundary, not a reusable song-type label.
+          </p>
+
+          <dl class="manifold-stats" aria-label="Analysis summary">
+            <div><dt>Strophes</dt><dd id="strophe-stat">—</dd></div>
+            <div><dt>Frames</dt><dd id="frame-stat">—</dd></div>
+            <div><dt>Duration</dt><dd id="duration-stat">—</dd></div>
+            <div><dt>Variance · PC1–3</dt><dd id="variance-stat">—</dd></div>
+          </dl>
+
+          <button id="reanalyze" class="wide-action" type="button" disabled>Analyze and rebuild map</button>
+        </section>
+
+        <section class="manifold-card map-card" aria-labelledby="map-title">
+          <header class="card-heading">
+            <span>02</span>
+            <div><small>Map</small><h2 id="map-title">Separate distance from order</h2></div>
+          </header>
+
+          <div class="toggle-grid">
+            <label for="show-similarity">
+              <input id="show-similarity" type="checkbox" checked />
+              <span><i class="toggle-similarity" aria-hidden="true"></i><b>Similarity</b><small>dotted neighbors</small></span>
+            </label>
+            <label for="show-sequence">
+              <input id="show-sequence" type="checkbox" checked />
+              <span><i class="toggle-sequence" aria-hidden="true"></i><b>Succession</b><small>observed arrows</small></span>
+            </label>
+            <label for="show-trajectories">
+              <input id="show-trajectories" type="checkbox" checked />
+              <span><i class="toggle-trajectory" aria-hidden="true"></i><b>Trajectories</b><small>within-strophe path</small></span>
+            </label>
+            <label for="auto-rotate">
+              <input id="auto-rotate" type="checkbox" />
+              <span><i class="toggle-rotate" aria-hidden="true"></i><b>Auto orbit</b><small>camera only</small></span>
+            </label>
+          </div>
+
+          <p class="projection-truth">
+            <strong>Projection, not anatomy.</strong> PCA compresses frame-level timbre into three display coordinates; strophe-level multiscale descriptors determine dotted neighbors. Neither recovers syntax, meaning, or the bird&rsquo;s vocal geometry.
+          </p>
+        </section>
+
+        <section class="manifold-card walk-card" aria-labelledby="walk-title">
+          <header class="card-heading">
+            <span>03</span>
+            <div><small>Walk</small><h2 id="walk-title">Choose the next strophe</h2></div>
+          </header>
+
+          <label class="select-control" for="walk-rule">
+            <span><b>Route rule</b><small>what counts as a valid step</small></span>
+            <select id="walk-rule">
+              <option value="chronology">Observed chronology</option>
+              <option value="similarity">Acoustic similarity</option>
+              <option value="hybrid" selected>Hybrid exploration</option>
+              <option value="manual">Manual route</option>
+            </select>
+          </label>
+
+          <label class="range-control" for="route-length">
+            <span><b>Route length</b><output id="route-length-out" for="route-length">8 strophes</output></span>
+            <input id="route-length" type="range" min="2" max="16" step="1" value="8" />
+          </label>
+
+          <label class="range-control" for="surprise">
+            <span><b>Choice temperature</b><output id="surprise-out" for="surprise">35% surprising</output></span>
+            <input id="surprise" type="range" min="0" max="1" step="0.01" value="0.35" />
+            <small>Changes the generated walk; it does not alter recorded succession.</small>
+          </label>
+
+          <button id="build-route" class="wide-action" type="button" disabled>Build playable route</button>
+        </section>
+
+        <section class="manifold-card selected-card" aria-labelledby="selected-title">
+          <header class="card-heading selected-heading">
+            <span>04</span>
+            <div><small>Selected occurrence</small><h2 id="selected-title">No strophe selected</h2></div>
+          </header>
+          <p id="selected-meta">Choose a node in the map or the accessible list below.</p>
+          <div class="selected-actions">
+            <button id="audition-selected" type="button" disabled>Audition</button>
+            <button id="add-selected" type="button" disabled>+ Route</button>
+          </div>
+
+          <details class="node-browser">
+            <summary>Browse strophes as a list</summary>
+            <ol id="node-list" aria-label="Analyzed strophe occurrences">
+              <li class="node-empty">Strophes appear here after analysis.</li>
+            </ol>
+          </details>
+        </section>
+
+        <section class="manifold-card export-card" aria-labelledby="export-title">
+          <header class="card-heading">
+            <span>05</span>
+            <div><small>Bridge</small><h2 id="export-title">Take the route out</h2></div>
+          </header>
+          <div class="export-actions">
+            <button id="export-physical" type="button" disabled>
+              <b>Physical route WAV</b><small>no source samples</small>
+            </button>
+            <button id="export-json" type="button" disabled>
+              <b>Route + gesture JSON</b><small>features, offsets, rules</small>
+            </button>
+          </div>
+        </section>
+
+        <details class="manifold-method">
+          <summary>Method, provenance, and references</summary>
+          <div>
+            <p>
+              Standardized MFCC and spectral frames form a deterministic PCA trajectory; each strophe node sits at its trajectory centroid. Dotted nearest-neighbor edges use a separate standardized descriptor spanning duration, rhythm, spectral summaries, trajectory spread, and three envelope scales. Solid arrows preserve the observed recording order.
+            </p>
+            <p>
+              The display preserves silence-gated active runs inside each strophe as tone candidates. They are not verified fundamentals, notes, syllables, or species labels; bead color uses each short frame&rsquo;s dominant spectral-bin peak.
+            </p>
+            <p>
+              The browser recipe uses 12 MFCCs plus seven frame descriptors. It is a compact, Arese-inspired approximation, not a reproduction of <i>Seeing Birdsong</i>&rsquo;s 40-MFCC feature pipeline.
+            </p>
+            <p>
+              Fine, mid, and broad envelope variation is measured at roughly 11, 43, and 171&nbsp;ms at the target analysis rate. This is a compact multiscale summary, not a claim of multifractal estimation.
+            </p>
+            <p>
+              This is a graph of occurrences in one short recording, not a typed repertoire or a small-world claim. Cluster colors are exploratory and do not assign established song types.
+            </p>
+            <p>
+              <b>Recording</b> plays slices of the source and therefore contains samples. <b>Physical</b> sends extracted trajectories through a resynthesis model and contains no source samples. Neither reconstructs a unique biological mechanism.
+            </p>
+            <ul>
+              <li><a href="https://doi.org/10.1098/rspb.2014.0460" target="_blank" rel="noreferrer">Weiss et al. · nightingale song-sequence networks</a></li>
+              <li><a href="https://doi.org/10.1038/s41598-018-22933-2" target="_blank" rel="noreferrer">Roeske et al. · multifractal songbird rhythm</a></li>
+              <li><a href="https://www.lucioarese.net/seeing_birdsong/SeeingBirdsong_Brief.pdf" target="_blank" rel="noreferrer">Lucio Arese · Seeing Birdsong brief</a></li>
+            </ul>
+            <p class="doi-correction">
+              Reference note: the verified DOI for the Weiss nightingale network paper is 10.1098/rspb.2014.0460.
+            </p>
+          </div>
+        </details>
+      </aside>
+    </main>
+
+    <script type="module" src="nightingale-manifold-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06110f" />
+    <meta
+      name="description"
+      content="Acoustic Manifold maps local bioacoustic occurrences into a playable 3D graph, then resynthesizes and extrapolates their timing, pitch, body, texture, and order."
+    />
+    <title>Acoustic Manifold — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="acoustic-manifold.css" />
+  </head>
+  <body class="manifold-page acoustic-manifold-page">
+    <header class="masthead manifold-masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <span class="edition">bioacoustic cartography</span>
+
+      <nav class="tabs manifold-tabs" aria-label="Related bioacoustic instruments">
+        <a class="tab" href="birdsong-lab.html">strophe lab</a>
+        <a class="tab active" href="acoustic-manifold.html" aria-current="page">acoustic manifold</a>
+        <a class="tab" href="crickets.html">crickets</a>
+      </nav>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">62%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.85" step="0.01" value="0.62" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell manifold-shell" id="acoustic-manifold-root">
+      <section class="stage manifold-stage" aria-labelledby="manifold-title">
+        <div class="stage-wrap manifold-stage-wrap">
+          <canvas
+            id="manifold-canvas"
+            tabindex="0"
+            role="region"
+            aria-label="Playable three-dimensional map of detected acoustic-event occurrences"
+            aria-describedby="manifold-help manifold-truth status"
+          >
+            A synchronized event list is available in the controls panel.
+          </canvas>
+
+          <header class="manifold-stage-heading">
+            <span>signal / event / sequence</span>
+            <h1 id="manifold-title">Acoustic<br />Manifold</h1>
+            <p>Each glyph is one detected occurrence; the gap from core to shell shows relative level and its compact spectral ribbon reveals the active frames and tone candidates inside it.</p>
+          </header>
+
+          <div class="manifold-stage-meta" aria-hidden="true">
+            <span>3D projection</span><i></i><span>local analysis</span>
+          </div>
+
+          <div class="manifold-legend" aria-label="Graph legend">
+            <span><i class="legend-node" aria-hidden="true"></i>core diameter duration · shell gap relative RMS · color cluster</span>
+            <span><i class="legend-tone" aria-hidden="true"></i>ribbon · small frames / diamond candidates · amber low → blue high</span>
+            <span><i class="legend-similarity" aria-hidden="true"></i>dotted teal · acoustic similarity</span>
+            <span><i class="legend-sequence" aria-hidden="true"></i>solid amber → observed succession within groups</span>
+            <span><i class="legend-route" aria-hidden="true"></i>lime → composed route</span>
+          </div>
+
+          <div class="manifold-view-tools" aria-label="Map view controls">
+            <button id="reset-view" type="button">Reset view</button>
+          </div>
+
+          <p class="manifold-help" id="manifold-help">
+            Drag empty space to orbit · wheel or pinch to zoom · select a node to inspect it
+          </p>
+          <p class="sr-only" id="manifold-truth">
+            This map is a three-dimensional projection of acoustic measurements, not a time axis. Solid node core diameter encodes duration and the radial gap out to the wire shell encodes relative RMS level. Each compact ribbon is arranged left to right in local time: small colored beads encode active analysis windows, while diamond beads encode silence-gated tone candidates; amber is lower and blue is higher dominant spectral peak. Proximity summarizes selected features and does not establish syntax, species identity, meaning, or sound-production anatomy. Dotted teal lines show acoustic nearest neighbors. Solid amber arrows and the recorded-order strip show observed temporal succession.
+          </p>
+          <p class="manifold-status" id="status" role="status" aria-live="polite" aria-atomic="true">
+            Preparing a local built-in study…
+          </p>
+        </div>
+
+        <section class="recording-timeline" aria-labelledby="recording-order-title">
+          <div class="recording-timeline-heading">
+            <span>Original audio</span>
+            <h2 id="recording-order-title">Recorded order</h2>
+            <small id="recording-order-note">S001 → S002 · bar = recording-relative RMS</small>
+          </div>
+          <ol id="recording-order" aria-label="Detected occurrences in their original recording order">
+            <li class="recording-order-empty">Occurrences appear after analysis</li>
+          </ol>
+        </section>
+
+        <section class="manifold-route" aria-labelledby="route-title">
+          <div class="route-heading">
+            <span>Your route</span>
+            <h2 id="route-title">Playback order</h2>
+          </div>
+          <ol id="route-ribbon" aria-label="Events in the playback route">
+            <li class="route-empty">Build a route from the graph</li>
+          </ol>
+          <button id="clear-route" type="button" disabled>Clear</button>
+        </section>
+
+        <div class="manifold-transport" aria-label="Route transport">
+          <label class="transport-mode" for="listen-mode">
+            <span>Listen</span>
+            <select id="listen-mode">
+              <option value="recording">Source-derived slices · samples</option>
+              <option value="physical" selected>Model sketch · no samples</option>
+            </select>
+          </label>
+          <button id="play-route" class="primary-transport" type="button" disabled aria-pressed="false" data-primary-transport>
+            <span aria-hidden="true">▶</span><b>Play route</b><small>model sketch</small>
+          </button>
+          <button id="stop-route" type="button" disabled>
+            <span aria-hidden="true">■</span><b>Stop</b><small>all events</small>
+          </button>
+          <label class="route-loop" for="loop-route">
+            <input id="loop-route" type="checkbox" />
+            <span><b>Loop</b><small>whole route</small></span>
+          </label>
+        </div>
+      </section>
+
+      <aside class="panel manifold-panel" aria-label="Source, analysis, graph, route, and selected-event controls">
+        <section class="analysis-flow" aria-labelledby="analysis-flow-title">
+          <header>
+            <small>What happens when</small>
+            <h2 id="analysis-flow-title">Raw sound becomes a playable map</h2>
+          </header>
+          <ol>
+            <li><b>Source</b><span>raw recording or local procedural audio</span></li>
+            <li><b>Analyze</b><span>frames → active runs → occurrences → PCA + graph</span></li>
+            <li><b>Route</b><span>reorder existing occurrences without changing analysis</span></li>
+            <li><b>Play</b><span>source slices or model resynthesis with transforms</span></li>
+          </ol>
+          <p><strong>Nothing is shipped pre-analyzed.</strong> The 68 profiles contain defaults and citations only. Map analysis runs locally; detailed synthesis analysis runs when a model node is first played or exported.</p>
+          <div class="apply-key" aria-label="When controls take effect">
+            <span data-kind="analysis">Reanalyze</span>
+            <span data-kind="route">Build route</span>
+            <span data-kind="sound">Next play</span>
+            <span data-kind="view">View now</span>
+          </div>
+        </section>
+
+        <section class="manifold-card source-card" aria-labelledby="source-title">
+          <header class="card-heading">
+            <span>01</span>
+            <div><small>Source + profile</small><h2 id="source-title">Map an acoustic sequence</h2></div>
+            <em class="apply-badge" data-kind="analysis">Reanalyze</em>
+          </header>
+
+          <div class="source-well">
+            <div>
+              <strong id="source-label">Thrush nightingale · synthetic strophe study</strong>
+              <span>Built-ins, local files up to 2 minutes / 32 MB, and live capture are analyzed in this browser. PCM WAV keeps its source sample rate.</span>
+            </div>
+
+            <label class="select-control source-select-control" for="built-in-source">
+              <span><b>1 · Choose a built-in source</b><small id="built-in-count">12 recordings + 2 generated studies</small></span>
+              <select id="built-in-source">
+                <option value="thrush-nightingale-synthetic" data-profile="songbird" selected>Loading local catalog…</option>
+              </select>
+            </label>
+
+            <p class="source-credit" id="source-credit">
+              Procedurally generated in this browser · no recording or source samples.
+            </p>
+            <p class="source-compatibility" id="source-compatibility" data-coverage="unknown">
+              Load a source to check whether its sample rate covers the selected profile band.
+            </p>
+
+            <input
+              class="visually-hidden-file"
+              id="audio-file"
+              type="file"
+              accept="audio/*,.wav,.flac,.ogg,.mp3,.m4a"
+              aria-describedby="source-privacy"
+            />
+            <div class="source-actions">
+              <button id="load-built-in" type="button">Load + analyze selected</button>
+              <label class="manifold-button file-button" for="audio-file">Choose local audio</label>
+            </div>
+
+            <label class="select-control source-select-control" for="analysis-profile">
+              <span><b>2 · Analysis profile</b><small id="profile-note">silence-bounded songbird strophes</small></span>
+              <select id="analysis-profile" aria-describedby="profile-note">
+                <option value="songbird" selected>Songbird · strophes</option>
+                <option value="general">General · sound events</option>
+              </select>
+            </label>
+
+            <section class="profile-research" aria-labelledby="profile-research-title">
+              <header>
+                <small>Research-backed operational default</small>
+                <strong id="profile-research-title">Nightingale / songbird strophes</strong>
+              </header>
+              <p id="profile-band">Loading analysis band and capture guidance…</p>
+              <p id="profile-basis">Loading profile basis…</p>
+              <p id="profile-evidence" class="profile-evidence">Loading primary sources…</p>
+              <p id="profile-capture-note" class="profile-capture-note">Loading sample-rate guidance…</p>
+            </section>
+
+            <details class="analysis-tuning" id="analysis-tuning">
+              <summary>
+                <span>Tune analysis profile</span>
+                <span id="analysis-tuning-state" role="status" aria-live="polite" aria-atomic="true">PROFILE DEFAULTS</span>
+              </summary>
+              <div class="analysis-tuning-body">
+                <p class="analysis-tuning-intro">
+                  These controls change segmentation, descriptors, the PCA map, and graph links on the next analysis. They do not retrain a classifier.
+                </p>
+
+                <fieldset class="analysis-parameter-group">
+                  <legend>Feature band</legend>
+                  <div class="analysis-parameter-grid">
+                    <label class="parameter-control" for="analysis-minimum-spectral-hz">
+                      <span><b>Floor</b><small>Hz</small></span>
+                      <input id="analysis-minimum-spectral-hz" type="number" min="1" max="276479" step="1" value="250" inputmode="decimal" />
+                    </label>
+                    <label class="parameter-control" for="analysis-maximum-spectral-hz">
+                      <span><b>Ceiling</b><small>Hz</small></span>
+                      <input id="analysis-maximum-spectral-hz" type="number" min="2" max="276480" step="1" value="11000" inputmode="decimal" />
+                    </label>
+                  </div>
+                  <p class="analysis-parameter-note">Shapes spectral descriptors and PCA. The adaptive activity gate still measures full-band frame energy.</p>
+                </fieldset>
+
+                <fieldset class="analysis-parameter-group">
+                  <legend>Event geometry</legend>
+                  <div class="analysis-parameter-grid">
+                    <label class="parameter-control" for="analysis-minimum-event-seconds">
+                      <span><b id="analysis-minimum-event-label">Discard shorter than</b><small>seconds</small></span>
+                      <input id="analysis-minimum-event-seconds" type="number" min="0.000001" max="30" step="any" value="0.5" inputmode="decimal" />
+                    </label>
+                    <label class="parameter-control" id="analysis-pause-control" for="analysis-gap-seconds">
+                      <span><b>Join internal gaps ≤</b><small>seconds</small></span>
+                      <input id="analysis-gap-seconds" type="number" min="0.000001" max="8" step="any" value="0.8" inputmode="decimal" />
+                    </label>
+                  </div>
+
+                  <div class="analysis-parameter-grid" id="analysis-window-controls" hidden>
+                    <label class="parameter-control" for="analysis-fixed-window-seconds">
+                      <span><b>Window length</b><small>seconds</small></span>
+                      <input id="analysis-fixed-window-seconds" type="number" min="0.001" max="120" step="any" value="3" inputmode="decimal" />
+                    </label>
+                    <label class="parameter-control" for="analysis-fixed-window-overlap">
+                      <span><b>Window overlap</b><small>percent</small></span>
+                      <input id="analysis-fixed-window-overlap" type="number" min="0" max="95" step="1" value="50" inputmode="decimal" />
+                    </label>
+                    <label class="parameter-control" for="analysis-minimum-active-ratio">
+                      <span><b>Minimum active portion</b><small>percent</small></span>
+                      <input id="analysis-minimum-active-ratio" type="number" min="0" max="100" step="1" value="1" inputmode="decimal" />
+                    </label>
+                  </div>
+                </fieldset>
+
+                <details class="analysis-tuning-advanced">
+                  <summary>Resolution + graph</summary>
+                  <div class="analysis-parameter-grid">
+                    <label class="parameter-control" for="analysis-frame-size">
+                      <span><b>FFT frame</b><small>samples</small></span>
+                      <select id="analysis-frame-size">
+                        <option value="128">128</option>
+                        <option value="256">256</option>
+                        <option value="512" selected>512</option>
+                        <option value="1024">1,024</option>
+                        <option value="2048">2,048</option>
+                        <option value="4096">4,096</option>
+                      </select>
+                    </label>
+                    <label class="parameter-control" for="analysis-hop-ratio">
+                      <span><b>Frame step</b><small>fraction of frame</small></span>
+                      <select id="analysis-hop-ratio">
+                        <option value="0.0625">1 / 16</option>
+                        <option value="0.125">1 / 8</option>
+                        <option value="0.25">1 / 4</option>
+                        <option value="0.5" selected>1 / 2</option>
+                        <option value="1">1 / 1</option>
+                      </select>
+                    </label>
+                    <label class="parameter-control" for="analysis-target-rate">
+                      <span><b>Analysis-rate ceiling</b><small>Hz</small></span>
+                      <input id="analysis-target-rate" type="number" min="8000" max="576000" step="1" value="24000" inputmode="numeric" />
+                    </label>
+                    <label class="parameter-control" for="analysis-sequence-gap-seconds">
+                      <span><b>Break amber succession after</b><small>seconds · blank disables</small></span>
+                      <input id="analysis-sequence-gap-seconds" type="number" min="0" max="600" step="any" value="4" inputmode="decimal" />
+                    </label>
+                    <label class="parameter-control" for="analysis-neighbor-count">
+                      <span><b>Similarity links</b><small>neighbors per event</small></span>
+                      <input id="analysis-neighbor-count" type="number" min="1" max="12" step="1" value="3" inputmode="numeric" />
+                    </label>
+                  </div>
+                  <p class="analysis-parameter-note">Larger frames sharpen frequency resolution; smaller frame steps sharpen timing but cost more computation.</p>
+                </details>
+
+                <div class="analysis-tuning-actions">
+                  <button id="reset-analysis-parameters" type="button">Reset profile defaults</button>
+                </div>
+                <p id="analysis-parameter-summary" class="analysis-parameter-summary" data-mode="default" role="status" aria-live="polite" aria-atomic="true">
+                  <strong>PROFILE DEFAULTS</strong>
+                  <span>250 Hz–11 kHz features · 0.5 s minimum · gaps through 0.8 s joined · 512 / 256 samples at 24 kHz.</span>
+                </p>
+              </div>
+            </details>
+
+          </div>
+
+          <section class="live-source" aria-labelledby="live-source-title">
+            <header>
+              <div><strong id="live-source-title">Live input</strong><small>bounded local capture</small></div>
+              <output id="live-input-state" aria-live="polite">Microphone off</output>
+            </header>
+
+            <label class="select-control" for="live-input-device">
+              <span><b>Input device</b><small>available after permission</small></span>
+              <select id="live-input-device" disabled>
+                <option value="default">System default</option>
+              </select>
+            </label>
+
+            <label class="select-control" for="live-window-seconds">
+              <span><b>Capture limit</b><small>stops automatically</small></span>
+              <select id="live-window-seconds">
+                <option value="10">Up to 10 seconds</option>
+                <option value="20" selected>Up to 20 seconds</option>
+                <option value="30">Up to 30 seconds</option>
+              </select>
+            </label>
+
+            <div class="live-meter-row">
+              <span>Input level</span>
+              <meter id="live-input-meter" aria-label="Live microphone input level" min="0" max="1" low="0.04" high="0.78" optimum="0.3" value="0">0</meter>
+            </div>
+
+            <div class="live-actions">
+              <button id="start-live-input" type="button" aria-pressed="false">Start microphone</button>
+              <button id="capture-live-input" type="button" disabled>Stop + map audio</button>
+            </div>
+            <p class="live-note">The meter follows the incoming signal. The graph is rebuilt after you stop; this is not a continuous species detector.</p>
+          </section>
+
+          <p id="source-privacy" class="card-note">
+            Nothing is sent to a server; chosen files and microphone audio stay in this browser session. Microphone access begins only after you press Start and grant browser permission. Source-rate PCM WAV is required for faithful ultrasound; ordinary browser microphones and compressed decoding usually stop near the audible band. A profile changes operational event boundaries and synthesis interpretation; it does not identify a species.
+          </p>
+
+          <dl class="manifold-stats" aria-label="Analysis summary">
+            <div><dt>Occurrences</dt><dd id="strophe-stat">—</dd></div>
+            <div><dt>Active-run candidates</dt><dd id="tone-stat">—</dd></div>
+            <div><dt>Active / total frames</dt><dd id="frame-stat">—</dd></div>
+            <div><dt>Duration</dt><dd id="duration-stat">—</dd></div>
+            <div><dt>Variance · PC1–3</dt><dd id="variance-stat">—</dd></div>
+            <div><dt>Analysis rate</dt><dd id="analysis-rate-stat">—</dd></div>
+          </dl>
+
+          <button id="reanalyze" class="wide-action" type="button" disabled>Analyze and rebuild map</button>
+        </section>
+
+        <section class="manifold-card map-card" aria-labelledby="map-title">
+          <header class="card-heading">
+            <span>02</span>
+            <div><small>Map</small><h2 id="map-title">Separate distance from order</h2></div>
+            <em class="apply-badge" data-kind="view">View now</em>
+          </header>
+
+          <div class="toggle-grid">
+            <label for="show-similarity">
+              <input id="show-similarity" type="checkbox" checked />
+              <span><i class="toggle-similarity" aria-hidden="true"></i><b>Similarity</b><small>dotted neighbors</small></span>
+            </label>
+            <label for="show-sequence">
+              <input id="show-sequence" type="checkbox" checked />
+              <span><i class="toggle-sequence" aria-hidden="true"></i><b>Succession</b><small>observed arrows within groups</small></span>
+            </label>
+            <label for="show-trajectories">
+              <input id="show-trajectories" type="checkbox" checked />
+              <span><i class="toggle-trajectory" aria-hidden="true"></i><b>Spectral ribbons</b><small>small frames + diamond tone candidates</small></span>
+            </label>
+            <label for="auto-rotate">
+              <input id="auto-rotate" type="checkbox" />
+              <span><i class="toggle-rotate" aria-hidden="true"></i><b>Auto orbit</b><small>camera only</small></span>
+            </label>
+          </div>
+
+          <p class="projection-truth">
+            <strong>Position is similarity, not time.</strong> Read the recorded-order strip left to right or follow <span id="recorded-order-example">S001 → S002</span> along solid amber arrows. Dotted links are acoustic neighbors; lime is the separate playback route you compose.
+          </p>
+        </section>
+
+        <section class="manifold-card walk-card" aria-labelledby="walk-title">
+          <header class="card-heading">
+            <span>03</span>
+            <div><small>Walk</small><h2 id="walk-title">Choose the next event</h2></div>
+            <em class="apply-badge" id="route-apply-state" data-kind="route">Build route</em>
+          </header>
+
+          <label class="select-control" for="walk-rule">
+            <span><b>Route rule</b><small>what counts as a valid step</small></span>
+            <select id="walk-rule">
+              <optgroup label="Recorded order">
+                <option value="chronology" selected>Observed chronology · forward</option>
+                <option value="reverse-chronology">Observed chronology · reverse</option>
+              </optgroup>
+              <optgroup label="Acoustic graph">
+                <option value="similarity">Acoustic-neighbor walk</option>
+                <option value="hybrid">Hybrid exploration</option>
+              </optgroup>
+              <optgroup label="3D projection">
+                <option value="spatial-nearest">Nearest point in 3D</option>
+                <option value="spatial-farthest">Farthest leap in 3D</option>
+                <option value="axis-x">Sweep PC1 / X</option>
+                <option value="axis-y">Sweep PC2 / Y</option>
+                <option value="axis-z">Sweep PC3 / Z</option>
+              </optgroup>
+              <optgroup label="Composed order">
+                <option value="shuffled">Seeded shuffle · no early repeats</option>
+                <option value="manual">Manual route · append selections</option>
+              </optgroup>
+            </select>
+          </label>
+
+          <label class="range-control" for="route-length">
+            <span><b>Route length</b><output id="route-length-out" for="route-length">8 events</output></span>
+            <input id="route-length" type="range" min="2" max="16" step="1" value="8" />
+          </label>
+
+          <label class="range-control" for="surprise">
+            <span><b>Neighbor-choice variation</b><output id="surprise-out" for="surprise">35% variation</output></span>
+            <input id="surprise" type="range" min="0" max="1" step="0.01" value="0.35" />
+            <small>Similarity / Hybrid only. Changes the generated walk, never recorded succession.</small>
+          </label>
+
+          <p class="route-rule-note">3D rules traverse the displayed PCA projection. They are compositional paths, not inferred animal syntax.</p>
+
+          <div class="route-build-actions">
+            <button id="build-route" class="wide-action" type="button" disabled>Build playable route</button>
+            <button id="reverse-route" type="button" disabled>Reverse current</button>
+          </div>
+        </section>
+
+        <section class="manifold-card resynthesis-card" aria-labelledby="resynthesis-title">
+          <header class="card-heading">
+            <span>04</span>
+            <div><small>Transform</small><h2 id="resynthesis-title">Exceed the source</h2></div>
+            <em class="apply-badge" data-kind="sound">Next play</em>
+          </header>
+
+          <label class="select-control" for="resynthesis-preset">
+            <span><b>Mutation preset</b><small>sets the controls below</small></span>
+            <select id="resynthesis-preset">
+              <option value="anchor" selected>Analyzed anchor</option>
+              <option value="slow-giant">Slow giant</option>
+              <option value="fast-miniature">Fast miniature</option>
+              <option value="hyper-articulation">Hyper articulation</option>
+              <option value="alien-fold">Alien manifold fold</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+
+          <label class="range-control" for="gesture-speed">
+            <span><b>Gesture speed</b><output id="gesture-speed-out" for="gesture-speed">1.000×</output></span>
+            <input id="gesture-speed" type="range" min="-3" max="3" step="0.001" value="0" aria-valuetext="1.000 times" />
+            <small>Warps the analyzed control trajectory without transposing the model.</small>
+          </label>
+
+          <label class="range-control" for="pitch-shift">
+            <span><b>Independent pitch</b><output id="pitch-shift-out" for="pitch-shift">0 st</output></span>
+            <input id="pitch-shift" type="range" min="-48" max="48" step="1" value="0" aria-valuetext="0 semitones" />
+            <small>Model mode only · four octaves down to four octaves up.</small>
+          </label>
+
+          <label class="range-control" for="manifold-exaggeration">
+            <span><b>Map-position → sound amount</b><output id="manifold-exaggeration-out" for="manifold-exaggeration">1.00×</output></span>
+            <input id="manifold-exaggeration" type="range" min="1" max="4" step="0.05" value="1" aria-valuetext="1 times" />
+            <small>Above 1×, PC1 bends pitch, PC2 texture, and PC3 speed farther apart.</small>
+          </label>
+
+          <details class="resynthesis-advanced">
+            <summary>Body, texture, and silence</summary>
+            <div>
+              <label class="range-control" for="body-scale">
+                <span><b>Resonant body scale</b><output id="body-scale-out" for="body-scale">1.00×</output></span>
+                <input id="body-scale" type="range" min="-2" max="2" step="0.001" value="0" aria-valuetext="1 times" />
+              </label>
+
+              <label class="range-control" for="texture-amount">
+                <span><b>Instability / texture</b><output id="texture-amount-out" for="texture-amount">1.00×</output></span>
+                <input id="texture-amount" type="range" min="0" max="4" step="0.05" value="1" aria-valuetext="1 times" />
+              </label>
+
+              <label class="range-control" for="route-gap">
+                <span><b>Silence between events</b><output id="route-gap-out" for="route-gap">90 ms</output></span>
+                <input id="route-gap" type="range" min="0" max="750" step="5" value="90" aria-valuetext="90 milliseconds" />
+              </label>
+            </div>
+          </details>
+
+          <div class="resynthesis-actions">
+            <button id="reset-resynthesis" type="button">Reset transforms</button>
+          </div>
+          <p id="resynthesis-summary" class="resynthesis-summary" data-mode="anchor">
+            <strong>ANALYZED ANCHOR</strong>
+            <span>Model controls follow the extracted gesture at 1×. This is not a measured physiological limit.</span>
+          </p>
+        </section>
+
+        <section class="manifold-card selected-card" aria-labelledby="selected-title">
+          <header class="card-heading selected-heading">
+            <span>05</span>
+            <div><small>Selected occurrence</small><h2 id="selected-title">No event selected</h2></div>
+          </header>
+          <p id="selected-meta">Choose a node in the map or the accessible list below.</p>
+          <figure class="selected-signal" id="selected-signal" hidden>
+            <svg id="selected-signal-glyph" viewBox="0 0 320 104" role="img" aria-label="Selected occurrence internally normalized amplitude shape and dominant spectral peak by analysis frame">
+              <path id="selected-amplitude-area"></path>
+              <path id="selected-frequency-trace"></path>
+              <g id="selected-frame-beads"></g>
+              <g id="selected-tone-markers"></g>
+            </svg>
+            <figcaption><span><i class="level-key"></i>within-event RMS shape</span><span><i class="pitch-key"></i>dominant spectral peak</span><span><i class="tone-key"></i>active-run candidates</span></figcaption>
+          </figure>
+          <div class="selected-actions">
+            <button id="audition-selected" type="button" disabled>Audition</button>
+            <button id="add-selected" type="button" disabled>+ Route</button>
+          </div>
+
+          <details class="node-browser">
+            <summary>Browse events as a list</summary>
+            <ol id="node-list" aria-label="Analyzed acoustic-event occurrences">
+              <li class="node-empty">Events appear here after analysis.</li>
+            </ol>
+          </details>
+        </section>
+
+        <section class="manifold-card export-card" aria-labelledby="export-title">
+          <header class="card-heading">
+            <span>06</span>
+            <div><small>Bridge</small><h2 id="export-title">Take the route out</h2></div>
+          </header>
+          <div class="export-actions">
+            <button id="export-physical" type="button" disabled>
+              <b>Model route WAV</b><small>no source samples</small>
+            </button>
+            <button id="export-json" type="button" disabled>
+              <b>Route + gesture JSON</b><small>features, offsets, rules</small>
+            </button>
+          </div>
+        </section>
+
+        <details class="manifold-method" id="multifractal-explainer">
+          <summary>What “multiscale” and “multifractal” mean</summary>
+          <div>
+            <p>
+              <b>Multiscale analysis</b> asks how a measurement changes when it is viewed through several time windows—for example, fine pulses, mid-length motifs, and whole bouts. This prototype combines frame, event, and sequence scales and summarizes envelope variation at several window sizes.
+            </p>
+            <p>
+              <b>Multifractal analysis</b> is a narrower statistical claim: different parts of a signal exhibit different scaling exponents across a sufficiently broad range of scales. Establishing that normally needs a method such as multifractal detrended fluctuation analysis, enough suitable data, an explicit scale range, uncertainty estimates, and comparison with shuffled or phase-randomized surrogate signals.
+            </p>
+            <p>
+              The present map does <b>not</b> estimate a multifractal spectrum. Multiple envelope windows, PCA, or a single fractal dimension are not by themselves evidence of multifractality.
+            </p>
+            <p>
+              See <a href="https://doi.org/10.1038/s41598-018-22933-2" target="_blank" rel="noreferrer">Roeske et al. on multifractal rhythm in thrush nightingale song</a> for an analysis that includes multiscale statistics and surrogate tests.
+            </p>
+          </div>
+        </details>
+
+        <details class="manifold-method profile-library-method">
+          <summary>Research profile library · <span id="profile-count">68 operational presets</span></summary>
+          <div>
+            <p>
+              These are transparent operational starting points derived from published measurements and official research systems. They alter analysis band, frame geometry, event/window duration, pause grouping, and audible sonification scaling. They do not run the cited classifiers or establish a species label.
+            </p>
+            <div id="profile-library" class="profile-library" aria-label="All available acoustic analysis profiles"></div>
+          </div>
+        </details>
+
+        <details class="manifold-method archive-library-method">
+          <summary>Recording archive directory · <span id="archive-count">27 curated collections</span></summary>
+          <div>
+            <p>
+              The built-in menu is a compact, rights-cleared working shelf—not the extent of the available recordings. These external collections lead to much larger catalogs. Download only where the item-level terms permit it, preserve its archive id and attribution, then use <b>Choose local audio</b>; the browser does not scrape or silently fetch archive media.
+            </p>
+            <p class="archive-ethics-note">
+              <strong>Indigenous songs are not animal data.</strong> Public access, expired copyright, or a purchased track does not by itself authorize dataset extraction, rearrangement, model training, or resynthesis. Community authority, culturally sensitive restrictions, and Traditional Knowledge Labels remain controlling design metadata.
+            </p>
+            <div class="archive-controls" role="search" aria-label="Filter recording archive directory">
+              <label>
+                <span>Find a taxon or archive</span>
+                <input id="archive-search" type="search" placeholder="coyote, dolphin, bat, frog…" autocomplete="off">
+              </label>
+              <label>
+                <span>Collection path</span>
+                <select id="archive-group">
+                  <option value="">All collection paths</option>
+                </select>
+              </label>
+              <output id="archive-results" for="archive-search archive-group" aria-live="polite">27 of 27 collections shown</output>
+            </div>
+            <div id="archive-library" class="archive-library" aria-label="External acoustic recording archives and their access conditions"></div>
+            <p class="archive-standards">
+              Governance references: <a href="https://www.gida-global.org/care-principles-copy" target="_blank" rel="noreferrer">CARE Principles for Indigenous Data Governance</a> · <a href="https://localcontexts.org/labels/traditional-knowledge-labels/" target="_blank" rel="noreferrer">Local Contexts TK Labels</a> · <a href="https://www2.nau.edu/libnap-p/protocols.html" target="_blank" rel="noreferrer">Protocols for Native American Archival Materials</a>.
+            </p>
+          </div>
+        </details>
+
+        <details class="manifold-method">
+          <summary>Method, vocabulary, and references</summary>
+          <div>
+            <p>
+              Standardized cepstral and spectral frames form a deterministic projection trajectory; each node sits at the centroid of one detected occurrence. Dotted nearest-neighbor edges summarize acoustic resemblance. Solid arrows preserve recording order.
+            </p>
+            <p>
+              <b>Strophe</b> is used only by the songbird profile for a continuous vocal bout bounded by a conspicuous pause. Other profiles call the same graph unit an event, call, phrase, or chirp. An occurrence is not automatically a learned repertoire type.
+            </p>
+            <p>
+              Profiles tune operational boundaries and playback mappings; they are not classifiers. This is a graph of occurrences in the analyzed window, not proof of species identity, grammar, a complete repertoire, or a small-world network.
+            </p>
+            <p>
+              <b>Source-derived audio</b> plays mono event slices with short edge fades and contains samples from the recording. PCM WAV is parsed directly at its source sample rate; other formats use browser decoding and may be resampled. <b>Model sketch</b> sends extracted trajectories through a reduced synthesis model and contains no source samples. Its gesture clock, pitch, resonant-body scale, and texture are independently transformable; a separate control can exaggerate node differences by mapping PC1 to pitch, PC2 to texture, and PC3 to speed. Those PCA mappings are explicitly artistic because the axes are dataset-dependent. Infrasonic and ultrasonic profiles first use a disclosed frequency-scaled mapping for audibility. This is parameter sonification and extrapolation, not recovery of a unique biological mechanism or proof of an animal's physiological limit.
+            </p>
+            <ul>
+              <li><a href="https://www.lucioarese.net/seeing_birdsong/SeeingBirdsong_Brief.pdf" target="_blank" rel="noreferrer">Lucio Arese · Seeing Birdsong brief</a></li>
+              <li><a href="https://doi.org/10.1098/rspb.2014.0460" target="_blank" rel="noreferrer">Weiss et al. · nightingale song-sequence networks</a></li>
+              <li><a href="nightingale-manifold.html">Open the original nightingale-specific study</a></li>
+            </ul>
+          </div>
+        </details>
+      </aside>
+    </main>
+
+    <script type="module" src="acoustic-manifold-app.js"></script>
+  </body>
+</html>

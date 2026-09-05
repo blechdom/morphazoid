@@ -1,0 +1,1460 @@
+.manifold-page {
+  --accent: #a8e66a;
+  --accent-soft: rgb(168 230 106 / 0.5);
+  --accent-glow: rgb(168 230 106 / 0.15);
+  --manifold-bg: #06110f;
+  --manifold-deep: #020a09;
+  --manifold-panel: #091613;
+  --manifold-panel-high: #0d1d19;
+  --manifold-ink: #edf5e9;
+  --manifold-muted: #91aaa1;
+  --manifold-faint: #5e786f;
+  --manifold-line: rgb(174 214 199 / 0.15);
+  --manifold-line-strong: rgb(174 214 199 / 0.27);
+  --manifold-teal: #58d6d1;
+  --manifold-amber: #efbe67;
+  --manifold-lime: #a8e66a;
+  --manifold-blue: #64aee8;
+  min-height: 100vh;
+  color: var(--manifold-ink);
+  background:
+    radial-gradient(circle at 7% 2%, rgb(88 214 209 / 0.08), transparent 31rem),
+    radial-gradient(circle at 90% 96%, rgb(239 190 103 / 0.055), transparent 34rem),
+    var(--manifold-bg);
+}
+
+.manifold-page .masthead {
+  border-bottom-color: var(--manifold-line);
+  background: rgb(2 10 9 / 0.91);
+  backdrop-filter: blur(18px);
+}
+
+.manifold-page .edition {
+  color: var(--manifold-faint);
+}
+
+.manifold-page .tab {
+  min-width: 0;
+  padding-inline: clamp(8px, 1vw, 15px);
+  white-space: nowrap;
+}
+
+.manifold-page .tab.active,
+.manifold-page .header-level output {
+  color: var(--manifold-lime);
+}
+
+.manifold-page .manifold-tabs {
+  display: flex;
+}
+
+.manifold-page .header-level > span {
+  color: var(--manifold-muted);
+}
+
+.manifold-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 28vw, 420px);
+}
+
+.manifold-stage {
+  border-right-color: var(--manifold-line);
+  background: var(--manifold-deep);
+}
+
+.manifold-stage-wrap {
+  isolation: isolate;
+  min-height: 420px;
+  background:
+    linear-gradient(rgb(174 214 199 / 0.027) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(174 214 199 / 0.027) 1px, transparent 1px),
+    radial-gradient(ellipse at 54% 49%, rgb(88 214 209 / 0.068), transparent 48%),
+    var(--manifold-deep);
+  background-size: 40px 40px, 40px 40px, auto, auto;
+}
+
+.manifold-stage-wrap::before,
+.manifold-stage-wrap::after {
+  position: absolute;
+  z-index: 0;
+  border: 1px solid rgb(88 214 209 / 0.07);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+  transform: rotate(-13deg);
+}
+
+.manifold-stage-wrap::before {
+  top: 18%;
+  left: 24%;
+  width: min(52vw, 680px);
+  height: min(31vw, 390px);
+  box-shadow:
+    0 0 0 42px rgb(88 214 209 / 0.012),
+    0 0 0 84px rgb(239 190 103 / 0.009);
+}
+
+.manifold-stage-wrap::after {
+  top: 26%;
+  left: 34%;
+  width: min(32vw, 440px);
+  height: min(20vw, 260px);
+  border-color: rgb(239 190 103 / 0.055);
+  transform: rotate(21deg);
+}
+
+#manifold-canvas {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  cursor: grab;
+  touch-action: none;
+}
+
+#manifold-canvas:active {
+  cursor: grabbing;
+}
+
+#manifold-canvas:focus-visible {
+  outline: 2px solid var(--manifold-lime);
+  outline-offset: -5px;
+}
+
+.manifold-stage-heading {
+  position: absolute;
+  z-index: 3;
+  top: clamp(58px, 8vh, 88px);
+  left: clamp(18px, 3vw, 38px);
+  max-width: min(34rem, 50%);
+  pointer-events: none;
+}
+
+.manifold-stage-heading > span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--manifold-lime);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+}
+
+.manifold-stage-heading h1 {
+  margin: 0;
+  font-size: clamp(36px, 4.2vw, 54px);
+  font-weight: 380;
+  letter-spacing: -0.068em;
+  line-height: 0.83;
+}
+
+.manifold-stage-heading p {
+  max-width: 28rem;
+  margin: 16px 0 0;
+  color: var(--manifold-muted);
+  font-size: clamp(8px, 0.9vw, 11px);
+  line-height: 1.6;
+}
+
+.manifold-stage-meta {
+  position: absolute;
+  z-index: 3;
+  top: 17px;
+  right: 20px;
+  display: flex;
+  color: var(--manifold-faint);
+  align-items: center;
+  gap: 9px;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.manifold-stage-meta i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--manifold-lime);
+  box-shadow: 0 0 8px var(--accent-soft);
+}
+
+.manifold-legend {
+  position: absolute;
+  z-index: 3;
+  bottom: 40px;
+  left: clamp(18px, 3vw, 36px);
+  display: flex;
+  max-width: calc(100% - 72px);
+  color: var(--manifold-muted);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 17px;
+  font-size: 7px;
+  letter-spacing: 0.075em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.manifold-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.manifold-legend i {
+  display: inline-block;
+  width: 25px;
+  height: 6px;
+  flex: 0 0 auto;
+}
+
+.manifold-legend .legend-node {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--manifold-ink);
+  border-radius: 50%;
+  background: var(--manifold-blue);
+  box-shadow: 0 0 7px rgb(100 174 232 / 0.45);
+}
+
+.legend-tone {
+  position: relative;
+  background:
+    radial-gradient(circle at 8% 50%, var(--manifold-amber) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 36% 50%, var(--manifold-teal) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 64% 50%, var(--manifold-blue) 0 1.5px, transparent 2px),
+    linear-gradient(90deg, var(--manifold-amber), var(--manifold-teal), var(--manifold-blue)) center / 100% 1px no-repeat;
+}
+
+.legend-tone::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 6px;
+  background: var(--manifold-blue);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.legend-similarity {
+  border-top: 1px dashed var(--manifold-teal);
+}
+
+.legend-sequence {
+  position: relative;
+  border-top: 1px solid var(--manifold-amber);
+}
+
+.legend-sequence::after {
+  position: absolute;
+  top: -3px;
+  right: -1px;
+  width: 4px;
+  height: 4px;
+  border-top: 1px solid var(--manifold-amber);
+  border-right: 1px solid var(--manifold-amber);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.legend-route {
+  border-top: 2px solid var(--manifold-lime);
+  box-shadow: 0 -1px 5px rgb(168 230 106 / 0.35);
+}
+
+.manifold-view-tools {
+  position: absolute;
+  z-index: 4;
+  top: 42px;
+  right: 16px;
+}
+
+.manifold-view-tools button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--manifold-line-strong);
+  cursor: pointer;
+  color: var(--manifold-muted);
+  background: rgb(3 12 10 / 0.72);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.manifold-view-tools button:hover {
+  border-color: rgb(168 230 106 / 0.45);
+  color: var(--manifold-ink);
+}
+
+.manifold-help,
+.manifold-status {
+  position: absolute;
+  z-index: 3;
+  bottom: 15px;
+  margin: 0;
+  overflow: hidden;
+  font-size: 7px;
+  letter-spacing: 0.075em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.manifold-help {
+  left: clamp(18px, 3vw, 36px);
+  max-width: 52%;
+  color: var(--manifold-faint);
+  text-transform: uppercase;
+}
+
+.manifold-status {
+  right: clamp(18px, 3vw, 36px);
+  max-width: 42%;
+  color: var(--manifold-muted);
+  text-align: right;
+}
+
+.manifold-status[data-state="ready"] {
+  color: var(--manifold-lime);
+}
+
+.manifold-status[data-state="error"] {
+  color: var(--manifold-amber);
+}
+
+/* Route and transport */
+
+.manifold-route {
+  display: grid;
+  min-height: 54px;
+  padding: 7px 9px 7px 15px;
+  border-top: 1px solid var(--manifold-line);
+  background: #06120f;
+  grid-template-columns: 86px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.route-heading span,
+.route-heading h2 {
+  margin: 0;
+}
+
+.route-heading span {
+  display: block;
+  color: var(--manifold-lime);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.route-heading h2 {
+  margin-top: 2px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+#route-ribbon {
+  display: flex;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  overflow-x: auto;
+  align-items: center;
+  gap: 5px;
+  list-style: none;
+  scrollbar-color: var(--manifold-faint) transparent;
+  scrollbar-width: thin;
+}
+
+#route-ribbon li {
+  flex: 0 0 auto;
+}
+
+#route-ribbon button,
+#route-ribbon .route-empty {
+  display: grid;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--manifold-line);
+  color: var(--manifold-muted);
+  background: var(--manifold-deep);
+  place-items: center;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#route-ribbon button {
+  cursor: pointer;
+}
+
+#route-ribbon button[aria-current="true"] {
+  border-color: var(--manifold-lime);
+  color: var(--manifold-deep);
+  background: var(--manifold-lime);
+}
+
+#route-ribbon button[data-playing] {
+  border-color: var(--manifold-lime);
+  color: var(--manifold-deep);
+  background: var(--manifold-lime);
+  box-shadow: 0 0 12px rgb(168 230 106 / 0.24);
+}
+
+#clear-route {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--manifold-line-strong);
+  cursor: pointer;
+  color: var(--manifold-muted);
+  background: transparent;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.manifold-transport {
+  display: grid;
+  min-height: 70px;
+  padding: 7px;
+  border-top: 1px solid var(--manifold-line);
+  background: rgb(3 11 9 / 0.98);
+  grid-template-columns: minmax(180px, 1.15fr) repeat(2, minmax(116px, 0.8fr)) minmax(88px, 0.58fr);
+  gap: 6px;
+}
+
+.transport-mode {
+  display: grid;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--manifold-line);
+  background: var(--manifold-deep);
+  align-content: center;
+  gap: 4px;
+}
+
+.transport-mode > span {
+  color: var(--manifold-faint);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.transport-mode select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--manifold-lime);
+  background: transparent;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.manifold-transport > button,
+.route-loop {
+  display: grid;
+  min-height: 54px;
+  padding: 7px 10px;
+  border: 1px solid var(--manifold-line);
+  color: var(--manifold-muted);
+  background: var(--manifold-panel);
+  align-items: center;
+  align-content: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  cursor: pointer;
+}
+
+.manifold-transport > button > span {
+  color: var(--manifold-lime);
+  grid-row: 1 / -1;
+  font-size: 10px;
+}
+
+.manifold-transport b,
+.route-loop b {
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.manifold-transport small,
+.route-loop small {
+  overflow: hidden;
+  color: var(--manifold-faint);
+  font-size: 6px;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.manifold-transport .primary-transport {
+  border-color: rgb(168 230 106 / 0.38);
+  color: var(--manifold-ink);
+  background: rgb(168 230 106 / 0.09);
+}
+
+.manifold-transport .primary-transport[aria-pressed="true"] {
+  color: var(--manifold-deep);
+  background: var(--manifold-lime);
+}
+
+.route-loop {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.route-loop input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--manifold-lime);
+  grid-row: 1 / -1;
+}
+
+/* Panel */
+
+.manifold-panel {
+  background: var(--manifold-panel);
+  scrollbar-color: var(--manifold-faint) transparent;
+}
+
+.manifold-card,
+.manifold-method {
+  border-bottom: 1px solid var(--manifold-line);
+}
+
+.manifold-card {
+  padding: 18px;
+}
+
+.card-heading {
+  display: grid;
+  margin-bottom: 14px;
+  grid-template-columns: 27px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.card-heading > span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  border: 1px solid var(--manifold-line-strong);
+  color: var(--manifold-lime);
+  place-items: center;
+  font-size: 7px;
+}
+
+.card-heading small,
+.card-heading h2 {
+  display: block;
+  margin: 0;
+}
+
+.card-heading small {
+  color: var(--manifold-faint);
+  font-size: 6px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.card-heading h2 {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.source-well {
+  padding: 12px;
+  border: 1px solid var(--manifold-line-strong);
+  background:
+    linear-gradient(135deg, rgb(88 214 209 / 0.06), transparent 62%),
+    var(--manifold-deep);
+}
+
+.source-well > div:first-child {
+  display: grid;
+  min-width: 0;
+  margin-bottom: 11px;
+  gap: 3px;
+}
+
+.source-well strong {
+  overflow: hidden;
+  color: var(--manifold-ink);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-well span {
+  color: var(--manifold-muted);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.visually-hidden-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.source-actions,
+.selected-actions,
+.export-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.source-actions button,
+.manifold-button,
+.selected-actions button,
+.export-actions button,
+.wide-action {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--manifold-line-strong);
+  cursor: pointer;
+  color: var(--manifold-muted);
+  background: var(--manifold-panel-high);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.075em;
+  line-height: 1.25;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.manifold-button {
+  display: grid;
+  text-decoration: none;
+  place-items: center;
+}
+
+.source-actions button:hover,
+.manifold-button:hover,
+.selected-actions button:hover,
+.export-actions button:hover,
+.wide-action:hover,
+#clear-route:hover {
+  border-color: rgb(168 230 106 / 0.46);
+  color: var(--manifold-ink);
+}
+
+#audio-file:focus-visible + .source-actions .file-button {
+  outline: 2px solid var(--manifold-lime);
+  outline-offset: 3px;
+}
+
+.card-note,
+.projection-truth,
+#selected-meta {
+  margin: 10px 0 0;
+  color: var(--manifold-muted);
+  font-size: 7px;
+  line-height: 1.55;
+}
+
+.manifold-stats {
+  display: grid;
+  margin: 13px 0 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.manifold-stats div {
+  min-width: 0;
+  padding: 9px;
+  border-top: 1px solid var(--manifold-line);
+  border-left: 1px solid var(--manifold-line);
+}
+
+.manifold-stats div:nth-child(2n) {
+  border-right: 1px solid var(--manifold-line);
+}
+
+.manifold-stats div:nth-last-child(-n + 2) {
+  border-bottom: 1px solid var(--manifold-line);
+}
+
+.manifold-stats dt {
+  color: var(--manifold-faint);
+  font-size: 6px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.manifold-stats dd {
+  margin: 3px 0 0;
+  color: var(--manifold-ink);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wide-action {
+  width: 100%;
+  margin-top: 10px;
+  border-color: rgb(168 230 106 / 0.34);
+  color: var(--manifold-ink);
+  background: rgb(168 230 106 / 0.07);
+}
+
+button:disabled,
+.manifold-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.toggle-grid > label {
+  position: relative;
+  min-width: 0;
+}
+
+.toggle-grid input {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--manifold-lime);
+}
+
+.toggle-grid label > span {
+  display: grid;
+  min-height: 56px;
+  padding: 9px 30px 9px 9px;
+  border: 1px solid var(--manifold-line);
+  cursor: pointer;
+  background: var(--manifold-deep);
+  grid-template-columns: 17px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 6px;
+}
+
+.toggle-grid label > span > i {
+  width: 15px;
+  height: 7px;
+  grid-row: 1 / -1;
+  align-self: center;
+}
+
+.toggle-grid label > span > b {
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.toggle-grid label > span > small {
+  overflow: hidden;
+  color: var(--manifold-faint);
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toggle-grid input:checked + span {
+  border-color: rgb(168 230 106 / 0.28);
+  background: rgb(168 230 106 / 0.045);
+}
+
+.toggle-similarity {
+  border-top: 1px dashed var(--manifold-teal);
+}
+
+.toggle-sequence {
+  border-top: 1px solid var(--manifold-amber);
+}
+
+.toggle-trajectory {
+  border-top: 2px solid var(--manifold-lime);
+  transform: rotate(-15deg);
+}
+
+.toggle-rotate {
+  border: 1px solid var(--manifold-blue);
+  border-radius: 50%;
+}
+
+.projection-truth {
+  padding: 10px;
+  border-left: 2px solid var(--manifold-amber);
+  background: rgb(239 190 103 / 0.04);
+}
+
+.projection-truth strong {
+  color: var(--manifold-amber);
+  font-weight: 600;
+}
+
+.select-control,
+.range-control {
+  display: grid;
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.select-control:first-of-type,
+.range-control:first-of-type {
+  margin-top: 0;
+}
+
+.select-control > span,
+.range-control > span {
+  display: flex;
+  color: var(--manifold-muted);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.select-control b,
+.range-control b {
+  color: var(--manifold-ink);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.select-control small,
+.range-control small,
+.range-control output {
+  color: var(--manifold-faint);
+  font-size: 6px;
+  line-height: 1.45;
+}
+
+.range-control output {
+  color: var(--manifold-lime);
+  font-variant-numeric: tabular-nums;
+}
+
+.select-control select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--manifold-line-strong);
+  border-radius: 0;
+  color: var(--manifold-ink);
+  background: var(--manifold-deep);
+  font-size: 8px;
+}
+
+.range-control input[type="range"] {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  cursor: ew-resize;
+  appearance: none;
+  background: transparent;
+}
+
+.range-control input[type="range"]::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--manifold-line-strong);
+}
+
+.range-control input[type="range"]::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  margin-top: -7px;
+  border: 1px solid var(--manifold-lime);
+  border-radius: 50%;
+  background: var(--manifold-deep);
+  box-shadow: 0 0 8px var(--accent-glow);
+  appearance: none;
+}
+
+.range-control input[type="range"]::-moz-range-track {
+  height: 1px;
+  background: var(--manifold-line-strong);
+}
+
+.range-control input[type="range"]::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--manifold-lime);
+  border-radius: 50%;
+  background: var(--manifold-deep);
+}
+
+.selected-heading {
+  margin-bottom: 8px;
+}
+
+#selected-meta {
+  min-height: 2.9em;
+  margin: 0 0 11px;
+}
+
+.selected-actions button:first-child {
+  border-color: rgb(88 214 209 / 0.35);
+}
+
+.selected-actions button:last-child {
+  border-color: rgb(168 230 106 / 0.35);
+}
+
+.node-browser {
+  margin-top: 10px;
+  border: 1px solid var(--manifold-line);
+}
+
+.node-browser summary,
+.manifold-method summary {
+  display: flex;
+  min-height: 40px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--manifold-muted);
+  background: var(--manifold-deep);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  list-style: none;
+  text-transform: uppercase;
+}
+
+.node-browser summary::-webkit-details-marker,
+.manifold-method summary::-webkit-details-marker {
+  display: none;
+}
+
+.node-browser summary::after,
+.manifold-method summary::after {
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  content: "";
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.node-browser[open] summary::after,
+.manifold-method[open] summary::after {
+  transform: translateY(2px) rotate(225deg);
+}
+
+#node-list {
+  max-height: 230px;
+  padding: 6px;
+  margin: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-color: var(--manifold-faint) transparent;
+}
+
+#node-list button,
+#node-list .node-empty {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px;
+  border-bottom: 1px solid var(--manifold-line);
+  color: var(--manifold-muted);
+  background: transparent;
+  font-size: 7px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+#node-list button {
+  display: flex;
+  cursor: pointer;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#node-list button b {
+  color: var(--manifold-ink);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+}
+
+#node-list button span {
+  overflow: hidden;
+  color: var(--manifold-faint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#node-list button:hover,
+#node-list button[aria-current="true"],
+#node-list button[aria-pressed="true"] {
+  color: var(--manifold-ink);
+  background: rgb(88 214 209 / 0.06);
+}
+
+.export-actions button {
+  display: grid;
+  text-align: left;
+  gap: 3px;
+}
+
+.export-actions b {
+  color: var(--manifold-ink);
+  font-size: 7px;
+  font-weight: 600;
+}
+
+.export-actions small {
+  color: var(--manifold-faint);
+  font-size: 6px;
+  font-weight: 400;
+}
+
+.manifold-method {
+  background: var(--manifold-deep);
+}
+
+.manifold-method > div {
+  padding: 4px 18px 18px;
+}
+
+.manifold-method p,
+.manifold-method li {
+  color: var(--manifold-muted);
+  font-size: 7px;
+  line-height: 1.65;
+}
+
+.manifold-method b {
+  color: var(--manifold-ink);
+}
+
+.manifold-method ul {
+  padding-left: 16px;
+  margin: 12px 0;
+}
+
+.manifold-method li + li {
+  margin-top: 6px;
+}
+
+.manifold-method a {
+  color: var(--manifold-teal);
+  text-underline-offset: 3px;
+}
+
+.manifold-method .doi-correction {
+  color: var(--manifold-faint);
+}
+
+/* Responsive */
+
+@media (max-width: 1160px) {
+  .manifold-page .edition {
+    display: none;
+  }
+
+  .manifold-page .masthead {
+    gap: clamp(10px, 1.8vw, 24px);
+  }
+
+  .manifold-stage-heading {
+    max-width: 44%;
+  }
+}
+
+@media (max-width: 960px) {
+  .manifold-page {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .manifold-shell {
+    min-height: 0;
+    overflow: hidden;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .manifold-stage {
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--manifold-line);
+  }
+
+  .manifold-stage-wrap,
+  #manifold-canvas {
+    height: clamp(310px, 48dvh, 440px);
+    min-height: 310px;
+    flex: 0 0 auto;
+  }
+
+  .manifold-stage-heading {
+    top: 48px;
+  }
+
+  .manifold-stage-heading h1 {
+    font-size: clamp(34px, 6.5vw, 50px);
+  }
+
+  .manifold-panel {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .manifold-masthead {
+    display: grid;
+    height: 98px;
+    padding: 0 12px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 54px 43px;
+    gap: 0 10px;
+  }
+
+  .manifold-masthead .wordmark {
+    width: auto;
+    overflow: visible;
+    flex: 0 1 auto;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .manifold-masthead .wordmark > span:last-child {
+    display: inline;
+  }
+
+  .manifold-masthead .audio-strip {
+    width: min(165px, 49vw);
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .manifold-tabs {
+    display: flex;
+    width: calc(100% + 24px);
+    height: 44px;
+    margin: 0 -12px;
+    overflow: hidden;
+    border-top: 1px solid var(--manifold-line);
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .manifold-page .manifold-tabs .tab {
+    min-width: 0;
+    padding: 0 5px;
+    flex: 1 1 33.333%;
+    justify-content: center;
+    font-size: 8px;
+    letter-spacing: 0.045em;
+  }
+
+  .manifold-page .manifold-tabs .tab:nth-child(2) {
+    flex-grow: 1.45;
+  }
+
+  .manifold-page .manifold-tabs .tab::after {
+    right: 6px;
+    left: 6px;
+  }
+
+  .manifold-stage-wrap,
+  #manifold-canvas {
+    height: clamp(310px, 46dvh, 390px);
+  }
+
+  .manifold-stage-heading {
+    top: 40px;
+    left: 14px;
+    max-width: 54%;
+  }
+
+  .manifold-stage-heading > span {
+    margin-bottom: 7px;
+    font-size: 6px;
+  }
+
+  .manifold-stage-heading h1 {
+    font-size: clamp(30px, 7.8vw, 38px);
+  }
+
+  .manifold-stage-heading p {
+    margin-top: 10px;
+    font-size: 7px;
+  }
+
+  .manifold-view-tools {
+    top: 38px;
+    right: 10px;
+  }
+
+  .manifold-view-tools button {
+    min-height: 34px;
+  }
+
+  .manifold-legend {
+    bottom: 35px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+    gap: 6px 11px;
+    font-size: 6px;
+  }
+
+  .manifold-help {
+    left: 12px;
+    max-width: calc(100% - 24px);
+  }
+
+  .manifold-status {
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .manifold-route {
+    padding-left: 10px;
+    grid-template-columns: 62px minmax(0, 1fr) auto;
+  }
+
+  .route-heading h2 {
+    font-size: 7px;
+  }
+
+  .manifold-transport {
+    grid-template-columns: 1.2fr repeat(3, minmax(0, 0.78fr));
+  }
+
+  .manifold-transport > button,
+  .route-loop {
+    padding: 6px;
+    column-gap: 5px;
+  }
+
+  .manifold-transport small,
+  .route-loop small {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .manifold-masthead .wordmark {
+    font-size: 12px;
+  }
+
+  .manifold-masthead .brand-mark {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+
+  .manifold-stage-wrap,
+  #manifold-canvas {
+    height: clamp(305px, 45dvh, 365px);
+    min-height: 305px;
+  }
+
+  .manifold-stage-heading {
+    top: 16px;
+    max-width: 62%;
+  }
+
+  .manifold-stage-heading p {
+    display: none;
+  }
+
+  .manifold-stage-meta {
+    top: 11px;
+    right: 11px;
+    font-size: 6px;
+  }
+
+  .manifold-stage-meta span:first-child,
+  .manifold-stage-meta i {
+    display: none;
+  }
+
+  .manifold-view-tools {
+    top: 33px;
+  }
+
+  .manifold-legend {
+    bottom: 34px;
+  }
+
+  .manifold-legend span:nth-child(3),
+  .manifold-legend span:last-child {
+    display: none;
+  }
+
+  .manifold-route {
+    min-height: 51px;
+    padding-block: 5px;
+  }
+
+  #route-ribbon button,
+  #route-ribbon .route-empty,
+  #clear-route {
+    min-height: 40px;
+  }
+
+  .manifold-transport {
+    min-height: 61px;
+    padding: 5px;
+    grid-template-columns: minmax(148px, 1.4fr) repeat(3, minmax(0, 0.65fr));
+    gap: 4px;
+  }
+
+  .transport-mode {
+    padding: 5px 6px;
+  }
+
+  .transport-mode select {
+    font-size: 7px;
+  }
+
+  .manifold-transport > button,
+  .route-loop {
+    min-height: 50px;
+    grid-template-columns: 1fr;
+    place-items: center;
+  }
+
+  .manifold-transport > button > span,
+  .route-loop input {
+    grid-row: auto;
+  }
+
+  .manifold-transport > button > span {
+    display: none;
+  }
+
+  .manifold-transport b,
+  .route-loop b {
+    font-size: 6px;
+    text-align: center;
+  }
+
+  .route-loop span,
+  .route-loop span b {
+    display: block;
+  }
+
+  .manifold-card {
+    padding: 16px;
+  }
+
+  .source-actions,
+  .selected-actions,
+  .export-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .source-actions button,
+  .manifold-button,
+  .selected-actions button,
+  .export-actions button,
+  .wide-action,
+  .select-control select {
+    min-height: 44px;
+  }
+
+  .toggle-grid label > span {
+    min-height: 62px;
+  }
+
+  .toggle-grid input {
+    width: 18px;
+    height: 18px;
+  }
+
+  .node-browser summary,
+  .manifold-method summary,
+  #node-list button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 370px) {
+  .manifold-page .manifold-tabs .tab {
+    font-size: 7px;
+  }
+
+  .manifold-transport {
+    grid-template-columns: minmax(100px, 1.3fr) repeat(3, minmax(0, 0.7fr));
+  }
+
+  .transport-mode > span {
+    display: none;
+  }
+
+  .toggle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 600px) and (min-width: 961px) {
+  .manifold-stage-wrap,
+  #manifold-canvas {
+    min-height: 290px;
+  }
+
+  .manifold-stage-heading p {
+    display: none;
+  }
+
+  .manifold-legend {
+    bottom: 35px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .manifold-stage-wrap::before,
+  .manifold-stage-wrap::after {
+    box-shadow: none;
+  }
+
+  .manifold-page *,
+  .manifold-page *::before,
+  .manifold-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

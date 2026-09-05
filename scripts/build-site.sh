@@ -571,7 +571,44 @@ for worktree_runtime_file in \
   experiments-app.js \
   src/automatapoeia.js \
   src/orbital-ferris.js \
-  assets/instruments/orbital-ferris.webp
+  assets/instruments/orbital-ferris.webp \
+  acoustic-manifold.html \
+  acoustic-manifold.css \
+  acoustic-manifold-app.js \
+  nightingale-manifold.html \
+  nightingale-manifold.css \
+  nightingale-manifold-app.js \
+  birdsong-lab.html \
+  birdsong-lab.css \
+  birdsong-lab-app.js \
+  crickets.html \
+  crickets.css \
+  crickets-app.js \
+  src/acoustic-manifold.js \
+  src/acoustic-profiles.js \
+  src/acoustic-source-catalog.js \
+  src/acoustic-live-capture.js \
+  src/pcm-wav-decoder.js \
+  src/nightingale-manifold.js \
+  src/nightingale-manifold-3d.js \
+  src/birdsong-analysis.js \
+  src/crickets.js \
+  vendor/three/three.core.min.js \
+  vendor/three/three.module.min.js \
+  vendor/three/LICENSE.txt \
+  assets/bioacoustics/SOURCES.md \
+  assets/bioacoustics/thrush-nightingale.ogg \
+  assets/bioacoustics/common-blackbird.ogg \
+  assets/bioacoustics/chaffinch.ogg \
+  assets/bioacoustics/house-cricket.ogg \
+  assets/bioacoustics/field-cricket.ogg \
+  assets/bioacoustics/european-field-cricket.ogg \
+  assets/bioacoustics/coyote-chorus.ogg \
+  assets/bioacoustics/frog-soundscape.ogg \
+  assets/bioacoustics/dolphin-vocalizations.wav \
+  assets/bioacoustics/humpback-whale-song.ogg \
+  assets/bioacoustics/killer-whale-call.ogg \
+  assets/bioacoustics/blue-whale-south-pacific.ogg
 do
   [[ -f "$repo_root/$worktree_runtime_file" ]] && copy_runtime_file "$worktree_runtime_file"
 done
@@ -608,6 +645,43 @@ required_files=(
   src/shapes-native-bridge.js
   index.html
   midi-guide.html
+  acoustic-manifold.html
+  acoustic-manifold.css
+  acoustic-manifold-app.js
+  nightingale-manifold.html
+  nightingale-manifold.css
+  nightingale-manifold-app.js
+  birdsong-lab.html
+  birdsong-lab.css
+  birdsong-lab-app.js
+  crickets.html
+  crickets.css
+  crickets-app.js
+  src/acoustic-manifold.js
+  src/acoustic-profiles.js
+  src/acoustic-source-catalog.js
+  src/acoustic-live-capture.js
+  src/pcm-wav-decoder.js
+  src/nightingale-manifold.js
+  src/nightingale-manifold-3d.js
+  src/birdsong-analysis.js
+  src/crickets.js
+  vendor/three/three.core.min.js
+  vendor/three/three.module.min.js
+  vendor/three/LICENSE.txt
+  assets/bioacoustics/SOURCES.md
+  assets/bioacoustics/thrush-nightingale.ogg
+  assets/bioacoustics/common-blackbird.ogg
+  assets/bioacoustics/chaffinch.ogg
+  assets/bioacoustics/house-cricket.ogg
+  assets/bioacoustics/field-cricket.ogg
+  assets/bioacoustics/european-field-cricket.ogg
+  assets/bioacoustics/coyote-chorus.ogg
+  assets/bioacoustics/frog-soundscape.ogg
+  assets/bioacoustics/dolphin-vocalizations.wav
+  assets/bioacoustics/humpback-whale-song.ogg
+  assets/bioacoustics/killer-whale-call.ogg
+  assets/bioacoustics/blue-whale-south-pacific.ogg
   shape.html
   playhead-paint.html
   playhead-paint.css

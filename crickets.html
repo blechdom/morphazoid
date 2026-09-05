@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07110e" />
+    <meta
+      name="description"
+      content="Crickets is a local, sample-free physical-model instrument that turns a recording into tooth-file impulses and two coupled wing modes."
+    />
+    <title>Crickets — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="crickets.css" />
+  </head>
+  <body class="crickets-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <span class="edition">bioacoustic instrument</span>
+
+      <nav class="tabs" aria-label="Related instruments">
+        <a class="tab" href="acoustic-manifold.html">acoustic manifold</a>
+        <a class="tab" href="birdsong-lab.html">strophe lab</a>
+        <a class="tab active" href="crickets.html" aria-current="page">crickets</a>
+      </nav>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">62%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.85" step="0.01" value="0.62" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell cricket-shell" id="crickets-root">
+      <section class="stage cricket-stage" aria-label="Crickets performance stage">
+        <div class="stage-wrap cricket-stage-wrap" id="cricket-stage-wrap">
+          <svg class="cricket-anatomy" viewBox="0 0 1200 760" aria-hidden="true">
+            <defs>
+              <linearGradient id="cricket-wing-left-fill" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#63ddd0" stop-opacity="0.15" />
+                <stop offset="1" stop-color="#b8ea78" stop-opacity="0.025" />
+              </linearGradient>
+              <linearGradient id="cricket-wing-right-fill" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#f0c66e" stop-opacity="0.14" />
+                <stop offset="1" stop-color="#b8ea78" stop-opacity="0.025" />
+              </linearGradient>
+              <radialGradient id="cricket-coupling-glow">
+                <stop offset="0" stop-color="#b8ea78" stop-opacity="0.42" />
+                <stop offset="1" stop-color="#b8ea78" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+
+            <g class="wing wing-left">
+              <path
+                class="wing-surface"
+                d="M559 177C428 75 178 91 94 278C24 435 157 607 407 590C485 585 535 557 567 507C588 412 584 273 559 177Z"
+              />
+              <path class="wing-vein" d="M558 190C445 267 326 349 151 514" />
+              <path class="wing-vein" d="M557 205C421 199 293 220 138 303" />
+              <path class="wing-vein" d="M561 226C445 334 365 431 312 572" />
+              <path class="wing-mode" d="M519 250C421 171 248 190 169 316C96 433 210 541 391 519C497 506 545 393 519 250Z" />
+              <path class="wing-mode wing-mode-inner" d="M487 296C408 245 300 269 250 360C210 434 287 493 390 467C463 449 507 375 487 296Z" />
+            </g>
+
+            <g class="wing wing-right">
+              <path
+                class="wing-surface"
+                d="M641 177C772 75 1022 91 1106 278C1176 435 1043 607 793 590C715 585 665 557 633 507C612 412 616 273 641 177Z"
+              />
+              <path class="wing-vein" d="M642 190C755 267 874 349 1049 514" />
+              <path class="wing-vein" d="M643 205C779 199 907 220 1062 303" />
+              <path class="wing-vein" d="M639 226C755 334 835 431 888 572" />
+              <path class="wing-mode" d="M681 250C779 171 952 190 1031 316C1104 433 990 541 809 519C703 506 655 393 681 250Z" />
+              <path class="wing-mode wing-mode-inner" d="M713 296C792 245 900 269 950 360C990 434 913 493 810 467C737 449 693 375 713 296Z" />
+            </g>
+
+            <ellipse class="coupling-glow" cx="600" cy="381" rx="172" ry="104" fill="url(#cricket-coupling-glow)" />
+            <path class="coupling-bridge" d="M526 326C568 351 632 351 674 326" />
+            <path class="coupling-bridge coupling-bridge-lower" d="M525 442C570 417 630 417 675 442" />
+
+            <g class="tooth-file">
+              <path class="file-rail" d="M391 382C484 365 716 365 809 382" />
+              <path
+                class="file-teeth"
+                d="M407 379l8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17 8-20 8 17"
+              />
+              <path class="plectrum-arm" d="M472 326C496 338 516 352 531 376" />
+              <circle class="plectrum-tip" cx="532" cy="378" r="8" />
+            </g>
+          </svg>
+
+          <canvas
+            id="cricket-stage"
+            tabindex="0"
+            role="button"
+            aria-keyshortcuts="Space"
+            aria-label="Rub the cricket tooth file for one synthetic closing stroke"
+            aria-describedby="cricket-stage-instructions status"
+          >
+            Two coupled resonant wings are excited by a sample-free tooth-file model.
+          </canvas>
+
+          <div class="cricket-stage-heading" aria-hidden="true">
+            <span>file / plectrum / coupled wings</span>
+            <h1>Crickets</h1>
+            <p>A recording teaches the rhythm. Teeth excite it. Wings choose the tone.</p>
+          </div>
+
+          <div class="cricket-stage-meta" aria-hidden="true">
+            <span>sample-free</span>
+            <i></i>
+            <span>effective model</span>
+          </div>
+
+          <p class="cricket-stage-hint" aria-hidden="true">drag across the file to chirp · move upward for force</p>
+          <p class="sr-only" id="cricket-stage-instructions">
+            Drag horizontally across the stage to close the wings and cross the tooth file. Vertical position controls contact strength. Press Space for one synthetic closing stroke.
+          </p>
+
+          <p class="cricket-status" id="status" role="status" aria-live="polite" aria-atomic="true">
+            Enable audio, then drag the file or teach the wings a local recording.
+          </p>
+        </div>
+
+        <div class="cricket-transport" aria-label="Call transport">
+          <button id="play-input" type="button" disabled aria-pressed="false">
+            <span aria-hidden="true">▶</span><b>Recording</b><small>reference</small>
+          </button>
+          <button id="play-model" class="primary-transport" type="button" disabled aria-pressed="false">
+            <span aria-hidden="true">▶</span><b>Wings</b><small>physical model</small>
+          </button>
+          <button id="stop-audio" type="button" disabled>
+            <span aria-hidden="true">■</span><b>Stop</b><small>all motion</small>
+          </button>
+          <label class="cricket-loop-toggle" for="loop-toggle">
+            <input id="loop-toggle" type="checkbox" />
+            <span><b>Loop</b><small>fitted call</small></span>
+          </label>
+        </div>
+      </section>
+
+      <aside class="panel cricket-panel" aria-label="Crickets source and mechanism controls">
+        <section class="cricket-card cricket-source-card" aria-labelledby="cricket-call-title">
+          <div class="cricket-card-heading">
+            <div>
+              <span>Call</span>
+              <h2 id="cricket-call-title">Teach the wings</h2>
+            </div>
+            <span class="fit-state" id="fit-state">effective fit</span>
+          </div>
+
+          <div class="cricket-source-well">
+            <div class="source-copy">
+              <strong id="source-label">No recording loaded</strong>
+              <span id="file-help">Audio stays in this browser. The model receives features, never samples.</span>
+            </div>
+            <label class="cricket-source-select" for="source-preset">
+              <span>Built-in source</span>
+              <select id="source-preset" aria-describedby="source-preset-help">
+                <optgroup label="Recordings">
+                  <option value="recorded-house-cricket">House cricket · Morray</option>
+                  <option value="recorded-field-cricket">Field cricket · Thatcher</option>
+                  <option value="recorded-european-field-cricket">European field cricket · Baudewijn Odé</option>
+                </optgroup>
+                <optgroup label="Procedural references">
+                  <option value="field-chirps" selected>Synthetic · field chirps · 4.82 kHz</option>
+                  <option value="slow-low-chirps">Synthetic · slow low chirps · 3.25 kHz</option>
+                  <option value="fast-high-trill">Synthetic · fast high trill · 7.10 kHz</option>
+                </optgroup>
+                <option value="local" disabled>Local upload</option>
+              </select>
+              <small id="source-preset-help">Bundled files stay local; procedural choices are labeled synthetic.</small>
+            </label>
+            <p class="source-attribution" id="source-attribution">
+              Procedural Morphazoid reference · not a field recording.
+            </p>
+            <p class="source-profile-note" id="source-profile-note">
+              Effective tonal-stridulation profile; it does not identify species or recover anatomy.
+            </p>
+            <div class="source-actions">
+              <input
+                class="visually-hidden-file"
+                id="file-input"
+                type="file"
+                accept="audio/*,.wav,.flac,.ogg,.mp3,.m4a"
+                aria-describedby="file-help"
+              />
+              <label class="cricket-action file-action" for="file-input">Choose recording</label>
+              <button class="cricket-action" id="use-demo" type="button">Reload selected</button>
+            </div>
+          </div>
+
+          <dl class="cricket-stats" aria-label="Analyzed call">
+            <div><dt>Carrier</dt><dd id="carrier-stat">—</dd></div>
+            <div><dt>Chirps / strokes</dt><dd id="call-stat">—</dd></div>
+            <div><dt>Stroke rate</dt><dd id="stroke-stat">—</dd></div>
+            <div><dt>Spectral focus</dt><dd id="q-stat">—</dd></div>
+          </dl>
+
+          <button class="cricket-render" id="render-model" type="button" disabled>
+            Rebuild physical call
+          </button>
+          <p class="cricket-note" id="analysis-note">
+            This is an audible equivalent: timing and spectrum become effective mechanism controls, not recovered anatomy.
+          </p>
+        </section>
+
+        <section class="cricket-card cricket-body-card" aria-labelledby="cricket-body-title">
+          <div class="cricket-card-heading">
+            <div>
+              <span>Body</span>
+              <h2 id="cricket-body-title">Tune the coupled wings</h2>
+            </div>
+            <span class="wing-key" aria-hidden="true"><i></i><i></i></span>
+          </div>
+
+          <div class="cricket-control-list">
+            <label class="cricket-control" for="resonance-scale">
+              <span><b>Wing pitch</b><output id="resonance-scale-value" for="resonance-scale">1.00×</output></span>
+              <input id="resonance-scale" type="range" min="0.55" max="1.8" step="0.01" value="1" />
+              <small>Moves both resonant wings without changing the call rhythm.</small>
+            </label>
+
+            <label class="cricket-control" for="wing-split">
+              <span><b>Wing mismatch</b><output id="wing-split-value" for="wing-split">+28 ct</output></span>
+              <input id="wing-split" type="range" min="-360" max="360" step="1" value="28" />
+              <small>Separates the two uncoupled wing frequencies.</small>
+            </label>
+
+            <label class="cricket-control" for="coupling">
+              <span><b>Energy coupling · exploratory</b><output id="coupling-value" for="coupling">46%</output></span>
+              <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.46" />
+              <small>Transfers vibration between modeled wings; mono audio cannot identify this value.</small>
+            </label>
+
+            <label class="cricket-control" for="wing-q">
+              <span><b>Wing ring</b><output id="wing-q-value" for="wing-q">7.9 Q</output></span>
+              <input id="wing-q" type="range" min="3" max="55" step="0.1" value="7.9" />
+              <small>2025 live-wing starting point; higher values let each contact persist longer.</small>
+            </label>
+          </div>
+        </section>
+
+        <details class="cricket-advanced">
+          <summary>
+            <span><b>Advanced mechanism</b><small>file, stroke, and radiation</small></span>
+            <i aria-hidden="true"></i>
+          </summary>
+          <div class="advanced-body">
+            <label class="cricket-control" for="tooth-rate-ratio">
+              <span><b>Implied tooth cadence</b><output id="tooth-rate-ratio-value" for="tooth-rate-ratio">1.000×</output></span>
+              <input id="tooth-rate-ratio" type="range" min="0.72" max="1.28" step="0.001" value="1" />
+              <small>Assumes one contact per carrier cycle; the wings still select the carrier.</small>
+            </label>
+
+            <label class="cricket-control" for="plectrum-force">
+              <span><b>Contact impulse level</b><output id="plectrum-force-value" for="plectrum-force">0.82×</output></span>
+              <input id="plectrum-force" type="range" min="0.1" max="1.8" step="0.01" value="0.82" />
+            </label>
+
+            <label class="cricket-control" for="tooth-irregularity">
+              <span><b>Tooth-event variability · artistic</b><output id="tooth-irregularity-value" for="tooth-irregularity">3%</output></span>
+              <input id="tooth-irregularity" type="range" min="0" max="0.45" step="0.005" value="0.025" />
+            </label>
+
+            <label class="cricket-control" for="closing-sweep">
+              <span><b>Within-stroke cadence fall</b><output id="closing-sweep-value" for="closing-sweep">−6.5%</output></span>
+              <input id="closing-sweep" type="range" min="-0.24" max="0.24" step="0.005" value="-0.065" />
+              <small>Illustrative same-species glide, not recovered wing geometry.</small>
+            </label>
+
+            <label class="cricket-control" for="mirror-mix">
+              <span><b>Wing 2 radiation</b><output id="mirror-mix-value" for="mirror-mix">31%</output></span>
+              <input id="mirror-mix" type="range" min="0" max="0.8" step="0.01" value="0.31" />
+            </label>
+
+            <div class="cricket-export-actions" aria-label="Export fitted model">
+              <button id="export-wav" type="button" disabled>Export WAV</button>
+              <button id="export-json" type="button" disabled>Export controls</button>
+            </div>
+
+            <p class="advanced-note">
+              Closing strokes cross the file and sound. Opening strokes reset silently. The uploaded recording remains a separate A/B reference.
+            </p>
+          </div>
+        </details>
+
+        <details class="cricket-advanced cricket-research">
+          <summary>
+            <span><b>Evidence and limits</b><small>what is measured versus assumed</small></span>
+            <i aria-hidden="true"></i>
+          </summary>
+          <div class="advanced-body research-copy">
+            <p>
+              The file/plectrum mechanism, roughly 4.8 kHz calling carrier, and a pushed-wing
+              Q of 23.4 come from a
+              <a href="https://doi.org/10.1242/jeb.00281">2003 <i>Teleogryllus oceanicus</i> study</a>.
+              The 7.9 Q starting control comes from
+              <a href="https://doi.org/10.1098/rsos.251005">2025 live-wing vibrometry and finite-element work</a>;
+              its <a href="https://doi.org/10.5061/dryad.v15dv4266">measurements and models are on Dryad</a>.
+            </p>
+            <p>
+              A single microphone can fit carrier and closing-stroke timing. It cannot uniquely
+              recover tooth contacts, damping, left/right coupling, material, or anatomy. Those
+              controls are an inspectable physical hypothesis, not a claim about the recorded animal.
+            </p>
+          </div>
+        </details>
+
+        <div class="cricket-panel-footer">
+          <span><i aria-hidden="true"></i> recording → stroke score</span>
+          <span><i aria-hidden="true"></i> teeth → coupled wings</span>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="crickets-app.js"></script>
+  </body>
+</html>

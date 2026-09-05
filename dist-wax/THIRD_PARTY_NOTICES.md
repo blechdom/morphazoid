@@ -29,6 +29,50 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
+## Bioacoustic recordings
+
+The built-in recording menus bundle twelve unchanged Ogg Vorbis or PCM WAV field
+recordings from Wikimedia Commons. Full provenance, recording notes, source
+links, license links, and file hashes are recorded in
+`assets/bioacoustics/SOURCES.md`.
+
+- Thrush nightingale, common blackbird, and chaffinch recordings: Oona
+  Räisänen (Wikimedia Commons user Mysid), public-domain dedications.
+- House cricket recording: Wikimedia Commons user Morray, CC BY 3.0.
+- Field cricket recording: Wikimedia Commons user Thatcher, CC BY-SA 3.0.
+- European field cricket recording: Baudewijn Odé, CC BY-SA 4.0.
+- Coyote group recording: Wikimedia Commons user Rybkovich, CC BY-SA 4.0.
+- Frog chorus recording: Wikimedia Commons user Hughesdarren, CC BY-SA 4.0.
+- Dolphin recording: Félix Blume, CC0 1.0.
+- Humpback-whale recording: Wikimedia Commons user Spyrogumas, CC0 1.0.
+- Killer-whale recording: U.S. National Park Service, public domain in the
+  United States.
+- Blue-whale recording: NOAA Pacific Marine Environmental Laboratory, public
+  domain in the United States.
+
+Morphazoid distributes the Creative Commons recordings unchanged, preserves
+attribution and license links, and does not suggest endorsement by the
+recordists or licensors.
+
+No Indigenous or other human song recordings are redistributed. Links in the
+Acoustic Manifold archive directory are discovery references, not licenses to
+copy, train on, rearrange, or resynthesize their holdings. Record-level rights,
+community authority, culturally sensitive access protocols, and any Traditional
+Knowledge Labels remain applicable.
+
+## Three.js
+
+Nightingale Manifold and Acoustic Manifold vendor Three.js 0.185.1 for local,
+offline-safe WebGL rendering:
+
+- https://threejs.org/
+- https://github.com/mrdoob/three.js
+
+Copyright © 2010-2026 three.js authors
+
+Three.js is MIT-licensed. The complete license text is in
+`vendor/three/LICENSE.txt`.
+
 ## Fluid Music Open Drums / Hyperreal TR-808 and TR-909 samples
 
 Sample Drums references version-pinned WAV files from the Fluid Music

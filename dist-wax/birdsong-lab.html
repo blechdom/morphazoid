@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06100f" />
+    <meta
+      name="description"
+      content="Strophe Lab is a local analysis-by-synthesis proof of concept for turning tonal bird recordings into effective syrinx gestures."
+    />
+    <title>Strophe Lab — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="birdsong-lab.css" />
+  </head>
+  <body class="birdsong-lab-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Related instruments">
+        <a class="tab" href="acoustic-manifold.html">acoustic manifold</a>
+        <a class="tab" href="syrinx.html">syrinx</a>
+        <a class="tab active" href="birdsong-lab.html" aria-current="page">strophe lab</a>
+      </nav>
+
+      <label class="lab-output" for="level">
+        <span><b>Output</b><output id="levelOut" for="level">62%</output></span>
+        <input id="level" type="range" min="0" max="1" step="0.01" value="0.62" />
+      </label>
+    </header>
+
+    <main class="birdsong-shell">
+      <section class="birdsong-stage" aria-labelledby="labTitle">
+        <header class="lab-intro">
+          <p>Local analysis-by-synthesis POC · nothing sent off-device</p>
+          <h1 id="labTitle">A recording becomes a playable physical gesture.</h1>
+          <p>
+            Loudness drives a pressure proxy, pitch drives a tension-like trajectory,
+            and Morphazoid&rsquo;s nonlinear bilateral syrinx generates the new waveform.
+          </p>
+        </header>
+
+        <div class="analysis-display">
+          <canvas
+            id="analysisCanvas"
+            role="img"
+            aria-label="Input and physical-model waveforms with pitch, pressure, and tension trajectories"
+          ></canvas>
+          <div class="analysis-legend" aria-hidden="true">
+            <span class="input-key">input</span>
+            <span class="model-key">physical model</span>
+            <span class="pitch-key">pitch</span>
+            <span class="pressure-key">pressure proxy</span>
+            <span class="tension-key">tension proxy</span>
+          </div>
+        </div>
+
+        <div class="transport" aria-label="A/B transport">
+          <button id="playOriginal" type="button" disabled>
+            <span aria-hidden="true">▶</span><b>Input</b><small>recording</small>
+          </button>
+          <button id="playModel" class="primary-transport" type="button" disabled>
+            <span aria-hidden="true">▶</span><b>Physical</b><small>resynthesis</small>
+          </button>
+          <button id="stopPlayback" type="button" disabled>
+            <span aria-hidden="true">■</span><b>Stop</b><small>transport</small>
+          </button>
+          <label class="loop-toggle">
+            <input id="loopPlayback" type="checkbox" />
+            <span><b>Loop</b><small>A/B audition</small></span>
+          </label>
+        </div>
+
+        <p class="lab-status" id="labStatus" role="status" aria-live="polite">
+          Preparing the demo strophe…
+        </p>
+      </section>
+
+      <aside class="birdsong-panel" aria-label="Strophe analysis and physical-model controls">
+        <section class="lab-card source-card">
+          <header>
+            <span>01</span>
+            <div><small>Source</small><h2>Choose a tonal phrase</h2></div>
+          </header>
+          <div
+            class="file-drop" id="fileDrop"
+            tabindex="0"
+            role="button"
+            aria-controls="audioFile"
+            aria-label="Choose or drop a short audio file"
+          >
+            <strong id="sourceLabel">Synthetic six-syllable strophe</strong>
+            <span>Drop WAV, MP3, FLAC, or OGG here · first 12 seconds</span>
+          </div>
+          <label class="compact-select source-preset-select" for="source-preset">
+            <span>Built-in source</span>
+            <select id="source-preset" aria-describedby="source-preset-help">
+              <optgroup label="Recordings">
+                <option value="recorded-thrush-nightingale">Thrush nightingale · Oona Räisänen</option>
+                <option value="recorded-common-blackbird">Common blackbird · Oona Räisänen</option>
+                <option value="recorded-chaffinch">Chaffinch · Oona Räisänen</option>
+              </optgroup>
+              <optgroup label="Procedural references">
+                <option value="mixed-songbird" selected>Synthetic · mixed songbird strophe</option>
+                <option value="high-whistles">Synthetic · high whistle arcs</option>
+                <option value="low-coos">Synthetic · low four-note coo</option>
+              </optgroup>
+              <option value="local" disabled>Local upload</option>
+            </select>
+            <small id="source-preset-help">Bundled files stay local; procedural choices are labeled synthetic.</small>
+          </label>
+          <p class="source-attribution" id="source-attribution">
+            Procedural Morphazoid reference · not a wildlife recording.
+          </p>
+          <p class="source-profile-note" id="source-profile-note">
+            Tonal, mostly monophonic songbird profile; it does not identify species.
+          </p>
+          <div class="source-actions">
+            <label class="file-button" for="audioFile">Choose audio</label>
+            <input id="audioFile" type="file" accept="audio/*,.wav,.flac,.ogg,.mp3,.m4a" />
+            <button id="loadDemo" type="button">Reload selected</button>
+          </div>
+          <label class="compact-select" for="pitchRange">
+            <span>Analysis range</span>
+            <select id="pitchRange">
+              <option value="songbird" selected>Songbird · 180–5500 Hz</option>
+              <option value="lowbird">Low bird · 70–1800 Hz</option>
+              <option value="ultrahigh">High whistle · 700–9000 Hz</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="lab-card result-card" aria-live="polite">
+          <header>
+            <span>02</span>
+            <div><small>Analysis</small><h2>Effective gesture</h2></div>
+          </header>
+          <dl class="analysis-stats">
+            <div><dt>Duration</dt><dd id="durationStat">—</dd></div>
+            <div><dt>Syllables</dt><dd id="syllableStat">—</dd></div>
+            <div><dt>Median pitch</dt><dd id="pitchStat">—</dd></div>
+            <div><dt>Voiced</dt><dd id="voicedStat">—</dd></div>
+          </dl>
+          <p id="analysisNote">
+            Best on one clean, monophonic, tonal bird. Noise and two simultaneous syrinx sides are intentionally out of scope.
+          </p>
+        </section>
+
+        <section class="lab-card model-card">
+          <header>
+            <span>03</span>
+            <div><small>Intervene</small><h2>Reshape the model</h2></div>
+          </header>
+
+          <label class="model-control" for="pitchShift">
+            <span><b>Tension / pitch offset</b><output id="pitchShiftOut" for="pitchShift">0 st</output></span>
+            <input id="pitchShift" type="range" min="-12" max="12" step="1" value="0" />
+          </label>
+          <label class="model-control" for="drive">
+            <span><b>Airflow drive</b><output id="driveOut" for="drive">1.00×</output></span>
+            <input id="drive" type="range" min="0.4" max="1.6" step="0.01" value="1" />
+          </label>
+          <label class="model-control" for="roughness">
+            <span><b>Labial irregularity</b><output id="roughnessOut" for="roughness">4%</output></span>
+            <input id="roughness" type="range" min="0" max="0.45" step="0.01" value="0.04" />
+          </label>
+          <label class="model-control" for="resonance">
+            <span><b>OEC / beak resonance</b><output id="resonanceOut" for="resonance">3.8 kHz</output></span>
+            <input id="resonance" type="range" min="600" max="7500" step="50" value="3800" />
+          </label>
+          <label class="model-control" for="resonanceQ">
+            <span><b>Resonance focus</b><output id="resonanceQOut" for="resonanceQ">4.5 Q</output></span>
+            <input id="resonanceQ" type="range" min="0.5" max="12" step="0.1" value="4.5" />
+          </label>
+          <label class="model-control" for="resonanceMix">
+            <span><b>Tract contribution</b><output id="resonanceMixOut" for="resonanceMix">42%</output></span>
+            <input id="resonanceMix" type="range" min="0" max="0.85" step="0.01" value="0.42" />
+          </label>
+
+          <div class="render-actions">
+            <button id="renderModel" class="render-button" type="button" disabled>Render physical copy</button>
+            <button id="resetModel" type="button">Reset</button>
+          </div>
+        </section>
+
+        <section class="lab-card export-card">
+          <header>
+            <span>04</span>
+            <div><small>Bridge</small><h2>Take the gesture out</h2></div>
+          </header>
+          <div class="export-actions">
+            <button id="downloadWav" type="button" disabled>Download physical WAV</button>
+            <button id="downloadJson" type="button" disabled>Download gesture JSON</button>
+          </div>
+          <p>
+            JSON is a control-rate artifact for a later airflow/actuator calibration layer.
+            Its pressure and tension values are acoustic proxies—not measurements of the bird.
+          </p>
+        </section>
+
+        <details class="lab-method">
+          <summary>What this POC is actually doing</summary>
+          <p>
+            A YIN-style periodicity analysis estimates pitch and voicing. Frame RMS becomes an
+            airflow-pressure proxy; log pitch becomes a tension proxy. Those curves drive the
+            same nonlinear bilateral labial oscillator used by Morphazoid&rsquo;s Syrinx instrument,
+            followed by two damped vocal-tract resonances. Everything runs in this browser tab.
+          </p>
+          <p>
+            This demonstrates a manipulable sound-producing equivalent. It does not recover
+            unique anatomy, muscle activity, or true air-sac pressure from sound alone.
+          </p>
+        </details>
+      </aside>
+    </main>
+
+    <script type="module" src="birdsong-lab-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>
