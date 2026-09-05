@@ -103,7 +103,7 @@
           <section class="tiles-rack" aria-labelledby="formRackTitle">
             <h2 class="sr-only" id="formRackTitle">Tile form</h2>
             <div class="tiles-grid">
-              <label class="select-control tiles-wide" for="tilingType">
+              <label class="select-control tiles-wide tiles-system-select" for="tilingType">
                 <span class="field-label">Tile system</span>
                 <span class="select-shell"><select id="tilingType"></select></span>
               </label>
@@ -111,6 +111,25 @@
                 <span><b>Density</b><output id="densityOut" for="density">52%</output></span>
                 <input id="density" type="range" min="0" max="1" step="0.01" value="0.52" />
               </label>
+            </div>
+            <div class="tiles-prototile-editor" id="tileEditorPanel">
+              <div class="tiles-prototile-editor-heading">
+                <b>Shape modifier <span aria-hidden="true">X/Y</span></b>
+                <small id="tileEditorLegend">orange corners move</small>
+              </div>
+              <canvas
+                id="tileEditorCanvas"
+                width="640"
+                height="320"
+                tabindex="0"
+                aria-label="Editable isohedral prototile. Corner 1 selected."
+                aria-describedby="tileEditorInstructions liveStatus"
+              >
+                Editable isohedral prototile. Drag or use the keyboard to move a corner.
+              </canvas>
+              <p class="tiles-prototile-editor-instructions" id="tileEditorInstructions">
+                Drag an orange corner. Arrow keys move it; bracket keys choose another corner.
+              </p>
             </div>
             <div class="tiles-grid" id="parameterControls" aria-label="Tile parameters"></div>
             <div class="tiles-grid" id="edgeControls" aria-label="Edge curves"></div>

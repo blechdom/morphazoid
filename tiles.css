@@ -300,6 +300,163 @@ body.tiles-app-page {
   grid-column: 1 / -1;
 }
 
+.tiles-system-select .select-shell,
+.tiles-system-select select {
+  width: 100%;
+}
+
+.tiles-tiling-preview {
+  display: block;
+  width: 104px;
+  height: 48px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: rgba(225, 245, 238, .84);
+  background: #050709;
+  shape-rendering: geometricPrecision;
+}
+
+.tiles-tiling-preview-fill-0 {
+  fill: rgba(103, 233, 189, .18);
+}
+
+.tiles-tiling-preview-fill-1 {
+  fill: rgba(120, 167, 255, .18);
+}
+
+.tiles-tiling-preview-fill-2 {
+  fill: rgba(255, 181, 111, .17);
+}
+
+.tiles-tiling-preview-fill-3 {
+  fill: rgba(215, 239, 127, .16);
+}
+
+.tiles-tiling-preview-edges {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.tiles-tiling-option-label {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@supports (appearance: base-select) {
+  #tilingType {
+    min-height: 68px;
+    padding-block: 8px;
+  }
+
+  #tilingType > button {
+    display: contents;
+  }
+
+  #tilingType selectedcontent,
+  #tilingType option {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: 104px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+  }
+
+  #tilingType selectedcontent {
+    width: 100%;
+  }
+
+  #tilingType option {
+    min-height: 58px;
+    padding: 5px 9px;
+  }
+
+  #tilingType optgroup {
+    color: var(--muted);
+    background: var(--mz-color-bg-deep, #07090b);
+    font: 700 9px/1.3 var(--mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  #tilingType option:checked .tiles-tiling-preview,
+  #tilingType option:hover .tiles-tiling-preview,
+  #tilingType option:focus .tiles-tiling-preview {
+    border-color: rgba(4, 16, 13, .42);
+    color: #04100d;
+  }
+}
+
+.tiles-prototile-editor {
+  display: grid;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: #050709;
+  gap: 8px;
+}
+
+.tiles-prototile-editor-heading {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tiles-prototile-editor-heading b,
+.tiles-prototile-editor-heading small,
+.tiles-prototile-editor-instructions {
+  font: 700 9px/1.35 var(--mono);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.tiles-prototile-editor-heading b {
+  color: rgba(231, 246, 240, .9);
+}
+
+.tiles-prototile-editor-heading b span {
+  color: var(--tiles-accent);
+}
+
+.tiles-prototile-editor-heading small,
+.tiles-prototile-editor-instructions {
+  color: rgba(224, 238, 232, .48);
+}
+
+#tileEditorCanvas {
+  display: block;
+  width: 100%;
+  height: 160px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  cursor: grab;
+  background:
+    linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px),
+    #080b0d;
+  background-size: 20px 20px;
+  touch-action: none;
+}
+
+#tileEditorCanvas.is-dragging {
+  cursor: grabbing;
+}
+
+#tileEditorCanvas:focus-visible {
+  border-color: var(--tiles-accent);
+  outline: 2px solid var(--tiles-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 18px var(--tiles-accent-glow);
+}
+
+.tiles-prototile-editor-instructions {
+  margin: 0;
+  text-transform: none;
+}
+
 .tiles-primary-range {
   width: 100%;
 }
@@ -425,5 +582,37 @@ body.tiles-app-page {
   .tiles-mode-switch button {
     min-height: 32px;
     font-size: 9px;
+  }
+
+  #tileEditorCanvas {
+    height: 148px;
+  }
+}
+
+@media (max-width: 980px) and (max-height: 560px) {
+  .tiles-stage {
+    height: clamp(150px, 40dvh, 210px);
+    min-height: 150px;
+  }
+}
+
+@media (pointer: coarse) {
+  .tiles-transport-button {
+    flex-basis: 48px;
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
+  }
+
+  .tiles-motion-bank {
+    grid-template-columns: repeat(3, 48px);
+  }
+
+  .tiles-icon-toggle {
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
   }
 }

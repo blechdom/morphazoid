@@ -6,13 +6,20 @@ import {
   synthParametersForMode,
 } from "./src/audio.js";
 import {
+  pingPongMotionDirection,
+  rebaseContinuousPosition,
+  rebasePingPongPosition,
+} from "./src/articulation.js";
+import {
   cloneDefaultFmDrumVoices,
   FmDrumAudio,
 } from "./src/fm-drums.js";
 import {
   TILING_TYPES,
   buildLattice,
+  buildPrototile,
   centeredContactWindow,
+  constrainPrototileEdit,
   contactsForLine,
   createScanLine,
   edgeShapeName,
@@ -20,6 +27,7 @@ import {
   latticeContactOnsetKey,
   latticeOffsetForPhase,
   newlyEnteredLatticeContacts,
+  parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
 } from "./src/lattice.js";
@@ -50,6 +58,9 @@ const MIDI_PREVIEW_ROUTE_ID = "tiles-app-preview";
 const DRUM_REENTRY_MS = 75;
 const LATTICE_BOUNDS = Object.freeze({ minX: -1.16, minY: -0.92, maxX: 1.16, maxY: 0.92 });
 const SPIRAL_BOUNDS = Object.freeze({ innerRadius: 0.045, outerRadius: 1.08 });
+const TILING_PREVIEW_BOUNDS = Object.freeze({ minX: -0.65, minY: -0.325, maxX: 0.65, maxY: 0.325 });
+const TILING_PREVIEW_WIDTH = 104;
+const TILING_PREVIEW_HEIGHT = 48;
 const TILE_COLORS = Object.freeze([
   "rgba(103, 233, 189, .18)",
   "rgba(120, 167, 255, .17)",
@@ -135,6 +146,15 @@ let lastPreviewStrikeTimes = new Map();
 let activeDrumIndex = -1;
 const contactAges = new Map();
 const pointer = { active: false };
+const tileEditorCanvas = $("tileEditorCanvas");
+const tileEditorContext = tileEditorCanvas.getContext("2d");
+const movableVertexCache = new Map();
+let tileEditorDirty = true;
+let tileEditorDrag = null;
+let tileEditorView = null;
+let selectedTileEditorVertex = -1;
+let suppressGeometryOnsets = false;
+let tilingPreviewQueueToken = 0;
 
 function wrap01(value) {
   return ((value % 1) + 1) % 1;
@@ -249,7 +269,7 @@ function rebuildGeometry() {
 
 function latticeContactsForState() {
   if (!lattice) rebuildLattice();
-  const scan = createScanLine(LATTICE_BOUNDS, state.position, state.lineAngle);
+  const scan = createScanLine(LATTICE_BOUNDS, 0.5, state.lineAngle);
   const offset = latticeOffsetForPhase(lattice, state.position);
   return {
     scan,
@@ -323,7 +343,7 @@ function spiralPitchMark(contact) {
 function shepardRateForContact(contact) {
   if (!state.playing) return 0;
   const direction = state.motionMode === "ping-pong"
-    ? (state.continuousPosition % 2 + 2) % 2 <= 1 ? state.traversalDirection : -state.traversalDirection
+    ? pingPongMotionDirection(state.continuousPosition, state.traversalDirection)
     : state.traversalDirection;
   const sizeRate = isSpiralMode() && state.sizeCoupling
     ? scaleRateForSpiralRadius(contact.radius, tessellation.bounds.innerRadius, tessellation.bounds.outerRadius)
@@ -640,6 +660,423 @@ function renderMappingSources() {
   setCurrentMappingMode(select.value);
 }
 
+function previewBoundsOverlap(bounds) {
+  return !(
+    bounds.maxX < TILING_PREVIEW_BOUNDS.minX
+    || bounds.minX > TILING_PREVIEW_BOUNDS.maxX
+    || bounds.maxY < TILING_PREVIEW_BOUNDS.minY
+    || bounds.minY > TILING_PREVIEW_BOUNDS.maxY
+  );
+}
+
+function previewPoint(point) {
+  return {
+    x: (point.x - TILING_PREVIEW_BOUNDS.minX)
+      / (TILING_PREVIEW_BOUNDS.maxX - TILING_PREVIEW_BOUNDS.minX)
+      * TILING_PREVIEW_WIDTH,
+    y: (TILING_PREVIEW_BOUNDS.maxY - point.y)
+      / (TILING_PREVIEW_BOUNDS.maxY - TILING_PREVIEW_BOUNDS.minY)
+      * TILING_PREVIEW_HEIGHT,
+  };
+}
+
+function previewPath(points, close = false) {
+  const commands = points.map((point, index) => {
+    const mapped = previewPoint(point);
+    return `${index ? "L" : "M"}${mapped.x.toFixed(2)} ${mapped.y.toFixed(2)}`;
+  });
+  return `${commands.join("")}${close ? "Z" : ""}`;
+}
+
+function createTilingPreview(info) {
+  const namespace = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(namespace, "svg");
+  svg.classList.add("tiles-tiling-preview");
+  svg.dataset.tilingPreview = info.code;
+  svg.setAttribute("viewBox", `0 0 ${TILING_PREVIEW_WIDTH} ${TILING_PREVIEW_HEIGHT}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+
+  const preview = buildLattice({
+    type: info.type,
+    parameters: info.defaultParameters,
+    edgeCurves: info.edgeShapes.map(() => 0),
+    scale: 0.65,
+    bounds: TILING_PREVIEW_BOUNDS,
+    alignPeriodToDegrees: 180,
+  });
+  const fills = Array.from({ length: TILE_COLORS.length }, () => []);
+  for (const tile of preview.tiles) {
+    if (!previewBoundsOverlap(tile.bounds)) continue;
+    const colorIndex = Math.abs(tile.color ?? tile.aspect ?? 0) % fills.length;
+    fills[colorIndex].push(previewPath(tile.points, true));
+  }
+  fills.forEach((paths, index) => {
+    if (!paths.length) return;
+    const path = document.createElementNS(namespace, "path");
+    path.classList.add(`tiles-tiling-preview-fill-${index}`);
+    path.setAttribute("d", paths.join(""));
+    svg.append(path);
+  });
+
+  const edgePath = document.createElementNS(namespace, "path");
+  edgePath.classList.add("tiles-tiling-preview-edges");
+  edgePath.setAttribute(
+    "d",
+    preview.edges
+      .filter((edge) => previewBoundsOverlap(edge.bounds))
+      .map((edge) => previewPath([edge.points[0], edge.points[edge.points.length - 1]]))
+      .join(""),
+  );
+  svg.append(edgePath);
+  return svg;
+}
+
+function scheduleTilingOptionPreviews(entries) {
+  const token = ++tilingPreviewQueueToken;
+  let index = 0;
+  const schedule = (callback) => {
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(callback, { timeout: 240 });
+    } else {
+      window.setTimeout(() => callback({ timeRemaining: () => 7 }), 0);
+    }
+  };
+  const renderBatch = (deadline) => {
+    if (token !== tilingPreviewQueueToken) return;
+    let rendered = 0;
+    while (
+      index < entries.length
+      && rendered < 4
+      && (rendered === 0 || deadline.timeRemaining() > 2)
+    ) {
+      const { option, info } = entries[index];
+      if (!option.querySelector(".tiles-tiling-preview")) option.prepend(createTilingPreview(info));
+      index += 1;
+      rendered += 1;
+    }
+    if (index < entries.length) schedule(renderBatch);
+  };
+  schedule(renderBatch);
+}
+
+function parametersChanged(first, second, tolerance = 1e-8) {
+  return first.some((value, index) => Math.abs(value - second[index]) > tolerance);
+}
+
+function movableVerticesFor(model) {
+  if (movableVertexCache.has(model.type)) return movableVertexCache.get(model.type);
+  const movable = model.vertices.map((vertex, vertexIndex) => {
+    if (!model.parameters.length) return false;
+    const horizontal = parametersForDraggedVertex({
+      type: model.type,
+      parameters: model.parameters,
+      vertexIndex,
+      target: { x: vertex.x + 0.025, y: vertex.y },
+    });
+    const vertical = parametersForDraggedVertex({
+      type: model.type,
+      parameters: model.parameters,
+      vertexIndex,
+      target: { x: vertex.x, y: vertex.y + 0.025 },
+    });
+    return parametersChanged(model.parameters, horizontal)
+      || parametersChanged(model.parameters, vertical);
+  });
+  movableVertexCache.set(model.type, movable);
+  return movable;
+}
+
+function editorScreenPoint(point, view) {
+  return {
+    x: view.width / 2 + (point.x - view.center.x) * view.scale,
+    y: view.height / 2 - (point.y - view.center.y) * view.scale,
+  };
+}
+
+function editorPointerPoint(event, view) {
+  const bounds = tileEditorCanvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - bounds.left) * view.width / Math.max(bounds.width, 1),
+    y: (event.clientY - bounds.top) * view.height / Math.max(bounds.height, 1),
+  };
+}
+
+function editorNaturalPoint(event, view) {
+  const point = editorPointerPoint(event, view);
+  return {
+    x: view.center.x + (point.x - view.width / 2) / view.scale,
+    y: view.center.y - (point.y - view.height / 2) / view.scale,
+  };
+}
+
+function traceEditorPoints(points, view, close = false) {
+  if (!points.length) return;
+  const first = editorScreenPoint(points[0], view);
+  tileEditorContext.beginPath();
+  tileEditorContext.moveTo(first.x, first.y);
+  for (let index = 1; index < points.length; index += 1) {
+    const point = editorScreenPoint(points[index], view);
+    tileEditorContext.lineTo(point.x, point.y);
+  }
+  if (close) tileEditorContext.closePath();
+}
+
+function syncTileParameterInputs() {
+  const info = tilingInfo(state.tilingType);
+  info.defaultParameters.forEach((_, index) => {
+    const input = $(`tileParameter${index}`);
+    if (input) input.value = String(state.parameters[index] ?? info.defaultParameters[index]);
+  });
+  info.edgeShapes.forEach((_, index) => {
+    const input = $(`edgeCurve${index}`);
+    if (input) input.value = String(state.edgeCurves[index] ?? 0);
+  });
+  updateDynamicOutputs();
+}
+
+function invalidateTileGeometry() {
+  geometryDirty = true;
+  tileEditorDirty = true;
+  suppressGeometryOnsets = true;
+  scheduleFrame();
+}
+
+function guardedPrototileEdit(parameters = state.parameters, edgeCurves = state.edgeCurves) {
+  return constrainPrototileEdit({
+    type: state.tilingType,
+    currentParameters: state.parameters,
+    parameters,
+    currentEdgeCurves: state.edgeCurves,
+    edgeCurves,
+  });
+}
+
+function applyPrototileEdit(parameters, edgeCurves, constrainedMessage) {
+  const guarded = guardedPrototileEdit(parameters, edgeCurves);
+  state.parameters = guarded.parameters;
+  state.edgeCurves = guarded.edgeCurves;
+  syncTileParameterInputs();
+  invalidateTileGeometry();
+  if (guarded.constrained && constrainedMessage) announce(constrainedMessage);
+  return guarded;
+}
+
+function drawTileEditor(lockedView = tileEditorDrag?.view) {
+  const model = buildPrototile({
+    type: state.tilingType,
+    parameters: state.parameters,
+    edgeCurves: state.edgeCurves,
+  });
+  const canvasBounds = tileEditorCanvas.getBoundingClientRect();
+  const width = Math.round(clamp(canvasBounds.width || 320, 220, 640));
+  const height = Math.round(clamp(canvasBounds.height || 160, 130, 260));
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const pixelWidth = Math.round(width * ratio);
+  const pixelHeight = Math.round(height * ratio);
+  if (tileEditorCanvas.width !== pixelWidth) tileEditorCanvas.width = pixelWidth;
+  if (tileEditorCanvas.height !== pixelHeight) tileEditorCanvas.height = pixelHeight;
+  tileEditorContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+  tileEditorContext.clearRect(0, 0, width, height);
+
+  const view = lockedView && lockedView.width === width && lockedView.height === height
+    ? lockedView
+    : {
+      width,
+      height,
+      center: {
+        x: (model.bounds.minX + model.bounds.maxX) / 2,
+        y: (model.bounds.minY + model.bounds.maxY) / 2,
+      },
+      scale: Math.min(
+        (width - 48) / Math.max(model.bounds.maxX - model.bounds.minX, 0.2),
+        (height - 42) / Math.max(model.bounds.maxY - model.bounds.minY, 0.2),
+      ),
+    };
+
+  traceEditorPoints(model.outline, view, true);
+  tileEditorContext.fillStyle = "rgba(255, 181, 111, .12)";
+  tileEditorContext.fill();
+  tileEditorContext.strokeStyle = "rgba(225, 245, 238, .72)";
+  tileEditorContext.lineWidth = 1.2;
+  tileEditorContext.lineJoin = "round";
+  tileEditorContext.stroke();
+
+  traceEditorPoints(model.vertices, view, true);
+  tileEditorContext.strokeStyle = "rgba(255, 181, 111, .28)";
+  tileEditorContext.lineWidth = 0.8;
+  tileEditorContext.stroke();
+
+  const movable = movableVerticesFor(model);
+  if (selectedTileEditorVertex < 0 || !movable[selectedTileEditorVertex]) {
+    selectedTileEditorVertex = movable.indexOf(true);
+  }
+  const movableCount = movable.filter(Boolean).length;
+  model.vertices.forEach((vertex, index) => {
+    const point = editorScreenPoint(vertex, view);
+    const canMove = movable[index];
+    tileEditorContext.beginPath();
+    tileEditorContext.arc(point.x, point.y, canMove ? 6 : 3.5, 0, TAU);
+    tileEditorContext.fillStyle = canMove ? "#ffb56f" : "rgba(214, 232, 226, .36)";
+    tileEditorContext.fill();
+    if (canMove) {
+      tileEditorContext.strokeStyle = "#fff3d6";
+      tileEditorContext.lineWidth = index === selectedTileEditorVertex ? 2 : 1;
+      tileEditorContext.stroke();
+    }
+    if (index === selectedTileEditorVertex) {
+      tileEditorContext.beginPath();
+      tileEditorContext.arc(point.x, point.y, 9, 0, TAU);
+      tileEditorContext.strokeStyle = "rgba(255, 255, 255, .76)";
+      tileEditorContext.lineWidth = 1;
+      tileEditorContext.stroke();
+    }
+  });
+
+  const hasMovableVertex = selectedTileEditorVertex >= 0;
+  tileEditorCanvas.setAttribute("aria-disabled", String(!hasMovableVertex));
+  tileEditorCanvas.setAttribute(
+    "aria-label",
+    hasMovableVertex
+      ? `Editable isohedral prototile. Corner ${selectedTileEditorVertex + 1} selected; ${movableCount} movable corners.`
+      : "Isohedral prototile with symmetry-locked corners.",
+  );
+  $("tileEditorLegend").textContent = hasMovableVertex
+    ? `orange corner ${selectedTileEditorVertex + 1} selected`
+    : "symmetry-locked corners";
+  tileEditorView = { ...view, model, movable };
+  tileEditorDirty = false;
+}
+
+function cycleTileEditorVertex(direction) {
+  if (tileEditorDirty || !tileEditorView) drawTileEditor();
+  const movable = tileEditorView.movable
+    .map((canMove, index) => canMove ? index : -1)
+    .filter((index) => index >= 0);
+  if (!movable.length) {
+    announce("This tile's corners are fixed by symmetry.");
+    return;
+  }
+  const current = Math.max(0, movable.indexOf(selectedTileEditorVertex));
+  selectedTileEditorVertex = movable[(current + direction + movable.length) % movable.length];
+  drawTileEditor();
+  announce(`Shape corner ${selectedTileEditorVertex + 1} selected.`);
+}
+
+function bindTileEditor() {
+  tileEditorCanvas.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    if (tileEditorDirty || !tileEditorView) drawTileEditor();
+    const point = editorPointerPoint(event, tileEditorView);
+    let nearest = -1;
+    let nearestDistance = 18;
+    tileEditorView.model.vertices.forEach((vertex, index) => {
+      if (!tileEditorView.movable[index]) return;
+      const screen = editorScreenPoint(vertex, tileEditorView);
+      const distance = Math.hypot(screen.x - point.x, screen.y - point.y);
+      if (distance < nearestDistance) {
+        nearest = index;
+        nearestDistance = distance;
+      }
+    });
+    if (nearest < 0) {
+      announce(tileEditorView.model.parameters.length
+        ? "Choose an orange movable corner."
+        : "This tile's corners are fixed by symmetry.");
+      return;
+    }
+    selectedTileEditorVertex = nearest;
+    tileEditorDrag = {
+      pointerId: event.pointerId,
+      vertexIndex: nearest,
+      constrained: false,
+      view: {
+        width: tileEditorView.width,
+        height: tileEditorView.height,
+        center: { ...tileEditorView.center },
+        scale: tileEditorView.scale,
+      },
+    };
+    tileEditorCanvas.classList.add("is-dragging");
+    tileEditorCanvas.setPointerCapture?.(event.pointerId);
+    tileEditorCanvas.focus();
+    drawTileEditor(tileEditorDrag.view);
+    event.preventDefault();
+  });
+
+  tileEditorCanvas.addEventListener("pointermove", (event) => {
+    if (!tileEditorDrag || tileEditorDrag.pointerId !== event.pointerId) return;
+    const requested = parametersForDraggedVertex({
+      type: state.tilingType,
+      parameters: state.parameters,
+      vertexIndex: tileEditorDrag.vertexIndex,
+      target: editorNaturalPoint(event, tileEditorDrag.view),
+    });
+    const guarded = applyPrototileEdit(
+      requested,
+      state.edgeCurves,
+      "",
+    );
+    tileEditorDrag.constrained ||= guarded.constrained;
+    drawTileEditor(tileEditorDrag.view);
+    event.preventDefault();
+  });
+
+  const finishDrag = (event) => {
+    if (!tileEditorDrag || (event?.pointerId !== undefined && event.pointerId !== tileEditorDrag.pointerId)) return;
+    const constrained = tileEditorDrag.constrained;
+    const pointerId = tileEditorDrag.pointerId;
+    tileEditorDrag = null;
+    tileEditorCanvas.classList.remove("is-dragging");
+    if (tileEditorCanvas.hasPointerCapture?.(pointerId)) {
+      tileEditorCanvas.releasePointerCapture(pointerId);
+    }
+    tileEditorDirty = true;
+    drawTileEditor();
+    announce(constrained
+      ? "Overlap guard limited the corner edit."
+      : "Tile corner updated; shape sliders synchronized.");
+  };
+  tileEditorCanvas.addEventListener("pointerup", finishDrag);
+  tileEditorCanvas.addEventListener("pointercancel", finishDrag);
+  tileEditorCanvas.addEventListener("lostpointercapture", finishDrag);
+
+  tileEditorCanvas.addEventListener("keydown", (event) => {
+    if (event.key === "[" || event.key === "]") {
+      event.preventDefault();
+      cycleTileEditorVertex(event.key === "[" ? -1 : 1);
+      return;
+    }
+    const horizontal = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+    const vertical = event.key === "ArrowDown" ? -1 : event.key === "ArrowUp" ? 1 : 0;
+    if (!horizontal && !vertical) return;
+    event.preventDefault();
+    if (tileEditorDirty || !tileEditorView) drawTileEditor();
+    const vertex = tileEditorView.model.vertices[selectedTileEditorVertex];
+    if (!vertex) {
+      announce("This tile's corners are fixed by symmetry.");
+      return;
+    }
+    const pixelStep = event.shiftKey ? 8 : 2.5;
+    const requested = parametersForDraggedVertex({
+      type: state.tilingType,
+      parameters: state.parameters,
+      vertexIndex: selectedTileEditorVertex,
+      target: {
+        x: vertex.x + horizontal * pixelStep / tileEditorView.scale,
+        y: vertex.y + vertical * pixelStep / tileEditorView.scale,
+      },
+    });
+    applyPrototileEdit(
+      requested,
+      state.edgeCurves,
+      "Overlap guard limited the keyboard corner edit.",
+    );
+    drawTileEditor();
+  });
+}
+
 function renderTileControls() {
   const info = tilingInfo(state.tilingType);
   const parameterControls = $("parameterControls");
@@ -655,7 +1092,7 @@ function renderTileControls() {
     const label = document.createElement("label");
     label.className = "control";
     label.htmlFor = `tileParameter${index}`;
-    label.innerHTML = `<span><b>Parameter ${index + 1}</b><output id="tileParameter${index}Out" for="tileParameter${index}"></output></span>`;
+    label.innerHTML = `<span><b>Shape ${index + 1}</b><output id="tileParameter${index}Out" for="tileParameter${index}"></output></span>`;
     const input = document.createElement("input");
     input.id = `tileParameter${index}`;
     input.type = "range";
@@ -664,10 +1101,13 @@ function renderTileControls() {
     input.step = "0.001";
     input.value = String(state.parameters[index] ?? info.defaultParameters[index]);
     input.addEventListener("input", () => {
-      state.parameters[index] = Number(input.value);
-      geometryDirty = true;
-      updateDynamicOutputs();
-      scheduleFrame();
+      const requested = [...state.parameters];
+      requested[index] = Number(input.value);
+      applyPrototileEdit(
+        requested,
+        state.edgeCurves,
+        "Overlap guard limited the shape parameter.",
+      );
     });
     label.append(input);
     parameterControls.append(label);
@@ -680,7 +1120,7 @@ function renderTileControls() {
     const label = document.createElement("label");
     label.className = "control";
     label.htmlFor = `edgeCurve${index}`;
-    label.innerHTML = `<span><b>Edge ${String.fromCharCode(65 + index)}</b><output id="edgeCurve${index}Out" for="edgeCurve${index}"></output></span>`;
+    label.innerHTML = `<span><b>Edge ${String.fromCharCode(65 + index)} · ${edgeShapeName(shape)}</b><output id="edgeCurve${index}Out" for="edgeCurve${index}"></output></span>`;
     label.title = `${edgeShapeName(shape)} edge${rigid ? " is rigid" : ""}`;
     const input = document.createElement("input");
     input.id = `edgeCurve${index}`;
@@ -691,14 +1131,22 @@ function renderTileControls() {
     input.value = String(state.edgeCurves[index] ?? 0);
     input.disabled = rigid;
     input.addEventListener("input", () => {
-      state.edgeCurves[index] = Number(input.value);
-      geometryDirty = true;
-      updateDynamicOutputs();
-      scheduleFrame();
+      if (rigid) return;
+      const requested = [...state.edgeCurves];
+      requested[index] = Number(input.value);
+      applyPrototileEdit(
+        state.parameters,
+        requested,
+        "Overlap guard limited the edge bend.",
+      );
     });
     label.append(input);
     edgeControls.append(label);
   });
+  const hasVertexParameters = info.defaultParameters.length > 0;
+  tileEditorCanvas.setAttribute("aria-disabled", String(!hasVertexParameters));
+  if (!hasVertexParameters) selectedTileEditorVertex = -1;
+  tileEditorDirty = true;
   updateDynamicOutputs();
 }
 
@@ -948,21 +1396,26 @@ function frame(now) {
   if (geometryDirty || !lattice || !tessellation) rebuildGeometry();
   const readerData = isSpiralMode() ? spiralContactsForState() : latticeContactsForState();
   const contacts = readerData.contacts;
+  const suppressOnsets = suppressGeometryOnsets;
   updateContactAges(contacts, delta);
   renderStage(contacts, readerData);
   if (isDrumMode()) {
     synthPool.silence();
-    triggerDrums(contacts, now);
-    previewDrumOnsets(contacts, now);
+    if (!suppressOnsets) {
+      triggerDrums(contacts, now);
+      previewDrumOnsets(contacts, now);
+    }
   } else {
     const voices = currentSynthVoices(contacts);
     if (state.audio) synthPool.setVoices(voices, { requestedVoiceCount: contacts.length, mode: state.soundMode });
-    previewSynthOnsets(contacts, voices, now);
+    if (!suppressOnsets) previewSynthOnsets(contacts, voices, now);
   }
   previousContactKeys = currentContactKeys(contacts);
   midiPreviewContactKeys = currentContactKeys(contacts);
+  suppressGeometryOnsets = false;
   renderDrumPads();
   updateReadouts(contacts);
+  if (tileEditorDirty) drawTileEditor();
   if (state.playing) scheduleFrame();
 }
 
@@ -980,10 +1433,40 @@ function pointerToWorld(event) {
   };
 }
 
+function setReaderPosition(value) {
+  const nextPosition = clamp(Number(value), 0, 1);
+  state.continuousPosition = state.motionMode === "ping-pong"
+    ? rebasePingPongPosition(state.continuousPosition, nextPosition)
+    : rebaseContinuousPosition(
+      state.continuousPosition,
+      wrap01(state.continuousPosition),
+      nextPosition,
+    );
+  state.position = nextPosition;
+}
+
+function setMotionMode(mode) {
+  const nextMode = mode === "ping-pong" ? "ping-pong" : "loop";
+  if (nextMode !== state.motionMode) {
+    state.continuousPosition = nextMode === "ping-pong"
+      ? rebasePingPongPosition(state.continuousPosition, state.position)
+      : rebaseContinuousPosition(
+        state.continuousPosition,
+        wrap01(state.continuousPosition),
+        state.position,
+      );
+    state.motionMode = nextMode;
+  }
+  renderControls();
+  announce(nextMode === "ping-pong" ? "Reader movement ping-pongs." : "Reader movement loops.");
+  scheduleFrame();
+}
+
 function setPositionFromPointer(event) {
   const point = pointerToWorld(event);
+  let nextPosition;
   if (isSpiralMode()) {
-    state.position = phaseForSpiralPoint(point, {
+    nextPosition = phaseForSpiralPoint(point, {
       mode: state.timePath,
       ...SPIRAL_BOUNDS,
       turns: state.readerTurns,
@@ -993,9 +1476,9 @@ function setPositionFromPointer(event) {
     const scan = createScanLine(LATTICE_BOUNDS, 0.5, state.lineAngle);
     const distance = (point.x - scan.center.x) * scan.normal.x
       + (point.y - scan.center.y) * scan.normal.y;
-    state.position = clamp(distance / Math.max(1e-9, scan.support) * 0.5 + 0.5, 0, 1);
+    nextPosition = clamp(distance / Math.max(1e-9, scan.support) * 0.5 + 0.5, 0, 1);
   }
-  state.continuousPosition = state.position;
+  setReaderPosition(nextPosition);
   previousContactKeys = new Set();
   midiPreviewContactKeys = new Set();
   syncInput("position", state.position);
@@ -1006,8 +1489,9 @@ function setPositionFromPointer(event) {
 function bindRange(id, key, { geometry = false, integer = false } = {}) {
   const input = $(id);
   input.addEventListener("input", () => {
-    state[key] = integer ? Math.round(Number(input.value)) : Number(input.value);
-    if (key === "position") state.continuousPosition = state.position;
+    const nextValue = integer ? Math.round(Number(input.value)) : Number(input.value);
+    if (key === "position") setReaderPosition(nextValue);
+    else state[key] = nextValue;
     if (geometry) geometryDirty = true;
     clearError();
     updateDynamicOutputs();
@@ -1041,14 +1525,10 @@ function bindControls() {
     scheduleFrame();
   });
   $("loopMotion").addEventListener("click", () => {
-    state.motionMode = "loop";
-    state.continuousPosition = state.position;
-    renderControls();
+    setMotionMode("loop");
   });
   $("pingPongMotion").addEventListener("click", () => {
-    state.motionMode = "ping-pong";
-    state.continuousPosition = state.position;
-    renderControls();
+    setMotionMode("ping-pong");
   });
   bindRange("level", "level");
   bindRange("position", "position");
@@ -1095,28 +1575,29 @@ function bindControls() {
   });
   $("tilingType").addEventListener("change", () => {
     const info = tilingInfo(Number($("tilingType").value));
+    if (info.type === state.tilingType) return;
     state.tilingType = info.type;
     state.parameters = [...info.defaultParameters];
     state.edgeCurves = Array.from({ length: info.edgeShapes.length }, () => 0);
-    geometryDirty = true;
-    previousContactKeys = new Set();
-    midiPreviewContactKeys = new Set();
+    selectedTileEditorVertex = -1;
     renderTileControls();
-    scheduleFrame();
+    invalidateTileGeometry();
+    announce(`${info.label} selected with straight edges.`);
   });
   $("resetTile").addEventListener("click", () => {
     const info = tilingInfo(state.tilingType);
     state.parameters = [...info.defaultParameters];
     state.edgeCurves = Array.from({ length: info.edgeShapes.length }, () => 0);
-    geometryDirty = true;
+    selectedTileEditorVertex = -1;
     renderTileControls();
-    scheduleFrame();
+    invalidateTileGeometry();
+    announce("Tile shape and edge bends reset.");
   });
   $("straightenEdges").addEventListener("click", () => {
     state.edgeCurves = state.edgeCurves.map(() => 0);
-    geometryDirty = true;
     renderTileControls();
-    scheduleFrame();
+    invalidateTileGeometry();
+    announce("Matching edges straightened.");
   });
   $("stage").addEventListener("pointerdown", (event) => {
     pointer.active = true;
@@ -1130,18 +1611,49 @@ function bindControls() {
     pointer.active = false;
     $("stage").releasePointerCapture?.(event.pointerId);
   });
-  window.addEventListener("resize", scheduleFrame);
+  window.addEventListener("resize", () => {
+    tileEditorDirty = true;
+    scheduleFrame();
+  });
 }
 
 function initializeSelectors() {
   const tilingSelect = $("tilingType");
-  tilingSelect.replaceChildren(...TILING_TYPES.map((info) => {
-    const option = document.createElement("option");
-    option.value = String(info.type);
-    option.textContent = info.label;
-    return option;
-  }));
+  const supportsRichOptions = globalThis.CSS?.supports?.("appearance", "base-select") === true;
+  const children = [];
+  const deferredPreviews = [];
+  if (supportsRichOptions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.append(document.createElement("selectedcontent"));
+    children.push(button);
+  }
+  for (const family of [...new Set(TILING_TYPES.map((info) => info.family))]) {
+    const group = document.createElement("optgroup");
+    group.label = family;
+    for (const info of TILING_TYPES.filter((candidate) => candidate.family === family)) {
+      const option = document.createElement("option");
+      option.value = String(info.type);
+      option.selected = info.type === state.tilingType;
+      option.dataset.tilingType = String(info.type);
+      if (supportsRichOptions) {
+        option.className = "tiles-tiling-option";
+        const label = document.createElement("span");
+        label.className = "tiles-tiling-option-label";
+        label.textContent = info.label;
+        option.append(label);
+        if (option.selected) option.prepend(createTilingPreview(info));
+        else deferredPreviews.push({ option, info });
+      } else {
+        option.textContent = info.label;
+      }
+      group.append(option);
+    }
+    children.push(group);
+  }
+  tilingSelect.replaceChildren(...children);
   tilingSelect.value = String(state.tilingType);
+  if (supportsRichOptions) scheduleTilingOptionPreviews(deferredPreviews);
 }
 
 function initialize() {
@@ -1149,6 +1661,7 @@ function initialize() {
   renderTileControls();
   renderDrumMap();
   bindControls();
+  bindTileEditor();
   renderControls();
   scheduleFrame();
 }

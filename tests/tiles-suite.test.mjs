@@ -89,6 +89,9 @@ test("Tiles page is a native combined app, not a frame host", async () => {
   assert.match(html, /data-tiles-mode="spiral"/);
   assert.match(html, /data-tiles-mode="spiral-drums"/);
   assert.match(html, /id="tilingType"/);
+  assert.match(html, /class="tiles-prototile-editor" id="tileEditorPanel"/);
+  assert.match(html, /id="tileEditorCanvas"[\s\S]*tabindex="0"/);
+  assert.match(html, /id="tileEditorInstructions"/);
   assert.match(html, /id="parameterControls"/);
   assert.match(html, /id="edgeControls"/);
   assert.match(html, /id="latticeBank"/);
@@ -104,13 +107,17 @@ test("Tiles page is a native combined app, not a frame host", async () => {
   assert.match(html, /src="tiles-app\.js"/);
   assert.doesNotMatch(html, /<iframe\b/i);
   assert.doesNotMatch(html, /Open original/i);
-  assert.doesNotMatch(html, /choose/i);
+  assert.doesNotMatch(html, /href="(?:lattice|lattice-drums|spiral|spiral-drums)\.html"/i);
   assert.doesNotMatch(html, /<header><span>\d\d<\/span>/);
 
   assert.match(css, /\.tiles-app\s*\{/);
   assert.match(css, /\.tiles-app\[data-tiles-mode="lattice-drums"\]/);
   assert.match(css, /\.tiles-app\[data-tiles-mode="spiral"\]/);
   assert.match(css, /\.tiles-mode-switch\s*\{/);
+  assert.match(css, /@supports \(appearance: base-select\)[\s\S]*#tilingType selectedcontent/);
+  assert.match(css, /\.tiles-tiling-preview\s*\{/);
+  assert.match(css, /#tileEditorCanvas:focus-visible\s*\{/);
+  assert.match(css, /@media \(max-width: 980px\) and \(max-height: 560px\)/);
   assert.match(css, /\.tiles-rack\s*\{[\s\S]*border-top: 1px solid/);
   assert.match(css, /\.tiles-transport-button\s*\{[\s\S]*border-radius: 50%;/);
   assert.match(css, /\.tiles-motion-bank\s*\{[\s\S]*grid-template-columns: repeat\(3, 36px\);/);
@@ -158,6 +165,57 @@ test("Tiles app owns geometry and audio engines while preserving shared state on
   assert.doesNotMatch(setModeBody, /edgeCurves\s*=/);
   assert.doesNotMatch(setModeBody, /density\s*=/);
   assert.doesNotMatch(setModeBody, /position\s*=/);
+});
+
+test("Tiles keeps the lattice reader fixed and preserves transport travel phase", async () => {
+  const app = await readFile(new URL("tiles-app.js", root), "utf8");
+
+  assert.match(app, /const scan = createScanLine\(LATTICE_BOUNDS, 0\.5, state\.lineAngle\);/);
+  assert.match(app, /const offset = latticeOffsetForPhase\(lattice, state\.position\);/);
+  assert.doesNotMatch(app, /createScanLine\(LATTICE_BOUNDS, state\.position, state\.lineAngle\)/);
+
+  const setReaderPositionBody = app.match(
+    /function setReaderPosition\(value\) \{(?<body>[\s\S]*?)\n\}/,
+  )?.groups.body ?? "";
+  assert.match(setReaderPositionBody, /rebasePingPongPosition\(state\.continuousPosition, nextPosition\)/);
+  assert.match(setReaderPositionBody, /rebaseContinuousPosition\(/);
+  assert.doesNotMatch(setReaderPositionBody, /state\.continuousPosition\s*=\s*state\.position/);
+
+  const setMotionModeBody = app.match(
+    /function setMotionMode\(mode\) \{(?<body>[\s\S]*?)\n\}/,
+  )?.groups.body ?? "";
+  assert.match(setMotionModeBody, /rebasePingPongPosition\(state\.continuousPosition, state\.position\)/);
+  assert.match(setMotionModeBody, /rebaseContinuousPosition\(/);
+  assert.match(app, /pingPongMotionDirection\(state\.continuousPosition, state\.traversalDirection\)/);
+  assert.match(app, /\$\("loopMotion"\)\.addEventListener\("click", \(\) => \{\s*setMotionMode\("loop"\);/);
+  assert.match(app, /\$\("pingPongMotion"\)\.addEventListener\("click", \(\) => \{\s*setMotionMode\("ping-pong"\);/);
+});
+
+test("Tiles restores the guarded X/Y prototile editor and visual tile-system options", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("tiles.html", root), "utf8"),
+    readFile(new URL("tiles-app.js", root), "utf8"),
+  ]);
+
+  assert.match(html, /Shape modifier <span aria-hidden="true">X\/Y<\/span>/);
+  assert.match(html, /aria-describedby="tileEditorInstructions liveStatus"/);
+  assert.match(app, /buildPrototile/);
+  assert.match(app, /parametersForDraggedVertex/);
+  assert.match(app, /constrainPrototileEdit/);
+  assert.match(app, /function guardedPrototileEdit\(/);
+  assert.match(app, /function applyPrototileEdit\(/);
+  assert.match(app, /tileEditorCanvas\.addEventListener\("pointercancel", finishDrag\)/);
+  assert.match(app, /tileEditorCanvas\.addEventListener\("lostpointercapture", finishDrag\)/);
+  assert.match(app, /tileEditorCanvas\.addEventListener\("keydown"/);
+  assert.match(app, /suppressGeometryOnsets = true/);
+
+  assert.match(app, /globalThis\.CSS\?\.supports\?\.\("appearance", "base-select"\)/);
+  assert.match(app, /document\.createElement\("selectedcontent"\)/);
+  assert.match(app, /option\.prepend\(createTilingPreview\(info\)\)/);
+  assert.match(app, /scheduleTilingOptionPreviews\(deferredPreviews\)/);
+  assert.match(app, /svg\.setAttribute\("aria-hidden", "true"\)/);
+  assert.match(app, /for \(const family of \[\.\.\.new Set\(TILING_TYPES\.map/);
+  assert.doesNotMatch(html, /role="listbox"/);
 });
 
 test("Tiles lives in the Morphazoid Apps section", async () => {
