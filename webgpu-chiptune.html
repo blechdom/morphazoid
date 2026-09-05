@@ -195,13 +195,18 @@
           </summary>
           <div class="group-body">
             <p class="webgpu-credit-note">
-              Edit the source score itself: pitch classes, two 32-step gate lanes,
-              clocks, registers, phrase geometry, envelopes, and circuit balances.
+              Edit the source score itself: pitch classes, two gate lanes with a variable loop length,
+              clocks, registers, phrase geometry, drum circuits, envelopes, and routing.
+            </p>
+            <p class="webgpu-credit-note chiptune-live-note">
+              Sound changes refresh upcoming shader chunks; the current chunk and any render already
+              in flight may finish first.
+              Intro fade and curve are heard only when playback begins from 0:00.
             </p>
             <div id="scaleControls"></div>
             <div id="gateControls"></div>
             <div
-              class="chiptune-control-stack chiptune-advanced-controls"
+              class="chiptune-subgroups chiptune-advanced-controls"
               id="advancedControls"
             ></div>
           </div>

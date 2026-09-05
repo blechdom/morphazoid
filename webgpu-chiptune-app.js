@@ -1,6 +1,7 @@
 import {
   WEBGPU_CHIPTUNE_DEFAULTS,
   WEBGPU_CHIPTUNE_INTEGER_PARAMS,
+  WEBGPU_CHIPTUNE_PARAM_DISTRIBUTIONS,
   WEBGPU_CHIPTUNE_LIMITS,
   WEBGPU_CHIPTUNE_PARAM_ORDER,
   WEBGPU_CHIPTUNE_RUNTIME_DEFAULTS,
@@ -8,6 +9,8 @@ import {
   WebGpuChiptuneAudio,
   formatWebGpuChiptuneValue,
   sanitizeWebGpuChiptuneParams,
+  webGpuChiptuneParamFromUnit,
+  webGpuChiptuneParamToUnit,
   webGpuChiptuneStepSnapshot,
   webGpuChiptuneSupport,
 } from "./src/webgpu-chiptune.js";
@@ -16,9 +19,19 @@ const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
 const fract = (value) => value - Math.floor(value);
 
-function makeSpec(key, label, step = 0.01) {
+function makeSpec(key, label, quantum = 0.01) {
   const [min, max] = WEBGPU_CHIPTUNE_LIMITS[key];
-  return Object.freeze({ key, label, min, max, step });
+  const distribution = WEBGPU_CHIPTUNE_PARAM_DISTRIBUTIONS[key];
+  return Object.freeze({
+    key,
+    label,
+    min,
+    max,
+    quantum: WEBGPU_CHIPTUNE_INTEGER_PARAMS.includes(key)
+      ? 1
+      : distribution === "db" ? Math.min(quantum, 0.001) : quantum,
+    distribution,
+  });
 }
 
 const controlGroups = Object.freeze({
@@ -59,13 +72,13 @@ const controlGroups = Object.freeze({
     makeSpec("echoTime", "Echo spacing"),
     makeSpec("echoDecay", "Echo decay"),
     makeSpec("echoStereo", "Ping-pong width"),
-    makeSpec("fadeIn", "Startup fade"),
+    makeSpec("fadeIn", "Intro fade (from 0:00)"),
     makeSpec("gain", "Shader gain"),
   ]),
   advanced: Object.freeze([
     makeSpec("scaleMask", "Scale pitch classes", 1),
     makeSpec("upperOneSpan", "Upper A note span", 1),
-    makeSpec("upperTwoSpan", "Upper B + lead span", 1),
+    makeSpec("upperTwoSpan", "Upper B note span", 1),
     makeSpec("bassSpan", "Bass note span", 1),
     makeSpec("upperOneRegister", "Upper A register", 1),
     makeSpec("bassRegister", "Bass register", 1),
@@ -80,7 +93,7 @@ const controlGroups = Object.freeze({
     makeSpec("leadInterval", "Lead trill interval", 1),
     makeSpec("leadPhraseUnits", "Lead phrase length", 0.1),
     makeSpec("arpRate", "Arpeggio rate", 0.5),
-    makeSpec("arpSpan", "Arpeggio span", 0.25),
+    makeSpec("arpSpan", "Arpeggio span", 1),
     makeSpec("arpOctaveRate", "Arpeggio octave motion", 0.0625),
     makeSpec("arpOctaves", "Arpeggio octave range", 1),
     makeSpec("bassPulseWidth", "Bass pulse width"),
@@ -96,8 +109,139 @@ const controlGroups = Object.freeze({
     makeSpec("hatBalance", "Hat layer balance"),
     makeSpec("ghostDelayDivisor", "Ghost delay divisor", 0.25),
     makeSpec("ghostPan", "Ghost pan"),
+    makeSpec("gatePatternSteps", "Gate loop", 1),
+    makeSpec("gateShortRatio", "Short-gate length"),
+    makeSpec("gateLongRatio", "Long-gate length"),
+    makeSpec("fastGateShare", "Fast-gate share"),
+    makeSpec("longGateBoostShare", "Long-boost share"),
+    makeSpec("leadSectionShare", "Lead section share"),
+    makeSpec("leadTrillShare", "Lead trill share"),
+    makeSpec("tuningCents", "Fine tuning", 1),
+    makeSpec("upperTwoRegister", "Upper B register", 1),
+    makeSpec("leadRegister", "Lead register", 1),
+    makeSpec("leadClock", "Lead clock", 0.25),
+    makeSpec("leadSpan", "Lead note span", 1),
+    makeSpec("arpBassFollow", "Arpeggio bass follow"),
+    makeSpec("voiceCrossfeed", "Voice crossfeed"),
+    makeSpec("synthMix", "Synth bus"),
+    makeSpec("fadeCurve", "Intro curve (from 0:00)"),
+    makeSpec("echoAlternate", "Echo channel mode", 1),
+    makeSpec("snareCycle", "Snare cycle", 0.03125),
+    makeSpec("snarePhase", "Snare phase", 0.001),
+    makeSpec("hatACycle", "Hat A cycle", 0.03125),
+    makeSpec("hatASubcycle", "Hat A subcycle", 0.03125),
+    makeSpec("hatARepeat", "Hat A repeat", 0.03125),
+    makeSpec("hatAPhase", "Hat A phase", 0.001),
+    makeSpec("hatBCycle", "Hat B cycle", 0.03125),
+    makeSpec("shakerCycle", "Shaker cycle", 0.03125),
+    makeSpec("shakerPhase", "Shaker phase", 0.001),
+    makeSpec("noiseRate", "Noise clock", 1),
+    makeSpec("noiseColor", "Noise color"),
+    makeSpec("textureSweep", "Texture sweep"),
+    makeSpec("kickBodyPhase", "Kick body phase", 1),
+    makeSpec("kickTransientPhase", "Kick transient phase", 1),
+    makeSpec("kickBodySweep", "Kick body sweep"),
+    makeSpec("kickTransientSweep", "Kick transient sweep"),
+    makeSpec("kickAttackTime", "Kick attack", 0.001),
+    makeSpec("kickDecayRate", "Kick decay rate"),
+    makeSpec("kickClipKnee", "Kick clip knee"),
+    makeSpec("snareHoldTime", "Snare hold", 0.001),
+    makeSpec("snareDecayRate", "Snare decay rate"),
+    makeSpec("snareNoiseSweep", "Snare noise sweep"),
+    makeSpec("snareNoiseRate", "Snare noise rate"),
+    makeSpec("snareModRate", "Snare mod rate", 1),
+    makeSpec("snareModDepth", "Snare mod depth"),
+    makeSpec("snareCarrierRate", "Snare carrier", 1),
+    makeSpec("hatANoiseRate", "Hat A noise rate"),
+    makeSpec("hatADecayRate", "Hat A decay"),
+    makeSpec("hatBLowNoiseRate", "Hat B low noise"),
+    makeSpec("hatBHighNoiseRate", "Hat B high noise"),
+    makeSpec("hatBHighMix", "Hat B high mix"),
+    makeSpec("hatBDecayRate", "Hat B decay"),
+    makeSpec("shakerNoiseRate", "Shaker noise rate"),
+    makeSpec("shakerDecayRate", "Shaker decay"),
   ]),
 });
+
+const advancedGroupDefinitions = Object.freeze([
+  Object.freeze({
+    id: "gate-logic",
+    label: "Gate logic",
+    open: true,
+    keys: Object.freeze([
+      "gatePatternSteps", "gateShortRatio", "gateLongRatio", "gateFastRatio",
+      "fastGateShare", "longGateBoostShare", "gateSwitchShortUnits",
+      "gateSwitchLongUnits", "gateAttack", "gateRelease",
+    ]),
+  }),
+  Object.freeze({
+    id: "pitch-phrases",
+    label: "Pitch + phrases",
+    keys: Object.freeze([
+      "upperOneSpan", "upperTwoSpan", "bassSpan", "leadSpan", "upperOneRegister",
+      "upperTwoRegister", "bassRegister", "leadRegister", "tuningCents",
+      "sectionUnits", "pitchClock", "bassClock", "leadClock", "leadSectionShare",
+      "leadTrillRate", "leadTrillShare", "leadInterval", "leadPhraseUnits",
+    ]),
+  }),
+  Object.freeze({
+    id: "arpeggio",
+    label: "Arpeggio",
+    keys: Object.freeze([
+      "arpRate", "arpSpan", "arpOctaveRate", "arpOctaves", "arpRegister",
+      "arpBassFollow",
+    ]),
+  }),
+  Object.freeze({
+    id: "routing-intro",
+    label: "Routing + intro",
+    keys: Object.freeze([
+      "bassPulseWidth", "voiceCrossfeed", "synthMix", "echoCrossfeed",
+      "echoAlternate", "fadeCurve", "ghostDelayDivisor", "ghostPan",
+    ]),
+  }),
+  Object.freeze({
+    id: "drum-rhythm",
+    label: "Drum rhythm",
+    keys: Object.freeze([
+      "drumRate", "kickCycle", "kickSubcycle", "snareCycle", "snarePhase",
+      "hatACycle", "hatASubcycle", "hatARepeat", "hatAPhase", "hatBCycle",
+      "shakerCycle", "shakerPhase",
+    ]),
+  }),
+  Object.freeze({
+    id: "noise-texture",
+    label: "Noise texture",
+    keys: Object.freeze([
+      "texturePeriod", "textureDecay", "noiseRate", "noiseColor", "textureSweep",
+    ]),
+  }),
+  Object.freeze({
+    id: "kick-circuit",
+    label: "Kick circuit",
+    keys: Object.freeze([
+      "kickBodyPhase", "kickTransientPhase", "kickBodySweep",
+      "kickTransientSweep", "kickAttackTime", "kickDecayRate", "kickClipKnee",
+    ]),
+  }),
+  Object.freeze({
+    id: "snare-circuit",
+    label: "Snare circuit",
+    keys: Object.freeze([
+      "snareNoiseMix", "snareHoldTime", "snareDecayRate", "snareNoiseSweep",
+      "snareNoiseRate", "snareModRate", "snareModDepth", "snareCarrierRate",
+    ]),
+  }),
+  Object.freeze({
+    id: "hats-shaker",
+    label: "Hats + shaker",
+    keys: Object.freeze([
+      "hatBalance", "hatANoiseRate", "hatADecayRate", "hatBLowNoiseRate",
+      "hatBHighNoiseRate", "hatBHighMix", "hatBDecayRate", "shakerNoiseRate",
+      "shakerDecayRate",
+    ]),
+  }),
+]);
 
 const controlSpecs = Object.freeze(Object.values(controlGroups).flat());
 const controlSpecsByKey = new Map(controlSpecs.map((spec) => [spec.key, spec]));
@@ -197,6 +341,20 @@ const presets = Object.freeze([
       echoTaps: 4,
       echoTime: 0.19,
       echoDecay: 0.22,
+      scaleMask: 1453,
+      gatePatternSteps: 16,
+      gateA0: 21845,
+      gateB0: 13107,
+      upperTwoRegister: -12,
+      leadRegister: 0,
+      leadClock: 8,
+      leadSpan: 7,
+      leadSectionShare: 0.62,
+      fastGateShare: 0.72,
+      snareCycle: 0.75,
+      hatACycle: 1,
+      hatASubcycle: 0.5,
+      noiseRate: 6000,
       gain: 0.72,
     }),
   },
@@ -226,6 +384,20 @@ const presets = Object.freeze([
       echoTime: 0.24,
       echoDecay: 0.47,
       echoStereo: 1.35,
+      scaleMask: 2741,
+      gatePatternSteps: 24,
+      gateA0: 43690,
+      gateB0: 52428,
+      upperTwoRegister: 12,
+      leadRegister: 12,
+      leadClock: 6,
+      leadSpan: 18,
+      leadSectionShare: 0.7,
+      fastGateShare: 0.38,
+      snareCycle: 2,
+      hatACycle: 4,
+      hatASubcycle: 1.25,
+      noiseRate: 8000,
       gain: 0.6,
     }),
   },
@@ -259,6 +431,20 @@ const presets = Object.freeze([
       echoTaps: 5,
       echoTime: 0.42,
       echoDecay: 0.42,
+      scaleMask: 661,
+      gatePatternSteps: 32,
+      gateA0: 52428,
+      gateB0: 21845,
+      upperTwoRegister: -24,
+      leadRegister: -12,
+      leadClock: 2,
+      leadSpan: 5,
+      leadSectionShare: 0.32,
+      fastGateShare: 0.24,
+      snareCycle: 2,
+      hatACycle: 4,
+      hatASubcycle: 1,
+      noiseRate: 2000,
       gain: 0.58,
     }),
   },
@@ -294,6 +480,20 @@ const presets = Object.freeze([
       echoTaps: 3,
       echoTime: 0.14,
       echoDecay: 0.18,
+      scaleMask: 1387,
+      gatePatternSteps: 16,
+      gateA0: 13107,
+      gateB0: 43690,
+      upperTwoRegister: 0,
+      leadRegister: 12,
+      leadClock: 12,
+      leadSpan: 24,
+      leadSectionShare: 0.55,
+      fastGateShare: 0.82,
+      snareCycle: 0.5,
+      hatACycle: 1,
+      hatASubcycle: 0.25,
+      noiseRate: 7000,
       gain: 0.55,
     }),
   },
@@ -330,6 +530,20 @@ const presets = Object.freeze([
       echoDecay: 0.66,
       echoStereo: 1.5,
       fadeIn: 0.3,
+      scaleMask: 4095,
+      gatePatternSteps: 24,
+      gateA0: 21845,
+      gateB0: 43690,
+      upperTwoRegister: 12,
+      leadRegister: 0,
+      leadClock: 3,
+      leadSpan: 28,
+      leadSectionShare: 0.35,
+      fastGateShare: 0.3,
+      snareCycle: 2,
+      hatACycle: 4,
+      hatASubcycle: 1.25,
+      noiseRate: 2500,
       gain: 0.56,
     }),
   },
@@ -400,6 +614,57 @@ const SAFE_RANDOM_RANGES = Object.freeze({
   hatBalance: [0.15, 0.85],
   ghostDelayDivisor: [2, 16],
   ghostPan: [-0.75, 0.75],
+  gatePatternSteps: [8, 32],
+  gateShortRatio: [0.35, 1],
+  gateLongRatio: [1.1, 3],
+  fastGateShare: [0.2, 0.8],
+  longGateBoostShare: [0.2, 0.8],
+  leadSectionShare: [0.2, 0.8],
+  leadTrillShare: [0.2, 0.8],
+  tuningCents: [-25, 25],
+  upperTwoRegister: [-24, 12],
+  leadRegister: [-24, 12],
+  leadClock: [2, 12],
+  leadSpan: [4, 28],
+  arpBassFollow: [0.4, 1.4],
+  voiceCrossfeed: [0.15, 0.85],
+  synthMix: [0.45, 1.35],
+  fadeCurve: [1, 4],
+  echoAlternate: [0, 1],
+  snareCycle: [0.5, 2],
+  snarePhase: [0, 0.99],
+  hatACycle: [1, 4],
+  hatASubcycle: [0.3125, 1.25],
+  hatARepeat: [0.125, 0.5],
+  hatAPhase: [0, 0.99],
+  hatBCycle: [0.25, 1],
+  shakerCycle: [0.25, 1],
+  shakerPhase: [0, 0.99],
+  noiseRate: [2000, 8000],
+  noiseColor: [0.5, 2],
+  textureSweep: [0.5, 2],
+  kickBodyPhase: [200, 800],
+  kickTransientPhase: [50, 300],
+  kickBodySweep: [0.5, 2],
+  kickTransientSweep: [50, 200],
+  kickAttackTime: [0.05, 0.5],
+  kickDecayRate: [5, 20],
+  kickClipKnee: [0.08, 0.8],
+  snareHoldTime: [0, 0.6],
+  snareDecayRate: [5, 20],
+  snareNoiseSweep: [0.5, 2],
+  snareNoiseRate: [2, 8],
+  snareModRate: [50, 200],
+  snareModDepth: [1, 8],
+  snareCarrierRate: [1000, 4000],
+  hatANoiseRate: [2, 8],
+  hatADecayRate: [12.5, 50],
+  hatBLowNoiseRate: [1, 4],
+  hatBHighNoiseRate: [50, 200],
+  hatBHighMix: [0.1, 1.5],
+  hatBDecayRate: [2, 8],
+  shakerNoiseRate: [4.5, 18],
+  shakerDecayRate: [4, 16],
 });
 
 const support = webGpuChiptuneSupport(globalThis);
@@ -589,18 +854,21 @@ function enabledPitchClassCount(mask) {
 
 function syncParamOutputs() {
   for (const [key, input] of controlInputs) {
-    input.value = String(state.params[key]);
+    const value = state.params[key];
+    const valueText = formatWebGpuChiptuneValue(key, value);
+    input.value = String(webGpuChiptuneParamToUnit(key, value));
+    input.setAttribute("aria-valuetext", valueText);
     const output = controlOutputs.get(key);
-    if (output) output.textContent = formatWebGpuChiptuneValue(key, state.params[key]);
+    if (output) output.textContent = valueText;
   }
   for (const [key, knob] of knobControls) {
     const spec = knob.controlSpec;
     const value = state.params[key];
-    const percent = clamp((value - spec.min) / Math.max(0.0001, spec.max - spec.min), 0, 1);
-    const angle = -135 + percent * 270;
+    const unit = webGpuChiptuneParamToUnit(key, value);
+    const angle = -135 + unit * 270;
     const valueText = formatWebGpuChiptuneValue(key, value);
     knob.style.setProperty("--knob-angle", angle + "deg");
-    knob.style.setProperty("--knob-fill", percent * 75 + "%");
+    knob.style.setProperty("--knob-fill", unit * 75 + "%");
     knob.setAttribute("aria-valuenow", String(value));
     knob.setAttribute("aria-valuetext", valueText);
     const output = knobOutputs.get(key);
@@ -620,12 +888,25 @@ function syncParamOutputs() {
   for (const [identity, button] of gateButtons) {
     const [lane, stepText] = identity.split(":");
     const step = Number(stepText);
-    const gateState = gateStates[gateStateIndex(state.params, lane, step)];
-    button.dataset.gateState = String(gateStates.indexOf(gateState));
+    const gateStateNumber = gateStateIndex(state.params, lane, step);
+    const gateState = gateStates[gateStateNumber];
+    const outsideLoop = step >= state.params.gatePatternSteps;
+    const ratio = gateStateNumber === 1
+      ? state.params.gateShortRatio
+      : gateStateNumber === 3 ? state.params.gateLongRatio : gateState.duration;
+    const duration = gateStateNumber === 0 ? "off" : ratio.toFixed(2) + "x " + gateState.label;
+    button.dataset.gateState = String(gateStateNumber);
+    button.dataset.outsideLoop = String(outsideLoop);
     button.textContent = gateState.glyph;
     button.setAttribute("aria-pressed", String(gateState.duration > 0));
-    button.setAttribute("aria-label", "Gate " + lane + ", step " + (step + 1) + ", " + gateState.label);
-    button.title = "Step " + (step + 1) + ": " + gateState.label;
+    button.setAttribute("aria-label", "Gate " + lane + ", step " + (step + 1) + ", " + duration
+      + (outsideLoop ? ", outside active loop" : ""));
+    button.title = "Step " + (step + 1) + ": " + duration
+      + (outsideLoop ? " (outside active loop)" : "");
+  }
+  for (const grid of document.querySelectorAll(".chiptune-gate-grid")) {
+    grid.setAttribute("aria-label", "Gate " + grid.dataset.lane + " "
+      + state.params.gatePatternSteps + "-step pattern");
   }
 
   $("patternState").textContent = Math.round(state.params.tempo * 60)
@@ -660,15 +941,60 @@ function applyPreset(preset) {
   announce(preset.label + " selected.");
 }
 
-function controlStep(spec) {
-  const range = Math.max(0.0001, spec.max - spec.min);
-  return Math.max(Number(spec.step) || 0, range / 140);
+function quantizeControlValue(spec, rawValue) {
+  let value = clamp(rawValue, spec.min, spec.max);
+  if (integerParams.has(spec.key)) return Math.round(value);
+  const quantum = Number(spec.quantum) || 0;
+  if (quantum > 0) {
+    value = spec.min + Math.round((value - spec.min) / quantum) * quantum;
+  }
+  return clamp(Number(value.toFixed(12)), spec.min, spec.max);
 }
 
 function applyControlValue(spec, rawValue) {
-  let value = clamp(rawValue, spec.min, spec.max);
-  if (integerParams.has(spec.key)) value = Math.round(value);
+  const value = quantizeControlValue(spec, rawValue);
   applyParams({ ...state.params, [spec.key]: value });
+}
+
+function applyControlUnit(spec, rawUnit) {
+  applyControlValue(spec, webGpuChiptuneParamFromUnit(spec.key, rawUnit));
+}
+
+function nudgeControl(spec, direction, { page = false, fine = false } = {}) {
+  if (integerParams.has(spec.key)) {
+    applyControlValue(spec, state.params[spec.key] + direction * (page ? 8 : 1));
+    return;
+  }
+  const scale = fine ? 0.1 : 1;
+  const unit = webGpuChiptuneParamToUnit(spec.key, state.params[spec.key]);
+  applyControlUnit(spec, unit + direction * (page ? 0.08 : 0.01) * scale);
+}
+
+function handleControlKey(event, spec) {
+  if (event.key === "ArrowUp" || event.key === "ArrowRight") {
+    event.preventDefault();
+    nudgeControl(spec, 1, { fine: event.shiftKey });
+    return true;
+  }
+  if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
+    event.preventDefault();
+    nudgeControl(spec, -1, { fine: event.shiftKey });
+    return true;
+  }
+  if (event.key === "PageUp" || event.key === "PageDown") {
+    event.preventDefault();
+    nudgeControl(spec, event.key === "PageUp" ? 1 : -1, {
+      page: true,
+      fine: event.shiftKey,
+    });
+    return true;
+  }
+  if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    applyControlValue(spec, event.key === "Home" ? spec.min : spec.max);
+    return true;
+  }
+  return false;
 }
 
 function createRangeControl(spec) {
@@ -687,12 +1013,13 @@ function createRangeControl(spec) {
   const input = document.createElement("input");
   input.id = spec.key;
   input.type = "range";
-  input.min = String(spec.min);
-  input.max = String(spec.max);
-  input.step = String(spec.step);
+  input.min = "0";
+  input.max = "1";
+  input.step = "0.001";
   input.controlSpec = spec;
   input.setAttribute("aria-label", spec.label);
-  input.addEventListener("input", () => applyControlValue(spec, input.value));
+  input.addEventListener("input", () => applyControlUnit(spec, input.value));
+  input.addEventListener("keydown", (event) => handleControlKey(event, spec));
 
   controlInputs.set(spec.key, input);
   controlOutputs.set(spec.key, output);
@@ -743,6 +1070,7 @@ function createGateLane(lane) {
   label.textContent = "Gate " + lane;
   const grid = document.createElement("div");
   grid.className = "chiptune-gate-grid";
+  grid.dataset.lane = lane;
   grid.setAttribute("role", "group");
   grid.setAttribute("aria-label", "Gate " + lane + " 32-step pattern");
   for (let step = 0; step < 32; step += 1) {
@@ -803,15 +1131,15 @@ function createKnobControl(key) {
     activeKnobDrag = {
       key,
       startY: event.clientY,
-      startValue: state.params[key],
+      startUnit: webGpuChiptuneParamToUnit(key, state.params[key]),
     };
     dial.setPointerCapture?.(event.pointerId);
   });
   dial.addEventListener("pointermove", (event) => {
     if (activeKnobDrag?.key !== key) return;
     event.preventDefault();
-    const range = spec.max - spec.min;
-    applyControlValue(spec, activeKnobDrag.startValue + ((activeKnobDrag.startY - event.clientY) / 130) * range);
+    const movement = (activeKnobDrag.startY - event.clientY) / 130;
+    applyControlUnit(spec, activeKnobDrag.startUnit + movement);
   });
   dial.addEventListener("pointerup", (event) => {
     if (activeKnobDrag?.key !== key) return;
@@ -823,30 +1151,10 @@ function createKnobControl(key) {
   });
   dial.addEventListener("wheel", (event) => {
     event.preventDefault();
-    applyControlValue(spec, state.params[key] + Math.sign(-event.deltaY) * controlStep(spec));
+    nudgeControl(spec, Math.sign(-event.deltaY), { fine: event.shiftKey });
   }, { passive: false });
   dial.addEventListener("keydown", (event) => {
-    const step = controlStep(spec);
-    const jump = step * 8;
-    if (event.key === "ArrowUp" || event.key === "ArrowRight") {
-      event.preventDefault();
-      applyControlValue(spec, state.params[key] + step);
-    } else if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
-      event.preventDefault();
-      applyControlValue(spec, state.params[key] - step);
-    } else if (event.key === "PageUp") {
-      event.preventDefault();
-      applyControlValue(spec, state.params[key] + jump);
-    } else if (event.key === "PageDown") {
-      event.preventDefault();
-      applyControlValue(spec, state.params[key] - jump);
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      applyControlValue(spec, spec.min);
-    } else if (event.key === "End") {
-      event.preventDefault();
-      applyControlValue(spec, spec.max);
-    }
+    handleControlKey(event, spec);
   });
 
   knobControls.set(key, dial);
@@ -876,6 +1184,28 @@ function balanceKnobRows() {
   bank.dataset.knobColumns = String(columns);
 }
 
+function createAdvancedGroup(definition) {
+  const details = document.createElement("details");
+  details.className = "chiptune-subgroup";
+  details.dataset.groupId = definition.id;
+  details.open = definition.open === true;
+  const summary = document.createElement("summary");
+  const label = document.createElement("b");
+  label.textContent = definition.label;
+  const count = document.createElement("small");
+  count.textContent = definition.keys.length + " controls";
+  summary.append(label, count);
+  const body = document.createElement("div");
+  body.className = "chiptune-subgroup-body";
+  for (const key of definition.keys) {
+    const spec = controlSpecsByKey.get(key);
+    if (!spec) throw new Error("Missing Chiptune control spec: " + key);
+    body.append(createRangeControl(spec));
+  }
+  details.append(summary, body);
+  return details;
+}
+
 function renderControls() {
   $("knobControls").replaceChildren(...knobOrder.map(createKnobControl));
   $("patternControls").replaceChildren(...controlGroups.pattern.map(createRangeControl));
@@ -885,7 +1215,7 @@ function renderControls() {
   $("scaleControls").replaceChildren(createScaleEditor());
   $("gateControls").replaceChildren(createGateEditor());
   $("advancedControls").replaceChildren(
-    ...controlGroups.advanced.filter(({ key }) => key !== "scaleMask").map(createRangeControl),
+    ...advancedGroupDefinitions.map(createAdvancedGroup),
   );
 
   const buttons = presets.map((preset) => {
@@ -907,20 +1237,34 @@ function randomBetween(minimum, maximum) {
   return minimum + Math.random() * (maximum - minimum);
 }
 
-function safeRandomValue(key) {
-  if (key === "scaleMask") {
-    const musicalMasks = [1717, 1453, 1387, 661, 1193, 2741, 4095];
-    return musicalMasks[Math.floor(Math.random() * musicalMasks.length)];
-  }
-  const [minimum, maximum] = SAFE_RANDOM_RANGES[key];
-  const value = randomBetween(minimum, maximum);
-  return integerParams.has(key) ? Math.round(value) : value;
+function randomIntegerInclusive(minimum, maximum) {
+  return Math.ceil(minimum)
+    + Math.floor(Math.random() * (Math.floor(maximum) - Math.ceil(minimum) + 1));
 }
 
-function randomGateLane() {
+function safeRandomValue(key, bounds = SAFE_RANDOM_RANGES[key]) {
+  if (key === "scaleMask") {
+    const musicalMasks = [1717, 1453, 1387, 661, 1193, 2741, 4095];
+    return musicalMasks[randomIntegerInclusive(0, musicalMasks.length - 1)];
+  }
+  const [minimum, maximum] = bounds ?? WEBGPU_CHIPTUNE_LIMITS[key];
+  if (integerParams.has(key)) {
+    return randomIntegerInclusive(minimum, maximum);
+  }
+  const spec = controlSpecsByKey.get(key);
+  if (!spec) throw new Error("Missing Chiptune randomization spec: " + key);
+  const minimumUnit = webGpuChiptuneParamToUnit(key, minimum);
+  const maximumUnit = webGpuChiptuneParamToUnit(key, maximum);
+  return quantizeControlValue(
+    spec,
+    webGpuChiptuneParamFromUnit(key, randomBetween(minimumUnit, maximumUnit)),
+  );
+}
+
+function randomGateLane(patternSteps = 32) {
   const codes = [0, 0, 0, 0];
   let enabled = 0;
-  for (let step = 0; step < 32; step += 1) {
+  for (let step = 0; step < Math.round(clamp(patternSteps, 1, 32)); step += 1) {
     let gateState = 0;
     if (Math.random() < 0.42) {
       const roll = Math.random();
@@ -934,6 +1278,38 @@ function randomGateLane() {
   return codes;
 }
 
+
+function gateReleaseMaximum(params) {
+  let shortestRatio = Number.POSITIVE_INFINITY;
+  for (const lane of ["A", "B"]) {
+    for (let step = 0; step < params.gatePatternSteps; step += 1) {
+      const stateNumber = gateStateIndex(params, lane, step);
+      if (stateNumber === 1) shortestRatio = Math.min(shortestRatio, params.gateShortRatio);
+      else if (stateNumber === 2) shortestRatio = Math.min(shortestRatio, 1);
+      else if (stateNumber === 3) {
+        shortestRatio = Math.min(shortestRatio, params.gateLongRatio);
+      }
+    }
+  }
+  return Number.isFinite(shortestRatio)
+    ? Math.max(0.05, shortestRatio * params.gateLength)
+    : WEBGPU_CHIPTUNE_LIMITS.gateRelease[1];
+}
+
+function shuffledCopy(values) {
+  const result = [...values];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const other = randomIntegerInclusive(0, index);
+    [result[index], result[other]] = [result[other], result[index]];
+  }
+  return result;
+}
+
+function boundedRandom(key, maximum) {
+  const [safeMinimum, safeMaximum] = SAFE_RANDOM_RANGES[key];
+  const boundedMaximum = Math.min(safeMaximum, maximum);
+  return safeRandomValue(key, [Math.min(safeMinimum, boundedMaximum), boundedMaximum]);
+}
 function energyManagedParams(params) {
   const next = sanitizeWebGpuChiptuneParams(params);
   const voiceKeys = [
@@ -956,41 +1332,83 @@ function energyManagedParams(params) {
 
 function randomizePatch() {
   const next = {};
-  for (const key of randomizableParamOrder) next[key] = safeRandomValue(key);
-  const laneA = randomGateLane();
-  const laneB = randomGateLane();
+  const deferred = new Set([
+    "pwmDepth",
+    "kickSubcycle",
+    "hatASubcycle",
+    "hatARepeat",
+    "gateRelease",
+  ]);
+  for (const key of randomizableParamOrder) {
+    if (!deferred.has(key)) next[key] = safeRandomValue(key);
+  }
+  const pwmMaximum = Math.max(
+    0,
+    Math.min(next.pulseWidth - 0.02, 0.98 - next.pulseWidth),
+  );
+  next.pwmDepth = boundedRandom("pwmDepth", pwmMaximum);
+  next.kickSubcycle = boundedRandom("kickSubcycle", next.kickCycle);
+  next.hatASubcycle = boundedRandom("hatASubcycle", next.hatACycle);
+  next.hatARepeat = boundedRandom("hatARepeat", next.hatASubcycle);
+  const laneA = randomGateLane(next.gatePatternSteps);
+  const laneB = randomGateLane(next.gatePatternSteps);
   laneA.forEach((code, index) => {
     next["gateA" + index] = code;
   });
   laneB.forEach((code, index) => {
     next["gateB" + index] = code;
   });
+  next.gateRelease = boundedRandom("gateRelease", gateReleaseMaximum(next));
   applyParams(energyManagedParams(next));
   announce("Safe shader parameters randomized.");
 }
 
 function mutatePatch() {
   const next = { ...state.params };
-  const shuffled = [...randomizableParamOrder].sort(() => Math.random() - 0.5);
+  const shuffled = shuffledCopy(randomizableParamOrder);
   for (const key of shuffled.slice(0, 9)) {
     if (key === "scaleMask") {
       next[key] = safeRandomValue(key);
       continue;
     }
+    if (WEBGPU_CHIPTUNE_INTEGER_PARAMS.includes(key)) {
+      const [minimum, maximum] = SAFE_RANDOM_RANGES[key];
+      const lower = Math.ceil(minimum);
+      const upper = Math.floor(maximum);
+      const current = clamp(Math.round(next[key]), lower, upper);
+      if (upper === lower) continue;
+      if (upper - lower === 1) {
+        next[key] = current === lower ? upper : lower;
+      } else {
+        const direction = Math.random() < 0.5 ? -1 : 1;
+        const candidate = current + direction;
+        next[key] = candidate < lower || candidate > upper ? current - direction : candidate;
+      }
+      continue;
+    }
     const [minimum, maximum] = SAFE_RANDOM_RANGES[key];
-    const amount = (maximum - minimum) * 0.09;
-    next[key] = clamp(next[key] + randomBetween(-amount, amount), minimum, maximum);
-    if (integerParams.has(key)) next[key] = Math.round(next[key]);
+    const minimumUnit = webGpuChiptuneParamToUnit(key, minimum);
+    const maximumUnit = webGpuChiptuneParamToUnit(key, maximum);
+    const currentUnit = webGpuChiptuneParamToUnit(key, next[key]);
+    const targetUnit = clamp(
+      currentUnit + randomBetween(-0.09, 0.09),
+      minimumUnit,
+      maximumUnit,
+    );
+    next[key] = quantizeControlValue(
+      controlSpecsByKey.get(key),
+      webGpuChiptuneParamFromUnit(key, targetUnit),
+    );
   }
   const lane = Math.random() < 0.5 ? "A" : "B";
-  const step = Math.floor(Math.random() * 32);
+  const step = randomIntegerInclusive(0, Math.max(0, next.gatePatternSteps - 1));
   const gateMutation = setGateState(
     next,
     lane,
     step,
-    (gateStateIndex(next, lane, step) + 1 + Math.floor(Math.random() * 3)) % 4,
+    (gateStateIndex(next, lane, step) + randomIntegerInclusive(1, 3)) % 4,
   );
-  applyParams(energyManagedParams(gateMutation));
+  applyParams(gateMutation);
   announce("Shader patch mutated.");
 }
 
