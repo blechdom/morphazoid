@@ -726,9 +726,18 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     Processor = Constructor;
   };
   try {
-    const { breathTextureGain, fastSine } = await import(
+    const { breathDirection, breathTextureGain, fastSine } = await import(
       `../src/jaw-harp-processor.js?test=${Date.now()}`
     );
+    assert.equal(breathDirection(0), 0);
+    assert.ok(breathDirection(-0.2) < -0.99);
+    assert.ok(breathDirection(0.2) > 0.99);
+    for (const boundary of [-0.015, 0, 0.015]) {
+      assert.ok(
+        Math.abs(breathDirection(boundary + 1e-6) - breathDirection(boundary - 1e-6)) < 0.00004,
+        `breath direction retained a hard switch near ${boundary}`,
+      );
+    }
     assert.equal(breathTextureGain(0), 0);
     assert.equal(breathTextureGain(0.01), 0);
     assert.equal(breathTextureGain(0.018), 0);
@@ -793,7 +802,10 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     const exhaled = renderBreath(0.78);
     assert.ok(inhaled.rms > unbreathed.rms * 2);
     assert.ok(exhaled.rms > unbreathed.rms * 2);
-    assert.ok(Math.abs(exhaled.rms - inhaled.rms) > 0.001);
+    assert.ok(
+      Math.abs(exhaled.rms - inhaled.rms) > 0.001,
+      `inhale/exhale level distinction collapsed (${inhaled.rms}, ${exhaled.rms})`,
+    );
     assert.ok(inhaled.peak < 0.98 && exhaled.peak < 0.98);
 
     const renderVoice = (configuration, {
@@ -871,14 +883,13 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     let turbulenceSquareSum = 0;
     let differenceSquareSum = 0;
     let turbulenceMean = 0;
+    let coherentAirDifference = 0;
+    let coherentAirEnergy = 0;
     for (let index = 0; index < turbulence.length; index += 1) {
       const cleanSource = cleanBreathVoice._renderSource();
       const texturedSource = texturedBreathVoice._renderSource();
-      assert.equal(
-        texturedSource,
-        cleanSource,
-        "breath texture must stay out of the nonlinear reed source",
-      );
+      coherentAirDifference += (texturedSource - cleanSource) ** 2;
+      coherentAirEnergy += cleanSource ** 2 + texturedSource ** 2;
       const sample = texturedBreathVoice.breathTexture;
       turbulence[index] = sample;
       turbulenceSquareSum += sample * sample;
@@ -890,6 +901,10 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
       differenceSquareSum / (turbulence.length - 1),
     );
     assert.ok(turbulence.every(Number.isFinite));
+    assert.ok(
+      Math.sqrt(coherentAirDifference / Math.max(1e-12, coherentAirEnergy)) > 0.005,
+      "breath amount must also soften or open the coherent aerodynamic reed drive",
+    );
     assert.ok(turbulenceRms > 0.005, `breath texture RMS was ${turbulenceRms}`);
     assert.ok(
       turbulenceDifferenceRms / turbulenceRms < 0.65,
@@ -939,6 +954,482 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
       "the breath filter must span distinctly dark and open turbulence",
     );
     assert.ok(openTextureEdge < 1, "even fully open breath must remain colored, not white");
+
+    const adjacentDifferenceRatio = (samples) => {
+      let energy = 0;
+      let difference = 0;
+      for (let index = 0; index < samples.length; index += 1) {
+        energy += samples[index] ** 2;
+        if (index > 0) difference += (samples[index] - samples[index - 1]) ** 2;
+      }
+      return Math.sqrt(difference / Math.max(1, samples.length - 1))
+        / Math.sqrt(energy / Math.max(1, samples.length));
+    };
+    const coherentAirFftSize = 8_192;
+    const coherentAirHann = Float64Array.from(
+      { length: coherentAirFftSize },
+      (_, index) => 0.5 - 0.5 * Math.cos(
+        2 * Math.PI * index / coherentAirFftSize,
+      ),
+    );
+    const coherentAirPowerSpectrum = (samples, offset) => {
+      const real = new Float64Array(coherentAirFftSize);
+      const imaginary = new Float64Array(coherentAirFftSize);
+      for (let index = 0; index < coherentAirFftSize; index += 1) {
+        real[index] = samples[offset + index] * coherentAirHann[index];
+      }
+      for (let index = 1, reversed = 0; index < coherentAirFftSize; index += 1) {
+        let bit = coherentAirFftSize >> 1;
+        while (reversed & bit) {
+          reversed ^= bit;
+          bit >>= 1;
+        }
+        reversed ^= bit;
+        if (index >= reversed) continue;
+        [real[index], real[reversed]] = [real[reversed], real[index]];
+        [imaginary[index], imaginary[reversed]] = [imaginary[reversed], imaginary[index]];
+      }
+      for (let span = 2; span <= coherentAirFftSize; span <<= 1) {
+        const half = span >> 1;
+        const stepReal = Math.cos(-2 * Math.PI / span);
+        const stepImaginary = Math.sin(-2 * Math.PI / span);
+        for (let start = 0; start < coherentAirFftSize; start += span) {
+          let twiddleReal = 1;
+          let twiddleImaginary = 0;
+          for (let index = 0; index < half; index += 1) {
+            const even = start + index;
+            const odd = even + half;
+            const oddReal = real[odd] * twiddleReal - imaginary[odd] * twiddleImaginary;
+            const oddImaginary = real[odd] * twiddleImaginary + imaginary[odd] * twiddleReal;
+            real[odd] = real[even] - oddReal;
+            imaginary[odd] = imaginary[even] - oddImaginary;
+            real[even] += oddReal;
+            imaginary[even] += oddImaginary;
+            const nextTwiddleReal = twiddleReal * stepReal
+              - twiddleImaginary * stepImaginary;
+            twiddleImaginary = twiddleReal * stepImaginary
+              + twiddleImaginary * stepReal;
+            twiddleReal = nextTwiddleReal;
+          }
+        }
+      }
+      return Float64Array.from(
+        { length: coherentAirFftSize / 2 + 1 },
+        (_, bin) => {
+          const power = real[bin] ** 2 + imaginary[bin] ** 2;
+          return bin > 0 && bin < coherentAirFftSize / 2 ? power * 2 : power;
+        },
+      );
+    };
+    const coherentAirSpectrum = (samples) => {
+      const windowCount = 4;
+      assert.equal(samples.length, coherentAirFftSize * windowCount);
+      const firstBin = (frequency) => Math.ceil(
+        frequency * coherentAirFftSize / globalThis.sampleRate,
+      );
+      const lastBin = (frequency) => Math.floor(
+        frequency * coherentAirFftSize / globalThis.sampleRate,
+      );
+      const sixKhzBin = firstBin(6_000);
+      const tenKhzBin = firstBin(10_000);
+      const twentyKhzBin = lastBin(20_000);
+      const maxima = {
+        tenToTwentyPowerShare: 0,
+        sixToTwentyPowerShare: 0,
+        sixToTwentyFlatness: 0,
+      };
+      const windows = [];
+      for (let windowIndex = 0; windowIndex < windowCount; windowIndex += 1) {
+        const powers = coherentAirPowerSpectrum(
+          samples,
+          windowIndex * coherentAirFftSize,
+        );
+        let totalPower = 0;
+        let sixToTwentyPower = 0;
+        let tenToTwentyPower = 0;
+        let sixToTwentyLogPower = 0;
+        let sixToTwentyBinCount = 0;
+        for (let bin = 0; bin < powers.length; bin += 1) {
+          const power = powers[bin];
+          totalPower += power;
+          if (bin < sixKhzBin || bin > twentyKhzBin) continue;
+          sixToTwentyPower += power;
+          sixToTwentyLogPower += Math.log(Math.max(1e-300, power));
+          sixToTwentyBinCount += 1;
+          if (bin >= tenKhzBin) tenToTwentyPower += power;
+        }
+        assert.ok(totalPower > 0);
+        const sixToTwentyMeanPower = sixToTwentyPower / sixToTwentyBinCount;
+        const metrics = {
+          tenToTwentyPowerShare: tenToTwentyPower / totalPower,
+          sixToTwentyPowerShare: sixToTwentyPower / totalPower,
+          sixToTwentyFlatness: Math.exp(
+            sixToTwentyLogPower / sixToTwentyBinCount,
+          ) / Math.max(1e-300, sixToTwentyMeanPower),
+        };
+        windows.push(metrics);
+        maxima.tenToTwentyPowerShare = Math.max(
+          maxima.tenToTwentyPowerShare,
+          metrics.tenToTwentyPowerShare,
+        );
+        maxima.sixToTwentyPowerShare = Math.max(
+          maxima.sixToTwentyPowerShare,
+          metrics.sixToTwentyPowerShare,
+        );
+        maxima.sixToTwentyFlatness = Math.max(
+          maxima.sixToTwentyFlatness,
+          metrics.sixToTwentyFlatness,
+        );
+      }
+      return { ...maxima, windows };
+    };
+    const prepareIsolatedAir = (configuration = {}, flow = 0.72) => {
+      const voice = new Processor({ processorOptions: { configuration: {
+        ...JAW_HARP_DEFAULTS,
+        autoBreath: false,
+        breathNoiseAmount: 0,
+        ...configuration,
+      } } });
+      voice._handleMessage({ type: "breath", flow, manual: true });
+      voice._handleMessage({ type: "pluck", force: 0.72, direction: 1, position: 0.32 });
+      renderProcessor(voice, 180);
+      voice.amplitudes.fill(0);
+      voice.clickEnvelope = 0;
+      voice.attackEnvelope = 0;
+      voice.strikePresence = 0;
+      voice.energy = 0;
+      voice.sourceDc = 0;
+      voice._resetFilters();
+      renderProcessor(voice, 80);
+      return voice;
+    };
+    const renderIsolatedAir = (configuration, flow = 0.72) => {
+      const voice = prepareIsolatedAir(configuration, flow);
+      const samples = renderProcessor(voice, 256);
+      return {
+        samples,
+        rms: rmsOf(samples),
+        edge: adjacentDifferenceRatio(samples),
+      };
+    };
+    const coherentAirCases = [
+      ["inhale", -0.72],
+      ["exhale", 0.72],
+    ].flatMap(([direction, flow]) => [0, 0.5, 1].map((breathFilter) => {
+      const air = renderIsolatedAir({ breathFilter }, flow);
+      return {
+        direction,
+        breathFilter,
+        air,
+        spectrum: coherentAirSpectrum(air.samples),
+      };
+    }));
+    const exhaledAir = (breathFilter) => coherentAirCases.find(
+      (entry) => entry.direction === "exhale" && entry.breathFilter === breathFilter,
+    ).air;
+    const darkAir = exhaledAir(0);
+    const neutralAir = exhaledAir(0.5);
+    const openAir = exhaledAir(1);
+    assert.ok(coherentAirCases.every(({ air }) => air.samples.every(Number.isFinite)));
+    assert.ok(
+      normalizedDifference(darkAir.samples, openAir.samples) > 0.18,
+      "the breath filter must color the complete noise-free aerodynamic path",
+    );
+    assert.ok(
+      darkAir.edge < neutralAir.edge && neutralAir.edge < openAir.edge,
+      `noise-free air edge did not open monotonically (${darkAir.edge}, ${neutralAir.edge}, ${openAir.edge})`,
+    );
+    assert.ok(
+      darkAir.edge < openAir.edge * 0.75,
+      "the dark breath setting retained too much of the open setting's upper-mode edge",
+    );
+    assert.ok(
+      darkAir.rms > openAir.rms * 0.12 && openAir.rms > darkAir.rms * 0.12,
+      "breath color must not pass merely by muting either endpoint",
+    );
+    const maximumCoherentAirSpectrum = coherentAirCases.reduce((maximum, entry) => ({
+      tenToTwentyPowerShare: Math.max(
+        maximum.tenToTwentyPowerShare,
+        entry.spectrum.tenToTwentyPowerShare,
+      ),
+      sixToTwentyPowerShare: Math.max(
+        maximum.sixToTwentyPowerShare,
+        entry.spectrum.sixToTwentyPowerShare,
+      ),
+      sixToTwentyFlatness: Math.max(
+        maximum.sixToTwentyFlatness,
+        entry.spectrum.sixToTwentyFlatness,
+      ),
+    }), {
+      tenToTwentyPowerShare: 0,
+      sixToTwentyPowerShare: 0,
+      sixToTwentyFlatness: 0,
+    });
+    const coherentAirSpectrumReport = coherentAirCases.map((entry) => ({
+      direction: entry.direction,
+      breathFilter: entry.breathFilter,
+      ...entry.spectrum,
+    }));
+    assert.ok(
+      maximumCoherentAirSpectrum.tenToTwentyPowerShare < 1e-7,
+      `noise-free air retained a 10–20 kHz haze (${JSON.stringify(coherentAirSpectrumReport)})`,
+    );
+    assert.ok(
+      maximumCoherentAirSpectrum.sixToTwentyPowerShare < 1e-3,
+      `noise-free air retained excessive 6–20 kHz power (${JSON.stringify(coherentAirSpectrumReport)})`,
+    );
+    assert.ok(
+      maximumCoherentAirSpectrum.sixToTwentyFlatness < 1e-5,
+      `noise-free air became spectrally flat above 6 kHz (${JSON.stringify(coherentAirSpectrumReport)})`,
+    );
+
+    const oneSampleOutput = () => [[new Float32Array(1), new Float32Array(1)]];
+    const processOneSample = (voice, output) => {
+      assert.equal(voice.process([], output), true);
+      return Math.max(
+        Math.abs(voice.lastFinalDriveLeft),
+        Math.abs(voice.lastFinalDriveRight),
+      );
+    };
+    const driveVoice = prepareIsolatedAir({ breathFilter: JAW_HARP_DEFAULTS.breathFilter });
+    const driveOutput = oneSampleOutput();
+    let reedAboveHalf = 0;
+    let reedAboveOne = 0;
+    let finalAboveOne = 0;
+    const driveSamples = 8_192;
+    for (let index = 0; index < driveSamples; index += 1) {
+      const finalDrive = processOneSample(driveVoice, driveOutput);
+      if (Math.abs(driveVoice.lastReedDrive) > 0.5) reedAboveHalf += 1;
+      if (Math.abs(driveVoice.lastReedDrive) > 1) reedAboveOne += 1;
+      if (finalDrive > 1) finalAboveOne += 1;
+    }
+    assert.ok(
+      reedAboveHalf / driveSamples < 0.08,
+      `default breath lived in the reed saturator (${reedAboveHalf / driveSamples})`,
+    );
+    assert.ok(
+      reedAboveOne / driveSamples < 0.01,
+      `default breath severely saturated the reed (${reedAboveOne / driveSamples})`,
+    );
+    assert.ok(
+      finalAboveOne / driveSamples < 0.02,
+      `default breath lived in the final limiter (${finalAboveOne / driveSamples})`,
+    );
+    const fullVoiceDriveDuty = (flow, configuration = {}) => {
+      const voice = new Processor({ processorOptions: { configuration: {
+        ...JAW_HARP_DEFAULTS,
+        autoBreath: false,
+        breathNoiseAmount: 0,
+        ...configuration,
+      } } });
+      voice._handleMessage({ type: "breath", flow, manual: true });
+      voice._handleMessage({ type: "pluck", force: 0.72, direction: 1, position: 0.32 });
+      renderProcessor(voice, 500);
+      let aboveHalf = 0;
+      let aboveOne = 0;
+      let aboveTwo = 0;
+      let finalAboveOne = 0;
+      let finalAboveTwo = 0;
+      const output = oneSampleOutput();
+      for (let index = 0; index < driveSamples; index += 1) {
+        const finalDrive = processOneSample(voice, output);
+        const magnitude = Math.abs(voice.lastReedDrive);
+        if (magnitude > 0.5) aboveHalf += 1;
+        if (magnitude > 1) aboveOne += 1;
+        if (magnitude > 2) aboveTwo += 1;
+        if (finalDrive > 1) finalAboveOne += 1;
+        if (finalDrive > 2) finalAboveTwo += 1;
+      }
+      return {
+        aboveHalf: aboveHalf / driveSamples,
+        aboveOne: aboveOne / driveSamples,
+        aboveTwo: aboveTwo / driveSamples,
+        finalAboveOne: finalAboveOne / driveSamples,
+        finalAboveTwo: finalAboveTwo / driveSamples,
+      };
+    };
+    const fullVoiceDrive = {
+      unbreathed: fullVoiceDriveDuty(0),
+      exhale: fullVoiceDriveDuty(0.72),
+      inhale: fullVoiceDriveDuty(-0.72),
+    };
+    assert.ok(
+      fullVoiceDrive.unbreathed.aboveOne < 0.08,
+      `unbreathed sustain over-drove the reed (${fullVoiceDrive.unbreathed.aboveOne})`,
+    );
+    for (const direction of ["inhale", "exhale"]) {
+      assert.ok(
+        fullVoiceDrive[direction].aboveOne < 0.2,
+        `${direction} sustain lived in the reed saturator (${fullVoiceDrive[direction].aboveOne})`,
+      );
+      assert.ok(
+        fullVoiceDrive[direction].aboveTwo < 0.005,
+        `${direction} sustain severely over-drove the reed (${fullVoiceDrive[direction].aboveTwo})`,
+      );
+      assert.ok(
+        fullVoiceDrive[direction].finalAboveOne < 0.02,
+        `${direction} sustain lived in the final limiter (${fullVoiceDrive[direction].finalAboveOne})`,
+      );
+    }
+    for (const flow of [-3, 3]) {
+      const maximumPressureDrive = fullVoiceDriveDuty(flow, {
+        breathNoiseAmount: 1,
+        breathFilter: 1,
+      });
+      assert.ok(
+        maximumPressureDrive.finalAboveOne < 0.05,
+        `maximum legal flow ${flow} lived in the final limiter (${maximumPressureDrive.finalAboveOne})`,
+      );
+      assert.ok(
+        maximumPressureDrive.finalAboveTwo < 0.005,
+        `maximum legal flow ${flow} severely over-drove the final limiter (${maximumPressureDrive.finalAboveTwo})`,
+      );
+    }
+
+    const renderIsolatedClick = (frameCoupling, muteFrame = false) => {
+      const voice = new Processor({ processorOptions: { configuration: {
+        ...JAW_HARP_DEFAULTS,
+        autoBreath: false,
+        breathNoiseAmount: 0,
+        frameCoupling,
+      } } });
+      voice._handleMessage({ type: "pluck", force: 0.72, direction: 1, position: 0.32 });
+      voice.amplitudes.fill(0);
+      voice.attackEnvelope = 0;
+      voice.strikePresence = 0;
+      voice.energy = 0;
+      if (muteFrame) voice.frameFilterLeft.process = () => 0;
+      const samples = new Float64Array(2_400);
+      for (let index = 0; index < samples.length; index += 1) {
+        samples[index] = voice._radiate(voice._renderSource(), -1);
+      }
+      return samples;
+    };
+    const framelessClick = renderIsolatedClick(0);
+    const coupledClick = renderIsolatedClick(1);
+    const frameMutedClick = renderIsolatedClick(1, true);
+    const coupledClickEarly = windowRms(coupledClick, 0, 240);
+    const coupledClickTail = windowRms(coupledClick, 1_200, 2_400);
+    assert.ok(coupledClickEarly > 0.0005, "frame coupling must retain a clear contact snap");
+    assert.ok(
+      rmsOf(framelessClick) < rmsOf(coupledClick) * 1e-6,
+      "random contact noise leaked around the frame coupling control",
+    );
+    assert.ok(
+      rmsOf(frameMutedClick) < rmsOf(coupledClick) * 1e-6,
+      "random contact noise leaked through the mouth instead of the frame path",
+    );
+    assert.ok(
+      coupledClickTail < coupledClickEarly * 0.1,
+      "the contact-noise tail outlasted the short tine strike",
+    );
+    assert.ok(
+      adjacentDifferenceRatio(coupledClick) < 0.75,
+      "the contact snap retained a white-noise sample edge",
+    );
+    const framelessMechanicalAttack = renderVoice({
+      autoBreath: false,
+      breathNoiseAmount: 0,
+      frameCoupling: 0,
+    }, { flow: 0, blocks: 4 });
+    assert.ok(
+      rmsOf(framelessMechanicalAttack) > 0.001,
+      "zero frame coupling must preserve the deterministic tine attack",
+    );
+
+    const handoffVoice = new Processor({ processorOptions: { configuration: {
+      ...JAW_HARP_DEFAULTS,
+      autoBreath: true,
+      breathLinked: false,
+      breathDepth: 0.72,
+      breathRateBpm: 1,
+      breathBalance: 0.5,
+      breathNoiseAmount: 0,
+    } } });
+    handoffVoice._handleMessage({ type: "breath", flow: 0.72, manual: true });
+    handoffVoice._handleMessage({ type: "pluck", force: 0.72, direction: 1, position: 0.32 });
+    for (let index = 0; index < 4_000; index += 1) handoffVoice._renderSource();
+    handoffVoice.breathPhase = 0.25;
+    const flowBeforeHandoff = handoffVoice.breathFlow;
+    const automaticTarget = -0.72;
+    handoffVoice._handleMessage({ type: "breath", manual: false });
+    handoffVoice._renderSource();
+    const handoffFirstStep = Math.abs(handoffVoice.breathFlow - flowBeforeHandoff);
+    assert.ok(
+      handoffFirstStep < Math.abs(automaticTarget - flowBeforeHandoff) * 0.01,
+      "manual-to-automatic breath jumped instead of slewing",
+    );
+    for (let index = 0; index < 2_400; index += 1) handoffVoice._renderSource();
+    assert.ok(handoffVoice.breathFlow < -0.68, "breath handoff did not settle promptly");
+
+    const stoppingBreath = new Processor({ processorOptions: { configuration: {
+      ...JAW_HARP_DEFAULTS,
+      autoBreath: true,
+      breathLinked: false,
+      breathDepth: 0.72,
+      breathRateBpm: 1,
+      breathNoiseAmount: 0,
+    } } });
+    stoppingBreath.breathPhase = 0.75;
+    stoppingBreath._renderSource();
+    const flowBeforeStop = stoppingBreath.breathFlow;
+    stoppingBreath._handleMessage({ type: "configure", configuration: { autoBreath: false } });
+    stoppingBreath.process([], [[new Float32Array(1), new Float32Array(1)]]);
+    assert.ok(
+      Math.abs(stoppingBreath.breathFlow - flowBeforeStop) < Math.abs(flowBeforeStop) * 0.01,
+      "automatic breath shutdown bypassed the smooth handoff",
+    );
+    while (stoppingBreath.breathHandoffSamplesRemaining > 0) stoppingBreath._renderSource();
+    assert.ok(Math.abs(stoppingBreath.breathFlow) < 1e-12);
+    stoppingBreath._renderSource();
+    assert.equal(stoppingBreath.breathFlow, 0);
+
+    for (const breathBalance of [0.02, 0.5, 0.98]) {
+      for (const startPhase of [0, 0.19, 0.43, 0.71]) {
+        const maximumRateConfiguration = {
+          ...JAW_HARP_DEFAULTS,
+          autoBreath: true,
+          breathLinked: true,
+          repeatRateBpm: 480,
+          breathsPerLoop: 16,
+          breathDepth: 3,
+          breathRateBpm: JAW_HARP_LIMITS.breathRateBpm[1],
+          breathBalance,
+          breathNoiseAmount: 0,
+        };
+        assert.equal(effectiveBreathRateBpm(maximumRateConfiguration), 7_200);
+        const transitioning = new Processor({
+          processorOptions: { configuration: maximumRateConfiguration },
+        });
+        transitioning._handleMessage({ type: "breath", flow: 3, manual: true });
+        for (let index = 0; index < 512; index += 1) transitioning._renderSource();
+        transitioning.breathPhase = startPhase;
+        const automaticReference = new Processor({
+          processorOptions: { configuration: maximumRateConfiguration },
+        });
+        automaticReference.breathPhase = startPhase;
+        transitioning._handleMessage({ type: "breath", manual: false });
+        for (let index = 0; index < transitioning.breathHandoffTotalSamples; index += 1) {
+          transitioning._renderSource();
+          automaticReference._renderSource();
+        }
+        assert.equal(transitioning.breathHandoffSamplesRemaining, 0);
+        assert.ok(
+          Math.abs(transitioning.breathFlow - automaticReference.breathFlow) < 1e-9,
+          `maximum-rate handoff missed its endpoint (${breathBalance}, ${startPhase})`,
+        );
+        const transitionBefore = transitioning.breathFlow;
+        const referenceBefore = automaticReference.breathFlow;
+        transitioning._renderSource();
+        automaticReference._renderSource();
+        const transitionStep = transitioning.breathFlow - transitionBefore;
+        const referenceStep = automaticReference.breathFlow - referenceBefore;
+        assert.ok(
+          Math.abs(transitionStep - referenceStep) < 1e-9,
+          `maximum-rate handoff snapped at completion (${breathBalance}, ${startPhase})`,
+        );
+      }
+    }
 
     const tractOnlyTexture = turbulenceVoice(1, 1);
     tractOnlyTexture.breathTexture = 1;
@@ -1083,7 +1574,10 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     const defaultRelease = renderProcessor(defaultReleaseVoice, 60);
     const defaultAttackRms = windowRms(defaultRelease, 0, 960);
     const defaultBodyRms = windowRms(defaultRelease, 960, 4_800);
-    assert.ok(defaultAttackRms >= defaultBodyRms * 0.5);
+    assert.ok(
+      defaultAttackRms >= defaultBodyRms * 0.5,
+      `default strike lost its attack/body contrast (${defaultAttackRms}, ${defaultBodyRms})`,
+    );
     assert.ok(Math.max(...defaultRelease.map(Math.abs)) < 0.95);
     assert.ok(defaultReleaseVoice.strikePresence < 0.01);
     assert.ok(defaultReleaseVoice.decays[0] ** 48_000 > 0.78);
@@ -1461,19 +1955,29 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     const held = new Processor({
       processorOptions: { configuration: { ...JAW_HARP_DEFAULTS, autoBreath: false } },
     });
-    held._handleMessage({ type: "breath", flow: 3, manual: true });
-    held._handleMessage({ type: "pluck", force: 1, direction: 1, position: 0.32 });
+    const heldReference = new Processor({
+      processorOptions: { configuration: { ...JAW_HARP_DEFAULTS, autoBreath: false } },
+    });
+    for (const voice of [held, heldReference]) {
+      voice._handleMessage({ type: "breath", flow: 3, manual: true });
+      voice._handleMessage({ type: "pluck", force: 1, direction: 1, position: 0.32 });
+    }
     const ringingOutput = new Float32Array(128);
     held.process([], [[ringingOutput, new Float32Array(128)]]);
+    heldReference.process([], [[new Float32Array(128), new Float32Array(128)]]);
     held._handleMessage({ type: "hold-tine" });
     const heldOutput = new Float32Array(128);
     const heldOutputRight = new Float32Array(128);
     held.process([], [[heldOutput, heldOutputRight]]);
+    const heldReferenceOutput = new Float32Array(128);
+    heldReference.process([], [[heldReferenceOutput, new Float32Array(128)]]);
     assert.ok(heldOutput.some((sample) => Math.abs(sample) > 1e-5));
     assert.ok(heldOutputRight.some((sample) => Math.abs(sample) > 1e-5));
-    const fadedBoundaryJump = Math.abs(heldOutput[0] - ringingOutput[ringingOutput.length - 1]);
-    const hardCutBoundaryJump = Math.abs(ringingOutput[ringingOutput.length - 1]);
-    assert.ok(fadedBoundaryJump < hardCutBoundaryJump);
+    const holdTransitionDifference = Math.abs(heldOutput[0] - heldReferenceOutput[0]);
+    assert.ok(
+      holdTransitionDifference < 1e-5,
+      `holding the tine introduced a ${holdTransitionDifference} edge before its fade began`,
+    );
     const heldFadeTail = new Float32Array(128);
     held.process([], [[heldFadeTail, new Float32Array(128)]]);
     assert.ok(heldFadeTail.some((sample) => Math.abs(sample) > 1e-5));
@@ -1658,10 +2162,93 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
             extremeVoice.reedDisplacement,
             extremeVoice.breathFlow,
             extremeVoice.airGate,
+            extremeVoice.airColorState,
+            extremeVoice.airSmoothState,
+            extremeVoice.breathNoiseState,
+            extremeVoice.breathNoiseSmoothState,
+            extremeVoice.breathNoiseDcState,
+            extremeVoice.breathTexture,
+            extremeVoice.clickColorState,
+            extremeVoice.clickSmoothState,
+            extremeVoice.clickDcState,
+            extremeVoice.sourceDc,
+            extremeVoice.lastReedDrive,
+            extremeVoice.lastFinalDriveLeft,
+            extremeVoice.lastFinalDriveRight,
           ].every(Number.isFinite));
         }
       }
     }
+
+    const attackRetentionByRate = [];
+    const attackRetentionSeconds = 0.1;
+    for (const renderRate of [44_100, 96_000]) {
+      globalThis.sampleRate = renderRate;
+      const attackVoice = new Processor({ processorOptions: { configuration: {
+        ...JAW_HARP_DEFAULTS,
+        autoBreath: false,
+        breathNoiseAmount: 0,
+      } } });
+      attackVoice._handleMessage({
+        type: "pluck", force: 4, direction: 1, position: 0.32,
+      });
+      const initialAttackEnvelope = attackVoice.attackEnvelope;
+      const attackSampleCount = Math.round(renderRate * attackRetentionSeconds);
+      for (let sample = 0; sample < attackSampleCount; sample += 1) {
+        attackVoice._renderSource();
+      }
+      assert.ok(attackVoice.attackEnvelope > 0);
+      attackRetentionByRate.push(attackVoice.attackEnvelope / initialAttackEnvelope);
+      for (const flow of [-3, 3]) {
+        const rateVoice = new Processor({ processorOptions: { configuration: {
+          ...JAW_HARP_DEFAULTS,
+          autoBreath: false,
+          breathNoiseAmount: 1,
+          breathFilter: 1,
+          reedFrequencyHz: JAW_HARP_LIMITS.reedFrequencyHz[1],
+          reedStiffness: JAW_HARP_LIMITS.reedStiffness[1],
+          frameCoupling: JAW_HARP_LIMITS.frameCoupling[1],
+          cavityCoupling: JAW_HARP_LIMITS.cavityCoupling[1],
+        } } });
+        rateVoice._handleMessage({ type: "breath", flow, manual: true });
+        rateVoice._handleMessage({ type: "pluck", force: 4, direction: 1, position: 0.32 });
+        let ratePeak = 0;
+        const blockCount = Math.ceil(renderRate * 0.125 / 128);
+        for (let block = 0; block < blockCount; block += 1) {
+          const left = new Float32Array(128);
+          const right = new Float32Array(128);
+          rateVoice.process([], [[left, right]]);
+          assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
+          assert.ok(left.every((sample) => Math.abs(sample) <= 0.821));
+          assert.ok(right.every((sample) => Math.abs(sample) <= 0.821));
+          for (let index = 0; index < left.length; index += 1) {
+            ratePeak = Math.max(ratePeak, Math.abs(left[index]), Math.abs(right[index]));
+          }
+        }
+        assert.ok(ratePeak > 0.001, `${renderRate} Hz flow ${flow} became silent`);
+        assert.ok([
+          rateVoice.airColorState,
+          rateVoice.airSmoothState,
+          rateVoice.breathNoiseState,
+          rateVoice.breathNoiseSmoothState,
+          rateVoice.breathNoiseDcState,
+          rateVoice.breathTexture,
+          rateVoice.clickColorState,
+          rateVoice.clickSmoothState,
+          rateVoice.clickDcState,
+          rateVoice.contactClick,
+          rateVoice.sourceDc,
+          rateVoice.lastReedDrive,
+          rateVoice.lastFinalDriveLeft,
+          rateVoice.lastFinalDriveRight,
+        ].every(Number.isFinite), `${renderRate} Hz flow ${flow} corrupted internal DSP state`);
+      }
+    }
+    assert.ok(
+      Math.abs(attackRetentionByRate[0] - attackRetentionByRate[1]) < 1e-9,
+      `equal-time attack retention drifted across rates (${attackRetentionByRate})`,
+    );
+    globalThis.sampleRate = 48_000;
   } finally {
     globalThis.sampleRate = previousRate;
     globalThis.AudioWorkletProcessor = previousBase;

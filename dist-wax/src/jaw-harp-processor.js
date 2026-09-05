@@ -13,6 +13,9 @@ const MODE_COUNT = JAW_HARP_MODE_COUNT;
 const TELEMETRY_BLOCKS = 10;
 const SILENCE_FLOOR = 1e-9;
 const TINE_HOLD_FADE_SECONDS = 0.004;
+const BREATH_MANUAL_SMOOTH_SECONDS = 0.00065;
+const BREATH_HANDOFF_DURATION_SECONDS = 0.018;
+const ATTACK_DECAY_SECONDS = -1 / (48_000 * Math.log(0.99928));
 const TWO_PI = Math.PI * 2;
 const SINE_TABLE_SIZE = 8_192;
 const SINE_TABLE_MASK = SINE_TABLE_SIZE - 1;
@@ -47,10 +50,10 @@ for (let index = 0; index < MODE_COUNT; index += 1) {
   const harmonic = index + 1;
   const inhaleParity = harmonic % 2 === 0 ? 0.46 : 1.08;
   const exhaleParity = harmonic % 2 === 0 ? 1.38 : 0.92;
-  INHALE_AIR_WEIGHTS_DRY[index] = inhaleParity / Math.pow(harmonic, 1.18);
-  INHALE_AIR_WEIGHTS_WET[index] = inhaleParity / Math.pow(harmonic, 1.14);
-  EXHALE_AIR_WEIGHTS_DRY[index] = exhaleParity / Math.pow(harmonic, 0.68);
-  EXHALE_AIR_WEIGHTS_WET[index] = exhaleParity / Math.pow(harmonic, 0.52);
+  INHALE_AIR_WEIGHTS_DRY[index] = inhaleParity / Math.pow(harmonic, 1.26);
+  INHALE_AIR_WEIGHTS_WET[index] = inhaleParity / Math.pow(harmonic, 1.18);
+  EXHALE_AIR_WEIGHTS_DRY[index] = exhaleParity / Math.pow(harmonic, 1.02);
+  EXHALE_AIR_WEIGHTS_WET[index] = exhaleParity / Math.pow(harmonic, 0.9);
 }
 
 function clamp(value, minimum = 0, maximum = 1) {
@@ -64,6 +67,15 @@ function fastSine(phase) {
   const first = SINE_TABLE[lower & SINE_TABLE_MASK];
   const second = SINE_TABLE[(lower + 1) & SINE_TABLE_MASK];
   return first + (second - first) * fraction;
+}
+
+function smoothstep(edge0, edge1, value) {
+  const unit = clamp((value - edge0) / Math.max(1e-9, edge1 - edge0));
+  return unit * unit * (3 - 2 * unit);
+}
+
+function breathDirection(flow) {
+  return Math.tanh(clamp(flow, -3, 3) / 0.06);
 }
 
 // Reserve the first few percent of the control for an effectively clean reed,
@@ -151,7 +163,14 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     this.frameFilterRight = new StateVariableBandpass(this.rate);
     this.noiseState = 0x4a617748;
     this.clickEnvelope = 0;
+    this.clickColorState = 0;
+    this.clickSmoothState = 0;
+    this.clickDcState = 0;
+    this.clickColor = 0;
+    this.clickDcColor = 0;
+    this.contactClick = 0;
     this.attackEnvelope = 0;
+    this.attackDecay = Math.exp(-1 / (this.rate * ATTACK_DECAY_SECONDS));
     this.strikePresence = 0;
     this.clickPolarity = 1;
     this.breathFlow = clamp(
@@ -160,6 +179,15 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
       JAW_HARP_LIMITS.breathFlow[1],
     );
     this.manualBreathFlow = null;
+    this.breathManualApproach = 1 - Math.exp(
+      -1 / (this.rate * BREATH_MANUAL_SMOOTH_SECONDS),
+    );
+    this.breathHandoffTotalSamples = Math.max(
+      1,
+      Math.round(this.rate * BREATH_HANDOFF_DURATION_SECONDS),
+    );
+    this.breathHandoffStartFlow = this.breathFlow;
+    this.breathHandoffSamplesRemaining = 0;
     this.breathPhase = 0;
     this.breathPhaseIncrement = 0;
     this.effectiveBreathRate = this.configuration.breathRateBpm;
@@ -170,7 +198,12 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     this.breathNoiseColorExhale = 0;
     this.breathNoiseDcColor = 0;
     this.breathTexture = 0;
+    this.airColorState = 0;
+    this.airSmoothState = 0;
     this.sourceDc = 0;
+    this.lastReedDrive = 0;
+    this.lastFinalDriveLeft = 0;
+    this.lastFinalDriveRight = 0;
     this.airGate = 0;
     this.airPathPrimed = false;
     this.tineHeld = false;
@@ -228,6 +261,9 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     }
     if (message.type === "breath") {
       const requestedFlow = Number(message.flow);
+      if (message.manual === false && this.manualBreathFlow !== null) {
+        this._beginBreathHandoff();
+      }
       this.manualBreathFlow = message.manual === false
         ? null
         : clamp(
@@ -240,6 +276,7 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     if (message.type === "breath-cycle-reset") {
       const phase = Number(message.phase);
       this.breathPhase = Number.isFinite(phase) ? ((phase % 1) + 1) % 1 : 0;
+      if (this.configuration.autoBreath) this._beginBreathHandoff();
       return;
     }
     if (message.type === "hold-tine") {
@@ -268,19 +305,35 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     return (value >>> 0) / 4294967295 * 2 - 1;
   }
 
+  _beginBreathHandoff() {
+    this.breathHandoffStartFlow = this.breathFlow;
+    this.breathHandoffSamplesRemaining = this.breathHandoffTotalSamples;
+  }
+
   _silence() {
     this.silenced = true;
     this.amplitudes.fill(0);
     this.clickEnvelope = 0;
+    this.clickColorState = 0;
+    this.clickSmoothState = 0;
+    this.clickDcState = 0;
+    this.contactClick = 0;
     this.attackEnvelope = 0;
     this.strikePresence = 0;
     this.breathFlow = 0;
     this.manualBreathFlow = null;
+    this.breathHandoffStartFlow = 0;
+    this.breathHandoffSamplesRemaining = 0;
     this.breathNoiseState = 0;
     this.breathNoiseSmoothState = 0;
     this.breathNoiseDcState = 0;
     this.breathTexture = 0;
+    this.airColorState = 0;
+    this.airSmoothState = 0;
     this.sourceDc = 0;
+    this.lastReedDrive = 0;
+    this.lastFinalDriveLeft = 0;
+    this.lastFinalDriveRight = 0;
     this.airGate = 0;
     this.airPathPrimed = false;
     this.tineHeld = false;
@@ -306,14 +359,25 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
   _finishTineHold() {
     this.amplitudes.fill(0);
     this.clickEnvelope = 0;
+    this.clickColorState = 0;
+    this.clickSmoothState = 0;
+    this.clickDcState = 0;
+    this.contactClick = 0;
     this.attackEnvelope = 0;
     this.strikePresence = 0;
     this.sourceDc = 0;
     this.breathFlow = 0;
+    this.breathHandoffStartFlow = 0;
+    this.breathHandoffSamplesRemaining = 0;
     this.breathNoiseState = 0;
     this.breathNoiseSmoothState = 0;
     this.breathNoiseDcState = 0;
     this.breathTexture = 0;
+    this.airColorState = 0;
+    this.airSmoothState = 0;
+    this.lastReedDrive = 0;
+    this.lastFinalDriveLeft = 0;
+    this.lastFinalDriveRight = 0;
     this.airGate = 0;
     this.airPathPrimed = false;
     this.energy = 0;
@@ -430,6 +494,7 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
       const target = this.targetConfiguration[key];
       if (DISCRETE_CONFIGURATION_KEYS.has(key) || typeof target !== "number") {
         if (this.configuration[key] !== target) {
+          if (key === "autoBreath") this._beginBreathHandoff();
           this.configuration[key] = target;
           coefficientMask |= coefficientMaskForKey(key);
         }
@@ -454,20 +519,21 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
         (state.glottisOpening - JAW_HARP_LIMITS.glottisOpening[0])
           / (JAW_HARP_LIMITS.glottisOpening[1] - JAW_HARP_LIMITS.glottisOpening[0]),
       );
-      // Turbulence is always colored before it reaches the mouth. The filter
-      // control spans a muffled chesty air stream to an open airy edge without
-      // ever exposing sample-to-sample white noise directly.
+      // Both coherent reed airflow and turbulence use this bounded color. The
+      // filter spans a muffled chesty stream to an open airy edge without ever
+      // exposing sample-to-sample white noise directly.
       const filterUnit = clamp(state.breathFilter);
-      const baseCutoffHz = 260 * Math.pow(32, filterUnit);
+      const baseCutoffHz = 260 * Math.pow(24, filterUnit);
+      const cutoffCeilingHz = Math.min(6_500, this.rate * 0.135);
       const inhaleCutoffHz = clamp(
         baseCutoffHz * (0.72 + glottisUnit * 0.3),
         170,
-        8_400,
+        cutoffCeilingHz,
       );
       const exhaleCutoffHz = clamp(
         baseCutoffHz * (0.9 + state.reedStiffness * 0.24),
         210,
-        9_600,
+        cutoffCeilingHz,
       );
       this.breathNoiseColorInhale = 1 - Math.exp(-TWO_PI * inhaleCutoffHz / this.rate);
       this.breathNoiseColorExhale = 1 - Math.exp(-TWO_PI * exhaleCutoffHz / this.rate);
@@ -519,6 +585,16 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
         * this.material.frameBandwidth;
       this.frameFilterLeft.configure(frameFrequency * 0.992, frameBandwidth);
       this.frameFilterRight.configure(frameFrequency * 1.008, frameBandwidth);
+      const frameUnit = clamp(state.frameCoupling);
+      const clickCutoffHz = clamp(
+        1_100 + 2_600 * state.reedStiffness + 700 * frameUnit,
+        1_100,
+        4_400,
+      );
+      this.clickColor = 1 - Math.exp(-TWO_PI * clickCutoffHz / this.rate);
+      this.clickDcColor = 1 - Math.exp(
+        -TWO_PI * (100 + 120 * frameUnit) / this.rate,
+      );
     }
 
     if (coefficientMask & COEFFICIENT_BREATH) {
@@ -549,10 +625,30 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     }
     const state = this.configuration;
     const targetBreathFlow = this.manualBreathFlow ?? automaticBreathFlow;
-    if (this.manualBreathFlow === null && state.autoBreath) {
+    const handoffActive = this.manualBreathFlow === null
+      && this.breathHandoffSamplesRemaining > 0;
+    if (this.manualBreathFlow === null && state.autoBreath && !handoffActive) {
+      // The authored automatic lobes are already continuous. Following them
+      // directly preserves very short, deliberately asymmetric breath cycles.
       this.breathFlow = targetBreathFlow;
+    } else if (handoffActive) {
+      const elapsedSamples = this.breathHandoffTotalSamples
+        - this.breathHandoffSamplesRemaining + 1;
+      const handoffMix = smoothstep(
+        0,
+        1,
+        elapsedSamples / this.breathHandoffTotalSamples,
+      );
+      // Crossfade to the live automatic trajectory, rather than approaching a
+      // stale target. The final handoff sample is exactly on that trajectory,
+      // so even the fastest linked cycle cannot snap when direct tracking resumes.
+      this.breathFlow = this.breathHandoffSamplesRemaining === 1
+        ? targetBreathFlow
+        : this.breathHandoffStartFlow
+          + (targetBreathFlow - this.breathHandoffStartFlow) * handoffMix;
+      this.breathHandoffSamplesRemaining -= 1;
     } else {
-      this.breathFlow += (targetBreathFlow - this.breathFlow) * 0.032;
+      this.breathFlow += (targetBreathFlow - this.breathFlow) * this.breathManualApproach;
     }
     if (Math.abs(this.breathFlow) < 1e-6 && Math.abs(targetBreathFlow) < 1e-6) this.breathFlow = 0;
     const flow = clamp(
@@ -562,7 +658,11 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     );
     const flowMagnitude = Math.abs(flow);
     const breathPresence = 1 - Math.exp(-flowMagnitude * 1.15);
-    const exhaling = flow >= 0;
+    const direction = breathDirection(flow);
+    const exhaleMix = 0.5 + direction * 0.5;
+    // Match the former/default pressure near |flow|=.72, then compress legal
+    // extremes before they can live in either nonlinear safety stage.
+    const boundedAirPressure = 0.9 * Math.tanh(flow / 0.8);
     const flowGate = this.hasBeenPlucked && !this.tineHeld ? breathPresence : 0;
     const gateTarget = flowGate > 0.004 ? 0.08 + flowGate * 1.12 : 0;
     // Once breath has opened this reed, reopen it promptly after a breath-zero
@@ -573,13 +673,12 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
       : 0.0007;
     this.airGate += (gateTarget - this.airGate) * gateRate;
     if (this.airGate > 0.2) this.airPathPrimed = true;
-    let sum = 0;
+    let mechanicalSum = 0;
+    let aerodynamicSum = 0;
     let fundamental = 0;
     let energy = 0;
     const maximumFrequency = this.rate * 0.44;
     const pressureBend = Math.pow(2, flow * (0.012 + state.reedStiffness * 0.018));
-    const airWeightsDry = exhaling ? EXHALE_AIR_WEIGHTS_DRY : INHALE_AIR_WEIGHTS_DRY;
-    const airWeightsWet = exhaling ? EXHALE_AIR_WEIGHTS_WET : INHALE_AIR_WEIGHTS_WET;
     const breathSustain = breathPresence * (0.82 + state.reedStiffness * 0.16);
 
     for (let index = 0; index < MODE_COUNT; index += 1) {
@@ -596,9 +695,13 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
         );
         continue;
       }
-      const airWeight = airWeightsDry[index]
-        + (airWeightsWet[index] - airWeightsDry[index]) * breathPresence;
-      const airAmplitude = this.airGate * flowMagnitude
+      const dryAirWeight = INHALE_AIR_WEIGHTS_DRY[index]
+        + (EXHALE_AIR_WEIGHTS_DRY[index] - INHALE_AIR_WEIGHTS_DRY[index]) * exhaleMix;
+      const wetAirWeight = INHALE_AIR_WEIGHTS_WET[index]
+        + (EXHALE_AIR_WEIGHTS_WET[index] - INHALE_AIR_WEIGHTS_WET[index]) * exhaleMix;
+      const airWeight = dryAirWeight
+        + (wetAirWeight - dryAirWeight) * breathPresence;
+      const airAmplitude = this.airGate * Math.abs(boundedAirPressure)
         * (0.078 + state.reedStiffness * 0.04) * this.material.airResponse
         * airWeight;
       if (Math.abs(amplitude) < SILENCE_FLOOR && airAmplitude < SILENCE_FLOOR) {
@@ -609,11 +712,13 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
       if (phase >= TWO_PI) phase -= TWO_PI;
       else if (phase < 0) phase += TWO_PI;
       this.phases[index] = phase;
-      const mechanical = fastSine(phase) * amplitude;
-      const aerodynamic = fastSine(phase + (exhaling ? 0.19 : -0.31))
-        * airAmplitude * Math.sign(flow || 1);
+      const nyquistGain = 1 - smoothstep(this.rate * 0.34, maximumFrequency, frequency);
+      const mechanical = fastSine(phase) * amplitude * nyquistGain;
+      const aerodynamic = fastSine(phase + (-0.31 + exhaleMix * 0.5))
+        * airAmplitude * Math.sign(boundedAirPressure || 1) * nyquistGain;
       const value = mechanical + aerodynamic;
-      sum += value;
+      mechanicalSum += mechanical;
+      aerodynamicSum += aerodynamic;
       if (index === 0) fundamental = value;
       energy += amplitude * amplitude + airAmplitude * airAmplitude;
       this.amplitudes[index] *= Math.min(0.9999995, this.decays[index] + (1 - this.decays[index]) * breathSustain);
@@ -621,25 +726,55 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
 
     this.reedDisplacement = fundamental;
     this.energy += (Math.sqrt(energy) - this.energy) * 0.0018;
+    const airColor = this.breathNoiseColorInhale
+      + (this.breathNoiseColorExhale - this.breathNoiseColorInhale) * exhaleMix;
+    this.airColorState += (aerodynamicSum - this.airColorState) * airColor;
+    this.airSmoothState += (this.airColorState - this.airSmoothState) * airColor;
+    const airRoughness = breathTextureGain(state.breathNoiseAmount) * 0.35;
+    const directionalAirGain = 0.75 + exhaleMix * 0.5;
+    const coloredAir = (
+      this.airSmoothState
+      + (this.airColorState - this.airSmoothState) * airRoughness
+    ) * directionalAirGain;
     const elasticHeadroom = clamp(this.materialPhysics.elasticLimitStrain / 0.006, 0.5, 1.65);
     const edge = (1.2 + state.reedStiffness * 5.4)
       * (0.82 + this.material.brightness * 0.22)
       * (0.9 + elasticHeadroom * 0.1);
-    const nonlinear = Math.tanh(sum * edge) / edge;
-    const pressureLoaded = nonlinear * (1 + flow * nonlinear * (0.55 + state.reedStiffness * 0.42));
-    this.sourceDc += (pressureLoaded - this.sourceDc) * 0.00055;
-    const pressureLoadedAc = pressureLoaded - this.sourceDc;
-    const clickNoise = this._random() * this.clickEnvelope * this.clickPolarity;
-    this.clickEnvelope *= 0.9972 - state.frameCoupling * 0.00045;
-    if (this.clickEnvelope < SILENCE_FLOOR) this.clickEnvelope = 0;
+    // Keep the struck reed's elastic bite, but place most sustained airflow
+    // outside that nonlinear junction. Otherwise a legal/default breath keeps
+    // the reed saturator active almost continuously and turns upper modes into
+    // a broadband digital edge.
+    const nonlinearInput = mechanicalSum + coloredAir * 0.25;
     const attack = this.attackEnvelope;
     this.strikePresence = clamp(attack * 0.8, 0, 1);
-    this.attackEnvelope *= 0.99928;
+    const strikeEdge = clamp(this.strikePresence);
+    const effectiveEdge = edge * (0.34 + strikeEdge * 0.66);
+    this.lastReedDrive = nonlinearInput * effectiveEdge;
+    const nonlinear = Math.tanh(this.lastReedDrive) / effectiveEdge
+      * (0.68 + strikeEdge * 0.32);
+    const coupledSource = nonlinear + coloredAir * 0.75;
+    const pressureLoaded = coupledSource * (
+      1 + boundedAirPressure * coupledSource * (0.55 + state.reedStiffness * 0.42)
+    );
+    this.sourceDc += (pressureLoaded - this.sourceDc) * 0.00055;
+    const pressureLoadedAc = pressureLoaded - this.sourceDc;
+    const rawClickNoise = this._random();
+    this.clickColorState += (rawClickNoise - this.clickColorState) * this.clickColor;
+    this.clickSmoothState += (
+      this.clickColorState - this.clickSmoothState
+    ) * this.clickColor;
+    this.clickDcState += (
+      this.clickSmoothState - this.clickDcState
+    ) * this.clickDcColor;
+    const clickNoise = (this.clickSmoothState - this.clickDcState)
+      * 1.6 * this.clickEnvelope * this.clickPolarity;
+    const clickSeconds = 0.008 - clamp(state.frameCoupling) * 0.0035;
+    this.clickEnvelope *= Math.exp(-1 / (this.rate * clickSeconds));
+    if (this.clickEnvelope < SILENCE_FLOOR) this.clickEnvelope = 0;
+    this.attackEnvelope *= this.attackDecay;
     if (this.attackEnvelope < SILENCE_FLOOR) this.attackEnvelope = 0;
     const rawBreathNoise = this._random();
-    const breathColor = exhaling
-      ? this.breathNoiseColorExhale
-      : this.breathNoiseColorInhale;
+    const breathColor = airColor;
     // Two gentle poles remove the sample-to-sample white-noise edge that read as
     // digital distortion. A slow subtraction keeps the result airy rather than
     // adding low-frequency pressure wander; the reed and attack paths are not
@@ -653,7 +788,7 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     ) * this.breathNoiseDcColor;
     const smoothBreathNoise = (this.breathNoiseSmoothState - this.breathNoiseDcState) * 1.5;
     this.breathTexture = smoothBreathNoise * breathTextureGain(state.breathNoiseAmount)
-      * flowMagnitude * (exhaling ? 0.082 : 0.058) * this.material.airResponse
+      * Math.abs(boundedAirPressure) * (0.058 + exhaleMix * 0.024) * this.material.airResponse
       * (0.18 + this.airGate * 0.82) * (this.hasBeenPlucked ? 1 : 0);
     const breathLoad = clamp(
       state.dryResonance + breathPresence * (1 - state.dryResonance)
@@ -664,10 +799,11 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     const mechanicalAudibility = 0.09 + state.dryResonance * 0.72
       + breathPresence * 1.16 + this.strikePresence * 0.62;
     const releaseLift = 1 + Math.min(1.5, attack) * (0.22 + this.material.contact * 0.08);
+    this.contactClick = clickNoise * (0.018 + breathLoad * 0.045)
+      * Math.sqrt(clamp(state.frameCoupling));
     return pressureLoadedAc
         * mechanicalAudibility * releaseLift
-        * (0.68 + breathPresence * 0.42)
-      + clickNoise * (0.018 + breathLoad * 0.045);
+        * (0.68 + breathPresence * 0.42);
   }
 
   _radiate(source, side) {
@@ -679,11 +815,10 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
       JAW_HARP_LIMITS.breathFlow[1],
     );
     const breathPresence = 1 - Math.exp(-Math.abs(flow) * 1.15);
-    const directionalWeights = flow < -0.015
-      ? INHALE_FORMANT_WEIGHTS
-      : flow > 0.015
-        ? EXHALE_FORMANT_WEIGHTS
-        : REST_FORMANT_WEIGHTS;
+    const direction = breathDirection(flow);
+    const inhaleMix = Math.max(0, -direction);
+    const exhaleMix = Math.max(0, direction);
+    const restMix = 1 - Math.abs(direction);
     const focusCoordinate = clamp(state.formantFocus, 0, 2);
     // Breath turbulence joins the vibrating reed only at the vocal tract. It
     // therefore receives the same moving formants/focus as the jaw-harp tone,
@@ -692,7 +827,10 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     let cavity = 0;
     for (let index = 0; index < 3; index += 1) {
       const focusWeight = 0.34 + 1.66 * Math.exp(-Math.abs(focusCoordinate - index) * 1.55);
-      cavity += filters[index].process(tractInput) * directionalWeights[index] * focusWeight;
+      const directionalWeight = REST_FORMANT_WEIGHTS[index] * restMix
+        + INHALE_FORMANT_WEIGHTS[index] * inhaleMix
+        + EXHALE_FORMANT_WEIGHTS[index] * exhaleMix;
+      cavity += filters[index].process(tractInput) * directionalWeight * focusWeight;
     }
     const focusFilter = side < 0 ? this.focusFilterLeft : this.focusFilterRight;
     const focusResonance = focusFilter.process(tractInput)
@@ -707,8 +845,12 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
       1,
     );
     const openGlottisLoss = clamp(1 - state.glottisOpening * 0.18, 0.32, 1.42);
-    const directionalDirect = flow < -0.015 ? 0.14 : flow > 0.015 ? 0.27 : 0.2;
-    const directionalCavity = flow < -0.015 ? 2.9 : flow > 0.015 ? 2.55 : 2.62;
+    const directionalDirect = 0.2
+      + inhaleMix * (0.14 - 0.2)
+      + exhaleMix * (0.27 - 0.2);
+    const directionalCavity = 2.62
+      + inhaleMix * (2.9 - 2.62)
+      + exhaleMix * (2.55 - 2.62);
     const mouth = (
       source * (0.025 + directionalDirect * breathLoad + (1 - normalCoupling) * 0.24)
       + (cavity + focusResonance * (0.7 + breathPresence * 0.8))
@@ -716,8 +858,12 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     )
       * openGlottisLoss;
     const frameFilter = side < 0 ? this.frameFilterLeft : this.frameFilterRight;
-    const frame = frameFilter.process(source) * (0.5 + state.reedStiffness * 0.7);
-    return mouth + frame * state.frameCoupling * this.material.contact * (0.28 + breathLoad * 1.8);
+    const frame = frameFilter.process(source + this.contactClick)
+      * (0.5 + state.reedStiffness * 0.7);
+    const highPressureTrim = 1 - smoothstep(0.72, 3, Math.abs(flow)) * 0.36;
+    return (
+      mouth + frame * state.frameCoupling * this.material.contact * (0.28 + breathLoad * 1.8)
+    ) * highPressureTrim;
   }
 
   process(_inputs, outputs) {
@@ -732,8 +878,10 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     for (let frame = 0; frame < leftOutput.length; frame += 1) {
       const holdGain = this.tineHoldFading ? this.tineHoldGain : 1;
       const source = this._renderSource();
-      const left = Math.tanh(this._radiate(source, -1) * 1.42) * 0.82 * holdGain;
-      const right = Math.tanh(this._radiate(source, 1) * 1.42) * 0.82 * holdGain;
+      this.lastFinalDriveLeft = this._radiate(source, -1) * 1.42;
+      this.lastFinalDriveRight = this._radiate(source, 1) * 1.42;
+      const left = Math.tanh(this.lastFinalDriveLeft) * 0.82 * holdGain;
+      const right = Math.tanh(this.lastFinalDriveRight) * 0.82 * holdGain;
       leftOutput[frame] = left;
       rightOutput[frame] = right;
       const magnitude = Math.max(Math.abs(left), Math.abs(right));
@@ -778,4 +926,4 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
 
 registerProcessor("jaw-harp-physical-model", JawHarpPhysicalProcessor);
 
-export { JawHarpPhysicalProcessor, breathTextureGain, fastSine };
+export { JawHarpPhysicalProcessor, breathDirection, breathTextureGain, fastSine };
