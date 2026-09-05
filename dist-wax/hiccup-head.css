@@ -1051,6 +1051,7 @@
 
 .hiccup-head-step-slot {
   --step-selector-height: 24px;
+  --step-sound-lane-height: 72px;
   position: relative;
   display: grid;
   min-width: 0;
@@ -1060,7 +1061,7 @@
   border-right: 1px solid rgba(244, 238, 233, 0.075);
   border-bottom: 1px solid rgba(244, 238, 233, 0.075);
   background: rgba(244, 238, 233, 0.018);
-  grid-template-rows: 208px 24px;
+  grid-template-rows: 136px var(--step-selector-height) var(--step-sound-lane-height);
   align-content: start;
   gap: 0;
 }
@@ -1074,7 +1075,7 @@
   display: grid;
   width: 100%;
   min-width: 0;
-  min-height: 208px;
+  min-height: 136px;
   overflow: hidden;
   border: 0;
   border-top: 1px solid rgba(244, 238, 233, 0.08);
@@ -1117,21 +1118,11 @@
   transition: none;
 }
 
-.hiccup-head-step-sound-number {
-  position: relative;
-  z-index: 1;
-  display: block;
-  color: rgba(244, 238, 233, 0.94);
-  font: 850 clamp(6px, 1.1vw, 16px)/1 var(--mono);
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 3px rgba(8, 5, 7, 0.92);
-}
-
 .hiccup-head-step-audition {
   position: absolute;
   z-index: 2;
   right: 0;
-  bottom: calc(var(--step-selector-height) + 2px);
+  bottom: calc(var(--step-selector-height) + var(--step-sound-lane-height) + 2px);
   left: 0;
   width: 100%;
   min-width: 0;
@@ -1159,23 +1150,9 @@
   opacity: 0.24;
 }
 
-.hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-sound-number {
-  font-size: 6px;
-  line-height: 1;
-}
-
-.hiccup-head-sequence-grid[data-sequence-density="micro"] .hiccup-head-step-sound-number {
-  writing-mode: vertical-rl;
-}
-
 .hiccup-head-step-cell[data-active="true"] {
   border-color: color-mix(in oklab, var(--row-color, var(--hiccup-head-violet)) 54%, transparent);
   background: color-mix(in oklab, var(--row-color, var(--hiccup-head-violet)) 12%, transparent);
-}
-
-.hiccup-head-step-cell[data-level="0"] .hiccup-head-step-sound-number {
-  color: rgba(244, 238, 233, 0.42);
-  text-shadow: none;
 }
 
 .hiccup-head-step-cell.is-current {
@@ -1221,6 +1198,85 @@
   border-color: var(--row-color, var(--hiccup-head-violet));
   outline: 1px solid var(--row-color, var(--hiccup-head-violet));
   outline-offset: 1px;
+}
+
+.hiccup-head-step-sound-lane-shell {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--step-sound-lane-height);
+  min-height: 44px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--row-color, var(--hiccup-head-muted)) 38%, transparent);
+  color: var(--step-sound-color, var(--row-color, var(--hiccup-head-bone)));
+  background:
+    linear-gradient(rgba(8, 5, 7, 0.64), rgba(8, 5, 7, 0.64)),
+    var(--hiccup-head-sound-bank-gradient, linear-gradient(to top, var(--hiccup-head-coral), var(--hiccup-head-violet)));
+}
+
+.hiccup-head-step-sound-lane-shell::before {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--step-sound-position, 0%);
+  background: color-mix(in oklab, var(--step-sound-color, var(--hiccup-head-muted)) 38%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.hiccup-head-step-sound-lane-shell::after {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: var(--step-sound-marker-bottom, 0px);
+  left: 0;
+  height: 5px;
+  background: var(--hiccup-head-bone);
+  box-shadow:
+    inset 0 0 0 2px var(--step-sound-color, var(--hiccup-head-muted)),
+    0 0 8px rgba(244, 238, 233, 0.72);
+  content: "";
+  pointer-events: none;
+}
+
+input.hiccup-head-step-sound-lane {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  cursor: ns-resize;
+  opacity: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  touch-action: none;
+}
+
+.hiccup-head-step-sound-lane-shell[data-active="false"] {
+  opacity: 0.48;
+  filter: saturate(0.55);
+}
+
+.hiccup-head-step-sound-lane-shell:hover,
+.hiccup-head-step-sound-lane-shell:focus-within,
+.hiccup-head-step-sound-lane-shell.is-sound-editing {
+  border-color: var(--step-sound-color, var(--hiccup-head-violet));
+  outline: 1px solid var(--hiccup-head-bone);
+  outline-offset: -2px;
+  opacity: 1;
+  filter: none;
+}
+
+.hiccup-head-sequence-grid.is-sound-painting .hiccup-head-step-sound-lane-shell {
+  cursor: ns-resize;
 }
 
 /* Control panel */
@@ -2184,12 +2240,13 @@ label.hiccup-head-voice-assignment,
 
   .hiccup-head-step-slot {
     --step-selector-height: 44px;
-    grid-template-rows: 150px 44px;
+    --step-sound-lane-height: 64px;
+    grid-template-rows: 104px var(--step-selector-height) var(--step-sound-lane-height);
     gap: 0;
   }
 
   .hiccup-head-step-cell {
-    min-height: 150px;
+    min-height: 104px;
   }
 
   .hiccup-head-step-sound-select {
@@ -2300,7 +2357,8 @@ label.hiccup-head-voice-assignment,
 
   .hiccup-head-step-slot {
     --step-selector-height: 44px;
-    grid-template-rows: 150px 44px;
+    --step-sound-lane-height: 64px;
+    grid-template-rows: 104px var(--step-selector-height) var(--step-sound-lane-height);
     gap: 0;
   }
 
@@ -2312,7 +2370,7 @@ label.hiccup-head-voice-assignment,
   }
 
   .hiccup-head-step-cell {
-    min-height: 150px;
+    min-height: 104px;
   }
 
   .hiccup-head-step-sound-select {

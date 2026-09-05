@@ -11,12 +11,13 @@ test("there is no redundant step-number row and transport always loops the full 
   assert.doesNotMatch(app, /hiccup-head-step-number|gridHeadingsByStep/);
 });
 
-test("the grid is one monophonic lane with a numbered sound selector below every trigger", async () => {
+test("the grid is one monophonic lane with precise and paintable sound selectors", async () => {
   const app = await readFile(new URL("hiccup-head-app.js", root), "utf8");
   assert.match(app, /\[id, String\(index \+ 1\)\.padStart\(2, "0"\)\]/);
   assert.match(app, /function soundOptions\(selectedId = ""\)[\s\S]*?emptyOption\.value = ""[\s\S]*?emptyOption\.textContent = "—"[\s\S]*?HICCUP_HEAD_SOUNDS\.forEach/);
   assert.match(app, /grid\.setAttribute\("aria-rowcount", "1"\)/);
-  assert.match(app, /for \(let step = 0; step < sequenceLength; step \+= 1\)[\s\S]*?slot\.className = "hiccup-head-step-slot"[\s\S]*?cell\.className = "hiccup-head-step-cell"[\s\S]*?selector\.className = "hiccup-head-step-sound-select"[\s\S]*?slot\.append\(cell, preview, selector\)/);
+  assert.match(app, /for \(let step = 0; step < sequenceLength; step \+= 1\)[\s\S]*?slot\.className = "hiccup-head-step-slot"[\s\S]*?cell\.className = "hiccup-head-step-cell"[\s\S]*?selector\.className = "hiccup-head-step-sound-select"[\s\S]*?soundLane\.className = "hiccup-head-step-sound-lane"[\s\S]*?slot\.append\(cell, preview, selector, soundLaneShell\)/);
+  assert.doesNotMatch(app, /hiccup-head-step-sound-number/);
   assert.match(app, /\$\("sequenceGrid"\)\.addEventListener\("change", handleSequenceGridChange\)/);
 
   const setStepSound = app.slice(

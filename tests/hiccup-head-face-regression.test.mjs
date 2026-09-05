@@ -261,8 +261,14 @@ test("Hiccup Head stays centered and keeps the mobile one-lane sequencer nearby"
   assert.match(mobile, /\.hiccup-head-shell\s*\{[\s\S]*?overflow-y:\s*auto/);
   assert.match(mobile, /\.hiccup-head-workspace\s*\{[\s\S]*?display:\s*contents/);
   assert.match(mobile, /\.hiccup-head-stage\s*\{[\s\S]*?position:\s*sticky[\s\S]*?top:\s*0/);
-  assert.match(css, /\.hiccup-head-step-slot\s*\{[\s\S]*?grid-template-rows:\s*208px 24px/);
-  assert.match(mobile, /\.hiccup-head-step-slot\s*\{[\s\S]*?grid-template-rows:\s*150px 44px/);
+  assert.match(
+    css,
+    /\.hiccup-head-step-slot\s*\{[\s\S]*?--step-sound-lane-height:\s*72px[\s\S]*?grid-template-rows:\s*136px var\(--step-selector-height\) var\(--step-sound-lane-height\)/,
+  );
+  assert.match(
+    mobile,
+    /\.hiccup-head-step-slot\s*\{[\s\S]*?--step-sound-lane-height:\s*64px[\s\S]*?grid-template-rows:\s*104px var\(--step-selector-height\) var\(--step-sound-lane-height\)/,
+  );
   assert.doesNotMatch(css, /\.hiccup-head-step-number/);
 });
 

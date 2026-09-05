@@ -1303,8 +1303,10 @@ let visualHitSoundId = "";
 let paintedGridStep = -1;
 let gridCellsByStep = [];
 let gridSelectorsByStep = [];
+let gridSoundLanesByStep = [];
 let gridTabStop = null;
 let sequenceVelocityPointer = null;
+let sequenceSoundPointer = null;
 let padButtonsBySound = new Map();
 let cssWidth = 1;
 let cssHeight = 1;
@@ -2683,6 +2685,9 @@ function clearPattern() {
 const sequenceSoundNumberById = new Map(HICCUP_HEAD_SOUNDS.map(
   ({ id }, index) => [id, String(index + 1).padStart(2, "0")],
 ));
+const sequenceSoundIndexById = new Map(HICCUP_HEAD_SOUNDS.map(
+  ({ id }, index) => [id, index],
+));
 
 function sequenceSoundLabel(sound) {
   return `${sequenceSoundNumberById.get(sound.id)} · ${sound.label}`;
@@ -2723,8 +2728,6 @@ function renderCell(button, event) {
   button.dataset.active = String(active);
   button.style.setProperty("--step-velocity", String(clamp(velocity, 0, 1)));
   button.setAttribute("aria-pressed", String(active));
-  const number = button.querySelector(".hiccup-head-step-sound-number");
-  if (number) number.textContent = event ? sequenceSoundNumberById.get(sound.id) : "—";
   const previewButton = button.closest(".hiccup-head-step-slot")
     ?.querySelector(".hiccup-head-step-audition");
   if (previewButton) {
@@ -2740,6 +2743,32 @@ function renderCell(button, event) {
   button.setAttribute("aria-label", event
     ? cellLabel(sound, step, velocity)
     : cellLabel(sound, step, 0));
+}
+
+function renderStepSoundLane(lane, event, step) {
+  if (!lane) return;
+  const visual = lane.parentElement;
+  const soundIndex = event ? sequenceSoundIndexById.get(event.sound.id) ?? 0 : 0;
+  const sound = HICCUP_HEAD_SOUNDS[soundIndex];
+  const denominator = Math.max(1, HICCUP_HEAD_SOUNDS.length - 1);
+  const position = soundIndex / denominator;
+  lane.value = String(soundIndex + 1);
+  lane.dataset.active = String(Boolean(event));
+  visual.dataset.active = String(Boolean(event));
+  visual.style.setProperty("--step-sound-position", `${(position * 100).toFixed(3)}%`);
+  visual.style.setProperty(
+    "--step-sound-marker-bottom",
+    `calc(${(position * 100).toFixed(3)}% - ${(position * 5).toFixed(3)}px)`,
+  );
+  visual.style.setProperty("--step-sound-color", sound.color);
+  lane.setAttribute("aria-label", `Sound selector bar for step ${step + 1}`);
+  lane.setAttribute(
+    "aria-valuetext",
+    event ? sequenceSoundLabel(sound) : "Empty step; add volume or choose from the pull-down first",
+  );
+  lane.title = event
+    ? `${sequenceSoundLabel(sound)} — drag vertically to change sound`
+    : `Step ${step + 1} is empty — add volume or choose from the pull-down first`;
 }
 
 function updateGridPlayhead() {
@@ -2759,6 +2788,7 @@ function updateGridPlayhead() {
 function renderPatternColumn(step) {
   const button = gridCellsByStep[step];
   const selector = gridSelectorsByStep[step];
+  const soundLane = gridSoundLanesByStep[step];
   if (!button || !selector) return;
   const event = patternEventForStep(step);
   const rowColor = event?.sound.color ?? "var(--hiccup-head-muted)";
@@ -2771,6 +2801,7 @@ function renderPatternColumn(step) {
   selector.style.setProperty("--row-color", rowColor);
   const slot = selector.closest(".hiccup-head-step-slot");
   slot?.style.setProperty("--row-color", rowColor);
+  renderStepSoundLane(soundLane, event, step);
 
   selector.setAttribute(
     "aria-label",
@@ -3062,7 +3093,16 @@ function compactStepSoundSelector(selector) {
   delete selector.dataset.expanded;
 }
 
-function setStepSound(step, nextSoundId, { audition = false } = {}) {
+function setStepSound(
+  step,
+  nextSoundId,
+  {
+    audition = false,
+    announceState = true,
+    markCustom = true,
+    render = true,
+  } = {},
+) {
   if (!Number.isInteger(step) || step < 0 || step >= sequenceLength) return;
   const currentEvent = patternEventForStep(step);
   const validNextId = sequenceSoundNumberById.has(nextSoundId) ? nextSoundId : "";
@@ -3072,15 +3112,181 @@ function setStepSound(step, nextSoundId, { audition = false } = {}) {
     pattern[validNextId][step] = nextVelocity;
     lastSequenceSoundId = validNextId;
   }
-  markPatternCustom();
-  renderPatternColumn(step);
+  if (markCustom) markPatternCustom();
+  if (render) renderPatternColumn(step);
   if (!validNextId) {
-    announce(`Step ${step + 1} cleared`);
-    return;
+    if (announceState) announce(`Step ${step + 1} cleared`);
+    return { sound: null, step, velocity: 0 };
   }
   const sound = hiccupHeadSound(validNextId);
   if (audition) triggerSound(sound.id, nextVelocity);
+  if (announceState) {
+    announce(`${sequenceSoundLabel(sound)} selected for step ${step + 1}`);
+  }
+  return { sound, step, velocity: nextVelocity };
+}
+
+function sequenceSoundIndexFromPointer(lane, clientY) {
+  const rect = lane?.getBoundingClientRect();
+  if (!rect?.height) return 0;
+  const normalized = clamp((rect.bottom - clientY) / rect.height, 0, 1);
+  return Math.min(
+    HICCUP_HEAD_SOUNDS.length - 1,
+    Math.floor(normalized * HICCUP_HEAD_SOUNDS.length),
+  );
+}
+
+function paintSequenceSoundStep(edit, physicalStep, soundIndex) {
+  const currentEvent = patternEventForStep(physicalStep);
+  if (!currentEvent) return;
+  const safeIndex = clamp(
+    Math.round(Number(soundIndex) || 0),
+    0,
+    Math.max(0, edit.soundIds.length - 1),
+  );
+  const soundId = edit.soundIds[safeIndex];
+  const result = setStepSound(physicalStep, soundId, {
+    announceState: false,
+    markCustom: false,
+    render: false,
+  });
+  if (result) {
+    edit.changedSteps.add(result.step);
+    edit.lastChanged = { soundIndex: safeIndex, step: result.step };
+  }
+}
+
+function renderSequenceSoundPaint(edit) {
+  if (!edit.changedSteps.size) return;
+  markPatternCustom();
+  for (const step of edit.changedSteps) renderPatternColumn(step);
+  edit.changedSteps.clear();
+}
+
+function applySequenceSoundPointer(event, fallbackLane = null) {
+  const edit = sequenceSoundPointer;
+  if (!edit || event.pointerId !== edit.pointerId) return;
+  const target = sequencePaintTargetAtX(edit, event.clientX)
+    ?? (fallbackLane
+      ? { lane: fallbackLane, step: Number(fallbackLane.dataset.step) }
+      : null);
+  if (!target) return;
+  const soundIndex = sequenceSoundIndexFromPointer(target.lane, event.clientY);
+  const previous = edit.lastSample;
+
+  if (target.lane !== edit.activeLane) {
+    edit.activeLane?.classList.remove("is-sound-editing");
+    edit.activeLane?.parentElement?.classList.remove("is-sound-editing");
+    target.lane.classList.add("is-sound-editing");
+    target.lane.parentElement?.classList.add("is-sound-editing");
+    edit.activeLane = target.lane;
+  }
+
+  if (!previous) {
+    paintSequenceSoundStep(edit, target.step, soundIndex);
+  } else if (previous.step === target.step) {
+    if (previous.soundIndex === soundIndex) return;
+    paintSequenceSoundStep(edit, target.step, soundIndex);
+  } else {
+    const distance = Math.abs(target.step - previous.step);
+    const direction = Math.sign(target.step - previous.step);
+    for (let offset = 1; offset <= distance; offset += 1) {
+      const progress = offset / distance;
+      const step = previous.step + direction * offset;
+      const interpolatedSoundIndex = Math.round(
+        previous.soundIndex + (soundIndex - previous.soundIndex) * progress,
+      );
+      paintSequenceSoundStep(edit, step, interpolatedSoundIndex);
+    }
+  }
+
+  edit.lastSample = { soundIndex, step: target.step };
+  renderSequenceSoundPaint(edit);
+}
+
+function handleSequenceSoundPointerDown(event) {
+  const grid = $("sequenceGrid");
+  const lane = event.target.closest?.(".hiccup-head-step-sound-lane");
+  if (!lane || !grid.contains(lane)) return;
+  if (event.button !== undefined && event.button !== 0) return;
+  if (event.isPrimary === false) return;
+  event.preventDefault();
+  lane.classList.add("is-sound-editing");
+  lane.parentElement?.classList.add("is-sound-editing");
+  grid.classList.add("is-sound-painting");
+  sequenceSoundPointer = {
+    activeLane: lane,
+    changedSteps: new Set(),
+    lastChanged: null,
+    lastSample: null,
+    pointerId: event.pointerId,
+    soundIds: HICCUP_HEAD_SOUNDS.map(({ id }) => id),
+    targets: gridSoundLanesByStep.map((targetLane, step) => ({
+      lane: targetLane,
+      rect: targetLane.getBoundingClientRect(),
+      step,
+    })),
+  };
+  lane.focus({ preventScroll: true });
+  grid.setPointerCapture?.(event.pointerId);
+  applySequenceSoundPointer(event, lane);
+}
+
+function handleSequenceSoundPointerMove(event) {
+  if (!sequenceSoundPointer || event.pointerId !== sequenceSoundPointer.pointerId) return;
+  event.preventDefault();
+  applySequenceSoundPointer(event);
+}
+
+function handleSequenceSoundPointerEnd(event) {
+  const edit = sequenceSoundPointer;
+  if (!edit || event.pointerId !== edit.pointerId) return;
+  if (event.type === "pointerup") applySequenceSoundPointer(event);
+  sequenceSoundPointer = null;
+  const grid = $("sequenceGrid");
+  edit.activeLane?.classList.remove("is-sound-editing");
+  edit.activeLane?.parentElement?.classList.remove("is-sound-editing");
+  grid.classList.remove("is-sound-painting");
+  if (grid.hasPointerCapture?.(event.pointerId)) {
+    grid.releasePointerCapture?.(event.pointerId);
+  }
+  if (!edit.lastChanged || event.type === "pointercancel") return;
+  const { soundIndex, step } = edit.lastChanged;
+  const sound = HICCUP_HEAD_SOUNDS[soundIndex];
   announce(`${sequenceSoundLabel(sound)} selected for step ${step + 1}`);
+}
+
+function setSoundFromLaneControl(lane, { announceState = false } = {}) {
+  if (!lane) return;
+  const step = Number(lane.dataset.step);
+  const currentEvent = patternEventForStep(step);
+  if (!currentEvent) {
+    renderStepSoundLane(lane, null, step);
+    if (announceState) {
+      announce(`Step ${step + 1} is empty; add volume or choose from the pull-down first`);
+    }
+    return;
+  }
+  const soundIndex = clamp(
+    Math.round(Number(lane.value) || 1) - 1,
+    0,
+    HICCUP_HEAD_SOUNDS.length - 1,
+  );
+  setStepSound(step, HICCUP_HEAD_SOUNDS[soundIndex].id, {
+    announceState,
+  });
+}
+
+function handleSequenceSoundLaneInput(event) {
+  const lane = event.target.closest?.(".hiccup-head-step-sound-lane");
+  if (!lane || !$("sequenceGrid").contains(lane) || sequenceSoundPointer) return;
+  setSoundFromLaneControl(lane);
+}
+
+function handleSequenceSoundLaneChange(event) {
+  const lane = event.target.closest?.(".hiccup-head-step-sound-lane");
+  if (!lane || !$("sequenceGrid").contains(lane) || sequenceSoundPointer) return;
+  setSoundFromLaneControl(lane, { announceState: true });
 }
 
 function handleSequenceGridChange(event) {
@@ -3114,17 +3320,29 @@ function sequenceColumnsForLength(length) {
   return safeLength;
 }
 
+function sequenceSoundBankGradient() {
+  const count = Math.max(1, HICCUP_HEAD_SOUNDS.length);
+  const stops = HICCUP_HEAD_SOUNDS.flatMap((sound, index) => {
+    const start = ((index / count) * 100).toFixed(3);
+    const end = (((index + 1) / count) * 100).toFixed(3);
+    return [`${sound.color} ${start}%`, `${sound.color} ${end}%`];
+  });
+  return `linear-gradient(to top, ${stops.join(", ")})`;
+}
+
 function buildSequenceGrid() {
   const grid = $("sequenceGrid");
   const fragment = document.createDocumentFragment();
   paintedGridStep = -1;
   gridCellsByStep = Array(sequenceLength).fill(null);
   gridSelectorsByStep = Array(sequenceLength).fill(null);
+  gridSoundLanesByStep = Array(sequenceLength).fill(null);
   gridTabStop = null;
   const columns = sequenceColumnsForLength(sequenceLength);
   grid.style.setProperty("--hiccup-head-sequence-steps", String(sequenceLength));
   grid.style.setProperty("--hiccup-head-sequence-columns", String(columns));
   grid.style.setProperty("--hiccup-head-sequence-sounds", "1");
+  grid.style.setProperty("--hiccup-head-sound-bank-gradient", sequenceSoundBankGradient());
   grid.dataset.sequenceDensity = columns > 32 ? "micro" : columns > 16 ? "dense" : "roomy";
   grid.setAttribute("aria-rowcount", "1");
   grid.setAttribute("aria-colcount", String(sequenceLength));
@@ -3152,9 +3370,6 @@ function buildSequenceGrid() {
       const volumeLane = document.createElement("span");
       volumeLane.className = "hiccup-head-step-volume-lane";
       volumeLane.setAttribute("aria-hidden", "true");
-      const soundNumber = document.createElement("span");
-      soundNumber.className = "hiccup-head-step-sound-number";
-      soundNumber.setAttribute("aria-hidden", "true");
       const preview = document.createElement("button");
       preview.className = "hiccup-head-step-audition";
       preview.type = "button";
@@ -3164,18 +3379,32 @@ function buildSequenceGrid() {
         event.stopPropagation();
         previewSequenceStep(step);
       });
-      cell.append(volumeLane, soundNumber);
+      cell.append(volumeLane);
       const selector = document.createElement("select");
       selector.className = "hiccup-head-step-sound-select";
       selector.dataset.step = String(step);
       const event = patternEventForStep(step);
       selector.replaceChildren(...compactSoundOptions(event?.sound.id ?? ""));
-      // Match keyboard focus order to the visible stack: hit, hear, then choose.
+      const soundLane = document.createElement("input");
+      soundLane.className = "hiccup-head-step-sound-lane";
+      soundLane.type = "range";
+      soundLane.min = "1";
+      soundLane.max = String(HICCUP_HEAD_SOUNDS.length);
+      soundLane.step = "1";
+      soundLane.dataset.step = String(step);
+      soundLane.setAttribute("aria-orientation", "vertical");
+      soundLane.setAttribute("aria-describedby", "sequenceStepHelp");
+      const soundLaneShell = document.createElement("div");
+      soundLaneShell.className = "hiccup-head-step-sound-lane-shell";
+      soundLaneShell.append(soundLane);
+      // Match keyboard focus order to the visible stack: hit, hear, choose,
+      // then the redundant but fast sound-paint control.
       // Preview stays a sibling because nesting a button inside the hit button
       // would be invalid interactive markup.
-      slot.append(cell, preview, selector);
+      slot.append(cell, preview, selector, soundLaneShell);
       gridCellsByStep[step] = cell;
       gridSelectorsByStep[step] = selector;
+      gridSoundLanesByStep[step] = soundLane;
       if (step === 0) gridTabStop = cell;
       row.append(slot);
     }
@@ -3217,7 +3446,7 @@ function setSequenceLength(value, { announceState = true } = {}) {
   buildSequenceGrid();
   $("sequenceGrid").setAttribute(
     "aria-label",
-    `One-lane Hiccup Head sequencer with ${sequenceLength} steps. Each step has one velocity trigger and one sound selector.`,
+    `One-lane Hiccup Head sequencer with ${sequenceLength} steps. Each step has one volume lane, one sound pull-down, and one sound selector bar.`,
   );
   updateGridPlayhead();
   $("playState").textContent = sequencePlaying
@@ -7892,11 +8121,17 @@ function bindControls() {
 
   $("sequenceGrid").addEventListener("click", handleSequenceGridClick);
   $("sequenceGrid").addEventListener("change", handleSequenceGridChange);
+  $("sequenceGrid").addEventListener("input", handleSequenceSoundLaneInput);
+  $("sequenceGrid").addEventListener("change", handleSequenceSoundLaneChange);
   $("sequenceGrid").addEventListener("pointerdown", handleSequenceGridPickerOpen);
   $("sequenceGrid").addEventListener("pointerdown", handleSequenceVelocityPointerDown);
+  $("sequenceGrid").addEventListener("pointerdown", handleSequenceSoundPointerDown);
   $("sequenceGrid").addEventListener("pointermove", handleSequenceVelocityPointerMove);
+  $("sequenceGrid").addEventListener("pointermove", handleSequenceSoundPointerMove);
   $("sequenceGrid").addEventListener("pointerup", handleSequenceVelocityPointerEnd);
+  $("sequenceGrid").addEventListener("pointerup", handleSequenceSoundPointerEnd);
   $("sequenceGrid").addEventListener("pointercancel", handleSequenceVelocityPointerEnd);
+  $("sequenceGrid").addEventListener("pointercancel", handleSequenceSoundPointerEnd);
   $("sequenceGrid").addEventListener("focusin", handleSequenceGridPickerOpen);
   $("sequenceGrid").addEventListener("focusout", handleSequenceGridPickerClose);
   $("sequenceGrid").addEventListener("keydown", handleGridKeydown);

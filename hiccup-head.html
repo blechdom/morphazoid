@@ -13,7 +13,7 @@
     <link rel="preload" href="assets/audio/hiccup-head-emt140-warm-plate.wav?v=hiccup-head-ir-20260831-2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="preload" href="assets/audio/hiccup-head-york-minster-warm-hall.wav?v=hiccup-head-ir-20260831-2" as="fetch" type="audio/wav" crossorigin="anonymous" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-skin-row-20260903-1" />
+    <link rel="stylesheet" href="hiccup-head.css?v=hiccup-head-sequencer-20260904-1" />
   </head>
   <body class="hiccup-head-page">
     <header class="masthead">
@@ -139,7 +139,7 @@
           </header>
 
           <p class="sr-only" id="sequenceStepHelp">
-            Click at a height inside a step to set continuous volume, or keep holding and sweep across steps to paint their volumes; the bottom edge is zero and removes a sound. The filled height permanently shows volume. Enter or Space adds an empty step at seventy-two percent. Up and Down change volume by five percent, Shift plus Up or Down changes it by ten percent, and Delete, Backspace, or zero removes it. Use the separate Hear button to preview without editing. The pull-down below each step shows its sound title.
+            Click at a height inside the upper rectangle to set continuous volume, or keep holding and sweep across steps to paint their volumes; the bottom edge is zero and removes a sound. The filled height permanently shows volume. Enter or Space adds an empty step at seventy-two percent. Up and Down change volume by five percent, Shift plus Up or Down changes it by ten percent, and Delete, Backspace, or zero removes it. Use the separate Hear button to preview without editing. The pull-down below each step shows its sound title. The lower sound selector bar spans all fifty-two sounds from bottom to top; drag vertically to choose one, or keep holding and sweep across bars to replace loaded sounds without changing step volumes. Empty steps stay empty.
           </p>
 
           <div class="hiccup-head-grid-scroll" tabindex="0" aria-label="Horizontally scrollable monophonic sequence lane with any length from one to sixty-four steps">
@@ -147,7 +147,7 @@
               class="hiccup-head-sequence-grid"
               id="sequenceGrid"
               role="grid"
-              aria-label="One Hiccup Head sequence lane with sixteen steps. Click at a height to set volume or hold and sweep across steps to paint a volume shape; the bottom edge removes a sound. Each step has a sound selector for choosing among the face, throat, breath, tongue, tooth, and mouth sounds. Change the length control to any whole number from one through sixty-four."
+              aria-label="One Hiccup Head sequence lane with sixteen steps. Paint volume in the upper rectangles and choose precise sounds with the pull-downs. The lower selector bars span all fifty-two sounds from bottom to top; hold and sweep across them to paint sounds while preserving volume. Change the length control to any whole number from one through sixty-four."
               aria-rowcount="1"
               aria-colcount="16"
             ></div>
@@ -509,13 +509,13 @@
       the nose to change nasal tone, either ear for stereo width, either side-hair tip in two dimensions for its own feedback amount and delay time, and the tongue tip beyond the lips.
       Face presets and whole-face mutation move the anatomy, while the eyebrows, four effect switches, and their live face-controlled amounts stay unchanged.
       Drag the mouth anatomy beyond human ranges. Set the sequence to any whole-number length from one through
-      sixty-four steps. Each column holds one velocity trigger with a sound-title selector directly below it. Click at a height to set its volume, or hold and sweep across steps to paint volumes without releasing; the bottom removes a note. The filled height stays visible inside every step. Changing the selector replaces only that step's sound.
+      sixty-four steps. Each column holds one upper volume rectangle, a sound-title pull-down, and a lower sound selector bar. Click at a height in the upper rectangle to set its volume, or hold and sweep across steps to paint volumes without releasing; the bottom removes a note. The filled height stays visible inside every step. The lower bar spans all fifty-two sounds from bottom to top; drag it or sweep across multiple bars to replace loaded sounds without changing their volumes. Empty steps stay empty.
       The voice collection can cycle or randomly choose among one to eight mutable characters, one per event.
     </p>
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
 
     <script type="module" src="nav.js?v=catalog-20260829-1"></script>
     <link rel="modulepreload" href="src/hiccup-head-processor.js?v=hiccup-head-tract-20260902-4" />
-    <script type="module" src="hiccup-head-app.js?v=hiccup-head-direct-steps-20260903-6"></script>
+    <script type="module" src="hiccup-head-app.js?v=hiccup-head-sequencer-20260904-1"></script>
   </body>
 </html>

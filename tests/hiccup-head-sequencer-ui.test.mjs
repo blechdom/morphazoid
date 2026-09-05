@@ -37,13 +37,14 @@ function pixelValues(source, property) {
   return [...source.matchAll(pattern)].map((match) => Number(match[1]));
 }
 
-test("the sequencer stays one tall, unwrapped, zero-gap lane at every length", async () => {
+test("the sequencer stays one compact, unwrapped, zero-gap lane at every length", async () => {
   const { app, css } = await readSequencerSources();
   const gridRules = cssRulesContaining(css, ".hiccup-head-sequence-grid");
   const rowRules = cssRulesContaining(css, ".hiccup-head-grid-row");
   const slotRules = cssRulesContaining(css, ".hiccup-head-step-slot");
   const cellRules = cssRulesContaining(css, ".hiccup-head-step-cell");
   const barRules = cssRulesContaining(css, ".hiccup-head-step-volume-lane");
+  const soundLaneRules = cssRulesContaining(css, ".hiccup-head-step-sound-lane");
   const laneRules = `${gridRules}\n${rowRules}`;
   const columnsForLength = functionNamed(app, "sequenceColumnsForLength");
 
@@ -78,14 +79,19 @@ test("the sequencer stays one tall, unwrapped, zero-gap lane at every length", a
   assert.match(barRules, /bottom\s*:\s*0/);
   assert.match(
     cellRules,
-    /min-height\s*:\s*208px/,
-    "desktop step rectangles should be as tall as the WebGPU303-inspired lane",
+    /min-height\s*:\s*136px/,
+    "desktop volume rectangles should stay substantial after making room for sound paint",
   );
   assert.match(
     cellRules,
-    /min-height\s*:\s*1(?:4\d|5\d|6\d)px/,
-    "small/coarse screens may use a roughly 150px tall step without collapsing it",
+    /min-height\s*:\s*104px/,
+    "small/coarse screens should keep a useful volume gesture height",
   );
+  assert.match(slotRules, /grid-template-rows\s*:\s*136px[^;]*--step-selector-height[^;]*--step-sound-lane-height/);
+  assert.match(slotRules, /--step-sound-lane-height\s*:\s*72px/);
+  assert.match(slotRules, /--step-sound-lane-height\s*:\s*64px/);
+  assert.match(soundLaneRules, /min-height\s*:\s*44px/);
+  assert.match(soundLaneRules, /touch-action\s*:\s*none/);
 });
 
 test("continuous step volume uses zero as the only off state and draws only the fill", async () => {
@@ -134,10 +140,11 @@ test("continuous step volume uses zero as the only off state and draws only the 
   assert.doesNotMatch(functionNamed(app, "renderCell"), /button\.title\s*=/);
 });
 
-test("each step shows its sound number once and its collapsed choice reads the title", async () => {
-  const { app } = await readSequencerSources();
+test("step rectangles stay number-free while collapsed choices retain sound titles", async () => {
+  const { app, css } = await readSequencerSources();
   const compactOptions = functionNamed(app, "compactSoundOptions");
   const gridBuilder = functionNamed(app, "buildSequenceGrid");
+  const cellRenderer = functionNamed(app, "renderCell");
   const padBuilder = functionNamed(app, "buildPadGrid");
 
   assert.ok(compactOptions, "compactSoundOptions must remain independently testable");
@@ -150,11 +157,61 @@ test("each step shows its sound number once and its collapsed choice reads the t
     "the collapsed value should show the title without repeating its numeric ID",
   );
   assert.ok(gridBuilder, "buildSequenceGrid must remain independently testable");
-  assert.match(gridBuilder, /soundNumber\.className\s*=\s*["']hiccup-head-step-sound-number["']/);
+  assert.doesNotMatch(gridBuilder, /soundNumber|hiccup-head-step-sound-number/);
+  assert.doesNotMatch(cellRenderer, /hiccup-head-step-sound-number/);
+  assert.doesNotMatch(css, /\.hiccup-head-step-sound-number/);
   assert.ok(padBuilder, "buildPadGrid must remain independently testable");
   assert.match(padBuilder, /sequenceSoundNumberById\.get\(sound\.id\)/);
   assert.match(padBuilder, /(?:number|badge)\.textContent\s*=\s*sequenceSoundNumberById\.get\(sound\.id\)/i);
   assert.match(padBuilder, /button\.append\([^)]*(?:number|badge)/i);
+});
+
+test("the lower selector bar maps and paints all sounds without changing volume", async () => {
+  const { app, css, html } = await readSequencerSources();
+  const gridBuilder = functionNamed(app, "buildSequenceGrid");
+  const laneRenderer = functionNamed(app, "renderStepSoundLane");
+  const pointerMapping = functionNamed(app, "sequenceSoundIndexFromPointer");
+  const stepPainter = functionNamed(app, "paintSequenceSoundStep");
+  const pointerPainter = functionNamed(app, "applySequenceSoundPointer");
+  const pointerStart = functionNamed(app, "handleSequenceSoundPointerDown");
+  const laneControl = functionNamed(app, "setSoundFromLaneControl");
+  const soundSetter = functionNamed(app, "setStepSound");
+  const soundLaneRules = cssRulesContaining(css, ".hiccup-head-step-sound-lane");
+
+  assert.match(gridBuilder, /soundLane\.className\s*=\s*["']hiccup-head-step-sound-lane["']/);
+  assert.match(gridBuilder, /soundLane\.type\s*=\s*["']range["']/);
+  assert.match(gridBuilder, /soundLane\.min\s*=\s*["']1["']/);
+  assert.match(gridBuilder, /soundLane\.max\s*=\s*String\(HICCUP_HEAD_SOUNDS\.length\)/);
+  assert.match(gridBuilder, /soundLane\.setAttribute\(\s*["']aria-orientation["']\s*,\s*["']vertical["']\s*\)/);
+  assert.match(gridBuilder, /soundLaneShell\.className\s*=\s*["']hiccup-head-step-sound-lane-shell["']/);
+  assert.match(gridBuilder, /soundLaneShell\.append\(soundLane\)/);
+  assert.match(gridBuilder, /slot\.append\(cell, preview, selector, soundLaneShell\)/);
+  assert.match(gridBuilder, /gridSoundLanesByStep\[step\]\s*=\s*soundLane/);
+
+  assert.match(laneRenderer, /sequenceSoundIndexById\.get\(event\.sound\.id\)/);
+  assert.match(laneRenderer, /--step-sound-position/);
+  assert.match(laneRenderer, /aria-valuetext/);
+  assert.match(pointerMapping, /\(rect\.bottom - clientY\) \/ rect\.height/);
+  assert.match(pointerMapping, /Math\.floor\(normalized \* HICCUP_HEAD_SOUNDS\.length\)/);
+  assert.match(pointerStart, /soundIds:\s*HICCUP_HEAD_SOUNDS\.map\(\(\{ id \}\) => id\)/);
+  assert.match(pointerPainter, /sequencePaintTargetAtX\(edit, event\.clientX\)/);
+  assert.match(pointerPainter, /for \(let offset = 1; offset <= distance; offset \+= 1\)/);
+  assert.match(pointerPainter, /previous\.soundIndex \+ \(soundIndex - previous\.soundIndex\) \* progress/);
+  assert.match(stepPainter, /edit\.soundIds\[safeIndex\]/);
+  assert.match(stepPainter, /patternEventForStep\(physicalStep\)/);
+  assert.match(stepPainter, /if \(!currentEvent\) return/);
+  assert.match(stepPainter, /announceState:\s*false/);
+  assert.match(stepPainter, /markCustom:\s*false/);
+  assert.match(stepPainter, /render:\s*false/);
+  assert.match(soundSetter, /const nextVelocity = currentEvent\?\.velocity \?\? 0\.72/);
+  assert.match(laneControl, /patternEventForStep\(step\)/);
+  assert.match(laneControl, /if \(!currentEvent\)[\s\S]*?renderStepSoundLane\(lane, null, step\)/);
+  assert.match(soundLaneRules, /--hiccup-head-sound-bank-gradient/);
+  assert.match(soundLaneRules, /writing-mode\s*:\s*vertical-lr/);
+  assert.match(html, /lower sound selector bar spans all fifty-two sounds/i);
+  assert.match(app, /addEventListener\("pointerdown", handleSequenceSoundPointerDown\)/);
+  assert.match(app, /addEventListener\("pointermove", handleSequenceSoundPointerMove\)/);
+  assert.match(app, /addEventListener\("pointerup", handleSequenceSoundPointerEnd\)/);
 });
 
 test("a dedicated step audition previews audio without editing the pattern", async () => {
