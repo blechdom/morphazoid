@@ -68,25 +68,34 @@ test("Creaturazoid exposes three horned, feather-winged anatomical forms and act
   assert.match(html, /id="liveStatus" aria-live="polite"/);
 });
 
-test("the page describes and edits an explicitly monophonic call grid", () => {
+test("the page describes and builds one monophonic dual-lane step row", () => {
   assert.match(html, /Creaturazoid monophonic call sequencer/);
   assert.match(html, /ONE AIRWAY/);
-  assert.match(
-    html,
-    /Each column can contain one call only; choosing another call replaces it\./,
-  );
+  assert.match(html, /continuous volume/i);
+  assert.match(html, /exact call (?:from its dropdown|selector)/i);
+  assert.match(html, /lower sound selector/i);
+  assert.match(html, /(?:drag|paint) horizontally/i);
   assert.match(html, /Each step holds at most one onset/);
   assert.match(html, /Empty sequence columns let long calls keep sounding/);
-  assert.match(html, /id="sequenceGrid"[\s\S]*role="grid"/);
-  assert.match(html, /aria-rowcount="51"/);
-  assert.match(html, /aria-colcount="33"/);
-  assert.match(html, /id="sequenceLength"[^>]+aria-labelledby="sequenceLengthLabel"/);
+  assert.match(html, /id="sequenceGrid"[^>]+role="grid"[^>]+aria-describedby="sequenceStepHelp"/);
+  assert.match(html, /aria-rowcount="1"/);
+  assert.match(html, /aria-colcount="32"/);
+  assert.match(html, /id="sequenceLengthEntry"[^>]+min="1"[^>]+max="64"[^>]+value="32"/);
+  assert.match(html, /id="sequenceLength"[^>]+min="1"[^>]+max="64"[^>]+value="32"/);
 
-  assert.match(app, /pattern = cycleCreaturazoidStep\(pattern, step, soundId\);/);
-  assert.match(app, /any previous call was replaced/);
-  assert.match(app, /step \$\{currentStep \+ 1\}`\} · monophonic/);
-  assert.match(app, /headerRow\.setAttribute\("role", "row"\);/);
-  assert.match(app, /row\.setAttribute\("role", "row"\);/);
+  const gridBuilder = standaloneFunctionBody(app, "buildSequenceGrid");
+  assert.match(gridBuilder, /className = "creaturazoid-grid-row creaturazoid-grid-single-lane"/);
+  assert.match(gridBuilder, /row\.setAttribute\("role", "row"\)/);
+  assert.match(gridBuilder, /for \(let step = 0; step < pattern\.length; step \+= 1\)/);
+  assert.match(gridBuilder, /slot\.className = "creaturazoid-step-slot"/);
+  assert.match(gridBuilder, /slot\.setAttribute\("role", "gridcell"\)/);
+  assert.match(gridBuilder, /cell\.className = "creaturazoid-step-cell"/);
+  assert.match(gridBuilder, /selector\.className = "creaturazoid-step-sound-select"/);
+  assert.match(gridBuilder, /soundLane\.className = "creaturazoid-step-sound-lane"/);
+  assert.match(gridBuilder, /slot\.append\(cell, preview, selector, soundLaneShell\)/);
+  assert.doesNotMatch(gridBuilder, /headerRow|creaturazoid-grid-cell/);
+  assert.match(app, /pattern = setCreaturazoidStep\(/);
+  assert.match(app, /monophonic/);
 });
 
 test("sequence presets recall length, tempo, and swing while manual timing becomes custom", () => {
@@ -103,11 +112,13 @@ test("sequence presets recall length, tempo, and swing while manual timing becom
   assert.match(loadPreset, /sequencePresetId:\s*preset\.id/);
   assert.match(loadPreset, /syncControls\(\);/);
   assert.match(loadPreset, /buildSequenceGrid\(\{ preserveScroll: false \}\);/);
-  assert.match(loadPreset, /if \(sequenceRunning\) resetSequenceSchedule/);
+  assert.doesNotMatch(loadPreset, /resetSequenceSchedule|silencePhysicalModel|stopSequence/);
   assert.match(loadPreset, /BPM[\s\S]*percent swing/);
 
   const sync = standaloneFunctionBody(app, "syncControls");
   assert.match(sync, /\$\("sequenceLength"\)\.value = String\(pattern\.length\)/);
+  assert.match(sync, /\$\("sequenceLengthEntry"\)\.value = String\(pattern\.length\)/);
+  assert.match(sync, /--knob-turn/);
   assert.match(sync, /\$\("tempo"\)\.value = String\(state\.tempo\)/);
   assert.match(sync, /\$\("swing"\)\.value = String\(state\.swing\)/);
   assert.match(sync, /button\.classList\.toggle\("is-active", active\)/);
@@ -271,18 +282,19 @@ test("the instrument uses Morphazoid black surfaces and Hiccup-style rectangular
   for (const color of ["#baff54", "#e3ff9f", "#59f1df", "#b6fff5", "#ff5f87", "#ffcf68", "#d08cff", "#64cfff", "#ff7b6f"]) {
     assert.match(`${css}\n${model}`, new RegExp(color), `${color} must survive from the Hybrinx palette`);
   }
-  assert.match(css, /grid-template-columns:\s*108px repeat\(var\(--sequence-steps\), minmax\(32px, 1fr\)\)/);
-  assert.match(css, /grid-auto-rows:\s*29px/);
-  assert.match(css, /\.creaturazoid-grid-cell\s*\{[\s\S]*?border-radius:\s*0/);
-  assert.match(css, /\.creaturazoid-grid-cell\[data-level="3"\]::before/);
-  assert.match(css, /\.creaturazoid-grid-cell\.is-sustain::after/);
+  assert.match(css, /\.creaturazoid-grid-single-lane\s*\{[\s\S]*?grid-template-columns:\s*repeat\(var\(--sequence-columns, 32\), minmax\(0, 1fr\)\)[\s\S]*?gap:\s*0/);
+  assert.match(css, /\.creaturazoid-step-cell\s*\{[\s\S]*?min-height:\s*136px[\s\S]*?border-radius:\s*0/);
+  assert.match(css, /\.creaturazoid-step-volume-lane::before\s*\{[\s\S]*?bottom:\s*0[\s\S]*?height:\s*calc\(var\(--step-velocity\) \* 100%\)/);
+  assert.match(css, /\.creaturazoid-step-sound-lane-shell\s*\{[\s\S]*?min-height:\s*44px/);
+  assert.match(css, /input\.creaturazoid-step-sound-lane\s*\{[\s\S]*?writing-mode:\s*vertical-lr[\s\S]*?touch-action:\s*none/);
   assert.match(css, /\.creaturazoid-preset-deck > \.creaturazoid-body-metrics\s*\{/);
   assert.match(css, /\.creaturazoid-body-metrics\s+output\s*\{/);
-  assert.match(app, /cell\.dataset\.level = String\(level\)/);
-  assert.match(app, /cell\.style\.setProperty\("--row-color", sound\.color\)/);
-  assert.match(css, /grid-template-columns:\s*172px 118px minmax\(180px, 1fr\)/);
-  assert.match(css, /\.creaturazoid-transport\s*\{[\s\S]*?width:\s*172px/);
-  assert.match(css, /@media \(max-width: 680px\)[\s\S]*?\.creaturazoid-transport\s*\{[\s\S]*?width:\s*144px/);
+  assert.doesNotMatch(app, /cell\.dataset\.level = String\(level\)/);
+  assert.match(app, /selector\.style\.setProperty\("--row-color", rowColor\)/);
+  assert.match(app, /selector\.closest\("\.creaturazoid-step-slot"\)\?\.style\.setProperty\("--row-color", rowColor\)/);
+  assert.match(css, /grid-template-columns:\s*96px 132px minmax\(180px, 1fr\)/);
+  assert.match(css, /\.creaturazoid-transport\s*\{[\s\S]*?width:\s*96px/);
+  assert.match(css, /@media \(max-width: 680px\)[\s\S]*?\.creaturazoid-step-cell\s*\{[\s\S]*?min-height:\s*104px/);
   assert.match(app, /sequenceRunning \? "Stop" : "Play"/);
 });
 

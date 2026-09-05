@@ -11,7 +11,7 @@
     <title>Creaturazoid · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="creaturazoid.css?v=creaturazoid-20260903-11" />
+    <link rel="stylesheet" href="creaturazoid.css?v=creaturazoid-sequencer-20260904-1" />
   </head>
   <body class="creaturazoid-page">
     <header class="masthead">
@@ -88,9 +88,9 @@
         <section class="creaturazoid-sequencer" aria-labelledby="sequencerTitle">
           <header class="creaturazoid-sequencer-header">
             <div class="creaturazoid-transport">
-              <button id="playButton" type="button" aria-pressed="false" data-primary-transport>
+              <button id="playButton" type="button" aria-pressed="false" aria-label="Play Creaturazoid sequence" title="Play sequence" data-primary-transport>
                 <span class="creaturazoid-play-glyph" aria-hidden="true"></span>
-                <span><b id="playLabel">Play</b><small id="playState">32 steps · 126 BPM</small></span>
+                <span class="creaturazoid-transport-copy"><b id="playLabel">Play</b><small id="playState">32 steps · 126 BPM</small></span>
               </button>
               <button id="restartButton" type="button" title="Back to first step" aria-label="Back to first step"><span aria-hidden="true">|◀</span></button>
             </div>
@@ -98,12 +98,21 @@
             <h2 class="sr-only" id="sequencerTitle">Creaturazoid monophonic call sequencer</h2>
 
             <div class="creaturazoid-sequence-length" role="group" aria-labelledby="sequenceLengthLabel">
-              <span><b id="sequenceLengthLabel">Length</b><output id="sequenceLengthOut" for="sequenceLength">32</output></span>
-              <input id="sequenceLength" type="range" min="1" max="64" step="1" value="32" aria-labelledby="sequenceLengthLabel" aria-controls="sequenceGrid" />
+              <label for="sequenceLengthEntry" id="sequenceLengthLabel">Length</label>
+              <span class="creaturazoid-sequence-length-inputs">
+                <input id="sequenceLengthEntry" type="number" min="1" max="64" step="1" value="32" inputmode="numeric" aria-label="Sequence length in steps" aria-controls="sequenceGrid" />
+                <label class="creaturazoid-length-knob" for="sequenceLength" title="Sequence length">
+                  <input id="sequenceLength" type="range" min="1" max="64" step="1" value="32" aria-label="Sequence length" aria-controls="sequenceGrid" />
+                  <span class="creaturazoid-length-knob-face" aria-hidden="true"></span>
+                </label>
+              </span>
               <div class="creaturazoid-length-presets" aria-label="Sequence length presets">
+                <button type="button" data-sequence-length="4" aria-pressed="false">4</button>
                 <button type="button" data-sequence-length="8" aria-pressed="false">8</button>
                 <button type="button" data-sequence-length="16" aria-pressed="false">16</button>
+                <button type="button" data-sequence-length="24" aria-pressed="false">24</button>
                 <button class="is-active" type="button" data-sequence-length="32" aria-pressed="true">32</button>
+                <button type="button" data-sequence-length="48" aria-pressed="false">48</button>
                 <button type="button" data-sequence-length="64" aria-pressed="false">64</button>
               </div>
             </div>
@@ -129,14 +138,18 @@
             </label>
           </header>
 
-          <div class="creaturazoid-grid-scroll" tabindex="0" aria-label="Scrollable animal-call sequence grid">
+          <p class="sr-only" id="sequenceStepHelp">
+            Each step is one vertical slot. Paint continuous volume in the upper rectangle, or choose an exact call from its dropdown. The lower sound selector bar spans all fifty sounds from sound one at the bottom to sound fifty at the top; drag vertically to replace a loaded sound, or keep holding and drag horizontally across bars without changing step volumes. Empty steps stay empty until you add volume above or choose from the dropdown. When Audio is on and the sequence is stopped, use the audition button to hear a step without changing it. Arrow Left and Arrow Right move between upper volume cells; Arrow Up and Arrow Down change volume. Delete, Backspace, or zero clears a step.
+          </p>
+          <div class="creaturazoid-grid-scroll" tabindex="0" aria-label="Scrollable animal-call sequence lane">
             <div
               class="creaturazoid-sequence-grid"
               id="sequenceGrid"
               role="grid"
-              aria-label="Creature calls by sequence step. Each column can contain one call only; choosing another call replaces it."
-              aria-rowcount="51"
-              aria-colcount="33"
+              aria-label="Creaturazoid sequence. Every step has an upper continuous volume lane, an exact call selector, a lower vertical sound selector, and an audition button."
+              aria-describedby="sequenceStepHelp"
+              aria-rowcount="1"
+              aria-colcount="32"
             ></div>
           </div>
         </section>
@@ -224,13 +237,13 @@
       </div>
 
       <p class="sr-only" id="canvasInstructions">
-        Choose a persistent body shape, then use the labeled pads or computer keys to play voices and body percussion through it. Body size, roundness, jaw plan, ear type, tail morphology, source tissue, throat, cavity, and outlet stay consistent when the gesture or rhythm changes. Each sound exaggerates its matching anatomy: horns recoil, ears twitch and widen stereo, feathered wings flare or ruffle, slit eyes tense, the body-specific toothed or transiently beaked mouth opens, the Hybrinx tongue visibly reshapes the physical airway, the belly and lungs pant, the neck vibrates, forelegs stomp, hooves alternate, claws rake, and the persistent tail whips. Louder onsets deform the creature farther and the Hybrinx colors change with the rhythm. Drag the restrained opaque anatomy controls: lungs change pressure, the muzzle changes aperture, ears change stereo spread, the tongue changes reach, the neck changes tract length, cheek arches change cavity and roughness, the throat changes call retarget time, and the wings set vibrato and call-local Speed and Depth modulation. Native multi-peak contours remain intact; grid playback crops only the weak lead-in so the audible body lands on its step. Empty sequence columns let long calls keep sounding; a later occupied column retargets the same body into its next voice or percussion gesture. Each step holds at most one onset. Space starts and stops the sequence and Escape silences the creature.
+        Choose a persistent body shape, then use the labeled pads or computer keys to play voices and body percussion through it. Body size, roundness, jaw plan, ear type, tail morphology, source tissue, throat, cavity, and outlet stay consistent when the gesture or rhythm changes. Each sound exaggerates its matching anatomy: horns recoil, ears twitch and widen stereo, feathered wings flare or ruffle, slit eyes tense, the body-specific toothed or transiently beaked mouth opens, the Hybrinx tongue visibly reshapes the physical airway, the belly and lungs pant, the neck vibrates, forelegs stomp, hooves alternate, claws rake, and the persistent tail whips. Louder onsets deform the creature farther and the Hybrinx colors change with the rhythm. Drag the restrained opaque anatomy controls: lungs change pressure, the muzzle changes aperture, ears change stereo spread, the tongue changes reach, the neck changes tract length, cheek arches change cavity and roughness, the throat changes call retarget time, and the wings set vibrato and call-local Speed and Depth modulation. In the sequence, paint continuous volume in each upper rectangle or choose the exact call from the dropdown. The lower vertical sound bars replace loaded calls without changing their volumes; the bottom selects sound one and the top selects sound fifty, while empty steps stay empty. When Audio is on and the sequence is stopped, Audition hears a step without changing it. Native multi-peak contours remain intact; grid playback crops only the weak lead-in so the audible body lands on its step. Empty sequence columns let long calls keep sounding; a later occupied column retargets the same body into its next voice or percussion gesture. Each step holds at most one onset. Space starts and stops the sequence and Escape silences the creature.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
     <script type="module" src="nav.js?v=catalog-20260902-1"></script>
     <link rel="modulepreload" href="src/syrinx-processor.js?v=creaturazoid-body-20260902-2" />
-    <script type="module" src="creaturazoid-app.js?v=creaturazoid-20260903-15"></script>
+    <script type="module" src="creaturazoid-app.js?v=creaturazoid-sequencer-20260904-1"></script>
   </body>
 </html>

@@ -19,7 +19,6 @@ import {
   creaturazoidTongueState,
   creaturazoidBodyPreset,
   creaturazoidBodyLevelTrim,
-  cycleCreaturazoidStep,
   interpolateCreaturazoidMorph,
   creaturazoidLevelMakeup,
   creaturazoidMouthExpression,
@@ -158,7 +157,16 @@ let previousScheduledEvent = null;
 let activeVisualEvent = null;
 let lastHudPaint = -Infinity;
 let lastCanvasPaint = -Infinity;
-let gridCells = [];
+let gridCellsByStep = [];
+let gridSelectorsByStep = [];
+let gridSoundLanesByStep = [];
+let gridTabStop = null;
+let paintedGridStep = -1;
+let sequenceVelocityPointer = null;
+let sequenceSoundPointer = null;
+let lastSequenceSoundId = CREATURAZOID_SOUNDS.find(({ id }) => (
+  pattern.rows[id]?.some((velocity) => velocity > 0)
+))?.id ?? CREATURAZOID_SOUNDS[0].id;
 let pointerDrag = null;
 let bodyMutationCount = 0;
 let bodyMutationVisual = null;
@@ -181,6 +189,14 @@ const formatSemitones = (value) => {
 const formatFrequency = (value) => (
   value >= 1_000 ? `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)} kHz` : `${Math.round(value)} Hz`
 );
+
+const sequenceSoundNumberById = new Map(CREATURAZOID_SOUNDS.map(
+  ({ id }, index) => [id, String(index + 1).padStart(2, "0")],
+));
+const sequenceSoundIndexById = new Map(CREATURAZOID_SOUNDS.map(
+  ({ id }, index) => [id, index],
+));
+const DEFAULT_SEQUENCE_STEP_VELOCITY = 0.72;
 
 function announce(message) {
   const liveStatus = $("liveStatus");
@@ -785,6 +801,8 @@ function consumeVisualSchedule() {
 
 function setTransportPresentation() {
   $("playButton").setAttribute("aria-pressed", String(sequenceRunning));
+  $("playButton").setAttribute("aria-label", `${sequenceRunning ? "Stop" : "Play"} Creaturazoid sequence`);
+  $("playButton").title = sequenceRunning ? "Stop sequence" : "Play sequence";
   $("playLabel").textContent = sequenceRunning ? "Stop" : "Play";
   $("playState").textContent = sequenceRunning
     ? `${Math.round(state.tempo)} BPM · ${currentStep < 0 ? "counting in" : `step ${currentStep + 1}`} · monophonic`
@@ -823,125 +841,587 @@ function buildPadGrid() {
 }
 
 function updateGridPlayhead() {
-  for (let row = 0; row < gridCells.length; row += 1) {
-    for (let step = 0; step < gridCells[row].length; step += 1) {
-      gridCells[row][step]?.classList.toggle("is-playhead", sequenceRunning && step === currentStep);
-    }
+  const visibleStep = sequenceRunning ? currentStep : -1;
+  if (paintedGridStep !== visibleStep) {
+    if (paintedGridStep >= 0) gridCellsByStep[paintedGridStep]?.classList.remove("is-current");
+    if (visibleStep >= 0) gridCellsByStep[visibleStep]?.classList.add("is-current");
+    paintedGridStep = visibleStep;
   }
   setTransportPresentation();
+}
+
+function sequenceSoundLabel(sound) {
+  return `${sequenceSoundNumberById.get(sound.id)} · ${sound.label}`;
+}
+
+function sequenceCellLabel(sound, step, value) {
+  const velocity = clamp(Number(value) || 0, 0, 1);
+  if (velocity <= 0) {
+    return `Step ${step + 1}, empty. Click or drag vertically to add ${sequenceSoundLabel(sound)}; zero volume is off.`;
+  }
+  return `${sequenceSoundLabel(sound)}, step ${step + 1}, ${Math.round(velocity * 100)} percent volume. Drag vertically to change it; drag to zero to remove it.`;
+}
+
+function renderSequenceCell(button, event) {
+  const step = Number(button.dataset.step);
+  const sound = event?.sound ?? creaturazoidSound(lastSequenceSoundId);
+  const velocity = event?.velocity ?? 0;
+  const active = velocity > 0;
+  button.dataset.soundId = event?.soundId ?? "";
+  button.dataset.active = String(active);
+  button.dataset.velocity = String(velocity);
+  button.style.setProperty("--step-velocity", String(clamp(velocity, 0, 1)));
+  button.setAttribute("aria-pressed", String(active));
+  button.setAttribute("aria-label", sequenceCellLabel(sound, step, velocity));
+  const preview = button.closest(".creaturazoid-step-slot")?.querySelector(".creaturazoid-step-audition");
+  if (!preview) return;
+  preview.disabled = !event;
+  preview.setAttribute("aria-label", event
+    ? `Hear ${sequenceSoundLabel(sound)} on step ${step + 1} without changing it`
+    : `Step ${step + 1} has no sound to hear`);
+  preview.title = event ? `Hear ${sequenceSoundLabel(sound)}` : "No sound on this step";
+}
+
+function renderStepSoundLane(lane, event, step) {
+  if (!lane) return;
+  const shell = lane.parentElement;
+  const soundIndex = event ? sequenceSoundIndexById.get(event.soundId) ?? 0 : 0;
+  const sound = CREATURAZOID_SOUNDS[soundIndex];
+  const position = soundIndex / Math.max(1, CREATURAZOID_SOUNDS.length - 1);
+  lane.value = String(soundIndex + 1);
+  lane.dataset.active = String(Boolean(event));
+  shell.dataset.active = String(Boolean(event));
+  shell.style.setProperty("--step-sound-position", `${(position * 100).toFixed(3)}%`);
+  shell.style.setProperty(
+    "--step-sound-marker-bottom",
+    `calc(${(position * 100).toFixed(3)}% - ${(position * 5).toFixed(3)}px)`,
+  );
+  shell.style.setProperty("--step-sound-color", sound.color);
+  lane.setAttribute("aria-label", `Sound selector bar for step ${step + 1}`);
+  lane.setAttribute("aria-valuetext", event
+    ? sequenceSoundLabel(sound)
+    : "Empty step; add volume or choose from the pull-down first");
+  lane.title = event
+    ? `${sequenceSoundLabel(sound)} — drag vertically to change sound`
+    : `Step ${step + 1} is empty — add volume or choose from the pull-down first`;
+}
+
+function fullSoundOptions(selectedId = "") {
+  const empty = document.createElement("option");
+  empty.value = "";
+  empty.textContent = "—";
+  empty.selected = !selectedId;
+  const options = [empty];
+  for (const sound of CREATURAZOID_SOUNDS) {
+    const option = document.createElement("option");
+    option.value = sound.id;
+    option.textContent = sequenceSoundLabel(sound);
+    option.title = sound.articulation?.mechanism ?? ANIMALS[sound.animalId].label;
+    option.selected = sound.id === selectedId;
+    options.push(option);
+  }
+  return options;
+}
+
+function compactSoundOptions(selectedId = "") {
+  const empty = document.createElement("option");
+  empty.value = "";
+  empty.textContent = "+";
+  empty.selected = !selectedId;
+  if (!selectedId || !sequenceSoundNumberById.has(selectedId)) return [empty];
+  const sound = creaturazoidSound(selectedId);
+  const selected = document.createElement("option");
+  selected.value = sound.id;
+  selected.textContent = sound.label;
+  selected.selected = true;
+  return [empty, selected];
+}
+
+function expandStepSoundSelector(selector) {
+  if (!selector || selector.dataset.expanded === "true") return;
+  const selectedId = selector.value;
+  selector.replaceChildren(...fullSoundOptions(selectedId));
+  selector.value = selectedId;
+  selector.dataset.expanded = "true";
+}
+
+function compactStepSoundSelector(selector) {
+  if (!selector || selector.dataset.expanded !== "true") return;
+  const selectedId = selector.value;
+  selector.replaceChildren(...compactSoundOptions(selectedId));
+  selector.value = selectedId;
+  delete selector.dataset.expanded;
+}
+
+function renderPatternColumn(step) {
+  const button = gridCellsByStep[step];
+  const selector = gridSelectorsByStep[step];
+  if (!button || !selector) return;
+  const event = creaturazoidStepEvent(pattern, step);
+  const selectedId = event?.soundId ?? "";
+  const rowColor = event?.sound.color ?? "var(--creature-muted)";
+  renderSequenceCell(button, event);
+  if (selector.dataset.expanded !== "true") {
+    selector.replaceChildren(...compactSoundOptions(selectedId));
+  }
+  selector.value = selectedId;
+  selector.style.setProperty("--row-color", rowColor);
+  selector.closest(".creaturazoid-step-slot")?.style.setProperty("--row-color", rowColor);
+  selector.setAttribute("aria-label", `Sound for step ${step + 1}: ${event ? sequenceSoundLabel(event.sound) : "empty"}`);
+  renderStepSoundLane(gridSoundLanesByStep[step], event, step);
+}
+
+function renderPattern() {
+  for (let step = 0; step < pattern.length; step += 1) renderPatternColumn(step);
+  updateGridPlayhead();
+}
+
+function setGridTabStop(cell) {
+  if (!cell || cell === gridTabStop) return;
+  if (gridTabStop) gridTabStop.tabIndex = -1;
+  cell.tabIndex = 0;
+  gridTabStop = cell;
+}
+
+function focusGridCell(step) {
+  const target = gridCellsByStep[(step + pattern.length) % pattern.length];
+  if (!target) return;
+  setGridTabStop(target);
+  target.focus();
+}
+
+function setSequenceStepVelocity(
+  rawStep,
+  rawVelocity,
+  { soundId = "", announceState = false, markCustom = true, render = true } = {},
+) {
+  const step = clamp(Math.round(Number(rawStep) || 0), 0, Math.max(0, pattern.length - 1));
+  const previous = creaturazoidStepEvent(pattern, step);
+  const sound = creaturazoidSound(soundId || previous?.soundId || lastSequenceSoundId);
+  const numeric = Number(rawVelocity);
+  const velocity = Number.isFinite(numeric)
+    ? clamp(numeric, 0, 1)
+    : previous?.velocity ?? DEFAULT_SEQUENCE_STEP_VELOCITY;
+  pattern = setCreaturazoidStep(pattern, step, velocity > 0 ? sound.id : null, velocity);
+  if (velocity > 0) lastSequenceSoundId = sound.id;
+  if (markCustom) markPatternCustom();
+  if (render) renderPatternColumn(step);
+  if (announceState) announce(sequenceCellLabel(sound, step, velocity));
+  return { active: velocity > 0, sound, step, velocity };
+}
+
+function setStepSound(
+  rawStep,
+  nextSoundId,
+  { announceState = true, markCustom = true, render = true } = {},
+) {
+  const step = clamp(Math.round(Number(rawStep) || 0), 0, Math.max(0, pattern.length - 1));
+  const previous = creaturazoidStepEvent(pattern, step);
+  const validId = sequenceSoundNumberById.has(nextSoundId) ? nextSoundId : "";
+  const velocity = previous?.velocity ?? DEFAULT_SEQUENCE_STEP_VELOCITY;
+  pattern = setCreaturazoidStep(pattern, step, validId || null, validId ? velocity : 0);
+  if (validId) lastSequenceSoundId = validId;
+  if (markCustom) markPatternCustom();
+  if (render) renderPatternColumn(step);
+  if (!validId) {
+    if (announceState) announce(`Step ${step + 1} cleared`);
+    return { sound: null, step, velocity: 0 };
+  }
+  const sound = creaturazoidSound(validId);
+  if (announceState) announce(`${sequenceSoundLabel(sound)} selected for step ${step + 1}`);
+  return { sound, step, velocity };
+}
+
+function sequencePaintTargetAtX(edit, clientX) {
+  return edit.targets.find(({ rect }) => clientX >= rect.left && clientX <= rect.right) ?? null;
+}
+
+function sequenceVelocityFromPointer(cell, clientY) {
+  const rect = cell.querySelector(".creaturazoid-step-volume-lane")?.getBoundingClientRect();
+  if (!rect?.height) return 0;
+  return Math.round(clamp((rect.bottom - clientY) / rect.height, 0, 1) * 100) / 100;
+}
+
+function paintSequenceVelocityStep(edit, step, velocity) {
+  const current = creaturazoidStepEvent(pattern, step);
+  const result = setSequenceStepVelocity(step, velocity, {
+    soundId: current?.soundId ?? edit.soundIds[step] ?? edit.soundId,
+    markCustom: false,
+    render: false,
+  });
+  edit.changedSteps.add(result.step);
+}
+
+function renderSequenceVelocityPaint(edit) {
+  if (!edit.changedSteps.size) return;
+  markPatternCustom();
+  for (const step of edit.changedSteps) renderPatternColumn(step);
+  edit.changedSteps.clear();
+}
+
+function applySequenceVelocityPointer(event, fallbackCell = null) {
+  const edit = sequenceVelocityPointer;
+  if (!edit || event.pointerId !== edit.pointerId) return;
+  const target = sequencePaintTargetAtX(edit, event.clientX)
+    ?? (fallbackCell ? { cell: fallbackCell, step: Number(fallbackCell.dataset.step) } : null);
+  if (!target) return;
+  const velocity = sequenceVelocityFromPointer(target.cell, event.clientY);
+  const previous = edit.lastSample;
+  if (target.cell !== edit.activeCell) {
+    edit.activeCell?.classList.remove("is-velocity-editing");
+    target.cell.classList.add("is-velocity-editing");
+    edit.activeCell = target.cell;
+  }
+  if (!previous || previous.step === target.step) {
+    if (!previous || previous.velocity !== velocity) paintSequenceVelocityStep(edit, target.step, velocity);
+  } else {
+    const distance = Math.abs(target.step - previous.step);
+    const direction = Math.sign(target.step - previous.step);
+    for (let offset = 1; offset <= distance; offset += 1) {
+      const progress = offset / distance;
+      paintSequenceVelocityStep(edit, previous.step + direction * offset, Math.round(
+        (previous.velocity + (velocity - previous.velocity) * progress) * 100,
+      ) / 100);
+    }
+  }
+  edit.lastSample = { step: target.step, velocity };
+  renderSequenceVelocityPaint(edit);
+}
+
+function handleSequenceVelocityPointerDown(event) {
+  const grid = $("sequenceGrid");
+  const cell = event.target.closest?.(".creaturazoid-step-cell");
+  if (!cell || !grid.contains(cell) || (event.button !== undefined && event.button !== 0) || event.isPrimary === false) return;
+  event.preventDefault();
+  const step = Number(cell.dataset.step);
+  const soundId = creaturazoidStepEvent(pattern, step)?.soundId ?? lastSequenceSoundId;
+  setGridTabStop(cell);
+  cell.classList.add("is-velocity-editing");
+  grid.classList.add("is-velocity-painting");
+  sequenceVelocityPointer = {
+    activeCell: cell,
+    changedSteps: new Set(),
+    lastSample: null,
+    pointerId: event.pointerId,
+    soundId,
+    soundIds: gridCellsByStep.map((_, index) => creaturazoidStepEvent(pattern, index)?.soundId ?? soundId),
+    targets: gridCellsByStep.map((targetCell, index) => ({ cell: targetCell, rect: targetCell.getBoundingClientRect(), step: index })),
+  };
+  cell.focus({ preventScroll: true });
+  grid.setPointerCapture?.(event.pointerId);
+  applySequenceVelocityPointer(event, cell);
+}
+
+function handleSequenceVelocityPointerMove(event) {
+  if (!sequenceVelocityPointer || event.pointerId !== sequenceVelocityPointer.pointerId) return;
+  event.preventDefault();
+  applySequenceVelocityPointer(event);
+}
+
+function handleSequenceVelocityPointerEnd(event) {
+  const edit = sequenceVelocityPointer;
+  if (!edit || event.pointerId !== edit.pointerId) return;
+  if (event.type === "pointerup") applySequenceVelocityPointer(event);
+  sequenceVelocityPointer = null;
+  const grid = $("sequenceGrid");
+  edit.activeCell?.classList.remove("is-velocity-editing");
+  grid.classList.remove("is-velocity-painting");
+  if (grid.hasPointerCapture?.(event.pointerId)) grid.releasePointerCapture?.(event.pointerId);
+  if (!edit.lastSample) return;
+  if (event.type === "pointercancel") return;
+  const finalEvent = creaturazoidStepEvent(pattern, edit.lastSample.step);
+  announce(sequenceCellLabel(finalEvent?.sound ?? creaturazoidSound(lastSequenceSoundId), edit.lastSample.step, finalEvent?.velocity ?? 0));
+}
+
+function sequenceSoundIndexFromPointer(lane, clientY) {
+  const rect = lane?.getBoundingClientRect();
+  if (!rect?.height) return 0;
+  const normalized = clamp((rect.bottom - clientY) / rect.height, 0, 1);
+  return Math.min(
+    CREATURAZOID_SOUNDS.length - 1,
+    Math.floor(normalized * CREATURAZOID_SOUNDS.length),
+  );
+}
+
+function paintSequenceSoundStep(edit, step, soundIndex) {
+  const current = creaturazoidStepEvent(pattern, step);
+  if (!current) return;
+  const safeIndex = clamp(
+    Math.round(Number(soundIndex) || 0),
+    0,
+    Math.max(0, edit.soundIds.length - 1),
+  );
+  const result = setStepSound(step, edit.soundIds[safeIndex], {
+    announceState: false,
+    markCustom: false,
+    render: false,
+  });
+  if (result) {
+    edit.changedSteps.add(result.step);
+    edit.lastChanged = { soundIndex: safeIndex, step: result.step };
+  }
+}
+
+function renderSequenceSoundPaint(edit) {
+  if (!edit.changedSteps.size) return;
+  markPatternCustom();
+  for (const step of edit.changedSteps) renderPatternColumn(step);
+  edit.changedSteps.clear();
+}
+
+function applySequenceSoundPointer(event, fallbackLane = null) {
+  const edit = sequenceSoundPointer;
+  if (!edit || event.pointerId !== edit.pointerId) return;
+  const target = sequencePaintTargetAtX(edit, event.clientX)
+    ?? (fallbackLane ? { lane: fallbackLane, step: Number(fallbackLane.dataset.step) } : null);
+  if (!target) return;
+  const soundIndex = sequenceSoundIndexFromPointer(target.lane, event.clientY);
+  const previous = edit.lastSample;
+  if (target.lane !== edit.activeLane) {
+    edit.activeLane?.parentElement?.classList.remove("is-sound-editing");
+    target.lane.parentElement?.classList.add("is-sound-editing");
+    edit.activeLane = target.lane;
+  }
+  if (!previous || previous.step === target.step) {
+    if (!previous || previous.soundIndex !== soundIndex) paintSequenceSoundStep(edit, target.step, soundIndex);
+  } else {
+    const distance = Math.abs(target.step - previous.step);
+    const direction = Math.sign(target.step - previous.step);
+    for (let offset = 1; offset <= distance; offset += 1) {
+      const progress = offset / distance;
+      paintSequenceSoundStep(edit, previous.step + direction * offset, Math.round(
+        previous.soundIndex + (soundIndex - previous.soundIndex) * progress,
+      ));
+    }
+  }
+  edit.lastSample = { soundIndex, step: target.step };
+  renderSequenceSoundPaint(edit);
+}
+
+function handleSequenceSoundPointerDown(event) {
+  const grid = $("sequenceGrid");
+  const lane = event.target.closest?.(".creaturazoid-step-sound-lane");
+  if (!lane || !grid.contains(lane) || (event.button !== undefined && event.button !== 0) || event.isPrimary === false) return;
+  event.preventDefault();
+  lane.parentElement?.classList.add("is-sound-editing");
+  grid.classList.add("is-sound-painting");
+  sequenceSoundPointer = {
+    activeLane: lane,
+    changedSteps: new Set(),
+    lastChanged: null,
+    lastSample: null,
+    pointerId: event.pointerId,
+    soundIds: CREATURAZOID_SOUNDS.map(({ id }) => id),
+    targets: gridSoundLanesByStep.map((targetLane, step) => ({ lane: targetLane, rect: targetLane.getBoundingClientRect(), step })),
+  };
+  lane.focus({ preventScroll: true });
+  grid.setPointerCapture?.(event.pointerId);
+  applySequenceSoundPointer(event, lane);
+}
+
+function handleSequenceSoundPointerMove(event) {
+  if (!sequenceSoundPointer || event.pointerId !== sequenceSoundPointer.pointerId) return;
+  event.preventDefault();
+  applySequenceSoundPointer(event);
+}
+
+function handleSequenceSoundPointerEnd(event) {
+  const edit = sequenceSoundPointer;
+  if (!edit || event.pointerId !== edit.pointerId) return;
+  if (event.type === "pointerup") applySequenceSoundPointer(event);
+  sequenceSoundPointer = null;
+  const grid = $("sequenceGrid");
+  edit.activeLane?.parentElement?.classList.remove("is-sound-editing");
+  grid.classList.remove("is-sound-painting");
+  if (grid.hasPointerCapture?.(event.pointerId)) grid.releasePointerCapture?.(event.pointerId);
+  if (!edit.lastChanged || event.type === "pointercancel") return;
+  const { soundIndex, step } = edit.lastChanged;
+  const sound = CREATURAZOID_SOUNDS[soundIndex];
+  announce(`${sequenceSoundLabel(sound)} selected for step ${step + 1}`);
+}
+
+function handleSequenceGridKeydown(event) {
+  const cell = event.target.closest?.(".creaturazoid-step-cell");
+  if (!cell || !$("sequenceGrid").contains(cell)) return;
+  const step = Number(cell.dataset.step);
+  const current = creaturazoidStepEvent(pattern, step);
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    const increment = event.shiftKey ? 0.1 : 0.05;
+    const velocity = event.key === "ArrowUp"
+      ? current ? clamp(current.velocity + increment, 0, 1) : DEFAULT_SEQUENCE_STEP_VELOCITY
+      : clamp((current?.velocity ?? 0) - increment, 0, 1);
+    setSequenceStepVelocity(step, velocity, { announceState: true });
+    return;
+  }
+  if (["Delete", "Backspace", "0"].includes(event.key)) {
+    event.preventDefault();
+    setSequenceStepVelocity(step, 0, { announceState: true });
+    return;
+  }
+  const target = event.key === "ArrowLeft" ? step - 1
+    : event.key === "ArrowRight" ? step + 1
+      : event.key === "Home" ? 0
+        : event.key === "End" ? pattern.length - 1
+          : null;
+  if (target === null) return;
+  event.preventDefault();
+  focusGridCell(target);
+}
+
+function handleSequenceGridClick(event) {
+  const cell = event.target.closest?.(".creaturazoid-step-cell");
+  if (!cell || !$("sequenceGrid").contains(cell) || event.detail > 0) return;
+  const step = Number(cell.dataset.step);
+  const current = creaturazoidStepEvent(pattern, step);
+  setGridTabStop(cell);
+  setSequenceStepVelocity(step, current?.velocity ?? DEFAULT_SEQUENCE_STEP_VELOCITY, {
+    soundId: current?.soundId ?? lastSequenceSoundId,
+    announceState: true,
+  });
+}
+
+function previewSequenceStep(step) {
+  const event = creaturazoidStepEvent(pattern, step);
+  if (!event) return false;
+  const audioArmed = audioContext?.state === "running"
+    && graph?.sourceNode
+    && $("audioButton").getAttribute("aria-pressed") === "true";
+  if (!audioArmed) {
+    announce("Audio is off — turn it on to hear this step");
+    return false;
+  }
+  if (sequenceRunning) {
+    announce("Sequence is playing — stop it before hearing one step on its own");
+    return false;
+  }
+  const scheduled = scheduleSound(event.sound, event.velocity, audioContext.currentTime + 0.018);
+  if (scheduled) announce(`${sequenceSoundLabel(event.sound)} heard without changing step ${step + 1}`);
+  return Boolean(scheduled);
+}
+
+function setSoundFromLaneControl(lane, { announceState = false } = {}) {
+  if (!lane) return;
+  const step = Number(lane.dataset.step);
+  const current = creaturazoidStepEvent(pattern, step);
+  if (!current) {
+    renderStepSoundLane(lane, null, step);
+    if (announceState) {
+      announce(`Step ${step + 1} is empty; add volume or choose from the pull-down first`);
+    }
+    return;
+  }
+  const soundIndex = clamp(
+    Math.round(Number(lane.value) || 1) - 1,
+    0,
+    CREATURAZOID_SOUNDS.length - 1,
+  );
+  setStepSound(step, CREATURAZOID_SOUNDS[soundIndex].id, { announceState });
+}
+
+function reconcileSequenceTimeline(length) {
+  const safeLength = Math.max(1, Math.round(Number(length) || 1));
+  if (currentStep >= 0) currentStep %= safeLength;
+  scheduledSteps = scheduledSteps.map((event) => (
+    event.step === null || event.step === undefined
+      ? event
+      : Object.freeze({ ...event, step: ((event.step % safeLength) + safeLength) % safeLength })
+  ));
+}
+
+function sequenceSoundBankGradient() {
+  const count = Math.max(1, CREATURAZOID_SOUNDS.length);
+  const stops = CREATURAZOID_SOUNDS.flatMap((sound, index) => {
+    const start = ((index / count) * 100).toFixed(3);
+    const end = (((index + 1) / count) * 100).toFixed(3);
+    return [`${sound.color} ${start}%`, `${sound.color} ${end}%`];
+  });
+  return `linear-gradient(to top, ${stops.join(", ")})`;
 }
 
 function buildSequenceGrid({ preserveScroll = true } = {}) {
   const grid = $("sequenceGrid");
   const scroller = grid.parentElement;
   const scrollLeft = preserveScroll ? scroller.scrollLeft : 0;
-  const scrollTop = preserveScroll ? scroller.scrollTop : 0;
   const fragment = document.createDocumentFragment();
-  const sustainOwners = Array(pattern.length).fill(null);
-  for (let onsetStep = 0; onsetStep < pattern.length; onsetStep += 1) {
-    const onset = creaturazoidStepEvent(pattern, onsetStep);
-    if (!onset) continue;
-    const duration = creaturazoidSequenceDurationSeconds(onset.sound);
-    let elapsed = 0;
-    for (let step = onsetStep + 1; step < pattern.length; step += 1) {
-      elapsed += creaturazoidStepIntervalSeconds(state.tempo, state.swing, step - 1);
-      if (elapsed >= duration || creaturazoidStepEvent(pattern, step)) break;
-      sustainOwners[step] = Object.freeze({
-        soundId: onset.soundId,
-        onsetStep,
-      });
-    }
-  }
-  gridCells = [];
+  paintedGridStep = -1;
+  gridCellsByStep = Array(pattern.length).fill(null);
+  gridSelectorsByStep = Array(pattern.length).fill(null);
+  gridSoundLanesByStep = Array(pattern.length).fill(null);
+  gridTabStop = null;
   grid.style.setProperty("--sequence-steps", String(pattern.length));
-  grid.setAttribute("aria-rowcount", String(CREATURAZOID_SOUNDS.length + 1));
-  grid.setAttribute("aria-colcount", String(pattern.length + 1));
+  grid.style.setProperty("--sequence-columns", String(pattern.length));
+  grid.style.setProperty("--sequence-min-width", `${pattern.length * 42}px`);
+  grid.style.setProperty("--sequence-sound-bank", sequenceSoundBankGradient());
+  grid.dataset.sequenceDensity = pattern.length > 32 ? "micro" : pattern.length > 16 ? "dense" : "roomy";
+  grid.setAttribute("aria-rowcount", "1");
+  grid.setAttribute("aria-colcount", String(pattern.length));
 
-  const headerRow = document.createElement("div");
-  headerRow.className = "creaturazoid-grid-row";
-  headerRow.setAttribute("role", "row");
-  const corner = document.createElement("span");
-  corner.className = "creaturazoid-grid-corner";
-  corner.setAttribute("role", "columnheader");
-  corner.textContent = "CALL / STEP";
-  headerRow.append(corner);
+  const row = document.createElement("div");
+  row.className = "creaturazoid-grid-row creaturazoid-grid-single-lane";
+  row.setAttribute("role", "row");
   for (let step = 0; step < pattern.length; step += 1) {
-    const number = document.createElement("span");
-    number.className = "creaturazoid-grid-number";
-    number.setAttribute("role", "columnheader");
-    number.textContent = String(step + 1);
-    headerRow.append(number);
+    const event = creaturazoidStepEvent(pattern, step);
+    const slot = document.createElement("div");
+    slot.className = "creaturazoid-step-slot";
+    slot.dataset.step = String(step);
+    slot.setAttribute("role", "gridcell");
+    slot.setAttribute("aria-colindex", String(step + 1));
+    slot.setAttribute("aria-rowindex", "1");
+
+    const cell = document.createElement("button");
+    cell.className = "creaturazoid-step-cell";
+    cell.type = "button";
+    cell.dataset.step = String(step);
+    cell.tabIndex = step === 0 ? 0 : -1;
+    cell.setAttribute("aria-describedby", "sequenceStepHelp");
+    const volumeLane = document.createElement("span");
+    volumeLane.className = "creaturazoid-step-volume-lane";
+    volumeLane.setAttribute("aria-hidden", "true");
+    cell.append(volumeLane);
+
+    const preview = document.createElement("button");
+    preview.className = "creaturazoid-step-audition";
+    preview.type = "button";
+    preview.dataset.step = String(step);
+    preview.textContent = "▶";
+    preview.addEventListener("click", (pointerEvent) => {
+      pointerEvent.stopPropagation();
+      previewSequenceStep(step);
+    });
+
+    const selector = document.createElement("select");
+    selector.className = "creaturazoid-step-sound-select";
+    selector.dataset.step = String(step);
+    selector.replaceChildren(...compactSoundOptions(event?.soundId ?? ""));
+
+    const soundLane = document.createElement("input");
+    soundLane.className = "creaturazoid-step-sound-lane";
+    soundLane.type = "range";
+    soundLane.min = "1";
+    soundLane.max = String(CREATURAZOID_SOUNDS.length);
+    soundLane.step = "1";
+    soundLane.dataset.step = String(step);
+    soundLane.setAttribute("aria-orientation", "vertical");
+    soundLane.setAttribute("aria-describedby", "sequenceStepHelp");
+    const soundLaneShell = document.createElement("div");
+    soundLaneShell.className = "creaturazoid-step-sound-lane-shell";
+    soundLaneShell.append(soundLane);
+
+    slot.append(cell, preview, selector, soundLaneShell);
+    gridCellsByStep[step] = cell;
+    gridSelectorsByStep[step] = selector;
+    gridSoundLanesByStep[step] = soundLane;
+    if (step === 0) gridTabStop = cell;
+    row.append(slot);
   }
-  fragment.append(headerRow);
-
-  CREATURAZOID_SOUNDS.forEach((sound, rowIndex) => {
-    const animal = ANIMALS[sound.animalId];
-    const rowCells = [];
-    const row = document.createElement("div");
-    row.className = "creaturazoid-grid-row";
-    row.dataset.gestureType = sound.gestureType;
-    row.classList.toggle("is-percussive", sound.gestureType === "percussive");
-    row.setAttribute("role", "row");
-    const rowHeader = document.createElement("div");
-    rowHeader.className = "creaturazoid-grid-label";
-    rowHeader.style.setProperty("--sound-color", sound.color);
-    rowHeader.setAttribute("role", "rowheader");
-    const label = document.createElement("button");
-    label.type = "button";
-    label.className = "creaturazoid-grid-label-action";
-    label.setAttribute("aria-label", `Play ${sound.label}, ${sound.articulation?.mechanism ?? animal.label}`);
-    const dot = document.createElement("i");
-    dot.setAttribute("aria-hidden", "true");
-    const name = document.createElement("span");
-    name.textContent = sound.label;
-    const key = document.createElement("small");
-    key.textContent = sound.key.toUpperCase();
-    label.append(dot, name, key);
-    label.addEventListener("click", () => triggerSound(sound, 0.86));
-    rowHeader.append(label);
-    row.append(rowHeader);
-
-    for (let step = 0; step < pattern.length; step += 1) {
-      const velocity = pattern.rows[sound.id][step];
-      const cell = document.createElement("button");
-      cell.type = "button";
-      cell.className = "creaturazoid-grid-cell";
-      cell.dataset.soundId = sound.id;
-      cell.dataset.step = String(step);
-      cell.dataset.velocity = String(velocity);
-      const level = Math.max(0, CREATURAZOID_DYNAMICS.findIndex((amount) => (
-        Math.abs(amount - velocity) < 0.02
-      )));
-      cell.dataset.level = String(level);
-      const sustain = velocity <= 0 && sustainOwners[step]?.soundId === sound.id;
-      cell.classList.toggle("is-sustain", sustain);
-      if (sustain) cell.dataset.sustainFrom = String(sustainOwners[step].onsetStep);
-      cell.style.setProperty("--sound-color", sound.color);
-      cell.style.setProperty("--row-color", sound.color);
-      cell.setAttribute("role", "gridcell");
-      cell.setAttribute("aria-selected", String(velocity > 0));
-      cell.setAttribute(
-        "aria-label",
-        `${sound.label}, step ${step + 1}, ${velocity > 0
-          ? `${Math.round(velocity * 100)} percent onset`
-          : sustain
-            ? `sustaining from step ${sustainOwners[step].onsetStep + 1}`
-            : "off"}`,
-      );
-      cell.addEventListener("click", () => editSequenceCell(sound.id, step));
-      rowCells.push(cell);
-      row.append(cell);
-    }
-    fragment.append(row);
-    gridCells[rowIndex] = rowCells;
-  });
+  fragment.append(row);
 
   grid.replaceChildren(fragment);
   requestAnimationFrame(() => {
     scroller.scrollLeft = scrollLeft;
-    scroller.scrollTop = scrollTop;
   });
-  updateGridPlayhead();
+  renderPattern();
 }
 
 function markPatternCustom() {
@@ -949,17 +1429,6 @@ function markPatternCustom() {
   $("patternSelect").value = "custom";
   const option = $("patternSelect").querySelector('option[value="custom"]');
   if (option) option.textContent = `Custom rhythm · ${pattern.length} steps · ${Math.round(state.tempo)} BPM · ${Math.round(state.swing * 100)}% swing`;
-}
-
-function editSequenceCell(soundId, step) {
-  pattern = cycleCreaturazoidStep(pattern, step, soundId);
-  markPatternCustom();
-  buildSequenceGrid();
-  if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
-  const event = creaturazoidStepEvent(pattern, step);
-  announce(event
-    ? `${event.sound.label} set at step ${step + 1}, ${Math.round(event.velocity * 100)} percent; any previous call was replaced`
-    : `Step ${step + 1} cleared`);
 }
 
 function populateSelects() {
@@ -1031,6 +1500,7 @@ function setAnatomyDesign(id, { announceState = true } = {}) {
 function setSequencePreset(id, { announceState = true } = {}) {
   const preset = creaturazoidSequencePreset(id);
   pattern = sanitizeCreaturazoidPattern(preset, preset.length);
+  reconcileSequenceTimeline(pattern.length);
   currentPatternId = preset.id;
   // A rhythm is only a rhythm. Changing it must never swap or reconstruct the
   // persistent body that every source is currently travelling through.
@@ -1043,7 +1513,6 @@ function setSequencePreset(id, { announceState = true } = {}) {
   }, state);
   syncControls();
   buildSequenceGrid({ preserveScroll: false });
-  if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
   if (announceState) {
     announce(`${preset.label}: ${preset.length} steps, ${Math.round(preset.tempo)} BPM, ${Math.round(preset.swing * 100)} percent swing; the current body shape remains locked`);
   }
@@ -1119,7 +1588,6 @@ function scatterPattern() {
   pattern = next;
   markPatternCustom();
   buildSequenceGrid({ preserveScroll: false });
-  if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
   announce("Random rhythm: resonant body hits interlock with growls, chirps, and breathing room for long voices");
 }
 
@@ -1133,14 +1601,17 @@ function clearPattern() {
 
 function setPatternLength(value) {
   const length = Math.round(clamp(value, ...CREATURAZOID_LIMITS.patternLength));
-  if (length === pattern.length) return;
+  if (length === pattern.length) {
+    syncControls();
+    return;
+  }
   pattern = sanitizeCreaturazoidPattern(pattern, length);
+  reconcileSequenceTimeline(length);
   state = sanitizeCreaturazoidState({ ...state, patternLength: length }, state);
   markPatternCustom();
   syncControls();
   buildSequenceGrid({ preserveScroll: false });
-  if (sequenceRunning) resetSequenceSchedule({ startDelay: 0.07 });
-  announce(`Sequence length ${length}; one call maximum in every column`);
+  announce(`Sequence length ${length}; one call maximum in every step`);
 }
 
 const CONTROL_BINDINGS = Object.freeze([
@@ -1313,7 +1784,13 @@ function syncControls() {
   $("presetSelect").style.setProperty("--preset-color", preset.color);
   $("anatomySelect").value = state.anatomyDesignId;
   $("sequenceLength").value = String(pattern.length);
-  outputStateValue($("sequenceLengthOut"), String(pattern.length));
+  if (document.activeElement !== $("sequenceLengthEntry")) {
+    $("sequenceLengthEntry").value = String(pattern.length);
+  }
+  $("sequenceLength").parentElement.style.setProperty(
+    "--knob-turn",
+    `${-135 + ((pattern.length - 1) / (CREATURAZOID_MAX_STEPS - 1)) * 270}deg`,
+  );
   document.querySelectorAll("[data-sequence-length]").forEach((button) => {
     const active = Number(button.dataset.sequenceLength) === pattern.length;
     button.classList.toggle("is-active", active);
@@ -1411,13 +1888,73 @@ function bindControls() {
     syncControls();
     retargetActiveSound();
   });
-  $("sequenceLength").addEventListener("input", () => outputStateValue(
-    $("sequenceLengthOut"),
-    String(Math.round(finiteOr($("sequenceLength").value, pattern.length))),
-  ));
+  $("sequenceLength").addEventListener("input", () => {
+    const preview = Math.round(finiteOr($("sequenceLength").value, pattern.length));
+    $("sequenceLengthEntry").value = String(preview);
+    $("sequenceLength").parentElement.style.setProperty(
+      "--knob-turn",
+      `${-135 + ((preview - 1) / (CREATURAZOID_MAX_STEPS - 1)) * 270}deg`,
+    );
+  });
   $("sequenceLength").addEventListener("change", () => setPatternLength($("sequenceLength").value));
+  $("sequenceLengthEntry").addEventListener("change", () => setPatternLength($("sequenceLengthEntry").value));
+  $("sequenceLengthEntry").addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    setPatternLength($("sequenceLengthEntry").value);
+  });
   document.querySelectorAll("[data-sequence-length]").forEach((button) => {
     button.addEventListener("click", () => setPatternLength(button.dataset.sequenceLength));
+  });
+  const sequenceGrid = $("sequenceGrid");
+  sequenceGrid.addEventListener("keydown", handleSequenceGridKeydown);
+  sequenceGrid.addEventListener("click", handleSequenceGridClick);
+  sequenceGrid.addEventListener("pointerdown", (event) => {
+    if (event.target.closest?.(".creaturazoid-step-sound-lane")) {
+      handleSequenceSoundPointerDown(event);
+    } else {
+      handleSequenceVelocityPointerDown(event);
+    }
+  });
+  sequenceGrid.addEventListener("pointermove", (event) => {
+    if (sequenceSoundPointer) handleSequenceSoundPointerMove(event);
+    else handleSequenceVelocityPointerMove(event);
+  });
+  sequenceGrid.addEventListener("pointerup", (event) => {
+    if (sequenceSoundPointer) handleSequenceSoundPointerEnd(event);
+    else handleSequenceVelocityPointerEnd(event);
+  });
+  sequenceGrid.addEventListener("pointercancel", (event) => {
+    if (sequenceSoundPointer) handleSequenceSoundPointerEnd(event);
+    else handleSequenceVelocityPointerEnd(event);
+  });
+  sequenceGrid.addEventListener("pointerdown", (event) => {
+    const selector = event.target.closest?.(".creaturazoid-step-sound-select");
+    if (selector) expandStepSoundSelector(selector);
+  });
+  sequenceGrid.addEventListener("focusin", (event) => {
+    const selector = event.target.closest?.(".creaturazoid-step-sound-select");
+    if (selector) expandStepSoundSelector(selector);
+  });
+  sequenceGrid.addEventListener("focusout", (event) => {
+    const selector = event.target.closest?.(".creaturazoid-step-sound-select");
+    if (selector) compactStepSoundSelector(selector);
+  });
+  sequenceGrid.addEventListener("change", (event) => {
+    const selector = event.target.closest?.(".creaturazoid-step-sound-select");
+    if (selector) {
+      setStepSound(Number(selector.dataset.step), selector.value);
+      compactStepSoundSelector(selector);
+      return;
+    }
+    const lane = event.target.closest?.(".creaturazoid-step-sound-lane");
+    if (!lane || sequenceSoundPointer) return;
+    setSoundFromLaneControl(lane, { announceState: true });
+  });
+  sequenceGrid.addEventListener("input", (event) => {
+    const lane = event.target.closest?.(".creaturazoid-step-sound-lane");
+    if (!lane || sequenceSoundPointer) return;
+    setSoundFromLaneControl(lane);
   });
   $("audioButton").addEventListener("click", async () => {
     if (audioContext?.state === "running" && $("audioButton").getAttribute("aria-pressed") === "true") {
