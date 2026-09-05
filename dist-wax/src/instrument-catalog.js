@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260902-5";
+} from "../nav.js?v=catalog-20260904-1";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -35,6 +35,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Build-first dual-graph instrument",
     "Carves orthogonal, radial, or hexagonal fields as paired passage-center and wall-outline voices, with a distinct visual and sonic process for each maze algorithm.",
     "Choose a field and builder, replay its construction, then optionally trace, tour, or solve the finished topology.",
+    ["Pointer", "Built-in synth", "SVG export", "Shared transport", "Self-contained app"],
+  ),
+  paths: define(
+    "Generative path instrument",
+    "Draws Gilbert, Hilbert, Gosper, Dragon, and seeded walking paths as continuous vector scores whose direction, curvature, hierarchy, and position shape sound.",
+    "Choose a generator, draw it through time, then trace the finished path with one or more sounding heads.",
     ["Pointer", "Built-in synth", "SVG export", "Shared transport", "Self-contained app"],
   ),
   shape: define(

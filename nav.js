@@ -430,6 +430,7 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Algorithmic Mazes",
       href: "algorithmic-mazes.html",
     },
+    { id: "paths", label: "Paths", href: "paths.html" },
   ]),
 ]);
 

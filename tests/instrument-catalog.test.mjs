@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 126);
+  assert.equal(INSTRUMENTS.length, 127);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -702,7 +702,7 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.deepEqual(
     INSTRUMENT_GROUPS.find(({ id }) => id === "apps")?.tools.map(({ id }) => id),
-    ["combo", "l-systems", "tiles-app", "algorithmic-mazes"],
+    ["combo", "l-systems", "tiles-app", "algorithmic-mazes", "paths"],
   );
   assert.deepEqual(
     instrumentById("tiles-app")?.tags.map(({ id }) => id),
@@ -710,6 +710,10 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.deepEqual(
     instrumentById("algorithmic-mazes")?.tags.map(({ id }) => id),
+    ["apps"],
+  );
+  assert.deepEqual(
+    instrumentById("paths")?.tags.map(({ id }) => id),
     ["apps"],
   );
   const tileIds = [

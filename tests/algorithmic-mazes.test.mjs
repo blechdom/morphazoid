@@ -142,8 +142,9 @@ test("solver targets can move without changing the generated maze", () => {
 });
 
 test("page exposes both audible graph layers and vector export", async () => {
-  const [html, app] = await Promise.all([
+  const [html, css, app] = await Promise.all([
     readFile(new URL("algorithmic-mazes.html", root), "utf8"),
+    readFile(new URL("algorithmic-mazes.css", root), "utf8"),
     readFile(new URL("algorithmic-mazes-app.js", root), "utf8"),
   ]);
   assert.match(html, /Passage centers/);
@@ -156,6 +157,8 @@ test("page exposes both audible graph layers and vector export", async () => {
   assert.match(html, /class="maze-polyphony"/);
   assert.match(html, /id="passageHeads"[^>]+value="1"/);
   assert.match(html, /id="wallHeads"[^>]+value="1"/);
+  assert.match(html, /data-maze-topology="orthogonal" aria-pressed="true"/);
+  assert.doesNotMatch(html, /id="(?:bend|twist|fieldMotion)"|>Shape</);
   assert.match(html, /data-instrument-info="off"/);
   assert.match(html, /data-midi-output-monitor="collapsed"/);
   assert.doesNotMatch(html, /id="(?:transport|field|vector|heads|sound|ledger)Summary"/);
@@ -165,10 +168,15 @@ test("page exposes both audible graph layers and vector export", async () => {
   assert.match(app, /createMazeWalk/);
   assert.match(app, /createWallWalk/);
   assert.match(app, /mode: "carve"/);
+  assert.match(app, /topology: "orthogonal"/);
   assert.match(app, /cycleBehavior: "hold"/);
+  assert.doesNotMatch(app, /warpPoint|state\.(?:bend|twist|fieldMotion)/);
+  assert.match(css, /\.maze-stage-wrap\s*\{[\s\S]*?aspect-ratio: 1;/);
   assert.match(app, /const CARVE_PROFILES/);
   assert.match(app, /data-layer="wall-outlines"/);
   assert.match(app, /data-layer="passage-centers"/);
   assert.match(app, /data-layer="solution-route"/);
+  assert.match(app, /context\.lineTo\(screen\.b\.x, screen\.b\.y\)/);
+  assert.doesNotMatch(app, /quadraticCurveTo| Q /);
   assert.match(app, /partialCurve\(curve, 1 - build\.amount\)/);
 });

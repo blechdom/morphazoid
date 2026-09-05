@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Paths - draw and trace generative vector paths as sound."
+    />
+    <title>Paths - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="paths.css" />
+  </head>
+  <body
+    class="paths-page"
+    data-tool-id="paths"
+    data-instrument-info="off"
+    data-midi-output-monitor="collapsed"
+  >
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="graph-delay.html">graph delay</a>
+        <a class="tab" href="l-systems.html">L-systems</a>
+        <a class="tab" href="algorithmic-mazes.html">algorithmic mazes</a>
+        <a class="tab active" href="paths.html" aria-current="page">paths</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="graph-delay.html">graph delay</option>
+          <option value="l-systems.html">L-systems</option>
+          <option value="algorithmic-mazes.html">algorithmic mazes</option>
+          <option value="paths.html" selected>paths</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" data-audio-state="off">
+          <span class="audio-glyph paths-audio-glyph" aria-hidden="true">P</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" aria-label="Paths output level" type="range" min="0" max="0.8" step="0.01" value="0.48" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell paths-shell" id="pathsApp">
+      <section class="stage paths-stage" aria-label="Generative path instrument">
+        <div class="stage-wrap paths-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="application"
+            aria-roledescription="generative path instrument"
+            aria-label="A Gilbert path drawing through time with one sounding head."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A generative vector path with a moving sound head.
+          </canvas>
+          <div class="paths-phase-track" aria-hidden="true"><i id="phaseBar"></i></div>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">GILBERT / 1801 SEGMENTS / 1 HEAD</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel paths-panel" aria-label="Paths controls">
+        <section class="paths-rack" aria-labelledby="timeTitle">
+          <header><h2 id="timeTitle">Time</h2></header>
+          <div class="paths-mode-switch" role="group" aria-label="Path performance mode">
+            <button type="button" data-path-mode="draw" aria-pressed="true">Draw</button>
+            <button type="button" data-path-mode="trace" aria-pressed="false">Trace</button>
+          </div>
+          <div class="paths-transport-row">
+            <button class="play-button" id="playButton" type="button" data-primary-transport aria-pressed="true" aria-label="Pause path time" title="Pause">
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            </button>
+            <button class="paths-icon-button" id="directionButton" type="button" data-direction="forward" aria-label="Direction: forward" title="Direction">
+              <svg class="direction-forward" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
+              <svg class="direction-reverse" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" /></svg>
+            </button>
+            <label class="select-control paths-cycle-control" for="cycleBehavior">
+              <span class="sr-only">At cycle end</span>
+              <span class="select-shell">
+                <select id="cycleBehavior">
+                  <option value="hold" selected>Hold drawing</option>
+                  <option value="loop">Repeat</option>
+                  <option value="evolve">Next seed</option>
+                </select>
+              </span>
+            </label>
+          </div>
+          <label class="control paths-wide-control" for="position">
+            <span><b>Position</b><output id="positionOut" for="position">0.0%</output></span>
+            <input id="position" type="range" min="0" max="1" step="0.0005" value="0" data-no-midi-preview />
+          </label>
+          <div class="paths-two-column">
+            <label class="control" for="speed">
+              <span><b>Rate</b><output id="speedOut" for="speed">5.5%/s</output></span>
+              <input id="speed" type="range" min="0.005" max="0.4" step="0.001" value="0.055" data-no-midi-preview />
+            </label>
+            <label class="control" for="seed">
+              <span><b>Seed</b><output id="seedOut" for="seed">27183</output></span>
+              <input id="seed" type="range" min="1" max="99999" step="1" value="27183" data-no-midi-preview />
+            </label>
+          </div>
+          <div class="paths-action-row">
+            <button class="mini-action" id="newSeedButton" type="button">New seed</button>
+            <button class="mini-action" id="resetButton" type="button">Reset</button>
+          </div>
+        </section>
+
+        <section class="paths-rack" aria-labelledby="generatorTitle">
+          <header><h2 id="generatorTitle">Path</h2></header>
+          <label class="select-control" for="pathFamily">
+            <span class="field-label">Generator</span>
+            <span class="select-shell">
+              <select id="pathFamily">
+                <option value="gilbert" selected>Gilbert</option>
+                <option value="hilbert">Hilbert</option>
+                <option value="gosper">Gosper</option>
+                <option value="dragon">Dragon</option>
+                <option value="walk">Walk</option>
+              </select>
+            </span>
+          </label>
+          <div class="paths-two-column">
+            <label class="control" for="detail">
+              <span><b>Detail</b><output id="detailOut" for="detail">34 x 34</output></span>
+              <input id="detail" type="range" min="2" max="6" step="1" value="4" />
+            </label>
+            <label class="control" for="aspect">
+              <span><b>Frame</b><output id="aspectOut" for="aspect">1:1</output></span>
+              <input id="aspect" type="range" min="0.55" max="2.4" step="0.01" value="1" />
+            </label>
+          </div>
+          <button class="mini-action paths-export" id="exportSvgButton" type="button">Export SVG</button>
+        </section>
+
+        <section class="paths-rack" aria-labelledby="soundTitle">
+          <header><h2 id="soundTitle">Sound</h2></header>
+          <div class="paths-two-column paths-first-row">
+            <label class="select-control" for="voiceEngine">
+              <span class="field-label">Voice</span>
+              <span class="select-shell">
+                <select id="voiceEngine">
+                  <option value="sine">Sine</option>
+                  <option value="fm" selected>FM</option>
+                  <option value="pm">PM</option>
+                  <option value="shepard">Shepard</option>
+                </select>
+              </span>
+            </label>
+            <label class="select-control" for="pitchSource">
+              <span class="field-label">Pitch</span>
+              <span class="select-shell">
+                <select id="pitchSource">
+                  <option value="direction" selected>Direction</option>
+                  <option value="height">Height</option>
+                  <option value="curvature">Curvature</option>
+                  <option value="hierarchy">Hierarchy</option>
+                </select>
+              </span>
+            </label>
+          </div>
+          <div class="paths-two-column">
+            <label class="control" for="rootFrequency">
+              <span><b>Root</b><output id="rootFrequencyOut" for="rootFrequency">65.4 Hz</output></span>
+              <input id="rootFrequency" type="range" min="32" max="220" step="0.1" value="65.4" />
+            </label>
+            <label class="control" for="pitchRange">
+              <span><b>Range</b><output id="pitchRangeOut" for="pitchRange">30 st</output></span>
+              <input id="pitchRange" type="range" min="0" max="48" step="1" value="30" />
+            </label>
+          </div>
+          <div class="paths-two-column">
+            <label class="control" for="turnTone">
+              <span><b>Turning</b><output id="turnToneOut" for="turnTone">55%</output></span>
+              <input id="turnTone" type="range" min="0" max="1" step="0.01" value="0.55" />
+            </label>
+            <label class="control" for="headCount">
+              <span><b>Heads</b><output id="headCountOut" for="headCount">1</output></span>
+              <input id="headCount" type="range" min="1" max="5" step="1" value="1" />
+            </label>
+          </div>
+        </section>
+
+        <section class="paths-rack paths-stats-rack" aria-labelledby="statsTitle">
+          <header><h2 id="statsTitle">Stats</h2></header>
+          <dl class="paths-stats">
+            <div><dt>Points</dt><dd id="pointsReadout">1802</dd></div>
+            <div><dt>Segments</dt><dd id="segmentsReadout">1801</dd></div>
+            <div><dt>Turns</dt><dd id="turnsReadout">1380</dd></div>
+            <div><dt>Length</dt><dd id="lengthReadout">65.7</dd></div>
+          </dl>
+          <p class="audio-error" id="audioError" role="alert" hidden></p>
+        </section>
+        <div class="paths-midi-dock" data-midi-output-monitor-host aria-label="MIDI output monitor"></div>
+      </aside>
+    </main>
+
+    <p class="sr-only" id="canvasInstructions">Drag horizontally to scrub the path. Use Left and Right arrows for fine movement.</p>
+    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="paths-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

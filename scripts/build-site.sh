@@ -79,6 +79,11 @@ for worktree_runtime_file in \
   algorithmic-mazes-app.js \
   src/algorithmic-mazes.js \
   assets/instruments/algorithmic-mazes.webp \
+  paths.html \
+  paths.css \
+  paths-app.js \
+  src/paths.js \
+  assets/instruments/paths.webp \
   combo.html \
   shapes.html \
   combo.css \
@@ -588,6 +593,11 @@ required_files=(
   l-systems-app.js
   src/l-systems-suite.js
   assets/instruments/l-systems.webp
+  paths.html
+  paths.css
+  paths-app.js
+  src/paths.js
+  assets/instruments/paths.webp
   combo.html
   shapes.html
   combo.css
