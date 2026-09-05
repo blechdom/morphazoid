@@ -8,6 +8,10 @@ import {
   sanitizeSyrinxState,
 } from "./syrinx.js";
 import { sanitizeTongueState } from "./tongue-physics.js";
+import {
+  TONGUE_MOTION_PRESETS,
+  sampleTongueMotionPreset,
+} from "./tongue-performance.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const SAMPLE_COUNT = 96;
@@ -25,6 +29,8 @@ const LANE_HEIGHT = 28;
 const LANE_GRAPH_HEIGHT = 19;
 const AXIS_HEIGHT = 30;
 const KEYFRAME_PHASE_GAP = 0.002;
+const PATTERN_PHASE_GAP = 0.002;
+const DEFAULT_TONGUE_PATTERN_DURATION_MS = 900;
 const DEFAULT_MODULATION_SPEED_HZ = 2;
 const DEFAULT_MODULATION_DEPTH = 0.35;
 const MODULATION_SPEED_LIMITS = Object.freeze([0.02, 30]);
@@ -76,6 +82,29 @@ const finiteNumber = (value, fallback = 0) => {
 };
 
 const normalizedValue = (value) => clamp(finiteNumber(value));
+
+const tonguePatternPreset = (id) => (
+  Object.hasOwn(TONGUE_MOTION_PRESETS, id) ? TONGUE_MOTION_PRESETS[id] : null
+);
+
+function freezeTonguePatterns(patterns = []) {
+  return Object.freeze(patterns
+    .filter((pattern) => tonguePatternPreset(pattern?.presetId))
+    .map((pattern, index) => {
+      const startPhase = clamp(finiteNumber(pattern.startPhase));
+      const endPhase = clamp(
+        finiteNumber(pattern.endPhase, startPhase + PATTERN_PHASE_GAP),
+        Math.min(1, startPhase + PATTERN_PHASE_GAP),
+        1,
+      );
+      return Object.freeze({
+        id: String(pattern.id ?? `tongue-pattern-${index + 1}`),
+        presetId: String(pattern.presetId),
+        startPhase,
+        endPhase,
+      });
+    }));
+}
 
 const freezeCurvePoints = (points = []) => Object.freeze(points.map(([phase, value]) => (
   Object.freeze([clamp(phase), finiteNumber(value)])
@@ -142,6 +171,7 @@ function freezeEditableGesture(gesture, revision = 0) {
     )),
     laneParameters: initialLaneParameters(gesture),
     modulations: freezeModulations(gesture?.modulations),
+    tonguePatterns: freezeTonguePatterns(gesture?.tonguePatterns),
   });
 }
 
@@ -174,6 +204,7 @@ export function createHybrinxGestureStore(nativeGestures = {}) {
   )));
   const edits = new Map();
   let revision = 0;
+  let tonguePatternSequence = 0;
 
   const originalFor = (id) => originals.get(String(id ?? "")) ?? null;
   const currentFor = (id) => edits.get(String(id ?? ""))
@@ -224,6 +255,7 @@ export function createHybrinxGestureStore(nativeGestures = {}) {
     curves: gesture?.curves,
     laneParameters: gesture?.laneParameters,
     modulations: gesture?.modulations,
+    tonguePatterns: gesture?.tonguePatterns,
   });
 
   return Object.freeze({
@@ -301,6 +333,77 @@ export function createHybrinxGestureStore(nativeGestures = {}) {
         ...gesture,
         durationMs: clamp(durationMs, ...HYBRINX_DURATION_LIMITS),
       });
+    },
+    addTonguePattern(id, presetId, patch = {}) {
+      const gesture = currentFor(id);
+      const preset = tonguePatternPreset(presetId);
+      if (!gesture || !preset) return gesture;
+      const startPhase = clamp(finiteNumber(patch.startPhase));
+      const requestedDurationMs = clamp(
+        finiteNumber(patch.durationMs, DEFAULT_TONGUE_PATTERN_DURATION_MS),
+        HYBRINX_DURATION_LIMITS[0],
+        Math.max(HYBRINX_DURATION_LIMITS[0], gesture.durationMs),
+      );
+      const durationPhase = clamp(
+        requestedDurationMs / Math.max(1, gesture.durationMs),
+        PATTERN_PHASE_GAP,
+        1,
+      );
+      const endPhase = Math.min(1, Math.max(
+        startPhase + PATTERN_PHASE_GAP,
+        startPhase + durationPhase,
+      ));
+      const fittedStartPhase = endPhase >= 1 && startPhase >= 1
+        ? Math.max(0, 1 - durationPhase)
+        : startPhase;
+      const pattern = {
+        id: `tongue-pattern-${++tonguePatternSequence}`,
+        presetId: preset.id,
+        startPhase: fittedStartPhase,
+        endPhase: Math.max(fittedStartPhase + PATTERN_PHASE_GAP, endPhase),
+      };
+      return commit(id, {
+        ...gesture,
+        tonguePatterns: [...gesture.tonguePatterns, pattern],
+      });
+    },
+    updateTonguePattern(id, index, patch = {}) {
+      const gesture = currentFor(id);
+      const patternIndex = Math.trunc(Number(index));
+      const pattern = gesture?.tonguePatterns?.[patternIndex];
+      if (!pattern) return gesture;
+      const duration = Math.max(PATTERN_PHASE_GAP, pattern.endPhase - pattern.startPhase);
+      let startPhase = pattern.startPhase;
+      let endPhase = pattern.endPhase;
+      if (Number.isFinite(Number(patch.startPhase))) {
+        startPhase = clamp(patch.startPhase, 0, Math.max(0, 1 - duration));
+        endPhase = startPhase + duration;
+      }
+      if (Number.isFinite(Number(patch.endPhase))) {
+        endPhase = clamp(patch.endPhase, startPhase + PATTERN_PHASE_GAP, 1);
+      }
+      const nextPatterns = gesture.tonguePatterns.map((candidate, candidateIndex) => (
+        candidateIndex === patternIndex
+          ? { ...candidate, startPhase, endPhase }
+          : candidate
+      ));
+      return commit(id, { ...gesture, tonguePatterns: nextPatterns });
+    },
+    removeTonguePattern(id, index) {
+      const gesture = currentFor(id);
+      const patternIndex = Math.trunc(Number(index));
+      if (!gesture?.tonguePatterns?.[patternIndex]) return gesture;
+      return commit(id, {
+        ...gesture,
+        tonguePatterns: gesture.tonguePatterns.filter((_, candidateIndex) => (
+          candidateIndex !== patternIndex
+        )),
+      });
+    },
+    clearTonguePatterns(id) {
+      const gesture = currentFor(id);
+      if (!gesture?.tonguePatterns?.length) return gesture;
+      return commit(id, { ...gesture, tonguePatterns: [] });
     },
     addParameter(id, parameter, baseState = {}, tongueState = {}) {
       const gesture = currentFor(id);
@@ -444,6 +547,7 @@ export function createHybrinxGestureStore(nativeGestures = {}) {
         curves,
         modulations,
         laneParameters: [...retainedLanes, ...baselineFamilyLanes],
+        ...(family === "tongue" ? { tonguePatterns: baseline.tonguePatterns } : {}),
       };
       if (editableSnapshot(candidate) === editableSnapshot(gesture)) return gesture;
       if (editableSnapshot(candidate) === editableSnapshot(baseline)) {
@@ -558,6 +662,13 @@ export function buildHybrinxTimelineModel(gesture, baseState = {}, options = {})
       plotWidth: BASE_CALL_WIDTH,
       viewBoxWidth: PLOT_LEFT + BASE_CALL_WIDTH + PLOT_END_PADDING,
       loop: false,
+      patternLane: Object.freeze({
+        kind: "tongue-patterns",
+        label: "Tongue patterns",
+        shortLabel: "PATTERN",
+        color: "#baFF54",
+        patterns: Object.freeze([]),
+      }),
       lanes: Object.freeze([]),
       rowCount: 0,
       keyframeCount: 0,
@@ -594,6 +705,24 @@ export function buildHybrinxTimelineModel(gesture, baseState = {}, options = {})
   const viewBoxWidth = PLOT_LEFT + plotWidth + PLOT_END_PADDING;
   const sampleCount = Math.round(clamp(finiteNumber(options.sampleCount, SAMPLE_COUNT), 24, 256));
   let keyframeCount = 0;
+  const patternLane = Object.freeze({
+    kind: "tongue-patterns",
+    label: "Tongue patterns",
+    shortLabel: "PATTERN",
+    color: "#baff54",
+    patterns: Object.freeze((gesture.tonguePatterns ?? []).map((pattern, index) => {
+      const preset = tonguePatternPreset(pattern.presetId);
+      return Object.freeze({
+        ...pattern,
+        index,
+        label: preset?.label ?? pattern.presetId,
+        symbol: preset?.symbol ?? pattern.presetId,
+        startTime: clamp(pattern.startPhase) * callFraction,
+        endTime: clamp(pattern.endPhase) * callFraction,
+        durationMs: Math.max(0, pattern.endPhase - pattern.startPhase) * callDurationMs,
+      });
+    })),
+  });
 
   const requestedParameters = Array.isArray(gesture.laneParameters)
     ? gesture.laneParameters
@@ -667,7 +796,7 @@ export function buildHybrinxTimelineModel(gesture, baseState = {}, options = {})
         modulation,
       });
     });
-  const rowCount = lanes.reduce((count, lane) => (
+  const rowCount = 1 + lanes.reduce((count, lane) => (
     count + 1 + (lane.modulation.enabled ? 2 : 0)
   ), 0);
 
@@ -683,10 +812,39 @@ export function buildHybrinxTimelineModel(gesture, baseState = {}, options = {})
     plotWidth,
     viewBoxWidth,
     loop,
+    patternLane,
     lanes: Object.freeze(lanes),
     rowCount,
     keyframeCount,
   });
+}
+
+/** Returns the last-starting tongue clip that covers the call phase. */
+export function resolveHybrinxTonguePattern(gesture, normalizedPhase = 0, options = {}) {
+  const phase = clamp(finiteNumber(normalizedPhase));
+  let active = null;
+  (gesture?.tonguePatterns ?? []).forEach((pattern, index) => {
+    if (!tonguePatternPreset(pattern?.presetId)) return;
+    const startPhase = clamp(finiteNumber(pattern.startPhase));
+    const endPhase = clamp(finiteNumber(pattern.endPhase), startPhase, 1);
+    const coversPhase = phase >= startPhase
+      && (phase < endPhase || (phase === 1 && endPhase === 1));
+    if (!coversPhase) return;
+    if (!active || startPhase >= active.startPhase) {
+      active = { ...pattern, index, startPhase, endPhase };
+    }
+  });
+  if (!active) return null;
+  const gestureRate = clamp(
+    finiteNumber(options.gestureRate, 1),
+    0.25,
+    2.5,
+  );
+  const elapsedSeconds = Math.max(0, phase - active.startPhase)
+    * Math.max(1, finiteNumber(gesture?.durationMs, 1))
+    / gestureRate
+    / 1_000;
+  return Object.freeze({ ...active, elapsedSeconds });
 }
 
 function integrateGestureCurve(points, endPhase) {
@@ -796,13 +954,34 @@ export function applyHybrinxTimelinePerformance(
     }));
   }
 
+  const pattern = resolveHybrinxTonguePattern(gesture, phase, { gestureRate });
+  let resolvedHost = hostCandidate;
+  let resolvedTongue = tongueCandidate;
+  let articulation = Object.freeze({ active: false });
+  if (pattern) {
+    const motion = sampleTongueMotionPreset(
+      pattern.presetId,
+      pattern.elapsedSeconds,
+      tongueCandidate,
+    );
+    resolvedHost = {
+      ...hostCandidate,
+      ...motion.host,
+      active: hostCandidate.active,
+    };
+    resolvedTongue = motion.tongue;
+    articulation = motion.articulation;
+  }
+
   return Object.freeze({
     host: Object.freeze(preservePerformanceFields(
-      sanitizeSyrinxState(hostCandidate, initialHost),
-      hostCandidate,
+      sanitizeSyrinxState(resolvedHost, initialHost),
+      resolvedHost,
     )),
-    tongue: Object.freeze(sanitizeTongueState(tongueCandidate, baseTongueState)),
+    tongue: Object.freeze(sanitizeTongueState(resolvedTongue, baseTongueState)),
     modulation: Object.freeze(modulationState),
+    pattern,
+    articulation,
   });
 }
 
@@ -935,6 +1114,7 @@ export function createHybrinxTimeline(root, options = {}) {
   let activeEdit = null;
   let pendingFocus = null;
   let renderRows = [];
+  let patternNodes = [];
   let zoomX = clamp(finiteNumber(zoomXInput?.value, 100) / 100, 1, 4);
   let zoomY = clamp(finiteNumber(zoomYInput?.value, 100) / 100, 1, 4);
   let geometry = Object.freeze({
@@ -958,6 +1138,8 @@ export function createHybrinxTimeline(root, options = {}) {
     if (!pendingFocus) return;
     const target = pendingFocus.type === "duration"
       ? svg.querySelector("[data-duration-handle]")
+      : pendingFocus.type === "tongue-pattern"
+        ? svg.querySelector(`[data-tongue-pattern-index="${pendingFocus.index}"]`)
       : pendingFocus.type === "modulation-toggle"
         ? root.querySelector(
           `[data-hybrinx-mod-toggle][data-parameter="${pendingFocus.parameter}"]`,
@@ -972,6 +1154,9 @@ export function createHybrinxTimeline(root, options = {}) {
     if (restoreFocus) {
       pendingFocus = action.type === "duration"
         ? { type: "duration" }
+        : action.type === "tongue-pattern"
+          || action.type === "remove-tongue-pattern"
+          ? { type: "tongue-pattern", index: action.index }
         : action.type === "toggle-modulation"
           ? { type: "modulation-toggle", parameter: action.parameter }
           : {
@@ -996,7 +1181,13 @@ export function createHybrinxTimeline(root, options = {}) {
 
   function rebuild(payload) {
     model = buildHybrinxTimelineModel(payload.gesture, payload.baseState, payload);
-    renderRows = [];
+    renderRows = [{
+      lane: model.patternLane,
+      track: model.patternLane,
+      contour: "",
+      kind: "tongue-patterns",
+    }];
+    patternNodes = [];
     model.lanes.forEach((lane) => {
       renderRows.push({ lane, track: lane, contour: "" });
       if (lane.modulation.enabled) {
@@ -1015,7 +1206,7 @@ export function createHybrinxTimeline(root, options = {}) {
     const svgTitle = createSvgElement(documentRef, "title", { id: "hybrinxTimelineSvgTitle" });
     svgTitle.textContent = `${payload.animalLabel ?? "Animal"} ${model.label} editable call automation`;
     const svgDescription = createSvgElement(documentRef, "desc", { id: "hybrinxTimelineSvgDescription" });
-    svgDescription.textContent = `${model.lanes.length} editable parameters across ${renderRows.length} contours with ${model.keyframeCount} keyframes. Drag diamonds to change time and value; double-click a contour to add one.`;
+    svgDescription.textContent = `${model.patternLane.patterns.length} tongue pattern clips plus ${model.lanes.length} editable parameters across ${renderRows.length - 1} contours with ${model.keyframeCount} keyframes. Drag tongue clips in time or resize their right edge; drag diamonds to change contour time and value.`;
     svg.append(svgTitle, svgDescription);
     svg.setAttribute("aria-labelledby", "hybrinxTimelineSvgTitle hybrinxTimelineSvgDescription");
 
@@ -1073,6 +1264,95 @@ export function createHybrinxTimeline(root, options = {}) {
       const { lane, track, contour } = row;
       const laneY = LANE_TOP + index * geometry.laneHeight;
       Object.assign(row, { laneY, valueNode: null, currentDot: null });
+      if (row.kind === "tongue-patterns") {
+        if (gutter) {
+          const gutterRow = documentRef.createElement("div");
+          gutterRow.className = "hybrinx-timeline-gutter-row is-pattern";
+          gutterRow.style.setProperty("--hybrinx-row-top", `${laneY - 2}px`);
+          gutterRow.style.setProperty("--hybrinx-row-height", `${geometry.graphHeight + 4}px`);
+          gutterRow.style.setProperty("--lane-color", lane.color);
+          const label = documentRef.createElement("span");
+          label.className = "hybrinx-timeline-gutter-label";
+          label.textContent = lane.shortLabel;
+          const valueNode = documentRef.createElement("output");
+          valueNode.className = "hybrinx-timeline-gutter-value";
+          valueNode.textContent = lane.patterns.length ? `${lane.patterns.length} clip${lane.patterns.length === 1 ? "" : "s"}` : "empty";
+          gutterRow.append(label, valueNode);
+          row.valueNode = valueNode;
+          gutter.append(gutterRow);
+        }
+        const laneGroup = createSvgElement(documentRef, "g", {
+          class: "hybrinx-timeline-lane hybrinx-timeline-pattern-lane",
+          "data-tongue-pattern-lane": "true",
+          style: `--lane-color:${lane.color}`,
+        });
+        laneGroup.append(createSvgElement(documentRef, "rect", {
+          class: "hybrinx-timeline-lane-bg",
+          x: PLOT_LEFT,
+          y: laneY - 2,
+          width: geometry.plotWidth,
+          height: geometry.graphHeight + 4,
+        }));
+        if (!lane.patterns.length) {
+          appendText(documentRef, laneGroup, {
+            class: "hybrinx-timeline-pattern-empty",
+            x: PLOT_LEFT + 8,
+            y: laneY + geometry.graphHeight * 0.68,
+          }, "Choose a tongue preset to place a clip at the playhead");
+        }
+        lane.patterns.forEach((pattern) => {
+          const x = PLOT_LEFT + pattern.startTime * geometry.plotWidth;
+          const endX = PLOT_LEFT + pattern.endTime * geometry.plotWidth;
+          const width = Math.max(4, endX - x);
+          const patternGroup = createSvgElement(documentRef, "g", {
+            class: "hybrinx-timeline-pattern",
+            "data-tongue-pattern-index": pattern.index,
+            "data-preset-id": pattern.presetId,
+            tabindex: 0,
+            role: "slider",
+            "aria-label": `${pattern.label} tongue pattern clip ${pattern.index + 1}; drag to move, drag the right edge to resize, Delete to remove`,
+            "aria-valuemin": 0,
+            "aria-valuemax": 100,
+            "aria-valuenow": Math.round(pattern.startPhase * 100),
+            "aria-valuetext": `${Math.round(pattern.startPhase * 100)} to ${Math.round(pattern.endPhase * 100)} percent of call`,
+          });
+          patternGroup.append(
+            createSvgElement(documentRef, "rect", {
+              class: "hybrinx-timeline-pattern-hit",
+              x,
+              y: laneY - 1,
+              width,
+              height: geometry.graphHeight + 2,
+              rx: 3,
+            }),
+            createSvgElement(documentRef, "rect", {
+              class: "hybrinx-timeline-pattern-block",
+              x: x + 1,
+              y: laneY + 1,
+              width: Math.max(2, width - 2),
+              height: Math.max(4, geometry.graphHeight - 2),
+              rx: 2,
+            }),
+          );
+          appendText(documentRef, patternGroup, {
+            class: "hybrinx-timeline-pattern-label",
+            x: x + 5,
+            y: laneY + geometry.graphHeight * 0.68,
+          }, `${pattern.symbol} · ${pattern.label}`);
+          patternGroup.append(createSvgElement(documentRef, "line", {
+            class: "hybrinx-timeline-pattern-resize",
+            "data-tongue-pattern-resize": "true",
+            x1: endX - 2,
+            x2: endX - 2,
+            y1: laneY + 3,
+            y2: laneY + geometry.graphHeight - 3,
+          }));
+          patternNodes.push({ pattern, node: patternGroup });
+          laneGroup.append(patternGroup);
+        });
+        lanesGroup.append(laneGroup);
+        return;
+      }
       if (gutter) {
         const gutterRow = documentRef.createElement("div");
         gutterRow.className = `hybrinx-timeline-gutter-row${contour ? " is-modulation" : ""}`;
@@ -1237,7 +1517,10 @@ export function createHybrinxTimeline(root, options = {}) {
     if (durationInput && documentRef.activeElement !== durationInput) {
       durationInput.value = String(Math.round(payload.gesture?.durationMs ?? model.callDurationMs));
     }
-    if (keyframesOutput) keyframesOutput.textContent = `${model.keyframeCount} keys`;
+    if (keyframesOutput) {
+      const patternCount = model.patternLane.patterns.length;
+      keyframesOutput.textContent = `${model.keyframeCount} keys · ${patternCount} pattern${patternCount === 1 ? "" : "s"}`;
+    }
     if (editStatus) editStatus.textContent = payload.edited ? "edited" : "native";
     root.classList.toggle("is-edited", Boolean(payload.edited));
     resetButton?.toggleAttribute("disabled", !payload.edited);
@@ -1247,7 +1530,7 @@ export function createHybrinxTimeline(root, options = {}) {
       button.setAttribute("aria-pressed", String(Boolean(added)));
     });
     if (description) {
-      description.textContent = `${payload.animalLabel ?? "Animal"} ${model.label}: ${model.lanes.length} editable automation lanes, ${model.keyframeCount} keyframes, ${formatHybrinxDuration(model.callDurationMs)} sounding duration${model.gapDurationMs ? `, then ${formatHybrinxDuration(model.gapDurationMs)} rest` : ""}. Drag a keyframe to change its time and value, double-click a lane to add one, or drag the Stretch edge to elongate the call.`;
+      description.textContent = `${payload.animalLabel ?? "Animal"} ${model.label}: ${model.patternLane.patterns.length} tongue pattern clips and ${model.lanes.length} editable automation lanes, ${model.keyframeCount} keyframes, ${formatHybrinxDuration(model.callDurationMs)} sounding duration${model.gapDurationMs ? `, then ${formatHybrinxDuration(model.gapDurationMs)} rest` : ""}. Tongue clips temporarily override the contours beneath them, then release back to those settings. Drag a clip to move it, drag its right edge to resize it, or Delete to remove it.`;
     }
     restorePendingFocus();
   }
@@ -1279,14 +1562,49 @@ export function createHybrinxTimeline(root, options = {}) {
     };
   }
 
+  function tonguePatternActionFromPointer(event, edit = activeEdit) {
+    if (!model || !edit || edit.type !== "tongue-pattern") return null;
+    const point = localPoint(event);
+    const phase = clamp((point.x - PLOT_LEFT) / Math.max(1, geometry.callPlotWidth));
+    if (edit.mode === "resize") {
+      return {
+        type: "tongue-pattern",
+        index: edit.index,
+        endPhase: Math.max(edit.startPhase + PATTERN_PHASE_GAP, phase),
+      };
+    }
+    const duration = edit.endPhase - edit.startPhase;
+    const delta = phase - edit.pointerPhase;
+    return {
+      type: "tongue-pattern",
+      index: edit.index,
+      startPhase: clamp(edit.startPhase + delta, 0, Math.max(0, 1 - duration)),
+    };
+  }
+
   svg.addEventListener("pointerdown", (event) => {
     const keyframe = event.target.closest?.(".hybrinx-timeline-keyframe");
+    const tonguePattern = event.target.closest?.(".hybrinx-timeline-pattern");
     const durationHandle = event.target.closest?.("[data-duration-handle]");
-    if (!keyframe && !durationHandle) return;
+    if (!keyframe && !tonguePattern && !durationHandle) return;
     event.preventDefault();
     event.stopPropagation();
     svg.setPointerCapture?.(event.pointerId);
-    if (keyframe) {
+    if (tonguePattern) {
+      const index = Number(tonguePattern.dataset.tonguePatternIndex);
+      const pattern = model.patternLane.patterns[index];
+      const point = localPoint(event);
+      activeEdit = {
+        type: "tongue-pattern",
+        mode: event.target.closest?.("[data-tongue-pattern-resize]") ? "resize" : "move",
+        pointerId: event.pointerId,
+        index,
+        startPhase: pattern.startPhase,
+        endPhase: pattern.endPhase,
+        pointerPhase: clamp((point.x - PLOT_LEFT) / Math.max(1, geometry.callPlotWidth)),
+      };
+      tonguePattern.focus?.({ preventScroll: true });
+    } else if (keyframe) {
       activeEdit = {
         type: "keyframe",
         pointerId: event.pointerId,
@@ -1332,7 +1650,9 @@ export function createHybrinxTimeline(root, options = {}) {
       }, { immediate: false });
       return;
     }
-    const action = keyframeActionFromPointer(event);
+    const action = activeEdit.type === "tongue-pattern"
+      ? tonguePatternActionFromPointer(event)
+      : keyframeActionFromPointer(event);
     if (action) emitEdit(action, { immediate: false });
   });
 
@@ -1346,6 +1666,8 @@ export function createHybrinxTimeline(root, options = {}) {
     root.classList.remove("is-editing");
     pendingFocus = finishedEdit.type === "duration"
       ? { type: "duration" }
+      : finishedEdit.type === "tongue-pattern"
+        ? { type: "tongue-pattern", index: finishedEdit.index }
       : {
         type: "keyframe",
         parameter: finishedEdit.parameter,
@@ -1365,12 +1687,12 @@ export function createHybrinxTimeline(root, options = {}) {
 
   svg.addEventListener("dblclick", (event) => {
     if (!model || event.target.closest?.(
-      "[data-duration-handle], [data-hybrinx-mod-toggle], .hybrinx-timeline-keyframe",
+      "[data-duration-handle], [data-hybrinx-mod-toggle], .hybrinx-timeline-keyframe, .hybrinx-timeline-pattern",
     )) return;
     const point = localPoint(event);
     const laneIndex = Math.floor((point.y - LANE_TOP) / geometry.laneHeight);
     const row = renderRows[laneIndex];
-    if (!row || point.x < PLOT_LEFT || point.x > PLOT_LEFT + geometry.callPlotWidth) return;
+    if (!row || row.kind === "tongue-patterns" || point.x < PLOT_LEFT || point.x > PLOT_LEFT + geometry.callPlotWidth) return;
     event.preventDefault();
     emitEdit({
       type: row.contour ? "add-modulation-keyframe" : "add-keyframe",
@@ -1393,6 +1715,33 @@ export function createHybrinxTimeline(root, options = {}) {
       else return;
       event.preventDefault();
       emitEdit({ type: "duration", durationMs }, { restoreFocus: true });
+      return;
+    }
+    const tonguePattern = event.target.closest?.(".hybrinx-timeline-pattern");
+    if (tonguePattern && model) {
+      const index = Number(tonguePattern.dataset.tonguePatternIndex);
+      const pattern = model.patternLane.patterns[index];
+      if (!pattern) return;
+      const amount = event.altKey ? 0.05 : 0.01;
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        emitEdit({ type: "remove-tongue-pattern", index });
+        return;
+      }
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      emitEdit(event.shiftKey
+        ? {
+          type: "tongue-pattern",
+          index,
+          endPhase: pattern.endPhase + direction * amount,
+        }
+        : {
+          type: "tongue-pattern",
+          index,
+          startPhase: pattern.startPhase + direction * amount,
+        }, { restoreFocus: true });
       return;
     }
     const keyframe = event.target.closest?.(".hybrinx-timeline-keyframe");
@@ -1525,7 +1874,27 @@ export function createHybrinxTimeline(root, options = {}) {
     const tongue = currentPayload.performanceTongueState ?? currentPayload.tongueState ?? {};
     const dotTime = currentPayload.playing ? position : 0;
     const contourPhase = currentPayload.playing ? clamp(finiteNumber(currentPayload.phase)) : 0;
+    const activePattern = currentPayload.playing && currentPayload.gapRemainingMs <= 0
+      ? resolveHybrinxTonguePattern(
+        currentPayload.gesture,
+        contourPhase,
+        { gestureRate: currentPayload.gestureRate },
+      )
+      : null;
+    patternNodes.forEach(({ pattern, node }) => {
+      node.classList.toggle("is-active", pattern.id === activePattern?.id);
+    });
     renderRows.forEach((row) => {
+      if (row.kind === "tongue-patterns") {
+        if (row.valueNode) {
+          row.valueNode.textContent = activePattern
+            ? TONGUE_MOTION_PRESETS[activePattern.presetId]?.label ?? activePattern.presetId
+            : row.lane.patterns.length
+              ? `${row.lane.patterns.length} clip${row.lane.patterns.length === 1 ? "" : "s"}`
+              : "empty";
+        }
+        return;
+      }
       let value;
       let rawValue;
       if (row.contour) {

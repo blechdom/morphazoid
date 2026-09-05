@@ -362,6 +362,17 @@ function handleHybrinxTimelineEdit(action = {}) {
       action.contour,
       action.index,
     );
+  } else if (action.type === "tongue-pattern") {
+    nextGesture = hybrinxGestureStore.updateTonguePattern(
+      gestureId,
+      action.index,
+      action,
+    );
+  } else if (action.type === "remove-tongue-pattern") {
+    nextGesture = hybrinxGestureStore.removeTonguePattern(
+      gestureId,
+      action.index,
+    );
   } else if (action.type === "reset") {
     nextGesture = hybrinxGestureStore.reset(gestureId);
     stopTongueAnimationForReset();
@@ -390,8 +401,13 @@ function handleHybrinxTimelineEdit(action = {}) {
     );
     performanceState = sequenced.host;
     performanceTongueState = sequenced.tongue;
+    tongueArticulation = sequenced.articulation?.active
+      ? sequenced.articulation
+      : IDLE_TONGUE_ARTICULATION;
+    setHybrinxTonguePatternPresentation(sequenced.pattern?.presetId ?? "");
   } else {
     performanceState = editedPerformanceState;
+    if (HYBRINX_MODE) setHybrinxTonguePatternPresentation("");
   }
   setGesturePresentation();
   audioDirty = true;
@@ -771,7 +787,7 @@ function updateTonguePresentation(soundingState = state) {
 
 function setTongueControl(key, value, announceChange = false) {
   tongueState = sanitizeTongueState({ ...tongueState, [key]: value }, tongueState);
-  if (!tongueMotionId) performanceTongueState = tongueState;
+  if (HYBRINX_MODE || !tongueMotionId) performanceTongueState = tongueState;
   updateTonguePresentation(performanceState);
   audioDirty = true;
   if (announceChange) {
@@ -784,14 +800,74 @@ function setTongueControl(key, value, announceChange = false) {
 
 function updateTongueMotionButtons() {
   if (!TONGUE_MODE) return;
+  const scheduledPatterns = HYBRINX_MODE ? activeGesture()?.tonguePatterns ?? [] : [];
   document.querySelectorAll("[data-tongue-motion]").forEach((button) => {
-    button.setAttribute("aria-pressed", String(button.dataset.tongueMotion === tongueMotionId));
+    const presetId = button.dataset.tongueMotion;
+    const scheduledCount = presetId
+      ? scheduledPatterns.filter((pattern) => pattern.presetId === presetId).length
+      : scheduledPatterns.length;
+    button.setAttribute("aria-pressed", String(Boolean(presetId) && presetId === tongueMotionId));
+    if (HYBRINX_MODE) {
+      button.classList.toggle("is-scheduled", scheduledCount > 0);
+      button.dataset.scheduledCount = String(scheduledCount);
+      button.setAttribute("aria-description", presetId
+        ? scheduledCount
+          ? `${scheduledCount} ${scheduledCount === 1 ? "clip" : "clips"} scheduled in this call`
+          : "Adds an override clip at the playhead"
+        : scheduledCount
+          ? `Clears ${scheduledCount} scheduled ${scheduledCount === 1 ? "clip" : "clips"}`
+          : "No tongue clips scheduled");
+    }
   });
+}
+
+function setHybrinxTonguePatternPresentation(id) {
+  if (!HYBRINX_MODE) return;
+  const next = Object.hasOwn(TONGUE_MOTION_PRESETS, id) ? id : "";
+  if (tongueMotionId === next) return;
+  tongueMotionId = next;
+  tongueMotionStartTime = 0;
+  updateTongueMotionButtons();
 }
 
 function setTongueMotion(id, { announceChange = true, startAudio = true } = {}) {
   if (!TONGUE_MODE) return;
   const next = Object.hasOwn(TONGUE_MOTION_PRESETS, id) ? id : "";
+  if (HYBRINX_MODE && hybrinxGestureStore) {
+    if (next) {
+      const startPhase = gesturePlaying && loopGapRemainingMs <= 0 ? gesturePhase : 0;
+      const nextGesture = hybrinxGestureStore.addTonguePattern(
+        state.callId,
+        next,
+        { startPhase, durationMs: 900 },
+      );
+      tongueState = sanitizeTongueState({ ...tongueState, tongueEnabled: true }, tongueState);
+      if (startAudio) void ensureAudio();
+      if (!gesturePlaying) playGesture();
+      updateTongueMotionButtons();
+      updateHybrinxTimeline();
+      audioDirty = true;
+      if (announceChange) {
+        const pattern = nextGesture?.tonguePatterns?.at(-1);
+        announce(`${TONGUE_MOTION_PRESETS[next].label} clip added at ${Math.round((pattern?.startPhase ?? startPhase) * 100)}%; it overrides the call until its clip ends`);
+      }
+    } else {
+      const hadPatterns = Boolean(activeGesture()?.tonguePatterns?.length);
+      hybrinxGestureStore.clearTonguePatterns(state.callId);
+      tongueArticulation = IDLE_TONGUE_ARTICULATION;
+      performanceTongueState = tongueState;
+      setHybrinxTonguePatternPresentation("");
+      updateTongueMotionButtons();
+      updateHybrinxTimeline();
+      audioDirty = true;
+      if (announceChange) {
+        announce(hadPatterns
+          ? "All tongue pattern clips cleared; the call now follows its underlying settings"
+          : "No tongue pattern clips are scheduled; free-hand control is active");
+      }
+    }
+    return;
+  }
   tongueMotionId = next;
   tongueMotionStartTime = next ? performance.now() : 0;
   if (!next) {
@@ -813,6 +889,12 @@ function setTongueMotion(id, { announceChange = true, startAudio = true } = {}) 
 
 function stopTongueAnimationForReset() {
   if (!TONGUE_MODE) return;
+  if (HYBRINX_MODE) {
+    tongueArticulation = IDLE_TONGUE_ARTICULATION;
+    performanceTongueState = tongueState;
+    setHybrinxTonguePatternPresentation("");
+    return;
+  }
   setTongueMotion("", { announceChange: false, startAudio: false });
 }
 
@@ -865,7 +947,9 @@ function installTongueListeners() {
   for (const key of TONGUE_CONTROL_KEYS) {
     const input = $(key);
     input?.addEventListener("input", () => {
-      if (tongueMotionId) setTongueMotion("", { announceChange: false, startAudio: false });
+      if (!HYBRINX_MODE && tongueMotionId) {
+        setTongueMotion("", { announceChange: false, startAudio: false });
+      }
       setTongueControl(key, Number(input.value));
     });
     input?.addEventListener("change", () => setTongueControl(key, Number(input.value), true));
@@ -873,7 +957,7 @@ function installTongueListeners() {
   document.querySelectorAll("[data-tongue-motion]").forEach((button) => {
     button.addEventListener("click", () => {
       const requested = button.dataset.tongueMotion;
-      setTongueMotion(requested === tongueMotionId ? "" : requested);
+      setTongueMotion(HYBRINX_MODE ? requested : requested === tongueMotionId ? "" : requested);
     });
   });
   document.querySelectorAll("[data-feral-preset]").forEach((button) => {
@@ -952,7 +1036,9 @@ function loadAnimal(animalId) {
     rms: 0,
     peak: 0,
   };
+  if (HYBRINX_MODE) setHybrinxTonguePatternPresentation("");
   updateAnimalPresentation();
+  updateTongueMotionButtons();
   postConfiguration(performanceState, true);
   const rangeNote = state.biologicalLock
     ? "Species-informed ranges locked."
@@ -972,9 +1058,11 @@ function loadCall(callId) {
     : gesturePlaying
       ? interpolateGesture(activeGesture(), 0, state)
       : { ...state, active: false };
+  if (HYBRINX_MODE) setHybrinxTonguePatternPresentation("");
   updateCallOptions();
   updateControlValues();
   setGesturePresentation();
+  updateTongueMotionButtons();
   postConfiguration(performanceState);
   audioDirty = gesturePlaying;
   announce(`${activeGesture().label} gesture selected${gesturePlaying ? "; call transport continues" : ""}`);
@@ -1408,7 +1496,7 @@ function resetParameterModulators({ announceChange = true } = {}) {
     : gesturePlaying
       ? interpolateGesture(activeGesture(), gesturePhase, state)
       : { ...state, active: false };
-  if (!tongueMotionId) performanceTongueState = tongueState;
+  if (HYBRINX_MODE || !tongueMotionId) performanceTongueState = tongueState;
   audioDirty = true;
   if (announceChange) {
     announce("All viewport modulators stopped and reset to their starting speed and width");
@@ -2829,7 +2917,9 @@ function installCanvasInteraction() {
     if (tongueAtPoint(point)) {
       event.preventDefault();
       void ensureAudio();
-      if (tongueMotionId) setTongueMotion("", { announceChange: false, startAudio: false });
+      if (!HYBRINX_MODE && tongueMotionId) {
+        setTongueMotion("", { announceChange: false, startAudio: false });
+      }
       disableTongueParameterModulators();
       tongueDragStartedBreath = !gesturePlaying && !manualBreath;
       if (tongueDragStartedBreath) setManualBreath(true);
@@ -2982,7 +3072,7 @@ function updatePerformance(time) {
     updateModulationPresentation(time);
   }
   if (TONGUE_MODE) {
-    if (tongueMotionId) {
+    if (!HYBRINX_MODE && tongueMotionId) {
       const gestureSourceFrequencyRatio = performanceState.sourceFrequencyRatio;
       const motion = sampleTongueMotionPreset(
         tongueMotionId,
@@ -3005,6 +3095,9 @@ function updatePerformance(time) {
     } else {
       performanceTongueState = tongueState;
       tongueArticulation = IDLE_TONGUE_ARTICULATION;
+      if (HYBRINX_MODE && (!gesturePlaying || loopGapRemainingMs > 0)) {
+        setHybrinxTonguePatternPresentation("");
+      }
     }
     if (hostParameterModulators.length) {
       performanceState = modulateSyrinxState(
@@ -3031,6 +3124,10 @@ function updatePerformance(time) {
       );
       performanceState = sequenced.host;
       performanceTongueState = sequenced.tongue;
+      tongueArticulation = sequenced.articulation?.active
+        ? sequenced.articulation
+        : IDLE_TONGUE_ARTICULATION;
+      setHybrinxTonguePatternPresentation(sequenced.pattern?.presetId ?? "");
     }
   }
   updatePerformancePresentation(performanceState);
@@ -3079,17 +3176,17 @@ function installLifecycle() {
       setViewportTonguePresetPaletteOpen(false, { pinned: false });
       if (viewportTonguePresets?.contains(document.activeElement)) document.activeElement.blur?.();
     }
-    if (TONGUE_MODE) setTongueMotion("", { announceChange: false, startAudio: false });
+    if (TONGUE_MODE) stopTongueAnimationForReset();
     stopPerformance("All pressure released");
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
-      if (TONGUE_MODE) setTongueMotion("", { announceChange: false, startAudio: false });
+      if (TONGUE_MODE) stopTongueAnimationForReset();
       stopPerformance("");
     }
   });
   globalThis.addEventListener("pagehide", () => {
-    if (TONGUE_MODE) setTongueMotion("", { announceChange: false, startAudio: false });
+    if (TONGUE_MODE) stopTongueAnimationForReset();
     stopPerformance("");
     cancelAnimationFrame(animationFrame);
     graph?.releaseOutput?.();
