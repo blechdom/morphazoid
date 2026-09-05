@@ -15,46 +15,63 @@ import {
   AUTOMATAPOEIA_DEFAULT_BOUNDARY,
   AUTOMATAPOEIA_DEFAULT_CONTOUR_SOURCE,
   AUTOMATAPOEIA_DEFAULT_ENVELOPE,
+  AUTOMATAPOEIA_DEFAULT_FAMILY,
   AUTOMATAPOEIA_DEFAULT_OBJECT_MODE,
   AUTOMATAPOEIA_DEFAULT_PHRASE_SHAPE,
   AUTOMATAPOEIA_DEFAULT_PITCH_CURVE,
   AUTOMATAPOEIA_DEFAULT_POLARITY,
+  AUTOMATAPOEIA_DEFAULT_SONIFICATION_MODE,
   AUTOMATAPOEIA_DEFAULT_TIMBRE_SOURCE,
+  AUTOMATAPOEIA_DEFAULT_TRANSFORM,
   AUTOMATAPOEIA_DEFAULT_VOICE,
+  AUTOMATAPOEIA_FAMILIES,
   AUTOMATAPOEIA_RULES,
+  AUTOMATAPOEIA_TOTALISTIC_RULES,
   automatapoeiaBoundaryLabel,
+  automatapoeiaColumnTransitions,
   automatapoeiaConnectedForms,
   automatapoeiaConnectedPaths,
   automatapoeiaConnectedSoundUnits,
   automatapoeiaContourSourceLabel,
   automatapoeiaContourStats,
+  automatapoeiaFamilyLabel,
+  automatapoeiaFrequencyAtPosition,
   automatapoeiaNextRow,
   automatapoeiaObjectModeLabel,
   automatapoeiaPitchCurveLabel,
+  automatapoeiaPitchResponse,
   automatapoeiaPolarityLabel,
   automatapoeiaPolarityMask,
   automatapoeiaPhraseShapeLabel,
   automatapoeiaPreviewRows,
+  automatapoeiaResizeRow,
   automatapoeiaRetimedAccumulator,
   automatapoeiaRowsPath,
   automatapoeiaRuleBits,
+  automatapoeiaSonificationModeLabel,
   automatapoeiaTimbreSourceLabel,
+  automatapoeiaTransformLabel,
+  automatapoeiaTransformRow,
   automatapoeiaVoiceLabel,
   automatapoeiaSwingInterval,
   renderAutomatapoeiaRow,
   sanitizeAutomatapoeiaBoundary,
   sanitizeAutomatapoeiaContourSource,
+  sanitizeAutomatapoeiaFamily,
   sanitizeAutomatapoeiaObjectMode,
   sanitizeAutomatapoeiaPitchCurve,
   sanitizeAutomatapoeiaPhraseShape,
   sanitizeAutomatapoeiaPolarity,
+  sanitizeAutomatapoeiaSonificationMode,
   sanitizeAutomatapoeiaTimbreSource,
+  sanitizeAutomatapoeiaTransform,
   sanitizeAutomatapoeiaVoice,
   writeAutomatapoeiaRaster,
 } from "./src/automatapoeia.js";
 
 const TAU = Math.PI * 2;
 const MAX_CONTINUOUS_VOICES = 48;
+const MAX_AUTOMATA_SINE_SOURCES = 384;
 const MOIRE_DEFAULT_VOICES = 8;
 const MOIRE_BANK_GAIN = 0.12;
 const MOIRE_OCTAVES_PER_DEGREE_SECOND = 0.045;
@@ -117,6 +134,10 @@ class ExperimentAudio {
     this.orbitalWet = null;
     this.outputRelease = null;
     this.voices = [];
+    this.columnBankBus = null;
+    this.columnVoices = new Map();
+    this.columnSources = new Set();
+    this.columnSourceEnvelopes = new Map();
     this.rowScanSources = new Set();
     this.rowScanCursor = 0;
     this.rowScanSerial = 0;
@@ -133,6 +154,9 @@ class ExperimentAudio {
       this.context = new AudioContextCtor();
       this.master = this.context.createGain();
       this.master.gain.value = this.level;
+      this.columnBankBus = this.context.createGain();
+      this.columnBankBus.gain.value = 0.08;
+      this.columnBankBus.connect(this.master);
       this.compressor = this.context.createDynamicsCompressor();
       this.compressor.threshold.value = -18;
       this.compressor.knee.value = 18;
@@ -259,6 +283,27 @@ class ExperimentAudio {
     oscillator.stop(now + duration + 0.03);
   }
 
+  nextAutomataRowTime(options = {}) {
+    if (!this.context) return { slotInterval: 0, startTime: 0 };
+    const now = this.context.currentTime;
+    const swing = Math.abs(Number(options.swing) || 0);
+    const maximumQueue = Math.max(
+      0.25,
+      (6 / Math.max(1, Number(options.rate) || 8)) * (1 + swing),
+    );
+    if (this.rowScanCursor < now || this.rowScanCursor > now + maximumQueue) {
+      this.rowScanCursor = now;
+    }
+    const startTime = Math.max(now, this.rowScanCursor);
+    const slotInterval = automatapoeiaSwingInterval(
+      options.generation,
+      options.rate,
+      options.swing,
+    );
+    this.rowScanCursor = startTime + slotInterval;
+    return { slotInterval, startTime };
+  }
+
   triggerRowScan(cells, options = {}) {
     if (!this.running || !this.context) {
       return {
@@ -277,23 +322,7 @@ class ExperimentAudio {
       sampleRate: this.context.sampleRate,
     });
     this.rowScanSerial += 1;
-
-    const now = this.context.currentTime;
-    const swing = Math.abs(Number(options.swing) || 0);
-    const maximumQueue = Math.max(
-      0.25,
-      (6 / Math.max(1, Number(options.rate) || 8)) * (1 + swing),
-    );
-    if (this.rowScanCursor < now || this.rowScanCursor > now + maximumQueue) {
-      this.rowScanCursor = now;
-    }
-    const startTime = Math.max(now, this.rowScanCursor);
-    const slotInterval = automatapoeiaSwingInterval(
-      options.generation,
-      options.rate,
-      options.swing,
-    );
-    this.rowScanCursor = startTime + slotInterval;
+    const { startTime } = this.nextAutomataRowTime(options);
 
     const stats = {
       activeStreams: scan.activeStreams,
@@ -320,6 +349,171 @@ class ExperimentAudio {
     return stats;
   }
 
+  triggerColumnSineBank(cells, options = {}) {
+    if (!this.running || !this.context || !this.columnBankBus) {
+      return {
+        activeStreams: 0,
+        audibleRuns: 0,
+        detailCapped: false,
+        eventBudget: 0,
+        newlyClosedIslands: 0,
+        releaseCapped: false,
+        releaseLimit: 0,
+        totalRuns: 0,
+      };
+    }
+    const transitions = automatapoeiaColumnTransitions(
+      options.previousCells ?? [],
+      cells,
+      { polarity: options.polarity },
+    );
+    const desired = new Map(transitions.active.map((event) => [event.key, event]));
+    const { slotInterval, startTime } = this.nextAutomataRowTime(options);
+    const attack = clamp(Number(options.attack) || AUTOMATAPOEIA_DEFAULT_ENVELOPE.attack, 0.001, 0.4);
+    const decay = clamp(Number(options.decay) || AUTOMATAPOEIA_DEFAULT_ENVELOPE.decay, 0.005, 1.5);
+    const sustainValue = Number(options.sustain);
+    const sustain = clamp(
+      Number.isFinite(sustainValue) ? sustainValue : AUTOMATAPOEIA_DEFAULT_ENVELOPE.sustain,
+      0,
+      1,
+    );
+    const release = clamp(Number(options.release) || AUTOMATAPOEIA_DEFAULT_ENVELOPE.release, 0.005, 2);
+    const width = Math.max(1, transitions.currentWidth);
+    const sourceLoad = Math.max(1, desired.size, this.columnSources.size);
+    const bankLevel = clamp(0.2 / Math.sqrt(sourceLoad), 0.01, 0.11);
+    this.columnBankBus.gain.setTargetAtTime(bankLevel, startTime, 0.025);
+    let sourceCapped = false;
+
+    for (const [key, voice] of this.columnVoices) {
+      if (desired.has(key)) continue;
+      const gain = voice.envelope.gain;
+      if (typeof gain.cancelAndHoldAtTime === "function") {
+        gain.cancelAndHoldAtTime(startTime);
+      } else {
+        gain.cancelScheduledValues(startTime);
+        gain.setValueAtTime(Math.max(0.0001, gain.value), startTime);
+      }
+      gain.linearRampToValueAtTime(0.0001, startTime + release);
+      try {
+        voice.oscillator.stop(startTime + release + 0.03);
+      } catch {
+        // A voice already scheduled to stop needs no further action.
+      }
+      this.columnVoices.delete(key);
+    }
+
+    for (const event of transitions.active) {
+      const position = clamp((event.currentIndex + 0.5) / width, 0, 1);
+      const pitchPosition = automatapoeiaPitchResponse(position, options.pitchCurve);
+      const frequency = clamp(
+        automatapoeiaFrequencyAtPosition(
+          pitchPosition,
+          options.frequencyMin,
+          options.frequencyMax,
+        ),
+        20,
+        this.context.sampleRate * 0.44,
+      );
+      const held = this.columnVoices.get(event.key);
+      if (held) {
+        held.oscillator.frequency.setTargetAtTime(
+          frequency,
+          startTime,
+          Math.max(0.006, Math.min(0.08, slotInterval * 0.22)),
+        );
+        continue;
+      }
+      const oscillator = this.context.createOscillator();
+      const envelope = this.context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      envelope.gain.setValueAtTime(0.0001, startTime);
+      envelope.gain.linearRampToValueAtTime(1, startTime + attack);
+      envelope.gain.linearRampToValueAtTime(
+        Math.max(0.0001, sustain),
+        startTime + attack + decay,
+      );
+      oscillator.connect(envelope);
+      envelope.connect(this.columnBankBus);
+      oscillator.start(startTime);
+      const voice = { envelope, oscillator };
+      this.columnVoices.set(event.key, voice);
+      this.columnSources.add(oscillator);
+      this.columnSourceEnvelopes.set(oscillator, envelope);
+      oscillator.onended = () => {
+        this.columnSources.delete(oscillator);
+        this.columnSourceEnvelopes.delete(oscillator);
+      };
+      while (this.columnSources.size > MAX_AUTOMATA_SINE_SOURCES) {
+        sourceCapped = true;
+        const heldSources = new Set(
+          [...this.columnVoices.values()].map((columnVoice) => columnVoice.oscillator),
+        );
+        const oldest = [...this.columnSources].find((source) => !heldSources.has(source))
+          ?? this.columnSources.values().next().value;
+        if (!oldest) break;
+        for (const [oldestKey, oldestVoice] of this.columnVoices) {
+          if (oldestVoice.oscillator === oldest) this.columnVoices.delete(oldestKey);
+        }
+        const stealTime = Math.max(this.context.currentTime, startTime);
+        const oldestEnvelope = this.columnSourceEnvelopes.get(oldest);
+        if (oldestEnvelope) {
+          const gain = oldestEnvelope.gain;
+          if (typeof gain.cancelAndHoldAtTime === "function") {
+            gain.cancelAndHoldAtTime(stealTime);
+          } else {
+            gain.cancelScheduledValues(stealTime);
+            gain.setValueAtTime(Math.max(0.0001, gain.value), stealTime);
+          }
+          gain.linearRampToValueAtTime(0.0001, stealTime + 0.008);
+        }
+        try {
+          oldest.stop(stealTime + 0.012);
+        } catch {
+          // An already-ended tail is safe to discard.
+        }
+        this.columnSources.delete(oldest);
+        this.columnSourceEnvelopes.delete(oldest);
+      }
+    }
+
+    const activeStreams = this.columnVoices.size;
+    return {
+      activeStreams,
+      audibleRuns: activeStreams,
+      detailCapped: sourceCapped,
+      eventBudget: sourceCapped ? MAX_AUTOMATA_SINE_SOURCES : width,
+      newlyClosedIslands: 0,
+      releaseCapped: sourceCapped,
+      releaseLimit: sourceCapped ? 0.008 : release,
+      totalRuns: desired.size,
+    };
+  }
+
+  silenceColumnSineBank() {
+    if (!this.context) {
+      this.columnVoices.clear();
+      this.columnSources.clear();
+      this.columnSourceEnvelopes.clear();
+      return;
+    }
+    const now = this.context.currentTime;
+    for (const voice of this.columnVoices.values()) {
+      voice.envelope.gain.cancelScheduledValues(now);
+      voice.envelope.gain.setValueAtTime(0.0001, now);
+    }
+    for (const source of this.columnSources) {
+      try {
+        source.stop(now);
+      } catch {
+        // An already-ended sine voice is harmless.
+      }
+    }
+    this.columnVoices.clear();
+    this.columnSources.clear();
+    this.columnSourceEnvelopes.clear();
+  }
+
   silence() {
     if (!this.context) return;
     const now = this.context.currentTime;
@@ -331,6 +525,7 @@ class ExperimentAudio {
       }
     }
     this.rowScanSources.clear();
+    this.silenceColumnSineBank();
     this.rowScanCursor = now;
     for (const voice of this.voices) voice?.gain.gain.setTargetAtTime(0, now, 0.035);
   }
@@ -384,6 +579,9 @@ const state = {
   lastGearHit: 0,
   caRows: [],
   caRowBoundaries: [],
+  caRowSeams: [],
+  caLineageStartIndex: 0,
+  caPanelObserver: null,
   caAccumulator: 0,
   caSeed: 1,
   caSeedOrigin: 1,
@@ -405,9 +603,16 @@ const state = {
     newlyClosedIslands: 0,
     totalRuns: 0,
   },
+  caFamily: AUTOMATAPOEIA_DEFAULT_FAMILY,
+  caRuleByFamily: {
+    elementary: 30,
+    "totalistic-r2": 20,
+  },
   caBoundary: AUTOMATAPOEIA_DEFAULT_BOUNDARY,
   caPolarity: AUTOMATAPOEIA_DEFAULT_POLARITY,
   caObjectMode: AUTOMATAPOEIA_DEFAULT_OBJECT_MODE,
+  caSonificationMode: AUTOMATAPOEIA_DEFAULT_SONIFICATION_MODE,
+  caTransform: AUTOMATAPOEIA_DEFAULT_TRANSFORM,
   caVoice: AUTOMATAPOEIA_DEFAULT_VOICE,
   caPhraseShape: AUTOMATAPOEIA_DEFAULT_PHRASE_SHAPE,
   caPitchCurve: AUTOMATAPOEIA_DEFAULT_PITCH_CURVE,
@@ -530,6 +735,7 @@ function bindRange(id, key, formatter = (value) => compact(value)) {
     if (output) output.textContent = formatter(state[key]);
     if (experiment === "springs" && key === "springMasses") ensureSpringState(true);
     if (experiment === "automata" && key === "caRule") {
+      state.caRuleByFamily[state.caFamily] = Math.round(state.caRule);
       recordAutomataEvolutionSegment();
       filterAutomataRuleAtlas();
     }
@@ -1017,11 +1223,14 @@ function randomUnit() {
   return state.caSeed / 0x100000000;
 }
 
-function seedAutomata({ rebuildInitial = false, randomize = false } = {}) {
+function createAutomataSeedRow({ rebuildInitial = false, randomize = false } = {}) {
   const width = Math.round(state.caWidth || readControl("caWidth", 73));
   const density = clamp(state.caDensity ?? readControl("caDensity", 0), 0, 1);
   const initialChanged = state.caInitialRow.length !== width || state.caInitialDensity !== density;
-  if (randomize) state.caSeedOrigin = ((Date.now() * 2654435761) >>> 0) || 1;
+  if (randomize) {
+    state.caSeedOrigin = ((Date.now() * 2654435761) ^ (state.caGeneration * 2246822519)) >>> 0;
+    if (!state.caSeedOrigin) state.caSeedOrigin = 1;
+  }
   if (rebuildInitial || initialChanged || !state.caInitialRow.length) {
     state.caSeed = state.caSeedOrigin;
     state.caInitialRow = Array.from({ length: width }, (_, index) => {
@@ -1030,17 +1239,10 @@ function seedAutomata({ rebuildInitial = false, randomize = false } = {}) {
     });
     state.caInitialDensity = density;
   }
-  const row = [...state.caInitialRow];
-  state.caRows = [row];
-  state.caRowBoundaries = [state.caBoundary];
-  state.caAccumulator = 0;
-  state.caGeneration = 0;
-  state.caRenderRevision += 1;
-  state.caEvolutionSegments = [{
-    boundary: state.caBoundary,
-    rule: Math.round(state.caRule),
-    startGeneration: 1,
-  }];
+  return [...state.caInitialRow];
+}
+
+function resetAutomataAudioStats() {
   state.caAudioStats = {
     activeStreams: 0,
     audibleRuns: 0,
@@ -1051,7 +1253,64 @@ function seedAutomata({ rebuildInitial = false, randomize = false } = {}) {
     releaseLimit: 0,
     totalRuns: 0,
   };
+}
+
+function seedAutomata({ rebuildInitial = false, randomize = false } = {}) {
+  const row = createAutomataSeedRow({ rebuildInitial, randomize });
+  state.caRows = [row];
+  state.caRowBoundaries = [state.caBoundary];
+  state.caRowSeams = [true];
+  state.caLineageStartIndex = 0;
+  state.caAccumulator = 0;
+  state.caGeneration = 0;
+  state.caRenderRevision += 1;
+  state.caEvolutionSegments = [{
+    boundary: state.caBoundary,
+    family: state.caFamily,
+    rule: Math.round(state.caRule),
+    startGeneration: 1,
+    transform: state.caTransform,
+  }];
+  resetAutomataAudioStats();
   updateCaStats(row, null);
+}
+
+function appendAutomataRow(
+  row,
+  {
+    audition = true,
+    newLineage = false,
+    previousRow = state.caRows.at(-1) ?? null,
+  } = {},
+) {
+  if (newLineage) state.caLineageStartIndex = state.caRows.length;
+  state.caRows.push(row);
+  state.caRowBoundaries.push(state.caBoundary);
+  state.caRowSeams.push(newLineage);
+  state.caGeneration += 1;
+  if (state.caRows.length > 170) {
+    state.caRows.shift();
+    state.caRowBoundaries.shift();
+    state.caRowSeams.shift();
+    state.caLineageStartIndex = Math.max(0, state.caLineageStartIndex - 1);
+  }
+  state.caRenderRevision += 1;
+  updateCaStats(row, newLineage ? null : previousRow);
+  if (audition) soundAutomataRow(row, newLineage ? null : previousRow);
+}
+
+function reseedAutomata() {
+  const row = createAutomataSeedRow({ rebuildInitial: true, randomize: true });
+  state.caEvolutionSegments.push({
+    boundary: state.caBoundary,
+    family: state.caFamily,
+    kind: "reseed",
+    rule: Math.round(state.caRule),
+    startGeneration: state.caGeneration + 1,
+    transform: state.caTransform,
+  });
+  if (state.caEvolutionSegments.length > 32) state.caEvolutionSegments.shift();
+  appendAutomataRow(row, { newLineage: true });
 }
 
 function getAutomataTopology() {
@@ -1060,12 +1319,18 @@ function getAutomataTopology() {
     && automataTopology.polarity === state.caPolarity
     && automataTopology.forms
   ) return automataTopology;
-  const rowOffset = Math.max(0, state.caGeneration - Math.max(0, state.caRows.length - 1));
-  const forms = automatapoeiaConnectedForms(state.caRows, {
+  const lineageStart = clamp(
+    state.caLineageStartIndex,
+    0,
+    Math.max(0, state.caRows.length - 1),
+  );
+  const firstStoredGeneration = Math.max(0, state.caGeneration - Math.max(0, state.caRows.length - 1));
+  const rows = state.caRows.slice(lineageStart);
+  const forms = automatapoeiaConnectedForms(rows, {
     boundary: state.caBoundary,
-    boundaryByRow: state.caRowBoundaries,
+    boundaryByRow: state.caRowBoundaries.slice(lineageStart),
     polarity: state.caPolarity,
-    rowOffset,
+    rowOffset: firstStoredGeneration + lineageStart,
   });
   const paths = automatapoeiaConnectedPaths(forms);
   automataTopology.forms = forms;
@@ -1083,7 +1348,10 @@ function getAutomataTopology() {
 
 function refreshAutomataSoundAnalysis() {
   const row = state.caRows.at(-1) ?? [];
-  const previousRow = state.caRows.at(-2) ?? [];
+  const lastIndex = state.caRows.length - 1;
+  const previousRow = lastIndex > state.caLineageStartIndex
+    ? state.caRows[lastIndex - 1]
+    : [];
   const boundary = state.caRowBoundaries.at(-1) ?? state.caBoundary;
   state.caSoundAnalysis = automatapoeiaContourStats(
     automatapoeiaPolarityMask(row, state.caPolarity),
@@ -1096,19 +1364,31 @@ function recordAutomataEvolutionSegment() {
   if (!state.caRows.length) return;
   const segment = {
     boundary: state.caBoundary,
+    family: state.caFamily,
     rule: Math.round(state.caRule),
     startGeneration: state.caGeneration + 1,
+    transform: state.caTransform,
   };
   const previous = state.caEvolutionSegments.at(-1);
   if (previous?.startGeneration === segment.startGeneration) {
     state.caEvolutionSegments[state.caEvolutionSegments.length - 1] = segment;
     const prior = state.caEvolutionSegments.at(-2);
-    if (prior?.rule === segment.rule && prior?.boundary === segment.boundary) {
+    if (
+      prior?.family === segment.family
+      && prior?.rule === segment.rule
+      && prior?.boundary === segment.boundary
+      && prior?.transform === segment.transform
+    ) {
       state.caEvolutionSegments.pop();
     }
     return;
   }
-  if (previous?.rule === segment.rule && previous?.boundary === segment.boundary) return;
+  if (
+    previous?.family === segment.family
+    && previous?.rule === segment.rule
+    && previous?.boundary === segment.boundary
+    && previous?.transform === segment.transform
+  ) return;
   state.caEvolutionSegments.push(segment);
   if (state.caEvolutionSegments.length > 32) state.caEvolutionSegments.shift();
 }
@@ -1129,49 +1409,71 @@ function updateCaStats(row, previousRow) {
 function stepAutomataRow(audition = true) {
   if (!state.caRows.length) seedAutomata();
   const previous = state.caRows[state.caRows.length - 1];
-  const next = automatapoeiaNextRow(previous, state.caRule, state.caBoundary);
-  state.caRows.push(next);
-  state.caRowBoundaries.push(state.caBoundary);
-  state.caGeneration += 1;
-  if (state.caRows.length > 170) {
-    state.caRows.shift();
-    state.caRowBoundaries.shift();
+  const desiredWidth = Math.round(state.caWidth || previous.length);
+  if (previous.length !== desiredWidth) {
+    const resized = automatapoeiaResizeRow(previous, desiredWidth);
+    state.caEvolutionSegments.push({
+      boundary: state.caBoundary,
+      family: state.caFamily,
+      fromWidth: previous.length,
+      toWidth: desiredWidth,
+      kind: "resize",
+      rule: Math.round(state.caRule),
+      startGeneration: state.caGeneration + 1,
+      transform: state.caTransform,
+    });
+    if (state.caEvolutionSegments.length > 32) state.caEvolutionSegments.shift();
+    appendAutomataRow(resized, { audition, newLineage: true });
+    return;
   }
-  state.caRenderRevision += 1;
-  updateCaStats(next, previous);
-  if (audition) soundAutomataRow(next, previous);
+  const exactNext = automatapoeiaNextRow(
+    previous,
+    state.caRule,
+    state.caBoundary,
+    state.caFamily,
+  );
+  const next = automatapoeiaTransformRow(exactNext, state.caTransform, state.caBoundary);
+  appendAutomataRow(next, { audition, previousRow: previous });
 }
 
 function soundAutomataRow(row, previousRow) {
   if (!state.audioOn) return;
+  const sharedOptions = {
+    attack: state.caAttack,
+    boundary: state.caBoundary,
+    family: state.caFamily,
+    decay: state.caDecay,
+    frequencyMax: state.caFrequencyMax,
+    frequencyMin: state.caFrequencyMin,
+    generation: state.caGeneration,
+    pitchCurve: state.caPitchCurve,
+    polarity: state.caPolarity,
+    previousCells: previousRow ?? [],
+    rate: state.caRate,
+    release: state.caRelease,
+    sustain: state.caSustain,
+    swing: state.caSwing,
+  };
+  if (state.caSonificationMode === "vertical-sine") {
+    state.caAudioStats = audio.triggerColumnSineBank(row, sharedOptions);
+    return;
+  }
   const connectedUnits = state.caObjectMode === "connected"
     ? automatapoeiaConnectedSoundUnits(getAutomataTopology().forms)
     : null;
   state.caAudioStats = audio.triggerRowScan(row, {
+    ...sharedOptions,
     analysis: state.caSoundAnalysis,
-    attack: state.caAttack,
-    boundary: state.caBoundary,
     connectedUnits,
     contourAmount: state.caContourAmount,
     contourSource: state.caContourSource,
-    decay: state.caDecay,
     detail: state.caRhythmDetail,
-    frequencyMax: state.caFrequencyMax,
-    frequencyMin: state.caFrequencyMin,
-    generation: state.caGeneration,
     objectMode: state.caObjectMode,
     phraseShape: state.caPhraseShape,
-    pitchCurve: state.caPitchCurve,
     pitchTrace: state.caPitchTrace,
-    polarity: state.caPolarity,
-    previousCells: previousRow,
-    rate: state.caRate,
     rule: state.caRule,
     seed: state.caSeedOrigin,
-    release: state.caRelease,
     strikeLength: state.caStrikeLength,
-    sustain: state.caSustain,
-    swing: state.caSwing,
     timeSpread: state.caTimeSpread,
     timbreAmount: state.caTimbreAmount,
     timbreSource: state.caTimbreSource,
@@ -1221,6 +1523,7 @@ function updateAutomataRaster(width, rowsVisible, startRow) {
       startRow,
       rowsVisible,
       automataRaster.image.data,
+      width,
     );
     automataRaster.context.putImageData(automataRaster.image, 0, 0);
     automataRaster.revision = state.caRenderRevision;
@@ -1233,10 +1536,10 @@ function drawAutomata() {
   const ctx = context2d;
   clearStage();
   if (!state.caRows.length) seedAutomata();
-  const width = state.caRows[0].length;
+  const width = Math.max(1, ...state.caRows.map((row) => row.length));
   const topInset = canvasWidth < 520 ? 112 : 0;
   const drawableHeight = Math.max(120, canvasHeight - topInset - 28);
-  const cell = Math.max(3, Math.min(canvasWidth / width, canvasHeight / 90));
+  const cell = Math.max(1, Math.min(canvasWidth / width, canvasHeight / 90));
   const rowsVisible = Math.min(state.caRows.length, Math.floor((drawableHeight * 0.92) / cell));
   const startRow = Math.max(0, state.caRows.length - rowsVisible);
   const gridWidth = width * cell;
@@ -1253,7 +1556,12 @@ function drawAutomata() {
     ctx.beginPath();
     ctx.rect(x0, y0, gridWidth, rowsVisible * cell);
     ctx.clip();
-    ctx.translate(x0, y0 - startRow * cell);
+    const lineageWidth = state.caRows.at(-1)?.length ?? width;
+    const lineageInset = (width - lineageWidth) / 2;
+    ctx.translate(
+      x0 + lineageInset * cell,
+      y0 + (state.caLineageStartIndex - startRow) * cell,
+    );
     ctx.scale(cell, cell);
     const inverseInk = state.caPolarity === "zero"
       ? "rgba(219, 228, 224, 0.58)"
@@ -1273,6 +1581,19 @@ function drawAutomata() {
     }
     ctx.restore();
   }
+  ctx.save();
+  ctx.strokeStyle = "rgba(219, 228, 224, 0.38)";
+  ctx.lineWidth = 1;
+  for (let rowIndex = startRow + 1; rowIndex < state.caRows.length; rowIndex += 1) {
+    if (!state.caRowSeams[rowIndex]) continue;
+    const seamY = y0 + (rowIndex - startRow) * cell;
+    if (seamY > y0 + rowsVisible * cell) break;
+    ctx.beginPath();
+    ctx.moveTo(x0, seamY);
+    ctx.lineTo(x0 + gridWidth, seamY);
+    ctx.stroke();
+  }
+  ctx.restore();
   ctx.strokeStyle = "rgba(219, 228, 224, 0.16)";
   ctx.strokeRect(x0, y0, gridWidth, rowsVisible * cell);
 }
@@ -2884,13 +3205,23 @@ const EXPERIMENTS = {
           state.caBoundary = sanitizeAutomatapoeiaBoundary(boundaryControl.value);
           boundaryControl.value = state.caBoundary;
           recordAutomataEvolutionSegment();
-          const row = state.caRows.at(-1);
-          if (row) updateCaStats(row, state.caRows.at(-2));
           updateSummaries();
         };
         boundaryControl.addEventListener("change", syncBoundary);
         controls.set("caBoundary", syncBoundary);
         syncBoundary();
+      }
+      const transformControl = $("caTransform");
+      if (transformControl) {
+        const syncTransform = () => {
+          state.caTransform = sanitizeAutomatapoeiaTransform(transformControl.value);
+          transformControl.value = state.caTransform;
+          recordAutomataEvolutionSegment();
+          updateSummaries();
+        };
+        transformControl.addEventListener("change", syncTransform);
+        controls.set("caTransform", syncTransform);
+        syncTransform();
       }
       const voiceControl = $("caVoice");
       if (voiceControl) {
@@ -2917,6 +3248,34 @@ const EXPERIMENTS = {
         sync();
       };
       bindAudioSelect(
+        "caSonificationMode",
+        "caSonificationMode",
+        sanitizeAutomatapoeiaSonificationMode,
+        () => {
+          audio.silence();
+          resetAutomataAudioStats();
+          const vertical = state.caSonificationMode === "vertical-sine";
+          for (const id of [
+            "caObjectMode",
+            "caVoice",
+            "caPitchTrace",
+            "caTimbreSource",
+            "caTimbreAmount",
+            "caContourSource",
+            "caContourAmount",
+            "caPhraseShape",
+            "caRhythmDetail",
+            "caTimeSpread",
+            "caStrikeLength",
+          ]) {
+            const control = $(id);
+            if (control) control.disabled = vertical;
+          }
+          const row = state.caRows.at(-1);
+          if (state.audioOn && row) soundAutomataRow(row, null);
+        },
+      );
+      bindAudioSelect(
         "caPolarity",
         "caPolarity",
         sanitizeAutomatapoeiaPolarity,
@@ -2927,7 +3286,19 @@ const EXPERIMENTS = {
       bindAudioSelect("caPhraseShape", "caPhraseShape", sanitizeAutomatapoeiaPhraseShape);
       bindAudioSelect("caTimbreSource", "caTimbreSource", sanitizeAutomatapoeiaTimbreSource);
       bindAudioSelect("caContourSource", "caContourSource", sanitizeAutomatapoeiaContourSource);
+      const familyControl = $("caFamily");
+      if (familyControl) {
+        const syncFamily = () => selectAutomataFamily(familyControl.value);
+        familyControl.addEventListener("change", syncFamily);
+        controls.set("caFamily", syncFamily);
+        selectAutomataFamily(familyControl.value, { record: false, rebuildAtlas: false });
+      }
       populateAutomataRuleAtlas();
+      $("caRuleAtlasGrid")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-ca-atlas-rule]");
+        if (!button) return;
+        selectAutomataRule(button.dataset.caAtlasRule, { closePicker: true });
+      });
       $("previousAutomataRule")?.addEventListener("click", () => stepAutomataRule(-1));
       $("nextAutomataRule")?.addEventListener("click", () => stepAutomataRule(1));
       document.addEventListener("keydown", handleAutomataRuleKey);
@@ -2939,12 +3310,22 @@ const EXPERIMENTS = {
         updateSummaries();
       });
       $("randomizeAutomata")?.addEventListener("click", () => {
-        audio.silence();
-        seedAutomata({ rebuildInitial: true, randomize: true });
+        reseedAutomata();
         updateSummaries();
       });
       seedAutomata();
       updateAutomataRuleControls();
+      const panel = document.querySelector(".experiment-panel");
+      const nksCard = $("nksOpenProblemsTitle")?.closest("section");
+      if (panel && nksCard) {
+        const keepNksLast = () => {
+          if (panel.lastElementChild !== nksCard) panel.append(nksCard);
+        };
+        keepNksLast();
+        state.caPanelObserver?.disconnect();
+        state.caPanelObserver = new MutationObserver(keepNksLast);
+        state.caPanelObserver.observe(panel, { childList: true });
+      }
     },
     update(dt) {
       stepAutomata(dt);
@@ -2952,9 +3333,17 @@ const EXPERIMENTS = {
     draw: drawAutomata,
     summary() {
       const boundaryLabel = automatapoeiaBoundaryLabel(state.caBoundary);
+      const family = sanitizeAutomatapoeiaFamily(state.caFamily);
+      const familyLabel = automatapoeiaFamilyLabel(family);
+      const familyShort = automataFamilyShortLabel(family);
+      const ruleTerm = automataRuleTerm(family);
       const rule = Math.round(state.caRule);
-      const ruleDescriptor = AUTOMATAPOEIA_RULES[rule];
-      const voiceLabel = automatapoeiaVoiceLabel(state.caVoice);
+      const ruleDescriptor = automataRuleCatalog(family)[rule];
+      const sonificationLabel = automatapoeiaSonificationModeLabel(state.caSonificationMode);
+      const voiceLabel = state.caSonificationMode === "vertical-sine"
+        ? sonificationLabel
+        : automatapoeiaVoiceLabel(state.caVoice);
+      const transformLabel = automatapoeiaTransformLabel(state.caTransform);
       const polarityLabel = automatapoeiaPolarityLabel(state.caPolarity);
       const objectModeLabel = automatapoeiaObjectModeLabel(state.caObjectMode);
       const activeSegment = state.caEvolutionSegments.at(-1);
@@ -2962,38 +3351,43 @@ const EXPERIMENTS = {
         ? "single centered cell"
         : `${percent(state.caInitialDensity)} Bernoulli · seed ${state.caSeedOrigin}`;
       const currentWidth = state.caRows.at(-1)?.length ?? Math.round(state.caWidth);
-      const initialSetupPending = currentWidth !== Math.round(state.caWidth)
-        || Math.abs(state.caInitialDensity - state.caDensity) > 0.0001;
-      const randomizeButton = $("randomizeAutomata");
-      if (randomizeButton) {
-        randomizeButton.disabled = state.caDensity <= 0.001;
-        randomizeButton.title = randomizeButton.disabled
-          ? "Raise random seed density above zero to use a Bernoulli initial row."
-          : "Generate another reproducible Bernoulli row at this density.";
-      }
       setText("metricPrimary", percent(state.caStats.density));
       setText("metricSecondary", `${state.caStats.transitions}`);
       setText(
         "patternSummary",
         activeSegment?.startGeneration > state.caGeneration
-          ? `next row · Rule ${rule} · ${boundaryLabel}`
-          : `Rule ${rule} · ${boundaryLabel}`,
+          ? `next row · ${familyShort} · ${ruleTerm} ${rule} · ${boundaryLabel}`
+          : `${familyShort} · ${ruleTerm} ${rule} · ${boundaryLabel}${state.caTransform === "none" ? "" : ` · ${transformLabel}`}`,
       );
-      setText("caRuleBits", automatapoeiaRuleBits(rule).split("").join("  "));
-      setText("caRuleFamilySummary", `${ruleDescriptor.orbit.length}-rule symmetry family · ${ruleDescriptor.orbit.join(" · ")}`);
+      setText("caRuleBits", automatapoeiaRuleBits(rule, family).split("").join("  "));
+      setText(
+        "caRuleFamilySummary",
+        family === "totalistic-r2"
+          ? `${ruleDescriptor.orbit.length}-code color-conjugacy family · ${ruleDescriptor.orbit.join(" · ")}`
+          : `${ruleDescriptor.orbit.length}-rule symmetry family · ${ruleDescriptor.orbit.join(" · ")}`,
+      );
       setText(
         "caInitialSummary",
-        `${initialLabel} · ${currentWidth} columns${initialSetupPending ? " · new setup waiting for restart" : ""}`,
+        `${initialLabel} · ${currentWidth} columns`,
       );
       setText(
         "caLiveChangeSummary",
-        `Rule and boundary affect generation ${state.caGeneration + 1}. Rate, swing, sound geometry, mapping, and synthesis change live. Width and seed density wait for Restart or Reseed.`,
+        `Family, ${ruleTerm.toLowerCase()}, boundary, transform, width, timing, and sound change live. Reseed appends a new lineage without clearing history.`,
       );
       setText(
         "caEvolutionSummary",
-        state.caEvolutionSegments.slice(-4).map((segment) => (
-          `Rule ${segment.rule} · ${automatapoeiaBoundaryLabel(segment.boundary).toLowerCase()} from generation ${segment.startGeneration}`
-        )).join("  →  "),
+        state.caEvolutionSegments.slice(-4).map((segment) => {
+          const event = segment.kind === "reseed"
+            ? "Reseed · "
+            : segment.kind === "resize"
+              ? `Width ${segment.fromWidth}→${segment.toWidth} · `
+              : "";
+          const transform = segment.transform && segment.transform !== "none"
+            ? ` · ${automatapoeiaTransformLabel(segment.transform).toLowerCase()}`
+            : "";
+          const segmentFamily = sanitizeAutomatapoeiaFamily(segment.family);
+          return `${event}${automataFamilyShortLabel(segmentFamily)} · ${automataRuleTerm(segmentFamily)} ${segment.rule} · ${automatapoeiaBoundaryLabel(segment.boundary).toLowerCase()}${transform} from row ${segment.startGeneration}`;
+        }).join("  →  "),
       );
       setText("caVoiceSummary", voiceLabel);
       const topology = state.caObjectMode === "connected" ? getAutomataTopology().forms : null;
@@ -3020,7 +3414,11 @@ const EXPERIMENTS = {
       );
       const renderLimits = [];
       if (state.caAudioStats.detailCapped) {
-        renderLimits.push(`${state.caAudioStats.eventBudget}-object realtime budget`);
+        renderLimits.push(
+          state.caSonificationMode === "vertical-sine"
+            ? `${state.caAudioStats.eventBudget}-source voice pool`
+            : `${state.caAudioStats.eventBudget}-object realtime budget`,
+        );
       }
       if (state.caAudioStats.releaseCapped) {
         renderLimits.push(`tails bounded at ${Math.round(state.caAudioStats.releaseLimit * 1_000)} ms`);
@@ -3033,21 +3431,26 @@ const EXPERIMENTS = {
         "caRunSummary",
         !state.audioOn
           ? "audio off"
-          : state.caAudioStats.totalRuns
-            ? `${state.caAudioStats.audibleRuns}/${state.caAudioStats.totalRuns} ${state.caObjectMode === "connected" ? "connected forms" : "horizontal runs"} rendered${connectedRenderLabel}${renderLimitLabel}`
-            : "silent row slot preserved",
+          : state.caSonificationMode === "vertical-sine"
+            ? `${state.caAudioStats.activeStreams} sustained ${state.caAudioStats.activeStreams === 1 ? "column" : "columns"}${renderLimitLabel}`
+            : state.caAudioStats.totalRuns
+              ? `${state.caAudioStats.audibleRuns}/${state.caAudioStats.totalRuns} ${state.caObjectMode === "connected" ? "connected forms" : "horizontal runs"} rendered${connectedRenderLabel}${renderLimitLabel}`
+              : "silent row slot preserved",
       );
       setText(
         "stageCaption",
-        `elementary rule ${rule} · generation ${state.caGeneration} · ${boundaryLabel.toLowerCase()} · sonifying ${state.caPolarity === "zero" ? "black state 0" : "off-white state 1"}${activeSegment?.startGeneration > state.caGeneration ? " · rule change next row" : ""}`,
+        `${familyLabel.toLowerCase()} · ${ruleTerm.toLowerCase()} ${rule} · row ${state.caGeneration} · ${boundaryLabel.toLowerCase()} · ${transformLabel.toLowerCase()} · sonifying ${state.caPolarity === "zero" ? "black state 0" : "off-white state 1"}`,
       );
       setText(
         "stageReadout",
-        `AUTOMATA · RULE ${rule} · GEN ${state.caGeneration} · ${boundaryLabel.toUpperCase()} · ${state.caObjectMode === "connected" ? "CONNECTED FORMS" : "RUNS"} · AUDIO ${state.audioOn ? "ON" : "OFF"}`,
+        `AUTOMATA · ${familyShort.toUpperCase()} · ${ruleTerm.toUpperCase()} ${rule} · ROW ${state.caGeneration} · ${boundaryLabel.toUpperCase()} · ${state.caSonificationMode === "vertical-sine" ? "VERTICAL SINE" : state.caObjectMode === "connected" ? "CONNECTED FORMS" : "RUNS"} · AUDIO ${state.audioOn ? "ON" : "OFF"}`,
       );
+      const evolutionDescription = family === "totalistic-r2"
+        ? `Binary rows of radius-2 totalistic code ${rule}; each cell is computed from the sum of five neighboring cells.`
+        : `Binary rows of elementary Rule ${rule}; each cell is computed from three neighboring cells.`;
       $("stage")?.setAttribute(
         "aria-label",
-        `Exact binary rows of elementary Rule ${rule}, with off-white state 1 and black state 0. The optional sound lens selects ${polarityLabel.toLowerCase()} as ${objectModeLabel.toLowerCase()}${topology ? `; ${topology.activeStreamCount} open streams and ${topology.enclosedIslandCount} enclosed islands are visible in the current history` : ""}.`,
+        `${evolutionDescription} Off-white is state 1 and black is state 0. ${sonificationLabel} maps ${polarityLabel.toLowerCase()}${topology ? `; ${topology.activeStreamCount} open streams and ${topology.enclosedIslandCount} enclosed islands are visible in the current lineage` : ""}.`,
       );
       updateAutomataRuleControls();
     },
@@ -3430,13 +3833,115 @@ const EXPERIMENTS = {
   },
 };
 
-let displayedAutomataRule = -1;
+let displayedAutomataRuleKey = "";
 let selectedAutomataRuleTile = null;
 let automataRuleTabStop = null;
 
+function automataFamilyDefinition(family = state.caFamily) {
+  const safeFamily = sanitizeAutomatapoeiaFamily(family);
+  return AUTOMATAPOEIA_FAMILIES.find(({ id }) => id === safeFamily)
+    ?? AUTOMATAPOEIA_FAMILIES[0];
+}
+
+function automataRuleCatalog(family = state.caFamily) {
+  return sanitizeAutomatapoeiaFamily(family) === "totalistic-r2"
+    ? AUTOMATAPOEIA_TOTALISTIC_RULES
+    : AUTOMATAPOEIA_RULES;
+}
+
+function automataRuleTerm(family = state.caFamily) {
+  return sanitizeAutomatapoeiaFamily(family) === "totalistic-r2" ? "Code" : "Rule";
+}
+
+function automataFamilyShortLabel(family = state.caFamily) {
+  return sanitizeAutomatapoeiaFamily(family) === "totalistic-r2"
+    ? "Totalistic R2"
+    : "Elementary R1";
+}
+
+function automataRuleLabel(family, rule) {
+  return `${automataFamilyShortLabel(family)} · ${automataRuleTerm(family)} ${rule}`;
+}
+
+function updateAutomataFamilyPresentation() {
+  const family = sanitizeAutomatapoeiaFamily(state.caFamily);
+  const definition = automataFamilyDefinition(family);
+  const catalog = automataRuleCatalog(family);
+  const totalistic = family === "totalistic-r2";
+  const representatives = new Set(catalog.map(({ representative }) => representative)).size;
+  setText("caRuleFamilyHeading", totalistic ? "Color-conjugacy family" : "Symmetry family");
+  const familyControl = $("caFamily");
+  if (familyControl) familyControl.value = family;
+  const slider = $("caRule");
+  if (slider) {
+    slider.max = String(definition.ruleCount - 1);
+    slider.value = String(state.caRule);
+  }
+  $("caRuleLookup")?.setAttribute(
+    "aria-label",
+    totalistic ? "Exact binary radius-2 totalistic lookup" : "Exact Wolfram elementary rule lookup",
+  );
+  setText("caRuleOut", `${Math.round(state.caRule)}`);
+  setText("caRuleNumberLabel", totalistic ? "Totalistic code" : "Rule number");
+  setText("caRuleSearchLabel", totalistic ? "Code or 6-bit output" : "Rule or 8-bit code");
+  const search = $("caRuleSearch");
+  if (search) search.placeholder = totalistic ? "20 or 010100" : "30 or 00011110";
+  setText("caRuleFilterAll", totalistic ? "All 64 codes" : "All 256 rules");
+  setText(
+    "caRuleFilterRepresentatives",
+    totalistic
+      ? `${representatives} color-conjugacy representatives`
+      : `${representatives} symmetry representatives`,
+  );
+  setText(
+    "caRuleFilterFamily",
+    totalistic ? "Selected color-conjugacy family" : "Selected symmetry family",
+  );
+  setText("caRuleLookupLabel", totalistic ? "Five-cell total" : "Neighborhood");
+  setText(
+    "caRuleNeighborhoods",
+    totalistic ? "5  4  3  2  1  0" : "111  110  101  100  011  010  001  000",
+  );
+  $("caRuleAtlasGrid")?.setAttribute(
+    "aria-label",
+    totalistic
+      ? "Binary radius-2 totalistic cellular automaton codes"
+      : "Elementary cellular automaton rules",
+  );
+  $("caRuleStepper")?.setAttribute(
+    "aria-label",
+    totalistic ? "Step through radius-2 totalistic codes" : "Step through elementary rules",
+  );
+}
+
+function selectAutomataFamily(value, { record = true, rebuildAtlas = true } = {}) {
+  const previousFamily = sanitizeAutomatapoeiaFamily(state.caFamily);
+  if (Number.isFinite(state.caRule)) {
+    state.caRuleByFamily[previousFamily] = Math.round(state.caRule);
+  }
+  const family = sanitizeAutomatapoeiaFamily(value);
+  const changed = family !== previousFamily;
+  state.caFamily = family;
+  const catalog = automataRuleCatalog(family);
+  const fallback = family === "totalistic-r2" ? 20 : 30;
+  const remembered = Number(state.caRuleByFamily[family] ?? fallback);
+  state.caRule = Math.round(clamp(remembered, 0, catalog.length - 1));
+  state.caRuleByFamily[family] = state.caRule;
+  if (changed) {
+    const search = $("caRuleSearch");
+    if (search) search.value = "";
+  }
+  updateAutomataFamilyPresentation();
+  if (rebuildAtlas) populateAutomataRuleAtlas();
+  if (record && changed) recordAutomataEvolutionSegment();
+  updateSummaries();
+}
+
 function selectAutomataRule(value, { closePicker = false } = {}) {
-  const rule = Math.round(clamp(Number(value) || 0, 0, 255));
+  const catalog = automataRuleCatalog();
+  const rule = Math.round(clamp(Number(value) || 0, 0, catalog.length - 1));
   state.caRule = rule;
+  state.caRuleByFamily[state.caFamily] = rule;
   const slider = $("caRule");
   if (slider) slider.value = String(rule);
   setText("caRuleOut", `${rule}`);
@@ -3452,7 +3957,7 @@ function selectAutomataRule(value, { closePicker = false } = {}) {
 }
 
 function stepAutomataRule(offset) {
-  const ruleCount = AUTOMATAPOEIA_RULES.length;
+  const ruleCount = automataRuleCatalog().length;
   const rule = ((Math.round(state.caRule) + Math.trunc(offset)) % ruleCount + ruleCount) % ruleCount;
   selectAutomataRule(rule);
 }
@@ -3491,19 +3996,28 @@ function handleAutomataRuleKey(event) {
 
 function populateAutomataRuleAtlas() {
   const grid = $("caRuleAtlasGrid");
-  if (!grid || grid.childElementCount) return;
+  if (!grid) return;
+  const family = sanitizeAutomatapoeiaFamily(state.caFamily);
+  const catalog = automataRuleCatalog(family);
+  selectedAutomataRuleTile?.setAttribute("aria-pressed", "false");
+  selectedAutomataRuleTile = null;
+  setAutomataRuleTabStop(null);
+  displayedAutomataRuleKey = "";
   const fragment = document.createDocumentFragment();
-  for (const descriptor of AUTOMATAPOEIA_RULES) {
+  for (const descriptor of catalog) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "automata-rule-tile";
+    button.dataset.caAtlasFamily = family;
     button.dataset.caAtlasRule = String(descriptor.rule);
     button.dataset.representative = String(descriptor.representative);
     button.tabIndex = -1;
     button.setAttribute("aria-pressed", "false");
     button.setAttribute(
       "aria-label",
-      `Rule ${descriptor.rule}, Wolfram bits ${descriptor.bits}, symmetry representative ${descriptor.representative}`,
+      family === "totalistic-r2"
+        ? `Totalistic radius-2 code ${descriptor.rule}, outputs ${descriptor.bits} for five-cell totals five through zero, color-conjugacy representative ${descriptor.representative}`
+        : `Elementary Rule ${descriptor.rule}, Wolfram bits ${descriptor.bits}, symmetry representative ${descriptor.representative}`,
     );
     const preview = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     preview.setAttribute("viewBox", "0 0 31 18");
@@ -3512,7 +4026,10 @@ function populateAutomataRuleAtlas() {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute(
       "d",
-      automatapoeiaRowsPath(automatapoeiaPreviewRows(descriptor.rule, { width: 31, height: 18 })),
+      automatapoeiaRowsPath(automatapoeiaPreviewRows(
+        descriptor.rule,
+        { family, width: 31, height: 18 },
+      )),
     );
     preview.append(path);
     const label = document.createElement("span");
@@ -3520,28 +4037,27 @@ function populateAutomataRuleAtlas() {
     button.append(preview, label);
     fragment.append(button);
   }
-  grid.append(fragment);
-  grid.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-ca-atlas-rule]");
-    if (!button) return;
-    selectAutomataRule(button.dataset.caAtlasRule, { closePicker: true });
-  });
+  grid.replaceChildren(fragment);
   updateAutomataRuleControls();
+  filterAutomataRuleAtlas();
 }
 
 function filterAutomataRuleAtlas() {
   const grid = $("caRuleAtlasGrid");
   if (!grid?.childElementCount) return;
+  const family = sanitizeAutomatapoeiaFamily(state.caFamily);
+  const catalog = automataRuleCatalog(family);
   const query = $("caRuleSearch")?.value.trim() ?? "";
   const filter = $("caRuleFilter")?.value ?? "all";
-  const selectedOrbit = new Set(AUTOMATAPOEIA_RULES[Math.round(state.caRule)]?.orbit ?? []);
+  const selectedOrbit = new Set(catalog[Math.round(state.caRule)]?.orbit ?? []);
   const decimalQuery = /^\d{1,3}$/.test(query) ? Number(query) : null;
-  const binaryQuery = /^[01]{8}$/.test(query) ? query : null;
+  const bitCount = family === "totalistic-r2" ? 6 : 8;
+  const binaryQuery = query.length === bitCount && /^[01]+$/.test(query) ? query : null;
   let visible = 0;
   let firstVisibleTile = null;
   for (const button of grid.querySelectorAll("[data-ca-atlas-rule]")) {
     const rule = Number(button.dataset.caAtlasRule);
-    const descriptor = AUTOMATAPOEIA_RULES[rule];
+    const descriptor = catalog[rule];
     const inFilter = filter === "representatives"
       ? descriptor.representative === rule
       : filter === "family"
@@ -3562,10 +4078,10 @@ function filterAutomataRuleAtlas() {
       : firstVisibleTile,
   );
   const qualifier = filter === "representatives"
-    ? "symmetry representatives"
+    ? family === "totalistic-r2" ? "color-conjugacy representatives" : "symmetry representatives"
     : filter === "family"
-      ? `rules in Rule ${Math.round(state.caRule)}'s symmetry family`
-      : "elementary rules";
+      ? `${family === "totalistic-r2" ? "codes" : "rules"} in ${automataRuleLabel(family, Math.round(state.caRule))}'s equivalence family`
+      : family === "totalistic-r2" ? "radius-2 totalistic codes" : "elementary rules";
   setText("caRuleAtlasStatus", `${visible} ${qualifier}`);
 }
 
@@ -3577,14 +4093,20 @@ function setAutomataRuleTabStop(tile) {
 }
 
 function updateAutomataRuleControls() {
+  const family = sanitizeAutomatapoeiaFamily(state.caFamily);
   const rule = Math.round(state.caRule);
-  if (displayedAutomataRule !== rule) {
-    displayedAutomataRule = rule;
-    setText("caRulePickerLabel", `Rule ${rule}`);
-    setText("caRuleCurrentPreviewTitle", `Periodic preview of Rule ${rule}`);
+  const displayKey = `${family}:${rule}`;
+  if (displayedAutomataRuleKey !== displayKey) {
+    displayedAutomataRuleKey = displayKey;
+    const label = automataRuleLabel(family, rule);
+    setText("caRulePickerLabel", label);
+    setText("caRuleCurrentPreviewTitle", `Periodic preview of ${label}`);
     $("caRuleCurrentPath")?.setAttribute(
       "d",
-      automatapoeiaRowsPath(automatapoeiaPreviewRows(rule, { width: 31, height: 18 })),
+      automatapoeiaRowsPath(automatapoeiaPreviewRows(
+        rule,
+        { family, width: 31, height: 18 },
+      )),
     );
   }
   if (
@@ -3625,6 +4147,7 @@ function bindCommonControls() {
     if (state.audioOn) {
       state.audioOn = false;
       await audio.stop();
+      if (experiment === "automata") resetAutomataAudioStats();
       setAudioState();
       updateSummaries();
       return;
@@ -3635,6 +4158,11 @@ function bindCommonControls() {
       await audio.start();
       state.audioOn = true;
       updateCommonAudio();
+      if (experiment === "automata") {
+        resetAutomataAudioStats();
+        const row = state.caRows.at(-1);
+        if (row) soundAutomataRow(row, null);
+      }
       setText("liveStatus", "Audio on.");
     } catch (error) {
       setText("liveStatus", error instanceof Error ? error.message : String(error));
@@ -3672,6 +4200,7 @@ function boot() {
 
 globalThis.addEventListener?.("pagehide", () => {
   cancelAnimationFrame(animationFrame);
+  state.caPanelObserver?.disconnect();
   audio.dispose();
 });
 

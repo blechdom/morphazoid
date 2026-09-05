@@ -109,7 +109,7 @@ test("experiment runtime contains each simulation and audio mapping", async () =
   assert.match(css, /\.experiment-meter-grid/);
 });
 
-test("Automatapoeia presents exact binary evolution before optional queued mono sound", async () => {
+test("Automatapoeia preserves exact live evolution while exposing history-safe interventions and continuous mono sound", async () => {
   const [html, legacy, app, sonification] = await Promise.all([
     readFile(new URL("automatapoeia.html", root), "utf8"),
     readFile(new URL("automatopoeia.html", root), "utf8"),
@@ -120,7 +120,14 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   assert.match(legacy, /href="automatapoeia\.html">Automatapoeia/);
   assert.match(html, /NKS Open Problems/);
   assert.match(html, /https:\/\/www\.wolframscience\.com\/openproblems\/NKSOpenProblems\.pdf/);
+  assert.match(html, /https:\/\/www\.wolframscience\.com\/nks\/notes-2-1--audio-representation-of-cellular-automata\//);
   assert.match(html, /Domain walls/);
+  assert.match(html, /id="caFamily"/);
+  assert.match(html, /value="elementary" selected>Elementary · radius 1 · 256/);
+  assert.match(html, /value="totalistic-r2">Binary totalistic · radius 2 · 64/);
+  assert.match(html, /id="caRuleNeighborhoods"/);
+  assert.match(html, /id="caRuleSearchLabel"/);
+  assert.match(html, /id="caRuleNumberLabel"/);
   assert.match(html, /id="caBoundary"/);
   assert.match(html, /value="fixed" selected>Fixed zero/);
   assert.match(html, /value="periodic">Periodic wrap/);
@@ -129,7 +136,8 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   assert.match(html, /id="caWidth"[^>]*step="2"[^>]*value="73"/);
   assert.match(html, /id="caDensity"[^>]*value="0"/);
   assert.match(html, /one centered cell/);
-  assert.match(html, /id="randomizeAutomata"[^>]*disabled[^>]*>Reseed<\/button>/);
+  assert.match(html, /id="randomizeAutomata"[^>]*>Reseed<\/button>/);
+  assert.doesNotMatch(html, /id="randomizeAutomata"[^>]*disabled/);
   assert.match(html, /Optional sonification/);
   assert.match(html, /id="caRulePicker"/);
   assert.match(html, /id="caRuleCurrentPreview"/);
@@ -141,9 +149,11 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   assert.match(html, /All 256 rules/);
   assert.match(html, /88 symmetry representatives/);
   assert.match(html, /Rule or 8-bit code/);
+  const familySelector = html.indexOf('id="caFamily"');
   const rulePicker = html.indexOf('id="caRulePicker"');
   const ruleSlider = html.indexOf('id="caRule"');
   const boundary = html.indexOf('id="caBoundary"');
+  const transform = html.indexOf('id="caTransform"');
   const rate = html.indexOf('id="caRate"');
   const width = html.indexOf('id="caWidth"');
   const density = html.indexOf('id="caDensity"');
@@ -151,15 +161,32 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   const reseed = html.indexOf('id="randomizeAutomata"');
   const reset = html.indexOf("data-reset-all");
   const soundControls = html.indexOf('id="automataVoiceTitle"');
+  const sonificationMode = html.indexOf('id="caSonificationMode"');
   const release = html.indexOf('id="caRelease"');
   const readout = html.indexOf('id="experimentTitle"');
   const lookup = html.indexOf('class="automata-rule-lookup"');
+  const why = html.indexOf('id="automataInterestTitle"');
   const nks = html.indexOf('id="nksOpenProblemsTitle"');
-  assert.ok(rulePicker < ruleSlider && ruleSlider < boundary && boundary < rate);
+  assert.ok(familySelector < rulePicker && rulePicker < ruleSlider);
+  assert.ok(ruleSlider < boundary && boundary < transform && transform < rate);
   assert.ok(rate < width && width < density && density < restart);
-  assert.ok(restart < reseed && reseed < reset && reset < soundControls);
-  assert.ok(soundControls < release && release < readout && readout < lookup && lookup < nks);
+  assert.ok(restart < reseed && reseed < soundControls && soundControls < sonificationMode);
+  assert.ok(sonificationMode < release && release < reset && reset < readout);
+  assert.ok(readout < lookup && lookup < why && why < nks);
+  assert.equal(nks, html.lastIndexOf('id="nksOpenProblemsTitle"'));
+  assert.match(html, /class="reset-all-row"[\s\S]*class="reset-all-button"[^>]*data-reset-all/);
+  assert.match(html, /Why this is interesting[\s\S]*Tiny local rules/);
+  assert.match(html, /Elementary:[\s\S]*256 \/ 256[\s\S]*Binary radius-2 totalistic:[\s\S]*64 \/ 64/);
+  assert.match(html, /NKS audio experiment maps each generation to a chord/);
   assert.doesNotMatch(html, /automata-rule-atlas-note|automata-live-change-copy|automata-method-copy/);
+  assert.match(html, /id="caTransform"/);
+  assert.match(html, /value="shift-left">Shift \/ ring left/);
+  assert.match(html, /value="shift-right">Shift \/ ring right/);
+  assert.match(html, /value="reflect">Reflect/);
+  assert.match(html, /value="complement">Complement/);
+  assert.match(html, /id="caSonificationMode"/);
+  assert.match(html, /value="row-events" selected>Row events/);
+  assert.match(html, /value="vertical-sine">Vertical sine bank/);
   assert.match(html, /id="caPolarity"/);
   assert.match(html, /<option value="one"[^>]*>[^<]*(?:state\s*)?1/i);
   assert.match(html, /<option value="zero"[^>]*>[^<]*(?:state\s*)?0/i);
@@ -200,15 +227,33 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   assert.match(html, /id="caSustain"/);
   assert.match(html, /id="caRelease"/);
   assert.match(html, /id="caEvolutionSummary"/);
-  const rowScan = app.slice(app.indexOf("triggerRowScan(cells"), app.indexOf("\n  silence()"));
-  assert.match(rowScan, /this\.rowScanCursor/);
-  assert.match(rowScan, /automatapoeiaSwingInterval/);
+  const rowScan = app.slice(app.indexOf("triggerRowScan(cells"), app.indexOf("\n  triggerColumnSineBank("));
+  const rowScheduler = app.slice(
+    app.indexOf("nextAutomataRowTime("),
+    app.indexOf("\n  triggerRowScan("),
+  );
+  assert.match(rowScheduler, /this\.rowScanCursor/);
+  assert.match(rowScheduler, /automatapoeiaSwingInterval/);
+  assert.match(rowScan, /this\.nextAutomataRowTime\(options\)/);
   assert.match(rowScan, /renderAutomatapoeiaRow/);
   assert.match(rowScan, /createBuffer\(1, scan\.samples\.length, scan\.sampleRate\)/);
   assert.match(rowScan, /createBufferSource\(\)/);
   assert.match(rowScan, /source\.stop\(startTime \+ scan\.renderDuration\)/);
   assert.doesNotMatch(rowScan, /cells\?\.some\(Boolean\)/);
   assert.doesNotMatch(rowScan, /PENTATONIC|createOscillator|createStereoPanner|\.pan/);
+  const sineBank = app.slice(
+    app.indexOf("triggerColumnSineBank("),
+    app.indexOf("\n  silenceColumnSineBank("),
+  );
+  assert.match(sineBank, /automatapoeiaColumnTransitions/);
+  assert.match(sineBank, /this\.columnVoices\.get\(event\.key\)/);
+  assert.match(sineBank, /oscillator\.type = "sine"/);
+  assert.match(sineBank, /linearRampToValueAtTime\(1, startTime \+ attack\)/);
+  assert.match(sineBank, /startTime \+ release/);
+  assert.match(sineBank, /columnSourceEnvelopes/);
+  assert.match(sineBank, /stealTime \+ 0\.008/);
+  assert.match(sineBank, /oldest\.stop\(stealTime \+ 0\.012\)/);
+  assert.doesNotMatch(sineBank, /createStereoPanner|\.pan|PENTATONIC/);
   assert.match(sonification, /linearDrumFrequencyAtPosition/);
   assert.match(sonification, /linearDrumKarplusStrongSettings/);
   assert.match(sonification, /generateKarplusStrongSamples/);
@@ -226,6 +271,9 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   assert.match(sonification, /bufferFrameCount/);
   assert.match(sonification, /renderDuration/);
   assert.match(sonification, /AUTOMATAPOEIA_RULES/);
+  assert.match(sonification, /AUTOMATAPOEIA_TOTALISTIC_RULES/);
+  assert.match(sonification, /AUTOMATAPOEIA_FAMILIES/);
+  assert.match(sonification, /automatapoeiaTotalisticNextRow/);
   assert.match(sonification, /automatapoeiaRowsPath/);
   assert.match(sonification, /sanitizeAutomatapoeiaPolarity/);
   assert.match(sonification, /sanitizeAutomatapoeiaObjectMode/);
@@ -235,7 +283,9 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   assert.match(sonification, /runs\.push\(\{/);
   assert.match(sonification, /runs\.map\(\(run\) => Object\.freeze\(run\)\)/);
   assert.doesNotMatch(sonification, /createStereoPanner|\.pan|PENTATONIC/);
-  assert.match(app, /automatapoeiaNextRow\(previous, state\.caRule, state\.caBoundary\)/);
+  assert.match(app, /const exactNext = automatapoeiaNextRow\(\s*previous,\s*state\.caRule,\s*state\.caBoundary,\s*state\.caFamily,\s*\)/);
+  assert.match(app, /automatapoeiaTransformRow\(exactNext, state\.caTransform, state\.caBoundary\)/);
+  assert.match(app, /automatapoeiaResizeRow\(previous, desiredWidth\)/);
   assert.match(app, /automatapoeiaContourStats\(/);
   assert.match(app, /automatapoeiaRetimedAccumulator\(/);
   assert.match(app, /state\.caGeneration \+= 1/);
@@ -251,11 +301,17 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   assert.match(automataDrawing, /islandPath2d/);
   assert.match(automataDrawing, /linkPath2d/);
   assert.match(automataDrawing, /ctx\.(?:moveTo|lineTo|fill|stroke)\(/);
-  assert.doesNotMatch(automataDrawing, /hueMix|103, 226, 208|240, 203, 118/);
+  assert.doesNotMatch(automataDrawing, /hueMix|103, 226, 208/);
   assert.match(app, /audio\.triggerRowScan\(row, \{/);
+  assert.match(app, /caFamily:\s*AUTOMATAPOEIA_DEFAULT_FAMILY/);
+  assert.match(app, /caRuleByFamily:[\s\S]*elementary:\s*30,[\s\S]*"totalistic-r2":\s*20/);
   assert.match(app, /caRowBoundaries:\s*\[\]/);
+  assert.match(app, /caRowSeams:\s*\[\]/);
+  assert.match(app, /caLineageStartIndex:\s*0/);
   assert.match(app, /state\.caRowBoundaries\.push\(state\.caBoundary\)/);
   assert.match(app, /state\.caRowBoundaries\.shift\(\)/);
+  assert.match(app, /state\.caRowSeams\.push\(newLineage\)/);
+  assert.match(app, /state\.caRowSeams\.shift\(\)/);
   const automataSound = app.slice(
     app.indexOf("function soundAutomataRow("),
     app.indexOf("\nfunction stepAutomata("),
@@ -264,11 +320,13 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
     app.indexOf("function getAutomataTopology("),
     app.indexOf("\nfunction recordAutomataEvolutionSegment("),
   );
-  assert.match(automataTopology, /automatapoeiaConnectedForms\(state\.caRows/);
+  assert.match(automataTopology, /const rows = state\.caRows\.slice\(lineageStart\)/);
+  assert.match(automataTopology, /automatapoeiaConnectedForms\(rows/);
   assert.match(automataTopology, /state\.caRowBoundaries/);
   assert.match(automataSound, /automatapoeiaConnectedSoundUnits/);
   assert.match(automataSound, /state\.caPolarity/);
   assert.match(automataSound, /state\.caObjectMode/);
+  assert.match(automataSound, /family:\s*state\.caFamily/);
 
   const genericRangeBinding = app.slice(
     app.indexOf("function bindRange("),
@@ -282,15 +340,31 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   );
   assert.doesNotMatch(boundaryBinding, /seedAutomata/);
   assert.match(boundaryBinding, /recordAutomataEvolutionSegment/);
-  assert.match(boundaryBinding, /updateCaStats/);
+  assert.doesNotMatch(boundaryBinding, /updateCaStats/);
   const audioSelectBinding = app.slice(
     app.indexOf("const voiceControl ="),
     app.indexOf("populateAutomataRuleAtlas();"),
   );
-  assert.doesNotMatch(audioSelectBinding, /audio\.silence/);
+  assert.match(audioSelectBinding, /caSonificationMode[\s\S]*sanitizeAutomatapoeiaSonificationMode/);
+  assert.match(audioSelectBinding, /audio\.silence\(\)/);
+  assert.match(audioSelectBinding, /resetAutomataAudioStats\(\)/);
+  assert.match(audioSelectBinding, /soundAutomataRow\(row, null\)/);
   assert.doesNotMatch(audioSelectBinding, /seedAutomata/);
   assert.match(audioSelectBinding, /caPolarity[\s\S]*sanitizeAutomatapoeiaPolarity/);
   assert.match(audioSelectBinding, /caObjectMode[\s\S]*sanitizeAutomatapoeiaObjectMode/);
+  const familySelection = app.slice(
+    app.indexOf("function selectAutomataFamily("),
+    app.indexOf("\nfunction selectAutomataRule("),
+  );
+  assert.match(familySelection, /caRuleByFamily/);
+  assert.match(familySelection, /populateAutomataRuleAtlas/);
+  assert.match(familySelection, /recordAutomataEvolutionSegment/);
+  assert.doesNotMatch(familySelection, /seedAutomata|audio\.silence/);
+  assert.match(app, /family:\s*state\.caFamily,[\s\S]*startGeneration/);
+  assert.match(app, /previous\?\.family === segment\.family/);
+  assert.match(app, /grid\.replaceChildren\(fragment\)/);
+  assert.match(app, /const bitCount = family === "totalistic-r2" \? 6 : 8/);
+  assert.match(app, /slider\.max = String\(definition\.ruleCount - 1\)/);
   const ruleSelection = app.slice(
     app.indexOf("function selectAutomataRule("),
     app.indexOf("\nfunction populateAutomataRuleAtlas("),
@@ -311,12 +385,16 @@ test("Automatapoeia presents exact binary evolution before optional queued mono 
   assert.doesNotMatch(ruleStepping, /seedAutomata/);
   assert.match(app, /button\.tabIndex = -1/);
   assert.match(app, /setAutomataRuleTabStop/);
-  assert.match(app, /setText\("caRulePickerLabel", `Rule \$\{rule\}`\)/);
-  assert.match(app, /automatapoeiaRowsPath\(automatapoeiaPreviewRows\(rule/);
+  assert.match(app, /setText\("caRulePickerLabel", label\)/);
+  assert.match(app, /const displayKey = `\$\{family\}:\$\{rule\}`/);
+  assert.match(app, /automatapoeiaPreviewRows\(\s*rule,\s*\{ family, width: 31, height: 18 \}/);
   assert.match(app, /startGeneration: state\.caGeneration \+ 1/);
   assert.match(app, /audio\.silence\(\);\s*seedAutomata\(\);/);
-  assert.match(app, /audio\.silence\(\);\s*seedAutomata\(\{ rebuildInitial: true, randomize: true \}\);/);
+  assert.match(app, /randomizeAutomata"[\s\S]*reseedAutomata\(\)/);
+  assert.doesNotMatch(app, /audio\.silence\(\);\s*seedAutomata\(\{ rebuildInitial: true, randomize: true \}\);/);
+  assert.match(app, /function reseedAutomata\(\)[\s\S]*appendAutomataRow\(row, \{ newLineage: true \}\)/);
   assert.doesNotMatch(app, /if \(!state\.caInitialRow\.some\(Boolean\)\)/);
+  assert.match(sonification, /sanitizeAutomatapoeiaFamily\(options\.family\)[\s\S]*hashString\(options\.family\)/);
   assert.match(app, /tails bounded at/);
 });
 

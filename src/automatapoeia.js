@@ -20,7 +20,10 @@ const TAU = Math.PI * 2;
 
 export const AUTOMATAPOEIA_FREQUENCY_MIN = 70;
 export const AUTOMATAPOEIA_FREQUENCY_MAX = 6_400;
+export const AUTOMATAPOEIA_DEFAULT_FAMILY = "elementary";
 export const AUTOMATAPOEIA_DEFAULT_VOICE = "rattlesnake";
+export const AUTOMATAPOEIA_DEFAULT_SONIFICATION_MODE = "row-events";
+export const AUTOMATAPOEIA_DEFAULT_TRANSFORM = "none";
 export const AUTOMATAPOEIA_DEFAULT_BOUNDARY = "fixed";
 export const AUTOMATAPOEIA_DEFAULT_POLARITY = "one";
 export const AUTOMATAPOEIA_DEFAULT_OBJECT_MODE = "runs";
@@ -38,6 +41,24 @@ export const AUTOMATAPOEIA_DEFAULT_ENVELOPE = Object.freeze({
 export const AUTOMATAPOEIA_BOUNDARIES = Object.freeze([
   Object.freeze({ id: "fixed", label: "Fixed zero" }),
   Object.freeze({ id: "periodic", label: "Periodic wrap" }),
+]);
+
+export const AUTOMATAPOEIA_FAMILIES = Object.freeze([
+  Object.freeze({ id: "elementary", label: "Elementary · radius 1", ruleCount: 256 }),
+  Object.freeze({ id: "totalistic-r2", label: "Totalistic · radius 2", ruleCount: 64 }),
+]);
+
+export const AUTOMATAPOEIA_SONIFICATION_MODES = Object.freeze([
+  Object.freeze({ id: "row-events", label: "Row events" }),
+  Object.freeze({ id: "vertical-sine", label: "Vertical sine bank" }),
+]);
+
+export const AUTOMATAPOEIA_TRANSFORMS = Object.freeze([
+  Object.freeze({ id: "none", label: "None" }),
+  Object.freeze({ id: "shift-left", label: "Shift left" }),
+  Object.freeze({ id: "shift-right", label: "Shift right" }),
+  Object.freeze({ id: "reflect", label: "Reflect" }),
+  Object.freeze({ id: "complement", label: "Complement" }),
 ]);
 
 export const AUTOMATAPOEIA_POLARITIES = Object.freeze([
@@ -126,8 +147,13 @@ export const AUTOMATAPOEIA_VOICES = Object.freeze([
   }),
 ]);
 
+const FAMILY_BY_ID = new Map(AUTOMATAPOEIA_FAMILIES.map((family) => [family.id, family]));
 const VOICE_BY_ID = new Map(AUTOMATAPOEIA_VOICES.map((voice) => [voice.id, voice]));
 const BOUNDARY_BY_ID = new Map(AUTOMATAPOEIA_BOUNDARIES.map((boundary) => [boundary.id, boundary]));
+const SONIFICATION_MODE_BY_ID = new Map(
+  AUTOMATAPOEIA_SONIFICATION_MODES.map((mode) => [mode.id, mode]),
+);
+const TRANSFORM_BY_ID = new Map(AUTOMATAPOEIA_TRANSFORMS.map((transform) => [transform.id, transform]));
 const POLARITY_BY_ID = new Map(AUTOMATAPOEIA_POLARITIES.map((polarity) => [polarity.id, polarity]));
 const OBJECT_MODE_BY_ID = new Map(AUTOMATAPOEIA_OBJECT_MODES.map((mode) => [mode.id, mode]));
 const PITCH_CURVE_BY_ID = new Map(AUTOMATAPOEIA_PITCH_CURVES.map((curve) => [curve.id, curve]));
@@ -135,12 +161,36 @@ const TIMBRE_SOURCE_BY_ID = new Map(AUTOMATAPOEIA_TIMBRE_SOURCES.map((source) =>
 const CONTOUR_SOURCE_BY_ID = new Map(AUTOMATAPOEIA_CONTOUR_SOURCES.map((source) => [source.id, source]));
 const PHRASE_SHAPE_BY_ID = new Map(AUTOMATAPOEIA_PHRASE_SHAPES.map((shape) => [shape.id, shape]));
 
+export function sanitizeAutomatapoeiaFamily(value) {
+  return FAMILY_BY_ID.has(value) ? value : AUTOMATAPOEIA_DEFAULT_FAMILY;
+}
+
+export function automatapoeiaFamilyLabel(value) {
+  return FAMILY_BY_ID.get(sanitizeAutomatapoeiaFamily(value)).label;
+}
+
 export function sanitizeAutomatapoeiaBoundary(value) {
   return BOUNDARY_BY_ID.has(value) ? value : AUTOMATAPOEIA_DEFAULT_BOUNDARY;
 }
 
 export function automatapoeiaBoundaryLabel(value) {
   return BOUNDARY_BY_ID.get(sanitizeAutomatapoeiaBoundary(value)).label;
+}
+
+export function sanitizeAutomatapoeiaSonificationMode(value) {
+  return SONIFICATION_MODE_BY_ID.has(value) ? value : AUTOMATAPOEIA_DEFAULT_SONIFICATION_MODE;
+}
+
+export function automatapoeiaSonificationModeLabel(value) {
+  return SONIFICATION_MODE_BY_ID.get(sanitizeAutomatapoeiaSonificationMode(value)).label;
+}
+
+export function sanitizeAutomatapoeiaTransform(value) {
+  return TRANSFORM_BY_ID.has(value) ? value : AUTOMATAPOEIA_DEFAULT_TRANSFORM;
+}
+
+export function automatapoeiaTransformLabel(value) {
+  return TRANSFORM_BY_ID.get(sanitizeAutomatapoeiaTransform(value)).label;
 }
 
 export function sanitizeAutomatapoeiaPolarity(value) {
@@ -159,9 +209,14 @@ export function automatapoeiaObjectModeLabel(value) {
   return OBJECT_MODE_BY_ID.get(sanitizeAutomatapoeiaObjectMode(value)).label;
 }
 
-export function automatapoeiaRuleBits(rule) {
-  const safeRule = Math.round(clamp(finiteOr(rule, 0), 0, 255));
-  return safeRule.toString(2).padStart(8, "0");
+export function automatapoeiaRuleBits(rule, family = AUTOMATAPOEIA_DEFAULT_FAMILY) {
+  const totalistic = sanitizeAutomatapoeiaFamily(family) === "totalistic-r2";
+  const safeRule = Math.round(clamp(finiteOr(rule, 0), 0, totalistic ? 63 : 255));
+  return safeRule.toString(2).padStart(totalistic ? 6 : 8, "0");
+}
+
+export function automatapoeiaTotalisticRuleBits(code) {
+  return automatapoeiaRuleBits(code, "totalistic-r2");
 }
 
 function reverseNeighborhood(neighborhood) {
@@ -196,6 +251,23 @@ export function automatapoeiaRuleOrbit(rule) {
   ])].sort((left, right) => left - right));
 }
 
+export function automatapoeiaTotalisticConjugateRule(code) {
+  const safeCode = Math.round(clamp(finiteOr(code, 0), 0, 63));
+  let conjugate = 0;
+  for (let total = 0; total <= 5; total += 1) {
+    conjugate |= (1 - ((safeCode >> (5 - total)) & 1)) << total;
+  }
+  return conjugate;
+}
+
+export function automatapoeiaTotalisticRuleOrbit(code) {
+  const safeCode = Math.round(clamp(finiteOr(code, 0), 0, 63));
+  return Object.freeze([...new Set([
+    safeCode,
+    automatapoeiaTotalisticConjugateRule(safeCode),
+  ])].sort((left, right) => left - right));
+}
+
 export function automatapoeiaCellAt(cells = [], index = 0, boundary = AUTOMATAPOEIA_DEFAULT_BOUNDARY) {
   if (!cells.length) return 0;
   const safeIndex = Math.trunc(finiteOr(index, 0));
@@ -206,11 +278,31 @@ export function automatapoeiaCellAt(cells = [], index = 0, boundary = AUTOMATAPO
   return safeIndex >= 0 && safeIndex < cells.length && cells[safeIndex] ? 1 : 0;
 }
 
+export function automatapoeiaTotalisticNextRow(
+  cells = [],
+  code = 20,
+  boundary = AUTOMATAPOEIA_DEFAULT_BOUNDARY,
+) {
+  const safeCode = Math.round(clamp(finiteOr(code, 20), 0, 63));
+  if (!cells.length) return [];
+  return cells.map((_, index) => {
+    let total = 0;
+    for (let offset = -2; offset <= 2; offset += 1) {
+      total += automatapoeiaCellAt(cells, index + offset, boundary);
+    }
+    return (safeCode >> total) & 1;
+  });
+}
+
 export function automatapoeiaNextRow(
   cells = [],
   rule = 30,
   boundary = AUTOMATAPOEIA_DEFAULT_BOUNDARY,
+  family = AUTOMATAPOEIA_DEFAULT_FAMILY,
 ) {
+  if (sanitizeAutomatapoeiaFamily(family) === "totalistic-r2") {
+    return automatapoeiaTotalisticNextRow(cells, rule, boundary);
+  }
   const safeRule = Math.round(clamp(finiteOr(rule, 30), 0, 255));
   const length = cells.length;
   if (!length) return [];
@@ -228,6 +320,89 @@ export function automatapoeiaNextRow(
     center = right;
   }
   return next;
+}
+
+export function automatapoeiaResizeRow(cells = [], width = cells?.length ?? 0) {
+  const source = Array.from(cells ?? [], (cell) => (cell ? 1 : 0));
+  const targetWidth = Math.max(0, Math.trunc(finiteOr(width, source.length)));
+  const resized = new Array(targetWidth).fill(0);
+  const copyLength = Math.min(source.length, targetWidth);
+  const sourceStart = Math.max(0, Math.floor((source.length - targetWidth) / 2));
+  const targetStart = Math.max(0, Math.floor((targetWidth - source.length) / 2));
+  for (let offset = 0; offset < copyLength; offset += 1) {
+    resized[targetStart + offset] = source[sourceStart + offset];
+  }
+  return resized;
+}
+
+export function automatapoeiaTransformRow(
+  cells = [],
+  transform = AUTOMATAPOEIA_DEFAULT_TRANSFORM,
+  boundary = AUTOMATAPOEIA_DEFAULT_BOUNDARY,
+) {
+  const row = Array.from(cells ?? [], (cell) => (cell ? 1 : 0));
+  if (!row.length) return row;
+  switch (sanitizeAutomatapoeiaTransform(transform)) {
+    case "shift-left":
+      return [...row.slice(1), sanitizeAutomatapoeiaBoundary(boundary) === "periodic" ? row[0] : 0];
+    case "shift-right":
+      return [sanitizeAutomatapoeiaBoundary(boundary) === "periodic" ? row.at(-1) : 0, ...row.slice(0, -1)];
+    case "reflect":
+      return row.reverse();
+    case "complement":
+      return row.map((cell) => 1 - cell);
+    default:
+      return row;
+  }
+}
+
+function automatapoeiaLatticeKey(index, width) {
+  return index * 2 - width + 1;
+}
+
+export function automatapoeiaColumnTransitions(previousCells = [], currentCells = [], options = {}) {
+  const previous = Array.from(previousCells ?? [], (cell) => (cell ? 1 : 0));
+  const current = Array.from(currentCells ?? [], (cell) => (cell ? 1 : 0));
+  const polarity = sanitizeAutomatapoeiaPolarity(options.polarity);
+  const selectedValue = POLARITY_BY_ID.get(polarity).value;
+  const previousByKey = new Map();
+  const currentByKey = new Map();
+  previous.forEach((cell, index) => {
+    if (cell === selectedValue) previousByKey.set(automatapoeiaLatticeKey(index, previous.length), index);
+  });
+  current.forEach((cell, index) => {
+    if (cell === selectedValue) currentByKey.set(automatapoeiaLatticeKey(index, current.length), index);
+  });
+
+  const attacks = [];
+  const holds = [];
+  const releases = [];
+  const transition = (key, previousIndex, currentIndex) => Object.freeze({
+    currentIndex,
+    index: currentIndex ?? previousIndex,
+    key,
+    previousIndex,
+  });
+  const keys = [...new Set([...previousByKey.keys(), ...currentByKey.keys()])]
+    .sort((left, right) => left - right);
+  for (const key of keys) {
+    const previousIndex = previousByKey.get(key) ?? null;
+    const currentIndex = currentByKey.get(key) ?? null;
+    const event = transition(key, previousIndex, currentIndex);
+    if (previousIndex === null) attacks.push(event);
+    else if (currentIndex === null) releases.push(event);
+    else holds.push(event);
+  }
+  const active = [...attacks, ...holds].sort((left, right) => left.key - right.key);
+  return Object.freeze({
+    active: Object.freeze(active),
+    attacks: Object.freeze(attacks),
+    currentWidth: current.length,
+    holds: Object.freeze(holds),
+    polarity,
+    previousWidth: previous.length,
+    releases: Object.freeze(releases),
+  });
 }
 
 export function automatapoeiaRowStats(
@@ -276,7 +451,27 @@ export const AUTOMATAPOEIA_RULES = Object.freeze(Array.from({ length: 256 }, (_,
   });
 }));
 
+export const AUTOMATAPOEIA_TOTALISTIC_RULES = Object.freeze(Array.from({ length: 64 }, (_, code) => {
+  const orbit = automatapoeiaTotalisticRuleOrbit(code);
+  const activeTotals = Object.freeze(Array.from({ length: 6 }, (_, total) => total)
+    .filter((total) => (code >> total) & 1));
+  return Object.freeze({
+    activeTotals,
+    bits: automatapoeiaTotalisticRuleBits(code),
+    code,
+    conjugate: automatapoeiaTotalisticConjugateRule(code),
+    orbit,
+    quiescentOne: ((code >> 5) & 1) === 1,
+    quiescentZero: (code & 1) === 0,
+    reflection: code,
+    representative: orbit[0],
+    rule: code,
+    symmetric: true,
+  });
+}));
+
 export function automatapoeiaPreviewRows(rule, options = {}) {
+  const family = sanitizeAutomatapoeiaFamily(options.family);
   const width = Math.round(clamp(finiteOr(options.width, 31), 9, 127));
   const height = Math.round(clamp(finiteOr(options.height, 18), 2, 96));
   let seed = Math.trunc(finiteOr(options.seed, 0x9e3779b9)) >>> 0;
@@ -288,7 +483,7 @@ export function automatapoeiaPreviewRows(rule, options = {}) {
   });
   const rows = [Object.freeze(row)];
   for (let index = 1; index < height; index += 1) {
-    row = automatapoeiaNextRow(row, rule, "periodic");
+    row = automatapoeiaNextRow(row, rule, "periodic", family);
     rows.push(Object.freeze(row));
   }
   return Object.freeze(rows);
@@ -310,20 +505,30 @@ export function automatapoeiaRowsPath(rows = []) {
   return commands.join("");
 }
 
-export function writeAutomatapoeiaRaster(rows, startRow, rowCount, target) {
-  const width = rows?.[0]?.length ?? 0;
+export function writeAutomatapoeiaRaster(rows, startRow, rowCount, target, targetWidth) {
   const safeStartRow = Math.max(0, Math.min(Math.trunc(startRow) || 0, rows?.length ?? 0));
   const count = Math.max(0, Math.min(Math.trunc(rowCount) || 0, (rows?.length ?? 0) - safeStartRow));
+  const selectedRows = Array.from({ length: count }, (_, offset) => rows[safeStartRow + offset] ?? []);
+  const inferredWidth = selectedRows.reduce((maximum, row) => Math.max(maximum, row?.length ?? 0), 0);
+  const requestedWidth = typeof targetWidth === "object" && targetWidth !== null
+    ? targetWidth.width ?? targetWidth.targetWidth
+    : targetWidth;
+  const width = requestedWidth === undefined
+    ? inferredWidth
+    : Math.max(0, Math.trunc(finiteOr(requestedWidth, inferredWidth)));
   const requiredLength = width * count * 4;
   if (!(target instanceof Uint8ClampedArray) || target.length !== requiredLength) {
     throw new TypeError(`Automatapoeia raster target must contain ${requiredLength} RGBA bytes.`);
   }
   target.fill(0);
   for (let rowOffset = 0; rowOffset < count; rowOffset += 1) {
-    const row = rows[safeStartRow + rowOffset];
-    for (let x = 0; x < width; x += 1) {
-      if (!row[x]) continue;
-      const pixel = (rowOffset * width + x) * 4;
+    const row = selectedRows[rowOffset];
+    const copyLength = Math.min(row.length, width);
+    const sourceStart = Math.max(0, Math.floor((row.length - width) / 2));
+    const targetStart = Math.max(0, Math.floor((width - row.length) / 2));
+    for (let offset = 0; offset < copyLength; offset += 1) {
+      if (!row[sourceStart + offset]) continue;
+      const pixel = (rowOffset * width + targetStart + offset) * 4;
       target[pixel] = 219;
       target[pixel + 1] = 228;
       target[pixel + 2] = 224;
@@ -1486,6 +1691,9 @@ function hashString(value) {
 function eventSeed(options, event, layerIndex = 0) {
   let seed = Math.trunc(finiteOr(options.seed, 1)) >>> 0;
   seed ^= Math.imul(Math.trunc(finiteOr(options.rule, 30)) + 1, 0x9e3779b1);
+  if (sanitizeAutomatapoeiaFamily(options.family) !== AUTOMATAPOEIA_DEFAULT_FAMILY) {
+    seed ^= hashString(options.family);
+  }
   seed ^= Math.imul(Math.trunc(finiteOr(options.generation, 0)) + 1, 0x85ebca6b);
   seed ^= Math.imul(event.start + 1, 0xc2b2ae35);
   seed ^= Math.imul(event.end + 1, 0x27d4eb2f);

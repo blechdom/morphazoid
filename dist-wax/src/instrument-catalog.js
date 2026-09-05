@@ -660,8 +660,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "cellular-automata": define(
     "Cellular automaton",
-    "Shows exact, live-switchable binary evolution with all 256 elementary rules, 88 symmetry families, explicit boundaries, and measurable shape contours.",
-    "Change rule or boundary without restarting, then sculpt the next rows through finite mono physical, FM/PM, additive, wavefold, or resonant-air voices with swing and ADSR.",
+    "Shows exact, live-switchable binary evolution across all 256 elementary rules and 64 radius-2 totalistic codes, with explicit boundaries and measurable shape contours.",
+    "Change family, rule or code, and boundary without restarting, then sculpt the next rows through finite mono physical, FM/PM, additive, wavefold, or resonant-air voices with swing and ADSR.",
   ),
   "prime-sieve": define(
     "Algorithmic sequencer",

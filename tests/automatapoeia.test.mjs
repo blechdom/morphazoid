@@ -4,18 +4,27 @@ import {
   AUTOMATAPOEIA_CONTOUR_SOURCES,
   AUTOMATAPOEIA_DEFAULT_OBJECT_MODE,
   AUTOMATAPOEIA_DEFAULT_POLARITY,
+  AUTOMATAPOEIA_DEFAULT_SONIFICATION_MODE,
+  AUTOMATAPOEIA_DEFAULT_TRANSFORM,
   AUTOMATAPOEIA_DEFAULT_VOICE,
   AUTOMATAPOEIA_DEFAULT_BOUNDARY,
+  AUTOMATAPOEIA_DEFAULT_FAMILY,
+  AUTOMATAPOEIA_FAMILIES,
   AUTOMATAPOEIA_FREQUENCY_MAX,
   AUTOMATAPOEIA_FREQUENCY_MIN,
   AUTOMATAPOEIA_RULES,
+  AUTOMATAPOEIA_SONIFICATION_MODES,
+  AUTOMATAPOEIA_TOTALISTIC_RULES,
+  AUTOMATAPOEIA_TRANSFORMS,
   AUTOMATAPOEIA_VOICES,
+  automatapoeiaColumnTransitions,
   automatapoeiaConjugateRule,
   automatapoeiaConnectedForms,
   automatapoeiaConnectedPaths,
   automatapoeiaConnectedSoundUnits,
   automatapoeiaContourStats,
   automatapoeiaEnvelopeAmplitude,
+  automatapoeiaFamilyLabel,
   automatapoeiaFrequencyAtPosition,
   automatapoeiaLiveRuns,
   automatapoeiaNextRow,
@@ -24,18 +33,29 @@ import {
   automatapoeiaPolarityRuns,
   automatapoeiaPreviewRows,
   automatapoeiaReflectRule,
+  automatapoeiaResizeRow,
   automatapoeiaRetimedAccumulator,
   automatapoeiaRowStats,
   automatapoeiaRowsPath,
   automatapoeiaRuleOrbit,
   automatapoeiaRuleBits,
+  automatapoeiaSonificationModeLabel,
   automatapoeiaSwingInterval,
   automatapoeiaSwingPosition,
+  automatapoeiaTotalisticConjugateRule,
+  automatapoeiaTotalisticNextRow,
+  automatapoeiaTotalisticRuleBits,
+  automatapoeiaTotalisticRuleOrbit,
+  automatapoeiaTransformLabel,
+  automatapoeiaTransformRow,
   buildAutomatapoeiaEvents,
   renderAutomatapoeiaRow,
   sanitizeAutomatapoeiaBoundary,
+  sanitizeAutomatapoeiaFamily,
   sanitizeAutomatapoeiaObjectMode,
   sanitizeAutomatapoeiaPolarity,
+  sanitizeAutomatapoeiaSonificationMode,
+  sanitizeAutomatapoeiaTransform,
   sanitizeAutomatapoeiaVoice,
   writeAutomatapoeiaRaster,
 } from "../src/automatapoeia.js";
@@ -85,6 +105,99 @@ test("Automatapoeia exposes eight distinct physical, oscillator, and noise techn
   );
   assert.equal(sanitizeAutomatapoeiaVoice("ouroboros"), "ouroboros");
   assert.equal(sanitizeAutomatapoeiaVoice("unknown"), AUTOMATAPOEIA_DEFAULT_VOICE);
+});
+
+test("sonification and post-step transform catalogs sanitize stable public ids", () => {
+  assert.equal(AUTOMATAPOEIA_DEFAULT_SONIFICATION_MODE, "row-events");
+  assert.deepEqual(AUTOMATAPOEIA_SONIFICATION_MODES.map(({ id }) => id), [
+    "row-events",
+    "vertical-sine",
+  ]);
+  assert.equal(sanitizeAutomatapoeiaSonificationMode("vertical-sine"), "vertical-sine");
+  assert.equal(sanitizeAutomatapoeiaSonificationMode("unknown"), "row-events");
+  assert.equal(automatapoeiaSonificationModeLabel("vertical-sine"), "Vertical sine bank");
+
+  assert.equal(AUTOMATAPOEIA_DEFAULT_TRANSFORM, "none");
+  assert.deepEqual(AUTOMATAPOEIA_TRANSFORMS.map(({ id }) => id), [
+    "none",
+    "shift-left",
+    "shift-right",
+    "reflect",
+    "complement",
+  ]);
+  assert.equal(sanitizeAutomatapoeiaTransform("reflect"), "reflect");
+  assert.equal(sanitizeAutomatapoeiaTransform("unknown"), "none");
+  assert.equal(automatapoeiaTransformLabel("complement"), "Complement");
+});
+
+test("radius-2 totalistic family exposes all 64 exact five-cell sum codes", () => {
+  assert.equal(AUTOMATAPOEIA_DEFAULT_FAMILY, "elementary");
+  assert.deepEqual(
+    AUTOMATAPOEIA_FAMILIES.map(({ id, ruleCount }) => [id, ruleCount]),
+    [["elementary", 256], ["totalistic-r2", 64]],
+  );
+  assert.equal(sanitizeAutomatapoeiaFamily("totalistic-r2"), "totalistic-r2");
+  assert.equal(sanitizeAutomatapoeiaFamily("unknown"), "elementary");
+  assert.equal(automatapoeiaFamilyLabel("totalistic-r2"), "Totalistic · radius 2");
+  assert.equal(AUTOMATAPOEIA_TOTALISTIC_RULES.length, 64);
+  assert.equal(
+    new Set(AUTOMATAPOEIA_TOTALISTIC_RULES.map(({ representative }) => representative)).size,
+    36,
+  );
+
+  for (let code = 0; code < 64; code += 1) {
+    assert.equal(
+      automatapoeiaTotalisticRuleBits(code),
+      code.toString(2).padStart(6, "0"),
+    );
+    assert.equal(automatapoeiaRuleBits(code, "totalistic-r2"), automatapoeiaTotalisticRuleBits(code));
+    assert.equal(
+      automatapoeiaTotalisticConjugateRule(automatapoeiaTotalisticConjugateRule(code)),
+      code,
+    );
+    assert.ok(automatapoeiaTotalisticRuleOrbit(code).includes(code));
+    for (let neighborhood = 0; neighborhood < 32; neighborhood += 1) {
+      const cells = Array.from(
+        { length: 5 },
+        (_, index) => (neighborhood >> (4 - index)) & 1,
+      );
+      const total = cells.reduce((sum, cell) => sum + cell, 0);
+      const expected = (code >> total) & 1;
+      assert.equal(
+        automatapoeiaTotalisticNextRow(cells, code, "fixed")[2],
+        expected,
+        `code ${code}, neighborhood ${cells.join("")}, total ${total}`,
+      );
+      assert.equal(
+        automatapoeiaNextRow(cells, code, "fixed", "totalistic-r2")[2],
+        expected,
+      );
+    }
+  }
+
+  assert.equal(automatapoeiaTotalisticRuleBits(-1), "000000");
+  assert.equal(automatapoeiaTotalisticRuleBits(99), "111111");
+  assert.deepEqual(AUTOMATAPOEIA_TOTALISTIC_RULES[10].activeTotals, [1, 3]);
+  assert.equal(AUTOMATAPOEIA_TOTALISTIC_RULES[10].bits, "001010");
+  assert.deepEqual(AUTOMATAPOEIA_TOTALISTIC_RULES[20].activeTotals, [2, 4]);
+  assert.equal(AUTOMATAPOEIA_TOTALISTIC_RULES[20].bits, "010100");
+  assert.deepEqual(AUTOMATAPOEIA_TOTALISTIC_RULES[52].activeTotals, [2, 4, 5]);
+  assert.deepEqual(automatapoeiaTotalisticNextRow([1, 0, 0, 0, 0], 10, "fixed"), [1, 1, 1, 0, 0]);
+  assert.deepEqual(automatapoeiaTotalisticNextRow([1, 0, 0, 0, 0], 10, "periodic"), [1, 1, 1, 1, 1]);
+  assert.deepEqual(automatapoeiaTotalisticNextRow([1, 0, 1], 0, "periodic"), [0, 0, 0]);
+  assert.deepEqual(automatapoeiaTotalisticNextRow([1, 0, 1], 63, "fixed"), [1, 1, 1]);
+});
+
+test("totalistic previews are deterministic and distinct from elementary previews", () => {
+  const options = { family: "totalistic-r2", width: 15, height: 8, seed: 19 };
+  const first = automatapoeiaPreviewRows(20, options);
+  assert.deepEqual(first, automatapoeiaPreviewRows(20, options));
+  assert.notDeepEqual(first, automatapoeiaPreviewRows(20, { ...options, family: "elementary" }));
+  let row = first[0];
+  for (let index = 1; index < first.length; index += 1) {
+    row = automatapoeiaNextRow(row, 20, "periodic", "totalistic-r2");
+    assert.deepEqual(first[index], row);
+  }
 });
 
 test("all 256 elementary rules use the exact Wolfram neighborhood-bit lookup", () => {
@@ -140,6 +253,70 @@ test("bulk raster writing reuses and clears one RGBA target", () => {
   const clipped = new Uint8ClampedArray(12).fill(255);
   writeAutomatapoeiaRaster(rows, 1, 1, clipped);
   assert.deepEqual([...clipped], [0, 0, 0, 0, 219, 228, 224, 240, 0, 0, 0, 0]);
+});
+
+test("center resizing clips or pads without rewriting the source row", () => {
+  const source = [1, 0, 1];
+  assert.deepEqual(automatapoeiaResizeRow(source, 7), [0, 0, 1, 0, 1, 0, 0]);
+  assert.deepEqual(automatapoeiaResizeRow([1, 0, 1, 1, 0, 1, 0], 3), [1, 1, 0]);
+  assert.deepEqual(automatapoeiaResizeRow(source, 4), [1, 0, 1, 0]);
+  assert.deepEqual(source, [1, 0, 1]);
+});
+
+test("row transforms distinguish fixed shifts from periodic ring rotations", () => {
+  const row = [1, 0, 1, 1];
+  assert.deepEqual(automatapoeiaTransformRow(row), row);
+  assert.notEqual(automatapoeiaTransformRow(row), row);
+  assert.deepEqual(automatapoeiaTransformRow(row, "shift-left", "fixed"), [0, 1, 1, 0]);
+  assert.deepEqual(automatapoeiaTransformRow(row, "shift-left", "periodic"), [0, 1, 1, 1]);
+  assert.deepEqual(automatapoeiaTransformRow(row, "shift-right", "fixed"), [0, 1, 0, 1]);
+  assert.deepEqual(automatapoeiaTransformRow(row, "shift-right", "periodic"), [1, 1, 0, 1]);
+  assert.deepEqual(automatapoeiaTransformRow(row, "reflect"), [1, 1, 0, 1]);
+  assert.deepEqual(automatapoeiaTransformRow(row, "complement"), [0, 1, 0, 0]);
+  assert.deepEqual(row, [1, 0, 1, 1]);
+});
+
+test("column transitions align changing widths on doubled lattice coordinates", () => {
+  const transitions = automatapoeiaColumnTransitions(
+    [0, 1, 1, 0, 0],
+    [0, 1, 1, 0, 1, 0, 0],
+  );
+  assert.deepEqual(transitions.attacks.map(({ key }) => key), [-4, 2]);
+  assert.deepEqual(transitions.holds.map(({ key }) => key), [-2]);
+  assert.deepEqual(transitions.releases.map(({ key }) => key), [0]);
+  assert.deepEqual(transitions.active.map(({ key }) => key), [-4, -2, 2]);
+  assert.deepEqual(transitions.holds[0], {
+    currentIndex: 2,
+    index: 2,
+    key: -2,
+    previousIndex: 1,
+  });
+  assert.ok(Object.isFrozen(transitions));
+  assert.ok(Object.isFrozen(transitions.attacks));
+  assert.ok(Object.isFrozen(transitions.holds[0]));
+
+  const inverse = automatapoeiaColumnTransitions([1, 0, 1], [0, 0, 1], { polarity: "zero" });
+  assert.deepEqual(inverse.attacks.map(({ key }) => key), [-2]);
+  assert.deepEqual(inverse.holds.map(({ key }) => key), [0]);
+  assert.deepEqual(inverse.releases.map(({ key }) => key), []);
+});
+
+test("mixed-width raster rows are centered and may use an explicit canvas width", () => {
+  const rows = [[1, 0, 1], [1, 0, 0, 0, 1], [1]];
+  const target = new Uint8ClampedArray(5 * 3 * 4);
+  writeAutomatapoeiaRaster(rows, 0, 3, target, 5);
+  const alpha = Array.from({ length: 3 }, (_, y) => (
+    Array.from({ length: 5 }, (_, x) => target[(y * 5 + x) * 4 + 3] ? 1 : 0)
+  ));
+  assert.deepEqual(alpha, [
+    [0, 1, 0, 1, 0],
+    [1, 0, 0, 0, 1],
+    [0, 0, 1, 0, 0],
+  ]);
+
+  const inferred = new Uint8ClampedArray(5 * 2 * 4);
+  writeAutomatapoeiaRaster(rows, 0, 2, inferred);
+  assert.equal(inferred[1 * 4 + 3], 240);
 });
 
 test("canonical Rule 30 and Rule 90 single-cell rows match their known evolutions", () => {

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Automatapoeia - switch exact elementary cellular-automaton rules live and sonify measurable row contours with finite mono synthesis, swing, and ADSR."
+      content="Morphazoid Automatapoeia - switch exact elementary and binary radius-2 totalistic cellular-automaton rules live, with optional contour-driven sonification."
     />
     <title>Automatapoeia - Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -51,10 +51,10 @@
             id="stage"
             tabindex="0"
             role="img"
-            aria-label="Successive binary rows of an elementary cellular automaton, with off-white live cells and black dead cells."
+            aria-label="Successive binary rows of a cellular automaton, with off-white state 1 cells and black state 0 cells."
             aria-describedby="canvasInstructions liveStatus"
           >
-            Elementary cellular automata row scanner.
+            Binary cellular automata row scanner.
           </canvas>
           <div class="stage-meta" aria-hidden="true">
             <span id="stageReadout">AUTOMATA · RULE 30 · FIXED ZERO · AUDIO OFF</span>
@@ -65,8 +65,8 @@
           </div>
         </div>
         <p class="sr-only" id="canvasInstructions">
-          Rows evolve downward. Every cell in a new row is computed from the three cells immediately above it.
-          In Down-connected forms mode, thin vectors join selected cells to their vertical or diagonal descendants.
+          Rows evolve downward. Family selects either the three-cell elementary neighborhood or the five-cell radius-2 total.
+          In Down-connected forms mode, thin vectors join selected cells to vertical or diagonal neighboring cells.
         </p>
         <p class="sr-only" id="liveStatus" aria-live="polite"></p>
       </section>
@@ -78,11 +78,20 @@
             <span class="section-state" id="patternSummary">Rule 30</span>
           </div>
           <div class="group-body">
+            <label class="select-control" for="caFamily">
+              <span class="field-label">Automaton family</span>
+              <span class="select-shell">
+                <select id="caFamily">
+                  <option value="elementary" selected>Elementary · radius 1 · 256</option>
+                  <option value="totalistic-r2">Binary totalistic · radius 2 · 64</option>
+                </select>
+              </span>
+            </label>
             <details class="automata-rule-picker" id="caRulePicker">
               <summary>
                 <span class="automata-rule-picker-copy">
                   <span>Rule atlas</span>
-                  <strong id="caRulePickerLabel" aria-live="polite">Rule 30</strong>
+                  <strong id="caRulePickerLabel" aria-live="polite">Elementary R1 · Rule 30</strong>
                 </span>
                 <svg
                   class="automata-rule-current-preview"
@@ -92,7 +101,7 @@
                   role="img"
                   aria-labelledby="caRuleCurrentPreviewTitle"
                 >
-                  <title id="caRuleCurrentPreviewTitle">Periodic preview of Rule 30</title>
+                  <title id="caRuleCurrentPreviewTitle">Periodic preview of Elementary R1 · Rule 30</title>
                   <path id="caRuleCurrentPath"></path>
                 </svg>
                 <span class="automata-rule-picker-chevron" aria-hidden="true">⌄</span>
@@ -100,15 +109,15 @@
               <div class="automata-rule-picker-panel">
                 <div class="automata-rule-atlas-controls">
                   <label for="caRuleSearch">
-                    <span>Rule or 8-bit code</span>
+                    <span id="caRuleSearchLabel">Rule or 8-bit code</span>
                     <input id="caRuleSearch" type="search" inputmode="numeric" placeholder="30 or 00011110" />
                   </label>
                   <label for="caRuleFilter">
                     <span>Show</span>
                     <select id="caRuleFilter">
-                      <option value="all">All 256 rules</option>
-                      <option value="representatives">88 symmetry representatives</option>
-                      <option value="family">Selected symmetry family</option>
+                      <option id="caRuleFilterAll" value="all">All 256 rules</option>
+                      <option id="caRuleFilterRepresentatives" value="representatives">88 symmetry representatives</option>
+                      <option id="caRuleFilterFamily" value="family">Selected symmetry family</option>
                     </select>
                   </label>
                 </div>
@@ -116,12 +125,12 @@
                 <div class="automata-rule-atlas-grid" id="caRuleAtlasGrid" role="group" aria-label="Elementary cellular automaton rules"></div>
               </div>
             </details>
-            <div class="experiment-button-grid automata-rule-stepper" role="group" aria-label="Step through elementary rules">
+            <div class="experiment-button-grid automata-rule-stepper" id="caRuleStepper" role="group" aria-label="Step through elementary rules">
               <button id="previousAutomataRule" type="button" aria-keyshortcuts="ArrowLeft">← Previous</button>
               <button id="nextAutomataRule" type="button" aria-keyshortcuts="ArrowRight">Next →</button>
             </div>
             <label class="control" for="caRule">
-              <span><b>Rule number</b><output id="caRuleOut" for="caRule">30</output></span>
+              <span><b id="caRuleNumberLabel">Rule number</b><output id="caRuleOut" for="caRule">30</output></span>
               <input id="caRule" type="range" min="0" max="255" step="1" value="30" />
             </label>
             <label class="select-control" for="caBoundary">
@@ -133,22 +142,33 @@
                 </select>
               </span>
             </label>
+            <label class="select-control" for="caTransform">
+              <span class="field-label">Post-step transform</span>
+              <span class="select-shell">
+                <select id="caTransform">
+                  <option value="none" selected>None</option>
+                  <option value="shift-left">Shift / ring left</option>
+                  <option value="shift-right">Shift / ring right</option>
+                  <option value="reflect">Reflect</option>
+                  <option value="complement">Complement</option>
+                </select>
+              </span>
+            </label>
             <label class="control" for="caRate">
               <span><b>Generation rate</b><output id="caRateOut" for="caRate">8.0 rows/s</output></span>
               <input id="caRate" type="range" min="1" max="24" step="0.1" value="8" />
             </label>
             <label class="control" for="caWidth">
-              <span><b>Columns on restart</b><output id="caWidthOut" for="caWidth">73</output></span>
+              <span><b>Columns</b><output id="caWidthOut" for="caWidth">73</output></span>
               <input id="caWidth" type="range" min="25" max="127" step="2" value="73" />
             </label>
             <label class="control" for="caDensity">
-              <span><b>Seed density on restart</b><output id="caDensityOut" for="caDensity">one centered cell</output></span>
+              <span><b>Seed density</b><output id="caDensityOut" for="caDensity">one centered cell</output></span>
               <input id="caDensity" type="range" min="0" max="1" step="0.01" value="0" />
             </label>
-            <div class="experiment-button-grid experiment-button-grid-five" role="group" aria-label="Restart and reset">
+            <div class="experiment-button-grid" role="group" aria-label="Restart or reseed">
               <button id="seedAutomata" type="button" aria-label="Restart from the initial row">Restart</button>
-              <button class="automata-randomize" id="randomizeAutomata" type="button" disabled aria-label="Generate a new random initial row">Reseed</button>
-              <button type="button" data-reset-all aria-label="Reset all parameters">Reset</button>
+              <button class="automata-randomize" id="randomizeAutomata" type="button" aria-label="Append a new seed without clearing history">Reseed</button>
             </div>
           </div>
         </section>
@@ -160,6 +180,15 @@
           </div>
           <div class="group-body">
             <h3 class="automata-control-heading">Sound geometry</h3>
+            <label class="select-control" for="caSonificationMode">
+              <span class="field-label">Articulation</span>
+              <span class="select-shell">
+                <select id="caSonificationMode">
+                  <option value="row-events" selected>Row events</option>
+                  <option value="vertical-sine">Vertical sine bank</option>
+                </select>
+              </span>
+            </label>
             <label class="select-control" for="caPolarity">
               <span class="field-label">Sonify cells</span>
               <span class="select-shell">
@@ -307,6 +336,10 @@
           </div>
         </section>
 
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+
         <section class="group experiment-card" aria-labelledby="experimentTitle">
           <div class="experiment-card-heading">
             <h2 class="group-title" id="experimentTitle">Readout</h2>
@@ -317,14 +350,14 @@
             <div><dt>Domain walls</dt><dd id="metricSecondary">2</dd></div>
           </dl>
           <div class="group-body">
-            <div class="automata-rule-lookup" aria-label="Exact Wolfram rule lookup">
-              <span>Neighborhood</span>
-              <code>111&nbsp; 110&nbsp; 101&nbsp; 100&nbsp; 011&nbsp; 010&nbsp; 001&nbsp; 000</code>
+            <div class="automata-rule-lookup" id="caRuleLookup" aria-label="Exact Wolfram elementary rule lookup">
+              <span id="caRuleLookupLabel">Neighborhood</span>
+              <code id="caRuleNeighborhoods">111&nbsp; 110&nbsp; 101&nbsp; 100&nbsp; 011&nbsp; 010&nbsp; 001&nbsp; 000</code>
               <span>Next state</span>
               <output id="caRuleBits">0&nbsp;&nbsp; 0&nbsp;&nbsp; 0&nbsp;&nbsp; 1&nbsp;&nbsp; 1&nbsp;&nbsp; 1&nbsp;&nbsp; 1&nbsp;&nbsp; 0</output>
             </div>
             <p class="automata-initial-summary automata-rule-family-summary">
-              <b>Symmetry family</b><span id="caRuleFamilySummary">4-rule family · 30 · 86 · 135 · 149</span>
+              <b id="caRuleFamilyHeading">Symmetry family</b><span id="caRuleFamilySummary">4-rule family · 30 · 86 · 135 · 149</span>
             </p>
             <p class="automata-initial-summary automata-rule-family-summary">
               <b>Evolution</b><span id="caEvolutionSummary">Rule 30 · fixed zero from generation 1</span>
@@ -335,10 +368,25 @@
           </div>
         </section>
 
+        <section class="group experiment-card" aria-labelledby="automataInterestTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="automataInterestTitle">Why this is interesting</h2>
+          </div>
+          <p class="automata-reference-copy">Tiny local rules can freeze, repeat, turn turbulent, or carry long-lived structures. Sustained columns become continuous sound, making persistence and collisions audible as well as visible.</p>
+        </section>
+
         <section class="group experiment-card" aria-labelledby="nksOpenProblemsTitle">
           <div class="experiment-card-heading">
             <h2 class="group-title" id="nksOpenProblemsTitle">NKS Open Problems</h2>
           </div>
+          <p class="automata-reference-copy">Elementary: <b>256 / 256</b>. Binary radius-2 totalistic: <b>64 / 64</b>. Broader cellular-automaton families remain open.</p>
+          <p class="automata-reference-copy">The NKS audio experiment maps each generation to a chord. Its open problem asks whether listening can reveal regularities the picture hides—or simply make interesting sounds.</p>
+          <a
+            class="experiment-action experiment-reference-link"
+            href="https://www.wolframscience.com/nks/notes-2-1--audio-representation-of-cellular-automata/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Official audio note <span aria-hidden="true">↗</span></a>
           <a
             class="experiment-action experiment-reference-link"
             href="https://www.wolframscience.com/openproblems/NKSOpenProblems.pdf"
