@@ -44,9 +44,6 @@
           <span class="audio-glyph webgpu-303-audio-glyph" aria-hidden="true">◉</span>
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
-        <button class="synth-play-button" id="synthPlayButton" type="button" aria-pressed="false" data-primary-transport>
-          Play synth
-        </button>
         <label class="header-level" for="output">
           <span><b>Output</b><output id="outputOut" for="output">100%</output></span>
           <input
@@ -111,6 +108,25 @@
             <span class="section-state" id="patternState">source acid synth</span>
           </summary>
           <div class="group-body">
+            <div class="webgpu-303-transport-row">
+              <button
+                class="play-button webgpu-303-play-button"
+                id="synthPlayButton"
+                type="button"
+                aria-pressed="false"
+                aria-label="Play WebGPU 303 synth"
+                aria-keyshortcuts="Space"
+                title="Play WebGPU 303 synth (Space)"
+                data-primary-transport
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <span class="webgpu-303-transport-copy">
+                <b id="synthPlayLabel">Play synth</b>
+                <small id="synthPlayState">paused · Space</small>
+              </span>
+            </div>
             <div class="webgpu-preset-grid" id="presetButtons" role="group" aria-label="WebGPU 303 presets"></div>
             <div class="webgpu-sequence-actions" aria-label="Sequence actions">
               <button class="mini-action" id="clearSequence" type="button">Source noise</button>

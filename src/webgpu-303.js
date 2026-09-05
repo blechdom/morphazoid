@@ -13,6 +13,9 @@ const STEP_MODULATION_BUFFER_SIZE = WEBGPU_303_SEQUENCE_LENGTH
   * Float32Array.BYTES_PER_ELEMENT;
 const MAX_BUFFERED_CHUNKS = 2.5;
 
+export const WEBGPU_303_OUTPUT_MAKEUP = 5;
+export const WEBGPU_303_OUTPUT_CEILING = 0.88;
+
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const fract = (value) => value - Math.floor(value);
 const finiteOr = (value, fallback) => {
@@ -149,6 +152,8 @@ export const WEBGPU_303_SHADER = `// WebGPU acid voice adapted from WebGPU Audio
 // https://www.shadertoy.com/view/ldfSW2
 const PARTIALS: u32 = 256u;
 const PI2: f32 = 6.283185307179586476925286766559;
+const OUTPUT_MAKEUP: f32 = ${WEBGPU_303_OUTPUT_MAKEUP.toFixed(1)};
+const OUTPUT_CEILING: f32 = ${WEBGPU_303_OUTPUT_CEILING.toFixed(2)};
 
 override WORKGROUP_SIZE: u32 = 256;
 override SAMPLE_RATE: f32 = 44100.0;
@@ -291,7 +296,11 @@ fn mainSound(time: f32, audio_param: AudioParam) -> vec2<f32> {
   let swungTime: f32 = swingTime(straightTime, audio_param.swing);
   let tb: f32 = rem(swungTime, max(audio_param.timeMod, 0.001));
   let mx: vec2<f32> = synth(tb, time, audio_param) * audio_param.gain;
-  return vec2(mx);
+  return clamp(
+    mx * OUTPUT_MAKEUP,
+    vec2<f32>(-OUTPUT_CEILING),
+    vec2<f32>(OUTPUT_CEILING),
+  );
 }`;
 
 export function sanitizeWebGpu303Params(params = {}) {

@@ -20,40 +20,8 @@
   letter-spacing: 0;
 }
 
-.webgpu-synths-page .audio-strip {
-  grid-template-columns: 78px 96px minmax(96px, 140px);
-}
-
 .webgpu-synths-audio-glyph {
   color: var(--gpu-green);
-}
-
-.webgpu-synths-page .synth-play-button {
-  min-width: 96px;
-  min-height: 44px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in oklab, var(--gpu-green) 52%, var(--line-strong));
-  cursor: pointer;
-  color: color-mix(in oklab, var(--gpu-green) 72%, var(--muted));
-  background: color-mix(in oklab, var(--gpu-green) 7%, var(--bg-deep));
-  font-size: 9px;
-  font-weight: 750;
-  line-height: 1.1;
-  text-transform: uppercase;
-}
-
-.webgpu-synths-page .synth-play-button:hover,
-.webgpu-synths-page .synth-play-button:focus-visible {
-  border-color: var(--gpu-green);
-  color: var(--ink);
-  background: color-mix(in oklab, var(--gpu-green) 14%, var(--bg-deep));
-}
-
-.webgpu-synths-page .synth-play-button[aria-pressed="true"] {
-  border-color: var(--gpu-green);
-  color: var(--bg-deep);
-  background: var(--gpu-green);
-  box-shadow: 0 0 20px color-mix(in oklab, var(--gpu-green) 24%, transparent);
 }
 
 .webgpu-synths-stage {
@@ -148,7 +116,14 @@
   background:
     linear-gradient(90deg, rgba(116, 247, 255, 0.055), rgba(255, 218, 87, 0.035), rgba(255, 110, 170, 0.045), rgba(167, 139, 255, 0.055)),
     color-mix(in oklab, var(--bg-deep) 97%, transparent);
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
   gap: 9px;
+}
+
+.webgpu-synths-play-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
 }
 
 .sequence-router {
@@ -728,91 +703,6 @@
     overflow: visible;
   }
 
-  .webgpu-synths-page .masthead {
-    display: grid;
-    height: auto;
-    min-height: 114px;
-    padding: 6px 10px;
-    grid-template-columns: 28px minmax(0, 1fr) 72px 22px 48px;
-    grid-template-rows: 48px 48px;
-    align-items: center;
-    column-gap: 6px;
-    row-gap: 6px;
-  }
-
-  .webgpu-synths-page .masthead .wordmark {
-    width: 28px;
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .webgpu-synths-page .masthead .tabs.tools-nav {
-    width: 100%;
-    min-width: 0;
-    height: 36px;
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .webgpu-synths-page .masthead .mobile-instrument-nav {
-    width: 100%;
-    grid-column: 2 / -1;
-    grid-row: 1;
-  }
-
-  .webgpu-synths-page .masthead .header-io-controls {
-    display: contents;
-  }
-
-  .webgpu-synths-page .masthead .midi-toolbar {
-    width: 72px;
-    grid-column: 3;
-    grid-row: 1;
-  }
-
-  .webgpu-synths-page .masthead .header-output-meter-shell {
-    grid-column: 4;
-    grid-row: 1;
-  }
-
-  .webgpu-synths-page .masthead .header-settings-menu {
-    grid-column: 5;
-    grid-row: 1;
-  }
-
-  .webgpu-synths-page .masthead .instrument-picker-panel,
-  .webgpu-synths-page .masthead .header-settings-panel {
-    top: 115px;
-  }
-
-  .webgpu-synths-page .masthead > .audio-strip,
-  .webgpu-synths-page .masthead.has-midi-toolbar .header-io-controls > .audio-strip {
-    width: 100%;
-    height: 48px;
-    margin: 0;
-    grid-column: 1 / -1;
-    grid-row: 2;
-    grid-template-columns: 48px minmax(92px, 0.85fr) minmax(110px, 1.15fr);
-    gap: 6px;
-  }
-
-  .webgpu-synths-page .audio-strip .audio-button {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .webgpu-synths-page .audio-strip .synth-play-button {
-    width: 100%;
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .webgpu-synths-page .audio-strip .header-level {
-    width: 100%;
-    grid-column: 3;
-    grid-row: 1;
-  }
-
   .webgpu-synths-shell {
     display: block;
     overflow: visible;
@@ -831,12 +721,6 @@
   .webgpu-synths-panel {
     max-height: none;
     overflow: visible;
-  }
-
-  .webgpu-synths-page .synth-play-button {
-    min-width: 70px;
-    padding: 0 6px;
-    font-size: 8px;
   }
 
   .webgpu-synths-heading {

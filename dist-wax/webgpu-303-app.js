@@ -522,9 +522,13 @@ function setAudioState(enabled) {
 
 function setSynthPlayButtonState() {
   const button = $("synthPlayButton");
+  const action = state.synthPlaying ? "Pause WebGPU 303 synth" : "Play WebGPU 303 synth";
   button.disabled = !support.supported || Boolean(audioStartPromise);
   button.setAttribute("aria-pressed", String(state.synthPlaying));
-  button.textContent = state.synthPlaying ? "Pause synth" : "Play synth";
+  button.setAttribute("aria-label", action);
+  button.title = `${action} (Space)`;
+  $("synthPlayLabel").textContent = state.synthPlaying ? "Pause synth" : "Play synth";
+  $("synthPlayState").textContent = state.synthPlaying ? "playing · Space" : "paused · Space";
 }
 
 function setSynthPlayState(enabled, { quiet = false } = {}) {

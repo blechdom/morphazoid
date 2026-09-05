@@ -7,6 +7,8 @@ import {
   WEBGPU_303_BUFFER_PARAM_ORDER,
   WEBGPU_303_DEFAULT_STEP_MODULATION,
   WEBGPU_303_DEFAULTS,
+  WEBGPU_303_OUTPUT_CEILING,
+  WEBGPU_303_OUTPUT_MAKEUP,
   WEBGPU_303_PARAM_ORDER,
   WEBGPU_303_SEQUENCE_LENGTH,
   WEBGPU_303_SHADER,
@@ -239,6 +241,21 @@ test("WebGPU 303 default patch matches the WebGPU Audio AcidSynth controls", () 
     0,
   ];
   params.forEach((value, index) => near(value, expected[index], 1e-2));
+});
+
+test("WebGPU 303 applies bounded instrument-level makeup inside WGSL", () => {
+  assert.equal(WEBGPU_303_OUTPUT_MAKEUP, 5);
+  assert.equal(WEBGPU_303_OUTPUT_CEILING, 0.88);
+  assert.match(WEBGPU_303_SHADER, /const OUTPUT_MAKEUP: f32 = 5\.0;/);
+  assert.match(WEBGPU_303_SHADER, /const OUTPUT_CEILING: f32 = 0\.88;/);
+  assert.match(
+    WEBGPU_303_SHADER,
+    /return clamp\(\s*mx \* OUTPUT_MAKEUP,\s*vec2<f32>\(-OUTPUT_CEILING\),\s*vec2<f32>\(OUTPUT_CEILING\),\s*\);/,
+  );
+  assert.equal(
+    Math.min(WEBGPU_303_OUTPUT_CEILING, WEBGPU_303_DEFAULTS.gain * WEBGPU_303_OUTPUT_MAKEUP),
+    0.75,
+  );
 });
 
 test("WebGPU 303 parameter and runtime settings stay bounded", () => {
@@ -504,7 +521,9 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
   assert.match(html, /id="webgpu303"/);
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);
   assert.match(html, /id="knobControls"/);
-  assert.match(html, /id="synthPlayButton"[^>]*aria-pressed="false"/);
+  assert.match(html, /class="play-button webgpu-303-play-button"[\s\S]*?id="synthPlayButton"[\s\S]*?aria-pressed="false"[\s\S]*?aria-label="Play WebGPU 303 synth"[\s\S]*?data-primary-transport/);
+  assert.match(html, /class="transport-play"[^>]*>[\s\S]*?M8 5\.5 18 12 8 18\.5Z/);
+  assert.match(html, /class="transport-pause"[^>]*>[\s\S]*?M8 6v12M16 6v12/);
   assert.match(html, /Play synth/);
   assert.match(html, /id="randomizePatch"/);
   assert.match(html, /id="mutatePatch"/);
@@ -514,9 +533,10 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
   assert.match(html, /id="randomizeSequence"/);
   assert.match(html, /src="webgpu-303-app\.js"/);
   assert.match(html, /sound - acid jam by srtuss on Shadertoy/);
-  assert.ok(html.indexOf("id=\"audioButton\"") < html.indexOf("id=\"synthPlayButton\""));
-  assert.ok(html.indexOf("id=\"synthPlayButton\"") < html.indexOf("class=\"header-level\""));
-  assert.ok(html.indexOf("id=\"synthPlayButton\"") < html.indexOf("<main class=\"shell webgpu-303-shell\""));
+  const masthead = html.slice(html.indexOf('<header class="masthead">'), html.indexOf("</header>"));
+  assert.doesNotMatch(masthead, /synthPlayButton|data-primary-transport/);
+  assert.ok(html.indexOf("<main class=\"shell webgpu-303-shell\"") < html.indexOf("id=\"synthPlayButton\""));
+  assert.ok(html.indexOf("id=\"synthPlayButton\"") < html.indexOf("id=\"presetButtons\""));
   assert.ok(html.indexOf("id=\"knobControls\"") < html.indexOf("id=\"presetButtons\""));
   assert.ok(html.indexOf("class=\"webgpu-status-strip\"") < html.indexOf("class=\"webgpu-303-credit\""));
   assert.ok(html.indexOf("class=\"webgpu-303-credit\"") < html.indexOf("<details class=\"group control-section webgpu-303-section webgpu-303-presets\""));
@@ -525,10 +545,10 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
   assert.match(css, /\.webgpu-303-page/);
   assert.match(css, /\.webgpu-stage-knobs/);
   assert.match(css, /\.webgpu-stage-knob-actions/);
-  assert.match(css, /\.webgpu-303-page \.audio-strip \{[\s\S]*grid-template-columns: 78px 92px minmax\(96px, 140px\)/);
-  assert.match(css, /\.synth-play-button/);
-  assert.match(css, /\.synth-play-button\[aria-pressed="true"\]/);
-  assert.doesNotMatch(css, /webgpu-stage-knob-actions \.synth-play-button/);
+  assert.doesNotMatch(css, /\.webgpu-303-page \.audio-strip|\.synth-play-button/);
+  assert.match(css, /\.webgpu-303-transport-row \{[\s\S]*grid-template-columns: max-content minmax\(0, 1fr\)/);
+  assert.match(css, /\.webgpu-303-play-button:disabled/);
+  assert.match(css, /@media \(max-width: 980px\) and \(max-height: 560px\) \{[\s\S]*?\.webgpu-303-shell \{[\s\S]*?grid-template-rows: clamp\(150px, 40dvh, 210px\) minmax\(0, 1fr\)/);
   assert.match(css, /\.webgpu-knob-bank/);
   assert.match(css, /\.webgpu-knob-bank \{[\s\S]*--knob-columns: 8/);
   assert.match(css, /\.webgpu-knob-bank \{[\s\S]*--knob-size: clamp\(58px, 5\.15vw, 72px\)/);
@@ -581,6 +601,14 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
     app.indexOf("function syncParamOutputs", app.indexOf("function setSynthPlayState")),
   );
   assert.doesNotMatch(synthState, /setAudioState/);
+  const synthButtonState = app.slice(
+    app.indexOf("function setSynthPlayButtonState"),
+    app.indexOf("function setSynthPlayState", app.indexOf("function setSynthPlayButtonState")),
+  );
+  assert.doesNotMatch(synthButtonState, /button\.textContent/);
+  assert.match(synthButtonState, /button\.setAttribute\("aria-label", action\)/);
+  assert.match(synthButtonState, /synthPlayLabel/);
+  assert.match(synthButtonState, /synthPlayState/);
   assert.match(app, /setPlaybackEnabled/);
   assert.match(app, /synthPlayButton/);
   assert.match(app, /sequencePhaseAtTime/);

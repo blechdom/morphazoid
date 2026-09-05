@@ -222,6 +222,13 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(html, /id="addLane"[^>]*>\+ Add parameter lane/);
   assert.match(html, /id="laneTargetSelect"/);
   assert.ok(html.indexOf('class="sequence-deck"') < html.indexOf('id="stageWrap"'));
+  assert.match(html, /class="play-button webgpu-synths-play-button"[\s\S]*?id="synthPlayButton"[\s\S]*?aria-label="Play GPU shader sequence"[\s\S]*?data-primary-transport/);
+  assert.match(html, /class="transport-play"[^>]*>[\s\S]*?M8 5\.5 18 12 8 18\.5Z/);
+  assert.match(html, /class="transport-pause"[^>]*>[\s\S]*?M8 6v12M16 6v12/);
+  const masthead = html.slice(html.indexOf('<header class="masthead">'), html.indexOf("</header>"));
+  assert.doesNotMatch(masthead, /synthPlayButton|data-primary-transport/);
+  assert.ok(html.indexOf('class="sequence-deck"') < html.indexOf('id="synthPlayButton"'));
+  assert.ok(html.indexOf('id="synthPlayButton"') < html.indexOf('class="sequence-router"'));
   assert.doesNotMatch(html, /<b>Edit lane<\/b>|<b>Destination<\/b>/);
   assert.match(html, /data-section="sequence-tools"[\s\S]*id="laneState">4 of 8 lanes[\s\S]*id="rotateLeft"[\s\S]*id="invertLane"/);
   assert.match(html, /id="addModelLayer"[^>]*>\+ Add synthesis layer/);
@@ -245,6 +252,8 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.ok(html.indexOf('id="resetPatch"') < html.indexOf('class="wgsl-boundary"'));
   assert.doesNotMatch(css, /\.model-rail/);
   assert.match(css, /\.sequence-router/);
+  assert.match(css, /\.sequence-deck \{[\s\S]*grid-template-columns: max-content minmax\(0, 1fr\)/);
+  assert.doesNotMatch(css, /\.webgpu-synths-page \.audio-strip|\.synth-play-button/);
   assert.match(css, /\.sequence-router select,[\s\S]*height: 36px;[\s\S]*min-height: 36px/);
   assert.match(css, /\.model-layer-row/);
   assert.doesNotMatch(css, /\.sequence-edit-hint/);
@@ -256,8 +265,13 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(css, /@media \(min-width: 981px\) and \(max-height: 1000px\) \{[\s\S]*#sequenceStage \{[\s\S]*min-height: 0/);
   assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*html\.webgpu-synths-document \{[\s\S]*overflow-y: auto/);
   assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*#sequenceStage \{[\s\S]*touch-action: pan-y/);
-  assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*\.webgpu-synths-page \.masthead \{[\s\S]*grid-template-rows: 48px 48px/);
-  assert.match(css, /\.masthead\.has-midi-toolbar \.header-io-controls > \.audio-strip \{[\s\S]*grid-column: 1 \/ -1;[\s\S]*grid-template-columns: 48px minmax\(92px, 0\.85fr\) minmax\(110px, 1\.15fr\)/);
+  const synthTransportState = app.slice(
+    app.indexOf("function setSynthPlayState"),
+    app.indexOf("async function startAudio", app.indexOf("function setSynthPlayState")),
+  );
+  assert.doesNotMatch(synthTransportState, /\.textContent/);
+  assert.match(synthTransportState, /button\.setAttribute\("aria-label", action\)/);
+  assert.match(synthTransportState, /button\.title = `\$\{action\} \(Space\)`/);
   assert.match(app, /Acid Fossil/);
   assert.match(app, /Recursive Chrome/);
   assert.match(app, /Folded Mutant/);

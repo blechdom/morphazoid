@@ -399,6 +399,15 @@ const state = {
   },
 };
 
+const AUDIO_STARTUP_STATUS = Object.freeze({
+  preparing: { button: "Preparing GPU…", gpu: "preparing GPU", hint: "Preparing Web Audio and the GPU device…" },
+  compiling: { button: "Compiling shaders…", gpu: "compiling shaders", hint: "Compiling the WebGPU audio shaders…" },
+  "compiling-patch": { button: "Compiling patch…", gpu: "compiling selected modules", hint: "Compiling only the GPU modules used by this patch…" },
+  "compiling-effects": { button: "Compiling effects…", gpu: "compiling selected effects", hint: "Compiling only the GPU effects used by this patch…" },
+  "compiling-state": { button: "Compiling module…", gpu: "compiling persistent DSP", hint: "Compiling this persistent GPU module for its first use…" },
+  rendering: { button: "Rendering audio…", gpu: "rendering first chunk", hint: "Rendering the first GPU audio chunk…" },
+});
+
 function announce(message) {
   const live = $("liveStatus");
   live.textContent = "";
@@ -763,8 +772,15 @@ function syncPatchStatus() {
   const cableCount = patchConnections().length;
   const validation = validationSummary();
   const descriptor = validation.valid ? "ready" : "open route";
-  $("patchStatus").textContent = `${descriptor} · ${nodeCount}/${maxNodeCount} modules · ${cableCount} ${cableCount === 1 ? "cable" : "cables"}`;
-  $("patchStatus").title = "Each GPU sample evaluates the graph in order. This playground currently reserves sixteen node slots per patch.";
+  const startup = AUDIO_STARTUP_STATUS[state.audioPhase] ?? null;
+  const starting = Boolean(startup || state.audioStartPromise);
+  const patchStatus = $("patchStatus");
+  patchStatus.textContent = starting
+    ? `${startup?.button ?? "Preparing audio…"} · ${nodeCount}/${maxNodeCount} modules`
+    : `${descriptor} · ${nodeCount}/${maxNodeCount} modules · ${cableCount} ${cableCount === 1 ? "cable" : "cables"}`;
+  patchStatus.title = starting
+    ? startup?.hint ?? "Preparing Web Audio and the GPU device…"
+    : "Each GPU sample evaluates the graph in order. This playground currently reserves sixteen node slots per patch.";
   if ($("graphLoad")) $("graphLoad").textContent = `${nodeCount}/${maxNodeCount} modules`;
   $("graphViewport").setAttribute(
     "aria-label",
@@ -2433,23 +2449,20 @@ function drawScope() {
 }
 
 function syncTransport() {
-  const startup = {
-    preparing: { button: "Preparing GPU…", gpu: "preparing GPU", hint: "Preparing Web Audio and the GPU device…" },
-    compiling: { button: "Compiling shaders…", gpu: "compiling shaders", hint: "Compiling the WebGPU audio shaders…" },
-    "compiling-patch": { button: "Compiling patch…", gpu: "compiling selected modules", hint: "Compiling only the GPU modules used by this patch…" },
-    "compiling-effects": { button: "Compiling effects…", gpu: "compiling selected effects", hint: "Compiling only the GPU effects used by this patch…" },
-    "compiling-state": { button: "Compiling module…", gpu: "compiling persistent DSP", hint: "Compiling this persistent GPU module for its first use…" },
-    rendering: { button: "Rendering audio…", gpu: "rendering first chunk", hint: "Rendering the first GPU audio chunk…" },
-  }[state.audioPhase] ?? null;
+  const startup = AUDIO_STARTUP_STATUS[state.audioPhase] ?? null;
   const starting = Boolean(startup || state.audioStartPromise);
   $("audioButton").setAttribute("aria-pressed", String(state.audioOn));
   $("audioButton").setAttribute("aria-busy", String(starting));
   $("audioState").textContent = state.audioOn ? "on" : "off";
-  $("playgroundPlayButton").setAttribute("aria-pressed", String(state.playing));
-  $("playgroundPlayButton").setAttribute("aria-busy", String(starting));
-  $("playgroundPlayLabel").textContent = startup?.button ?? (state.playing ? "Pause patch" : "Run patch");
+  const playButton = $("playgroundPlayButton");
+  const playAction = startup?.button ?? (state.playing ? "Pause patch" : "Run patch");
+  playButton.setAttribute("aria-pressed", String(state.playing));
+  playButton.setAttribute("aria-busy", String(starting));
+  playButton.setAttribute("aria-label", playAction);
+  playButton.title = starting ? playAction : `${playAction} (Space)`;
+  $("playgroundPlayLabel").textContent = playAction;
   $("audioButton").disabled = !support.supported || starting;
-  $("playgroundPlayButton").disabled = !support.supported || starting;
+  playButton.disabled = !support.supported || starting;
   $("gpuState").textContent = !support.audio
     ? "Web Audio unavailable"
     : !support.webgpu

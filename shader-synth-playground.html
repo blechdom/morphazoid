@@ -40,13 +40,10 @@
         </select>
       </label>
 
-      <div class="audio-strip playground-transport" aria-label="Audio controls">
+      <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
           <span class="audio-glyph" aria-hidden="true">∿</span>
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
-        </button>
-        <button class="synth-play-button playground-play-button" id="playgroundPlayButton" type="button" aria-pressed="false" data-primary-transport>
-          <span id="playgroundPlayLabel">Run patch</span>
         </button>
         <label class="header-level" for="output">
           <span><b>Output</b><output id="outputOut" for="output">70%</output></span>
@@ -102,6 +99,21 @@
       <section class="patch-workbench" aria-labelledby="patchTitle">
         <header class="patch-toolbar">
           <div class="patch-identity">
+            <button
+              class="play-button playground-play-button"
+              id="playgroundPlayButton"
+              type="button"
+              aria-pressed="false"
+              aria-busy="false"
+              aria-label="Run patch"
+              aria-keyshortcuts="Space"
+              title="Run patch (Space)"
+              data-primary-transport
+            >
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              <span class="sr-only" id="playgroundPlayLabel">Run patch</span>
+            </button>
             <div>
               <h2 id="patchTitle">Signal graph</h2>
               <output id="patchStatus" aria-live="polite">Loading patch…</output>

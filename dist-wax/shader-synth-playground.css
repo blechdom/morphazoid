@@ -19,67 +19,6 @@
   height: 100%;
 }
 
-.playground-transport.audio-strip {
-  display: grid;
-  width: auto;
-  min-width: 0;
-  margin-left: auto;
-  grid-template-columns: minmax(96px, 132px) 44px 112px;
-  align-items: center;
-  gap: 9px;
-}
-
-.playground-transport.audio-strip .audio-button {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.playground-transport.audio-strip .playground-play-button {
-  grid-column: 3;
-  grid-row: 1;
-}
-
-.playground-transport.audio-strip .header-level {
-  width: 100%;
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.shader-playground-page .synth-play-button {
-  min-width: 112px;
-  min-height: 44px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in oklab, var(--accent) 52%, var(--line-strong));
-  cursor: pointer;
-  color: color-mix(in oklab, var(--accent) 72%, var(--muted));
-  background: color-mix(in oklab, var(--accent) 7%, var(--bg-deep));
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.1;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.shader-playground-page .synth-play-button:hover,
-.shader-playground-page .synth-play-button:focus-visible {
-  border-color: var(--accent);
-  color: var(--ink);
-  background: color-mix(in oklab, var(--accent) 14%, var(--bg-deep));
-}
-
-.shader-playground-page .synth-play-button[aria-pressed="true"] {
-  border-color: var(--accent);
-  color: var(--bg-deep);
-  background: var(--accent);
-  box-shadow: 0 0 18px var(--accent-glow);
-}
-
-.shader-playground-page .synth-play-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
 .playground-workspace {
   display: grid;
   min-width: 0;
@@ -540,7 +479,14 @@
 
 .patch-identity {
   display: grid;
-  gap: 5px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.playground-play-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .patch-identity > div {
@@ -2700,88 +2646,6 @@
   .shader-playground-page .masthead {
     position: sticky;
     top: 0;
-    display: grid;
-    height: auto;
-    min-height: 114px;
-    padding: 6px 10px;
-    grid-template-columns: 28px minmax(0, 1fr) 72px 22px 48px;
-    grid-template-rows: 48px 48px;
-    align-items: center;
-    column-gap: 6px;
-    row-gap: 6px;
-  }
-
-  .shader-playground-page .masthead .wordmark {
-    width: 28px;
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .shader-playground-page .masthead .tabs.tools-nav {
-    width: 100%;
-    min-width: 0;
-    height: 36px;
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .shader-playground-page .masthead .mobile-instrument-nav {
-    width: 100%;
-    grid-column: 2 / -1;
-    grid-row: 1;
-  }
-
-  .shader-playground-page .masthead .header-io-controls {
-    display: contents;
-  }
-
-  .shader-playground-page .masthead .midi-toolbar {
-    width: 72px;
-    grid-column: 3;
-    grid-row: 1;
-  }
-
-  .shader-playground-page .masthead .header-output-meter-shell {
-    grid-column: 4;
-    grid-row: 1;
-  }
-
-  .shader-playground-page .masthead .header-settings-menu {
-    grid-column: 5;
-    grid-row: 1;
-  }
-
-  .shader-playground-page .masthead .instrument-picker-panel,
-  .shader-playground-page .masthead .header-settings-panel {
-    top: 115px;
-  }
-
-  .shader-playground-page .masthead > .playground-transport.audio-strip,
-  .shader-playground-page .masthead.has-midi-toolbar .header-io-controls > .playground-transport.audio-strip {
-    width: 100%;
-    height: 48px;
-    margin: 0;
-    grid-column: 1 / -1;
-    grid-row: 2;
-    grid-template-columns: 48px minmax(92px, 0.85fr) minmax(110px, 1.15fr);
-    gap: 6px;
-  }
-
-  .shader-playground-page .playground-transport.audio-strip .audio-button {
-    grid-column: 1;
-  }
-
-  .shader-playground-page .playground-transport.audio-strip .playground-play-button {
-    grid-column: 2;
-  }
-
-  .shader-playground-page .playground-transport.audio-strip .header-level {
-    grid-column: 3;
-  }
-
-  .shader-playground-page .playground-play-button {
-    width: 100%;
-    min-width: 0;
   }
 
   .playground-workspace {

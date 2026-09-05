@@ -836,8 +836,11 @@ function setAudioState(enabled) {
 function setSynthPlayState(enabled, { quiet = false } = {}) {
   state.synthPlaying = Boolean(enabled && state.audioOn);
   engine?.setPlaybackEnabled(state.synthPlaying);
-  $("synthPlayButton").setAttribute("aria-pressed", String(state.synthPlaying));
-  $("synthPlayButton").textContent = state.synthPlaying ? "Pause sequence" : "Play sequence";
+  const button = $("synthPlayButton");
+  const action = state.synthPlaying ? "Pause GPU shader sequence" : "Play GPU shader sequence";
+  button.setAttribute("aria-pressed", String(state.synthPlaying));
+  button.setAttribute("aria-label", action);
+  button.title = `${action} (Space)`;
   paintAudioReadout();
   if (!quiet) announce(state.synthPlaying ? "WGSL sequence playing." : "WGSL sequence paused.");
 }
