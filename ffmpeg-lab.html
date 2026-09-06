@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#070a0d" />
+    <meta
+      name="description"
+      content="Morphazoid FFmpeg Lab — chunked microphone processing through ffmpeg.wasm with experimental audio-reactive video export."
+    />
+    <title>FFmpeg Lab — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="ffmpeg-lab.css" />
+  </head>
+  <body class="ffmpeg-lab-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="graph-delay.html">graph delay</a>
+        <a class="tab" href="micromorph.html">micromorph</a>
+        <a class="tab active" href="ffmpeg-lab.html" aria-current="page">ffmpeg lab</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="graph-delay.html">graph delay</option>
+          <option value="micromorph.html">micromorph</option>
+          <option value="ffmpeg-lab.html" selected>ffmpeg lab</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph ffmpeg-audio-glyph" aria-hidden="true">▣</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">62%</output></span>
+          <input id="outputLevel" aria-label="FFmpeg Lab output level" type="range" min="0" max="0.85" step="0.01" value="0.62" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell ffmpeg-lab-shell" id="ffmpegLab">
+      <section class="stage ffmpeg-lab-stage" aria-labelledby="stageTitle">
+        <div class="stage-wrap ffmpeg-lab-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            aria-label="FFmpeg Lab packet stage showing microphone packets, ffmpeg worker activity, and output history."
+            aria-describedby="stageDescription liveStatus"
+          >
+            Chunked microphone packets moving through ffmpeg.wasm into delayed audio output.
+          </canvas>
+          <div class="ffmpeg-lab-overlay">
+            <header class="ffmpeg-lab-identity">
+              <h1 id="stageTitle">FFMPEG LAB</h1>
+              <p>mic in → ffmpeg.wasm → audio out</p>
+            </header>
+            <dl class="ffmpeg-lab-telemetry" aria-label="FFmpeg Lab telemetry">
+              <div><dt>Queue</dt><dd id="queueSummary">0 / 6</dd></div>
+              <div><dt>Chunk</dt><dd id="chunkSummary">240 ms</dd></div>
+              <div><dt>Lead</dt><dd id="leadSummary">—</dd></div>
+              <div><dt>Video</dt><dd id="videoSummary">browser recorder idle</dd></div>
+            </dl>
+            <div class="ffmpeg-lab-flow" aria-hidden="true">
+              <span>MIC</span><i></i><span>FFMPEG</span><i></i><span>OUT</span>
+            </div>
+            <div class="ffmpeg-lab-truth" id="truthNote">
+              Prototype boundary: ffmpeg runs one chunk at a time, so this is interactive and streaming-like, not zero-latency realtime DSP.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel ffmpeg-lab-panel" aria-label="FFmpeg Lab controls">
+        <details class="group control-section" data-section="source" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Live source</h2>
+            <span class="section-state" id="sourceSummary">microphone off</span>
+          </summary>
+          <div class="group-body">
+            <div class="ffmpeg-lab-action-row">
+              <button class="ffmpeg-lab-action" id="micButton" type="button" aria-pressed="false">
+                <span aria-hidden="true">◉</span>
+                <span><b id="micButtonLabel">Start mic</b><small id="micButtonHint">local capture only</small></span>
+              </button>
+              <button class="mini-action" id="resetButton" type="button" data-reset-all>Reset lab</button>
+            </div>
+            <label class="control" for="inputLevel">
+              <span><b>Input trim</b><output id="inputLevelOut" for="inputLevel">100%</output></span>
+              <input id="inputLevel" type="range" min="0" max="4" step="0.01" value="1" />
+            </label>
+            <label class="control" for="chunkMs">
+              <span><b>Chunk size</b><output id="chunkMsOut" for="chunkMs">240 ms</output></span>
+              <input id="chunkMs" type="range" min="80" max="750" step="10" value="240" />
+            </label>
+            <p class="ffmpeg-lab-note">
+              Smaller chunks feel more responsive but increase the chance that ffmpeg falls behind.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="engine" open>
+          <summary class="group-summary">
+            <h2 class="group-title">FFmpeg engine</h2>
+            <span class="section-state" id="engineSummary">not loaded</span>
+          </summary>
+          <div class="group-body">
+            <div class="ffmpeg-lab-engine-card" id="engineCard" data-state="idle">
+              <span class="ffmpeg-lab-engine-light" aria-hidden="true"></span>
+              <span><b id="engineName">FFmpeg wrapper idle</b><small id="engineDetail">Load the wasm core on demand.</small></span>
+            </div>
+            <button class="ffmpeg-lab-action" id="loadButton" type="button" aria-pressed="false">
+              <span aria-hidden="true">⇣</span>
+              <span><b id="loadButtonLabel">Load ffmpeg.wasm</b><small id="loadButtonHint">downloads core JS, worker, and wasm</small></span>
+            </button>
+            <label class="select-control" for="preset">
+              <span class="field-label">Filter patch</span>
+              <span class="select-shell">
+                <select id="preset" aria-describedby="filterHelp"></select>
+              </span>
+            </label>
+            <label class="ffmpeg-lab-filter" for="filterGraph">
+              <span><b>ffmpeg -af filtergraph</b><small>editable command input</small></span>
+              <textarea id="filterGraph" rows="4" spellcheck="false"></textarea>
+            </label>
+            <p class="ffmpeg-lab-note" id="filterHelp">
+              The wrapper and worker are local to this repository. The heavy ffmpeg core is fetched on demand from a pinned CDN build.
+            </p>
+            <label class="control" for="queueDepth">
+              <span><b>Queue ceiling</b><output id="queueDepthOut" for="queueDepth">6 chunks</output></span>
+              <input id="queueDepth" type="range" min="2" max="12" step="1" value="6" />
+            </label>
+            <div class="ffmpeg-lab-log-wrap">
+              <div class="ffmpeg-lab-log-head">
+                <b>Worker log</b>
+                <small id="logSummary">waiting for engine</small>
+              </div>
+              <pre class="ffmpeg-lab-log" id="engineLog">FFmpeg log will appear here.</pre>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="stream" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Stream telemetry</h2>
+            <span class="section-state" id="streamSummary">dry queue idle</span>
+          </summary>
+          <div class="group-body">
+            <dl class="ffmpeg-lab-stats">
+              <div><dt>Input RMS</dt><dd id="inputStats">0%</dd></div>
+              <div><dt>Output RMS</dt><dd id="outputStats">0%</dd></div>
+              <div><dt>Chunk process</dt><dd id="processStats">—</dd></div>
+              <div><dt>Dropped chunks</dt><dd id="dropStats">0</dd></div>
+            </dl>
+            <p class="ffmpeg-lab-note">
+              The live output is reassembled from filtered chunk WAV files, so lead time and chunk drop count are the most useful health signals.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="video" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Audio → video</h2>
+            <span class="section-state" id="clipSummary">browser recorder idle</span>
+          </summary>
+          <div class="group-body">
+            <div class="ffmpeg-lab-action-row">
+              <button class="ffmpeg-lab-action" id="recordVideoButton" type="button" aria-pressed="false">
+                <span aria-hidden="true">⏺</span>
+                <span><b id="recordVideoLabel">Record browser clip</b><small id="recordVideoHint">canvas + processed audio</small></span>
+              </button>
+              <button class="ffmpeg-lab-action" id="exportVideoButton" type="button">
+                <span aria-hidden="true">▤</span>
+                <span><b id="exportVideoLabel">FFmpeg export clip</b><small id="exportVideoHint">recent telemetry → video file</small></span>
+              </button>
+            </div>
+            <label class="control" for="clipSeconds">
+              <span><b>Clip history</b><output id="clipSecondsOut" for="clipSeconds">6.0 s</output></span>
+              <input id="clipSeconds" type="range" min="2" max="8" step="0.5" value="6" />
+            </label>
+            <label class="control" for="videoFps">
+              <span><b>Video FPS</b><output id="videoFpsOut" for="videoFps">12 fps</output></span>
+              <input id="videoFps" type="range" min="6" max="24" step="1" value="12" />
+            </label>
+            <label class="select-control" for="videoFormat">
+              <span class="field-label">Export container</span>
+              <span class="select-shell">
+                <select id="videoFormat"></select>
+              </span>
+            </label>
+            <p class="ffmpeg-lab-note">
+              Browser recording is the true live path. FFmpeg export renders a recent telemetry clip after the fact so the audio-only pipeline already has a video foothold.
+            </p>
+          </div>
+        </details>
+      </aside>
+
+      <p class="sr-only" id="stageDescription">
+        FFmpeg Lab shows a live microphone chunk queue, one active ffmpeg worker packet, and a rolling processed output history. The page is intentionally a lab for future iteration rather than a zero-latency effect.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="ffmpeg-lab-app.js"></script>
+  </body>
+</html>

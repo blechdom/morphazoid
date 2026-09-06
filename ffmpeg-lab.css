@@ -1,0 +1,294 @@
+.ffmpeg-lab-page {
+  background:
+    radial-gradient(circle at top, rgba(88, 213, 255, 0.12), transparent 32%),
+    linear-gradient(180deg, #081016 0%, #050709 100%);
+}
+
+.ffmpeg-lab-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(19rem, 28rem);
+  gap: 1rem;
+}
+
+.ffmpeg-lab-stage,
+.ffmpeg-lab-panel {
+  min-width: 0;
+}
+
+.ffmpeg-lab-stage-wrap {
+  position: relative;
+  min-height: min(72vh, 44rem);
+  overflow: hidden;
+  border-radius: 1.4rem;
+  border: 1px solid rgba(162, 234, 255, 0.18);
+  background:
+    radial-gradient(circle at 50% 32%, rgba(255, 212, 121, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(10, 16, 22, 0.92), rgba(5, 7, 9, 0.98));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+#stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: min(72vh, 44rem);
+}
+
+.ffmpeg-lab-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto 1fr;
+  gap: 0.9rem;
+  align-content: start;
+  padding: 1rem;
+  pointer-events: none;
+}
+
+.ffmpeg-lab-identity h1,
+.ffmpeg-lab-identity p,
+.ffmpeg-lab-telemetry,
+.ffmpeg-lab-truth,
+.ffmpeg-lab-flow {
+  margin: 0;
+}
+
+.ffmpeg-lab-identity h1 {
+  font-size: clamp(1.3rem, 2vw, 1.85rem);
+  letter-spacing: 0.18em;
+}
+
+.ffmpeg-lab-identity p,
+.ffmpeg-lab-flow,
+.ffmpeg-lab-truth,
+.ffmpeg-lab-telemetry dt {
+  color: rgba(224, 235, 241, 0.74);
+}
+
+.ffmpeg-lab-flow {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+}
+
+.ffmpeg-lab-flow i {
+  width: 3rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(88, 213, 255, 0.2), rgba(255, 212, 121, 0.92));
+}
+
+.ffmpeg-lab-telemetry {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 1rem;
+  background: rgba(7, 11, 14, 0.74);
+  border: 1px solid rgba(162, 234, 255, 0.12);
+  min-width: min(18rem, 42vw);
+}
+
+.ffmpeg-lab-telemetry div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.ffmpeg-lab-telemetry dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.ffmpeg-lab-telemetry dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.ffmpeg-lab-truth {
+  grid-column: 1 / -1;
+  align-self: end;
+  max-width: 30rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 1rem;
+  background: rgba(7, 11, 14, 0.78);
+  border: 1px solid rgba(255, 115, 186, 0.16);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.ffmpeg-lab-panel .group-body {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.ffmpeg-lab-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.ffmpeg-lab-action,
+.ffmpeg-lab-panel .mini-action {
+  min-height: 3rem;
+}
+
+.ffmpeg-lab-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(162, 234, 255, 0.18);
+  background: linear-gradient(180deg, rgba(12, 20, 27, 0.95), rgba(8, 13, 18, 0.98));
+  color: inherit;
+}
+
+.ffmpeg-lab-action > span:last-child {
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+}
+
+.ffmpeg-lab-engine-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.8rem 0.9rem;
+  border-radius: 1rem;
+  background: rgba(7, 11, 14, 0.76);
+  border: 1px solid rgba(162, 234, 255, 0.14);
+}
+
+.ffmpeg-lab-engine-card[data-state="live"] {
+  border-color: rgba(255, 212, 121, 0.36);
+}
+
+.ffmpeg-lab-engine-card[data-state="error"] {
+  border-color: rgba(255, 115, 186, 0.36);
+}
+
+.ffmpeg-lab-engine-light {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 999px;
+  background: rgba(136, 148, 156, 0.65);
+  box-shadow: 0 0 0.8rem rgba(136, 148, 156, 0.24);
+}
+
+.ffmpeg-lab-engine-card[data-state="ready"] .ffmpeg-lab-engine-light,
+.ffmpeg-lab-engine-card[data-state="live"] .ffmpeg-lab-engine-light {
+  background: #58d5ff;
+  box-shadow: 0 0 1rem rgba(88, 213, 255, 0.52);
+}
+
+.ffmpeg-lab-engine-card[data-state="error"] .ffmpeg-lab-engine-light {
+  background: #ff73ba;
+  box-shadow: 0 0 1rem rgba(255, 115, 186, 0.5);
+}
+
+.ffmpeg-lab-filter textarea,
+.ffmpeg-lab-log {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.ffmpeg-lab-filter {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.ffmpeg-lab-filter textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.ffmpeg-lab-log-wrap {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ffmpeg-lab-log-head,
+.ffmpeg-lab-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.ffmpeg-lab-log {
+  min-height: 8rem;
+  max-height: 13rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0.8rem;
+  border-radius: 0.9rem;
+  background: rgba(5, 8, 11, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #aee8ff;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.ffmpeg-lab-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ffmpeg-lab-stats div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.9rem;
+  background: rgba(7, 11, 14, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.ffmpeg-lab-stats dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(224, 235, 241, 0.74);
+}
+
+.ffmpeg-lab-stats dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.ffmpeg-lab-note {
+  margin: 0;
+  color: rgba(224, 235, 241, 0.74);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 980px) {
+  .ffmpeg-lab-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ffmpeg-lab-stage-wrap,
+  #stage {
+    min-height: min(52vh, 32rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .ffmpeg-lab-overlay {
+    grid-template-columns: 1fr;
+  }
+
+  .ffmpeg-lab-telemetry,
+  .ffmpeg-lab-action-row,
+  .ffmpeg-lab-stats {
+    grid-template-columns: 1fr;
+  }
+}
