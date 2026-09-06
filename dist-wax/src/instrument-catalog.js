@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260904-2";
+} from "../nav.js?v=catalog-20260906-1";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -98,6 +98,18 @@ const CATALOG_DETAILS = Object.freeze({
     "Synth",
     "Cuts a moving 3D wireframe with a plane; every wire-plane intersection becomes a voice.",
     "Turn on audio, choose a solid, then rotate it or move the cutting plane.",
+  ),
+  moebius: define(
+    "Nonorientable surface synth",
+    "Sweeps a two-dimensional plane through a half-twisted Möbius band, turning each topology-connected slice curve into a bounded pair of voices.",
+    "Turn on Audio, press Play or drag the 2D head, then tilt its plane and reshape the band while its glowing slice curves remain the score.",
+    ["Pointer", "Built-in synth", "Shared transport"],
+  ),
+  "klein-bottle": define(
+    "Nonorientable surface synth",
+    "Sweeps a two-dimensional plane through a figure-eight Klein bottle immersion while keeping coincident sheets separate in the parameter mesh.",
+    "Turn on Audio, press Play or drag the 2D head, then tilt its plane and reshape the immersion while its glowing slice curves remain the score.",
+    ["Pointer", "Built-in synth", "Shared transport"],
   ),
   hyper: define(
     "Synth",

@@ -6,7 +6,8 @@ const root = new URL("../", import.meta.url);
 
 test("all instrument pages share desktop and mobile navigation", async () => {
   const files = [
-    "shape.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
+    "shape.html", "lattice.html", "spiral.html", "solid.html", "moebius.html",
+    "klein-bottle.html", "hyper.html",
     "l-system.html", "recursion.html", "julia.html", "lumber.html", "l-mic.html",
     "graph-delay.html",
     "throatazoid.html",
@@ -50,11 +51,12 @@ test("all instrument pages share desktop and mobile navigation", async () => {
     if (files[index] === "recursion.html") {
       assert.match(html, /id="resetStudy"[^>]*>Reset<\/button>/);
     } else {
-      assert.match(html, /data-reset-all>Reset all parameters<\/button>/);
+      assert.match(html, /data-reset-all(?:\s+data-reset-in-place)?>Reset all parameters<\/button>/);
     }
   }
   const visibleTransportFiles = new Set([
-    "shape.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
+    "shape.html", "lattice.html", "spiral.html", "solid.html", "moebius.html",
+    "klein-bottle.html", "hyper.html",
     "l-system.html", "julia.html", "lumber.html", "graph-delay.html",
   ]);
   for (const [index, html] of pages.entries()) {
@@ -100,7 +102,7 @@ test("Solid and Hyper expose wireframe players and Sine-first audio", async () =
 });
 
 test("every oscillator-based instrument can reach a 20 Hz base frequency", async () => {
-  const files = ["shape.html", "lattice.html", "spiral.html", "solid.html", "hyper.html", "julia.html"];
+  const files = ["shape.html", "lattice.html", "spiral.html", "solid.html", "moebius.html", "klein-bottle.html", "hyper.html", "julia.html"];
   const pages = await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")));
   for (const html of pages) {
     assert.match(html, /id="baseFrequency"[^>]*min="20"/);

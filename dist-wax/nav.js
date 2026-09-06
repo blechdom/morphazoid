@@ -78,6 +78,8 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("geometry", "Geometry Synths", [
     { id: "shape", label: "Shape", href: "shape.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
+    { id: "moebius", label: "Möbius", href: "moebius.html" },
+    { id: "klein-bottle", label: "Klein Bottle", href: "klein-bottle.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
     {
       id: "graph-synth",

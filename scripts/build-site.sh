@@ -84,6 +84,13 @@ for worktree_runtime_file in \
   paths-app.js \
   src/paths.js \
   assets/instruments/paths.webp \
+  moebius.html \
+  klein-bottle.html \
+  nonorientable.css \
+  nonorientable-app.js \
+  src/nonorientable-surface.js \
+  assets/instruments/moebius.webp \
+  assets/instruments/klein-bottle.webp \
   combo.html \
   shapes.html \
   combo.css \
@@ -660,6 +667,13 @@ required_files=(
   paths-app.js
   src/paths.js
   assets/instruments/paths.webp
+  moebius.html
+  klein-bottle.html
+  nonorientable.css
+  nonorientable-app.js
+  src/nonorientable-surface.js
+  assets/instruments/moebius.webp
+  assets/instruments/klein-bottle.webp
   combo.html
   shapes.html
   combo.css

@@ -9,6 +9,7 @@ const instrumentScripts = [
   "lattice-app.js",
   "spiral-app.js",
   "solid-app.js",
+  "nonorientable-app.js",
   "hyper-app.js",
   "l-system-app.js",
   "l-system-drums-app.js",

@@ -546,6 +546,8 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "shape", href: "shape.html" },
       { id: "solid", href: "solid.html" },
+      { id: "moebius", href: "moebius.html" },
+      { id: "klein-bottle", href: "klein-bottle.html" },
       { id: "hyper", href: "hyper.html" },
       { id: "graph-synth", href: "graph-synth.html" },
     ],
