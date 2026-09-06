@@ -1,16 +1,27 @@
 import {
   WEBGPU_CHIPTUNE_DEFAULTS,
+  WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
   WEBGPU_CHIPTUNE_INTEGER_PARAMS,
+  WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS,
+  WEBGPU_CHIPTUNE_SEQUENCE_LANES,
+  WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS,
+  WEBGPU_CHIPTUNE_SEQUENCE_STEPS,
   WEBGPU_CHIPTUNE_PARAM_DISTRIBUTIONS,
   WEBGPU_CHIPTUNE_LIMITS,
   WEBGPU_CHIPTUNE_PARAM_ORDER,
   WEBGPU_CHIPTUNE_RUNTIME_DEFAULTS,
   WEBGPU_CHIPTUNE_WORKGROUP_SIZES,
   WebGpuChiptuneAudio,
+  createWebGpuChiptuneSequence,
   formatWebGpuChiptuneValue,
+  sanitizeWebGpuChiptuneSequence,
   sanitizeWebGpuChiptuneParams,
   webGpuChiptuneParamFromUnit,
   webGpuChiptuneParamToUnit,
+  webGpuChiptuneBeatSnapshot,
+  webGpuChiptuneProceduralLaneValue,
+  webGpuChiptuneSequenceCellIndex,
+  webGpuChiptuneStageSnapshot,
   webGpuChiptuneStepSnapshot,
   webGpuChiptuneSupport,
 } from "./src/webgpu-chiptune.js";
@@ -18,6 +29,8 @@ import {
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
 const fract = (value) => value - Math.floor(value);
+const positiveModulo = (value, modulus) =>
+  ((value % modulus) + modulus) % modulus;
 
 function makeSpec(key, label, quantum = 0.01) {
   const [min, max] = WEBGPU_CHIPTUNE_LIMITS[key];
@@ -84,16 +97,16 @@ const controlGroups = Object.freeze({
     makeSpec("bassRegister", "Bass register", 1),
     makeSpec("arpRegister", "Arpeggio register", 1),
     makeSpec("sectionUnits", "Section length", 1),
-    makeSpec("pitchClock", "Pitch clock", 0.25),
+    makeSpec("pitchClock", "Upper A note rate", 0.25),
     makeSpec("bassClock", "Bass clock", 0.05),
     makeSpec("gateFastRatio", "Fast-gate ratio", 0.05),
-    makeSpec("gateSwitchShortUnits", "Gate switch short", 0.25),
-    makeSpec("gateSwitchLongUnits", "Gate switch long", 0.25),
+    makeSpec("gateSwitchShortUnits", "Gate switch A period", 0.25),
+    makeSpec("gateSwitchLongUnits", "Gate switch B period", 0.25),
     makeSpec("leadTrillRate", "Lead trill rate", 0.5),
     makeSpec("leadInterval", "Lead trill interval", 1),
     makeSpec("leadPhraseUnits", "Lead phrase length", 0.1),
     makeSpec("arpRate", "Arpeggio rate", 0.5),
-    makeSpec("arpSpan", "Arpeggio span", 1),
+    makeSpec("arpSpan", "Arpeggio span", 0.01),
     makeSpec("arpOctaveRate", "Arpeggio octave motion", 0.0625),
     makeSpec("arpOctaves", "Arpeggio octave range", 1),
     makeSpec("bassPulseWidth", "Bass pulse width"),
@@ -160,6 +173,32 @@ const controlGroups = Object.freeze({
     makeSpec("hatBDecayRate", "Hat B decay"),
     makeSpec("shakerNoiseRate", "Shaker noise rate"),
     makeSpec("shakerDecayRate", "Shaker decay"),
+    makeSpec("upperTwoClockRatio", "Upper B / A note rate", 0.015625),
+    makeSpec("kickPhase", "Kick cycle phase", 0.001),
+    makeSpec("hatBPhase", "Hat B cycle phase", 0.001),
+    makeSpec("hatARepeatPhase", "Hat A repeat phase", 0.001),
+    makeSpec("arpPhase", "Arpeggio phase", 0.001),
+    makeSpec("echoWet", "Echo return"),
+    makeSpec("arpGateDepth", "Arpeggio gate depth"),
+    makeSpec("bassGateRateRatio", "Bass gate-rate multiplier", 0.015625),
+    makeSpec("leadGateRateRatio", "Lead gate-rate multiplier", 0.015625),
+    makeSpec("upperTwoGateRateRatio", "Upper B gate-rate multiplier", 0.015625),
+    makeSpec("snareNoiseColor", "Snare noise color"),
+    makeSpec("hatANoiseColor", "Hat A noise color"),
+    makeSpec("hatBNoiseColor", "Hat B noise color"),
+    makeSpec("shakerNoiseColor", "Shaker noise color"),
+    makeSpec("upperOnePhase", "Upper A sequence phase", 0.001),
+    makeSpec("upperTwoPhase", "Upper B sequence phase", 0.001),
+    makeSpec("bassPhase", "Bass sequence phase", 0.001),
+    makeSpec("leadPhase", "Lead sequence phase", 0.001),
+    makeSpec("gatePatternPhase", "Gate pattern phase", 0.001),
+    makeSpec("gateSwitchShortPhase", "Gate switch A phase", 0.001),
+    makeSpec("gateSwitchLongPhase", "Gate switch B phase", 0.001),
+    makeSpec("sectionPhase", "Upper / lead section phase", 0.001),
+    makeSpec("leadTrillPhase", "Lead trill phase", 0.001),
+    makeSpec("leadPhrasePhase", "Lead gate-phrase phase", 0.001),
+    makeSpec("arpOctavePhase", "Arpeggio octave phase", 0.001),
+    makeSpec("texturePhase", "Noise-texture phase", 0.001),
   ]),
 });
 
@@ -169,9 +208,12 @@ const advancedGroupDefinitions = Object.freeze([
     label: "Gate logic",
     open: true,
     keys: Object.freeze([
-      "gatePatternSteps", "gateShortRatio", "gateLongRatio", "gateFastRatio",
+      "gatePatternSteps", "gatePatternPhase", "gateShortRatio", "gateLongRatio",
+      "gateFastRatio",
       "fastGateShare", "longGateBoostShare", "gateSwitchShortUnits",
-      "gateSwitchLongUnits", "gateAttack", "gateRelease",
+      "gateSwitchShortPhase", "gateSwitchLongUnits", "gateSwitchLongPhase",
+      "gateAttack", "gateRelease",
+      "upperTwoGateRateRatio", "bassGateRateRatio", "leadGateRateRatio",
     ]),
   }),
   Object.freeze({
@@ -182,6 +224,8 @@ const advancedGroupDefinitions = Object.freeze([
       "upperTwoRegister", "bassRegister", "leadRegister", "tuningCents",
       "sectionUnits", "pitchClock", "bassClock", "leadClock", "leadSectionShare",
       "leadTrillRate", "leadTrillShare", "leadInterval", "leadPhraseUnits",
+      "upperTwoClockRatio", "upperOnePhase", "upperTwoPhase", "bassPhase",
+      "leadPhase", "sectionPhase", "leadTrillPhase", "leadPhrasePhase",
     ]),
   }),
   Object.freeze({
@@ -189,7 +233,7 @@ const advancedGroupDefinitions = Object.freeze([
     label: "Arpeggio",
     keys: Object.freeze([
       "arpRate", "arpSpan", "arpOctaveRate", "arpOctaves", "arpRegister",
-      "arpBassFollow",
+      "arpBassFollow", "arpPhase", "arpOctavePhase", "arpGateDepth",
     ]),
   }),
   Object.freeze({
@@ -197,7 +241,7 @@ const advancedGroupDefinitions = Object.freeze([
     label: "Routing + intro",
     keys: Object.freeze([
       "bassPulseWidth", "voiceCrossfeed", "synthMix", "echoCrossfeed",
-      "echoAlternate", "fadeCurve", "ghostDelayDivisor", "ghostPan",
+      "echoAlternate", "echoWet", "fadeCurve", "ghostDelayDivisor", "ghostPan",
     ]),
   }),
   Object.freeze({
@@ -206,7 +250,8 @@ const advancedGroupDefinitions = Object.freeze([
     keys: Object.freeze([
       "drumRate", "kickCycle", "kickSubcycle", "snareCycle", "snarePhase",
       "hatACycle", "hatASubcycle", "hatARepeat", "hatAPhase", "hatBCycle",
-      "shakerCycle", "shakerPhase",
+      "shakerCycle", "shakerPhase", "kickPhase", "hatBPhase",
+      "hatARepeatPhase",
     ]),
   }),
   Object.freeze({
@@ -214,6 +259,7 @@ const advancedGroupDefinitions = Object.freeze([
     label: "Noise texture",
     keys: Object.freeze([
       "texturePeriod", "textureDecay", "noiseRate", "noiseColor", "textureSweep",
+      "texturePhase",
     ]),
   }),
   Object.freeze({
@@ -230,6 +276,7 @@ const advancedGroupDefinitions = Object.freeze([
     keys: Object.freeze([
       "snareNoiseMix", "snareHoldTime", "snareDecayRate", "snareNoiseSweep",
       "snareNoiseRate", "snareModRate", "snareModDepth", "snareCarrierRate",
+      "snareNoiseColor",
     ]),
   }),
   Object.freeze({
@@ -238,7 +285,7 @@ const advancedGroupDefinitions = Object.freeze([
     keys: Object.freeze([
       "hatBalance", "hatANoiseRate", "hatADecayRate", "hatBLowNoiseRate",
       "hatBHighNoiseRate", "hatBHighMix", "hatBDecayRate", "shakerNoiseRate",
-      "shakerDecayRate",
+      "shakerDecayRate", "hatANoiseColor", "hatBNoiseColor", "shakerNoiseColor",
     ]),
   }),
 ]);
@@ -301,6 +348,72 @@ const gateCodeKeys = Object.freeze([
   "gateB3",
 ]);
 const gateCodeKeySet = new Set(gateCodeKeys);
+const fractionPhaseParams = new Set([
+  "snarePhase",
+  "hatAPhase",
+  "shakerPhase",
+  "kickPhase",
+  "hatBPhase",
+  "hatARepeatPhase",
+  "arpPhase",
+  "upperOnePhase",
+  "upperTwoPhase",
+  "bassPhase",
+  "leadPhase",
+  "gatePatternPhase",
+  "gateSwitchShortPhase",
+  "gateSwitchLongPhase",
+  "sectionPhase",
+  "leadTrillPhase",
+  "leadPhrasePhase",
+  "arpOctavePhase",
+  "texturePhase",
+]);
+const fractionDrumPeriodParams = new Set([
+  "kickCycle",
+  "kickSubcycle",
+  "snareCycle",
+  "hatACycle",
+  "hatASubcycle",
+  "hatARepeat",
+  "hatBCycle",
+  "shakerCycle",
+]);
+const fractionPeriodParams = new Set([
+  "sectionUnits",
+  "gateSwitchShortUnits",
+  "gateSwitchLongUnits",
+  "leadPhraseUnits",
+  "texturePeriod",
+  ...fractionDrumPeriodParams,
+]);
+const musicalFractionParams = new Set([
+  "gateRate",
+  "gateShortRatio",
+  "gateLength",
+  "gateLongRatio",
+  "pitchClock",
+  "upperTwoClockRatio",
+  "bassClock",
+  "leadClock",
+  "gateFastRatio",
+  "leadTrillRate",
+  "arpRate",
+  "arpOctaveRate",
+  "drumRate",
+  "bassGateRateRatio",
+  "leadGateRateRatio",
+  "upperTwoGateRateRatio",
+  ...fractionPeriodParams,
+  ...fractionPhaseParams,
+]);
+const sequenceLaneDefinitions = Object.freeze([
+  Object.freeze({ key: "upperOne", label: "UPPER A", color: "#53f6ff" }),
+  Object.freeze({ key: "upperTwo", label: "UPPER B", color: "#9dff57" }),
+  Object.freeze({ key: "lead", label: "LEAD", color: "#ff65bd" }),
+  Object.freeze({ key: "arp", label: "ARP", color: "#f4c95d" }),
+  Object.freeze({ key: "bass", label: "BASS", color: "#9c8dff" }),
+]);
 const randomizableParamOrder = Object.freeze(
   WEBGPU_CHIPTUNE_PARAM_ORDER.filter((key) => !gateCodeKeySet.has(key)),
 );
@@ -309,15 +422,41 @@ function patch(values = {}) {
   return sanitizeWebGpuChiptuneParams({ ...WEBGPU_CHIPTUNE_DEFAULTS, ...values });
 }
 
+function presetSequence(definitions = {}) {
+  const lanes = {};
+  for (const lane of WEBGPU_CHIPTUNE_SEQUENCE_LANES) {
+    const [activeLength = WEBGPU_CHIPTUNE_SEQUENCE_STEPS, source = "."] =
+      definitions[lane] ?? [];
+    const tokens = String(source).trim().split(/\s+/).filter(Boolean);
+    lanes[lane] = {
+      activeLength,
+      cells: Array.from({ length: WEBGPU_CHIPTUNE_SEQUENCE_STEPS }, (_, index) => {
+        if (index >= activeLength) return { state: "auto", value: 0 };
+        const token = tokens[index % Math.max(1, tokens.length)] ?? ".";
+        if (token === "r") return { state: "rest", value: 0 };
+        if (token === ".") return { state: "auto", value: 0 };
+        const value = Number(token);
+        return Number.isFinite(value)
+          ? { state: "note", value }
+          : { state: "auto", value: 0 };
+      }),
+    };
+  }
+  return sanitizeWebGpuChiptuneSequence({ schemaVersion: 1, lanes });
+}
+
 const presets = Object.freeze([
   {
     id: "source-tracker",
     label: "Source Tracker",
+    description: "The untouched 2015 shader arrangement: all five lanes follow its procedural contours.",
     params: WEBGPU_CHIPTUNE_DEFAULTS,
+    sequence: WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
   },
   {
     id: "pocket-console",
     label: "Pocket Console",
+    description: "A dry, compact minor hook with clipped phrases and a sturdy eight-step bass loop.",
     params: patch({
       tempo: 1.65,
       transpose: -5,
@@ -357,10 +496,18 @@ const presets = Object.freeze([
       noiseRate: 6000,
       gain: 0.72,
     }),
+    sequence: presetSequence({
+      upperOne: [16, "0 . 3 7 r . 3 . 5 . 7 10 r 7 3 ."],
+      upperTwo: [16, "0 r . 3 . 7 r . -2 . 0 3 r . 7 ."],
+      bass: [8, "-12 r -12 . -5 r -7 ."],
+      lead: [16, ". . 7 r 10 . 7 . r . 5 3 . r 0 ."],
+      arp: [16, "0 . .25 .5 .75 1 .75 .5 .25 r . .5 .75 . r"],
+    }),
   },
   {
     id: "glass-cartridge",
     label: "Glass Cartridge",
+    description: "High crystalline leads, an asymmetric twelve-step answer, and long stereo reflections.",
     params: patch({
       tempo: 1.05,
       transpose: 5,
@@ -400,10 +547,18 @@ const presets = Object.freeze([
       noiseRate: 8000,
       gain: 0.6,
     }),
+    sequence: presetSequence({
+      upperOne: [16, "0 . 4 . 7 11 . r 12 . 11 7 . 4 r ."],
+      upperTwo: [12, "7 . 11 r 14 . 11 . 7 r 4 ."],
+      bass: [8, "-12 . r . -5 . -7 r"],
+      lead: [12, "12 . 16 19 . 23 r 19 . 16 . r"],
+      arp: [24, "0 .17 .33 .5 .67 .83 1 .83 .67 .5 .33 .17 r . 0 .33 .67 1 .67 .33 . r ."],
+    }),
   },
   {
     id: "subterranean-menu",
     label: "Subterranean Menu",
+    description: "Slow low-register footsteps, a four-note bass cell, and dim cavern percussion.",
     params: patch({
       tempo: 0.74,
       transpose: -12,
@@ -447,10 +602,18 @@ const presets = Object.freeze([
       noiseRate: 2000,
       gain: 0.58,
     }),
+    sequence: presetSequence({
+      upperOne: [16, "0 r . r 3 r . r 5 r . r 3 r . r"],
+      upperTwo: [16, "r . -5 r . r -2 r r . 0 r . r -2 r"],
+      bass: [4, "-12 r -7 r"],
+      lead: [8, "r r . r 0 r r ."],
+      arp: [16, "0 r . r .5 r . r 1 r . r .5 r . r"],
+    }),
   },
   {
     id: "boss-corridor",
     label: "Boss Corridor",
+    description: "Fast octave replies, dense drums, and short gates for a relentless corridor run.",
     params: patch({
       tempo: 1.86,
       transpose: -2,
@@ -496,10 +659,18 @@ const presets = Object.freeze([
       noiseRate: 7000,
       gain: 0.55,
     }),
+    sequence: presetSequence({
+      upperOne: [16, "0 3 7 r 12 7 3 r 5 8 12 r 15 12 8 r"],
+      upperTwo: [16, "12 r 7 3 0 r 3 7 12 r 15 12 8 r 5 3"],
+      bass: [8, "-12 -12 r -7 -5 -5 r -7"],
+      lead: [16, "12 19 24 r 19 12 15 r 24 19 15 r 12 7 12 r"],
+      arp: [32, "0 .25 .5 .75 1 .75 .5 .25 0 .33 .67 1 .67 .33 0 r 1 .75 .5 .25 0 .25 .5 .75 1 .67 .33 0 .33 .67 1 r"],
+    }),
   },
   {
     id: "empty-arcade",
     label: "Empty Arcade",
+    description: "A slow chromatic memory with long rests, drifting texture, and eight fading echoes.",
     params: patch({
       tempo: 0.55,
       transpose: 7,
@@ -546,8 +717,364 @@ const presets = Object.freeze([
       noiseRate: 2500,
       gain: 0.56,
     }),
+    sequence: presetSequence({
+      upperOne: [24, "0 r r . 1 r r . 6 r r . 5 r r . 11 r r . 7 r r ."],
+      upperTwo: [20, "12 r . r 11 r . r 6 r . r 7 r . r 1 r . r"],
+      bass: [8, "-12 r r r -11 r r r"],
+      lead: [15, "r r 0 r r 6 r r 11 r r 5 r r ."],
+      arp: [32, "0 r r . .13 r r . .27 r r . .4 r r . .53 r r . .67 r r . .8 r r . 1 r r ."],
+    }),
   },
-]);
+  {
+    id: "meadow-hop",
+    label: "Meadow Hop",
+    description: "Pentatonic hops over a three-against-two gate bounce.",
+    params: patch({
+      tempo: 1.8, patternSeed: 0.91, scaleMask: 661, gateRate: 1.5,
+      gateLength: 0.72, pulseWidth: 0.42, pwmDepth: 0.22,
+      upperOnePhase: 0, upperTwoPhase: 0.25, bassPhase: 0.5,
+      leadPhase: 0.25, arpPhase: 0.5, kickLevel: 0.9, snareLevel: 0.62,
+      shakerLevel: 0.75, echoTaps: 3, echoTime: 0.16, echoDecay: 0.2, gain: 0.66,
+    }),
+    sequence: presetSequence({
+      upperOne: [8, "0 2 4 r 7 4 2 r"],
+      upperTwo: [12, "7 . 4 r 2 . 0 r 2 . 4 r"],
+      bass: [4, "-12 . -5 r"],
+      lead: [8, ". 7 r 9 . 7 4 r"],
+      arp: [16, "0 .25 .5 .75 1 .75 .5 .25 0 r .5 r 1 .5 .25 r"],
+    }),
+  },
+  {
+    id: "ladder-rescue",
+    label: "Ladder Rescue",
+    description: "An ascending minor rescue call with syncopated upper voices and firm downbeats.",
+    params: patch({
+      tempo: 2.2, transpose: -3, patternSeed: 2.17, scaleMask: 1193,
+      gateRate: 0.75, gateLength: 0.62, pulseWidth: 0.3, leadLevel: 1.45,
+      bassPulseLevel: 1.35, kickLevel: 1.35, snareLevel: 0.8,
+      echoTaps: 2, echoTime: 0.12, echoDecay: 0.12, gain: 0.61,
+    }),
+    sequence: presetSequence({
+      upperOne: [16, "0 . 3 r 7 . 10 r 12 . 10 r 7 . 3 r"],
+      upperTwo: [16, "r 7 . 10 r 12 . 15 r 12 . 10 r 7 . 3"],
+      bass: [8, "-12 . -12 -7 r -5 -7 ."],
+      lead: [16, "0 3 7 r 10 12 15 r 19 15 12 r 10 7 3 r"],
+      arp: [16, "0 .2 .4 .6 .8 1 .8 .6 .4 .2 0 r .4 .8 1 r"],
+    }),
+  },
+  {
+    id: "crater-caravan",
+    label: "Crater Caravan",
+    description: "A Dorian convoy whose five actors travel at interlocking fractional rates.",
+    params: patch({
+      tempo: 1.6, transpose: -7, patternSeed: 3.83, scaleMask: 1709,
+      pitchClock: 1.5, upperTwoClockRatio: 0.6666666667, bassClock: 0.75,
+      leadClock: 2.5, arpRate: 3.75, gateRate: 1.5, gateLength: 0.9,
+      stereoWidth: 1.4, echoTaps: 5, echoTime: 0.28, echoDecay: 0.36,
+      echoStereo: 1.3, gain: 0.61,
+    }),
+    sequence: presetSequence({
+      upperOne: [12, "0 . 2 3 r 7 . 9 10 r 7 ."],
+      upperTwo: [16, "7 r . 5 . 3 r . 2 . 0 r 2 . 3 r"],
+      bass: [6, "-12 . -5 r -7 ."],
+      lead: [15, "r 0 . 3 r 7 . 9 r 10 . 9 r 7 ."],
+      arp: [24, "0 .2 .4 .6 .8 1 .8 .6 .4 .2 r . 0 .25 .5 .75 1 .75 .5 .25 0 r . .5"],
+    }),
+  },
+  {
+    id: "sewer-goblin",
+    label: "Sewer Goblin",
+    description: "Low Phrygian dirt in five mutually prime loops.",
+    params: patch({
+      tempo: 1.4, transpose: -12, patternSeed: 7.13, scaleMask: 1451,
+      upperOneRegister: -24, upperTwoRegister: -24, bassRegister: -48,
+      leadRegister: -12, arpRegister: -24, noiseLevel: 1.18, noiseColor: 0.5,
+      pulseWidth: 0.68, pwmDepth: 0.12, kickTone: 0.58, snareNoiseMix: 0.82,
+      echoTaps: 3, echoTime: 0.33, echoDecay: 0.27, gain: 0.56,
+    }),
+    sequence: presetSequence({
+      upperOne: [7, "0 1 r 5 . 1 r"],
+      upperTwo: [9, "r 5 . 1 r 0 . -1 r"],
+      bass: [5, "-12 r -11 . -7"],
+      lead: [11, "r 0 1 r 5 . 6 r 5 . r"],
+      arp: [13, "0 .17 r .33 .5 r .67 .83 r 1 .67 .33 r"],
+    }),
+  },
+  {
+    id: "crystal-cavern",
+    label: "Crystal Cavern",
+    description: "Lydian sparkles climb through a wide, glassy eight-tap chamber.",
+    params: patch({
+      tempo: 1.2, transpose: 7, patternSeed: 4.44, scaleMask: 2773,
+      pulseWidth: 0.18, pwmDepth: 0.12, upperOneRegister: 0, upperTwoRegister: 12,
+      leadRegister: 12, arpRegister: 0, leadLevel: 1.5, arpLevel: 1.62,
+      drumMix: 0.35, echoTaps: 8, echoTime: 0.44, echoDecay: 0.62,
+      echoStereo: 1.5, echoWet: 1.2, gain: 0.52,
+    }),
+    sequence: presetSequence({
+      upperOne: [24, "0 . 4 . 6 . 11 r 12 . 16 . 18 . 23 r 18 . 16 . 12 . 11 r"],
+      upperTwo: [16, "12 r 18 . 23 r 18 . 16 r 12 . 11 r 6 ."],
+      bass: [8, "-12 r . r -6 r . r"],
+      lead: [12, "12 . 18 r 23 . 30 r 23 . 18 r"],
+      arp: [32, "0 .125 .25 .375 .5 .625 .75 .875 1 .875 .75 .625 .5 .375 .25 .125 0 r .25 r .5 r .75 r 1 r .75 r .5 r .25 r"],
+    }),
+  },
+  {
+    id: "lava-bridge",
+    label: "Lava Bridge",
+    description: "Fast harmonic-minor leaps, hot octave answers, and short urgent drum tails.",
+    params: patch({
+      tempo: 2.6, transpose: -2, patternSeed: 5.81, scaleMask: 2477,
+      gateRate: 2, gateLength: 0.5, leadInterval: 12, leadTrillRate: 16,
+      pulseWidth: 0.23, pwmRate: 2.4, kickLevel: 1.6, snareLevel: 1.45,
+      hatLevel: 1.3, drumDecay: 0.42, echoTaps: 2, echoTime: 0.1,
+      echoDecay: 0.11, gain: 0.5,
+    }),
+    sequence: presetSequence({
+      upperOne: [16, "0 2 3 7 8 11 12 r 12 11 8 7 3 2 0 r"],
+      upperTwo: [16, "12 r 8 7 3 r 2 0 12 r 11 8 7 r 3 2"],
+      bass: [8, "-12 -12 -5 r -4 -4 -7 r"],
+      lead: [16, "12 15 19 20 23 24 27 r 24 23 20 19 15 12 11 r"],
+      arp: [16, "0 .25 .5 .75 1 .75 .5 .25 1 .75 .5 .25 0 .5 1 r"],
+    }),
+  },
+  {
+    id: "slime-waltz",
+    label: "Slime Waltz",
+    description: "Elastic three-beat phrases with third-cycle offsets and slow, wide pulse motion.",
+    params: patch({
+      tempo: 1.5, transpose: -5, patternSeed: 1.33, scaleMask: 1193,
+      gateRate: 0.75, gateLength: 1.5, pulseWidth: 0.7, pwmDepth: 0.2,
+      pwmRate: 0.18, upperTwoPhase: 0.3333333333, bassPhase: 0.6666666667,
+      leadPhase: 0.3333333333, arpPhase: 0.6666666667, bassSineLevel: 1.5,
+      shakerLevel: 0.8, echoTaps: 4, echoTime: 0.31, echoDecay: 0.34, gain: 0.6,
+    }),
+    sequence: presetSequence({
+      upperOne: [12, "0 . 3 7 . r 5 . 3 0 . r"],
+      upperTwo: [12, "7 . r 5 . 3 0 . r 3 . 5"],
+      bass: [6, "-12 . r -5 . r"],
+      lead: [12, "r 7 . 10 . 7 r 5 . 3 . 0"],
+      arp: [18, "0 .25 .5 .75 1 .75 .5 .25 r 0 .33 .67 1 .67 .33 r .5 r"],
+    }),
+  },
+  {
+    id: "prime-parade",
+    label: "Prime Parade",
+    description: "Five prime-length loops parade at 5/4 through 13/8 rates before meeting again.",
+    params: patch({
+      tempo: 1.7, patternSeed: 6.17, scaleMask: 1717, pitchClock: 1.25,
+      upperTwoClockRatio: 1.4, bassClock: 1.375, leadClock: 1.625,
+      arpRate: 1.625, upperOnePhase: 0.2, upperTwoPhase: 0.2857142857,
+      bassPhase: 0.3636363636, leadPhase: 0.4615384615, arpPhase: 0.5882352941,
+      echoTaps: 2, echoTime: 0.17, echoDecay: 0.13, drumMix: 0.7, gain: 0.64,
+    }),
+    sequence: presetSequence({
+      upperOne: [5, "0 2 4 r 7"],
+      upperTwo: [7, "7 r 4 . 2 r 0"],
+      bass: [11, "-12 . r -7 . -5 r . -7 . r"],
+      lead: [13, "r 0 . 4 r 7 . 9 r 11 . 7 r"],
+      arp: [17, "0 .125 .25 r .375 .5 r .625 .75 r .875 1 .75 r .5 .25 r"],
+    }),
+  },
+  {
+    id: "mirror-maze",
+    label: "Mirror Maze",
+    description: "Whole-tone phrases reflect between the two pulse actors in opposing phases.",
+    params: patch({
+      tempo: 1.9, patternSeed: 2.02, scaleMask: 1365, upperTwoRegister: 12,
+      upperTwoClockRatio: 0.5, upperOnePhase: 0, upperTwoPhase: 0.5,
+      leadInterval: -12, leadTrillPhase: 0.5, voiceCrossfeed: 0.72,
+      echoCrossfeed: 0.8, echoAlternate: 1, echoTaps: 6, echoTime: 0.22,
+      echoDecay: 0.43, stereoWidth: 1.5, gain: 0.57,
+    }),
+    sequence: presetSequence({
+      upperOne: [16, "0 2 4 6 8 10 12 r 12 10 8 6 4 2 0 r"],
+      upperTwo: [16, "12 10 8 6 4 2 0 r 0 2 4 6 8 10 12 r"],
+      bass: [8, "-12 r -8 r -4 r -8 r"],
+      lead: [16, "0 r 4 r 8 r 12 r 12 r 8 r 4 r 0 r"],
+      arp: [32, "0 .2 .4 .6 .8 1 .8 .6 .4 .2 0 r 1 .8 .6 .4 .2 0 .2 .4 .6 .8 1 r 0 .25 .5 .75 1 .75 .5 r"],
+    }),
+  },
+  {
+    id: "clockwork-bat",
+    label: "Clockwork Bat",
+    description: "Angular octatonic fragments flap through clipped, fast mechanical gates.",
+    params: patch({
+      tempo: 2.9, transpose: 3, patternSeed: 8.08, scaleMask: 2925,
+      pulseWidth: 0.12, pwmDepth: 0.08, pwmRate: 3.6, gateLength: 0.25,
+      gateAttack: 0.015, gateRelease: 0.08, leadTrillRate: 32,
+      hatLevel: 1.55, shakerLevel: 1.25, echoTaps: 2, echoTime: 0.08,
+      echoDecay: 0.09, gain: 0.46,
+    }),
+    sequence: presetSequence({
+      upperOne: [8, "0 1 3 4 6 7 9 r"],
+      upperTwo: [12, "9 r 7 6 4 r 3 1 0 r 3 6"],
+      bass: [7, "-12 r -9 -8 r -6 -5"],
+      lead: [5, "12 15 r 18 21"],
+      arp: [16, "0 .33 .67 1 r .67 .33 0 1 .67 .33 r 0 .5 1 r"],
+    }),
+  },
+  {
+    id: "half-time-colossus",
+    label: "Half-Time Colossus",
+    description: "A quarter-speed bass monster walks beneath huge half-time drums.",
+    params: patch({
+      tempo: 1, transpose: -12, patternSeed: 3.14, scaleMask: 1193,
+      bassClock: 0.25, drumRate: 0.5, kickCycle: 4, kickSubcycle: 2,
+      gateLength: 2.4, bassPulseLevel: 1.9, bassSineLevel: 1.8,
+      upperOneLevel: 0.35, upperTwoLevel: 0.28, leadLevel: 0.42,
+      kickLevel: 1.8, snareLevel: 1.25, drumDecay: 2.4, drumMix: 1.3,
+      echoTaps: 3, echoTime: 0.5, echoDecay: 0.3, gain: 0.53,
+    }),
+    sequence: presetSequence({
+      upperOne: [16, "0 r r r 3 r r r 7 r r r 3 r r r"],
+      upperTwo: [12, "r . r . -5 . r . -2 . r ."],
+      bass: [4, "-12 r -5 r"],
+      lead: [8, "r r 0 r r r 7 r"],
+      arp: [16, "0 r . r .5 r . r 1 r . r .5 r . r"],
+    }),
+  },
+  {
+    id: "triplet-rain",
+    label: "Triplet Rain",
+    description: "Three-against-two droplets move across offset twelve- and twenty-four-step loops.",
+    params: patch({
+      tempo: 2.1, patternSeed: 4.71, scaleMask: 1709, gateRate: 1.5,
+      drumRate: 1.5, gateLength: 0.48, upperTwoPhase: 0.3333333333,
+      leadPhase: 0.6666666667, arpPhase: 0.3333333333, echoTaps: 7,
+      echoTime: 0.135, echoDecay: 0.46, echoStereo: 1.45,
+      echoWet: 1.1, stereoWidth: 1.42, gain: 0.52,
+    }),
+    sequence: presetSequence({
+      upperOne: [12, "0 . 2 4 . 7 9 . 11 9 . r"],
+      upperTwo: [12, "7 . 9 11 . 14 11 . 9 7 . r"],
+      bass: [9, "-12 . r -7 . r -5 . r"],
+      lead: [12, "r 0 . 4 r 7 . 11 r 14 . r"],
+      arp: [24, "0 .2 .4 .6 .8 1 .8 .6 .4 .2 r . 1 .8 .6 .4 .2 0 .2 .4 .6 .8 r ."],
+    }),
+  },
+  {
+    id: "one-button-march",
+    label: "One-Button March",
+    description: "Roots and fifths carry a blunt, dry march while the other actors whisper.",
+    params: patch({
+      tempo: 2, patternSeed: 1.01, scaleMask: 661, upperOneLevel: 0.12,
+      upperTwoLevel: 0.08, arpLevel: 0.1, leadLevel: 1.55,
+      bassPulseLevel: 1.7, bassSineLevel: 0.9, kickLevel: 1.5,
+      snareLevel: 1.1, echoTaps: 2, echoTime: 0.1, echoDecay: 0.05,
+      echoWet: 0.25, gain: 0.62,
+    }),
+    sequence: presetSequence({
+      upperOne: [8, "0 r . r 7 r . r"],
+      upperTwo: [8, "7 r . r 0 r . r"],
+      bass: [4, "-12 -12 -5 r"],
+      lead: [8, "0 r 7 r 0 r 7 r"],
+      arp: [8, "0 r .5 r 1 r .5 r"],
+    }),
+  },
+  {
+    id: "bubble-slime",
+    label: "Bubble Slime",
+    description: "Round sine-heavy bass and elastic five-part gates wobble through uneven loops.",
+    params: patch({
+      tempo: 1.35, transpose: -4, patternSeed: 2.72, scaleMask: 1189,
+      gateRate: 1.6666666667, gateLength: 1.2, pulseWidth: 0.78,
+      pwmDepth: 0.16, pwmRate: 0.14, bassPulseLevel: 0.55,
+      bassSineLevel: 1.75, bassPulseWidth: 0.8, shakerLevel: 1.1,
+      kickTone: 0.7, echoTaps: 5, echoTime: 0.27, echoDecay: 0.39, gain: 0.57,
+    }),
+    sequence: presetSequence({
+      upperOne: [10, "0 . 4 r 7 . 9 r 7 ."],
+      upperTwo: [15, "7 r . 4 . 0 r . 2 . 4 r . 7 ."],
+      bass: [5, "-12 . r -5 ."],
+      lead: [20, "r 0 . 4 r 7 . 9 r 12 . 9 r 7 . 4 r 2 . r"],
+      arp: [25, "0 .2 .4 .6 .8 1 .8 .6 .4 .2 r 0 .25 .5 .75 1 .75 .5 .25 0 r .5 .75 1 r"],
+    }),
+  },
+  {
+    id: "tin-knight",
+    label: "Tin Knight",
+    description: "Narrow metal pulses and noisy percussion clank in interlocked eighths and quarters.",
+    params: patch({
+      tempo: 2.25, transpose: -2, patternSeed: 9.1, scaleMask: 2477,
+      pulseWidth: 0.1, pwmDepth: 0.06, pwmRate: 1.8, snareNoiseMix: 0.88,
+      snareNoiseColor: 1.8, hatANoiseColor: 1.7, noiseColor: 1.6,
+      gateRate: 2, bassClock: 0.5, leadClock: 4, arpRate: 8,
+      echoTaps: 3, echoTime: 0.11, echoDecay: 0.16, gain: 0.53,
+    }),
+    sequence: presetSequence({
+      upperOne: [16, "0 3 r 7 10 r 7 3 0 3 r 7 12 r 10 7"],
+      upperTwo: [8, "7 r 3 0 7 r 10 3"],
+      bass: [8, "-12 r -7 . -5 r -7 ."],
+      lead: [16, "r 0 3 r 7 10 r 12 r 10 7 r 3 0 r 7"],
+      arp: [16, "0 .25 .5 .75 1 r .75 .5 .25 0 .5 1 r .5 .25 r"],
+    }),
+  },
+  {
+    id: "ghost-save-point",
+    label: "Ghost Save Point",
+    description: "Sparse suspended tones leave long afterimages while drums barely disturb the floor.",
+    params: patch({
+      tempo: 0.8, transpose: 5, patternSeed: 5.55, scaleMask: 1189,
+      gateLength: 2.2, gateRelease: 1.4, kickLevel: 0.18, snareLevel: 0.16,
+      hatLevel: 0.25, shakerLevel: 0.3, drumMix: 0.25, noiseLevel: 0.48,
+      echoTaps: 8, echoTime: 0.68, echoDecay: 0.72, echoStereo: 1.5,
+      echoCrossfeed: 0.9, echoWet: 1.28, stereoWidth: 1.5, gain: 0.48,
+    }),
+    sequence: presetSequence({
+      upperOne: [16, "0 r r r . r r r 7 r r r . r r r"],
+      upperTwo: [20, "r r 12 r r r . r r r 7 r r r . r r r 5 r"],
+      bass: [8, "-12 r r r r r -5 r"],
+      lead: [12, "r r 0 r r r 7 r r r 12 r"],
+      arp: [32, "0 r r r . r r r .5 r r r . r r r 1 r r r . r r r .5 r r r . r r r"],
+    }),
+  },
+  {
+    id: "pixel-rain",
+    label: "Pixel Rain",
+    description: "Dense arpeggio droplets and moving texture sweep across long, offset loops.",
+    params: patch({
+      tempo: 1.3, transpose: 2, patternSeed: 6.66, scaleMask: 2773,
+      upperOneLevel: 1.35, upperTwoLevel: 1.22, arpLevel: 1.7,
+      bassPulseLevel: 0.5, leadLevel: 0.85, noiseLevel: 1.1,
+      textureSweep: 2, texturePeriod: 3, textureDecay: 0.28,
+      echoTaps: 8, echoTime: 0.18, echoDecay: 0.55, echoStereo: 1.45,
+      echoWet: 1.2, gain: 0.5,
+    }),
+    sequence: presetSequence({
+      upperOne: [32, "0 . 2 . 4 . 6 . 7 . 9 . 11 . 14 r 14 . 11 . 9 . 7 . 6 . 4 . 2 . 0 r"],
+      upperTwo: [24, "7 . 9 . 11 r 14 . 16 . 14 r 11 . 9 . 7 r 4 . 2 . 0 r"],
+      bass: [16, "-12 . r . -7 . r . -5 . r . -7 . r ."],
+      lead: [20, "r 0 . 4 r 7 . 11 r 14 . 11 r 7 . 4 r 2 . r"],
+      arp: [32, "0 .1 .2 .3 .4 .5 .6 .7 .8 .9 1 .9 .8 .7 .6 .5 .4 .3 .2 .1 0 .2 .4 .6 .8 1 .8 .6 .4 .2 0 r"],
+    }),
+  },
+  {
+    id: "corrupt-boot",
+    label: "Corrupt Boot",
+    description: "Chromatic, detuned prime loops and abrasive circuitry—the deliberately unstable edge case.",
+    params: patch({
+      tempo: 1.95, transpose: -9, tuningCents: 37, patternSeed: 9.73,
+      scaleMask: 4095, pitchRange: 2, pulseWidth: 0.16, pwmDepth: 0.12,
+      upperOnePhase: 0.1428571429, upperTwoPhase: 0.2727272727,
+      bassPhase: 0.3846153846, leadPhase: 0.5294117647, arpPhase: 0.6842105263,
+      noiseLevel: 1.65, noiseColor: 2, textureSweep: 2.5, kickLevel: 1.45,
+      snareLevel: 1.6, hatLevel: 1.5, shakerLevel: 1.4, snareNoiseMix: 0.92,
+      ghostDrums: 1.1, echoTaps: 7, echoTime: 0.093, echoDecay: 0.51,
+      echoWet: 1.22, gain: 0.35,
+    }),
+    sequence: presetSequence({
+      upperOne: [13, "0 1 r 6 11 . -3 r 8 2 . 13 r"],
+      upperTwo: [17, "12 r 1 10 . -5 r 6 15 . 3 r -2 9 . 14 r"],
+      bass: [7, "-12 -1 r -7 2 . r"],
+      lead: [19, "r 0 13 -4 . 7 r 16 2 . -7 r 11 5 . 18 r -2 ."],
+      arp: [23, "0 .91 r .13 .72 .35 r 1 .08 .64 r .27 .82 .45 r .18 .73 .36 r .95 .5 .04 r"],
+    }),
+  },
+].map((preset) => Object.freeze({
+  ...preset,
+  params: Object.freeze(preset.params),
+})));
 
 const SAFE_RANDOM_RANGES = Object.freeze({
   tempo: [0.55, 2.2],
@@ -632,14 +1159,14 @@ const SAFE_RANDOM_RANGES = Object.freeze({
   fadeCurve: [1, 4],
   echoAlternate: [0, 1],
   snareCycle: [0.5, 2],
-  snarePhase: [0, 0.99],
+  snarePhase: [0, 127 / 128],
   hatACycle: [1, 4],
   hatASubcycle: [0.3125, 1.25],
   hatARepeat: [0.125, 0.5],
-  hatAPhase: [0, 0.99],
+  hatAPhase: [0, 127 / 128],
   hatBCycle: [0.25, 1],
   shakerCycle: [0.25, 1],
-  shakerPhase: [0, 0.99],
+  shakerPhase: [0, 127 / 128],
   noiseRate: [2000, 8000],
   noiseColor: [0.5, 2],
   textureSweep: [0.5, 2],
@@ -665,11 +1192,42 @@ const SAFE_RANDOM_RANGES = Object.freeze({
   hatBDecayRate: [2, 8],
   shakerNoiseRate: [4.5, 18],
   shakerDecayRate: [4, 16],
+  upperTwoClockRatio: [0.5, 2],
+  kickPhase: [0, 127 / 128],
+  hatBPhase: [0, 127 / 128],
+  hatARepeatPhase: [0, 127 / 128],
+  arpPhase: [0, 127 / 128],
+  echoWet: [0.25, 1.35],
+  arpGateDepth: [0, 0.8],
+  bassGateRateRatio: [0.5, 2],
+  leadGateRateRatio: [0.5, 2],
+  upperTwoGateRateRatio: [0.5, 2],
+  snareNoiseColor: [0.5, 2],
+  hatANoiseColor: [0.5, 2],
+  hatBNoiseColor: [0.5, 2],
+  shakerNoiseColor: [0.5, 2],
+  upperOnePhase: [0, 127 / 128],
+  upperTwoPhase: [0, 127 / 128],
+  bassPhase: [0, 127 / 128],
+  leadPhase: [0, 127 / 128],
+  gatePatternPhase: [0, 127 / 128],
+  gateSwitchShortPhase: [0, 127 / 128],
+  gateSwitchLongPhase: [0, 127 / 128],
+  sectionPhase: [0, 127 / 128],
+  leadTrillPhase: [0, 127 / 128],
+  leadPhrasePhase: [0, 127 / 128],
+  arpOctavePhase: [0, 127 / 128],
+  texturePhase: [0, 127 / 128],
 });
 
 const support = webGpuChiptuneSupport(globalThis);
 const state = {
   params: sanitizeWebGpuChiptuneParams(),
+  sequence: createWebGpuChiptuneSequence(),
+  trackerView: "morph",
+  activeSequenceLane: "upperOne",
+  activeSequenceStep: 0,
+  sequencePage: 0,
   presetId: "source-tracker",
   audioOn: false,
   synthPlaying: false,
@@ -683,12 +1241,16 @@ const state = {
 
 const controlInputs = new Map();
 const controlOutputs = new Map();
+const fractionControls = new Map();
 const knobControls = new Map();
 const knobOutputs = new Map();
 const scaleButtons = new Map();
 const gateButtons = new Map();
+const sequenceButtons = new Map();
 const trackerNoteCache = new Map();
 let trackerCacheParams = null;
+let trackerCacheSequence = null;
+let trackerCacheWindowStart = null;
 
 let engine = null;
 let audioStartPromise = null;
@@ -696,6 +1258,8 @@ let audioLifecycleGeneration = 0;
 let transportGeneration = 0;
 let animationFrame = 0;
 let activeKnobDrag = null;
+let activeSequenceDrag = null;
+let sequencePlayhead = -1;
 let resizeObserver = null;
 let waxStateListener = null;
 
@@ -821,6 +1385,7 @@ function notifyWaxState() {
   waxStateListener?.({
     parameters: { ...state.params },
     activePresetId: state.presetId,
+    sequence: state.sequence,
   });
 }
 
@@ -852,6 +1417,27 @@ function enabledPitchClassCount(mask) {
   return count;
 }
 
+function syncPresetOutputs() {
+  const preset = presets.find(({ id }) => id === state.presetId);
+  const label = preset?.label ?? "Custom";
+  $("patternState").textContent = Math.round(state.params.tempo * 60)
+    + " BPM · "
+    + label;
+  $("characterPreset").textContent = label;
+  $("presetDescription").textContent = preset?.description
+    ?? "Custom performance · the cast follows your live shader and sequence edits.";
+  for (const button of $("presetButtons").querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.presetId === state.presetId));
+  }
+  const activeIndex = presets.findIndex(({ id }) => id === state.presetId);
+  const previous = presets[activeIndex < 0
+    ? presets.length - 1
+    : positiveModulo(activeIndex - 1, presets.length)];
+  const next = presets[activeIndex < 0 ? 0 : positiveModulo(activeIndex + 1, presets.length)];
+  $("previousPreset").setAttribute("aria-label", "Previous preset: " + previous.label);
+  $("nextPreset").setAttribute("aria-label", "Next preset: " + next.label);
+}
+
 function syncParamOutputs() {
   for (const [key, input] of controlInputs) {
     const value = state.params[key];
@@ -860,6 +1446,26 @@ function syncParamOutputs() {
     input.setAttribute("aria-valuetext", valueText);
     const output = controlOutputs.get(key);
     if (output) output.textContent = valueText;
+  }
+  for (const [key, control] of fractionControls) {
+    const pair = fractionForValue(state.params[key]);
+    const editing = control.wrapper.contains(document.activeElement);
+    if (!editing) {
+      control.numerator.value = String(pair.numerator);
+      control.denominator.value = String(pair.denominator);
+    }
+    control.lastPair = pair;
+    const fractionText = pair.numerator + "/" + pair.denominator;
+    const prefix = pair.exact ? "" : "~";
+    control.output.textContent = prefix + fractionText + fractionUnitForKey(key);
+    control.numerator.setAttribute(
+      "aria-valuetext",
+      pair.numerator + ", numerator of " + fractionText,
+    );
+    control.denominator.setAttribute(
+      "aria-valuetext",
+      pair.denominator + ", denominator of " + fractionText,
+    );
   }
   for (const [key, knob] of knobControls) {
     const spec = knob.controlSpec;
@@ -909,9 +1515,7 @@ function syncParamOutputs() {
       + state.params.gatePatternSteps + "-step pattern");
   }
 
-  $("patternState").textContent = Math.round(state.params.tempo * 60)
-    + " BPM · "
-    + (presets.find(({ id }) => id === state.presetId)?.label ?? "custom");
+  syncPresetOutputs();
   $("voiceState").textContent = "seed " + state.params.patternSeed.toFixed(3);
   $("drumState").textContent = "bus " + Math.round(state.params.drumMix * 100) + "%";
   $("echoState").textContent = Math.round(state.params.echoTaps) + " taps";
@@ -923,9 +1527,7 @@ function syncParamOutputs() {
     + state.params.pitchRange.toFixed(2)
     + "x";
 
-  for (const button of $("presetButtons").querySelectorAll("button")) {
-    button.setAttribute("aria-pressed", String(button.dataset.presetId === state.presetId));
-  }
+  syncSequenceControls();
 }
 
 function applyParams(nextParams, presetId = "custom", { notify = true } = {}) {
@@ -936,9 +1538,39 @@ function applyParams(nextParams, presetId = "custom", { notify = true } = {}) {
   if (notify) notifyWaxState();
 }
 
+function applySequence(
+  nextSequence,
+  { notify = true, markCustom = true, presetId = null } = {},
+) {
+  state.sequence = sanitizeWebGpuChiptuneSequence(nextSequence);
+  if (markCustom) state.presetId = "custom";
+  else if (typeof presetId === "string") state.presetId = presetId;
+  trackerCacheSequence = null;
+  trackerNoteCache.clear();
+  engine?.updateSequence(state.sequence);
+  syncSequenceControls();
+  syncPresetOutputs();
+  if (notify) notifyWaxState();
+}
+
 function applyPreset(preset) {
-  applyParams(preset.params, preset.id);
+  state.params = sanitizeWebGpuChiptuneParams(preset.params);
+  state.sequence = sanitizeWebGpuChiptuneSequence(preset.sequence);
+  state.presetId = preset.id;
+  trackerCacheParams = null;
+  trackerCacheSequence = null;
+  trackerNoteCache.clear();
+  syncParamOutputs();
+  engine?.updateParams(state.params);
+  engine?.updateSequence(state.sequence);
+  notifyWaxState();
   announce(preset.label + " selected.");
+}
+
+function cyclePreset(direction) {
+  const activeIndex = presets.findIndex(({ id }) => id === state.presetId);
+  const baseIndex = activeIndex < 0 ? (direction < 0 ? 0 : -1) : activeIndex;
+  applyPreset(presets[positiveModulo(baseIndex + direction, presets.length)]);
 }
 
 function quantizeControlValue(spec, rawValue) {
@@ -995,6 +1627,204 @@ function handleControlKey(event, spec) {
     return true;
   }
   return false;
+}
+
+function greatestCommonDivisor(left, right) {
+  let a = Math.abs(Math.trunc(left));
+  let b = Math.abs(Math.trunc(right));
+  while (b) {
+    const remainder = a % b;
+    a = b;
+    b = remainder;
+  }
+  return a || 1;
+}
+
+function fractionForValue(value, maximumDenominator = 128) {
+  const source = Math.max(0, Number(value) || 0);
+  let bestNumerator = Math.round(source);
+  let bestDenominator = 1;
+  let bestError = Math.abs(source - bestNumerator);
+  for (let denominator = 1; denominator <= maximumDenominator; denominator += 1) {
+    const numerator = Math.round(source * denominator);
+    const error = Math.abs(source - numerator / denominator);
+    if (error + 1e-12 < bestError) {
+      bestNumerator = numerator;
+      bestDenominator = denominator;
+      bestError = error;
+    }
+    if (bestError < 1e-12) break;
+  }
+  const divisor = greatestCommonDivisor(bestNumerator, bestDenominator);
+  return Object.freeze({
+    numerator: bestNumerator / divisor,
+    denominator: bestDenominator / divisor,
+    exact: bestError < 1e-9,
+  });
+}
+
+function nearestMusicalFraction(key, value, bounds = WEBGPU_CHIPTUNE_LIMITS[key]) {
+  if (!musicalFractionParams.has(key)) return value;
+  const [minimum, maximum] = bounds;
+  const bounded = clamp(value, minimum, maximum);
+  const pair = fractionForValue(bounded);
+  return clamp(pair.numerator / pair.denominator, minimum, maximum);
+}
+
+function fractionUnitForKey(key) {
+  if (fractionPhaseParams.has(key)) return " cycle";
+  if (fractionDrumPeriodParams.has(key)) return " drum-clock units";
+  if (fractionPeriodParams.has(key)) return " master beats";
+  if (key === "gateLength") return " gate steps";
+  if (key === "gateRate") return " x base gate clock (8 steps/beat)";
+  if (key === "upperTwoClockRatio") return " x Upper A note rate";
+  if (key === "gateShortRatio" || key === "gateLongRatio") {
+    return " x gate length";
+  }
+  if (key === "gateFastRatio" || key.endsWith("GateRateRatio")) return " x gate rate";
+  if ([
+    "pitchClock",
+    "bassClock",
+    "leadClock",
+    "leadTrillRate",
+    "arpRate",
+    "arpOctaveRate",
+    "drumRate",
+  ].includes(key)) return " per master beat";
+  return "";
+}
+
+function restoreFractionControl(control) {
+  const pair = fractionForValue(state.params[control.spec.key]);
+  control.numerator.value = String(pair.numerator);
+  control.denominator.value = String(pair.denominator);
+  syncParamOutputs();
+}
+
+function commitFractionControl(control, { announceChange = false } = {}) {
+  const numeratorText = control.numerator.value.trim();
+  const denominatorText = control.denominator.value.trim();
+  const draftText = (numeratorText || "empty") + "/" + (denominatorText || "empty");
+  control.numerator.setAttribute("aria-valuetext", (numeratorText || "empty")
+    + ", numerator of " + draftText);
+  control.denominator.setAttribute("aria-valuetext", (denominatorText || "empty")
+    + ", denominator of " + draftText);
+  const numerator = Number(numeratorText);
+  const denominator = Number(denominatorText);
+  const normalizedNumerator = Math.max(0, Math.trunc(numerator));
+  const normalizedDenominator = Math.trunc(denominator);
+  const value = normalizedNumerator / normalizedDenominator;
+  if (
+    !numeratorText
+    || !denominatorText
+    || !Number.isFinite(numerator)
+    || !Number.isFinite(denominator)
+    || !Number.isInteger(numerator)
+    || !Number.isInteger(denominator)
+    || numerator < 0
+    || denominator < 1
+    || denominator > 128
+    || value < control.spec.min
+    || value > control.spec.max
+    || (fractionPhaseParams.has(control.spec.key)
+      && normalizedNumerator >= normalizedDenominator)
+  ) {
+    if (announceChange) {
+      announce(control.spec.label + " needs an in-range fraction with denominator 1 to 128.");
+      const setTimer = globalThis.setTimeout ?? setTimeout;
+      setTimer(() => restoreFractionControl(control), 0);
+    }
+    return false;
+  }
+  const divisor = greatestCommonDivisor(normalizedNumerator, normalizedDenominator);
+  const reducedNumerator = normalizedNumerator / divisor;
+  const reducedDenominator = normalizedDenominator / divisor;
+  control.numerator.value = String(reducedNumerator);
+  control.denominator.value = String(reducedDenominator);
+  applyParams({
+    ...state.params,
+    [control.spec.key]: reducedNumerator / reducedDenominator,
+  });
+  if (announceChange) {
+    const actual = fractionForValue(state.params[control.spec.key]);
+    announce(
+      control.spec.label
+        + " set to "
+        + actual.numerator
+        + "/"
+        + actual.denominator
+        + ".",
+    );
+  }
+  return true;
+}
+
+function createFractionControl(spec) {
+  const wrapper = document.createElement("fieldset");
+  wrapper.className = "control chiptune-fraction-control";
+  const legend = document.createElement("legend");
+  const label = document.createElement("b");
+  label.textContent = spec.label;
+  const output = document.createElement("output");
+  output.id = spec.key + "Out";
+  legend.append(label, output);
+
+  const fields = document.createElement("div");
+  fields.className = "chiptune-fraction-fields";
+  const numerator = document.createElement("input");
+  numerator.id = spec.key + "Numerator";
+  numerator.type = "number";
+  numerator.min = spec.min === 0 ? "0" : "1";
+  numerator.max = String(Math.max(1, Math.ceil(spec.max * 128)));
+  numerator.step = "1";
+  numerator.inputMode = "numeric";
+  numerator.setAttribute("aria-label", spec.label + " numerator");
+  const slash = document.createElement("span");
+  slash.setAttribute("aria-hidden", "true");
+  slash.textContent = "/";
+  const denominator = document.createElement("input");
+  denominator.id = spec.key + "Denominator";
+  denominator.type = "number";
+  denominator.min = "1";
+  denominator.max = "128";
+  denominator.step = "1";
+  denominator.inputMode = "numeric";
+  denominator.setAttribute("aria-label", spec.label + " denominator");
+  const unit = document.createElement("small");
+  unit.textContent = fractionUnitForKey(spec.key).trim();
+  fields.append(numerator, slash, denominator, unit);
+
+  const control = { spec, wrapper, numerator, denominator, output, lastPair: null };
+  const applyLive = () => commitFractionControl(control);
+  const commit = () => commitFractionControl(control, { announceChange: true });
+  for (const input of [numerator, denominator]) {
+    input.addEventListener("input", applyLive);
+    input.addEventListener("change", commit);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        commit();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        restoreFractionControl(control);
+      }
+    });
+  }
+  wrapper.addEventListener("focusout", () => {
+    const setTimer = globalThis.setTimeout ?? setTimeout;
+    setTimer(() => {
+      if (!wrapper.contains(document.activeElement)) syncParamOutputs();
+    }, 0);
+  });
+  fractionControls.set(spec.key, control);
+  wrapper.append(legend, fields);
+  return wrapper;
+}
+
+function createParamControl(spec) {
+  return musicalFractionParams.has(spec.key)
+    ? createFractionControl(spec)
+    : createRangeControl(spec);
 }
 
 function createRangeControl(spec) {
@@ -1098,6 +1928,555 @@ function createGateEditor() {
   return wrapper;
 }
 
+function activeSequenceDefinition() {
+  return sequenceLaneDefinitions.find(({ key }) => key === state.activeSequenceLane)
+    ?? sequenceLaneDefinitions[0];
+}
+
+function sequenceRateForUi(lane) {
+  if (lane === "upperOne") return state.params.pitchClock;
+  if (lane === "upperTwo") {
+    return state.params.pitchClock * state.params.upperTwoClockRatio;
+  }
+  if (lane === "bass") return state.params.bassClock;
+  if (lane === "lead") return state.params.leadClock;
+  return state.params.arpRate;
+}
+
+function sequencePhaseForUi(lane) {
+  const key = {
+    upperOne: "upperOnePhase",
+    upperTwo: "upperTwoPhase",
+    bass: "bassPhase",
+    lead: "leadPhase",
+    arp: "arpPhase",
+  }[lane];
+  return state.params[key] ?? 0;
+}
+
+function sequenceBeatForStep(lane, step) {
+  const length = state.sequence.lanes[lane].activeLength;
+  const rate = Math.max(0.000001, sequenceRateForUi(lane));
+  return (step - sequencePhaseForUi(lane) * length) / rate;
+}
+
+function suggestedSequenceValue(lane, step) {
+  const beat = sequenceBeatForStep(lane, step + 0.5);
+  const generated = webGpuChiptuneProceduralLaneValue(lane, beat, state.params, state.sequence);
+  return lane === "arp"
+    ? clamp(Number(generated.toFixed(3)), ...WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS)
+    : clamp(Math.round(generated), ...WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS);
+}
+
+function sequenceLaneWithChanges(lane, changes) {
+  return {
+    schemaVersion: 1,
+    lanes: {
+      ...state.sequence.lanes,
+      [lane]: {
+        ...state.sequence.lanes[lane],
+        ...changes,
+      },
+    },
+  };
+}
+
+function signedNumber(value) {
+  const number = Number(value);
+  return (number >= 0 ? "+" : "") + (Number.isInteger(number) ? number : number.toFixed(2));
+}
+
+function shaderNoteName(note) {
+  if (!Number.isFinite(note)) return "";
+  const midi = 69 + Math.round(note);
+  const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  return names[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);
+}
+
+function resolvedSequenceNote(lane, step) {
+  const beat = sequenceBeatForStep(lane, step + 0.5);
+  return webGpuChiptuneBeatSnapshot(beat, state.params, state.sequence)[lane];
+}
+
+function describeSequenceCell(lane, step, cell, activeLength) {
+  const definition = sequenceLaneDefinitions.find(({ key }) => key === lane);
+  let description = "automatic procedural note";
+  if (cell.state === "rest") description = "rest";
+  else if (cell.state === "note" && lane === "arp") {
+    description = "manual contour " + cell.value.toFixed(3);
+  } else if (cell.state === "note") {
+    description = "manual offset " + signedNumber(cell.value);
+  }
+  return definition.label
+    + ", step "
+    + (step + 1)
+    + ", "
+    + description
+    + (step < activeLength ? ", inside " : ", stored outside ")
+    + activeLength
+    + "-step loop";
+}
+
+function setTrackerView(view, { focus = false, quiet = false } = {}) {
+  state.trackerView = view === "sequence" ? "sequence" : "morph";
+  $("stageWrap").dataset.trackerView = state.trackerView;
+  $("sequenceWorkspace").hidden = state.trackerView !== "sequence";
+  $("trackerViewMorph").checked = state.trackerView === "morph";
+  $("trackerViewSequence").checked = state.trackerView === "sequence";
+  $("stage").tabIndex = state.trackerView === "morph" ? 0 : -1;
+  $("stage").setAttribute("aria-hidden", String(state.trackerView === "sequence"));
+  syncSequenceControls();
+  if (focus) {
+    if (state.trackerView === "sequence") {
+      sequenceButtons.get(state.activeSequenceStep)?.focus();
+    } else {
+      $("stage").focus();
+    }
+  }
+  if (!quiet) {
+    announce(
+      state.trackerView === "sequence"
+        ? "Sequence view. " + activeSequenceDefinition().label + " selected."
+        : "Morph view.",
+    );
+  }
+}
+
+function selectSequenceLane(lane, { focus = false } = {}) {
+  if (!WEBGPU_CHIPTUNE_SEQUENCE_LANES.includes(lane)) return;
+  state.activeSequenceLane = lane;
+  sequencePlayhead = -1;
+  syncSequenceControls();
+  if (focus) sequenceButtons.get(state.activeSequenceStep)?.focus();
+}
+
+function selectSequenceStep(step, { focus = false } = {}) {
+  state.activeSequenceStep = Math.round(clamp(
+    step,
+    0,
+    WEBGPU_CHIPTUNE_SEQUENCE_STEPS - 1,
+  ));
+  state.sequencePage = Math.floor(state.activeSequenceStep / 16);
+  syncSequenceControls();
+  if (focus) sequenceButtons.get(state.activeSequenceStep)?.focus();
+}
+
+function setSequencePage(page, { focus = true } = {}) {
+  state.sequencePage = Math.round(clamp(page, 0, 1));
+  const pageStart = state.sequencePage * 16;
+  if (
+    state.activeSequenceStep < pageStart
+    || state.activeSequenceStep >= pageStart + 16
+  ) {
+    state.activeSequenceStep = pageStart;
+  }
+  syncSequenceControls();
+  if (focus) sequenceButtons.get(state.activeSequenceStep)?.focus();
+}
+
+function setSequenceLaneLength(value) {
+  const length = Math.round(clamp(value, 1, WEBGPU_CHIPTUNE_SEQUENCE_STEPS));
+  applySequence(sequenceLaneWithChanges(state.activeSequenceLane, {
+    activeLength: length,
+  }));
+  announce(
+    activeSequenceDefinition().label
+      + " loop length "
+      + length
+      + ". Stored cells outside the loop are preserved.",
+  );
+}
+
+function setSequenceCell(
+  step,
+  cellState,
+  value,
+  { announceChange = true } = {},
+) {
+  const lane = state.activeSequenceLane;
+  const laneState = state.sequence.lanes[lane];
+  const cellIndex = Math.round(clamp(step, 0, WEBGPU_CHIPTUNE_SEQUENCE_STEPS - 1));
+  const current = laneState.cells[cellIndex];
+  const stateName = ["auto", "note", "rest"].includes(cellState) ? cellState : "auto";
+  const [minimum, maximum] = lane === "arp"
+    ? WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS
+    : WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS;
+  const fallback = current.state === "note"
+    ? current.value
+    : suggestedSequenceValue(lane, cellIndex);
+  const boundedValue = clamp(value ?? fallback, minimum, maximum);
+  const nextValue = Number(boundedValue.toFixed(lane === "arp" ? 3 : 2));
+  const cells = [...laneState.cells];
+  cells[cellIndex] = { state: stateName, value: nextValue };
+  state.activeSequenceStep = cellIndex;
+  state.sequencePage = Math.floor(cellIndex / 16);
+  applySequence(sequenceLaneWithChanges(lane, { cells }));
+  if (announceChange) {
+    const detail = stateName === "note"
+      ? lane === "arp"
+        ? "manual contour " + nextValue.toFixed(3)
+        : "manual offset " + signedNumber(nextValue)
+      : stateName;
+    announce(
+      activeSequenceDefinition().label
+        + " step "
+        + (cellIndex + 1)
+        + " set to "
+        + detail
+        + ".",
+    );
+  }
+}
+
+function cycleSequenceCell(step) {
+  const cell = state.sequence.lanes[state.activeSequenceLane].cells[step];
+  const next = cell.state === "auto" ? "note" : cell.state === "note" ? "rest" : "auto";
+  setSequenceCell(step, next);
+}
+
+function nudgeSequenceCell(step, direction, { octave = false } = {}) {
+  const lane = state.activeSequenceLane;
+  const cell = state.sequence.lanes[lane].cells[step];
+  const base = cell.state === "note" ? cell.value : suggestedSequenceValue(lane, step);
+  const increment = lane === "arp" ? (octave ? 0.1 : 0.01) : (octave ? 12 : 1);
+  setSequenceCell(step, "note", base + direction * increment);
+}
+
+function sequenceCellKeyDown(event, step) {
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    event.preventDefault();
+    selectSequenceStep(step + (event.key === "ArrowRight" ? 1 : -1), { focus: true });
+  } else if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    selectSequenceStep(event.key === "Home" ? 0 : 31, { focus: true });
+  } else if (event.key === "PageUp" || event.key === "PageDown") {
+    event.preventDefault();
+    setSequencePage(event.key === "PageDown" ? 1 : 0);
+  } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    nudgeSequenceCell(step, event.key === "ArrowUp" ? 1 : -1, {
+      octave: event.shiftKey,
+    });
+  } else if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    cycleSequenceCell(step);
+  } else if (event.key.toLowerCase() === "a") {
+    event.preventDefault();
+    setSequenceCell(step, "auto");
+  } else if (event.key.toLowerCase() === "n") {
+    event.preventDefault();
+    setSequenceCell(step, "note");
+  } else if (event.key.toLowerCase() === "r") {
+    event.preventDefault();
+    setSequenceCell(step, "rest");
+  } else if (event.key === "Delete" || event.key === "Backspace") {
+    event.preventDefault();
+    setSequenceCell(step, "auto");
+  }
+}
+
+function sequenceCellPointerDown(event, step) {
+  if (event.button !== undefined && event.button !== 0) return;
+  event.preventDefault();
+  event.currentTarget.focus();
+  selectSequenceStep(step);
+  const lane = state.activeSequenceLane;
+  const cell = state.sequence.lanes[lane].cells[step];
+  activeSequenceDrag = {
+    pointerId: event.pointerId,
+    step,
+    lane,
+    startY: event.clientY,
+    startValue: cell.state === "note" ? cell.value : suggestedSequenceValue(lane, step),
+    startCell: { state: cell.state, value: cell.value },
+    startPresetId: state.presetId,
+    dragged: false,
+  };
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+}
+
+function sequenceCellPointerMove(event) {
+  const drag = activeSequenceDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const distance = drag.startY - event.clientY;
+  if (Math.abs(distance) < 5 && !drag.dragged) return;
+  event.preventDefault();
+  drag.dragged = true;
+  const increment = drag.lane === "arp" ? 0.01 : 1;
+  const pixelsPerStep = drag.lane === "arp" ? 3 : 6;
+  setSequenceCell(
+    drag.step,
+    "note",
+    drag.startValue + Math.round(distance / pixelsPerStep) * increment,
+    { announceChange: false },
+  );
+}
+
+function sequenceCellPointerEnd(event) {
+  const drag = activeSequenceDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  event.preventDefault();
+  event.currentTarget.releasePointerCapture?.(event.pointerId);
+  activeSequenceDrag = null;
+  if (drag.dragged) {
+    const cell = state.sequence.lanes[drag.lane].cells[drag.step];
+    announce(
+      activeSequenceDefinition().label
+        + " step "
+        + (drag.step + 1)
+        + " set to "
+        + (drag.lane === "arp" ? cell.value.toFixed(3) : signedNumber(cell.value))
+        + ".",
+    );
+  } else {
+    cycleSequenceCell(drag.step);
+  }
+}
+
+function sequenceCellPointerCancel(event) {
+  const drag = activeSequenceDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  event.preventDefault();
+  event.currentTarget.releasePointerCapture?.(event.pointerId);
+  activeSequenceDrag = null;
+  if (drag.dragged) {
+    const laneState = state.sequence.lanes[drag.lane];
+    const cells = [...laneState.cells];
+    cells[drag.step] = drag.startCell;
+    applySequence(sequenceLaneWithChanges(drag.lane, { cells }), {
+      markCustom: false,
+      presetId: drag.startPresetId,
+    });
+  }
+}
+
+function varySequenceLane() {
+  const lane = state.activeSequenceLane;
+  const laneState = state.sequence.lanes[lane];
+  const cells = laneState.cells.map((cell, step) => {
+    if (step >= laneState.activeLength) return cell;
+    if (Math.random() < 0.18) return { state: "rest", value: cell.value };
+    const generated = suggestedSequenceValue(lane, step);
+    const value = lane === "arp"
+      ? Number(
+        clamp(generated + (Math.random() - 0.5) * 0.36, 0, 1).toFixed(3)
+      )
+      : clamp(generated + randomIntegerInclusive(-5, 5), -72, 72);
+    return { state: "note", value };
+  });
+  applySequence(sequenceLaneWithChanges(lane, { cells }));
+  announce(activeSequenceDefinition().label + " sequence varied.");
+}
+
+function clearSequenceLane() {
+  const lane = state.activeSequenceLane;
+  const laneState = state.sequence.lanes[lane];
+  const cells = laneState.cells.map(() => ({ state: "auto", value: 0 }));
+  applySequence(sequenceLaneWithChanges(lane, { cells }));
+  announce(activeSequenceDefinition().label + " restored to all AUTO.");
+}
+
+function syncSequenceControls() {
+  if (!$("sequenceWorkspace")) return;
+  const lane = state.activeSequenceLane;
+  const definition = activeSequenceDefinition();
+  const laneState = state.sequence.lanes[lane];
+  const selected = laneState.cells[state.activeSequenceStep];
+  const paged = globalThis.matchMedia?.("(max-width: 980px)")?.matches ?? false;
+  $("stageWrap").dataset.sequencePage = String(state.sequencePage);
+  $("sequenceWorkspace").hidden = state.trackerView !== "sequence";
+  $("sequencePageControls").hidden = !paged;
+  $("sequencePageOne").setAttribute("aria-pressed", String(state.sequencePage === 0));
+  $("sequencePageTwo").setAttribute("aria-pressed", String(state.sequencePage === 1));
+  $("sequenceLength").value = String(laneState.activeLength);
+  $("sequenceLength").setAttribute("aria-valuetext", laneState.activeLength + " steps");
+  $("sequenceGrid").setAttribute("aria-label", definition.label + " sequence");
+  $("sequenceGrid").setAttribute("aria-labelledby", "sequenceTab-" + lane);
+
+  for (const tab of $("sequenceVoiceTabs").querySelectorAll("[role='tab']")) {
+    const active = tab.dataset.lane === lane;
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+  }
+
+  for (const [step, button] of sequenceButtons) {
+    const cell = laneState.cells[step];
+    const selectedStep = step === state.activeSequenceStep;
+    const outsideLoop = step >= laneState.activeLength;
+    const hiddenByPage = paged && Math.floor(step / 16) !== state.sequencePage;
+    button.hidden = hiddenByPage;
+    button.tabIndex = selectedStep ? 0 : -1;
+    button.dataset.selected = String(selectedStep);
+    button.dataset.stepState = cell.state;
+    button.dataset.outsideLoop = String(outsideLoop);
+    button.style.setProperty("--lane-color", definition.color);
+    button.textContent = String(step + 1).padStart(2, "0")
+      + " "
+      + (cell.state === "auto"
+        ? "A"
+        : cell.state === "rest"
+          ? "-"
+          : lane === "arp" ? cell.value.toFixed(3) : signedNumber(cell.value));
+    button.setAttribute(
+      "aria-label",
+      describeSequenceCell(lane, step, cell, laneState.activeLength),
+    );
+    if (step === sequencePlayhead) button.setAttribute("aria-current", "step");
+    else button.removeAttribute("aria-current");
+  }
+
+  for (const stateName of ["auto", "note", "rest"]) {
+    const button = $("sequenceState" + stateName[0].toUpperCase() + stateName.slice(1));
+    button.setAttribute("aria-pressed", String(selected.state === stateName));
+  }
+  const valueInput = $("sequenceValue");
+  const arp = lane === "arp";
+  valueInput.min = String(arp ? WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS[0] : WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS[0]);
+  valueInput.max = String(arp ? WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS[1] : WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS[1]);
+  valueInput.inputMode = arp ? "decimal" : "text";
+  valueInput.step = arp ? "0.001" : "0.01";
+  if (document.activeElement !== valueInput) {
+    valueInput.value = String(selected.value);
+  }
+  $("sequenceValueLabel").textContent = arp ? "Contour" : "Semitone offset";
+  const insideLoop = state.activeSequenceStep < laneState.activeLength;
+  const effectiveNote = selected.state === "note" && !arp && insideLoop
+    ? shaderNoteName(resolvedSequenceNote(lane, state.activeSequenceStep))
+    : "";
+  const stateText = selected.state === "note"
+    ? arp
+      ? "NOTE CONTOUR " + selected.value.toFixed(3)
+      : "NOTE " + signedNumber(selected.value)
+        + (effectiveNote ? " (" + effectiveNote + ")" : "")
+    : selected.state.toUpperCase();
+  $("sequenceStatus").textContent = definition.label
+    + " | STEP "
+    + String(state.activeSequenceStep + 1).padStart(2, "0")
+    + "/"
+    + laneState.activeLength
+    + " | "
+    + stateText
+    + (state.activeSequenceStep >= laneState.activeLength ? " | OUTSIDE LOOP" : "");
+}
+
+function syncSequencePlayhead(time) {
+  if (state.trackerView !== "sequence") return;
+  const next = webGpuChiptuneSequenceCellIndex(
+    state.activeSequenceLane,
+    time * state.params.tempo,
+    state.params,
+    state.sequence,
+  );
+  if (next === sequencePlayhead) return;
+  sequencePlayhead = next;
+  for (const [step, button] of sequenceButtons) {
+    if (step === next) button.setAttribute("aria-current", "step");
+    else button.removeAttribute("aria-current");
+  }
+}
+
+function renderSequenceControls() {
+  sequenceButtons.clear();
+  const tabs = sequenceLaneDefinitions.map((definition) => {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.id = "sequenceTab-" + definition.key;
+    tab.dataset.lane = definition.key;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-controls", "sequenceGrid");
+    tab.textContent = definition.label;
+    tab.addEventListener("click", () => selectSequenceLane(definition.key));
+    tab.addEventListener("keydown", (event) => {
+      const index = sequenceLaneDefinitions.findIndex(({ key }) => key === definition.key);
+      let nextIndex = null;
+      if (event.key === "ArrowRight") nextIndex = (index + 1) % sequenceLaneDefinitions.length;
+      else if (event.key === "ArrowLeft") {
+        nextIndex = (index - 1 + sequenceLaneDefinitions.length) % sequenceLaneDefinitions.length;
+      } else if (event.key === "Home") nextIndex = 0;
+      else if (event.key === "End") nextIndex = sequenceLaneDefinitions.length - 1;
+      if (nextIndex === null) return;
+      event.preventDefault();
+      const next = sequenceLaneDefinitions[nextIndex].key;
+      selectSequenceLane(next);
+      $("sequenceTab-" + next).focus();
+    });
+    return tab;
+  });
+  $("sequenceVoiceTabs").replaceChildren(...tabs);
+
+  const cells = Array.from({ length: WEBGPU_CHIPTUNE_SEQUENCE_STEPS }, (_, step) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "chiptune-sequence-cell";
+    button.dataset.step = String(step);
+    button.addEventListener("keydown", (event) => sequenceCellKeyDown(event, step));
+    button.addEventListener("pointerdown", (event) => sequenceCellPointerDown(event, step));
+    button.addEventListener("pointermove", sequenceCellPointerMove);
+    button.addEventListener("pointerup", sequenceCellPointerEnd);
+    button.addEventListener("pointercancel", sequenceCellPointerCancel);
+    button.addEventListener("click", (event) => {
+      if (event.detail === 0) cycleSequenceCell(step);
+    });
+    sequenceButtons.set(step, button);
+    return button;
+  });
+  $("sequenceGrid").replaceChildren(...cells);
+
+  $("trackerViewMorph").addEventListener("change", () => setTrackerView("morph"));
+  $("trackerViewSequence").addEventListener("change", () => setTrackerView("sequence"));
+  $("sequenceLength").addEventListener("change", (event) => {
+    setSequenceLaneLength(event.currentTarget.value);
+  });
+  $("sequencePageOne").addEventListener("click", () => setSequencePage(0));
+  $("sequencePageTwo").addEventListener("click", () => setSequencePage(1));
+  $("sequenceStateAuto").addEventListener("click", () => {
+    setSequenceCell(state.activeSequenceStep, "auto");
+  });
+  $("sequenceStateNote").addEventListener("click", () => {
+    setSequenceCell(state.activeSequenceStep, "note");
+  });
+  $("sequenceStateRest").addEventListener("click", () => {
+    setSequenceCell(state.activeSequenceStep, "rest");
+  });
+  $("sequenceValue").addEventListener("input", (event) => {
+    if (!event.currentTarget.value || !event.currentTarget.validity.valid) return;
+    setSequenceCell(state.activeSequenceStep, "note", Number(event.currentTarget.value), {
+      announceChange: false,
+    });
+  });
+  $("sequenceValue").addEventListener("change", (event) => {
+    const input = event.currentTarget;
+    if (!input.value || !input.validity.valid) {
+      const cell = state.sequence
+        .lanes[state.activeSequenceLane]
+        .cells[state.activeSequenceStep];
+      const stepMismatch = input.validity.stepMismatch;
+      const arp = state.activeSequenceLane === "arp";
+      input.value = String(cell.value);
+      announce(
+        activeSequenceDefinition().label
+          + (stepMismatch
+            ? arp
+              ? " contour must use increments of 0.001 between 0 and 1."
+              : " offset must use increments of 0.01 semitones between -72 and 72."
+            : arp
+              ? " contour must be between 0 and 1."
+              : " offset must be between -72 and 72 semitones."),
+      );
+      return;
+    }
+    setSequenceCell(
+      state.activeSequenceStep,
+      "note",
+      Number(event.currentTarget.value),
+    );
+  });
+  $("sequenceValue").addEventListener("focusout", syncSequenceControls);
+  $("varySequenceLane").addEventListener("click", varySequenceLane);
+  $("clearSequenceLane").addEventListener("click", clearSequenceLane);
+  syncSequenceControls();
+}
+
 function createKnobControl(key) {
   const spec = controlSpecsByKey.get(key);
   const hue = knobHueByKey.get(key) ?? 0;
@@ -1184,6 +2563,11 @@ function balanceKnobRows() {
   bank.dataset.knobColumns = String(columns);
 }
 
+function syncResponsiveLayout() {
+  balanceKnobRows();
+  syncSequenceControls();
+}
+
 function createAdvancedGroup(definition) {
   const details = document.createElement("details");
   details.className = "chiptune-subgroup";
@@ -1200,18 +2584,21 @@ function createAdvancedGroup(definition) {
   for (const key of definition.keys) {
     const spec = controlSpecsByKey.get(key);
     if (!spec) throw new Error("Missing Chiptune control spec: " + key);
-    body.append(createRangeControl(spec));
+    body.append(createParamControl(spec));
   }
   details.append(summary, body);
   return details;
 }
 
 function renderControls() {
+  controlInputs.clear();
+  controlOutputs.clear();
+  fractionControls.clear();
   $("knobControls").replaceChildren(...knobOrder.map(createKnobControl));
-  $("patternControls").replaceChildren(...controlGroups.pattern.map(createRangeControl));
-  $("voiceControls").replaceChildren(...controlGroups.voice.map(createRangeControl));
-  $("drumControls").replaceChildren(...controlGroups.drums.map(createRangeControl));
-  $("echoControls").replaceChildren(...controlGroups.echo.map(createRangeControl));
+  $("patternControls").replaceChildren(...controlGroups.pattern.map(createParamControl));
+  $("voiceControls").replaceChildren(...controlGroups.voice.map(createParamControl));
+  $("drumControls").replaceChildren(...controlGroups.drums.map(createParamControl));
+  $("echoControls").replaceChildren(...controlGroups.echo.map(createParamControl));
   $("scaleControls").replaceChildren(createScaleEditor());
   $("gateControls").replaceChildren(createGateEditor());
   $("advancedControls").replaceChildren(
@@ -1255,10 +2642,11 @@ function safeRandomValue(key, bounds = SAFE_RANDOM_RANGES[key]) {
   if (!spec) throw new Error("Missing Chiptune randomization spec: " + key);
   const minimumUnit = webGpuChiptuneParamToUnit(key, minimum);
   const maximumUnit = webGpuChiptuneParamToUnit(key, maximum);
-  return quantizeControlValue(
+  const value = quantizeControlValue(
     spec,
     webGpuChiptuneParamFromUnit(key, randomBetween(minimumUnit, maximumUnit)),
   );
+  return nearestMusicalFraction(key, value, [minimum, maximum]);
 }
 
 function randomGateLane(patternSteps = 32) {
@@ -1395,9 +2783,14 @@ function mutatePatch() {
       minimumUnit,
       maximumUnit,
     );
-    next[key] = quantizeControlValue(
+    const value = quantizeControlValue(
       controlSpecsByKey.get(key),
       webGpuChiptuneParamFromUnit(key, targetUnit),
+    );
+    next[key] = nearestMusicalFraction(
+      key,
+      value,
+      SAFE_RANDOM_RANGES[key],
     );
   }
   const lane = Math.random() < 0.5 ? "A" : "B";
@@ -1441,6 +2834,7 @@ async function startAudio() {
   pending = nextEngine.start(state.params, {
     offset: 0,
     autoStart: false,
+    sequence: state.sequence,
   }).then(async (context) => {
     if (
       generation !== audioLifecycleGeneration
@@ -1553,7 +2947,13 @@ function runtimeChanged() {
 }
 
 function resetPatch() {
-  applyParams(WEBGPU_CHIPTUNE_DEFAULTS, "source-tracker");
+  applyParams(WEBGPU_CHIPTUNE_DEFAULTS, "source-tracker", { notify: false });
+  applySequence(WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE, {
+    notify: false,
+    markCustom: false,
+    presetId: "source-tracker",
+  });
+  notifyWaxState();
   state.transportOffset = 0;
   if (state.synthPlaying) {
     transportGeneration += 1;
@@ -1571,7 +2971,7 @@ function resetPatch() {
   } else {
     engine?.pause();
   }
-  announce("Source tracker patch restored.");
+  announce("Source tracker patch and all-AUTO sequence restored.");
 }
 
 function resizeCanvas(canvas) {
@@ -1588,28 +2988,35 @@ function resizeCanvas(canvas) {
   return { width, height, pixelRatio };
 }
 
-const laneDefinitions = Object.freeze([
-  ["upperOne", "UPPER A", "#53f6ff"],
-  ["upperTwo", "UPPER B", "#9dff57"],
-  ["lead", "LEAD", "#ff65bd"],
-  ["arp", "ARP", "#f4c95d"],
-  ["bass", "BASS", "#9c8dff"],
-]);
+const laneDefinitions = Object.freeze(
+  sequenceLaneDefinitions.map(({ key, label, color }) => [key, label, color]),
+);
 
-function trackerNotesForLane(key, subdivisions) {
-  if (trackerCacheParams !== state.params) {
+function trackerNotesForLane(key, subdivisions, windowStartStep) {
+  if (
+    trackerCacheParams !== state.params
+    || trackerCacheSequence !== state.sequence
+    || trackerCacheWindowStart !== windowStartStep
+  ) {
     trackerCacheParams = state.params;
+    trackerCacheSequence = state.sequence;
+    trackerCacheWindowStart = windowStartStep;
     trackerNoteCache.clear();
   }
-  const cacheKey = key + ":" + subdivisions;
+  const cacheKey = key + ":" + subdivisions + ":" + windowStartStep;
   let notes = trackerNoteCache.get(cacheKey);
   if (!notes) {
     const pointCount = 32 * subdivisions;
     notes = new Float32Array(pointCount);
     for (let point = 0; point < pointCount; point += 1) {
-      const step = Math.floor(point / subdivisions);
+      const step = windowStartStep + Math.floor(point / subdivisions);
       const substep = (point % subdivisions + 0.5) / subdivisions;
-      notes[point] = webGpuChiptuneStepSnapshot(step, state.params, substep)[key];
+      notes[point] = webGpuChiptuneStepSnapshot(
+        step,
+        state.params,
+        substep,
+        state.sequence,
+      )[key];
     }
     trackerNoteCache.set(cacheKey, notes);
   }
@@ -1644,7 +3051,9 @@ function drawTracker(context, width, height, time) {
   const bottom = height * 0.88;
   const laneHeight = (bottom - top) / laneDefinitions.length;
   const cellWidth = width / 32;
-  const activeStep = ((Math.floor(time * state.params.tempo * state.params.pitchClock) % 32) + 32) % 32;
+  const absoluteStep = Math.floor(time * state.params.tempo * 4);
+  const windowStartStep = Math.floor(absoluteStep / 32) * 32;
+  const activeStep = ((absoluteStep % 32) + 32) % 32;
 
   context.fillStyle = "rgba(157, 255, 87, 0.075)";
   context.fillRect(activeStep * cellWidth, top, cellWidth, bottom - top);
@@ -1671,20 +3080,26 @@ function drawTracker(context, width, height, time) {
 
     const subdivisions = key === "lead" || key === "arp" ? 8 : 1;
     const pointCount = 32 * subdivisions;
-    const notes = trackerNotesForLane(key, subdivisions);
+    const notes = trackerNotesForLane(key, subdivisions, windowStartStep);
     let previousY = laneTop + laneHeight * 0.5;
+    let drawing = false;
     context.beginPath();
     for (let point = 0; point < pointCount; point += 1) {
       const note = notes[point];
+      if (!Number.isFinite(note)) {
+        drawing = false;
+        continue;
+      }
       const normalized = clamp((note + 48) / 84, 0, 1);
       const x = (point + 0.5) * width / pointCount;
       const y = laneTop + laneHeight * (0.82 - normalized * 0.64);
-      if (point === 0) context.moveTo(x, y);
+      if (!drawing) context.moveTo(x, y);
       else {
         context.lineTo(x, previousY);
         context.lineTo(x, y);
       }
       previousY = y;
+      drawing = true;
     }
     context.strokeStyle = color;
     context.globalAlpha = 0.66;
@@ -1695,6 +3110,7 @@ function drawTracker(context, width, height, time) {
     for (let point = 0; point < pointCount; point += 1) {
       const step = Math.floor(point / subdivisions);
       const note = notes[point];
+      if (!Number.isFinite(note)) continue;
       const normalized = clamp((note + 48) / 84, 0, 1);
       const x = (point + 0.5) * width / pointCount;
       const y = laneTop + laneHeight * (0.82 - normalized * 0.64);
@@ -1721,9 +3137,30 @@ function drawTracker(context, width, height, time) {
     context.stroke();
   }
 
-  const drumTime = time * state.params.tempo * state.params.drumRate;
-  const pulse = Math.exp(-fract(drumTime) * 8);
-  const snare = Math.exp(-fract(drumTime - 0.5) * 11);
+  const drumTempo = state.params.tempo * Math.max(state.params.drumRate, 0.01);
+  const drumClock = time * drumTempo;
+  const drumDecay = Math.max(state.params.drumDecay, 0.1);
+  const kickCycle = Math.max(state.params.kickCycle, 0.05);
+  const kickClock = positiveModulo(
+    drumClock - state.params.kickPhase * kickCycle,
+    kickCycle,
+  );
+  const kickTime = positiveModulo(
+    kickClock,
+    Math.max(state.params.kickSubcycle, 0.05),
+  ) / drumTempo;
+  const kickDecay = state.params.kickDecayRate / drumDecay;
+  const pulse = Math.exp(-kickTime * kickDecay)
+    * Math.exp(-Math.max(state.params.kickAttackTime - kickTime, 0) * kickDecay);
+  const snareCycle = Math.max(state.params.snareCycle, 0.01);
+  const snareTime = positiveModulo(
+    drumClock - state.params.snarePhase * snareCycle,
+    snareCycle,
+  ) / drumTempo;
+  const snare = Math.exp(
+    -Math.max(snareTime - state.params.snareHoldTime, 0)
+      * state.params.snareDecayRate / drumDecay,
+  );
   const drumY = height * 0.935;
   context.fillStyle = "rgba(244, 201, 93, " + (0.08 + pulse * 0.55) + ")";
   context.fillRect(0, drumY, width * clamp(state.params.kickLevel / 2, 0, 1) * pulse, height * 0.016);
@@ -1748,6 +3185,255 @@ function drawTracker(context, width, height, time) {
   context.globalAlpha = 1;
 }
 
+const characterPalettes = Object.freeze([
+  Object.freeze({ hue: 186, name: "SCOUT" }),
+  Object.freeze({ hue: 103, name: "RUNNER" }),
+  Object.freeze({ hue: 267, name: "MONSTER" }),
+  Object.freeze({ hue: 326, name: "HERO" }),
+  Object.freeze({ hue: 43, name: "SPRITE" }),
+]);
+const reducedMotionQuery = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)");
+
+function deterministicPixel(seed) {
+  return positiveModulo(Math.sin(seed * 12.9898 + 78.233) * 43758.5453, 1);
+}
+
+function resizeCharacterCanvas(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const pixelScale = rect.width >= 1600 ? 4 : rect.width >= 920 ? 3 : 2;
+  const width = Math.max(120, Math.floor(rect.width / pixelScale));
+  const height = Math.max(32, Math.floor(rect.height / pixelScale));
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  return { width, height };
+}
+
+function pixelRect(context, x, y, width, height, color) {
+  context.fillStyle = color;
+  context.fillRect(
+    Math.round(x),
+    Math.round(y),
+    Math.max(1, Math.round(width)),
+    Math.max(1, Math.round(height)),
+  );
+}
+
+function actorColors(actor, index) {
+  const base = characterPalettes[index].hue;
+  const hue = positiveModulo(base + (actor.hue - 0.5) * 64, 360);
+  const lightness = 38 + actor.levelUnit * 24;
+  return Object.freeze({
+    outline: "#020509",
+    shadow: "hsl(" + hue + " 62% " + Math.max(18, lightness - 22) + "%)",
+    body: "hsl(" + hue + " 88% " + lightness + "%)",
+    highlight: "hsl(" + positiveModulo(hue + 18, 360) + " 96% "
+      + Math.min(88, lightness + 22) + "%)",
+  });
+}
+
+function drawStateBadge(context, actor, x, y, unit, colors) {
+  if (actor.cellState === "note") {
+    pixelRect(context, x - unit, y, unit * 2, unit, colors.highlight);
+  } else if (actor.cellState === "rest") {
+    pixelRect(context, x - unit * 2, y, unit, unit, colors.shadow);
+    pixelRect(context, x + unit, y, unit, unit, colors.shadow);
+  } else {
+    pixelRect(context, x - unit, y, unit, unit, colors.body);
+    pixelRect(context, x + unit, y, unit, unit, colors.body);
+  }
+}
+
+function drawRestGlyph(context, x, y, unit, color) {
+  pixelRect(context, x, y, unit * 3, unit, color);
+  pixelRect(context, x + unit * 2, y + unit, unit, unit, color);
+  pixelRect(context, x, y + unit * 2, unit * 3, unit, color);
+}
+
+function drawScout(context, actor, x, ground, unit, colors, stride, grow) {
+  const torsoWidth = (3 + Math.round(actor.shape * 3)) * unit;
+  const top = ground - (13 + grow) * unit;
+  pixelRect(context, x - 3 * unit, top, 6 * unit, 4 * unit, colors.outline);
+  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 3 * unit, colors.body);
+  pixelRect(context, x + unit, top + unit, unit, unit, colors.highlight);
+  pixelRect(context, x - torsoWidth / 2 - unit, top + 4 * unit, torsoWidth + 2 * unit, 6 * unit, colors.outline);
+  pixelRect(context, x - torsoWidth / 2, top + 4 * unit, torsoWidth, 5 * unit, colors.body);
+  pixelRect(context, x - torsoWidth / 2, top + 4 * unit, torsoWidth, unit, colors.highlight);
+  pixelRect(context, x - torsoWidth / 2 - 2 * unit, top + (5 + (actor.frame & 1)) * unit, 2 * unit, unit, colors.body);
+  pixelRect(context, x + torsoWidth / 2, top + (6 - (actor.frame & 1)) * unit, 2 * unit, unit, colors.body);
+  pixelRect(context, x - 2 * unit + stride, top + 10 * unit, 2 * unit, 3 * unit, colors.body);
+  pixelRect(context, x + stride, top + 10 * unit, 2 * unit, 3 * unit, colors.body);
+}
+
+function drawRunner(context, actor, x, ground, unit, colors, stride, grow) {
+  const top = ground - (12 + grow) * unit;
+  const shoulder = (actor.shape > 0.5 ? 5 : 4) * unit;
+  pixelRect(context, x - unit, top - 2 * unit, 2 * unit, 2 * unit, colors.body);
+  pixelRect(context, x, top - 3 * unit, unit, unit, colors.highlight);
+  pixelRect(context, x - 3 * unit, top, 6 * unit, 4 * unit, colors.outline);
+  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 2 * unit, colors.body);
+  pixelRect(context, x - unit, top + unit, unit, unit, colors.highlight);
+  pixelRect(context, x - shoulder / 2 - unit, top + 4 * unit, shoulder + 2 * unit, 5 * unit, colors.outline);
+  pixelRect(context, x - shoulder / 2, top + 4 * unit, shoulder, 4 * unit, colors.body);
+  pixelRect(context, x - 4 * unit, top + (4 + (actor.frame & 1)) * unit, 2 * unit, 2 * unit, colors.shadow);
+  pixelRect(context, x + 2 * unit, top + (5 - (actor.frame & 1)) * unit, 3 * unit, unit, colors.highlight);
+  pixelRect(context, x - 2 * unit - stride, top + 9 * unit, 2 * unit, 3 * unit, colors.body);
+  pixelRect(context, x + stride, top + 9 * unit, 2 * unit, 3 * unit, colors.body);
+}
+
+function drawMonster(context, actor, x, ground, unit, colors, stride, grow) {
+  const roundness = Math.round(actor.shape * 2);
+  const width = (8 + grow) * unit;
+  const top = ground - (10 + grow) * unit;
+  pixelRect(context, x - width / 2 + roundness * unit, top, width - roundness * 2 * unit, unit, colors.outline);
+  pixelRect(context, x - width / 2, top + unit, width, (7 + grow) * unit, colors.outline);
+  pixelRect(context, x - width / 2 + unit, top + 2 * unit, width - 2 * unit, (5 + grow) * unit, colors.body);
+  pixelRect(context, x - width / 2 + 2 * unit, top + 2 * unit, width - 4 * unit, unit, colors.highlight);
+  pixelRect(context, x - 2 * unit, top + 4 * unit, unit, unit, colors.outline);
+  pixelRect(context, x + unit, top + 4 * unit, unit, unit, colors.outline);
+  pixelRect(context, x - width / 2 - unit, top + 3 * unit, unit, 4 * unit, colors.body);
+  pixelRect(context, x + width / 2, top + 3 * unit, unit, 4 * unit, colors.body);
+  pixelRect(context, x - 3 * unit + stride, top + (8 + grow) * unit, 3 * unit, 2 * unit, colors.shadow);
+  pixelRect(context, x + stride, top + (8 + grow) * unit, 3 * unit, 2 * unit, colors.shadow);
+}
+
+function drawHero(context, actor, x, ground, unit, colors, stride, grow) {
+  const top = ground - (14 + grow) * unit;
+  const capeDirection = actor.shape >= 0.5 ? 1 : -1;
+  pixelRect(context, x - 4 * unit * capeDirection, top + 5 * unit, 4 * unit, 7 * unit, colors.shadow);
+  pixelRect(context, x - 2 * unit, top - unit, 4 * unit, unit, colors.highlight);
+  pixelRect(context, x - 3 * unit, top, 6 * unit, 4 * unit, colors.outline);
+  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 3 * unit, colors.body);
+  pixelRect(context, x + unit, top + unit, unit, unit, colors.highlight);
+  pixelRect(context, x - 3 * unit, top + 4 * unit, 6 * unit, 7 * unit, colors.outline);
+  pixelRect(context, x - 2 * unit, top + 4 * unit, 4 * unit, 6 * unit, colors.body);
+  pixelRect(context, x + 3 * unit, top + (5 + (actor.frame & 1)) * unit, 3 * unit, unit, colors.highlight);
+  pixelRect(context, x + 5 * unit, top + 3 * unit, unit, 5 * unit, colors.highlight);
+  pixelRect(context, x - 2 * unit + stride, top + 11 * unit, 2 * unit, 3 * unit, colors.body);
+  pixelRect(context, x + stride, top + 11 * unit, 2 * unit, 3 * unit, colors.body);
+}
+
+function drawSprite(context, actor, x, ground, unit, colors, stride, grow) {
+  const top = ground - (11 + grow) * unit;
+  const wing = (2 + Math.round(actor.shape * 3)) * unit;
+  pixelRect(context, x - wing - 2 * unit, top + 3 * unit, wing, unit, colors.highlight);
+  pixelRect(context, x - wing - unit, top + 2 * unit, wing, unit, colors.body);
+  pixelRect(context, x + 2 * unit, top + 2 * unit, wing, unit, colors.body);
+  pixelRect(context, x + 2 * unit, top + 3 * unit, wing, unit, colors.highlight);
+  pixelRect(context, x - unit, top - 2 * unit, unit, 2 * unit, colors.highlight);
+  pixelRect(context, x + unit, top - 2 * unit, unit, 2 * unit, colors.highlight);
+  pixelRect(context, x - 3 * unit, top, 6 * unit, 5 * unit, colors.outline);
+  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 4 * unit, colors.body);
+  pixelRect(context, x - unit, top + unit, unit, unit, colors.highlight);
+  pixelRect(context, x - 2 * unit, top + 5 * unit, 4 * unit, 5 * unit, colors.outline);
+  pixelRect(context, x - unit, top + 5 * unit, 2 * unit, 4 * unit, colors.body);
+  pixelRect(context, x - 2 * unit + stride, top + 10 * unit, 2 * unit, unit, colors.body);
+  pixelRect(context, x + stride, top + 10 * unit, 2 * unit, unit, colors.body);
+}
+
+function drawPixelActor(context, actor, index, x, ground, unit, alpha, reducedMotion) {
+  const colors = actorColors(actor, index);
+  const grow = Math.round(actor.levelUnit * 2);
+  const bounce = reducedMotion || actor.resting
+    ? 0
+    : Math.round(actor.bounce * (3 + grow));
+  const stride = reducedMotion || actor.resting
+    ? 0
+    : (actor.frame & 1 ? unit : -unit);
+  const actorGround = ground - bounce;
+  context.save();
+  context.globalAlpha = alpha;
+  pixelRect(context, x - 4 * unit, ground + unit, 8 * unit, unit, colors.shadow);
+  if (actor.key === "upperOne") drawScout(context, actor, x, actorGround, unit, colors, stride, grow);
+  else if (actor.key === "upperTwo") drawRunner(context, actor, x, actorGround, unit, colors, stride, grow);
+  else if (actor.key === "bass") drawMonster(context, actor, x, actorGround, unit, colors, stride, grow);
+  else if (actor.key === "lead") drawHero(context, actor, x, actorGround, unit, colors, stride, grow);
+  else drawSprite(context, actor, x, actorGround, unit, colors, stride, grow);
+  drawStateBadge(context, actor, x, ground + 3 * unit, unit, colors);
+  if (actor.resting) drawRestGlyph(context, x + 3 * unit, actorGround - 12 * unit, unit, colors.highlight);
+  context.restore();
+}
+
+function drawCharacterStage(time) {
+  const canvas = $("characterStage");
+  const context = canvas.getContext("2d");
+  const { width, height } = resizeCharacterCanvas(canvas);
+  const snapshot = webGpuChiptuneStageSnapshot(time, state.params, state.sequence);
+  const reducedMotion = Boolean(reducedMotionQuery?.matches);
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.imageSmoothingEnabled = false;
+  context.fillStyle = "#04080d";
+  context.fillRect(0, 0, width, height);
+
+  const horizon = Math.max(8, Math.floor(height * 0.36));
+  pixelRect(context, 0, horizon, width, 1, "rgba(83,246,255,0.16)");
+  for (let x = 0; x < width; x += Math.max(12, Math.floor(width / 24))) {
+    pixelRect(context, x, horizon, 1, height - horizon, "rgba(83,246,255,0.035)");
+  }
+  const particleCount = Math.round(5 + snapshot.environment.noise * 18);
+  for (let particle = 0; particle < particleCount; particle += 1) {
+    const seed = state.params.patternSeed * 97 + particle * 19;
+    const x = Math.floor(deterministicPixel(seed) * width);
+    const y = Math.floor(deterministicPixel(seed + 7) * Math.max(1, horizon - 2));
+    const brightness = 0.12 + deterministicPixel(seed + 13) * 0.28;
+    pixelRect(context, x, y, 1, 1, "rgba(216,231,231," + brightness + ")");
+  }
+
+  const floor = height - 7 - Math.round(snapshot.drums.kick * 2);
+  pixelRect(context, 0, floor + 2, width, 2, "rgba(244,201,93,"
+    + (0.18 + snapshot.drums.kick * 0.62) + ")");
+  const bayWidth = width / snapshot.actors.length;
+  const unit = height >= 54 && bayWidth >= 64 ? 2 : 1;
+  const trails = reducedMotion
+    ? 0
+    : Math.min(3, Math.round(
+      snapshot.environment.echo
+        * snapshot.environment.echoDecay
+        * snapshot.environment.echoTaps * 0.5,
+    ));
+  snapshot.actors.forEach((actor, index) => {
+    const center = Math.round((index + 0.5) * bayWidth);
+    for (let trail = trails; trail >= 1; trail -= 1) {
+      const direction = index & 1 ? 1 : -1;
+      drawPixelActor(
+        context,
+        actor,
+        index,
+        center + direction * trail * (1 + Math.round(snapshot.environment.stereo * 2)),
+        floor + trail % 2,
+        unit,
+        0.08 + snapshot.environment.echoDecay * 0.12,
+        true,
+      );
+    }
+    drawPixelActor(context, actor, index, center, floor, unit, 0.68 + actor.levelUnit * 0.32, reducedMotion);
+    context.fillStyle = actorColors(actor, index).body;
+    context.globalAlpha = 0.82;
+    context.font = "5px ui-monospace, SFMono-Regular, Consolas, monospace";
+    context.textAlign = "center";
+    context.textBaseline = "bottom";
+    context.fillText(actor.label, center, height);
+    context.globalAlpha = 1;
+  });
+
+  const snareBlocks = Math.round(snapshot.drums.snare * 8);
+  for (let block = 0; block < snareBlocks; block += 1) {
+    const x = Math.floor(deterministicPixel(block + snapshot.masterBeat * 0.001 + 41) * width);
+    const y = Math.max(1, floor - 2 - Math.floor(deterministicPixel(block + 53) * 8));
+    pixelRect(context, x, y, 1, 1, "#ff65bd");
+  }
+  const hatSparks = Math.round((snapshot.drums.hatA + snapshot.drums.hatB) * 6);
+  for (let spark = 0; spark < hatSparks; spark += 1) {
+    const x = Math.floor(deterministicPixel(spark + 73) * width);
+    pixelRect(context, x, 1 + spark % 3, 1, 1, "#53f6ff");
+  }
+  const shaker = Math.round(snapshot.drums.shaker * 4);
+  for (let edge = 0; edge < shaker; edge += 1) {
+    pixelRect(context, edge % 2 ? width - 2 : 1, horizon + edge * 3, 1, 1, "#f4c95d");
+  }
+}
+
 function draw() {
   if (state.disposed) return;
   const canvas = $("stage");
@@ -1755,8 +3441,10 @@ function draw() {
   const { width, height, pixelRatio } = resizeCanvas(canvas);
   const time = transportTime();
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  drawCharacterStage(time);
   drawBackground(context, width, height);
   drawTracker(context, width, height, time);
+  syncSequencePlayhead(time);
   animationFrame = requestAnimationFrame(draw);
 }
 
@@ -1846,11 +3534,12 @@ function registerWaxHostAdapter() {
   try {
     wax.register({
       id: "webgpu-chiptune",
-      stateVersion: 1,
+      stateVersion: 2,
       getState() {
         return {
           parameters: { ...state.params },
           activePresetId: state.presetId,
+          sequence: state.sequence,
         };
       },
       applyState(snapshot) {
@@ -1860,8 +3549,17 @@ function registerWaxHostAdapter() {
           ? snapshot.activePresetId
           : "custom";
         if (snapshot.parameters && typeof snapshot.parameters === "object") {
-          applyParams({ ...state.params, ...snapshot.parameters }, presetId, { notify: false });
+          applyParams({
+            ...WEBGPU_CHIPTUNE_DEFAULTS,
+            ...snapshot.parameters,
+          }, presetId, { notify: false });
         }
+        applySequence(
+          snapshot.sequence && typeof snapshot.sequence === "object"
+            ? snapshot.sequence
+            : WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
+          { notify: false, markCustom: false, presetId },
+        );
       },
       subscribeState(listener) {
         waxStateListener = typeof listener === "function" ? listener : null;
@@ -1876,6 +3574,8 @@ function registerWaxHostAdapter() {
 }
 
 renderControls();
+renderSequenceControls();
+setTrackerView("morph", { quiet: true });
 setRuntimeState();
 setSupportState();
 setSynthPlayButtonState();
@@ -1888,6 +3588,12 @@ $("audioButton").addEventListener("click", () => {
 });
 $("synthPlayButton").addEventListener("click", () => {
   void toggleSynthPlay();
+});
+$("previousPreset").addEventListener("click", () => {
+  cyclePreset(-1);
+});
+$("nextPreset").addEventListener("click", () => {
+  cyclePreset(1);
 });
 $("output").addEventListener("input", outputChanged);
 $("chunkDuration").addEventListener("input", runtimeChanged);
@@ -1909,11 +3615,11 @@ $("stage").addEventListener("keydown", stageKeyDown);
 document.addEventListener("keydown", pageKeyDown);
 
 resizeObserver = "ResizeObserver" in globalThis
-  ? new ResizeObserver(balanceKnobRows)
+  ? new ResizeObserver(syncResponsiveLayout)
   : null;
 resizeObserver?.observe($("stageWrap"));
 resizeObserver?.observe($("knobControls"));
-if (!resizeObserver) globalThis.addEventListener("resize", balanceKnobRows);
+if (!resizeObserver) globalThis.addEventListener("resize", syncResponsiveLayout);
 
 animationFrame = requestAnimationFrame(draw);
 
@@ -1922,7 +3628,7 @@ globalThis.addEventListener("pagehide", () => {
   if (animationFrame) cancelAnimationFrame(animationFrame);
   animationFrame = 0;
   resizeObserver?.disconnect();
-  if (!resizeObserver) globalThis.removeEventListener("resize", balanceKnobRows);
+  if (!resizeObserver) globalThis.removeEventListener("resize", syncResponsiveLayout);
   waxStateListener = null;
   void stopAudio({ quiet: true });
 });
@@ -1932,7 +3638,7 @@ globalThis.addEventListener("pageshow", (event) => {
   state.disposed = false;
   resizeObserver?.observe($("stageWrap"));
   resizeObserver?.observe($("knobControls"));
-  if (!resizeObserver) globalThis.addEventListener("resize", balanceKnobRows);
+  if (!resizeObserver) globalThis.addEventListener("resize", syncResponsiveLayout);
   setSynthPlayButtonState();
   animationFrame = requestAnimationFrame(draw);
 });

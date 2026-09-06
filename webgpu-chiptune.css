@@ -8,6 +8,138 @@
   --webgpu-panel-line: color-mix(in oklab, #53f6ff 30%, var(--line));
 }
 
+.webgpu-chiptune-page .webgpu-303-shell {
+  grid-template-rows: clamp(156px, 21dvh, 220px) minmax(0, 1fr);
+}
+
+.chiptune-character-panel {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-bottom: 1px solid color-mix(in oklab, var(--webgpu-cyan) 42%, var(--line-strong));
+  grid-column: 1 / -1;
+  grid-row: 1;
+  grid-template-rows: auto minmax(0, 1fr);
+  background:
+    linear-gradient(90deg, rgba(83, 246, 255, 0.07), transparent 34%, rgba(255, 101, 189, 0.06)),
+    #05090e;
+  box-shadow: inset 0 -14px 34px rgba(0, 0, 0, 0.38);
+}
+
+.webgpu-chiptune-page .webgpu-303-stage {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.webgpu-chiptune-page .webgpu-303-panel {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.chiptune-character-header {
+  display: flex;
+  min-height: 42px;
+  padding: 5px 12px 4px 16px;
+  border-bottom: 1px solid rgba(83, 246, 255, 0.18);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(6, 12, 17, 0.88);
+}
+
+.chiptune-character-header > span {
+  min-width: 0;
+}
+
+.chiptune-character-header small,
+.chiptune-character-header h2 {
+  display: block;
+  margin: 0;
+  letter-spacing: 0.08em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.chiptune-character-header small {
+  color: var(--webgpu-pink);
+  font-size: 7px;
+  font-weight: 750;
+}
+
+.chiptune-character-header h2 {
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.chiptune-character-preset-nav {
+  display: grid;
+  min-width: min(320px, 62vw);
+  grid-template-columns: 38px minmax(110px, 1fr) 38px;
+  align-items: center;
+  gap: 4px;
+}
+
+.chiptune-character-preset-nav button {
+  min-width: 0;
+  min-height: 30px;
+  padding: 0;
+  border: 1px solid rgba(244, 201, 93, 0.42);
+  border-radius: 3px;
+  color: var(--webgpu-amber);
+  background: rgba(9, 15, 20, 0.96);
+  font: 800 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.chiptune-character-preset-nav button:hover,
+.chiptune-character-preset-nav button:focus-visible {
+  border-color: var(--webgpu-amber);
+  color: #071015;
+  background: var(--webgpu-amber);
+}
+
+.chiptune-character-preset-nav output {
+  overflow: hidden;
+  color: var(--webgpu-cyan);
+  font: 750 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chiptune-character-screen {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#characterStage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #05080d;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+.chiptune-preset-description {
+  min-height: 2.8em;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.webgpu-chiptune-page .webgpu-preset-grid {
+  max-height: 220px;
+  padding-right: 3px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
 .webgpu-chiptune-page .webgpu-303-stage-wrap {
   background:
     linear-gradient(rgba(83, 246, 255, 0.035) 1px, transparent 1px),
@@ -280,6 +412,296 @@
   filter: saturate(0.35);
 }
 
+.chiptune-stage-ui {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  padding: 10px;
+  pointer-events: none;
+}
+
+.webgpu-chiptune-page .stage-meta {
+  right: 150px;
+}
+
+.chiptune-view-switch {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid rgba(83, 246, 255, 0.34);
+  border-radius: 999px;
+  pointer-events: auto;
+  background: rgba(4, 8, 12, 0.86);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+}
+
+.chiptune-view-switch label {
+  cursor: pointer;
+}
+
+.chiptune-view-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.chiptune-view-switch span {
+  display: grid;
+  min-height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chiptune-view-switch input:checked + span {
+  color: #061016;
+  background: var(--webgpu-cyan);
+}
+
+.chiptune-view-switch input:focus-visible + span {
+  outline: 2px solid var(--webgpu-amber);
+  outline-offset: 2px;
+}
+
+.chiptune-sequence-workspace {
+  position: absolute;
+  inset: 48px 10px 10px;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid rgba(83, 246, 255, 0.24);
+  pointer-events: auto;
+  background:
+    linear-gradient(135deg, rgba(83, 246, 255, 0.08), transparent 44%),
+    rgba(4, 7, 11, 0.94);
+  grid-template-rows: auto minmax(54px, 1fr) auto;
+  gap: 9px;
+  box-shadow: inset 0 0 35px rgba(83, 246, 255, 0.045);
+}
+
+.chiptune-sequence-workspace[hidden] {
+  display: none;
+}
+
+.chiptune-sequence-toolbar,
+.chiptune-sequence-inspector {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.chiptune-voice-tabs {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 3px;
+}
+
+.chiptune-voice-tabs button,
+.chiptune-sequence-pages button,
+.chiptune-sequence-state-buttons button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: rgba(8, 13, 18, 0.94);
+  font: inherit;
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.chiptune-voice-tabs button[aria-selected="true"],
+.chiptune-sequence-pages button[aria-pressed="true"],
+.chiptune-sequence-state-buttons button[aria-pressed="true"] {
+  border-color: var(--webgpu-cyan);
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--webgpu-cyan);
+}
+
+.chiptune-lane-length,
+.chiptune-sequence-value {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.chiptune-lane-length input,
+.chiptune-sequence-value input {
+  width: 58px;
+  min-height: 32px;
+  padding: 3px 5px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  background: rgba(8, 13, 18, 0.94);
+  font: inherit;
+}
+
+.chiptune-sequence-pages {
+  display: flex;
+  gap: 2px;
+}
+
+.chiptune-sequence-pages[hidden] {
+  display: none;
+}
+
+.chiptune-sequence-grid {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: repeat(32, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.chiptune-sequence-cell {
+  min-width: 0;
+  min-height: 54px;
+  padding: 3px 1px;
+  overflow: hidden;
+  border: 1px dotted color-mix(in oklab, var(--lane-color) 55%, var(--line));
+  color: color-mix(in oklab, var(--lane-color) 72%, white);
+  background: rgba(7, 12, 16, 0.92);
+  font: 700 8px/1.1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-overflow: clip;
+  touch-action: none;
+}
+
+.chiptune-sequence-cell[data-step-state="note"] {
+  border-style: solid;
+  color: #061016;
+  background: color-mix(in oklab, var(--lane-color) 76%, #dff);
+}
+
+.chiptune-sequence-cell[data-step-state="rest"] {
+  border-style: solid;
+  color: var(--muted);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08) 0 2px,
+      transparent 2px 6px
+    ),
+    rgba(5, 8, 12, 0.96);
+}
+
+.chiptune-sequence-cell[data-outside-loop="true"] {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--lane-color) 48%, transparent);
+  box-shadow: inset 0 0 0 999px rgba(4, 8, 11, 0.18);
+}
+
+.chiptune-sequence-cell[data-outside-loop="true"]:focus-visible,
+.chiptune-sequence-cell[data-outside-loop="true"][data-selected="true"] {
+  border-color: var(--lane-color);
+  box-shadow: none;
+}
+
+.chiptune-sequence-cell[data-selected="true"] {
+  outline: 2px solid var(--webgpu-amber);
+  outline-offset: -3px;
+}
+
+.chiptune-sequence-cell[aria-current="step"] {
+  box-shadow:
+    inset 0 4px 0 #fff,
+    0 0 12px color-mix(in oklab, var(--lane-color) 48%, transparent);
+}
+
+.chiptune-sequence-status {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--webgpu-amber);
+  font: 700 9px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chiptune-sequence-state-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+#stageWrap[data-tracker-view="sequence"] #stage {
+  pointer-events: none;
+  opacity: 0.2;
+}
+
+#stageWrap[data-tracker-view="sequence"] .webgpu-303-heading,
+#stageWrap[data-tracker-view="sequence"] .chiptune-gesture-card,
+#stageWrap[data-tracker-view="sequence"] .stage-meta {
+  display: none;
+}
+
+.chiptune-fraction-control {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chiptune-fraction-control legend {
+  display: flex;
+  width: 100%;
+  margin-bottom: 5px;
+  padding: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.chiptune-fraction-control output {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.chiptune-fraction-fields {
+  display: grid;
+  grid-template-columns: minmax(54px, 1fr) auto minmax(54px, 1fr) minmax(64px, auto);
+  align-items: center;
+  gap: 6px;
+}
+
+.chiptune-fraction-fields input {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: 650 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.chiptune-fraction-fields small {
+  color: var(--muted);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
 .webgpu-303-presets .chiptune-control-stack {
   margin-top: 14px;
   padding-top: 13px;
@@ -296,7 +718,134 @@
     0 0 12px color-mix(in oklab, var(--accent) 12%, transparent);
 }
 
+@media (max-width: 980px) {
+  .webgpu-chiptune-page .webgpu-303-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows:
+      clamp(122px, 18dvh, 160px)
+      clamp(220px, 36dvh, 310px)
+      minmax(0, 1fr);
+  }
+
+  .webgpu-chiptune-page .webgpu-303-stage {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .webgpu-chiptune-page .webgpu-303-panel {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .chiptune-sequence-workspace {
+    inset: 64px 7px 7px;
+    padding: 7px;
+    grid-template-rows: auto minmax(44px, 1fr) auto;
+    gap: 6px;
+  }
+
+  .chiptune-sequence-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .chiptune-voice-tabs {
+    min-width: 100%;
+    order: -1;
+  }
+
+  .chiptune-voice-tabs button {
+    flex: 1 1 0;
+    padding-right: 3px;
+    padding-left: 3px;
+  }
+
+  .chiptune-sequence-grid {
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+  }
+
+  .chiptune-sequence-cell {
+    min-height: 44px;
+    font-size: 9px;
+  }
+
+  .chiptune-sequence-toolbar > .mini-action {
+    min-height: 32px;
+    padding: 4px 7px;
+    font-size: 8px;
+  }
+}
+
+@media (pointer: coarse) {
+  .chiptune-character-preset-nav {
+    grid-template-columns: 48px minmax(96px, 1fr) 48px;
+  }
+
+  .chiptune-character-preset-nav button {
+    min-height: 48px;
+  }
+
+  .chiptune-view-switch span,
+  .chiptune-voice-tabs button,
+  .chiptune-sequence-pages button,
+  .chiptune-sequence-state-buttons button,
+  .chiptune-lane-length input,
+  .chiptune-sequence-value input,
+  .chiptune-fraction-fields input {
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 620px) {
+  .chiptune-character-header {
+    min-height: 38px;
+    padding: 3px 6px 3px 10px;
+  }
+
+  .chiptune-character-preset-nav {
+    min-width: min(252px, 70vw);
+  }
+
+  .chiptune-character-header small {
+    display: none;
+  }
+
+  .chiptune-character-header h2 {
+    font-size: 10px;
+  }
+
+  #stageWrap[data-tracker-view="sequence"] + .webgpu-stage-knobs {
+    display: none;
+  }
+
+  .chiptune-sequence-workspace {
+    inset: 64px 5px 5px;
+  }
+
+  .chiptune-sequence-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+
+  .chiptune-sequence-inspector {
+    flex-wrap: wrap;
+  }
+
+  .chiptune-sequence-status {
+    min-width: 100%;
+  }
+
+  .chiptune-lane-length input,
+  .chiptune-sequence-value input {
+    width: 52px;
+  }
+
+  .chiptune-fraction-fields {
+    grid-template-columns: minmax(50px, 1fr) auto minmax(50px, 1fr);
+  }
+
+  .chiptune-fraction-fields small {
+    grid-column: 1 / -1;
+  }
+
   .webgpu-chiptune-page .webgpu-stage-knobs {
     padding-right: 8px;
     padding-left: 8px;
@@ -329,7 +878,29 @@
 
 @media (max-width: 980px) and (max-height: 560px) {
   .webgpu-chiptune-page .webgpu-303-shell {
-    grid-template-rows: minmax(204px, 40dvh) minmax(0, 1fr);
+    grid-template-rows: 84px minmax(122px, 39dvh) minmax(0, 1fr);
+  }
+
+  .chiptune-character-header {
+    position: absolute;
+    z-index: 2;
+    top: 2px;
+    right: 2px;
+    left: 2px;
+    min-height: 30px;
+    padding: 1px 4px;
+    border: 0;
+    pointer-events: none;
+    background: transparent;
+  }
+
+  .chiptune-character-preset-nav {
+    min-width: min(230px, 62vw);
+    pointer-events: auto;
+  }
+
+  .webgpu-chiptune-page .webgpu-303-shell {
+    grid-template-columns: 1fr;
   }
 
   .webgpu-chiptune-page .webgpu-303-stage-wrap {
@@ -369,6 +940,54 @@
   .webgpu-chiptune-page .webgpu-knob-dial {
     width: 42px;
     height: 42px;
+  }
+
+  #stageWrap[data-tracker-view="sequence"] + .webgpu-stage-knobs {
+    display: none;
+  }
+
+  .chiptune-view-switch {
+    top: 4px;
+    right: 4px;
+  }
+
+  .chiptune-sequence-workspace {
+    inset: 58px 3px 0;
+    padding: 3px;
+    grid-template-rows: auto minmax(38px, 1fr) auto;
+    gap: 3px;
+  }
+
+  .chiptune-sequence-toolbar {
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .chiptune-voice-tabs {
+    min-width: 0;
+    order: 0;
+  }
+
+  .chiptune-sequence-toolbar > .mini-action {
+    display: block;
+    min-width: 68px;
+    flex: 0 0 auto;
+    padding: 3px 5px;
+    font-size: 7px;
+  }
+
+  .chiptune-sequence-grid {
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+  }
+
+  .chiptune-sequence-cell {
+    min-height: 38px;
+  }
+
+  .chiptune-sequence-status {
+    display: none;
   }
 
   .chiptune-gesture-card {

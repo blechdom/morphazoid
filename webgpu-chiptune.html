@@ -67,8 +67,117 @@
 
     <main class="shell webgpu-303-shell" id="webgpuChiptune">
       <h1 class="sr-only" id="webgpuChiptuneTitle">WebGPU Chiptune</h1>
+      <section class="chiptune-character-panel" aria-labelledby="pixelEnsembleTitle">
+        <header class="chiptune-character-header">
+          <span>
+            <small>SHADER-DRIVEN CAST</small>
+            <h2 id="pixelEnsembleTitle">Pixel Ensemble</h2>
+          </span>
+          <div class="chiptune-character-preset-nav" aria-label="Character performance preset">
+            <button id="previousPreset" type="button" aria-label="Previous preset">◀</button>
+            <output id="characterPreset">Source Tracker</output>
+            <button id="nextPreset" type="button" aria-label="Next preset">▶</button>
+          </div>
+        </header>
+        <div class="chiptune-character-screen">
+          <canvas
+            id="characterStage"
+            width="240"
+            height="72"
+            role="img"
+            aria-label="Five pixel characters dancing to the Upper A, Upper B, Bass, Lead, and Arp voices."
+            aria-describedby="characterStageDescription characterVoiceLegend"
+          >
+            Five original low-resolution characters visualize the five Chiptune voices.
+          </canvas>
+        </div>
+      </section>
       <section class="stage webgpu-303-stage" aria-labelledby="webgpuChiptuneTitle">
-        <div class="stage-wrap webgpu-303-stage-wrap" id="stageWrap">
+        <div
+          class="stage-wrap webgpu-303-stage-wrap"
+          id="stageWrap"
+          data-tracker-view="morph"
+          data-sequence-page="0"
+        >
+          <div class="chiptune-stage-ui">
+            <fieldset class="chiptune-view-switch">
+              <legend class="sr-only">Tracker view</legend>
+              <label>
+                <input id="trackerViewMorph" name="trackerView" type="radio" value="morph" checked />
+                <span>Morph</span>
+              </label>
+              <label>
+                <input id="trackerViewSequence" name="trackerView" type="radio" value="sequence" />
+                <span>Sequence</span>
+              </label>
+            </fieldset>
+
+            <section
+              class="chiptune-sequence-workspace"
+              id="sequenceWorkspace"
+              aria-label="Voice sequence editor"
+              hidden
+            >
+              <div class="chiptune-sequence-toolbar">
+                <div
+                  class="chiptune-voice-tabs"
+                  id="sequenceVoiceTabs"
+                  role="tablist"
+                  aria-label="Sequence voice"
+                ></div>
+                <label class="chiptune-lane-length" for="sequenceLength">
+                  <span>Length</span>
+                  <input
+                    id="sequenceLength"
+                    type="number"
+                    min="1"
+                    max="32"
+                    step="1"
+                    value="32"
+                    inputmode="numeric"
+                  />
+                </label>
+                <div
+                  class="chiptune-sequence-pages"
+                  id="sequencePageControls"
+                  role="group"
+                  aria-label="Sequence page"
+                >
+                  <button id="sequencePageOne" type="button" aria-pressed="true">01-16</button>
+                  <button id="sequencePageTwo" type="button" aria-pressed="false">17-32</button>
+                </div>
+                <button class="mini-action" id="varySequenceLane" type="button">Vary lane</button>
+                <button class="mini-action" id="clearSequenceLane" type="button">All AUTO</button>
+              </div>
+
+              <div
+                class="chiptune-sequence-grid"
+                id="sequenceGrid"
+                role="tabpanel"
+                aria-describedby="sequenceInstructions liveStatus"
+              ></div>
+
+              <div class="chiptune-sequence-inspector">
+                <output class="chiptune-sequence-status" id="sequenceStatus">
+                  UPPER A | STEP 01/32 | AUTO
+                </output>
+                <div
+                  class="chiptune-sequence-state-buttons"
+                  role="group"
+                  aria-label="Selected step state"
+                >
+                  <button id="sequenceStateAuto" type="button" aria-pressed="true">AUTO</button>
+                  <button id="sequenceStateNote" type="button" aria-pressed="false">NOTE</button>
+                  <button id="sequenceStateRest" type="button" aria-pressed="false">REST</button>
+                </div>
+                <label class="chiptune-sequence-value" for="sequenceValue">
+                  <span id="sequenceValueLabel">Semitones</span>
+                  <input id="sequenceValue" type="number" min="-72" max="72" step="0.01" value="0" inputmode="text" />
+                </label>
+              </div>
+            </section>
+          </div>
+
           <canvas
             id="stage"
             role="application"
@@ -160,6 +269,9 @@
               role="group"
               aria-label="WebGPU Chiptune presets"
             ></div>
+            <p class="chiptune-preset-description" id="presetDescription">
+              The untouched 2015 shader arrangement: all five lanes follow its procedural contours.
+            </p>
             <div class="chiptune-control-stack" id="patternControls"></div>
           </div>
         </details>
@@ -195,8 +307,8 @@
           </summary>
           <div class="group-body">
             <p class="webgpu-credit-note">
-              Edit the source score itself: pitch classes, two gate lanes with a variable loop length,
-              clocks, registers, phrase geometry, drum circuits, envelopes, and routing.
+              Edit the source sequence itself: five AUTO / NOTE / REST voice lanes, exact fraction
+              clocks and phases, variable loop lengths, pitch classes, gates, drum circuits, and routing.
             </p>
             <p class="webgpu-credit-note chiptune-live-note">
               Sound changes refresh upcoming shader chunks; the current chunk and any render already
@@ -277,9 +389,27 @@
         A WebGPU compute shader renders a procedural tracker composition with two upper pulse
         voices, bass, lead, arpeggio, noise percussion, drums, and ping-pong echo into Web Audio.
       </p>
+      <p class="sr-only" id="characterStageDescription">
+        Five original code-drawn, low-resolution game characters share the shader's master
+        transport. Their feet and poses follow each voice's sequence clock and current step.
+        Level changes size and brightness; register and notes change height and color; waveform,
+        pulse shape, articulation, and voice-specific timbre change each silhouette and movement.
+        Rests keep the character visible in an idle pose. Echo makes afterimages, kick compresses
+        the floor, snare throws blocks, and hats and shaker make edge sparks.
+      </p>
+      <p class="sr-only" id="characterVoiceLegend">
+        Upper A is a cyan scout. Upper B is a lime mechanical runner. Bass is a purple stomping
+        monster. Lead is a pink caped hero. Arp is an amber winged sprite.
+      </p>
       <p class="sr-only" id="trackerInstructions">
         Focus the tracker and use left or right arrow keys to change its deterministic pattern
         seed. Use up or down arrow keys to change pitch range. Hold Shift for larger changes.
+      </p>
+      <p class="sr-only" id="sequenceInstructions">
+        In Sequence view, choose a voice. Left and right move between steps. Enter or Space cycles
+        Auto, Note, and Rest. A, N, and R select a state. Up and down change a manual value;
+        Shift changes by 12 semitones for pitched voices or 0.1 for the Arp contour. Delete
+        restores Auto.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
