@@ -8,8 +8,9 @@ ES modules, Canvas, and Web Audio. Native JUCE/VST3 and REAPER targets are also
 supported; plugin work follows `plugins/README.md` and any more specific subtree
 guidance.
 
-Start with `README.md` and `package.json`. Use `npm run dev` for a browser
-preview and `npm run verify` for repository verification. Inspect scripts before
+Start with `README.md` and `package.json`; use `CONTRIBUTING.md` for the human
+development workflow and command matrix. Use `npm run dev` for a browser preview
+and `npm run verify` for repository verification. Inspect scripts before
 invoking narrower build, WAX, publishing, or deployment commands; do not invent
 command names.
 
@@ -95,10 +96,11 @@ command names.
 
 - A stable catalogue ID joins `TOOL_GROUPS` in `nav.js`, `CATALOG_DETAILS` and
   optional secondary tags in `src/instrument-catalog.js`, and every applicable
-  capability classification in `src/instrument-midi-capabilities.js`. Keep
-  these sources synchronized without hard-coded inventory counts or import
-  cycles. Add factual catalogue copy, correct status/features, authored fallback
-  navigation, and a valid WebP icon.
+  capability classification in `src/instrument-midi-capabilities.js`. Compare
+  IDs and records across these sources instead of pinning the current total;
+  keep an explicit count only when cardinality itself is a reviewed product
+  contract. Avoid import cycles. Add factual catalogue copy, correct
+  status/features, authored fallback navigation, and a valid WebP icon.
 - Capability records state required behavior; they do not prove it exists. Keep
   requirements and verified behavior separate. Do not weaken a requirement or
   test merely to accept a missing implementation.
@@ -169,6 +171,30 @@ Use repository skills when their descriptions match the task:
   preset separation, transitions, visual causality, and listening readiness.
 - `$morphazoid-safe-publish` reconciles, commits, pushes, deploys, or hands off
   work safely from a shared or divergent checkout.
+
+## Agent guidance and integrations
+
+- Keep durable, always-on repository invariants in the root `AGENTS.md`. Use a
+  nested `AGENTS.md` only when a subtree genuinely differs; reserve
+  `AGENTS.override.md` for an intentional Codex-only same-directory replacement.
+  Put human explanations in `CONTRIBUTING.md` or focused docs and put enforceable
+  behavior in source, tests, and CI.
+- Create a repository skill in `.agents/skills/<name>/SKILL.md` only for a
+  specialized, repeatable, non-obvious workflow. Give it one job and a precise
+  positive/negative trigger boundary. Update it when its commands, contracts,
+  dependencies, outputs, or demonstrated routing behavior changes; validate
+  structure, trigger and non-trigger prompts, and any helper scripts.
+- Use MCP when agents need a reusable structured runtime capability, especially
+  for live external data, authenticated access, or controlled actions. A skill
+  may teach a repeatable workflow that uses MCP, but it does not replace the
+  server. Before adding one, follow `docs/agent-tooling.md`, define ownership,
+  permissions, versioning, security, conformance, host tests, operations, and
+  rollback, and keep credentials out of tracked files and agent instructions.
+- Do not duplicate this cross-agent guidance in `.github/copilot-instructions.md`.
+  Add provider-specific instructions only for behavior unique to that provider.
+
+See `docs/agent-tooling.md` for the complete AGENTS/skill/MCP decision matrix
+and maintenance checklist.
 
 Treat this file as living guidance. Add a rule only when it is durable across
 multiple tasks; keep page-specific decisions in code, tests, or focused docs.

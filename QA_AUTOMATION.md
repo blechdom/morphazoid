@@ -2,14 +2,14 @@
 
 This browser suite is the mechanical half of the Morphazoid quality process. It is designed to find regressions, inventory controls, and produce reviewable evidence. It does not replace the listening pass that decides whether an instrument is expressive, coherent, or enjoyable.
 
-The route inventory is generated from the same catalogue and navigation data used by the site. At the time this document was written it contains 138 source HTML pages, including 116 catalogue instruments: 74 primary instruments and 42 works in progress.
+The route inventory is generated from the same catalogue and navigation data used by the site. `e2e/routes.mjs`, `nav.js`, and `src/instrument-catalog.js` are the source of truth; documentation and cross-registry tests must compare IDs and records dynamically rather than pinning the current total. An explicit count belongs only in a test where cardinality itself is a reviewed product contract.
 
 ## Setup and commands
 
 Install the JavaScript dependencies and Playwright's Chromium build:
 
 ```sh
-npm install
+npm ci
 npx playwright install chromium
 ```
 
@@ -31,6 +31,10 @@ The Playwright configuration starts a local server on `127.0.0.1:3435`; a separa
 | `npm test` | Run the existing Node test suite; this command is unchanged. |
 | `npm run verify` | Run the existing source, Node-test, and WAX-distribution verification; this command is unchanged. |
 
+`npm run verify` does not run Playwright or build Storybook. Run the applicable
+browser command separately whenever browser behavior, layout, accessibility,
+MIDI, or Web Audio changed.
+
 Useful strict audit modes are opt-in while existing findings are triaged:
 
 ```sh
@@ -47,36 +51,39 @@ npx playwright show-report
 
 ## Present coverage matrix
 
-Counts below describe the current repository and will change automatically as catalogue entries or HTML pages are added.
+Scopes below are derived when the suite starts and change automatically as catalogue entries or HTML pages are added.
 
 | Area | Scope | Automated contract | Important boundary |
 | --- | ---: | --- | --- |
-| Route smoke | 138 HTML pages | Successful document response, visible body, title, language, and no page/console/first-party request or HTTP errors | Does not interact deeply with each page |
-| Shared consistency | 116 catalogue instruments | Shared Audio control exists and starts off; standard navigation/mobile pickers hydrate to the active instrument; the intentional Morphazoidical custom header is an explicit contract | Does not judge detailed visual style or musical consistency |
-| Responsive reachability | 138 HTML pages × 3 layouts | Desktop `1440×900`, phone portrait `390×844`, and phone landscape `844×390`; viewport metadata, horizontal overflow, clipped/fixed interactive controls | Does not prove touch gestures feel good or that visual hierarchy is attractive |
-| Accessibility | 74 primary instruments | axe reports for WCAG 2 A/AA, 2.1 A/AA, and 2.2 AA; critical/serious failures can be gated in strict mode | Automated rules do not replace keyboard, focus, screen-reader, or cognitive review |
-| Control inventory | 74 primary instruments | Duplicate IDs, finite range bounds, nonempty selects, control metadata, and min/mid/max range assignment with restoration | Generic range exercise proves DOM mathematics, not that the mapping is musically correct |
-| MIDI requirements | 116 catalogue instruments | Exactly one required-capability record per route, native/shared ownership, note policy, keyboard policy, and explicit output classification | The declaration is an intent inventory, not proof that every route currently implements it |
+| Route smoke | Every discovered source HTML route | Successful document response, visible body, title, language, and no page/console/first-party request or HTTP errors | Does not interact deeply with each page |
+| Shared consistency | Every catalogue instrument | Shared Audio control exists and starts off; standard navigation/mobile pickers hydrate to the active instrument; the intentional Morphazoidical custom header is an explicit contract | Does not judge detailed visual style or musical consistency |
+| Responsive reachability | Every discovered source HTML route × 3 layouts | Desktop `1440×900`, phone portrait `390×844`, and phone landscape `844×390`; viewport metadata, horizontal overflow, clipped/fixed interactive controls | Does not prove touch gestures feel good or that visual hierarchy is attractive |
+| Accessibility | Every primary instrument | axe reports for WCAG 2 A/AA, 2.1 A/AA, and 2.2 AA; critical/serious failures can be gated in strict mode | Automated rules do not replace keyboard, focus, screen-reader, or cognitive review |
+| Control inventory | Every primary instrument | Duplicate IDs, finite range bounds, nonempty selects, control metadata, and min/mid/max range assignment with restoration | Generic range exercise proves DOM mathematics, not that the mapping is musically correct |
+| MIDI requirements | Every catalogue instrument | Exactly one required-capability record per route, native/shared ownership, note policy, keyboard policy, and explicit output classification | The declaration is an intent inventory, not proof that every route currently implements it |
 | MIDI behavior | 2 representative instruments | Native and public-event note paths, note-off, standard/semantic CC, 24-PPQN clock, Start, and Stop | Real controllers, device latency, every route-specific map, and every transport message still need targeted coverage |
 | Web Audio behavior | 2 representative instruments, 3 contracts | Audio begins inactive, produces finite non-silent output, remains below clipping, reaches sustained silence after stop, and proves Karplus Strong's output slider changes the measured signal | It does not yet compare timbre with a previous release or judge sound quality |
 
 The reports are intentionally useful before every optional strict gate is enabled. Review the attached control and accessibility JSON, fix or explicitly disposition existing findings, then enable strict mode so the accepted state cannot regress.
 
-## First characterization findings
+## Handling characterization findings
 
-The calibrated first run distinguishes application defects from harness noise. It currently reports three concrete polish items:
+Keep live defects in test output and tracked issues rather than in this guide.
+Failures retain screenshots, traces, videos, and machine-readable reports, so a
+fixed finding disappears on the next run without leaving a stale "current"
+defect list in documentation. Do not allowlist a failure merely to make the
+suite green; fix the implementation or document and test an intentional
+product contract.
 
-- `shepard-risset.html` throws in `shepard-risset-app.js` because the script binds `[data-reset-all]` even though that element is absent.
-- `shader-synth-playground.html` places five patch-port buttons beyond the `844×390` phone-landscape viewport.
-- `image-to-instrument-3.html` uses `tongueOut` for both an `<output>` and an `<input>`, creating an ambiguous duplicate DOM ID.
-
-These are deliberately not allowlisted. The relevant browser commands remain red until the pages are fixed, then become regression gates without changing the tests. Vector Flight is not a defect: browser automation uses its existing `?manual=1` deterministic rendering hook so a continuous canvas loop cannot starve headless test execution.
+Vector Flight is an intentional harness exception: browser automation uses its
+existing `?manual=1` deterministic rendering hook so a continuous canvas loop
+cannot starve headless test execution.
 
 ## MIDI contracts
 
 `e2e/helpers/fake-midi.mjs` installs a standards-shaped `navigator.requestMIDIAccess()` before page code runs. It supplies virtual inputs, state changes, timestamped `midimessage` events, optional outputs, and sent-message logs. The page therefore uses its normal MIDI manager and public browser adapter; tests do not call private instrument functions.
 
-The requirement declaration covers all 116 catalogue instruments and currently says that every instrument must accept MIDI input. Its classification contains seven native mappings and 109 intended shared `universal-control` mappings. Each instrument also declares one of four note policies (`processor`, `drums`, `pitched`, or `sequence`), keyboard ownership, and whether MIDI output applies.
+The requirement declaration covers every catalogue instrument and currently says that every instrument must accept MIDI input. Each record declares native or shared `universal-control` ownership, one of four note policies (`processor`, `drums`, `pitched`, or `sequence`), keyboard ownership, and whether MIDI output applies. Tests compare the registry with the catalogue instead of treating any current mode count as permanent.
 
 That declaration is desired coverage, not evidence that the feature exists. Current behavior may bootstrap the detailed mapping contract only where MIDI is actually implemented and verified. If a page should handle notes, CC, clock, or transport but does not, the requirement remains in place and the missing behavior stays an implementation gap; absence must never be captured as the accepted baseline.
 
@@ -138,7 +145,7 @@ Stage 1 is characterization. Drift should be reported and attached, not used to 
 5. Report per-metric deltas and attach candidate/reference audio for meaningful drift. A single opaque similarity score is insufficient for diagnosis.
 6. Updating an approved baseline requires an intentional review: explain the sound change, listen A/B, approve the new artifact, and retain its provenance. Never make “update all snapshots” the default response to failures.
 
-Baseline lanes can be expanded in this order: the 15 Faves, the rest of the 74 primary instruments, then promoted works in progress. This produces a trustworthy standard before multiplying fixtures.
+Baseline lanes can be expanded in this order: the current Faves, the remaining primary instruments, then promoted works in progress. This produces a trustworthy standard before multiplying fixtures.
 
 ## Declarative sonic-slider contracts
 

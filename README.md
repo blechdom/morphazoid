@@ -172,14 +172,18 @@ Continuous voices render in an AudioWorklet. Moving geometry sends short look-ah
 
 ## Play online
 
-<https://blechdom.github.io/morphazoid/>
+<https://morphazoid.com/>
 
-The live [UI component catalog](https://blechdom.github.io/morphazoid/storybook/)
+The live [UI component catalog](https://morphazoid.com/storybook/)
 documents reusable tokens, controls, patterns, and interaction states.
+
+The [GitHub Pages deployment](https://blechdom.github.io/morphazoid/) remains a
+secondary mirror of `main`.
 
 ## Development
 
 ```sh
+npm ci
 npm run dev
 ```
 
@@ -195,12 +199,21 @@ The reusable UI primitives and design tokens are documented in
 component catalog together under `dist/`; Storybook is published at
 `dist/storybook/`.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for repository layout, coding and build
+conventions, generated artifacts, and the verification matrix. Agent and MCP
+maintenance decisions are documented in
+[docs/agent-tooling.md](docs/agent-tooling.md).
+
 ## Checks
 
 ```sh
 npm run verify
 npm run analyze:julia-similarity
 ```
+
+`npm run verify` covers JavaScript parsing, Node tests, and committed WAX
+parity. It does not run Playwright; choose the applicable browser suite from
+[QA_AUTOMATION.md](QA_AUTOMATION.md).
 
 ## License
 

@@ -93,9 +93,11 @@ After the GitHub variables are present, `.github/workflows/deploy-aws.yml`
 verifies and packages pull requests, and deploys pushes to `main`. It uses
 short-lived OIDC credentials; no AWS access keys are stored in GitHub.
 
-The existing GitHub Pages workflow can remain online during DNS cutover. Once
-`https://morphazoid.com` is verified, disable or remove the Pages workflow to
-avoid maintaining two production deployments.
+The repository currently retains `.github/workflows/pages.yml` as a secondary
+mirror of `main`; `https://morphazoid.com` is the canonical production site.
+Both workflows must keep the same verification and release assembly contract.
+If the mirror is retired, disable or remove that workflow and update the public
+links in `README.md` in the same change.
 
 ## Cost and recovery notes
 
