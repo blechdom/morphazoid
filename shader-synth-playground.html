@@ -56,36 +56,49 @@
 
     <main class="playground-workspace" id="shaderSynthPlayground">
       <aside class="module-browser" aria-labelledby="moduleBrowserTitle">
-        <header class="workspace-panel-heading">
-          <h1 id="moduleBrowserTitle">Modules</h1>
-          <p>Add a primitive, then patch from its OUT port into a compatible IN port.</p>
+        <header class="workspace-panel-heading videobrain-panel-heading">
+          <div>
+            <span class="panel-eyebrow">Library</span>
+            <h1 id="moduleBrowserTitle">Add a module</h1>
+          </div>
+          <span class="panel-badge" id="moduleCountBadge" aria-live="polite">0</span>
         </header>
 
-        <div class="module-hear-picker">
-          <label for="moduleHearSelect">Hear a module</label>
-          <div class="module-hear-controls">
-            <select id="moduleHearSelect" aria-label="Choose one module to hear" aria-describedby="moduleHearHelp">
-              <option value="">Choose a module…</option>
-            </select>
-            <button id="moduleHearButton" type="button" disabled>Hear</button>
-          </div>
-          <small class="module-picker-help" id="moduleHearHelp">Choose a module, then press Hear.</small>
-        </div>
+        <label class="module-search-field" for="moduleSearch">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 5 5"></path></svg>
+          <span class="sr-only">Search modules</span>
+          <input id="moduleSearch" type="search" autocomplete="off" placeholder="Search modules" aria-describedby="moduleAddHelp" aria-keyshortcuts="/" />
+          <span class="module-search-key" aria-hidden="true">/</span>
+        </label>
 
-        <div class="module-add-picker" id="modulePalette">
-          <label for="moduleAddSelect">Add a module</label>
-          <div class="module-add-controls">
-            <select
-              id="moduleAddSelect"
-              aria-label="Choose a shader synthesis module to add"
-              aria-describedby="moduleAddHelp"
-              aria-keyshortcuts="/"
-            >
-              <option value="">Choose a module…</option>
-            </select>
-            <button id="moduleAddButton" type="button" disabled>Add</button>
+        <div class="module-category-groups" id="moduleCategoryGroups" aria-label="Module categories"></div>
+
+        <div class="module-utility-stack">
+          <div class="module-hear-picker">
+            <label for="moduleHearSelect">Hear a module</label>
+            <div class="module-hear-controls">
+              <select id="moduleHearSelect" aria-label="Choose one module to hear" aria-describedby="moduleHearHelp">
+                <option value="">Choose a module…</option>
+              </select>
+              <button id="moduleHearButton" type="button" disabled>Hear</button>
+            </div>
+            <small class="module-picker-help" id="moduleHearHelp">Choose a module, then press Hear.</small>
           </div>
-          <small class="sr-only" id="moduleAddHelp">The menu contains every module, grouped by signal role. Choose one, then press Add. Press slash anywhere outside a form control to focus this menu.</small>
+
+          <div class="module-add-picker" id="modulePalette">
+            <label for="moduleAddSelect">Command add</label>
+            <div class="module-add-controls">
+              <select
+                id="moduleAddSelect"
+                aria-label="Choose a shader synthesis module to add"
+                aria-describedby="moduleAddHelp"
+              >
+                <option value="">Choose a module…</option>
+              </select>
+              <button id="moduleAddButton" type="button" disabled>Add</button>
+            </div>
+            <small class="sr-only" id="moduleAddHelp">The menu contains every module, grouped by signal role. Choose one, then press Add. Press slash anywhere outside a form control to focus module search.</small>
+          </div>
         </div>
 
         <section class="port-legend" aria-labelledby="portLegendTitle">
@@ -180,6 +193,11 @@
             aria-label="Connect sample-parallel shader synthesis modules. Audio is off."
             aria-describedby="sampleInvocationModel graphNodeLimitNote graphInstructions graphMobileInstructions liveStatus"
           >
+              <div class="graph-overlay" id="graphOverlay" aria-hidden="true">
+                <span class="graph-overlay-state"><i class="graph-overlay-dot" aria-hidden="true"></i><output id="graphLiveState">PATCH PAUSED</output></span>
+                <span id="graphLoad">0/16 modules</span>
+                <span><output id="graphCableCount">0 cables</output></span>
+              </div>
               <svg class="patch-cables" id="patchCables" aria-hidden="true">
                 <defs>
                   <filter id="cableGlow" x="-30%" y="-30%" width="160%" height="160%">
@@ -248,8 +266,11 @@
       </section>
 
       <aside class="node-inspector" id="nodeInspector" aria-labelledby="inspectorTitle">
-        <header class="workspace-panel-heading inspector-heading">
-          <h2 id="inspectorTitle">Module inspector</h2>
+        <header class="workspace-panel-heading inspector-heading videobrain-panel-heading">
+          <div>
+            <span class="panel-eyebrow">Inspector</span>
+            <h2 id="inspectorTitle">Module inspector</h2>
+          </div>
         </header>
 
         <details class="patch-controls-panel" id="patchControlsPanel" open>

@@ -2585,7 +2585,7 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
     readFile(new URL("webgpu-synths.html", ROOT), "utf8"),
   ]);
   for (const id of [
-    "audioButton", "playgroundPlayButton", "moduleHearSelect", "moduleHearButton", "modulePalette", "moduleAddSelect", "moduleAddButton", "graphViewport", "patchCables", "patchNodes",
+    "audioButton", "playgroundPlayButton", "moduleSearch", "moduleCategoryGroups", "moduleCountBadge", "moduleHearSelect", "moduleHearButton", "modulePalette", "moduleAddSelect", "moduleAddButton", "graphViewport", "graphOverlay", "graphLiveState", "graphCableCount", "patchCables", "patchNodes",
     "nodeInspector", "nodeControls", "statefulNodeToggle", "statefulNodeEnabled", "statefulNodeState",
     "parameterResponseCanvas", "parameterBehavior", "selectedNodeShader", "scopeCanvas",
     "presetButtons", "previousPatch", "nextPatch", "organRankSection", "organRankControls", "resetOrganRanks",
@@ -2597,6 +2597,8 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(html, /class="mobile-instrument-select" aria-label="Instrument"/);
   assert.match(html, /<option value="shader-synth-playground\.html" selected>modular shader synth<\/option>/);
   assert.match(html, /class="audio-strip" aria-label="Audio controls"/);
+  assert.match(html, /class="module-search-field"[\s\S]*?id="moduleSearch"[\s\S]*?aria-keyshortcuts="\/"/);
+  assert.match(html, /id="moduleCategoryGroups"/);
   assert.match(html, /class="play-button playground-play-button"[\s\S]*?id="playgroundPlayButton"[\s\S]*?aria-label="Run patch"[\s\S]*?data-primary-transport/);
   assert.match(html, /class="transport-play"[^>]*>[\s\S]*?M8 5\.5 18 12 8 18\.5Z/);
   assert.match(html, /class="transport-pause"[^>]*>[\s\S]*?M8 6v12M16 6v12/);
@@ -2606,6 +2608,10 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.ok(html.indexOf('id="playgroundPlayButton"') < html.indexOf('id="patchTitle"'));
   assert.doesNotMatch(css, /\.synth-play-button|\.playground-transport/);
   assert.match(css, /\.patch-identity \{[\s\S]*?grid-template-columns: max-content minmax\(0, 1fr\)/);
+  assert.match(css, /\.module-search-field/);
+  assert.match(css, /\.module-category-groups/);
+  assert.match(css, /\.module-tile/);
+  assert.match(css, /\.graph-overlay/);
   assert.match(html, /src=["']nav\.js["']/);
   assert.match(primitives, /href=["']shader-synth-playground\.html["']/);
   assert.match(synth, /href=["']shader-synth-playground\.html["']/);
@@ -2613,9 +2619,10 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.doesNotMatch(`${html}\n${css}`, /playground-(?:masthead|context|related-links)/);
   assert.doesNotMatch(html, /module-coverage|playableModuleCount|83\s*playable|142\s*in atlas/);
   assert.doesNotMatch(app, /playableModuleCount/);
-  assert.doesNotMatch(html, /id=["']moduleSearch["']/);
   assert.doesNotMatch(app, /function renderPalette\(/);
-  assert.match(app, /function renderAddMenu\(\)[\s\S]*?for \(const module of modules\)[\s\S]*?option\.value = module\.id[\s\S]*?select\.dataset\.moduleCount = String\(modules\.length\)/);
+  assert.match(app, /function renderModuleLibrary\(\)/);
+  assert.match(app, /function renderAddMenu\(\)[\s\S]*?buildModuleGroups\(modules\)[\s\S]*?option\.value = module\.id[\s\S]*?select\.dataset\.moduleCount = String\(modules\.length\)/);
+  assert.match(app, /function renderModuleLibrary\(\)[\s\S]*?moduleCountBadge[\s\S]*?data-module-add-tile/);
   assert.match(app, /shader-synth-playground\.js\?v=20260902-monotonic-play-note/);
   assert.match(engineSource, /shader-synth-playground-fx\.js\?v=20260902-monotonic-play-note/);
   assert.match(css, /\.patch-node/);
@@ -2638,10 +2645,12 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(app, /const auditionComboByModuleId = new Map\(combos[\s\S]*?combo\.character === "primitive-audition"[\s\S]*?startsWith\("audition-"\)/);
   assert.match(app, /const dedicatedCombo = auditionComboByModuleId\.get\(focus\.id\);[\s\S]*?if \(dedicatedCombo\)[\s\S]*?patchFromCombo\(dedicatedCombo\)/);
   assert.doesNotMatch(app, /moduleHearSelect[\s\S]{0,500}event\.target\.value = ""/);
+  assert.match(app, /\$\("moduleSearch"\)\.addEventListener\("input"[\s\S]*?state\.moduleSearch/);
+  assert.match(app, /\$\("moduleCategoryGroups"\)\.addEventListener\("click"[\s\S]*?data-category-toggle[\s\S]*?data-module-add-tile/);
   assert.match(app, /\$\("moduleAddSelect"\)\.addEventListener\("change", syncAddModuleButton\)/);
   assert.match(app, /\$\("moduleAddButton"\)\.addEventListener\("click"[\s\S]*?addModule\(moduleId\)/);
   assert.match(app, /option\.disabled = fixedOutput/);
-  assert.match(app, /event\.key === "\/"[\s\S]*?\$\("moduleAddSelect"\)\.focus\(\)/);
+  assert.match(app, /event\.key === "\/"[\s\S]*?\$\("moduleSearch"\)\.focus\(\)/);
   assert.match(app, /function selectAdjacentPatch\(direction\)[\s\S]*?dispatchEvent\(new Event\("change", \{ bubbles: true \}\)\)/);
   assert.match(app, /\$\("previousPatch"\)\.addEventListener\("click"[\s\S]*?selectAdjacentPatch\(-1\)/);
   assert.match(app, /\$\("nextPatch"\)\.addEventListener\("click"[\s\S]*?selectAdjacentPatch\(1\)/);
