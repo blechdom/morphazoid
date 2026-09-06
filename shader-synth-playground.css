@@ -3907,3 +3907,38 @@
     padding-bottom: 72px;
   }
 }
+
+@media (max-width: 920px) {
+  .signal-monitor {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .monitor-heading {
+    display: none;
+  }
+
+  .scope-frame {
+    min-height: 94px;
+    padding: 0;
+  }
+
+  .performance-notes {
+    width: 100%;
+    padding: 0;
+  }
+
+  .performance-notes-heading {
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .performance-play-note {
+    margin-left: 0;
+  }
+
+  .performance-octave {
+    margin-left: auto;
+  }
+}

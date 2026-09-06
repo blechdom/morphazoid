@@ -112,6 +112,28 @@ const CATEGORY_ORDER = Object.freeze([
   "output",
 ]);
 
+const CATEGORY_SHORT_LABELS = Object.freeze({
+  source: "SRC",
+  modulation: "MOD",
+  geometry: "XY",
+  control: "CLK",
+  compose: "MIX",
+  dynamics: "DYN",
+  nonlinear: "DRV",
+  shape: "WAV",
+  space: "FX",
+  spectral: "FFT",
+  filter: "FIR",
+  utility: "UTIL",
+  output: "OUT",
+});
+
+const DEFAULT_EXPANDED_CATEGORIES = Object.freeze([
+  "source",
+  "modulation",
+  "space",
+]);
+
 const COMBO_FAMILY_CATEGORIES = Object.freeze({
   "wave-pan": "tonal",
   "fold-motion": "texture",
@@ -391,6 +413,8 @@ const state = {
   scopeFrame: 0,
   performanceOctave: 3,
   organRanks: sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS),
+  moduleSearch: "",
+  expandedCategories: new Set(DEFAULT_EXPANDED_CATEGORIES),
   midi: {
     notes: new Map(),
     sustainChannels: new Set(),
@@ -782,6 +806,13 @@ function syncPatchStatus() {
     ? startup?.hint ?? "Preparing Web Audio and the GPU device…"
     : "Each GPU sample evaluates the graph in order. This playground currently reserves sixteen node slots per patch.";
   if ($("graphLoad")) $("graphLoad").textContent = `${nodeCount}/${maxNodeCount} modules`;
+  if ($("graphCableCount")) $("graphCableCount").textContent = `${cableCount} ${cableCount === 1 ? "cable" : "cables"}`;
+  if ($("graphLiveState")) {
+    $("graphLiveState").textContent = starting
+      ? (startup?.button ?? "Preparing audio…").toUpperCase()
+      : state.playing ? "LIVE PATCH" : "PATCH PAUSED";
+  }
+  $("graphOverlay")?.classList.toggle("paused", !state.playing && !starting);
   $("graphViewport").setAttribute(
     "aria-label",
     `Shader audio patch with ${nodeCount} modules and ${cableCount} connections. Audio ${state.audioOn ? "on" : "off"}.`,
@@ -901,6 +932,124 @@ function renderHearMenu() {
   syncHearModuleButton();
 }
 
+function categorySortValue(category) {
+  const index = CATEGORY_ORDER.indexOf(category);
+  return index < 0 ? CATEGORY_ORDER.length : index;
+}
+
+function buildModuleGroups(source) {
+  const grouped = new Map();
+  for (const module of source) {
+    const category = module.category || "utility";
+    if (!grouped.has(category)) grouped.set(category, []);
+    grouped.get(category).push(module);
+  }
+  return [...grouped.entries()]
+    .sort(([left], [right]) => categorySortValue(left) - categorySortValue(right))
+    .map(([category, entries]) => [
+      category,
+      [...entries].sort((left, right) => left.label.localeCompare(right.label)),
+    ]);
+}
+
+function matchesModuleSearch(module, query) {
+  if (!query) return true;
+  const haystack = [
+    module.label,
+    module.category,
+    CATEGORY_LABELS[module.category] ?? "",
+    module.role,
+    module.execution,
+    ...module.inputs.map((port) => `${port.label} ${port.type}`),
+    ...module.outputs.map((port) => `${port.label} ${port.type}`),
+  ].join(" ").toLowerCase();
+  return haystack.includes(query);
+}
+
+function renderModuleLibrary() {
+  const container = $("moduleCategoryGroups");
+  if (!container) return;
+  const search = state.moduleSearch.trim().toLowerCase();
+  const activeModuleIds = new Set(patchNodes().map((node) => nodeModuleId(node)));
+  const selectedModuleId = nodeModuleId(findNode(state.selectedNodeId));
+  const groups = buildModuleGroups(modules.filter((module) => matchesModuleSearch(module, search)));
+  if ($("moduleCountBadge")) $("moduleCountBadge").textContent = String(modules.length);
+  if (!groups.length) {
+    const empty = document.createElement("p");
+    empty.className = "module-library-empty";
+    empty.textContent = `No modules match “${state.moduleSearch}”. Try a category, port type, or module name.`;
+    container.replaceChildren(empty);
+    return;
+  }
+  const sections = groups.map(([category, entries]) => {
+    const section = document.createElement("section");
+    section.className = "module-category-group";
+    section.dataset.categoryId = category;
+    const heading = document.createElement("h2");
+    heading.className = "module-category-title";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "module-category-toggle";
+    toggle.dataset.categoryToggle = category;
+    const expanded = Boolean(search) || state.expandedCategories.has(category);
+    const listId = `module-category-${category}`;
+    toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.setAttribute("aria-controls", listId);
+    toggle.title = CATEGORY_LABELS[category] ?? category;
+    const icon = document.createElement("span");
+    icon.className = "module-category-icon";
+    icon.textContent = CATEGORY_SHORT_LABELS[category] ?? category.slice(0, 3).toUpperCase();
+    const label = document.createElement("span");
+    label.className = "module-category-label";
+    label.textContent = CATEGORY_LABELS[category] ?? category;
+    const count = document.createElement("span");
+    count.className = "module-category-count";
+    count.textContent = String(entries.length);
+    const chevron = document.createElement("span");
+    chevron.className = "module-category-chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    chevron.textContent = "⌄";
+    toggle.append(icon, label, count, chevron);
+    heading.append(toggle);
+    const list = document.createElement("div");
+    list.className = "module-category-items";
+    list.id = listId;
+    list.hidden = !expanded;
+    entries.forEach((module) => {
+      const tile = document.createElement("button");
+      tile.type = "button";
+      tile.className = "module-tile";
+      tile.dataset.moduleAddTile = module.id;
+      if (activeModuleIds.has(module.id)) tile.dataset.active = "true";
+      if (selectedModuleId === module.id) tile.dataset.selected = "true";
+      tile.style.setProperty("--module-color", module.color);
+      tile.title = activeModuleIds.has(module.id)
+        ? `${module.label} is already in the patch. Click to focus it.`
+        : `Add ${module.label}`;
+      const tileIcon = document.createElement("span");
+      tileIcon.className = "module-tile-icon";
+      tileIcon.textContent = CATEGORY_SHORT_LABELS[module.category] ?? "MOD";
+      const copyBlock = document.createElement("span");
+      copyBlock.className = "module-tile-copy";
+      const name = document.createElement("span");
+      name.className = "module-tile-name";
+      name.textContent = module.label;
+      const description = document.createElement("span");
+      description.className = "module-tile-description";
+      description.textContent = module.role;
+      copyBlock.append(name, description);
+      const action = document.createElement("span");
+      action.className = "module-tile-action";
+      action.textContent = activeModuleIds.has(module.id) ? "↗" : "+";
+      tile.append(tileIcon, copyBlock, action);
+      list.append(tile);
+    });
+    section.append(heading, list);
+    return section;
+  });
+  container.replaceChildren(...sections);
+}
+
 function syncHearModuleButton() {
   const module = moduleById.get($("moduleHearSelect").value);
   const button = $("moduleHearButton");
@@ -914,22 +1063,10 @@ function renderAddMenu() {
   placeholder.value = "";
   placeholder.textContent = "Choose a module…";
   const fragments = [placeholder];
-  const grouped = new Map();
-  for (const module of modules) {
-    const category = module.category || "utility";
-    if (!grouped.has(category)) grouped.set(category, []);
-    grouped.get(category).push(module);
-  }
-  const orderedGroups = [...grouped].sort(([left], [right]) => {
-    const leftIndex = CATEGORY_ORDER.indexOf(left);
-    const rightIndex = CATEGORY_ORDER.indexOf(right);
-    return (leftIndex < 0 ? CATEGORY_ORDER.length : leftIndex)
-      - (rightIndex < 0 ? CATEGORY_ORDER.length : rightIndex);
-  });
+  const orderedGroups = buildModuleGroups(modules);
   for (const [category, entries] of orderedGroups) {
     const group = document.createElement("optgroup");
     group.label = CATEGORY_LABELS[category] ?? category;
-    entries.sort((left, right) => left.label.localeCompare(right.label));
     for (const module of entries) {
       const option = document.createElement("option");
       option.value = module.id;
@@ -1187,6 +1324,10 @@ function createNodeElement(node, index) {
   const header = document.createElement("header");
   header.className = "node-header";
   header.dataset.dragNode = node.id;
+  const headerIcon = document.createElement("span");
+  headerIcon.className = "node-category-icon";
+  headerIcon.setAttribute("aria-hidden", "true");
+  headerIcon.textContent = CATEGORY_SHORT_LABELS[module.category] ?? module.category.slice(0, 3).toUpperCase();
   const copyBlock = document.createElement("span");
   const label = document.createElement("b");
   label.textContent = module.label;
@@ -1200,7 +1341,7 @@ function createNodeElement(node, index) {
   nodeIndex.className = "node-index";
   if (isSelected) nodeIndex.classList.add("is-selection-status");
   nodeIndex.textContent = isSelected ? "Selected" : String(index + 1).padStart(2, "0");
-  header.append(copyBlock, nodeIndex);
+  header.append(headerIcon, copyBlock, nodeIndex);
 
   const body = document.createElement("div");
   body.className = "node-body";
@@ -1319,6 +1460,7 @@ function renderPatch() {
   const nodes = state.viewMode === "chain" ? orderedIds.map((id) => byId.get(id)).filter(Boolean) : rawNodes;
   $("patchNodes").replaceChildren(...nodes.map(createNodeElement).filter(Boolean));
   refreshConnectionUI();
+  renderModuleLibrary();
   renderPresets();
   renderPatchControls();
   renderInspector();
@@ -2634,6 +2776,24 @@ $("moduleHearButton").addEventListener("click", () => {
   auditionModule(moduleId);
   void startAudio({ play: true });
 });
+$("moduleSearch").addEventListener("input", (event) => {
+  state.moduleSearch = event.target.value;
+  renderModuleLibrary();
+});
+$("moduleCategoryGroups").addEventListener("click", (event) => {
+  const toggle = event.target.closest("[data-category-toggle]");
+  if (toggle) {
+    const category = toggle.dataset.categoryToggle;
+    if (!category || state.moduleSearch.trim()) return;
+    if (state.expandedCategories.has(category)) state.expandedCategories.delete(category);
+    else state.expandedCategories.add(category);
+    renderModuleLibrary();
+    return;
+  }
+  const tile = event.target.closest("[data-module-add-tile]");
+  if (!tile) return;
+  addModule(tile.dataset.moduleAddTile);
+});
 $("moduleAddSelect").addEventListener("change", syncAddModuleButton);
 $("moduleAddButton").addEventListener("click", () => {
   const moduleId = $("moduleAddSelect").value;
@@ -2803,7 +2963,7 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) {
     event.preventDefault();
-    $("moduleAddSelect").focus();
+    $("moduleSearch").focus();
     return;
   }
   if (event.key === "Escape") {
@@ -2841,6 +3001,7 @@ if (globalThis.matchMedia?.("(max-width: 720px)")?.matches) {
 }
 renderHearMenu();
 renderAddMenu();
+renderModuleLibrary();
 renderPerformanceNoteButtons();
 syncExecutionReadout();
 renderPatch();
