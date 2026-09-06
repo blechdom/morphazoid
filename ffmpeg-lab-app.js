@@ -11,7 +11,6 @@ import {
   buildFfmpegVideoArgs,
   chunkFramesForMs,
   concatHistory,
-  createPpmFrame,
   createTelemetryFrame,
   createWaveFileHeader,
   filterPresetById,
@@ -20,7 +19,6 @@ import {
   formatPercent,
   levelToGain,
   peakLevel,
-  rmsLevel,
   sanitizeFfmpegLabState,
 } from "./src/ffmpeg-lab.js";
 
@@ -229,6 +227,9 @@ function ensureAudioGraph() {
     recorderDestination = audioContext.createMediaStreamDestination();
     analyser.connect(recorderDestination);
   }
+  if (!state.audioOn && typeof audioContext.suspend === "function" && audioContext.state === "running") {
+    Promise.resolve(audioContext.suspend()).catch(() => {});
+  }
   return audioContext;
 }
 
@@ -285,7 +286,7 @@ function updateUi() {
   $("audioState").textContent = state.audioOn ? "on" : "off";
   setPressed($("audioButton"), state.audioOn);
   $("outputLevelOut").textContent = formatPercent(state.outputLevel);
-  $("inputLevelOut").textContent = formatPercent(Math.min(1, state.inputLevel / 1));
+  $("inputLevelOut").textContent = `${Math.round(state.inputLevel * 100)}%`;
   $("chunkMsOut").textContent = `${Math.round(state.chunkMs)} ms`;
   $("queueDepthOut").textContent = `${state.maxQueue} chunks`;
   $("chunkSummary").textContent = `${Math.round(state.chunkMs)} ms`;
@@ -607,7 +608,6 @@ async function toggleBrowserRecording() {
     const type = recorder.mimeType || "video/webm";
     const extension = type.includes("webm") ? "webm" : "bin";
     const filename = `ffmpeg-lab-browser-${Date.now()}.${extension}`;
-    downloadBytes(new Uint8Array([]), filename, type);
     const blob = new Blob(chunks, { type });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
