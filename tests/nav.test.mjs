@@ -603,6 +603,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "webgpu-chiptune", href: "webgpu-chiptune.html" },
       { id: "jaw-jam", href: "jaw-jam.html" },
       { id: "webgpu-synths", href: "webgpu-synths.html" },
+      { id: "srtuss", href: "srtuss.html" },
       { id: "shader-synth-playground", href: "shader-synth-playground.html" },
     ],
   );
@@ -792,6 +793,15 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "srtuss"),
+    {
+      id: "srtuss",
+      label: "srtuss Master",
+      href: "srtuss.html",
+      imageHref: "assets/instruments/webgpu-synths.webp",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "shader-synth-playground"),
     {
       id: "shader-synth-playground",
@@ -970,6 +980,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
   assert.equal(resolveActiveTool(`${SITE_ROOT}webgpu-303.html`, SITE_ROOT)?.id, "webgpu-303");
   assert.equal(resolveActiveTool(`${SITE_ROOT}webgpu-synths.html`, SITE_ROOT)?.id, "webgpu-synths");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}srtuss.html`, SITE_ROOT)?.id, "srtuss");
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}shader-synth-playground.html`, SITE_ROOT)?.id,
     "shader-synth-playground",

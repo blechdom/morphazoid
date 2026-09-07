@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#08070b" />
+    <meta
+      name="description"
+      content="Morphazoid srtuss WebGPU synth — layer, shape, and perform original Shadertoy Sound programs through one sound-only master instrument."
+    />
+    <title>srtuss WebGPU synth — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="srtuss.css?v=20260906-parts-1" />
+  </head>
+  <body class="srtuss-page" data-runtime-ready="false">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="webgpu-303.html">webgpu 303</a>
+        <a class="tab" href="webgpu-chiptune.html">webgpu chiptune</a>
+        <a class="tab" href="webgpu-synths.html">gpu shader synths</a>
+        <a class="tab active" href="srtuss.html" aria-current="page">srtuss master</a>
+        <a class="tab" href="shader-synth-playground.html">modular shader synth</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="webgpu-303.html">webgpu 303</option>
+          <option value="webgpu-chiptune.html">webgpu chiptune</option>
+          <option value="webgpu-synths.html">gpu shader synths</option>
+          <option value="srtuss.html" selected>srtuss master</option>
+          <option value="shader-synth-playground.html">modular shader synth</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button
+          class="audio-button"
+          id="audioButton"
+          type="button"
+          aria-pressed="false"
+          aria-label="Turn audio on"
+          title="Turn audio on"
+          disabled
+        >
+          <span class="audio-glyph srtuss-audio-glyph" aria-hidden="true">
+            <svg class="srtuss-speaker-off" viewBox="0 0 24 24">
+              <path d="M4 9h4l5-4v14l-5-4H4Z" />
+              <path d="m4 4 16 16" />
+            </svg>
+            <svg class="srtuss-speaker-on" viewBox="0 0 24 24">
+              <path d="M4 9h4l5-4v14l-5-4H4Z" />
+              <path d="M16 8.2c1.1 1 1.7 2.2 1.7 3.8s-.6 2.8-1.7 3.8M18.6 5.8c1.8 1.7 2.7 3.7 2.7 6.2s-.9 4.5-2.7 6.2" />
+            </svg>
+          </span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">64%</output></span>
+          <input
+            id="output"
+            aria-label="srtuss sound output level"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0.64"
+            disabled
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell srtuss-shell" id="srtuss" aria-labelledby="srtussTitle">
+      <h1 class="sr-only" id="srtussTitle">srtuss WebGPU synth</h1>
+
+      <section class="stage srtuss-workbench" aria-label="srtuss master synth controls">
+        <div class="srtuss-startup-notice" id="startupNotice" role="status">
+          <div>
+            <b>Local server required</b>
+            <span>
+              Browser modules cannot run from a file URL. Start Morphazoid with
+              <code>npm run dev</code>.
+            </span>
+          </div>
+          <a href="http://127.0.0.1:3435/srtuss.html">Open preview</a>
+        </div>
+
+        <section class="srtuss-command-deck" aria-label="Transport and patch actions">
+          <div class="srtuss-transport">
+            <button
+              class="play-button srtuss-play-button"
+              id="synthPlayButton"
+              type="button"
+              aria-pressed="false"
+              aria-label="Play srtuss master synth"
+              aria-keyshortcuts="Space"
+              title="Play srtuss master synth (Space)"
+              data-primary-transport
+              disabled
+            >
+              Play master
+            </button>
+            <span class="srtuss-transport-copy">
+              <b>Master transport</b>
+              <output id="timeline" aria-label="Playback position">00:00.000</output>
+            </span>
+          </div>
+
+          <div class="srtuss-engine-status" aria-live="polite">
+            <span class="srtuss-sound-only">sound only · no image shader · WGSL compute</span>
+            <b id="gpuState">Loading srtuss</b>
+            <small id="streamState">Waiting for the browser modules</small>
+          </div>
+
+          <div class="srtuss-patch-actions" aria-label="Master patch actions">
+            <button class="mini-action" id="randomizePatch" type="button" disabled>
+              Randomize
+            </button>
+            <button class="mini-action" id="mutatePatch" type="button" disabled>
+              Mutate
+            </button>
+            <button
+              class="reset-all-button"
+              id="resetMaster"
+              type="button"
+              data-reset-all
+              data-reset-in-place
+              disabled
+            >
+              Reset
+            </button>
+          </div>
+        </section>
+
+        <section class="srtuss-surface-section srtuss-macro-section" aria-labelledby="masterControlsTitle">
+          <div class="srtuss-surface-heading">
+            <div>
+              <span>Performance layer</span>
+              <h2 id="masterControlsTitle">Rack globals</h2>
+            </div>
+            <small>Five controls move every mapped voice together</small>
+          </div>
+          <div
+            class="srtuss-rack-controls"
+            id="rackControls"
+            aria-label="Rack-wide master controls"
+          >
+            <label class="control srtuss-rack-control" for="globalClock">
+              <span>
+                <b>Clock</b>
+                <output id="globalClockOut" for="globalClock">1.00x</output>
+              </span>
+              <input id="globalClock" type="range" min="0.5" max="2" step="0.01" value="1" disabled />
+            </label>
+            <label class="control srtuss-rack-control" for="globalTune">
+              <span>
+                <b>Tune</b>
+                <output id="globalTuneOut" for="globalTune">0 st</output>
+              </span>
+              <input id="globalTune" type="range" min="-24" max="24" step="1" value="0" disabled />
+            </label>
+            <label class="control srtuss-rack-control" for="globalWidth">
+              <span>
+                <b>Width</b>
+                <output id="globalWidthOut" for="globalWidth">1.12x</output>
+              </span>
+              <input id="globalWidth" type="range" min="0" max="1.5" step="0.01" value="1.12" disabled />
+            </label>
+            <label class="control srtuss-rack-control" for="globalSpace">
+              <span>
+                <b>Space</b>
+                <output id="globalSpaceOut" for="globalSpace">+16</output>
+              </span>
+              <input id="globalSpace" type="range" min="-1" max="1" step="0.01" value="0.16" disabled />
+            </label>
+            <label class="control srtuss-rack-control" for="globalDrive">
+              <span>
+                <b>Drive</b>
+                <output id="globalDriveOut" for="globalDrive">0</output>
+              </span>
+              <input id="globalDrive" type="range" min="-1" max="1" step="0.01" value="0" disabled />
+            </label>
+          </div>
+          <div class="srtuss-surface-subheading">
+            <b>Selected part macros</b>
+            <small>10 source-native mappings</small>
+          </div>
+          <div
+            class="srtuss-knob-shelf"
+            id="masterControls"
+            aria-label="Ten srtuss master macro controls"
+          ></div>
+        </section>
+
+        <section class="srtuss-surface-section srtuss-preset-bank" aria-labelledby="presetBankTitle">
+          <div class="srtuss-surface-heading">
+            <div>
+              <span>Choose a song or scene</span>
+              <h2 id="presetBankTitle">Song parts + presets</h2>
+            </div>
+            <small>Independent source parts first; layered scenes and exact originals follow</small>
+          </div>
+          <div
+            class="srtuss-preset-buttons"
+            id="presetButtons"
+            role="group"
+            aria-label="srtuss master synth presets"
+          ></div>
+        </section>
+
+        <section class="srtuss-surface-section srtuss-voice-section" aria-labelledby="voiceDeckTitle">
+          <div class="srtuss-surface-heading srtuss-voice-heading">
+            <div>
+              <span>Independent source tracks</span>
+              <h2 id="voiceDeckTitle">Song parts</h2>
+            </div>
+            <button class="mini-action" id="addVoice" type="button" disabled>
+              + Add part
+            </button>
+          </div>
+          <div
+            class="srtuss-voice-deck"
+            id="voiceDeck"
+            role="group"
+            aria-label="Active srtuss song parts; select one to edit"
+          ></div>
+        </section>
+      </section>
+
+      <aside class="panel srtuss-editor" aria-label="Selected song part and source controls">
+        <details
+          class="group control-section srtuss-section srtuss-selected-voice"
+          data-section="sound"
+          open
+        >
+          <summary class="group-summary">
+            <h2 class="group-title">Selected part</h2>
+            <span class="section-state" id="selectedVoiceName">Part 01</span>
+          </summary>
+          <div class="group-body">
+            <div class="srtuss-voice-source-row">
+              <label class="select-control" for="selectedVoiceSource">
+                <span><b>Sound source</b></span>
+                <span class="select-shell">
+                  <select id="selectedVoiceSource" aria-label="Selected part sound source" disabled>
+                    <option value="">Loading sound sources…</option>
+                  </select>
+                </span>
+              </label>
+              <label class="select-control" for="selectedVoiceMode">
+                <span><b>Parameter mode</b></span>
+                <span class="select-shell">
+                  <select id="selectedVoiceMode" aria-label="Selected part parameter mode" disabled>
+                    <option value="original" selected>Original · 1:1 source</option>
+                    <option value="master">Master · mapped controls</option>
+                  </select>
+                </span>
+              </label>
+              <label class="select-control" for="selectedVoicePart">
+                <span><b>Internal part</b></span>
+                <span class="select-shell">
+                  <select id="selectedVoicePart" aria-label="Selected internal song part" disabled>
+                    <option value="mix">Complete mix · all generators</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+
+            <div class="srtuss-voice-switches" aria-label="Selected part state">
+              <button
+                class="srtuss-toggle"
+                id="selectedVoiceEnabled"
+                type="button"
+                aria-pressed="true"
+                disabled
+              >
+                Enabled
+              </button>
+              <button
+                class="srtuss-toggle"
+                id="selectedVoiceSolo"
+                type="button"
+                aria-pressed="false"
+                disabled
+              >
+                Solo
+              </button>
+            </div>
+
+            <div class="srtuss-selected-mix">
+              <label class="control srtuss-mix-control" for="selectedVoiceLevel">
+                <span>
+                  <b>Level</b>
+                  <output id="selectedVoiceLevelOut" for="selectedVoiceLevel">100%</output>
+                </span>
+                <input
+                  id="selectedVoiceLevel"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="1"
+                  disabled
+                />
+              </label>
+              <label class="control srtuss-mix-control" for="selectedVoicePan">
+                <span>
+                  <b>Pan</b>
+                  <output id="selectedVoicePanOut" for="selectedVoicePan">Center</output>
+                </span>
+                <input
+                  id="selectedVoicePan"
+                  type="range"
+                  min="-1"
+                  max="1"
+                  step="0.01"
+                  value="0"
+                  disabled
+                />
+              </label>
+              <label class="control srtuss-mix-control" for="selectedVoiceRate">
+                <span>
+                  <b>Tape rate</b>
+                  <output id="selectedVoiceRateOut" for="selectedVoiceRate">1.00×</output>
+                </span>
+                <input
+                  id="selectedVoiceRate"
+                  type="range"
+                  min="0.5"
+                  max="2"
+                  step="0.01"
+                  value="1"
+                  disabled
+                />
+              </label>
+            </div>
+
+            <div class="srtuss-remove-row">
+              <p>Source changes keep the shared clock running and crossfade at a completed buffer.</p>
+              <button class="mini-action srtuss-explode" id="explodeSelectedVoice" type="button" disabled>
+                Explode mix
+              </button>
+              <button class="mini-action" id="removeSelectedVoice" type="button" disabled>
+                Remove part
+              </button>
+            </div>
+          </div>
+        </details>
+
+        <details
+          class="group control-section srtuss-section srtuss-techniques"
+          data-section="mapping"
+          open
+        >
+          <summary class="group-summary">
+            <h2 class="group-title">Technique controls</h2>
+            <span class="section-state">Source decomposition</span>
+          </summary>
+          <div class="group-body">
+            <div
+              class="srtuss-technique-tags"
+              id="techniqueTags"
+              aria-label="Techniques used by the selected source"
+            ></div>
+            <p class="srtuss-technique-description" id="techniqueDescription">
+              Select a voice to inspect its source-native synthesis controls.
+            </p>
+            <div
+              class="srtuss-native-controls"
+              id="nativeControls"
+              aria-label="Selected part source-native controls"
+            ></div>
+          </div>
+        </details>
+
+        <details
+          class="group control-section srtuss-section srtuss-stems"
+          data-section="structure"
+          open
+        >
+          <summary class="group-summary">
+            <h2 class="group-title">Legacy mix buses</h2>
+            <span class="section-state">Complete mix only</span>
+          </summary>
+          <div class="group-body">
+            <p class="srtuss-section-note">
+              These five compatibility buses shape a complete mix. Select a named part or explode the mix to edit its source components independently.
+            </p>
+            <div
+              class="srtuss-stem-controls"
+              id="stemControls"
+              aria-label="Selected part compatibility-bus controls"
+            ></div>
+          </div>
+        </details>
+
+        <details
+          class="group control-section srtuss-section srtuss-originals"
+          data-section="presets"
+        >
+          <summary class="group-summary">
+            <h2 class="group-title">Original archive</h2>
+            <span class="section-state">Verified 1:1 programs</span>
+          </summary>
+          <div class="group-body">
+            <p class="srtuss-section-note">
+              Audition an untouched translated Sound pass or load it as the selected part.
+              Original mode preserves its authored constants.
+            </p>
+            <div
+              class="srtuss-original-buttons"
+              id="originalButtons"
+              role="group"
+              aria-label="Verified original srtuss Sound programs"
+            ></div>
+            <div class="srtuss-ledger" aria-label="srtuss source recovery ledger">
+              <span><b>27</b> profile projects checked</span>
+              <span><b>13</b> authored Sound passes</span>
+              <span><b>14</b> image-only works excluded</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section srtuss-section srtuss-pending" data-section="source">
+          <summary class="group-summary">
+            <h2 class="group-title">Missing source</h2>
+            <span class="section-state">3 not substituted</span>
+          </summary>
+          <div class="group-body">
+            <p class="srtuss-section-note"><b>3 source-pending sounds</b></p>
+            <div id="pendingProjects" class="srtuss-pending-list"></div>
+            <p class="srtuss-section-note">
+              Public mirrors for these works are incomplete or conflict. They stay unavailable until
+              the author-equivalent Sound pass can be verified, rather than presenting a remix as a
+              1:1 port.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section srtuss-section srtuss-runtime" data-section="output">
+          <summary class="group-summary">
+            <h2 class="group-title">GPU stream</h2>
+            <span class="section-state" id="runtimeState">100 ms · 256 lanes · 7/16 parts</span>
+          </summary>
+          <div class="group-body">
+            <div class="srtuss-runtime-controls">
+              <label class="control" for="chunkDuration">
+                <span><b>Chunk length</b><output id="chunkDurationOut" for="chunkDuration">100 ms</output></span>
+                <input id="chunkDuration" type="range" min="0.03" max="0.25" step="0.01" value="0.10" disabled />
+              </label>
+              <label class="select-control" for="workgroupSize">
+                <span><b>Workgroup</b><output id="workgroupSizeOut" for="workgroupSize">256 lanes</output></span>
+                <span class="select-shell">
+                  <select id="workgroupSize" aria-label="WebGPU workgroup size" disabled>
+                    <option value="32">32 lanes</option>
+                    <option value="64">64 lanes</option>
+                    <option value="128">128 lanes</option>
+                    <option value="256" selected>256 lanes</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+            <p>
+              WGSL computes every stereo sample. Web Audio only schedules completed buffers. Sound
+              changes compile lazily and crossfade at a chunk boundary. Fixed-capacity GPU slots keep
+              dynamic voice changes bounded.
+            </p>
+          </div>
+        </details>
+
+        <p class="srtuss-license">
+          Sound programs by <a href="https://www.shadertoy.com/user/srtuss">srtuss</a>.
+          WGSL adaptations are identified in source and retain the upstream CC BY-NC-SA terms;
+          see <a href="THIRD_PARTY_NOTICES.md">third-party notices</a>.
+        </p>
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+      </aside>
+
+      <p class="sr-only" id="srtussDescription">
+        A sound-only WebGPU master synth that layers original srtuss Shadertoy Sound programs,
+        exposes mapped performance macros and source-native controls, and renders no image passes.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="srtuss-app.js?v=20260906-parts-1"></script>
+  </body>
+</html>

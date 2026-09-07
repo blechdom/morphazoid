@@ -176,6 +176,12 @@ export const TOOL_GROUPS = Object.freeze([
     },
     { id: "webgpu-synths", label: "GPU Shader Synths", href: "webgpu-synths.html" },
     {
+      id: "srtuss",
+      label: "srtuss Master",
+      href: "srtuss.html",
+      imageHref: "assets/instruments/webgpu-synths.webp",
+    },
+    {
       id: "shader-synth-playground",
       label: "Modular Shader Synth",
       href: "shader-synth-playground.html",

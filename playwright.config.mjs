@@ -1,6 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = "http://127.0.0.1:3435";
+const webGpuLaunchArgs = process.env.MORPHAZOID_WEBGPU_QA === "1"
+  ? ["--enable-unsafe-webgpu", "--autoplay-policy=no-user-gesture-required"]
+  : [];
 
 export default defineConfig({
   testDir: "./e2e",
@@ -32,9 +35,12 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? {} : { channel: "chromium" }),
         viewport: { width: 1440, height: 900 },
-        launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-          ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
-          : {},
+        launchOptions: {
+          ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+            ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+            : {}),
+          ...(webGpuLaunchArgs.length ? { args: webGpuLaunchArgs } : {}),
+        },
       },
     },
   ],

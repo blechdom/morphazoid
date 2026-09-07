@@ -68,7 +68,7 @@ test("every instrument has factual card copy, a start action, traits, and a tran
       instrument.tags.length,
       `${instrument.id} repeats a tag`,
     );
-    const expectedImageHref = instrument.id === "shader-synth-playground"
+    const expectedImageHref = ["shader-synth-playground", "srtuss"].includes(instrument.id)
       ? "assets/instruments/webgpu-synths.webp"
       : instrument.id === "webgpu-chiptune"
         ? "assets/instruments/webgpu-303.webp"
@@ -248,6 +248,20 @@ test("Modular Shader Synth is a sequencer instrument with shared GPU artwork", (
   const midi = instrumentMidiCapabilityForId("shader-synth-playground");
   assert.equal(midi?.noteMode, "sequence");
   assert.equal(midi?.computerKeyboardMode, "midi");
+});
+
+test("srtuss is a sound-only decomposed WebGPU master synth", () => {
+  const instrument = instrumentById("srtuss");
+  assert.equal(instrument?.href, "srtuss.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/webgpu-synths.webp");
+  assert.match(instrument?.description ?? "", /48 selectable source parts/i);
+  assert.match(instrument?.description ?? "", /all ten verified translations/i);
+  assert.match(instrument?.start ?? "", /Explode mix/i);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers"]);
+  assert.ok(instrument?.features.includes("WebGPU"));
+  assert.ok(instrument?.features.includes("Built-in synth"));
+  assert.equal(instrumentMidiCapabilityForId("srtuss")?.noteMode, "sequence");
+  assert.equal(instrumentMidiCapabilityForId("srtuss")?.computerKeyboardMode, "none");
 });
 
 test("Quantum Square Dance is an exact paired-atom sonification with sequence output", () => {

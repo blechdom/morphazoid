@@ -140,6 +140,73 @@ architecture. That local demo credits its acid voice lineage to:
 Morphazoid keeps that attribution visible on the WebGPU 303 page and does not
 load the Shadertoy page as a runtime dependency.
 
+## srtuss WebGPU master synth and Sound archive
+
+The sound-only srtuss instrument contains WGSL translations of ten original
+Shadertoy Sound passes by srtuss:
+
+- MljSRt — Chiptune (sound)
+- XdSGz1 — noir et blanc (sound)
+- Xd2GW3 — Industry II (sound)
+- 4tsGD8 — Boulder Dash title (sound)
+- ldlfRS — Shift (sound)
+- lldGDM — Noise Bands (sound)
+- ltKSRc — Gravity Shielding (sound)
+- 4tdSDB — DnB (sound)
+- MslBR4 — Cipher (sound)
+- ldfSW2 — sound - acid jam
+
+Original project pages are under:
+
+- https://www.shadertoy.com/user/srtuss
+- https://www.shadertoy.com/view/SHADER_ID
+
+Nine exact Sound-pass source strings were recovered from the public
+GabeRundlett/shadertoy-api-shaders JSON archive pinned at commit
+f6d538adf936215ccf2d11ba9b4a6c79ccb448c5. Acid Jam was recovered from an
+author-attributed SimpleShader copy and independently corroborated against an
+audiojs copy whose executable GLSL matches after normalizing its wrapper-only
+entry-point and helper rename:
+
+- https://raw.githubusercontent.com/mike-seger/simpleshader/3d0593e14bbd585b3eb88d042a3bf251af6c4b63/shaders/shadertoy-gpu-audio/sound-acid-jam-sound.glsl
+- Primary source SHA-256: 1f6c0e5cfb9577681ca79843907ab7f061427fc1a8e35b5d292d3ee8a01b456a
+- https://raw.githubusercontent.com/audiojs/audio-shader/f8de3cd2ddf231198ae7d7aa367bae25d01ed453/test/sounds/acid.glsl
+- Corroborating source SHA-256: f889afecc6270358227964d7fe6f2ac2ea714822ef1eefdf9751da4320cf4cd2
+
+Each WGSL module records its original source length and SHA-256 digest, pinned
+source URL, translation notes, and project URL.
+
+The exact translations remain separately selectable. Morphazoid also derives
+parameterized Master variants from XdSGz1, Xd2GW3, ldlfRS, 4tsGD8, lldGDM,
+ltKSRc, 4tdSDB, and MslBR4. Those variants expose source-native component
+levels and mapped performance controls; they retain the same attribution.
+Chiptune (MljSRt) and Acid Jam (ldfSW2) remain exact-only on this page because
+Morphazoid provides dedicated WebGPU instruments for those two systems.
+
+Morphazoid treats these Shadertoy adaptations under the site's
+Creative Commons Attribution-NonCommercial-ShareAlike 3.0 publication terms
+and preserves the noncommercial/share-alike restriction:
+
+- https://creativecommons.org/licenses/by-nc-sa/3.0/
+
+The standalone Chiptune notice above separately records that its supplied code
+and mirrored JSON do not embed a per-file license declaration; this archive
+does not represent that absence as a more permissive license.
+
+The texture sampled by Noise Bands, Gravity Shielding, and DnB is the exact
+512 × 512 Shadertoy “Pebbles” channel asset, recovered from mrRay/VVISF-GL
+at commit 7306b1abdd0b5536f0f230c0519453e79184e08b:
+
+- https://raw.githubusercontent.com/mrRay/VVISF-GL/7306b1abdd0b5536f0f230c0519453e79184e08b/examples/Qt/ISFEditor/ISFEditor_app/ISFConverter/shadertoy_textures/ad56fba948dfba9ae698198c109e71f118a54d209c0ea50d77ea546abad89c57.png
+- Vendored file SHA-256: 4d0c9886f97a362824c1e21d26ff40a16469564c4ad7e0ce73aab5b392541b04
+
+Three further Sound projects (MdXXW2, Xd2XDm, and 4ddfWX) stay
+marked source-pending because accessible copies are absent, incomplete, or
+conflicting. A separate VEDA acid shader describes itself as heavily inspired
+by ldfSW2; it is not used or represented as the 1:1 source.
+The fourteen image-only srtuss projects are inventoried but are neither bundled
+nor rendered.
+
 ## Pink Trombone
 
 The shared classic 44-section vocal-tract geometry used by Throatazoid, Pink

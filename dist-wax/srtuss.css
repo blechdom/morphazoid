@@ -1,0 +1,2474 @@
+.srtuss-page {
+  --srtuss-cyan: #6ff8ec;
+  --srtuss-lime: #d8ff6a;
+  --srtuss-violet: #b68cff;
+  --srtuss-pink: #ff6cb7;
+}
+
+.srtuss-page {
+  --accent: var(--srtuss-cyan);
+  --accent-soft: color-mix(in oklab, var(--srtuss-cyan) 52%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-cyan) 18%, transparent);
+}
+
+.srtuss-page .audio-strip {
+  display: grid;
+  min-width: 0;
+  margin-left: auto;
+  grid-template-columns: 96px minmax(96px, 140px) 78px;
+  align-items: center;
+  gap: 12px;
+}
+
+.srtuss-page .audio-strip .srtuss-play-button {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.srtuss-page .audio-strip .header-level {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.srtuss-page .audio-strip .audio-button {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.srtuss-audio-glyph {
+  color: var(--srtuss-lime);
+}
+
+.srtuss-page .audio-button[aria-pressed="true"] {
+  border-color: var(--srtuss-lime);
+  box-shadow: 0 0 16px color-mix(in oklab, var(--srtuss-lime) 18%, transparent);
+}
+
+.srtuss-page .synth-play-button {
+  min-width: 96px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in oklab, var(--accent) 52%, var(--line-strong));
+  cursor: pointer;
+  color: color-mix(in oklab, var(--accent) 74%, var(--muted));
+  background: color-mix(in oklab, var(--accent) 7%, var(--bg-deep));
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.srtuss-page .synth-play-button:hover,
+.srtuss-page .synth-play-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--accent) 14%, var(--bg-deep));
+}
+
+.srtuss-page .synth-play-button[aria-pressed="true"] {
+  border-color: var(--srtuss-lime);
+  color: var(--bg-deep);
+  background: var(--srtuss-lime);
+  box-shadow: 0 0 18px color-mix(in oklab, var(--srtuss-lime) 20%, transparent);
+}
+
+.srtuss-page button:disabled,
+.srtuss-page input:disabled,
+.srtuss-page select:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.srtuss-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(356px, 27vw, 430px);
+}
+
+.srtuss-player {
+  position: relative;
+  overflow-y: auto;
+  background:
+    linear-gradient(rgba(111, 248, 236, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(111, 248, 236, 0.024) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(111, 248, 236, 0.035), transparent 42%),
+    var(--bg-deep);
+  background-size: 36px 36px, 36px 36px, auto, auto;
+  scrollbar-color: var(--faint) transparent;
+  scrollbar-width: thin;
+}
+
+.srtuss-stage-heading,
+.srtuss-now-playing,
+.srtuss-programs-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.srtuss-stage-heading {
+  min-height: 88px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 8%, transparent), transparent 66%),
+    color-mix(in oklab, var(--bg-deep) 92%, transparent);
+}
+
+.srtuss-stage-heading p,
+.srtuss-stage-heading h1,
+.srtuss-now-playing p,
+.srtuss-now-playing h2,
+.srtuss-programs-heading p,
+.srtuss-programs-heading h2 {
+  margin: 0;
+}
+
+.srtuss-stage-heading p,
+.srtuss-now-playing p,
+.srtuss-programs-heading p {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.srtuss-stage-heading h1 {
+  margin-top: 5px;
+  color: var(--ink);
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  text-transform: uppercase;
+}
+
+.srtuss-stage-heading > span {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.srtuss-now-playing {
+  min-height: 104px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  align-items: end;
+  background: color-mix(in oklab, var(--panel-high) 48%, transparent);
+}
+
+.srtuss-now-playing > div:first-child {
+  min-width: 0;
+}
+
+.srtuss-now-playing h2 {
+  max-width: 34ch;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: clamp(20px, 2.3vw, 30px);
+  font-weight: 620;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.srtuss-mode {
+  display: block;
+  margin-top: 7px;
+  color: var(--srtuss-cyan);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.srtuss-time {
+  display: grid;
+  min-width: 142px;
+  justify-items: end;
+  gap: 2px;
+}
+
+.srtuss-time span {
+  color: var(--srtuss-lime);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.srtuss-time small {
+  color: var(--muted);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.srtuss-step-controls {
+  display: grid;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 94%, transparent);
+  grid-template-columns: 1fr auto 1fr;
+  gap: 7px;
+}
+
+.srtuss-step-controls button,
+.srtuss-project-button {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.srtuss-step-controls button:hover,
+.srtuss-step-controls button:focus-visible,
+.srtuss-project-button:hover,
+.srtuss-project-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--accent-glow);
+}
+
+.srtuss-programs {
+  display: flex;
+  min-height: 0;
+  padding: 18px 24px 24px;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+
+.srtuss-programs-heading {
+  padding-bottom: 10px;
+}
+
+.srtuss-programs-heading h2 {
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.srtuss-programs-heading > span {
+  color: var(--srtuss-lime);
+  font-size: 8px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.srtuss-project-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.srtuss-project-button {
+  display: grid;
+  min-height: 48px;
+  padding: 8px 10px;
+  text-align: left;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.srtuss-project-button span {
+  color: inherit;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.srtuss-project-button b {
+  overflow: hidden;
+  color: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srtuss-project-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.srtuss-project-button[aria-busy="true"] {
+  border-color: var(--srtuss-lime);
+  color: var(--srtuss-lime);
+}
+
+.srtuss-library {
+  background:
+    linear-gradient(90deg, rgba(111, 248, 236, 0.025), transparent 64%),
+    var(--panel);
+}
+
+.srtuss-startup-notice {
+  display: grid;
+  padding: 13px 22px;
+  border-bottom: 1px solid color-mix(in oklab, var(--srtuss-pink) 42%, var(--line));
+  background: color-mix(in oklab, var(--srtuss-pink) 8%, var(--panel-high));
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.srtuss-startup-notice > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.srtuss-startup-notice b {
+  color: var(--srtuss-pink);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.srtuss-startup-notice span {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.srtuss-startup-notice code {
+  color: var(--ink);
+}
+
+.srtuss-startup-notice a {
+  padding: 7px 9px;
+  border: 1px solid var(--srtuss-pink);
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 700;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.srtuss-startup-notice a:hover,
+.srtuss-startup-notice a:focus-visible {
+  color: var(--bg-deep);
+  background: var(--srtuss-pink);
+}
+
+.srtuss-status {
+  display: grid;
+  min-height: 60px;
+  padding: 12px 22px;
+  border-bottom: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line));
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 9%, transparent), transparent 78%),
+    var(--panel-high);
+  align-content: center;
+  gap: 3px;
+}
+
+.srtuss-status b {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.srtuss-status small {
+  color: var(--muted);
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.srtuss-source-section {
+  --accent: var(--srtuss-cyan);
+  --accent-soft: color-mix(in oklab, var(--srtuss-cyan) 52%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-cyan) 18%, transparent);
+}
+
+.srtuss-voices {
+  --accent: var(--srtuss-lime);
+  --accent-soft: color-mix(in oklab, var(--srtuss-lime) 52%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-lime) 14%, transparent);
+}
+
+.srtuss-voice-toolbar {
+  display: grid;
+  margin-bottom: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.srtuss-voice-toolbar p,
+.srtuss-voice-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.srtuss-voice-toolbar > div {
+  display: flex;
+  gap: 5px;
+}
+
+.srtuss-voice-toolbar button,
+.srtuss-voice-heading button {
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.srtuss-voice-toolbar .reset-all-button {
+  width: auto;
+  min-height: 32px;
+}
+
+.srtuss-voice-toolbar button:hover,
+.srtuss-voice-toolbar button:focus-visible,
+.srtuss-voice-heading button:hover,
+.srtuss-voice-heading button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--accent-glow);
+}
+
+.srtuss-voice-rack {
+  display: grid;
+  gap: 8px;
+}
+
+.srtuss-voice {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 70%),
+    color-mix(in oklab, var(--bg-deep) 84%, var(--panel));
+}
+
+.srtuss-voice[data-enabled="false"] {
+  border-style: dashed;
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--muted) 5%, transparent), transparent 70%),
+    color-mix(in oklab, var(--bg-deep) 84%, var(--panel));
+}
+
+.srtuss-voice[data-enabled="false"] .srtuss-voice-index {
+  color: var(--muted);
+}
+
+.srtuss-voice-heading {
+  display: grid;
+  margin-bottom: 8px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.srtuss-voice-index {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.srtuss-voice-enabled {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 650;
+}
+
+.srtuss-voice-enabled input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+
+.srtuss-voice-source {
+  display: grid;
+  margin: 0 0 9px;
+  gap: 5px;
+}
+
+.srtuss-voice-source > span:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.srtuss-voice-source output {
+  color: var(--muted);
+  font-size: 8px;
+  font-family: var(--mono, monospace);
+}
+
+.srtuss-voice-source select {
+  width: 100%;
+}
+
+.srtuss-voice-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.srtuss-voice-control {
+  min-width: 0;
+}
+
+.srtuss-voice-control > span {
+  gap: 4px;
+}
+
+.srtuss-voice-control .mz-field__label,
+.srtuss-voice-control output {
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.srtuss-voice-control input {
+  width: 100%;
+}
+
+.srtuss-voice-note {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--line);
+}
+
+.srtuss-pending {
+  --accent: var(--srtuss-pink);
+  --accent-soft: color-mix(in oklab, var(--srtuss-pink) 52%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-pink) 17%, transparent);
+}
+
+.srtuss-runtime {
+  --accent: var(--srtuss-violet);
+  --accent-soft: color-mix(in oklab, var(--srtuss-violet) 52%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-violet) 17%, transparent);
+}
+
+.srtuss-page .group-title,
+.srtuss-page .section-state,
+.srtuss-page .control b,
+.srtuss-page .select-control b,
+.srtuss-page output {
+  letter-spacing: 0;
+}
+
+.srtuss-source-card {
+  display: grid;
+  margin: 0;
+  border: 1px solid var(--line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.srtuss-source-card > div {
+  display: grid;
+  min-width: 0;
+  min-height: 56px;
+  padding: 9px 10px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: center;
+  gap: 3px;
+}
+
+.srtuss-source-card > div:nth-child(2n) {
+  border-right: 0;
+}
+
+.srtuss-source-card > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.srtuss-source-card dt {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.srtuss-source-card dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 9px;
+}
+
+.srtuss-source-card a,
+.srtuss-license a,
+.srtuss-pending-list a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in oklab, var(--accent) 52%, transparent);
+  text-underline-offset: 3px;
+}
+
+.srtuss-pending .group-body > p,
+.srtuss-runtime .group-body > p,
+.srtuss-license {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.srtuss-pending .group-body > p:first-child {
+  margin-top: 0;
+  color: var(--ink);
+}
+
+.srtuss-pending-list {
+  display: grid;
+  margin: 9px 0;
+  grid-template-columns: 1fr;
+  gap: 5px;
+}
+
+.srtuss-pending-list a {
+  padding: 7px 8px;
+  border: 1px dashed var(--line-strong);
+  font-size: 8px;
+  text-decoration: none;
+}
+
+.srtuss-pending-list a:hover,
+.srtuss-pending-list a:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.srtuss-runtime-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.srtuss-runtime .select-control {
+  margin-top: 2px;
+}
+
+.srtuss-ledger {
+  display: grid;
+  margin: 16px 22px 0;
+  border: 1px solid var(--line);
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.srtuss-ledger span {
+  display: grid;
+  min-width: 0;
+  min-height: 68px;
+  padding: 8px 6px;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.35;
+  text-align: center;
+  border-right: 1px solid var(--line);
+  place-content: center;
+  gap: 2px;
+}
+
+.srtuss-ledger span:last-child {
+  border-right: 0;
+}
+
+.srtuss-ledger b {
+  color: var(--srtuss-lime);
+  font-size: 14px;
+}
+
+.srtuss-license {
+  margin: 12px 22px 18px;
+}
+
+.srtuss-page .audio-error {
+  margin: 0 22px 18px;
+}
+
+@media (max-width: 1180px) {
+  .srtuss-project-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .srtuss-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: clamp(300px, 48dvh, 430px) minmax(0, 1fr);
+  }
+
+  .srtuss-player {
+    border-right: 0;
+  }
+
+  .srtuss-project-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .srtuss-page .audio-strip {
+    grid-template-columns: 76px minmax(70px, 1fr) 64px;
+    gap: 7px;
+  }
+
+  .srtuss-page .synth-play-button {
+    min-width: 76px;
+    padding: 0 6px;
+    font-size: 8px;
+  }
+
+  .srtuss-stage-heading {
+    min-height: 64px;
+    padding: 10px 16px;
+  }
+
+  .srtuss-stage-heading h1 {
+    font-size: 24px;
+  }
+
+  .srtuss-now-playing {
+    min-height: 84px;
+    padding: 11px 16px;
+  }
+
+  .srtuss-now-playing h2 {
+    font-size: 20px;
+  }
+
+  .srtuss-time {
+    min-width: 112px;
+  }
+
+  .srtuss-time span {
+    font-size: 14px;
+  }
+
+  .srtuss-step-controls {
+    padding: 8px 16px;
+  }
+
+  .srtuss-programs {
+    padding: 13px 16px 18px;
+  }
+
+  .srtuss-project-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .srtuss-startup-notice {
+    grid-template-columns: 1fr;
+  }
+
+  .srtuss-startup-notice a {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 420px) {
+  .srtuss-now-playing {
+    align-items: start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .srtuss-time {
+    justify-items: start;
+  }
+
+  .srtuss-step-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .srtuss-step-controls #restartTrack {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .srtuss-voice-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .srtuss-voice-toolbar > div {
+    justify-content: stretch;
+  }
+
+  .srtuss-voice-toolbar button {
+    flex: 1;
+  }
+
+  .srtuss-voice-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .srtuss-voice-heading button {
+    grid-column: 1 / -1;
+  }
+
+  .srtuss-voice-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .srtuss-voice-controls > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 960px) and (max-height: 560px) {
+  .srtuss-shell {
+    grid-template-rows: clamp(150px, 42dvh, 210px) minmax(0, 1fr);
+  }
+
+  .srtuss-stage-heading {
+    min-height: 44px;
+    padding: 6px 16px;
+  }
+
+  .srtuss-stage-heading p,
+  .srtuss-mode {
+    display: none;
+  }
+
+  .srtuss-stage-heading h1 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .srtuss-now-playing {
+    min-height: 54px;
+    padding: 7px 16px;
+  }
+
+  .srtuss-now-playing h2 {
+    margin-top: 2px;
+    font-size: 16px;
+  }
+
+  .srtuss-step-controls {
+    padding: 5px 16px;
+  }
+
+  .srtuss-step-controls button {
+    min-height: 38px;
+  }
+
+  .srtuss-programs {
+    padding-top: 10px;
+  }
+}
+
+@media (pointer: coarse) {
+  .srtuss-page .audio-button,
+  .srtuss-page .synth-play-button,
+  .srtuss-step-controls button,
+  .srtuss-project-button,
+  .srtuss-voice-toolbar button,
+  .srtuss-voice-heading button,
+  .srtuss-voice-enabled,
+  .srtuss-voice-source select {
+    min-height: 48px;
+  }
+}
+
+/* Control-forward master synth surface. */
+
+.srtuss-page {
+  --srtuss-amber: #ffbd66;
+  --srtuss-red: #ff708b;
+  --srtuss-surface: color-mix(in oklab, var(--panel-high) 74%, var(--bg-deep));
+  --srtuss-surface-strong: color-mix(in oklab, var(--panel-high) 88%, var(--bg-deep));
+  color-scheme: dark;
+  background: var(--bg-deep);
+}
+
+.srtuss-page .masthead {
+  border-bottom-color: color-mix(in oklab, var(--srtuss-cyan) 20%, var(--line));
+}
+
+.srtuss-page .audio-strip {
+  display: grid;
+  width: min(100%, 250px);
+  min-width: 0;
+  margin-left: auto;
+  grid-template-columns: 78px minmax(110px, 154px);
+  align-items: center;
+  gap: 12px;
+}
+
+.srtuss-page .audio-strip .audio-button {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.srtuss-page .audio-strip .header-level {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.srtuss-page .audio-button {
+  min-width: 78px;
+  min-height: 46px;
+  border-color: color-mix(in oklab, var(--srtuss-cyan) 34%, var(--line-strong));
+}
+
+.srtuss-page .audio-button:focus-visible {
+  border-color: var(--srtuss-cyan);
+}
+
+.srtuss-page .srtuss-audio-glyph {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  color: var(--srtuss-cyan);
+  place-items: center;
+}
+
+.srtuss-page .srtuss-audio-glyph svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.srtuss-page .srtuss-speaker-on {
+  display: none;
+}
+
+.srtuss-page .audio-button[aria-pressed="true"] {
+  border-color: var(--srtuss-lime);
+  color: var(--bg-deep);
+  background: var(--srtuss-lime);
+  box-shadow: 0 0 18px color-mix(in oklab, var(--srtuss-lime) 22%, transparent);
+}
+
+.srtuss-page .audio-button[aria-pressed="true"] .srtuss-speaker-off {
+  display: none;
+}
+
+.srtuss-page .audio-button[aria-pressed="true"] .srtuss-speaker-on {
+  display: block;
+}
+
+.srtuss-page .audio-button[aria-pressed="true"] .srtuss-audio-glyph {
+  color: var(--bg-deep);
+}
+
+.srtuss-page button:disabled,
+.srtuss-page input:disabled,
+.srtuss-page select:disabled {
+  cursor: not-allowed;
+  opacity: 0.44;
+}
+
+.srtuss-page .srtuss-shell {
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) clamp(390px, 30vw, 470px);
+  background: var(--bg-deep);
+}
+
+.srtuss-page .srtuss-workbench {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px;
+  overflow-y: auto;
+  border-right-color: color-mix(in oklab, var(--srtuss-cyan) 16%, var(--line));
+  background:
+    linear-gradient(rgba(111, 248, 236, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(111, 248, 236, 0.022) 1px, transparent 1px),
+    radial-gradient(circle at 12% 4%, rgba(111, 248, 236, 0.07), transparent 27%),
+    radial-gradient(circle at 88% 44%, rgba(182, 140, 255, 0.045), transparent 32%),
+    var(--bg-deep);
+  background-size: 32px 32px, 32px 32px, auto, auto, auto;
+  scrollbar-color: var(--faint) transparent;
+  scrollbar-width: thin;
+}
+
+.srtuss-page .srtuss-startup-notice {
+  display: grid;
+  margin: -14px -14px 12px;
+  padding: 9px 14px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--srtuss-pink) 42%, var(--line));
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--srtuss-pink) 11%, transparent), transparent 72%),
+    var(--panel-high);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.srtuss-page[data-runtime-ready="true"] .srtuss-startup-notice,
+.srtuss-page .srtuss-startup-notice[hidden] {
+  display: none;
+}
+
+.srtuss-page .srtuss-startup-notice > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.srtuss-page .srtuss-startup-notice b {
+  color: var(--srtuss-pink);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-startup-notice span {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.srtuss-page .srtuss-startup-notice code {
+  color: var(--ink);
+}
+
+.srtuss-page .srtuss-startup-notice a {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--srtuss-pink);
+  color: var(--ink);
+  background: transparent;
+  font-size: 8px;
+  font-weight: 700;
+  text-decoration: none;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+}
+
+.srtuss-page .srtuss-startup-notice a:hover,
+.srtuss-page .srtuss-startup-notice a:focus-visible {
+  color: var(--bg-deep);
+  background: var(--srtuss-pink);
+}
+
+.srtuss-page .srtuss-command-deck {
+  display: grid;
+  min-width: 0;
+  min-height: 76px;
+  border: 1px solid color-mix(in oklab, var(--srtuss-cyan) 25%, var(--line));
+  background:
+    linear-gradient(100deg, color-mix(in oklab, var(--srtuss-cyan) 9%, transparent), transparent 48%),
+    var(--srtuss-surface);
+  grid-template-columns: auto minmax(180px, 1fr) auto;
+  align-items: stretch;
+}
+
+.srtuss-page .srtuss-transport {
+  display: flex;
+  min-width: 0;
+  padding: 9px 14px 9px 10px;
+  border-right: 1px solid var(--line);
+  align-items: center;
+  gap: 10px;
+}
+
+.srtuss-page .srtuss-play-button {
+  width: auto;
+  min-width: 104px;
+  height: 56px;
+  min-height: 56px;
+  padding: 0 16px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  border-color: var(--srtuss-lime);
+  color: var(--srtuss-lime);
+  background: color-mix(in oklab, var(--srtuss-lime) 6%, var(--bg-deep));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--srtuss-lime) 10%, transparent);
+}
+
+.srtuss-page .srtuss-play-button:hover,
+.srtuss-page .srtuss-play-button:focus-visible {
+  background: color-mix(in oklab, var(--srtuss-lime) 15%, var(--bg-deep));
+  box-shadow: 0 0 18px color-mix(in oklab, var(--srtuss-lime) 19%, transparent);
+}
+
+.srtuss-page .srtuss-play-button[aria-pressed="true"] {
+  color: var(--bg-deep);
+  background: var(--srtuss-lime);
+  box-shadow: 0 0 20px color-mix(in oklab, var(--srtuss-lime) 26%, transparent);
+}
+
+.srtuss-page .srtuss-play-button[aria-pressed="false"] .transport-pause,
+.srtuss-page .srtuss-play-button[aria-pressed="true"] .transport-play {
+  display: none;
+}
+
+.srtuss-page .srtuss-transport-copy {
+  display: grid;
+  min-width: 96px;
+  align-content: center;
+  gap: 5px;
+}
+
+.srtuss-page .srtuss-transport-copy b {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-transport-copy output {
+  color: var(--srtuss-lime);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.srtuss-page .srtuss-engine-status {
+  display: grid;
+  min-width: 0;
+  padding: 11px 16px;
+  align-content: center;
+  gap: 3px;
+}
+
+.srtuss-page .srtuss-sound-only {
+  color: var(--srtuss-violet);
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-engine-status b {
+  overflow: hidden;
+  color: var(--srtuss-cyan);
+  font-size: 10px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-engine-status small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-patch-actions {
+  display: grid;
+  min-width: 262px;
+  padding: 10px;
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(3, minmax(76px, 1fr));
+  align-content: center;
+  gap: 6px;
+}
+
+.srtuss-page .srtuss-patch-actions button {
+  width: auto;
+  min-width: 0;
+  min-height: 42px;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-patch-actions button:hover,
+.srtuss-page .srtuss-patch-actions button:focus-visible {
+  border-color: var(--srtuss-cyan);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--srtuss-cyan) 9%, var(--bg-deep));
+}
+
+.srtuss-page .srtuss-patch-actions #mutatePatch:hover,
+.srtuss-page .srtuss-patch-actions #mutatePatch:focus-visible {
+  border-color: var(--srtuss-violet);
+  background: color-mix(in oklab, var(--srtuss-violet) 10%, var(--bg-deep));
+}
+
+.srtuss-page .srtuss-patch-actions #resetMaster:hover,
+.srtuss-page .srtuss-patch-actions #resetMaster:focus-visible {
+  border-color: var(--srtuss-amber);
+  background: color-mix(in oklab, var(--srtuss-amber) 9%, var(--bg-deep));
+}
+
+.srtuss-page .srtuss-surface-section {
+  min-width: 0;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(105deg, color-mix(in oklab, var(--srtuss-cyan) 3%, transparent), transparent 58%),
+    var(--srtuss-surface);
+}
+
+.srtuss-page .srtuss-surface-heading {
+  display: flex;
+  min-height: 42px;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.srtuss-page .srtuss-surface-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.srtuss-page .srtuss-surface-heading span {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-surface-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-surface-heading small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-macro-section {
+  border-color: color-mix(in oklab, var(--srtuss-cyan) 24%, var(--line));
+}
+
+.srtuss-page .srtuss-rack-controls {
+  display: grid;
+  min-width: 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  background: var(--line);
+  grid-template-columns: repeat(5, minmax(112px, 1fr));
+  gap: 1px;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--faint) transparent;
+  scrollbar-width: thin;
+}
+
+.srtuss-page .srtuss-rack-control {
+  display: grid;
+  min-width: 112px;
+  min-height: 62px;
+  margin: 0;
+  padding: 7px 10px 5px;
+  background:
+    linear-gradient(110deg, color-mix(in oklab, var(--srtuss-cyan) 4%, transparent), transparent 58%),
+    var(--bg-deep);
+  align-content: center;
+  gap: 2px;
+}
+
+.srtuss-page .srtuss-rack-control > span {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.srtuss-page .srtuss-rack-control b {
+  color: var(--ink);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-rack-control output {
+  color: var(--srtuss-cyan);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.srtuss-page .srtuss-rack-control input[type="range"] {
+  width: 100%;
+  height: 30px;
+  margin: 0;
+  accent-color: var(--srtuss-cyan);
+}
+
+.srtuss-page .srtuss-rack-control:has(input:focus-visible) {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid color-mix(in oklab, var(--srtuss-cyan) 52%, transparent);
+  outline-offset: -2px;
+}
+
+.srtuss-page .srtuss-surface-subheading {
+  display: flex;
+  min-height: 31px;
+  padding: 5px 11px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.srtuss-page .srtuss-surface-subheading b {
+  color: var(--ink);
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-surface-subheading small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.srtuss-page .srtuss-knob-shelf {
+  display: grid;
+  min-width: 0;
+  padding: 10px 9px 9px;
+  overflow-x: auto;
+  grid-auto-columns: minmax(68px, 1fr);
+  grid-auto-flow: column;
+  grid-template-rows: minmax(96px, auto);
+  gap: 7px;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--faint) transparent;
+  scrollbar-width: thin;
+}
+
+.srtuss-page .srtuss-knob {
+  --knob-position: 0.5;
+  --srtuss-knob-accent: var(--srtuss-cyan);
+  position: relative;
+  display: grid;
+  min-width: 68px;
+  min-height: 94px;
+  margin: 0;
+  padding: 3px 5px 4px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  grid-template-rows: 58px auto auto;
+  justify-items: center;
+  align-content: start;
+  gap: 1px;
+}
+
+.srtuss-page .srtuss-knob:nth-child(4n + 2) {
+  --srtuss-knob-accent: var(--srtuss-violet);
+}
+
+.srtuss-page .srtuss-knob:nth-child(4n + 3) {
+  --srtuss-knob-accent: var(--srtuss-lime);
+}
+
+.srtuss-page .srtuss-knob:nth-child(4n) {
+  --srtuss-knob-accent: var(--srtuss-amber);
+}
+
+.srtuss-page .srtuss-knob:hover {
+  border-color: color-mix(in oklab, var(--srtuss-knob-accent) 23%, transparent);
+  background: color-mix(in oklab, var(--srtuss-knob-accent) 4%, transparent);
+}
+
+.srtuss-page .srtuss-knob:has(input:focus-visible) {
+  border-color: var(--srtuss-knob-accent);
+  outline: 2px solid color-mix(in oklab, var(--srtuss-knob-accent) 30%, transparent);
+  outline-offset: 1px;
+}
+
+.srtuss-page .srtuss-knob__dial {
+  position: relative;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  border: 1px solid color-mix(in oklab, var(--srtuss-knob-accent) 32%, var(--line-strong));
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, var(--bg-deep) 0 53%, transparent 55%),
+    conic-gradient(
+      from -135deg,
+      var(--srtuss-knob-accent) 0deg,
+      var(--srtuss-knob-accent) calc(var(--knob-position, 0.5) * 270deg),
+      var(--line-strong) calc(var(--knob-position, 0.5) * 270deg),
+      var(--line-strong) 270deg,
+      transparent 270deg
+    );
+  box-shadow:
+    inset 0 0 14px rgba(0, 0, 0, 0.48),
+    0 0 10px color-mix(in oklab, var(--srtuss-knob-accent) 7%, transparent);
+  place-items: center;
+}
+
+.srtuss-page .srtuss-knob__dial::before {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  border: 1px solid color-mix(in oklab, var(--line-strong) 76%, transparent);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.07), transparent 22%),
+    linear-gradient(145deg, var(--panel-high), var(--bg-deep));
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.44);
+  content: "";
+  pointer-events: none;
+}
+
+.srtuss-page .srtuss-knob__dial::after {
+  position: absolute;
+  top: 8px;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 17px;
+  border-radius: 2px;
+  background: var(--srtuss-knob-accent);
+  box-shadow: 0 0 6px color-mix(in oklab, var(--srtuss-knob-accent) 45%, transparent);
+  content: "";
+  pointer-events: none;
+  transform: rotate(calc(-135deg + var(--knob-position, 0.5) * 270deg));
+  transform-origin: 1px 20px;
+}
+
+.srtuss-page .srtuss-knob__dial input[type="range"] {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: ew-resize;
+  opacity: 0.001;
+}
+
+.srtuss-page .srtuss-knob__dial input[type="range"]::-webkit-slider-runnable-track,
+.srtuss-page .srtuss-knob__dial input[type="range"]::-moz-range-track {
+  height: 100%;
+  background: transparent;
+}
+
+.srtuss-page .srtuss-knob__dial input[type="range"]::-webkit-slider-thumb {
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.srtuss-page .srtuss-knob__dial input[type="range"]::-moz-range-thumb {
+  width: 1px;
+  height: 1px;
+  border: 0;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.srtuss-page input.srtuss-knob__dial {
+  width: 56px;
+  height: 56px;
+  margin: 0;
+  border-radius: 50%;
+}
+
+.srtuss-page .srtuss-knob__label {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-knob__value {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: var(--srtuss-knob-accent);
+  font-family: var(--mono, monospace);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-preset-bank {
+  border-color: color-mix(in oklab, var(--srtuss-violet) 22%, var(--line));
+}
+
+.srtuss-page .srtuss-preset-buttons {
+  display: grid;
+  min-width: 0;
+  padding: 9px;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 6px;
+}
+
+.srtuss-page .srtuss-preset-button,
+.srtuss-page .srtuss-original-buttons > button {
+  display: grid;
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 9px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  align-content: center;
+  gap: 2px;
+}
+
+.srtuss-page .srtuss-preset-button b {
+  overflow: hidden;
+  color: inherit;
+  font-size: 8px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-preset-button span {
+  overflow: hidden;
+  color: color-mix(in oklab, currentColor 72%, var(--muted));
+  font-size: 7px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-preset-button:hover,
+.srtuss-page .srtuss-preset-button:focus-visible,
+.srtuss-page .srtuss-original-buttons > button:hover,
+.srtuss-page .srtuss-original-buttons > button:focus-visible {
+  border-color: var(--srtuss-violet);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--srtuss-violet) 10%, var(--bg-deep));
+}
+
+.srtuss-page .srtuss-preset-button[aria-pressed="true"],
+.srtuss-page .srtuss-preset-button[aria-selected="true"],
+.srtuss-page .srtuss-preset-button.is-active {
+  border-color: var(--srtuss-violet);
+  color: var(--bg-deep);
+  background: var(--srtuss-violet);
+  box-shadow: 0 0 14px color-mix(in oklab, var(--srtuss-violet) 18%, transparent);
+}
+
+.srtuss-page .srtuss-voice-section {
+  margin-bottom: 2px;
+  border-color: color-mix(in oklab, var(--srtuss-lime) 20%, var(--line));
+}
+
+.srtuss-page .srtuss-voice-heading {
+  display: flex;
+  margin: 0;
+  grid-template-columns: none;
+}
+
+.srtuss-page .srtuss-voice-heading #addVoice {
+  width: auto;
+  min-width: 96px;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in oklab, var(--srtuss-lime) 46%, var(--line-strong));
+  color: var(--srtuss-lime);
+  background: color-mix(in oklab, var(--srtuss-lime) 5%, var(--bg-deep));
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-voice-heading #addVoice:hover,
+.srtuss-page .srtuss-voice-heading #addVoice:focus-visible {
+  border-color: var(--srtuss-lime);
+  color: var(--bg-deep);
+  background: var(--srtuss-lime);
+}
+
+.srtuss-page .srtuss-voice-deck {
+  display: grid;
+  min-width: 0;
+  min-height: 118px;
+  padding: 9px;
+  overflow-x: auto;
+  grid-auto-columns: minmax(190px, 224px);
+  grid-auto-flow: column;
+  grid-template-rows: minmax(98px, auto);
+  gap: 7px;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline proximity;
+  scrollbar-color: var(--faint) transparent;
+  scrollbar-width: thin;
+}
+
+.srtuss-page .srtuss-voice-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 98px;
+  padding: 9px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background:
+    linear-gradient(120deg, color-mix(in oklab, var(--srtuss-lime) 4%, transparent), transparent 65%),
+    var(--bg-deep);
+  text-align: left;
+  cursor: pointer;
+  grid-template-rows: auto 1fr auto;
+  align-content: stretch;
+  gap: 8px;
+  scroll-snap-align: start;
+}
+
+.srtuss-page .srtuss-voice-card:hover,
+.srtuss-page .srtuss-voice-card:focus-visible {
+  border-color: color-mix(in oklab, var(--srtuss-lime) 70%, var(--line-strong));
+  color: var(--ink);
+}
+
+.srtuss-page .srtuss-voice-card[aria-selected="true"],
+.srtuss-page .srtuss-voice-card[aria-pressed="true"],
+.srtuss-page .srtuss-voice-card[data-selected="true"],
+.srtuss-page .srtuss-voice-card.is-selected {
+  border-color: var(--srtuss-lime);
+  color: var(--ink);
+  background:
+    linear-gradient(120deg, color-mix(in oklab, var(--srtuss-lime) 13%, transparent), transparent 72%),
+    var(--bg-deep);
+  box-shadow:
+    inset 3px 0 0 var(--srtuss-lime),
+    0 0 12px color-mix(in oklab, var(--srtuss-lime) 11%, transparent);
+}
+
+.srtuss-page .srtuss-voice-card[data-enabled="false"],
+.srtuss-page .srtuss-voice-card.is-muted {
+  border-style: dashed;
+  opacity: 0.58;
+}
+
+.srtuss-page .srtuss-voice-card[data-solo="true"] {
+  border-color: var(--srtuss-amber);
+  box-shadow: inset 3px 0 0 var(--srtuss-amber);
+}
+
+.srtuss-page .srtuss-voice-card__head {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.srtuss-page .srtuss-voice-card__head b,
+.srtuss-page .srtuss-voice-card__head strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-voice-card__head span,
+.srtuss-page .srtuss-voice-card small {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-voice-card p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+}
+
+.srtuss-page .srtuss-voice-card__mode {
+  align-self: center;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-voice-card__meter {
+  position: relative;
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.srtuss-page .srtuss-voice-card__meter::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--meter-level, var(--level, 0.72)) * 100%);
+  background: linear-gradient(90deg, var(--srtuss-cyan), var(--srtuss-lime));
+  box-shadow: 0 0 7px color-mix(in oklab, var(--srtuss-lime) 25%, transparent);
+  content: "";
+}
+
+.srtuss-page .srtuss-voice-card__meter > i {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--srtuss-cyan), var(--srtuss-lime));
+  box-shadow: 0 0 7px color-mix(in oklab, var(--srtuss-lime) 25%, transparent);
+}
+
+.srtuss-page .srtuss-voice-card__meter:has(> i)::after {
+  display: none;
+}
+
+.srtuss-page .srtuss-editor {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background:
+    linear-gradient(110deg, rgba(111, 248, 236, 0.025), transparent 48%),
+    var(--panel);
+  scrollbar-color: var(--faint) transparent;
+  scrollbar-width: thin;
+}
+
+.srtuss-page .srtuss-section {
+  border-bottom: 1px solid var(--line);
+}
+
+.srtuss-page .srtuss-section > .group-summary {
+  min-height: 48px;
+  padding: 0 17px;
+}
+
+.srtuss-page .srtuss-section > .group-body {
+  padding: 13px 17px 14px;
+}
+
+.srtuss-page .srtuss-section .group-title,
+.srtuss-page .srtuss-section .section-state,
+.srtuss-page .srtuss-section .control b,
+.srtuss-page .srtuss-section .select-control b,
+.srtuss-page .srtuss-section output {
+  letter-spacing: 0;
+}
+
+.srtuss-page .srtuss-selected-voice {
+  --accent: var(--srtuss-cyan);
+  --accent-soft: color-mix(in oklab, var(--srtuss-cyan) 50%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-cyan) 15%, transparent);
+}
+
+.srtuss-page .srtuss-techniques {
+  --accent: var(--srtuss-violet);
+  --accent-soft: color-mix(in oklab, var(--srtuss-violet) 50%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-violet) 14%, transparent);
+}
+
+.srtuss-page .srtuss-stems {
+  --accent: var(--srtuss-lime);
+  --accent-soft: color-mix(in oklab, var(--srtuss-lime) 50%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-lime) 13%, transparent);
+}
+
+.srtuss-page .srtuss-originals {
+  --accent: var(--srtuss-amber);
+  --accent-soft: color-mix(in oklab, var(--srtuss-amber) 50%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-amber) 14%, transparent);
+}
+
+.srtuss-page .srtuss-pending {
+  --accent: var(--srtuss-pink);
+  --accent-soft: color-mix(in oklab, var(--srtuss-pink) 50%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-pink) 15%, transparent);
+}
+
+.srtuss-page .srtuss-runtime {
+  --accent: var(--srtuss-violet);
+  --accent-soft: color-mix(in oklab, var(--srtuss-violet) 50%, transparent);
+  --accent-glow: color-mix(in oklab, var(--srtuss-violet) 14%, transparent);
+}
+
+.srtuss-page .srtuss-voice-source-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 9px;
+}
+
+.srtuss-page .srtuss-voice-source-row .select-control {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  gap: 5px;
+}
+
+.srtuss-page .srtuss-voice-source-row select {
+  width: 100%;
+  min-width: 0;
+}
+
+.srtuss-page .srtuss-voice-switches {
+  display: grid;
+  margin-top: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.srtuss-page .srtuss-toggle {
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-toggle:hover,
+.srtuss-page .srtuss-toggle:focus-visible {
+  border-color: var(--srtuss-cyan);
+  color: var(--ink);
+}
+
+.srtuss-page .srtuss-toggle[aria-pressed="true"] {
+  border-color: var(--srtuss-cyan);
+  color: var(--bg-deep);
+  background: var(--srtuss-cyan);
+}
+
+.srtuss-page #selectedVoiceSolo[aria-pressed="true"] {
+  border-color: var(--srtuss-amber);
+  background: var(--srtuss-amber);
+}
+
+.srtuss-page .srtuss-selected-mix {
+  display: grid;
+  min-width: 0;
+  margin-top: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.srtuss-page .srtuss-mix-control {
+  min-width: 0;
+  margin: 0;
+}
+
+.srtuss-page .srtuss-mix-control > span,
+.srtuss-page .srtuss-native-control > span:first-child,
+.srtuss-page .srtuss-stem-control > span:first-child {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.srtuss-page .srtuss-mix-control b,
+.srtuss-page .srtuss-mix-control output {
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-remove-row {
+  display: grid;
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--line);
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.srtuss-page .srtuss-remove-row p,
+.srtuss-page .srtuss-section-note,
+.srtuss-page .srtuss-technique-description,
+.srtuss-page .srtuss-runtime .group-body > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.srtuss-page #explodeSelectedVoice {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in oklab, var(--srtuss-cyan) 42%, var(--line-strong));
+  color: color-mix(in oklab, var(--srtuss-cyan) 80%, var(--muted));
+  background: color-mix(in oklab, var(--srtuss-cyan) 5%, var(--bg-deep));
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.srtuss-page #explodeSelectedVoice:hover,
+.srtuss-page #explodeSelectedVoice:focus-visible {
+  border-color: var(--srtuss-cyan);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--srtuss-cyan) 13%, var(--bg-deep));
+}
+
+.srtuss-page #removeSelectedVoice {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in oklab, var(--srtuss-red) 42%, var(--line-strong));
+  color: color-mix(in oklab, var(--srtuss-red) 76%, var(--muted));
+  background: color-mix(in oklab, var(--srtuss-red) 4%, var(--bg-deep));
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.srtuss-page #removeSelectedVoice:hover,
+.srtuss-page #removeSelectedVoice:focus-visible {
+  border-color: var(--srtuss-red);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--srtuss-red) 12%, var(--bg-deep));
+}
+
+.srtuss-page .srtuss-technique-tags {
+  display: flex;
+  min-height: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.srtuss-page .srtuss-technique-tags:empty::before {
+  color: var(--muted);
+  font-size: 8px;
+  content: "Awaiting voice selection";
+}
+
+.srtuss-page .srtuss-technique-tag {
+  display: inline-flex;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklab, var(--srtuss-violet) 42%, var(--line));
+  border-radius: 999px;
+  color: var(--srtuss-violet);
+  background: color-mix(in oklab, var(--srtuss-violet) 6%, var(--bg-deep));
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  align-items: center;
+}
+
+.srtuss-page .srtuss-technique-description {
+  min-height: 2.9em;
+  margin-top: 8px;
+}
+
+.srtuss-page .srtuss-native-controls,
+.srtuss-page .srtuss-stem-controls {
+  display: grid;
+  min-width: 0;
+  margin-top: 10px;
+  gap: 7px;
+}
+
+.srtuss-page .srtuss-native-controls:empty::before,
+.srtuss-page .srtuss-stem-controls:empty::before {
+  padding: 11px;
+  border: 1px dashed var(--line-strong);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--bg-deep) 76%, transparent);
+  font-size: 8px;
+  line-height: 1.4;
+  text-align: center;
+  content: "Controls load with the selected voice";
+}
+
+.srtuss-page .srtuss-native-control,
+.srtuss-page .srtuss-stem-control {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 9px 5px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(100deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 68%),
+    var(--bg-deep);
+  gap: 2px;
+}
+
+.srtuss-page .srtuss-native-control b,
+.srtuss-page .srtuss-stem-control b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-native-control output,
+.srtuss-page .srtuss-stem-control output {
+  color: var(--accent);
+  font-family: var(--mono, monospace);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.srtuss-page .srtuss-native-control input[type="range"],
+.srtuss-page .srtuss-stem-control input[type="range"] {
+  height: 32px;
+}
+
+.srtuss-page .srtuss-stem-control {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 9px;
+}
+
+.srtuss-page .srtuss-stem-control > span:first-child,
+.srtuss-page .srtuss-stem-control > input[type="range"] {
+  grid-column: 1 / -1;
+}
+
+.srtuss-page .srtuss-stem-control button {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-stem-control button[aria-pressed="true"] {
+  border-color: var(--srtuss-lime);
+  color: var(--bg-deep);
+  background: var(--srtuss-lime);
+}
+
+.srtuss-page .srtuss-original-buttons {
+  display: grid;
+  min-width: 0;
+  margin-top: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.srtuss-page .srtuss-original-buttons > button {
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.srtuss-page .srtuss-original-buttons > button span {
+  color: inherit;
+  font-family: var(--mono, monospace);
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-original-buttons > button b {
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-original-buttons > button[aria-pressed="true"],
+.srtuss-page .srtuss-original-buttons > button[aria-selected="true"] {
+  border-color: var(--srtuss-amber);
+  color: var(--bg-deep);
+  background: var(--srtuss-amber);
+}
+
+.srtuss-page .srtuss-ledger {
+  display: grid;
+  margin: 10px 0 0;
+  border: 1px solid var(--line);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.srtuss-page .srtuss-ledger span {
+  display: grid;
+  min-width: 0;
+  min-height: 58px;
+  padding: 7px 5px;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.25;
+  text-align: center;
+  place-content: center;
+  gap: 2px;
+}
+
+.srtuss-page .srtuss-ledger span:last-child {
+  border-right: 0;
+}
+
+.srtuss-page .srtuss-ledger b {
+  color: var(--srtuss-amber);
+  font-size: 13px;
+}
+
+.srtuss-page .srtuss-pending-list {
+  display: grid;
+  margin: 9px 0;
+  grid-template-columns: 1fr;
+  gap: 5px;
+}
+
+.srtuss-page .srtuss-pending-list a {
+  min-height: 34px;
+  padding: 7px 8px;
+  border: 1px dashed var(--line-strong);
+  color: var(--srtuss-pink);
+  font-size: 8px;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.srtuss-page .srtuss-pending-list a:hover,
+.srtuss-page .srtuss-pending-list a:focus-visible {
+  border-color: var(--srtuss-pink);
+  color: var(--ink);
+}
+
+.srtuss-page .srtuss-runtime-controls {
+  display: grid;
+  gap: 9px;
+}
+
+.srtuss-page .srtuss-runtime .select-control {
+  margin-top: 2px;
+}
+
+.srtuss-page .srtuss-runtime .group-body > p {
+  margin-top: 8px;
+}
+
+.srtuss-page .srtuss-license {
+  margin: 13px 17px 16px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.srtuss-page .srtuss-license a {
+  color: var(--srtuss-cyan);
+  text-decoration-color: color-mix(in oklab, var(--srtuss-cyan) 45%, transparent);
+  text-underline-offset: 3px;
+}
+
+.srtuss-page .audio-error {
+  margin: 0 17px 16px;
+}
+
+@media (max-width: 1120px) {
+  .srtuss-page .srtuss-command-deck {
+    grid-template-columns: auto minmax(140px, 1fr);
+  }
+
+  .srtuss-page .srtuss-patch-actions {
+    min-width: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 960px) {
+  .srtuss-page .srtuss-shell {
+    overflow-y: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  .srtuss-page .srtuss-workbench,
+  .srtuss-page .srtuss-editor {
+    overflow: visible;
+  }
+
+  .srtuss-page .srtuss-workbench {
+    border-right: 0;
+  }
+
+  .srtuss-page .srtuss-editor {
+    border-top: 1px solid color-mix(in oklab, var(--srtuss-cyan) 20%, var(--line));
+  }
+}
+
+@media (max-width: 680px) {
+  .srtuss-page .audio-strip {
+    width: min(100%, 218px);
+    grid-template-columns: 72px minmax(92px, 1fr);
+    gap: 8px;
+  }
+
+  .srtuss-page .audio-button {
+    min-width: 72px;
+  }
+
+  .srtuss-page .srtuss-workbench {
+    padding: 9px;
+  }
+
+  .srtuss-page .srtuss-startup-notice {
+    margin: -9px -9px 9px;
+  }
+
+  .srtuss-page .srtuss-command-deck {
+    grid-template-columns: minmax(158px, auto) minmax(0, 1fr);
+  }
+
+  .srtuss-page .srtuss-transport {
+    padding-right: 10px;
+  }
+
+  .srtuss-page .srtuss-engine-status {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .srtuss-page .srtuss-preset-buttons {
+    overflow-x: auto;
+    grid-auto-columns: minmax(108px, 0.52fr);
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    overscroll-behavior-inline: contain;
+    scrollbar-color: var(--faint) transparent;
+    scrollbar-width: thin;
+  }
+
+  .srtuss-page .srtuss-surface-heading small {
+    max-width: 42%;
+  }
+}
+
+@media (max-width: 470px) {
+  .srtuss-page .srtuss-startup-notice {
+    grid-template-columns: 1fr;
+  }
+
+  .srtuss-page .srtuss-startup-notice a {
+    justify-self: start;
+  }
+
+  .srtuss-page .srtuss-command-deck {
+    grid-template-columns: minmax(148px, auto) minmax(0, 1fr);
+  }
+
+  .srtuss-page .srtuss-transport {
+    border-right: 1px solid var(--line);
+  }
+
+  .srtuss-page .srtuss-play-button {
+    width: 50px;
+    min-width: 50px;
+    height: 50px;
+    min-height: 50px;
+  }
+
+  .srtuss-page .srtuss-transport-copy {
+    min-width: 78px;
+  }
+
+  .srtuss-page .srtuss-transport-copy b {
+    font-size: 7px;
+  }
+
+  .srtuss-page .srtuss-transport-copy output {
+    font-size: 11px;
+  }
+
+  .srtuss-page .srtuss-engine-status {
+    min-width: 0;
+  }
+
+  .srtuss-page .srtuss-sound-only {
+    font-size: 6px;
+  }
+
+  .srtuss-page .srtuss-engine-status b,
+  .srtuss-page .srtuss-engine-status small {
+    white-space: normal;
+  }
+
+  .srtuss-page .srtuss-patch-actions {
+    padding: 7px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .srtuss-page .srtuss-patch-actions button {
+    padding: 0 5px;
+  }
+
+  .srtuss-page .srtuss-surface-heading {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  .srtuss-page .srtuss-surface-heading small {
+    display: none;
+  }
+
+  .srtuss-page .srtuss-voice-source-row {
+    grid-template-columns: 1fr;
+  }
+
+  .srtuss-page .srtuss-selected-mix {
+    gap: 6px;
+  }
+
+  .srtuss-page .srtuss-remove-row {
+    grid-template-columns: 1fr;
+  }
+
+  .srtuss-page #explodeSelectedVoice,
+  .srtuss-page #removeSelectedVoice {
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 350px) {
+  .srtuss-page .srtuss-command-deck {
+    grid-template-columns: 1fr;
+  }
+
+  .srtuss-page .srtuss-transport {
+    border-right: 0;
+  }
+
+  .srtuss-page .srtuss-engine-status {
+    border-top: 1px solid var(--line);
+  }
+
+  .srtuss-page .srtuss-selected-mix {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 960px) and (max-height: 560px) {
+  .srtuss-page .srtuss-shell {
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 44vw);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .srtuss-page .srtuss-workbench,
+  .srtuss-page .srtuss-editor {
+    overflow-y: auto;
+  }
+
+  .srtuss-page .srtuss-workbench {
+    border-right: 1px solid color-mix(in oklab, var(--srtuss-cyan) 18%, var(--line));
+  }
+
+  .srtuss-page .srtuss-editor {
+    border-top: 0;
+  }
+
+  .srtuss-page .srtuss-sound-only,
+  .srtuss-page .srtuss-surface-heading small {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .srtuss-page .audio-button,
+  .srtuss-page .srtuss-play-button,
+  .srtuss-page .srtuss-patch-actions button,
+  .srtuss-page .srtuss-preset-button,
+  .srtuss-page .srtuss-voice-heading #addVoice,
+  .srtuss-page .srtuss-voice-card,
+  .srtuss-page .srtuss-toggle,
+  .srtuss-page #explodeSelectedVoice,
+  .srtuss-page #removeSelectedVoice,
+  .srtuss-page .srtuss-original-buttons > button,
+  .srtuss-page .srtuss-stem-control button,
+  .srtuss-page .srtuss-startup-notice a,
+  .srtuss-page .srtuss-voice-source-row select {
+    min-height: 48px;
+  }
+
+  .srtuss-page .srtuss-knob__dial {
+    width: 60px;
+    height: 60px;
+  }
+
+  .srtuss-page .srtuss-knob {
+    min-width: 72px;
+    min-height: 102px;
+    grid-template-rows: 62px auto auto;
+  }
+
+  .srtuss-page .srtuss-rack-control input[type="range"] {
+    min-height: 48px;
+  }
+}

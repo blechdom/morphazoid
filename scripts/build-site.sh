@@ -539,6 +539,17 @@ for worktree_runtime_file in \
   webgpu-synths.css \
   webgpu-synths-app.js \
   src/webgpu-synths.js \
+  srtuss.html \
+  srtuss.css \
+  srtuss-app.js \
+  src/srtuss.js \
+  src/srtuss-master.js \
+  src/srtuss-master-shaders.js \
+  src/srtuss-shaders-a.js \
+  src/srtuss-shaders-b.js \
+  src/srtuss-shaders-c.js \
+  src/srtuss-shaders-d.js \
+  assets/srtuss/pebbles.png \
   webgpu-dsp-primitives.html \
   webgpu-dsp-primitives.css \
   webgpu-dsp-primitives-app.js \
@@ -1122,6 +1133,17 @@ required_files=(
   webgpu-synths.css
   webgpu-synths-app.js
   src/webgpu-synths.js
+  srtuss.html
+  srtuss.css
+  srtuss-app.js
+  src/srtuss.js
+  src/srtuss-master.js
+  src/srtuss-master-shaders.js
+  src/srtuss-shaders-a.js
+  src/srtuss-shaders-b.js
+  src/srtuss-shaders-c.js
+  src/srtuss-shaders-d.js
+  assets/srtuss/pebbles.png
   webgpu-dsp-primitives.html
   webgpu-dsp-primitives.css
   webgpu-dsp-primitives-app.js

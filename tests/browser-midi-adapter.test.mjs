@@ -222,6 +222,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "sliding-puzzle",
     "hyper-rubix",
     "webgpu-synths",
+    "srtuss",
     "playhead-paint",
     "slippery-resynthesis",
     "ffmpeg-wasm",
@@ -250,6 +251,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("constellation").midiOutput, true);
   assert.equal(instrumentMidiCapabilityForId("webgpu-chiptune").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("webgpu-chiptune").computerKeyboardMode, "none");
+  assert.equal(instrumentMidiCapabilityForId("srtuss").noteMode, "sequence");
+  assert.equal(instrumentMidiCapabilityForId("srtuss").computerKeyboardMode, "none");
   assert.equal(instrumentMidiCapabilityForId("shape-drums").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("shader-synth-playground").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("recursion").startsAudio, true);

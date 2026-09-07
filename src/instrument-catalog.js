@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260906-5";
+} from "../nav.js?v=catalog-20260906-6";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -522,6 +522,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Runs four control lanes, six adjustable synthesis models, editable additive ranks, a causal FIR, feed-forward delay taps, and waveshaping across two WGSL compute passes.",
     "Use a WebGPU-capable browser, turn on Audio, choose a theme or sequence generator, then draw pitch, pulse, timbre, and model motion directly on the stage.",
     ["WebGPU", "Pointer", "Built-in synth"],
+  ),
+  srtuss: define(
+    "srtuss WebGPU master synth",
+    "Splits eight Shadertoy Sound programs into 48 selectable source parts while retaining all ten verified translations as exact Original programs.",
+    "Use a WebGPU-capable browser, start transport and Audio independently, choose a Parts preset or Explode mix, then shape, solo, mute, pan, or retime each voice card.",
+    ["WebGPU", "Built-in synth", "Sequencer"],
   ),
   "shader-synth-playground": define(
     "Modular WebGPU synth",
