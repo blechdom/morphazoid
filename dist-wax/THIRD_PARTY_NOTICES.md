@@ -170,6 +170,34 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## ffmpeg.wasm
+
+FFmpeg Wasm Lab vendors the official `@ffmpeg/ffmpeg` browser wrapper version
+0.12.15 under the MIT license. Its complete license is included at
+`vendor/ffmpeg-wasm/LICENSE`.
+
+After explicit user action, the page fetches the single-thread ESM build from
+`@ffmpeg/core` version 0.12.10 directly from unpkg and verifies the exact
+response bytes before executing them:
+
+- `ffmpeg-core.js`: https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.js
+  - SHA-256: `67a48f11645f85439f3fde4f2119042c16b374b910206b7a7a24f342e28dcae3`
+- `ffmpeg-core.wasm`: https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.wasm
+  - SHA-256: `9f57947a5bd530d8f00c5b3f2cb2a3492faa7e5d823315342d6a8656d0a6b7b7`
+
+Morphazoid's repository and release artifacts do not contain those core object
+files. Only the pinned core assets are requested from unpkg; captured microphone
+PCM stays inside the browser worker and is not sent to the CDN.
+
+The core package declares `GPL-2.0-or-later`; its GPLv2 text is retained at
+`vendor/ffmpeg-wasm/core/COPYING.GPLv2`. Runtime provenance and upstream
+source/build references are recorded in `vendor/ffmpeg-wasm/core/README.md`:
+
+- Package: https://www.npmjs.com/package/@ffmpeg/core/v/0.12.10
+- Source/build reference: https://github.com/ffmpegwasm/ffmpeg.wasm/tree/71aa99d37c02a7b4c435275ca9ef50e612f6efa1
+- Source archive: https://github.com/ffmpegwasm/ffmpeg.wasm/archive/71aa99d37c02a7b4c435275ca9ef50e612f6efa1.tar.gz
+- Build recipe: https://github.com/ffmpegwasm/ffmpeg.wasm/blob/71aa99d37c02a7b4c435275ca9ef50e612f6efa1/build/ffmpeg-wasm.sh
+
 ## CMU Flite / KAL16 diphone voice
 
 The Spelling Synthesizer diphone audio sprite was generated from the

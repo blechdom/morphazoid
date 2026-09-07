@@ -222,7 +222,9 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "webgpu-synths",
     "playhead-paint",
     "slippery-resynthesis",
+    "ffmpeg-wasm",
     "micromorph",
+    "plugazoid",
     "moire-drone",
     "candy-coil-delay",
     "chladni-plate",
@@ -258,6 +260,10 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").noteMode, "processor");
   assert.equal(instrumentMidiCapabilityForId("slippery-resynthesis").computerKeyboardMode, "none");
+  assert.equal(instrumentMidiCapabilityForId("ffmpeg-wasm").audioInput, true);
+  assert.equal(instrumentMidiCapabilityForId("ffmpeg-wasm").noteMode, "processor");
+  assert.equal(instrumentMidiCapabilityForId("ffmpeg-wasm").computerKeyboardMode, "none");
+  assert.equal(instrumentMidiCapabilityForId("ffmpeg-wasm").startsAudio, false);
   assert.equal(instrumentMidiCapabilityForId("moire-drone").audioInput, false);
   assert.equal(instrumentMidiCapabilityForId("moire-drone").noteMode, "processor");
   assert.equal(instrumentMidiCapabilityForId("moire-drone").startsAudio, true);
@@ -278,8 +284,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 9, drums: 23, pitched: 48, sequence: 51 },
-    "all 131 routes have exactly one intentional note behavior",
+    { processor: 11, drums: 23, pitched: 48, sequence: 51 },
+    "all 133 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -335,7 +341,7 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
       );
     }
   }
-  assert.equal(mastheadPages, 130);
+  assert.equal(mastheadPages, 132);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");

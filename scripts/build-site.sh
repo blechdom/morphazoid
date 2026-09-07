@@ -44,6 +44,9 @@ while IFS= read -r -d '' source_path; do
   case "$source_path" in
     *.html|*.css|*.js|*.webp|*.glb|*.LICENSE.txt|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
     vendor/tactile/LICENSE|\
+    vendor/ffmpeg-wasm/LICENSE|\
+    vendor/ffmpeg-wasm/core/COPYING.GPLv2|\
+    vendor/ffmpeg-wasm/core/README.md|\
     vendor/cmudict/cmudict-en-us.dict|\
     vendor/cmudict/LICENSE|\
     vendor/signalsmith-stretch/LICENSE|\
@@ -456,6 +459,22 @@ for worktree_runtime_file in \
   slippery-resynthesis-app.js \
   src/slippery-resynthesis.js \
   assets/instruments/slippery-resynthesis.webp \
+  ffmpeg-wasm.html \
+  ffmpeg-wasm.css \
+  ffmpeg-wasm-app.js \
+  src/ffmpeg-wasm.js \
+  src/ffmpeg-wasm-capture-processor.js \
+  assets/instruments/ffmpeg-wasm.webp \
+  vendor/ffmpeg-wasm/ffmpeg/classes.js \
+  vendor/ffmpeg-wasm/ffmpeg/const.js \
+  vendor/ffmpeg-wasm/ffmpeg/errors.js \
+  vendor/ffmpeg-wasm/ffmpeg/index.js \
+  vendor/ffmpeg-wasm/ffmpeg/types.js \
+  vendor/ffmpeg-wasm/ffmpeg/utils.js \
+  vendor/ffmpeg-wasm/ffmpeg/worker.js \
+  vendor/ffmpeg-wasm/LICENSE \
+  vendor/ffmpeg-wasm/core/COPYING.GPLv2 \
+  vendor/ffmpeg-wasm/core/README.md \
   micromorph.html \
   micromorph.css \
   micromorph-app.js \
@@ -990,6 +1009,22 @@ required_files=(
   slippery-resynthesis-app.js
   src/slippery-resynthesis.js
   assets/instruments/slippery-resynthesis.webp
+  ffmpeg-wasm.html
+  ffmpeg-wasm.css
+  ffmpeg-wasm-app.js
+  src/ffmpeg-wasm.js
+  src/ffmpeg-wasm-capture-processor.js
+  assets/instruments/ffmpeg-wasm.webp
+  vendor/ffmpeg-wasm/ffmpeg/classes.js
+  vendor/ffmpeg-wasm/ffmpeg/const.js
+  vendor/ffmpeg-wasm/ffmpeg/errors.js
+  vendor/ffmpeg-wasm/ffmpeg/index.js
+  vendor/ffmpeg-wasm/ffmpeg/types.js
+  vendor/ffmpeg-wasm/ffmpeg/utils.js
+  vendor/ffmpeg-wasm/ffmpeg/worker.js
+  vendor/ffmpeg-wasm/LICENSE
+  vendor/ffmpeg-wasm/core/COPYING.GPLv2
+  vendor/ffmpeg-wasm/core/README.md
   moire-drone.html
   moire-drone.css
   moire-drone-app.js

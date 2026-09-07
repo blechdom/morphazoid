@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260906-2";
+} from "../nav.js?v=catalog-20260906-3";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -363,6 +363,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Tracks microphone or local-file audio across logarithmic FFT bands, then rebuilds it through endlessly slipping Shepard glissando banks with adaptive consonant excitation.",
     "Choose Mic or File, turn on audio, then shape the glide, transpose, spectral tilt, carrier color, consonant detail, stereo spread, and dry/slip mix.",
     ["Mic input", "Local file input", "Speech-detail resynthesis"],
+  ),
+  "ffmpeg-wasm": define(
+    "Chunked FFmpeg/Wasm processor",
+    "Captures bounded microphone PCM windows, runs one at a time through a checksum-verified FFmpeg/Wasm filter graph, then crossfades the processed blocks into Web Audio while exposing latency and dropped work.",
+    "Turn on Audio, load the core, start the microphone, then compare the fixed recipes and half-, one-, or two-second windows with headphones.",
+    ["Mic input", "FFmpeg/Wasm", "Chunked processing", "Audio export"],
   ),
   "moire-drone": define(
     "Noise-field drone",
