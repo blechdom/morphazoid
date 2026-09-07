@@ -145,6 +145,12 @@ for worktree_runtime_file in \
   src/enveloper-audio.js \
   src/enveloper-transport.js \
   assets/instruments/enveloper.webp \
+  yoyodyne.html \
+  yoyodyne.css \
+  yoyodyne-app.js \
+  src/yoyodyne.js \
+  src/yoyodyne-audio.js \
+  assets/instruments/yoyodyne.webp \
   alien-larynx.html \
   alien-larynx.css \
   alien-larynx-app.js \
@@ -771,6 +777,12 @@ required_files=(
   src/enveloper-audio.js
   src/enveloper-transport.js
   assets/instruments/enveloper.webp
+  yoyodyne.html
+  yoyodyne.css
+  yoyodyne-app.js
+  src/yoyodyne.js
+  src/yoyodyne-audio.js
+  assets/instruments/yoyodyne.webp
   alien-larynx.html
   alien-larynx.css
   alien-larynx-app.js

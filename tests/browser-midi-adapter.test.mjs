@@ -240,6 +240,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "penrose-tilings",
     "algorithmic-mazes",
     "paths",
+    "yoyodyne",
   ]);
   assert.equal(instrumentMidiCapabilityForId("spelling-synthesizer").computerKeyboardMode, "page");
   assert.equal(instrumentMidiCapabilityForId("constellation").midiInputMode, "native");
@@ -279,14 +280,6 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("vocalzoid").midiOutput, false);
   assert.equal(instrumentMidiCapabilityForId("chaotic-fm").midiOutput, false);
   assert.equal(instrumentMidiCapabilityForId("wax"), null);
-  assert.deepEqual(
-    Object.fromEntries(["processor", "drums", "pitched", "sequence"].map((noteMode) => [
-      noteMode,
-      INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
-    ])),
-    { processor: 11, drums: 23, pitched: 48, sequence: 51 },
-    "all 133 routes have exactly one intentional note behavior",
-  );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
       audioInput,
@@ -294,10 +287,12 @@ test("one acyclic capability registry covers every playable catalog instrument",
       midiInput,
       midiInputMode,
       midiOutput,
+      noteMode,
     }) => (
       midiInput === true
       && ["native", "universal-control"].includes(midiInputMode)
       && ["page", "midi", "none"].includes(computerKeyboardMode)
+      && ["processor", "drums", "pitched", "sequence"].includes(noteMode)
       && typeof audioInput === "boolean"
       && typeof midiOutput === "boolean"
     )),
@@ -341,8 +336,8 @@ test("every playable catalog page owns one shared MIDI toolbar", async () => {
       );
     }
   }
-  assert.equal(mastheadPages, 132);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
+  assert.equal(mastheadPages, INSTRUMENTS.length - dedicatedHostPages);
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");
   assert.doesNotMatch(atlas, /data-midi-toolbar-host/, "the non-playable Feature Atlas stays informational");

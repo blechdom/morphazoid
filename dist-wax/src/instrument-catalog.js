@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260906-3";
+} from "../nav.js?v=catalog-20260906-4";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -569,6 +569,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Algorithmic synth",
     "Spreads a weighted search frontier across a grid and maps node distance, weight, and position into a spatial path score.",
     "Turn on audio, rewire the graph, then play or scrub the frontier.",
+  ),
+  yoyodyne: define(
+    "Polyphonic pitch/time synth",
+    "Turns a generated four-bar relay choir into draggable throat, mouth, and halo cells whose vertical position, horizontal position, and bright rims control pitch, onset, and duration.",
+    "Turn on audio, launch the polyphonic loop, then drag a cell through pitch or time, pull either rim to reshape it, and compare the live edit with its recalled ghost.",
+    ["Pointer", "Polyphonic synth", "Vocal-colored synthesis", "Pitch/time editing", "Keyboard editing"],
   ),
   hanoi: define(
     "Recursive bell synth",

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Yoyodyne signal relay lattice</title>
+  <desc id="desc">Faceted cyan, violet, and magenta signal relays cross a dark pitch and time grid with faint recall anchors.</desc>
+  <defs>
+    <radialGradient id="space" cx="68%" cy="28%" r="82%">
+      <stop offset="0" stop-color="#2b215c"/>
+      <stop offset=".45" stop-color="#0b1830"/>
+      <stop offset="1" stop-color="#04060d"/>
+    </radialGradient>
+    <linearGradient id="relay" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#65f7ff"/>
+      <stop offset=".54" stop-color="#8e7dff"/>
+      <stop offset="1" stop-color="#ff5fce"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-100%" width="260%" height="300%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="minorGrid" width="32" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 24" fill="none" stroke="#7692c5" stroke-opacity=".10" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="512" height="512" rx="44" fill="url(#space)"/>
+  <rect x="34" y="42" width="444" height="428" rx="25" fill="#050913" fill-opacity=".62" stroke="#89a3d1" stroke-opacity=".22"/>
+  <rect x="55" y="65" width="402" height="380" fill="url(#minorGrid)"/>
+  <g stroke="#65f7ff" stroke-opacity=".17">
+    <path d="M55 65V445M155 65V445M256 65V445M356 65V445M457 65V445"/>
+  </g>
+  <g stroke="#c8ff6a" stroke-opacity=".25">
+    <path d="M71 65V445"/>
+  </g>
+  <g fill="none" stroke="#aab9dd" stroke-opacity=".30" stroke-dasharray="3 6">
+    <path d="M78 357H146M158 307H242M252 337H318M328 223H412"/>
+  </g>
+  <g fill="none" stroke="#aab9dd" stroke-opacity=".42">
+    <path d="M74 353v8m-4-4h8M146 353v8m-4-4h8"/>
+    <path d="M154 303v8m-4-4h8M242 303v8m-4-4h8"/>
+    <path d="M248 333v8m-4-4h8M318 333v8m-4-4h8"/>
+    <path d="M324 219v8m-4-4h8M412 219v8m-4-4h8"/>
+  </g>
+  <g fill="url(#relay)" stroke="#eaffff" stroke-opacity=".72" stroke-width="2" filter="url(#glow)">
+    <path d="M72 374l10-13h60l10 13-10 13H82z"/>
+    <path d="M117 314l10-13h54l10 13-10 13h-54z"/>
+    <path d="M174 264l10-13h84l10 13-10 13h-84z"/>
+    <path d="M264 312l10-13h54l10 13-10 13h-54z"/>
+    <path d="M314 211l10-13h88l10 13-10 13h-88z"/>
+    <path d="M369 162l10-13h52l10 13-10 13h-52z"/>
+  </g>
+  <g fill="none" stroke="#07101d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M83 375l28-5 30 7"/>
+    <path d="M128 313l26 4 26-6"/>
+    <path d="M185 264l40-7 42 9"/>
+    <path d="M275 313l26-6 26 4"/>
+    <path d="M325 211l43 7 43-10"/>
+    <path d="M380 163l25-6 25 8"/>
+  </g>
+  <g fill="#06101d" stroke="#d9ffff" stroke-width="1.5">
+    <circle cx="83" cy="375" r="4"/><circle cx="111" cy="370" r="4"/><circle cx="141" cy="377" r="4"/>
+    <circle cx="128" cy="313" r="4"/><circle cx="154" cy="317" r="4"/><circle cx="180" cy="311" r="4"/>
+    <circle cx="185" cy="264" r="4"/><circle cx="225" cy="257" r="4"/><circle cx="267" cy="266" r="4"/>
+    <circle cx="275" cy="313" r="4"/><circle cx="301" cy="307" r="4"/><circle cx="327" cy="311" r="4"/>
+    <circle cx="325" cy="211" r="4"/><circle cx="368" cy="218" r="4"/><circle cx="411" cy="208" r="4"/>
+    <circle cx="380" cy="163" r="4"/><circle cx="405" cy="157" r="4"/><circle cx="430" cy="165" r="4"/>
+  </g>
+  <path d="M71 72l-8 12h16z" fill="#c8ff6a" filter="url(#glow)"/>
+  <circle cx="420" cy="90" r="22" fill="none" stroke="#65f7ff" stroke-opacity=".55"/>
+  <path d="M390 90h60M398 70l44 40M398 110l44-40" fill="none" stroke="#a77bff" stroke-opacity=".55"/>
+  <circle cx="398" cy="70" r="5" fill="#65f7ff"/>
+  <circle cx="442" cy="110" r="5" fill="#ff5fce"/>
+</svg>

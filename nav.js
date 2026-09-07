@@ -352,6 +352,7 @@ export const TOOL_GROUPS = Object.freeze([
       href: "morphazoid-roulette.html",
       catalogue: false,
     },
+    { id: "yoyodyne", label: "Yoyodyne", href: "yoyodyne.html" },
     { id: "hanoi", label: "Hanoi Carillon", href: "hanoi.html" },
     { id: "minimax", label: "Alpha-Beta Minimax", href: "minimax.html" },
     { id: "nqueens", label: "N-Queens Backtracker", href: "nqueens.html" },

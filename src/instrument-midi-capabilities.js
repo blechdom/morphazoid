@@ -142,6 +142,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "striped-staircase",
     "enveloper",
     "orbital-ferris",
+    "yoyodyne",
   ]),
 });
 
@@ -217,6 +218,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "penrose-tilings",
   "algorithmic-mazes",
   "paths",
+  "yoyodyne",
 ]);
 
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);

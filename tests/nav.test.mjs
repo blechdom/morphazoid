@@ -830,6 +830,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "vocal-effects-room", href: "vocal-effects-room.html" },
       { id: "instrument-share-room", href: "instrument-share-room.html" },
       { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
+      { id: "yoyodyne", href: "yoyodyne.html" },
       { id: "hanoi", href: "hanoi.html" },
       { id: "minimax", href: "minimax.html" },
       { id: "nqueens", href: "nqueens.html" },
@@ -1005,6 +1006,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}vocal-effects-room.html`, SITE_ROOT)?.id, "vocal-effects-room");
   assert.equal(resolveActiveTool(`${SITE_ROOT}instrument-share-room.html`, SITE_ROOT)?.id, "instrument-share-room");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoid-roulette.html`, SITE_ROOT)?.id, "morphazoid-roulette");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}yoyodyne.html`, SITE_ROOT)?.id, "yoyodyne");
   assert.equal(resolveActiveTool(`${SITE_ROOT}dijkstra.html`, SITE_ROOT)?.id, "dijkstra");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hanoi.html`, SITE_ROOT)?.id, "hanoi");
   assert.equal(resolveActiveTool(`${SITE_ROOT}minimax.html`, SITE_ROOT)?.id, "minimax");

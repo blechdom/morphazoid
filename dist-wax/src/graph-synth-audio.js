@@ -8,6 +8,7 @@ export const MAX_GRAPH_SYNTH_ACTIVE_VOICES = 64;
 export const MAX_GRAPH_SYNTH_LIVE_SOURCES = 256;
 export const MAX_GRAPH_SYNTH_SOURCE_STARTS_PER_SECOND = 512;
 export const MAX_GRAPH_SYNTH_SOURCE_START_BURST = 256;
+export const MAX_GRAPH_SYNTH_RESONANCE_PEAKS = 2;
 const SILENCE_FLOOR = 0.0001;
 const SILENCE_FADE_SECONDS = 0.025;
 const SOURCE_STOP_PADDING = 0.012;
@@ -145,6 +146,51 @@ function envelopeValueAt(points, time, fallback, exponential = false) {
   return points.at(-1).value;
 }
 
+function exponentialValueAt(start, end, progress) {
+  const safeStart = Math.max(SILENCE_FLOOR, finite(start, SILENCE_FLOOR));
+  const safeEnd = Math.max(SILENCE_FLOOR, finite(end, SILENCE_FLOOR));
+  return safeStart * (safeEnd / safeStart) ** clamp(progress, 0, 1, 0);
+}
+
+function scheduledAmplitudeAt(record, time) {
+  const spec = record?.spec ?? {};
+  const startsAt = finite(spec.startAt, finite(record?.startAt, 0));
+  const gain = Math.max(SILENCE_FLOOR, finite(spec.gain, SILENCE_FLOOR));
+  const attack = Math.max(0, finite(spec.attackSeconds, 0));
+  const decay = Math.max(0, finite(spec.decaySeconds, 0));
+  const attackEnd = startsAt + attack;
+  const decayEnd = attackEnd + decay;
+  if (time <= startsAt) return SILENCE_FLOOR;
+  if (attack > 0 && time < attackEnd) {
+    return SILENCE_FLOOR + (gain - SILENCE_FLOOR) * ((time - startsAt) / attack);
+  }
+
+  const hasGate = Number.isFinite(spec.gateEndAt) && Number.isFinite(spec.releaseEndAt);
+  if (hasGate) {
+    const sustain = Math.max(
+      SILENCE_FLOOR,
+      gain * clamp(spec.sustainLevel, 0, 1, 0.65),
+    );
+    if (decay > 0 && time < decayEnd) {
+      return exponentialValueAt(gain, sustain, (time - attackEnd) / decay);
+    }
+    if (time <= spec.gateEndAt) return sustain;
+    if (time < spec.releaseEndAt) {
+      return exponentialValueAt(
+        sustain,
+        SILENCE_FLOOR,
+        (time - spec.gateEndAt) / Math.max(Number.EPSILON, spec.releaseEndAt - spec.gateEndAt),
+      );
+    }
+    return SILENCE_FLOOR;
+  }
+
+  if (decay > 0 && time < decayEnd) {
+    return exponentialValueAt(gain, SILENCE_FLOOR, (time - attackEnd) / decay);
+  }
+  return SILENCE_FLOOR;
+}
+
 function scheduleFrequencyEnvelope(parameter, points, fallback, startsAt, endsAt, transform) {
   const mapValue = typeof transform === "function" ? transform : (value) => value;
   if (!points?.length) {
@@ -215,6 +261,19 @@ function sanitizeVoice(source = {}) {
     0,
     20,
   );
+  const resonancePeaks = Object.freeze(
+    (Array.isArray(candidate.resonancePeaks) ? candidate.resonancePeaks : [])
+      .flatMap((peak) => {
+        const frequency = Number(peak?.frequency);
+        if (!Number.isFinite(frequency) || frequency <= 0) return [];
+        return [Object.freeze({
+          frequency: clamp(frequency, 80, 12_000, 800),
+          q: clamp(peak?.q, 0.25, 24, 4),
+          weight: clamp(peak?.weight, 0, 1, 0.35),
+        })];
+      })
+      .slice(0, MAX_GRAPH_SYNTH_RESONANCE_PEAKS),
+  );
   const voice = {
     ...candidate,
     mode,
@@ -243,6 +302,13 @@ function sanitizeVoice(source = {}) {
   else delete voice.frequencyEnvelope;
   if (modulationIndexEnvelope) voice.modulationIndexEnvelope = modulationIndexEnvelope;
   else delete voice.modulationIndexEnvelope;
+  if (resonancePeaks.length) {
+    voice.resonancePeaks = resonancePeaks;
+    voice.dryMix = clamp(candidate.dryMix, 0, 1, 0.25);
+  } else {
+    delete voice.resonancePeaks;
+    delete voice.dryMix;
+  }
   return voice;
 }
 
@@ -537,6 +603,7 @@ export class GraphSynthAudio {
     let amplitude = null;
     let filter = null;
     let panner = null;
+    const resonanceBranches = [];
     const sources = [];
     const nodes = [];
     let record = null;
@@ -590,7 +657,37 @@ export class GraphSynthAudio {
           nodes,
         });
       }
-      safeConnect(filter, amplitude);
+      if (voice.resonancePeaks?.length) {
+        const requestedMix = voice.dryMix
+          + voice.resonancePeaks.reduce((sum, peak) => sum + peak.weight, 0);
+        const mixScale = requestedMix > 0 ? 1 / requestedMix : 1;
+        const dry = context.createGain();
+        nodes.push(dry);
+        setParam(dry.gain, "setValueAtTime", voice.dryMix * mixScale, startsAt);
+        safeConnect(filter, dry);
+        safeConnect(dry, amplitude);
+
+        for (const peak of voice.resonancePeaks) {
+          const resonator = context.createBiquadFilter();
+          const branchGain = context.createGain();
+          nodes.push(resonator, branchGain);
+          resonator.type = "bandpass";
+          setParam(
+            resonator.frequency,
+            "setValueAtTime",
+            Math.min(peak.frequency, context.sampleRate * 0.45),
+            startsAt,
+          );
+          setParam(resonator.Q, "setValueAtTime", peak.q, startsAt);
+          setParam(branchGain.gain, "setValueAtTime", peak.weight * mixScale, startsAt);
+          safeConnect(filter, resonator);
+          safeConnect(resonator, branchGain);
+          safeConnect(branchGain, amplitude);
+          resonanceBranches.push(Object.freeze({ resonator, gain: branchGain }));
+        }
+      } else {
+        safeConnect(filter, amplitude);
+      }
       if (panner) {
         safeConnect(amplitude, panner);
         safeConnect(panner, this.input);
@@ -620,6 +717,7 @@ export class GraphSynthAudio {
         amplitude,
         filter,
         panner,
+        resonanceBranches,
         sources,
         nodes,
         pendingSources: new Set(sources),
@@ -877,15 +975,11 @@ export class GraphSynthAudio {
     const fadeEnd = Math.min(voice.stopAt, now + SILENCE_FADE_SECONDS);
     const parameter = voice.amplitude?.gain;
     try {
-      if (typeof parameter?.cancelAndHoldAtTime === "function") {
-        parameter.cancelAndHoldAtTime(now);
-      } else {
-        parameter?.cancelScheduledValues?.(now);
-        parameter?.setValueAtTime?.(
-          Math.max(SILENCE_FLOOR, finite(parameter?.value, SILENCE_FLOOR)),
-          now,
-        );
-      }
+      // Chrome's OfflineAudioContext can expose cancelAndHoldAtTime yet jump
+      // to a later scheduled value. Reconstruct the known envelope value so
+      // live stop always begins its fade from the signal actually in flight.
+      parameter?.cancelScheduledValues?.(now);
+      parameter?.setValueAtTime?.(scheduledAmplitudeAt(voice, now), now);
       parameter?.exponentialRampToValueAtTime?.(SILENCE_FLOOR, fadeEnd);
       parameter?.setValueAtTime?.(0, fadeEnd + 0.003);
     } catch {

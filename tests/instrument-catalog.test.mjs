@@ -90,14 +90,13 @@ test("every instrument has factual card copy, a start action, traits, and a tran
 });
 
 test("experiments carry a works-in-progress status while regular instruments do not", () => {
+  const experimentGroup = INSTRUMENT_GROUPS.find(({ id }) => id === "experiments");
+  assert.ok(experimentGroup);
   const experiments = INSTRUMENTS.filter((instrument) => (
     instrument.tags.some(({ id }) => id === "experiments")
-    && INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.includes(instrument)
+    && experimentGroup.tools.includes(instrument)
   ));
-  assert.equal(
-    experiments.length,
-    INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.length,
-  );
+  assert.equal(experiments.length, experimentGroup.tools.length);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
   assert.equal(experiments.every(({ tags }) => (
     tags.length === 1 && tags[0].id === "experiments"

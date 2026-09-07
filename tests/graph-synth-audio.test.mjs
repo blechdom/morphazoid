@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   MAX_GRAPH_SYNTH_ACTIVE_VOICES,
   MAX_GRAPH_SYNTH_LIVE_SOURCES,
+  MAX_GRAPH_SYNTH_RESONANCE_PEAKS,
   MAX_GRAPH_SYNTH_SOURCE_START_BURST,
   GraphSynthAudio,
   graphSynthSourceCost,
@@ -307,6 +308,54 @@ test("Graph Synth follows absolute audio time and honors feedback-darkened brigh
   assert.equal(late.startAt, 4, "an absolute request in the past starts safely now");
 });
 
+test("Graph Synth builds bounded opt-in resonance branches and cleans them up", async () => {
+  const { runtime, created } = makeRuntime();
+  const audio = new GraphSynthAudio(runtime);
+  await audio.start();
+
+  const plain = await audio.trigger({ frequency: 180, gain: 0.2 });
+  const plainRecord = [...audio.activeVoices].find(({ spec }) => spec === plain);
+  assert.equal("resonancePeaks" in plain, false);
+  assert.equal("dryMix" in plain, false);
+  assert.equal(plainRecord.resonanceBranches.length, 0);
+  assert.equal(plainRecord.filter.connections.length, 1, "ordinary voices retain the direct path");
+
+  const rendered = await audio.trigger({
+    mode: "fm",
+    waveform: "sawtooth",
+    frequency: 220,
+    gain: 0.3,
+    dryMix: 0.25,
+    resonancePeaks: [
+      { frequency: Number.NaN, q: 2, weight: 1 },
+      { frequency: 430, q: 4.5, weight: 0.48 },
+      { frequency: 1_320, q: 99, weight: 0.3 },
+      { frequency: 2_160, q: 8, weight: 0.2 },
+    ],
+  });
+  const record = [...audio.activeVoices].find(({ spec }) => spec === rendered);
+
+  assert.equal(MAX_GRAPH_SYNTH_RESONANCE_PEAKS, 2);
+  assert.equal(rendered.resonancePeaks.length, MAX_GRAPH_SYNTH_RESONANCE_PEAKS);
+  assert.deepEqual(rendered.resonancePeaks.map(({ frequency }) => frequency), [430, 1_320]);
+  assert.equal(rendered.resonancePeaks[1].q, 24);
+  assert.equal(record.resonanceBranches.length, MAX_GRAPH_SYNTH_RESONANCE_PEAKS);
+  assert.ok(record.resonanceBranches.every(({ resonator }) => resonator.type === "bandpass"));
+  assert.equal(record.filter.connections.length, 3, "one dry and two resonant paths leave the low-pass");
+  const dryBranch = record.filter.connections[0];
+  const normalizedMix = record.filter.connections.reduce((sum, node) => (
+    sum + (node.gain?.value ?? record.resonanceBranches.find(({ resonator }) => resonator === node)?.gain.gain.value ?? 0)
+  ), 0);
+  assert.ok(Math.abs(normalizedMix - 1) < 1e-12);
+
+  for (const source of [...record.pendingSources]) source.onended?.();
+  assert.equal(audio.activeVoices.has(record), false);
+  assert.ok(dryBranch.disconnectCount > 0);
+  assert.ok(record.resonanceBranches.every(({ resonator, gain }) => (
+    resonator.disconnectCount > 0 && gain.disconnectCount > 0
+  )));
+});
+
 test("Graph Synth schedules independent pitch and FM-index contours over one note", async () => {
   const { runtime, created } = makeRuntime();
   const audio = new GraphSynthAudio(runtime);
@@ -609,7 +658,10 @@ test("Graph Synth silence cancels future voices and fades active voices", async 
   assert.equal(audio.activeVoices.has(active), true);
   assert.equal(active.sources[0].stops.at(-1), 1.13);
   assert.ok(active.amplitude.gain.calls.some(([method, time]) => (
-    method === "hold" && time === 1.1
+    method === "cancel" && time === 1.1
+  )));
+  assert.ok(active.amplitude.gain.calls.some(([method, value, time]) => (
+    method === "set" && value > 0.0001 && value < 0.4 && time === 1.1
   )));
   assert.ok(active.amplitude.gain.calls.some(([method, value, time]) => (
     method === "exponential" && value === 0.0001 && time === 1.125
