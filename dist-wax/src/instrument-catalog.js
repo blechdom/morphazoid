@@ -101,8 +101,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   moebius: define(
     "Nonorientable surface synth",
-    "Sweeps a two-dimensional plane through a half-twisted Möbius band, turning each topology-connected slice curve into a bounded pair of voices.",
-    "Turn on Audio, press Play or drag the 2D head, then tilt its plane and reshape the band while its glowing slice curves remain the score.",
+    "Sweeps a two-dimensional plane through a half-twisted Möbius band, or runs a 16-station, two-lap counterpoint weave whose hocketed subject gains an offbeat answer and inverts on the shadow lap.",
+    "Choose Plane slice for playable intersection curves, or Counterpoint weave for the perpendicular A–B crossbar, mirrored pitch traces, and forward-only two-lap phrase.",
     ["Pointer", "Built-in synth", "Shared transport"],
   ),
   "klein-bottle": define(
@@ -790,6 +790,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   hybrinx: Object.freeze(["sequencers"]),
   creaturazoid: Object.freeze(["sequencers"]),
   quadruped: Object.freeze(["sequencers", "geometry-drums"]),
+  moebius: Object.freeze(["sequencers"]),
   blowhole: Object.freeze(["sequencers"]),
   "hiccup-head": Object.freeze(["sequencers"]),
   "l-systems": Object.freeze(["fractals-recursion", "geometry-drums", "mic-fx"]),

@@ -3,11 +3,15 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  MOEBIUS_SEQUENCE,
   NONORIENTABLE_SURFACES,
   SURFACE_LIMITS,
   buildSurfaceMesh,
   canonicalSurfaceCoordinates,
   mapSliceComponents,
+  moebiusCounterpointEvents,
+  moebiusSequenceFrame,
+  moebiusSequencePulseWindow,
   planeOffsetForMeshPhase,
   sliceSurface,
   surfacePoint,
@@ -82,6 +86,180 @@ test("one lap reverses the transverse chart and two laps return it", () => {
   assertFinitePoint(tripleStart, "triple-twist start");
   assertPointClose(surfacePoint("klein", 0.37, -1), surfacePoint("klein", 0.37, 1), "Klein transverse closure");
 
+});
+
+test("Mobius sequence frames form one deterministic two-lap phrase", () => {
+  assert.equal(MOEBIUS_SEQUENCE.stepsPerLap, 16);
+  assert.equal(MOEBIUS_SEQUENCE.lapsPerPhrase, 2);
+  assert.equal(MOEBIUS_SEQUENCE.answerDelaySteps, 4);
+  assert.equal(MOEBIUS_SEQUENCE.motifSemitones.length, 16);
+
+  const cases = [
+    [0, 0, 0, 0, 1],
+    [15 / 16, 15, 15, 0, 1],
+    [1, 16, 0, 1, -1],
+    [31 / 16, 31, 15, 1, -1],
+    [2, 32, 0, 0, 1],
+    [-1 / 16, -1, 15, 1, -1],
+    [-1, -16, 0, 1, -1],
+    [-17 / 16, -17, 15, 0, 1],
+  ];
+  for (const [phase, ordinal, stepIndex, passIndex, orientation] of cases) {
+    const frame = moebiusSequenceFrame(phase);
+    assert.equal(frame.ordinal, ordinal);
+    assert.equal(frame.stepIndex, stepIndex);
+    assert.equal(frame.passIndex, passIndex);
+    assert.equal(frame.orientation, orientation);
+    assert.ok(frame.stepFraction >= 0 && frame.stepFraction < 1);
+  }
+  const subjectHalf = moebiusSequenceFrame(4.25 / 16);
+  const answerHalf = moebiusSequenceFrame(4.75 / 16);
+  assert.equal(subjectHalf.pulseOrdinal, 8);
+  assert.equal(subjectHalf.activeRole, "subject");
+  assert.equal(answerHalf.pulseOrdinal, 9);
+  assert.equal(answerHalf.activeRole, "answer");
+});
+
+test("Mobius scheduler window skips stale pulses and stays bounded", () => {
+  const regular = moebiusSequencePulseWindow(12.25, null, 4, 4);
+  assert.deepEqual(regular.pulses, [13, 14, 15, 16]);
+  assert.equal(regular.nextPulse, 17);
+
+  const stale = moebiusSequencePulseWindow(12.25, 3, 2.2, 4);
+  assert.deepEqual(stale.pulses, [13, 14]);
+  assert.ok(stale.pulses.every((pulse) => pulse > 12.25));
+
+  const capped = moebiusSequencePulseWindow(0.1, 1, 20, 4);
+  assert.deepEqual(capped.pulses, [1, 2, 3, 4]);
+  assert.equal(capped.nextPulse, 5);
+
+  const empty = moebiusSequencePulseWindow(5.9, 1, 0.05, 4);
+  assert.deepEqual(empty.pulses, []);
+  assert.equal(empty.nextPulse, 6);
+});
+
+test("Mobius crossbar endpoints exchange after one lap and restore after two", () => {
+  const a0 = surfacePoint("moebius", 0, -1);
+  const b0 = surfacePoint("moebius", 0, 1);
+  const a1 = surfacePoint("moebius", 1, -1);
+  const b1 = surfacePoint("moebius", 1, 1);
+  assertPointClose(a1, b0, "endpoint A after one lap");
+  assertPointClose(b1, a0, "endpoint B after one lap");
+  assertPointClose(surfacePoint("moebius", 2, -1), a0, "endpoint A after two laps");
+  assertPointClose(surfacePoint("moebius", 2, 1), b0, "endpoint B after two laps");
+});
+
+test("hocketed subject gains a delayed offbeat answer and inverts on pass two", () => {
+  for (let ordinal = 0; ordinal < MOEBIUS_SEQUENCE.answerDelaySteps; ordinal += 1) {
+    const score = moebiusCounterpointEvents(ordinal);
+    assert.equal(score.events.length, 1);
+    assert.equal(score.events[0].role, "subject");
+    assert.equal(score.events[0].lane, ordinal % 2 === 0 ? "a" : "b");
+  }
+
+  const firstAnswer = moebiusCounterpointEvents(4);
+  assert.equal(firstAnswer.events.length, 2);
+  assert.equal(firstAnswer.events[0].motifStep, 4);
+  assert.equal(firstAnswer.events[1].role, "answer");
+  assert.equal(firstAnswer.events[1].motifStep, 0);
+  assert.notEqual(firstAnswer.events[0].lane, firstAnswer.events[1].lane);
+  assert.ok(firstAnswer.events[1].gain < firstAnswer.events[0].gain);
+  assert.equal(firstAnswer.events[0].stepOffset, 0);
+  assert.equal(firstAnswer.events[1].stepOffset, 0.5);
+  assert.equal(
+    moebiusCounterpointEvents(4, { seamVoice: 0 }).events[1].gain,
+    0,
+  );
+
+  for (let index = 0; index < MOEBIUS_SEQUENCE.stepsPerLap; index += 1) {
+    const firstPass = moebiusCounterpointEvents(index);
+    const shadowPass = moebiusCounterpointEvents(index + 16);
+    const restored = moebiusCounterpointEvents(index + 32);
+    const firstSubject = firstPass.events[0];
+    const shadowSubject = shadowPass.events[0];
+    assert.equal(firstSubject.lane, index % 2 === 0 ? "a" : "b");
+    assert.equal(shadowSubject.lane, firstSubject.lane);
+    assert.equal(shadowPass.orientation, -firstPass.orientation);
+    assert.ok(Math.abs(shadowSubject.pan + firstSubject.pan) < 1e-12);
+    assert.ok(
+      Math.abs(shadowSubject.intervalSemitones + firstSubject.intervalSemitones) < 1e-12,
+    );
+    assert.equal(firstSubject.registerSemitones, -6);
+    assert.equal(shadowSubject.registerSemitones, 6);
+    assert.ok(
+      Math.abs(
+        Math.log2(
+          firstSubject.frequency * shadowSubject.frequency / (72 * 72),
+        ),
+      ) < 1e-12,
+    );
+    assert.deepEqual(restored.events, firstPass.events);
+
+    if (index >= MOEBIUS_SEQUENCE.answerDelaySteps) {
+      const firstAnswerEvent = firstPass.events[1];
+      const shadowAnswer = shadowPass.events[1];
+      assert.equal(firstAnswerEvent.registerSemitones, 6);
+      assert.equal(shadowAnswer.registerSemitones, -6);
+      assert.ok(
+        Math.abs(shadowAnswer.intervalSemitones + firstAnswerEvent.intervalSemitones) < 1e-12,
+      );
+    }
+  }
+  assert.equal(moebiusCounterpointEvents(32).events.length, 1);
+});
+
+test("Mobius pitch inversion remains exact at every control extreme", () => {
+  for (const baseFrequency of [20, 48, 72, 330]) {
+    for (const pitchRange of [0.25, 2.6, 3.8, 5]) {
+      for (let index = 0; index < MOEBIUS_SEQUENCE.stepsPerLap; index += 1) {
+        const first = moebiusCounterpointEvents(index, {
+          baseFrequency,
+          pitchRange,
+        });
+        const shadow = moebiusCounterpointEvents(index + 16, {
+          baseFrequency,
+          pitchRange,
+        });
+        for (const event of first.events) {
+          const inverse = shadow.events.find(({ role }) => role === event.role);
+          assert.ok(inverse, `${event.role} must survive the orientation change`);
+          assert.ok(
+            Math.abs(event.pitchOffsetSemitones + inverse.pitchOffsetSemitones) < 1e-12,
+          );
+          assert.ok(
+            Math.abs(Math.log2(
+              event.frequency * inverse.frequency / (baseFrequency * baseFrequency),
+            )) < 1e-12,
+          );
+        }
+      }
+    }
+  }
+
+  const narrow = moebiusCounterpointEvents(11, { pitchRange: 0.25 }).events[0];
+  const wide = moebiusCounterpointEvents(11, { pitchRange: 5 }).events[0];
+  assert.ok(Math.abs(wide.intervalSemitones) > Math.abs(narrow.intervalSemitones));
+});
+
+test("Mobius counterpoint events remain finite and bounded", () => {
+  for (const ordinal of [-65, -1, 0, 4, 16, 31, 32, 97]) {
+    const score = moebiusCounterpointEvents(ordinal, {
+      baseFrequency: Number.NaN,
+      pitchRange: Number.POSITIVE_INFINITY,
+      stereoWidth: 99,
+      seamVoice: Number.NEGATIVE_INFINITY,
+    });
+    assert.ok(score.events.length >= 1 && score.events.length <= 2);
+    for (const event of score.events) {
+      assert.equal(Number.isFinite(event.frequency), true);
+      assert.equal(Number.isFinite(event.gain), true);
+      assert.equal(Number.isFinite(event.pan), true);
+      assert.equal(Number.isFinite(event.pitchOffsetSemitones), true);
+      assert.ok(event.frequency >= 20 && event.frequency <= 12_000);
+      assert.ok(event.gain >= 0 && event.gain <= 0.42);
+      assert.ok(event.pan >= -1 && event.pan <= 1);
+    }
+  }
 });
 
 test("longitudinal seam triangles sew to reflected transverse indices", () => {
@@ -357,7 +535,28 @@ test("Möbius and Klein pages expose the shared playable and lifecycle contracts
   assert.match(klein, /3D immersion:/);
   assert.match(klein, /self-crossing is not a junction/);
   assert.match(moebius, /longitudinal seam joins each transverse coordinate to its opposite/);
+  assert.match(moebius, /id="selectPlaneMode"/);
+  assert.match(moebius, /id="selectSequenceMode"/);
+  assert.match(moebius, /id="sequenceState"/);
+  assert.doesNotMatch(moebius, /id="sequenceState"[^>]+aria-live/);
+  assert.doesNotMatch(klein, /id="selectSequenceMode"/);
   assert.match(app, /new VoicePool\(12, \{ continuousPeakCeiling: 0\.72 \}\)/);
+  assert.match(app, /SEQUENCE_LOOKAHEAD_SECONDS = 0\.1/);
+  assert.doesNotMatch(app, /SEQUENCE_LATE_TOLERANCE_SECONDS/);
+  assert.match(app, /SEQUENCE_SCHEDULER_INTERVAL_MS = 25/);
+  assert.match(app, /MAX_SEQUENCE_PULSES_PER_TICK = 4/);
+  assert.match(app, /window\.setInterval/);
+  assert.match(app, /strikeSequencePulse/);
+  assert.match(app, /role = safePulse % 2 === 0 \? "subject" : "answer"/);
+  assert.match(app, /moebiusSequencePulseWindow/);
+  assert.match(app, /pool\.context\?\.currentTime/);
+  assert.match(app, /requestedStartAt < minimumStartAt/);
+  assert.match(app, /sequence\.pulseOrdinal/);
+  assert.match(app, /sequencePitchTrace/);
+  assert.match(app, /Form controls reshape the visible strip only/);
+  assert.doesNotMatch(app, /startAt\s*\+\s*event\.stepOffset/);
+  assert.doesNotMatch(app, /nextSequenceOrdinal/);
+  assert.doesNotMatch(app, /\bfugue\b/i);
   assert.match(app, /pool\.setVoiceTrajectory\(voices, futureVoices, 0\.075\)/);
   assert.match(app, /canvas\.addEventListener\("pointercancel", cancelDrag\)/);
   assert.match(app, /canvas\.addEventListener\("lostpointercapture", cancelDrag\)/);
@@ -368,6 +567,8 @@ test("Möbius and Klein pages expose the shared playable and lifecycle contracts
   assert.match(app, /window\.addEventListener\("pageshow"/);
   assert.match(app, /void pool\.close\(\)/);
   assert.doesNotMatch(app, /wakeManualSound\(180\)/);
+  assert.match(css, /\.topology-play-mode button\[aria-pressed="true"\]/);
+  assert.match(css, /\.topology-sequence-state\[hidden\]/);
   assert.match(css, /@media \(max-width: 650px\)/);
   assert.match(css, /@media \(pointer: coarse\)/);
 });

@@ -5,7 +5,7 @@
     <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#05080b" />
-    <meta name="description" content="Morphazoid Möbius — a moving two-dimensional plane slices a half-twisted band into playable curves." />
+    <meta name="description" content="Morphazoid Möbius — play a moving plane slice or a 16-station hocket whose counterpoint inverts after one lap." />
     <title>Möbius — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
@@ -100,6 +100,11 @@
         <details class="group control-section" data-section="play" open>
           <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">plane · paused</span></summary>
           <div class="group-body">
+            <div class="topology-play-mode" role="group" aria-label="Play mode">
+              <button id="selectPlaneMode" type="button" aria-pressed="true">Plane slice</button>
+              <button id="selectSequenceMode" type="button" aria-pressed="false">Counterpoint weave</button>
+            </div>
+            <output class="topology-sequence-state" id="sequenceState" hidden>PASS 1 / ORIENTATION A / STEP 09/16 / NOW SUBJECT A</output>
             <div class="position-row">
               <button class="play-button" id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play two-dimensional slicing plane">
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>

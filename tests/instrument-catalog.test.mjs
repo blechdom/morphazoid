@@ -584,6 +584,7 @@ test("catalogue tag matching includes secondary tags", () => {
   assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "experiments"), true);
   assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "geometry"), false);
   assert.equal(instrumentMatchesTag(instrumentById("fm-drums"), "geometry-drums"), true);
+  assert.equal(instrumentMatchesTag(instrumentById("moebius"), "sequencers"), true);
   assert.equal(instrumentMatchesTag(instrumentById("shape"), "faves"), true);
   assert.equal(instrumentMatchesTag(instrumentById("lattice"), "faves"), true);
 });

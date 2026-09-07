@@ -88,6 +88,57 @@
   color: color-mix(in oklab, var(--muted) 76%, var(--topology-plane));
 }
 
+.topology-play-mode {
+  display: grid;
+  margin: 0 0 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.topology-play-mode button {
+  min-width: 0;
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  line-height: 1.25;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.topology-play-mode button:hover,
+.topology-play-mode button:focus-visible {
+  border-color: var(--topology-plane);
+  color: var(--topology-plane);
+}
+
+.topology-play-mode button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+  background: var(--accent-glow);
+  box-shadow: inset 0 -2px 0 var(--topology-plane);
+}
+
+.topology-sequence-state {
+  display: block;
+  min-height: 28px;
+  margin: 0 0 9px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in oklab, var(--topology-surface-a) 24%, var(--line));
+  color: color-mix(in oklab, var(--ink) 82%, var(--topology-slice));
+  background: color-mix(in oklab, var(--bg-deep) 92%, var(--topology-surface-b));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  line-height: 1.55;
+  letter-spacing: 0.045em;
+}
+
+.topology-sequence-state[hidden] {
+  display: none;
+}
+
 .topology-target-switch {
   position: absolute;
   z-index: 4;
@@ -314,6 +365,7 @@
 
 @media (pointer: coarse) {
   .topology-target-switch button,
+  .topology-play-mode button,
   .topology-panel .direction-action,
   .topology-panel .reset-all-button,
   .topology-preset-grid button,

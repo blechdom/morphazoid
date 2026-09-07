@@ -21,6 +21,18 @@ export const SURFACE_LIMITS = Object.freeze({
   maximumVoiceComponents: 6,
 });
 
+export const MOEBIUS_SEQUENCE = Object.freeze({
+  stepsPerLap: 16,
+  lapsPerPhrase: 2,
+  answerDelaySteps: 4,
+  motifSemitones: Object.freeze([
+    0, 2, 4, 7,
+    5, 3, 1, 4,
+    2, 5, 7, 9,
+    7, 4, 2, 0,
+  ]),
+});
+
 export function clamp(value, minimum = 0, maximum = 1) {
   const low = Math.min(minimum, maximum);
   const high = Math.max(minimum, maximum);
@@ -36,6 +48,159 @@ export function wrap01(value) {
 export function wrapSigned(value) {
   const finite = Number.isFinite(Number(value)) ? Number(value) : 0;
   return (((finite + 1) % 2) + 2) % 2 - 1;
+}
+
+function positiveModulo(value, modulus) {
+  return ((value % modulus) + modulus) % modulus;
+}
+
+/**
+ * Read an unwrapped longitudinal position as one station in the Möbius
+ * sequencer's two-lap phrase. One lap reverses orientation; the second restores
+ * it. Keeping the unwrapped ordinal makes seam crossings and reverse scrubbing
+ * deterministic without changing the transport's direction of time.
+ */
+export function moebiusSequenceFrame(longitudinal = 0) {
+  const phase = Number.isFinite(Number(longitudinal)) ? Number(longitudinal) : 0;
+  const stepPosition = phase * MOEBIUS_SEQUENCE.stepsPerLap;
+  const ordinal = Math.floor(stepPosition);
+  const pulseOrdinal = Math.floor(stepPosition * 2);
+  const stepsPerPhrase = MOEBIUS_SEQUENCE.stepsPerLap * MOEBIUS_SEQUENCE.lapsPerPhrase;
+  const phraseStep = positiveModulo(ordinal, stepsPerPhrase);
+  const passIndex = Math.floor(phraseStep / MOEBIUS_SEQUENCE.stepsPerLap);
+  return {
+    ordinal,
+    pulseOrdinal,
+    activeRole: positiveModulo(pulseOrdinal, 2) === 0 ? "subject" : "answer",
+    phraseStep,
+    passIndex,
+    passNumber: passIndex + 1,
+    shadow: passIndex === 1,
+    orientation: passIndex === 1 ? -1 : 1,
+    stepIndex: phraseStep % MOEBIUS_SEQUENCE.stepsPerLap,
+    stepFraction: stepPosition - ordinal,
+    localPhase: wrap01(phase),
+    phrasePhase: positiveModulo(phase, MOEBIUS_SEQUENCE.lapsPerPhrase)
+      / MOEBIUS_SEQUENCE.lapsPerPhrase,
+  };
+}
+
+/**
+ * Select only future half-step pulses inside a bounded scheduler horizon.
+ * Advancing the cursor past the current pulse drops stale attacks rather than
+ * replaying a backlog after a suspended or delayed timer.
+ */
+export function moebiusSequencePulseWindow(
+  currentPulse = 0,
+  nextPulse = null,
+  horizonPulses = 0,
+  maximumPulses = 4,
+) {
+  const current = Number.isFinite(Number(currentPulse)) ? Number(currentPulse) : 0;
+  const horizon = current + Math.max(
+    0,
+    Number.isFinite(Number(horizonPulses)) ? Number(horizonPulses) : 0,
+  );
+  const limit = Math.floor(clamp(maximumPulses, 0, 16));
+  const firstFuturePulse = Math.floor(current) + 1;
+  let cursor = Number.isFinite(nextPulse) ? Math.floor(nextPulse) : firstFuturePulse;
+  cursor = Math.max(cursor, firstFuturePulse);
+  const pulses = [];
+  while (cursor <= horizon + 1e-9 && pulses.length < limit) {
+    pulses.push(cursor);
+    cursor += 1;
+  }
+  return { pulses, nextPulse: cursor };
+}
+
+function laneForStep(stepIndex) {
+  return stepIndex % 2 === 0 ? "a" : "b";
+}
+
+function otherLane(lane) {
+  return lane === "a" ? "b" : "a";
+}
+
+function roleRegisterSemitones(role, shadow) {
+  const subjectIsUpper = Boolean(shadow);
+  return (role === "subject") === subjectIsUpper ? 6 : -6;
+}
+
+function sequencePitch(baseFrequency, interval, register) {
+  const axis = clamp(baseFrequency, 20, 330);
+  const symmetricLimit = Math.max(0, Math.min(
+    12 * Math.log2(axis / 20),
+    12 * Math.log2(12_000 / axis),
+  ));
+  const offsetSemitones = clamp(interval + register, -symmetricLimit, symmetricLimit);
+  return {
+    frequency: axis * 2 ** (offsetSemitones / 12),
+    offsetSemitones,
+  };
+}
+
+/**
+ * Map a station ordinal to a bounded two-voice counterpoint intent. The main
+ * subject hockets between the two intrinsic ribbon edges. Four stations later,
+ * the opposite edge gives a quieter imitative answer. On the shadow lap the
+ * melodic intervals invert around one tonal axis and the role registers swap.
+ */
+export function moebiusCounterpointEvents(stepOrdinal = 0, {
+  baseFrequency = 72,
+  pitchRange = 2.6,
+  stereoWidth = 0.82,
+  seamVoice = 0.52,
+} = {}) {
+  const ordinal = Number.isFinite(Number(stepOrdinal))
+    ? Math.floor(Number(stepOrdinal))
+    : 0;
+  const frame = moebiusSequenceFrame(ordinal / MOEBIUS_SEQUENCE.stepsPerLap);
+  const intervalScale = clamp(pitchRange, 0.25, 5) / 2.6;
+  const intervalDirection = frame.shadow ? -1 : 1;
+  const width = clamp(stereoWidth, 0, 1) * frame.orientation;
+  const mainLane = laneForStep(frame.stepIndex);
+  const accent = frame.stepIndex % 4 === 0 ? 1 : 0.82;
+  const shadowGain = frame.shadow ? 0.9 : 1;
+  const eventFor = (role, lane, motifStep, gain) => {
+    const interval = MOEBIUS_SEQUENCE.motifSemitones[motifStep]
+      * intervalScale
+      * intervalDirection;
+    const registerSemitones = roleRegisterSemitones(role, frame.shadow);
+    const pitch = sequencePitch(baseFrequency, interval, registerSemitones);
+    return {
+      role,
+      lane,
+      motifStep,
+      intervalSemitones: interval,
+      registerSemitones,
+      pitchOffsetSemitones: pitch.offsetSemitones,
+      frequency: pitch.frequency,
+      gain: clamp(gain, 0, 0.42),
+      pan: (lane === "a" ? -1 : 1) * width,
+      transverse: lane === "a" ? -1 : 1,
+      stepOffset: role === "answer" ? 0.5 : 0,
+    };
+  };
+
+  const events = [eventFor(
+    "subject",
+    mainLane,
+    frame.stepIndex,
+    0.3 * accent * shadowGain,
+  )];
+  if (frame.phraseStep >= MOEBIUS_SEQUENCE.answerDelaySteps) {
+    const answerStep = positiveModulo(
+      frame.stepIndex - MOEBIUS_SEQUENCE.answerDelaySteps,
+      MOEBIUS_SEQUENCE.stepsPerLap,
+    );
+    events.push(eventFor(
+      "answer",
+      otherLane(mainLane),
+      answerStep,
+      clamp(seamVoice, 0, 1) * 0.12 * accent * shadowGain,
+    ));
+  }
+  return { ...frame, events };
 }
 
 export function sanitizeSurfaceKind(kind) {

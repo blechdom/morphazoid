@@ -11,9 +11,13 @@ import {
   rotatePoint3,
 } from "./src/solid.js";
 import {
+  MOEBIUS_SEQUENCE,
   buildSurfaceMesh,
   clamp,
   mapSliceComponents,
+  moebiusCounterpointEvents,
+  moebiusSequenceFrame,
+  moebiusSequencePulseWindow,
   trackSliceComponents,
   planeOffsetForMeshPhase,
   sliceSurface,
@@ -45,6 +49,7 @@ const PAGE = KIND === "klein" ? {
     speed: 0.08,
     direction: 1,
     playing: false,
+    playMode: "plane",
     planeYaw: 24,
     planePitch: -14,
     surfaceRadius: 1.5,
@@ -124,6 +129,7 @@ const PAGE = KIND === "klein" ? {
     speed: 0.1,
     direction: 1,
     playing: false,
+    playMode: "plane",
     planeYaw: 38,
     planePitch: -18,
     surfaceRadius: 0.72,
@@ -215,6 +221,14 @@ let componentTracks = [];
 let nextComponentId = 0;
 let pageActive = true;
 let audioRequestGeneration = 0;
+let nextSequencePulse = null;
+let lastSequencePass = null;
+let sequenceSchedulerTimer = null;
+let sequenceAnchorPhase = state.continuousPosition;
+let sequenceAnchorTime = performance.now() / 1_000;
+const SEQUENCE_LOOKAHEAD_SECONDS = 0.1;
+const SEQUENCE_SCHEDULER_INTERVAL_MS = 25;
+const MAX_SEQUENCE_PULSES_PER_TICK = 4;
 
 function announce(message) {
   $("liveStatus").textContent = message;
@@ -235,6 +249,38 @@ function rgba(color, alpha) {
 function mixColor(first, second, amount) {
   const t = clamp(amount, 0, 1);
   return first.map((value, index) => Math.round(value + (second[index] - value) * t));
+}
+
+function sequenceModeActive() {
+  return KIND === "moebius" && state.playMode === "sequence";
+}
+
+function sequenceClockTime(performanceTimestamp = performance.now()) {
+  const audioTime = pool.context?.currentTime;
+  if (state.audio && Number.isFinite(audioTime)) return audioTime;
+  return performanceTimestamp / 1_000;
+}
+
+function sequencePositionAt(performanceTimestamp = performance.now()) {
+  if (!sequenceModeActive() || !state.playing) return state.continuousPosition;
+  const elapsed = Math.max(
+    0,
+    sequenceClockTime(performanceTimestamp) - sequenceAnchorTime,
+  );
+  return sequenceAnchorPhase + state.speed * elapsed;
+}
+
+function setSequenceTransportAnchor(
+  phase = state.continuousPosition,
+  performanceTimestamp = performance.now(),
+) {
+  state.continuousPosition = phase;
+  sequenceAnchorPhase = phase;
+  sequenceAnchorTime = sequenceClockTime(performanceTimestamp);
+}
+
+function currentSequenceFrame() {
+  return moebiusSequenceFrame(sequencePositionAt());
 }
 
 function scheduleFrame() {
@@ -461,6 +507,162 @@ function drawTopologyGuides(transform) {
   }
 }
 
+function sequencePitchTrace(sequence, role, options) {
+  const entries = [];
+  for (let index = 0; index < MOEBIUS_SEQUENCE.stepsPerLap; index += 1) {
+    const score = moebiusCounterpointEvents(
+      sequence.passIndex * MOEBIUS_SEQUENCE.stepsPerLap + index,
+      {
+        baseFrequency: state.baseFrequency,
+        pitchRange: state.pitchRange,
+        stereoWidth: state.stereoWidth,
+        seamVoice: state.seamVoice,
+      },
+    );
+    const event = score.events.find((candidate) => candidate.role === role);
+    if (!event) continue;
+    const longitudinal = sequence.passIndex + (
+      index + (role === "answer" ? 0.5 : 0)
+    ) / MOEBIUS_SEQUENCE.stepsPerLap;
+    entries.push({
+      axis: surfacePoint("moebius", longitudinal, 0, options),
+      note: surfacePoint(
+        "moebius",
+        longitudinal,
+        clamp(event.pitchOffsetSemitones / 20, -0.66, 0.66),
+        options,
+      ),
+    });
+  }
+  return entries;
+}
+
+function drawSequenceScore(transform, sequence) {
+  const options = surfaceOptions();
+  const counterpoint = moebiusCounterpointEvents(sequence.ordinal, {
+    baseFrequency: state.baseFrequency,
+    pitchRange: state.pitchRange,
+    stereoWidth: state.stereoWidth,
+    seamVoice: state.seamVoice,
+  });
+
+  context.save();
+  for (const traceStyle of [
+    { role: "subject", color: PAGE.colors.slice, dash: [] },
+    { role: "answer", color: mixColor(PAGE.colors.slice, PAGE.colors.high, 0.58), dash: [3, 4] },
+  ]) {
+    const trace = sequencePitchTrace(sequence, traceStyle.role, options)
+      .map((entry) => ({
+        axis: projected(entry.axis, transform),
+        note: projected(entry.note, transform),
+      }));
+    if (trace.length > 1) {
+      context.beginPath();
+      trace.forEach((entry, index) => {
+        if (index) context.lineTo(entry.note.canvasX, entry.note.canvasY);
+        else context.moveTo(entry.note.canvasX, entry.note.canvasY);
+      });
+      context.strokeStyle = rgba(traceStyle.color, traceStyle.role === "subject" ? 0.72 : 0.46);
+      context.lineWidth = traceStyle.role === "subject" ? 1.35 : 1;
+      context.setLineDash(traceStyle.dash);
+      context.stroke();
+      context.setLineDash([]);
+    }
+    for (const entry of trace) {
+      context.beginPath();
+      context.moveTo(entry.axis.canvasX, entry.axis.canvasY);
+      context.lineTo(entry.note.canvasX, entry.note.canvasY);
+      context.strokeStyle = rgba(traceStyle.color, 0.3);
+      context.lineWidth = 0.75;
+      context.stroke();
+      context.beginPath();
+      context.arc(entry.note.canvasX, entry.note.canvasY, 1.55, 0, TAU);
+      context.fillStyle = rgba(traceStyle.color, 0.82);
+      context.fill();
+    }
+  }
+
+  for (let index = 0; index < MOEBIUS_SEQUENCE.stepsPerLap; index += 1) {
+    const laneA = index % 2 === 0;
+    const station = surfacePoint(
+      "moebius",
+      sequence.passIndex + index / MOEBIUS_SEQUENCE.stepsPerLap,
+      laneA ? -0.82 : 0.82,
+      options,
+    );
+    const point = projected(station, transform);
+    const active = index === sequence.stepIndex;
+    const color = laneA ? PAGE.colors.low : PAGE.colors.high;
+    context.beginPath();
+    context.arc(point.canvasX, point.canvasY, active ? 4.2 : 2.1, 0, TAU);
+    context.fillStyle = rgba(color, active ? 1 : 0.48);
+    context.shadowColor = rgba(color, 0.9);
+    context.shadowBlur = active ? 13 : 0;
+    context.fill();
+  }
+
+  const crossbar = Array.from({ length: 17 }, (_, index) => surfacePoint(
+    "moebius",
+    state.continuousPosition,
+    -1 + index / 8,
+    options,
+  ));
+  const projectedCrossbar = crossbar.map((point) => projected(point, transform));
+  const first = projectedCrossbar[0];
+  const last = projectedCrossbar[projectedCrossbar.length - 1];
+  const gradient = context.createLinearGradient(
+    first.canvasX,
+    first.canvasY,
+    last.canvasX,
+    last.canvasY,
+  );
+  gradient.addColorStop(0, rgba(PAGE.colors.low, 1));
+  gradient.addColorStop(0.5, rgba(PAGE.colors.slice, 1));
+  gradient.addColorStop(1, rgba(PAGE.colors.high, 1));
+  context.beginPath();
+  projectedCrossbar.forEach((point, index) => {
+    if (index) context.lineTo(point.canvasX, point.canvasY);
+    else context.moveTo(point.canvasX, point.canvasY);
+  });
+  context.strokeStyle = gradient;
+  context.lineWidth = 3.2;
+  context.lineCap = "round";
+  context.shadowColor = rgba(PAGE.colors.slice, 0.92);
+  context.shadowBlur = 14;
+  context.stroke();
+  context.shadowBlur = 0;
+
+  [[first, PAGE.colors.low, "A", "a"], [last, PAGE.colors.high, "B", "b"]]
+    .forEach(([point, color, label, lane]) => {
+      const activeEvent = counterpoint.events.find((event) => (
+        event.role === sequence.activeRole && event.lane === lane
+      ));
+      const isActive = activeEvent?.gain > 0.0001;
+      const isAnswer = isActive && activeEvent.role === "answer";
+      context.beginPath();
+      context.arc(point.canvasX, point.canvasY, isActive ? 6.2 : 4.6, 0, TAU);
+      context.fillStyle = rgba(color, isActive ? 1 : 0.7);
+      context.shadowColor = rgba(color, 0.95);
+      context.shadowBlur = isActive ? 15 : 3;
+      context.fill();
+      context.shadowBlur = 0;
+      if (isAnswer) {
+        context.beginPath();
+        context.arc(point.canvasX, point.canvasY, 8.2, 0, TAU);
+        context.strokeStyle = rgba(PAGE.colors.slice, 0.8);
+        context.lineWidth = 1.35;
+        context.stroke();
+      }
+      if (cssWidth >= 560 && cssHeight >= 300) {
+        context.fillStyle = rgba(color, 0.96);
+        context.font = "bold 9px ui-monospace, SFMono-Regular, Menlo, monospace";
+        context.textBaseline = "middle";
+        context.fillText(label, point.canvasX + 8, point.canvasY);
+      }
+    });
+  context.restore();
+}
+
 function drawSlice(slice, trackedComponents, transform) {
   const componentForSegment = new Map();
   slice.components.forEach((component) => {
@@ -508,14 +710,18 @@ function drawSlice(slice, trackedComponents, transform) {
   context.restore();
 }
 
-function drawScene(mesh, plane, slice, trackedComponents) {
+function drawScene(mesh, plane, slice, trackedComponents, sequence = null) {
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, cssWidth, cssHeight);
   const transform = projectionTransform();
-  drawPlane(plane.normal, plane.offset, transform);
+  if (!sequence) drawPlane(plane.normal, plane.offset, transform);
   drawMesh(mesh, transform);
   drawTopologyGuides(transform);
-  drawSlice(slice, trackedComponents, transform);
+  if (sequence) {
+    drawSequenceScore(transform, sequence);
+  } else {
+    drawSlice(slice, trackedComponents, transform);
+  }
 }
 
 function mappedSliceComponents(mesh, slice) {
@@ -602,17 +808,163 @@ function resetClocks() {
   lastAudioTime = pool.context?.currentTime ?? null;
 }
 
+function stopSequenceScheduler({ silence = false } = {}) {
+  if (sequenceSchedulerTimer !== null) window.clearInterval(sequenceSchedulerTimer);
+  sequenceSchedulerTimer = null;
+  nextSequencePulse = null;
+  lastSequencePass = null;
+  if (silence) pool.silence();
+}
+
+function armSequenceAtCurrent({ audition = false } = {}) {
+  if (!sequenceModeActive()) return;
+  const position = sequencePositionAt();
+  const sequence = moebiusSequenceFrame(position);
+  nextSequencePulse = sequence.pulseOrdinal + 1;
+  lastSequencePass = sequence.passIndex;
+  if (audition && state.audio) strikeSequencePulse(sequence.pulseOrdinal);
+}
+
+function sequenceWaveform() {
+  if (state.timbre < 0.34) return "sine";
+  if (state.timbre < 0.72) return "triangle";
+  return "sawtooth";
+}
+
+function strikeSequencePulse(pulse, requestedStartAt = null) {
+  if (!state.audio || !pool.context || !sequenceModeActive()) return 0;
+  const safePulse = Number.isFinite(Number(pulse)) ? Math.floor(Number(pulse)) : 0;
+  const ordinal = Math.floor(safePulse / 2);
+  const role = safePulse % 2 === 0 ? "subject" : "answer";
+  const mapped = moebiusCounterpointEvents(ordinal, {
+    baseFrequency: state.baseFrequency,
+    pitchRange: state.pitchRange,
+    stereoWidth: state.stereoWidth,
+    seamVoice: state.seamVoice,
+  });
+  const event = mapped.events.find((candidate) => candidate.role === role);
+  if (!event || event.gain <= 0.0001) return 0;
+
+  const contextNow = pool.context.currentTime;
+  const minimumStartAt = contextNow + 0.003;
+  if (Number.isFinite(requestedStartAt) && requestedStartAt < minimumStartAt) return 0;
+  const startAt = Number.isFinite(requestedStartAt)
+    ? requestedStartAt
+    : minimumStartAt;
+  const stepDuration = 1 / (
+    Math.max(0.01, state.speed) * MOEBIUS_SEQUENCE.stepsPerLap
+  );
+  const decaySeconds = clamp(stepDuration * 0.68, 0.045, 0.22);
+  const gain = Math.min(event.gain, pool.availableStrikeHeadroom(0.78));
+  if (gain <= 0.0001) return 0;
+  return pool.strike({
+    key: `moebius:weave:${event.role}:${event.lane}`,
+    frequency: event.frequency,
+    gain,
+    pan: event.pan,
+    waveform: sequenceWaveform(),
+  }, {
+    attackSeconds: 0.003 + state.timbre * 0.004,
+    decaySeconds,
+    attackNoise: state.timbre * 0.12,
+    startAt,
+    retriggerMode: "crossfade",
+    crossfadeSeconds: 0.012,
+  }) ? 1 : 0;
+}
+
+function scheduleSequenceLookahead(phase = sequencePositionAt()) {
+  if (!state.playing || !state.audio || !pool.context || !sequenceModeActive()) return 0;
+  const pulsesPerLap = MOEBIUS_SEQUENCE.stepsPerLap * 2;
+  const rate = Math.max(0.01, state.speed);
+  const secondsPerPulse = 1 / (rate * pulsesPerLap);
+  const currentPulse = phase * pulsesPerLap;
+  const pulseWindow = moebiusSequencePulseWindow(
+    currentPulse,
+    nextSequencePulse,
+    SEQUENCE_LOOKAHEAD_SECONDS / secondsPerPulse,
+    MAX_SEQUENCE_PULSES_PER_TICK,
+  );
+  const audioNow = pool.context.currentTime;
+  let scheduled = 0;
+  for (const pulse of pulseWindow.pulses) {
+    const secondsUntil = (pulse - currentPulse) * secondsPerPulse;
+    scheduled += strikeSequencePulse(
+      pulse,
+      audioNow + secondsUntil,
+    );
+  }
+  nextSequencePulse = pulseWindow.nextPulse;
+  return scheduled;
+}
+
+function startSequenceScheduler() {
+  if (
+    sequenceSchedulerTimer !== null
+    || !pageActive
+    || document.hidden
+    || !sequenceModeActive()
+    || !state.playing
+    || !state.audio
+    || !pool.context
+  ) return;
+  scheduleSequenceLookahead();
+  sequenceSchedulerTimer = window.setInterval(
+    () => scheduleSequenceLookahead(),
+    SEQUENCE_SCHEDULER_INTERVAL_MS,
+  );
+}
+
+function paintSequencePosition() {
+  const output = $("sequenceState");
+  if (!output || !sequenceModeActive()) return;
+  const sequence = currentSequenceFrame();
+  const mapped = moebiusCounterpointEvents(sequence.ordinal, {
+    baseFrequency: state.baseFrequency,
+    pitchRange: state.pitchRange,
+    stereoWidth: state.stereoWidth,
+    seamVoice: state.seamVoice,
+  });
+  const activeEvent = mapped.events.find((event) => event.role === sequence.activeRole);
+  const activeCopy = !activeEvent
+    ? "NOW ANSWER REST"
+    : activeEvent.gain > 0.0001
+      ? `NOW ${activeEvent.role.toUpperCase()} ${activeEvent.lane.toUpperCase()}`
+      : `NOW ${activeEvent.role.toUpperCase()} ${activeEvent.lane.toUpperCase()} MUTED`;
+  const copy = `${sequence.shadow ? "PASS 2 / ORIENTATION B / SHADOW" : "PASS 1 / ORIENTATION A"} / STEP ${String(sequence.stepIndex + 1).padStart(2, "0")}/16 / ${activeCopy}`;
+  if (output.textContent !== copy) output.textContent = copy;
+  canvas.dataset.sequencePass = String(sequence.passNumber);
+  canvas.dataset.sequenceStep = String(sequence.stepIndex + 1);
+  canvas.dataset.sequenceOrientation = String(sequence.orientation);
+  canvas.dataset.sequenceRole = sequence.activeRole;
+}
+
 function wakeManualSound(milliseconds = 240) {
   manualSoundUntil = Math.max(manualSoundUntil, performance.now() + milliseconds);
+  if (sequenceModeActive()) {
+    const sequence = currentSequenceFrame();
+    if (state.audio) strikeSequencePulse(sequence.pulseOrdinal);
+    if (!Number.isFinite(nextSequencePulse)) {
+      nextSequencePulse = Math.floor(
+        sequencePositionAt() * MOEBIUS_SEQUENCE.stepsPerLap * 2,
+      ) + 1;
+    }
+  }
   scheduleFrame();
 }
 
 function paintTransport() {
+  const sequence = sequenceModeActive();
   setPressed($("playButton"), state.playing);
   $("playButton").setAttribute(
     "aria-label",
-    `${state.playing ? "Pause" : "Play"} two-dimensional slicing plane`,
+    `${state.playing ? "Pause" : "Play"} ${sequence ? "Mobius counterpoint weave" : "two-dimensional slicing plane"}`,
   );
+  if (sequence) {
+    $("playSummary").textContent = `weave / ${state.playing ? "playing" : "paused"}`;
+    paintSequencePosition();
+    return;
+  }
   $("playSummary").textContent = `plane · ${state.playing ? "playing" : "paused"}`;
 }
 
@@ -639,9 +991,78 @@ function paintAutoRotate() {
 }
 
 function paintTarget() {
-  setPressed($("selectForm"), rotationTarget === "form");
-  setPressed($("selectPlayhead"), rotationTarget === "playhead");
-  stageWrap.classList.toggle("is-form-target", rotationTarget === "form");
+  const activeTarget = sequenceModeActive() ? "form" : rotationTarget;
+  setPressed($("selectForm"), activeTarget === "form");
+  setPressed($("selectPlayhead"), activeTarget === "playhead");
+  $("selectPlayhead").disabled = sequenceModeActive();
+  stageWrap.classList.toggle("is-form-target", activeTarget === "form");
+}
+
+function setLegendCopy(markerSelector, copy) {
+  const item = document.querySelector(markerSelector)?.parentElement;
+  const textNode = Array.from(item?.childNodes ?? [])
+    .find((node) => node.nodeType === 3);
+  if (textNode) textNode.nodeValue = copy;
+}
+
+function controlCopy(id) {
+  return $(id)?.closest("label")?.querySelector(".field-label, b");
+}
+
+function paintPlayMode() {
+  const planeButton = $("selectPlaneMode");
+  const sequenceButton = $("selectSequenceMode");
+  if (!planeButton || !sequenceButton) return;
+  const sequence = sequenceModeActive();
+  setPressed(planeButton, !sequence);
+  setPressed(sequenceButton, sequence);
+  $("sequenceState").hidden = !sequence;
+  $("directionButton").disabled = sequence;
+  $("directionButton").textContent = sequence
+    ? "Direction / forward (fixed)"
+    : `Direction \u00b7 ${state.direction > 0 ? "forward" : "reverse"}`;
+  for (const id of ["planeYaw", "planePitch"]) $(id).disabled = sequence;
+  $("soundMode").disabled = sequence;
+  controlCopy("position").textContent = sequence ? "Ribbon position" : "Plane position";
+  controlCopy("speed").textContent = sequence ? "Ribbon speed" : "Plane speed";
+  controlCopy("soundMode").textContent = sequence ? "Curve voice / plane only" : "Curve voice";
+  controlCopy("baseFrequency").textContent = sequence ? "Tonal axis" : "Base frequency";
+  controlCopy("pitchRange").textContent = sequence ? "Figure interval span" : "Vertical pitch span";
+  controlCopy("timbre").textContent = sequence ? "Pulse color" : "Transverse color";
+  controlCopy("stereoWidth").textContent = sequence ? "Lane stereo" : "Horizontal stereo";
+  controlCopy("seamVoice").textContent = sequence ? "Answer level" : "Seam halo";
+  $("surfaceInstructions").textContent = sequence
+    ? "Space plays or pauses. Time stays forward. The slider scrubs this lap and its 100% endpoint crosses the seam; arrow keys step across it, and Home begins this pass. Cyan A and magenta B hocket the subject. Its quiet answer enters four stations later on the offbeat; pass 2 swaps role registers and inverts the pitch figure."
+    : "Space plays or pauses. Left/right arrows scrub the plane. Up/down arrows tilt it. Drag the selected Shape or 2D head in the stage.";
+  const formInstructions = document.querySelector('[data-section="form"] .control-note');
+  if (formInstructions) {
+    formInstructions.textContent = sequence
+      ? "Form controls reshape the visible strip only in Counterpoint weave; its pitch and rhythm stay keyed to sixteen intrinsic stations."
+      : "The lateral boundaries stay real edges. The longitudinal seam joins each transverse coordinate to its opposite.";
+  }
+  const modeReadout = document.querySelector(".topology-identity > span");
+  if (modeReadout) {
+    modeReadout.textContent = sequence
+      ? "CROSSBAR \u2192 HOCKET \u2192 TWO-LAP INVERSION"
+      : "PLANE \u2192 SLICE CURVE \u2192 VOICE";
+  }
+  setLegendCopy(".legend-plane", sequence ? "crossbar A-B" : "2D playhead");
+  setLegendCopy(".legend-slice", sequence ? "pitch figures" : "sounding slice");
+  canvas.setAttribute(
+    "aria-label",
+    sequence
+      ? "An edge-to-edge playhead crosses sixteen Mobius stations. Intrinsic cyan A and magenta B trade positions as the local frame reverses after pass 1; after pass 2 the next phrase returns to orientation A. Solid and dashed traces show the subject and answer; both mirror around the tonal axis on pass 2. Left and right arrows step, and Home begins the current pass."
+      : "A two-dimensional plane slices a Mobius band. Drag to rotate the selected band or playhead; use arrow keys to scrub and tilt the playhead.",
+  );
+  stageWrap.dataset.playMode = sequence ? "sequence" : "plane";
+  if (!sequence) {
+    delete canvas.dataset.sequencePass;
+    delete canvas.dataset.sequenceStep;
+    delete canvas.dataset.sequenceOrientation;
+    delete canvas.dataset.sequenceRole;
+  }
+  paintTarget();
+  paintTransport();
 }
 
 function paintPreset() {
@@ -657,6 +1078,10 @@ function paintSummaries() {
     $("formSummary").textContent = `figure-eight · ${state.surfaceFold.toFixed(2)}×`;
   }
   $("rotationSummary").textContent = state.autoRotate ? "auto-rotating" : "still";
+  if (sequenceModeActive()) {
+    $("soundSummary").textContent = "PULSE / counterpoint weave";
+    return;
+  }
   $("soundSummary").textContent = `${state.soundMode.toUpperCase()} · slice curves`;
 }
 
@@ -673,7 +1098,9 @@ const RANGE_BINDINGS = [
   ["rotationZ", "rotationZ", (value) => `${Math.round(value)}°`, false, false],
   ["rotationSpeed", "rotationSpeed", (value) => `${value >= 0 ? "+" : ""}${value.toFixed(3)} rev/s`, false, false],
   ["baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`, true, false],
-  ["pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`, true, false],
+  ["pitchRange", "pitchRange", (value) => sequenceModeActive()
+    ? `${(9 * clamp(value, 0.25, 5) / 2.6).toFixed(1)} st`
+    : `${value.toFixed(2)} oct`, true, false],
   ["timbre", "timbre", (value) => `${Math.round(value * 100)}%`, true, false],
   ["stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`, true, false],
   ["seamVoice", "seamVoice", (value) => `${Math.round(value * 100)}%`, true, false],
@@ -689,7 +1116,13 @@ function syncRange(id, key, formatter) {
 function syncPosition() {
   state.position = wrap01(state.continuousPosition);
   $("position").value = String(state.position);
-  $("positionOut").textContent = `${((state.position * 2 - 1) * 100).toFixed(1)}%`;
+  if (sequenceModeActive()) {
+    const sequence = currentSequenceFrame();
+    $("positionOut").textContent = `${String(sequence.stepIndex + 1).padStart(2, "0")}/16 / P${sequence.passNumber}`;
+    paintSequencePosition();
+  } else {
+    $("positionOut").textContent = `${((state.position * 2 - 1) * 100).toFixed(1)}%`;
+  }
 }
 
 function syncControls() {
@@ -700,6 +1133,7 @@ function syncControls() {
   $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
   paintAutoRotate();
   paintTransport();
+  paintPlayMode();
   paintPreset();
   paintSummaries();
 }
@@ -710,18 +1144,44 @@ function markCustom() {
 }
 
 $("position").addEventListener("input", (event) => {
+  if (sequenceModeActive() && state.playing) {
+    setSequenceTransportAnchor(sequencePositionAt());
+  }
+  if (sequenceModeActive()) stopSequenceScheduler({ silence: true });
   const next = Number(event.currentTarget.value);
   const current = wrap01(state.continuousPosition);
   state.continuousPosition += next - current;
   state.position = next;
   markCustom();
-  wakeManualSound();
+  if (sequenceModeActive()) {
+    setSequenceTransportAnchor(state.continuousPosition);
+    armSequenceAtCurrent();
+    wakeManualSound();
+    startSequenceScheduler();
+  } else {
+    wakeManualSound();
+  }
 });
+
+const SEQUENCE_SOUND_KEYS = new Set([
+  "speed",
+  "baseFrequency",
+  "pitchRange",
+  "timbre",
+  "stereoWidth",
+  "seamVoice",
+]);
 
 RANGE_BINDINGS.forEach(([id, key, formatter, audible, rebuild]) => {
   const input = $(id);
   if (!input) return;
   input.addEventListener("input", () => {
+    const sequenceEdit = sequenceModeActive() && SEQUENCE_SOUND_KEYS.has(key);
+    const sequencePhase = sequenceModeActive() && state.playing
+      ? sequencePositionAt()
+      : state.continuousPosition;
+    if (sequenceEdit) stopSequenceScheduler({ silence: true });
+
     state[key] = Number(input.value);
     if (rebuild) meshCacheKey = "";
     if (key === "level") pool.setLevel(state.level);
@@ -732,8 +1192,18 @@ RANGE_BINDINGS.forEach(([id, key, formatter, audible, rebuild]) => {
     }
     markCustom();
     paintSummaries();
-    if (audible) wakeManualSound();
-    else scheduleFrame();
+    if (sequenceEdit) {
+      setSequenceTransportAnchor(sequencePhase);
+      armSequenceAtCurrent();
+      wakeManualSound();
+      startSequenceScheduler();
+    } else if (sequenceModeActive()) {
+      scheduleFrame();
+    } else if (audible) {
+      wakeManualSound();
+    } else {
+      scheduleFrame();
+    }
   });
 });
 
@@ -742,7 +1212,8 @@ $("surfaceTwists")?.addEventListener("change", (event) => {
   meshCacheKey = "";
   markCustom();
   paintSummaries();
-  wakeManualSound();
+  if (sequenceModeActive()) scheduleFrame();
+  else wakeManualSound();
 });
 
 $("soundMode").addEventListener("change", (event) => {
@@ -752,20 +1223,56 @@ $("soundMode").addEventListener("change", (event) => {
   wakeManualSound();
 });
 
+function setPlayMode(mode) {
+  const nextMode = mode === "sequence" ? "sequence" : "plane";
+  if (KIND !== "moebius" || state.playMode === nextMode) return;
+  const leavingSequence = sequenceModeActive();
+  const currentPhase = leavingSequence && state.playing
+    ? sequencePositionAt()
+    : state.continuousPosition;
+  stopSequenceScheduler({ silence: true });
+  state.playMode = nextMode;
+  setSequenceTransportAnchor(currentPhase);
+  manualSoundUntil = 0;
+  componentTracks = [];
+  if (nextMode === "sequence") armSequenceAtCurrent();
+  syncControls();
+  startSequenceScheduler();
+  announce(nextMode === "sequence"
+    ? "Counterpoint weave selected. Pass 1 hockets a subject between endpoints A and B, with an interlocking answer four stations later on the offbeat. Pass 2 swaps registers and inverts the figure while time stays forward."
+    : "Two-dimensional plane slice selected. Plane direction and curve voice controls restored.");
+  scheduleFrame();
+}
+
+$("selectPlaneMode")?.addEventListener("click", () => setPlayMode("plane"));
+$("selectSequenceMode")?.addEventListener("click", () => setPlayMode("sequence"));
+
 $("playButton").addEventListener("click", () => {
+  const sequence = sequenceModeActive();
+  if (sequence && state.playing) setSequenceTransportAnchor(sequencePositionAt());
   state.playing = !state.playing;
+  if (sequence) setSequenceTransportAnchor(state.continuousPosition);
   resetClocks();
+  if (sequence) {
+    if (state.playing) {
+      armSequenceAtCurrent({ audition: state.audio });
+      startSequenceScheduler();
+    } else {
+      stopSequenceScheduler({ silence: true });
+    }
+  }
   paintTransport();
-  if (!state.playing) pool.setVoices([]);
+  if (!state.playing && !sequence) pool.setVoices([]);
   if (state.playing && !state.audio) {
     announce("Audio is off — turn it on to hear playback");
   } else {
-    announce(`Slicing plane ${state.playing ? "playing" : "paused"}.`);
+    announce(`${sequence ? "Counterpoint weave" : "Slicing plane"} ${state.playing ? "playing" : "paused"}.`);
   }
   scheduleFrame();
 });
 
 $("directionButton").addEventListener("click", () => {
+  if (sequenceModeActive()) return;
   state.direction *= -1;
   $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
   markCustom();
@@ -796,13 +1303,14 @@ $("selectPlayhead").addEventListener("click", () => selectTarget("playhead"));
 
 canvas.addEventListener("pointerdown", (event) => {
   if (event.isPrimary === false || (event.button ?? 0) !== 0) return;
-  if (rotationTarget === "form") {
+  const pointerTarget = sequenceModeActive() ? "form" : rotationTarget;
+  if (pointerTarget === "form") {
     state.autoRotate = false;
     paintAutoRotate();
   }
   drag = {
     id: event.pointerId,
-    target: rotationTarget,
+    target: pointerTarget,
     x: event.clientX,
     y: event.clientY,
     rotationX: state.rotationX,
@@ -813,7 +1321,7 @@ canvas.addEventListener("pointerdown", (event) => {
   canvas.setPointerCapture(event.pointerId);
   canvas.focus({ preventScroll: true });
   stageWrap.classList.add("is-dragging");
-  if (rotationTarget === "playhead") wakeManualSound(360);
+  if (pointerTarget === "playhead") wakeManualSound(360);
   paintSummaries();
   event.preventDefault();
 });
@@ -871,34 +1379,54 @@ canvas.addEventListener("pointercancel", cancelDrag);
 canvas.addEventListener("lostpointercapture", cancelDrag);
 
 canvas.addEventListener("keydown", (event) => {
-  const amount = event.shiftKey ? 0.06 : 0.0125;
+  const sequence = sequenceModeActive();
+  const amount = sequence
+    ? (event.shiftKey ? 0.25 : 1 / MOEBIUS_SEQUENCE.stepsPerLap)
+    : (event.shiftKey ? 0.06 : 0.0125);
+  const sequenceNavigation = sequence
+    && ["ArrowLeft", "ArrowRight", "Home"].includes(event.key);
+  if (sequenceNavigation) {
+    if (state.playing) setSequenceTransportAnchor(sequencePositionAt());
+    stopSequenceScheduler({ silence: true });
+  }
   let handled = true;
   if (event.key === "ArrowLeft") {
     state.continuousPosition -= amount;
-    wakeManualSound();
+    if (!sequence) wakeManualSound();
   } else if (event.key === "ArrowRight") {
     state.continuousPosition += amount;
-    wakeManualSound();
-  } else if (event.key === "ArrowUp") {
+    if (!sequence) wakeManualSound();
+  } else if (!sequence && event.key === "ArrowUp") {
     state.planePitch = normalizeDegrees(state.planePitch + (event.shiftKey ? 12 : 3));
     wakeManualSound();
-  } else if (event.key === "ArrowDown") {
+  } else if (!sequence && event.key === "ArrowDown") {
     state.planePitch = normalizeDegrees(state.planePitch - (event.shiftKey ? 12 : 3));
     wakeManualSound();
-  } else if (event.code === "BracketLeft" || event.key === "[" || event.key === "{") {
+  } else if (!sequence && (
+    event.code === "BracketLeft" || event.key === "[" || event.key === "{"
+  )) {
     state.planeYaw = normalizeDegrees(state.planeYaw - (event.shiftKey ? 12 : 3));
     wakeManualSound();
-  } else if (event.code === "BracketRight" || event.key === "]" || event.key === "}") {
+  } else if (!sequence && (
+    event.code === "BracketRight" || event.key === "]" || event.key === "}"
+  )) {
     state.planeYaw = normalizeDegrees(state.planeYaw + (event.shiftKey ? 12 : 3));
     wakeManualSound();
   } else if (event.key === "Home") {
-    state.continuousPosition += 0.5 - wrap01(state.continuousPosition);
-    wakeManualSound();
+    state.continuousPosition += (sequence ? 0 : 0.5)
+      - wrap01(state.continuousPosition);
+    if (!sequence) wakeManualSound();
   } else {
     handled = false;
   }
   if (!handled) return;
   event.preventDefault();
+  if (sequenceNavigation) {
+    setSequenceTransportAnchor(state.continuousPosition);
+    armSequenceAtCurrent();
+    wakeManualSound();
+    startSequenceScheduler();
+  }
   markCustom();
   syncPosition();
   syncRange("planeYaw", "planeYaw", (value) => `${Math.round(value)}°`);
@@ -911,12 +1439,23 @@ document.querySelectorAll("[data-preset]").forEach((button) => {
     const presetId = button.dataset.preset;
     const preset = PAGE.presets[presetId];
     if (!preset) return;
+    const sequencePhase = sequenceModeActive() && state.playing
+      ? sequencePositionAt()
+      : state.continuousPosition;
+    if (sequenceModeActive()) stopSequenceScheduler({ silence: true });
     Object.assign(state, preset);
     state.presetId = presetId;
     meshCacheKey = "";
     componentTracks = [];
+    if (sequenceModeActive()) setSequenceTransportAnchor(sequencePhase);
     syncControls();
-    wakeManualSound(320);
+    if (sequenceModeActive()) {
+      armSequenceAtCurrent();
+      wakeManualSound(320);
+      startSequenceScheduler();
+    } else {
+      wakeManualSound(320);
+    }
     announce(`${button.textContent.trim()} preset loaded without stopping transport.`);
   });
 });
@@ -930,7 +1469,8 @@ $("resetAll").addEventListener("click", () => {
   meshCacheKey = "";
   componentTracks = [];
   manualSoundUntil = 0;
-  pool.setVoices([]);
+  stopSequenceScheduler();
+  pool.silence();
   resetClocks();
   syncControls();
   announce(`${PAGE.label} reset to its opening state. Audio ${audio ? "stays on" : "stays off"}.`);
@@ -941,10 +1481,15 @@ async function toggleAudio() {
   $("audioError").hidden = true;
   if (state.audio) {
     audioRequestGeneration += 1;
+    const sequencePhase = sequenceModeActive() && state.playing
+      ? sequencePositionAt()
+      : null;
     state.audio = false;
+    if (sequencePhase !== null) setSequenceTransportAnchor(sequencePhase);
+    stopSequenceScheduler();
     pool.disable();
     paintAudio();
-    announce("Audio off. The slicing plane transport is unchanged.");
+    announce(`Audio off. The ${sequenceModeActive() ? "counterpoint weave" : "slicing plane"} transport is unchanged.`);
     scheduleFrame();
     return;
   }
@@ -962,13 +1507,21 @@ async function toggleAudio() {
       pool.disable();
       return;
     }
+    const sequencePhase = sequenceModeActive() && state.playing
+      ? sequencePositionAt()
+      : null;
     pool.setLevel(state.level);
     state.audio = true;
+    if (sequencePhase !== null) setSequenceTransportAnchor(sequencePhase);
     resetClocks();
+    if (sequenceModeActive() && state.playing) {
+      armSequenceAtCurrent();
+      startSequenceScheduler();
+    }
     paintAudio();
     announce(state.playing
-      ? "Audio on. Joined the moving slice."
-      : "Audio on. Play or move the plane to hear its slice.");
+      ? `Audio on. Joined the ${sequenceModeActive() ? "counterpoint weave at its next pulse" : "moving slice"}.`
+      : `Audio on. ${sequenceModeActive() ? "Play or step the ribbon to hear its stations." : "Play or move the plane to hear its slice."}`);
     scheduleFrame();
   } catch (error) {
     if (
@@ -995,7 +1548,11 @@ function frame(now) {
   scheduledFrame = 0;
   const delta = transportDelta(now);
   if (state.playing) {
-    state.continuousPosition += state.direction * state.speed * delta;
+    if (sequenceModeActive()) {
+      state.continuousPosition = sequencePositionAt(now);
+    } else {
+      state.continuousPosition += state.direction * state.speed * delta;
+    }
   }
   if (state.autoRotate) {
     state.rotationY = normalizeDegrees(
@@ -1008,6 +1565,33 @@ function frame(now) {
   }
 
   const mesh = currentMesh();
+  if (sequenceModeActive()) {
+    const sequence = currentSequenceFrame();
+    drawScene(mesh, null, null, [], sequence);
+    paintSequencePosition();
+    if (
+      lastSequencePass !== null
+      && sequence.passIndex !== lastSequencePass
+      && state.playing
+    ) {
+      announce(sequence.shadow
+        ? "Pass 2: orientation B, shadow figure. Registers swap and intervals invert while time stays forward."
+        : "Two-lap phrase complete. Pass 1 orientation is restored without reversing time.");
+    }
+    lastSequencePass = sequence.passIndex;
+    const sequenceManualActive = now < manualSoundUntil;
+    const sounding = state.audio && (
+      state.playing
+      || sequenceManualActive
+      || pool.activeStrikeCount > 0
+    );
+    const audioReadout = state.audio
+      ? `${sounding ? pool.activeStrikeCount : 0} ACTIVE STRIKES`
+      : "AUDIO OFF";
+    $("stageReadout").textContent = `${PAGE.shortLabel} / ${sequence.shadow ? "PASS 2 / ORIENTATION B / SHADOW" : "PASS 1 / ORIENTATION A"} / STEP ${String(sequence.stepIndex + 1).padStart(2, "0")}/16 / ${audioReadout}`;
+    if (state.playing || state.autoRotate || sequenceManualActive) scheduleFrame();
+    return;
+  }
   const plane = planeFor(mesh);
   const slice = sliceSurface(mesh, plane.normal, plane.offset);
   const currentTracking = trackSliceComponents(
@@ -1057,11 +1641,20 @@ function frame(now) {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    if (sequenceModeActive() && state.playing) {
+      setSequenceTransportAnchor(sequencePositionAt());
+    }
     manualSoundUntil = 0;
+    stopSequenceScheduler();
     pool.silence();
     return;
   }
   resetClocks();
+  if (sequenceModeActive()) {
+    setSequenceTransportAnchor(state.continuousPosition);
+    if (state.playing) armSequenceAtCurrent();
+    startSequenceScheduler();
+  }
   scheduleFrame();
 });
 
@@ -1072,11 +1665,15 @@ window.addEventListener("blur", () => {
 
 window.addEventListener("pagehide", (event) => {
   abandonDrag({ cancelAudition: true });
+  if (sequenceModeActive() && state.playing) {
+    setSequenceTransportAnchor(sequencePositionAt());
+  }
   pageActive = false;
   audioRequestGeneration += 1;
   cancelAnimationFrame(scheduledFrame);
   scheduledFrame = 0;
   manualSoundUntil = 0;
+  stopSequenceScheduler();
   state.audio = false;
   pool.disable();
   paintAudio();
@@ -1091,6 +1688,11 @@ window.addEventListener("pagehide", (event) => {
 window.addEventListener("pageshow", (event) => {
   if (!event.persisted || tornDown) return;
   pageActive = true;
+  if (sequenceModeActive()) {
+    setSequenceTransportAnchor(state.continuousPosition);
+    if (state.playing) armSequenceAtCurrent();
+    startSequenceScheduler();
+  }
   resetClocks();
   scheduleFrame();
 });
