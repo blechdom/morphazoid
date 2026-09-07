@@ -3,12 +3,14 @@ import {
   WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
   WEBGPU_CHIPTUNE_INTEGER_PARAMS,
   WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES,
+  WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES,
   WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS,
   WEBGPU_CHIPTUNE_SEQUENCE_LANES,
   WEBGPU_CHIPTUNE_SEQUENCE_STEPS,
   WEBGPU_CHIPTUNE_PARAM_DISTRIBUTIONS,
   WEBGPU_CHIPTUNE_LIMITS,
   WEBGPU_CHIPTUNE_PARAM_ORDER,
+  WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS,
   WEBGPU_CHIPTUNE_RUNTIME_DEFAULTS,
   WEBGPU_CHIPTUNE_WORKGROUP_SIZES,
   WebGpuChiptuneAudio,
@@ -20,7 +22,10 @@ import {
   webGpuChiptuneParamFromUnit,
   webGpuChiptuneParamToUnit,
   webGpuChiptuneBeatSnapshot,
+  webGpuChiptuneCharacterBayLayout,
   webGpuChiptuneProceduralLaneValue,
+  webGpuChiptuneLaneTiming,
+  webGpuChiptuneLiveEditTarget,
   webGpuChiptuneSequenceCellIndex,
   webGpuChiptuneSequenceEditorUnit,
   webGpuChiptuneSequenceEditorValue,
@@ -1236,6 +1241,8 @@ const state = {
   activeSequenceStep: 0,
   sequencePage: 0,
   sequenceEditMode: "note",
+  sequenceFollowLive: true,
+  sequencePitchSpan: 36,
   presetId: "source-tracker",
   audioOn: false,
   synthPlaying: false,
@@ -1247,6 +1254,7 @@ const state = {
   disposed: false,
 };
 
+let lastVoiceSequenceLane = state.activeSequenceLane;
 const controlInputs = new Map();
 const controlOutputs = new Map();
 const fractionControls = new Map();
@@ -1266,7 +1274,9 @@ let transportGeneration = 0;
 let animationFrame = 0;
 let activeKnobDrag = null;
 let activeSequenceDrag = null;
+let activeSequenceValueStep = null;
 let sequencePlayhead = -1;
+let lastSequenceTimingUi = 0;
 let resizeObserver = null;
 let waxStateListener = null;
 
@@ -1859,7 +1869,11 @@ function createRangeControl(spec) {
   input.step = "0.001";
   input.controlSpec = spec;
   input.setAttribute("aria-label", spec.label);
-  input.addEventListener("input", () => applyControlUnit(spec, input.value));
+  input.addEventListener("input", () => {
+    const requestedUnit = input.value;
+    applyControlUnit(spec, requestedUnit);
+    input.value = requestedUnit;
+  });
   input.addEventListener("keydown", (event) => handleControlKey(event, spec));
 
   controlInputs.set(spec.key, input);
@@ -2040,18 +2054,65 @@ function describeSequenceCell(lane, step, cell, activeLength) {
     + "-step loop";
 }
 
+function sequencePageSizeForWidth(width) {
+  return Number(width) <= 620 ? 8 : 16;
+}
+
+function activeSequencePageSize() {
+  const width = $("stage")?.getBoundingClientRect?.().width
+    || $("stageWrap")?.getBoundingClientRect?.().width
+    || 981;
+  return sequencePageSizeForWidth(width);
+}
+
+function sequencePageForStep(step, pageSize = activeSequencePageSize()) {
+  return Math.floor(clamp(step, 0, WEBGPU_CHIPTUNE_SEQUENCE_STEPS - 1) / pageSize);
+}
+
+function liveEditLeadSeconds() {
+  if (!state.audioOn || !state.synthPlaying) return 0;
+  return clamp(state.chunkDuration + 0.03, 0.08, 0.35);
+}
+
+function setSequenceFollow(enabled, { announceChange = true } = {}) {
+  state.sequenceFollowLive = Boolean(enabled);
+  activeSequenceValueStep = null;
+  sequencePlayhead = -1;
+  syncSequencePlayhead(transportTime(), { force: true });
+  syncSequenceControls();
+  if (announceChange) {
+    announce(
+      state.sequenceFollowLive
+        ? "Follow next enabled. The inspector targets the first safely renderable voice cell or next drum onset."
+        : "Step locked. The timing line shows when that cell naturally returns.",
+    );
+  }
+}
+
 function setTrackerView(view, { focus = false, quiet = false } = {}) {
   state.trackerView = view === "sequence" ? "sequence" : "morph";
+  if (
+    state.trackerView === "morph"
+    && WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(state.activeSequenceLane)
+  ) {
+    state.activeSequenceLane = lastVoiceSequenceLane;
+    sequencePlayhead = -1;
+  }
   $("stageWrap").dataset.trackerView = state.trackerView;
+  $("sequenceVoiceTabs").dataset.editorView = state.trackerView;
   $("sequenceWorkspace").hidden = state.trackerView !== "sequence";
+  $("morphWorkspace").hidden = state.trackerView !== "morph";
   $("trackerViewMorph").checked = state.trackerView === "morph";
   $("trackerViewSequence").checked = state.trackerView === "sequence";
+  $("editorState").textContent = state.trackerView === "sequence"
+    ? activeSequenceDefinition().label + (state.sequenceFollowLive ? " · edit next" : " · locked")
+    : "seed × pitch range";
   $("stage").tabIndex = 0;
   $("stage").removeAttribute("aria-hidden");
   $("stage").setAttribute(
     "aria-label",
     state.trackerView === "sequence"
-      ? "Nine-lane live Chiptune sequence editor. "
+      ? "Focused live Chiptune sequence editor with a nine-lane overview. "
         + activeSequenceDefinition().label
         + " step "
         + (state.activeSequenceStep + 1)
@@ -2069,10 +2130,10 @@ function setTrackerView(view, { focus = false, quiet = false } = {}) {
   if (!quiet) {
     announce(
       state.trackerView === "sequence"
-        ? "Draw Sequence. All nine lanes are visible; "
+        ? "Sequence editor. One large lane is editable; the mini tracker shows all nine. "
           + activeSequenceDefinition().label
           + " is selected."
-        : "Morph Source. Drag to regenerate the original shader contours.",
+        : "Source Pad. Drag seed and pitch range; only SOURCE cells regenerate.",
     );
   }
 }
@@ -2080,28 +2141,35 @@ function setTrackerView(view, { focus = false, quiet = false } = {}) {
 function selectSequenceLane(lane, { focus = false } = {}) {
   if (!WEBGPU_CHIPTUNE_SEQUENCE_LANES.includes(lane)) return;
   state.activeSequenceLane = lane;
+  if (WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.includes(lane)) {
+    lastVoiceSequenceLane = lane;
+  }
   sequencePlayhead = -1;
   syncSequenceControls();
   if (focus) $("stage").focus();
 }
 
 function selectSequenceStep(step, { focus = false } = {}) {
+  state.sequenceFollowLive = false;
   state.activeSequenceStep = Math.round(clamp(
     step,
     0,
     WEBGPU_CHIPTUNE_SEQUENCE_STEPS - 1,
   ));
-  state.sequencePage = Math.floor(state.activeSequenceStep / 16);
+  state.sequencePage = sequencePageForStep(state.activeSequenceStep);
   syncSequenceControls();
   if (focus) $("stage").focus();
 }
 
 function setSequencePage(page, { focus = true } = {}) {
-  state.sequencePage = Math.round(clamp(page, 0, 1));
-  const pageStart = state.sequencePage * 16;
+  const pageSize = activeSequencePageSize();
+  const pageCount = WEBGPU_CHIPTUNE_SEQUENCE_STEPS / pageSize;
+  state.sequenceFollowLive = false;
+  state.sequencePage = Math.round(clamp(page, 0, pageCount - 1));
+  const pageStart = state.sequencePage * pageSize;
   if (
     state.activeSequenceStep < pageStart
-    || state.activeSequenceStep >= pageStart + 16
+    || state.activeSequenceStep >= pageStart + pageSize
   ) {
     state.activeSequenceStep = pageStart;
   }
@@ -2120,6 +2188,16 @@ function setSequenceLaneLength(value) {
       + length
       + ". Stored cells outside the loop are preserved.",
   );
+}
+
+function requestSequenceAudition(lane, cellState, value) {
+  if (
+    cellState !== "note"
+    || WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)
+    || !state.audioOn
+    || !state.synthPlaying
+  ) return false;
+  return engine?.auditionSequenceCell(lane, value) === true;
 }
 
 function setSequenceCell(
@@ -2146,8 +2224,9 @@ function setSequenceCell(
   const cells = [...laneState.cells];
   cells[cellIndex] = { state: stateName, value: nextValue };
   state.activeSequenceStep = cellIndex;
-  state.sequencePage = Math.floor(cellIndex / 16);
+  state.sequencePage = sequencePageForStep(cellIndex);
   applySequence(sequenceLaneWithChanges(lane, { cells }));
+  const previewed = requestSequenceAudition(lane, stateName, nextValue);
   if (announceChange) {
     const detail = stateName === "note"
       ? spec.kind === "drums"
@@ -2162,6 +2241,7 @@ function setSequenceCell(
         + (cellIndex + 1)
         + " set to "
         + detail
+        + (previewed ? ". Same-shader preview queued" : "")
         + ".",
     );
   }
@@ -2223,6 +2303,57 @@ function clearSequenceLane() {
   announce(activeSequenceDefinition().label + " restored to all SOURCE.");
 }
 
+function transformSequenceLane(transform, label) {
+  const lane = state.activeSequenceLane;
+  const laneState = state.sequence.lanes[lane];
+  const active = laneState.cells.slice(0, laneState.activeLength);
+  const transformed = transform([...active]);
+  const cells = [...laneState.cells];
+  cells.splice(0, laneState.activeLength, ...transformed);
+  applySequence(sequenceLaneWithChanges(lane, { cells }));
+  announce(activeSequenceDefinition().label + " " + label + ".");
+}
+
+function rotateSequenceLane(direction) {
+  transformSequenceLane((cells) => {
+    if (cells.length <= 1) return cells;
+    return direction < 0
+      ? [...cells.slice(1), cells[0]]
+      : [cells.at(-1), ...cells.slice(0, -1)];
+  }, direction < 0 ? "rotated left" : "rotated right");
+}
+
+function reverseSequenceLane() {
+  transformSequenceLane((cells) => cells.reverse(), "reversed");
+}
+
+function setVoiceSequencesToSource() {
+  const lanes = { ...state.sequence.lanes };
+  for (const lane of WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES) {
+    lanes[lane] = {
+      ...lanes[lane],
+      cells: lanes[lane].cells.map((cell, step) => (
+        step < lanes[lane].activeLength ? { state: "auto", value: cell.value } : cell
+      )),
+    };
+  }
+  applySequence({ schemaVersion: 2, lanes });
+  announce("All five voice lanes now use the procedural SOURCE.");
+}
+
+function sourceCoverage(lanes) {
+  let source = 0;
+  let active = 0;
+  for (const lane of lanes) {
+    const laneState = state.sequence.lanes[lane];
+    active += laneState.activeLength;
+    for (let step = 0; step < laneState.activeLength; step += 1) {
+      if (laneState.cells[step].state === "auto") source += 1;
+    }
+  }
+  return Object.freeze({ source, active });
+}
+
 function setSequencePaintMode(mode, { quiet = false } = {}) {
   state.sequenceEditMode = ["auto", "note", "rest"].includes(mode) ? mode : "note";
   syncSequenceControls();
@@ -2246,25 +2377,97 @@ function laneClockText(lane) {
     + " × MASTER · PHASE " + phasePrefix + phase.numerator + "/" + phase.denominator;
 }
 
+function timingText(seconds) {
+  if (!Number.isFinite(seconds)) return "outside loop";
+  if (seconds < 0.095) return Math.max(0, Math.round(seconds * 1000)) + " ms";
+  if (seconds < 10) return seconds.toFixed(1) + " s";
+  if (seconds < 120) return Math.round(seconds) + " s";
+  return (seconds / 60).toFixed(1) + " min";
+}
+
+function syncSequenceTimingOutput(time = transportTime()) {
+  if (!$("sequenceTimingStatus")) return;
+  const lane = state.activeSequenceLane;
+  const timing = webGpuChiptuneLaneTiming(
+    lane,
+    time,
+    state.params,
+    state.sequence,
+    state.activeSequenceStep,
+  );
+  const liveTarget = webGpuChiptuneLiveEditTarget(
+    lane,
+    time,
+    state.params,
+    state.sequence,
+    liveEditLeadSeconds(),
+  );
+  const play = String(timing.currentStep + 1).padStart(2, "0");
+  const selected = String(state.activeSequenceStep + 1).padStart(2, "0");
+  let detail;
+  if (state.activeSequenceStep >= timing.length) {
+    detail = "STORED OUTSIDE LOOP · raise loop length to hear";
+  } else if (!state.audioOn) {
+    detail = "AUDIO OFF · edits remain saved";
+  } else if (!state.synthPlaying) {
+    detail = "PAUSED · edits remain saved";
+  } else if (state.sequenceFollowLive) {
+    detail = WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)
+      ? "NEXT HIT IN " + timingText(liveTarget.naturalSeconds)
+      : "PREVIEW QUEUED ≈ "
+        + timingText(liveTarget.leadSeconds)
+        + " · "
+        + Math.round(WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS * 1000)
+        + " MS NOTE";
+  } else {
+    detail = timing.targetActiveNow
+      ? "ACTIVE NOW"
+      : "NATURALLY IN " + timingText(timing.secondsUntilTarget);
+  }
+  $("sequenceTimingStatus").textContent = "PLAY "
+    + play
+    + " · "
+    + (state.sequenceFollowLive ? "EDIT NEXT " : "LOCKED ")
+    + selected
+    + " · "
+    + detail;
+}
+
 function syncSequenceControls() {
   if (!$("sequenceWorkspace")) return;
   const lane = state.activeSequenceLane;
   const definition = activeSequenceDefinition();
   const laneState = state.sequence.lanes[lane];
   const selected = laneState.cells[state.activeSequenceStep];
-  const paged = globalThis.matchMedia?.("(max-width: 980px)")?.matches ?? false;
+  const pageSize = activeSequencePageSize();
+  const pageCount = WEBGPU_CHIPTUNE_SEQUENCE_STEPS / pageSize;
+  state.sequencePage = Math.round(clamp(
+    sequencePageForStep(state.activeSequenceStep, pageSize),
+    0,
+    pageCount - 1,
+  ));
   $("stageWrap").dataset.sequencePage = String(state.sequencePage);
+  $("sequencePageControls").style.setProperty("--sequence-page-count", String(pageCount));
   $("sequenceWorkspace").hidden = state.trackerView !== "sequence";
-  $("sequencePageControls").hidden = !paged;
-  $("sequencePageOne").setAttribute("aria-pressed", String(state.sequencePage === 0));
-  $("sequencePageTwo").setAttribute("aria-pressed", String(state.sequencePage === 1));
+  $("morphWorkspace").hidden = state.trackerView !== "morph";
+  const pageButtons = [
+    $("sequencePageOne"),
+    $("sequencePageTwo"),
+    $("sequencePageThree"),
+    $("sequencePageFour"),
+  ];
+  pageButtons.forEach((button, page) => {
+    const visible = page < pageCount;
+    button.hidden = !visible;
+    if (!visible) return;
+    const start = page * pageSize + 1;
+    button.textContent = String(start).padStart(2, "0")
+      + "–"
+      + String(start + pageSize - 1).padStart(2, "0");
+    button.setAttribute("aria-pressed", String(state.sequencePage === page));
+  });
   $("sequenceLength").value = String(laneState.activeLength);
   $("sequenceLength").setAttribute("aria-valuetext", laneState.activeLength + " steps");
-  $("sequenceGrid").setAttribute(
-    "aria-label",
-    "All voice and drum lanes are edited directly on the canvas. "
-      + describeSequenceCell(lane, state.activeSequenceStep, selected, laneState.activeLength),
-  );
 
   for (const button of $("sequenceVoiceTabs").querySelectorAll("button")) {
     const active = button.dataset.lane === lane;
@@ -2283,19 +2486,41 @@ function syncSequenceControls() {
     : spec.kind === "contour" ? "POINT" : "NOTE";
   $("sequenceStateRest").textContent = spec.kind === "drums" ? "OFF" : "REST";
   const valueInput = $("sequenceValue");
+  const valueRange = $("sequenceValueRange");
   const valueControl = valueInput.closest("label");
   valueControl.hidden = spec.kind === "drums";
   valueInput.disabled = spec.kind === "drums";
+  valueRange.disabled = spec.kind === "drums";
   valueInput.min = String(spec.minimum);
   valueInput.max = String(spec.maximum);
   valueInput.inputMode = spec.kind === "contour" ? "decimal" : "numeric";
   valueInput.step = String(spec.quantum);
-  if (document.activeElement !== valueInput) {
-    valueInput.value = String(
-      selected.state === "note" ? selected.value : suggestedSequenceValue(lane, state.activeSequenceStep),
-    );
+  valueRange.min = String(spec.minimum);
+  valueRange.max = String(spec.maximum);
+  valueRange.step = String(spec.quantum);
+  const shownValue = selected.state === "note"
+    ? selected.value
+    : suggestedSequenceValue(lane, state.activeSequenceStep);
+  if (document.activeElement !== valueInput && document.activeElement !== valueRange) {
+    valueInput.value = String(shownValue);
+    valueRange.value = String(shownValue);
   }
   $("sequenceValueLabel").textContent = spec.kind === "contour" ? "Shape 0–1" : "Semitone offset";
+  $("sequenceValueOut").textContent = spec.kind === "contour"
+    ? shownValue.toFixed(3)
+    : signedNumber(shownValue)
+      + " · "
+      + shaderNoteName(resolvedSequenceNote(lane, state.activeSequenceStep));
+  const pitchSpanControl = $("sequencePitchSpan").closest("label");
+  pitchSpanControl.hidden = spec.kind !== "steps";
+  $("sequencePitchSpan").value = String(state.sequencePitchSpan);
+  if (spec.kind === "steps") {
+    const [visibleMinimum, visibleMaximum] = sequenceVisiblePitchBounds(lane);
+    $("sequencePitchSpanOut").textContent = signedNumber(visibleMinimum)
+      + "…"
+      + signedNumber(visibleMaximum)
+      + " semitones";
+  }
   const insideLoop = state.activeSequenceStep < laneState.activeLength;
   const effectiveNote = selected.state === "note" && spec.kind === "steps" && insideLoop
     ? shaderNoteName(resolvedSequenceNote(lane, state.activeSequenceStep))
@@ -2311,19 +2536,45 @@ function syncSequenceControls() {
       ? "OFF"
       : selected.state === "auto" ? "SOURCE" : "REST";
   $("sequenceStatus").textContent = definition.label
-    + " | STEP "
+    + " · STEP "
     + String(state.activeSequenceStep + 1).padStart(2, "0")
     + "/"
     + laneState.activeLength
-    + " | "
+    + " · "
     + stateText
-    + " | "
+    + " · "
     + laneClockText(lane)
-    + (state.activeSequenceStep >= laneState.activeLength ? " | STORED OUTSIDE LOOP" : "");
+    + (state.activeSequenceStep >= laneState.activeLength ? " · STORED OUTSIDE LOOP" : "");
+  const activeCoverage = sourceCoverage([lane]);
+  $("sequenceSourceCoverage").innerHTML = "<strong>"
+    + activeCoverage.source
+    + " of "
+    + activeCoverage.active
+    + "</strong> active "
+    + definition.label
+    + " cells use SOURCE.";
+  const voiceCoverage = sourceCoverage(WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES);
+  $("morphSourceCoverage").innerHTML = "<strong>"
+    + voiceCoverage.source
+    + " of "
+    + voiceCoverage.active
+    + "</strong> active voice cells follow the Source Pad. "
+    + (voiceCoverage.source === 0 ? "Convert cells to SOURCE to hear it." : "Manual notes stay fixed.");
+  const morphLaneButton = $("morphLaneSource");
+  morphLaneButton.disabled = WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane);
+  morphLaneButton.textContent = morphLaneButton.disabled
+    ? "Select a voice lane first"
+    : definition.label + " → SOURCE";
+  $("sequenceFollow").setAttribute("aria-pressed", String(state.sequenceFollowLive));
+  $("sequenceFollow").textContent = state.sequenceFollowLive ? "FOLLOW: ON" : "FOLLOW: OFF";
+  $("editorState").textContent = state.trackerView === "sequence"
+    ? definition.label + (state.sequenceFollowLive ? " · edit next" : " · locked")
+    : "seed × pitch range";
+  syncSequenceTimingOutput();
   if (state.trackerView === "sequence") {
     $("stage").setAttribute(
       "aria-label",
-      "Nine-lane live Chiptune sequence editor. "
+      "Focused live Chiptune sequence editor with nine-lane overview. "
         + describeSequenceCell(lane, state.activeSequenceStep, selected, laneState.activeLength)
         + ". "
         + laneClockText(lane),
@@ -2331,16 +2582,47 @@ function syncSequenceControls() {
   }
 }
 
-function syncSequencePlayhead(time) {
+function syncSequencePlayhead(time, { force = false } = {}) {
   if (state.trackerView !== "sequence") return;
-  const next = webGpuChiptuneSequenceCellIndex(
+  const timing = webGpuChiptuneLaneTiming(
     state.activeSequenceLane,
-    time * state.params.tempo,
+    time,
     state.params,
     state.sequence,
   );
-  if (next === sequencePlayhead) return;
-  sequencePlayhead = next;
+  const liveTarget = state.audioOn && state.synthPlaying
+    ? webGpuChiptuneLiveEditTarget(
+      state.activeSequenceLane,
+      time,
+      state.params,
+      state.sequence,
+      liveEditLeadSeconds(),
+    )
+    : { step: timing.currentStep };
+  const valueFocused = document.activeElement === $("sequenceValue")
+    || document.activeElement === $("sequenceValueRange");
+  let selectionChanged = false;
+  if (
+    state.sequenceFollowLive
+    && !activeSequenceDrag
+    && activeSequenceValueStep === null
+    && !valueFocused
+    && state.activeSequenceStep !== liveTarget.step
+  ) {
+    state.activeSequenceStep = liveTarget.step;
+    state.sequencePage = sequencePageForStep(liveTarget.step);
+    selectionChanged = true;
+  }
+  const now = performance.now();
+  const shouldSync = force
+    || selectionChanged
+    || timing.currentStep !== sequencePlayhead
+    || now - lastSequenceTimingUi > 160;
+  sequencePlayhead = timing.currentStep;
+  if (!shouldSync) return;
+  lastSequenceTimingUi = now;
+  if (selectionChanged || force) syncSequenceControls();
+  else syncSequenceTimingOutput(time);
 }
 
 function renderSequenceControls() {
@@ -2378,21 +2660,60 @@ function renderSequenceControls() {
   });
   $("sequencePageOne").addEventListener("click", () => setSequencePage(0));
   $("sequencePageTwo").addEventListener("click", () => setSequencePage(1));
-  $("sequenceStateAuto").addEventListener("click", () => setSequencePaintMode("auto"));
-  $("sequenceStateNote").addEventListener("click", () => setSequencePaintMode("note"));
-  $("sequenceStateRest").addEventListener("click", () => setSequencePaintMode("rest"));
-  $("sequenceValue").addEventListener("input", (event) => {
-    if (!event.currentTarget.value || !event.currentTarget.validity.valid) return;
-    setSequenceCell(state.activeSequenceStep, "note", Number(event.currentTarget.value), {
+  $("sequencePageThree").addEventListener("click", () => setSequencePage(2));
+  $("sequencePageFour").addEventListener("click", () => setSequencePage(3));
+  const applySelectedSequenceState = (cellState) => {
+    setSequencePaintMode(cellState);
+    setSequenceCell(state.activeSequenceStep, cellState);
+  };
+  $("sequenceStateAuto").addEventListener("click", () => applySelectedSequenceState("auto"));
+  $("sequenceStateNote").addEventListener("click", () => applySelectedSequenceState("note"));
+  $("sequenceStateRest").addEventListener("click", () => applySelectedSequenceState("rest"));
+  const valueInput = $("sequenceValue");
+  const valueRange = $("sequenceValueRange");
+  const beginValueEdit = () => {
+    if (activeSequenceValueStep === null) {
+      activeSequenceValueStep = state.activeSequenceStep;
+    }
+  };
+  const liveValueEdit = (input) => {
+    if (!input.value || !input.validity.valid) return;
+    beginValueEdit();
+    setSequenceCell(activeSequenceValueStep, "note", Number(input.value), {
       announceChange: false,
     });
+  };
+  const finishValueEdit = () => {
+    activeSequenceValueStep = null;
+    syncSequencePlayhead(transportTime(), { force: true });
+  };
+  valueRange.addEventListener("pointerdown", beginValueEdit);
+  valueRange.addEventListener("focus", beginValueEdit);
+  valueRange.addEventListener("input", (event) => {
+    valueInput.value = event.currentTarget.value;
+    liveValueEdit(event.currentTarget);
   });
-  $("sequenceValue").addEventListener("change", (event) => {
+  valueRange.addEventListener("change", () => {
+    const step = activeSequenceValueStep ?? state.activeSequenceStep;
+    const value = Number(valueRange.value);
+    setSequenceCell(step, "note", value);
+    finishValueEdit();
+  });
+  valueRange.addEventListener("pointercancel", finishValueEdit);
+  valueRange.addEventListener("focusout", finishValueEdit);
+  valueInput.addEventListener("focus", beginValueEdit);
+  valueInput.addEventListener("input", (event) => {
+    if (event.currentTarget.validity.valid) {
+      valueRange.value = event.currentTarget.value;
+      liveValueEdit(event.currentTarget);
+    }
+  });
+  valueInput.addEventListener("change", (event) => {
     const input = event.currentTarget;
     if (!input.value || !input.validity.valid) {
       const cell = state.sequence
         .lanes[state.activeSequenceLane]
-        .cells[state.activeSequenceStep];
+        .cells[activeSequenceValueStep ?? state.activeSequenceStep];
       const stepMismatch = input.validity.stepMismatch;
       const spec = activeSequenceSpec();
       input.value = String(cell.value);
@@ -2405,14 +2726,27 @@ function renderSequenceControls() {
       return;
     }
     setSequenceCell(
-      state.activeSequenceStep,
+      activeSequenceValueStep ?? state.activeSequenceStep,
       "note",
       Number(event.currentTarget.value),
     );
+    finishValueEdit();
   });
-  $("sequenceValue").addEventListener("focusout", syncSequenceControls);
+  valueInput.addEventListener("focusout", finishValueEdit);
+  $("sequencePitchSpan").addEventListener("input", (event) => {
+    state.sequencePitchSpan = Math.round(clamp(event.currentTarget.value, 12, 72) / 12) * 12;
+    syncSequenceControls();
+  });
+  $("sequenceFollow").addEventListener("click", () => {
+    setSequenceFollow(!state.sequenceFollowLive);
+  });
+  $("rotateSequenceLeft").addEventListener("click", () => rotateSequenceLane(-1));
+  $("rotateSequenceRight").addEventListener("click", () => rotateSequenceLane(1));
+  $("reverseSequenceLane").addEventListener("click", reverseSequenceLane);
   $("varySequenceLane").addEventListener("click", varySequenceLane);
   $("clearSequenceLane").addEventListener("click", clearSequenceLane);
+  $("morphLaneSource").addEventListener("click", clearSequenceLane);
+  $("morphVoicesSource").addEventListener("click", setVoiceSequencesToSource);
   syncSequenceControls();
 }
 
@@ -2534,7 +2868,13 @@ function renderControls() {
   controlOutputs.clear();
   fractionControls.clear();
   $("knobControls").replaceChildren(...knobOrder.map(createKnobControl));
-  $("patternControls").replaceChildren(...controlGroups.pattern.map(createParamControl));
+  const morphKeys = new Set(["patternSeed", "pitchRange"]);
+  $("morphControls").replaceChildren(
+    ...controlGroups.pattern.filter(({ key }) => morphKeys.has(key)).map(createParamControl),
+  );
+  $("patternControls").replaceChildren(
+    ...controlGroups.pattern.filter(({ key }) => !morphKeys.has(key)).map(createParamControl),
+  );
   $("voiceControls").replaceChildren(...controlGroups.voice.map(createParamControl));
   $("drumControls").replaceChildren(...controlGroups.drums.map(createParamControl));
   $("echoControls").replaceChildren(...controlGroups.echo.map(createParamControl));
@@ -3123,72 +3463,115 @@ function drawMorphTracker(context, width, height, time) {
     8,
     height * 0.97,
   );
+  const [seedMinimum, seedMaximum] = WEBGPU_CHIPTUNE_LIMITS.patternSeed;
+  const [rangeMinimum, rangeMaximum] = WEBGPU_CHIPTUNE_LIMITS.pitchRange;
+  const handleX = clamp(
+    (state.params.patternSeed - seedMinimum) / Math.max(0.000001, seedMaximum - seedMinimum),
+    0,
+    1,
+  ) * width;
+  const handleY = (
+    1 - clamp(
+      (state.params.pitchRange - rangeMinimum)
+        / Math.max(0.000001, rangeMaximum - rangeMinimum),
+      0,
+      1,
+    )
+  ) * height;
+  const coverage = sourceCoverage(WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES);
+  context.strokeStyle = "rgba(83,246,255,0.2)";
+  context.lineWidth = 1;
+  context.setLineDash([5, 5]);
+  context.beginPath();
+  context.moveTo(handleX, 0);
+  context.lineTo(handleX, height);
+  context.moveTo(0, handleY);
+  context.lineTo(width, handleY);
+  context.stroke();
+  context.setLineDash([]);
+  context.fillStyle = "#061016";
+  context.strokeStyle = "#f4c95d";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.arc(handleX, handleY, Math.max(9, Math.min(15, width / 75)), 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.fillStyle = "#f4c95d";
+  context.font = "800 " + Math.max(8, width / 130)
+    + "px ui-monospace, SFMono-Regular, Consolas, monospace";
+  context.textAlign = "left";
+  context.textBaseline = "top";
+  context.fillText("X · PATTERN SEED →", 9, 8);
+  context.save();
+  context.translate(width - 9, height - 8);
+  context.rotate(-Math.PI / 2);
+  context.fillText("Y · PITCH RANGE →", 0, 0);
+  context.restore();
+  context.fillStyle = "rgba(216,231,231,0.74)";
+  context.textBaseline = "bottom";
+  context.fillText(
+    coverage.source + "/" + coverage.active + " ACTIVE VOICE CELLS USE SOURCE",
+    9,
+    height - 8,
+  );
   context.globalAlpha = 1;
 }
 
 function sequenceWindowForWidth(width) {
-  const stepCount = width <= 980 ? 16 : WEBGPU_CHIPTUNE_SEQUENCE_STEPS;
+  const stepCount = sequencePageSizeForWidth(width);
+  const maximumPage = WEBGPU_CHIPTUNE_SEQUENCE_STEPS / stepCount - 1;
+  const page = Math.round(clamp(state.sequencePage, 0, maximumPage));
   return Object.freeze({
-    startStep: stepCount === 16 ? state.sequencePage * 16 : 0,
+    startStep: page * stepCount,
     stepCount,
   });
 }
 
-function sequenceEditorOverlayBounds(height) {
-  const canvas = $("stage");
-  const toolbar = $("sequenceToolbar");
-  const inspector = $("sequenceInspector");
-  if (!canvas || !toolbar || !inspector) return null;
-  const canvasRect = canvas.getBoundingClientRect();
-  const toolbarRect = toolbar.getBoundingClientRect();
-  const inspectorRect = inspector.getBoundingClientRect();
-  const top = clamp(Math.ceil(toolbarRect.bottom - canvasRect.top + 5), 0, height);
-  const bottom = clamp(Math.floor(inspectorRect.top - canvasRect.top - 5), 0, height);
-  return bottom > top ? Object.freeze({ top, bottom }) : null;
-}
-
-function sequenceEditorMetrics(width, height, overlayBounds = null) {
-  const compact = width <= 980;
+function sequenceEditorMetrics(width, height) {
   const narrow = width <= 620;
-  const short = height <= 240;
   const { startStep, stepCount } = sequenceWindowForWidth(width);
-  const left = narrow ? 43 : compact ? 58 : 82;
-  const right = narrow ? 4 : 8;
-  const desiredTop = short ? 78 : narrow ? 138 : compact ? 128 : 96;
-  const desiredBottomPadding = short ? 40 : narrow ? 78 : compact ? 66 : 54;
-  const fallbackTop = short
-    ? Math.min(90, Math.max(34, height - 80))
-    : Math.min(desiredTop, Math.max(34, height * 0.4));
-  const fallbackBottom = Math.min(
-    height - 18,
-    Math.max(fallbackTop + 64, height - desiredBottomPadding),
+  const left = narrow ? 45 : 66;
+  const right = narrow ? 5 : 10;
+  const top = narrow ? 38 : 42;
+  const overviewHeight = clamp(height * 0.23, 66, 88);
+  const overviewBottom = height - 17;
+  const overviewTop = overviewBottom - overviewHeight;
+  const bottom = Math.max(top + 120, overviewTop - 15);
+  const definition = activeSequenceDefinition();
+  const row = Object.freeze({ definition, top, height: Math.max(1, bottom - top) });
+  const overviewLabelWidth = narrow ? 31 : 48;
+  const overviewGridWidth = Math.max(1, width - overviewLabelWidth - right);
+  const overviewHeader = 13;
+  const overviewRowHeight = Math.max(
+    4,
+    (overviewHeight - overviewHeader) / sequenceLaneDefinitions.length,
   );
-  const top = overlayBounds?.top ?? fallbackTop;
-  const boundedBottom = overlayBounds?.bottom ?? fallbackBottom;
-  const totalWeight = sequenceLaneDefinitions.reduce((sum, definition) => (
-    sum + definition.weight
-  ), 0);
-  const rowUnit = Math.max(1, (boundedBottom - top) / totalWeight);
-  let cursor = top;
-  const rows = sequenceLaneDefinitions.map((definition) => {
-    const row = Object.freeze({
-      definition,
-      top: cursor,
-      height: rowUnit * definition.weight,
-    });
-    cursor += row.height;
-    return row;
-  });
+  const overviewRows = sequenceLaneDefinitions.map((laneDefinition, index) => Object.freeze({
+    definition: laneDefinition,
+    top: overviewTop + overviewHeader + index * overviewRowHeight,
+    height: overviewRowHeight,
+  }));
   return Object.freeze({
     left,
     right,
     top,
-    bottom: cursor,
+    bottom,
     width: Math.max(1, width - left - right),
     cellWidth: Math.max(1, (width - left - right) / stepCount),
     startStep,
     stepCount,
-    rows,
+    row,
+    rows: Object.freeze([row]),
+    overview: Object.freeze({
+      top: overviewTop,
+      bottom: overviewBottom,
+      left: overviewLabelWidth,
+      right,
+      width: overviewGridWidth,
+      cellWidth: overviewGridWidth / WEBGPU_CHIPTUNE_SEQUENCE_STEPS,
+      rowHeight: overviewRowHeight,
+      rows: Object.freeze(overviewRows),
+    }),
   });
 }
 
@@ -3220,10 +3603,44 @@ function sourceDrumPreview(lane, step) {
   return bounded;
 }
 
+function sequenceVisiblePitchBounds(lane) {
+  const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
+  return Object.freeze([
+    Math.max(spec.minimum, -state.sequencePitchSpan),
+    Math.min(spec.maximum, state.sequencePitchSpan),
+  ]);
+}
+
 function sequenceLaneY(lane, value, row) {
-  const unit = webGpuChiptuneSequenceEditorUnit(lane, value);
-  const padding = Math.min(5, row.height * 0.16);
+  const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
+  const unit = spec.kind === "steps"
+    ? (() => {
+      const [minimum, maximum] = sequenceVisiblePitchBounds(lane);
+      return clamp((Number(value) - minimum) / Math.max(1, maximum - minimum), 0, 1);
+    })()
+    : webGpuChiptuneSequenceEditorUnit(lane, value);
+  const padding = Math.min(18, row.height * 0.1);
   return row.top + padding + (1 - unit) * Math.max(1, row.height - padding * 2);
+}
+
+function sequenceValueForY(lane, localY, row) {
+  const padding = Math.min(18, row.height * 0.1);
+  const unit = clamp(
+    1 - (localY - row.top - padding) / Math.max(1, row.height - padding * 2),
+    0,
+    1,
+  );
+  const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
+  if (spec.kind === "drums") return 1;
+  if (spec.kind === "steps") {
+    const [minimum, maximum] = sequenceVisiblePitchBounds(lane);
+    const visibleValue = minimum + unit * (maximum - minimum);
+    return webGpuChiptuneSequenceEditorValue(
+      lane,
+      webGpuChiptuneSequenceEditorUnit(lane, visibleValue),
+    );
+  }
+  return webGpuChiptuneSequenceEditorValue(lane, unit);
 }
 
 function drawRestCell(context, x, y, width, height) {
@@ -3271,7 +3688,7 @@ function drawResolvedLeadTrace(context, metrics, row) {
   context.restore();
 }
 
-function drawSequenceEditor(context, width, height, time) {
+function drawLegacySequenceEditor(context, width, height, time) {
   const metrics = sequenceEditorMetrics(width, height, sequenceEditorOverlayBounds(height));
   const fontSize = Math.max(7, Math.min(10, width / 118));
   context.save();
@@ -3476,6 +3893,374 @@ function drawSequenceEditor(context, width, height, time) {
   }
   context.textAlign = "start";
   context.restore();
+}
+
+function drawFocusedLaneGuides(context, metrics, definition) {
+  const row = metrics.row;
+  context.save();
+  context.font = "700 8px ui-monospace, SFMono-Regular, Consolas, monospace";
+  context.textAlign = "right";
+  context.textBaseline = "middle";
+  const [pitchMinimum, pitchMaximum] = definition.kind === "steps"
+    ? sequenceVisiblePitchBounds(definition.key)
+    : [0, 1];
+  const guides = definition.kind === "steps"
+    ? [...new Set([
+      pitchMaximum,
+      Math.round((pitchMaximum + 0) * 0.5),
+      0,
+      Math.round((pitchMinimum + 0) * 0.5),
+      pitchMinimum,
+    ])].map((value) => [value, signedNumber(value)])
+    : definition.kind === "contour"
+      ? [[1, "1.00"], [0.75, ".75"], [0.5, ".50"], [0.25, ".25"], [0, ".00"]]
+      : [];
+  for (const [value, label] of guides) {
+    const y = sequenceLaneY(definition.key, value, row);
+    context.strokeStyle = value === 0 || value === 0.5
+      ? "rgba(244,201,93,0.3)"
+      : "rgba(255,255,255,0.085)";
+    context.lineWidth = value === 0 || value === 0.5 ? 1.2 : 1;
+    context.beginPath();
+    context.moveTo(metrics.left, y);
+    context.lineTo(metrics.left + metrics.width, y);
+    context.stroke();
+    context.fillStyle = value === 0 || value === 0.5
+      ? "rgba(244,201,93,0.84)"
+      : "rgba(216,231,231,0.48)";
+    context.fillText(label, metrics.left - 6, y);
+  }
+  context.restore();
+}
+
+function drawResolvedArpTrace(context, metrics, row) {
+  const points = [];
+  const subdivisions = 4;
+  for (let stepOffset = 0; stepOffset < metrics.stepCount; stepOffset += 1) {
+    const step = metrics.startStep + stepOffset;
+    for (let subdivision = 0; subdivision < subdivisions; subdivision += 1) {
+      const beat = sequenceBeatForStep("arp", step + (subdivision + 0.5) / subdivisions);
+      const note = webGpuChiptuneBeatSnapshot(beat, state.params, state.sequence).arp;
+      if (!Number.isFinite(note)) continue;
+      points.push({
+        note,
+        x: metrics.left
+          + (stepOffset + (subdivision + 0.5) / subdivisions) * metrics.cellWidth,
+      });
+    }
+  }
+  if (points.length < 2) return;
+  const minimum = Math.min(...points.map(({ note }) => note));
+  const maximum = Math.max(...points.map(({ note }) => note));
+  const spread = Math.max(12, maximum - minimum);
+  context.save();
+  context.beginPath();
+  points.forEach(({ note, x }, index) => {
+    const unit = clamp((note - minimum + (spread - (maximum - minimum)) * 0.5) / spread, 0, 1);
+    const y = row.top + 14 + (1 - unit) * Math.max(1, row.height - 28);
+    if (index === 0) context.moveTo(x, y);
+    else context.lineTo(x, y);
+  });
+  context.setLineDash([3, 4]);
+  context.strokeStyle = "rgba(255,255,255,0.46)";
+  context.lineWidth = 1;
+  context.stroke();
+  context.restore();
+}
+
+function drawSequenceOverview(context, metrics, time) {
+  const overview = metrics.overview;
+  const canvasWidth = overview.left + overview.width + overview.right;
+  context.save();
+  context.fillStyle = "rgba(2,5,8,0.82)";
+  context.fillRect(0, overview.top, canvasWidth, overview.bottom - overview.top);
+  context.font = "700 7px ui-monospace, SFMono-Regular, Consolas, monospace";
+  context.textBaseline = "middle";
+  context.textAlign = "left";
+  context.fillStyle = "rgba(216,231,231,0.58)";
+  context.fillText("ALL CLOCKS · TAP A ROW OR STEP", 5, overview.top + 6);
+
+  for (const row of overview.rows) {
+    const definition = row.definition;
+    const lane = definition.key;
+    const laneState = state.sequence.lanes[lane];
+    const selectedLane = lane === state.activeSequenceLane;
+    const playhead = webGpuChiptuneSequenceCellIndex(
+      lane,
+      time * state.params.tempo,
+      state.params,
+      state.sequence,
+    );
+    context.fillStyle = selectedLane ? "rgba(244,201,93,0.08)" : "rgba(255,255,255,0.018)";
+    context.fillRect(0, row.top, canvasWidth, row.height);
+    context.fillStyle = definition.color;
+    context.globalAlpha = selectedLane ? 1 : 0.58;
+    context.fillText(definition.shortLabel, 4, row.top + row.height * 0.5);
+    context.globalAlpha = 1;
+    for (let step = 0; step < WEBGPU_CHIPTUNE_SEQUENCE_STEPS; step += 1) {
+      const x = overview.left + step * overview.cellWidth;
+      const cell = laneState.cells[step];
+      const insideLoop = step < laneState.activeLength;
+      if (!insideLoop) {
+        context.fillStyle = "rgba(0,0,0,0.46)";
+        context.fillRect(x, row.top, overview.cellWidth, row.height);
+      } else if (cell.state === "note") {
+        context.fillStyle = definition.color;
+        context.globalAlpha = 0.62;
+        context.fillRect(
+          x + 1,
+          row.top + Math.max(1, row.height * 0.2),
+          Math.max(1, overview.cellWidth - 2),
+          Math.max(1, row.height * 0.6),
+        );
+        context.globalAlpha = 1;
+      } else if (cell.state === "auto") {
+        context.fillStyle = definition.color;
+        context.globalAlpha = 0.22;
+        context.fillRect(
+          x + overview.cellWidth * 0.36,
+          row.top + row.height * 0.38,
+          Math.max(1, overview.cellWidth * 0.28),
+          Math.max(1, row.height * 0.24),
+        );
+        context.globalAlpha = 1;
+      }
+      if (step === playhead) {
+        context.fillStyle = "#ffffff";
+        context.fillRect(x, row.top, Math.max(1, overview.cellWidth * 0.22), row.height);
+      }
+      if (selectedLane && step === state.activeSequenceStep) {
+        context.strokeStyle = "#f4c95d";
+        context.lineWidth = 1;
+        context.strokeRect(x + 0.5, row.top + 0.5, Math.max(1, overview.cellWidth - 1), Math.max(1, row.height - 1));
+      }
+    }
+  }
+  context.restore();
+}
+
+function drawSequenceEditor(context, width, height, time) {
+  const metrics = sequenceEditorMetrics(width, height);
+  const definition = metrics.row.definition;
+  const lane = definition.key;
+  const laneState = state.sequence.lanes[lane];
+  const playhead = webGpuChiptuneSequenceCellIndex(
+    lane,
+    time * state.params.tempo,
+    state.params,
+    state.sequence,
+  );
+  context.save();
+  context.fillStyle = "rgba(2,5,8,0.52)";
+  context.fillRect(0, 0, width, metrics.bottom + 2);
+  context.font = "800 10px ui-monospace, SFMono-Regular, Consolas, monospace";
+  context.textBaseline = "middle";
+  context.textAlign = "left";
+  context.fillStyle = definition.color;
+  context.fillText(definition.label, 6, 16);
+  context.fillStyle = "rgba(216,231,231,0.6)";
+  context.font = "700 8px ui-monospace, SFMono-Regular, Consolas, monospace";
+  const actionLabel = definition.kind === "drums"
+    ? "TAP = PAD STATE · HEIGHT IS BINARY"
+    : definition.kind === "contour"
+      ? "DRAW HEIGHT = SHAPE 0–1 · WHITE = RESOLVED INTERNAL PITCH"
+      : "DRAW HEIGHT = SEMITONES · HOLLOW = SOURCE";
+  context.fillText(actionLabel, Math.min(width * 0.36, metrics.left + 84), 16);
+  context.textAlign = "right";
+  context.fillText(
+    String(metrics.startStep + 1).padStart(2, "0")
+      + "–"
+      + String(metrics.startStep + metrics.stepCount).padStart(2, "0"),
+    width - 7,
+    16,
+  );
+  context.textAlign = "left";
+
+  context.fillStyle = "rgba(255,255,255,0.018)";
+  context.fillRect(0, metrics.row.top, width, metrics.row.height);
+  drawFocusedLaneGuides(context, metrics, definition);
+
+  for (let offset = 0; offset < metrics.stepCount; offset += 1) {
+    const step = metrics.startStep + offset;
+    const x = metrics.left + offset * metrics.cellWidth;
+    const outsideLoop = step >= laneState.activeLength;
+    if (offset & 1) {
+      context.fillStyle = "rgba(255,255,255,0.018)";
+      context.fillRect(x, metrics.row.top, metrics.cellWidth, metrics.row.height);
+    }
+    if (outsideLoop) {
+      context.fillStyle = "rgba(0,0,0,0.5)";
+      context.fillRect(x, metrics.row.top, metrics.cellWidth, metrics.row.height);
+    }
+    if (step === playhead) {
+      context.fillStyle = "rgba(255,255,255,0.085)";
+      context.fillRect(x, metrics.row.top, metrics.cellWidth, metrics.row.height);
+      context.fillStyle = definition.color;
+      context.fillRect(x, metrics.row.top, Math.max(2, metrics.cellWidth * 0.055), metrics.row.height);
+    }
+    context.strokeStyle = step % 4 === 0
+      ? "rgba(244,201,93,0.3)"
+      : "rgba(255,255,255,0.1)";
+    context.lineWidth = step % 4 === 0 ? 1.4 : 1;
+    context.beginPath();
+    context.moveTo(x, metrics.row.top);
+    context.lineTo(x, metrics.bottom);
+    context.stroke();
+    context.fillStyle = "rgba(216,231,231,0.68)";
+    context.font = "700 8px ui-monospace, SFMono-Regular, Consolas, monospace";
+    context.textAlign = "center";
+    context.fillText(String(step + 1).padStart(2, "0"), x + metrics.cellWidth * 0.5, metrics.row.top - 8);
+  }
+  context.strokeStyle = "rgba(255,255,255,0.14)";
+  context.strokeRect(metrics.left, metrics.row.top, metrics.width, metrics.row.height);
+
+  if (definition.kind !== "drums") {
+    context.save();
+    context.beginPath();
+    for (let offset = 0; offset < metrics.stepCount; offset += 1) {
+      const step = metrics.startStep + offset;
+      const x = metrics.left + (offset + 0.5) * metrics.cellWidth;
+      const y = sequenceLaneY(lane, suggestedSequenceValue(lane, step), metrics.row);
+      if (offset === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.setLineDash([4, 5]);
+    context.strokeStyle = definition.color;
+    context.globalAlpha = 0.32;
+    context.lineWidth = 1.5;
+    context.stroke();
+    context.restore();
+  }
+
+  if (definition.kind === "contour") {
+    context.beginPath();
+    let drawing = false;
+    for (let offset = 0; offset < metrics.stepCount; offset += 1) {
+      const step = metrics.startStep + offset;
+      const cell = laneState.cells[step];
+      if (cell.state === "rest") {
+        drawing = false;
+        continue;
+      }
+      const x = metrics.left + (offset + 0.5) * metrics.cellWidth;
+      const y = sequenceLaneY(lane, selectedSequenceValue(lane, step), metrics.row);
+      if (!drawing) context.moveTo(x, y);
+      else context.lineTo(x, y);
+      drawing = true;
+    }
+    context.strokeStyle = definition.color;
+    context.globalAlpha = 0.78;
+    context.lineWidth = 3;
+    context.stroke();
+    context.globalAlpha = 1;
+  }
+
+  for (let offset = 0; offset < metrics.stepCount; offset += 1) {
+    const step = metrics.startStep + offset;
+    const x = metrics.left + offset * metrics.cellWidth;
+    const cell = laneState.cells[step];
+    const outsideLoop = step >= laneState.activeLength;
+    const selected = step === state.activeSequenceStep;
+    if (definition.kind === "drums") {
+      const padInset = Math.max(4, metrics.cellWidth * 0.1);
+      const padTop = metrics.row.top + metrics.row.height * 0.18;
+      const padHeight = metrics.row.height * 0.64;
+      const preview = cell.state === "auto" ? sourceDrumPreview(lane, step) : 0;
+      context.fillStyle = cell.state === "note"
+        ? definition.color
+        : cell.state === "rest"
+          ? "rgba(8,12,16,0.94)"
+          : "rgba(8,12,16," + (0.72 - preview * 0.24) + ")";
+      context.globalAlpha = outsideLoop ? 0.3 : 1;
+      context.fillRect(
+        x + padInset,
+        padTop,
+        Math.max(2, metrics.cellWidth - padInset * 2),
+        padHeight,
+      );
+      context.strokeStyle = cell.state === "auto" ? definition.color : "rgba(255,255,255,0.34)";
+      context.setLineDash(cell.state === "auto" ? [4, 3] : []);
+      context.strokeRect(
+        x + padInset,
+        padTop,
+        Math.max(2, metrics.cellWidth - padInset * 2),
+        padHeight,
+      );
+      context.setLineDash([]);
+      context.globalAlpha = 1;
+      context.fillStyle = cell.state === "note" ? "#061016" : definition.color;
+      context.font = "800 " + Math.max(7, Math.min(11, metrics.cellWidth * 0.2))
+        + "px ui-monospace, SFMono-Regular, Consolas, monospace";
+      context.textAlign = "center";
+      context.fillText(
+        cell.state === "note" ? "HIT" : cell.state === "rest" ? "OFF" : "SRC",
+        x + metrics.cellWidth * 0.5,
+        padTop + padHeight * 0.5,
+      );
+    } else if (cell.state === "rest") {
+      drawRestCell(context, x, metrics.row.top, metrics.cellWidth, metrics.row.height);
+      context.fillStyle = "rgba(216,231,231,0.5)";
+      context.font = "800 9px ui-monospace, SFMono-Regular, Consolas, monospace";
+      context.textAlign = "center";
+      context.fillText("REST", x + metrics.cellWidth * 0.5, metrics.bottom - 12);
+    } else {
+      const value = selectedSequenceValue(lane, step);
+      const sourceY = sequenceLaneY(lane, suggestedSequenceValue(lane, step), metrics.row);
+      const y = sequenceLaneY(lane, value, metrics.row);
+      const radius = Math.max(4, Math.min(8, metrics.cellWidth * 0.14));
+      context.beginPath();
+      context.arc(x + metrics.cellWidth * 0.5, sourceY, Math.max(2.5, radius * 0.58), 0, Math.PI * 2);
+      context.strokeStyle = definition.color;
+      context.globalAlpha = 0.42;
+      context.lineWidth = 1.5;
+      context.stroke();
+      context.globalAlpha = outsideLoop ? 0.3 : 1;
+      if (cell.state === "note") {
+        if (definition.kind === "steps") {
+          context.fillStyle = definition.color;
+          context.fillRect(
+            x + Math.max(3, metrics.cellWidth * 0.12),
+            y - 4,
+            Math.max(3, metrics.cellWidth * 0.76),
+            8,
+          );
+        }
+        context.beginPath();
+        context.arc(x + metrics.cellWidth * 0.5, y, radius, 0, Math.PI * 2);
+        context.fillStyle = definition.color;
+        context.fill();
+      }
+      context.globalAlpha = 1;
+      context.fillStyle = cell.state === "note" ? definition.color : "rgba(216,231,231,0.58)";
+      context.font = "800 8px ui-monospace, SFMono-Regular, Consolas, monospace";
+      context.textAlign = "center";
+      context.fillText(cell.state === "note" ? "N" : "S", x + metrics.cellWidth * 0.5, metrics.bottom - 9);
+      if (metrics.cellWidth >= 36) {
+        context.fillStyle = "rgba(216,231,231,0.72)";
+        context.font = "700 7px ui-monospace, SFMono-Regular, Consolas, monospace";
+        context.fillText(
+          definition.kind === "contour" ? value.toFixed(2) : signedNumber(value),
+          x + metrics.cellWidth * 0.5,
+          clamp(y - 12, metrics.row.top + 9, metrics.bottom - 24),
+        );
+      }
+    }
+    if (selected) {
+      context.strokeStyle = "#f4c95d";
+      context.lineWidth = 2.5;
+      context.strokeRect(
+        x + 2,
+        metrics.row.top + 2,
+        Math.max(2, metrics.cellWidth - 4),
+        Math.max(2, metrics.row.height - 4),
+      );
+    }
+  }
+
+  if (lane === "lead") drawResolvedLeadTrace(context, metrics, metrics.row);
+  if (lane === "arp") drawResolvedArpTrace(context, metrics, metrics.row);
+  context.restore();
+  drawSequenceOverview(context, metrics, time);
 }
 
 const characterPalettes = Object.freeze([
@@ -3759,6 +4544,542 @@ function drawSprite(context, actor, x, ground, unit, colors, pose, grow) {
   }
 }
 
+const defaultInvaderDancePose = Object.freeze({
+  hold: 0.5,
+  march: 0,
+  bob: 0,
+  claw: 0,
+  feet: 0,
+  wing: 0,
+  lean: 0,
+  reach: 0,
+  turn: 0,
+  look: 0,
+  squat: 0,
+  spin: 0,
+});
+
+function freezeInvaderDanceProfile(frames) {
+  return Object.freeze(frames.map((frame) => Object.freeze({
+    ...defaultInvaderDancePose,
+    ...frame,
+  })));
+}
+
+const invaderDanceProfiles = Object.freeze({
+  upperOne: freezeInvaderDanceProfile([
+    { hold: 0.72 },
+    { hold: 0.76, claw: 2, feet: -0.8, lean: -1, reach: 1.5, turn: -1, look: -1, wing: -0.5 },
+    { hold: 0.58, bob: -1.5, claw: -1, lean: -0.5, reach: 0.5, turn: -1, look: -1 },
+    { hold: 0.74 },
+    { hold: 0.76, claw: 2, feet: 0.8, lean: 1, reach: 1.5, turn: 1, look: 1, wing: 0.5 },
+    { hold: 0.58, bob: -1.5, claw: -1, lean: 0.5, reach: 0.5, turn: 1, look: 1 },
+    { hold: 0.68, bob: 1, claw: -1, squat: 1, wing: 1 },
+    { hold: 0.82, bob: -2, claw: 2, reach: 2, feet: 0 },
+  ]),
+  upperTwo: freezeInvaderDanceProfile([
+    { hold: 0.42, march: -2, feet: -1, lean: 1, wing: -1, look: 1, turn: -1 },
+    { hold: 0.38, march: -1.4, bob: -0.5, feet: -0.4, lean: 0.6, wing: -0.5, look: 1, turn: -0.7 },
+    { hold: 0.46, march: 0, bob: -1, feet: 0.5, wing: 0, turn: 0 },
+    { hold: 0.38, march: 1.4, bob: -0.5, feet: 1, lean: -0.6, wing: 0.5, look: -1, turn: 0.7 },
+    { hold: 0.42, march: 2, feet: 0.3, lean: -1, wing: 1, look: -1, turn: 1 },
+    { hold: 0.38, march: 1.2, bob: -0.5, feet: -1, lean: -0.5, wing: 0.4, look: -1, turn: 0.7 },
+    { hold: 0.46, march: 0, bob: -1, feet: -0.3, turn: 0 },
+    { hold: 0.38, march: -1.2, bob: -0.5, feet: 1, lean: 0.6, wing: -0.5, look: 1, turn: -0.7 },
+  ]),
+  bass: freezeInvaderDanceProfile([
+    { hold: 0.72 },
+    { hold: 0.6, bob: 1, claw: -0.5, reach: 0.5, squat: 1 },
+    { hold: 0.62, bob: 2.5, claw: -1.5, feet: -0.4, reach: 1.5, squat: 2 },
+    { hold: 0.82, bob: 3, claw: -2, reach: 2, squat: 2.5 },
+    { hold: 0.62, bob: 1.5, claw: 1, feet: -1.5, reach: 1, squat: 1.5, look: -1 },
+    { hold: 0.42, bob: -1, claw: 2, feet: 0, reach: 1, squat: 0.2 },
+    { hold: 0.66, bob: 1, claw: 0.5, feet: 1.5, squat: 0.8, look: 1 },
+    { hold: 0.78 },
+  ]),
+  lead: freezeInvaderDanceProfile([
+    { hold: 0.62 },
+    { hold: 0.45, march: -0.3, bob: -0.5, feet: -1, lean: -1, reach: 1.5, turn: -1, look: -1, wing: 1 },
+    { hold: 0.58, bob: -2, feet: -1.5, lean: -1.5, reach: 3, turn: -1, look: -1, wing: 2 },
+    { hold: 0.4, bob: -2.5, feet: 0, reach: 2, turn: 0, wing: 1.5 },
+    { hold: 0.58, bob: -2, feet: 1.5, lean: 1.5, reach: 3, turn: 1, look: 1, wing: 2 },
+    { hold: 0.45, march: 0.3, bob: -0.5, feet: 1, lean: 1, reach: 1.5, turn: 1, look: 1, wing: 0.5 },
+    { hold: 0.68, bob: 1.5, feet: -1, lean: -1, reach: 2, turn: -1, look: -1, squat: 1, wing: -1 },
+    { hold: 0.84 },
+  ]),
+  arp: freezeInvaderDanceProfile([
+    { hold: 0.58, wing: -2, feet: -1, turn: -1, look: -1, spin: 0 },
+    { hold: 0.52, march: 0.6, bob: -1, wing: -1, feet: -0.5, reach: 0.5, turn: -0.6, look: -1, spin: 1 },
+    { hold: 0.62, march: 1, bob: -2, wing: 1, feet: 0, reach: 1.5, turn: 0, spin: 2 },
+    { hold: 0.68, march: 0.6, bob: -1, wing: 2, feet: 0.7, reach: 2, turn: 0.6, look: 1, spin: 3 },
+    { hold: 0.58, wing: 2, feet: 1, reach: 2, turn: 1, look: 1, spin: 4 },
+    { hold: 0.52, march: -0.6, bob: -1, wing: 1, feet: 0.5, reach: 1.5, turn: 0.6, look: 1, spin: 5 },
+    { hold: 0.62, march: -1, bob: -2, wing: -1, feet: 0, reach: 0.5, turn: 0, spin: 6 },
+    { hold: 0.68, march: -0.6, bob: -1, wing: -2, feet: -0.7, turn: -0.6, look: -1, spin: 7 },
+  ]),
+});
+
+const invaderDanceKeys = Object.freeze([
+  "march", "bob", "claw", "feet", "wing", "lean", "reach", "turn", "look", "squat", "spin",
+]);
+
+function invaderDancePoseAtPhase(profile, phase) {
+  const scaledPhase = positiveModulo(phase, 1) * profile.length;
+  const frame = Math.floor(scaledPhase) % profile.length;
+  const progress = scaledPhase - Math.floor(scaledPhase);
+  const current = profile[frame];
+  const next = profile[(frame + 1) % profile.length];
+  const transition = clamp(
+    (progress - current.hold) / Math.max(0.001, 1 - current.hold),
+    0,
+    1,
+  );
+  const eased = transition * transition * (3 - 2 * transition);
+  const pose = { frame };
+  for (const key of invaderDanceKeys) {
+    pose[key] = current[key] + (next[key] - current[key]) * eased;
+  }
+  return pose;
+}
+
+function detailedActorPose(actor, reducedMotion) {
+  const animated = !reducedMotion;
+  const sounding = animated && !actor.resting;
+  const profile = invaderDanceProfiles[actor.key] ?? invaderDanceProfiles.upperOne;
+  const formation = invaderDancePoseAtPhase(profile, animated ? actor.dancePhase : 0);
+  return Object.freeze({
+    ...formation,
+    animated,
+    sounding,
+    hairMotion: animated
+      ? formation.turn * (0.55 + actor.motion * 0.35)
+      : 0,
+    eyeX: animated ? formation.look : 0,
+    eyeY: 1,
+    compression: animated
+      ? Math.max(0, Math.round(Math.max(0, formation.squat) * 0.6))
+      : 0,
+  });
+}
+
+function spriteRect(context, x, ground, texel, gridX, gridY, width, height, color) {
+  pixelRect(
+    context,
+    x + gridX * texel,
+    ground + gridY * texel,
+    width * texel,
+    height * texel,
+    color,
+  );
+}
+
+function drawPixelSegment(context, x, ground, texel, from, to, color, thickness = 2) {
+  let x0 = Math.round(from[0]);
+  let y0 = Math.round(from[1]);
+  const x1 = Math.round(to[0]);
+  const y1 = Math.round(to[1]);
+  const dx = Math.abs(x1 - x0);
+  const sx = x0 < x1 ? 1 : -1;
+  const dy = -Math.abs(y1 - y0);
+  const sy = y0 < y1 ? 1 : -1;
+  let error = dx + dy;
+  while (true) {
+    spriteRect(
+      context,
+      x,
+      ground,
+      texel,
+      x0 - Math.floor(thickness / 2),
+      y0 - Math.floor(thickness / 2),
+      thickness,
+      thickness,
+      color,
+    );
+    if (x0 === x1 && y0 === y1) break;
+    const doubled = error * 2;
+    if (doubled >= dy) {
+      error += dy;
+      x0 += sx;
+    }
+    if (doubled <= dx) {
+      error += dx;
+      y0 += sy;
+    }
+  }
+}
+
+function drawPixelEyes(context, x, ground, texel, centerY, colors, pose, wide = false) {
+  const spacing = wide ? 5 : 4;
+  const pupilX = pose.eyeX > 0 ? 1 : 0;
+  const pupilY = pose.eyeY > 0 ? 1 : 0;
+  for (const side of [-1, 1]) {
+    const eyeX = side * spacing - 2;
+    spriteRect(context, x, ground, texel, eyeX, centerY - 2, 4, 4, colors.outline);
+    spriteRect(context, x, ground, texel, eyeX + 1, centerY - 1, 2, 2, "#f4fbff");
+    spriteRect(context, x, ground, texel, eyeX + 1, centerY - 1, 1, 1, colors.spark);
+    spriteRect(
+      context,
+      x,
+      ground,
+      texel,
+      eyeX + 1 + pupilX,
+      centerY - 1 + pupilY,
+      1,
+      1,
+      colors.outline,
+    );
+  }
+}
+
+function drawPixelHair(context, x, ground, texel, points, color, motion = 0) {
+  for (const [hairX, hairY, height = 2] of points) {
+    spriteRect(
+      context,
+      x,
+      ground,
+      texel,
+      hairX + Math.sign(hairX || 1) * motion,
+      hairY - Math.abs(motion),
+      2,
+      height + Math.abs(motion),
+      color,
+    );
+  }
+}
+
+function drawInvaderAntennae(
+  context,
+  x,
+  ground,
+  texel,
+  y,
+  spacing,
+  height,
+  colors,
+  pose,
+) {
+  const flare = pose.animated ? pose.wing : 0;
+  for (const side of [-1, 1]) {
+    const stemX = side * spacing - (side < 0 ? 1 : 0);
+    spriteRect(context, x, ground, texel, stemX, y - height, 2, height, colors.outline);
+    spriteRect(context, x, ground, texel, stemX + (side < 0 ? 1 : 0), y - height + 1, 1, height - 1, colors.highlight);
+    spriteRect(
+      context,
+      x,
+      ground,
+      texel,
+      stemX + side * (1 + flare),
+      y - height - 2,
+      2,
+      2,
+      colors.spark,
+    );
+  }
+}
+
+function drawInvaderClaws(
+  context,
+  x,
+  ground,
+  texel,
+  anchorY,
+  halfWidth,
+  reach,
+  colors,
+  pose,
+) {
+  const baseOpen = pose.animated ? pose.claw : 0;
+  const expressiveReach = pose.animated ? pose.reach : 0;
+  const turn = pose.animated ? pose.turn : 0;
+  for (const side of [-1, 1]) {
+    const sideReach = reach + Math.max(0, expressiveReach + side * turn * 0.85);
+    const open = baseOpen + side * turn * 0.55;
+    const shoulder = [side * halfWidth, anchorY];
+    const elbow = [side * (halfWidth + sideReach), anchorY + 2 - Math.abs(open)];
+    drawPixelSegment(context, x, ground, texel, shoulder, elbow, colors.outline, 4);
+    drawPixelSegment(context, x, ground, texel, shoulder, elbow, colors.body, 2);
+    const clawX = side * (halfWidth + sideReach + 1);
+    spriteRect(context, x, ground, texel, clawX - 1, anchorY - 2 - open, 2, 3, colors.highlight);
+    spriteRect(context, x, ground, texel, clawX - 1, anchorY + 2 + open, 2, 3, colors.highlight);
+  }
+}
+
+function drawInvaderFeet(
+  context,
+  x,
+  ground,
+  texel,
+  positions,
+  colors,
+  pose,
+  width = 4,
+  liftScale = 1,
+) {
+  positions.forEach((footX, index) => {
+    const side = footX < 0 ? -1 : footX > 0 ? 1 : index & 1 ? 1 : -1;
+    const lift = pose.animated
+      ? Math.max(0, Math.round(side * pose.feet * 1.25 * liftScale))
+      : 0;
+    spriteRect(context, x, ground, texel, footX - 1, -5 - lift, 2, 4, colors.outline);
+    spriteRect(context, x, ground, texel, footX - Math.floor(width / 2), -2 - lift, width, 2, colors.shadow);
+    spriteRect(context, x, ground, texel, footX - 1, -3 - lift, 2, 1, colors.spark);
+  });
+}
+
+function drawDetailedScout(context, actor, x, ground, unit, colors, pose, grow) {
+  const px = unit * 0.5;
+  const bodyX = x + pose.lean * px;
+  const bob = pose.bob + Math.max(0, pose.squat);
+  const shellWidth = 8 + Math.round(actor.shape * 3);
+  const detailBars = 1 + Math.round(actor.detail * 3);
+  drawInvaderAntennae(context, bodyX, ground, px, -28 + bob, 5, 4, colors, pose);
+  spriteRect(context, bodyX, ground, px, -4, -29 + bob, 8, 2, colors.outline);
+  spriteRect(context, bodyX, ground, px, -7, -27 + bob, 14, 3, colors.outline);
+  spriteRect(context, bodyX, ground, px, -shellWidth, -24 + bob, shellWidth * 2, 10 + grow, colors.outline);
+  spriteRect(context, bodyX, ground, px, -shellWidth + 1, -23 + bob, shellWidth * 2 - 2, 7 + grow, colors.body);
+  spriteRect(context, bodyX, ground, px, -shellWidth + 2, -22 + bob, shellWidth * 2 - 4, 2, colors.highlight);
+  spriteRect(context, bodyX, ground, px, -5, -16 + bob, 10, 6 + grow, colors.mid);
+  drawPixelEyes(context, bodyX, ground, px, -20 + bob, colors, pose);
+  for (let detail = 0; detail < detailBars; detail += 1) {
+    const markX = -5 + detail * Math.max(2, Math.floor(10 / detailBars));
+    spriteRect(context, bodyX, ground, px, markX, -14 + bob, 1, 3, colors.spark);
+  }
+  drawInvaderClaws(
+    context,
+    bodyX,
+    ground,
+    px,
+    -16 + bob,
+    shellWidth - 1,
+    2 + Math.round(actor.range * 2),
+    colors,
+    pose,
+  );
+  drawInvaderFeet(context, x, ground, px, [-6, 0, 6], colors, pose);
+  if (pose.sounding && actor.audibleGate > 0.08) {
+    const beam = 1 + Math.round(actor.detail * 2);
+    const scannerOffset = Math.round(pose.turn * (1 + actor.range * 2));
+    for (let index = 0; index < beam; index += 1) {
+      spriteRect(
+        context,
+        bodyX,
+        ground,
+        px,
+        scannerOffset - Math.floor(beam / 2) + index,
+        -9 + bob + index % 2,
+        1,
+        2,
+        colors.spark,
+      );
+    }
+  }
+}
+
+function drawDetailedRunner(context, actor, x, ground, unit, colors, pose, grow) {
+  const px = unit * 0.5;
+  const bob = pose.bob;
+  const bodyX = x + pose.lean * px;
+  const fin = 2 + Math.round(actor.shape * 3);
+  const exhaust = 1 + Math.round(actor.detail * 3);
+  drawInvaderAntennae(context, bodyX, ground, px, -27 + bob, 3, 5, colors, pose);
+  spriteRect(context, bodyX, ground, px, -2, -30 + bob, 4, 2, colors.spark);
+  spriteRect(context, bodyX, ground, px, -5, -28 + bob, 10, 3, colors.outline);
+  spriteRect(context, bodyX, ground, px, -8, -25 + bob, 16, 4, colors.outline);
+  spriteRect(context, bodyX, ground, px, -10, -21 + bob, 20, 9 + grow, colors.outline);
+  spriteRect(context, bodyX, ground, px, -9, -20 + bob, 18, 6 + grow, colors.body);
+  spriteRect(context, bodyX, ground, px, -6, -24 + bob, 12, 10, colors.mid);
+  spriteRect(context, bodyX, ground, px, -4, -23 + bob, 8, 2, colors.highlight);
+  drawPixelEyes(context, bodyX, ground, px, -19 + bob, colors, pose);
+  for (const side of [-1, 1]) {
+    const finX = side < 0 ? -10 - fin : 10;
+    const counterLift = pose.wing + side * pose.turn * 0.6;
+    spriteRect(context, bodyX, ground, px, finX, -20 + bob + counterLift, fin, 3, colors.highlight);
+    spriteRect(context, bodyX, ground, px, finX + (side < 0 ? 1 : 0), -16 + bob - counterLift, fin, 2, colors.body);
+  }
+  drawInvaderFeet(context, x, ground, px, [-7, -2, 3, 8], colors, pose, 3);
+  const scarfLength = 3 + Math.round(actor.detail * 3);
+  if (pose.sounding && actor.audibleGate > 0.08) {
+    const trailDirection = pose.turn > 0.05 ? -1 : pose.turn < -0.05 ? 1 : -1;
+    const trailLift = Math.round(pose.feet * 0.65);
+    for (let tail = 0; tail < Math.min(scarfLength, exhaust + 3); tail += 1) {
+      spriteRect(
+        context,
+        bodyX,
+        ground,
+        px,
+        trailDirection * (3 + tail) - (trailDirection < 0 ? 2 : 0),
+        -8 + trailLift + Math.round(tail * 0.25),
+        2,
+        1,
+        tail & 1 ? colors.spark : colors.highlight,
+      );
+    }
+  } else {
+    spriteRect(
+      context,
+      bodyX,
+      ground,
+      px,
+      -2,
+      -9,
+      2,
+      2,
+      colors.shadow,
+    );
+  }
+}
+
+function drawDetailedMonster(context, actor, x, ground, unit, colors, pose, grow) {
+  const px = unit * 0.5;
+  const squat = pose.animated ? Math.max(0, pose.squat) : 0;
+  const bob = pose.bob + Math.round(squat * 1.25);
+  const plantedSpread = Math.round(squat * 0.7);
+  const reach = 2 + Math.round(actor.range * 2);
+  const hornHeight = 3 + Math.round(actor.range * 4);
+  spriteRect(context, x, ground, px, -9 - plantedSpread, -29 - hornHeight + bob, 3, hornHeight + 3, colors.outline);
+  spriteRect(context, x, ground, px, -8 - plantedSpread, -29 - hornHeight + bob, 1, hornHeight + 1, colors.highlight);
+  spriteRect(context, x, ground, px, 6 + plantedSpread, -29 - hornHeight + bob, 3, hornHeight + 3, colors.outline);
+  spriteRect(context, x, ground, px, 7 + plantedSpread, -29 - hornHeight + bob, 1, hornHeight + 1, colors.highlight);
+  drawPixelHair(context, x, ground + bob * px, px, [
+    [-8, -31, 4], [-5, -33, 5], [-2, -35, 6], [1, -35, 6], [4, -33, 5], [7, -31, 4],
+  ], colors.mid, pose.sounding ? Math.round(actor.onset * 1.5) : 0);
+  spriteRect(context, x, ground, px, -11, -30 + bob, 22, 5, colors.outline);
+  spriteRect(context, x, ground, px, -13 - plantedSpread, -25 + bob, 26 + plantedSpread * 2, 13 + grow, colors.outline);
+  spriteRect(context, x, ground, px, -12 - plantedSpread, -24 + bob, 24 + plantedSpread * 2, 10 + grow, colors.body);
+  spriteRect(context, x, ground, px, -10 - plantedSpread, -23 + bob, 20 + plantedSpread * 2, 3, colors.highlight);
+  spriteRect(context, x, ground, px, -9, -15 + bob, 18, 7 + grow, colors.mid);
+  drawPixelEyes(context, x, ground, px, -20 + bob, colors, pose, true);
+  spriteRect(context, x, ground, px, -10, -24 + bob, 6, 2, colors.shadow);
+  spriteRect(context, x, ground, px, 4, -24 + bob, 6, 2, colors.shadow);
+  const snoutWidth = 7 + Math.round(actor.detail * 7);
+  spriteRect(context, x, ground, px, -Math.floor(snoutWidth / 2), -17 + bob, snoutWidth, 4, colors.highlight);
+  spriteRect(context, x, ground, px, -3, -16 + bob, 2, 1, colors.outline);
+  spriteRect(context, x, ground, px, 2, -16 + bob, 2, 1, colors.outline);
+  const jaw = !pose.sounding ? 0 : 2 + Math.round(actor.audibleGate * 5);
+  if (jaw > 0) {
+    spriteRect(context, x, ground, px, -7, -13 + bob, 14, jaw, colors.outline);
+    const toothCount = 2 + Math.round(actor.detail * 4);
+    for (let tooth = 0; tooth < toothCount; tooth += 1) {
+      const toothX = -6 + Math.round(tooth * 11 / Math.max(1, toothCount - 1));
+      spriteRect(context, x, ground, px, toothX, -12 + bob, 1, 2, "#fff3c9");
+    }
+    if (jaw >= 5) spriteRect(context, x, ground, px, -3, -9 + bob, 6, 2, "#ff65bd");
+  }
+  const spots = 2 + Math.round(actor.shape * 4);
+  for (let spot = 0; spot < spots; spot += 1) {
+    spriteRect(
+      context,
+      x,
+      ground,
+      px,
+      -7 + (spot * 5) % 13,
+      -10 + bob + (spot & 1) * 3,
+      2,
+      2,
+      spot & 1 ? colors.shadow : colors.highlight,
+    );
+  }
+  drawInvaderClaws(context, x, ground, px, -14 + bob, 11, reach, colors, pose);
+  drawInvaderFeet(context, x, ground, px, [-9, -3, 3, 9], colors, pose, 5, 0.45);
+  if (pose.sounding && actor.onset > 0.12) {
+    spriteRect(context, x, ground, px, -13, -1, 4, 1, colors.spark);
+    spriteRect(context, x, ground, px, 9, -1, 4, 1, colors.spark);
+    spriteRect(context, x, ground, px, -15, -3, 2, 1, colors.highlight);
+    spriteRect(context, x, ground, px, 13, -3, 2, 1, colors.highlight);
+  }
+}
+
+function drawDetailedHero(context, actor, x, ground, unit, colors, pose, grow) {
+  const px = unit * 0.5;
+  const bodyX = x + pose.lean * px;
+  const bob = pose.bob + Math.max(0, pose.squat) * 0.7;
+  const capeReach = 2 + Math.round(actor.range * 2);
+  const crownHeight = 3 + Math.round(actor.detail * 3);
+  spriteRect(context, bodyX, ground, px, -2, -30 - crownHeight + bob, 4, crownHeight + 2, colors.spark);
+  spriteRect(context, bodyX, ground, px, -7, -29 + bob, 3, 5, colors.outline);
+  spriteRect(context, bodyX, ground, px, 4, -29 + bob, 3, 5, colors.outline);
+  spriteRect(context, bodyX, ground, px, -10, -25 + bob, 20, 5, colors.outline);
+  spriteRect(context, bodyX, ground, px, -12, -20 + bob, 24, 10 + grow, colors.outline);
+  spriteRect(context, bodyX, ground, px, -11, -19 + bob, 22, 7 + grow, colors.body);
+  spriteRect(context, bodyX, ground, px, -7, -24 + bob, 14, 12, colors.mid);
+  spriteRect(context, bodyX, ground, px, -4, -23 + bob, 8, 3, colors.highlight);
+  drawPixelEyes(context, bodyX, ground, px, -18 + bob, colors, pose);
+  spriteRect(context, bodyX, ground, px, -5, -13 + bob, 10, 3, colors.highlight);
+  for (const side of [-1, 1]) {
+    const flourish = Math.max(0, pose.reach + side * pose.turn);
+    const sideReach = capeReach + Math.round(flourish);
+    const capeX = side < 0 ? -12 - sideReach : 12;
+    const capeLift = pose.wing + side * pose.turn;
+    spriteRect(context, bodyX, ground, px, capeX, -20 + bob + capeLift, sideReach, 4, colors.mid);
+    spriteRect(context, bodyX, ground, px, capeX + (side < 0 ? 1 : 0), -15 + bob - capeLift, sideReach, 3, colors.shadow);
+    spriteRect(context, bodyX, ground, px, side * 10 - (side < 0 ? 2 : 0), -13 + bob - flourish * 0.4, 2, 5, colors.spark);
+  }
+  const bladeStart = [0, -10 + bob];
+  const bladeLength = 4 + actor.range * 3 + pose.reach;
+  const bladeEnd = [
+    pose.turn * bladeLength,
+    -14 + bob - Math.max(0, pose.reach) * 1.6,
+  ];
+  drawPixelSegment(context, bodyX, ground, px, bladeStart, bladeEnd, colors.highlight, 2);
+  spriteRect(context, bodyX, ground, px, -3, -11 + bob, 6, 2, colors.spark);
+  drawInvaderFeet(context, x, ground, px, [-8, -3, 3, 8], colors, pose, 4);
+}
+
+function drawDetailedSprite(context, actor, x, ground, unit, colors, pose, grow) {
+  const px = unit * 0.5;
+  const bob = pose.bob;
+  const bodyX = x + pose.turn * px * 0.8;
+  const wingReach = 4 + Math.round(actor.shape * 3);
+  const wingLift = pose.animated ? pose.wing * 2 : 0;
+  drawInvaderAntennae(context, bodyX, ground, px, -27 + bob, 4, 5, colors, pose);
+  spriteRect(context, bodyX, ground, px, -5, -28 + bob, 10, 3, colors.outline);
+  spriteRect(context, bodyX, ground, px, -8, -25 + bob, 16, 12 + grow, colors.outline);
+  spriteRect(context, bodyX, ground, px, -7, -24 + bob, 14, 9 + grow, colors.body);
+  spriteRect(context, bodyX, ground, px, -4, -23 + bob, 8, 3, colors.highlight);
+  drawPixelEyes(context, bodyX, ground, px, -19 + bob, colors, pose);
+  for (const side of [-1, 1]) {
+    const fan = Math.max(0, pose.reach + side * pose.turn * 0.65);
+    const sideReach = wingReach + Math.round(fan);
+    const sideLift = wingLift + side * pose.turn;
+    const wingX = side < 0 ? -8 - sideReach : 8;
+    spriteRect(context, bodyX, ground, px, wingX, -24 + bob - sideLift, sideReach, 4, colors.highlight);
+    spriteRect(context, bodyX, ground, px, wingX + (side < 0 ? 1 : 0), -19 + bob - side * pose.turn, sideReach, 4, colors.mid);
+    spriteRect(context, bodyX, ground, px, wingX, -14 + bob + sideLift, sideReach, 3, colors.body);
+  }
+  spriteRect(context, bodyX, ground, px, -5, -14 + bob, 10, 4, colors.mid);
+  drawInvaderFeet(context, x, ground, px, [-6, -2, 2, 6], colors, pose, 3);
+  if (pose.sounding && actor.audibleGate > 0.08) {
+    const orbiters = 2 + Math.round(actor.range * 3) + Math.round(actor.detail * 2);
+    for (let orbiter = 0; orbiter < orbiters; orbiter += 1) {
+      const angle = (pose.spin + orbiter * 8 / orbiters) * Math.PI / 4;
+      const orbitRadius = 10 + Math.min(3, orbiter) + Math.max(0, pose.reach);
+      spriteRect(
+        context,
+        bodyX,
+        ground,
+        px,
+        Math.round(Math.cos(angle) * orbitRadius),
+        -18 + bob + Math.round(Math.sin(angle) * (4 + (orbiter & 1))),
+        1,
+        1,
+        colors.spark,
+      );
+    }
+  }
+}
+
+function drawEchoSilhouette(context, actor, x, ground, unit, colors, reducedMotion) {
+  const px = unit * 0.5;
+  const pose = detailedActorPose(actor, reducedMotion);
+  const halfWidth = actor.key === "bass" ? 11 : actor.key === "lead" ? 10 : 8;
+  const top = actor.key === "bass" ? -29 : -27;
+  spriteRect(context, x, ground, px, -4, top - 2, 8, 2, colors.highlight);
+  spriteRect(context, x, ground, px, -halfWidth + 3, top, (halfWidth - 3) * 2, 3, colors.body);
+  spriteRect(context, x, ground, px, -halfWidth, top + 3, halfWidth * 2, 12, colors.mid);
+  spriteRect(context, x, ground, px, -halfWidth + 3, top + 15, (halfWidth - 3) * 2, 5, colors.body);
+  drawInvaderFeet(context, x, ground, px, [-6, 0, 6], colors, pose, 3);
+}
+
 function drawPixelActor(
   context,
   actor,
@@ -3772,18 +5093,28 @@ function drawPixelActor(
 ) {
   const colors = actorColors(actor, index);
   const grow = Math.round(actor.levelUnit * 2);
-  const pose = actorPose(actor, reducedMotion);
-  const bounce = pose.animated ? Math.round(actor.bounce * (1 + grow * 0.5)) * unit : 0;
-  const actorGround = ground - bounce;
+  const pose = detailedActorPose(actor, reducedMotion);
+  const actorGround = ground;
   context.save();
   context.globalAlpha = alpha;
-  const shadowWidth = (8 + Math.round(actor.size * 3) - Math.round(bounce / Math.max(1, unit))) * unit;
+  const shadowWidth = (8 + Math.round(actor.size * 3) - pose.compression) * unit;
   pixelRect(context, x - shadowWidth / 2, ground + unit, shadowWidth, unit, colors.shadow);
-  if (actor.key === "upperOne") drawScout(context, actor, x, actorGround, unit, colors, pose, grow);
-  else if (actor.key === "upperTwo") drawRunner(context, actor, x, actorGround, unit, colors, pose, grow);
-  else if (actor.key === "bass") drawMonster(context, actor, x, actorGround, unit, colors, pose, grow);
-  else if (actor.key === "lead") drawHero(context, actor, x, actorGround, unit, colors, pose, grow);
-  else drawSprite(context, actor, x, actorGround, unit, colors, pose, grow);
+  if (!showState) {
+    drawEchoSilhouette(context, actor, x, actorGround, unit, colors, true);
+    context.restore();
+    return;
+  }
+  if (actor.key === "upperOne") {
+    drawDetailedScout(context, actor, x, actorGround, unit, colors, pose, grow);
+  } else if (actor.key === "upperTwo") {
+    drawDetailedRunner(context, actor, x, actorGround, unit, colors, pose, grow);
+  } else if (actor.key === "bass") {
+    drawDetailedMonster(context, actor, x, actorGround, unit, colors, pose, grow);
+  } else if (actor.key === "lead") {
+    drawDetailedHero(context, actor, x, actorGround, unit, colors, pose, grow);
+  } else {
+    drawDetailedSprite(context, actor, x, actorGround, unit, colors, pose, grow);
+  }
   if (pose.animated && actor.onset > 0.18) {
     const accents = 1 + Math.round(actor.range * 2);
     for (let accent = 0; accent < accents; accent += 1) {
@@ -3791,19 +5122,100 @@ function drawPixelActor(
       pixelRect(
         context,
         x + side * (4 + accent) * unit,
-        actorGround - (8 + accent * 2) * unit,
-        unit,
-        unit,
+        actorGround - (7 + accent * 2) * unit,
+        Math.max(1, unit * 0.5),
+        Math.max(1, unit * 0.5),
         colors.spark,
       );
     }
   }
-  if (showState) {
-    drawStateBadge(context, actor, x, ground + 3 * unit, unit, colors);
-    if (actor.resting) {
-      drawRestGlyph(context, x + 3 * unit, actorGround - 12 * unit, unit, colors.highlight);
-    }
+  if (actor.resting) {
+    drawRestGlyph(context, x + 3 * unit, actorGround - 12 * unit, unit, colors.highlight);
   }
+  context.restore();
+}
+
+function drawArcadeBayBackplane(context, bay, actor, index, height, floor, unit) {
+  const colors = actorColors(actor, index);
+  const top = Math.max(2, Math.floor(height * 0.12));
+  const bottom = height - 2;
+  const inset = 1;
+  context.save();
+  context.globalAlpha = 0.055 + actor.levelUnit * 0.025;
+  context.fillStyle = colors.body;
+  context.fillRect(
+    bay.left + inset,
+    top,
+    Math.max(1, bay.width - inset * 2),
+    Math.max(1, bottom - top),
+  );
+  context.globalAlpha = 0.09;
+  pixelRect(context, bay.center, top + 3, 1, Math.max(1, floor - top - 3), colors.highlight);
+  const beamStep = Math.max(3, Math.round(unit * 1.5));
+  for (let beamY = top + beamStep; beamY < floor; beamY += beamStep) {
+    const beamInset = 2 + Math.floor((beamY - top) / Math.max(1, beamStep)) % 2;
+    pixelRect(
+      context,
+      bay.left + beamInset,
+      beamY,
+      Math.max(1, bay.width - beamInset * 2),
+      1,
+      colors.shadow,
+    );
+  }
+  context.restore();
+}
+
+function drawArcadeBayFrame(context, bay, actor, index, height, floor, unit) {
+  const colors = actorColors(actor, index);
+  const top = Math.max(2, Math.floor(height * 0.12));
+  const bottom = height - 2;
+  const labelBand = Math.max(6, Math.min(10, Math.round(height * 0.09)));
+  const badgeUnit = Math.max(1, Math.round(unit * 0.42));
+  const lampSize = Math.max(1, Math.round(unit * 0.7));
+  context.save();
+  context.globalAlpha = 0.62;
+  pixelRect(context, bay.left, top, 1, bottom - top, colors.shadow);
+  pixelRect(context, bay.right - 1, top, 1, bottom - top, colors.shadow);
+  pixelRect(context, bay.left, top, bay.width, 1, colors.body);
+  pixelRect(context, bay.left, bottom - labelBand, bay.width, 1, colors.mid);
+  pixelRect(context, bay.left, bottom - 1, bay.width, 1, colors.shadow);
+  context.globalAlpha = 0.92;
+  pixelRect(context, bay.left + 1, top + 1, 3, 2, colors.highlight);
+  pixelRect(context, bay.right - 4, top + 1, 3, 2, colors.highlight);
+  context.globalAlpha = 0.22 + actor.audibleGate * 0.78;
+  pixelRect(
+    context,
+    bay.center - Math.floor(lampSize * 0.5),
+    top + 2,
+    lampSize,
+    lampSize,
+    colors.spark,
+  );
+  context.globalAlpha = 0.78;
+  drawStateBadge(
+    context,
+    actor,
+    bay.center,
+    top + Math.max(4, lampSize + 3),
+    badgeUnit,
+    colors,
+  );
+  pixelRect(
+    context,
+    bay.left + 2,
+    floor + 2,
+    Math.max(1, bay.width - 4),
+    1 + Math.round(actor.onset),
+    colors.body,
+  );
+  context.globalAlpha = 0.88;
+  context.fillStyle = colors.highlight;
+  context.font = Math.max(5, Math.min(8, Math.floor(bay.width / 7)))
+    + "px ui-monospace, SFMono-Regular, Consolas, monospace";
+  context.textAlign = "center";
+  context.textBaseline = "bottom";
+  context.fillText(actor.label, bay.center, bottom - 1);
   context.restore();
 }
 
@@ -3927,19 +5339,22 @@ function drawCharacterStage(time) {
     pixelRect(context, x, y, 1, 1, "rgba(216,231,231," + brightness + ")");
   }
 
+  const bays = webGpuChiptuneCharacterBayLayout(width, snapshot.actors.length);
+  const narrowestBay = Math.min(...bays.map((bay) => bay.width));
   const desiredCssUnit = cssWidth > 980 ? 24 : cssWidth > 620 ? 16 : 8;
   const desiredUnit = Math.max(1, Math.round(desiredCssUnit / pixelScale));
-  const clusterUnitsWide = 14 + (snapshot.actors.length - 1) * 7;
-  const widthFit = Math.max(1, Math.floor((width - 6) / clusterUnitsWide));
-  const heightFit = Math.max(1, Math.floor((height - 4) / 24));
+  const bayTop = Math.max(2, Math.floor(height * 0.12));
+  const baseline = Math.round(height * 0.78);
+  const widthBudget = cssWidth <= 620 ? 22 : 20;
+  const heightBudget = cssWidth <= 620 ? 21 : 19;
+  const widthFit = Math.max(1, (narrowestBay - 2) / widthBudget);
+  const heightFit = Math.max(1, (baseline - bayTop) / heightBudget);
   const unit = Math.max(1, Math.min(desiredUnit, widthFit, heightFit));
-  const floorKick = reducedMotion ? 0 : snapshot.drums.kick;
-  const floor = height - unit * 4 - Math.round(floorKick * unit * 0.4);
-  pixelRect(context, 0, floor + 2, width, 2, "rgba(244,201,93,"
-    + (0.18 + snapshot.drums.kick * 0.62) + ")");
-  const actorSpacing = unit * 7;
-  const clusterWidth = actorSpacing * (snapshot.actors.length - 1);
-  const clusterStart = Math.round(width * 0.5 - clusterWidth * 0.5);
+  const floor = baseline;
+  snapshot.actors.forEach((actor, index) => {
+    drawArcadeBayBackplane(context, bays[index], actor, index, height, floor, unit);
+  });
+  drawPercussionStage(context, snapshot, width, horizon, floor, unit, reducedMotion);
   const trails = reducedMotion
     ? 0
     : Math.min(3, Math.round(
@@ -3948,7 +5363,21 @@ function drawCharacterStage(time) {
         * snapshot.environment.echoTaps * 0.5,
     ));
   snapshot.actors.forEach((actor, index) => {
-    const center = clusterStart + index * actorSpacing;
+    const bay = bays[index];
+    const pose = detailedActorPose(actor, reducedMotion);
+    const marchDistance = pose.animated
+      ? pose.march * unit * actor.motion * 0.8
+      : 0;
+    const center = bay.center + marchDistance;
+    context.save();
+    context.beginPath();
+    context.rect(
+      bay.left + 1,
+      1,
+      Math.max(1, bay.width - 2),
+      Math.max(1, height - 2),
+    );
+    context.clip();
     for (let trail = trails; trail >= 1; trail -= 1) {
       const direction = index & 1 ? 1 : -1;
       drawPixelActor(
@@ -3967,17 +5396,11 @@ function drawCharacterStage(time) {
       );
     }
     drawPixelActor(context, actor, index, center, floor, unit, 0.68 + actor.levelUnit * 0.32, reducedMotion);
-    context.fillStyle = actorColors(actor, index).body;
-    context.globalAlpha = 0.82;
-    context.font = Math.max(5, Math.min(8, unit * 0.72))
-      + "px ui-monospace, SFMono-Regular, Consolas, monospace";
-    context.textAlign = "center";
-    context.textBaseline = "bottom";
-    context.fillText(actor.label, center, height);
-    context.globalAlpha = 1;
+    context.restore();
   });
-
-  drawPercussionStage(context, snapshot, width, horizon, floor, unit, reducedMotion);
+  snapshot.actors.forEach((actor, index) => {
+    drawArcadeBayFrame(context, bays[index], actor, index, height, floor, unit);
+  });
 }
 
 function draw() {
@@ -4012,18 +5435,33 @@ function editStageFromPointer(event) {
 function sequencePointFromPointer(event, lockedLane = null) {
   const canvas = $("stage");
   const rect = canvas.getBoundingClientRect();
-  const metrics = sequenceEditorMetrics(
-    rect.width,
-    rect.height,
-    sequenceEditorOverlayBounds(rect.height),
-  );
+  const metrics = sequenceEditorMetrics(rect.width, rect.height);
   const localX = event.clientX - rect.left;
   const localY = event.clientY - rect.top;
-  const row = lockedLane
-    ? metrics.rows.find(({ definition }) => definition.key === lockedLane)
-    : metrics.rows.find(({ top, height }) => localY >= top && localY < top + height);
-  if (!row) return null;
-  const lane = row.definition.key;
+  if (!lockedLane && localY >= metrics.overview.top && localY < metrics.overview.bottom) {
+    const overviewRow = metrics.overview.rows.find(
+      ({ top, height }) => localY >= top && localY < top + height,
+    );
+    if (!overviewRow) return null;
+    const boundedX = clamp(
+      localX,
+      metrics.overview.left,
+      metrics.overview.left + metrics.overview.width - 0.001,
+    );
+    const step = Math.floor(
+      (boundedX - metrics.overview.left) / metrics.overview.cellWidth,
+    );
+    return Object.freeze({
+      lane: overviewRow.definition.key,
+      step,
+      value: 0,
+      overview: true,
+      gutter: localX < metrics.overview.left,
+    });
+  }
+  const row = metrics.row;
+  if (!lockedLane && (localY < row.top || localY >= row.top + row.height)) return null;
+  const lane = lockedLane ?? row.definition.key;
   if (!lockedLane && localX < metrics.left) return Object.freeze({ lane, gutter: true });
   const boundedX = clamp(localX, metrics.left, metrics.left + metrics.width - 0.001);
   const stepOffset = Math.floor((boundedX - metrics.left) / metrics.cellWidth);
@@ -4032,17 +5470,12 @@ function sequencePointFromPointer(event, lockedLane = null) {
     metrics.startStep,
     metrics.startStep + metrics.stepCount - 1,
   ));
-  const padding = Math.min(5, row.height * 0.16);
-  const unit = clamp(
-    1 - (localY - row.top - padding) / Math.max(1, row.height - padding * 2),
-    0,
-    1,
-  );
   return Object.freeze({
     lane,
     step,
-    value: webGpuChiptuneSequenceEditorValue(lane, unit),
+    value: sequenceValueForY(lane, clamp(localY, row.top, row.top + row.height), row),
     gutter: false,
+    overview: false,
   });
 }
 
@@ -4057,9 +5490,13 @@ function paintSequencePoint(point, previous = point) {
     state.sequenceEditMode,
   );
   state.activeSequenceLane = point.lane;
+  if (WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.includes(point.lane)) {
+    lastVoiceSequenceLane = point.lane;
+  }
   state.activeSequenceStep = point.step;
-  state.sequencePage = Math.floor(point.step / 16);
+  state.sequencePage = sequencePageForStep(point.step);
   applySequence(next, { notify: false });
+  requestSequenceAudition(point.lane, state.sequenceEditMode, point.value);
 }
 
 function stagePointerDown(event) {
@@ -4069,11 +5506,29 @@ function stagePointerDown(event) {
   if (state.trackerView === "sequence") {
     const point = sequencePointFromPointer(event);
     if (!point) return;
+    if (point.overview) {
+      state.sequenceFollowLive = false;
+      state.activeSequenceLane = point.lane;
+      if (WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.includes(point.lane)) {
+        lastVoiceSequenceLane = point.lane;
+      }
+      state.activeSequenceStep = point.step;
+      state.sequencePage = sequencePageForStep(point.step);
+      syncSequenceControls();
+      announce(
+        activeSequenceDefinition().label
+          + " step "
+          + (point.step + 1)
+          + " locked from the all-clock overview.",
+      );
+      return;
+    }
     if (point.gutter) {
       selectSequenceLane(point.lane);
       announce(activeSequenceDefinition().label + " selected.");
       return;
     }
+    state.sequenceFollowLive = false;
     const originalSequence = state.sequence;
     const originalPresetId = state.presetId;
     activeSequenceDrag = {
@@ -4123,7 +5578,7 @@ function stagePointerEnd(event) {
       state.activeSequenceStep,
       cell,
       state.sequence.lanes[drag.lane].activeLength,
-    ) + ". Live shader sequence updated.");
+    ) + ". Live shader sequence updated; voice notes use the same WGSL path for preview.");
     return;
   }
   if (!state.editingStage) return;

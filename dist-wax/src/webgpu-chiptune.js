@@ -5,7 +5,9 @@ const TIME_INFO_BUFFER_SIZE = 16;
 const MAX_BUFFERED_CHUNKS = 2.5;
 const SEQUENCE_META_BUFFER_SIZE = 64;
 const REFRESH_CONTINUITY_SECONDS = 0.03;
+const INTERACTIVE_REFRESH_DELAY_MS = 16;
 
+export const WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS = 0.1;
 export const WEBGPU_CHIPTUNE_SEQUENCE_STEPS = 32;
 export const WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES = Object.freeze([
   "upperOne",
@@ -1072,6 +1074,92 @@ export function webGpuChiptuneSequenceCellAtBeat(
   ];
 }
 
+export function webGpuChiptuneLaneTiming(
+  lane,
+  timeSeconds,
+  params = WEBGPU_CHIPTUNE_DEFAULTS,
+  sequence = WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
+  targetStep = null,
+) {
+  requireSequenceLane(lane);
+  const patch = sanitizeWebGpuChiptuneParams(params);
+  const sanitized = sanitizeWebGpuChiptuneSequence(sequence);
+  const length = sanitized.lanes[lane].activeLength;
+  const rate = Math.max(sequenceRateForLane(lane, patch), 0.000001);
+  const seconds = Math.max(0, finiteOr(timeSeconds, 0));
+  const absolutePosition = seconds * patch.tempo * rate
+    + finiteOr(patch[sequencePhaseKeys[lane]], 0) * length;
+  const position = positiveModulo(absolutePosition, length);
+  const currentStep = Math.min(length - 1, Math.max(0, Math.floor(position)));
+  const progress = positiveModulo(position, 1);
+  const secondsPerStep = 1 / Math.max(patch.tempo * rate, 0.000001);
+  const hasTarget = targetStep !== null
+    && targetStep !== undefined
+    && targetStep !== "";
+  const numericTarget = hasTarget ? Number(targetStep) : Number.NaN;
+  const boundedTarget = Number.isFinite(numericTarget)
+    ? Math.round(clamp(numericTarget, 0, WEBGPU_CHIPTUNE_SEQUENCE_STEPS - 1))
+    : null;
+  const insideLoop = boundedTarget === null ? null : boundedTarget < length;
+  const targetActiveNow = insideLoop === true && boundedTarget === currentStep;
+  const distance = insideLoop
+    ? targetActiveNow ? 0 : positiveModulo(boundedTarget - position, length)
+    : null;
+  return Object.freeze({
+    lane,
+    length,
+    rate,
+    position,
+    currentStep,
+    nextStep: (currentStep + 1) % length,
+    progress,
+    secondsPerStep,
+    secondsPerLoop: secondsPerStep * length,
+    targetStep: boundedTarget,
+    targetInsideLoop: insideLoop,
+    targetActiveNow,
+    secondsUntilTarget: distance === null ? null : distance * secondsPerStep,
+  });
+}
+
+export function webGpuChiptuneLiveEditTarget(
+  lane,
+  timeSeconds,
+  params = WEBGPU_CHIPTUNE_DEFAULTS,
+  sequence = WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
+  leadSeconds = 0.12,
+) {
+  requireSequenceLane(lane);
+  const lead = clamp(finiteOr(leadSeconds, 0.12), 0, 1);
+  const anchor = webGpuChiptuneLaneTiming(
+    lane,
+    Math.max(0, finiteOr(timeSeconds, 0)) + lead,
+    params,
+    sequence,
+  );
+  const drumsUseNextOnset = WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane);
+  const step = drumsUseNextOnset
+    ? anchor.nextStep
+    : anchor.currentStep;
+  const natural = webGpuChiptuneLaneTiming(
+    lane,
+    timeSeconds,
+    params,
+    sequence,
+    step,
+  );
+  return Object.freeze({
+    lane,
+    step,
+    leadSeconds: lead,
+    naturalSeconds: drumsUseNextOnset
+      ? lead + (1 - anchor.progress) * anchor.secondsPerStep
+      : natural.secondsUntilTarget,
+    anchorStep: anchor.currentStep,
+    drumsUseNextOnset,
+  });
+}
+
 function proceduralLaneValueFromSanitized(lane, beatTime, patch, sequence) {
   const beat = finiteOr(beatTime, 0);
   if (WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)) return 0;
@@ -1175,15 +1263,34 @@ export function webGpuChiptuneBeatSnapshot(
   });
 }
 
+// Total positions on each existing lane clock per eight-pose body phrase.
+// Fast notes still reach the lamps and accents without becoming a second clock.
 const CHIPTUNE_STAGE_VOICES = Object.freeze({
-  upperOne: Object.freeze({ label: "UPPER A", levelKeys: Object.freeze(["upperOneLevel"]) }),
-  upperTwo: Object.freeze({ label: "UPPER B", levelKeys: Object.freeze(["upperTwoLevel"]) }),
+  upperOne: Object.freeze({
+    label: "UPPER A",
+    levelKeys: Object.freeze(["upperOneLevel"]),
+    danceSteps: 16,
+  }),
+  upperTwo: Object.freeze({
+    label: "UPPER B",
+    levelKeys: Object.freeze(["upperTwoLevel"]),
+    danceSteps: 32,
+  }),
   bass: Object.freeze({
     label: "BASS",
     levelKeys: Object.freeze(["bassPulseLevel", "bassSineLevel"]),
+    danceSteps: 8,
   }),
-  lead: Object.freeze({ label: "LEAD", levelKeys: Object.freeze(["leadLevel"]) }),
-  arp: Object.freeze({ label: "ARP", levelKeys: Object.freeze(["arpLevel"]) }),
+  lead: Object.freeze({
+    label: "LEAD",
+    levelKeys: Object.freeze(["leadLevel"]),
+    danceSteps: 24,
+  }),
+  arp: Object.freeze({
+    label: "ARP",
+    levelKeys: Object.freeze(["arpLevel"]),
+    danceSteps: 128,
+  }),
 });
 
 function stageLevelUnit(definition, patch) {
@@ -1222,6 +1329,136 @@ function stageShapeUnit(lane, patch) {
     0,
     1,
   );
+}
+
+function stageStepValue(edge, value) {
+  return value >= edge ? 1 : 0;
+}
+
+function stageSmoothAny(edge0, edge1, value) {
+  const width = edge1 - edge0;
+  if (Math.abs(width) < 0.000001) return stageStepValue(edge0, value);
+  const t = clamp((value - edge0) / width, 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function stagePackedGateDuration(patch, laneB, step) {
+  const segment = Math.floor(step / 8);
+  const code = Math.round(patch[(laneB ? "gateB" : "gateA") + segment]) >>> 0;
+  const gateState = (code >> ((step % 8) * 2)) & 3;
+  if (gateState === 1) return patch.gateShortRatio;
+  if (gateState === 2) return 1;
+  if (gateState === 3) return patch.gateLongRatio;
+  return 0;
+}
+
+function stageNoteGate(tSource, offset, duration, length, patternSteps, attack, release) {
+  const patternPeriod = Math.max(Math.round(patternSteps), 1);
+  const t = positiveModulo(tSource - offset, patternPeriod);
+  const scaledDuration = Math.max(0.05, duration * length);
+  const attackWidth = Math.max(attack, 0.001);
+  const releaseWidth = Math.max(release, 0.001);
+  const gateAt = (gateTime) => (
+    stageSmoothAny(-attackWidth, 0, gateTime)
+      * stageSmoothAny(0, -releaseWidth, gateTime - scaledDuration)
+  );
+  return Math.max(gateAt(t), gateAt(t - patternPeriod));
+}
+
+function stagePatternGateFromSanitized(t, length, patch, laneB = false) {
+  const patternSteps = Math.round(clamp(patch.gatePatternSteps, 1, 32));
+  const phasedTime = t + patch.gatePatternPhase * patternSteps;
+  let value = 0;
+  for (let step = 0; step < patternSteps; step += 1) {
+    const duration = stagePackedGateDuration(patch, laneB, step);
+    if (duration <= 0) continue;
+    value += stageNoteGate(
+      phasedTime,
+      step,
+      duration,
+      length,
+      patternSteps,
+      patch.gateAttack,
+      patch.gateRelease,
+    );
+  }
+  return clamp(value, 0, 1);
+}
+
+export function webGpuChiptunePatternGate(
+  time,
+  length = WEBGPU_CHIPTUNE_DEFAULTS.gateLength,
+  params = WEBGPU_CHIPTUNE_DEFAULTS,
+  laneB = false,
+) {
+  return stagePatternGateFromSanitized(
+    finiteOr(time, 0),
+    finiteOr(length, WEBGPU_CHIPTUNE_DEFAULTS.gateLength),
+    sanitizeWebGpuChiptuneParams(params),
+    Boolean(laneB),
+  );
+}
+
+function stageAudibleGate(lane, masterBeat, patch) {
+  const gateRate = patch.gateRate;
+  const bassGate = stagePatternGateFromSanitized(
+    masterBeat * 8 * gateRate * patch.bassGateRateRatio,
+    patch.gateLength,
+    patch,
+    false,
+  );
+  if (lane === "bass") return bassGate;
+  if (lane === "arp") return 1 + (bassGate - 1) * patch.arpGateDepth;
+
+  const section = stageStepValue(
+    patch.leadSectionShare,
+    fract(masterBeat / Math.max(patch.sectionUnits, 0.01) + patch.sectionPhase),
+  );
+  if (lane === "lead") {
+    const phraseUnits = Math.max(patch.leadPhraseUnits, 0.01);
+    const phrase = positiveModulo(
+      masterBeat + patch.leadPhrasePhase * phraseUnits,
+      phraseUnits,
+    );
+    return stagePatternGateFromSanitized(
+      phrase * 8 * gateRate * patch.leadGateRateRatio,
+      patch.gateLength,
+      patch,
+      true,
+    ) * (1 - section);
+  }
+
+  const shortSwitch = fract(
+    masterBeat / Math.max(patch.gateSwitchShortUnits, 0.01)
+      + patch.gateSwitchShortPhase,
+  );
+  const fast = stageStepValue(1 - patch.fastGateShare, shortSwitch);
+  if (lane === "upperOne") {
+    return stagePatternGateFromSanitized(
+      masterBeat * 8 * (1 + (patch.gateFastRatio - 1) * fast) * gateRate,
+      patch.gateLength,
+      patch,
+      false,
+    ) * section;
+  }
+  const longSwitch = fract(
+    masterBeat / Math.max(patch.gateSwitchLongUnits, 0.01)
+      + patch.gateSwitchLongPhase,
+  );
+  const alternateFast = Math.max(
+    fast,
+    1 - stageStepValue(patch.longGateBoostShare, longSwitch),
+  );
+  return stagePatternGateFromSanitized(
+    masterBeat
+      * 8
+      * (1 + (patch.gateFastRatio - 1) * alternateFast)
+      * gateRate
+      * patch.upperTwoGateRateRatio,
+    patch.gateLength,
+    patch,
+    false,
+  ) * section;
 }
 
 function stageMotionPhase(lane, seconds, masterBeat, patch) {
@@ -1340,6 +1577,22 @@ function stageSequencedDrumTiming(
  * It uses the same master beat, per-lane rates, phases, cells, and notes as the
  * shader. Renderers can change style without creating a second musical clock.
  */
+export function webGpuChiptuneCharacterBayLayout(width, count = 5) {
+  const bayCount = Math.max(1, Math.min(16, Math.round(finiteOr(count, 5))));
+  const safeWidth = Math.max(bayCount, Math.floor(finiteOr(width, bayCount)));
+  return Object.freeze(Array.from({ length: bayCount }, (_, index) => {
+    const left = Math.round(index * safeWidth / bayCount);
+    const right = Math.round((index + 1) * safeWidth / bayCount);
+    return Object.freeze({
+      index,
+      left,
+      right,
+      width: right - left,
+      center: Math.round((left + right) * 0.5),
+    });
+  }));
+}
+
 export function webGpuChiptuneStageSnapshot(
   timeSeconds,
   params = WEBGPU_CHIPTUNE_DEFAULTS,
@@ -1368,11 +1621,14 @@ export function webGpuChiptuneStageSnapshot(
       0,
       1,
     );
-    const gate = resting ? 0 : clamp(Math.min(attack, release), 0, 1);
-    const activity = resting ? 0 : clamp((0.22 + gate * 0.78) * levelUnit, 0, 1);
+    const cellGate = resting ? 0 : clamp(Math.min(attack, release), 0, 1);
+    const audibleGate = resting ? 0 : stageAudibleGate(lane, masterBeat, patch);
+    const activity = resting ? 0 : clamp((0.14 + audibleGate * 0.86) * levelUnit, 0, 1);
     const onset = resting
       ? 0
-      : clamp((1 - stepPhase / 0.2) * (0.3 + activity * 0.7), 0, 1);
+      : clamp((1 - stepPhase / 0.18) * (0.25 + audibleGate * 0.75) * levelUnit, 0, 1);
+    const danceSteps = definition.danceSteps;
+    const dancePhase = positiveModulo(position, danceSteps) / danceSteps;
     return Object.freeze({
       key: lane,
       label: definition.label,
@@ -1384,7 +1640,9 @@ export function webGpuChiptuneStageSnapshot(
       stepPhase,
       note,
       resting,
-      gate,
+      gate: audibleGate,
+      cellGate,
+      audibleGate,
       activity,
       levelUnit,
       size: clamp(0.56 + levelUnit * 0.44, 0, 1),
@@ -1395,8 +1653,10 @@ export function webGpuChiptuneStageSnapshot(
       detail: stageDetailUnit(lane, patch),
       range: stageRangeUnit(lane, patch),
       onset,
-      bounce: resting ? 0 : clamp(Math.sin(stepPhase * Math.PI) * activity, 0, 1),
-      frame: Math.floor(stepPhase * 8) % 8,
+      bounce: resting ? 0 : clamp(onset * 0.35, 0, 1),
+      danceSteps,
+      dancePhase,
+      frame: Math.floor(dancePhase * 8) % 8,
     });
   });
 
@@ -1699,11 +1959,18 @@ export const WEBGPU_CHIPTUNE_SHADER = `// WGSL port of "Chiptune (sound)" by srt
 // Only the functions reachable from the source mainSound are rendered here.
 const PI2: f32 = 6.283185307179586476925286766559;
 const OUTPUT_CEILING: f32 = 0.88;
+const PREVIEW_DURATION: f32 = ${WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS};
+const PREVIEW_HOLD: f32 = 0.08;
 
 override WORKGROUP_SIZE: u32 = 256;
 override SAMPLE_RATE: f32 = 44100.0;
 
-struct TimeInfo { offset: f32 }
+struct TimeInfo {
+  offset: f32,
+  preview_lane: f32,
+  preview_value: f32,
+  preview_start: f32,
+}
 struct AudioParam {
   tempo: f32,
   transpose: f32,
@@ -2033,6 +2300,12 @@ fn gateOne(t: f32, length: f32, p: AudioParam) -> f32 {
   return patternGate(t, length, p, true);
 }
 
+fn previewEnvelope(time: f32) -> f32 {
+  let local_time = time - time_info.preview_start;
+  return smoothAny(0.0, 0.004, local_time)
+    * smoothAny(0.0, PREVIEW_HOLD - PREVIEW_DURATION, local_time - PREVIEW_DURATION);
+}
+
 fn blep(t_source: f32, dt_source: f32) -> f32 {
   let dt = clamp(dt_source, 0.000001, 0.5);
   if (t_source < dt) {
@@ -2210,6 +2483,85 @@ fn beatTwo(time: f32, p: AudioParam) -> f32 {
   return value;
 }
 
+fn previewVoice(
+  time: f32,
+  p: AudioParam,
+  pulse_width: f32,
+  bass_basis: f32,
+) -> vec2<f32> {
+  let envelope = previewEnvelope(time);
+  if (time_info.preview_lane < 0.0 || envelope <= 0.0) {
+    return vec2(0.0);
+  }
+  let lane = u32(clamp(round(time_info.preview_lane), 0.0, 4.0));
+  let master_beat = time * p.tempo;
+  var preview_note = scaleLock(time_info.preview_value, p.scaleMask);
+  switch lane {
+    case 0u: {
+      preview_note += p.upperOneRegister + p.transpose;
+      return squareWave(time, noteFrequency(preview_note, p), pulse_width)
+        * envelope
+        * p.upperOneLevel
+        * widenStereo(voiceBalance(false, p), p.stereoWidth);
+    }
+    case 1u: {
+      preview_note += p.upperTwoRegister + p.transpose;
+      return squareWave(time, noteFrequency(preview_note, p), pulse_width)
+        * envelope
+        * p.upperTwoLevel
+        * widenStereo(voiceBalance(true, p), p.stereoWidth);
+    }
+    case 2u: {
+      preview_note += p.bassRegister + p.transpose;
+      let preview_frequency = noteFrequency(preview_note, p);
+      let preview_bass = squareWave(time, preview_frequency, p.bassPulseWidth)
+          * 1.5 * p.bassPulseLevel
+        + sine(time * preview_frequency) * 2.0 * p.bassSineLevel;
+      return vec2(preview_bass * envelope);
+    }
+    case 3u: {
+      preview_note += stepValue(
+          1.0 - p.leadTrillShare,
+          fract(master_beat * p.leadTrillRate + p.leadTrillPhase),
+        )
+          * p.leadInterval
+        + p.leadRegister
+        + p.transpose;
+      return vec2(
+        sawWave(time, noteFrequency(preview_note, p))
+          * envelope
+          * 1.5
+          * p.leadLevel,
+      );
+    }
+    case 4u: {
+      let arp_span = max(p.arpSpan, 0.01);
+      preview_note = scaleLock(
+        clamp(time_info.preview_value, 0.0, 1.0) * arp_span * p.pitchRange,
+        p.scaleMask,
+      )
+        + bass_basis * p.arpBassFollow
+        + floor(
+          abs(
+            modulo(
+              master_beat * p.arpOctaveRate + p.arpOctavePhase * 2.0,
+              2.0,
+            ) - 1.0,
+          ) * p.arpOctaves,
+        )
+          * 12.0
+        + p.arpRegister
+        + p.transpose;
+      return sawWave(time, noteFrequency(preview_note, p))
+        * p.arpLevel
+        * envelope
+        * widenStereo(voiceBalance(true, p), p.stereoWidth);
+    }
+    default: {}
+  }
+  return vec2(0.0);
+}
+
 fn synthVoices(time: f32, p: AudioParam) -> vec2<f32> {
   let tempo = p.tempo;
   let master_beat = time * tempo;
@@ -2265,13 +2617,13 @@ fn synthVoices(time: f32, p: AudioParam) -> vec2<f32> {
 
   var note = scaleLock(upper_one_input, p.scaleMask);
   note = note + p.upperOneRegister + p.transpose;
-  let first = squareWave(time, noteFrequency(note, p), pulse_width)
-    * gate(
+  let first_gate = gate(
       master_beat * 8.0 * mix(1.0, p.gateFastRatio, p0) * gate_rate,
       p.gateLength,
       p,
-    )
-    * section
+    ) * section;
+  let first = squareWave(time, noteFrequency(note, p), pulse_width)
+    * first_gate
     * p.upperOneLevel
     * select(1.0, 0.0, upper_one_cell.state == 2u);
   var value = first * widenStereo(voiceBalance(false, p), p.stereoWidth);
@@ -2298,8 +2650,7 @@ fn synthVoices(time: f32, p: AudioParam) -> vec2<f32> {
   );
   note = scaleLock(upper_two_input, p.scaleMask);
   note += p.upperTwoRegister + p.transpose;
-  let second = squareWave(time, noteFrequency(note, p), pulse_width)
-    * gate(
+  let second_gate = gate(
       master_beat
         * 8.0
         * mix(1.0, p.gateFastRatio, p1)
@@ -2307,8 +2658,9 @@ fn synthVoices(time: f32, p: AudioParam) -> vec2<f32> {
         * p.upperTwoGateRateRatio,
       p.gateLength,
       p,
-    )
-    * section
+    ) * section;
+  let second = squareWave(time, noteFrequency(note, p), pulse_width)
+    * second_gate
     * p.upperTwoLevel
     * select(1.0, 0.0, upper_two_cell.state == 2u);
   value += second * widenStereo(voiceBalance(true, p), p.stereoWidth);
@@ -2330,11 +2682,12 @@ fn synthVoices(time: f32, p: AudioParam) -> vec2<f32> {
   let bass_basis = note;
   note = note + p.bassRegister + p.transpose;
   let bass_frequency = noteFrequency(note, p);
-  let bass_gate = gate(
+  let bass_pattern_gate = gate(
     master_beat * 8.0 * gate_rate * p.bassGateRateRatio,
     p.gateLength,
     p,
   );
+  let bass_gate = bass_pattern_gate;
   let bass_active = select(1.0, 0.0, bass_cell.state == 2u);
   value += vec2(squareWave(time, bass_frequency, p.bassPulseWidth)
     * bass_gate * bass_active * 1.5 * p.bassPulseLevel);
@@ -2363,17 +2716,17 @@ fn synthVoices(time: f32, p: AudioParam) -> vec2<f32> {
     + p.leadRegister
     + p.transpose;
   let lead_phrase_units = max(p.leadPhraseUnits, 0.01);
-  let lead = sawWave(time, noteFrequency(note, p))
-    * gateOne(
+  let lead_gate = gateOne(
       modulo(master_beat + p.leadPhrasePhase * lead_phrase_units, lead_phrase_units)
         * 8.0
         * gate_rate
         * p.leadGateRateRatio,
       p.gateLength,
       p,
-    )
+    ) * (1.0 - section);
+  let lead = sawWave(time, noteFrequency(note, p))
+    * lead_gate
     * 1.5
-    * (1.0 - section)
     * p.leadLevel
     * select(1.0, 0.0, lead_cell.state == 2u);
   value += vec2(lead);
@@ -2402,11 +2755,13 @@ fn synthVoices(time: f32, p: AudioParam) -> vec2<f32> {
       * 12.0
     + p.arpRegister
     + p.transpose;
+  let arp_gate = mix(1.0, bass_pattern_gate, p.arpGateDepth);
   let arp = sawWave(time, noteFrequency(note, p))
     * p.arpLevel
-    * mix(1.0, bass_gate, p.arpGateDepth)
+    * arp_gate
     * select(1.0, 0.0, arp_cell.state == 2u);
   value += arp * widenStereo(voiceBalance(true, p), p.stereoWidth);
+  value += previewVoice(time, p, pulse_width, bass_basis);
 
   let texture_period = max(p.texturePeriod, 0.01);
   let noise_time = modulo(
@@ -2498,6 +2853,8 @@ export class WebGpuChiptuneAudio {
     this.paramRevision = 0;
     this.sequenceRevision = 0;
     this.renderRevision = 0;
+    this.previewSerial = 0;
+    this.pendingPreview = null;
     this.renderingPromise = null;
     this.running = false;
     this.playbackEnabled = false;
@@ -2683,6 +3040,7 @@ export class WebGpuChiptuneAudio {
   }
 
   updateSequence(sequence = this.sequence) {
+    this.pendingPreview = null;
     this.sequence = sanitizeWebGpuChiptuneSequence(sequence);
     this.sequenceRevision += 1;
     this.renderRevision += 1;
@@ -2692,6 +3050,31 @@ export class WebGpuChiptuneAudio {
       this.device.queue.writeBuffer(this.sequenceCellBuffer, 0, packed.cells);
     }
     if (this.running) this.scheduleRenderRefresh();
+  }
+
+  auditionSequenceCell(lane, value) {
+    const laneIndex = sequenceLaneIndex.get(lane);
+    if (
+      laneIndex === undefined
+      || WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)
+      || !this.running
+      || !this.playbackEnabled
+      || !this.context
+    ) return false;
+    const previewValue = webGpuChiptuneSequenceEditorValue(
+      lane,
+      webGpuChiptuneSequenceEditorUnit(lane, value),
+    );
+    this.previewSerial += 1;
+    this.pendingPreview = Object.freeze({
+      lane: laneIndex,
+      value: previewValue,
+      serial: this.previewSerial,
+      startOffset: null,
+    });
+    this.renderRevision += 1;
+    this.scheduleRenderRefresh();
+    return true;
   }
 
   scheduleParamRefresh() {
@@ -2705,7 +3088,7 @@ export class WebGpuChiptuneAudio {
       this.refreshTimeoutId = null;
       if (!this.running) return;
       this.refreshScheduledParams();
-    }, 40);
+    }, INTERACTIVE_REFRESH_DELAY_MS);
   }
 
   refreshScheduledParams() {
@@ -2822,11 +3205,23 @@ export class WebGpuChiptuneAudio {
       const revision = this.renderRevision;
       const paramsSnapshot = { ...this.params };
       const sequenceSnapshot = this.sequence;
+      let previewSnapshot = this.pendingPreview;
+      if (previewSnapshot && !Number.isFinite(previewSnapshot.startOffset)) {
+        const anchoredPreview = Object.freeze({
+          ...previewSnapshot,
+          startOffset: chunkOffset,
+        });
+        if (this.pendingPreview === previewSnapshot) {
+          this.pendingPreview = anchoredPreview;
+        }
+        previewSnapshot = anchoredPreview;
+      }
       const chunkData = await this.renderChunk(
         chunkOffset,
         paramsSnapshot,
         sequenceSnapshot,
         revision,
+        previewSnapshot,
       );
       if (!this.running || !this.context || !this.input) return;
       if (
@@ -2863,6 +3258,20 @@ export class WebGpuChiptuneAudio {
         revision,
       });
       source.start(startAt);
+      const previewTapCount = Math.max(
+        1,
+        Math.min(8, Math.round(finiteOr(paramsSnapshot.echoTaps, 1))),
+      );
+      const previewTailSeconds = WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS
+        + (previewTapCount - 1) * Math.max(0, finiteOr(paramsSnapshot.echoTime, 0));
+      if (
+        previewSnapshot
+        && this.pendingPreview === previewSnapshot
+        && chunkOffset + audioBuffer.duration
+          >= previewSnapshot.startOffset + previewTailSeconds
+      ) {
+        this.pendingPreview = null;
+      }
       scheduledChunkCount += 1;
       this.nextStartTime = endAt;
       this.renderOffset = chunkOffset + audioBuffer.duration;
@@ -2889,6 +3298,7 @@ export class WebGpuChiptuneAudio {
     paramsSnapshot = this.params,
     sequenceSnapshot = this.sequence,
     revision = this.renderRevision,
+    previewSnapshot = null,
   ) {
     if (
       !this.device
@@ -2905,7 +3315,12 @@ export class WebGpuChiptuneAudio {
     }
     const { mapMode } = requireGpuConstants(this.runtime);
     const packedSequence = packWebGpuChiptuneSequence(sequenceSnapshot, revision);
-    this.device.queue.writeBuffer(this.timeInfoBuffer, 0, new Float32Array([offset, 0, 0, 0]));
+    this.device.queue.writeBuffer(this.timeInfoBuffer, 0, new Float32Array([
+      offset,
+      previewSnapshot?.lane ?? -1,
+      previewSnapshot?.value ?? 0,
+      previewSnapshot?.startOffset ?? -1,
+    ]));
     this.device.queue.writeBuffer(this.audioParamBuffer, 0, webGpuChiptuneParamArray(paramsSnapshot));
     this.device.queue.writeBuffer(this.sequenceMetaBuffer, 0, packedSequence.meta);
     this.device.queue.writeBuffer(this.sequenceCellBuffer, 0, packedSequence.cells);
@@ -2968,6 +3383,7 @@ export class WebGpuChiptuneAudio {
   pauseTimeline() {
     const playbackTime = this.currentPlaybackTime();
     this.running = false;
+    this.pendingPreview = null;
     this.clearQueueTimer();
     this.stopScheduledSources();
     if (playbackTime !== null) this.renderOffset = playbackTime;
@@ -3014,6 +3430,7 @@ export class WebGpuChiptuneAudio {
 
   async stop() {
     this.running = false;
+    this.pendingPreview = null;
     this.clearQueueTimer();
     const render = this.renderingPromise;
     if (render) await render.catch(() => {});

@@ -72,7 +72,7 @@
       <section class="chiptune-character-panel" aria-labelledby="pixelEnsembleTitle">
         <header class="chiptune-character-header">
           <span>
-            <small>SHADER-DRIVEN CAST</small>
+            <small>VOICE-DRIVEN CHOREOGRAPHY</small>
             <h2 id="pixelEnsembleTitle">Pixel Ensemble</h2>
           </span>
           <div class="chiptune-character-preset-nav" aria-label="Character performance preset">
@@ -87,10 +87,10 @@
             width="240"
             height="72"
             role="img"
-            aria-label="Five pixel characters dancing to the Upper A, Upper B, Bass, Lead, and Arp voices."
+            aria-label="Five original arcade invaders with distinct sound-driven dance personalities, each inside its own Upper A, Upper B, Bass, Lead, or Arp voice bay."
             aria-describedby="characterStageDescription characterVoiceLegend"
           >
-            Five original low-resolution characters visualize the five Chiptune voices.
+            Five original low-resolution arcade invaders visualize the five Chiptune voices.
           </canvas>
         </div>
       </section>
@@ -101,94 +101,12 @@
           data-tracker-view="sequence"
           data-sequence-page="0"
         >
-          <div class="chiptune-stage-ui">
-            <fieldset class="chiptune-view-switch">
-              <legend class="sr-only">Tracker view</legend>
-              <label>
-                <input id="trackerViewMorph" name="trackerView" type="radio" value="morph" />
-                <span>Morph source</span>
-              </label>
-              <label>
-                <input id="trackerViewSequence" name="trackerView" type="radio" value="sequence" checked />
-                <span>Draw sequence</span>
-              </label>
-            </fieldset>
-
-            <section
-              class="chiptune-sequence-workspace"
-              id="sequenceWorkspace"
-              aria-label="Live voice and drum sequence editor"
-            >
-              <div class="chiptune-sequence-toolbar" id="sequenceToolbar">
-                <div
-                  class="chiptune-voice-tabs"
-                  id="sequenceVoiceTabs"
-                  role="group"
-                  aria-label="Lane to inspect and edit"
-                ></div>
-                <label class="chiptune-lane-length" for="sequenceLength">
-                  <span>Length</span>
-                  <input
-                    id="sequenceLength"
-                    type="number"
-                    min="1"
-                    max="32"
-                    step="1"
-                    value="32"
-                    inputmode="numeric"
-                  />
-                </label>
-                <div
-                  class="chiptune-sequence-pages"
-                  id="sequencePageControls"
-                  role="group"
-                  aria-label="Sequence page"
-                >
-                  <button id="sequencePageOne" type="button" aria-pressed="true">01-16</button>
-                  <button id="sequencePageTwo" type="button" aria-pressed="false">17-32</button>
-                </div>
-                <button class="mini-action" id="varySequenceLane" type="button">Vary lane</button>
-                <button class="mini-action" id="clearSequenceLane" type="button">All SOURCE</button>
-              </div>
-
-              <div
-                class="chiptune-sequence-grid"
-                id="sequenceGrid"
-                role="note"
-                aria-describedby="sequenceInstructions liveStatus"
-              >
-                <span><b>STEP NOTES</b> UPPER A · UPPER B · BASS · LEAD</span>
-                <span><b>SHAPE</b> ARP 0–1 + GHOSTED INTERNAL MOTION</span>
-                <span><b>DRUM GATES</b> SOURCE · HIT · OFF</span>
-              </div>
-
-              <div class="chiptune-sequence-inspector" id="sequenceInspector">
-                <output class="chiptune-sequence-status" id="sequenceStatus">
-                  UPPER A | STEP 01/32 | AUTO
-                </output>
-                <div
-                  class="chiptune-sequence-state-buttons"
-                  role="group"
-                  aria-label="Canvas paint mode"
-                >
-                  <button id="sequenceStateAuto" type="button" aria-pressed="false">SOURCE</button>
-                  <button id="sequenceStateNote" type="button" aria-pressed="true">NOTE</button>
-                  <button id="sequenceStateRest" type="button" aria-pressed="false">REST</button>
-                </div>
-                <label class="chiptune-sequence-value" for="sequenceValue">
-                  <span id="sequenceValueLabel">Semitones</span>
-                  <input id="sequenceValue" type="number" min="-72" max="72" step="0.01" value="0" inputmode="text" />
-                </label>
-              </div>
-            </section>
-          </div>
-
           <canvas
             id="stage"
             role="application"
             tabindex="0"
             aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home End Enter Space A N R Delete"
-            aria-label="Nine-lane live Chiptune sequence editor. Upper A step 1 selected."
+            aria-label="Focused live Chiptune sequence editor with a nine-clock overview. Upper A step 1 selected."
             aria-describedby="webgpuChiptuneDescription sequenceInstructions liveStatus"
             data-space-key-owner
           >
@@ -211,20 +129,160 @@
           </div>
         </div>
 
-        <div class="webgpu-stage-knobs" aria-label="WebGPU Chiptune macro controls">
-          <div class="webgpu-stage-knob-actions" aria-label="Patch parameter actions">
-            <button class="mini-action" id="randomizePatch" type="button">Randomize patch</button>
-            <button class="mini-action" id="mutatePatch" type="button">Mutate patch</button>
-          </div>
-          <div
-            class="webgpu-knob-bank"
-            id="knobControls"
-            aria-label="WebGPU Chiptune macro controls"
-          ></div>
-        </div>
       </section>
 
       <aside class="panel webgpu-303-panel" aria-label="WebGPU Chiptune controls">
+        <details
+          class="group control-section webgpu-303-section chiptune-live-editor"
+          data-section="editor"
+          open
+        >
+          <summary class="group-summary">
+            <h2 class="group-title">Live Editor</h2>
+            <span class="section-state" id="editorState">Upper A · edit next</span>
+          </summary>
+          <div class="group-body chiptune-editor-panel">
+            <fieldset class="chiptune-view-switch">
+              <legend class="sr-only">Editor view</legend>
+              <label>
+                <input id="trackerViewSequence" name="trackerView" type="radio" value="sequence" checked />
+                <span>Sequence</span>
+              </label>
+              <label>
+                <input id="trackerViewMorph" name="trackerView" type="radio" value="morph" />
+                <span>Source pad</span>
+              </label>
+            </fieldset>
+
+            <div class="chiptune-lane-picker">
+              <span>Lane — choose what the large editor controls</span>
+              <div
+                class="chiptune-voice-tabs"
+                id="sequenceVoiceTabs"
+                role="group"
+                aria-label="Lane to inspect and edit"
+              ></div>
+            </div>
+
+            <section
+              class="chiptune-sequence-workspace"
+              id="sequenceWorkspace"
+              aria-label="Focused live voice and drum sequence editor"
+            >
+              <p class="chiptune-step-tool-label">Apply now + Canvas draw tool</p>
+              <div
+                class="chiptune-sequence-state-buttons"
+                role="group"
+                aria-label="Apply state to selected step and choose Canvas draw tool"
+              >
+                <button id="sequenceStateAuto" type="button" aria-pressed="false">SOURCE</button>
+                <button id="sequenceStateNote" type="button" aria-pressed="true">NOTE</button>
+                <button id="sequenceStateRest" type="button" aria-pressed="false">REST</button>
+              </div>
+
+              <label class="chiptune-sequence-value" for="sequenceValueRange">
+                <span><b id="sequenceValueLabel">Semitone offset</b><output id="sequenceValueOut">+0 · A4</output></span>
+                <input id="sequenceValueRange" type="range" min="-72" max="72" step="1" value="0" />
+                <input id="sequenceValue" type="number" min="-72" max="72" step="1" value="0" inputmode="text" aria-label="Exact sequence value" />
+              </label>
+
+              <div class="chiptune-editor-readouts">
+                <output class="chiptune-sequence-status" id="sequenceStatus">
+                  UPPER A · STEP 01/32 · SOURCE
+                </output>
+                <output class="chiptune-sequence-timing" id="sequenceTimingStatus">
+                  PLAY 01 · EDIT NEXT 02
+                </output>
+              </div>
+
+              <div class="chiptune-sequence-toolbar" id="sequenceToolbar">
+                <button class="mini-action chiptune-follow-button" id="sequenceFollow" type="button" aria-pressed="true">
+                  FOLLOW: ON
+                </button>
+                <label class="chiptune-lane-length" for="sequenceLength">
+                  <span>Loop length</span>
+                  <input
+                    id="sequenceLength"
+                    type="number"
+                    min="1"
+                    max="32"
+                    step="1"
+                    value="32"
+                    inputmode="numeric"
+                  />
+                </label>
+                <div
+                  class="chiptune-sequence-pages"
+                  id="sequencePageControls"
+                  role="group"
+                  aria-label="Sequence page"
+                >
+                  <button id="sequencePageOne" type="button" aria-pressed="true">01–16</button>
+                  <button id="sequencePageTwo" type="button" aria-pressed="false">17–32</button>
+                  <button id="sequencePageThree" type="button" aria-pressed="false" hidden>17–24</button>
+                  <button id="sequencePageFour" type="button" aria-pressed="false" hidden>25–32</button>
+                </div>
+              </div>
+
+              <p class="chiptune-editor-help">
+                SOURCE follows the shader generator; NOTE/HIT is manual; REST/OFF is silent.
+                Draw the large lane on the left. The mini tracker below shows every independent clock.
+              </p>
+
+              <label class="chiptune-pitch-span" for="sequencePitchSpan">
+                <span><b>Visible pitch range</b><output id="sequencePitchSpanOut">±36 semitones</output></span>
+                <input id="sequencePitchSpan" type="range" min="12" max="72" step="12" value="36" />
+              </label>
+
+              <div class="chiptune-sequence-actions" aria-label="Sequence transformations">
+                <button class="mini-action" id="rotateSequenceLeft" type="button">Rotate −1</button>
+                <button class="mini-action" id="rotateSequenceRight" type="button">Rotate +1</button>
+                <button class="mini-action" id="reverseSequenceLane" type="button">Reverse</button>
+                <button class="mini-action" id="varySequenceLane" type="button">Vary lane</button>
+                <button class="mini-action chiptune-source-action" id="clearSequenceLane" type="button">Lane → SOURCE</button>
+              </div>
+              <p class="chiptune-source-coverage" id="sequenceSourceCoverage">32 of 32 active cells use SOURCE.</p>
+            </section>
+
+            <section class="chiptune-morph-workspace" id="morphWorkspace" hidden>
+              <div class="chiptune-control-stack" id="morphControls"></div>
+              <p class="chiptune-editor-help">
+                <b>SOURCE PAD</b> — X changes pattern seed; Y changes pitch range. These controls
+                affect only cells marked SOURCE, so coverage is shown below.
+              </p>
+              <p class="chiptune-source-coverage" id="morphSourceCoverage">SOURCE coverage</p>
+              <div class="chiptune-sequence-actions">
+                <button class="mini-action" id="morphLaneSource" type="button">Active lane → SOURCE</button>
+                <button class="mini-action chiptune-source-action" id="morphVoicesSource" type="button">All voices → SOURCE</button>
+              </div>
+            </section>
+          </div>
+        </details>
+
+        <details
+          class="group control-section webgpu-303-section chiptune-quick-controls"
+          data-section="quick"
+        >
+          <summary class="group-summary">
+            <h2 class="group-title">Quick Patch</h2>
+            <span class="section-state">16 SHADER MACROS</span>
+          </summary>
+          <div class="group-body chiptune-quick-body">
+            <p class="chiptune-editor-help">
+              Fast copies of key controls from the complete sections below.
+            </p>
+            <div class="chiptune-quick-actions" aria-label="Patch parameter actions">
+              <button class="mini-action" id="randomizePatch" type="button">Randomize patch</button>
+              <button class="mini-action" id="mutatePatch" type="button">Mutate patch</button>
+            </div>
+            <div
+              class="webgpu-knob-bank"
+              id="knobControls"
+              aria-label="WebGPU Chiptune macro controls"
+            ></div>
+          </div>
+        </details>
+
         <div class="webgpu-status-strip" aria-live="polite">
           <b id="gpuState">Checking WebGPU</b>
           <small id="streamState">WGSL tracker engine</small>
@@ -283,7 +341,7 @@
           </div>
         </details>
 
-        <details class="group control-section webgpu-303-section" data-section="structure" open>
+        <details class="group control-section webgpu-303-section" data-section="structure">
           <summary class="group-summary">
             <h2 class="group-title">Chip Voices</h2>
             <span class="section-state" id="voiceState">seed 1.794</span>
@@ -291,7 +349,7 @@
           <div class="group-body chiptune-control-stack" id="voiceControls"></div>
         </details>
 
-        <details class="group control-section webgpu-303-section" data-section="sound" open>
+        <details class="group control-section webgpu-303-section" data-section="sound">
           <summary class="group-summary">
             <h2 class="group-title">Drums</h2>
             <span class="section-state" id="drumState">bus 100%</span>
@@ -299,7 +357,7 @@
           <div class="group-body chiptune-control-stack" id="drumControls"></div>
         </details>
 
-        <details class="group control-section webgpu-303-section" data-section="mapping" open>
+        <details class="group control-section webgpu-303-section" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title">Echo + Mix</h2>
             <span class="section-state" id="echoState">8 taps</span>
@@ -399,30 +457,39 @@
         Its live horizontal editor keeps the original procedural source available in every cell.
       </p>
       <p class="sr-only" id="characterStageDescription">
-        Five original code-drawn, low-resolution game characters share the shader's master
-        transport. Their feet and poses follow each voice's sequence clock and current step.
+        Five original code-drawn, low-resolution arcade invaders occupy separate voice bays and
+        share the shader's master transport. Their formation steps, feet, claws, wings, and beat
+        lamps follow each voice's sequence clock and current step.
         Level changes size and brightness; register and notes change height and color; waveform,
         pulse shape, articulation, and voice-specific timbre change each silhouette and movement.
-        Rests keep the character visible in an idle pose. Echo makes afterimages, kick compresses
-        the floor, snare throws blocks, and hats and shaker make edge sparks.
+        Slow grouped body phrases stay on each voice clock while rapid notes appear as lamps and
+        small accents. Rests dim those sound accents without snapping the body to a neutral pose.
+        Echo makes afterimages, kick sends floor bands, snare throws blocks, and hats and shaker
+        make edge sparks.
       </p>
       <p class="sr-only" id="characterVoiceLegend">
-        Upper A is a cyan scout. Upper B is a lime mechanical runner. Bass is a purple stomping
-        monster. Lead is a pink caped hero. Arp is an amber winged sprite.
+        Upper A is a cyan sensor-crab invader performing precise angular freezes and scanner hits.
+        Upper B is a lime beetle-runner invader gliding laterally with counterweighted fins. Bass
+        is a purple horned boss invader using grounded contractions and heavy stomps. Lead is a pink crowned
+        blade invader making long theatrical reaches and sword sweeps. Arp is an amber winged moth
+        invader using suspended wing fans and orbiting turns.
       </p>
       <p class="sr-only" id="trackerInstructions">
-        In Morph Source, focus the Pattern Morph Pad and use left or right arrow keys to change its
-        deterministic pattern seed. Use up or down arrow keys to change pitch range. Hold Shift for
-        larger changes.
+        In Source Pad, drag horizontally to change the deterministic pattern seed and vertically to
+        change pitch range. The right panel mirrors both axes with exact controls and reports how
+        many active cells still use SOURCE. Hand-drawn notes are intentionally not regenerated.
       </p>
       <p class="sr-only" id="sequenceInstructions">
-        In Draw Sequence, choose SOURCE, NOTE or POINT, REST, HIT, or OFF as appropriate, then drag
-        directly across any visible lane. Vertical position sets note or shape value and horizontal
-        motion paints every crossed step. Drums are binary. Left and right select steps; up and down
-        change values; Shift changes pitched lanes by an octave. Page Up and Page Down select lanes.
-        Enter or Space cycles a cell. A restores SOURCE, N or H writes a note or hit, R or O writes a
-        rest or off, and Delete restores SOURCE. Every lane derives from one master clock while its
-        fractional rate, phase, and loop length determine its local playhead.
+        In Sequence, the canvas devotes its full height to one selected lane. Choose SOURCE, NOTE or
+        POINT, REST, HIT, or OFF, then drag across the large cells. Vertical position sets note or
+        shape value and horizontal motion paints every crossed step. Drums are binary. The mini
+        tracker below shows all nine independent lane playheads and selects lanes or steps. FOLLOW
+        NEXT keeps the inspector on the first safely audible step; locking a distant step shows a
+        truthful countdown. Left and right select steps; up and down change values; Shift changes
+        pitched lanes by an octave. Page Up and Page Down select lanes. Enter or Space cycles a cell.
+        A restores SOURCE, N or H writes a note or hit, R or O writes a rest or off, and Delete
+        restores SOURCE. Every lane derives from one master clock while its fractional rate, phase,
+        and loop length determine its local playhead.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
