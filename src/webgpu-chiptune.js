@@ -3,16 +3,26 @@ import { connectAudioOutput } from "./audio-output-manager.js";
 const NUM_CHANNELS = 2;
 const TIME_INFO_BUFFER_SIZE = 16;
 const MAX_BUFFERED_CHUNKS = 2.5;
-const SEQUENCE_META_BUFFER_SIZE = 48;
+const SEQUENCE_META_BUFFER_SIZE = 64;
 const REFRESH_CONTINUITY_SECONDS = 0.03;
 
 export const WEBGPU_CHIPTUNE_SEQUENCE_STEPS = 32;
-export const WEBGPU_CHIPTUNE_SEQUENCE_LANES = Object.freeze([
+export const WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES = Object.freeze([
   "upperOne",
   "upperTwo",
   "bass",
   "lead",
   "arp",
+]);
+export const WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES = Object.freeze([
+  "kick",
+  "snare",
+  "hats",
+  "shaker",
+]);
+export const WEBGPU_CHIPTUNE_SEQUENCE_LANES = Object.freeze([
+  ...WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES,
+  ...WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES,
 ]);
 export const WEBGPU_CHIPTUNE_SEQUENCE_STATES = Object.freeze({
   auto: 0,
@@ -21,6 +31,17 @@ export const WEBGPU_CHIPTUNE_SEQUENCE_STATES = Object.freeze({
 });
 export const WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS = Object.freeze([-72, 72]);
 export const WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS = Object.freeze([0, 1]);
+export const WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS = Object.freeze({
+  upperOne: Object.freeze({ kind: "steps", minimum: -12, maximum: 36, quantum: 1 }),
+  upperTwo: Object.freeze({ kind: "steps", minimum: -12, maximum: 24, quantum: 1 }),
+  bass: Object.freeze({ kind: "steps", minimum: -24, maximum: 12, quantum: 1 }),
+  lead: Object.freeze({ kind: "steps", minimum: -12, maximum: 36, quantum: 1 }),
+  arp: Object.freeze({ kind: "contour", minimum: 0, maximum: 1, quantum: 0.001 }),
+  kick: Object.freeze({ kind: "drums", minimum: 0, maximum: 1, quantum: 1 }),
+  snare: Object.freeze({ kind: "drums", minimum: 0, maximum: 1, quantum: 1 }),
+  hats: Object.freeze({ kind: "drums", minimum: 0, maximum: 1, quantum: 1 }),
+  shaker: Object.freeze({ kind: "drums", minimum: 0, maximum: 1, quantum: 1 }),
+});
 
 const SEQUENCE_CELL_STRIDE = 16;
 const SEQUENCE_CELL_BUFFER_SIZE = WEBGPU_CHIPTUNE_SEQUENCE_LANES.length
@@ -842,7 +863,7 @@ function createDefaultSequenceLanes() {
 }
 
 export const WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: 2,
   lanes: Object.freeze(createDefaultSequenceLanes()),
 });
 sanitizedSequenceObjects.add(WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE);
@@ -870,9 +891,12 @@ export function sanitizeWebGpuChiptuneSequence(
       1,
       WEBGPU_CHIPTUNE_SEQUENCE_STEPS,
     ));
-    const [minimum, maximum] = lane === "arp"
-      ? WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS
-      : WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS;
+    const editorSpec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
+    const [minimum, maximum] = editorSpec.kind === "drums"
+      ? [0, 1]
+      : lane === "arp"
+        ? WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS
+        : WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS;
     const cells = Array.from({ length: WEBGPU_CHIPTUNE_SEQUENCE_STEPS }, (_, index) => {
       const sourceCell = sourceCells[index] && typeof sourceCells[index] === "object"
         ? sourceCells[index]
@@ -889,7 +913,7 @@ export function sanitizeWebGpuChiptuneSequence(
     lanes[lane] = frozenSequenceLane(activeLength, cells);
   }
   const sanitized = Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: 2,
     lanes: Object.freeze(lanes),
   });
   sanitizedSequenceObjects.add(sanitized);
@@ -899,7 +923,7 @@ export function sanitizeWebGpuChiptuneSequence(
 export function packWebGpuChiptuneSequence(sequence, revision = 0) {
   const sanitized = sanitizeWebGpuChiptuneSequence(sequence);
   const meta = new Uint32Array(SEQUENCE_META_BUFFER_SIZE / Uint32Array.BYTES_PER_ELEMENT);
-  meta[0] = 1;
+  meta[0] = 2;
   meta[1] = Math.max(0, Math.trunc(finiteOr(revision, 0))) >>> 0;
   meta[2] = WEBGPU_CHIPTUNE_SEQUENCE_LANES.length;
   meta[3] = WEBGPU_CHIPTUNE_SEQUENCE_STEPS;
@@ -921,11 +945,90 @@ export function packWebGpuChiptuneSequence(sequence, revision = 0) {
   return Object.freeze({ meta, cells });
 }
 
+function requireSequenceEditorSpec(lane) {
+  const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
+  if (!spec) throw new RangeError("Unknown WebGPU Chiptune sequence lane: " + lane);
+  return spec;
+}
+
+export function webGpuChiptuneSequenceEditorValue(lane, unitValue) {
+  const spec = requireSequenceEditorSpec(lane);
+  if (spec.kind === "drums") return 1;
+  const unit = clamp(finiteOr(unitValue, 0), 0, 1);
+  const raw = spec.minimum + unit * (spec.maximum - spec.minimum);
+  const quantized = Math.round(raw / spec.quantum) * spec.quantum;
+  return clamp(
+    Number(quantized.toFixed(spec.quantum < 0.01 ? 3 : 0)),
+    spec.minimum,
+    spec.maximum,
+  );
+}
+
+export function webGpuChiptuneSequenceEditorUnit(lane, value) {
+  const spec = requireSequenceEditorSpec(lane);
+  if (spec.kind === "drums") return clamp(finiteOr(value, 1), 0, 1);
+  return clamp(
+    (finiteOr(value, spec.minimum) - spec.minimum)
+      / Math.max(Number.EPSILON, spec.maximum - spec.minimum),
+    0,
+    1,
+  );
+}
+
+export function paintWebGpuChiptuneSequenceSegment(
+  sequence,
+  lane,
+  fromStep,
+  toStep,
+  fromValue,
+  toValue,
+  cellState = "note",
+) {
+  const spec = requireSequenceEditorSpec(lane);
+  const sanitized = sanitizeWebGpuChiptuneSequence(sequence);
+  const start = Math.round(clamp(fromStep, 0, WEBGPU_CHIPTUNE_SEQUENCE_STEPS - 1));
+  const end = Math.round(clamp(toStep, 0, WEBGPU_CHIPTUNE_SEQUENCE_STEPS - 1));
+  const state = sequenceStateNames.has(cellState) ? cellState : "note";
+  const cells = [...sanitized.lanes[lane].cells];
+  const direction = end >= start ? 1 : -1;
+  const distance = Math.max(1, Math.abs(end - start));
+  for (let step = start; ; step += direction) {
+    const progress = Math.abs(step - start) / distance;
+    const interpolated = finiteOr(fromValue, 0)
+      + (finiteOr(toValue, fromValue) - finiteOr(fromValue, 0)) * progress;
+    const current = cells[step];
+    const value = state === "note"
+      ? spec.kind === "drums"
+        ? 1
+        : webGpuChiptuneSequenceEditorValue(
+          lane,
+          (interpolated - spec.minimum)
+            / Math.max(Number.EPSILON, spec.maximum - spec.minimum),
+        )
+      : current.value;
+    cells[step] = { state, value };
+    if (step === end) break;
+  }
+  return sanitizeWebGpuChiptuneSequence({
+    schemaVersion: 2,
+    lanes: {
+      ...sanitized.lanes,
+      [lane]: {
+        ...sanitized.lanes[lane],
+        cells,
+      },
+    },
+  });
+}
+
 function positiveIntegerModulo(value, modulus) {
   return ((Math.floor(value) % modulus) + modulus) % modulus;
 }
 
 function sequenceRateForLane(lane, patch) {
+  if (WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)) {
+    return Math.max(patch.drumRate, 0.000001) * 4;
+  }
   const rate = patch[sequenceRateKeys[lane]];
   return lane === "upperTwo" ? rate * patch.upperTwoClockRatio : rate;
 }
@@ -933,7 +1036,7 @@ function sequenceRateForLane(lane, patch) {
 function sequenceCellIndexFromSanitized(lane, beatTime, patch, sequence) {
   const length = sequence.lanes[lane].activeLength;
   const rate = sequenceRateForLane(lane, patch);
-  const phase = patch[sequencePhaseKeys[lane]] * length;
+  const phase = finiteOr(patch[sequencePhaseKeys[lane]], 0) * length;
   return positiveIntegerModulo(finiteOr(beatTime, 0) * rate + phase, length);
 }
 
@@ -971,6 +1074,7 @@ export function webGpuChiptuneSequenceCellAtBeat(
 
 function proceduralLaneValueFromSanitized(lane, beatTime, patch, sequence) {
   const beat = finiteOr(beatTime, 0);
+  if (WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)) return 0;
   if (lane === "arp") {
     const span = Math.max(patch.arpSpan, 0.000001);
     const phase = beat * patch.arpRate + patch.arpPhase * span * 2;
@@ -978,7 +1082,9 @@ function proceduralLaneValueFromSanitized(lane, beatTime, patch, sequence) {
   }
   const rate = sequenceRateForLane(lane, patch);
   const phaseLength = sequence.lanes[lane].activeLength;
-  const source = Math.floor(beat * rate + patch[sequencePhaseKeys[lane]] * phaseLength);
+  const source = Math.floor(
+    beat * rate + finiteOr(patch[sequencePhaseKeys[lane]], 0) * phaseLength,
+  );
   const spanKey = {
     upperOne: "upperOneSpan",
     upperTwo: "upperTwoSpan",
@@ -1118,6 +1224,77 @@ function stageShapeUnit(lane, patch) {
   );
 }
 
+function stageMotionPhase(lane, seconds, masterBeat, patch) {
+  if (lane === "upperOne" || lane === "upperTwo") {
+    return positiveModulo(seconds * patch.pwmRate, Math.PI * 2) / (Math.PI * 2);
+  }
+  if (lane === "bass") {
+    const patternSteps = Math.max(1, Math.round(patch.gatePatternSteps));
+    return positiveModulo(
+      masterBeat * 8 * patch.gateRate * patch.bassGateRateRatio
+        + patch.gatePatternPhase * patternSteps,
+      1,
+    );
+  }
+  if (lane === "lead") {
+    return positiveModulo(masterBeat * patch.leadTrillRate + patch.leadTrillPhase, 1);
+  }
+  return positiveModulo(
+    masterBeat * patch.arpOctaveRate + patch.arpOctavePhase * 2,
+    2,
+  ) / 2;
+}
+
+function stageMotionUnit(lane, patch) {
+  if (lane === "upperOne" || lane === "upperTwo") {
+    return webGpuChiptuneParamToUnit("pwmRate", patch.pwmRate);
+  }
+  if (lane === "bass") {
+    return webGpuChiptuneParamToUnit("bassGateRateRatio", patch.bassGateRateRatio);
+  }
+  if (lane === "lead") {
+    return webGpuChiptuneParamToUnit("leadTrillRate", patch.leadTrillRate);
+  }
+  return webGpuChiptuneParamToUnit("arpOctaveRate", patch.arpOctaveRate);
+}
+
+function stageDetailUnit(lane, patch) {
+  if (lane === "upperOne") {
+    return webGpuChiptuneParamToUnit("pwmDepth", patch.pwmDepth);
+  }
+  if (lane === "upperTwo") {
+    return webGpuChiptuneParamToUnit("upperTwoClockRatio", patch.upperTwoClockRatio);
+  }
+  if (lane === "bass") {
+    return webGpuChiptuneParamToUnit("bassPulseWidth", patch.bassPulseWidth);
+  }
+  if (lane === "lead") {
+    return webGpuChiptuneParamToUnit("leadTrillShare", patch.leadTrillShare);
+  }
+  return webGpuChiptuneParamToUnit("arpGateDepth", patch.arpGateDepth);
+}
+
+function stageRangeUnit(lane, patch) {
+  if (lane === "upperOne") {
+    return webGpuChiptuneParamToUnit("upperOneSpan", patch.upperOneSpan);
+  }
+  if (lane === "upperTwo") {
+    return webGpuChiptuneParamToUnit("upperTwoSpan", patch.upperTwoSpan);
+  }
+  if (lane === "bass") {
+    return webGpuChiptuneParamToUnit("bassSpan", patch.bassSpan);
+  }
+  if (lane === "lead") {
+    return webGpuChiptuneParamToUnit("leadSpan", patch.leadSpan);
+  }
+  return clamp(
+    webGpuChiptuneParamToUnit("arpSpan", patch.arpSpan) * 0.55
+      + webGpuChiptuneParamToUnit("arpOctaves", patch.arpOctaves) * 0.45,
+    0,
+    1,
+  );
+}
+
 function stageDrumTime(seconds, tempo, cycle, phase = 0) {
   const safeCycle = Math.max(0.01, cycle);
   return positiveModulo(seconds * tempo - phase * safeCycle, safeCycle)
@@ -1128,6 +1305,34 @@ function stageDrumEnvelope(time, decayRate, decay, hold = 0) {
   return clamp(Math.exp(
     -Math.max(time - hold, 0) * decayRate / Math.max(0.1, decay),
   ), 0, 1);
+}
+
+function stageSequencedDrumTiming(
+  lane,
+  sourceTime,
+  masterBeat,
+  patch,
+  sequence,
+) {
+  const laneState = sequence.lanes[lane];
+  const rate = sequenceRateForLane(lane, patch);
+  const position = positiveModulo(masterBeat * rate, laneState.activeLength);
+  const cellIndex = positiveIntegerModulo(position, laneState.activeLength);
+  const stepPhase = positiveModulo(position, 1);
+  const cell = laneState.cells[cellIndex];
+  const stepDuration = 1 / Math.max(patch.tempo * rate, 0.000001);
+  const manualTime = stepPhase * stepDuration;
+  const fadeLength = Math.min(0.004, stepDuration * 0.25);
+  const tail = fadeLength <= 0
+    ? 1
+    : 1 - clamp((manualTime - (stepDuration - fadeLength)) / fadeLength, 0, 1);
+  return Object.freeze({
+    time: cell.state === "note" ? manualTime : sourceTime,
+    active: cell.state === "rest" ? 0 : cell.state === "note" ? tail : 1,
+    cellIndex,
+    cellState: cell.state,
+    stepPhase,
+  });
 }
 
 /**
@@ -1145,12 +1350,12 @@ export function webGpuChiptuneStageSnapshot(
   const seconds = Math.max(0, finiteOr(timeSeconds, 0));
   const masterBeat = seconds * patch.tempo;
   const notes = webGpuChiptuneBeatSnapshot(masterBeat, patch, sanitizedSequence);
-  const actors = WEBGPU_CHIPTUNE_SEQUENCE_LANES.map((lane) => {
+  const actors = WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.map((lane) => {
     const definition = CHIPTUNE_STAGE_VOICES[lane];
     const laneState = sanitizedSequence.lanes[lane];
     const clockRate = sequenceRateForLane(lane, patch);
     const position = masterBeat * clockRate
-      + patch[sequencePhaseKeys[lane]] * laneState.activeLength;
+      + finiteOr(patch[sequencePhaseKeys[lane]], 0) * laneState.activeLength;
     const cellIndex = positiveIntegerModulo(position, laneState.activeLength);
     const stepPhase = positiveModulo(position, 1);
     const cell = laneState.cells[cellIndex];
@@ -1165,6 +1370,9 @@ export function webGpuChiptuneStageSnapshot(
     );
     const gate = resting ? 0 : clamp(Math.min(attack, release), 0, 1);
     const activity = resting ? 0 : clamp((0.22 + gate * 0.78) * levelUnit, 0, 1);
+    const onset = resting
+      ? 0
+      : clamp((1 - stepPhase / 0.2) * (0.3 + activity * 0.7), 0, 1);
     return Object.freeze({
       key: lane,
       label: definition.label,
@@ -1182,8 +1390,13 @@ export function webGpuChiptuneStageSnapshot(
       size: clamp(0.56 + levelUnit * 0.44, 0, 1),
       hue: note === null ? 0.5 : clamp((note + 72) / 144, 0, 1),
       shape: stageShapeUnit(lane, patch),
+      motionPhase: stageMotionPhase(lane, seconds, masterBeat, patch),
+      motion: stageMotionUnit(lane, patch),
+      detail: stageDetailUnit(lane, patch),
+      range: stageRangeUnit(lane, patch),
+      onset,
       bounce: resting ? 0 : clamp(Math.sin(stepPhase * Math.PI) * activity, 0, 1),
-      frame: Math.floor(stepPhase * 4) % 4,
+      frame: Math.floor(stepPhase * 8) % 8,
     });
   });
 
@@ -1204,37 +1417,62 @@ export function webGpuChiptuneStageSnapshot(
     patch.shakerCycle,
     patch.shakerPhase,
   );
+  const kickSequence = stageSequencedDrumTiming(
+    "kick", kickTime, masterBeat, patch, sanitizedSequence,
+  );
+  const snareSequence = stageSequencedDrumTiming(
+    "snare", snareTime, masterBeat, patch, sanitizedSequence,
+  );
+  const hatASequence = stageSequencedDrumTiming(
+    "hats", hatATime, masterBeat, patch, sanitizedSequence,
+  );
+  const hatBSequence = stageSequencedDrumTiming(
+    "hats", hatBTime, masterBeat, patch, sanitizedSequence,
+  );
+  const shakerSequence = stageSequencedDrumTiming(
+    "shaker", shakerTime, masterBeat, patch, sanitizedSequence,
+  );
   const drumDecay = Math.max(0.1, patch.drumDecay);
   const drums = Object.freeze({
     kick: clamp(
       webGpuChiptuneParamToUnit("kickLevel", patch.kickLevel)
-        * stageDrumEnvelope(kickTime, patch.kickDecayRate, drumDecay),
+        * stageDrumEnvelope(kickSequence.time, patch.kickDecayRate, drumDecay)
+        * kickSequence.active,
       0,
       1,
     ),
     snare: clamp(
       webGpuChiptuneParamToUnit("snareLevel", patch.snareLevel)
-        * stageDrumEnvelope(snareTime, patch.snareDecayRate, drumDecay, patch.snareHoldTime),
+        * stageDrumEnvelope(
+          snareSequence.time,
+          patch.snareDecayRate,
+          drumDecay,
+          patch.snareHoldTime,
+        )
+        * snareSequence.active,
       0,
       1,
     ),
     hatA: clamp(
       webGpuChiptuneParamToUnit("hatLevel", patch.hatLevel)
         * (1 - clamp(patch.hatBalance, 0, 1))
-        * stageDrumEnvelope(hatATime, patch.hatADecayRate, drumDecay),
+        * stageDrumEnvelope(hatASequence.time, patch.hatADecayRate, drumDecay)
+        * hatASequence.active,
       0,
       1,
     ),
     hatB: clamp(
       webGpuChiptuneParamToUnit("hatLevel", patch.hatLevel)
         * clamp(patch.hatBalance, 0, 1)
-        * stageDrumEnvelope(hatBTime, patch.hatBDecayRate, drumDecay),
+        * stageDrumEnvelope(hatBSequence.time, patch.hatBDecayRate, drumDecay)
+        * hatBSequence.active,
       0,
       1,
     ),
     shaker: clamp(
       webGpuChiptuneParamToUnit("shakerLevel", patch.shakerLevel)
-        * stageDrumEnvelope(shakerTime, patch.shakerDecayRate, drumDecay),
+        * stageDrumEnvelope(shakerSequence.time, patch.shakerDecayRate, drumDecay)
+        * shakerSequence.active,
       0,
       1,
     ),
@@ -1244,6 +1482,12 @@ export function webGpuChiptuneStageSnapshot(
     masterBeat,
     actors: Object.freeze(actors),
     drums,
+    drumSteps: Object.freeze({
+      kick: kickSequence,
+      snare: snareSequence,
+      hats: hatASequence,
+      shaker: shakerSequence,
+    }),
     environment: Object.freeze({
       echo: webGpuChiptuneParamToUnit("echoWet", patch.echoWet),
       echoTaps: patch.echoTaps,
@@ -1617,6 +1861,7 @@ struct SequenceMeta {
   header: vec4<u32>,
   lengths0: vec4<u32>,
   lengths1: vec4<u32>,
+  lengths2: vec4<u32>,
 }
 
 struct SequenceCell {
@@ -1631,7 +1876,7 @@ struct SequenceCell {
 @group(0) @binding(2) var<storage, read> audio_param: AudioParam;
 @group(0) @binding(3) var<uniform> sequence_meta: SequenceMeta;
 @group(0) @binding(4) var<storage, read>
-  sequence_cells: array<SequenceCell, 160>;
+  sequence_cells: array<SequenceCell, 288>;
 
 @compute
 @workgroup_size(WORKGROUP_SIZE)
@@ -1647,13 +1892,17 @@ fn modulo(x: f32, y: f32) -> f32 {
 }
 
 fn sequenceLength(lane: u32) -> u32 {
-  var length = sequence_meta.lengths1.x;
+  var length = sequence_meta.lengths2.x;
   switch lane {
     case 0u: { length = sequence_meta.lengths0.x; }
     case 1u: { length = sequence_meta.lengths0.y; }
     case 2u: { length = sequence_meta.lengths0.z; }
     case 3u: { length = sequence_meta.lengths0.w; }
-    default: { length = sequence_meta.lengths1.x; }
+    case 4u: { length = sequence_meta.lengths1.x; }
+    case 5u: { length = sequence_meta.lengths1.y; }
+    case 6u: { length = sequence_meta.lengths1.z; }
+    case 7u: { length = sequence_meta.lengths1.w; }
+    default: { length = sequence_meta.lengths2.x; }
   }
   return clamp(length, 1u, 32u);
 }
@@ -1672,6 +1921,17 @@ fn sequenceCellAt(
   let local_index = min(u32(max(floor(position), 0.0)), length - 1u);
   let cell_index = lane * 32u + local_index;
   return sequence_cells[cell_index];
+}
+
+fn sequenceStepTime(
+  lane: u32,
+  master_beat: f32,
+  rate: f32,
+  tempo_hz: f32,
+) -> f32 {
+  let length = sequenceLength(lane);
+  let position = modulo(master_beat * max(rate, 0.000001), f32(length));
+  return fract(position) / max(tempo_hz * rate, 0.000001);
 }
 
 fn stepValue(edge: f32, x: f32) -> f32 {
@@ -1835,8 +2095,27 @@ fn voiceBalance(right_voice: bool, p: AudioParam) -> vec2<f32> {
     * normalization;
 }
 
+fn drumSequenceTiming(
+  lane: u32,
+  master_beat: f32,
+  rate: f32,
+  tempo_hz: f32,
+  source_time: f32,
+) -> vec2<f32> {
+  let cell = sequenceCellAt(lane, master_beat, rate, 0.0);
+  let manual_time = sequenceStepTime(lane, master_beat, rate, tempo_hz);
+  let step_duration = 1.0 / max(tempo_hz * rate, 0.000001);
+  let fade_start = max(0.0, step_duration - min(0.004, step_duration * 0.25));
+  let manual_tail = 1.0 - smoothstep(fade_start, step_duration, manual_time);
+  let activity = select(1.0, 0.0, cell.state == 2u)
+    * select(1.0, manual_tail, cell.state == 1u);
+  return vec2(select(source_time, manual_time, cell.state == 1u), activity);
+}
+
 fn beatTwo(time: f32, p: AudioParam) -> f32 {
   let tempo = p.tempo * max(p.drumRate, 0.01);
+  let master_beat = time * p.tempo;
+  let sequence_rate = max(p.drumRate, 0.01) * 4.0;
   let decay = max(p.drumDecay, 0.1);
   var value = 0.0;
 
@@ -1845,6 +2124,10 @@ fn beatTwo(time: f32, p: AudioParam) -> f32 {
     max(p.kickCycle, 0.05),
   );
   tb = modulo(tb, max(p.kickSubcycle, 0.05)) / tempo;
+  let kick_sequence = drumSequenceTiming(
+    5u, master_beat, sequence_rate, p.tempo, tb,
+  );
+  tb = kick_sequence.x;
   var kick = sin(
     exp(tb * -p.kickBodySweep) * p.kickBodyPhase * p.kickTone
     + exp(tb * -p.kickTransientSweep) * p.kickTransientPhase * p.kickTone
@@ -1852,12 +2135,16 @@ fn beatTwo(time: f32, p: AudioParam) -> f32 {
     max(p.kickAttackTime - tb, 0.0) * (-p.kickDecayRate / decay),
   ) * exp(tb * (-p.kickDecayRate / decay));
   kick = smoothAny(-p.kickClipKnee, p.kickClipKnee, kick) * 2.0 - 1.0;
-  value = kick * 0.3 * p.kickLevel;
+  value = kick * kick_sequence.y * 0.3 * p.kickLevel;
 
   tb = modulo(
     time * tempo - p.snarePhase * p.snareCycle,
     max(p.snareCycle, 0.01),
   ) / tempo;
+  let snare_sequence = drumSequenceTiming(
+    6u, master_beat, sequence_rate, p.tempo, tb,
+  );
+  tb = snare_sequence.x;
   let snare_envelope = exp(
     max(tb - p.snareHoldTime, 0.0) * (-p.snareDecayRate / decay),
   );
@@ -1874,7 +2161,7 @@ fn beatTwo(time: f32, p: AudioParam) -> f32 {
         + tb * p.snareCarrierRate * p.snareTone
     )
       * snare_envelope * 0.9 * (1.0 - snare_mix)
-  ) * 0.6 * p.snareLevel;
+  ) * snare_sequence.y * 0.6 * p.snareLevel;
 
   tb = modulo(
     time * tempo + p.hatAPhase * p.hatACycle,
@@ -1885,27 +2172,41 @@ fn beatTwo(time: f32, p: AudioParam) -> f32 {
     tb - 1.0 - p.hatARepeatPhase * p.hatARepeat,
     max(p.hatARepeat, 0.01),
   ) / tempo;
+  let hat_a_sequence = drumSequenceTiming(
+    7u, master_beat, sequence_rate, p.tempo, tb,
+  );
+  tb = hat_a_sequence.x;
   let hat_mix = clamp(p.hatBalance, 0.0, 1.0);
   value += hpns(tb * p.hatANoiseRate, 0.0002 * p.hatANoiseColor, p)
     * exp(tb * (-p.hatADecayRate / decay))
-    * 0.45 * (1.0 - hat_mix) * p.hatLevel;
+    * hat_a_sequence.y * 0.45 * (1.0 - hat_mix) * p.hatLevel;
 
   tb = modulo(
     time * tempo - p.hatBPhase * p.hatBCycle,
     max(p.hatBCycle, 0.01),
   ) / tempo;
+  let hat_b_sequence = drumSequenceTiming(
+    7u, master_beat, sequence_rate, p.tempo, tb,
+  );
+  tb = hat_b_sequence.x;
   value += (
     hpns(tb * p.hatBLowNoiseRate, 0.00002 * p.hatBNoiseColor, p)
       + hpns(tb * p.hatBHighNoiseRate, 0.002 * p.hatBNoiseColor, p)
         * p.hatBHighMix
-  ) * exp(tb * (-p.hatBDecayRate / decay)) * 0.45 * hat_mix * p.hatLevel;
+  ) * exp(tb * (-p.hatBDecayRate / decay))
+    * hat_b_sequence.y * 0.45 * hat_mix * p.hatLevel;
 
   tb = modulo(
     time * tempo - p.shakerPhase * p.shakerCycle,
     max(p.shakerCycle, 0.01),
   ) / tempo;
+  let shaker_sequence = drumSequenceTiming(
+    8u, master_beat, sequence_rate, p.tempo, tb,
+  );
+  tb = shaker_sequence.x;
   value += hpns(tb * p.shakerNoiseRate, 0.0002 * p.shakerNoiseColor, p)
-    * exp(tb * (-p.shakerDecayRate / decay)) * 0.3 * p.shakerLevel;
+    * exp(tb * (-p.shakerDecayRate / decay))
+    * shaker_sequence.y * 0.3 * p.shakerLevel;
   return value;
 }
 

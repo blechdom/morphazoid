@@ -97,34 +97,33 @@
         <div
           class="stage-wrap webgpu-303-stage-wrap"
           id="stageWrap"
-          data-tracker-view="morph"
+          data-tracker-view="sequence"
           data-sequence-page="0"
         >
           <div class="chiptune-stage-ui">
             <fieldset class="chiptune-view-switch">
               <legend class="sr-only">Tracker view</legend>
               <label>
-                <input id="trackerViewMorph" name="trackerView" type="radio" value="morph" checked />
-                <span>Morph</span>
+                <input id="trackerViewMorph" name="trackerView" type="radio" value="morph" />
+                <span>Morph source</span>
               </label>
               <label>
-                <input id="trackerViewSequence" name="trackerView" type="radio" value="sequence" />
-                <span>Sequence</span>
+                <input id="trackerViewSequence" name="trackerView" type="radio" value="sequence" checked />
+                <span>Draw sequence</span>
               </label>
             </fieldset>
 
             <section
               class="chiptune-sequence-workspace"
               id="sequenceWorkspace"
-              aria-label="Voice sequence editor"
-              hidden
+              aria-label="Live voice and drum sequence editor"
             >
-              <div class="chiptune-sequence-toolbar">
+              <div class="chiptune-sequence-toolbar" id="sequenceToolbar">
                 <div
                   class="chiptune-voice-tabs"
                   id="sequenceVoiceTabs"
-                  role="tablist"
-                  aria-label="Sequence voice"
+                  role="group"
+                  aria-label="Lane to inspect and edit"
                 ></div>
                 <label class="chiptune-lane-length" for="sequenceLength">
                   <span>Length</span>
@@ -148,27 +147,31 @@
                   <button id="sequencePageTwo" type="button" aria-pressed="false">17-32</button>
                 </div>
                 <button class="mini-action" id="varySequenceLane" type="button">Vary lane</button>
-                <button class="mini-action" id="clearSequenceLane" type="button">All AUTO</button>
+                <button class="mini-action" id="clearSequenceLane" type="button">All SOURCE</button>
               </div>
 
               <div
                 class="chiptune-sequence-grid"
                 id="sequenceGrid"
-                role="tabpanel"
+                role="note"
                 aria-describedby="sequenceInstructions liveStatus"
-              ></div>
+              >
+                <span><b>STEP NOTES</b> UPPER A · UPPER B · BASS · LEAD</span>
+                <span><b>SHAPE</b> ARP 0–1 + GHOSTED INTERNAL MOTION</span>
+                <span><b>DRUM GATES</b> SOURCE · HIT · OFF</span>
+              </div>
 
-              <div class="chiptune-sequence-inspector">
+              <div class="chiptune-sequence-inspector" id="sequenceInspector">
                 <output class="chiptune-sequence-status" id="sequenceStatus">
                   UPPER A | STEP 01/32 | AUTO
                 </output>
                 <div
                   class="chiptune-sequence-state-buttons"
                   role="group"
-                  aria-label="Selected step state"
+                  aria-label="Canvas paint mode"
                 >
-                  <button id="sequenceStateAuto" type="button" aria-pressed="true">AUTO</button>
-                  <button id="sequenceStateNote" type="button" aria-pressed="false">NOTE</button>
+                  <button id="sequenceStateAuto" type="button" aria-pressed="false">SOURCE</button>
+                  <button id="sequenceStateNote" type="button" aria-pressed="true">NOTE</button>
                   <button id="sequenceStateRest" type="button" aria-pressed="false">REST</button>
                 </div>
                 <label class="chiptune-sequence-value" for="sequenceValue">
@@ -183,10 +186,12 @@
             id="stage"
             role="application"
             tabindex="0"
-            aria-label="Procedural 32-step chiptune tracker. Horizontal position changes the pattern seed; vertical position changes pitch range. Audio off, transport paused."
-            aria-describedby="webgpuChiptuneDescription trackerInstructions liveStatus"
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home End Enter Space A N R Delete"
+            aria-label="Nine-lane live Chiptune sequence editor. Upper A step 1 selected."
+            aria-describedby="webgpuChiptuneDescription sequenceInstructions liveStatus"
+            data-space-key-owner
           >
-            Procedural chiptune tracker with five pitch lanes.
+            Live Chiptune editor with five variable voice lanes and four binary drum lanes.
           </canvas>
 
           <div class="webgpu-303-heading">
@@ -196,7 +201,7 @@
           </div>
 
           <div class="chiptune-gesture-card" aria-hidden="true">
-            <b>TRACKER MORPH</b>
+            <b>PATTERN MORPH PAD</b>
             <span id="gestureReadout">seed 1.794 · range 1.00x</span>
           </div>
 
@@ -308,8 +313,9 @@
           </summary>
           <div class="group-body">
             <p class="webgpu-credit-note">
-              Edit the source sequence itself: five AUTO / NOTE / REST voice lanes, exact fraction
-              clocks and phases, variable loop lengths, pitch classes, gates, drum circuits, and routing.
+              Edit the source sequence itself: four variable note lanes, an Arp shape lane, four
+              SOURCE / HIT / OFF drum lanes, exact fraction clocks and phases, independent loop
+              lengths, pitch classes, gates, drum circuits, internal Lead and Arp motion, and routing.
             </p>
             <p class="webgpu-credit-note chiptune-live-note">
               Sound changes refresh upcoming shader chunks; the current chunk and any render already
@@ -389,6 +395,7 @@
       <p class="sr-only" id="webgpuChiptuneDescription">
         A WebGPU compute shader renders a procedural tracker composition with two upper pulse
         voices, bass, lead, arpeggio, noise percussion, drums, and ping-pong echo into Web Audio.
+        Its live horizontal editor keeps the original procedural source available in every cell.
       </p>
       <p class="sr-only" id="characterStageDescription">
         Five original code-drawn, low-resolution game characters share the shader's master
@@ -403,14 +410,18 @@
         monster. Lead is a pink caped hero. Arp is an amber winged sprite.
       </p>
       <p class="sr-only" id="trackerInstructions">
-        Focus the tracker and use left or right arrow keys to change its deterministic pattern
-        seed. Use up or down arrow keys to change pitch range. Hold Shift for larger changes.
+        In Morph Source, focus the Pattern Morph Pad and use left or right arrow keys to change its
+        deterministic pattern seed. Use up or down arrow keys to change pitch range. Hold Shift for
+        larger changes.
       </p>
       <p class="sr-only" id="sequenceInstructions">
-        In Sequence view, choose a voice. Left and right move between steps. Enter or Space cycles
-        Auto, Note, and Rest. A, N, and R select a state. Up and down change a manual value;
-        Shift changes by 12 semitones for pitched voices or 0.1 for the Arp contour. Delete
-        restores Auto.
+        In Draw Sequence, choose SOURCE, NOTE or POINT, REST, HIT, or OFF as appropriate, then drag
+        directly across any visible lane. Vertical position sets note or shape value and horizontal
+        motion paints every crossed step. Drums are binary. Left and right select steps; up and down
+        change values; Shift changes pitched lanes by an octave. Page Up and Page Down select lanes.
+        Enter or Space cycles a cell. A restores SOURCE, N or H writes a note or hit, R or O writes a
+        rest or off, and Delete restores SOURCE. Every lane derives from one master clock while its
+        fractional rate, phase, and loop length determine its local playhead.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

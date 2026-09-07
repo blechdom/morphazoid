@@ -879,6 +879,7 @@ function nodeOrAncestor(target, predicate) {
 
 function isKeyboardOwnedTarget(target) {
   return Boolean(nodeOrAncestor(target, (node) => {
+    if (node.getAttribute?.("data-space-key-owner") != null) return true;
     const tagName = String(node.tagName ?? "").toUpperCase();
     if ([
       "AUDIO",

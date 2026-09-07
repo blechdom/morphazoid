@@ -8,7 +8,9 @@ import {
   WEBGPU_CHIPTUNE_DEFAULTS,
   WEBGPU_CHIPTUNE_INTEGER_PARAMS,
   WEBGPU_CHIPTUNE_LIMITS,
+  WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES,
   WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS,
+  WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS,
   WEBGPU_CHIPTUNE_SEQUENCE_LANES,
   WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS,
   WEBGPU_CHIPTUNE_SEQUENCE_STATES,
@@ -18,9 +20,11 @@ import {
   WEBGPU_CHIPTUNE_PARAM_ORDER,
   WEBGPU_CHIPTUNE_SHADER,
   WEBGPU_CHIPTUNE_WORKGROUP_SIZES,
+  WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES,
   WebGpuChiptuneAudio,
   createWebGpuChiptuneSequence,
   formatWebGpuChiptuneValue,
+  paintWebGpuChiptuneSequenceSegment,
   packWebGpuChiptuneSequence,
   sanitizeWebGpuChiptuneParams,
   sanitizeWebGpuChiptuneSequence,
@@ -33,6 +37,8 @@ import {
   webGpuChiptuneScaleLock,
   webGpuChiptuneSequenceCellAtBeat,
   webGpuChiptuneSequenceCellIndex,
+  webGpuChiptuneSequenceEditorUnit,
+  webGpuChiptuneSequenceEditorValue,
   webGpuChiptuneStageSnapshot,
   webGpuChiptuneStepSnapshot,
   webGpuChiptuneSupport,
@@ -549,14 +555,24 @@ test("procedural sequence helpers match scale and fast lead/arpeggio substeps", 
   near(webGpuChiptuneStepSnapshot(4).arp - noBassFollow.arp, bassBasis);
 });
 
-test("sequence schema sanitizes, freezes, and packs five 32-cell lanes", () => {
+test("sequence schema sanitizes, freezes, and packs nine 32-cell lanes", () => {
   assert.equal(WEBGPU_CHIPTUNE_SEQUENCE_STEPS, 32);
+  assert.deepEqual(WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES, [
+    "upperOne", "upperTwo", "bass", "lead", "arp",
+  ]);
+  assert.deepEqual(WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES, [
+    "kick", "snare", "hats", "shaker",
+  ]);
   assert.deepEqual(WEBGPU_CHIPTUNE_SEQUENCE_LANES, [
     "upperOne",
     "upperTwo",
     "bass",
     "lead",
     "arp",
+    "kick",
+    "snare",
+    "hats",
+    "shaker",
   ]);
   assert.deepEqual(WEBGPU_CHIPTUNE_SEQUENCE_STATES, {
     auto: 0,
@@ -565,6 +581,7 @@ test("sequence schema sanitizes, freezes, and packs five 32-cell lanes", () => {
   });
   assert.deepEqual(WEBGPU_CHIPTUNE_SEQUENCE_NOTE_LIMITS, [-72, 72]);
   assert.deepEqual(WEBGPU_CHIPTUNE_SEQUENCE_ARP_LIMITS, [0, 1]);
+  assert.equal(WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE.schemaVersion, 2);
   assert.ok(Object.isFrozen(WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE));
   for (const lane of WEBGPU_CHIPTUNE_SEQUENCE_LANES) {
     const laneState = WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE.lanes[lane];
@@ -596,6 +613,10 @@ test("sequence schema sanitizes, freezes, and packs five 32-cell lanes", () => {
         activeLength: 99,
         cells: [{ state: "note", value: 9 }],
       },
+      kick: {
+        activeLength: 4,
+        cells: [{ state: "note", value: 999 }, { state: "rest", value: -999 }],
+      },
     },
   });
   assert.equal(sequence.lanes.upperOne.activeLength, 3);
@@ -608,13 +629,20 @@ test("sequence schema sanitizes, freezes, and packs five 32-cell lanes", () => {
     { state: "auto", value: 0 },
   ]);
   assert.deepEqual(sequence.lanes.arp.cells[0], { state: "note", value: 1 });
+  assert.deepEqual(sequence.lanes.kick.cells.slice(0, 2), [
+    { state: "note", value: 1 },
+    { state: "rest", value: 0 },
+  ]);
 
   const packed = packWebGpuChiptuneSequence(sequence, 7.9);
   assert.ok(packed.meta instanceof Uint32Array);
-  assert.equal(packed.meta.byteLength, 48);
-  assert.deepEqual([...packed.meta.slice(0, 9)], [1, 7, 5, 32, 3, 1, 32, 32, 32]);
+  assert.equal(packed.meta.byteLength, 64);
+  assert.deepEqual(
+    [...packed.meta.slice(0, 13)],
+    [2, 7, 9, 32, 3, 1, 32, 32, 32, 4, 32, 32, 32],
+  );
   assert.ok(packed.cells instanceof ArrayBuffer);
-  assert.equal(packed.cells.byteLength, 5 * 32 * 16);
+  assert.equal(packed.cells.byteLength, 9 * 32 * 16);
   const view = new DataView(packed.cells);
   assert.equal(view.getFloat32(0, true), 72);
   assert.equal(view.getUint32(4, true), WEBGPU_CHIPTUNE_SEQUENCE_STATES.note);
@@ -624,6 +652,9 @@ test("sequence schema sanitizes, freezes, and packs five 32-cell lanes", () => {
   assert.equal(view.getUint32(arpOffset + 4, true), WEBGPU_CHIPTUNE_SEQUENCE_STATES.note);
   assert.equal(view.getUint32(arpOffset + 8, true), 0);
   assert.equal(view.getUint32(arpOffset + 12, true), 0);
+  const kickOffset = 5 * 32 * 16;
+  assert.equal(view.getFloat32(kickOffset, true), 1);
+  assert.equal(view.getUint32(kickOffset + 4, true), WEBGPU_CHIPTUNE_SEQUENCE_STATES.note);
 
   for (const key of [
     "snarePhase",
@@ -648,6 +679,69 @@ test("sequence schema sanitizes, freezes, and packs five 32-cell lanes", () => {
   ]) {
     assert.equal(WEBGPU_CHIPTUNE_LIMITS[key][1], 127 / 128, key);
   }
+});
+
+test("sequence editor ranges are musical and drag painting is gap-free in both directions", () => {
+  assert.deepEqual(WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS, {
+    upperOne: { kind: "steps", minimum: -12, maximum: 36, quantum: 1 },
+    upperTwo: { kind: "steps", minimum: -12, maximum: 24, quantum: 1 },
+    bass: { kind: "steps", minimum: -24, maximum: 12, quantum: 1 },
+    lead: { kind: "steps", minimum: -12, maximum: 36, quantum: 1 },
+    arp: { kind: "contour", minimum: 0, maximum: 1, quantum: 0.001 },
+    kick: { kind: "drums", minimum: 0, maximum: 1, quantum: 1 },
+    snare: { kind: "drums", minimum: 0, maximum: 1, quantum: 1 },
+    hats: { kind: "drums", minimum: 0, maximum: 1, quantum: 1 },
+    shaker: { kind: "drums", minimum: 0, maximum: 1, quantum: 1 },
+  });
+  for (const lane of WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES) {
+    const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
+    assert.equal(webGpuChiptuneSequenceEditorValue(lane, 0), spec.minimum);
+    assert.equal(webGpuChiptuneSequenceEditorValue(lane, 1), spec.maximum);
+    near(webGpuChiptuneSequenceEditorUnit(lane, spec.minimum), 0);
+    near(webGpuChiptuneSequenceEditorUnit(lane, spec.maximum), 1);
+  }
+
+  const forward = paintWebGpuChiptuneSequenceSegment(
+    WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
+    "upperOne",
+    2,
+    6,
+    -12,
+    12,
+    "note",
+  );
+  assert.deepEqual(
+    forward.lanes.upperOne.cells.slice(2, 7).map(({ value }) => value),
+    [-12, -6, 0, 6, 12],
+  );
+  assert.ok(forward.lanes.upperOne.cells.slice(2, 7).every(({ state }) => state === "note"));
+  assert.deepEqual(forward.lanes.bass, WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE.lanes.bass);
+
+  const reverse = paintWebGpuChiptuneSequenceSegment(
+    WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
+    "upperOne",
+    6,
+    2,
+    12,
+    -12,
+    "note",
+  );
+  assert.deepEqual(reverse.lanes.upperOne.cells, forward.lanes.upperOne.cells);
+
+  const hits = paintWebGpuChiptuneSequenceSegment(
+    WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
+    "kick",
+    0,
+    7,
+    0,
+    0,
+    "note",
+  );
+  assert.ok(hits.lanes.kick.cells.slice(0, 8).every(
+    (cell) => cell.state === "note" && cell.value === 1,
+  ));
+  const off = paintWebGpuChiptuneSequenceSegment(hits, "kick", 3, 5, 1, 1, "rest");
+  assert.ok(off.lanes.kick.cells.slice(3, 6).every(({ state }) => state === "rest"));
 });
 
 test("sequence clocks wrap while AUTO, NOTE, REST, and Arp contour stay independent", () => {
@@ -776,11 +870,24 @@ test("WebGPU Chiptune pixel-stage snapshots use the shared deterministic voice c
   assert.equal(snapshot.masterBeat, time * WEBGPU_CHIPTUNE_DEFAULTS.tempo);
   assert.deepEqual(
     snapshot.actors.map(({ key }) => key),
-    WEBGPU_CHIPTUNE_SEQUENCE_LANES,
+    WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES,
   );
   assert.ok(Object.isFrozen(snapshot));
   assert.ok(Object.isFrozen(snapshot.actors));
   assert.ok(Object.isFrozen(snapshot.drums));
+  assert.ok(Object.isFrozen(snapshot.drumSteps));
+  assert.deepEqual(Object.keys(snapshot.drumSteps), WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES);
+  for (const lane of WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES) {
+    assert.equal(
+      snapshot.drumSteps[lane].cellIndex,
+      webGpuChiptuneSequenceCellIndex(
+        lane,
+        snapshot.masterBeat,
+        WEBGPU_CHIPTUNE_DEFAULTS,
+        WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
+      ),
+    );
+  }
   for (const actor of snapshot.actors) {
     assert.equal(
       actor.cellIndex,
@@ -793,15 +900,19 @@ test("WebGPU Chiptune pixel-stage snapshots use the shared deterministic voice c
     );
     for (const key of [
       "clockRate", "activeLength", "cellIndex", "cellValue", "stepPhase",
-      "gate", "activity", "levelUnit", "size", "hue", "shape", "bounce", "frame",
+      "gate", "activity", "levelUnit", "size", "hue", "shape", "motionPhase",
+      "motion", "detail", "range", "onset", "bounce", "frame",
     ]) {
       assert.ok(Number.isFinite(actor[key]), actor.key + "." + key + " must be finite");
     }
     for (const key of [
-      "stepPhase", "gate", "activity", "levelUnit", "size", "hue", "shape", "bounce",
+      "stepPhase", "gate", "activity", "levelUnit", "size", "hue", "shape",
+      "motionPhase", "motion", "detail", "range", "onset", "bounce",
     ]) {
       assert.ok(actor[key] >= 0 && actor[key] <= 1, actor.key + "." + key + " must be normalized");
     }
+    assert.ok(Number.isInteger(actor.frame));
+    assert.ok(actor.frame >= 0 && actor.frame < 8);
   }
   assert.doesNotThrow(() => JSON.stringify(snapshot));
 
@@ -814,6 +925,57 @@ test("WebGPU Chiptune pixel-stage snapshots use the shared deterministic voice c
     phaseShifted.actors.slice(1).map(({ stepPhase }) => stepPhase),
     snapshot.actors.slice(1).map(({ stepPhase }) => stepPhase),
   );
+});
+
+test("WebGPU Chiptune pixel actors expose their real internal modulation characteristics", () => {
+  const time = 0.731;
+  const baseline = webGpuChiptuneStageSnapshot(time);
+  const leadPhase = webGpuChiptuneStageSnapshot(time, {
+    leadTrillPhase: WEBGPU_CHIPTUNE_DEFAULTS.leadTrillPhase + 0.5,
+  });
+  assert.notEqual(leadPhase.actors[3].motionPhase, baseline.actors[3].motionPhase);
+  assert.deepEqual(
+    leadPhase.actors.filter((_, index) => index !== 3).map(({ motionPhase }) => motionPhase),
+    baseline.actors.filter((_, index) => index !== 3).map(({ motionPhase }) => motionPhase),
+  );
+
+  const arpPhase = webGpuChiptuneStageSnapshot(time, {
+    arpOctavePhase: WEBGPU_CHIPTUNE_DEFAULTS.arpOctavePhase + 0.5,
+  });
+  assert.notEqual(arpPhase.actors[4].motionPhase, baseline.actors[4].motionPhase);
+  assert.deepEqual(
+    arpPhase.actors.slice(0, 4).map(({ motionPhase }) => motionPhase),
+    baseline.actors.slice(0, 4).map(({ motionPhase }) => motionPhase),
+  );
+
+  const shallowPwm = webGpuChiptuneStageSnapshot(time, { pwmDepth: 0 });
+  const deepPwm = webGpuChiptuneStageSnapshot(time, { pwmDepth: 0.45 });
+  assert.ok(deepPwm.actors[0].detail > shallowPwm.actors[0].detail);
+  assert.equal(deepPwm.actors[1].detail, shallowPwm.actors[1].detail);
+
+  const narrowBass = webGpuChiptuneStageSnapshot(time, { bassPulseWidth: 0.05 });
+  const wideBass = webGpuChiptuneStageSnapshot(time, { bassPulseWidth: 0.95 });
+  assert.ok(wideBass.actors[2].detail > narrowBass.actors[2].detail);
+
+  const sparseTrill = webGpuChiptuneStageSnapshot(time, { leadTrillShare: 0 });
+  const denseTrill = webGpuChiptuneStageSnapshot(time, { leadTrillShare: 1 });
+  assert.ok(denseTrill.actors[3].detail > sparseTrill.actors[3].detail);
+
+  const dryArpGate = webGpuChiptuneStageSnapshot(time, { arpGateDepth: 0 });
+  const deepArpGate = webGpuChiptuneStageSnapshot(time, { arpGateDepth: 1 });
+  assert.ok(deepArpGate.actors[4].detail > dryArpGate.actors[4].detail);
+
+  const [leadSpanMinimum, leadSpanMaximum] = WEBGPU_CHIPTUNE_LIMITS.leadSpan;
+  const shortLead = webGpuChiptuneStageSnapshot(time, { leadSpan: leadSpanMinimum });
+  const wideLead = webGpuChiptuneStageSnapshot(time, { leadSpan: leadSpanMaximum });
+  assert.equal(wideLead.actors[3].shape, shortLead.actors[3].shape);
+  assert.ok(wideLead.actors[3].range > shortLead.actors[3].range);
+
+  const [leadIntervalMinimum, leadIntervalMaximum] = WEBGPU_CHIPTUNE_LIMITS.leadInterval;
+  const lowInterval = webGpuChiptuneStageSnapshot(time, { leadInterval: leadIntervalMinimum });
+  const highInterval = webGpuChiptuneStageSnapshot(time, { leadInterval: leadIntervalMaximum });
+  assert.ok(highInterval.actors[3].shape > lowInterval.actors[3].shape);
+  assert.equal(highInterval.actors[3].range, lowInterval.actors[3].range);
 });
 
 test("WebGPU Chiptune pixel actors expose rests and perceptually distributed level changes", () => {
@@ -848,7 +1010,8 @@ test("WGSL renders a bounded stereo active path without dormant source branches"
   assert.match(WEBGPU_CHIPTUNE_SHADER, /@binding\(2\) var<storage, read> audio_param/);
   assert.match(WEBGPU_CHIPTUNE_SHADER, /@binding\(3\) var<uniform> sequence_meta/);
   assert.match(WEBGPU_CHIPTUNE_SHADER,
-    /@binding\(4\) var<storage, read>\s+sequence_cells: array<SequenceCell, 160>/);
+    /@binding\(4\) var<storage, read>\s+sequence_cells: array<SequenceCell, 288>/);
+  assert.match(WEBGPU_CHIPTUNE_SHADER, /fn drumSequenceTiming/);
   assert.match(WEBGPU_CHIPTUNE_SHADER,
     /let local_index = min\(u32\(max\(floor\(position\), 0\.0\)\), length - 1u\)/);
   assert.match(WEBGPU_CHIPTUNE_SHADER, /fn synthVoices/);
@@ -1097,7 +1260,7 @@ test("live parameter revisions coalesce and replace stale future chunks", () => 
   assert.equal(audio.paramRevision, 2);
   assert.equal(audio.sequenceRevision, 1);
   assert.equal(audio.renderRevision, 3);
-  assert.deepEqual(writes.map(({ bytes }) => bytes), [48, 2560]);
+  assert.deepEqual(writes.map(({ bytes }) => bytes), [64, 4608]);
   assert.equal(timers.length, 1);
   assert.equal(timers[0].delay, 40);
   timers[0].callback();
@@ -1298,6 +1461,8 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);
   assert.match(html, /id="synthPlayButton"[\s\S]*?data-primary-transport/);
   assert.match(html, /id="stage"[\s\S]*?role="application"[\s\S]*?tabindex="0"/);
+  assert.match(html, /id="stage"[\s\S]*?data-space-key-owner/);
+  assert.match(html, /aria-describedby="webgpuChiptuneDescription sequenceInstructions liveStatus"/);
   assert.match(html, /id="characterStage"[\s\S]*?role="img"/);
   assert.doesNotMatch(
     html.match(/<canvas[\s\S]*?id="characterStage"[\s\S]*?<\/canvas>/)?.[0] ?? "",
@@ -1308,7 +1473,8 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   assert.match(html, /Level changes size and brightness/);
   assert.match(html, /Upper A is a cyan scout/);
   assert.match(css, /#characterStage[\s\S]*?image-rendering: pixelated/);
-  assert.match(css, /grid-template-rows:[\s\S]*?clamp\(122px,[\s\S]*?minmax\(0, 1fr\)/);
+  assert.match(css, /grid-template-rows: clamp\(480px, 62dvh, 540px\) minmax\(300px, 1fr\)/);
+  assert.match(css, /grid-template-rows:[\s\S]*?clamp\(205px, 28dvh, 240px\)/);
   const presetSource = app.slice(
     app.indexOf("const presets = Object.freeze"),
     app.indexOf("const SAFE_RANDOM_RANGES"),
@@ -1326,19 +1492,38 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   assert.match(html, /id="scaleControls"/);
   assert.match(html, /id="gateControls"/);
   assert.match(html, /id="trackerViewMorph"/);
-  assert.match(html, /id="trackerViewSequence"/);
-  assert.match(html, /id="sequenceVoiceTabs"[\s\S]*?role="tablist"/);
-  assert.match(html, /id="sequenceGrid"[\s\S]*?role="tabpanel"/);
+  assert.match(html, /id="trackerViewSequence"[^>]*checked/);
+  assert.match(html, /Morph source/);
+  assert.match(html, /Draw sequence/);
+  const controlKeys = new Set(
+    [...app.matchAll(/makeSpec\("([^"]+)"/g)].map((match) => match[1]),
+  );
+  for (const gateKey of [
+    "gateA0", "gateA1", "gateA2", "gateA3",
+    "gateB0", "gateB1", "gateB2", "gateB3",
+  ]) {
+    controlKeys.add(gateKey);
+  }
+  assert.deepEqual(
+    [...controlKeys].sort(),
+    [...WEBGPU_CHIPTUNE_PARAM_ORDER].sort(),
+    "all 150 shader parameters must remain reachable from a live editor",
+  );
+  assert.match(app, /state\.trackerView === "sequence"[\s\S]*?sequenceInstructions[\s\S]*?trackerInstructions/);
+  assert.match(html, /id="sequenceVoiceTabs"[\s\S]*?role="group"/);
+  assert.match(html, /id="sequenceGrid"[\s\S]*?role="note"/);
+  assert.match(html, /STEP NOTES[\s\S]*?SHAPE[\s\S]*?DRUM GATES/);
   assert.match(html,
     /id="sequenceLength"[\s\S]*?min="1"[\s\S]*?max="32"/);
   assert.match(html, /id="sequenceStateAuto"/);
   assert.match(html, /id="sequenceStateNote"/);
   assert.match(html, /id="sequenceStateRest"/);
-  assert.match(html, /id="sequenceValue"[\s\S]*?step="0\.01"[\s\S]*?inputmode="text"/);
-  assert.match(app, /must use increments of 0\.001 between 0 and 1/);
-  assert.match(app, /valueInput\.inputMode = arp \? "decimal" : "text"/);
+  assert.match(html, /id="sequenceValue"/);
+  assert.match(app, /valueInput\.step = String\(spec\.quantum\)/);
+  assert.match(app, /valueInput\.inputMode = spec\.kind === "contour" \? "decimal" : "numeric"/);
   assert.match(app, /const stepMismatch = input\.validity\.stepMismatch/);
-  assert.match(html, /0\.1 for the Arp contour/);
+  assert.match(html, /Vertical position sets note or shape value/);
+  assert.match(html, /Drums are binary/);
   assert.match(html, /Chiptune \(sound\) by srtuss, 2015 · Shadertoy MljSRt/);
   assert.match(html, /src="webgpu-chiptune-app\.js"/);
   assert.match(css, /#stage:focus-visible/);
@@ -1367,9 +1552,12 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   assert.match(app, /normalizedNumerator >= normalizedDenominator/);
   assert.match(app, /nearestMusicalFraction/);
   assert.match(app, /function renderSequenceControls/);
+  assert.match(app, /function drawSequenceEditor/);
+  assert.match(app, /paintWebGpuChiptuneSequenceSegment/);
+  assert.match(app, /sequencePointFromPointer/);
   assert.match(app, /WEBGPU_CHIPTUNE_SEQUENCE_STEPS/);
   assert.match(app, /engine\?\.updateSequence\(state\.sequence\)/);
-  assert.match(app, /stateVersion: 2/);
+  assert.match(app, /stateVersion: 3/);
   assert.match(app, /sequence: state\.sequence/);
   assert.match(app, /WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE/);
   assert.match(app, /trackerCacheWindowStart !== windowStartStep/);
@@ -1395,7 +1583,31 @@ test("WebGPU Chiptune ships as a separate accessible and credited page", async (
   );
   assert.match(characterRenderSource, /webGpuChiptuneStageSnapshot\(time/);
   assert.match(characterRenderSource, /imageSmoothingEnabled = false/);
+  assert.match(characterRenderSource, /desiredCssUnit = cssWidth > 980 \? 24/);
+  assert.match(characterRenderSource, /actorSpacing = unit \* 7/);
+  assert.match(characterRenderSource, /drawPercussionStage/);
+  assert.match(app, /function drawPercussionStage[\s\S]*?snapshot\.drumSteps/);
   assert.doesNotMatch(characterRenderSource, /Math\.random/);
+  assert.match(app, /function actorPose/);
+  assert.match(app, /actor\.motionPhase/);
+  assert.match(app, /const pixelGait = Object\.freeze\(\[0, 1, 1, 0, 0, -1, -1, 0\]\)/);
+  const monsterRenderSource = app.slice(
+    app.indexOf("function drawMonster"),
+    app.indexOf("function drawHero"),
+  );
+  const spriteRenderSource = app.slice(
+    app.indexOf("function drawSprite"),
+    app.indexOf("function drawPixelActor"),
+  );
+  assert.match(monsterRenderSource, /actor\.detail/);
+  assert.match(spriteRenderSource, /actor\.detail/);
+  const percussionRenderSource = app.slice(
+    app.indexOf("function drawPercussionStage"),
+    app.indexOf("function drawCharacterStage"),
+  );
+  assert.match(percussionRenderSource, /if \(reducedMotion\)/);
+  assert.match(percussionRenderSource, /snapshot\.drums\.kick/);
+  assert.doesNotMatch(percussionRenderSource, /motionScale = reducedMotion \? 0/);
   assert.match(app, /const time = transportTime\(\);[\s\S]*?drawCharacterStage\(time\)/);
   assert.match(source, /export function webGpuChiptuneStageSnapshot/);
   const fractionCommitSource = app.slice(

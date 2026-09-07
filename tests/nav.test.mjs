@@ -1485,6 +1485,9 @@ test("shared Space transport stays independent from Audio and guides Audio-off p
   const slider = new FakeNode("div");
   slider.setAttribute("role", "slider");
   ignoredTargets.push(slider);
+  const customSpaceSurface = new FakeNode("canvas");
+  customSpaceSurface.setAttribute("data-space-key-owner", "");
+  ignoredTargets.push(customSpaceSurface);
   const nestedButton = new FakeNode("button");
   const nestedButtonIcon = new FakeNode("svg");
   nestedButton.append(nestedButtonIcon);
