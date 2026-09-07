@@ -166,6 +166,11 @@ body.quadruped-page {
   box-shadow: 0 0 14px var(--quad-live);
 }
 
+.quadruped-stage-state[data-state="stalled"] i {
+  background: #ff9d55;
+  box-shadow: 0 0 12px rgba(255, 157, 85, 0.72);
+}
+
 .quadruped-stage-state span {
   display: grid;
 }
@@ -665,13 +670,28 @@ body.quadruped-page {
 
 .quadruped-behavior-buttons {
   grid-template-columns: repeat(5, 1fr);
+  max-height: 230px;
+  padding-right: 3px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--quad-live) rgba(255, 255, 255, 0.05);
 }
 
 .quadruped-behavior-buttons button {
+  position: relative;
   min-width: 0;
   padding: 6px 3px;
   font-size: 0.61rem;
   font-weight: 830;
+}
+
+.quadruped-behavior-buttons button[data-fit="playful"]::after {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  color: var(--quad-muted);
+  content: "✦";
+  font-size: 0.48rem;
 }
 
 .quadruped-description {
@@ -945,6 +965,7 @@ body.quadruped-page {
 
   .quadruped-behavior-buttons {
     grid-template-columns: repeat(3, 1fr);
+    max-height: 280px;
   }
 }
 

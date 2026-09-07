@@ -18,24 +18,49 @@ import {
   deriveQuadrupedPose,
   describeQuadrupedStep,
   mutateQuadrupedPattern,
+  quadrupedBehaviorFit,
   quadrupedBehaviorsForAnimal,
   quadrupedFootVoice,
   quadrupedHeadPhrase,
   quadrupedSequenceEvent,
+  quadrupedStepDurationSeconds,
   sanitizeQuadrupedState,
   setQuadrupedContact,
 } from "../src/quadruped.js";
+import {
+  QUADRUPED_MOTOR_LIMITS,
+  advanceQuadrupedMotor,
+  createQuadrupedMotorState,
+  kickQuadrupedMotor,
+  predictQuadrupedMotor,
+  quadrupedMotorSnapshot,
+} from "../src/quadruped-motor.js";
 
 const footLaneIds = QUADRUPED_LANES.slice(0, 4).map(({ id }) => id);
 
-test("Quadruped exposes three animals, an animal-aware gait dictionary, four feet plus tail, and sixteen frames", () => {
-  assert.deepEqual(QUADRUPED_ANIMALS.map(({ id }) => id), ["elephant", "unicorn", "gazelle"]);
-  assert.deepEqual(QUADRUPED_BEHAVIORS.map(({ id }) => id), [
-    "walk", "amble", "charge", "trot", "pace", "canter", "gallop", "sprint", "stot", "jump", "dance",
+test("Quadruped exposes seven animals, a shared expanded gait dictionary, four feet plus tail, and sixteen frames", () => {
+  assert.deepEqual(QUADRUPED_ANIMALS.map(({ id }) => id), [
+    "elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe", "lizard",
   ]);
-  assert.deepEqual(quadrupedBehaviorsForAnimal("elephant").map(({ id }) => id), ["walk", "amble", "charge", "jump", "dance"]);
-  assert.deepEqual(quadrupedBehaviorsForAnimal("unicorn").map(({ id }) => id), ["walk", "amble", "trot", "pace", "canter", "gallop", "jump", "dance"]);
-  assert.deepEqual(quadrupedBehaviorsForAnimal("gazelle").map(({ id }) => id), ["walk", "trot", "canter", "sprint", "stot", "jump", "dance"]);
+  const behaviorIds = QUADRUPED_BEHAVIORS.map(({ id }) => id);
+  assert.ok(behaviorIds.length >= 30);
+  for (const id of [
+    "walk", "running-walk", "trot", "pace", "canter", "counter-canter", "gallop",
+    "counter-gallop", "sprint", "rotary-left", "bound", "half-bound", "stot", "jump",
+    "dance", "rear-waltz", "cat-prowl", "cat-gallop", "run-leap", "giraffe-walk",
+    "giraffe-gallop", "lizard-scuttle", "lizard-trot", "lizard-pace", "lizard-sprint",
+  ]) {
+    assert.ok(behaviorIds.includes(id), `missing gait ${id}`);
+  }
+  for (const animal of QUADRUPED_ANIMALS) {
+    assert.deepEqual(
+      quadrupedBehaviorsForAnimal(animal.id).map(({ id }) => id),
+      behaviorIds,
+      `${animal.id} should be able to borrow every gait`,
+    );
+  }
+  assert.equal(quadrupedBehaviorFit("cat", "cat-prowl"), "observed");
+  assert.equal(quadrupedBehaviorFit("elephant", "cat-prowl"), "playful");
   assert.deepEqual(QUADRUPED_LANES.map(({ id }) => id), [
     "front-left",
     "front-right",
@@ -57,6 +82,10 @@ test("every available animal gait creates a finite, bounded, reproducible score"
       assert.equal(first.behaviorId, behavior.id);
       assert.ok(first.tempoBpm >= QUADRUPED_LIMITS.tempoBpm[0]);
       assert.ok(first.tempoBpm <= QUADRUPED_LIMITS.tempoBpm[1]);
+      assert.ok(first.momentum >= QUADRUPED_LIMITS.momentum[0]);
+      assert.ok(first.momentum <= QUADRUPED_LIMITS.momentum[1]);
+      assert.ok(first.gravity >= QUADRUPED_LIMITS.gravity[0]);
+      assert.ok(first.gravity <= QUADRUPED_LIMITS.gravity[1]);
       assert.ok(first.outputLevel >= 0.42);
       assert.ok(first.outputLevel <= QUADRUPED_LIMITS.outputLevel[1]);
       assert.equal(first.terrain.length, QUADRUPED_STEP_COUNT);
@@ -71,7 +100,7 @@ test("every available animal gait creates a finite, bounded, reproducible score"
   }
 });
 
-test("the sixteen-frame dictionary keeps walk, paired gaits, leads, gallops, stot, and dance distinct", () => {
+test("the sixteen-frame dictionary keeps researched footfall families and lead variants distinct", () => {
   const hitsAt = (animalId, behaviorId, step) => quadrupedSequenceEvent(
     createQuadrupedState(animalId, behaviorId),
     step,
@@ -83,14 +112,42 @@ test("the sixteen-frame dictionary keeps walk, paired gaits, leads, gallops, sto
   assert.deepEqual(signature("unicorn", "walk"), ["0:RH", "4:RF", "8:LH", "12:LF"]);
   assert.deepEqual(signature("unicorn", "trot"), ["0:LF+RH", "8:LH+RF"]);
   assert.deepEqual(signature("unicorn", "pace"), ["0:RF+RH", "8:LF+LH"]);
-  assert.deepEqual(signature("unicorn", "canter"), ["0:LH", "5:LF+RH", "10:RF"]);
-  assert.deepEqual(signature("unicorn", "gallop"), ["0:LH", "5:RH", "8:LF", "11:RF"]);
-  assert.deepEqual(signature("gazelle", "sprint"), ["0:RH", "2:LH", "8:LF", "10:RF"]);
+  assert.deepEqual(signature("unicorn", "canter"), ["0:LH", "4:LF+RH", "8:RF"]);
+  assert.deepEqual(signature("unicorn", "counter-canter"), ["0:RH", "4:LH+RF", "8:LF"]);
+  assert.deepEqual(signature("unicorn", "gallop"), ["0:LH", "3:RH", "7:LF", "10:RF"]);
+  assert.deepEqual(signature("unicorn", "counter-gallop"), ["0:RH", "3:LH", "7:RF", "10:LF"]);
+  assert.deepEqual(signature("gazelle", "sprint"), ["0:RH", "3:LH", "8:LF", "11:RF"]);
+  assert.deepEqual(signature("gazelle", "rotary-left"), ["0:LH", "3:RH", "8:RF", "11:LF"]);
+  assert.deepEqual(signature("gazelle", "bound"), ["0:LH+RH", "8:LF+RF"]);
+  assert.deepEqual(signature("gazelle", "half-bound"), ["0:LH+RH", "7:LF", "10:RF"]);
   assert.deepEqual(signature("gazelle", "stot"), ["0:LF+LH+RF+RH", "8:LF+LH+RF+RH"]);
-  assert.deepEqual(signature("gazelle", "dance"), ["0:LF+RH", "8:LH+RF"]);
+  assert.deepEqual(signature("gazelle", "dance"), ["0:LF+RH", "4:LH+RF", "8:LF+RH", "12:LH+RF"]);
   assert.notDeepEqual(signature("elephant", "walk"), signature("elephant", "amble"));
   assert.notDeepEqual(signature("elephant", "amble"), signature("elephant", "charge"));
   assert.notDeepEqual(signature("unicorn", "gallop"), signature("gazelle", "sprint"));
+
+  const canterContactSteps = [0, 4, 8];
+  const cyclicSpacing = canterContactSteps.map((step, index) => (
+    (canterContactSteps[(index + 1) % canterContactSteps.length] - step + QUADRUPED_STEP_COUNT) % QUADRUPED_STEP_COUNT
+  ));
+  assert.deepEqual(cyclicSpacing, [4, 4, 8]);
+});
+
+test("run-leap is three running clusters followed by a hind launch and fore landing", () => {
+  const state = createQuadrupedState("cat", "run-leap");
+  const signature = Array.from({ length: QUADRUPED_STEP_COUNT }, (_, step) => {
+    const feet = quadrupedSequenceEvent(state, step).contacts
+      .filter(({ id }) => id !== "tail")
+      .map(({ shortLabel }) => shortLabel)
+      .sort();
+    return feet.length ? `${step}:${feet.join("+")}` : "";
+  }).filter(Boolean);
+  assert.deepEqual(signature, [
+    "0:RH", "1:LH", "2:LF", "3:RF",
+    "4:LH", "5:RH", "6:RF", "7:LF",
+    "8:RH", "9:LH", "10:LF", "11:RF",
+    "12:LH+RH", "15:LF+RF",
+  ]);
 });
 
 test("each animal gives every foot and tail a named, mono-safe articulation family", () => {
@@ -124,51 +181,49 @@ test("ground position changes the resonator while the same limb score remains in
   assert.notDeepEqual(woodEvent.head?.notes, crystalEvent.head?.notes);
 });
 
-test("each animal derives its own head voice from the body score", () => {
-  const elephant = quadrupedSequenceEvent(createQuadrupedState("elephant", "jump"), 0);
-  const walkingElephant = quadrupedSequenceEvent(createQuadrupedState("elephant", "walk"), 0);
-  const unicorn = quadrupedSequenceEvent(createQuadrupedState("unicorn", "dance"), 0);
-  const gazelle = quadrupedSequenceEvent(createQuadrupedState("gazelle", "sprint"), 0);
-  assert.equal(elephant.head?.kind, "trumpet");
-  assert.equal(elephant.head?.gesture, "trunk-lift");
-  assert.equal(walkingElephant.head?.kind, "trumpet");
-  assert.equal(unicorn.head?.kind, "neigh-arpeggio");
-  assert.equal(unicorn.head?.gesture, "horn-neigh");
-  assert.equal(gazelle.head?.kind, "marimba-string");
-  assert.equal(gazelle.head?.gesture, "head-toss");
-  assert.deepEqual([elephant.head.notes.length, unicorn.head.notes.length, gazelle.head.notes.length], [5, 6, 6]);
-  for (const head of [elephant.head, unicorn.head, gazelle.head]) {
-    assert.ok(head.notes.every(Number.isFinite));
-    assert.deepEqual(head.noteOffsetsSeconds.length, head.notes.length);
-    assert.ok(head.noteOffsetsSeconds.every(Number.isFinite));
-    assert.equal(head.noteOffsetsSeconds[0], 0);
-    assert.deepEqual([...head.noteOffsetsSeconds].sort((a, b) => a - b), head.noteOffsetsSeconds);
-    assert.ok(Number.isFinite(head.durationSeconds));
-    assert.ok(Number.isFinite(head.phraseDurationSeconds));
-    assert.ok(head.phraseDurationSeconds >= head.noteOffsetsSeconds.at(-1));
-    assert.ok(head.phraseDurationSeconds <= 1.2);
+test("each animal has a distinct melodic head identity with frame-locked sequencer notes", () => {
+  const expectedKinds = new Map([
+    ["elephant", "trumpet"],
+    ["unicorn", "neigh-arpeggio"],
+    ["gazelle", "marimba-string"],
+    ["cat", "purr-meow"],
+    ["cheetah", "chirp-run"],
+    ["giraffe", "neck-harp"],
+    ["lizard", "hiss-click"],
+  ]);
+  const foundKinds = new Set();
+  for (const animal of QUADRUPED_ANIMALS) {
+    const state = createQuadrupedState(animal.id);
+    const automaticHeads = Array.from({ length: QUADRUPED_STEP_COUNT }, (_, step) => (
+      quadrupedSequenceEvent(state, step).head
+    )).filter(Boolean);
+    assert.ok(automaticHeads.length >= 4, `${animal.id} needs a recurring melodic motif`);
+    for (const head of automaticHeads) {
+      assert.equal(head.kind, expectedKinds.get(animal.id));
+      assert.equal(head.notes.length, 1, "automatic notes must not outrun the locomotion frame");
+      assert.equal(head.frameLocked, true);
+      assert.ok(Number.isFinite(head.notes[0]));
+      assert.ok(Number.isFinite(head.durationFrames));
+      assert.ok(Number.isFinite(head.durationSeconds));
+    }
+    foundKinds.add(automaticHeads[0].kind);
   }
-  assert.ok(elephant.head.notes.at(-1) > elephant.head.notes[0]);
-  assert.equal(Math.max(...elephant.head.notes), elephant.head.notes.at(-1));
-  assert.deepEqual(
-    gazelle.head.notes.slice(1).map((note, index) => Math.sign(note - gazelle.head.notes[index])),
-    [1, -1, 1, -1, 1],
-  );
-
-  const density = (animalId, behaviorId) => Array.from({ length: QUADRUPED_STEP_COUNT }, (_, step) => (
-    quadrupedSequenceEvent(createQuadrupedState(animalId, behaviorId), step).head
-  )).filter(Boolean).length;
-  assert.deepEqual([
-    density("elephant", "walk"),
-    density("unicorn", "dance"),
-    density("gazelle", "sprint"),
-  ], [2, 2, 2]);
+  assert.equal(foundKinds.size, QUADRUPED_ANIMALS.length);
 });
 
-test("manual and sequenced heads share one phrase factory and gestures outlive their trigger step", () => {
-  for (const [animalId, behaviorId] of [["elephant", "walk"], ["unicorn", "dance"], ["gazelle", "sprint"]]) {
-    const state = createQuadrupedState(animalId, behaviorId);
-    assert.deepEqual(quadrupedHeadPhrase(state, 0), quadrupedSequenceEvent(state, 0).head);
+test("manual heads remain multi-note, species-specific phrases while automatic gestures follow gait frames", () => {
+  for (const animal of QUADRUPED_ANIMALS) {
+    const state = createQuadrupedState(animal.id);
+    const automatic = quadrupedSequenceEvent(state, 0).head;
+    const manual = quadrupedHeadPhrase(state, 0);
+    assert.ok(manual.notes.length >= 4);
+    assert.equal(manual.kind, automatic.kind);
+    assert.notDeepEqual(manual.notes, automatic.notes);
+    assert.equal(manual.noteOffsetsSeconds.length, manual.notes.length);
+    assert.equal(manual.noteOffsetsSeconds[0], 0);
+    assert.deepEqual([...manual.noteOffsetsSeconds].sort((a, b) => a - b), manual.noteOffsetsSeconds);
+    assert.ok(manual.phraseDurationSeconds >= manual.noteOffsetsSeconds.at(-1));
+    assert.ok(manual.phraseDurationSeconds <= 1.2);
   }
 
   const elephant = createQuadrupedState("elephant", "walk");
@@ -177,14 +232,13 @@ test("manual and sequenced heads share one phrase factory and gestures outlive t
   assert.equal(sustained.headPerformance.active, true);
   assert.equal(sustained.headPerformance.gesture, "trunk-lift");
   assert.ok(sustained.headPerformance.strength > 0);
-  assert.ok(sustained.headPerformance.noteIndex >= 1);
   assert.ok(sustained.headPerformance.progress > 0 && sustained.headPerformance.progress < 1);
 });
 
-test("Dance alternates diagonal two-leg balances while the other pair lifts", () => {
-  const state = createQuadrupedState("unicorn", "dance");
+test("dance alternates diagonal two-leg balances and rear-waltz raises both forelegs", () => {
+  const state = createQuadrupedState("lizard", "dance");
   const firstBalance = deriveQuadrupedPose(state, 0.5);
-  const secondBalance = deriveQuadrupedPose(state, 8.5);
+  const secondBalance = deriveQuadrupedPose(state, 4.5);
 
   assert.deepEqual(
     firstBalance.event.contacts.filter(({ id }) => id !== "tail").map(({ id }) => id).sort(),
@@ -203,6 +257,15 @@ test("Dance alternates diagonal two-leg balances while the other pair lifts", ()
   assert.equal(secondBalance.danceBalance, 1);
   assert.ok(secondBalance.legs["front-left"].lift > secondBalance.legs["front-right"].lift);
   assert.ok(secondBalance.legs["rear-right"].lift > secondBalance.legs["rear-left"].lift);
+
+  const rearWaltz = deriveQuadrupedPose(createQuadrupedState("giraffe", "rear-waltz"), 0.5);
+  assert.equal(rearWaltz.groundSupportCount, 2);
+  assert.equal(rearWaltz.danceBalance, 1);
+  assert.equal(rearWaltz.rearBalance, 1);
+  assert.ok(rearWaltz.legs["rear-left"].contact > 0);
+  assert.ok(rearWaltz.legs["rear-right"].contact > 0);
+  assert.ok(rearWaltz.legs["front-left"].lift >= 0.72);
+  assert.ok(rearWaltz.legs["front-right"].lift >= 0.72);
 });
 
 test("pose support follows gait stance and exposes researched suspension gaps", () => {
@@ -211,8 +274,81 @@ test("pose support follows gait stance and exposes researched suspension gaps", 
   const sprintingGazelle = createQuadrupedState("gazelle", "sprint");
   assert.ok(Array.from({ length: 16 }, (_, step) => deriveQuadrupedPose(walkingElephant, step + 0.5)).every(({ airborne }) => !airborne));
   assert.equal(deriveQuadrupedPose(trottingUnicorn, 7).airborne, true);
-  assert.equal(deriveQuadrupedPose(sprintingGazelle, 5).airborne, true);
-  assert.equal(deriveQuadrupedPose(sprintingGazelle, 13).airborne, true);
+  assert.equal(deriveQuadrupedPose(sprintingGazelle, 7).airborne, true);
+  assert.equal(deriveQuadrupedPose(sprintingGazelle, 15).airborne, true);
+});
+
+test("gait cadence divides one full sixteen-frame motion cycle instead of clocking quarter-note steps", () => {
+  for (const cadence of [42, 72, 138, 196]) {
+    const state = sanitizeQuadrupedState({ ...createQuadrupedState("cat", "run-leap"), tempoBpm: cadence });
+    assert.equal(quadrupedStepDurationSeconds(state), 60 / cadence / QUADRUPED_STEP_COUNT);
+    assert.equal(quadrupedStepDurationSeconds(state) * QUADRUPED_STEP_COUNT, 60 / cadence);
+  }
+});
+
+test("the foot-driven motor predicts frame crossings and keeps momentum and gravity finite and bounded", () => {
+  const score = sanitizeQuadrupedState({
+    ...createQuadrupedState("cheetah", "run-leap"),
+    momentum: Infinity,
+    gravity: -Infinity,
+  });
+  assert.equal(score.momentum, QUADRUPED_LIMITS.momentum[0]);
+  assert.equal(score.gravity, QUADRUPED_LIMITS.gravity[0]);
+
+  const initial = createQuadrupedMotorState(score, {
+    position: -99,
+    velocity: Infinity,
+    height: Infinity,
+    verticalVelocity: -Infinity,
+    compression: 99,
+    landing: -99,
+  });
+  const kicked = kickQuadrupedMotor(score, initial, 1);
+  const prediction = predictQuadrupedMotor(score, kicked, 1);
+  assert.deepEqual(initial, createQuadrupedMotorState(score, {
+    position: -99,
+    velocity: Infinity,
+    height: Infinity,
+    verticalVelocity: -Infinity,
+    compression: 99,
+    landing: -99,
+  }), "prediction must not mutate its input motor state");
+  assert.ok(prediction.events.length > 0);
+  assert.ok(prediction.events.every((event, index, events) => (
+    Number.isFinite(event.offsetSeconds)
+      && event.offsetSeconds >= 0
+      && event.offsetSeconds <= prediction.advancedSeconds
+      && (index === 0 || event.ordinal > events[index - 1].ordinal)
+  )));
+  assert.ok(prediction.events.length <= QUADRUPED_MOTOR_LIMITS.maxCrossingEvents);
+  assert.ok(prediction.transitions.length <= QUADRUPED_MOTOR_LIMITS.maxTransitionEvents);
+
+  const advanced = advanceQuadrupedMotor(score, kicked, 99).motor;
+  for (const key of [
+    "position", "velocity", "height", "verticalVelocity", "compression", "landing",
+    "supportCount", "supportEnergy", "propulsion", "landingCount", "elapsedSeconds",
+    "simulatedSeconds", "remainderSeconds",
+  ]) {
+    assert.ok(Number.isFinite(advanced[key]), `${key} should remain finite`);
+  }
+  assert.ok(advanced.velocity >= 0 && advanced.velocity <= QUADRUPED_MOTOR_LIMITS.maxVelocity);
+  assert.ok(advanced.height >= 0 && advanced.height <= QUADRUPED_MOTOR_LIMITS.maxHeight);
+  assert.ok(advanced.compression >= 0 && advanced.compression <= 1);
+  assert.ok(advanced.landing >= 0 && advanced.landing <= 1);
+  const snapshot = quadrupedMotorSnapshot(score, advanced);
+  assert.ok(snapshot.frame >= 0 && snapshot.frame < QUADRUPED_STEP_COUNT);
+  assert.ok(snapshot.normalizedVelocity >= 0 && snapshot.normalizedVelocity <= 1.5);
+});
+
+test("clearing every foot removes traction so the score stalls instead of advancing on a hidden clock", () => {
+  const score = clearQuadrupedPattern(createQuadrupedState("cat", "run-leap"));
+  const initial = createQuadrupedMotorState(score);
+  const kicked = kickQuadrupedMotor(score, initial, 2);
+  const result = advanceQuadrupedMotor(score, kicked, 2);
+  assert.equal(kicked.velocity, 0);
+  assert.equal(result.motor.position, 0);
+  assert.equal(result.motor.stalled, true);
+  assert.equal(result.events.length, 0);
 });
 
 test("contact and terrain editing cycle in both directions", () => {
@@ -252,6 +388,8 @@ test("hostile external state is sanitized without losing the selected valid anim
     behaviorId: "not-a-gait",
     tempoBpm: Infinity,
     stride: -500,
+    momentum: Infinity,
+    gravity: -Infinity,
     mood: 99,
     groundResonance: -1,
     outputLevel: 12,
@@ -263,6 +401,8 @@ test("hostile external state is sanitized without losing the selected valid anim
   assert.equal(safe.behaviorId, "dance");
   assert.equal(safe.tempoBpm, QUADRUPED_LIMITS.tempoBpm[0]);
   assert.equal(safe.stride, QUADRUPED_LIMITS.stride[0]);
+  assert.equal(safe.momentum, QUADRUPED_LIMITS.momentum[0]);
+  assert.equal(safe.gravity, QUADRUPED_LIMITS.gravity[0]);
   assert.equal(safe.mood, 1);
   assert.equal(safe.groundResonance, 0);
   assert.equal(safe.outputLevel, QUADRUPED_LIMITS.outputLevel[1]);

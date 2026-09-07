@@ -10,7 +10,8 @@ test.describe("Quadruped", () => {
     await expect(page.getByRole("heading", { name: /quadruped/i })).toBeVisible();
     await expect(page.getByRole("grid")).toHaveAttribute("aria-rowcount", "7");
     await expect(page.getByRole("gridcell")).toHaveCount(112);
-    await expect(page.locator("[data-behavior-id]")).toHaveCount(5);
+    await expect(page.locator("[data-animal-id]")).toHaveCount(7);
+    await expect(page.locator("[data-behavior-id]")).toHaveCount(34);
     await expect(page.locator(".quadruped-cabinet-frame")).toHaveCount(16);
     await expect(page.locator(".quadruped-cabinet-frame canvas")).toHaveCount(16);
 
@@ -23,6 +24,11 @@ test.describe("Quadruped", () => {
     const firstStep = await page.locator("#stageStep").textContent();
     await page.waitForTimeout(500);
     expect(await page.locator("#stageStep").textContent()).not.toBe(firstStep);
+    const pauseFrame = await page.locator("#stage").getAttribute("data-frame");
+    await play.click();
+    await page.waitForTimeout(350);
+    expect(await page.locator("#stage").getAttribute("data-frame")).toBe(pauseFrame);
+    await play.click();
 
     const firstFoot = page.getByRole("button", { name: /^Left front foot, step 1:/ });
     await expect(firstFoot).toHaveAttribute("data-level", "off");
@@ -52,7 +58,7 @@ test.describe("Quadruped", () => {
 
     await page.getByRole("button", { name: /^Unicorn/ }).click();
     await expect(page.locator("#animalReadout")).toHaveText("Unicorn");
-    await expect(page.locator("[data-behavior-id]")).toHaveCount(8);
+    await expect(page.locator("[data-behavior-id]")).toHaveCount(34);
     await page.getByRole("button", { name: "Trot" }).click();
     await expect(page.locator("#behaviorReadout")).toHaveText("Trot");
     await expect(page.locator("#behaviorDescription")).toContainText("diagonal pairs");
@@ -62,6 +68,52 @@ test.describe("Quadruped", () => {
     await page.getByRole("button", { name: /^Elephant/ }).click();
     await expect(page.getByRole("button", { name: /^Right hind foot, step 1: off/ })).toHaveAttribute("data-level", "off");
     expect(pageErrors).toEqual([]);
+  });
+
+  test("foot propulsion is the only clock and an empty score coasts to a stall", async ({ page }) => {
+    await page.goto("/quadruped.html", { waitUntil: "domcontentloaded" });
+    const play = page.locator("#playButton");
+    const canvas = page.locator("#stage");
+    await play.click();
+    await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity")), { timeout: 3_000 }).toBeGreaterThan(0.1);
+    await expect.poll(async () => page.locator(".quadruped-cabinet-frame[data-playing='true']").count()).toBe(1);
+    const liveFrame = Number(await canvas.getAttribute("data-frame"));
+    await expect(page.locator(`.quadruped-cabinet-frame[data-step="${liveFrame}"]`)).toHaveAttribute("data-playing", "true");
+
+    await page.locator("#clearButton").click();
+    await expect(page.locator("#playState")).toContainText("stalled", { timeout: 15_000 });
+    await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity")), { timeout: 15_000 }).toBe(0);
+    const stalledFrame = await canvas.getAttribute("data-frame");
+    await page.waitForTimeout(350);
+    expect(await canvas.getAttribute("data-frame")).toBe(stalledFrame);
+    await expect(play).toHaveAttribute("aria-pressed", "true");
+
+    const newPush = page.getByRole("button", { name: /^Left front foot, step 1: off/ });
+    await newPush.click();
+    await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity")), { timeout: 3_000 }).toBeGreaterThan(0.1);
+    await expect(page.locator("#playState")).not.toContainText("stalled");
+
+    await page.locator("#clearButton").click();
+    await expect(page.locator("#playState")).toContainText("stalled", { timeout: 15_000 });
+    await page.locator('[data-animal-id="gazelle"]').click();
+    await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity")), { timeout: 3_000 }).toBeGreaterThan(0.1);
+    await expect(page.locator("#playState")).not.toContainText("stalled");
+  });
+
+  test("every animal can borrow the full gait dictionary", async ({ page }) => {
+    await page.goto("/quadruped.html", { waitUntil: "domcontentloaded" });
+    for (const animal of ["Elephant", "Unicorn", "Gazelle", "Cat", "Cheetah", "Giraffe", "Lizard"]) {
+      await page.getByRole("button", { name: new RegExp(`^${animal}`) }).click();
+      await expect(page.locator("[data-behavior-id]")).toHaveCount(34);
+      const activeGaitIsVisible = await page.evaluate(() => {
+        const list = document.querySelector("#behaviorButtons")?.getBoundingClientRect();
+        const active = document.querySelector('#behaviorButtons [aria-pressed="true"]')?.getBoundingClientRect();
+        return Boolean(list && active && active.top >= list.top - 1 && active.bottom <= list.bottom + 1);
+      });
+      expect(activeGaitIsVisible).toBe(true);
+      await page.getByRole("button", { name: "Run ×3 · leap", exact: true }).click();
+      await expect(page.locator("#behaviorReadout")).toContainText("Run ×3 · leap");
+    }
   });
 
   test("the old spelling redirects without losing query or hash", async ({ page }) => {
@@ -79,7 +131,7 @@ test.describe("Quadruped", () => {
     await audio.click();
     await expect(audio).toHaveAttribute("aria-pressed", "true");
     await expect(play).toHaveAttribute("aria-pressed", "true");
-    for (const animal of ["Elephant", "Unicorn", "Gazelle"]) {
+    for (const animal of ["Elephant", "Unicorn", "Gazelle", "Cat", "Cheetah", "Giraffe", "Lizard"]) {
       await page.getByRole("button", { name: new RegExp(`^${animal}`) }).click();
       await expect.poll(async () => page.evaluate(async () => {
         const { getSharedAudioOutputManager } = await import("./src/audio-output-manager.js");
@@ -121,6 +173,11 @@ test.describe("Quadruped", () => {
       expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewport + 1);
       expect(dimensions.canvasWidth).toBeLessThanOrEqual(viewport.width);
       expect(dimensions.gridScroll).toBeGreaterThan(dimensions.gridClient);
+
+      await page.locator("#playButton").click();
+      await page.locator("#sequenceGrid").scrollIntoViewIfNeeded();
+      const offscreenStep = await page.locator("#stageStep").textContent();
+      await expect.poll(async () => page.locator("#stageStep").textContent(), { timeout: 5_000 }).not.toBe(offscreenStep);
 
       for (const selector of ["#audioButton", "#playButton", "#restartButton", "#resetButton"]) {
         const control = page.locator(selector);

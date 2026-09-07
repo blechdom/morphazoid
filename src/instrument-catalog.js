@@ -282,8 +282,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   quadruped: define(
     "Quadruped gait sequencer",
-    "Keeps Elephant, Unicorn, or Gazelle centered above sixteen motion-study cabinet cards while four feet and a tail play distinct voices on scrolling terrain and each head answers with its own melodic phrase.",
-    "Choose a researched gait-inspired rhythm, tap footfalls from off to soft to loud, change the ground, then hear and see the rewritten stride without stopping transport.",
+    "Keeps Elephant, Unicorn, Gazelle, Cat, Cheetah, Giraffe, or Lizard centered above sixteen motion-study cabinet cards; four feet and a tail keep distinct voices on scrolling terrain, the feet drive the score, and each head answers with a species-specific melodic phrase.",
+    "Choose any gait, tap footfalls from off to soft to loud, and change the ground; traction advances the music, momentum coasts, and gravity brings airborne bodies home.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
   "colony-syrinx": define(
