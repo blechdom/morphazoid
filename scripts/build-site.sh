@@ -36,7 +36,7 @@ while IFS= read -r -d '' source_path; do
   [[ -f "$repo_root/$source_path" ]] || continue
 
   case "$source_path" in
-    .github/*|.storybook/*|stories/*|tests/*|morphazoidical/tests/*|scripts/*|dist/*|dist-wax/*|storybook-static/*|*.stories.js)
+    .github/*|.storybook/*|stories/*|tests/*|morphazoidical/tests/*|scripts/*|src/xyflow/*|dist/*|dist-wax/*|storybook-static/*|*.stories.js)
       continue
       ;;
   esac
@@ -558,6 +558,7 @@ for worktree_runtime_file in \
   shader-synth-playground.html \
   shader-synth-playground.css \
   shader-synth-playground-app.js \
+  shader-synth-playground-bootstrap.js \
   src/shader-synth-playground.js \
   src/shader-synth-playground-audio-assets.js \
   src/shader-synth-playground-extra.js \
@@ -1152,6 +1153,7 @@ required_files=(
   shader-synth-playground.html
   shader-synth-playground.css
   shader-synth-playground-app.js
+  shader-synth-playground-bootstrap.js
   src/shader-synth-playground.js
   src/shader-synth-playground-audio-assets.js
   src/shader-synth-playground-extra.js
@@ -1365,6 +1367,7 @@ for excluded_path in \
   scripts \
   .github \
   node_modules \
+  src/xyflow \
   package.json \
   README.md \
   .preview-cdp.ps1

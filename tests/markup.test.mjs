@@ -401,7 +401,11 @@ test("the mobile instrument markup exposes the complete compact control surface"
   const manifest = JSON.parse(packageJson);
   assert.equal(manifest.name, "morphazoid");
   assert.equal(manifest.type, "module");
-  assert.equal(manifest.dependencies, undefined);
+  assert.deepEqual(
+    Object.keys(manifest.dependencies ?? {}).sort(),
+    ["@xyflow/react", "react", "react-dom"],
+    "runtime dependencies are confined to the optional static XYFlow renderer",
+  );
   assert.equal(
     manifest.scripts["build:deploy"],
     "npm run build:site && npm run build:storybook -- --output-dir dist/storybook",
@@ -415,10 +419,11 @@ test("the mobile instrument markup exposes the complete compact control surface"
       "@storybook/addon-a11y",
       "@storybook/addon-docs",
       "@storybook/html-vite",
+      "esbuild-wasm",
       "storybook",
       "vite",
     ],
     "browser QA and component-catalog tooling must remain development-only",
   );
-  assert.doesNotMatch(packageJson, /next|react|typescript/i);
+  assert.doesNotMatch(packageJson, /next|typescript/i);
 });

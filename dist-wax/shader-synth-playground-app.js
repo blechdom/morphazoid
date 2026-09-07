@@ -112,6 +112,22 @@ const CATEGORY_ORDER = Object.freeze([
   "output",
 ]);
 
+const PALETTE_ICON_PATHS = Object.freeze({
+  source: "M2 9c2.2-6.2 4.2 6.2 6.2 0S12.4 2.8 15 9",
+  modulation: "M2 12 5.5 4 9 12 12.5 4 16 12",
+  geometry: "M9 2 16 9 9 16 2 9Z M9 5v8M5 9h8",
+  dynamics: "M3 14V9M7 14V5M11 14V3M15 14V7",
+  nonlinear: "M2 13 5 5l4 8 4-8 3 8",
+  space: "M3 12c4.8 0 4.8-6 0-6M7 14c7.2 0 7.2-10 0-10M12 15c6 0 6-12 0-12",
+  spectral: "M2 11V7M5 14V4M8 12V6M11 15V3M14 12V6M17 10V8",
+  filter: "M2 4h14l-5.5 6v4l-3 2v-6Z",
+  control: "M9 2a7 7 0 1 0 0 14A7 7 0 0 0 9 2Zm0 3v4l3 2",
+  compose: "M3 5h12M3 9h12M3 13h12M6 3v4M12 7v4M8 11v4",
+  shape: "M2 13c2-8 5-8 7-3s5 5 7-5",
+  utility: "M4 4h4v4H4zM10 10h4v4h-4zM8 6l2 2M8 12H6V8",
+  output: "M2 9h12M10 5l4 4-4 4M16 4v10",
+});
+
 const COMBO_FAMILY_CATEGORIES = Object.freeze({
   "wave-pan": "tonal",
   "fold-motion": "texture",
@@ -234,9 +250,13 @@ function safeSupport() {
 }
 
 const support = safeSupport();
+const graphRendererFactory = globalThis.MorphazoidShaderSynthGraphRenderer ?? null;
+let graphRenderer = null;
+let graphRendererMountFailed = false;
 
 function spatialGraphAvailable() {
-  return !globalThis.matchMedia?.("(max-width: 720px)")?.matches;
+  return Boolean(graphRendererFactory?.mount)
+    || !globalThis.matchMedia?.("(max-width: 720px)")?.matches;
 }
 
 function patchFromPreset(preset) {
@@ -757,6 +777,7 @@ function syncPatch({ render = true, announceChange = false } = {}) {
   else {
     drawCables();
     syncPatchStatus();
+    renderExternalGraph();
     const patchSelect = $("patchSelect");
     if (patchSelect) {
       patchSelect.value = currentPatchSelection();
@@ -787,6 +808,7 @@ function syncPatchStatus() {
     `Shader audio patch with ${nodeCount} modules and ${cableCount} connections. Audio ${state.audioOn ? "on" : "off"}.`,
   );
   $("graphEmptyState").hidden = nodeCount !== 0;
+  syncModulePaletteAvailability();
   syncExecutionShape();
 }
 
@@ -868,52 +890,137 @@ function formatValue(param, value) {
   return `${numeric.toFixed(decimals)}${param.unit ? ` ${param.unit}` : ""}`;
 }
 
-function renderHearMenu() {
-  const select = $("moduleHearSelect");
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Choose a module…";
-  const fragments = [placeholder];
-  const grouped = new Map();
-  for (const module of modules) {
-    const category = module.category || "utility";
-    if (!grouped.has(category)) grouped.set(category, []);
-    grouped.get(category).push(module);
-  }
-  const categories = [...grouped.keys()].sort((left, right) => {
-    const leftIndex = CATEGORY_ORDER.indexOf(left);
-    const rightIndex = CATEGORY_ORDER.indexOf(right);
-    return (leftIndex < 0 ? CATEGORY_ORDER.length : leftIndex)
-      - (rightIndex < 0 ? CATEGORY_ORDER.length : rightIndex);
-  });
-  for (const category of categories) {
-    const group = document.createElement("optgroup");
-    group.label = CATEGORY_LABELS[category] ?? category;
-    for (const module of grouped.get(category)) {
-      const option = document.createElement("option");
-      option.value = module.id;
-      option.textContent = module.label;
-      group.append(option);
-    }
-    fragments.push(group);
-  }
-  select.replaceChildren(...fragments);
-  syncHearModuleButton();
+function categoryOrderIndex(category) {
+  const index = CATEGORY_ORDER.indexOf(category);
+  return index < 0 ? CATEGORY_ORDER.length : index;
 }
 
-function syncHearModuleButton() {
-  const module = moduleById.get($("moduleHearSelect").value);
-  const button = $("moduleHearButton");
-  button.disabled = !module;
-  button.setAttribute("aria-label", module ? `Hear ${module.label}` : "Hear selected module");
+function createPaletteIcon(category, className) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 18 18");
+  svg.setAttribute("aria-hidden", "true");
+  if (className) svg.setAttribute("class", className);
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", PALETTE_ICON_PATHS[category] ?? PALETTE_ICON_PATHS.utility);
+  svg.append(path);
+  return svg;
 }
 
-function renderAddMenu() {
-  const select = $("moduleAddSelect");
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Choose a module…";
-  const fragments = [placeholder];
+function moduleMonogram(label) {
+  const words = String(label)
+    .replace(/[^a-z0-9]+/gi, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length > 1) return `${words[0][0]}${words.at(-1)[0]}`.toUpperCase();
+  return (words[0] ?? "M").slice(0, 2).toUpperCase();
+}
+
+function compactModuleLabel(label) {
+  const words = String(label).trim().split(/\s+/);
+  const candidate = words.length > 1
+    ? words.find((word) => word.length >= 4) ?? words[0]
+    : words[0];
+  return (candidate || "Module").slice(0, 8);
+}
+
+function hideModulePaletteTooltip() {
+  const tooltip = $("modulePaletteTooltip");
+  if (!tooltip) return;
+  tooltip.hidden = true;
+  tooltip.textContent = "";
+}
+
+function showModulePaletteTooltip(button) {
+  const tooltip = $("modulePaletteTooltip");
+  const label = button?.dataset.moduleCategoryLabel || button?.getAttribute("aria-label");
+  if (!tooltip || !label) return;
+
+  tooltip.textContent = label;
+  tooltip.hidden = false;
+  const buttonRect = button.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const viewportWidth = globalThis.innerWidth || document.documentElement.clientWidth;
+  const viewportHeight = globalThis.innerHeight || document.documentElement.clientHeight;
+  const horizontalRail = globalThis.matchMedia?.("(max-width: 720px)")?.matches === true;
+  const gap = 8;
+
+  const left = horizontalRail
+    ? clamp(buttonRect.left + ((buttonRect.width - tooltipRect.width) / 2), gap, Math.max(gap, viewportWidth - tooltipRect.width - gap))
+    : clamp(buttonRect.right + gap, gap, Math.max(gap, viewportWidth - tooltipRect.width - gap));
+  const top = horizontalRail
+    ? clamp(buttonRect.bottom + gap, gap, Math.max(gap, viewportHeight - tooltipRect.height - gap))
+    : clamp(buttonRect.top + ((buttonRect.height - tooltipRect.height) / 2), gap, Math.max(gap, viewportHeight - tooltipRect.height - gap));
+
+  tooltip.style.left = `${Math.round(left)}px`;
+  tooltip.style.top = `${Math.round(top)}px`;
+}
+
+function createModulePaletteItem(module) {
+  const fixedOutput = module.required || module.fixed || module.category === "output";
+  const item = document.createElement("div");
+  item.className = "module-palette-item";
+  item.dataset.moduleId = module.id;
+  item.style.setProperty("--module-color", module.color);
+
+  const addButton = document.createElement("button");
+  addButton.type = "button";
+  addButton.className = "module-palette-add";
+  addButton.dataset.moduleAction = "add";
+  addButton.dataset.moduleId = module.id;
+  addButton.setAttribute(
+    "aria-label",
+    fixedOutput ? `Select ${module.label} in the patch` : `Add ${module.label} to the patch`,
+  );
+  addButton.title = fixedOutput ? `Select ${module.label}` : `Add ${module.label}`;
+
+  const icon = document.createElement("span");
+  icon.className = "module-palette-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.append(createPaletteIcon(module.category, "module-palette-icon-shape"));
+  const monogram = document.createElement("b");
+  monogram.textContent = moduleMonogram(module.label);
+  icon.append(monogram);
+
+  const name = document.createElement("span");
+  name.className = "module-palette-name";
+  name.textContent = compactModuleLabel(module.label);
+  addButton.append(icon, name);
+
+  const hearButton = document.createElement("button");
+  hearButton.type = "button";
+  hearButton.className = "module-palette-hear";
+  hearButton.dataset.moduleAction = "hear";
+  hearButton.dataset.moduleId = module.id;
+  hearButton.setAttribute("aria-label", `Hear ${module.label}; replaces the current patch`);
+  hearButton.title = `Hear ${module.label} · replaces current patch`;
+  hearButton.innerHTML = '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 7h3l4-3v10l-4-3H3Z"/><path d="M12.5 6.2c1.4 1.5 1.4 4.1 0 5.6M14.7 4.2c2.4 2.7 2.4 6.9 0 9.6"/></svg>';
+
+  item.append(addButton, hearButton);
+  return item;
+}
+
+function setModulePaletteCategory(category, expanded = true) {
+  for (const button of $("modulePaletteGroups").querySelectorAll("[data-module-category]")) {
+    const isTarget = button.dataset.moduleCategory === category;
+    const shouldExpand = isTarget && expanded;
+    button.setAttribute("aria-expanded", String(shouldExpand));
+    const items = $(button.getAttribute("aria-controls"));
+    if (items) items.hidden = !shouldExpand;
+  }
+}
+
+function revealModuleInPalette(moduleId) {
+  const module = moduleById.get(moduleId);
+  if (!module) return;
+  setModulePaletteCategory(module.category, true);
+  for (const item of $("modulePaletteGroups").querySelectorAll(".module-palette-item")) {
+    item.classList.toggle("is-auditioned", item.dataset.moduleId === moduleId);
+  }
+}
+
+function renderModulePalette() {
+  const palette = $("modulePaletteGroups");
   const grouped = new Map();
   for (const module of modules) {
     const category = module.category || "utility";
@@ -921,36 +1028,68 @@ function renderAddMenu() {
     grouped.get(category).push(module);
   }
   const orderedGroups = [...grouped].sort(([left], [right]) => {
-    const leftIndex = CATEGORY_ORDER.indexOf(left);
-    const rightIndex = CATEGORY_ORDER.indexOf(right);
-    return (leftIndex < 0 ? CATEGORY_ORDER.length : leftIndex)
-      - (rightIndex < 0 ? CATEGORY_ORDER.length : rightIndex);
+    return categoryOrderIndex(left) - categoryOrderIndex(right);
   });
+  const groups = [];
   for (const [category, entries] of orderedGroups) {
-    const group = document.createElement("optgroup");
-    group.label = CATEGORY_LABELS[category] ?? category;
-    entries.sort((left, right) => left.label.localeCompare(right.label));
-    for (const module of entries) {
-      const option = document.createElement("option");
-      option.value = module.id;
-      const fixedOutput = module.required || module.fixed || module.category === "output";
-      option.disabled = fixedOutput;
-      option.textContent = fixedOutput ? `${module.label} — already in graph` : module.label;
-      group.append(option);
-    }
-    fragments.push(group);
+    const label = CATEGORY_LABELS[category] ?? category;
+    const section = document.createElement("section");
+    section.className = "module-palette-group";
+    section.dataset.category = category;
+
+    const heading = document.createElement("h2");
+    heading.className = "module-palette-group-title";
+    const toggle = document.createElement("button");
+    const toggleId = `modulePaletteCategory-${category}`;
+    const itemsId = `modulePaletteItems-${category}`;
+    toggle.type = "button";
+    toggle.className = "module-palette-category";
+    toggle.id = toggleId;
+    toggle.dataset.moduleCategory = category;
+    toggle.dataset.moduleCategoryLabel = label;
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-controls", itemsId);
+    toggle.setAttribute("aria-label", label);
+    toggle.title = label;
+    toggle.append(createPaletteIcon(category, "module-palette-category-icon"));
+    const categoryLabel = document.createElement("span");
+    categoryLabel.textContent = label.split(" · ")[0];
+    const count = document.createElement("small");
+    count.textContent = String(entries.length);
+    count.setAttribute("aria-hidden", "true");
+    toggle.append(categoryLabel, count);
+    heading.append(toggle);
+
+    const items = document.createElement("div");
+    items.className = "module-palette-items";
+    items.id = itemsId;
+    items.setAttribute("role", "group");
+    items.setAttribute("aria-labelledby", toggleId);
+    items.hidden = true;
+    entries
+      .sort((left, right) => left.label.localeCompare(right.label))
+      .forEach((module) => items.append(createModulePaletteItem(module)));
+    section.append(heading, items);
+    groups.push(section);
   }
-  select.replaceChildren(...fragments);
-  select.dataset.moduleCount = String(modules.length);
-  syncAddModuleButton();
+  palette.replaceChildren(...groups);
+  $("modulePalette").dataset.moduleCount = String(modules.length);
+  syncModulePaletteAvailability();
 }
 
-function syncAddModuleButton() {
-  const module = moduleById.get($("moduleAddSelect").value);
-  const addable = Boolean(module && !module.required && !module.fixed && module.category !== "output");
-  const button = $("moduleAddButton");
-  button.disabled = !addable;
-  button.setAttribute("aria-label", addable ? `Add ${module.label} to the patch` : "Add selected module to the patch");
+function syncModulePaletteAvailability() {
+  const atCapacity = patchNodes().length >= (SHADER_PLAYGROUND_LIMITS?.maxNodes ?? 16);
+  for (const button of $("modulePaletteGroups").querySelectorAll('[data-module-action="add"]')) {
+    const module = moduleById.get(button.dataset.moduleId);
+    if (!module) continue;
+    const fixedOutput = module.required || module.fixed || module.category === "output";
+    button.disabled = atCapacity && !fixedOutput;
+    button.title = button.disabled
+      ? `Patch full · ${module.label} cannot be added`
+      : fixedOutput
+        ? `Select ${module.label}`
+        : `Add ${module.label}`;
+  }
 }
 
 function isAuthoredScene(combo) {
@@ -1165,6 +1304,151 @@ function nodeFlowSummary(node, module) {
   return `${inputTypes.join(" + ") || "signal"} → audio out`;
 }
 
+function graphParameterView(node, module, rawParam) {
+  const param = effectiveParameterDescriptor(module, node, rawParam);
+  const value = clamp(node.params?.[param.id] ?? param.default, param.min, param.max);
+  if (param.scale === "log" && param.min > 0 && param.max > param.min) {
+    const sliderValue = Math.log(value / param.min) / Math.log(param.max / param.min);
+    return {
+      id: param.id,
+      label: param.label,
+      formattedValue: formatValue(param, value),
+      sliderMin: 0,
+      sliderMax: 1,
+      sliderStep: 0.001,
+      sliderValue: clamp(sliderValue, 0, 1),
+      valueScale: "log",
+    };
+  }
+  return {
+    id: param.id,
+    label: param.label,
+    formattedValue: formatValue(param, value),
+    sliderMin: param.min,
+    sliderMax: param.max,
+    sliderStep: param.step,
+    sliderValue: value,
+    valueScale: "linear",
+  };
+}
+
+function graphRendererSnapshot() {
+  const nodes = patchNodes().map((node) => {
+    const module = moduleForNode(node);
+    if (!module) return null;
+    const quickParams = module.params.slice(0, 2).map((param) => graphParameterView(node, module, param));
+    return {
+      id: node.id,
+      moduleId: module.id,
+      label: module.label,
+      category: module.category,
+      color: module.color,
+      role: module.role,
+      execution: module.execution,
+      position: nodePosition(node),
+      inputs: module.inputs.map((port) => ({
+        id: port.id,
+        label: port.label,
+        type: port.type,
+        types: [...new Set(port.types ?? [port.type])],
+      })),
+      outputs: module.outputs.map((port) => ({
+        id: port.id,
+        label: port.label,
+        type: port.type,
+      })),
+      params: quickParams,
+      extraParamCount: Math.max(0, module.params.length - quickParams.length),
+      selected: state.selectedNodeId === node.id,
+      bypassed: Boolean(module.stateful && node.enabled === false),
+      removable: !(module.required || module.fixed || module.id === "output" || module.category === "output"),
+      pendingPort: state.pendingPort ? { ...state.pendingPort } : null,
+    };
+  }).filter(Boolean);
+  const edges = patchConnections().map((connection, index) => {
+    const ends = connectionEnds(connection);
+    const id = connectionId(connection, index);
+    return {
+      id,
+      source: ends.fromNode,
+      sourceHandle: ends.fromPort,
+      target: ends.toNode,
+      targetHandle: ends.toPort,
+      signalType: cableSignalType(connection),
+      selected: state.selectedCableId === id,
+    };
+  });
+  return {
+    nodes,
+    edges,
+    audioOn: state.audioOn,
+    playing: state.playing,
+    maxNodes: SHADER_PLAYGROUND_LIMITS?.maxNodes ?? 16,
+    maxConnections: SHADER_PLAYGROUND_LIMITS?.maxConnections ?? 24,
+  };
+}
+
+function markGraphRendererFailure(error) {
+  graphRendererMountFailed = true;
+  delete document.body.dataset.graphRendererReady;
+  const status = $("graphRendererStatus");
+  if (status) {
+    status.hidden = false;
+    status.textContent = "Original canvas · XYFlow unavailable";
+  }
+  console.warn("XYFlow comparison renderer could not mount; using the original canvas.", error);
+}
+
+function ensureGraphRenderer() {
+  if (graphRenderer || graphRendererMountFailed || typeof graphRendererFactory?.mount !== "function") {
+    return graphRenderer;
+  }
+  const element = $("xyflowGraphRoot");
+  if (!element) return null;
+  try {
+    graphRenderer = graphRendererFactory.mount({
+      element,
+      snapshot: graphRendererSnapshot(),
+      actions: graphRendererActions(),
+    });
+    return graphRenderer;
+  } catch (error) {
+    markGraphRendererFailure(error);
+    return null;
+  }
+}
+
+function renderExternalGraph() {
+  if (!graphRenderer) return;
+  graphRenderer.update(graphRendererSnapshot());
+}
+
+function renderGraphSurface() {
+  const renderer = state.viewMode === "patch" ? ensureGraphRenderer() : graphRenderer;
+  const externalActive = state.viewMode === "patch" && Boolean(renderer);
+  const viewport = $("graphViewport");
+  const externalRoot = $("xyflowGraphRoot");
+  viewport.dataset.graphRenderer = externalActive ? "xyflow" : "original";
+  document.body.dataset.graphRenderer = externalActive ? "xyflow" : "original";
+  if (externalRoot) externalRoot.hidden = !externalActive;
+  $("patchCables").hidden = externalActive;
+  $("patchNodes").hidden = externalActive;
+  if (renderer) renderer.update(graphRendererSnapshot());
+  if (externalActive) {
+    refreshConnectionUI();
+    return;
+  }
+
+  const rawNodes = patchNodes();
+  const order = state.viewMode === "chain" ? validateShaderPlaygroundPatch(state.patch).order ?? [] : [];
+  const orderedIds = [...order, ...rawNodes.map((node) => node.id).filter((id) => !order.includes(id))];
+  const byId = new Map(rawNodes.map((node) => [node.id, node]));
+  const nodes = state.viewMode === "chain" ? orderedIds.map((id) => byId.get(id)).filter(Boolean) : rawNodes;
+  $("patchNodes").replaceChildren(...nodes.map(createNodeElement).filter(Boolean));
+  refreshConnectionUI();
+  globalThis.requestAnimationFrame?.(drawCables);
+}
+
 function createNodeElement(node, index) {
   const module = moduleForNode(node);
   if (!module) return null;
@@ -1265,7 +1549,21 @@ function cableSignalType(connection) {
   return module?.outputs.find((port) => port.id === ends.fromPort)?.type ?? "audio";
 }
 
+function selectCable(cableId) {
+  if (!cableId) return;
+  if (state.selectedCableId === cableId) {
+    removeSelectedCable();
+    return;
+  }
+  state.selectedCableId = cableId;
+  state.selectedNodeId = null;
+  state.pendingPort = null;
+  renderPatch();
+  setConnectionHint("Cable selected. Press Delete or tap it again to remove it.");
+}
+
 function drawCables() {
+  if (state.viewMode === "patch" && graphRenderer) return;
   const layer = $("patchCableLayer");
   const svg = $("patchCables");
   const width = $("graphViewport").clientWidth;
@@ -1294,16 +1592,7 @@ function drawCables() {
     hit.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (state.selectedCableId === id) {
-        removeSelectedCable();
-        return;
-      }
-      state.selectedCableId = id;
-      state.selectedNodeId = null;
-      state.pendingPort = null;
-      drawCables();
-      renderInspector();
-      setConnectionHint("Cable selected. Press Delete or tap it again to remove it.");
+      selectCable(id);
     });
     group.append(visible, hit);
     layer.append(group);
@@ -1312,18 +1601,11 @@ function drawCables() {
 
 function renderPatch() {
   syncViewMode();
-  const rawNodes = patchNodes();
-  const order = state.viewMode === "chain" ? validateShaderPlaygroundPatch(state.patch).order ?? [] : [];
-  const orderedIds = [...order, ...rawNodes.map((node) => node.id).filter((id) => !order.includes(id))];
-  const byId = new Map(rawNodes.map((node) => [node.id, node]));
-  const nodes = state.viewMode === "chain" ? orderedIds.map((id) => byId.get(id)).filter(Boolean) : rawNodes;
-  $("patchNodes").replaceChildren(...nodes.map(createNodeElement).filter(Boolean));
-  refreshConnectionUI();
+  renderGraphSurface();
   renderPresets();
   renderPatchControls();
   renderInspector();
   syncPatchStatus();
-  globalThis.requestAnimationFrame?.(drawCables);
 }
 
 function describePort(port, direction) {
@@ -1944,7 +2226,7 @@ function setConnectionHint(message, type = "") {
   hint.style.setProperty("--signal-color", SIGNAL_COLORS[type] ?? "var(--accent)");
 }
 
-function connectionCompatible(first, second) {
+function connectionCompatible(first, second, { patch = state.patch } = {}) {
   if (!first || !second || first.direction === second.direction) {
     return { valid: false, reason: "Connect an output port to an input port." };
   }
@@ -1955,7 +2237,7 @@ function connectionCompatible(first, second) {
   if (!outputPort || !inputPort) return { valid: false, reason: "Choose an output port and an input port." };
   try {
     return canConnectShaderPlaygroundPorts(
-      state.patch,
+      patch,
       { node: output.nodeId, port: output.portId },
       { node: input.nodeId, port: input.portId },
     );
@@ -1966,8 +2248,42 @@ function connectionCompatible(first, second) {
   }
 }
 
-function handlePortClick(button) {
-  const endpoint = endpointForPortButton(button);
+function connectEndpoints(first, second, { replaceConnectionId = null } = {}) {
+  const existingConnections = patchConnections();
+  const connections = replaceConnectionId
+    ? existingConnections.filter((connection, index) => connectionId(connection, index) !== replaceConnectionId)
+    : [...existingConnections];
+  if (!replaceConnectionId && connections.length >= (SHADER_PLAYGROUND_LIMITS?.maxConnections ?? 24)) {
+    const reason = `This GPU patch is full at ${SHADER_PLAYGROUND_LIMITS?.maxConnections ?? 24} cables.`;
+    setConnectionHint(reason);
+    announce(reason);
+    return { valid: false, reason };
+  }
+  const candidatePatch = copy(state.patch);
+  setConnections(candidatePatch, copy(connections));
+  const compatibility = connectionCompatible(first, second, { patch: candidatePatch });
+  if (!compatibility.valid) {
+    setConnectionHint(compatibility.reason ?? "Those ports cannot connect.", second?.type);
+    announce(`Connection not made. ${compatibility.reason ?? "Those ports cannot connect."}`);
+    return compatibility;
+  }
+  const from = first.direction === "output" ? first : second;
+  const to = first.direction === "input" ? first : second;
+  const connection = makeConnection(from, to);
+  if (replaceConnectionId) connection.id = replaceConnectionId;
+  connections.push(connection);
+  setConnections(state.patch, connections);
+  state.pendingPort = null;
+  state.selectedCableId = replaceConnectionId;
+  state.presetId = null;
+  state.comboId = null;
+  setConnectionHint(replaceConnectionId ? "Cable rerouted. The route is live." : "Connected. The route is live.");
+  syncPatch({ announceChange: true });
+  return compatibility;
+}
+
+function activatePort(endpoint, label = endpoint?.portId ?? "port") {
+  if (!endpoint) return;
   if (sameEndpoint(state.pendingPort, endpoint)) {
     state.pendingPort = null;
     setConnectionHint("Connection cancelled. Start again from any OUT or IN port.");
@@ -1977,36 +2293,17 @@ function handlePortClick(button) {
   if (!state.pendingPort) {
     state.pendingPort = endpoint;
     setConnectionHint(
-      `Step 2 of 2 — choose a glowing ${endpoint.direction === "input" ? "OUT" : "IN"} port for ${button.textContent}.`,
+      `Step 2 of 2 — choose a glowing ${endpoint.direction === "input" ? "OUT" : "IN"} port for ${label}.`,
       endpoint.type,
     );
     renderPatch();
     return;
   }
-  const compatibility = connectionCompatible(state.pendingPort, endpoint);
-  if (!compatibility.valid) {
-    setConnectionHint(compatibility.reason ?? `${state.pendingPort.type} cannot feed ${endpoint.type} here.`, endpoint.type);
-    return;
-  }
-  const from = state.pendingPort.direction === "output" ? state.pendingPort : endpoint;
-  const to = state.pendingPort.direction === "input" ? state.pendingPort : endpoint;
-  const connections = patchConnections().filter((connection) => {
-    const ends = connectionEnds(connection);
-    return !(ends.toNode === to.nodeId && ends.toPort === to.portId);
-  });
-  const duplicate = connections.some((connection) => {
-    const ends = connectionEnds(connection);
-    return ends.fromNode === from.nodeId && ends.fromPort === from.portId
-      && ends.toNode === to.nodeId && ends.toPort === to.portId;
-  });
-  if (!duplicate) connections.push(makeConnection(from, to));
-  setConnections(state.patch, connections);
-  state.pendingPort = null;
-  state.selectedCableId = null;
-  state.presetId = null;
-  state.comboId = null;
-  setConnectionHint("Connected. The route is live.");
-  syncPatch({ announceChange: true });
+  connectEndpoints(state.pendingPort, endpoint);
+}
+
+function handlePortClick(button) {
+  activatePort(endpointForPortButton(button), button.textContent);
 }
 
 function hidePendingCable() {
@@ -2253,13 +2550,57 @@ function fitGraph({ silent = false } = {}) {
   const viewport = $("graphViewport");
   const width = Math.max(430, viewport.clientWidth);
   const height = Math.max(340, viewport.clientHeight);
-  const layout = layoutShaderPlaygroundPatch(state.patch, { width, height });
+  const externalActive = state.viewMode === "patch" && Boolean(graphRenderer);
+  const compactWidth = Boolean(globalThis.matchMedia?.("(max-width: 720px)")?.matches);
+  const shallowViewport = Boolean(globalThis.matchMedia?.("(max-height: 520px)")?.matches);
+  const externalLayout = externalActive
+    ? compactWidth || shallowViewport
+      ? {
+          nodeWidth: compactWidth ? 176 : 188,
+          nodeHeight: 224,
+          gapX: 52,
+          gapY: 52,
+          marginX: 24,
+          marginTop: 28,
+          marginBottom: 28,
+          width: compactWidth ? Math.max(width, 456) : width,
+        }
+      : {
+          nodeWidth: 188,
+          nodeHeight: 272,
+          gapX: 64,
+          gapY: 64,
+          marginX: 32,
+          marginTop: 40,
+          marginBottom: 40,
+        }
+    : {};
+  if (externalActive) {
+    const layoutWidth = externalLayout.width ?? width;
+    const columnCount = Math.max(
+      1,
+      Math.floor(
+        (layoutWidth - externalLayout.marginX * 2 + externalLayout.gapX)
+        / (externalLayout.nodeWidth + externalLayout.gapX),
+      ),
+    );
+    const rowCount = Math.ceil(nodes.length / columnCount);
+    const naturalHeight = externalLayout.marginTop
+      + externalLayout.nodeHeight
+      + externalLayout.marginBottom
+      + Math.max(0, rowCount - 1) * (externalLayout.nodeHeight + externalLayout.gapY);
+    externalLayout.height = Math.max(height, naturalHeight);
+  }
+  const layout = layoutShaderPlaygroundPatch(state.patch, { width, height, ...externalLayout });
   const positionById = new Map(layout.map((position) => [position.id, position]));
   nodes.forEach((node) => {
     const position = positionById.get(node.id);
     if (position) setNodePosition(node, position.x, position.y);
   });
   syncPatch({ render: true });
+  if (externalActive) {
+    globalThis.requestAnimationFrame?.(() => graphRenderer?.fit());
+  }
   if (!silent) announce("Graph arranged from sources to output.");
 }
 
@@ -2367,6 +2708,149 @@ function updateStatefulNodeEnabled(input) {
   announce(node.enabled
     ? `${module.label} GPU state is active.`
     : `${module.label} is bypassed. Input A passes through and its private GPU state is released.`);
+}
+
+function graphEndpoint(nodeId, portId, direction) {
+  if (!nodeId || !portId || !["input", "output"].includes(direction)) return null;
+  const endpoint = { nodeId, portId, direction };
+  const port = findPort(endpoint);
+  return port ? { ...endpoint, type: port.type } : null;
+}
+
+function graphConnectionEndpoints(connection) {
+  const from = graphEndpoint(connection?.source, connection?.sourceHandle, "output");
+  const to = graphEndpoint(connection?.target, connection?.targetHandle, "input");
+  return { from, to };
+}
+
+function validateGraphConnection(connection, { ignoreConnectionId = null } = {}) {
+  const { from, to } = graphConnectionEndpoints(connection);
+  if (!from || !to) return { valid: false, reason: "Choose an output port and an input port." };
+  const connections = ignoreConnectionId
+    ? patchConnections().filter((candidate, index) => connectionId(candidate, index) !== ignoreConnectionId)
+    : patchConnections();
+  if (!ignoreConnectionId && connections.length >= (SHADER_PLAYGROUND_LIMITS?.maxConnections ?? 24)) {
+    return { valid: false, reason: `This GPU patch is full at ${SHADER_PLAYGROUND_LIMITS?.maxConnections ?? 24} cables.` };
+  }
+  const candidatePatch = copy(state.patch);
+  setConnections(candidatePatch, copy(connections));
+  return connectionCompatible(from, to, { patch: candidatePatch });
+}
+
+function connectGraphConnection(connection) {
+  const { from, to } = graphConnectionEndpoints(connection);
+  if (!from || !to) return;
+  connectEndpoints(from, to);
+}
+
+function reconnectGraphConnection(cableId, connection) {
+  const { from, to } = graphConnectionEndpoints(connection);
+  if (!from || !to) return;
+  connectEndpoints(from, to, { replaceConnectionId: cableId });
+}
+
+function startGraphConnection(connection) {
+  const direction = connection?.handleType === "source" ? "output" : "input";
+  const endpoint = graphEndpoint(connection?.nodeId, connection?.handleId, direction);
+  if (!endpoint) return;
+  state.pendingPort = endpoint;
+  setConnectionHint(
+    `Drag to a compatible ${direction === "input" ? "OUT" : "IN"} port.`,
+    endpoint.type,
+  );
+  renderExternalGraph();
+}
+
+function finishGraphConnection() {
+  if (!state.pendingPort) return;
+  state.pendingPort = null;
+  setConnectionHint("Step 1 of 2 — select or drag an OUT port.");
+  renderExternalGraph();
+}
+
+function selectGraphPane() {
+  state.pendingPort = null;
+  state.selectedCableId = null;
+  setConnectionHint("Step 1 of 2 — select or drag an OUT port.");
+  renderPatch();
+}
+
+function selectGraphConnection(cableId) {
+  if (!cableId || state.selectedCableId === cableId) return;
+  state.selectedCableId = cableId;
+  state.selectedNodeId = null;
+  state.pendingPort = null;
+  renderPatch();
+  setConnectionHint("Cable selected. Press Delete or tap it again to remove it.");
+}
+
+function beginGraphNodeMove(nodeId) {
+  if (!findNode(nodeId)) return;
+  state.selectedNodeId = nodeId;
+  state.selectedCableId = null;
+  state.pendingPort = null;
+  renderInspector();
+  renderExternalGraph();
+}
+
+function moveGraphNode(nodeId, position) {
+  const node = findNode(nodeId);
+  if (!node) return;
+  setNodePosition(
+    node,
+    Math.round(clamp(position?.x, 0, 4096)),
+    Math.round(clamp(position?.y, 0, 4096)),
+  );
+  state.selectedNodeId = nodeId;
+  state.selectedCableId = null;
+  state.pendingPort = null;
+  state.presetId = null;
+  state.comboId = null;
+  syncPatch({ render: false });
+}
+
+function deleteGraphNode(nodeId) {
+  if (state.viewMode !== "patch") return;
+  if (!findNode(nodeId)) return;
+  state.selectedNodeId = nodeId;
+  state.selectedCableId = null;
+  removeSelectedNode();
+}
+
+function deleteGraphConnection(cableId) {
+  if (state.viewMode !== "patch") return;
+  state.selectedCableId = cableId;
+  state.selectedNodeId = null;
+  removeSelectedCable();
+}
+
+function setGraphParameter(nodeId, paramId, value, valueScale = "linear") {
+  updateNodeParameter({
+    dataset: { nodeId, paramId, valueScale },
+    value,
+  });
+}
+
+function graphRendererActions() {
+  return Object.freeze({
+    activatePort,
+    validateEndpoints: (first, second) => connectionCompatible(first, second),
+    validateConnection: validateGraphConnection,
+    connect: connectGraphConnection,
+    reconnect: reconnectGraphConnection,
+    startConnection: startGraphConnection,
+    finishConnection: finishGraphConnection,
+    cancelPendingConnection: finishGraphConnection,
+    selectNode: (nodeId) => selectGraphNode(nodeId),
+    selectConnection: selectGraphConnection,
+    activateConnection: selectCable,
+    selectPane: selectGraphPane,
+    beginMoveNode: beginGraphNodeMove,
+    moveNode: moveGraphNode,
+    deleteNode: deleteGraphNode,
+    deleteConnection: deleteGraphConnection,
+    setParameter: setGraphParameter,
+  });
 }
 
 function normalizeChunk(...args) {
@@ -2486,6 +2970,7 @@ function syncTransport() {
   if (selectedNode && shaderSynthPlaygroundAudioAssetSpec(selectedModule?.id)) {
     renderNodeAssetControl(selectedModule, selectedNode);
   }
+  renderExternalGraph();
 }
 
 function syncExecutionReadout(engine = state.engine) {
@@ -2623,22 +3108,53 @@ async function togglePlay() {
   }
 }
 
-$("moduleHearSelect").addEventListener("change", () => {
-  syncHearModuleButton();
-  const module = moduleById.get($("moduleHearSelect").value);
-  if (module) announce(`${module.label} selected. Press Hear to load its audition graph and start audio.`);
+$("modulePalette").addEventListener("click", (event) => {
+  const categoryButton = event.target.closest("button[data-module-category]");
+  if (categoryButton) {
+    const expand = categoryButton.getAttribute("aria-expanded") !== "true";
+    setModulePaletteCategory(categoryButton.dataset.moduleCategory, expand);
+    showModulePaletteTooltip(categoryButton);
+    return;
+  }
+
+  const moduleButton = event.target.closest("button[data-module-action][data-module-id]");
+  if (!moduleButton) return;
+  const moduleId = moduleButton.dataset.moduleId;
+  if (moduleButton.dataset.moduleAction === "hear") {
+    revealModuleInPalette(moduleId);
+    auditionModule(moduleId);
+    void startAudio({ play: true });
+    return;
+  }
+  addModule(moduleId);
 });
-$("moduleHearButton").addEventListener("click", () => {
-  const moduleId = $("moduleHearSelect").value;
-  if (!moduleId) return;
-  auditionModule(moduleId);
-  void startAudio({ play: true });
+
+$("modulePalette").addEventListener("pointerover", (event) => {
+  const categoryButton = event.target.closest?.("button[data-module-category]");
+  if (!categoryButton || categoryButton.contains(event.relatedTarget)) return;
+  showModulePaletteTooltip(categoryButton);
 });
-$("moduleAddSelect").addEventListener("change", syncAddModuleButton);
-$("moduleAddButton").addEventListener("click", () => {
-  const moduleId = $("moduleAddSelect").value;
-  if (moduleId) addModule(moduleId);
+
+$("modulePalette").addEventListener("pointerout", (event) => {
+  const categoryButton = event.target.closest?.("button[data-module-category]");
+  if (!categoryButton || categoryButton.contains(event.relatedTarget)) return;
+  hideModulePaletteTooltip();
 });
+
+$("modulePalette").addEventListener("focusin", (event) => {
+  const categoryButton = event.target.closest?.("button[data-module-category]");
+  if (categoryButton) showModulePaletteTooltip(categoryButton);
+});
+
+$("modulePalette").addEventListener("focusout", (event) => {
+  const categoryButton = event.target.closest?.("button[data-module-category]");
+  if (!categoryButton || categoryButton.contains(event.relatedTarget)) return;
+  hideModulePaletteTooltip();
+});
+
+$("modulePaletteGroups").addEventListener("scroll", hideModulePaletteTooltip, { passive: true });
+globalThis.addEventListener?.("resize", hideModulePaletteTooltip, { passive: true });
+globalThis.addEventListener?.("scroll", hideModulePaletteTooltip, { passive: true });
 
 $("presetButtons").addEventListener("change", (event) => {
   if (event.target.id !== "patchSelect") return;
@@ -2664,7 +3180,8 @@ function selectGraphNode(nodeId, { focus = false } = {}) {
   const module = moduleForNode(node);
   setConnectionHint(`${module?.label ?? "Module"} selected. Its live controls are in the inspector.`);
   if (focus) {
-    $("patchNodes").querySelector(`[data-node-id="${CSS.escape(node.id)}"]`)?.focus();
+    if (state.viewMode === "patch" && graphRenderer) graphRenderer.focusNode(node.id);
+    else $("patchNodes").querySelector(`[data-node-id="${CSS.escape(node.id)}"]`)?.focus();
   }
 }
 
@@ -2785,7 +3302,7 @@ $("graphViewport").addEventListener("pointerdown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  const presetArrowConflictTarget = event.target?.closest?.("input, textarea, select:not(#patchSelect), [contenteditable]:not([contenteditable='false']), [role='slider'], .patch-node");
+  const presetArrowConflictTarget = event.target?.closest?.("input, textarea, select:not(#patchSelect), [contenteditable]:not([contenteditable='false']), [role='slider'], .patch-node, .react-flow__node");
   if (
     !event.defaultPrevented
     && !event.isComposing
@@ -2803,7 +3320,11 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) {
     event.preventDefault();
-    $("moduleAddSelect").focus();
+    const palette = $("modulePalette");
+    const paletteTarget = palette.querySelector(
+      '.module-palette-items:not([hidden]) [data-module-action="add"]:not(:disabled)',
+    ) ?? palette.querySelector("[data-module-category]");
+    paletteTarget?.focus();
     return;
   }
   if (event.key === "Escape") {
@@ -2829,18 +3350,23 @@ const graphObserver = typeof ResizeObserver === "function"
 graphObserver?.observe($("graphViewport"));
 globalThis.addEventListener?.("resize", drawCables);
 globalThis.addEventListener?.("morphazoid:midi-input", handlePlaygroundMidiInput);
-globalThis.addEventListener?.("pagehide", () => {
+globalThis.addEventListener?.("pagehide", (event) => {
+  if (event.persisted) {
+    void stopAudio({ quiet: true });
+    return;
+  }
   if (state.scopeFrame) cancelAnimationFrame(state.scopeFrame);
   graphObserver?.disconnect();
+  graphRenderer?.destroy();
+  graphRenderer = null;
   globalThis.removeEventListener?.("morphazoid:midi-input", handlePlaygroundMidiInput);
   void stopAudio({ quiet: true });
-}, { once: true });
+});
 
 if (globalThis.matchMedia?.("(max-width: 720px)")?.matches) {
   $("patchControlsPanel").open = false;
 }
-renderHearMenu();
-renderAddMenu();
+renderModulePalette();
 renderPerformanceNoteButtons();
 syncExecutionReadout();
 renderPatch();
@@ -2861,8 +3387,7 @@ const initialModuleId = requestedModuleId(
 );
 if (initialModuleId) {
   auditionModule(initialModuleId);
-  $("moduleHearSelect").value = initialModuleId;
-  syncHearModuleButton();
+  revealModuleInPalette(initialModuleId);
   announce(`${moduleById.get(initialModuleId).label} audition loaded. Press Play note, choose a key, or run the patch.`);
 }
 

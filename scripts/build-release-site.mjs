@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { buildWaxSite } from "./build-wax-site.mjs";
+import { buildShaderSynthXyflow } from "./build-shader-synth-xyflow.mjs";
 import { fingerprintDentaphone } from "./fingerprint-dentaphone.mjs";
 import { fingerprintHiccupHead } from "./fingerprint-hiccup-head.mjs";
 
@@ -19,6 +20,7 @@ export async function buildReleaseSite(outputArgument = "dist") {
     cwd: repositoryRoot,
     maxBuffer: 10 * 1024 * 1024,
   });
+  await buildShaderSynthXyflow(path.join(outputDirectory, "assets", "xyflow"));
   await Promise.all([
     fingerprintDentaphone(outputDirectory),
     fingerprintHiccupHead(outputDirectory),

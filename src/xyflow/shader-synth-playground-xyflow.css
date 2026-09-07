@@ -1,0 +1,567 @@
+.shader-flow-root {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  container-name: shader-flow;
+  container-type: size;
+  color: var(--ink, #e6edf2);
+  background:
+    radial-gradient(circle at 18% 45%, rgba(116, 247, 255, 0.055), transparent 31%),
+    radial-gradient(circle at 78% 42%, rgba(145, 255, 99, 0.04), transparent 34%),
+    #06070a;
+}
+
+.shader-flow-root[hidden] {
+  display: none !important;
+}
+
+.shader-flow-stage,
+.shader-flow-root .react-flow {
+  width: 100%;
+  height: 100%;
+}
+
+.graph-viewport[data-graph-renderer="xyflow"][data-view-mode="patch"] > .patch-cables,
+.graph-viewport[data-graph-renderer="xyflow"][data-view-mode="patch"] > .patch-nodes,
+.graph-viewport[data-graph-renderer="xyflow"][data-view-mode="patch"] > .graph-instructions,
+.graph-viewport[data-graph-renderer="xyflow"][data-view-mode="patch"] > .graph-mobile-instructions {
+  display: none;
+}
+
+.graph-viewport[data-graph-renderer="xyflow"][data-view-mode="patch"] > .connection-hint:not([data-state="connecting"]) {
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.shader-flow-root .react-flow__pane {
+  cursor: grab;
+}
+
+.shader-flow-root .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.shader-flow-root .react-flow__node {
+  width: 188px;
+  border-radius: 10px;
+  outline: none;
+}
+
+.shader-flow-root .react-flow__node:focus-visible {
+  outline: 2px solid var(--accent, #74f7ff);
+  outline-offset: 4px;
+}
+
+.shader-flow-root .patch-node.mz-flow-node {
+  position: relative;
+  top: auto;
+  left: auto;
+  display: block;
+  width: 188px;
+  min-height: 0;
+  overflow: visible;
+  border: 1px solid color-mix(in oklab, var(--mz-node-color) 38%, #313945);
+  border-radius: 10px;
+  color: var(--ink, #e6edf2);
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--mz-node-color) 9%, transparent), transparent 52%),
+    color-mix(in oklab, var(--panel, #11151b) 95%, black);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
+  transform: none;
+  user-select: none;
+  touch-action: none;
+}
+
+.shader-flow-root .patch-node.mz-flow-node::before {
+  position: absolute;
+  z-index: 2;
+  top: -1px;
+  right: 10px;
+  left: 10px;
+  width: auto;
+  height: 2px;
+  border-radius: 0 0 3px 3px;
+  background: var(--mz-node-color);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--mz-node-color) 55%, transparent);
+  content: "";
+}
+
+.shader-flow-root .mz-flow-node.is-selected {
+  border-color: color-mix(in oklab, var(--mz-node-color) 76%, white);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--mz-node-color) 36%, transparent),
+    0 13px 32px rgba(0, 0, 0, 0.52),
+    0 0 22px color-mix(in oklab, var(--mz-node-color) 13%, transparent);
+}
+
+.shader-flow-root .mz-flow-node.is-bypassed {
+  filter: saturate(0.34);
+  opacity: 0.7;
+}
+
+.mz-flow-node__header {
+  display: grid;
+  min-height: 45px;
+  padding: 8px 9px;
+  border-bottom: 1px solid color-mix(in oklab, var(--mz-node-color) 18%, #252c35);
+  cursor: grab;
+  grid-template-columns: 28px minmax(0, 1fr) 13px;
+  align-items: center;
+  gap: 8px;
+}
+
+.mz-flow-node__header:active {
+  cursor: grabbing;
+}
+
+.mz-flow-node__glyph {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  border: 1px solid color-mix(in oklab, var(--mz-node-color) 46%, #38414e);
+  border-radius: 6px;
+  color: var(--mz-node-color);
+  background: color-mix(in oklab, var(--mz-node-color) 10%, #090c10);
+  place-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: -0.04em;
+}
+
+.mz-flow-node__identity {
+  min-width: 0;
+}
+
+.mz-flow-node__identity b,
+.mz-flow-node__identity small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mz-flow-node__identity b {
+  color: var(--ink, #e6edf2);
+  font-size: 11px;
+  font-weight: 740;
+  letter-spacing: 0.01em;
+}
+
+.mz-flow-node__identity small {
+  margin-top: 2px;
+  color: var(--muted, #98a4af);
+  font-size: 7px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.mz-flow-node__status {
+  display: grid;
+  width: 13px;
+  height: 13px;
+  place-items: center;
+}
+
+.mz-flow-node__status i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid color-mix(in oklab, var(--mz-node-color) 70%, white);
+  border-radius: 50%;
+  background: var(--mz-node-color);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--mz-node-color) 70%, transparent);
+}
+
+.is-bypassed .mz-flow-node__status i {
+  background: transparent;
+  box-shadow: none;
+}
+
+.mz-flow-node__ports {
+  display: grid;
+  min-height: 56px;
+  padding: 7px 0 5px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 5px;
+}
+
+.mz-flow-port-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mz-flow-port-heading {
+  padding: 0 10px 2px;
+  color: var(--faint, #697681);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.mz-flow-port-column.is-output .mz-flow-port-heading {
+  text-align: right;
+}
+
+.mz-flow-port-row {
+  position: relative;
+  min-width: 0;
+  min-height: 24px;
+}
+
+.mz-flow-port-action {
+  display: grid;
+  width: 100%;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 0;
+  cursor: pointer;
+  color: color-mix(in oklab, var(--mz-signal-color) 83%, #dce6ed);
+  background: transparent;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  text-align: left;
+}
+
+.mz-flow-port-column.is-output .mz-flow-port-action {
+  text-align: right;
+}
+
+.mz-flow-port-action span {
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 690;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mz-flow-port-action small {
+  color: var(--faint, #697681);
+  font-size: 6px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.mz-flow-port-action:hover,
+.mz-flow-port-action:focus-visible,
+.mz-flow-port-row.is-pending .mz-flow-port-action,
+.mz-flow-port-row.is-compatible .mz-flow-port-action {
+  color: var(--mz-signal-color);
+  background: color-mix(in oklab, var(--mz-signal-color) 8%, transparent);
+  outline: none;
+}
+
+.mz-flow-port-action:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--mz-signal-color);
+}
+
+.mz-flow-port-row.is-incompatible {
+  opacity: 0.3;
+}
+
+.shader-flow-root .mz-flow-handle {
+  z-index: 3;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.shader-flow-root .mz-flow-handle::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 1px solid color-mix(in oklab, var(--mz-signal-color) 75%, white);
+  border-radius: 50%;
+  background: #090d11;
+  box-shadow: 0 0 8px color-mix(in oklab, var(--mz-signal-color) 40%, transparent);
+  content: "";
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.shader-flow-root .mz-flow-handle.connectingfrom::after,
+.shader-flow-root .mz-flow-handle.valid::after,
+.mz-flow-port-row.is-pending .mz-flow-handle::after,
+.mz-flow-port-row.is-compatible .mz-flow-handle::after {
+  background: var(--mz-signal-color);
+  box-shadow: 0 0 14px var(--mz-signal-color);
+}
+
+.shader-flow-root .mz-flow-port-row.is-input .mz-flow-handle {
+  left: -12px;
+}
+
+.shader-flow-root .mz-flow-port-row.is-output .mz-flow-handle {
+  right: -12px;
+}
+
+.mz-flow-node__quick-controls {
+  display: grid;
+  padding: 7px 9px 6px;
+  border-top: 1px solid color-mix(in oklab, var(--mz-node-color) 13%, #252c35);
+  gap: 7px;
+}
+
+.mz-flow-parameter > span {
+  display: flex;
+  min-width: 0;
+  margin-bottom: 4px;
+  color: var(--muted, #98a4af);
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 7px;
+  letter-spacing: 0.025em;
+}
+
+.mz-flow-parameter output {
+  overflow: hidden;
+  color: var(--mz-node-color);
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mz-flow-parameter input[type="range"] {
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  accent-color: var(--mz-node-color);
+}
+
+.mz-flow-node__more,
+.mz-flow-node__execution,
+.mz-flow-node__fixed {
+  color: var(--faint, #697681);
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.mz-flow-node__more {
+  text-align: right;
+}
+
+.mz-flow-node__execution {
+  min-height: 21px;
+  padding: 5px 9px 6px;
+  margin: 0;
+  border-top: 1px solid color-mix(in oklab, var(--mz-node-color) 10%, #252c35);
+}
+
+.mz-flow-node__fixed {
+  display: block;
+  padding: 0 9px 7px;
+  color: var(--mz-node-color);
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.shader-flow-root .react-flow__edge-path {
+  filter: drop-shadow(0 0 4px rgba(116, 247, 255, 0.18));
+  opacity: 0.78;
+}
+
+.shader-flow-root .react-flow__edge.selected .react-flow__edge-path,
+.shader-flow-root .react-flow__edge:focus-visible .react-flow__edge-path {
+  filter: drop-shadow(0 0 7px currentColor);
+  opacity: 1;
+}
+
+.shader-flow-root .react-flow__edgeupdater {
+  fill: rgba(116, 247, 255, 0.06);
+  stroke: rgba(116, 247, 255, 0.72);
+  stroke-width: 1;
+  opacity: 0;
+  pointer-events: all;
+}
+
+.shader-flow-root .react-flow__edgeupdater:hover {
+  opacity: 0;
+}
+
+.shader-flow-root .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid rgba(116, 247, 255, 0.24);
+  border-radius: 7px;
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.38);
+}
+
+.shader-flow-root .react-flow__controls-button {
+  border-color: rgba(116, 247, 255, 0.14);
+  color: #c7d3dc;
+  background: rgba(8, 12, 16, 0.93);
+  fill: currentColor;
+}
+
+.shader-flow-root .react-flow__controls-button:hover,
+.shader-flow-root .react-flow__controls-button:focus-visible {
+  color: #74f7ff;
+  background: #101820;
+}
+
+.shader-flow-root .react-flow__minimap {
+  border: 1px solid rgba(116, 247, 255, 0.18);
+  border-radius: 7px;
+  background: rgba(7, 10, 14, 0.9);
+}
+
+.shader-flow-root .react-flow__attribution {
+  color: #6f7d88;
+  background: rgba(5, 8, 11, 0.72);
+  font-size: 7px;
+}
+
+.shader-flow-root .react-flow__attribution a {
+  color: inherit;
+}
+
+.shader-flow-status {
+  position: absolute;
+  z-index: 5;
+  top: 11px;
+  right: 12px;
+  padding: 5px 7px;
+  border: 1px solid rgba(116, 247, 255, 0.18);
+  border-radius: 5px;
+  color: rgba(198, 218, 229, 0.76);
+  background: rgba(5, 8, 11, 0.76);
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+
+@media (max-width: 720px) {
+  .graph-viewport[data-graph-renderer="xyflow"][data-view-mode="patch"] {
+    width: 100%;
+    height: 560px;
+    min-height: 560px;
+    overflow: hidden;
+    padding: 0;
+    touch-action: pan-y;
+  }
+
+  .shader-flow-root .react-flow__minimap,
+  .shader-flow-status {
+    display: none;
+  }
+
+  .shader-flow-root .react-flow__node {
+    width: 176px;
+  }
+
+  .shader-flow-root .patch-node.mz-flow-node {
+    width: 176px;
+  }
+
+  .mz-flow-node__quick-controls {
+    display: none;
+  }
+
+  .mz-flow-node__execution {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) and (orientation: landscape) {
+  .graph-viewport[data-graph-renderer="xyflow"][data-view-mode="patch"] {
+    height: 430px;
+    min-height: 430px;
+  }
+}
+
+@media (max-height: 520px) {
+  .shader-flow-root .react-flow__minimap,
+  .shader-flow-status,
+  .mz-flow-node__quick-controls,
+  .mz-flow-node__execution {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .shader-flow-root .react-flow__pane,
+  .shader-flow-root .react-flow__node,
+  .shader-flow-root .patch-node.mz-flow-node {
+    touch-action: pan-y;
+  }
+
+  .shader-flow-root .mz-flow-handle,
+  .shader-flow-root .mz-flow-parameter input[type="range"] {
+    touch-action: none;
+  }
+
+  .mz-flow-port-row,
+  .mz-flow-port-action {
+    min-height: 44px;
+  }
+
+  .shader-flow-root .mz-flow-handle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .shader-flow-root .mz-flow-port-row.is-input .mz-flow-handle {
+    left: -22px;
+  }
+
+  .shader-flow-root .mz-flow-port-row.is-output .mz-flow-handle {
+    right: -22px;
+  }
+
+  .shader-flow-root .mz-flow-handle::after {
+    width: 13px;
+    height: 13px;
+  }
+
+  .shader-flow-root .react-flow__controls-button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@container shader-flow (max-width: 999px) {
+  .shader-flow-root .react-flow__minimap {
+    display: none;
+  }
+}
+
+@container shader-flow (max-height: 599px) {
+  .shader-flow-root .react-flow__minimap {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shader-flow-root .react-flow__edge.animated path {
+    animation: none;
+    stroke-dasharray: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .shader-flow-root .patch-node.mz-flow-node,
+  .shader-flow-root .mz-flow-handle::after,
+  .shader-flow-root .react-flow__controls {
+    border: 1px solid CanvasText;
+    forced-color-adjust: none;
+  }
+}

@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { buildShaderSynthXyflow } from "./build-shader-synth-xyflow.mjs";
 import { fingerprintDentaphone } from "./fingerprint-dentaphone.mjs";
 import { fingerprintHiccupHead } from "./fingerprint-hiccup-head.mjs";
 
@@ -134,6 +135,7 @@ export async function buildWaxSite(outputArgument = "dist-wax") {
     cwd: repositoryRoot,
     maxBuffer: 10 * 1024 * 1024,
   });
+  await buildShaderSynthXyflow(path.join(outputDirectory, "assets", "xyflow"));
   await Promise.all([
     fingerprintDentaphone(outputDirectory),
     fingerprintHiccupHead(outputDirectory),

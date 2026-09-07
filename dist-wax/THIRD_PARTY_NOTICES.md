@@ -207,6 +207,22 @@ by ldfSW2; it is not used or represented as the 1:1 source.
 The fourteen image-only srtuss projects are inventoried but are neither bundled
 nor rendered.
 
+## XYFlow comparison renderer
+
+The optional `?graph=xyflow` renderer for Modular WebGPU Synth statically
+bundles React Flow and its browser dependencies. It is loaded only for that
+comparison route; the original Morphazoid graph renderer remains the default.
+
+- React Flow / XYFlow: https://github.com/xyflow/xyflow (MIT)
+- React and React DOM: https://github.com/facebook/react (MIT)
+- Zustand and classcat (MIT)
+- D3 selection, drag, zoom, transition, interpolation, dispatch, timer, and
+  color modules (ISC), plus d3-ease (BSD-3-Clause)
+
+Every production build generates the complete dependency license texts from
+the installed, lockfile-pinned packages at
+`assets/xyflow/THIRD_PARTY_LICENSES.txt`.
+
 ## Pink Trombone
 
 The shared classic 44-section vocal-tract geometry used by Throatazoid, Pink

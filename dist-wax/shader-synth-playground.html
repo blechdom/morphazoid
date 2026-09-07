@@ -12,7 +12,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260902-monotonic-play-note" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260906-module-rail-tooltip" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -61,35 +61,19 @@
       <aside class="module-browser" aria-labelledby="moduleBrowserTitle">
         <header class="workspace-panel-heading">
           <h1 id="moduleBrowserTitle">Modules</h1>
-          <p>Add a primitive, then patch from its OUT port into a compatible IN port.</p>
+          <p>Open a category, add a module, then patch its OUT port into a compatible IN port.</p>
         </header>
 
-        <div class="module-hear-picker">
-          <label for="moduleHearSelect">Hear a module</label>
-          <div class="module-hear-controls">
-            <select id="moduleHearSelect" aria-label="Choose one module to hear" aria-describedby="moduleHearHelp">
-              <option value="">Choose a module…</option>
-            </select>
-            <button id="moduleHearButton" type="button" disabled>Hear</button>
-          </div>
-          <small class="module-picker-help" id="moduleHearHelp">Choose a module, then press Hear.</small>
-        </div>
-
-        <div class="module-add-picker" id="modulePalette">
-          <label for="moduleAddSelect">Add a module</label>
-          <div class="module-add-controls">
-            <select
-              id="moduleAddSelect"
-              aria-label="Choose a shader synthesis module to add"
-              aria-describedby="moduleAddHelp"
-              aria-keyshortcuts="/"
-            >
-              <option value="">Choose a module…</option>
-            </select>
-            <button id="moduleAddButton" type="button" disabled>Add</button>
-          </div>
-          <small class="sr-only" id="moduleAddHelp">The menu contains every module, grouped by signal role. Choose one, then press Add. Press slash anywhere outside a form control to focus this menu.</small>
-        </div>
+        <nav
+          class="module-palette"
+          id="modulePalette"
+          aria-label="Add or hear shader synthesis modules"
+          aria-describedby="modulePaletteHelp"
+          aria-keyshortcuts="/"
+        >
+          <p class="sr-only" id="modulePaletteHelp">Open a signal category. Press a large module icon to add it to the current patch, or press its speaker icon to replace the patch with an audition and start playback. Press slash outside a form control to focus the module rail.</p>
+          <div class="module-palette-groups" id="modulePaletteGroups"></div>
+        </nav>
 
         <section class="port-legend" aria-labelledby="portLegendTitle">
           <h2 id="portLegendTitle">Typed connections</h2>
@@ -104,33 +88,9 @@
       <section class="patch-workbench" aria-labelledby="patchTitle">
         <header class="patch-toolbar">
           <div class="patch-identity">
-            <button
-              class="play-button playground-play-button"
-              id="playgroundPlayButton"
-              type="button"
-              aria-pressed="false"
-              aria-busy="false"
-              aria-label="Run patch"
-              aria-keyshortcuts="Space"
-              title="Run patch (Space)"
-              data-primary-transport
-            >
-              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-              <span class="sr-only" id="playgroundPlayLabel">Run patch</span>
-            </button>
             <div>
               <h2 id="patchTitle">Signal graph</h2>
               <output id="patchStatus" aria-live="polite">Loading patch…</output>
-            </div>
-          </div>
-
-          <div class="preset-picker">
-            <span>Patch</span>
-            <div class="preset-controls" role="group" aria-label="Choose a playground patch">
-              <button id="previousPatch" class="preset-step-button" type="button" aria-label="Previous patch" aria-keyshortcuts="ArrowLeft" title="Previous patch (Left Arrow)">Previous</button>
-              <div id="presetButtons"></div>
-              <button id="nextPatch" class="preset-step-button" type="button" aria-label="Next patch" aria-keyshortcuts="ArrowRight" title="Next patch (Right Arrow)">Next</button>
             </div>
           </div>
 
@@ -138,6 +98,13 @@
             <button id="viewModeToggle" type="button" aria-pressed="false">Patch view</button>
             <button id="resetView" type="button">Fit graph</button>
             <button id="clearPatch" type="button">Clear</button>
+            <a
+              class="graph-renderer-link"
+              id="graphRendererComparison"
+              href="?graph=xyflow"
+              aria-label="Compare with the XYFlow patch canvas"
+            >Try XYFlow</a>
+            <output class="graph-renderer-status" id="graphRendererStatus" aria-live="polite" hidden></output>
           </div>
         </header>
 
@@ -183,6 +150,13 @@
             aria-label="Connect sample-parallel shader synthesis modules. Audio is off."
             aria-describedby="sampleInvocationModel graphNodeLimitNote graphInstructions graphMobileInstructions liveStatus"
           >
+              <div
+                class="shader-flow-root"
+                id="xyflowGraphRoot"
+                role="region"
+                aria-label="XYFlow shader audio patch canvas"
+                hidden
+              ></div>
               <svg class="patch-cables" id="patchCables" aria-hidden="true">
                 <defs>
                   <filter id="cableGlow" x="-30%" y="-30%" width="160%" height="160%">
@@ -251,6 +225,33 @@
       </section>
 
       <aside class="node-inspector" id="nodeInspector" aria-labelledby="inspectorTitle">
+        <section class="inspector-session-controls" aria-label="Patch playback and preset">
+          <button
+            class="play-button playground-play-button"
+            id="playgroundPlayButton"
+            type="button"
+            aria-pressed="false"
+            aria-busy="false"
+            aria-label="Run patch"
+            aria-keyshortcuts="Space"
+            title="Run patch (Space)"
+            data-primary-transport
+          >
+            <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+            <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            <span class="sr-only" id="playgroundPlayLabel">Run patch</span>
+          </button>
+
+          <div class="preset-picker">
+            <label for="patchSelect">Preset</label>
+            <div class="preset-controls" role="group" aria-label="Choose a playground patch">
+              <button id="previousPatch" class="preset-step-button" type="button" aria-label="Previous patch" aria-keyshortcuts="ArrowLeft" title="Previous patch (Left Arrow)">‹</button>
+              <div id="presetButtons"></div>
+              <button id="nextPatch" class="preset-step-button" type="button" aria-label="Next patch" aria-keyshortcuts="ArrowRight" title="Next patch (Right Arrow)">›</button>
+            </div>
+          </div>
+        </section>
+
         <header class="workspace-panel-heading inspector-heading">
           <h2 id="inspectorTitle">Module inspector</h2>
         </header>
@@ -350,10 +351,11 @@
       </aside>
     </main>
 
+    <div class="module-palette-tooltip" id="modulePaletteTooltip" role="tooltip" hidden></div>
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-app.js?v=20260902-arrow-preset"></script>
+    <script type="module" src="shader-synth-playground-bootstrap.js?v=20260906-module-rail-tooltip"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

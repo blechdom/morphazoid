@@ -25,7 +25,7 @@
   min-height: 0;
   overflow: hidden;
   flex: 1 1 auto;
-  grid-template-columns: clamp(230px, 17vw, 280px) minmax(470px, 1fr) clamp(310px, 23vw, 380px);
+  grid-template-columns: 86px minmax(470px, 1fr) clamp(310px, 23vw, 380px);
 }
 
 .module-browser,
@@ -46,6 +46,7 @@
 
 .module-browser {
   display: flex;
+  overflow: hidden;
   border-right: 1px solid var(--workspace-edge);
   flex-direction: column;
 }
@@ -57,6 +58,13 @@
 .workspace-panel-heading {
   padding: 19px 18px 16px;
   border-bottom: 1px solid var(--line-strong);
+}
+
+.module-browser .workspace-panel-heading {
+  display: grid;
+  min-height: 48px;
+  padding: 8px 4px;
+  place-items: center;
 }
 
 .workspace-panel-heading h1,
@@ -77,87 +85,236 @@
   line-height: 1.55;
 }
 
-.module-hear-picker,
-.module-add-picker {
+.module-browser .workspace-panel-heading h1 {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.module-browser .workspace-panel-heading p,
+.module-browser .port-legend {
+  display: none;
+}
+
+.module-palette {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.module-palette-groups {
+  height: 100%;
+  padding: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.module-palette-group {
+  margin-top: 4px;
+}
+
+.module-palette-group:first-child {
+  margin-top: 0;
+}
+
+.module-palette-group-title {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  margin: 0;
+  background: color-mix(in oklab, var(--panel) 97%, var(--bg-deep));
+}
+
+.module-palette-category {
+  position: relative;
   display: grid;
-  padding: 12px 14px 5px;
-  gap: 5px;
-}
-
-.module-add-picker {
-  padding-bottom: 14px;
-}
-
-.module-hear-picker > label,
-.module-add-picker > label {
-  color: var(--faint);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-#moduleHearSelect,
-#moduleAddSelect {
   width: 100%;
-  min-height: 34px;
-  padding: 0 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
-  color: var(--ink);
-  background: var(--bg-deep);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-#moduleHearSelect:hover,
-#moduleHearSelect:focus-visible,
-#moduleAddSelect:hover,
-#moduleAddSelect:focus-visible {
-  border-color: var(--accent);
-  outline: 0;
-}
-
-.module-hear-controls,
-.module-add-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
-}
-
-#moduleHearButton,
-#moduleAddButton {
-  min-width: 48px;
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in oklab, var(--accent) 48%, var(--line-strong));
+  min-height: 46px;
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   cursor: pointer;
-  color: var(--ink);
-  background: color-mix(in oklab, var(--accent) 9%, var(--bg-deep));
-  font-size: 11px;
-  font-weight: 700;
+  color: var(--faint);
+  background: transparent;
+  place-items: center;
+  transition: 130ms ease;
 }
 
-#moduleHearButton:hover,
-#moduleHearButton:focus-visible,
-#moduleAddButton:hover,
-#moduleAddButton:focus-visible {
+.module-palette-category:hover,
+.module-palette-category[aria-expanded="true"] {
+  border-color: var(--line-strong);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 7%, var(--bg-deep));
+}
+
+.module-palette-category:focus-visible,
+.module-palette-add:focus-visible,
+.module-palette-hear:focus-visible {
   border-color: var(--accent);
-  outline: 0;
-  background: color-mix(in oklab, var(--accent) 16%, var(--bg-deep));
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
 }
 
-#moduleHearButton:disabled,
-#moduleAddButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.38;
+.module-palette-category svg {
+  width: 25px;
+  height: 25px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.35;
 }
 
-.module-picker-help {
-  color: var(--muted);
+.module-palette-category > span,
+.module-palette-category > small {
+  display: none;
+}
+
+.module-palette-tooltip {
+  position: fixed;
+  z-index: 80;
+  max-width: min(230px, calc(100vw - 16px));
+  padding: 7px 9px;
+  border: 1px solid color-mix(in oklab, var(--accent) 42%, var(--line-strong));
+  border-radius: 6px;
+  pointer-events: none;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--panel) 96%, black);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.54);
   font-size: 10px;
-  line-height: 1.35;
+  font-weight: 720;
+  letter-spacing: 0.025em;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.module-palette-tooltip[hidden] {
+  display: none;
+}
+
+.module-palette-items {
+  padding: 4px 0 2px;
+}
+
+.module-palette-items[hidden] {
+  display: none;
+}
+
+.module-palette-item {
+  --module-color: var(--accent);
+  display: grid;
+  min-height: 54px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--module-color) 3%, transparent);
+  grid-template-columns: minmax(0, 1fr) 22px;
+  transition: 130ms ease;
+}
+
+.module-palette-item:hover,
+.module-palette-item:focus-within,
+.module-palette-item.is-auditioned {
+  border-color: color-mix(in oklab, var(--module-color) 38%, var(--line));
+  background: color-mix(in oklab, var(--module-color) 8%, var(--bg-deep));
+}
+
+.module-palette-add,
+.module-palette-hear {
+  min-width: 0;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+}
+
+.module-palette-add {
+  display: grid;
+  padding: 4px 1px 3px;
+  place-items: center;
+  gap: 2px;
+}
+
+.module-palette-add:hover {
+  color: var(--ink);
+}
+
+.module-palette-add:disabled {
+  cursor: not-allowed;
+  opacity: 0.32;
+}
+
+.module-palette-icon {
+  position: relative;
+  display: grid;
+  width: 29px;
+  height: 29px;
+  border: 1px solid color-mix(in oklab, var(--module-color) 36%, transparent);
+  border-radius: 7px;
+  color: var(--module-color);
+  background: color-mix(in oklab, var(--module-color) 7%, var(--bg-deep));
+  place-items: center;
+}
+
+.module-palette-icon-shape {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.2;
+  opacity: 0.22;
+}
+
+.module-palette-icon b {
+  position: relative;
+  z-index: 1;
+  font: 750 8px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.03em;
+}
+
+.module-palette-name {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: currentColor;
+  font-size: 6px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.module-palette-hear {
+  display: grid;
+  border-left: 1px solid color-mix(in oklab, var(--module-color) 18%, var(--line));
+  color: color-mix(in oklab, var(--module-color) 70%, var(--muted));
+  place-items: center;
+}
+
+.module-palette-hear:hover {
+  color: var(--module-color);
+  background: color-mix(in oklab, var(--module-color) 10%, transparent);
+}
+
+.module-palette-hear svg {
+  width: 12px;
+  height: 12px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
 }
 
 .port-legend {
@@ -227,6 +384,7 @@
 
 .patch-workbench {
   display: grid;
+  min-width: 0;
   overflow: hidden;
   background: var(--bg-deep);
   grid-template-rows: auto minmax(300px, 1fr) auto;
@@ -468,20 +626,21 @@
   position: relative;
   z-index: 10;
   display: grid;
-  min-height: 74px;
-  padding: 10px 14px;
+  min-height: 54px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--workspace-edge);
   background: color-mix(in oklab, var(--panel) 95%, transparent);
-  grid-template-columns: minmax(130px, auto) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(130px, 1fr) auto;
   align-items: center;
-  gap: 18px;
+  gap: 10px;
 }
 
 .patch-identity {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-column: 1;
+  grid-row: 1;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
 }
 
 .playground-play-button:disabled {
@@ -517,13 +676,12 @@
 .preset-picker {
   display: grid;
   min-width: 0;
-  justify-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
-.preset-picker > span {
+.preset-picker > label {
   color: var(--faint);
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -531,29 +689,28 @@
 
 #presetButtons {
   display: block;
-  width: min(230px, 100%);
+  width: 100%;
   max-width: 100%;
 }
 
 .preset-controls {
   display: grid;
-  width: min(430px, 100%);
+  width: 100%;
   max-width: 100%;
-  grid-template-columns: auto minmax(150px, 230px) auto;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 .preset-step-button {
   min-height: 32px;
-  padding: 0 9px;
+  padding: 0;
   border: 1px solid var(--line-strong);
   cursor: pointer;
   color: var(--muted);
   background: var(--bg-deep);
-  font-size: 8px;
+  font-size: 18px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .preset-step-button:hover,
@@ -572,7 +729,7 @@
   color: var(--ink);
   background: var(--bg-deep);
   font: inherit;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 650;
   appearance: auto;
 }
@@ -606,10 +763,14 @@
 
 .patch-actions {
   display: flex;
+  grid-column: 2;
+  grid-row: 1;
   gap: 5px;
 }
 
-.patch-actions button {
+.patch-actions button,
+.patch-actions .graph-renderer-link {
+  display: inline-flex;
   min-height: 34px;
   padding: 0 9px;
   border: 1px solid var(--line-strong);
@@ -618,13 +779,45 @@
   background: transparent;
   font-size: 8px;
   font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
   text-transform: uppercase;
 }
 
 .patch-actions button:hover,
-.patch-actions button:focus-visible {
+.patch-actions button:focus-visible,
+.patch-actions .graph-renderer-link:hover,
+.patch-actions .graph-renderer-link:focus-visible {
   border-color: var(--accent-soft);
   color: var(--ink);
+}
+
+.patch-actions .graph-renderer-link {
+  border-color: color-mix(in oklab, #a78bff 52%, var(--line-strong));
+  color: color-mix(in oklab, #a78bff 86%, var(--ink));
+  background: color-mix(in oklab, #a78bff 7%, transparent);
+}
+
+.patch-actions .graph-renderer-link[aria-current="page"] {
+  border-color: #a78bff;
+  color: var(--ink);
+  background: color-mix(in oklab, #a78bff 14%, var(--bg-deep));
+}
+
+.graph-renderer-status {
+  display: inline-flex;
+  min-height: 34px;
+  color: #a78bff;
+  align-items: center;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.graph-renderer-status[hidden] {
+  display: none;
 }
 
 .patch-actions .combo-library-button {
@@ -1690,6 +1883,30 @@
   white-space: nowrap;
 }
 
+.inspector-session-controls {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  display: grid;
+  min-width: 0;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line-strong);
+  background:
+    linear-gradient(110deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent 54%),
+    color-mix(in oklab, var(--panel) 97%, var(--bg-deep));
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: end;
+  gap: 10px;
+}
+
+.inspector-session-controls .playground-play-button {
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
+}
+
 .inspector-heading {
   padding-bottom: 18px;
 }
@@ -2513,7 +2730,7 @@
 .port-legend li,
 .port-legend li b,
 .patch-identity output,
-.preset-picker > span,
+.preset-picker > label,
 .preset-button,
 .patch-actions button,
 .graph-instructions,
@@ -2550,7 +2767,7 @@
 
 @media (max-width: 1240px) {
   .playground-workspace {
-    grid-template-columns: 220px minmax(430px, 1fr) 310px;
+    grid-template-columns: 82px minmax(430px, 1fr) 310px;
   }
 
   .patch-toolbar {
@@ -2605,7 +2822,7 @@
   .playground-workspace {
     display: grid;
     overflow: visible;
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 82px minmax(0, 1fr);
     grid-template-rows: auto auto;
   }
 
@@ -2621,6 +2838,29 @@
     grid-column: 2;
     grid-row: 1;
     grid-template-rows: auto minmax(520px, 1fr) auto;
+  }
+
+  .patch-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .preset-controls,
+  #presetButtons {
+    width: 100%;
+  }
+
+  .graph-renderer-status {
+    display: none;
+  }
+
+  .performance-notes-heading > b {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .node-inspector {
@@ -2654,29 +2894,79 @@
   }
 
   .module-browser {
-    display: grid;
-    max-height: none;
-    overflow: visible;
+    display: block;
+    height: 62px;
+    max-height: 62px;
+    overflow: hidden;
     border-right: 0;
     border-bottom: 1px solid var(--workspace-edge);
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .module-browser .workspace-panel-heading {
-    padding: 17px 16px 10px;
-    border-bottom: 0;
+    display: none;
   }
 
-  .module-browser .workspace-panel-heading p {
-    max-width: 480px;
+  .module-palette {
+    height: 61px;
   }
 
-  .module-hear-picker {
-    padding: 4px 16px 5px;
+  .module-palette-groups {
+    display: flex;
+    height: 61px;
+    padding: 5px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 3px;
   }
 
-  .module-add-picker {
-    padding: 4px 16px 14px;
+  .module-palette-group {
+    display: contents;
+    margin: 0;
+  }
+
+  .module-palette-group-title {
+    position: static;
+    width: 52px;
+    flex: 0 0 52px;
+    background: transparent;
+  }
+
+  .module-palette-category {
+    width: 52px;
+    min-height: 50px;
+    padding: 3px;
+  }
+
+  .module-palette-category svg {
+    width: 27px;
+    height: 27px;
+  }
+
+  .module-palette-items {
+    display: contents;
+    padding: 0;
+  }
+
+  .module-palette-items[hidden] {
+    display: none;
+  }
+
+  .module-palette-item {
+    width: 72px;
+    min-height: 50px;
+    margin: 0;
+    flex: 0 0 72px;
+    grid-template-columns: minmax(0, 1fr) 22px;
+  }
+
+  .module-palette-add,
+  .module-palette-hear {
+    min-height: 48px;
+  }
+
+  .module-palette-icon {
+    width: 26px;
+    height: 26px;
   }
 
   .port-legend {
@@ -2723,26 +3013,19 @@
 
   .patch-toolbar {
     padding: 11px 13px;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .preset-picker {
+  .patch-identity {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .patch-actions {
+    display: grid;
     grid-column: 1 / -1;
     grid-row: 2;
-    justify-items: stretch;
-  }
-
-  .preset-picker > span {
-    display: none;
-  }
-
-  #presetButtons {
-    width: 100%;
-  }
-
-  .preset-controls {
-    width: 100%;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .graph-viewport {
@@ -2901,16 +3184,24 @@
   .module-button,
   .preset-button,
   .patch-actions button,
+  .patch-actions .graph-renderer-link,
   .delete-node,
   .node-port {
     min-height: 44px;
   }
 
-  #moduleHearSelect,
-  #moduleHearButton,
-  #moduleAddSelect,
-  #moduleAddButton {
-    min-height: 44px;
+  .module-palette-category,
+  .module-palette-add,
+  .module-palette-hear,
+  .preset-step-button {
+    min-height: 48px;
+  }
+
+  .inspector-session-controls .playground-play-button {
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
   }
 
   .performance-note,
@@ -2938,7 +3229,37 @@
   }
 }
 
+@media (pointer: coarse) and (min-width: 721px) {
+  .module-palette-item {
+    min-height: 98px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 50px 48px;
+  }
+
+  .module-palette-hear {
+    min-width: 48px;
+    border-top: 1px solid color-mix(in oklab, var(--module-color) 18%, var(--line));
+    border-left: 0;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 720px) {
+  .module-palette-item {
+    width: 100px;
+    flex-basis: 100px;
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+
+  .module-palette-hear {
+    min-width: 48px;
+  }
+}
+
 @media (pointer: coarse) and (min-width: 721px) and (max-width: 1240px) {
+  .signal-monitor {
+    grid-template-columns: 62px minmax(0, 1fr) 271px;
+  }
+
   .performance-notes-heading > b {
     position: absolute;
     width: 1px;
