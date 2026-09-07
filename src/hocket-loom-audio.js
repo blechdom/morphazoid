@@ -1,13 +1,14 @@
-const SOUND_SETS = new Set(["wood", "metal", "breath"]);
+const SOUND_SETS = new Set(["relay", "wood", "metal", "breath"]);
+const RELAY_MATERIALS = Object.freeze(["wood", "metal", "breath", "wood"]);
 
 export const HOCKET_MARKER_SOURCE_LIMIT = 320;
 export const HOCKET_MARKER_NODE_LIMIT = 16;
 
 const WOOD_PROFILES = [
-  { modeRatio: 2.08, impactHz: 1180, bodyDrop: 0.84, damping: 0.92 },
-  { modeRatio: 2.31, impactHz: 1540, bodyDrop: 0.79, damping: 0.82 },
-  { modeRatio: 2.57, impactHz: 2020, bodyDrop: 0.88, damping: 0.72 },
-  { modeRatio: 2.87, impactHz: 2640, bodyDrop: 0.75, damping: 0.64 },
+  { modeRatio: 2.08, impactHz: 1180, bodyDrop: 0.74, damping: 0.82 },
+  { modeRatio: 2.31, impactHz: 1540, bodyDrop: 0.68, damping: 0.75 },
+  { modeRatio: 2.57, impactHz: 2020, bodyDrop: 0.63, damping: 0.68 },
+  { modeRatio: 2.87, impactHz: 2640, bodyDrop: 0.58, damping: 0.62 },
 ];
 
 const METAL_PROFILES = [
@@ -54,7 +55,7 @@ function woodPlan({ baseHz, duration, peak, profile, pan }) {
       type: "triangle",
       frequency: baseHz,
       endFrequency: baseHz * profile.bodyDrop,
-      amplitude: peak * 0.5,
+      amplitude: peak * 0.44,
       attack: 0.0014,
       duration: duration * profile.damping,
       envelope: "decay",
@@ -63,19 +64,19 @@ function woodPlan({ baseHz, duration, peak, profile, pan }) {
       kind: "wood-mode",
       type: "sine",
       frequency: baseHz * profile.modeRatio,
-      endFrequency: baseHz * profile.modeRatio * 0.96,
-      amplitude: peak * 0.2,
+      endFrequency: baseHz * profile.modeRatio * 0.92,
+      amplitude: peak * 0.13,
       attack: 0.001,
-      duration: duration * 0.5,
+      duration: duration * 0.35,
       envelope: "decay",
     },
   ];
   const noisePaths = [
     {
       kind: "wood-impact",
-      amplitude: peak * 0.23,
+      amplitude: peak * 0.39,
       attack: 0.0006,
-      duration: Math.min(0.026, duration * 0.42),
+      duration: Math.min(0.014, duration * 0.27),
       envelope: "impact",
       filters: [
         { type: "highpass", frequency: 420, q: 0.55 },
@@ -96,19 +97,14 @@ function woodPlan({ baseHz, duration, peak, profile, pan }) {
 }
 
 function metalPlan({ baseHz, duration, peak, profile, pan }) {
-  const tiltedAmplitudes = [
-    0.36 / profile.brightness,
-    0.18,
-    0.11 * profile.brightness,
-  ];
-  const amplitudeScale = 0.65 / tiltedAmplitudes.reduce((sum, value) => sum + value, 0);
-  const durationScales = [1, 0.82, 0.66];
+  const modalAmplitudes = [0.16, 0.24, 0.25];
+  const durationScales = [1, 0.85, 0.69];
   const oscillators = profile.ratios.map((ratio, index) => ({
     kind: "metal-mode-" + (index + 1),
     type: "sine",
-    frequency: baseHz * ratio,
-    endFrequency: baseHz * ratio * (1 - index * 0.002),
-    amplitude: peak * tiltedAmplitudes[index] * amplitudeScale,
+    frequency: baseHz * ratio * 2.15,
+    endFrequency: baseHz * ratio * 2.15 * (1 - index * 0.0012),
+    amplitude: peak * modalAmplitudes[index],
     attack: 0.002 + index * 0.0007,
     duration: duration * durationScales[index],
     envelope: "ring",
@@ -116,13 +112,13 @@ function metalPlan({ baseHz, duration, peak, profile, pan }) {
   const noisePaths = [
     {
       kind: "metal-strike",
-      amplitude: peak * 0.075,
+      amplitude: peak * 0.1,
       attack: 0.0007,
-      duration: Math.min(0.032, duration * 0.12),
+      duration: Math.min(0.026, duration * 0.08),
       envelope: "impact",
       filters: [
-        { type: "highpass", frequency: 1450, q: 0.5 },
-        { type: "bandpass", frequency: 3900 * profile.brightness, q: 0.7 },
+        { type: "highpass", frequency: 1900, q: 0.5 },
+        { type: "bandpass", frequency: 6200 * profile.brightness, q: 0.7 },
       ],
     },
   ];
@@ -144,41 +140,55 @@ function metalPlan({ baseHz, duration, peak, profile, pan }) {
 }
 
 function breathPlan({ duration, peak, profile, pan, voice }) {
+  const airFloorStart = Math.max(520, profile.airFloorHz * 2.5);
+  const airFloorEnd = Math.max(820, profile.airFloorHz * 4.04);
+  const airCeilingStart = Math.min(9200, profile.airCeilingHz * 1.78);
+  const airCeilingEnd = Math.min(6800, profile.airCeilingHz * 1.28);
   const noisePaths = [
     {
       kind: "breath-edge",
-      amplitude: peak * (0.05 + voice * 0.008),
+      amplitude: peak * (0.016 + voice * 0.004),
       attack: 0.0008,
-      duration: Math.min(0.025, duration * 0.2),
+      duration: Math.min(0.014, duration * 0.08),
       envelope: "impact",
       filters: [
-        { type: "highpass", frequency: Math.max(900, profile.airFloorHz * 2.4), q: 0.5 },
-        { type: "lowpass", frequency: profile.airCeilingHz * 1.18, q: 0.45 },
+        { type: "highpass", frequency: 2500, q: 0.5 },
+        { type: "lowpass", frequency: 9000, q: 0.45 },
       ],
     },
     {
       kind: "breath-air",
-      amplitude: peak * 0.31,
-      attack: 0.012 + voice * 0.0013,
+      amplitude: peak * 0.34,
+      attack: 0.026 + voice * 0.002,
       duration,
       envelope: "breath",
       filters: [
-        { type: "highpass", frequency: profile.airFloorHz, q: 0.5 },
-        { type: "lowpass", frequency: profile.airCeilingHz, q: 0.55 },
+        {
+          type: "highpass",
+          frequency: airFloorStart,
+          endFrequency: airFloorEnd,
+          q: 0.5,
+        },
+        {
+          type: "lowpass",
+          frequency: airCeilingStart,
+          endFrequency: airCeilingEnd,
+          q: 0.55,
+        },
       ],
     },
     {
       kind: "breath-formant",
-      amplitude: peak * 0.16,
-      attack: 0.016,
-      duration: duration * 0.87,
+      amplitude: peak * 0.12,
+      attack: 0.04,
+      duration: duration * 0.84,
       envelope: "breath",
       filters: [
         {
           type: "bandpass",
           frequency: profile.formantHz,
           endFrequency: profile.formantHz * profile.drift,
-          q: 1.65,
+          q: 0.9,
         },
       ],
     },
@@ -196,15 +206,18 @@ function breathPlan({ duration, peak, profile, pan, voice }) {
 }
 
 export function hocketMarkerPlan({
-  soundSet = "wood",
+  soundSet = "relay",
   pulseLengthMs = 92,
   voice = 0,
   tone = 1,
   voiceCount = 4,
   peak = 0.24,
 } = {}) {
-  const material = SOUND_SETS.has(soundSet) ? soundSet : "wood";
+  const selectedSoundSet = SOUND_SETS.has(soundSet) ? soundSet : "relay";
   const voiceIndex = normalizedVoice(voice);
+  const material = selectedSoundSet === "relay"
+    ? RELAY_MATERIALS[voiceIndex]
+    : selectedSoundSet;
   const pulseSeconds = clamp(Number(pulseLengthMs), 24, 260) / 1000;
   const safePeak = clamp(Number(peak), 0.005, 0.72);
   const pitchScale = 2 ** ((clamp(Number(tone), 1, 8) - 1) / 8);
@@ -213,7 +226,7 @@ export function hocketMarkerPlan({
 
   let plan;
   if (material === "metal") {
-    const duration = clamp(0.18 + pulseSeconds * 1.3, 0.21, 0.52);
+    const duration = clamp(0.26 + pulseSeconds * 2.6, 0.32, 0.52);
     plan = metalPlan({
       baseHz,
       duration,
@@ -222,7 +235,7 @@ export function hocketMarkerPlan({
       pan,
     });
   } else if (material === "breath") {
-    const duration = clamp(0.08 + pulseSeconds * 0.85, 0.1, 0.31);
+    const duration = clamp(0.14 + pulseSeconds * 1.75, 0.18, 0.4);
     plan = breathPlan({
       duration,
       peak: safePeak,
@@ -231,7 +244,7 @@ export function hocketMarkerPlan({
       voice: voiceIndex,
     });
   } else {
-    const duration = clamp(0.026 + pulseSeconds * 0.4, 0.038, 0.14);
+    const duration = clamp(0.018 + pulseSeconds * 0.3, 0.03, 0.09);
     plan = woodPlan({
       baseHz,
       duration,
@@ -245,6 +258,7 @@ export function hocketMarkerPlan({
   const nodeEstimate = estimateNodeCount(plan.oscillators, plan.noisePaths);
   return {
     ...plan,
+    soundSet: selectedSoundSet,
     voice: voiceIndex,
     voiceCount: Math.round(clamp(Number(voiceCount), 2, 4)),
     pulseLengthMs: pulseSeconds * 1000,

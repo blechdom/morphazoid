@@ -1,5 +1,6 @@
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
+import { createMotionModeGroup } from "./src/ui/index.js";
 import {
   createHocketNoiseBuffer,
   HOCKET_MARKER_SOURCE_LIMIT,
@@ -9,6 +10,7 @@ import {
 import {
   HOCKET_PRESETS,
   HOCKET_VOICE_COLORS,
+  advanceHocketTraversal,
   analyzeHocketState,
   createHocketState,
   editHocketCell,
@@ -64,22 +66,24 @@ const dom = {
   voiceGrid: $("#voiceGrid"),
   compositeRail: $("#compositeRail"),
   voicePads: $("#voicePads"),
-  coverageOut: $("#coverageOut"),
-  handoffOut: $("#handoffOut"),
-  gapOut: $("#gapOut"),
-  collisionOut: $("#collisionOut"),
   resetButton: $("#resetButton"),
   liveStatus: $("#liveStatus"),
   canvas: $("#loomCanvas"),
   canvasWrap: $("#canvasWrap"),
   playheadLabel: $("#playheadLabel"),
+  motionModeMount: $("#motionModeMount"),
 };
 
 const transport = {
   playing: false,
   position: 0,
+  step: 0,
+  direction: 1,
+  motionMode: "loop",
   lastPerformanceMs: performance.now(),
   scheduleCursor: 0,
+  scheduleStep: 0,
+  scheduleDirection: 1,
   scheduleCurrentStep: false,
 };
 
@@ -93,6 +97,7 @@ let schedulerTimer = 0;
 let resizeObserver = null;
 let pointerDragKey = "";
 let destroyed = false;
+let motionModeControl = null;
 
 function mod(value, divisor) {
   return ((value % divisor) + divisor) % divisor;
@@ -112,6 +117,7 @@ class HocketAudio {
     this.closing = false;
     this.stateChangeHandler = null;
     this.scheduledSteps = [];
+    this.scheduledPatternSteps = [];
     this.activeSourceCount = 0;
     this.strikeHistory = [];
   }
@@ -185,7 +191,7 @@ class HocketAudio {
     });
   }
 
-  schedule(events, when, settings, absoluteStep) {
+  schedule(events, when, settings, absoluteStep, patternStep) {
     const context = this.context;
     if (!context || context.state !== "running" || when < context.currentTime - 0.02) return;
     this.pruneEnded(context.currentTime);
@@ -215,6 +221,8 @@ class HocketAudio {
     }
     this.scheduledSteps.push(absoluteStep);
     if (this.scheduledSteps.length > 64) this.scheduledSteps.shift();
+    this.scheduledPatternSteps.push(patternStep);
+    if (this.scheduledPatternSteps.length > 64) this.scheduledPatternSteps.shift();
     prepared.forEach(({ event, peak, plan }) => {
       this.strike(event, when, settings, peak, plan);
     });
@@ -353,6 +361,7 @@ class HocketAudio {
 
     this.noiseBuffer = null;
     this.scheduledSteps = [];
+    this.scheduledPatternSteps = [];
     this.master = null;
     this.compressor = null;
     this.analyser = null;
@@ -385,7 +394,7 @@ function handleAudioContextStateChange(context) {
 }
 
 function currentStep() {
-  return mod(Math.floor(transport.position), state.length);
+  return mod(transport.step, state.length);
 }
 
 function updateTransport(nowMs = performance.now()) {
@@ -398,16 +407,26 @@ function updateTransport(nowMs = performance.now()) {
   let guard = 0;
 
   while (remainingMs > 0.001 && guard < 128) {
-    const stepInteger = Math.floor(transport.position);
-    const fraction = transport.position - stepInteger;
-    const durationMs = hocketStepDurationSeconds(state, stepInteger) * 1000;
+    const pulseInteger = Math.floor(transport.position);
+    const fraction = transport.position - pulseInteger;
+    const durationMs = hocketStepDurationSeconds(state, pulseInteger) * 1000;
     const toBoundaryMs = durationMs * (1 - fraction);
     if (remainingMs < toBoundaryMs) {
       transport.position += remainingMs / durationMs;
       remainingMs = 0;
     } else {
-      transport.position = stepInteger + 1;
+      const next = advanceHocketTraversal(
+        transport.step,
+        transport.direction,
+        state.length,
+        transport.motionMode
+      );
+      const directionChanged = next.direction !== transport.direction;
+      transport.step = next.step;
+      transport.direction = next.direction;
+      transport.position = pulseInteger + 1;
       remainingMs -= toBoundaryMs;
+      if (directionChanged) renderTransport();
     }
     guard += 1;
   }
@@ -431,10 +450,15 @@ function resyncScheduler() {
   updateTransport();
   audio.cancelFuture();
   transport.scheduleCurrentStep = false;
-  transport.scheduleCursor = Math.max(
-    Math.ceil(transport.position - 0.000001),
-    Math.floor(transport.position)
+  const next = advanceHocketTraversal(
+    transport.step,
+    transport.direction,
+    state.length,
+    transport.motionMode
   );
+  transport.scheduleCursor = Math.floor(transport.position + 0.000001) + 1;
+  transport.scheduleStep = next.step;
+  transport.scheduleDirection = next.direction;
 }
 
 function schedulerTick() {
@@ -448,18 +472,41 @@ function schedulerTick() {
   const scheduleCurrentStep = transport.scheduleCurrentStep;
   transport.scheduleCurrentStep = false;
   if (!scheduleCurrentStep) {
-    transport.scheduleCursor = Math.max(
-      transport.scheduleCursor,
-      Math.ceil(transport.position - 0.000001)
-    );
+    const earliestFuturePulse = Math.floor(transport.position + 0.000001) + 1;
+    if (transport.scheduleCursor < earliestFuturePulse) {
+      const next = advanceHocketTraversal(
+        transport.step,
+        transport.direction,
+        state.length,
+        transport.motionMode
+      );
+      transport.scheduleCursor = earliestFuturePulse;
+      transport.scheduleStep = next.step;
+      transport.scheduleDirection = next.direction;
+    }
   }
 
   while (scheduled < 32) {
     const delay = secondsFromPositionTo(transport.scheduleCursor);
     if (delay > horizon) break;
-    const events = hocketEventsAtStep(state, mod(transport.scheduleCursor, state.length));
-    audio.schedule(events, context.currentTime + Math.max(0.003, delay), state, transport.scheduleCursor);
+    const patternStep = mod(transport.scheduleStep, state.length);
+    const events = hocketEventsAtStep(state, patternStep);
+    audio.schedule(
+      events,
+      context.currentTime + Math.max(0.003, delay),
+      state,
+      transport.scheduleCursor,
+      patternStep
+    );
+    const next = advanceHocketTraversal(
+      patternStep,
+      transport.scheduleDirection,
+      state.length,
+      transport.motionMode
+    );
     transport.scheduleCursor += 1;
+    transport.scheduleStep = next.step;
+    transport.scheduleDirection = next.direction;
     scheduled += 1;
   }
 }
@@ -516,13 +563,18 @@ function setTransport(playing) {
   transport.lastPerformanceMs = performance.now();
   if (playing) {
     transport.scheduleCursor = Math.floor(transport.position + 0.000001);
+    transport.scheduleStep = currentStep();
+    transport.scheduleDirection = transport.direction;
     transport.scheduleCurrentStep = true;
     schedulerTick();
   } else {
     transport.scheduleCurrentStep = false;
     audio.panic();
     transport.position = 0;
+    transport.step = 0;
     transport.scheduleCursor = 0;
+    transport.scheduleStep = 0;
+    transport.scheduleDirection = transport.direction;
   }
   renderTransport();
   drawDirty = true;
@@ -531,12 +583,34 @@ function setTransport(playing) {
 
 function renderTransport() {
   const playing = transport.playing;
+  const direction = transport.direction < 0 ? "reverse" : "forward";
+  const motion = transport.motionMode === "pingpong" ? "ping-pong" : direction;
+  motionModeControl?.setDirection(direction);
+  motionModeControl?.setMode(transport.motionMode);
   dom.playButton.setAttribute("aria-pressed", String(playing));
   dom.playLabel.textContent = playing ? "Stop the loom" : "Run the loom";
-  dom.playState.textContent = playing ? "space · rhythm running" : "space · stopped";
+  dom.playState.textContent = playing ? `space · ${motion}` : `space · stopped · ${motion}`;
   dom.stageState.dataset.state = playing ? "playing" : "ready";
   dom.stageStateText.textContent = playing ? "weaving" : "ready";
   dom.playButton.querySelector(".hocket-play-icon").textContent = playing ? "■" : "▶";
+}
+
+function setTraversal({ direction = transport.direction, motionMode = transport.motionMode }) {
+  updateTransport();
+  transport.direction = direction < 0 ? -1 : 1;
+  transport.motionMode = motionMode === "pingpong" ? "pingpong" : "loop";
+  if (transport.playing) {
+    resyncScheduler();
+    schedulerTick();
+  } else {
+    transport.scheduleStep = currentStep();
+    transport.scheduleDirection = transport.direction;
+  }
+  renderTransport();
+  drawDirty = true;
+  const directionLabel = transport.direction < 0 ? "reverse" : "forward";
+  const movementLabel = transport.motionMode === "pingpong" ? "ping-pong" : "loop";
+  setLiveStatus(`Travel set to ${directionLabel}, ${movementLabel}.`);
 }
 
 function markVariation(nextState) {
@@ -562,6 +636,8 @@ function restoreDynamicFocus(selector) {
 function commit(nextState, message, { resync = true } = {}) {
   const focusTarget = focusedDynamicControl();
   state = sanitizeHocketState(nextState);
+  transport.step = mod(transport.step, state.length);
+  transport.scheduleStep = mod(transport.scheduleStep, state.length);
   selected.voice = Math.min(selected.voice, state.voiceCount - 1);
   selected.step = mod(selected.step, state.length);
   if (resync && transport.playing && audio.armed) resyncScheduler();
@@ -593,13 +669,6 @@ function renderPreset() {
   dom.presetSource.rel = preset.source.url.startsWith("http") ? "noreferrer" : "";
 }
 
-function renderMetrics() {
-  const analysis = analyzeHocketState(state);
-  dom.coverageOut.value = `${Math.round(analysis.coverage * 100)}%`;
-  dom.handoffOut.value = String(analysis.handoffs);
-  dom.gapOut.value = String(analysis.gaps);
-  dom.collisionOut.value = String(analysis.collisions);
-}
 
 function makeStepButton(voice, step) {
   const button = document.createElement("button");
@@ -721,9 +790,9 @@ function renderControls() {
   dom.pulseLengthOut.value = `${Math.round(state.pulseLengthMs)} ms`;
   dom.levelOut.value = `${Math.round(state.level * 100)}%`;
   dom.structureSummary.value = `${state.voiceCount} voices · ${state.length} pulses`;
-  dom.timeSummary.value = `${Math.round(state.tempoBpm)} BPM · ${
+  dom.timeSummary.value = `${
     state.swing < 0.01 ? "straight" : `${Math.round(state.swing * 100)}% swing`
-  }`;
+  } · ${Math.round(state.pulseLengthMs)} ms`;
   const soundLabel = dom.soundSet.selectedOptions[0]?.textContent || state.soundSet;
   dom.soundSummary.value = `${soundLabel} · ${state.focusMode.replace("-", " ")}`;
   dom.pulseTool.setAttribute("aria-pressed", String(editTool === "pulse"));
@@ -732,7 +801,6 @@ function renderControls() {
 
 function renderState() {
   renderPreset();
-  renderMetrics();
   renderGrid();
   renderVoiceControls();
   renderControls();
@@ -821,6 +889,23 @@ function drawCanvas() {
   const analysis = analyzeHocketState(state);
   const playStep = currentStep();
   const phase = transport.position - Math.floor(transport.position);
+  const nextPlayStep = advanceHocketTraversal(
+    playStep,
+    transport.direction,
+    state.length,
+    transport.motionMode
+  ).step;
+  let visualNextStep = nextPlayStep;
+  if (transport.motionMode === "loop" && transport.direction > 0 && visualNextStep < playStep) {
+    visualNextStep += state.length;
+  } else if (
+    transport.motionMode === "loop" &&
+    transport.direction < 0 &&
+    visualNextStep > playStep
+  ) {
+    visualNextStep -= state.length;
+  }
+  const visualPlayStep = playStep + (visualNextStep - playStep) * phase;
 
   const halo = context.createRadialGradient(
     dimensions.centerX,
@@ -918,7 +1003,7 @@ function drawCanvas() {
     });
   });
 
-  const angle = ((playStep + phase) / state.length) * Math.PI * 2 - Math.PI / 2;
+  const angle = (visualPlayStep / state.length) * Math.PI * 2 - Math.PI / 2;
   context.strokeStyle = transport.playing
     ? "rgba(85, 230, 207, 0.82)"
     : "rgba(255, 255, 255, 0.17)";
@@ -1210,8 +1295,12 @@ globalThis.__HOCKET_LOOM__ = Object.freeze({
     groupSourceCount: [...audio.groups].map((group) => group.sources.length),
     transportPlaying: transport.playing,
     transportPosition: transport.position,
+    transportStep: currentStep(),
+    transportDirection: transport.direction < 0 ? "reverse" : "forward",
+    transportMotionMode: transport.motionMode,
     scheduleCursor: transport.scheduleCursor,
     scheduledSteps: [...audio.scheduledSteps],
+    scheduledPatternSteps: [...audio.scheduledPatternSteps],
     strikeHistory: audio.strikeHistory.map((strike) => ({
       ...strike,
       sourceKinds: [...strike.sourceKinds],
@@ -1235,6 +1324,7 @@ function teardown() {
   clearInterval(schedulerTimer);
   cancelAnimationFrame(animationFrame);
   resizeObserver?.disconnect();
+  motionModeControl?.destroy();
   audio.close();
 }
 
@@ -1253,6 +1343,19 @@ window.addEventListener("pageshow", (event) => {
   if (transport.playing && audio.armed) resyncScheduler();
   drawDirty = true;
 });
+
+motionModeControl = createMotionModeGroup({
+  ariaLabel: "Hocket direction and movement",
+  direction: "forward",
+  mode: "loop",
+  onDirectionChange(direction) {
+    setTraversal({ direction: direction === "reverse" ? -1 : 1 });
+  },
+  onModeChange(mode) {
+    setTraversal({ motionMode: mode });
+  },
+});
+dom.motionModeMount.replaceChildren(motionModeControl);
 
 populatePresetOptions();
 renderState();

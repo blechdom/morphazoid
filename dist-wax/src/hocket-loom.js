@@ -32,6 +32,29 @@ function mod(value, divisor) {
   return ((value % divisor) + divisor) % divisor;
 }
 
+export function advanceHocketTraversal(step, direction, length, mode = "loop") {
+  const safeLength = Math.max(1, Math.round(clamp(length, 1, 24, 1)));
+  const currentStep = Math.round(clamp(step, 0, safeLength - 1, 0));
+  let travel = 1;
+  try {
+    travel = Number(direction) < 0 ? -1 : 1;
+  } catch {
+    travel = 1;
+  }
+  if (safeLength === 1) return { step: 0, direction: travel };
+
+  if (mode === "pingpong") {
+    if (currentStep <= 0 && travel < 0) travel = 1;
+    if (currentStep >= safeLength - 1 && travel > 0) travel = -1;
+    return { step: currentStep + travel, direction: travel };
+  }
+
+  return {
+    step: mod(currentStep + travel, safeLength),
+    direction: travel,
+  };
+}
+
 function closestStepLength(value) {
   let numeric;
   try {
@@ -283,7 +306,9 @@ export function sanitizeHocketState(input = {}) {
     ),
     level: clamp(source.level, HOCKET_LIMITS.level[0], HOCKET_LIMITS.level[1], 0.32),
     preserveComposite: source.preserveComposite !== false,
-    soundSet: ["wood", "metal", "breath"].includes(source.soundSet) ? source.soundSet : "wood",
+    soundSet: ["relay", "wood", "metal", "breath"].includes(source.soundSet)
+      ? source.soundSet
+      : "relay",
     focusMode: ["balanced", "call-answer", "rotating"].includes(source.focusMode)
       ? source.focusMode
       : "balanced",
@@ -309,7 +334,7 @@ export function createHocketState(presetId = HOCKET_PRESETS[0].id) {
     pulseLengthMs: 92,
     level: 0.32,
     preserveComposite: true,
-    soundSet: presetId === "olutalo" ? "metal" : "wood",
+    soundSet: "relay",
     focusMode: "balanced",
   });
 }

@@ -68,15 +68,22 @@ do not turn a prototype into an exhaustive literature review.
    have visible sources or state, and meaningful visible edits should change the
    corresponding sound. Continuous input, ambience, and tails may use aggregate
    causal feedback. Avoid independent decorative animation.
-4. Establish bounds before adding voices or effects: input clamps, gain staging,
+4. Treat the instrument title as part of the playable visual composition. Keep
+   one accessible `h1` in, or directly edge-aligned to, the positioned wrapper
+   that owns the primary graphic, with its inset derived from that graphic's
+   bounds rather than the page shell. Use one coherent font family, weight, and
+   treatment across the complete title; do not split its words into unrelated
+   display styles. Verify that it remains clear of primary gestures and controls
+   at the required desktop, phone portrait, and phone landscape viewports.
+5. Establish bounds before adding voices or effects: input clamps, gain staging,
    maximum voices/nodes/events, scheduler lookahead, geometry/DPR budgets, and
    release/teardown behavior.
-5. Run the available automated and perceptual checks before expanding the slice
+6. Run the available automated and perceptual checks before expanding the slice
    and preserve a reversible checkpoint. Continue within the requested scope;
    pause for approval only when the user requested a checkpoint or an unresolved
    product choice would materially change the result. If nobody can listen,
    label that boundary and continue with mechanical evidence.
-6. Add one capability at a time. New controls need a DSP destination, audible
+7. Add one capability at a time. New controls need a DSP destination, audible
    min/default/max relationship, visual synchronization, state ownership, and
    focused tests. Presets must demonstrate distinct regions of the sound space
    rather than small parameter variations.

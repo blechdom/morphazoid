@@ -82,15 +82,7 @@
   padding: 28px 0 64px;
 }
 
-.hocket-intro {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0;
-  align-items: end;
-  padding: 12px 4px 24px;
-}
 
-.hocket-kicker,
 .hocket-score-header p,
 .hocket-section-heading p {
   margin: 0;
@@ -101,16 +93,24 @@
   text-transform: uppercase;
 }
 
-.hocket-intro h1 {
-  margin: 5px 0 0;
-  font-size: clamp(2.3rem, 5.2vw, 5.4rem);
-  line-height: 0.84;
-  letter-spacing: -0.075em;
+.hocket-stage-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(20px, 3.4vh, 42px);
+  left: clamp(20px, 3vw, 48px);
+  pointer-events: none;
 }
 
-.hocket-intro h1 span {
-  color: transparent;
-  -webkit-text-stroke: 1px rgba(255, 209, 92, 0.86);
+.hocket-stage-heading h1 {
+  margin: 0;
+  color: rgba(247, 243, 255, 0.94);
+  font-family: var(--mono);
+  font-size: clamp(24px, 3.7vw, 52px);
+  font-weight: 420;
+  letter-spacing: -0.055em;
+  line-height: 0.9;
+  text-shadow: 0 0 24px rgba(255, 209, 92, 0.15);
+  white-space: nowrap;
 }
 
 .hocket-workspace {
@@ -259,51 +259,6 @@
   background: rgba(9, 7, 15, 0.74);
   font: 700 0.67rem/1 monospace;
   text-align: center;
-}
-
-.hocket-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin: 0;
-  border-top: 1px solid var(--hocket-line);
-}
-
-.hocket-metrics > div {
-  min-width: 0;
-  padding: 13px 16px;
-  border-right: 1px solid var(--hocket-line);
-}
-
-.hocket-metrics > div:last-child {
-  border-right: 0;
-}
-
-.hocket-metrics dt {
-  color: var(--hocket-muted);
-  font-size: 0.59rem;
-  font-weight: 720;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.hocket-metrics dd {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 4px 0 0;
-}
-
-.hocket-metrics output {
-  font-size: 1.2rem;
-  font-weight: 780;
-}
-
-.hocket-metrics small {
-  overflow: hidden;
-  color: var(--hocket-muted);
-  font-size: 0.64rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .hocket-score-header {
@@ -503,9 +458,57 @@
   padding: 10px;
 }
 
+.hocket-transport-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.hocket-transport-settings {
+  display: grid;
+  min-width: 126px;
+  gap: 8px;
+}
+
+.hocket-tempo-control {
+  padding: 7px 8px;
+  border: 1px solid var(--hocket-line-strong);
+  border-radius: 9px;
+  background: #0b0911;
+}
+
+.hocket-tempo-control > span {
+  font-size: 0.59rem;
+}
+
+.hocket-motion-field {
+  display: grid;
+  gap: 5px;
+}
+
+.hocket-motion-field > span {
+  color: var(--hocket-muted);
+  font-size: 0.59rem;
+  font-weight: 700;
+}
+
+.hocket-motion-field .transport-button-array {
+  --accent: var(--hocket-aqua);
+  --accent-soft: rgba(85, 230, 207, 0.55);
+  --accent-glow: rgba(85, 230, 207, 0.12);
+}
+
+.hocket-motion-field .transport-button-array > button {
+  border-color: var(--hocket-line-strong);
+  color: var(--hocket-muted);
+  background: #0b0911;
+}
+
 .hocket-play {
   display: flex;
   width: 100%;
+  min-width: 0;
   min-height: 64px;
   gap: 13px;
   align-items: center;
@@ -653,6 +656,10 @@
   color: var(--hocket-ink);
 }
 
+.hocket-panel-body > .hocket-control + .hocket-control {
+  margin-top: 12px;
+}
+
 .hocket-preset-copy {
   margin-top: 11px;
   padding: 11px;
@@ -797,10 +804,6 @@
   .hocket-workspace {
     grid-template-columns: minmax(0, 1fr) 330px;
   }
-
-  .hocket-metrics small {
-    display: none;
-  }
 }
 
 @media (max-width: 780px) {
@@ -814,11 +817,6 @@
     padding-top: 17px;
   }
 
-  .hocket-intro {
-    grid-template-columns: 1fr;
-    gap: 14px;
-    padding-bottom: 18px;
-  }
 
   .hocket-workspace {
     grid-template-columns: 1fr;
@@ -839,6 +837,15 @@
     max-height: none;
   }
 
+  .hocket-stage-heading {
+    top: 14px;
+    left: 13px;
+  }
+
+  .hocket-stage-heading h1 {
+    font-size: 24px;
+  }
+
   .hocket-score-header {
     display: grid;
   }
@@ -853,18 +860,6 @@
   .hocket-stage-header,
   .hocket-score-header {
     padding: 13px;
-  }
-
-  .hocket-metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .hocket-metrics > div:nth-child(2) {
-    border-right: 0;
-  }
-
-  .hocket-metrics > div:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--hocket-line);
   }
 
   .hocket-edit-mode {
@@ -899,6 +894,16 @@
 }
 
 @media (pointer: coarse) {
+  .hocket-motion-field .transport-button-array {
+    grid-template-columns: repeat(3, 48px);
+  }
+
+  .hocket-motion-field .transport-button-array > button {
+    width: 48px;
+    min-width: 48px;
+    min-height: 48px;
+  }
+
   .hocket-play,
   .hocket-voice-pad,
   .hocket-nudge button,
@@ -930,9 +935,6 @@
     padding-top: 12px;
   }
 
-  .hocket-intro {
-    padding-bottom: 14px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
