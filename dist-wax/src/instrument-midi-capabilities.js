@@ -16,6 +16,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "recursion",
   ]),
   drums: Object.freeze([
+    "hocket-loom",
     "shape-drums",
     "lattice-drums",
     "spiral-drums",
@@ -193,6 +194,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
 // transport, but they have no conservative note action. Do not capture QWERTY
 // piano/drum keys until an explicit page mapping exists.
 export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
+  "hocket-loom",
   "boidzoid",
   "vector-flight",
   "pink-trombonazoid",
@@ -257,7 +259,11 @@ const midiOutputExtraIds = new Set([
   "l-system",
   "julia",
 ]);
-const noMidiOutputIds = new Set(["pink-trombonazoid", "vocalzoid"]);
+const noMidiOutputIds = new Set([
+  "hocket-loom",
+  "pink-trombonazoid",
+  "vocalzoid",
+]);
 
 export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
   Object.entries(NOTE_MODE_IDS).flatMap(([noteMode, ids]) => ids.map((id) => Object.freeze({

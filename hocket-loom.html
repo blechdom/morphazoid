@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#09070f" />
+    <meta
+      name="description"
+      content="Hocket Luigi is an interactive two-, three-, and four-voice laboratory for composing interlocking rhythms and hearing their shared result."
+    />
+    <title>Hocket Luigi · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="hocket-loom.css" />
+  </head>
+  <body class="hocket-loom-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="wave-pool.html">wave pool</a>
+        <a class="tab active" href="hocket-loom.html" aria-current="page">hocket luigi</a>
+        <a class="tab" href="sliding-puzzle.html">sliding puzzle</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="wave-pool.html">Wave Pool</option>
+          <option value="hocket-loom.html" selected>Hocket Luigi</option>
+          <option value="sliding-puzzle.html">Sliding Puzzle</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="hocket-audio-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">32%</output></span>
+          <input
+            id="level"
+            aria-label="Hocket Luigi output level"
+            type="range"
+            min="0"
+            max="0.62"
+            step="0.01"
+            value="0.32"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="hocket-shell" id="hocketLoom">
+      <section class="hocket-intro" aria-labelledby="pageTitle">
+        <div>
+          <p class="hocket-kicker">DISTRIBUTED PULSE / COMPOSITE RHYTHM / 2–4 VOICES</p>
+          <h1 id="pageTitle">HOCKET <span>LUIGI</span></h1>
+        </div>
+      </section>
+
+      <section class="hocket-workspace" aria-label="Hocket Luigi rhythm instrument">
+        <div class="hocket-main-column">
+          <section class="hocket-stage-card" aria-label="Interlocking rhythm cycle">
+            <header class="hocket-stage-header">
+              <div class="hocket-stage-state" id="stageState" data-state="ready">
+                <i aria-hidden="true"></i>
+                <span><small>transport</small><b id="stageStateText">ready</b></span>
+              </div>
+            </header>
+
+            <div class="hocket-canvas-wrap" id="canvasWrap">
+              <canvas
+                id="loomCanvas"
+                data-space-key-owne
+                width="920"
+                height="620"
+                tabindex="0"
+                role="application"
+                aria-label="Circular interlocking rhythm editor"
+                aria-describedby="loomInstructions liveStatus"
+              >
+                A circular score with up to four voice rings. Each pulse can be moved between voices.
+              </canvas>
+              <p class="hocket-instructions" id="loomInstructions">
+                TAP A RING TO EDIT · ARROWS MOVE · ENTER PLACES · DELETE RESTS
+              </p>
+              <div class="hocket-playhead-label" id="playheadLabel" aria-hidden="true">01</div>
+            </div>
+
+            <dl class="hocket-metrics" aria-label="Composite rhythm analysis">
+              <div>
+                <dt>coverage</dt>
+                <dd><output id="coverageOut">100%</output><small>of cycle sounding</small></dd>
+              </div>
+              <div>
+                <dt>handoffs</dt>
+                <dd><output id="handoffOut">16</output><small>owner changes</small></dd>
+              </div>
+              <div>
+                <dt>gaps</dt>
+                <dd><output id="gapOut">0</output><small>silent pulses</small></dd>
+              </div>
+              <div>
+                <dt>collisions</dt>
+                <dd><output id="collisionOut">0</output><small>extra simultaneous hits</small></dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="hocket-score-card" aria-labelledby="scoreTitle">
+            <header class="hocket-score-header">
+              <div>
+                <p>LINEAR VIEW / SAME CYCLE</p>
+                <h2 id="scoreTitle">Who owns each pulse?</h2>
+              </div>
+              <div class="hocket-edit-mode">
+                <div class="hocket-segmented" role="group" aria-label="Edit tool">
+                  <button id="pulseTool" type="button" aria-pressed="true">Pulse</button>
+                  <button id="restTool" type="button" aria-pressed="false">Rest</button>
+                </div>
+                <label class="hocket-lock" for="preserveComposite">
+                  <input id="preserveComposite" type="checkbox" checked />
+                  <span><b>Preserve composite</b><small>move ownership</small></span>
+                </label>
+              </div>
+            </header>
+            <div class="hocket-grid-scroll" tabindex="0" aria-label="Scrollable interlocking rhythm score">
+              <div
+                class="hocket-voice-grid"
+                id="voiceGrid"
+                role="group"
+                aria-label="Interlocking rhythm step editor"
+              ></div>
+              <div class="hocket-composite" aria-label="Combined rhythm">
+                <span>COMPOSITE</span>
+                <div id="compositeRail"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="hocket-console" aria-label="Hocket Luigi controls">
+          <section class="hocket-transport" aria-label="Transport and voice audition">
+            <button
+              id="playButton"
+              class="hocket-play"
+              type="button"
+              aria-pressed="false"
+              data-primary-transport
+            >
+              <span class="hocket-play-icon" aria-hidden="true">▶</span>
+              <span><b id="playLabel">Run the loom</b><small id="playState">space · stopped</small></span>
+            </button>
+            <div class="hocket-voice-pads" id="voicePads" role="group" aria-label="Audition voices"></div>
+          </section>
+
+          <section class="hocket-panel hocket-preset-panel" aria-labelledby="presetTitle">
+            <div class="hocket-section-heading">
+              <p>01 / SOURCE PATTERNS</p>
+              <h2 id="presetTitle">Start with a relationship</h2>
+            </div>
+            <label class="hocket-select" for="presetSelect">
+              <span>Study</span>
+              <select id="presetSelect" aria-label="Interlocking rhythm study"></select>
+            </label>
+            <div class="hocket-preset-copy">
+              <strong id="presetStatus">Structural study</strong>
+              <p id="presetDescription"></p>
+              <a id="presetSource" href="HOCKET_LOOM_RESEARCH.md">Read source and framing</a>
+            </div>
+          </section>
+
+          <details class="hocket-panel" open>
+            <summary>
+              <span><small>02 / INTERLOCK</small><b>Re-thread the cycle</b></span>
+              <output id="structureSummary">2 voices · 16 pulses</output>
+            </summary>
+            <div class="hocket-panel-body">
+              <div class="hocket-control-pair">
+                <label class="hocket-select" for="voiceCount">
+                  <span>Voices</span>
+                  <select id="voiceCount">
+                    <option value="2">2 voices</option>
+                    <option value="3">3 voices</option>
+                    <option value="4">4 voices</option>
+                  </select>
+                </label>
+                <label class="hocket-select" for="cycleLength">
+                  <span>Cycle</span>
+                  <select id="cycleLength">
+                    <option value="8">8 pulses</option>
+                    <option value="12">12 pulses</option>
+                    <option value="16">16 pulses</option>
+                    <option value="24">24 pulses</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="hocket-shift-row">
+                <label class="hocket-select" for="shiftVoice">
+                  <span>Shift voice</span>
+                  <select id="shiftVoice"></select>
+                </label>
+                <div class="hocket-nudge" role="group" aria-label="Shift selected voice">
+                  <button id="shiftBack" type="button" aria-label="Shift selected voice one pulse earlier">−1</button>
+                  <button id="shiftForward" type="button" aria-label="Shift selected voice one pulse later">+1</button>
+                </div>
+              </div>
+              <div class="hocket-phase-controls" id="phaseControls"></div>
+              <div class="hocket-action-row">
+                <button id="tightenButton" type="button">Fill from collisions</button>
+                <button id="clearButton" type="button">Clear</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="hocket-panel" open>
+            <summary>
+              <span><small>03 / TIME</small><b>Set the handoff feel</b></span>
+              <output id="timeSummary">112 BPM · straight</output>
+            </summary>
+            <div class="hocket-panel-body">
+              <label class="hocket-control" for="tempoBpm">
+                <span><b>Tempo</b><output id="tempoOut" for="tempoBpm">112 BPM</output></span>
+                <input id="tempoBpm" type="range" min="36" max="220" step="1" value="112" />
+              </label>
+              <label class="hocket-control" for="swing">
+                <span><b>Pair swing</b><output id="swingOut" for="swing">0%</output></span>
+                <input id="swing" type="range" min="0" max="0.46" step="0.01" value="0" />
+              </label>
+              <label class="hocket-control" for="pulseLength">
+                <span><b>Pulse length</b><output id="pulseLengthOut" for="pulseLength">92 ms</output></span>
+                <input id="pulseLength" type="range" min="24" max="260" step="1" value="92" />
+              </label>
+            </div>
+          </details>
+
+          <details class="hocket-panel">
+            <summary>
+              <span><small>04 / MARKERS</small><b>Clack, ring, and breath</b></span>
+              <output id="soundSummary">Dry wood clack · balanced</output>
+            </summary>
+            <div class="hocket-panel-body">
+              <div class="hocket-control-pair">
+                <label class="hocket-select" for="soundSet">
+                  <span>Marker sound</span>
+                  <select id="soundSet">
+                    <option value="wood">Dry wood clack</option>
+                    <option value="metal">Inharmonic metal ring</option>
+                    <option value="breath">Air breath</option>
+                  </select>
+                </label>
+                <label class="hocket-select" for="focusMode">
+                  <span>Listening focus</span>
+                  <select id="focusMode">
+                    <option value="balanced">Balanced</option>
+                    <option value="call-answer">Call / answer</option>
+                    <option value="rotating">Rotating spotlight</option>
+                  </select>
+                </label>
+              </div>
+              <p class="hocket-note">
+                These sounds are synthetic timing markers, not simulations of the instruments or voices discussed.
+              </p>
+            </div>
+          </details>
+
+          <details class="hocket-panel hocket-context-panel">
+            <summary>
+              <span><small>CONTEXT</small><b>Sources, reductions, and non-claims</b></span>
+              <span aria-hidden="true">↗</span>
+            </summary>
+            <div class="hocket-panel-body">
+              <p>
+                Presets distinguish documented relationships, reduced studies, and new compositions.
+                Editing a study makes <em>your variation</em>.
+              </p>
+              <a href="HOCKET_LOOM_RESEARCH.md">Open the research notes</a>
+            </div>
+          </details>
+
+          <button id="resetButton" class="hocket-reset" type="button">Reset this study</button>
+        </aside>
+      </section>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite">Hocket Luigi ready.</p>
+      <p class="hocket-error" id="audioError" role="alert" hidden></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="hocket-loom-app.js"></script>
+  </body>
+</html>

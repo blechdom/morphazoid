@@ -1,0 +1,946 @@
+:root {
+  --hocket-bg: #09070f;
+  --hocket-panel: #13101c;
+  --hocket-panel-2: #191424;
+  --hocket-line: rgba(255, 255, 255, 0.12);
+  --hocket-line-strong: rgba(255, 255, 255, 0.24);
+  --hocket-ink: #f7f3ff;
+  --hocket-muted: #a8a0b8;
+  --hocket-red: #ff4f6d;
+  --hocket-gold: #ffd15c;
+  --hocket-aqua: #55e6cf;
+  --hocket-violet: #a78bfa;
+}
+
+.hocket-loom-page {
+  min-height: 100vh;
+  color: var(--hocket-ink);
+  background:
+    radial-gradient(circle at 14% 12%, rgba(255, 79, 109, 0.11), transparent 30rem),
+    radial-gradient(circle at 82% 32%, rgba(85, 230, 207, 0.08), transparent 34rem),
+    var(--hocket-bg);
+}
+
+.hocket-loom-page .masthead {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  background: rgba(9, 7, 15, 0.94);
+  backdrop-filter: blur(18px);
+}
+
+.hocket-loom-page button,
+.hocket-loom-page select,
+.hocket-loom-page input {
+  font: inherit;
+}
+
+.hocket-loom-page button {
+  color: inherit;
+}
+
+.hocket-audio-glyph {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+}
+
+.hocket-audio-glyph i {
+  width: 3px;
+  height: 8px;
+  border-radius: 4px;
+  background: currentColor;
+  transition: height 160ms ease;
+}
+
+.hocket-audio-glyph i:nth-child(2) {
+  height: 16px;
+}
+
+.hocket-audio-glyph i:nth-child(3) {
+  height: 11px;
+}
+
+.audio-button[aria-pressed="true"] .hocket-audio-glyph i {
+  animation: hocket-meter 720ms ease-in-out infinite alternate;
+}
+
+.audio-button[aria-pressed="true"] .hocket-audio-glyph i:nth-child(2) {
+  animation-delay: -280ms;
+}
+
+.audio-button[aria-pressed="true"] .hocket-audio-glyph i:nth-child(3) {
+  animation-delay: -480ms;
+}
+
+@keyframes hocket-meter {
+  to { height: 4px; }
+}
+
+.hocket-shell {
+  width: min(1560px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 28px 0 64px;
+}
+
+.hocket-intro {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  align-items: end;
+  padding: 12px 4px 24px;
+}
+
+.hocket-kicker,
+.hocket-score-header p,
+.hocket-section-heading p {
+  margin: 0;
+  color: var(--hocket-gold);
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+}
+
+.hocket-intro h1 {
+  margin: 5px 0 0;
+  font-size: clamp(2.3rem, 5.2vw, 5.4rem);
+  line-height: 0.84;
+  letter-spacing: -0.075em;
+}
+
+.hocket-intro h1 span {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255, 209, 92, 0.86);
+}
+
+.hocket-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 390px);
+  gap: 16px;
+  align-items: start;
+}
+
+.hocket-main-column,
+.hocket-console {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.hocket-console {
+  position: sticky;
+  top: 76px;
+  max-height: calc(100vh - 92px);
+  padding-right: 3px;
+  overflow-y: auto;
+  scrollbar-color: rgba(255, 209, 92, 0.34) transparent;
+  scrollbar-width: thin;
+}
+
+.hocket-stage-card,
+.hocket-score-card,
+.hocket-transport,
+.hocket-panel {
+  overflow: hidden;
+  border: 1px solid var(--hocket-line);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 46%),
+    var(--hocket-panel);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+}
+
+.hocket-stage-header,
+.hocket-score-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--hocket-line);
+}
+
+.hocket-stage-header {
+  justify-content: flex-end;
+}
+
+.hocket-score-header h2,
+.hocket-section-heading h2 {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.hocket-stage-state {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 108px;
+  justify-content: flex-end;
+}
+
+.hocket-stage-state i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--hocket-muted);
+  box-shadow: 0 0 0 5px rgba(168, 160, 184, 0.09);
+}
+
+.hocket-stage-state[data-state="playing"] i {
+  background: var(--hocket-aqua);
+  box-shadow: 0 0 18px rgba(85, 230, 207, 0.84);
+}
+
+.hocket-stage-state span {
+  display: grid;
+  text-align: right;
+}
+
+.hocket-stage-state small {
+  color: var(--hocket-muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hocket-stage-state b {
+  font-size: 0.78rem;
+}
+
+.hocket-canvas-wrap {
+  position: relative;
+  min-height: 390px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 209, 92, 0.055), transparent 38%),
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px),
+    #0c0913;
+  background-size: auto, 24px 24px, 24px 24px, auto;
+}
+
+#loomCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 390px;
+  max-height: min(64vh, 620px);
+  outline: none;
+  touch-action: none;
+}
+
+#loomCanvas:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--hocket-gold);
+}
+
+.hocket-instructions {
+  position: absolute;
+  left: 16px;
+  bottom: 13px;
+  margin: 0;
+  color: rgba(247, 243, 255, 0.54);
+  font-size: 0.59rem;
+  font-weight: 720;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+}
+
+.hocket-playhead-label {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  min-width: 42px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 209, 92, 0.26);
+  border-radius: 999px;
+  color: var(--hocket-gold);
+  background: rgba(9, 7, 15, 0.74);
+  font: 700 0.67rem/1 monospace;
+  text-align: center;
+}
+
+.hocket-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 0;
+  border-top: 1px solid var(--hocket-line);
+}
+
+.hocket-metrics > div {
+  min-width: 0;
+  padding: 13px 16px;
+  border-right: 1px solid var(--hocket-line);
+}
+
+.hocket-metrics > div:last-child {
+  border-right: 0;
+}
+
+.hocket-metrics dt {
+  color: var(--hocket-muted);
+  font-size: 0.59rem;
+  font-weight: 720;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hocket-metrics dd {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 4px 0 0;
+}
+
+.hocket-metrics output {
+  font-size: 1.2rem;
+  font-weight: 780;
+}
+
+.hocket-metrics small {
+  overflow: hidden;
+  color: var(--hocket-muted);
+  font-size: 0.64rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hocket-score-header {
+  align-items: flex-start;
+}
+
+.hocket-edit-mode {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.hocket-segmented {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--hocket-line);
+  border-radius: 10px;
+  background: #0b0911;
+}
+
+.hocket-segmented button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--hocket-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.hocket-segmented button[aria-pressed="true"] {
+  color: #120d17;
+  background: var(--hocket-gold);
+}
+
+.hocket-lock {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.hocket-lock input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--hocket-gold);
+}
+
+.hocket-lock span {
+  display: grid;
+}
+
+.hocket-lock b {
+  font-size: 0.72rem;
+}
+
+.hocket-lock small {
+  color: var(--hocket-muted);
+  font-size: 0.62rem;
+}
+
+.hocket-grid-scroll {
+  overflow-x: auto;
+  outline: none;
+  scrollbar-color: rgba(255, 209, 92, 0.34) transparent;
+}
+
+.hocket-grid-scroll:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--hocket-gold);
+}
+
+.hocket-voice-grid {
+  --step-count: 16;
+  display: grid;
+  min-width: calc(112px + var(--step-count) * 34px);
+  padding: 12px;
+  gap: 5px;
+}
+
+.hocket-voice-row {
+  display: grid;
+  grid-template-columns: 112px repeat(var(--step-count), minmax(32px, 1fr));
+  gap: 5px;
+}
+
+.hocket-lane-label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  color: var(--hocket-muted);
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+.hocket-lane-label i {
+  width: 9px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--voice-color);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--voice-color), transparent 50%);
+}
+
+.hocket-step,
+.hocket-composite-step {
+  position: relative;
+  min-width: 30px;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid var(--hocket-line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.026);
+}
+
+.hocket-step {
+  cursor: pointer;
+}
+
+.hocket-step::after {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--voice-color);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.3);
+  transition: 120ms ease;
+  content: "";
+}
+
+.hocket-step.is-on {
+  border-color: color-mix(in srgb, var(--voice-color), transparent 45%);
+  background: color-mix(in srgb, var(--voice-color), transparent 86%);
+}
+
+.hocket-step.is-on::after {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--voice-color), transparent 35%);
+}
+
+.hocket-step.is-current,
+.hocket-composite-step.is-current {
+  outline: 2px solid var(--hocket-gold);
+  outline-offset: 1px;
+}
+
+.hocket-step:nth-child(4n + 2),
+.hocket-composite-step:nth-child(4n + 1) {
+  border-left-color: rgba(255, 255, 255, 0.28);
+}
+
+.hocket-composite {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 5px;
+  align-items: center;
+  padding: 0 12px 14px;
+}
+
+.hocket-composite > span {
+  padding-left: 3px;
+  color: var(--hocket-gold);
+  font-size: 0.58rem;
+  font-weight: 760;
+  letter-spacing: 0.13em;
+}
+
+.hocket-composite > div {
+  --step-count: 16;
+  display: grid;
+  grid-template-columns: repeat(var(--step-count), minmax(32px, 1fr));
+  min-width: calc(var(--step-count) * 34px);
+  gap: 5px;
+}
+
+.hocket-composite-step {
+  display: grid;
+  place-items: center;
+  color: var(--hocket-muted);
+  font: 650 0.61rem/1 monospace;
+}
+
+.hocket-composite-step.is-gap {
+  border-style: dashed;
+  color: rgba(255, 255, 255, 0.24);
+}
+
+.hocket-composite-step.is-collision {
+  color: #0e0b14;
+  border-color: var(--hocket-gold);
+  background: var(--hocket-gold);
+}
+
+.hocket-transport {
+  padding: 10px;
+}
+
+.hocket-play {
+  display: flex;
+  width: 100%;
+  min-height: 64px;
+  gap: 13px;
+  align-items: center;
+  padding: 9px 13px;
+  border: 1px solid rgba(85, 230, 207, 0.34);
+  border-radius: 12px;
+  color: var(--hocket-ink);
+  background: linear-gradient(110deg, rgba(85, 230, 207, 0.13), rgba(167, 139, 250, 0.07));
+  cursor: pointer;
+}
+
+.hocket-play[aria-pressed="true"] {
+  border-color: var(--hocket-aqua);
+  box-shadow: inset 0 0 24px rgba(85, 230, 207, 0.09);
+}
+
+.hocket-play-icon {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  place-items: center;
+  border-radius: 50%;
+  color: #07100f;
+  background: var(--hocket-aqua);
+}
+
+.hocket-play > span:last-child {
+  display: grid;
+  text-align: left;
+}
+
+.hocket-play b {
+  font-size: 0.85rem;
+}
+
+.hocket-play small {
+  margin-top: 3px;
+  color: var(--hocket-muted);
+  font-size: 0.65rem;
+}
+
+.hocket-voice-pads {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.hocket-voice-pad {
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 4px;
+  border: 1px solid color-mix(in srgb, var(--voice-color), transparent 58%);
+  border-radius: 9px;
+  color: var(--voice-color);
+  background: color-mix(in srgb, var(--voice-color), transparent 92%);
+  font-size: 0.63rem;
+  font-weight: 740;
+  cursor: pointer;
+}
+
+.hocket-panel > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  min-height: 58px;
+  padding: 11px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.hocket-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hocket-panel > summary span:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.hocket-panel > summary small {
+  color: var(--hocket-gold);
+  font-size: 0.57rem;
+  font-weight: 760;
+  letter-spacing: 0.15em;
+}
+
+.hocket-panel > summary b {
+  font-size: 0.82rem;
+}
+
+.hocket-panel > summary output {
+  color: var(--hocket-muted);
+  font-size: 0.64rem;
+  text-align: right;
+}
+
+.hocket-panel[open] > summary {
+  border-bottom: 1px solid var(--hocket-line);
+}
+
+.hocket-panel-body,
+.hocket-preset-panel {
+  padding: 13px 14px 15px;
+}
+
+.hocket-preset-panel .hocket-section-heading {
+  margin-bottom: 12px;
+}
+
+.hocket-select,
+.hocket-control {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.hocket-select > span,
+.hocket-control > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--hocket-muted);
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
+.hocket-select select {
+  width: 100%;
+  min-height: 39px;
+  padding: 0 31px 0 10px;
+  border: 1px solid var(--hocket-line-strong);
+  border-radius: 8px;
+  color: var(--hocket-ink);
+  background: #0b0911;
+}
+
+.hocket-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--hocket-gold);
+}
+
+.hocket-control output {
+  color: var(--hocket-ink);
+}
+
+.hocket-preset-copy {
+  margin-top: 11px;
+  padding: 11px;
+  border-left: 2px solid var(--hocket-gold);
+  background: rgba(255, 209, 92, 0.04);
+}
+
+.hocket-preset-copy strong {
+  color: var(--hocket-gold);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hocket-preset-copy p,
+.hocket-note,
+.hocket-context-panel p {
+  margin: 6px 0;
+  color: var(--hocket-muted);
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+
+.hocket-preset-copy a,
+.hocket-context-panel a {
+  color: var(--hocket-aqua);
+  font-size: 0.67rem;
+}
+
+.hocket-control-pair,
+.hocket-shift-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.hocket-shift-row {
+  align-items: end;
+  margin-top: 11px;
+}
+
+.hocket-nudge {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.hocket-nudge button,
+.hocket-action-row button,
+.hocket-reset {
+  min-height: 39px;
+  border: 1px solid var(--hocket-line-strong);
+  border-radius: 8px;
+  background: #0b0911;
+  cursor: pointer;
+}
+
+.hocket-nudge button:hover,
+.hocket-action-row button:hover,
+.hocket-reset:hover {
+  border-color: var(--hocket-gold);
+}
+
+.hocket-phase-controls {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.hocket-phase-control {
+  display: grid;
+  grid-template-columns: 76px 1fr 30px;
+  gap: 8px;
+  align-items: center;
+  color: var(--hocket-muted);
+  font-size: 0.64rem;
+}
+
+.hocket-phase-control span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hocket-phase-control input {
+  width: 100%;
+  accent-color: var(--voice-color);
+}
+
+.hocket-phase-control output {
+  color: var(--hocket-ink);
+  font: 650 0.66rem/1 monospace;
+  text-align: right;
+}
+
+.hocket-action-row {
+  display: grid;
+  grid-template-columns: 1.5fr 0.8fr;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.hocket-action-row button:first-child {
+  color: var(--hocket-aqua);
+}
+
+.hocket-action-row button:last-child {
+  color: var(--hocket-red);
+}
+
+.hocket-context-panel .hocket-panel-body {
+  padding-top: 12px;
+}
+
+.hocket-reset {
+  width: 100%;
+  min-height: 46px;
+  color: var(--hocket-muted);
+  background: transparent;
+}
+
+.hocket-error {
+  position: fixed;
+  z-index: 20;
+  right: 18px;
+  bottom: 18px;
+  max-width: min(420px, calc(100vw - 36px));
+  margin: 0;
+  padding: 12px 15px;
+  border: 1px solid var(--hocket-red);
+  border-radius: 10px;
+  color: #fff;
+  background: #24101a;
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 1040px) {
+  .hocket-shell {
+    width: min(100% - 24px, 980px);
+  }
+
+  .hocket-workspace {
+    grid-template-columns: minmax(0, 1fr) 330px;
+  }
+
+  .hocket-metrics small {
+    display: none;
+  }
+}
+
+@media (max-width: 780px) {
+  .hocket-loom-page .audio-button {
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .hocket-shell {
+    width: min(100% - 18px, 660px);
+    padding-top: 17px;
+  }
+
+  .hocket-intro {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding-bottom: 18px;
+  }
+
+  .hocket-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .hocket-console {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hocket-canvas-wrap,
+  #loomCanvas {
+    min-height: 330px;
+  }
+
+  #loomCanvas {
+    max-height: none;
+  }
+
+  .hocket-score-header {
+    display: grid;
+  }
+
+  .hocket-edit-mode {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 520px) {
+  .hocket-stage-header,
+  .hocket-score-header {
+    padding: 13px;
+  }
+
+  .hocket-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hocket-metrics > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .hocket-metrics > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--hocket-line);
+  }
+
+  .hocket-edit-mode {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hocket-segmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hocket-voice-grid {
+    min-width: calc(86px + var(--step-count) * 39px);
+  }
+
+  .hocket-voice-row {
+    grid-template-columns: 86px repeat(var(--step-count), 34px);
+  }
+
+  .hocket-composite {
+    grid-template-columns: 86px 1fr;
+  }
+
+  .hocket-control-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .hocket-voice-pads {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (pointer: coarse) {
+  .hocket-play,
+  .hocket-voice-pad,
+  .hocket-nudge button,
+  .hocket-action-row button,
+  .hocket-reset,
+  .hocket-select select,
+  .hocket-segmented button {
+    min-height: 48px;
+  }
+
+  .hocket-step {
+    min-width: 38px;
+    min-height: 42px;
+  }
+}
+
+@media (max-height: 520px) and (min-width: 700px) {
+  .hocket-loom-page .audio-button {
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .hocket-console {
+    position: static;
+    max-height: none;
+  }
+
+  .hocket-shell {
+    padding-top: 12px;
+  }
+
+  .hocket-intro {
+    padding-bottom: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audio-button[aria-pressed="true"] .hocket-audio-glyph i {
+    animation: none;
+  }
+
+  .hocket-step::after {
+    transition: none;
+  }
+}

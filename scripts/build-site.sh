@@ -393,6 +393,13 @@ for worktree_runtime_file in \
   solid-drums.css \
   solid-drums-app.js \
   src/solid-drums.js \
+  hocket-loom.html \
+  hocket-loom.css \
+  hocket-loom-app.js \
+  src/hocket-loom.js \
+  src/hocket-loom-audio.js \
+  assets/instruments/hocket-loom.webp \
+  HOCKET_LOOM_RESEARCH.md \
   rubix.html \
   rubix.css \
   rubix-app.js \
@@ -1289,6 +1296,13 @@ required_files=(
   solid-drums.css
   solid-drums-app.js
   src/solid-drums.js
+  hocket-loom.html
+  hocket-loom.css
+  hocket-loom-app.js
+  src/hocket-loom.js
+  src/hocket-loom-audio.js
+  assets/instruments/hocket-loom.webp
+  HOCKET_LOOM_RESEARCH.md
   rubix.html
   rubix.css
   rubix-app.js

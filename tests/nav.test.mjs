@@ -484,6 +484,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "hocket-loom"),
+    {
+      id: "hocket-loom",
+      label: "Hocket Luigi",
+      href: "hocket-loom.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "rubix"),
     {
       id: "rubix",
@@ -598,6 +606,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "constellation", href: "constellation.html" },
       { id: "sliding-puzzle", href: "sliding-puzzle.html" },
       { id: "wave-pool", href: "wave-pool.html" },
+      { id: "hocket-loom", href: "hocket-loom.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
       { id: "webgpu-chiptune", href: "webgpu-chiptune.html" },
@@ -1048,6 +1057,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral-drums.html`, SITE_ROOT)?.id, "spiral-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}solid-drums.html`, SITE_ROOT)?.id, "solid-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-rubix.html`, SITE_ROOT)?.id, "hyper-rubix");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}hocket-loom.html`, SITE_ROOT)?.id, "hocket-loom");
   assert.equal(resolveActiveTool(`${SITE_ROOT}rubix.html`, SITE_ROOT)?.id, "rubix");
   assert.equal(resolveActiveTool(`${SITE_ROOT}wave-pool.html`, SITE_ROOT)?.id, "wave-pool");
   assert.equal(

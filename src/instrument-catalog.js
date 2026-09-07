@@ -149,6 +149,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turns intersections between a cutting plane and a 3D wireframe into a changing drum pattern.",
     "Turn on audio, choose a bank, then rotate the solid or move the plane.",
   ),
+  "hocket-loom": define(
+    "Interlocking rhythm loom",
+    "Distributes one composite rhythm across two, three, or four editable voices, with sourced structural studies, visible gaps and collisions, phase shifts, and direct pulse ownership.",
+    "Turn on audio, run the loom, then drag or tap pulses between colored rings; keep Preserve composite on to move ownership without changing the combined rhythm.",
+    ["Built-in source", "Pointer"],
+  ),
   rubix: define(
     "Geometric sequencer",
     "Offers five mutually exclusive banks: four sample-free drum kits read the two side faces, while 303 Acid reads only the upper face through its Classic or WebGPU engine; hidden stickers stay hard-silent.",
@@ -785,6 +791,7 @@ const CATALOG_DETAILS = Object.freeze({
 });
 
 const ADDITIONAL_TAG_IDS = Object.freeze({
+  "hocket-loom": Object.freeze(["geometry-drums"]),
   "jaw-jam": Object.freeze(["voice-synths"]),
   "pink-trombonazoid": Object.freeze(["sequencers"]),
   hybrinx: Object.freeze(["sequencers"]),

@@ -160,6 +160,11 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Wave Pool",
       href: "wave-pool.html",
     },
+    {
+      id: "hocket-loom",
+      label: "Hocket Luigi",
+      href: "hocket-loom.html",
+    },
     { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
     { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
     {
