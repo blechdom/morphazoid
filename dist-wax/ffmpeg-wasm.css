@@ -37,48 +37,30 @@
     "monitor monitor"
     "telemetry telemetry"
     "description description";
-  gap: clamp(18px, 2.4vw, 34px) clamp(28px, 4vw, 66px);
+  gap: clamp(16px, 2vw, 28px) clamp(24px, 3vw, 48px);
 }
 
 .ffmpeg-intro {
   grid-area: intro;
-  align-self: end;
-}
-
-.ffmpeg-kicker {
-  display: flex;
-  margin-bottom: 16px;
-  color: var(--accent);
-  justify-content: space-between;
-  gap: 16px;
-  font-size: 8px;
-  letter-spacing: 0.14em;
+  align-self: center;
 }
 
 .ffmpeg-intro h1 {
   margin: 0;
   color: var(--ink);
-  font-size: clamp(42px, 6vw, 88px);
+  font-size: clamp(30px, 4vw, 56px);
   font-weight: 340;
-  letter-spacing: -0.055em;
-  line-height: 0.78;
+  letter-spacing: -0.045em;
+  line-height: 0.92;
 }
 
 .ffmpeg-intro h1 em {
   color: var(--ffmpeg-cyan);
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-  font-size: 0.44em;
+  font-size: 0.62em;
   font-style: normal;
   font-weight: 480;
-  letter-spacing: -0.035em;
-}
-
-.ffmpeg-intro p {
-  max-width: 46ch;
-  margin: 21px 0 0;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.65;
+  letter-spacing: -0.025em;
 }
 
 .ffmpeg-pipeline {
@@ -94,8 +76,8 @@
 
 .ffmpeg-pipeline li {
   position: relative;
-  min-height: 112px;
-  padding: 16px 13px;
+  min-height: 96px;
+  padding: 13px 11px;
   border: 1px solid rgba(183, 255, 74, 0.2);
   background: rgba(4, 12, 11, 0.78);
   box-sizing: border-box;
@@ -123,7 +105,7 @@
 
 .pipeline-index {
   display: block;
-  margin-bottom: 27px;
+  margin-bottom: 18px;
   color: var(--faint);
   font: 9px/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
@@ -255,7 +237,7 @@
 }
 
 .control-section.ffmpeg-run[data-section="play"] {
-  --accent: var(--accent);
+  --accent: #b7ff4a;
 }
 
 .control-section.ffmpeg-filter[data-section="sound"] {
@@ -281,6 +263,46 @@
   margin-bottom: 11px;
   grid-template-columns: 1fr;
   gap: 7px;
+}
+
+.ffmpeg-mic-action {
+  display: grid;
+  min-height: 62px !important;
+  padding: 10px 13px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+}
+
+.ffmpeg-mic-dot {
+  width: 11px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgba(7, 16, 15, 0.12);
+}
+
+.ffmpeg-mic-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.ffmpeg-mic-copy b {
+  font-size: 12px;
+  letter-spacing: 0.055em;
+}
+
+.ffmpeg-mic-copy small {
+  font-size: 8px;
+  font-weight: 550;
+  letter-spacing: 0.04em;
+  opacity: 0.72;
+}
+
+.ffmpeg-secondary-action {
+  color: var(--muted) !important;
+  font-size: 9px !important;
 }
 
 .ffmpeg-actions button,
@@ -324,12 +346,12 @@
 .ffmpeg-recipe-copy {
   margin: 7px 0 10px;
   color: var(--muted);
-  font-size: 10px;
-  line-height: 1.58;
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .ffmpeg-warning {
-  padding: 9px 10px;
+  padding: 7px 9px;
   border-left: 2px solid var(--ffmpeg-amber);
   color: color-mix(in oklab, var(--ffmpeg-amber) 70%, var(--muted));
   background: rgba(255, 212, 93, 0.04);
@@ -409,7 +431,7 @@
 
 .ffmpeg-example-list span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1.4;
 }
 
@@ -481,17 +503,8 @@
     align-self: center;
   }
 
-  .ffmpeg-kicker {
-    margin-bottom: 9px;
-  }
-
-  .ffmpeg-kicker span:last-child,
-  .ffmpeg-intro p {
-    display: none;
-  }
-
   .ffmpeg-intro h1 {
-    font-size: clamp(34px, 7vw, 62px);
+    font-size: clamp(28px, 5.5vw, 44px);
   }
 
   .ffmpeg-pipeline {
@@ -538,21 +551,9 @@
     gap: 10px;
   }
 
-  .ffmpeg-intro {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 14px;
-  }
-
-  .ffmpeg-kicker {
-    margin: 0;
-    flex: 0 0 auto;
-  }
-
   .ffmpeg-intro h1 {
-    font-size: clamp(29px, 10vw, 45px);
-    text-align: right;
+    font-size: clamp(26px, 8vw, 36px);
+    text-align: left;
   }
 
   .ffmpeg-monitor {

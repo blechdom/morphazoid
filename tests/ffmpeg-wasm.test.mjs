@@ -207,6 +207,7 @@ test("capture worklet emits exact overlapping mono windows and never monitors dr
 test("page, runtime, catalogue, build, and provenance describe the POC truthfully", async () => {
   const [
     html,
+    css,
     app,
     model,
     build,
@@ -217,6 +218,7 @@ test("page, runtime, catalogue, build, and provenance describe the POC truthfull
     coreReadme,
   ] = await Promise.all([
     text("ffmpeg-wasm.html"),
+    text("ffmpeg-wasm.css"),
     text("ffmpeg-wasm-app.js"),
     text("src/ffmpeg-wasm.js"),
     text("scripts/build-site.sh"),
@@ -227,8 +229,19 @@ test("page, runtime, catalogue, build, and provenance describe the POC truthfull
     text("vendor/ffmpeg-wasm/core/README.md"),
   ]);
 
-  assert.match(html, /chunked[\s\S]*delayed/i);
-  assert.match(html, /not sample-streaming realtime/i);
+  assert.doesNotMatch(html, /experiment 001/i);
+  assert.doesNotMatch(html, /in the loop/i);
+  assert.doesNotMatch(css, /--accent:\s*var\(--accent\)/);
+  assert.match(css, /\.ffmpeg-run\[data-section="play"\][\s\S]*?--accent:\s*#b7ff4a/);
+  assert.match(html, /<h2 class="group-title">Microphone<\/h2>/);
+  assert.match(html, /id="micButtonLabel">Turn on microphone<\/b>/);
+  assert.match(html, /id="micButtonHint">First turn on Audio above<\/small>/);
+  assert.match(html, /0\.5&ndash;2 s windows/i);
+  assert.doesNotMatch(html, /class="group control-section ffmpeg-filter"[^>]*\sopen/);
+  assert.doesNotMatch(html, /class="group control-section ffmpeg-window"[^>]*\sopen/);
+  assert.match(app, /micButtonLabel/);
+  assert.match(app, /micButtonHint/);
+  assert.match(app, /Browser asks permission/);
   assert.match(html, /data-primary-transport/);
   assert.match(html, /aria-live="polite"/);
   assert.match(html, /role="alert"/);
@@ -236,9 +249,9 @@ test("page, runtime, catalogue, build, and provenance describe the POC truthfull
   assert.doesNotMatch(html.match(/<canvas[\s\S]*?<\/canvas>/)?.[0] ?? "", /tabindex=/);
   assert.match(html, /showwaves/);
   assert.match(html, /showspectrum/);
-  assert.match(html, /not wired yet/i);
+  assert.match(html, /not active/i);
   assert.match(html, /unpkg/i);
-  assert.match(html, /verifies its checksum/i);
+  assert.match(html, /checksum verified/i);
   assert.match(html, /THIRD_PARTY_NOTICES\.md/);
   assert.equal(html.includes("wax-host-bootstrap"), false);
 
@@ -309,9 +322,10 @@ test("page, runtime, catalogue, build, and provenance describe the POC truthfull
   assert.match(notices, /## ffmpeg\.wasm/);
   assert.match(notices, /do not contain those core object\s+files/i);
 
-  assert.match(navigation, /id: "ffmpeg-wasm", label: "FFmpeg Wasm Lab", href: "ffmpeg-wasm\.html"/);
+  assert.match(navigation, /id: "ffmpeg-wasm", label: "FFmpeg Wasm", href: "ffmpeg-wasm\.html"/);
   assert.match(catalogue, /"ffmpeg-wasm": define\(/);
-  assert.match(catalogue, /"Chunked FFmpeg\/Wasm processor"/);
+  assert.match(catalogue, /"FFmpeg window processor"/);
+  assert.match(catalogue, /Turn on Audio, then turn on the microphone\. Preloading is optional\./);
   assert.match(catalogue, /\["Mic input", "FFmpeg\/Wasm", "Chunked processing", "Audio export"\]/);
 
   const capability = instrumentMidiCapabilityForId("ffmpeg-wasm");

@@ -7,9 +7,9 @@
     <meta name="theme-color" content="#07100f" />
     <meta
       name="description"
-      content="Morphazoid FFmpeg Wasm Lab &mdash; a bounded, chunked microphone-to-FFmpeg-to-Web-Audio proof of concept."
+      content="Microphone audio through FFmpeg/Wasm in short local windows."
     />
-    <title>FFmpeg Wasm Lab &mdash; Morphazoid</title>
+    <title>FFmpeg Wasm &mdash; Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="ffmpeg-wasm.css" />
@@ -24,14 +24,14 @@
       <nav class="tabs" aria-label="Instrument">
         <a class="tab" href="slippery-resynthesis.html">slippery resynthesis</a>
         <a class="tab" href="micromorph.html">micromorph</a>
-        <a class="tab active" href="ffmpeg-wasm.html" aria-current="page">ffmpeg wasm lab</a>
+        <a class="tab active" href="ffmpeg-wasm.html" aria-current="page">ffmpeg wasm</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
           <option value="slippery-resynthesis.html">slippery resynthesis</option>
           <option value="micromorph.html">micromorph</option>
-          <option value="ffmpeg-wasm.html" selected>ffmpeg wasm lab</option>
+          <option value="ffmpeg-wasm.html" selected>ffmpeg wasm</option>
         </select>
       </label>
 
@@ -44,7 +44,7 @@
           <span><b>Output</b><output id="outputLevelOut" for="outputLevel">28%</output></span>
           <input
             id="outputLevel"
-            aria-label="FFmpeg Wasm Lab output level"
+            aria-label="FFmpeg Wasm output level"
             type="range"
             min="0"
             max="0.65"
@@ -59,29 +59,20 @@
       <section class="stage ffmpeg-wasm-stage" aria-label="FFmpeg Wasm signal pipeline">
         <div class="ffmpeg-stage-grid">
           <div class="ffmpeg-intro">
-            <div class="ffmpeg-kicker">
-              <span>EXPERIMENT 001</span>
-              <span>CHUNKED &middot; DELAYED &middot; LOCAL MIC PCM</span>
-            </div>
-            <h1>FFmpeg<br /><em>in the loop</em></h1>
-            <p>
-              A microphone window enters a Wasm worker, crosses one fixed FFmpeg
-              filter graph, then returns as scheduled Web Audio. It is near-live
-              in blocks&mdash;not sample-streaming realtime.
-            </p>
+            <h1>FFmpeg <em>Wasm</em></h1>
           </div>
 
           <ol class="ffmpeg-pipeline" aria-label="Processing stages">
             <li data-pipeline="input">
               <span class="pipeline-index">01</span>
               <b>Microphone</b>
-              <small id="inputReadout">waiting for permission</small>
+              <small id="inputReadout">microphone off</small>
               <i aria-hidden="true"></i>
             </li>
             <li data-pipeline="engine">
               <span class="pipeline-index">02</span>
               <b>FFmpeg / Wasm</b>
-              <small id="engineReadout">core not loaded</small>
+              <small id="engineReadout">not loaded</small>
               <i aria-hidden="true"></i>
             </li>
             <li data-pipeline="output">
@@ -93,8 +84,8 @@
 
           <div class="ffmpeg-monitor">
             <div class="monitor-labels" aria-hidden="true">
-              <span>mic window</span>
-              <span>processed window</span>
+              <span>mic</span>
+              <span>processed</span>
             </div>
             <canvas
               id="signalCanvas"
@@ -116,56 +107,56 @@
           </dl>
 
           <p id="ffmpegDescription" class="sr-only">
-            FFmpeg Wasm Lab captures bounded microphone PCM windows without a dry
-            monitoring path, processes one window at a time, skips invalid, failed,
-            or stale work, and crossfades returned audio through a limiter.
+            Microphone windows pass through FFmpeg and return through Web Audio.
           </p>
           <p id="liveStatus" class="sr-only" aria-live="polite">Audio is off. FFmpeg core is not loaded.</p>
         </div>
       </section>
 
-      <aside class="panel ffmpeg-wasm-panel" aria-label="FFmpeg Wasm Lab controls">
+      <aside class="panel ffmpeg-wasm-panel" aria-label="FFmpeg Wasm controls">
         <details class="group control-section ffmpeg-run" data-section="play" open>
           <summary class="group-summary">
-            <h2 class="group-title">Run the loop</h2>
-            <span class="section-state" id="runSummary">idle</span>
+            <h2 class="group-title">Microphone</h2>
+            <span class="section-state" id="runSummary">Audio first</span>
           </summary>
           <div class="group-body">
             <div class="ffmpeg-actions">
-              <button id="loadEngineButton" class="ffmpeg-secondary-action" type="button">
-                Load FFmpeg core
-              </button>
               <button
                 id="micButton"
-                class="ffmpeg-primary-action"
+                class="ffmpeg-primary-action ffmpeg-mic-action"
                 type="button"
                 data-primary-transport
                 aria-pressed="false"
+                aria-label="Turn on microphone. First turn on Audio above."
               >
-                Start microphone
+                <span class="ffmpeg-mic-dot" aria-hidden="true"></span>
+                <span class="ffmpeg-mic-copy">
+                  <b id="micButtonLabel">Turn on microphone</b>
+                  <small id="micButtonHint">First turn on Audio above</small>
+                </span>
+              </button>
+              <button id="loadEngineButton" class="ffmpeg-secondary-action" type="button">
+                Preload FFmpeg &middot; 32 MB
               </button>
             </div>
             <p class="ffmpeg-note">
-              Use headphones. Loading the core downloads the pinned single-thread
-              build from unpkg (about 31 MB) and verifies its checksum. The first
-              load requires network access; microphone samples stay in this page.
+              Headphones &middot; unpkg core, checksum verified &middot; mic stays local.
             </p>
             <p class="ffmpeg-note ffmpeg-warning">
-              Proof of concept: expect at least one window of delay and audible
-              seams on some filters. This is not a low-latency effects insert.
+              0.5&ndash;2 s windows &middot; not a low-latency insert.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
 
-        <details class="group control-section ffmpeg-filter" data-section="sound" open>
+        <details class="group control-section ffmpeg-filter" data-section="sound">
           <summary class="group-summary">
-            <h2 class="group-title">Filter recipe</h2>
+            <h2 class="group-title">Filter</h2>
             <span class="section-state" id="recipeSummary">pocket telephone</span>
           </summary>
           <div class="group-body">
             <label class="ffmpeg-select-label" for="recipeSelect">
-              <span>Allowlisted graph</span>
+              <span>Recipe</span>
               <select id="recipeSelect"></select>
             </label>
             <p class="ffmpeg-recipe-copy" id="recipeDescription"></p>
@@ -176,14 +167,14 @@
           </div>
         </details>
 
-        <details class="group control-section ffmpeg-window" data-section="mapping" open>
+        <details class="group control-section ffmpeg-window" data-section="mapping">
           <summary class="group-summary">
-            <h2 class="group-title">Window &amp; queue</h2>
-            <span class="section-state" id="windowSummary">1.0 s &middot; max 2 waiting</span>
+            <h2 class="group-title">Timing</h2>
+            <span class="section-state" id="windowSummary">1.0 s &middot; queue 2</span>
           </summary>
           <div class="group-body">
             <label class="ffmpeg-select-label" for="chunkSeconds">
-              <span>Capture window</span>
+              <span>Window</span>
               <select id="chunkSeconds">
                 <option value="0.5">0.5 seconds</option>
                 <option value="1" selected>1.0 second</option>
@@ -191,8 +182,7 @@
               </select>
             </label>
             <p class="ffmpeg-note">
-              One job runs at a time. Only two windows may wait; the oldest stale
-              window is dropped instead of letting latency grow without bound.
+              Two windows may wait. Older work is skipped.
             </p>
             <a id="downloadLast" class="ffmpeg-download" href="#" download="ffmpeg-wasm-last-window.wav" hidden>
               Download last processed window (.wav)
@@ -202,29 +192,25 @@
 
         <details class="group control-section ffmpeg-examples" data-section="form">
           <summary class="group-summary">
-            <h2 class="group-title">What else could FFmpeg do?</h2>
-            <span class="section-state">examples &middot; not wired yet</span>
+            <h2 class="group-title">More FFmpeg</h2>
+            <span class="section-state">not active</span>
           </summary>
           <div class="group-body">
-            <p class="ffmpeg-note">
-              The audio recipes above work in this POC. These are bounded render
-              ideas for a later pass&mdash;not claims of live video processing.
-            </p>
             <ul class="ffmpeg-example-list">
-              <li><code>showwaves</code><span>render the last voice window as moving geometry</span></li>
-              <li><code>showspectrum</code><span>turn a captured clip into a spectrogram video</span></li>
-              <li><code>avectorscope</code><span>draw stereo phase when a two-channel path exists</span></li>
-              <li><code>atempo + asetrate</code><span>separate window speed from apparent pitch</span></li>
-              <li><code>loudnorm</code><span>analyze and normalize an exported performance</span></li>
-              <li><code>camera + mic mux</code><span>encode a complete local audiovisual take</span></li>
+              <li><code>showwaves</code><span>waveform video</span></li>
+              <li><code>showspectrum</code><span>spectrogram video</span></li>
+              <li><code>avectorscope</code><span>stereo phase</span></li>
+              <li><code>atempo + asetrate</code><span>speed / pitch</span></li>
+              <li><code>loudnorm</code><span>export loudness</span></li>
+              <li><code>camera + mic</code><span>local A/V capture</span></li>
             </ul>
           </div>
         </details>
 
         <div class="ffmpeg-panel-footer">
-          <button id="resetButton" type="button" data-reset-all>Reset controls</button>
-          <a href="https://ffmpegwasm.netlify.app/" target="_blank" rel="noreferrer">ffmpeg.wasm docs &nearr;</a>
-          <a href="THIRD_PARTY_NOTICES.md" target="_blank">runtime provenance &nearr;</a>
+          <button id="resetButton" type="button" data-reset-all>Reset</button>
+          <a href="https://ffmpegwasm.netlify.app/" target="_blank" rel="noreferrer">Docs &nearr;</a>
+          <a href="THIRD_PARTY_NOTICES.md" target="_blank">Licenses &nearr;</a>
         </div>
       </aside>
     </main>

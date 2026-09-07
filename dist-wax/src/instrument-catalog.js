@@ -365,9 +365,9 @@ const CATALOG_DETAILS = Object.freeze({
     ["Mic input", "Local file input", "Speech-detail resynthesis"],
   ),
   "ffmpeg-wasm": define(
-    "Chunked FFmpeg/Wasm processor",
-    "Captures bounded microphone PCM windows, runs one at a time through a checksum-verified FFmpeg/Wasm filter graph, then crossfades the processed blocks into Web Audio while exposing latency and dropped work.",
-    "Turn on Audio, load the core, start the microphone, then compare the fixed recipes and half-, one-, or two-second windows with headphones.",
+    "FFmpeg window processor",
+    "Runs short microphone windows through FFmpeg/Wasm and returns them to Web Audio.",
+    "Turn on Audio, then turn on the microphone. Preloading is optional.",
     ["Mic input", "FFmpeg/Wasm", "Chunked processing", "Audio export"],
   ),
   "moire-drone": define(

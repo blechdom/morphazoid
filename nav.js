@@ -366,7 +366,7 @@ export const TOOL_GROUPS = Object.freeze([
       href: "escher-tessellation.html",
     },
     { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
-    { id: "ffmpeg-wasm", label: "FFmpeg Wasm Lab", href: "ffmpeg-wasm.html" },
+    { id: "ffmpeg-wasm", label: "FFmpeg Wasm", href: "ffmpeg-wasm.html" },
     { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
     {
       id: "morphazoidical",

@@ -50,6 +50,8 @@ const ui = Object.freeze({
   outputLevelOut: byId("outputLevelOut"),
   loadEngineButton: byId("loadEngineButton"),
   micButton: byId("micButton"),
+  micButtonLabel: byId("micButtonLabel"),
+  micButtonHint: byId("micButtonHint"),
   resetButton: byId("resetButton"),
   recipeSelect: byId("recipeSelect"),
   recipeDescription: byId("recipeDescription"),
@@ -204,7 +206,7 @@ function formatEngineState() {
   if (engineState === "loading") return "loading core...";
   if (engineState === "ready") return `ready / core ${FFMPEG_CORE_VERSION}`;
   if (engineState === "error") return "load failed / retry";
-  return "core not loaded";
+  return "not loaded";
 }
 
 function updateTelemetry() {
@@ -226,18 +228,32 @@ function updateUi() {
 
   ui.loadEngineButton.disabled = engineState === "loading";
   ui.loadEngineButton.textContent = engineState === "ready"
-    ? `Core ${FFMPEG_CORE_VERSION} ready`
+    ? `FFmpeg ${FFMPEG_CORE_VERSION} ready`
     : engineState === "loading"
-      ? "Loading core..."
-      : "Load FFmpeg core";
+      ? "Loading FFmpeg..."
+      : "Preload FFmpeg · 32 MB";
 
   ui.micButton.disabled = false;
   ui.micButton.setAttribute("aria-pressed", String(micActive));
-  ui.micButton.textContent = micStarting
-    ? "Cancel microphone start"
+  const micLabel = micStarting
+    ? "Cancel microphone"
     : micActive
-      ? "Stop microphone"
-      : "Start microphone";
+      ? "Turn off microphone"
+      : "Turn on microphone";
+  const micHint = micStarting
+    ? engineState === "loading"
+      ? "Loading FFmpeg"
+      : "Waiting for permission"
+    : micActive
+      ? audioEnabled
+        ? `${settings.chunkSeconds.toFixed(1)} s windows live`
+        : "Audio off · capture paused"
+      : audioEnabled
+        ? "Browser asks permission"
+        : "First turn on Audio above";
+  ui.micButtonLabel.textContent = micLabel;
+  ui.micButtonHint.textContent = micHint;
+  ui.micButton.setAttribute("aria-label", `${micLabel}. ${micHint}.`);
 
   ui.runSummary.textContent = micStarting
     ? "preparing"
@@ -247,13 +263,15 @@ function updateUi() {
         : processing
         ? `processing / ${queue.length} waiting`
         : "capturing"
-      : "idle";
+      : audioEnabled
+        ? "ready"
+        : "Audio first";
 
   const recipe = recipeForId(settings.recipe);
   ui.recipeSummary.textContent = recipe.label.toLowerCase();
   ui.recipeDescription.textContent = recipe.description;
   ui.commandPreview.textContent = createFilterGraph(settings);
-  ui.windowSummary.textContent = `${settings.chunkSeconds.toFixed(1)} s / max ${MAX_QUEUED_CHUNKS} waiting`;
+  ui.windowSummary.textContent = `${settings.chunkSeconds.toFixed(1)} s / queue ${MAX_QUEUED_CHUNKS}`;
 
   ui.inputReadout.textContent = micStarting
     ? "requesting permission"
@@ -261,7 +279,7 @@ function updateUi() {
       ? `capturing ${settings.chunkSeconds.toFixed(1)} s mono windows`
       : micActive
         ? "permission active / capture paused"
-        : "waiting for permission";
+        : "microphone off";
   ui.engineReadout.textContent = processing
     ? `running ${recipe.id} / ${queue.length} waiting`
     : engineLog || formatEngineState();
@@ -334,7 +352,7 @@ async function enableAudio() {
   if (stream) configureCaptureWorklet("start");
   rampMaster(settings.outputLevel);
   updateUi();
-  announce("Audio is on. Start the microphone when ready.");
+  announce("Audio is on. Now turn on the microphone.");
   return true;
 }
 
@@ -744,7 +762,7 @@ async function processQueue() {
 async function startMicrophone() {
   if (micStarting || stream) return;
   if (!audioEnabled) {
-    const message = "Audio is off \u2014 turn it on to hear playback";
+    const message = "Audio is off \u2014 turn it on to hear playback. Use Audio above, then turn on the microphone.";
     setError(message);
     announce(message);
     return;
@@ -818,8 +836,7 @@ async function startMicrophone() {
     configureCaptureWorklet("start");
     updateUi();
     announce(
-      `Microphone started. Capturing ${settings.chunkSeconds.toFixed(1)} second windows for `
-      + `${recipeForId(settings.recipe).label}.`,
+      `Microphone on. ${settings.chunkSeconds.toFixed(1)} second windows; ${recipeForId(settings.recipe).label}.`,
     );
   } catch (error) {
     if (requestedStream && requestedStream !== stream) stopTracks(requestedStream);
@@ -854,7 +871,7 @@ function applySettings(nextSettings, { reset = false } = {}) {
   if (reset) {
     announce(stream
       ? "Controls reset. The microphone keeps running; the next window uses the defaults."
-      : "Controls reset to the FFmpeg lab defaults.");
+      : "Controls reset.");
   }
 }
 
