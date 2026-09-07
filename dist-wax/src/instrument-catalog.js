@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260906-1";
+} from "../nav.js?v=catalog-20260906-2";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -231,6 +231,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Streams microphone audio and sample-clocked performance controls to an optional local diffusion model, while five visible membranes expose the path from source to imaginary descendant.",
     "Use headphones, turn on the microphone, move Ancestor distance through the five derivation stages, then connect an MGA Stream v1 model host for neural audio; without one, the page identifies its bounded rehearsal DSP honestly.",
     ["Mic input", "Local model host", "Streaming PCM", "Parameter conditioning"],
+  ),
+  plugazoid: define(
+    "Browser plug-in host prototype",
+    "Routes live microphone audio through an AudioWorklet reference effect while exposing the source-port boundary for VST3, CLAP, and Audio Unit.",
+    "Turn on Audio, connect a microphone with headphones, then reshape Port Drive or use the test signal; native plug-in bundles require a source port or local bridge.",
+    ["Mic input", "AudioWorklet", "WASM-ready", "VST3 source port"],
   ),
   throatazoid: define(
     "Voice instrument",

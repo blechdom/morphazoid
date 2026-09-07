@@ -61,6 +61,12 @@ for worktree_runtime_file in \
   jaw-jam-app.js \
   src/jaw-jam.js \
   src/jaw-jam-processor.js \
+  plugazoid.html \
+  plugazoid.css \
+  plugazoid-app.js \
+  src/plugazoid.js \
+  src/plugazoid-processor.js \
+  assets/instruments/plugazoid.webp \
   breath-atlas.html \
   mouthophones.html \
   breath-atlas.css \
@@ -970,6 +976,12 @@ required_files=(
   src/micromorph.js
   src/micromorph-model-client.js
   assets/instruments/micromorph.webp
+  plugazoid.html
+  plugazoid.css
+  plugazoid-app.js
+  src/plugazoid.js
+  src/plugazoid-processor.js
+  assets/instruments/plugazoid.webp
   shepard-risset.html
   shepard-risset-app.js
   src/shepard-risset.js

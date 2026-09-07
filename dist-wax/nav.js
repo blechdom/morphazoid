@@ -239,6 +239,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
+    { id: "plugazoid", label: "Plugazoid", href: "plugazoid.html" },
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },

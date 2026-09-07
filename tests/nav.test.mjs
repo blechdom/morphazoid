@@ -683,6 +683,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
       { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
       { id: "micromorph", label: "Micromorph", href: "micromorph.html" },
+      { id: "plugazoid", label: "Plugazoid", href: "plugazoid.html" },
     ],
   );
   assert.deepEqual(
