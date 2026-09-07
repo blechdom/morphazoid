@@ -24,6 +24,7 @@ const instrumentScripts = [
   "syrinx-app.js",
   "colony-syrinx-app.js",
   "wave-pool-app.js",
+  "quadruped-app.js",
   "shepard-risset-app.js",
   "slippery-resynthesis-app.js",
   "micromorph-app.js",

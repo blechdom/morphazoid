@@ -254,6 +254,13 @@ for worktree_runtime_file in \
   assets/hiccup-head/skins/pantry-portrait.webp \
   assets/hiccup-head/skins/vintage-magazine-face-fields.webp \
   assets/hiccup-head/skins/wild-ink-decay-fields.webp \
+  quadruped.html \
+  quadroped.html \
+  quadruped.css \
+  quadruped-app.js \
+  src/quadruped.js \
+  QUADRUPED_RESEARCH.md \
+  assets/instruments/quadruped.webp \
   digestazoid.html \
   digestazoid.css \
   digestazoid-app.js \
@@ -887,6 +894,13 @@ required_files=(
   assets/hiccup-head/skins/pantry-portrait.webp
   assets/hiccup-head/skins/vintage-magazine-face-fields.webp
   assets/hiccup-head/skins/wild-ink-decay-fields.webp
+  quadruped.html
+  quadroped.html
+  quadruped.css
+  quadruped-app.js
+  src/quadruped.js
+  QUADRUPED_RESEARCH.md
+  assets/instruments/quadruped.webp
   digestazoid.html
   digestazoid.css
   digestazoid-app.js

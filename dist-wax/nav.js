@@ -203,6 +203,12 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
     { id: "creaturazoid", label: "Creaturazoid", href: "creaturazoid.html" },
     {
+      id: "quadruped",
+      label: "Quadruped",
+      href: "quadruped.html",
+      legacyHrefs: Object.freeze(["quadroped.html"]),
+    },
+    {
       id: "colony-syrinx",
       label: "Monstrozoid",
       href: "monstrozoid.html",

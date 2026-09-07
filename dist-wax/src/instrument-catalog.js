@@ -1,7 +1,7 @@
 import {
   FAVE_TOOL_IDS,
   TOOL_GROUPS,
-} from "../nav.js?v=catalog-20260906-4";
+} from "../nav.js?v=catalog-20260906-5";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -279,6 +279,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Routes 50 gestures—36 animal voices plus 14 procedural hisses, impacts, scrapes, wing sounds, breaths, feeding clicks, and locomotion—through one persistent absolute Hybrinx body.",
     "Turn on audio, choose a persistent body and rhythm, then intersperse vocal calls with body percussion; every rectangular step retargets the same airway and body-cavity resonator.",
     ["Built-in source", "Pointer", "Computer keys", "Physical-model DSP"],
+  ),
+  quadruped: define(
+    "Quadruped gait sequencer",
+    "Keeps Elephant, Unicorn, or Gazelle centered above sixteen motion-study cabinet cards while four feet and a tail play distinct voices on scrolling terrain and each head answers with its own melodic phrase.",
+    "Choose a researched gait-inspired rhythm, tap footfalls from off to soft to loud, change the ground, then hear and see the rewritten stride without stopping transport.",
+    ["Built-in source", "Pointer", "Computer keys"],
   ),
   "colony-syrinx": define(
     "Mutable pressure-network voice",
@@ -777,6 +783,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   "pink-trombonazoid": Object.freeze(["sequencers"]),
   hybrinx: Object.freeze(["sequencers"]),
   creaturazoid: Object.freeze(["sequencers"]),
+  quadruped: Object.freeze(["sequencers", "geometry-drums"]),
   blowhole: Object.freeze(["sequencers"]),
   "hiccup-head": Object.freeze(["sequencers"]),
   "l-systems": Object.freeze(["fractals-recursion", "geometry-drums", "mic-fx"]),

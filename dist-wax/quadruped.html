@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07100f" />
+    <meta
+      name="description"
+      content="Quadruped turns editable footfalls, terrain, and animal calls into one animated sequencer."
+    />
+    <title>Quadruped · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="quadruped.css" />
+  </head>
+  <body class="quadruped-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="hiccup-head.html">hiccup head</a>
+        <a class="tab" href="creaturazoid.html">creaturazoid</a>
+        <a class="tab" href="monstrozoid.html">monstrozoid</a>
+        <a class="tab active" href="quadruped.html" aria-current="page">quadruped</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="hiccup-head.html">Hiccup Head</option>
+          <option value="creaturazoid.html">Creaturazoid</option>
+          <option value="monstrozoid.html">Monstrozoid</option>
+          <option value="quadruped.html" selected>Quadruped</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button
+          class="audio-button"
+          id="audioButton"
+          type="button"
+          aria-pressed="false"
+          aria-label="Turn audio on"
+          title="Turn audio on"
+          data-audio-state="off"
+        >
+          <span class="audio-speaker-icon" aria-hidden="true">◖</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">62%</output></span>
+          <input id="level" aria-label="Quadruped output level" type="range" min="0" max="0.72" step="0.01" value="0.62" />
+        </label>
+      </div>
+    </header>
+
+    <main class="quadruped-shell" id="quadruped">
+      <section class="quadruped-intro" aria-labelledby="pageTitle">
+        <h1 id="pageTitle">QUADRUPED</h1>
+      </section>
+
+      <section class="quadruped-workspace" aria-label="Quadruped animal gait instrument">
+        <section class="quadruped-stage-card" aria-labelledby="stageTitle">
+          <header class="quadruped-card-header">
+            <div>
+              <p id="stageCode">ELEPHANT / WALK / PACKED EARTH</p>
+              <h2 id="stageTitle">Live animal</h2>
+            </div>
+            <div class="quadruped-stage-state" id="stageState" data-state="ready">
+              <i aria-hidden="true"></i>
+              <span><small>frame</small><b id="stageStep">01 / 16</b></span>
+            </div>
+          </header>
+
+          <div class="quadruped-stage-wrap" id="stageWrap">
+            <canvas
+              id="stage"
+              width="1120"
+              height="620"
+              tabindex="0"
+              role="application"
+              aria-label="Interactive side-view Quadruped. Left and right arrows choose a ground step. Keys 1 through 5 cycle left front, right front, left rear, right rear, and tail contacts. Enter auditions the head."
+              aria-describedby="stageInstructions sequenceHelp liveStatus"
+            >
+              A side-view elephant, unicorn, or gazelle stays centered while its editable percussion ground moves underneath.
+            </canvas>
+            <div class="quadruped-stage-hud" aria-live="off">
+              <span><small>animal</small><output id="animalReadout">Elephant</output></span>
+              <span><small>gait</small><output id="behaviorReadout">Walk</output></span>
+              <span><small>ground</small><output id="terrainReadout">Packed earth</output></span>
+              <span><small>head</small><output id="headReadout">waiting</output></span>
+            </div>
+            <p id="stageInstructions" class="quadruped-stage-instructions">
+              ← → FRAME · 1–5 FEET · ENTER HEAD
+            </p>
+          </div>
+        </section>
+
+        <section class="quadruped-sequencer-card" aria-labelledby="sequenceTitle">
+          <header class="quadruped-card-header quadruped-sequence-header">
+            <div>
+              <p>16 CABINET FRAMES</p>
+              <h2 id="sequenceTitle">Footfall score</h2>
+            </div>
+            <div class="quadruped-sequence-actions">
+              <button id="remixButton" type="button">Remix</button>
+              <button id="clearButton" type="button">Clear feet</button>
+            </div>
+          </header>
+          <p class="quadruped-sequence-legend" aria-hidden="true">TAP FEET · OFF · ○ SOFT · ● LOUD &nbsp;·&nbsp; TAP GROUND</p>
+          <p class="sr-only" id="sequenceHelp">
+            Choose a gait to load a starting rhythm. Each foot or tail button cycles off, soft, and loud. The sixteen motion-study cards show the resulting pose. Arrow keys move through the score; Home and End move to the first and last frame. Ground buttons cycle packed earth, hollow wood, bell metal, and resonant crystal.
+          </p>
+          <div class="quadruped-grid-scroll" tabindex="0" aria-label="Horizontally scrollable Quadruped rhythm grid">
+            <div id="sequenceGrid" class="quadruped-grid" role="grid" aria-label="Sixteen motion-study frames with foot, tail, and ground rows"></div>
+          </div>
+          <div class="quadruped-terrain-key" aria-label="Ground material colors">
+            <span><i style="--terrain:#9a6845"></i>earth</span>
+            <span><i style="--terrain:#d09b55"></i>wood</span>
+            <span><i style="--terrain:#75c7d3"></i>metal</span>
+            <span><i style="--terrain:#db9cff"></i>crystal</span>
+          </div>
+        </section>
+
+        <aside class="quadruped-console" aria-label="Quadruped performance controls">
+          <section class="quadruped-transport-card" aria-label="Transport and body audition">
+            <button id="playButton" class="quadruped-play" type="button" aria-pressed="false" data-primary-transport>
+              <span class="quadruped-play-glyph" aria-hidden="true"></span>
+              <span><b id="playLabel">Start</b><small id="playState">space · sequence stopped</small></span>
+            </button>
+            <button id="restartButton" class="quadruped-restart" type="button" aria-label="Return to step one" title="Return to step one">|◀</button>
+            <p id="transportHint" class="quadruped-transport-hint" role="status" hidden>
+              Audio is off — turn it on to hear playback
+            </p>
+            <div id="padGrid" class="quadruped-pad-grid" role="group" aria-label="Manual body and head hits">
+              <button type="button" data-pad-index="0" data-lane-id="front-left"><kbd>1</kbd><span>LF</span></button>
+              <button type="button" data-pad-index="1" data-lane-id="front-right"><kbd>2</kbd><span>RF</span></button>
+              <button type="button" data-pad-index="2" data-lane-id="rear-left"><kbd>3</kbd><span>LH</span></button>
+              <button type="button" data-pad-index="3" data-lane-id="rear-right"><kbd>4</kbd><span>RH</span></button>
+              <button type="button" data-pad-index="4" data-lane-id="tail"><kbd>5</kbd><span>TAIL</span></button>
+              <button type="button" data-pad-index="5" data-head-trigger><kbd>↵</kbd><span>HEAD</span></button>
+            </div>
+          </section>
+
+          <section class="quadruped-choice-card" aria-labelledby="animalTitle">
+            <div class="quadruped-section-heading">
+              <p>01 / ANIMAL</p>
+              <h2 id="animalTitle">Animal</h2>
+            </div>
+            <div id="animalButtons" class="quadruped-animal-buttons" role="group" aria-label="Animal presets">
+              <button type="button" data-animal-id="elephant" aria-pressed="true"><b>Elephant</b><small>drums + trumpet</small></button>
+              <button type="button" data-animal-id="unicorn" aria-pressed="false"><b>Unicorn</b><small>crystal + neigh</small></button>
+              <button type="button" data-animal-id="gazelle" aria-pressed="false"><b>Gazelle</b><small>marimba + strings</small></button>
+            </div>
+            <p id="animalDescription" class="quadruped-description"></p>
+          </section>
+
+          <section class="quadruped-choice-card" aria-labelledby="behaviorTitle">
+            <div class="quadruped-section-heading">
+              <p>02 / GAIT</p>
+              <h2 id="behaviorTitle">Gait dictionary</h2>
+            </div>
+            <div id="behaviorButtons" class="quadruped-behavior-buttons" role="group" aria-label="Gait rhythm dictionary"></div>
+            <p id="behaviorDescription" class="quadruped-description"></p>
+          </section>
+
+          <details class="quadruped-control-group" open>
+            <summary>
+              <span><small>03 / MOTION</small><b>Motion + music</b></span>
+              <output id="motionSummary">72 BPM · grounded</output>
+            </summary>
+            <div class="quadruped-control-body">
+              <label class="quadruped-control" for="tempo">
+                <span><b>Step tempo</b><output id="tempoOut" for="tempo">72 BPM</output></span>
+                <input id="tempo" name="tempo" type="range" min="42" max="196" step="1" value="72" />
+              </label>
+              <label class="quadruped-control" for="stride">
+                <span><b>Stride reach</b><output id="strideOut" for="stride">62%</output></span>
+                <input id="stride" type="range" min="0.55" max="1.35" step="0.01" value="0.62" />
+              </label>
+              <label class="quadruped-control" for="mood">
+                <span><b>Head expression</b><output id="moodOut" for="mood">54%</output></span>
+                <input id="mood" type="range" min="0" max="1" step="0.01" value="0.54" />
+              </label>
+              <label class="quadruped-control" for="groundResonance">
+                <span><b>Ground resonance</b><output id="groundResonanceOut" for="groundResonance">72%</output></span>
+                <input id="groundResonance" type="range" min="0" max="1" step="0.01" value="0.72" />
+              </label>
+            </div>
+          </details>
+
+          <section class="quadruped-model-card" aria-labelledby="modelTitle">
+            <div class="quadruped-section-heading">
+              <p>04 / MODEL</p>
+              <h2 id="modelTitle">Playable fiction</h2>
+            </div>
+            <p>
+              Gait-inspired motion and procedural sound. No samples; not a biomechanics simulator.
+            </p>
+            <dl>
+              <div><dt>samples</dt><dd>none</dd></div>
+              <div><dt>voices</dt><dd>48 maximum</dd></div>
+              <div><dt>head</dt><dd>from the feet</dd></div>
+            </dl>
+          </section>
+
+          <p id="audioError" class="quadruped-audio-error" role="alert" hidden></p>
+          <button id="resetButton" class="quadruped-reset" type="button" data-reset-all data-reset-in-place>Reset animal + gait</button>
+        </aside>
+      </section>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="quadruped-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

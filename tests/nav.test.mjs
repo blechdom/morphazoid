@@ -654,6 +654,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
       { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
       { id: "creaturazoid", label: "Creaturazoid", href: "creaturazoid.html" },
+      { id: "quadruped", label: "Quadruped", href: "quadruped.html" },
       { id: "colony-syrinx", label: "Monstrozoid", href: "monstrozoid.html" },
       { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
@@ -668,6 +669,11 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       },
       { id: "vocalzoid", label: "Vocalzoid", href: "vocalzoid.html" },
     ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.flatMap((group) => group.tools)
+      .find(({ id }) => id === "quadruped")?.legacyHrefs,
+    ["quadroped.html"],
   );
   assert.deepEqual(
     TOOL_GROUPS.flatMap((group) => group.tools)
@@ -929,6 +935,8 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}hiccup-head.html`, SITE_ROOT)?.id, "hiccup-head");
   assert.equal(resolveActiveTool(`${SITE_ROOT}jaw-jam.html`, SITE_ROOT)?.id, "jaw-jam");
   assert.equal(resolveActiveTool(`${SITE_ROOT}creaturazoid.html`, SITE_ROOT)?.id, "creaturazoid");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}quadruped.html`, SITE_ROOT)?.id, "quadruped");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}quadroped.html`, SITE_ROOT)?.id, "quadruped");
   assert.equal(resolveActiveTool(`${SITE_ROOT}harmonica.html`, SITE_ROOT)?.id, "harmonica");
   assert.equal(resolveActiveTool(`${SITE_ROOT}dentaphone.html`, SITE_ROOT)?.id, "object-forge");
   for (const page of ["monstrozoid.html", "monsterzoid.html", "colony-syrinx.html"]) {

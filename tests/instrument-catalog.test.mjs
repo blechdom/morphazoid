@@ -453,6 +453,31 @@ test("Creaturazoid intersperses creature voices and body percussion in one share
   assert.equal(midi?.computerKeyboardMode, "page");
 });
 
+test("Quadruped couples a scrolling ground score to distinct animal head phrases", () => {
+  const instrument = instrumentById("quadruped");
+  assert.equal(instrument?.label, "Quadruped");
+  assert.equal(instrument?.href, "quadruped.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/quadruped.webp");
+  assert.equal(instrument?.kind, "Quadruped gait sequencer");
+  assert.match(instrument?.description ?? "", /centered/i);
+  assert.match(instrument?.description ?? "", /four feet and a tail/i);
+  assert.match(instrument?.description ?? "", /scrolling terrain/i);
+  assert.match(instrument?.description ?? "", /melodic phrase/i);
+  assert.deepEqual(
+    instrument?.tags.map(({ id }) => id),
+    ["voice-synths", "sequencers", "geometry-drums"],
+  );
+  assert.deepEqual(
+    instrument?.features,
+    ["Built-in source", "Pointer", "Computer keys", "MIDI"],
+  );
+
+  const midi = instrumentMidiCapabilityForId("quadruped");
+  assert.equal(midi?.noteMode, "drums");
+  assert.equal(midi?.midiOutput, true);
+  assert.equal(midi?.computerKeyboardMode, "page");
+});
+
 test("Monstrozoid is a continuous mutable pressure-network voice with page-owned valve keys", () => {
   const instrument = instrumentById("colony-syrinx");
   assert.equal(instrument?.label, "Monstrozoid");
