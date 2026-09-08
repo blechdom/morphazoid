@@ -7,7 +7,7 @@ const SEQUENCE_META_BUFFER_SIZE = 64;
 const REFRESH_CONTINUITY_SECONDS = 0.03;
 const INTERACTIVE_REFRESH_DELAY_MS = 16;
 
-export const WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS = 0.1;
+export const WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS = 0.22;
 export const WEBGPU_CHIPTUNE_SEQUENCE_STEPS = 32;
 export const WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES = Object.freeze([
   "upperOne",
@@ -16,6 +16,65 @@ export const WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES = Object.freeze([
   "lead",
   "arp",
 ]);
+export const WEBGPU_CHIPTUNE_PERFORMANCE_LANES = Object.freeze([
+  ...WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES,
+  "drums",
+]);
+
+export const WEBGPU_CHIPTUNE_PERFORMANCE_AXES = Object.freeze({
+  upperOne: Object.freeze({
+    label: "UPPER A",
+    levelKeys: Object.freeze(["upperOneLevel"]),
+    x: Object.freeze({ key: "upperOneSpan", label: "SPAN" }),
+    y: Object.freeze({ key: "upperOnePhase", label: "PHASE" }),
+  }),
+  upperTwo: Object.freeze({
+    label: "UPPER B",
+    levelKeys: Object.freeze(["upperTwoLevel"]),
+    x: Object.freeze({ key: "upperTwoClockRatio", label: "CHASE" }),
+    y: Object.freeze({ key: "upperTwoGateRateRatio", label: "CHOP" }),
+  }),
+  bass: Object.freeze({
+    label: "BASS",
+    levelKeys: Object.freeze(["bassPulseLevel", "bassSineLevel"]),
+    x: Object.freeze({ key: "bassPulseWidth", label: "BODY" }),
+    y: Object.freeze({ key: "bassGateRateRatio", label: "BOUNCE" }),
+  }),
+  lead: Object.freeze({
+    label: "LEAD",
+    levelKeys: Object.freeze(["leadLevel"]),
+    x: Object.freeze({ key: "leadInterval", label: "INTERVAL" }),
+    y: Object.freeze({ key: "leadTrillShare", label: "TRILL" }),
+  }),
+  arp: Object.freeze({
+    label: "ARP",
+    levelKeys: Object.freeze(["arpLevel"]),
+    x: Object.freeze({ key: "arpSpan", label: "SPREAD" }),
+    y: Object.freeze({ key: "arpGateDepth", label: "CHOP" }),
+  }),
+  drums: Object.freeze({
+    label: "DRUMS",
+    levelKeys: Object.freeze(["drumMix"]),
+    x: Object.freeze({ key: "drumRate", label: "RATE" }),
+    y: Object.freeze({ key: "drumDecay", label: "TAIL" }),
+  }),
+});
+
+function defaultPerformanceVoice() {
+  return Object.freeze({
+    muted: false,
+    solo: false,
+    x: 0.5,
+    y: 0.5,
+  });
+}
+
+export const WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS = Object.freeze(
+  Object.fromEntries(WEBGPU_CHIPTUNE_PERFORMANCE_LANES.map((lane) => [
+    lane,
+    defaultPerformanceVoice(),
+  ])),
+);
 export const WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES = Object.freeze([
   "kick",
   "snare",
@@ -26,6 +85,25 @@ export const WEBGPU_CHIPTUNE_SEQUENCE_LANES = Object.freeze([
   ...WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES,
   ...WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES,
 ]);
+const WEBGPU_CHIPTUNE_PERFORMER_SEQUENCE_LANES = Object.freeze({
+  upperOne: Object.freeze(["upperOne"]),
+  upperTwo: Object.freeze(["upperTwo"]),
+  bass: Object.freeze(["bass"]),
+  lead: Object.freeze(["lead"]),
+  arp: Object.freeze(["arp"]),
+  drums: WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES,
+});
+const NO_SEQUENCE_LANES = Object.freeze([]);
+
+export function webGpuChiptuneSequenceLanesForPerformer(performer) {
+  return WEBGPU_CHIPTUNE_PERFORMER_SEQUENCE_LANES[performer] ?? NO_SEQUENCE_LANES;
+}
+
+export function webGpuChiptunePerformerForSequenceLane(lane) {
+  if (WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)) return "drums";
+  return WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.includes(lane) ? lane : null;
+}
+
 export const WEBGPU_CHIPTUNE_SEQUENCE_STATES = Object.freeze({
   auto: 0,
   note: 1,
@@ -758,6 +836,71 @@ export function webGpuChiptuneParamFromUnit(key, value) {
   }
   const bounded = clamp(physical, minimum, maximum);
   return integerParams.has(key) ? Math.round(bounded) : bounded;
+}
+
+export function sanitizeWebGpuChiptunePerformance(performance = {}) {
+  return Object.freeze(Object.fromEntries(
+    WEBGPU_CHIPTUNE_PERFORMANCE_LANES.map((lane) => {
+      const candidate = performance?.[lane];
+      const fallback = WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS[lane];
+      return [lane, Object.freeze({
+        muted: candidate?.muted === true,
+        solo: candidate?.solo === true,
+        x: clamp(finiteOr(candidate?.x, fallback.x), 0, 1),
+        y: clamp(finiteOr(candidate?.y, fallback.y), 0, 1),
+      })];
+    }),
+  ));
+}
+
+function performanceAxisValue(key, baseValue, position) {
+  const baseUnit = webGpuChiptuneParamToUnit(key, baseValue);
+  const unit = clamp(finiteOr(position, 0.5), 0, 1);
+  if (unit === 0.5) return baseValue;
+  const effectiveUnit = unit <= 0.5
+    ? baseUnit * unit * 2
+    : baseUnit + (1 - baseUnit) * (unit - 0.5) * 2;
+  return webGpuChiptuneParamFromUnit(key, effectiveUnit);
+}
+
+/**
+ * Applies the live character-bay performance layer without modifying the
+ * underlying preset. The center of each axis is bit-for-bit neutral, while
+ * either edge reaches that parameter's real limit using its declared linear,
+ * logarithmic, bipolar, integer, power, or decibel distribution.
+ */
+export function applyWebGpuChiptunePerformance(
+  params = WEBGPU_CHIPTUNE_DEFAULTS,
+  performance = WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS,
+) {
+  const base = sanitizeWebGpuChiptuneParams(params);
+  const controls = sanitizeWebGpuChiptunePerformance(performance);
+  const effective = { ...base };
+  for (const lane of WEBGPU_CHIPTUNE_PERFORMANCE_LANES) {
+    const definition = WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane];
+    const voice = controls[lane];
+    effective[definition.x.key] = performanceAxisValue(
+      definition.x.key,
+      base[definition.x.key],
+      voice.x,
+    );
+    effective[definition.y.key] = performanceAxisValue(
+      definition.y.key,
+      base[definition.y.key],
+      voice.y,
+    );
+  }
+  const anySolo = WEBGPU_CHIPTUNE_PERFORMANCE_LANES.some(
+    (lane) => controls[lane].solo,
+  );
+  for (const lane of WEBGPU_CHIPTUNE_PERFORMANCE_LANES) {
+    const definition = WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane];
+    const voice = controls[lane];
+    const audible = !voice.muted && (!anySolo || voice.solo);
+    if (audible) continue;
+    for (const levelKey of definition.levelKeys) effective[levelKey] = 0;
+  }
+  return sanitizeWebGpuChiptuneParams(effective);
 }
 
 export const WEBGPU_CHIPTUNE_RUNTIME_DEFAULTS = Object.freeze({
@@ -1532,6 +1675,131 @@ function stageRangeUnit(lane, patch) {
   );
 }
 
+const STAGE_BODY_TAP_OFFSETS = Object.freeze({
+  jump: 0,
+  body: 1 / 6,
+  leftArm: 2 / 6,
+  rightArm: 3 / 6,
+  leftLeg: 4 / 6,
+  rightLeg: 5 / 6,
+});
+
+function stageBodyValueUnit(lane, value) {
+  const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
+  return clamp(
+    (finiteOr(value, spec.minimum) - spec.minimum)
+      / Math.max(Number.EPSILON, spec.maximum - spec.minimum),
+    0,
+    1,
+  );
+}
+
+function stageBodyGroupSummary(
+  lane,
+  laneState,
+  boundary,
+  stride,
+  clockRate,
+  phasePosition,
+  patch,
+  sequence,
+) {
+  let activeSteps = 0;
+  let valueTotal = 0;
+  for (let offset = 0; offset < stride; offset += 1) {
+    const lanePosition = boundary - offset;
+    const beatTime = (lanePosition + 0.5 - phasePosition)
+      / Math.max(clockRate, 0.000001);
+    const input = sequenceLaneInput(lane, beatTime, patch, sequence);
+    if (input.cell.state === "rest") continue;
+    activeSteps += 1;
+    valueTotal += stageBodyValueUnit(lane, input.value);
+  }
+  const activeDensity = activeSteps / stride;
+  const valueUnit = activeSteps > 0 ? valueTotal / activeSteps : 0.5;
+  return Object.freeze({
+    sourceStep: positiveIntegerModulo(boundary, laneState.activeLength),
+    activeDensity,
+    valueUnit,
+    signedValue: valueUnit * 2 - 1,
+  });
+}
+
+function stageVoiceBodyMotion(
+  lane,
+  laneState,
+  position,
+  clockRate,
+  phasePosition,
+  definition,
+  patch,
+  sequence,
+  levelUnit,
+) {
+  // Six staggered taps read one divided position on this voice's real lane.
+  // They are a deterministic score delay line, never independent clocks.
+  const stride = Math.max(1, Math.round(definition.danceSteps / 8));
+  const countPosition = position / stride;
+  const energy = Math.sqrt(clamp(levelUnit, 0, 1));
+  const summaries = new Map();
+  const taps = {};
+  for (const [channel, delay] of Object.entries(STAGE_BODY_TAP_OFFSETS)) {
+    const tapCount = countPosition - delay;
+    const phase = positiveModulo(tapCount, 1);
+    const boundary = Math.floor(tapCount) * stride;
+    let summary = summaries.get(boundary);
+    if (!summary) {
+      summary = stageBodyGroupSummary(
+        lane,
+        laneState,
+        boundary,
+        stride,
+        clockRate,
+        phasePosition,
+        patch,
+        sequence,
+      );
+      summaries.set(boundary, summary);
+    }
+    const densityEnergy = summary.activeDensity * energy;
+    const arc = Math.sin(Math.PI * phase) ** 2 * densityEnergy;
+    const impact = (1 - phase) ** 3 * densityEnergy;
+    taps[channel] = Object.freeze({
+      ...summary,
+      phase,
+      arc,
+      impact,
+    });
+  }
+  const gesture = (tap) => clamp(tap.arc + tap.impact * 0.35, 0, 1);
+  const armGesture = (tap) => clamp(
+    tap.signedValue * tap.activeDensity * energy * 0.42
+      + gesture(tap) * 0.92,
+    -1,
+    1,
+  );
+  const bodyTap = taps.body;
+  return Object.freeze({
+    sourceVoice: lane,
+    stride,
+    phase: positiveModulo(countPosition, 1),
+    jump: clamp(gesture(taps.jump) * (0.65 + taps.jump.valueUnit * 0.35), 0, 1),
+    jiggle: clamp(
+      Math.sin(bodyTap.phase * Math.PI * 2)
+        * (bodyTap.arc + bodyTap.impact * 0.28)
+        + bodyTap.signedValue * bodyTap.impact * 0.18,
+      -1,
+      1,
+    ),
+    squash: clamp(bodyTap.impact * 0.85 + bodyTap.arc * 0.35, 0, 1),
+    leftArm: armGesture(taps.leftArm),
+    rightArm: armGesture(taps.rightArm),
+    leftLeg: gesture(taps.leftLeg),
+    rightLeg: gesture(taps.rightLeg),
+    taps: Object.freeze(taps),
+  });
+}
+
 function stageDrumTime(seconds, tempo, cycle, phase = 0) {
   const safeCycle = Math.max(0.01, cycle);
   return positiveModulo(seconds * tempo - phase * safeCycle, safeCycle)
@@ -1572,13 +1840,47 @@ function stageSequencedDrumTiming(
   });
 }
 
+function stageDrumBodyMotion(drums, drumSteps, levelUnit, phase) {
+  const energy = Math.sqrt(clamp(levelUnit, 0, 1));
+  const kick = clamp(drums.kick * energy, 0, 1);
+  const snare = clamp(drums.snare * energy, 0, 1);
+  const hats = clamp(Math.max(drums.hatA, drums.hatB) * energy, 0, 1);
+  const shaker = clamp(drums.shaker * energy, 0, 1);
+  const snareRight = (drumSteps.snare.cellIndex & 1) === 1;
+  const hatsRight = (
+    drumSteps.hats.cellIndex + Math.floor(drumSteps.hats.stepPhase * 2)
+  ) & 1;
+  const shakerRight = (
+    drumSteps.shaker.cellIndex + Math.floor(drumSteps.shaker.stepPhase * 4)
+  ) & 1;
+  return Object.freeze({
+    sourceVoice: "drums",
+    stride: 1,
+    phase: positiveModulo(phase, 1),
+    jump: clamp(kick * 0.92 + hats * 0.08, 0, 1),
+    jiggle: shaker * (shakerRight ? 1 : -1),
+    squash: kick,
+    leftArm: snare * (snareRight ? 0.22 : 1),
+    rightArm: snare * (snareRight ? 1 : 0.22),
+    leftLeg: hats * (hatsRight ? 0.18 : 1),
+    rightLeg: hats * (hatsRight ? 1 : 0.18),
+    sources: Object.freeze({
+      kick,
+      snare,
+      hats,
+      shaker,
+    }),
+  });
+}
+
 /**
- * A deterministic, JSON-safe visual model for the five-voice pixel ensemble.
- * It uses the same master beat, per-lane rates, phases, cells, and notes as the
- * shader. Renderers can change style without creating a second musical clock.
+ * A deterministic, JSON-safe visual model for the five pitched voices and
+ * their sixth drum dancer. It uses the same master beat, per-lane rates,
+ * phases, cells, notes, and drum envelopes as the shader. Renderers can change
+ * style without creating a second musical clock.
  */
-export function webGpuChiptuneCharacterBayLayout(width, count = 5) {
-  const bayCount = Math.max(1, Math.min(16, Math.round(finiteOr(count, 5))));
+export function webGpuChiptuneCharacterBayLayout(width, count = 6) {
+  const bayCount = Math.max(1, Math.min(16, Math.round(finiteOr(count, 6))));
   const safeWidth = Math.max(bayCount, Math.floor(finiteOr(width, bayCount)));
   return Object.freeze(Array.from({ length: bayCount }, (_, index) => {
     const left = Math.round(index * safeWidth / bayCount);
@@ -1603,12 +1905,13 @@ export function webGpuChiptuneStageSnapshot(
   const seconds = Math.max(0, finiteOr(timeSeconds, 0));
   const masterBeat = seconds * patch.tempo;
   const notes = webGpuChiptuneBeatSnapshot(masterBeat, patch, sanitizedSequence);
-  const actors = WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.map((lane) => {
+  const voiceActors = WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.map((lane) => {
     const definition = CHIPTUNE_STAGE_VOICES[lane];
     const laneState = sanitizedSequence.lanes[lane];
     const clockRate = sequenceRateForLane(lane, patch);
-    const position = masterBeat * clockRate
-      + finiteOr(patch[sequencePhaseKeys[lane]], 0) * laneState.activeLength;
+    const phasePosition = finiteOr(patch[sequencePhaseKeys[lane]], 0)
+      * laneState.activeLength;
+    const position = masterBeat * clockRate + phasePosition;
     const cellIndex = positiveIntegerModulo(position, laneState.activeLength);
     const stepPhase = positiveModulo(position, 1);
     const cell = laneState.cells[cellIndex];
@@ -1629,6 +1932,17 @@ export function webGpuChiptuneStageSnapshot(
       : clamp((1 - stepPhase / 0.18) * (0.25 + audibleGate * 0.75) * levelUnit, 0, 1);
     const danceSteps = definition.danceSteps;
     const dancePhase = positiveModulo(position, danceSteps) / danceSteps;
+    const bodyMotion = stageVoiceBodyMotion(
+      lane,
+      laneState,
+      position,
+      clockRate,
+      phasePosition,
+      definition,
+      patch,
+      sanitizedSequence,
+      levelUnit,
+    );
     return Object.freeze({
       key: lane,
       label: definition.label,
@@ -1656,6 +1970,7 @@ export function webGpuChiptuneStageSnapshot(
       bounce: resting ? 0 : clamp(onset * 0.35, 0, 1),
       danceSteps,
       dancePhase,
+      bodyMotion,
       frame: Math.floor(dancePhase * 8) % 8,
     });
   });
@@ -1737,17 +2052,85 @@ export function webGpuChiptuneStageSnapshot(
       1,
     ),
   });
+  const drumSteps = Object.freeze({
+    kick: kickSequence,
+    snare: snareSequence,
+    hats: hatASequence,
+    shaker: shakerSequence,
+  });
+  const drumPosition = masterBeat * sequenceRateForLane("kick", patch);
+  const drumDanceSteps = 8;
+  const drumDancePhase = positiveModulo(drumPosition, drumDanceSteps) / drumDanceSteps;
+  const drumPeak = Math.max(
+    drums.kick,
+    drums.snare,
+    drums.hatA,
+    drums.hatB,
+    drums.shaker,
+  );
+  const drumBusUnit = webGpuChiptuneParamToUnit("drumMix", patch.drumMix);
+  const kitLevelUnit = (
+    webGpuChiptuneParamToUnit("kickLevel", patch.kickLevel)
+      + webGpuChiptuneParamToUnit("snareLevel", patch.snareLevel)
+      + webGpuChiptuneParamToUnit("hatLevel", patch.hatLevel)
+      + webGpuChiptuneParamToUnit("shakerLevel", patch.shakerLevel)
+  ) / 4;
+  const drumLevelUnit = clamp(drumBusUnit * kitLevelUnit, 0, 1);
+  const drumCellStates = Object.values(drumSteps).map(({ cellState }) => cellState);
+  const drumCellState = drumCellStates.every((cellState) => cellState === "rest")
+    ? "rest"
+    : drumCellStates.some((cellState) => cellState === "note") ? "note" : "auto";
+  const drumActor = Object.freeze({
+    key: "drums",
+    label: "DRUMS",
+    clockRate: sequenceRateForLane("kick", patch),
+    activeLength: Math.max(
+      ...WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.map(
+        (lane) => sanitizedSequence.lanes[lane].activeLength,
+      ),
+    ),
+    cellIndex: kickSequence.cellIndex,
+    cellState: drumCellState,
+    cellValue: drumCellState === "note" ? 1 : 0,
+    stepPhase: kickSequence.stepPhase,
+    note: null,
+    resting: drumCellState === "rest",
+    gate: drumPeak,
+    cellGate: drumPeak,
+    audibleGate: drumPeak,
+    activity: clamp(drumPeak * drumLevelUnit, 0, 1),
+    levelUnit: drumLevelUnit,
+    size: clamp(0.62 + drumLevelUnit * 0.38, 0, 1),
+    hue: webGpuChiptuneParamToUnit("hatBalance", patch.hatBalance),
+    shape: clamp(
+      (webGpuChiptuneParamToUnit("kickTone", patch.kickTone)
+        + webGpuChiptuneParamToUnit("snareTone", patch.snareTone)) * 0.5,
+      0,
+      1,
+    ),
+    motionPhase: positiveModulo(drumPosition, 1),
+    motion: clamp(drumPeak * 0.8 + webGpuChiptuneParamToUnit("drumRate", patch.drumRate) * 0.2, 0, 1),
+    detail: clamp(
+      (webGpuChiptuneParamToUnit("hatLevel", patch.hatLevel)
+        + webGpuChiptuneParamToUnit("shakerLevel", patch.shakerLevel)) * 0.5,
+      0,
+      1,
+    ),
+    range: webGpuChiptuneParamToUnit("drumDecay", patch.drumDecay),
+    onset: drumPeak,
+    bounce: drums.kick,
+    danceSteps: drumDanceSteps,
+    dancePhase: drumDancePhase,
+    bodyMotion: stageDrumBodyMotion(drums, drumSteps, drumLevelUnit, drumPosition),
+    frame: Math.floor(drumDancePhase * 8) % 8,
+  });
+  const actors = Object.freeze([...voiceActors, drumActor]);
   return Object.freeze({
     timeSeconds: seconds,
     masterBeat,
-    actors: Object.freeze(actors),
+    actors,
     drums,
-    drumSteps: Object.freeze({
-      kick: kickSequence,
-      snare: snareSequence,
-      hats: hatASequence,
-      shaker: shakerSequence,
-    }),
+    drumSteps,
     environment: Object.freeze({
       echo: webGpuChiptuneParamToUnit("echoWet", patch.echoWet),
       echoTaps: patch.echoTaps,
@@ -1960,7 +2343,8 @@ export const WEBGPU_CHIPTUNE_SHADER = `// WGSL port of "Chiptune (sound)" by srt
 const PI2: f32 = 6.283185307179586476925286766559;
 const OUTPUT_CEILING: f32 = 0.88;
 const PREVIEW_DURATION: f32 = ${WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS};
-const PREVIEW_HOLD: f32 = 0.08;
+const PREVIEW_HOLD: f32 = 0.14;
+const PREVIEW_GAIN: f32 = 1.6;
 
 override WORKGROUP_SIZE: u32 = 256;
 override SAMPLE_RATE: f32 = 44100.0;
@@ -2761,7 +3145,9 @@ fn synthVoices(time: f32, p: AudioParam) -> vec2<f32> {
     * arp_gate
     * select(1.0, 0.0, arp_cell.state == 2u);
   value += arp * widenStereo(voiceBalance(true, p), p.stereoWidth);
-  value += previewVoice(time, p, pulse_width, bass_basis);
+  let preview_envelope = previewEnvelope(time);
+  value *= mix(1.0, 0.22, preview_envelope);
+  value += previewVoice(time, p, pulse_width, bass_basis) * PREVIEW_GAIN;
 
   let texture_period = max(p.texturePeriod, 0.01);
   let noise_time = modulo(
@@ -2800,7 +3186,8 @@ fn mainSound(time: f32, p: AudioParam) -> vec2<f32> {
   let drums = beatTwo(time, p) * vec2(0.8)
     + beatTwo(time - p.tempo / max(p.ghostDelayDivisor, 0.25), p)
       * ghost_balance * p.ghostDrums;
-  value += drums * p.drumMix;
+  let preview_duck = mix(1.0, 0.22, previewEnvelope(time));
+  value += drums * p.drumMix * preview_duck;
 
   let fade = pow(
     clamp(max(time, 0.0) / max(p.fadeIn, 0.01), 0.0, 1.0),

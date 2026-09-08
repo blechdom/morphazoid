@@ -48,7 +48,33 @@
         </select>
       </label>
 
-      <div class="audio-strip" aria-label="Audio controls">
+      <div class="audio-strip" aria-label="Playback and audio controls">
+        <div
+          class="webgpu-303-transport-row chiptune-top-transport"
+          data-chiptune-top-transport
+        >
+          <button
+            class="play-button webgpu-303-play-button"
+            id="synthPlayButton"
+            type="button"
+            aria-pressed="false"
+            aria-label="Play WebGPU Chiptune"
+            aria-keyshortcuts="Space"
+            title="Play WebGPU Chiptune (Space)"
+            data-primary-transport
+          >
+            <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5.5 18 12 8 18.5Z" />
+            </svg>
+            <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 6v12M16 6v12" />
+            </svg>
+          </button>
+          <span class="webgpu-303-transport-copy">
+            <b id="synthPlayLabel">Play chiptune</b>
+            <small id="synthPlayState">paused · Space</small>
+          </span>
+        </div>
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
           <span class="audio-glyph webgpu-303-audio-glyph" aria-hidden="true">◆</span>
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
@@ -87,12 +113,65 @@
             id="characterStage"
             width="240"
             height="72"
-            role="img"
-            aria-label="Five original arcade invaders with distinct sound-driven dance personalities, each inside its own Upper A, Upper B, Bass, Lead, or Arp voice bay."
-            aria-describedby="characterStageDescription characterVoiceLegend"
+            role="application"
+            tabindex="0"
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home M S"
+            aria-label="Six interactive arcade invader effect bays. Upper A selected. Click a performer to open its sequence editor. Drag to change its two effects."
+            aria-describedby="characterStageDescription characterVoiceLegend characterPerformanceInstructions liveStatus"
+            data-space-key-owner
           >
-            Five original low-resolution arcade invaders visualize the five Chiptune voices.
+            Click one of six low-resolution arcade invaders to edit that performer. Drag to control its effects.
           </canvas>
+          <div class="chiptune-character-bay-controls" id="characterBayControls" role="list" aria-label="Voice and drum mute, solo, and live effect values">
+            <div class="chiptune-character-bay-control" data-character-voice="upperOne" role="listitem">
+              <strong class="chiptune-character-name">UPPER A</strong>
+              <div class="chiptune-character-button-pair" role="group" aria-label="Upper A mix controls">
+                <button type="button" data-character-mute="upperOne" aria-pressed="false" aria-label="Mute Upper A" title="Mute Upper A">M</button>
+                <button type="button" data-character-solo="upperOne" aria-pressed="false" aria-label="Solo Upper A" title="Solo Upper A">S</button>
+              </div>
+              <output data-character-fx-output="upperOne" aria-label="Upper A live effects">SPAN ↔ · PHASE ↕</output>
+            </div>
+            <div class="chiptune-character-bay-control" data-character-voice="upperTwo" role="listitem">
+              <strong class="chiptune-character-name">UPPER B</strong>
+              <div class="chiptune-character-button-pair" role="group" aria-label="Upper B mix controls">
+                <button type="button" data-character-mute="upperTwo" aria-pressed="false" aria-label="Mute Upper B" title="Mute Upper B">M</button>
+                <button type="button" data-character-solo="upperTwo" aria-pressed="false" aria-label="Solo Upper B" title="Solo Upper B">S</button>
+              </div>
+              <output data-character-fx-output="upperTwo" aria-label="Upper B live effects">CHASE ↔ · CHOP ↕</output>
+            </div>
+            <div class="chiptune-character-bay-control" data-character-voice="bass" role="listitem">
+              <strong class="chiptune-character-name">BASS</strong>
+              <div class="chiptune-character-button-pair" role="group" aria-label="Bass mix controls">
+                <button type="button" data-character-mute="bass" aria-pressed="false" aria-label="Mute Bass" title="Mute Bass">M</button>
+                <button type="button" data-character-solo="bass" aria-pressed="false" aria-label="Solo Bass" title="Solo Bass">S</button>
+              </div>
+              <output data-character-fx-output="bass" aria-label="Bass live effects">BODY ↔ · BOUNCE ↕</output>
+            </div>
+            <div class="chiptune-character-bay-control" data-character-voice="lead" role="listitem">
+              <strong class="chiptune-character-name">LEAD</strong>
+              <div class="chiptune-character-button-pair" role="group" aria-label="Lead mix controls">
+                <button type="button" data-character-mute="lead" aria-pressed="false" aria-label="Mute Lead" title="Mute Lead">M</button>
+                <button type="button" data-character-solo="lead" aria-pressed="false" aria-label="Solo Lead" title="Solo Lead">S</button>
+              </div>
+              <output data-character-fx-output="lead" aria-label="Lead live effects">INTERVAL ↔ · TRILL ↕</output>
+            </div>
+            <div class="chiptune-character-bay-control" data-character-voice="arp" role="listitem">
+              <strong class="chiptune-character-name">ARP</strong>
+              <div class="chiptune-character-button-pair" role="group" aria-label="Arp mix controls">
+                <button type="button" data-character-mute="arp" aria-pressed="false" aria-label="Mute Arp" title="Mute Arp">M</button>
+                <button type="button" data-character-solo="arp" aria-pressed="false" aria-label="Solo Arp" title="Solo Arp">S</button>
+              </div>
+              <output data-character-fx-output="arp" aria-label="Arp live effects">SPREAD ↔ · CHOP ↕</output>
+            </div>
+            <div class="chiptune-character-bay-control" data-character-voice="drums" role="listitem">
+              <strong class="chiptune-character-name">DRUMS</strong>
+              <div class="chiptune-character-button-pair" role="group" aria-label="Drum mix controls">
+                <button type="button" data-character-mute="drums" aria-pressed="false" aria-label="Mute Drums" title="Mute Drums">M</button>
+                <button type="button" data-character-solo="drums" aria-pressed="false" aria-label="Solo Drums" title="Solo Drums">S</button>
+              </div>
+              <output data-character-fx-output="drums" aria-label="Drum live effects">RATE ↔ · TAIL ↕</output>
+            </div>
+          </div>
         </div>
       </section>
       <section class="stage webgpu-303-stage" aria-labelledby="webgpuChiptuneTitle">
@@ -107,11 +186,11 @@
             role="application"
             tabindex="0"
             aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown PageUp PageDown Home End Enter Space A N R Delete"
-            aria-label="Focused live Chiptune sequence editor with a nine-clock overview. Upper A step 1 selected."
+            aria-label="Focused live Chiptune sequence editor for Upper A. Step 1 selected."
             aria-describedby="webgpuChiptuneDescription sequenceInstructions liveStatus"
             data-space-key-owner
           >
-            Live Chiptune editor with five variable voice lanes and four binary drum lanes.
+            Select a performer above, then draw its focused voice or drum sequence here.
           </canvas>
 
           <div class="webgpu-303-heading">
@@ -151,12 +230,18 @@
               </label>
               <label>
                 <input id="trackerViewMorph" name="trackerView" type="radio" value="morph" />
-                <span>Source pad</span>
+                <span>Pattern pad</span>
               </label>
             </fieldset>
 
+            <div class="chiptune-selected-performer" id="selectedPerformer" data-performer="upperOne">
+              <span>EDITING PERFORMER</span>
+              <strong id="selectedPerformerName">UPPER A</strong>
+              <small id="selectedPerformerHint">Draw note height to customize this preset. Reload the preset to restore its original notes.</small>
+            </div>
+
             <div class="chiptune-lane-picker">
-              <span>Lane — choose what the large editor controls</span>
+              <span id="sequenceLanePickerLabel">UPPER A SEQUENCE — CLICK A CHARACTER TO SWITCH VOICE</span>
               <div
                 class="chiptune-voice-tabs"
                 id="sequenceVoiceTabs"
@@ -176,9 +261,9 @@
                 role="group"
                 aria-label="Apply state to selected step and choose Canvas draw tool"
               >
-                <button id="sequenceStateAuto" type="button" aria-pressed="false">SOURCE</button>
-                <button id="sequenceStateNote" type="button" aria-pressed="true">NOTE</button>
-                <button id="sequenceStateRest" type="button" aria-pressed="false">REST</button>
+                <button id="sequenceStateAuto" type="button" aria-pressed="false">RESET STEP ↺</button>
+                <button id="sequenceStateNote" type="button" aria-pressed="true">DRAW NOTE ●</button>
+                <button id="sequenceStateRest" type="button" aria-pressed="false">SILENCE ×</button>
               </div>
 
               <label class="chiptune-sequence-value" for="sequenceValueRange">
@@ -189,7 +274,7 @@
 
               <div class="chiptune-editor-readouts">
                 <output class="chiptune-sequence-status" id="sequenceStatus">
-                  UPPER A · STEP 01/32 · SOURCE
+                  UPPER A · STEP 01/32 · PRESET NOTE
                 </output>
                 <output class="chiptune-sequence-timing" id="sequenceTimingStatus">
                   PLAY 01 · EDIT NEXT 02
@@ -226,8 +311,11 @@
               </div>
 
               <p class="chiptune-editor-help">
-                SOURCE follows the shader generator; NOTE/HIT is manual; REST/OFF is silent.
-                Draw the large lane on the left. The mini tracker below shows every independent clock.
+                The canvas is one current pattern: the loaded preset plus your edits. Draw directly
+                to customize it, choose Silence to remove a step, or Reset Step to recover that
+                preset value. Clicking the same preset again restores its full original pattern.
+                With Audio and Play on, a pitched edit briefly ducks the ensemble and auditions the
+                same shader voice.
               </p>
 
               <label class="chiptune-pitch-span" for="sequencePitchSpan">
@@ -240,21 +328,21 @@
                 <button class="mini-action" id="rotateSequenceRight" type="button">Rotate +1</button>
                 <button class="mini-action" id="reverseSequenceLane" type="button">Reverse</button>
                 <button class="mini-action" id="varySequenceLane" type="button">Vary lane</button>
-                <button class="mini-action chiptune-source-action" id="clearSequenceLane" type="button">Lane → SOURCE</button>
+                <button class="mini-action chiptune-source-action" id="clearSequenceLane" type="button">Reset lane edits</button>
               </div>
-              <p class="chiptune-source-coverage" id="sequenceSourceCoverage">32 of 32 active cells use SOURCE.</p>
+              <p class="chiptune-source-coverage" id="sequenceSourceCoverage">0 custom edits in the active preset sequence.</p>
             </section>
 
             <section class="chiptune-morph-workspace" id="morphWorkspace" hidden>
               <div class="chiptune-control-stack" id="morphControls"></div>
               <p class="chiptune-editor-help">
-                <b>SOURCE PAD</b> — X changes pattern seed; Y changes pitch range. These controls
-                affect only cells marked SOURCE, so coverage is shown below.
+                <b>PATTERN PAD</b> — X changes pattern seed; Y changes pitch range. It reshapes the
+                preset's unedited steps while your customized notes and silences stay fixed.
               </p>
-              <p class="chiptune-source-coverage" id="morphSourceCoverage">SOURCE coverage</p>
+              <p class="chiptune-source-coverage" id="morphSourceCoverage">0 custom voice edits.</p>
               <div class="chiptune-sequence-actions">
-                <button class="mini-action" id="morphLaneSource" type="button">Active lane → SOURCE</button>
-                <button class="mini-action chiptune-source-action" id="morphVoicesSource" type="button">All voices → SOURCE</button>
+                <button class="mini-action" id="morphLaneSource" type="button">Reset active lane edits</button>
+                <button class="mini-action chiptune-source-action" id="morphVoicesSource" type="button">Reset all voice edits</button>
               </div>
             </section>
           </div>
@@ -306,29 +394,6 @@
             <span class="section-state" id="patternState">78 BPM · Source Tracker</span>
           </summary>
           <div class="group-body">
-            <div class="webgpu-303-transport-row">
-              <button
-                class="play-button webgpu-303-play-button"
-                id="synthPlayButton"
-                type="button"
-                aria-pressed="false"
-                aria-label="Play WebGPU Chiptune"
-                aria-keyshortcuts="Space"
-                title="Play WebGPU Chiptune (Space)"
-                data-primary-transport
-              >
-                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M8 5.5 18 12 8 18.5Z" />
-                </svg>
-                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M8 6v12M16 6v12" />
-                </svg>
-              </button>
-              <span class="webgpu-303-transport-copy">
-                <b id="synthPlayLabel">Play chiptune</b>
-                <small id="synthPlayState">paused · Space</small>
-              </span>
-            </div>
             <div
               class="webgpu-preset-grid"
               id="presetButtons"
@@ -368,13 +433,13 @@
 
         <details class="group control-section webgpu-303-section" data-section="advanced">
           <summary class="group-summary">
-            <h2 class="group-title">Advanced Source</h2>
+            <h2 class="group-title">Advanced Pattern</h2>
             <span class="section-state" id="advancedState">7-note scale · editable gates</span>
           </summary>
           <div class="group-body">
             <p class="webgpu-credit-note">
-              Edit the source sequence itself: four variable note lanes, an Arp shape lane, four
-              SOURCE / HIT / OFF drum lanes, exact fraction clocks and phases, independent loop
+              Customize the loaded preset: four variable note lanes, an Arp shape lane, four
+              hit or silent drum lanes, exact fraction clocks and phases, independent loop
               lengths, pitch classes, gates, drum circuits, internal Lead and Arp motion, and routing.
             </p>
             <p class="webgpu-credit-note chiptune-live-note">
@@ -445,7 +510,7 @@
             data-reset-all
             data-reset-in-place
           >
-            Reset source patch
+            Reload default preset
           </button>
         </div>
 
@@ -455,42 +520,62 @@
       <p class="sr-only" id="webgpuChiptuneDescription">
         A WebGPU compute shader renders a procedural tracker composition with two upper pulse
         voices, bass, lead, arpeggio, noise percussion, drums, and ping-pong echo into Web Audio.
-        Its live horizontal editor keeps the original procedural source available in every cell.
+        Its live horizontal editor shows the loaded preset as one pattern ready for customization.
       </p>
       <p class="sr-only" id="characterStageDescription">
-        Five original code-drawn, low-resolution arcade invaders occupy separate voice bays and
-        share the shader's master transport. Their formation steps, feet, claws, wings, and beat
-        lamps follow each voice's sequence clock and current step.
+        Six original code-drawn, low-resolution arcade invaders occupy separate performance bays
+        and share the shader's master transport. The first five characters read only their own
+        pitched voice sequence. The sixth reads the kick, snare, hats, and shaker sequences.
+        Divisions of each real step position drive whole-body jumps and pulses, independent left
+        and right arm waves, alternating leg kicks, eyes, expressions, accessories, and beat lamps.
         Level changes size and brightness; register and notes change height and color; waveform,
         pulse shape, articulation, and voice-specific timbre change each silhouette and movement.
-        Slow grouped body phrases stay on each voice clock while rapid notes appear as lamps and
-        small accents. Rests dim those sound accents without snapping the body to a neutral pose.
-        Echo makes afterimages, kick sends floor bands, snare throws blocks, and hats and shaker
-        make edge sparks.
+        Slow grouped body phrases and faster limb accents stay on that same voice clock; there is
+        no separate animation clock. Rests dim sound accents without snapping the slow pose.
+        On the drum dancer, kick drives jumps and chest pulses, snare alternates the stick arms,
+        hats drive feet and cymbal antennae, and shaker drives side-to-side movement. Echo makes
+        afterimages, kick sends floor bands, snare throws blocks, and hats and shaker make edge sparks.
       </p>
       <p class="sr-only" id="characterVoiceLegend">
         Upper A is a cyan sensor-crab invader performing precise angular freezes and scanner hits.
         Upper B is a lime beetle-runner invader gliding laterally with counterweighted fins. Bass
         is a purple horned boss invader using grounded contractions and heavy stomps. Lead is a pink crowned
         blade invader making long theatrical reaches and sword sweeps. Arp is an amber winged moth
-        invader using suspended wing fans and orbiting turns.
+        invader using suspended wing fans and orbiting turns. Drums is a red-orange beat robot with
+        cymbal antennae, drumsticks, a pulsing kick-drum chest, and four independently driven limbs.
+      </p>
+      <p class="sr-only" id="characterPerformanceInstructions">
+        Click a character bay to select that performer and open its sequence editor. A click does
+        not change effects. Drag at least a few pixels to change the two live effects instead.
+        Horizontal movement controls the effect shown with a left-right arrow; vertical movement
+        controls the effect shown with an up-down arrow. The center preserves the preset exactly,
+        while the edges reach the parameter's correctly distributed low and high limits. With the
+        character canvas focused, arrow keys adjust the selected bay, Shift plus arrows makes larger
+        changes, Page Up and Page Down select another performer, and Home returns that bay to its neutral
+        center. Press M to mute or unmute the selected voice and S to add or remove it from the solo
+        group. Mute wins over Solo. These controls do not enable Audio or start or stop transport.
       </p>
       <p class="sr-only" id="trackerInstructions">
-        In Source Pad, drag horizontally to change the deterministic pattern seed and vertically to
+        In Pattern Pad, drag horizontally to change the deterministic pattern seed and vertically to
         change pitch range. The right panel mirrors both axes with exact controls and reports how
-        many active cells still use SOURCE. Hand-drawn notes are intentionally not regenerated.
+        many custom voice edits are fixed in place. Unedited preset steps are reshaped live.
       </p>
       <p class="sr-only" id="sequenceInstructions">
-        In Sequence, the canvas devotes its full height to one selected lane. Choose SOURCE, NOTE or
-        POINT, REST, HIT, or OFF, then drag across the large cells. Vertical position sets note or
-        shape value and horizontal motion paints every crossed step. Drums are binary. The mini
-        tracker below shows all nine independent lane playheads and selects lanes or steps. FOLLOW
-        NEXT keeps the inspector on the first safely audible step; locking a distant step shows a
-        truthful countdown. Left and right select steps; up and down change values; Shift changes
-        pitched lanes by an octave. Page Up and Page Down select lanes. Enter or Space cycles a cell.
-        A restores SOURCE, N or H writes a note or hit, R or O writes a rest or off, and Delete
-        restores SOURCE. Every lane derives from one master clock while its fractional rate, phase,
-        and loop length determine its local playhead.
+        Click a performer above to make its sequence appear here. Pitched performers show one
+        large lane; Drums shows Kick, Snare, Hats, and Shaker selectors. Choose Reset Step, Draw
+        Note, Draw Shape, Draw Hit, or Silence, then drag across the large cells. Vertical position
+        sets note or shape value and horizontal motion paints every crossed step. Drums are binary.
+        The canvas shows one current preset-plus-edits pattern; crossed cells are silent and edited
+        cells carry a small edit label. Lead and Arp include a thin white trace showing the
+        internally modulated pitch that is actually heard.
+        The mini tracker shows only the selected performer. FOLLOW NEXT keeps the inspector on the
+        first safely audible step; locking a distant step shows a truthful countdown. Left and right
+        select steps; up and down change values; Shift changes pitched lanes by an octave. Page Up
+        and Page Down select lanes or performers. Enter or Space cycles a cell. A or Delete resets
+        the current step, N or H draws a note or hit, and R or O writes silence. Clicking any preset,
+        including the active one, restores that preset's full sequence and parameters. Every lane
+        derives from one master clock while its fractional rate, phase, and loop length determine
+        its local playhead.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
