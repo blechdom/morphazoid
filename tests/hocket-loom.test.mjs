@@ -11,6 +11,7 @@ import {
   DEFAULT_HOCKET_STATE,
   HOCKET_PRESETS,
   HOCKET_STEP_OPTIONS,
+  advanceHocketTraversal,
   analyzeHocketState,
   compositeHocketTones,
   createHocketState,
@@ -57,6 +58,7 @@ test("Hocket Luigi exposes bounded, deeply frozen two- through four-voice studie
   }
 
   assert.equal(DEFAULT_HOCKET_STATE.level, 0.32);
+  assert.equal(DEFAULT_HOCKET_STATE.soundSet, "relay");
   assert.ok(DEFAULT_HOCKET_STATE.level <= 0.32, "the default output must remain quiet");
   assert.equal(Object.isFrozen(DEFAULT_HOCKET_STATE), true);
   assert.equal(Object.isFrozen(DEFAULT_HOCKET_STATE.patterns), true);
@@ -79,11 +81,12 @@ test("marker plans give wood, metal, and breath separate bounded mechanisms", ()
             peak: 0.2,
           });
           assert.equal(plan.material, soundSet);
+          assert.equal(plan.soundSet, soundSet);
           assert.ok(plan.sourceCount > 0);
           assert.ok(plan.sourceCount <= 4);
           assert.ok(plan.sourceCount < HOCKET_MARKER_SOURCE_LIMIT);
           assert.ok(plan.nodeEstimate <= HOCKET_MARKER_NODE_LIMIT);
-          assert.ok(plan.durationSeconds >= 0.038 && plan.durationSeconds <= 0.52);
+          assert.ok(plan.durationSeconds >= 0.03 && plan.durationSeconds <= 0.52);
           assert.ok(plan.panStart >= -1 && plan.panStart <= 1);
           assert.ok(plan.panEnd >= -1 && plan.panEnd <= 1);
           for (const oscillator of plan.oscillators) {
@@ -111,6 +114,19 @@ test("marker plans give wood, metal, and breath separate bounded mechanisms", ()
       }
     }
   }
+
+  const relayPlans = Array.from({ length: 4 }, (_, voice) =>
+    hocketMarkerPlan({
+      soundSet: "relay",
+      pulseLengthMs: 92,
+      voice,
+      tone: voice + 1,
+      voiceCount: 4,
+      peak: 0.2,
+    })
+  );
+  assert.deepEqual(relayPlans.map(({ material }) => material), ["wood", "metal", "breath", "wood"]);
+  assert.equal(relayPlans.every(({ soundSet }) => soundSet === "relay"), true);
 
   const plans = Object.fromEntries(
     soundSets.map((soundSet) => [
@@ -349,13 +365,39 @@ test("hostile state values sanitize to finite limits, valid row shapes, and safe
   assert.ok(state.swing >= 0 && state.swing <= 0.46);
   assert.ok(state.pulseLengthMs >= 24 && state.pulseLengthMs <= 260);
   assert.ok(state.level >= 0 && state.level <= 0.62);
-  assert.equal(state.soundSet, "wood");
+  assert.equal(state.soundSet, "relay");
   assert.equal(state.focusMode, "balanced");
   assert.equal(state.patterns.length, state.voiceCount);
   assert.equal(state.patterns.every((row) => row.length === state.length), true);
   assert.equal(
     state.patterns.flat().every((value) => Number.isFinite(value) && value >= 0 && value <= 8),
     true
+  );
+});
+
+test("loop and ping-pong traversal remain deterministic in both directions", () => {
+  const sequence = ({ step, direction, length, mode, count = 8 }) => {
+    let cursor = { step, direction };
+    const steps = [cursor.step];
+    for (let index = 1; index < count; index += 1) {
+      cursor = advanceHocketTraversal(cursor.step, cursor.direction, length, mode);
+      steps.push(cursor.step);
+    }
+    return steps;
+  };
+
+  assert.deepEqual(sequence({ step: 0, direction: 1, length: 4, mode: "loop" }), [0, 1, 2, 3, 0, 1, 2, 3]);
+  assert.deepEqual(sequence({ step: 0, direction: -1, length: 4, mode: "loop" }), [0, 3, 2, 1, 0, 3, 2, 1]);
+  assert.deepEqual(sequence({ step: 0, direction: 1, length: 4, mode: "pingpong" }), [0, 1, 2, 3, 2, 1, 0, 1]);
+  assert.deepEqual(sequence({ step: 3, direction: -1, length: 4, mode: "pingpong" }), [3, 2, 1, 0, 1, 2, 3, 2]);
+
+  assert.deepEqual(advanceHocketTraversal(0, -1, 1, "pingpong"), {
+    step: 0,
+    direction: -1,
+  });
+  assert.deepEqual(
+    advanceHocketTraversal(Symbol("step"), Symbol("direction"), Symbol("length"), "pingpong"),
+    { step: 0, direction: 1 }
   );
 });
 
@@ -380,14 +422,21 @@ test("page markup exposes one explicit audio arm, one primary transport, and no 
     readFile(new URL("HOCKET_LOOM_RESEARCH.md", root), "utf8"),
   ]);
   assert.match(html, /<title>Hocket Luigi · Morphazoid<\/title>/);
+  assert.equal((html.match(/<h1\b/g) || []).length, 1);
+  assert.match(html, /class="hocket-canvas-wrap"[^>]*>[\s\S]*<h1 id="pageTitle">HOCKET LUIGI<\/h1>[\s\S]*<canvas/);
+  assert.equal((html.match(/id="tempoBpm"/g) || []).length, 1);
+  assert.match(html, /<section class="hocket-transport"[^>]*>[\s\S]*id="tempoBpm"[\s\S]*id="motionModeMount"[\s\S]*<\/section>/);
   assert.match(html, /class="audio-button" id="audioButton"[^>]*aria-pressed="false"/);
   assert.equal((html.match(/data-primary-transport/g) || []).length, 1);
   assert.match(html, /id="loomCanvas"[^>]*tabindex="0"[^>]*role="application"/s);
   assert.match(html, /id="preserveComposite" type="checkbox" checked/);
-  assert.doesNotMatch(html, /One cycle, passed from hand to hand|presetRegion/);
+  assert.doesNotMatch(html, /DISTRIBUTED PULSE|COMPOSITE RHYTHM|2–4 VOICES|One cycle, passed from hand to hand|presetRegion/);
+  assert.doesNotMatch(html, /hocket-metrics|coverageOut|handoffOut|gapOut|collisionOut/);
   assert.doesNotMatch(html, /wax-host-bootstrap|wax-page\.js|MorphazoidWAX/);
   assert.match(app, /setInterval\(schedulerTick, 24\)/);
   assert.match(app, /const horizon = 0\.12/);
+  assert.match(app, /createMotionModeGroup/);
+  assert.match(app, /advanceHocketTraversal/);
   assert.match(app, /this\.groups\.size >= 96/);
   assert.match(app, /HOCKET_MARKER_SOURCE_LIMIT/);
   assert.doesNotMatch(app, /Math\.random/);

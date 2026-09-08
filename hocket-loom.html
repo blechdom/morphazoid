@@ -56,16 +56,9 @@
     </header>
 
     <main class="hocket-shell" id="hocketLoom">
-      <section class="hocket-intro" aria-labelledby="pageTitle">
-        <div>
-          <p class="hocket-kicker">DISTRIBUTED PULSE / COMPOSITE RHYTHM / 2–4 VOICES</p>
-          <h1 id="pageTitle">HOCKET <span>LUIGI</span></h1>
-        </div>
-      </section>
-
       <section class="hocket-workspace" aria-label="Hocket Luigi rhythm instrument">
         <div class="hocket-main-column">
-          <section class="hocket-stage-card" aria-label="Interlocking rhythm cycle">
+          <section class="hocket-stage-card" aria-labelledby="pageTitle">
             <header class="hocket-stage-header">
               <div class="hocket-stage-state" id="stageState" data-state="ready">
                 <i aria-hidden="true"></i>
@@ -74,9 +67,12 @@
             </header>
 
             <div class="hocket-canvas-wrap" id="canvasWrap">
+              <div class="hocket-stage-heading">
+                <h1 id="pageTitle">HOCKET LUIGI</h1>
+              </div>
               <canvas
                 id="loomCanvas"
-                data-space-key-owne
+                data-space-key-owner
                 width="920"
                 height="620"
                 tabindex="0"
@@ -91,25 +87,6 @@
               </p>
               <div class="hocket-playhead-label" id="playheadLabel" aria-hidden="true">01</div>
             </div>
-
-            <dl class="hocket-metrics" aria-label="Composite rhythm analysis">
-              <div>
-                <dt>coverage</dt>
-                <dd><output id="coverageOut">100%</output><small>of cycle sounding</small></dd>
-              </div>
-              <div>
-                <dt>handoffs</dt>
-                <dd><output id="handoffOut">16</output><small>owner changes</small></dd>
-              </div>
-              <div>
-                <dt>gaps</dt>
-                <dd><output id="gapOut">0</output><small>silent pulses</small></dd>
-              </div>
-              <div>
-                <dt>collisions</dt>
-                <dd><output id="collisionOut">0</output><small>extra simultaneous hits</small></dd>
-              </div>
-            </dl>
           </section>
 
           <section class="hocket-score-card" aria-labelledby="scoreTitle">
@@ -145,17 +122,29 @@
         </div>
 
         <aside class="hocket-console" aria-label="Hocket Luigi controls">
-          <section class="hocket-transport" aria-label="Transport and voice audition">
-            <button
-              id="playButton"
-              class="hocket-play"
-              type="button"
-              aria-pressed="false"
-              data-primary-transport
-            >
-              <span class="hocket-play-icon" aria-hidden="true">▶</span>
-              <span><b id="playLabel">Run the loom</b><small id="playState">space · stopped</small></span>
-            </button>
+          <section class="hocket-transport" aria-label="Transport, tempo, direction, and voice audition">
+            <div class="hocket-transport-grid">
+              <button
+                id="playButton"
+                class="hocket-play"
+                type="button"
+                aria-pressed="false"
+                data-primary-transport
+              >
+                <span class="hocket-play-icon" aria-hidden="true">▶</span>
+                <span><b id="playLabel">Run the loom</b><small id="playState">space · stopped</small></span>
+              </button>
+              <div class="hocket-transport-settings">
+                <label class="hocket-control hocket-tempo-control" for="tempoBpm">
+                  <span><b>Tempo</b><output id="tempoOut" for="tempoBpm">112 BPM</output></span>
+                  <input id="tempoBpm" type="range" min="36" max="220" step="1" value="112" />
+                </label>
+                <div class="hocket-motion-field">
+                  <span>Direction</span>
+                  <div id="motionModeMount"></div>
+                </div>
+              </div>
+            </div>
             <div class="hocket-voice-pads" id="voicePads" role="group" aria-label="Audition voices"></div>
           </section>
 
@@ -221,14 +210,10 @@
 
           <details class="hocket-panel" open>
             <summary>
-              <span><small>03 / TIME</small><b>Set the handoff feel</b></span>
-              <output id="timeSummary">112 BPM · straight</output>
+              <span><small>03 / FEEL</small><b>Shape each handoff</b></span>
+              <output id="timeSummary">straight · 92 ms</output>
             </summary>
             <div class="hocket-panel-body">
-              <label class="hocket-control" for="tempoBpm">
-                <span><b>Tempo</b><output id="tempoOut" for="tempoBpm">112 BPM</output></span>
-                <input id="tempoBpm" type="range" min="36" max="220" step="1" value="112" />
-              </label>
               <label class="hocket-control" for="swing">
                 <span><b>Pair swing</b><output id="swingOut" for="swing">0%</output></span>
                 <input id="swing" type="range" min="0" max="0.46" step="0.01" value="0" />
@@ -243,13 +228,14 @@
           <details class="hocket-panel">
             <summary>
               <span><small>04 / MARKERS</small><b>Clack, ring, and breath</b></span>
-              <output id="soundSummary">Dry wood clack · balanced</output>
+              <output id="soundSummary">Relay ensemble · balanced</output>
             </summary>
             <div class="hocket-panel-body">
               <div class="hocket-control-pair">
                 <label class="hocket-select" for="soundSet">
                   <span>Marker sound</span>
                   <select id="soundSet">
+                    <option value="relay">Relay ensemble</option>
                     <option value="wood">Dry wood clack</option>
                     <option value="metal">Inharmonic metal ring</option>
                     <option value="breath">Air breath</option>
