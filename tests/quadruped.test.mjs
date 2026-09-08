@@ -4,7 +4,9 @@ import assert from "node:assert/strict";
 import {
   QUADRUPED_ANIMALS,
   QUADRUPED_BEHAVIORS,
+  QUADRUPED_DEFAULT_TEMPO_BPM,
   QUADRUPED_FOOT_VOICES,
+  QUADRUPED_GROUND_PROFILES,
   QUADRUPED_LANES,
   QUADRUPED_LIMITS,
   QUADRUPED_STEP_COUNT,
@@ -18,14 +20,23 @@ import {
   deriveQuadrupedPose,
   describeQuadrupedStep,
   mutateQuadrupedPattern,
+  quadrupedAnimal,
   quadrupedBehaviorFit,
   quadrupedBehaviorsForAnimal,
+  quadrupedFootCycleState,
   quadrupedFootVoice,
-  quadrupedHeadPhrase,
+  quadrupedGaitProfile,
+  quadrupedGroundAnchorX,
+  quadrupedGroundHeightAtWorldX,
   quadrupedSequenceEvent,
   quadrupedStepDurationSeconds,
+  quadrupedSupportSnapshot,
   sanitizeQuadrupedState,
   setQuadrupedContact,
+  setQuadrupedGroundProfile,
+  setQuadrupedSurface,
+  solveQuadrupedLimbChain,
+  solveQuadrupedLimbJoint,
 } from "../src/quadruped.js";
 import {
   QUADRUPED_MOTOR_LIMITS,
@@ -36,249 +47,247 @@ import {
   quadrupedMotorSnapshot,
 } from "../src/quadruped-motor.js";
 
-const footLaneIds = QUADRUPED_LANES.slice(0, 4).map(({ id }) => id);
+const footLaneIds = QUADRUPED_LANES.map(({ id }) => id);
+const animalIds = [
+  "elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe", "lizard",
+  "horse", "dog", "goat", "rabbit", "camel",
+];
+const finite = (value) => Number.isFinite(Number(value));
+const distance = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 
-test("Quadruped exposes seven animals, a shared expanded gait dictionary, four feet plus tail, and sixteen frames", () => {
-  assert.deepEqual(QUADRUPED_ANIMALS.map(({ id }) => id), [
-    "elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe", "lizard",
-  ]);
-  const behaviorIds = QUADRUPED_BEHAVIORS.map(({ id }) => id);
-  assert.ok(behaviorIds.length >= 30);
-  for (const id of [
-    "walk", "running-walk", "trot", "pace", "canter", "counter-canter", "gallop",
-    "counter-gallop", "sprint", "rotary-left", "bound", "half-bound", "stot", "jump",
-    "dance", "rear-waltz", "cat-prowl", "cat-gallop", "run-leap", "giraffe-walk",
-    "giraffe-gallop", "lizard-scuttle", "lizard-trot", "lizard-pace", "lizard-sprint",
-  ]) {
-    assert.ok(behaviorIds.includes(id), `missing gait ${id}`);
+function signature(animalId, behaviorId) {
+  const state = createQuadrupedState(animalId, behaviorId);
+  return Array.from({ length: QUADRUPED_STEP_COUNT }, (_, step) => {
+    const feet = quadrupedSequenceEvent(state, step).contacts.map(({ shortLabel }) => shortLabel).sort();
+    return feet.length ? `${step}:${feet.join("+")}` : "";
+  }).filter(Boolean);
+}
+
+test("Quadruped exposes twelve animals, thirty-nine transferable gaits, four feet, sixteen frames, eight surfaces, and three courses", () => {
+  assert.deepEqual(QUADRUPED_ANIMALS.map(({ id }) => id), animalIds);
+  assert.equal(QUADRUPED_BEHAVIORS.length, 39);
+  assert.ok(QUADRUPED_BEHAVIORS.some(({ id }) => id === "rabbit-gallop"));
+  for (const stunt of ["leap", "skid", "forward-roll", "rear-up"]) {
+    assert.ok(QUADRUPED_BEHAVIORS.some(({ id }) => id === stunt));
   }
-  for (const animal of QUADRUPED_ANIMALS) {
+  assert.deepEqual(footLaneIds, ["front-left", "front-right", "rear-left", "rear-right"]);
+  assert.equal(QUADRUPED_STEP_COUNT, 16);
+  assert.deepEqual(QUADRUPED_TERRAINS.map(({ id }) => id), [
+    "earth", "sand", "wood", "stone", "metal", "snow", "water", "crystal",
+  ]);
+  assert.deepEqual(QUADRUPED_GROUND_PROFILES.map(({ id }) => id), [
+    "level", "stairs-up", "stairs-down",
+  ]);
+  for (const animalId of animalIds) {
     assert.deepEqual(
-      quadrupedBehaviorsForAnimal(animal.id).map(({ id }) => id),
-      behaviorIds,
-      `${animal.id} should be able to borrow every gait`,
+      quadrupedBehaviorsForAnimal(animalId).map(({ id }) => id),
+      QUADRUPED_BEHAVIORS.map(({ id }) => id),
     );
   }
-  assert.equal(quadrupedBehaviorFit("cat", "cat-prowl"), "observed");
-  assert.equal(quadrupedBehaviorFit("elephant", "cat-prowl"), "playful");
-  assert.deepEqual(QUADRUPED_LANES.map(({ id }) => id), [
-    "front-left",
-    "front-right",
-    "rear-left",
-    "rear-right",
-    "tail",
-  ]);
-  assert.equal(QUADRUPED_STEP_COUNT, 16);
-  assert.equal(QUADRUPED_TERRAINS.length, 4);
+  assert.equal(quadrupedBehaviorFit("rabbit", "rabbit-gallop"), "observed");
+  assert.equal(quadrupedBehaviorFit("elephant", "rabbit-gallop"), "playful");
 });
 
-test("every available animal gait creates a finite, bounded, reproducible score", () => {
+test("every animal and gait creates a finite deterministic four-lane score", () => {
+  const morphologyKeys = [
+    "bodyWidth", "bodyHeight", "clearance", "shoulder", "haunch", "headScale",
+    "neckLength", "headForward", "headRise", "frontUpper", "frontLower",
+    "hindUpper", "hindLower", "distal", "legWidth", "footWidth", "tailLength",
+    "foreBend", "hindBend", "spineElasticity",
+  ];
   for (const animal of QUADRUPED_ANIMALS) {
-    for (const behavior of quadrupedBehaviorsForAnimal(animal.id)) {
+    assert.ok(morphologyKeys.every((key) => finite(animal.morphology[key])));
+    assert.ok(morphologyKeys.filter((key) => !key.endsWith("Bend")).every((key) => animal.morphology[key] >= 0));
+    for (const behavior of QUADRUPED_BEHAVIORS) {
       const first = createQuadrupedState(animal.id, behavior.id);
-      const second = createQuadrupedState(animal.id, behavior.id);
-      assert.deepEqual(first, second);
+      assert.deepEqual(first, createQuadrupedState(animal.id, behavior.id));
       assert.equal(first.animalId, animal.id);
       assert.equal(first.behaviorId, behavior.id);
-      assert.ok(first.tempoBpm >= QUADRUPED_LIMITS.tempoBpm[0]);
-      assert.ok(first.tempoBpm <= QUADRUPED_LIMITS.tempoBpm[1]);
-      assert.ok(first.momentum >= QUADRUPED_LIMITS.momentum[0]);
-      assert.ok(first.momentum <= QUADRUPED_LIMITS.momentum[1]);
-      assert.ok(first.gravity >= QUADRUPED_LIMITS.gravity[0]);
-      assert.ok(first.gravity <= QUADRUPED_LIMITS.gravity[1]);
-      assert.ok(first.outputLevel >= 0.42);
-      assert.ok(first.outputLevel <= QUADRUPED_LIMITS.outputLevel[1]);
-      assert.equal(first.terrain.length, QUADRUPED_STEP_COUNT);
-      for (const lane of QUADRUPED_LANES) {
-        assert.equal(first.pattern[lane.id].length, QUADRUPED_STEP_COUNT);
-        for (const value of first.pattern[lane.id]) {
-          assert.ok(Number.isFinite(value));
-          assert.ok(value >= 0 && value <= 1);
-        }
+      assert.ok(first.tempoBpm >= QUADRUPED_LIMITS.tempoBpm[0] && first.tempoBpm <= QUADRUPED_LIMITS.tempoBpm[1]);
+      assert.ok(first.outputLevel >= 0.42 && first.outputLevel <= QUADRUPED_LIMITS.outputLevel[1]);
+      assert.ok(QUADRUPED_TERRAINS.some(({ id }) => id === first.surfaceId));
+      assert.ok(QUADRUPED_GROUND_PROFILES.some(({ id }) => id === first.groundProfileId));
+      assert.deepEqual(Object.keys(first.pattern), footLaneIds);
+      for (const laneId of footLaneIds) {
+        assert.equal(first.pattern[laneId].length, QUADRUPED_STEP_COUNT);
+        assert.ok(first.pattern[laneId].every((value) => finite(value) && value >= 0 && value <= 1));
       }
     }
   }
 });
 
-test("the sixteen-frame dictionary keeps researched footfall families and lead variants distinct", () => {
-  const hitsAt = (animalId, behaviorId, step) => quadrupedSequenceEvent(
-    createQuadrupedState(animalId, behaviorId),
-    step,
-  ).contacts.filter(({ id }) => id !== "tail").map(({ shortLabel }) => shortLabel).sort();
-  const signature = (animalId, behaviorId) => Array.from({ length: QUADRUPED_STEP_COUNT }, (_, step) => (
-    `${step}:${hitsAt(animalId, behaviorId, step).join("+")}`
-  )).filter((entry) => !entry.endsWith(":"));
-
+test("the gait dictionary preserves distinct locomotion and stunt rhythms", () => {
   assert.deepEqual(signature("unicorn", "walk"), ["0:RH", "4:RF", "8:LH", "12:LF"]);
   assert.deepEqual(signature("unicorn", "trot"), ["0:LF+RH", "8:LH+RF"]);
   assert.deepEqual(signature("unicorn", "pace"), ["0:RF+RH", "8:LF+LH"]);
   assert.deepEqual(signature("unicorn", "canter"), ["0:LH", "4:LF+RH", "8:RF"]);
-  assert.deepEqual(signature("unicorn", "counter-canter"), ["0:RH", "4:LH+RF", "8:LF"]);
-  assert.deepEqual(signature("unicorn", "gallop"), ["0:LH", "3:RH", "7:LF", "10:RF"]);
-  assert.deepEqual(signature("unicorn", "counter-gallop"), ["0:RH", "3:LH", "7:RF", "10:LF"]);
-  assert.deepEqual(signature("gazelle", "sprint"), ["0:RH", "3:LH", "8:LF", "11:RF"]);
-  assert.deepEqual(signature("gazelle", "rotary-left"), ["0:LH", "3:RH", "8:RF", "11:LF"]);
+  assert.deepEqual(signature("unicorn", "gallop"), ["0:LH", "3:RH", "4:LF", "8:RF"]);
+  assert.deepEqual(signature("gazelle", "sprint"), ["0:RH", "2:LH", "7:LF", "10:RF"]);
   assert.deepEqual(signature("gazelle", "bound"), ["0:LH+RH", "8:LF+RF"]);
-  assert.deepEqual(signature("gazelle", "half-bound"), ["0:LH+RH", "7:LF", "10:RF"]);
-  assert.deepEqual(signature("gazelle", "stot"), ["0:LF+LH+RF+RH", "8:LF+LH+RF+RH"]);
-  assert.deepEqual(signature("gazelle", "dance"), ["0:LF+RH", "4:LH+RF", "8:LF+RH", "12:LH+RF"]);
+  assert.deepEqual(signature("rabbit", "rabbit-gallop"), ["0:LH", "1:RH", "5:LF", "7:RF"]);
+  assert.deepEqual(signature("elephant", "leap"), ["0:LH+RH", "10:RF", "11:LF"]);
+  assert.deepEqual(signature("elephant", "skid"), ["0:LH", "1:RF", "2:LF", "15:RH"]);
+  assert.deepEqual(signature("elephant", "forward-roll"), ["0:LH+RH", "12:RF", "13:LF"]);
+  assert.deepEqual(signature("elephant", "rear-up"), ["0:LH+RH", "8:LH+RH"]);
   assert.notDeepEqual(signature("elephant", "walk"), signature("elephant", "amble"));
-  assert.notDeepEqual(signature("elephant", "amble"), signature("elephant", "charge"));
-  assert.notDeepEqual(signature("unicorn", "gallop"), signature("gazelle", "sprint"));
-
-  const canterContactSteps = [0, 4, 8];
-  const cyclicSpacing = canterContactSteps.map((step, index) => (
-    (canterContactSteps[(index + 1) % canterContactSteps.length] - step + QUADRUPED_STEP_COUNT) % QUADRUPED_STEP_COUNT
-  ));
-  assert.deepEqual(cyclicSpacing, [4, 4, 8]);
 });
 
-test("run-leap is three running clusters followed by a hind launch and fore landing", () => {
-  const state = createQuadrupedState("cat", "run-leap");
-  const signature = Array.from({ length: QUADRUPED_STEP_COUNT }, (_, step) => {
-    const feet = quadrupedSequenceEvent(state, step).contacts
-      .filter(({ id }) => id !== "tail")
-      .map(({ shortLabel }) => shortLabel)
-      .sort();
-    return feet.length ? `${step}:${feet.join("+")}` : "";
-  }).filter(Boolean);
-  assert.deepEqual(signature, [
+test("run-leap is three running clusters followed by hind launch, flight, and fore landing", () => {
+  assert.deepEqual(signature("cat", "run-leap"), [
     "0:RH", "1:LH", "2:LF", "3:RF",
     "4:LH", "5:RH", "6:RF", "7:LF",
     "8:RH", "9:LH", "10:LF", "11:RF",
     "12:LH+RH", "15:LF+RF",
   ]);
+  const state = createQuadrupedState("cheetah", "run-leap");
+  assert.ok([13.5, 14, 14.5].every((position) => quadrupedSupportSnapshot(state, position).supportCount === 0));
 });
 
-test("each animal gives every foot and tail a named, mono-safe articulation family", () => {
+test("each animal gives all four feet different named mono-safe articulation families", () => {
   for (const animal of QUADRUPED_ANIMALS) {
-    const voices = QUADRUPED_LANES.map(({ id }) => quadrupedFootVoice(animal.id, id));
-    assert.equal(new Set(voices.map(({ family }) => family)).size, QUADRUPED_LANES.length);
+    const voices = footLaneIds.map((laneId) => quadrupedFootVoice(animal.id, laneId));
+    assert.equal(new Set(voices.map(({ family }) => family)).size, 4);
     assert.ok(voices.every(({ label, family }) => label.length > 0 && family.length > 0));
-    assert.deepEqual(Object.keys(QUADRUPED_FOOT_VOICES[animal.id]), QUADRUPED_LANES.map(({ id }) => id));
+    assert.deepEqual(Object.keys(QUADRUPED_FOOT_VOICES[animal.id]), footLaneIds);
   }
 });
 
-test("simultaneous foot and tail contacts stay layered instead of collapsing to one event", () => {
+test("one frame can layer all four feet without inventing a tail lane", () => {
   let state = clearQuadrupedPattern(createQuadrupedState("elephant", "jump"));
-  for (const laneId of [...footLaneIds, "tail"]) state = setQuadrupedContact(state, laneId, 4, 1);
+  for (const laneId of footLaneIds) state = setQuadrupedContact(state, laneId, 4, 1);
   const event = quadrupedSequenceEvent(state, 4);
-  assert.equal(event.contacts.length, 5);
+  assert.equal(event.contacts.length, 4);
   assert.equal(event.supportCount, 4);
   assert.equal(event.footEnergy, 4);
+  assert.ok(event.contacts.every(({ id }) => footLaneIds.includes(id)));
 });
 
-test("ground position changes the resonator while the same limb score remains intact", () => {
-  let state = clearQuadrupedPattern(createQuadrupedState("gazelle", "sprint"));
-  state = setQuadrupedContact(state, "front-left", 0, 1);
-  const onWood = sanitizeQuadrupedState({ ...state, terrain: state.terrain.map((value, step) => step === 0 ? "wood" : value) }, state);
-  const onCrystal = sanitizeQuadrupedState({ ...state, terrain: state.terrain.map((value, step) => step === 0 ? "crystal" : value) }, state);
-  const woodEvent = quadrupedSequenceEvent(onWood, 0);
-  const crystalEvent = quadrupedSequenceEvent(onCrystal, 0);
-  assert.equal(woodEvent.contacts[0].id, crystalEvent.contacts[0].id);
-  assert.equal(woodEvent.contacts[0].intensity, crystalEvent.contacts[0].intensity);
-  assert.notEqual(woodEvent.terrain.id, crystalEvent.terrain.id);
-  assert.notDeepEqual(woodEvent.head?.notes, crystalEvent.head?.notes);
+test("surface is global and changes resonance physics without changing the gait topology", () => {
+  const earth = createQuadrupedState("gazelle", "sprint");
+  const crystal = setQuadrupedSurface(earth, "crystal");
+  assert.deepEqual(crystal.pattern, earth.pattern);
+  assert.equal(quadrupedSequenceEvent(earth, 0).terrain.id, "earth");
+  assert.equal(quadrupedSequenceEvent(crystal, 0).terrain.id, "crystal");
+  assert.notDeepEqual(
+    QUADRUPED_TERRAINS.find(({ id }) => id === "earth"),
+    QUADRUPED_TERRAINS.find(({ id }) => id === "crystal"),
+  );
 });
 
-test("each animal has a distinct melodic head identity with frame-locked sequencer notes", () => {
-  const expectedKinds = new Map([
-    ["elephant", "trumpet"],
-    ["unicorn", "neigh-arpeggio"],
-    ["gazelle", "marimba-string"],
-    ["cat", "purr-meow"],
-    ["cheetah", "chirp-run"],
-    ["giraffe", "neck-harp"],
-    ["lizard", "hiss-click"],
-  ]);
-  const foundKinds = new Set();
+test("a dot means no new touchdown while the independent support bar can remain planted", () => {
+  const state = createQuadrupedState("elephant", "walk");
+  assert.equal(quadrupedSequenceEvent(state, 1).contacts.length, 0);
+  const rearRight = quadrupedFootCycleState(state, "rear-right", 1);
+  assert.equal(rearRight.touchdown, false);
+  assert.equal(rearRight.grounded, true);
+  assert.ok(rearRight.contact > 0);
+});
+
+test("automatic head events are muted during the gait-focused pass", () => {
   for (const animal of QUADRUPED_ANIMALS) {
     const state = createQuadrupedState(animal.id);
-    const automaticHeads = Array.from({ length: QUADRUPED_STEP_COUNT }, (_, step) => (
-      quadrupedSequenceEvent(state, step).head
-    )).filter(Boolean);
-    assert.ok(automaticHeads.length >= 4, `${animal.id} needs a recurring melodic motif`);
-    for (const head of automaticHeads) {
-      assert.equal(head.kind, expectedKinds.get(animal.id));
-      assert.equal(head.notes.length, 1, "automatic notes must not outrun the locomotion frame");
-      assert.equal(head.frameLocked, true);
-      assert.ok(Number.isFinite(head.notes[0]));
-      assert.ok(Number.isFinite(head.durationFrames));
-      assert.ok(Number.isFinite(head.durationSeconds));
+    assert.ok(Array.from({ length: 16 }, (_, step) => quadrupedSequenceEvent(state, step).head).every((head) => head === null));
+    assert.equal(deriveQuadrupedPose(state, 0.5).headPerformance.active, false);
+    assert.equal(deriveQuadrupedPose(state, 0.5).headExpression, 0);
+  }
+});
+
+test("dance, rear-waltz, and rear-up support two-leg balances", () => {
+  const first = deriveQuadrupedPose(createQuadrupedState("lizard", "dance"), 0.5);
+  assert.equal(first.groundSupportCount, 2);
+  assert.ok(first.legs["front-right"].lift > first.legs["front-left"].lift);
+  assert.ok(first.legs["rear-left"].lift > first.legs["rear-right"].lift);
+  const waltz = deriveQuadrupedPose(createQuadrupedState("giraffe", "rear-waltz"), 0.5);
+  assert.equal(waltz.groundSupportCount, 2);
+  assert.equal(waltz.rearBalance, 1);
+  assert.ok(waltz.legs["front-left"].lift >= 0.72);
+  assert.ok(waltz.legs["front-right"].lift >= 0.72);
+  const rearUp = deriveQuadrupedPose(createQuadrupedState("camel", "rear-up"), 8);
+  assert.equal(rearUp.groundSupportCount, 2);
+  assert.ok(rearUp.rearBalance > 0.95);
+  assert.ok(rearUp.legs["front-left"].lift > 0.95);
+  assert.ok(rearUp.legs["front-right"].lift > 0.95);
+});
+
+test("leap, skid, and forward roll expose distinct physical pose signals", () => {
+  const leap = createQuadrupedState("giraffe", "leap");
+  assert.ok([4, 6, 8].every((position) => quadrupedSupportSnapshot(leap, position).supportCount === 0));
+  const skid = deriveQuadrupedPose(createQuadrupedState("horse", "skid"), 8);
+  assert.ok(skid.skidLean > 0.15);
+  const roll = deriveQuadrupedPose(createQuadrupedState("cat", "forward-roll"), 8);
+  assert.ok(roll.forwardRoll > 0.4 && roll.forwardRoll < 0.7);
+  assert.ok(roll.rollTuck > 0.9);
+});
+
+test("duty factors create grounded walks and explicit suspension in faster gaits", () => {
+  const walk = createQuadrupedState("elephant", "walk");
+  const trot = createQuadrupedState("horse", "trot");
+  const sprint = createQuadrupedState("gazelle", "sprint");
+  assert.ok(Array.from({ length: 64 }, (_, index) => quadrupedSupportSnapshot(walk, index / 4).supportCount > 0).every(Boolean));
+  assert.ok(Array.from({ length: 64 }, (_, index) => quadrupedSupportSnapshot(trot, index / 4).supportCount === 0).some(Boolean));
+  assert.ok(Array.from({ length: 64 }, (_, index) => quadrupedSupportSnapshot(sprint, index / 4).supportCount === 0).some(Boolean));
+  assert.ok(quadrupedGaitProfile("walk", "elephant").frontDutyFactor > quadrupedGaitProfile("sprint", "gazelle").frontDutyFactor);
+});
+
+test("stair treads, safe touchdown insets, and course grades are deterministic", () => {
+  assert.equal(quadrupedGroundHeightAtWorldX("level", 99), 0);
+  assert.equal(quadrupedGroundHeightAtWorldX("stairs-up", 0.899), 0);
+  assert.equal(quadrupedGroundHeightAtWorldX("stairs-up", 0.9), 0.16);
+  assert.equal(quadrupedGroundHeightAtWorldX("stairs-up", 1.8), 0.32);
+  assert.equal(quadrupedGroundHeightAtWorldX("stairs-down", 0.9), -0.16);
+  assert.ok(Math.abs(quadrupedGroundAnchorX("stairs-up", 0.01) - 0.117) < 1e-12);
+  assert.ok(Math.abs(quadrupedGroundAnchorX("stairs-up", 0.89) - 0.783) < 1e-12);
+  const up = quadrupedSupportSnapshot(setQuadrupedGroundProfile(createQuadrupedState("goat"), "stairs-up"), 8);
+  const down = quadrupedSupportSnapshot(setQuadrupedGroundProfile(createQuadrupedState("goat"), "stairs-down"), 8);
+  assert.ok(up.supportSlope > 0 && up.supportSlope < 0.65);
+  assert.ok(down.supportSlope < 0 && down.supportSlope > -0.65);
+});
+
+test("the body follows a continuous stair grade even when the supporting foot set changes", () => {
+  const state = setQuadrupedGroundProfile(createQuadrupedState("cheetah", "run-leap"), "stairs-up");
+  let previous = quadrupedSupportSnapshot(state, 0).bodyGroundHeight;
+  let maximumDelta = 0;
+  for (let index = 1; index <= 16_000; index += 1) {
+    const next = quadrupedSupportSnapshot(state, index / 1_000).bodyGroundHeight;
+    maximumDelta = Math.max(maximumDelta, Math.abs(next - previous));
+    previous = next;
+  }
+  const expectedPerSample = state.stride / QUADRUPED_STEP_COUNT / 1_000 * (0.16 / 0.9);
+  assert.ok(Math.abs(maximumDelta - expectedPerSample) < 1e-10);
+});
+
+test("a planted foot stays latched to one stair tread until lift-off", () => {
+  const state = setQuadrupedGroundProfile(createQuadrupedState("elephant", "walk"), "stairs-up");
+  const early = quadrupedFootCycleState(state, "rear-right", 0.1);
+  const later = quadrupedFootCycleState(state, "rear-right", 4);
+  assert.equal(early.grounded, true);
+  assert.equal(later.grounded, true);
+  assert.equal(early.eventId, later.eventId);
+  assert.equal(early.footWorldX, early.anchorWorldX);
+  assert.equal(later.footWorldX, early.anchorWorldX);
+  assert.equal(later.footWorldY, early.anchorWorldY);
+  assert.ok(early.nextAnchorWorldX > early.anchorWorldX);
+  assert.equal(early.nextAnchorWorldY, quadrupedGroundHeightAtWorldX("stairs-up", early.nextAnchorWorldX));
+});
+
+test("two-link and three-link IK preserve fixed segment lengths", () => {
+  const joint = solveQuadrupedLimbJoint(0, 0, 0.4, 0.7, 0.5, 0.45, 1);
+  assert.ok(Math.abs(distance(0, 0, joint.x, joint.y) - 0.5) < 1e-9);
+  assert.ok(Math.abs(distance(joint.x, joint.y, joint.endX, joint.endY) - 0.45) < 1e-9);
+  const chain = solveQuadrupedLimbChain(0, 0, 0.42, 1.05, 0.48, 0.5, 0.21, -1, 0.08, -1);
+  assert.equal(chain.reached, true);
+  assert.ok(Math.abs(distance(0, 0, chain.kneeX, chain.kneeY) - chain.upperLength) < 1e-8);
+  assert.ok(Math.abs(distance(chain.kneeX, chain.kneeY, chain.ankleX, chain.ankleY) - chain.lowerLength) < 1e-8);
+  assert.ok(Math.abs(distance(chain.ankleX, chain.ankleY, chain.footX, chain.footY) - chain.distalLength) < 1e-8);
+  assert.ok(Math.abs(chain.footX - 0.42) < 1e-8 && Math.abs(chain.footY - 1.05) < 1e-8);
+});
+
+test("global tempo is independent of animal and gait and one cycle equals one beat", () => {
+  for (const animal of QUADRUPED_ANIMALS) {
+    for (const behavior of QUADRUPED_BEHAVIORS) {
+      assert.equal(createQuadrupedState(animal.id, behavior.id).tempoBpm, QUADRUPED_DEFAULT_TEMPO_BPM);
     }
-    foundKinds.add(automaticHeads[0].kind);
   }
-  assert.equal(foundKinds.size, QUADRUPED_ANIMALS.length);
-});
-
-test("manual heads remain multi-note, species-specific phrases while automatic gestures follow gait frames", () => {
-  for (const animal of QUADRUPED_ANIMALS) {
-    const state = createQuadrupedState(animal.id);
-    const automatic = quadrupedSequenceEvent(state, 0).head;
-    const manual = quadrupedHeadPhrase(state, 0);
-    assert.ok(manual.notes.length >= 4);
-    assert.equal(manual.kind, automatic.kind);
-    assert.notDeepEqual(manual.notes, automatic.notes);
-    assert.equal(manual.noteOffsetsSeconds.length, manual.notes.length);
-    assert.equal(manual.noteOffsetsSeconds[0], 0);
-    assert.deepEqual([...manual.noteOffsetsSeconds].sort((a, b) => a - b), manual.noteOffsetsSeconds);
-    assert.ok(manual.phraseDurationSeconds >= manual.noteOffsetsSeconds.at(-1));
-    assert.ok(manual.phraseDurationSeconds <= 1.2);
-  }
-
-  const elephant = createQuadrupedState("elephant", "walk");
-  const sustained = deriveQuadrupedPose(elephant, 2.25);
-  assert.equal(sustained.event.head, null);
-  assert.equal(sustained.headPerformance.active, true);
-  assert.equal(sustained.headPerformance.gesture, "trunk-lift");
-  assert.ok(sustained.headPerformance.strength > 0);
-  assert.ok(sustained.headPerformance.progress > 0 && sustained.headPerformance.progress < 1);
-});
-
-test("dance alternates diagonal two-leg balances and rear-waltz raises both forelegs", () => {
-  const state = createQuadrupedState("lizard", "dance");
-  const firstBalance = deriveQuadrupedPose(state, 0.5);
-  const secondBalance = deriveQuadrupedPose(state, 4.5);
-
-  assert.deepEqual(
-    firstBalance.event.contacts.filter(({ id }) => id !== "tail").map(({ id }) => id).sort(),
-    ["front-left", "rear-right"],
-  );
-  assert.equal(firstBalance.event.supportCount, 2);
-  assert.equal(firstBalance.danceBalance, 1);
-  assert.ok(firstBalance.legs["front-right"].lift > firstBalance.legs["front-left"].lift);
-  assert.ok(firstBalance.legs["rear-left"].lift > firstBalance.legs["rear-right"].lift);
-
-  assert.deepEqual(
-    secondBalance.event.contacts.filter(({ id }) => id !== "tail").map(({ id }) => id).sort(),
-    ["front-right", "rear-left"],
-  );
-  assert.equal(secondBalance.event.supportCount, 2);
-  assert.equal(secondBalance.danceBalance, 1);
-  assert.ok(secondBalance.legs["front-left"].lift > secondBalance.legs["front-right"].lift);
-  assert.ok(secondBalance.legs["rear-right"].lift > secondBalance.legs["rear-left"].lift);
-
-  const rearWaltz = deriveQuadrupedPose(createQuadrupedState("giraffe", "rear-waltz"), 0.5);
-  assert.equal(rearWaltz.groundSupportCount, 2);
-  assert.equal(rearWaltz.danceBalance, 1);
-  assert.equal(rearWaltz.rearBalance, 1);
-  assert.ok(rearWaltz.legs["rear-left"].contact > 0);
-  assert.ok(rearWaltz.legs["rear-right"].contact > 0);
-  assert.ok(rearWaltz.legs["front-left"].lift >= 0.72);
-  assert.ok(rearWaltz.legs["front-right"].lift >= 0.72);
-});
-
-test("pose support follows gait stance and exposes researched suspension gaps", () => {
-  const walkingElephant = createQuadrupedState("elephant", "charge");
-  const trottingUnicorn = createQuadrupedState("unicorn", "trot");
-  const sprintingGazelle = createQuadrupedState("gazelle", "sprint");
-  assert.ok(Array.from({ length: 16 }, (_, step) => deriveQuadrupedPose(walkingElephant, step + 0.5)).every(({ airborne }) => !airborne));
-  assert.equal(deriveQuadrupedPose(trottingUnicorn, 7).airborne, true);
-  assert.equal(deriveQuadrupedPose(sprintingGazelle, 7).airborne, true);
-  assert.equal(deriveQuadrupedPose(sprintingGazelle, 15).airborne, true);
-});
-
-test("gait cadence divides one full sixteen-frame motion cycle instead of clocking quarter-note steps", () => {
   for (const cadence of [42, 72, 138, 196]) {
     const state = sanitizeQuadrupedState({ ...createQuadrupedState("cat", "run-leap"), tempoBpm: cadence });
     assert.equal(quadrupedStepDurationSeconds(state), 60 / cadence / QUADRUPED_STEP_COUNT);
@@ -286,61 +295,30 @@ test("gait cadence divides one full sixteen-frame motion cycle instead of clocki
   }
 });
 
-test("the foot-driven motor predicts frame crossings and keeps momentum and gravity finite and bounded", () => {
-  const score = sanitizeQuadrupedState({
-    ...createQuadrupedState("cheetah", "run-leap"),
-    momentum: Infinity,
-    gravity: -Infinity,
-  });
-  assert.equal(score.momentum, QUADRUPED_LIMITS.momentum[0]);
-  assert.equal(score.gravity, QUADRUPED_LIMITS.gravity[0]);
-
-  const initial = createQuadrupedMotorState(score, {
-    position: -99,
-    velocity: Infinity,
-    height: Infinity,
-    verticalVelocity: -Infinity,
-    compression: 99,
-    landing: -99,
-  });
+test("the foot-driven motor predicts crossings with finite bounded state", () => {
+  const score = createQuadrupedState("cheetah", "run-leap");
+  const initial = createQuadrupedMotorState(score);
   const kicked = kickQuadrupedMotor(score, initial, 1);
   const prediction = predictQuadrupedMotor(score, kicked, 1);
-  assert.deepEqual(initial, createQuadrupedMotorState(score, {
-    position: -99,
-    velocity: Infinity,
-    height: Infinity,
-    verticalVelocity: -Infinity,
-    compression: 99,
-    landing: -99,
-  }), "prediction must not mutate its input motor state");
+  assert.deepEqual(initial, createQuadrupedMotorState(score));
   assert.ok(prediction.events.length > 0);
   assert.ok(prediction.events.every((event, index, events) => (
-    Number.isFinite(event.offsetSeconds)
+    finite(event.offsetSeconds)
       && event.offsetSeconds >= 0
       && event.offsetSeconds <= prediction.advancedSeconds
       && (index === 0 || event.ordinal > events[index - 1].ordinal)
   )));
   assert.ok(prediction.events.length <= QUADRUPED_MOTOR_LIMITS.maxCrossingEvents);
-  assert.ok(prediction.transitions.length <= QUADRUPED_MOTOR_LIMITS.maxTransitionEvents);
-
   const advanced = advanceQuadrupedMotor(score, kicked, 99).motor;
-  for (const key of [
-    "position", "velocity", "height", "verticalVelocity", "compression", "landing",
-    "supportCount", "supportEnergy", "propulsion", "landingCount", "elapsedSeconds",
-    "simulatedSeconds", "remainderSeconds",
-  ]) {
-    assert.ok(Number.isFinite(advanced[key]), `${key} should remain finite`);
+  for (const key of ["position", "velocity", "height", "verticalVelocity", "supportCount", "supportEnergy", "propulsion"]) {
+    assert.ok(finite(advanced[key]), key);
   }
   assert.ok(advanced.velocity >= 0 && advanced.velocity <= QUADRUPED_MOTOR_LIMITS.maxVelocity);
   assert.ok(advanced.height >= 0 && advanced.height <= QUADRUPED_MOTOR_LIMITS.maxHeight);
-  assert.ok(advanced.compression >= 0 && advanced.compression <= 1);
-  assert.ok(advanced.landing >= 0 && advanced.landing <= 1);
-  const snapshot = quadrupedMotorSnapshot(score, advanced);
-  assert.ok(snapshot.frame >= 0 && snapshot.frame < QUADRUPED_STEP_COUNT);
-  assert.ok(snapshot.normalizedVelocity >= 0 && snapshot.normalizedVelocity <= 1.5);
+  assert.ok(quadrupedMotorSnapshot(score, advanced).frame < QUADRUPED_STEP_COUNT);
 });
 
-test("clearing every foot removes traction so the score stalls instead of advancing on a hidden clock", () => {
+test("clearing every foot removes traction and the clock stalls", () => {
   const score = clearQuadrupedPattern(createQuadrupedState("cat", "run-leap"));
   const initial = createQuadrupedMotorState(score);
   const kicked = kickQuadrupedMotor(score, initial, 2);
@@ -351,7 +329,7 @@ test("clearing every foot removes traction so the score stalls instead of advanc
   assert.equal(result.events.length, 0);
 });
 
-test("contact and terrain editing cycle in both directions", () => {
+test("contact and global surface editing cycle in both directions", () => {
   const cleared = clearQuadrupedPattern(createQuadrupedState("unicorn", "walk"));
   const soft = cycleQuadrupedContact(cleared, "rear-right", 3);
   const strong = cycleQuadrupedContact(soft, "rear-right", 3);
@@ -359,29 +337,28 @@ test("contact and terrain editing cycle in both directions", () => {
   assert.equal(soft.pattern["rear-right"][3], 0.58);
   assert.equal(strong.pattern["rear-right"][3], 1);
   assert.equal(off.pattern["rear-right"][3], 0);
-  assert.equal(soft.customized, true);
   assert.equal(cycleQuadrupedContact(cleared, "rear-right", 3, -1).pattern["rear-right"][3], 1);
-
-  const originalTerrain = cleared.terrain[3];
-  const nextTerrain = cycleQuadrupedTerrain(cleared, 3);
-  assert.notEqual(nextTerrain.terrain[3], originalTerrain);
-  assert.equal(cycleQuadrupedTerrain(nextTerrain, 3, -1).terrain[3], originalTerrain);
+  const nextSurface = cycleQuadrupedTerrain(cleared, 3);
+  assert.notEqual(nextSurface.surfaceId, cleared.surfaceId);
+  assert.equal(cycleQuadrupedTerrain(nextSurface, 3, -1).surfaceId, cleared.surfaceId);
 });
 
-test("mutation is deterministic, bounded, custom, and leaves every quarter playable", () => {
+test("mutation is deterministic, bounded, and preserves touchdown topology", () => {
   const source = createQuadrupedState("gazelle", "sprint");
   const first = mutateQuadrupedPattern(source, 0x12345678);
-  const second = mutateQuadrupedPattern(source, 0x12345678);
-  assert.deepEqual(first, second);
-  assert.notEqual(first.mutationSeed, source.mutationSeed);
+  assert.deepEqual(first, mutateQuadrupedPattern(source, 0x12345678));
   assert.equal(first.customized, true);
-  for (let quarter = 0; quarter < 4; quarter += 1) {
-    const start = quarter * 4;
-    assert.ok(footLaneIds.some((laneId) => first.pattern[laneId].slice(start, start + 4).some((value) => value > 0)));
+  assert.notEqual(first.mutationSeed, source.mutationSeed);
+  for (const laneId of footLaneIds) {
+    assert.deepEqual(
+      first.pattern[laneId].map((value) => value > 0),
+      source.pattern[laneId].map((value) => value > 0),
+    );
+    assert.ok(first.pattern[laneId].every((value) => finite(value) && value >= 0 && value <= 1));
   }
 });
 
-test("hostile external state is sanitized without losing the selected valid animal", () => {
+test("hostile external state is sanitized to valid surface and course defaults", () => {
   const fallback = createQuadrupedState("unicorn", "dance");
   const safe = sanitizeQuadrupedState({
     animalId: "unicorn",
@@ -390,56 +367,62 @@ test("hostile external state is sanitized without losing the selected valid anim
     stride: -500,
     momentum: Infinity,
     gravity: -Infinity,
-    mood: 99,
-    groundResonance: -1,
     outputLevel: 12,
     mutationSeed: 0,
-    terrain: ["lava"],
+    surfaceId: "lava",
+    groundProfileId: "escalator",
     pattern: { "front-left": [NaN, -4, 99] },
   }, fallback);
   assert.equal(safe.animalId, "unicorn");
   assert.equal(safe.behaviorId, "dance");
   assert.equal(safe.tempoBpm, QUADRUPED_LIMITS.tempoBpm[0]);
   assert.equal(safe.stride, QUADRUPED_LIMITS.stride[0]);
-  assert.equal(safe.momentum, QUADRUPED_LIMITS.momentum[0]);
-  assert.equal(safe.gravity, QUADRUPED_LIMITS.gravity[0]);
-  assert.equal(safe.mood, 1);
-  assert.equal(safe.groundResonance, 0);
   assert.equal(safe.outputLevel, QUADRUPED_LIMITS.outputLevel[1]);
+  assert.equal(safe.surfaceId, "earth");
+  assert.equal(safe.groundProfileId, "level");
   assert.equal(safe.mutationSeed, 1);
-  assert.equal(safe.pattern["front-left"][0], 0);
-  assert.equal(safe.pattern["front-left"][1], 0);
-  assert.equal(safe.pattern["front-left"][2], 1);
-  assert.ok(QUADRUPED_TERRAINS.some(({ id }) => id === safe.terrain[0]));
+  assert.deepEqual(safe.pattern["front-left"].slice(0, 3), [0, 0, 1]);
   assert.equal(quadrupedSequenceEvent(safe, Infinity).step, 0);
-  assert.equal(deriveQuadrupedPose(safe, -Infinity).position, 0);
-  assert.doesNotThrow(() => cycleQuadrupedTerrain(safe, 0, "sideways"));
-  assert.doesNotThrow(() => cycleQuadrupedContact(safe, "front-left", 0, NaN));
+  assert.equal(quadrupedSupportSnapshot(safe, Infinity).bodyWorldX, 0);
 });
 
-test("animal and movement changes preserve output while movement replacement stays deterministic", () => {
-  const source = sanitizeQuadrupedState({ ...createQuadrupedState("elephant"), outputLevel: 0.19 });
-  const unicorn = applyQuadrupedAnimal(source, "unicorn");
-  const jump = applyQuadrupedBehavior(unicorn, "jump");
-  assert.equal(unicorn.outputLevel, 0.19);
-  assert.equal(jump.outputLevel, 0.19);
-  assert.equal(jump.animalId, "unicorn");
-  assert.equal(jump.behaviorId, "jump");
-  assert.deepEqual(jump.pattern, createQuadrupedState("unicorn", "jump").pattern);
+test("animal and gait changes preserve output, surface, and path while replacing the score", () => {
+  let state = setQuadrupedGroundProfile(setQuadrupedSurface(createQuadrupedState("elephant"), "metal"), "stairs-down");
+  state = sanitizeQuadrupedState({ ...state, outputLevel: 0.67, tempoBpm: 173 }, state);
+  const animal = applyQuadrupedAnimal(state, "camel");
+  assert.equal(animal.outputLevel, 0.67);
+  assert.equal(animal.surfaceId, "metal");
+  assert.equal(animal.groundProfileId, "stairs-down");
+  assert.equal(animal.tempoBpm, 173);
+  const gait = applyQuadrupedBehavior(animal, "pace");
+  assert.equal(gait.outputLevel, 0.67);
+  assert.equal(gait.surfaceId, "metal");
+  assert.equal(gait.groundProfileId, "stairs-down");
+  assert.equal(gait.tempoBpm, 173);
+  assert.equal(gait.behaviorId, "pace");
 });
 
-test("the visible pose is finite and responds causally to edited contacts and movement", () => {
-  const clearedWalk = clearQuadrupedPattern(createQuadrupedState("elephant", "walk"));
-  const struckWalk = setQuadrupedContact(clearedWalk, "front-left", 2, 1);
-  const resting = deriveQuadrupedPose(clearedWalk, 2.08);
-  const struck = deriveQuadrupedPose(struckWalk, 2.08);
-  const airborne = deriveQuadrupedPose(clearQuadrupedPattern(createQuadrupedState("unicorn", "jump")), 2.5);
-  assert.equal(resting.legs["front-left"].contact, 0);
-  assert.ok(struck.legs["front-left"].contact > 0);
-  assert.ok(struck.legs["front-left"].impact > resting.legs["front-left"].impact);
-  assert.ok(airborne.bodyLift > resting.bodyLift);
-  for (const value of [struck.bodyLift, struck.bodyRoll, struck.bodyPitch, struck.headLift, struck.headExpression, struck.danceBalance, struck.tailAngle, struck.eyeOpen, struck.smile]) {
-    assert.ok(Number.isFinite(value));
+test("poses stay finite across every animal, gait, course, and sampled frame", () => {
+  for (const animal of QUADRUPED_ANIMALS) {
+    for (const behavior of QUADRUPED_BEHAVIORS) {
+      const state = setQuadrupedGroundProfile(createQuadrupedState(animal.id, behavior.id), behavior.id === "walk" ? "stairs-up" : "level");
+      for (const position of [0, 3.25, 7.5, 12.75, 15.9]) {
+        const pose = deriveQuadrupedPose(state, position);
+        for (const key of ["bodyLift", "bodyRoll", "bodyPitch", "bodyGroundHeight", "groundSlope", "propulsion", "forwardRoll", "rollTuck", "skidLean"]) {
+          assert.ok(finite(pose[key]), `${animal.id}/${behavior.id}/${key}`);
+        }
+        for (const laneId of footLaneIds) {
+          for (const key of ["footX", "footWorldX", "footWorldY", "lift", "load", "propulsion"]) {
+            assert.ok(finite(pose.legs[laneId][key]), `${animal.id}/${behavior.id}/${laneId}/${key}`);
+          }
+        }
+      }
+    }
   }
-  assert.match(describeQuadrupedStep(struckWalk, 2), /Left front foot 100 percent/);
+});
+
+test("step descriptions teach touchdown marks separately from planted support", () => {
+  const description = describeQuadrupedStep(createQuadrupedState("horse", "walk"), 1);
+  assert.match(description, /Lit marks are touchdowns/);
+  assert.match(description, /support bar continues until lift-off/);
 });

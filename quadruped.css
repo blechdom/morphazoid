@@ -289,7 +289,7 @@ body.quadruped-page {
 
 .quadruped-grid-scroll {
   max-width: 100%;
-  padding: 12px 12px 8px;
+  padding: 8px 10px 7px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-color: rgba(104, 224, 193, 0.4) transparent;
@@ -301,24 +301,49 @@ body.quadruped-page {
 }
 
 .quadruped-sequence-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 14px;
   margin: 0;
-  padding: 9px 16px 0;
+  padding: 7px 12px 0;
   color: var(--quad-muted);
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.quadruped-sequence-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quadruped-sequence-legend b {
+  min-width: 0.8rem;
+  color: var(--quad-ink);
+  font-size: 0.82rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.quadruped-sequence-legend i {
+  width: 13px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--quad-accent-2);
 }
 
 .quadruped-grid {
   display: grid;
-  gap: 4px;
-  width: max(100%, 1250px);
+  gap: 2px;
+  width: 100%;
 }
 
 .quadruped-grid-row {
   display: grid;
-  grid-template-columns: 112px repeat(16, minmax(64px, 1fr));
-  gap: 4px;
+  grid-template-columns: 86px repeat(16, minmax(0, 1fr));
+  gap: 2px;
   align-items: stretch;
 }
 
@@ -328,11 +353,11 @@ body.quadruped-page {
   z-index: 3;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 6px;
   color: var(--quad-muted);
-  font-size: 0.66rem;
+  font-size: 0.56rem;
   font-weight: 820;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -340,8 +365,8 @@ body.quadruped-page {
 }
 
 .quadruped-grid-row-label i {
-  width: 8px;
-  height: 22px;
+  width: 5px;
+  height: 18px;
   border-radius: 999px;
   background: var(--lane-color, var(--quad-accent));
   box-shadow: 0 0 10px color-mix(in srgb, var(--lane-color) 42%, transparent);
@@ -350,25 +375,26 @@ body.quadruped-page {
 .quadruped-grid-cell,
 .quadruped-terrain-cell {
   position: relative;
+  width: 100%;
   min-width: 0;
-  min-height: 42px;
+  min-height: 34px;
   padding: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 7px;
+  border-radius: 5px;
   color: var(--quad-ink);
   background: rgba(255, 255, 255, 0.035);
   font: inherit;
-  font-size: 1.08rem;
+  font-size: 0.92rem;
   font-weight: 900;
   cursor: pointer;
 }
 
 .quadruped-grid-cell::before {
   position: absolute;
-  inset: auto 5px 5px;
-  height: calc(4px + var(--level, 0) * 23px);
-  border-radius: 5px;
+  inset: auto 4px 4px;
+  height: calc(3px + var(--level, 0) * 16px);
+  border-radius: 4px;
   background: var(--lane-color, var(--quad-accent));
   box-shadow: 0 0 calc(var(--level, 0) * 14px) var(--lane-color, var(--quad-accent));
   content: "";
@@ -376,14 +402,10 @@ body.quadruped-page {
   transition: height 100ms ease, opacity 100ms ease;
 }
 
-.quadruped-grid-cell::after {
-  position: absolute;
-  top: 4px;
-  left: 6px;
-  color: rgba(255, 255, 255, 0.44);
-  font-size: 0.53rem;
-  font-variant-numeric: tabular-nums;
-  content: attr(data-step-label);
+.quadruped-grid-cell[data-quarter="true"],
+.quadruped-cabinet-frame[data-quarter="true"] {
+  border-left-color: rgba(255, 204, 102, 0.72);
+  border-left-width: 2px;
 }
 
 .quadruped-grid-cell[data-level="soft"] {
@@ -393,6 +415,17 @@ body.quadruped-page {
 .quadruped-grid-cell[data-level="strong"] {
   border-color: color-mix(in srgb, var(--lane-color) 72%, white);
   background: color-mix(in srgb, var(--lane-color) 19%, transparent);
+}
+
+.quadruped-grid-cell[data-support="true"] {
+  border-bottom-color: var(--lane-color);
+  background: color-mix(in srgb, var(--lane-color) 15%, rgba(255, 255, 255, 0.035));
+  box-shadow: inset 0 -5px 0 color-mix(in srgb, var(--lane-color) calc(38% + var(--support, 0) * 52%), transparent);
+}
+
+.quadruped-grid-cell[data-support="true"][data-level="none"]::before {
+  height: 3px;
+  opacity: 0.18;
 }
 
 .quadruped-grid-cell[data-playing="true"],
@@ -415,13 +448,14 @@ body.quadruped-page {
 .quadruped-cabinet-frame:focus-visible,
 .quadruped-page button:focus-visible,
 .quadruped-page input:focus-visible,
+.quadruped-page select:focus-visible,
 .quadruped-page summary:focus-visible {
   outline: 3px solid var(--quad-accent);
   outline-offset: 2px;
 }
 
 .quadruped-cabinet-row {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .quadruped-cabinet-frame {
@@ -429,10 +463,10 @@ body.quadruped-page {
   display: block;
   width: 100%;
   min-width: 0;
-  min-height: 92px;
-  padding: 3px;
+  min-height: 58px;
+  padding: 2px;
   overflow: hidden;
-  border: 4px double rgba(91, 59, 34, 0.72);
+  border: 3px double rgba(91, 59, 34, 0.72);
   border-radius: 3px;
   color: #402f22;
   background: #e6d4ad;
@@ -444,17 +478,17 @@ body.quadruped-page {
 .quadruped-cabinet-frame canvas {
   display: block;
   width: 100%;
-  height: 82px;
+  height: 52px;
 }
 
 .quadruped-cabinet-frame small {
   position: absolute;
-  top: 4px;
-  left: 5px;
+  top: 3px;
+  left: 4px;
   padding: 1px 3px;
   color: #402f22;
   background: rgba(239, 224, 188, 0.78);
-  font: 800 0.48rem ui-monospace, monospace;
+  font: 800 0.43rem ui-monospace, monospace;
 }
 
 .quadruped-cabinet-frame[data-air="true"]::after {
@@ -512,6 +546,35 @@ body.quadruped-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 48px;
   gap: 8px;
+}
+
+.quadruped-tempo {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 5px;
+  padding: 7px 9px 8px;
+  border: 1px solid var(--quad-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.quadruped-tempo span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--quad-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.quadruped-tempo b {
+  color: var(--quad-ink);
+}
+
+.quadruped-tempo input {
+  width: 100%;
+  accent-color: var(--quad-accent-2);
 }
 
 .quadruped-play {
@@ -586,7 +649,7 @@ body.quadruped-page {
 .quadruped-pad-grid {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
 
@@ -771,6 +834,18 @@ body.quadruped-page {
   accent-color: var(--quad-live);
 }
 
+.quadruped-control select {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 9px;
+  border: 1px solid var(--quad-line);
+  border-radius: 8px;
+  color: var(--quad-ink);
+  background: var(--quad-panel-strong);
+  font: inherit;
+  font-size: 0.7rem;
+}
+
 .quadruped-model-card > p {
   margin: 0;
   color: var(--quad-muted);
@@ -831,24 +906,23 @@ body.quadruped-page {
   background: rgba(255, 126, 138, 0.09);
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1280px) {
   .quadruped-workspace {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "stage"
-      "sequence"
-      "console";
+      "transport"
+      "sequence";
   }
 
   .quadruped-console {
-    position: static;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-height: none;
-    padding: 0;
-    overflow: visible;
+    display: contents;
   }
 
-  .quadruped-transport-card,
+  .quadruped-transport-card {
+    grid-area: transport;
+  }
+
   .quadruped-reset,
   .quadruped-audio-error {
     grid-column: 1 / -1;
@@ -929,22 +1003,29 @@ body.quadruped-page {
   }
 
   .quadruped-grid {
-    width: 1190px;
+    width: 854px;
   }
 
   .quadruped-grid-row {
-    grid-template-columns: 102px repeat(16, 64px);
+    grid-template-columns: 84px repeat(16, 46px);
+    gap: 2px;
   }
 
   .quadruped-grid-scroll {
-    padding: 9px 8px 7px;
+    padding: 7px 7px 6px;
   }
 }
 
 @media (max-width: 430px) {
-  .quadruped-stage-wrap,
+  .quadruped-stage-wrap {
+    width: 100%;
+    height: clamp(240px, 74vw, 286px);
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+
   #stage {
-    min-height: 286px;
+    min-height: 0;
   }
 
   .quadruped-stage-hud span:nth-child(4) {
@@ -984,19 +1065,34 @@ body.quadruped-page {
 
   .quadruped-stage-wrap,
   #stage {
-    min-height: 250px;
+    min-height: 200px;
   }
 
   .quadruped-stage-wrap {
-    aspect-ratio: 16 / 7;
+    aspect-ratio: 16 / 4.3;
   }
 
   .quadruped-stage-instructions {
     display: none;
   }
 
-  .quadruped-console {
+  .quadruped-workspace {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "stage stage"
+      "transport transport"
+      "sequence sequence";
+  }
+
+  .quadruped-stage-card,
+  .quadruped-sequencer-card {
+    grid-column: 1 / -1;
+  }
+
+  .quadruped-console > .quadruped-choice-card,
+  .quadruped-control-group,
+  .quadruped-model-card {
+    grid-column: auto;
   }
 
   .quadruped-transport-card,
@@ -1007,9 +1103,14 @@ body.quadruped-page {
 }
 
 @media (pointer: coarse) {
+  .quadruped-grid {
+    min-width: 822px;
+  }
+
   .quadruped-page .audio-button,
   .quadruped-play,
-  .quadruped-restart {
+  .quadruped-restart,
+  .quadruped-sequence-actions button {
     min-height: 48px;
   }
 
@@ -1020,6 +1121,10 @@ body.quadruped-page {
   .quadruped-animal-buttons button,
   .quadruped-behavior-buttons button {
     min-height: 44px;
+  }
+
+  .quadruped-control select {
+    min-height: 48px;
   }
 }
 

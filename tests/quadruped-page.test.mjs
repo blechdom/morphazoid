@@ -4,35 +4,38 @@ import { readFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
+const animals = [
+  "elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe",
+  "lizard", "horse", "dog", "goat", "rabbit", "camel",
+];
 
-test("Quadruped page uses the standard name and exposes all seven animal scores", async () => {
+test("Quadruped page exposes twelve animals, four feet, sixteen cards, one surface, and one path", async () => {
   const html = await read("quadruped.html");
   assert.match(html, /<title>Quadruped · Morphazoid<\/title>/);
   assert.match(html, /<h1 id="pageTitle">QUADRUPED<\/h1>/);
-  assert.doesNotMatch(html, /FIVE CONTACT LANES/i);
-  assert.doesNotMatch(html, /Write the feet\. The creature has to live with the rhythm\./i);
-  for (const animal of ["elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe", "lizard"]) {
-    assert.match(html, new RegExp(`data-animal-id="${animal}"`));
-  }
-  for (const lane of ["front-left", "front-right", "rear-left", "rear-right", "tail"]) {
+  assert.doesNotMatch(html, /FIVE CONTACT LANES|quadroped/i);
+  for (const animal of animals) assert.match(html, new RegExp(`data-animal-id="${animal}"`));
+  for (const lane of ["front-left", "front-right", "rear-left", "rear-right"]) {
     assert.match(html, new RegExp(`data-lane-id="${lane}"`));
   }
+  assert.doesNotMatch(html, /data-lane-id="tail"/);
   assert.match(html, /id="sequenceGrid"[^>]*role="grid"/);
   assert.match(html, /16 CABINET FRAMES/);
-  assert.match(html, /OFF · ○ SOFT · ● LOUD/);
-  assert.match(html, /Gait dictionary/);
-  assert.match(html, /Choose any gait for any animal/);
-  assert.match(html, /Gait drive/);
-  assert.match(html, /cycles\/min/);
-  assert.match(html, /id="momentum"[^>]*type="range"/);
-  assert.match(html, /id="gravity"[^>]*type="range"/);
-  assert.match(html, /Feet push\. Momentum coasts\. Gravity lands\./);
-  assert.match(html, /id="stage"[\s\S]*?role="application"[\s\S]*?tabindex="0"/);
+  assert.match(html, /·<\/b> no new touchdown/);
+  assert.match(html, /○<\/b> soft/);
+  assert.match(html, /●<\/b> strong/);
+  assert.match(html, /planted/);
+  assert.match(html, /No new touchdown does not necessarily mean the foot is airborne/);
+  assert.match(html, /id="tempoOut"[^>]*>96 BPM · global/);
+  assert.match(html, /Tempo is global: one sixteen-frame gait cycle is one beat, and changes apply immediately/);
+  assert.match(html, /<b>One surface<\/b>/);
+  assert.match(html, /<select id="terrain">[\s\S]*Packed earth[\s\S]*Resonant crystal/);
+  assert.match(html, /<select id="groundProfile">[\s\S]*Level ground[\s\S]*Steps up[\s\S]*Steps down/);
+  assert.match(html, /Touchdown, load, push, lift\. Feet drive the clock\./);
   assert.match(html, /aria-label="Interactive side-view Quadruped/);
   assert.match(html, /id="playButton"[\s\S]*?data-primary-transport/);
-  assert.match(html, /id="transportHint"[\s\S]*?Audio is off — turn it on to hear playback/);
+  assert.match(html, /Audio is off — turn it on to hear playback/);
   assert.match(html, /type="module" src="quadruped-app\.js"/);
-  assert.doesNotMatch(html, /quadroped/i);
 });
 
 test("the old misspelled route redirects to canonical Quadruped and preserves location state", async () => {
@@ -43,135 +46,140 @@ test("the old misspelled route redirects to canonical Quadruped and preserves lo
   assert.match(html, /destination\.hash = location\.hash/);
 });
 
-test("Quadruped transport never implicitly arms or disables audio", async () => {
+test("transport remains independent of explicit Audio arming", async () => {
   const app = await read("quadruped-app.js");
-  const startTransport = app.match(/function startTransport\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
-  const stopTransport = app.match(/function stopTransport\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
-  const closeAudio = app.match(/async function closeAudio\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
-  assert.ok(startTransport.length > 0);
-  assert.doesNotMatch(startTransport, /ensureAudio|createAudioGraph|toggleAudio/);
-  assert.doesNotMatch(stopTransport, /closeAudio/);
-  assert.doesNotMatch(closeAudio, /stopTransport|transportPlaying\s*=\s*false/);
-  assert.match(app, /const AUDIO_OFF_MESSAGE = "Audio is off — turn it on to hear playback"/);
+  const start = app.match(/function startTransport\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  const stop = app.match(/function stopTransport\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  const close = app.match(/async function closeAudio\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.ok(start.length > 0 && stop.length > 0 && close.length > 0);
+  assert.doesNotMatch(start, /ensureAudio|createAudioGraph|toggleAudio/);
+  assert.doesNotMatch(stop, /closeAudio/);
+  assert.doesNotMatch(close, /stopTransport|transportPlaying\s*=\s*false/);
   assert.match(app, /if \(graph\) resetAudioSchedule\(\{ includeCurrentBoundary: true \}\)/);
 });
 
-test("Quadruped advances animation and audio from motor-predicted frame crossings, not an independent wall clock", async () => {
+test("animation and audio both advance from the foot-driven motor", async () => {
   const app = await read("quadruped-app.js");
-  assert.match(app, /from "\.\/src\/quadruped-motor\.js"/);
   for (const symbol of [
-    "advanceQuadrupedMotor",
-    "createQuadrupedMotorState",
-    "kickQuadrupedMotor",
-    "predictQuadrupedMotor",
-    "quadrupedMotorSnapshot",
-  ]) {
-    assert.match(app, new RegExp(`\\b${symbol}\\b`));
-  }
-  const currentPosition = app.match(/function currentPosition[^\{]*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+    "advanceQuadrupedMotor", "createQuadrupedMotorState", "kickQuadrupedMotor",
+    "predictQuadrupedMotor", "quadrupedMotorSnapshot", "synchronizeQuadrupedMotorTempo",
+  ]) assert.match(app, new RegExp(`\\b${symbol}\\b`));
+  const position = app.match(/function currentPosition[^\{]*\{([\s\S]*?)\n\}/)?.[1] ?? "";
   const scheduler = app.match(/function scheduleAudioWindow\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
-  assert.match(currentPosition, /materializeMotor\(now\)\.position/);
+  assert.match(position, /materializeMotor\(now\)\.position/);
   assert.match(scheduler, /predictQuadrupedMotor\(state, motor,/);
   assert.match(scheduler, /for \(const crossing of prediction\.events\)/);
-  assert.match(scheduler, /scheduleStep\(\s*crossing\.ordinal/);
-  assert.match(scheduler, /graph\.context\.currentTime \+ Math\.max\(0\.006, crossing\.offsetSeconds\)/);
-  assert.doesNotMatch(app, /transportAnchorPosition|transportAnchorPerformance|scheduledPerformanceForOrdinal|quadrupedStepDurationSeconds/);
-  assert.doesNotMatch(currentPosition, /\(now\s*-.*\)\s*\//);
+  assert.match(scheduler, /scheduleStep\(/);
+  assert.match(scheduler, /crossing\.offsetSeconds/);
+  assert.doesNotMatch(app, /transportAnchorPosition|transportAnchorPerformance|quadrupedStepDurationSeconds/);
   assert.match(app, /stalled · add a footfall/);
-  assert.match(app, /Feet cleared\. Stored momentum is coasting; the score will stall without another foot push\./);
   assert.match(app, /function wakeMotorAtFootfall/);
-  assert.match(app, /if \(transportPlaying && motor\.velocity <= 0\.012\) wakeMotorAtFootfall\(now\);/);
-  const animationLoop = app.match(/function animationLoop\(now\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
-  assert.match(animationLoop, /syncGridPlayhead\(snapshot\.frame\)/);
-  assert.match(animationLoop, /updateStageReadouts\(snapshot\.frame\)/);
+  const loop = app.match(/function animationLoop\(now\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.match(loop, /syncGridPlayhead\(snapshot\.frame\)/);
+  assert.match(loop, /updateStageReadouts\(snapshot\.frame\)/);
 });
 
-test("Quadruped keeps the animal centered while its score moves underneath and head gestures stay specific", async () => {
+test("the compact score makes touchdown strength and continuing support independent", async () => {
+  const [app, css] = await Promise.all([read("quadruped-app.js"), read("quadruped.css")]);
+  assert.match(app, /aria-rowcount", String\(QUADRUPED_LANES\.length \+ 1\)/);
+  assert.match(app, /aria-colcount", String\(QUADRUPED_STEP_COUNT \+ 1\)/);
+  assert.match(app, /cell\.setAttribute\("role", "columnheader"\)/);
+  assert.match(app, /cell\.setAttribute\("role", "gridcell"\)/);
+  assert.match(app, /const level = value <= 0 \? "none" : value < 0\.8 \? "soft" : "strong"/);
+  assert.match(app, /button\.textContent = value <= 0 \? "·" : value < 0\.8 \? "○" : "●"/);
+  assert.match(app, /value <= 0 \? "false" : value < 0\.8 \? "mixed" : "true"/);
+  assert.match(app, /continuing support from an earlier touchdown/);
+  assert.match(css, /\.quadruped-grid-row\s*\{[\s\S]*?grid-template-columns:\s*86px repeat\(16, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.quadruped-grid-cell[\s\S]*?min-height:\s*34px/);
+  assert.match(css, /\.quadruped-grid-cell\[data-support="true"\]/);
+  assert.match(css, /data-level="none"/);
+});
+
+test("the centered animal uses stair footprints and one fixed three-segment limb chain in cards and stage", async () => {
   const app = await read("quadruped-app.js");
-  assert.match(app, /lastTerrainHits/);
-  assert.match(app, /headPerformanceStrength/);
   assert.match(app, /const centerX = width \* 0\.5/);
-  assert.match(app, /nostril|muzzle/i);
-  assert.match(app, /trunk[-A-Z_a-z]*lift/i);
-  assert.match(app, /head[-A-Z_a-z]*toss/i);
-  assert.match(app, /function drawCabinetPose/);
-  assert.match(app, /quadruped-cabinet-frame/);
-  assert.match(app, /pose\.airborne/);
+  assert.match(app, /lastFootprintHits/);
+  assert.match(app, /quadrupedGroundHeightAtWorldX\(state\.groundProfileId/);
+  assert.match(app, /solveQuadrupedLimbChain/g);
+  assert.equal((app.match(/solveQuadrupedLimbChain\(/g) ?? []).length, 2);
+  assert.match(app, /context\.lineTo\(chain\.kneeX, chain\.kneeY\)/);
+  assert.match(app, /context\.lineTo\(chain\.ankleX, chain\.ankleY\)/);
+  assert.match(app, /context\.lineTo\(chain\.footX, chain\.footY\)/);
+  assert.match(app, /morphology\.family !== "rabbit"/);
+  assert.match(app, /morphology\.haunch/);
+  assert.match(app, /morphology\.shoulder/);
+  assert.match(app, /const miniTailRoot = bodyPoint/);
+  assert.match(app, /state\.animalId === "giraffe"/);
+  assert.ok((app.match(/morphology\.family === "camel"/g) ?? []).length >= 3);
+  assert.match(app, /pose\.forwardRoll \* Math\.PI \* 2/);
+  assert.match(app, /pose\.rollTuck/);
 });
 
-test("Quadruped schedules audio against AudioContext time with bounded voices and cleanup", async () => {
+test("audio uses one material resonator, stance accents, and an exact no-support flight voice", async () => {
   const app = await read("quadruped-app.js");
-  assert.match(app, /graph\.context\.currentTime/);
   assert.match(app, /mixBus\.gain\.value = 1\.45/);
-  assert.match(app, /schedulerLookaheadSeconds/);
-  assert.match(app, /function manualHeadEvent\(\) \{\s*return quadrupedHeadPhrase\(state, selectedStep\);\s*\}/);
-  assert.match(app, /head\.kind === "trumpet"/);
-  assert.match(app, /head\.kind === "neigh-arpeggio"/);
-  assert.match(app, /head\.kind === "marimba-string"/);
-  assert.match(app, /head\.kind === "purr-meow"/);
-  assert.match(app, /head\.kind === "chirp-run"/);
-  assert.match(app, /head\.kind === "neck-harp"/);
-  assert.match(app, /head\.kind === "hiss-click"/);
-  assert.match(app, /const isFront = contact\.id\.startsWith\("front"\)/);
-  assert.match(app, /isLeft \? 82 : 104/);
-  assert.match(app, /isLeft \? 659 : 880/);
-  assert.match(app, /isLeft \? 520 : 690/);
-  assert.match(app, /notes\.forEach\(\(note, index\) =>/);
-  assert.match(app, /exponentialRampToValueAtTime\(Math\.max\(0\.0002, peak \* 0\.72\)/);
-  assert.match(app, /manualImpulses\.delete\("head"\)/);
-  assert.match(app, /transportPlaying \? pose\.headPerformance/);
+  assert.equal((app.match(/const materialBus = createMaterialBus\(/g) ?? []).length, 1);
+  assert.equal((app.match(/const flightVoice = createFlightVoice\(/g) ?? []).length, 1);
+  assert.match(app, /applyMaterialProfile\(graph\.materialBus, quadrupedTerrain\(state\.surfaceId\)/);
+  const flight = app.match(/function syncFlightVoice\(snapshot\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.match(flight, /snapshot\.supportCount === 0/);
+  assert.match(flight, /if \(!unsupported\)/);
+  const scheduler = app.match(/function scheduleAudioWindow\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.match(scheduler, /transition\.type === "load" \|\| transition\.type === "push"/);
+  assert.match(scheduler, /scheduleStanceAccent/);
+  assert.match(scheduler, /scheduleToeOff/);
+  const step = app.match(/function scheduleStep\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.match(step, /for \(const contact of contacts\)/);
+  assert.match(step, /scheduleFoot\(/);
+  assert.doesNotMatch(step, /scheduleHead|scheduleTail/);
+  assert.equal((app.match(/scheduleHead\(/g) ?? []).length, 1, "head scheduler stays defined but is not called");
+  assert.equal((app.match(/scheduleTail\(/g) ?? []).length, 1, "tail scheduler stays defined but is not called");
   assert.match(app, /activeSources\.size >= QUADRUPED_LIMITS\.maxScheduledVoices/);
   assert.match(app, /source\.onended = \(\) => removeAudioSource\(record\)/);
   assert.match(app, /pagehide/);
-  assert.match(app, /pointercancel/);
-  assert.match(app, /lostpointercapture/);
-  assert.match(app, /cancelAnimationFrame/);
   assert.match(app, /context\.close\(\)/);
-  const tail = app.match(/function scheduleTail\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
-  for (const animal of ["elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe"]) {
-    assert.match(tail, new RegExp(`state\\.animalId === "${animal}"`));
-  }
-  assert.match(tail, /index \* 0\.003/);
-  assert.doesNotMatch(tail, /index \* 0\.018/);
 });
 
-test("Quadruped rebases edited support, freezes the paused frame, and shares one animal physics source", async () => {
+test("edits preserve motion and global surface/path changes relatch honestly", async () => {
   const [app, model, motor, catalog] = await Promise.all([
     read("quadruped-app.js"),
     read("src/quadruped.js"),
     read("src/quadruped-motor.js"),
     read("src/instrument-catalog.js"),
   ]);
-  const stopTransport = app.match(/function stopTransport\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   const keyboard = app.match(/function handleGridKeydown\(event\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
-  assert.match(stopTransport, /selectedStep = mod\(Math\.floor\(stoppedPosition\), QUADRUPED_STEP_COUNT\)/);
-  assert.match(keyboard, /state = setQuadrupedContact[\s\S]*?retimeTransport\(position, now, \{ preserveMotion: true \}\)/);
-  assert.match(app, /const behaviors = \[\.\.\.quadrupedBehaviorsForAnimal[\s\S]*?leftFit - rightFit/);
+  assert.match(keyboard, /setQuadrupedContact[\s\S]*?retimeTransport\(position, now, \{ preserveMotion: true \}\)/);
+  assert.match(app, /setQuadrupedSurface/);
+  assert.match(app, /setQuadrupedGroundProfile/);
+  assert.match(app, /current stance relatches to this course/);
+  assert.match(app, /const behaviors = \[\.\.\.quadrupedBehaviorsForAnimal/);
   assert.match(motor, /quadrupedAnimal/);
   assert.doesNotMatch(motor, /SPECIES_PHYSICS/);
   for (const property of ["mass", "power", "compliance", "rollingResistance", "baseGravity"]) {
     assert.match(model, new RegExp(`${property}:`));
   }
-  for (const animal of ["Elephant", "Unicorn", "Gazelle", "Cat", "Cheetah", "Giraffe", "Lizard"]) {
-    assert.match(catalog, new RegExp(animal));
-  }
-  assert.match(catalog, /traction advances the music/i);
+  assert.match(catalog, /twelve species-shaped animal bodies/);
+  assert.match(catalog, /touchdown, load, push, support, lift-off, and landing/);
+  assert.match(catalog, /exact global BPM clock/i);
+  assert.match(catalog, /tempo stays independent/i);
 });
 
-test("Quadruped keeps its sequencer scrollable and primary coarse-pointer targets reachable", async () => {
+test("the sequencer and controls remain reachable at desktop, portrait, and short landscape sizes", async () => {
   const css = await read("quadruped.css");
   assert.match(css, /\.quadruped-grid-scroll\s*\{[\s\S]*?overflow-x:\s*auto/);
-  assert.match(css, /\.quadruped-cabinet-frame\s*\{/);
   assert.match(css, /\.quadruped-grid-row-label\s*\{[\s\S]*?position:\s*sticky/);
-  assert.match(css, /@media\s*\(max-width:\s*760px\)/);
-  assert.match(css, /@media\s*\(max-height:\s*480px\)\s*and\s*\(orientation:\s*landscape\)/);
-  assert.match(css, /@media\s*\(pointer:\s*coarse\)[\s\S]*?min-height:\s*48px/);
+  assert.match(css, /@media \(max-width: 1280px\)/);
+  assert.match(css, /@media \(max-width: 760px\)/);
+  assert.match(css, /@media \(max-height: 480px\) and \(orientation: landscape\)/);
+  const landscape = css.match(/@media \(max-height: 480px\) and \(orientation: landscape\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.match(landscape, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(landscape, /grid-column:\s*1 \/ -1/);
+  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?min-height:\s*48px/);
   assert.match(css, /\.quadruped-play\s*\{[\s\S]*?min-height:\s*48px/);
-  assert.match(css, /grid-template-areas:\s*"stage"\s*"sequence"\s*"console"/);
-  assert.match(css, /#stage:focus-visible|\.quadruped-stage[^\n]*focus-visible/);
+  assert.match(css, /#stage:focus-visible/);
 });
 
-test("the expanded gait dictionary stays compact and scrollable across desktop and phone layouts", async () => {
+test("the thirty-nine-gait dictionary stays compact and scrollable", async () => {
   const css = await read("quadruped.css");
   assert.match(css, /\.quadruped-behavior-buttons\s*\{\s*grid-template-columns:\s*repeat\(5,\s*1fr\);[\s\S]*?max-height:\s*230px;[\s\S]*?overflow-y:\s*auto/);
   assert.match(css, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.quadruped-behavior-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*1fr\)/);

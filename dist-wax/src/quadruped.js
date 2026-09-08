@@ -1,8 +1,22 @@
 const CONTACT_LEVELS = Object.freeze([0, 0.58, 1]);
 
 export const QUADRUPED_STEP_COUNT = 16;
+export const QUADRUPED_DEFAULT_TEMPO_BPM = 96;
 
-const ALL_QUADRUPED_IDS = Object.freeze(["elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe", "lizard"]);
+const ALL_QUADRUPED_IDS = Object.freeze([
+  "elephant",
+  "unicorn",
+  "gazelle",
+  "cat",
+  "cheetah",
+  "giraffe",
+  "lizard",
+  "horse",
+  "dog",
+  "goat",
+  "rabbit",
+  "camel",
+]);
 
 export const QUADRUPED_LIMITS = Object.freeze({
   tempoBpm: Object.freeze([42, 196]),
@@ -22,54 +36,116 @@ export const QUADRUPED_LANES = Object.freeze([
   Object.freeze({ id: "front-right", label: "Right front foot", shortLabel: "RF", color: "#ff7e8a" }),
   Object.freeze({ id: "rear-left", label: "Left hind foot", shortLabel: "LH", color: "#68e0c1" }),
   Object.freeze({ id: "rear-right", label: "Right hind foot", shortLabel: "RH", color: "#7f9cff" }),
-  Object.freeze({ id: "tail", label: "Tail percussion", shortLabel: "TAIL", color: "#d69cff" }),
 ]);
 
+export const QUADRUPED_FOOT_LANES = QUADRUPED_LANES;
+
 export const QUADRUPED_TERRAINS = Object.freeze([
-  Object.freeze({ id: "earth", label: "Packed earth", shortLabel: "EARTH", color: "#9a6845", pitchOffset: -5, decay: 0.2, brightness: 0.16 }),
-  Object.freeze({ id: "wood", label: "Hollow wood", shortLabel: "WOOD", color: "#d09b55", pitchOffset: 0, decay: 0.32, brightness: 0.38 }),
-  Object.freeze({ id: "metal", label: "Bell metal", shortLabel: "METAL", color: "#75c7d3", pitchOffset: 5, decay: 0.56, brightness: 0.68 }),
-  Object.freeze({ id: "crystal", label: "Resonant crystal", shortLabel: "GLASS", color: "#db9cff", pitchOffset: 9, decay: 0.78, brightness: 0.94 }),
+  Object.freeze({ id: "earth", label: "Packed earth", shortLabel: "EARTH", color: "#9a6845", pitchOffset: -5, decay: 0.2, brightness: 0.16, traction: 1, rollingResistance: 1, hardness: 0.54, damping: 0.58, roughness: 0.62, reflection: 0.16 }),
+  Object.freeze({ id: "sand", label: "Loose sand", shortLabel: "SAND", color: "#c49a61", pitchOffset: -8, decay: 0.12, brightness: 0.12, traction: 0.62, rollingResistance: 1.55, hardness: 0.18, damping: 0.88, roughness: 0.86, reflection: 0.04 }),
+  Object.freeze({ id: "wood", label: "Hollow wood", shortLabel: "WOOD", color: "#d09b55", pitchOffset: 0, decay: 0.32, brightness: 0.38, traction: 0.92, rollingResistance: 0.82, hardness: 0.72, damping: 0.36, roughness: 0.42, reflection: 0.54 }),
+  Object.freeze({ id: "stone", label: "Cut stone", shortLabel: "STONE", color: "#82918c", pitchOffset: 2, decay: 0.42, brightness: 0.48, traction: 0.94, rollingResistance: 0.9, hardness: 0.96, damping: 0.2, roughness: 0.3, reflection: 0.64 }),
+  Object.freeze({ id: "metal", label: "Bell metal", shortLabel: "METAL", color: "#75c7d3", pitchOffset: 5, decay: 0.56, brightness: 0.68, traction: 0.8, rollingResistance: 0.72, hardness: 1, damping: 0.12, roughness: 0.18, reflection: 0.92 }),
+  Object.freeze({ id: "snow", label: "Deep snow", shortLabel: "SNOW", color: "#dceceb", pitchOffset: -10, decay: 0.09, brightness: 0.26, traction: 0.48, rollingResistance: 1.72, hardness: 0.1, damping: 0.96, roughness: 0.68, reflection: 0.03 }),
+  Object.freeze({ id: "water", label: "Shallow water", shortLabel: "WATER", color: "#4c91a8", pitchOffset: -2, decay: 0.24, brightness: 0.52, traction: 0.42, rollingResistance: 1.92, hardness: 0.05, damping: 0.78, roughness: 0.94, reflection: 0.2 }),
+  Object.freeze({ id: "crystal", label: "Resonant crystal", shortLabel: "GLASS", color: "#db9cff", pitchOffset: 9, decay: 0.78, brightness: 0.94, traction: 0.72, rollingResistance: 0.74, hardness: 0.98, damping: 0.08, roughness: 0.12, reflection: 1 }),
+]);
+
+export const QUADRUPED_GROUND_PROFILES = Object.freeze([
+  Object.freeze({ id: "level", label: "Level ground", shortLabel: "LEVEL", stepHeight: 0, treadLength: 0.9, direction: 0, clearanceScale: 1 }),
+  Object.freeze({ id: "stairs-up", label: "Steps up", shortLabel: "UP", stepHeight: 0.16, treadLength: 0.9, direction: 1, clearanceScale: 1.28 }),
+  Object.freeze({ id: "stairs-down", label: "Steps down", shortLabel: "DOWN", stepHeight: 0.16, treadLength: 0.9, direction: -1, clearanceScale: 1.2 }),
 ]);
 
 export const QUADRUPED_BEHAVIORS = Object.freeze([
-  Object.freeze({ id: "walk", label: "Walk", description: "even lateral walk", stanceSteps: 10, defaultCadence: 88, nativeAnimalIds: ALL_QUADRUPED_IDS }),
-  Object.freeze({ id: "diagonal-walk", label: "Diagonal walk", description: "even diagonal walk", stanceSteps: 10, defaultCadence: 84, nativeAnimalIds: Object.freeze(["unicorn", "gazelle"]) }),
-  Object.freeze({ id: "running-walk", label: "Running walk", description: "four quick grounded beats", stanceSteps: 8.8, defaultCadence: 118, nativeAnimalIds: Object.freeze(["unicorn"]) }),
-  Object.freeze({ id: "amble", label: "Amble", description: "close lateral couplets", stanceSteps: 8, defaultCadence: 112, nativeAnimalIds: Object.freeze(["elephant", "unicorn"]) }),
-  Object.freeze({ id: "tolt", label: "Tölt", description: "fast four-beat singlefoot", stanceSteps: 7, defaultCadence: 138, nativeAnimalIds: Object.freeze(["unicorn"]) }),
-  Object.freeze({ id: "jog", label: "Jog", description: "broken diagonal pairs", stanceSteps: 10, defaultCadence: 116, nativeAnimalIds: Object.freeze(["unicorn", "gazelle"]) }),
-  Object.freeze({ id: "trot", label: "Trot", description: "diagonal pairs + float", stanceSteps: 6, defaultCadence: 138, nativeAnimalIds: Object.freeze(["unicorn", "gazelle"]) }),
-  Object.freeze({ id: "passage", label: "Passage", description: "high suspended trot", stanceSteps: 5, defaultCadence: 112, nativeAnimalIds: Object.freeze(["unicorn"]) }),
-  Object.freeze({ id: "pace", label: "Pace", description: "grounded lateral pairs", stanceSteps: 9, defaultCadence: 130, nativeAnimalIds: Object.freeze(["unicorn"]) }),
-  Object.freeze({ id: "flying-pace", label: "Flying pace", description: "lateral pairs + flight", stanceSteps: 5.6, defaultCadence: 160, nativeAnimalIds: Object.freeze(["unicorn"]) }),
-  Object.freeze({ id: "canter", label: "Canter R", description: "three beats · right lead", stanceSteps: 4, defaultCadence: 152, nativeAnimalIds: Object.freeze(["unicorn", "gazelle"]) }),
-  Object.freeze({ id: "counter-canter", label: "Canter L", description: "three beats · left lead", stanceSteps: 4, defaultCadence: 152, nativeAnimalIds: Object.freeze(["unicorn", "gazelle"]) }),
-  Object.freeze({ id: "gallop", label: "Gallop R", description: "right transverse gallop", stanceSteps: 4, defaultCadence: 176, nativeAnimalIds: Object.freeze(["unicorn", "gazelle"]) }),
-  Object.freeze({ id: "counter-gallop", label: "Gallop L", description: "left transverse gallop", stanceSteps: 4, defaultCadence: 176, nativeAnimalIds: Object.freeze(["unicorn", "gazelle"]) }),
-  Object.freeze({ id: "sprint", label: "Rotary R", description: "right rotary sprint", stanceSteps: 3, defaultCadence: 176, nativeAnimalIds: Object.freeze(["gazelle"]) }),
-  Object.freeze({ id: "rotary-left", label: "Rotary L", description: "left rotary sprint", stanceSteps: 3, defaultCadence: 176, nativeAnimalIds: Object.freeze(["gazelle"]) }),
-  Object.freeze({ id: "bound", label: "Bound", description: "hind pair · fore pair", stanceSteps: 4, defaultCadence: 150, nativeAnimalIds: Object.freeze(["gazelle"]) }),
-  Object.freeze({ id: "half-bound", label: "Half-bound R", description: "hind pair · split fore", stanceSteps: 4, defaultCadence: 168, nativeAnimalIds: Object.freeze(["gazelle"]) }),
-  Object.freeze({ id: "counter-half-bound", label: "Half-bound L", description: "hind pair · split fore", stanceSteps: 4, defaultCadence: 168, nativeAnimalIds: Object.freeze(["gazelle"]) }),
-  Object.freeze({ id: "stot", label: "Stot", description: "four together + flight", stanceSteps: 3, defaultCadence: 140, nativeAnimalIds: Object.freeze(["gazelle"]) }),
-  Object.freeze({ id: "jump", label: "Jump", description: "hind launch · fore landing", stanceSteps: 3, defaultCadence: 110, nativeAnimalIds: Object.freeze(["unicorn", "gazelle"]) }),
-  Object.freeze({ id: "charge", label: "Charge", description: "heavy grounded drive", stanceSteps: 7.4, defaultCadence: 154, nativeAnimalIds: Object.freeze(["elephant"]) }),
-  Object.freeze({ id: "dance", label: "Tango", description: "alternating two-leg balance", stanceSteps: 3, defaultCadence: 126, nativeAnimalIds: Object.freeze([]) }),
-  Object.freeze({ id: "rear-waltz", label: "Rear waltz", description: "hind-leg dancing", stanceSteps: 4, defaultCadence: 96, nativeAnimalIds: Object.freeze([]) }),
-  Object.freeze({ id: "carousel", label: "Carousel", description: "circling four-beat pivot", stanceSteps: 7, defaultCadence: 104, nativeAnimalIds: Object.freeze([]) }),
-  Object.freeze({ id: "cat-prowl", label: "Cat prowl", description: "quiet overlapping paws", stanceSteps: 10, defaultCadence: 78, nativeAnimalIds: Object.freeze(["cat"]) }),
-  Object.freeze({ id: "cat-gallop", label: "Cat gallop", description: "one-flight feline gallop", stanceSteps: 4, defaultCadence: 168, nativeAnimalIds: Object.freeze(["cat"]) }),
-  Object.freeze({ id: "run-leap", label: "Run ×3 · leap", description: "run run run · hind launch", stanceSteps: 1.4, defaultCadence: 54, nativeAnimalIds: Object.freeze(["cat", "cheetah", "gazelle"]) }),
-  Object.freeze({ id: "giraffe-walk", label: "Giraffe walk", description: "long lateral overlap", stanceSteps: 11, defaultCadence: 76, nativeAnimalIds: Object.freeze(["giraffe"]) }),
-  Object.freeze({ id: "giraffe-gallop", label: "Grounded rotary", description: "long grounded rotary run", stanceSteps: 6, defaultCadence: 120, nativeAnimalIds: Object.freeze(["giraffe"]) }),
-  Object.freeze({ id: "lizard-scuttle", label: "Scuttle", description: "lateral body-wave walk", stanceSteps: 8.5, defaultCadence: 126, nativeAnimalIds: Object.freeze(["lizard"]) }),
-  Object.freeze({ id: "lizard-trot", label: "Lizard trot", description: "diagonal scurry", stanceSteps: 8, defaultCadence: 144, nativeAnimalIds: Object.freeze(["lizard"]) }),
-  Object.freeze({ id: "lizard-pace", label: "Lizard pace", description: "serpentine lateral pairs", stanceSteps: 8, defaultCadence: 120, nativeAnimalIds: Object.freeze(["lizard"]) }),
-  Object.freeze({ id: "lizard-sprint", label: "Lizard sprint", description: "hind-leg dash + tail", stanceSteps: 3, defaultCadence: 154, nativeAnimalIds: Object.freeze(["lizard"]) }),
+  Object.freeze({ id: "walk", label: "Walk", description: "even lateral walk", stanceSteps: 10, nativeAnimalIds: ALL_QUADRUPED_IDS }),
+  Object.freeze({ id: "diagonal-walk", label: "Diagonal walk", description: "even diagonal walk", stanceSteps: 10, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat"]) }),
+  Object.freeze({ id: "running-walk", label: "Running walk", description: "four quick grounded beats", stanceSteps: 8.8, nativeAnimalIds: Object.freeze(["unicorn", "horse"]) }),
+  Object.freeze({ id: "amble", label: "Amble", description: "close lateral couplets", stanceSteps: 8, nativeAnimalIds: Object.freeze(["elephant", "unicorn", "horse", "camel"]) }),
+  Object.freeze({ id: "tolt", label: "Tölt", description: "fast four-beat singlefoot", stanceSteps: 7, nativeAnimalIds: Object.freeze(["unicorn"]) }),
+  Object.freeze({ id: "jog", label: "Jog", description: "broken diagonal pairs", stanceSteps: 10, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat"]) }),
+  Object.freeze({ id: "trot", label: "Trot", description: "diagonal pairs + float", stanceSteps: 6, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat"]) }),
+  Object.freeze({ id: "passage", label: "Passage", description: "high suspended trot", stanceSteps: 5, nativeAnimalIds: Object.freeze(["unicorn"]) }),
+  Object.freeze({ id: "pace", label: "Pace", description: "grounded lateral pairs", stanceSteps: 9, nativeAnimalIds: Object.freeze(["unicorn", "horse", "camel"]) }),
+  Object.freeze({ id: "flying-pace", label: "Flying pace", description: "lateral pairs + flight", stanceSteps: 5.6, nativeAnimalIds: Object.freeze(["unicorn"]) }),
+  Object.freeze({ id: "canter", label: "Canter R", description: "three beats · right lead", stanceSteps: 4, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat"]) }),
+  Object.freeze({ id: "counter-canter", label: "Canter L", description: "three beats · left lead", stanceSteps: 4, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat"]) }),
+  Object.freeze({ id: "gallop", label: "Gallop R", description: "right transverse gallop", stanceSteps: 4, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat"]) }),
+  Object.freeze({ id: "counter-gallop", label: "Gallop L", description: "left transverse gallop", stanceSteps: 4, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat"]) }),
+  Object.freeze({ id: "sprint", label: "Rotary R", description: "right rotary sprint", stanceSteps: 3, nativeAnimalIds: Object.freeze(["gazelle"]) }),
+  Object.freeze({ id: "rotary-left", label: "Rotary L", description: "left rotary sprint", stanceSteps: 3, nativeAnimalIds: Object.freeze(["gazelle"]) }),
+  Object.freeze({ id: "bound", label: "Bound", description: "hind pair · fore pair", stanceSteps: 4, nativeAnimalIds: Object.freeze(["gazelle", "dog", "goat", "rabbit"]) }),
+  Object.freeze({ id: "half-bound", label: "Half-bound R", description: "hind pair · split fore", stanceSteps: 4, nativeAnimalIds: Object.freeze(["gazelle"]) }),
+  Object.freeze({ id: "counter-half-bound", label: "Half-bound L", description: "hind pair · split fore", stanceSteps: 4, nativeAnimalIds: Object.freeze(["gazelle"]) }),
+  Object.freeze({ id: "stot", label: "Stot", description: "four together + flight", stanceSteps: 3, nativeAnimalIds: Object.freeze(["gazelle"]) }),
+  Object.freeze({ id: "jump", label: "Jump", description: "short hind launch · fore landing", stanceSteps: 3, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat", "rabbit", "camel"]) }),
+  Object.freeze({ id: "leap", label: "Leap", description: "long hind launch · late fore landing", stanceSteps: 2.6, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "skid", label: "Skid", description: "four braced feet · ground scrape", stanceSteps: 12, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "forward-roll", label: "Forward roll", description: "hind launch · tuck · fore landing", stanceSteps: 2.6, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "rear-up", label: "Rear up", description: "hind support · forefeet raised", stanceSteps: 12, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "charge", label: "Charge", description: "heavy grounded drive", stanceSteps: 7.4, nativeAnimalIds: Object.freeze(["elephant"]) }),
+  Object.freeze({ id: "dance", label: "Tango", description: "alternating two-leg balance", stanceSteps: 3, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "rear-waltz", label: "Rear waltz", description: "hind-leg dancing", stanceSteps: 4, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "carousel", label: "Carousel", description: "circling four-beat pivot", stanceSteps: 7, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "cat-prowl", label: "Cat prowl", description: "quiet overlapping paws", stanceSteps: 10, nativeAnimalIds: Object.freeze(["cat"]) }),
+  Object.freeze({ id: "cat-gallop", label: "Cat gallop", description: "one-flight feline gallop", stanceSteps: 4, nativeAnimalIds: Object.freeze(["cat"]) }),
+  Object.freeze({ id: "run-leap", label: "Run ×3 · leap", description: "run run run · hind launch", stanceSteps: 1.4, nativeAnimalIds: Object.freeze(["cat", "cheetah", "gazelle"]) }),
+  Object.freeze({ id: "rabbit-gallop", label: "Rabbit gallop", description: "hind cluster · split fore", stanceSteps: 6, nativeAnimalIds: Object.freeze(["rabbit"]) }),
+  Object.freeze({ id: "giraffe-walk", label: "Giraffe walk", description: "long lateral overlap", stanceSteps: 11, nativeAnimalIds: Object.freeze(["giraffe"]) }),
+  Object.freeze({ id: "giraffe-gallop", label: "Grounded rotary", description: "long grounded rotary run", stanceSteps: 6, nativeAnimalIds: Object.freeze(["giraffe"]) }),
+  Object.freeze({ id: "lizard-scuttle", label: "Scuttle", description: "lateral body-wave walk", stanceSteps: 8.5, nativeAnimalIds: Object.freeze(["lizard"]) }),
+  Object.freeze({ id: "lizard-trot", label: "Lizard trot", description: "diagonal scurry", stanceSteps: 8, nativeAnimalIds: Object.freeze(["lizard"]) }),
+  Object.freeze({ id: "lizard-pace", label: "Lizard pace", description: "serpentine lateral pairs", stanceSteps: 8, nativeAnimalIds: Object.freeze(["lizard"]) }),
+  Object.freeze({ id: "lizard-sprint", label: "Lizard sprint", description: "hind-leg dash + tail", stanceSteps: 3, nativeAnimalIds: Object.freeze(["lizard"]) }),
 ]);
 
 const ALL_BEHAVIOR_IDS = Object.freeze(QUADRUPED_BEHAVIORS.map(({ id }) => id));
+
+// Duty factor is the fraction of one limb's touchdown-to-touchdown cycle spent
+// in stance.  These values shape support; touchdown ordering still comes from
+// the editable sixteen-frame score.  Measured families are used where useful,
+// while dance/jump figures are deliberately playable approximations.
+const GAIT_DUTY_FACTORS = Object.freeze({
+  walk: Object.freeze({ front: 0.64, hind: 0.64, basis: "four-beat lateral walk" }),
+  "diagonal-walk": Object.freeze({ front: 0.64, hind: 0.64, basis: "four-beat diagonal walk" }),
+  "running-walk": Object.freeze({ front: 0.54, hind: 0.54, basis: "grounded four-beat approximation" }),
+  amble: Object.freeze({ front: 0.58, hind: 0.58, basis: "lateral couplet approximation" }),
+  tolt: Object.freeze({ front: 0.51, hind: 0.51, basis: "grounded single-foot approximation" }),
+  jog: Object.freeze({ front: 0.52, hind: 0.52, basis: "grounded broken-trot approximation" }),
+  charge: Object.freeze({ front: 0.58, hind: 0.6, basis: "grounded drive approximation" }),
+  trot: Object.freeze({ front: 0.45, hind: 0.45, basis: "diagonal-pair approximation" }),
+  passage: Object.freeze({ front: 0.36, hind: 0.36, basis: "suspended diagonal-pair approximation" }),
+  pace: Object.freeze({ front: 0.52, hind: 0.52, basis: "grounded lateral-pair approximation" }),
+  "flying-pace": Object.freeze({ front: 0.36, hind: 0.36, basis: "aerial lateral-pair approximation" }),
+  canter: Object.freeze({ front: 0.36, hind: 0.38, basis: "three-beat 1:1:2 canter" }),
+  "counter-canter": Object.freeze({ front: 0.36, hind: 0.38, basis: "three-beat 1:1:2 canter" }),
+  gallop: Object.freeze({ front: 0.296, hind: 0.286, basis: "comparative transverse gallop" }),
+  "counter-gallop": Object.freeze({ front: 0.296, hind: 0.286, basis: "comparative transverse gallop" }),
+  sprint: Object.freeze({ front: 0.229, hind: 0.236, basis: "comparative rotary gallop" }),
+  "rotary-left": Object.freeze({ front: 0.229, hind: 0.236, basis: "comparative rotary gallop" }),
+  bound: Object.freeze({ front: 0.29, hind: 0.29, basis: "paired bound approximation" }),
+  "half-bound": Object.freeze({ front: 0.29, hind: 0.3, basis: "half-bound approximation" }),
+  "counter-half-bound": Object.freeze({ front: 0.29, hind: 0.3, basis: "half-bound approximation" }),
+  stot: Object.freeze({ front: 0.2, hind: 0.2, basis: "simultaneous stot approximation" }),
+  jump: Object.freeze({ front: 0.24, hind: 0.28, basis: "launch-and-land approximation" }),
+  leap: Object.freeze({ front: 0.18, hind: 0.22, basis: "long launch-and-land stunt approximation" }),
+  skid: Object.freeze({ front: 0.72, hind: 0.74, basis: "braced sliding stunt approximation" }),
+  "forward-roll": Object.freeze({ front: 0.18, hind: 0.22, basis: "aerial rolling stunt approximation" }),
+  "rear-up": Object.freeze({ front: 0.08, hind: 0.74, basis: "hind-support stunt approximation" }),
+  dance: Object.freeze({ front: 0.34, hind: 0.34, basis: "two-leg dance approximation" }),
+  "rear-waltz": Object.freeze({ front: 0.3, hind: 0.42, basis: "rear-balance dance approximation" }),
+  carousel: Object.freeze({ front: 0.58, hind: 0.58, basis: "grounded pivot approximation" }),
+  "cat-prowl": Object.freeze({ front: 0.66, hind: 0.66, basis: "measured slow cat walk family" }),
+  "cat-gallop": Object.freeze({ front: 0.32, hind: 0.32, basis: "video-derived cat rotary approximation" }),
+  "run-leap": Object.freeze({ front: 0.23, hind: 0.25, basis: "three-run-and-leap phrase" }),
+  "rabbit-gallop": Object.freeze({ front: 0.38, hind: 0.46, basis: "measured rabbit slow-gallop support order" }),
+  "giraffe-walk": Object.freeze({ front: 0.7, hind: 0.68, basis: "measured giraffe walk family" }),
+  "giraffe-gallop": Object.freeze({ front: 0.4, hind: 0.38, basis: "measured grounded giraffe run family" }),
+  "lizard-scuttle": Object.freeze({ front: 0.74, hind: 0.74, basis: "sprawling walk family" }),
+  "lizard-trot": Object.freeze({ front: 0.58, hind: 0.58, basis: "grounded diagonal scuttle approximation" }),
+  "lizard-pace": Object.freeze({ front: 0.7, hind: 0.7, basis: "grounded lateral scuttle approximation" }),
+  "lizard-sprint": Object.freeze({ front: 0.41, hind: 0.41, basis: "hind-leg sprint approximation" }),
+});
 
 export const QUADRUPED_FOOT_VOICES = Object.freeze({
   elephant: Object.freeze({
@@ -77,50 +153,91 @@ export const QUADRUPED_FOOT_VOICES = Object.freeze({
     "front-right": Object.freeze({ label: "hollow knock", family: "fore-knock" }),
     "rear-left": Object.freeze({ label: "sub drum", family: "hind-sub" }),
     "rear-right": Object.freeze({ label: "floor drum", family: "hind-tom" }),
-    tail: Object.freeze({ label: "tail brush", family: "brush" }),
   }),
   unicorn: Object.freeze({
     "front-left": Object.freeze({ label: "glass bell", family: "fore-glass" }),
     "front-right": Object.freeze({ label: "silver bell", family: "fore-silver" }),
     "rear-left": Object.freeze({ label: "hoof clop", family: "hind-clop" }),
     "rear-right": Object.freeze({ label: "crystal kick", family: "hind-crystal" }),
-    tail: Object.freeze({ label: "star shimmer", family: "shimmer" }),
   }),
   gazelle: Object.freeze({
     "front-left": Object.freeze({ label: "wood tick", family: "fore-tick" }),
     "front-right": Object.freeze({ label: "stick click", family: "fore-click" }),
     "rear-left": Object.freeze({ label: "low marimba", family: "hind-low" }),
     "rear-right": Object.freeze({ label: "high marimba", family: "hind-high" }),
-    tail: Object.freeze({ label: "tail whip", family: "whip" }),
   }),
   cat: Object.freeze({
     "front-left": Object.freeze({ label: "felt tap", family: "fore-felt" }),
     "front-right": Object.freeze({ label: "paw knock", family: "fore-paw" }),
     "rear-left": Object.freeze({ label: "cushion kick", family: "hind-cushion" }),
     "rear-right": Object.freeze({ label: "soft thump", family: "hind-soft" }),
-    tail: Object.freeze({ label: "tail swish", family: "swish" }),
   }),
   cheetah: Object.freeze({
     "front-left": Object.freeze({ label: "claw snap", family: "fore-claw" }),
     "front-right": Object.freeze({ label: "dry slap", family: "fore-dry" }),
     "rear-left": Object.freeze({ label: "launch drum", family: "hind-launch" }),
     "rear-right": Object.freeze({ label: "sprint kick", family: "hind-sprint" }),
-    tail: Object.freeze({ label: "rudder whip", family: "rudder" }),
   }),
   giraffe: Object.freeze({
     "front-left": Object.freeze({ label: "long knock", family: "fore-long" }),
     "front-right": Object.freeze({ label: "bone bell", family: "fore-bone" }),
     "rear-left": Object.freeze({ label: "wood bass", family: "hind-wood" }),
     "rear-right": Object.freeze({ label: "hollow hoof", family: "hind-hollow" }),
-    tail: Object.freeze({ label: "tuft brush", family: "tuft" }),
   }),
   lizard: Object.freeze({
     "front-left": Object.freeze({ label: "claw tick", family: "fore-tick" }),
     "front-right": Object.freeze({ label: "scale click", family: "fore-scale" }),
     "rear-left": Object.freeze({ label: "sand scrape", family: "hind-sand" }),
     "rear-right": Object.freeze({ label: "stone tap", family: "hind-stone" }),
-    tail: Object.freeze({ label: "tail drag", family: "drag" }),
   }),
+  horse: Object.freeze({
+    "front-left": Object.freeze({ label: "near clop", family: "fore-hoof" }),
+    "front-right": Object.freeze({ label: "far clop", family: "fore-hoof-bright" }),
+    "rear-left": Object.freeze({ label: "hind knock", family: "hind-hoof" }),
+    "rear-right": Object.freeze({ label: "drive clop", family: "hind-hoof-drive" }),
+  }),
+  dog: Object.freeze({
+    "front-left": Object.freeze({ label: "pad tap", family: "fore-pad" }),
+    "front-right": Object.freeze({ label: "claw tick", family: "fore-claw" }),
+    "rear-left": Object.freeze({ label: "hind pat", family: "hind-pad" }),
+    "rear-right": Object.freeze({ label: "push thump", family: "hind-push" }),
+  }),
+  goat: Object.freeze({
+    "front-left": Object.freeze({ label: "split clack", family: "fore-cloven" }),
+    "front-right": Object.freeze({ label: "stone click", family: "fore-stone" }),
+    "rear-left": Object.freeze({ label: "load knock", family: "hind-load" }),
+    "rear-right": Object.freeze({ label: "climb clack", family: "hind-climb" }),
+  }),
+  rabbit: Object.freeze({
+    "front-left": Object.freeze({ label: "fore pat", family: "fore-soft" }),
+    "front-right": Object.freeze({ label: "fore tap", family: "fore-quick" }),
+    "rear-left": Object.freeze({ label: "haunch thump", family: "hind-haunch" }),
+    "rear-right": Object.freeze({ label: "launch thump", family: "hind-launch" }),
+  }),
+  camel: Object.freeze({
+    "front-left": Object.freeze({ label: "broad pad", family: "fore-pad-wide" }),
+    "front-right": Object.freeze({ label: "sand pad", family: "fore-sand" }),
+    "rear-left": Object.freeze({ label: "deep pad", family: "hind-pad-wide" }),
+    "rear-right": Object.freeze({ label: "pace thump", family: "hind-pace" }),
+  }),
+});
+
+// Normalized side-view anatomy. Segment lengths remain fixed while the IK
+// solver changes joint angles, so gait edits articulate a body rather than
+// stretching decorative legs.
+const MORPHOLOGY = Object.freeze({
+  elephant: Object.freeze({ family: "elephant", bodyWidth: 1.5, bodyHeight: 0.78, clearance: 0.84, shoulder: 1.04, haunch: 1.02, headScale: 0.58, neckLength: 0.08, headForward: 0.58, headRise: 0.04, frontUpper: 0.34, frontLower: 0.35, hindUpper: 0.34, hindLower: 0.35, distal: 0.045, legWidth: 0.11, footWidth: 0.14, tailLength: 0.64, foreBend: 1, hindBend: -1, spineElasticity: 0.03 }),
+  unicorn: Object.freeze({ family: "equid", bodyWidth: 1.4, bodyHeight: 0.6, clearance: 0.88, shoulder: 1.08, haunch: 1.12, headScale: 0.44, neckLength: 0.6, headForward: 0.7, headRise: 0.42, frontUpper: 0.36, frontLower: 0.34, hindUpper: 0.38, hindLower: 0.34, distal: 0.12, legWidth: 0.06, footWidth: 0.085, tailLength: 0.88, foreBend: 1, hindBend: -1, spineElasticity: 0.08 }),
+  gazelle: Object.freeze({ family: "bovid", bodyWidth: 1.28, bodyHeight: 0.5, clearance: 0.8, shoulder: 0.98, haunch: 1.08, headScale: 0.4, neckLength: 0.5, headForward: 0.68, headRise: 0.42, frontUpper: 0.38, frontLower: 0.36, hindUpper: 0.4, hindLower: 0.37, distal: 0.14, legWidth: 0.045, footWidth: 0.065, tailLength: 0.48, foreBend: 1, hindBend: -1, spineElasticity: 0.12 }),
+  cat: Object.freeze({ family: "feline", bodyWidth: 1.45, bodyHeight: 0.46, clearance: 0.7, shoulder: 1, haunch: 1.12, headScale: 0.4, neckLength: 0.14, headForward: 0.64, headRise: 0.12, frontUpper: 0.3, frontLower: 0.3, hindUpper: 0.36, hindLower: 0.33, distal: 0.15, legWidth: 0.058, footWidth: 0.095, tailLength: 0.96, foreBend: 1, hindBend: -1, spineElasticity: 0.2 }),
+  cheetah: Object.freeze({ family: "feline", bodyWidth: 1.58, bodyHeight: 0.43, clearance: 0.72, shoulder: 0.94, haunch: 1.08, headScale: 0.35, neckLength: 0.2, headForward: 0.7, headRise: 0.14, frontUpper: 0.33, frontLower: 0.32, hindUpper: 0.4, hindLower: 0.36, distal: 0.16, legWidth: 0.048, footWidth: 0.085, tailLength: 1.15, foreBend: 1, hindBend: -1, spineElasticity: 0.28 }),
+  giraffe: Object.freeze({ family: "giraffe", bodyWidth: 1.34, bodyHeight: 0.56, clearance: 1.03, shoulder: 1.14, haunch: 0.98, headScale: 0.38, neckLength: 1.42, headForward: 0.55, headRise: 1.35, frontUpper: 0.44, frontLower: 0.42, hindUpper: 0.43, hindLower: 0.41, distal: 0.12, legWidth: 0.052, footWidth: 0.075, tailLength: 0.68, foreBend: 1, hindBend: -1, spineElasticity: 0.04 }),
+  lizard: Object.freeze({ family: "lizard", bodyWidth: 1.66, bodyHeight: 0.3, clearance: 0.38, shoulder: 0.82, haunch: 0.9, headScale: 0.3, neckLength: 0.08, headForward: 0.74, headRise: 0.02, frontUpper: 0.24, frontLower: 0.27, hindUpper: 0.27, hindLower: 0.29, distal: 0.07, legWidth: 0.055, footWidth: 0.09, tailLength: 1.3, foreBend: 1, hindBend: -1, spineElasticity: 0.16 }),
+  horse: Object.freeze({ family: "equid", bodyWidth: 1.46, bodyHeight: 0.62, clearance: 0.9, shoulder: 1.12, haunch: 1.1, headScale: 0.43, neckLength: 0.72, headForward: 0.9, headRise: 0.4, frontUpper: 0.37, frontLower: 0.35, hindUpper: 0.39, hindLower: 0.35, distal: 0.12, legWidth: 0.062, footWidth: 0.09, tailLength: 0.9, foreBend: 1, hindBend: -1, spineElasticity: 0.1 }),
+  dog: Object.freeze({ family: "canid", bodyWidth: 1.4, bodyHeight: 0.52, clearance: 0.72, shoulder: 1.08, haunch: 1.04, headScale: 0.42, neckLength: 0.24, headForward: 0.68, headRise: 0.2, frontUpper: 0.3, frontLower: 0.29, hindUpper: 0.35, hindLower: 0.32, distal: 0.14, legWidth: 0.062, footWidth: 0.105, tailLength: 0.78, foreBend: 1, hindBend: -1, spineElasticity: 0.14 }),
+  goat: Object.freeze({ family: "goat", bodyWidth: 1.3, bodyHeight: 0.58, clearance: 0.78, shoulder: 1.08, haunch: 1, headScale: 0.42, neckLength: 0.34, headForward: 0.68, headRise: 0.32, frontUpper: 0.34, frontLower: 0.32, hindUpper: 0.36, hindLower: 0.33, distal: 0.11, legWidth: 0.062, footWidth: 0.08, tailLength: 0.32, foreBend: 1, hindBend: -1, spineElasticity: 0.07 }),
+  rabbit: Object.freeze({ family: "rabbit", bodyWidth: 1.18, bodyHeight: 0.52, clearance: 0.58, shoulder: 0.78, haunch: 1.38, headScale: 0.5, neckLength: 0.08, headForward: 0.62, headRise: 0.24, frontUpper: 0.23, frontLower: 0.25, hindUpper: 0.42, hindLower: 0.38, distal: 0.11, legWidth: 0.055, footWidth: 0.12, tailLength: 0.18, foreBend: 1, hindBend: -1, spineElasticity: 0.18 }),
+  camel: Object.freeze({ family: "camel", bodyWidth: 1.52, bodyHeight: 0.68, clearance: 0.96, shoulder: 1.04, haunch: 1.02, headScale: 0.4, neckLength: 1.02, headForward: 0.68, headRise: 0.76, frontUpper: 0.41, frontLower: 0.39, hindUpper: 0.42, hindLower: 0.4, distal: 0.11, legWidth: 0.07, footWidth: 0.15, tailLength: 0.56, foreBend: 1, hindBend: -1, spineElasticity: 0.05 }),
 });
 
 const ANIMAL_DEFINITIONS = Object.freeze({
@@ -128,16 +245,16 @@ const ANIMAL_DEFINITIONS = Object.freeze({
     id: "elephant",
     label: "Elephant",
     subtitle: "thick ground orchestra",
-    description: "Heavy feet. Rising trumpet.",
+    description: "Four weighted feet. Deep ground impulses.",
     defaultBehaviorId: "walk",
     behaviorIds: ALL_BEHAVIOR_IDS,
     mood: 0.54,
     groundResonance: 0.72,
     outputLevel: 0.62,
     bodyScale: 1.12,
+    morphology: MORPHOLOGY.elephant,
     palette: Object.freeze(["#d2b187", "#8e705b", "#ffae57", "#5a4037", "#f7ddbd"]),
     scale: Object.freeze([50, 53, 55, 58, 62, 65]),
-    cadenceScale: 0.82,
     mass: 1.38,
     power: 0.92,
     compliance: 0.72,
@@ -148,16 +265,16 @@ const ANIMAL_DEFINITIONS = Object.freeze({
     id: "unicorn",
     label: "Unicorn",
     subtitle: "prismatic hoof magic",
-    description: "Crystal hooves. Sparkle neigh.",
+    description: "Four prismatic hooves. Bright contact edges.",
     defaultBehaviorId: "canter",
     behaviorIds: ALL_BEHAVIOR_IDS,
     mood: 0.86,
     groundResonance: 0.84,
     outputLevel: 0.6,
     bodyScale: 0.98,
+    morphology: MORPHOLOGY.unicorn,
     palette: Object.freeze(["#f9f2ff", "#ba87ff", "#58e8ef", "#ff83c9", "#ffe38a"]),
     scale: Object.freeze([62, 66, 69, 73, 78, 81]),
-    cadenceScale: 1,
     mass: 0.94,
     power: 1.08,
     compliance: 1.08,
@@ -168,16 +285,16 @@ const ANIMAL_DEFINITIONS = Object.freeze({
     id: "gazelle",
     label: "Gazelle",
     subtitle: "quick-foot sprint ensemble",
-    description: "Quick feet. Marimba strings.",
+    description: "Quick feet. Dry, pitched earth strikes.",
     defaultBehaviorId: "sprint",
     behaviorIds: ALL_BEHAVIOR_IDS,
     mood: 0.68,
     groundResonance: 0.48,
     outputLevel: 0.62,
     bodyScale: 0.88,
+    morphology: MORPHOLOGY.gazelle,
     palette: Object.freeze(["#e5b86d", "#6e4227", "#f3e8c3", "#141111", "#ed704f"]),
     scale: Object.freeze([57, 60, 64, 67, 69, 72]),
-    cadenceScale: 1.08,
     mass: 0.76,
     power: 1.22,
     compliance: 0.9,
@@ -188,16 +305,16 @@ const ANIMAL_DEFINITIONS = Object.freeze({
     id: "cat",
     label: "Cat",
     subtitle: "felt-paw chamber animal",
-    description: "Soft paws. Purr glissando.",
+    description: "Quiet overlapping paws. Felt transients.",
     defaultBehaviorId: "cat-prowl",
     behaviorIds: ALL_BEHAVIOR_IDS,
     mood: 0.7,
     groundResonance: 0.42,
     outputLevel: 0.6,
     bodyScale: 0.8,
+    morphology: MORPHOLOGY.cat,
     palette: Object.freeze(["#b8aaa0", "#5a4b46", "#f4b35d", "#171312", "#dce7df"]),
     scale: Object.freeze([55, 58, 62, 65, 69, 72]),
-    cadenceScale: 0.96,
     mass: 0.62,
     power: 1.12,
     compliance: 1.2,
@@ -208,16 +325,16 @@ const ANIMAL_DEFINITIONS = Object.freeze({
     id: "cheetah",
     label: "Cheetah",
     subtitle: "double-flight sprint engine",
-    description: "Claw snaps. Chirping velocity.",
+    description: "Fast claws. Gathered and extended flight.",
     defaultBehaviorId: "run-leap",
     behaviorIds: ALL_BEHAVIOR_IDS,
     mood: 0.82,
     groundResonance: 0.4,
     outputLevel: 0.62,
     bodyScale: 0.86,
+    morphology: MORPHOLOGY.cheetah,
     palette: Object.freeze(["#e6b84f", "#70471f", "#ff713f", "#17100b", "#fff0b0"]),
     scale: Object.freeze([59, 62, 66, 69, 73, 78]),
-    cadenceScale: 1.14,
     mass: 0.68,
     power: 1.35,
     compliance: 1.28,
@@ -228,16 +345,16 @@ const ANIMAL_DEFINITIONS = Object.freeze({
     id: "giraffe",
     label: "Giraffe",
     subtitle: "long-neck wooden orchestra",
-    description: "Long knocks. Neck harp.",
+    description: "Spotted long-neck body. Long weighted hooves.",
     defaultBehaviorId: "giraffe-walk",
     behaviorIds: ALL_BEHAVIOR_IDS,
     mood: 0.58,
     groundResonance: 0.62,
     outputLevel: 0.61,
     bodyScale: 1.02,
+    morphology: MORPHOLOGY.giraffe,
     palette: Object.freeze(["#e8bd72", "#865426", "#f5d79b", "#24150b", "#8ed8c5"]),
     scale: Object.freeze([45, 50, 52, 57, 62, 64]),
-    cadenceScale: 0.8,
     mass: 1.12,
     power: 0.9,
     compliance: 0.78,
@@ -248,21 +365,51 @@ const ANIMAL_DEFINITIONS = Object.freeze({
     id: "lizard",
     label: "Lizard",
     subtitle: "sidewinding scale machine",
-    description: "Claw clicks. Hiss melody.",
+    description: "Sprawled claws. Lateral scuttle timing.",
     defaultBehaviorId: "lizard-scuttle",
     behaviorIds: ALL_BEHAVIOR_IDS,
     mood: 0.46,
     groundResonance: 0.54,
     outputLevel: 0.6,
     bodyScale: 0.72,
+    morphology: MORPHOLOGY.lizard,
     palette: Object.freeze(["#70ae78", "#294f37", "#d8e65c", "#08150d", "#ef7f55"]),
     scale: Object.freeze([48, 51, 54, 58, 61, 66]),
-    cadenceScale: 0.72,
     mass: 0.46,
     power: 0.82,
     compliance: 0.56,
     rollingResistance: 1.02,
     baseGravity: 9.8,
+  }),
+  horse: Object.freeze({
+    id: "horse", label: "Horse", subtitle: "four-beat hoof engine", description: "Measured walk, diagonal trot, and three-beat canter families.", defaultBehaviorId: "walk", behaviorIds: ALL_BEHAVIOR_IDS,
+    mood: 0.62, groundResonance: 0.62, outputLevel: 0.61, bodyScale: 0.96, morphology: MORPHOLOGY.horse,
+    palette: Object.freeze(["#a9764e", "#513222", "#e2b278", "#160e0a", "#f2d1aa"]), scale: Object.freeze([48, 52, 55, 60, 64, 67]),
+    mass: 1.08, power: 1.14, compliance: 0.92, rollingResistance: 0.92, baseGravity: 9.8,
+  }),
+  dog: Object.freeze({
+    id: "dog", label: "Dog", subtitle: "pad-and-claw runner", description: "Diagonal support shifts from walk into trot.", defaultBehaviorId: "walk", behaviorIds: ALL_BEHAVIOR_IDS,
+    mood: 0.76, groundResonance: 0.48, outputLevel: 0.61, bodyScale: 0.82, morphology: MORPHOLOGY.dog,
+    palette: Object.freeze(["#b7865b", "#5e3b28", "#f0b86e", "#17100d", "#ead0b0"]), scale: Object.freeze([52, 55, 59, 62, 67, 71]),
+    mass: 0.7, power: 1.12, compliance: 1.12, rollingResistance: 0.8, baseGravity: 10.1,
+  }),
+  goat: Object.freeze({
+    id: "goat", label: "Goat", subtitle: "cloven stair drummer", description: "Sure-footed overlap with distinct load and push accents.", defaultBehaviorId: "walk", behaviorIds: ALL_BEHAVIOR_IDS,
+    mood: 0.6, groundResonance: 0.58, outputLevel: 0.61, bodyScale: 0.82, morphology: MORPHOLOGY.goat,
+    palette: Object.freeze(["#c7b7a0", "#685848", "#f0c85c", "#17130f", "#efe6d8"]), scale: Object.freeze([50, 55, 57, 62, 65, 69]),
+    mass: 0.72, power: 1.08, compliance: 0.86, rollingResistance: 0.9, baseGravity: 10.3,
+  }),
+  rabbit: Object.freeze({
+    id: "rabbit", label: "Rabbit", subtitle: "haunch-and-flight rhythm", description: "Hind cluster, split forefeet, then suspension.", defaultBehaviorId: "rabbit-gallop", behaviorIds: ALL_BEHAVIOR_IDS,
+    mood: 0.72, groundResonance: 0.38, outputLevel: 0.6, bodyScale: 0.7, morphology: MORPHOLOGY.rabbit,
+    palette: Object.freeze(["#c7c0b7", "#665d56", "#ff9ca8", "#171413", "#f7eee5"]), scale: Object.freeze([57, 60, 64, 67, 72, 76]),
+    mass: 0.48, power: 1.2, compliance: 1.3, rollingResistance: 0.72, baseGravity: 10.2,
+  }),
+  camel: Object.freeze({
+    id: "camel", label: "Bactrian camel", subtitle: "two-hump lateral pad pulse", description: "Two humps. Broad pads with walk and pace-like timing.", defaultBehaviorId: "walk", behaviorIds: ALL_BEHAVIOR_IDS,
+    mood: 0.5, groundResonance: 0.56, outputLevel: 0.61, bodyScale: 0.98, morphology: MORPHOLOGY.camel,
+    palette: Object.freeze(["#d6a966", "#795128", "#f0c980", "#21150b", "#f2ddb8"]), scale: Object.freeze([43, 48, 52, 55, 60, 64]),
+    mass: 1.18, power: 0.86, compliance: 0.82, rollingResistance: 1.14, baseGravity: 9.7,
   }),
 });
 
@@ -361,31 +508,31 @@ const BEHAVIOR_HITS = Object.freeze({
     tail: Object.freeze([[11, 0.58], [14, 0.74]]),
   }),
   gallop: Object.freeze({
-    "front-left": Object.freeze([[7, 0.92]]),
-    "front-right": Object.freeze([[10, 1]]),
+    "front-left": Object.freeze([[4, 0.92]]),
+    "front-right": Object.freeze([[8, 1]]),
     "rear-left": Object.freeze([[0, 0.92]]),
     "rear-right": Object.freeze([[3, 0.96]]),
     tail: Object.freeze([[13, 0.72], [15, 0.56]]),
   }),
   "counter-gallop": Object.freeze({
-    "front-left": Object.freeze([[10, 1]]),
-    "front-right": Object.freeze([[7, 0.92]]),
+    "front-left": Object.freeze([[8, 1]]),
+    "front-right": Object.freeze([[4, 0.92]]),
     "rear-left": Object.freeze([[3, 0.96]]),
     "rear-right": Object.freeze([[0, 0.92]]),
     tail: Object.freeze([[13, 0.72], [15, 0.56]]),
   }),
   sprint: Object.freeze({
-    "front-left": Object.freeze([[8, 0.94]]),
-    "front-right": Object.freeze([[11, 1]]),
-    "rear-left": Object.freeze([[3, 0.96]]),
+    "front-left": Object.freeze([[7, 0.94]]),
+    "front-right": Object.freeze([[10, 1]]),
+    "rear-left": Object.freeze([[2, 0.96]]),
     "rear-right": Object.freeze([[0, 1]]),
     tail: Object.freeze([[5, 0.62], [13, 0.82]]),
   }),
   "rotary-left": Object.freeze({
-    "front-left": Object.freeze([[11, 1]]),
-    "front-right": Object.freeze([[8, 0.94]]),
+    "front-left": Object.freeze([[10, 1]]),
+    "front-right": Object.freeze([[7, 0.94]]),
     "rear-left": Object.freeze([[0, 1]]),
-    "rear-right": Object.freeze([[3, 0.96]]),
+    "rear-right": Object.freeze([[2, 0.96]]),
     tail: Object.freeze([[5, 0.62], [13, 0.82]]),
   }),
   bound: Object.freeze({
@@ -423,6 +570,34 @@ const BEHAVIOR_HITS = Object.freeze({
     "rear-right": Object.freeze([[0, 0.96], [13, 0.72]]),
     tail: Object.freeze([[3, 0.74], [12, 0.58]]),
   }),
+  leap: Object.freeze({
+    "front-left": Object.freeze([[11, 1]]),
+    "front-right": Object.freeze([[10, 0.94]]),
+    "rear-left": Object.freeze([[0, 1]]),
+    "rear-right": Object.freeze([[0, 0.98]]),
+    tail: Object.freeze([[4, 0.82], [13, 0.54]]),
+  }),
+  skid: Object.freeze({
+    "front-left": Object.freeze([[2, 0.92]]),
+    "front-right": Object.freeze([[1, 1]]),
+    "rear-left": Object.freeze([[0, 0.94]]),
+    "rear-right": Object.freeze([[15, 1]]),
+    tail: Object.freeze([[4, 0.62], [8, 0.78], [12, 0.7]]),
+  }),
+  "forward-roll": Object.freeze({
+    "front-left": Object.freeze([[13, 1]]),
+    "front-right": Object.freeze([[12, 0.96]]),
+    "rear-left": Object.freeze([[0, 1]]),
+    "rear-right": Object.freeze([[0, 0.98]]),
+    tail: Object.freeze([[4, 0.92], [11, 0.72]]),
+  }),
+  "rear-up": Object.freeze({
+    "front-left": Object.freeze([]),
+    "front-right": Object.freeze([]),
+    "rear-left": Object.freeze([[0, 1], [8, 0.94]]),
+    "rear-right": Object.freeze([[0, 0.94], [8, 1]]),
+    tail: Object.freeze([[3, 0.7], [7, 0.88], [11, 0.76], [15, 1]]),
+  }),
   dance: Object.freeze({
     "front-left": Object.freeze([[0, 1], [8, 0.94]]),
     "front-right": Object.freeze([[4, 0.94], [12, 1]]),
@@ -452,9 +627,9 @@ const BEHAVIOR_HITS = Object.freeze({
     tail: Object.freeze([[6, 0.34], [14, 0.46]]),
   }),
   "cat-gallop": Object.freeze({
-    "front-left": Object.freeze([[8, 0.94]]),
-    "front-right": Object.freeze([[12, 1]]),
-    "rear-left": Object.freeze([[2, 0.96]]),
+    "front-left": Object.freeze([[6, 0.94]]),
+    "front-right": Object.freeze([[7, 1]]),
+    "rear-left": Object.freeze([[1, 0.96]]),
     "rear-right": Object.freeze([[0, 1]]),
     tail: Object.freeze([[5, 0.58], [14, 0.76]]),
   }),
@@ -465,6 +640,13 @@ const BEHAVIOR_HITS = Object.freeze({
     "rear-right": Object.freeze([[0, 0.86], [5, 0.9], [8, 0.96], [12, 1]]),
     tail: Object.freeze([[3, 0.42], [7, 0.5], [11, 0.62], [14, 1]]),
   }),
+  "rabbit-gallop": Object.freeze({
+    "front-left": Object.freeze([[5, 0.92]]),
+    "front-right": Object.freeze([[7, 0.96]]),
+    "rear-left": Object.freeze([[0, 1]]),
+    "rear-right": Object.freeze([[1, 0.98]]),
+    tail: Object.freeze([]),
+  }),
   "giraffe-walk": Object.freeze({
     "front-left": Object.freeze([[2, 0.92]]),
     "front-right": Object.freeze([[10, 0.96]]),
@@ -474,8 +656,8 @@ const BEHAVIOR_HITS = Object.freeze({
   }),
   "giraffe-gallop": Object.freeze({
     "front-left": Object.freeze([[8, 0.94]]),
-    "front-right": Object.freeze([[10, 1]]),
-    "rear-left": Object.freeze([[2, 0.96]]),
+    "front-right": Object.freeze([[13, 1]]),
+    "rear-left": Object.freeze([[3, 0.96]]),
     "rear-right": Object.freeze([[0, 1]]),
     tail: Object.freeze([[5, 0.48], [13, 0.66]]),
   }),
@@ -541,6 +723,10 @@ const BEHAVIOR_MOTION = Object.freeze({
   "counter-half-bound": Object.freeze({ lift: 0.98, bounce: 0.58, aerial: 0.64, sway: 0.18, stride: 1.18, momentum: 0.92, gravity: 0.96 }),
   stot: Object.freeze({ lift: 1.12, bounce: 0.7, aerial: 0.88, sway: 0.08, stride: 0.72, momentum: 0.84, gravity: 0.92 }),
   jump: Object.freeze({ lift: 1.05, bounce: 0.76, aerial: 0.86, sway: 0.08, stride: 1.18, momentum: 0.9, gravity: 0.88 }),
+  leap: Object.freeze({ lift: 1.15, bounce: 0.8, aerial: 1, sway: 0.08, stride: 1.25, momentum: 0.92, gravity: 0.86 }),
+  skid: Object.freeze({ lift: 0.18, bounce: 0.08, aerial: 0, sway: 0.12, stride: 0.9, momentum: 1.15, gravity: 1.1 }),
+  "forward-roll": Object.freeze({ lift: 1.18, bounce: 0.78, aerial: 1, sway: 0.08, stride: 1, momentum: 0.9, gravity: 0.86 }),
+  "rear-up": Object.freeze({ lift: 0.9, bounce: 0.18, aerial: 0.04, sway: 0.28, stride: 0.58, momentum: 0.62, gravity: 1.08 }),
   charge: Object.freeze({ lift: 0.62, bounce: 0.27, aerial: 0, sway: 0.2, stride: 0.94, momentum: 0.82, gravity: 1.12 }),
   dance: Object.freeze({ lift: 0.72, bounce: 0.36, aerial: 0.12, sway: 0.48, stride: 0.86, momentum: 0.7, gravity: 1 }),
   "rear-waltz": Object.freeze({ lift: 0.9, bounce: 0.48, aerial: 0.18, sway: 0.58, stride: 0.68, momentum: 0.66, gravity: 1.06 }),
@@ -548,6 +734,7 @@ const BEHAVIOR_MOTION = Object.freeze({
   "cat-prowl": Object.freeze({ lift: 0.38, bounce: 0.1, aerial: 0, sway: 0.16, stride: 0.82, momentum: 0.86, gravity: 1.02 }),
   "cat-gallop": Object.freeze({ lift: 1.02, bounce: 0.56, aerial: 0.64, sway: 0.24, stride: 1.2, momentum: 0.92, gravity: 0.94 }),
   "run-leap": Object.freeze({ lift: 1.12, bounce: 0.62, aerial: 0.92, sway: 0.26, stride: 1.28, momentum: 0.96, gravity: 0.88 }),
+  "rabbit-gallop": Object.freeze({ lift: 1.02, bounce: 0.58, aerial: 0.7, sway: 0.18, stride: 1.08, momentum: 0.9, gravity: 0.94 }),
   "giraffe-walk": Object.freeze({ lift: 0.4, bounce: 0.12, aerial: 0, sway: 0.18, stride: 1.12, momentum: 0.84, gravity: 1.08 }),
   "giraffe-gallop": Object.freeze({ lift: 0.7, bounce: 0.3, aerial: 0.06, sway: 0.2, stride: 1.18, momentum: 0.88, gravity: 1.1 }),
   "lizard-scuttle": Object.freeze({ lift: 0.32, bounce: 0.08, aerial: 0, sway: 0.62, stride: 0.68, momentum: 0.7, gravity: 1.12 }),
@@ -593,11 +780,22 @@ export function quadrupedBehaviorsForAnimal(animalId = "elephant") {
 export function quadrupedBehaviorFit(animalId = "elephant", behaviorId = "walk") {
   const animal = quadrupedAnimal(animalId);
   const behavior = behaviorDefinition(behaviorId);
-  return animal.id === "unicorn" || behavior.nativeAnimalIds.includes(animal.id) ? "observed" : "playful";
+  return behavior.nativeAnimalIds.includes(animal.id) ? "observed" : "playful";
 }
 
 export function quadrupedMotion(behaviorId = "walk") {
   return BEHAVIOR_MOTION[behaviorDefinition(behaviorId).id] ?? BEHAVIOR_MOTION.walk;
+}
+
+export function quadrupedGaitProfile(behaviorId = "walk", animalId = "elephant") {
+  const behavior = behaviorDefinition(behaviorId, animalId);
+  const profile = GAIT_DUTY_FACTORS[behavior.id] ?? GAIT_DUTY_FACTORS.walk;
+  return Object.freeze({
+    behaviorId: behavior.id,
+    frontDutyFactor: profile.front,
+    hindDutyFactor: profile.hind,
+    basis: profile.basis,
+  });
 }
 
 export function quadrupedFootVoice(animalId = "elephant", laneId = "front-left") {
@@ -607,6 +805,27 @@ export function quadrupedFootVoice(animalId = "elephant", laneId = "front-left")
 
 export function quadrupedTerrain(id = "earth") {
   return QUADRUPED_TERRAINS.find((entry) => entry.id === id) ?? QUADRUPED_TERRAINS[0];
+}
+
+export function quadrupedGroundProfile(id = "level") {
+  return QUADRUPED_GROUND_PROFILES.find((entry) => entry.id === id) ?? QUADRUPED_GROUND_PROFILES[0];
+}
+
+export function quadrupedGroundHeightAtWorldX(profileId = "level", worldX = 0) {
+  const profile = quadrupedGroundProfile(profileId);
+  const x = Number.isFinite(Number(worldX)) ? Number(worldX) : 0;
+  if (profile.direction === 0 || profile.stepHeight === 0) return 0;
+  return Math.floor(x / profile.treadLength) * profile.stepHeight * profile.direction;
+}
+
+export function quadrupedGroundAnchorX(profileId = "level", desiredWorldX = 0) {
+  const profile = quadrupedGroundProfile(profileId);
+  const x = Number.isFinite(Number(desiredWorldX)) ? Number(desiredWorldX) : 0;
+  if (profile.direction === 0) return x;
+  const treadIndex = Math.floor(x / profile.treadLength);
+  const treadStart = treadIndex * profile.treadLength;
+  const inset = profile.treadLength * 0.13;
+  return treadStart + clamp(x - treadStart, inset, profile.treadLength - inset);
 }
 
 function emptyPattern() {
@@ -626,12 +845,6 @@ function authoredPattern(animalId, behaviorId) {
     for (const lane of QUADRUPED_LANES.slice(0, 4)) {
       pattern[lane.id] = pattern[lane.id].map((value) => value > 0 ? clamp(0.12 + value * 0.92) : 0);
     }
-  }
-  if (animalId === "unicorn") {
-    for (const step of [3, 7, 11, 15]) pattern.tail[step] = Math.max(pattern.tail[step], step % 8 === 3 ? 0.7 : 0.46);
-  }
-  if (animalId === "gazelle" && ["trot", "canter", "sprint", "stot", "dance"].includes(behaviorId)) {
-    for (const step of [4, 6, 12, 14]) pattern.tail[step] = Math.max(pattern.tail[step], step % 8 === 6 ? 0.58 : 0.36);
   }
   return pattern;
 }
@@ -653,24 +866,22 @@ function defaultStride(animalId, behaviorId) {
         : animalId === "cheetah" ? 1.12
           : animalId === "giraffe" ? 1.06
             : animalId === "lizard" ? 0.76
-              : 1;
+              : animalId === "rabbit" ? 1.04
+                : animalId === "camel" ? 0.9
+                  : animalId === "dog" ? 0.92
+                    : animalId === "goat" ? 0.86
+                      : 1;
   return clamp(behavior.stride * animalScale, ...QUADRUPED_LIMITS.stride);
-}
-
-function defaultCadence(animalId, behaviorId) {
-  const animal = quadrupedAnimal(animalId);
-  const behavior = behaviorDefinition(behaviorId);
-  return clamp(Math.round(behavior.defaultCadence * animal.cadenceScale), ...QUADRUPED_LIMITS.tempoBpm);
 }
 
 export function createQuadrupedState(animalId = "elephant", behaviorId = null) {
   const animal = quadrupedAnimal(animalId);
   const behavior = behaviorDefinition(behaviorId ?? animal.defaultBehaviorId, animal.id);
   return {
-    version: 3,
+    version: 6,
     animalId: animal.id,
     behaviorId: behavior.id,
-    tempoBpm: defaultCadence(animal.id, behavior.id),
+    tempoBpm: QUADRUPED_DEFAULT_TEMPO_BPM,
     stride: defaultStride(animal.id, behavior.id),
     momentum: quadrupedMotion(behavior.id).momentum,
     gravity: quadrupedMotion(behavior.id).gravity,
@@ -678,7 +889,8 @@ export function createQuadrupedState(animalId = "elephant", behaviorId = null) {
     groundResonance: animal.groundResonance,
     outputLevel: animal.outputLevel,
     pattern: authoredPattern(animal.id, behavior.id),
-    terrain: [...TERRAIN_PATTERNS[animal.id]],
+    surfaceId: "earth",
+    groundProfileId: "level",
     customized: false,
     mutationSeed: 0x51414452,
   };
@@ -698,20 +910,22 @@ export function sanitizeQuadrupedState(candidate, fallback = createQuadrupedStat
   const fallbackPattern = fallback?.animalId === animal.id && fallback?.behaviorId === behavior.id
     ? sanitizedPattern(fallback.pattern, authored)
     : authored;
-  const fallbackTerrain = Array.isArray(fallback?.terrain) ? fallback.terrain : TERRAIN_PATTERNS[animal.id];
   const validTerrainIds = new Set(QUADRUPED_TERRAINS.map(({ id }) => id));
-  const terrain = Array.from({ length: QUADRUPED_STEP_COUNT }, (_, step) => {
-    const value = source.terrain?.[step] ?? fallbackTerrain[step] ?? "earth";
-    return validTerrainIds.has(value) ? value : fallbackTerrain[step] ?? "earth";
-  });
+  const legacySurface = Array.isArray(source.terrain) ? source.terrain.find((id) => validTerrainIds.has(id)) : null;
+  const requestedSurface = source.surfaceId ?? source.terrainId ?? legacySurface
+    ?? fallback?.surfaceId ?? "earth";
+  const surfaceId = validTerrainIds.has(requestedSurface) ? requestedSurface : "earth";
+  const validGroundProfileIds = new Set(QUADRUPED_GROUND_PROFILES.map(({ id }) => id));
+  const requestedGroundProfile = source.groundProfileId ?? fallback?.groundProfileId ?? "level";
+  const groundProfileId = validGroundProfileIds.has(requestedGroundProfile) ? requestedGroundProfile : "level";
   const seed = Number.isFinite(Number(source.mutationSeed))
     ? Number(source.mutationSeed) >>> 0
     : Number(fallback?.mutationSeed ?? 0x51414452) >>> 0;
   return {
-    version: 3,
+    version: 6,
     animalId: animal.id,
     behaviorId: behavior.id,
-    tempoBpm: clamp(source.tempoBpm ?? fallback?.tempoBpm ?? defaultCadence(animal.id, behavior.id), ...QUADRUPED_LIMITS.tempoBpm),
+    tempoBpm: clamp(source.tempoBpm ?? fallback?.tempoBpm ?? QUADRUPED_DEFAULT_TEMPO_BPM, ...QUADRUPED_LIMITS.tempoBpm),
     stride: clamp(source.stride ?? fallback?.stride ?? defaultStride(animal.id, behavior.id), ...QUADRUPED_LIMITS.stride),
     momentum: clamp(source.momentum ?? fallback?.momentum ?? quadrupedMotion(behavior.id).momentum, ...QUADRUPED_LIMITS.momentum),
     gravity: clamp(source.gravity ?? fallback?.gravity ?? quadrupedMotion(behavior.id).gravity, ...QUADRUPED_LIMITS.gravity),
@@ -719,7 +933,8 @@ export function sanitizeQuadrupedState(candidate, fallback = createQuadrupedStat
     groundResonance: clamp(source.groundResonance ?? fallback?.groundResonance ?? animal.groundResonance, ...QUADRUPED_LIMITS.groundResonance),
     outputLevel: clamp(source.outputLevel ?? fallback?.outputLevel ?? animal.outputLevel, ...QUADRUPED_LIMITS.outputLevel),
     pattern: sanitizedPattern(source.pattern, fallbackPattern),
-    terrain,
+    surfaceId,
+    groundProfileId,
     customized: Boolean(source.customized ?? fallback?.customized ?? false),
     mutationSeed: seed || 1,
   };
@@ -727,7 +942,13 @@ export function sanitizeQuadrupedState(candidate, fallback = createQuadrupedStat
 
 export function applyQuadrupedAnimal(state, animalId) {
   const next = createQuadrupedState(animalId);
-  return sanitizeQuadrupedState({ ...next, outputLevel: state?.outputLevel ?? next.outputLevel }, next);
+  return sanitizeQuadrupedState({
+    ...next,
+    tempoBpm: state?.tempoBpm ?? next.tempoBpm,
+    outputLevel: state?.outputLevel ?? next.outputLevel,
+    surfaceId: state?.surfaceId ?? next.surfaceId,
+    groundProfileId: state?.groundProfileId ?? next.groundProfileId,
+  }, next);
 }
 
 export function applyQuadrupedBehavior(state, behaviorId) {
@@ -735,10 +956,12 @@ export function applyQuadrupedBehavior(state, behaviorId) {
   const next = createQuadrupedState(current.animalId, behaviorId);
   return sanitizeQuadrupedState({
     ...next,
+    tempoBpm: current.tempoBpm,
     mood: current.mood,
     groundResonance: current.groundResonance,
     outputLevel: current.outputLevel,
-    terrain: current.terrain,
+    surfaceId: current.surfaceId,
+    groundProfileId: current.groundProfileId,
     mutationSeed: current.mutationSeed,
   }, next);
 }
@@ -771,14 +994,23 @@ export function cycleQuadrupedContact(state, laneId, step, direction = 1) {
 
 export function cycleQuadrupedTerrain(state, step, direction = 1) {
   const current = sanitizeQuadrupedState(state);
-  const index = mod(Math.trunc(Number(step) || 0), QUADRUPED_STEP_COUNT);
-  const terrainIndex = Math.max(0, QUADRUPED_TERRAINS.findIndex(({ id }) => id === current.terrain[index]));
+  const terrainIndex = Math.max(0, QUADRUPED_TERRAINS.findIndex(({ id }) => id === current.surfaceId));
   const nextTerrain = QUADRUPED_TERRAINS[mod(terrainIndex + stepDirection(direction), QUADRUPED_TERRAINS.length)].id;
   return sanitizeQuadrupedState({
     ...current,
     customized: true,
-    terrain: current.terrain.map((value, valueIndex) => valueIndex === index ? nextTerrain : value),
+    surfaceId: nextTerrain,
   }, current);
+}
+
+export function setQuadrupedSurface(state, surfaceId) {
+  const current = sanitizeQuadrupedState(state);
+  return sanitizeQuadrupedState({ ...current, surfaceId }, current);
+}
+
+export function setQuadrupedGroundProfile(state, groundProfileId) {
+  const current = sanitizeQuadrupedState(state);
+  return sanitizeQuadrupedState({ ...current, groundProfileId }, current);
 }
 
 function nextRandom(seed) {
@@ -791,36 +1023,18 @@ export function mutateQuadrupedPattern(state, seed = state?.mutationSeed) {
   let cursor = Number(seed ?? current.mutationSeed) >>> 0 || 1;
   const pattern = Object.fromEntries(QUADRUPED_LANES.map(({ id }) => [id, [...current.pattern[id]]]));
   for (const lane of QUADRUPED_LANES) {
-    for (let step = 0; step < QUADRUPED_STEP_COUNT; step += 1) {
-      let random;
-      [cursor, random] = nextRandom(cursor);
-      if (random >= (lane.id === "tail" ? 0.16 : 0.1)) continue;
-      let levelRandom;
-      [cursor, levelRandom] = nextRandom(cursor);
-      pattern[lane.id][step] = CONTACT_LEVELS[Math.floor(levelRandom * CONTACT_LEVELS.length)];
-    }
+    const activeSteps = pattern[lane.id]
+      .map((value, step) => ({ value, step }))
+      .filter(({ value }) => value > 0);
+    if (!activeSteps.length) continue;
+    let chosenRandom;
+    [cursor, chosenRandom] = nextRandom(cursor);
+    const chosen = activeSteps[Math.floor(chosenRandom * activeSteps.length)];
+    let strengthRandom;
+    [cursor, strengthRandom] = nextRandom(cursor);
+    pattern[lane.id][chosen.step] = clamp(chosen.value + (strengthRandom - 0.5) * 0.22);
   }
-  const footLaneIds = QUADRUPED_LANES.slice(0, 4).map(({ id }) => id);
-  for (let quarter = 0; quarter < 4; quarter += 1) {
-    const start = quarter * 4;
-    const hasFoot = footLaneIds.some((laneId) => pattern[laneId].slice(start, start + 4).some((value) => value > 0));
-    if (hasFoot) continue;
-    let laneRandom;
-    [cursor, laneRandom] = nextRandom(cursor);
-    let stepRandom;
-    [cursor, stepRandom] = nextRandom(cursor);
-    pattern[footLaneIds[Math.floor(laneRandom * footLaneIds.length)]][start + Math.floor(stepRandom * 4)] = 0.72;
-  }
-  const terrain = [...current.terrain];
-  for (let step = 0; step < QUADRUPED_STEP_COUNT; step += 1) {
-    let random;
-    [cursor, random] = nextRandom(cursor);
-    if (random >= 0.1) continue;
-    let materialRandom;
-    [cursor, materialRandom] = nextRandom(cursor);
-    terrain[step] = QUADRUPED_TERRAINS[Math.floor(materialRandom * QUADRUPED_TERRAINS.length)].id;
-  }
-  return sanitizeQuadrupedState({ ...current, pattern, terrain, customized: true, mutationSeed: cursor || 1 }, current);
+  return sanitizeQuadrupedState({ ...current, pattern, customized: true, mutationSeed: cursor || 1 }, current);
 }
 
 export function clearQuadrupedPattern(state) {
@@ -975,14 +1189,13 @@ function sequenceEventFromSafe(safe, absoluteStep = 0, forceHead = false) {
   const contacts = QUADRUPED_LANES
     .map((lane) => Object.freeze({ ...lane, intensity: safe.pattern[lane.id][step] }))
     .filter(({ intensity }) => intensity > 0);
-  const terrain = quadrupedTerrain(safe.terrain[step]);
-  const footContacts = contacts.filter(({ id }) => id !== "tail");
-  const tail = contacts.find(({ id }) => id === "tail")?.intensity ?? 0;
+  const terrain = quadrupedTerrain(safe.surfaceId);
+  const footContacts = contacts;
   const footEnergy = footContacts.reduce((sum, { intensity }) => sum + intensity, 0);
-  const totalEnergy = footEnergy + tail * 0.65;
+  const totalEnergy = footEnergy;
   const foreEnergy = footContacts.filter(({ id }) => id.startsWith("front")).reduce((sum, { intensity }) => sum + intensity, 0);
   const rearEnergy = Math.max(0, footEnergy - foreEnergy);
-  const head = headPhraseFromEvent(safe, step, terrain, footEnergy, totalEnergy, forceHead);
+  const head = forceHead ? headPhraseFromEvent(safe, step, terrain, footEnergy, totalEnergy, true) : null;
   return Object.freeze({ step, contacts: Object.freeze(contacts), terrain, footEnergy, totalEnergy, foreEnergy, rearEnergy, supportCount: footContacts.length, head });
 }
 
@@ -1030,55 +1243,310 @@ function headPerformanceFromSafe(safe, absolutePosition) {
   return Object.freeze({ active: false, kind: null, gesture: null, strength: 0, progress: 1, noteIndex: -1, notePulse: 0, trunkRaise: 0, hornPulse: 0, headToss: 0, earFlick: 0, whiskerPulse: 0, spineFlex: 0, neckSway: 0, tongueFlick: 0 });
 }
 
-function footCycleState(safe, laneId, absolutePosition, stanceSteps) {
-  const position = mod(absolutePosition, QUADRUPED_STEP_COUNT);
+function minimumJerk(progress) {
+  const u = clamp(progress);
+  return u * u * u * (10 + u * (-15 + u * 6));
+}
+
+export function solveQuadrupedLimbJoint(rootX, rootY, endX, endY, upperLength, lowerLength, bendDirection = 1) {
+  const safeRootX = Number.isFinite(Number(rootX)) ? Number(rootX) : 0;
+  const safeRootY = Number.isFinite(Number(rootY)) ? Number(rootY) : 0;
+  const safeEndX = Number.isFinite(Number(endX)) ? Number(endX) : safeRootX;
+  const safeEndY = Number.isFinite(Number(endY)) ? Number(endY) : safeRootY + 1;
+  const upper = Math.max(0.001, Math.abs(Number(upperLength) || 0));
+  const lower = Math.max(0.001, Math.abs(Number(lowerLength) || 0));
+  const dx = safeEndX - safeRootX;
+  const dy = safeEndY - safeRootY;
+  const rawDistance = Math.hypot(dx, dy);
+  const minimumReach = Math.abs(upper - lower) + 0.000001;
+  const maximumReach = Math.max(minimumReach, upper + lower - 0.000001);
+  const distance = clamp(rawDistance, minimumReach, maximumReach);
+  const ux = rawDistance > 0.000001 ? dx / rawDistance : 0;
+  const uy = rawDistance > 0.000001 ? dy / rawDistance : 1;
+  const constrainedEndX = safeRootX + ux * distance;
+  const constrainedEndY = safeRootY + uy * distance;
+  const along = (upper * upper - lower * lower + distance * distance) / (2 * distance);
+  const height = Math.sqrt(Math.max(0, upper * upper - along * along));
+  const side = Number(bendDirection) < 0 ? -1 : 1;
+  return Object.freeze({
+    x: safeRootX + ux * along - uy * height * side,
+    y: safeRootY + uy * along + ux * height * side,
+    endX: constrainedEndX,
+    endY: constrainedEndY,
+    upperLength: upper,
+    lowerLength: lower,
+    distance,
+    reached: Math.abs(distance - rawDistance) < 0.00001,
+  });
+}
+
+// Solve a fixed upper + lower + distal chain while preserving the requested
+// foot contact whenever the three authored segments can reach it. The distal
+// hint chooses an anatomical ankle orientation; circle intersection supplies
+// the nearest valid orientation when that hint would stretch the limb.
+export function solveQuadrupedLimbChain(
+  rootX,
+  rootY,
+  footX,
+  footY,
+  upperLength,
+  lowerLength,
+  distalLength,
+  bendDirection = 1,
+  distalHintX = 0,
+  distalHintY = -1,
+) {
+  const safeRootX = Number.isFinite(Number(rootX)) ? Number(rootX) : 0;
+  const safeRootY = Number.isFinite(Number(rootY)) ? Number(rootY) : 0;
+  const requestedFootX = Number.isFinite(Number(footX)) ? Number(footX) : safeRootX;
+  const requestedFootY = Number.isFinite(Number(footY)) ? Number(footY) : safeRootY + 1;
+  const upper = Math.max(0.001, Math.abs(Number(upperLength) || 0));
+  const lower = Math.max(0.001, Math.abs(Number(lowerLength) || 0));
+  const distal = Math.max(0.001, Math.abs(Number(distalLength) || 0));
+  const requestedDx = requestedFootX - safeRootX;
+  const requestedDy = requestedFootY - safeRootY;
+  const requestedDistance = Math.hypot(requestedDx, requestedDy);
+  const ux = requestedDistance > 0.000001 ? requestedDx / requestedDistance : 0;
+  const uy = requestedDistance > 0.000001 ? requestedDy / requestedDistance : 1;
+  const maximumReach = Math.max(0.000001, upper + lower + distal - 0.000003);
+  const minimumReach = Math.max(
+    0.000001,
+    upper - lower - distal,
+    lower - upper - distal,
+    distal - upper - lower,
+  ) + 0.000001;
+  const footDistance = clamp(requestedDistance, minimumReach, maximumReach);
+  const constrainedFootX = safeRootX + ux * footDistance;
+  const constrainedFootY = safeRootY + uy * footDistance;
+
+  const rawHintLength = Math.hypot(Number(distalHintX) || 0, Number(distalHintY) || 0);
+  const hintX = rawHintLength > 0.000001 ? Number(distalHintX) / rawHintLength : 0;
+  const hintY = rawHintLength > 0.000001 ? Number(distalHintY) / rawHintLength : -1;
+  const preferredAnkleX = constrainedFootX + hintX * distal;
+  const preferredAnkleY = constrainedFootY + hintY * distal;
+  const preferredDistance = Math.hypot(preferredAnkleX - safeRootX, preferredAnkleY - safeRootY);
+  const minimumJointReach = Math.abs(upper - lower) + 0.000001;
+  const maximumJointReach = Math.max(minimumJointReach, upper + lower - 0.000001);
+  let ankleX = preferredAnkleX;
+  let ankleY = preferredAnkleY;
+
+  if (preferredDistance < minimumJointReach || preferredDistance > maximumJointReach) {
+    const circleMinimum = Math.abs(footDistance - distal) + 0.000001;
+    const circleMaximum = Math.max(circleMinimum, footDistance + distal - 0.000001);
+    const targetDistance = clamp(
+      preferredDistance,
+      Math.max(minimumJointReach, circleMinimum),
+      Math.min(maximumJointReach, circleMaximum),
+    );
+    const along = footDistance > 0.000001
+      ? (targetDistance * targetDistance - distal * distal + footDistance * footDistance) / (2 * footDistance)
+      : 0;
+    const height = Math.sqrt(Math.max(0, targetDistance * targetDistance - along * along));
+    const baseX = safeRootX + ux * along;
+    const baseY = safeRootY + uy * along;
+    const candidateA = { x: baseX - uy * height, y: baseY + ux * height };
+    const candidateB = { x: baseX + uy * height, y: baseY - ux * height };
+    const distanceA = Math.hypot(candidateA.x - preferredAnkleX, candidateA.y - preferredAnkleY);
+    const distanceB = Math.hypot(candidateB.x - preferredAnkleX, candidateB.y - preferredAnkleY);
+    const selected = distanceA <= distanceB ? candidateA : candidateB;
+    ankleX = selected.x;
+    ankleY = selected.y;
+  }
+
+  const joint = solveQuadrupedLimbJoint(
+    safeRootX,
+    safeRootY,
+    ankleX,
+    ankleY,
+    upper,
+    lower,
+    bendDirection,
+  );
+  return Object.freeze({
+    kneeX: joint.x,
+    kneeY: joint.y,
+    ankleX: joint.endX,
+    ankleY: joint.endY,
+    footX: constrainedFootX,
+    footY: constrainedFootY,
+    upperLength: upper,
+    lowerLength: lower,
+    distalLength: distal,
+    reached: joint.reached && Math.abs(footDistance - requestedDistance) < 0.00001,
+  });
+}
+
+function neutralFootX(laneId, animalId) {
+  const fore = laneId.startsWith("front");
+  const left = laneId.endsWith("left");
+  const morphology = quadrupedAnimal(animalId).morphology ?? MORPHOLOGY.elephant;
+  const reach = morphology.bodyWidth * (morphology.family === "lizard" ? 0.52 : 0.49);
+  return (fore ? reach : -reach) + (left ? -0.075 : 0.075);
+}
+
+function footCycleStateFromSafe(safe, laneId, absolutePosition) {
+  const numericPosition = Number(absolutePosition);
+  const unwrappedPosition = Number.isFinite(numericPosition) ? numericPosition : 0;
+  const position = mod(unwrappedPosition, QUADRUPED_STEP_COUNT);
   const wholeStep = Math.floor(position);
   const fraction = position - wholeStep;
+  const lanePattern = safe.pattern[laneId] ?? [];
+  const bodyWorldX = unwrappedPosition / QUADRUPED_STEP_COUNT * safe.stride;
+  const bodyGroundHeight = quadrupedGroundHeightAtWorldX(safe.groundProfileId, bodyWorldX);
+  const neutralX = neutralFootX(laneId, safe.animalId);
   let previous = null;
   let next = null;
   for (let lag = 0; lag < QUADRUPED_STEP_COUNT; lag += 1) {
     const step = mod(wholeStep - lag, QUADRUPED_STEP_COUNT);
-    const intensity = safe.pattern[laneId][step];
+    const intensity = lanePattern[step] ?? 0;
     if (intensity > 0) {
-      previous = { age: lag + fraction, intensity };
+      previous = { age: lag + fraction, intensity, step };
       break;
     }
   }
   for (let lead = 1; lead <= QUADRUPED_STEP_COUNT; lead += 1) {
     const step = mod(wholeStep + lead, QUADRUPED_STEP_COUNT);
-    const intensity = safe.pattern[laneId][step];
+    const intensity = lanePattern[step] ?? 0;
     if (intensity > 0) {
-      next = { distance: lead - fraction, intensity };
+      next = { distance: lead - fraction, intensity, step };
       break;
     }
   }
   if (!previous || !next) {
-    return Object.freeze({ intensity: 0, contact: 0, impact: 0, lift: 0.34, swing: 0 });
-  }
-  const cycleSteps = Math.max(1, previous.age + next.distance);
-  const stanceDuration = Math.min(Math.max(0.7, stanceSteps), Math.max(0.7, cycleSteps - 0.45));
-  const grounded = previous.age < stanceDuration;
-  const touchdown = safe.pattern[laneId][wholeStep];
-  const impact = touchdown * Math.exp(-fraction * 10);
-  if (grounded) {
-    const stanceProgress = clamp(previous.age / stanceDuration);
-    const release = stanceProgress > 0.9 ? clamp((1 - stanceProgress) / 0.1) : 1;
+    const neutralWorldX = quadrupedGroundAnchorX(safe.groundProfileId, bodyWorldX + neutralX);
+    const neutralWorldY = quadrupedGroundHeightAtWorldX(safe.groundProfileId, neutralWorldX);
     return Object.freeze({
-      intensity: previous.intensity,
-      contact: previous.intensity * release,
-      impact,
-      lift: 0,
-      swing: (1 - stanceProgress * 2) * safe.stride,
+      laneId,
+      eventId: null,
+      intensity: 0,
+      contact: 0,
+      grounded: false,
+      load: 0,
+      propulsion: 0,
+      impact: 0,
+      touchdown: false,
+      lift: 0.18,
+      swing: neutralX,
+      footX: neutralX,
+      footWorldX: neutralWorldX,
+      footWorldY: neutralWorldY,
+      anchorWorldX: null,
+      anchorWorldY: null,
+      nextAnchorWorldX: null,
+      nextAnchorWorldY: null,
+      bodyWorldX,
+      bodyGroundHeight,
+      stanceProgress: 1,
+      swingProgress: 0.5,
+      dutyFactor: 0,
+      cycleSteps: QUADRUPED_STEP_COUNT,
+      stanceDuration: 0,
+      previousTouchdownPosition: null,
+      nextTouchdownPosition: null,
     });
   }
-  const swingDuration = Math.max(0.45, cycleSteps - stanceDuration);
-  const swingProgress = clamp((previous.age - stanceDuration) / swingDuration);
+  const cycleSteps = Math.max(0.5, previous.age + next.distance);
+  const profile = quadrupedGaitProfile(safe.behaviorId, safe.animalId);
+  const dutyFactor = laneId.startsWith("front") ? profile.frontDutyFactor : profile.hindDutyFactor;
+  const stanceDuration = clamp(cycleSteps * dutyFactor, 0.28, Math.max(0.3, cycleSteps - 0.08));
+  const previousTouchdownPosition = unwrappedPosition - previous.age;
+  const nextTouchdownPosition = unwrappedPosition + next.distance;
+  const requestedAnchorWorldX = previousTouchdownPosition / QUADRUPED_STEP_COUNT * safe.stride + neutralX;
+  const requestedNextAnchorWorldX = nextTouchdownPosition / QUADRUPED_STEP_COUNT * safe.stride + neutralX;
+  const anchorWorldX = quadrupedGroundAnchorX(safe.groundProfileId, requestedAnchorWorldX);
+  const nextAnchorWorldX = quadrupedGroundAnchorX(safe.groundProfileId, requestedNextAnchorWorldX);
+  const anchorWorldY = quadrupedGroundHeightAtWorldX(safe.groundProfileId, anchorWorldX);
+  const nextAnchorWorldY = quadrupedGroundHeightAtWorldX(safe.groundProfileId, nextAnchorWorldX);
+  const touchdown = previous.age < 0.0001;
+  const impact = previous.intensity * Math.exp(-previous.age * 11);
+  const grounded = previous.age < stanceDuration;
+  let stanceProgress = 1;
+  let swingProgress = 0;
+  let footWorldX = anchorWorldX;
+  let footWorldY = anchorWorldY;
+  let lift = 0;
+  let contact = 0;
+  let load = 0;
+  let propulsion = 0;
+  if (grounded) {
+    stanceProgress = clamp(previous.age / stanceDuration);
+    const release = stanceProgress > 0.92 ? clamp((1 - stanceProgress) / 0.08) : 1;
+    const verticalArc = 0.34 + Math.sin(Math.PI * stanceProgress) * 0.66;
+    contact = previous.intensity * release;
+    load = contact * verticalArc;
+    const driveBias = laneId.startsWith("front") ? 0.72 : 1.16;
+    propulsion = load * driveBias * (0.42 + 0.58 * stanceProgress);
+  } else {
+    const swingDuration = Math.max(0.08, cycleSteps - stanceDuration);
+    swingProgress = clamp((previous.age - stanceDuration) / swingDuration);
+    const pathProgress = minimumJerk(swingProgress);
+    footWorldX = anchorWorldX + (nextAnchorWorldX - anchorWorldX) * pathProgress;
+    footWorldY = anchorWorldY + (nextAnchorWorldY - anchorWorldY) * pathProgress;
+    lift = Math.sin(Math.PI * swingProgress) ** 2 * quadrupedGroundProfile(safe.groundProfileId).clearanceScale;
+  }
+  const footX = footWorldX - bodyWorldX;
+  const cycleOrdinal = Math.round((previousTouchdownPosition - previous.step) / QUADRUPED_STEP_COUNT);
   return Object.freeze({
+    laneId,
+    eventId: `${laneId}:${cycleOrdinal}:${previous.step}`,
     intensity: previous.intensity,
-    contact: 0,
+    contact,
+    grounded,
+    load,
+    propulsion,
     impact,
-    lift: Math.sin(Math.PI * swingProgress),
-    swing: (-1 + swingProgress * 2) * safe.stride,
+    touchdown,
+    lift,
+    swing: footX,
+    footX,
+    footWorldX,
+    footWorldY,
+    anchorWorldX,
+    anchorWorldY,
+    nextAnchorWorldX,
+    nextAnchorWorldY,
+    bodyWorldX,
+    bodyGroundHeight,
+    stanceProgress,
+    swingProgress,
+    dutyFactor,
+    cycleSteps,
+    stanceDuration,
+    previousTouchdownPosition,
+    nextTouchdownPosition,
+  });
+}
+
+export function quadrupedFootCycleState(state, laneId, absolutePosition = 0) {
+  const safe = sanitizeQuadrupedState(state);
+  if (!QUADRUPED_LANES.some(({ id }) => id === laneId)) {
+    return footCycleStateFromSafe(safe, QUADRUPED_LANES[0].id, absolutePosition);
+  }
+  return footCycleStateFromSafe(safe, laneId, absolutePosition);
+}
+
+export function quadrupedSupportSnapshot(state, absolutePosition = 0) {
+  const safe = sanitizeQuadrupedState(state);
+  const legs = Object.fromEntries(QUADRUPED_LANES.map(({ id }) => [
+    id,
+    footCycleStateFromSafe(safe, id, absolutePosition),
+  ]));
+  const values = Object.values(legs);
+  const bodyWorldX = values[0]?.bodyWorldX ?? 0;
+  const profile = quadrupedGroundProfile(safe.groundProfileId);
+  // A regular stair is discontinuous under each foot, but the animal's body
+  // follows the continuous grade through those treads. This prevents the body
+  // from snapping when the set of supporting feet changes.
+  const courseSlope = clamp(profile.direction * profile.stepHeight / profile.treadLength, -0.65, 0.65);
+  const bodyGroundHeight = courseSlope * bodyWorldX;
+  return Object.freeze({
+    legs: Object.freeze(legs),
+    supportCount: values.filter(({ grounded }) => grounded).length,
+    supportEnergy: values.reduce((sum, { load }) => sum + load, 0),
+    propulsion: values.reduce((sum, leg) => sum + leg.propulsion, 0),
+    bodyWorldX,
+    bodyGroundHeight,
+    supportSlope: courseSlope,
   });
 }
 
@@ -1089,37 +1557,59 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
   const position = mod(absolutePosition, QUADRUPED_STEP_COUNT);
   const step = Math.floor(position);
   const phase = position - step;
+  const cycleProgress = position / QUADRUPED_STEP_COUNT;
+  const rearUpEnvelope = safe.behaviorId === "rear-up"
+    ? minimumJerk(clamp(position / 3)) * minimumJerk(clamp((QUADRUPED_STEP_COUNT - position) / 3))
+    : 0;
+  const forwardRollProgress = safe.behaviorId === "forward-roll"
+    ? minimumJerk(clamp((position - 1.25) / 12.5))
+    : 0;
+  const rollTuck = safe.behaviorId === "forward-roll"
+    ? Math.sin(Math.PI * clamp((position - 0.5) / 14.5)) ** 2
+    : 0;
   const event = sequenceEventFromSafe(safe, step);
   const headPerformance = headPerformanceFromSafe(safe, absolutePosition);
   const motion = BEHAVIOR_MOTION[safe.behaviorId] ?? BEHAVIOR_MOTION.walk;
   const legs = {};
-  const behavior = behaviorDefinition(safe.behaviorId, safe.animalId);
   for (const lane of QUADRUPED_LANES.slice(0, 4)) {
-    const cycle = footCycleState(safe, lane.id, absolutePosition, behavior.stanceSteps);
+    const cycle = footCycleStateFromSafe(safe, lane.id, absolutePosition);
     legs[lane.id] = Object.freeze({ ...cycle, lift: clamp(cycle.lift * motion.lift, 0, 1.2) });
   }
-  const tailIntensity = safe.pattern.tail[step];
   legs.tail = Object.freeze({
-    intensity: tailIntensity,
-    contact: tailIntensity * (phase < 0.64 ? 1 : clamp(1 - (phase - 0.64) / 0.36)),
-    impact: tailIntensity * Math.exp(-phase * 10),
-    lift: Math.max(0, Math.sin(Math.PI * phase)) * motion.lift * 0.5,
-    swing: Math.sin((position / 2 + 0.25) * Math.PI * 2) * safe.stride,
+    intensity: 0,
+    contact: 0,
+    impact: 0,
+    lift: 0,
+    swing: Math.sin((position / QUADRUPED_STEP_COUNT) * Math.PI * 2) * safe.stride,
   });
-  const inferredSupportCount = QUADRUPED_LANES.slice(0, 4).filter(({ id }) => legs[id].contact > 0.06).length;
+  if (rearUpEnvelope > 0) {
+    for (const lane of QUADRUPED_LANES.slice(0, 2)) {
+      legs[lane.id] = Object.freeze({
+        ...legs[lane.id],
+        grounded: false,
+        contact: 0,
+        load: 0,
+        propulsion: 0,
+        footX: legs[lane.id].footX + rearUpEnvelope * (lane.id.endsWith("left") ? -0.28 : 0.18),
+        lift: Math.max(legs[lane.id].lift, 0.3 + rearUpEnvelope * (lane.id.endsWith("left") ? 0.7 : 0.76)),
+      });
+    }
+  }
+  const inferredSupportCount = QUADRUPED_LANES.slice(0, 4).filter(({ id }) => legs[id].grounded).length;
+  const supportPlane = quadrupedSupportSnapshot(safe, absolutePosition);
   const groundSupportCount = Number.isFinite(Number(motorSnapshot?.supportCount))
     ? Math.round(clamp(motorSnapshot.supportCount, 0, 4))
     : inferredSupportCount;
-  if (["dance", "rear-waltz", "lizard-sprint"].includes(safe.behaviorId) && groundSupportCount === 2) {
+  if (["dance", "rear-waltz", "rear-up", "lizard-sprint"].includes(safe.behaviorId) && groundSupportCount === 2) {
     for (const lane of QUADRUPED_LANES.slice(0, 4)) {
-      if (legs[lane.id].contact > 0.06) continue;
+      if (legs[lane.id].grounded) continue;
       legs[lane.id] = Object.freeze({ ...legs[lane.id], lift: Math.max(legs[lane.id].lift, 0.72 + Math.sin(Math.PI * phase) * 0.28) });
     }
   }
   let flightArc = 0;
   if (groundSupportCount === 0) {
     const sampleSupport = (samplePosition) => QUADRUPED_LANES.slice(0, 4).some(({ id }) => (
-      footCycleState(safe, id, samplePosition, behavior.stanceSteps).contact > 0.06
+      footCycleStateFromSafe(safe, id, samplePosition).grounded
     ));
     let behind = 0;
     let ahead = 0;
@@ -1134,21 +1624,29 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
     : simulatedHeight * (0.34 + motion.aerial * 0.34);
   const legImpact = QUADRUPED_LANES.slice(0, 4).reduce((sum, { id }) => sum + legs[id].impact, 0) / 4;
   const impact = Math.max(legImpact, clamp(motorSnapshot?.landing, 0, 1));
-  const leftEnergy = (legs["front-left"].contact + legs["rear-left"].contact) / 2;
-  const rightEnergy = (legs["front-right"].contact + legs["rear-right"].contact) / 2;
-  const foreSupport = legs["front-left"].contact + legs["front-right"].contact;
-  const rearSupport = legs["rear-left"].contact + legs["rear-right"].contact;
-  const danceSway = ["dance", "rear-waltz", "carousel"].includes(safe.behaviorId) ? Math.sin(position * Math.PI * 0.5) * 0.16 : 0;
+  const leftEnergy = (legs["front-left"].load + legs["rear-left"].load) / 2;
+  const rightEnergy = (legs["front-right"].load + legs["rear-right"].load) / 2;
+  const foreSupport = legs["front-left"].load + legs["front-right"].load;
+  const rearSupport = legs["rear-left"].load + legs["rear-right"].load;
+  const foreFootX = (legs["front-left"].footX + legs["front-right"].footX) * 0.5;
+  const hindFootX = (legs["rear-left"].footX + legs["rear-right"].footX) * 0.5;
+  const spineElasticity = quadrupedAnimal(safe.animalId).morphology?.spineElasticity ?? 0;
+  const felineSpineFlex = clamp((1.6 - (foreFootX - hindFootX)) * spineElasticity, -0.28, 0.28);
+  const danceSway = ["dance", "rear-waltz", "rear-up", "carousel"].includes(safe.behaviorId) ? Math.sin(position * Math.PI * 0.5) * 0.16 : 0;
   const propulsion = Number.isFinite(Number(motorSnapshot?.propulsion))
     ? clamp(motorSnapshot.propulsion / 2.4)
     : clamp(event.footEnergy / 3.2);
   const compression = clamp(motorSnapshot?.compression ?? impact * 0.42);
   const bodyLift = clamp(0.05 + aerial + propulsion * motion.bounce * 0.16 - compression * 0.2, -0.1, 1.2);
-  const headExpression = headPerformance.strength;
-  const danceBalance = ["dance", "rear-waltz", "lizard-sprint"].includes(safe.behaviorId) && groundSupportCount === 2
+  const headExpression = 0;
+  const danceBalance = ["dance", "rear-waltz", "rear-up", "lizard-sprint"].includes(safe.behaviorId) && groundSupportCount === 2
     ? clamp(Math.sin(Math.PI * phase))
     : 0;
-  const rearBalance = safe.behaviorId === "rear-waltz" ? 1 : safe.behaviorId === "lizard-sprint" ? 0.48 : 0;
+  const rearBalance = safe.behaviorId === "rear-waltz" ? 1
+    : safe.behaviorId === "rear-up" ? rearUpEnvelope
+      : safe.behaviorId === "lizard-sprint" ? 0.48
+        : 0;
+  const skidLean = safe.behaviorId === "skid" ? Math.sin(Math.PI * cycleProgress) * 0.16 : 0;
   return Object.freeze({
     position,
     step,
@@ -1161,19 +1659,26 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
     airborne: typeof motorSnapshot?.airborne === "boolean" ? motorSnapshot.airborne : groundSupportCount === 0,
     bodyLift,
     bodyRoll: clamp((rightEnergy - leftEnergy) * motion.sway + danceSway, -0.5, 0.5),
-    bodyPitch: clamp((rearSupport - foreSupport) * 0.08 + Math.sin(phase * Math.PI * 2) * 0.03, -0.28, 0.28),
-    headLift: clamp(bodyLift * 0.42 + safe.mood * 0.2 + headExpression * 0.22, 0, 0.92),
-    headNod: clamp(impact * 0.25 - Math.sin(phase * Math.PI * 2) * 0.06, -0.2, 0.35),
+    bodyPitch: clamp((rearSupport - foreSupport) * 0.09 - compression * 0.05 - Math.atan(supportPlane.supportSlope) * 0.72 + skidLean, -0.42, 0.42),
+    bodyGroundHeight: supportPlane.bodyGroundHeight,
+    groundSlope: supportPlane.supportSlope,
+    groundProfileId: safe.groundProfileId,
+    spineFlex: felineSpineFlex,
+    headLift: clamp(bodyLift * 0.38 + 0.1, 0, 0.72),
+    headNod: clamp(impact * 0.18 - (rearSupport - foreSupport) * 0.025, -0.16, 0.26),
     headExpression,
     danceBalance,
     rearBalance,
+    forwardRoll: forwardRollProgress,
+    rollTuck,
+    skidLean,
     propulsion,
     momentum: Number.isFinite(Number(motorSnapshot?.normalizedVelocity)) ? motorSnapshot.normalizedVelocity : safe.momentum,
     gravity: safe.gravity,
     compression,
-    tailAngle: Math.sin(position * Math.PI * 0.72) * (0.18 + safe.mood * 0.38) + legs.tail.impact * 0.65,
-    eyeOpen: clamp(0.48 + safe.mood * 0.46 + headExpression * 0.16, 0.22, 1),
-    smile: clamp((safe.mood - 0.32) * 1.2 + event.totalEnergy * 0.08, -0.3, 1),
+    tailAngle: Math.sin(position / QUADRUPED_STEP_COUNT * Math.PI * 2) * (0.2 + propulsion * 0.16),
+    eyeOpen: 0.78,
+    smile: 0.12,
   });
 }
 
@@ -1182,6 +1687,5 @@ export function describeQuadrupedStep(state, step) {
   const contacts = event.contacts.length
     ? event.contacts.map(({ label, intensity }) => `${label} ${Math.round(intensity * 100)} percent`).join(", ")
     : "no body contacts";
-  const head = event.head ? ` Head voice: ${event.head.kind}.` : " Head rests.";
-  return `Step ${event.step + 1}, ${event.terrain.label}: ${contacts}.${head}`;
+  return `Frame ${event.step + 1}, ${event.terrain.label}: ${contacts}. Lit marks are touchdowns; the support bar continues until lift-off.`;
 }

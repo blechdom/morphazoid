@@ -8,6 +8,7 @@ import {
   kickQuadrupedMotor,
   predictQuadrupedMotor,
   quadrupedMotorSnapshot,
+  synchronizeQuadrupedMotorTempo,
 } from "../src/quadruped-motor.js";
 import {
   clearQuadrupedPattern,
@@ -59,18 +60,16 @@ test("foot support starts the sixteen-frame flywheel and crossings carry score f
   assert.ok(result.events.every(Object.isFrozen));
 });
 
-test("a score with no feet cannot start, even when its tail is busy", () => {
+test("a score with no feet cannot start and an unknown tail lane is ignored", () => {
   const cleared = clearQuadrupedPattern(createQuadrupedState("unicorn", "dance"));
-  let tailOnly = cleared;
-  for (let frame = 0; frame < 16; frame += 1) {
-    tailOnly = setQuadrupedContact(tailOnly, "tail", frame, 1);
-  }
-  const result = advanceQuadrupedMotor(tailOnly, createQuadrupedMotorState(tailOnly), 2);
+  const unchanged = setQuadrupedContact(cleared, "tail", 0, 1);
+  const result = advanceQuadrupedMotor(unchanged, createQuadrupedMotorState(unchanged), 2);
 
   assert.equal(result.motor.position, 0);
   assert.equal(result.motor.velocity, 0);
   assert.equal(result.events.length, 0);
-  assert.equal(quadrupedMotorSnapshot(tailOnly, result.motor).stalled, true);
+  assert.deepEqual(unchanged.pattern, cleared.pattern);
+  assert.equal(quadrupedMotorSnapshot(unchanged, result.motor).stalled, true);
 });
 
 test("clearing the feet lets existing momentum coast to an exact stall", () => {
@@ -96,15 +95,30 @@ test("a default cheetah flywheel settles an empty score inside the live UI windo
   assert.equal(coast.motor.stalled, true);
 });
 
-test("stronger foot contacts accelerate more than weak contacts", () => {
+test("touchdown strength shapes impact without bending the global tempo", () => {
   const empty = clearQuadrupedPattern(createQuadrupedState("elephant", "walk"));
   const weak = setQuadrupedContact(empty, "rear-right", 0, 0.25);
   const strong = setQuadrupedContact(empty, "rear-right", 0, 1);
   const weakResult = advanceQuadrupedMotor(weak, createQuadrupedMotorState(weak), 0.3).motor;
   const strongResult = advanceQuadrupedMotor(strong, createQuadrupedMotorState(strong), 0.3).motor;
 
-  assert.ok(strongResult.velocity > weakResult.velocity);
-  assert.ok(strongResult.position > weakResult.position);
+  approximately(weakResult.velocity, weak.tempoBpm * 16 / 60);
+  approximately(strongResult.velocity, strong.tempoBpm * 16 / 60);
+  approximately(strongResult.position, weakResult.position);
+  assert.ok(strong.pattern["rear-right"][0] > weak.pattern["rear-right"][0]);
+});
+
+test("a live tempo change synchronizes immediately and preserves phase", () => {
+  const slow = { ...createQuadrupedState("camel", "walk"), tempoBpm: 60 };
+  const initial = kickQuadrupedMotor(slow, createQuadrupedMotorState(slow, { position: 5.25 }), 1);
+  approximately(initial.velocity, 16);
+  const fast = { ...slow, animalId: "cheetah", behaviorId: "sprint", tempoBpm: 180 };
+  const synchronized = synchronizeQuadrupedMotorTempo(fast, initial);
+  approximately(synchronized.position, 5.25);
+  approximately(synchronized.velocity, 48);
+  const advanced = advanceQuadrupedMotor(fast, synchronized, 0.25).motor;
+  approximately(advanced.position, 17.25);
+  approximately(advanced.velocity, 48);
 });
 
 test("fixed-step integration is stable across caller chunk sizes", () => {
@@ -177,16 +191,16 @@ test("flight uses finite gravity and returns through a landing with compression"
   assert.ok(motor.landingCount > 0);
 });
 
-test("all four foot lanes contribute propulsion while the tail never does", () => {
+test("all four foot lanes contribute propulsion and there is no fifth contact lane", () => {
   const base = clearQuadrupedPattern(createQuadrupedState("unicorn", "walk"));
   for (const laneId of FOOT_IDS) {
     const score = setQuadrupedContact(base, laneId, 0, 1);
     const result = advanceQuadrupedMotor(score, createQuadrupedMotorState(score), 0.2);
     assert.ok(result.motor.velocity > 0, `${laneId} should propel the motor`);
   }
-  const tail = setQuadrupedContact(base, "tail", 0, 1);
-  assert.equal(advanceQuadrupedMotor(tail, createQuadrupedMotorState(tail), 0.2).motor.velocity, 0);
-  assert.equal(kickQuadrupedMotor(tail, createQuadrupedMotorState(tail)).velocity, 0);
+  const invalid = setQuadrupedContact(base, "tail", 0, 1);
+  assert.deepEqual(invalid.pattern, base.pattern);
+  assert.equal(advanceQuadrupedMotor(invalid, createQuadrupedMotorState(invalid), 0.2).motor.velocity, 0);
 });
 
 test("momentum lengthens a coast and gravity changes a bounded flight arc", () => {
@@ -216,16 +230,74 @@ test("momentum lengthens a coast and gravity changes a bounded flight arc", () =
   assert.ok(lowPeak <= QUADRUPED_MOTOR_LIMITS.maxHeight);
 });
 
-test("expanded species use finite individual motor profiles", () => {
+test("all twelve species keep finite physics while sharing the requested sequence rate", () => {
   const base = createQuadrupedState("gazelle", "sprint");
   const velocities = new Map();
-  for (const animalId of ["cat", "cheetah", "giraffe", "lizard"]) {
+  for (const animalId of [
+    "elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe",
+    "lizard", "horse", "dog", "goat", "rabbit", "camel",
+  ]) {
     const score = { ...base, animalId };
     const result = advanceQuadrupedMotor(score, createQuadrupedMotorState(score), 0.5);
     assert.ok(result.motor.velocity > 0);
     assert.ok(Object.values(result.motor).filter((value) => typeof value === "number").every(Number.isFinite));
     velocities.set(animalId, result.motor.velocity);
   }
-  assert.ok(velocities.get("cheetah") > velocities.get("giraffe"));
-  assert.ok(velocities.get("cat") > velocities.get("lizard"));
+  for (const velocity of velocities.values()) approximately(velocity, base.tempoBpm * 16 / 60);
+  assert.equal(new Set(velocities.values()).size, 1);
+});
+
+test("ground contact always reconciles stale ballistic state", () => {
+  const score = createQuadrupedState("elephant", "walk");
+  const grounded = createQuadrupedMotorState(score, {
+    position: 0.5,
+    velocity: 8,
+    height: 1.8,
+    verticalVelocity: -7,
+    airborne: true,
+    flightId: "stale-flight",
+    supportCount: 0,
+  });
+  assert.ok(grounded.supportCount > 0);
+  assert.equal(grounded.height, 0);
+  assert.equal(grounded.verticalVelocity, 0);
+  assert.equal(grounded.airborne, false);
+  assert.equal(grounded.flightId, null);
+
+  let motor = grounded;
+  for (let index = 0; index < 600; index += 1) {
+    motor = advanceQuadrupedMotor(score, motor, 1 / 120).motor;
+    if (motor.supportCount > 0) {
+      assert.equal(motor.height, 0);
+      assert.equal(motor.verticalVelocity, 0);
+      assert.equal(motor.airborne, false);
+      assert.equal(motor.flightId, null);
+    }
+  }
+});
+
+test("load and push accents have stable IDs inside their touchdown stance", () => {
+  const score = createQuadrupedState("horse", "walk");
+  const run = advanceFor(score, createQuadrupedMotorState(score), 3, 0.25);
+  const accents = run.transitions.filter(({ type }) => type === "load" || type === "push");
+  assert.ok(accents.some(({ type }) => type === "load"));
+  assert.ok(accents.some(({ type }) => type === "push"));
+  assert.equal(new Set(accents.map(({ eventId }) => eventId)).size, accents.length);
+  for (const accent of accents) {
+    assert.equal(accent.eventId, `${accent.touchdownId}:${accent.type}`);
+    assert.ok(FOOT_IDS.includes(accent.laneId));
+    assert.ok(accent.stanceProgress === 0.28 || accent.stanceProgress === 0.72);
+  }
+});
+
+test("lift-off and landing share one flight ID across exact zero-support intervals", () => {
+  const score = createQuadrupedState("gazelle", "sprint");
+  const run = advanceFor(score, createQuadrupedMotorState(score), 4, 0.08);
+  const liftOffs = run.transitions.filter(({ type }) => type === "lift-off");
+  const landings = run.transitions.filter(({ type }) => type === "landing");
+  assert.ok(liftOffs.length > 0);
+  assert.ok(landings.length > 0);
+  const liftIds = new Set(liftOffs.map(({ flightId }) => flightId));
+  assert.ok(landings.every(({ flightId }) => typeof flightId === "string" && liftIds.has(flightId)));
+  assert.equal(new Set(run.transitions.map(({ eventId }) => eventId)).size, run.transitions.length);
 });
