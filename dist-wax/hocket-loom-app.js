@@ -869,10 +869,10 @@ function pointFor(voice, step, dimensions, radiusOffset = 0) {
 }
 
 function resizeCanvas() {
-  const width = Math.max(320, dom.canvasWrap.clientWidth);
-  const height = Math.max(330, Math.min(620, width * 0.66));
+  const rect = dom.canvas.getBoundingClientRect();
+  const width = Math.max(1, rect.width);
+  const height = Math.max(1, rect.height);
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  dom.canvas.style.height = `${height}px`;
   if (dom.canvas.width !== Math.round(width * dpr) || dom.canvas.height !== Math.round(height * dpr)) {
     dom.canvas.width = Math.round(width * dpr);
     dom.canvas.height = Math.round(height * dpr);

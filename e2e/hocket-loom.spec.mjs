@@ -12,6 +12,7 @@ import {
 } from "./helpers/audio-probe.mjs";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3435";
+const HOCKET_CANVAS_RATIO = 920 / 620;
 
 async function openLoom(page) {
   const diagnostics = watchPageDiagnostics(page, { baseURL: BASE_URL });
@@ -244,6 +245,8 @@ test("the title belongs to the graphic while tempo and movement stay beside Play
     tempo.locator("xpath=ancestor::label[1]").boundingBox(),
   ]);
   if (!titleBox || !canvasBox || !playBox || !tempoBox) throw new Error("Expected visible title and transport boxes.");
+  expect(Math.abs(canvasBox.width / canvasBox.height - HOCKET_CANVAS_RATIO)).toBeLessThan(0.01);
+  expect(playBox.height).toBeLessThanOrEqual(80);
   expect(titleBox.x).toBeGreaterThanOrEqual(canvasBox.x - 1);
   expect(titleBox.y).toBeGreaterThanOrEqual(canvasBox.y - 1);
   expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(canvasBox.x + canvasBox.width + 1);
@@ -672,7 +675,9 @@ for (const viewport of [
     expect(layout.audio.height).toBeGreaterThanOrEqual(48);
     expect(layout.transport.width).toBeGreaterThanOrEqual(48);
     expect(layout.transport.height).toBeGreaterThanOrEqual(48);
+    expect(layout.transport.height).toBeLessThanOrEqual(80);
     expect(layout.canvas.width).toBeGreaterThan(300);
+    expect(Math.abs(layout.canvas.width / layout.canvas.height - HOCKET_CANVAS_RATIO)).toBeLessThan(0.01);
     expect(layout.title.x).toBeGreaterThanOrEqual(layout.canvas.x - 1);
     expect(layout.title.y).toBeGreaterThanOrEqual(layout.canvas.y - 1);
     expect(layout.title.x + layout.title.width).toBeLessThanOrEqual(layout.canvas.x + layout.canvas.width + 1);
