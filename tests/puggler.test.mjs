@@ -1,13 +1,14 @@
 import test from 'node:test';
+import { PRESETS } from '../src/puggler-presets.js';
 import assert from 'node:assert/strict';
-import { PugglerModel, PATTERNS, PROPS, WORLD, PHRASE_CHUNKS, DEFAULTS, MAX_OBJECTS, parseNotation, initialSlots, launchFlight, flightPosition, soundMapping } from '../src/puggler.js';
+import { PugglerModel, PATTERNS, PROPS, WORLD, PHRASE_CHUNKS, DEFAULTS, MAX_OBJECTS, CASTS, parseNotation, initialSlots, launchFlight, flightPosition, soundMapping } from '../src/puggler.js';
 
 const advance = (m, seconds, steer = 0) => { const events=[]; for(let i=0;i<seconds*120;i++)events.push(...m.step(1/120, typeof steer==='function'?steer(i/120):steer)); return events; };
 test('every pattern has the correct distinct future reservations and catches every stationary material',()=>{
   for(const p of PATTERNS){
     const slots=initialSlots(p);assert.equal(slots.length,p.count,p.id);assert.equal(new Set(slots.map(s=>`${s.due}:${s.hand}`)).size,p.count);
     for(const prop of PROPS){
-      const m=new PugglerModel({count:p.count,pattern:p.id,propIds:Array(4).fill(prop.id),assist:20});
+      const m=new PugglerModel({count:p.count,pattern:p.id,propIds:Array(MAX_OBJECTS).fill(prop.id),assist:20});
       advance(m,15);assert.equal(m.drops,0,`${p.id}/${prop.id}`);assert.ok(m.catches>8,`${p.id}/${prop.id}`);assert.equal(m.objects.length,p.count);
     }
   }
@@ -31,18 +32,10 @@ test('speed changes preserve airborne objects without inventing a drop or cancel
   const o=m.objects[0];o.phase='air';o.x=m.x+25;o.y=30;m.kick();const start=o.start;advance(m,.1);
   assert.equal(o.start,start);assert.equal(o.phase,'air');
 });
-test('rescue kicks reach the current hat stack and collect bonus balloons',()=>{
-  for(const height of [0,3,7]){
-    const m=new PugglerModel({mode:'kick'});m.stack=Array(height).fill('#f00');m.nextBalloon=99;
-    const o={id:100,phase:'air',x:500,y:90,vx:0,vy:-90,prop:PROPS.find(p=>p.id==='balloon'),color:'#f00'};
-    m.balloons=[o];m.kick();const events=advance(m,4);assert.ok(events.some(e=>e.kind==='hat'),String(height));assert.ok(!m.balloons.includes(o));
-    assert.equal(m.stack.length,height===7?0:height+1);
-  }
-});
 test('state resets reproduce the same act, parameter limits and long sessions remain finite and bounded',()=>{
-  const a=new PugglerModel({mode:'kick'}),b=new PugglerModel({mode:'kick'});advance(a,6);a.reset();advance(a,5);advance(b,5);assert.deepEqual(a,b);
+  const a=new PugglerModel(),b=new PugglerModel();advance(a,6);a.reset();advance(a,5);advance(b,5);assert.deepEqual(a,b);
   a.apply({count:400,tempo:Infinity,gravity:-200,wind:900,assist:NaN});assert.equal(a.objects.length,MAX_OBJECTS);assert.ok(a.config.tempo>=100);assert.ok(a.config.gravity>=.45);
-  advance(a,120,t=>Math.sin(t*3));assert.ok(a.balloons.length<=5);assert.ok(a.stack.length<8);
+  advance(a,120,t=>Math.sin(t*3));assert.ok(a.debris.length<=10);
   for(const o of a.objects){assert.ok([o.x,o.y,o.vx,o.vy].every(Number.isFinite));assert.ok(o.trail.length<=55);}
 });
 test('height, x, velocity, and material mass have independent sound destinations',()=>{
@@ -175,4 +168,58 @@ test('independent gaming speed and height controls override automatic friends',(
   assert.ok(m.players[0].x<initial[0].x);assert.ok(m.players[1].x>initial[1].x);assert.ok(m.players[2].x>initial[2].x);
   assert.ok(m.players[0].loft>1);assert.ok(m.players[1].loft<1);assert.ok(m.players[2].loft>1);
   assert.ok(m.players[2].x-initial[2].x>m.players[1].x-initial[1].x);
+});
+
+const paused=(m,seconds,controls=[])=>{const events=[];for(let i=0;i<seconds*120;i++)events.push(...m.step(1/120,controls,null,0,null,false));return events;};
+test('all seven casts preserve stable identities, legal phrases and actual passing',()=>{
+  for(const cast of CASTS)for(const phrase of ['loop','verse','evolve']){
+    const m=new PugglerModel({cast:cast.id,count:6,pattern:'many-6',phrase,tempo:600,assist:20});
+    assert.deepEqual(m.activeIds,cast.riders);
+    const events=advance(m,10);
+    assert.equal(m.drops,0,`${cast.id}/${phrase}`);assert.equal(m.objects.length,6);
+    assert.ok(m.objects.every(o=>cast.riders.includes(o.owner)));
+    assert.deepEqual([...new Set(m.objects.map(o=>o.owner))].sort(),cast.riders);
+    const passes=events.filter(e=>e.kind==='throw'&&e.pass);
+    if(cast.riders.length===1)assert.equal(passes.length,0);
+    else assert.deepEqual([...new Set(passes.map(e=>e.owner))].sort(),cast.riders);
+  }
+});
+test('equal-size cast changes transfer parts to the new identities while preserving sound roles',()=>{
+  const m=new PugglerModel({cast:'puggler-roxy',count:4});advance(m,.4);
+  const roles=m.objects.map(o=>({drum:o.drum,riff:o.riff}));
+  for(const cast of ['roxy-moss','puggler-moss','roxy','moss']){
+    m.apply({cast});assert.ok(m.objects.every(o=>m.activeIds.includes(o.owner)));
+    assert.deepEqual(m.objects.map(o=>({drum:o.drum,riff:o.riff})),roles);advance(m,2);
+  }
+});
+test('pause stops automatic throws and the beat while props land, riders move and the crowd reacts',()=>{
+  const m=new PugglerModel({cast:'moss',count:3,assist:120});advance(m,.3);
+  const beat=m.beat,next=m.nextBeat,x=m.players[2].x;
+  const events=paused(m,3,[{},{},{steer:.34,height:1}]);
+  assert.equal(m.beat,beat);assert.equal(m.nextBeat,next);assert.ok(m.players[2].x>x+30);
+  assert.ok(m.players[2].loft>1);assert.equal(events.filter(e=>e.kind==='throw').length,0);
+  assert.ok(events.some(e=>e.kind.startsWith('crowd-')));
+  const resumed=advance(m,.1);assert.ok(m.beat>beat);assert.ok(resumed.filter(e=>e.kind==='throw').length<=2);
+});
+test('paused crowd exchanges work with held or empty hands and resume without a burst',()=>{
+  for(const empty of [false,true]){
+    const m=new PugglerModel({cast:'roxy',count:1,pattern:'single',tempo:180,assist:120});
+    if(empty)advance(m,.1);m.throwToAudience(1);const beat=m.beat;
+    const events=paused(m,5);
+    assert.ok(events.some(e=>e.kind==='crowd-catch'));assert.ok(events.some(e=>e.kind==='replacement'));
+    assert.ok(events.some(e=>e.kind==='catch'&&e.replacement));assert.equal(m.players[1].crowdQueued,false);
+    assert.equal(m.beat,beat);assert.equal(m.objects[0].phase,'held');assert.equal(m.drops,0);
+    assert.ok(advance(m,.1).filter(e=>e.kind==='throw').length<=1);
+  }
+});
+
+test('starting acts cover all casts and object counts with bounded reproducible sound roles',()=>{
+  assert.equal(new Set(PRESETS.map(p=>p.id)).size,PRESETS.length);
+  assert.deepEqual([...new Set(PRESETS.map(p=>p.config.cast))].sort(),CASTS.map(c=>c.id).sort());
+  assert.deepEqual([...new Set(PRESETS.map(p=>p.config.count))].sort((a,b)=>a-b),Array.from({length:10},(_,i)=>i+1));
+  for(const preset of PRESETS){
+    const m=new PugglerModel(preset.config);advance(m,5);
+    assert.equal(m.objects.length,preset.config.count,preset.id);
+    assert.ok(m.objects.every(o=>m.activeIds.includes(o.owner)&&[o.x,o.y,o.vx,o.vy].every(Number.isFinite)),preset.id);
+  }
 });

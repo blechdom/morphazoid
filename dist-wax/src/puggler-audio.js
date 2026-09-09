@@ -1,6 +1,6 @@
 import { connectAudioOutput } from './audio-output-manager.js';
 import { clamp, soundMapping, WORLD } from './puggler.js';
-import { PUNK_DRUMS, PUNK_RIFFS, PHRASE_TEMPO, renderPunkPhrase } from './puggler-samples.js';
+import { PUNK_DRUMS, PUNK_RIFFS, PHRASE_TEMPO, renderPunkPhrase, renderVocalChant } from './puggler-samples.js';
 
 export const MAX_PUGGLER_VOICES = 10;
 // Twenty catches/second can overlap 36 of the 1.8-second cymbal recordings;
@@ -8,9 +8,10 @@ export const MAX_PUGGLER_VOICES = 10;
 export const MAX_PUGGLER_ATTACKS = 48;
 export const MAX_PUGGLER_AIR_TAILS = 20;
 const CATCH_GATE = .018;
-const SAMPLE_IDS = [...PUNK_DRUMS, 'woo', 'boo'];
+const SAMPLE_IDS = [...PUNK_DRUMS, 'oi', 'woo', 'boo'];
 const DRUM_GAIN = { kick: 1.15, snare: 1.03, crash: .55, tom: 1.05, hat: .62 };
-const RIFF_GAIN = { guitar: .38, bass: .53, oi: .39, woo: .4 };
+const RIFF_GAIN = { guitar: .38, bass: .53, oi: .8, woo: .75 };
+const isVocal = role => role === 'oi' || role === 'woo';
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 
 // Space changes playback pitch AND phrase speed. Velocity pushes the phrase
@@ -35,6 +36,20 @@ export function punkMotion(object, parameters = {}) {
     energy: mapping.energy,
   };
 }
+export function punkVocalMotion(object, parameters = {}) {
+  const mapping = punkMotion(object, parameters);
+  const height = clamp((finite(object.y, WORLD.handY) - WORLD.handY) / 800, -.5, 1.5);
+  const tempo = clamp(finite(parameters.tempo, 240), 60, 1200);
+  const semitones = height * clamp(finite(parameters.height, .8), 0, 2) * 1.5
+    + clamp(finite(object.vx) / 900, -.7, .7) + Math.log2(tempo / 240) * .15;
+  return { ...mapping,
+    // Preserve recognizable words and the recorded singer's mouth resonances;
+    // tempo nudges the phrase rather than sending speech through guitar rates.
+    rate: clamp(2 ** (semitones / 12), .84, 1.2),
+    tone: clamp(6200 + Math.hypot(finite(object.vx), finite(object.vy)) * 1.25, 5800, 10000),
+    level: .82 + .18 * Math.min(1, Math.hypot(finite(object.vx), finite(object.vy)) / 1600),
+  };
+}
 function saturator(amount = 1) {
   const curve = new Float32Array(1024);
   for (let i = 0; i < curve.length; i++) { const x = i / (curve.length - 1) * 2 - 1; curve[i] = Math.tanh(x * amount) / Math.tanh(amount); }
@@ -46,7 +61,7 @@ export class PugglerAudio {
     this.phrasePositions = Array(MAX_PUGGLER_VOICES).fill(null);
     this.gateUntil = Array(MAX_PUGGLER_VOICES).fill(0);
     this.attacks = new Set(); this.airTails = new Set(); this.disposed = false;
-    this.buffers = null; this.loading = null; this.armSerial = 0; this.running = false;
+    this.buffers = null; this.loading = null; this.armSerial = 0; this.running = false; this.active = true; this.level = .38;
   }
   async arm() {
     if (this.disposed) return;
@@ -57,6 +72,9 @@ export class PugglerAudio {
       const c = this.context;
       this.bus = c.createGain(); this.master = c.createGain(); this.master.gain.value = 0;
       this.airBus = c.createGain(); this.airDuck = c.createGain(); this.airDuck.gain.value = 1;
+      this.vocalBus = c.createGain(); this.vocalCompressor = c.createDynamicsCompressor();
+      this.vocalCompressor.threshold.value = -8; this.vocalCompressor.knee.value = 10; this.vocalCompressor.ratio.value = 2;
+      this.vocalCompressor.attack.value = .01; this.vocalCompressor.release.value = .1;
       this.drumBus = c.createGain(); this.drumBus.gain.value = 2.8;
       this.compressor = c.createDynamicsCompressor();
       this.compressor.threshold.value = -16; this.compressor.knee.value = 5; this.compressor.ratio.value = 12;
@@ -69,6 +87,7 @@ export class PugglerAudio {
       // Compress the sustained riffs separately: catches bypass that compressor
       // so their recorded transients survive. The shared final ceiling remains.
       this.airBus.connect(this.compressor); this.compressor.connect(this.airDuck); this.airDuck.connect(this.bus);
+      this.vocalBus.connect(this.vocalCompressor); this.vocalCompressor.connect(this.airDuck);
       this.drumBus.connect(this.bus); this.bus.connect(this.ceiling); this.ceiling.connect(this.peakGuard); this.peakGuard.connect(this.master);
       this.releaseOutput = connectAudioOutput(c, this.master);
     }
@@ -89,7 +108,11 @@ export class PugglerAudio {
       return [id, await c.decodeAudioData(await response.arrayBuffer())];
     }));
     if (this.disposed) return;
-    for (const role of ['guitar', 'bass', 'oi']) {
+    const oiIndex = entries.findIndex(([id]) => id === 'oi'), oi = entries[oiIndex][1];
+    const chant = renderVocalChant(oi.getChannelData(0), oi.sampleRate);
+    const chantBuffer = c.createBuffer(1, chant.length, oi.sampleRate); chantBuffer.copyToChannel(chant, 0);
+    entries[oiIndex][1] = chantBuffer;
+    for (const role of ['guitar', 'bass']) {
       const rate = 22050, data = renderPunkPhrase(role, rate), buffer = c.createBuffer(1, data.length, rate);
       buffer.copyToChannel(data, 0); entries.push([role, buffer]);
     }
@@ -102,10 +125,15 @@ export class PugglerAudio {
   }
   update(objects, parameters = {}, running) {
     if (!this.context || this.disposed) return;
-    const t = this.context.currentTime, audible = this.on && Boolean(running) && Boolean(this.buffers);
+    const t = this.context.currentTime;
+    this.active = parameters.active !== false; this.level = clamp(finite(parameters.level, .38), 0, 1);
+    const audible = this.on && this.active && this.level > 0 && Boolean(this.buffers);
     this.running = Boolean(running);
-    this.master.gain.setTargetAtTime(audible ? clamp(finite(parameters.level, .38), 0, 1) * .9 : 0, t, .012);
+    this.master.gain.setTargetAtTime(audible ? this.level * .9 : 0, t, .012);
     if (!audible) { this.releaseAll(); return; }
+    // Pause belongs to juggling, not the room: release riffs but retain catch
+    // tails and model-triggered crowd reactions. Audio/level/visibility mute all.
+    if (!running) { this.releaseRiffs(); return; }
     const flightCount = objects.slice(0, MAX_PUGGLER_VOICES).filter(o => ['air', 'replacement', 'audience'].includes(o.phase)).length;
     const flightMix = Math.min(1, Math.sqrt(4 / Math.max(1, flightCount)));
     for (let i = 0; i < MAX_PUGGLER_VOICES; i++) {
@@ -115,22 +143,25 @@ export class PugglerAudio {
         this.releaseAir(i); continue;
       }
       if (this.voices[i]?.role !== role) { this.releaseAir(i); this.voices[i] = this.startAir(role, t, i); }
-      const v = this.voices[i], m = punkMotion(object, parameters);
+      const v = this.voices[i], m = isVocal(role) ? punkVocalMotion(object, parameters) : punkMotion(object, parameters);
       this.advancePhrase(v, t); v.rate = m.rate;
       v.source.playbackRate.setTargetAtTime(m.rate, t, .035);
       v.filter.frequency.setTargetAtTime(m.tone, t, .025);
       v.pan.pan.setTargetAtTime(m.pan, t, .02);
       v.gain.gain.setTargetAtTime(clamp(finite(parameters.flight, .7), 0, 1) * RIFF_GAIN[role] * m.level * flightMix, Math.max(t, v.startedAt), .012);
-      v.drive.gain.setTargetAtTime(1 + clamp(finite(parameters.grit, .65), 0, 1) * (role === 'guitar' ? 2.6 : 1.2), t, .025);
+      v.drive?.gain.setTargetAtTime(1 + clamp(finite(parameters.grit, .65), 0, 1) * (role === 'guitar' ? 2.6 : 1.2), t, .025);
     }
   }
   startAir(role, t, slot) {
     const c = this.context, source = c.createBufferSource(), filter = c.createBiquadFilter();
-    const gain = c.createGain(), drive = c.createGain(), dirt = c.createWaveShaper(), pan = c.createStereoPanner();
+    const gain = c.createGain(), pan = c.createStereoPanner();
+    const vocal = isVocal(role), drive = vocal ? null : c.createGain(), dirt = vocal ? null : c.createWaveShaper();
     source.buffer = this.buffers[role]; source.loop = true;
-    filter.type = 'lowpass'; filter.Q.value = .55; filter.frequency.value = 4200;
-    gain.gain.value = 0; dirt.curve = saturator(1.3); dirt.oversample = '2x';
-    source.connect(filter); filter.connect(drive); drive.connect(dirt); dirt.connect(gain); gain.connect(pan); pan.connect(this.airBus);
+    filter.type = 'lowpass'; filter.Q.value = .55; filter.frequency.value = vocal ? 7200 : 4200;
+    gain.gain.value = 0; source.connect(filter);
+    if (vocal) filter.connect(gain);
+    else { dirt.curve = saturator(1.3); dirt.oversample = '2x'; filter.connect(drive); drive.connect(dirt); dirt.connect(gain); }
+    gain.connect(pan); pan.connect(vocal ? this.vocalBus : this.airBus);
     const position = this.phrasePositions[slot];
     const offset = position?.role === role ? position.offset : 0;
     const startedAt = Math.max(t + .002, this.gateUntil[slot]);
@@ -171,10 +202,10 @@ export class PugglerAudio {
     this.ducking = true;
   }
   strike(event, parameters = {}, when) {
-    if (!this.context || !this.on || this.disposed || !this.buffers) return;
+    if (!this.context || !this.on || this.disposed || !this.buffers || !this.active || parameters.active === false || finite(parameters.level, this.level) <= 0) return;
     const c = this.context, now = c.currentTime, at = finite(when, now);
     // Throwing owns its riff; landing owns its drum; dropping gets only the boo.
-    if (at < now - .05 || at > now + .25 || !['catch', 'crowd-catch', 'drop', 'kick', 'hat', 'tower'].includes(event.kind)) return;
+    if (at < now - .05 || at > now + .25 || !['catch', 'crowd-catch', 'crowd-woo', 'crowd-boo', 'drop', 'kick'].includes(event.kind)) return;
     const t = Math.max(now + .002, at);
     if (['catch', 'crowd-catch', 'drop'].includes(event.kind) && Number.isInteger(event.id) && event.id >= 0 && event.id < MAX_PUGGLER_VOICES) {
       // A whole catch/throw dwell can fall between 20-ms state polls at high
@@ -182,32 +213,32 @@ export class PugglerAudio {
       this.gateUntil[event.id] = Math.max(this.gateUntil[event.id], t + CATCH_GATE);
       this.releaseAir(event.id, t, true);
     }
-    const drop = event.kind === 'drop';
-    const id = drop ? 'boo' : event.kind === 'kick' ? 'kick' : ['hat', 'tower'].includes(event.kind) ? 'crash'
+    const drop = event.kind === 'drop' || event.kind === 'crowd-boo', cheer = event.kind === 'crowd-woo', crowd = drop || cheer;
+    const id = cheer ? 'woo' : drop ? 'boo' : event.kind === 'kick' ? 'kick'
       : PUNK_DRUMS.includes(event.drum) ? event.drum : PUNK_DRUMS[clamp(Math.floor(finite(event.id)), 0, MAX_PUGGLER_VOICES - 1) % PUNK_DRUMS.length];
-    const amount = clamp(finite(drop ? parameters.boo : parameters.impacts, drop ? 1 : 1.25), 0, drop ? 1 : 2);
+    const amount = clamp(finite(crowd ? (parameters.crowd ?? parameters.boo) : parameters.impacts, crowd ? 1 : 1.25), 0, crowd ? 1 : 2);
     if (amount === 0) return;
     if (['catch', 'crowd-catch'].includes(event.kind)) this.duckRiffs(t, amount);
     if (this.attacks.size >= MAX_PUGGLER_ATTACKS) this.disconnectVoice(this.attacks.values().next().value);
-    if (drop) {
-      const boos = [...this.attacks].filter(v => v.role === 'boo' && !v.releasing);
+    if (crowd) {
+      const boos = [...this.attacks].filter(v => ['boo', 'woo'].includes(v.role) && !v.releasing);
       if (boos.length >= 3) { boos[0].releasing = true; this.fadeVoice(boos[0]); }
     }
     const m = punkMotion(event, parameters);
     const source = c.createBufferSource(), gain = c.createGain(), pan = c.createStereoPanner();
     source.buffer = this.buffers[id];
-    const rate = drop ? clamp(.95 + finite(event.id) * .015, .85, 1.1) : clamp(1 + (m.energy - .5) * .045, .95, 1.05);
-    source.playbackRate.value = rate; pan.pan.value = drop ? m.pan * .3 : m.pan;
-    const duration = Math.max(.05, Math.min(source.buffer.duration / rate, drop ? 2 : source.buffer.duration * clamp(finite(parameters.decay, 1), .2, 2)));
-    const peak = amount * (drop ? .64 : DRUM_GAIN[id] * (.72 + .28 * m.energy));
-    gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(peak * (drop ? 1 : 1.35), t + .002);
-    if (!drop) {
+    const rate = crowd ? clamp(.95 + finite(event.id) * .015, .85, 1.1) : clamp(1 + (m.energy - .5) * .045, .95, 1.05);
+    source.playbackRate.value = rate; pan.pan.value = crowd ? m.pan * .3 : m.pan;
+    const duration = Math.max(.05, Math.min(source.buffer.duration / rate, crowd ? 2 : source.buffer.duration * clamp(finite(parameters.decay, 1), .2, 2)));
+    const peak = amount * (crowd ? (cheer ? .58 : .64) : DRUM_GAIN[id] * (.72 + .28 * m.energy));
+    gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(peak * (crowd ? 1 : 1.35), t + .002);
+    if (!crowd) {
       gain.gain.setValueAtTime(peak * 1.35, t + .012);
       gain.gain.linearRampToValueAtTime(peak, t + Math.min(.042, duration * .45));
     }
-    gain.gain.setValueAtTime(peak, t + Math.max(drop ? .004 : .043, duration - .045));
+    gain.gain.setValueAtTime(peak, t + Math.max(crowd ? .004 : .043, duration - .045));
     gain.gain.linearRampToValueAtTime(0, t + duration);
-    source.connect(gain); gain.connect(pan); pan.connect(drop ? this.bus : this.drumBus);
+    source.connect(gain); gain.connect(pan); pan.connect(crowd ? this.bus : this.drumBus);
     const voice = { role: id, source, gain, pan }; this.attacks.add(voice);
     source.onended = () => this.disconnectVoice(voice); source.start(t); source.stop(t + duration + .01);
   }
@@ -217,22 +248,25 @@ export class PugglerAudio {
     v.source.onended = null; try { v.source.stop(); } catch {}
     for (const node of [v.source, v.filter, v.gain, v.drive, v.dirt, v.pan]) node?.disconnect();
   }
-  releaseAll() {
+  releaseRiffs() {
     for (let i = 0; i < MAX_PUGGLER_VOICES; i++) this.releaseAir(i);
     for (const v of this.airTails) if (v.releaseAt > this.context.currentTime) this.fadeVoice(v);
-    for (const v of this.attacks) if (!v.releasing) { v.releasing = true; this.fadeVoice(v); }
     if (this.ducking) {
       this.airDuck.gain.cancelScheduledValues(this.context.currentTime);
       this.airDuck.gain.setTargetAtTime(1, this.context.currentTime, .008);
       this.ducking = false;
     }
   }
+  releaseAll() {
+    this.releaseRiffs();
+    for (const v of this.attacks) if (!v.releasing) { v.releasing = true; this.fadeVoice(v); }
+  }
   releaseAttack(v) { this.disconnectVoice(v); }
   async close() {
     if (this.disposed) return; this.disposed = true; this.on = false; ++this.armSerial; this.abort?.abort();
     for (const voice of [...this.attacks, ...this.airTails, ...this.voices]) this.disconnectVoice(voice);
     this.voices = []; this.buffers = null; this.releaseOutput?.();
-    for (const node of [this.airBus, this.airDuck, this.drumBus, this.bus, this.compressor, this.ceiling, this.peakGuard, this.master]) node?.disconnect();
+    for (const node of [this.airBus, this.airDuck, this.vocalBus, this.vocalCompressor, this.drumBus, this.bus, this.compressor, this.ceiling, this.peakGuard, this.master]) node?.disconnect();
     if (this.context?.state !== 'closed') await this.context?.close();
   }
 }

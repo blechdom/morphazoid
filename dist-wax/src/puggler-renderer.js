@@ -107,19 +107,27 @@ function lettering(c, text, x, y, size, color = '#dce9a3', angle = 0) {
   c.font=`900 ${size}px ui-monospace, monospace`; c.textAlign='center'; c.fillText(text,0,0); c.restore();
 }
 function punkFace(c, model, player, owner, drop, catchHit, rush) {
-  const female=owner===1, moss=owner===2;
-  const skin = moss ? '#aa785a' : female ? '#bb946d' : '#d7a57e';
-  const hair = moss ? '#69988b' : female ? '#f245aa' : '#d58a42';
-  const time=model.time, look=bounded(player.vx/180,-1,1)*3;
-  c.save(); c.translate(rush*5,0); c.rotate(rush*.035 + drop*.075);
+  const female=owner===1,moss=owner===2,time=model.time;
+  const skin=moss?'#aa785a':female?'#bb946d':'#d7a57e';
+  const hair=moss?'#69988b':female?'#f245aa':'#d58a42';
+  const toss=impact(time,player.lastThrow,.33),pit=impact(time,player.lastCrowdThrow,.7);
+  const force=bounded(catchHit*.65+toss*.4+Math.abs(rush)*.45+pit*.5,0,1);
+  const mode=((Math.floor((model.beat??0)/4)+owner)%4+4)%4;
+  const incoming=(model.objects??[]).filter(o=>o.owner===owner&&['air','replacement'].includes(o.phase)).sort((a,b)=>a.y-b.y)[0];
+  const look=bounded(incoming?(incoming.x-player.x)/95:rush,-1,1)*5;
+  const lookUp=incoming?bounded((incoming.y-270)/120,0,5):1;
+  const jaw=8+force*13+drop*19,tilt=rush*.08+drop*(owner%2?-.12:.12)+catchHit*(owner%2?.045:-.045);
+  const cheek=Math.sin(time*5+owner*2)*Math.abs(rush)*3;
+  c.save();c.translate(rush*7,388+force*3);c.rotate(tilt);c.scale(1.25+force*.08,1+drop*.06);c.translate(0,-388);
+  // Hair reacts with the enlarged, hinged face while palms remain in world space.
   if(moss) {
     for(let i=0;i<11;i++) {
-      const a=i/10*Math.PI,x=Math.cos(a)*37,y=360+Math.sin(a)*42;
-      path(c,[[x-10,y-5],[x-15,y+25],[x-4,y+15],[x+7,y+32],[x+12,y+7],[x+10,y-12]],i%2?hair:'#49756e','#344d48',2);
+      const a=i/10*Math.PI,x=Math.cos(a)*37,y=359+Math.sin(a)*40;
+      path(c,[[x-10,y-5],[x-15,y+25+force*5],[x-4,y+15],[x+7,y+32+drop*8],[x+12,y+7],[x+10,y-12]],i%2?hair:'#49756e','#344d48',2);
     }
   } else if(female) {
     for(const side of [-1,1]) {
-      path(c,[[side*17,377],[side*47,409+Math.sin(time*4+side)*8],[side*60,376],[side*47,384],[side*53,353],[side*30,365]],hair,'#742854',3);
+      path(c,[[side*17,377],[side*47,409+Math.sin(time*4+side)*8+force*8],[side*60,376],[side*47,384],[side*53,349-force*9],[side*30,365]],hair,'#742854',3);
       ellipse(c,side*30,385,9,5,'#baf276','#432840');
     }
   } else {
@@ -128,42 +136,81 @@ function punkFace(c, model, player, owner, drop, catchHit, rush) {
       ellipse(c,Math.cos(a)*35,356+Math.sin(a)*40,12,13,i%2?'#ba662f':hair,'#683c28');
     }
   }
-  path(c,[[-26,387],[17,395],[32,372],[44,358],[31,351],[27,334],[10,326],[-14,339],[-27,358]],skin,'#513738',3);
-  path(c,[[12,391],[32,369],[29,354],[12,359]],moss?'#bd926b':female?'#caa884':'#e9bb92',skin,0);
+  // A broad upper face and rubbery jaw make reactions readable on a phone.
+  path(c,[[-29,386],[18,395],[36,376],[48+cheek,357],[35,347],[31,338-jaw],[9,326-jaw],[-17,335-jaw],[-31,359]],skin,'#513738',3);
+  path(c,[[14,390],[33,376],[32,351],[15,357]],moss?'#bd926b':female?'#caa884':'#e9bb92',skin,0);
+  ellipse(c,-27,350,8+force*2,6,'#b7736455');ellipse(c,33,349,8+force*2,6,'#bf796855');
   if(female) {
-    path(c,[[-28,372],[-30,399],[-18,404],[-14,425],[-2,407],[7,427],[16,406],[29,415],[25,389],[8,397]],hair,'#742854',3);
-    line(c,[[-24,365],[-14,367]],'#252335',7);
-    line(c,[[15,368],[26,364]],'#252335',7);
-    ellipse(c,-29,348,5,9,null,'#f2da8b');
-    line(c,[[33,351],[39,350]],'#ece3bd',2);
+    path(c,[[-29,375],[-30,399],[-18,404],[-14,425],[-2,407],[7,427],[16,406],[29,415],[25,389],[8,397]],hair,'#742854',3);
+    ellipse(c,-32,343-jaw*.25,6,11,null,'#f2da8b');
+    line(c,[[37,347],[45,344]],'#ece3bd',2.5);
   }
   if(moss) {
     line(c,[[-29,389],[30,389]],'#a97987',9);
     ellipse(c,-10,391,13,11,'#59495d','#d6c17d');ellipse(c,20,391,13,11,'#59495d','#d6c17d');
     ellipse(c,-10,391,8,6,'#96c9b7');ellipse(c,20,391,8,6,'#a2bfe0');line(c,[[1,391],[7,391]],'#ddd09d',3);
-    path(c,[[-19,342],[-13,324],[-4,316],[3,324],[10,311],[20,327],[28,342],[14,336],[1,340]],'#514638','#382e2f',2);
-    ellipse(c,-29,345,7,9,null,'#b8cc92');line(c,[[-29,351],[-29,338]],'#b8cc92',1.5);line(c,[[-29,345],[-34,340]],'#b8cc92',1.5);line(c,[[-29,345],[-24,340]],'#b8cc92',1.5);
+    path(c,[[-21,336-jaw],[-15,320-jaw],[-5,311-jaw],[3,319-jaw],[10,306-jaw],[23,324-jaw],[30,340-jaw],[13,335-jaw],[0,338-jaw]],'#514638','#382e2f',2);
+    ellipse(c,-32,342,7,9,null,'#b8cc92');
   }
-  const eyeLift = drop*6 + catchHit*2;
-  line(c,[[-18,376+eyeLift],[-6,381+eyeLift],[6,376+eyeLift-rush*2]],'#603d32',4);
-  line(c,[[16,378+eyeLift],[25,379+eyeLift],[33,372+eyeLift]],'#603d32',4);
-  ellipse(c,-5,369,8,5+drop*3,'#faefd2'); ellipse(c,25,367,7,5+drop*3,'#faefd2');
-  ellipse(c,-3+look,370+catchHit,2.7,3.8,'#293842');ellipse(c,27+look,368+catchHit,2.5,3.6,'#293842');
-  line(c,[[14,368],[21,355],[36,356]],'#8d6550',2.5);
-  if(drop>.15) {
-    ellipse(c,12,342,9,4+drop*6,'#4b2634','#8c554e');
-    line(c,[[-35,383],[-42,395]],'#b7e9dd',3);line(c,[[41,382],[48,391]],'#b7e9dd',3);
-  } else if(catchHit>.35 || Math.abs(rush)>.5) {
-    path(c,[[-6,347],[28,346],[18,332],[5,332]],'#572935');
-    line(c,[[0,344],[23,343]],'#f7e6bb',4);
-    path(c,[[10,334],[24,334],[26,324],[15,327]],'#e47386','#8a4353',1);
+  const eyeOpen=drop>.1?1.15:mode===1?.54:mode===3?.85:1;
+  const leftY=369+drop*4+catchHit*2,rightY=367+drop*6-catchHit*2;
+  const eyeWidth=12+drop*4+force*2,leftHeight=(8+force*4+drop*4)*eyeOpen,rightHeight=(9+force*3+drop*5)*(mode===3?.6:eyeOpen);
+  ellipse(c,-7,leftY,eyeWidth,leftHeight,'#fff1cc','#7b5946');ellipse(c,24,rightY,eyeWidth-1,rightHeight,'#fff1cc','#7b5946');
+  // Brows have different slopes: disbelief, snarling, manic delight, then a sneer.
+  const brow=drop*10+force*6;
+  line(c,[[-23,380+brow],[-9,389+brow],[7,380+brow-(mode===1?8:0)]],female?'#29212a':'#57352d',5);
+  line(c,[[11,382+brow+(mode===3?5:0)],[25,382+brow],[39,391+brow-(mode===1?13:0)]],female?'#29212a':'#57352d',5);
+  if(female) {
+    line(c,[[-22,leftY+5],[-30,leftY+11]],'#2b2030',3);
+    line(c,[[36,rightY+4],[44,rightY+10]],'#2b2030',3);
+  }
+  for(const [x,y,sign] of [[-7,leftY,-1],[24,rightY,1]]) {
+    const px=x+look-sign*drop*3,py=y+lookUp;
+    if(drop>.18) {
+      c.beginPath();for(let i=0;i<=22;i++){const a=i*.55,r=1+i*.23;const x=px+Math.cos(a)*r,y=py+Math.sin(a)*r;if(i)c.lineTo(x,y);else c.moveTo(x,y);}c.strokeStyle='#4b3b51';c.lineWidth=1.7;c.stroke();
+    } else {
+      ellipse(c,px,py,4.5+force,5.5+force*.5,moss?'#645272':female?'#435263':'#405944');
+      ellipse(c,px,py,2.2,3.6,'#211d2a');ellipse(c,px-1.6,py+2,1.4,1.6,'#fff4d4');
+    }
+  }
+  line(c,[[11,365],[19,352],[39+cheek,352]],'#8d6550',2.5);
+  ellipse(c,30+cheek,350,3,2,'#624139');
+  const mouthY=336-jaw*.35;
+  if(drop>.1||mode===2) {
+    // A cavernous howl, with an offset tongue, cheek creases and two bad teeth.
+    ellipse(c,9,mouthY,17+force*6,12+jaw*.52,'#482330','#8d514e');
+    path(c,[[-3,mouthY+12],[4,mouthY+14],[5,mouthY+4],[-2,mouthY+3]],'#f4dfb3','#d0b793',1);
+    path(c,[[8,mouthY+14],[16,mouthY+12],[14,mouthY+3],[8,mouthY+4]],'#f4dfb3','#d0b793',1);
+    ellipse(c,13,mouthY-jaw*.35,9,4+force*3,'#e77d8d');
+    line(c,[[-17,mouthY+6],[-22,mouthY-5]],'#8f554b',2);line(c,[[32,mouthY+7],[37,mouthY-5]],'#8f554b',2);
+  } else if(mode===1) {
+    const teeth=[[-14,mouthY+11],[28,mouthY+13],[34,mouthY-7],[-14,mouthY-5]];
+    path(c,teeth,'#4b2334','#8d514e',2);
+    path(c,[[-12,mouthY+9],[27,mouthY+10],[29,mouthY+1],[-13,mouthY+1]],'#f4dfb3','#f4dfb3',0);
+    path(c,[[-12,mouthY-1],[29,mouthY-1],[31,mouthY-5],[-12,mouthY-3]],'#ddc58c','#ddc58c',0);
+    for(let i=0;i<5;i++)line(c,[[-7+i*8,mouthY+9],[-6+i*8,mouthY+1]],'#775953',1.4);
+    line(c,[[-19,mouthY+11],[-25,mouthY+18]],'#8f554b',2);
+  } else if(mode===3) {
+    ellipse(c,12,mouthY,14,9+force*4,'#b66b77','#753d49');ellipse(c,14,mouthY,7,6+force*3,'#452534');
+    line(c,[[-17,346],[-21,337],[-17,331]],'#8d554b',2);line(c,[[33,345],[39,337],[36,331]],'#8d554b',2);
   } else {
-    path(c,[[-4,347],[29,346],[19,337],[6,337]],'#613b38');line(c,[[0,344],[24,343]],'#f4ddbd',4);
+    path(c,[[-17,mouthY+14],[31,mouthY+17],[35,mouthY+4],[20,mouthY-14],[2,mouthY-13],[-15,mouthY+1]],'#512331','#8d514e',2);
+    path(c,[[-14,mouthY+12],[28,mouthY+14],[25,mouthY+5],[-8,mouthY+3]],'#f3dfb3','#d2b68b',1);
+    for(let i=0;i<4;i++)line(c,[[-5+i*8,mouthY+12],[-3+i*8,mouthY+4]],'#846052',1.5);
+    // Tongue travel comes from the throw impulse and direction of the unicycle.
+    const tongueX=19+Math.sin(time*7+owner)*force*8+rush*5;
+    path(c,[[4,mouthY-7],[20,mouthY-5],[tongueX+10,mouthY-17-force*10],[tongueX+4,mouthY-23-force*12],[tongueX-6,mouthY-20-force*8]],'#e78292','#9d4a64',1.5);
+    line(c,[[14,mouthY-10],[tongueX+1,mouthY-18-force*7]],'#b35272',1.5);
   }
+  if(drop>.12)for(const [x,y,side] of [[-35,380,-1],[42,380,1],[-32,350,-1]]) {
+    line(c,[[x,y],[x+side*(7+drop*7),y+9+drop*7]],'#aecfd1',3);
+    ellipse(c,x+side*(10+drop*8),y+14+drop*7,2,3,'#b3dbe0');
+  }
+  if(owner===0)for(const side of [-1,1])for(let j=0;j<3;j++)ellipse(c,side*33,370-j*14,8,10,j%2?'#d89342':'#a8602f','#744326');
+  c.restore();
   if(owner===0) {
-    for(const side of [-1,1])for(let j=0;j<3;j++)ellipse(c,side*31,371-j*14,8,10,j%2?'#d89342':'#a8602f','#744326');
-    // Oversized polka-dot stovepipe; the defining Puggler silhouette.
-    c.save();c.translate(0,398);c.rotate(-rush*.055-drop*.07);c.translate(0,-398);
+    // The hat stays recognizable while the face underneath goes rubbery.
+    c.save();c.translate(rush*7,398+force*3);c.rotate(tilt-rush*.055-drop*.07);c.translate(0,-398);
     ellipse(c,0,398,73,15,'#082f28','#061e20');
     const hat=c.createLinearGradient(-42,0,42,0);hat.addColorStop(0,'#075a40');hat.addColorStop(.45,'#1db66a');hat.addColorStop(.75,'#138d54');hat.addColorStop(1,'#064737');
     path(c,[[-42,402],[-39,503],[36,506],[44,402]],hat,'#033d2c',3);
@@ -174,7 +221,6 @@ function punkFace(c, model, player, owner, drop, catchHit, rush) {
     ellipse(c,-1,505,38,9,'#279d62','#085138');ellipse(c,-6,508,27,4,'#79dd8655');
     c.restore();
   }
-  c.restore();
 }
 export function drawPuggler(c, model, owner = 0, horizontalRatio = 1) {
   const player=model.players?.[owner] ?? model;
@@ -265,8 +311,6 @@ export function drawPuggler(c, model, owner = 0, horizontalRatio = 1) {
   }
   punkFace(c,model,player,owner,drop,caught,rush);
   c.restore();
-  // A small halo identifies the performer without floating control chrome.
-  lettering(c,moss?'MOSS':female?'ROXY':'PUGGLER',0,-24,15,moss?'#c4c994':female?'#f787c8':'#bbe66e');
   c.restore();
 }
 function amplifier(c,x,y,width,height,color) {
@@ -284,18 +328,18 @@ function amplifier(c,x,y,width,height,color) {
 }
 // Hand-lettered fictional bills: shuffle changes the wall, never the performance.
 const POSTER_BILLS = [
-  ['THRASH','TRASH','star'], ['SNOT','RIOT!','star'], ['FREE','PARTY','smile'],
-  ['ACID','HOUSE','smile'], ['FLOWER','POWER','flower'], ['PEACE','& LOVE','peace'],
-  ['COSMIC','COMPOST','flower'], ['BASS','IS FOOD','smile'], ['NOISE','NOT WAR','peace'],
-  ['DANCE','TILL DAWN','star'], ['RAVE','IN RUINS','smile'], ['PATCH','NOT POSH','flower'],
-  ['BLOOM','IN FILTH','flower'], ['MOSS','PIT','peace'], ['DIY','FOREVER','star'],
-  ['EAT SLEEP','RIOT','star'], ['FLOWERS','& FEEDBACK','flower'], ['PUNK','GARDEN','flower'],
-  ['LOVE','YOUR WEEDS','peace'], ['BOOTS','& BEATS','star'], ['LOW LIFE','HIGH HATS','smile'],
-  ['COMPOST','THE SYSTEM','flower'], ['SQUAT','ROCK','star'], ['MAKE','GOOD TROUBLE','peace'],
-  ['UNITE','& UNTUNE','peace'], ['DUST','TO DUB','smile'], ['GO','FREE RANGE','flower'],
-  ['ALL NIGHT','NO EGO','smile'], ['BIG LOVE','BAD AMPS','peace'], ['FUZZ','& FUNGUS','flower'],
+  ['THRASH','TRASH','star'], ['SNOT','RIOT!','skull'], ['HOT','GARBAGE','slime'], ['BIN','RATS','rat'],
+  ['CRUST','BUCKET','skull'], ['GRIME','TIME','star'], ['BIN','JUICE','slime'], ['SKUNK','WRESTLE','rat'],
+  ['RUST','TEETH','skull'], ['FILTH','FREQUENCY','star'], ['SEWER','SERENADE','slime'], ['NOISE','GOBLIN','rat'],
+  ['GUTTER','CHOIR','skull'], ['BENT','NAILS','star'], ['SLUDGE','PUNCH','slime'], ['FLEA','CIRCUS','rat'],
+  ['SQUAT','ROT','skull'], ['TRASH','PANIC','star'], ['MOLD','PATROL','slime'], ['DAMP','SOCKS','rat'],
+  ['RANCID','RACKET','skull'], ['SNOT','ROCKET','star'], ['GOO','CREW','slime'], ['GARBAGE','GOBLINS','rat'],
+  ['BROKEN','TEETH','skull'], ['DIRT','DRUMS','star'], ['PUNK','PUKE','slime'], ['WORM','AMPLIFIER','rat'],
+  ['SHRIEK','& REEK','skull'], ['CRUST','CONTROL','star'], ['FEEDBACK','FUNGUS','slime'], ['MYSTERY','GRISTLE','rat'],
+  ['DOOM','LAUNDRY','skull'], ['SICK','RIFFS','star'], ['HOT','SWEATPANTS','slime'], ['TRASH','GREMLINS','rat'],
+  ['STINK','MACHINE','skull'], ['NASTY','RACKET','star'], ['SWEAT','SOUP','slime'], ['SCAB','CABARET','rat'],
 ];
-const POSTER_GROUPS=['star','flower','smile','peace'].map(kind=>POSTER_BILLS.filter(bill=>bill[2]===kind));
+const POSTER_GROUPS=['star','skull','slime','rat'].map(kind=>POSTER_BILLS.filter(bill=>bill[2]===kind));
 function poster(c,bill,paper) {
   path(c,[[-43,-51],[41,-50],[44,36],[29,39],[23,32],[9,42],[-1,34],[-14,40],[-41,35]],paper,'#30282d',2);
   c.fillStyle='#3b3035';c.textAlign='center';
@@ -304,20 +348,20 @@ function poster(c,bill,paper) {
     c.fillText(bill[i],0,-27+i*20);
   }
   const ink='#4d4246';
-  if(bill[2]==='flower') {
-    for(let i=0;i<6;i++){const a=i*TAU/6;ellipse(c,Math.cos(a)*8,14+Math.sin(a)*8,5,5,null,ink);}
-    ellipse(c,0,14,4,4,ink);
+  if(bill[2]==='skull') {
+    ellipse(c,0,11,11,11,ink);path(c,[[-7,15],[7,15],[6,25],[-6,25]],ink,ink,0);
+    ellipse(c,-4,11,3,4,paper);ellipse(c,4,11,3,4,paper);path(c,[[0,15],[-2,18],[2,18]],paper,paper,0);
+    for(let i=0;i<3;i++)line(c,[[-4+i*4,21],[-4+i*4,25]],paper,1.4);
   } else if(bill[2]==='star') {
     const points=Array.from({length:10},(_,i)=>{const a=i*Math.PI/5-Math.PI/2,r=i%2?5:13;return[Math.cos(a)*r,14+Math.sin(a)*r];});
     path(c,points,ink,ink,1);
+  } else if(bill[2]==='slime') {
+    path(c,[[-12,10],[-8,4],[-1,8],[5,3],[12,10],[13,18],[8,19],[8,26],[4,26],[3,18],[-2,20],[-3,29],[-7,27],[-7,19],[-13,19]],ink,ink,1);
+    ellipse(c,-5,11,2,2,paper);ellipse(c,5,12,2,2,paper);
   } else {
-    ellipse(c,0,13,12,12,null,ink);
-    if(bill[2]==='peace') {
-      line(c,[[0,1],[0,25]],ink,2);line(c,[[0,13],[-8,22]],ink,2);line(c,[[0,13],[8,22]],ink,2);
-    } else {
-      ellipse(c,-4,9,1.7,2.2,ink);ellipse(c,4,9,1.7,2.2,ink);
-      c.beginPath();c.arc(0,12,7,0,Math.PI);c.strokeStyle=ink;c.lineWidth=2;c.stroke();
-    }
+    ellipse(c,1,17,11,7,ink);path(c,[[-7,12],[-17,16],[-8,22]],ink,ink,1);
+    ellipse(c,-7,10,4,5,ink);ellipse(c,-11,16,1.2,1.2,paper);
+    c.beginPath();c.moveTo(10,18);c.bezierCurveTo(23,13,11,5,21,3);c.strokeStyle=ink;c.lineWidth=2;c.stroke();
   }
   line(c,[[-31,30],[26,30]],'#4c393960',1.3);
 }
@@ -358,7 +402,8 @@ function stage(c,w,h,model,view) {
     poster(c,bill,papers[(posterSeed+i*5)%papers.length]);c.restore();
   }
   // Fixed broad beams breathe gently with performance; no strobe effects.
-  const energy=Math.min(1,Math.abs(model.vx||0)/350+impact(time,model.players?.[0]?.lastCatch,.8)*.2);
+  const performers=model.activePlayers??model.players??[model];
+  const energy=Math.min(1,Math.max(0,...performers.map(p=>Math.abs(p.vx||0)))/350+Math.max(0,...performers.map(p=>impact(time,p.lastCatch,.8)))*.2);
   for(let i=0;i<3;i++) {
     const x=w*(.16+i*.34),end=w*(.2+i*.31)+Math.sin(time*.35+i)*w*.04;
     path(c,[[x-7,23],[x+7,23],[end+w*.16,floor],[end-w*.16,floor]],i%2?'#bf648111':'#bdce5e0c','#ffffff00',0);
@@ -406,13 +451,17 @@ function stage(c,w,h,model,view) {
   }
 }
 function audience(c,w,h,model,view) {
-  const boo=impact(model.time,model.lastDrop,1.35),time=model.time;
+  const time=model.time,reaction=model.lastCrowdReaction;
+  const cheer=reaction?.kind==='crowd-woo'?impact(time,reaction.time,.9):0;
+  const boo=Math.max(impact(time,model.lastDrop,1.35),reaction?.kind==='crowd-boo'?impact(time,reaction.time,.9):0);
+  const movement=Math.max(0,...(model.activePlayers??model.players??[model]).map(p=>Math.abs(p.vx||0)));
   const count=Math.ceil(w/43);
   for(let i=0;i<count;i++) {
-    const x=i*w/(count-1),bounce=Math.sin(time*3+i*1.7)*(2+Math.min(2,Math.abs(model.vx||0)/100));
-    const y=h+8+bounce-(i%3)*4,up=boo>0?boo*18:Math.max(0,Math.sin(time*2.4+i*2))*11;
+    const x=i*w/(count-1),bounce=Math.sin(time*3+i*1.7)*(2+Math.min(2,movement/100))-cheer*(8+(i%3)*3);
+    const y=h+8+bounce-(i%3)*4,up=Math.max(boo*18,cheer*28,Math.max(0,Math.sin(time*2.4+i*2))*11);
     const col=i%2?'#0a090e':'#151117';
     ellipse(c,x,y-17,12+i%3,15,col);ellipse(c,x,y+10,25,25,col);
+    if(Math.max(boo,cheer)>.15&&i%2===0){ellipse(c,x-4,y-22,1.5,2,'#867b73');ellipse(c,x+4,y-22,1.5,2,'#867b73');ellipse(c,x,y-13,4+boo*2,3+cheer*4,'#83646b');}
     if(i%3!==1) {
       const sign=i%2?1:-1,handX=x+sign*26,handY=y-43-up;
       line(c,[[x+sign*12,y+1],[x+sign*29,y-15],[handX,handY]],col,8);
@@ -441,13 +490,9 @@ function audience(c,w,h,model,view) {
       const other=hand.x+direction*23;
       line(c,[[x+direction*6,y+9],[x+direction*23,y-12],[other,hand.y+27-lift]],color,6);
       ellipse(c,other,hand.y+25-lift,6,6,color);
-      c.save();c.globalAlpha=energy;c.font='900 17px ui-monospace,monospace';c.textAlign='center';c.fillStyle='#d5d49b';c.fillText('OI!',bounded(x,24,w-24),h-70-lift*.3);c.restore();
     }
   }
-  if(boo>0) {
-    c.save();c.globalAlpha=Math.min(1,boo*1.8);c.font=`900 ${w<500?17:23}px ui-monospace,monospace`;c.textAlign='center';
-    c.translate(w*.2,h-65-boo*8);c.rotate(-.09);c.strokeStyle='#151019';c.lineWidth=5;c.strokeText('BOOOOO!',0,0);c.fillStyle='#d6b5a9';c.fillText('BOOOOO!',0,0);c.restore();
-  }
+
 }
 export class PugglerRenderer {
   constructor(canvas) {
@@ -462,7 +507,7 @@ export class PugglerRenderer {
     const w=Math.max(1,rect.width),h=Math.max(1,rect.height);
     if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
     c.setTransform(dpr,0,0,dpr,0,0);
-    const bodies=[...(model.objects??[]),...(model.balloons??[])].filter(o=>o.phase!=='waiting'&&o.phase!=='gone');
+    const bodies=(model.objects??[]).filter(o=>o.phase!=='waiting'&&o.phase!=='gone');
     let highest=720;
     for(const o of bodies) {
       if(!['air','replacement','audience'].includes(o.phase))continue;
@@ -473,9 +518,8 @@ export class PugglerRenderer {
         if(Number.isFinite(at))highest=Math.max(highest,at+100);
       }
     }
-    highest=Math.max(highest,WORLD.hatY+40+(model.stack?.length??0)*33);
     this.top=highest>this.top?highest:this.top+(highest-this.top)*.035;
-    const activePlayers=model.config.partner==='solo'?1:String(model.config.partner).startsWith('trio')?3:2;
+    const activePlayers=Array.isArray(model.activePlayers)?model.activePlayers:(model.activeIds??[0]).map(id=>model.players?.[id]??model);
     const sx=w/1030,sy=Math.max(.22,Math.min(.8,(h-80)*.59/510)),ox=(w-WORLD.width*sx)/2,oy=h-56;
     const shoulder=540,shoulderPixels=shoulder*sy,upperPixels=Math.max(25,oy-shoulderPixels-31);
     const compressedTop=Math.log1p(Math.max(1,this.top-shoulder)/280);
@@ -494,12 +538,8 @@ export class PugglerRenderer {
     }
     // Arm geometry is uniformly scaled; only position/palm endpoints span world X.
     c.save();c.translate(ox,oy);c.scale(sy,-sy);
-    for(let owner=0;owner<activePlayers;owner++)if(model.players?.[owner]||owner===0)drawPuggler(c,model,owner,sx/sy);
+    for(const player of activePlayers)drawPuggler(c,model,player.id??0,sx/sy);
     c.restore();
-    for(let i=0;i<(model.stack?.length??0);i++) {
-      const p=point(model.x+Math.sin(model.time*2-i*.35)*Math.abs(model.vx)/40,WORLD.hatY+24+i*42);
-      drawProp(c,{id:'balloon',color:model.stack[i]},p.x,p.y,0,sy*1.25);
-    }
     for(const o of [...(model.debris??[]),...bodies]) {
       if(params.trails&&o.trail?.length>1) {
         c.beginPath();o.trail.forEach(([x,y],i)=>{if(bodies.length>6&&i%2&&i!==o.trail.length-1)return;const p=point(x,y);if(i)c.lineTo(p.x,p.y);else c.moveTo(p.x,p.y);});
@@ -509,11 +549,6 @@ export class PugglerRenderer {
         }
       }
       const p=point(o.x,o.y),size=sy*(o.phase==='floor'?1.45:1.8);
-      if(o.phase==='replacement'||o.phase==='audience') {
-        const incoming=o.phase==='replacement';
-        c.save();c.font=`bold ${w<500?9:10}px ui-monospace,monospace`;c.fillStyle=incoming?'#efda83':'#dbb0c1';c.textAlign='center';
-        c.fillText(incoming?'CATCH!':'TO THE PIT',bounded(p.x,32,w-32),Math.max(18,p.y-29));c.restore();
-      }
       drawProp(c,o.color?{...o.prop,color:o.color}:o.prop,p.x,p.y,o.spin??0,size);
       const player=model.players?.[o.owner??0]??model;
       if(o.phase==='held'&&(player.flash?.[o.hand]??0)>model.time) {
@@ -522,10 +557,9 @@ export class PugglerRenderer {
         for(let j=0;j<5;j++){const a=j*TAU/5;line(c,[[p.x+Math.cos(a)*sy*32,p.y+Math.sin(a)*sy*32],[p.x+Math.cos(a)*sy*47,p.y+Math.sin(a)*sy*47]],o.prop.color+'c0',2);}
       }
     }
-    for(const player of (model.players??[model]).slice(0,activePlayers))if(impact(model.time,player.lastKick,.22)>0) {
+    for(const player of activePlayers)if(impact(model.time,player.lastKick,.22)>0) {
       const p=point(player.x,75);c.strokeStyle='#d5f58c';c.lineWidth=3;c.beginPath();c.arc(p.x,p.y,85*sy,-1.2,.2);c.stroke();
     }
     audience(c,w,h,model,this.view);
-    c.font='10px ui-monospace, monospace';c.fillStyle='#b2a296';c.textAlign='left';c.fillText('L  ←  STAGE',13,h-12);c.textAlign='right';c.fillText('STAGE  →  R',w-13,h-12);
   }
 }

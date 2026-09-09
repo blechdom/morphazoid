@@ -8,15 +8,15 @@ performers, a filthy venue, musical phrases, passing, and crowd boos.
 
 | Topic | Evidence | Implemented interpretation / limits |
 | --- | --- | --- |
-| Puggler | Adult Swim, [Escape from Squatopian Freedom](https://www.adultswim.com/videos/xavier-renegade-angel/escape-from-squatopian-freedom), [official video around 90 seconds](https://www.youtube.com/watch?v=KW0OHJXVv14&t=90s) | Orange curls, angular human face, towering green hat with pale ringed dots, broad dark brim, purple/pink sleeveless stripes, lime tie, burgundy trousers, red unicycle. Original Canvas likeness; no extracted model, episode picture, dialogue, or music. Roxy and Moss are original adult punk/rave partners. |
-| Kick Man | [Museum of the Game](https://www.arcade-museum.com/Videogame/kick-man), [Midway manual scan](https://www.aurcade.com/games/manuals/00000118.pdf), [Commodore instructions](https://mocagh.org/forsale/kickman-manual.pdf) | 1981 arcade unicycle, left/right movement, falling balloons, head stack, emergency kick. Optional balloon mode retains an eight-balloon flourish alongside juggling. Scoring and replacement mechanics are invented here. |
+| Puggler | Adult Swim, [Escape from Squatopian Freedom](https://www.adultswim.com/videos/xavier-renegade-angel/escape-from-squatopian-freedom), [official video around 90 seconds](https://www.youtube.com/watch?v=KW0OHJXVv14&t=90s) | Orange curls, angular human face, towering green hat with pale ringed dots, broad dark brim, purple/pink sleeveless stripes, lime tie, burgundy trousers, red unicycle. Original Canvas likeness; no extracted model, episode picture, dialogue, or music. Roxy and Moss are original adult punk partners. |
+| Kick Man | [Museum of the Game](https://www.arcade-museum.com/Videogame/kick-man), [Midway manual scan](https://www.aurcade.com/games/manuals/00000118.pdf), [Commodore instructions](https://mocagh.org/forsale/kickman-manual.pdf) | 1981 arcade unicycle, left/right movement, falling balloons, head stack, emergency kick. Historical inspiration for unicycle steering and rescue kicks. The optional balloon tower has been removed; free juggling is the only mode. |
 | Siteswap | [Juggling Lab notation](https://jugglinglab.org/html/ssnotation.html), [generator](https://jugglinglab.org/html/ssgenerator.html) | Throw height denotes a future beat/hand reservation. Odd asynchronous throws cross hands; even throws return. Ground-state chunks can concatenate while retaining legal reservations. Arbitrary rotations or unrelated patterns cannot safely concatenate. |
 | Rhythmic phrasing | Daniel Simu, [the rhythm problem](https://danielsimu.nl/research/posts/siteswap_and_rhythm_problem/), [rhythm solutions](https://danielsimu.nl/research/posts/siteswap_and_rhythm_solutions/) | Catch and throw rhythm are different; dwell, grouping, gaps, and double catches matter. Our verse/fill/break/refrain sequences combine compatible siteswap chunks, including rests and holds. They are authored compositions, not transcriptions of traditional musical routines. |
 | Passing | Mark Weston, [Passing Patterns Compendium](https://jugglingedge.com/pdf/passingpatternscompendium.pdf) | Passing cadence and running-gap ideas inform trading every throw, every third throw, or the second half of an eight-beat phrase. Our ensemble shares **one to ten total props** and adapts a global siteswap schedule; it is not a canonical six-club passing simulator. |
 | Juggling sonification | Arthur Wagenaar, [Juggling as a controller of electronic music](https://www.arthurwagenaar.nl/wp-content/uploads/Juggling-as-a-controller-of-electronic-music.pdf) | Contacts can trigger samples while trajectories modulate sound. Here, a prop has independent drum and airborne riff assignments, preserved when a replacement changes its physical material. |
 | State planning | [Beyond the Cascade: Juggling Vanilla Siteswap Patterns](https://arxiv.org/abs/2410.19591) | Supports planning legal transitions rather than choosing throw digits independently. Our small deterministic generator uses a hand-validated compatible chunk bank, not the paper's robot implementation. |
 | Motion | [NASA flight equations with drag](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/flight-equations-with-drag/) | Shared gravity; drag acceleration depends on mass. NASA describes quadratic aerodynamic drag; the browser uses an exact **linear-drag approximation**, invented masses, and world units. This is a stylized musical game, not calibrated biomechanics. |
-| Recorded sounds | [Karoryfer free samples](https://shop.karoryfer.com/pages/free-samples), [NeoSpica crowd boo](https://freesound.org/people/NeoSpica/sounds/504621/), [jayfrosting woo](https://freesound.org/people/jayfrosting/sounds/333421/) | Five acoustic drums and two audience recordings are CC0. Exact source filenames, pinned source commit, processing, and license are in [sound credits](assets/puggler/CREDITS.md). Guitar/bass and an O→I formant chant are original synthesis; the chant is an approximation of “oi,” not recorded human speech. |
+| Recorded sounds | [Karoryfer free samples](https://shop.karoryfer.com/pages/free-samples), [NeoSpica crowd boo](https://freesound.org/people/NeoSpica/sounds/504621/), [jayfrosting woo](https://freesound.org/people/jayfrosting/sounds/333421/), [rhink Oi](https://freesound.org/people/rhink/sounds/245867/) | Five acoustic drums and three vocal recordings are CC0. Exact source filenames, pinned source commit, processing, and license are in [sound credits](assets/puggler/CREDITS.md). Guitar/bass are original synthesis; OI repeats three complete recorded calls and WOO uses recorded audience voices. Vocal playback is gently bent within 0.84–1.2× and avoids guitar overdrive. |
 
 ## Fixed and phrased patterns
 
@@ -62,16 +62,22 @@ that cursor, so even short flights develop through their riff.
   velocity brightens and pushes phrase rate. Material mass changes drag, spin,
   release impulse, body reaction, and contact energy. Common gravity is never
   made heavier for a heavier prop.
-- A/D slowly steer the selected rider; Q/E ride faster; W/S change that rider's
-  next throw height. Number keys 1/2/3 select Puggler/Roxy/Moss, so all riders
-  are available without a numeric keypad. Roxy simultaneously uses J/L slow,
-  U/O fast, I/K high/low, H kick, N to crowd. Moss can simultaneously use
+- A/D slowly steer Puggler; Q/E ride faster; W/S change his next throw height.
+  Roxy uses J/L slow, U/O fast, I/K high/low, H kick, N to crowd. Moss uses
   numpad 4/6 slow, 7/9 fast, 8/2 high/low, 5 kick, 0 to crowd. F/G kick/throw
-  to crowd for the selected rider. Arrow keys no longer steer.
+  for Puggler. Each key has a clickable, holdable button that lights while held.
+  All seven nonempty performer combinations are available with stable identities.
 - Any rider can be dragged, including automatic partners; three touches can
-  steer all three. Automatic assistance yields during direct steering and for
-  0.65 seconds afterward. Held movement/height buttons target the selected
-  rider. Space uses shared transport. Native controls retain keyboard behavior.
+  steer all three. Assistance yields during direct steering and for 0.65 seconds
+  afterward. Space uses shared transport. Native controls retain keyboard behavior.
+- Pause gates new automatic throws and freezes the siteswap beat. Existing
+  objects land naturally; riding, manual crowd exchanges and model-timed audience
+  reactions continue. Armed Audio keeps crowd sounds and contact tails available.
+  Audio off, output zero, hidden pages and teardown silence all sources.
+- The compact panel orders transport/tempo, 18 starting acts, cast, count/pattern,
+  rhythm, multi-rider passing, random objects/flyers, physics, sound, and object
+  assignments. The page intentionally omits the shared Audio-off prose at the
+  user's request; the explicit masthead Audio state remains visible.
 - Released trajectories stay in world space. Moving under them changes whether
   a hand catches. Descending contacts use a swept collision test to avoid
   skipping a hand at 1,200 beats/min. Catches attach props immediately and trigger
@@ -101,9 +107,9 @@ that cursor, so even short flights develop through their riff.
   of the frame without shrinking the riders. Physical trajectories remain
   unchanged. Long arms reach incoming props; torso lean/recoil, pedals, wheels,
   facial expressions, and mouths respond to motion and contact.
-- Venue geometry includes battered amps, drum kit, 30 authored punk/hippie/rave
+- Venue geometry includes battered amps, drum kit, 40 authored punk/thrash/gross
   poster slogans, leaking pipe,
-  slime, floor rubbish, cables, and a crowd. Mix-the-flyers shuffles a seeded set covering punk, peace, and rave themes.
+  slime, floor rubbish, cables, and a crowd. Random flyers shuffles a seeded bank of trashpunk slogans.
   Moss wears goggles, patchwork, and flared trousers. Puggler’s hat dots are muted
   green. All are authored Canvas graphics.
 
@@ -118,7 +124,7 @@ The simulation uses 120 Hz fixed steps on a bounded 20 ms timer. After explicit
 Audio activation, `AudioContext.currentTime` drives scheduling; rAF only paints.
 Stale time is skipped after backgrounding. Contacts receive a 35 ms scheduling
 offset. Ten live riff voices, twenty brief release tails, and at most 48
-transients bound audio allocation. Riff voices pass through a compressor; drums
+transients bound audio allocation. Guitar/bass riff voices pass through a compressor; vocals use a gentler separate compressor and no overdrive. Drums
 bypass that compressor into the final saturator with a stronger, accented onset.
 A final unity clip guard catches oversampling reconstruction peaks before the
 unchanged output headroom.
@@ -132,11 +138,10 @@ leave room for path modulation. No independent backing track plays.
 Local recordings load only on Audio activation; failed loads show a retryable
 error. Navigation aborts loading, closes sources/context, and releases output.
 
-Display allocation is bounded: ten debris bodies, five bonus balloons, seven
-hat balloons before an eight-item clear, 55 trail points per prop, and DPR 2.
+Display allocation is bounded: ten debris bodies, 55 trail points per prop, and DPR 2.
 Switching automatic/manual control for an unchanged rider count preserves all
 released objects. Structural
-count/pattern/phrase/performer-count changes rerack while transport and score continue.
+count/pattern/phrase/cast-membership changes rerack while transport and score continue.
 Reset restores the default band. Shared MIDI control/transport and physical
 contact output-preview hooks are retained; browser MIDI routing is not claimed.
 
@@ -145,5 +150,5 @@ extremes, swept catches, replacement catch/miss, independent steering, immutable
 configuration inputs, finite/bounded audio, recorded sample loading, phrase
 continuation, onset/mute/pause, layout, three-player keyboard/pointer cancellation, crowd round trips, and cleanup.
 Automation does **not** establish timbral authenticity, intelligibility of the
-synthetic chant, musical usefulness, or physical touch/controller feel. Human
+sampled chant, musical usefulness, or physical touch/controller feel. Human
 listening and device play remain unperformed.

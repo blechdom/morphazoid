@@ -2,6 +2,12 @@
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(Number(v)) ? Number(v) : lo));
 export const MAX_OBJECTS = 10;
 export const RIDER_NAMES = Object.freeze(['Puggler','Roxy','Moss']);
+export const CASTS = Object.freeze([
+  {id:'puggler',name:'Puggler solo',riders:[0]}, {id:'roxy',name:'Roxy solo',riders:[1]}, {id:'moss',name:'Moss solo',riders:[2]},
+  {id:'puggler-roxy',name:'Puggler + Roxy',riders:[0,1]}, {id:'puggler-moss',name:'Puggler + Moss',riders:[0,2]}, {id:'roxy-moss',name:'Roxy + Moss',riders:[1,2]},
+  {id:'trio',name:'Puggler + Roxy + Moss',riders:[0,1,2]},
+]);
+const legacyCast = partner => partner === 'solo' ? 'puggler' : String(partner).startsWith('trio') ? 'trio' : 'puggler-roxy';
 export const performerCount = partner => partner === 'solo' ? 1 : String(partner).startsWith('trio') ? 3 : 2;
 export const notation = value => value.toString(36);
 export const parseNotation = text => [...text].map(value => parseInt(value,36));
@@ -53,7 +59,7 @@ export const PATTERNS = Object.freeze([
     ...(n%2?[]:[pattern(`sync-${n}`,`${n}-object together fountain`,n,`(${notation(n)},${notation(n)})`,[n],{sync:true})]),
   ]),
 ]);
-export const DEFAULTS = Object.freeze({ count: 3, pattern: 'cascade', tempo: 180, gravity: 1, wind: 0, assist: 65, mode: 'juggle', propIds: ['ball','can','club','duck','guitar','cassette','skateboard','vinyl','mic','glowstick'], drums:['kick','snare','crash','tom','hat','kick','snare','crash','tom','hat'], riffs:['guitar','bass','oi','woo','guitar','bass','oi','woo','guitar','bass'], seed: 1981, loft: 1.4, partner: 'solo', phrase: 'loop', passMode: 'every', chaos:0, posterSeed:1981 });
+export const DEFAULTS = Object.freeze({ count: 3, pattern: 'cascade', tempo: 180, gravity: 1, wind: 0, assist: 65, propIds: ['ball','can','club','duck','guitar','cassette','skateboard','vinyl','mic','glowstick'], drums:['kick','snare','crash','tom','hat','kick','snare','crash','tom','hat'], riffs:['guitar','bass','oi','woo','guitar','bass','oi','woo','guitar','bass'], seed: 1981, loft: 1.4, partner: 'solo', phrase: 'loop', passMode: 'every', chaos:0, posterSeed:1981 });
 export function eventsAt(p, beat) {
   if (p.sync) return beat % 2 ? [] : [0, 1].map(hand => ({ hand, value: p.values[0], destination: hand }));
   const value = p.values[((beat % p.values.length) + p.values.length) % p.values.length];
@@ -108,11 +114,12 @@ export const RIFFS = Object.freeze(['guitar','bass','oi','woo']);
 
 export class PugglerModel {
   constructor(options = {}) {
-    this.config = { ...DEFAULTS, ...options, propIds: [...(options.propIds ?? DEFAULTS.propIds)], drums:[...(options.drums??['kick','snare','crash','tom'])], riffs:[...(options.riffs??RIFFS)] };
+    this.config = { ...DEFAULTS, ...options, cast:options.cast??legacyCast(options.partner??DEFAULTS.partner), autoRide:options.autoRide??String(options.partner).endsWith('auto'), propIds: [...(options.propIds ?? DEFAULTS.propIds)], drums:[...(options.drums??['kick','snare','crash','tom'])], riffs:[...(options.riffs??RIFFS)] };
     this.reset();
   }
-  get riderCount() { return performerCount(this.config.partner); }
-  get activePlayers() { return this.players.slice(0,this.riderCount); }
+  get activeIds() { return (CASTS.find(c=>c.id===this.config.cast)??CASTS[0]).riders; }
+  get riderCount() { return this.activeIds.length; }
+  get activePlayers() { return this.activeIds.map(id=>this.players[id]); }
   get x() { return this.players[0].x; } set x(v) { this.players[0].x=v; }
   get vx() { return this.players[0].vx; } set vx(v) { this.players[0].vx=v; }
   get wheel() { return this.players[0].wheel; }
@@ -122,12 +129,17 @@ export class PugglerModel {
     this.catches=0; this.drops=0; this.score=0; this.combo=0; this.passes=0; this.lastDrop=-10; this.lastKick=-10;
     this.players=[0,1,2].map(id=>({id,x:id?740:500,vx:0,wheel:0,flash:[0,0],lastCatch:-10,lastDrop:-10,lastThrow:-10,lastKick:-10,lastCrowdThrow:-10,crowdQueued:false,loft:1,manualUntil:0,recoil:0,lean:0,expression:'grin'}));
     this.posterSeed=this.config.posterSeed;this.lastAudienceThrow=null;this.lastCrowdCatch=null;this.crowdCatches=0;
-    this.stack=[]; this.balloons=[]; this.debris=[]; this.nextBalloon=1; this.events=[]; this.objects=null;
+    this.lastCrowdReaction=null;this.nextCrowdReaction=2.5;this.debris=[]; this.events=[]; this.objects=null;
     this.apply(this.config);
   }
   apply(options) {
-    const previousPartner=this.config.partner,previousPhrase=this.config.phrase;
+    const previousCast=this.activeIds.join(','),previousPhrase=this.config.phrase;
     Object.assign(this.config,options);
+    if('partner' in options&&!('cast' in options))this.config.cast=legacyCast(options.partner);
+    if('partner' in options&&!('autoRide' in options))this.config.autoRide=String(options.partner).endsWith('auto');
+    if(!CASTS.some(c=>c.id===this.config.cast))this.config.cast='puggler';
+    this.config.autoRide=!!this.config.autoRide;
+    delete this.config.mode;
     for(const key of ['propIds','drums','riffs'])if(key in options||!Array.isArray(this.config[key]))this.config[key]=[...(Array.isArray(options[key])?options[key]:DEFAULTS[key])];
     this.config.count=Math.round(clamp(this.config.count,1,MAX_OBJECTS));
     this.config.tempo=clamp(this.config.tempo,100,1200);
@@ -144,7 +156,7 @@ export class PugglerModel {
     this.config.phrase=['loop','verse','evolve'].includes(this.config.phrase)?this.config.phrase:'loop';
     this.config.passMode=['every','three','phrase'].includes(this.config.passMode)?this.config.passMode:'every';
     const p=PATTERNS.find(p=>p.id===this.config.pattern&&p.count===this.config.count)??PATTERNS.find(p=>p.count===this.config.count);
-    const changed=this.pattern!==p||this.objects?.length!==p.count||performerCount(previousPartner)!==this.riderCount||previousPhrase!==this.config.phrase;
+    const changed=this.pattern!==p||this.objects?.length!==p.count||previousCast!==this.activeIds.join(',')||previousPhrase!==this.config.phrase;
     this.pattern=p; this.config.pattern=p.id;
     if(changed||!this.objects){
       const positions=this.riderCount===3?[210,500,790]:this.riderCount===2?[285,715]:[500];
@@ -160,7 +172,7 @@ export class PugglerModel {
   reRack() {
     this.beat=0;this.nextBeat=0;this.phraseStart=0;this.phraseValues=[];this.phraseNumber=0;this.lastChunk='';this.currentPhrase='Repeat';
     const p=this.config.phrase==='loop'?this.pattern:{values:[this.config.count]};
-    this.objects=initialSlots(p).map((s,id)=>({...s,id,owner:id%this.riderCount,fromOwner:0,phase:'held',x:this.x,y:WORLD.handY,vx:0,vy:0,spin:0,trail:[],prop:propFor(this.config.propIds[id]),drum:this.config.drums[id],riff:this.config.riffs[id],pickup:0}));
+    this.objects=initialSlots(p).map((s,id)=>({...s,id,owner:this.activeIds[id%this.riderCount],fromOwner:0,phase:'held',x:this.x,y:WORLD.handY,vx:0,vy:0,spin:0,trail:[],prop:propFor(this.config.propIds[id]),drum:this.config.drums[id],riff:this.config.riffs[id],pickup:0}));
     this.debris=[];
   }
   random() {this.seed=(Math.imul(this.seed,1664525)+1013904223)>>>0;return this.seed/4294967296;}
@@ -216,8 +228,8 @@ export class PugglerModel {
       const from=o.owner,source=this.players[from];
       if(source.crowdQueued){source.crowdQueued=false;o.due=beat+e.value;o.hand=e.destination;this.launchToAudience(o,from);continue;}
       if(e.hold){o.due=beat+2;continue;}
-      const shouldPass=this.config.partner!=='solo'&&(this.config.passMode==='every'||(this.config.passMode==='three'?beat%3===0:beat%8>=4));
-      const destination=shouldPass?(from+1)%this.riderCount:from,receiver=this.players[destination];
+      const shouldPass=this.riderCount>1&&(this.config.passMode==='every'||(this.config.passMode==='three'?beat%3===0:beat%8>=4));
+      const destination=shouldPass?this.activeIds[(this.activeIds.indexOf(from)+1)%this.riderCount]:from,receiver=this.players[destination];
       const duration=(e.value-.38)*60/this.config.tempo;
       o.x=source.x+this.offset(e.hand);o.y=WORLD.handY;
       const bounds=this.playerBounds(destination);
@@ -236,12 +248,13 @@ export class PugglerModel {
   }
   playerBounds(owner) {
     if(this.riderCount===1)return [135,865];
-    if(this.riderCount===2)return owner?[545,865]:[135,455];
-    return [[110,315],[385,615],[685,890]][owner]??[110,890];
+    const position=this.activeIds.indexOf(owner);
+    if(this.riderCount===2)return position===1?[545,865]:[135,455];
+    return [[110,315],[385,615],[685,890]][position]??[110,890];
   }
-  setRiderLoft(owner,value) {if(owner<this.riderCount)this.players[owner].loft=clamp(value,.4,2.2);}
+  setRiderLoft(owner,value) {if(this.activeIds.includes(owner))this.players[owner].loft=clamp(value,.4,2.2);}
   throwToAudience(owner=0) {
-    if(owner>=this.riderCount)return;
+    if(!this.activeIds.includes(owner))return;
     const player=this.players[owner];if(this.time-player.lastCrowdThrow<.45)return;
     const held=this.objects.find(o=>o.owner===owner&&o.phase==='held');
     if(held)this.launchToAudience(held,owner);else player.crowdQueued=true;
@@ -259,13 +272,14 @@ export class PugglerModel {
     this.lastCrowdCatch={time:this.time,x:o.x,owner:o.owner};o.phase='waiting';o.spawnAt=this.time+.32;o.trail=[];o.y=-100;
   }
   kick(owner=0) {
+    if(!this.activeIds.includes(owner))return;
     const player=this.players[owner];if(this.time-player.lastKick<.25)return;
     player.lastKick=this.time;this.lastKick=this.time;
-    for(const o of [...this.objects,...this.balloons]){
-      if(o.owner!==owner&&!this.balloons.includes(o))continue;
+    for(const o of this.objects){
+      if(o.owner!==owner)continue;
       if(['air','replacement'].includes(o.phase)&&Math.abs(o.x-player.x)<165&&o.y<235){
-        const bonus=this.balloons.includes(o);o.phase=bonus?'air':o.phase;o.start=this.time;o.duration=bonus?1.1:1.0;
-        o.flight=launchFlight({x:o.x,y:Math.max(28,o.y),targetX:bonus?player.x:player.x+this.offset(o.hand,true),targetY:bonus?WORLD.hatY+this.stack.length*33:WORLD.handY,duration:o.duration,mass:o.prop.mass,drag:o.prop.drag,g:WORLD.gravity*this.config.gravity});
+        o.start=this.time;o.duration=1;
+        o.flight=launchFlight({x:o.x,y:Math.max(28,o.y),targetX:player.x+this.offset(o.hand,true),targetY:WORLD.handY,duration:o.duration,mass:o.prop.mass,drag:o.prop.drag,g:WORLD.gravity*this.config.gravity});
         this.emit('kick',o);
       }
     }
@@ -294,7 +308,7 @@ export class PugglerModel {
       const control=controls[p.id]??{};
       let aim=control.target??null,direction=control.steer??0;
       if(direction||aim!==null)p.manualUntil=this.time+.65;
-      if(p.id&&this.config.partner.endsWith('auto')&&this.time>p.manualUntil){
+      if(p.id!==this.activeIds[0]&&this.config.autoRide&&this.time>p.manualUntil){
         const incoming=this.objects.filter(o=>o.owner===p.id&&['air','replacement'].includes(o.phase)&&o.vy<0).sort((a,b)=>a.y-b.y)[0];
         if(incoming)aim=incoming.targetX-this.offset(incoming.hand,true);else aim=p.x;
       }
@@ -306,7 +320,7 @@ export class PugglerModel {
       p.expression=this.time-p.lastDrop<1.4?'panic':this.time-p.lastCatch<.25?'shout':Math.abs(p.vx)>180?'wild':'grin';
     }
   }
-  step(dt,steer=0,target=null,friendSteer=0,friendTarget=null) {
+  step(dt,steer=0,target=null,friendSteer=0,friendTarget=null,juggling=true) {
     const controls=Array.isArray(steer)?steer:[{steer,target},{steer:friendSteer,target:friendTarget},{}];
     dt=clamp(dt,0,1/60);this.events=[];this.time+=dt;this.movePlayers(dt,controls);
     for(const o of this.objects){
@@ -328,6 +342,7 @@ export class PugglerModel {
             if(o.phase==='air'&&o.fromOwner!==o.owner)this.passes++;
             player.flash[o.hand]=this.time+.2;player.lastCatch=this.time;player.recoil+=clamp(o.prop.mass*.03,0,.1)*(o.hand?1:-1);
             o.phase='held';o.pickup=this.time;Object.assign(o,this.handPosition(o.hand,o.owner),{vx:player.vx,vy:0});o.trail=[];this.catches++;this.combo++;this.score+=10+Math.min(this.combo,30);
+            if(!juggling&&player.crowdQueued){player.crowdQueued=false;this.launchToAudience(o,player.id);}
           }
         }
         if(o.y<o.prop.radius&&['air','replacement'].includes(o.phase))this.miss(o);
@@ -337,32 +352,19 @@ export class PugglerModel {
     }
     for(const d of this.debris){d.vy-=900*dt;d.x+=d.vx*dt;d.y+=d.vy*dt;d.spin+=d.vx*.01*dt;if(d.y<d.prop.radius){d.y=d.prop.radius;d.vy=Math.abs(d.vy)*d.prop.bounce*.25;d.vx*=.9;}}
     this.debris=this.debris.filter(d=>d.expires>this.time);
-    while(this.nextBeat<=this.beat+1e-8){
+    while(juggling&&this.nextBeat<=this.beat+1e-8){
       const events=this.patternEvents(this.nextBeat);
       const waiting=events.some(e=>this.objects.some(o=>o.due===this.nextBeat&&o.hand===e.hand&&o.phase!=='held'));
       if(waiting){this.beat=this.nextBeat;break;}
       this.throwBeat(this.nextBeat++,events);
     }
-    this.beat+=dt*this.config.tempo/60;
-    if(this.config.mode==='kick')this.stepBalloons(dt);else {this.balloons=[];this.stack=[];this.nextBalloon=this.time+1;}
+    if(juggling)this.beat+=dt*this.config.tempo/60;
+    if(this.time>=this.nextCrowdReaction){
+      const kind=this.time-this.lastDrop<2?'crowd-boo':'crowd-woo',x=80+this.random()*840;
+      this.lastCrowdReaction={time:this.time,kind,x};
+      this.emit(kind,{x,y:30,id:-1,owner:this.activeIds[0],prop:propFor('mic')});
+      this.nextCrowdReaction=this.time+3.5+this.random()*3;
+    }
     return this.events;
-  }
-  stepBalloons(dt) {
-    if(this.time>=this.nextBalloon&&this.balloons.length<5){
-      const owner=Math.floor(this.random()*this.riderCount),player=this.players[owner];
-      this.balloons.push({id:100+Math.floor(this.random()*10000),owner,x:clamp(player.x+(this.random()-.5)*280,80,920),y:1000,vx:0,vy:-75,prop:propFor('balloon'),phase:'air',color:['#ff83be','#ffe079','#99eec8'][Math.floor(this.random()*3)]});
-      this.nextBalloon=this.time+2;
-    }
-    for(const o of this.balloons){
-      const previousY=o.y;
-      if(o.flight)Object.assign(o,flightPosition(o.flight,this.time-o.start));else {o.vy=Math.max(-170,o.vy-35*dt);o.x+=Math.sin(this.time+o.id)*10*dt;o.y+=o.vy*dt;}
-      const player=this.players[o.owner??0],top=WORLD.hatY+this.stack.length*33;
-      if(o.vy<0&&previousY>=top&&o.y<=top&&Math.abs(o.x-player.x)<55){
-        this.stack.push(o.color);o.phase='gone';this.score+=50;this.emit('hat',o);
-        if(this.stack.length>=8){this.score+=800;this.emit('tower',o);this.stack=[];}
-      }
-      if(o.y<20){o.phase='gone';this.combo=0;this.drops++;this.lastDrop=this.time;player.lastDrop=this.time;this.emit('drop',o);}
-    }
-    this.balloons=this.balloons.filter(o=>o.phase!=='gone');
   }
 }

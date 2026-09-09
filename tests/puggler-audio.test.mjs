@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { PugglerAudio, punkMotion, MAX_PUGGLER_ATTACKS, MAX_PUGGLER_VOICES, MAX_PUGGLER_AIR_TAILS } from '../src/puggler-audio.js';
-import { PUNK_DRUMS, PUNK_RIFFS, renderPunkPhrase } from '../src/puggler-samples.js';
+import { PugglerAudio, punkMotion, punkVocalMotion, MAX_PUGGLER_ATTACKS, MAX_PUGGLER_VOICES, MAX_PUGGLER_AIR_TAILS } from '../src/puggler-audio.js';
+import { PUNK_DRUMS, PUNK_RIFFS, renderPunkPhrase, renderVocalChant } from '../src/puggler-samples.js';
 import { PROPS, WORLD } from '../src/puggler.js';
 
 const object = (id, phase = 'air') => ({ id, phase, prop: PROPS[id % PROPS.length], drum: PUNK_DRUMS[id % PUNK_DRUMS.length], riff: PUNK_RIFFS[id % PUNK_RIFFS.length], x: 60 + id * 90, y: WORLD.handY + 200, vx: 90, vy: 420, spinRate: 3 });
@@ -31,8 +31,11 @@ class Context {
   createBiquadFilter() { return this.createGain(); }
   createStereoPanner() { return this.createGain(); }
   createBufferSource() { const n = this.createGain(); n.kind = 'sample'; return n; }
-  createBuffer(channels, length, rate) { return { duration: length / rate, copyToChannel() {} }; }
-  async decodeAudioData() { return { duration: 1.8 }; }
+  createBuffer(channels, length, rate) {
+    const data = new Float32Array(length);
+    return { duration: length / rate, sampleRate: rate, length, getChannelData() { return data; }, copyToChannel(samples) { data.set(samples); } };
+  }
+  async decodeAudioData() { return this.createBuffer(1, 39690, 22050); }
   async resume() { this.state = 'running'; }
   async close() { this.state = 'closed'; }
 }
@@ -47,7 +50,7 @@ async function withAudio(run) {
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
 
 test('authored punk phrases are deterministic, bounded, articulate, and spectrally distinct', () => {
-  const parts = Object.fromEntries(['guitar', 'bass', 'oi'].map(role => [role, renderPunkPhrase(role)]));
+  const parts = Object.fromEntries(['guitar', 'bass'].map(role => [role, renderPunkPhrase(role)]));
   for (const [role, data] of Object.entries(parts)) {
     assert.deepEqual(data, renderPunkPhrase(role));
     assert.ok(data.every(Number.isFinite));
@@ -76,7 +79,7 @@ test('world position, speed, tempo, and height mapping alter bounded playback pa
 });
 
 test('bundled drums and crowd are short finite non-silent PCM recordings', async () => {
-  for (const id of [...PUNK_DRUMS, 'woo', 'boo']) {
+  for (const id of [...PUNK_DRUMS, 'oi', 'woo', 'boo']) {
     const file = await readFile(new URL(`../assets/puggler/${id}.wav`, import.meta.url));
     assert.equal(file.toString('ascii', 0, 4), 'RIFF');
     assert.equal(file.readUInt16LE(20), 1); assert.equal(file.readUInt16LE(22), 1);
@@ -88,12 +91,44 @@ test('bundled drums and crowd are short finite non-silent PCM recordings', async
   }
 });
 
+test('the OI phrase keeps three complete recorded calls and clear pauses', async () => {
+  const file = await readFile(new URL('../assets/puggler/oi.wav', import.meta.url));
+  const pcm = Float32Array.from({ length: (file.length - 44) / 2 }, (_, i) => file.readInt16LE(44 + i * 2) / 32768);
+  const chant = renderVocalChant(pcm, 22050);
+  assert.ok(rms(pcm) > .03); assert.ok(chant.every(Number.isFinite));
+  for (const [call, level] of [.92, 1, .86].entries()) {
+    const start = Math.round(call * .6 * 22050);
+    for (let i = 0; i < pcm.length; i++) assert.ok(Math.abs(chant[start + i] - pcm[i] * level) < .000001);
+    const pause = chant.slice(start + pcm.length, Math.round((call + 1) * .6 * 22050));
+    assert.ok(pause.length > 2000); assert.equal(rms(pause), 0);
+  }
+});
+
+test('vocal motion preserves the recorded register even at extreme tempos and uses a clean voice path', async () => withAudio(async audio => {
+  const o = object(2);
+  const slow = punkVocalMotion(o, { tempo: 300 }), fast = punkVocalMotion(o, { tempo: 1200 });
+  assert.ok(fast.rate > slow.rate && fast.rate / slow.rate < 1.1);
+  assert.ok(punkVocalMotion({ ...o, y: o.y + 300 }, { tempo: 300 }).rate > slow.rate);
+  for (const tempo of [60, 240, 600, 1200]) {
+    const extreme = punkVocalMotion({ ...o, y: 20000, vx: -5000 }, { tempo, height: 2, motion: 12 });
+    assert.ok(extreme.rate >= .84 && extreme.rate <= 1.2);
+  }
+  await audio.arm(); audio.update([object(0), object(2), object(3)], { tempo: 1200, grit: 1 }, true);
+  assert.ok(audio.voices[0].drive);
+  for (const id of [2, 3]) {
+    const v = audio.voices[id]; assert.equal(v.drive, null); assert.equal(v.dirt, null);
+    assert.equal(v.pan.connections[0], audio.vocalBus);
+    assert.ok(v.source.playbackRate.value >= .84 && v.source.playbackRate.value <= 1.2);
+    assert.ok(v.filter.frequency.value >= 5800);
+  }
+}));
+
 test('transport and strikes stay silent until explicitly armed; arm loads only local assets once', async () => withAudio(async (audio, urls) => {
   audio.update([object(0)], {}, true); audio.strike({ ...object(0), kind: 'catch' }, {}, 0); audio.mute();
   assert.equal(audio.context, null); assert.equal(urls.length, 0);
-  await audio.arm(); assert.equal(audio.on, true); assert.equal(urls.length, 7);
+  await audio.arm(); assert.equal(audio.on, true); assert.equal(urls.length, 8);
   assert.ok(urls.every(url => url.includes('/assets/puggler/') && url.endsWith('.wav')));
-  await audio.arm(); assert.equal(urls.length, 7);
+  await audio.arm(); assert.equal(urls.length, 8);
 }));
 
 test('only airborne, replacement, or outbound audience objects own riff loops', async () => withAudio(async audio => {
@@ -105,7 +140,7 @@ test('only airborne, replacement, or outbound audience objects own riff loops', 
   assert.equal(audio.voices[0].role, 'woo'); assert.ok(previous.source.stops.length);
   assert.equal(audio.voices[2], null);
   audio.update([], {}, false);
-  assert.equal(audio.voices.filter(Boolean).length, 0); assert.equal(audio.master.gain.value, 0);
+  assert.equal(audio.voices.filter(Boolean).length, 0); assert.ok(audio.master.gain.value > 0, 'paused room remains armed for crowd audio');
 }));
 
 test('ten objects get independent voices, cyclic defaults, and bounded maximum-level gain', async () => withAudio(async audio => {
@@ -202,6 +237,38 @@ test('the impact control reaches two with a bounded duck depth and unchanged out
   assert.deepEqual([...audio.peakGuard.curve], [-1, 1]);
   await audio.close();
   assert.ok([audio.airBus, audio.airDuck, audio.drumBus, audio.peakGuard].every(node => node.disconnected));
+}));
+
+test('juggling pause releases riffs while preserving catch tails and model-triggered crowd voices', async () => withAudio(async audio => {
+  await audio.arm(); audio.update([object(0), object(2)], { level: .6 }, true);
+  audio.strike({ ...object(1), kind: 'catch' }, {}, audio.context.currentTime);
+  const catchTail = [...audio.attacks][0];
+  audio.update([object(0), object(2)], { level: .6 }, false);
+  assert.equal(audio.voices.filter(Boolean).length, 0); assert.equal(audio.master.gain.value, .54);
+  assert.equal(catchTail.releasing, undefined);
+  for (const kind of ['crowd-woo', 'crowd-boo']) audio.strike({ ...object(1), kind }, {}, audio.context.currentTime);
+  assert.deepEqual([...audio.attacks].map(v => v.role), ['snare', 'woo', 'boo']);
+  audio.update([], { level: .6 }, false);
+  assert.ok([...audio.attacks].every(v => !v.releasing));
+  assert.ok([...audio.attacks].slice(1).every(v => v.pan.connections[0] === audio.bus));
+  audio.mute(); assert.equal(audio.master.gain.value, 0);
+  assert.ok([...audio.attacks].every(v => v.releasing));
+}));
+
+test('hidden active=false and zero level silence/release the entire room and reject crowd attacks', async () => withAudio(async audio => {
+  await audio.arm(); audio.update([], { level: .6 }, false);
+  audio.strike({ ...object(1), kind: 'crowd-woo' }, {}, audio.context.currentTime);
+  const first = [...audio.attacks][0];
+  audio.update([], { level: .6, active: false }, false);
+  assert.equal(audio.master.gain.value, 0); assert.equal(first.releasing, true);
+  audio.strike({ ...object(1), kind: 'crowd-boo' }, {}, audio.context.currentTime);
+  assert.equal(audio.attacks.size, 1);
+  audio.update([], { level: 0, active: true }, false);
+  audio.strike({ ...object(1), kind: 'crowd-boo' }, {}, audio.context.currentTime);
+  assert.equal(audio.attacks.size, 1); assert.equal(audio.master.gain.value, 0);
+  audio.update([], { level: .6, active: true }, false);
+  audio.strike({ ...object(1), kind: 'crowd-boo' }, {}, audio.context.currentTime);
+  assert.equal(audio.attacks.size, 2); assert.equal(audio.master.gain.value, .54);
 }));
 
 test('short tosses continue their riff phrase; holding an object pauses its sample cursor', async () => withAudio(async audio => {

@@ -24,53 +24,26 @@
   <main class="puggler-shell">
     <section class="puggler-performance" aria-labelledby="pageTitle">
       <div class="puggler-stage-wrap">
-        <div class="puggler-title"><p>MORPHAZOID PRESENTS <span>THRASH / TRASH</span></p><h1 id="pageTitle">Puggler the Punk Rock Jugger</h1></div>
-        <canvas id="stage" width="1100" height="720" tabindex="0" role="application" aria-label="Puggler, Roxy, and Moss punk-show juggling stage" aria-describedby="instructions">A/D ride, Q/E ride fast, W/S change throw height. 1/2/3 select Puggler, Roxy, or Moss. I/J/K/L and U/O control Roxy independently; the numeric keypad controls Moss. G throws to the crowd; F kicks. Drag any performer. Space pauses. Enable Audio separately.</canvas>
-        <div class="stage-badge" id="stageBadge">6 OBJECTS / PUGGLER + ROXY + MOSS</div>
-        <div class="stage-event" id="stageEvent" aria-hidden="true">HANDS = DRUMS / AIR = RIFFS</div>
+        <h1 id="pageTitle" class="puggler-title">Puggler the Punk Rock Jugger</h1>
+        <canvas id="stage" width="1100" height="720" tabindex="0" role="application" aria-label="Puggler, Roxy, and Moss punk-show juggling stage" aria-describedby="instructions">Drag a performer or use the keyboard buttons below. Space pauses juggling. Enable Audio separately.</canvas>
       </div>
-      <div class="puggler-playbar">
-        <button id="playButton" data-primary-transport type="button" aria-pressed="true">Pause</button>
-        <select id="playerPicker" aria-label="Rider controlled by WASD and buttons"><option value="0">1 · Puggler</option><option value="1">2 · Roxy</option><option value="2">3 · Moss</option></select>
-        <div class="steer-buttons" role="group" aria-label="Selected rider movement">
-          <button id="fastLeftButton" type="button" aria-label="Ride fast left">« <kbd>Q</kbd></button><button id="leftButton" type="button" aria-label="Ride slowly left">‹ <kbd>A</kbd></button><button id="rightButton" type="button" aria-label="Ride slowly right">› <kbd>D</kbd></button><button id="fastRightButton" type="button" aria-label="Ride fast right">» <kbd>E</kbd></button>
-        </div>
-        <div class="steer-buttons" role="group" aria-label="Selected rider throws"><button id="lowerButton" type="button" aria-label="Lower this rider's throws">Low <kbd>S</kbd></button><button id="higherButton" type="button" aria-label="Raise this rider's throws">High <kbd>W</kbd></button><button id="kickButton" data-midi-trigger="step" type="button">Kick <kbd>F</kbd></button><button id="crowdButton" type="button">To crowd <kbd>G</kbd></button></div>
-        <output id="riderReadout" class="rider-readout">Puggler · throw 1.00×</output>
-        <span class="puggler-motion-status" id="motionStatus">THE SHOW IS ROLLING</span>
-      </div>
-      <p class="puggler-instructions" id="instructions"><kbd>A</kbd>/<kbd>D</kbd> ride · <kbd>Q</kbd>/<kbd>E</kbd> fast · <kbd>W</kbd>/<kbd>S</kbd> height · <kbd>G</kbd> throw to crowd<br /><kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> select rider · drag anyone · <kbd>Space</kbd> pause</p>
-      <details class="keyboard-help"><summary>Two / three players · all keyboard controls</summary><div class="key-table-wrap"><table><thead><tr><th>Rider</th><th>Slow L/R</th><th>Fast L/R</th><th>High/low</th><th>Kick</th><th>Crowd</th></tr></thead><tbody><tr><th>Selected (1/2/3)</th><td>A / D</td><td>Q / E</td><td>W / S</td><td>F</td><td>G</td></tr><tr><th>Roxy</th><td>J / L</td><td>U / O</td><td>I / K</td><td>H</td><td>N</td></tr><tr><th>Moss · numpad</th><td>4 / 6</td><td>7 / 9</td><td>8 / 2</td><td>5</td><td>0</td></tr></tbody></table></div><p>For two players, leave Puggler selected and give Roxy the I/J/K/L cluster. No numpad? Press 3 and use A/D to steer Moss. Automatic partners yield while you steer them. Hold height keys to shape the next throws.</p></details>
-      <div class="phrase-strip"><output id="phraseReadout">VERSE / 6 · 6 · 6 · 6 · 6 · 6 · 8 · 8 · 8 · 8 · 8 · 2 · 0 · 7 · 7 · 4</output><div id="phraseSteps" aria-hidden="true"></div></div>
-      <div class="puggler-score" aria-label="Performance score"><div><span>CATCHES</span><output id="catchCount">0</output></div><div><span>PASSES</span><output id="passCount">0</output></div><div><span>STREAK</span><output id="comboCount">0</output></div><div><span>HAT STACK</span><output id="stackCount">0 / 8</output></div><div><span>CROWD CATCHES</span><output id="crowdCount">0</output></div><div><span>DROPS</span><output id="dropCount">0</output></div><div><span>SCORE</span><output id="scoreCount">0</output></div></div>
-      <div class="puggler-voices" id="voiceMeters" aria-label="Sound object motion"></div>
-      <p id="liveStatus" class="puggler-live" role="status">Audio is off — turn it on to hear playback</p>
+      <div class="puggler-keyboards" id="keyboardControls" aria-label="Performer keyboard controls"></div>
+      <p class="sr-only" id="instructions">Each performer has a fixed keyboard cluster below the stage. Hold a movement or height key, kick, or throw to the crowd. The matching buttons also work by touch or click. Space pauses new juggling throws; riders and the audience stay active.</p>
       <p id="audioError" role="alert" hidden></p>
     </section>
     <aside class="puggler-panel panel" aria-label="Juggling and sound controls">
-      <section class="puggler-control-section">
-        <div class="section-heading"><h2>The act</h2><span>01 / MOTION</span></div>
-        <label class="puggler-field" for="mode">Play mode<select id="mode"><option value="juggle">Free juggling</option><option value="kick">Kick Man · balloon tower</option></select></label>
-        <label class="puggler-field" for="partner">Who's on stage?<select id="partner"><option value="solo">Puggler solo</option><option value="auto">Puggler + Roxy · automatic partner</option><option value="manual">Two players · WASD + IJKL</option><option value="trio-auto" selected>Three riders · automatic partners</option><option value="trio-manual">Three riders · you steer everyone</option></select></label>
-        <label class="puggler-field" for="passMode">Passing cadence<select id="passMode"><option value="every">Trade every throw</option><option value="three">Pass / self / self</option><option value="phrase">Four solo / four passing</option></select></label>
-        <div class="puggler-two-fields"><label class="puggler-field" for="count">Objects<select id="count"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label class="puggler-field" for="preset">Starting act<select id="preset" data-preset><option value="ballet">Trash trio</option><option value="bell">One dumb bell</option><option value="metal">1,200 BPM / ten-object riot</option><option value="float">Two-player pit</option><option value="rave">Rave commune</option></select></label></div>
-        <label class="puggler-field" for="phrase">Rhythm form<select id="phrase"><option value="loop">Repeat a juggling pattern</option><option value="verse" selected>Verse / fill / break / refrain</option><option value="evolve">Evolving set · new phrases</option></select></label>
-        <label class="puggler-field" for="pattern">Juggling pattern<select id="pattern"><option value="many-6">6-object fountain · 6</option></select></label>
-        <p class="pattern-note" id="patternNote">16 beats: verse → fill → break → refrain. Rest and hold beats leave musical gaps.</p>
-        <div id="motionControls"></div><p class="mapping-note">Wildness adds off-target throws you can rescue. Set it to zero for precise juggling. The crowd lobs replacements after misses.</p><button id="postersButton" class="poster-remix" type="button">↻ Mix the flyers · punk / peace / rave</button>
+      <section class="puggler-control-section" aria-label="The act">
+        <div class="puggler-transport"><button id="playButton" data-primary-transport type="button" aria-pressed="true">Pause</button><div id="tempoControls"></div></div>
+        <label class="puggler-field" for="preset">Starting act<select id="preset" data-preset><option value="ballet">Trash trio</option></select></label>
+        <label class="puggler-field" for="cast">Who<select id="cast"><option value="trio">Puggler + Roxy + Moss</option></select></label>
+        <div class="puggler-two-fields"><label class="puggler-field" for="count">Objects<select id="count"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label class="puggler-field" for="pattern">Pattern<select id="pattern"><option value="many-6">6-object fountain</option></select></label></div>
+        <label class="puggler-field" for="phrase">Rhythm form<select id="phrase"><option value="loop">Repeat a juggling pattern</option><option value="verse" selected>Verse / fill / break / refrain</option><option value="evolve">Evolving phrases</option></select></label>
+        <label class="puggler-field" id="passingField" for="passMode">Passing cadence<select id="passMode"><option value="every">Trade every throw</option><option value="three">Pass / self / self</option><option value="phrase">Four solo / four passing</option></select></label>
+        <div class="puggler-random-row"><button id="randomButton" type="button">↻ Random objects</button><button id="postersButton" type="button">↻ Random flyers</button></div>
       </section>
-      <section class="puggler-control-section">
-        <div class="section-heading"><h2>The things</h2><button id="randomButton" type="button">↻ Random objects</button></div>
-        <div id="objectControls"></div>
-      </section>
-      <section class="puggler-control-section">
-        <div class="section-heading"><h2>The sound</h2><span>03 / SONIFICATION</span></div>
-        <div id="soundControls"></div>
-        <p class="mapping-note">Each catch punches its drum through the riffs.<br />Each flight plays its object's riff.<br />Height bends pitch; motion changes rhythm and grit. Drops bring the boos.</p>
-      </section>
-      <details class="puggler-control-section"><summary>Physics & view</summary><div id="physicsControls"></div><label class="puggler-check"><input type="checkbox" id="trails" checked /> Sound trails</label><label class="puggler-check"><input type="checkbox" id="guides" checked /> Throw paths & catch targets</label><p class="mapping-note">Mass changes drag, spin, and impact. Tempo and loft rescale the show's gravity to keep fast throws high. Drop a prop and the audience lobs another onto the stage. Throw one back with G: the crowd catches it and returns a different object. Ride under the returning arc.</p></details>
-      <details class="puggler-control-section puggler-notes"><summary>Backstage / references</summary><p>An unofficial procedural likeness of Puggler from <a href="https://www.adultswim.com/videos/xavier-renegade-angel/escape-from-squatopian-freedom" target="_blank" rel="noreferrer">Xavier: Renegade Angel</a>. Roxy and Moss are original punk / rave partners.</p><p><a href="https://www.arcade-museum.com/Videogame/kick-man" target="_blank" rel="noreferrer">Kick Man (1981)</a> contributes the unicycle, balloon stack, and rescue kick.</p><p>Phrases use compatible <a href="https://jugglinglab.org/html/ssgenerator.html" target="_blank" rel="noreferrer">siteswap chunks</a>. The evolving set composes new verse, fill, break, and refrain sections. Our one-to-ten-object ensemble adapts passing ideas from the <a href="https://jugglingedge.com/pdf/passingpatternscompendium.pdf" target="_blank" rel="noreferrer">Passing Patterns Compendium</a>.</p><p>Acoustic drums and audience voices are credited in <a href="assets/puggler/CREDITS.md" target="_blank" rel="noreferrer">sample credits</a>. Guitar, bass, and “oi” are original synthesized riffs. No music or dialogue from the show is used.</p></details>
-      <button class="puggler-reset" id="resetButton" type="button">Reset the show</button>
+      <details class="puggler-control-section" open><summary>Physics & view</summary><div id="physicsControls"></div><div class="puggler-checks"><label class="puggler-check"><input type="checkbox" id="autoRide" checked /> Help partners catch</label><label class="puggler-check"><input type="checkbox" id="trails" checked /> Sound trails</label><label class="puggler-check"><input type="checkbox" id="guides" checked /> Throw paths</label></div></details>
+      <section class="puggler-control-section"><div class="section-heading"><h2>Sound mixer</h2></div><div id="soundControls"></div></section>
+      <section class="puggler-control-section"><div class="section-heading"><h2>The things</h2><button id="resetButton" type="button">Reset</button></div><div class="object-headings" aria-hidden="true"><span>Object</span><span>Catch</span><span>Air</span></div><div id="objectControls"></div></section>
     </aside>
   </main>
   <script type="module" src="nav.js"></script>

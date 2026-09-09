@@ -1,4 +1,4 @@
-// Original synthesized phrases; these are not recordings of a band or singer.
+// Authored guitar/bass synthesis plus arrangement of the licensed OI sample.
 // Recorded drums and audience voices: assets/puggler/CREDITS.md.
 export const PUNK_DRUMS = Object.freeze(['kick', 'snare', 'crash', 'tom', 'hat']);
 export const PUNK_RIFFS = Object.freeze(['guitar', 'bass', 'oi', 'woo']);
@@ -58,40 +58,22 @@ function synthStrings(role, sampleRate) {
   ampCabinet(output, sampleRate, bass ? 5 : 14, bass);
   return output;
 }
-// Moving O -> I formants over rough voiced pulses: an explicitly synthetic
-// gang chant, never described as a recording of a human performance.
-function synthOi(sampleRate) {
-  const output = new Float32Array(Math.round(sampleRate * 1.5));
-  for (let singer = 0; singer < 4; singer++) {
-    const noise = random(929 + singer * 291), states = Array.from({ length: 3 }, () => [0, 0]);
-    let phase = singer * .13, previous = 0;
-    for (let i = 0; i < output.length; i++) {
-      const time = i / sampleRate - singer * .009;
-      const syllable = Math.floor(time / .375), local = time - syllable * .375;
-      if (time < 0 || syllable > 2 || local > .295) continue;
-      const vowel = bound((local - .065) / .15, 0, 1);
-      const f0 = (107 + singer * 11) * (1.11 - local * .6) * (1 + .017 * Math.sin(time * 39));
-      phase = (phase + f0 / sampleRate) % 1;
-      const glottis = phase < .38 ? Math.sin(Math.PI * phase / .38) : 0;
-      const source = glottis - previous + noise() * .018; previous = glottis;
-      const formants = [570 + (390 - 570) * vowel, 840 + (1990 - 840) * vowel, 2410 + (2550 - 2410) * vowel];
-      let voice = 0;
-      for (let band = 0; band < 3; band++) {
-        const r = Math.exp(-Math.PI * [90, 125, 180][band] / sampleRate);
-        const [a, b] = states[band];
-        const next = source + 2 * r * Math.cos(TAU * formants[band] / sampleRate) * a - r * r * b;
-        states[band] = [next, a]; voice += next * [1, .75, .24][band];
-      }
-      const envelope = Math.min(1, local / .012) * Math.min(1, (.295 - local) / .05);
-      output[i] += Math.tanh(voice * .2) * envelope * .22;
-    }
-  }
+// Keep the recorded mouth articulation intact. Three full calls with small
+// level accents make the phrase; no synthetic vowels or pitch-stacked choir.
+export function renderVocalChant(samples, sampleRate = 22050) {
+  sampleRate = Math.round(bound(sampleRate, 8000, 96000));
+  const output = new Float32Array(Math.round(sampleRate * 1.8));
+  const length = Math.min(samples.length, Math.round(sampleRate * .55));
+  [.92, 1, .86].forEach((level, call) => {
+    const offset = Math.round(call * .6 * sampleRate);
+    for (let i = 0; i < length; i++) output[offset + i] = bound(samples[i], -1, 1) * level;
+  });
   return output;
 }
 export function renderPunkPhrase(role, sampleRate = 22050) {
   sampleRate = Math.round(bound(sampleRate, 8000, 96000));
-  if (!['guitar', 'bass', 'oi'].includes(role)) throw new Error(`Unknown synthesized phrase: ${role}`);
-  const data = role === 'oi' ? synthOi(sampleRate) : synthStrings(role, sampleRate);
+  if (!['guitar', 'bass'].includes(role)) throw new Error(`Unknown synthesized phrase: ${role}`);
+  const data = synthStrings(role, sampleRate);
   let peak = 0, mean = 0;
   for (const x of data) mean += x;
   mean /= data.length;

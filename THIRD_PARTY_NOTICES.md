@@ -465,9 +465,8 @@ SOFTWARE.
 
 ## Puggler acoustic drums and audience voices
 
-`assets/puggler/` bundles seven CC0 1.0 Universal recordings: five Karoryfer
-Samples acoustic drums, NeoSpica's “Booing Crowd,” and jayfrosting's “Woo 2.wav.”
+`assets/puggler/` bundles eight CC0 1.0 Universal recordings: five Karoryfer
+Samples acoustic drums, rhink’s “Oi.wav,” NeoSpica’s “Booing Crowd,” and jayfrosting’s “Woo 2.wav.”
 See [recording sources and processing](assets/puggler/CREDITS.md) and the
-[included CC0 text](assets/puggler/CC0-1.0.txt). Guitar, bass, and the synthetic
-“oi” chant are original repository synthesis. No episode or commercial music
+[included CC0 text](assets/puggler/CC0-1.0.txt). Guitar and bass are original repository synthesis. No episode or commercial music
 audio is bundled.

@@ -63,8 +63,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   puggler: define(
     "Unicycle juggling instrument",
-    "Turns up to ten objects into a thrashing punk band at up to 1,200 beats/minute. Puggler, Roxy, and Moss pass props, catch audience lobs, and throw them back; catches strike recorded drums and airborne paths bend riffs on a filthy punk/rave stage.",
-    "Enable Audio. A/D ride, Q/E ride fast, W/S shape throw height; 1/2/3 select a rider. IJKL independently controls Roxy, numpad controls Moss, or drag anyone. G throws to the crowd; F kicks.",
+    "Turns up to ten objects into a thrashing punk band at up to 1,200 beats/minute. Puggler, Roxy, and Moss pass props, catch audience lobs, and throw them back; catches strike recorded drums and airborne paths bend riffs on a filthy punk stage.",
+    "Enable Audio. Fixed clickable keys control each rider: WASD for Puggler, IJKL for Roxy, numpad for Moss. Drag anyone. Pause holds new juggling throws while riders and the crowd stay active.",
     ["Pointer", "Built-in synth", "Computer keys", "Spatial audio"],
   ),
   "vector-flight": define(
