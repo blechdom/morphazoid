@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.MORPHAZOID_QA_BASE_URL ?? "http://127.0.0.1:3435";
+const baseURL = process.env.MORPHAZOID_QA_BASE_URL
+  ?? process.env.PLAYWRIGHT_BASE_URL
+  ?? "http://127.0.0.1:3435";
 const webGpuLaunchArgs = process.env.MORPHAZOID_WEBGPU_QA === "1"
   ? ["--enable-unsafe-webgpu", "--autoplay-policy=no-user-gesture-required"]
   : [];

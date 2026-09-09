@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   addWaxLayer,
+  bashPath,
   injectWaxBootstrap,
   injectWaxUniversalAdapter,
   rewriteWaxHostedLinks,
@@ -19,6 +20,18 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const waxSourceDirectory = path.join(repositoryRoot, "scripts", "wax");
 const marker = "data-morphazoid-wax-bootstrap";
 const adapterMarker = "data-morphazoid-wax-universal-adapter";
+
+test("WAX build converts WSL UNC output paths before invoking Bash", () => {
+  assert.equal(
+    bashPath("\\\\wsl$\\Ubuntu\\tmp\\morphazoid-wax-check\\dist-wax"),
+    "/tmp/morphazoid-wax-check/dist-wax",
+  );
+  assert.equal(
+    bashPath("C:\\Users\\test\\AppData\\Local\\Temp\\morphazoid-site\\public"),
+    "/mnt/c/Users/test/AppData/Local/Temp/morphazoid-site/public",
+  );
+  assert.equal(bashPath("/tmp/morphazoid-wax-check"), "/tmp/morphazoid-wax-check");
+});
 
 async function listSourceHtml(directory) {
   const excludedDirectories = new Set([".git", "dist", "dist-wax", "node_modules"]);

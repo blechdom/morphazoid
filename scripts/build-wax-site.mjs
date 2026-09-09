@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -20,6 +21,16 @@ const adapterMarker = "data-morphazoid-wax-universal-adapter";
 
 function browserPath(value) {
   return value.split(path.sep).join("/");
+}
+
+export function bashPath(value) {
+  const source = String(value);
+  const wslUnc = /^[/\\]{2}wsl\$[/\\][^/\\]+[/\\](.+)$/i.exec(source);
+  if (wslUnc) return `/${wslUnc[1].replaceAll("\\", "/")}`;
+  const windowsDrive = /^([a-z]):[/\\](.+)$/i.exec(source);
+  return windowsDrive
+    ? `/mnt/${windowsDrive[1].toLowerCase()}/${windowsDrive[2].replaceAll("\\", "/")}`
+    : value;
 }
 
 export function injectWaxBootstrap(html, bootstrapSource) {
@@ -131,7 +142,11 @@ export async function buildWaxSite(outputArgument = "dist-wax") {
     ? path.resolve(outputArgument)
     : path.resolve(repositoryRoot, outputArgument);
 
-  await execFileAsync("bash", ["scripts/build-site.sh", outputDirectory], {
+  await execFileAsync("bash", [
+    "scripts/build-site.sh",
+    bashPath(outputDirectory),
+    bashPath(os.tmpdir()),
+  ], {
     cwd: repositoryRoot,
     maxBuffer: 10 * 1024 * 1024,
   });

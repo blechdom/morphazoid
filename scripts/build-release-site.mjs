@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
-import { buildWaxSite } from "./build-wax-site.mjs";
+import { bashPath, buildWaxSite } from "./build-wax-site.mjs";
 import { buildShaderSynthXyflow } from "./build-shader-synth-xyflow.mjs";
 import { fingerprintDentaphone } from "./fingerprint-dentaphone.mjs";
 import { fingerprintHiccupHead } from "./fingerprint-hiccup-head.mjs";
@@ -16,7 +17,11 @@ export async function buildReleaseSite(outputArgument = "dist") {
     ? path.resolve(outputArgument)
     : path.resolve(repositoryRoot, outputArgument);
 
-  await execFileAsync("bash", ["scripts/build-site.sh", outputDirectory], {
+  await execFileAsync("bash", [
+    "scripts/build-site.sh",
+    bashPath(outputDirectory),
+    bashPath(os.tmpdir()),
+  ], {
     cwd: repositoryRoot,
     maxBuffer: 10 * 1024 * 1024,
   });

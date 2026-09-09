@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 output_arg="${1:-dist}"
+build_temp_root="$(realpath -m "${2:-/tmp}")"
 
 if [[ "$output_arg" = /* ]]; then
   output_dir="$(realpath -m "$output_arg")"
@@ -17,7 +18,7 @@ case "$output_dir" in
     ;;
 esac
 
-if [[ "$output_dir" != "$repo_root/"* && "$output_dir" != /tmp/* ]]; then
+if [[ "$output_dir" != "$repo_root/"* && "$output_dir" != /tmp/* && "$output_dir" != "$build_temp_root/"* ]]; then
   echo "Output must be inside the repository or /tmp: $output_dir" >&2
   exit 1
 fi
@@ -42,7 +43,7 @@ while IFS= read -r -d '' source_path; do
   esac
 
   case "$source_path" in
-    *.html|*.css|*.js|*.webp|*.glb|*.LICENSE.txt|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
+    *.html|*.css|*.js|*.wasm|*.webp|*.glb|*.LICENSE.txt|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
     vendor/tactile/LICENSE|\
     vendor/ffmpeg-wasm/LICENSE|\
     vendor/ffmpeg-wasm/core/COPYING.GPLv2|\
@@ -491,6 +492,16 @@ for worktree_runtime_file in \
   src/ffmpeg-wasm.js \
   src/ffmpeg-wasm-capture-processor.js \
   assets/instruments/ffmpeg-wasm.webp \
+  simd-resonator.html \
+  simd-audio-lab.html \
+  simd-resonator.css \
+  simd-resonator-app.js \
+  src/simd-resonator.js \
+  src/simd-resonator-processor.js \
+  src/simd-audio-worker.js \
+  assets/wasm/simd-resonator-scalar.wasm \
+  assets/wasm/simd-resonator-simd.wasm \
+  assets/instruments/simd-resonator.webp \
   vendor/ffmpeg-wasm/ffmpeg/classes.js \
   vendor/ffmpeg-wasm/ffmpeg/const.js \
   vendor/ffmpeg-wasm/ffmpeg/errors.js \
@@ -1072,6 +1083,16 @@ required_files=(
   src/ffmpeg-wasm.js
   src/ffmpeg-wasm-capture-processor.js
   assets/instruments/ffmpeg-wasm.webp
+  simd-resonator.html
+  simd-audio-lab.html
+  simd-resonator.css
+  simd-resonator-app.js
+  src/simd-resonator.js
+  src/simd-resonator-processor.js
+  src/simd-audio-worker.js
+  assets/wasm/simd-resonator-scalar.wasm
+  assets/wasm/simd-resonator-simd.wasm
+  assets/instruments/simd-resonator.webp
   vendor/ffmpeg-wasm/ffmpeg/classes.js
   vendor/ffmpeg-wasm/ffmpeg/const.js
   vendor/ffmpeg-wasm/ffmpeg/errors.js

@@ -8,6 +8,7 @@ import errno
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 DEFAULT_PORT = 3435
@@ -20,6 +21,13 @@ class DevelopmentRequestHandler(SimpleHTTPRequestHandler):
 
     def end_headers(self) -> None:
         self.send_header("Cache-Control", "no-store")
+        if urlsplit(self.path).path in {
+            "/simd-resonator.html",
+            "/simd-audio-lab.html",
+            "/src/simd-audio-worker.js",
+        }:
+            self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+            self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
         super().end_headers()
 
 

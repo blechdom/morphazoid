@@ -866,6 +866,8 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "escher-tessellation", href: "escher-tessellation.html" },
       { id: "plasma-ball", href: "plasma-ball.html" },
       { id: "ffmpeg-wasm", href: "ffmpeg-wasm.html" },
+      { id: "simd-resonator", href: "simd-resonator.html" },
+      { id: "simd-audio-lab", href: "simd-audio-lab.html" },
       { id: "order-tones", href: "order-tones.html" },
       { id: "morphazoidical", href: "morphazoidical/" },
       { id: "bell-square", href: "bell-square.html" },

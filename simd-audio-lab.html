@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071011" />
+    <meta name="description" content="Seven playable WebAssembly SIMD audio demonstrations with clear sources, gestures, and audible presets." />
+    <title>SIMD Audio Lab &mdash; Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="simd-resonator.css" />
+  </head>
+  <body class="simd-resonator-page" data-simd-surface="lab">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="ffmpeg-wasm.html">ffmpeg wasm</a>
+        <a class="tab" href="simd-resonator.html">resonator</a>
+        <a class="tab active" href="simd-audio-lab.html" aria-current="page">simd lab</a>
+        <a class="tab" href="plugazoid.html">plugazoid</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="ffmpeg-wasm.html">ffmpeg wasm</option>
+          <option value="simd-resonator.html">simd resonator</option>
+          <option value="simd-audio-lab.html" selected>simd audio lab</option>
+          <option value="plugazoid.html">plugazoid</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph simd-audio-glyph" aria-hidden="true">&#9654;</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">32%</output></span>
+          <input id="outputLevel" aria-label="SIMD audio lab output level" type="range" min="0" max="0.65" step="0.01" value="0.32" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell simd-resonator-shell" id="simd-audio-lab">
+      <section class="stage simd-resonator-stage" aria-label="SIMD audio demonstration lab">
+        <div class="simd-stage-heading">
+          <h1>SIMD <em id="stageEngineName">GRAIN CLOUD</em></h1>
+          <span aria-hidden="true">WASM &times;4</span>
+        </div>
+        <div class="simd-canvas-wrap" id="canvasWrap">
+          <canvas
+            id="resonatorCanvas"
+            tabindex="0"
+            role="application"
+            aria-label="Playable grain cloud. Hold to make grains. Horizontal sets scan position; vertical sets grain size. Arrow keys move; hold Enter or Space when Audio is on."
+            aria-describedby="canvasCue liveStatus"
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter Space"
+          >Playable SIMD audio demonstration.</canvas>
+          <p class="simd-canvas-cue" id="canvasCue">HOLD FOR GRAINS</p>
+          <span class="simd-strike-label" id="strikeReadout">46% &middot; 120 ms</span>
+        </div>
+        <dl class="simd-telemetry" aria-label="Wasm telemetry">
+          <div><dt>Backend</dt><dd><output id="backendMetric">not loaded</output></dd></div>
+          <div><dt>Lanes</dt><dd><output id="laneMetric">&mdash;</output></dd></div>
+          <div><dt>Work</dt><dd><output id="modeMetric">64</output></dd></div>
+          <div><dt>Kernel</dt><dd><output id="kernelMetric">&mdash; &micro;s</output></dd></div>
+          <div><dt>Budget</dt><dd><output id="budgetMetric">&mdash;</output></dd></div>
+          <div><dt>Worker</dt><dd><output id="workerMetric">idle</output></dd></div>
+        </dl>
+        <p id="liveStatus" class="sr-only" aria-live="polite">Audio is off. Microphone is off.</p>
+      </section>
+
+      <aside class="panel simd-resonator-panel" aria-label="SIMD audio lab controls">
+        <details class="group control-section simd-input" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title">Hear it</h2><span class="section-state" id="inputSummary">Audio first</span></summary>
+          <div class="group-body">
+            <div class="simd-demo-card" aria-live="polite">
+              <small id="demoActionLabel">HOLD THE STAGE</small>
+              <b id="demoDescription">Short source fragments overlap from sparse dust to a solid cloud.</b>
+              <span id="demoInputNote">Built-in texture or microphone input feeds the grain pool.</span>
+            </div>
+            <button id="pluckButton" class="simd-primary-action simd-demo-action" type="button">PLAY GRAIN DEMO</button>
+            <button id="micButton" class="simd-primary-action simd-mic-action" type="button" aria-pressed="false" aria-label="Enable microphone. Turn on Audio first and use headphones.">
+              <span class="simd-mic-mark" aria-hidden="true"></span>
+              <span><b id="micButtonLabel">ENABLE MICROPHONE</b><small id="micButtonHint">Audio first &middot; headphones</small></span>
+            </button>
+            <p class="simd-note">Demo audio and microphone stay local.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section simd-engine" data-section="sound" open>
+          <summary class="group-summary"><h2 class="group-title">Example</h2><span class="section-state" id="engineSummary">grain cloud</span></summary>
+          <div class="group-body">
+            <div class="simd-engine-choices" role="group" aria-label="SIMD audio example">
+              <button id="granularEngineButton" type="button" aria-pressed="true">GRAINS</button>
+              <button id="swarmEngineButton" type="button" aria-pressed="false">SWARM</button>
+              <button id="freezeEngineButton" type="button" aria-pressed="false">FREEZE</button>
+              <button id="irEngineButton" type="button" aria-pressed="false">IR FILTER</button>
+              <button id="meshEngineButton" type="button" aria-pressed="false">MESH</button>
+              <button id="waveguideEngineButton" type="button" aria-pressed="false">STRINGS</button>
+              <button id="spatialEngineButton" type="button" aria-pressed="false">SPACE</button>
+            </div>
+            <label class="simd-preset" for="presetSelect"><span>Demo preset</span><select id="presetSelect" aria-label="SIMD example demo preset"></select></label>
+            <p class="simd-preset-description" id="presetDescription">Overlapping grains turn the source into a thick continuous fabric.</p>
+          </div>
+        </details>
+
+        <details class="group control-section simd-body" data-section="mapping" open>
+          <summary class="group-summary"><h2 class="group-title" id="soundTitle">Cloud</h2><span class="section-state" id="bodySummary">64 grains</span></summary>
+          <div class="group-body simd-control-list">
+            <label for="controlA"><span><span id="controlALabel">Grains</span><output id="controlAOut" for="controlA">64</output></span><input id="controlA" type="range" /></label>
+            <label for="controlB"><span><span id="controlBLabel">Density</span><output id="controlBOut" for="controlB">320/s</output></span><input id="controlB" type="range" /></label>
+            <label for="controlC"><span><span id="controlCLabel">Size</span><output id="controlCOut" for="controlC">120 ms</output></span><input id="controlC" type="range" /></label>
+            <label for="controlD"><span><span id="controlDLabel">Pitch</span><output id="controlDOut" for="controlD">0 st</output></span><input id="controlD" type="range" /></label>
+          </div>
+        </details>
+
+        <section class="simd-next" aria-labelledby="simdNextTitle">
+          <h2 id="simdNextTitle">Next</h2>
+          <ul>
+            <li><b>Phase vocoder</b><span>time stretch</span></li>
+            <li><b>Filterbank vocoder</b><span>parallel bands</span></li>
+            <li><b>Long IR</b><span>partitioned convolution</span></li>
+            <li><b>Nonlinear bank</b><span>oversampling</span></li>
+            <li><b>Ambisonic decode</b><span>speaker matrices</span></li>
+            <li><b>Audio ring</b><span id="workerNote">shared blocks</span></li>
+          </ul>
+        </section>
+        <div class="simd-panel-footer"><button id="resetButton" type="button">Reset demo</button><span>Wasm SIMD examples</span></div>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="simd-resonator-app.js"></script>
+  </body>
+</html>

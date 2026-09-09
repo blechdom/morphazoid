@@ -10,6 +10,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "plugazoid",
     "slippery-resynthesis",
     "ffmpeg-wasm",
+    "simd-resonator",
     "moire-drone",
     "sandy-syrup-delay",
     "candy-coil-delay",
@@ -188,6 +189,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "surround-field",
   "gesturama",
   "constellation",
+  "simd-resonator",
 ]);
 
 // These pages still expose hardware MIDI for labeled controls, presets, and
@@ -240,6 +242,7 @@ const audioInputIds = new Set([
   "plugazoid",
   "slippery-resynthesis",
   "ffmpeg-wasm",
+  "simd-resonator",
   "sandy-syrup-delay",
   "candy-coil-delay",
   "recursion",

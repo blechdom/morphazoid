@@ -384,6 +384,14 @@ export const TOOL_GROUPS = Object.freeze([
     },
     { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
     { id: "ffmpeg-wasm", label: "FFmpeg Wasm", href: "ffmpeg-wasm.html" },
+    { id: "simd-resonator", label: "SIMD Resonator", href: "simd-resonator.html" },
+    {
+      id: "simd-audio-lab",
+      label: "SIMD Audio Lab",
+      href: "simd-audio-lab.html",
+      imageHref: "assets/instruments/simd-resonator.webp",
+      catalogue: false,
+    },
     { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
     {
       id: "morphazoidical",

@@ -419,6 +419,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
       "@storybook/addon-a11y",
       "@storybook/addon-docs",
       "@storybook/html-vite",
+      "assemblyscript",
       "esbuild-wasm",
       "storybook",
       "vite",

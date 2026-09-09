@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071011" />
+    <meta name="description" content="A playable 128-mode WebAssembly SIMD resonator with four distinct material presets." />
+    <title>SIMD Resonator &mdash; Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="simd-resonator.css" />
+  </head>
+  <body class="simd-resonator-page" data-simd-surface="resonator">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="ffmpeg-wasm.html">ffmpeg wasm</a>
+        <a class="tab active" href="simd-resonator.html" aria-current="page">resonator</a>
+        <a class="tab" href="simd-audio-lab.html">simd lab</a>
+        <a class="tab" href="plugazoid.html">plugazoid</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="ffmpeg-wasm.html">ffmpeg wasm</option>
+          <option value="simd-resonator.html" selected>simd resonator</option>
+          <option value="simd-audio-lab.html">simd audio lab</option>
+          <option value="plugazoid.html">plugazoid</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph simd-audio-glyph" aria-hidden="true">&#9654;</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">24%</output></span>
+          <input id="outputLevel" aria-label="SIMD audio output level" type="range" min="0" max="0.65" step="0.01" value="0.24" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell simd-resonator-shell" id="simd-resonator">
+      <section class="stage simd-resonator-stage" aria-label="SIMD Resonator instrument">
+        <div class="simd-stage-heading">
+          <h1>SIMD <em id="stageEngineName">RESONATOR</em></h1>
+          <span aria-hidden="true">WASM &times;4</span>
+        </div>
+        <div class="simd-canvas-wrap" id="canvasWrap">
+          <canvas
+            id="resonatorCanvas"
+            tabindex="0"
+            role="application"
+            aria-label="Playable resonator. Drag to set strike position and brightness. Arrow keys move; Enter or Space plays when Audio is on."
+            aria-describedby="canvasCue liveStatus"
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter Space"
+          >Playable SIMD audio visualization.</canvas>
+          <p class="simd-canvas-cue" id="canvasCue">DRAG TO PLUCK</p>
+          <span class="simd-strike-label" id="strikeReadout">38% &middot; bright</span>
+        </div>
+        <dl class="simd-telemetry" aria-label="Wasm telemetry">
+          <div><dt>Backend</dt><dd><output id="backendMetric">not loaded</output></dd></div>
+          <div><dt>Lanes</dt><dd><output id="laneMetric">&mdash;</output></dd></div>
+          <div><dt>Work</dt><dd><output id="modeMetric">128</output></dd></div>
+          <div><dt>Kernel</dt><dd><output id="kernelMetric">&mdash; &micro;s</output></dd></div>
+          <div><dt>Budget</dt><dd><output id="budgetMetric">&mdash;</output></dd></div>
+          <div><dt>Worker</dt><dd><output id="workerMetric">idle</output></dd></div>
+        </dl>
+        <p id="liveStatus" class="sr-only" aria-live="polite">Audio is off. Microphone is off.</p>
+      </section>
+
+      <aside class="panel simd-resonator-panel" aria-label="SIMD Resonator controls">
+        <details class="group control-section simd-input" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Audio first</span></summary>
+          <div class="group-body">
+            <div class="simd-demo-card">
+              <small id="demoActionLabel">TAP OR DRAG THE BODY</small>
+              <b id="demoDescription">A strike excites 128 independently ringing modes.</b>
+              <span id="demoInputNote">Microphone input can excite the same body.</span>
+            </div>
+            <button id="pluckButton" class="simd-primary-action simd-demo-action" type="button">PLUCK BODY</button>
+            <button id="micButton" class="simd-primary-action simd-mic-action" type="button" aria-pressed="false" aria-label="Enable microphone. Turn on Audio first and use headphones.">
+              <span class="simd-mic-mark" aria-hidden="true"></span>
+              <span><b id="micButtonLabel">ENABLE MICROPHONE</b><small id="micButtonHint">Audio first &middot; headphones</small></span>
+            </button>
+            <p class="simd-note">Mic stays local.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section simd-engine" data-section="sound" open>
+          <summary class="group-summary"><h2 class="group-title">Material</h2><span class="section-state" id="engineSummary">resonator</span></summary>
+          <div class="group-body">
+            <label class="simd-preset" for="presetSelect"><span>Preset</span><select id="presetSelect" aria-label="Resonator material preset"></select></label>
+            <p class="simd-preset-description" id="presetDescription">Choose a material, then strike the body.</p>
+          </div>
+        </details>
+
+        <details class="group control-section simd-body" data-section="mapping" open>
+          <summary class="group-summary"><h2 class="group-title" id="soundTitle">Body</h2><span class="section-state" id="bodySummary">128 modes</span></summary>
+          <div class="group-body simd-control-list">
+            <label for="controlA"><span><span id="controlALabel">Modes</span><output id="controlAOut" for="controlA">128</output></span><input id="controlA" type="range" /></label>
+            <label for="controlB"><span><span id="controlBLabel">Base</span><output id="controlBOut" for="controlB">82 Hz</output></span><input id="controlB" type="range" /></label>
+            <label for="controlC"><span><span id="controlCLabel">Decay</span><output id="controlCOut" for="controlC">2.8 s</output></span><input id="controlC" type="range" /></label>
+            <label for="controlD"><span><span id="controlDLabel">Spread</span><output id="controlDOut" for="controlD">34%</output></span><input id="controlD" type="range" /></label>
+          </div>
+        </details>
+
+        <a class="simd-lab-link" href="simd-audio-lab.html"><b>SIMD AUDIO LAB</b><span>grains · freeze · IR · mesh · strings · space →</span></a>
+        <div class="simd-panel-footer"><button id="resetButton" type="button">Reset</button><span>128-mode instrument</span></div>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="simd-resonator-app.js"></script>
+  </body>
+</html>

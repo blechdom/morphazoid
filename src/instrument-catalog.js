@@ -382,6 +382,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on Audio, then turn on the microphone. Preloading is optional.",
     ["Mic input", "FFmpeg/Wasm", "Chunked processing", "Audio export"],
   ),
+  "simd-resonator": define(
+    "SIMD modal instrument",
+    "Turns one strike into a 128-mode resonant body whose material, position, hardness, tuning, decay, and inharmonic spread remain directly playable while WebAssembly SIMD accelerates the parallel modes.",
+    "Turn on Audio, choose a material, then tap or drag the body. Microphone input can excite the same resonator.",
+    ["Modal synthesis", "Mic input", "WebAssembly SIMD", "AudioWorklet", "Pointer"],
+  ),
   "moire-drone": define(
     "Noise-field drone",
     "Sends correlated colored noise through interacting two-dimensional wave fields, a Shepard-wrapped Q/FFT lattice, and a visible damped mass-spring frequency fabric shaped by direct grabs and user-triggered propagation.",

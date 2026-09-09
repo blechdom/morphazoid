@@ -51,7 +51,8 @@ async function compareDirectories(expectedDirectory, actualDirectory) {
   }
 }
 
-const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "morphazoid-wax-check-"));
+const checkTempDirectory = process.env.MORPHAZOID_WAX_CHECK_TMPDIR || os.tmpdir();
+const temporaryRoot = await mkdtemp(path.join(checkTempDirectory, "morphazoid-wax-check-"));
 try {
   const cleanBuild = path.join(temporaryRoot, "dist-wax");
   await buildWaxSite(cleanBuild);
