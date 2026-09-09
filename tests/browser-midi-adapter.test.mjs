@@ -185,6 +185,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("morphazoidical").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("object-forge").noteMode, "pitched");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
+    "puggler",
     "image-to-instrument-3",
     "throatazoid",
     "throat-singing",

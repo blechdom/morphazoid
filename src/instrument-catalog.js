@@ -61,6 +61,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, let the arrows drift, then drag the open surface to steer the sine field.",
     ["Pointer", "Built-in synth"],
   ),
+  puggler: define(
+    "Unicycle juggling instrument",
+    "Turns up to ten objects into a thrashing punk band at up to 1,200 beats/minute. Puggler, Roxy, and Moss pass props, catch audience lobs, and throw them back; catches strike recorded drums and airborne paths bend riffs on a filthy punk/rave stage.",
+    "Enable Audio. A/D ride, Q/E ride fast, W/S shape throw height; 1/2/3 select a rider. IJKL independently controls Roxy, numpad controls Moss, or drag anyone. G throws to the crowd; F kicks.",
+    ["Pointer", "Built-in synth", "Computer keys", "Spatial audio"],
+  ),
   "vector-flight": define(
     "Circular flight geometry",
     "Keeps a wireframe ship centered inside a full 360-degree star field, mapping a circular listening contour, azimuth, proximity, radial velocity, and tangential motion directly into continuous voices, free-pitch flybys, or triggers without a scale grid.",

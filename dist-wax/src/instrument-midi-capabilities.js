@@ -99,6 +99,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "algorithmic-mazes",
     "paths",
     "boidzoid",
+    "puggler",
     "vector-flight",
     "pink-trombonazoid",
     "colony-syrinx",
@@ -162,6 +163,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "puggler",
   "image-to-instrument-3",
   "throatazoid",
   "throat-singing",

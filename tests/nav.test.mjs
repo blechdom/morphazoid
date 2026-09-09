@@ -623,6 +623,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "playhead-paint", href: "playhead-paint.html" },
       { id: "boidzoid", href: "boidzoid.html" },
+      { id: "puggler", href: "puggler.html" },
       { id: "vector-flight", href: "vector-flight.html" },
       { id: "gesturama", href: "gesturama.html" },
       { id: "image-to-instrument-3", href: "image-to-instrument-3.html" },

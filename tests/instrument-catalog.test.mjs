@@ -141,10 +141,11 @@ test("Faves keep their regular catalogue groups and experiments never inherit th
   );
 });
 
-test("temporary Misc group owns the six uncategorized instruments", () => {
+test("Misc group owns the uncategorized instruments including Puggler", () => {
   const ids = [
     "playhead-paint",
     "boidzoid",
+    "puggler",
     "vector-flight",
     "gesturama",
     "image-to-instrument-3",
