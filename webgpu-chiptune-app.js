@@ -13,11 +13,14 @@ import {
   WEBGPU_CHIPTUNE_PARAM_DISTRIBUTIONS,
   WEBGPU_CHIPTUNE_LIMITS,
   WEBGPU_CHIPTUNE_PARAM_ORDER,
-  WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS,
   WEBGPU_CHIPTUNE_RUNTIME_DEFAULTS,
   WEBGPU_CHIPTUNE_WORKGROUP_SIZES,
   WebGpuChiptuneAudio,
   applyWebGpuChiptunePerformance,
+  applyWebGpuChiptuneDrumMix,
+  sanitizeWebGpuChiptuneDrumMix,
+  createWebGpuChiptunePattern,
+  migrateWebGpuChiptunePerformance,
   createWebGpuChiptuneSequence,
   formatWebGpuChiptuneValue,
   paintWebGpuChiptuneSequenceSegment,
@@ -40,6 +43,8 @@ import {
   webGpuChiptuneStepSnapshot,
   webGpuChiptuneSupport,
 } from "./src/webgpu-chiptune.js";
+
+import { CHIPTUNE_DANCER_IDENTITIES, drawChiptuneDancer } from "./src/webgpu-chiptune-dancers.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -81,6 +86,10 @@ const controlGroups = Object.freeze({
     makeSpec("bassSineLevel", "Bass sine"),
     makeSpec("leadLevel", "Lead"),
     makeSpec("arpLevel", "Arpeggio"),
+    makeSpec("upperOneTone", "Upper A tone"),
+    makeSpec("upperTwoTone", "Upper B tone"),
+    makeSpec("leadTone", "Lead tone"),
+    makeSpec("arpTone", "Arp tone"),
     makeSpec("noiseLevel", "Noise texture"),
     makeSpec("stereoWidth", "Voice width"),
   ]),
@@ -461,7 +470,7 @@ function presetSequence(definitions = {}) {
       }),
     };
   }
-  return sanitizeWebGpuChiptuneSequence({ schemaVersion: 2, lanes });
+  return sanitizeWebGpuChiptuneSequence({ schemaVersion: 3, lanes });
 }
 
 const presets = Object.freeze([
@@ -1242,7 +1251,13 @@ const SAFE_RANDOM_RANGES = Object.freeze({
 const support = webGpuChiptuneSupport(globalThis);
 const state = {
   params: sanitizeWebGpuChiptuneParams(),
-  sequence: createWebGpuChiptuneSequence(),
+  sequence: createWebGpuChiptunePattern(),
+  songSequence: createWebGpuChiptuneSequence(),
+  patternSequence: null,
+  patternBaseline: createWebGpuChiptunePattern(),
+  drumMix: sanitizeWebGpuChiptuneDrumMix(),
+  sequenceZoomSteps: 32,
+  sequencePitchCenter: 0,
   voicePerformance: sanitizeWebGpuChiptunePerformance(),
   activeCharacterVoice: "upperOne",
   trackerView: "sequence",
@@ -1250,7 +1265,7 @@ const state = {
   activeSequenceStep: 0,
   sequencePage: 0,
   sequenceEditMode: "note",
-  sequenceFollowLive: true,
+  sequenceFollowLive: false,
   sequencePitchSpan: 36,
   presetId: "source-tracker",
   audioOn: false,
@@ -1420,11 +1435,17 @@ function notifyWaxState() {
     activePresetId: state.presetId,
     sequence: state.sequence,
     voicePerformance: state.voicePerformance,
+    performanceVersion: 2,
+    drumMix: state.drumMix,
+    songSequence: state.sequence.mode === "song" ? state.sequence : state.songSequence,
+    patternSequence: state.sequence.mode === "pattern" ? state.sequence : state.patternSequence,
+    patternBaseline: state.patternBaseline,
   });
 }
 
 function effectiveVoiceParams() {
-  return applyWebGpuChiptunePerformance(state.params, state.voicePerformance);
+  return applyWebGpuChiptuneDrumMix(
+    applyWebGpuChiptunePerformance(state.params, state.voicePerformance), state.drumMix);
 }
 
 function updateEffectiveVoiceParams() {
@@ -1698,14 +1719,19 @@ function applySequence(
 
 function applyPreset(preset) {
   state.params = sanitizeWebGpuChiptuneParams(preset.params);
-  state.sequence = sanitizeWebGpuChiptuneSequence(preset.sequence);
+  const mode = state.sequence.mode;
+  state.songSequence = sanitizeWebGpuChiptuneSequence(preset.sequence);
+  state.patternSequence = createWebGpuChiptunePattern(state.params, state.songSequence);
+  state.patternBaseline = state.patternSequence;
+  state.sequence = mode === "song" ? state.songSequence : state.patternSequence;
   state.presetId = preset.id;
   trackerCacheParams = null;
   trackerCacheSequence = null;
   trackerNoteCache.clear();
   syncParamOutputs();
   updateEffectiveVoiceParams();
-  engine?.updateSequence(state.sequence);
+  engine?.updateSequence(state.sequence, { deferDrums: false });
+  syncSequenceControls();
   syncCharacterPerformanceControls();
   notifyWaxState();
   announce(preset.label + " selected.");
@@ -2086,8 +2112,12 @@ function activeSequenceSpec() {
 }
 
 function performerEditorHint(performer, lane = state.activeSequenceLane) {
+  if (performer === "drums") return "Click selects. Double-click turns ON/OFF. Drag height for hit strength. Edits take effect on the next hit, without retriggering.";
+  if (state.sequence.mode === "pattern") return lane === "arp"
+    ? "Height is PITCH CONTOUR, not volume. Lower bars set step volume. Double-click toggles a step. No hidden octave motion or song gates."
+    : "Height is PITCH. Lower bars set step volume. Double-click toggles a step. Each enabled step plays once; there are no hidden song gates.";
   if (performer === "drums") {
-    return "Choose Kick, Snare, Hats, or Shaker below. Draw hits or silence; reload the preset to restore its beat.";
+    return "Click a step to turn it ON / OFF. Drag vertically for 0–100% strength, or use the strength slider. No hidden contour; edits play with the sequence.";
   }
   if (lane === "lead") {
     return "Draw the customized base note. The thin white trace is the trill-modulated pitch you hear.";
@@ -2103,6 +2133,7 @@ function selectedPerformerLabel() {
 }
 
 function sequenceRateForUi(lane) {
+  if (state.sequence.mode === "pattern") return 1 / state.sequence.lanes[lane].stepBeats;
   if (WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)) {
     return state.params.drumRate * 4;
   }
@@ -2116,6 +2147,7 @@ function sequenceRateForUi(lane) {
 }
 
 function sequencePhaseForUi(lane) {
+  if (state.sequence.mode === "pattern") return 0;
   const key = {
     upperOne: "upperOnePhase",
     upperTwo: "upperTwoPhase",
@@ -2145,7 +2177,7 @@ function suggestedSequenceValue(lane, step) {
 
 function sequenceLaneWithChanges(lane, changes) {
   return {
-    schemaVersion: 2,
+    ...state.sequence,
     lanes: {
       ...state.sequence.lanes,
       [lane]: {
@@ -2180,7 +2212,7 @@ function describeSequenceCell(lane, step, cell, activeLength) {
     ? "preset rhythm"
     : "preset value";
   if (cell.state === "rest") description = "custom silence";
-  else if (cell.state === "note" && spec.kind === "drums") description = "custom hit";
+  else if (cell.state === "note" && spec.kind === "drums") description = "hit " + Math.round(cell.value * 100) + "%";
   else if (cell.state === "note" && spec.kind === "contour") {
     description = "custom shape " + cell.value.toFixed(3);
   } else if (cell.state === "note") description = "custom note offset " + signedNumber(cell.value);
@@ -2195,7 +2227,7 @@ function describeSequenceCell(lane, step, cell, activeLength) {
 }
 
 function sequencePageSizeForWidth(width) {
-  return Number(width) <= 620 ? 8 : 16;
+  return state.sequenceZoomSteps;
 }
 
 function activeSequencePageSize() {
@@ -2286,6 +2318,9 @@ function focusCharacterEditor(lane, { focus = false, announceChange = true } = {
   state.activeSequenceLane = performerLanes.includes(state.activeSequenceLane)
     ? state.activeSequenceLane
     : preferredLane;
+  if (state.activeSequenceStep >= state.sequence.lanes[state.activeSequenceLane].activeLength) {
+    state.activeSequenceStep = 0;
+  }
   if (lane === "drums") lastDrumSequenceLane = state.activeSequenceLane;
   else lastVoiceSequenceLane = state.activeSequenceLane;
   sequencePlayhead = -1;
@@ -2306,6 +2341,7 @@ function focusCharacterEditor(lane, { focus = false, announceChange = true } = {
 function selectSequenceLane(lane, { focus = false } = {}) {
   if (!WEBGPU_CHIPTUNE_SEQUENCE_LANES.includes(lane)) return;
   state.activeSequenceLane = lane;
+  if (state.activeSequenceStep >= state.sequence.lanes[lane].activeLength) state.activeSequenceStep = 0;
   const performer = webGpuChiptunePerformerForSequenceLane(lane);
   if (performer) state.activeCharacterVoice = performer;
   if (WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.includes(lane)) {
@@ -2360,16 +2396,6 @@ function setSequenceLaneLength(value) {
   );
 }
 
-function requestSequenceAudition(lane, cellState, value) {
-  if (
-    cellState !== "note"
-    || WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)
-    || !state.audioOn
-    || !state.synthPlaying
-  ) return false;
-  return engine?.auditionSequenceCell(lane, value) === true;
-}
-
 function setSequenceCell(
   step,
   cellState,
@@ -2381,26 +2407,28 @@ function setSequenceCell(
   const laneState = state.sequence.lanes[lane];
   const cellIndex = Math.round(clamp(step, 0, WEBGPU_CHIPTUNE_SEQUENCE_STEPS - 1));
   const current = laneState.cells[cellIndex];
-  const stateName = ["auto", "note", "rest"].includes(cellState) ? cellState : "auto";
+  let stateName = ["auto", "note", "rest"].includes(cellState) ? cellState : "auto";
   const fallback = current.state === "note"
     ? current.value
     : suggestedSequenceValue(lane, cellIndex);
-  const nextValue = spec.kind === "drums"
-    ? 1
-    : webGpuChiptuneSequenceEditorValue(
+  const nextValue = webGpuChiptuneSequenceEditorValue(
       lane,
       webGpuChiptuneSequenceEditorUnit(lane, value ?? fallback),
     );
   const cells = [...laneState.cells];
-  cells[cellIndex] = { state: stateName, value: nextValue };
+  if (spec.kind === "drums" && stateName === "note" && nextValue === 0) stateName = "rest";
+  cells[cellIndex] = { ...current, state: stateName, value: nextValue,
+    velocity: stateName === "note" && current.velocity === 0 ? 1 : current.velocity };
+  if (stateName === "auto" && state.sequence.mode === "pattern") {
+    cells[cellIndex] = state.patternBaseline.lanes[lane].cells[cellIndex];
+  }
   state.activeSequenceStep = cellIndex;
   state.sequencePage = sequencePageForStep(cellIndex);
   applySequence(sequenceLaneWithChanges(lane, { cells }));
-  const previewed = requestSequenceAudition(lane, stateName, nextValue);
   if (announceChange) {
     const detail = stateName === "note"
       ? spec.kind === "drums"
-        ? "hit"
+        ? "hit " + Math.round(nextValue * 100) + "%"
         : spec.kind === "contour"
           ? "custom shape " + nextValue.toFixed(3)
           : "custom note " + signedNumber(nextValue)
@@ -2411,15 +2439,19 @@ function setSequenceCell(
         + (cellIndex + 1)
         + " set to "
         + detail
-        + (previewed ? ". Same-shader preview queued" : "")
         + ".",
     );
   }
 }
 
 function cycleSequenceCell(step) {
+  if (activeSequenceSpec().kind === "drums") {
+    const level = currentDrumLevel(state.activeSequenceLane, step);
+    setSequenceCell(step, level > 0 ? "rest" : "note", level > 0 ? 0 : 1);
+    return;
+  }
   const cell = state.sequence.lanes[state.activeSequenceLane].cells[step];
-  const next = cell.state === "auto" ? "note" : cell.state === "note" ? "rest" : "auto";
+  const next = cell.state === "rest" ? "note" : "rest";
   setSequenceCell(step, next);
 }
 
@@ -2427,7 +2459,7 @@ function nudgeSequenceCell(step, direction, { octave = false } = {}) {
   const lane = state.activeSequenceLane;
   const spec = activeSequenceSpec();
   if (spec.kind === "drums") {
-    setSequenceCell(step, direction > 0 ? "note" : "rest");
+    setSequenceCell(step, "note", currentDrumLevel(lane, step) + direction * (octave ? 0.1 : 0.05));
     return;
   }
   const cell = state.sequence.lanes[lane].cells[step];
@@ -2468,7 +2500,8 @@ function varySequenceLane() {
 function clearSequenceLane() {
   const lane = state.activeSequenceLane;
   const laneState = state.sequence.lanes[lane];
-  const cells = laneState.cells.map(() => ({ state: "auto", value: 0 }));
+  const cells = state.sequence.mode === "pattern" ? state.patternBaseline.lanes[lane].cells
+    : laneState.cells.map(() => ({ state: "auto", value: 0 }));
   applySequence(sequenceLaneWithChanges(lane, { cells }));
   announce(activeSequenceDefinition().label + " restored to the preset pattern.");
 }
@@ -2507,8 +2540,15 @@ function setVoiceSequencesToSource() {
       )),
     };
   }
-  applySequence({ schemaVersion: 2, lanes });
+  applySequence({ ...state.sequence, lanes });
   announce("All five voice lanes restored to the preset pattern.");
+}
+
+function sequenceCellCustomized(lane, step) {
+  const cell = state.sequence.lanes[lane].cells[step];
+  if (state.sequence.mode !== "pattern") return cell.state !== "auto";
+  const original = state.patternBaseline.lanes[lane].cells[step];
+  return cell.state !== original.state || cell.value !== original.value || cell.velocity !== original.velocity;
 }
 
 function sourceCoverage(lanes) {
@@ -2518,7 +2558,7 @@ function sourceCoverage(lanes) {
     const laneState = state.sequence.lanes[lane];
     active += laneState.activeLength;
     for (let step = 0; step < laneState.activeLength; step += 1) {
-      if (laneState.cells[step].state === "auto") source += 1;
+      if (!sequenceCellCustomized(lane, step)) source += 1;
     }
   }
   return Object.freeze({ source, active });
@@ -2582,17 +2622,15 @@ function syncSequenceTimingOutput(time = transportTime()) {
   } else if (!state.synthPlaying) {
     detail = "PAUSED · edits remain saved";
   } else if (state.sequenceFollowLive) {
-    detail = WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)
-      ? "NEXT HIT IN " + timingText(liveTarget.naturalSeconds)
-      : "PREVIEW QUEUED ≈ "
-        + timingText(liveTarget.leadSeconds)
-        + " · "
-        + Math.round(WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS * 1000)
-        + " MS FOCUSED NOTE";
+    detail = "NEXT STEP IN " + timingText(liveTarget.naturalSeconds);
   } else {
     detail = timing.targetActiveNow
       ? "ACTIVE NOW"
       : "NATURALLY IN " + timingText(timing.secondsUntilTarget);
+  }
+  const activation = engine?.sequenceEditActivationTime(lane, state.activeSequenceStep);
+  if (state.audioOn && state.synthPlaying && Number.isFinite(activation) && activation > time) {
+    detail = "CHANGE ON NEXT HIT · " + timingText(activation - time);
   }
   $("sequenceTimingStatus").textContent = "PLAY "
     + play
@@ -2653,7 +2691,15 @@ function syncSequenceControls() {
   $("sequenceLength").value = String(laneState.activeLength);
   $("sequenceLength").setAttribute("aria-valuetext", laneState.activeLength + " steps");
 
-  for (const button of $("sequenceVoiceTabs").querySelectorAll("button")) {
+  syncPatternWorkspace();
+  for (const row of $("sequenceVoiceTabs").querySelectorAll("[data-drum-row]")) {
+    row.hidden = performer !== "drums";
+  }
+  for (const button of $("sequenceVoiceTabs").querySelectorAll("[data-drum-mute], [data-drum-solo]")) {
+    const key = button.dataset.drumMute ?? button.dataset.drumSolo;
+    button.setAttribute("aria-pressed", String(state.drumMix[key][button.dataset.drumMute ? "muted" : "solo"]));
+  }
+  for (const button of $("sequenceVoiceTabs").querySelectorAll("button[data-lane]")) {
     const active = button.dataset.lane === lane;
     const visible = performerLanes.includes(button.dataset.lane);
     button.hidden = !visible;
@@ -2663,41 +2709,49 @@ function syncSequenceControls() {
 
   for (const stateName of ["auto", "note", "rest"]) {
     const button = $("sequenceState" + stateName[0].toUpperCase() + stateName.slice(1));
-    button.setAttribute("aria-pressed", String(state.sequenceEditMode === stateName));
+    const drum = activeSequenceSpec().kind === "drums";
+    const pressed = drum
+      ? stateName === "note" ? currentDrumLevel(lane, state.activeSequenceStep) > 0
+        : stateName === "rest" ? currentDrumLevel(lane, state.activeSequenceStep) === 0 : false
+      : state.sequenceEditMode === stateName;
+    button.setAttribute("aria-pressed", String(pressed));
   }
   const spec = activeSequenceSpec();
   $("sequenceWorkspace").dataset.sequenceKind = spec.kind;
   $("sequenceStateAuto").textContent = "RESET STEP ↺";
   $("sequenceStateNote").textContent = spec.kind === "drums"
-    ? "DRAW HIT ●"
+    ? "HIT ON ●"
     : spec.kind === "contour" ? "DRAW SHAPE ●" : "DRAW NOTE ●";
-  $("sequenceStateRest").textContent = "SILENCE ×";
+  $("sequenceStateRest").textContent = spec.kind === "drums" ? "HIT OFF ×" : "SILENCE ×";
   const valueInput = $("sequenceValue");
   const valueRange = $("sequenceValueRange");
   const valueControl = valueInput.closest("label");
   valueControl.dataset.cellState = selected.state;
-  valueControl.hidden = spec.kind === "drums";
-  valueInput.disabled = spec.kind === "drums";
-  valueRange.disabled = spec.kind === "drums";
+  valueControl.hidden = false;
+  valueInput.disabled = false;
+  valueRange.disabled = false;
+  const valueScale = spec.kind === "drums" ? 100 : 1;
   valueInput.min = String(spec.minimum);
-  valueInput.max = String(spec.maximum);
+  valueInput.max = String(spec.maximum * valueScale);
   valueInput.inputMode = spec.kind === "contour" ? "decimal" : "numeric";
-  valueInput.step = String(spec.quantum);
+  valueInput.step = String(spec.quantum * valueScale);
   valueRange.min = String(spec.minimum);
-  valueRange.max = String(spec.maximum);
-  valueRange.step = String(spec.quantum);
-  const shownValue = selected.state === "note"
-    ? selected.value
-    : suggestedSequenceValue(lane, state.activeSequenceStep);
+  valueRange.max = String(spec.maximum * valueScale);
+  valueRange.step = String(spec.quantum * valueScale);
+  const shownValue = spec.kind === "drums"
+    ? currentDrumLevel(lane, state.activeSequenceStep) * 100
+    : selected.state === "note" ? selected.value : suggestedSequenceValue(lane, state.activeSequenceStep);
   if (document.activeElement !== valueInput && document.activeElement !== valueRange) {
     valueInput.value = String(shownValue);
     valueRange.value = String(shownValue);
   }
-  $("sequenceValueLabel").textContent = spec.kind === "contour"
-    ? "Current shape 0–1"
+  $("sequenceValueLabel").textContent = spec.kind === "drums" ? "Hit strength 0–100%"
+    : spec.kind === "contour"
+    ? "Pitch contour 0–1"
     : "Current note offset";
-  $("sequenceValueOut").textContent = spec.kind === "contour"
-    ? shownValue.toFixed(3)
+  $("sequenceValueOut").textContent = spec.kind === "drums" ? Math.round(shownValue) + "%"
+    : spec.kind === "contour"
+    ? shownValue.toFixed(3) + " · " + shaderNoteName(resolvedSequenceNote(lane, state.activeSequenceStep))
     : signedNumber(shownValue)
       + " · "
       + shaderNoteName(resolvedSequenceNote(lane, state.activeSequenceStep));
@@ -2715,9 +2769,9 @@ function syncSequenceControls() {
   const effectiveNote = selected.state !== "rest" && spec.kind === "steps" && insideLoop
     ? shaderNoteName(resolvedSequenceNote(lane, state.activeSequenceStep))
     : "";
-  const stateText = selected.state === "note"
+  const stateText = selected.state === "note" && sequenceCellCustomized(lane, state.activeSequenceStep)
     ? spec.kind === "drums"
-      ? "CUSTOM HIT"
+      ? "HIT " + Math.round(shownValue) + "%"
       : spec.kind === "contour"
         ? "CUSTOM SHAPE " + selected.value.toFixed(3)
         : "CUSTOM NOTE " + signedNumber(selected.value)
@@ -2725,7 +2779,7 @@ function syncSequenceControls() {
     : selected.state === "rest"
       ? "SILENT"
       : spec.kind === "drums"
-        ? "PRESET PATTERN"
+        ? shownValue > 0 ? "HIT 100%" : "OFF"
         : spec.kind === "contour"
           ? "PRESET SHAPE " + shownValue.toFixed(3)
           : "PRESET NOTE " + signedNumber(shownValue)
@@ -2762,6 +2816,7 @@ function syncSequenceControls() {
   $("sequenceFollow").setAttribute("aria-pressed", String(state.sequenceFollowLive));
   $("sequenceFollow").textContent = state.sequenceFollowLive ? "FOLLOW: ON" : "FOLLOW: OFF";
   $("selectedPerformerName").textContent = selectedPerformerLabel();
+  $("selectedPerformerName").title = CHIPTUNE_DANCER_IDENTITIES[performer].name;
   $("selectedPerformerHint").textContent = performerEditorHint(performer, lane);
   $("selectedPerformer").style.setProperty("--performer-color", definition.color);
   $("selectedPerformer").dataset.performer = performer;
@@ -2825,6 +2880,192 @@ function syncSequencePlayhead(time, { force = false } = {}) {
   else syncSequenceTimingOutput(time);
 }
 
+function fractionText(value) {
+  for (let denominator = 1; denominator <= 128; denominator++) {
+    const numerator = Math.round(value * denominator);
+    if (Math.abs(numerator / denominator - value) < 0.000001) return numerator + "/" + denominator;
+  }
+  return Number(value.toFixed(4)) + " units";
+}
+
+function switchCompositionMode(mode) {
+  if (mode === state.sequence.mode) return;
+  if (state.sequence.mode === "pattern") state.patternSequence = state.sequence;
+  else state.songSequence = state.sequence;
+  const next = mode === "song" ? state.songSequence
+    : state.patternSequence ?? createWebGpuChiptunePattern(state.params, state.songSequence);
+  applySequence(next, { markCustom: false, presetId: state.presetId });
+  state.sequenceFollowLive = false;
+  state.sequencePage = sequencePageForStep(state.activeSequenceStep);
+  setTrackerView("sequence", { quiet: true });
+  announce(mode === "pattern"
+    ? "Pattern mode. Independent repeating loops; song sections and phrase modulation bypassed."
+    : "Song mode. Original long-form sections, phrase modulation and procedural clocks restored.");
+}
+
+function setStepVelocity(step, value, lane = state.activeSequenceLane) {
+  const laneState = state.sequence.lanes[lane], cells = [...laneState.cells];
+  const velocity = clamp(value, 0, 1);
+  cells[step] = { ...cells[step], velocity,
+    state: velocity === 0 ? "rest" : "note",
+    value: cells[step].state === "auto" ? suggestedSequenceValue(lane, step) : cells[step].value };
+  state.activeSequenceStep = step;
+  applySequence(sequenceLaneWithChanges(lane, { cells }), { notify: false });
+}
+
+let focusedSoundKey = "";
+const patternSoundKeys = new Set([
+  "tempo", "transpose", "scaleMask", "tuningCents", "pulseWidth", "pwmDepth", "pwmRate",
+  "upperOneTone", "upperOneLevel", "upperOneRegister", "upperTwoTone", "upperTwoLevel", "upperTwoRegister",
+  "bassPulseWidth", "bassPulseLevel", "bassSineLevel", "bassRegister", "leadTone", "leadLevel", "leadRegister",
+  "arpTone", "arpLevel", "arpRegister", "arpSpan", "pitchRange", "stereoWidth", "voiceCrossfeed",
+  "synthMix", "drumMix", "drumDecay", "noiseRate", "noiseColor",
+  ...Object.keys(WEBGPU_CHIPTUNE_DEFAULTS).filter((key) => /^(kick|snare|hat|shaker|echo|ghost|fade|gain)/.test(key)
+    && !/(Cycle|Subcycle|Repeat|Phase)$/.test(key)),
+]);
+function syncFocusedSoundControls() {
+  const lane = state.activeSequenceLane, pattern = state.sequence.mode === "pattern";
+  const key = lane + ":" + state.sequence.mode;
+  if (focusedSoundKey !== key) {
+    focusedSoundKey = key;
+    const prefixes = lane === "hats" ? ["hat"] : [lane];
+    let keys = WEBGPU_CHIPTUNE_PARAM_ORDER.filter((param) => prefixes.some((prefix) => param.startsWith(prefix)));
+    if (pattern) keys = keys.filter((param) => patternSoundKeys.has(param));
+    $("voiceSoundTitle").textContent = activeSequenceDefinition().label + " SOUND — THIS VOICE ONLY";
+    $("focusedVoiceControls").replaceChildren(...keys.map((param) => {
+      const spec = controlSpecsByKey.get(param);
+      const wrapper = document.createElement("label");
+      wrapper.className = "control";
+      const title = document.createElement("span"), label = document.createElement("b"), output = document.createElement("output");
+      label.textContent = spec.label;
+      output.dataset.focusedOutput = param;
+      const input = document.createElement("input");
+      input.type = "range"; input.id = "focused-" + param;
+      input.min = "0"; input.max = "1"; input.step = "0.001";
+      input.dataset.focusedParam = param;
+      input.setAttribute("aria-label", spec.label + " — selected voice");
+      wrapper.htmlFor = input.id;
+      output.htmlFor = input.id;
+      input.addEventListener("input", () => applyControlUnit(spec, input.value));
+      input.addEventListener("keydown", (event) => handleControlKey(event, spec));
+      title.append(label, output); wrapper.append(title, input);
+      return wrapper;
+    }));
+  }
+  for (const input of $("focusedVoiceControls").querySelectorAll("input")) {
+    const key = input.dataset.focusedParam;
+    if (document.activeElement !== input) input.value = String(webGpuChiptuneParamToUnit(key, state.params[key]));
+    input.setAttribute("aria-valuetext", formatWebGpuChiptuneValue(key, state.params[key]));
+    $("focusedVoiceControls").querySelector('[data-focused-output="' + key + '"]').textContent
+      = formatWebGpuChiptuneValue(key, state.params[key]);
+  }
+}
+function syncPatternWorkspace() {
+  const pattern = state.sequence.mode === "pattern", lane = state.sequence.lanes[state.activeSequenceLane];
+  $("compositionMode").value = state.sequence.mode;
+  $("compositionDescription").textContent = pattern
+    ? "PATTERN: each enabled step plays once. Phrase motion and song sections are bypassed."
+    : "SONG: original sections, trills, octave motion and rhythm gates are active. Pattern edits are saved separately.";
+  $("patternTimingControls").hidden = !pattern;
+  if (![...$("sequenceStepFraction").options].some((option) => Number(option.value) === lane.stepBeats)) {
+    const option = document.createElement("option"); option.value = String(lane.stepBeats);
+    option.textContent = fractionText(lane.stepBeats); $("sequenceStepFraction").append(option);
+  }
+  $("sequenceStepFraction").value = String(lane.stepBeats);
+  const pair = fractionForValue(lane.stepBeats);
+  if (!$("sequenceStepCustom").contains(document.activeElement)) {
+    $("sequenceStepNumerator").value = String(pair.numerator);
+    $("sequenceStepDenominator").value = String(pair.denominator);
+  }
+  $("sequenceGate").closest("label").hidden = activeSequenceSpec().kind === "drums";
+  $("sequenceGate").value = String(Math.round(lane.gate * 100));
+  $("sequenceGateOut").textContent = Math.round(lane.gate * 100) + "%";
+  const rate = sequenceRateForUi(state.activeSequenceLane);
+  $("sequenceLoopSummary").textContent = lane.activeLength + " steps × " + fractionText(1 / rate)
+    + " master units = " + fractionText(lane.activeLength / rate) + " per loop ("
+    + timingText(lane.activeLength / (rate * state.params.tempo)) + ").";
+  $("sequenceClockComparison").replaceChildren(...sequenceLaneDefinitions.map((definition) => {
+    const duration = state.sequence.lanes[definition.key].activeLength / sequenceRateForUi(definition.key);
+    const row = document.createElement("tr");
+    for (const text of [definition.label, String(state.sequence.lanes[definition.key].activeLength),
+      fractionText(1 / sequenceRateForUi(definition.key)), fractionText(duration)]) {
+      const cell = document.createElement("td"); cell.textContent = text; row.append(cell);
+    }
+    return row;
+  }));
+  $("sequenceZoom").value = String(state.sequenceZoomSteps);
+  $("sequencePageControls").hidden = state.sequenceZoomSteps === 32;
+  $("sequencePan").max = String(32 / state.sequenceZoomSteps - 1);
+  $("sequencePan").value = String(state.sequencePage);
+  $("sequencePan").disabled = state.sequenceZoomSteps === 32;
+  $("sequencePitchCenter").closest("label").hidden = activeSequenceSpec().kind !== "steps";
+  const cell = lane.cells[state.activeSequenceStep];
+  $("sequenceVelocityControl").hidden = activeSequenceSpec().kind === "drums";
+  $("sequenceVelocity").value = String(Math.round((cell.state === "rest" ? 0 : cell.velocity) * 100));
+  $("sequenceVelocityOut").textContent = $("sequenceVelocity").value + "%";
+  $("trackerViewMorph").closest("label").hidden = pattern;
+  for (const [key, input] of controlInputs) {
+    input.disabled = pattern && !patternSoundKeys.has(key);
+    input.title = input.disabled ? "Phrase/song control — available in Song mode" : "";
+  }
+  for (const [key, control] of fractionControls) {
+    control.wrapper.disabled = pattern && !patternSoundKeys.has(key);
+    control.wrapper.title = control.wrapper.disabled ? "Phrase/song control — available in Song mode" : "";
+  }
+  for (const button of gateButtons.values()) button.disabled = pattern;
+  const quick = document.querySelector('[data-section="quick"]');
+  if (quick) quick.hidden = pattern;
+  syncFocusedSoundControls();
+}
+function bindPatternWorkspace() {
+  $("compositionMode").addEventListener("change", (event) => switchCompositionMode(event.target.value));
+  const fractions = new Map();
+  for (const denominator of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 24, 32, 48, 64, 96, 128]) {
+    for (const numerator of [1, 2, 3, 4, 5, 7, 8, 9, 11, 13, 15, 16]) {
+      const value = numerator / denominator;
+      if (value >= 1 / 128 && value <= 16) fractions.set(value, fractionText(value));
+    }
+  }
+  $("sequenceStepFraction").replaceChildren(...[...fractions].sort((a, b) => a[0] - b[0]).map(([value, label]) => {
+    const option = document.createElement("option"); option.value = String(value); option.textContent = label; return option;
+  }));
+  for (const input of [$("sequenceStepNumerator"), $("sequenceStepDenominator")]) {
+    input.addEventListener("change", () => {
+      const numerator = $("sequenceStepNumerator"), denominator = $("sequenceStepDenominator");
+      if (!numerator.value || !denominator.value || !numerator.validity.valid || !denominator.validity.valid) return;
+      const value = Number(numerator.value) / Number(denominator.value);
+      if (value < 1 / 128 || value > 16) {
+        announce("Step fraction must be between 1/128 and 16/1."); syncSequenceControls(); return;
+      }
+      applySequence(sequenceLaneWithChanges(state.activeSequenceLane, { stepBeats: value }));
+    });
+  }
+  $("sequenceStepFraction").addEventListener("change", (event) => {
+    applySequence(sequenceLaneWithChanges(state.activeSequenceLane, { stepBeats: Number(event.target.value) }));
+  });
+  $("sequenceGate").addEventListener("input", (event) => {
+    applySequence(sequenceLaneWithChanges(state.activeSequenceLane, { gate: Number(event.target.value) / 100 }));
+  });
+  const beginVelocityEdit = () => { activeSequenceValueStep ??= state.activeSequenceStep; };
+  const finishVelocityEdit = () => { activeSequenceValueStep = null; notifyWaxState(); };
+  $("sequenceVelocity").addEventListener("pointerdown", beginVelocityEdit);
+  $("sequenceVelocity").addEventListener("focus", beginVelocityEdit);
+  $("sequenceVelocity").addEventListener("input", (event) => {
+    beginVelocityEdit();
+    setStepVelocity(activeSequenceValueStep, Number(event.target.value) / 100);
+  });
+  $("sequenceVelocity").addEventListener("change", finishVelocityEdit);
+  $("sequenceVelocity").addEventListener("pointercancel", finishVelocityEdit);
+  $("sequenceVelocity").addEventListener("focusout", finishVelocityEdit);
+  $("sequenceZoom").addEventListener("change", (event) => {
+    state.sequenceZoomSteps = Number(event.target.value); syncSequenceControls();
+  });
+  $("sequencePan").addEventListener("input", (event) => setSequencePage(Number(event.target.value)));
+  $("sequencePitchCenter").addEventListener("input", (event) => {
+    state.sequencePitchCenter = Number(event.target.value); syncSequenceControls();
+  });
+}
+
 function renderSequenceControls() {
   const laneButtons = sequenceLaneDefinitions.map((definition) => {
     const button = document.createElement("button");
@@ -2855,9 +3096,34 @@ function renderSequenceControls() {
       selectSequenceLane(next);
       $("sequenceLane-" + next).focus();
     });
-    return button;
+    if (definition.kind !== "drums") return button;
+    const row = document.createElement("div");
+    row.className = "chiptune-drum-mix-row";
+    row.dataset.drumRow = definition.key;
+    row.setAttribute("role", "group");
+    row.setAttribute("aria-label", definition.label + " sequence and mix");
+    row.append(button);
+    for (const action of ["mute", "solo"]) {
+      const control = document.createElement("button");
+      control.type = "button";
+      control.dataset[action === "mute" ? "drumMute" : "drumSolo"] = definition.key;
+      control.textContent = action.toUpperCase();
+      control.setAttribute("aria-label", (action === "mute" ? "Mute " : "Solo ") + definition.label + (action === "solo" ? " within drum kit" : ""));
+      control.setAttribute("aria-pressed", "false");
+      control.addEventListener("click", () => {
+        const voice = state.drumMix[definition.key], key = action === "mute" ? "muted" : "solo";
+        state.drumMix = sanitizeWebGpuChiptuneDrumMix({ ...state.drumMix,
+          [definition.key]: { ...voice, [key]: !voice[key] } });
+        updateEffectiveVoiceParams();
+        syncSequenceControls();
+        notifyWaxState();
+      });
+      row.append(control);
+    }
+    return row;
   });
   $("sequenceVoiceTabs").replaceChildren(...laneButtons);
+  bindPatternWorkspace();
 
   $("trackerViewMorph").addEventListener("change", () => setTrackerView("morph"));
   $("trackerViewSequence").addEventListener("change", () => setTrackerView("sequence"));
@@ -2870,7 +3136,8 @@ function renderSequenceControls() {
   $("sequencePageFour").addEventListener("click", () => setSequencePage(3));
   const applySelectedSequenceState = (cellState) => {
     setSequencePaintMode(cellState);
-    setSequenceCell(state.activeSequenceStep, cellState);
+    setSequenceCell(state.activeSequenceStep, cellState,
+      activeSequenceSpec().kind === "drums" && cellState === "note" ? 1 : undefined);
   };
   $("sequenceStateAuto").addEventListener("click", () => applySelectedSequenceState("auto"));
   $("sequenceStateNote").addEventListener("click", () => applySelectedSequenceState("note"));
@@ -2882,10 +3149,11 @@ function renderSequenceControls() {
       activeSequenceValueStep = state.activeSequenceStep;
     }
   };
+  const editorValue = (value) => Number(value) / (activeSequenceSpec().kind === "drums" ? 100 : 1);
   const liveValueEdit = (input) => {
     if (!input.value || !input.validity.valid) return;
     beginValueEdit();
-    setSequenceCell(activeSequenceValueStep, "note", Number(input.value), {
+    setSequenceCell(activeSequenceValueStep, "note", editorValue(input.value), {
       announceChange: false,
     });
   };
@@ -2901,7 +3169,7 @@ function renderSequenceControls() {
   });
   valueRange.addEventListener("change", () => {
     const step = activeSequenceValueStep ?? state.activeSequenceStep;
-    const value = Number(valueRange.value);
+    const value = editorValue(valueRange.value);
     setSequenceCell(step, "note", value);
     finishValueEdit();
   });
@@ -2934,7 +3202,7 @@ function renderSequenceControls() {
     setSequenceCell(
       activeSequenceValueStep ?? state.activeSequenceStep,
       "note",
-      Number(event.currentTarget.value),
+      editorValue(event.currentTarget.value),
     );
     finishValueEdit();
   });
@@ -3432,6 +3700,10 @@ function runtimeChanged() {
 }
 
 function resetPatch() {
+  state.drumMix = sanitizeWebGpuChiptuneDrumMix();
+  state.songSequence = WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE;
+  state.patternSequence = createWebGpuChiptunePattern();
+  state.patternBaseline = state.patternSequence;
   state.voicePerformance = sanitizeWebGpuChiptunePerformance(
     WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS,
   );
@@ -3440,7 +3712,7 @@ function resetPatch() {
   lastVoiceSequenceLane = "upperOne";
   lastDrumSequenceLane = "kick";
   applyParams(WEBGPU_CHIPTUNE_DEFAULTS, "source-tracker", { notify: false });
-  applySequence(WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE, {
+  applySequence(state.sequence.mode === "pattern" ? state.patternSequence : WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE, {
     notify: false,
     markCustom: false,
     presetId: "source-tracker",
@@ -3753,7 +4025,9 @@ function sequenceEditorMetrics(width, height) {
   const definition = activeSequenceDefinition();
   const row = Object.freeze({ definition, top, height: Math.max(1, bottom - top) });
   const overviewLabelWidth = narrow ? 31 : 48;
-  const overviewGridWidth = Math.max(1, width - overviewLabelWidth - right);
+  const volumeView = state.activeCharacterVoice !== "drums";
+  const overviewLeft = volumeView ? left : overviewLabelWidth;
+  const overviewGridWidth = Math.max(1, width - overviewLeft - right);
   const overviewHeader = 13;
   const performerLaneKeys = webGpuChiptuneSequenceLanesForPerformer(
     state.activeCharacterVoice,
@@ -3786,14 +4060,23 @@ function sequenceEditorMetrics(width, height) {
     overview: Object.freeze({
       top: overviewTop,
       bottom: overviewBottom,
-      left: overviewLabelWidth,
+      left: overviewLeft,
+      startStep: volumeView ? startStep : 0,
+      stepCount: volumeView ? stepCount : WEBGPU_CHIPTUNE_SEQUENCE_STEPS,
       right,
       width: overviewGridWidth,
-      cellWidth: overviewGridWidth / WEBGPU_CHIPTUNE_SEQUENCE_STEPS,
+      cellWidth: overviewGridWidth / (volumeView ? stepCount : WEBGPU_CHIPTUNE_SEQUENCE_STEPS),
       rowHeight: overviewRowHeight,
       rows: Object.freeze(overviewRows),
     }),
   });
+}
+
+function currentDrumLevel(lane, step) {
+  const cell = state.sequence.lanes[lane].cells[step];
+  if (cell.state === "rest") return 0;
+  if (cell.state === "note") return cell.value;
+  return sourceDrumPreview(lane, step) > 0.08 ? 1 : 0;
 }
 
 function selectedSequenceValue(lane, step) {
@@ -3827,8 +4110,8 @@ function sourceDrumPreview(lane, step) {
 function sequenceVisiblePitchBounds(lane) {
   const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
   return Object.freeze([
-    Math.max(spec.minimum, -state.sequencePitchSpan),
-    Math.min(spec.maximum, state.sequencePitchSpan),
+    Math.max(spec.minimum, state.sequencePitchCenter - state.sequencePitchSpan),
+    Math.min(spec.maximum, state.sequencePitchCenter + state.sequencePitchSpan),
   ]);
 }
 
@@ -3852,7 +4135,6 @@ function sequenceValueForY(lane, localY, row) {
     1,
   );
   const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
-  if (spec.kind === "drums") return 1;
   if (spec.kind === "steps") {
     const [minimum, maximum] = sequenceVisiblePitchBounds(lane);
     const visibleValue = minimum + unit * (maximum - minimum);
@@ -4135,7 +4417,7 @@ function drawFocusedLaneGuides(context, metrics, definition) {
     ])].map((value) => [value, signedNumber(value)])
     : definition.kind === "contour"
       ? [[1, "1.00"], [0.75, ".75"], [0.5, ".50"], [0.25, ".25"], [0, ".00"]]
-      : [];
+      : [[1, "100%"], [0.75, "75%"], [0.5, "50%"], [0.25, "25%"], [0, "OFF"]];
   for (const [value, label] of guides) {
     const y = sequenceLaneY(definition.key, value, row);
     context.strokeStyle = value === 0 || value === 0.5
@@ -4202,7 +4484,7 @@ function drawSequenceOverview(context, metrics, time) {
   context.fillText(
     state.activeCharacterVoice === "drums"
       ? "CURRENT DRUM PATTERN · TAP A PART OR STEP"
-      : selectedPerformerLabel() + " · CURRENT PRESET + EDITS",
+      : "STEP VOLUME · DRAG BARS · DOUBLE-CLICK ON/OFF",
     5, overview.top + 6);
 
   for (const row of overview.rows) {
@@ -4222,21 +4504,22 @@ function drawSequenceOverview(context, metrics, time) {
     context.globalAlpha = selectedLane ? 1 : 0.58;
     context.fillText(definition.shortLabel, 4, row.top + row.height * 0.5);
     context.globalAlpha = 1;
-    for (let step = 0; step < WEBGPU_CHIPTUNE_SEQUENCE_STEPS; step += 1) {
-      const x = overview.left + step * overview.cellWidth;
+    for (let step = overview.startStep; step < overview.startStep + overview.stepCount; step += 1) {
+      const x = overview.left + (step - overview.startStep) * overview.cellWidth;
       const cell = laneState.cells[step];
       const insideLoop = step < laneState.activeLength;
       if (!insideLoop) {
         context.fillStyle = "rgba(0,0,0,0.46)";
         context.fillRect(x, row.top, overview.cellWidth, row.height);
       } else if (cell.state !== "rest") {
+        const level = definition.kind === "drums" ? currentDrumLevel(lane, step) : cell.velocity;
         context.fillStyle = definition.color;
-        context.globalAlpha = cell.state === "note" ? 0.78 : 0.42;
-        context.fillRect(
+        context.globalAlpha = .78;
+        if (level > 0) context.fillRect(
           x + 1,
-          row.top + Math.max(1, row.height * 0.2),
+          row.top + row.height - 1 - Math.max(1, (row.height - 2) * level),
           Math.max(1, overview.cellWidth - 2),
-          Math.max(1, row.height * 0.6),
+          Math.max(1, (row.height - 2) * level),
         );
         context.globalAlpha = 1;
       } else {
@@ -4285,10 +4568,10 @@ function drawSequenceEditor(context, width, height, time) {
   context.fillStyle = "rgba(216,231,231,0.6)";
   context.font = "700 8px ui-monospace, SFMono-Regular, Consolas, monospace";
   const actionLabel = definition.kind === "drums"
-    ? "DRAW HIT · SILENCE · RESET STEP"
+    ? "DOUBLE-CLICK: ON/OFF · DRAG: STRENGTH"
     : definition.kind === "contour"
-      ? "DRAW THE CURRENT SHAPE · WHITE = HEARD PITCH"
-      : "DRAW THE CURRENT NOTES · HEIGHT = PITCH";
+      ? "HEIGHT = PITCH CONTOUR · BELOW = VOLUME"
+      : "HEIGHT = PITCH · BELOW = VOLUME";
   context.fillText(actionLabel, Math.min(width * 0.36, metrics.left + 84), 16);
   context.textAlign = "right";
   context.fillText(
@@ -4368,53 +4651,28 @@ function drawSequenceEditor(context, width, height, time) {
     const outsideLoop = step >= laneState.activeLength;
     const selected = step === state.activeSequenceStep;
     if (definition.kind === "drums") {
-      const padInset = Math.max(4, metrics.cellWidth * 0.1);
-      const padTop = metrics.row.top + metrics.row.height * 0.18;
-      const padHeight = metrics.row.height * 0.64;
-      const preview = cell.state === "auto" ? sourceDrumPreview(lane, step) : 0;
-      const sounding = cell.state === "note"
-        || (cell.state === "auto" && preview > 0.08);
-      context.fillStyle = cell.state === "note"
-        ? definition.color
-        : cell.state === "rest"
-          ? "rgba(8,12,16,0.94)"
-          : sounding ? definition.color : "rgba(8,12,16,0.86)";
-      context.globalAlpha = outsideLoop ? 0.3 : cell.state === "note" ? 1 : sounding ? 0.48 + preview * 0.3 : 0.72;
-      context.fillRect(
-        x + padInset,
-        padTop,
-        Math.max(2, metrics.cellWidth - padInset * 2),
-        padHeight,
-      );
-      context.strokeStyle = sounding ? definition.color : "rgba(255,255,255,0.28)";
-      context.strokeRect(
-        x + padInset,
-        padTop,
-        Math.max(2, metrics.cellWidth - padInset * 2),
-        padHeight,
-      );
-      context.globalAlpha = 1;
-      if (cell.state === "rest") {
-        context.beginPath();
-        context.moveTo(x + padInset + 4, padTop + 4);
-        context.lineTo(x + metrics.cellWidth - padInset - 4, padTop + padHeight - 4);
-        context.moveTo(x + metrics.cellWidth - padInset - 4, padTop + 4);
-        context.lineTo(x + padInset + 4, padTop + padHeight - 4);
-        context.strokeStyle = definition.color;
-        context.globalAlpha = 0.72;
-        context.lineWidth = 2;
-        context.stroke();
-        context.globalAlpha = 1;
-      }
-      context.fillStyle = sounding ? "#061016" : definition.color;
-      context.font = "800 " + Math.max(7, Math.min(11, metrics.cellWidth * 0.2))
+      const inset = Math.max(3, metrics.cellWidth * 0.12);
+      const level = currentDrumLevel(lane, step);
+      const bottom = sequenceLaneY(lane, 0, metrics.row);
+      const top = sequenceLaneY(lane, level, metrics.row);
+      const barWidth = Math.max(2, metrics.cellWidth - inset * 2);
+      context.globalAlpha = outsideLoop ? 0.3 : 1;
+      context.fillStyle = "rgba(255,255,255,0.035)";
+      context.fillRect(x + inset, sequenceLaneY(lane, 1, metrics.row), barWidth,
+        bottom - sequenceLaneY(lane, 1, metrics.row));
+      context.fillStyle = definition.color;
+      context.globalAlpha *= 0.7;
+      if (level > 0) context.fillRect(x + inset, top, barWidth, Math.max(3, bottom - top));
+      context.globalAlpha = outsideLoop ? 0.3 : 1;
+      context.fillStyle = level > 0 ? "#f3faff" : "rgba(216,231,231,0.35)";
+      context.fillRect(x + inset, top - 2, barWidth, 4);
+      context.fillStyle = definition.color;
+      context.font = "800 " + Math.max(8, Math.min(11, metrics.cellWidth * 0.24))
         + "px ui-monospace, SFMono-Regular, Consolas, monospace";
       context.textAlign = "center";
-      context.fillText(
-        sounding ? "HIT" : cell.state === "rest" ? "OFF" : "—",
-        x + metrics.cellWidth * 0.5,
-        padTop + padHeight * 0.5,
-      );
+      context.fillText(level > 0 ? Math.round(level * 100) + "%" : "OFF",
+        x + metrics.cellWidth * 0.5, Math.max(metrics.row.top + 8, top - 10));
+      context.globalAlpha = 1;
     } else if (cell.state === "rest") {
       drawRestCell(context, x, metrics.row.top, metrics.cellWidth, metrics.row.height);
       context.fillStyle = "rgba(216,231,231,0.5)";
@@ -4425,7 +4683,7 @@ function drawSequenceEditor(context, width, height, time) {
       const value = selectedSequenceValue(lane, step);
       const y = sequenceLaneY(lane, value, metrics.row);
       const radius = Math.max(4, Math.min(8, metrics.cellWidth * 0.14));
-      const custom = cell.state === "note";
+      const custom = sequenceCellCustomized(lane, step);
       context.globalAlpha = outsideLoop ? 0.3 : custom ? 1 : 0.68;
       if (definition.kind === "steps") {
         context.fillStyle = definition.color;
@@ -4471,8 +4729,8 @@ function drawSequenceEditor(context, width, height, time) {
     }
   }
 
-  if (lane === "lead") drawResolvedLeadTrace(context, metrics, metrics.row);
-  if (lane === "arp") drawResolvedArpTrace(context, metrics, metrics.row);
+  if (lane === "lead" && state.sequence.mode === "song") drawResolvedLeadTrace(context, metrics, metrics.row);
+  if (lane === "arp" && state.sequence.mode === "song") drawResolvedArpTrace(context, metrics, metrics.row);
   context.restore();
   drawSequenceOverview(context, metrics, time);
 }
@@ -4548,1092 +4806,12 @@ function drawRestGlyph(context, x, y, unit, color) {
   pixelRect(context, x, y + unit * 2, unit * 3, unit, color);
 }
 
-const pixelGait = Object.freeze([0, 1, 1, 0, 0, -1, -1, 0]);
-
-function actorPose(actor, reducedMotion) {
-  const animated = !reducedMotion && !actor.resting;
-  const frame = animated ? actor.frame & 7 : 0;
-  const modulation = animated ? Math.sin(actor.motionPhase * Math.PI * 2) : 0;
-  return {
-    animated,
-    frame,
-    gait: pixelGait[frame],
-    counterGait: pixelGait[(frame + 4) & 7],
-    sway: Math.round(modulation * (0.5 + actor.motion * 1.5)),
-    flutter: Math.round(Math.abs(modulation) * (1 + actor.range * 2)),
-    recoil: animated ? Math.round(actor.onset * 2) : 0,
-  };
-}
-
-function drawScout(context, actor, x, ground, unit, colors, pose, grow) {
-  const torsoWidth = (4 + Math.round(actor.shape * 2)) * unit;
-  const packWidth = (1 + Math.round(actor.detail * 2)) * unit;
-  const top = ground - (13 + grow) * unit;
-  const antennaX = x + pose.sway * unit;
-  pixelRect(context, x - unit, top - 3 * unit, unit, 3 * unit, colors.outline);
-  pixelRect(context, antennaX - unit, top - 4 * unit, 2 * unit, unit, colors.spark);
-  pixelRect(context, x - 3 * unit, top, 6 * unit, 4 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, unit, colors.highlight);
-  pixelRect(context, x - unit + pose.sway * unit, top + 2 * unit, 2 * unit, unit, colors.outline);
-  pixelRect(context, x + pose.sway * unit, top + 2 * unit, unit, unit, colors.spark);
-  pixelRect(context, x - torsoWidth / 2 - unit, top + 4 * unit, torsoWidth + 2 * unit, 6 * unit, colors.outline);
-  pixelRect(context, x - torsoWidth / 2, top + 4 * unit, torsoWidth, 5 * unit, colors.body);
-  pixelRect(context, x - torsoWidth / 2, top + 4 * unit, torsoWidth, unit, colors.highlight);
-  pixelRect(context, x - torsoWidth / 2 - packWidth, top + 5 * unit, packWidth, 4 * unit, colors.mid);
-  pixelRect(context, x - torsoWidth / 2 - packWidth, top + 6 * unit, unit, unit, colors.spark);
-  pixelRect(context, x - torsoWidth / 2 - 2 * unit, top + (5 + pose.gait) * unit, 2 * unit, unit, colors.body);
-  pixelRect(context, x + torsoWidth / 2, top + (6 - pose.gait) * unit, 3 * unit, unit, colors.body);
-  pixelRect(context, x + torsoWidth / 2 + 2 * unit, top + (5 - pose.gait) * unit, unit, 3 * unit, colors.highlight);
-  if (actor.gate > 0.08) {
-    const beam = 1 + Math.round(actor.detail * 3);
-    for (let index = 0; index < beam; index += 1) {
-      if ((index + pose.frame) & 1) continue;
-      pixelRect(
-        context,
-        x + torsoWidth / 2 + (4 + index) * unit,
-        top + (5 - pose.gait) * unit,
-        unit,
-        unit,
-        colors.spark,
-      );
-    }
-  }
-  pixelRect(context, x - torsoWidth / 2, top + 8 * unit, torsoWidth, unit, colors.mid);
-  pixelRect(context, x - 2 * unit + pose.gait * unit, top + 10 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x + pose.counterGait * unit, top + 10 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 3 * unit + pose.gait * unit, top + 12 * unit, 3 * unit, unit, colors.shadow);
-  pixelRect(context, x + pose.counterGait * unit, top + 12 * unit, 3 * unit, unit, colors.shadow);
-}
-
-function drawRunner(context, actor, x, ground, unit, colors, pose, grow) {
-  const top = ground - (12 + grow) * unit;
-  const shoulder = (actor.shape > 0.5 ? 5 : 4) * unit;
-  const scarf = 2 + Math.round(actor.detail * 3);
-  pixelRect(context, x - unit, top - 2 * unit, 2 * unit, 2 * unit, colors.body);
-  pixelRect(context, x + pose.sway * unit, top - 3 * unit, unit, unit, colors.spark);
-  for (let tail = 0; tail < scarf; tail += 1) {
-    pixelRect(
-      context,
-      x - (3 + tail) * unit,
-      top + (2 + ((tail + pose.frame) & 1)) * unit,
-      unit,
-      unit,
-      tail & 1 ? colors.mid : colors.highlight,
-    );
-  }
-  pixelRect(context, x - 3 * unit, top, 6 * unit, 4 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 2 * unit, colors.body);
-  pixelRect(context, x - 2 * unit, top + unit, 3 * unit, unit, colors.highlight);
-  pixelRect(context, x + pose.sway * unit, top + 2 * unit, unit, unit, colors.outline);
-  pixelRect(context, x - shoulder / 2 - unit, top + 4 * unit, shoulder + 2 * unit, 5 * unit, colors.outline);
-  pixelRect(context, x - shoulder / 2, top + 4 * unit, shoulder, 4 * unit, colors.body);
-  pixelRect(context, x - unit, top + 5 * unit, 2 * unit, 2 * unit, colors.mid);
-  pixelRect(context, x - shoulder / 2, top + 7 * unit, shoulder, unit, colors.highlight);
-  pixelRect(context, x - 4 * unit, top + (5 + pose.gait) * unit, 3 * unit, unit, colors.shadow);
-  pixelRect(context, x + 2 * unit, top + (5 - pose.gait) * unit, 3 * unit, unit, colors.highlight);
-  pixelRect(context, x - 2 * unit + pose.counterGait * unit, top + 9 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x + pose.gait * unit, top + 9 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 3 * unit + pose.counterGait * unit, top + 11 * unit, 3 * unit, unit, colors.shadow);
-  pixelRect(context, x + pose.gait * unit, top + 11 * unit, 3 * unit, unit, colors.shadow);
-  if (pose.animated && actor.gate > 0.2) {
-    const streaks = 1 + Math.round(actor.motion * 2);
-    for (let streak = 0; streak < streaks; streak += 1) {
-      pixelRect(
-        context,
-        x - (5 + streak * 2) * unit,
-        top + (8 + streak * 2) * unit,
-        unit * (1 + (streak & 1)),
-        unit,
-        colors.spark,
-      );
-    }
-  }
-}
-
-function drawMonster(context, actor, x, ground, unit, colors, pose, grow) {
-  const roundness = Math.round(actor.shape * 2);
-  const width = (8 + grow) * unit;
-  const top = ground - (10 + grow) * unit;
-  const horn = 1 + Math.round(actor.range * 2);
-  const jaw = actor.resting ? 0 : 1 + Math.round(actor.gate * 2);
-  const mouthWidth = (3 + Math.round(actor.detail * 4)) * unit;
-  pixelRect(context, x - width / 2 + unit, top - horn * unit, unit, horn * unit, colors.highlight);
-  pixelRect(context, x + width / 2 - 2 * unit, top - horn * unit, unit, horn * unit, colors.highlight);
-  pixelRect(context, x - width / 2 + roundness * unit, top, width - roundness * 2 * unit, unit, colors.outline);
-  pixelRect(context, x - width / 2, top + unit, width, (7 + grow + jaw) * unit, colors.outline);
-  pixelRect(context, x - width / 2 + unit, top + 2 * unit, width - 2 * unit, (5 + grow) * unit, colors.body);
-  pixelRect(context, x - width / 2 + 2 * unit, top + 2 * unit, width - 4 * unit, unit, colors.highlight);
-  pixelRect(context, x - 2 * unit + pose.sway * unit, top + 4 * unit, unit, unit, colors.outline);
-  pixelRect(context, x + unit + pose.sway * unit, top + 4 * unit, unit, unit, colors.outline);
-  pixelRect(context, x - mouthWidth / 2, top + 6 * unit, mouthWidth, jaw * unit, colors.shadow);
-  pixelRect(context, x - mouthWidth / 2 + unit, top + 6 * unit, unit, unit, colors.spark);
-  pixelRect(context, x + mouthWidth / 2 - 2 * unit, top + 6 * unit, unit, unit, colors.spark);
-  if (jaw > 1) {
-    pixelRect(context, x - unit, top + (5 + jaw) * unit, 2 * unit, unit, colors.highlight);
-  }
-  pixelRect(context, x - width / 2 + unit, top + (6 + grow) * unit, width - 2 * unit, unit, colors.mid);
-  pixelRect(context, x - width / 2 - 2 * unit, top + (4 + pose.gait) * unit, 2 * unit, 4 * unit, colors.body);
-  pixelRect(context, x + width / 2, top + (4 - pose.gait) * unit, 2 * unit, 4 * unit, colors.body);
-  pixelRect(context, x - width / 2 - 2 * unit, top + (7 + pose.gait) * unit, 2 * unit, 2 * unit, colors.shadow);
-  pixelRect(context, x + width / 2, top + (7 - pose.gait) * unit, 2 * unit, 2 * unit, colors.shadow);
-  pixelRect(context, x - 3 * unit + pose.gait * unit, top + (8 + grow + jaw) * unit, 3 * unit, 2 * unit, colors.shadow);
-  pixelRect(context, x + pose.counterGait * unit, top + (8 + grow + jaw) * unit, 3 * unit, 2 * unit, colors.shadow);
-  if (pose.recoil > 0) {
-    pixelRect(context, x - 5 * unit, ground, 2 * unit, unit, colors.spark);
-    pixelRect(context, x + 3 * unit, ground, 2 * unit, unit, colors.spark);
-  }
-}
-
-function drawHero(context, actor, x, ground, unit, colors, pose, grow) {
-  const top = ground - (14 + grow) * unit;
-  const capeDirection = actor.shape >= 0.5 ? -1 : 1;
-  const capeLength = 4 + Math.round(actor.range * 3);
-  const trillRaised = pose.animated && actor.motionPhase >= 1 - actor.detail;
-  for (let row = 0; row < capeLength; row += 1) {
-    const flutter = row > 1 ? pose.sway * capeDirection : 0;
-    pixelRect(
-      context,
-      x + capeDirection * (3 + Math.abs(flutter)) * unit,
-      top + (5 + row) * unit,
-      (2 + (row >> 1)) * unit,
-      unit,
-      row & 1 ? colors.shadow : colors.mid,
-    );
-  }
-  pixelRect(context, x - 2 * unit, top - unit, 4 * unit, unit, colors.highlight);
-  pixelRect(context, x - unit + pose.sway * unit, top - 2 * unit, 2 * unit, unit, colors.spark);
-  pixelRect(context, x - 3 * unit, top, 6 * unit, 4 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, unit, colors.highlight);
-  pixelRect(context, x + pose.sway * unit, top + 2 * unit, unit, unit, colors.outline);
-  pixelRect(context, x - 3 * unit, top + 4 * unit, 6 * unit, 7 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + 4 * unit, 4 * unit, 6 * unit, colors.body);
-  pixelRect(context, x - unit, top + 5 * unit, 2 * unit, 2 * unit, colors.highlight);
-  pixelRect(context, x - 2 * unit, top + 8 * unit, 4 * unit, unit, colors.mid);
-  pixelRect(context, x - 4 * unit, top + (5 + pose.gait) * unit, 2 * unit, unit, colors.body);
-  const swordX = x + 4 * unit;
-  const swordTop = trillRaised ? top : top + 3 * unit;
-  pixelRect(context, x + 2 * unit, top + (5 - pose.gait) * unit, 3 * unit, unit, colors.highlight);
-  pixelRect(context, swordX, swordTop, unit, 6 * unit, colors.highlight);
-  pixelRect(context, swordX + unit, swordTop - unit, unit, unit, colors.spark);
-  if (pose.recoil > 0) {
-    pixelRect(context, swordX + 2 * unit, swordTop + unit, unit, unit, colors.spark);
-    pixelRect(context, swordX - unit, swordTop - 2 * unit, unit, unit, colors.spark);
-  }
-  pixelRect(context, x - 2 * unit + pose.gait * unit, top + 11 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x + pose.counterGait * unit, top + 11 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 3 * unit + pose.gait * unit, top + 13 * unit, 3 * unit, unit, colors.shadow);
-  pixelRect(context, x + pose.counterGait * unit, top + 13 * unit, 3 * unit, unit, colors.shadow);
-}
-
-function drawSprite(context, actor, x, ground, unit, colors, pose, grow) {
-  const top = ground - (11 + grow) * unit;
-  const wing = 2 + Math.round(actor.shape * 3);
-  const gateAperture = Math.round(actor.detail * 2);
-  const wingLift = (pose.animated ? pose.flutter : 1) + gateAperture;
-  pixelRect(context, x - (wing + 2) * unit, top + (3 - wingLift) * unit, wing * unit, unit, colors.highlight);
-  pixelRect(context, x - (wing + 1) * unit, top + (2 + wingLift) * unit, wing * unit, unit, colors.body);
-  pixelRect(context, x + 2 * unit, top + (2 + wingLift) * unit, wing * unit, unit, colors.body);
-  pixelRect(context, x + 2 * unit, top + (3 - wingLift) * unit, wing * unit, unit, colors.highlight);
-  pixelRect(context, x - unit, top - 2 * unit, unit, 2 * unit, colors.highlight);
-  pixelRect(context, x + unit, top - 2 * unit, unit, 2 * unit, colors.highlight);
-  pixelRect(context, x - 2 * unit + pose.sway * unit, top - 3 * unit, unit, unit, colors.spark);
-  pixelRect(context, x - 3 * unit, top, 6 * unit, 5 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 4 * unit, colors.body);
-  pixelRect(context, x - unit + pose.sway * unit, top + unit, unit, unit, colors.highlight);
-  pixelRect(context, x + unit + pose.sway * unit, top + 2 * unit, unit, unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + 5 * unit, 4 * unit, 5 * unit, colors.outline);
-  pixelRect(context, x - unit, top + 5 * unit, 2 * unit, 4 * unit, colors.body);
-  pixelRect(context, x - 2 * unit, top + 7 * unit, 4 * unit, unit, colors.mid);
-  pixelRect(context, x - 2 * unit + pose.gait * unit, top + 10 * unit, 2 * unit, unit, colors.body);
-  pixelRect(context, x + pose.counterGait * unit, top + 10 * unit, 2 * unit, unit, colors.body);
-  const orbiters = 1 + Math.round(actor.range * 2) + Math.round(actor.detail);
-  if (pose.animated && actor.gate > 0.08) {
-    for (let orbiter = 0; orbiter < orbiters; orbiter += 1) {
-      const orbitFrame = (pose.frame + orbiter * 2) & 7;
-      const orbitX = pixelGait[orbitFrame] * (4 + gateAperture + orbiter) * unit;
-      const orbitY = pixelGait[(orbitFrame + 2) & 7] * (2 + (orbiter & 1)) * unit;
-      pixelRect(context, x + orbitX, top + 4 * unit + orbitY, unit, unit, colors.spark);
-    }
-  }
-}
-
-const defaultInvaderDancePose = Object.freeze({
-  hold: 0.5,
-  march: 0,
-  bob: 0,
-  claw: 0,
-  feet: 0,
-  wing: 0,
-  lean: 0,
-  reach: 0,
-  turn: 0,
-  look: 0,
-  squat: 0,
-  spin: 0,
-});
-
-function freezeInvaderDanceProfile(frames) {
-  return Object.freeze(frames.map((frame) => Object.freeze({
-    ...defaultInvaderDancePose,
-    ...frame,
-  })));
-}
-
-const invaderDanceProfiles = Object.freeze({
-  upperOne: freezeInvaderDanceProfile([
-    { hold: 0.72 },
-    { hold: 0.76, claw: 2, feet: -0.8, lean: -1, reach: 1.5, turn: -1, look: -1, wing: -0.5 },
-    { hold: 0.58, bob: -1.5, claw: -1, lean: -0.5, reach: 0.5, turn: -1, look: -1 },
-    { hold: 0.74 },
-    { hold: 0.76, claw: 2, feet: 0.8, lean: 1, reach: 1.5, turn: 1, look: 1, wing: 0.5 },
-    { hold: 0.58, bob: -1.5, claw: -1, lean: 0.5, reach: 0.5, turn: 1, look: 1 },
-    { hold: 0.68, bob: 1, claw: -1, squat: 1, wing: 1 },
-    { hold: 0.82, bob: -2, claw: 2, reach: 2, feet: 0 },
-  ]),
-  upperTwo: freezeInvaderDanceProfile([
-    { hold: 0.42, march: -2, feet: -1, lean: 1, wing: -1, look: 1, turn: -1 },
-    { hold: 0.38, march: -1.4, bob: -0.5, feet: -0.4, lean: 0.6, wing: -0.5, look: 1, turn: -0.7 },
-    { hold: 0.46, march: 0, bob: -1, feet: 0.5, wing: 0, turn: 0 },
-    { hold: 0.38, march: 1.4, bob: -0.5, feet: 1, lean: -0.6, wing: 0.5, look: -1, turn: 0.7 },
-    { hold: 0.42, march: 2, feet: 0.3, lean: -1, wing: 1, look: -1, turn: 1 },
-    { hold: 0.38, march: 1.2, bob: -0.5, feet: -1, lean: -0.5, wing: 0.4, look: -1, turn: 0.7 },
-    { hold: 0.46, march: 0, bob: -1, feet: -0.3, turn: 0 },
-    { hold: 0.38, march: -1.2, bob: -0.5, feet: 1, lean: 0.6, wing: -0.5, look: 1, turn: -0.7 },
-  ]),
-  bass: freezeInvaderDanceProfile([
-    { hold: 0.72 },
-    { hold: 0.6, bob: 1, claw: -0.5, reach: 0.5, squat: 1 },
-    { hold: 0.62, bob: 2.5, claw: -1.5, feet: -0.4, reach: 1.5, squat: 2 },
-    { hold: 0.82, bob: 3, claw: -2, reach: 2, squat: 2.5 },
-    { hold: 0.62, bob: 1.5, claw: 1, feet: -1.5, reach: 1, squat: 1.5, look: -1 },
-    { hold: 0.42, bob: -1, claw: 2, feet: 0, reach: 1, squat: 0.2 },
-    { hold: 0.66, bob: 1, claw: 0.5, feet: 1.5, squat: 0.8, look: 1 },
-    { hold: 0.78 },
-  ]),
-  lead: freezeInvaderDanceProfile([
-    { hold: 0.62 },
-    { hold: 0.45, march: -0.3, bob: -0.5, feet: -1, lean: -1, reach: 1.5, turn: -1, look: -1, wing: 1 },
-    { hold: 0.58, bob: -2, feet: -1.5, lean: -1.5, reach: 3, turn: -1, look: -1, wing: 2 },
-    { hold: 0.4, bob: -2.5, feet: 0, reach: 2, turn: 0, wing: 1.5 },
-    { hold: 0.58, bob: -2, feet: 1.5, lean: 1.5, reach: 3, turn: 1, look: 1, wing: 2 },
-    { hold: 0.45, march: 0.3, bob: -0.5, feet: 1, lean: 1, reach: 1.5, turn: 1, look: 1, wing: 0.5 },
-    { hold: 0.68, bob: 1.5, feet: -1, lean: -1, reach: 2, turn: -1, look: -1, squat: 1, wing: -1 },
-    { hold: 0.84 },
-  ]),
-  arp: freezeInvaderDanceProfile([
-    { hold: 0.58, wing: -2, feet: -1, turn: -1, look: -1, spin: 0 },
-    { hold: 0.52, march: 0.6, bob: -1, wing: -1, feet: -0.5, reach: 0.5, turn: -0.6, look: -1, spin: 1 },
-    { hold: 0.62, march: 1, bob: -2, wing: 1, feet: 0, reach: 1.5, turn: 0, spin: 2 },
-    { hold: 0.68, march: 0.6, bob: -1, wing: 2, feet: 0.7, reach: 2, turn: 0.6, look: 1, spin: 3 },
-    { hold: 0.58, wing: 2, feet: 1, reach: 2, turn: 1, look: 1, spin: 4 },
-    { hold: 0.52, march: -0.6, bob: -1, wing: 1, feet: 0.5, reach: 1.5, turn: 0.6, look: 1, spin: 5 },
-    { hold: 0.62, march: -1, bob: -2, wing: -1, feet: 0, reach: 0.5, turn: 0, spin: 6 },
-    { hold: 0.68, march: -0.6, bob: -1, wing: -2, feet: -0.7, turn: -0.6, look: -1, spin: 7 },
-  ]),
-  drums: freezeInvaderDanceProfile([
-    { hold: 0.62, bob: 1, squat: 1, claw: -0.5, feet: 0 },
-    { hold: 0.42, bob: 2.5, squat: 2.2, claw: -2, reach: 2, turn: -1, look: -1, feet: -1.2 },
-    { hold: 0.5, bob: -1, claw: 1.5, reach: 2.5, turn: -0.5, look: -1, feet: 0.4 },
-    { hold: 0.66, march: 0.7, bob: -2, claw: 2.5, reach: 3, turn: 1, look: 1, feet: 1.4 },
-    { hold: 0.58, bob: 1.4, squat: 1.2, claw: -1, turn: 1, look: 1, feet: 0 },
-    { hold: 0.4, march: -0.7, bob: -1.5, claw: 2.5, reach: 3, turn: -1, look: -1, feet: -1.4 },
-    { hold: 0.52, bob: -0.5, claw: 1.2, reach: 1.5, turn: 0.5, look: 1, feet: 0.8 },
-    { hold: 0.72, bob: 2.8, squat: 2.5, claw: -2.5, reach: 2, feet: 0 },
-  ]),
-});
-
-const invaderDanceKeys = Object.freeze([
-  "march", "bob", "claw", "feet", "wing", "lean", "reach", "turn", "look", "squat", "spin",
-]);
-
-function invaderDancePoseAtPhase(profile, phase) {
-  const scaledPhase = positiveModulo(phase, 1) * profile.length;
-  const frame = Math.floor(scaledPhase) % profile.length;
-  const progress = scaledPhase - Math.floor(scaledPhase);
-  const current = profile[frame];
-  const next = profile[(frame + 1) % profile.length];
-  const transition = clamp(
-    (progress - current.hold) / Math.max(0.001, 1 - current.hold),
-    0,
-    1,
-  );
-  const eased = transition * transition * (3 - 2 * transition);
-  const pose = { frame };
-  for (const key of invaderDanceKeys) {
-    pose[key] = current[key] + (next[key] - current[key]) * eased;
-  }
-  return pose;
-}
-
-const neutralBodyMotion = Object.freeze({
-  jump: 0,
-  jiggle: 0,
-  squash: 0,
-  leftArm: 0,
-  rightArm: 0,
-  leftLeg: 0,
-  rightLeg: 0,
-  taps: Object.freeze({
-    rightArm: Object.freeze({ phase: 0 }),
-  }),
-});
-
-const invaderBodyMotionProfiles = Object.freeze({
-  upperOne: Object.freeze({
-    jump: 2.7,
-    jiggle: 0.7,
-    squash: 1.1,
-    arm: 2.8,
-    leg: 1.15,
-    march: 0.25,
-  }),
-  upperTwo: Object.freeze({
-    jump: 3.2,
-    jiggle: 1.15,
-    squash: 0.9,
-    arm: 2,
-    leg: 2.9,
-    march: 0.95,
-  }),
-  bass: Object.freeze({
-    jump: 1.5,
-    jiggle: 0.8,
-    squash: 2.8,
-    arm: 2.1,
-    leg: 2.5,
-    march: 0.18,
-  }),
-  lead: Object.freeze({
-    jump: 4.1,
-    jiggle: 0.75,
-    squash: 1.2,
-    arm: 3.5,
-    leg: 1.8,
-    march: 0.55,
-  }),
-  arp: Object.freeze({
-    jump: 5.2,
-    jiggle: 1,
-    squash: 0.7,
-    arm: 4,
-    leg: 1.35,
-    march: 0.42,
-  }),
-  drums: Object.freeze({
-    jump: 3.8,
-    jiggle: 0.72,
-    squash: 2.9,
-    arm: 3.7,
-    leg: 2.8,
-    march: 0.38,
-  }),
-});
-
-function detailedActorPose(actor, reducedMotion) {
-  const animated = !reducedMotion;
-  const sounding = animated && !actor.resting;
-  const profile = invaderDanceProfiles[actor.key] ?? invaderDanceProfiles.upperOne;
-  const formation = invaderDancePoseAtPhase(profile, animated ? actor.dancePhase : 0);
-  const body = actor.bodyMotion ?? neutralBodyMotion;
-  const mix = invaderBodyMotionProfiles[actor.key]
-    ?? invaderBodyMotionProfiles.upperOne;
-  const leftArm = animated
-    ? body.leftArm * mix.arm + formation.claw * 0.28 - formation.turn * 0.22
-    : 0;
-  const rightArm = animated
-    ? body.rightArm * mix.arm + formation.claw * 0.28 + formation.turn * 0.22
-    : 0;
-  const leftLeg = animated
-    ? clamp(body.leftLeg * mix.leg + Math.max(0, -formation.feet) * 0.24, 0, 4)
-    : 0;
-  const rightLeg = animated
-    ? clamp(body.rightLeg * mix.leg + Math.max(0, formation.feet) * 0.24, 0, 4)
-    : 0;
-  const bodyJiggle = animated ? body.jiggle * mix.jiggle : 0;
-  const sequenceSquash = animated ? body.squash * mix.squash : 0;
-  const jump = animated ? body.jump * mix.jump : 0;
-  const turn = animated
-    ? formation.turn * 0.72 + (rightArm - leftArm) * 0.18
-    : 0;
-  const expression = animated
-    ? clamp(
-      actor.onset * 0.72
-        + Math.abs(leftArm - rightArm) * 0.08
-        + Math.max(leftLeg, rightLeg) * 0.06,
-      0,
-      1,
-    )
-    : 0;
-  const blink = animated && positiveModulo(body.phase ?? actor.dancePhase, 1) > 0.93;
-  return Object.freeze({
-    ...formation,
-    animated,
-    sounding,
-    jump,
-    bodyJiggle,
-    squash: sequenceSquash,
-    leftArm,
-    rightArm,
-    leftLeg,
-    rightLeg,
-    bob: animated ? formation.bob + bodyJiggle * 0.7 : formation.bob,
-    claw: (leftArm + rightArm) * 0.5,
-    feet: rightLeg - leftLeg,
-    wing: (leftArm + rightArm) * 0.42,
-    lean: animated ? formation.lean + bodyJiggle * 0.65 : formation.lean,
-    march: animated
-      ? formation.march + (rightLeg - leftLeg) * mix.march
-      : formation.march,
-    reach: animated
-      ? formation.reach * 0.45 + Math.max(Math.abs(leftArm), Math.abs(rightArm)) * 0.5
-      : formation.reach,
-    turn,
-    look: animated ? clamp(formation.look + turn * 0.24, -1, 1) : formation.look,
-    squat: animated ? formation.squat * 0.45 + sequenceSquash : formation.squat,
-    spin: animated
-      ? formation.spin + (body.taps?.rightArm?.phase ?? 0) * 0.8
-      : formation.spin,
-    hairMotion: animated
-      ? turn * (0.55 + actor.motion * 0.35)
-      : 0,
-    eyeX: animated ? clamp(formation.look + bodyJiggle, -1, 1) : 0,
-    expression,
-    blink,
-    eyeY: 1,
-    compression: animated
-      ? Math.max(0, Math.round(sequenceSquash + Math.max(0, formation.squat) * 0.35))
-      : 0,
-  });
-}
-
-function spriteRect(context, x, ground, texel, gridX, gridY, width, height, color) {
-  pixelRect(
-    context,
-    x + gridX * texel,
-    ground + gridY * texel,
-    width * texel,
-    height * texel,
-    color,
-  );
-}
-
-function drawPixelSegment(context, x, ground, texel, from, to, color, thickness = 2) {
-  let x0 = Math.round(from[0]);
-  let y0 = Math.round(from[1]);
-  const x1 = Math.round(to[0]);
-  const y1 = Math.round(to[1]);
-  const dx = Math.abs(x1 - x0);
-  const sx = x0 < x1 ? 1 : -1;
-  const dy = -Math.abs(y1 - y0);
-  const sy = y0 < y1 ? 1 : -1;
-  let error = dx + dy;
-  while (true) {
-    spriteRect(
-      context,
-      x,
-      ground,
-      texel,
-      x0 - Math.floor(thickness / 2),
-      y0 - Math.floor(thickness / 2),
-      thickness,
-      thickness,
-      color,
-    );
-    if (x0 === x1 && y0 === y1) break;
-    const doubled = error * 2;
-    if (doubled >= dy) {
-      error += dy;
-      x0 += sx;
-    }
-    if (doubled <= dx) {
-      error += dx;
-      y0 += sy;
-    }
-  }
-}
-
-function drawPixelEyes(context, x, ground, texel, centerY, colors, pose, wide = false) {
-  const eyeWidth = wide ? 6 : 4;
-  const eyeHeight = wide ? 6 : 4;
-  const spacing = wide ? 5 : 4;
-  const pupilX = pose.eyeX > 0 ? 1 : 0;
-  const pupilY = pose.eyeY > 0 ? 1 : 0;
-  for (const side of [-1, 1]) {
-    const eyeX = side * spacing - Math.floor(eyeWidth * 0.5);
-    const eyeY = centerY - Math.floor(eyeHeight * 0.5);
-    if (pose.blink) {
-      spriteRect(
-        context,
-        x,
-        ground,
-        texel,
-        eyeX,
-        centerY - (wide ? 1 : 0),
-        eyeWidth,
-        wide ? 2 : 1,
-        colors.highlight,
-      );
-      continue;
-    }
-    spriteRect(context, x, ground, texel, eyeX, eyeY, eyeWidth, eyeHeight, colors.outline);
-    spriteRect(context, x, ground, texel, eyeX + 1, eyeY + 1, eyeWidth - 2, eyeHeight - 2, "#f4fbff");
-    spriteRect(context, x, ground, texel, eyeX + 1, eyeY + 1, wide ? 2 : 1, 1, colors.spark);
-    spriteRect(
-      context,
-      x,
-      ground,
-      texel,
-      eyeX + 1 + pupilX,
-      eyeY + 1 + pupilY,
-      wide ? 2 : 1,
-      wide ? 2 : 1,
-      colors.outline,
-    );
-  }
-}
-
-function drawPixelExpression(
-  context,
-  x,
-  ground,
-  texel,
-  centerY,
-  colors,
-  pose,
-  style = "grin",
-) {
-  const intensity = clamp(pose.expression, 0, 1);
-  const tilt = pose.turn > 0.25 ? 1 : pose.turn < -0.25 ? -1 : 0;
-  spriteRect(context, x, ground, texel, -6, centerY - 4 + tilt, 4, 1, colors.shadow);
-  spriteRect(context, x, ground, texel, 2, centerY - 4 - tilt, 4, 1, colors.shadow);
-  const mouthWidth = 3 + Math.round(intensity * 4);
-  const mouthX = -Math.floor(mouthWidth * 0.5);
-  const mouthY = centerY + 3;
-  if (style === "fang") {
-    spriteRect(context, x, ground, texel, mouthX - 1, mouthY, mouthWidth + 2, 2, colors.outline);
-    spriteRect(context, x, ground, texel, mouthX, mouthY, mouthWidth, 1, colors.highlight);
-    spriteRect(context, x, ground, texel, mouthX, mouthY + 1, 1, 2, "#f4fbff");
-    spriteRect(context, x, ground, texel, mouthX + mouthWidth - 1, mouthY + 1, 1, 2, "#f4fbff");
-  } else if (style === "open" && intensity > 0.28) {
-    spriteRect(context, x, ground, texel, mouthX, mouthY, mouthWidth, 3, colors.outline);
-    spriteRect(context, x, ground, texel, mouthX + 1, mouthY + 2, Math.max(1, mouthWidth - 2), 1, colors.spark);
-  } else {
-    spriteRect(context, x, ground, texel, mouthX, mouthY, mouthWidth, 1, colors.outline);
-    if (intensity > 0.5) {
-      spriteRect(context, x, ground, texel, mouthX + 1, mouthY + 1, Math.max(1, mouthWidth - 2), 1, colors.highlight);
-    }
-  }
-}
-
-function drawPixelHair(context, x, ground, texel, points, color, motion = 0) {
-  for (const [hairX, hairY, height = 2] of points) {
-    spriteRect(
-      context,
-      x,
-      ground,
-      texel,
-      hairX + Math.sign(hairX || 1) * motion,
-      hairY - Math.abs(motion),
-      2,
-      height + Math.abs(motion),
-      color,
-    );
-  }
-}
-
-function drawInvaderAntennae(
-  context,
-  x,
-  ground,
-  texel,
-  y,
-  spacing,
-  height,
-  colors,
-  pose,
-) {
-  const flare = pose.animated ? pose.wing : 0;
-  for (const side of [-1, 1]) {
-    const stemX = side * spacing - (side < 0 ? 1 : 0);
-    spriteRect(context, x, ground, texel, stemX, y - height, 2, height, colors.outline);
-    spriteRect(context, x, ground, texel, stemX + (side < 0 ? 1 : 0), y - height + 1, 1, height - 1, colors.highlight);
-    spriteRect(
-      context,
-      x,
-      ground,
-      texel,
-      stemX + side * (1 + flare),
-      y - height - 2,
-      2,
-      2,
-      colors.spark,
-    );
-  }
-}
-
-function drawInvaderClaws(
-  context,
-  x,
-  ground,
-  texel,
-  anchorY,
-  halfWidth,
-  reach,
-  colors,
-  pose,
-) {
-  const expressiveReach = pose.animated ? pose.reach : 0;
-  for (const side of [-1, 1]) {
-    const arm = pose.animated
-      ? side < 0 ? pose.leftArm : pose.rightArm
-      : 0;
-    const sideReach = reach + Math.max(0, expressiveReach * 0.35 + Math.abs(arm) * 0.85);
-    const open = arm;
-    const shoulder = [side * halfWidth, anchorY];
-    const elbow = [side * (halfWidth + sideReach), anchorY + 2 - Math.abs(open)];
-    drawPixelSegment(context, x, ground, texel, shoulder, elbow, colors.outline, 4);
-    drawPixelSegment(context, x, ground, texel, shoulder, elbow, colors.body, 2);
-    const clawX = side * (halfWidth + sideReach + 1);
-    spriteRect(context, x, ground, texel, clawX - 1, anchorY - 2 - open, 2, 3, colors.highlight);
-    spriteRect(context, x, ground, texel, clawX - 1, anchorY + 2 + open, 2, 3, colors.highlight);
-  }
-}
-
-function drawInvaderFeet(
-  context,
-  x,
-  ground,
-  texel,
-  positions,
-  colors,
-  pose,
-  width = 4,
-  liftScale = 1,
-) {
-  positions.forEach((footX, index) => {
-    const side = footX < 0 ? -1 : footX > 0 ? 1 : index & 1 ? 1 : -1;
-    const leg = side < 0 ? pose.leftLeg : pose.rightLeg;
-    const lift = pose.animated
-      ? Math.max(0, Math.round(leg * 1.5 * liftScale))
-      : 0;
-    spriteRect(context, x, ground, texel, footX - 1, -5 - lift, 2, 4, colors.outline);
-    spriteRect(context, x, ground, texel, footX - Math.floor(width / 2), -2 - lift, width, 2, colors.shadow);
-    spriteRect(context, x, ground, texel, footX - 1, -3 - lift, 2, 1, colors.spark);
-  });
-}
-
-function drawDetailedScout(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const bodyX = x + pose.lean * px;
-  const bob = pose.bob + Math.max(0, pose.squat);
-  const shellWidth = 8 + Math.round(actor.shape * 3);
-  const detailBars = 1 + Math.round(actor.detail * 3);
-  drawInvaderAntennae(context, bodyX, ground, px, -28 + bob, 5, 4, colors, pose);
-  spriteRect(context, bodyX, ground, px, -4, -29 + bob, 8, 2, colors.outline);
-  spriteRect(context, bodyX, ground, px, -7, -27 + bob, 14, 3, colors.outline);
-  spriteRect(context, bodyX, ground, px, -shellWidth, -24 + bob, shellWidth * 2, 10 + grow, colors.outline);
-  spriteRect(context, bodyX, ground, px, -shellWidth + 1, -23 + bob, shellWidth * 2 - 2, 7 + grow, colors.body);
-  spriteRect(context, bodyX, ground, px, -shellWidth + 2, -22 + bob, shellWidth * 2 - 4, 2, colors.highlight);
-  spriteRect(context, bodyX, ground, px, -5, -16 + bob, 10, 6 + grow, colors.mid);
-  drawPixelEyes(context, bodyX, ground, px, -20 + bob, colors, pose);
-  drawPixelExpression(context, bodyX, ground, px, -20 + bob, colors, pose, "open");
-  for (let detail = 0; detail < detailBars; detail += 1) {
-    const markX = -5 + detail * Math.max(2, Math.floor(10 / detailBars));
-    spriteRect(context, bodyX, ground, px, markX, -14 + bob, 1, 3, colors.spark);
-  }
-  drawInvaderClaws(
-    context,
-    bodyX,
-    ground,
-    px,
-    -16 + bob,
-    shellWidth - 1,
-    2 + Math.round(actor.range * 2),
-    colors,
-    pose,
-  );
-  drawInvaderFeet(context, x, ground, px, [-6, 0, 6], colors, pose);
-  if (pose.sounding && actor.audibleGate > 0.08) {
-    const beam = 1 + Math.round(actor.detail * 2);
-    const scannerOffset = Math.round(pose.turn * (1 + actor.range * 2));
-    for (let index = 0; index < beam; index += 1) {
-      spriteRect(
-        context,
-        bodyX,
-        ground,
-        px,
-        scannerOffset - Math.floor(beam / 2) + index,
-        -9 + bob + index % 2,
-        1,
-        2,
-        colors.spark,
-      );
-    }
-  }
-}
-
-function drawDetailedRunner(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const bob = pose.bob + pose.compression * 0.7;
-  const bodyX = x + pose.lean * px;
-  const fin = 2 + Math.round(actor.shape * 3);
-  const exhaust = 1 + Math.round(actor.detail * 3);
-  drawInvaderAntennae(context, bodyX, ground, px, -27 + bob, 3, 5, colors, pose);
-  spriteRect(context, bodyX, ground, px, -2, -30 + bob, 4, 2, colors.spark);
-  spriteRect(context, bodyX, ground, px, -5, -28 + bob, 10, 3, colors.outline);
-  spriteRect(context, bodyX, ground, px, -8, -25 + bob, 16, 4, colors.outline);
-  spriteRect(context, bodyX, ground, px, -10, -21 + bob, 20, 9 + grow, colors.outline);
-  spriteRect(context, bodyX, ground, px, -9, -20 + bob, 18, 6 + grow, colors.body);
-  spriteRect(context, bodyX, ground, px, -6, -24 + bob, 12, 10, colors.mid);
-  spriteRect(context, bodyX, ground, px, -4, -23 + bob, 8, 2, colors.highlight);
-  drawPixelEyes(context, bodyX, ground, px, -19 + bob, colors, pose);
-  drawPixelExpression(context, bodyX, ground, px, -19 + bob, colors, pose, "grin");
-  for (const side of [-1, 1]) {
-    const finX = side < 0 ? -10 - fin : 10;
-    const arm = side < 0 ? pose.leftArm : pose.rightArm;
-    const counterLift = arm * 0.85 + pose.wing * 0.15;
-    spriteRect(context, bodyX, ground, px, finX, -20 + bob + counterLift, fin, 3, colors.highlight);
-    spriteRect(context, bodyX, ground, px, finX + (side < 0 ? 1 : 0), -16 + bob - counterLift, fin, 2, colors.body);
-  }
-  drawInvaderFeet(context, x, ground, px, [-7, -2, 3, 8], colors, pose, 3);
-  const scarfLength = 3 + Math.round(actor.detail * 3);
-  if (pose.sounding && actor.audibleGate > 0.08) {
-    const trailDirection = pose.turn > 0.05 ? -1 : pose.turn < -0.05 ? 1 : -1;
-    const trailLift = Math.round((pose.rightLeg - pose.leftLeg) * 0.55);
-    for (let tail = 0; tail < Math.min(scarfLength, exhaust + 3); tail += 1) {
-      spriteRect(
-        context,
-        bodyX,
-        ground,
-        px,
-        trailDirection * (3 + tail) - (trailDirection < 0 ? 2 : 0),
-        -8 + trailLift + Math.round(tail * 0.25),
-        2,
-        1,
-        tail & 1 ? colors.spark : colors.highlight,
-      );
-    }
-  } else {
-    spriteRect(
-      context,
-      bodyX,
-      ground,
-      px,
-      -2,
-      -9,
-      2,
-      2,
-      colors.shadow,
-    );
-  }
-}
-
-function drawDetailedMonster(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const squat = pose.animated ? Math.max(0, pose.squat) : 0;
-  const bob = pose.bob + Math.round(squat * 1.25);
-  const plantedSpread = Math.round(squat * 0.7);
-  const reach = 2 + Math.round(actor.range * 2);
-  const hornHeight = 3 + Math.round(actor.range * 4);
-  spriteRect(context, x, ground, px, -9 - plantedSpread, -29 - hornHeight + bob, 3, hornHeight + 3, colors.outline);
-  spriteRect(context, x, ground, px, -8 - plantedSpread, -29 - hornHeight + bob, 1, hornHeight + 1, colors.highlight);
-  spriteRect(context, x, ground, px, 6 + plantedSpread, -29 - hornHeight + bob, 3, hornHeight + 3, colors.outline);
-  spriteRect(context, x, ground, px, 7 + plantedSpread, -29 - hornHeight + bob, 1, hornHeight + 1, colors.highlight);
-  drawPixelHair(context, x, ground + bob * px, px, [
-    [-8, -31, 4], [-5, -33, 5], [-2, -35, 6], [1, -35, 6], [4, -33, 5], [7, -31, 4],
-  ], colors.mid, pose.sounding ? Math.round(actor.onset * 1.5) : 0);
-  spriteRect(context, x, ground, px, -11, -30 + bob, 22, 5, colors.outline);
-  spriteRect(context, x, ground, px, -13 - plantedSpread, -25 + bob, 26 + plantedSpread * 2, 13 + grow, colors.outline);
-  spriteRect(context, x, ground, px, -12 - plantedSpread, -24 + bob, 24 + plantedSpread * 2, 10 + grow, colors.body);
-  spriteRect(context, x, ground, px, -10 - plantedSpread, -23 + bob, 20 + plantedSpread * 2, 3, colors.highlight);
-  spriteRect(context, x, ground, px, -9, -15 + bob, 18, 7 + grow, colors.mid);
-  drawPixelEyes(context, x, ground, px, -20 + bob, colors, pose, true);
-  drawPixelExpression(context, x, ground, px, -20 + bob, colors, pose, "fang");
-  spriteRect(context, x, ground, px, -10, -24 + bob, 6, 2, colors.shadow);
-  spriteRect(context, x, ground, px, 4, -24 + bob, 6, 2, colors.shadow);
-  const snoutWidth = 7 + Math.round(actor.detail * 7);
-  spriteRect(context, x, ground, px, -Math.floor(snoutWidth / 2), -17 + bob, snoutWidth, 4, colors.highlight);
-  spriteRect(context, x, ground, px, -3, -16 + bob, 2, 1, colors.outline);
-  spriteRect(context, x, ground, px, 2, -16 + bob, 2, 1, colors.outline);
-  const jaw = !pose.sounding ? 0 : 2 + Math.round(actor.audibleGate * 5);
-  if (jaw > 0) {
-    spriteRect(context, x, ground, px, -7, -13 + bob, 14, jaw, colors.outline);
-    const toothCount = 2 + Math.round(actor.detail * 4);
-    for (let tooth = 0; tooth < toothCount; tooth += 1) {
-      const toothX = -6 + Math.round(tooth * 11 / Math.max(1, toothCount - 1));
-      spriteRect(context, x, ground, px, toothX, -12 + bob, 1, 2, "#fff3c9");
-    }
-    if (jaw >= 5) spriteRect(context, x, ground, px, -3, -9 + bob, 6, 2, "#ff65bd");
-  }
-  const spots = 2 + Math.round(actor.shape * 4);
-  for (let spot = 0; spot < spots; spot += 1) {
-    spriteRect(
-      context,
-      x,
-      ground,
-      px,
-      -7 + (spot * 5) % 13,
-      -10 + bob + (spot & 1) * 3,
-      2,
-      2,
-      spot & 1 ? colors.shadow : colors.highlight,
-    );
-  }
-  drawInvaderClaws(context, x, ground, px, -14 + bob, 11, reach, colors, pose);
-  drawInvaderFeet(context, x, ground, px, [-9, -3, 3, 9], colors, pose, 5, 0.45);
-  if (pose.sounding && actor.onset > 0.12) {
-    spriteRect(context, x, ground, px, -13, -1, 4, 1, colors.spark);
-    spriteRect(context, x, ground, px, 9, -1, 4, 1, colors.spark);
-    spriteRect(context, x, ground, px, -15, -3, 2, 1, colors.highlight);
-    spriteRect(context, x, ground, px, 13, -3, 2, 1, colors.highlight);
-  }
-}
-
-function drawDetailedHero(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const bodyX = x + pose.lean * px;
-  const bob = pose.bob + Math.max(0, pose.squat) * 0.7;
-  const capeReach = 2 + Math.round(actor.range * 2);
-  const crownHeight = 3 + Math.round(actor.detail * 3);
-  spriteRect(context, bodyX, ground, px, -2, -30 - crownHeight + bob, 4, crownHeight + 2, colors.spark);
-  spriteRect(context, bodyX, ground, px, -7, -29 + bob, 3, 5, colors.outline);
-  spriteRect(context, bodyX, ground, px, 4, -29 + bob, 3, 5, colors.outline);
-  spriteRect(context, bodyX, ground, px, -10, -25 + bob, 20, 5, colors.outline);
-  spriteRect(context, bodyX, ground, px, -12, -20 + bob, 24, 10 + grow, colors.outline);
-  spriteRect(context, bodyX, ground, px, -11, -19 + bob, 22, 7 + grow, colors.body);
-  spriteRect(context, bodyX, ground, px, -7, -24 + bob, 14, 12, colors.mid);
-  spriteRect(context, bodyX, ground, px, -4, -23 + bob, 8, 3, colors.highlight);
-  drawPixelEyes(context, bodyX, ground, px, -18 + bob, colors, pose);
-  drawPixelExpression(context, bodyX, ground, px, -18 + bob, colors, pose, "grin");
-  spriteRect(context, bodyX, ground, px, -5, -13 + bob, 10, 3, colors.highlight);
-  for (const side of [-1, 1]) {
-    const arm = side < 0 ? pose.leftArm : pose.rightArm;
-    const flourish = Math.max(0, pose.reach * 0.35 + Math.abs(arm) * 0.7);
-    const sideReach = capeReach + Math.round(flourish);
-    const capeX = side < 0 ? -12 - sideReach : 12;
-    const capeLift = arm;
-    spriteRect(context, bodyX, ground, px, capeX, -20 + bob + capeLift, sideReach, 4, colors.mid);
-    spriteRect(context, bodyX, ground, px, capeX + (side < 0 ? 1 : 0), -15 + bob - capeLift, sideReach, 3, colors.shadow);
-    spriteRect(context, bodyX, ground, px, side * 10 - (side < 0 ? 2 : 0), -13 + bob - flourish * 0.4, 2, 5, colors.spark);
-  }
-  const bladeStart = [0, -10 + bob];
-  const bladeArm = pose.rightArm;
-  const bladeLength = 4 + actor.range * 3 + Math.abs(bladeArm);
-  const bladeDirection = clamp(pose.turn * 0.3 + bladeArm * 0.35, -1, 1);
-  const bladeEnd = [
-    bladeDirection * bladeLength,
-    -14 + bob - Math.max(0, bladeArm) * 1.6,
-  ];
-  drawPixelSegment(context, bodyX, ground, px, bladeStart, bladeEnd, colors.highlight, 2);
-  spriteRect(context, bodyX, ground, px, -3, -11 + bob, 6, 2, colors.spark);
-  drawInvaderFeet(context, x, ground, px, [-8, -3, 3, 8], colors, pose, 4);
-}
-
-function drawDetailedSprite(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const bob = pose.bob + pose.compression * 0.6;
-  const bodyX = x + pose.turn * px * 0.8;
-  const wingReach = 4 + Math.round(actor.shape * 3);
-  drawInvaderAntennae(context, bodyX, ground, px, -27 + bob, 4, 5, colors, pose);
-  spriteRect(context, bodyX, ground, px, -5, -28 + bob, 10, 3, colors.outline);
-  spriteRect(context, bodyX, ground, px, -8, -25 + bob, 16, 12 + grow, colors.outline);
-  spriteRect(context, bodyX, ground, px, -7, -24 + bob, 14, 9 + grow, colors.body);
-  spriteRect(context, bodyX, ground, px, -4, -23 + bob, 8, 3, colors.highlight);
-  drawPixelEyes(context, bodyX, ground, px, -19 + bob, colors, pose, true);
-  drawPixelExpression(context, bodyX, ground, px, -19 + bob, colors, pose, "open");
-  for (const side of [-1, 1]) {
-    const arm = side < 0 ? pose.leftArm : pose.rightArm;
-    const fan = Math.max(0, pose.reach * 0.25 + Math.abs(arm) * 0.8);
-    const sideReach = wingReach + Math.round(fan);
-    const sideLift = arm * 1.4;
-    const wingX = side < 0 ? -8 - sideReach : 8;
-    spriteRect(context, bodyX, ground, px, wingX, -24 + bob - sideLift, sideReach, 4, colors.highlight);
-    spriteRect(context, bodyX, ground, px, wingX + (side < 0 ? 1 : 0), -19 + bob - arm * 0.45, sideReach, 4, colors.mid);
-    spriteRect(context, bodyX, ground, px, wingX, -14 + bob + sideLift, sideReach, 3, colors.body);
-  }
-  spriteRect(context, bodyX, ground, px, -5, -14 + bob, 10, 4, colors.mid);
-  drawInvaderFeet(context, x, ground, px, [-6, -2, 2, 6], colors, pose, 3);
-  if (pose.sounding && actor.audibleGate > 0.08) {
-    const orbiters = 2 + Math.round(actor.range * 3) + Math.round(actor.detail * 2);
-    for (let orbiter = 0; orbiter < orbiters; orbiter += 1) {
-      const angle = (pose.spin + orbiter * 8 / orbiters) * Math.PI / 4;
-      const orbitRadius = 10 + Math.min(3, orbiter) + Math.max(0, pose.reach);
-      spriteRect(
-        context,
-        bodyX,
-        ground,
-        px,
-        Math.round(Math.cos(angle) * orbitRadius),
-        -18 + bob + Math.round(Math.sin(angle) * (4 + (orbiter & 1))),
-        1,
-        1,
-        colors.spark,
-      );
-    }
-  }
-}
-
-function drawDetailedDrummer(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const sources = actor.bodyMotion?.sources ?? {
-    kick: 0,
-    snare: 0,
-    hats: 0,
-    shaker: 0,
-  };
-  const bob = pose.bob + pose.compression * 0.72;
-  const bodyX = x + pose.lean * px * 0.72;
-  const hatOpen = 1 + Math.round(sources.hats * 3 + actor.detail * 2);
-  const kickPulse = Math.round(sources.kick * 3);
-  const snareFlash = Math.round(sources.snare * 3);
-
-  for (const side of [-1, 1]) {
-    const cymbalX = side * (8 + Math.round(actor.shape * 2));
-    const cymbalY = -30 + bob - Math.round(sources.hats * 2);
-    drawPixelSegment(
-      context,
-      bodyX,
-      ground,
-      px,
-      [side * 5, -24 + bob],
-      [cymbalX, cymbalY],
-      colors.outline,
-      2,
-    );
-    spriteRect(
-      context,
-      bodyX,
-      ground,
-      px,
-      cymbalX - hatOpen,
-      cymbalY - 1,
-      hatOpen * 2 + 1,
-      2,
-      sources.hats > 0.18 ? colors.spark : colors.highlight,
-    );
-    if (sources.hats > 0.4) {
-      spriteRect(context, bodyX, ground, px, cymbalX - 2, cymbalY - 3, 1, 1, colors.spark);
-      spriteRect(context, bodyX, ground, px, cymbalX + 2, cymbalY - 4, 1, 1, colors.spark);
-    }
-  }
-
-  spriteRect(context, bodyX, ground, px, -5, -29 + bob, 10, 3, colors.outline);
-  spriteRect(context, bodyX, ground, px, -8, -26 + bob, 16, 4, colors.outline);
-  spriteRect(context, bodyX, ground, px, -10, -22 + bob, 20, 12 + grow, colors.outline);
-  spriteRect(context, bodyX, ground, px, -9, -21 + bob, 18, 9 + grow, colors.body);
-  spriteRect(context, bodyX, ground, px, -6, -25 + bob, 12, 7, colors.mid);
-  spriteRect(context, bodyX, ground, px, -4, -24 + bob, 8, 2, colors.highlight);
-  drawPixelHair(context, bodyX, ground + bob * px, px, [
-    [-5, -29, 3], [-2, -31, 4], [1, -31, 4], [4, -29, 3],
-  ], colors.spark, Math.round(sources.hats * 2));
-  drawPixelEyes(context, bodyX, ground, px, -20 + bob, colors, pose, true);
-  drawPixelExpression(context, bodyX, ground, px, -20 + bob, colors, pose, "open");
-
-  for (const side of [-1, 1]) {
-    const arm = side < 0 ? pose.leftArm : pose.rightArm;
-    const lift = clamp(arm, -2, 4);
-    const shoulder = [side * 9, -16 + bob];
-    const hand = [
-      side * (12 + Math.round(Math.abs(lift))),
-      -13 + bob - lift * 1.2,
-    ];
-    const stickEnd = [
-      side * (13 + Math.round(pose.reach * 0.45)),
-      -21 + bob - lift * 2,
-    ];
-    drawPixelSegment(context, bodyX, ground, px, shoulder, hand, colors.outline, 4);
-    drawPixelSegment(context, bodyX, ground, px, shoulder, hand, colors.body, 2);
-    spriteRect(context, bodyX, ground, px, hand[0] - 1, hand[1] - 1, 3, 3, colors.highlight);
-    drawPixelSegment(context, bodyX, ground, px, hand, stickEnd, colors.spark, 1);
-    spriteRect(context, bodyX, ground, px, stickEnd[0] - 1, stickEnd[1] - 1, 2, 2, colors.highlight);
-  }
-
-  spriteRect(context, bodyX, ground, px, -8 - snareFlash, -12 + bob, 16 + snareFlash * 2, 3, colors.outline);
-  spriteRect(context, bodyX, ground, px, -7 - snareFlash, -11 + bob, 14 + snareFlash * 2, 1, colors.highlight);
-  spriteRect(context, bodyX, ground, px, -8, -10 + bob, 16, 2, colors.shadow);
-  spriteRect(context, bodyX, ground, px, -7 - kickPulse, -9 + bob, 14 + kickPulse * 2, 8, colors.outline);
-  spriteRect(context, bodyX, ground, px, -6 - kickPulse, -8 + bob, 12 + kickPulse * 2, 6, colors.mid);
-  spriteRect(context, bodyX, ground, px, -4 - kickPulse, -7 + bob, 8 + kickPulse * 2, 4, colors.body);
-  spriteRect(context, bodyX, ground, px, -2, -6 + bob, 4, 2, colors.spark);
-
-  const shakerOffset = Math.round(sources.shaker * 3);
-  spriteRect(context, bodyX, ground, px, -12 - shakerOffset, -8 + bob, 3, 5, colors.highlight);
-  spriteRect(context, bodyX, ground, px, 9 + shakerOffset, -8 + bob, 3, 5, colors.highlight);
-  drawInvaderFeet(context, x, ground, px, [-8, -3, 3, 8], colors, pose, 4);
-}
-
-function drawEchoSilhouette(context, actor, x, ground, unit, colors, reducedMotion) {
-  const px = unit * 0.5;
-  const pose = detailedActorPose(actor, reducedMotion);
-  const halfWidth = actor.key === "bass"
-    ? 11
-    : actor.key === "lead" || actor.key === "drums" ? 10 : 8;
-  const top = actor.key === "bass" || actor.key === "drums" ? -29 : -27;
-  spriteRect(context, x, ground, px, -4, top - 2, 8, 2, colors.highlight);
-  spriteRect(context, x, ground, px, -halfWidth + 3, top, (halfWidth - 3) * 2, 3, colors.body);
-  spriteRect(context, x, ground, px, -halfWidth, top + 3, halfWidth * 2, 12, colors.mid);
-  spriteRect(context, x, ground, px, -halfWidth + 3, top + 15, (halfWidth - 3) * 2, 5, colors.body);
-  drawInvaderFeet(context, x, ground, px, [-6, 0, 6], colors, pose, 3);
-}
-
-function drawPixelActor(
-  context,
-  actor,
-  index,
-  x,
-  ground,
-  unit,
-  alpha,
-  reducedMotion,
-  showState = true,
-) {
+function drawPixelActor(context, actor, index, x, ground, unit, alpha, reducedMotion) {
   const colors = actorColors(actor, index);
-  const grow = Math.round(actor.levelUnit * 2);
-  const pose = detailedActorPose(actor, reducedMotion);
-  const actorX = x + Math.round(pose.bodyJiggle * unit * 0.65);
-  const actorGround = ground;
   context.save();
   context.globalAlpha = alpha;
-  const shadowWidth = (8 + Math.round(actor.size * 3) - pose.compression) * unit;
-  pixelRect(context, x - shadowWidth / 2, ground + unit, shadowWidth, unit, colors.shadow);
-  context.translate(actorX - x, -Math.round(pose.jump * unit * 0.5));
-  if (!showState) {
-    drawEchoSilhouette(context, actor, x, actorGround, unit, colors, true);
-    context.restore();
-    return;
-  }
-  if (actor.key === "upperOne") {
-    drawDetailedScout(context, actor, x, actorGround, unit, colors, pose, grow);
-  } else if (actor.key === "upperTwo") {
-    drawDetailedRunner(context, actor, x, actorGround, unit, colors, pose, grow);
-  } else if (actor.key === "bass") {
-    drawDetailedMonster(context, actor, x, actorGround, unit, colors, pose, grow);
-  } else if (actor.key === "lead") {
-    drawDetailedHero(context, actor, x, actorGround, unit, colors, pose, grow);
-  } else if (actor.key === "drums") {
-    drawDetailedDrummer(context, actor, x, actorGround, unit, colors, pose, grow);
-  } else {
-    drawDetailedSprite(context, actor, x, actorGround, unit, colors, pose, grow);
-  }
-  if (pose.animated && actor.onset > 0.18) {
-    const accents = 1 + Math.round(actor.range * 2);
-    for (let accent = 0; accent < accents; accent += 1) {
-      const side = (accent + index) & 1 ? 1 : -1;
-      pixelRect(
-        context,
-        x + side * (4 + accent) * unit,
-        actorGround - (7 + accent * 2) * unit,
-        Math.max(1, unit * 0.5),
-        Math.max(1, unit * 0.5),
-        colors.spark,
-      );
-    }
-  }
-  if (actor.resting) {
-    drawRestGlyph(context, x + 3 * unit, actorGround - 12 * unit, unit, colors.highlight);
-  }
+  pixelRect(context, x - 5 * unit, ground + unit, 10 * unit, unit * .5, colors.shadow);
+  drawChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion);
   context.restore();
 }
 
@@ -5850,7 +5028,8 @@ function drawCharacterStage(time) {
   const canvas = $("characterStage");
   const context = canvas.getContext("2d");
   const { width, height, pixelScale, cssWidth } = resizeCharacterCanvas(canvas);
-  const snapshot = webGpuChiptuneStageSnapshot(time, effectiveVoiceParams(), state.sequence);
+  const snapshot = webGpuChiptuneStageSnapshot(time, effectiveVoiceParams(),
+    state.synthPlaying && engine ? engine.sequenceAtTime(time) : state.sequence);
   const reducedMotion = Boolean(reducedMotionQuery?.matches);
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.imageSmoothingEnabled = false;
@@ -5897,7 +5076,7 @@ function drawCharacterStage(time) {
   const bayTop = Math.max(2, Math.floor(height * 0.12));
   const baseline = Math.round(height * 0.78);
   const widthBudget = 18;
-  const heightBudget = cssWidth <= 620 ? 21 : 19;
+  const heightBudget = 22;
   const widthFit = Math.max(1, (narrowestBay - 2) / widthBudget);
   const heightFit = Math.max(1, (baseline - bayTop) / heightBudget);
   const unit = Math.max(1, Math.min(desiredUnit, widthFit, heightFit));
@@ -5916,11 +5095,7 @@ function drawCharacterStage(time) {
   snapshot.actors.forEach((actor, index) => {
     const bay = bays[index];
     const audible = characterVoiceAudible(actor.key);
-    const pose = detailedActorPose(actor, reducedMotion);
-    const marchDistance = pose.animated
-      ? pose.march * unit * actor.motion * 0.8
-      : 0;
-    const center = bay.center + marchDistance;
+    const center = bay.center;
     context.save();
     context.beginPath();
     context.rect(
@@ -6136,9 +5311,11 @@ function sequencePointFromPointer(event, lockedLane = null) {
   const metrics = sequenceEditorMetrics(rect.width, rect.height);
   const localX = event.clientX - rect.left;
   const localY = event.clientY - rect.top;
-  if (!lockedLane && localY >= metrics.overview.top && localY < metrics.overview.bottom) {
+  const volumeDrag = activeSequenceDrag?.velocity === true;
+  const volumeView = state.activeCharacterVoice !== "drums";
+  if ((!lockedLane && localY >= metrics.overview.top && localY < metrics.overview.bottom) || volumeDrag) {
     const overviewRow = metrics.overview.rows.find(
-      ({ top, height }) => localY >= top && localY < top + height,
+      ({ top, height }) => volumeDrag || (localY >= top && localY < top + height),
     );
     if (!overviewRow) return null;
     const boundedX = clamp(
@@ -6146,14 +5323,15 @@ function sequencePointFromPointer(event, lockedLane = null) {
       metrics.overview.left,
       metrics.overview.left + metrics.overview.width - 0.001,
     );
-    const step = Math.floor(
+    const step = metrics.overview.startStep + Math.floor(
       (boundedX - metrics.overview.left) / metrics.overview.cellWidth,
     );
     return Object.freeze({
       lane: overviewRow.definition.key,
       step,
-      value: 0,
-      overview: true,
+      value: clamp(1 - (localY - overviewRow.top) / overviewRow.height, 0, 1),
+      velocity: volumeView,
+      overview: !volumeView,
       gutter: localX < metrics.overview.left,
     });
   }
@@ -6178,7 +5356,11 @@ function sequencePointFromPointer(event, lockedLane = null) {
 }
 
 function paintSequencePoint(point, previous = point) {
-  const next = paintWebGpuChiptuneSequenceSegment(
+  if (point.velocity) {
+    setStepVelocity(point.step, point.value, point.lane);
+    return;
+  }
+  let next = paintWebGpuChiptuneSequenceSegment(
     state.sequence,
     point.lane,
     previous.step,
@@ -6187,6 +5369,13 @@ function paintSequencePoint(point, previous = point) {
     point.value,
     state.sequenceEditMode,
   );
+  if (state.sequence.mode === "pattern" && state.sequenceEditMode === "auto") {
+    const cells = [...next.lanes[point.lane].cells];
+    for (let step = Math.min(previous.step, point.step); step <= Math.max(previous.step, point.step); step++) {
+      cells[step] = state.patternBaseline.lanes[point.lane].cells[step];
+    }
+    next = sanitizeWebGpuChiptuneSequence(sequenceLaneWithChanges(point.lane, { cells }));
+  }
   state.activeSequenceLane = point.lane;
   if (WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.includes(point.lane)) {
     lastVoiceSequenceLane = point.lane;
@@ -6194,7 +5383,6 @@ function paintSequencePoint(point, previous = point) {
   state.activeSequenceStep = point.step;
   state.sequencePage = sequencePageForStep(point.step);
   applySequence(next, { notify: false });
-  requestSequenceAudition(point.lane, state.sequenceEditMode, point.value);
 }
 
 function stagePointerDown(event) {
@@ -6235,9 +5423,15 @@ function stagePointerDown(event) {
       lastPoint: point,
       originalSequence,
       originalPresetId,
+      startX: event.clientX,
+      startY: event.clientY,
+      isDrum: activeSequenceSpec().kind === "drums",
+      velocity: point.velocity === true,
+      moved: false,
     };
     $("stage").setPointerCapture?.(event.pointerId);
-    paintSequencePoint(point);
+    state.activeSequenceStep = point.step;
+    syncSequenceControls();
     return;
   }
   state.editingStage = true;
@@ -6250,10 +5444,14 @@ function stagePointerMove(event) {
     event.preventDefault();
     const point = sequencePointFromPointer(event, activeSequenceDrag.lane);
     if (!point) return;
+    if (!activeSequenceDrag.moved && Math.hypot(event.clientX - activeSequenceDrag.startX,
+      event.clientY - activeSequenceDrag.startY) < 4) return;
+    activeSequenceDrag.moved = true;
     if (
       point.step === activeSequenceDrag.lastPoint.step
       && point.value === activeSequenceDrag.lastPoint.value
     ) return;
+    if (activeSequenceDrag.isDrum) state.sequenceEditMode = "note";
     paintSequencePoint(point, activeSequenceDrag.lastPoint);
     activeSequenceDrag.lastPoint = point;
     return;
@@ -6276,7 +5474,7 @@ function stagePointerEnd(event) {
       state.activeSequenceStep,
       cell,
       state.sequence.lanes[drag.lane].activeLength,
-    ) + ". Live shader sequence updated; voice notes use the same WGSL path for preview.");
+    ) + ". Updated in place; changes play only as part of the sequence.");
     return;
   }
   if (!state.editingStage) return;
@@ -6286,6 +5484,16 @@ function stagePointerEnd(event) {
     "Pattern seed " + state.params.patternSeed.toFixed(3)
       + ", pitch range " + state.params.pitchRange.toFixed(2) + ".",
   );
+}
+
+function stageDoubleClick(event) {
+  if (state.trackerView !== "sequence") return;
+  const point = sequencePointFromPointer(event);
+  if (!point || point.gutter) return;
+  event.preventDefault();
+  state.activeSequenceLane = point.lane;
+  state.activeSequenceStep = point.step;
+  cycleSequenceCell(point.step);
 }
 
 function stagePointerCancel(event) {
@@ -6414,13 +5622,18 @@ function registerWaxHostAdapter() {
   try {
     wax.register({
       id: "webgpu-chiptune",
-      stateVersion: 5,
+      stateVersion: 7,
       getState() {
         return {
           parameters: { ...state.params },
           activePresetId: state.presetId,
           sequence: state.sequence,
           voicePerformance: state.voicePerformance,
+          performanceVersion: 2,
+          drumMix: state.drumMix,
+          songSequence: state.sequence.mode === "song" ? state.sequence : state.songSequence,
+          patternSequence: state.sequence.mode === "pattern" ? state.sequence : state.patternSequence,
+          patternBaseline: state.patternBaseline,
         };
       },
       applyState(snapshot) {
@@ -6429,16 +5642,16 @@ function registerWaxHostAdapter() {
           && presets.some(({ id }) => id === snapshot.activePresetId)
           ? snapshot.activePresetId
           : "custom";
-        state.voicePerformance = sanitizeWebGpuChiptunePerformance(
-          snapshot.voicePerformance && typeof snapshot.voicePerformance === "object"
-            ? snapshot.voicePerformance
-            : WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS,
-        );
+        const migrated = migrateWebGpuChiptunePerformance(snapshot);
+        state.voicePerformance = migrated.performance;
+        state.drumMix = sanitizeWebGpuChiptuneDrumMix(snapshot.drumMix);
+        state.songSequence = sanitizeWebGpuChiptuneSequence(snapshot.songSequence ?? snapshot.sequence);
+        state.patternSequence = snapshot.patternSequence ? sanitizeWebGpuChiptuneSequence(snapshot.patternSequence)
+          : createWebGpuChiptunePattern(migrated.parameters, state.songSequence);
+        state.patternBaseline = snapshot.patternBaseline ? sanitizeWebGpuChiptuneSequence(snapshot.patternBaseline)
+          : createWebGpuChiptunePattern(migrated.parameters, state.songSequence);
         if (snapshot.parameters && typeof snapshot.parameters === "object") {
-          applyParams({
-            ...WEBGPU_CHIPTUNE_DEFAULTS,
-            ...snapshot.parameters,
-          }, presetId, { notify: false });
+          applyParams(migrated.parameters, presetId, { notify: false });
         }
         applySequence(
           snapshot.sequence && typeof snapshot.sequence === "object"
@@ -6530,6 +5743,7 @@ $("workgroupSize").addEventListener("change", () => {
 $("randomizePatch").addEventListener("click", randomizePatch);
 $("mutatePatch").addEventListener("click", mutatePatch);
 $("resetPatch").addEventListener("click", resetPatch);
+$("stage").addEventListener("dblclick", stageDoubleClick);
 $("stage").addEventListener("pointerdown", stagePointerDown);
 $("stage").addEventListener("pointermove", stagePointerMove);
 $("stage").addEventListener("pointerup", stagePointerEnd);

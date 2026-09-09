@@ -1798,3 +1798,38 @@
     white-space: nowrap;
   }
 }
+
+/* A full-height desktop rail keeps the selected voice's main controls up front. */
+@media (min-width: 981px) {
+  .webgpu-chiptune-page .webgpu-303-shell {
+    grid-template-rows: clamp(360px, 49dvh, 450px) minmax(320px, 1fr);
+  }
+  .chiptune-character-panel { grid-column: 1; }
+  .webgpu-chiptune-page .webgpu-303-panel { grid-row: 1 / -1; }
+  .chiptune-selected-performer small { font-size: 11px; }
+  .chiptune-voice-tabs button,
+  .chiptune-sequence-state-buttons button { font-size: 10px; }
+}
+
+/* Pattern/phrase separation: large native controls, scoped voice mixer. */
+.chiptune-drum-mix-row { display: grid; grid-template-columns: minmax(0, 1fr) 64px 64px; gap: 5px; }
+.chiptune-drum-mix-row[hidden] { display: none; }
+.chiptune-voice-tabs[data-performer="drums"] { grid-template-columns: 1fr; }
+.chiptune-drum-mix-row [data-drum-mute][aria-pressed="true"] { background: #713045; color: #fff; }
+.chiptune-drum-mix-row [data-drum-solo][aria-pressed="true"] { background: #1d694f; color: #fff; }
+.chiptune-pattern-timing, .chiptune-focused-sound { display: grid; gap: 12px; min-width: 0; }
+.chiptune-pattern-timing[hidden], .chiptune-focused-sound:not([open]) > div { display: none; }
+.chiptune-composition-mode select, .chiptune-pattern-timing select,
+#sequenceZoom { width: 100%; min-height: 44px; color: #e9f5f3; background: #15232b; border: 1px solid #547278; border-radius: 5px; padding: 8px; }
+.chiptune-clock-comparison, .chiptune-focused-sound { border-top: 1px solid #33464b; padding-top: 12px; }
+.chiptune-clock-comparison summary, .chiptune-focused-sound summary { color: #f4c95d; cursor: pointer; font-size: 12px; padding: 10px 0; }
+.chiptune-clock-comparison p { color: #d4e3e5; font-size: 12px; line-height: 1.45; }
+.chiptune-clock-comparison table { width: 100%; border-collapse: collapse; font-size: 11px; color: #dceaea; }
+.chiptune-clock-comparison th, .chiptune-clock-comparison td { text-align: left; padding: 6px 3px; border-bottom: 1px solid #25383e; }
+#focusedVoiceControls { padding: 8px 0; }
+#sequenceLoopSummary { display: block; padding: 10px; background: #172c30; line-height: 1.6; }
+.chiptune-sequence-pages[hidden], #trackerViewMorph:disabled { display: none; }
+@media (pointer: coarse) {
+  .chiptune-drum-mix-row button, #compositionMode, #sequenceStepFraction, #sequenceZoom,
+  #sequencePan, #sequenceVelocity, #sequenceGate, #sequencePitchCenter { min-height: 48px; }
+}
