@@ -3,6 +3,7 @@
   --plug-amber: #ffc862;
   --plug-blue: #74a9ff;
   --plug-red: #ff766e;
+  --audio-control-width: 48px;
   --accent: var(--plug-green);
   --accent-soft: rgba(112, 240, 196, 0.5);
   --accent-glow: rgba(112, 240, 196, 0.18);
@@ -10,6 +11,11 @@
 }
 
 .plugazoid-audio-glyph { color: var(--plug-green); }
+
+.plugazoid-page .audio-button {
+  min-height: 48px;
+  height: 48px;
+}
 
 .plugazoid-shell {
   grid-template-columns: minmax(0, 1fr) clamp(330px, 27vw, 390px);
@@ -410,6 +416,90 @@
 
 .plugazoid-panel { overscroll-behavior: contain; }
 
+.plugazoid-instructions {
+  margin: 10px 10px 0;
+  padding: 13px;
+  border: 1px solid rgba(255, 200, 98, 0.42);
+  border-radius: 11px;
+  color: var(--muted);
+  background:
+    linear-gradient(135deg, rgba(255, 200, 98, 0.1), transparent 48%),
+    rgba(7, 12, 14, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.plugazoid-instructions > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plugazoid-instructions > header span {
+  color: var(--plug-amber);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.plugazoid-instructions h2 {
+  margin: 0;
+  color: var(--ink);
+  font: 700 13px/1.15 var(--display);
+  letter-spacing: 0.02em;
+}
+
+.plugazoid-instructions ol {
+  margin: 11px 0;
+  padding-left: 19px;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.plugazoid-instructions li {
+  padding-left: 3px;
+}
+
+.plugazoid-instructions li + li { margin-top: 6px; }
+
+.plugazoid-instructions li::marker {
+  color: var(--plug-amber);
+  font: 700 8px/1 var(--mono);
+}
+
+.plugazoid-instructions li strong { color: var(--ink); }
+
+.plugazoid-instruction-proof {
+  display: grid;
+  border-top: 1px solid rgba(255, 200, 98, 0.2);
+}
+
+.plugazoid-instruction-proof p {
+  display: grid;
+  margin: 0;
+  padding: 9px 0 0;
+  gap: 3px;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.plugazoid-instruction-proof p + p {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.plugazoid-instruction-proof strong {
+  color: var(--plug-green);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.plugazoid-instruction-proof p:nth-child(2) strong { color: var(--plug-red); }
+
+.plugazoid-instruction-proof p:nth-child(3) strong { color: var(--plug-amber); }
+
 /* The generated WAX build adds a fixed routing summary at the viewport foot. */
 .plugazoid-page:has(.wax-midi-panel) .reset-all-row {
   padding-bottom: 86px;
@@ -495,6 +585,123 @@
   line-height: 1.45;
 }
 
+.plugazoid-source-note,
+.plugazoid-trust-note {
+  margin: 0 0 11px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.plugazoid-catalog-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  align-items: end;
+  gap: 7px;
+}
+
+.plugazoid-load-wam {
+  min-height: 48px;
+  border-color: rgba(255, 200, 98, 0.52);
+  color: var(--plug-amber);
+  background: rgba(255, 200, 98, 0.07);
+  line-height: 1.25;
+}
+
+.plugazoid-load-wam.is-loading {
+  color: var(--muted);
+  animation: plugazoid-load-pulse 1s ease-in-out infinite;
+}
+
+@keyframes plugazoid-load-pulse { 50% { opacity: 0.5; } }
+
+.plugazoid-selection-description {
+  display: block;
+  min-height: 38px;
+  margin: 8px 0 11px;
+  padding: 8px 9px;
+  border-left: 2px solid rgba(255, 200, 98, 0.46);
+  color: var(--muted);
+  background: rgba(255, 200, 98, 0.035);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.plugazoid-source-actions {
+  display: grid;
+  margin-bottom: 10px;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  align-items: center;
+  gap: 7px;
+}
+
+.plugazoid-source-actions a {
+  overflow: hidden;
+  color: var(--plug-green);
+  font: 8px/1.35 var(--mono);
+  text-decoration: underline;
+  text-decoration-color: rgba(112, 240, 196, 0.35);
+  text-underline-offset: 3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugazoid-source-actions .mini-action { min-height: 40px; }
+
+.plugazoid-trust-note {
+  margin-bottom: 2px;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 118, 110, 0.24);
+  background: rgba(255, 118, 110, 0.045);
+}
+
+.plugazoid-trust-note strong { color: var(--plug-red); }
+
+.plugazoid-wam-gui {
+  display: grid;
+  min-height: 190px;
+  max-height: min(420px, 52vh);
+  padding: 10px;
+  border: 1px solid rgba(112, 240, 196, 0.24);
+  border-radius: 9px;
+  place-items: center;
+  overflow: auto;
+  color: var(--muted);
+  background:
+    linear-gradient(rgba(112, 240, 196, 0.035), transparent 55%),
+    rgba(0, 0, 0, 0.2);
+  scrollbar-gutter: stable;
+}
+
+.plugazoid-wam-gui.is-loaded {
+  place-items: stretch;
+  padding: 8px;
+}
+
+.plugazoid-wam-gui > p {
+  max-width: 220px;
+  margin: 0;
+  font: 8px/1.5 var(--mono);
+  text-align: center;
+}
+
+.plugazoid-wam-gui > :not(p) {
+  max-width: 100%;
+  margin: auto;
+}
+
+.plugazoid-processor-section .plugazoid-bypass {
+  width: 100%;
+  margin-top: 9px;
+}
+
+.plugazoid-page #unloadWamButton { min-height: 48px; }
+
+.plugazoid-page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .plugazoid-format-grid {
   display: grid;
   margin-bottom: 11px;
@@ -536,8 +743,7 @@
   opacity: 0.46;
 }
 
-.plugazoid-descriptor,
-.plugazoid-proof-grid {
+.plugazoid-descriptor {
   display: grid;
   margin: 0 0 12px;
   border: 1px solid var(--line);
@@ -552,11 +758,9 @@
   align-items: center;
 }
 
-.plugazoid-descriptor > span + span,
-.plugazoid-proof-grid div + div { border-top: 1px solid var(--line); }
+.plugazoid-descriptor > span + span { border-top: 1px solid var(--line); }
 
-.plugazoid-descriptor b,
-.plugazoid-proof-grid dt {
+.plugazoid-descriptor b {
   color: var(--muted);
   font-size: 8px;
   font-weight: 500;
@@ -607,28 +811,6 @@
   color: var(--muted);
   font-size: 8px;
   line-height: 1.45;
-}
-
-.plugazoid-proof-grid div {
-  display: grid;
-  min-height: 38px;
-  padding: 8px 9px;
-  grid-template-columns: 96px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-}
-
-.plugazoid-proof-grid dd {
-  margin: 0;
-  color: var(--ink);
-  font: 8px/1.4 var(--mono);
-}
-
-.plugazoid-proof-note {
-  margin: 0 0 7px;
-  color: var(--muted);
-  font-size: 9px;
-  line-height: 1.55;
 }
 
 .plugazoid-page button:focus-visible,
@@ -773,8 +955,12 @@
 
   .plugazoid-stage .stage-meta { display: none; }
   .plugazoid-input-actions,
-  .plugazoid-format-grid { grid-template-columns: 1fr; }
+  .plugazoid-format-grid,
+  .plugazoid-catalog-actions,
+  .plugazoid-source-actions { grid-template-columns: 1fr; }
   .plugazoid-format { min-height: 43px; }
+  .plugazoid-source-actions .mini-action { min-height: 48px; }
+  .plugazoid-wam-gui { max-height: 370px; }
 }
 
 @media (max-height: 560px) and (min-width: 700px) {
@@ -819,7 +1005,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .plugazoid-rack.is-flowing .rack-cable > span,
-  .plugazoid-mic-button.is-live > span:first-child {
+  .plugazoid-mic-button.is-live > span:first-child,
+  .plugazoid-load-wam.is-loading {
     animation: none;
   }
 }

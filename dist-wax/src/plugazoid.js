@@ -10,94 +10,124 @@ const clamp = (value, minimum, maximum, fallback) => Math.min(
 
 export const PLUGAZOID_LIMITS = Object.freeze({
   inputTrimDb: Object.freeze([-18, 12]),
-  driveDb: Object.freeze([0, 24]),
-  toneHz: Object.freeze([180, 14_000]),
-  mix: Object.freeze([0, 1]),
   outputLevel: Object.freeze([0, 0.82]),
 });
 
-export const PLUGAZOID_PLUGIN_FORMATS = Object.freeze([
+export const PLUGAZOID_WAM_ENDPOINTS = Object.freeze({
+  catalog: "https://www.webaudiomodules.com/community/plugins.json",
+  plugins: "https://www.webaudiomodules.com/community/plugins/",
+  sdk: "https://www.webaudiomodules.com/sdk/2.0.0-alpha.6/src/initializeWamHost.js",
+});
+
+export const PLUGAZOID_STARTER_WAMS = Object.freeze([
   Object.freeze({
-    id: "vst3",
-    label: "VST3",
-    status: "source-port target",
-    available: true,
+    identifier: "com.sequencerParty.simpleDistortion",
+    name: "Simple Distortion",
+    vendor: "Sequencer Party",
+    description: "Waveshaper distortion with variable curve and gain.",
+    category: Object.freeze(["Effect", "Distortion"]),
+    path: "burns-audio/distortion/index.js",
   }),
   Object.freeze({
-    id: "clap",
-    label: "CLAP",
-    status: "next adapter",
-    available: false,
+    identifier: "com.sequencerParty.simpleDelay",
+    name: "Simple Delay",
+    vendor: "Sequencer Party",
+    description: "Stereo filtered delay.",
+    category: Object.freeze(["Effect", "Delay"]),
+    path: "burns-audio/delay/index.js",
   }),
   Object.freeze({
-    id: "audio-unit",
-    label: "Audio Unit",
-    status: "macOS adapter",
-    available: false,
+    identifier: "com.sequencerParty.simpleEQ",
+    name: "Simple EQ",
+    vendor: "Sequencer Party",
+    description: "Three-band equalizer.",
+    category: Object.freeze(["Effect", "Equalizer & Filter"]),
+    path: "burns-audio/simpleEQ/index.js",
   }),
 ]);
 
 export const PLUGAZOID_DEFAULTS = Object.freeze({
-  format: "vst3",
-  preset: "warm-port",
   inputTrimDb: 0,
-  driveDb: 8,
-  toneHz: 4_200,
-  mix: 0.72,
   outputLevel: 0.52,
   bypassed: false,
 });
 
-export const PLUGAZOID_PRESETS = Object.freeze([
-  Object.freeze({
-    id: "clean-port",
-    label: "Clean port",
-    values: Object.freeze({ inputTrimDb: 0, driveDb: 1.5, toneHz: 9_200, mix: 0.38 }),
-  }),
-  Object.freeze({
-    id: "warm-port",
-    label: "Warm port",
-    values: Object.freeze({ inputTrimDb: 0, driveDb: 8, toneHz: 4_200, mix: 0.72 }),
-  }),
-  Object.freeze({
-    id: "feral-port",
-    label: "Feral port",
-    values: Object.freeze({ inputTrimDb: -4, driveDb: 18, toneHz: 1_350, mix: 0.92 }),
-  }),
-]);
-
-const formatIds = new Set(PLUGAZOID_PLUGIN_FORMATS.map(({ id }) => id));
-const presetIds = new Set(PLUGAZOID_PRESETS.map(({ id }) => id));
+const preferredWamOrder = new Map(
+  PLUGAZOID_STARTER_WAMS.map(({ identifier }, index) => [identifier, index]),
+);
 
 export function sanitizePlugazoidSettings(value = {}) {
   const source = value && typeof value === "object" ? value : {};
   return Object.freeze({
-    format: formatIds.has(source.format) ? source.format : PLUGAZOID_DEFAULTS.format,
-    preset: presetIds.has(source.preset) || source.preset === "custom"
-      ? source.preset
-      : PLUGAZOID_DEFAULTS.preset,
     inputTrimDb: clamp(
       source.inputTrimDb,
       ...PLUGAZOID_LIMITS.inputTrimDb,
       PLUGAZOID_DEFAULTS.inputTrimDb,
     ),
-    driveDb: clamp(
-      source.driveDb,
-      ...PLUGAZOID_LIMITS.driveDb,
-      PLUGAZOID_DEFAULTS.driveDb,
-    ),
-    toneHz: clamp(
-      source.toneHz,
-      ...PLUGAZOID_LIMITS.toneHz,
-      PLUGAZOID_DEFAULTS.toneHz,
-    ),
-    mix: clamp(source.mix, ...PLUGAZOID_LIMITS.mix, PLUGAZOID_DEFAULTS.mix),
     outputLevel: clamp(
       source.outputLevel,
       ...PLUGAZOID_LIMITS.outputLevel,
       PLUGAZOID_DEFAULTS.outputLevel,
     ),
     bypassed: Boolean(source.bypassed),
+  });
+}
+
+export function resolveWamModuleUrl(path, pluginBaseUrl = PLUGAZOID_WAM_ENDPOINTS.plugins) {
+  try {
+    const base = new URL(pluginBaseUrl);
+    const target = new URL(String(path ?? "").trim(), base);
+    const supportedProtocol = base.protocol === "https:" || base.protocol === "http:";
+    const insideBase = target.origin === base.origin && target.pathname.startsWith(base.pathname);
+    if (!supportedProtocol || !insideBase || target.username || target.password || target.hash) return null;
+    return target.href;
+  } catch {
+    return null;
+  }
+}
+
+export function prepareWamCatalog(value, options = {}) {
+  const source = Array.isArray(value) ? value : [];
+  const pluginBaseUrl = options.pluginBaseUrl ?? PLUGAZOID_WAM_ENDPOINTS.plugins;
+  const seen = new Set();
+  const modules = [];
+
+  for (const candidate of source) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const identifier = String(candidate.identifier ?? "").trim();
+    const name = String(candidate.name ?? "").trim();
+    const vendor = String(candidate.vendor ?? "Unknown vendor").trim() || "Unknown vendor";
+    const description = String(candidate.description ?? "").trim();
+    const category = Array.isArray(candidate.category)
+      ? candidate.category.map((entry) => String(entry).trim()).filter(Boolean)
+      : [];
+    const moduleUrl = resolveWamModuleUrl(candidate.path, pluginBaseUrl);
+    if (!identifier || !name || !moduleUrl || seen.has(identifier)) continue;
+    seen.add(identifier);
+    modules.push(Object.freeze({
+      identifier,
+      name,
+      vendor,
+      description,
+      category: Object.freeze(category),
+      moduleUrl,
+      isEffect: category[0]?.toLowerCase() === "effect",
+    }));
+  }
+
+  const effects = modules
+    .filter(({ isEffect }) => isEffect)
+    .sort((left, right) => {
+      const leftPreferred = preferredWamOrder.get(left.identifier) ?? Number.MAX_SAFE_INTEGER;
+      const rightPreferred = preferredWamOrder.get(right.identifier) ?? Number.MAX_SAFE_INTEGER;
+      if (leftPreferred !== rightPreferred) return leftPreferred - rightPreferred;
+      return left.name.localeCompare(right.name) || left.vendor.localeCompare(right.vendor);
+    });
+
+  return Object.freeze({
+    totalCount: modules.length,
+    effectCount: effects.length,
+    effects: Object.freeze(effects),
   });
 }
 

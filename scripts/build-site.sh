@@ -69,6 +69,7 @@ for worktree_runtime_file in \
   plugazoid.css \
   plugazoid-app.js \
   src/plugazoid.js \
+  src/plugazoid-host.js \
   src/plugazoid-processor.js \
   assets/instruments/plugazoid.webp \
   breath-atlas.html \
@@ -1067,6 +1068,7 @@ required_files=(
   plugazoid.css
   plugazoid-app.js
   src/plugazoid.js
+  src/plugazoid-host.js
   src/plugazoid-processor.js
   assets/instruments/plugazoid.webp
   shepard-risset.html

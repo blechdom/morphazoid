@@ -1,114 +1,102 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import test, { after } from "node:test";
+import test from "node:test";
 
 import {
   PLUGAZOID_DEFAULTS,
-  PLUGAZOID_PLUGIN_FORMATS,
-  PLUGAZOID_PRESETS,
+  PLUGAZOID_STARTER_WAMS,
+  PLUGAZOID_WAM_ENDPOINTS,
   classifyPluginArtifact,
   decibelsToGain,
   meterPercentage,
   outputLevelToGain,
+  prepareWamCatalog,
+  resolveWamModuleUrl,
   sanitizePlugazoidSettings,
 } from "../src/plugazoid.js";
 
-const SAMPLE_RATE = 48_000;
-const BLOCK_SIZE = 128;
-const PROCESSOR_URL = new URL("../src/plugazoid-processor.js", import.meta.url);
 const PAGE_URL = new URL("../plugazoid.html", import.meta.url);
-const savedGlobals = new Map(
-  ["sampleRate", "AudioWorkletProcessor", "registerProcessor"]
-    .map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]),
-);
+const ENTRY_URL = new URL("../plugazoid-app.js", import.meta.url);
+const HOST_URL = new URL("../src/plugazoid-host.js", import.meta.url);
+const BUILD_SCRIPT_URL = new URL("../scripts/build-site.sh", import.meta.url);
 
-let registeredName = null;
-let ProcessorConstructor = null;
-
-class MockAudioWorkletProcessor {
-  constructor() {
-    this.port = {
-      onmessage: null,
-      messages: [],
-      postMessage(message) {
-        this.messages.push(message);
-      },
-    };
-  }
-}
-
-Object.defineProperties(globalThis, {
-  sampleRate: { configurable: true, writable: true, value: SAMPLE_RATE },
-  AudioWorkletProcessor: {
-    configurable: true,
-    writable: true,
-    value: MockAudioWorkletProcessor,
-  },
-  registerProcessor: {
-    configurable: true,
-    writable: true,
-    value(name, constructor) {
-      registeredName = name;
-      ProcessorConstructor = constructor;
-    },
-  },
-});
-
-await import(`${PROCESSOR_URL.href}?test=${Date.now()}`);
-
-after(() => {
-  for (const [key, descriptor] of savedGlobals) {
-    if (descriptor) Object.defineProperty(globalThis, key, descriptor);
-    else delete globalThis[key];
-  }
-});
-
-function parameterBlock(overrides = {}) {
-  return {
-    driveDb: new Float32Array([8]),
-    toneHz: new Float32Array([4_200]),
-    mix: new Float32Array([0.72]),
-    bypass: new Float32Array([0]),
-    ...overrides,
-  };
-}
-
-function renderBlock(processor, sampleAtFrame, parameters = parameterBlock()) {
-  const input = new Float32Array(BLOCK_SIZE);
-  const left = new Float32Array(BLOCK_SIZE);
-  const right = new Float32Array(BLOCK_SIZE);
-  for (let index = 0; index < input.length; index += 1) {
-    input[index] = sampleAtFrame(index);
-  }
-  assert.equal(processor.process([[input]], [[left, right]], parameters), true);
-  return { input, left, right };
-}
-
-test("Plugazoid presents the native roadmap in VST3, CLAP, Audio Unit order", () => {
+test("Plugazoid pins the official WAM2 endpoints and three useful starter effects", () => {
+  assert.match(PLUGAZOID_WAM_ENDPOINTS.catalog, /^https:\/\/www\.webaudiomodules\.com\//);
+  assert.match(PLUGAZOID_WAM_ENDPOINTS.plugins, /^https:\/\/www\.webaudiomodules\.com\//);
+  assert.match(PLUGAZOID_WAM_ENDPOINTS.sdk, /2\.0\.0-alpha\.6\/src\/initializeWamHost\.js$/);
   assert.deepEqual(
-    PLUGAZOID_PLUGIN_FORMATS.map(({ id }) => id),
-    ["vst3", "clap", "audio-unit"],
+    PLUGAZOID_STARTER_WAMS.map(({ identifier }) => identifier),
+    [
+      "com.sequencerParty.simpleDistortion",
+      "com.sequencerParty.simpleDelay",
+      "com.sequencerParty.simpleEQ",
+    ],
   );
-  assert.equal(PLUGAZOID_PLUGIN_FORMATS[0].available, true);
-  assert.equal(PLUGAZOID_PLUGIN_FORMATS.slice(1).every(({ available }) => !available), true);
+});
+
+test("catalog preparation keeps same-base effects, deduplicates IDs, and prioritizes starters", () => {
+  const prepared = prepareWamCatalog([
+    {
+      identifier: "org.example.instrument",
+      name: "Instrument",
+      vendor: "Example",
+      category: ["Instrument"],
+      path: "example/instrument/index.js",
+    },
+    {
+      identifier: "org.example.videoEffect",
+      name: "Video Effect",
+      vendor: "Example",
+      category: ["Video", "Effect"],
+      path: "example/video/index.js",
+    },
+    PLUGAZOID_STARTER_WAMS[1],
+    PLUGAZOID_STARTER_WAMS[0],
+    {
+      ...PLUGAZOID_STARTER_WAMS[0],
+      name: "Duplicate",
+    },
+    {
+      identifier: "org.evil.escape",
+      name: "Escape",
+      vendor: "Unknown",
+      category: ["Effect"],
+      path: "https://evil.example/plugin.js",
+    },
+  ]);
+
+  assert.equal(prepared.totalCount, 4);
+  assert.equal(prepared.effectCount, 2);
+  assert.deepEqual(
+    prepared.effects.map(({ identifier }) => identifier),
+    ["com.sequencerParty.simpleDistortion", "com.sequencerParty.simpleDelay"],
+  );
+  assert.equal(prepared.effects[0].moduleUrl, PLUGAZOID_WAM_ENDPOINTS.plugins + "burns-audio/distortion/index.js");
+  assert.ok(Object.isFrozen(prepared));
+  assert.ok(Object.isFrozen(prepared.effects));
+  assert.ok(Object.isFrozen(prepared.effects[0]));
+});
+
+test("WAM URL resolution supports a self-hosted base but rejects escapes and foreign origins", () => {
+  assert.equal(
+    resolveWamModuleUrl("gain/index.js", "http://127.0.0.1:3435/wams/"),
+    "http://127.0.0.1:3435/wams/gain/index.js",
+  );
+  assert.equal(resolveWamModuleUrl("../escape.js"), null);
+  assert.equal(resolveWamModuleUrl("https://evil.example/plugin.js"), null);
+  assert.equal(resolveWamModuleUrl("gain/index.js#mutable"), null);
+  assert.equal(resolveWamModuleUrl("", "file:///tmp/wams/"), null);
 });
 
 test("settings reject hostile values and stay within finite output limits", () => {
   const safe = sanitizePlugazoidSettings({
-    format: "dll",
-    preset: "untrusted",
     inputTrimDb: -999,
-    driveDb: Infinity,
-    toneHz: Number.NaN,
-    mix: 12,
-    outputLevel: 4,
+    outputLevel: Infinity,
     bypassed: "yes",
   });
   assert.deepEqual(safe, {
     ...PLUGAZOID_DEFAULTS,
     inputTrimDb: -18,
-    mix: 1,
-    outputLevel: 0.82,
     bypassed: true,
   });
   assert.ok(Object.isFrozen(safe));
@@ -119,35 +107,7 @@ test("settings reject hostile values and stay within finite output limits", () =
   assert.ok(meterPercentage(0.1) > meterPercentage(0.01));
 });
 
-test("presets are distinct, bounded, and reproducible", () => {
-  assert.deepEqual(
-    PLUGAZOID_PRESETS.map(({ id }) => id),
-    ["clean-port", "warm-port", "feral-port"],
-  );
-  assert.equal(
-    new Set(PLUGAZOID_PRESETS.map(({ values }) => JSON.stringify(values))).size,
-    PLUGAZOID_PRESETS.length,
-  );
-  for (const preset of PLUGAZOID_PRESETS) {
-    const safe = sanitizePlugazoidSettings({
-      ...PLUGAZOID_DEFAULTS,
-      ...preset.values,
-      preset: preset.id,
-    });
-    assert.equal(safe.preset, preset.id);
-    assert.deepEqual(
-      {
-        inputTrimDb: safe.inputTrimDb,
-        driveDb: safe.driveDb,
-        toneHz: safe.toneHz,
-        mix: safe.mix,
-      },
-      preset.values,
-    );
-  }
-});
-
-test("packaging inspection never mistakes native bundles for browser modules", () => {
+test("packaging inspection never mistakes native bundles or raw WASM for WAM2 modules", () => {
   for (const [filename, format] of [
     ["glue.vst3", "VST3"],
     ["voices.CLAP", "CLAP"],
@@ -157,62 +117,51 @@ test("packaging inspection never mistakes native bundles for browser modules", (
     assert.equal(result.kind, "native-bundle");
     assert.equal(result.format, format);
     assert.equal(result.browserRunnable, false);
-    assert.match(result.message, /source port|source ported/);
   }
   assert.equal(classifyPluginArtifact("processor.wasm").kind, "wasm-module");
   assert.equal(classifyPluginArtifact("mystery.exe").kind, "unknown");
 });
 
-test("the worklet registers one bounded realtime processor with a WASM adapter seam", () => {
-  assert.equal(registeredName, "morphazoid-plugazoid-port");
-  assert.equal(typeof ProcessorConstructor, "function");
-  const processor = new ProcessorConstructor();
-  assert.deepEqual(processor.port.messages[0], {
-    type: "ready",
-    processor: "morphazoid-plugazoid-port",
-    backend: "AudioWorklet JS",
-    wasmSlot: true,
-  });
-
-  let changedSamples = 0;
-  for (let block = 0; block < 16; block += 1) {
-    const rendered = renderBlock(
-      processor,
-      (index) => Math.sin((block * BLOCK_SIZE + index) * Math.PI * 2 * 220 / SAMPLE_RATE) * 0.42,
-    );
-    for (let index = 0; index < BLOCK_SIZE; index += 1) {
-      assert.ok(Number.isFinite(rendered.left[index]));
-      assert.ok(Number.isFinite(rendered.right[index]));
-      assert.ok(Math.abs(rendered.left[index]) <= 0.98);
-      assert.equal(rendered.left[index], rendered.right[index]);
-      if (Math.abs(rendered.left[index] - rendered.input[index]) > 0.0001) changedSamples += 1;
-    }
-  }
-  assert.ok(changedSamples > BLOCK_SIZE);
-});
-
-test("bypass converges smoothly to the dry signal instead of stopping processing", () => {
-  const processor = new ProcessorConstructor();
-  const bypassed = parameterBlock({ bypass: new Float32Array([1]) });
-  let rendered = null;
-  for (let block = 0; block < 30; block += 1) {
-    rendered = renderBlock(processor, () => 0.2, bypassed);
-  }
-  const tail = rendered.left.slice(-16);
-  for (const sample of tail) {
-    assert.ok(Math.abs(sample - 0.2) < 0.002);
-  }
-});
-
-test("the page exposes explicit audio, separate mic capture, truthful formats, and scripts", async () => {
+test("the page exposes a truthful remote WAM2 flow and keeps Audio explicit", async () => {
   const page = await readFile(PAGE_URL, "utf8");
   assert.match(page, /id="audioButton"/);
   assert.match(page, /id="micButton"/);
+  assert.match(page, /id="testToneButton"/);
   assert.match(page, /Use headphones/);
-  assert.match(page, /data-format="vst3"/);
-  assert.match(page, /data-format="clap" disabled/);
-  assert.match(page, /data-format="audio-unit" disabled/);
-  assert.match(page, /does not claim binary VST3 compatibility/);
+  assert.match(page, /WAM2 catalogue/);
+  assert.match(page, /id="wamSelect"/);
+  assert.match(page, /id="loadWamButton"/);
+  assert.match(page, /id="wamGuiHost"/);
+  assert.match(page, /id="bypassButton"[^>]*disabled/);
+  assert.match(page, /What this proves/);
+  assert.match(page, /real third-party WAM2 module/);
+  assert.match(page, /does not load installed VST3, CLAP, or Audio Unit binaries/);
+  assert.match(page, /production rack should pin versions and self-host/);
+  assert.match(page, /remote WAM is executable JavaScript\/WebAssembly/);
+  assert.doesNotMatch(page, /data-format="vst3"/);
+  assert.doesNotMatch(page, /Port Drive/);
   assert.match(page, /src="plugazoid-app\.js"/);
-  assert.match(page, /assets\/instruments\/plugazoid\.webp|plugazoid\.css/);
+});
+
+test("the controller initializes a WAM host, imports a selected module, mounts its GUI, and owns teardown", async () => {
+  const entry = await readFile(ENTRY_URL, "utf8");
+  const host = await readFile(HOST_URL, "utf8");
+  const buildScript = await readFile(BUILD_SCRIPT_URL, "utf8");
+  assert.match(entry, /src\/plugazoid-host\.js/);
+  assert.match(host, /import\(PLUGAZOID_WAM_ENDPOINTS\.sdk\)/);
+  assert.match(host, /import\(entry\.moduleUrl\)/);
+  assert.match(host, /WamConstructor\.createInstance\(groupId, context\)/);
+  assert.match(host, /descriptor\.hasAudioInput/);
+  assert.match(host, /descriptor\.hasAudioOutput/);
+  assert.match(host, /instance\.createGui/);
+  assert.match(host, /audio\.inputAnalyser\.connect\(node\)/);
+  assert.match(host, /node\.connect\(audio\.wetGain\)/);
+  assert.match(host, /record\.node\?\.destroy/);
+  assert.match(host, /track\.stop\(\)/);
+  assert.doesNotMatch(host, /plugazoid-processor/);
+  assert.equal(
+    buildScript.match(/src\/plugazoid-host\.js/g)?.length,
+    2,
+    "the WAM host must be copied and required in release builds",
+  );
 });

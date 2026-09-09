@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#05080a" />
     <meta
       name="description"
-      content="Plugazoid is a browser plug-in host MVP: microphone input through a VST3 source-port processor to Web Audio output."
+      content="Plugazoid is a WAM2 browser plug-in host MVP: microphone or test input through a remotely loaded Web Audio Module to browser output."
     />
     <title>Plugazoid — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -68,13 +68,13 @@
         <div class="stage-wrap plugazoid-stage-wrap" id="stageWrap">
           <div class="plugazoid-runtime-pill" id="runtimePill">
             <i aria-hidden="true"></i>
-            <span id="runtimeState">audio off · worklet waiting</span>
+            <span id="runtimeState">audio off · WAM2 host waiting</span>
           </div>
 
           <div
             class="plugazoid-rack"
             role="img"
-            aria-label="Microphone input connected through a VST3 source-port effect to browser audio output"
+            aria-label="Microphone or test input connected through a WAM2 effect slot to browser audio output"
           >
             <section class="rack-module rack-input" aria-label="Microphone input">
               <span class="rack-eyebrow">audio in</span>
@@ -89,13 +89,13 @@
               <i></i><span></span><b></b>
             </div>
 
-            <section class="rack-module rack-plugin" id="pluginModule" aria-label="VST3 source-port processor">
-              <span class="rack-eyebrow">source port</span>
+            <section class="rack-module rack-plugin" id="pluginModule" aria-label="WAM2 processor slot">
+              <span class="rack-eyebrow">web module</span>
               <div class="plugin-core" aria-hidden="true">
-                <i></i><i></i><i></i><span>3</span>
+                <i></i><i></i><i></i><span>W2</span>
               </div>
-              <b id="pluginFormatLabel">VST3</b>
-              <small id="pluginState">Port Drive · active</small>
+              <b id="pluginFormatLabel">WAM2</b>
+              <small id="pluginState">No module loaded</small>
               <div class="plugin-parameter-strip" aria-hidden="true">
                 <i></i><i></i><i></i>
               </div>
@@ -116,17 +116,34 @@
           </div>
 
           <div class="plugazoid-boundary" id="boundaryState">
-            <b>Browser boundary</b>
-            <span>AudioWorklet runs the reference DSP. Native plug-in bundles need a source port or desktop bridge.</span>
+            <b>Remote WAM boundary</b>
+            <span>HTTPS + CORS lets the browser import WAM2 modules on demand. Pin and self-host vetted builds for production reliability.</span>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">VST3 SOURCE PORT · MIC OFF · AUDIO OFF</span>
+            <span id="stageReadout">WAM2 HOST · EMPTY SLOT · AUDIO OFF</span>
           </div>
         </div>
       </section>
 
       <aside class="panel plugazoid-panel" aria-label="Plugazoid controls">
+        <section class="plugazoid-instructions" aria-labelledby="plugazoidInstructionsTitle">
+          <header>
+            <span>Quick start</span>
+            <h2 id="plugazoidInstructionsTitle">Instructions</h2>
+          </header>
+          <ol>
+            <li><strong>Turn on Audio</strong> with the speaker button in the top bar.</li>
+            <li><strong>Choose and load a WAM2 effect.</strong> Plugazoid downloads it directly from the official community catalogue.</li>
+            <li><strong>Choose an input:</strong> Test signal needs no permission; Connect mic needs headphones and browser approval. Use the plug-in's own controls, then Bypass to compare dry audio.</li>
+          </ol>
+          <div class="plugazoid-instruction-proof">
+            <p><strong>What this proves</strong>A real third-party WAM2 module, its GUI, and its DSP can be fetched at runtime and inserted into mic → plug-in → output.</p>
+            <p><strong>What it does not</strong>This does not load installed VST3, CLAP, or Audio Unit binaries. Native formats still need a source port or a local desktop bridge.</p>
+            <p><strong>Where it lives</strong>The MVP streams catalogue modules from webaudiomodules.com. A production rack should pin versions and self-host an approved subset so updates, CORS, or downtime cannot break a session.</p>
+          </div>
+        </section>
+
         <details class="group control-section plugazoid-input-section" data-section="play" open>
           <summary class="group-summary">
             <h2 class="group-title">Live input</h2>
@@ -159,96 +176,73 @@
 
         <details class="group control-section plugazoid-format-section" data-section="form" open>
           <summary class="group-summary">
-            <h2 class="group-title">Plug-in format</h2>
-            <span class="section-state">VST3 first</span>
+            <h2 class="group-title">WAM2 catalogue</h2>
+            <span class="section-state" id="catalogSummary">loading official list</span>
           </summary>
           <div class="group-body">
-            <div class="plugazoid-format-grid" role="group" aria-label="Native plug-in format roadmap">
-              <button class="plugazoid-format is-active" type="button" aria-pressed="true" data-format="vst3">
-                <b>VST3</b><small>source-port target</small>
-              </button>
-              <button class="plugazoid-format" type="button" data-format="clap" disabled>
-                <b>CLAP</b><small>next adapter</small>
-              </button>
-              <button class="plugazoid-format" type="button" data-format="audio-unit" disabled>
-                <b>Audio Unit</b><small>macOS adapter</small>
+            <p class="plugazoid-source-note">
+              These are remote WAM2 audio effects, not native desktop bundles. The first three are simple starter choices; the rest come from the live community registry. Some entries need extra host extensions or cross-origin isolation; a failed load leaves the dry path intact.
+            </p>
+            <div class="plugazoid-catalog-actions">
+              <label class="select-control" for="wamSelect">
+                <span class="field-label">Community effect</span>
+                <span class="select-shell">
+                  <select id="wamSelect" disabled>
+                    <option>Loading catalogue…</option>
+                  </select>
+                </span>
+              </label>
+              <button class="mini-action plugazoid-load-wam" id="loadWamButton" type="button" disabled>
+                Load selected WAM
               </button>
             </div>
+            <output class="plugazoid-selection-description" id="wamSelectionDescription" for="wamSelect">
+              Contacting the official WAM community catalogue.
+            </output>
 
             <div class="plugazoid-descriptor" aria-label="Loaded processor descriptor">
-              <span><b>Processor</b><output id="processorName">Port Drive</output></span>
-              <span><b>Runtime</b><output id="processorRuntime">AudioWorklet JS</output></span>
-              <span><b>WASM</b><output id="wasmState">checking</output></span>
+              <span><b>Module</b><output id="processorName">No WAM loaded</output></span>
+              <span><b>Vendor</b><output id="processorVendor">—</output></span>
+              <span><b>Runtime</b><output id="processorRuntime">WAM2 host waiting</output></span>
+              <span><b>API</b><output id="wamApiVersion">—</output></span>
             </div>
 
-            <label class="plugazoid-probe" for="artifactProbe">
-              <span><b>Inspect packaging</b><small>filename only · never uploaded</small></span>
-              <input id="artifactProbe" type="file" accept=".vst3,.clap,.component,.wasm,.json,.js,.mjs" />
-            </label>
-            <output class="plugazoid-probe-report" id="artifactReport" for="artifactProbe">
-              Choose a file to inspect its packaging. Nothing is uploaded.
-            </output>
+            <div class="plugazoid-source-actions">
+              <a
+                id="wamSourceLink"
+                href="https://www.webaudiomodules.com/community/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >Open selected module URL</a>
+              <button class="mini-action" id="reloadCatalogButton" type="button">Reload list</button>
+            </div>
+            <p class="plugazoid-trust-note"><strong>Trust boundary:</strong> a remote WAM is executable JavaScript/WebAssembly in this page. Plugazoid only lists the official registry, but registry membership is not a security audit.</p>
           </div>
         </details>
 
         <details class="group control-section plugazoid-processor-section" data-section="sound" open>
           <summary class="group-summary">
-            <h2 class="group-title">Port Drive</h2>
-            <span class="section-state" id="processorSummary">8 dB · 72% wet</span>
+            <h2 class="group-title">Loaded WAM</h2>
+            <span class="section-state" id="processorSummary">empty slot</span>
           </summary>
           <div class="group-body">
-            <label class="select-control" for="preset">
-              <span class="field-label">Processor preset</span>
-              <span class="select-shell">
-                <select id="preset">
-                  <option value="clean-port">Clean port</option>
-                  <option value="warm-port" selected>Warm port</option>
-                  <option value="feral-port">Feral port</option>
-                </select>
-              </span>
-            </label>
-            <label class="control" for="drive">
-              <span><b>Drive</b><output id="driveOut" for="drive">8 dB</output></span>
-              <input id="drive" type="range" min="0" max="24" step="0.5" value="8" />
-            </label>
-            <label class="control" for="tone">
-              <span><b>Tone ceiling</b><output id="toneOut" for="tone">4.2 kHz</output></span>
-              <input id="tone" type="range" min="180" max="14000" step="10" value="4200" />
-            </label>
-            <label class="control" for="mix">
-              <span><b>Wet mix</b><output id="mixOut" for="mix">72%</output></span>
-              <input id="mix" type="range" min="0" max="1" step="0.01" value="0.72" />
-            </label>
-            <button class="mini-action plugazoid-bypass" id="bypassButton" type="button" aria-pressed="false">
-              Bypass processor
+            <div class="plugazoid-wam-gui" id="wamGuiHost" aria-label="Loaded WAM controls">
+              <p id="wamGuiEmpty">Load a WAM2 effect to mount its own controls here.</p>
+            </div>
+            <button class="mini-action plugazoid-bypass" id="bypassButton" type="button" aria-pressed="false" disabled>
+              Bypass loaded WAM
             </button>
-          </div>
-        </details>
-
-        <details class="group control-section plugazoid-proof-section" data-section="output">
-          <summary class="group-summary">
-            <h2 class="group-title">What this proves</h2>
-            <span class="section-state">honest MVP</span>
-          </summary>
-          <div class="group-body">
-            <dl class="plugazoid-proof-grid">
-              <div><dt>Browser graph</dt><dd>mic → worklet → out</dd></div>
-              <div><dt>Portable DSP</dt><dd>C/C++ → WASM is viable</dd></div>
-              <div><dt>Installed VST3</dt><dd>native bridge required</dd></div>
-            </dl>
-            <p class="plugazoid-proof-note">The processor/controller split mirrors the useful VST3 boundary, but this page does not claim binary VST3 compatibility.</p>
           </div>
         </details>
 
         <div class="reset-all-row">
           <button
             class="reset-all-button"
-            id="resetButton"
+            id="unloadWamButton"
             type="button"
-            data-reset-all
-            data-reset-in-place
+            disabled
           >
-            Reset processor
+            Unload WAM
           </button>
         </div>
       </aside>
