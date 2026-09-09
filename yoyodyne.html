@@ -1,233 +1,77 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#05070d" />
-    <meta
-      name="description"
-      content="Yoyodyne is a browser pitch-and-time chamber: drag a synthetic three-part relay choir through pitch and time, reshape durations, and hear a polyphonic loop."
-    />
-    <title>Yoyodyne — Morphazoid</title>
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="yoyodyne.css" />
-  </head>
-  <body class="yoyodyne-page" data-tool-id="yoyodyne">
-    <header class="masthead">
-      <a class="wordmark" href="./" aria-label="Morphazoid home">
-        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span>morphazoid</span>
-      </a>
-      <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="enveloper.html">enveloper</a>
-        <a class="tab active" href="yoyodyne.html" aria-current="page">yoyodyne</a>
-        <a class="tab" href="playhead-paint.html">playhead paint</a>
-      </nav>
-      <label class="mobile-instrument-nav">
-        <span class="sr-only">Instrument</span>
-        <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="enveloper.html">enveloper</option>
-          <option value="yoyodyne.html" selected>yoyodyne</option>
-          <option value="playhead-paint.html">playhead paint</option>
-        </select>
-      </label>
-      <div class="audio-strip" aria-label="Audio controls">
-        <button
-          class="audio-button"
-          id="audioButton"
-          type="button"
-          aria-pressed="false"
-          data-audio-state="off"
-        >
-          <span class="audio-glyph yoyodyne-audio-glyph" aria-hidden="true">Y</span>
-          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
-        </button>
-        <label class="header-level" for="outputLevel">
-          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">34%</output></span>
-          <input
-            id="outputLevel"
-            aria-label="Yoyodyne output level"
-            type="range"
-            min="0"
-            max="0.8"
-            step="0.01"
-            value="0.34"
-          />
-        </label>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#080d13" />
+  <meta name="description" content="Yoyodyne is a kinetic string instrument. A spinning yo-yo, a tensioned string, and moving hands become one continuous physical sonification." />
+  <title>Yoyodyne — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="yoyodyne.css" />
+</head>
+<body class="yoyodyne-page" data-tool-id="yoyodyne">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab" href="enveloper.html">enveloper</a><a class="tab active" href="yoyodyne.html" aria-current="page">yoyodyne</a><a class="tab" href="karplus-strong.html">karplus strong</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="enveloper.html">enveloper</option><option value="yoyodyne.html" selected>yoyodyne</option><option value="karplus-strong.html">karplus strong</option></select></label>
+    <div class="audio-strip" aria-label="Audio controls">
+      <button class="audio-button" id="audioButton" type="button" aria-pressed="false" data-audio-state="off"><span class="audio-glyph" aria-hidden="true">◌</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+      <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">40%</output></span><input id="outputLevel" type="range" min="0" max="0.8" step="0.01" value="0.4" /></label>
+    </div>
+  </header>
+  <main class="yd-shell">
+    <section class="yd-workbench" aria-label="Kinetic string instrument">
+      <div class="yd-transport">
+        <button id="playButton" class="yd-perform" type="button" data-primary-transport aria-pressed="false">▶ Perform</button>
+        <button id="throwButton" type="button" title="Throw from the hand · Enter">Throw <kbd>↵</kbd></button>
+        <button id="tugButton" type="button" title="Lift and release the hand · T">Tug <kbd>T</kbd></button>
+        <button id="catchButton" type="button" title="Engage the bind and return to hand · C">Catch <kbd>C</kbd></button>
+        <label class="yd-tempo" for="tempo"><span>Tempo <output id="tempoOut" for="tempo">90 BPM</output></span><input id="tempo" type="range" min="45" max="180" step="1" value="90" /></label>
       </div>
-    </header>
-
-    <main class="yoyodyne-shell">
-      <section class="yoyodyne-workbench" aria-labelledby="yoyodyneTitle">
-        <div class="yoyodyne-command-deck">
-          <div class="yoyodyne-identity">
-            <span class="yoyodyne-orbit-mark" aria-hidden="true"><i></i><i></i></span>
-            <div>
-              <p>polyphonic note-time chamber</p>
-              <h1 id="yoyodyneTitle">YOYODYNE</h1>
-            </div>
-          </div>
-          <div class="yoyodyne-transport" aria-label="Loop transport">
-            <button
-              class="yoyodyne-play"
-              id="playButton"
-              type="button"
-              data-primary-transport
-              aria-pressed="false"
-              aria-label="Play Yoyodyne loop"
-            >
-              <span aria-hidden="true" id="playGlyph">▶</span>
-              <b id="playLabel">Play</b>
-            </button>
-            <button class="yoyodyne-stop" id="stopButton" type="button">
-              <span aria-hidden="true">■</span><b>Stop</b>
-            </button>
-          </div>
-          <div class="yoyodyne-edit-actions" aria-label="Edit actions">
-            <button id="undoButton" type="button" disabled><span aria-hidden="true">↶</span> Undo</button>
-            <button id="resetAllTop" type="button">Recall all</button>
-          </div>
+      <div class="yd-stage-frame">
+        <div class="yd-stage-title"><p>KINETIC STRING INSTRUMENT</p><h1>yoyodyne</h1><span>the motion is the music</span></div>
+        <div class="yd-state"><i aria-hidden="true"></i><output id="modeReadout" aria-live="off">IN HAND</output></div>
+        <div id="stageWrap"><canvas id="noteStage" tabindex="0" role="application" aria-label="Yo-yo and sounding string. Drag to move the performer's hand." aria-describedby="stageInstructions">One spinning yo-yo and a physical string. Use the Throw, Tug and Catch buttons, or keyboard controls, to play.</canvas></div>
+        <div class="yd-stage-hint" aria-hidden="true">DRAG TO MOVE THE HAND <span>↔</span></div>
+        <div class="yd-telemetry" aria-label="Live physical measurements">
+          <div><span>SPIN</span><output id="spinReadout" aria-live="off">0 rpm</output></div>
+          <div><span>STRING</span><output id="lengthReadout" aria-live="off">0.06 m</output></div>
+          <div><span>TENSION</span><output id="tensionReadout" aria-live="off">0.00 N</output></div>
+          <div><span>VOICE</span><output id="pitchReadout" aria-live="off">— Hz</output></div>
         </div>
-
-        <section class="yoyodyne-timeline-card" aria-labelledby="timelineTitle">
-          <header class="yoyodyne-timeline-heading">
-            <div>
-              <p>generated relay choir / four-bar loop</p>
-              <h2 id="timelineTitle">Polyphonic signal choir</h2>
-            </div>
-            <dl class="yoyodyne-stage-metrics">
-              <div><dt>Cell</dt><dd id="stageCellOut">01 / 16</dd></div>
-              <div><dt>Pitch</dt><dd id="stagePitchOut">C3</dd></div>
-              <div><dt>Time</dt><dd id="stageTimeOut">1.00</dd></div>
-            </dl>
-          </header>
-          <div class="yoyodyne-stage-wrap" id="stageWrap">
-            <canvas
-              id="noteStage"
-              tabindex="0"
-              role="application"
-              aria-keyshortcuts="PageUp PageDown ArrowUp ArrowDown ArrowLeft ArrowRight Enter R"
-              aria-label="Yoyodyne four-bar polyphonic pitch and time editor"
-              aria-describedby="stageInstructions liveStatus"
-            >
-              Four bars of synthetic throat, mouth, and halo signal cells. Each cell can be moved through pitch and time or resized.
-            </canvas>
-            <div class="yoyodyne-stage-corner" aria-hidden="true">
-              <span>pitch</span><i></i><span>time</span>
-            </div>
-            <output class="yoyodyne-pointer-readout" id="pointerReadout" hidden>C3 · beat 1.00</output>
-          </div>
-          <footer class="yoyodyne-timeline-footer">
-            <span><i class="is-cell"></i> current relay</span>
-            <span><i class="is-ghost"></i> recall anchors</span>
-            <output id="transportReadout">BAR 1 · BEAT 1.00</output>
-          </footer>
-        </section>
-        <p class="yoyodyne-transport-notice" id="transportNotice"></p>
+      </div>
+      <p class="yd-notice" id="transportNotice" role="status"></p>
+      <section class="yd-trick-section" aria-labelledby="tricksTitle">
+        <div class="yd-section-heading"><h2 id="tricksTitle">The repertoire</h2><span>choose a gesture, not a sequence</span></div>
+        <div id="trickList" class="yd-tricks">
+          <button type="button" data-trick="sleeper" aria-pressed="true"><span class="yd-trick-mark" aria-hidden="true">↧</span><b>Sleeper</b><small>spin / sustain</small></button>
+          <button type="button" data-trick="cradle" aria-pressed="false"><span class="yd-trick-mark" aria-hidden="true">⋈</span><b>Rock the Cradle</b><small>mount / sway</small></button>
+          <button type="button" data-trick="around-world" aria-pressed="false"><span class="yd-trick-mark" aria-hidden="true">◯</span><b>Around the World</b><small>orbit / sweep</small></button>
+          <button type="button" data-trick="gravity-pull" aria-pressed="false"><span class="yd-trick-mark" aria-hidden="true">↕</span><b>Gravity Pull</b><small>drop / return</small></button>
+        </div>
+        <p id="trickDescription">A strong throw settles into a singing spin, then binds back to hand.</p>
       </section>
-
-      <aside class="panel yoyodyne-panel" aria-label="Yoyodyne controls">
-        <section class="yoyodyne-selected-card" aria-labelledby="selectedTitle">
-          <div>
-            <p>selected relay</p>
-            <h2 id="selectedTitle">CELL 01</h2>
-          </div>
-          <output id="selectedSummary">throat voice · C3 · beat 1.00 · 3.50 beats</output>
-          <button id="auditionButton" type="button">Ping cell</button>
-        </section>
-
-        <details class="group control-section yoyodyne-lattice" open>
-          <summary class="group-summary">
-            <h2 class="group-title">Lattice lock</h2>
-            <span class="section-state" id="latticeSummary">chromatic · 1/8 note</span>
-          </summary>
-          <div class="group-body">
-            <div class="yoyodyne-select-grid">
-              <label for="pitchSnap">
-                <span>Pitch lock</span>
-                <select id="pitchSnap">
-                  <option value="chromatic" selected>Chromatic</option>
-                  <option value="free">Free cents</option>
-                </select>
-              </label>
-              <label for="timeSnap">
-                <span>Time lock</span>
-                <select id="timeSnap">
-                  <option value="eighth" selected>1/8 note (½ beat)</option>
-                  <option value="free">Free time</option>
-                </select>
-              </label>
-            </div>
-            <p class="yoyodyne-help">Drag a cell body: the first axis locks pitch or time. Pull either bright rim for duration. Keys 1–9 select directly; Page Up/Down cycles every cell.</p>
-          </div>
-        </details>
-
-        <details class="group control-section yoyodyne-cell-controls" open>
-          <summary class="group-summary">
-            <h2 class="group-title">Selected cell</h2>
-            <span class="section-state" id="cellSummary">throat · C3 · 3.50 beats</span>
-          </summary>
-          <div class="group-body">
-            <label class="control" for="selectedPitch">
-              <span><b>Pitch</b><output id="selectedPitchOut" for="selectedPitch">C3</output></span>
-              <input id="selectedPitch" type="range" min="48" max="84" step="0.01" value="48" />
-            </label>
-            <label class="control" for="selectedStart">
-              <span><b>Start</b><output id="selectedStartOut" for="selectedStart">beat 1.00</output></span>
-              <input id="selectedStart" type="range" min="0" max="15.75" step="0.01" value="0" />
-            </label>
-            <label class="control" for="selectedDuration">
-              <span><b>Duration</b><output id="selectedDurationOut" for="selectedDuration">3.50 beats</output></span>
-              <input id="selectedDuration" type="range" min="0.25" max="4" step="0.01" value="3.5" />
-            </label>
-            <button class="mini-action yoyodyne-recall-cell" id="resetSelected" type="button">Recall selected cell</button>
-          </div>
-        </details>
-
-        <details class="group control-section yoyodyne-field-controls" open>
-          <summary class="group-summary">
-            <h2 class="group-title">Signal field</h2>
-            <span class="section-state" id="fieldSummary">96 BPM · formant relay</span>
-          </summary>
-          <div class="group-body">
-            <label class="control" for="tempo">
-              <span><b>Tempo</b><output id="tempoOut" for="tempo">96 BPM</output></span>
-              <input id="tempo" type="range" min="50" max="180" step="1" value="96" />
-            </label>
-            <label class="control" for="character">
-              <span><b>Voice character</b><output id="characterOut" for="character">42%</output></span>
-              <input id="character" type="range" min="0" max="1" step="0.01" value="0.42" />
-              <small class="yoyodyne-range-poles"><i>open</i><i>charged</i></small>
-            </label>
-          </div>
-        </details>
-
-        <section class="yoyodyne-boundary" aria-labelledby="prototypeBoundaryTitle">
-          <p>prototype boundary</p>
-          <h2 id="prototypeBoundaryTitle">Synthetic voices only</h2>
-          <p>This MVP edits a generated polyphonic Web Audio relay choir. Its throat, mouth, and halo colors are oscillator-and-filter approximations—not speech, vocal reconstruction, or recorded voices—and use no speech samples. It does not analyze, separate, retune, or time-stretch recorded audio.</p>
-        </section>
-
-        <p class="audio-error" id="audioError" role="alert" hidden></p>
-        <div class="reset-all-row">
-          <button
-            class="reset-all-button"
-            id="resetAll"
-            type="button"
-            data-reset-all
-            data-reset-in-place
-          >Recall Yoyodyne</button>
-        </div>
-      </aside>
-
-      <p class="sr-only" id="stageInstructions">
-        Select a signal cell with a pointer. Keys 1 through 9 select cells 1 through 9; Page Up and Page Down move through every cell. Drag a cell body vertically to change pitch or horizontally to change start time. Drag either bright rim to change duration. On the keyboard, use Up and Down for pitch, Left and Right for time, and left or right bracket for duration. Shift makes a larger change. Enter auditions the selected cell. R recalls it. Space operates the visible transport.
-      </p>
-      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
-    </main>
-
-    <script type="module" src="nav.js"></script>
-    <script type="module" src="yoyodyne-app.js"></script>
-  </body>
+    </section>
+    <aside class="panel yd-panel" aria-label="Yo-yo physics and sound controls">
+      <div class="yd-panel-heading"><span>01 / THE RIG</span><h2>Energy into sound.</h2><p>Spin excites. String resonates.<br />Your hand conducts.</p></div>
+      <label class="control" for="stringLength"><span><b>String length</b><output id="stringLengthOut" for="stringLength">0.86 m</output></span><input id="stringLength" type="range" min="0.35" max="1.2" step="0.01" value="0.86" /><small>short / high → long / low</small></label>
+      <label class="control" for="throwEnergy"><span><b>Throw energy</b><output id="throwEnergyOut" for="throwEnergy">60%</output></span><input id="throwEnergy" type="range" min="0.1" max="1" step="0.01" value="0.6" /><small>sets the next launch and spin</small></label>
+      <label class="control" for="friction"><span><b>String friction</b><output id="frictionOut" for="friction">24%</output></span><input id="friction" type="range" min="0" max="1" step="0.01" value="0.24" /><small>coupling and spin loss</small></label>
+      <div class="yd-panel-divider"><span>02 / THE VOICE</span></div>
+      <label class="control" for="rootNote"><span><b>Root note</b><output id="rootNoteOut" for="rootNote">D3</output></span><input id="rootNote" type="range" min="38" max="74" step="1" value="50" /><small>musical register of the string</small></label>
+      <label class="control" for="tone"><span><b>Harmonic color</b><output id="toneOut" for="tone">28%</output></span><input id="tone" type="range" min="0" max="1" step="0.01" value="0.28" /><small>rounded → bright</small></label>
+      <details class="yd-details"><summary>Gravity &amp; string compliance</summary>
+        <label class="control" for="gravity"><span><b>Gravity</b><output id="gravityOut" for="gravity">1.00×</output></span><input id="gravity" type="range" min="0" max="1.8" step="0.01" value="1" /></label>
+        <label class="control" for="elasticity"><span><b>Compliance</b><output id="elasticityOut" for="elasticity">30%</output></span><input id="elasticity" type="range" min="0" max="1" step="0.01" value="0.3" /></label>
+      </details>
+      <details class="yd-details"><summary>Playing &amp; model notes</summary><p id="stageInstructions">Turn Audio on, then Perform for a repeating trick or Throw for one gesture. Drag the stage to move the hand. Arrow keys move the hand; Enter throws, T tugs, C catches. Space toggles Perform. A catch can stall if the yo-yo runs out of spin.</p><p>A two-dimensional, compliant-string model with coupled spin and payout. Cradle uses prescribed finger pinches. The sound is a musical string sonification, not a recording or a full simulation of yo-yo acoustics, knots or 3D gyroscopic motion.</p><a href="docs/yoyodyne-kinetic.md">Model &amp; research notes ↗</a></details>
+      <button id="resetAll" class="reset-all-button" data-reset-all data-reset-in-place type="button">Recall the rig</button>
+      <p id="audioError" class="audio-error" role="alert" hidden></p>
+    </aside>
+    <p id="liveStatus" class="sr-only" aria-live="polite"></p>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="yoyodyne-app.js"></script>
+</body>
 </html>

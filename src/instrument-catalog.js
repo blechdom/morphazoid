@@ -589,10 +589,10 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, rewire the graph, then play or scrub the frontier.",
   ),
   yoyodyne: define(
-    "Polyphonic pitch/time synth",
-    "Turns a generated four-bar relay choir into draggable throat, mouth, and halo cells whose vertical position, horizontal position, and bright rims control pitch, onset, and duration.",
-    "Turn on audio, launch the polyphonic loop, then drag a cell through pitch or time, pull either rim to reshape it, and compare the live edit with its recalled ghost.",
-    ["Pointer", "Polyphonic synth", "Vocal-colored synthesis", "Pitch/time editing", "Keyboard editing"],
+    "Kinetic string instrument",
+    "Sonifies one spinning yo-yo and its constrained string: length and tension bend pitch, travel shapes the voice, and four hand-driven routines trace distinct phrases.",
+    "Turn on audio, choose a trick and Perform, or Throw once and drag the hand. Tug excites the string; Catch binds the yo-yo back to the performer.",
+    ["Pointer", "Keyboard gestures", "String synthesis", "Physical sonification", "Four tricks", "Tempo"],
   ),
   hanoi: define(
     "Recursive bell synth",

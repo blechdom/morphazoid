@@ -1,348 +1,155 @@
-export const YOYODYNE_LIMITS = Object.freeze({
-  bars: 4,
-  beatsPerBar: 4,
-  loopBeats: 16,
-  minimumPitch: 48,
-  maximumPitch: 84,
-  minimumDurationBeats: 0.25,
-  maximumDurationBeats: 4,
-  minimumTempo: 50,
-  maximumTempo: 180,
-  maximumNotes: 24,
-  maximumScheduledEvents: 64,
-});
-
-export const YOYODYNE_AUDIO_TIMING = Object.freeze({
-  schedulerIntervalMilliseconds: 25,
-  lookaheadSeconds: 0.16,
-  minimumLeadSeconds: 0.025,
-  startLeadSeconds: 0.06,
-});
-
-export const YOYODYNE_VOICE_ROLES = Object.freeze(["throat", "mouth", "halo"]);
-
-const PITCH_NAMES = Object.freeze([
-  "C", "C♯", "D", "D♯", "E", "F",
-  "F♯", "G", "G♯", "A", "A♯", "B",
-]);
-
-const DEFAULT_PHRASE = Object.freeze([
-  { id: "sig-01", voiceRole: "throat", startBeat: 0, durationBeats: 3.5, pitch: 48, bendCents: [-18, 7, -4], energy: 0.72 },
-  { id: "sig-02", voiceRole: "mouth", startBeat: 0, durationBeats: 2, pitch: 55, bendCents: [6, -9, 2], energy: 0.6 },
-  { id: "sig-03", voiceRole: "halo", startBeat: 0, durationBeats: 1.25, pitch: 64, bendCents: [-4, 16, 1], energy: 0.45 },
-  { id: "sig-04", voiceRole: "halo", startBeat: 2.25, durationBeats: 1, pitch: 67, bendCents: [-20, 14, -3], energy: 0.52 },
-  { id: "sig-05", voiceRole: "throat", startBeat: 4, durationBeats: 3.5, pitch: 53, bendCents: [-14, 8, -2], energy: 0.7 },
-  { id: "sig-06", voiceRole: "mouth", startBeat: 4, durationBeats: 2, pitch: 60, bendCents: [7, -8, 3], energy: 0.61 },
-  { id: "sig-07", voiceRole: "halo", startBeat: 4, durationBeats: 1.25, pitch: 69, bendCents: [-6, 14, 2], energy: 0.47 },
-  { id: "sig-08", voiceRole: "halo", startBeat: 6.25, durationBeats: 1, pitch: 67, bendCents: [-17, 12, -2], energy: 0.54 },
-  { id: "sig-09", voiceRole: "throat", startBeat: 8, durationBeats: 3.5, pitch: 56, bendCents: [-18, 5, -4], energy: 0.74 },
-  { id: "sig-10", voiceRole: "mouth", startBeat: 8, durationBeats: 2, pitch: 63, bendCents: [6, -11, 2], energy: 0.62 },
-  { id: "sig-11", voiceRole: "halo", startBeat: 8, durationBeats: 1.25, pitch: 72, bendCents: [-5, 19, 0], energy: 0.44 },
-  { id: "sig-12", voiceRole: "halo", startBeat: 10.25, durationBeats: 1, pitch: 70, bendCents: [-19, 13, -2], energy: 0.5 },
-  { id: "sig-13", voiceRole: "throat", startBeat: 12, durationBeats: 3.75, pitch: 55, bendCents: [-15, 9, -3], energy: 0.73 },
-  { id: "sig-14", voiceRole: "mouth", startBeat: 12, durationBeats: 2, pitch: 62, bendCents: [5, -10, 2], energy: 0.61 },
-  { id: "sig-15", voiceRole: "halo", startBeat: 12, durationBeats: 1.25, pitch: 71, bendCents: [-3, 17, 1], energy: 0.45 },
-  { id: "sig-16", voiceRole: "halo", startBeat: 14.25, durationBeats: 1.25, pitch: 72, bendCents: [-16, 20, -5], energy: 0.56 },
-]);
-
-const VOICE_ROLE_SET = new Set(YOYODYNE_VOICE_ROLES);
-
-function finite(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
+// Kinetic yo-yo: one driven hand, unilateral string, axial spin and a sounding body.
+export const STEP = 1 / 240;
+export const TAU = Math.PI * 2;
+export const MASS = 0.064;
+export const RADIUS = 0.034;
+export const INERTIA = MASS * RADIUS * RADIUS * 0.65;
+export const AXLE = 0.0036;
+const MOUNT_LENGTH = 0.25 + 2 * Math.hypot(0.105, 0.12) + 0.21;
+export const clamp = (v, lo, hi, fallback = lo) => Math.min(hi, Math.max(lo, Number.isFinite(Number(v)) ? Number(v) : fallback));
+export const mix = (a, b, t) => a + (b - a) * t;
+export const DEFAULTS = Object.freeze({ tempo: 90, length: 0.86, energy: 0.6, friction: 0.24,
+  gravity: 1, elasticity: 0.3, tone: 0.28, root: 50, level: 0.4 });
+export const TRICKS = Object.freeze([
+  { id: "sleeper", name: "Sleeper", tag: "spin / sustain", beats: 6, description: "A strong throw settles into a singing spin, then binds back to hand." },
+  { id: "cradle", name: "Rock the Cradle", tag: "mount / sway", beats: 8, description: "A prescribed triangular string mount shortens the sounding span. Hand motion rocks it." },
+  { id: "around-world", name: "Around the World", tag: "orbit / sweep", beats: 6, description: "A lateral launch becomes a full swing around the hand, then a controlled return." },
+  { id: "gravity-pull", name: "Gravity Pull", tag: "drop / return", beats: 3, description: "A short throw and bind: length and tension draw one rising-and-falling phrase." },
+].map(Object.freeze));
+export function settings(input = {}) {
+  return { tempo: clamp(input.tempo, 45, 180, 90), length: clamp(input.length, 0.35, 1.2, 0.86),
+    energy: clamp(input.energy, 0.1, 1, 0.6), friction: clamp(input.friction, 0, 1, 0.24),
+    gravity: clamp(input.gravity, 0, 1.8, 1), elasticity: clamp(input.elasticity, 0, 1, 0.3),
+    tone: clamp(input.tone, 0, 1, 0.28), root: clamp(input.root, 38, 74, 50), level: clamp(input.level, 0, 0.8, 0.4) };
 }
-
-export function clampYoyodyne(value, minimum, maximum, fallback = minimum) {
-  return Math.min(maximum, Math.max(minimum, finite(value, fallback)));
+export const trickFor = (id) => TRICKS.find((t) => t.id === id) ?? TRICKS[0];
+export function createYoyo(input = {}) {
+  return { time: 0, settings: settings(input), trick: "sleeper", mode: "held", age: 0,
+    x: 0, y: 0.055, vx: 0, vy: 0, spin: 0, omega: 0, length: 0.055,
+    hand: { x: 0, y: 0 }, targetHand: null, handVx: 0, handVy: 0,
+    mount: 0, tension: 0, rawTension: 0, pluck: 0, tensionPrevious: 0,
+    launches: 0, catches: 0, idle: 0, tug: 0, stringPoints: [{ x: 0, y: 0 }, { x: 0, y: 0.055 }] };
 }
-
-function rounded(value, places = 4) {
-  const scale = 10 ** places;
-  return Math.round(value * scale) / scale;
+export function throwYoyo(w, intensity = 1) {
+  if (w.mode !== "held") return false;
+  const energy = w.settings.energy * clamp(intensity, 0.15, 1, 1);
+  w.mode = "unwinding"; w.age = 0; w.idle = 0; w.mount = 0;
+  w.length = 0.055; w.x = w.hand.x; w.y = w.hand.y + w.length;
+  w.vx = w.trick === "around-world" ? 5.8 + energy * 2 : 0.13;
+  w.vy = w.trick === "around-world" ? 1.5 : 0.65 + energy;
+  w.omega = 300 + 500 * energy; w.pluck = 0.35 + energy * 0.5; w.launches++;
+  return true;
 }
-
-function snapPitch(value, mode) {
-  const bounded = clampYoyodyne(
-    value,
-    YOYODYNE_LIMITS.minimumPitch,
-    YOYODYNE_LIMITS.maximumPitch,
-    60,
-  );
-  return mode === "chromatic" ? Math.round(bounded) : rounded(bounded, 2);
+export function bindYoyo(w) {
+  if (w.mode === "held" || w.mode === "rewinding") return;
+  w.mode = "rewinding"; w.omega *= 0.88; w.mount = 0;
+  // Response engagement is an explicit, lossy clutch approximation.
+  w.length = Math.max(0.055, Math.hypot(w.x - w.hand.x, w.y - w.hand.y));
+  w.pluck = Math.max(w.pluck, 0.4);
 }
-
-function snapBeat(value, mode) {
-  const quantum = mode === "eighth" ? 0.5 : 0.01;
-  return rounded(Math.round(finite(value, 0) / quantum) * quantum, 2);
+export function tugYoyo(w) {
+  if (w.mode === "held") return throwYoyo(w);
+  w.tug = 0.22; w.pluck = Math.max(w.pluck, 0.28);
+  return true;
 }
-
-function sanitizeContour(value) {
-  const source = Array.isArray(value) ? value : [0, 0, 0];
-  return Object.freeze([0, 1, 2].map((index) => (
-    clampYoyodyne(source[index], -50, 50, 0)
-  )));
-}
-
-function freezeNote(source, index, {
-  pitchSnap = "free",
-  timeSnap = "free",
-} = {}) {
-  const pitch = snapPitch(source?.pitch, pitchSnap);
-  const startBeat = clampYoyodyne(
-    snapBeat(source?.startBeat, timeSnap),
-    0,
-    YOYODYNE_LIMITS.loopBeats - YOYODYNE_LIMITS.minimumDurationBeats,
-    index,
-  );
-  const durationMaximum = Math.min(
-    YOYODYNE_LIMITS.maximumDurationBeats,
-    YOYODYNE_LIMITS.loopBeats - startBeat,
-  );
-  const durationBeats = clampYoyodyne(
-    snapBeat(source?.durationBeats, timeSnap),
-    YOYODYNE_LIMITS.minimumDurationBeats,
-    durationMaximum,
-    YOYODYNE_LIMITS.minimumDurationBeats,
-  );
-  const fallbackVoiceRole = pitch < 57 ? "throat" : pitch < 66 ? "mouth" : "halo";
-  return Object.freeze({
-    id: String(source?.id ?? `sig-${String(index + 1).padStart(2, "0")}`),
-    startBeat,
-    durationBeats,
-    pitch,
-    bendCents: sanitizeContour(source?.bendCents),
-    energy: clampYoyodyne(source?.energy, 0.2, 1, 0.7),
-    voiceRole: VOICE_ROLE_SET.has(source?.voiceRole) ? source.voiceRole : fallbackVoiceRole,
-  });
-}
-
-export function sanitizeYoyodyneNotes(notes, options = {}) {
-  if (!Array.isArray(notes)) return Object.freeze([]);
-  const seenIds = new Set();
-  const result = [];
-  for (const source of notes.slice(0, YOYODYNE_LIMITS.maximumNotes)) {
-    const note = freezeNote(source, result.length, options);
-    if (seenIds.has(note.id)) continue;
-    seenIds.add(note.id);
-    result.push(note);
+export function setTrick(w, id) { w.trick = trickFor(id).id; }
+export function stepYoyo(w, { automatic = false, dt = STEP } = {}) {
+  dt = clamp(dt, 0, STEP, STEP);
+  if (!dt) return w;
+  const s = w.settings = settings(w.settings), beat = 60 / s.tempo;
+  w.time += dt; w.age += dt; w.idle += dt; w.pluck *= Math.exp(-dt * 15);
+  if (automatic && w.mode === "held" && w.idle > beat * 0.45) throwYoyo(w);
+  const oldHand = { ...w.hand };
+  let hx = 0, hy = 0;
+  if (w.trick === "cradle" && w.mode !== "held") {
+    hx = 0.18 * Math.sin(w.age * TAU / (beat * 2));
+    hy = 0.035 * Math.sin(w.age * TAU / beat);
   }
-  result.sort((left, right) => (
-    left.startBeat - right.startBeat || left.pitch - right.pitch || left.id.localeCompare(right.id)
-  ));
-  return Object.freeze(result);
-}
-
-export function createYoyodynePhrase() {
-  return sanitizeYoyodyneNotes(DEFAULT_PHRASE);
-}
-
-export function updateYoyodyneNote(notes, noteId, changes = {}, options = {}) {
-  const source = sanitizeYoyodyneNotes(notes);
-  const index = source.findIndex((note) => note.id === noteId);
-  if (index < 0) return source;
-  const patch = { ...changes };
-  if (Object.hasOwn(patch, "pitch")) {
-    patch.pitch = snapPitch(patch.pitch, options.pitchSnap);
+  if (w.trick === "around-world" && w.mode !== "held") {
+    // Circular hand pumping supplies orbital work through string tension.
+    // The body is never attracted to a drawn trick path.
+    hx = 0.25 * Math.sin(w.age * TAU / beat);
+    hy = 0.25 * Math.cos(w.age * TAU / beat);
   }
-  if (Object.hasOwn(patch, "startBeat")) {
-    patch.startBeat = snapBeat(patch.startBeat, options.timeSnap);
+  if (w.targetHand) { hx = clamp(w.targetHand.x, -0.7, 0.7); hy = clamp(w.targetHand.y, -0.3, 0.4); }
+  if (w.tug > 0) { hy -= Math.sin(w.tug / 0.22 * Math.PI) * 0.22; w.tug = Math.max(0, w.tug - dt); }
+  w.hand.x += clamp(hx - w.hand.x, -dt * 2, dt * 2);
+  w.hand.y += clamp(hy - w.hand.y, -dt * 2, dt * 2);
+  w.handVx = (w.hand.x - oldHand.x) / dt; w.handVy = (w.hand.y - oldHand.y) / dt;
+  if (w.mode === "held") {
+    w.x = w.hand.x; w.y = w.hand.y + 0.055; w.vx = w.vy = w.omega = w.tension = w.rawTension = 0;
+    w.length = 0.055; w.mount = 0;
+    w.stringPoints = [{ ...w.hand }, { x: w.x, y: w.y }];
+    return w;
   }
-  if (Object.hasOwn(patch, "durationBeats")) {
-    patch.durationBeats = snapBeat(patch.durationBeats, options.timeSnap);
+  if (automatic && w.age > (trickFor(w.trick).beats - 1.2) * beat) bindYoyo(w);
+  const mountTarget = w.trick === "cradle" && w.mode === "sleeping" && w.age > beat
+    ? clamp((s.length - 0.28) / MOUNT_LENGTH, 0, 1) : 0;
+  w.mount += clamp(mountTarget - w.mount, -dt * 2.5, dt * 2.5);
+  const anchor = { x: w.hand.x, y: w.hand.y + w.mount * 0.25 };
+  const triangleWidth = w.mount * 0.105, triangleHeight = w.mount * 0.12;
+  const mountedLength = w.mount * MOUNT_LENGTH;
+  const oldX = w.x, oldY = w.y;
+  w.vx *= Math.exp(-dt * 0.06); w.vy += 9.81 * s.gravity * dt;
+  w.x += w.vx * dt; w.y += w.vy * dt;
+  w.omega *= Math.exp(-dt * (0.018 + s.friction * 0.25));
+  const direction = w.mode === "unwinding" ? 1 : w.mode === "rewinding" ? -1 : 0;
+  const paid = w.length + direction * AXLE * w.omega * dt;
+  w.length = clamp(paid, 0.045, Math.max(s.length, direction < 0 ? w.length : s.length));
+  if (w.mode === "unwinding" && w.length >= s.length - 1e-5) w.mode = "sleeping";
+  if (w.mode === "sleeping") w.length += clamp(s.length - w.length, -dt * 0.6, dt * 0.6);
+  const available = Math.max(0.06, w.length - mountedLength);
+  const dx = w.x - anchor.x, dy = w.y - anchor.y, distance = Math.hypot(dx, dy) || 1e-8;
+  const extension = distance - available;
+  w.rawTension = 0;
+  if (extension > 0) {
+    const nX = dx / distance, nY = dy / distance;
+    const coupled = w.mode === "unwinding" || w.mode === "rewinding";
+    const compliance = (0.000003 + s.elasticity ** 2 * 0.00012) / (dt * dt);
+    const inverseAngular = coupled ? AXLE * AXLE / INERTIA : 0;
+    const lambda = -extension / (1 / MASS + inverseAngular + compliance);
+    w.x += lambda * nX / MASS; w.y += lambda * nY / MASS;
+    if (coupled) {
+      const angleCorrection = -direction * AXLE * lambda / INERTIA;
+      w.omega = clamp(w.omega + angleCorrection / dt, 0, 1200, 0);
+      w.length = clamp(w.length + direction * AXLE * angleCorrection, 0.045, Math.max(s.length, w.length));
+    }
+    w.rawTension = clamp(-lambda / (dt * dt), 0, 80);
   }
-  const replacement = freezeNote({ ...source[index], ...patch }, index);
-  return sanitizeYoyodyneNotes(
-    source.map((note, noteIndex) => noteIndex === index ? replacement : note),
-  );
-}
-
-export function restoreYoyodyneNote(notes, noteId, originals = createYoyodynePhrase()) {
-  const original = sanitizeYoyodyneNotes(originals).find((note) => note.id === noteId);
-  return original ? updateYoyodyneNote(notes, noteId, original) : sanitizeYoyodyneNotes(notes);
-}
-
-export function midiToFrequency(midi) {
-  const pitch = clampYoyodyne(
-    midi,
-    YOYODYNE_LIMITS.minimumPitch,
-    YOYODYNE_LIMITS.maximumPitch,
-    69,
-  );
-  return 440 * 2 ** ((pitch - 69) / 12);
-}
-
-export function formatYoyodynePitch(midi) {
-  const pitch = clampYoyodyne(
-    midi,
-    YOYODYNE_LIMITS.minimumPitch,
-    YOYODYNE_LIMITS.maximumPitch,
-    60,
-  );
-  const nearest = Math.round(pitch);
-  const cents = Math.round((pitch - nearest) * 100);
-  const name = `${PITCH_NAMES[((nearest % 12) + 12) % 12]}${Math.floor(nearest / 12) - 1}`;
-  if (!cents) return name;
-  return `${name} ${cents > 0 ? "+" : ""}${cents}¢`;
-}
-
-export function yoyodyneBeatWithinLoop(scoreBeat = 0) {
-  const loop = YOYODYNE_LIMITS.loopBeats;
-  const safe = Math.max(0, finite(scoreBeat, 0));
-  return ((safe % loop) + loop) % loop;
-}
-
-export function yoyodyneNotesAtBeat(notes, scoreBeat = 0) {
-  const beat = yoyodyneBeatWithinLoop(scoreBeat);
-  return Object.freeze(sanitizeYoyodyneNotes(notes).filter((note) => (
-    beat >= note.startBeat && beat < note.startBeat + note.durationBeats
-  )));
-}
-
-export function yoyodyneNoteAtBeat(notes, scoreBeat = 0) {
-  return yoyodyneNotesAtBeat(notes, scoreBeat)[0] ?? null;
-}
-
-export function yoyodyneMaximumPolyphony(notes) {
-  const events = sanitizeYoyodyneNotes(notes).flatMap((note) => [
-    { beat: note.startBeat, change: 1 },
-    { beat: note.startBeat + note.durationBeats, change: -1 },
-  ]);
-  events.sort((left, right) => left.beat - right.beat || left.change - right.change);
-  let active = 0;
-  let maximum = 0;
-  for (const event of events) {
-    active = Math.max(0, active + event.change);
-    maximum = Math.max(maximum, active);
+  w.vx = clamp((w.x - oldX) / dt, -12, 12, 0);
+  w.vy = clamp((w.y - oldY) / dt, -12, 12, 0);
+  if (w.y > 1.45) { w.y = 1.45; w.vy = -Math.abs(w.vy) * 0.22; w.pluck = 0.6; }
+  if (w.y < -1.25) { w.y = -1.25; w.vy = Math.abs(w.vy) * 0.22; }
+  if (Math.abs(w.x) > 1.5) { w.x = Math.sign(w.x) * 1.5; w.vx *= -0.2; }
+  w.tension += (w.rawTension - w.tension) * (1 - Math.exp(-dt * 30));
+  w.spin = (w.spin + w.omega * dt) % TAU;
+  if (w.mode === "rewinding" && Math.hypot(w.x - w.hand.x, w.y - w.hand.y) < 0.09) {
+    w.mode = "held"; w.idle = 0; w.catches++; w.omega = 0; w.pluck = 0;
+  } else if (w.mode === "rewinding" && w.omega < 12) {
+    w.mode = "sleeping"; // insufficient spin: no invented return energy
   }
-  return maximum;
+  w.stringPoints = w.mount > 0.001 ? [
+    { ...w.hand }, anchor,
+    { x: anchor.x - triangleWidth, y: anchor.y + triangleHeight },
+    { x: anchor.x + triangleWidth, y: anchor.y + triangleHeight }, anchor, { x: w.x, y: w.y },
+  ] : [{ ...w.hand }, { x: w.x, y: w.y }];
+  return w;
 }
-
-export function yoyodyneScoreBeatAtAudioTime({
-  scoreAnchorBeat = 0,
-  audioAnchorTime = 0,
-  audioTime = audioAnchorTime,
-  tempo = 96,
-} = {}) {
-  const beatsPerSecond = clampYoyodyne(
-    tempo,
-    YOYODYNE_LIMITS.minimumTempo,
-    YOYODYNE_LIMITS.maximumTempo,
-    96,
-  ) / 60;
-  return Math.max(
-    0,
-    finite(scoreAnchorBeat, 0)
-      + (finite(audioTime, audioAnchorTime) - finite(audioAnchorTime, 0)) * beatsPerSecond,
-  );
+export function soundingState(w) {
+  const s = w.settings, span = Math.max(0.14, w.length - w.mount * MOUNT_LENGTH);
+  const tensile = Math.max(0.025, w.tension / (MASS * 9.81));
+  const root = 440 * 2 ** ((s.root - 69) / 12);
+  const pitch = clamp(root * 0.8 / span * Math.sqrt(tensile), 45, 1600, root);
+  const speed = Math.hypot(w.vx, w.vy), spinEnergy = clamp(w.omega / 620, 0, 1);
+  const taut = clamp(w.tension / 0.35, 0, 1);
+  const energy = w.mode === "held" ? 0 : spinEnergy * (0.25 + 0.75 * taut) * (0.65 + 0.35 * s.friction);
+  return { frequency: pitch, spin: w.omega / TAU, energy, speed: clamp(speed, 0, 10),
+    tension: clamp(tensile, 0, 12), friction: s.friction, tone: s.tone,
+    pan: clamp(w.x / 1.15, -0.95, 0.95), angle: Math.atan2(w.y - w.hand.y, w.x - w.hand.x),
+    pluck: w.pluck, held: w.mode === "held" ? 1 : 0 };
 }
-
-function safeOrdinal(value) {
-  return Math.min(
-    Number.MAX_SAFE_INTEGER,
-    Math.max(0, Math.floor(finite(value, 0))),
-  );
-}
-
-function firstOrdinalAtOrAfterBeat(notes, beat) {
-  const loop = YOYODYNE_LIMITS.loopBeats;
-  const safeBeat = Math.max(0, finite(beat, 0));
-  const cycle = Math.floor(safeBeat / loop);
-  const position = safeBeat - cycle * loop;
-  const epsilon = Math.max(1e-9, safeBeat * Number.EPSILON * 4);
-  const index = notes.findIndex((note) => note.startBeat >= position - epsilon);
-  return safeOrdinal(index >= 0
-    ? cycle * notes.length + index
-    : (cycle + 1) * notes.length);
-}
-
-export function yoyodyneOccurrenceAtOrdinal({
-  notes,
-  ordinal = 0,
-  tempo = 96,
-  scoreAnchorBeat = 0,
-  audioAnchorTime = 0,
-} = {}) {
-  const timeline = sanitizeYoyodyneNotes(notes);
-  if (!timeline.length) return null;
-  const safe = safeOrdinal(ordinal);
-  const index = safe % timeline.length;
-  const cycle = Math.floor(safe / timeline.length);
-  const note = timeline[index];
-  const beatsPerSecond = clampYoyodyne(
-    tempo,
-    YOYODYNE_LIMITS.minimumTempo,
-    YOYODYNE_LIMITS.maximumTempo,
-    96,
-  ) / 60;
-  const startBeat = cycle * YOYODYNE_LIMITS.loopBeats + note.startBeat;
-  const startAt = finite(audioAnchorTime, 0)
-    + (startBeat - Math.max(0, finite(scoreAnchorBeat, 0))) / beatsPerSecond;
-  return Object.freeze({
-    note,
-    ordinal: safe,
-    index,
-    cycle,
-    startBeat,
-    startAt,
-    durationSeconds: note.durationBeats / beatsPerSecond,
-    nextEventOrdinal: safe < Number.MAX_SAFE_INTEGER ? safe + 1 : safe,
-  });
-}
-
-export function planYoyodyneAudioWindow({
-  notes,
-  nextEventOrdinal = 0,
-  tempo = 96,
-  scoreAnchorBeat = 0,
-  audioAnchorTime = 0,
-  nowAudioTime = 0,
-  lookaheadSeconds = YOYODYNE_AUDIO_TIMING.lookaheadSeconds,
-  minimumLeadSeconds = YOYODYNE_AUDIO_TIMING.minimumLeadSeconds,
-  maximumEvents = YOYODYNE_LIMITS.maximumScheduledEvents,
-} = {}) {
-  const timeline = sanitizeYoyodyneNotes(notes);
-  const cursor = safeOrdinal(nextEventOrdinal);
-  if (!timeline.length) {
-    return Object.freeze({
-      entries: Object.freeze([]),
-      nextEventOrdinal: cursor,
-      skippedCount: 0,
-    });
-  }
-  const now = finite(nowAudioTime, 0);
-  const lookahead = clampYoyodyne(lookaheadSeconds, 0, 1, 0.16);
-  const lead = clampYoyodyne(minimumLeadSeconds, 0, lookahead, 0.025);
-  const threshold = now + lead;
-  const horizon = now + lookahead;
-  const thresholdBeat = yoyodyneScoreBeatAtAudioTime({
-    scoreAnchorBeat,
-    audioAnchorTime,
-    audioTime: threshold,
-    tempo,
-  });
-  const firstTimely = firstOrdinalAtOrAfterBeat(timeline, thresholdBeat);
-  let ordinal = Math.max(cursor, firstTimely);
-  const skippedCount = Math.max(0, firstTimely - cursor);
-  const limit = Math.max(1, Math.min(
-    YOYODYNE_LIMITS.maximumScheduledEvents,
-    Math.floor(finite(maximumEvents, YOYODYNE_LIMITS.maximumScheduledEvents)),
-  ));
-  const entries = [];
-  while (entries.length < limit && ordinal < Number.MAX_SAFE_INTEGER) {
-    const occurrence = yoyodyneOccurrenceAtOrdinal({
-      notes: timeline,
-      ordinal,
-      tempo,
-      scoreAnchorBeat,
-      audioAnchorTime,
-    });
-    if (!occurrence || occurrence.startAt > horizon) break;
-    if (occurrence.startAt >= threshold) entries.push(occurrence);
-    ordinal += 1;
-  }
-  return Object.freeze({
-    entries: Object.freeze(entries),
-    nextEventOrdinal: ordinal,
-    skippedCount,
-  });
+export function snapshot(w) {
+  return { time: w.time, x: w.x, y: w.y, vx: w.vx, vy: w.vy, omega: w.omega,
+    spin: w.spin, tension: w.tension, length: w.length, mount: w.mount, mode: w.mode,
+    hand: { ...w.hand }, stringPoints: w.stringPoints.map(p => ({ ...p })), sound: soundingState(w) };
 }

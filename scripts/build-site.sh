@@ -150,6 +150,9 @@ for worktree_runtime_file in \
   yoyodyne-app.js \
   src/yoyodyne.js \
   src/yoyodyne-audio.js \
+  src/yoyodyne-dsp.js \
+  src/yoyodyne-processor.js \
+  docs/yoyodyne-kinetic.md \
   assets/instruments/yoyodyne.webp \
   alien-larynx.html \
   alien-larynx.css \
@@ -811,6 +814,9 @@ required_files=(
   yoyodyne-app.js
   src/yoyodyne.js
   src/yoyodyne-audio.js
+  src/yoyodyne-dsp.js
+  src/yoyodyne-processor.js
+  docs/yoyodyne-kinetic.md
   assets/instruments/yoyodyne.webp
   alien-larynx.html
   alien-larynx.css
