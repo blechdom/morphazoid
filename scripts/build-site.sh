@@ -260,6 +260,8 @@ for worktree_runtime_file in \
   quadruped-app.js \
   src/quadruped.js \
   src/quadruped-motor.js \
+  src/quadruped-voices.js \
+  src/quadruped-world.js \
   QUADRUPED_RESEARCH.md \
   assets/instruments/quadruped.webp \
   digestazoid.html \
@@ -920,6 +922,8 @@ required_files=(
   quadruped-app.js
   src/quadruped.js
   src/quadruped-motor.js
+  src/quadruped-voices.js
+  src/quadruped-world.js
   QUADRUPED_RESEARCH.md
   assets/instruments/quadruped.webp
   digestazoid.html

@@ -24,6 +24,8 @@ import {
   quadrupedSequenceEvent,
   quadrupedTerrain,
   quadrupedScoreTiming,
+  quadrupedClockAtPosition,
+  quadrupedPositionAtClock,
   sanitizeQuadrupedState,
   setQuadrupedContact,
   setQuadrupedGroundProfile,
@@ -39,7 +41,9 @@ import {
   synchronizeQuadrupedMotorTempo,
 } from "./src/quadruped-motor.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
+import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls } from "./src/quadruped-voices.js";
 import { unlockAudioContext } from "./src/audio.js";
+import { createQuadrupedGroup, shareQuadrupedWorld, quadrupedGroupOffsets, quadrupedStairSound, renderQuadrupedFriction, sanitizeQuadrupedWorld } from "./src/quadruped-world.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -58,6 +62,7 @@ const lanePan = Object.freeze({
   "rear-right": 0.3,
 });
 const NEW_ANIMAL_FOOT_AUDIO = Object.freeze({
+  frog: Object.freeze({ front: 620, hind: 135, duration: 0.085, tone: "sine", tonePeak: 0.17, noisePeak: 0.045, noiseFrequency: 1800 }),
   mouse: Object.freeze({ front: 980, hind: 490, duration: 0.03, tone: "sine", tonePeak: 0.09, noisePeak: 0.045, noiseFrequency: 5_800 }),
   dinosaur: Object.freeze({ front: 78, hind: 42, duration: 0.26, tone: "triangle", tonePeak: 0.2, noisePeak: 0.095, noiseFrequency: 570 }),
   horse: Object.freeze({ front: 238, hind: 112, duration: 0.13, tone: "triangle", tonePeak: 0.17, noisePeak: 0.07, noiseFrequency: 2_400 }),
@@ -95,6 +100,94 @@ const cabinetFrames = [];
 const laneLabelElements = new Map();
 const uiTimers = new Set();
 let behaviorButtonAnimalId = "";
+let groupMode = "solo";
+let selectedActor = 0;
+let groupSeed = 1;
+let world = sanitizeQuadrupedWorld();
+let courseOriginX = 0;
+let frictionRebuildTimer = 0;
+const actors = [{ score: state, motor, nextOrdinal: null, transitions: new Map(), offset: 0 }];
+
+function activeActorIndices() {
+  return groupMode === "solo" ? [selectedActor] : actors.map((_, index) => index);
+}
+
+function saveSelectedActor() {
+  actors[selectedActor].score = state;
+  actors[selectedActor].motor = motor;
+}
+
+function shareGroupControls() {
+  saveSelectedActor();
+  for (let index = 0; index < actors.length; index += 1) {
+    if (index === selectedActor) continue;
+    const actor = actors[index];
+    actor.score = shareQuadrupedWorld(actor.score, state);
+    if (groupMode === "herd" && actor.score.animalId !== state.animalId) actor.score = applyQuadrupedAnimal(actor.score, state.animalId);
+    actor.motor = synchronizeQuadrupedMotorTempo(actor.score, actor.motor);
+  }
+}
+
+function worldSoundAt(score = state, position = motor.position, laneId = null) {
+  const worldX = laneId ? quadrupedFootCycleState(score, laneId, position + 0.00001).footWorldX : position / 16 * score.stride;
+  return quadrupedStairSound(score, worldX, world.cavern, courseOriginX);
+}
+
+function selectActor(index) {
+  const nextIndex = Math.trunc(clamp(index, 0, actors.length - 1));
+  if (nextIndex === selectedActor) return;
+  materializeMotor();
+  saveSelectedActor();
+  selectedActor = nextIndex;
+  state = actors[nextIndex].score;
+  motor = actors[nextIndex].motor;
+  stoppedPosition = motor.position;
+  selectedStep = mod(Math.floor(motor.position), 16);
+  lastPlayingStep = -1;
+  lastReadoutStep = -1;
+  syncAllControls();
+  announce(`Editing animal ${"ABC"[nextIndex]}: ${quadrupedAnimal(state.animalId).label}. Other rhythms keep moving.`);
+}
+
+function setGroupMode(mode) {
+  if (!["solo", "herd", "trio"].includes(mode) || mode === groupMode) return;
+  materializeMotor();
+  saveSelectedActor();
+  const leader = state;
+  const clock = quadrupedClockAtPosition(state, motor.position);
+  const scores = createQuadrupedGroup(leader, mode);
+  const offsets = quadrupedGroupOffsets(groupSeed);
+  if (mode !== "solo") {
+    modeMemory.clear();
+    actors.splice(0, actors.length, ...scores.map((score, index) => {
+      const position = quadrupedPositionAtClock(score, clock + offsets[index] * 16);
+      return { score, motor: createQuadrupedMotorState(score, { position }), nextOrdinal: null, transitions: new Map(), offset: offsets[index] };
+    }));
+    selectedActor = 0;
+    state = actors[0].score;
+    motor = actors[0].motor;
+  }
+  groupMode = mode;
+  stoppedPosition = motor.position;
+  syncAllControls();
+  resetAudioSchedule();
+}
+
+function scatterGroup() {
+  materializeMotor();
+  saveSelectedActor();
+  groupSeed += 97;
+  const offsets = quadrupedGroupOffsets(groupSeed);
+  const clock = quadrupedClockAtPosition(actors[0].score, actors[0].motor.position) - actors[0].offset * 16;
+  actors.forEach((actor, index) => {
+    actor.offset = offsets[index];
+    actor.motor = createQuadrupedMotorState(actor.score, { ...actor.motor, position: quadrupedPositionAtClock(actor.score, clock + offsets[index] * 16) });
+  });
+  motor = actors[selectedActor].motor;
+  stoppedPosition = motor.position;
+  resetAudioSchedule();
+  syncAllControls();
+}
 
 function clamp(value, minimum = 0, maximum = 1) {
   const number = Number(value);
@@ -125,7 +218,7 @@ function announce(message) {
 }
 
 function modeKey(source = state) {
-  return `${source.animalId}:${source.behaviorId}`;
+  return `${selectedActor}:${source.animalId}:${source.behaviorId}`;
 }
 
 function rememberMode() {
@@ -140,8 +233,14 @@ function materializeMotor(now = performance.now()) {
   }
   const deltaSeconds = clamp((safeNow - motorPerformance) / 1_000, 0, 2);
   if (deltaSeconds > 0) motor = advanceQuadrupedMotor(state, motor, deltaSeconds).motor;
+  for (const index of activeActorIndices()) {
+    if (index === selectedActor || deltaSeconds <= 0) continue;
+    const actor = actors[index];
+    actor.motor = advanceQuadrupedMotor(actor.score, actor.motor, deltaSeconds).motor;
+  }
   motorPerformance = safeNow;
   stoppedPosition = motor.position;
+  saveSelectedActor();
   return quadrupedMotorSnapshot(state, motor);
 }
 
@@ -255,6 +354,7 @@ function createMaterialBus(context, mixBus) {
 
 function applyMaterialProfile(materialBus, terrain, when, immediate = false) {
   if (!materialBus || !terrain) return;
+  materialBus.surfaceId = terrain.id;
   const start = Math.max(0, Number(when) || 0);
   const settle = immediate ? 0.001 : 0.032;
   const baseFrequency = 82 * (2 ** (terrain.pitchOffset / 12));
@@ -300,11 +400,15 @@ function createFlightVoice(context, mixBus, noiseBuffer) {
   gain.connect(panner);
   panner.connect(mixBus);
   source.start();
-  return { source, highpass, bandpass, gain, panner, active: false };
+  const voice = { source, highpass, bandpass, gain, panner, active: false };
+  source.onended = () => {
+    for (const node of [source, highpass, bandpass, gain, panner]) node.disconnect();
+    graph?.retiredContinuous?.delete(voice);
+  };
+  return voice;
 }
 
-function silenceFlightVoice(releaseSeconds = 0.025) {
-  const voice = graph?.flightVoice;
+function silenceContinuousVoice(voice, releaseSeconds = 0.025) {
   if (!voice || !graph) return;
   const now = graph.context.currentTime;
   voice.gain.gain.cancelScheduledValues(now);
@@ -313,32 +417,107 @@ function silenceFlightVoice(releaseSeconds = 0.025) {
   voice.active = false;
 }
 
-function syncFlightVoice(snapshot) {
-  const voice = graph?.flightVoice;
+function silenceFlightVoice(releaseSeconds = 0.025) {
+  for (const voice of [...(graph?.flightVoices ?? []), ...(graph?.grainVoices ?? [])]) silenceContinuousVoice(voice, releaseSeconds);
+}
+
+function frictionBuffer(context, index) {
+  const samples = renderQuadrupedFriction({ sampleRate: context.sampleRate, surfaceId: state.surfaceId, seed: world.seed + index * 997, grain: world.grain });
+  const buffer = context.createBuffer(1, samples.length, context.sampleRate);
+  buffer.copyToChannel(samples, 0);
+  return buffer;
+}
+
+function queueFrictionRebuild() {
+  if (frictionRebuildTimer) clearTimeout(frictionRebuildTimer);
+  if (!graph) return;
+  frictionRebuildTimer = setTimeout(() => {
+    frictionRebuildTimer = 0;
+    if (!graph) return;
+    graph.grainVoices = graph.grainVoices.map((oldVoice, index) => {
+      silenceContinuousVoice(oldVoice, 0.018);
+      graph.retiredContinuous.add(oldVoice);
+      oldVoice.source.stop(graph.context.currentTime + 0.085);
+      return createFlightVoice(graph.context, graph.materialBus.input, frictionBuffer(graph.context, index));
+    });
+  }, 90);
+}
+
+function createCavernBus(context, mixBus) {
+  const input = context.createGain();
+  const tone = context.createBiquadFilter();
+  const wet = context.createGain();
+  tone.type = "lowpass";
+  tone.frequency.value = 12_000;
+  wet.gain.value = 0;
+  input.connect(tone);
+  tone.connect(mixBus);
+  input.connect(wet);
+  const echoes = [0.127, 0.193, 0.281].map((seconds, index) => {
+    const delay = context.createDelay(1);
+    const damping = context.createBiquadFilter();
+    const feedback = context.createGain();
+    const level = context.createGain();
+    const pan = createPanner(context, (index - 1) * 0.62);
+    delay.delayTime.value = seconds;
+    damping.type = "lowpass"; damping.frequency.value = 5_000;
+    feedback.gain.value = 0.18; level.gain.value = 0.26;
+    wet.connect(delay); delay.connect(damping); damping.connect(feedback);
+    feedback.connect(delay); damping.connect(level); level.connect(pan); pan.connect(mixBus);
+    return { delay, damping, feedback, level, pan, ratio: seconds / 0.127 };
+  });
+  return { input, tone, wet, echoes };
+}
+
+function syncCavernBus() {
+  if (!graph) return;
+  const leader = actors[activeActorIndices()[0]];
+  const color = worldSoundAt(leader.score, leader.motor.position);
+  const now = graph.context.currentTime;
+  const bus = graph.cavernBus;
+  bus.tone.frequency.setTargetAtTime(color.cutoff, now, 0.045);
+  bus.wet.gain.setTargetAtTime(transportPlaying ? color.wet : 0, now, 0.035);
+  for (const echo of bus.echoes) {
+    echo.delay.delayTime.setTargetAtTime(color.delay * echo.ratio, now, 0.13);
+    echo.damping.frequency.setTargetAtTime(color.damping, now, 0.06);
+    echo.feedback.gain.setTargetAtTime(color.feedback, now, 0.06);
+  }
+}
+
+function syncFlightVoice(snapshot, score = state, index = selectedActor) {
+  const voice = graph?.flightVoices[index];
+  const grainVoice = graph?.grainVoices[index];
   if (!voice || !graph || !transportPlaying) {
-    silenceFlightVoice();
+    silenceContinuousVoice(voice);
+    silenceContinuousVoice(grainVoice);
     return;
   }
   const sliding = snapshot.bodySlide > 0;
-  const extendedRest = quadrupedScoreTiming(state).window !== null && !sliding;
-  const unsupported = sliding || (snapshot.supportCount === 0 && !extendedRest);
+  const extendedRest = quadrupedScoreTiming(score).window !== null;
+  const unsupported = snapshot.supportCount === 0 && !extendedRest && !sliding;
   const now = graph.context.currentTime;
-  if (!unsupported) {
-    if (voice.active) silenceFlightVoice();
-    return;
-  }
   const speed = clamp(snapshot.normalizedVelocity / 1.25);
   const vertical = clamp(Math.abs(snapshot.verticalVelocity) / 6);
   const height = clamp(snapshot.height / 1.2);
   const energy = clamp(0.68 * speed + 0.2 * vertical + 0.12 * height);
-  const terrain = quadrupedTerrain(state.surfaceId);
-  const level = sliding ? 0.13 * snapshot.bodySlide * (0.4 + terrain.roughness * 0.6) : 0.075 * energy ** 1.25;
-  voice.active = true;
-  voice.gain.gain.cancelScheduledValues(now);
-  voice.gain.gain.setTargetAtTime(Math.max(0.0001, level), now, 0.018);
+  const terrain = quadrupedTerrain(score.surfaceId);
+  const ensembleGain = groupMode === "solo" ? 1 : 0.52;
+  const pan = groupMode === "solo" ? 0 : (index - 1) * 0.6;
+  const color = worldSoundAt(score, snapshot.position);
+  voice.active = unsupported;
+  voice.gain.gain.setTargetAtTime(unsupported ? 0.075 * energy ** 1.25 * ensembleGain : 0, now, 0.018);
   voice.highpass.frequency.setTargetAtTime(80 + 420 * speed, now, 0.025);
-  voice.bandpass.frequency.setTargetAtTime(sliding ? 260 + terrain.brightness * 3_600 : 450 + 2_800 * speed + 850 * vertical, now, 0.025);
+  voice.bandpass.frequency.setTargetAtTime(450 + 2_800 * speed + 850 * vertical, now, 0.025);
   voice.bandpass.Q.setTargetAtTime(0.55 + 0.8 * height, now, 0.025);
+  voice.panner.pan?.setTargetAtTime(pan, now, 0.03);
+  grainVoice.active = sliding;
+  const grainWave = 0.64 + 0.36 * Math.sin(snapshot.clockPosition * 0.19 + index * 2.1);
+  grainVoice.gain.gain.setTargetAtTime(sliding ? 0.48 * snapshot.bodySlide * ensembleGain * (0.62 + world.grain * grainWave * 0.38) : 0, now, 0.022);
+  grainVoice.source.playbackRate.setTargetAtTime((0.7 + speed * 0.55 + grainWave * world.grain * 0.18) * color.pitchRatio, now, 0.06);
+  grainVoice.highpass.frequency.setTargetAtTime(45, now, 0.03);
+  grainVoice.bandpass.frequency.setTargetAtTime((190 + terrain.brightness * 1_700) * color.pitchRatio * (0.8 + grainWave * 0.4), now, 0.03);
+  grainVoice.bandpass.Q.setTargetAtTime(0.55 + terrain.hardness * 1.1, now, 0.03);
+  grainVoice.panner.pan?.setTargetAtTime(pan + Math.sin(snapshot.clockPosition * 0.07) * 0.08, now, 0.03);
 }
 
 async function createAudioGraph() {
@@ -365,9 +544,12 @@ async function createAudioGraph() {
   masterGain.connect(analyser);
   const releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
   const noiseBuffer = createNoiseBuffer(context);
-  const materialBus = createMaterialBus(context, mixBus);
+  const cavernBus = createCavernBus(context, mixBus);
+  const materialBus = createMaterialBus(context, cavernBus.input);
   applyMaterialProfile(materialBus, quadrupedTerrain(state.surfaceId), context.currentTime, true);
-  const flightVoice = createFlightVoice(context, mixBus, noiseBuffer);
+  const flightVoices = Array.from({ length: 3 }, () => createFlightVoice(context, cavernBus.input, noiseBuffer));
+  const grainVoices = Array.from({ length: 3 }, (_, index) => createFlightVoice(context, materialBus.input, frictionBuffer(context, index)));
+  const flightVoice = flightVoices[0];
   return {
     context,
     mixBus,
@@ -378,6 +560,10 @@ async function createAudioGraph() {
     noiseBuffer,
     materialBus,
     flightVoice,
+    flightVoices,
+    grainVoices,
+    cavernBus,
+    retiredContinuous: new Set(),
   };
 }
 
@@ -506,6 +692,8 @@ function releaseAllSources() {
 
 async function closeAudio({ announceChange = true } = {}) {
   stopAudioScheduler();
+  if (frictionRebuildTimer) clearTimeout(frictionRebuildTimer);
+  frictionRebuildTimer = 0;
   const closing = graph;
   if (!closing) {
     setAudioPresentation("off");
@@ -515,6 +703,11 @@ async function closeAudio({ announceChange = true } = {}) {
   releaseAllSources();
   graph = null;
   try {
+    for (const voice of [...closing.flightVoices, ...closing.grainVoices, ...closing.retiredContinuous]) {
+      voice.source.stop();
+      for (const node of [voice.source, voice.highpass, voice.bandpass, voice.gain, voice.panner]) node.disconnect();
+    }
+    for (const node of [closing.cavernBus.input, closing.cavernBus.tone, closing.cavernBus.wet, ...closing.cavernBus.echoes.flatMap(echo => [echo.delay, echo.damping, echo.feedback, echo.level, echo.pan])]) node.disconnect();
     closing.flightVoice?.source?.stop();
     for (const node of [
       closing.flightVoice?.source,
@@ -655,6 +848,7 @@ function schedulePitchContour({
   filterFrequency = 1_800,
   filterQ = 0.7,
   octaveOffset = 0,
+  pulse = 0,
   role = "head-core",
 }) {
   if (!graph || !Number.isFinite(when)) return null;
@@ -664,10 +858,15 @@ function schedulePitchContour({
     .slice(0, 6);
   if (!safeNotes.length) return null;
   const { context, mixBus } = graph;
-  const safeDuration = clamp(duration, 0.08, 1.4);
+  const safeDuration = clamp(duration, 0.08, 1.8);
   const start = Math.max(context.currentTime + 0.004, when);
   const end = start + safeDuration;
   const oscillator = context.createOscillator();
+  const pulseGain = context.createGain();
+  if (pulse > 0) {
+    const curve = Float32Array.from({ length: 256 }, (_, index) => 0.58 + 0.42 * Math.sin(index / 255 * safeDuration * pulse * Math.PI * 2));
+    pulseGain.gain.setValueCurveAtTime(curve, start, safeDuration);
+  }
   const gain = context.createGain();
   const filter = context.createBiquadFilter();
   const panner = createPanner(context, pan);
@@ -687,10 +886,11 @@ function schedulePitchContour({
   filter.frequency.value = clamp(filterFrequency, 80, 18_000);
   filter.Q.value = clamp(filterQ, 0.01, 18);
   oscillator.connect(gain);
-  gain.connect(filter);
+  gain.connect(pulseGain);
+  pulseGain.connect(filter);
   filter.connect(panner);
   panner.connect(mixBus);
-  registerAudioSource(oscillator, [gain, filter, panner], gain, start, end, role);
+  registerAudioSource(oscillator, [gain, pulseGain, filter, panner], gain, start, end, role);
   oscillator.start(start);
   oscillator.stop(end + 0.02);
   return oscillator;
@@ -724,20 +924,36 @@ function scheduleTail(contact, terrain, when, normalization, absoluteStep) {
   }
 }
 
-function scheduleFoot(contact, terrain, when, normalization, absoluteStep) {
+function footSoundPlacement(score, position, laneId, actorIndex) {
+  const color = worldSoundAt(score, position, laneId);
+  return { pitch: color.pitchRatio, gain: groupMode === "solo" ? 1 : 0.52, pan: groupMode === "solo" ? null : (actorIndex - 1) * 0.6 };
+}
+
+function schedulePlacedTone(parameters, voice) {
+  return scheduleTone({ ...parameters, frequency: parameters.frequency * voice.pitch, filterFrequency: (parameters.filterFrequency ?? 4_000) * Math.sqrt(voice.pitch), peak: parameters.peak * voice.gain, pan: voice.pan === null ? parameters.pan : voice.pan + (parameters.pan ?? 0) * 0.24 });
+}
+
+function schedulePlacedNoise(parameters, voice) {
+  return scheduleNoise({ ...parameters, filterFrequency: (parameters.filterFrequency ?? 900) * voice.pitch, peak: parameters.peak * voice.gain, pan: voice.pan === null ? parameters.pan : voice.pan + (parameters.pan ?? 0) * 0.24 });
+}
+
+function scheduleFoot(contact, terrain, when, normalization, absoluteStep, score = state, actorIndex = selectedActor) {
+  const voice = footSoundPlacement(score, absoluteStep, contact.id, actorIndex);
+  const tone = parameters => schedulePlacedTone(parameters, voice);
+  const noise = parameters => schedulePlacedNoise(parameters, voice);
   const lane = laneById.get(contact.id);
   const laneIndex = lane?.index ?? 0;
   const pan = lanePan[contact.id] ?? 0;
   const amount = contact.intensity * normalization;
   const terrainRatio = 2 ** (terrain.pitchOffset / 36);
-  const resonance = 0.45 + state.groundResonance * 0.85;
+  const resonance = 0.45 + score.groundResonance * 0.85;
   const isFront = contact.id.startsWith("front");
   const isLeft = contact.id.endsWith("left");
 
-  if (state.animalId === "elephant") {
+  if (score.animalId === "elephant") {
     const base = (isFront ? (isLeft ? 82 : 104) : (isLeft ? 36 : 49)) * terrainRatio;
     const duration = (isFront ? 0.11 + terrain.decay * 0.2 : 0.28 + terrain.decay * 0.48) * resonance;
-    scheduleTone({
+    tone({
       when,
       frequency: base,
       duration,
@@ -751,7 +967,7 @@ function scheduleFoot(contact, terrain, when, normalization, absoluteStep) {
       filterFrequency: isFront ? (isLeft ? 620 : 940) + terrain.brightness * 1_900 : 240 + terrain.brightness * 720,
       filterQ: isFront ? (isLeft ? 0.72 : 1.5) : 0.58,
     });
-    scheduleNoise({
+    noise({
       when,
       duration: (isFront ? 0.055 : 0.105) + terrain.decay * (isFront ? 0.06 : 0.13),
       peak: (isFront ? (isLeft ? 0.13 : 0.085) : 0.075) * amount,
@@ -762,77 +978,77 @@ function scheduleFoot(contact, terrain, when, normalization, absoluteStep) {
       offset: absoluteStep * 0.041 + laneIndex * 0.13,
     });
     if (terrain.id === "metal" || terrain.id === "crystal") {
-      scheduleTone({ when: when + 0.006, frequency: base * (isFront ? 3.15 : 4.35), duration: duration * 0.9, peak: 0.045 * amount * state.groundResonance, pan, type: "triangle", attack: 0.002, startRatio: 1.03, endRatio: 0.98, filterType: "bandpass", filterFrequency: base * (isFront ? 3.6 : 5), filterQ: 2.2 });
+      tone({ when: when + 0.006, frequency: base * (isFront ? 3.15 : 4.35), duration: duration * 0.9, peak: 0.045 * amount * score.groundResonance, pan, type: "triangle", attack: 0.002, startRatio: 1.03, endRatio: 0.98, filterType: "bandpass", filterFrequency: base * (isFront ? 3.6 : 5), filterQ: 2.2 });
     }
     return;
   }
 
-  if (state.animalId === "unicorn") {
+  if (score.animalId === "unicorn") {
     const base = (isFront ? (isLeft ? 659 : 880) : (isLeft ? 196 : 247)) * terrainRatio;
     const duration = (isFront ? 0.24 + terrain.decay * 0.72 : 0.11 + terrain.decay * 0.3) * resonance;
-    scheduleTone({ when, frequency: base, duration, peak: (isFront ? 0.13 : 0.18) * amount, pan, type: isFront ? "sine" : "triangle", attack: 0.002, startRatio: isFront ? 1.025 : (isLeft ? 1.28 : 1.62), endRatio: isFront ? 0.995 : 0.86, filterType: "bandpass", filterFrequency: base * (isFront ? (isLeft ? 1.7 : 2.15) : 2.7), filterQ: isFront ? (isLeft ? 1.2 : 2.1) : 0.82 });
-    scheduleTone({ when: when + 0.004, frequency: base * (isFront ? (isLeft ? 2.71 : 3.04) : (isLeft ? 1.5 : 2.04)), duration: duration * (isFront ? 0.82 : 0.48), peak: (isFront ? 0.06 : 0.045) * amount, pan: -pan * 0.55, type: "sine", attack: 0.002, startRatio: 1.01, endRatio: 0.992, filterType: isFront ? "highpass" : "bandpass", filterFrequency: isFront ? 1_500 : 720, filterQ: isFront ? 0.5 : 1.4 });
-    scheduleNoise({ when, duration: (isFront ? 0.035 : 0.065) + terrain.decay * 0.07, peak: (isFront ? 0.032 : 0.07) * amount, pan, filterType: isFront ? "highpass" : "bandpass", filterFrequency: isFront ? 5_200 + terrain.brightness * 3_000 : (isLeft ? 980 : 1_480) + terrain.brightness * 1_100, filterQ: isFront ? 0.4 : 1.2, offset: absoluteStep * 0.067 + laneIndex * 0.09 });
+    tone({ when, frequency: base, duration, peak: (isFront ? 0.13 : 0.18) * amount, pan, type: isFront ? "sine" : "triangle", attack: 0.002, startRatio: isFront ? 1.025 : (isLeft ? 1.28 : 1.62), endRatio: isFront ? 0.995 : 0.86, filterType: "bandpass", filterFrequency: base * (isFront ? (isLeft ? 1.7 : 2.15) : 2.7), filterQ: isFront ? (isLeft ? 1.2 : 2.1) : 0.82 });
+    tone({ when: when + 0.004, frequency: base * (isFront ? (isLeft ? 2.71 : 3.04) : (isLeft ? 1.5 : 2.04)), duration: duration * (isFront ? 0.82 : 0.48), peak: (isFront ? 0.06 : 0.045) * amount, pan: -pan * 0.55, type: "sine", attack: 0.002, startRatio: 1.01, endRatio: 0.992, filterType: isFront ? "highpass" : "bandpass", filterFrequency: isFront ? 1_500 : 720, filterQ: isFront ? 0.5 : 1.4 });
+    noise({ when, duration: (isFront ? 0.035 : 0.065) + terrain.decay * 0.07, peak: (isFront ? 0.032 : 0.07) * amount, pan, filterType: isFront ? "highpass" : "bandpass", filterFrequency: isFront ? 5_200 + terrain.brightness * 3_000 : (isLeft ? 980 : 1_480) + terrain.brightness * 1_100, filterQ: isFront ? 0.4 : 1.2, offset: absoluteStep * 0.067 + laneIndex * 0.09 });
     return;
   }
 
-  if (state.animalId === "cat") {
+  if (score.animalId === "cat") {
     const base = (isFront ? (isLeft ? 330 : 415) : (isLeft ? 118 : 146)) * terrainRatio;
-    scheduleTone({ when, frequency: base, duration: (0.055 + terrain.decay * 0.12) * resonance, peak: (isFront ? 0.105 : 0.15) * amount, pan, type: "sine", attack: 0.002, startRatio: 1.16, endRatio: 0.82, filterType: "lowpass", filterFrequency: 1_150 + terrain.brightness * 1_900, filterQ: 0.72 });
-    scheduleNoise({ when, duration: 0.018 + terrain.decay * 0.025, peak: 0.038 * amount, pan, filterType: "bandpass", filterFrequency: isFront ? 3_400 : 1_600, filterQ: 1.8, offset: absoluteStep * 0.091 + laneIndex * 0.07 });
+    tone({ when, frequency: base, duration: (0.055 + terrain.decay * 0.12) * resonance, peak: (isFront ? 0.105 : 0.15) * amount, pan, type: "sine", attack: 0.002, startRatio: 1.16, endRatio: 0.82, filterType: "lowpass", filterFrequency: 1_150 + terrain.brightness * 1_900, filterQ: 0.72 });
+    noise({ when, duration: 0.018 + terrain.decay * 0.025, peak: 0.038 * amount, pan, filterType: "bandpass", filterFrequency: isFront ? 3_400 : 1_600, filterQ: 1.8, offset: absoluteStep * 0.091 + laneIndex * 0.07 });
     return;
   }
 
-  if (state.animalId === "cheetah") {
+  if (score.animalId === "cheetah") {
     const base = (isFront ? (isLeft ? 470 : 610) : (isLeft ? 156 : 202)) * terrainRatio;
-    scheduleNoise({ when, duration: 0.026 + terrain.decay * 0.035, peak: (isFront ? 0.115 : 0.14) * amount, pan, filterType: "bandpass", filterFrequency: (isFront ? 4_200 : 2_100) + terrain.brightness * 2_300, filterQ: 1.1, offset: absoluteStep * 0.113 + laneIndex * 0.12 });
-    scheduleTone({ when, frequency: base, duration: 0.045 + terrain.decay * 0.08, peak: (isFront ? 0.08 : 0.13) * amount, pan, type: "triangle", attack: 0.0015, startRatio: isFront ? 1.45 : 1.82, endRatio: 0.76, filterType: "bandpass", filterFrequency: base * 3.2, filterQ: 1.2 });
+    noise({ when, duration: 0.026 + terrain.decay * 0.035, peak: (isFront ? 0.115 : 0.14) * amount, pan, filterType: "bandpass", filterFrequency: (isFront ? 4_200 : 2_100) + terrain.brightness * 2_300, filterQ: 1.1, offset: absoluteStep * 0.113 + laneIndex * 0.12 });
+    tone({ when, frequency: base, duration: 0.045 + terrain.decay * 0.08, peak: (isFront ? 0.08 : 0.13) * amount, pan, type: "triangle", attack: 0.0015, startRatio: isFront ? 1.45 : 1.82, endRatio: 0.76, filterType: "bandpass", filterFrequency: base * 3.2, filterQ: 1.2 });
     return;
   }
 
-  if (state.animalId === "giraffe") {
+  if (score.animalId === "giraffe") {
     const base = (isFront ? (isLeft ? 112 : 138) : (isLeft ? 62 : 78)) * terrainRatio;
     const duration = (0.18 + terrain.decay * 0.42) * resonance;
-    scheduleTone({ when, frequency: base, duration, peak: (isFront ? 0.18 : 0.2) * amount, pan, type: isFront ? "triangle" : "sine", attack: 0.004, startRatio: 1.22, endRatio: 0.72, filterType: "bandpass", filterFrequency: 420 + terrain.brightness * 1_000, filterQ: 0.8 });
-    scheduleTone({ when: when + 0.006, frequency: base * (isLeft ? 2.5 : 3), duration: duration * 0.62, peak: 0.052 * amount, pan: -pan * 0.5, type: "sine", attack: 0.003, startRatio: 1.01, endRatio: 0.96, filterType: "lowpass", filterFrequency: 1_800, filterQ: 0.6 });
+    tone({ when, frequency: base, duration, peak: (isFront ? 0.18 : 0.2) * amount, pan, type: isFront ? "triangle" : "sine", attack: 0.004, startRatio: 1.22, endRatio: 0.72, filterType: "bandpass", filterFrequency: 420 + terrain.brightness * 1_000, filterQ: 0.8 });
+    tone({ when: when + 0.006, frequency: base * (isLeft ? 2.5 : 3), duration: duration * 0.62, peak: 0.052 * amount, pan: -pan * 0.5, type: "sine", attack: 0.003, startRatio: 1.01, endRatio: 0.96, filterType: "lowpass", filterFrequency: 1_800, filterQ: 0.6 });
     return;
   }
 
-  if (state.animalId === "lizard") {
+  if (score.animalId === "lizard") {
     const base = (isFront ? (isLeft ? 780 : 1_020) : (isLeft ? 260 : 340)) * terrainRatio;
-    scheduleTone({ when, frequency: base, duration: 0.025 + terrain.decay * 0.045, peak: 0.09 * amount, pan, type: isLeft ? "square" : "triangle", attack: 0.001, startRatio: 1.5, endRatio: 0.72, filterType: "highpass", filterFrequency: 950 + terrain.brightness * 2_600, filterQ: 0.7 });
-    scheduleNoise({ when, duration: 0.04 + terrain.decay * 0.055, peak: 0.068 * amount, pan, filterType: "bandpass", filterFrequency: isFront ? 5_400 : 2_700, filterQ: 2.2, offset: absoluteStep * 0.137 + laneIndex * 0.08 });
+    tone({ when, frequency: base, duration: 0.025 + terrain.decay * 0.045, peak: 0.09 * amount, pan, type: isLeft ? "square" : "triangle", attack: 0.001, startRatio: 1.5, endRatio: 0.72, filterType: "highpass", filterFrequency: 950 + terrain.brightness * 2_600, filterQ: 0.7 });
+    noise({ when, duration: 0.04 + terrain.decay * 0.055, peak: 0.068 * amount, pan, filterType: "bandpass", filterFrequency: isFront ? 5_400 : 2_700, filterQ: 2.2, offset: absoluteStep * 0.137 + laneIndex * 0.08 });
     return;
   }
 
-  const newAnimalProfile = NEW_ANIMAL_FOOT_AUDIO[state.animalId];
+  const newAnimalProfile = NEW_ANIMAL_FOOT_AUDIO[score.animalId];
   if (newAnimalProfile) {
     const limbBase = isFront ? newAnimalProfile.front : newAnimalProfile.hind;
     const sideRatio = isLeft ? 0.94 : 1.07;
-    const rabbitDrive = state.animalId === "rabbit" && !isFront ? 1.46 : 1;
-    const camelPad = state.animalId === "camel" ? 1.28 : 1;
-    scheduleTone({
+    const rabbitDrive = score.animalId === "rabbit" && !isFront ? 1.46 : 1;
+    const camelPad = score.animalId === "camel" ? 1.28 : 1;
+    tone({
       when,
       frequency: limbBase * sideRatio * terrainRatio,
       duration: (newAnimalProfile.duration + terrain.decay * 0.16) * resonance * camelPad,
       peak: newAnimalProfile.tonePeak * amount * rabbitDrive,
       pan,
       type: newAnimalProfile.tone,
-      attack: state.animalId === "camel" ? 0.009 : 0.0025,
+      attack: score.animalId === "camel" ? 0.009 : 0.0025,
       startRatio: isFront ? 1.3 : 1.72,
-      endRatio: state.animalId === "goat" ? 0.92 : 0.76,
-      filterType: state.animalId === "camel" || state.animalId === "rabbit" ? "lowpass" : "bandpass",
-      filterFrequency: limbBase * (state.animalId === "goat" ? 4.6 : 3.1) + terrain.brightness * 1_200,
-      filterQ: state.animalId === "goat" ? 1.8 : 0.8,
+      endRatio: score.animalId === "goat" ? 0.92 : 0.76,
+      filterType: score.animalId === "camel" || score.animalId === "rabbit" ? "lowpass" : "bandpass",
+      filterFrequency: limbBase * (score.animalId === "goat" ? 4.6 : 3.1) + terrain.brightness * 1_200,
+      filterQ: score.animalId === "goat" ? 1.8 : 0.8,
     });
-    scheduleNoise({
+    noise({
       when,
-      duration: (state.animalId === "camel" ? 0.11 : 0.028) + terrain.roughness * 0.055,
+      duration: (score.animalId === "camel" ? 0.11 : 0.028) + terrain.roughness * 0.055,
       peak: newAnimalProfile.noisePeak * amount * (isFront ? 0.86 : 1.08),
       pan,
-      filterType: state.animalId === "camel" ? "lowpass" : state.animalId === "dog" ? "highpass" : "bandpass",
+      filterType: score.animalId === "camel" ? "lowpass" : score.animalId === "dog" ? "highpass" : "bandpass",
       filterFrequency: newAnimalProfile.noiseFrequency + terrain.brightness * 1_600,
-      filterQ: state.animalId === "goat" ? 2.2 : 0.75,
+      filterQ: score.animalId === "goat" ? 2.2 : 0.75,
       offset: absoluteStep * 0.097 + laneIndex * 0.14,
     });
     return;
@@ -840,16 +1056,19 @@ function scheduleFoot(contact, terrain, when, normalization, absoluteStep) {
 
   const base = (isFront ? (isLeft ? 520 : 690) : (isLeft ? 174 : 220)) * terrainRatio;
   const duration = (isFront ? 0.045 + terrain.decay * 0.09 : 0.12 + terrain.decay * 0.34) * resonance;
-  scheduleTone({ when, frequency: base, duration, peak: (isFront ? 0.13 : 0.18) * amount, pan, type: isFront ? (isLeft ? "square" : "triangle") : "triangle", attack: 0.0015, startRatio: isFront ? (isLeft ? 1.08 : 1.28) : (isLeft ? 1.18 : 1.34), endRatio: isFront ? 0.95 : 0.9, filterType: "bandpass", filterFrequency: base * (isFront ? (isLeft ? 1.35 : 1.8) : 2.4), filterQ: isFront ? (isLeft ? 1.8 : 0.85) : 0.9 });
-  if (!isFront) scheduleTone({ when: when + 0.003, frequency: base * (isLeft ? 3.0 : 3.96), duration: duration * (isLeft ? 0.58 : 0.42), peak: 0.05 * amount, pan, type: "sine", attack: 0.0015, startRatio: 1.02, endRatio: 0.96, filterType: "highpass", filterFrequency: 900, filterQ: 0.6 });
-  scheduleNoise({ when, duration: (isFront ? 0.022 : 0.038) + terrain.decay * 0.035, peak: (isFront ? (isLeft ? 0.075 : 0.052) : 0.046) * amount, pan, filterType: "bandpass", filterFrequency: (isFront ? (isLeft ? 2_900 : 4_200) : 1_650) + terrain.brightness * 2_100, filterQ: isFront ? (isLeft ? 2.4 : 1.1) : 1.3, offset: absoluteStep * 0.079 + laneIndex * 0.11 });
+  tone({ when, frequency: base, duration, peak: (isFront ? 0.13 : 0.18) * amount, pan, type: isFront ? (isLeft ? "square" : "triangle") : "triangle", attack: 0.0015, startRatio: isFront ? (isLeft ? 1.08 : 1.28) : (isLeft ? 1.18 : 1.34), endRatio: isFront ? 0.95 : 0.9, filterType: "bandpass", filterFrequency: base * (isFront ? (isLeft ? 1.35 : 1.8) : 2.4), filterQ: isFront ? (isLeft ? 1.8 : 0.85) : 0.9 });
+  if (!isFront) tone({ when: when + 0.003, frequency: base * (isLeft ? 3.0 : 3.96), duration: duration * (isLeft ? 0.58 : 0.42), peak: 0.05 * amount, pan, type: "sine", attack: 0.0015, startRatio: 1.02, endRatio: 0.96, filterType: "highpass", filterFrequency: 900, filterQ: 0.6 });
+  noise({ when, duration: (isFront ? 0.022 : 0.038) + terrain.decay * 0.035, peak: (isFront ? (isLeft ? 0.075 : 0.052) : 0.046) * amount, pan, filterType: "bandpass", filterFrequency: (isFront ? (isLeft ? 2_900 : 4_200) : 1_650) + terrain.brightness * 2_100, filterQ: isFront ? (isLeft ? 2.4 : 1.1) : 1.3, offset: absoluteStep * 0.079 + laneIndex * 0.11 });
 }
 
-function scheduleToeOff(transition, terrain, when) {
+function scheduleToeOff(transition, terrain, when, score = state, actorIndex = selectedActor) {
+  const voice = footSoundPlacement(score, transition.position, transition.laneId, actorIndex);
+  const tone = parameters => schedulePlacedTone(parameters, voice);
+  const noise = parameters => schedulePlacedNoise(parameters, voice);
   const isFront = transition.laneId.startsWith("front");
   const motionEnergy = clamp(0.58 + (transition.velocity ?? 0) / 42, 0.48, 1);
   const amount = clamp(transition.intensity) * motionEnergy;
-  scheduleNoise({
+  noise({
     when,
     duration: 0.018 + terrain.decay * 0.025,
     peak: (isFront ? 0.018 : 0.026) * amount,
@@ -861,11 +1080,14 @@ function scheduleToeOff(transition, terrain, when) {
   });
 }
 
-function scheduleStanceAccent(transition, terrain, when) {
+function scheduleStanceAccent(transition, terrain, when, score = state, actorIndex = selectedActor) {
+  const voice = footSoundPlacement(score, transition.position, transition.laneId, actorIndex);
+  const tone = parameters => schedulePlacedTone(parameters, voice);
+  const noise = parameters => schedulePlacedNoise(parameters, voice);
   const isFront = transition.laneId.startsWith("front");
   const amount = clamp(transition.intensity) * clamp(0.55 + (transition.velocity ?? 0) / 48, 0.5, 1);
   if (transition.type === "load") {
-    scheduleTone({
+    tone({
       when,
       frequency: (isFront ? 138 : 86) * (2 ** (terrain.pitchOffset / 36)),
       duration: 0.045 + terrain.decay * 0.07,
@@ -880,7 +1102,7 @@ function scheduleStanceAccent(transition, terrain, when) {
     });
     return;
   }
-  scheduleNoise({
+  noise({
     when,
     duration: 0.02 + terrain.roughness * 0.045,
     peak: (isFront ? 0.022 : 0.036) * amount,
@@ -959,67 +1181,83 @@ function scheduleHead(head, terrain, when, normalization = 1) {
   }
 }
 
-function scheduleStep(absoluteStep, when, motorEvent = null) {
-  const scoreEvent = quadrupedSequenceEvent(state, absoluteStep);
+function scheduleCall(call, when, actorIndex = selectedActor) {
+  if (!graph) return;
+  const amount = call.intensity * (groupMode === "solo" ? 1 : 0.52);
+  const pan = groupMode === "solo" ? 0 : (actorIndex - 1) * 0.6;
+  const offsets = call.notes.map((_, index) => index / call.notes.length * call.duration * 0.8);
+  if (["Sparkle", "Prism", "Marimba", "Neck harp", "Click song"].includes(call.label)) {
+    call.notes.forEach((note, index) => scheduleTone({
+      when: when + offsets[index], frequency: midiToFrequency(note), duration: call.duration / 3,
+      peak: 0.14 * amount, pan: clamp(pan + (index % 2 ? 0.12 : -0.12), -1, 1),
+      type: call.type, attack: 0.003, startRatio: 1.02, endRatio: 0.997,
+      filterFrequency: call.filter, filterQ: 0.8, role: "head-core",
+    }));
+  } else {
+    schedulePitchContour({ when, notes: call.notes, offsets, duration: call.duration,
+      peak: 0.19 * amount, pan, type: call.type, attack: call.label === "Strings" ? 0.075 : 0.016,
+      filterFrequency: call.filter, filterQ: 0.85, pulse: call.pulse });
+    schedulePitchContour({ when, notes: call.notes, offsets, duration: call.duration,
+      peak: 0.055 * amount, pan, type: "sine", attack: 0.022, octaveOffset: -12,
+      filterFrequency: call.filter * 0.6, filterQ: 0.55, pulse: call.pulse });
+  }
+}
+
+function scheduleStep(absoluteStep, when, motorEvent = null, score = state, actorIndex = selectedActor) {
+  for (const call of quadrupedCallEvents(score, absoluteStep)) scheduleCall(call, when, actorIndex);
+  const scoreEvent = quadrupedSequenceEvent(score, absoluteStep);
   const contacts = Array.isArray(motorEvent?.contacts) ? motorEvent.contacts : scoreEvent.contacts;
   const terrain = motorEvent?.terrain ?? scoreEvent.terrain;
   if (!contacts.length) return;
   const motionEnergy = clamp(0.58 + (motorEvent?.velocity ?? 0) / 42, 0.48, 1);
   const normalization = motionEnergy / Math.sqrt(Math.max(1, contacts.length));
   for (const contact of contacts) {
-    const uphill = state.groundProfileId === "stairs-up";
-    const downhill = state.groundProfileId === "stairs-down";
+    const uphill = score.groundProfileId === "stairs-up";
+    const downhill = score.groundProfileId === "stairs-down";
     const fore = contact.id.startsWith("front");
     const stairLoad = uphill ? (fore ? 0.84 : 1.3) : downhill ? (fore ? 1.32 : 0.8) : 1;
-    scheduleFoot(contact, terrain, when, normalization * stairLoad, absoluteStep);
-  }
-  if (state.behaviorId === "skid") {
-    scheduleNoise({
-      when,
-      duration: Math.min(0.4, 54 / state.tempoBpm),
-      peak: 0.055 * normalization * (0.7 + terrain.roughness * 0.3),
-      pan: -0.12,
-      filterType: "bandpass",
-      filterFrequency: 620 + terrain.brightness * 3_800,
-      filterQ: 0.7 + terrain.hardness * 1.4,
-      offset: absoluteStep * 0.037,
-      role: "body",
-    });
+    scheduleFoot(contact, terrain, when, normalization * stairLoad, absoluteStep, score, actorIndex);
   }
 }
 
 function scheduleAudioWindow() {
   if (!graph || !transportPlaying || graph.context.state !== "running") return;
-  const nowPerformance = performance.now();
-  const snapshot = materializeMotor(nowPerformance);
-  syncFlightVoice(snapshot);
-  const prediction = predictQuadrupedMotor(state, motor, QUADRUPED_LIMITS.schedulerLookaheadSeconds);
+  materializeMotor(performance.now());
+  syncCavernBus();
   const audioNow = graph.context.currentTime;
-  for (const [eventId, scheduledTime] of scheduledToeOffs) {
-    if (scheduledTime < audioNow - 0.1) scheduledToeOffs.delete(eventId);
+  const active = activeActorIndices();
+  for (let index = 0; index < graph.flightVoices.length; index += 1) {
+    if (!active.includes(index)) {
+      silenceContinuousVoice(graph.flightVoices[index]);
+      silenceContinuousVoice(graph.grainVoices[index]);
+    }
   }
-  for (const transition of prediction.transitions) {
-    if (!transition.eventId || scheduledToeOffs.has(transition.eventId)) continue;
-    const when = audioNow + Math.max(0.006, transition.offsetSeconds);
-    if (transition.type === "toe-off") scheduleToeOff(transition, quadrupedTerrain(state.surfaceId), when);
-    else if (transition.type === "load" || transition.type === "push") scheduleStanceAccent(transition, quadrupedTerrain(state.surfaceId), when);
-    else continue;
-    scheduledToeOffs.set(transition.eventId, when);
-  }
-  if (!Number.isFinite(nextScheduledOrdinal) || nextScheduledOrdinal < snapshot.position - 0.02) {
-    nextScheduledOrdinal = Math.floor(snapshot.position + 0.0001) + 1;
-  }
-  let scheduled = 0;
-  for (const crossing of prediction.events) {
-    if (crossing.ordinal < nextScheduledOrdinal) continue;
-    if (scheduled >= 32) break;
-    scheduleStep(
-      crossing.ordinal,
-      graph.context.currentTime + Math.max(0.006, crossing.offsetSeconds),
-      crossing,
-    );
-    nextScheduledOrdinal = crossing.ordinal + 1;
-    scheduled += 1;
+  for (const index of active) {
+    const actor = actors[index];
+    const snapshot = quadrupedMotorSnapshot(actor.score, actor.motor);
+    syncFlightVoice(snapshot, actor.score, index);
+    const prediction = predictQuadrupedMotor(actor.score, actor.motor, QUADRUPED_LIMITS.schedulerLookaheadSeconds);
+    for (const [eventId, scheduledTime] of actor.transitions) {
+      if (scheduledTime < audioNow - 0.1) actor.transitions.delete(eventId);
+    }
+    for (const transition of prediction.transitions) {
+      if (!transition.eventId || actor.transitions.has(transition.eventId)) continue;
+      const when = audioNow + Math.max(0.006, transition.offsetSeconds);
+      const terrain = quadrupedTerrain(actor.score.surfaceId);
+      if (transition.type === "toe-off") scheduleToeOff(transition, terrain, when, actor.score, index);
+      else if (transition.type === "load" || transition.type === "push") scheduleStanceAccent(transition, terrain, when, actor.score, index);
+      else continue;
+      actor.transitions.set(transition.eventId, when);
+    }
+    if (!Number.isFinite(actor.nextOrdinal) || actor.nextOrdinal < snapshot.position - 0.02) actor.nextOrdinal = Math.floor(snapshot.position + 0.0001) + 1;
+    let scheduled = 0;
+    for (const crossing of prediction.events) {
+      if (crossing.ordinal < actor.nextOrdinal) continue;
+      if (scheduled >= 32) break;
+      scheduleStep(crossing.ordinal, audioNow + Math.max(0.006, crossing.offsetSeconds), crossing, actor.score, index);
+      actor.nextOrdinal = crossing.ordinal + 1;
+      scheduled += 1;
+    }
   }
 }
 
@@ -1034,20 +1272,29 @@ function stopAudioScheduler() {
   schedulerTimer = 0;
   nextScheduledOrdinal = null;
   scheduledToeOffs.clear();
+  for (const actor of actors) {
+    actor.nextOrdinal = null;
+    actor.transitions.clear();
+  }
 }
 
 function resetAudioSchedule({ includeCurrentBoundary = false } = {}) {
   stopAudioScheduler();
   cancelFutureSources();
+  saveSelectedActor();
   if (!graph || !transportPlaying) return;
-  const position = currentPosition();
-  const nearestBoundary = Math.round(position);
-  const startsOnBoundary = includeCurrentBoundary && Math.abs(position - nearestBoundary) < 0.05;
-  nextScheduledOrdinal = startsOnBoundary ? nearestBoundary : Math.ceil(position + 0.015);
-  if (startsOnBoundary) {
-    const snapshot = quadrupedMotorSnapshot(state, motor);
-    scheduleStep(nearestBoundary, graph.context.currentTime + 0.008, snapshot);
-    nextScheduledOrdinal = nearestBoundary + 1;
+  materializeMotor();
+  for (const index of activeActorIndices()) {
+    const actor = actors[index];
+    const position = actor.motor.position;
+    const nearestBoundary = Math.round(position);
+    const startsOnBoundary = includeCurrentBoundary && Math.abs(position - nearestBoundary) < 0.05;
+    actor.nextOrdinal = startsOnBoundary ? nearestBoundary : Math.ceil(position + 0.015);
+    if (startsOnBoundary) {
+      const snapshot = quadrupedMotorSnapshot(actor.score, actor.motor);
+      scheduleStep(nearestBoundary, graph.context.currentTime + 0.008, snapshot, actor.score, index);
+      actor.nextOrdinal = nearestBoundary + 1;
+    }
   }
   startAudioScheduler();
 }
@@ -1087,11 +1334,18 @@ function stopTransport() {
   selectedStep = mod(Math.floor(stoppedPosition), QUADRUPED_STEP_COUNT);
   stopAudioScheduler();
   silenceFlightVoice();
+  if (graph) {
+    const now = graph.context.currentTime;
+    graph.cavernBus.wet.gain.setTargetAtTime(0, now, 0.02);
+    for (const echo of graph.cavernBus.echoes) echo.feedback.gain.setTargetAtTime(0, now, 0.025);
+  }
   releaseAllSources();
   renderGridState();
   syncTransportPresentation();
   syncGridPlayhead(-1);
   updateStageReadouts(selectedStep, true);
+  // Commit the stopped frame immediately, even if the browser delays its next RAF.
+  drawScene(performance.now());
   announce("Quadruped sequence paused.");
 }
 
@@ -1101,7 +1355,13 @@ function toggleTransport() {
 }
 
 function restartTransport() {
+  courseOriginX = 0;
   retimeTransport(0);
+  for (const index of activeActorIndices()) {
+    if (index === selectedActor) continue;
+    const actor = actors[index];
+    actor.motor = createQuadrupedMotorState(actor.score, { position: quadrupedPositionAtClock(actor.score, actor.offset * 16) });
+  }
   if (transportPlaying) motor = kickQuadrupedMotor(state, motor, 1);
   selectedStep = 0;
   cancelFutureSources();
@@ -1136,7 +1396,7 @@ function switchAnimal(animalId) {
 function switchBehavior(behaviorId) {
   if (behaviorId === state.behaviorId) return;
   rememberMode();
-  const key = `${state.animalId}:${behaviorId}`;
+  const key = `${selectedActor}:${state.animalId}:${behaviorId}`;
   const stored = modeMemory.get(key);
   const next = stored ?? applyQuadrupedBehavior(state, behaviorId);
   replaceState({ ...next, tempoBpm: state.tempoBpm, paceRatio: state.paceRatio, suspensionBeats: state.suspensionBeats, outputLevel: state.outputLevel }, {
@@ -1153,6 +1413,7 @@ function updateStateValue(key, value) {
     motor = synchronizeQuadrupedMotorTempo(state, motor);
     stoppedPosition = motor.position;
   }
+  shareGroupControls();
   if (key === "outputLevel" && graph) {
     graph.masterGain.gain.setTargetAtTime(state.outputLevel, graph.context.currentTime, 0.025);
   } else if (["tempoBpm", "paceRatio", "suspensionBeats", "stride", "momentum", "gravity"].includes(key)) {
@@ -1196,7 +1457,9 @@ function setSurface(surfaceId) {
   const position = currentPosition(now);
   state = setQuadrupedSurface(state, surfaceId);
   if (graph) applyMaterialProfile(graph.materialBus, quadrupedTerrain(state.surfaceId), graph.context.currentTime);
+  queueFrictionRebuild();
   retimeTransport(position, now, { preserveMotion: true });
+  shareGroupControls();
   rememberMode();
   resetAudioSchedule();
   syncAllControls({ grid: false });
@@ -1207,8 +1470,10 @@ function setSurface(surfaceId) {
 function setGroundProfile(groundProfileId) {
   const now = performance.now();
   const position = currentPosition(now);
+  courseOriginX = position / 16 * state.stride;
   state = setQuadrupedGroundProfile(state, groundProfileId);
   retimeTransport(position, now, { preserveMotion: true });
+  shareGroupControls();
   rememberMode();
   resetAudioSchedule();
   syncAllControls({ grid: true });
@@ -1243,9 +1508,13 @@ function createGridButton(row, step, label) {
   button.setAttribute("aria-describedby", "sequenceHelp");
   button.setAttribute("aria-label", label);
   button.addEventListener("focus", () => {
-    for (const control of gridControls) control.button.tabIndex = control.button === button ? 0 : -1;
+    // Focus only moves the roving target and selection. Rewriting button text
+    // and repainting 16 cards inside pointer focus can interrupt a native click.
+    for (const control of gridControls) {
+      control.button.tabIndex = control.button === button ? 0 : -1;
+      control.button.dataset.selected = String(control.step === step);
+    }
     selectedStep = step;
-    renderGridState();
     updateStageReadouts(step, true);
   });
   button.addEventListener("keydown", handleGridKeydown);
@@ -1329,8 +1598,8 @@ function drawCabinetPose(canvasElement, step) {
       lower,
       distal,
       bend,
-      isFront ? -0.025 : digitigrade ? 0.09 : 0.035,
-      -1,
+      morphology.family === "amphibian" && !isFront ? -1 : isFront ? -0.025 : digitigrade ? 0.09 : 0.035,
+      morphology.family === "amphibian" && !isFront ? -0.12 : -1,
     );
     context.save();
     context.globalAlpha = (far ? 0.48 : 1) * (1 - pose.bodySlide);
@@ -1405,7 +1674,7 @@ function drawCabinetPose(canvasElement, step) {
   context.beginPath();
   context.moveTo(miniTailRoot.x, miniTailRoot.y);
   context.quadraticCurveTo(miniTailRoot.x - 13 * morphology.tailLength, miniTailRoot.y + pose.tailAngle * 5, miniTailRoot.x - 22 * morphology.tailLength, miniTailRoot.y + 7 + pose.tailAngle * 7);
-  context.stroke();
+  if (morphology.tailLength > 0) context.stroke();
 
   drawMiniLeg("rear-right", false);
   drawMiniLeg("front-right", false);
@@ -1447,7 +1716,11 @@ function drawCabinetPose(canvasElement, step) {
   context.fill();
   context.stroke();
   const miniHead = 18 * morphology.headScale;
-  if (morphology.family === "elephant") {
+  if (morphology.family === "amphibian") {
+    for (const offset of [-0.3, 0.3]) {
+      context.beginPath(); context.arc(headX + miniHead * offset, headY - miniHead * 0.5, miniHead * 0.27, 0, Math.PI * 2); context.stroke();
+    }
+  } else if (morphology.family === "elephant") {
     context.lineWidth = 4;
     context.lineCap = "round";
     context.beginPath();
@@ -1531,6 +1804,14 @@ function drawCabinetPose(canvasElement, step) {
   }
 }
 
+function editCall(row, step, direction = 1, clear = false) {
+  const levels = [0, 0.58, 1];
+  const value = state.callPattern[row][step];
+  state.callPattern[row][step] = clear ? 0 : levels[mod((value <= 0 ? 0 : value < 0.8 ? 1 : 2) + direction, 3)];
+  rememberMode(); renderGridState(); resetAudioSchedule();
+  announce(`${quadrupedCalls(state.animalId)[row].label}, frame ${step + 1}: ${state.callPattern[row][step] ? "call" : "rest"}.`);
+}
+
 function buildSequenceGrid() {
   gridControls.length = 0;
   cabinetFrames.length = 0;
@@ -1605,8 +1886,34 @@ function buildSequenceGrid() {
     fragment.append(rowElement);
   });
 
+  for (let callRow = 0; callRow < 3; callRow += 1) {
+    const row = callRow + 4;
+    const rowElement = document.createElement("div");
+    rowElement.className = "quadruped-grid-row quadruped-call-row";
+    rowElement.setAttribute("role", "row");
+    rowElement.setAttribute("aria-rowindex", String(row + 2));
+    const label = document.createElement("span");
+    label.className = "quadruped-grid-row-label";
+    label.setAttribute("role", "rowheader");
+    label.setAttribute("aria-colindex", "1");
+    laneLabelElements.set(`call-${callRow}`, label);
+    rowElement.append(label);
+    for (let step = 0; step < 16; step += 1) {
+      const cell = document.createElement("span");
+      cell.setAttribute("role", "gridcell");
+      cell.setAttribute("aria-colindex", String(step + 2));
+      const button = createGridButton(row, step, `Call ${callRow + 1}, frame ${step + 1}`);
+      button.className = "quadruped-grid-cell";
+      button.dataset.callRow = String(callRow);
+      button.style.setProperty("--lane-color", ["#ed9edd", "#c6adea", "#9cdddf"][callRow]);
+      button.addEventListener("click", event => editCall(callRow, step, event.shiftKey ? -1 : 1));
+      cell.append(button); rowElement.append(cell);
+      gridControls.push({ button, row, callRow, step });
+    }
+    fragment.append(rowElement);
+  }
   $("sequenceGrid").replaceChildren(fragment);
-  $("sequenceGrid").setAttribute("aria-rowcount", String(QUADRUPED_LANES.length + 1));
+  $("sequenceGrid").setAttribute("aria-rowcount", "8");
   $("sequenceGrid").setAttribute("aria-colcount", String(QUADRUPED_STEP_COUNT + 1));
   renderGridState();
 }
@@ -1636,11 +1943,15 @@ function handleGridKeydown(event) {
     resetAudioSchedule();
     announce(`${QUADRUPED_LANES[row].label}, step ${step + 1}: no new touchdown.`);
     return;
+  } else if ((event.key === "Delete" || event.key === "Backspace") && row >= 4) {
+    event.preventDefault();
+    editCall(row - 4, step, 1, true);
+    return;
   } else {
     return;
   }
   event.preventDefault();
-  nextRow = clamp(nextRow, -1, QUADRUPED_LANES.length - 1);
+  nextRow = clamp(nextRow, -1, 6);
   nextStep = mod(nextStep, QUADRUPED_STEP_COUNT);
   for (const control of gridControls) control.button.tabIndex = -1;
   const target = gridControls.find((control) => control.row === nextRow && control.step === nextStep);
@@ -1654,6 +1965,10 @@ function contactLevelName(value) {
 }
 
 function renderGridState() {
+  quadrupedCalls(state.animalId).forEach((call, row) => {
+    const label = laneLabelElements.get(`call-${row}`);
+    if (label) label.textContent = call.label;
+  });
   for (const lane of QUADRUPED_LANES) {
     const label = laneLabelElements.get(lane.id);
     if (label) label.textContent = `${lane.shortLabel} · ${quadrupedFootVoice(state.animalId, lane.id).label}`;
@@ -1667,6 +1982,15 @@ function renderGridState() {
       const duration = Number((quadrupedScoreTiming(state).durations[control.step] / 16).toFixed(3));
       const supportLabel = pose.bodySlide > 0.85 ? "body sliding" : pose.airborne ? "airborne" : `${pose.groundSupportCount} feet supporting`;
       control.button.setAttribute("aria-label", `Motion-study frame ${control.step + 1}, ${supportLabel}, ${duration} beats.`);
+      continue;
+    }
+    if (control.callRow !== undefined) {
+      const value = state.callPattern[control.callRow][control.step];
+      control.button.dataset.level = value <= 0 ? "none" : value < 0.8 ? "soft" : "strong";
+      control.button.style.setProperty("--level", String(value));
+      control.button.textContent = value <= 0 ? "·" : value < 0.8 ? "○" : "●";
+      control.button.setAttribute("aria-pressed", value <= 0 ? "false" : value < 0.8 ? "mixed" : "true");
+      control.button.setAttribute("aria-label", `${quadrupedCalls(state.animalId)[control.callRow].label}, frame ${control.step + 1}: ${value <= 0 ? "rest" : value < 0.8 ? "soft call" : "strong call"}. Activate to cycle.`);
       continue;
     }
     const value = state.pattern[control.laneId][control.step];
@@ -1715,7 +2039,30 @@ function syncTheme() {
   document.body.dataset.animal = animal.id;
 }
 
+function syncEnsembleControls() {
+  document.querySelectorAll("[data-group-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.groupMode === groupMode)));
+  document.querySelectorAll("[data-actor-index]").forEach(button => {
+    const index = Number(button.dataset.actorIndex);
+    const actor = actors[index];
+    button.hidden = !actor || (groupMode === "solo" && index !== selectedActor);
+    button.setAttribute("aria-pressed", String(index === selectedActor));
+    button.textContent = `${String.fromCharCode(65 + index)} · ${actor ? quadrupedAnimal(actor.score.animalId).label : ""}`;
+  });
+  $("scatterButton").disabled = groupMode === "solo";
+  $("sequenceTitle").textContent = `Score ${String.fromCharCode(65 + selectedActor)}`;
+  for (const key of ["grain", "cavern"]) {
+    $(key).value = String(world[key]);
+    setOutput($(key + "Out"), `${Math.round(world[key] * 100)}%`);
+  }
+}
+
 function syncAllControls({ grid = true } = {}) {
+  shareGroupControls();
+  syncEnsembleControls();
+  if (graph && graph.materialBus.surfaceId !== state.surfaceId) {
+    applyMaterialProfile(graph.materialBus, quadrupedTerrain(state.surfaceId), graph.context.currentTime);
+    queueFrictionRebuild();
+  }
   const animal = quadrupedAnimal(state.animalId);
   const behavior = quadrupedBehavior(state.behaviorId);
   syncTheme();
@@ -1897,7 +2244,7 @@ function drawStepContactNotes(context, step, x, y, width, height, active) {
   context.restore();
 }
 
-function headPerformanceSignals(pose) {
+function headPerformanceSignals(pose, score = state) {
   const automatic = transportPlaying ? pose.headPerformance ?? {} : {};
   return {
     ...automatic,
@@ -1925,10 +2272,10 @@ function drawContactRipple(context, x, groundY, color, strength, scale) {
   context.restore();
 }
 
-function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, color, far) {
+function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, color, far, score = state) {
   if (pose.bodySlide > 0.85) return;
   const leg = pose.legs[id];
-  const morphology = quadrupedAnimal(state.animalId).morphology;
+  const morphology = quadrupedAnimal(score.animalId).morphology;
   const lift = leg.lift;
   const impact = leg.impact;
   const isFront = id.startsWith("front");
@@ -1961,8 +2308,8 @@ function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, col
     lowerLength,
     distalLength,
     bend,
-    isFront ? -0.025 : isDigitigrade ? 0.09 : 0.035,
-    -1,
+    morphology.family === "amphibian" && !isFront ? -1 : isFront ? -0.025 : isDigitigrade ? 0.09 : 0.035,
+    morphology.family === "amphibian" && !isFront ? -0.12 : -1,
   );
   context.save();
   context.globalAlpha = (far ? 0.56 : 1) * (1 - pose.bodySlide);
@@ -1982,6 +2329,16 @@ function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, col
   context.moveTo(hipX, hipY);
   context.lineTo(chain.kneeX, chain.kneeY);
   context.stroke();
+  if (morphology.family === "amphibian" && isHind) {
+    context.lineWidth = bodyScale * 0.27;
+    context.beginPath(); context.moveTo(hipX, hipY);
+    context.lineTo(chain.kneeX, chain.kneeY); context.stroke();
+    context.lineWidth = bodyScale * 0.025;
+    context.strokeStyle = quadrupedAnimal(score.animalId).palette[4];
+    context.beginPath(); context.moveTo(hipX, hipY - bodyScale * 0.07);
+    context.lineTo(chain.kneeX, chain.kneeY - bodyScale * 0.04); context.stroke();
+    context.strokeStyle = color;
+  }
   context.lineWidth = Math.max(2, bodyScale * morphology.legWidth * 1.12);
   context.beginPath();
   context.moveTo(chain.kneeX, chain.kneeY);
@@ -1991,7 +2348,12 @@ function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, col
   context.fillStyle = laneById.get(id).color;
   context.lineWidth = Math.max(2.5, bodyScale * morphology.footWidth * 0.72);
   const footHalf = bodyScale * morphology.footWidth * 0.5;
-  if (morphology.family === "goat") {
+  if (morphology.family === "amphibian") {
+    context.lineWidth = Math.max(1, bodyScale * 0.018);
+    context.beginPath(); context.moveTo(chain.footX - footHalf, chain.footY);
+    for (let toe = 0; toe < (isFront ? 4 : 5); toe += 1) context.lineTo(chain.footX + footHalf * (0.3 + (toe % 2 ? 0.4 : 1.3)), chain.footY + (toe - 2) * bodyScale * 0.025);
+    context.closePath(); context.globalAlpha *= 0.8; context.fill(); context.stroke();
+  } else if (morphology.family === "goat") {
     context.beginPath();
     context.moveTo(chain.footX - footHalf, chain.footY);
     context.lineTo(chain.footX - footHalf * 0.12, chain.footY - bodyScale * 0.008);
@@ -2013,6 +2375,11 @@ function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, col
 }
 
 function drawEyeAndMouth(context, headX, headY, size, pose, facing = 1) {
+  const callStrength = transportPlaying ? pose.headPerformance?.strength ?? 0 : 0;
+  if (callStrength > 0.02) {
+    context.save(); context.fillStyle = "#172017";
+    context.beginPath(); context.ellipse(headX + facing * size * 0.3, headY + size * 0.2, size * 0.15, size * (0.02 + callStrength * 0.15), 0, 0, Math.PI * 2); context.fill(); context.restore();
+  }
   context.save();
   context.fillStyle = "#07100f";
   context.beginPath();
@@ -2085,17 +2452,17 @@ function drawNewSpeciesHead(context, x, y, size, family, palette) {
   context.restore();
 }
 
-function drawHeadAura(context, headX, headY, size, pose, performanceState) {
+function drawHeadAura(context, headX, headY, size, pose, performanceState, score = state) {
   const strength = clamp(performanceState.strength);
   if (strength < 0.02) return;
-  const animal = quadrupedAnimal(state.animalId);
+  const animal = quadrupedAnimal(score.animalId);
   context.save();
   context.globalAlpha = 0.2 + strength * 0.55;
   context.strokeStyle = animal.palette[2];
   context.lineWidth = Math.max(1, size * 0.025);
   context.shadowColor = animal.palette[2];
   context.shadowBlur = size * 0.3;
-  const rays = state.animalId === "unicorn" ? 9 : state.animalId === "elephant" ? 5 : 7;
+  const rays = score.animalId === "unicorn" ? 9 : score.animalId === "elephant" ? 5 : 7;
   for (let index = 0; index < rays; index += 1) {
     const angle = index / rays * Math.PI * 2 + pose.phase * 0.35;
     const inner = size * (0.62 + strength * 0.12);
@@ -2108,10 +2475,10 @@ function drawHeadAura(context, headX, headY, size, pose, performanceState) {
   context.restore();
 }
 
-function drawAnimal(context, pose, width, height, groundY) {
-  const animal = quadrupedAnimal(state.animalId);
+function drawAnimal(context, pose, width, height, groundY, score = state) {
+  const animal = quadrupedAnimal(score.animalId);
   const morphology = animal.morphology;
-  const performanceState = headPerformanceSignals(pose);
+  const performanceState = headPerformanceSignals(pose, score);
   const centerX = width * 0.5;
   const scale = Math.min(height * 0.27, width * 0.145) * animal.bodyScale;
   const isFeline = morphology.family === "feline";
@@ -2134,15 +2501,16 @@ function drawAnimal(context, pose, width, height, groundY) {
   const headAnchor = bodyPoint(scale * morphology.headForward, -scale * morphology.headRise);
   const headX = headAnchor.x;
   const headY = headAnchor.y - pose.headLift * scale * (isLizard ? 0.06 : 0.16)
-    + pose.headNod * scale * 0.12 - performanceState.headToss * scale * 0.13;
+    + pose.headNod * scale * 0.12 - performanceState.headToss * scale * 0.13
+    - performanceState.strength * scale * 0.065 + performanceState.neckSway * scale * 0.06;
   const hips = {
     "rear-left": bodyPoint(-bodyWidth * 0.4, bodyHeight * 0.2 * morphology.haunch),
     "rear-right": bodyPoint(-bodyWidth * 0.37, bodyHeight * 0.22 * morphology.haunch),
     "front-left": bodyPoint(bodyWidth * 0.37, bodyHeight * 0.18 * morphology.shoulder),
     "front-right": bodyPoint(bodyWidth * 0.4, bodyHeight * 0.2 * morphology.shoulder),
   };
-  drawLeg(context, "rear-left", hips["rear-left"].x, hips["rear-left"].y, centerX, groundY, scale, pose, animal.palette[1], true);
-  drawLeg(context, "front-left", hips["front-left"].x, hips["front-left"].y, centerX, groundY, scale, pose, animal.palette[1], true);
+  drawLeg(context, "rear-left", hips["rear-left"].x, hips["rear-left"].y, centerX, groundY, scale, pose, animal.palette[1], true, score);
+  drawLeg(context, "front-left", hips["front-left"].x, hips["front-left"].y, centerX, groundY, scale, pose, animal.palette[1], true, score);
 
   context.save();
   context.translate(centerX, bodyY);
@@ -2166,13 +2534,34 @@ function drawAnimal(context, pose, width, height, groundY) {
   context.closePath();
   context.fill();
   context.stroke();
-  if (state.animalId === "gazelle") {
+  context.save();
+  context.clip();
+  context.shadowBlur = 0;
+  const texturedSkin = ["elephant", "ceratopsian", "lizard", "amphibian"].includes(morphology.family);
+  context.strokeStyle = animal.palette[1];
+  context.fillStyle = animal.palette[1];
+  context.lineWidth = Math.max(0.6, scale * 0.006);
+  context.globalAlpha = texturedSkin ? 0.38 : 0.2;
+  for (let mark = 0; mark < (texturedSkin ? 55 : 32); mark += 1) {
+    const x = (mod(mark * 0.618033, 1) - 0.5) * bodyWidth;
+    const y = (mod(mark * 0.3819, 1) - 0.5) * bodyHeight;
+    context.beginPath();
+    if (morphology.family === "elephant") {
+      context.moveTo(x, y); context.quadraticCurveTo(x - scale * 0.045, y + scale * 0.015, x - scale * 0.02, y + scale * 0.07); context.stroke();
+    } else if (texturedSkin) {
+      context.ellipse(x, y, scale * (0.014 + (mark % 3) * 0.006), scale * 0.012, 0.2, 0, Math.PI * 2); context.fill();
+    } else {
+      context.moveTo(x, y); context.lineTo(x - scale * 0.035, y + scale * 0.014); context.stroke();
+    }
+  }
+  context.restore();
+  if (score.animalId === "gazelle") {
     context.fillStyle = animal.palette[2];
     context.beginPath();
     context.ellipse(0, bodyHeight * 0.2, bodyWidth * 0.42, bodyHeight * 0.12, 0, 0, Math.PI * 2);
     context.fill();
   }
-  if (state.animalId === "cheetah") {
+  if (score.animalId === "cheetah") {
     context.fillStyle = animal.palette[3];
     context.globalAlpha = 0.72;
     for (let spot = 0; spot < 11; spot += 1) {
@@ -2184,7 +2573,7 @@ function drawAnimal(context, pose, width, height, groundY) {
     }
     context.globalAlpha = 1;
   }
-  if (state.animalId === "giraffe") {
+  if (score.animalId === "giraffe") {
     context.fillStyle = animal.palette[1];
     context.globalAlpha = 0.82;
     for (const [spotX, spotY, radiusX, radiusY, angle] of [
@@ -2198,7 +2587,7 @@ function drawAnimal(context, pose, width, height, groundY) {
     }
     context.globalAlpha = 1;
   }
-  if (state.animalId === "unicorn") {
+  if (score.animalId === "unicorn") {
     context.strokeStyle = animal.palette[2];
     context.lineWidth = scale * 0.055;
     context.beginPath();
@@ -2260,12 +2649,12 @@ function drawAnimal(context, pose, width, height, groundY) {
   const tailRoot = bodyPoint(-bodyWidth * 0.52, -bodyHeight * 0.12);
   const tailStartX = tailRoot.x;
   const tailStartY = tailRoot.y;
-  const tailAngle = pose.tailAngle;
+  const tailAngle = pose.tailAngle + performanceState.strength * Math.sin((performanceState.progress ?? 1) * Math.PI * 4) * 0.55;
   context.save();
   context.translate(tailStartX, tailStartY);
   context.rotate(bodyRotation);
   context.translate(-tailStartX, -tailStartY);
-  context.strokeStyle = state.animalId === "unicorn" ? animal.palette[2] : animal.palette[1];
+  context.strokeStyle = score.animalId === "unicorn" ? animal.palette[2] : animal.palette[1];
   context.lineWidth = Math.max(morphology.family === "rodent" ? 1 : 3, scale * (
     morphology.family === "elephant" ? 0.065
       : morphology.family === "equid" ? 0.085
@@ -2289,7 +2678,7 @@ function drawAnimal(context, pose, width, height, groundY) {
     context.closePath();
     context.fillStyle = animal.palette[1];
     context.fill();
-  } else {
+  } else if (morphology.tailLength > 0) {
     context.stroke();
   }
   context.restore();
@@ -2305,8 +2694,8 @@ function drawAnimal(context, pose, width, height, groundY) {
     context.restore();
   }
 
-  drawLeg(context, "rear-right", hips["rear-right"].x, hips["rear-right"].y, centerX, groundY, scale, pose, animal.palette[0], false);
-  drawLeg(context, "front-right", hips["front-right"].x, hips["front-right"].y, centerX, groundY, scale, pose, animal.palette[0], false);
+  drawLeg(context, "rear-right", hips["rear-right"].x, hips["rear-right"].y, centerX, groundY, scale, pose, animal.palette[0], false, score);
+  drawLeg(context, "front-right", hips["front-right"].x, hips["front-right"].y, centerX, groundY, scale, pose, animal.palette[0], false, score);
 
   context.save();
   if (pose.forwardRoll > 0 || pose.cartwheel > 0) {
@@ -2317,7 +2706,30 @@ function drawAnimal(context, pose, width, height, groundY) {
   context.fillStyle = animal.palette[0];
   context.strokeStyle = animal.palette[3];
   context.lineWidth = Math.max(2, scale * 0.027);
-  if (state.animalId === "elephant") {
+  if (score.animalId === "frog") {
+    const pouch = transportPlaying ? pose.headPerformance?.throatPulse ?? 0 : 0;
+    context.fillStyle = animal.palette[4];
+    context.beginPath();
+    context.ellipse(headX + headSize * 0.16, headY + headSize * (0.24 + pouch * 0.12), headSize * (0.5 + pouch * 0.18), headSize * (0.21 + pouch * 0.42), 0, 0, Math.PI * 2);
+    context.fill(); context.stroke();
+    context.fillStyle = animal.palette[0];
+    context.beginPath(); context.ellipse(headX, headY - headSize * 0.07, headSize * 0.77, headSize * 0.4, -0.06, 0, Math.PI * 2); context.fill(); context.stroke();
+    for (const eyeOffset of [-0.26, 0.3]) {
+      const eyeX = headX + headSize * eyeOffset;
+      const eyeY = headY - headSize * (eyeOffset < 0 ? 0.44 : 0.4);
+      context.fillStyle = animal.palette[0];
+      context.beginPath(); context.arc(eyeX, eyeY, headSize * 0.24, 0, Math.PI * 2); context.fill(); context.stroke();
+      context.fillStyle = "#d4b950";
+      context.beginPath(); context.arc(eyeX + headSize * 0.035, eyeY, headSize * 0.16, 0, Math.PI * 2); context.fill();
+      context.fillStyle = "#101909";
+      context.beginPath(); context.ellipse(eyeX + headSize * 0.065, eyeY, headSize * 0.125, headSize * 0.055, 0, 0, Math.PI * 2); context.fill();
+      context.fillStyle = "#ffffe6"; context.beginPath(); context.arc(eyeX + headSize * 0.095, eyeY - headSize * 0.065, headSize * 0.035, 0, Math.PI * 2); context.fill();
+    }
+    context.strokeStyle = animal.palette[3]; context.lineWidth = Math.max(1, headSize * 0.025);
+    context.beginPath(); context.moveTo(headX - headSize * 0.52, headY + headSize * 0.1);
+    context.quadraticCurveTo(headX + headSize * 0.24, headY + headSize * 0.31, headX + headSize * 0.72, headY + headSize * 0.03); context.stroke();
+    context.fillStyle = animal.palette[3]; context.beginPath(); context.arc(headX + headSize * 0.6, headY - headSize * 0.12, headSize * 0.028, 0, Math.PI * 2); context.fill();
+  } else if (score.animalId === "elephant") {
     context.beginPath();
     context.ellipse(headX - headSize * 0.25, headY, headSize * 0.64, headSize * 0.7, -0.15, 0, Math.PI * 2);
     context.fill();
@@ -2407,7 +2819,7 @@ function drawAnimal(context, pose, width, height, groundY) {
     if (!isLizard && morphology.family !== "rabbit") {
       context.fillStyle = animal.palette[1];
       if (morphology.family === "equid") {
-        const earHeight = state.animalId === "horse" ? 0.42 : 0.72;
+        const earHeight = score.animalId === "horse" ? 0.42 : 0.72;
         for (const offset of [-0.18, 0.06]) {
           context.beginPath();
           context.moveTo(headX + headSize * offset, headY - headSize * 0.36);
@@ -2425,7 +2837,7 @@ function drawAnimal(context, pose, width, height, groundY) {
         context.fill();
       }
     }
-    if (state.animalId === "unicorn") {
+    if (score.animalId === "unicorn") {
       const hornPulse = clamp(performanceState.hornPulse);
       const hornTipX = headX + headSize * (0.35 + hornPulse * 0.15);
       const hornTipY = headY - headSize * (1.36 + hornPulse * 0.34);
@@ -2485,7 +2897,7 @@ function drawAnimal(context, pose, width, height, groundY) {
     } else if (morphology.family === "equid") {
       const muzzleX = headX + headSize * 0.42;
       const muzzleY = headY + headSize * 0.16;
-      context.fillStyle = state.animalId === "horse" ? animal.palette[1] : animal.palette[4];
+      context.fillStyle = score.animalId === "horse" ? animal.palette[1] : animal.palette[4];
       context.beginPath();
       context.ellipse(muzzleX, muzzleY, headSize * 0.4, headSize * 0.19, -0.12, 0, Math.PI * 2);
       context.fill();
@@ -2570,7 +2982,7 @@ function drawAnimal(context, pose, width, height, groundY) {
       context.lineTo(headX + headSize * 0.02, headY - headSize * 0.58);
       context.closePath();
       context.fill();
-    } else if (state.animalId === "gazelle") {
+    } else if (score.animalId === "gazelle") {
       const headToss = clamp(performanceState.headToss);
       const earFlick = clamp(performanceState.earFlick);
       context.fillStyle = animal.palette[1];
@@ -2626,7 +3038,7 @@ function drawAnimal(context, pose, width, height, groundY) {
           context.stroke();
         }
       }
-      if (state.animalId === "cheetah") {
+      if (score.animalId === "cheetah") {
         context.fillStyle = animal.palette[3];
         context.beginPath();
         context.arc(headX - headSize * 0.08, headY - headSize * 0.04, headSize * 0.055, 0, Math.PI * 2);
@@ -2680,7 +3092,7 @@ function drawAnimal(context, pose, width, height, groundY) {
     drawEyeAndMouth(context, headX, headY, headSize, pose);
   }
   context.restore();
-  drawHeadAura(context, headX, headY, headSize, pose, performanceState);
+  drawHeadAura(context, headX, headY, headSize, pose, performanceState, score);
 }
 
 function drawScene(now) {
@@ -2804,7 +3216,7 @@ function drawScene(now) {
   lastFootprintHits = [];
   const newestOrdinal = Math.floor(position + 0.0001);
   const oldestOrdinal = newestOrdinal - QUADRUPED_STEP_COUNT * 3;
-  for (let ordinal = oldestOrdinal; ordinal <= newestOrdinal; ordinal += 1) {
+  if (groupMode === "solo") for (let ordinal = oldestOrdinal; ordinal <= newestOrdinal; ordinal += 1) {
     const event = quadrupedSequenceEvent(state, ordinal);
     for (const contact of event.contacts) {
       const cycle = quadrupedFootCycleState(state, contact.id, ordinal);
@@ -2861,7 +3273,64 @@ function drawScene(now) {
     }
     drawing.restore();
   }
-  drawAnimal(drawing, pose, width, height, groundY);
+  const visibleActors = activeActorIndices();
+  canvas.dataset.actorCount = String(visibleActors.length);
+  canvas.dataset.selectedActor = String(selectedActor);
+  canvas.dataset.call = pose.headPerformance?.kind ?? "";
+  canvas.dataset.callStrength = String(pose.headPerformance?.strength ?? 0);
+  canvas.dataset.actorPositions = JSON.stringify(visibleActors.map(index => Number(actors[index].motor.position.toFixed(3))));
+  canvas.dataset.actorTempos = JSON.stringify(visibleActors.map(index => actors[index].score.tempoBpm));
+  canvas.dataset.stairLevel = String(worldSoundAt().level);
+  if (groupMode === "solo") {
+    drawAnimal(drawing, pose, width, height, groundY);
+  } else {
+    // Three independently travelling lanes in one field. Each local camera
+    // follows its own planted anchors; changing the editor never moves a body.
+    drawing.fillStyle = gradient; drawing.fillRect(0, 0, width, height);
+    lastFootprintHits = [];
+    const laneWidth = width / 3;
+    visibleActors.forEach(index => {
+      const actor = actors[index];
+      const snapshot = quadrupedMotorSnapshot(actor.score, actor.motor);
+      const actorPose = deriveQuadrupedPose(actor.score, actor.motor.position, snapshot);
+      const actorAnimal = quadrupedAnimal(actor.score.animalId);
+      const localScale = Math.min(height * 0.27, laneWidth * 1.6 * 0.145) * actorAnimal.bodyScale;
+      const localWorldScale = localScale * 0.74;
+      const localWorldX = actor.motor.position / 16 * actor.score.stride;
+      const localGround = height * 0.74;
+      const floorAt = x => localGround - (quadrupedGroundHeightAtWorldX(actor.score.groundProfileId, localWorldX + (x - laneWidth / 2) / localWorldScale) - actorPose.bodyGroundHeight) * localWorldScale;
+      drawing.save(); drawing.translate(index * laneWidth, 0);
+      drawing.beginPath(); drawing.rect(0, 0, laneWidth, height); drawing.clip();
+      drawing.beginPath(); drawing.moveTo(0, height); drawing.lineTo(0, floorAt(0));
+      for (let x = 2; x <= laneWidth; x += 2) drawing.lineTo(x, floorAt(x));
+      drawing.lineTo(laneWidth, height); drawing.closePath();
+      drawing.fillStyle = surface.color; drawing.fill();
+      for (let ordinal = Math.floor(actor.motor.position) - 24; ordinal <= actor.motor.position; ordinal += 1) {
+        for (const contact of quadrupedSequenceEvent(actor.score, ordinal).contacts) {
+          const foot = quadrupedFootCycleState(actor.score, contact.id, ordinal);
+          const x = laneWidth / 2 + (foot.anchorWorldX - localWorldX) * localWorldScale;
+          drawing.save(); drawing.globalAlpha = Math.max(0.06, 0.55 - (actor.motor.position - ordinal) / 48);
+          drawing.fillStyle = contact.color; drawing.beginPath();
+          drawing.ellipse(x, localGround - (foot.anchorWorldY - actorPose.bodyGroundHeight) * localWorldScale + 2, localScale * 0.09, 2, 0, 0, Math.PI * 2); drawing.fill(); drawing.restore();
+        }
+      }
+      for (const lane of QUADRUPED_LANES) {
+        const leg = actorPose.legs[lane.id];
+        if (!leg.grounded) continue;
+        const x = laneWidth / 2 + leg.footX * localWorldScale;
+        drawing.fillStyle = lane.color; drawing.beginPath();
+        drawing.ellipse(x, localGround - (leg.footWorldY - actorPose.bodyGroundHeight) * localWorldScale + 2, localScale * 0.1, 2, 0, 0, Math.PI * 2); drawing.fill();
+      }
+      drawing.save(); drawing.translate(-laneWidth * 0.3, 0);
+      drawAnimal(drawing, actorPose, laneWidth * 1.6, height, localGround, actor.score);
+      drawing.restore();
+      drawing.font = "12px ui-monospace, monospace"; drawing.textAlign = "center";
+      drawing.fillStyle = index === selectedActor ? "#eeffb8" : "#c9d8cc";
+      drawing.fillText(`${"ABC"[index]} · ${actorAnimal.label}`, laneWidth / 2, height * 0.4);
+      drawing.fillText(quadrupedBehavior(actor.score.behaviorId).label, laneWidth / 2, height * 0.4 + 18);
+      drawing.restore();
+    });
+  }
 
   const step = pose.step;
   syncGridPlayhead(transportPlaying ? step : -1);
@@ -2983,6 +3452,30 @@ function handleGlobalKeydown(event) {
 }
 
 function bindControls() {
+  document.querySelectorAll("[data-group-mode]").forEach(button => button.addEventListener("click", () => setGroupMode(button.dataset.groupMode)));
+  document.querySelectorAll("[data-actor-index]").forEach(button => button.addEventListener("click", () => selectActor(Number(button.dataset.actorIndex))));
+  $("scatterButton").addEventListener("click", scatterGroup);
+  for (const key of ["grain", "cavern"]) $(key).addEventListener("input", () => {
+    world = sanitizeQuadrupedWorld({ ...world, [key]: Number($(key).value) });
+    if (key === "grain") queueFrictionRebuild();
+    syncEnsembleControls();
+  });
+  $("newGrainButton").addEventListener("click", () => {
+    world = sanitizeQuadrupedWorld({ ...world, seed: world.seed + 1 });
+    queueFrictionRebuild();
+    announce("New seeded ground grain.");
+  });
+  $("callPhraseButton").addEventListener("click", () => {
+    state.callPattern = emptyQuadrupedCalls();
+    [0, 6, 12].forEach((step, row) => { state.callPattern[row][step] = 0.58; });
+    rememberMode(); renderGridState(); resetAudioSchedule();
+    announce("Three calls written on frames 1, 7 and 13.");
+  });
+  $("clearCallsButton").addEventListener("click", () => {
+    state.callPattern = emptyQuadrupedCalls();
+    rememberMode(); renderGridState(); resetAudioSchedule();
+    announce("Calls cleared; feet unchanged.");
+  });
   $("audioButton").addEventListener("click", toggleAudio);
   $("playButton").addEventListener("click", toggleTransport);
   $("restartButton").addEventListener("click", restartTransport);

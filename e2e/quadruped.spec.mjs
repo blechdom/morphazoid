@@ -9,9 +9,9 @@ test.describe("Quadruped", () => {
     expect(response?.ok()).toBe(true);
 
     await expect(page.getByRole("heading", { name: /quadruped/i })).toBeVisible();
-    await expect(page.getByRole("grid")).toHaveAttribute("aria-rowcount", "5");
+    await expect(page.getByRole("grid")).toHaveAttribute("aria-rowcount", "8");
     await expect(page.getByRole("grid")).toHaveAttribute("aria-colcount", "17");
-    await expect(page.getByRole("gridcell")).toHaveCount(64);
+    await expect(page.getByRole("gridcell")).toHaveCount(112);
     await expect(page.getByRole("columnheader")).toHaveCount(16);
     await expect(page.locator("[data-animal-id]")).toHaveCount(QUADRUPED_ANIMALS.length);
     await expect(page.locator("[data-behavior-id]")).toHaveCount(QUADRUPED_BEHAVIORS.length);

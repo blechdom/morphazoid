@@ -39,8 +39,9 @@ third-party visual assets are included.
 
 ## Reading and programming the score
 
-There are four editable rows: left front (LF), right front (RF), left hind (LH),
-and right hind (RH). There is no fifth tail lane.
+There are four editable foot rows: left front (LF), right front (RF), left hind (LH),
+and right hind (RH). Three optional melodic call rows sit below them. Calls never
+count as support or propulsion. There is no fifth tail-contact lane.
 
 - `·` means **no new touchdown on this frame**.
 - `○` means a **soft touchdown**.
@@ -224,9 +225,12 @@ filtering, decay, and pan. Touchdown sounds the main attack; load and push add
 smaller stance accents; toe-off adds a bounded release texture. The selected
 surface passes those contacts through one persistent material resonator.
 
-Automatic head music is intentionally muted in this gait-focused pass. Head,
-neck, trunk, muzzle, ears, and tail remain visible anatomy, but the rhythm comes
-from feet, support, momentum, flight, and landing.
+Calls start empty so the gait remains purely percussive. Every animal has three
+named melodic synthesis voices. The separate call rows cycle rest / soft / strong;
+Call phrase writes a sparse editable example on frames 1, 7, and 13. Calls preserve
+their score across creature changes. Like footfalls, call onsets use predicted
+motor crossings on the audio clock. Head gestures use the same weighted card time
+and bounded phrase duration. Calls do not propel an empty foot score.
 
 - The motor integrates at 480 fixed steps per second to resolve fast 3× supports.
 - Global clock rate is exactly `tempoBpm * 16 / 60` clock units per second;
@@ -238,6 +242,43 @@ from feet, support, momentum, flight, and landing.
   bounded gain.
 - One-shots are capped at 48 and scheduled from motor-predicted crossings on
   `AudioContext.currentTime`.
-- One persistent bounded noise source handles ordinary unsupported air or body
-  sliding; extended leap/roll rests explicitly mute it.
+- Each of three available actors has one persistent air source and one seeded
+  friction source. Only active actors sound. Explicit leap/roll rests mute air;
+  authored call events remain an intentional way to write a voice into those rests.
 - Audio and transport stay separate: Play and score editing never arm Audio.
+
+## Ensemble, grain, depth, and frog
+
+Solo plays the selected score; Herd creates three of that species with differing
+gaits; Trio creates the selected species, Cat and Gazelle. A/B/C selects the score
+to edit without resetting any motor. BPM, pace, stride, surface, path, resonance
+and output are shared; gait, foot score, call score and added air/slide time are
+private. Scatter uses bounded seeded phase offsets, not a free-running random
+tempo. Changing group mode creates a fresh group from the selected score; Solo
+retains only that selected player's audible participation. This is a musical
+ensemble in adjacent travelling camera lanes, not a collision/flocking model.
+
+Skid friction is generated from irregular seeded micro-impacts exciting two damped
+resonant modes plus secondary colored grit. Each material has its own density,
+decay and resonances. Slide grain varies catch/release timing and motion-linked
+filter/playback-rate modulation; New grain changes the reproducible texture seed.
+The friction sources crossfade on surface/seed edits. Inspiration:
+[DAFx 2021 scraping/rolling synthesis](https://dafx.de/paper-archive/2021/proceedings/papers/DAFx20in21_paper_33.pdf)
+and the [authors' sound demonstrations](https://mcdermottlab.mit.edu/scraping_rolling.html).
+No recordings or third-party code are used.
+
+Each landing tread changes the foot's pitch register. A bounded tanh map of
+signed tread count brightens ascending attacks and darkens descending ones.
+Descending also opens three damped feedback delays with longer decay and lower
+cutoff. Stair depth scales this color; changing the course or restarting resets
+the depth origin. Elevation alone does not determine real room acoustics: this
+is the user's expressive cavern metaphor, not an acoustic simulation.
+
+Frog adds large folded hind limbs, webbed toes, a broad tailless body, raised eyes,
+and a vocal pouch pulsing to Croak, Ribbit and Peep. Its ordinary hop uses the
+shared Jump/Leap patterns; transferred horse gaits and stunts remain playful.
+Anatomical inspiration: [AMNH frog facts](https://www.amnh.org/exhibitions/frogs-a-chorus-of-colors/frog-fun-facts)
+and [AMNH frog exhibition](https://www.amnh.org/exhibitions/frogs-a-chorus-of-colors).
+Pouch and limb proportions are authored approximations, not species measurements.
+All animal calls are melodic character synths, not authentic recordings; unicorn,
+dinosaur and instrumental animal voices explicitly belong to the fantasy.

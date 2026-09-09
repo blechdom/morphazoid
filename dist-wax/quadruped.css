@@ -334,6 +334,16 @@ body.quadruped-page {
   background: var(--quad-accent-2);
 }
 
+.quadruped-ensemble { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 12px 0; }
+.quadruped-ensemble > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.quadruped-ensemble button, #newGrainButton { font: inherit; color: var(--quad-ink, #eaf5ed); background: #17221e; border: 1px solid #617368; border-radius: 5px; padding: 7px 9px; min-height: 36px; cursor: pointer; }
+.quadruped-ensemble button[aria-pressed="true"] { background: #364638; border-color: #c6e893; }
+.quadruped-ensemble button:focus-visible, #newGrainButton:focus-visible { outline: 2px solid #d9ed78; outline-offset: 3px; }
+.quadruped-ensemble button[hidden] { display: none; }
+.quadruped-ensemble button:disabled { opacity: 0.45; cursor: default; }
+.quadruped-call-row { border-top: 1px solid #4d584d; }
+@media (pointer: coarse) { .quadruped-ensemble button, #newGrainButton { min-height: 48px; } }
+
 .quadruped-grid {
   display: grid;
   gap: 2px;

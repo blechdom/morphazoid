@@ -70,7 +70,7 @@ test("animation and audio both advance from the foot-driven motor", async () => 
   const position = app.match(/function currentPosition[^\{]*\{([\s\S]*?)\n\}/)?.[1] ?? "";
   const scheduler = app.match(/function scheduleAudioWindow\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   assert.match(position, /materializeMotor\(now\)\.position/);
-  assert.match(scheduler, /predictQuadrupedMotor\(state, motor,/);
+  assert.match(scheduler, /predictQuadrupedMotor\(actor\.score, actor\.motor,/);
   assert.match(scheduler, /for \(const crossing of prediction\.events\)/);
   assert.match(scheduler, /scheduleStep\(/);
   assert.match(scheduler, /crossing\.offsetSeconds/);
@@ -84,7 +84,7 @@ test("animation and audio both advance from the foot-driven motor", async () => 
 
 test("the compact score makes touchdown strength and continuing support independent", async () => {
   const [app, css] = await Promise.all([read("quadruped-app.js"), read("quadruped.css")]);
-  assert.match(app, /aria-rowcount", String\(QUADRUPED_LANES\.length \+ 1\)/);
+  assert.match(app, /aria-rowcount", "8"/);
   assert.match(app, /aria-colcount", String\(QUADRUPED_STEP_COUNT \+ 1\)/);
   assert.match(app, /cell\.setAttribute\("role", "columnheader"\)/);
   assert.match(app, /cell\.setAttribute\("role", "gridcell"\)/);
@@ -122,11 +122,11 @@ test("audio uses one material resonator, stance accents, and an exact no-support
   const app = await read("quadruped-app.js");
   assert.match(app, /mixBus\.gain\.value = 1\.45/);
   assert.equal((app.match(/const materialBus = createMaterialBus\(/g) ?? []).length, 1);
-  assert.equal((app.match(/const flightVoice = createFlightVoice\(/g) ?? []).length, 1);
+  assert.match(app, /const flightVoices = Array\.from\(\{ length: 3 \}/);
   assert.match(app, /applyMaterialProfile\(graph\.materialBus, quadrupedTerrain\(state\.surfaceId\)/);
-  const flight = app.match(/function syncFlightVoice\(snapshot\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  const flight = app.match(/function syncFlightVoice\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   assert.match(flight, /snapshot\.supportCount === 0/);
-  assert.match(flight, /if \(!unsupported\)/);
+  assert.match(flight, /unsupported \? 0\.075/);
   const scheduler = app.match(/function scheduleAudioWindow\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   assert.match(scheduler, /transition\.type === "load" \|\| transition\.type === "push"/);
   assert.match(scheduler, /scheduleStanceAccent/);
@@ -161,7 +161,7 @@ test("edits preserve motion and global surface/path changes relatch honestly", a
   for (const property of ["mass", "power", "compliance", "rollingResistance", "baseGravity"]) {
     assert.match(model, new RegExp(`${property}:`));
   }
-  assert.match(catalog, /fourteen species-shaped animal bodies/);
+  assert.match(catalog, /species-shaped bodies, including Frog/);
   assert.match(catalog, /touchdown, load, push, support, lift-off, and landing/);
   assert.match(catalog, /exact global BPM clock/i);
   assert.match(catalog, /tempo stays independent/i);
@@ -198,4 +198,6 @@ test("Quadruped markup does not duplicate ids", async () => {
 test("the release builder carries the Quadruped motor into static and WAX output", async () => {
   const build = await read("scripts/build-site.sh");
   assert.equal((build.match(/src\/quadruped-motor\.js/g) ?? []).length, 2);
+  assert.equal((build.match(/src\/quadruped-voices\.js/g) ?? []).length, 2);
+  assert.equal((build.match(/src\/quadruped-world\.js/g) ?? []).length, 2);
 });

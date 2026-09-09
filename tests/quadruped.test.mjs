@@ -50,7 +50,7 @@ import {
 const footLaneIds = QUADRUPED_LANES.map(({ id }) => id);
 const animalIds = [
   "elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe", "lizard",
-  "horse", "dog", "goat", "rabbit", "camel", "mouse", "dinosaur",
+  "horse", "dog", "goat", "rabbit", "camel", "mouse", "dinosaur", "frog",
 ];
 const finite = (value) => Number.isFinite(Number(value));
 const distance = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
@@ -63,7 +63,7 @@ function signature(animalId, behaviorId) {
   }).filter(Boolean);
 }
 
-test("Quadruped exposes fourteen animals, forty-five transferable gaits, four feet, sixteen cards, eight surfaces, and three courses", () => {
+test("Quadruped exposes fifteen animals, forty-five transferable gaits, four feet, sixteen cards, eight surfaces, and three courses", () => {
   assert.deepEqual(QUADRUPED_ANIMALS.map(({ id }) => id), animalIds);
   assert.equal(QUADRUPED_BEHAVIORS.length, 45);
   assert.ok(QUADRUPED_BEHAVIORS.some(({ id }) => id === "rabbit-gallop"));

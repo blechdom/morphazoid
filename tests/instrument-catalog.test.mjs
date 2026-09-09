@@ -467,13 +467,15 @@ test("Creaturazoid intersperses creature voices and body percussion in one share
   assert.equal(midi?.computerKeyboardMode, "page");
 });
 
-test("Quadruped couples fourteen animal bodies to one foot-driven contact score", () => {
+test("Quadruped includes Frog and couples animal bodies to foot-driven contact scores", () => {
   const instrument = instrumentById("quadruped");
   assert.equal(instrument?.label, "Quadruped");
   assert.equal(instrument?.href, "quadruped.html");
   assert.equal(instrument?.imageHref, "assets/instruments/quadruped.webp");
   assert.equal(instrument?.kind, "Quadruped gait sequencer");
-  assert.match(instrument?.description ?? "", /fourteen species-shaped animal bodies/i);
+  assert.match(instrument?.description ?? "", /species-shaped bodies, including Frog/i);
+  assert.match(instrument?.description ?? "", /three optional melodic calls/i);
+  assert.match(instrument?.start ?? "", /Solo, Herd or Trio/i);
   assert.match(instrument?.description ?? "", /sixteen-card motion study/i);
   assert.match(instrument?.description ?? "", /touchdown, load, push, support, lift-off, and landing/i);
   assert.match(instrument?.start ?? "", /continuous ground material/i);

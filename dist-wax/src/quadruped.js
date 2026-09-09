@@ -1,3 +1,4 @@
+import { emptyQuadrupedCalls, sanitizeQuadrupedCalls, quadrupedCallEvents } from "./quadruped-voices.js";
 const CONTACT_LEVELS = Object.freeze([0, 0.58, 1]);
 
 export const QUADRUPED_STEP_COUNT = 16;
@@ -19,6 +20,7 @@ const ALL_QUADRUPED_IDS = Object.freeze([
   "camel",
   "mouse",
   "dinosaur",
+  "frog",
 ]);
 
 export const QUADRUPED_LIMITS = Object.freeze({
@@ -163,6 +165,12 @@ const GAIT_DUTY_FACTORS = Object.freeze({
 });
 
 export const QUADRUPED_FOOT_VOICES = Object.freeze({
+  frog: Object.freeze({
+    "front-left": Object.freeze({ label: "web pat", family: "fore-web" }),
+    "front-right": Object.freeze({ label: "toe plip", family: "fore-plip" }),
+    "rear-left": Object.freeze({ label: "haunch pop", family: "hind-spring" }),
+    "rear-right": Object.freeze({ label: "launch plop", family: "hind-launch" }),
+  }),
   mouse: Object.freeze({
     "front-left": Object.freeze({ label: "tiny tick", family: "fore-tick" }),
     "front-right": Object.freeze({ label: "claw fleck", family: "fore-fleck" }),
@@ -253,6 +261,7 @@ export const QUADRUPED_FOOT_VOICES = Object.freeze({
 // solver changes joint angles, so gait edits articulate a body rather than
 // stretching decorative legs.
 const MORPHOLOGY = Object.freeze({
+  frog: Object.freeze({ family: "amphibian", bodyWidth: 1.08, bodyHeight: 0.6, clearance: 0.35, shoulder: 0.78, haunch: 1.46, headScale: 0.56, neckLength: 0.04, headForward: 0.47, headRise: 0.04, frontUpper: 0.23, frontLower: 0.25, hindUpper: 0.5, hindLower: 0.45, distal: 0.2, legWidth: 0.09, footWidth: 0.19, tailLength: 0, foreBend: 1, hindBend: 1, spineElasticity: 0.09 }),
   mouse: Object.freeze({ family: "rodent", bodyWidth: 1.34, bodyHeight: 0.65, clearance: 0.3, shoulder: 0.8, haunch: 0.98, headScale: 0.43, neckLength: 0.14, headForward: 0.68, headRise: 0.04, frontUpper: 0.18, frontLower: 0.17, hindUpper: 0.27, hindLower: 0.22, distal: 0.09, legWidth: 0.038, footWidth: 0.11, tailLength: 1.55, foreBend: 1, hindBend: -1, spineElasticity: 0.2 }),
   dinosaur: Object.freeze({ family: "ceratopsian", bodyWidth: 1.75, bodyHeight: 0.86, clearance: 0.6, shoulder: 1.08, haunch: 1, headScale: 0.66, neckLength: 0.24, headForward: 0.94, headRise: 0.08, frontUpper: 0.34, frontLower: 0.3, hindUpper: 0.38, hindLower: 0.32, distal: 0.1, legWidth: 0.16, footWidth: 0.19, tailLength: 1.03, foreBend: 1, hindBend: -1, spineElasticity: 0.025 }),
   elephant: Object.freeze({ family: "elephant", bodyWidth: 1.5, bodyHeight: 0.78, clearance: 0.84, shoulder: 1.04, haunch: 1.02, headScale: 0.58, neckLength: 0.08, headForward: 0.58, headRise: 0.04, frontUpper: 0.34, frontLower: 0.35, hindUpper: 0.34, hindLower: 0.35, distal: 0.045, legWidth: 0.11, footWidth: 0.14, tailLength: 0.64, foreBend: 1, hindBend: -1, spineElasticity: 0.03 }),
@@ -270,6 +279,12 @@ const MORPHOLOGY = Object.freeze({
 });
 
 const ANIMAL_DEFINITIONS = Object.freeze({
+  frog: Object.freeze({
+    id: "frog", label: "Frog", subtitle: "webbed spring percussion", description: "Folded haunches, webbed toes and a pulsing throat pouch. Try Jump or Leap.", defaultBehaviorId: "jump", behaviorIds: ALL_BEHAVIOR_IDS,
+    mood: 0.72, groundResonance: 0.6, outputLevel: 0.6, bodyScale: 0.7, morphology: MORPHOLOGY.frog,
+    palette: Object.freeze(["#80ae40", "#355d2e", "#d9ed78", "#122613", "#d9de9d"]), scale: Object.freeze([43, 50, 55, 62, 67, 74]),
+    mass: 0.44, power: 1.24, compliance: 1.3, rollingResistance: 0.7, baseGravity: 10.2,
+  }),
   mouse: Object.freeze({
     id: "mouse", label: "Mouse", subtitle: "tiny paw percussion", description: "Tiny paws, round ears, a pointed muzzle and a long balancing tail.", defaultBehaviorId: "walk", behaviorIds: ALL_BEHAVIOR_IDS,
     mood: 0.62, groundResonance: 0.38, outputLevel: 0.6, bodyScale: 0.38, morphology: MORPHOLOGY.mouse,
@@ -1000,7 +1015,7 @@ export function createQuadrupedState(animalId = "elephant", behaviorId = null) {
   const animal = quadrupedAnimal(animalId);
   const behavior = behaviorDefinition(behaviorId ?? animal.defaultBehaviorId, animal.id);
   return {
-    version: 7,
+    version: 8,
     animalId: animal.id,
     behaviorId: behavior.id,
     tempoBpm: QUADRUPED_DEFAULT_TEMPO_BPM,
@@ -1013,6 +1028,7 @@ export function createQuadrupedState(animalId = "elephant", behaviorId = null) {
     groundResonance: animal.groundResonance,
     outputLevel: animal.outputLevel,
     pattern: authoredPattern(animal.id, behavior.id),
+    callPattern: emptyQuadrupedCalls(),
     surfaceId: "earth",
     groundProfileId: "level",
     customized: false,
@@ -1046,7 +1062,7 @@ export function sanitizeQuadrupedState(candidate, fallback = createQuadrupedStat
     ? Number(source.mutationSeed) >>> 0
     : Number(fallback?.mutationSeed ?? 0x51414452) >>> 0;
   return {
-    version: 7,
+    version: 8,
     animalId: animal.id,
     behaviorId: behavior.id,
     tempoBpm: clamp(source.tempoBpm ?? fallback?.tempoBpm ?? QUADRUPED_DEFAULT_TEMPO_BPM, ...QUADRUPED_LIMITS.tempoBpm),
@@ -1059,6 +1075,7 @@ export function sanitizeQuadrupedState(candidate, fallback = createQuadrupedStat
     groundResonance: clamp(source.groundResonance ?? fallback?.groundResonance ?? animal.groundResonance, ...QUADRUPED_LIMITS.groundResonance),
     outputLevel: clamp(source.outputLevel ?? fallback?.outputLevel ?? animal.outputLevel, ...QUADRUPED_LIMITS.outputLevel),
     pattern: sanitizedPattern(source.pattern, fallbackPattern),
+    callPattern: sanitizeQuadrupedCalls(source.callPattern ?? fallback?.callPattern),
     surfaceId,
     groundProfileId,
     customized: Boolean(source.customized ?? fallback?.customized ?? false),
@@ -1071,6 +1088,7 @@ export function applyQuadrupedAnimal(state, animalId) {
   return sanitizeQuadrupedState({
     ...next,
     pattern: state?.pattern ?? next.pattern,
+    callPattern: state?.callPattern ?? next.callPattern,
     customized: state?.customized ?? false,
     paceRatio: state?.paceRatio ?? 1,
     suspensionBeats: state?.suspensionBeats ?? 2,
@@ -1087,6 +1105,7 @@ export function applyQuadrupedBehavior(state, behaviorId) {
   return sanitizeQuadrupedState({
     ...next,
     tempoBpm: current.tempoBpm,
+    callPattern: current.callPattern,
     paceRatio: current.paceRatio,
     suspensionBeats: current.suspensionBeats,
     mood: current.mood,
@@ -1345,19 +1364,19 @@ function headPerformanceFromSafe(safe, absolutePosition) {
   const wholeStep = Math.floor(position);
   const phase = position - wholeStep;
   for (let lag = 0; lag < QUADRUPED_STEP_COUNT; lag += 1) {
-    const phrase = sequenceEventFromSafe(safe, wholeStep - lag).head;
+    const phrase = quadrupedCallEvents(safe, wholeStep - lag).sort((a, b) => b.intensity - a.intensity)[0];
     if (!phrase) continue;
-    const elapsedFrames = lag + phase;
-    const durationFrames = phrase.durationFrames ?? 1.5;
+    const elapsedFrames = (quadrupedClockAtPosition(safe, position) - quadrupedClockAtPosition(safe, wholeStep - lag)) / 16 * 60 / safe.tempoBpm;
+    const durationFrames = phrase.duration;
     if (elapsedFrames > durationFrames) continue;
     const progress = clamp(elapsedFrames / Math.max(0.001, durationFrames));
     const attack = clamp(elapsedFrames / Math.min(0.34, durationFrames * 0.22));
     const strength = clamp(Math.sin(attack * Math.PI * 0.5) * (1 - progress * 0.72));
-    const noteIndex = phrase.motifIndex ?? 0;
-    const notePulse = clamp(Math.exp(-progress * 5.5));
+    const noteIndex = Math.min(phrase.notes.length - 1, Math.floor(progress * phrase.notes.length));
+    const notePulse = 0.45 + 0.55 * Math.max(0, Math.sin(progress * Math.PI * Math.max(2, phrase.pulse || phrase.notes.length)));
     return Object.freeze({
       active: true,
-      kind: phrase.kind,
+      kind: phrase.label,
       gesture: phrase.gesture,
       strength,
       progress,
@@ -1371,6 +1390,7 @@ function headPerformanceFromSafe(safe, absolutePosition) {
       spineFlex: phrase.gesture === "spine-chirp" ? strength * (noteIndex % 2 ? -1 : 1) : 0,
       neckSway: phrase.gesture === "neck-sway" ? strength * Math.sin((noteIndex + progress) * Math.PI * 0.7) : 0,
       tongueFlick: phrase.gesture === "tongue-flick" ? notePulse : 0,
+      throatPulse: phrase.gesture === "throat-pulse" ? strength * notePulse : 0,
     });
   }
   return Object.freeze({ active: false, kind: null, gesture: null, strength: 0, progress: 1, noteIndex: -1, notePulse: 0, trunkRaise: 0, hornPulse: 0, headToss: 0, earFlick: 0, whiskerPulse: 0, spineFlex: 0, neckSway: 0, tongueFlick: 0 });
