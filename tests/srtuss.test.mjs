@@ -1218,17 +1218,38 @@ test("page is a control-forward explicit-audio master synth with no shader viewp
   assert.match(html, /class="shell srtuss-shell"/);
   assert.match(html, /class="stage srtuss-workbench"/);
   assert.match(html, /class="panel srtuss-editor"/);
+  const workbenchStart = html.indexOf('class="stage srtuss-workbench"');
+  const editorStart = html.indexOf('class="panel srtuss-editor"');
+  const transportStart = html.indexOf('class="srtuss-transport"');
+  const selectedPartStart = html.indexOf("srtuss-selected-voice");
+  assert.ok(
+    workbenchStart < editorStart && editorStart < transportStart && transportStart < selectedPartStart,
+    "primary transport should be the first session control in the right editor pane",
+  );
+  assert.match(html, /id="synthPlayLabel"/);
+  assert.match(html, /id="synthPlayState"/);
   assert.match(html, /class="group control-section srtuss-section/);
+  const appVersion = html.match(/srtuss-app\.js\?v=([^"]+)/)?.[1];
+  assert.ok(appVersion, "the SRTUSS app should have a cache version");
+  assert.match(app, new RegExp('from "\\.\\/src\\/srtuss\\.js\\?v=' + appVersion + '"'));
+  assert.match(app, new RegExp('from "\\.\\/src\\/srtuss-master\\.js\\?v=' + appVersion + '"'));
   assert.match(html, /Local server required/);
   assert.match(html, /npm run dev/);
   assert.match(html, /id="masterControls"/);
   assert.match(html, /id="rackControls"/);
+  for (const id of [
+    "previousVoice", "macroVoiceSelect", "nextVoice",
+    "macroTargetName", "macroControlCount",
+  ]) {
+    assert.match(html, new RegExp('id="' + id + '"'));
+  }
   for (const id of ["globalClock", "globalTune", "globalWidth", "globalSpace", "globalDrive"]) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
   assert.ok(
-    html.indexOf('id="rackControls"') < html.indexOf('id="masterControls"'),
-    "rack globals should be visible before selected-voice macros",
+    html.indexOf('id="rackControls"') < html.indexOf('id="voiceDeck"')
+      && html.indexOf('id="voiceDeck"') < html.indexOf('id="masterControls"'),
+    "rack globals, selectable parts, and their knobs should appear in causal order",
   );
   assert.match(html, /id="presetButtons"/);
   assert.match(html, /id="selectedVoicePart"/);
@@ -1236,7 +1257,11 @@ test("page is a control-forward explicit-audio master synth with no shader viewp
   assert.match(html, /id="addVoice"[^>]*disabled/);
   assert.match(html, /id="voiceDeck"/);
   assert.match(html, /id="selectedVoiceMode"/);
-  assert.match(html, /id="nativeControls"/);
+  assert.doesNotMatch(html, /id="nativeControls"/);
+  assert.doesNotMatch(html, /id="selectedVoiceEnabled"|id="selectedVoiceSolo"/);
+  assert.doesNotMatch(html, /id="macroTargetFocus"/);
+  assert.match(app, /button\.dataset\.voiceAction = action/);
+  assert.match(html, /Add another voice to combine any sound source and internal part/);
   assert.match(html, /id="stemControls"/);
   assert.match(html, /id="originalButtons"/);
   assert.match(html, /7\/16 parts/);
@@ -1255,6 +1280,8 @@ test("page is a control-forward explicit-audio master synth with no shader viewp
   assert.doesNotMatch(html, /id="nextProject"|id="voiceRack"/);
 
   assert.match(app, /autoStart: false/);
+  assert.match(app, /setText\("synthPlayLabel"/);
+  assert.match(app, /setText\("synthPlayState"/);
   assert.match(app, /state\.audioStatus === "on" && engine\?\.sampleRate/);
   assert.match(app, /nextEngine\.alignStoppedTransport\(joinSeconds\)/);
   assert.match(app, /resolvedRuntimeVoices/);
@@ -1277,6 +1304,7 @@ test("page is a control-forward explicit-audio master synth with no shader viewp
   assert.doesNotMatch(app, /createOscillator/);
 
   assert.match(css, /\.srtuss-page \.srtuss-knob-shelf/);
+  assert.match(css, /\.srtuss-page \.srtuss-transport \{[\s\S]*position: sticky/);
   assert.match(css, /\.srtuss-page \.srtuss-rack-controls/);
   assert.match(css, /\.srtuss-page \.srtuss-voice-deck/);
   assert.match(css, /\.srtuss-page \.srtuss-native-controls/);

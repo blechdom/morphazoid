@@ -10,7 +10,7 @@ import {
   sanitizeSrtussVoices,
   srtussProjectById,
   srtussSupport,
-} from "./src/srtuss.js?v=20260906-parts-1";
+} from "./src/srtuss.js?v=20260908-voice-card-1";
 import {
   SRTUSS_MIX_PART_ID,
   SRTUSS_MASTER_FAMILIES,
@@ -29,8 +29,9 @@ import {
   sanitizeSrtussMasterStems,
   srtussMasterFamily,
   srtussMasterPart,
+  srtussMasterPartMacros,
   srtussMasterParts,
-} from "./src/srtuss-master.js?v=20260906-parts-1";
+} from "./src/srtuss-master.js?v=20260908-voice-card-1";
 
 const $ = (id) => document.getElementById(id);
 const support = srtussSupport(globalThis);
@@ -552,6 +553,105 @@ function renderPendingProjects() {
   }
 }
 
+function voicePartLabel(voice) {
+  const project = srtussProjectById(voice.projectId);
+  if (voice.mode === "original") return projectLabel(project);
+  return srtussMasterPart(voice.projectId, voice.partId)?.label ?? projectLabel(project);
+}
+
+function voiceTargetLabel(voice, index = state.voices.indexOf(voice)) {
+  return "P" + String(Math.max(0, index) + 1).padStart(2, "0")
+    + " · " + voicePartLabel(voice);
+}
+
+function selectVoiceForEditing(voiceId, { quiet = false } = {}) {
+  const voice = state.voices.find(({ id }) => id === voiceId);
+  if (!voice || voice.id === state.selectedVoiceId) return;
+  state.selectedVoiceId = voice.id;
+  renderVoiceDeck();
+  renderSelectedVoiceInterface();
+  if (!quiet) announce(voiceTargetLabel(voice) + " now controls the knob bank.");
+}
+
+
+function renderPartTarget() {
+  const voice = selectedVoice();
+  if (!voice) return;
+  const index = selectedVoiceIndex();
+  const project = srtussProjectById(voice.projectId);
+  const target = $("macroVoiceSelect");
+  if (target) {
+    target.replaceChildren();
+    state.voices.forEach((candidate, candidateIndex) => {
+      const option = document.createElement("option");
+      option.value = candidate.id;
+      option.textContent = voiceTargetLabel(candidate, candidateIndex)
+        + " — " + projectLabel(srtussProjectById(candidate.projectId));
+      target.append(option);
+    });
+    target.value = voice.id;
+  }
+
+  const anySolo = state.voices.some((candidate) => candidate.enabled && candidate.solo);
+  const targetStatus = $("macroTargetStatus");
+  if (targetStatus) {
+    targetStatus.textContent = !voice.enabled
+      ? "Muted"
+      : voice.solo
+        ? "Soloed"
+        : anySolo
+          ? "Hidden by solo"
+          : "In the full mix";
+    targetStatus.dataset.state = !voice.enabled
+      ? "muted"
+      : voice.solo
+        ? "solo"
+        : anySolo
+          ? "masked"
+          : "mix";
+  }
+  const previous = $("previousVoice");
+  const next = $("nextVoice");
+  if (previous) previous.title = "Edit " + voicePartLabel(
+    state.voices[(index - 1 + state.voices.length) % state.voices.length],
+  );
+  if (next) next.title = "Edit " + voicePartLabel(
+    state.voices[(index + 1) % state.voices.length],
+  );
+
+  setText("macroTargetName", voiceTargetLabel(voice, index) + " controls");
+  const masterControls = $("masterControls");
+  if (masterControls) {
+    masterControls.dataset.voiceId = voice.id;
+    masterControls.dataset.projectId = project?.id ?? "";
+    masterControls.dataset.partId = voice.partId;
+  }
+}
+
+function createVoiceAction(voice, index, action, pressed) {
+  const button = document.createElement("button");
+  const target = voiceTargetLabel(voice, index);
+  button.type = "button";
+  button.className = "srtuss-voice-action srtuss-voice-action--" + action;
+  button.dataset.voiceAction = action;
+  button.dataset.voiceId = voice.id;
+  button.setAttribute("aria-pressed", String(pressed));
+  if (action === "edit") {
+    button.textContent = pressed ? "Editing" : "Edit";
+    button.setAttribute("aria-label", (pressed ? "Editing " : "Edit ") + target);
+    button.addEventListener("click", () => selectVoiceForEditing(voice.id));
+  } else if (action === "mute") {
+    button.textContent = pressed ? "Muted" : "Mute";
+    button.setAttribute("aria-label", (pressed ? "Unmute " : "Mute ") + target);
+    button.addEventListener("click", () => toggleVoiceEnabled(voice.id));
+  } else {
+    button.textContent = pressed ? "Soloed" : "Solo";
+    button.setAttribute("aria-label", (pressed ? "Release solo for " : "Solo ") + target);
+    button.addEventListener("click", () => toggleVoiceSolo(voice.id));
+  }
+  return button;
+}
+
 function renderVoiceDeck() {
   const container = $("voiceDeck");
   if (!container) return;
@@ -560,37 +660,39 @@ function renderVoiceDeck() {
   state.voices.forEach((voice, index) => {
     const project = srtussProjectById(voice.projectId);
     const part = srtussMasterPart(voice.projectId, voice.partId);
-    const partLabel = part?.label ?? projectLabel(project);
+    const partLabel = voicePartLabel(voice);
     const audible = voice.enabled && (!anySolo || voice.solo);
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "srtuss-voice-card";
-    button.dataset.voiceId = voice.id;
-    button.dataset.mode = voice.mode;
-    button.dataset.partRole = part?.role ?? "mix";
-    button.dataset.enabled = String(voice.enabled);
-    button.dataset.solo = String(voice.solo);
-    button.setAttribute("aria-pressed", String(voice.id === state.selectedVoiceId));
-    button.setAttribute(
+    const selected = voice.id === state.selectedVoiceId;
+    const card = document.createElement("article");
+    card.className = "srtuss-voice-card";
+    card.dataset.voiceId = voice.id;
+    card.dataset.mode = voice.mode;
+    card.dataset.partRole = part?.role ?? "mix";
+    card.dataset.enabled = String(voice.enabled);
+    card.dataset.solo = String(voice.solo);
+    card.dataset.selected = String(selected);
+    card.setAttribute("role", "group");
+    card.setAttribute(
       "aria-label",
-      "Select part " + (index + 1) + ", " + partLabel + " from " + projectLabel(project),
+      voiceTargetLabel(voice, index) + " from " + projectLabel(project),
     );
 
     const head = document.createElement("span");
     head.className = "srtuss-voice-card__head";
     const number = document.createElement("small");
     number.textContent = "P" + String(index + 1).padStart(2, "0");
+    const editState = document.createElement("span");
+    editState.className = "srtuss-voice-card__edit-state";
+    editState.textContent = selected ? "EDITING" : "VOICE";
+    head.append(number, editState);
+
     const name = document.createElement("b");
+    name.className = "srtuss-voice-card__name";
     name.textContent = partLabel;
-    head.append(number, name);
 
     const mode = document.createElement("span");
     mode.className = "srtuss-voice-card__mode";
-    mode.textContent = projectLabel(project) + " · " + (voice.solo
-      ? "SOLO"
-      : voice.enabled
-        ? voice.mode
-        : "muted");
+    mode.textContent = projectLabel(project) + " · " + voice.mode;
 
     const meter = document.createElement("span");
     meter.className = "srtuss-voice-card__meter";
@@ -600,13 +702,16 @@ function renderVoiceDeck() {
     meterFill.style.width = (audible ? voice.level * 100 : 0) + "%";
     meter.append(meterFill);
 
-    button.append(head, mode, meter);
-    button.addEventListener("click", () => {
-      state.selectedVoiceId = voice.id;
-      renderVoiceDeck();
-      renderSelectedVoiceInterface();
-    });
-    container.append(button);
+    const actions = document.createElement("span");
+    actions.className = "srtuss-voice-card__actions";
+    actions.append(
+      createVoiceAction(voice, index, "edit", selected),
+      createVoiceAction(voice, index, "mute", !voice.enabled),
+      createVoiceAction(voice, index, "solo", voice.solo),
+    );
+
+    card.append(head, name, mode, meter, actions);
+    container.append(card);
   });
   document.body.dataset.voiceCount = String(state.voices.length);
 }
@@ -616,18 +721,15 @@ function macroLabel(family, macro) {
 }
 
 function macroIsSupported(voice, macroId) {
-  const family = srtussMasterFamily(voice.projectId);
-  return Boolean(
-    family
-    && voice.mode === "master"
-    && family.supportedMacros.includes(macroId),
-  );
+  return srtussMasterPartMacros(voice.projectId, voice.partId, voice.mode).includes(macroId);
 }
 
 function createMacroKnob(voice, family, macro) {
+  const targetLabel = voiceTargetLabel(voice);
   const label = document.createElement("label");
   label.className = "srtuss-knob";
   label.dataset.macroId = macro.id;
+  label.dataset.voiceId = voice.id;
   const position = knobPosition(macro, voice.params[macro.id]);
   label.style.setProperty("--knob-position", String(position));
 
@@ -643,12 +745,11 @@ function createMacroKnob(voice, family, macro) {
   input.value = String(voice.params[macro.id]);
   input.dataset.masterParam = macro.id;
   input.dataset.controlBank = "rotary";
-  input.dataset.supported = String(
-    Boolean(family?.supportedMacros.includes(macro.id)),
-  );
+  input.dataset.supported = "true";
+  input.dataset.voiceId = voice.id;
   input.setAttribute(
     "aria-label",
-    macroLabel(family, macro) + " for " + projectLabel(srtussProjectById(voice.projectId)),
+    macroLabel(family, macro) + " for " + targetLabel,
   );
   dial.append(input);
 
@@ -662,13 +763,7 @@ function createMacroKnob(voice, family, macro) {
   output.textContent = formatMacroValue(macro, voice.params[macro.id]);
 
   label.append(dial, name, output);
-  if (!family?.supportedMacros.includes(macro.id)) {
-    label.title = "This source family does not map " + macro.label + ".";
-  } else if (voice.mode !== "master") {
-    label.title = "Switch this voice to Master mode to use " + name.textContent + ".";
-  } else {
-    label.title = macro.description;
-  }
+  label.title = macro.description + " Affects " + targetLabel + ".";
   input.addEventListener("input", handleMacroInput);
   input.addEventListener("change", () => {
     void commitScene();
@@ -676,36 +771,6 @@ function createMacroKnob(voice, family, macro) {
   return label;
 }
 
-function createNativeMacroControl(voice, family, macro) {
-  const label = document.createElement("label");
-  label.className = "srtuss-native-control control";
-  const heading = document.createElement("span");
-  const name = document.createElement("b");
-  name.textContent = macroLabel(family, macro);
-  const output = document.createElement("output");
-  const input = document.createElement("input");
-  input.id = "native-" + macro.id;
-  input.type = "range";
-  input.min = String(macro.min);
-  input.max = String(macro.max);
-  input.step = String(macro.step);
-  input.value = String(voice.params[macro.id]);
-  input.dataset.masterParam = macro.id;
-  input.dataset.controlBank = "native";
-  input.dataset.supported = String(
-    Boolean(family?.supportedMacros.includes(macro.id)),
-  );
-  output.htmlFor = input.id;
-  output.dataset.masterParamOutput = macro.id;
-  output.textContent = formatMacroValue(macro, voice.params[macro.id]);
-  heading.append(name, output);
-  label.append(heading, input);
-  input.addEventListener("input", handleMacroInput);
-  input.addEventListener("change", () => {
-    void commitScene();
-  });
-  return label;
-}
 
 function createStemControl(voice, stem) {
   const label = document.createElement("label");
@@ -735,24 +800,37 @@ function createStemControl(voice, stem) {
   return label;
 }
 
+function createMacroNotice(voice) {
+  const note = document.createElement("p");
+  note.className = "control-note srtuss-macro-empty";
+  note.textContent = voice.mode === "original"
+    ? "This is the exact, unparameterized source. Choose Master mode in the right pane to expose controls."
+    : "This source has no mapped controls for the selected part.";
+  return note;
+}
+
 function renderMacroControls() {
   const voice = selectedVoice();
   if (!voice) return;
   const family = srtussMasterFamily(voice.projectId);
+  const macroIds = new Set(
+    srtussMasterPartMacros(voice.projectId, voice.partId, voice.mode),
+  );
+  const macros = SRTUSS_MASTER_MACROS.filter(({ id }) => macroIds.has(id));
+  setText(
+    "macroControlCount",
+    macros.length
+      ? macros.length + " controls · this part only"
+      : "No mapped controls",
+  );
+
   const masterControls = $("masterControls");
   if (masterControls) {
+    masterControls.dataset.empty = String(macros.length === 0);
     masterControls.replaceChildren(
-      ...SRTUSS_MASTER_MACROS.map((macro) => (
-        createMacroKnob(voice, family, macro)
-      )),
-    );
-  }
-  const nativeControls = $("nativeControls");
-  if (nativeControls) {
-    nativeControls.replaceChildren(
-      ...SRTUSS_MASTER_MACROS.map((macro) => (
-        createNativeMacroControl(voice, family, macro)
-      )),
+      ...(macros.length
+        ? macros.map((macro) => createMacroKnob(voice, family, macro))
+        : [createMacroNotice(voice)]),
     );
   }
 }
@@ -773,7 +851,7 @@ function renderTechniqueDetails(voice, family) {
       + (
         voice.mode === "original"
           ? " Original mode bypasses the master macros and part selector."
-          : ""
+          : " Its effective controls appear once in the knob bank."
       ),
   );
   const container = $("techniqueTags");
@@ -869,18 +947,6 @@ function renderInspector(voice, family) {
     }
     partSelect.value = sanitizeSrtussMasterPartId(voice.projectId, voice.partId, voice.mode);
   }
-
-  const enabled = $("selectedVoiceEnabled");
-  if (enabled) {
-    enabled.setAttribute("aria-pressed", String(voice.enabled));
-    enabled.textContent = voice.enabled ? "Enabled" : "Muted";
-  }
-  const solo = $("selectedVoiceSolo");
-  if (solo) {
-    solo.setAttribute("aria-pressed", String(voice.solo));
-    solo.textContent = voice.solo ? "Soloed" : "Solo";
-  }
-
   const inspectorValues = [
     ["selectedVoiceLevel", "selectedVoiceLevelOut", voice.level, formatLevel],
     ["selectedVoicePan", "selectedVoicePanOut", voice.pan, formatPan],
@@ -901,6 +967,7 @@ function renderSelectedVoiceInterface() {
   if (!voice) return;
   const family = srtussMasterFamily(voice.projectId);
   renderMacroControls();
+  renderPartTarget();
   renderInspector(voice, family);
   updateControlAvailability();
 }
@@ -990,11 +1057,10 @@ function updateControlAvailability() {
     "selectedVoiceSource",
     "selectedVoiceMode",
     "selectedVoicePart",
-    "selectedVoiceEnabled",
-    "selectedVoiceSolo",
     "selectedVoiceLevel",
     "selectedVoicePan",
     "selectedVoiceRate",
+    "macroVoiceSelect",
   ]) {
     const control = $(id);
     if (control) control.disabled = locked;
@@ -1005,6 +1071,16 @@ function updateControlAvailability() {
   if (mutate) mutate.disabled = locked || !family;
   const partControl = $("selectedVoicePart");
   if (partControl) partControl.disabled = locked || !family || voice?.mode !== "master";
+  const voiceSelect = $("macroVoiceSelect");
+  if (voiceSelect) voiceSelect.disabled = locked || state.voices.length <= 1;
+  const navigationDisabled = locked || state.voices.length <= 1;
+  for (const id of ["previousVoice", "nextVoice"]) {
+    const control = $(id);
+    if (control) control.disabled = navigationDisabled;
+  }
+  for (const control of document.querySelectorAll("[data-voice-action]")) {
+    control.disabled = locked;
+  }
 
   for (const input of document.querySelectorAll(PARAM_INPUT_SELECTOR)) {
     input.disabled = locked
@@ -1514,11 +1590,15 @@ function setPlaybackState(playing, { quiet = false } = {}) {
   state.transportAnchorMs = performance.now();
   state.playing = Boolean(playing);
   document.body.dataset.playing = String(state.playing);
+  const action = state.playing ? "Pause srtuss master synth" : "Play srtuss master synth";
   const button = $("synthPlayButton");
   if (button) {
     button.setAttribute("aria-pressed", String(state.playing));
-    button.textContent = state.playing ? "Pause master" : "Play master";
+    button.setAttribute("aria-label", action);
+    button.title = action + " (Space)";
   }
+  setText("synthPlayLabel", state.playing ? "Pause master" : "Play master");
+  setText("synthPlayState", state.playing ? "playing · Space" : "paused · Space");
   if (engine && state.audioOn) {
     const targetEngine = engine;
     void targetEngine.setPlaybackEnabled(state.playing).catch((error) => {
@@ -1808,29 +1888,50 @@ function changeSelectedPart(partId) {
   });
 }
 
-function toggleSelectedEnabled() {
-  const voice = selectedVoice();
+function toggleVoiceEnabled(voiceId) {
+  const voice = state.voices.find(({ id }) => id === voiceId);
   if (!voice) return;
-  replaceVoice(voice.id, { enabled: !voice.enabled });
+  const enabling = !voice.enabled;
+  replaceVoice(voice.id, {
+    enabled: enabling,
+    solo: enabling ? voice.solo : false,
+  });
   markSceneChanged();
   renderVoiceDeck();
   renderSelectedVoiceInterface();
   void commitScene({
-    message: voice.enabled ? "Muted the selected part." : "Enabled the selected part.",
+    message: enabling
+      ? "Enabled " + voicePartLabel(voice) + "."
+      : "Muted " + voicePartLabel(voice) + ".",
   });
 }
 
-function toggleSelectedSolo() {
-  const voice = selectedVoice();
+function toggleVoiceSolo(voiceId) {
+  const voice = state.voices.find(({ id }) => id === voiceId);
   if (!voice) return;
-  replaceVoice(voice.id, { solo: !voice.solo });
+  const solo = !voice.solo;
+  replaceVoice(voice.id, {
+    enabled: solo ? true : voice.enabled,
+    solo,
+  });
   markSceneChanged();
   renderVoiceDeck();
   renderSelectedVoiceInterface();
   void commitScene({
-    message: voice.solo ? "Released selected part solo." : "Soloed the selected part.",
+    message: solo
+      ? "Soloed " + voicePartLabel(voice) + "."
+      : "Released solo for " + voicePartLabel(voice) + ".",
   });
 }
+function selectAdjacentVoice(offset) {
+  if (state.voices.length <= 1) return;
+  const index = (
+    selectedVoiceIndex() + offset + state.voices.length
+  ) % state.voices.length;
+  selectVoiceForEditing(state.voices[index].id);
+}
+
+
 
 function configureStaticControls() {
   const level = $("selectedVoiceLevel");
@@ -1872,10 +1973,17 @@ on("selectedVoiceSource", "change", (event) => {
 on("selectedVoiceMode", "change", (event) => {
   changeSelectedMode(event.currentTarget.value);
 });
-on("selectedVoiceEnabled", "click", toggleSelectedEnabled);
-on("selectedVoiceSolo", "click", toggleSelectedSolo);
 on("selectedVoicePart", "change", (event) => {
   changeSelectedPart(event.currentTarget.value);
+});
+on("macroVoiceSelect", "change", (event) => {
+  selectVoiceForEditing(event.currentTarget.value);
+});
+on("previousVoice", "click", () => {
+  selectAdjacentVoice(-1);
+});
+on("nextVoice", "click", () => {
+  selectAdjacentVoice(1);
 });
 on("selectedVoiceLevel", "input", (event) => {
   updateSelectedVoiceScalar("level", event.currentTarget.value);

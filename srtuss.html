@@ -11,7 +11,7 @@
     <title>srtuss WebGPU synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="srtuss.css?v=20260906-parts-1" />
+    <link rel="stylesheet" href="srtuss.css?v=20260908-voice-card-1" />
   </head>
   <body class="srtuss-page" data-runtime-ready="false">
     <header class="masthead">
@@ -91,27 +91,7 @@
           <a href="http://127.0.0.1:3435/srtuss.html">Open preview</a>
         </div>
 
-        <section class="srtuss-command-deck" aria-label="Transport and patch actions">
-          <div class="srtuss-transport">
-            <button
-              class="play-button srtuss-play-button"
-              id="synthPlayButton"
-              type="button"
-              aria-pressed="false"
-              aria-label="Play srtuss master synth"
-              aria-keyshortcuts="Space"
-              title="Play srtuss master synth (Space)"
-              data-primary-transport
-              disabled
-            >
-              Play master
-            </button>
-            <span class="srtuss-transport-copy">
-              <b>Master transport</b>
-              <output id="timeline" aria-label="Playback position">00:00.000</output>
-            </span>
-          </div>
-
+        <section class="srtuss-command-deck" aria-label="Engine status and patch actions">
           <div class="srtuss-engine-status" aria-live="polite">
             <span class="srtuss-sound-only">sound only · no image shader · WGSL compute</span>
             <b id="gpuState">Loading srtuss</b>
@@ -187,14 +167,57 @@
               <input id="globalDrive" type="range" min="-1" max="1" step="0.01" value="0" disabled />
             </label>
           </div>
-          <div class="srtuss-surface-subheading">
-            <b>Selected part macros</b>
-            <small>10 source-native mappings</small>
+          <div class="srtuss-part-control-head">
+            <div>
+              <span>Build any combination</span>
+              <h2 id="voiceDeckTitle">Voices</h2>
+              <small>Add a voice, then choose any source and internal part in Edit voice.</small>
+            </div>
+            <button class="mini-action" id="addVoice" type="button" disabled>
+              + Add voice
+            </button>
+          </div>
+          <div
+            class="srtuss-voice-deck"
+            id="voiceDeck"
+            role="group"
+            aria-label="Active srtuss song parts; select one to edit with the knobs below"
+          ></div>
+          <div class="srtuss-part-picker" aria-label="Selected part control target">
+            <button
+              class="mini-action srtuss-part-cycle"
+              id="previousVoice"
+              type="button"
+              aria-label="Edit previous part"
+              title="Edit previous part"
+              disabled
+            >&#x2039;</button>
+            <label class="srtuss-part-picker__select" for="macroVoiceSelect">
+              <span>Knobs edit</span>
+              <span class="select-shell">
+                <select id="macroVoiceSelect" aria-label="Part controlled by the knobs" disabled>
+                  <option>Loading parts…</option>
+                </select>
+              </span>
+              <small id="macroTargetStatus">In the full mix</small>
+            </label>
+            <button
+              class="mini-action srtuss-part-cycle"
+              id="nextVoice"
+              type="button"
+              aria-label="Edit next part"
+              title="Edit next part"
+              disabled
+            >&#x203A;</button>
+          </div>
+          <div class="srtuss-surface-subheading srtuss-macro-target">
+            <b id="macroTargetName">Part 01 controls</b>
+            <small id="macroControlCount">Loading mappings…</small>
           </div>
           <div
             class="srtuss-knob-shelf"
             id="masterControls"
-            aria-label="Ten srtuss master macro controls"
+            aria-labelledby="macroTargetName"
           ></div>
         </section>
 
@@ -214,36 +237,50 @@
           ></div>
         </section>
 
-        <section class="srtuss-surface-section srtuss-voice-section" aria-labelledby="voiceDeckTitle">
-          <div class="srtuss-surface-heading srtuss-voice-heading">
-            <div>
-              <span>Independent source tracks</span>
-              <h2 id="voiceDeckTitle">Song parts</h2>
-            </div>
-            <button class="mini-action" id="addVoice" type="button" disabled>
-              + Add part
-            </button>
-          </div>
-          <div
-            class="srtuss-voice-deck"
-            id="voiceDeck"
-            role="group"
-            aria-label="Active srtuss song parts; select one to edit"
-          ></div>
-        </section>
       </section>
 
       <aside class="panel srtuss-editor" aria-label="Selected song part and source controls">
+        <section class="srtuss-transport" aria-label="Master transport">
+          <button
+            class="play-button srtuss-play-button"
+            id="synthPlayButton"
+            type="button"
+            aria-pressed="false"
+            aria-label="Play srtuss master synth"
+            aria-keyshortcuts="Space"
+            title="Play srtuss master synth (Space)"
+            data-primary-transport
+            disabled
+          >
+            <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5.5 18 12 8 18.5Z" />
+            </svg>
+            <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 6v12M16 6v12" />
+            </svg>
+          </button>
+          <span class="srtuss-transport-copy">
+            <b id="synthPlayLabel">Play master</b>
+            <span class="srtuss-transport-meta">
+              <small id="synthPlayState">paused · Space</small>
+              <output id="timeline" aria-label="Playback position" aria-live="off">00:00.000</output>
+            </span>
+          </span>
+        </section>
+
         <details
           class="group control-section srtuss-section srtuss-selected-voice"
           data-section="sound"
           open
         >
           <summary class="group-summary">
-            <h2 class="group-title">Selected part</h2>
+            <h2 class="group-title">Edit voice</h2>
             <span class="section-state" id="selectedVoiceName">Part 01</span>
           </summary>
           <div class="group-body">
+            <p class="control-note srtuss-build-note">
+              This editor changes only the voice marked EDITING. Add another voice to combine any sound source and internal part.
+            </p>
             <div class="srtuss-voice-source-row">
               <label class="select-control" for="selectedVoiceSource">
                 <span><b>Sound source</b></span>
@@ -272,26 +309,6 @@
               </label>
             </div>
 
-            <div class="srtuss-voice-switches" aria-label="Selected part state">
-              <button
-                class="srtuss-toggle"
-                id="selectedVoiceEnabled"
-                type="button"
-                aria-pressed="true"
-                disabled
-              >
-                Enabled
-              </button>
-              <button
-                class="srtuss-toggle"
-                id="selectedVoiceSolo"
-                type="button"
-                aria-pressed="false"
-                disabled
-              >
-                Solo
-              </button>
-            </div>
 
             <div class="srtuss-selected-mix">
               <label class="control srtuss-mix-control" for="selectedVoiceLevel">
@@ -359,8 +376,8 @@
           open
         >
           <summary class="group-summary">
-            <h2 class="group-title">Technique controls</h2>
-            <span class="section-state">Source decomposition</span>
+            <h2 class="group-title">Technique map</h2>
+            <span class="section-state">Knobs are in the rack</span>
           </summary>
           <div class="group-body">
             <div
@@ -369,13 +386,8 @@
               aria-label="Techniques used by the selected source"
             ></div>
             <p class="srtuss-technique-description" id="techniqueDescription">
-              Select a voice to inspect its source-native synthesis controls.
+              Select a voice to inspect its synthesis method. The selected voice's effective controls appear once in the rack knob bank.
             </p>
-            <div
-              class="srtuss-native-controls"
-              id="nativeControls"
-              aria-label="Selected part source-native controls"
-            ></div>
           </div>
         </details>
 
@@ -490,6 +502,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="srtuss-app.js?v=20260906-parts-1"></script>
+    <script type="module" src="srtuss-app.js?v=20260908-voice-card-1"></script>
   </body>
 </html>

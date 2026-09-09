@@ -479,6 +479,77 @@ const FAMILY_BY_ID = new Map(
   SRTUSS_MASTER_FAMILIES.map((family) => [family.projectId, family]),
 );
 
+// Isolated voices do not consume every family-level macro. Keep the UI's
+// enabled controls tied to the parameters that actually reach each selected
+// shader part; complete mixes continue to expose the whole family mapping.
+const PART_MACROS_BY_PROJECT = new Map(Object.entries({
+  XdSGz1: {
+    melody: ["clock", "tune", "shape", "brightness", "contour", "pattern", "drive"],
+    bass: ["clock", "tune", "shape", "pattern", "motion", "drive"],
+    echo: ["clock", "tune", "shape", "brightness", "contour", "pattern", "motion", "space", "drive"],
+  },
+  Xd2GW3: {
+    "noise-band": ["clock", "shape", "pattern", "noise", "drive"],
+    engine: ["clock", "tune", "shape", "pattern", "motion", "drive"],
+    grind: ["clock", "shape", "brightness", "pattern", "motion", "noise", "drive"],
+    "phase-sweep": ["clock", "tune", "shape", "contour", "pattern", "motion", "drive"],
+    thump: ["clock", "tune", "shape", "pattern", "drive"],
+    echo: ["clock", "tune", "shape", "brightness", "contour", "pattern", "motion", "noise", "space", "drive"],
+  },
+  ldlfRS: {
+    "spectral-body": ["clock", "tune", "shape", "brightness", "pattern", "motion", "drive"],
+    "dorian-arp": ["clock", "tune", "shape", "contour", "pattern", "motion", "drive"],
+    bass: ["clock", "tune", "shape", "pattern", "drive"],
+    kick: ["clock", "tune", "shape", "pattern", "drive"],
+    snare: ["clock", "shape", "contour", "pattern", "noise", "drive"],
+    hats: ["clock", "shape", "pattern", "motion", "noise", "drive"],
+    delay: ["clock", "tune", "shape", "brightness", "contour", "pattern", "motion", "space", "drive"],
+  },
+  "4tsGD8": {
+    "tracker-a": ["clock", "tune", "shape", "contour", "pattern", "motion", "drive"],
+    "tracker-b": ["clock", "tune", "shape", "contour", "pattern", "motion", "drive"],
+    "intro-bleep": ["clock", "tune", "shape", "brightness", "pattern", "motion", "drive"],
+    dust: ["clock", "shape", "pattern", "motion", "noise", "drive"],
+    smear: ["clock", "tune", "shape", "brightness", "contour", "pattern", "motion", "noise", "space", "drive"],
+  },
+  lldGDM: {
+    "metal-bed": ["clock", "tune", "shape", "brightness", "pattern", "motion", "drive"],
+    "high-tick": ["clock", "tune", "shape", "pattern", "drive"],
+    kick: ["clock", "tune", "shape", "contour", "pattern", "drive"],
+    hats: ["clock", "shape", "contour", "pattern", "motion", "noise", "drive"],
+    "metal-accents": ["clock", "tune", "shape", "brightness", "contour", "pattern", "drive"],
+    "bleep-echo": ["clock", "tune", "shape", "contour", "pattern", "space", "drive"],
+  },
+  ltKSRc: {
+    "tone-cloud": ["clock", "tune", "shape", "motion", "drive"],
+    "metal-bed": ["clock", "tune", "shape", "brightness", "motion", "drive"],
+    sparks: ["clock", "shape", "pattern", "motion", "noise", "drive"],
+    impact: ["clock", "tune", "shape", "motion", "space", "drive"],
+    thunder: ["clock", "shape", "contour", "motion", "noise", "drive"],
+  },
+  "4tdSDB": {
+    kick: ["clock", "shape", "contour", "pattern", "noise", "drive"],
+    "metal-hits": ["clock", "tune", "shape", "brightness", "contour", "drive"],
+    hats: ["clock", "tune", "shape", "brightness", "contour", "noise", "drive"],
+    "snare-fill": ["clock", "shape", "motion", "noise", "drive"],
+    "bass-sweep": ["clock", "tune", "shape", "drive"],
+    "pad-echo": ["clock", "tune", "shape", "space", "drive"],
+    transition: ["clock", "tune", "shape", "brightness", "contour", "drive"],
+  },
+  MslBR4: {
+    "lydian-dyad": ["clock", "tune", "shape", "contour", "pattern", "drive"],
+    "root-bass": ["clock", "tune", "shape", "contour", "pattern", "drive"],
+    "chord-pad": ["clock", "tune", "shape", "brightness", "contour", "pattern", "motion", "drive"],
+    "pwm-lead": ["clock", "tune", "shape", "contour", "pattern", "motion", "drive"],
+    feedback: ["clock", "tune", "shape", "brightness", "contour", "pattern", "motion", "space", "drive"],
+    hats: ["clock", "shape", "contour", "noise", "drive"],
+    kick: ["clock", "shape", "contour", "drive"],
+    snare: ["clock", "shape", "contour", "noise", "drive"],
+    tom: ["clock", "shape", "contour", "drive"],
+  },
+}));
+
+
 export function srtussMasterFamily(projectId) {
   return FAMILY_BY_ID.get(projectId) ?? null;
 }
@@ -491,6 +562,14 @@ export function srtussMasterPart(projectId, partId) {
     return freezeRecord({ index: 0, id: SRTUSS_MIX_PART_ID, label: "Complete mix", role: "mix" });
   }
   return srtussMasterParts(projectId).find(({ id }) => id === partId) ?? null;
+}
+
+export function srtussMasterPartMacros(projectId, partId, mode = "master") {
+  const family = srtussMasterFamily(projectId);
+  if (!family || mode !== "master") return freezeList([]);
+  if (partId === SRTUSS_MIX_PART_ID) return family.supportedMacros;
+  const macroIds = PART_MACROS_BY_PROJECT.get(projectId)?.[partId] ?? [];
+  return freezeList(macroIds.filter((id) => family.supportedMacros.includes(id)));
 }
 
 export function sanitizeSrtussMasterPartId(projectId, partId, mode = "master") {

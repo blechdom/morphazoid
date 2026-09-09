@@ -1,6 +1,9 @@
 import {
   WEBGPU_CHIPTUNE_DEFAULTS,
   WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
+  WEBGPU_CHIPTUNE_PERFORMANCE_AXES,
+  WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS,
+  WEBGPU_CHIPTUNE_PERFORMANCE_LANES,
   WEBGPU_CHIPTUNE_INTEGER_PARAMS,
   WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES,
   WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES,
@@ -10,15 +13,20 @@ import {
   WEBGPU_CHIPTUNE_PARAM_DISTRIBUTIONS,
   WEBGPU_CHIPTUNE_LIMITS,
   WEBGPU_CHIPTUNE_PARAM_ORDER,
-  WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS,
   WEBGPU_CHIPTUNE_RUNTIME_DEFAULTS,
   WEBGPU_CHIPTUNE_WORKGROUP_SIZES,
   WebGpuChiptuneAudio,
+  applyWebGpuChiptunePerformance,
+  applyWebGpuChiptuneDrumMix,
+  sanitizeWebGpuChiptuneDrumMix,
+  createWebGpuChiptunePattern,
+  migrateWebGpuChiptunePerformance,
   createWebGpuChiptuneSequence,
   formatWebGpuChiptuneValue,
   paintWebGpuChiptuneSequenceSegment,
   sanitizeWebGpuChiptuneSequence,
   sanitizeWebGpuChiptuneParams,
+  sanitizeWebGpuChiptunePerformance,
   webGpuChiptuneParamFromUnit,
   webGpuChiptuneParamToUnit,
   webGpuChiptuneBeatSnapshot,
@@ -26,6 +34,8 @@ import {
   webGpuChiptuneProceduralLaneValue,
   webGpuChiptuneLaneTiming,
   webGpuChiptuneLiveEditTarget,
+  webGpuChiptunePerformerForSequenceLane,
+  webGpuChiptuneSequenceLanesForPerformer,
   webGpuChiptuneSequenceCellIndex,
   webGpuChiptuneSequenceEditorUnit,
   webGpuChiptuneSequenceEditorValue,
@@ -33,6 +43,8 @@ import {
   webGpuChiptuneStepSnapshot,
   webGpuChiptuneSupport,
 } from "./src/webgpu-chiptune.js";
+
+import { CHIPTUNE_DANCER_IDENTITIES, drawChiptuneDancer } from "./src/webgpu-chiptune-dancers.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -74,6 +86,10 @@ const controlGroups = Object.freeze({
     makeSpec("bassSineLevel", "Bass sine"),
     makeSpec("leadLevel", "Lead"),
     makeSpec("arpLevel", "Arpeggio"),
+    makeSpec("upperOneTone", "Upper A tone"),
+    makeSpec("upperTwoTone", "Upper B tone"),
+    makeSpec("leadTone", "Lead tone"),
+    makeSpec("arpTone", "Arp tone"),
     makeSpec("noiseLevel", "Noise texture"),
     makeSpec("stereoWidth", "Voice width"),
   ]),
@@ -454,7 +470,7 @@ function presetSequence(definitions = {}) {
       }),
     };
   }
-  return sanitizeWebGpuChiptuneSequence({ schemaVersion: 2, lanes });
+  return sanitizeWebGpuChiptuneSequence({ schemaVersion: 3, lanes });
 }
 
 const presets = Object.freeze([
@@ -1235,13 +1251,21 @@ const SAFE_RANDOM_RANGES = Object.freeze({
 const support = webGpuChiptuneSupport(globalThis);
 const state = {
   params: sanitizeWebGpuChiptuneParams(),
-  sequence: createWebGpuChiptuneSequence(),
+  sequence: createWebGpuChiptunePattern(),
+  songSequence: createWebGpuChiptuneSequence(),
+  patternSequence: null,
+  patternBaseline: createWebGpuChiptunePattern(),
+  drumMix: sanitizeWebGpuChiptuneDrumMix(),
+  sequenceZoomSteps: 32,
+  sequencePitchCenter: 0,
+  voicePerformance: sanitizeWebGpuChiptunePerformance(),
+  activeCharacterVoice: "upperOne",
   trackerView: "sequence",
   activeSequenceLane: "upperOne",
   activeSequenceStep: 0,
   sequencePage: 0,
   sequenceEditMode: "note",
-  sequenceFollowLive: true,
+  sequenceFollowLive: false,
   sequencePitchSpan: 36,
   presetId: "source-tracker",
   audioOn: false,
@@ -1255,6 +1279,8 @@ const state = {
 };
 
 let lastVoiceSequenceLane = state.activeSequenceLane;
+let lastDrumSequenceLane = "kick";
+const CHARACTER_EFFECT_DRAG_THRESHOLD = 7;
 const controlInputs = new Map();
 const controlOutputs = new Map();
 const fractionControls = new Map();
@@ -1273,6 +1299,7 @@ let audioLifecycleGeneration = 0;
 let transportGeneration = 0;
 let animationFrame = 0;
 let activeKnobDrag = null;
+let activeCharacterDrag = null;
 let activeSequenceDrag = null;
 let activeSequenceValueStep = null;
 let sequencePlayhead = -1;
@@ -1407,7 +1434,122 @@ function notifyWaxState() {
     parameters: { ...state.params },
     activePresetId: state.presetId,
     sequence: state.sequence,
+    voicePerformance: state.voicePerformance,
+    performanceVersion: 2,
+    drumMix: state.drumMix,
+    songSequence: state.sequence.mode === "song" ? state.sequence : state.songSequence,
+    patternSequence: state.sequence.mode === "pattern" ? state.sequence : state.patternSequence,
+    patternBaseline: state.patternBaseline,
   });
+}
+
+function effectiveVoiceParams() {
+  return applyWebGpuChiptuneDrumMix(
+    applyWebGpuChiptunePerformance(state.params, state.voicePerformance), state.drumMix);
+}
+
+function updateEffectiveVoiceParams() {
+  engine?.updateParams(effectiveVoiceParams());
+}
+
+function characterVoiceAudible(lane) {
+  const anySolo = WEBGPU_CHIPTUNE_PERFORMANCE_LANES.some(
+    (candidate) => state.voicePerformance[candidate].solo,
+  );
+  const voice = state.voicePerformance[lane];
+  return !voice.muted && (!anySolo || voice.solo);
+}
+
+function compactCharacterParamValue(key, value) {
+  if (WEBGPU_CHIPTUNE_INTEGER_PARAMS.includes(key)) return String(Math.round(value));
+  if (key.endsWith("Phase") || key.endsWith("Share") || key.endsWith("Depth")) {
+    return value.toFixed(2);
+  }
+  if (key.endsWith("Ratio")) return value.toFixed(2) + "x";
+  return value.toFixed(Math.abs(value) >= 10 ? 1 : 2);
+}
+
+function characterEffectDescription(lane, effective = effectiveVoiceParams()) {
+  const definition = WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane];
+  return definition.x.label + " " + formatWebGpuChiptuneValue(
+    definition.x.key,
+    effective[definition.x.key],
+  ) + ", " + definition.y.label + " " + formatWebGpuChiptuneValue(
+    definition.y.key,
+    effective[definition.y.key],
+  );
+}
+
+function syncCharacterPerformanceControls() {
+  const effective = effectiveVoiceParams();
+  for (const lane of WEBGPU_CHIPTUNE_PERFORMANCE_LANES) {
+    const definition = WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane];
+    const voice = state.voicePerformance[lane];
+    const audible = characterVoiceAudible(lane);
+    const cell = document.querySelector(`[data-character-voice="${lane}"]`);
+    if (cell) {
+      cell.dataset.active = String(lane === state.activeCharacterVoice);
+      cell.dataset.audible = String(audible);
+      cell.dataset.muted = String(voice.muted);
+      cell.dataset.solo = String(voice.solo);
+    }
+    const mute = document.querySelector(`[data-character-mute="${lane}"]`);
+    mute?.setAttribute("aria-pressed", String(voice.muted));
+    const solo = document.querySelector(`[data-character-solo="${lane}"]`);
+    solo?.setAttribute("aria-pressed", String(voice.solo));
+    const output = document.querySelector(`[data-character-fx-output="${lane}"]`);
+    if (output) {
+      output.textContent = definition.x.label + "↔"
+        + compactCharacterParamValue(definition.x.key, effective[definition.x.key])
+        + "\n" + definition.y.label + "↕"
+        + compactCharacterParamValue(definition.y.key, effective[definition.y.key]);
+      const description = definition.label + ": " + characterEffectDescription(lane, effective);
+      output.setAttribute("aria-label", description);
+      output.title = description;
+    }
+  }
+  const selected = WEBGPU_CHIPTUNE_PERFORMANCE_AXES[state.activeCharacterVoice];
+  $("characterStage").setAttribute(
+    "aria-label",
+    "Six interactive arcade invader effect bays. " + selected.label
+      + " selected. Click a performer to open its sequence editor. "
+      + "Drag past the click threshold to change that performer's two effects.",
+  );
+}
+
+function updateCharacterPerformance(lane, changes, { notify = true } = {}) {
+  if (!WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane]) return;
+  state.activeCharacterVoice = lane;
+  state.voicePerformance = sanitizeWebGpuChiptunePerformance({
+    ...state.voicePerformance,
+    [lane]: {
+      ...state.voicePerformance[lane],
+      ...changes,
+    },
+  });
+  updateEffectiveVoiceParams();
+  syncCharacterPerformanceControls();
+  if (notify) notifyWaxState();
+}
+
+function toggleCharacterMute(lane) {
+  const next = !state.voicePerformance[lane].muted;
+  updateCharacterPerformance(lane, { muted: next });
+  announce(WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane].label
+    + (next ? " muted." : " unmuted."));
+}
+
+function toggleCharacterSolo(lane) {
+  const next = !state.voicePerformance[lane].solo;
+  updateCharacterPerformance(lane, { solo: next });
+  announce(WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane].label
+    + (next ? " added to the solo group." : " removed from the solo group."));
+}
+
+function centerCharacterEffects(lane) {
+  updateCharacterPerformance(lane, { x: 0.5, y: 0.5 });
+  announce(WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane].label
+    + " effects returned to the preset center.");
 }
 
 function gateCodeKey(lane, step) {
@@ -1555,7 +1697,8 @@ function applyParams(nextParams, presetId = "custom", { notify = true } = {}) {
   state.params = sanitizeWebGpuChiptuneParams(nextParams);
   state.presetId = presetId;
   syncParamOutputs();
-  engine?.updateParams(state.params);
+  updateEffectiveVoiceParams();
+  syncCharacterPerformanceControls();
   if (notify) notifyWaxState();
 }
 
@@ -1576,14 +1719,20 @@ function applySequence(
 
 function applyPreset(preset) {
   state.params = sanitizeWebGpuChiptuneParams(preset.params);
-  state.sequence = sanitizeWebGpuChiptuneSequence(preset.sequence);
+  const mode = state.sequence.mode;
+  state.songSequence = sanitizeWebGpuChiptuneSequence(preset.sequence);
+  state.patternSequence = createWebGpuChiptunePattern(state.params, state.songSequence);
+  state.patternBaseline = state.patternSequence;
+  state.sequence = mode === "song" ? state.songSequence : state.patternSequence;
   state.presetId = preset.id;
   trackerCacheParams = null;
   trackerCacheSequence = null;
   trackerNoteCache.clear();
   syncParamOutputs();
-  engine?.updateParams(state.params);
-  engine?.updateSequence(state.sequence);
+  updateEffectiveVoiceParams();
+  engine?.updateSequence(state.sequence, { deferDrums: false });
+  syncSequenceControls();
+  syncCharacterPerformanceControls();
   notifyWaxState();
   announce(preset.label + " selected.");
 }
@@ -1962,7 +2111,29 @@ function activeSequenceSpec() {
   return WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[state.activeSequenceLane];
 }
 
+function performerEditorHint(performer, lane = state.activeSequenceLane) {
+  if (performer === "drums") return "Click selects. Double-click turns ON/OFF. Drag height for hit strength. Edits take effect on the next hit, without retriggering.";
+  if (state.sequence.mode === "pattern") return lane === "arp"
+    ? "Height is PITCH CONTOUR, not volume. Lower bars set step volume. Double-click toggles a step. No hidden octave motion or song gates."
+    : "Height is PITCH. Lower bars set step volume. Double-click toggles a step. Each enabled step plays once; there are no hidden song gates.";
+  if (performer === "drums") {
+    return "Click a step to turn it ON / OFF. Drag vertically for 0–100% strength, or use the strength slider. No hidden contour; edits play with the sequence.";
+  }
+  if (lane === "lead") {
+    return "Draw the customized base note. The thin white trace is the trill-modulated pitch you hear.";
+  }
+  if (lane === "arp") {
+    return "Draw the customized 0–1 shape. The thin white trace is the resolved arpeggio pitch you hear.";
+  }
+  return "Draw note height to customize this preset. Reload the preset to restore its original notes.";
+}
+
+function selectedPerformerLabel() {
+  return WEBGPU_CHIPTUNE_PERFORMANCE_AXES[state.activeCharacterVoice]?.label ?? "UPPER A";
+}
+
 function sequenceRateForUi(lane) {
+  if (state.sequence.mode === "pattern") return 1 / state.sequence.lanes[lane].stepBeats;
   if (WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)) {
     return state.params.drumRate * 4;
   }
@@ -1976,6 +2147,7 @@ function sequenceRateForUi(lane) {
 }
 
 function sequencePhaseForUi(lane) {
+  if (state.sequence.mode === "pattern") return 0;
   const key = {
     upperOne: "upperOnePhase",
     upperTwo: "upperTwoPhase",
@@ -2005,7 +2177,7 @@ function suggestedSequenceValue(lane, step) {
 
 function sequenceLaneWithChanges(lane, changes) {
   return {
-    schemaVersion: 2,
+    ...state.sequence,
     lanes: {
       ...state.sequence.lanes,
       [lane]: {
@@ -2037,13 +2209,13 @@ function describeSequenceCell(lane, step, cell, activeLength) {
   const definition = sequenceLaneDefinitions.find(({ key }) => key === lane);
   const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
   let description = spec.kind === "drums"
-    ? "source shader rhythm"
-    : "source shader value";
-  if (cell.state === "rest") description = spec.kind === "drums" ? "off" : "rest";
-  else if (cell.state === "note" && spec.kind === "drums") description = "hit";
+    ? "preset rhythm"
+    : "preset value";
+  if (cell.state === "rest") description = "custom silence";
+  else if (cell.state === "note" && spec.kind === "drums") description = "hit " + Math.round(cell.value * 100) + "%";
   else if (cell.state === "note" && spec.kind === "contour") {
-    description = "manual shape " + cell.value.toFixed(3);
-  } else if (cell.state === "note") description = "manual note offset " + signedNumber(cell.value);
+    description = "custom shape " + cell.value.toFixed(3);
+  } else if (cell.state === "note") description = "custom note offset " + signedNumber(cell.value);
   return definition.label
     + ", step "
     + (step + 1)
@@ -2055,7 +2227,7 @@ function describeSequenceCell(lane, step, cell, activeLength) {
 }
 
 function sequencePageSizeForWidth(width) {
-  return Number(width) <= 620 ? 8 : 16;
+  return state.sequenceZoomSteps;
 }
 
 function activeSequencePageSize() {
@@ -2112,8 +2284,8 @@ function setTrackerView(view, { focus = false, quiet = false } = {}) {
   $("stage").setAttribute(
     "aria-label",
     state.trackerView === "sequence"
-      ? "Focused live Chiptune sequence editor with a nine-lane overview. "
-        + activeSequenceDefinition().label
+      ? "Focused live Chiptune sequence editor for the selected performer. "
+        + selectedPerformerLabel() + ", " + activeSequenceDefinition().label
         + " step "
         + (state.activeSequenceStep + 1)
         + " selected."
@@ -2130,10 +2302,38 @@ function setTrackerView(view, { focus = false, quiet = false } = {}) {
   if (!quiet) {
     announce(
       state.trackerView === "sequence"
-        ? "Sequence editor. One large lane is editable; the mini tracker shows all nine. "
-          + activeSequenceDefinition().label
-          + " is selected."
-        : "Source Pad. Drag seed and pitch range; only SOURCE cells regenerate.",
+        ? "Sequence editor. "
+          + selectedPerformerLabel()
+          + " is selected; only its relevant lanes are shown."
+        : "Pattern Pad. Drag seed and pitch range to reshape unedited preset steps.",
+    );
+  }
+}
+
+function focusCharacterEditor(lane, { focus = false, announceChange = true } = {}) {
+  if (!WEBGPU_CHIPTUNE_PERFORMANCE_LANES.includes(lane)) return;
+  const performerLanes = webGpuChiptuneSequenceLanesForPerformer(lane);
+  const preferredLane = lane === "drums" ? lastDrumSequenceLane : performerLanes[0];
+  state.activeCharacterVoice = lane;
+  state.activeSequenceLane = performerLanes.includes(state.activeSequenceLane)
+    ? state.activeSequenceLane
+    : preferredLane;
+  if (state.activeSequenceStep >= state.sequence.lanes[state.activeSequenceLane].activeLength) {
+    state.activeSequenceStep = 0;
+  }
+  if (lane === "drums") lastDrumSequenceLane = state.activeSequenceLane;
+  else lastVoiceSequenceLane = state.activeSequenceLane;
+  sequencePlayhead = -1;
+  const editor = document.querySelector('[data-section="editor"]');
+  if (editor) editor.open = true;
+  setTrackerView("sequence", { quiet: true });
+  syncCharacterPerformanceControls();
+  if (focus) $("stage").focus({ preventScroll: true });
+  if (announceChange) {
+    announce(
+      selectedPerformerLabel()
+        + " selected. The large editor now shows "
+        + (lane === "drums" ? "its four drum lanes." : "only this voice."),
     );
   }
 }
@@ -2141,11 +2341,17 @@ function setTrackerView(view, { focus = false, quiet = false } = {}) {
 function selectSequenceLane(lane, { focus = false } = {}) {
   if (!WEBGPU_CHIPTUNE_SEQUENCE_LANES.includes(lane)) return;
   state.activeSequenceLane = lane;
+  if (state.activeSequenceStep >= state.sequence.lanes[lane].activeLength) state.activeSequenceStep = 0;
+  const performer = webGpuChiptunePerformerForSequenceLane(lane);
+  if (performer) state.activeCharacterVoice = performer;
   if (WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.includes(lane)) {
     lastVoiceSequenceLane = lane;
+  } else {
+    lastDrumSequenceLane = lane;
   }
   sequencePlayhead = -1;
   syncSequenceControls();
+  syncCharacterPerformanceControls();
   if (focus) $("stage").focus();
 }
 
@@ -2190,16 +2396,6 @@ function setSequenceLaneLength(value) {
   );
 }
 
-function requestSequenceAudition(lane, cellState, value) {
-  if (
-    cellState !== "note"
-    || WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)
-    || !state.audioOn
-    || !state.synthPlaying
-  ) return false;
-  return engine?.auditionSequenceCell(lane, value) === true;
-}
-
 function setSequenceCell(
   step,
   cellState,
@@ -2211,45 +2407,51 @@ function setSequenceCell(
   const laneState = state.sequence.lanes[lane];
   const cellIndex = Math.round(clamp(step, 0, WEBGPU_CHIPTUNE_SEQUENCE_STEPS - 1));
   const current = laneState.cells[cellIndex];
-  const stateName = ["auto", "note", "rest"].includes(cellState) ? cellState : "auto";
+  let stateName = ["auto", "note", "rest"].includes(cellState) ? cellState : "auto";
   const fallback = current.state === "note"
     ? current.value
     : suggestedSequenceValue(lane, cellIndex);
-  const nextValue = spec.kind === "drums"
-    ? 1
-    : webGpuChiptuneSequenceEditorValue(
+  const nextValue = webGpuChiptuneSequenceEditorValue(
       lane,
       webGpuChiptuneSequenceEditorUnit(lane, value ?? fallback),
     );
   const cells = [...laneState.cells];
-  cells[cellIndex] = { state: stateName, value: nextValue };
+  if (spec.kind === "drums" && stateName === "note" && nextValue === 0) stateName = "rest";
+  cells[cellIndex] = { ...current, state: stateName, value: nextValue,
+    velocity: stateName === "note" && current.velocity === 0 ? 1 : current.velocity };
+  if (stateName === "auto" && state.sequence.mode === "pattern") {
+    cells[cellIndex] = state.patternBaseline.lanes[lane].cells[cellIndex];
+  }
   state.activeSequenceStep = cellIndex;
   state.sequencePage = sequencePageForStep(cellIndex);
   applySequence(sequenceLaneWithChanges(lane, { cells }));
-  const previewed = requestSequenceAudition(lane, stateName, nextValue);
   if (announceChange) {
     const detail = stateName === "note"
       ? spec.kind === "drums"
-        ? "hit"
+        ? "hit " + Math.round(nextValue * 100) + "%"
         : spec.kind === "contour"
-          ? "manual shape " + nextValue.toFixed(3)
-          : "manual note " + signedNumber(nextValue)
-      : stateName === "rest" && spec.kind === "drums" ? "off" : stateName;
+          ? "custom shape " + nextValue.toFixed(3)
+          : "custom note " + signedNumber(nextValue)
+      : stateName === "rest" ? "custom silence" : "preset value";
     announce(
       definition.label
         + " step "
         + (cellIndex + 1)
         + " set to "
         + detail
-        + (previewed ? ". Same-shader preview queued" : "")
         + ".",
     );
   }
 }
 
 function cycleSequenceCell(step) {
+  if (activeSequenceSpec().kind === "drums") {
+    const level = currentDrumLevel(state.activeSequenceLane, step);
+    setSequenceCell(step, level > 0 ? "rest" : "note", level > 0 ? 0 : 1);
+    return;
+  }
   const cell = state.sequence.lanes[state.activeSequenceLane].cells[step];
-  const next = cell.state === "auto" ? "note" : cell.state === "note" ? "rest" : "auto";
+  const next = cell.state === "rest" ? "note" : "rest";
   setSequenceCell(step, next);
 }
 
@@ -2257,7 +2459,7 @@ function nudgeSequenceCell(step, direction, { octave = false } = {}) {
   const lane = state.activeSequenceLane;
   const spec = activeSequenceSpec();
   if (spec.kind === "drums") {
-    setSequenceCell(step, direction > 0 ? "note" : "rest");
+    setSequenceCell(step, "note", currentDrumLevel(lane, step) + direction * (octave ? 0.1 : 0.05));
     return;
   }
   const cell = state.sequence.lanes[lane].cells[step];
@@ -2298,9 +2500,10 @@ function varySequenceLane() {
 function clearSequenceLane() {
   const lane = state.activeSequenceLane;
   const laneState = state.sequence.lanes[lane];
-  const cells = laneState.cells.map(() => ({ state: "auto", value: 0 }));
+  const cells = state.sequence.mode === "pattern" ? state.patternBaseline.lanes[lane].cells
+    : laneState.cells.map(() => ({ state: "auto", value: 0 }));
   applySequence(sequenceLaneWithChanges(lane, { cells }));
-  announce(activeSequenceDefinition().label + " restored to all SOURCE.");
+  announce(activeSequenceDefinition().label + " restored to the preset pattern.");
 }
 
 function transformSequenceLane(transform, label) {
@@ -2337,8 +2540,15 @@ function setVoiceSequencesToSource() {
       )),
     };
   }
-  applySequence({ schemaVersion: 2, lanes });
-  announce("All five voice lanes now use the procedural SOURCE.");
+  applySequence({ ...state.sequence, lanes });
+  announce("All five voice lanes restored to the preset pattern.");
+}
+
+function sequenceCellCustomized(lane, step) {
+  const cell = state.sequence.lanes[lane].cells[step];
+  if (state.sequence.mode !== "pattern") return cell.state !== "auto";
+  const original = state.patternBaseline.lanes[lane].cells[step];
+  return cell.state !== original.state || cell.value !== original.value || cell.velocity !== original.velocity;
 }
 
 function sourceCoverage(lanes) {
@@ -2348,7 +2558,7 @@ function sourceCoverage(lanes) {
     const laneState = state.sequence.lanes[lane];
     active += laneState.activeLength;
     for (let step = 0; step < laneState.activeLength; step += 1) {
-      if (laneState.cells[step].state === "auto") source += 1;
+      if (!sequenceCellCustomized(lane, step)) source += 1;
     }
   }
   return Object.freeze({ source, active });
@@ -2360,10 +2570,10 @@ function setSequencePaintMode(mode, { quiet = false } = {}) {
   if (!quiet) {
     const spec = activeSequenceSpec();
     const label = state.sequenceEditMode === "auto"
-      ? "SOURCE"
+      ? "RESET STEP"
       : state.sequenceEditMode === "rest"
-        ? spec.kind === "drums" ? "OFF" : "REST"
-        : spec.kind === "drums" ? "HIT" : spec.kind === "contour" ? "POINT" : "NOTE";
+        ? "SILENCE"
+        : spec.kind === "drums" ? "DRAW HIT" : spec.kind === "contour" ? "DRAW SHAPE" : "DRAW NOTE";
     announce(label + " paint mode selected for " + activeSequenceDefinition().label + ".");
   }
 }
@@ -2412,17 +2622,15 @@ function syncSequenceTimingOutput(time = transportTime()) {
   } else if (!state.synthPlaying) {
     detail = "PAUSED · edits remain saved";
   } else if (state.sequenceFollowLive) {
-    detail = WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane)
-      ? "NEXT HIT IN " + timingText(liveTarget.naturalSeconds)
-      : "PREVIEW QUEUED ≈ "
-        + timingText(liveTarget.leadSeconds)
-        + " · "
-        + Math.round(WEBGPU_CHIPTUNE_PREVIEW_DURATION_SECONDS * 1000)
-        + " MS NOTE";
+    detail = "NEXT STEP IN " + timingText(liveTarget.naturalSeconds);
   } else {
     detail = timing.targetActiveNow
       ? "ACTIVE NOW"
       : "NATURALLY IN " + timingText(timing.secondsUntilTarget);
+  }
+  const activation = engine?.sequenceEditActivationTime(lane, state.activeSequenceStep);
+  if (state.audioOn && state.synthPlaying && Number.isFinite(activation) && activation > time) {
+    detail = "CHANGE ON NEXT HIT · " + timingText(activation - time);
   }
   $("sequenceTimingStatus").textContent = "PLAY "
     + play
@@ -2450,6 +2658,20 @@ function syncSequenceControls() {
   $("sequencePageControls").style.setProperty("--sequence-page-count", String(pageCount));
   $("sequenceWorkspace").hidden = state.trackerView !== "sequence";
   $("morphWorkspace").hidden = state.trackerView !== "morph";
+  const performer = state.activeCharacterVoice;
+  const performerLanes = webGpuChiptuneSequenceLanesForPerformer(performer);
+  const lanePicker = $("sequenceVoiceTabs").closest(".chiptune-lane-picker");
+  lanePicker.hidden = state.trackerView !== "sequence";
+  $("sequenceVoiceTabs").dataset.performer = performer;
+  $("sequenceVoiceTabs").style.setProperty("--visible-lane-count", String(performerLanes.length));
+  $("sequenceVoiceTabs").setAttribute(
+    "aria-label",
+    performer === "drums" ? "Drum part to edit" : selectedPerformerLabel() + " sequence",
+  );
+  $("sequenceLanePickerLabel").textContent = performer === "drums"
+    ? "DRUM KIT — CHOOSE ONE PART"
+    : selectedPerformerLabel() + " SEQUENCE — CLICK A CHARACTER TO SWITCH VOICE";
+  $("selectedPerformer").hidden = state.trackerView !== "sequence";
   const pageButtons = [
     $("sequencePageOne"),
     $("sequencePageTwo"),
@@ -2469,45 +2691,67 @@ function syncSequenceControls() {
   $("sequenceLength").value = String(laneState.activeLength);
   $("sequenceLength").setAttribute("aria-valuetext", laneState.activeLength + " steps");
 
-  for (const button of $("sequenceVoiceTabs").querySelectorAll("button")) {
+  syncPatternWorkspace();
+  for (const row of $("sequenceVoiceTabs").querySelectorAll("[data-drum-row]")) {
+    row.hidden = performer !== "drums";
+  }
+  for (const button of $("sequenceVoiceTabs").querySelectorAll("[data-drum-mute], [data-drum-solo]")) {
+    const key = button.dataset.drumMute ?? button.dataset.drumSolo;
+    button.setAttribute("aria-pressed", String(state.drumMix[key][button.dataset.drumMute ? "muted" : "solo"]));
+  }
+  for (const button of $("sequenceVoiceTabs").querySelectorAll("button[data-lane]")) {
     const active = button.dataset.lane === lane;
+    const visible = performerLanes.includes(button.dataset.lane);
+    button.hidden = !visible;
     button.setAttribute("aria-pressed", String(active));
-    button.tabIndex = active ? 0 : -1;
+    button.tabIndex = visible && active ? 0 : -1;
   }
 
   for (const stateName of ["auto", "note", "rest"]) {
     const button = $("sequenceState" + stateName[0].toUpperCase() + stateName.slice(1));
-    button.setAttribute("aria-pressed", String(state.sequenceEditMode === stateName));
+    const drum = activeSequenceSpec().kind === "drums";
+    const pressed = drum
+      ? stateName === "note" ? currentDrumLevel(lane, state.activeSequenceStep) > 0
+        : stateName === "rest" ? currentDrumLevel(lane, state.activeSequenceStep) === 0 : false
+      : state.sequenceEditMode === stateName;
+    button.setAttribute("aria-pressed", String(pressed));
   }
   const spec = activeSequenceSpec();
-  $("sequenceStateAuto").textContent = "SOURCE";
+  $("sequenceWorkspace").dataset.sequenceKind = spec.kind;
+  $("sequenceStateAuto").textContent = "RESET STEP ↺";
   $("sequenceStateNote").textContent = spec.kind === "drums"
-    ? "HIT"
-    : spec.kind === "contour" ? "POINT" : "NOTE";
-  $("sequenceStateRest").textContent = spec.kind === "drums" ? "OFF" : "REST";
+    ? "HIT ON ●"
+    : spec.kind === "contour" ? "DRAW SHAPE ●" : "DRAW NOTE ●";
+  $("sequenceStateRest").textContent = spec.kind === "drums" ? "HIT OFF ×" : "SILENCE ×";
   const valueInput = $("sequenceValue");
   const valueRange = $("sequenceValueRange");
   const valueControl = valueInput.closest("label");
-  valueControl.hidden = spec.kind === "drums";
-  valueInput.disabled = spec.kind === "drums";
-  valueRange.disabled = spec.kind === "drums";
+  valueControl.dataset.cellState = selected.state;
+  valueControl.hidden = false;
+  valueInput.disabled = false;
+  valueRange.disabled = false;
+  const valueScale = spec.kind === "drums" ? 100 : 1;
   valueInput.min = String(spec.minimum);
-  valueInput.max = String(spec.maximum);
+  valueInput.max = String(spec.maximum * valueScale);
   valueInput.inputMode = spec.kind === "contour" ? "decimal" : "numeric";
-  valueInput.step = String(spec.quantum);
+  valueInput.step = String(spec.quantum * valueScale);
   valueRange.min = String(spec.minimum);
-  valueRange.max = String(spec.maximum);
-  valueRange.step = String(spec.quantum);
-  const shownValue = selected.state === "note"
-    ? selected.value
-    : suggestedSequenceValue(lane, state.activeSequenceStep);
+  valueRange.max = String(spec.maximum * valueScale);
+  valueRange.step = String(spec.quantum * valueScale);
+  const shownValue = spec.kind === "drums"
+    ? currentDrumLevel(lane, state.activeSequenceStep) * 100
+    : selected.state === "note" ? selected.value : suggestedSequenceValue(lane, state.activeSequenceStep);
   if (document.activeElement !== valueInput && document.activeElement !== valueRange) {
     valueInput.value = String(shownValue);
     valueRange.value = String(shownValue);
   }
-  $("sequenceValueLabel").textContent = spec.kind === "contour" ? "Shape 0–1" : "Semitone offset";
-  $("sequenceValueOut").textContent = spec.kind === "contour"
-    ? shownValue.toFixed(3)
+  $("sequenceValueLabel").textContent = spec.kind === "drums" ? "Hit strength 0–100%"
+    : spec.kind === "contour"
+    ? "Pitch contour 0–1"
+    : "Current note offset";
+  $("sequenceValueOut").textContent = spec.kind === "drums" ? Math.round(shownValue) + "%"
+    : spec.kind === "contour"
+    ? shownValue.toFixed(3) + " · " + shaderNoteName(resolvedSequenceNote(lane, state.activeSequenceStep))
     : signedNumber(shownValue)
       + " · "
       + shaderNoteName(resolvedSequenceNote(lane, state.activeSequenceStep));
@@ -2522,19 +2766,24 @@ function syncSequenceControls() {
       + " semitones";
   }
   const insideLoop = state.activeSequenceStep < laneState.activeLength;
-  const effectiveNote = selected.state === "note" && spec.kind === "steps" && insideLoop
+  const effectiveNote = selected.state !== "rest" && spec.kind === "steps" && insideLoop
     ? shaderNoteName(resolvedSequenceNote(lane, state.activeSequenceStep))
     : "";
-  const stateText = selected.state === "note"
+  const stateText = selected.state === "note" && sequenceCellCustomized(lane, state.activeSequenceStep)
     ? spec.kind === "drums"
-      ? "HIT"
+      ? "HIT " + Math.round(shownValue) + "%"
       : spec.kind === "contour"
-        ? "POINT " + selected.value.toFixed(3)
-        : "NOTE " + signedNumber(selected.value)
-        + (effectiveNote ? " (" + effectiveNote + ")" : "")
-    : selected.state === "rest" && spec.kind === "drums"
-      ? "OFF"
-      : selected.state === "auto" ? "SOURCE" : "REST";
+        ? "CUSTOM SHAPE " + selected.value.toFixed(3)
+        : "CUSTOM NOTE " + signedNumber(selected.value)
+          + (effectiveNote ? " (" + effectiveNote + ")" : "")
+    : selected.state === "rest"
+      ? "SILENT"
+      : spec.kind === "drums"
+        ? shownValue > 0 ? "HIT 100%" : "OFF"
+        : spec.kind === "contour"
+          ? "PRESET SHAPE " + shownValue.toFixed(3)
+          : "PRESET NOTE " + signedNumber(shownValue)
+            + (effectiveNote ? " (" + effectiveNote + ")" : "");
   $("sequenceStatus").textContent = definition.label
     + " · STEP "
     + String(state.activeSequenceStep + 1).padStart(2, "0")
@@ -2546,35 +2795,41 @@ function syncSequenceControls() {
     + laneClockText(lane)
     + (state.activeSequenceStep >= laneState.activeLength ? " · STORED OUTSIDE LOOP" : "");
   const activeCoverage = sourceCoverage([lane]);
+  const activeCustomizations = activeCoverage.active - activeCoverage.source;
   $("sequenceSourceCoverage").innerHTML = "<strong>"
-    + activeCoverage.source
-    + " of "
-    + activeCoverage.active
-    + "</strong> active "
+    + activeCustomizations
+    + (activeCustomizations === 1 ? " custom edit" : " custom edits")
+    + "</strong> in the active "
     + definition.label
-    + " cells use SOURCE.";
+    + " preset sequence. Reset an edit to recover the preset step.";
   const voiceCoverage = sourceCoverage(WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES);
+  const voiceCustomizations = voiceCoverage.active - voiceCoverage.source;
   $("morphSourceCoverage").innerHTML = "<strong>"
-    + voiceCoverage.source
-    + " of "
-    + voiceCoverage.active
-    + "</strong> active voice cells follow the Source Pad. "
-    + (voiceCoverage.source === 0 ? "Convert cells to SOURCE to hear it." : "Manual notes stay fixed.");
+    + voiceCustomizations
+    + (voiceCustomizations === 1 ? " custom voice edit" : " custom voice edits")
+    + "</strong>. The Pattern Pad reshapes unedited preset steps; customized notes stay fixed.";
   const morphLaneButton = $("morphLaneSource");
   morphLaneButton.disabled = WEBGPU_CHIPTUNE_DRUM_SEQUENCE_LANES.includes(lane);
   morphLaneButton.textContent = morphLaneButton.disabled
     ? "Select a voice lane first"
-    : definition.label + " → SOURCE";
+    : "Reset " + definition.label + " edits";
   $("sequenceFollow").setAttribute("aria-pressed", String(state.sequenceFollowLive));
   $("sequenceFollow").textContent = state.sequenceFollowLive ? "FOLLOW: ON" : "FOLLOW: OFF";
+  $("selectedPerformerName").textContent = selectedPerformerLabel();
+  $("selectedPerformerName").title = CHIPTUNE_DANCER_IDENTITIES[performer].name;
+  $("selectedPerformerHint").textContent = performerEditorHint(performer, lane);
+  $("selectedPerformer").style.setProperty("--performer-color", definition.color);
+  $("selectedPerformer").dataset.performer = performer;
   $("editorState").textContent = state.trackerView === "sequence"
-    ? definition.label + (state.sequenceFollowLive ? " · edit next" : " · locked")
+    ? selectedPerformerLabel() + (state.sequenceFollowLive ? " · edit next" : " · locked")
     : "seed × pitch range";
   syncSequenceTimingOutput();
   if (state.trackerView === "sequence") {
     $("stage").setAttribute(
       "aria-label",
-      "Focused live Chiptune sequence editor with nine-lane overview. "
+      "Focused live Chiptune sequence editor for "
+        + selectedPerformerLabel()
+        + ". "
         + describeSequenceCell(lane, state.activeSequenceStep, selected, laneState.activeLength)
         + ". "
         + laneClockText(lane),
@@ -2625,6 +2880,192 @@ function syncSequencePlayhead(time, { force = false } = {}) {
   else syncSequenceTimingOutput(time);
 }
 
+function fractionText(value) {
+  for (let denominator = 1; denominator <= 128; denominator++) {
+    const numerator = Math.round(value * denominator);
+    if (Math.abs(numerator / denominator - value) < 0.000001) return numerator + "/" + denominator;
+  }
+  return Number(value.toFixed(4)) + " units";
+}
+
+function switchCompositionMode(mode) {
+  if (mode === state.sequence.mode) return;
+  if (state.sequence.mode === "pattern") state.patternSequence = state.sequence;
+  else state.songSequence = state.sequence;
+  const next = mode === "song" ? state.songSequence
+    : state.patternSequence ?? createWebGpuChiptunePattern(state.params, state.songSequence);
+  applySequence(next, { markCustom: false, presetId: state.presetId });
+  state.sequenceFollowLive = false;
+  state.sequencePage = sequencePageForStep(state.activeSequenceStep);
+  setTrackerView("sequence", { quiet: true });
+  announce(mode === "pattern"
+    ? "Pattern mode. Independent repeating loops; song sections and phrase modulation bypassed."
+    : "Song mode. Original long-form sections, phrase modulation and procedural clocks restored.");
+}
+
+function setStepVelocity(step, value, lane = state.activeSequenceLane) {
+  const laneState = state.sequence.lanes[lane], cells = [...laneState.cells];
+  const velocity = clamp(value, 0, 1);
+  cells[step] = { ...cells[step], velocity,
+    state: velocity === 0 ? "rest" : "note",
+    value: cells[step].state === "auto" ? suggestedSequenceValue(lane, step) : cells[step].value };
+  state.activeSequenceStep = step;
+  applySequence(sequenceLaneWithChanges(lane, { cells }), { notify: false });
+}
+
+let focusedSoundKey = "";
+const patternSoundKeys = new Set([
+  "tempo", "transpose", "scaleMask", "tuningCents", "pulseWidth", "pwmDepth", "pwmRate",
+  "upperOneTone", "upperOneLevel", "upperOneRegister", "upperTwoTone", "upperTwoLevel", "upperTwoRegister",
+  "bassPulseWidth", "bassPulseLevel", "bassSineLevel", "bassRegister", "leadTone", "leadLevel", "leadRegister",
+  "arpTone", "arpLevel", "arpRegister", "arpSpan", "pitchRange", "stereoWidth", "voiceCrossfeed",
+  "synthMix", "drumMix", "drumDecay", "noiseRate", "noiseColor",
+  ...Object.keys(WEBGPU_CHIPTUNE_DEFAULTS).filter((key) => /^(kick|snare|hat|shaker|echo|ghost|fade|gain)/.test(key)
+    && !/(Cycle|Subcycle|Repeat|Phase)$/.test(key)),
+]);
+function syncFocusedSoundControls() {
+  const lane = state.activeSequenceLane, pattern = state.sequence.mode === "pattern";
+  const key = lane + ":" + state.sequence.mode;
+  if (focusedSoundKey !== key) {
+    focusedSoundKey = key;
+    const prefixes = lane === "hats" ? ["hat"] : [lane];
+    let keys = WEBGPU_CHIPTUNE_PARAM_ORDER.filter((param) => prefixes.some((prefix) => param.startsWith(prefix)));
+    if (pattern) keys = keys.filter((param) => patternSoundKeys.has(param));
+    $("voiceSoundTitle").textContent = activeSequenceDefinition().label + " SOUND — THIS VOICE ONLY";
+    $("focusedVoiceControls").replaceChildren(...keys.map((param) => {
+      const spec = controlSpecsByKey.get(param);
+      const wrapper = document.createElement("label");
+      wrapper.className = "control";
+      const title = document.createElement("span"), label = document.createElement("b"), output = document.createElement("output");
+      label.textContent = spec.label;
+      output.dataset.focusedOutput = param;
+      const input = document.createElement("input");
+      input.type = "range"; input.id = "focused-" + param;
+      input.min = "0"; input.max = "1"; input.step = "0.001";
+      input.dataset.focusedParam = param;
+      input.setAttribute("aria-label", spec.label + " — selected voice");
+      wrapper.htmlFor = input.id;
+      output.htmlFor = input.id;
+      input.addEventListener("input", () => applyControlUnit(spec, input.value));
+      input.addEventListener("keydown", (event) => handleControlKey(event, spec));
+      title.append(label, output); wrapper.append(title, input);
+      return wrapper;
+    }));
+  }
+  for (const input of $("focusedVoiceControls").querySelectorAll("input")) {
+    const key = input.dataset.focusedParam;
+    if (document.activeElement !== input) input.value = String(webGpuChiptuneParamToUnit(key, state.params[key]));
+    input.setAttribute("aria-valuetext", formatWebGpuChiptuneValue(key, state.params[key]));
+    $("focusedVoiceControls").querySelector('[data-focused-output="' + key + '"]').textContent
+      = formatWebGpuChiptuneValue(key, state.params[key]);
+  }
+}
+function syncPatternWorkspace() {
+  const pattern = state.sequence.mode === "pattern", lane = state.sequence.lanes[state.activeSequenceLane];
+  $("compositionMode").value = state.sequence.mode;
+  $("compositionDescription").textContent = pattern
+    ? "PATTERN: each enabled step plays once. Phrase motion and song sections are bypassed."
+    : "SONG: original sections, trills, octave motion and rhythm gates are active. Pattern edits are saved separately.";
+  $("patternTimingControls").hidden = !pattern;
+  if (![...$("sequenceStepFraction").options].some((option) => Number(option.value) === lane.stepBeats)) {
+    const option = document.createElement("option"); option.value = String(lane.stepBeats);
+    option.textContent = fractionText(lane.stepBeats); $("sequenceStepFraction").append(option);
+  }
+  $("sequenceStepFraction").value = String(lane.stepBeats);
+  const pair = fractionForValue(lane.stepBeats);
+  if (!$("sequenceStepCustom").contains(document.activeElement)) {
+    $("sequenceStepNumerator").value = String(pair.numerator);
+    $("sequenceStepDenominator").value = String(pair.denominator);
+  }
+  $("sequenceGate").closest("label").hidden = activeSequenceSpec().kind === "drums";
+  $("sequenceGate").value = String(Math.round(lane.gate * 100));
+  $("sequenceGateOut").textContent = Math.round(lane.gate * 100) + "%";
+  const rate = sequenceRateForUi(state.activeSequenceLane);
+  $("sequenceLoopSummary").textContent = lane.activeLength + " steps × " + fractionText(1 / rate)
+    + " master units = " + fractionText(lane.activeLength / rate) + " per loop ("
+    + timingText(lane.activeLength / (rate * state.params.tempo)) + ").";
+  $("sequenceClockComparison").replaceChildren(...sequenceLaneDefinitions.map((definition) => {
+    const duration = state.sequence.lanes[definition.key].activeLength / sequenceRateForUi(definition.key);
+    const row = document.createElement("tr");
+    for (const text of [definition.label, String(state.sequence.lanes[definition.key].activeLength),
+      fractionText(1 / sequenceRateForUi(definition.key)), fractionText(duration)]) {
+      const cell = document.createElement("td"); cell.textContent = text; row.append(cell);
+    }
+    return row;
+  }));
+  $("sequenceZoom").value = String(state.sequenceZoomSteps);
+  $("sequencePageControls").hidden = state.sequenceZoomSteps === 32;
+  $("sequencePan").max = String(32 / state.sequenceZoomSteps - 1);
+  $("sequencePan").value = String(state.sequencePage);
+  $("sequencePan").disabled = state.sequenceZoomSteps === 32;
+  $("sequencePitchCenter").closest("label").hidden = activeSequenceSpec().kind !== "steps";
+  const cell = lane.cells[state.activeSequenceStep];
+  $("sequenceVelocityControl").hidden = activeSequenceSpec().kind === "drums";
+  $("sequenceVelocity").value = String(Math.round((cell.state === "rest" ? 0 : cell.velocity) * 100));
+  $("sequenceVelocityOut").textContent = $("sequenceVelocity").value + "%";
+  $("trackerViewMorph").closest("label").hidden = pattern;
+  for (const [key, input] of controlInputs) {
+    input.disabled = pattern && !patternSoundKeys.has(key);
+    input.title = input.disabled ? "Phrase/song control — available in Song mode" : "";
+  }
+  for (const [key, control] of fractionControls) {
+    control.wrapper.disabled = pattern && !patternSoundKeys.has(key);
+    control.wrapper.title = control.wrapper.disabled ? "Phrase/song control — available in Song mode" : "";
+  }
+  for (const button of gateButtons.values()) button.disabled = pattern;
+  const quick = document.querySelector('[data-section="quick"]');
+  if (quick) quick.hidden = pattern;
+  syncFocusedSoundControls();
+}
+function bindPatternWorkspace() {
+  $("compositionMode").addEventListener("change", (event) => switchCompositionMode(event.target.value));
+  const fractions = new Map();
+  for (const denominator of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 24, 32, 48, 64, 96, 128]) {
+    for (const numerator of [1, 2, 3, 4, 5, 7, 8, 9, 11, 13, 15, 16]) {
+      const value = numerator / denominator;
+      if (value >= 1 / 128 && value <= 16) fractions.set(value, fractionText(value));
+    }
+  }
+  $("sequenceStepFraction").replaceChildren(...[...fractions].sort((a, b) => a[0] - b[0]).map(([value, label]) => {
+    const option = document.createElement("option"); option.value = String(value); option.textContent = label; return option;
+  }));
+  for (const input of [$("sequenceStepNumerator"), $("sequenceStepDenominator")]) {
+    input.addEventListener("change", () => {
+      const numerator = $("sequenceStepNumerator"), denominator = $("sequenceStepDenominator");
+      if (!numerator.value || !denominator.value || !numerator.validity.valid || !denominator.validity.valid) return;
+      const value = Number(numerator.value) / Number(denominator.value);
+      if (value < 1 / 128 || value > 16) {
+        announce("Step fraction must be between 1/128 and 16/1."); syncSequenceControls(); return;
+      }
+      applySequence(sequenceLaneWithChanges(state.activeSequenceLane, { stepBeats: value }));
+    });
+  }
+  $("sequenceStepFraction").addEventListener("change", (event) => {
+    applySequence(sequenceLaneWithChanges(state.activeSequenceLane, { stepBeats: Number(event.target.value) }));
+  });
+  $("sequenceGate").addEventListener("input", (event) => {
+    applySequence(sequenceLaneWithChanges(state.activeSequenceLane, { gate: Number(event.target.value) / 100 }));
+  });
+  const beginVelocityEdit = () => { activeSequenceValueStep ??= state.activeSequenceStep; };
+  const finishVelocityEdit = () => { activeSequenceValueStep = null; notifyWaxState(); };
+  $("sequenceVelocity").addEventListener("pointerdown", beginVelocityEdit);
+  $("sequenceVelocity").addEventListener("focus", beginVelocityEdit);
+  $("sequenceVelocity").addEventListener("input", (event) => {
+    beginVelocityEdit();
+    setStepVelocity(activeSequenceValueStep, Number(event.target.value) / 100);
+  });
+  $("sequenceVelocity").addEventListener("change", finishVelocityEdit);
+  $("sequenceVelocity").addEventListener("pointercancel", finishVelocityEdit);
+  $("sequenceVelocity").addEventListener("focusout", finishVelocityEdit);
+  $("sequenceZoom").addEventListener("change", (event) => {
+    state.sequenceZoomSteps = Number(event.target.value); syncSequenceControls();
+  });
+  $("sequencePan").addEventListener("input", (event) => setSequencePage(Number(event.target.value)));
+  $("sequencePitchCenter").addEventListener("input", (event) => {
+    state.sequencePitchCenter = Number(event.target.value); syncSequenceControls();
+  });
+}
+
 function renderSequenceControls() {
   const laneButtons = sequenceLaneDefinitions.map((definition) => {
     const button = document.createElement("button");
@@ -2636,22 +3077,53 @@ function renderSequenceControls() {
     button.textContent = definition.label;
     button.addEventListener("click", () => selectSequenceLane(definition.key));
     button.addEventListener("keydown", (event) => {
-      const index = sequenceLaneDefinitions.findIndex(({ key }) => key === definition.key);
+      const visibleLanes = webGpuChiptuneSequenceLanesForPerformer(
+        state.activeCharacterVoice,
+      );
+      const availableDefinitions = sequenceLaneDefinitions.filter(({ key }) => (
+        visibleLanes.includes(key)
+      ));
+      const index = availableDefinitions.findIndex(({ key }) => key === definition.key);
       let nextIndex = null;
-      if (event.key === "ArrowRight") nextIndex = (index + 1) % sequenceLaneDefinitions.length;
+      if (event.key === "ArrowRight") nextIndex = (index + 1) % availableDefinitions.length;
       else if (event.key === "ArrowLeft") {
-        nextIndex = (index - 1 + sequenceLaneDefinitions.length) % sequenceLaneDefinitions.length;
+        nextIndex = (index - 1 + availableDefinitions.length) % availableDefinitions.length;
       } else if (event.key === "Home") nextIndex = 0;
-      else if (event.key === "End") nextIndex = sequenceLaneDefinitions.length - 1;
+      else if (event.key === "End") nextIndex = availableDefinitions.length - 1;
       if (nextIndex === null) return;
       event.preventDefault();
-      const next = sequenceLaneDefinitions[nextIndex].key;
+      const next = availableDefinitions[nextIndex].key;
       selectSequenceLane(next);
       $("sequenceLane-" + next).focus();
     });
-    return button;
+    if (definition.kind !== "drums") return button;
+    const row = document.createElement("div");
+    row.className = "chiptune-drum-mix-row";
+    row.dataset.drumRow = definition.key;
+    row.setAttribute("role", "group");
+    row.setAttribute("aria-label", definition.label + " sequence and mix");
+    row.append(button);
+    for (const action of ["mute", "solo"]) {
+      const control = document.createElement("button");
+      control.type = "button";
+      control.dataset[action === "mute" ? "drumMute" : "drumSolo"] = definition.key;
+      control.textContent = action.toUpperCase();
+      control.setAttribute("aria-label", (action === "mute" ? "Mute " : "Solo ") + definition.label + (action === "solo" ? " within drum kit" : ""));
+      control.setAttribute("aria-pressed", "false");
+      control.addEventListener("click", () => {
+        const voice = state.drumMix[definition.key], key = action === "mute" ? "muted" : "solo";
+        state.drumMix = sanitizeWebGpuChiptuneDrumMix({ ...state.drumMix,
+          [definition.key]: { ...voice, [key]: !voice[key] } });
+        updateEffectiveVoiceParams();
+        syncSequenceControls();
+        notifyWaxState();
+      });
+      row.append(control);
+    }
+    return row;
   });
   $("sequenceVoiceTabs").replaceChildren(...laneButtons);
+  bindPatternWorkspace();
 
   $("trackerViewMorph").addEventListener("change", () => setTrackerView("morph"));
   $("trackerViewSequence").addEventListener("change", () => setTrackerView("sequence"));
@@ -2664,7 +3136,8 @@ function renderSequenceControls() {
   $("sequencePageFour").addEventListener("click", () => setSequencePage(3));
   const applySelectedSequenceState = (cellState) => {
     setSequencePaintMode(cellState);
-    setSequenceCell(state.activeSequenceStep, cellState);
+    setSequenceCell(state.activeSequenceStep, cellState,
+      activeSequenceSpec().kind === "drums" && cellState === "note" ? 1 : undefined);
   };
   $("sequenceStateAuto").addEventListener("click", () => applySelectedSequenceState("auto"));
   $("sequenceStateNote").addEventListener("click", () => applySelectedSequenceState("note"));
@@ -2676,10 +3149,11 @@ function renderSequenceControls() {
       activeSequenceValueStep = state.activeSequenceStep;
     }
   };
+  const editorValue = (value) => Number(value) / (activeSequenceSpec().kind === "drums" ? 100 : 1);
   const liveValueEdit = (input) => {
     if (!input.value || !input.validity.valid) return;
     beginValueEdit();
-    setSequenceCell(activeSequenceValueStep, "note", Number(input.value), {
+    setSequenceCell(activeSequenceValueStep, "note", editorValue(input.value), {
       announceChange: false,
     });
   };
@@ -2695,7 +3169,7 @@ function renderSequenceControls() {
   });
   valueRange.addEventListener("change", () => {
     const step = activeSequenceValueStep ?? state.activeSequenceStep;
-    const value = Number(valueRange.value);
+    const value = editorValue(valueRange.value);
     setSequenceCell(step, "note", value);
     finishValueEdit();
   });
@@ -2728,7 +3202,7 @@ function renderSequenceControls() {
     setSequenceCell(
       activeSequenceValueStep ?? state.activeSequenceStep,
       "note",
-      Number(event.currentTarget.value),
+      editorValue(event.currentTarget.value),
     );
     finishValueEdit();
   });
@@ -3110,7 +3584,7 @@ async function startAudio() {
   engine = nextEngine;
 
   let pending;
-  pending = nextEngine.start(state.params, {
+  pending = nextEngine.start(effectiveVoiceParams(), {
     offset: 0,
     autoStart: false,
     sequence: state.sequence,
@@ -3226,8 +3700,19 @@ function runtimeChanged() {
 }
 
 function resetPatch() {
+  state.drumMix = sanitizeWebGpuChiptuneDrumMix();
+  state.songSequence = WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE;
+  state.patternSequence = createWebGpuChiptunePattern();
+  state.patternBaseline = state.patternSequence;
+  state.voicePerformance = sanitizeWebGpuChiptunePerformance(
+    WEBGPU_CHIPTUNE_PERFORMANCE_DEFAULTS,
+  );
+  state.activeCharacterVoice = "upperOne";
+  state.activeSequenceLane = "upperOne";
+  lastVoiceSequenceLane = "upperOne";
+  lastDrumSequenceLane = "kick";
   applyParams(WEBGPU_CHIPTUNE_DEFAULTS, "source-tracker", { notify: false });
-  applySequence(WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE, {
+  applySequence(state.sequence.mode === "pattern" ? state.patternSequence : WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE, {
     notify: false,
     markCustom: false,
     presetId: "source-tracker",
@@ -3510,7 +3995,7 @@ function drawMorphTracker(context, width, height, time) {
   context.fillStyle = "rgba(216,231,231,0.74)";
   context.textBaseline = "bottom";
   context.fillText(
-    coverage.source + "/" + coverage.active + " ACTIVE VOICE CELLS USE SOURCE",
+    (coverage.active - coverage.source) + " CUSTOM VOICE EDITS · PRESET FILLS THE REST",
     9,
     height - 8,
   );
@@ -3540,17 +4025,27 @@ function sequenceEditorMetrics(width, height) {
   const definition = activeSequenceDefinition();
   const row = Object.freeze({ definition, top, height: Math.max(1, bottom - top) });
   const overviewLabelWidth = narrow ? 31 : 48;
-  const overviewGridWidth = Math.max(1, width - overviewLabelWidth - right);
+  const volumeView = state.activeCharacterVoice !== "drums";
+  const overviewLeft = volumeView ? left : overviewLabelWidth;
+  const overviewGridWidth = Math.max(1, width - overviewLeft - right);
   const overviewHeader = 13;
+  const performerLaneKeys = webGpuChiptuneSequenceLanesForPerformer(
+    state.activeCharacterVoice,
+  );
+  const performerDefinitions = performerLaneKeys
+    .map((key) => sequenceLaneDefinitions.find((lane) => lane.key === key))
+    .filter(Boolean);
   const overviewRowHeight = Math.max(
     4,
-    (overviewHeight - overviewHeader) / sequenceLaneDefinitions.length,
+    (overviewHeight - overviewHeader) / performerDefinitions.length,
   );
-  const overviewRows = sequenceLaneDefinitions.map((laneDefinition, index) => Object.freeze({
-    definition: laneDefinition,
-    top: overviewTop + overviewHeader + index * overviewRowHeight,
-    height: overviewRowHeight,
-  }));
+  const overviewRows = performerDefinitions.map((laneDefinition, index) => (
+    Object.freeze({
+      definition: laneDefinition,
+      top: overviewTop + overviewHeader + index * overviewRowHeight,
+      height: overviewRowHeight,
+    })
+  ));
   return Object.freeze({
     left,
     right,
@@ -3565,14 +4060,23 @@ function sequenceEditorMetrics(width, height) {
     overview: Object.freeze({
       top: overviewTop,
       bottom: overviewBottom,
-      left: overviewLabelWidth,
+      left: overviewLeft,
+      startStep: volumeView ? startStep : 0,
+      stepCount: volumeView ? stepCount : WEBGPU_CHIPTUNE_SEQUENCE_STEPS,
       right,
       width: overviewGridWidth,
-      cellWidth: overviewGridWidth / WEBGPU_CHIPTUNE_SEQUENCE_STEPS,
+      cellWidth: overviewGridWidth / (volumeView ? stepCount : WEBGPU_CHIPTUNE_SEQUENCE_STEPS),
       rowHeight: overviewRowHeight,
       rows: Object.freeze(overviewRows),
     }),
   });
+}
+
+function currentDrumLevel(lane, step) {
+  const cell = state.sequence.lanes[lane].cells[step];
+  if (cell.state === "rest") return 0;
+  if (cell.state === "note") return cell.value;
+  return sourceDrumPreview(lane, step) > 0.08 ? 1 : 0;
 }
 
 function selectedSequenceValue(lane, step) {
@@ -3606,8 +4110,8 @@ function sourceDrumPreview(lane, step) {
 function sequenceVisiblePitchBounds(lane) {
   const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
   return Object.freeze([
-    Math.max(spec.minimum, -state.sequencePitchSpan),
-    Math.min(spec.maximum, state.sequencePitchSpan),
+    Math.max(spec.minimum, state.sequencePitchCenter - state.sequencePitchSpan),
+    Math.min(spec.maximum, state.sequencePitchCenter + state.sequencePitchSpan),
   ]);
 }
 
@@ -3631,7 +4135,6 @@ function sequenceValueForY(lane, localY, row) {
     1,
   );
   const spec = WEBGPU_CHIPTUNE_SEQUENCE_EDITOR_SPECS[lane];
-  if (spec.kind === "drums") return 1;
   if (spec.kind === "steps") {
     const [minimum, maximum] = sequenceVisiblePitchBounds(lane);
     const visibleValue = minimum + unit * (maximum - minimum);
@@ -3914,7 +4417,7 @@ function drawFocusedLaneGuides(context, metrics, definition) {
     ])].map((value) => [value, signedNumber(value)])
     : definition.kind === "contour"
       ? [[1, "1.00"], [0.75, ".75"], [0.5, ".50"], [0.25, ".25"], [0, ".00"]]
-      : [];
+      : [[1, "100%"], [0.75, "75%"], [0.5, "50%"], [0.25, "25%"], [0, "OFF"]];
   for (const [value, label] of guides) {
     const y = sequenceLaneY(definition.key, value, row);
     context.strokeStyle = value === 0 || value === 0.5
@@ -3978,7 +4481,11 @@ function drawSequenceOverview(context, metrics, time) {
   context.textBaseline = "middle";
   context.textAlign = "left";
   context.fillStyle = "rgba(216,231,231,0.58)";
-  context.fillText("ALL CLOCKS · TAP A ROW OR STEP", 5, overview.top + 6);
+  context.fillText(
+    state.activeCharacterVoice === "drums"
+      ? "CURRENT DRUM PATTERN · TAP A PART OR STEP"
+      : "STEP VOLUME · DRAG BARS · DOUBLE-CLICK ON/OFF",
+    5, overview.top + 6);
 
   for (const row of overview.rows) {
     const definition = row.definition;
@@ -3997,33 +4504,33 @@ function drawSequenceOverview(context, metrics, time) {
     context.globalAlpha = selectedLane ? 1 : 0.58;
     context.fillText(definition.shortLabel, 4, row.top + row.height * 0.5);
     context.globalAlpha = 1;
-    for (let step = 0; step < WEBGPU_CHIPTUNE_SEQUENCE_STEPS; step += 1) {
-      const x = overview.left + step * overview.cellWidth;
+    for (let step = overview.startStep; step < overview.startStep + overview.stepCount; step += 1) {
+      const x = overview.left + (step - overview.startStep) * overview.cellWidth;
       const cell = laneState.cells[step];
       const insideLoop = step < laneState.activeLength;
       if (!insideLoop) {
         context.fillStyle = "rgba(0,0,0,0.46)";
         context.fillRect(x, row.top, overview.cellWidth, row.height);
-      } else if (cell.state === "note") {
+      } else if (cell.state !== "rest") {
+        const level = definition.kind === "drums" ? currentDrumLevel(lane, step) : cell.velocity;
         context.fillStyle = definition.color;
-        context.globalAlpha = 0.62;
-        context.fillRect(
+        context.globalAlpha = .78;
+        if (level > 0) context.fillRect(
           x + 1,
-          row.top + Math.max(1, row.height * 0.2),
+          row.top + row.height - 1 - Math.max(1, (row.height - 2) * level),
           Math.max(1, overview.cellWidth - 2),
-          Math.max(1, row.height * 0.6),
+          Math.max(1, (row.height - 2) * level),
         );
         context.globalAlpha = 1;
-      } else if (cell.state === "auto") {
-        context.fillStyle = definition.color;
-        context.globalAlpha = 0.22;
-        context.fillRect(
-          x + overview.cellWidth * 0.36,
-          row.top + row.height * 0.38,
-          Math.max(1, overview.cellWidth * 0.28),
-          Math.max(1, row.height * 0.24),
-        );
-        context.globalAlpha = 1;
+      } else {
+        context.strokeStyle = "rgba(216,231,231,0.46)";
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(x + 1, row.top + 1);
+        context.lineTo(x + overview.cellWidth - 1, row.top + row.height - 1);
+        context.moveTo(x + overview.cellWidth - 1, row.top + 1);
+        context.lineTo(x + 1, row.top + row.height - 1);
+        context.stroke();
       }
       if (step === playhead) {
         context.fillStyle = "#ffffff";
@@ -4061,10 +4568,10 @@ function drawSequenceEditor(context, width, height, time) {
   context.fillStyle = "rgba(216,231,231,0.6)";
   context.font = "700 8px ui-monospace, SFMono-Regular, Consolas, monospace";
   const actionLabel = definition.kind === "drums"
-    ? "TAP = PAD STATE · HEIGHT IS BINARY"
+    ? "DOUBLE-CLICK: ON/OFF · DRAG: STRENGTH"
     : definition.kind === "contour"
-      ? "DRAW HEIGHT = SHAPE 0–1 · WHITE = RESOLVED INTERNAL PITCH"
-      : "DRAW HEIGHT = SEMITONES · HOLLOW = SOURCE";
+      ? "HEIGHT = PITCH CONTOUR · BELOW = VOLUME"
+      : "HEIGHT = PITCH · BELOW = VOLUME";
   context.fillText(actionLabel, Math.min(width * 0.36, metrics.left + 84), 16);
   context.textAlign = "right";
   context.fillText(
@@ -4114,24 +4621,6 @@ function drawSequenceEditor(context, width, height, time) {
   context.strokeStyle = "rgba(255,255,255,0.14)";
   context.strokeRect(metrics.left, metrics.row.top, metrics.width, metrics.row.height);
 
-  if (definition.kind !== "drums") {
-    context.save();
-    context.beginPath();
-    for (let offset = 0; offset < metrics.stepCount; offset += 1) {
-      const step = metrics.startStep + offset;
-      const x = metrics.left + (offset + 0.5) * metrics.cellWidth;
-      const y = sequenceLaneY(lane, suggestedSequenceValue(lane, step), metrics.row);
-      if (offset === 0) context.moveTo(x, y);
-      else context.lineTo(x, y);
-    }
-    context.setLineDash([4, 5]);
-    context.strokeStyle = definition.color;
-    context.globalAlpha = 0.32;
-    context.lineWidth = 1.5;
-    context.stroke();
-    context.restore();
-  }
-
   if (definition.kind === "contour") {
     context.beginPath();
     let drawing = false;
@@ -4162,41 +4651,28 @@ function drawSequenceEditor(context, width, height, time) {
     const outsideLoop = step >= laneState.activeLength;
     const selected = step === state.activeSequenceStep;
     if (definition.kind === "drums") {
-      const padInset = Math.max(4, metrics.cellWidth * 0.1);
-      const padTop = metrics.row.top + metrics.row.height * 0.18;
-      const padHeight = metrics.row.height * 0.64;
-      const preview = cell.state === "auto" ? sourceDrumPreview(lane, step) : 0;
-      context.fillStyle = cell.state === "note"
-        ? definition.color
-        : cell.state === "rest"
-          ? "rgba(8,12,16,0.94)"
-          : "rgba(8,12,16," + (0.72 - preview * 0.24) + ")";
+      const inset = Math.max(3, metrics.cellWidth * 0.12);
+      const level = currentDrumLevel(lane, step);
+      const bottom = sequenceLaneY(lane, 0, metrics.row);
+      const top = sequenceLaneY(lane, level, metrics.row);
+      const barWidth = Math.max(2, metrics.cellWidth - inset * 2);
       context.globalAlpha = outsideLoop ? 0.3 : 1;
-      context.fillRect(
-        x + padInset,
-        padTop,
-        Math.max(2, metrics.cellWidth - padInset * 2),
-        padHeight,
-      );
-      context.strokeStyle = cell.state === "auto" ? definition.color : "rgba(255,255,255,0.34)";
-      context.setLineDash(cell.state === "auto" ? [4, 3] : []);
-      context.strokeRect(
-        x + padInset,
-        padTop,
-        Math.max(2, metrics.cellWidth - padInset * 2),
-        padHeight,
-      );
-      context.setLineDash([]);
-      context.globalAlpha = 1;
-      context.fillStyle = cell.state === "note" ? "#061016" : definition.color;
-      context.font = "800 " + Math.max(7, Math.min(11, metrics.cellWidth * 0.2))
+      context.fillStyle = "rgba(255,255,255,0.035)";
+      context.fillRect(x + inset, sequenceLaneY(lane, 1, metrics.row), barWidth,
+        bottom - sequenceLaneY(lane, 1, metrics.row));
+      context.fillStyle = definition.color;
+      context.globalAlpha *= 0.7;
+      if (level > 0) context.fillRect(x + inset, top, barWidth, Math.max(3, bottom - top));
+      context.globalAlpha = outsideLoop ? 0.3 : 1;
+      context.fillStyle = level > 0 ? "#f3faff" : "rgba(216,231,231,0.35)";
+      context.fillRect(x + inset, top - 2, barWidth, 4);
+      context.fillStyle = definition.color;
+      context.font = "800 " + Math.max(8, Math.min(11, metrics.cellWidth * 0.24))
         + "px ui-monospace, SFMono-Regular, Consolas, monospace";
       context.textAlign = "center";
-      context.fillText(
-        cell.state === "note" ? "HIT" : cell.state === "rest" ? "OFF" : "SRC",
-        x + metrics.cellWidth * 0.5,
-        padTop + padHeight * 0.5,
-      );
+      context.fillText(level > 0 ? Math.round(level * 100) + "%" : "OFF",
+        x + metrics.cellWidth * 0.5, Math.max(metrics.row.top + 8, top - 10));
+      context.globalAlpha = 1;
     } else if (cell.state === "rest") {
       drawRestCell(context, x, metrics.row.top, metrics.cellWidth, metrics.row.height);
       context.fillStyle = "rgba(216,231,231,0.5)";
@@ -4205,41 +4681,37 @@ function drawSequenceEditor(context, width, height, time) {
       context.fillText("REST", x + metrics.cellWidth * 0.5, metrics.bottom - 12);
     } else {
       const value = selectedSequenceValue(lane, step);
-      const sourceY = sequenceLaneY(lane, suggestedSequenceValue(lane, step), metrics.row);
       const y = sequenceLaneY(lane, value, metrics.row);
       const radius = Math.max(4, Math.min(8, metrics.cellWidth * 0.14));
-      context.beginPath();
-      context.arc(x + metrics.cellWidth * 0.5, sourceY, Math.max(2.5, radius * 0.58), 0, Math.PI * 2);
-      context.strokeStyle = definition.color;
-      context.globalAlpha = 0.42;
-      context.lineWidth = 1.5;
-      context.stroke();
-      context.globalAlpha = outsideLoop ? 0.3 : 1;
-      if (cell.state === "note") {
-        if (definition.kind === "steps") {
-          context.fillStyle = definition.color;
-          context.fillRect(
-            x + Math.max(3, metrics.cellWidth * 0.12),
-            y - 4,
-            Math.max(3, metrics.cellWidth * 0.76),
-            8,
-          );
-        }
-        context.beginPath();
-        context.arc(x + metrics.cellWidth * 0.5, y, radius, 0, Math.PI * 2);
+      const custom = sequenceCellCustomized(lane, step);
+      context.globalAlpha = outsideLoop ? 0.3 : custom ? 1 : 0.68;
+      if (definition.kind === "steps") {
         context.fillStyle = definition.color;
-        context.fill();
+        context.fillRect(
+          x + Math.max(3, metrics.cellWidth * 0.12),
+          y - 4,
+          Math.max(3, metrics.cellWidth * 0.76),
+          8,
+        );
       }
+      context.beginPath();
+      context.arc(x + metrics.cellWidth * 0.5, y, custom ? radius : radius * 0.76, 0, Math.PI * 2);
+      context.fillStyle = definition.color;
+      context.fill();
       context.globalAlpha = 1;
-      context.fillStyle = cell.state === "note" ? definition.color : "rgba(216,231,231,0.58)";
-      context.font = "800 8px ui-monospace, SFMono-Regular, Consolas, monospace";
-      context.textAlign = "center";
-      context.fillText(cell.state === "note" ? "N" : "S", x + metrics.cellWidth * 0.5, metrics.bottom - 9);
+      if (custom) {
+        context.fillStyle = definition.color;
+        context.font = "800 8px ui-monospace, SFMono-Regular, Consolas, monospace";
+        context.textAlign = "center";
+        context.fillText("EDIT", x + metrics.cellWidth * 0.5, metrics.bottom - 9);
+      }
       if (metrics.cellWidth >= 36) {
         context.fillStyle = "rgba(216,231,231,0.72)";
         context.font = "700 7px ui-monospace, SFMono-Regular, Consolas, monospace";
         context.fillText(
-          definition.kind === "contour" ? value.toFixed(2) : signedNumber(value),
+          definition.kind === "contour"
+            ? value.toFixed(2)
+            : shaderNoteName(resolvedSequenceNote(lane, step)),
           x + metrics.cellWidth * 0.5,
           clamp(y - 12, metrics.row.top + 9, metrics.bottom - 24),
         );
@@ -4257,8 +4729,8 @@ function drawSequenceEditor(context, width, height, time) {
     }
   }
 
-  if (lane === "lead") drawResolvedLeadTrace(context, metrics, metrics.row);
-  if (lane === "arp") drawResolvedArpTrace(context, metrics, metrics.row);
+  if (lane === "lead" && state.sequence.mode === "song") drawResolvedLeadTrace(context, metrics, metrics.row);
+  if (lane === "arp" && state.sequence.mode === "song") drawResolvedArpTrace(context, metrics, metrics.row);
   context.restore();
   drawSequenceOverview(context, metrics, time);
 }
@@ -4269,6 +4741,7 @@ const characterPalettes = Object.freeze([
   Object.freeze({ hue: 267, name: "MONSTER" }),
   Object.freeze({ hue: 326, name: "HERO" }),
   Object.freeze({ hue: 43, name: "SPRITE" }),
+  Object.freeze({ hue: 12, name: "BEATBOT" }),
 ]);
 const reducedMotionQuery = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)");
 
@@ -4333,805 +4806,12 @@ function drawRestGlyph(context, x, y, unit, color) {
   pixelRect(context, x, y + unit * 2, unit * 3, unit, color);
 }
 
-const pixelGait = Object.freeze([0, 1, 1, 0, 0, -1, -1, 0]);
-
-function actorPose(actor, reducedMotion) {
-  const animated = !reducedMotion && !actor.resting;
-  const frame = animated ? actor.frame & 7 : 0;
-  const modulation = animated ? Math.sin(actor.motionPhase * Math.PI * 2) : 0;
-  return {
-    animated,
-    frame,
-    gait: pixelGait[frame],
-    counterGait: pixelGait[(frame + 4) & 7],
-    sway: Math.round(modulation * (0.5 + actor.motion * 1.5)),
-    flutter: Math.round(Math.abs(modulation) * (1 + actor.range * 2)),
-    recoil: animated ? Math.round(actor.onset * 2) : 0,
-  };
-}
-
-function drawScout(context, actor, x, ground, unit, colors, pose, grow) {
-  const torsoWidth = (4 + Math.round(actor.shape * 2)) * unit;
-  const packWidth = (1 + Math.round(actor.detail * 2)) * unit;
-  const top = ground - (13 + grow) * unit;
-  const antennaX = x + pose.sway * unit;
-  pixelRect(context, x - unit, top - 3 * unit, unit, 3 * unit, colors.outline);
-  pixelRect(context, antennaX - unit, top - 4 * unit, 2 * unit, unit, colors.spark);
-  pixelRect(context, x - 3 * unit, top, 6 * unit, 4 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, unit, colors.highlight);
-  pixelRect(context, x - unit + pose.sway * unit, top + 2 * unit, 2 * unit, unit, colors.outline);
-  pixelRect(context, x + pose.sway * unit, top + 2 * unit, unit, unit, colors.spark);
-  pixelRect(context, x - torsoWidth / 2 - unit, top + 4 * unit, torsoWidth + 2 * unit, 6 * unit, colors.outline);
-  pixelRect(context, x - torsoWidth / 2, top + 4 * unit, torsoWidth, 5 * unit, colors.body);
-  pixelRect(context, x - torsoWidth / 2, top + 4 * unit, torsoWidth, unit, colors.highlight);
-  pixelRect(context, x - torsoWidth / 2 - packWidth, top + 5 * unit, packWidth, 4 * unit, colors.mid);
-  pixelRect(context, x - torsoWidth / 2 - packWidth, top + 6 * unit, unit, unit, colors.spark);
-  pixelRect(context, x - torsoWidth / 2 - 2 * unit, top + (5 + pose.gait) * unit, 2 * unit, unit, colors.body);
-  pixelRect(context, x + torsoWidth / 2, top + (6 - pose.gait) * unit, 3 * unit, unit, colors.body);
-  pixelRect(context, x + torsoWidth / 2 + 2 * unit, top + (5 - pose.gait) * unit, unit, 3 * unit, colors.highlight);
-  if (actor.gate > 0.08) {
-    const beam = 1 + Math.round(actor.detail * 3);
-    for (let index = 0; index < beam; index += 1) {
-      if ((index + pose.frame) & 1) continue;
-      pixelRect(
-        context,
-        x + torsoWidth / 2 + (4 + index) * unit,
-        top + (5 - pose.gait) * unit,
-        unit,
-        unit,
-        colors.spark,
-      );
-    }
-  }
-  pixelRect(context, x - torsoWidth / 2, top + 8 * unit, torsoWidth, unit, colors.mid);
-  pixelRect(context, x - 2 * unit + pose.gait * unit, top + 10 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x + pose.counterGait * unit, top + 10 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 3 * unit + pose.gait * unit, top + 12 * unit, 3 * unit, unit, colors.shadow);
-  pixelRect(context, x + pose.counterGait * unit, top + 12 * unit, 3 * unit, unit, colors.shadow);
-}
-
-function drawRunner(context, actor, x, ground, unit, colors, pose, grow) {
-  const top = ground - (12 + grow) * unit;
-  const shoulder = (actor.shape > 0.5 ? 5 : 4) * unit;
-  const scarf = 2 + Math.round(actor.detail * 3);
-  pixelRect(context, x - unit, top - 2 * unit, 2 * unit, 2 * unit, colors.body);
-  pixelRect(context, x + pose.sway * unit, top - 3 * unit, unit, unit, colors.spark);
-  for (let tail = 0; tail < scarf; tail += 1) {
-    pixelRect(
-      context,
-      x - (3 + tail) * unit,
-      top + (2 + ((tail + pose.frame) & 1)) * unit,
-      unit,
-      unit,
-      tail & 1 ? colors.mid : colors.highlight,
-    );
-  }
-  pixelRect(context, x - 3 * unit, top, 6 * unit, 4 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 2 * unit, colors.body);
-  pixelRect(context, x - 2 * unit, top + unit, 3 * unit, unit, colors.highlight);
-  pixelRect(context, x + pose.sway * unit, top + 2 * unit, unit, unit, colors.outline);
-  pixelRect(context, x - shoulder / 2 - unit, top + 4 * unit, shoulder + 2 * unit, 5 * unit, colors.outline);
-  pixelRect(context, x - shoulder / 2, top + 4 * unit, shoulder, 4 * unit, colors.body);
-  pixelRect(context, x - unit, top + 5 * unit, 2 * unit, 2 * unit, colors.mid);
-  pixelRect(context, x - shoulder / 2, top + 7 * unit, shoulder, unit, colors.highlight);
-  pixelRect(context, x - 4 * unit, top + (5 + pose.gait) * unit, 3 * unit, unit, colors.shadow);
-  pixelRect(context, x + 2 * unit, top + (5 - pose.gait) * unit, 3 * unit, unit, colors.highlight);
-  pixelRect(context, x - 2 * unit + pose.counterGait * unit, top + 9 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x + pose.gait * unit, top + 9 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 3 * unit + pose.counterGait * unit, top + 11 * unit, 3 * unit, unit, colors.shadow);
-  pixelRect(context, x + pose.gait * unit, top + 11 * unit, 3 * unit, unit, colors.shadow);
-  if (pose.animated && actor.gate > 0.2) {
-    const streaks = 1 + Math.round(actor.motion * 2);
-    for (let streak = 0; streak < streaks; streak += 1) {
-      pixelRect(
-        context,
-        x - (5 + streak * 2) * unit,
-        top + (8 + streak * 2) * unit,
-        unit * (1 + (streak & 1)),
-        unit,
-        colors.spark,
-      );
-    }
-  }
-}
-
-function drawMonster(context, actor, x, ground, unit, colors, pose, grow) {
-  const roundness = Math.round(actor.shape * 2);
-  const width = (8 + grow) * unit;
-  const top = ground - (10 + grow) * unit;
-  const horn = 1 + Math.round(actor.range * 2);
-  const jaw = actor.resting ? 0 : 1 + Math.round(actor.gate * 2);
-  const mouthWidth = (3 + Math.round(actor.detail * 4)) * unit;
-  pixelRect(context, x - width / 2 + unit, top - horn * unit, unit, horn * unit, colors.highlight);
-  pixelRect(context, x + width / 2 - 2 * unit, top - horn * unit, unit, horn * unit, colors.highlight);
-  pixelRect(context, x - width / 2 + roundness * unit, top, width - roundness * 2 * unit, unit, colors.outline);
-  pixelRect(context, x - width / 2, top + unit, width, (7 + grow + jaw) * unit, colors.outline);
-  pixelRect(context, x - width / 2 + unit, top + 2 * unit, width - 2 * unit, (5 + grow) * unit, colors.body);
-  pixelRect(context, x - width / 2 + 2 * unit, top + 2 * unit, width - 4 * unit, unit, colors.highlight);
-  pixelRect(context, x - 2 * unit + pose.sway * unit, top + 4 * unit, unit, unit, colors.outline);
-  pixelRect(context, x + unit + pose.sway * unit, top + 4 * unit, unit, unit, colors.outline);
-  pixelRect(context, x - mouthWidth / 2, top + 6 * unit, mouthWidth, jaw * unit, colors.shadow);
-  pixelRect(context, x - mouthWidth / 2 + unit, top + 6 * unit, unit, unit, colors.spark);
-  pixelRect(context, x + mouthWidth / 2 - 2 * unit, top + 6 * unit, unit, unit, colors.spark);
-  if (jaw > 1) {
-    pixelRect(context, x - unit, top + (5 + jaw) * unit, 2 * unit, unit, colors.highlight);
-  }
-  pixelRect(context, x - width / 2 + unit, top + (6 + grow) * unit, width - 2 * unit, unit, colors.mid);
-  pixelRect(context, x - width / 2 - 2 * unit, top + (4 + pose.gait) * unit, 2 * unit, 4 * unit, colors.body);
-  pixelRect(context, x + width / 2, top + (4 - pose.gait) * unit, 2 * unit, 4 * unit, colors.body);
-  pixelRect(context, x - width / 2 - 2 * unit, top + (7 + pose.gait) * unit, 2 * unit, 2 * unit, colors.shadow);
-  pixelRect(context, x + width / 2, top + (7 - pose.gait) * unit, 2 * unit, 2 * unit, colors.shadow);
-  pixelRect(context, x - 3 * unit + pose.gait * unit, top + (8 + grow + jaw) * unit, 3 * unit, 2 * unit, colors.shadow);
-  pixelRect(context, x + pose.counterGait * unit, top + (8 + grow + jaw) * unit, 3 * unit, 2 * unit, colors.shadow);
-  if (pose.recoil > 0) {
-    pixelRect(context, x - 5 * unit, ground, 2 * unit, unit, colors.spark);
-    pixelRect(context, x + 3 * unit, ground, 2 * unit, unit, colors.spark);
-  }
-}
-
-function drawHero(context, actor, x, ground, unit, colors, pose, grow) {
-  const top = ground - (14 + grow) * unit;
-  const capeDirection = actor.shape >= 0.5 ? -1 : 1;
-  const capeLength = 4 + Math.round(actor.range * 3);
-  const trillRaised = pose.animated && actor.motionPhase >= 1 - actor.detail;
-  for (let row = 0; row < capeLength; row += 1) {
-    const flutter = row > 1 ? pose.sway * capeDirection : 0;
-    pixelRect(
-      context,
-      x + capeDirection * (3 + Math.abs(flutter)) * unit,
-      top + (5 + row) * unit,
-      (2 + (row >> 1)) * unit,
-      unit,
-      row & 1 ? colors.shadow : colors.mid,
-    );
-  }
-  pixelRect(context, x - 2 * unit, top - unit, 4 * unit, unit, colors.highlight);
-  pixelRect(context, x - unit + pose.sway * unit, top - 2 * unit, 2 * unit, unit, colors.spark);
-  pixelRect(context, x - 3 * unit, top, 6 * unit, 4 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, unit, colors.highlight);
-  pixelRect(context, x + pose.sway * unit, top + 2 * unit, unit, unit, colors.outline);
-  pixelRect(context, x - 3 * unit, top + 4 * unit, 6 * unit, 7 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + 4 * unit, 4 * unit, 6 * unit, colors.body);
-  pixelRect(context, x - unit, top + 5 * unit, 2 * unit, 2 * unit, colors.highlight);
-  pixelRect(context, x - 2 * unit, top + 8 * unit, 4 * unit, unit, colors.mid);
-  pixelRect(context, x - 4 * unit, top + (5 + pose.gait) * unit, 2 * unit, unit, colors.body);
-  const swordX = x + 4 * unit;
-  const swordTop = trillRaised ? top : top + 3 * unit;
-  pixelRect(context, x + 2 * unit, top + (5 - pose.gait) * unit, 3 * unit, unit, colors.highlight);
-  pixelRect(context, swordX, swordTop, unit, 6 * unit, colors.highlight);
-  pixelRect(context, swordX + unit, swordTop - unit, unit, unit, colors.spark);
-  if (pose.recoil > 0) {
-    pixelRect(context, swordX + 2 * unit, swordTop + unit, unit, unit, colors.spark);
-    pixelRect(context, swordX - unit, swordTop - 2 * unit, unit, unit, colors.spark);
-  }
-  pixelRect(context, x - 2 * unit + pose.gait * unit, top + 11 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x + pose.counterGait * unit, top + 11 * unit, 2 * unit, 3 * unit, colors.body);
-  pixelRect(context, x - 3 * unit + pose.gait * unit, top + 13 * unit, 3 * unit, unit, colors.shadow);
-  pixelRect(context, x + pose.counterGait * unit, top + 13 * unit, 3 * unit, unit, colors.shadow);
-}
-
-function drawSprite(context, actor, x, ground, unit, colors, pose, grow) {
-  const top = ground - (11 + grow) * unit;
-  const wing = 2 + Math.round(actor.shape * 3);
-  const gateAperture = Math.round(actor.detail * 2);
-  const wingLift = (pose.animated ? pose.flutter : 1) + gateAperture;
-  pixelRect(context, x - (wing + 2) * unit, top + (3 - wingLift) * unit, wing * unit, unit, colors.highlight);
-  pixelRect(context, x - (wing + 1) * unit, top + (2 + wingLift) * unit, wing * unit, unit, colors.body);
-  pixelRect(context, x + 2 * unit, top + (2 + wingLift) * unit, wing * unit, unit, colors.body);
-  pixelRect(context, x + 2 * unit, top + (3 - wingLift) * unit, wing * unit, unit, colors.highlight);
-  pixelRect(context, x - unit, top - 2 * unit, unit, 2 * unit, colors.highlight);
-  pixelRect(context, x + unit, top - 2 * unit, unit, 2 * unit, colors.highlight);
-  pixelRect(context, x - 2 * unit + pose.sway * unit, top - 3 * unit, unit, unit, colors.spark);
-  pixelRect(context, x - 3 * unit, top, 6 * unit, 5 * unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + unit, 4 * unit, 4 * unit, colors.body);
-  pixelRect(context, x - unit + pose.sway * unit, top + unit, unit, unit, colors.highlight);
-  pixelRect(context, x + unit + pose.sway * unit, top + 2 * unit, unit, unit, colors.outline);
-  pixelRect(context, x - 2 * unit, top + 5 * unit, 4 * unit, 5 * unit, colors.outline);
-  pixelRect(context, x - unit, top + 5 * unit, 2 * unit, 4 * unit, colors.body);
-  pixelRect(context, x - 2 * unit, top + 7 * unit, 4 * unit, unit, colors.mid);
-  pixelRect(context, x - 2 * unit + pose.gait * unit, top + 10 * unit, 2 * unit, unit, colors.body);
-  pixelRect(context, x + pose.counterGait * unit, top + 10 * unit, 2 * unit, unit, colors.body);
-  const orbiters = 1 + Math.round(actor.range * 2) + Math.round(actor.detail);
-  if (pose.animated && actor.gate > 0.08) {
-    for (let orbiter = 0; orbiter < orbiters; orbiter += 1) {
-      const orbitFrame = (pose.frame + orbiter * 2) & 7;
-      const orbitX = pixelGait[orbitFrame] * (4 + gateAperture + orbiter) * unit;
-      const orbitY = pixelGait[(orbitFrame + 2) & 7] * (2 + (orbiter & 1)) * unit;
-      pixelRect(context, x + orbitX, top + 4 * unit + orbitY, unit, unit, colors.spark);
-    }
-  }
-}
-
-const defaultInvaderDancePose = Object.freeze({
-  hold: 0.5,
-  march: 0,
-  bob: 0,
-  claw: 0,
-  feet: 0,
-  wing: 0,
-  lean: 0,
-  reach: 0,
-  turn: 0,
-  look: 0,
-  squat: 0,
-  spin: 0,
-});
-
-function freezeInvaderDanceProfile(frames) {
-  return Object.freeze(frames.map((frame) => Object.freeze({
-    ...defaultInvaderDancePose,
-    ...frame,
-  })));
-}
-
-const invaderDanceProfiles = Object.freeze({
-  upperOne: freezeInvaderDanceProfile([
-    { hold: 0.72 },
-    { hold: 0.76, claw: 2, feet: -0.8, lean: -1, reach: 1.5, turn: -1, look: -1, wing: -0.5 },
-    { hold: 0.58, bob: -1.5, claw: -1, lean: -0.5, reach: 0.5, turn: -1, look: -1 },
-    { hold: 0.74 },
-    { hold: 0.76, claw: 2, feet: 0.8, lean: 1, reach: 1.5, turn: 1, look: 1, wing: 0.5 },
-    { hold: 0.58, bob: -1.5, claw: -1, lean: 0.5, reach: 0.5, turn: 1, look: 1 },
-    { hold: 0.68, bob: 1, claw: -1, squat: 1, wing: 1 },
-    { hold: 0.82, bob: -2, claw: 2, reach: 2, feet: 0 },
-  ]),
-  upperTwo: freezeInvaderDanceProfile([
-    { hold: 0.42, march: -2, feet: -1, lean: 1, wing: -1, look: 1, turn: -1 },
-    { hold: 0.38, march: -1.4, bob: -0.5, feet: -0.4, lean: 0.6, wing: -0.5, look: 1, turn: -0.7 },
-    { hold: 0.46, march: 0, bob: -1, feet: 0.5, wing: 0, turn: 0 },
-    { hold: 0.38, march: 1.4, bob: -0.5, feet: 1, lean: -0.6, wing: 0.5, look: -1, turn: 0.7 },
-    { hold: 0.42, march: 2, feet: 0.3, lean: -1, wing: 1, look: -1, turn: 1 },
-    { hold: 0.38, march: 1.2, bob: -0.5, feet: -1, lean: -0.5, wing: 0.4, look: -1, turn: 0.7 },
-    { hold: 0.46, march: 0, bob: -1, feet: -0.3, turn: 0 },
-    { hold: 0.38, march: -1.2, bob: -0.5, feet: 1, lean: 0.6, wing: -0.5, look: 1, turn: -0.7 },
-  ]),
-  bass: freezeInvaderDanceProfile([
-    { hold: 0.72 },
-    { hold: 0.6, bob: 1, claw: -0.5, reach: 0.5, squat: 1 },
-    { hold: 0.62, bob: 2.5, claw: -1.5, feet: -0.4, reach: 1.5, squat: 2 },
-    { hold: 0.82, bob: 3, claw: -2, reach: 2, squat: 2.5 },
-    { hold: 0.62, bob: 1.5, claw: 1, feet: -1.5, reach: 1, squat: 1.5, look: -1 },
-    { hold: 0.42, bob: -1, claw: 2, feet: 0, reach: 1, squat: 0.2 },
-    { hold: 0.66, bob: 1, claw: 0.5, feet: 1.5, squat: 0.8, look: 1 },
-    { hold: 0.78 },
-  ]),
-  lead: freezeInvaderDanceProfile([
-    { hold: 0.62 },
-    { hold: 0.45, march: -0.3, bob: -0.5, feet: -1, lean: -1, reach: 1.5, turn: -1, look: -1, wing: 1 },
-    { hold: 0.58, bob: -2, feet: -1.5, lean: -1.5, reach: 3, turn: -1, look: -1, wing: 2 },
-    { hold: 0.4, bob: -2.5, feet: 0, reach: 2, turn: 0, wing: 1.5 },
-    { hold: 0.58, bob: -2, feet: 1.5, lean: 1.5, reach: 3, turn: 1, look: 1, wing: 2 },
-    { hold: 0.45, march: 0.3, bob: -0.5, feet: 1, lean: 1, reach: 1.5, turn: 1, look: 1, wing: 0.5 },
-    { hold: 0.68, bob: 1.5, feet: -1, lean: -1, reach: 2, turn: -1, look: -1, squat: 1, wing: -1 },
-    { hold: 0.84 },
-  ]),
-  arp: freezeInvaderDanceProfile([
-    { hold: 0.58, wing: -2, feet: -1, turn: -1, look: -1, spin: 0 },
-    { hold: 0.52, march: 0.6, bob: -1, wing: -1, feet: -0.5, reach: 0.5, turn: -0.6, look: -1, spin: 1 },
-    { hold: 0.62, march: 1, bob: -2, wing: 1, feet: 0, reach: 1.5, turn: 0, spin: 2 },
-    { hold: 0.68, march: 0.6, bob: -1, wing: 2, feet: 0.7, reach: 2, turn: 0.6, look: 1, spin: 3 },
-    { hold: 0.58, wing: 2, feet: 1, reach: 2, turn: 1, look: 1, spin: 4 },
-    { hold: 0.52, march: -0.6, bob: -1, wing: 1, feet: 0.5, reach: 1.5, turn: 0.6, look: 1, spin: 5 },
-    { hold: 0.62, march: -1, bob: -2, wing: -1, feet: 0, reach: 0.5, turn: 0, spin: 6 },
-    { hold: 0.68, march: -0.6, bob: -1, wing: -2, feet: -0.7, turn: -0.6, look: -1, spin: 7 },
-  ]),
-});
-
-const invaderDanceKeys = Object.freeze([
-  "march", "bob", "claw", "feet", "wing", "lean", "reach", "turn", "look", "squat", "spin",
-]);
-
-function invaderDancePoseAtPhase(profile, phase) {
-  const scaledPhase = positiveModulo(phase, 1) * profile.length;
-  const frame = Math.floor(scaledPhase) % profile.length;
-  const progress = scaledPhase - Math.floor(scaledPhase);
-  const current = profile[frame];
-  const next = profile[(frame + 1) % profile.length];
-  const transition = clamp(
-    (progress - current.hold) / Math.max(0.001, 1 - current.hold),
-    0,
-    1,
-  );
-  const eased = transition * transition * (3 - 2 * transition);
-  const pose = { frame };
-  for (const key of invaderDanceKeys) {
-    pose[key] = current[key] + (next[key] - current[key]) * eased;
-  }
-  return pose;
-}
-
-function detailedActorPose(actor, reducedMotion) {
-  const animated = !reducedMotion;
-  const sounding = animated && !actor.resting;
-  const profile = invaderDanceProfiles[actor.key] ?? invaderDanceProfiles.upperOne;
-  const formation = invaderDancePoseAtPhase(profile, animated ? actor.dancePhase : 0);
-  return Object.freeze({
-    ...formation,
-    animated,
-    sounding,
-    hairMotion: animated
-      ? formation.turn * (0.55 + actor.motion * 0.35)
-      : 0,
-    eyeX: animated ? formation.look : 0,
-    eyeY: 1,
-    compression: animated
-      ? Math.max(0, Math.round(Math.max(0, formation.squat) * 0.6))
-      : 0,
-  });
-}
-
-function spriteRect(context, x, ground, texel, gridX, gridY, width, height, color) {
-  pixelRect(
-    context,
-    x + gridX * texel,
-    ground + gridY * texel,
-    width * texel,
-    height * texel,
-    color,
-  );
-}
-
-function drawPixelSegment(context, x, ground, texel, from, to, color, thickness = 2) {
-  let x0 = Math.round(from[0]);
-  let y0 = Math.round(from[1]);
-  const x1 = Math.round(to[0]);
-  const y1 = Math.round(to[1]);
-  const dx = Math.abs(x1 - x0);
-  const sx = x0 < x1 ? 1 : -1;
-  const dy = -Math.abs(y1 - y0);
-  const sy = y0 < y1 ? 1 : -1;
-  let error = dx + dy;
-  while (true) {
-    spriteRect(
-      context,
-      x,
-      ground,
-      texel,
-      x0 - Math.floor(thickness / 2),
-      y0 - Math.floor(thickness / 2),
-      thickness,
-      thickness,
-      color,
-    );
-    if (x0 === x1 && y0 === y1) break;
-    const doubled = error * 2;
-    if (doubled >= dy) {
-      error += dy;
-      x0 += sx;
-    }
-    if (doubled <= dx) {
-      error += dx;
-      y0 += sy;
-    }
-  }
-}
-
-function drawPixelEyes(context, x, ground, texel, centerY, colors, pose, wide = false) {
-  const spacing = wide ? 5 : 4;
-  const pupilX = pose.eyeX > 0 ? 1 : 0;
-  const pupilY = pose.eyeY > 0 ? 1 : 0;
-  for (const side of [-1, 1]) {
-    const eyeX = side * spacing - 2;
-    spriteRect(context, x, ground, texel, eyeX, centerY - 2, 4, 4, colors.outline);
-    spriteRect(context, x, ground, texel, eyeX + 1, centerY - 1, 2, 2, "#f4fbff");
-    spriteRect(context, x, ground, texel, eyeX + 1, centerY - 1, 1, 1, colors.spark);
-    spriteRect(
-      context,
-      x,
-      ground,
-      texel,
-      eyeX + 1 + pupilX,
-      centerY - 1 + pupilY,
-      1,
-      1,
-      colors.outline,
-    );
-  }
-}
-
-function drawPixelHair(context, x, ground, texel, points, color, motion = 0) {
-  for (const [hairX, hairY, height = 2] of points) {
-    spriteRect(
-      context,
-      x,
-      ground,
-      texel,
-      hairX + Math.sign(hairX || 1) * motion,
-      hairY - Math.abs(motion),
-      2,
-      height + Math.abs(motion),
-      color,
-    );
-  }
-}
-
-function drawInvaderAntennae(
-  context,
-  x,
-  ground,
-  texel,
-  y,
-  spacing,
-  height,
-  colors,
-  pose,
-) {
-  const flare = pose.animated ? pose.wing : 0;
-  for (const side of [-1, 1]) {
-    const stemX = side * spacing - (side < 0 ? 1 : 0);
-    spriteRect(context, x, ground, texel, stemX, y - height, 2, height, colors.outline);
-    spriteRect(context, x, ground, texel, stemX + (side < 0 ? 1 : 0), y - height + 1, 1, height - 1, colors.highlight);
-    spriteRect(
-      context,
-      x,
-      ground,
-      texel,
-      stemX + side * (1 + flare),
-      y - height - 2,
-      2,
-      2,
-      colors.spark,
-    );
-  }
-}
-
-function drawInvaderClaws(
-  context,
-  x,
-  ground,
-  texel,
-  anchorY,
-  halfWidth,
-  reach,
-  colors,
-  pose,
-) {
-  const baseOpen = pose.animated ? pose.claw : 0;
-  const expressiveReach = pose.animated ? pose.reach : 0;
-  const turn = pose.animated ? pose.turn : 0;
-  for (const side of [-1, 1]) {
-    const sideReach = reach + Math.max(0, expressiveReach + side * turn * 0.85);
-    const open = baseOpen + side * turn * 0.55;
-    const shoulder = [side * halfWidth, anchorY];
-    const elbow = [side * (halfWidth + sideReach), anchorY + 2 - Math.abs(open)];
-    drawPixelSegment(context, x, ground, texel, shoulder, elbow, colors.outline, 4);
-    drawPixelSegment(context, x, ground, texel, shoulder, elbow, colors.body, 2);
-    const clawX = side * (halfWidth + sideReach + 1);
-    spriteRect(context, x, ground, texel, clawX - 1, anchorY - 2 - open, 2, 3, colors.highlight);
-    spriteRect(context, x, ground, texel, clawX - 1, anchorY + 2 + open, 2, 3, colors.highlight);
-  }
-}
-
-function drawInvaderFeet(
-  context,
-  x,
-  ground,
-  texel,
-  positions,
-  colors,
-  pose,
-  width = 4,
-  liftScale = 1,
-) {
-  positions.forEach((footX, index) => {
-    const side = footX < 0 ? -1 : footX > 0 ? 1 : index & 1 ? 1 : -1;
-    const lift = pose.animated
-      ? Math.max(0, Math.round(side * pose.feet * 1.25 * liftScale))
-      : 0;
-    spriteRect(context, x, ground, texel, footX - 1, -5 - lift, 2, 4, colors.outline);
-    spriteRect(context, x, ground, texel, footX - Math.floor(width / 2), -2 - lift, width, 2, colors.shadow);
-    spriteRect(context, x, ground, texel, footX - 1, -3 - lift, 2, 1, colors.spark);
-  });
-}
-
-function drawDetailedScout(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const bodyX = x + pose.lean * px;
-  const bob = pose.bob + Math.max(0, pose.squat);
-  const shellWidth = 8 + Math.round(actor.shape * 3);
-  const detailBars = 1 + Math.round(actor.detail * 3);
-  drawInvaderAntennae(context, bodyX, ground, px, -28 + bob, 5, 4, colors, pose);
-  spriteRect(context, bodyX, ground, px, -4, -29 + bob, 8, 2, colors.outline);
-  spriteRect(context, bodyX, ground, px, -7, -27 + bob, 14, 3, colors.outline);
-  spriteRect(context, bodyX, ground, px, -shellWidth, -24 + bob, shellWidth * 2, 10 + grow, colors.outline);
-  spriteRect(context, bodyX, ground, px, -shellWidth + 1, -23 + bob, shellWidth * 2 - 2, 7 + grow, colors.body);
-  spriteRect(context, bodyX, ground, px, -shellWidth + 2, -22 + bob, shellWidth * 2 - 4, 2, colors.highlight);
-  spriteRect(context, bodyX, ground, px, -5, -16 + bob, 10, 6 + grow, colors.mid);
-  drawPixelEyes(context, bodyX, ground, px, -20 + bob, colors, pose);
-  for (let detail = 0; detail < detailBars; detail += 1) {
-    const markX = -5 + detail * Math.max(2, Math.floor(10 / detailBars));
-    spriteRect(context, bodyX, ground, px, markX, -14 + bob, 1, 3, colors.spark);
-  }
-  drawInvaderClaws(
-    context,
-    bodyX,
-    ground,
-    px,
-    -16 + bob,
-    shellWidth - 1,
-    2 + Math.round(actor.range * 2),
-    colors,
-    pose,
-  );
-  drawInvaderFeet(context, x, ground, px, [-6, 0, 6], colors, pose);
-  if (pose.sounding && actor.audibleGate > 0.08) {
-    const beam = 1 + Math.round(actor.detail * 2);
-    const scannerOffset = Math.round(pose.turn * (1 + actor.range * 2));
-    for (let index = 0; index < beam; index += 1) {
-      spriteRect(
-        context,
-        bodyX,
-        ground,
-        px,
-        scannerOffset - Math.floor(beam / 2) + index,
-        -9 + bob + index % 2,
-        1,
-        2,
-        colors.spark,
-      );
-    }
-  }
-}
-
-function drawDetailedRunner(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const bob = pose.bob;
-  const bodyX = x + pose.lean * px;
-  const fin = 2 + Math.round(actor.shape * 3);
-  const exhaust = 1 + Math.round(actor.detail * 3);
-  drawInvaderAntennae(context, bodyX, ground, px, -27 + bob, 3, 5, colors, pose);
-  spriteRect(context, bodyX, ground, px, -2, -30 + bob, 4, 2, colors.spark);
-  spriteRect(context, bodyX, ground, px, -5, -28 + bob, 10, 3, colors.outline);
-  spriteRect(context, bodyX, ground, px, -8, -25 + bob, 16, 4, colors.outline);
-  spriteRect(context, bodyX, ground, px, -10, -21 + bob, 20, 9 + grow, colors.outline);
-  spriteRect(context, bodyX, ground, px, -9, -20 + bob, 18, 6 + grow, colors.body);
-  spriteRect(context, bodyX, ground, px, -6, -24 + bob, 12, 10, colors.mid);
-  spriteRect(context, bodyX, ground, px, -4, -23 + bob, 8, 2, colors.highlight);
-  drawPixelEyes(context, bodyX, ground, px, -19 + bob, colors, pose);
-  for (const side of [-1, 1]) {
-    const finX = side < 0 ? -10 - fin : 10;
-    const counterLift = pose.wing + side * pose.turn * 0.6;
-    spriteRect(context, bodyX, ground, px, finX, -20 + bob + counterLift, fin, 3, colors.highlight);
-    spriteRect(context, bodyX, ground, px, finX + (side < 0 ? 1 : 0), -16 + bob - counterLift, fin, 2, colors.body);
-  }
-  drawInvaderFeet(context, x, ground, px, [-7, -2, 3, 8], colors, pose, 3);
-  const scarfLength = 3 + Math.round(actor.detail * 3);
-  if (pose.sounding && actor.audibleGate > 0.08) {
-    const trailDirection = pose.turn > 0.05 ? -1 : pose.turn < -0.05 ? 1 : -1;
-    const trailLift = Math.round(pose.feet * 0.65);
-    for (let tail = 0; tail < Math.min(scarfLength, exhaust + 3); tail += 1) {
-      spriteRect(
-        context,
-        bodyX,
-        ground,
-        px,
-        trailDirection * (3 + tail) - (trailDirection < 0 ? 2 : 0),
-        -8 + trailLift + Math.round(tail * 0.25),
-        2,
-        1,
-        tail & 1 ? colors.spark : colors.highlight,
-      );
-    }
-  } else {
-    spriteRect(
-      context,
-      bodyX,
-      ground,
-      px,
-      -2,
-      -9,
-      2,
-      2,
-      colors.shadow,
-    );
-  }
-}
-
-function drawDetailedMonster(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const squat = pose.animated ? Math.max(0, pose.squat) : 0;
-  const bob = pose.bob + Math.round(squat * 1.25);
-  const plantedSpread = Math.round(squat * 0.7);
-  const reach = 2 + Math.round(actor.range * 2);
-  const hornHeight = 3 + Math.round(actor.range * 4);
-  spriteRect(context, x, ground, px, -9 - plantedSpread, -29 - hornHeight + bob, 3, hornHeight + 3, colors.outline);
-  spriteRect(context, x, ground, px, -8 - plantedSpread, -29 - hornHeight + bob, 1, hornHeight + 1, colors.highlight);
-  spriteRect(context, x, ground, px, 6 + plantedSpread, -29 - hornHeight + bob, 3, hornHeight + 3, colors.outline);
-  spriteRect(context, x, ground, px, 7 + plantedSpread, -29 - hornHeight + bob, 1, hornHeight + 1, colors.highlight);
-  drawPixelHair(context, x, ground + bob * px, px, [
-    [-8, -31, 4], [-5, -33, 5], [-2, -35, 6], [1, -35, 6], [4, -33, 5], [7, -31, 4],
-  ], colors.mid, pose.sounding ? Math.round(actor.onset * 1.5) : 0);
-  spriteRect(context, x, ground, px, -11, -30 + bob, 22, 5, colors.outline);
-  spriteRect(context, x, ground, px, -13 - plantedSpread, -25 + bob, 26 + plantedSpread * 2, 13 + grow, colors.outline);
-  spriteRect(context, x, ground, px, -12 - plantedSpread, -24 + bob, 24 + plantedSpread * 2, 10 + grow, colors.body);
-  spriteRect(context, x, ground, px, -10 - plantedSpread, -23 + bob, 20 + plantedSpread * 2, 3, colors.highlight);
-  spriteRect(context, x, ground, px, -9, -15 + bob, 18, 7 + grow, colors.mid);
-  drawPixelEyes(context, x, ground, px, -20 + bob, colors, pose, true);
-  spriteRect(context, x, ground, px, -10, -24 + bob, 6, 2, colors.shadow);
-  spriteRect(context, x, ground, px, 4, -24 + bob, 6, 2, colors.shadow);
-  const snoutWidth = 7 + Math.round(actor.detail * 7);
-  spriteRect(context, x, ground, px, -Math.floor(snoutWidth / 2), -17 + bob, snoutWidth, 4, colors.highlight);
-  spriteRect(context, x, ground, px, -3, -16 + bob, 2, 1, colors.outline);
-  spriteRect(context, x, ground, px, 2, -16 + bob, 2, 1, colors.outline);
-  const jaw = !pose.sounding ? 0 : 2 + Math.round(actor.audibleGate * 5);
-  if (jaw > 0) {
-    spriteRect(context, x, ground, px, -7, -13 + bob, 14, jaw, colors.outline);
-    const toothCount = 2 + Math.round(actor.detail * 4);
-    for (let tooth = 0; tooth < toothCount; tooth += 1) {
-      const toothX = -6 + Math.round(tooth * 11 / Math.max(1, toothCount - 1));
-      spriteRect(context, x, ground, px, toothX, -12 + bob, 1, 2, "#fff3c9");
-    }
-    if (jaw >= 5) spriteRect(context, x, ground, px, -3, -9 + bob, 6, 2, "#ff65bd");
-  }
-  const spots = 2 + Math.round(actor.shape * 4);
-  for (let spot = 0; spot < spots; spot += 1) {
-    spriteRect(
-      context,
-      x,
-      ground,
-      px,
-      -7 + (spot * 5) % 13,
-      -10 + bob + (spot & 1) * 3,
-      2,
-      2,
-      spot & 1 ? colors.shadow : colors.highlight,
-    );
-  }
-  drawInvaderClaws(context, x, ground, px, -14 + bob, 11, reach, colors, pose);
-  drawInvaderFeet(context, x, ground, px, [-9, -3, 3, 9], colors, pose, 5, 0.45);
-  if (pose.sounding && actor.onset > 0.12) {
-    spriteRect(context, x, ground, px, -13, -1, 4, 1, colors.spark);
-    spriteRect(context, x, ground, px, 9, -1, 4, 1, colors.spark);
-    spriteRect(context, x, ground, px, -15, -3, 2, 1, colors.highlight);
-    spriteRect(context, x, ground, px, 13, -3, 2, 1, colors.highlight);
-  }
-}
-
-function drawDetailedHero(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const bodyX = x + pose.lean * px;
-  const bob = pose.bob + Math.max(0, pose.squat) * 0.7;
-  const capeReach = 2 + Math.round(actor.range * 2);
-  const crownHeight = 3 + Math.round(actor.detail * 3);
-  spriteRect(context, bodyX, ground, px, -2, -30 - crownHeight + bob, 4, crownHeight + 2, colors.spark);
-  spriteRect(context, bodyX, ground, px, -7, -29 + bob, 3, 5, colors.outline);
-  spriteRect(context, bodyX, ground, px, 4, -29 + bob, 3, 5, colors.outline);
-  spriteRect(context, bodyX, ground, px, -10, -25 + bob, 20, 5, colors.outline);
-  spriteRect(context, bodyX, ground, px, -12, -20 + bob, 24, 10 + grow, colors.outline);
-  spriteRect(context, bodyX, ground, px, -11, -19 + bob, 22, 7 + grow, colors.body);
-  spriteRect(context, bodyX, ground, px, -7, -24 + bob, 14, 12, colors.mid);
-  spriteRect(context, bodyX, ground, px, -4, -23 + bob, 8, 3, colors.highlight);
-  drawPixelEyes(context, bodyX, ground, px, -18 + bob, colors, pose);
-  spriteRect(context, bodyX, ground, px, -5, -13 + bob, 10, 3, colors.highlight);
-  for (const side of [-1, 1]) {
-    const flourish = Math.max(0, pose.reach + side * pose.turn);
-    const sideReach = capeReach + Math.round(flourish);
-    const capeX = side < 0 ? -12 - sideReach : 12;
-    const capeLift = pose.wing + side * pose.turn;
-    spriteRect(context, bodyX, ground, px, capeX, -20 + bob + capeLift, sideReach, 4, colors.mid);
-    spriteRect(context, bodyX, ground, px, capeX + (side < 0 ? 1 : 0), -15 + bob - capeLift, sideReach, 3, colors.shadow);
-    spriteRect(context, bodyX, ground, px, side * 10 - (side < 0 ? 2 : 0), -13 + bob - flourish * 0.4, 2, 5, colors.spark);
-  }
-  const bladeStart = [0, -10 + bob];
-  const bladeLength = 4 + actor.range * 3 + pose.reach;
-  const bladeEnd = [
-    pose.turn * bladeLength,
-    -14 + bob - Math.max(0, pose.reach) * 1.6,
-  ];
-  drawPixelSegment(context, bodyX, ground, px, bladeStart, bladeEnd, colors.highlight, 2);
-  spriteRect(context, bodyX, ground, px, -3, -11 + bob, 6, 2, colors.spark);
-  drawInvaderFeet(context, x, ground, px, [-8, -3, 3, 8], colors, pose, 4);
-}
-
-function drawDetailedSprite(context, actor, x, ground, unit, colors, pose, grow) {
-  const px = unit * 0.5;
-  const bob = pose.bob;
-  const bodyX = x + pose.turn * px * 0.8;
-  const wingReach = 4 + Math.round(actor.shape * 3);
-  const wingLift = pose.animated ? pose.wing * 2 : 0;
-  drawInvaderAntennae(context, bodyX, ground, px, -27 + bob, 4, 5, colors, pose);
-  spriteRect(context, bodyX, ground, px, -5, -28 + bob, 10, 3, colors.outline);
-  spriteRect(context, bodyX, ground, px, -8, -25 + bob, 16, 12 + grow, colors.outline);
-  spriteRect(context, bodyX, ground, px, -7, -24 + bob, 14, 9 + grow, colors.body);
-  spriteRect(context, bodyX, ground, px, -4, -23 + bob, 8, 3, colors.highlight);
-  drawPixelEyes(context, bodyX, ground, px, -19 + bob, colors, pose);
-  for (const side of [-1, 1]) {
-    const fan = Math.max(0, pose.reach + side * pose.turn * 0.65);
-    const sideReach = wingReach + Math.round(fan);
-    const sideLift = wingLift + side * pose.turn;
-    const wingX = side < 0 ? -8 - sideReach : 8;
-    spriteRect(context, bodyX, ground, px, wingX, -24 + bob - sideLift, sideReach, 4, colors.highlight);
-    spriteRect(context, bodyX, ground, px, wingX + (side < 0 ? 1 : 0), -19 + bob - side * pose.turn, sideReach, 4, colors.mid);
-    spriteRect(context, bodyX, ground, px, wingX, -14 + bob + sideLift, sideReach, 3, colors.body);
-  }
-  spriteRect(context, bodyX, ground, px, -5, -14 + bob, 10, 4, colors.mid);
-  drawInvaderFeet(context, x, ground, px, [-6, -2, 2, 6], colors, pose, 3);
-  if (pose.sounding && actor.audibleGate > 0.08) {
-    const orbiters = 2 + Math.round(actor.range * 3) + Math.round(actor.detail * 2);
-    for (let orbiter = 0; orbiter < orbiters; orbiter += 1) {
-      const angle = (pose.spin + orbiter * 8 / orbiters) * Math.PI / 4;
-      const orbitRadius = 10 + Math.min(3, orbiter) + Math.max(0, pose.reach);
-      spriteRect(
-        context,
-        bodyX,
-        ground,
-        px,
-        Math.round(Math.cos(angle) * orbitRadius),
-        -18 + bob + Math.round(Math.sin(angle) * (4 + (orbiter & 1))),
-        1,
-        1,
-        colors.spark,
-      );
-    }
-  }
-}
-
-function drawEchoSilhouette(context, actor, x, ground, unit, colors, reducedMotion) {
-  const px = unit * 0.5;
-  const pose = detailedActorPose(actor, reducedMotion);
-  const halfWidth = actor.key === "bass" ? 11 : actor.key === "lead" ? 10 : 8;
-  const top = actor.key === "bass" ? -29 : -27;
-  spriteRect(context, x, ground, px, -4, top - 2, 8, 2, colors.highlight);
-  spriteRect(context, x, ground, px, -halfWidth + 3, top, (halfWidth - 3) * 2, 3, colors.body);
-  spriteRect(context, x, ground, px, -halfWidth, top + 3, halfWidth * 2, 12, colors.mid);
-  spriteRect(context, x, ground, px, -halfWidth + 3, top + 15, (halfWidth - 3) * 2, 5, colors.body);
-  drawInvaderFeet(context, x, ground, px, [-6, 0, 6], colors, pose, 3);
-}
-
-function drawPixelActor(
-  context,
-  actor,
-  index,
-  x,
-  ground,
-  unit,
-  alpha,
-  reducedMotion,
-  showState = true,
-) {
+function drawPixelActor(context, actor, index, x, ground, unit, alpha, reducedMotion) {
   const colors = actorColors(actor, index);
-  const grow = Math.round(actor.levelUnit * 2);
-  const pose = detailedActorPose(actor, reducedMotion);
-  const actorGround = ground;
   context.save();
   context.globalAlpha = alpha;
-  const shadowWidth = (8 + Math.round(actor.size * 3) - pose.compression) * unit;
-  pixelRect(context, x - shadowWidth / 2, ground + unit, shadowWidth, unit, colors.shadow);
-  if (!showState) {
-    drawEchoSilhouette(context, actor, x, actorGround, unit, colors, true);
-    context.restore();
-    return;
-  }
-  if (actor.key === "upperOne") {
-    drawDetailedScout(context, actor, x, actorGround, unit, colors, pose, grow);
-  } else if (actor.key === "upperTwo") {
-    drawDetailedRunner(context, actor, x, actorGround, unit, colors, pose, grow);
-  } else if (actor.key === "bass") {
-    drawDetailedMonster(context, actor, x, actorGround, unit, colors, pose, grow);
-  } else if (actor.key === "lead") {
-    drawDetailedHero(context, actor, x, actorGround, unit, colors, pose, grow);
-  } else {
-    drawDetailedSprite(context, actor, x, actorGround, unit, colors, pose, grow);
-  }
-  if (pose.animated && actor.onset > 0.18) {
-    const accents = 1 + Math.round(actor.range * 2);
-    for (let accent = 0; accent < accents; accent += 1) {
-      const side = (accent + index) & 1 ? 1 : -1;
-      pixelRect(
-        context,
-        x + side * (4 + accent) * unit,
-        actorGround - (7 + accent * 2) * unit,
-        Math.max(1, unit * 0.5),
-        Math.max(1, unit * 0.5),
-        colors.spark,
-      );
-    }
-  }
-  if (actor.resting) {
-    drawRestGlyph(context, x + 3 * unit, actorGround - 12 * unit, unit, colors.highlight);
-  }
+  pixelRect(context, x - 5 * unit, ground + unit, 10 * unit, unit * .5, colors.shadow);
+  drawChiptuneDancer(context, actor, x, ground, unit, colors, reducedMotion);
   context.restore();
 }
 
@@ -5219,6 +4899,55 @@ function drawArcadeBayFrame(context, bay, actor, index, height, floor, unit) {
   context.restore();
 }
 
+function drawCharacterPerformanceReticle(
+  context,
+  bay,
+  actor,
+  index,
+  height,
+  floor,
+  performance,
+) {
+  const colors = actorColors(actor, index);
+  const active = actor.key === state.activeCharacterVoice;
+  const audible = characterVoiceAudible(actor.key);
+  const top = Math.max(4, Math.floor(height * 0.13));
+  const bottom = Math.max(top + 3, floor - 2);
+  const left = bay.left + 3;
+  const right = bay.right - 4;
+  const x = Math.round(left + performance.x * Math.max(1, right - left));
+  const y = Math.round(bottom - performance.y * Math.max(1, bottom - top));
+  const color = performance.muted
+    ? "#ff65bd"
+    : performance.solo ? "#9cff57" : active ? "#f4c95d" : colors.highlight;
+  context.save();
+  if (active) {
+    context.globalAlpha = 0.72;
+    pixelRect(context, bay.left + 1, top, Math.max(1, bay.width - 2), 1, color);
+    pixelRect(context, bay.left + 1, bottom, Math.max(1, bay.width - 2), 1, color);
+    pixelRect(context, bay.left + 1, top, 1, Math.max(1, bottom - top), color);
+    pixelRect(context, bay.right - 2, top, 1, Math.max(1, bottom - top), color);
+  }
+  context.globalAlpha = active ? 0.82 : 0.36;
+  pixelRect(context, Math.round((left + right) * 0.5), top, 1, bottom - top, color);
+  pixelRect(context, left, Math.round((top + bottom) * 0.5), right - left, 1, color);
+  context.globalAlpha = active ? 1 : 0.68;
+  pixelRect(context, x - 2, y, 5, 1, color);
+  pixelRect(context, x, y - 2, 1, 5, color);
+  pixelRect(context, x - 1, y - 1, 3, 3, "#071015");
+  pixelRect(context, x, y, 1, 1, color);
+  if (!audible) {
+    context.globalAlpha = 0.82;
+    context.fillStyle = color;
+    context.font = Math.max(5, Math.min(7, Math.floor(bay.width / 9)))
+      + "px ui-monospace, SFMono-Regular, Consolas, monospace";
+    context.textAlign = "center";
+    context.textBaseline = "top";
+    context.fillText(performance.muted ? "MUTED" : "SOLO CUT", bay.center, top + 2);
+  }
+  context.restore();
+}
+
 function drawPercussionStage(context, snapshot, width, horizon, floor, unit, reducedMotion) {
   const sparkSize = Math.max(1, Math.round(unit * 0.24));
   const center = Math.round(width * 0.5);
@@ -5299,7 +5028,8 @@ function drawCharacterStage(time) {
   const canvas = $("characterStage");
   const context = canvas.getContext("2d");
   const { width, height, pixelScale, cssWidth } = resizeCharacterCanvas(canvas);
-  const snapshot = webGpuChiptuneStageSnapshot(time, state.params, state.sequence);
+  const snapshot = webGpuChiptuneStageSnapshot(time, effectiveVoiceParams(),
+    state.synthPlaying && engine ? engine.sequenceAtTime(time) : state.sequence);
   const reducedMotion = Boolean(reducedMotionQuery?.matches);
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.imageSmoothingEnabled = false;
@@ -5345,8 +5075,8 @@ function drawCharacterStage(time) {
   const desiredUnit = Math.max(1, Math.round(desiredCssUnit / pixelScale));
   const bayTop = Math.max(2, Math.floor(height * 0.12));
   const baseline = Math.round(height * 0.78);
-  const widthBudget = cssWidth <= 620 ? 22 : 20;
-  const heightBudget = cssWidth <= 620 ? 21 : 19;
+  const widthBudget = 18;
+  const heightBudget = 22;
   const widthFit = Math.max(1, (narrowestBay - 2) / widthBudget);
   const heightFit = Math.max(1, (baseline - bayTop) / heightBudget);
   const unit = Math.max(1, Math.min(desiredUnit, widthFit, heightFit));
@@ -5364,11 +5094,8 @@ function drawCharacterStage(time) {
     ));
   snapshot.actors.forEach((actor, index) => {
     const bay = bays[index];
-    const pose = detailedActorPose(actor, reducedMotion);
-    const marchDistance = pose.animated
-      ? pose.march * unit * actor.motion * 0.8
-      : 0;
-    const center = bay.center + marchDistance;
+    const audible = characterVoiceAudible(actor.key);
+    const center = bay.center;
     context.save();
     context.beginPath();
     context.rect(
@@ -5378,7 +5105,7 @@ function drawCharacterStage(time) {
       Math.max(1, height - 2),
     );
     context.clip();
-    for (let trail = trails; trail >= 1; trail -= 1) {
+    for (let trail = audible ? trails : 0; trail >= 1; trail -= 1) {
       const direction = index & 1 ? 1 : -1;
       drawPixelActor(
         context,
@@ -5395,11 +5122,29 @@ function drawCharacterStage(time) {
         false,
       );
     }
-    drawPixelActor(context, actor, index, center, floor, unit, 0.68 + actor.levelUnit * 0.32, reducedMotion);
+    drawPixelActor(
+      context,
+      actor,
+      index,
+      center,
+      floor,
+      unit,
+      audible ? 0.68 + actor.levelUnit * 0.32 : 0.2,
+      reducedMotion,
+    );
     context.restore();
   });
   snapshot.actors.forEach((actor, index) => {
     drawArcadeBayFrame(context, bays[index], actor, index, height, floor, unit);
+    drawCharacterPerformanceReticle(
+      context,
+      bays[index],
+      actor,
+      index,
+      height,
+      floor,
+      state.voicePerformance[actor.key],
+    );
   });
 }
 
@@ -5416,6 +5161,134 @@ function draw() {
   else drawMorphTracker(context, width, height, time);
   syncSequencePlayhead(time);
   animationFrame = requestAnimationFrame(draw);
+}
+
+function characterVoiceIndex(lane) {
+  const index = WEBGPU_CHIPTUNE_PERFORMANCE_LANES.indexOf(lane);
+  return index < 0 ? 0 : index;
+}
+
+function characterEffectPointFromPointer(event, lockedLane = null) {
+  const canvas = $("characterStage");
+  const rect = canvas.getBoundingClientRect();
+  const count = WEBGPU_CHIPTUNE_PERFORMANCE_LANES.length;
+  const localX = clamp(event.clientX - rect.left, 0, Math.max(0, rect.width - 0.001));
+  const laneIndex = lockedLane === null
+    ? Math.floor(localX / Math.max(1, rect.width / count))
+    : characterVoiceIndex(lockedLane);
+  const lane = WEBGPU_CHIPTUNE_PERFORMANCE_LANES[
+    Math.round(clamp(laneIndex, 0, count - 1))
+  ];
+  const bayLeft = rect.width * characterVoiceIndex(lane) / count;
+  const bayWidth = rect.width / count;
+  return Object.freeze({
+    lane,
+    x: clamp((localX - bayLeft) / Math.max(1, bayWidth), 0, 1),
+    y: clamp(1 - (event.clientY - rect.top) / Math.max(1, rect.height), 0, 1),
+  });
+}
+
+function announceCharacterEffects(lane) {
+  announce(WEBGPU_CHIPTUNE_PERFORMANCE_AXES[lane].label + ": "
+    + characterEffectDescription(lane) + ".");
+}
+
+function characterStagePointerDown(event) {
+  if (event.button !== undefined && event.button !== 0) return;
+  event.preventDefault();
+  const canvas = $("characterStage");
+  canvas.focus({ preventScroll: true });
+  const point = characterEffectPointFromPointer(event);
+  focusCharacterEditor(point.lane, { announceChange: false });
+  activeCharacterDrag = {
+    pointerId: event.pointerId,
+    lane: point.lane,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    moved: false,
+  };
+  canvas.setPointerCapture?.(event.pointerId);
+}
+
+function characterStagePointerMove(event) {
+  if (!activeCharacterDrag || event.pointerId !== activeCharacterDrag.pointerId) return;
+  event.preventDefault();
+  if (!activeCharacterDrag.moved) {
+    const distance = Math.hypot(
+      event.clientX - activeCharacterDrag.startClientX,
+      event.clientY - activeCharacterDrag.startClientY,
+    );
+    if (distance < CHARACTER_EFFECT_DRAG_THRESHOLD) return;
+    activeCharacterDrag.moved = true;
+  }
+  const point = characterEffectPointFromPointer(event, activeCharacterDrag.lane);
+  updateCharacterPerformance(point.lane, { x: point.x, y: point.y }, { notify: false });
+}
+
+function characterStagePointerEnd(event, { cancelled = false } = {}) {
+  if (!activeCharacterDrag || event.pointerId !== activeCharacterDrag.pointerId) return;
+  event.preventDefault();
+  const canvas = $("characterStage");
+  const drag = activeCharacterDrag;
+  const lane = drag.lane;
+  if (!cancelled && drag.moved) {
+    const point = characterEffectPointFromPointer(event, lane);
+    updateCharacterPerformance(lane, { x: point.x, y: point.y }, { notify: false });
+  }
+  if (canvas.hasPointerCapture?.(event.pointerId)) {
+    canvas.releasePointerCapture?.(event.pointerId);
+  }
+  activeCharacterDrag = null;
+  if (drag.moved) {
+    notifyWaxState();
+    announceCharacterEffects(lane);
+  } else if (!cancelled) {
+    focusCharacterEditor(lane);
+  }
+}
+
+function selectCharacterVoice(direction) {
+  const count = WEBGPU_CHIPTUNE_PERFORMANCE_LANES.length;
+  const index = positiveModulo(characterVoiceIndex(state.activeCharacterVoice) + direction, count);
+  focusCharacterEditor(WEBGPU_CHIPTUNE_PERFORMANCE_LANES[index]);
+}
+
+function characterStageKeyDown(event) {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  const lane = state.activeCharacterVoice;
+  const key = event.key.toLowerCase();
+  if ((key === "m" || key === "s") && event.repeat) return;
+  if (key === "m") {
+    event.preventDefault();
+    toggleCharacterMute(lane);
+    return;
+  }
+  if (key === "s") {
+    event.preventDefault();
+    toggleCharacterSolo(lane);
+    return;
+  }
+  if (event.key === "PageUp" || event.key === "PageDown") {
+    event.preventDefault();
+    selectCharacterVoice(event.key === "PageUp" ? -1 : 1);
+    return;
+  }
+  if (event.key === "Home") {
+    event.preventDefault();
+    centerCharacterEffects(lane);
+    return;
+  }
+  const changes = {};
+  const step = event.shiftKey ? 0.1 : 0.025;
+  const voice = state.voicePerformance[lane];
+  if (event.key === "ArrowLeft") changes.x = voice.x - step;
+  else if (event.key === "ArrowRight") changes.x = voice.x + step;
+  else if (event.key === "ArrowDown") changes.y = voice.y - step;
+  else if (event.key === "ArrowUp") changes.y = voice.y + step;
+  else return;
+  event.preventDefault();
+  updateCharacterPerformance(lane, changes);
+  announceCharacterEffects(lane);
 }
 
 function editStageFromPointer(event) {
@@ -5438,9 +5311,11 @@ function sequencePointFromPointer(event, lockedLane = null) {
   const metrics = sequenceEditorMetrics(rect.width, rect.height);
   const localX = event.clientX - rect.left;
   const localY = event.clientY - rect.top;
-  if (!lockedLane && localY >= metrics.overview.top && localY < metrics.overview.bottom) {
+  const volumeDrag = activeSequenceDrag?.velocity === true;
+  const volumeView = state.activeCharacterVoice !== "drums";
+  if ((!lockedLane && localY >= metrics.overview.top && localY < metrics.overview.bottom) || volumeDrag) {
     const overviewRow = metrics.overview.rows.find(
-      ({ top, height }) => localY >= top && localY < top + height,
+      ({ top, height }) => volumeDrag || (localY >= top && localY < top + height),
     );
     if (!overviewRow) return null;
     const boundedX = clamp(
@@ -5448,14 +5323,15 @@ function sequencePointFromPointer(event, lockedLane = null) {
       metrics.overview.left,
       metrics.overview.left + metrics.overview.width - 0.001,
     );
-    const step = Math.floor(
+    const step = metrics.overview.startStep + Math.floor(
       (boundedX - metrics.overview.left) / metrics.overview.cellWidth,
     );
     return Object.freeze({
       lane: overviewRow.definition.key,
       step,
-      value: 0,
-      overview: true,
+      value: clamp(1 - (localY - overviewRow.top) / overviewRow.height, 0, 1),
+      velocity: volumeView,
+      overview: !volumeView,
       gutter: localX < metrics.overview.left,
     });
   }
@@ -5480,7 +5356,11 @@ function sequencePointFromPointer(event, lockedLane = null) {
 }
 
 function paintSequencePoint(point, previous = point) {
-  const next = paintWebGpuChiptuneSequenceSegment(
+  if (point.velocity) {
+    setStepVelocity(point.step, point.value, point.lane);
+    return;
+  }
+  let next = paintWebGpuChiptuneSequenceSegment(
     state.sequence,
     point.lane,
     previous.step,
@@ -5489,6 +5369,13 @@ function paintSequencePoint(point, previous = point) {
     point.value,
     state.sequenceEditMode,
   );
+  if (state.sequence.mode === "pattern" && state.sequenceEditMode === "auto") {
+    const cells = [...next.lanes[point.lane].cells];
+    for (let step = Math.min(previous.step, point.step); step <= Math.max(previous.step, point.step); step++) {
+      cells[step] = state.patternBaseline.lanes[point.lane].cells[step];
+    }
+    next = sanitizeWebGpuChiptuneSequence(sequenceLaneWithChanges(point.lane, { cells }));
+  }
   state.activeSequenceLane = point.lane;
   if (WEBGPU_CHIPTUNE_VOICE_SEQUENCE_LANES.includes(point.lane)) {
     lastVoiceSequenceLane = point.lane;
@@ -5496,7 +5383,6 @@ function paintSequencePoint(point, previous = point) {
   state.activeSequenceStep = point.step;
   state.sequencePage = sequencePageForStep(point.step);
   applySequence(next, { notify: false });
-  requestSequenceAudition(point.lane, state.sequenceEditMode, point.value);
 }
 
 function stagePointerDown(event) {
@@ -5537,9 +5423,15 @@ function stagePointerDown(event) {
       lastPoint: point,
       originalSequence,
       originalPresetId,
+      startX: event.clientX,
+      startY: event.clientY,
+      isDrum: activeSequenceSpec().kind === "drums",
+      velocity: point.velocity === true,
+      moved: false,
     };
     $("stage").setPointerCapture?.(event.pointerId);
-    paintSequencePoint(point);
+    state.activeSequenceStep = point.step;
+    syncSequenceControls();
     return;
   }
   state.editingStage = true;
@@ -5552,10 +5444,14 @@ function stagePointerMove(event) {
     event.preventDefault();
     const point = sequencePointFromPointer(event, activeSequenceDrag.lane);
     if (!point) return;
+    if (!activeSequenceDrag.moved && Math.hypot(event.clientX - activeSequenceDrag.startX,
+      event.clientY - activeSequenceDrag.startY) < 4) return;
+    activeSequenceDrag.moved = true;
     if (
       point.step === activeSequenceDrag.lastPoint.step
       && point.value === activeSequenceDrag.lastPoint.value
     ) return;
+    if (activeSequenceDrag.isDrum) state.sequenceEditMode = "note";
     paintSequencePoint(point, activeSequenceDrag.lastPoint);
     activeSequenceDrag.lastPoint = point;
     return;
@@ -5578,7 +5474,7 @@ function stagePointerEnd(event) {
       state.activeSequenceStep,
       cell,
       state.sequence.lanes[drag.lane].activeLength,
-    ) + ". Live shader sequence updated; voice notes use the same WGSL path for preview.");
+    ) + ". Updated in place; changes play only as part of the sequence.");
     return;
   }
   if (!state.editingStage) return;
@@ -5588,6 +5484,16 @@ function stagePointerEnd(event) {
     "Pattern seed " + state.params.patternSeed.toFixed(3)
       + ", pitch range " + state.params.pitchRange.toFixed(2) + ".",
   );
+}
+
+function stageDoubleClick(event) {
+  if (state.trackerView !== "sequence") return;
+  const point = sequencePointFromPointer(event);
+  if (!point || point.gutter) return;
+  event.preventDefault();
+  state.activeSequenceLane = point.lane;
+  state.activeSequenceStep = point.step;
+  cycleSequenceCell(point.step);
 }
 
 function stagePointerCancel(event) {
@@ -5716,12 +5622,18 @@ function registerWaxHostAdapter() {
   try {
     wax.register({
       id: "webgpu-chiptune",
-      stateVersion: 3,
+      stateVersion: 7,
       getState() {
         return {
           parameters: { ...state.params },
           activePresetId: state.presetId,
           sequence: state.sequence,
+          voicePerformance: state.voicePerformance,
+          performanceVersion: 2,
+          drumMix: state.drumMix,
+          songSequence: state.sequence.mode === "song" ? state.sequence : state.songSequence,
+          patternSequence: state.sequence.mode === "pattern" ? state.sequence : state.patternSequence,
+          patternBaseline: state.patternBaseline,
         };
       },
       applyState(snapshot) {
@@ -5730,11 +5642,16 @@ function registerWaxHostAdapter() {
           && presets.some(({ id }) => id === snapshot.activePresetId)
           ? snapshot.activePresetId
           : "custom";
+        const migrated = migrateWebGpuChiptunePerformance(snapshot);
+        state.voicePerformance = migrated.performance;
+        state.drumMix = sanitizeWebGpuChiptuneDrumMix(snapshot.drumMix);
+        state.songSequence = sanitizeWebGpuChiptuneSequence(snapshot.songSequence ?? snapshot.sequence);
+        state.patternSequence = snapshot.patternSequence ? sanitizeWebGpuChiptuneSequence(snapshot.patternSequence)
+          : createWebGpuChiptunePattern(migrated.parameters, state.songSequence);
+        state.patternBaseline = snapshot.patternBaseline ? sanitizeWebGpuChiptuneSequence(snapshot.patternBaseline)
+          : createWebGpuChiptunePattern(migrated.parameters, state.songSequence);
         if (snapshot.parameters && typeof snapshot.parameters === "object") {
-          applyParams({
-            ...WEBGPU_CHIPTUNE_DEFAULTS,
-            ...snapshot.parameters,
-          }, presetId, { notify: false });
+          applyParams(migrated.parameters, presetId, { notify: false });
         }
         applySequence(
           snapshot.sequence && typeof snapshot.sequence === "object"
@@ -5742,6 +5659,8 @@ function registerWaxHostAdapter() {
             : WEBGPU_CHIPTUNE_DEFAULT_SEQUENCE,
           { notify: false, markCustom: false, presetId },
         );
+        updateEffectiveVoiceParams();
+        syncCharacterPerformanceControls();
       },
       subscribeState(listener) {
         waxStateListener = typeof listener === "function" ? listener : null;
@@ -5763,6 +5682,7 @@ setSupportState();
 setSynthPlayButtonState();
 outputChanged();
 clearError();
+syncCharacterPerformanceControls();
 registerWaxHostAdapter();
 
 $("audioButton").addEventListener("click", () => {
@@ -5777,6 +5697,40 @@ $("previousPreset").addEventListener("click", () => {
 $("nextPreset").addEventListener("click", () => {
   cyclePreset(1);
 });
+for (const button of document.querySelectorAll("[data-character-mute]")) {
+  button.addEventListener("click", () => {
+    focusCharacterEditor(button.dataset.characterMute, { announceChange: false });
+    toggleCharacterMute(button.dataset.characterMute);
+  });
+}
+for (const button of document.querySelectorAll("[data-character-solo]")) {
+  button.addEventListener("click", () => {
+    focusCharacterEditor(button.dataset.characterSolo, { announceChange: false });
+    toggleCharacterSolo(button.dataset.characterSolo);
+  });
+}
+$("characterStage").addEventListener("pointerdown", characterStagePointerDown);
+$("characterStage").addEventListener("pointermove", characterStagePointerMove);
+$("characterStage").addEventListener("pointerup", (event) => {
+  characterStagePointerEnd(event);
+});
+$("characterStage").addEventListener("pointercancel", (event) => {
+  characterStagePointerEnd(event, { cancelled: true });
+});
+$("characterStage").addEventListener("lostpointercapture", (event) => {
+  if (!activeCharacterDrag || event.pointerId !== activeCharacterDrag.pointerId) return;
+  const drag = activeCharacterDrag;
+  const lane = drag.lane;
+  activeCharacterDrag = null;
+  if (drag.moved) {
+    notifyWaxState();
+    announceCharacterEffects(lane);
+  }
+});
+$("characterStage").addEventListener("dblclick", () => {
+  centerCharacterEffects(state.activeCharacterVoice);
+});
+$("characterStage").addEventListener("keydown", characterStageKeyDown);
 $("output").addEventListener("input", outputChanged);
 $("chunkDuration").addEventListener("input", runtimeChanged);
 $("chunkDuration").addEventListener("change", () => {
@@ -5789,6 +5743,7 @@ $("workgroupSize").addEventListener("change", () => {
 $("randomizePatch").addEventListener("click", randomizePatch);
 $("mutatePatch").addEventListener("click", mutatePatch);
 $("resetPatch").addEventListener("click", resetPatch);
+$("stage").addEventListener("dblclick", stageDoubleClick);
 $("stage").addEventListener("pointerdown", stagePointerDown);
 $("stage").addEventListener("pointermove", stagePointerMove);
 $("stage").addEventListener("pointerup", stagePointerEnd);
@@ -5809,6 +5764,7 @@ globalThis.addEventListener("pagehide", () => {
   state.disposed = true;
   if (animationFrame) cancelAnimationFrame(animationFrame);
   animationFrame = 0;
+  activeCharacterDrag = null;
   resizeObserver?.disconnect();
   if (!resizeObserver) globalThis.removeEventListener("resize", syncResponsiveLayout);
   waxStateListener = null;

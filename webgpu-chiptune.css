@@ -120,9 +120,124 @@
   display: block;
   width: 100%;
   height: 100%;
+  cursor: pointer;
   background: #05080d;
   image-rendering: crisp-edges;
   image-rendering: pixelated;
+  touch-action: none;
+}
+
+#characterStage:focus-visible {
+  outline: 2px solid var(--webgpu-amber);
+  outline-offset: -3px;
+}
+
+.chiptune-character-bay-controls {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  min-width: 0;
+  padding: 3px 2px 4px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  pointer-events: none;
+  background: linear-gradient(transparent, rgba(3, 7, 11, 0.94) 38%);
+}
+
+.chiptune-character-bay-control {
+  display: grid;
+  min-width: 0;
+  padding: 0 2px;
+  border-right: 1px solid rgba(83, 246, 255, 0.13);
+  justify-items: center;
+  gap: 2px;
+  transition: background-color 120ms ease, opacity 120ms ease;
+}
+
+.chiptune-character-bay-control:last-child {
+  border-right: 0;
+}
+
+.chiptune-character-bay-control[data-active="true"] {
+  background: rgba(244, 201, 93, 0.08);
+  box-shadow: inset 0 -2px var(--webgpu-amber);
+}
+
+.chiptune-character-bay-control[data-audible="false"] {
+  opacity: 0.58;
+}
+
+.chiptune-character-bay-control[data-solo="true"] {
+  background-color: rgba(156, 255, 87, 0.08);
+}
+
+.chiptune-character-name {
+  overflow: hidden;
+  width: 100%;
+  color: rgba(216, 231, 231, 0.68);
+  font: 850 7px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.05em;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chiptune-character-bay-control[data-active="true"] .chiptune-character-name {
+  color: var(--webgpu-amber);
+}
+
+.chiptune-character-button-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(26px, 32px));
+  gap: 3px;
+  pointer-events: auto;
+}
+
+.chiptune-character-button-pair button {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border: 1px solid rgba(216, 231, 231, 0.3);
+  border-radius: 2px;
+  color: var(--muted);
+  background: rgba(5, 10, 15, 0.96);
+  font: 850 9px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  pointer-events: auto;
+}
+
+.chiptune-character-button-pair button:hover,
+.chiptune-character-button-pair button:focus-visible {
+  z-index: 1;
+  border-color: var(--webgpu-cyan);
+  color: var(--ink);
+  outline: 2px solid color-mix(in oklab, var(--webgpu-cyan) 56%, transparent);
+  outline-offset: 1px;
+}
+
+.chiptune-character-button-pair button[data-character-mute][aria-pressed="true"] {
+  border-color: var(--webgpu-pink);
+  color: #17060f;
+  background: var(--webgpu-pink);
+}
+
+.chiptune-character-button-pair button[data-character-solo][aria-pressed="true"] {
+  border-color: #9cff57;
+  color: #071005;
+  background: #9cff57;
+}
+
+.chiptune-character-bay-control output {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  min-height: 14px;
+  color: color-mix(in oklab, var(--webgpu-cyan) 78%, var(--muted));
+  font: 750 6px/1.08 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-align: center;
+  text-overflow: clip;
+  white-space: pre-line;
 }
 
 .chiptune-preset-description {
@@ -800,6 +915,16 @@
 }
 
 @media (pointer: coarse) {
+  .chiptune-character-button-pair {
+    grid-template-columns: repeat(2, minmax(32px, 38px));
+  }
+
+  .chiptune-character-button-pair button {
+    min-width: 32px;
+    min-height: 36px;
+    font-size: 10px;
+  }
+
   .chiptune-character-preset-nav {
     grid-template-columns: 48px minmax(96px, 1fr) 48px;
   }
@@ -820,6 +945,25 @@
 }
 
 @media (max-width: 620px) {
+  .chiptune-character-bay-controls {
+    padding-right: 0;
+    padding-bottom: 2px;
+    padding-left: 0;
+  }
+
+  .chiptune-character-bay-control {
+    padding: 0 1px;
+  }
+
+  .chiptune-character-button-pair {
+    grid-template-columns: repeat(2, minmax(29px, 34px));
+    gap: 2px;
+  }
+
+  .chiptune-character-bay-control output {
+    font-size: 5.5px;
+  }
+
   .chiptune-character-header {
     min-height: 38px;
     padding: 3px 6px 3px 10px;
@@ -1117,6 +1261,47 @@
   text-transform: uppercase;
 }
 
+.chiptune-selected-performer {
+  display: grid;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in oklab, var(--performer-color) 74%, var(--line));
+  border-left-width: 4px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  background:
+    linear-gradient(
+      110deg,
+      color-mix(in oklab, var(--performer-color) 13%, transparent),
+      rgba(4, 8, 12, 0.76) 62%
+    );
+  gap: 4px 9px;
+}
+
+.chiptune-selected-performer[hidden] {
+  display: none;
+}
+
+.chiptune-selected-performer span {
+  color: var(--muted);
+  font: 800 7px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.09em;
+}
+
+.chiptune-selected-performer strong {
+  overflow: hidden;
+  color: var(--performer-color);
+  font: 900 14px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chiptune-selected-performer small {
+  grid-column: 1 / -1;
+  color: var(--ink);
+  font: 650 9px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
 .chiptune-sequence-workspace,
 .chiptune-morph-workspace {
   position: static;
@@ -1173,8 +1358,13 @@
 .chiptune-voice-tabs {
   display: grid;
   overflow: visible;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--visible-lane-count, 1), minmax(0, 1fr));
   gap: 4px;
+}
+
+.chiptune-voice-tabs button[hidden],
+.chiptune-lane-picker[hidden] {
+  display: none;
 }
 
 .chiptune-voice-tabs button,
@@ -1271,6 +1461,49 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
+}
+
+#sequenceStateAuto {
+  border-style: solid;
+}
+
+#sequenceStateAuto[aria-pressed="true"] {
+  color: var(--webgpu-amber);
+  border-color: var(--webgpu-amber);
+  background: rgba(244, 201, 93, 0.08);
+  box-shadow: inset 0 -2px 0 var(--webgpu-amber);
+}
+
+#sequenceStateNote[aria-pressed="true"] {
+  color: #061016;
+  background: var(--webgpu-cyan);
+  box-shadow: inset 0 -2px 0 #ffffff;
+}
+
+#sequenceStateRest {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.045) 0 2px,
+      transparent 2px 6px
+    ),
+    rgba(8, 13, 18, 0.94);
+}
+
+#sequenceStateRest[aria-pressed="true"] {
+  border-color: var(--webgpu-pink);
+  color: var(--webgpu-pink);
+  box-shadow: inset 0 -2px 0 var(--webgpu-pink);
+}
+
+.chiptune-sequence-value[data-cell-state="auto"] {
+  border-left: 4px solid transparent;
+  padding-left: 5px;
+}
+
+.chiptune-sequence-value[data-cell-state="note"] {
+  border-left: 4px solid var(--webgpu-cyan);
+  padding-left: 5px;
 }
 
 .chiptune-sequence-value,
@@ -1419,7 +1652,7 @@
   .chiptune-voice-tabs {
     min-width: 0;
     flex: initial;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--visible-lane-count, 1), minmax(0, 1fr));
   }
 
   .chiptune-sequence-toolbar > .mini-action {
@@ -1472,7 +1705,7 @@
   }
 
   .chiptune-voice-tabs {
-    grid-template-columns: repeat(9, minmax(64px, 1fr));
+    grid-template-columns: repeat(var(--visible-lane-count, 1), minmax(64px, 1fr));
   }
 
   .chiptune-sequence-status {
@@ -1491,4 +1724,112 @@
   .chiptune-sequence-value input[type="number"] {
     min-height: 48px;
   }
+}
+
+/* Keep the primary transport visible beside Audio while the control rail scrolls. */
+.webgpu-chiptune-page .audio-strip {
+  grid-template-columns:
+    max-content
+    minmax(84px, 124px)
+    var(--audio-control-width, var(--mz-control-height));
+  gap: 10px;
+}
+
+.webgpu-chiptune-page .audio-strip > .chiptune-top-transport {
+  min-width: 112px;
+  margin: 0;
+  grid-column: 1;
+  grid-row: 1;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px;
+}
+
+.webgpu-chiptune-page .audio-strip > .header-level {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.webgpu-chiptune-page .audio-strip > .audio-button {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.chiptune-top-transport .webgpu-303-transport-copy {
+  min-width: 68px;
+  gap: 2px;
+}
+
+.chiptune-top-transport .webgpu-303-transport-copy b,
+.chiptune-top-transport .webgpu-303-transport-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 650px) {
+  .webgpu-chiptune-page .audio-strip {
+    width: min(188px, 50vw);
+    grid-template-columns: 48px minmax(62px, 1fr) 48px;
+    gap: 6px;
+  }
+
+  .webgpu-chiptune-page
+    .masthead.has-midi-toolbar
+    .header-io-controls > .audio-strip {
+    grid-template-columns: 48px minmax(62px, 1fr) 48px;
+    gap: 6px;
+  }
+
+  .webgpu-chiptune-page .audio-strip > .chiptune-top-transport {
+    display: block;
+    min-width: 48px;
+  }
+
+  .chiptune-top-transport .webgpu-303-transport-copy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    border: 0;
+    white-space: nowrap;
+  }
+}
+
+/* A full-height desktop rail keeps the selected voice's main controls up front. */
+@media (min-width: 981px) {
+  .webgpu-chiptune-page .webgpu-303-shell {
+    grid-template-rows: clamp(360px, 49dvh, 450px) minmax(320px, 1fr);
+  }
+  .chiptune-character-panel { grid-column: 1; }
+  .webgpu-chiptune-page .webgpu-303-panel { grid-row: 1 / -1; }
+  .chiptune-selected-performer small { font-size: 11px; }
+  .chiptune-voice-tabs button,
+  .chiptune-sequence-state-buttons button { font-size: 10px; }
+}
+
+/* Pattern/phrase separation: large native controls, scoped voice mixer. */
+.chiptune-drum-mix-row { display: grid; grid-template-columns: minmax(0, 1fr) 64px 64px; gap: 5px; }
+.chiptune-drum-mix-row[hidden] { display: none; }
+.chiptune-voice-tabs[data-performer="drums"] { grid-template-columns: 1fr; }
+.chiptune-drum-mix-row [data-drum-mute][aria-pressed="true"] { background: #713045; color: #fff; }
+.chiptune-drum-mix-row [data-drum-solo][aria-pressed="true"] { background: #1d694f; color: #fff; }
+.chiptune-pattern-timing, .chiptune-focused-sound { display: grid; gap: 12px; min-width: 0; }
+.chiptune-pattern-timing[hidden], .chiptune-focused-sound:not([open]) > div { display: none; }
+.chiptune-composition-mode select, .chiptune-pattern-timing select,
+#sequenceZoom { width: 100%; min-height: 44px; color: #e9f5f3; background: #15232b; border: 1px solid #547278; border-radius: 5px; padding: 8px; }
+.chiptune-clock-comparison, .chiptune-focused-sound { border-top: 1px solid #33464b; padding-top: 12px; }
+.chiptune-clock-comparison summary, .chiptune-focused-sound summary { color: #f4c95d; cursor: pointer; font-size: 12px; padding: 10px 0; }
+.chiptune-clock-comparison p { color: #d4e3e5; font-size: 12px; line-height: 1.45; }
+.chiptune-clock-comparison table { width: 100%; border-collapse: collapse; font-size: 11px; color: #dceaea; }
+.chiptune-clock-comparison th, .chiptune-clock-comparison td { text-align: left; padding: 6px 3px; border-bottom: 1px solid #25383e; }
+#focusedVoiceControls { padding: 8px 0; }
+#sequenceLoopSummary { display: block; padding: 10px; background: #172c30; line-height: 1.6; }
+.chiptune-sequence-pages[hidden], #trackerViewMorph:disabled { display: none; }
+@media (pointer: coarse) {
+  .chiptune-drum-mix-row button, #compositionMode, #sequenceStepFraction, #sequenceZoom,
+  #sequencePan, #sequenceVelocity, #sequenceGate, #sequencePitchCenter { min-height: 48px; }
 }
