@@ -467,16 +467,19 @@ test("Creaturazoid intersperses creature voices and body percussion in one share
   assert.equal(midi?.computerKeyboardMode, "page");
 });
 
-test("Quadruped couples a scrolling ground score to distinct animal head phrases", () => {
+test("Quadruped couples twelve animal bodies to one foot-driven contact score", () => {
   const instrument = instrumentById("quadruped");
   assert.equal(instrument?.label, "Quadruped");
   assert.equal(instrument?.href, "quadruped.html");
   assert.equal(instrument?.imageHref, "assets/instruments/quadruped.webp");
   assert.equal(instrument?.kind, "Quadruped gait sequencer");
-  assert.match(instrument?.description ?? "", /centered/i);
-  assert.match(instrument?.description ?? "", /four feet and a tail/i);
-  assert.match(instrument?.description ?? "", /scrolling terrain/i);
-  assert.match(instrument?.description ?? "", /melodic phrase/i);
+  assert.match(instrument?.description ?? "", /twelve species-shaped animal bodies/i);
+  assert.match(instrument?.description ?? "", /sixteen-card motion study/i);
+  assert.match(instrument?.description ?? "", /touchdown, load, push, support, lift-off, and landing/i);
+  assert.match(instrument?.start ?? "", /continuous material/i);
+  assert.match(instrument?.start ?? "", /upstairs, or downstairs/i);
+  assert.match(instrument?.description ?? "", /exact global BPM clock/i);
+  assert.match(instrument?.start ?? "", /tempo stays independent/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
     ["voice-synths", "sequencers", "geometry-drums"],

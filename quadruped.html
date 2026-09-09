@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07100f" />
     <meta
       name="description"
-      content="Quadruped turns foot-driven animal gaits, momentum, gravity, terrain, and calls into one animated sequencer."
+      content="Quadruped turns evidence-shaped animal footfalls, stance, momentum, and one continuous material surface into a playable rhythm score."
     />
     <title>Quadruped · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -82,19 +82,19 @@
               height="620"
               tabindex="0"
               role="application"
-              aria-label="Interactive side-view Quadruped. Left and right arrows choose a ground step. Keys 1 through 5 cycle left front, right front, left rear, right rear, and tail contacts. Enter auditions the head."
+              aria-label="Interactive side-view Quadruped. Left and right arrows choose a score frame. Keys 1 through 4 cycle left front, right front, left hind, and right hind touchdowns."
               aria-describedby="stageInstructions sequenceHelp liveStatus"
             >
-              A side-view elephant, unicorn, gazelle, cat, cheetah, giraffe, or lizard stays centered while its editable percussion ground moves underneath.
+              A side-view quadruped stays centered while planted feet and their marks travel backward across one continuous material surface.
             </canvas>
             <div class="quadruped-stage-hud" aria-live="off">
               <span><small>animal</small><output id="animalReadout">Elephant</output></span>
               <span><small>gait</small><output id="behaviorReadout">Walk</output></span>
               <span><small>ground</small><output id="terrainReadout">Packed earth</output></span>
-              <span><small>head</small><output id="headReadout">waiting</output></span>
+              <span><small>path</small><output id="groundProfileReadout">Level</output></span>
             </div>
             <p id="stageInstructions" class="quadruped-stage-instructions">
-              ← → FRAME · 1–5 FEET · ENTER HEAD
+              ← → FRAME · 1–4 FEET
             </p>
           </div>
         </section>
@@ -110,18 +110,21 @@
               <button id="clearButton" type="button">Clear feet</button>
             </div>
           </header>
-          <p class="quadruped-sequence-legend" aria-hidden="true">FEET DRIVE · OFF · ○ SOFT · ● LOUD &nbsp;·&nbsp; TAP GROUND</p>
+          <div
+            class="quadruped-sequence-legend"
+            role="note"
+            aria-label="Touchdown strength: dot means no new touchdown, open circle means soft touchdown, filled circle means strong touchdown. A bar means the foot is planted; support is calculated until lift-off."
+          >
+            <span><b aria-hidden="true">·</b> no new touchdown</span>
+            <span><b aria-hidden="true">○</b> soft</span>
+            <span><b aria-hidden="true">●</b> strong</span>
+            <span><i aria-hidden="true"></i> planted</span>
+          </div>
           <p class="sr-only" id="sequenceHelp">
-            Choose any gait for any animal. Each foot or tail button cycles off, soft, and loud. Foot pushes move the sixteen-frame score; momentum coasts through flight and gravity returns the body to the ground. Arrow keys move through the score; Home and End move to the first and last frame. Ground buttons cycle packed earth, hollow wood, bell metal, and resonant crystal.
+            Choose any gait for any animal. Each foot button cycles through no new touchdown, soft touchdown, and strong touchdown. No new touchdown does not necessarily mean the foot is airborne. A separate support bar is calculated from the most recent touchdown and continues while the foot is planted, until lift-off. Tempo is global: one sixteen-frame gait cycle is one beat, and changes apply immediately. Arrow keys move through the sixteen motion-study frames; Home and End move to the first and last frame.
           </p>
           <div class="quadruped-grid-scroll" tabindex="0" aria-label="Horizontally scrollable Quadruped rhythm grid">
-            <div id="sequenceGrid" class="quadruped-grid" role="grid" aria-label="Sixteen motion-study frames with foot, tail, and ground rows"></div>
-          </div>
-          <div class="quadruped-terrain-key" aria-label="Ground material colors">
-            <span><i style="--terrain:#9a6845"></i>earth</span>
-            <span><i style="--terrain:#d09b55"></i>wood</span>
-            <span><i style="--terrain:#75c7d3"></i>metal</span>
-            <span><i style="--terrain:#db9cff"></i>crystal</span>
+            <div id="sequenceGrid" class="quadruped-grid" role="grid" aria-label="Sixteen motion-study frames with four foot touchdown rows"></div>
           </div>
         </section>
 
@@ -135,13 +138,15 @@
             <p id="transportHint" class="quadruped-transport-hint" role="status" hidden>
               Audio is off — turn it on to hear playback
             </p>
-            <div id="padGrid" class="quadruped-pad-grid" role="group" aria-label="Manual body and head hits">
+            <label class="quadruped-tempo" for="tempo">
+              <span><b>Tempo</b><output id="tempoOut" for="tempo">96 BPM · global</output></span>
+              <input id="tempo" name="tempo" type="range" min="42" max="196" step="1" value="96" title="Global tempo: one sixteen-frame gait cycle per beat" />
+            </label>
+            <div id="padGrid" class="quadruped-pad-grid" role="group" aria-label="Program feet on the selected frame">
               <button type="button" data-pad-index="0" data-lane-id="front-left"><kbd>1</kbd><span>LF</span></button>
               <button type="button" data-pad-index="1" data-lane-id="front-right"><kbd>2</kbd><span>RF</span></button>
               <button type="button" data-pad-index="2" data-lane-id="rear-left"><kbd>3</kbd><span>LH</span></button>
               <button type="button" data-pad-index="3" data-lane-id="rear-right"><kbd>4</kbd><span>RH</span></button>
-              <button type="button" data-pad-index="4" data-lane-id="tail"><kbd>5</kbd><span>TAIL</span></button>
-              <button type="button" data-pad-index="5" data-head-trigger><kbd>↵</kbd><span>HEAD</span></button>
             </div>
           </section>
 
@@ -151,13 +156,18 @@
               <h2 id="animalTitle">Animal</h2>
             </div>
             <div id="animalButtons" class="quadruped-animal-buttons" role="group" aria-label="Animal presets">
-              <button type="button" data-animal-id="elephant" aria-pressed="true"><b>Elephant</b><small>drums + trumpet</small></button>
-              <button type="button" data-animal-id="unicorn" aria-pressed="false"><b>Unicorn</b><small>crystal + neigh</small></button>
-              <button type="button" data-animal-id="gazelle" aria-pressed="false"><b>Gazelle</b><small>marimba + strings</small></button>
-              <button type="button" data-animal-id="cat" aria-pressed="false"><b>Cat</b><small>felt + purr</small></button>
-              <button type="button" data-animal-id="cheetah" aria-pressed="false"><b>Cheetah</b><small>snap + chirp</small></button>
-              <button type="button" data-animal-id="giraffe" aria-pressed="false"><b>Giraffe</b><small>wood + neck harp</small></button>
-              <button type="button" data-animal-id="lizard" aria-pressed="false"><b>Lizard</b><small>claws + hiss</small></button>
+              <button type="button" data-animal-id="elephant" aria-pressed="true"><b>Elephant</b><small>heavy earth drums</small></button>
+              <button type="button" data-animal-id="unicorn" aria-pressed="false"><b>Unicorn</b><small>prismatic hooves</small></button>
+              <button type="button" data-animal-id="gazelle" aria-pressed="false"><b>Gazelle</b><small>swift marimba feet</small></button>
+              <button type="button" data-animal-id="cat" aria-pressed="false"><b>Cat</b><small>felt paws</small></button>
+              <button type="button" data-animal-id="cheetah" aria-pressed="false"><b>Cheetah</b><small>sprint claws</small></button>
+              <button type="button" data-animal-id="giraffe" aria-pressed="false"><b>Giraffe</b><small>spotted hollow hooves</small></button>
+              <button type="button" data-animal-id="lizard" aria-pressed="false"><b>Lizard</b><small>scuttling claws</small></button>
+              <button type="button" data-animal-id="horse" aria-pressed="false"><b>Horse</b><small>measured hoofbeats</small></button>
+              <button type="button" data-animal-id="dog" aria-pressed="false"><b>Dog</b><small>pads + claws</small></button>
+              <button type="button" data-animal-id="goat" aria-pressed="false"><b>Goat</b><small>cloven stair clacks</small></button>
+              <button type="button" data-animal-id="rabbit" aria-pressed="false"><b>Rabbit</b><small>haunch flight</small></button>
+              <button type="button" data-animal-id="camel" aria-pressed="false"><b>Camel</b><small>two-hump pacing pads</small></button>
             </div>
             <p id="animalDescription" class="quadruped-description"></p>
           </section>
@@ -173,14 +183,10 @@
 
           <details class="quadruped-control-group" open>
             <summary>
-              <span><small>03 / MOTION</small><b>Motion + music</b></span>
-              <output id="motionSummary">72 cycles/min · grounded</output>
+              <span><small>03 / MOTION</small><b>Gait + ground</b></span>
+              <output id="motionSummary">96 BPM · EARTH</output>
             </summary>
             <div class="quadruped-control-body">
-              <label class="quadruped-control" for="tempo">
-                <span><b>Gait drive</b><output id="tempoOut" for="tempo">72 cycles/min</output></span>
-                <input id="tempo" name="tempo" type="range" min="42" max="196" step="1" value="72" />
-              </label>
               <label class="quadruped-control" for="stride">
                 <span><b>Stride reach</b><output id="strideOut" for="stride">62%</output></span>
                 <input id="stride" type="range" min="0.55" max="1.35" step="0.01" value="0.62" />
@@ -193,9 +199,26 @@
                 <span><b>Gravity</b><output id="gravityOut" for="gravity">108%</output></span>
                 <input id="gravity" type="range" min="0.55" max="1.55" step="0.01" value="1.08" />
               </label>
-              <label class="quadruped-control" for="mood">
-                <span><b>Head expression</b><output id="moodOut" for="mood">54%</output></span>
-                <input id="mood" type="range" min="0" max="1" step="0.01" value="0.54" />
+              <label class="quadruped-control" for="terrain">
+                <span><b>One surface</b><small>whole field</small></span>
+                <select id="terrain">
+                  <option value="earth">Packed earth</option>
+                  <option value="sand">Loose sand</option>
+                  <option value="wood">Hollow wood</option>
+                  <option value="stone">Cut stone</option>
+                  <option value="metal">Bell metal</option>
+                  <option value="snow">Deep snow</option>
+                  <option value="water">Shallow water</option>
+                  <option value="crystal">Resonant crystal</option>
+                </select>
+              </label>
+              <label class="quadruped-control" for="groundProfile">
+                <span><b>Path</b><small>one course</small></span>
+                <select id="groundProfile">
+                  <option value="level">Level ground</option>
+                  <option value="stairs-up">Steps up</option>
+                  <option value="stairs-down">Steps down</option>
+                </select>
               </label>
               <label class="quadruped-control" for="groundResonance">
                 <span><b>Ground resonance</b><output id="groundResonanceOut" for="groundResonance">72%</output></span>
@@ -207,15 +230,15 @@
           <section class="quadruped-model-card" aria-labelledby="modelTitle">
             <div class="quadruped-section-heading">
               <p>04 / MODEL</p>
-              <h2 id="modelTitle">Playable fiction</h2>
+              <h2 id="modelTitle">Contact model</h2>
             </div>
             <p>
-              Feet push. Momentum coasts. Gravity lands. Playable fiction, not biomechanics.
+              Touchdown, load, push, lift. Feet drive the clock.
             </p>
             <dl>
               <div><dt>samples</dt><dd>none</dd></div>
               <div><dt>voices</dt><dd>48 maximum</dd></div>
-              <div><dt>head</dt><dd>from the feet</dd></div>
+              <div><dt>model</dt><dd>gait approximation</dd></div>
             </dl>
           </section>
 

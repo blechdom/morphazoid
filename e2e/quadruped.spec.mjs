@@ -1,17 +1,19 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Quadruped", () => {
-  test("edits four feet and a tail while transport remains independent of Audio", async ({ page }) => {
+  test("edits four touchdown lanes while transport remains independent of Audio", async ({ page }) => {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     const response = await page.goto("/quadruped.html", { waitUntil: "domcontentloaded" });
     expect(response?.ok()).toBe(true);
 
     await expect(page.getByRole("heading", { name: /quadruped/i })).toBeVisible();
-    await expect(page.getByRole("grid")).toHaveAttribute("aria-rowcount", "7");
-    await expect(page.getByRole("gridcell")).toHaveCount(112);
-    await expect(page.locator("[data-animal-id]")).toHaveCount(7);
-    await expect(page.locator("[data-behavior-id]")).toHaveCount(34);
+    await expect(page.getByRole("grid")).toHaveAttribute("aria-rowcount", "5");
+    await expect(page.getByRole("grid")).toHaveAttribute("aria-colcount", "17");
+    await expect(page.getByRole("gridcell")).toHaveCount(64);
+    await expect(page.getByRole("columnheader")).toHaveCount(16);
+    await expect(page.locator("[data-animal-id]")).toHaveCount(12);
+    await expect(page.locator("[data-behavior-id]")).toHaveCount(39);
     await expect(page.locator(".quadruped-cabinet-frame")).toHaveCount(16);
     await expect(page.locator(".quadruped-cabinet-frame canvas")).toHaveCount(16);
 
@@ -30,35 +32,38 @@ test.describe("Quadruped", () => {
     expect(await page.locator("#stage").getAttribute("data-frame")).toBe(pauseFrame);
     await play.click();
 
-    const firstFoot = page.getByRole("button", { name: /^Left front foot, step 1:/ });
-    await expect(firstFoot).toHaveAttribute("data-level", "off");
+    const firstFoot = page.getByRole("button", { name: /^Left front foot, frame 1: no new touchdown;/ });
+    await expect(firstFoot).toHaveAttribute("data-level", "none");
+    await expect(firstFoot).toHaveAttribute("aria-pressed", "false");
     await expect(firstFoot).toHaveText("·");
     await firstFoot.click();
     await expect(firstFoot).toHaveAttribute("data-level", "soft");
+    await expect(firstFoot).toHaveAttribute("aria-pressed", "mixed");
     await expect(firstFoot).toHaveText("○");
     await firstFoot.click();
     await expect(firstFoot).toHaveAttribute("data-level", "strong");
+    await expect(firstFoot).toHaveAttribute("aria-pressed", "true");
     await expect(firstFoot).toHaveText("●");
     await expect(page.locator("#behaviorReadout")).toContainText("custom");
 
     await firstFoot.focus();
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByRole("button", { name: /^Left front foot, step 2:/ })).toBeFocused();
+    await expect(page.getByRole("button", { name: /^Left front foot, frame 2:/ })).toBeFocused();
     await expect(page.locator("#sequenceGrid button[tabindex='0']")).toHaveCount(1);
 
-    const authoredHindFoot = page.getByRole("button", { name: /^Right hind foot, step 1: strong/ });
+    const authoredHindFoot = page.getByRole("button", { name: /^Right hind foot, frame 1: strong touchdown/ });
     await authoredHindFoot.focus();
     await page.keyboard.press("Delete");
-    await expect(page.getByRole("button", { name: /^Right hind foot, step 1: off/ })).toHaveAttribute("data-level", "off");
+    await expect(page.getByRole("button", { name: /^Right hind foot, frame 1: no new touchdown/ })).toHaveAttribute("data-level", "none");
 
-    const ground = page.getByRole("button", { name: /^Ground material, step 1:/ });
-    const groundBefore = await ground.textContent();
-    await ground.click();
-    expect(await ground.textContent()).not.toBe(groundBefore);
+    await page.locator("#terrain").selectOption("crystal");
+    await expect(page.locator("#terrainReadout")).toHaveText("Resonant crystal");
+    await page.locator("#groundProfile").selectOption("stairs-up");
+    await expect(page.locator("#groundProfileReadout")).toHaveText("Steps up");
 
     await page.getByRole("button", { name: /^Unicorn/ }).click();
     await expect(page.locator("#animalReadout")).toHaveText("Unicorn");
-    await expect(page.locator("[data-behavior-id]")).toHaveCount(34);
+    await expect(page.locator("[data-behavior-id]")).toHaveCount(39);
     await page.getByRole("button", { name: "Trot" }).click();
     await expect(page.locator("#behaviorReadout")).toHaveText("Trot");
     await expect(page.locator("#behaviorDescription")).toContainText("diagonal pairs");
@@ -66,7 +71,7 @@ test.describe("Quadruped", () => {
     await expect(play).toHaveAttribute("aria-pressed", "true");
     await expect(audio).toHaveAttribute("aria-pressed", "false");
     await page.getByRole("button", { name: /^Elephant/ }).click();
-    await expect(page.getByRole("button", { name: /^Right hind foot, step 1: off/ })).toHaveAttribute("data-level", "off");
+    await expect(page.getByRole("button", { name: /^Right hind foot, frame 1: no new touchdown/ })).toHaveAttribute("data-level", "none");
     expect(pageErrors).toEqual([]);
   });
 
@@ -88,7 +93,7 @@ test.describe("Quadruped", () => {
     expect(await canvas.getAttribute("data-frame")).toBe(stalledFrame);
     await expect(play).toHaveAttribute("aria-pressed", "true");
 
-    const newPush = page.getByRole("button", { name: /^Left front foot, step 1: off/ });
+    const newPush = page.getByRole("button", { name: /^Left front foot, frame 1: no new touchdown/ });
     await newPush.click();
     await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity")), { timeout: 3_000 }).toBeGreaterThan(0.1);
     await expect(page.locator("#playState")).not.toContainText("stalled");
@@ -100,11 +105,28 @@ test.describe("Quadruped", () => {
     await expect(page.locator("#playState")).not.toContainText("stalled");
   });
 
+  test("global BPM changes the running score immediately and survives animal and gait changes", async ({ page }) => {
+    await page.goto("/quadruped.html", { waitUntil: "domcontentloaded" });
+    const tempo = page.locator("#tempo");
+    const canvas = page.locator("#stage");
+    await page.locator("#playButton").click();
+    await tempo.fill("60");
+    await expect(page.locator("#tempoOut")).toHaveText("60 BPM · global");
+    await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity"))).toBeCloseTo(16, 3);
+    await tempo.fill("180");
+    await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity"))).toBeCloseTo(48, 3);
+    await page.locator('[data-animal-id="giraffe"]').click();
+    await page.locator('[data-behavior-id="forward-roll"]').click();
+    await expect(tempo).toHaveValue("180");
+    await expect(page.locator("#tempoOut")).toHaveText("180 BPM · global");
+    await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity"))).toBeCloseTo(48, 3);
+  });
+
   test("every animal can borrow the full gait dictionary", async ({ page }) => {
     await page.goto("/quadruped.html", { waitUntil: "domcontentloaded" });
-    for (const animal of ["Elephant", "Unicorn", "Gazelle", "Cat", "Cheetah", "Giraffe", "Lizard"]) {
-      await page.getByRole("button", { name: new RegExp(`^${animal}`) }).click();
-      await expect(page.locator("[data-behavior-id]")).toHaveCount(34);
+    for (const animalId of ["elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe", "lizard", "horse", "dog", "goat", "rabbit", "camel"]) {
+      await page.locator(`[data-animal-id="${animalId}"]`).click();
+      await expect(page.locator("[data-behavior-id]")).toHaveCount(39);
       const activeGaitIsVisible = await page.evaluate(() => {
         const list = document.querySelector("#behaviorButtons")?.getBoundingClientRect();
         const active = document.querySelector('#behaviorButtons [aria-pressed="true"]')?.getBoundingClientRect();
@@ -131,8 +153,8 @@ test.describe("Quadruped", () => {
     await audio.click();
     await expect(audio).toHaveAttribute("aria-pressed", "true");
     await expect(play).toHaveAttribute("aria-pressed", "true");
-    for (const animal of ["Elephant", "Unicorn", "Gazelle", "Cat", "Cheetah", "Giraffe", "Lizard"]) {
-      await page.getByRole("button", { name: new RegExp(`^${animal}`) }).click();
+    for (const animalId of ["elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe", "lizard", "horse", "dog", "goat", "rabbit", "camel"]) {
+      await page.locator(`[data-animal-id="${animalId}"]`).click();
       await expect.poll(async () => page.evaluate(async () => {
         const { getSharedAudioOutputManager } = await import("./src/audio-output-manager.js");
         const status = getSharedAudioOutputManager().getStatus();
@@ -179,7 +201,7 @@ test.describe("Quadruped", () => {
       const offscreenStep = await page.locator("#stageStep").textContent();
       await expect.poll(async () => page.locator("#stageStep").textContent(), { timeout: 5_000 }).not.toBe(offscreenStep);
 
-      for (const selector of ["#audioButton", "#playButton", "#restartButton", "#resetButton"]) {
+      for (const selector of ["#audioButton", "#playButton", "#restartButton", "#tempo", "#terrain", "#groundProfile", "#resetButton"]) {
         const control = page.locator(selector);
         await control.scrollIntoViewIfNeeded();
         await expect(control).toBeVisible();
@@ -189,7 +211,7 @@ test.describe("Quadruped", () => {
       const cardBox = await page.locator(".quadruped-cabinet-frame").first().boundingBox();
       expect(audioBox?.height ?? 0).toBeGreaterThanOrEqual(48);
       expect(playBox?.height ?? 0).toBeGreaterThanOrEqual(48);
-      expect(cardBox?.height ?? 0).toBeGreaterThanOrEqual(92);
+      expect(cardBox?.height ?? 0).toBeGreaterThanOrEqual(58);
     });
   }
 });
