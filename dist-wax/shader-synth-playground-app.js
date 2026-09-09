@@ -34,6 +34,9 @@ const MIDI_PATCH_ROOT_NOTE = 48;
 const MIDI_PITCH_BEND_SEMITONES = 2;
 const PERFORMANCE_OCTAVE_MIN = 1;
 const PERFORMANCE_OCTAVE_MAX = 6;
+const MODULAR_SYNTH_DEFAULT_CHUNK_DURATION = 0.05;
+const MODULAR_SYNTH_MIN_CHUNK_DURATION = 0.03;
+const MODULAR_SYNTH_MAX_CHUNK_DURATION = 0.25;
 const PERFORMANCE_NOTE_KEYS = Object.freeze([
   "Z", "S", "X", "D", "C", "V", "G", "B", "H", "N", "J", "M", "Q",
 ]);
@@ -399,6 +402,7 @@ const state = {
   suppressPortClickUntil: 0,
   audioOn: false,
   playing: false,
+  chunkDuration: MODULAR_SYNTH_DEFAULT_CHUNK_DURATION,
   engine: null,
   audioStartPromise: null,
   audioPhase: null,
@@ -2897,6 +2901,7 @@ function receiveChunk(...args) {
     count += 1;
   }
   state.rms = Math.sqrt(sum / Math.max(1, count));
+  syncQueueReadout();
 }
 
 function drawScope() {
@@ -2947,6 +2952,7 @@ function syncTransport() {
   $("playgroundPlayLabel").textContent = playAction;
   $("audioButton").disabled = !support.supported || starting;
   playButton.disabled = !support.supported || starting;
+  $("chunkDuration").disabled = starting;
   $("gpuState").textContent = !support.audio
     ? "Web Audio unavailable"
     : !support.webgpu
@@ -2973,17 +2979,24 @@ function syncTransport() {
   renderExternalGraph();
 }
 
-function syncExecutionReadout(engine = state.engine) {
-  const duration = Number(engine?.chunkDuration) || SHADER_PLAYGROUND_RUNTIME_DEFAULTS.chunkDuration;
-  const sampleRate = Number(engine?.sampleRate) || 44100;
-  const sampleCount = Number(engine?.chunkSamples) || Math.round(sampleRate * duration);
+function syncQueueReadout(engine = state.engine, duration = state.chunkDuration) {
   const lookahead = Number(engine?.bufferTargetSeconds)
     || duration * SHADER_PLAYGROUND_RUNTIME_DEFAULTS.bufferedChunks
       + SHADER_PLAYGROUND_RUNTIME_DEFAULTS.schedulePadding;
+  const label = `~${Math.round(lookahead * 1000)} ms queued`;
+  $("gpuLookaheadDuration").textContent = label;
+  $("queueDurationOut").textContent = label;
+}
+
+function syncExecutionReadout(engine = state.engine) {
+  const duration = Number(engine?.chunkDuration) || state.chunkDuration;
+  const sampleRate = Number(engine?.sampleRate) || 44100;
+  const sampleCount = Number(engine?.chunkSamples) || Math.round(sampleRate * duration);
   $("gpuChunkDuration").textContent = `~${Math.round(duration * 1000)} ms chunk`;
+  $("chunkDurationOut").textContent = `${Math.round(duration * 1000)} ms chunks`;
   $("gpuChunkSampleCount").textContent = `${sampleCount.toLocaleString()} samples @ ${(sampleRate / 1000).toFixed(1)} kHz`;
   $("gpuChunkChannelCount").textContent = "stereo";
-  $("gpuLookaheadDuration").textContent = `~${Math.round(lookahead * 1000)} ms queued`;
+  syncQueueReadout(engine, duration);
   $("graphNodeLimit").textContent = String(SHADER_PLAYGROUND_LIMITS?.maxNodes ?? 16);
 }
 
@@ -3005,10 +3018,11 @@ async function startAudio({ play = state.playing } = {}) {
   }
   const generation = state.audioGeneration;
   let nextEngine;
+  const runtimeOptions = { chunkDuration: state.chunkDuration };
   try {
-    nextEngine = new ShaderSynthPlaygroundAudio(globalThis);
+    nextEngine = new ShaderSynthPlaygroundAudio(globalThis, runtimeOptions);
   } catch {
-    nextEngine = new ShaderSynthPlaygroundAudio();
+    nextEngine = new ShaderSynthPlaygroundAudio(undefined, runtimeOptions);
   }
   nextEngine.setOutput(midiOutputLevel());
   nextEngine.setPerformancePitch?.(midiVoicePitch());
@@ -3106,6 +3120,25 @@ async function togglePlay() {
     syncTransport();
     announce(next ? "Patch playing. Parameter changes are live." : "Patch paused. The graph remains editable.");
   }
+}
+
+async function restartAudio() {
+  syncExecutionReadout();
+  if (!state.audioOn) return;
+  const wasPlaying = state.playing;
+  await stopAudio({ quiet: true });
+  state.playing = wasPlaying;
+  syncTransport();
+  await startAudio({ play: wasPlaying });
+}
+
+function runtimeChanged() {
+  state.chunkDuration = clamp(
+    $("chunkDuration").value,
+    MODULAR_SYNTH_MIN_CHUNK_DURATION,
+    MODULAR_SYNTH_MAX_CHUNK_DURATION,
+  );
+  syncExecutionReadout();
 }
 
 $("modulePalette").addEventListener("click", (event) => {
@@ -3277,6 +3310,8 @@ $("resetView").addEventListener("click", () => fitGraph());
 $("clearPatch").addEventListener("click", clearPatch);
 $("audioButton").addEventListener("click", () => { void toggleAudio(); });
 $("playgroundPlayButton").addEventListener("click", () => { void togglePlay(); });
+$("chunkDuration").addEventListener("input", runtimeChanged);
+$("chunkDuration").addEventListener("change", () => { void restartAudio(); });
 $("performanceNoteButtons").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-performance-note]");
   if (button) void auditionPerformanceNote(Number(button.dataset.performanceNote));
@@ -3368,7 +3403,7 @@ if (globalThis.matchMedia?.("(max-width: 720px)")?.matches) {
 }
 renderModulePalette();
 renderPerformanceNoteButtons();
-syncExecutionReadout();
+runtimeChanged();
 renderPatch();
 syncTransport();
 syncMidiReadout();

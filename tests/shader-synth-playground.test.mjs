@@ -692,7 +692,7 @@ test("the graph editor shares a compact node footprint without shrinking touch t
   assert.match(css, /\.patch-node\.is-selected\s*\{[\s\S]*?border-color: var\(--node-color, var\(--accent\)\)/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeWidth/);
   assert.match(app, /SHADER_PLAYGROUND_LAYOUT_DEFAULTS\.nodeHeight/);
-  assert.match(html, /shader-synth-playground\.css\?v=20260906-module-rail-tooltip/);
+  assert.match(html, /shader-synth-playground\.css\?v=20260907-latency-control/);
 });
 
 test("three-way sum and product require and encode all three input slots", () => {
@@ -2590,6 +2590,7 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
     "parameterResponseCanvas", "parameterBehavior", "selectedNodeShader", "scopeCanvas",
     "presetButtons", "previousPatch", "nextPatch", "organRankSection", "organRankControls", "resetOrganRanks",
     "patchControlsPanel", "patchControls", "patchControlCount",
+    "chunkDuration", "chunkDurationOut", "queueDurationOut",
   ]) assert.match(html, new RegExp(`id=["']${id}["']`));
   assert.match(html, /<title>Modular Shader Synth — Morphazoid<\/title>/);
   assert.match(html, /<nav class="tabs" aria-label="Instrument">/);
@@ -2611,6 +2612,10 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.doesNotMatch(css, /\.synth-play-button|\.playground-transport/);
   assert.match(css, /\.patch-identity \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(css, /\.inspector-session-controls \{[\s\S]*?position: sticky[\s\S]*?grid-template-columns: 48px minmax\(0, 1fr\)/);
+  assert.match(css, /\.latency-control \{[\s\S]*?grid-column: 1 \/ -1/);
+  assert.match(html, /id="chunkDuration"[\s\S]*?min="0\.03"[\s\S]*?max="0\.25"[\s\S]*?step="0\.01"[\s\S]*?value="0\.05"/);
+  assert.match(html, /id="chunkDurationOut" for="chunkDuration">50 ms chunks<\/output>/);
+  assert.match(html, /id="queueDurationOut">~175 ms queued<\/output>/);
   assert.match(html, /src=["']nav\.js["']/);
   assert.match(primitives, /href=["']shader-synth-playground\.html["']/);
   assert.match(synth, /href=["']shader-synth-playground\.html["']/);
@@ -2695,7 +2700,11 @@ test("the page exposes a real graph editor, inspector, transport, and shared ins
   assert.match(app, /dataset\.moduleAction === "hear"[\s\S]*?addModule\(moduleId\)/);
   assert.match(app, /dataset\.portId/);
   assert.match(app, /setAttribute\("aria-current", "true"\)/);
-  assert.match(app, /SHADER_PLAYGROUND_RUNTIME_DEFAULTS\.chunkDuration/);
+  assert.match(app, /chunkDuration: MODULAR_SYNTH_DEFAULT_CHUNK_DURATION/);
+  assert.match(app, /new ShaderSynthPlaygroundAudio\(globalThis, runtimeOptions\)/);
+  assert.match(app, /async function restartAudio\(\)[\s\S]*?const wasPlaying = state\.playing[\s\S]*?stopAudio\(\{ quiet: true \}\)[\s\S]*?state\.playing = wasPlaying[\s\S]*?startAudio\(\{ play: wasPlaying \}\)/);
+  assert.match(app, /\$\("chunkDuration"\)\.addEventListener\("input", runtimeChanged\)/);
+  assert.match(app, /\$\("chunkDuration"\)\.addEventListener\("change", \(\) => \{ void restartAudio\(\); \}\)/);
   assert.match(app, /parameterResponseCanvas/);
   assert.match(app, /updateOrganRanks/);
   assert.match(html, /GPU harmonic lanes/);

@@ -46,6 +46,13 @@ test("the module rail nests icon tiles and keeps transport controls atop the ins
   expect(Math.abs((sessionBox?.y ?? 0) - (inspectorBox?.y ?? 0))).toBeLessThanOrEqual(1);
   await expect(sessionControls.locator("#playgroundPlayButton")).toBeVisible();
   await expect(sessionControls.locator("#patchSelect")).toBeVisible();
+  await expect(sessionControls.locator("#chunkDuration")).toHaveValue("0.05");
+  await expect(sessionControls.locator("#chunkDurationOut")).toHaveText("50 ms chunks");
+  await expect(sessionControls.locator("#queueDurationOut")).toHaveText("~175 ms queued");
+  await sessionControls.locator("#chunkDuration").fill("0.03");
+  await expect(sessionControls.locator("#chunkDurationOut")).toHaveText("30 ms chunks");
+  await expect(sessionControls.locator("#queueDurationOut")).toHaveText("~125 ms queued");
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
 
   await expect(page.locator("#moduleHearSelect, #moduleAddSelect")).toHaveCount(0);
   const categoryButtons = page.locator("[data-module-category]");

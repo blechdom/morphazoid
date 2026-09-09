@@ -11,7 +11,7 @@
     <title>Modular Shader Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="shader-synth-playground.css?v=20260906-module-rail-tooltip" />
+    <link rel="stylesheet" href="shader-synth-playground.css?v=20260907-latency-control" />
   </head>
   <body class="shader-playground-page">
     <header class="masthead">
@@ -249,6 +249,20 @@
               <button id="nextPatch" class="preset-step-button" type="button" aria-label="Next patch" aria-keyshortcuts="ArrowRight" title="Next patch (Right Arrow)">›</button>
             </div>
           </div>
+
+          <label class="latency-control" for="chunkDuration">
+            <span><b>GPU response</b><output id="chunkDurationOut" for="chunkDuration">50 ms chunks</output></span>
+            <input
+              id="chunkDuration"
+              type="range"
+              min="0.03"
+              max="0.25"
+              step="0.01"
+              value="0.05"
+              aria-describedby="chunkDurationHint"
+            />
+            <small id="chunkDurationHint"><output id="queueDurationOut">~175 ms queued</output> · knob changes enter the next GPU chunk</small>
+          </label>
         </section>
 
         <header class="workspace-panel-heading inspector-heading">
@@ -354,6 +368,6 @@
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     <noscript><p class="playground-noscript">JavaScript is required to build and audition shader patches.</p></noscript>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="shader-synth-playground-bootstrap.js?v=20260906-module-rail-tooltip"></script>
+    <script type="module" src="shader-synth-playground-bootstrap.js?v=20260907-latency-control"></script>
   </body>
 </html>

@@ -78,7 +78,7 @@ async function boot() {
     }
   }
 
-  await import("./shader-synth-playground-app.js?v=20260906-module-rail-tooltip");
+  await import("./shader-synth-playground-app.js?v=20260907-latency-control");
 }
 
 void boot();

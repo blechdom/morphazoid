@@ -1907,6 +1907,55 @@
   min-height: 48px;
 }
 
+.latency-control {
+  display: grid;
+  padding-top: 9px;
+  border-top: 1px solid color-mix(in oklab, var(--line-strong) 72%, transparent);
+  grid-column: 1 / -1;
+  gap: 6px;
+}
+
+.latency-control > span {
+  display: flex;
+  min-width: 0;
+  color: var(--muted);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.latency-control > span b {
+  color: var(--ink);
+  font-weight: 720;
+}
+
+.latency-control output {
+  color: var(--accent);
+  font: 700 9px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.latency-control input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.latency-control small {
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.latency-control small output {
+  color: var(--muted);
+  font-size: inherit;
+}
+
 .inspector-heading {
   padding-bottom: 18px;
 }
