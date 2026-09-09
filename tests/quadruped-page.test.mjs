@@ -9,7 +9,7 @@ const animals = [
   "lizard", "horse", "dog", "goat", "rabbit", "camel",
 ];
 
-test("Quadruped page exposes twelve animals, four feet, sixteen cards, one surface, and one path", async () => {
+test("Quadruped page exposes animal choices, four feet, sixteen cards, one surface, and one path", async () => {
   const html = await read("quadruped.html");
   assert.match(html, /<title>Quadruped · Morphazoid<\/title>/);
   assert.match(html, /<h1 id="pageTitle">QUADRUPED<\/h1>/);
@@ -27,7 +27,10 @@ test("Quadruped page exposes twelve animals, four feet, sixteen cards, one surfa
   assert.match(html, /planted/);
   assert.match(html, /No new touchdown does not necessarily mean the foot is airborne/);
   assert.match(html, /id="tempoOut"[^>]*>96 BPM · global/);
-  assert.match(html, /Tempo is global: one sixteen-frame gait cycle is one beat, and changes apply immediately/);
+  assert.match(html, /Tempo changes immediately/);
+  assert.match(html, /At 1× pace, sixteen cards take one beat before extra air or slide rests/);
+  for (const ratio of ["0.5", "1", "2", "3"]) assert.ok(html.includes(`data-pace-ratio="${ratio}"`));
+  assert.match(html, /id="suspensionBeats"[^>]*max="8"/);
   assert.match(html, /<b>One surface<\/b>/);
   assert.match(html, /<select id="terrain">[\s\S]*Packed earth[\s\S]*Resonant crystal/);
   assert.match(html, /<select id="groundProfile">[\s\S]*Level ground[\s\S]*Steps up[\s\S]*Steps down/);
@@ -152,13 +155,13 @@ test("edits preserve motion and global surface/path changes relatch honestly", a
   assert.match(app, /setQuadrupedSurface/);
   assert.match(app, /setQuadrupedGroundProfile/);
   assert.match(app, /current stance relatches to this course/);
-  assert.match(app, /const behaviors = \[\.\.\.quadrupedBehaviorsForAnimal/);
+  assert.match(app, /const behaviors = quadrupedBehaviorsForAnimal\(state.animalId\);/);
   assert.match(motor, /quadrupedAnimal/);
   assert.doesNotMatch(motor, /SPECIES_PHYSICS/);
   for (const property of ["mass", "power", "compliance", "rollingResistance", "baseGravity"]) {
     assert.match(model, new RegExp(`${property}:`));
   }
-  assert.match(catalog, /twelve species-shaped animal bodies/);
+  assert.match(catalog, /fourteen species-shaped animal bodies/);
   assert.match(catalog, /touchdown, load, push, support, lift-off, and landing/);
   assert.match(catalog, /exact global BPM clock/i);
   assert.match(catalog, /tempo stays independent/i);
@@ -179,7 +182,7 @@ test("the sequencer and controls remain reachable at desktop, portrait, and shor
   assert.match(css, /#stage:focus-visible/);
 });
 
-test("the thirty-nine-gait dictionary stays compact and scrollable", async () => {
+test("the shared gait dictionary stays compact and scrollable", async () => {
   const css = await read("quadruped.css");
   assert.match(css, /\.quadruped-behavior-buttons\s*\{\s*grid-template-columns:\s*repeat\(5,\s*1fr\);[\s\S]*?max-height:\s*230px;[\s\S]*?overflow-y:\s*auto/);
   assert.match(css, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.quadruped-behavior-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*1fr\)/);

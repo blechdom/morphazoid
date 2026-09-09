@@ -288,8 +288,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   quadruped: define(
     "Quadruped gait sequencer",
-    "Keeps twelve species-shaped animal bodies centered above a compact sixteen-card motion study; touchdown, load, push, support, lift-off, and landing share one exact global BPM clock.",
-    "Choose any gait or stunt for any animal, program soft or strong touchdowns, then change the continuous material or walk level, upstairs, or downstairs; contacts shape the rhythm while tempo stays independent.",
+    "Keeps fourteen species-shaped animal bodies centered above a compact sixteen-card motion study; touchdown, load, push, support, lift-off, and landing share one exact global BPM clock.",
+    "Choose from the same ordered gait dictionary for every animal, set half, single, double, or triple pace, and stretch leaps into rests or skids into body slides. Change the continuous ground material or stair direction; tempo stays independent.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
   "colony-syrinx": define(

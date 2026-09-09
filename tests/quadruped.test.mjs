@@ -50,7 +50,7 @@ import {
 const footLaneIds = QUADRUPED_LANES.map(({ id }) => id);
 const animalIds = [
   "elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe", "lizard",
-  "horse", "dog", "goat", "rabbit", "camel",
+  "horse", "dog", "goat", "rabbit", "camel", "mouse", "dinosaur",
 ];
 const finite = (value) => Number.isFinite(Number(value));
 const distance = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
@@ -63,11 +63,11 @@ function signature(animalId, behaviorId) {
   }).filter(Boolean);
 }
 
-test("Quadruped exposes twelve animals, thirty-nine transferable gaits, four feet, sixteen frames, eight surfaces, and three courses", () => {
+test("Quadruped exposes fourteen animals, forty-five transferable gaits, four feet, sixteen cards, eight surfaces, and three courses", () => {
   assert.deepEqual(QUADRUPED_ANIMALS.map(({ id }) => id), animalIds);
-  assert.equal(QUADRUPED_BEHAVIORS.length, 39);
+  assert.equal(QUADRUPED_BEHAVIORS.length, 45);
   assert.ok(QUADRUPED_BEHAVIORS.some(({ id }) => id === "rabbit-gallop"));
-  for (const stunt of ["leap", "skid", "forward-roll", "rear-up"]) {
+  for (const stunt of ["leap", "walk-leap", "skid", "forward-roll", "cartwheel", "rear-up", "mosey", "wander", "drunk", "tiptoe"]) {
     assert.ok(QUADRUPED_BEHAVIORS.some(({ id }) => id === stunt));
   }
   assert.deepEqual(footLaneIds, ["front-left", "front-right", "rear-left", "rear-right"]);
@@ -126,7 +126,7 @@ test("the gait dictionary preserves distinct locomotion and stunt rhythms", () =
   assert.deepEqual(signature("gazelle", "bound"), ["0:LH+RH", "8:LF+RF"]);
   assert.deepEqual(signature("rabbit", "rabbit-gallop"), ["0:LH", "1:RH", "5:LF", "7:RF"]);
   assert.deepEqual(signature("elephant", "leap"), ["0:LH+RH", "10:RF", "11:LF"]);
-  assert.deepEqual(signature("elephant", "skid"), ["0:LH", "1:RF", "2:LF", "15:RH"]);
+  assert.deepEqual(signature("elephant", "skid"), ["0:LH+RH", "14:RF", "15:LF"]);
   assert.deepEqual(signature("elephant", "forward-roll"), ["0:LH+RH", "12:RF", "13:LF"]);
   assert.deepEqual(signature("elephant", "rear-up"), ["0:LH+RH", "8:LH+RH"]);
   assert.notDeepEqual(signature("elephant", "walk"), signature("elephant", "amble"));

@@ -1154,3 +1154,25 @@ body.quadruped-page {
     outline: 3px solid Highlight;
   }
 }
+/* Pace and rest stay beside the master tempo, within the scrolling console. */
+.quadruped-pace {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.quadruped-pace button {
+  min-width: 38px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--quad-accent, #82ddba);
+  border-radius: 5px;
+  font: inherit;
+  color: inherit;
+  background: #10221e;
+}
+.quadruped-pace button[aria-pressed="true"] { background: #285e4f; }
+.quadruped-pace output { margin-left: auto; font-size: 10px; opacity: 0.8; }
+.quadruped-suspension:has(input:disabled) { opacity: 0.45; }
+@media (pointer: coarse) { .quadruped-pace button { min-height: 40px; } }

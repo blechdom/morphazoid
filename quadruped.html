@@ -121,7 +121,7 @@
             <span><i aria-hidden="true"></i> planted</span>
           </div>
           <p class="sr-only" id="sequenceHelp">
-            Choose any gait for any animal. Each foot button cycles through no new touchdown, soft touchdown, and strong touchdown. No new touchdown does not necessarily mean the foot is airborne. A separate support bar is calculated from the most recent touchdown and continues while the foot is planted, until lift-off. Tempo is global: one sixteen-frame gait cycle is one beat, and changes apply immediately. Arrow keys move through the sixteen motion-study frames; Home and End move to the first and last frame.
+            Every animal shares the same gait menu. Each foot button cycles through no new touchdown, soft touchdown, and strong touchdown. No new touchdown does not necessarily mean the foot is airborne. A separate bar shows continuing planted support until lift-off. Tempo changes immediately. At 1× pace, sixteen cards take one beat before extra air or slide rests; ½×, 2× and 3× change footwork relative to that global tempo. Air / slide rest adds beats before landing or standing. Card badges show stretched durations. Arrow keys move through the score; Home and End choose the first and last card.
           </p>
           <div class="quadruped-grid-scroll" tabindex="0" aria-label="Horizontally scrollable Quadruped rhythm grid">
             <div id="sequenceGrid" class="quadruped-grid" role="grid" aria-label="Sixteen motion-study frames with four foot touchdown rows"></div>
@@ -140,7 +140,18 @@
             </p>
             <label class="quadruped-tempo" for="tempo">
               <span><b>Tempo</b><output id="tempoOut" for="tempo">96 BPM · global</output></span>
-              <input id="tempo" name="tempo" type="range" min="42" max="196" step="1" value="96" title="Global tempo: one sixteen-frame gait cycle per beat" />
+              <input id="tempo" name="tempo" type="range" min="42" max="196" step="1" value="96" title="Global BPM; 1× pace takes one beat per cycle before extra air or slide rests" />
+            </label>
+            <div class="quadruped-pace" role="group" aria-label="Gait pace relative to global tempo">
+              <button type="button" data-pace-ratio="0.5" aria-pressed="false">½×</button>
+              <button type="button" data-pace-ratio="1" aria-pressed="true">1×</button>
+              <button type="button" data-pace-ratio="2" aria-pressed="false">2×</button>
+              <button type="button" data-pace-ratio="3" aria-pressed="false">3×</button>
+              <output id="phraseLength">1 beat / loop</output>
+            </div>
+            <label class="quadruped-tempo quadruped-suspension" for="suspensionBeats">
+              <span><b>Air / slide rest</b><output id="suspensionOut" for="suspensionBeats">2 extra beats</output></span>
+              <input id="suspensionBeats" type="range" min="0" max="8" step="0.5" value="2" disabled title="Extra beats before landing or standing; active on leaps, rolls and skids" />
             </label>
             <div id="padGrid" class="quadruped-pad-grid" role="group" aria-label="Program feet on the selected frame">
               <button type="button" data-pad-index="0" data-lane-id="front-left"><kbd>1</kbd><span>LF</span></button>
@@ -168,6 +179,8 @@
               <button type="button" data-animal-id="goat" aria-pressed="false"><b>Goat</b><small>cloven stair clacks</small></button>
               <button type="button" data-animal-id="rabbit" aria-pressed="false"><b>Rabbit</b><small>haunch flight</small></button>
               <button type="button" data-animal-id="camel" aria-pressed="false"><b>Camel</b><small>two-hump pacing pads</small></button>
+              <button type="button" data-animal-id="mouse" aria-pressed="false"><b>Mouse</b><small>tiny paw ticks</small></button>
+              <button type="button" data-animal-id="dinosaur" aria-pressed="false"><b>Triceratops</b><small>three-horn earth drums</small></button>
             </div>
             <p id="animalDescription" class="quadruped-description"></p>
           </section>

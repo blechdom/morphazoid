@@ -5,6 +5,11 @@ import {
   quadrupedSequenceEvent,
   quadrupedSupportSnapshot,
   quadrupedTerrain,
+  quadrupedScoreTiming,
+  quadrupedClockAtPosition,
+  quadrupedPositionAtClock,
+  quadrupedFlightTrajectory,
+  quadrupedBodySlide,
 } from "./quadruped.js";
 
 const FOOT_LANE_IDS = Object.freeze(QUADRUPED_FOOT_LANES.map(({ id }) => id));
@@ -52,11 +57,11 @@ const FLIGHT_BY_BEHAVIOR = Object.freeze({
 });
 
 export const QUADRUPED_MOTOR_LIMITS = Object.freeze({
-  integrationStepSeconds: 1 / 120,
+  integrationStepSeconds: 1 / 480,
   maxAdvanceSeconds: 2,
-  maxCrossingEvents: 160,
-  maxTransitionEvents: 64,
-  maxVelocity: 64,
+  maxCrossingEvents: 384,
+  maxTransitionEvents: 192,
+  maxVelocity: 192,
   maxHeight: 2,
   maxPosition: 1_000_000_000,
 });
@@ -128,6 +133,11 @@ function framesUntilSupport(score, position) {
     if (footSupport(score, position + offset).supportCount > 0) return offset;
   }
   return 0;
+}
+
+function clockFraction(score, at, start, end) {
+  const span = quadrupedClockAtPosition(score, end) - quadrupedClockAtPosition(score, start);
+  return span > EPSILON ? clamp((quadrupedClockAtPosition(score, at) - quadrupedClockAtPosition(score, start)) / span, 0, 1, 1) : 1;
 }
 
 function supportBoundaryPosition(score, startPosition, endPosition, supportedAtEnd) {
@@ -265,13 +275,14 @@ function simulate(score, motor, deltaSeconds) {
       // BPM is the independent master clock: one sixteen-frame gait cycle is
       // one beat. Contact timing shapes support, flight, and sound, but animal
       // mass, terrain, and slope never bend the requested sequence rate.
-      velocity = desiredVelocity;
+      const clock = quadrupedClockAtPosition(score, previousPosition);
       position = clamp(
-        previousPosition + velocity * integrationStep,
+        quadrupedPositionAtClock(score, clock + desiredVelocity * integrationStep),
         0,
         QUADRUPED_MOTOR_LIMITS.maxPosition,
         previousPosition,
       );
+      velocity = desiredVelocity / quadrupedScoreTiming(score).durations[mod(Math.floor(position), 16)];
     } else {
       // A score with no touchdown marks receives no new drive. Existing motion
       // can coast according to momentum and terrain, then reaches an exact stop.
@@ -319,7 +330,7 @@ function simulate(score, motor, deltaSeconds) {
       const toeOffPosition = startLeg.previousTouchdownPosition + startLeg.stanceDuration;
       if (toeOffPosition <= previousPosition + EPSILON || toeOffPosition > position + EPSILON) continue;
       const travel = position - previousPosition;
-      const fraction = travel > EPSILON ? clamp((toeOffPosition - previousPosition) / travel, 0, 1, 1) : 1;
+      const fraction = clockFraction(score, toeOffPosition, previousPosition, position);
       emitTransition({
         type: "toe-off",
         laneId,
@@ -340,7 +351,7 @@ function simulate(score, motor, deltaSeconds) {
         const accentPosition = startLeg.previousTouchdownPosition + startLeg.stanceDuration * stancePoint;
         if (accentPosition <= previousPosition + EPSILON || accentPosition > position + EPSILON) continue;
         const travel = position - previousPosition;
-        const fraction = travel > EPSILON ? clamp((accentPosition - previousPosition) / travel, 0, 1, 1) : 1;
+        const fraction = clockFraction(score, accentPosition, previousPosition, position);
         emitTransition({
           type,
           laneId,
@@ -355,13 +366,13 @@ function simulate(score, motor, deltaSeconds) {
       }
     }
 
-    if (current.supportCount > 0 && supportEnd.supportCount === 0 && velocity > STALL_VELOCITY) {
+    if (current.supportCount > 0 && supportEnd.supportCount === 0 && velocity > STALL_VELOCITY && view.behaviorId !== "skid") {
       const liftPosition = supportBoundaryPosition(score, previousPosition, position, false);
       const travel = position - previousPosition;
-      const liftFraction = travel > EPSILON ? clamp((liftPosition - previousPosition) / travel, 0, 1, 1) : 1;
+      const liftFraction = clockFraction(score, liftPosition, previousPosition, position);
       const flightFrames = framesUntilSupport(score, liftPosition);
-      const flightSeconds = flightFrames / Math.max(velocity, 3);
-      const behaviorFlight = clamp(FLIGHT_BY_BEHAVIOR[view.behaviorId], 0, 1, 0);
+      const flightSeconds = (quadrupedClockAtPosition(score, liftPosition + flightFrames) - quadrupedClockAtPosition(score, liftPosition)) / desiredVelocity;
+      const behaviorFlight = clamp(FLIGHT_BY_BEHAVIOR[view.behaviorId] ?? (view.behaviorId === "walk-leap" ? 1 : 0), 0, 1, 0);
       const launchScale = clamp(Math.sqrt(view.physics.power / view.physics.mass), 0.72, 1.32, 1);
       const ballisticLaunch = clamp(
         view.physics.gravity * flightSeconds * 0.5 * (0.72 + behaviorFlight * 0.28) * launchScale,
@@ -396,7 +407,7 @@ function simulate(score, motor, deltaSeconds) {
           ? supportBoundaryPosition(score, previousPosition, position, true)
           : position;
         const travel = position - previousPosition;
-        const landingFraction = travel > EPSILON ? clamp((landingPosition - previousPosition) / travel, 0, 1, 1) : 1;
+        const landingFraction = clockFraction(score, landingPosition, previousPosition, position);
         const impact = clamp(
           (Math.abs(verticalVelocity) * 0.22 + velocity * 0.012) * (0.72 + view.physics.hardness * 0.34),
           0,
@@ -444,11 +455,26 @@ function simulate(score, motor, deltaSeconds) {
       flightId = null;
     }
 
+    const sliding = quadrupedBodySlide(score, position);
+    if (sliding > 0) {
+      height = 0;
+      verticalVelocity = 0;
+      airborne = false;
+      flightId = null;
+    } else if (supportEnd.supportCount === 0 && hasScoredFootfalls) {
+      const arc = quadrupedFlightTrajectory(score, position, supportEnd);
+      if (arc) {
+        height = clamp(arc.height, 0, QUADRUPED_MOTOR_LIMITS.maxHeight, 0);
+        verticalVelocity = clamp(arc.verticalVelocity, -12, 12, 0);
+        airborne = true;
+      }
+    }
+
     const firstBoundary = Math.floor(previousPosition + EPSILON) + 1;
     const lastBoundary = Math.floor(position + EPSILON);
     for (let ordinal = firstBoundary; ordinal <= lastBoundary; ordinal += 1) {
       const travel = position - previousPosition;
-      const fraction = travel > EPSILON ? clamp((ordinal - previousPosition) / travel, 0, 1, 1) : 1;
+      const fraction = hasScoredFootfalls ? clockFraction(score, ordinal, previousPosition, position) : travel > EPSILON ? clamp((ordinal - previousPosition) / travel, 0, 1, 1) : 1;
       const crossingSeconds = tickStartSeconds + fraction * integrationStep;
       const frame = mod(ordinal, QUADRUPED_STEP_COUNT);
       const scoreEvent = quadrupedSequenceEvent(score, ordinal);
@@ -549,7 +575,7 @@ export function kickQuadrupedMotor(score, motor, amount = 1) {
 export function synchronizeQuadrupedMotorTempo(score, motor) {
   const safe = sanitizeMotor(score, motor);
   if (scoredFootEnergy(score) <= EPSILON) return immutableMotor(safe);
-  const velocity = targetVelocity(scoreView(score));
+  const velocity = targetVelocity(scoreView(score)) / quadrupedScoreTiming(score).durations[mod(Math.floor(safe.position), 16)];
   return immutableMotor({ ...safe, velocity, stalled: false });
 }
 
@@ -564,6 +590,9 @@ export function quadrupedMotorSnapshot(score, motor) {
     ordinal: Math.floor(safe.position),
     frame,
     phase: positionInCycle - frame,
+    clockPosition: quadrupedClockAtPosition(score, safe.position),
+    cycleBeats: quadrupedScoreTiming(score).beats,
+    bodySlide: quadrupedBodySlide(score, safe.position),
     cycleProgress: positionInCycle / QUADRUPED_STEP_COUNT,
     velocity: safe.velocity,
     targetVelocity: targetVelocity(view),

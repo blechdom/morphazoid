@@ -2,6 +2,7 @@ const CONTACT_LEVELS = Object.freeze([0, 0.58, 1]);
 
 export const QUADRUPED_STEP_COUNT = 16;
 export const QUADRUPED_DEFAULT_TEMPO_BPM = 96;
+export const QUADRUPED_PACE_RATIOS = Object.freeze([0.5, 1, 2, 3]);
 
 const ALL_QUADRUPED_IDS = Object.freeze([
   "elephant",
@@ -16,6 +17,8 @@ const ALL_QUADRUPED_IDS = Object.freeze([
   "goat",
   "rabbit",
   "camel",
+  "mouse",
+  "dinosaur",
 ]);
 
 export const QUADRUPED_LIMITS = Object.freeze({
@@ -59,6 +62,10 @@ export const QUADRUPED_GROUND_PROFILES = Object.freeze([
 
 export const QUADRUPED_BEHAVIORS = Object.freeze([
   Object.freeze({ id: "walk", label: "Walk", description: "even lateral walk", stanceSteps: 10, nativeAnimalIds: ALL_QUADRUPED_IDS }),
+  Object.freeze({ id: "mosey", label: "Mosey", description: "lazy long-short steps", stanceSteps: 11, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "wander", label: "Wander", description: "hesitate · step · look around", stanceSteps: 10, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "drunk", label: "Drunk", description: "stagger · catch · stagger", stanceSteps: 8, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "tiptoe", label: "Tiptoe", description: "light toes · careful lifted steps", stanceSteps: 10, nativeAnimalIds: Object.freeze([]) }),
   Object.freeze({ id: "diagonal-walk", label: "Diagonal walk", description: "even diagonal walk", stanceSteps: 10, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat"]) }),
   Object.freeze({ id: "running-walk", label: "Running walk", description: "four quick grounded beats", stanceSteps: 8.8, nativeAnimalIds: Object.freeze(["unicorn", "horse"]) }),
   Object.freeze({ id: "amble", label: "Amble", description: "close lateral couplets", stanceSteps: 8, nativeAnimalIds: Object.freeze(["elephant", "unicorn", "horse", "camel"]) }),
@@ -80,8 +87,10 @@ export const QUADRUPED_BEHAVIORS = Object.freeze([
   Object.freeze({ id: "stot", label: "Stot", description: "four together + flight", stanceSteps: 3, nativeAnimalIds: Object.freeze(["gazelle"]) }),
   Object.freeze({ id: "jump", label: "Jump", description: "short hind launch · fore landing", stanceSteps: 3, nativeAnimalIds: Object.freeze(["unicorn", "gazelle", "horse", "dog", "goat", "rabbit", "camel"]) }),
   Object.freeze({ id: "leap", label: "Leap", description: "long hind launch · late fore landing", stanceSteps: 2.6, nativeAnimalIds: Object.freeze([]) }),
-  Object.freeze({ id: "skid", label: "Skid", description: "four braced feet · ground scrape", stanceSteps: 12, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "walk-leap", label: "Walk ×4 · leap", description: "walk walk walk walk · launch · rest · land", stanceSteps: 1.4, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "skid", label: "Skid", description: "push · belly slide · stand", stanceSteps: 2, nativeAnimalIds: Object.freeze([]) }),
   Object.freeze({ id: "forward-roll", label: "Forward roll", description: "hind launch · tuck · fore landing", stanceSteps: 2.6, nativeAnimalIds: Object.freeze([]) }),
+  Object.freeze({ id: "cartwheel", label: "Cartwheel", description: "sideways wheel · four separated feet", stanceSteps: 2, nativeAnimalIds: Object.freeze([]) }),
   Object.freeze({ id: "rear-up", label: "Rear up", description: "hind support · forefeet raised", stanceSteps: 12, nativeAnimalIds: Object.freeze([]) }),
   Object.freeze({ id: "charge", label: "Charge", description: "heavy grounded drive", stanceSteps: 7.4, nativeAnimalIds: Object.freeze(["elephant"]) }),
   Object.freeze({ id: "dance", label: "Tango", description: "alternating two-leg balance", stanceSteps: 3, nativeAnimalIds: Object.freeze([]) }),
@@ -106,6 +115,12 @@ const ALL_BEHAVIOR_IDS = Object.freeze(QUADRUPED_BEHAVIORS.map(({ id }) => id));
 // the editable sixteen-frame score.  Measured families are used where useful,
 // while dance/jump figures are deliberately playable approximations.
 const GAIT_DUTY_FACTORS = Object.freeze({
+  mosey: Object.freeze({ front: 0.72, hind: 0.72, basis: "playful lingering walk" }),
+  wander: Object.freeze({ front: 0.68, hind: 0.68, basis: "playful hesitant walk" }),
+  drunk: Object.freeze({ front: 0.56, hind: 0.58, basis: "playful stagger" }),
+  tiptoe: Object.freeze({ front: 0.6, hind: 0.6, basis: "playful light toe steps" }),
+  "walk-leap": Object.freeze({ front: 0.2, hind: 0.2, basis: "four-step launch phrase" }),
+  cartwheel: Object.freeze({ front: 0.1, hind: 0.1, basis: "fictional acrobatic transfer" }),
   walk: Object.freeze({ front: 0.64, hind: 0.64, basis: "four-beat lateral walk" }),
   "diagonal-walk": Object.freeze({ front: 0.64, hind: 0.64, basis: "four-beat diagonal walk" }),
   "running-walk": Object.freeze({ front: 0.54, hind: 0.54, basis: "grounded four-beat approximation" }),
@@ -129,7 +144,7 @@ const GAIT_DUTY_FACTORS = Object.freeze({
   stot: Object.freeze({ front: 0.2, hind: 0.2, basis: "simultaneous stot approximation" }),
   jump: Object.freeze({ front: 0.24, hind: 0.28, basis: "launch-and-land approximation" }),
   leap: Object.freeze({ front: 0.18, hind: 0.22, basis: "long launch-and-land stunt approximation" }),
-  skid: Object.freeze({ front: 0.72, hind: 0.74, basis: "braced sliding stunt approximation" }),
+  skid: Object.freeze({ front: 0.1, hind: 0.1, basis: "body-slide stunt approximation" }),
   "forward-roll": Object.freeze({ front: 0.18, hind: 0.22, basis: "aerial rolling stunt approximation" }),
   "rear-up": Object.freeze({ front: 0.08, hind: 0.74, basis: "hind-support stunt approximation" }),
   dance: Object.freeze({ front: 0.34, hind: 0.34, basis: "two-leg dance approximation" }),
@@ -148,6 +163,18 @@ const GAIT_DUTY_FACTORS = Object.freeze({
 });
 
 export const QUADRUPED_FOOT_VOICES = Object.freeze({
+  mouse: Object.freeze({
+    "front-left": Object.freeze({ label: "tiny tick", family: "fore-tick" }),
+    "front-right": Object.freeze({ label: "claw fleck", family: "fore-fleck" }),
+    "rear-left": Object.freeze({ label: "seed tap", family: "hind-seed" }),
+    "rear-right": Object.freeze({ label: "quick pat", family: "hind-pat" }),
+  }),
+  dinosaur: Object.freeze({
+    "front-left": Object.freeze({ label: "shield knock", family: "fore-shield" }),
+    "front-right": Object.freeze({ label: "stone stomp", family: "fore-stone" }),
+    "rear-left": Object.freeze({ label: "earth drum", family: "hind-earth" }),
+    "rear-right": Object.freeze({ label: "heavy push", family: "hind-push" }),
+  }),
   elephant: Object.freeze({
     "front-left": Object.freeze({ label: "hide slap", family: "fore-slap" }),
     "front-right": Object.freeze({ label: "hollow knock", family: "fore-knock" }),
@@ -226,6 +253,8 @@ export const QUADRUPED_FOOT_VOICES = Object.freeze({
 // solver changes joint angles, so gait edits articulate a body rather than
 // stretching decorative legs.
 const MORPHOLOGY = Object.freeze({
+  mouse: Object.freeze({ family: "rodent", bodyWidth: 1.34, bodyHeight: 0.65, clearance: 0.3, shoulder: 0.8, haunch: 0.98, headScale: 0.43, neckLength: 0.14, headForward: 0.68, headRise: 0.04, frontUpper: 0.18, frontLower: 0.17, hindUpper: 0.27, hindLower: 0.22, distal: 0.09, legWidth: 0.038, footWidth: 0.11, tailLength: 1.55, foreBend: 1, hindBend: -1, spineElasticity: 0.2 }),
+  dinosaur: Object.freeze({ family: "ceratopsian", bodyWidth: 1.75, bodyHeight: 0.86, clearance: 0.6, shoulder: 1.08, haunch: 1, headScale: 0.66, neckLength: 0.24, headForward: 0.94, headRise: 0.08, frontUpper: 0.34, frontLower: 0.3, hindUpper: 0.38, hindLower: 0.32, distal: 0.1, legWidth: 0.16, footWidth: 0.19, tailLength: 1.03, foreBend: 1, hindBend: -1, spineElasticity: 0.025 }),
   elephant: Object.freeze({ family: "elephant", bodyWidth: 1.5, bodyHeight: 0.78, clearance: 0.84, shoulder: 1.04, haunch: 1.02, headScale: 0.58, neckLength: 0.08, headForward: 0.58, headRise: 0.04, frontUpper: 0.34, frontLower: 0.35, hindUpper: 0.34, hindLower: 0.35, distal: 0.045, legWidth: 0.11, footWidth: 0.14, tailLength: 0.64, foreBend: 1, hindBend: -1, spineElasticity: 0.03 }),
   unicorn: Object.freeze({ family: "equid", bodyWidth: 1.4, bodyHeight: 0.6, clearance: 0.88, shoulder: 1.08, haunch: 1.12, headScale: 0.44, neckLength: 0.6, headForward: 0.7, headRise: 0.42, frontUpper: 0.36, frontLower: 0.34, hindUpper: 0.38, hindLower: 0.34, distal: 0.12, legWidth: 0.06, footWidth: 0.085, tailLength: 0.88, foreBend: 1, hindBend: -1, spineElasticity: 0.08 }),
   gazelle: Object.freeze({ family: "bovid", bodyWidth: 1.28, bodyHeight: 0.5, clearance: 0.8, shoulder: 0.98, haunch: 1.08, headScale: 0.4, neckLength: 0.5, headForward: 0.68, headRise: 0.42, frontUpper: 0.38, frontLower: 0.36, hindUpper: 0.4, hindLower: 0.37, distal: 0.14, legWidth: 0.045, footWidth: 0.065, tailLength: 0.48, foreBend: 1, hindBend: -1, spineElasticity: 0.12 }),
@@ -241,6 +270,18 @@ const MORPHOLOGY = Object.freeze({
 });
 
 const ANIMAL_DEFINITIONS = Object.freeze({
+  mouse: Object.freeze({
+    id: "mouse", label: "Mouse", subtitle: "tiny paw percussion", description: "Tiny paws, round ears, a pointed muzzle and a long balancing tail.", defaultBehaviorId: "walk", behaviorIds: ALL_BEHAVIOR_IDS,
+    mood: 0.62, groundResonance: 0.38, outputLevel: 0.6, bodyScale: 0.38, morphology: MORPHOLOGY.mouse,
+    palette: Object.freeze(["#a8998d", "#55483f", "#e6a79f", "#191310", "#e5d5c4"]), scale: Object.freeze([67, 70, 74, 79, 82, 86]),
+    mass: 0.32, power: 0.65, compliance: 1.15, rollingResistance: 0.68, baseGravity: 9.8,
+  }),
+  dinosaur: Object.freeze({
+    id: "dinosaur", label: "Triceratops", subtitle: "three-horn earth drums", description: "Broad frill, three horns, heavy shoulders and a tapered balancing tail.", defaultBehaviorId: "walk", behaviorIds: ALL_BEHAVIOR_IDS,
+    mood: 0.45, groundResonance: 0.72, outputLevel: 0.6, bodyScale: 1.12, morphology: MORPHOLOGY.dinosaur,
+    palette: Object.freeze(["#839b79", "#3f5746", "#bdcda1", "#14251c", "#e5dbb7"]), scale: Object.freeze([33, 38, 41, 45, 50, 53]),
+    mass: 1.65, power: 1.1, compliance: 0.65, rollingResistance: 1.4, baseGravity: 9.8,
+  }),
   elephant: Object.freeze({
     id: "elephant",
     label: "Elephant",
@@ -413,9 +454,15 @@ const ANIMAL_DEFINITIONS = Object.freeze({
   }),
 });
 
-export const QUADRUPED_ANIMALS = Object.freeze(Object.values(ANIMAL_DEFINITIONS));
+export const QUADRUPED_ANIMALS = Object.freeze(ALL_QUADRUPED_IDS.map((id) => ANIMAL_DEFINITIONS[id]));
 
 const BEHAVIOR_HITS = Object.freeze({
+  mosey: { "front-left": [[13, 0.6]], "front-right": [[5, 0.7]], "rear-left": [[8, 0.72]], "rear-right": [[0, 0.8]] },
+  wander: { "front-left": [[12, 0.62]], "front-right": [[3, 0.5]], "rear-left": [[10, 0.7]], "rear-right": [[0, 0.76]] },
+  drunk: { "front-left": [[5, 0.5], [13, 0.92]], "front-right": [[3, 1], [11, 0.48]], "rear-left": [[7, 0.87]], "rear-right": [[0, 0.7], [15, 0.48]] },
+  tiptoe: { "front-left": [[12, 0.32]], "front-right": [[4, 0.3]], "rear-left": [[8, 0.4]], "rear-right": [[0, 0.38]] },
+  "walk-leap": { "front-left": [[6, 0.62], [15, 0.8]], "front-right": [[2, 0.64], [14, 1]], "rear-left": [[4, 0.7], [8, 1]], "rear-right": [[0, 0.72], [8, 1]] },
+  cartwheel: { "front-left": [[5, 0.82]], "front-right": [[2, 0.94]], "rear-left": [[13, 0.92]], "rear-right": [[10, 0.86]] },
   walk: Object.freeze({
     "front-left": Object.freeze([[12, 0.88]]),
     "front-right": Object.freeze([[4, 0.92]]),
@@ -578,10 +625,10 @@ const BEHAVIOR_HITS = Object.freeze({
     tail: Object.freeze([[4, 0.82], [13, 0.54]]),
   }),
   skid: Object.freeze({
-    "front-left": Object.freeze([[2, 0.92]]),
-    "front-right": Object.freeze([[1, 1]]),
-    "rear-left": Object.freeze([[0, 0.94]]),
-    "rear-right": Object.freeze([[15, 1]]),
+    "front-left": Object.freeze([[15, 0.7]]),
+    "front-right": Object.freeze([[14, 0.8]]),
+    "rear-left": Object.freeze([[0, 1]]),
+    "rear-right": Object.freeze([[0, 1]]),
     tail: Object.freeze([[4, 0.62], [8, 0.78], [12, 0.7]]),
   }),
   "forward-roll": Object.freeze({
@@ -702,6 +749,12 @@ const TERRAIN_PATTERNS = Object.freeze({
 });
 
 const BEHAVIOR_MOTION = Object.freeze({
+  mosey: Object.freeze({ lift: 0.38, bounce: 0.12, aerial: 0, sway: 0.26, stride: 0.64, momentum: 0.72, gravity: 1 }),
+  wander: Object.freeze({ lift: 0.54, bounce: 0.15, aerial: 0, sway: 0.42, stride: 0.7, momentum: 0.62, gravity: 1 }),
+  drunk: Object.freeze({ lift: 0.7, bounce: 0.3, aerial: 0.08, sway: 0.85, stride: 0.82, momentum: 1, gravity: 1 }),
+  tiptoe: Object.freeze({ lift: 0.92, bounce: 0.08, aerial: 0, sway: 0.06, stride: 0.58, momentum: 0.58, gravity: 1 }),
+  "walk-leap": Object.freeze({ lift: 1.15, bounce: 0.65, aerial: 1, sway: 0.08, stride: 1, momentum: 0.9, gravity: 0.9 }),
+  cartwheel: Object.freeze({ lift: 1, bounce: 0.3, aerial: 0.25, sway: 0, stride: 1, momentum: 0.9, gravity: 1 }),
   walk: Object.freeze({ lift: 0.42, bounce: 0.13, aerial: 0, sway: 0.1, stride: 0.72, momentum: 0.72, gravity: 1.08 }),
   "diagonal-walk": Object.freeze({ lift: 0.44, bounce: 0.14, aerial: 0, sway: 0.12, stride: 0.72, momentum: 0.7, gravity: 1.08 }),
   "running-walk": Object.freeze({ lift: 0.56, bounce: 0.2, aerial: 0.04, sway: 0.14, stride: 0.88, momentum: 0.78, gravity: 1.04 }),
@@ -811,6 +864,75 @@ export function quadrupedGroundProfile(id = "level") {
   return QUADRUPED_GROUND_PROFILES.find((entry) => entry.id === id) ?? QUADRUPED_GROUND_PROFILES[0];
 }
 
+const SUSPENSION_WINDOWS = Object.freeze({
+  leap: [4, 10],
+  "walk-leap": [11, 14],
+  "run-leap": [14, 15],
+  "forward-roll": [4, 12],
+  skid: [2, 14],
+});
+const timingCache = new WeakMap();
+
+// Each cabinet card occupies musical time. Pace scales the footwork; extra
+// suspension adds whole global beats without changing BPM or repeating attacks.
+export function quadrupedScoreTiming(state) {
+  const ratio = QUADRUPED_PACE_RATIOS.includes(Number(state?.paceRatio)) ? Number(state.paceRatio) : 1;
+  const extra = clamp(state?.suspensionBeats ?? 2, 0, 8);
+  const key = `${state?.behaviorId}:${ratio}:${extra}`;
+  const cached = state && timingCache.get(state);
+  if (cached?.key === key) return cached;
+  const window = SUSPENSION_WINDOWS[state?.behaviorId] ?? null;
+  const durations = Array.from({ length: QUADRUPED_STEP_COUNT }, (_, frame) => (
+    1 / ratio + (window && frame >= window[0] && frame < window[1]
+      ? extra * QUADRUPED_STEP_COUNT / (window[1] - window[0]) : 0)
+  ));
+  const boundaries = [0];
+  for (const duration of durations) boundaries.push(boundaries.at(-1) + duration);
+  const timing = Object.freeze({ key, durations: Object.freeze(durations), boundaries: Object.freeze(boundaries), clockFrames: boundaries.at(-1), beats: boundaries.at(-1) / 16, window });
+  if (state && typeof state === "object") timingCache.set(state, timing);
+  return timing;
+}
+
+export function quadrupedClockAtPosition(state, position = 0) {
+  const timing = quadrupedScoreTiming(state);
+  const safePosition = Number.isFinite(Number(position)) ? Number(position) : 0;
+  const cycle = Math.floor(safePosition / 16);
+  const local = mod(safePosition, 16);
+  const frame = Math.floor(local);
+  return cycle * timing.clockFrames + timing.boundaries[frame] + (local - frame) * timing.durations[frame];
+}
+
+export function quadrupedPositionAtClock(state, clock = 0) {
+  const timing = quadrupedScoreTiming(state);
+  const safeClock = Number.isFinite(Number(clock)) ? Number(clock) : 0;
+  const cycle = Math.floor(safeClock / timing.clockFrames);
+  const local = mod(safeClock, timing.clockFrames);
+  let frame = 0;
+  while (frame < 15 && timing.boundaries[frame + 1] <= local + 1e-10) frame += 1;
+  return cycle * 16 + frame + (local - timing.boundaries[frame]) / timing.durations[frame];
+}
+
+export function quadrupedBodySlide(state, position) {
+  if (state?.behaviorId !== "skid") return 0;
+  const local = mod(Number(position) || 0, 16);
+  return minimumJerk(clamp((local - 1.6) / 0.8)) * minimumJerk(clamp((14 - local) / 0.8));
+}
+
+export function quadrupedFlightTrajectory(state, position, support = quadrupedSupportSnapshot(state, position)) {
+  if (support.supportCount || quadrupedBodySlide(state, position) > 0) return null;
+  const feet = Object.values(support.legs).filter((foot) => Number.isFinite(foot.previousTouchdownPosition));
+  if (!feet.length) return null;
+  const start = Math.max(...feet.map((foot) => foot.previousTouchdownPosition + foot.stanceDuration));
+  const end = Math.min(...feet.map((foot) => foot.nextTouchdownPosition));
+  if (end <= start || position < start || position > end) return null;
+  const duration = (quadrupedClockAtPosition(state, end) - quadrupedClockAtPosition(state, start)) * 60 / (16 * clamp(state.tempoBpm, 42, 196));
+  const progress = clamp((quadrupedClockAtPosition(state, position) - quadrupedClockAtPosition(state, start)) * 60 / (16 * clamp(state.tempoBpm, 42, 196)) / Math.max(0.001, duration));
+  // A bounded ballistic-shaped arc: long musical rests are intentional slow
+  // motion, not a claim of real-world multi-second jumps under Earth gravity.
+  const apex = Math.min(1.55, 9.8 * duration * duration / 8) / Math.sqrt(clamp(state.gravity, 0.55, 1.55));
+  return Object.freeze({ start, end, progress, duration, height: 4 * apex * progress * (1 - progress), verticalVelocity: 4 * apex * (1 - 2 * progress) / Math.max(0.001, duration) });
+}
+
 export function quadrupedGroundHeightAtWorldX(profileId = "level", worldX = 0) {
   const profile = quadrupedGroundProfile(profileId);
   const x = Number.isFinite(Number(worldX)) ? Number(worldX) : 0;
@@ -878,10 +1000,12 @@ export function createQuadrupedState(animalId = "elephant", behaviorId = null) {
   const animal = quadrupedAnimal(animalId);
   const behavior = behaviorDefinition(behaviorId ?? animal.defaultBehaviorId, animal.id);
   return {
-    version: 6,
+    version: 7,
     animalId: animal.id,
     behaviorId: behavior.id,
     tempoBpm: QUADRUPED_DEFAULT_TEMPO_BPM,
+    paceRatio: 1,
+    suspensionBeats: 2,
     stride: defaultStride(animal.id, behavior.id),
     momentum: quadrupedMotion(behavior.id).momentum,
     gravity: quadrupedMotion(behavior.id).gravity,
@@ -922,10 +1046,12 @@ export function sanitizeQuadrupedState(candidate, fallback = createQuadrupedStat
     ? Number(source.mutationSeed) >>> 0
     : Number(fallback?.mutationSeed ?? 0x51414452) >>> 0;
   return {
-    version: 6,
+    version: 7,
     animalId: animal.id,
     behaviorId: behavior.id,
     tempoBpm: clamp(source.tempoBpm ?? fallback?.tempoBpm ?? QUADRUPED_DEFAULT_TEMPO_BPM, ...QUADRUPED_LIMITS.tempoBpm),
+    paceRatio: QUADRUPED_PACE_RATIOS.includes(Number(source.paceRatio ?? fallback?.paceRatio)) ? Number(source.paceRatio ?? fallback.paceRatio) : 1,
+    suspensionBeats: clamp(source.suspensionBeats ?? fallback?.suspensionBeats ?? 2, 0, 8),
     stride: clamp(source.stride ?? fallback?.stride ?? defaultStride(animal.id, behavior.id), ...QUADRUPED_LIMITS.stride),
     momentum: clamp(source.momentum ?? fallback?.momentum ?? quadrupedMotion(behavior.id).momentum, ...QUADRUPED_LIMITS.momentum),
     gravity: clamp(source.gravity ?? fallback?.gravity ?? quadrupedMotion(behavior.id).gravity, ...QUADRUPED_LIMITS.gravity),
@@ -941,9 +1067,13 @@ export function sanitizeQuadrupedState(candidate, fallback = createQuadrupedStat
 }
 
 export function applyQuadrupedAnimal(state, animalId) {
-  const next = createQuadrupedState(animalId);
+  const next = createQuadrupedState(animalId, state?.behaviorId);
   return sanitizeQuadrupedState({
     ...next,
+    pattern: state?.pattern ?? next.pattern,
+    customized: state?.customized ?? false,
+    paceRatio: state?.paceRatio ?? 1,
+    suspensionBeats: state?.suspensionBeats ?? 2,
     tempoBpm: state?.tempoBpm ?? next.tempoBpm,
     outputLevel: state?.outputLevel ?? next.outputLevel,
     surfaceId: state?.surfaceId ?? next.surfaceId,
@@ -957,6 +1087,8 @@ export function applyQuadrupedBehavior(state, behaviorId) {
   return sanitizeQuadrupedState({
     ...next,
     tempoBpm: current.tempoBpm,
+    paceRatio: current.paceRatio,
+    suspensionBeats: current.suspensionBeats,
     mood: current.mood,
     groundResonance: current.groundResonance,
     outputLevel: current.outputLevel,
@@ -1042,9 +1174,10 @@ export function clearQuadrupedPattern(state) {
   return sanitizeQuadrupedState({ ...current, pattern: emptyPattern(), customized: true }, current);
 }
 
-export function quadrupedStepDurationSeconds(state) {
+export function quadrupedStepDurationSeconds(state, frame = 0) {
   const tempoBpm = clamp(state?.tempoBpm, ...QUADRUPED_LIMITS.tempoBpm);
-  return 60 / tempoBpm / QUADRUPED_STEP_COUNT;
+  const duration = quadrupedScoreTiming(state).durations[mod(Math.floor(Number(frame) || 0), QUADRUPED_STEP_COUNT)];
+  return duration * 60 / tempoBpm / QUADRUPED_STEP_COUNT;
 }
 
 const HEAD_MOTIFS = Object.freeze({
@@ -1448,7 +1581,10 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
   const cycleSteps = Math.max(0.5, previous.age + next.distance);
   const profile = quadrupedGaitProfile(safe.behaviorId, safe.animalId);
   const dutyFactor = laneId.startsWith("front") ? profile.frontDutyFactor : profile.hindDutyFactor;
-  const stanceDuration = clamp(cycleSteps * dutyFactor, 0.28, Math.max(0.3, cycleSteps - 0.08));
+  const direction = quadrupedGroundProfile(safe.groundProfileId).direction;
+  const fore = laneId.startsWith("front");
+  const stairDuty = direction > 0 ? (fore ? 1.02 : 1.14) : direction < 0 ? (fore ? 1.14 : 1.02) : 1;
+  const stanceDuration = clamp(cycleSteps * dutyFactor * stairDuty, 0.28, Math.max(0.3, cycleSteps - 0.08));
   const previousTouchdownPosition = unwrappedPosition - previous.age;
   const nextTouchdownPosition = unwrappedPosition + next.distance;
   const requestedAnchorWorldX = previousTouchdownPosition / QUADRUPED_STEP_COUNT * safe.stride + neutralX;
@@ -1473,9 +1609,10 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
     const release = stanceProgress > 0.92 ? clamp((1 - stanceProgress) / 0.08) : 1;
     const verticalArc = 0.34 + Math.sin(Math.PI * stanceProgress) * 0.66;
     contact = previous.intensity * release;
-    load = contact * verticalArc;
+    const weightShift = direction < 0 ? (fore ? 1.35 : 0.8) : direction > 0 ? (fore ? 0.84 : 1.3) : 1;
+    load = contact * verticalArc * weightShift;
     const driveBias = laneId.startsWith("front") ? 0.72 : 1.16;
-    propulsion = load * driveBias * (0.42 + 0.58 * stanceProgress);
+    propulsion = load * driveBias * (0.42 + 0.58 * stanceProgress) * (direction > 0 && !fore ? 1.35 : 1);
   } else {
     const swingDuration = Math.max(0.08, cycleSteps - stanceDuration);
     swingProgress = clamp((previous.age - stanceDuration) / swingDuration);
@@ -1558,13 +1695,17 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
   const step = Math.floor(position);
   const phase = position - step;
   const cycleProgress = position / QUADRUPED_STEP_COUNT;
+  const bodySlide = quadrupedBodySlide(safe, absolutePosition);
+  const cartwheel = safe.behaviorId === "cartwheel" ? minimumJerk(cycleProgress) : 0;
+  const stagger = safe.behaviorId === "drunk" ? Math.sin(cycleProgress * Math.PI * 2) * 0.32 + Math.sin(cycleProgress * Math.PI * 6) * 0.09 : 0;
+  const wandering = safe.behaviorId === "wander" ? Math.sin(cycleProgress * Math.PI * 2) * 0.18 : 0;
   const rearUpEnvelope = safe.behaviorId === "rear-up"
     ? minimumJerk(clamp(position / 3)) * minimumJerk(clamp((QUADRUPED_STEP_COUNT - position) / 3))
     : 0;
   const forwardRollProgress = safe.behaviorId === "forward-roll"
     ? minimumJerk(clamp((position - 1.25) / 12.5))
     : 0;
-  const rollTuck = safe.behaviorId === "forward-roll"
+  const rollTuck = bodySlide > 0 ? bodySlide : safe.behaviorId === "forward-roll"
     ? Math.sin(Math.PI * clamp((position - 0.5) / 14.5)) ** 2
     : 0;
   const event = sequenceEventFromSafe(safe, step);
@@ -1618,7 +1759,8 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
     const flightSpan = Math.max(0.25, behind + ahead);
     flightArc = Math.sin(Math.PI * clamp(behind / flightSpan));
   }
-  const simulatedHeight = Number.isFinite(Number(motorSnapshot?.height)) ? clamp(motorSnapshot.height, 0, 2) : null;
+  const timedArc = quadrupedFlightTrajectory(safe, absolutePosition, supportPlane);
+  const simulatedHeight = Number.isFinite(Number(motorSnapshot?.height)) ? clamp(motorSnapshot.height, 0, 2) : timedArc?.height ?? null;
   const aerial = simulatedHeight === null
     ? flightArc * motion.aerial / Math.sqrt(safe.gravity)
     : simulatedHeight * (0.34 + motion.aerial * 0.34);
@@ -1637,7 +1779,7 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
     ? clamp(motorSnapshot.propulsion / 2.4)
     : clamp(event.footEnergy / 3.2);
   const compression = clamp(motorSnapshot?.compression ?? impact * 0.42);
-  const bodyLift = clamp(0.05 + aerial + propulsion * motion.bounce * 0.16 - compression * 0.2, -0.1, 1.2);
+  const bodyLift = bodySlide > 0 ? 0 : clamp(0.05 + aerial + propulsion * motion.bounce * 0.16 - compression * 0.2 + (safe.behaviorId === "tiptoe" ? 0.16 : 0), -0.1, 1.2);
   const headExpression = 0;
   const danceBalance = ["dance", "rear-waltz", "rear-up", "lizard-sprint"].includes(safe.behaviorId) && groundSupportCount === 2
     ? clamp(Math.sin(Math.PI * phase))
@@ -1646,7 +1788,7 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
     : safe.behaviorId === "rear-up" ? rearUpEnvelope
       : safe.behaviorId === "lizard-sprint" ? 0.48
         : 0;
-  const skidLean = safe.behaviorId === "skid" ? Math.sin(Math.PI * cycleProgress) * 0.16 : 0;
+  const skidLean = bodySlide * 0.16;
   return Object.freeze({
     position,
     step,
@@ -1656,21 +1798,23 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
     headPerformance,
     legs: Object.freeze(legs),
     groundSupportCount,
-    airborne: typeof motorSnapshot?.airborne === "boolean" ? motorSnapshot.airborne : groundSupportCount === 0,
+    airborne: bodySlide > 0 ? false : typeof motorSnapshot?.airborne === "boolean" ? motorSnapshot.airborne : groundSupportCount === 0,
     bodyLift,
-    bodyRoll: clamp((rightEnergy - leftEnergy) * motion.sway + danceSway, -0.5, 0.5),
-    bodyPitch: clamp((rearSupport - foreSupport) * 0.09 - compression * 0.05 - Math.atan(supportPlane.supportSlope) * 0.72 + skidLean, -0.42, 0.42),
+    bodyRoll: clamp((rightEnergy - leftEnergy) * motion.sway + danceSway + stagger + wandering, -0.5, 0.5),
+    bodyPitch: clamp((rearSupport - foreSupport) * 0.09 - compression * 0.05 - Math.atan(supportPlane.supportSlope) * 1.35 + stagger * 0.3, -0.42, 0.42) * (1 - bodySlide),
     bodyGroundHeight: supportPlane.bodyGroundHeight,
     groundSlope: supportPlane.supportSlope,
     groundProfileId: safe.groundProfileId,
     spineFlex: felineSpineFlex,
     headLift: clamp(bodyLift * 0.38 + 0.1, 0, 0.72),
-    headNod: clamp(impact * 0.18 - (rearSupport - foreSupport) * 0.025, -0.16, 0.26),
+    headNod: clamp(impact * 0.18 - (rearSupport - foreSupport) * 0.025 + wandering - supportPlane.supportSlope * 0.3, -0.22, 0.32),
     headExpression,
     danceBalance,
     rearBalance,
     forwardRoll: forwardRollProgress,
     rollTuck,
+    bodySlide,
+    cartwheel,
     skidLean,
     propulsion,
     momentum: Number.isFinite(Number(motorSnapshot?.normalizedVelocity)) ? motorSnapshot.normalizedVelocity : safe.momentum,

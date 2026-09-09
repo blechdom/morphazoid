@@ -11,6 +11,7 @@ import {
   synchronizeQuadrupedMotorTempo,
 } from "../src/quadruped-motor.js";
 import {
+  QUADRUPED_ANIMALS,
   clearQuadrupedPattern,
   createQuadrupedState,
   setQuadrupedContact,
@@ -230,13 +231,10 @@ test("momentum lengthens a coast and gravity changes a bounded flight arc", () =
   assert.ok(lowPeak <= QUADRUPED_MOTOR_LIMITS.maxHeight);
 });
 
-test("all twelve species keep finite physics while sharing the requested sequence rate", () => {
+test("all species keep finite physics while sharing the requested sequence rate", () => {
   const base = createQuadrupedState("gazelle", "sprint");
   const velocities = new Map();
-  for (const animalId of [
-    "elephant", "unicorn", "gazelle", "cat", "cheetah", "giraffe",
-    "lizard", "horse", "dog", "goat", "rabbit", "camel",
-  ]) {
+  for (const { id: animalId } of QUADRUPED_ANIMALS) {
     const score = { ...base, animalId };
     const result = advanceQuadrupedMotor(score, createQuadrupedMotorState(score), 0.5);
     assert.ok(result.motor.velocity > 0);

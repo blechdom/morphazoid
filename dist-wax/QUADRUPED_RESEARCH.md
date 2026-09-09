@@ -6,17 +6,30 @@ the clock:
 
 `touchdown -> load -> push -> score travel -> lift-off -> flight -> landing`
 
-A global BPM is independent of animal and gait: one complete sixteen-card cycle
-is one beat. A tempo edit preserves phase, cancels queued future attacks, and
-sets the running motor to the new exact rate immediately. With any touchdown in
-the score, mass, species, terrain, slope, contact strength, and gait do not bend
-that rate. They shape the support, body, flight, landing, timbre, and dynamics.
+A global BPM is independent of animal and gait. At 1× pace, one complete
+sixteen-card cycle is one beat before added air/slide rests. ½×, 2×, and 3×
+set the footwork ratio without rewriting BPM. The base cycle therefore occupies
+`1 / paceRatio` beats. A tempo edit preserves card phase, cancels queued
+future attacks, and retimes the motor immediately. Mass, species, terrain,
+slope, and contact strength shape support, body, flight, timbre, and dynamics
+without bending that global clock.
+
+`Air / slide rest` inserts 0–8 additional global beats into selected cabinet
+cards after the launch and before the next landing/stand. A card's clock duration
+is `1 / paceRatio + 16 * extraBeats / stretchedCardCount`; unstretched
+cards retain just `1 / paceRatio`. Prefix sums map card position to global
+musical time and back, including exact touchdown, load, push, and toe-off
+offsets. The playhead slows through stretched cards rather than repeating them.
+Their badges display beat duration. Pace and rest length stay put across animal
+and gait changes.
 
 A touchdown begins stance. Support persists after it; load and push color the
 contact, and lift-off begins an exact zero-support interval when no other foot
-is planted. A persistent air voice opens only during that interval, while the
-global score continues through the leap. Gravity returns the body to the next
-landing. Clearing all four rows removes authorization for the clock: stored
+is planted. Ordinary running floats open a persistent air voice. Explicit
+extended leaps/rolls mute that voice, leaving a rest after earlier contact tails
+decay, until landing. The arc is a bounded ballistic-shaped curve in musical
+time: multi-beat airtime is intentional slow motion, not physically literal
+Earth-gravity flight. Clearing all four rows removes authorization for the clock: stored
 momentum coasts according to the selected surface, then reaches an exact stall.
 
 The live animal stays centered. Footprints and the material field move backward
@@ -50,11 +63,11 @@ swing, and flight between them.
 
 Every gait can be borrowed by every animal. The UI labels anatomically unlikely
 pairings as playful transfers instead of hiding them. The current dictionary has
-thirty-nine entries spanning lateral and diagonal walks, running walk, amble,
+forty-five entries in the same order for every species, spanning lateral and diagonal walks, running walk, amble,
 tölt, jog, trot, passage, grounded and flying pace, both canter leads,
 transverse and rotary gallops, bound and half-bound families, stot, jump,
-leap, skid, forward roll, rear up, two-legged dances, species studies, and
-Run ×3 · leap.
+leap, skid, forward roll, cartwheel, rear up, two-legged dances, species studies,
+Mosey, Wander, Drunk, Tiptoe, Walk ×4 · leap, and Run ×3 · leap.
 
 | Study | Zero-based touchdown cards | Contact character |
 | --- | --- | --- |
@@ -68,7 +81,9 @@ Run ×3 · leap.
 | Stot | all four 0 and 8 | simultaneous launch groups |
 | Jump | hind launch; split fore landing | launch, flight, landing |
 | Leap | LH + RH 0, RF 10, LF 11 | longer unsupported arc |
-| Skid | RH 15, LH 0, RF 1, LF 2 | four staggered braces and a surface scrape |
+| Skid | LH + RH 0, RF 14, LF 15 | hind push, sustained belly slide, stand |
+| Walk ×4 · leap | RH 0, RF 2, LH 4, LF 6; LH + RH 8; RF 14, LF 15 | four walking contacts, launch, stretched rest, landing |
+| Cartwheel | RF 2, LF 5, RH 10, LH 13 | sequential supports with extended swinging limbs |
 | Forward roll | LH + RH 0, RF 12, LF 13 | long flight with a tucked full-body rotation |
 | Rear up | hind pair 0 and 8 | both forefeet raised on hind support |
 | Rear waltz | hind pair 0, 5, 10 | both front legs can remain in the air |
@@ -76,11 +91,13 @@ Run ×3 · leap.
 | Giraffe walk | LH 0, LF 2, RH 8, RF 10 | long overlapping supports |
 | Lizard scuttle | RH 0, RF 4, LH 8, LF 12 | lateral sequence with body wave |
 
-`Leap`, `Skid`, `Forward roll`, and `Rear up` are explicitly playful
+`Leap`, `Skid`, `Forward roll`, `Cartwheel`, and `Rear up` are explicitly playful
 stunt studies, not measured steady gaits. `Run ×3 · leap` is also a
 composition: alternating
 single-foot running contacts fill cards 0–11, both hind feet launch on card 12,
-cards 13–14 fly, and both forefeet land on card 15.
+the final rear push clears during card 13, card 14 holds extra airtime, and both
+forefeet land on card 15. Mosey, Wander, Drunk, and Tiptoe are authored musical
+character studies, not names of measured gait classes.
 
 Useful gait sources:
 
@@ -147,6 +164,24 @@ proportions remain species-shaped rather than one skeleton with different
 colors. The giraffe carries procedural coat patches across body and neck. The
 camel is explicitly drawn as a two-humped Bactrian camel.
 
+The mouse uses a deliberately tiny body scale, pointed muzzle, large rounded
+ears, slim paws, and long fine tail. The dinosaur is specifically a quadrupedal
+Triceratops: broad frill, two forward brow horns, smaller nose horn, a beak,
+heavy body, and tapered tail. Its locomotion is speculative; no measured
+Triceratops gait is claimed. All silhouettes and features are authored Canvas
+geometry, with no downloaded imagery:
+
+- Natural History Museum, Triceratops anatomy and four-legged body plan:
+  <https://www.nhm.ac.uk/discover/dino-directory/triceratops.html>
+- American Museum of Natural History, frill and three-horn anatomy:
+  <https://www.amnh.org/exhibitions/permanent/ornithischian-dinosaurs/triceratops>
+
+Roll rotation is clockwise for the right-facing animal. Cartwheel swing legs
+extend around the rotating body, while a supporting foot keeps its ground
+anchor. During the middle of a skid the belly lowers to the surface and limbs
+tuck completely out of view; no foot is planted and no ballistic flight is
+invented. One continuous material-filtered scrape replaces repeated foot hits.
+
 The ground is one global material—earth, sand, wood, stone, metal, snow, water,
 or crystal—not a different material on every card. Each material changes the
 same contact resonator; roughness and hardness color releases, scrapes, and
@@ -157,7 +192,11 @@ treads, with touchdown anchors inset from tread edges. The body follows the
 continuous average grade of the regular stair course, which avoids a camera and
 torso snap when support changes from two feet to one. Switching the entire
 course relatches the current stance to the new geometry; after that switch, each
-new touchdown keeps its tread until lift-off.
+new touchdown keeps its tread until lift-off. Ascent lengthens rear stance and
+increases rear load/push; descent lengthens front stance and front braking load.
+The torso leans with the grade and swing feet lift further. Contact accents
+use the same front/rear weighting so the course changes both motion and sound,
+while BPM and touchdown card positions stay unchanged.
 
 The stair model is an artistic regular-step approximation. It is informed by
 the distinction between ascent and descent mechanics, not presented as measured
@@ -169,6 +208,13 @@ species-specific stair kinetics:
   <https://pubmed.ncbi.nlm.nih.gov/20630021/>
 - Leg compliance as a locomotor control principle:
   <https://pmc.ncbi.nlm.nih.gov/articles/PMC6550006/>
+- Cat uphill/downhill locomotor transitions and support adaptation:
+  <https://pmc.ncbi.nlm.nih.gov/articles/PMC3130452/>
+- Cat upslope kinetics and posture:
+  <https://journals.physiology.org/doi/10.1152/jn.1998.79.4.1687>
+
+The 1.02/1.14 stance and front/rear load multipliers are authored contrasts,
+not measured coefficients from these studies.
 
 ## Sound mapping and bounds
 
@@ -182,8 +228,9 @@ Automatic head music is intentionally muted in this gait-focused pass. Head,
 neck, trunk, muzzle, ears, and tail remain visible anatomy, but the rhythm comes
 from feet, support, momentum, flight, and landing.
 
-- The motor integrates at 120 fixed steps per second.
-- The active score rate is exactly `tempoBpm * 16 / 60` cards per second.
+- The motor integrates at 480 fixed steps per second to resolve fast 3× supports.
+- Global clock rate is exactly `tempoBpm * 16 / 60` clock units per second;
+  each card's weighted duration converts that rate to visible card travel.
 - Position, velocity, height, catch-up time, crossings, and transition counts
   are bounded.
 - Audio is procedural and sample-free.
@@ -191,6 +238,6 @@ from feet, support, momentum, flight, and landing.
   bounded gain.
 - One-shots are capped at 48 and scheduled from motor-predicted crossings on
   `AudioContext.currentTime`.
-- The air voice is one persistent bounded source, gated by exact
-  `supportCount === 0`.
+- One persistent bounded noise source handles ordinary unsupported air or body
+  sliding; extended leap/roll rests explicitly mute it.
 - Audio and transport stay separate: Play and score editing never arm Audio.

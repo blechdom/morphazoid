@@ -23,6 +23,7 @@ import {
   quadrupedGroundProfile,
   quadrupedSequenceEvent,
   quadrupedTerrain,
+  quadrupedScoreTiming,
   sanitizeQuadrupedState,
   setQuadrupedContact,
   setQuadrupedGroundProfile,
@@ -57,6 +58,8 @@ const lanePan = Object.freeze({
   "rear-right": 0.3,
 });
 const NEW_ANIMAL_FOOT_AUDIO = Object.freeze({
+  mouse: Object.freeze({ front: 980, hind: 490, duration: 0.03, tone: "sine", tonePeak: 0.09, noisePeak: 0.045, noiseFrequency: 5_800 }),
+  dinosaur: Object.freeze({ front: 78, hind: 42, duration: 0.26, tone: "triangle", tonePeak: 0.2, noisePeak: 0.095, noiseFrequency: 570 }),
   horse: Object.freeze({ front: 238, hind: 112, duration: 0.13, tone: "triangle", tonePeak: 0.17, noisePeak: 0.07, noiseFrequency: 2_400 }),
   dog: Object.freeze({ front: 310, hind: 142, duration: 0.075, tone: "sine", tonePeak: 0.12, noisePeak: 0.085, noiseFrequency: 3_600 }),
   goat: Object.freeze({ front: 390, hind: 184, duration: 0.095, tone: "square", tonePeak: 0.13, noisePeak: 0.075, noiseFrequency: 4_200 }),
@@ -316,7 +319,9 @@ function syncFlightVoice(snapshot) {
     silenceFlightVoice();
     return;
   }
-  const unsupported = snapshot.supportCount === 0;
+  const sliding = snapshot.bodySlide > 0;
+  const extendedRest = quadrupedScoreTiming(state).window !== null && !sliding;
+  const unsupported = sliding || (snapshot.supportCount === 0 && !extendedRest);
   const now = graph.context.currentTime;
   if (!unsupported) {
     if (voice.active) silenceFlightVoice();
@@ -326,12 +331,13 @@ function syncFlightVoice(snapshot) {
   const vertical = clamp(Math.abs(snapshot.verticalVelocity) / 6);
   const height = clamp(snapshot.height / 1.2);
   const energy = clamp(0.68 * speed + 0.2 * vertical + 0.12 * height);
-  const level = 0.075 * energy ** 1.25;
+  const terrain = quadrupedTerrain(state.surfaceId);
+  const level = sliding ? 0.13 * snapshot.bodySlide * (0.4 + terrain.roughness * 0.6) : 0.075 * energy ** 1.25;
   voice.active = true;
   voice.gain.gain.cancelScheduledValues(now);
   voice.gain.gain.setTargetAtTime(Math.max(0.0001, level), now, 0.018);
   voice.highpass.frequency.setTargetAtTime(80 + 420 * speed, now, 0.025);
-  voice.bandpass.frequency.setTargetAtTime(450 + 2_800 * speed + 850 * vertical, now, 0.025);
+  voice.bandpass.frequency.setTargetAtTime(sliding ? 260 + terrain.brightness * 3_600 : 450 + 2_800 * speed + 850 * vertical, now, 0.025);
   voice.bandpass.Q.setTargetAtTime(0.55 + 0.8 * height, now, 0.025);
 }
 
@@ -961,7 +967,11 @@ function scheduleStep(absoluteStep, when, motorEvent = null) {
   const motionEnergy = clamp(0.58 + (motorEvent?.velocity ?? 0) / 42, 0.48, 1);
   const normalization = motionEnergy / Math.sqrt(Math.max(1, contacts.length));
   for (const contact of contacts) {
-    scheduleFoot(contact, terrain, when, normalization, absoluteStep);
+    const uphill = state.groundProfileId === "stairs-up";
+    const downhill = state.groundProfileId === "stairs-down";
+    const fore = contact.id.startsWith("front");
+    const stairLoad = uphill ? (fore ? 0.84 : 1.3) : downhill ? (fore ? 1.32 : 0.8) : 1;
+    scheduleFoot(contact, terrain, when, normalization * stairLoad, absoluteStep);
   }
   if (state.behaviorId === "skid") {
     scheduleNoise({
@@ -1002,7 +1012,7 @@ function scheduleAudioWindow() {
   let scheduled = 0;
   for (const crossing of prediction.events) {
     if (crossing.ordinal < nextScheduledOrdinal) continue;
-    if (scheduled >= 8) break;
+    if (scheduled >= 32) break;
     scheduleStep(
       crossing.ordinal,
       graph.context.currentTime + Math.max(0.006, crossing.offsetSeconds),
@@ -1051,7 +1061,7 @@ function syncTransportPresentation() {
   setOutput($("playState"), transportPlaying
     ? snapshot.stalled
       ? "stalled · add a footfall"
-      : `${actualCadence} BPM · ${snapshot.airborne ? "flight" : "driven"}`
+      : `${Math.round(state.tempoBpm)} BPM · ${snapshot.bodySlide > 0 ? "slide" : snapshot.airborne ? "air · rest" : `${state.paceRatio}×`}`
     : `space · step ${mod(Math.floor(stoppedPosition), QUADRUPED_STEP_COUNT) + 1}`);
   $("stageState").dataset.state = transportPlaying ? snapshot.stalled ? "stalled" : "running" : "ready";
   syncTransportHint();
@@ -1117,10 +1127,8 @@ function switchAnimal(animalId) {
   if (animalId === state.animalId) return;
   rememberMode();
   const targetAnimal = quadrupedAnimal(animalId);
-  const key = `${targetAnimal.id}:${targetAnimal.defaultBehaviorId}`;
-  const stored = modeMemory.get(key);
-  const next = stored ?? applyQuadrupedAnimal(state, targetAnimal.id);
-  replaceState({ ...next, tempoBpm: state.tempoBpm, outputLevel: state.outputLevel }, {
+  const next = applyQuadrupedAnimal(state, targetAnimal.id);
+  replaceState({ ...next, tempoBpm: state.tempoBpm, paceRatio: state.paceRatio, suspensionBeats: state.suspensionBeats, outputLevel: state.outputLevel }, {
     announceMessage: `${targetAnimal.label} loaded. The global tempo and moving playhead stayed put.`,
   });
 }
@@ -1131,7 +1139,7 @@ function switchBehavior(behaviorId) {
   const key = `${state.animalId}:${behaviorId}`;
   const stored = modeMemory.get(key);
   const next = stored ?? applyQuadrupedBehavior(state, behaviorId);
-  replaceState({ ...next, tempoBpm: state.tempoBpm, outputLevel: state.outputLevel }, {
+  replaceState({ ...next, tempoBpm: state.tempoBpm, paceRatio: state.paceRatio, suspensionBeats: state.suspensionBeats, outputLevel: state.outputLevel }, {
     announceMessage: `${quadrupedBehavior(behaviorId).label} loaded on the same global tempo.`,
   });
 }
@@ -1141,16 +1149,16 @@ function updateStateValue(key, value) {
   const position = currentPosition(now);
   state = sanitizeQuadrupedState({ ...state, [key]: value }, state);
   retimeTransport(position, now, { preserveMotion: true });
-  if (key === "tempoBpm") {
+  if (["tempoBpm", "paceRatio", "suspensionBeats"].includes(key)) {
     motor = synchronizeQuadrupedMotorTempo(state, motor);
     stoppedPosition = motor.position;
   }
   if (key === "outputLevel" && graph) {
     graph.masterGain.gain.setTargetAtTime(state.outputLevel, graph.context.currentTime, 0.025);
-  } else if (["tempoBpm", "stride", "momentum", "gravity"].includes(key)) {
+  } else if (["tempoBpm", "paceRatio", "suspensionBeats", "stride", "momentum", "gravity"].includes(key)) {
     resetAudioSchedule();
   }
-  syncAllControls({ grid: ["stride", "momentum", "gravity"].includes(key) });
+  syncAllControls({ grid: ["paceRatio", "suspensionBeats", "stride", "momentum", "gravity"].includes(key) });
 }
 
 function setSelectedStep(step, { announceStep = false, focus = false } = {}) {
@@ -1210,11 +1218,7 @@ function setGroundProfile(groundProfileId) {
 
 function buildBehaviorButtons() {
   const fragment = document.createDocumentFragment();
-  const behaviors = [...quadrupedBehaviorsForAnimal(state.animalId)].sort((left, right) => {
-    const leftFit = quadrupedBehaviorFit(state.animalId, left.id) === "playful" ? 1 : 0;
-    const rightFit = quadrupedBehaviorFit(state.animalId, right.id) === "playful" ? 1 : 0;
-    return leftFit - rightFit;
-  });
+  const behaviors = quadrupedBehaviorsForAnimal(state.animalId);
   for (const behavior of behaviors) {
     const button = document.createElement("button");
     button.type = "button";
@@ -1258,11 +1262,11 @@ function drawCabinetPose(canvasElement, step) {
   const ink = "#402f22";
   const fadedInk = "rgba(64, 47, 34, 0.48)";
   const groundY = height - 17;
-  const bodyY = groundY - 31 * morphology.clearance - pose.bodyLift * 7;
+  const bodyY = groundY - lerp(31 * morphology.clearance + pose.bodyLift * 7, 9 * morphology.bodyHeight, pose.bodySlide);
   const bodyWidth = 20 * morphology.bodyWidth;
   const bodyHeight = 18 * morphology.bodyHeight;
   const miniRotation = pose.bodyPitch + pose.bodyRoll * 0.22 - pose.rearBalance * 0.58
-    - pose.forwardRoll * Math.PI * 2;
+    + pose.forwardRoll * Math.PI * 2 + pose.cartwheel * Math.PI * 2;
   const bodyPoint = (localX, localY) => ({
     x: 52 + localX * Math.cos(miniRotation) - localY * Math.sin(miniRotation),
     y: bodyY + localX * Math.sin(miniRotation) + localY * Math.cos(miniRotation),
@@ -1296,6 +1300,7 @@ function drawCabinetPose(canvasElement, step) {
     "front-right": bodyPoint(bodyWidth * 0.43, bodyHeight * 0.22 * morphology.shoulder),
   });
   const drawMiniLeg = (laneId, far) => {
+    if (pose.bodySlide > 0.85) return;
     const leg = pose.legs[laneId];
     const hipX = hips[laneId].x;
     const hipY = hips[laneId].y;
@@ -1303,11 +1308,16 @@ function drawCabinetPose(canvasElement, step) {
     const groundHoofX = 52 + leg.footX * 31;
     const groundHoofY = groundY - (leg.footWorldY - pose.bodyGroundHeight) * 31 - leg.lift * 17;
     const farSpread = laneId.endsWith("left") ? -2.5 : 2.5;
-    const hoofX = lerp(groundHoofX, hipX + (isFront ? -5 : 5) + farSpread, pose.rollTuck);
-    const hoofY = lerp(groundHoofY, hipY + 7 + farSpread, pose.rollTuck);
+    let hoofX = lerp(groundHoofX, hipX + (isFront ? -5 : 5) + farSpread, pose.rollTuck);
+    let hoofY = lerp(groundHoofY, hipY + 7 + farSpread, pose.rollTuck);
     const upper = 31 * (isFront ? morphology.frontUpper : morphology.hindUpper);
     const lower = 31 * (isFront ? morphology.frontLower : morphology.hindLower);
     const distal = 31 * morphology.distal;
+    if (pose.cartwheel > 0 && !leg.grounded) {
+      const angle = pose.cartwheel * Math.PI * 2 + (isFront ? -0.7 : 0.7) + (far ? -0.28 : 0.28);
+      hoofX = hipX - Math.sin(angle) * (upper + lower) * 0.9;
+      hoofY = hipY + Math.cos(angle) * (upper + lower) * 0.9;
+    }
     const digitigrade = ["feline", "canid", "rabbit"].includes(morphology.family);
     const bend = isFront ? morphology.foreBend : morphology.hindBend;
     const chain = solveQuadrupedLimbChain(
@@ -1323,7 +1333,7 @@ function drawCabinetPose(canvasElement, step) {
       -1,
     );
     context.save();
-    context.globalAlpha = far ? 0.48 : 1;
+    context.globalAlpha = (far ? 0.48 : 1) * (1 - pose.bodySlide);
     context.strokeStyle = ink;
     context.lineWidth = Math.max(2, 31 * morphology.legWidth);
     context.lineCap = "round";
@@ -1425,6 +1435,10 @@ function drawCabinetPose(canvasElement, step) {
       }
     }
   }
+  context.save();
+  context.translate(headX, headY);
+  context.rotate((pose.forwardRoll + pose.cartwheel) * Math.PI * 2);
+  context.translate(-headX, -headY);
   context.fillStyle = "rgba(64, 47, 34, 0.1)";
   context.strokeStyle = ink;
   context.lineWidth = 2;
@@ -1480,6 +1494,8 @@ function drawCabinetPose(canvasElement, step) {
     context.moveTo(headX + miniHead * 0.25, headY);
     context.lineTo(headX + miniHead * 1.55, headY + miniHead * 0.12);
     context.stroke();
+  } else if (["rodent", "ceratopsian"].includes(morphology.family)) {
+    drawNewSpeciesHead(context, headX, headY, miniHead, morphology.family, [ink, ink, "#bd987e", ink, "#e6d4ad"]);
   } else if (morphology.family === "camel") {
     context.beginPath();
     context.ellipse(headX + miniHead * 0.65, headY + miniHead * 0.24, miniHead * 0.7, miniHead * 0.32, -0.05, 0, Math.PI * 2);
@@ -1489,6 +1505,7 @@ function drawCabinetPose(canvasElement, step) {
   context.beginPath();
   context.arc(headX + miniHead * 0.18, headY - miniHead * 0.18, 1.2, 0, Math.PI * 2);
   context.fill();
+  context.restore();
 
   ["front-left", "front-right", "rear-left", "rear-right"].forEach((laneId, index) => {
     const value = state.pattern[laneId][step];
@@ -1505,6 +1522,13 @@ function drawCabinetPose(canvasElement, step) {
     }
   });
   canvasElement.parentElement.dataset.air = String(pose.airborne);
+  const duration = quadrupedScoreTiming(state).durations[step] / 16;
+  if (duration > 0.13) {
+    context.fillStyle = ink;
+    context.font = "bold 9px monospace";
+    context.textAlign = "left";
+    context.fillText(`${Number(duration.toFixed(2))}b`, 5, 10);
+  }
 }
 
 function buildSequenceGrid() {
@@ -1640,7 +1664,9 @@ function renderGridState() {
     if (control.frame) {
       drawCabinetPose(control.canvas, control.step);
       const pose = deriveQuadrupedPose(state, control.step + 0.0001);
-      control.button.setAttribute("aria-label", `Motion-study frame ${control.step + 1}, ${pose.airborne ? "airborne" : `${pose.groundSupportCount} feet supporting`}.`);
+      const duration = Number((quadrupedScoreTiming(state).durations[control.step] / 16).toFixed(3));
+      const supportLabel = pose.bodySlide > 0.85 ? "body sliding" : pose.airborne ? "airborne" : `${pose.groundSupportCount} feet supporting`;
+      control.button.setAttribute("aria-label", `Motion-study frame ${control.step + 1}, ${supportLabel}, ${duration} beats.`);
       continue;
     }
     const value = state.pattern[control.laneId][control.step];
@@ -1700,6 +1726,15 @@ function syncAllControls({ grid = true } = {}) {
   document.querySelectorAll("[data-behavior-id]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.behaviorId === state.behaviorId));
   });
+  const gaitList = $("behaviorButtons");
+  const selectedGait = gaitList.querySelector('[aria-pressed="true"]');
+  if (selectedGait) {
+    const listBounds = gaitList.getBoundingClientRect();
+    const selectedBounds = selectedGait.getBoundingClientRect();
+    if (selectedBounds.top < listBounds.top || selectedBounds.bottom > listBounds.bottom) {
+      gaitList.scrollTop += selectedBounds.top - listBounds.top - (gaitList.clientHeight - selectedBounds.height) / 2;
+    }
+  }
   document.querySelectorAll("#padGrid [data-lane-id]").forEach((button) => {
     const lane = laneById.get(button.dataset.laneId);
     if (!lane) return;
@@ -1709,6 +1744,11 @@ function syncAllControls({ grid = true } = {}) {
     button.setAttribute("aria-label", `${lane.label}: ${voice.label}`);
   });
   $("tempo").value = String(state.tempoBpm);
+  document.querySelectorAll("[data-pace-ratio]").forEach((button) => button.setAttribute("aria-pressed", String(Number(button.dataset.paceRatio) === state.paceRatio)));
+  $("suspensionBeats").value = String(state.suspensionBeats);
+  $("suspensionBeats").disabled = !quadrupedScoreTiming(state).window;
+  setOutput($("suspensionOut"), `${state.suspensionBeats} extra beats`);
+  setOutput($("phraseLength"), `${Number(quadrupedScoreTiming(state).beats.toFixed(2))} beats / loop`);
   $("stride").value = String(state.stride);
   $("momentum").value = String(state.momentum);
   $("gravity").value = String(state.gravity);
@@ -1886,6 +1926,7 @@ function drawContactRipple(context, x, groundY, color, strength, scale) {
 }
 
 function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, color, far) {
+  if (pose.bodySlide > 0.85) return;
   const leg = pose.legs[id];
   const morphology = quadrupedAnimal(state.animalId).morphology;
   const lift = leg.lift;
@@ -1895,8 +1936,14 @@ function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, col
   const contactGroundY = groundY - (leg.footWorldY - pose.bodyGroundHeight) * bodyScale * 0.74;
   const groundHoofY = contactGroundY - lift * bodyScale * 0.46;
   const farSpread = id.endsWith("left") ? -0.07 : 0.07;
-  const hoofX = lerp(groundHoofX, hipX + bodyScale * ((isFront ? -0.16 : 0.18) + farSpread), pose.rollTuck);
-  const hoofY = lerp(groundHoofY, hipY + bodyScale * (0.24 + farSpread), pose.rollTuck);
+  let hoofX = lerp(groundHoofX, hipX + bodyScale * ((isFront ? -0.16 : 0.18) + farSpread), pose.rollTuck);
+  let hoofY = lerp(groundHoofY, hipY + bodyScale * (0.24 + farSpread), pose.rollTuck);
+  if (pose.cartwheel > 0 && !leg.grounded) {
+    const angle = pose.cartwheel * Math.PI * 2 + (isFront ? -0.7 : 0.7) + (far ? -0.28 : 0.28);
+    const reach = bodyScale * (isFront ? morphology.frontUpper + morphology.frontLower : morphology.hindUpper + morphology.hindLower) * 0.9;
+    hoofX = hipX - Math.sin(angle) * reach;
+    hoofY = hipY + Math.cos(angle) * reach;
+  }
   const isHind = !isFront;
   const isDigitigrade = ["feline", "canid", "rabbit"].includes(morphology.family);
   const upperLength = bodyScale * (isFront ? morphology.frontUpper : morphology.hindUpper);
@@ -1918,7 +1965,7 @@ function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, col
     -1,
   );
   context.save();
-  context.globalAlpha = far ? 0.56 : 1;
+  context.globalAlpha = (far ? 0.56 : 1) * (1 - pose.bodySlide);
   context.strokeStyle = color;
   context.lineWidth = Math.max(2.5, bodyScale * morphology.legWidth);
   context.lineCap = "round";
@@ -1928,6 +1975,17 @@ function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, col
   context.lineTo(chain.kneeX, chain.kneeY);
   context.lineTo(chain.ankleX, chain.ankleY);
   context.lineTo(chain.footX, chain.footY);
+  context.stroke();
+  // A fuller upper limb tapers through the lower limb into the ankle.
+  context.lineWidth = Math.max(2.5, bodyScale * morphology.legWidth * 1.65);
+  context.beginPath();
+  context.moveTo(hipX, hipY);
+  context.lineTo(chain.kneeX, chain.kneeY);
+  context.stroke();
+  context.lineWidth = Math.max(2, bodyScale * morphology.legWidth * 1.12);
+  context.beginPath();
+  context.moveTo(chain.kneeX, chain.kneeY);
+  context.lineTo(chain.ankleX, chain.ankleY);
   context.stroke();
   context.strokeStyle = laneById.get(id).color;
   context.fillStyle = laneById.get(id).color;
@@ -1970,6 +2028,63 @@ function drawEyeAndMouth(context, headX, headY, size, pose, facing = 1) {
   context.restore();
 }
 
+function drawNewSpeciesHead(context, x, y, size, family, palette) {
+  context.save();
+  context.translate(x, y);
+  context.scale(size, size);
+  context.lineWidth = 0.035;
+  context.strokeStyle = palette[3];
+  context.fillStyle = palette[0];
+  if (family === "ceratopsian") {
+    // Broad scalloped parietal frill behind the forward-facing skull.
+    context.beginPath();
+    for (let i = 0; i <= 20; i += 1) {
+      const angle = Math.PI * 2 * i / 20;
+      const radius = i % 2 ? 0.91 : 1;
+      const px = -0.39 + Math.cos(angle) * 0.58 * radius;
+      const py = -0.14 + Math.sin(angle) * 0.92 * radius;
+      if (i === 0) context.moveTo(px, py); else context.lineTo(px, py);
+    }
+    context.closePath(); context.fill(); context.stroke();
+    context.fillStyle = palette[1];
+    context.beginPath(); context.ellipse(-0.4, -0.15, 0.34, 0.66, -0.1, 0, Math.PI * 2); context.fill();
+    context.fillStyle = palette[0];
+    context.beginPath();
+    context.moveTo(-0.35, -0.43); context.quadraticCurveTo(0.25, -0.45, 0.78, -0.08);
+    context.lineTo(0.92, 0.27); context.lineTo(0.62, 0.46);
+    context.quadraticCurveTo(-0.1, 0.59, -0.5, 0.27);
+    context.closePath(); context.fill(); context.stroke();
+    context.fillStyle = palette[4];
+    for (const [hx, hy, length] of [[-0.16, -0.38, 0.94], [0.11, -0.32, 0.86], [0.68, -0.02, 0.32]]) {
+      context.beginPath(); context.moveTo(hx - 0.1, hy + 0.08);
+      context.quadraticCurveTo(hx + length * 0.36, hy - length * 0.39, hx + length, hy - length * 0.5);
+      context.quadraticCurveTo(hx + length * 0.46, hy - 0.01, hx + 0.12, hy + 0.11);
+      context.closePath(); context.fill(); context.stroke();
+    }
+    context.fillStyle = palette[3];
+    context.beginPath(); context.moveTo(0.8, 0.14); context.lineTo(0.96, 0.28); context.lineTo(0.72, 0.36); context.closePath(); context.fill();
+  } else if (family === "rodent") {
+    for (const [ex, ey, radius] of [[-0.24, -0.51, 0.38], [0.19, -0.53, 0.32]]) {
+      context.fillStyle = palette[0];
+      context.beginPath(); context.arc(ex, ey, radius, 0, Math.PI * 2); context.fill(); context.stroke();
+      context.fillStyle = palette[2];
+      context.beginPath(); context.arc(ex, ey, radius * 0.7, 0, Math.PI * 2); context.fill();
+    }
+    context.fillStyle = palette[0];
+    context.beginPath();
+    context.moveTo(-0.4, -0.24); context.quadraticCurveTo(0.04, -0.58, 0.46, -0.15);
+    context.lineTo(0.95, 0.23); context.quadraticCurveTo(0.24, 0.54, -0.42, 0.29);
+    context.closePath(); context.fill(); context.stroke();
+    context.fillStyle = palette[2];
+    context.beginPath(); context.arc(0.92, 0.22, 0.085, 0, Math.PI * 2); context.fill();
+    context.strokeStyle = palette[4]; context.lineWidth = 0.018;
+    for (const offset of [-0.18, 0, 0.18]) {
+      context.beginPath(); context.moveTo(0.55, 0.22); context.lineTo(1.25, 0.2 + offset); context.stroke();
+    }
+  }
+  context.restore();
+}
+
 function drawHeadAura(context, headX, headY, size, pose, performanceState) {
   const strength = clamp(performanceState.strength);
   if (strength < 0.02) return;
@@ -2002,7 +2117,7 @@ function drawAnimal(context, pose, width, height, groundY) {
   const isFeline = morphology.family === "feline";
   const isLizard = morphology.family === "lizard";
   const isGiraffe = morphology.family === "giraffe";
-  const bodyY = groundY - scale * (morphology.clearance + pose.bodyLift * 0.38);
+  const bodyY = groundY - scale * lerp(morphology.clearance + pose.bodyLift * 0.38, morphology.bodyHeight * 0.48, pose.bodySlide);
   const nominalBodyWidth = scale * morphology.bodyWidth;
   const nominalBodyHeight = scale * morphology.bodyHeight;
   const spineGather = isFeline ? clamp(pose.spineFlex, -0.2, 0.2) : 0;
@@ -2011,7 +2126,7 @@ function drawAnimal(context, pose, width, height, groundY) {
   const headSize = scale * morphology.headScale;
   const bodyWave = isLizard ? Math.sin(pose.position / QUADRUPED_STEP_COUNT * Math.PI * 2) * 0.11 : 0;
   const bodyRotation = pose.bodyPitch + pose.bodyRoll * 0.22 - pose.rearBalance * 0.58 + bodyWave
-    - pose.forwardRoll * Math.PI * 2;
+    + pose.forwardRoll * Math.PI * 2 + pose.cartwheel * Math.PI * 2;
   const bodyPoint = (localX, localY) => ({
     x: centerX + localX * Math.cos(bodyRotation) - localY * Math.sin(bodyRotation),
     y: bodyY + localX * Math.sin(bodyRotation) + localY * Math.cos(bodyRotation),
@@ -2036,12 +2151,17 @@ function drawAnimal(context, pose, width, height, groundY) {
   context.strokeStyle = animal.palette[3];
   context.lineWidth = Math.max(2, scale * 0.027);
   context.shadowColor = "rgba(0, 0, 0, 0.35)";
-  context.shadowBlur = scale * 0.16;
+  context.shadowBlur = scale * 0.1;
+  const coat = context.createLinearGradient(0, -bodyHeight * 0.55, 0, bodyHeight * 0.6);
+  coat.addColorStop(0, animal.palette[4]);
+  coat.addColorStop(0.22, animal.palette[0]);
+  coat.addColorStop(1, animal.palette[1]);
+  context.fillStyle = coat;
   context.beginPath();
   context.moveTo(-bodyWidth * 0.53, bodyHeight * 0.04);
   context.bezierCurveTo(-bodyWidth * 0.5, -bodyHeight * 0.46 * morphology.haunch, -bodyWidth * 0.24, -bodyHeight * 0.58, 0, -bodyHeight * 0.5);
   context.bezierCurveTo(bodyWidth * 0.25, -bodyHeight * 0.54, bodyWidth * 0.48, -bodyHeight * 0.44 * morphology.shoulder, bodyWidth * 0.53, -bodyHeight * 0.02);
-  context.bezierCurveTo(bodyWidth * 0.5, bodyHeight * 0.48, bodyWidth * 0.2, bodyHeight * 0.52, 0, bodyHeight * 0.48);
+  context.bezierCurveTo(bodyWidth * 0.5, bodyHeight * 0.48, bodyWidth * 0.2, bodyHeight * 0.52, 0, bodyHeight * (isFeline || morphology.family === "canid" ? 0.24 : 0.48));
   context.bezierCurveTo(-bodyWidth * 0.25, bodyHeight * 0.52, -bodyWidth * 0.5, bodyHeight * 0.45, -bodyWidth * 0.53, bodyHeight * 0.04);
   context.closePath();
   context.fill();
@@ -2106,10 +2226,11 @@ function drawAnimal(context, pose, width, height, groundY) {
   if (morphology.neckLength > 0.25) {
     const neckStart = bodyPoint(bodyWidth * 0.38, -bodyHeight * 0.22);
     const neckWidth = scale * (isGiraffe ? 0.19 : morphology.family === "camel" ? 0.2 : 0.16);
-    const neckControlX = headX - scale * morphology.neckLength * (morphology.family === "camel" ? 0.38 : 0.24);
-    const neckControlY = bodyY - scale * morphology.headRise * 0.58;
-    const neckEndX = headX - headSize * 0.16;
-    const neckEndY = headY + headSize * 0.28;
+    const neckControl = bodyPoint(scale * (morphology.headForward - morphology.neckLength * (morphology.family === "camel" ? 0.38 : 0.24)), -scale * morphology.headRise * 0.58);
+    const neckControlX = neckControl.x;
+    const neckControlY = neckControl.y;
+    const neckEndX = headX - headSize * (0.16 * Math.cos(bodyRotation) + 0.28 * Math.sin(bodyRotation));
+    const neckEndY = headY + headSize * (0.28 * Math.cos(bodyRotation) - 0.16 * Math.sin(bodyRotation));
     context.save();
     context.strokeStyle = animal.palette[3];
     context.lineWidth = neckWidth * 1.28;
@@ -2141,11 +2262,14 @@ function drawAnimal(context, pose, width, height, groundY) {
   const tailStartY = tailRoot.y;
   const tailAngle = pose.tailAngle;
   context.save();
+  context.translate(tailStartX, tailStartY);
+  context.rotate(bodyRotation);
+  context.translate(-tailStartX, -tailStartY);
   context.strokeStyle = state.animalId === "unicorn" ? animal.palette[2] : animal.palette[1];
-  context.lineWidth = Math.max(3, scale * (
+  context.lineWidth = Math.max(morphology.family === "rodent" ? 1 : 3, scale * (
     morphology.family === "elephant" ? 0.065
       : morphology.family === "equid" ? 0.085
-        : 0.04
+        : morphology.family === "rodent" ? 0.028 : morphology.family === "ceratopsian" || isLizard ? 0.13 : 0.04
   ));
   context.lineCap = "round";
   context.beginPath();
@@ -2158,7 +2282,16 @@ function drawAnimal(context, pose, width, height, groundY) {
     tailStartX - scale * morphology.tailLength,
     tailStartY + Math.sin(tailAngle) * scale * (isLizard ? 0.28 : 0.48),
   );
-  context.stroke();
+  if (morphology.family === "ceratopsian" || isLizard) {
+    // A muscular root tapering to a point, not a tube of constant thickness.
+    context.lineTo(tailStartX - scale * morphology.tailLength, tailStartY + Math.sin(tailAngle) * scale * (isLizard ? 0.28 : 0.48));
+    context.bezierCurveTo(tailStartX - scale * 0.55, tailStartY + scale * 0.18, tailStartX - scale * 0.26, tailStartY + scale * 0.12, tailStartX, tailStartY + scale * 0.13);
+    context.closePath();
+    context.fillStyle = animal.palette[1];
+    context.fill();
+  } else {
+    context.stroke();
+  }
   context.restore();
   if (morphology.family === "rabbit") {
     context.save();
@@ -2176,9 +2309,9 @@ function drawAnimal(context, pose, width, height, groundY) {
   drawLeg(context, "front-right", hips["front-right"].x, hips["front-right"].y, centerX, groundY, scale, pose, animal.palette[0], false);
 
   context.save();
-  if (pose.forwardRoll > 0) {
+  if (pose.forwardRoll > 0 || pose.cartwheel > 0) {
     context.translate(headX, headY);
-    context.rotate(-pose.forwardRoll * Math.PI * 2);
+    context.rotate((pose.forwardRoll + pose.cartwheel) * Math.PI * 2);
     context.translate(-headX, -headY);
   }
   context.fillStyle = animal.palette[0];
@@ -2347,6 +2480,8 @@ function drawAnimal(context, pose, width, height, groundY) {
         context.stroke();
         context.restore();
       }
+    } else if (["rodent", "ceratopsian"].includes(morphology.family)) {
+      drawNewSpeciesHead(context, headX, headY, headSize, morphology.family, animal.palette);
     } else if (morphology.family === "equid") {
       const muzzleX = headX + headSize * 0.42;
       const muzzleY = headY + headSize * 0.16;
@@ -2741,6 +2876,9 @@ function animationLoop(now) {
   canvas.dataset.motorVelocity = snapshot.velocity.toFixed(4);
   canvas.dataset.support = String(snapshot.supportCount);
   canvas.dataset.airborne = String(snapshot.airborne);
+  canvas.dataset.bodySlide = String(snapshot.bodySlide);
+  canvas.dataset.clockPosition = snapshot.clockPosition.toFixed(4);
+  canvas.dataset.height = snapshot.height.toFixed(4);
   const cadence = Math.round(snapshot.velocity / QUADRUPED_STEP_COUNT * 60);
   const presentation = `${transportPlaying}:${snapshot.stalled}:${snapshot.airborne}:${cadence}`;
   if (presentation !== lastMotorPresentation) {
@@ -2849,6 +2987,8 @@ function bindControls() {
   $("playButton").addEventListener("click", toggleTransport);
   $("restartButton").addEventListener("click", restartTransport);
   $("tempo").addEventListener("input", () => updateStateValue("tempoBpm", $("tempo").value));
+  document.querySelectorAll("[data-pace-ratio]").forEach((button) => button.addEventListener("click", () => updateStateValue("paceRatio", Number(button.dataset.paceRatio))));
+  $("suspensionBeats").addEventListener("input", () => updateStateValue("suspensionBeats", Number($("suspensionBeats").value)));
   $("stride").addEventListener("input", () => updateStateValue("stride", $("stride").value));
   $("momentum").addEventListener("input", () => updateStateValue("momentum", $("momentum").value));
   $("gravity").addEventListener("input", () => updateStateValue("gravity", $("gravity").value));
