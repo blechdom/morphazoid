@@ -1078,29 +1078,35 @@
   background:
     linear-gradient(100deg, color-mix(in oklab, var(--srtuss-cyan) 9%, transparent), transparent 48%),
     var(--srtuss-surface);
-  grid-template-columns: auto minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) auto;
   align-items: stretch;
 }
 
 .srtuss-page .srtuss-transport {
-  display: flex;
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  display: grid;
   min-width: 0;
-  padding: 9px 14px 9px 10px;
-  border-right: 1px solid var(--line);
+  min-height: 76px;
+  padding: 10px 17px;
+  border-bottom: 1px solid var(--line-strong);
+  background:
+    linear-gradient(110deg, color-mix(in oklab, var(--srtuss-lime) 7%, transparent), transparent 54%),
+    color-mix(in oklab, var(--panel) 97%, var(--bg-deep));
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+  grid-template-columns: 48px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .srtuss-page .srtuss-play-button {
-  width: auto;
-  min-width: 104px;
-  height: 56px;
-  min-height: 56px;
-  padding: 0 16px;
-  border-radius: 3px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  border-radius: 50%;
   border-color: var(--srtuss-lime);
   color: var(--srtuss-lime);
   background: color-mix(in oklab, var(--srtuss-lime) 6%, var(--bg-deep));
@@ -1126,24 +1132,39 @@
 
 .srtuss-page .srtuss-transport-copy {
   display: grid;
-  min-width: 96px;
+  min-width: 0;
   align-content: center;
   gap: 5px;
 }
 
 .srtuss-page .srtuss-transport-copy b {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.srtuss-page .srtuss-transport-meta {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.srtuss-page .srtuss-transport-meta small {
   color: var(--muted);
   font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .srtuss-page .srtuss-transport-copy output {
   color: var(--srtuss-lime);
-  font-size: 13px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .srtuss-page .srtuss-engine-status {
@@ -1362,6 +1383,168 @@
   color: var(--muted);
   font-size: 8px;
 }
+
+.srtuss-page .srtuss-part-control-head {
+  display: flex;
+  min-height: 44px;
+  padding: 7px 11px;
+  border-top: 1px solid color-mix(in oklab, var(--srtuss-lime) 28%, var(--line));
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklab, var(--srtuss-lime) 3%, var(--bg-deep));
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.srtuss-page .srtuss-part-control-head > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.srtuss-page .srtuss-part-control-head span {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-part-control-head h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-part-control-head #addVoice {
+  min-width: 96px;
+  min-height: 36px;
+  padding: 0 11px;
+  border-color: color-mix(in oklab, var(--srtuss-lime) 46%, var(--line-strong));
+  color: var(--srtuss-lime);
+  background: color-mix(in oklab, var(--srtuss-lime) 5%, var(--bg-deep));
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-part-control-head #addVoice:hover,
+.srtuss-page .srtuss-part-control-head #addVoice:focus-visible {
+  border-color: var(--srtuss-lime);
+  color: var(--bg-deep);
+  background: var(--srtuss-lime);
+}
+
+.srtuss-page .srtuss-part-picker {
+  display: grid;
+  min-width: 0;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid color-mix(in oklab, var(--srtuss-lime) 25%, var(--line));
+  background:
+    linear-gradient(105deg, color-mix(in oklab, var(--srtuss-lime) 8%, transparent), transparent 64%),
+    var(--bg-deep);
+  grid-template-columns: 38px minmax(190px, 1fr) 38px minmax(82px, auto);
+  align-items: stretch;
+  gap: 7px;
+}
+
+.srtuss-page .srtuss-part-cycle,
+.srtuss-page .srtuss-part-focus {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in oklab, var(--srtuss-lime) 36%, var(--line-strong));
+  color: var(--srtuss-lime);
+  background: var(--panel);
+  font-size: 16px;
+}
+
+.srtuss-page .srtuss-part-focus {
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-part-cycle:hover,
+.srtuss-page .srtuss-part-cycle:focus-visible,
+.srtuss-page .srtuss-part-focus:hover,
+.srtuss-page .srtuss-part-focus:focus-visible,
+.srtuss-page .srtuss-part-focus[aria-pressed="true"] {
+  border-color: var(--srtuss-lime);
+  color: var(--bg-deep);
+  background: var(--srtuss-lime);
+}
+
+.srtuss-page .srtuss-part-picker__select {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.srtuss-page .srtuss-part-picker__select > span:first-child {
+  color: var(--srtuss-lime);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-part-picker__select .select-shell,
+.srtuss-page .srtuss-part-picker__select select {
+  width: 100%;
+  min-width: 0;
+}
+
+.srtuss-page #macroTargetStatus {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.srtuss-page #macroTargetStatus[data-state="focused"] {
+  color: var(--srtuss-lime);
+}
+
+.srtuss-page #macroTargetStatus[data-state="muted"],
+.srtuss-page #macroTargetStatus[data-state="masked"] {
+  color: var(--srtuss-amber);
+}
+
+.srtuss-page .srtuss-macro-target {
+  background: color-mix(in oklab, var(--srtuss-lime) 5%, var(--panel));
+}
+
+.srtuss-page .srtuss-macro-target b {
+  color: var(--srtuss-lime);
+}
+
+.srtuss-page .srtuss-knob-shelf[data-empty="true"] {
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.srtuss-page .srtuss-macro-empty {
+  display: grid;
+  min-height: 78px;
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed color-mix(in oklab, var(--srtuss-amber) 38%, var(--line));
+  color: var(--muted);
+  background: color-mix(in oklab, var(--srtuss-amber) 4%, var(--bg-deep));
+  font-size: 9px;
+  line-height: 1.45;
+  place-items: center start;
+}
+
 
 .srtuss-page .srtuss-knob-shelf {
   display: grid;
@@ -1669,7 +1852,7 @@
     var(--bg-deep);
   text-align: left;
   cursor: pointer;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
   align-content: stretch;
   gap: 8px;
   scroll-snap-align: start;
@@ -1732,6 +1915,28 @@
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-voice-card__name {
+  overflow: hidden;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.srtuss-page .srtuss-voice-card__edit-state {
+  padding: 2px 5px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+}
+
+.srtuss-page .srtuss-voice-card[data-selected="true"] .srtuss-voice-card__edit-state {
+  border-color: var(--srtuss-lime);
+  color: var(--bg-deep);
+  background: var(--srtuss-lime);
 }
 
 .srtuss-page .srtuss-voice-card p {
@@ -2232,7 +2437,7 @@
 
 @media (max-width: 1120px) {
   .srtuss-page .srtuss-command-deck {
-    grid-template-columns: auto minmax(140px, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .srtuss-page .srtuss-patch-actions {
@@ -2284,11 +2489,12 @@
   }
 
   .srtuss-page .srtuss-command-deck {
-    grid-template-columns: minmax(158px, auto) minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .srtuss-page .srtuss-transport {
     padding-right: 10px;
+    padding-left: 10px;
   }
 
   .srtuss-page .srtuss-engine-status {
@@ -2321,26 +2527,26 @@
   }
 
   .srtuss-page .srtuss-command-deck {
-    grid-template-columns: minmax(148px, auto) minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .srtuss-page .srtuss-transport {
-    border-right: 1px solid var(--line);
+    border-right: 0;
   }
 
   .srtuss-page .srtuss-play-button {
-    width: 50px;
-    min-width: 50px;
-    height: 50px;
-    min-height: 50px;
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
   }
 
   .srtuss-page .srtuss-transport-copy {
-    min-width: 78px;
+    min-width: 0;
   }
 
   .srtuss-page .srtuss-transport-copy b {
-    font-size: 7px;
+    font-size: 9px;
   }
 
   .srtuss-page .srtuss-transport-copy output {
@@ -2394,6 +2600,32 @@
   .srtuss-page #removeSelectedVoice {
     justify-self: stretch;
   }
+
+  .srtuss-page .srtuss-part-picker {
+    grid-template-columns: 48px minmax(0, 1fr) 48px;
+  }
+
+  .srtuss-page .srtuss-part-picker__select {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .srtuss-page .srtuss-part-picker__select > span:first-child {
+    display: none;
+  }
+
+  .srtuss-page #macroTargetStatus {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .srtuss-page .srtuss-part-focus {
+    grid-column: 1 / -1;
+  }
+
+  .srtuss-page .srtuss-voice-deck {
+    grid-auto-columns: minmax(168px, 78%);
+  }
 }
 
 @media (max-width: 350px) {
@@ -2406,7 +2638,7 @@
   }
 
   .srtuss-page .srtuss-engine-status {
-    border-top: 1px solid var(--line);
+    border-top: 0;
   }
 
   .srtuss-page .srtuss-selected-mix {
@@ -2446,6 +2678,10 @@
   .srtuss-page .srtuss-patch-actions button,
   .srtuss-page .srtuss-preset-button,
   .srtuss-page .srtuss-voice-heading #addVoice,
+  .srtuss-page .srtuss-part-control-head #addVoice,
+  .srtuss-page .srtuss-part-cycle,
+  .srtuss-page .srtuss-part-focus,
+  .srtuss-page #macroVoiceSelect,
   .srtuss-page .srtuss-voice-card,
   .srtuss-page .srtuss-toggle,
   .srtuss-page #explodeSelectedVoice,
@@ -2469,6 +2705,100 @@
   }
 
   .srtuss-page .srtuss-rack-control input[type="range"] {
+    min-height: 48px;
+  }
+}
+
+/* Direct voice-card editing: each rack card owns Edit, Mute, and Solo. */
+.srtuss-page .srtuss-part-control-head small {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.srtuss-page .srtuss-part-picker {
+  grid-template-columns: 38px minmax(190px, 1fr) 38px;
+}
+
+.srtuss-page .srtuss-build-note {
+  margin: 0 0 11px;
+}
+
+.srtuss-page .srtuss-voice-deck {
+  min-height: 154px;
+  grid-auto-columns: minmax(224px, 252px);
+  grid-template-rows: minmax(136px, auto);
+}
+
+.srtuss-page .srtuss-voice-card {
+  min-height: 136px;
+  font: inherit;
+  cursor: default;
+  grid-template-rows: auto auto auto 3px auto;
+}
+
+.srtuss-page .srtuss-voice-card[data-enabled="false"] {
+  opacity: 1;
+}
+
+.srtuss-page .srtuss-voice-card[data-enabled="false"] .srtuss-voice-card__name,
+.srtuss-page .srtuss-voice-card[data-enabled="false"] .srtuss-voice-card__mode,
+.srtuss-page .srtuss-voice-card[data-enabled="false"] .srtuss-voice-card__meter {
+  opacity: 0.5;
+}
+
+.srtuss-page .srtuss-voice-card__actions {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.srtuss-page .srtuss-voice-action {
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--panel) 86%, var(--bg-deep));
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.srtuss-page .srtuss-voice-action:hover,
+.srtuss-page .srtuss-voice-action:focus-visible {
+  border-color: var(--srtuss-cyan);
+  color: var(--ink);
+}
+
+.srtuss-page .srtuss-voice-action--edit[aria-pressed="true"] {
+  border-color: var(--srtuss-lime);
+  color: var(--bg-deep);
+  background: var(--srtuss-lime);
+}
+
+.srtuss-page .srtuss-voice-action--mute[aria-pressed="true"] {
+  border-color: var(--srtuss-red);
+  color: var(--bg-deep);
+  background: var(--srtuss-red);
+}
+
+.srtuss-page .srtuss-voice-action--solo[aria-pressed="true"] {
+  border-color: var(--srtuss-amber);
+  color: var(--bg-deep);
+  background: var(--srtuss-amber);
+}
+
+@media (max-width: 470px) {
+  .srtuss-page .srtuss-voice-deck {
+    grid-auto-columns: minmax(224px, 88%);
+  }
+}
+
+@media (pointer: coarse) {
+  .srtuss-page .srtuss-voice-action {
     min-height: 48px;
   }
 }

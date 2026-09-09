@@ -606,8 +606,9 @@ test.describe("srtuss sound-only WebGPU archive", () => {
     await expect(tapeRate).toBeEnabled();
     await expect(localClock).toBeEnabled();
     await expect(rackClock).toBeEnabled();
-    await page.locator("#selectedVoiceSolo").click();
-    await expect(page.locator("#selectedVoiceSolo")).toHaveAttribute("aria-pressed", "true");
+    const selectedSolo = page.locator('.srtuss-voice-card[data-selected="true"] [data-voice-action="solo"]');
+    await selectedSolo.click();
+    await expect(selectedSolo).toHaveAttribute("aria-pressed", "true");
 
     const setRateFactors = async (value) => {
       await tapeRate.fill(value);
@@ -695,8 +696,10 @@ test.describe("srtuss sound-only WebGPU archive", () => {
     await expect(page.locator("#originalButtons [data-original-sound]")).toHaveCount(10);
 
     const knobs = page.locator("#masterControls .srtuss-knob");
-    await expect(knobs).toHaveCount(10);
-    await expect(knobs.locator(".srtuss-knob__dial input[type=range]")).toHaveCount(10);
+    await expect(knobs).toHaveCount(7);
+    await expect(knobs.locator(".srtuss-knob__dial input[type=range]")).toHaveCount(7);
+    await expect(page.locator("#macroTargetName")).toHaveText("P01 · Stochastic body controls");
+    await expect(page.locator("#macroControlCount")).toHaveText("7 controls · this part only");
     await expect(page.locator("#rackControls input[type=range]")).toHaveCount(5);
     const rackGlobalContracts = await page.evaluate((ids) => {
       const firstSelectedMacro = document.querySelector(
@@ -749,6 +752,8 @@ test.describe("srtuss sound-only WebGPU archive", () => {
         minimum: Number(input?.min),
         maximum: Number(input?.max),
         current: Number(input?.value),
+        supported: input?.dataset.supported,
+        voiceId: input?.dataset.voiceId,
       };
     }));
     for (const macro of macroContracts) {
@@ -756,6 +761,8 @@ test.describe("srtuss sound-only WebGPU archive", () => {
       expect(macro.label).toBeTruthy();
       expect(macro.value).toBeTruthy();
       expect(macro.ariaLabel).toBeTruthy();
+      expect(macro.supported).toBe("true");
+      expect(macro.voiceId).toBeTruthy();
       expect(Number.isFinite(macro.minimum)).toBe(true);
       expect(Number.isFinite(macro.maximum)).toBe(true);
       expect(macro.maximum).toBeGreaterThan(macro.minimum);
@@ -770,9 +777,33 @@ test.describe("srtuss sound-only WebGPU archive", () => {
     for (const label of ["Stochastic body", "Dorian PWM arp", "Pulse bass", "Pitch-drop kicks", "Snare noise", "Hats + ticks", "Stereo delays"]) {
       await expect(voices.filter({ hasText: label })).toHaveCount(1);
     }
-    await expect(voices.first()).toHaveAttribute("aria-pressed", "true");
+    await expect(voices.first().locator('[data-voice-action="edit"]')).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#selectedVoiceSource")).toHaveValue("ldlfRS");
     await expect(page.locator("#selectedVoiceMode")).toHaveValue("master");
+    await expect(page.locator("#selectedVoicePart")).toHaveValue("spectral-body");
+    const firstVoiceId = await voices.first().getAttribute("data-voice-id");
+    await expect(page.locator("#macroVoiceSelect option")).toHaveCount(7);
+    await expect(page.locator("#macroVoiceSelect")).toHaveValue(firstVoiceId);
+    expect(macroContracts.every(({ voiceId }) => voiceId === firstVoiceId)).toBe(true);
+    await expect(voices.first().locator(".srtuss-voice-card__edit-state")).toHaveText("EDITING");
+
+    const bassCard = voices.filter({ hasText: "Pulse bass" });
+    const bassVoiceId = await bassCard.getAttribute("data-voice-id");
+    await bassCard.locator('[data-voice-action="edit"]').click();
+    await expect(page.locator("#macroVoiceSelect")).toHaveValue(bassVoiceId);
+    await expect(page.locator("#macroTargetName")).toHaveText("P03 · Pulse bass controls");
+    await expect(page.locator("#masterControls .srtuss-knob")).toHaveCount(5);
+    const bassControlContracts = await page.locator(
+      "#masterControls input[data-master-param]",
+    ).evaluateAll((inputs) => inputs.map((input) => ({
+      voiceId: input.dataset.voiceId,
+      ariaLabel: input.getAttribute("aria-label"),
+    })));
+    expect(bassControlContracts.every(({ voiceId }) => voiceId === bassVoiceId)).toBe(true);
+    expect(bassControlContracts.every(({ ariaLabel }) => (
+      ariaLabel.includes("P03") && ariaLabel.includes("Pulse bass")
+    ))).toBe(true);
+    await voices.first().locator('[data-voice-action="edit"]').click();
     await expect(page.locator("#selectedVoicePart")).toHaveValue("spectral-body");
 
     for (const selector of [
@@ -823,12 +854,14 @@ test.describe("srtuss sound-only WebGPU archive", () => {
       return Number(minutes) * 60 + Number(seconds);
     };
     const audioButton = page.locator("#audioButton");
-    const playButton = page.locator("#synthPlayButton");
+    const playButton = page.locator(".srtuss-editor #synthPlayButton");
     expect((await readAudioStatus(page)).active).toBe(false);
 
     const beforePlay = await timelineSeconds();
     await playButton.click();
     await expect(playButton).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#synthPlayLabel")).toHaveText("Pause master");
+    await expect(page.locator("#synthPlayState")).toContainText("playing");
     await expect(page.locator("body")).toHaveAttribute("data-playing", "true");
     await expect(audioButton).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator("#streamState")).toContainText("playing silently");
@@ -899,6 +932,9 @@ test.describe("srtuss sound-only WebGPU archive", () => {
     expect(pageErrors).toEqual([]);
 
     await playButton.click();
+    await expect(playButton).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("#synthPlayLabel")).toHaveText("Play master");
+    await expect(page.locator("#synthPlayState")).toContainText("paused");
     await waitForStableAudioState(page, false, { timeout: 10_000 });
     await audioButton.click();
     await waitForStableAudioState(page, false, { timeout: 10_000 });
@@ -932,7 +968,8 @@ test.describe("srtuss sound-only WebGPU archive", () => {
       );
     }
     await expect(addButton).toBeEnabled();
-    await expect(cards.last()).toHaveAttribute("aria-pressed", "true");
+    await expect(cards.locator("[data-voice-action]")).toHaveCount(18);
+    await expect(cards.last().locator('[data-voice-action="edit"]')).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#selectedVoicePart")).toHaveValue("echo");
     await expect(page.locator("#selectedVoiceMode")).toHaveValue("master");
 
@@ -958,14 +995,21 @@ test.describe("srtuss sound-only WebGPU archive", () => {
       const step = Number(input.step) || 0.01;
       return String(Math.round(target / step) * step);
     });
+    const editingVoiceId = await cards.last().getAttribute("data-voice-id");
+    const directSolo = cards.nth(1).locator('[data-voice-action="solo"]');
+    await directSolo.click();
+    await expect(directSolo).toHaveAttribute("aria-pressed", "true");
+    await expect(cards.nth(1)).toHaveAttribute("data-solo", "true");
+    await expect(page.locator("#macroVoiceSelect")).toHaveValue(editingVoiceId);
+    await expect(cards.last().locator('[data-voice-action="edit"]')).toHaveAttribute("aria-pressed", "true");
+    await directSolo.click();
+    await expect(directSolo).toHaveAttribute("aria-pressed", "false");
     await macro.fill(macroTarget);
     await macro.dispatchEvent("change");
-    await expect(
-      page.locator('#nativeControls input[data-master-param="' + macroId + '"]'),
-    ).toHaveValue(macroTarget);
+    await expect(page.locator('[data-master-param="' + macroId + '"]')).toHaveCount(1);
 
     await expect(page.locator("#stemControls input[data-master-stem]")).toHaveCount(0);
-    await cards.first().click();
+    await cards.first().locator('[data-voice-action="edit"]').click();
     await expect(page.locator("#selectedVoicePart")).toHaveValue("mix");
     const stem = page.locator("#stemControls input[data-master-stem]").first();
     await expect(stem).toBeEnabled();
@@ -976,24 +1020,22 @@ test.describe("srtuss sound-only WebGPU archive", () => {
       page.locator('[data-master-stem-output="' + stemId + '"]'),
     ).toHaveText("63%");
 
-    const solo = page.locator("#selectedVoiceSolo");
+    const solo = cards.first().locator('[data-voice-action="solo"]');
     await solo.click();
     await expect(solo).toHaveAttribute("aria-pressed", "true");
     await expect(solo).toHaveText("Soloed");
     await expect(cards.first()).toHaveAttribute("data-solo", "true");
-    await expect(cards.first().locator(".srtuss-voice-card__mode")).toContainText("SOLO");
     await solo.click();
     await expect(cards.first()).toHaveAttribute("data-solo", "false");
     await expect(solo).toHaveAttribute("aria-pressed", "false");
 
-    const enabled = page.locator("#selectedVoiceEnabled");
-    await enabled.click();
-    await expect(enabled).toHaveAttribute("aria-pressed", "false");
-    await expect(enabled).toHaveText("Muted");
+    const mute = cards.first().locator('[data-voice-action="mute"]');
+    await mute.click();
+    await expect(mute).toHaveAttribute("aria-pressed", "true");
+    await expect(mute).toHaveText("Muted");
     await expect(cards.first()).toHaveAttribute("data-enabled", "false");
-    await expect(cards.first().locator(".srtuss-voice-card__mode")).toContainText("muted");
-    await enabled.click();
-    await expect(enabled).toHaveAttribute("aria-pressed", "true");
+    await mute.click();
+    await expect(mute).toHaveAttribute("aria-pressed", "false");
 
     await page.locator("#removeSelectedVoice").click();
     await expect(cards).toHaveCount(5);
@@ -1034,11 +1076,12 @@ test.describe("srtuss sound-only WebGPU archive", () => {
       ).toHaveAttribute("aria-pressed", "true");
 
       const macroInputs = page.locator("#masterControls input[type=range]");
-      await expect(macroInputs).toHaveCount(10);
-      expect(await macroInputs.evaluateAll((inputs) => inputs.every((input) => input.disabled))).toBe(true);
-      const nativeInputs = page.locator("#nativeControls input[type=range]");
-      await expect(nativeInputs).toHaveCount(10);
-      expect(await nativeInputs.evaluateAll((inputs) => inputs.every((input) => input.disabled))).toBe(true);
+      await expect(macroInputs).toHaveCount(0);
+      await expect(page.locator("#masterControls .srtuss-macro-empty")).toContainText(
+        "exact, unparameterized source",
+      );
+      await expect(page.locator("#nativeControls")).toHaveCount(0);
+      await expect(page.locator("#macroVoiceSelect")).toBeDisabled();
       await expect(page.locator("#stemControls .control-note")).toContainText(
         "exact-only",
       );
@@ -1064,6 +1107,12 @@ test.describe("srtuss sound-only WebGPU archive", () => {
       await page.setViewportSize(viewport);
       await page.goto("srtuss.html", { waitUntil: "load" });
       await expect(page.locator("body")).toHaveAttribute("data-runtime-ready", "true");
+      const rightPanePlay = page.locator(".srtuss-editor > .srtuss-transport #synthPlayButton");
+      await expect(rightPanePlay).toHaveCount(1);
+      await expect(page.locator(".srtuss-workbench #synthPlayButton")).toHaveCount(0);
+      if (viewport.name !== "portrait") {
+        await expect(rightPanePlay).toBeInViewport();
+      }
       for (const expectedCount of [8, 9, 10]) {
         await page.locator("#addVoice").click();
         await expect(page.locator("#voiceDeck .srtuss-voice-card")).toHaveCount(expectedCount);
@@ -1083,6 +1132,9 @@ test.describe("srtuss sound-only WebGPU archive", () => {
         page.locator("#randomizePatch"),
         page.locator("#mutatePatch"),
         page.locator("#resetMaster"),
+        page.locator("#previousVoice"),
+        page.locator("#macroVoiceSelect"),
+        page.locator("#nextVoice"),
         ...SRTUSS_RACK_GLOBAL_IDS.map((id) => page.locator("#" + id)),
         page.locator("#masterControls .srtuss-knob").first(),
         page.locator("#masterControls .srtuss-knob").last(),
@@ -1091,17 +1143,19 @@ test.describe("srtuss sound-only WebGPU archive", () => {
         page.locator("#addVoice"),
         page.locator("#voiceDeck .srtuss-voice-card").first(),
         page.locator("#voiceDeck .srtuss-voice-card").last(),
+        page.locator("#voiceDeck .srtuss-voice-card").first().locator('[data-voice-action="edit"]'),
+        page.locator("#voiceDeck .srtuss-voice-card").first().locator('[data-voice-action="mute"]'),
+        page.locator("#voiceDeck .srtuss-voice-card").first().locator('[data-voice-action="solo"]'),
+        page.locator("#voiceDeck .srtuss-voice-card").last().locator('[data-voice-action="edit"]'),
+        page.locator("#voiceDeck .srtuss-voice-card").last().locator('[data-voice-action="mute"]'),
+        page.locator("#voiceDeck .srtuss-voice-card").last().locator('[data-voice-action="solo"]'),
         page.locator("#selectedVoiceSource"),
         page.locator("#selectedVoiceMode"),
         page.locator("#selectedVoicePart"),
         page.locator("#explodeSelectedVoice"),
-        page.locator("#selectedVoiceEnabled"),
-        page.locator("#selectedVoiceSolo"),
         page.locator("#selectedVoiceLevel"),
         page.locator("#selectedVoicePan"),
         page.locator("#selectedVoiceRate"),
-        page.locator("#nativeControls .srtuss-native-control").first(),
-        page.locator("#nativeControls .srtuss-native-control").last(),
         page.locator("#removeSelectedVoice"),
         page.locator("#originalButtons .srtuss-original-button").first(),
         page.locator("#originalButtons .srtuss-original-button").last(),
@@ -1115,6 +1169,28 @@ test.describe("srtuss sound-only WebGPU archive", () => {
         const box = await control.boundingBox();
         expect(box?.width, viewport.name + " control width").toBeGreaterThan(0);
         expect(box?.height, viewport.name + " control height").toBeGreaterThan(0);
+      }
+      if (viewport.name !== "portrait") {
+        const pinnedTransport = await page.evaluate(() => {
+          const editor = document.querySelector(".srtuss-editor");
+          const transport = editor.querySelector(":scope > .srtuss-transport");
+          editor.scrollTop = editor.scrollHeight;
+          const editorRect = editor.getBoundingClientRect();
+          const transportRect = transport.getBoundingClientRect();
+          return {
+            position: getComputedStyle(transport).position,
+            editorLeft: editorRect.left,
+            editorRight: editorRect.right,
+            editorTop: editorRect.top,
+            transportLeft: transportRect.left,
+            transportRight: transportRect.right,
+            transportTop: transportRect.top,
+          };
+        });
+        expect(pinnedTransport.position).toBe("sticky");
+        expect(pinnedTransport.transportLeft).toBeGreaterThanOrEqual(pinnedTransport.editorLeft - 1);
+        expect(pinnedTransport.transportRight).toBeLessThanOrEqual(pinnedTransport.editorRight + 1);
+        expect(Math.abs(pinnedTransport.transportTop - pinnedTransport.editorTop)).toBeLessThanOrEqual(1);
       }
 
       const rackGlobalPlacement = await page.evaluate((ids) => {
