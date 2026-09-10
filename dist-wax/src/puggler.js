@@ -200,7 +200,7 @@ export class PugglerModel {
   reRack() {
     this.beat=0;this.nextBeat=0;this.phraseStart=0;this.phraseValues=[];this.phraseNumber=0;this.lastChunk='';this.currentPhrase='Repeat';
     const p=this.config.phrase==='loop'?this.pattern:{values:[this.config.count]};
-    this.objects=initialSlots(p).map((s,id)=>({...s,id,owner:this.activeIds[id%this.riderCount],fromOwner:0,phase:'held',x:this.x,y:WORLD.handY,vx:0,vy:0,spin:0,trail:[],prop:propFor(this.config.propIds[id]),drum:this.config.drums[id],riff:this.config.riffs[id],pickup:0}));
+    this.objects=initialSlots(p).map((s,id)=>({...s,id,owner:this.activeIds[id%this.riderCount],voiceOwner:this.activeIds[id%this.riderCount],fromOwner:0,phase:'held',x:this.x,y:WORLD.handY,vx:0,vy:0,spin:0,trail:[],prop:propFor(this.config.propIds[id]),drum:this.config.drums[id],riff:this.config.riffs[id],pickup:0}));
     this.debris=[];
   }
   random() {this.seed=(Math.imul(this.seed,1664525)+1013904223)>>>0;return this.seed/4294967296;}
@@ -267,7 +267,7 @@ export class PugglerModel {
       const slip=wild>0&&this.random()<.035+wild*.13;
       const error=wild*((this.random()-.5)*48+(slip?(this.random()<.5?-1:1)*(190+this.config.count*8):0));
       o.flight=launchFlight({x:o.x,y:o.y,targetX:targetX+error,duration,mass:o.prop.mass,drag:o.prop.drag,g:this.effectiveGravity(from),wind:this.config.wind});
-      o.start=this.time;o.duration=duration;o.phase='air';o.fromOwner=from;o.owner=destination;o.hand=e.destination;o.due=beat+e.value;
+      o.start=this.time;o.duration=duration;o.phase='air';o.fromOwner=from;o.voiceOwner=from;o.owner=destination;o.hand=e.destination;o.due=beat+e.value;
       o.targetX=targetX;o.spinRate=(e.hand?-1:1)*clamp(6/Math.sqrt(o.prop.mass),3,22);
       o.vx=o.flight.vx;o.vy=o.flight.vy;o.trail=[];
       source.flash[e.hand]=this.time+.12;source.lastThrow=this.time;source.recoil+=clamp(o.prop.mass*.035,.008,.15)*(e.hand?1:-1);
@@ -315,7 +315,7 @@ export class PugglerModel {
   }
   launchToAudience(o,owner) {
     const player=this.players[owner],p=this.handPosition(o.hand,owner);
-    o.phase='audience';o.start=this.time;o.duration=.82;o.x=p.x;o.y=p.y;o.trail=[];
+    o.phase='audience';o.voiceOwner=owner;o.start=this.time;o.duration=.82;o.x=p.x;o.y=p.y;o.trail=[];
     o.targetX=clamp(player.x+(this.random()-.5)*420,45,955);
     o.flight=launchFlight({x:o.x,y:o.y,targetX:o.targetX,targetY:40,duration:o.duration,mass:o.prop.mass,drag:o.prop.drag,g:1450});
     o.vx=o.flight.vx;o.vy=o.flight.vy;o.spinRate=12;player.lastCrowdThrow=this.time;player.lastThrow=this.time;player.recoil+=.2;
@@ -332,7 +332,7 @@ export class PugglerModel {
     for(const o of this.objects){
       if(o.owner!==owner)continue;
       if(['air','replacement'].includes(o.phase)&&Math.abs(o.x-player.x)<165&&o.y<235){
-        o.start=this.time;o.duration=1;
+        o.start=this.time;o.duration=1;o.voiceOwner=owner;
         o.flight=launchFlight({x:o.x,y:Math.max(28,o.y),targetX:player.x+this.offset(o.hand,true),targetY:WORLD.handY,duration:o.duration,mass:o.prop.mass,drag:o.prop.drag,g:WORLD.gravity*this.config.gravity});
         this.emit('kick',o);
       }
@@ -349,7 +349,7 @@ export class PugglerModel {
     const old=o.prop.id,choices=PROPS.filter(p=>p.id!==old),player=this.players[o.owner];
     o.prop=choices[Math.floor(this.random()*choices.length)];this.config.propIds[o.id]=o.prop.id;
     // A front-row hand lobs a new prop upward; it descends to the intended rider.
-    o.phase='replacement';o.x=clamp(player.x+(this.random()-.5)*530,35,965);o.y=32;
+    o.phase='replacement';o.voiceOwner=o.owner;o.x=clamp(player.x+(this.random()-.5)*530,35,965);o.y=32;
     o.targetX=clamp(this.riderLandingX(o.owner,1.15)+this.offset(o.hand,true)+(this.random()-.5)*70,20,980);
     o.start=this.time;o.duration=1.15; o.spinRate=(this.random()-.5)*12;
     o.flight=launchFlight({x:o.x,y:o.y,targetX:o.targetX,targetY:WORLD.handY,duration:o.duration,mass:o.prop.mass,drag:o.prop.drag,g:2000});

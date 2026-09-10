@@ -1,9 +1,12 @@
+import { futureCrowdMember, futureHeadwear, drawFutureCrowdHead, drawFutureCrowdHand } from './puggler-future-crowd.js';
 import { WORLD, flightPosition } from './puggler.js';
 import { PugglerCollage } from './puggler-collage.js';
+import { historicalCrowdMember, historyHeadwear, drawHistoryCrowdHead, drawHistoryCrowdHand } from './puggler-history-crowd.js';
 import { PugglerCrowd } from './puggler-crowd.js';
 import { PugglerPyro } from './puggler-pyro.js';
 import { skinFor, presentProp } from './puggler-skins.js';
 import { drawSkinPerformer, drawSkinStage } from './puggler-skin-renderer.js';
+import { drawEraProp } from './puggler-era-prop-renderer.js';
 import { renderStageLighting } from './puggler-lighting.js';
 
 const TAU = Math.PI * 2;
@@ -23,6 +26,7 @@ export function drawProp(c, prop, x, y, spin = 0, size = 1, collage = null, shad
   // An unavailable photograph expands into many vector paths. Blurring each
   // path is expensive in software Canvas; keep the fading echo without its blur.
   if(shadow===0){c.shadowBlur=0;c.shadowOffsetX=0;c.shadowOffsetY=0;c.shadowColor='transparent';}
+  if(drawEraProp(c,prop)){c.restore();return;}
   const col = prop.color;
   if(prop.skin==='history'||prop.skin==='future'){
     // Keep a themed silhouette available while an optional photo sheet loads.
@@ -573,7 +577,9 @@ function stage(c,w,h,model,view,collage) {
     c.save();c.globalAlpha=.72;drawProp(c,{id:i%3?'can':'bottle',radius:i%3?23:28,color:i%3?'#a89573':'#768e5a'},x,y,i*.8,.34+equipment*.2,collage);c.restore();
   }
 }
-function crowdHead(c,collage,id,x,y,size,angle=0) {
+function crowdHead(c,collage,id,x,y,size,angle=0,skin='punk') {
+  if(skin==='history'){drawHistoryCrowdHead(c,collage,id,x,y,size,angle);return;}
+  if(skin==='future'){drawFutureCrowdHead(c,collage,id,x,y,size,angle);return;}
   const atlas=['braids','ponytail','baby'].includes(id)?'crowdExtra':'crowd';
   if(collage.draw(c,atlas,id,x,y,size,size,angle,0))return;
   c.save();c.translate(x,y);c.rotate(angle);c.scale(size/62,size/62);
@@ -600,7 +606,9 @@ function crowdHead(c,collage,id,x,y,size,angle=0) {
   }else line(c,[[-10,-8],[-4,-13],[2,-10],[9,-12]],'#826757',5);
   c.restore();
 }
-function crowdHand(c,collage,id,x,y,size,angle=0,time=0) {
+function crowdHand(c,collage,id,x,y,size,angle=0,time=0,stageSkin='punk') {
+  if(stageSkin==='history'){drawHistoryCrowdHand(c,collage,id,x,y,size,angle,time);return;}
+  if(stageSkin==='future'){drawFutureCrowdHand(c,collage,id,x,y,size,angle,time);return;}
   if(collage.draw(c,'crowd',id,x,y,size,size,angle,0))return;
   c.save();c.translate(x,y);c.rotate(angle);c.scale(size/54,size/54);
   const skin=id==='palm'?'#a47659':id==='peace'?'#795345':'#bb9478';
@@ -620,11 +628,13 @@ function crowdHand(c,collage,id,x,y,size,angle=0,time=0) {
   }
   c.restore();
 }
-function audience(c,w,h,model,view,collage,crowd) {
+function audience(c,w,h,model,view,collage,crowd,skin) {
+  const historical=skin==='history',future=skin==='future';
   const time=model.time,reaction=model.lastCrowdReaction;
   const cheer=reaction?.kind==='crowd-woo'?impact(time,reaction.time,.9):0;
   const boo=Math.max(impact(time,model.lastDrop,1.35),reaction?.kind==='crowd-boo'?impact(time,reaction.time,.9):0);
-  const poses=crowd.snapshot(time).members;
+  const members=crowd.snapshot(time).members;
+  const poses=historical?members.map(historicalCrowdMember):future?members.map(futureCrowdMember):members;
   const count=Math.ceil(w/43);
   for(let i=0;i<count;i++) {
     const pose=poses[i%poses.length],x=i*w/(count-1)+pose.sway*.3;
@@ -635,7 +645,11 @@ function audience(c,w,h,model,view,collage,crowd) {
       const sign=i%2?1:-1,handX=x+sign*26,handY=y-43-up;
       line(c,[[x+sign*12,y+1],[x+sign*29,y-15],[handX,handY]],col,8);
       ellipse(c,handX,handY,7,8,col);
-      if(pose.hand==='phone') {
+      if(historical) {
+        drawHistoryCrowdHand(c,null,pose.hand,handX,handY,35,0,time,col);
+      } else if(future) {
+        drawFutureCrowdHand(c,null,pose.hand,handX,handY,35,0,time,col);
+      } else if(pose.hand==='phone') {
         c.fillStyle='#343641';c.fillRect(handX-5,handY-16,10,17);c.fillStyle='#757e85';c.fillRect(handX-3,handY-14,6,11);
       } else if(pose.hand==='lighter') {
         c.fillStyle='#9f7c4c';c.fillRect(handX-2,handY-9,4,8);
@@ -645,7 +659,9 @@ function audience(c,w,h,model,view,collage,crowd) {
         for(const finger of fingers)line(c,[[handX+finger,handY],[handX+finger*1.35,handY-13+Math.abs(finger)*.4]],col,pose.hand==='palm'?2:3);
       }
     }
-    if(i%5===0)path(c,[[x-12,y-26],[x-6,y-45],[x,y-30],[x+5,y-47],[x+11,y-28]],'#28162b',col,2);
+    if(historical)historyHeadwear(c,pose.head,x,y-24,.75,col);
+    else if(future)futureHeadwear(c,pose.head,x,y-24,.75,col);
+    else if(i%5===0)path(c,[[x-12,y-26],[x-6,y-45],[x,y-30],[x+5,y-47],[x+11,y-28]],'#28162b',col,2);
   }
   // Each photographic listener has a different body size, instrument preference,
   // delayed movement and raised hand. The baby stays in a carrier by an adult.
@@ -657,8 +673,8 @@ function audience(c,w,h,model,view,collage,crowd) {
     const handX=x+sign*(21*pose.scale),handY=Math.max(h-82,y-22-pose.arm*.75);
     ellipse(c,x,y+25,22*pose.scale,24*pose.scale,pose.bodyColor);
     if(pose.hand)line(c,[[x+sign*11,y+25],[x+sign*27,y+5],[handX,handY+17]],pose.skinColor,7*pose.scale);
-    crowdHead(c,collage,pose.head,x,y,size,pose.tilt);
-    if(pose.hand)crowdHand(c,collage,pose.hand,handX,handY,54*pose.scale,pose.handAngle,time);
+    crowdHead(c,collage,pose.head,x,y,size,pose.tilt,skin);
+    if(pose.hand)crowdHand(c,collage,pose.hand,handX,handY,54*pose.scale,pose.handAngle,time,skin);
   }
   const throws=(model.audienceThrows?.length?model.audienceThrows:model.lastAudienceThrow?[model.lastAudienceThrow]:[]).slice(-8);
   const recentCatch=typeof model.lastCrowdCatch==='object'?model.lastCrowdCatch:{time:model.lastCrowdCatch,x:WORLD.width*.5};
@@ -673,17 +689,17 @@ function audience(c,w,h,model,view,collage,crowd) {
     const listener=listeners.reduce((nearest,pose)=>Math.abs(pose.xFraction-gesture.x/WORLD.width)<Math.abs(nearest.xFraction-gesture.x/WORLD.width)?pose:nearest,listeners[0]);
     const color=listener.skinColor;
     ellipse(c,x-direction*15,y-10,13,15,'#211a22','#756256');
-    crowdHead(c,collage,listener.head,x-direction*15,y-16,53,-direction*.13*energy);
+    crowdHead(c,collage,listener.head,x-direction*15,y-16,53,-direction*.13*energy,skin);
     line(c,[[x-direction*28,y+15],[x-direction*20,y-4],[hand.x,hand.y+24-lift]],'#2b2228',11);
     line(c,[[x-direction*28,y+15],[x-direction*20,y-4],[hand.x,hand.y+24-lift]],color,5);
     ellipse(c,hand.x,hand.y+24-lift,6,7,color,'#43303a');
     for(let j=0;j<4;j++)line(c,[[hand.x-5+j*3,hand.y+22-lift],[hand.x-7+j*4,hand.y+13-lift]],color,2);
-    crowdHand(c,collage,listener.id%2?'peace':'palm',hand.x,hand.y+15-lift,48,direction*energy*.27,time);
+    crowdHand(c,collage,listener.id%2?'peace':'palm',hand.x,hand.y+15-lift,48,direction*energy*.27,time,skin);
     if(gesture.kind==='catch') {
       const other=hand.x+direction*23;
       line(c,[[x+direction*6,y+9],[x+direction*23,y-12],[other,hand.y+27-lift]],color,6);
       ellipse(c,other,hand.y+25-lift,6,6,color);
-      crowdHand(c,collage,listener.id%2?'palm':'peace',other,hand.y+18-lift,46,-direction*.2,time);
+      crowdHand(c,collage,listener.id%2?'palm':'peace',other,hand.y+18-lift,46,-direction*.2,time,skin);
     }
   }
 
@@ -815,6 +831,6 @@ export class PugglerRenderer {
     for(const player of activePlayers)if(impact(model.time,player.lastKick,.22)>0) {
       const p=point(player.x,75);c.strokeStyle='#d5f58c';c.lineWidth=3;c.beginPath();c.arc(p.x,p.y,85*sy,-1.2,.2);c.stroke();
     }
-    audience(c,w,h,model,this.view,this.collage,this.crowd);
+    audience(c,w,h,model,this.view,this.collage,this.crowd,skin);
   }
 }

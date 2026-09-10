@@ -6,7 +6,7 @@ import { SKINS, SKIN_ATLASES, skinFor, presentProp } from '../src/puggler-skins.
 
 test('skin choices have stable cast identities and canonical fallback', () => {
   assert.deepEqual(SKINS.map(skin => skin.id), ['punk', 'history', 'future']);
-  assert.deepEqual(skinFor('history').riders, ['Caveman', 'Dame Roxy', 'Maestro Moss']);
+  assert.deepEqual(skinFor('history').riders, ['Cavewoman', 'Dame Roxy', 'Maestro Moss']);
   assert.deepEqual(skinFor('future').riders, ['Futureman', 'Cyberwoman', 'Quor']);
   for (const id of [undefined, '', 'missing', '__proto__']) assert.equal(skinFor(id), SKINS[0]);
   assert.ok(Object.isFrozen(SKINS));

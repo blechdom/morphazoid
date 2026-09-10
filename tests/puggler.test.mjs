@@ -4,6 +4,26 @@ import assert from 'node:assert/strict';
 import { PugglerModel, PATTERNS, PROPS, WORLD, PHRASE_CHUNKS, DEFAULTS, MAX_OBJECTS, CASTS, parseNotation, initialSlots, launchFlight, flightPosition, soundMapping } from '../src/puggler.js';
 
 const advance = (m, seconds, steer = 0) => { const events=[]; for(let i=0;i<seconds*120;i++)events.push(...m.step(1/120, typeof steer==='function'?steer(i/120):steer)); return events; };
+test('performer voice ownership follows passes, kicks and crowd returns without changing pass provenance',()=>{
+  for(const cast of CASTS){
+    const m=new PugglerModel({cast:cast.id,count:6});
+    for(const o of m.objects){assert.equal(o.voiceOwner,o.owner);assert.ok(cast.riders.includes(o.voiceOwner));}
+  }
+  const m=new PugglerModel({cast:'roxy-moss',count:1,pattern:'single',tempo:100,rideSpeed:0,chaos:0,assist:120});
+  const o=m.objects[0];m.throwBeat(0);
+  assert.equal(o.owner,2);assert.equal(o.fromOwner,1);assert.equal(o.voiceOwner,1);
+  for(let i=0;i<240&&o.phase==='air';i++)m.step(1/120,0,null,0,null,false);
+  assert.equal(o.phase,'held');assert.equal(m.passes,1);
+  m.throwToAudience(2);
+  assert.equal(o.phase,'audience');assert.equal(o.voiceOwner,2);assert.equal(o.fromOwner,1);
+  m.crowdCatch(o);m.replace(o);
+  assert.equal(o.phase,'replacement');assert.equal(o.voiceOwner,2);assert.equal(o.fromOwner,1);
+  o.phase='air';o.voiceOwner=1;o.x=m.players[2].x;o.y=30;
+  m.kick(2);
+  assert.equal(o.voiceOwner,2);assert.equal(o.fromOwner,1);assert.equal(o.owner,2);
+  assert.equal(m.passes,1,'a rescue does not rewrite the earlier pass');
+  m.apply({cast:'moss'});assert.ok(m.objects.every(o=>o.voiceOwner===2));
+});
 test('every pattern has the correct distinct future reservations and catches every stationary material',()=>{
   for(const p of PATTERNS){
     const slots=initialSlots(p);assert.equal(slots.length,p.count,p.id);assert.equal(new Set(slots.map(s=>`${s.due}:${s.hand}`)).size,p.count);

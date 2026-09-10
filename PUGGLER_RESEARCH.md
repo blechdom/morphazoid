@@ -62,13 +62,15 @@ that cursor, so even short flights develop through their riff.
 ### Stage skins and lighting
 
 The stage has three presentation skins: Trashpunk, History mash-up, and Future
-3026. History pairs a caveman, a medieval performer, and a composer caricature;
+3026. History pairs a cavewoman, a medieval performer, and a composer caricature;
 Future pairs a future man, a cyber woman, and an alien. Each new skin remaps all
 33 prop names and photographic-style sprites while keeping the base IDs, mass,
 drag, contact timing, and drum/riff assignments. A skin change restyles existing
 flights and their recorded trails without re-racking or resetting the model.
 Starting acts preserve the chosen skin and lights; Reset returns to Trashpunk
 and house lights. Cast names and keyboard labels follow the selected skin.
+Vocal objects also use the selected character's voice treatment, as described
+below; physical trajectories and drum/riff assignments remain unchanged.
 
 The historical scene is a deliberately anachronistic global collage. The
 [Met's astrolabe from Yemen](https://www.metmuseum.org/art/collection/search/444408),
@@ -85,6 +87,25 @@ all shown from behind. The baby appears supported beside an adult and has a
 smaller, slower movement range. New cutout prompts and provenance are in
 [skin artwork credits](assets/puggler/SKINS_CREDITS.md) and
 [audience credits](assets/puggler/CROWD_EXTRA_CREDITS.md).
+
+### Character vocals
+
+All nine characters have distinct OI and WOO treatments of the existing CC0
+human recordings. These are theatrical DSP variations, not recordings of nine
+actors or voice imitations. The punk trio uses a direct midrange voice, brighter
+higher Roxy, and lower darker Moss. The historical cast uses a deep-voiced cavewoman,
+forward midrange Dame Roxy, and high bright Maestro. The future cast adds radio
+color, short modulated doubling, and a more alien sideband treatment.
+
+The voice follows the last performer to launch the prop. Normal passes keep the
+thrower's voice through the flight; the receiver gets the next throw. A rescue
+kick changes the voice immediately without changing passing statistics. Crowd
+returns use the intended receiver, and crowd cheers/boos retain their originals.
+Skin changes crossfade the active vocals at relative phrase position. Eighteen
+short mono buffers are derived once after decoding; no per-frame sample building
+or additional live effect nodes are required. Drums and guitar/bass retain their
+existing sound assignments. Human listening approval remains separate from the
+automated level, separation, continuity, and lifecycle checks.
 
 - Default: six props, automatic Roxy and Moss, 16-beat phrase, 360 siteswap beats/min,
   throw height 1.8×, catch reach 42 world units, throw wildness 40%, Audio off, output 48%, catch drums 125%.
@@ -217,3 +238,35 @@ and sparks. They use the model clock, a contact phrase threshold, and a cooldown
 between bursts. Pause prevents new bursts while existing sparks finish; reset
 and teardown clear their state. These are visual accents over the existing
 drums, with no additional audio source or independent backing track.
+
+### Historical cast and fluorescent future refresh
+
+Cavewoman and Maestro Moss exchange their original skin and outline colors.
+Cavewoman has long moving hair, a bone barrette, and a tied fur tunic; Cyberwoman
+has a magenta swept bob and ponytail, tapered face, and a mechanical eye. Future
+performers and the stage use fluorescent cyan, magenta, lime, and violet. A fixed
+set of orbiting emitters and hanging pods moves smoothly, with local catch-driven
+swells rather than a full-frame flashing effect.
+
+History now has its own eight rear-view photographic audience members, including
+women, children, and a baby beside the mother, in a fictional global-history
+costume mash-up. Candles, a fan, open hands, and a tankard replace modern crowd
+accessories. The existing independent drum reactions and gentle baby motion
+remain the same. Failed photos retain period costume silhouettes.
+
+Historical presentation overrides add bones, ham hock, a swaddled theatrical baby
+prop, harpsichord, boulder, and wooden club. Future adds a fluorescent octopus.
+These are additional photographic choices within the existing 33 prop identities:
+their mass, sound, and trajectory remain tied to the corresponding physical slot.
+Changing skins replaces both the current sprite and its echoes. Exact prompts
+and generated image provenance are in `assets/puggler/ERA_PROPS_CREDITS.md` and
+`assets/puggler/HISTORY_CROWD_CREDITS.md`.
+
+The future skin also has a complete rear-view audience bank: fluorescent braids,
+cybernetic implants, a tall ribbed helmet, mint hair, an alien with cranial fins,
+and a little lavender alien baby beside the mother. Plasma capsules, holographic
+slabs, robotic hands and alien hands replace the modern accessories. Foreground
+listeners, distant silhouettes and crowd exchanges all use the future theme,
+including when images are unavailable. Existing crowd motion and audio behavior
+remain unchanged. Image provenance and the exact prompt are in
+`assets/puggler/FUTURE_CROWD_CREDITS.md`.

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { PugglerAudio, punkMotion, punkVocalMotion, MAX_PUGGLER_ATTACKS, MAX_PUGGLER_VOICES, MAX_PUGGLER_AIR_TAILS } from '../src/puggler-audio.js';
+import { PugglerAudio, punkMotion, punkVocalMotion, vocalPerformer, MAX_PUGGLER_ATTACKS, MAX_PUGGLER_VOICES, MAX_PUGGLER_AIR_TAILS } from '../src/puggler-audio.js';
+import { VOCAL_CHARACTERS, vocalCharacter } from '../src/puggler-vocals.js';
 import { PUNK_DRUMS, PUNK_RIFFS, renderPunkPhrase, renderVocalChant } from '../src/puggler-samples.js';
 import { PROPS, WORLD } from '../src/puggler.js';
 
@@ -48,6 +49,61 @@ async function withAudio(run) {
   try { await run(audio, urls); } finally { await audio.close(); globalThis.AudioContext = originalContext; globalThis.fetch = originalFetch; }
 }
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
+
+test('vocal identity follows stable performer IDs, including passes, rescues and audience returns', () => {
+  assert.equal(vocalPerformer({phase:'air',owner:2,fromOwner:1}),1);
+  assert.equal(vocalPerformer({phase:'air',owner:2,fromOwner:1,voiceOwner:2}),2);
+  assert.equal(vocalPerformer({phase:'audience',owner:2,fromOwner:1}),2);
+  assert.equal(vocalPerformer({phase:'replacement',owner:1,fromOwner:0}),1);
+  assert.equal(vocalPerformer({phase:'air',owner:2,voiceOwner:99}),2);
+  assert.equal(vocalPerformer({owner:NaN,fromOwner:Infinity}),0);
+});
+
+test('all nine characters select their own cached OI and WOO buffers while crowd recordings stay unchanged', async () => withAudio(async audio => {
+  await audio.arm();
+  assert.equal(Object.keys(audio.vocalBuffers).length,18);
+  const bank=audio.vocalBuffers;
+  for(const character of VOCAL_CHARACTERS)for(const role of ['oi','woo']){
+    const prop={...object(0),riff:role,owner:(character.owner+1)%3,voiceOwner:character.owner};
+    audio.update([prop],{skin:character.skin},true);
+    const voice=audio.voices[0];
+    assert.equal(voice.character,character.id);assert.equal(voice.speaker,character.owner);
+    assert.equal(voice.source.buffer,bank[`${character.id}:${role}`]);
+    const source=voice.source;
+    audio.context.currentTime+=.03;audio.update([prop],{skin:character.skin},true);
+    assert.equal(audio.voices[0].source,source,'steady flight retains its source');
+  }
+  assert.equal(audio.vocalBuffers,bank,'live skin and cast changes reuse the bank');
+  audio.strike({...object(0),kind:'crowd-woo'},{},audio.context.currentTime);
+  assert.equal([...audio.attacks].at(-1).source.buffer,audio.buffers.woo);
+  await audio.close();assert.equal(audio.vocalBuffers,null);
+}));
+
+test('vocal handoffs crossfade at relative phrase position and leave guitar sources alone', async () => withAudio(async audio => {
+  await audio.arm();
+  const objects=[{...object(0),riff:'oi',owner:2,voiceOwner:1},object(4)];
+  audio.update(objects,{skin:'punk'},true);
+  const old=audio.voices[0],guitar=audio.voices[4];
+  audio.context.currentTime+=.32;
+  audio.update(objects,{skin:'future'},true);
+  const next=audio.voices[0],position=audio.phrasePositions[0];
+  assert.equal(next.character,vocalCharacter('future',1).id);
+  assert.notEqual(next.source,old.source);assert.ok(old.source.stops.length);
+  assert.ok(audio.airTails.has(old));assert.equal(audio.voices[4],guitar);
+  assert.ok(Math.abs(next.offset/next.source.buffer.duration-position.offset/position.duration)<1e-12);
+  assert.ok(next.offset>0,'changing character does not restart the word');
+  audio.update([{...objects[0],phase:'held'},objects[1]],{skin:'future'},true);
+  const cursor=audio.phrasePositions[0];audio.context.currentTime+=.2;
+  objects[0].voiceOwner=2;objects[0].owner=1;
+  audio.update(objects,{skin:'future'},true);
+  const receiver=audio.voices[0];
+  assert.equal(receiver.character,vocalCharacter('future',2).id);
+  assert.ok(Math.abs(receiver.offset/receiver.source.buffer.duration-cursor.offset/cursor.duration)<1e-12);
+  for(let i=0;i<80;i++){
+    objects[0].voiceOwner=i%3;audio.update(objects,{skin:i%2?'history':'future'},true);
+  }
+  assert.ok(audio.airTails.size<=MAX_PUGGLER_AIR_TAILS);
+}));
 
 test('authored punk phrases are deterministic, bounded, articulate, and spectrally distinct', () => {
   const parts = Object.fromEntries(['guitar', 'bass'].map(role => [role, renderPunkPhrase(role)]));

@@ -1,7 +1,8 @@
+import { ERA_PROP_OVERRIDES } from './puggler-era-props.js';
 // Presentation-only skins. The simulation owns prop identity, physics and sound.
 export const SKINS = Object.freeze([
   { id: 'punk', name: 'Trashpunk', riders: ['Puggler', 'Roxy', 'Moss'] },
-  { id: 'history', name: 'History mash-up', riders: ['Caveman', 'Dame Roxy', 'Maestro Moss'] },
+  { id: 'history', name: 'History mash-up', riders: ['Cavewoman', 'Dame Roxy', 'Maestro Moss'] },
   { id: 'future', name: 'Future 3026', riders: ['Futureman', 'Cyberwoman', 'Quor'] },
 ].map(skin => Object.freeze({ ...skin, riders: Object.freeze(skin.riders) })));
 
@@ -304,7 +305,9 @@ export function presentProp(prop, skinId = 'punk') {
   if (previous && sameSource(previous, prop)) return previous.value;
   const styles = THEME_DATA[skin];
   const style = styles && Object.hasOwn(styles, prop.id) ? styles[prop.id] : null;
-  const value = Object.freeze({ ...prop, ...style, skin });
+  const overrides = ERA_PROP_OVERRIDES[skin];
+  const extra = overrides && Object.hasOwn(overrides, prop.id) ? overrides[prop.id] : null;
+  const value = Object.freeze({ ...prop, ...style, ...extra, skin });
   cache.set(skin, { source: { ...prop }, keys: Object.keys(prop), value });
   origins.set(value, prop);
   return value;

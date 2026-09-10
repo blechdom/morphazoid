@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PugglerCollage, COLLAGE_ATLASES } from '../src/puggler-collage.js';
 import { drawProp } from '../src/puggler-renderer.js';
+import { presentProp } from '../src/puggler-skins.js';
+import { PROPS } from '../src/puggler.js';
+import { ERA_PROP_OVERRIDES } from '../src/puggler-era-props.js';
 
 const TEST_ATLASES = Object.fromEntries(Object.entries(COLLAGE_ATLASES).map(([id, atlas]) => [id, { ...atlas, rects: undefined }]));
 
@@ -123,6 +126,27 @@ test('dispose releases images and late decodes cannot repopulate the cache', asy
   assert.ok([...collage.entries.values()].every(entry => entry.image === null && entry.sprites.size === 0 && entry.timer === null));
   const { c } = drawingContext();
   assert.equal(collage.drawProp(c, { id: 'ball' }, 0, 0), false);
+});
+
+test('new historical objects and octopus select their actual cutouts across live skin changes',async t=>{
+  const {images,imageFactory}=makeImages();
+  const collage=new PugglerCollage({imageFactory,atlases:TEST_ATLASES});
+  t.after(()=>collage.dispose());
+  await Promise.all(images.map(image=>image.onload()));
+  const {c,calls}=drawingContext(),atlasIndex=Object.keys(TEST_ATLASES).indexOf('eraProps');
+  for(const [skin,overrides] of Object.entries(ERA_PROP_OVERRIDES))for(const id of Object.keys(overrides)){
+    const base=PROPS.find(prop=>prop.id===id),themed=presentProp(base,skin);
+    calls.length=0;
+    assert.equal(collage.drawProp(c,themed,10,20),true);
+    assert.equal(calls.find(call=>call[0]==='drawImage')[1],images[atlasIndex]);
+    assert.equal(presentProp(themed,'punk'),base);
+    const other=presentProp(themed,skin==='history'?'future':'history');
+    assert.equal(other.sprite,undefined,'switching era must clear the prior override');
+  }
+  collage.entries.get('eraProps').state='failed';calls.length=0;
+  const octopus=presentProp(PROPS.find(prop=>prop.id==='fish'),'future');
+  assert.equal(collage.drawProp(c,octopus,10,20),false);
+  assert.equal(calls.some(call=>call[0]==='drawImage'),false,'a failed override cannot draw the old photo');
 });
 
 test('corrected rectangular crops retain photo aspect, and invalid crops fail safely', async t => {

@@ -57,9 +57,22 @@ compressed, filtered, or shortened during playback.
 repository's MIT license: a distorted plucked-string power-chord phrase,
 a plucked bass phrase. They are rendered into small PCM buffers at Audio
 activation. OI now uses the sampled call above; WOO uses the existing audience
-recording. Vocal phrases avoid guitar overdrive and use gentle compression.
-Their path-driven playback rate stays between 0.84× and 1.2× to retain the
-recorded mouth resonances and complete syllables even at extreme juggling tempos.
+recording. `src/puggler-vocals.js` derives separate OI and WOO buffers for each
+of the nine characters from these same licensed recordings. These are processed
+voice treatments, not nine newly recorded actors. Complete calls are resampled
+to different registers, then colored with broad EQ, short doubling, and gentle
+amplitude motion; future characters also use chorus and ring modulation.
+Buffers are rendered once when Audio is armed, with balanced source RMS, a 0.88
+peak ceiling, and faded boundaries. The dry human signal stays dominant.
+Vocal phrases avoid guitar overdrive and use gentle compression. Their live
+path-driven playback rate stays between 0.84× and 1.2× around each character's
+register, even at extreme juggling tempos.
+
+The character who last threw or kicked a prop owns its vocal phrase. A pass
+keeps that voice until the receiver throws; audience returns use the intended
+receiver. Skin changes crossfade to the matching character treatment while
+preserving relative phrase progress. Crowd cheers and boos keep the original
+audience recordings.
 
 Only airborne objects (including audience lobs and throws to the crowd) sound their looping
 phrase. Rider and audience catches trigger the selected drum; drops trigger the audience boo.
@@ -209,3 +222,10 @@ Match grimy real-object product photography: worn textures, scratches, tiny dent
 Additional generated imagery has its exact prompts and provenance in
 [SKINS_CREDITS.md](SKINS_CREDITS.md) and
 [CROWD_EXTRA_CREDITS.md](CROWD_EXTRA_CREDITS.md).
+
+The historical crowd refresh and seven additional era object cutouts are credited
+in [HISTORY_CROWD_CREDITS.md](HISTORY_CROWD_CREDITS.md) and
+[ERA_PROPS_CREDITS.md](ERA_PROPS_CREDITS.md), including exact generation prompts.
+
+The rear-view future audience, including cyborgs, aliens, women, children and a
+baby, has its artwork and exact prompt in [FUTURE_CROWD_CREDITS.md](FUTURE_CROWD_CREDITS.md).

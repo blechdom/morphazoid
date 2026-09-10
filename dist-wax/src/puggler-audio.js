@@ -1,6 +1,7 @@
 import { connectAudioOutput } from './audio-output-manager.js';
 import { clamp, soundMapping, WORLD } from './puggler.js';
 import { PUNK_DRUMS, PUNK_RIFFS, PHRASE_TEMPO, renderPunkPhrase, renderVocalChant } from './puggler-samples.js';
+import { VOCAL_CHARACTERS, vocalCharacter, renderCharacterVocal } from './puggler-vocals.js';
 
 export const MAX_PUGGLER_VOICES = 10;
 // Twenty catches/second can overlap 36 of the 1.8-second cymbal recordings;
@@ -13,6 +14,14 @@ const DRUM_GAIN = { kick: 1.15, snare: 1.03, crash: .55, tom: 1.05, hat: .62 };
 const RIFF_GAIN = { guitar: .38, bass: .53, oi: .8, woo: .75 };
 const isVocal = role => role === 'oi' || role === 'woo';
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+
+export function vocalPerformer(object = {}) {
+  // A pass belongs to its thrower until the receiving rider launches it again.
+  // Explicit voice ownership also handles rescue kicks and audience returns.
+  const valid = owner => Number.isInteger(owner) && owner >= 0 && owner < 3;
+  const owner = object.voiceOwner ?? (object.phase === 'air' ? object.fromOwner : object.owner);
+  return valid(owner) ? owner : valid(object.owner) ? object.owner : 0;
+}
 
 // Space changes playback pitch AND phrase speed. Velocity pushes the phrase
 // forward and opens the tone. This expressive mapping is not physical Doppler.
@@ -61,7 +70,7 @@ export class PugglerAudio {
     this.phrasePositions = Array(MAX_PUGGLER_VOICES).fill(null);
     this.gateUntil = Array(MAX_PUGGLER_VOICES).fill(0);
     this.attacks = new Set(); this.airTails = new Set(); this.disposed = false;
-    this.buffers = null; this.loading = null; this.armSerial = 0; this.running = false; this.active = true; this.level = .38;
+    this.buffers = null; this.vocalBuffers = null; this.loading = null; this.armSerial = 0; this.running = false; this.active = true; this.level = .38;
   }
   async arm() {
     if (this.disposed) return;
@@ -116,7 +125,15 @@ export class PugglerAudio {
       const rate = 22050, data = renderPunkPhrase(role, rate), buffer = c.createBuffer(1, data.length, rate);
       buffer.copyToChannel(data, 0); entries.push([role, buffer]);
     }
-    this.buffers = Object.fromEntries(entries);
+    const buffers = Object.fromEntries(entries), vocals = {};
+    // Eighteen bounded, reusable phrases; skin/cast changes never decode or
+    // rebuild samples in the real-time update loop. Audience clips stay separate.
+    for (const character of VOCAL_CHARACTERS) for (const role of ['oi', 'woo']) {
+      const original = buffers[role], data = renderCharacterVocal(original.getChannelData(0), original.sampleRate, character);
+      const buffer = c.createBuffer(1, data.length, original.sampleRate);
+      buffer.copyToChannel(data, 0); vocals[`${character.id}:${role}`] = buffer;
+    }
+    this.buffers = buffers; this.vocalBuffers = vocals;
   }
   mute() {
     ++this.armSerial; this.on = false;
@@ -142,7 +159,9 @@ export class PugglerAudio {
       if (!object || !['air', 'replacement', 'audience'].includes(object.phase) || finite(parameters.flight, .7) <= 0) {
         this.releaseAir(i); continue;
       }
-      if (this.voices[i]?.role !== role) { this.releaseAir(i); this.voices[i] = this.startAir(role, t, i); }
+      const character = isVocal(role) ? vocalCharacter(parameters.skin, vocalPerformer(object)) : null;
+      const key = character ? `${character.id}:${role}` : role;
+      if (this.voices[i]?.key !== key) { this.releaseAir(i); this.voices[i] = this.startAir(role, t, i, character); }
       const v = this.voices[i], m = isVocal(role) ? punkVocalMotion(object, parameters) : punkMotion(object, parameters);
       this.advancePhrase(v, t); v.rate = m.rate;
       v.source.playbackRate.setTargetAtTime(m.rate, t, .035);
@@ -152,20 +171,24 @@ export class PugglerAudio {
       v.drive?.gain.setTargetAtTime(1 + clamp(finite(parameters.grit, .65), 0, 1) * (role === 'guitar' ? 2.6 : 1.2), t, .025);
     }
   }
-  startAir(role, t, slot) {
+  startAir(role, t, slot, character = null) {
     const c = this.context, source = c.createBufferSource(), filter = c.createBiquadFilter();
     const gain = c.createGain(), pan = c.createStereoPanner();
     const vocal = isVocal(role), drive = vocal ? null : c.createGain(), dirt = vocal ? null : c.createWaveShaper();
-    source.buffer = this.buffers[role]; source.loop = true;
+    const key = character ? `${character.id}:${role}` : role;
+    source.buffer = character ? this.vocalBuffers[key] : this.buffers[role]; source.loop = true;
     filter.type = 'lowpass'; filter.Q.value = .55; filter.frequency.value = vocal ? 7200 : 4200;
     gain.gain.value = 0; source.connect(filter);
     if (vocal) filter.connect(gain);
     else { dirt.curve = saturator(1.3); dirt.oversample = '2x'; filter.connect(drive); drive.connect(dirt); dirt.connect(gain); }
     gain.connect(pan); pan.connect(vocal ? this.vocalBus : this.airBus);
     const position = this.phrasePositions[slot];
-    const offset = position?.role === role ? position.offset : 0;
+    // Preserve relative phrase progress when a different character's treatment
+    // changes the clip duration. Catches still pause the object's own cursor.
+    const offset = position?.role !== role ? 0 : position.duration === source.buffer.duration
+      ? position.offset : (position.offset / position.duration * source.buffer.duration) % source.buffer.duration;
     const startedAt = Math.max(t + .002, this.gateUntil[slot]);
-    const voice = { role, source, filter, gain, drive, dirt, pan, slot, offset, lastTime: startedAt, startedAt, rate: 1 };
+    const voice = { role, key, character:character?.id ?? null, speaker:character?.owner ?? null, source, filter, gain, drive, dirt, pan, slot, offset, lastTime: startedAt, startedAt, rate: 1 };
     source.onended = () => this.disconnectVoice(voice);
     source.start(startedAt, offset); return voice;
   }
@@ -179,7 +202,7 @@ export class PugglerAudio {
   releaseAir(i, at = this.context?.currentTime ?? 0, fast = false) {
     const v = this.voices[i]; if (!v) return;
     this.advancePhrase(v, Math.max(this.context.currentTime, at));
-    this.phrasePositions[i] = { role: v.role, offset: v.offset };
+    this.phrasePositions[i] = { role: v.role, offset: v.offset, duration:v.source.buffer.duration };
     this.voices[i] = null;
     if (this.airTails.size >= MAX_PUGGLER_AIR_TAILS) this.disconnectVoice(this.airTails.values().next().value);
     this.airTails.add(v); this.fadeVoice(v, at, fast);
@@ -265,7 +288,7 @@ export class PugglerAudio {
   async close() {
     if (this.disposed) return; this.disposed = true; this.on = false; ++this.armSerial; this.abort?.abort();
     for (const voice of [...this.attacks, ...this.airTails, ...this.voices]) this.disconnectVoice(voice);
-    this.voices = []; this.buffers = null; this.releaseOutput?.();
+    this.voices = []; this.buffers = null; this.vocalBuffers = null; this.releaseOutput?.();
     for (const node of [this.airBus, this.airDuck, this.vocalBus, this.vocalCompressor, this.drumBus, this.bus, this.compressor, this.ceiling, this.peakGuard, this.master]) node?.disconnect();
     if (this.context?.state !== 'closed') await this.context?.close();
   }

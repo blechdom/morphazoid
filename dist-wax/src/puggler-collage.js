@@ -2,6 +2,9 @@
 // the generated sheet is not perfectly aligned to its nominal grid.
 // Drawing never scans or copies pixels. Provenance: assets/puggler/CREDITS.md.
 import { SKIN_ATLASES } from './puggler-skins.js';
+import { ERA_PROP_ATLAS } from './puggler-era-props.js';
+import { FUTURE_CROWD_ATLAS } from './puggler-future-crowd-atlas.js';
+import { HISTORY_CROWD_ATLAS } from './puggler-history-crowd.js';
 import { CROWD_EXTRA_ATLAS } from './puggler-crowd-extra.js';
 const PROP_IDS = ['ball','can','club','bowling','bottle','boot','duck','fish','apple','bell','brick','balloon','guitar','cassette','skateboard','vinyl','mic','cone','glowstick','plushrat'];
 export const COLLAGE_ATLASES = Object.freeze({
@@ -53,6 +56,9 @@ export const COLLAGE_ATLASES = Object.freeze({
   }),
   ...SKIN_ATLASES,
   crowdExtra: CROWD_EXTRA_ATLAS,
+  eraProps: ERA_PROP_ATLAS,
+  historyCrowd: HISTORY_CROWD_ATLAS,
+  futureCrowd: FUTURE_CROWD_ATLAS,
 });
 
 export class PugglerCollage {
@@ -129,7 +135,7 @@ export class PugglerCollage {
   drawProp(c, prop, x, y, spin = 0, size = 1, shadow = 1) {
     // Preserve an exaggerated physical silhouette without stretching the photo.
     const extent = (prop.radius || 26) * 1.6 * size;
-    if(prop.skin&&prop.skin!=='punk')return this.draw(c,prop.skin,prop.id,x,y,extent,extent,spin,shadow);
+    if(prop.skin&&prop.skin!=='punk')return this.draw(c,prop.atlas??prop.skin,prop.sprite??prop.id,x,y,extent,extent,spin,shadow);
     return this.draw(c, 'props', prop.id, x, y, extent, extent, spin, shadow)
       || this.draw(c, 'extra', prop.id, x, y, extent, extent, spin, shadow);
   }

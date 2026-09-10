@@ -4,7 +4,7 @@ export const LIGHTING_SCENES=Object.freeze([
   {id:'footlights',name:'Footlights'},
   {id:'blacklight',name:'Blacklight'},
 ].map(Object.freeze));
-const PALETTES={punk:['#df87b8','#b9df82','#bca1e7','#d9bd7b'],history:['#e7b674','#c5c48e','#d38b74','#91b3a0'],future:['#82e6db','#c9a3f3','#92aedf','#cfe5a3']};
+const PALETTES={punk:['#df87b8','#b9df82','#bca1e7','#d9bd7b'],history:['#e7b674','#c5c48e','#d38b74','#91b3a0'],future:['#38ffe3','#ff4ce1','#9270ff','#dcff52']};
 const clamp=(v,low,high)=>Math.max(low,Math.min(high,Number(v)||0));
 export function lightingState(w,h,model,view,lightingId='house',skinId='punk'){
   const id=LIGHTING_SCENES.some(scene=>scene.id===lightingId)?lightingId:'house';
@@ -20,9 +20,13 @@ export function lightingState(w,h,model,view,lightingId='house',skinId='punk'){
     if(id==='sweep'){tx=w*(.5+Math.sin(time*.43+i*1.7)*.4);spread=w*.12;alpha=.1+energy*.018;}
     else if(id==='footlights'){y=floor-4;ty=h*.09;tx=clamp(x+Math.sin(time*.31+i)*w*.04,0,w);spread=w*.17;alpha=.095+energy*.017;}
     else if(id==='blacklight'){x=w*(.18+i*.32);tx=x+w*.025*Math.sin(time*.26+i);spread=w*.2;alpha=.13+energy*.012;color=['#ac6dea','#75b6ed','#a775ec'][i];}
+    if(skinId==='future'){
+      color=id==='blacklight'?['#d868ff','#59fff0','#ff61dc'][i]:palette[i%palette.length];
+      alpha=id==='house'?.092+energy*.016:id==='sweep'?.128+energy*.018:id==='footlights'?.119+energy*.017:.136+energy*.012;
+    }
     return {x,y,tx,ty,spread,alpha,color};
   });
-  return {id,energy,beams,wash:id==='blacklight'?'#40206722':null};
+  return {id,energy,beams,wash:id==='blacklight'?(skinId==='future'?'#66118822':'#40206722'):null};
 }
 export function renderStageLighting(c,w,h,model,view,lightingId='house',skinId='punk'){
   const state=lightingState(w,h,model,view,lightingId,skinId);

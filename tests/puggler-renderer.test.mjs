@@ -151,3 +151,29 @@ test('a complete ten-object, 1200 BPM frame has no predicted dotted paths and re
   assert.ok(crowd.every(call=>call[4]<=68&&call[7]===0));
   renderer.dispose();
 });
+
+for(const [skin,atlas,hands] of [['history','historyCrowd',['candle','fan','palm','tankard']],['future','futureCrowd',['plasma','holo','robot','alien']]])test(`${skin} crowd, including throwing and catching listeners, uses only its own era cutouts`,()=>{
+  const {c,calls}=context();
+  const canvas={getContext:()=>c,getBoundingClientRect:()=>({width:1030,height:612,left:0}),width:0,height:0};
+  const renderer=new PugglerRenderer(canvas);
+  renderer.collage.dispose();renderer.collage=photographs();
+  const model=new PugglerModel({count:10,tempo:1200,cast:'trio'});
+  for(let i=0;i<90;i++)model.step(1/120);
+  model.audienceThrows=[{time:model.time-.1,x:120,y:40,owner:0}];
+  model.lastCrowdCatch={time:model.time-.15,x:850,y:40};
+  const before=structuredClone(model);
+  renderer.draw(model,{skin,trails:true});
+  const photos=renderer.collage.venue.filter(call=>/crowd/i.test(call[0]));
+  assert.ok(photos.length>15,'both stage listeners and crowd exchanges must render');
+  assert.ok(photos.every(call=>call[0]===atlas));
+  assert.deepEqual(new Set(photos.map(call=>call[1])),new Set(['dread','kid','hat','curls','punk','braids','ponytail','baby',...hands]));
+  assert.ok(photos.every(call=>call[4]<=68&&call[7]===0),'small cutouts without added outlines/shadows');
+  assert.deepEqual(structuredClone(model),before,'crowd presentation cannot mutate the act');
+  // Failed artwork keeps the same era route and finite geometry.
+  renderer.collage.venue.length=0;
+  renderer.collage.draw=(_c,...args)=>{renderer.collage.venue.push(args);return args[0]!==atlas;};
+  renderer.draw(model,{skin});
+  assert.ok(renderer.collage.venue.filter(call=>/crowd/i.test(call[0])).every(call=>call[0]===atlas));
+  assert.ok(calls.flat().filter(value=>typeof value==='number').every(Number.isFinite));
+  renderer.dispose();
+});

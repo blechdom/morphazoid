@@ -4,6 +4,7 @@ import { COLLAGE_ATLASES } from '../src/puggler-collage.js';
 import { PATTERNS } from '../src/puggler.js';
 import { SKINS } from '../src/puggler-skins.js';
 import { LIGHTING_SCENES } from '../src/puggler-lighting.js';
+import { VOCAL_CHARACTERS } from '../src/puggler-vocals.js';
 
 const atlasCount = Object.keys(COLLAGE_ATLASES).length;
 
@@ -118,6 +119,51 @@ test('Puggler separates explicit Audio, output level, mute, pause, and teardown'
   await page.waitForTimeout(200);
   expect((await state(page)).time).toBe(disposedTime);
   expect(errors).toEqual([]);
+});
+
+test('Puggler gives every solo character its own recorded vocal treatment', async ({ page }) => {
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await openShow(page);await page.locator('#count').selectOption('1');
+  await page.locator('#pattern').selectOption('single');await page.locator('#autoRide').uncheck();
+  await range(page,'chaos',0);await range(page,'assist',120);await range(page,'tempo',180);
+  await page.locator('#riffs0').selectOption('oi');await range(page,'impacts',0);await range(page,'boo',0);
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:15000});
+  for(const character of VOCAL_CHARACTERS){
+    await page.locator('#skin').selectOption(character.skin);
+    await page.locator('#cast').selectOption(['puggler','roxy','moss'][character.owner]);
+    await expect.poll(async()=>(await state(page)).vocals.some(v=>v.character===character.id&&v.speaker===character.owner)).toBe(true);
+    const sound=await sampleAudioEnvelope(page,{durationMs:400,intervalMs:40});
+    expect(sound.summary.finite).toBe(true);expect(sound.summary.clippedSamples).toBe(0);
+    expect(await state(page)).toMatchObject({skin:character.skin,running:true,audioOn:true});
+  }
+  await page.locator('#riffs0').selectOption('woo');
+  await expect.poll(async()=>(await state(page)).vocals.some(v=>v.character==='future-quor'&&v.role==='woo')).toBe(true);
+  const sound=await sampleAudioEnvelope(page,{durationMs:1500,intervalMs:50});
+  expect(sound.summary.maxPeak).toBeGreaterThan(.003);expect(sound.summary.clippedSamples).toBe(0);
+  await page.locator('#audioButton').click();
+  expect((await state(page)).vocals).toEqual([]);expect(errors).toEqual([]);
+});
+
+test('Puggler passes keep the thrower voice for the whole flight then give the receiver the next phrase', async ({ page }) => {
+  await openShow(page);await page.locator('#count').selectOption('1');
+  await page.locator('#pattern').selectOption('single');await page.locator('#cast').selectOption('roxy-moss');
+  await page.locator('#autoRide').uncheck();await range(page,'tempo',100);await range(page,'chaos',0);await range(page,'assist',120);
+  await page.locator('#riffs0').selectOption('oi');await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:15000});
+  await expect.poll(async()=>{const s=await state(page);return s.objects[0].phase==='air'&&s.time-s.objects[0].start<.35&&s.objects[0].voiceOwner===1&&s.vocals[0]?.character==='punk-roxy';},{timeout:8000}).toBe(true);
+  const first=await state(page),flight=first.objects[0].start;
+  const snapshots=await page.evaluate(async()=>{
+    const samples=[];const start=performance.now();
+    while(performance.now()-start<2300){samples.push(window.__puggler.snapshot());await new Promise(resolve=>setTimeout(resolve,25));}
+    return samples;
+  });
+  const sameFlight=snapshots.filter(s=>s.objects[0].start===flight&&s.objects[0].phase==='air'&&s.vocals.length);
+  expect(sameFlight.length).toBeGreaterThan(1);
+  expect(sameFlight.every(s=>s.vocals[0].character==='punk-roxy'&&s.vocals[0].speaker===1)).toBe(true);
+  expect(new Set(sameFlight.map(s=>s.vocals[0].startedAt)).size).toBe(1);
+  await expect.poll(async()=>(await state(page)).vocals.some(v=>v.character==='punk-moss'&&v.speaker===2)).toBe(true);
+  expect(await state(page)).toMatchObject({running:true,audioOn:true});
 });
 
 test('fixed keys highlight their buttons and pointer taps and holds perform the same actions', async ({ page }) => {
@@ -333,13 +379,18 @@ test('Puggler keeps juggling with vector artwork when collage images are unavail
   await page.goto('puggler.html');
   await expect.poll(() => page.evaluate(() => window.__puggler?.snapshot().collage.failed)).toBe(atlasCount);
   expect((await state(page)).collage).toMatchObject({ ready: false, loaded: 0, total: atlasCount });
-  await expect.poll(async () => (await state(page)).catches).toBeGreaterThan(0);
+  for(const skin of SKINS){
+    const before=(await state(page)).catches;
+    await page.locator('#skin').selectOption(skin.id);
+    await expect.poll(async () => (await state(page)).catches).toBeGreaterThan(before);
+  }
   expect(await state(page)).toMatchObject({ running: true, audioOn: false, disposed: false });
   expect(errors).toEqual([]);
 });
 
-test('Puggler juggling hits animate a varied rear-view audience including two women and a baby', async ({ page }) => {
+for(const skin of SKINS)test(`Puggler ${skin.id} juggling hits animate a varied rear-view audience including two women and a baby`, async ({ page }) => {
   await openShow(page);
+  await page.locator('#skin').selectOption(skin.id);
   await expect.poll(async () => (await state(page)).crowd.events).toBeGreaterThan(0);
   const samples = [];
   for (let i = 0; i < 12; i++) {
@@ -416,6 +467,29 @@ for (const viewport of [{ width:390, height:844 }, { width:844, height:390 }]) {
     } finally { await context.close(); }
   });
 }
+
+test('Puggler offers the new historical objects and fluorescent octopus through Things',async({page})=>{
+  await openShow(page);
+  await page.locator('#playButton').click();
+  // Pause lets existing flights and crowd replacements finish. Changing form
+  // re-racks the objects into hands so those events cannot replace a menu choice.
+  await page.locator('#phrase').selectOption('loop');
+  expect((await state(page)).objects.every(object=>object.phase==='held')).toBe(true);
+  await page.locator('#skin').selectOption('history');
+  await expect(page.locator('#rider-0')).toContainText('Cavewoman');
+  for(const [id,name] of [['mic','Bones'],['banana','Ham hock'],['plushrat','Swaddled baby'],['skateboard','Harpsichord'],['bowling','Boulder'],['club','Wooden club']]){
+    await page.locator('#object0').selectOption(id);
+    expect((await state(page)).objects[0].name).toBe(name);
+    await expect(page.locator('#object0 option:checked')).toHaveText(name);
+  }
+  await page.locator('#skin').selectOption('future');
+  await page.locator('#object0').selectOption('fish');
+  await expect(page.locator('#object0 option:checked')).toHaveText('Fluorescent octopus');
+  expect((await state(page)).objects[0].name).toBe('Fluorescent octopus');
+  expect(await state(page)).toMatchObject({running:false,audioOn:false});
+  await page.locator('#playButton').click();
+  await expect.poll(async()=>(await state(page)).objects.filter(object=>object.phase==='air').length).toBeGreaterThan(0);
+});
 
 test('Puggler accents juggling contacts with occasional pyrotechnics and releases their tails on pause', async ({ page }, testInfo) => {
   await openShow(page);
