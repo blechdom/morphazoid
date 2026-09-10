@@ -26,6 +26,26 @@ Human documentation explains the system, and executable checks enforce it.
 One layer may point to another, but copying the same policy into every layer
 creates drift.
 
+## Read-only instrument discovery
+
+Run `node scripts/inspect-instrument.mjs puggler` before opening many unrelated
+files. Use a catalogue ID; `--json` includes dependency edges and test candidates.
+The helper resolves its own checkout even when invoked by absolute path from
+another directory, reports the running Node executable and Git state, and uses
+the live public navigation, catalogue, and MIDI-capability exports. It neither
+imports the page application nor starts audio, a server, a build, or tests. It
+requires no installed npm packages. Use the Node versions documented in
+`CONTRIBUTING.md` for subsequent commands.
+
+The inventory follows static HTML/CSS/module references and literal module URLs.
+It labels template-expanded and quoted binary paths as candidates; runtime
+expressions and externally fetched dependencies still need source/browser
+inspection. WAX byte differences can be expected build transformations, and a
+tracked file may still need a build allowlist entry. Use `npm run check:wax-dist`
+for fresh-build parity. Test candidates and capability declarations are starting
+points, not proof of behavior. Select the commands appropriate to the edit;
+the helper's output is not a request to run every listed suite.
+
 ## Repository placement
 
 - Keep the public overview and quick start in root `README.md`.

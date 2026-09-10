@@ -25,6 +25,9 @@ command names.
 - Read the relevant implementation and nearby shared utilities before editing.
   Inspect at least two useful sibling instruments before creating or materially
   redesigning one.
+- For a browser instrument, `node scripts/inspect-instrument.mjs <catalogue-id>`
+  inventories its entries, dependencies, registration, WAX copies, and test
+  candidates without changing files; see `docs/agent-tooling.md` for its limits.
 - For a browser preview, verify the responding endpoint and report the exact URL
   and worktree. The dev server may choose a port after 3435, while Playwright
   always targets 3435 and can reuse an existing server. Verify what each port

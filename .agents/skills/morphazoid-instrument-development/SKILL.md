@@ -16,6 +16,12 @@ take precedence over this workflow.
 2. Verify the repository root, branch/worktree, dirty state, and active preview
    root. Preserve existing changes. Keep one writer per worktree or overlapping
    file set; use parallel agents only for read-only work or isolated worktrees.
+   Run `node scripts/inspect-instrument.mjs <catalogue-id>` for the page or chosen
+   siblings to collect actual entries, dependency edges (`--json`), registration,
+   asset/WAX observations, and candidate commands in one read-only pass. It finds
+   its checkout from the script path and reports the current Node executable;
+   use the supported Node versions in `CONTRIBUTING.md`, not a remembered local
+   installation path. Review its discovery limits before relying on the result.
 3. For creation or a core redesign, inspect at least two siblings chosen for
    relevant architecture or interaction patterns. Identify which parts to reuse
    and which musical mapping must remain unique. Treat siblings as evidence,
@@ -54,6 +60,13 @@ cultural subject, read
 the model or product claims. Research only far enough to support the core
 mapping, safe ranges, limitations, and product wording for the requested slice;
 do not turn a prototype into an exhaustive literature review.
+
+For event-driven physical games, moving sound objects, or several independently
+controlled performers, read
+[references/simulation-sonification.md](references/simulation-sonification.md)
+for identity, contact timing, transport, audio layering, and targeted acceptance
+scenes. Its Puggler examples explain failure modes; they do not prescribe other
+instruments' aesthetic or pause behavior.
 
 ## Build in vertical slices
 
@@ -112,6 +125,14 @@ the mechanical layout, input, transport, and lifecycle gate. Follow with
 identity, control leverage, transition quality, visual causality, listening, or
 physical feel is in scope. State explicitly when human listening or
 physical-device checks were not performed.
+
+Choose checks for the changed behavior, regenerate WAX when runtime changes,
+then run the integration checks once against the final source/artifact state.
+Repeat a passed check when subsequent edits or new evidence invalidate it;
+documentation-only edits do not warrant another full browser/audio pass. Keep
+implementation, source tests, browser checks, WAX parity, and listening evidence
+distinct in the handoff so an inventory or one green suite cannot imply all of
+them passed.
 
 If previewing, use the repository development command, verify the endpoint, and
 report the exact URL and worktree. If publishing is requested, confirm the
