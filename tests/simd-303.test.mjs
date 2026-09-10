@@ -481,6 +481,7 @@ test("SIMD 303 ships as a separate page with the shared 303 control surface", as
   assert.match(html, /id="userPresetName"/);
   assert.match(html, /id="saveUserPreset"/);
   assert.match(html, /id="deleteUserPreset"/);
+  assert.match(html, /Morph A\/B controls are parked for now/);
   assert.match(html, /id="captureMorphA"/);
   assert.match(html, /id="captureMorphB"/);
   assert.match(html, /id="morphTime"/);

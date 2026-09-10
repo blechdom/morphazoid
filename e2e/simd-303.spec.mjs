@@ -38,8 +38,7 @@ test.describe("SIMD 303", () => {
     await expect(page.locator(".simd-stage-toolbar [data-main-action]")).toHaveCount(7);
     await expect(page.locator("#stageSynthPlayButton")).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator("#simdXlControls input[type=range]")).toHaveCount(7);
-    await expect(page.locator("#morphTimeOut")).toHaveText("1.96 sec");
-    await expect(page.locator("#startMorph")).toBeDisabled();
+    await expect(page.locator(".simd-morph-strip")).toHaveCount(0);
 
     await page.locator('.simd-stage-toolbar [data-step-edit-mode="accent"]').click();
     await expect(page.locator('.simd-stage-toolbar [data-step-edit-mode="accent"]')).toHaveAttribute("aria-pressed", "true");
@@ -71,17 +70,6 @@ test.describe("SIMD 303", () => {
     await page.keyboard.press("End");
     await expect(page.locator("#spectrumMorph")).toHaveValue("3");
     await expect(page.locator("#spectrumMorphOut")).toHaveText("Triangle");
-    await page.locator("#captureMorphA").click();
-    await expect(page.locator("#captureMorphA")).toContainText("✓");
-    await page.locator("#stagePresetSelect").selectOption("cathedral-tail");
-    await page.locator("#captureMorphB").click();
-    await expect(page.locator("#captureMorphB")).toContainText("✓");
-    await page.locator("#stagePresetSelect").selectOption("filter-snap");
-    await page.locator("#morphTarget").selectOption("b");
-    await page.locator("#morphScope").selectOption("effects");
-    await page.locator("#morphTime").fill("0.25");
-    await expect(page.locator("#morphTimeOut")).toHaveText("589 ms");
-
     await page.locator("#audioButton").click();
     await expect(page.locator("#audioState")).toHaveText("on", { timeout: 10_000 });
     await expect(page.locator("#backendMetric")).toHaveText("SIMD Wasm");
@@ -97,30 +85,6 @@ test.describe("SIMD 303", () => {
     await expect(page.locator("#stageReadout")).toContainText("SYNTH PLAYING");
     await expect.poll(() => page.evaluate(() => globalThis.__simd303ScopeReads)).toBeGreaterThan(0);
     await expect.poll(() => page.evaluate(() => globalThis.__simd303ScopePeak)).toBeGreaterThan(0.0001);
-
-    await page.locator("#startMorph").click();
-    await expect(page.locator("#startMorph")).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("#liveStatus")).toHaveText("Morph to B complete.");
-    await expect(page.locator("#delayMix")).toHaveValue("0.68");
-    await expect(page.locator("#spectrumMorph")).toHaveValue("0");
-    await expect(page.locator("#timeScaleOut")).toHaveText("7.40x");
-    await expect(page.locator("#gain")).toHaveValue("0.1");
-    await page.locator("#morphTarget").selectOption("a");
-    await page.locator("#morphScope").selectOption("all");
-    await page.locator("#startMorph").click();
-    await expect(page.locator("#liveStatus")).toHaveText("Morph to A complete.");
-    await expect(page.locator("#spectrumMorph")).toHaveValue("3");
-    await expect(page.locator("#delayMix")).toHaveValue("0.2");
-    await expect(page.locator("#timeScaleOut")).toHaveText("7.40x");
-    await expect(page.locator("#gain")).toHaveValue("0.1");
-    await page.locator("#morphTarget").selectOption("b");
-    await page.locator("#morphTime").fill("1");
-    await page.locator("#startMorph").click();
-    await expect(page.locator("#startMorph")).toHaveAttribute("aria-pressed", "true");
-    await page.locator('#presetButtons [data-preset-id="filter-snap"]').click();
-    await expect(page.locator("#startMorph")).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator("#liveStatus")).toHaveText("Lysergic Ribbon recalled. Expression and effects reset.");
-    await expect(page.locator("#spectrumMorph")).toHaveValue("0");
 
     await page.locator('[data-main-action="randomize-expression"]').click();
     await page.locator("#recallStagePreset").click();

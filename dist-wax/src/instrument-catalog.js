@@ -525,8 +525,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "simd-303": define(
     "Expressive WebAssembly SIMD synth",
-    "Expands the WebGPU 303 acid model with 512 band-limited partials, harmonic morphing, per-step expression, chorus, delay, and render-clock A/B patch morphing inside a 128-frame AudioWorklet.",
-    "Turn on Audio, press Play synth, shape the pattern, save named patches to My presets in this browser, or capture two patches as A and B and morph their tone, effects, or complete state over seconds, steps, or bars.",
+    "Expands the WebGPU 303 acid model with 512 band-limited partials, harmonic spectrum shaping, per-step expression, chorus, and delay inside a 128-frame AudioWorklet.",
+    "Turn on Audio, press Play synth, shape the pattern and effects, or save named patches to My presets in this browser.",
     ["WebAssembly SIMD", "AudioWorklet", "Built-in synth", "Step sequencer", "Effects", "Pointer"],
   ),
   "webgpu-chiptune": define(
