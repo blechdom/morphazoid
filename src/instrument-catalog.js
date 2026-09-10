@@ -523,6 +523,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Streams a WGSL compute-shader acid voice into Web Audio chunks as a separate GPU synthesis instrument.",
     "Use a WebGPU-capable browser, turn on Audio, then shape the pattern, partials, filter, and chunk settings.",
   ),
+  "simd-303": define(
+    "Expressive WebAssembly SIMD synth",
+    "Expands the WebGPU 303 acid model with 512 band-limited partials, harmonic morphing, per-step expression, chorus, delay, and render-clock A/B patch morphing inside a 128-frame AudioWorklet.",
+    "Turn on Audio, press Play synth, shape the pattern, save named patches to My presets in this browser, or capture two patches as A and B and morph their tone, effects, or complete state over seconds, steps, or bars.",
+    ["WebAssembly SIMD", "AudioWorklet", "Built-in synth", "Step sequencer", "Effects", "Pointer"],
+  ),
   "webgpu-chiptune": define(
     "WebGPU tracker synth",
     "Translates srtuss's 2015 Shadertoy Chiptune sound shader into a live WGSL score with chip voices, drums, noise, and eight-tap ping-pong echo.",

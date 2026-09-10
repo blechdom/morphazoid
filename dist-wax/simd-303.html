@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid SIMD 303 - the WebGPU 303 acid voice rebuilt for four-lane WebAssembly SIMD."
+    />
+    <title>SIMD 303 - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="webgpu-303.css" />
+    <link rel="stylesheet" href="simd-303.css" />
+  </head>
+  <body class="webgpu-303-page simd-303-page" data-audio-backend="simd">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="rubix.html">rubix</a>
+        <a class="tab" href="hyper-rubix.html">hyper rubix</a>
+        <a class="tab webgpu-303-tab" href="webgpu-303.html">webgpu 303</a>
+        <a class="tab active webgpu-303-tab" href="simd-303.html" aria-current="page">simd 303</a>
+        <a class="tab" href="webgpu-chiptune.html">webgpu chiptune</a>
+        <a class="tab webgpu-303-tab" href="webgpu-synths.html">gpu shader synths</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="rubix.html">rubix</option>
+          <option value="hyper-rubix.html">hyper rubix</option>
+          <option value="webgpu-303.html">webgpu 303</option>
+          <option value="simd-303.html" selected>simd 303</option>
+          <option value="webgpu-chiptune.html">webgpu chiptune</option>
+          <option value="webgpu-synths.html">gpu shader synths</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph webgpu-303-audio-glyph" aria-hidden="true">◆</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">100%</output></span>
+          <input
+            id="output"
+            aria-label="SIMD 303 output level"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="1"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell webgpu-303-shell" id="simd303">
+      <section class="stage webgpu-303-stage" aria-labelledby="simd303Title">
+        <div class="stage-wrap webgpu-303-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            role="img"
+            aria-label="SIMD 303 acid pattern, harmonic partials, and output trace. Audio off."
+            aria-describedby="simd303Description liveStatus"
+          >
+            SIMD 303 pattern and output trace.
+          </canvas>
+
+          <div class="webgpu-303-heading">
+            <p>WASM SIMD SYNTHS</p>
+            <h1 id="simd303Title">SIMD 303</h1>
+            <span id="engineBadge">f32x4 acid voice</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">SIMD - STANDBY - AUDIO OFF</span>
+          </div>
+        </div>
+
+        <div class="webgpu-stage-knobs" aria-label="SIMD 303 knob controls">
+          <div class="simd-stage-transport" aria-label="Transport and preset controls">
+            <span class="simd-control-zone-label" aria-hidden="true">Transport</span>
+            <button
+              class="play-button webgpu-303-play-button simd-stage-play"
+              id="stageSynthPlayButton"
+              type="button"
+              aria-pressed="false"
+              aria-label="Play SIMD 303 synth"
+              aria-keyshortcuts="Space"
+              title="Play SIMD 303 synth (Space)"
+            >
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            </button>
+
+            <div class="webgpu-knob-bank simd-transport-knobs" id="transportKnobControls" aria-label="Transport knobs"></div>
+            <label class="simd-stage-preset" for="stagePresetSelect">
+              <span>Preset</span>
+              <select id="stagePresetSelect" aria-label="Recall SIMD 303 preset"></select>
+            </label>
+            <button class="mini-action simd-recovery-action" id="recallStagePreset" type="button">Recall preset</button>
+            <div class="simd-user-preset-tools" aria-label="Browser preset storage">
+              <label for="userPresetName">
+                <span>My preset</span>
+                <input
+                  id="userPresetName"
+                  type="text"
+                  maxlength="48"
+                  autocomplete="off"
+                  placeholder="Preset name"
+                  aria-label="Name for saved preset"
+                />
+              </label>
+              <button class="mini-action" id="saveUserPreset" type="button">Save</button>
+              <button class="mini-action" id="deleteUserPreset" type="button" disabled>Delete</button>
+              <small id="userPresetState">Browser local</small>
+            </div>
+          </div>
+
+          <div class="simd-stage-toolbar" aria-label="SIMD 303 sequencer controls">
+            <div class="simd-stage-toolbar-group simd-stage-expression-modes" role="group" aria-label="Step expression lane">
+              <button type="button" data-step-edit-mode="pitch" aria-pressed="true">Pitch</button>
+              <button type="button" data-step-edit-mode="accent" aria-pressed="false">Accent</button>
+              <button type="button" data-step-edit-mode="gate" aria-pressed="false">Gate</button>
+              <button type="button" data-step-edit-mode="slide" aria-pressed="false">Slide</button>
+              <button type="button" data-step-edit-mode="chance" aria-pressed="false">Chance</button>
+            </div>
+
+            <div class="simd-stage-toolbar-group" role="group" aria-label="Patch and expression actions">
+              <button class="mini-action" id="randomizePatch" type="button">Random patch</button>
+              <button class="mini-action" id="mutatePatch" type="button">Mutate patch</button>
+              <button class="mini-action" type="button" data-main-action="acidize-expression" aria-label="Acidize step expression">Acidize</button>
+              <button class="mini-action" type="button" data-main-action="randomize-expression" aria-label="Randomize step expression">Random expr</button>
+              <button class="mini-action simd-recovery-action" type="button" data-main-action="reset-expression" aria-label="Reset step expression">Reset expr</button>
+            </div>
+
+            <div class="simd-stage-toolbar-group" role="group" aria-label="Sequence actions">
+              <button class="mini-action" type="button" data-main-action="source-noise">Source noise</button>
+              <button class="mini-action" type="button" data-main-action="randomize-sequence">Randomize</button>
+              <button class="mini-action" type="button" data-main-action="mutate-sequence">Mutate</button>
+              <button class="mini-action" type="button" data-main-action="invert-sequence">Invert</button>
+            </div>
+          </div>
+
+          <div class="simd-morph-strip" aria-label="A and B patch morph">
+            <span class="simd-control-zone-label" aria-hidden="true">Morph</span>
+            <div class="simd-morph-actions" role="group" aria-label="Capture morph endpoints">
+              <button class="mini-action" id="captureMorphA" type="button">Set A</button>
+              <button class="mini-action" id="captureMorphB" type="button">Set B</button>
+              <button class="mini-action" id="swapMorph" type="button" disabled>Swap</button>
+            </div>
+            <label class="simd-morph-time" for="morphTime">
+              <span>Time</span>
+              <input id="morphTime" type="range" min="0" max="1" step="0.001" value="0.42" />
+              <output id="morphTimeOut" for="morphTime">1.96 sec</output>
+            </label>
+            <label class="simd-morph-select" for="morphUnit">
+              <span>Unit</span>
+              <select id="morphUnit">
+                <option value="seconds">Seconds</option>
+                <option value="steps">Steps</option>
+                <option value="bars">Bars</option>
+              </select>
+            </label>
+            <label class="simd-morph-select" for="morphScope">
+              <span>Scope</span>
+              <select id="morphScope">
+                <option value="tone">Tone</option>
+                <option value="effects">Effects</option>
+                <option value="all">All</option>
+              </select>
+            </label>
+            <label class="simd-morph-select" for="morphTarget">
+              <span>Target</span>
+              <select id="morphTarget">
+                <option value="a">A</option>
+                <option value="b">B</option>
+              </select>
+            </label>
+            <button class="mini-action simd-morph-go" id="startMorph" type="button" aria-pressed="false" disabled>Morph</button>
+            <span class="simd-morph-state" id="morphState" aria-live="polite">Capture A + B</span>
+          </div>
+          <div class="simd-knob-groups" id="knobControls" aria-label="Voice, filter, and effects knobs"></div>
+        </div>
+      </section>
+
+      <aside class="panel webgpu-303-panel" aria-label="SIMD 303 controls">
+        <div class="webgpu-status-strip" aria-live="polite">
+          <b id="gpuState">Checking WebAssembly</b>
+          <small id="streamState">128-frame AudioWorklet</small>
+        </div>
+
+        <div class="webgpu-303-credit" aria-label="Original shader credit">
+          <span>SIMD port · Acid voice lineage</span>
+          <a href="https://www.shadertoy.com/view/ldfSW2">sound - acid jam by srtuss on Shadertoy</a>
+        </div>
+
+        <details class="group control-section webgpu-303-section webgpu-303-presets" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Pattern</h2>
+            <span class="section-state" id="patternState">source acid synth</span>
+          </summary>
+          <div class="group-body">
+            <div class="webgpu-303-transport-row">
+              <button
+                class="play-button webgpu-303-play-button"
+                id="synthPlayButton"
+                type="button"
+                aria-pressed="false"
+                aria-label="Play SIMD 303 synth"
+                aria-keyshortcuts="Space"
+                title="Play SIMD 303 synth (Space)"
+                data-primary-transport
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <span class="webgpu-303-transport-copy">
+                <b id="synthPlayLabel">Play synth</b>
+                <small id="synthPlayState">paused · Space</small>
+              </span>
+            </div>
+            <div class="webgpu-preset-grid" id="presetButtons" role="group" aria-label="SIMD 303 presets"></div>
+            <div class="webgpu-sequence-actions" aria-label="Sequence actions">
+              <button class="mini-action" id="clearSequence" type="button">Source noise</button>
+              <button class="mini-action" id="randomizeSequence" type="button">Randomize</button>
+              <button class="mini-action" id="mutateSequence" type="button">Mutate</button>
+              <button class="mini-action" id="invertSequence" type="button">Invert</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section webgpu-303-section simd-expression-section" data-section="expression" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Step expression</h2>
+            <span class="section-state" id="stepExpressionState">pitch lane</span>
+          </summary>
+          <div class="group-body">
+            <div class="simd-step-edit-modes" role="group" aria-label="Pattern lane to edit">
+              <button type="button" data-step-edit-mode="pitch" aria-pressed="true">Pitch</button>
+              <button type="button" data-step-edit-mode="accent" aria-pressed="false">Accent</button>
+              <button type="button" data-step-edit-mode="gate" aria-pressed="false">Gate</button>
+              <button type="button" data-step-edit-mode="slide" aria-pressed="false">Slide</button>
+              <button type="button" data-step-edit-mode="chance" aria-pressed="false">Chance</button>
+            </div>
+            <p class="simd-expression-hint">Choose a lane, then drag its bars in the main pattern. Shift-drag restores a step to its neutral value.</p>
+            <div class="webgpu-sequence-actions">
+              <button class="mini-action" id="acidizeStepExpression" type="button">Acidize steps</button>
+              <button class="mini-action" id="randomizeStepExpression" type="button">Random expression</button>
+              <button class="mini-action" id="resetStepExpression" type="button">Reset expression</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Filter</h2>
+            <span class="section-state" id="filterState">drive 0.50</span>
+          </summary>
+          <div class="group-body" id="filterControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Core</h2>
+            <span class="section-state" id="coreState">251.189 Hz</span>
+          </summary>
+          <div class="group-body" id="coreControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Voice</h2>
+            <span class="section-state" id="voiceState">256 partials</span>
+          </summary>
+          <div class="group-body" id="voiceControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section simd-xl-section" data-section="xl" open>
+          <summary class="group-summary">
+            <h2 class="group-title">XL voice + FX</h2>
+            <span class="section-state" id="xlState">256 partials · saw</span>
+          </summary>
+          <div class="group-body" id="simdXlControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section webgpu-runtime-section" data-section="output">
+          <summary class="group-summary">
+            <h2 class="group-title">SIMD Stream</h2>
+            <span class="section-state" id="runtimeState">automatic backend</span>
+          </summary>
+          <div class="group-body">
+            <dl class="simd-303-metrics">
+              <div><dt>Backend</dt><dd id="backendMetric">not loaded</dd></div>
+              <div><dt>Lane width</dt><dd id="laneMetric">—</dd></div>
+              <div><dt>Render budget</dt><dd id="budgetMetric">128 frames</dd></div>
+              <div><dt>Kernel</dt><dd id="kernelMetric">—</dd></div>
+              <div><dt>DSP load</dt><dd id="loadMetric">—</dd></div>
+            </dl>
+            <p class="webgpu-credit-note">
+              Four adjacent samples run in each <code>f32x4</code> lane group. Up to 512 requested partials are dynamically band-limited before the stereo chorus and tempo-step delay. The scalar Wasm build remains available as an automatic fallback.
+            </p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetPatch" type="button" data-reset-all data-reset-in-place>
+            Reset patch
+          </button>
+        </div>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+      </aside>
+
+      <p class="sr-only" id="simd303Description">
+        A four-lane WebAssembly SIMD kernel renders a band-limited, expressive extension of the WebGPU 303 acid synthesis model directly inside an AudioWorklet. The oscilloscope displays the live post-effects signal sent to the output.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="simd-303-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

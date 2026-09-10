@@ -12,11 +12,25 @@ const builds = [
     source: "src/simd-resonator-scalar.ts",
     output: "simd-resonator-scalar.wasm",
     options: [],
+    memoryPages: 4,
   },
   {
     source: "src/simd-resonator-simd.ts",
     output: "simd-resonator-simd.wasm",
     options: ["--enable", "simd"],
+    memoryPages: 4,
+  },
+  {
+    source: "src/simd-303-scalar.ts",
+    output: "simd-303-scalar.wasm",
+    options: [],
+    memoryPages: 16,
+  },
+  {
+    source: "src/simd-303-simd.ts",
+    output: "simd-303-simd.wasm",
+    options: ["--enable", "simd"],
+    memoryPages: 16,
   },
 ];
 
@@ -33,9 +47,9 @@ for (const build of builds) {
     "--optimize",
     "--noAssert",
     "--initialMemory",
-    "4",
+    String(build.memoryPages),
     "--maximumMemory",
-    "4",
+    String(build.memoryPages),
     ...build.options,
   ], {
     cwd: repositoryRoot,

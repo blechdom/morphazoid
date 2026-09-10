@@ -14,12 +14,43 @@ import {
   webGpu303SourceControlFromFundamental,
   webGpu303Support,
 } from "./src/webgpu-303.js";
+import {
+  SIMD_303_STEP_EXPRESSION_DEFAULT,
+  SIMD_303_XL_DEFAULTS,
+  Simd303Audio,
+  sanitizeSimd303Params,
+  sanitizeSimd303StepExpression,
+  sanitizeSimd303XlParams,
+  simd303Support,
+} from "./src/simd-303.js";
+import { SIMD_303_EXPANSION_PRESETS } from "./src/simd-303-presets.js";
+import {
+  createSimd303MorphSnapshot,
+  formatSimd303MorphTime,
+  interpolateSimd303MorphSnapshot,
+  resolveSimd303MorphTarget,
+  simd303MorphDurationSeconds,
+  simd303MorphTimeFromControl,
+} from "./src/simd-303-morph.js";
+import {
+  createSimd303UserPreset,
+  loadSimd303UserPresets,
+  persistSimd303UserPresets,
+  sanitizeSimd303UserPresetName,
+  SIMD_303_USER_PRESET_LIMIT,
+  SIMD_303_USER_PRESET_STORAGE_KEY,
+} from "./src/simd-303-user-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
 const fract = (value) => value - Math.floor(value);
 const sequence = (...values) => sanitizeWebGpu303Sequence(values);
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const isSimdPage = document.body?.dataset.audioBackend === "simd";
+const instrumentName = isSimdPage ? "SIMD 303" : "WebGPU 303";
+const engineLabel = isSimdPage ? "SIMD" : "WEBGPU";
+const sanitize303Params = isSimdPage ? sanitizeSimd303Params : sanitizeWebGpu303Params;
+const stepExpressionComponent = Object.freeze({ accent: 0, gate: 1, slide: 2, chance: 3 });
 
 function presetParams(values) {
   for (const key of WEBGPU_303_PARAM_ORDER) {
@@ -41,6 +72,7 @@ const PATTERN_FOOT_TOP = 0.89;
 const PATTERN_FOOT_HEIGHT = 4;
 const PARTIALS_BASE_Y = 0.92;
 const PARTIALS_TOP_SCALE = 0.1;
+const SILENT_SCOPE_DATA = new Float32Array(2);
 
 function clockControlToTimeScale(value) {
   const normalized = clamp(value, CLOCK_CONTROL_MIN, CLOCK_CONTROL_MAX);
@@ -84,7 +116,7 @@ const controlGroups = Object.freeze({
     { key: "gain", label: "Shader gain", min: 0, max: 0.75, step: 0.01 },
   ]),
   voice: Object.freeze([
-    { key: "partials", label: "Partials", min: 1, max: 256, step: 1 },
+    { key: "partials", label: "Partials", min: 1, max: isSimdPage ? 512 : 256, step: 1 },
     { key: "ratio", label: "Ratio", min: 1, max: 32, step: 0.01 },
     { key: "sampOffset", label: "Sample offset", min: 1, max: 32, step: 1 },
     { key: "dur", label: "Accent decay", min: 0.001, max: 2, step: 0.001 },
@@ -104,7 +136,33 @@ const controlSpecs = Object.freeze([
   ...controlGroups.voice,
   ...controlGroups.filter,
 ]);
-const controlSpecsByKey = new Map(controlSpecs.map((spec) => [spec.key, spec]));
+const simdXlControlSpecs = Object.freeze([
+  {
+    key: "spectrumMorph",
+    source: "xl",
+    label: "Harmonic morph",
+    min: 0,
+    max: 3,
+    step: 0.01,
+    format: (value) => {
+      const names = ["Saw", "Square", "Pulse", "Triangle"];
+      const position = Math.min(2, Math.floor(value));
+      const amount = value - position;
+      if (amount < 0.02) return names[position];
+      if (amount > 0.98) return names[position + 1];
+      return `${names[position]} → ${names[position + 1]} ${Math.round(amount * 100)}%`;
+    },
+  },
+  { key: "chorusMix", source: "xl", label: "Chorus mix", min: 0, max: 1, step: 0.01, format: (value) => `${Math.round(value * 100)}%` },
+  { key: "chorusDepth", source: "xl", label: "Chorus depth", min: 0, max: 12, step: 0.1, format: (value) => `${value.toFixed(1)} ms` },
+  { key: "chorusRate", source: "xl", label: "Chorus rate", min: 0.05, max: 5, step: 0.01, format: (value) => `${value.toFixed(2)} Hz` },
+  { key: "delayMix", source: "xl", label: "Delay mix", min: 0, max: 1, step: 0.01, format: (value) => `${Math.round(value * 100)}%` },
+  { key: "delaySteps", source: "xl", label: "Delay time", min: 0.25, max: 8, step: 0.25, format: (value) => `${value.toFixed(2)} steps` },
+  { key: "delayFeedback", source: "xl", label: "Delay feedback", min: 0, max: 0.85, step: 0.01, format: (value) => `${Math.round(value * 100)}%` },
+]);
+const controlSpecsByKey = new Map(
+  [...controlSpecs, ...simdXlControlSpecs].map((spec) => [spec.key, spec]),
+);
 const knobLabels = Object.freeze({
   flt: "Cutoff",
   res: "Reso",
@@ -121,8 +179,15 @@ const knobLabels = Object.freeze({
   timeMod: "Steps",
   gain: "Level",
   nse: "Oracle",
+  spectrumMorph: "Spectrum",
+  chorusMix: "Chorus",
+  chorusDepth: "Ch depth",
+  chorusRate: "Ch rate",
+  delayMix: "Delay",
+  delaySteps: "Delay time",
+  delayFeedback: "Feedback",
 });
-const knobOrder = Object.freeze([
+const webGpuKnobOrder = Object.freeze([
   "timeScale",
   "timeMod",
   "flt",
@@ -139,10 +204,36 @@ const knobOrder = Object.freeze([
   "gain",
   "nse",
 ]);
+const simdKnobGroups = Object.freeze({
+  transport: Object.freeze(["timeScale", "timeMod", "gain"]),
+  voice: Object.freeze([
+    "fundamental",
+    "frequency",
+    "ratio",
+    "sampOffset",
+    "partials",
+    "dur",
+    "spectrumMorph",
+    "nse",
+  ]),
+  filter: Object.freeze(["flt", "res", "dist", "lfo"]),
+  effects: Object.freeze([
+    "stereo",
+    "chorusMix",
+    "chorusDepth",
+    "chorusRate",
+    "delayMix",
+    "delaySteps",
+    "delayFeedback",
+  ]),
+});
+const knobOrder = Object.freeze(isSimdPage
+  ? Object.values(simdKnobGroups).flat()
+  : webGpuKnobOrder);
 const knobHueByKey = new Map(knobOrder.map((key, index) => [key, (index * 47 + 312) % 360]));
 const integerParams = new Set(["partials", "timeMod", "sampOffset"]);
 const SAFE_RANDOM_PARAM_RANGES = Object.freeze({
-  partials: Object.freeze([64, 256]),
+  partials: Object.freeze([64, isSimdPage ? 512 : 256]),
   frequency: Object.freeze([22, 96]),
   timeMod: Object.freeze([8, 128]),
   timeScale: Object.freeze([0.85, 16]),
@@ -180,7 +271,7 @@ const MUTATE_PATCH_AMOUNTS = Object.freeze({
   gain: 0.05,
 });
 
-const presets = Object.freeze([
+const sourcePresets = Object.freeze([
   {
     id: "source-acid-synth",
     label: "Source Acid Synth",
@@ -430,11 +521,30 @@ const presets = Object.freeze([
     sequence: sequence(0.24, 0.72, 0.35, 0.68, 0.18, 0.82, 0.42, 0.91, 0.3, 0.64, 0.5, 0.76, 0.27, 0.58, 0.46, 0.87, 0.34, 0.7, 0.22, 0.79, 0.4, 0.95, 0.52, 0.66, 0.28, 0.61, 0.48, 0.84, 0.36, 0.74, 0.2, 0.89, 0.45, 0.69, 0.31, 0.8, 0.56, 0.73, 0.38, 0.93),
   },
 ]);
+const factoryPresets = Object.freeze(isSimdPage
+  ? [...sourcePresets, ...SIMD_303_EXPANSION_PRESETS]
+  : [...sourcePresets]);
 
-const support = webGpu303Support(globalThis);
+function browserPresetStorage() {
+  if (!isSimdPage) return null;
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const presetStorage = browserPresetStorage();
+let userPresets = loadSimd303UserPresets(presetStorage);
+let presets = [...factoryPresets, ...userPresets];
+
+const support = isSimdPage ? simd303Support(globalThis) : webGpu303Support(globalThis);
 const state = {
-  params: sanitizeWebGpu303Params(),
+  params: sanitize303Params(),
   sequence: sanitizeWebGpu303Sequence(WEBGPU_303_SOURCE_SEQUENCE),
+  xlParams: sanitizeSimd303XlParams(SIMD_303_XL_DEFAULTS),
+  stepExpression: sanitizeSimd303StepExpression(),
+  stepEditMode: "pitch",
   presetId: "source-acid-synth",
   audioOn: false,
   synthPlaying: false,
@@ -453,12 +563,191 @@ let audioStartPromise = null;
 let audioLifecycleGeneration = 0;
 let animationFrame = 0;
 let activeKnobDrag = null;
+const morphSlots = { a: null, b: null };
+let activeMorph = null;
+let morphLastUiUpdate = 0;
 
 function announce(message) {
   $("liveStatus").textContent = "";
   requestAnimationFrame(() => {
     $("liveStatus").textContent = message;
   });
+}
+
+function presetRecallMessage(preset) {
+  if (!isSimdPage) return `${preset.label} selected.`;
+  if (preset.userPreset) return `${preset.label} recalled from this browser.`;
+  if (preset.xlParams || preset.stepExpression) {
+    return `${preset.label} recalled with its effects and step expression.`;
+  }
+  return `${preset.label} recalled. Expression and effects reset.`;
+}
+
+function morphClockNow() {
+  const playbackTime = engine?.currentPlaybackTime?.();
+  if (Number.isFinite(playbackTime)) return playbackTime * 1_000;
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function currentPatchLabel() {
+  return presets.find(({ id }) => id === state.presetId)?.label ?? "Custom patch";
+}
+
+function currentMorphSnapshot(label = currentPatchLabel()) {
+  return createSimd303MorphSnapshot({
+    params: state.params,
+    sequence: state.sequence,
+    xlParams: state.xlParams,
+    stepExpression: state.stepExpression,
+    label,
+  });
+}
+
+function assignMorphSnapshot(snapshot) {
+  state.params = { ...snapshot.params };
+  state.sequence = [...snapshot.sequence];
+  state.xlParams = { ...snapshot.xlParams };
+  state.stepExpression = snapshot.stepExpression.map((step) => [...step]);
+  state.presetId = "custom";
+}
+
+function morphRawProgress(now = morphClockNow()) {
+  if (!activeMorph) return 0;
+  return clamp((now - activeMorph.startedAt) / activeMorph.durationMs, 0, 1);
+}
+
+function updateMorphTimeOutput() {
+  if (!isSimdPage || !$("morphTime")) return;
+  const unit = $("morphUnit").value;
+  const value = simd303MorphTimeFromControl($("morphTime").value, unit);
+  $("morphTimeOut").textContent = formatSimd303MorphTime(value, unit);
+}
+
+function updateMorphControls(progress = activeMorph ? morphRawProgress() : 0) {
+  if (!isSimdPage || !$("startMorph")) return;
+  const target = $("morphTarget").value === "b" ? "b" : "a";
+  const targetSnapshot = morphSlots[target];
+  for (const slot of ["a", "b"]) {
+    const button = $(`captureMorph${slot.toUpperCase()}`);
+    const snapshot = morphSlots[slot];
+    button.textContent = snapshot ? `Set ${slot.toUpperCase()} ✓` : `Set ${slot.toUpperCase()}`;
+    button.title = snapshot ? `${slot.toUpperCase()}: ${snapshot.label}` : `Capture the current patch as ${slot.toUpperCase()}`;
+  }
+  for (const option of $("morphTarget").options) {
+    option.disabled = !morphSlots[option.value];
+  }
+  $("swapMorph").disabled = activeMorph || !morphSlots.a || !morphSlots.b;
+  $("startMorph").disabled = activeMorph ? false : !state.audioOn || !targetSnapshot;
+  $("startMorph").textContent = activeMorph ? "Stop" : "Morph";
+  $("startMorph").setAttribute("aria-pressed", String(Boolean(activeMorph)));
+  $("startMorph").style.setProperty("--morph-progress", `${Math.round(progress * 100)}%`);
+  if (activeMorph) {
+    $("morphState").textContent = `${Math.round(progress * 100)}% → ${activeMorph.targetSlot.toUpperCase()} · ${activeMorph.scope}`;
+  } else if (morphSlots.a || morphSlots.b) {
+    const a = morphSlots.a?.label ?? "empty";
+    const b = morphSlots.b?.label ?? "empty";
+    $("morphState").textContent = `A ${a} · B ${b}`;
+  } else {
+    $("morphState").textContent = "Capture A + B";
+  }
+  updateMorphTimeOutput();
+}
+
+function updateActiveMorph(now = morphClockNow(), { forceUi = false } = {}) {
+  if (!activeMorph) return;
+  const progress = morphRawProgress(now);
+  const snapshot = interpolateSimd303MorphSnapshot(
+    activeMorph.from,
+    activeMorph.to,
+    progress,
+  );
+  assignMorphSnapshot(snapshot);
+  if (forceUi || now - morphLastUiUpdate >= 45 || progress >= 1) {
+    syncParamOutputs();
+    updateMorphControls(progress);
+    morphLastUiUpdate = now;
+  }
+  if (progress < 1) return;
+  const completed = activeMorph;
+  assignMorphSnapshot(completed.to);
+  activeMorph = null;
+  syncParamOutputs();
+  updateMorphControls(1);
+  announce(`Morph to ${completed.targetSlot.toUpperCase()} complete.`);
+}
+
+function settleActiveMorph({ syncEngine = true } = {}) {
+  if (!activeMorph) return null;
+  const progress = morphRawProgress();
+  const snapshot = interpolateSimd303MorphSnapshot(activeMorph.from, activeMorph.to, progress);
+  assignMorphSnapshot(snapshot);
+  activeMorph = null;
+  const settled = currentMorphSnapshot("Interrupted morph");
+  if (syncEngine) engine?.cancelMorph?.(settled);
+  syncParamOutputs();
+  updateMorphControls(progress);
+  return settled;
+}
+
+function captureMorphEndpoint(slot) {
+  if (!isSimdPage) return;
+  settleActiveMorph();
+  morphSlots[slot] = currentMorphSnapshot();
+  if (morphSlots[slot === "a" ? "b" : "a"]) {
+    $("morphTarget").value = slot === "a" ? "b" : "a";
+  }
+  updateMorphControls();
+  announce(`Morph ${slot.toUpperCase()} captured: ${morphSlots[slot].label}.`);
+}
+
+function swapMorphEndpoints() {
+  if (!morphSlots.a || !morphSlots.b || activeMorph) return;
+  [morphSlots.a, morphSlots.b] = [morphSlots.b, morphSlots.a];
+  updateMorphControls();
+  announce("Morph A and B swapped.");
+}
+
+function stopMorph() {
+  if (!activeMorph) return;
+  settleActiveMorph();
+  announce("Morph stopped at the current sound.");
+}
+
+function startMorph() {
+  if (!isSimdPage) return;
+  if (activeMorph) {
+    stopMorph();
+    return;
+  }
+  if (!state.audioOn || !engine) {
+    announce("Turn Audio on before morphing patches.");
+    return;
+  }
+  const targetSlot = $("morphTarget").value === "b" ? "b" : "a";
+  const destination = morphSlots[targetSlot];
+  if (!destination) {
+    announce(`Capture morph ${targetSlot.toUpperCase()} first.`);
+    return;
+  }
+  const source = currentMorphSnapshot("Current sound");
+  const scope = $("morphScope").value;
+  const target = resolveSimd303MorphTarget(source, destination, scope);
+  const unit = $("morphUnit").value;
+  const timeValue = simd303MorphTimeFromControl($("morphTime").value, unit);
+  const durationSeconds = simd303MorphDurationSeconds(timeValue, unit, source.params);
+  const morphId = engine.morphTo(source, target, durationSeconds);
+  activeMorph = {
+    id: morphId,
+    from: source,
+    to: target,
+    targetSlot,
+    scope,
+    durationMs: durationSeconds * 1_000,
+    startedAt: morphClockNow(),
+  };
+  morphLastUiUpdate = 0;
+  updateMorphControls(0);
+  announce(`Morphing to ${targetSlot.toUpperCase()} over ${formatSimd303MorphTime(timeValue, unit)}.`);
 }
 
 function showError(error) {
@@ -472,6 +761,28 @@ function clearError() {
 }
 
 function setRuntimeState() {
+  if (isSimdPage) {
+    $("runtimeState").textContent = state.audioOn ? `${engine?.laneWidth || 1}-lane backend` : "automatic backend";
+    $("backendMetric").textContent = state.audioOn
+      ? engine?.backend === "simd" ? "SIMD Wasm" : "scalar Wasm"
+      : "not loaded";
+    $("laneMetric").textContent = state.audioOn ? String(engine?.laneWidth || 1) : "—";
+    $("budgetMetric").textContent = state.audioOn
+      ? `${(128 / Math.max(1, engine?.sampleRate || 48000) * 1000).toFixed(2)} ms`
+      : "128 frames";
+    const kernelMicros = Number(engine?.kernelMicros);
+    const budgetMicros = Number(engine?.budgetMicros);
+    $("kernelMetric").textContent = state.audioOn && Number.isFinite(kernelMicros)
+      ? `${(kernelMicros / 1000).toFixed(3)} ms`
+      : "—";
+    $("loadMetric").textContent = state.audioOn
+      && Number.isFinite(kernelMicros)
+      && Number.isFinite(budgetMicros)
+      && budgetMicros > 0
+      ? `${Math.round(kernelMicros / budgetMicros * 100)}%`
+      : "—";
+    return;
+  }
   $("chunkDurationOut").textContent = `${Math.round(state.chunkDuration * 1000)} ms`;
   $("workgroupSizeOut").textContent = `${state.workgroupSize} lanes`;
   $("runtimeState").textContent = `${state.workgroupSize} lanes`;
@@ -481,9 +792,18 @@ function setSupportState() {
   if (!support.audio) {
     $("gpuState").textContent = "Web Audio unavailable";
     $("streamState").textContent = "AudioContext missing";
-  } else if (!support.webgpu) {
+  } else if (isSimdPage && !support.worklet) {
+    $("gpuState").textContent = "AudioWorklet unavailable";
+    $("streamState").textContent = "Render-thread worklet missing";
+  } else if (isSimdPage && !support.wasm) {
+    $("gpuState").textContent = "WebAssembly unavailable";
+    $("streamState").textContent = "Wasm runtime missing";
+  } else if (!isSimdPage && !support.webgpu) {
     $("gpuState").textContent = "WebGPU unavailable";
     $("streamState").textContent = "navigator.gpu missing";
+  } else if (isSimdPage) {
+    $("gpuState").textContent = "Wasm audio ready";
+    $("streamState").textContent = "SIMD with scalar fallback";
   } else {
     $("gpuState").textContent = "WebGPU ready";
     $("streamState").textContent = "Separate WGSL engine";
@@ -494,14 +814,14 @@ function setSupportState() {
 
 function paintAudioReadout() {
   $("engineBadge").textContent = state.audioOn
-    ? state.synthPlaying ? "Synth playing" : "WebGPU ready"
-    : "WGSL compute voice";
+    ? state.synthPlaying ? "Synth playing" : `${instrumentName} ready`
+    : isSimdPage ? "f32x4 acid voice" : "WGSL compute voice";
   $("stageReadout").textContent = state.audioOn
-    ? `WEBGPU - ${Math.round(engine?.sampleRate ?? 44100)} HZ - ${state.synthPlaying ? "SYNTH PLAYING" : "SYNTH PAUSED"}`
-    : "WEBGPU - STANDBY - AUDIO OFF";
+    ? `${engineLabel} - ${Math.round(engine?.sampleRate ?? 44100)} HZ - ${state.synthPlaying ? "SYNTH PLAYING" : "SYNTH PAUSED"}`
+    : `${engineLabel} - STANDBY - AUDIO OFF`;
   $("stage").setAttribute(
     "aria-label",
-    `WebGPU 303 acid pattern, harmonic partials, and output trace. Audio ${state.audioOn ? "on" : "off"}.`,
+    `${instrumentName} acid pattern, harmonic partials, and output trace. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 }
 
@@ -512,23 +832,37 @@ function setAudioState(enabled) {
   $("audioState").textContent = enabled ? "on" : "off";
   paintAudioReadout();
   if (enabled && engine) {
-    $("gpuState").textContent = "WebGPU streaming";
-    $("streamState").textContent = `${Math.round(engine.chunkDurationInSeconds * 1000)} ms chunks in Web Audio`;
+    if (isSimdPage) {
+      $("gpuState").textContent = engine.backend === "simd" ? "SIMD streaming" : "Scalar streaming";
+      $("streamState").textContent = "128-frame AudioWorklet";
+    } else {
+      $("gpuState").textContent = "WebGPU streaming";
+      $("streamState").textContent = `${Math.round(engine.chunkDurationInSeconds * 1000)} ms chunks in Web Audio`;
+    }
   } else {
     setSupportState();
   }
+  setRuntimeState();
   setSynthPlayButtonState();
+  updateMorphControls();
 }
 
 function setSynthPlayButtonState() {
   const button = $("synthPlayButton");
-  const action = state.synthPlaying ? "Pause WebGPU 303 synth" : "Play WebGPU 303 synth";
+  const action = state.synthPlaying ? `Pause ${instrumentName} synth` : `Play ${instrumentName} synth`;
   button.disabled = !support.supported || Boolean(audioStartPromise);
   button.setAttribute("aria-pressed", String(state.synthPlaying));
   button.setAttribute("aria-label", action);
   button.title = `${action} (Space)`;
   $("synthPlayLabel").textContent = state.synthPlaying ? "Pause synth" : "Play synth";
   $("synthPlayState").textContent = state.synthPlaying ? "playing · Space" : "paused · Space";
+  const stageButton = $("stageSynthPlayButton");
+  if (stageButton) {
+    stageButton.disabled = button.disabled;
+    stageButton.setAttribute("aria-pressed", String(state.synthPlaying));
+    stageButton.setAttribute("aria-label", action);
+    stageButton.title = `${action} (Space)`;
+  }
 }
 
 function setSynthPlayState(enabled, { quiet = false } = {}) {
@@ -540,27 +874,31 @@ function setSynthPlayState(enabled, { quiet = false } = {}) {
   engine?.setPlaybackEnabled(nextPlaying);
   setSynthPlayButtonState();
   paintAudioReadout();
-  if (!quiet) announce(nextPlaying ? "WebGPU 303 synth playing." : "WebGPU 303 synth paused.");
+  if (!quiet) announce(nextPlaying ? `${instrumentName} synth playing.` : `${instrumentName} synth paused.`);
 }
 
 function syncParamOutputs() {
   for (const [key, input] of controlInputs) {
     const spec = input.controlSpec;
-    const controlValue = spec?.fromParam ? spec.fromParam(state.params[key]) : state.params[key];
+    const source = spec?.source === "xl" ? state.xlParams : state.params;
+    const controlValue = spec?.fromParam ? spec.fromParam(source[key]) : source[key];
     input.value = String(controlValue);
     const output = controlOutputs.get(key);
     if (output) {
       output.textContent = spec?.format
-        ? spec.format(controlValue, state.params[key])
-        : formatWebGpu303Value(key, state.params[key]);
+        ? spec.format(controlValue, source[key])
+        : formatWebGpu303Value(key, source[key]);
     }
   }
   for (const [key, knob] of knobControls) {
     const spec = knob.controlSpec;
-    const controlValue = spec?.fromParam ? spec.fromParam(state.params[key]) : state.params[key];
+    const source = spec?.source === "xl" ? state.xlParams : state.params;
+    const controlValue = spec?.fromParam ? spec.fromParam(source[key]) : source[key];
     const percent = clamp((controlValue - spec.min) / Math.max(0.0001, spec.max - spec.min), 0, 1);
     const angle = -135 + percent * 270;
-    const valueText = formatWebGpu303Value(key, state.params[key]);
+    const valueText = spec?.format
+      ? spec.format(controlValue, source[key])
+      : formatWebGpu303Value(key, source[key]);
     knob.style.setProperty("--knob-angle", `${angle}deg`);
     knob.style.setProperty("--knob-fill", `${percent * 75}%`);
     knob.setAttribute("aria-valuenow", String(Number(controlValue).toFixed(4)));
@@ -572,19 +910,39 @@ function syncParamOutputs() {
   $("voiceState").textContent = formatWebGpu303Value("partials", state.params.partials);
   $("filterState").textContent = `drive ${Number(state.params.dist).toFixed(2)}`;
   $("patternState").textContent = presets.find(({ id }) => id === state.presetId)?.label ?? "custom";
+  if (isSimdPage) {
+    const spectrumNames = ["saw", "square", "pulse", "triangle"];
+    $("xlState").textContent = `${Math.round(state.params.partials)} partials · ${spectrumNames[Math.round(state.xlParams.spectrumMorph)]}`;
+    $("stepExpressionState").textContent = `${state.stepEditMode} lane`;
+  }
+  for (const button of document.querySelectorAll("[data-step-edit-mode]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.stepEditMode === state.stepEditMode));
+  }
   for (const button of $("presetButtons").querySelectorAll("button")) {
     button.setAttribute("aria-pressed", String(button.dataset.presetId === state.presetId));
   }
+  const selectedPreset = presets.find(({ id }) => id === state.presetId);
+  if (selectedPreset && $("stagePresetSelect")) $("stagePresetSelect").value = selectedPreset.id;
+  updateUserPresetControls();
 }
 
 function applyParams(nextParams, presetId = "custom") {
-  state.params = sanitizeWebGpu303Params(nextParams);
+  settleActiveMorph();
+  state.params = sanitize303Params(nextParams);
   state.presetId = presetId;
   syncParamOutputs();
   engine?.updateParams(state.params);
 }
 
+function applyXlParams(nextParams) {
+  settleActiveMorph();
+  state.xlParams = sanitizeSimd303XlParams(nextParams);
+  syncParamOutputs();
+  engine?.updateXlParams?.(state.xlParams);
+}
+
 function applySequence(nextSequence, presetId = "custom") {
+  settleActiveMorph();
   state.sequence = sanitizeWebGpu303Sequence(nextSequence);
   state.presetId = presetId;
   syncParamOutputs();
@@ -592,12 +950,21 @@ function applySequence(nextSequence, presetId = "custom") {
 }
 
 function applyPreset(preset) {
-  state.params = sanitizeWebGpu303Params(preset.params);
+  settleActiveMorph();
+  state.params = sanitize303Params(preset.params);
   state.sequence = sanitizeWebGpu303Sequence(preset.sequence ?? WEBGPU_303_SOURCE_SEQUENCE);
   state.presetId = preset.id;
+  if (isSimdPage) {
+    state.xlParams = sanitizeSimd303XlParams(preset.xlParams ?? SIMD_303_XL_DEFAULTS);
+    state.stepExpression = sanitizeSimd303StepExpression(preset.stepExpression);
+    state.stepEditMode = "pitch";
+    if ($("userPresetName")) $("userPresetName").value = preset.userPreset ? preset.label : "";
+  }
   syncParamOutputs();
   engine?.updateParams(state.params);
   engine?.updateSequence(state.sequence);
+  engine?.updateXlParams?.(state.xlParams);
+  engine?.updateStepExpression?.(state.stepExpression);
 }
 
 function activeStepCount() {
@@ -617,6 +984,13 @@ function controlStep(spec) {
 function applyControlValue(spec, rawControlValue) {
   const controlValue = clamp(rawControlValue, spec.min, spec.max);
   const paramValue = spec.toParam ? spec.toParam(controlValue) : controlValue;
+  if (spec.source === "xl") {
+    applyXlParams({
+      ...state.xlParams,
+      [spec.key]: paramValue,
+    });
+    return;
+  }
   applyParams({
     ...state.params,
     [spec.key]: paramValue,
@@ -624,7 +998,8 @@ function applyControlValue(spec, rawControlValue) {
 }
 
 function currentControlValue(spec) {
-  return spec.fromParam ? spec.fromParam(state.params[spec.key]) : state.params[spec.key];
+  const source = spec.source === "xl" ? state.xlParams : state.params;
+  return spec.fromParam ? spec.fromParam(source[spec.key]) : source[spec.key];
 }
 
 function balancedKnobColumnCount(totalKnobs, maximumColumns) {
@@ -635,6 +1010,7 @@ function balancedKnobColumnCount(totalKnobs, maximumColumns) {
 }
 
 function balanceKnobRows() {
+  if (isSimdPage) return;
   const bank = $("knobControls");
   const totalKnobs = bank.children.length;
   const firstKnob = bank.querySelector(".webgpu-knob");
@@ -667,7 +1043,7 @@ function clampSafeParamValue(key, value) {
 }
 
 function energyManagedParams(params) {
-  const nextParams = sanitizeWebGpu303Params(params);
+  const nextParams = sanitize303Params(params);
   const driveCut = Math.max(0, nextParams.dist - 1) * 0.018;
   const resonanceCut = Math.max(0, nextParams.res - 7) * 0.0045;
   const decayCut = Math.max(0, 0.34 - nextParams.dur) * 0.09;
@@ -683,7 +1059,7 @@ function randomSafePatchParams() {
 }
 
 function mutateSafePatchParams(params = state.params) {
-  const nextParams = sanitizeWebGpu303Params(params);
+  const nextParams = sanitize303Params(params);
   for (const key of MUTATE_PATCH_PARAM_ORDER) {
     const [minimum, maximum] = SAFE_RANDOM_PARAM_RANGES[key];
     const currentValue = Number.isFinite(params[key]) ? params[key] : WEBGPU_303_DEFAULTS[key];
@@ -713,7 +1089,7 @@ function createRangeControl(spec) {
   input.min = String(spec.min);
   input.max = String(spec.max);
   input.step = String(spec.step);
-  input.value = String(spec.fromParam ? spec.fromParam(state.params[spec.key]) : state.params[spec.key]);
+  input.value = String(currentControlValue(spec));
   input.controlSpec = spec;
   input.setAttribute("aria-label", spec.label);
   input.addEventListener("input", () => {
@@ -815,26 +1191,101 @@ function createKnobControl(key) {
   return wrapper;
 }
 
-function renderControls() {
-  $("knobControls").replaceChildren(...knobOrder.map(createKnobControl));
-  balanceKnobRows();
-  requestAnimationFrame(balanceKnobRows);
-  $("coreControls").replaceChildren(...controlGroups.core.map(createRangeControl));
-  $("voiceControls").replaceChildren(...controlGroups.voice.map(createRangeControl));
-  $("filterControls").replaceChildren(...controlGroups.filter.map(createRangeControl));
+function createSimdKnobGroup(label, keys) {
+  const group = document.createElement("section");
+  group.className = `simd-knob-group simd-knob-group-${label.toLowerCase()}`;
+  group.setAttribute("aria-label", `${label} knobs`);
+
+  const heading = document.createElement("span");
+  heading.className = "simd-control-zone-label";
+  heading.textContent = label;
+
+  const controls = document.createElement("div");
+  controls.className = "webgpu-knob-bank simd-knob-row";
+  controls.style.setProperty("--simd-knob-count", String(keys.length));
+  controls.replaceChildren(...keys.map(createKnobControl));
+  group.append(heading, controls);
+  return group;
+}
+
+function updateUserPresetControls() {
+  if (!isSimdPage || !$("saveUserPreset")) return;
+  const selectedId = $("stagePresetSelect")?.value;
+  const selected = userPresets.find(({ id }) => id === selectedId);
+  $("saveUserPreset").disabled = !presetStorage;
+  $("deleteUserPreset").disabled = !presetStorage || !selected;
+  $("deleteUserPreset").title = selected
+    ? `Delete ${selected.label} from this browser`
+    : "Select one of My presets to delete it";
+  $("userPresetState").textContent = presetStorage
+    ? `${userPresets.length} saved locally`
+    : "Storage unavailable";
+}
+
+function renderPresetControls() {
   const presetButtons = presets.map((preset) => {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.presetId = preset.id;
+    button.dataset.presetCategory = preset.category ?? "Original bank";
     button.textContent = preset.label;
+    if (preset.description) button.title = preset.description;
     button.setAttribute("aria-pressed", String(preset.id === state.presetId));
     button.addEventListener("click", () => {
       applyPreset(preset);
-      announce(`${preset.label} selected.`);
+      announce(presetRecallMessage(preset));
     });
     return button;
   });
   $("presetButtons").replaceChildren(...presetButtons);
+  if (isSimdPage) {
+    const presetsByCategory = new Map();
+    for (const preset of presets) {
+      const category = preset.category ?? "Original bank";
+      if (!presetsByCategory.has(category)) presetsByCategory.set(category, []);
+      presetsByCategory.get(category).push(preset);
+    }
+    const presetGroups = Array.from(presetsByCategory, ([category, categoryPresets]) => {
+      const group = document.createElement("optgroup");
+      group.label = category;
+      group.replaceChildren(...categoryPresets.map((preset) => {
+        const option = document.createElement("option");
+        option.value = preset.id;
+        option.textContent = preset.label;
+        return option;
+      }));
+      return group;
+    });
+    $("stagePresetSelect").replaceChildren(...presetGroups);
+    if (presets.some(({ id }) => id === state.presetId)) {
+      $("stagePresetSelect").value = state.presetId;
+    }
+  }
+  updateUserPresetControls();
+}
+
+function renderControls() {
+  if (isSimdPage) {
+    $("transportKnobControls").style.setProperty(
+      "--simd-knob-count",
+      String(simdKnobGroups.transport.length),
+    );
+    $("transportKnobControls").replaceChildren(...simdKnobGroups.transport.map(createKnobControl));
+    $("knobControls").replaceChildren(
+      createSimdKnobGroup("Voice", simdKnobGroups.voice),
+      createSimdKnobGroup("Filter", simdKnobGroups.filter),
+      createSimdKnobGroup("Effects", simdKnobGroups.effects),
+    );
+  } else {
+    $("knobControls").replaceChildren(...knobOrder.map(createKnobControl));
+    balanceKnobRows();
+    requestAnimationFrame(balanceKnobRows);
+  }
+  $("coreControls").replaceChildren(...controlGroups.core.map(createRangeControl));
+  $("voiceControls").replaceChildren(...controlGroups.voice.map(createRangeControl));
+  $("filterControls").replaceChildren(...controlGroups.filter.map(createRangeControl));
+  if (isSimdPage) $("simdXlControls").replaceChildren(...simdXlControlSpecs.map(createRangeControl));
+  renderPresetControls();
   syncParamOutputs();
 }
 
@@ -850,12 +1301,26 @@ async function startAudio() {
   clearError();
   $("audioButton").disabled = true;
   const lifecycleGeneration = audioLifecycleGeneration;
-  const nextEngine = new WebGpu303Audio(globalThis, {
-    chunkDuration: state.chunkDuration,
-    workgroupSize: state.workgroupSize,
-  });
+  const nextEngine = isSimdPage
+    ? new Simd303Audio(globalThis)
+    : new WebGpu303Audio(globalThis, {
+      chunkDuration: state.chunkDuration,
+      workgroupSize: state.workgroupSize,
+    });
   nextEngine.setOutput(Number($("output").value));
   nextEngine.setPlaybackEnabled(state.synthPlaying);
+  nextEngine.updateXlParams?.(state.xlParams);
+  nextEngine.updateStepExpression?.(state.stepExpression);
+  nextEngine.setTelemetryHandler?.(() => setRuntimeState());
+  nextEngine.setMorphHandler?.((message) => {
+    if (!activeMorph || message.id !== activeMorph.id) return;
+    if (Number.isFinite(message.progress)) {
+      activeMorph.startedAt = morphClockNow() - message.progress * activeMorph.durationMs;
+    }
+    if (message.type === "morph-complete") {
+      updateActiveMorph(activeMorph.startedAt + activeMorph.durationMs, { forceUi: true });
+    }
+  });
   nextEngine.setErrorHandler((error) => {
     showError(error);
     setSynthPlayState(false, { quiet: true });
@@ -878,8 +1343,10 @@ async function startAudio() {
     nextEngine.setOutput(Number($("output").value));
     nextEngine.setPlaybackEnabled(state.synthPlaying);
     nextEngine.updateSequence(state.sequence);
+    nextEngine.updateXlParams?.(state.xlParams);
+    nextEngine.updateStepExpression?.(state.stepExpression);
     setAudioState(true);
-    announce(state.synthPlaying ? "WebGPU 303 audio on and synth playing." : "WebGPU 303 audio ready.");
+    announce(state.synthPlaying ? `${instrumentName} audio on and synth playing.` : `${instrumentName} audio ready.`);
     return true;
   }).catch((error) => {
     if (engine === nextEngine) engine = null;
@@ -896,6 +1363,7 @@ async function startAudio() {
 }
 
 async function stopAudio({ quiet = false } = {}) {
+  settleActiveMorph();
   audioLifecycleGeneration += 1;
   if (state.synthPlaying) setSynthPlayState(false, { quiet: true });
   const previous = engine;
@@ -903,7 +1371,7 @@ async function stopAudio({ quiet = false } = {}) {
   audioStartPromise = null;
   if (previous) await previous.stop();
   setAudioState(false);
-  if (!quiet) announce("WebGPU 303 audio off.");
+  if (!quiet) announce(`${instrumentName} audio off.`);
 }
 
 async function toggleAudio() {
@@ -936,11 +1404,93 @@ async function restartAudio() {
 }
 
 function runtimeChanged() {
+  if (isSimdPage) {
+    setRuntimeState();
+    return;
+  }
   state.chunkDuration = clamp($("chunkDuration").value, 0.03, 0.25);
   state.workgroupSize = WEBGPU_303_WORKGROUP_SIZES.includes(Number($("workgroupSize").value))
     ? Number($("workgroupSize").value)
     : WEBGPU_303_RUNTIME_DEFAULTS.workgroupSize;
   setRuntimeState();
+}
+
+function recallStagePreset() {
+  const presetId = $("stagePresetSelect")?.value ?? state.presetId;
+  const preset = presets.find(({ id }) => id === presetId) ?? presets[0];
+  applyPreset(preset);
+  announce(presetRecallMessage(preset));
+}
+
+function saveUserPreset() {
+  if (!isSimdPage || !presetStorage) {
+    announce("Browser preset storage is unavailable.");
+    return;
+  }
+  settleActiveMorph();
+  const input = $("userPresetName");
+  const label = sanitizeSimd303UserPresetName(input.value);
+  input.value = label;
+  input.setCustomValidity(label ? "" : "Enter a name for this preset.");
+  if (!label) {
+    input.reportValidity();
+    input.focus();
+    return;
+  }
+  const existing = userPresets.find((preset) => (
+    preset.label.localeCompare(label, undefined, { sensitivity: "accent" }) === 0
+  ));
+  const preset = createSimd303UserPreset(currentMorphSnapshot(label), label, { existing });
+  const nextPresets = existing
+    ? userPresets.map((candidate) => candidate.id === existing.id ? preset : candidate)
+    : [...userPresets, preset].slice(-SIMD_303_USER_PRESET_LIMIT);
+  if (!persistSimd303UserPresets(presetStorage, nextPresets)) {
+    announce("Could not save the preset. Browser storage may be full or disabled.");
+    return;
+  }
+  userPresets = nextPresets;
+  presets = [...factoryPresets, ...userPresets];
+  state.presetId = preset.id;
+  renderPresetControls();
+  syncParamOutputs();
+  announce(existing
+    ? `${preset.label} updated in this browser.`
+    : `${preset.label} saved in this browser.`);
+}
+
+function deleteUserPreset() {
+  if (!isSimdPage || !presetStorage) return;
+  const selectedId = $("stagePresetSelect")?.value;
+  const preset = userPresets.find(({ id }) => id === selectedId);
+  if (!preset) {
+    announce("Select one of My presets before deleting.");
+    return;
+  }
+  if (!globalThis.confirm?.(`Delete the local preset “${preset.label}”?`)) return;
+  const nextPresets = userPresets.filter(({ id }) => id !== preset.id);
+  if (!persistSimd303UserPresets(presetStorage, nextPresets)) {
+    announce("Could not update browser preset storage.");
+    return;
+  }
+  userPresets = nextPresets;
+  presets = [...factoryPresets, ...userPresets];
+  if (state.presetId === preset.id) state.presetId = "custom";
+  $("userPresetName").value = "";
+  renderPresetControls();
+  syncParamOutputs();
+  announce(`${preset.label} deleted. The current sound remains loaded as a custom patch.`);
+}
+
+function syncUserPresetsFromStorage(event) {
+  if (!isSimdPage || event.key !== SIMD_303_USER_PRESET_STORAGE_KEY) return;
+  userPresets = loadSimd303UserPresets(presetStorage);
+  presets = [...factoryPresets, ...userPresets];
+  if (state.presetId.startsWith("user:") && !userPresets.some(({ id }) => id === state.presetId)) {
+    state.presetId = "custom";
+  }
+  renderPresetControls();
+  syncParamOutputs();
+  announce("Browser preset list updated from another tab.");
 }
 
 function randomizePatch() {
@@ -985,6 +1535,62 @@ function invertSequence() {
   ));
   applySequence(nextSequence);
   announce("Sequence inverted.");
+}
+
+function applyStepExpression(nextExpression) {
+  if (!isSimdPage) return;
+  settleActiveMorph();
+  state.stepExpression = sanitizeSimd303StepExpression(nextExpression);
+  syncParamOutputs();
+  engine?.updateStepExpression?.(state.stepExpression);
+}
+
+function setStepEditMode(mode) {
+  if (!isSimdPage) return;
+  const nextMode = mode === "pitch" || Object.hasOwn(stepExpressionComponent, mode) ? mode : "pitch";
+  state.stepEditMode = nextMode;
+  for (const button of document.querySelectorAll("[data-step-edit-mode]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.stepEditMode === nextMode));
+  }
+  syncParamOutputs();
+  announce(`${nextMode} lane selected. Drag the pattern to edit it.`);
+}
+
+function resetStepExpression() {
+  applyStepExpression([]);
+  announce("Step accent, gate, slide, and chance reset.");
+}
+
+function acidizeStepExpression() {
+  const steps = activeStepCount();
+  const nextExpression = Array.from({ length: WEBGPU_303_SEQUENCE_LENGTH }, (_, index) => {
+    if (index >= steps) return SIMD_303_STEP_EXPRESSION_DEFAULT;
+    const downbeat = index % 4 === 0;
+    const slide = index > 0 && Math.random() < 0.24 ? randomBetween(0.35, 0.92) : 0;
+    return [
+      downbeat ? randomBetween(0.62, 1) : Math.random() < 0.28 ? randomBetween(0.2, 0.62) : 0,
+      slide > 0 ? randomBetween(0.78, 1) : randomBetween(0.62, 1),
+      slide,
+      Math.random() < 0.12 ? randomBetween(0.82, 1) : 1,
+    ];
+  });
+  applyStepExpression(nextExpression);
+  announce("Acid accents, gates, slides, and probability generated.");
+}
+
+function randomizeStepExpression() {
+  const steps = activeStepCount();
+  const nextExpression = Array.from({ length: WEBGPU_303_SEQUENCE_LENGTH }, (_, index) => {
+    if (index >= steps) return SIMD_303_STEP_EXPRESSION_DEFAULT;
+    return [
+      randomBetween(0, 0.9),
+      randomBetween(0.55, 1),
+      Math.random() < 0.38 ? randomBetween(0.15, 0.9) : 0,
+      randomBetween(0.78, 1),
+    ];
+  });
+  applyStepExpression(nextExpression);
+  announce("Step accent, gate, slide, and chance randomized.");
 }
 
 function resizeCanvas(canvas) {
@@ -1046,6 +1652,20 @@ function drawGrid(context, width, height) {
   context.stroke();
 }
 
+function displayedStepValue(step) {
+  if (!isSimdPage || state.stepEditMode === "pitch") return resolvedStepValue(step);
+  const component = stepExpressionComponent[state.stepEditMode];
+  return clamp(state.stepExpression[step]?.[component], 0, 1);
+}
+
+function displayedStepIsEdited(step) {
+  if (!isSimdPage || state.stepEditMode === "pitch") return state.sequence[step] >= 0;
+  const component = stepExpressionComponent[state.stepEditMode];
+  return Math.abs(
+    state.stepExpression[step]?.[component] - SIMD_303_STEP_EXPRESSION_DEFAULT[component],
+  ) > 0.0001;
+}
+
 function drawPattern(context, width, height, now) {
   const steps = activeStepCount();
   const { activeStep } = sequencePhaseAtTime(now, steps);
@@ -1053,8 +1673,8 @@ function drawPattern(context, width, height, now) {
   const cellWidth = width / steps;
   const barGap = steps > 96 ? 0.75 : steps > 64 ? 1 : steps > 32 ? 2 : 3;
   for (let step = 0; step < steps; step += 1) {
-    const normalized = resolvedStepValue(step);
-    const edited = state.sequence[step] >= 0;
+    const normalized = displayedStepValue(step);
+    const edited = displayedStepIsEdited(step);
     const active = step === activeStep;
     const x = step * cellWidth;
     const barHeight = 12 + normalized * laneHeight;
@@ -1119,7 +1739,44 @@ function drawPartials(context, width, height) {
   }
 }
 
+function oscilloscopeTriggerIndex(samples) {
+  const lastTrigger = Math.floor(samples.length * 0.25);
+  for (let index = 1; index < lastTrigger; index += 1) {
+    if (samples[index - 1] <= 0 && samples[index] > 0) return index;
+  }
+  return 0;
+}
+
+function drawCapturedTrace(context, width, height, samples) {
+  const centerY = height * 0.14;
+  const amplitude = height * 0.095;
+  const triggerIndex = oscilloscopeTriggerIndex(samples);
+  const sampleSpan = Math.max(1, samples.length - triggerIndex - 1);
+  const pointSpacing = 2;
+
+  context.strokeStyle = state.synthPlaying
+    ? "rgba(255, 255, 255, 0.86)"
+    : "rgba(255, 255, 255, 0.34)";
+  context.lineWidth = 2;
+  context.beginPath();
+  for (let x = 0; x < width; x += pointSpacing) {
+    const normalizedX = x / Math.max(1, width - pointSpacing);
+    const sampleIndex = triggerIndex + Math.min(sampleSpan, Math.floor(normalizedX * sampleSpan));
+    const sample = clamp(samples[sampleIndex], -1, 1);
+    const y = centerY - sample * amplitude;
+    if (x === 0) context.moveTo(x, y);
+    else context.lineTo(x, y);
+  }
+  context.stroke();
+}
+
 function drawTrace(context, width, height, now) {
+  if (isSimdPage) {
+    const samples = engine?.timeDomainData?.();
+    drawCapturedTrace(context, width, height, samples ?? SILENT_SCOPE_DATA);
+    return;
+  }
+
   context.strokeStyle = "rgba(255, 255, 255, 0.78)";
   context.lineWidth = 2;
   context.beginPath();
@@ -1139,6 +1796,7 @@ function draw() {
   const context = canvas.getContext("2d");
   if (!context) return;
   const { width, height } = resizeCanvas(canvas);
+  if (isSimdPage) updateActiveMorph();
   const now = visualPlaybackTime();
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#07090b";
@@ -1160,6 +1818,15 @@ function editSequenceFromPointer(event) {
   const { laneTop, laneHeight } = patternMetrics(rect.width, rect.height);
   const step = Math.min(steps - 1, Math.floor(pointerX * steps));
   const normalized = clamp(1 - ((pointerY - laneTop) / laneHeight), 0, 0.9999);
+  if (isSimdPage && state.stepEditMode !== "pitch") {
+    const component = stepExpressionComponent[state.stepEditMode];
+    const nextExpression = state.stepExpression.map((values) => [...values]);
+    nextExpression[step][component] = event.shiftKey
+      ? SIMD_303_STEP_EXPRESSION_DEFAULT[component]
+      : state.stepEditMode === "gate" ? Math.max(0.05, normalized) : normalized;
+    applyStepExpression(nextExpression);
+    return;
+  }
   const nextSequence = [...state.sequence];
   nextSequence[step] = event.shiftKey ? -1 : normalized;
   applySequence(nextSequence);
@@ -1187,7 +1854,7 @@ function handleStagePointerEnd(event) {
 
 function resetPatch() {
   applyPreset(presets[0]);
-  announce("WebGPU 303 patch reset.");
+  announce(`${instrumentName} patch reset.`);
 }
 
 renderControls();
@@ -1199,14 +1866,35 @@ globalThis.addEventListener?.("resize", balanceKnobRows);
 setRuntimeState();
 setSupportState();
 outputChanged();
+updateMorphControls();
 $("audioButton").addEventListener("click", toggleAudio);
 $("synthPlayButton").addEventListener("click", () => {
   void toggleSynthPlay();
 });
+$("stageSynthPlayButton")?.addEventListener("click", () => {
+  void toggleSynthPlay();
+});
+$("stagePresetSelect")?.addEventListener("change", recallStagePreset);
+$("recallStagePreset")?.addEventListener("click", recallStagePreset);
+$("saveUserPreset")?.addEventListener("click", saveUserPreset);
+$("deleteUserPreset")?.addEventListener("click", deleteUserPreset);
+$("userPresetName")?.addEventListener("input", (event) => event.currentTarget.setCustomValidity(""));
+$("userPresetName")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") saveUserPreset();
+});
+globalThis.addEventListener?.("storage", syncUserPresetsFromStorage);
+$("captureMorphA")?.addEventListener("click", () => captureMorphEndpoint("a"));
+$("captureMorphB")?.addEventListener("click", () => captureMorphEndpoint("b"));
+$("swapMorph")?.addEventListener("click", swapMorphEndpoints);
+$("startMorph")?.addEventListener("click", startMorph);
+$("morphTime")?.addEventListener("input", updateMorphTimeOutput);
+$("morphUnit")?.addEventListener("change", updateMorphTimeOutput);
+$("morphTarget")?.addEventListener("change", () => updateMorphControls());
+$("morphScope")?.addEventListener("change", () => updateMorphControls());
 $("output").addEventListener("input", outputChanged);
-$("chunkDuration").addEventListener("input", runtimeChanged);
-$("chunkDuration").addEventListener("change", restartAudio);
-$("workgroupSize").addEventListener("change", () => {
+$("chunkDuration")?.addEventListener("input", runtimeChanged);
+$("chunkDuration")?.addEventListener("change", restartAudio);
+$("workgroupSize")?.addEventListener("change", () => {
   runtimeChanged();
   void restartAudio();
 });
@@ -1217,6 +1905,24 @@ $("clearSequence").addEventListener("click", clearSequence);
 $("randomizeSequence").addEventListener("click", randomizeSequence);
 $("mutateSequence").addEventListener("click", mutateSequence);
 $("invertSequence").addEventListener("click", invertSequence);
+$("resetStepExpression")?.addEventListener("click", resetStepExpression);
+$("acidizeStepExpression")?.addEventListener("click", acidizeStepExpression);
+$("randomizeStepExpression")?.addEventListener("click", randomizeStepExpression);
+const mainActionHandlers = Object.freeze({
+  "acidize-expression": acidizeStepExpression,
+  "randomize-expression": randomizeStepExpression,
+  "reset-expression": resetStepExpression,
+  "source-noise": clearSequence,
+  "randomize-sequence": randomizeSequence,
+  "mutate-sequence": mutateSequence,
+  "invert-sequence": invertSequence,
+});
+for (const button of document.querySelectorAll("[data-main-action]")) {
+  button.addEventListener("click", mainActionHandlers[button.dataset.mainAction]);
+}
+for (const button of document.querySelectorAll("[data-step-edit-mode]")) {
+  button.addEventListener("click", () => setStepEditMode(button.dataset.stepEditMode));
+}
 $("stage").addEventListener("pointerdown", handleStagePointerDown);
 $("stage").addEventListener("pointermove", handleStagePointerMove);
 $("stage").addEventListener("pointerup", handleStagePointerEnd);

@@ -85,6 +85,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "object-forge",
     "surround-field",
     "webgpu-303",
+    "simd-303",
     "moire-organ",
     "chladni-plate",
     "spring-choir",

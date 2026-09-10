@@ -70,7 +70,7 @@ test("every instrument has factual card copy, a start action, traits, and a tran
     );
     const expectedImageHref = ["shader-synth-playground", "srtuss"].includes(instrument.id)
       ? "assets/instruments/webgpu-synths.webp"
-      : instrument.id === "webgpu-chiptune"
+      : ["webgpu-chiptune", "simd-303"].includes(instrument.id)
         ? "assets/instruments/webgpu-303.webp"
         : instrument.id === "constellation"
         ? "assets/instruments/graph-synth.webp"

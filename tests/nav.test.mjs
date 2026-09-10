@@ -609,6 +609,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "hocket-loom", href: "hocket-loom.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
+      { id: "simd-303", href: "simd-303.html" },
       { id: "webgpu-chiptune", href: "webgpu-chiptune.html" },
       { id: "jaw-jam", href: "jaw-jam.html" },
       { id: "webgpu-synths", href: "webgpu-synths.html" },
@@ -791,6 +792,15 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "webgpu-chiptune",
       label: "WebGPU Chiptune",
       href: "webgpu-chiptune.html",
+      imageHref: "assets/instruments/webgpu-303.webp",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "simd-303"),
+    {
+      id: "simd-303",
+      label: "SIMD 303",
+      href: "simd-303.html",
       imageHref: "assets/instruments/webgpu-303.webp",
     },
   );
@@ -991,6 +1001,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-pm.html`, SITE_ROOT)?.id, "chaotic-pm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
   assert.equal(resolveActiveTool(`${SITE_ROOT}webgpu-303.html`, SITE_ROOT)?.id, "webgpu-303");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}simd-303.html`, SITE_ROOT)?.id, "simd-303");
   assert.equal(resolveActiveTool(`${SITE_ROOT}webgpu-synths.html`, SITE_ROOT)?.id, "webgpu-synths");
   assert.equal(resolveActiveTool(`${SITE_ROOT}srtuss.html`, SITE_ROOT)?.id, "srtuss");
   assert.equal(

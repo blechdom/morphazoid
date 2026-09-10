@@ -1,0 +1,552 @@
+.simd-303-page {
+  --accent: #ff8bd8;
+  --accent-soft: color-mix(in oklab, #ff8bd8 54%, transparent);
+  --accent-glow: color-mix(in oklab, #ff8bd8 18%, transparent);
+  --webgpu-cyan: #7cecff;
+  --webgpu-pink: #ff8bd8;
+  --webgpu-amber: #c8ff66;
+}
+
+.simd-303-page .webgpu-303-stage-wrap {
+  background:
+    linear-gradient(rgba(255, 139, 216, 0.034) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 236, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 139, 216, 0.055), transparent 42%, rgba(200, 255, 102, 0.045) 68%, transparent),
+    var(--bg-deep);
+  background-size: 36px 36px, 36px 36px, auto, auto;
+}
+
+.simd-303-metrics {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.simd-303-metrics div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid color-mix(in oklab, var(--accent) 18%, var(--line));
+}
+
+.simd-303-metrics dt {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.simd-303-metrics dd {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.simd-303-page .webgpu-credit-note code {
+  color: var(--webgpu-cyan);
+}
+
+.simd-303-page .webgpu-preset-grid {
+  max-height: 248px;
+  padding-right: 3px;
+  overflow-y: auto;
+  scrollbar-color: var(--accent) var(--bg-deep);
+  scrollbar-width: thin;
+}
+
+.simd-expression-section {
+  --accent: #7cecff;
+  --accent-soft: color-mix(in oklab, #7cecff 54%, transparent);
+  --accent-glow: color-mix(in oklab, #7cecff 18%, transparent);
+}
+
+.simd-xl-section {
+  --accent: #ff8bd8;
+  --accent-soft: color-mix(in oklab, #ff8bd8 54%, transparent);
+  --accent-glow: color-mix(in oklab, #ff8bd8 18%, transparent);
+}
+
+.simd-control-zone-label {
+  display: block;
+  color: color-mix(in oklab, var(--accent) 72%, var(--muted));
+  font-size: 8px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.simd-stage-transport {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  align-items: center;
+  gap: 10px;
+  overscroll-behavior-x: contain;
+  scrollbar-color: var(--accent-soft) transparent;
+  scrollbar-width: thin;
+}
+
+.simd-stage-transport .simd-stage-play {
+  flex: 0 0 auto;
+  border-color: color-mix(in oklab, var(--webgpu-amber) 62%, var(--line-strong));
+  color: var(--webgpu-amber);
+}
+
+.simd-stage-preset {
+  display: grid;
+  min-width: 154px;
+  flex: 0 0 154px;
+  gap: 3px;
+}
+
+.simd-stage-preset span {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.simd-stage-preset select {
+  width: 100%;
+  height: 29px;
+  min-height: 29px;
+  padding: 0 26px 0 8px;
+  border: 1px solid color-mix(in oklab, var(--accent) 38%, var(--line-strong));
+  color: var(--ink);
+  background: var(--bg-deep);
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.simd-stage-transport .simd-recovery-action {
+  min-width: 86px;
+  min-height: 29px;
+  margin: 10px 0 0;
+  padding: 0 9px;
+  border-color: var(--webgpu-amber);
+  color: var(--webgpu-amber);
+  background: color-mix(in oklab, var(--webgpu-amber) 8%, var(--bg-deep));
+  font-size: 8px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.simd-user-preset-tools {
+  display: grid;
+  min-width: 236px;
+  flex: 0 0 236px;
+  grid-template-columns: minmax(104px, 1fr) 46px 52px;
+  grid-template-rows: 8px 29px;
+  align-items: end;
+  gap: 3px 4px;
+}
+
+.simd-user-preset-tools label {
+  display: grid;
+  min-width: 0;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  gap: 3px;
+}
+
+.simd-user-preset-tools label span,
+.simd-user-preset-tools small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.simd-user-preset-tools small {
+  grid-column: 2 / 4;
+  grid-row: 1;
+  text-align: right;
+}
+
+.simd-user-preset-tools input {
+  width: 100%;
+  min-width: 0;
+  height: 29px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklab, var(--webgpu-cyan) 34%, var(--line-strong));
+  color: var(--ink);
+  background: var(--bg-deep);
+  font-family: inherit;
+  font-size: 8px;
+}
+
+.simd-user-preset-tools input::placeholder {
+  color: color-mix(in oklab, var(--muted) 70%, transparent);
+  text-transform: uppercase;
+}
+
+.simd-user-preset-tools .mini-action {
+  min-width: 0;
+  min-height: 29px;
+  margin: 0;
+  padding: 0 6px;
+  border-color: color-mix(in oklab, var(--webgpu-cyan) 42%, var(--line-strong));
+  color: var(--webgpu-cyan);
+  background: color-mix(in oklab, var(--webgpu-cyan) 7%, var(--bg-deep));
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
+.simd-user-preset-tools .mini-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.36;
+}
+
+.simd-transport-knobs.webgpu-knob-bank,
+.simd-knob-row.webgpu-knob-bank {
+  --knob-size: 64px;
+  width: max-content;
+  overflow: visible;
+  justify-content: start;
+  grid-template-columns: repeat(var(--simd-knob-count), var(--knob-size));
+  grid-template-rows: auto;
+  gap: 12px;
+}
+
+.simd-transport-knobs {
+  flex: 0 0 auto;
+  padding-left: 10px;
+  border-left: 1px solid color-mix(in oklab, var(--webgpu-amber) 30%, var(--line));
+}
+
+.simd-knob-groups {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 13px 20px;
+}
+
+.simd-knob-group {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.simd-knob-group + .simd-knob-group {
+  padding-left: 18px;
+  border-left: 1px solid color-mix(in oklab, var(--accent) 18%, var(--line));
+}
+
+.simd-stage-toolbar {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  align-items: center;
+  gap: 8px;
+  overscroll-behavior-x: contain;
+  scrollbar-color: var(--accent-soft) transparent;
+  scrollbar-width: thin;
+}
+
+.simd-morph-strip {
+  --morph-progress: 0%;
+  display: flex;
+  min-width: 0;
+  padding: 6px 0;
+  overflow-x: auto;
+  border-top: 1px solid color-mix(in oklab, var(--webgpu-cyan) 18%, var(--line));
+  border-bottom: 1px solid color-mix(in oklab, var(--webgpu-pink) 16%, var(--line));
+  align-items: center;
+  gap: 8px;
+  overscroll-behavior-x: contain;
+  scrollbar-color: var(--accent-soft) transparent;
+  scrollbar-width: thin;
+}
+
+.simd-morph-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+
+.simd-morph-strip button {
+  min-width: 0;
+  min-height: 26px;
+  margin: 0;
+  padding: 0 8px;
+  border-color: color-mix(in oklab, var(--webgpu-cyan) 38%, var(--line-strong));
+  color: var(--webgpu-cyan);
+  background: color-mix(in oklab, var(--webgpu-cyan) 6%, var(--bg-deep));
+  font-size: 8px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.simd-morph-strip button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.simd-morph-strip button:not(:disabled):hover,
+.simd-morph-strip button:not(:disabled):focus-visible,
+.simd-morph-strip button[aria-pressed="true"] {
+  border-color: var(--webgpu-pink);
+  color: var(--webgpu-pink);
+}
+
+.simd-morph-time,
+.simd-morph-select {
+  display: grid;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px 6px;
+}
+
+.simd-morph-time {
+  width: 158px;
+  grid-template-columns: 34px 74px 44px;
+}
+
+.simd-morph-select {
+  grid-template-columns: auto 72px;
+}
+
+.simd-morph-time span,
+.simd-morph-select span {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 720;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.simd-morph-time input {
+  width: 74px;
+  min-width: 0;
+}
+
+.simd-morph-time output {
+  overflow: hidden;
+  color: var(--webgpu-amber);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simd-morph-select select {
+  width: 72px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in oklab, var(--webgpu-pink) 28%, var(--line-strong));
+  color: var(--ink);
+  background: var(--bg-deep);
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.simd-morph-go {
+  min-width: 58px !important;
+  background:
+    linear-gradient(90deg, var(--accent-glow) var(--morph-progress), transparent var(--morph-progress)),
+    var(--bg-deep) !important;
+}
+
+.simd-morph-state {
+  min-width: 112px;
+  overflow: hidden;
+  flex: 1 1 auto;
+  color: var(--muted);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.simd-stage-toolbar-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+}
+
+.simd-stage-toolbar-group + .simd-stage-toolbar-group {
+  padding-left: 8px;
+  border-left: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line));
+}
+
+.simd-stage-toolbar button {
+  min-width: 0;
+  min-height: 26px;
+  margin: 0;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklab, var(--accent) 34%, var(--line-strong));
+  cursor: pointer;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--accent) 5%, var(--bg-deep));
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.simd-stage-toolbar button:hover,
+.simd-stage-toolbar button:focus-visible,
+.simd-stage-toolbar button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.simd-stage-toolbar .simd-recovery-action {
+  border-color: var(--webgpu-cyan);
+  color: var(--webgpu-cyan);
+  background: color-mix(in oklab, var(--webgpu-cyan) 8%, var(--bg-deep));
+}
+
+.simd-stage-expression-modes button {
+  min-width: 43px;
+}
+
+.simd-step-edit-modes {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.simd-step-edit-modes button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 3px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.simd-step-edit-modes button:hover,
+.simd-step-edit-modes button:focus-visible,
+.simd-step-edit-modes button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.simd-expression-hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+
+@media (max-width: 420px) {
+  .simd-step-edit-modes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .simd-stage-transport {
+    display: grid;
+    overflow-x: visible;
+    grid-template-columns: max-content max-content max-content;
+    grid-template-rows: auto auto;
+    align-items: center;
+    justify-content: start;
+  }
+
+  .simd-stage-transport > .simd-control-zone-label {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .simd-stage-transport > .simd-stage-play {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  .simd-stage-transport > .simd-transport-knobs {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .simd-stage-transport > .simd-stage-preset {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+
+  .simd-stage-transport > .simd-recovery-action {
+    grid-column: 3;
+    grid-row: 2;
+    align-self: end;
+    justify-self: start;
+  }
+
+  .simd-stage-transport > .simd-user-preset-tools {
+    grid-column: 1 / 4;
+    grid-row: 3;
+  }
+}
+
+@media (max-width: 980px) {
+  .simd-303-page .webgpu-303-shell {
+    grid-template-rows: clamp(410px, 56dvh, 560px) minmax(0, 1fr);
+  }
+
+  .simd-303-page .webgpu-stage-knobs {
+    overflow: hidden;
+  }
+
+  .simd-knob-groups {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: start;
+    overscroll-behavior-x: contain;
+    scrollbar-color: var(--accent-soft) transparent;
+    scrollbar-width: thin;
+  }
+
+  .simd-knob-group {
+    flex: 0 0 auto;
+  }
+
+  .simd-knob-group + .simd-knob-group {
+    padding-left: 12px;
+  }
+
+  .simd-transport-knobs.webgpu-knob-bank,
+  .simd-knob-row.webgpu-knob-bank {
+    --knob-size: 54px;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 980px) and (max-height: 560px) {
+  .simd-303-page .webgpu-303-shell {
+    grid-template-rows: 418px minmax(0, 1fr);
+  }
+}

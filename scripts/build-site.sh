@@ -504,6 +504,16 @@ for worktree_runtime_file in \
   assets/wasm/simd-resonator-scalar.wasm \
   assets/wasm/simd-resonator-simd.wasm \
   assets/instruments/simd-resonator.webp \
+  simd-303.html \
+  simd-303.css \
+  simd-303-app.js \
+  src/simd-303.js \
+  src/simd-303-morph.js \
+  src/simd-303-presets.js \
+  src/simd-303-user-presets.js \
+  src/simd-303-processor.js \
+  assets/wasm/simd-303-scalar.wasm \
+  assets/wasm/simd-303-simd.wasm \
   vendor/ffmpeg-wasm/ffmpeg/classes.js \
   vendor/ffmpeg-wasm/ffmpeg/const.js \
   vendor/ffmpeg-wasm/ffmpeg/errors.js \
@@ -1096,6 +1106,16 @@ required_files=(
   assets/wasm/simd-resonator-scalar.wasm
   assets/wasm/simd-resonator-simd.wasm
   assets/instruments/simd-resonator.webp
+  simd-303.html
+  simd-303.css
+  simd-303-app.js
+  src/simd-303.js
+  src/simd-303-morph.js
+  src/simd-303-presets.js
+  src/simd-303-user-presets.js
+  src/simd-303-processor.js
+  assets/wasm/simd-303-scalar.wasm
+  assets/wasm/simd-303-simd.wasm
   vendor/ffmpeg-wasm/ffmpeg/classes.js
   vendor/ffmpeg-wasm/ffmpeg/const.js
   vendor/ffmpeg-wasm/ffmpeg/errors.js

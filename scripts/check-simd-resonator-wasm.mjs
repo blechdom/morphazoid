@@ -6,7 +6,12 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const temporary = await mkdtemp(join(tmpdir(), "morphazoid-simd-wasm-"));
-const artifacts = ["simd-resonator-scalar.wasm", "simd-resonator-simd.wasm"];
+const artifacts = [
+  "simd-resonator-scalar.wasm",
+  "simd-resonator-simd.wasm",
+  "simd-303-scalar.wasm",
+  "simd-303-simd.wasm",
+];
 
 try {
   const result = spawnSync(process.execPath, [

@@ -573,7 +573,7 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
   assert.match(app, /presetParams/);
   assert.match(app, /WEBGPU_303_PARAM_ORDER/);
   assert.match(app, /knobOrder/);
-  assert.match(app, /const knobOrder = Object\.freeze\(\[\s*"timeScale",\s*"timeMod",\s*"flt",\s*"res",\s*"dist"/);
+  assert.match(app, /const webGpuKnobOrder = Object\.freeze\(\[\s*"timeScale",\s*"timeMod",\s*"flt",\s*"res",\s*"dist"/);
   assert.match(app, /timeScale: "Speed"/);
   assert.match(app, /knobHueByKey/);
   assert.match(app, /balancedKnobColumnCount/);
