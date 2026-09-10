@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="puggler.css" />
 </head>
-<body class="puggler-page">
+<body class="puggler-page" data-instrument-info="off">
   <header class="masthead">
     <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
     <nav class="tabs" aria-label="Instrument"><a class="tab" href="boidzoid.html">boidzoid</a><a class="tab active" href="puggler.html" aria-current="page">puggler</a><a class="tab" href="vector-flight.html">vector flight</a></nav>
@@ -28,22 +28,25 @@
         <canvas id="stage" width="1100" height="720" tabindex="0" role="application" aria-label="Puggler, Roxy, and Moss punk-show juggling stage" aria-describedby="instructions">Drag a performer or use the keyboard buttons below. Space pauses juggling. Enable Audio separately.</canvas>
       </div>
       <div class="puggler-keyboards" id="keyboardControls" aria-label="Performer keyboard controls"></div>
-      <p class="sr-only" id="instructions">Each performer has a fixed keyboard cluster below the stage. Hold a movement or height key, kick, or throw to the crowd. The matching buttons also work by touch or click. Space pauses new juggling throws; riders and the audience stay active.</p>
+      <p class="sr-only" id="instructions">Click a performer's name or press 1, 2, or 3 to show or hide them; at least one stays onstage. Each performer has a fixed keyboard cluster below the stage. Hold a movement or height key, kick, or throw to the crowd. The matching buttons also work by touch or click. Space pauses new juggling throws; riders and the audience stay active.</p>
       <p id="audioError" role="alert" hidden></p>
     </section>
-    <aside class="puggler-panel panel" aria-label="Juggling and sound controls">
-      <section class="puggler-control-section" aria-label="The act">
-        <div class="puggler-transport"><button id="playButton" data-primary-transport type="button" aria-pressed="true">Pause</button><div id="tempoControls"></div></div>
-        <label class="puggler-field" for="preset">Starting act<select id="preset" data-preset><option value="ballet">Trash trio</option></select></label>
-        <label class="puggler-field" for="cast">Who<select id="cast"><option value="trio">Puggler + Roxy + Moss</option></select></label>
-        <div class="puggler-two-fields"><label class="puggler-field" for="count">Objects<select id="count"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label class="puggler-field" for="pattern">Pattern<select id="pattern"><option value="many-6">6-object fountain</option></select></label></div>
-        <label class="puggler-field" for="phrase">Rhythm form<select id="phrase"><option value="loop">Repeat a juggling pattern</option><option value="verse" selected>Verse / fill / break / refrain</option><option value="evolve">Evolving phrases</option></select></label>
-        <label class="puggler-field" id="passingField" for="passMode">Passing cadence<select id="passMode"><option value="every">Trade every throw</option><option value="three">Pass / self / self</option><option value="phrase">Four solo / four passing</option></select></label>
-        <div class="puggler-random-row"><button id="randomButton" type="button">↻ Random objects</button><button id="postersButton" type="button">↻ Random flyers</button></div>
+    <aside class="puggler-panel panel mz-ui" aria-label="Juggling and sound controls">
+      <section class="puggler-control-section mz-control-section" aria-label="The act">
+        <div class="puggler-transport"><button class="mz-button" id="playButton" data-primary-transport type="button" aria-pressed="true">Pause</button><div id="tempoControls"></div></div>
+        <label class="puggler-field mz-select-field" for="preset"><span class="mz-field__label">Starting act</span><span class="mz-select-field__shell"><select class="mz-select-field__select" id="preset" data-preset><option value="ballet">Trash trio</option></select></span></label>
+        <label class="puggler-field mz-select-field" for="cast"><span class="mz-field__label">Who</span><span class="mz-select-field__shell"><select class="mz-select-field__select" id="cast"><option value="trio">Puggler + Roxy + Moss</option></select></span></label>
+        <div class="puggler-two-fields">
+          <label class="puggler-field mz-select-field" for="count"><span class="mz-field__label">Objects</span><span class="mz-select-field__shell"><select class="mz-select-field__select" id="count"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></span></label>
+          <label class="puggler-field mz-select-field" for="pattern"><span class="mz-field__label">Pattern</span><span class="mz-select-field__shell"><select class="mz-select-field__select" id="pattern"><option value="many-6">6-object fountain</option></select></span></label>
+        </div>
+        <label class="puggler-field mz-select-field" for="phrase"><span class="mz-field__label">Rhythm form</span><span class="mz-select-field__shell"><select class="mz-select-field__select" id="phrase"><option value="loop">Repeat a juggling pattern</option><option value="verse" selected>Verse / fill / break / refrain</option><option value="evolve">Evolving phrases</option></select></span></label>
+        <label class="puggler-field mz-select-field" id="passingField" for="passMode"><span class="mz-field__label">Passing cadence</span><span class="mz-select-field__shell"><select class="mz-select-field__select" id="passMode"><option value="every">Trade every throw</option><option value="three">Pass / self / self</option><option value="phrase">Four solo / four passing</option></select></span></label>
+        <div class="puggler-random-row"><button class="mz-button" id="randomButton" type="button">↻ Random objects</button><button class="mz-button" id="postersButton" type="button">↻ Random flyers</button></div>
       </section>
-      <details class="puggler-control-section" open><summary>Physics & view</summary><div id="physicsControls"></div><div class="puggler-checks"><label class="puggler-check"><input type="checkbox" id="autoRide" checked /> Help partners catch</label><label class="puggler-check"><input type="checkbox" id="trails" checked /> Sound trails</label><label class="puggler-check"><input type="checkbox" id="guides" checked /> Throw paths</label></div></details>
-      <section class="puggler-control-section"><div class="section-heading"><h2>Sound mixer</h2></div><div id="soundControls"></div></section>
-      <section class="puggler-control-section"><div class="section-heading"><h2>The things</h2><button id="resetButton" type="button">Reset</button></div><div class="object-headings" aria-hidden="true"><span>Object</span><span>Catch</span><span>Air</span></div><div id="objectControls"></div></section>
+      <details class="puggler-control-section mz-control-section" open><summary class="mz-control-section__summary"><span class="mz-control-section__title">Physics & view</span></summary><div id="physicsControls"></div><div class="puggler-checks"><label class="puggler-check"><input type="checkbox" id="autoRide" checked /> Ride patterns</label><label class="puggler-check"><input type="checkbox" id="trails" checked /> Trippy trails</label></div></details>
+      <section class="puggler-control-section mz-control-section mz-control-section--static"><div class="section-heading mz-control-section__summary"><h2 class="mz-control-section__title">Sound mixer</h2></div><div id="soundControls"></div></section>
+      <section class="puggler-control-section mz-control-section mz-control-section--static"><div class="section-heading mz-control-section__summary"><h2 class="mz-control-section__title">The things</h2><button class="mz-button mz-button--quiet" id="resetButton" type="button">Reset</button></div><div class="object-headings" aria-hidden="true"><span>Object</span><span>Catch</span><span>Air</span></div><div id="objectControls"></div></section>
     </aside>
   </main>
   <script type="module" src="nav.js"></script>

@@ -8,7 +8,7 @@ test('every pattern has the correct distinct future reservations and catches eve
   for(const p of PATTERNS){
     const slots=initialSlots(p);assert.equal(slots.length,p.count,p.id);assert.equal(new Set(slots.map(s=>`${s.due}:${s.hand}`)).size,p.count);
     for(const prop of PROPS){
-      const m=new PugglerModel({count:p.count,pattern:p.id,propIds:Array(MAX_OBJECTS).fill(prop.id),assist:20});
+      const m=new PugglerModel({count:p.count,pattern:p.id,propIds:Array(MAX_OBJECTS).fill(prop.id),assist:20,rideSpeed:0});
       advance(m,15);assert.equal(m.drops,0,`${p.id}/${prop.id}`);assert.ok(m.catches>8,`${p.id}/${prop.id}`);assert.equal(m.objects.length,p.count);
     }
   }
@@ -103,14 +103,14 @@ test('audience throws missed by either rider drop again instead of teleporting i
   }
 });
 test('manual friend input and automatic/manual switching preserve independent riders and released flights',()=>{
-  const m=new PugglerModel({partner:'auto'});advance(m,.4);
+  const m=new PugglerModel({partner:'auto',rideSpeed:0});advance(m,.4);
   const object=m.objects.find(o=>o.phase==='air'),flight=object.flight,start=object.start;
   m.apply({partner:'manual'});assert.ok(m.objects.includes(object));assert.equal(object.flight,flight);assert.equal(object.start,start);
   const x=m.x,friend=m.players[1].x;for(let i=0;i<90;i++)m.step(1/120,0,null,1);
   assert.equal(m.x,x);assert.ok(m.players[1].x>friend+80);
 });
 test('fast passes catch at the swept hand crossing and held props immediately follow their hand',()=>{
-  const m=new PugglerModel({count:2,pattern:'columns',phrase:'verse',partner:'manual',tempo:600,assist:20});
+  const m=new PugglerModel({count:2,pattern:'columns',phrase:'verse',partner:'manual',tempo:600,assist:20,rideSpeed:0});
   for(let i=0;i<600;i++){
     const events=m.step(1/60);
     for(const e of events.filter(e=>e.kind==='catch')){

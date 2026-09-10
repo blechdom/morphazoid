@@ -7,11 +7,12 @@ import { createRangeField } from './src/ui/index.js';
 
 const $ = id => document.getElementById(id);
 const model = new PugglerModel(PAGE_DEFAULTS), audio = new PugglerAudio(), renderer = new PugglerRenderer($('stage'));
-const soundDefaults = { level:.48, height:.65, stereo:1, motion:6, flight:.8, impacts:1.25, grit:.82, decay:1, boo:.75, trails:true, guides:true, tempo:360 };
+const soundDefaults = { level:.48, height:.65, stereo:1, motion:6, flight:.8, impacts:1.25, grit:.82, decay:1, boo:.75, trails:true, tempo:360 };
 const params = { ...soundDefaults };
 let running=true,starting=false,disposed=false,frame=0,timer=0,lastClock=performance.now()/1000,accumulator=0;
 const targets=[null,null,null],pointers=new Map(),buttonPointers=new Map(),buttonStarts=new Map(),buttonKeys=new Set(),pulses=new Map();
 const keys=new Set(),cleanups=[],ranges=new Map(),objectRows=[],keyButtons=new Map();
+const riderToggles=[],toggleKeys=['Digit1','Digit2','Digit3'];
 const listen=(element,type,handler,options)=>{element.addEventListener(type,handler,options);cleanups.push(()=>element.removeEventListener(type,handler,options));};
 const percent=v=>`${Math.round(v*100)}%`;
 const soundNames={guitar:'Guitar',bass:'Bass',oi:'Oi chant',woo:'Woooo',kick:'Kick',snare:'Snare',crash:'Crash',tom:'Tom',hat:'Hi-hat'};
@@ -48,24 +49,36 @@ function syncSelectors(){
   $('count').value=String(model.config.count);
   for(const id of ['cast','phrase','passMode'])$(id).value=model.config[id];
   $('passingField').hidden=model.riderCount===1;
-  $('autoRide').checked=model.config.autoRide;$('autoRide').disabled=model.riderCount===1;
+  $('autoRide').checked=model.config.autoRide;
   $('pattern').disabled=model.config.phrase!=='loop';
   $('pattern').replaceChildren(...PATTERNS.filter(p=>p.count===model.config.count).map(p=>new Option(`${p.name} · ${patternNotation(p)}`,p.id)));
   $('pattern').value=model.pattern.id;
   for(const [id,field] of ranges)field.setValue(id in model.config?model.config[id]:params[id]);
   for(const {button,owner} of keyButtons.values())button.disabled=!model.activeIds.includes(owner);
   document.querySelectorAll('.rider-keyboard').forEach((group,i)=>group.classList.toggle('inactive',!model.activeIds.includes(i)));
+  riderToggles.forEach((button,owner)=>{
+    const active=model.activeIds.includes(owner),last=active&&model.riderCount===1;
+    button.setAttribute('aria-pressed',String(active));button.disabled=last;
+    button.title=last?'Keep at least one juggler onstage':`${active?'Hide':'Show'} ${RIDER_NAMES[owner]} (${owner+1})`;
+    button.setAttribute('aria-label',`${owner+1} ${RIDER_NAMES[owner]} onstage`);
+  });
   syncObjects();
+}
+function toggleRider(owner){
+  const active=model.activeIds.includes(owner);if(active&&model.riderCount===1)return;
+  const ids=active?model.activeIds.filter(id=>id!==owner):[...model.activeIds,owner].sort((a,b)=>a-b);
+  const cast=CASTS.find(c=>c.riders.join(',')===ids.join(','));if(!cast)return;
+  model.apply({cast:cast.id});releaseControls();syncSelectors();updateAudio();
 }
 function syncObjects(){
   $('objectControls').replaceChildren();objectRows.length=0;
   model.objects.forEach((o,i)=>{
     const row=document.createElement('div');row.className='object-row';row.style.setProperty('--prop-color',o.prop.color);
-    const select=document.createElement('select');select.id=`object${i}`;select.setAttribute('aria-label',`Sound object ${i+1}`);
+    const select=document.createElement('select');select.className='mz-select-field__select';select.id=`object${i}`;select.setAttribute('aria-label',`Sound object ${i+1}`);
     select.append(...PROPS.map(p=>new Option(p.name,p.id)));select.value=o.prop.id;
     select.addEventListener('change',()=>{const ids=[...model.config.propIds];ids[i]=select.value;model.apply({propIds:ids});syncObjectValues();});row.append(select);
     for(const [kind,choices,title] of [['drums',DRUMS,'Catch'],['riffs',RIFFS,'Air']]){
-      const choice=document.createElement('select');choice.id=`${kind}${i}`;choice.setAttribute('aria-label',`${title} sound for object ${i+1}`);
+      const choice=document.createElement('select');choice.className='mz-select-field__select';choice.id=`${kind}${i}`;choice.setAttribute('aria-label',`${title} sound for object ${i+1}`);
       choice.append(...choices.map(id=>new Option(soundNames[id],id)));choice.value=model.config[kind][i];
       choice.addEventListener('change',()=>{const values=[...model.config[kind]];values[i]=choice.value;model.apply({[kind]:values});});row.append(choice);
     }
@@ -87,12 +100,12 @@ listen($('preset'),'change',()=>{
 listen($('randomButton'),'click',()=>{model.apply({propIds:Array.from({length:MAX_OBJECTS},()=>PROPS[Math.floor(model.random()*PROPS.length)].id)});syncObjects();});
 listen($('resetButton'),'click',()=>{
   model.config={...PAGE_DEFAULTS,propIds:[...PAGE_DEFAULTS.propIds],drums:[...DEFAULTS.drums],riffs:[...DEFAULTS.riffs]};model.reset();Object.assign(params,soundDefaults);
-  $('level').value=params.level;$('levelOut').value=percent(params.level);$('preset').value='ballet';$('trails').checked=true;$('guides').checked=true;
+  $('level').value=params.level;$('levelOut').value=percent(params.level);$('preset').value='ballet';$('trails').checked=true;
   releaseControls();accumulator=0;syncSelectors();status();updateAudio();
 });
 listen($('playButton'),'click',togglePlay);
 listen($('level'),'input',()=>{params.level=Number($('level').value);$('levelOut').value=percent(params.level);updateAudio();});
-for(const id of ['trails','guides'])listen($(id),'change',()=>params[id]=$(id).checked);
+listen($('trails'),'change',()=>params.trails=$('trails').checked);
 listen($('audioButton'),'click',async()=>{
   if(starting||disposed)return;
   if(audio.on){audio.mute();$('audioButton').setAttribute('aria-pressed','false');$('audioState').textContent='off';lastClock=clock();status();return;}
@@ -119,7 +132,11 @@ function pressAction(code){
 }
 RIDER_KEYS.forEach((cluster,owner)=>{
   const group=document.createElement('div');group.className='rider-keyboard';group.setAttribute('role','group');group.setAttribute('aria-label',`${RIDER_NAMES[owner]} keyboard controls`);
-  const title=document.createElement('h2');title.textContent=RIDER_NAMES[owner];group.append(title);
+  const title=document.createElement('h2'),toggle=document.createElement('button');toggle.type='button';toggle.className='rider-toggle';toggle.dataset.rider=String(owner);toggle.id=`rider-${owner}`;
+  toggle.setAttribute('aria-controls','stage');toggle.setAttribute('aria-keyshortcuts',String(owner+1));
+  const shortcut=document.createElement('kbd');shortcut.textContent=String(owner+1);
+  const name=document.createElement('span');name.textContent=RIDER_NAMES[owner];toggle.append(shortcut,name);
+  listen(toggle,'click',()=>toggleRider(owner));riderToggles.push(toggle);title.append(toggle);group.append(title);
   const grid=document.createElement('div');grid.className='key-grid';
   for(const action of ['fastLeft','up','fastRight','left','down','right','kick','crowd']){
     const code=cluster[action],label=code.replace('Key','').replace('Numpad','');
@@ -143,7 +160,10 @@ RIDER_KEYS.forEach((cluster,owner)=>{
 });
 function controlTarget(e){return e.target?.closest('input,select,textarea,a,summary,[contenteditable=true],[role=slider],button:not([data-key])');}
 listen(window,'keydown',e=>{
-  if(controlTarget(e)||e.ctrlKey||e.metaKey||e.altKey||e.isComposing||!GAME_KEYS.has(e.code))return;
+  if(controlTarget(e)||e.ctrlKey||e.metaKey||e.altKey||e.isComposing)return;
+  const toggleOwner=toggleKeys.indexOf(e.code);
+  if(toggleOwner>=0){e.preventDefault();if(!e.repeat)toggleRider(toggleOwner);return;}
+  if(!GAME_KEYS.has(e.code))return;
   e.preventDefault();if(!keys.has(e.code)&&!e.repeat)pressAction(e.code);keys.add(e.code);refreshKey(e.code);
 });
 listen(window,'keyup',e=>{keys.delete(e.code);refreshKey(e.code);});
@@ -172,6 +192,7 @@ function tick(){
   params.tempo=model.config.tempo;handleEvents(events,(audio.context?.currentTime??0)+.035);updateAudio();
 }
 function handleEvents(events,audioTime){
+  renderer.react(events,model.time,running);
   for(const e of events){
     audio.strike(e,params,audioTime-(model.time-e.time));
     if(e.kind==='replacement')syncObjectValues();
@@ -182,8 +203,8 @@ function handleEvents(events,audioTime){
   }
 }
 function draw(){if(disposed)return;if(!document.hidden)renderer.draw(model,params);frame=requestAnimationFrame(draw);}
-function teardown(){if(disposed)return;disposed=true;releaseControls();clearInterval(timer);cancelAnimationFrame(frame);cleanups.forEach(fn=>fn());ranges.forEach(field=>field.destroy());void audio.close();}
+function teardown(){if(disposed)return;disposed=true;releaseControls();clearInterval(timer);cancelAnimationFrame(frame);cleanups.forEach(fn=>fn());ranges.forEach(field=>field.destroy());renderer.dispose();void audio.close();}
 listen(window,'pagehide',teardown,{once:true});
 window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});
 syncSelectors();status();timer=setInterval(tick,20);frame=requestAnimationFrame(draw);
-window.__puggler=Object.freeze({snapshot:()=>({time:model.time,running,audioOn:audio.on,x:model.x,beat:model.beat,pattern:model.pattern.id,count:model.objects.length,catches:model.catches,drops:model.drops,passes:model.passes,crowdCatches:model.crowdCatches,riders:model.riderCount,activeIds:[...model.activeIds],chaos:model.config.chaos,posterSeed:model.posterSeed,phrase:model.config.phrase,cast:model.config.cast,autoRide:model.config.autoRide,tempo:model.config.tempo,loft:model.config.loft,players:model.players.map(p=>({...p})),attacks:audio.attacks.size,objects:model.objects.map(o=>({id:o.id,x:o.x,y:o.y,vx:o.vx,vy:o.vy,phase:o.phase,prop:o.prop.id,owner:o.owner,drum:o.drum,riff:o.riff})),disposed})});
+window.__puggler=Object.freeze({snapshot:()=>({time:model.time,running,audioOn:audio.on,x:model.x,beat:model.beat,pattern:model.pattern.id,count:model.objects.length,catches:model.catches,drops:model.drops,passes:model.passes,crowdCatches:model.crowdCatches,riders:model.riderCount,activeIds:[...model.activeIds],chaos:model.config.chaos,posterSeed:model.posterSeed,phrase:model.config.phrase,cast:model.config.cast,autoRide:model.config.autoRide,ridePattern:model.config.ridePattern,rideSpeed:model.config.rideSpeed,rideRange:model.config.rideRange,steeringTargets:[...targets],trails:params.trails,tempo:model.config.tempo,loft:model.config.loft,players:model.players.map(p=>({...p})),attacks:audio.attacks.size,collage:renderer.collageStatus(),crowd:renderer.crowdSnapshot(model.time),pyro:renderer.pyroSnapshot(model.time),objects:model.objects.map(o=>({id:o.id,x:o.x,y:o.y,vx:o.vx,vy:o.vy,phase:o.phase,prop:o.prop.id,owner:o.owner,drum:o.drum,riff:o.riff})),disposed})});

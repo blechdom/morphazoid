@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
+import { COLLAGE_ATLASES } from '../src/puggler-collage.js';
+
+const atlasCount = Object.keys(COLLAGE_ATLASES).length;
 
 const state = page => page.evaluate(() => window.__puggler.snapshot());
 const range = (page, id, value) => page.locator(`#${id}`).evaluate((element, next) => {
@@ -10,6 +13,7 @@ const range = (page, id, value) => page.locator(`#${id}`).evaluate((element, nex
 async function openShow(page) {
   await page.goto('puggler.html');
   await expect.poll(() => page.evaluate(() => Boolean(window.__puggler))).toBe(true);
+  await expect.poll(async () => (await state(page)).collage.ready).toBe(true);
 }
 
 async function releaseAndSettle(page, keys) {
@@ -73,7 +77,7 @@ test('Puggler separates explicit Audio, output level, mute, pause, and teardown'
   const muted = await sampleAudioEnvelope(page, { durationMs: 450, intervalMs: 50 });
   expect(muted.samples.at(-1).peak).toBeLessThan(.001);
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
-  expect(await state(page)).toMatchObject({ disposed: true, attacks: 0 });
+  expect(await state(page)).toMatchObject({ disposed: true, attacks: 0, crowd: { disposed: true }, pyro: { disposed: true, active: false } });
   const disposedTime = (await state(page)).time;
   await page.waitForTimeout(200);
   expect((await state(page)).time).toBe(disposedTime);
@@ -114,6 +118,33 @@ test('Who offers all seven casts; solo and noncontiguous duo controls preserve i
   await expect(page.locator('[data-key="KeyD"]')).toBeDisabled();
 });
 
+test('Puggler names below the stage toggle the cast by click or number key', async ({ page }) => {
+  await openShow(page);
+  await page.locator('#playButton').click();
+  await expect(page.locator('#keyboardControls .rider-toggle')).toHaveCount(3);
+  await page.locator('#rider-1').click();
+  expect((await state(page)).activeIds).toEqual([0, 2]);
+  await expect(page.locator('#cast')).toHaveValue('puggler-moss');
+  await expect(page.locator('#rider-1')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('[data-key="KeyL"]')).toBeDisabled();
+  await page.locator('#stage').focus();
+  await page.keyboard.press('Digit1');
+  expect((await state(page)).activeIds).toEqual([2]);
+  await expect(page.locator('#rider-2')).toBeDisabled();
+  await page.keyboard.press('Digit3');
+  expect((await state(page)).activeIds).toEqual([2]);
+  await page.keyboard.press('Digit2');
+  expect((await state(page)).activeIds).toEqual([1, 2]);
+  await page.locator('#rider-0').focus();
+  await page.keyboard.press('Space');
+  expect(await state(page)).toMatchObject({ cast: 'trio', running: false, audioOn: false });
+  for (const id of [0, 1, 2]) await expect(page.locator(`#rider-${id}`)).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#cast').selectOption('roxy');
+  await expect(page.locator('#rider-1')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#rider-0')).toHaveAttribute('aria-pressed', 'false');
+  expect((await state(page)).objects.every(object => object.owner === 1)).toBe(true);
+});
+
 test('Roxy and Moss physical keyboard clusters steer and shape their own throws', async ({ page }) => {
   await openShow(page);
   await page.locator('#cast').selectOption('trio');await page.locator('#autoRide').uncheck();
@@ -130,9 +161,15 @@ test('Roxy and Moss physical keyboard clusters steer and shape their own throws'
   for (const key of ['u', 'Numpad9']) await page.keyboard.down(key);
   await page.waitForTimeout(250);
   const fast = (await state(page)).players;
-  expect(fast[1].vx).toBeLessThan(-200);
-  expect(fast[2].vx).toBeGreaterThan(200);
-  expect(Math.abs(fast[0].x - settled[0].x)).toBeLessThan(2);
+  // A captured browser frame can arrive after a fast rider reaches the edge;
+  // reaching that boundary is a valid result of holding the fast key.
+  expect(fast[1].x).toBeLessThan(settled[1].x - 40);
+  expect(fast[2].x).toBeGreaterThan(settled[2].x + 40);
+  expect(fast[1].vx < -200 || (fast[1].x === 385 && fast[1].vx === 0)).toBe(true);
+  expect(fast[2].vx > 200 || (fast[2].x === 890 && fast[2].vx === 0)).toBe(true);
+  expect(fast[0].rideMotion).toBe('balance');
+  expect(Math.abs(fast[0].x - fast[0].rideAnchor)).toBeLessThan(24);
+  expect(Math.abs(fast[0].vx)).toBeLessThan(100);
   await releaseAndSettle(page, ['u', 'Numpad9']);
   const loft = (await state(page)).players.map(player => player.loft);
   await page.keyboard.down('i');
@@ -198,7 +235,17 @@ test('ten live objects keep their drum and riff edits across phrase and speed ch
   expect(edited.time).toBeGreaterThan(before);
   expect(edited).toMatchObject({ running: true, audioOn: false });
   const available = await page.locator('#object9 option').evaluateAll(options => options.map(option => option.value));
-  for (const id of ['guitar', 'cassette', 'skateboard', 'vinyl', 'mic', 'cone', 'glowstick', 'mushroom', 'plushrat']) expect(available).toContain(id);
+  for (const id of ['guitar', 'cassette', 'skateboard', 'vinyl', 'mic', 'cone', 'glowstick', 'plushrat', 'icecream', 'axe', 'deadcat', 'hydrant', 'pickle', 'violin', 'skull', 'banana', 'snake', 'plant', 'plunger', 'cd', 'vhs']) expect(available).toContain(id);
+  expect(available).not.toContain('mushroom');
+  const newProps = ['icecream', 'hydrant', 'snake', 'deadcat', 'vhs'];
+  const selectedProps = await page.evaluate(ids => {
+    for (const [slot, id] of ids.entries()) {
+      const select = document.getElementById(`object${slot}`);
+      select.value = id; select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    return window.__puggler.snapshot().objects.slice(0, ids.length).map(object => object.prop);
+  }, newProps);
+  expect(selectedProps).toEqual(newProps);
   await page.locator('#phrase').selectOption('loop');
   await expect(page.locator('#pattern')).toBeEnabled();
   await page.locator('#pattern').selectOption('shower-10');
@@ -223,6 +270,111 @@ test('ten live objects keep their drum and riff edits across phrase and speed ch
   expect(await state(page)).toMatchObject({ count: 6, pattern: 'many-6', cast: 'trio', autoRide: true, phrase: 'verse', tempo: 360, loft: 1.8, chaos: 40, audioOn: false });
   expect((await state(page)).objects[0]).toMatchObject({ drum: 'kick', riff: 'guitar' });
   await expect(page.locator('#pattern')).toBeDisabled();
+});
+
+for (const path of ['puggler.html', 'dist-wax/puggler.html']) {
+  test(`Puggler loads local photographic atlases without arming Audio: ${path}`, async ({ page }) => {
+    const errors = [], atlases = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('response', response => { if (/puggler\/.*-collage\.webp$/.test(response.url())) atlases.push(response.url()); });
+    await page.goto(path);
+    await expect.poll(() => page.evaluate(() => window.__puggler?.snapshot().collage.ready)).toBe(true);
+    expect((await state(page)).collage).toMatchObject({ failed: 0, loaded: atlasCount, total: atlasCount });
+    expect(atlases).toHaveLength(atlasCount);
+    for (const url of atlases) expect(new URL(url).pathname).toMatch(path.startsWith('dist-wax/') ? /^\/dist-wax\/assets\/puggler\// : /^\/assets\/puggler\//);
+    await expect.poll(async () => (await state(page)).catches).toBeGreaterThan(0);
+    expect((await state(page)).audioOn).toBe(false);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('Puggler keeps juggling with vector artwork when collage images are unavailable', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/assets/puggler/*-collage.webp', route => route.abort());
+  await page.goto('puggler.html');
+  await expect.poll(() => page.evaluate(() => window.__puggler?.snapshot().collage.failed)).toBe(atlasCount);
+  expect((await state(page)).collage).toMatchObject({ ready: false, loaded: 0, total: atlasCount });
+  await expect.poll(async () => (await state(page)).catches).toBeGreaterThan(0);
+  expect(await state(page)).toMatchObject({ running: true, audioOn: false, disposed: false });
+  expect(errors).toEqual([]);
+});
+
+test('Puggler juggling hits animate five independent crowd members with Audio off', async ({ page }) => {
+  await openShow(page);
+  await expect.poll(async () => (await state(page)).crowd.events).toBeGreaterThan(0);
+  const samples = [];
+  for (let i = 0; i < 12; i++) {
+    samples.push((await state(page)).crowd.members);
+    await page.waitForTimeout(80);
+  }
+  expect(new Set(samples[0].map(member => member.head))).toEqual(new Set(['dread','kid','hat','curls','punk']));
+  expect(new Set(samples[0].map(member => member.hand))).toEqual(new Set(['lighter','phone','palm','peace','horns']));
+  expect(samples.some(members => Math.max(...members.map(m => m.energy)) > 0)).toBe(true);
+  // A shared bounce would leave the same vertical displacement for everyone.
+  expect(samples.some(members => Math.max(...members.map(m => m.jump)) - Math.min(...members.map(m => m.jump)) > 2)).toBe(true);
+  expect((await state(page)).audioOn).toBe(false);
+});
+
+test('Puggler accents juggling contacts with occasional pyrotechnics and releases their tails on pause', async ({ page }, testInfo) => {
+  await openShow(page);
+  expect((await state(page)).pyro.bursts).toBe(0);
+  await page.waitForFunction(() => window.__puggler.snapshot().pyro.jets.some(jet => jet.energy > .45), null, { timeout: 15000 });
+  const accent = await state(page);
+  expect(accent.pyro.bursts).toBeGreaterThan(0);
+  expect(accent.catches).toBeGreaterThan(0);
+  expect(accent.pyro.particleCount).toBeLessThanOrEqual(48);
+  expect(accent.pyro.nextBurstAt - accent.time).toBeGreaterThan(4);
+  expect(accent.audioOn).toBe(false);
+  await page.locator('#stage').screenshot({ path: testInfo.outputPath('puggler-pyrotechnics.png') });
+  await page.locator('#playButton').click();
+  const paused = await state(page);
+  await expect.poll(async () => (await state(page)).pyro.active).toBe(false);
+  expect((await state(page)).pyro.bursts).toBe(paused.pyro.bursts);
+  expect(await state(page)).toMatchObject({ running: false, audioOn: false });
+});
+
+test('Puggler presets change riding and flyers, while paused riders keep balancing', async ({ page }) => {
+  await openShow(page);
+  const start = await state(page);
+  const flyers = () => page.evaluate(async () => {
+    const { posterLayout } = await import('./src/puggler-renderer.js');
+    return posterLayout(window.__puggler.snapshot().posterSeed, 1030, 612);
+  });
+  const firstFlyers = await flyers();
+  await page.locator('#preset').selectOption('moss');
+  const slow = await state(page), nextFlyers = await flyers();
+  expect(slow.rideSpeed).toBeLessThan(start.rideSpeed);
+  expect(slow.ridePattern).not.toBe(start.ridePattern);
+  expect(nextFlyers.map(flyer => flyer.bill)).not.toEqual(firstFlyers.map(flyer => flyer.bill));
+  expect(nextFlyers.map(flyer => flyer.symbol)).not.toEqual(firstFlyers.map(flyer => flyer.symbol));
+  expect(nextFlyers.map(flyer => [flyer.x, flyer.y])).not.toEqual(firstFlyers.map(flyer => [flyer.x, flyer.y]));
+  await page.locator('#preset').selectOption('ballet');
+  expect(await flyers()).toEqual(firstFlyers);
+  await page.locator('#autoRide').uncheck();
+  await page.locator('#playButton').click();
+  await page.waitForTimeout(700);
+  const paused = await state(page);
+  const samples = await page.evaluate(async () => {
+    const frames = [];
+    for (let i = 0; i < 38; i++) {
+      frames.push(window.__puggler.snapshot().players);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return frames;
+  });
+  for (const id of [0, 1, 2]) {
+    const values = samples.map(frame => frame[id]);
+    expect(Math.max(...values.map(p => p.x)) - Math.min(...values.map(p => p.x))).toBeGreaterThan(15);
+    expect(values.some(p => p.vx > 5) && values.some(p => p.vx < -5)).toBe(true);
+    expect(Math.abs(values.at(-1).wheel - values[0].wheel - (values.at(-1).x - values[0].x) / 49)).toBeLessThan(.001);
+  }
+  expect(await state(page)).toMatchObject({ running: false, audioOn: false, beat: paused.beat });
+  await expect(page.locator('#guides')).toHaveCount(0);
+  await page.locator('#trails').uncheck();
+  expect((await state(page)).trails).toBe(false);
+  await page.locator('#trails').check();
+  expect((await state(page)).trails).toBe(true);
 });
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
@@ -274,10 +426,13 @@ test('touch dragging and cancellation release solo steering without arming Audio
     await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
     await expect.poll(async () => (await state(page)).x).toBeGreaterThan(before + 90);
     await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
-    await page.waitForTimeout(800);
-    const stopped = (await state(page)).x;
+    await page.locator('#autoRide').uncheck();
+    await page.waitForTimeout(1200);
+    const released = await state(page);
+    expect(released.steeringTargets).toEqual([null, null, null]);
+    expect(released.players[0].rideMotion).toBe('balance');
     await page.waitForTimeout(300);
-    expect(Math.abs((await state(page)).x - stopped)).toBeLessThan(2);
+    expect(Math.abs((await state(page)).x - released.players[0].rideAnchor)).toBeLessThan(24);
     expect((await state(page)).audioOn).toBe(false);
     for (const id of ['audioButton', 'playButton']) {
       const size = await page.locator(`#${id}`).boundingBox();
@@ -313,11 +468,15 @@ test('three touches steer every manual rider independently and cancellation rele
       return p[0].x > spread[0].x + 35 && p[1].x > spread[1].x + 35 && p[2].x < spread[2].x - 35;
     }).toBe(true);
     await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
-    await page.waitForTimeout(800);
-    const stopped = (await state(page)).players;
+    await page.waitForTimeout(1200);
+    const released = await state(page);
+    expect(released.steeringTargets).toEqual([null, null, null]);
     await page.waitForTimeout(300);
     const after = await state(page);
-    for (let i = 0; i < 3; i++) expect(Math.abs(after.players[i].x - stopped[i].x)).toBeLessThan(2);
+    for (let i = 0; i < 3; i++) {
+      expect(after.players[i].rideMotion).toBe('balance');
+      expect(Math.abs(after.players[i].x - released.players[i].rideAnchor)).toBeLessThan(24);
+    }
     expect(after).toMatchObject({ riders: 3, cast: 'trio', autoRide: false, running: true, audioOn: false });
   } finally {
     await context.close();
@@ -339,7 +498,8 @@ test('automatic Roxy and Moss yield to direct touch while Audio stays off', asyn
       const p = (await state(page)).players;
       return p[1].x > initial[1].x + 35 && p[2].x < initial[2].x - 35;
     }).toBe(true);
-    expect(Math.abs((await state(page)).players[0].x - initial[0].x)).toBeLessThan(2);
+    expect((await state(page)).players[0].rideMotion).toBe('pattern');
+    expect((await state(page)).players[0].manualUntil).toBe(initial[0].manualUntil);
     await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
     expect(await state(page)).toMatchObject({ cast: 'trio', autoRide: true, running: true, audioOn: false });
   } finally {

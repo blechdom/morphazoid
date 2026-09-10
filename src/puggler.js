@@ -32,8 +32,21 @@ export const PROPS = Object.freeze([
   { id:'mic',name:'Dented microphone',mass:.32,drag:.055,bounce:.25,color:'#99bcc0',voice:'metal',hz:220,decay:.4,radius:24 },
   { id:'cone',name:'Traffic cone',mass:1.2,drag:.15,bounce:.3,color:'#f2955b',voice:'rubber',hz:82.4,decay:.25,radius:30 },
   { id:'glowstick',name:'Rave glowstick',mass:.025,drag:.04,bounce:.3,color:'#9dce94',voice:'glass',hz:523,decay:.7,radius:22 },
-  { id:'mushroom',name:'Plush mushroom',mass:.13,drag:.11,bounce:.5,color:'#c885b9',voice:'reed',hz:262,decay:.2,radius:29 },
   { id:'plushrat',name:'Squat-house plush rat',mass:.19,drag:.12,bounce:.45,color:'#b3a7a4',voice:'reed',hz:147,decay:.2,radius:28 },
+  // Game-scaled material contrasts, not measured replicas of these objects.
+  { id:'icecream',name:'Dripping ice cream',mass:.14,drag:.08,bounce:.05,color:'#f1bfd8',voice:'air',hz:392,decay:.14,radius:28 },
+  { id:'axe',name:'Rusty axe',mass:1.65,drag:.07,bounce:.08,color:'#aca6a1',voice:'metal',hz:147,decay:.5,radius:33 },
+  { id:'deadcat',name:'Dead cat',mass:2.4,drag:.14,bounce:.015,color:'#9f9293',voice:'wood',hz:73.4,decay:.08,radius:35 },
+  { id:'hydrant',name:'Fire hydrant',mass:6.8,drag:.11,bounce:.045,color:'#cf5e53',voice:'metal',hz:65.4,decay:.8,radius:35 },
+  { id:'pickle',name:'Pickle',mass:.075,drag:.05,bounce:.16,color:'#a5b24f',voice:'reed',hz:349.2,decay:.16,radius:24 },
+  { id:'violin',name:'Battered violin',mass:.48,drag:.075,bounce:.1,color:'#c99253',voice:'wood',hz:440,decay:.75,radius:32 },
+  { id:'skull',name:'Skull',mass:.68,drag:.07,bounce:.18,color:'#ded3a7',voice:'wood',hz:174.6,decay:.32,radius:28 },
+  { id:'banana',name:'Banana',mass:.12,drag:.06,bounce:.08,color:'#e6d16c',voice:'wood',hz:293.7,decay:.13,radius:26 },
+  { id:'snake',name:'Snake',mass:.54,drag:.16,bounce:.07,color:'#95aa68',voice:'reed',hz:246.9,decay:.3,radius:33 },
+  { id:'plant',name:'Potted plant',mass:1.35,drag:.19,bounce:.05,color:'#79b879',voice:'wood',hz:130.8,decay:.2,radius:34 },
+  { id:'plunger',name:'Plunger',mass:.62,drag:.1,bounce:.62,color:'#cc8479',voice:'rubber',hz:110,decay:.3,radius:33 },
+  { id:'cd',name:'Compact disc',mass:.016,drag:.045,bounce:.22,color:'#adcef1',voice:'metal',hz:587.3,decay:.55,radius:25 },
+  { id:'vhs',name:'VHS tape',mass:.23,drag:.065,bounce:.2,color:'#9e91b9',voice:'metal',hz:196,decay:.28,radius:29 },
 ]);
 const pattern = (id, name, count, notation, values, extra = {}) => Object.freeze({ id, name, count, notation, values, ...extra });
 export const PATTERNS = Object.freeze([
@@ -59,7 +72,7 @@ export const PATTERNS = Object.freeze([
     ...(n%2?[]:[pattern(`sync-${n}`,`${n}-object together fountain`,n,`(${notation(n)},${notation(n)})`,[n],{sync:true})]),
   ]),
 ]);
-export const DEFAULTS = Object.freeze({ count: 3, pattern: 'cascade', tempo: 180, gravity: 1, wind: 0, assist: 65, propIds: ['ball','can','club','duck','guitar','cassette','skateboard','vinyl','mic','glowstick'], drums:['kick','snare','crash','tom','hat','kick','snare','crash','tom','hat'], riffs:['guitar','bass','oi','woo','guitar','bass','oi','woo','guitar','bass'], seed: 1981, loft: 1.4, partner: 'solo', phrase: 'loop', passMode: 'every', chaos:0, posterSeed:1981 });
+export const DEFAULTS = Object.freeze({ count: 3, pattern: 'cascade', tempo: 180, gravity: 1, wind: 0, assist: 65, propIds: ['ball','can','club','duck','guitar','cassette','skateboard','vinyl','mic','glowstick'], drums:['kick','snare','crash','tom','hat','kick','snare','crash','tom','hat'], riffs:['guitar','bass','oi','woo','guitar','bass','oi','woo','guitar','bass'], seed: 1981, loft: 1.4, partner: 'solo', phrase: 'loop', passMode: 'every', chaos:0, posterSeed:1981, ridePattern:'rock', rideSpeed:1, rideRange:44 });
 export function eventsAt(p, beat) {
   if (p.sync) return beat % 2 ? [] : [0, 1].map(hand => ({ hand, value: p.values[0], destination: hand }));
   const value = p.values[((beat % p.values.length) + p.values.length) % p.values.length];
@@ -111,6 +124,14 @@ export const PHRASE_CHUNKS = Object.freeze({
 export const VERSES = Object.freeze({1:'3001400030050000',2:'3133031420440031',3:'3334415314235223',4:'4445555064244444',...Object.fromEntries(Array.from({length:6},(_,i)=>{const n=i+5;return [n,[...Array(12-n).fill(n),...Array(n-1).fill(n+2),2,0,n+1,n+1,n-2].map(notation).join('')];}))});
 export const DRUMS = Object.freeze(['kick','snare','crash','tom','hat']);
 export const RIFFS = Object.freeze(['guitar','bass','oi','woo']);
+// Expressive riding paths, not a biomechanics solver. Zero speed is useful for
+// an isolated stationary juggling scene; ordinary defaults keep the wheel alive.
+export const RIDE_PATTERNS = Object.freeze(['rock','sweep','double-step','lurch','surge']);
+const rideShape = (pattern, phase) => pattern==='sweep' ? Math.sin(phase*.42)
+  : pattern==='double-step' ? .64*Math.sin(phase)+.36*Math.sin(phase*2)
+  : pattern==='lurch' ? (Math.sin(phase)+.32*Math.sin(phase*2))/1.32
+  : pattern==='surge' ? Math.tanh(1.8*Math.sin(phase))/Math.tanh(1.8)
+  : Math.sin(phase);
 
 export class PugglerModel {
   constructor(options = {}) {
@@ -127,13 +148,14 @@ export class PugglerModel {
   reset() {
     this.time=0; this.beat=0; this.nextBeat=0; this.seed=this.config.seed;
     this.catches=0; this.drops=0; this.score=0; this.combo=0; this.passes=0; this.lastDrop=-10; this.lastKick=-10;
-    this.players=[0,1,2].map(id=>({id,x:id?740:500,vx:0,wheel:0,flash:[0,0],lastCatch:-10,lastDrop:-10,lastThrow:-10,lastKick:-10,lastCrowdThrow:-10,crowdQueued:false,loft:1,manualUntil:0,recoil:0,lean:0,expression:'grin'}));
+    this.players=[0,1,2].map(id=>({id,x:id?740:500,vx:0,wheel:0,flash:[0,0],lastCatch:-10,lastDrop:-10,lastThrow:-10,lastKick:-10,lastCrowdThrow:-10,crowdQueued:false,loft:1,manualUntil:0,rideAnchor:id?740:500,ridePhase:id*2.1,rideBlend:1,rideMotion:'balance',recoil:0,lean:0,expression:'grin'}));
     this.posterSeed=this.config.posterSeed;this.lastAudienceThrow=null;this.lastCrowdCatch=null;this.crowdCatches=0;
     this.lastCrowdReaction=null;this.nextCrowdReaction=2.5;this.debris=[]; this.events=[]; this.objects=null;
     this.apply(this.config);
   }
   apply(options) {
     const previousCast=this.activeIds.join(','),previousPhrase=this.config.phrase;
+    const previousRide=[this.config.autoRide,this.config.ridePattern,this.config.rideSpeed,this.config.rideRange].join(':');
     Object.assign(this.config,options);
     if('partner' in options&&!('cast' in options))this.config.cast=legacyCast(options.partner);
     if('partner' in options&&!('autoRide' in options))this.config.autoRide=String(options.partner).endsWith('auto');
@@ -148,6 +170,9 @@ export class PugglerModel {
     this.config.wind=clamp(this.config.wind,-12,12);
     this.config.assist=clamp(this.config.assist,20,120);
     this.config.chaos=clamp(this.config.chaos??0,0,100);
+    this.config.ridePattern=RIDE_PATTERNS.includes(this.config.ridePattern)?this.config.ridePattern:'rock';
+    this.config.rideSpeed=clamp(this.config.rideSpeed??1,0,2.5);
+    this.config.rideRange=clamp(this.config.rideRange??44,0,100);
     this.config.posterSeed=Math.floor(clamp(this.config.posterSeed??1981,0,0xffffffff));this.posterSeed=this.config.posterSeed;
     for(let i=0;i<MAX_OBJECTS;i++){
       this.config.propIds[i]??=DEFAULTS.propIds[i];this.config.drums[i]??=DRUMS[i%DRUMS.length];this.config.riffs[i]??=RIFFS[i%RIFFS.length];
@@ -160,8 +185,11 @@ export class PugglerModel {
     this.pattern=p; this.config.pattern=p.id;
     if(changed||!this.objects){
       const positions=this.riderCount===3?[210,500,790]:this.riderCount===2?[285,715]:[500];
-      this.activePlayers.forEach((player,i)=>{player.x=positions[i];player.vx=0;player.crowdQueued=false;});
+      this.activePlayers.forEach((player,i)=>{player.x=positions[i];player.vx=0;player.crowdQueued=false;this.reanchorRider(player);});
       this.reRack();
+    }
+    else if(previousRide!==[this.config.autoRide,this.config.ridePattern,this.config.rideSpeed,this.config.rideRange].join(':')){
+      for(const player of this.activePlayers)this.reanchorRider(player);
     }
     for(let i=0;i<this.objects.length;i++){
       this.objects[i].prop=propFor(this.config.propIds[i]);
@@ -229,11 +257,11 @@ export class PugglerModel {
       if(source.crowdQueued){source.crowdQueued=false;o.due=beat+e.value;o.hand=e.destination;this.launchToAudience(o,from);continue;}
       if(e.hold){o.due=beat+2;continue;}
       const shouldPass=this.riderCount>1&&(this.config.passMode==='every'||(this.config.passMode==='three'?beat%3===0:beat%8>=4));
-      const destination=shouldPass?this.activeIds[(this.activeIds.indexOf(from)+1)%this.riderCount]:from,receiver=this.players[destination];
+      const destination=shouldPass?this.activeIds[(this.activeIds.indexOf(from)+1)%this.riderCount]:from;
       const duration=(e.value-.38)*60/this.config.tempo;
       o.x=source.x+this.offset(e.hand);o.y=WORLD.handY;
       const bounds=this.playerBounds(destination);
-      const targetX=clamp(receiver.x+receiver.vx*duration,...bounds)+this.offset(e.destination,true);
+      const targetX=clamp(this.riderLandingX(destination,duration),...bounds)+this.offset(e.destination,true);
       // Most throws wobble slightly; occasional wild releases can genuinely miss.
       const wild=this.config.chaos/100;
       const slip=wild>0&&this.random()<.035+wild*.13;
@@ -253,6 +281,32 @@ export class PugglerModel {
     return [[110,315],[385,615],[685,890]][position]??[110,890];
   }
   setRiderLoft(owner,value) {if(this.activeIds.includes(owner))this.players[owner].loft=clamp(value,.4,2.2);}
+  rideOffset(player,ahead=0) {
+    if(!this.config.rideSpeed)return 0;
+    const phase=player.ridePhase+ahead*2.4*this.config.rideSpeed;
+    const bounds=this.playerBounds(player.id),range=this.config.autoRide?Math.min(this.config.rideRange,(bounds[1]-bounds[0])*.36):0;
+    return range*rideShape(this.config.ridePattern,phase)+(this.config.autoRide?8:15)*Math.sin(phase*1.12+player.id*.45);
+  }
+  reanchorRider(player) {
+    const [low,high]=this.playerBounds(player.id);
+    const reach=this.config.rideSpeed?(this.config.autoRide?Math.min(this.config.rideRange,(high-low)*.36)+8:15):0;
+    // Reserve space for the whole rocking score. An anchor beyond an edge can
+    // clamp every target to that edge indefinitely after manual control ends.
+    // Only the target center changes here; x/vx still use the smooth controller.
+    player.rideAnchor=clamp(player.x-this.rideOffset(player),low+reach,high-reach);
+  }
+  ridingTarget(player,ahead=0) {
+    const bounds=this.playerBounds(player.id),at=t=>clamp(player.rideAnchor+this.rideOffset(player,t),...bounds);
+    return {x:at(ahead),vx:(at(ahead+.001)-at(ahead-.001))/.002};
+  }
+  riderLandingX(owner,duration) {
+    const player=this.players[owner];
+    if(!this.config.rideSpeed||this.time<=player.manualUntil)return player.x+player.vx*duration;
+    // Aim ahead along the actual bounded riding score. Correct its current
+    // tracking error, while manual intervention can still make a throw miss.
+    const now=this.ridingTarget(player),future=this.ridingTarget(player,duration);
+    return future.x+(player.x-now.x)*Math.exp(-duration*6);
+  }
   throwToAudience(owner=0) {
     if(!this.activeIds.includes(owner))return;
     const player=this.players[owner];if(this.time-player.lastCrowdThrow<.45)return;
@@ -296,7 +350,7 @@ export class PugglerModel {
     o.prop=choices[Math.floor(this.random()*choices.length)];this.config.propIds[o.id]=o.prop.id;
     // A front-row hand lobs a new prop upward; it descends to the intended rider.
     o.phase='replacement';o.x=clamp(player.x+(this.random()-.5)*530,35,965);o.y=32;
-    o.targetX=clamp(player.x+this.offset(o.hand,true)+(this.random()-.5)*70,20,980);
+    o.targetX=clamp(this.riderLandingX(o.owner,1.15)+this.offset(o.hand,true)+(this.random()-.5)*70,20,980);
     o.start=this.time;o.duration=1.15; o.spinRate=(this.random()-.5)*12;
     o.flight=launchFlight({x:o.x,y:o.y,targetX:o.targetX,targetY:WORLD.handY,duration:o.duration,mass:o.prop.mass,drag:o.prop.drag,g:2000});
     o.vx=o.flight.vx;o.vy=o.flight.vy;o.trail=[];
@@ -306,17 +360,32 @@ export class PugglerModel {
     for(const p of this.activePlayers){
       p.previousX=p.x;
       const control=controls[p.id]??{};
-      let aim=control.target??null,direction=control.steer??0;
-      if(direction||aim!==null)p.manualUntil=this.time+.65;
-      if(p.id!==this.activeIds[0]&&this.config.autoRide&&this.time>p.manualUntil){
-        const incoming=this.objects.filter(o=>o.owner===p.id&&['air','replacement'].includes(o.phase)&&o.vy<0).sort((a,b)=>a.y-b.y)[0];
-        if(incoming)aim=incoming.targetX-this.offset(incoming.hand,true);else aim=p.x;
+      let aim=Number.isFinite(control.target)?control.target:null,direction=Number.isFinite(control.steer)?clamp(control.steer,-1,1):0,feedForward=0;
+      const manual=direction!==0||aim!==null;
+      if(manual)p.manualUntil=this.time+.65;
+      p.ridePhase+=dt*2.4*this.config.rideSpeed;
+      if(this.time<=p.manualUntil){p.rideBlend=0;p.rideMotion=manual?'manual':'coast';}
+      else{
+        p.rideBlend+=(1-p.rideBlend)*(1-Math.exp(-dt*3));
+        p.rideMotion=this.config.rideSpeed?(this.config.autoRide?'pattern':'balance'):'still';
+        const ride=this.ridingTarget(p);aim=ride.x;feedForward=ride.vx;
+        if(this.config.autoRide){
+          const incoming=this.objects.filter(o=>o.owner===p.id&&['air','replacement'].includes(o.phase)&&o.vy<0).sort((a,b)=>(a.start+a.duration)-(b.start+b.duration))[0];
+          if(incoming){
+            const urgency=clamp(1-(incoming.start+incoming.duration-this.time)/.3,0,1)*.65;
+            aim+=(clamp(incoming.targetX-this.offset(incoming.hand,true),...this.playerBounds(p.id))-aim)*urgency;
+          }
+        }
       }
       if(control.height)this.setRiderLoft(p.id,p.loft+clamp(control.height,-1,1)*dt*.7);
-      const desired=aim===null?clamp(direction,-1,1)*480:clamp((aim-p.x)*6,-480,480),previous=p.vx;
+      const desired=aim===null?direction*480:clamp(((aim-p.x)*6+feedForward)*(this.time>p.manualUntil?p.rideBlend:1),-480,480),previous=p.vx;
       p.vx+=(desired-p.vx)*(1-Math.exp(-dt*8));p.x=clamp(p.x+p.vx*dt,...this.playerBounds(p.id));
       const bounds=this.playerBounds(p.id);if(p.x<=bounds[0]||p.x>=bounds[1])p.vx=0;
-      p.wheel+=p.vx*dt/49;p.recoil*=Math.exp(-dt*6);p.lean+=((p.vx/480*.2+(p.vx-previous)*.003+p.recoil)-p.lean)*(1-Math.exp(-dt*10));
+      if(this.time<=p.manualUntil)this.reanchorRider(p);
+      p.wheel+=(p.x-p.previousX)/49;p.recoil*=Math.exp(-dt*6);
+      const acceleration=dt?(p.vx-previous)/dt:0;
+      const balanceLean=clamp(p.vx/480*.2+acceleration*.00028+p.recoil,-.36,.36);
+      p.lean+=(balanceLean-p.lean)*(1-Math.exp(-dt*10));
       p.expression=this.time-p.lastDrop<1.4?'panic':this.time-p.lastCatch<.25?'shout':Math.abs(p.vx)>180?'wild':'grin';
     }
   }
@@ -348,7 +417,7 @@ export class PugglerModel {
         if(o.y<o.prop.radius&&['air','replacement'].includes(o.phase))this.miss(o);
       }
       if(o.phase!=='waiting'){o.x=clamp(o.x,-1000,2000);o.y=clamp(o.y,0,1000000);}
-      if(['air','replacement','audience'].includes(o.phase)){o.trail.push([o.x,o.y]);if(o.trail.length>55)o.trail.shift();}
+      if(['air','replacement','audience'].includes(o.phase)){o.trail.push([o.x,o.y,o.spin,this.time]);if(o.trail.length>55)o.trail.shift();}
     }
     for(const d of this.debris){d.vy-=900*dt;d.x+=d.vx*dt;d.y+=d.vy*dt;d.spin+=d.vx*.01*dt;if(d.y<d.prop.radius){d.y=d.prop.radius;d.vy=Math.abs(d.vy)*d.prop.bounce*.25;d.vx*=.9;}}
     this.debris=this.debris.filter(d=>d.expires>this.time);

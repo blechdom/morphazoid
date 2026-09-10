@@ -74,7 +74,7 @@ that cursor, so even short flights develop through their riff.
   objects land naturally; riding, manual crowd exchanges and model-timed audience
   reactions continue. Armed Audio keeps crowd sounds and contact tails available.
   Audio off, output zero, hidden pages and teardown silence all sources.
-- The compact panel orders transport/tempo, 18 starting acts, cast, count/pattern,
+- The compact panel orders transport/tempo, 22 starting acts, cast, count/pattern,
   rhythm, multi-rider passing, random objects/flyers, physics, sound, and object
   assignments. The page intentionally omits the shared Audio-off prose at the
   user's request; the explicit masthead Audio state remains visible.
@@ -115,10 +115,13 @@ that cursor, so even short flights develop through their riff.
 
 ## Runtime and verification boundaries
 
-Canonical route/ID: `puggler.html` / `puggler`, Misc catalogue group. Twenty-one
+Canonical route/ID: `puggler.html` / `puggler`, Misc catalogue group. Thirty-three
 materials and 31 fixed patterns; one to ten total sound objects. New physical
-props include a battered guitar, cassette, skateboard, vinyl, microphone, traffic
-cone, glowstick, plush mushroom, and plush rat.
+props include ice cream, an axe, a dead cat, a hydrant, a pickle, a violin, a skull,
+a banana, a snake, a potted plant, a plunger, a CD, and a VHS tape. The plush
+mushroom is removed. Their masses and material parameters are game-scaled
+contrasts rather than measured replicas; they drive the existing drag, wind,
+spin, recoil, and sound mappings. Four additional acts showcase the new bank.
 
 The simulation uses 120 Hz fixed steps on a bounded 20 ms timer. After explicit
 Audio activation, `AudioContext.currentTime` drives scheduling; rAF only paints.
@@ -152,3 +155,33 @@ continuation, onset/mute/pause, layout, three-player keyboard/pointer cancellati
 Automation does **not** establish timbral authenticity, intelligibility of the
 sampled chant, musical usefulness, or physical touch/controller feel. Human
 listening and device play remain unperformed.
+
+## Unicycle idling and preset riding
+
+[Unicycle.com's idling guide](https://www.unicycle.com/blog/how-to-idle-why-it-matters/)
+describes controlled forward/backward rocking around one spot. The show uses an
+artistic approximation of that balancing stance: small real wheel travel for
+every active rider, with larger preset-specific riding patterns layered over it.
+Manual steering takes priority and sets a new local balance position after
+release. Wheel rotation, pedals, hand positions, and contacts follow model motion;
+this is not a full simulation of rider biomechanics.
+
+## Crowd collage and musical motion
+
+Five rear-view cutout types vary hair, age, clothing, and proportions; raised
+hands include phones, lit lighters, open hands, peace signs, and horns with varied
+skin tones. The generated images and exact prompts are documented in
+[asset credits](assets/puggler/CREDITS.md).
+
+Crowd motion consumes the same timestamped juggling contacts that trigger the
+drums. Each listener has different drum preferences, reaction delays, short bounce
+envelopes, and rest periods, with small independent fidgets between hits. This is
+event-driven choreography, not microphone or audio-waveform analysis. It works
+with Audio off and does not create or arm an audio context. Responses and drawing
+cost remain bounded at the maximum object count and tempo.
+
+Stage pyrotechnics accent occasional juggling contacts with short flame jets
+and sparks. They use the model clock, a contact phrase threshold, and a cooldown
+between bursts. Pause prevents new bursts while existing sparks finish; reset
+and teardown clear their state. These are visual accents over the existing
+drums, with no additional audio source or independent backing track.
