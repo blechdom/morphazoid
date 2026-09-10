@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 import { COLLAGE_ATLASES } from '../src/puggler-collage.js';
 import { PATTERNS } from '../src/puggler.js';
+import { SKINS } from '../src/puggler-skins.js';
+import { LIGHTING_SCENES } from '../src/puggler-lighting.js';
 
 const atlasCount = Object.keys(COLLAGE_ATLASES).length;
 
@@ -336,7 +338,7 @@ test('Puggler keeps juggling with vector artwork when collage images are unavail
   expect(errors).toEqual([]);
 });
 
-test('Puggler juggling hits animate five independent crowd members with Audio off', async ({ page }) => {
+test('Puggler juggling hits animate a varied rear-view audience including two women and a baby', async ({ page }) => {
   await openShow(page);
   await expect.poll(async () => (await state(page)).crowd.events).toBeGreaterThan(0);
   const samples = [];
@@ -344,13 +346,76 @@ test('Puggler juggling hits animate five independent crowd members with Audio of
     samples.push((await state(page)).crowd.members);
     await page.waitForTimeout(80);
   }
-  expect(new Set(samples[0].map(member => member.head))).toEqual(new Set(['dread','kid','hat','curls','punk']));
-  expect(new Set(samples[0].map(member => member.hand))).toEqual(new Set(['lighter','phone','palm','peace','horns']));
+  expect(new Set(samples[0].map(member => member.head))).toEqual(new Set(['dread','kid','hat','curls','punk','braids','ponytail','baby']));
+  expect(new Set(samples[0].map(member => member.hand))).toEqual(new Set(['lighter','phone','palm','peace','horns',null]));
+  expect(samples.every(members => members.find(member=>member.head==='baby').jump<=3)).toBe(true);
   expect(samples.some(members => Math.max(...members.map(m => m.energy)) > 0)).toBe(true);
   // A shared bounce would leave the same vertical displacement for everyone.
   expect(samples.some(members => Math.max(...members.map(m => m.jump)) - Math.min(...members.map(m => m.jump)) > 2)).toBe(true);
   expect((await state(page)).audioOn).toBe(false);
 });
+
+test('Puggler stage skins update cast and object artwork without disturbing an airborne act, Audio, or lights', async ({ page }, testInfo) => {
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await openShow(page);
+  await range(page,'chaos',0);
+  await expect(page.locator('#skin option')).toHaveCount(SKINS.length);
+  await expect(page.locator('#lighting option')).toHaveCount(LIGHTING_SCENES.length);
+  await expect.poll(async()=>(await state(page)).objects.filter(object=>object.phase==='air').length).toBeGreaterThan(0);
+  for(const skin of SKINS){
+    const transition=await page.evaluate(id=>{
+      const before=window.__puggler.snapshot();
+      const field=document.getElementById('skin');field.value=id;field.dispatchEvent(new Event('change',{bubbles:true}));
+      const after=window.__puggler.snapshot();
+      const labels=after.objects.map(object=>document.querySelector(`#object${object.id} option:checked`).textContent);
+      return {before,after,labels};
+    },skin.id);
+    expect(transition.after.time).toBe(transition.before.time);
+    expect(transition.after.beat).toBe(transition.before.beat);
+    expect(transition.after.players).toEqual(transition.before.players);
+    const physical=objects=>objects.map(({name,...object})=>object);
+    expect(physical(transition.after.objects)).toEqual(physical(transition.before.objects));
+    expect(transition.after).toMatchObject({skin:skin.id,riderNames:skin.riders,running:true,audioOn:false});
+    for(let owner=0;owner<3;owner++)await expect(page.locator(`#rider-${owner}`)).toContainText(skin.riders[owner]);
+    await expect(page.locator('#cast option:checked')).toHaveText(skin.riders.join(' + '));
+    // The crowd may replace a dropped prop during later awaited UI assertions.
+    expect(transition.labels).toEqual(transition.after.objects.map(object=>object.name));
+    for(const scene of LIGHTING_SCENES){
+      await page.locator('#lighting').selectOption(scene.id);
+      expect(await state(page)).toMatchObject({lighting:scene.id,skin:skin.id,running:true,audioOn:false});
+    }
+    await page.locator('#stage').screenshot({path:testInfo.outputPath(`puggler-skin-${skin.id}.png`)});
+  }
+  await page.locator('#preset').selectOption('curbside-requiem');
+  expect(await state(page)).toMatchObject({skin:'future',lighting:LIGHTING_SCENES.at(-1).id,running:true,audioOn:false});
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:15000});
+  await page.locator('#playButton').click();
+  await page.locator('#skin').selectOption('history');
+  expect(await state(page)).toMatchObject({skin:'history',running:false,audioOn:true});
+  await page.locator('#resetButton').click();
+  expect(await state(page)).toMatchObject({skin:'punk',lighting:'house',running:false,audioOn:true});
+  expect(errors).toEqual([]);
+});
+
+for (const viewport of [{ width:390, height:844 }, { width:844, height:390 }]) {
+  test(`Puggler phone ${viewport.width} allows native scrolling to the skin controls`, async ({ browser, baseURL }) => {
+    const context=await browser.newContext({baseURL,viewport,hasTouch:true,isMobile:true});
+    try {
+      const page=await context.newPage();await openShow(page);
+      // Scroll in the outer gutter, outside the canvas's deliberate steering area.
+      // Programmatic scrollIntoView can bypass overflow:hidden and miss this bug.
+      await page.mouse.move(viewport.width-5,viewport.height*.8);
+      await page.mouse.wheel(0,viewport.height*.6);
+      await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(50);
+      await page.locator('#skin').selectOption('future');
+      await page.locator('#lighting').selectOption('sweep');
+      expect(await state(page)).toMatchObject({skin:'future',lighting:'sweep',running:true,audioOn:false});
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
+    } finally { await context.close(); }
+  });
+}
 
 test('Puggler accents juggling contacts with occasional pyrotechnics and releases their tails on pause', async ({ page }, testInfo) => {
   await openShow(page);

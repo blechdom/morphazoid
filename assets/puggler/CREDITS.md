@@ -204,3 +204,8 @@ BOTTOM ROW, left to right:
 
 Match grimy real-object product photography: worn textures, scratches, tiny dents, realistic fur/scales/leaves, natural material detail and subdued photographic lighting. Natural silhouettes directly adjoin transparency, without surrounding white borders. Keep every object crisp and recognizable as a small juggling sprite. Output a genuinely transparent PNG.
 ```
+# Stage-skin and additional audience artwork
+
+Additional generated imagery has its exact prompts and provenance in
+[SKINS_CREDITS.md](SKINS_CREDITS.md) and
+[CROWD_EXTRA_CREDITS.md](CROWD_EXTRA_CREDITS.md).

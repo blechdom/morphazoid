@@ -146,8 +146,8 @@ test('a complete ten-object, 1200 BPM frame has no predicted dotted paths and re
   assert.equal(calls.some(call=>call[0]==='setLineDash'),false);
   const equipment=renderer.collage.venue.filter(call=>['amp','speaker','drum'].includes(call[1]));
   assert.ok(equipment.every(call=>call[4]<=300*renderer.view.scaleY));
-  const crowd=renderer.collage.venue.filter(call=>call[0]==='crowd');
-  assert.deepEqual(new Set(crowd.map(call=>call[1])),new Set(['dread','kid','hat','curls','punk','lighter','phone','palm','peace','horns']));
+  const crowd=renderer.collage.venue.filter(call=>['crowd','crowdExtra'].includes(call[0]));
+  assert.deepEqual(new Set(crowd.map(call=>call[1])),new Set(['dread','kid','hat','curls','punk','lighter','phone','palm','peace','horns','braids','ponytail','baby']));
   assert.ok(crowd.every(call=>call[4]<=68&&call[7]===0));
   renderer.dispose();
 });

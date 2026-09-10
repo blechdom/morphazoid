@@ -1,5 +1,8 @@
 @import url('./src/ui/index.css');
 .puggler-page { --accent:#c2ec81; --green:#c2ec81; --text:#f1e4ec; --muted:#baa8b8; --line:#4c394e; background:#15101c; color:var(--text); }
+/* This instrument scrolls as a page on phones, unlike the shared fixed shell. */
+html:has(> .puggler-page) { height:auto; min-height:100%; overflow:auto; }
+body.puggler-page { height:auto; min-height:100dvh; overflow:visible; }
 .puggler-shell { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:18px; max-width:1680px; margin:auto; padding:18px; align-items:start; }
 .puggler-performance { min-width:0; }
 .puggler-stage-wrap { position:relative; overflow:hidden; }
@@ -42,6 +45,7 @@
 .puggler-page .masthead select { width:100%; min-width:0; height:33px; min-height:33px; padding:4px 6px; border:1px solid #5a4056; border-radius:4px; background:#2b1f31; color:#eee1e9; font:11px system-ui,sans-serif; }
 .puggler-panel select { min-width:0; }
 .puggler-two-fields { display:grid; grid-template-columns:70px minmax(0,1fr); gap:var(--mz-space-3); }
+.puggler-look-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--mz-space-3); }
 .puggler-two-fields #count { padding-inline:var(--mz-space-3) var(--mz-space-7); }
 .puggler-transport { display:grid; grid-template-columns:76px minmax(0,1fr); gap:var(--mz-space-4); align-items:center; margin-bottom:var(--mz-space-5); }
 .puggler-transport #playButton { min-height:48px; font-size:var(--mz-font-size-md); }

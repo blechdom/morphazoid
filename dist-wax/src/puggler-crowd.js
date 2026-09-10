@@ -1,4 +1,4 @@
-// Five listeners respond to the same physical contact events as the drum kit.
+// Listeners respond to the same physical contact events as the drum kit.
 // No AudioContext, frame-time integration, timers, or unbounded particle history.
 export const CROWD_MEMBERS = Object.freeze([
   {id:0,head:'dread',hand:'lighter',phase:.4,delay:.014,duration:.36,refractory:.15,jump:24,scale:1.03,lean:-1,drums:{kick:1,snare:.25,crash:.55,tom:.75,hat:.08}},
@@ -6,7 +6,15 @@ export const CROWD_MEMBERS = Object.freeze([
   {id:2,head:'hat',hand:'palm',phase:4.5,delay:.105,duration:.44,refractory:.19,jump:19,scale:1.09,lean:-1,drums:{kick:.7,snare:.15,crash:1,tom:.4,hat:.05}},
   {id:3,head:'curls',hand:'peace',phase:5.8,delay:.039,duration:.31,refractory:.135,jump:27,scale:.94,lean:1,drums:{kick:.2,snare:.6,crash:.35,tom:1,hat:.65}},
   {id:4,head:'punk',hand:'horns',phase:3.2,delay:.085,duration:.29,refractory:.16,jump:31,scale:1,lean:-1,drums:{kick:.6,snare:1,crash:.9,tom:.5,hat:.3}},
-].map(member=>Object.freeze({...member,drums:Object.freeze(member.drums)})));
+  {id:5,head:'braids',hand:'palm',phase:1.3,delay:.052,duration:.47,refractory:.22,jump:9,scale:1.08,lean:1,drums:{kick:.6,snare:.4,crash:.7,tom:1,hat:.15}},
+  {id:6,head:'ponytail',hand:'lighter',phase:6.7,delay:.093,duration:.33,refractory:.14,jump:27,scale:1,lean:-1,drums:{kick:.3,snare:.8,crash:1,tom:.45,hat:.4}},
+  {id:7,head:'baby',hand:null,phase:2.8,delay:.19,duration:.8,refractory:.7,jump:1.8,scale:.66,lean:1,drums:{kick:.25,snare:0,crash:0,tom:.25,hat:0}},
+].map(member=>Object.freeze({...member,
+  xFraction:[.06,.2,.34,.62,.9,.47,.76,.51][member.id],
+  yOffset:member.head==='kid'?5:member.head==='hat'?-20:member.head==='baby'?-10:0,
+  bodyColor:['#343027','#354452','#3b3b32','#40303b','#302735','#64283e','#425246','#25394b'][member.id],
+  skinColor:['#795440','#af795a','#9c7861','#5b3d31','#b69278','#68432f','#b88d68','#a87654'][member.id],
+  drums:Object.freeze(member.drums)})));
 const clamp=(value,low,high)=>Math.max(low,Math.min(high,value));
 const noise=value=>{const n=Math.sin(value*12.9898+78.233)*43758.5453;return n-Math.floor(n);};
 const CONTACTS=new Set(['catch','kick','crowd-catch']);
@@ -56,14 +64,16 @@ export class PugglerCrowd {
         lift+=envelope;impulse+=envelope*(1-phase*.35);attitude+=envelope*pulse.sign;
       }
       const energy=clamp(impulse,0,1.25),bounce=clamp(lift,0,1.25);
+      const baby=p.head==='baby',gentle=baby?.18:1;
       // Small, independent idle fidgets remain when the drums rest. Event-driven
       // lift supplies the larger fast movement, with strict geometry limits.
       return {id:p.id,head:p.head,hand:p.hand,scale:p.scale,energy,
-        jump:clamp(bounce*p.jump+Math.max(0,Math.sin(time*(8.1+p.id*.67)+p.phase))*1.7,0,40),
-        sway:clamp(Math.sin(time*(6.8+p.id*.51)+p.phase)*(1.2+energy*4),-7,7),
-        tilt:clamp(Math.sin(time*(9.2+p.id*.63)+p.phase)*(.025+energy*.13)+clamp(attitude,-1,1)*p.lean*.025,-.23,.23),
-        arm:clamp(energy*(15+p.id*2)+Math.max(0,Math.sin(time*(7.3+p.id*.4)+p.phase))*2,0,30),
-        handAngle:clamp(Math.sin(time*(10.7+p.id*.37)+p.phase)*(.055+energy*.16),-.28,.28),
+        xFraction:p.xFraction,yOffset:p.yOffset,bodyColor:p.bodyColor,skinColor:p.skinColor,lean:p.lean,
+        jump:clamp(bounce*p.jump+Math.max(0,Math.sin(time*(8.1+p.id*.67)*gentle+p.phase))*1.7*gentle,0,baby?3:40),
+        sway:clamp(Math.sin(time*(6.8+p.id*.51)*gentle+p.phase)*(1.2+energy*4)*gentle,-7,7),
+        tilt:clamp((Math.sin(time*(9.2+p.id*.63)*gentle+p.phase)*(.025+energy*.13)+clamp(attitude,-1,1)*p.lean*.025)*gentle,-.23,.23),
+        arm:baby?0:clamp(energy*(15+p.id*2)+Math.max(0,Math.sin(time*(7.3+p.id*.4)+p.phase))*2,0,30),
+        handAngle:baby?0:clamp(Math.sin(time*(10.7+p.id*.37)+p.phase)*(.055+energy*.16),-.28,.28),
       };
     });
     return {events:this.events,disposed:this.disposed,members};

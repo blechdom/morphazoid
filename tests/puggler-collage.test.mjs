@@ -89,6 +89,26 @@ test('decode failure is contained to its own atlas', async t => {
   assert.equal(collage.drawProp(c, { id: 'icecream' }, 0, 0), true);
 });
 
+test('each skin draws only its own photo bank and a failed themed atlas cannot fall back to a punk photo',async t=>{
+  const {images,imageFactory}=makeImages();
+  const collage=new PugglerCollage({imageFactory,atlases:TEST_ATLASES});
+  t.after(()=>collage.dispose());
+  await Promise.all(images.map(image=>image.onload()));
+  const {c,calls}=drawingContext();
+  for(const skin of ['history','future']){
+    const atlasIndex=Object.keys(TEST_ATLASES).indexOf(skin);
+    for(const id of COLLAGE_ATLASES[skin].ids){
+      calls.length=0;
+      assert.equal(collage.drawProp(c,{id,skin,radius:26},10,20),true);
+      assert.equal(calls.find(call=>call[0]==='drawImage')[1],images[atlasIndex]);
+    }
+  }
+  collage.entries.get('future').state='failed';calls.length=0;
+  assert.equal(collage.drawProp(c,{id:'ball',skin:'future',radius:26},10,20),false);
+  assert.equal(calls.some(call=>call[0]==='drawImage'),false);
+  assert.equal(collage.drawProp(c,{id:'ball',radius:26},10,20),true);
+});
+
 test('dispose releases images and late decodes cannot repopulate the cache', async () => {
   const { images, imageFactory } = makeImages();
   const collage = new PugglerCollage({ imageFactory, atlases: TEST_ATLASES });

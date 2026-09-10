@@ -44,7 +44,7 @@ while IFS= read -r -d '' source_path; do
 
   case "$source_path" in
     *.html|*.css|*.js|*.wasm|*.webp|*.glb|*.LICENSE.txt|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
-    assets/puggler/*.wav|assets/puggler/CREDITS.md|assets/puggler/CC0-1.0.txt|\
+    assets/puggler/*.wav|assets/puggler/*CREDITS.md|assets/puggler/CC0-1.0.txt|\
     vendor/tactile/LICENSE|\
     vendor/ffmpeg-wasm/LICENSE|\
     vendor/ffmpeg-wasm/core/COPYING.GPLv2|\

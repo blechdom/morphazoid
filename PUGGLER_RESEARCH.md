@@ -59,6 +59,33 @@ that cursor, so even short flights develop through their riff.
 
 ## Play and causality
 
+### Stage skins and lighting
+
+The stage has three presentation skins: Trashpunk, History mash-up, and Future
+3026. History pairs a caveman, a medieval performer, and a composer caricature;
+Future pairs a future man, a cyber woman, and an alien. Each new skin remaps all
+33 prop names and photographic-style sprites while keeping the base IDs, mass,
+drag, contact timing, and drum/riff assignments. A skin change restyles existing
+flights and their recorded trails without re-racking or resetting the model.
+Starting acts preserve the chosen skin and lights; Reset returns to Trashpunk
+and house lights. Cast names and keyboard labels follow the selected skin.
+
+The historical scene is a deliberately anachronistic global collage. The
+[Met's astrolabe from Yemen](https://www.metmuseum.org/art/collection/search/444408),
+its [lute overview](https://www.metmuseum.org/ja/essays/the-lute), and the
+[Morgan's Mozart portrait description](https://www.themorgan.org/exhibitions/online/mozart/406)
+anchor a few recognizable shapes and costume details. The generated objects,
+composite stage, and performers are fictional interpretations, not museum
+reproductions or accurate reconstructions. The Future 3026 objects are invented.
+
+Lighting scenarios use the current performer motion and catch accents for
+bounded intensity changes. They remain visual parameters, with no new sound
+sources or timers. The expanded audience contains two distinct women and a baby,
+all shown from behind. The baby appears supported beside an adult and has a
+smaller, slower movement range. New cutout prompts and provenance are in
+[skin artwork credits](assets/puggler/SKINS_CREDITS.md) and
+[audience credits](assets/puggler/CROWD_EXTRA_CREDITS.md).
+
 - Default: six props, automatic Roxy and Moss, 16-beat phrase, 360 siteswap beats/min,
   throw height 1.8×, catch reach 42 world units, throw wildness 40%, Audio off, output 48%, catch drums 125%.
 - Each prop independently chooses physical material, catch drum

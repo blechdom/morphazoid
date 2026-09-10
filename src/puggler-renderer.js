@@ -2,6 +2,9 @@ import { WORLD, flightPosition } from './puggler.js';
 import { PugglerCollage } from './puggler-collage.js';
 import { PugglerCrowd } from './puggler-crowd.js';
 import { PugglerPyro } from './puggler-pyro.js';
+import { skinFor, presentProp } from './puggler-skins.js';
+import { drawSkinPerformer, drawSkinStage } from './puggler-skin-renderer.js';
+import { renderStageLighting } from './puggler-lighting.js';
 
 const TAU = Math.PI * 2;
 function ellipse(c, x, y, rx, ry, fill, stroke) {
@@ -21,6 +24,25 @@ export function drawProp(c, prop, x, y, spin = 0, size = 1, collage = null, shad
   // path is expensive in software Canvas; keep the fading echo without its blur.
   if(shadow===0){c.shadowBlur=0;c.shadowOffsetX=0;c.shadowOffsetY=0;c.shadowColor='transparent';}
   const col = prop.color;
+  if(prop.skin==='history'||prop.skin==='future'){
+    // Keep a themed silhouette available while an optional photo sheet loads.
+    const seed=[...prop.id].reduce((sum,letter)=>sum+letter.charCodeAt(0),0);
+    if(prop.skin==='future'){
+      ellipse(c,0,0,21,12,col,'#a4e6dc');
+      for(let i=0;i<3;i++){c.rotate(TAU/3);path(c,[[9,-4],[28,-12],[22,8]],i===seed%3?'#a6e8e0':col,'#627bc7',1);}
+      ellipse(c,0,0,7,7,'#16142b','#e5bfec');
+    }else if(seed%3===0){
+      path(c,[[-12,-19],[11,-19],[16,15],[9,22],[-10,21],[-17,13]],col,'#644634');
+      ellipse(c,0,-19,12,4,'#30261e','#b39b67');line(c,[[-12,8],[12,8]],'#c3ab77',3);
+    }else if(seed%3===1){
+      path(c,[[-21,-13],[14,-18],[24,-5],[16,18],[-17,19],[-25,4]],col,'#6a5140');
+      line(c,[[-12,-9],[4,-13],[15,3]],'#d4ba82',3);
+    }else{
+      line(c,[[0,23],[0,-12]],'#805832',7);ellipse(c,0,-10,14,16,col,'#66523b');
+      line(c,[[-9,-13],[9,-8]],'#d4bb84',2);
+    }
+    c.restore();return;
+  }
   switch (prop.id) {
     case 'can':
       path(c, [[-12,-16],[12,-16],[12,16],[-12,16]], '#688d9a');
@@ -503,15 +525,6 @@ function stage(c,w,h,model,view,collage) {
     c.save();c.translate(flyer.x,flyer.y);c.rotate(flyer.angle);c.scale(flyer.scale,flyer.scale);
     poster(c,flyer.bill,flyer.paper,flyer.symbol,flyer.variant);c.restore();
   }
-  // Fixed broad beams breathe gently with performance; no strobe effects.
-  const performers=model.activePlayers??model.players??[model];
-  const energy=Math.min(1,Math.max(0,...performers.map(p=>Math.abs(p.vx||0)))/350+Math.max(0,...performers.map(p=>impact(time,p.lastCatch,.8)))*.2);
-  for(let i=0;i<3;i++) {
-    const x=w*(.16+i*.34),end=w*(.2+i*.31)+Math.sin(time*.35+i)*w*.04;
-    path(c,[[x-7,23],[x+7,23],[end+w*.16,floor],[end-w*.16,floor]],i%2?'#bf648111':'#bdce5e0c','#ffffff00',0);
-    ellipse(c,x,23,15,7,i%2?'#c482aa':'#bdc57c','#211d22');
-    ellipse(c,x,23,8+energy,3,i%2?'#d99bbb66':'#e3e39477');
-  }
   line(c,[[0,14],[w,14]],'#575052',6);line(c,[[0,32],[w,32]],'#3c343c',3);
   for(let x=0;x<w;x+=70){line(c,[[x,14],[x+55,32]],'#544b4d',2);line(c,[[x,32],[x+55,14]],'#544b4d',2);}
   // Backline stays visually behind the performers and their flight paths.
@@ -561,7 +574,8 @@ function stage(c,w,h,model,view,collage) {
   }
 }
 function crowdHead(c,collage,id,x,y,size,angle=0) {
-  if(collage.draw(c,'crowd',id,x,y,size,size,angle,0))return;
+  const atlas=['braids','ponytail','baby'].includes(id)?'crowdExtra':'crowd';
+  if(collage.draw(c,atlas,id,x,y,size,size,angle,0))return;
   c.save();c.translate(x,y);c.rotate(angle);c.scale(size/62,size/62);
   // The fallback is also a back view: hair, nape, clothing, never facial features.
   ellipse(c,0,21,20,17,id==='kid'?'#58616f':'#28252c');
@@ -573,7 +587,17 @@ function crowdHead(c,collage,id,x,y,size,angle=0) {
     line(c,[[-13,-16],[13,-17]],'#33382f',4);
   } else if(id==='curls')for(let j=0;j<11;j++){const a=j*TAU/11;ellipse(c,Math.cos(a)*14,Math.sin(a)*15-2,6,6,j%2?'#30272b':'#201b20');}
   else if(id==='punk')path(c,[[-6,9],[-12,-17],[-7,-28],[-3,-15],[2,-31],[4,-14],[10,-24],[7,8]],'#c75382','#752c52',1);
-  else line(c,[[-10,-8],[-4,-13],[2,-10],[9,-12]],'#826757',5);
+  else if(id==='braids'){
+    ellipse(c,0,-19,16,13,'#281f1c');
+    for(let j=0;j<7;j++)line(c,[[-11+j*3.5,-18],[-13+j*4,-3],[-10+j*3,22]],j%2?'#463028':'#231c1a',3);
+  }else if(id==='ponytail'){
+    ellipse(c,6,-10,13,17,'#302524');path(c,[[1,-20],[18,-16],[20,15],[9,25],[8,0]],'#335c58','#28262b',1);
+  }else if(id==='baby'){
+    ellipse(c,0,-2,13,14,'#9c7058');ellipse(c,0,-8,10,7,'#51443c');
+    line(c,[[-15,2],[-15,-15],[0,-21],[15,-15],[15,2]],'#dfb244',3);
+    ellipse(c,-15,0,5,9,'#ddb63c','#3c3430');ellipse(c,15,0,5,9,'#ddb63c','#3c3430');
+    path(c,[[-19,13],[18,13],[15,29],[-15,29]],'#354455','#232c35',1);
+  }else line(c,[[-10,-8],[-4,-13],[2,-10],[9,-12]],'#826757',5);
   c.restore();
 }
 function crowdHand(c,collage,id,x,y,size,angle=0,time=0) {
@@ -607,7 +631,7 @@ function audience(c,w,h,model,view,collage,crowd) {
     const y=h+8-pose.jump*.35-(i%3)*4,up=Math.max(boo*12,cheer*16,pose.arm*.5);
     const col=i%2?'#0a090e':'#151117';
     ellipse(c,x,y-17,12+i%3,15,col);ellipse(c,x,y+10,25,25,col);
-    if(i%3!==1) {
+    if(pose.hand&&i%3!==1) {
       const sign=i%2?1:-1,handX=x+sign*26,handY=y-43-up;
       line(c,[[x+sign*12,y+1],[x+sign*29,y-15],[handX,handY]],col,8);
       ellipse(c,handX,handY,7,8,col);
@@ -624,15 +648,17 @@ function audience(c,w,h,model,view,collage,crowd) {
     if(i%5===0)path(c,[[x-12,y-26],[x-6,y-45],[x,y-30],[x+5,y-47],[x+11,y-28]],'#28162b',col,2);
   }
   // Each photographic listener has a different body size, instrument preference,
-  // delayed jump and raised hand. All five remain visible on a narrow stage.
+  // delayed movement and raised hand. The baby stays in a carrier by an adult.
   for(const pose of poses) {
-    const x=w*(.1+pose.id*.2)+pose.sway,y=h-15-pose.jump+(pose.head==='kid'?5:pose.head==='hat'?-20:0);
-    const size=62*pose.scale,sign=[1,-1,1,-1,-1][pose.id];
+    const parent=pose.head==='baby'?poses.find(member=>member.head==='braids'):null;
+    const x=parent?w*parent.xFraction+parent.sway+25+pose.sway:w*pose.xFraction+pose.sway;
+    const y=h-15-pose.jump+pose.yOffset-(parent?parent.jump*.45:0);
+    const size=62*pose.scale,sign=pose.lean;
     const handX=x+sign*(21*pose.scale),handY=Math.max(h-82,y-22-pose.arm*.75);
-    ellipse(c,x,y+25,22*pose.scale,24*pose.scale,['#343027','#354452','#3b3b32','#40303b','#302735'][pose.id]);
-    line(c,[[x+sign*11,y+25],[x+sign*27,y+5],[handX,handY+17]],'#51443f',7*pose.scale);
+    ellipse(c,x,y+25,22*pose.scale,24*pose.scale,pose.bodyColor);
+    if(pose.hand)line(c,[[x+sign*11,y+25],[x+sign*27,y+5],[handX,handY+17]],pose.skinColor,7*pose.scale);
     crowdHead(c,collage,pose.head,x,y,size,pose.tilt);
-    crowdHand(c,collage,pose.hand,handX,handY,54*pose.scale,pose.handAngle,time);
+    if(pose.hand)crowdHand(c,collage,pose.hand,handX,handY,54*pose.scale,pose.handAngle,time);
   }
   const throws=(model.audienceThrows?.length?model.audienceThrows:model.lastAudienceThrow?[model.lastAudienceThrow]:[]).slice(-8);
   const recentCatch=typeof model.lastCrowdCatch==='object'?model.lastCrowdCatch:{time:model.lastCrowdCatch,x:WORLD.width*.5};
@@ -643,8 +669,9 @@ function audience(c,w,h,model,view,collage,crowd) {
     const x=view.point(gesture.x,0).x,y=h-8;
     const hand=view.point(gesture.x,gesture.y??32),lift=energy*24;
     const direction=(model.players?.[gesture.owner]?.x??500)>gesture.x?1:-1;
-    const listener=poses[Math.min(4,Math.max(0,Math.floor(gesture.x/WORLD.width*5)))];
-    const color=['#795440','#af795a','#9c7861','#5b3d31','#b69278'][listener.id];
+    const listeners=poses.filter(pose=>pose.hand);
+    const listener=listeners.reduce((nearest,pose)=>Math.abs(pose.xFraction-gesture.x/WORLD.width)<Math.abs(nearest.xFraction-gesture.x/WORLD.width)?pose:nearest,listeners[0]);
+    const color=listener.skinColor;
     ellipse(c,x-direction*15,y-10,13,15,'#211a22','#756256');
     crowdHead(c,collage,listener.head,x-direction*15,y-16,53,-direction*.13*energy);
     line(c,[[x-direction*28,y+15],[x-direction*20,y-4],[hand.x,hand.y+24-lift]],'#2b2228',11);
@@ -746,7 +773,9 @@ export class PugglerRenderer {
     const w=Math.max(1,rect.width),h=Math.max(1,rect.height);
     if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
     c.setTransform(dpr,0,0,dpr,0,0);
-    const bodies=(model.objects??[]).filter(o=>o.phase!=='waiting'&&o.phase!=='gone');
+    const skin=skinFor(params.skin).id;
+    const bodyLook=o=>({...o,prop:presentProp(o.prop,skin)});
+    const bodies=(model.objects??[]).filter(o=>o.phase!=='waiting'&&o.phase!=='gone').map(bodyLook);
     let highest=720;
     for(const o of bodies) {
       if(!['air','replacement','audience'].includes(o.phase))continue;
@@ -765,14 +794,15 @@ export class PugglerRenderer {
     const yMap=y=>y<=shoulder?y*sy:shoulderPixels+Math.log1p((y-shoulder)/280)/compressedTop*upperPixels;
     const point=(x,y)=>({x:ox+x*sx,y:oy-yMap(y)});
     this.view={scale:sx,scaleY:sy,ox,oy,point};
-    stage(c,w,h,model,this.view,this.collage);
+    if(!drawSkinStage(c,w,h,model,this.view,this.collage,skin))stage(c,w,h,model,this.view,this.collage);
+    renderStageLighting(c,w,h,model,this.view,params.lighting,skin);
     drawPyrotechnics(c,w,h,this.view,this.pyro,model.time);
     if(params.trails)drawObjectEchoes(c,bodies,this.view,this.collage,model.time);
     // Arm geometry is uniformly scaled; only position/palm endpoints span world X.
     c.save();c.translate(ox,oy);c.scale(sy,-sy);
-    for(const player of activePlayers)drawPuggler(c,model,player.id??0,sx/sy);
+    for(const player of activePlayers)if(!drawSkinPerformer(c,model,player.id??0,sx/sy,skin))drawPuggler(c,model,player.id??0,sx/sy);
     c.restore();
-    for(const o of [...(model.debris??[]),...bodies]) {
+    for(const o of [...(model.debris??[]).map(bodyLook),...bodies]) {
       const p=point(o.x,o.y),size=sy*(o.phase==='floor'?1.45:1.8);
       drawProp(c,o.color?{...o.prop,color:o.color}:o.prop,p.x,p.y,o.spin??0,size,this.collage);
       const player=model.players?.[o.owner??0]??model;

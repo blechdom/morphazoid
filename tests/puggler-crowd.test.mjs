@@ -4,13 +4,25 @@ import { CROWD_MEMBERS, MAX_CROWD_IMPULSES, PugglerCrowd } from '../src/puggler-
 
 const catchAt=(time,drum='kick',id=0)=>({kind:'catch',time,drum,id});
 
-test('five distinct rear-view listeners have different hand props and quiet independent fidgets',()=>{
+test('the rear-view crowd includes two women and a baby with independent quiet fidgets',()=>{
   const crowd=new PugglerCrowd(),state=crowd.snapshot(1);
-  assert.deepEqual(state.members.map(member=>member.head),['dread','kid','hat','curls','punk']);
-  assert.deepEqual(state.members.map(member=>member.hand),['lighter','phone','palm','peace','horns']);
+  assert.deepEqual(state.members.map(member=>member.head),['dread','kid','hat','curls','punk','braids','ponytail','baby']);
+  assert.deepEqual(state.members.map(member=>member.hand),['lighter','phone','palm','peace','horns','palm','lighter',null]);
   assert.ok(state.members.every(member=>member.energy===0&&member.jump<=1.7));
-  assert.equal(new Set(state.members.map(member=>member.sway)).size,5);
-  assert.equal(new Set(CROWD_MEMBERS.map(member=>member.duration)).size,5);
+  assert.equal(new Set(state.members.map(member=>member.sway)).size,state.members.length);
+  assert.equal(new Set(CROWD_MEMBERS.map(member=>member.duration)).size,state.members.length);
+  assert.ok(state.members.every(member=>member.xFraction>0&&member.xFraction<1&&Number.isFinite(member.yOffset)));
+});
+
+test('the baby keeps a gentle motion range and never raises a hand under dense drum and crowd events',()=>{
+  const crowd=new PugglerCrowd();
+  for(let frame=0;frame<600;frame++){
+    const time=frame/120;
+    crowd.react([catchAt(time),{kind:'crowd-woo',time}],time);
+    const baby=crowd.snapshot(time).members.find(member=>member.head==='baby');
+    assert.equal(baby.hand,null);assert.equal(baby.arm,0);assert.equal(baby.handAngle,0);
+    assert.ok(baby.jump<=3&&Math.abs(baby.sway)<=1.2&&Math.abs(baby.tilt)<=.045);
+  }
 });
 
 test('a contact causes delayed movement with individual drum preference and bounce envelopes',()=>{
@@ -28,7 +40,8 @@ test('a contact causes delayed movement with individual drum preference and boun
   const snare=new PugglerCrowd();snare.react([catchAt(1,'snare')],1);
   assert.ok(snare.snapshot(1.2).members[4].energy>0);
   assert.notDeepEqual(middle.map(member=>member.energy),snare.snapshot(1.2).members.map(member=>member.energy));
-  assert.ok(crowd.snapshot(2).members.every(member=>member.energy===0));
+  // The baby's smaller, slower response finishes after the adult jumps.
+  assert.ok(crowd.snapshot(2.1).members.every(member=>member.energy===0));
 });
 
 test('catch and crowd responses remain bounded at rates beyond 1200 BPM',()=>{
