@@ -20,6 +20,11 @@ performers, a filthy venue, musical phrases, passing, and crowd boos.
 
 ## Fixed and phrased patterns
 
+The Pattern menu always offers every fixed pattern for the current object count.
+During automatic rhythm forms it displays “Verse phrases” or “Evolving phrases”;
+choosing a fixed pattern switches Rhythm form to “Repeat a juggling pattern”.
+This re-racks the throws while preserving transport, Audio, and sound choices.
+
 | Objects | Fixed patterns | Compatible phrase chunks |
 | --- | --- | --- |
 | 1 | Zip `1`, alternating toss `300`, one-hand toss `2T0` | `1`, `20`, `300`, `4000`, `50000` |

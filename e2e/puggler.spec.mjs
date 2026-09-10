@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 import { COLLAGE_ATLASES } from '../src/puggler-collage.js';
+import { PATTERNS } from '../src/puggler.js';
 
 const atlasCount = Object.keys(COLLAGE_ATLASES).length;
 
@@ -27,7 +28,8 @@ test('Puggler starts a silent six-object trio verse with automatic passing', asy
     count: 6, pattern: 'many-6', cast: 'trio', autoRide: true, phrase: 'verse',
     tempo: 360, loft: 1.8, chaos: 40, riders: 3, running: true, audioOn: false,
   });
-  await expect(page.locator('#pattern')).toBeDisabled();
+  await expect(page.locator('#pattern')).toBeEnabled();
+  await expect(page.locator('#pattern')).toHaveValue('');
   await expect(page.locator('#passMode')).toBeEnabled();
   await expect(page.locator('#keyboardControls [data-key]')).toHaveCount(24);
   await expect(page.locator('#objectControls .object-row')).toHaveCount(6);
@@ -38,6 +40,38 @@ test('Puggler starts a silent six-object trio verse with automatic passing', asy
   const silent = await sampleAudioEnvelope(page, { durationMs: 250, intervalMs: 50 });
   expect(silent.summary.maxPeak).toBeLessThan(.001);
   expect((await state(page)).audioOn).toBe(false);
+});
+
+test('Puggler exposes every compatible pattern from automatic rhythm forms and selects it immediately', async ({ page }) => {
+  await openShow(page);
+  for (const count of Array.from({ length: 10 }, (_, i) => i + 1)) {
+    await page.locator('#count').selectOption(String(count));
+    const patterns = PATTERNS.filter(pattern => pattern.count === count);
+    expect(patterns.length).toBeGreaterThan(1);
+    for (const phrase of ['verse', 'evolve']) {
+      await page.locator('#phrase').selectOption(phrase);
+      const menu = page.locator('#pattern');
+      await expect(menu).toBeEnabled();
+      await expect(menu).toHaveValue('');
+      expect(await menu.locator('option:enabled').evaluateAll(options => options.map(option => option.value)))
+        .toEqual(patterns.map(pattern => pattern.id));
+      // Even the previously stored pattern must be selectable from phrases.
+      const before = await state(page);
+      await menu.selectOption(before.pattern);
+      await expect(page.locator('#phrase')).toHaveValue('loop');
+      expect(await state(page)).toMatchObject({ count, pattern: before.pattern, phrase: 'loop', running: true, audioOn: false });
+    }
+    for (const pattern of patterns) {
+      await page.locator('#pattern').selectOption(pattern.id);
+      expect(await state(page)).toMatchObject({ count, pattern: pattern.id, phrase: 'loop', running: true, audioOn: false });
+    }
+  }
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 15000 });
+  await page.locator('#playButton').click();
+  await page.locator('#phrase').selectOption('evolve');
+  await page.locator('#pattern').selectOption('shower-10');
+  expect(await state(page)).toMatchObject({ pattern: 'shower-10', phrase: 'loop', running: false, audioOn: true });
 });
 
 test('Puggler separates explicit Audio, output level, mute, pause, and teardown', async ({ page }) => {
@@ -257,7 +291,8 @@ test('ten live objects keep their drum and riff edits across phrase and speed ch
   const fast = await state(page);
   for (const object of fast.objects) for (const key of ['x', 'y', 'vx', 'vy']) expect(Number.isFinite(object[key])).toBe(true);
   await page.locator('#phrase').selectOption('evolve');
-  await expect(page.locator('#pattern')).toBeDisabled();
+  await expect(page.locator('#pattern')).toBeEnabled();
+  await expect(page.locator('#pattern')).toHaveValue('');
   await page.locator('#count').selectOption('5');
   await expect(page.locator('#objectControls .object-row')).toHaveCount(5);
   expect(await state(page)).toMatchObject({ count: 5, phrase: 'evolve', running: true, audioOn: false });
@@ -269,7 +304,8 @@ test('ten live objects keep their drum and riff edits across phrase and speed ch
   await page.locator('#resetButton').click();
   expect(await state(page)).toMatchObject({ count: 6, pattern: 'many-6', cast: 'trio', autoRide: true, phrase: 'verse', tempo: 360, loft: 1.8, chaos: 40, audioOn: false });
   expect((await state(page)).objects[0]).toMatchObject({ drum: 'kick', riff: 'guitar' });
-  await expect(page.locator('#pattern')).toBeDisabled();
+  await expect(page.locator('#pattern')).toBeEnabled();
+  await expect(page.locator('#pattern')).toHaveValue('');
 });
 
 for (const path of ['puggler.html', 'dist-wax/puggler.html']) {

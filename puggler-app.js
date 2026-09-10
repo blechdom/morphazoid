@@ -50,9 +50,13 @@ function syncSelectors(){
   for(const id of ['cast','phrase','passMode'])$(id).value=model.config[id];
   $('passingField').hidden=model.riderCount===1;
   $('autoRide').checked=model.config.autoRide;
-  $('pattern').disabled=model.config.phrase!=='loop';
-  $('pattern').replaceChildren(...PATTERNS.filter(p=>p.count===model.config.count).map(p=>new Option(`${p.name} · ${patternNotation(p)}`,p.id)));
-  $('pattern').value=model.pattern.id;
+  const patterns=PATTERNS.filter(p=>p.count===model.config.count).map(p=>new Option(`${p.name} · ${patternNotation(p)}`,p.id));
+  if(model.config.phrase!=='loop'){
+    const automatic=new Option(model.config.phrase==='verse'?'Verse phrases':'Evolving phrases','');
+    automatic.disabled=true;patterns.unshift(automatic);
+  }
+  $('pattern').replaceChildren(...patterns);
+  $('pattern').value=model.config.phrase==='loop'?model.pattern.id:'';
   for(const [id,field] of ranges)field.setValue(id in model.config?model.config[id]:params[id]);
   for(const {button,owner} of keyButtons.values())button.disabled=!model.activeIds.includes(owner);
   document.querySelectorAll('.rider-keyboard').forEach((group,i)=>group.classList.toggle('inactive',!model.activeIds.includes(i)));
@@ -87,7 +91,9 @@ function syncObjects(){
 }
 function syncObjectValues(){model.objects.forEach((o,i)=>{const r=objectRows[i];if(!r)return;r.select.value=o.prop.id;r.select.title=`${o.prop.name} · ${o.prop.mass>=1?`${o.prop.mass} kg`:`${Math.round(o.prop.mass*1000)} g`}`;r.row.style.setProperty('--prop-color',o.prop.color);});}
 for(const id of ['count','pattern','cast','phrase','passMode'])listen($(id),'change',()=>{
-  model.apply({[id]:id==='count'?Number($(id).value):$(id).value});
+  const options={[id]:id==='count'?Number($(id).value):$(id).value};
+  if(id==='pattern')options.phrase='loop';
+  model.apply(options);
   if(id==='cast')releaseControls();syncSelectors();
 });
 listen($('autoRide'),'change',()=>model.apply({autoRide:$('autoRide').checked}));
