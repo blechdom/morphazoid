@@ -63,7 +63,21 @@ body.roach-synth-page {
 .roach-panel .control input[type="text"] { border: 1px solid var(--line-strong); border-radius: 0; padding: 9px; color: var(--ink); background: var(--bg-deep); font: 12px var(--mono); }
 .roach-panel input[type="range"] { accent-color: var(--accent); }
 .roach-note { color: var(--muted); font-size: 9px; line-height: 1.55; margin: 10px 0; }
-.roach-layer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.roach-mixer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+.roach-mixer-channel { min-width: 0; }
+.roach-mixer-channel .control { margin: 0; }
+.roach-mixer-channel .control > span { font-size: 9px; gap: 3px; }
+.roach-mixer-channel .control b { font-size: 10px; }
+.roach-mixer-channel .control input { height: 28px; margin: 0; }
+.roach-mixer-channel .control output { font-size: 8px; }
+.roach-mixer-channel.is-silent .control { opacity: .5; }
+.roach-mixer-switches { display: flex; gap: 4px; }
+.roach-mixer-switches button { flex: 1; min-width: 0; min-height: 24px; padding: 2px; border: 0; background: var(--bg-deep); color: var(--muted); font: 9px var(--mono); cursor: pointer; }
+.roach-mixer-switches button[aria-pressed="true"] { background: #c2df8522; color: var(--accent); }
+.roach-mix-meter { display: flex; gap: 10px; align-items: center; margin-top: 15px; }
+.roach-mix-meter meter { flex: 1; min-width: 0; height: 8px; accent-color: var(--accent); }
+.roach-mix-meter output { min-width: 65px; text-align: right; color: var(--muted); font: 9px var(--mono); }
+.roach-mixer .roach-note { margin: 7px 0 0; }
 .roach-advanced { margin: 10px 0; }
 .roach-advanced[open] > summary { margin-bottom: 8px; }
 .roach-panel fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
@@ -88,6 +102,7 @@ body.roach-synth-page {
   .roach-viewport { position: sticky; top: 0; z-index: 20; height: clamp(220px, 35svh, 320px); min-height: 0; flex: none; box-shadow: 0 8px 18px #0007; }
   .roach-panel { display: block; overflow: visible; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
   .roach-panel > .group { min-width: 0; }
+  .roach-panel :is(button, input, select, textarea, summary) { scroll-margin-top: calc(clamp(220px, 35svh, 320px) + 12px); }
 }
 @media (max-width: 600px) {
   .roach-panel { display: block; }
@@ -104,6 +119,8 @@ body.roach-synth-page {
   .roach-notes { margin-left: 14px; margin-right: 14px; }
 }
 @media (pointer: coarse) {
+  .roach-mixer-channel .control input { height: 44px; }
+  .roach-mixer-switches button { min-width: 40px; min-height: 44px; }
   .roach-synth-page #audioButton, .roach-synth-page [data-primary-transport], .roach-synth-page #soundPlayButton { min-width: 48px; min-height: 48px; }
   .roach-panel select, .roach-panel input[type="range"], .roach-panel .mini-action, .roach-stage-toolbar button, .roach-interaction-tools select, .roach-interaction-tools button, .roach-check, .roach-step, .roach-advanced summary, .roach-notes summary { min-height: 44px; }
   .roach-mapping .mapping-remove { min-width: 32px; }
@@ -116,6 +133,7 @@ body.roach-synth-page {
   .roach-heading { top: 10px; }
   .roach-heading h1 { font-size: 20px; }
   .roach-heading > span { display: none; }
+  .roach-panel :is(button, input, select, textarea, summary) { scroll-margin-top: calc(clamp(140px, 39svh, 220px) + 12px); }
 }
 
 .roach-contours { display: block; width: 100%; height: auto; min-height: 140px; margin-top: 8px; overflow: visible; background: var(--bg-deep); touch-action: pan-y; }

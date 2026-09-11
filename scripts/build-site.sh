@@ -69,12 +69,18 @@ for worktree_runtime_file in \
   src/roach-synth-motion.js \
   src/roach-synth-audio.js \
   src/roach-synth-dsp.js \
+  src/roach-synth-textures.js \
   src/roach-synth-processor.js \
   ROACH_SYNTH_RESEARCH.md \
   assets/roach-synth/cockroach.glb \
   assets/roach-synth/rig-manifest.json \
   assets/roach-synth/specimen.webp \
   assets/roach-synth/SOURCE.LICENSE.txt \
+  assets/roach-synth/audio/vivarium-scuttle.wav \
+  assets/roach-synth/audio/vivarium-rustle.wav \
+  assets/roach-synth/audio/vivarium-contact.wav \
+  assets/roach-synth/audio/CREDITS.md \
+  assets/roach-synth/audio/manifest.json \
   assets/instruments/roach-synth.webp \
   jaw-jam.html \
   jaw-jam.css \

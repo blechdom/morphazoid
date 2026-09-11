@@ -9,6 +9,17 @@ export { ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS,
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
 const cancelled = () => Object.assign(new Error('Audio start was cancelled.'), { name: 'AbortError' });
+// Event starts measured in the bundled excerpts; provenance and processing are
+// recorded in assets/roach-synth/audio/manifest.json. Start near movement rather
+// than sampling the quiet gaps between contacts.
+export const ROACH_RECORDINGS = Object.freeze([
+  ['scuttle', [.0453, .5655, .738, 1.023, 1.2447, 1.4624, 1.875, 2.1295, 2.441, 2.7334, 2.9072, 3.2686]],
+  ['rustle', [.0178, .3085, .5846, .9852, 1.182, 1.699, 1.9083, 2.0863, 2.428, 2.5968, 3.0283]],
+  ['contact', [.1484, .3446, .6239, .9241, 1.1574, 1.3466, 1.7223, 2.1024, 2.2628]],
+].map(([name, cues]) => Object.freeze({
+  id: `vivarium_${name}`, url: new URL(`../assets/roach-synth/audio/vivarium-${name}.wav`, import.meta.url),
+  cues: Object.freeze(cues),
+})));
 
 // Small phone units and CMU pronunciations come from the same locally bundled
 // KAL16 atlas as Spelling Synthesizer/Vocalzoid; all playback and joins occur in
@@ -39,12 +50,13 @@ export function createRoachSpeechPlan(text, pronunciations) {
 
 /** Explicitly armed, one-context/one-worklet instrument with an audio clock. */
 export class RoachSynthAudio {
-  constructor({ onStatus, onTelemetry, runtime = globalThis } = {}) {
-    this.runtime = runtime; this.onStatus = onStatus; this.onTelemetry = onTelemetry;
+  constructor({ onStatus, onTelemetry, onSamples, runtime = globalThis } = {}) {
+    this.runtime = runtime; this.onStatus = onStatus; this.onTelemetry = onTelemetry; this.onSamples = onSamples;
     this.context = null; this.node = null; this.master = null; this.releaseOutput = null;
     this.enabled = false; this.ready = false; this.disposed = false;
     this.generation = 0; this.speechGeneration = 0; this.buildPromise = null;
     this.atlasPromise = null; this.atlasReady = false; this.speechAbort = null;
+    this.samplesPromise = null; this.samplesAbort = null; this.samplesStatus = 'idle'; this.samplesLoaded = 0;
     this.state = { playing: false, soundPlaying: false, sound: { ...ROACH_SOUND_DEFAULTS } };
     this.anchorTime = 0; this.anchorClock = this.clock();
     this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, renderedFrames: 0, soundTime: 0 };
@@ -54,6 +66,7 @@ export class RoachSynthAudio {
   getState() {
     return { ...this.telemetry, enabled: this.enabled, ready: this.ready,
       contextState: this.context?.state ?? 'uninitialized', time: this.getTime(),
+      samplesStatus: this.samplesStatus, samplesLoaded: this.samplesLoaded,
       playing: this.state.playing, soundPlaying: this.state.soundPlaying, disposed: this.disposed };
   }
   post(data, transfer) { if (this.node && !this.disposed) this.node.port.postMessage(data, transfer ?? []); }
@@ -111,6 +124,7 @@ export class RoachSynthAudio {
           this.telemetry = { rms: finite(data.rms), peak: finite(data.peak), speechEnvelope: finite(data.speechEnvelope),
             renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
+            recordingEvents: finite(data.recordingEvents),
             interactionPeak: finite(data.interactionPeak) };
           safeCall(this.onTelemetry, { ...this.getState() });
         } else if (data?.type === 'error') safeCall(this.onStatus, `Sound: ${data.message}`);
@@ -123,6 +137,8 @@ export class RoachSynthAudio {
         node.disconnect(); node.port.onmessage = null;
         this.master?.disconnect(); this.master = null; this.node = null;
         this.atlasReady = false; this.atlasPromise = null;
+        this.samplesAbort?.abort(); this.samplesAbort = null; this.samplesPromise = null;
+        this.samplesStatus = 'idle'; this.samplesLoaded = 0;
       };
       this.ready = true;
       this.postState({ ...this.state, time: this.getTime(), enabled: false });
@@ -148,6 +164,8 @@ export class RoachSynthAudio {
       this.master.gain.cancelScheduledValues(now);
       this.master.gain.setTargetAtTime(1, now, .015);
       safeCall(this.onStatus, 'Roach sound ready.');
+      // Recording I/O and decoding never delay Audio, either transport, or speech.
+      void this.loadSamples();
       return this;
     } catch (error) {
       if (generation === this.generation && !this.disposed) {
@@ -167,6 +185,47 @@ export class RoachSynthAudio {
       this.master.gain.cancelScheduledValues(now); this.master.gain.setTargetAtTime(0, now, .012);
     }
     safeCall(this.onStatus, 'Audio off.');
+  }
+  async loadSamples() {
+    if (this.disposed || !this.node || !this.context || this.samplesStatus === 'ready') return;
+    if (this.samplesPromise) return this.samplesPromise;
+    const context = this.context; const node = this.node;
+    const controller = new AbortController(); this.samplesAbort = controller;
+    this.samplesStatus = 'loading';
+    safeCall(this.onSamples, { status: 'loading', loaded: 0 });
+    const task = (async () => {
+      try {
+        const results = await Promise.allSettled(ROACH_RECORDINGS.map(async ({ id, url, cues }) => {
+          const response = await this.runtime.fetch(url, { signal: controller.signal });
+          if (!response.ok) throw new Error('Cockroach recording could not load.');
+          const bytes = await response.arrayBuffer();
+          if (bytes.byteLength > 1024 * 1024) throw new Error('Cockroach recording exceeds its fixed budget.');
+          const buffer = await context.decodeAudioData(bytes);
+          if (!(buffer.duration > 0 && buffer.duration <= 8) || buffer.numberOfChannels !== 1) throw new Error('Unexpected cockroach recording format.');
+          // Sanitize on the main thread, then transfer ownership. The worklet
+          // adopts these buffers without a long copy during an audio deadline.
+          const data = new Float32Array(buffer.getChannelData(0));
+          for (let i = 0; i < data.length; i += 1) data[i] = Number.isFinite(data[i]) ? Math.max(-1, Math.min(1, data[i])) : 0;
+          return { id, data, sampleRate: buffer.sampleRate, cues };
+        }));
+        if (this.disposed || controller.signal.aborted || this.context !== context || this.node !== node) return;
+        const samples = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+        this.samplesLoaded = samples.length;
+        this.samplesStatus = samples.length ? 'ready' : 'unavailable';
+        if (samples.length) this.post({ type: 'sample-bank', samples }, samples.map(sample => sample.data.buffer));
+        safeCall(this.onSamples, { status: this.samplesStatus, loaded: this.samplesLoaded });
+      } catch {
+        if (!this.disposed && !controller.signal.aborted && this.node === node) {
+          this.samplesStatus = 'unavailable'; safeCall(this.onSamples, { status: 'unavailable', loaded: 0 });
+        }
+      }
+    })();
+    this.samplesPromise = task;
+    try { await task; }
+    finally {
+      if (this.samplesPromise === task) this.samplesPromise = null;
+      if (this.samplesAbort === controller) this.samplesAbort = null;
+    }
   }
   async loadAtlas() {
     if (this.atlasReady) return;
@@ -217,6 +276,7 @@ export class RoachSynthAudio {
     this.disable(); this.post({ type: 'dispose' });
     this.disposed = true; this.generation += 1; this.speechGeneration += 1;
     this.speechAbort?.abort(); this.speechAbort = null;
+    this.samplesAbort?.abort(); this.samplesAbort = null;
     if (this.node) { this.node.port.onmessage = null; this.node.onprocessorerror = null; this.node.disconnect(); this.node.port.close?.(); }
     this.releaseOutput?.(); this.releaseOutput = null;
     this.master?.disconnect(); this.master = null; this.node = null; this.ready = false;

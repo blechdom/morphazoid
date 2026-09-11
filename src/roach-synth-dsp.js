@@ -1,3 +1,4 @@
+import { RoachZing, RoachRecordingGrains } from './roach-synth-textures.js';
 import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState } from './roach-synth-motion.js';
 
 // Artistic sonification of one shared support/flight model: six short foot
@@ -17,13 +18,13 @@ const clean = (value) => Number.isFinite(value) && Math.abs(value) > 1e-24 ? val
 
 export const ROACH_SOUND_DEFAULTS = Object.freeze({
   level: 0.5, hiss: 0.22, shell: 0.46, wing: 0.28, voice: 0.78,
-  feet: 0.88, growl: 0.24, drone: 0,
+  feet: 0.88, growl: 0.24, drone: 0, zing: .55, samples: .65,
   pitch: 140, vowel: 0.35, brightness: 0.46, resonance: 0.38,
   wingRate: 72, rhythm: 1, crunch: 0.18, pan: 0,
 });
 const SOUND_RANGES = Object.freeze({
   level: [0, 0.8], hiss: [0, 1], shell: [0, 1], wing: [0, 1], voice: [0, 1],
-  feet: [0, 1], growl: [0, 1], drone: [0, 1],
+  feet: [0, 1], growl: [0, 1], drone: [0, 1], zing: [0, 1], samples: [0, 1],
   pitch: [60, 600], vowel: [0, 1], brightness: [0, 1], resonance: [0, 1],
   wingRate: [12, 220], rhythm: [0.25, 4], crunch: [0, 1], pan: [-1, 1],
 });
@@ -38,13 +39,13 @@ export function normalizeRoachSound(value = {}) {
 }
 export const ROACH_SOUND_PRESETS = Object.freeze([
   { id: 'scuttling-shell', label: 'Nervous scuttle', sound: { ...ROACH_SOUND_DEFAULTS } },
-  { id: 'spiracle-whisper', label: 'Spiracle whisper', sound: { ...ROACH_SOUND_DEFAULTS, hiss: .88, shell: .22, feet: .36, wing: .04, growl: .08, pitch: 85, brightness: .34, resonance: .20, crunch: .08 } },
-  { id: 'wing-radio', label: 'Unfurling wings', sound: { ...ROACH_SOUND_DEFAULTS, hiss: .25, shell: .16, feet: .3, wing: .95, growl: .05, pitch: 220, wingRate: 94, brightness: .7, resonance: .45, crunch: .34 } },
-  { id: 'tin-carapace', label: 'Tin carapace', sound: { ...ROACH_SOUND_DEFAULTS, hiss: .06, shell: 1, feet: .55, wing: .05, growl: .05, pitch: 310, resonance: .72, rhythm: 1.7, brightness: .66, crunch: .24 } },
-  { id: 'crunchy-orator', label: 'Crusty orator', sound: { ...ROACH_SOUND_DEFAULTS, hiss: .08, shell: .2, feet: .28, wing: .08, growl: .18, voice: 1, pitch: 116, vowel: .13, crunch: .42, resonance: .32 } },
-  { id: 'pitter-patter', label: 'Pitter patter feet', sound: { ...ROACH_SOUND_DEFAULTS, hiss: .04, shell: .18, feet: 1, wing: .02, growl: 0, pitch: 420, resonance: .08, rhythm: 1.4, brightness: .84, crunch: .05 } },
-  { id: 'under-fridge', label: 'Under-fridge growl', sound: { ...ROACH_SOUND_DEFAULTS, hiss: .12, shell: .58, feet: .52, wing: .05, growl: .95, pitch: 76, brightness: .2, resonance: .58, crunch: .68 } },
-  { id: 'modal-carapace', label: 'Modal carapace drone', sound: { ...ROACH_SOUND_DEFAULTS, hiss: .06, shell: .4, feet: .6, wing: .1, growl: .12, drone: .55, pitch: 108, vowel: .7, resonance: .8, brightness: .4, crunch: .28 } },
+  { id: 'spiracle-whisper', label: 'Spiracle whisper', sound: { ...ROACH_SOUND_DEFAULTS, zing: .12, samples: .46, hiss: .88, shell: .22, feet: .36, wing: .04, growl: .08, pitch: 85, brightness: .34, resonance: .20, crunch: .08 } },
+  { id: 'wing-radio', label: 'Unfurling wings', sound: { ...ROACH_SOUND_DEFAULTS, zing: .72, samples: .42, hiss: .25, shell: .16, feet: .3, wing: .95, growl: .05, pitch: 220, wingRate: 94, brightness: .7, resonance: .45, crunch: .34 } },
+  { id: 'tin-carapace', label: 'Rattling carapace', sound: { ...ROACH_SOUND_DEFAULTS, zing: .9, samples: .28, hiss: .06, shell: 1, feet: .55, wing: .05, growl: .05, pitch: 310, resonance: .72, rhythm: 1.7, brightness: .66, crunch: .24 } },
+  { id: 'crunchy-orator', label: 'Crusty orator', sound: { ...ROACH_SOUND_DEFAULTS, zing: .24, samples: .32, hiss: .08, shell: .2, feet: .28, wing: .08, growl: .18, voice: 1, pitch: 116, vowel: .13, crunch: .42, resonance: .32 } },
+  { id: 'pitter-patter', label: 'Wall skitter', sound: { ...ROACH_SOUND_DEFAULTS, zing: .38, samples: .88, hiss: .16, shell: .34, feet: 1, wing: .02, growl: 0, pitch: 420, resonance: .08, rhythm: 1.4, brightness: .84, crunch: .05 } },
+  { id: 'under-fridge', label: 'Under-fridge growl', sound: { ...ROACH_SOUND_DEFAULTS, zing: .64, samples: .56, hiss: .12, shell: .58, feet: .52, wing: .05, growl: .95, pitch: 76, brightness: .2, resonance: .58, crunch: .68 } },
+  { id: 'modal-carapace', label: 'Modal carapace drone', sound: { ...ROACH_SOUND_DEFAULTS, zing: .7, samples: .3, hiss: .06, shell: .4, feet: .6, wing: .1, growl: .12, drone: .55, pitch: 108, vowel: .7, resonance: .8, brightness: .4, crunch: .28 } },
 ].map((preset) => Object.freeze({ ...preset, sound: Object.freeze(preset.sound) })));
 
 export const ROACH_MOD_TARGETS = Object.freeze([
@@ -62,6 +63,8 @@ export const ROACH_MOD_TARGETS = Object.freeze([
   ['feet', 'Feet', 'Six grounded contact transients'],
   ['growl', 'Growl', 'Movement-keyed subharmonic rasp'],
   ['drone', 'Drone', 'Optional sustained modal and formant source'],
+  ['zing', 'Zing', 'Contact-excited lossy wire buzz and rasps'],
+  ['samples', 'Recording', 'Real close-miked movement fragments'],
 ].map(([id, label, description]) => Object.freeze({ id, label, description })));
 const TARGET_INDEX = new Map(ROACH_MOD_TARGETS.map(({ id }, index) => [id, index]));
 const AXES = Object.freeze({ x: [0], y: [1], z: [2], xy: [0, 1], xz: [0, 2], yz: [1, 2], xyz: [0, 1, 2] });
@@ -160,12 +163,20 @@ export class RoachSynthDsp {
     this.mod = new Float64Array(ROACH_MOD_TARGETS.length); this.modCounts = new Uint16Array(ROACH_MOD_TARGETS.length);
     this.scene = createRoachSceneState(); this.contactCounts = new Float64Array(6);
     this.footEnvelopes = new Float64Array(6); this.footAges = new Float64Array(6);
+    this.footParticles = new Float64Array(6); this.footNoiseLow = new Float64Array(6);
+    this.zing = new RoachZing(this.sampleRate); this.recordings = new RoachRecordingGrains(this.sampleRate);
+    this.wallParticle = 0; this.wallLow = 0; this.recordingPhase = 0; this.mixEnvelope = 0;
+    this.particleDecay = Math.exp(-1 / (this.sampleRate * .0018));
+    this.wallDecay = Math.exp(-1 / (this.sampleRate * .006));
+    this.mixAttack = 1 - Math.exp(-1 / (this.sampleRate * .0015));
+    this.mixRelease = 1 - Math.exp(-1 / (this.sampleRate * .085));
     this.contactsPrimed = false; this.contactEvents = 0; this.lastContactTime = -1;
     this.controlStride = Math.max(1, Math.round(this.sampleRate / 200)); this.controlCountdown = 0;
     this.controlPrimed = false; this.master = 0; this.gate = 0; this.soundGate = 0; this.drive = 0; this.wingDrive = 0; this.bodyDrive = 0;
     this.manualDrive = new Float64Array(4); this.interactionJoint = -1; this.interactionActive = false; this.interactionPeak = 0;
     this.manualDecay = Math.exp(-1 / (this.sampleRate * .055));
-    this.footDecay = Math.exp(-1 / (this.sampleRate * .017));
+    this.footDecay = Math.exp(-1 / (this.sampleRate * .050));
+    this.footReleaseDecay = Math.exp(-1 / (this.sampleRate * .023));
     this.targets = normalizeRoachSound(); this.smooth = normalizeRoachSound();
     this.smoothing = 1 - Math.exp(-1 / (this.sampleRate * .022));
     this.gateSmoothing = 1 - Math.exp(-1 / (this.sampleRate * .018));
@@ -177,7 +188,7 @@ export class RoachSynthDsp {
     this.voicePhase = 0; this.wingPhase = 0; this.rhythmPhase = 0; this.creakPhase = 0;
     this.posePhase = 0; this.poseGrain = 0; this.poseImpulse = 0; this.poseGrainIndex = 0;
     this.posePressure = 0; this.poseWing = 0; this.poseHead = 0; this.poseSignature = 0;
-    this.poseTargets = new Float64Array(4); this.poseGrainDecay = Math.exp(-1 / (this.sampleRate * .026));
+    this.poseTargets = new Float64Array(4); this.poseGrainDecay = Math.exp(-1 / (this.sampleRate * .040));
     this.impulse = 0; this.noiseLow = 0; this.filterL = 0; this.filterR = 0;
     this.dcL = 0; this.dcR = 0; this.previousL = 0; this.previousR = 0; this.randomState = 0x756d4f21;
     this.atlas = null; this.atlasRate = 16000; this.phoneQueue = EMPTY_PHONES; this.phoneIndex = 0;
@@ -273,16 +284,21 @@ export class RoachSynthDsp {
     const kind = this.jointKinds[index];
     this.manualDrive[kind] = Math.min(1, Math.max(this.manualDrive[kind], amount * .8 + .06));
     this.interactionJoint = index;
+    this.zing.excite(amount * (kind === 1 ? .8 : .5));
+    this.recordings.trigger(kind === 1 || kind === 2 ? 1 : 0, amount, (this.random() + 1) * .5);
     if (kind === 0 || kind === 2) this.impulse = Math.min(.6, this.impulse + amount * (kind === 2 ? .42 : .12));
   }
   triggerFoot(index, impact) {
     const strength = clamp(impact, 0, 1);
     if (!strength) return;
     this.footEnvelopes[index] = Math.min(1.4, this.footEnvelopes[index] + .4 + strength * .7);
-    this.footAges[index] = 0;
+    this.footAges[index] = 0; this.footParticles[index] = .7 + strength * .3;
+    this.zing.excite(strength * .55);
+    this.recordings.trigger(2, strength, (this.random() + 1) * .5);
     this.impulse = Math.min(1.3, this.impulse + strength * .25);
     this.contactEvents += 1; this.lastContactTime = this.time;
   }
+  setSampleBank(samples, options) { this.recordings.setBank(samples, options); }
   setAtlas(samples, sampleRate) {
     if (!(samples instanceof Float32Array) || samples.length > 192000 * 16) throw new Error('Speech atlas exceeds its fixed budget.');
     this.atlas = samples; this.atlasRate = clamp(sampleRate, 8000, 192000);
@@ -373,6 +389,8 @@ export class RoachSynthDsp {
     t.feet = clamp(s.feet * (1 + m[11] * .9), 0, 1.8);
     t.growl = clamp(s.growl * (1 + m[12] * .9), 0, 1.8);
     t.drone = clamp(s.drone * (1 + m[13] * .9), 0, 1);
+    t.zing = clamp(s.zing * (1 + m[14] * .9), 0, 1.8);
+    t.samples = clamp(s.samples * (1 + m[15] * .9), 0, 1.8);
     t.wing = s.wing; t.level = s.level;
     // Coefficients follow already-smoothed controls; changing presets preserves
     // every resonator state and oscillator phase.
@@ -381,15 +399,18 @@ export class RoachSynthDsp {
     this.panL = Math.cos((smooth.pan + 1) * Math.PI * .25); this.panR = Math.sin((smooth.pan + 1) * Math.PI * .25);
     this.speechRate = clamp((smooth.pitch / 140) ** .22, .72, 1.4);
     for (let i = 0; i < this.shellModes.length; i += 1) {
-      const ratio = (i + 1) * Math.sqrt(1 + i * i * .0048);
-      tune(this.shellModes[i], smooth.pitch * 2.15 * ratio,
-        Math.exp(-1 / (this.sampleRate * (.020 + smooth.resonance * .23) / (1 + i * .2))), this.sampleRate);
+      // Irregular plate modes and short lossy decays keep footsteps abrasive;
+      // unlike the previous harmonic series, these do not spell out mallet notes.
+      const ratio = 1 + i * .731 + (i % 3) * .193 + (i % 5) * .047;
+      tune(this.shellModes[i], (610 + smooth.pitch * 1.8) * ratio,
+        Math.exp(-1 / (this.sampleRate * (.009 + smooth.resonance * .052) / (1 + i * .12))), this.sampleRate);
     }
     for (let i = 0; i < this.poseModes.length; i += 1) {
-      const ratio = (i + 1) * Math.sqrt(1 + i * i * .012);
-      tune(this.poseModes[i], smooth.pitch * (1.8 + this.poseSignature * .5) * ratio,
-        Math.exp(-1 / (this.sampleRate * (.018 + smooth.resonance * .18) / (1 + i * .2))), this.sampleRate);
+      const ratio = 1 + i * .827 + (i % 3) * .179;
+      tune(this.poseModes[i], (540 + smooth.pitch * (1.8 + this.poseSignature * .5)) * ratio,
+        Math.exp(-1 / (this.sampleRate * (.010 + smooth.resonance * .062) / (1 + i * .2))), this.sampleRate);
     }
+    this.zing.tune(smooth.pitch, smooth.brightness, smooth.resonance, this.poseSignature);
     const vowel = smooth.vowel * 4; const first = Math.min(3, Math.floor(vowel)); const mix = vowel - first;
     for (let i = 0; i < 3; i += 1) {
       const frequency = VOWELS[first][i] * (1 - mix) + VOWELS[first + 1][i] * mix;
@@ -450,13 +471,17 @@ export class RoachSynthDsp {
       if (this.soundPlaying) {
         // This is a synth pulse, not a claimed foot contact. Its own clock can
         // sound a completely static pose without advancing animation or feet.
-        const grainRate = clamp((6 + this.posePressure * 19) * s.rhythm * (1 + this.poseSignature * .35), 1, 72);
+        const grainRate = clamp((16 + this.posePressure * 24) * s.rhythm * (1 + this.poseSignature * .35), 1, 96);
         this.posePhase += grainRate / this.sampleRate;
         if (this.posePhase >= 1) {
           this.posePhase %= 1; this.poseGrainIndex += 1;
-          const accent = this.poseGrainIndex % 4 === 0 ? 1 : this.poseGrainIndex % 3 === 0 ? .35 : .64;
-          this.poseGrain = (.5 + this.posePressure * .5) * accent;
+          const accent = this.poseGrainIndex % 4 === 0 ? 1 : this.poseGrainIndex % 3 === 0 ? .52 : .76;
+          this.poseGrain = (.72 + this.posePressure * .28) * accent;
           this.poseImpulse = Math.min(.7, this.poseImpulse + this.poseGrain * .34);
+          if (this.enabled) {
+            this.zing.excite(this.poseGrain * .48);
+            if (this.poseGrainIndex % 2 === 0) this.recordings.trigger(this.poseWing > .25 ? 1 : 0, this.poseGrain, (this.random() + 1) * .5);
+          }
         }
       }
       this.poseGrain *= this.poseGrainDecay;
@@ -465,58 +490,88 @@ export class RoachSynthDsp {
       const physicalHeadDrive = Math.max(head, Math.min(1, this.bodyDrive * this.gate * (.5 + this.scene.energy.growl * 2.5)));
       const headDrive = Math.max(physicalHeadDrive, staticPulse * (.25 + this.poseHead * .75));
       const wingDrive = Math.max(Math.min(1, manualWing * 3.5), this.wingDrive * this.gate * (.08 + this.scene.energy.wing * .92), staticPulse * (.12 + this.poseWing * .88));
-      const hiss = scratch * s.hiss * (autoDrive * .032 * grouping + (leg + head * .35 + feeler) * .18 + staticPulse * (.04 + this.posePressure * .035));
-      let feet = 0;
+      const hiss = scratch * s.hiss * (autoDrive * .085 * grouping + (leg + head * .35 + feeler) * .26 + staticPulse * (.09 + this.posePressure * .07));
+      let feet = 0; let contactEnergy = 0;
       for (let i = 0; i < 6; i += 1) {
         const envelope = this.footEnvelopes[i];
         if (envelope < 1e-15) { this.footEnvelopes[i] = 0; continue; }
         const age = this.footAges[i]++ / this.sampleRate;
-        const rattle = .65 + .35 * Math.cos(age * TAU * (125 + i * 29) * s.rhythm);
-        feet += envelope * (scratch * .15 * rattle + Math.sin(age * TAU * (720 + i * 173) * (s.pitch / 140) ** .35) * .065);
-        this.footEnvelopes[i] *= this.footDecay;
+        // One visible touchdown opens a cluster of tiny, irregular friction
+        // collisions. These micro-bounces are texture, never extra gait events.
+        // This adapts Physical Sounds' energy-weighted particle collision model.
+        const white = this.random();
+        if ((white + 1) * .5 < (210 + i * 43) * s.rhythm * envelope / this.sampleRate) {
+          this.footParticles[i] = Math.min(1.5, this.footParticles[i] + .35 + envelope * .5);
+        }
+        this.footParticles[i] *= this.particleDecay;
+        this.footNoiseLow[i] += (white - this.footNoiseLow[i]) * (.12 + s.brightness * .38);
+        const grit = white - this.footNoiseLow[i] * .8;
+        const dragging = .3 + .7 * Math.max(0, Math.sin(age * TAU * (69 + i * 17) * s.rhythm + white * .6));
+        feet += envelope * (grit * (.19 * dragging + this.footParticles[i] * .8) + this.footNoiseLow[i] * .19);
+        contactEnergy += envelope;
+        this.footEnvelopes[i] *= this.playing ? this.footDecay : this.footReleaseDecay;
       }
-      feet *= s.feet;
-      const poseRattle = staticPulse * s.feet * (scratch * .058
-        + Math.sin(TAU * this.voicePhase * (2 + this.poseSignature * .6)) * .025);
+      feet = Math.tanh(feet * 1.5) / 1.5 * s.feet;
+      const poseRattle = staticPulse * s.feet * scratch * (.19 + Math.abs(noise) * .21);
       this.creakPhase = (this.creakPhase + (38 + headDrive * 230) / this.sampleRate) % 1;
       const stickSlip = this.creakPhase < .08 ? .35 : -.02;
-      const excite = this.impulse + scratch * (autoDrive * .0009 + leg * .009) + stickSlip * physicalHeadDrive * .055;
+      const wallDrive = Math.min(1, autoDrive * .75 + physicalHeadDrive + leg * .7 + feeler * .35 + staticPulse * .8);
+      if ((noise + 1) * .5 < (55 + s.rhythm * 170) * wallDrive / this.sampleRate) this.wallParticle = Math.min(1.3, this.wallParticle + .35 + wallDrive * .65);
+      this.wallParticle *= this.wallDecay;
+      this.wallLow += (noise - this.wallLow) * (.045 + s.brightness * .2);
+      const walls = ((noise - this.wallLow) * (this.wallParticle * .52 + wallDrive * .035)
+        + this.wallLow * wallDrive * .13) * s.shell;
+      this.recordingPhase += wallDrive * (7 + s.rhythm * 5) / this.sampleRate;
+      if (this.recordingPhase >= 1) {
+        this.recordingPhase %= 1;
+        if (this.enabled) this.recordings.trigger(wingDrive > .3 || headDrive > .35 ? 1 : 0, wallDrive, (this.random() + 1) * .5);
+      }
+      const excite = this.impulse + scratch * (autoDrive * .0009 + leg * .009) + stickSlip * physicalHeadDrive * .022 + this.wallParticle * scratch * .008;
       const poseExcite = this.poseImpulse * this.soundGate + stickSlip * staticPulse * .02 + noise * s.drone * droneGate * .002;
       this.impulse *= .58; this.poseImpulse *= .58;
       let shell = 0;
-      for (let i = 0; i < this.shellModes.length; i += 1) shell += resonate(this.shellModes[i], excite / (1 + i * .28)) * (.039 / Math.sqrt(i + 1));
+      for (let i = 0; i < this.shellModes.length; i += 1) shell += resonate(this.shellModes[i], excite / (1 + i * .28)) * (.021 / Math.sqrt(i + 1));
       shell *= s.shell * Math.max(this.gate, Math.min(1, (leg + head + feeler) * 4));
       let poseShell = 0;
-      for (let i = 0; i < this.poseModes.length; i += 1) poseShell += resonate(this.poseModes[i], poseExcite / (1 + i * .3)) * (.045 / Math.sqrt(i + 1));
+      for (let i = 0; i < this.poseModes.length; i += 1) poseShell += resonate(this.poseModes[i], poseExcite / (1 + i * .3)) * (.029 / Math.sqrt(i + 1));
       poseShell *= s.shell * Math.max(this.soundGate, s.drone > .0001 ? droneGate : 0);
       const wingStep = s.wingRate / this.sampleRate;
       this.wingPhase += wingStep;
       const tooth = this.wingPhase >= 1 ? 1 : 0; this.wingPhase %= 1;
       let wing = 0;
-      for (let i = 0; i < 2; i += 1) wing += resonate(this.wingModes[i], tooth * (.8 + noise * .2) * wingDrive) * .026;
-      wing = (wing + scratch * wingDrive * (.025 + .035 * Math.max(0, Math.sin(TAU * this.wingPhase)))) * s.wing;
+      for (let i = 0; i < 2; i += 1) wing += resonate(this.wingModes[i], tooth * (.68 + noise * .32) * wingDrive) * .047;
+      wing = (wing + scratch * wingDrive * (.075 + .095 * Math.max(0, Math.sin(TAU * this.wingPhase)))) * s.wing * 3;
       const voiceStep = Math.min(.15, s.pitch / this.sampleRate);
       this.voicePhase = (this.voicePhase + voiceStep) % 1;
       const glottal = (2 * this.voicePhase - 1 - polyBlep(this.voicePhase, voiceStep)) * .24 + noise * .006;
       let formant = 0;
       for (let i = 0; i < 3; i += 1) formant += resonate(this.voiceModes[i], glottal * this.voiceModes[i].gain) * FORMANT_GAINS[i];
-      const growl = (Math.tanh(Math.sin(TAU * this.voicePhase) * 3 + noise * .2) * .06
-        + formant * .3) * headDrive * s.growl * (.2 + .8 * grouping);
+      const growl = (Math.tanh(Math.sin(TAU * this.voicePhase) * 3 + noise * .2) * .16
+        + formant * .48) * headDrive * s.growl * (.2 + .8 * grouping);
       const drone = (formant * .25 + Math.sin(TAU * this.voicePhase) * .025) * s.drone * droneGate;
+      const zingDrive = Math.min(1, wallDrive * .5 + wingDrive * .65 + contactEnergy * .14);
+      const zing = this.zing.sample(scratch, zingDrive) * s.zing * 2.4;
+      const recordings = this.recordings.sample() * s.samples * 1.8;
       const speech = this.atlas ? this.speechSample() : 0;
       this.speechEnvelope += (Math.abs(speech) - this.speechEnvelope) * .008;
-      const speechDuck = 1 / (1 + this.speechEnvelope * 12);
+      const speechDuck = 1 / (1 + this.speechEnvelope * s.voice * 1.6);
       // Contact tails and direct manipulation remain audible with animation
       // paused. Only automatic movement follows the transport gate.
-      const mechanical = (hiss + shell + poseShell + feet + poseRattle + wing + growl + drone) * speechDuck;
+      const mechanical = (hiss + shell + walls + poseShell + feet + poseRattle + wing + zing + recordings + growl + drone * 1.6) * speechDuck * 3.6;
       let speechColor = 0;
       for (let i = 0; i < 3; i += 1) speechColor += resonate(this.speechModes[i], speech * this.speechModes[i].gain) * FORMANT_GAINS[i];
       // Keep the familiar word voice dry at its default. Other vowel/resonance
       // settings gently color the sampled phones, preserving consonant attacks.
       const speechColorMix = Math.min(.22, Math.abs(s.vowel - ROACH_SOUND_DEFAULTS.vowel) * .22
         + Math.abs(s.resonance - ROACH_SOUND_DEFAULTS.resonance) * .06);
-      const voice = (speech * (1 - speechColorMix * .3) + speechColor * speechColorMix) * s.voice * 1.15;
-      const raw = mechanical + voice;
+      const voice = (speech * (1 - speechColorMix * .3) + speechColor * speechColorMix) * s.voice * 1.8;
+      const bus = mechanical + voice;
+      const absolute = Math.abs(bus);
+      this.mixEnvelope += (absolute - this.mixEnvelope) * (absolute > this.mixEnvelope ? this.mixAttack : this.mixRelease);
+      // A fixed headroom knee contains dense simultaneous contacts, speech and
+      // maxed faders; it never raises quiet sources or normalizes individual hits.
+      const reduction = this.mixEnvelope > .72 ? (.72 + (this.mixEnvelope - .72) * .3) / this.mixEnvelope : 1;
+      const raw = bus * reduction;
       const distortion = Math.tanh(raw * (1 + s.crunch * 7)) / (1 + s.crunch * 2.5);
       const mixed = raw * (1 - s.crunch * .65) + distortion * s.crunch * .65;
       this.filterL += (mixed * this.panL - this.filterL) * this.filterCoefficient;
@@ -534,6 +589,7 @@ export class RoachSynthDsp {
     this.telemetry.motionTime = this.time; this.telemetry.soundTime = this.soundTime; this.telemetry.speechEnvelope = this.speechEnvelope;
     this.telemetry.contactEvents = this.contactEvents; this.telemetry.lastContactTime = this.lastContactTime;
     this.telemetry.interactionPeak = this.interactionPeak;
+    this.telemetry.recordingEvents = this.recordings.events;
     this.telemetry.renderedFrames += count;
     return this.telemetry;
   }

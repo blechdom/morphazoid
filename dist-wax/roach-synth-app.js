@@ -7,12 +7,13 @@ const listeners = new AbortController();
 const options = { signal: listeners.signal };
 const modelUrl = new URL("./assets/roach-synth/cockroach.glb", import.meta.url);
 const sources = ["x", "y", "z", "xy", "xz", "yz", "xyz"];
+const mixChannels = ["feet", "shell", "hiss", "wing", "zing", "growl", "drone", "samples", "voice"];
 const quality = { economy: { fps: 20, pixelRatio: 1 }, balanced: { fps: 25, pixelRatio: 1.25 }, detail: { fps: 30, pixelRatio: 1.5 } };
 const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
 const state = {
   playing: false, soundPlaying: false, posePreset: "custom", poseSeed: 0, sequenceView: "joint", audioOn: false, audioStarting: false, disposed: false,
   view: "side", side: "left", motion: normalizeRoachMotion(ROACH_MOTION_DEFAULTS),
-  sound: { ...ROACH_SOUND_DEFAULTS }, mappings: [], joints: [],
+  sound: { ...ROACH_SOUND_DEFAULTS }, muted: new Set(), solo: new Set(), mappings: [], joints: [],
   time: 0, anchor: performance.now(), clipPreview: false, sequenceAxis: "y", selectedStep: 0,
   renderQuality: "economy", activePreset: "", phraseRequest: 0,
 };
@@ -55,13 +56,40 @@ const audio = new RoachSynthAudio({
       syncTransport();
     }
   },
-  onTelemetry: () => {},
+  onTelemetry: ({ peak }) => {
+    if (state.disposed) return;
+    const db = state.audioOn && peak > .000001 ? 20 * Math.log10(peak) : -Infinity;
+    el("mixMeter").value = Math.max(-60, db);
+    el("mixPeak").value = Number.isFinite(db) ? `${db.toFixed(1)} dBFS` : "−∞ dBFS";
+  },
+  onSamples: ({ status }) => {
+    if (state.disposed) return;
+    el("sampleStatus").textContent = status === "ready" ? "Recording: real cockroach movements · CC0 / nicotep"
+      : status === "loading" ? "Loading cockroach recording…"
+        : "Recording unavailable; the synthesized layers remain playable.";
+  },
 });
 function fallbackTime() { return state.time + (state.playing ? (performance.now() - state.anchor) / 1000 : 0); }
 function currentTime() { return state.audioOn ? audio.getTime() : fallbackTime(); }
 function anchorTime(time) { state.time = Math.max(0, Number(time) || 0); state.anchor = performance.now(); }
 function publish(extra = {}) {
-  audio.update({ playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: state.sound, ...extra });
+  audio.update({ playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: mixedSound(), ...extra });
+}
+function mixedSound() {
+  const sound = { ...state.sound };
+  for (const key of mixChannels) if (state.muted.has(key) || (state.solo.size && !state.solo.has(key))) sound[key] = 0;
+  return sound;
+}
+function publishSound() { audio.update({ sound: mixedSound() }); }
+function syncMixer() {
+  for (const key of mixChannels) {
+    const channel = document.querySelector(`[data-channel="${key}"]`);
+    channel.querySelector("[data-mute]").setAttribute("aria-pressed", String(state.muted.has(key)));
+    channel.querySelector("[data-solo]").setAttribute("aria-pressed", String(state.solo.has(key)));
+    channel.classList.toggle("is-silent", state.muted.has(key) || Boolean(state.solo.size && !state.solo.has(key)));
+  }
+  el("mixStatus").textContent = state.solo.size ? `${state.solo.size} solo${state.solo.size === 1 ? "" : "s"} · M overrides S · clear S to hear the full mix.`
+    : state.muted.size ? `${state.muted.size} muted · fader levels are remembered.` : "M mutes · S solos · combine solos to build a mix.";
 }
 function selectedPart() { return state.joints.find((part) => part.id === el("bodyPart").value); }
 function refreshJoints() {
@@ -353,6 +381,7 @@ function syncSound() {
     el(`${input.id}Out`).value = formatSound(input.id, state.sound[input.dataset.sound]);
   }
   el("level").value = String(state.sound.level); el("levelOut").value = `${Math.round(state.sound.level * 100)}%`;
+  syncMixer();
 }
 function setMotionPreset(id, { factory = false, remember = true } = {}) {
   if (remember) rememberPatch();
@@ -482,7 +511,7 @@ try {
   viewer.setRenderBudget(quality[state.renderQuality]);
   Object.defineProperty(window, "roachSynth", { configurable: true, value: Object.freeze({ getState: () => ({
     ...viewer.getState(), playing: state.playing, soundPlaying: state.soundPlaying, posePreset: state.posePreset, sequenceView: state.sequenceView, time: currentTime(), view: state.view, side: state.side,
-    motionSettings: structuredClone(state.motion), sound: { ...state.sound }, mappings: structuredClone(state.mappings),
+    motionSettings: structuredClone(state.motion), sound: { ...state.sound }, mix: { muted: [...state.muted], solo: [...state.solo], effective: mixedSound() }, mappings: structuredClone(state.mappings),
     audio: audio.getState(), audioOn: state.audioOn, clipPreview: state.clipPreview,
     activePreset: state.activePreset, renderQuality: state.renderQuality,
   }), getPartScreenPosition: (id) => viewer.getPartScreenPosition(id) }) });
@@ -500,7 +529,7 @@ el("audioButton").addEventListener("click", async () => {
   }
   state.audioStarting = true; el("audioButton").disabled = true; el("audioState").textContent = "starting";
   try {
-    await audio.enable({ time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: state.sound });
+    await audio.enable({ time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: mixedSound() });
     if (state.disposed) return;
     const time = fallbackTime(); state.audioOn = true; publish({ time });
     el("audioButton").setAttribute("aria-pressed", "true"); el("audioState").textContent = "on";
@@ -534,10 +563,21 @@ el("timelinePosition").addEventListener("input", () => seek(Number(el("timelineP
 el("soundPreset").addEventListener("change", () => {
   const preset = ROACH_SOUND_PRESETS.find((item) => item.id === el("soundPreset").value); if (!preset) return;
   state.sound = { ...ROACH_SOUND_DEFAULTS, ...preset.sound, level: state.sound.level };
-  el("soundSummary").textContent = preset.label; syncSound(); publish();
+  el("soundSummary").textContent = preset.label; syncSound(); publishSound();
 }, options);
 for (const input of document.querySelectorAll("[data-sound]")) input.addEventListener("input", () => {
-  state.sound[input.dataset.sound] = Number(input.value); el(`${input.id}Out`).value = formatSound(input.id, Number(input.value)); publish();
+  state.sound[input.dataset.sound] = Number(input.value); el(`${input.id}Out`).value = formatSound(input.id, Number(input.value)); publishSound();
+}, options);
+for (const button of el("mixerChannels").querySelectorAll("button")) button.addEventListener("click", () => {
+  const key = button.dataset.mute ?? button.dataset.solo;
+  const selected = button.hasAttribute("data-mute") ? state.muted : state.solo;
+  if (selected.has(key)) selected.delete(key); else selected.add(key);
+  syncMixer(); publishSound();
+}, options);
+el("resetMix").addEventListener("click", () => {
+  const preset = ROACH_SOUND_PRESETS.find(item => item.id === el("soundPreset").value)?.sound ?? ROACH_SOUND_DEFAULTS;
+  for (const key of mixChannels) state.sound[key] = preset[key] ?? ROACH_SOUND_DEFAULTS[key];
+  state.muted.clear(); state.solo.clear(); syncSound(); publishSound();
 }, options);
 el("level").addEventListener("input", () => { state.sound.level = Number(el("level").value); el("levelOut").value = `${Math.round(state.sound.level * 100)}%`; audio.setLevel(state.sound.level); }, options);
 el("speakButton").addEventListener("click", async () => {

@@ -14,9 +14,16 @@ modification details are in `assets/roach-synth/SOURCE.LICENSE.txt` and
 `assets/roach-synth/rig-manifest.json`.
 
 Roach Synth's word voice also reuses the existing CMU Flite/KAL16 diphone atlas
-and CMU pronunciation dictionary credited below. Animal recordings listed in
-`ROACH_SYNTH_RESEARCH.md` are linked references and are not included in its audio
-engine.
+and CMU pronunciation dictionary credited below.
+
+Roach Synth also includes edited excerpts from **Gromphadorhina_portentosa.aif**
+by **nicotep**, released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+The [creator's recording](https://freesound.org/people/nicotep/sounds/547897/)
+documents cockroach movements in a vivarium. The bundled mono WAV excerpts are
+derived from its public high-quality MP3 preview, with filtering, gain adjustment
+and short fades. Exact source offsets, processing, checksums and attribution are
+in `assets/roach-synth/audio/CREDITS.md` and its adjacent `manifest.json`.
+Other animal recordings in `ROACH_SYNTH_RESEARCH.md` remain linked references.
 
 ## MakeHuman teeth_base
 

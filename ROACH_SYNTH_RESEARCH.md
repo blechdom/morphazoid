@@ -6,15 +6,18 @@ Research checked 2026-09-11. The scanned model is a generic winged cockroach spe
 
 The instrument combines short six-foot impact envelopes, filtered scraping and
 airflow noise, a 16-mode shell resonator, wing rustle/buzz, rough low growls,
-an optional modal/formant drone, and locally bundled KAL16 phoneme samples for
-words. Eight sound mixes expose these layers. The default favors short nervous
-contacts; the continuous drone starts at zero, and the VOICE slider controls
-words independently. This is scalar AudioWorklet DSP, informed by SIMD Synth's
-modal-bank design rather than an actual SIMD backend.
+an optional modal/formant drone, two lossy wire-delay loops, recorded vivarium
+movement fragments, and locally bundled KAL16 phoneme samples for words.
+Eight sound presets and nine independent level/mute/solo channels expose these
+layers. Contact envelopes open irregular friction-collision clusters; short,
+inharmonic modes and wall particles replace the former pitched foot tones.
+The continuous drone starts at zero, and the VOICE slider controls words
+independently. This is scalar AudioWorklet DSP, informed by SIMD Synth's
+modal/waveguide design rather than an actual SIMD backend.
 
 All 31 runtime joints start with editable sound routes. Individual or combined XYZ
 rotations control pitch, vowel, brightness, shell decay, hiss, wing rate, rhythm,
-percussion, crunch, stereo pan, feet, growl, drone or voice level. Grabbing a
+percussion, crunch, stereo pan, feet, growl, drone, wire zing, recording or voice level. Grabbing a
 part selects it. Dragging a leg produces a filtered scrape, a head/neck gesture
 excites shell creaks, and moving the covers excites an unfurling texture.
 These manual gestures work with Audio armed and automatic animation paused;
@@ -58,8 +61,9 @@ visible pose. The renderer caps frame rate and pixel ratio, with bounded shadow
 maps, self-shadowing and ground shadows; it follows the audio clock without
 scheduling sound on animation frames.
 
-The animal recordings below are linked listening references, not bundled sound
-sources. Speech reuses Morphazoid's existing KAL16 atlas and pronunciation
+Three short edits from nicotep's CC0 vivarium movement recording are bundled
+as the v5 sample bank described below; the other animal recordings remain
+linked references. Speech reuses Morphazoid's existing KAL16 atlas and pronunciation
 dictionary with their existing attribution. The talking bug, growls and
 unfurling textures are creative sound design. No ultrasound is output. Human
 listening and physical-device testing have not validated this revision's
@@ -110,3 +114,66 @@ This is an explicitly creative voice. Reuse the existing phoneme/diphone path fo
 `src/spelling-pronunciation.js` exports `spellingPronunciationTokens(value, pronunciations)` around 313 with dictionary lookup and fallback pronunciation; prefer it over raw letter `spellingTokens`. `SpellingSynthesizerAudio` in `src/spelling-synthesizer-audio.js` around 1293 supports the existing `vocoder` backend and enable/articulate/durationMs/release/close lifecycle. `event.wordSpeech=true` selects shorter 100–220 ms vowels in the diphone engine. Existing `src/spelling-vocoder-processor.js` uses speech envelopes with pulse/noise carriers and preserves unvoiced consonants. The KAL16 asset and its existing repository attribution should be reused consistently. This is a practical speech starting point, not a cockroach vocal-tract model.
 
 The on-disk GLB/rig manifest preserves **paired wing covers in one mesh**. The viewer now partitions their triangles into independently hinged covers while preserving source UVs, and authors two thin veined hindwing fans underneath. These fans are a flight illusion, not recovered scan anatomy. There are no independent mouth-palps, mandible or jaw meshes. The rigid hierarchy has no flexible tissue deformation; the manifest describes the original asset, while these runtime additions are recorded in `assets/roach-synth/SOURCE.LICENSE.txt`.
+
+## V5: acquired recording bank and the boundary between recording and synthesis
+
+On 2026-09-11, the public HQ MP3 preview of nicotep's
+[Gromphadorhina recording](https://freesound.org/people/nicotep/sounds/547897/)
+was downloaded successfully and its creator-page **CC0 1.0** dedication was
+verified. The preview is 2,226,987 bytes, mono 44.1 kHz, 93.062 seconds; it is
+not the original lossless AIFF. Three derived mono 48 kHz / 16-bit PCM WAVs
+are now bundled under `assets/roach-synth/audio/`:
+
+| Bank ID | Original preview interval | Length | Raw RMS / peak | Edited RMS / peak |
+| --- | --- | --- | --- | --- |
+| `vivarium_scuttle` | 80.500–84.000 s | 3.5 s | −49.06 / −18.65 dBFS | −28.00 / −6.00 dBFS |
+| `vivarium_rustle` | 10.400–13.900 s | 3.5 s | −53.52 / −22.65 dBFS | −28.00 / −6.00 dBFS |
+| `vivarium_contact` | 3.000–5.500 s | 2.5 s | −51.81 / −20.08 dBFS | −28.00 / −6.00 dBFS |
+
+The bank totals **9.5 seconds / 912,132 bytes**. Full source/output hashes,
+exact processing, measured levels and local transient cue positions are in
+[the asset manifest](assets/roach-synth/audio/manifest.json); source credits,
+license and editing notes are in [CREDITS.md](assets/roach-synth/audio/CREDITS.md).
+The source is exceptionally quiet: its full-file RMS is −55.79 dBFS. Simply
+normalizing each excerpt's peak to −3 dBFS leaves the three RMS levels at
+−33.40, −33.87 and −34.73 dBFS. The supplied edits instead use documented
+filtering, fixed gain and short offline peak reduction to expose the texture
+without allowing the sparse sharp peaks to consume the mix's headroom.
+The audio bank carries precomputed broadband energy cues so short playback
+fragments can find movement activity rather than randomly selecting silence.
+
+These are **recorded vivarium movements**. The source does not identify each
+transient as a footstep or promise an isolated hiss. No source was recorded
+inside a house wall, and no acquired clip establishes a flight sound. The
+labels “scuttle,” “rustle” and “contact” describe roles in this instrument;
+wall amplification, granular timing, pitch changes and material resonances
+are creative processing. G. portentosa is wingless, and its recording does
+not identify the species of the scanned winged specimen.
+
+Waveform and spectrogram inspection selected broadband movement clusters
+without obvious sustained speech or musical harmonic patterns. No human
+listening occurred, so intelligible-background exclusion and timbral quality
+remain unverified. The unedited source and equal-RMS comparison renders were
+retained in the task's temporary evidence directory for an eventual audition;
+they are not extra runtime assets.
+
+The physical inspiration remains separable from those samples:
+
+- A pressure envelope driving turbulent airflow and a broad resonator is a
+  useful **hiss approximation**, supported by the experimentally studied
+  spiracle mechanism and context-dependent hiss envelopes in
+  [Nelson & Fraser (1980)](https://doi.org/10.1007/BF00292773). It is not a
+  measured vocal tract and should remain distinct from the robot words.
+- Foot impacts and sliding contacts can excite damped substrate/material
+  resonances. The [2025 distributed-acoustic-sensor experiment](https://www.mdpi.com/1424-8220/25/7/2101)
+  detected both induced hissing and mechanical interaction with its sensor;
+  it does not turn ordinary motion into a demonstrated communication code.
+  A wall cavity added after those excitations is an authored acoustic setting.
+- A low-rate wing driver can draw on the **23–30 beats/s** observed in
+  [Fourtner & Randall's tethered-flight experiments](https://onlinelibrary.wiley.com/doi/abs/10.1002/jez.1402210204).
+  Harmonic buzz, turbulence and four-wing layering remain synthesis choices;
+  neither this study nor the acquired movement clips calibrates their timbre.
+
+The existing species-specific stridulation and ultrasound ledger above still
+applies. The downloaded 44.1 kHz preview is not evidence of ultrasonic content,
+and an audible translation of modeled high-frequency rasp is sonification.

@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "source": {
+    "id": "freesound-547897",
+    "title": "Gromphadorhina_portentosa.aif",
+    "creator": "nicotep",
+    "creatorUrl": "https://freesound.org/people/nicotep/",
+    "pageUrl": "https://freesound.org/people/nicotep/sounds/547897/",
+    "downloadUrl": "https://cdn.freesound.org/previews/547/547897_7529214-hq.mp3",
+    "published": "2020-12-14",
+    "retrieved": "2026-09-11",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "licenseEvidence": "Creator page identifies Creative Commons 0 and links to the CC0 1.0 deed.",
+    "creatorPageSha256": "28e955c2f14249e493964c2f423e3088cf0a82a2525343f1b475d68b0773e946",
+    "sha256": "37f2b888e41485802a078d9b3cb85a10f648bd45b44272677e9e4739a842780d",
+    "bytes": 2226987,
+    "format": "Freesound HQ MP3 preview; not the original lossless AIFF",
+    "sampleRate": 44100,
+    "channels": 1,
+    "duration": 93.062471655,
+    "descriptionSummary": "Close microphone recording of Madagascar hissing cockroach movements in a museum vivarium in Lille, France; Oktava hypercardioid small diaphragm condenser microphone.",
+    "identificationScope": "Creator identifies Gromphadorhina portentosa. Individual contact sources, hisses and the species of the displayed scan are not verified.",
+    "measurements": {
+      "rms": 0.001623183,
+      "rmsDbFS": -55.792652,
+      "peak": 0.357480288,
+      "peakDbFS": -8.934958,
+      "crestDb": 46.857694
+    }
+  },
+  "processing": {
+    "decoder": "soundfile 0.14.0 / libsndfile 1.2.2",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "filter": "Full decoded source: scipy.signal.sosfiltfilt Butterworth order2 highpass180Hz, then order2 lowpass14000Hz, both at44100Hz.",
+    "resampling": "scipy.signal.resample_poly(up=160,down=147,window=(kaiser,5.0),padtype=constant)",
+    "fades": "10ms half-cosine gain fade at each endpoint after resampling; endpoints exactly zero.",
+    "leveling": "Constant clip gain followed by a noncausal, offline lookahead peak limiter. Envelope is abs(samples) maximum_filter1d(size481,mode=nearest), then uniform_filter1d(size193,mode=nearest), both at48kHz. This smooth envelope bounds each sample. Output=samples*min(clipGain,10^(-6/20)/max(envelope,1e-12)). Bisection solves clipGain for -28dBFS RMS. No compression operates at runtime in the assets.",
+    "encoding": "Mono48000Hz signed16bit little-endian PCM WAV; round to nearest integer, clipped to16bit representable range.",
+    "changes": "Filtering, trimming, resampling, endpoint fades, static gain, peak reduction. No time stretch, pitch shift, generated noise, music or speech added.",
+    "perceptualStatus": "Not auditioned by a human. Selection used creator provenance, waveform and spectrogram inspection; absence of intelligible speech or music is not certified."
+  },
+  "samples": [
+    {
+      "id": "vivarium_scuttle",
+      "file": "vivarium-scuttle.wav",
+      "url": "./assets/roach-synth/audio/vivarium-scuttle.wav",
+      "label": "Recorded vivarium scuttle",
+      "role": "Clustered short movement transients",
+      "sourceStartSeconds": 80.5,
+      "sourceEndSeconds": 84,
+      "duration": 3.5,
+      "sampleRate": 48000,
+      "channels": 1,
+      "frames": 168000,
+      "encoding": "PCM_S16LE",
+      "bytes": 336044,
+      "sha256": "b55cb63ee8e21aa675f4006aba1303b8684397b7d6060a9c0dac9cc129e3e8b1",
+      "cues": [
+        0.0453,
+        0.5655,
+        0.738,
+        1.023,
+        1.2447,
+        1.4624,
+        1.875,
+        2.1295,
+        2.441,
+        2.7334,
+        2.9072,
+        3.2686
+      ],
+      "rawSource": {
+        "rms": 0.003524397,
+        "rmsDbFS": -49.058303,
+        "peak": 0.116765536,
+        "peakDbFS": -18.653706,
+        "crestDb": 30.404597
+      },
+      "filteredBeforeGain": {
+        "rms": 0.003279273,
+        "rmsDbFS": -49.684449,
+        "peak": 0.104974106,
+        "peakDbFS": -19.578356,
+        "crestDb": 30.106093
+      },
+      "clipGain": 18.897271549,
+      "clipGainDb": 25.527982,
+      "limiterMaxReductionDb": -11.949626,
+      "limiterActiveFraction": 0.07053,
+      "output": {
+        "rms": 0.0398107,
+        "rmsDbFS": -28.000004,
+        "peak": 0.501190186,
+        "peakDbFS": -5.999949,
+        "crestDb": 22.000055
+      }
+    },
+    {
+      "id": "vivarium_rustle",
+      "file": "vivarium-rustle.wav",
+      "url": "./assets/roach-synth/audio/vivarium-rustle.wav",
+      "label": "Recorded vivarium rustle",
+      "role": "Broadband movement texture",
+      "sourceStartSeconds": 10.4,
+      "sourceEndSeconds": 13.9,
+      "duration": 3.5,
+      "sampleRate": 48000,
+      "channels": 1,
+      "frames": 168000,
+      "encoding": "PCM_S16LE",
+      "bytes": 336044,
+      "sha256": "0d54f18115ee8768cc8debf1f5a48e96d07e784cccc8d73f7ea73b8aa6f3b0de",
+      "cues": [
+        0.0178,
+        0.3085,
+        0.5846,
+        0.9852,
+        1.182,
+        1.699,
+        1.9083,
+        2.0863,
+        2.428,
+        2.5968,
+        3.0283
+      ],
+      "rawSource": {
+        "rms": 0.002108561,
+        "rmsDbFS": -53.520275,
+        "peak": 0.073699959,
+        "peakDbFS": -22.650655,
+        "crestDb": 30.86962
+      },
+      "filteredBeforeGain": {
+        "rms": 0.00195979,
+        "rmsDbFS": -54.155811,
+        "peak": 0.0604272,
+        "peakDbFS": -24.375351,
+        "crestDb": 29.78046
+      },
+      "clipGain": 22.357409181,
+      "clipGainDb": 26.98843,
+      "limiterMaxReductionDb": -8.613079,
+      "limiterActiveFraction": 0.024774,
+      "output": {
+        "rms": 0.0398107,
+        "rmsDbFS": -28.000004,
+        "peak": 0.501190186,
+        "peakDbFS": -5.999949,
+        "crestDb": 22.000055
+      }
+    },
+    {
+      "id": "vivarium_contact",
+      "file": "vivarium-contact.wav",
+      "url": "./assets/roach-synth/audio/vivarium-contact.wav",
+      "label": "Recorded vivarium contact",
+      "role": "Sparse sharp movement transients",
+      "sourceStartSeconds": 3,
+      "sourceEndSeconds": 5.5,
+      "duration": 2.5,
+      "sampleRate": 48000,
+      "channels": 1,
+      "frames": 120000,
+      "encoding": "PCM_S16LE",
+      "bytes": 240044,
+      "sha256": "36ee0ea0fa5529e125ac8d7c001b7e85718b2998f433392561e6677facd6e1a9",
+      "cues": [
+        0.1484,
+        0.3446,
+        0.6239,
+        0.9241,
+        1.1574,
+        1.3466,
+        1.7223,
+        2.1024,
+        2.2628
+      ],
+      "rawSource": {
+        "rms": 0.002566054,
+        "rmsDbFS": -51.814685,
+        "peak": 0.099068299,
+        "peakDbFS": -20.081306,
+        "crestDb": 31.733379
+      },
+      "filteredBeforeGain": {
+        "rms": 0.002348246,
+        "rmsDbFS": -52.585128,
+        "peak": 0.096505082,
+        "peakDbFS": -20.308996,
+        "crestDb": 32.276132
+      },
+      "clipGain": 20.031840809,
+      "clipGainDb": 26.034417,
+      "limiterMaxReductionDb": -11.725421,
+      "limiterActiveFraction": 0.050742,
+      "output": {
+        "rms": 0.039810707,
+        "rmsDbFS": -28.000002,
+        "peak": 0.501190186,
+        "peakDbFS": -5.999949,
+        "crestDb": 22.000053
+      }
+    }
+  ]
+}

@@ -29,7 +29,120 @@ function render(dsp, seconds = .6, blockSize = 128) {
 }
 function rms(samples) { return Math.sqrt(samples.reduce((energy, value) => energy + value * value, 0) / Math.max(1, samples.length)); }
 function difference(a, b) { return rms(a.map((value, i) => value - b[i])); }
+function recordingFixture() {
+  return ['vivarium_scuttle', 'vivarium_rustle', 'vivarium_contact'].map((id, k) => ({ id, sampleRate: RATE, cues: [.04, .13],
+    data: Float32Array.from({ length: RATE / 2 }, (_, i) => (Math.sin(i * 1.31 + k) + Math.sin(i * .417)) * .05) }));
+}
 function peak(samples) { return samples.reduce((largest, value) => Math.max(largest, Math.abs(value)), 0); }
+
+const MIXER_KEYS = ['hiss', 'shell', 'wing', 'feet', 'growl', 'drone', 'zing', 'samples', 'voice'];
+const MUTED_MIXER = Object.fromEntries(MIXER_KEYS.map((key) => [key, 0]));
+
+test('each mixer bus stays silent at zero even with maximum joint modulation, samples and speech', () => {
+  const posed = joints.map((joint) => ({ ...joint, offset: { x: 65, y: 42, z: -21 } }));
+  const mappings = ROACH_MOD_TARGETS.map(({ id }, i) => ({ jointId: posed[i].id, source: 'xyz', target: id, amount: 1 }));
+  const dsp = engine({ soundPlaying: true, joints: posed, mappings, sound: MUTED_MIXER });
+  dsp.setSampleBank(recordingFixture()); dsp.setAtlas(recordingFixture()[0].data, RATE);
+  dsp.speak([{ offset: 0, duration: .4 }]); dsp.interact({ jointId: joints[7].id, active: true, velocity: 1 });
+  assert.equal(peak(render(dsp, .7).left), 0, 'muted gain must not be resurrected by a modulator or direct gesture');
+  for (const key of MIXER_KEYS) assert.equal(dsp.targets[key], 0, `${key} has a nonzero target while muted`);
+  // UI mute/solo is a gain operation; it preserves the sources and transports.
+  dsp.update({ sound: { feet: 1 } });
+  assert.ok(rms(render(dsp, .4).left) > .008);
+  dsp.update({ sound: MUTED_MIXER }); render(dsp, .5);
+  assert.ok(peak(render(dsp, .1).left) < 1e-7);
+  assert.equal(dsp.playing, true); assert.equal(dsp.soundPlaying, true);
+});
+
+test('muted speech neither leaks nor ducks the other mixer buses', () => {
+  const withWords = engine({ sound: { voice: 0 } }); const withoutWords = engine({ sound: { voice: 0 } });
+  withWords.setAtlas(recordingFixture()[0].data, RATE); withWords.speak([{ offset: 0, duration: .4 }]);
+  assert.deepEqual(render(withWords, .6).left, render(withoutWords, .6).left);
+});
+
+test('recording grains use the real bank only, share gesture clocks, and keep fixed voice storage', () => {
+  const dsp = engine({ playing: false, sound: { ...MUTED_MIXER, samples: 1 }, motion: { presetId: 'none', antennae: false } });
+  dsp.update({ soundPlaying: true });
+  assert.equal(peak(render(dsp, .4).left), 0, 'missing recordings must not be replaced by fabricated recording audio');
+  dsp.update({ soundPlaying: false }); render(dsp, .2);
+  const bank = recordingFixture(); dsp.setSampleBank(bank);
+  const buffers = dsp.recordings.bank.map((recording) => recording.data);
+  const pool = dsp.recordings.voices; const voices = [...pool];
+  assert.equal(pool.length, 6);
+  assert.equal(peak(render(dsp, .2).left), 0, 'bank load and Audio arm alone are silent');
+  dsp.interact({ jointId: joints[4].id, active: true, velocity: 1 });
+  assert.ok(rms(render(dsp, .15).left) > .006, 'a paused wing gesture must audibly expose the recorded rustle');
+  assert.equal(dsp.time, 0); assert.equal(dsp.contactEvents, 0);
+  dsp.interact({ active: false }); render(dsp, .8);
+  assert.ok(peak(render(dsp, .1).left) < 1e-7, 'held geometry does not loop a recording indefinitely');
+  dsp.update({ soundPlaying: true }); const grainSound = render(dsp, .6).left;
+  assert.ok(rms(grainSound) > .004); assert.equal(dsp.time, 0); assert.equal(dsp.contactEvents, 0);
+  dsp.update({ soundPlaying: false }); render(dsp, .6);
+  assert.ok(peak(render(dsp, .1).left) < 1e-7);
+  assert.equal(dsp.recordings.voices, pool); assert.deepEqual(pool, voices);
+  for (let i = 0; i < buffers.length; i += 1) assert.equal(dsp.recordings.bank[i].data, buffers[i]);
+});
+
+test('recording transfer adoption is constant-size; direct calls sanitize and invalid banks are transactional', () => {
+  const dsp = engine({ playing: false }); const bank = recordingFixture();
+  bank[0].data[5] = Number.NaN; bank[0].data[6] = 44; bank[0].cues = [-1, Number.NaN, .1, 99];
+  dsp.setSampleBank(bank);
+  assert.equal(dsp.recordings.bank[0].data[5], 0); assert.equal(dsp.recordings.bank[0].data[6], 1);
+  assert.deepEqual(dsp.recordings.bank[0].cues, [.1]);
+  bank[0].data.fill(0); assert.equal(dsp.recordings.bank[0].data[6], 1, 'direct API must own its normalized data');
+  const previous = dsp.recordings.bank;
+  assert.throws(() => dsp.setSampleBank([...bank, bank[0]]), /budget/);
+  assert.throws(() => dsp.setSampleBank([{ ...bank[0], data: new Float32Array(RATE * 8 + 1) }]), /oversized/);
+  assert.throws(() => dsp.setSampleBank([bank[0], bank[0]]), /Duplicate/);
+  assert.equal(dsp.recordings.bank, previous, 'invalid metadata must retain the playing bank');
+  const transferred = recordingFixture();
+  dsp.setSampleBank(transferred, { transferred: true });
+  assert.equal(dsp.recordings.bank[0].data, transferred[0].data, 'worklet must adopt the main-thread-sanitized transferred buffer without scanning or copying it');
+  assert.notEqual(dsp.recordings.bank[0].cues, transferred[0].cues);
+});
+
+test('dense recorded rustles drop excess requests without cutting a sounding voice', () => {
+  const dsp = engine({ playing: false });
+  dsp.setSampleBank([{ id: 'vivarium_rustle', sampleRate: RATE, data: new Float32Array(RATE).fill(.5) }]);
+  const grains = dsp.recordings;
+  for (let i = 0; i < 6; i += 1) {
+    grains.trigger(1, 1, .999);
+    for (let frame = 0; frame < Math.round(RATE * .037); frame += 1) grains.sample();
+  }
+  assert.equal(grains.events, 6);
+  const before = grains.sample();
+  grains.trigger(1, 1, .999);
+  assert.equal(grains.events, 6, 'a seventh overlapping rustle must be dropped');
+  assert.equal(grains.sample(), before, 'full-level grains must not jump to zero on a replacement attack');
+  for (let frame = 0; frame < RATE; frame += 1) grains.sample();
+  assert.equal(grains.sample(), 0);
+  assert.ok(grains.voices.every((voice) => voice.recording === null));
+});
+
+test('dense mechanical mix and static synth have useful level with bounded max-level speech and sample overlap', () => {
+  for (const staticPose of [false, true]) {
+    const dsp = engine({ playing: !staticPose, soundPlaying: staticPose, motion: { presetId: staticPose ? 'none' : 'side_run', antennae: false } });
+    dsp.setSampleBank(recordingFixture());
+    const output = render(dsp, 1.4).left;
+    assert.ok(rms(output) > .025, 'a playable default must not regress to the much quieter sparse-tap bed');
+    assert.ok(peak(output) < .9);
+  }
+  const loud = engine({ soundPlaying: true, sound: { ...Object.fromEntries(MIXER_KEYS.map((key) => [key, 1])), level: .8, resonance: 1, crunch: 1 },
+    motion: { presetId: 'side_run', tempo: 250, intensity: 2 } });
+  loud.setSampleBank(recordingFixture()); loud.setAtlas(recordingFixture()[0].data, RATE);
+  const lines = [...loud.zing.lines];
+  let strongest = 0;
+  for (let i = 0; i < 16; i += 1) {
+    loud.speak([{ offset: 0, duration: .4 }]); loud.interact({ jointId: joints[i].id, active: true, velocity: 1 });
+    const result = render(loud, .08).left;
+    assert.ok(result.every(Number.isFinite)); strongest = Math.max(strongest, peak(result));
+  }
+  assert.ok(strongest < .96, `bounded buses must retain final headroom (${strongest})`);
+  assert.equal(loud.zing.lines[0], lines[0]); assert.equal(loud.zing.lines[1], lines[1]);
+  assert.ok(loud.zing.feedback < .96);
+  loud.interact({ active: false }); loud.update({ playing: false, soundPlaying: false, enabled: false });
+  render(loud, .8); assert.ok(peak(render(loud, .1).left) < 1e-7);
+});
 
 test('audio starts silent and has bounded release without stopping its transport clock', () => {
   assert.equal(peak(render(engine({ sound: { level: 0 } })).left), 0, 'zero master at first arm must not blip');
@@ -63,9 +176,9 @@ test('rendering is identical across arbitrary block boundaries and needs no disp
   assert.equal(staticA.time, 0); assert.ok(staticA.soundTime > .749);
 });
 
-test('six mechanical layers produce independent signal; voice is reserved for words', () => {
-  const levels = { hiss: 0, shell: 0, wing: 0, voice: 0, feet: 0, growl: 0, drone: 0 };
-  for (const key of ['hiss', 'shell', 'wing', 'feet', 'growl', 'drone']) {
+test('seven procedural layers produce independent signal; voice is reserved for words', () => {
+  const levels = { hiss: 0, shell: 0, wing: 0, voice: 0, feet: 0, growl: 0, drone: 0, zing: 0, samples: 0 };
+  for (const key of ['hiss', 'shell', 'wing', 'feet', 'growl', 'drone', 'zing']) {
     const sound = { ...ROACH_SOUND_DEFAULTS, ...levels, [key]: 1 };
     const motion = { presetId: key === 'feet' || key === 'shell' ? 'side_run' : 'top_flight' };
     const output = render(engine({ sound, motion }), 1.2);
@@ -95,6 +208,7 @@ test('all 31 joints have editable defaults and each modulation target changes ac
         mappings: [{ jointId: joints[0].id, source: 'x', target: id, amount }],
         motion: { presetId: id === 'wingRate' ? 'top_flight' : 'side_run' },
         sound: { hiss: 1, shell: 1, feet: 1, wing: 1, growl: 1, drone: .6, voice: 1 } });
+      if (id === 'samples') dsp.setSampleBank(recordingFixture());
       if (id === 'voice') {
         dsp.setAtlas(Float32Array.from({ length: RATE }, (_, i) => Math.sin(i / RATE * Math.PI * 440) * .3), RATE);
         dsp.speak([{ offset: 0, duration: .6, gain: 1 }]);
@@ -214,7 +328,8 @@ test('all 24 animation patches respond and factory sound has a rhythmic transien
   const levels = [];
   for (let i = 0; i < output.length; i += RATE / 100) levels.push(rms(output.slice(i, i + RATE / 100)));
   levels.sort((a, b) => a - b);
-  assert.ok(levels[Math.floor(levels.length * .9)] > levels[Math.floor(levels.length * .2)] * 5, 'contact accents should rise clearly above motion texture');
+  assert.ok(levels[Math.floor(levels.length * .2)] > .008, 'continuous friction between contacts should not fall back to sparse quiet taps');
+  assert.ok(levels[Math.floor(levels.length * .9)] > levels[Math.floor(levels.length * .2)] * 1.8, 'the denser scuttle must retain audible contact accents');
 });
 
 test('Sound Play makes a static pose audible without advancing animation, and stops independently', () => {
@@ -285,7 +400,7 @@ test('baked joint contours and scene frames survive the audio boundary without d
 });
 
 test('even a drone preset is silent on Audio arm until a sound or animation transport starts', () => {
-  const sound = { drone: .6, feet: 0, hiss: 0, shell: 0, wing: 0, growl: 0 };
+  const sound = { drone: .6, feet: 0, hiss: 0, shell: 0, wing: 0, growl: 0, zing: 0, samples: 0 };
   const dsp = engine({ playing: false, soundPlaying: false, sound });
   assert.equal(peak(render(dsp, .3).left), 0);
   dsp.update({ soundPlaying: true }); assert.ok(rms(render(dsp, .6).left) > .001);

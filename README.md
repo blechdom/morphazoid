@@ -9,6 +9,9 @@ poses or random body positions; Animation Play runs 24 editable routines.
 Preset-filled joint contours offer 16 edit steps with layered XYZ and whole-body
 views. Joint gestures drive scuttles, shell creaks, wing textures and a tiny robot
 voice through one AudioWorklet; a shared sound preset also colors spoken words.
+The nine-channel mixer separates voice, recorded CC0 cockroach movements,
+scraping contacts, wall textures, hiss, wings, growl, drone and resonant wire zing,
+with individual level, mute and solo controls.
 The mobile specimen stays visible while the controls scroll below it.
 [Sound evidence, recordings and model limitations](ROACH_SYNTH_RESEARCH.md).
 
