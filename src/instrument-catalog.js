@@ -13,6 +13,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "roach-synth": define(
+    "Articulated cockroach voice",
+    "A grounded cockroach scan with 27 playable joints, 24 looping motion patches, a 16-step XYZ joint score, scuttling percussion, shell creaks and a crunchy word voice.",
+    "Turn Audio on and drag a body part to play it, even with animation paused. Switch motion patches live, edit each joint’s loop, or type words into VOICE.",
+    ["Built-in synth", "3D model", "Pointer", "Voice", "Sequencer"],
+  ),
   combo: define(
     "2D / 3D / 4D instrument",
     "A self-contained Polygon, Polyhedra, and Hyperpolyhedra instrument with one canvas, one shared transport, and dimension-aware form and rotation controls.",

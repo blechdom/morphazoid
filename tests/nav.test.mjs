@@ -866,6 +866,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "vocal-effects-room", href: "vocal-effects-room.html" },
       { id: "instrument-share-room", href: "instrument-share-room.html" },
       { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
+      { id: "roach-synth", href: "roach-synth.html" },
       { id: "yoyodyne", href: "yoyodyne.html" },
       { id: "hanoi", href: "hanoi.html" },
       { id: "minimax", href: "minimax.html" },

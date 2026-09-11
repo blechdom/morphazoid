@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en" class="roach-synth-document">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b100d" />
+    <meta name="description" content="Roach Synth — a talking, articulated cockroach instrument. Body motion drives hiss, shell percussion, wing buzz and a tiny robot voice." />
+    <title>Roach Synth — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="roach-synth.css" />
+  </head>
+  <body class="roach-synth-page" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="roach-synth.html" aria-current="page">Roach Synth</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="roach-synth.html" selected>Roach Synth</option>
+        </select>
+      </label>
+      <div class="audio-strip" role="group" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" aria-describedby="liveStatus">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level"><span><b>Master level</b><output id="levelOut" for="level">50%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="0.8" step="0.01" value="0.5" /></label>
+      </div>
+    </header>
+
+    <main class="roach-shell">
+      <section class="roach-stage" aria-labelledby="roachTitle">
+        <div class="roach-viewport" id="specimenViewport">
+          <div class="roach-heading"><h1 id="roachTitle">Roach Synth</h1><span>CRUST / CHITIN / CHATTER</span></div>
+          <img class="roach-poster" id="specimenImage" src="assets/roach-synth/specimen.webp" width="1044" height="694" alt="Cockroach specimen preview. Enable JavaScript and WebGL to rotate and animate it." />
+          <canvas id="roachCanvas" tabindex="0" aria-label="3D cockroach: drag a body part to play it, drag the background to rotate; arrow keys rotate and plus or minus zoom" aria-describedby="viewHelp">An articulated cockroach. Use the body part controls to pose it.</canvas>
+          <div class="roach-stage-meta" aria-hidden="true"><span id="stageMotion">WALK / PAUSED</span><span id="stageJoint">HEAD</span></div>
+        </div>
+        <div class="roach-stage-toolbar">
+          <div class="choice-switch roach-views" id="viewPresets" role="group" aria-label="Camera view">
+            <button type="button" data-view="side" aria-pressed="true">Sideways</button>
+            <button type="button" data-view="top" aria-pressed="false">Top</button>
+            <button type="button" data-view="bottom" aria-pressed="false">Bottom</button>
+            <button type="button" data-view="face" aria-pressed="false">Face</button>
+          </div>
+          <button class="mini-action" id="sideToggle" type="button" aria-label="Side view: left; switch to right">L → R</button>
+          <button class="mini-action" id="resetCamera" type="button" disabled>Reset view</button>
+          <button class="mini-action" id="showJoints" type="button" aria-pressed="false" disabled>Joints</button>
+        </div>
+        <div class="roach-interaction-tools">
+          <label for="dragAxis">Part drag <select id="dragAxis"><option value="xy">X + Y</option><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label>
+          <button class="mini-action" id="touch3D" type="button" aria-pressed="false">3D touch</button>
+        </div>
+        <p class="roach-help" id="viewHelp">Drag a part to play it · drag the background to rotate · Ctrl + scroll / + / − to zoom · Shift + arrows move the selected joint<br />Touch: swipe up or down to scroll; drag sideways to play. 3D touch enables free dragging.</p>
+        <p class="roach-status" id="modelStatus" role="status">Loading the detailed 3D scan…</p>
+        <button class="mini-action" id="retryModel" type="button" hidden>Retry model</button>
+        <details class="roach-notes">
+          <summary>Specimen &amp; sound sources</summary>
+          <p>Real cockroach scan by <a href="https://sketchfab.com/3d-models/cockroach-3d-photogrammetry-scan-cff6ea065e2e4029be5ba20f03937b63" target="_blank" rel="noopener noreferrer">Kathrin&amp;Christian</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Morphazoid adds 27 approximate rigid joints. These are stylized gestures from a dried specimen, not a validated walking model.</p>
+          <p>The wing covers move as a pair. This scan has no separate hindwing or mouth rig; face gestures use the head and antennae. Hiss, scraping and vibration inspire the sound layers. The talking robo-bug is fictional.</p>
+          <p><a href="ROACH_SYNTH_RESEARCH.md">Sound research &amp; recordings</a> · <a href="assets/roach-synth/SOURCE.LICENSE.txt">Model provenance</a> · <a href="crickets.html">Crickets</a> · <a href="vocalzoid.html">Vocalzoid</a> · <a href="simd-resonator.html">SIMD Synth</a></p>
+        </details>
+      </section>
+
+      <aside class="roach-panel" aria-label="Roach Synth controls">
+        <section class="group roach-performance" aria-labelledby="motionTitle">
+          <div class="roach-section-heading"><h2 id="motionTitle">Motion</h2><span id="motionSummary">Paused</span></div>
+          <div class="group-body">
+            <div class="roach-transport"><button class="play-button" id="motionButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play cockroach motion" disabled><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button><label class="control" for="motionPreset"><span><b>Animation patch</b><output id="patchNumber">01 / 24</output></span><select id="motionPreset"><option value="side_walk">Walk</option></select></label></div>
+            <div class="roach-patch-actions"><button class="mini-action" id="previousPatch" type="button" aria-label="Previous animation patch">←</button><button class="mini-action" id="nextPatch" type="button" aria-label="Next animation patch">→</button><button class="mini-action" id="savePatch" type="button">Save edits</button><button class="mini-action" id="restorePatch" type="button">Factory motion</button></div>
+            <p class="roach-note" id="patchStatus" role="status">24 looping routines. Switch at any time.</p>
+            <label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">108 BPM</output></span><input id="tempo" type="range" min="35" max="240" step="1" value="108" /></label>
+            <label class="control" for="intensity"><span><b>Movement</b><output id="intensityOut" for="intensity">100%</output></span><input id="intensity" type="range" min="0" max="1.5" step="0.01" value="1" /></label>
+            <label class="roach-check"><input id="antennae" type="checkbox" checked /> Antennae keep exploring</label>
+            <p class="roach-note" id="motionDescription">Alternating leg gestures.</p>
+            <p id="liveStatus" class="roach-note" role="status">Turn Audio on, then play or say a phrase.</p>
+          </div>
+        </section>
+
+        <details class="group control-section roach-voice" data-section="voice" open>
+          <summary class="group-summary"><h2 class="group-title">VOICE</h2><span class="section-state">Robot words</span></summary>
+          <div class="group-body">
+            <label class="control" for="phrase"><span><b>Type words for the roach</b></span><textarea id="phrase" rows="3" maxlength="96" placeholder="Type a sentence here…" autocomplete="off" spellcheck="false">hi, I'm a cockroach and I live in your house</textarea></label>
+            <div class="roach-voice-actions"><button class="mini-action roach-speak" id="speakButton" type="button">Say it</button><span class="roach-note">Ctrl / ⌘ + Enter to speak</span></div>
+            <label class="control" for="voice"><span><b>Words level</b><output id="voiceOut" for="voice">70%</output></span><input id="voice" data-sound="voice" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+            <p class="roach-note" id="voiceStatus" role="status">Audio on → say it. Animation can stay paused.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state" id="soundSummary">Crusty robot</span></summary>
+          <div class="group-body">
+            <label class="control" for="soundPreset"><span><b>Sound mix</b></span><select id="soundPreset"><option value="crust">Crusty robot</option></select></label>
+            <label class="control" for="pitch"><span><b>Pitch</b><output id="pitchOut" for="pitch">140 Hz</output></span><input id="pitch" data-sound="pitch" type="range" min="60" max="600" step="1" value="140" /></label>
+            <label class="control" for="brightness"><span><b>Filter brightness</b><output id="brightnessOut" for="brightness">55%</output></span><input id="brightness" data-sound="brightness" type="range" min="0" max="1" step="0.01" value="0.55" /></label>
+            <label class="control" for="crunch"><span><b>Crust / crunch</b><output id="crunchOut" for="crunch">18%</output></span><input id="crunch" data-sound="crunch" type="range" min="0" max="1" step="0.01" value="0.18" /></label>
+            <div class="roach-layer-grid">
+              <label class="control" for="hiss"><span><b>Hiss</b><output id="hissOut" for="hiss">30%</output></span><input id="hiss" data-sound="hiss" type="range" min="0" max="1" step="0.01" value="0.3" /></label>
+              <label class="control" for="shell"><span><b>Shell / feet</b><output id="shellOut" for="shell">50%</output></span><input id="shell" data-sound="shell" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+              <label class="control" for="wing"><span><b>Wing buzz</b><output id="wingOut" for="wing">22%</output></span><input id="wing" data-sound="wing" type="range" min="0" max="1" step="0.01" value="0.22" /></label>
+              <label class="control" for="feet"><span><b>Pitter-patter</b><output id="feetOut" for="feet">80%</output></span><input id="feet" data-sound="feet" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+              <label class="control" for="growl"><span><b>Growl</b><output id="growlOut" for="growl">20%</output></span><input id="growl" data-sound="growl" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+              <label class="control" for="drone"><span><b>Modal drone</b><output id="droneOut" for="drone">0%</output></span><input id="drone" data-sound="drone" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            </div>
+            <details class="roach-advanced"><summary>More sound controls</summary>
+              <label class="control" for="vowel"><span><b>Vowel / formant</b><output id="vowelOut" for="vowel">35%</output></span><input id="vowel" data-sound="vowel" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
+              <label class="control" for="resonance"><span><b>Shell resonance</b><output id="resonanceOut" for="resonance">55%</output></span><input id="resonance" data-sound="resonance" type="range" min="0" max="1" step="0.01" value="0.55" /></label>
+              <label class="control" for="wingRate"><span><b>Wing buzz rate</b><output id="wingRateOut" for="wingRate">72 Hz</output></span><input id="wingRate" data-sound="wingRate" type="range" min="12" max="220" step="1" value="72" /></label>
+              <label class="control" for="rhythm"><span><b>Rhythm density</b><output id="rhythmOut" for="rhythm">1×</output></span><input id="rhythm" data-sound="rhythm" type="range" min="0.25" max="4" step="0.05" value="1" /></label>
+              <label class="control" for="pan"><span><b>Pan</b><output id="panOut" for="pan">Center</output></span><input id="pan" data-sound="pan" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+            </details>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="rotation" open>
+          <summary class="group-summary"><h2 class="group-title">Body → sound</h2><span class="section-state" id="jointCount">Loading…</span></summary>
+          <div class="group-body">
+            <label class="control" for="bodyPart"><span><b>Body part</b></span><select id="bodyPart" disabled><option value="">Loading joints…</option></select></label>
+            <fieldset id="poseControls" disabled><legend class="sr-only">Pose selected part</legend>
+              <label class="control" for="poseX"><span><b>X rotation</b><output for="poseX" id="poseXOut">0°</output></span><input id="poseX" type="range" min="-90" max="90" step="1" value="0" /></label>
+              <label class="control" for="poseY"><span><b>Y rotation</b><output for="poseY" id="poseYOut">0°</output></span><input id="poseY" type="range" min="-90" max="90" step="1" value="0" /></label>
+              <label class="control" for="poseZ"><span><b>Z rotation</b><output for="poseZ" id="poseZOut">0°</output></span><input id="poseZ" type="range" min="-90" max="90" step="1" value="0" /></label>
+            </fieldset>
+            <p class="roach-note" id="jointReadout" aria-live="off">X 0° · Y 0° · Z 0°</p>
+            <div class="roach-routing-heading"><span class="field-label">This part’s sound routes</span><button class="mini-action" id="addMapping" type="button" disabled>+ Route</button></div>
+            <div id="jointMappings" class="roach-mappings"></div>
+            <p class="roach-note" id="mappingCount">Loading body-to-sound routes…</p>
+            <details class="roach-advanced"><summary>Extra movement for this part</summary>
+              <fieldset id="motionControls" disabled><legend class="sr-only">Independent part movement</legend>
+                <button class="mini-action" id="jointMotion" type="button" aria-pressed="false">Animate this part</button>
+                <label class="control" for="motionAxis"><span><b>Movement axis</b></span><select id="motionAxis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label>
+                <label class="control" for="motionAmount"><span><b>Sweep</b><output for="motionAmount" id="motionAmountOut">12°</output></span><input id="motionAmount" type="range" min="0" max="40" step="1" value="12" /></label>
+                <label class="control" for="motionRate"><span><b>Speed</b><output for="motionRate" id="motionRateOut">0.5 Hz</output></span><input id="motionRate" type="range" min="0.1" max="3" step="0.1" value="0.5" /></label>
+              </fieldset>
+              <p class="roach-note" id="activeMotions">Each part keeps its own settings.</p>
+            </details>
+            <button class="mini-action" id="resetPose" type="button" data-reset-all data-reset-in-place disabled>Reset pose &amp; motion</button>
+          </div>
+        </details>
+        <details class="group control-section roach-score" data-section="sequence" open>
+          <summary class="group-summary"><h2 class="group-title">Joint loop</h2><span class="section-state" id="sequenceSummary">16 steps</span></summary>
+          <div class="group-body">
+            <label class="roach-check"><input id="sequenceEnabled" type="checkbox" /> Play the joint score</label>
+            <label class="control" for="sequenceJoint"><span><b>Joint</b></span><select id="sequenceJoint" disabled><option>Loading joints…</option></select></label>
+            <div class="choice-switch" id="sequenceAxes" role="group" aria-label="Joint score axis"><button type="button" data-axis="x" aria-pressed="false">X</button><button type="button" data-axis="y" aria-pressed="true">Y</button><button type="button" data-axis="z" aria-pressed="false">Z</button></div>
+            <div id="sequenceSteps" class="roach-sequence" role="group" aria-label="Sixteen joint keyframes"></div>
+            <label class="control" for="stepRotation"><span><b id="stepLabel">Step 1 rotation</b><output id="stepRotationOut" for="stepRotation">0°</output></span><input id="stepRotation" type="range" min="-60" max="60" step="1" value="0" /></label>
+            <div class="roach-score-actions"><button class="mini-action" id="captureStep" type="button">Use this pose</button><button class="mini-action" id="waveTrack" type="button">Wave</button><button class="mini-action" id="clearTrack" type="button">Clear axis</button></div>
+            <label class="control roach-scrub" for="timelinePosition"><span><b>Loop position</b><output for="timelinePosition" id="timelinePositionOut">1 / 16</output></span><input id="timelinePosition" type="range" min="0" max="15.99" step="0.01" value="0" /></label>
+            <p class="roach-note" id="sequenceHelp">Choose a joint and axis, then set its 16 rotation steps. Other joints keep their own tracks.</p>
+          </div>
+        </details>
+        <details class="group control-section" data-section="model">
+          <summary class="group-summary"><h2 class="group-title">Model &amp; display</h2></summary>
+          <div class="group-body">
+            <label class="control" for="renderQuality"><span><b>Graphics detail</b></span><select id="renderQuality"><option value="economy" selected>Audio first · 20 fps</option><option value="balanced">Balanced · 25 fps</option><option value="detail">Detailed · 30 fps</option></select></label>
+            <label class="control" for="modelFile"><span><b>Open another rigged GLB</b></span><input id="modelFile" type="file" accept=".glb,model/gltf-binary" /></label>
+            <p class="roach-note">Self-contained GLB up to 64 MB. Your file stays in this browser.</p>
+            <div id="clipControls" hidden><label class="control" for="animationClip"><span><b>Embedded clip preview</b></span><select id="animationClip"><option value="-1">Procedural body motion</option></select></label><label class="control" for="clipSpeed"><span><b>Clip speed</b><output id="clipSpeedOut" for="clipSpeed">1×</output></span><input id="clipSpeed" type="range" min="0.1" max="2" step="0.1" value="1" /></label><p class="roach-note">Embedded clips are visual previews. Use procedural gestures for joint-driven sound.</p></div>
+          </div>
+        </details>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="roach-synth-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

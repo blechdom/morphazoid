@@ -2,6 +2,20 @@
 
 A growing collection of geometric, recursive, analytic, and transformed-audio instruments.
 
+**Roach Synth** turns a detailed CC BY cockroach scan into an articulated sound
+instrument in Experiments. Drag a body part to play its sound with animation
+paused, or switch among 24 looping routines while it scuttles over a moving,
+shadowed ground. A 16-step XYZ score layers independent tracks on all 27 joints;
+edited routine scores can be saved in the browser. Four camera views stay
+independent of patches and sequencing. Short foot impacts, shell creaks, wing
+rustles, hiss and growls mix with an optional modal drone and a separate KAL16
+robot word voice. Audio starts off and runs independently of the capped display.
+Mobile keeps the specimen sticky while controls scroll beneath it. The scan's
+covers are paired; antennae are rigid, and separate mouth or hindwing meshes
+are absent. The calibrated stance, motion and contacts are creative approximations.
+See [sound evidence and recordings](ROACH_SYNTH_RESEARCH.md) and
+[model provenance](assets/roach-synth/SOURCE.LICENSE.txt).
+
 **Puggler the Punk Rock Jugger** turns juggling into a noisy punk band on a trash-strewn stage. Choose from 22 starting acts, every solo/duo combination of Puggler, Roxy, and Moss, or the trio. Up to ten weighted objects juggle at 100–1,200 beats/minute: recorded drums punch on catches, guitar/bass riffs follow flights, and sampled “oi”/“woo” vocals keep a natural register. Thirty-one patterns and evolving phrases include holds and rests. Real misses bring boos and audience-lobbed replacements; throw props back to the pit. Fixed, clickable keyboard clusters steer each rider, adjust height, kick, and throw to the crowd. Pause stops new juggling throws while existing flights land, unicycles keep moving, and the crowd remains audible when Audio is on. Forty trashpunk flyers, exaggerated faces, and compact controls frame the stage. Switch between Trashpunk, a mixed-history cast and stage, and Future 3026 with a cyber woman and alien; each skin has a full prop image bank. Stage-lighting looks and eight rear-view audience members, including two women and a baby, follow the performance. Audio starts off. [Research and approximations](PUGGLER_RESEARCH.md); [CC0 recording credits](assets/puggler/CREDITS.md).
 
 **Yoyodyne** is a kinetic string instrument: the yo-yo itself makes the music. Throw, tug, catch, or drag the performer's hand; axial spin excites a continuous string resonator while string length and tension bend pitch, travel changes brightness, and position steers stereo. Sleeper, Rock the Cradle, Around the World, and Gravity Pull move the hand through distinct tempo-controlled routines without imposing a body path. Audio is explicitly armed and independent of motion. This is a bounded physical approximation and musical sonification, not a validated acoustic replica of a yo-yo. See [the kinetic model and limits](docs/yoyodyne-kinetic.md).

@@ -1,0 +1,64 @@
+Roach Synth — 3D model attribution and modification notes
+
+Title: Cockroach (3D photogrammetry scan)
+Creator: Kathrin&Christian (extracrispi)
+Creator profile: https://sketchfab.com/extracrispi
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+Legal text: https://creativecommons.org/licenses/by/4.0/legalcode
+
+Original source:
+https://sketchfab.com/3d-models/cockroach-3d-photogrammetry-scan-cff6ea065e2e4029be5ba20f03937b63
+Retrieved from the Allen Institute for AI's public Objaverse collection:
+https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-066/cff6ea065e2e4029be5ba20f03937b63.glb
+Retrieved: 2026-09-11
+Original GLB SHA-256:
+3ccff9baa2dae806ac344992f05e57c0fa2bc5390a0e2ae91affc3b821f84f89
+Modified cockroach.glb SHA-256:
+ccb4887122c0882c6885b6fd86d146ab9ec54a9f4177d9c0888dbbb03a3cea8c
+
+Attribution and the CC-BY-4.0 license are also embedded in the original GLB's
+asset.extras. The model is included here under that license; the creators do
+not endorse Morphazoid. Retain attribution and identify modifications when
+reusing the asset.
+
+Morphazoid modifications:
+- Added 27 named rigid joints in an anatomical parent/child hierarchy.
+- Parent parts carry their attached children when posed.
+- Added a six-second Gentle joint demonstration with ten rotation channels.
+- Original geometry, materials, image data, and rest pose are preserved.
+- Runtime controls compose user pose offsets, 24 procedural routines and a
+  sixteen-step per-joint score; embedded clips remain visual previews.
+- Runtime-only bounded CCD calibration unfolds the curled legs into a neutral
+  support stance and four gait corner poses. These angles are shared with the
+  sound engine. The on-disk GLB, geometry and texture bytes remain unchanged.
+- Neutral dark lighting, a ground surface, and self/ground shadows provide the
+  current presentation. Stance, gait contacts and dances are authored
+  approximations, not measured biomechanics.
+- specimen.webp and ../instruments/roach-synth.webp are browser-rendered previews
+  of this adapted model, resized for the page and catalogue.
+
+This is a rigid part hierarchy, not a supplied professional deforming skeleton.
+The original scan had separate parts but no animation rig. Contact-based pivot
+centers were authored for this page. Leg-root, neck/pronotum, abdomen and wing
+pivots are approximate. The source is a dried specimen with curled legs; its
+motion demonstration is not a walking cycle or a biomechanical simulation.
+Both wing covers share one mesh and move together. Each antenna remains one
+rigid mesh. Large rotations may expose scan seams or intersect neighboring
+parts. User controls deliberately allow exploratory poses.
+
+Build and validation:
+The source repository's scripts/build-roach-rig.py accepts the downloaded source
+GLB and an output GLB path. It requires Python, numpy and scipy only during
+asset preparation; none are browser runtime dependencies. The script preserves
+all original geometry and texture bytes and verifies unchanged rest-pose world
+transforms (maximum measured difference 1.11e-16).
+See rig-manifest.json for per-joint pivot evidence, parent relationships,
+confidence, suggested ranges and source/output hashes.
+
+Example from the repository root:
+python3 scripts/build-roach-rig.py /path/to/original-cockroach.glb assets/roach-synth/cockroach.glb
+
+The earlier NiceModels product-preview images have been replaced by this
+redistributable actual 3D model and its renders. No paid model is required for
+this version's 3D rotation or body-part animation.

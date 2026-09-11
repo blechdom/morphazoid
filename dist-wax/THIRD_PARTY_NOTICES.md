@@ -1,5 +1,22 @@
 # Third-party notices
 
+## Roach Synth cockroach scan
+
+Roach Synth adapts **Cockroach (3D photogrammetry scan)** by
+Kathrin&Christian (extracrispi), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+[Original model](https://sketchfab.com/3d-models/cockroach-3d-photogrammetry-scan-cff6ea065e2e4029be5ba20f03937b63),
+retrieved from the Allen Institute for AI's public Objaverse collection.
+Morphazoid preserves its geometry and textures while adding approximate rigid
+joint pivots and a gentle motion demonstration. The preview image and catalogue
+icon are renders of this adapted model. Full attribution, exact hashes, and
+modification details are in `assets/roach-synth/SOURCE.LICENSE.txt` and
+`assets/roach-synth/rig-manifest.json`.
+
+Roach Synth's word voice also reuses the existing CMU Flite/KAL16 diphone atlas
+and CMU pronunciation dictionary credited below. Animal recordings listed in
+`ROACH_SYNTH_RESEARCH.md` are linked references and are not included in its audio
+engine.
+
 ## MakeHuman teeth_base
 
 Dentaphone's optional WebGL jaw adapts the MakeHuman system `teeth_base`

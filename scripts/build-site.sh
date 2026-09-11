@@ -61,6 +61,20 @@ done < <(git -C "$repo_root" ls-files -z)
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  roach-synth.html \
+  roach-synth.css \
+  roach-synth-app.js \
+  src/roach-synth-viewer.js \
+  src/roach-synth-motion.js \
+  src/roach-synth-audio.js \
+  src/roach-synth-dsp.js \
+  src/roach-synth-processor.js \
+  ROACH_SYNTH_RESEARCH.md \
+  assets/roach-synth/cockroach.glb \
+  assets/roach-synth/rig-manifest.json \
+  assets/roach-synth/specimen.webp \
+  assets/roach-synth/SOURCE.LICENSE.txt \
+  assets/instruments/roach-synth.webp \
   jaw-jam.html \
   jaw-jam.css \
   jaw-jam-app.js \
