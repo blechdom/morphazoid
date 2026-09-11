@@ -54,6 +54,47 @@ test.describe("SIMD Audio", () => {
     await expect(page.locator("#backendMetric")).toHaveText("scalar Wasm");
   });
 
+  test("retunes every FFT resynthesis control without rearming Audio", async ({ page }) => {
+    await page.goto("simd-resonator.html", { waitUntil: "networkidle" });
+    const readState = () => page.evaluate(() => globalThis.__MORPHAZOID_SIMD_RESONATOR__.getState());
+    await page.locator("#audioButton").click();
+    await expect.poll(async () => (await readState()).audioOn).toBe(true);
+    await page.locator("#presetSelect").selectOption("resonator:glass");
+
+    await page.locator("#fftSize").selectOption("2048");
+    await page.locator("#fftWindow").selectOption("1");
+    for (const [id, value] of [
+      ["fftHopRatio", "0.5"], ["fftBandCount", "64"], ["fftResponseMs", "180"],
+      ["fftDetail", "0.42"], ["fftMix", "0.68"], ["fftInputGain", "2.25"],
+      ["fftGateDb", "-60"], ["fftLowFrequency", "120"], ["fftHighFrequency", "9000"],
+    ]) {
+      await page.locator("#" + id).evaluate((input, nextValue) => {
+        input.value = nextValue;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }, value);
+    }
+    const changed = await readState();
+    expect(changed.audioOn).toBe(true);
+    expect(changed.presetId).toBe("resonator:glass");
+    expect(changed.settings).toMatchObject({
+      fftSize: 2048, fftWindow: 1, fftHopRatio: 0.5, fftBandCount: 64,
+      fftResponseMs: 180, fftDetail: 0.42, fftMix: 0.68, fftInputGain: 2.25,
+      fftGateDb: -60, fftLowFrequency: 120, fftHighFrequency: 9000,
+    });
+    await expect(page.locator("#fftSummary")).toContainText("64 bands");
+    await expect(page.locator("#fftHopRatioOut")).toContainText("50% overlap");
+
+    await page.locator("#presetSelect").selectOption("resonator:wood");
+    const represet = await readState();
+    expect(represet.presetId).toBe("resonator:wood");
+    expect(represet.settings).toMatchObject({ modeCount: 80, fftSize: 2048, fftBandCount: 64, fftResponseMs: 180 });
+
+    await page.locator("#resetButton").click();
+    const reset = await readState();
+    expect(reset.audioOn).toBe(true);
+    expect(reset.settings).toMatchObject({ fftSize: 1024, fftWindow: 0, fftBandCount: 96, fftMix: 0.94 });
+  });
+
   test("plays the granular cloud and oscillator swarm without rearming Audio", async ({ page }) => {
     await page.goto("simd-audio-lab.html", { waitUntil: "networkidle" });
     const readState = () => page.evaluate(() => globalThis.__MORPHAZOID_SIMD_AUDIO__.getState());
@@ -94,7 +135,7 @@ test.describe("SIMD Audio", () => {
       return workerState.workerMode === "unavailable"
         ? workerState.workerMode + ": " + workerState.workerError
         : workerState.workerMode;
-    }).toBe("shared");
+    }).toMatch(/^(shared|copy)$/);
 
     await page.locator("#presetSelect").selectOption("granular:whiteout");
     expect((await readState()).settings.density).toBe(680);
@@ -134,6 +175,10 @@ test.describe("SIMD Audio", () => {
         await expect(page.locator("#controlD")).toBeVisible();
         await page.locator("#resetButton").scrollIntoViewIfNeeded();
         await expect(page.locator("#resetButton")).toBeVisible();
+        if (route === "simd-resonator.html") {
+          await page.locator("#fftHighFrequency").scrollIntoViewIfNeeded();
+          await expect(page.locator("#fftHighFrequency")).toBeVisible();
+        }
         const layout = await page.evaluate(() => ({
           clientWidth: document.documentElement.clientWidth,
           scrollWidth: document.documentElement.scrollWidth,

@@ -6,6 +6,7 @@ import {
   SIMD_MESH_DEFAULTS,
   SIMD_RESONATOR_DEFAULTS,
   SIMD_RESONATOR_MAX_MODES,
+  SIMD_RESONATOR_WINDOW_NAMES,
   SIMD_SPATIAL_DEFAULTS,
   SIMD_SWARM_DEFAULTS,
   SIMD_WAVEGUIDE_DEFAULTS,
@@ -68,13 +69,19 @@ const elements = {
   })),
   backendMetric: document.querySelector("#backendMetric"), laneMetric: document.querySelector("#laneMetric"),
   modeMetric: document.querySelector("#modeMetric"), kernelMetric: document.querySelector("#kernelMetric"),
-  budgetMetric: document.querySelector("#budgetMetric"), resetButton: document.querySelector("#resetButton"),
+  fftMetric: document.querySelector("#fftMetric"), budgetMetric: document.querySelector("#budgetMetric"), resetButton: document.querySelector("#resetButton"),
   workerMetric: document.querySelector("#workerMetric"), workerNote: document.querySelector("#workerNote"),
   audioError: document.querySelector("#audioError"), liveStatus: document.querySelector("#liveStatus"),
+  fftSummary: document.querySelector("#fftSummary"),
+  fftSize: document.querySelector("#fftSize"), fftSizeOut: document.querySelector("#fftSizeOut"),
+  fftWindow: document.querySelector("#fftWindow"),
+  fftControls: ["fftHopRatio", "fftBandCount", "fftResponseMs", "fftDetail", "fftMix", "fftInputGain", "fftGateDb", "fftLowFrequency", "fftHighFrequency"].map((id) => ({
+    input: document.querySelector("#" + id), output: document.querySelector("#" + id + "Out"), key: id,
+  })),
 };
 
 const ENGINE_COPY = Object.freeze({
-  resonator: Object.freeze({ title: "RESONATOR", short: "resonator", cue: "DRAG TO PLUCK", action: "PLUCK BODY", section: "Body", instruction: "TAP OR DRAG THE BODY", description: "A strike excites 128 independently ringing modes.", source: "Microphone input can excite the same body." }),
+  resonator: Object.freeze({ title: "RESONATOR", short: "resonator", cue: "DRAG TO PLUCK", action: "PLUCK BODY", section: "Body", instruction: "TAP OR DRAG THE BODY", description: "A strike excites 128 independently ringing modes.", source: "Microphone input is split into FFT bands, phase-preserved, and resynthesized through the same body." }),
   granular: Object.freeze({ title: "GRAIN CLOUD", short: "grain cloud", cue: "HOLD FOR GRAINS", action: "PLAY GRAIN DEMO", section: "Cloud", instruction: "HOLD THE STAGE", description: "Short source fragments overlap from sparse dust to a solid cloud.", source: "Built-in texture or microphone input feeds the grain pool." }),
   swarm: Object.freeze({ title: "OSC SWARM", short: "osc swarm", cue: "HOLD FOR SWARM", action: "PLAY SWARM DEMO", section: "Swarm", instruction: "HOLD THE STAGE", description: "Up to 128 close oscillators gather around one pitch.", source: "Horizontal sets pitch; vertical opens the detune cloud." }),
   freeze: Object.freeze({ title: "SPECTRAL FREEZE", short: "spectral freeze", cue: "TAP TO FREEZE", action: "CAPTURE DEMO", section: "Spectrum", instruction: "TAP TO CAPTURE", description: "Parallel bins capture one instant, then sustain its spectrum.", source: "The capture comes from the built-in texture or live microphone." }),
@@ -87,6 +94,10 @@ const ENGINE_COPY = Object.freeze({
 const MIC_ENGINES = new Set(["resonator", "granular", "freeze", "ir", "waveguide"]);
 const GATED_ENGINES = new Set(["granular", "swarm", "spatial"]);
 const SOURCE_ENGINES = new Set(["granular", "freeze"]);
+const RESONATOR_FFT_KEYS = Object.freeze([
+  "fftSize", "fftWindow", "fftHopRatio", "fftBandCount", "fftResponseMs",
+  "fftLowFrequency", "fftHighFrequency", "fftDetail", "fftMix", "fftInputGain", "fftGateDb",
+]);
 
 const CONTROL_SCHEMA = Object.freeze({
   resonator: Object.freeze([
@@ -155,6 +166,8 @@ const state = {
   micStream: null, micSource: null, micStarting: false, micRequestGeneration: 0,
   worker: null, workerMode: "idle", workerControl: null, workerError: "",
   signalEnergy: new Float32Array(SIMD_RESONATOR_MAX_MODES), signalState: new Float32Array(SIMD_RESONATOR_MAX_MODES),
+  fftInput: new Float32Array(SIMD_RESONATOR_MAX_MODES), fftOutput: new Float32Array(SIMD_RESONATOR_MAX_MODES),
+  fftAnalysisMicros: null, fftTelemetryBands: SIMD_RESONATOR_DEFAULTS.fftBandCount,
   timings: Object.fromEntries(Object.keys(ENGINE_COPY).map((engine) => [engine, { scalar: null, simd: null }])),
   timingSource: Object.fromEntries(Object.keys(ENGINE_COPY).map((engine) => [engine, { scalar: null, simd: null }])),
   kernelMicros: null, budgetMicros: null, peak: 0, rms: 0,
@@ -254,6 +267,43 @@ function renderPresetOptions() {
   if (elements.presetDescription) elements.presetDescription.textContent = selected?.note || ENGINE_COPY[state.engine].description;
 }
 
+function formatFrequency(value) {
+  return value >= 1_000 ? (value / 1_000).toFixed(value % 1_000 ? 1 : 0) + " kHz" : Math.round(value) + " Hz";
+}
+
+function renderFftSettings() {
+  if (!elements.fftSummary || state.engine !== "resonator") return;
+  const settings = state.settings.resonator;
+  const rate = state.context?.sampleRate || 48_000;
+  const frameMs = settings.fftSize / rate * 1_000;
+  const hopSize = Math.max(32, Math.round(settings.fftSize * settings.fftHopRatio / 32) * 32);
+  const hopMs = hopSize / rate * 1_000;
+  const overlap = Math.round((1 - hopSize / settings.fftSize) * 100);
+  elements.fftSize.value = String(settings.fftSize);
+  elements.fftSizeOut.value = frameMs.toFixed(1) + " ms";
+  elements.fftWindow.value = String(settings.fftWindow);
+  elements.fftSummary.textContent = settings.fftBandCount + " bands · " + frameMs.toFixed(1) + " / " + hopMs.toFixed(1) + " ms";
+  const values = {
+    fftHopRatio: hopMs.toFixed(1) + " ms · " + overlap + "% overlap",
+    fftBandCount: String(settings.fftBandCount),
+    fftResponseMs: Math.round(settings.fftResponseMs) + " ms",
+    fftDetail: percent(settings.fftDetail),
+    fftMix: percent(settings.fftMix),
+    fftInputGain: percent(settings.fftInputGain),
+    fftGateDb: "−" + Math.abs(Math.round(settings.fftGateDb)) + " dB",
+    fftLowFrequency: formatFrequency(settings.fftLowFrequency),
+    fftHighFrequency: formatFrequency(settings.fftHighFrequency),
+  };
+  for (const control of elements.fftControls) {
+    if (!control.input || !control.output) continue;
+    control.input.value = String(settings[control.key]);
+    control.output.value = values[control.key];
+    control.input.setAttribute("aria-valuetext", values[control.key]);
+  }
+  elements.fftSize.setAttribute("aria-valuetext", settings.fftSize + " samples, " + frameMs.toFixed(1) + " milliseconds");
+  elements.fftWindow.setAttribute("aria-valuetext", SIMD_RESONATOR_WINDOW_NAMES[settings.fftWindow]);
+}
+
 function renderSettings() {
   const schema = CONTROL_SCHEMA[state.engine];
   const settings = currentSettings();
@@ -271,6 +321,7 @@ function renderSettings() {
   elements.bodySummary.textContent = currentWorkCount() + " " + currentWorkUnit();
   elements.canvas.setAttribute("aria-label", canvasAriaLabel());
   renderPresetOptions();
+  renderFftSettings();
   for (let index = 0; index < schema.length; index += 1) {
     const definition = schema[index];
     const control = elements.controls[index];
@@ -296,12 +347,21 @@ function renderAudioState() {
   elements.audioState.textContent = state.audioStarting ? "loading" : state.suspendedForVisibility ? "paused" : audioOn ? "on" : "off";
   elements.micButton.disabled = state.micStarting || !micSupported; elements.micButton.setAttribute("aria-pressed", String(micOn));
   elements.micButtonLabel.textContent = !micSupported ? "MIC NOT USED" : state.micStarting ? "STARTING MICROPHONE" : micOn ? "MIC LIVE — DISABLE" : "ENABLE MICROPHONE";
-  elements.micButtonHint.textContent = !micSupported ? "not used here" : micOn ? "processed through Wasm" : audioOn ? "headphones recommended" : "Audio first · headphones";
+  elements.micButtonHint.textContent = !micSupported ? "not used here" : micOn
+    ? (state.engine === "resonator" ? "FFT resynth + Wasm body" : "processed through Wasm")
+    : audioOn ? "headphones recommended" : "Audio first · headphones";
   elements.micButton.setAttribute("aria-label", !micSupported ? "Microphone is not used by this engine." : micOn ? "Disable microphone." : audioOn ? "Enable microphone. Headphones recommended." : "Enable microphone. Turn on Audio first and use headphones.");
   elements.inputSummary.textContent = !micSupported ? "gesture only" : micOn ? "mic live" : audioOn ? (SOURCE_ENGINES.has(state.engine) ? "built-in or mic" : "trigger or mic") : "Audio first";
 }
 function renderTelemetry() {
   elements.kernelMetric.value = state.kernelMicros === null ? "— µs" : Math.round(state.kernelMicros) + " µs";
+  if (elements.fftMetric) {
+    const settings = state.settings.resonator;
+    const hopSize = Math.max(32, Math.round(settings.fftSize * settings.fftHopRatio / 32) * 32);
+    elements.fftMetric.value = state.fftAnalysisMicros === null
+      ? settings.fftSize + " / " + hopSize
+      : settings.fftSize + " · " + Math.round(state.fftAnalysisMicros) + " µs";
+  }
   if (state.kernelMicros === null || !(state.budgetMicros > 0)) elements.budgetMetric.value = "—";
   else { const load = state.kernelMicros / state.budgetMicros * 100; elements.budgetMetric.value = (load < 0.1 ? "<0.1" : load.toFixed(1)) + "%"; }
 }
@@ -321,7 +381,9 @@ function applyPreset(presetId) {
   const selected = presetsForSimdEngine(state.engine).find((preset) => preset.id === presetId);
   if (!selected) { state.presetId = null; renderPresetOptions(); return; }
   if (isLabSurface) stopAudition();
-  state.settings[state.engine] = { ...sanitizeSettings(state.engine, selected.settings) };
+  const retainedFftSettings = state.engine === "resonator"
+    ? Object.fromEntries(RESONATOR_FFT_KEYS.map((key) => [key, state.settings.resonator[key]])) : {};
+  state.settings[state.engine] = { ...sanitizeSettings(state.engine, { ...selected.settings, ...retainedFftSettings }) };
   state.presetId = selected.id;
   renderSettings(); sendConfiguration({ includeSource: SOURCE_ENGINES.has(state.engine) });
   setLiveStatus(selected.label + (isLabSurface && state.audioReady ? " loaded. Playing demo." : " preset loaded."));
@@ -437,6 +499,10 @@ function handleWorkletMessage(message, readyControl) {
     state.peak = Number.isFinite(message.peak) ? message.peak : 0; state.rms = Number.isFinite(message.rms) ? message.rms : 0;
     if (message.modalEnergy?.length) state.signalEnergy.set(message.modalEnergy);
     if (message.modalState?.length) state.signalState.set(message.modalState);
+    if (message.fftInput?.length) state.fftInput.set(message.fftInput);
+    if (message.fftOutput?.length) state.fftOutput.set(message.fftOutput);
+    if (Number.isFinite(message.fftAnalysisMicros)) state.fftAnalysisMicros = message.fftAnalysisMicros;
+    if (Number.isFinite(message.fftBandCount)) state.fftTelemetryBands = message.fftBandCount;
     renderBackend(); renderTelemetry(); return;
   }
   if (message.type === "error") {
@@ -490,6 +556,7 @@ async function startAudio() {
     masterGain.gain.setTargetAtTime(Number(elements.outputLevel.value), context.currentTime, 0.012);
     state.audioReady = true; state.suspendedForVisibility = false;
     state.kernelMicros = state.timings[state.engine][state.backend]; state.budgetMicros = 128 / context.sampleRate * 1_000_000;
+    renderFftSettings();
     setLiveStatus("Audio is on. " + ENGINE_COPY[state.engine].cue.toLowerCase() + ".");
   } catch (error) {
     showError(error?.message || "Audio could not start."); await stopAudio({ preserveError: true });
@@ -517,7 +584,7 @@ async function stopAudio({ preserveError = false } = {}) {
   state.releaseOutput?.();
   state.releaseOutput = null; state.node = null; state.limiter = null; state.masterGain = null; state.context = null;
   state.backend = "none"; state.laneWidth = 0; state.simdAvailable = null; state.kernelMicros = null; state.budgetMicros = null;
-  state.signalEnergy.fill(0); state.signalState.fill(0);
+  state.signalEnergy.fill(0); state.signalState.fill(0); state.fftInput.fill(0); state.fftOutput.fill(0); state.fftAnalysisMicros = null;
   if (context && context.state !== "closed") { try { await context.close(); } catch {} }
   if (!preserveError) showError();
   setLiveStatus("Audio is off. Microphone is off."); renderAudioState(); renderBackend(); renderTelemetry();
@@ -541,7 +608,7 @@ async function startMicrophone() {
       : state.engine === "freeze" ? "Microphone is ready to freeze."
       : state.engine === "ir" ? "Microphone is feeding the IR morph."
       : state.engine === "waveguide" ? "Microphone is feeding the string bank."
-      : "Microphone is exciting the resonator.");
+      : "Microphone is live through the FFT band resynth and SIMD resonator.");
   } catch (error) {
     if (requestGeneration !== state.micRequestGeneration) return;
     const denied = error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError";
@@ -597,7 +664,7 @@ function chooseEngine(engine) {
   if (!AVAILABLE_ENGINES.includes(engine) || engine === state.engine) return;
   stopAudition(); setGate(false); if (!MIC_ENGINES.has(engine)) stopMicrophone({ announce: false });
   state.engine = engine; state.pointerActive = false; state.pointerId = null; state.keyboardGate = false;
-  state.signalEnergy.fill(0); state.signalState.fill(0); state.peak = 0; state.rms = 0;
+  state.signalEnergy.fill(0); state.signalState.fill(0); state.fftInput.fill(0); state.fftOutput.fill(0); state.fftAnalysisMicros = null; state.peak = 0; state.rms = 0;
   state.kernelMicros = state.timings[engine][state.backend] || null;
   const demoPreset = isLabSurface
     ? presetsForSimdEngine(engine).find((entry) => entry.id === DEMO_PRESET_BY_ENGINE[engine])
@@ -697,11 +764,37 @@ function drawCursor(context, x, y, top, bottom) {
   context.beginPath(); context.moveTo(x, top - 10); context.lineTo(x, bottom + 10); context.stroke(); context.setLineDash([]);
   context.fillStyle = "#ffd166"; context.beginPath(); context.arc(x, y, state.pointerActive ? 6 : 4, 0, Math.PI * 2); context.fill();
 }
+function drawFftResynthesis(context, left, right, top, bottom) {
+  if (!state.micStream) return;
+  const bandCount = Math.min(state.settings.resonator.fftBandCount, state.fftTelemetryBands);
+  const span = right - left;
+  const heightScale = (bottom - top) * 0.78;
+  context.save();
+  context.fillStyle = "rgba(105, 247, 204, 0.045)";
+  context.fillRect(left, top, span, bottom - top);
+  for (let band = 0; band < bandCount; band += 1) {
+    const x = left + span * band / Math.max(1, bandCount - 1);
+    const inputLevel = clamp(state.fftInput[band], 0, 1);
+    const outputLevel = clamp(state.fftOutput[band], 0, 1);
+    const width = Math.max(1, span / Math.max(1, bandCount) * 0.72);
+    context.fillStyle = "rgba(167, 139, 250, " + (0.06 + inputLevel * 0.28) + ")";
+    context.fillRect(x - width * 0.5, bottom - inputLevel * heightScale, width, inputLevel * heightScale);
+    context.fillStyle = "rgba(105, 247, 204, " + (0.08 + outputLevel * 0.68) + ")";
+    context.fillRect(x - Math.max(0.5, width * 0.18), bottom - outputLevel * heightScale, Math.max(1, width * 0.36), outputLevel * heightScale);
+  }
+  context.fillStyle = "rgba(105, 247, 204, 0.62)";
+  context.font = "8px ui-monospace, SFMono-Regular, Consolas, monospace";
+  context.textAlign = "left";
+  context.fillText("FFT INPUT / RESYNTH", left + 7, bottom - 8);
+  context.restore();
+}
+
 function drawResonator(context, width, height) {
   const settings = state.settings.resonator;
   const left = Math.max(24, width * 0.055); const right = width - left;
   const top = Math.max(42, height * 0.18); const bottom = Math.max(top + 30, height * 0.76);
   const visible = Math.min(32, settings.modeCount); const liveGlow = clamp(state.peak * 5 + state.rms * 3, 0, 1);
+  drawFftResynthesis(context, left, right, top, bottom);
   for (let strand = 0; strand < visible; strand += 1) {
     const mode = Math.round(strand * (settings.modeCount - 1) / Math.max(1, visible - 1));
     const baseline = top + (bottom - top) * strand / Math.max(1, visible - 1);
@@ -914,6 +1007,9 @@ elements.waveguideEngineButton?.addEventListener("click", () => chooseEngine("wa
 elements.spatialEngineButton?.addEventListener("click", () => chooseEngine("spatial"));
 elements.presetSelect.addEventListener("change", () => applyPreset(elements.presetSelect.value));
 for (const control of elements.controls) control.input.addEventListener("input", () => updateSettings({ [control.input.dataset.key]: control.input.value }));
+elements.fftSize?.addEventListener("change", () => updateSettings({ fftSize: elements.fftSize.value }, { preservePreset: true }));
+elements.fftWindow?.addEventListener("change", () => updateSettings({ fftWindow: elements.fftWindow.value }, { preservePreset: true }));
+for (const control of elements.fftControls) control.input?.addEventListener("input", () => updateSettings({ [control.key]: control.input.value }, { preservePreset: true }));
 elements.resetButton.addEventListener("click", resetInstrument);
 elements.canvas.addEventListener("pointerdown", handlePointerDown);
 elements.canvas.addEventListener("pointermove", handlePointerMove);
@@ -946,7 +1042,7 @@ const testApi = Object.freeze({
       backend: state.backend, simdAvailable: state.simdAvailable, workCount: currentWorkCount(),
       settings: Object.freeze({ ...currentSettings() }), presetId: state.presetId,
       workerMode: state.workerMode, workerError: state.workerError,
-      kernelMicros: state.kernelMicros, peak: state.peak, rms: state.rms,
+      kernelMicros: state.kernelMicros, fftAnalysisMicros: state.fftAnalysisMicros, peak: state.peak, rms: state.rms,
     });
   },
   trigger, pluck: trigger, audition: auditionCurrentEngine, chooseBackend, chooseEngine, setGate, applyPreset,

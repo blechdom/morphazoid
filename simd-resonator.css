@@ -104,7 +104,7 @@
   display: grid;
   padding: 0;
   margin: 0;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
 }
 
 .simd-telemetry div {
@@ -157,6 +157,68 @@
   --accent: var(--simd-amber);
   --accent-soft: color-mix(in oklab, var(--simd-amber) 54%, transparent);
   --accent-glow: color-mix(in oklab, var(--simd-amber) 17%, transparent);
+}
+
+.control-section.simd-resynthesis[data-section="analysis"] {
+  --accent: var(--simd-coral);
+  --accent-soft: color-mix(in oklab, var(--simd-coral) 54%, transparent);
+  --accent-glow: color-mix(in oklab, var(--simd-coral) 17%, transparent);
+}
+
+.simd-resynth-note {
+  margin: 0 0 11px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.simd-fft-selects {
+  display: grid;
+  margin-bottom: 13px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.simd-fft-selects label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.simd-fft-selects select {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: 500 9px/1.1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.simd-fft-selects output {
+  min-height: 1em;
+  color: var(--ink);
+  font-size: 8px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.simd-resynth-controls {
+  gap: 11px;
+}
+
+.simd-frequency-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.simd-frequency-pair label {
+  min-width: 0;
 }
 
 .simd-primary-action,
@@ -541,6 +603,10 @@
 
   .simd-telemetry {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .simd-fft-metric {
+    display: none;
   }
 
   .simd-telemetry div {

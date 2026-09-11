@@ -13,7 +13,27 @@ export const SIMD_AUDIO_ENGINES = Object.freeze([
   "resonator", "granular", "swarm", "freeze", "ir", "mesh", "waveguide", "spatial",
 ]);
 
-export const SIMD_RESONATOR_DEFAULTS = Object.freeze({ modeCount: 128, baseFrequency: 82, decaySeconds: 2.8, spread: 0.34, strikePosition: 0.38, hardness: 0.62 });
+export const SIMD_RESONATOR_FFT_SIZES = Object.freeze([256, 512, 1_024, 2_048, 4_096]);
+export const SIMD_RESONATOR_WINDOW_NAMES = Object.freeze(["Hann", "Blackman", "Sine", "Rectangular"]);
+export const SIMD_RESONATOR_DEFAULTS = Object.freeze({
+  modeCount: 128,
+  baseFrequency: 82,
+  decaySeconds: 2.8,
+  spread: 0.34,
+  strikePosition: 0.38,
+  hardness: 0.62,
+  fftSize: 1_024,
+  fftWindow: 0,
+  fftHopRatio: 0.25,
+  fftBandCount: 96,
+  fftResponseMs: 38,
+  fftLowFrequency: 70,
+  fftHighFrequency: 12_000,
+  fftDetail: 0.9,
+  fftMix: 0.94,
+  fftInputGain: 1.4,
+  fftGateDb: -72,
+});
 export const SIMD_GRANULAR_DEFAULTS = Object.freeze({ grainCount: 64, density: 110, grainSizeMs: 110, pitchSemitones: 0, scanPosition: 0.46, scatter: 0.3, stereoWidth: 0.82 });
 export const SIMD_SWARM_DEFAULTS = Object.freeze({ voiceCount: 128, centerFrequency: 118, detuneCents: 34, stereoWidth: 0.86 });
 export const SIMD_FREEZE_DEFAULTS = Object.freeze({ binCount: 64, holdSeconds: 12, tilt: 0.08, stereoWidth: 0.76, scanPosition: 0.42 });
@@ -29,6 +49,16 @@ export const SIMD_RESONATOR_LIMITS = Object.freeze({
   spread: Object.freeze([0, 1]),
   strikePosition: Object.freeze([0.04, 0.96]),
   hardness: Object.freeze([0, 1]),
+  fftWindow: Object.freeze([0, SIMD_RESONATOR_WINDOW_NAMES.length - 1]),
+  fftHopRatio: Object.freeze([0.125, 1]),
+  fftBandCount: Object.freeze([16, SIMD_RESONATOR_MAX_MODES]),
+  fftResponseMs: Object.freeze([4, 800]),
+  fftLowFrequency: Object.freeze([20, 1_000]),
+  fftHighFrequency: Object.freeze([2_000, 20_000]),
+  fftDetail: Object.freeze([0, 1]),
+  fftMix: Object.freeze([0, 1]),
+  fftInputGain: Object.freeze([0.25, 4]),
+  fftGateDb: Object.freeze([-96, -30]),
 });
 export const SIMD_GRANULAR_LIMITS = Object.freeze({
   grainCount: Object.freeze([16, SIMD_GRANULAR_MAX_GRAINS]),
@@ -136,6 +166,12 @@ function finiteNumber(value, fallback) { const number = Number(value); return Nu
 function bounded(value, fallback, limits) { return clamp(finiteNumber(value, fallback), limits[0], limits[1]); }
 function laneAligned(value, fallback, limits) { return clamp(Math.round(bounded(value, fallback, limits) / 4) * 4, ...limits); }
 function sampleRateValue(value) { return clamp(finiteNumber(value, 48_000), 8_000, 384_000); }
+function fftSizeValue(value) {
+  const requested = finiteNumber(value, SIMD_RESONATOR_DEFAULTS.fftSize);
+  return SIMD_RESONATOR_FFT_SIZES.reduce((closest, size) => (
+    Math.abs(size - requested) < Math.abs(closest - requested) ? size : closest
+  ), SIMD_RESONATOR_FFT_SIZES[0]);
+}
 
 export function sanitizeSimdResonatorSettings(value = {}) {
   return Object.freeze({
@@ -145,6 +181,17 @@ export function sanitizeSimdResonatorSettings(value = {}) {
     spread: bounded(value.spread, SIMD_RESONATOR_DEFAULTS.spread, SIMD_RESONATOR_LIMITS.spread),
     strikePosition: bounded(value.strikePosition, SIMD_RESONATOR_DEFAULTS.strikePosition, SIMD_RESONATOR_LIMITS.strikePosition),
     hardness: bounded(value.hardness, SIMD_RESONATOR_DEFAULTS.hardness, SIMD_RESONATOR_LIMITS.hardness),
+    fftSize: fftSizeValue(value.fftSize),
+    fftWindow: Math.round(bounded(value.fftWindow, SIMD_RESONATOR_DEFAULTS.fftWindow, SIMD_RESONATOR_LIMITS.fftWindow)),
+    fftHopRatio: bounded(value.fftHopRatio, SIMD_RESONATOR_DEFAULTS.fftHopRatio, SIMD_RESONATOR_LIMITS.fftHopRatio),
+    fftBandCount: laneAligned(value.fftBandCount, SIMD_RESONATOR_DEFAULTS.fftBandCount, SIMD_RESONATOR_LIMITS.fftBandCount),
+    fftResponseMs: bounded(value.fftResponseMs, SIMD_RESONATOR_DEFAULTS.fftResponseMs, SIMD_RESONATOR_LIMITS.fftResponseMs),
+    fftLowFrequency: bounded(value.fftLowFrequency, SIMD_RESONATOR_DEFAULTS.fftLowFrequency, SIMD_RESONATOR_LIMITS.fftLowFrequency),
+    fftHighFrequency: bounded(value.fftHighFrequency, SIMD_RESONATOR_DEFAULTS.fftHighFrequency, SIMD_RESONATOR_LIMITS.fftHighFrequency),
+    fftDetail: bounded(value.fftDetail, SIMD_RESONATOR_DEFAULTS.fftDetail, SIMD_RESONATOR_LIMITS.fftDetail),
+    fftMix: bounded(value.fftMix, SIMD_RESONATOR_DEFAULTS.fftMix, SIMD_RESONATOR_LIMITS.fftMix),
+    fftInputGain: bounded(value.fftInputGain, SIMD_RESONATOR_DEFAULTS.fftInputGain, SIMD_RESONATOR_LIMITS.fftInputGain),
+    fftGateDb: bounded(value.fftGateDb, SIMD_RESONATOR_DEFAULTS.fftGateDb, SIMD_RESONATOR_LIMITS.fftGateDb),
   });
 }
 
@@ -244,7 +291,31 @@ export function createSimdResonatorConfiguration(value = {}, sampleRateInput = 4
     arrays.panRight[index] = Math.sqrt((1 + panning) * 0.5);
     if (audible) audibleModes += 1;
   }
-  return Object.freeze({ engine: "resonator", settings, sampleRate, modeCount: settings.modeCount, audibleModes, outputScale: 0.19 / Math.sqrt(settings.modeCount / 32), ...arrays });
+  const fftHighFrequency = Math.max(
+    settings.fftLowFrequency * 2,
+    Math.min(settings.fftHighFrequency, sampleRate * 0.45),
+  );
+  const fftHopSize = Math.max(32, Math.round(settings.fftSize * settings.fftHopRatio / 32) * 32);
+  return Object.freeze({
+    engine: "resonator",
+    settings,
+    sampleRate,
+    modeCount: settings.modeCount,
+    audibleModes,
+    outputScale: 0.19 / Math.sqrt(settings.modeCount / 32),
+    fftSize: settings.fftSize,
+    fftWindow: settings.fftWindow,
+    fftHopSize,
+    fftBandCount: settings.fftBandCount,
+    fftResponseSeconds: settings.fftResponseMs / 1_000,
+    fftLowFrequency: settings.fftLowFrequency,
+    fftHighFrequency,
+    fftDetail: settings.fftDetail,
+    fftMix: settings.fftMix,
+    fftInputGain: settings.fftInputGain,
+    fftGateDb: settings.fftGateDb,
+    ...arrays,
+  });
 }
 
 export function createSimdGranularSource() {

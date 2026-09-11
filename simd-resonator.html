@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#071011" />
-    <meta name="description" content="A playable 128-mode WebAssembly SIMD resonator with four distinct material presets." />
+    <meta name="description" content="A playable 128-mode WebAssembly SIMD resonator with real-time FFT speech resynthesis." />
     <title>SIMD Resonator &mdash; Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
@@ -66,6 +66,7 @@
           <div><dt>Lanes</dt><dd><output id="laneMetric">&mdash;</output></dd></div>
           <div><dt>Work</dt><dd><output id="modeMetric">128</output></dd></div>
           <div><dt>Kernel</dt><dd><output id="kernelMetric">&mdash; &micro;s</output></dd></div>
+          <div class="simd-fft-metric"><dt>FFT frame</dt><dd><output id="fftMetric">1024 / 256</output></dd></div>
           <div><dt>Budget</dt><dd><output id="budgetMetric">&mdash;</output></dd></div>
           <div><dt>Worker</dt><dd><output id="workerMetric">idle</output></dd></div>
         </dl>
@@ -79,14 +80,14 @@
             <div class="simd-demo-card">
               <small id="demoActionLabel">TAP OR DRAG THE BODY</small>
               <b id="demoDescription">A strike excites 128 independently ringing modes.</b>
-              <span id="demoInputNote">Microphone input can excite the same body.</span>
+              <span id="demoInputNote">Microphone input is split into FFT bands and resynthesized through the same body.</span>
             </div>
             <button id="pluckButton" class="simd-primary-action simd-demo-action" type="button">PLUCK BODY</button>
             <button id="micButton" class="simd-primary-action simd-mic-action" type="button" aria-pressed="false" aria-label="Enable microphone. Turn on Audio first and use headphones.">
               <span class="simd-mic-mark" aria-hidden="true"></span>
               <span><b id="micButtonLabel">ENABLE MICROPHONE</b><small id="micButtonHint">Audio first &middot; headphones</small></span>
             </button>
-            <p class="simd-note">Mic stays local.</p>
+            <p class="simd-note">Mic stays local. Use headphones to prevent feedback.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
@@ -109,8 +110,36 @@
           </div>
         </details>
 
+        <details class="group control-section simd-resynthesis" data-section="analysis" open>
+          <summary class="group-summary"><h2 class="group-title">FFT Resynth</h2><span class="section-state" id="fftSummary">96 bands · 21.3 ms</span></summary>
+          <div class="group-body">
+            <p class="simd-resynth-note">Phase-preserved band triggers keep words legible. Longer frames resolve pitch; shorter frames follow consonants.</p>
+            <div class="simd-fft-selects">
+              <label for="fftSize"><span>Frame</span><select id="fftSize" aria-label="FFT frame size">
+                <option value="256">256</option><option value="512">512</option><option value="1024" selected>1024</option><option value="2048">2048</option><option value="4096">4096</option>
+              </select><output id="fftSizeOut" for="fftSize">21.3 ms</output></label>
+              <label for="fftWindow"><span>Window</span><select id="fftWindow" aria-label="FFT window shape">
+                <option value="0" selected>Hann</option><option value="1">Blackman</option><option value="2">Sine</option><option value="3">Rectangular</option>
+              </select></label>
+            </div>
+            <div class="simd-control-list simd-resynth-controls">
+              <label for="fftHopRatio"><span><span>Step</span><output id="fftHopRatioOut" for="fftHopRatio">5.3 ms · 75% overlap</output></span><input id="fftHopRatio" type="range" min="0.125" max="1" step="0.125" value="0.25" /></label>
+              <label for="fftBandCount"><span><span>Bands</span><output id="fftBandCountOut" for="fftBandCount">96</output></span><input id="fftBandCount" type="range" min="16" max="128" step="4" value="96" /></label>
+              <label for="fftResponseMs"><span><span>Memory</span><output id="fftResponseMsOut" for="fftResponseMs">38 ms</output></span><input id="fftResponseMs" type="range" min="4" max="800" step="1" value="38" /></label>
+              <label for="fftDetail"><span><span>Bin detail</span><output id="fftDetailOut" for="fftDetail">90%</output></span><input id="fftDetail" type="range" min="0" max="1" step="0.01" value="0.9" /></label>
+              <label for="fftMix"><span><span>Resynth</span><output id="fftMixOut" for="fftMix">94%</output></span><input id="fftMix" type="range" min="0" max="1" step="0.01" value="0.94" /></label>
+              <label for="fftInputGain"><span><span>Input</span><output id="fftInputGainOut" for="fftInputGain">140%</output></span><input id="fftInputGain" type="range" min="0.25" max="4" step="0.05" value="1.4" /></label>
+              <label for="fftGateDb"><span><span>Gate</span><output id="fftGateDbOut" for="fftGateDb">−72 dB</output></span><input id="fftGateDb" type="range" min="-96" max="-30" step="1" value="-72" /></label>
+              <div class="simd-frequency-pair">
+                <label for="fftLowFrequency"><span><span>Low band</span><output id="fftLowFrequencyOut" for="fftLowFrequency">70 Hz</output></span><input id="fftLowFrequency" type="range" min="20" max="1000" step="5" value="70" /></label>
+                <label for="fftHighFrequency"><span><span>High band</span><output id="fftHighFrequencyOut" for="fftHighFrequency">12 kHz</output></span><input id="fftHighFrequency" type="range" min="2000" max="20000" step="250" value="12000" /></label>
+              </div>
+            </div>
+          </div>
+        </details>
+
         <a class="simd-lab-link" href="simd-audio-lab.html"><b>SIMD AUDIO LAB</b><span>grains · freeze · IR · mesh · strings · space →</span></a>
-        <div class="simd-panel-footer"><button id="resetButton" type="button">Reset</button><span>128-mode instrument</span></div>
+        <div class="simd-panel-footer"><button id="resetButton" type="button">Reset</button><span>128 modes · 128 FFT bands</span></div>
       </aside>
     </main>
     <script type="module" src="nav.js"></script>

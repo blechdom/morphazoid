@@ -133,6 +133,17 @@ test("SIMD Resonator settings stay finite, bounded, and lane-aligned", () => {
     spread: 12,
     strikePosition: -4,
     hardness: Number.NaN,
+    fftSize: 330,
+    fftWindow: 22,
+    fftHopRatio: 0.01,
+    fftBandCount: 127,
+    fftResponseMs: 9_000,
+    fftLowFrequency: -20,
+    fftHighFrequency: Number.NaN,
+    fftDetail: -1,
+    fftMix: 5,
+    fftInputGain: 99,
+    fftGateDb: -200,
   });
   assert.equal(settings.modeCount % 4, 0);
   assert.ok(settings.modeCount >= 32 && settings.modeCount <= SIMD_RESONATOR_MAX_MODES);
@@ -141,9 +152,22 @@ test("SIMD Resonator settings stay finite, bounded, and lane-aligned", () => {
   assert.equal(settings.spread, 1);
   assert.equal(settings.strikePosition, 0.04);
   assert.equal(settings.hardness, SIMD_RESONATOR_DEFAULTS.hardness);
+  assert.equal(settings.fftSize, 256);
+  assert.equal(settings.fftWindow, 3);
+  assert.equal(settings.fftHopRatio, 0.125);
+  assert.equal(settings.fftBandCount, 128);
+  assert.equal(settings.fftResponseMs, 800);
+  assert.equal(settings.fftLowFrequency, 20);
+  assert.equal(settings.fftHighFrequency, SIMD_RESONATOR_DEFAULTS.fftHighFrequency);
+  assert.equal(settings.fftDetail, 0);
+  assert.equal(settings.fftMix, 1);
+  assert.equal(settings.fftInputGain, 4);
+  assert.equal(settings.fftGateDb, -96);
 
   const configuration = createSimdResonatorConfiguration(settings, Number.NaN);
   assert.equal(configuration.sampleRate, 48_000);
+  assert.equal(configuration.fftHopSize, 32);
+  assert.equal(configuration.fftHighFrequency, 12_000);
   assert.ok(configuration.audibleModes > 0);
   for (const key of ["cosine", "sine", "decay", "strike", "gain", "panLeft", "panRight"]) {
     assert.equal(configuration[key].length, SIMD_RESONATOR_MAX_MODES);
@@ -420,6 +444,80 @@ test("lowering the mode count clears inactive worklet state", async () => {
   }
 });
 
+test("FFT band resynthesis reconstructs separated speech-band energy with bounded output", async () => {
+  const previousProcessor = globalThis.AudioWorkletProcessor;
+  const previousRegister = globalThis.registerProcessor;
+  const previousSampleRate = globalThis.sampleRate;
+  let Processor;
+  globalThis.sampleRate = 48_000;
+  globalThis.AudioWorkletProcessor = class {
+    constructor() { this.port = { onmessage: null, postMessage() {} }; }
+  };
+  globalThis.registerProcessor = (_name, Constructor) => { Processor = Constructor; };
+
+  try {
+    await import(new URL(`../src/simd-resonator-processor.js?fft-test=${Date.now()}`, import.meta.url));
+    const processor = new Processor();
+    const scalarBytes = await readFile(scalarUrl);
+    const configuration = createSimdResonatorConfiguration({
+      fftSize: 256,
+      fftHopRatio: 0.125,
+      fftBandCount: 64,
+      fftResponseMs: 4,
+      fftDetail: 1,
+      fftMix: 1,
+      fftInputGain: 1,
+      fftGateDb: -96,
+      fftLowFrequency: 50,
+      fftHighFrequency: 8_000,
+    }, 48_000);
+    processor.install({ scalarBytes, requestedBackend: "scalar", configuration });
+    processor.handleMessage({ type: "mic", active: true });
+
+    let outputPower = 0;
+    let outputPeak = 0;
+    let sampleCount = 0;
+    for (let block = 0; block < 120; block += 1) {
+      const input = new Float32Array(128);
+      for (let frame = 0; frame < input.length; frame += 1) {
+        const time = (block * 128 + frame) / 48_000;
+        input[frame] = Math.sin(Math.PI * 2 * 220 * time) * 0.18
+          + Math.sin(Math.PI * 2 * 1_760 * time) * 0.08;
+      }
+      const left = new Float32Array(128);
+      const right = new Float32Array(128);
+      assert.equal(processor.process([[input]], [[left, right]]), true);
+      if (block > 12) {
+        for (const sample of left) {
+          assert.equal(Number.isFinite(sample), true);
+          outputPower += sample * sample;
+          outputPeak = Math.max(outputPeak, Math.abs(sample));
+          sampleCount += 1;
+        }
+      }
+    }
+    assert.ok(Math.sqrt(outputPower / sampleCount) > 0.06, "phase-preserved FFT path remains audible");
+    assert.ok(outputPeak < 0.5, "resynthesis remains bounded before the graph limiter");
+    assert.ok(Math.max(...processor.fftInputTelemetry) > 0.5, "input band triggers report energy");
+    assert.ok(Math.max(...processor.fftOutputTelemetry) > 0.5, "resynthesized bands report energy");
+
+    processor.configure(createSimdResonatorConfiguration({ ...configuration.settings, fftSize: 2_048 }, 48_000));
+    assert.equal(processor.fftSize, 2_048);
+    assert.equal(processor.fftAnalysisFill, 0, "changing the FFT frame resets only the spectral history");
+    processor.configure({ ...configuration, fftSize: 330, fftHopSize: 127, fftBandCount: 3 });
+    assert.equal(processor.fftSize, 256, "the worklet independently snaps hostile frame sizes to radix-2");
+    assert.equal(processor.fftHopSize, 128);
+    assert.equal(processor.fftBandCount, 16);
+  } finally {
+    if (previousProcessor === undefined) delete globalThis.AudioWorkletProcessor;
+    else globalThis.AudioWorkletProcessor = previousProcessor;
+    if (previousRegister === undefined) delete globalThis.registerProcessor;
+    else globalThis.registerProcessor = previousRegister;
+    if (previousSampleRate === undefined) delete globalThis.sampleRate;
+    else globalThis.sampleRate = previousSampleRate;
+  }
+});
+
 test("SIMD Resonator is dedicated while the lab explains and auditions seven parallel DSP examples", async () => {
   const [html, labHtml, app, worker, ffmpegHtml] = await Promise.all([
     readFile(new URL("simd-resonator.html", root), "utf8"),
@@ -434,6 +532,10 @@ test("SIMD Resonator is dedicated while the lab explains and auditions seven par
   assert.doesNotMatch(html, /id="(?:granular|swarm|freeze|ir|mesh|waveguide|spatial)EngineButton"/);
   assert.match(html, /SIMD AUDIO LAB/);
   assert.match(html, /id="presetSelect"/);
+  assert.match(html, /FFT Resynth/);
+  for (const id of ["fftSize", "fftWindow", "fftHopRatio", "fftBandCount", "fftResponseMs", "fftDetail", "fftMix", "fftInputGain", "fftGateDb", "fftLowFrequency", "fftHighFrequency"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
   assert.doesNotMatch(html, /simdBackendButton|scalarBackendButton|Wasm backend/);
   assert.doesNotMatch(html.match(/<button[\s\S]*?id="micButton"[\s\S]*?<\/button>/)?.[0] || "", /data-primary-transport/);
   assert.match(html, /role="application"/);
@@ -458,6 +560,7 @@ test("SIMD Resonator is dedicated while the lab explains and auditions seven par
   assert.match(app, /function setGate/);
   assert.match(app, /requestedBackend: forceScalar \? "scalar" : "simd"/);
   assert.match(app, /SharedArrayBuffer/);
+  assert.match(app, /fftAnalysisMicros/);
   assert.match(worker, /Atomics\.store/);
   assert.doesNotMatch(app, /function trigger[\s\S]{0,500}startAudio\(/);
 });
