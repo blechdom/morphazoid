@@ -1,0 +1,981 @@
+.simd-synth-page {
+  --simd-cyan: #75efff;
+  --simd-lime: #c9ff69;
+  --simd-orange: #ff9f5a;
+  --simd-pink: #ff79c9;
+  --simd-violet: #a998ff;
+  --simd-panel: #0b1019;
+  --simd-panel-2: #101724;
+  --simd-hairline: rgba(184, 216, 227, 0.16);
+  --accent: var(--simd-cyan);
+  background:
+    radial-gradient(circle at 18% 8%, rgba(117, 239, 255, 0.07), transparent 31rem),
+    radial-gradient(circle at 70% 90%, rgba(255, 121, 201, 0.055), transparent 34rem),
+    #070a10;
+}
+
+.simd-synth-page button,
+.simd-synth-page select,
+.simd-synth-page input {
+  font: inherit;
+}
+
+.simd-synth-shell {
+  display: grid;
+  width: 100%;
+  max-width: none;
+  min-height: calc(100dvh - var(--masthead-height, 58px));
+  grid-template-columns: minmax(0, 1fr) minmax(286px, 324px);
+  gap: 0;
+  padding: 0;
+}
+
+.simd-synth-stage,
+.simd-synth-panel {
+  min-width: 0;
+}
+
+.simd-synth-stage {
+  position: relative;
+  display: grid;
+  align-content: start;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: max-content;
+  gap: 8px;
+  min-height: 0;
+  padding: clamp(11px, 1.45vw, 20px);
+  overflow: auto;
+  background:
+    linear-gradient(rgba(117, 239, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 239, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(145deg, rgba(117, 239, 255, 0.035), transparent 40%, rgba(255, 121, 201, 0.025));
+  background-size: 32px 32px, 32px 32px, auto;
+}
+
+.simd-synth-stage::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(201, 255, 105, 0.018) 55%, transparent);
+}
+
+.simd-synth-titlebar {
+  position: relative;
+  padding: 2px 1px 4px;
+}
+
+.simd-synth-titlebar h1 {
+  margin: 0;
+  color: var(--simd-cyan);
+  font-family: inherit;
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 840;
+  letter-spacing: -0.065em;
+  line-height: 0.92;
+  text-shadow: 0 0 30px rgba(117, 239, 255, 0.13);
+}
+
+.simd-scope-card,
+.simd-xy-card,
+.simd-keyboard-card,
+.simd-sequencer-card {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in oklab, var(--simd-panel) 76%, transparent);
+  box-shadow: none;
+}
+
+.simd-card-heading {
+  display: flex;
+  min-height: 22px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 3px;
+}
+
+.simd-card-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 780;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.simd-card-heading > span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.simd-performance-grid {
+  display: grid;
+  height: clamp(220px, 31vh, 300px);
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.7fr) minmax(220px, 0.76fr);
+  gap: 5px;
+}
+
+.simd-scope-card,
+.simd-xy-card {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+#scopeCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 52% 60%, rgba(117, 239, 255, 0.055), transparent 55%),
+    #070b11;
+}
+
+.simd-voice-lamps {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 3px 0 0;
+}
+
+.simd-voice-lamp {
+  height: 3px;
+  background: rgba(117, 239, 255, 0.12);
+  transition: background 70ms ease, box-shadow 70ms ease;
+}
+
+.simd-voice-lamp.is-active {
+  background: var(--simd-lime);
+  box-shadow: 0 0 8px rgba(201, 255, 105, 0.7);
+}
+
+.simd-xy-card { --accent: var(--simd-pink); }
+
+.simd-xy-pad {
+  position: relative;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 121, 201, 0.08)),
+    linear-gradient(0deg, rgba(117, 239, 255, 0.09), transparent),
+    #090c14;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.simd-xy-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.6;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 25% 25%;
+}
+
+.simd-xy-pad:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 121, 201, 0.78), 0 0 20px rgba(255, 121, 201, 0.11);
+}
+
+.simd-xy-cursor {
+  position: absolute;
+  left: calc(var(--x, 0.36) * 100%);
+  top: calc(var(--y-inverse, 0.36) * 100%);
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--simd-pink);
+  border-radius: 50%;
+  background: rgba(255, 121, 201, 0.24);
+  box-shadow: 0 0 0 4px rgba(255, 121, 201, 0.08), 0 0 14px rgba(255, 121, 201, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.simd-xy-cursor::before,
+.simd-xy-cursor::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  content: "";
+  background: color-mix(in oklab, var(--simd-pink) 76%, transparent);
+  transform: translate(-50%, -50%);
+}
+
+.simd-xy-cursor::before { width: 27px; height: 1px; }
+.simd-xy-cursor::after { width: 1px; height: 27px; }
+
+.simd-xy-axis {
+  position: absolute;
+  color: rgba(255, 255, 255, 0.28);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.simd-xy-axis-x { right: 8px; bottom: 6px; }
+.simd-xy-axis-y { top: 8px; left: 8px; writing-mode: vertical-rl; transform: rotate(180deg); }
+
+.simd-panel-transport {
+  position: sticky;
+  z-index: 8;
+  top: 0;
+  display: grid;
+  gap: 5px;
+  padding: 8px 10px 9px;
+  border-bottom: 1px solid rgba(201, 255, 105, 0.22);
+  background: color-mix(in oklab, #080c13 94%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.simd-transport-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.simd-tempo-control {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.simd-tempo-control > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.simd-play-button {
+  position: relative;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
+  border: 1px solid var(--simd-lime);
+  border-radius: 50%;
+  color: var(--simd-lime);
+  background: rgba(201, 255, 105, 0.045);
+  box-shadow: inset 0 0 12px rgba(201, 255, 105, 0.035);
+}
+
+.simd-play-button:hover,
+.simd-play-button:focus-visible {
+  outline: none;
+  background: rgba(201, 255, 105, 0.13);
+  box-shadow: 0 0 24px rgba(201, 255, 105, 0.13);
+}
+
+.simd-play-button[aria-pressed="true"] {
+  color: #081009;
+  background: var(--simd-lime);
+}
+
+.simd-play-button svg { width: 16px; height: 16px; }
+.simd-preset-picker,
+.simd-local-tools label {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.simd-preset-picker > span,
+.simd-local-tools label > span {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.simd-synth-page select,
+.simd-synth-page input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  height: 27px;
+  min-height: 27px;
+  padding: 0 5px;
+  border: 0;
+  border-bottom: 1px solid var(--simd-hairline);
+  border-radius: 0;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.018);
+  font-size: 8px;
+}
+
+.simd-synth-page select { appearance: auto; }
+
+.simd-synth-page input[type="text"] { padding-right: 8px; }
+
+.simd-synth-page select:focus-visible,
+.simd-synth-page input[type="text"]:focus-visible {
+  outline: none;
+  border-bottom-color: var(--simd-cyan);
+  box-shadow: 0 4px 10px -7px rgba(117, 239, 255, 0.9);
+}
+
+.simd-recovery-tools,
+.simd-local-tools {
+  display: flex;
+  min-width: 0;
+  align-items: end;
+  gap: 3px;
+}
+
+.simd-local-tools { display: grid; grid-template-columns: minmax(88px, 1fr) auto auto; }
+
+.simd-recovery-tools button,
+.simd-local-tools button,
+.simd-step-actions button {
+  min-height: 27px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.018);
+  font-size: 6px;
+  font-weight: 740;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.simd-recovery-tools button:hover,
+.simd-local-tools button:hover,
+.simd-step-actions button:hover { color: var(--simd-cyan); background: rgba(117, 239, 255, 0.08); }
+.simd-recovery-tools button:disabled,
+.simd-local-tools button:disabled { opacity: 0.34; cursor: not-allowed; }
+#initPatch { color: var(--simd-lime); background: rgba(201, 255, 105, 0.065); }
+#panicButton { color: var(--simd-orange); background: rgba(255, 159, 90, 0.055); }
+
+.simd-local-preset-disclosure {
+  border: 0;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.simd-local-preset-disclosure > summary {
+  min-height: 20px;
+  padding: 2px 0;
+  cursor: pointer;
+  list-style: none;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.simd-local-preset-disclosure > summary::-webkit-details-marker { display: none; }
+
+.simd-local-preset-disclosure > summary::after {
+  margin-left: 5px;
+  color: var(--simd-cyan);
+  content: "+";
+  font: 10px/1 var(--mono);
+}
+
+.simd-local-preset-disclosure[open] > summary::after { content: "−"; }
+
+.simd-keyboard-card,
+.simd-sequencer-card {
+  overflow: hidden;
+  border-top: 1px solid var(--simd-hairline);
+  background: transparent;
+}
+
+.simd-keyboard {
+  display: grid;
+  gap: 3px;
+  padding: 3px 2px 5px;
+  touch-action: none;
+}
+
+.simd-key-row {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.simd-key-row-upper { margin-left: clamp(8px, 2vw, 22px); }
+
+.simd-key {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: 31px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: #aeb8bd;
+  background: rgba(216, 225, 228, 0.1);
+  font-family: var(--mono);
+  box-shadow: inset 0 -3px 8px rgba(0, 0, 0, 0.15);
+  user-select: none;
+}
+
+.simd-key kbd { font: 700 8px/1 var(--mono); }
+
+.simd-key.is-black {
+  color: rgba(117, 239, 255, 0.72);
+  background: rgba(117, 239, 255, 0.035);
+}
+
+.simd-key.is-active,
+.simd-key:active {
+  color: #06100b;
+  background: var(--simd-lime);
+  box-shadow: 0 0 18px rgba(201, 255, 105, 0.36);
+  transform: translateY(1px);
+}
+
+.simd-key:focus-visible { outline: none; color: var(--simd-cyan); box-shadow: inset 0 0 0 1px var(--simd-cyan), 0 0 10px rgba(117, 239, 255, 0.16); }
+
+.simd-sequencer-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.simd-sequence-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 2px;
+  overflow-x: auto;
+  background: transparent;
+  scrollbar-color: var(--simd-cyan) transparent;
+  scrollbar-width: thin;
+}
+
+.simd-step-edit-modes,
+.simd-step-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
+.simd-step-edit-modes button,
+.simd-step-actions button {
+  min-width: 0;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 6px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.simd-step-edit-modes button:hover,
+.simd-step-edit-modes button:focus-visible,
+.simd-step-actions button:hover,
+.simd-step-actions button:focus-visible {
+  outline: none;
+  color: var(--simd-cyan);
+  background: rgba(117, 239, 255, 0.08);
+}
+
+.simd-step-edit-modes button[aria-pressed="true"] {
+  color: #07100c;
+  background: var(--simd-cyan);
+  box-shadow: 0 0 12px rgba(117, 239, 255, 0.18);
+}
+
+.simd-step-actions button { color: color-mix(in oklab, var(--simd-pink) 54%, var(--muted)); }
+.simd-step-actions #resetSequence { color: var(--simd-lime); }
+
+.simd-sequencer {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 2px;
+  padding: 3px 2px 5px;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(117, 239, 255, 0.035) 1px, transparent 1px),
+    rgba(8, 13, 21, 0.72);
+  background-size: 100% 25%;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.simd-sequencer[data-painting] { cursor: ns-resize; }
+
+.simd-step {
+  --step-level: 50%;
+  --step-hue: 180;
+  --step-hue-b: 310;
+  --step-hue-c: 80;
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: clamp(100px, 15vh, 138px);
+  grid-template-rows: 10px minmax(48px, 1fr);
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.simd-step.is-outside { opacity: 0.25; }
+.simd-step.is-current::after {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  right: 1px;
+  left: 1px;
+  height: 2px;
+  border-radius: 0;
+  content: "";
+  background: var(--simd-lime);
+  box-shadow: 0 0 9px var(--simd-lime), 0 0 18px rgba(201, 255, 105, 0.42);
+  pointer-events: none;
+}
+
+.simd-step > b { color: var(--muted); font-family: var(--mono); font-size: 7px; text-align: center; }
+
+.simd-step-track {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(to top, rgba(117, 239, 255, 0.055), transparent 68%);
+}
+
+.simd-step-track::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 100% 25%;
+  pointer-events: none;
+}
+
+.simd-step-bar {
+  position: absolute;
+  right: 3px;
+  bottom: 0;
+  left: 3px;
+  min-height: 3px;
+  height: var(--step-level);
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--step-hue) 100% 64%),
+    hsl(var(--step-hue-b) 100% 55%) 52%,
+    hsl(var(--step-hue-c) 100% 54%)
+  );
+  box-shadow: 0 0 10px hsl(var(--step-hue) 100% 58% / 0.42);
+  transition: height 70ms linear, filter 70ms linear;
+  pointer-events: none;
+}
+
+.simd-step.is-current .simd-step-bar {
+  filter: brightness(1.18) saturate(1.15);
+  box-shadow: 0 0 16px hsl(var(--step-hue) 100% 62% / 0.72);
+}
+
+.simd-step-control {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0.001;
+  pointer-events: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+
+.simd-step-track:focus-within {
+  outline: none;
+  box-shadow: inset 0 0 0 1px hsl(var(--step-hue) 100% 62% / 0.76), 0 0 9px hsl(var(--step-hue) 100% 58% / 0.16);
+}
+
+.simd-audio-error { margin: 0; }
+
+.simd-synth-panel {
+  height: calc(100dvh - var(--masthead-height, 58px));
+  padding: 0;
+  overflow-y: auto;
+  border-left: 1px solid rgba(117, 239, 255, 0.17);
+  background: #080c13;
+  scrollbar-color: var(--simd-cyan) #080c13;
+  scrollbar-width: thin;
+}
+
+.simd-synth-panel .control-section {
+  --accent: var(--simd-cyan);
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--simd-hairline);
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.simd-synth-panel .control-section:nth-of-type(2n) { --accent: var(--simd-violet); }
+.simd-synth-panel .control-section[data-section="effects"] { --accent: var(--simd-pink); }
+.simd-synth-panel .control-section[data-section="sequencer"] { --accent: var(--simd-lime); }
+
+.simd-synth-panel .group-summary {
+  min-height: 30px;
+  padding: 0 9px;
+  gap: 7px;
+  box-shadow: inset 2px 0 0 color-mix(in oklab, var(--accent) 64%, transparent);
+}
+.simd-synth-panel .group-summary::after { font-size: 12px; }
+.simd-synth-panel .group-body { display: grid; gap: 6px; padding: 5px 10px 9px; }
+.simd-synth-panel .group-title { font-size: 8px; letter-spacing: 0.18em; }
+.simd-synth-panel .section-state { font-size: 7px; }
+.simd-synth-panel .section-state { max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.simd-module-card,
+.simd-filter-card,
+.simd-fx-card {
+  display: grid;
+  gap: 5px;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.simd-module-card + .simd-module-card,
+.simd-filter-card + .simd-filter-card,
+.simd-fx-card + .simd-fx-card {
+  padding-top: 7px;
+  border-top: 1px solid color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+.simd-module-card header,
+.simd-filter-card > label:first-child,
+.simd-fx-card > label:first-child {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.simd-module-card header > span {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: var(--simd-cyan);
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 760;
+}
+
+.simd-module-b header > span { color: var(--simd-violet); }
+
+.simd-module-card header label { min-width: 0; }
+
+.simd-module-card p,
+.simd-module-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.3;
+}
+
+.simd-knob-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(46px, 1fr));
+  gap: 3px;
+}
+
+.simd-knob {
+  display: grid;
+  min-width: 46px;
+  justify-items: center;
+  gap: 1px;
+  color: var(--muted);
+  font-size: 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.simd-knob output { color: var(--accent); font-family: var(--mono); font-size: 6px; letter-spacing: 0; text-transform: none; }
+
+.simd-knob:nth-child(2) { --accent: var(--simd-violet); }
+.simd-knob:nth-child(3) { --accent: var(--simd-lime); }
+.simd-knob:nth-child(4) { --accent: var(--simd-orange); }
+
+.simd-dial {
+  --knob-angle: 0deg;
+  --knob-fill: 37.5%;
+  position: relative;
+  display: block;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(117, 239, 255, 0.23);
+  border-radius: 50%;
+  cursor: ns-resize;
+  background:
+    radial-gradient(circle at 50% 50%, #101824 0 48%, transparent 50%),
+    conic-gradient(from -135deg, var(--accent) 0 var(--knob-fill), rgba(255, 255, 255, 0.1) var(--knob-fill) 75%, transparent 75% 100%),
+    radial-gradient(circle at 38% 30%, rgba(255, 255, 255, 0.12), transparent 32%),
+    #060a10;
+  box-shadow: inset 0 -4px 8px rgba(0, 0, 0, 0.38), 0 0 9px color-mix(in oklab, var(--accent) 13%, transparent);
+  touch-action: none;
+}
+
+.simd-module-b .simd-dial { border-color: rgba(169, 152, 255, 0.3); }
+
+.simd-dial::before {
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 50%;
+  content: "";
+}
+
+.simd-dial::after {
+  position: absolute;
+  top: 5px;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 12px;
+  border-radius: 2px;
+  content: "";
+  background: var(--accent);
+  box-shadow: 0 0 5px color-mix(in oklab, var(--accent) 60%, transparent);
+  transform: rotate(var(--knob-angle));
+  transform-origin: 1px 14px;
+}
+
+.simd-dial input {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0.001;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.simd-dial:hover,
+.simd-dial:focus-within,
+.simd-dial.is-dragging {
+  border-color: var(--accent);
+  outline: 1px solid color-mix(in oklab, var(--accent) 42%, transparent);
+  outline-offset: 2px;
+  box-shadow: inset 0 -4px 8px rgba(0, 0, 0, 0.38), 0 0 13px color-mix(in oklab, var(--accent) 28%, transparent);
+}
+
+.simd-select-control,
+.simd-range-control,
+.simd-filter-route > label,
+.simd-filter-card > label,
+.simd-fx-card > label,
+.simd-control-list > label {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.simd-select-control > span,
+.simd-range-control > span,
+.simd-filter-route label > span,
+.simd-filter-card label > span,
+.simd-fx-card label > span,
+.simd-control-list label > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.simd-filter-card label > b,
+.simd-fx-card label > b { color: var(--ink); font-size: 7px; letter-spacing: 0.07em; text-transform: uppercase; }
+
+.simd-synth-panel output { color: var(--accent); font-family: var(--mono); font-size: 7px; }
+
+.simd-inline-controls,
+.simd-filter-route {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.simd-inline-controls label { display: grid; min-width: 0; gap: 3px; }
+.simd-inline-controls label > span { display: flex; justify-content: space-between; color: var(--muted); font-size: 7px; }
+
+.simd-synth-page input[type="range"] { accent-color: var(--accent); }
+
+.simd-synth-panel input[type="range"] {
+  width: 100%;
+  height: 28px;
+  margin: 0;
+}
+
+.simd-synth-panel .simd-dial input[type="range"] {
+  width: 100%;
+  height: 100%;
+}
+
+.simd-order-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.simd-order-strip button {
+  display: grid;
+  min-height: 27px;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.simd-order-strip button span { padding: 4px; }
+.simd-order-strip button i { color: var(--accent); font-style: normal; }
+.simd-order-strip small { color: var(--muted); font-size: 7px; text-transform: uppercase; }
+
+.simd-control-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+
+.simd-mod-matrix { display: grid; gap: 4px; }
+
+.simd-mod-row {
+  display: grid;
+  grid-template-columns: 13px minmax(62px, 0.7fr) minmax(92px, 1fr) 62px 20px;
+  align-items: center;
+  gap: 4px;
+}
+
+.simd-mod-row > b {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 8px;
+  text-align: center;
+}
+
+.simd-mod-row select { height: 27px; padding-left: 5px; font-size: 7px; }
+.simd-mod-row input { min-width: 0; }
+.simd-mod-row output { min-width: 35px; font-size: 7px; text-align: right; }
+
+.simd-mod-depth { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 3px; }
+.simd-mod-clear { width: 20px; height: 20px; padding: 0; border: 1px solid var(--simd-hairline); border-radius: 50%; color: var(--muted); background: transparent; font-size: 9px; }
+.simd-mod-clear:hover { border-color: var(--simd-orange); color: var(--simd-orange); }
+
+@media (max-width: 1180px) {
+  .simd-synth-shell { grid-template-columns: minmax(0, 1fr) 304px; }
+}
+
+@media (max-width: 940px) {
+  html.simd-synth-document {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.simd-synth-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+  .simd-synth-shell { display: block; }
+  .simd-synth-shell { height: auto; min-height: 0; overflow: visible; }
+  .simd-synth-stage { position: relative; width: 100%; max-width: 100%; overflow-x: hidden; overflow-y: visible; }
+  .simd-performance-grid,
+  .simd-keyboard-card,
+  .simd-sequencer-card { min-width: 0; max-width: 100%; }
+  .simd-synth-panel { height: auto; overflow: visible; border-top: 1px solid rgba(117, 239, 255, 0.17); border-left: 0; }
+  .simd-panel-transport { position: static; }
+}
+
+@media (max-width: 700px) {
+  .simd-synth-stage { padding: 9px 7px 13px; gap: 7px; }
+  .simd-synth-titlebar h1 { font-size: 34px; }
+  .simd-performance-grid { height: auto; grid-template-columns: 1fr; min-height: 0; }
+  .simd-scope-card,
+  .simd-xy-card { height: 168px; }
+  .simd-card-heading { min-height: 25px; flex-wrap: wrap; padding-block: 3px; }
+  .simd-sequence-toolbar { justify-content: start; }
+  .simd-step { height: 104px; }
+}
+
+@media (max-width: 430px) {
+  .simd-local-tools { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .simd-recovery-tools { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .simd-knob-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .simd-mod-row { grid-template-columns: 14px minmax(0, 0.75fr) minmax(0, 1fr) 22px; }
+  .simd-mod-depth { grid-column: 2 / 4; }
+  .simd-key-row { gap: 2px; }
+  .simd-key { height: 30px; }
+}
+
+@media (pointer: coarse) {
+  .simd-play-button {
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
+    flex-basis: 48px;
+  }
+  .simd-transport-row { grid-template-columns: 48px minmax(0, 1fr); }
+  .simd-synth-panel .simd-dial input[type="range"] {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: 46px;
+    height: 46px;
+    transform: translate(-50%, -50%);
+  }
+  .simd-recovery-tools button,
+  .simd-local-tools button { min-height: 32px; }
+  .simd-mod-clear { width: 28px; height: 28px; }
+  .simd-key { min-width: 0; height: 38px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simd-voice-lamp,
+  .simd-key { transition: none; }
+}

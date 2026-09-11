@@ -32,6 +32,18 @@ const builds = [
     options: ["--enable", "simd"],
     memoryPages: 16,
   },
+  {
+    source: "src/simd-synth-scalar.ts",
+    output: "simd-synth-scalar.wasm",
+    options: [],
+    memoryPages: 16,
+  },
+  {
+    source: "src/simd-synth-simd.ts",
+    output: "simd-synth-simd.wasm",
+    options: ["--enable", "simd"],
+    memoryPages: 16,
+  },
 ];
 
 await mkdir(outputRoot, { recursive: true });

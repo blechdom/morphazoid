@@ -251,6 +251,25 @@ test("Modular Shader Synth is a sequencer instrument with shared GPU artwork", (
   assert.equal(midi?.computerKeyboardMode, "midi");
 });
 
+test("SIMD SYNTH is a pitched, configurable WebAssembly instrument", () => {
+  const instrument = instrumentById("simd-synth");
+  assert.equal(instrument?.label, "SIMD SYNTH");
+  assert.equal(instrument?.href, "simd-synth.html");
+  assert.equal(instrument?.kind, "Configurable WebAssembly SIMD synth");
+  assert.equal(instrument?.imageHref, "assets/instruments/simd-synth.webp");
+  assert.match(instrument?.description ?? "", /eight synthesis models/i);
+  assert.match(instrument?.description ?? "", /filter-routing/i);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["sequencers"]);
+  assert.ok(instrument?.features.includes("WebAssembly SIMD"));
+  assert.ok(instrument?.features.includes("AudioWorklet"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+
+  const midi = instrumentMidiCapabilityForId("simd-synth");
+  assert.equal(midi?.noteMode, "pitched");
+  assert.equal(midi?.computerKeyboardMode, "page");
+});
+
 test("srtuss is a sound-only decomposed WebGPU master synth", () => {
   const instrument = instrumentById("srtuss");
   assert.equal(instrument?.href, "srtuss.html");

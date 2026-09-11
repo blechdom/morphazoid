@@ -184,6 +184,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("harmonica").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("morphazoidical").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("object-forge").noteMode, "pitched");
+  assert.equal(instrumentMidiCapabilityForId("simd-synth").noteMode, "pitched");
+  assert.equal(instrumentMidiCapabilityForId("simd-synth").computerKeyboardMode, "page");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
     "puggler",
     "image-to-instrument-3",
@@ -214,6 +216,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "gesturama",
     "constellation",
     "simd-resonator",
+    "simd-synth",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
     "hocket-loom",

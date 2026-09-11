@@ -535,6 +535,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on Audio, press Play synth, shape the pattern and effects, or save named patches to My presets in this browser.",
     ["WebAssembly SIMD", "AudioWorklet", "Built-in synth", "Step sequencer", "Effects", "Pointer"],
   ),
+  "simd-synth": define(
+    "Configurable WebAssembly SIMD synth",
+    "Combines two of eight synthesis models through selectable blend, ring, phase, shaping, filter-routing, modulation, and dual-effects stages in an eight-voice AudioWorklet.",
+    "Turn on Audio, choose a signal-path preset, play the stage or MIDI keys, then swap sources and processing stages without patching cables.",
+    ["WebAssembly SIMD", "AudioWorklet", "Built-in synth", "Step sequencer", "Effects", "Pointer", "Presets"],
+  ),
   "webgpu-chiptune": define(
     "WebGPU tracker synth",
     "Translates srtuss's 2015 Shadertoy Chiptune sound shader into a live WGSL score with chip voices, drums, noise, and eight-tap ping-pong echo.",

@@ -537,6 +537,17 @@ for worktree_runtime_file in \
   src/simd-303-processor.js \
   assets/wasm/simd-303-scalar.wasm \
   assets/wasm/simd-303-simd.wasm \
+  simd-synth.html \
+  simd-synth.css \
+  simd-synth-app.js \
+  SIMD_SYNTH_RESEARCH.md \
+  src/simd-synth.js \
+  src/simd-synth-processor.js \
+  src/simd-synth-presets.js \
+  src/simd-synth-user-presets.js \
+  assets/wasm/simd-synth-scalar.wasm \
+  assets/wasm/simd-synth-simd.wasm \
+  assets/instruments/simd-synth.webp \
   vendor/ffmpeg-wasm/ffmpeg/classes.js \
   vendor/ffmpeg-wasm/ffmpeg/const.js \
   vendor/ffmpeg-wasm/ffmpeg/errors.js \
@@ -1139,6 +1150,17 @@ required_files=(
   src/simd-303-processor.js
   assets/wasm/simd-303-scalar.wasm
   assets/wasm/simd-303-simd.wasm
+  simd-synth.html
+  simd-synth.css
+  simd-synth-app.js
+  SIMD_SYNTH_RESEARCH.md
+  src/simd-synth.js
+  src/simd-synth-processor.js
+  src/simd-synth-presets.js
+  src/simd-synth-user-presets.js
+  assets/wasm/simd-synth-scalar.wasm
+  assets/wasm/simd-synth-simd.wasm
+  assets/instruments/simd-synth.webp
   vendor/ffmpeg-wasm/ffmpeg/classes.js
   vendor/ffmpeg-wasm/ffmpeg/const.js
   vendor/ffmpeg-wasm/ffmpeg/errors.js

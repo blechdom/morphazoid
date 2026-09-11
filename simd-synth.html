@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en" class="simd-synth-document">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#080b12" />
+    <meta name="description" content="SIMD SYNTH is an eight-voice, semi-modular WebAssembly SIMD performance synthesizer." />
+    <title>SIMD SYNTH — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="simd-synth.css" />
+  </head>
+  <body class="simd-synth-page" data-simd-surface="synth" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="webgpu-synths.html">shader synths</a>
+        <a class="tab" href="shader-synth-playground.html">modular shader</a>
+        <a class="tab active" href="simd-synth.html" aria-current="page">simd synth</a>
+        <a class="tab" href="simd-303.html">simd 303</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="webgpu-synths.html">shader synths</option>
+          <option value="shader-synth-playground.html">modular shader</option>
+          <option value="simd-synth.html" selected>simd synth</option>
+          <option value="simd-303.html">simd 303</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">▶</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">62%</output></span>
+          <input id="outputLevel" aria-label="SIMD SYNTH output level" type="range" min="0" max="1" step="0.01" value="0.62" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell simd-synth-shell" id="simd-synth">
+      <section class="stage simd-synth-stage" aria-label="SIMD SYNTH instrument">
+        <header class="simd-synth-titlebar">
+          <h1>SIMD SYNTH</h1>
+        </header>
+
+        <div class="simd-performance-grid">
+          <section class="simd-scope-card" aria-labelledby="scopeTitle">
+            <div class="simd-card-heading"><h2 id="scopeTitle">Actual output</h2><span id="scopeState">audio off</span></div>
+            <canvas id="scopeCanvas" width="1000" height="320" aria-label="Oscilloscope drawn from the audible AudioWorklet output">SIMD SYNTH output waveform.</canvas>
+            <div class="simd-voice-lamps" id="voiceLamps" aria-label="Eight SIMD voice activity indicators"></div>
+          </section>
+
+          <section class="simd-xy-card" aria-labelledby="xyTitle">
+            <div class="simd-card-heading"><h2 id="xyTitle">X / Y expression</h2><span id="xyReadout">36 · 64</span></div>
+            <div
+              class="simd-xy-pad"
+              id="xyPad"
+              role="application"
+              tabindex="0"
+              aria-label="Expression pad. Drag horizontally for X, vertically for Y, and press to play a note. Arrow keys move; Enter or Space plays."
+              aria-describedby="xyReadout"
+              aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter Space"
+            >
+              <span class="simd-xy-grid" aria-hidden="true"></span>
+              <span class="simd-xy-cursor" id="xyCursor" aria-hidden="true"></span>
+              <span class="simd-xy-axis simd-xy-axis-x" aria-hidden="true">X · morph</span>
+              <span class="simd-xy-axis simd-xy-axis-y" aria-hidden="true">Y · tone</span>
+            </div>
+          </section>
+        </div>
+
+        <section class="simd-sequencer-card" aria-labelledby="sequencerTitle">
+          <div class="simd-card-heading">
+            <h2 id="sequencerTitle">16-step expression</h2>
+            <span id="sequenceLaneState">pitch lane</span>
+          </div>
+          <div class="simd-sequence-toolbar">
+            <div class="simd-step-edit-modes" role="group" aria-label="Step expression lane">
+              <button type="button" data-sequence-lane="pitch" aria-pressed="true">Pitch</button>
+              <button type="button" data-sequence-lane="gate" aria-pressed="false">Gate</button>
+              <button type="button" data-sequence-lane="accent" aria-pressed="false">Accent</button>
+              <button type="button" data-sequence-lane="slide" aria-pressed="false">Slide</button>
+            </div>
+            <div class="simd-step-actions" role="group" aria-label="Sequence actions">
+              <button class="mini-action" type="button" id="randomSequence">Randomize</button>
+              <button class="mini-action" type="button" id="mutateSequence">Mutate</button>
+              <button class="mini-action" type="button" id="rotateSequence">Rotate</button>
+              <button class="mini-action" type="button" id="resetSequence">Reset</button>
+            </div>
+          </div>
+          <div class="simd-sequencer" id="sequencer" aria-label="SIMD SYNTH step sequence. Select a lane, then drag across steps to paint it."></div>
+        </section>
+
+        <section class="simd-keyboard-card" aria-labelledby="keyboardTitle">
+          <div class="simd-card-heading">
+            <h2 id="keyboardTitle">Computer keys</h2>
+            <span id="noteReadout">Z–M · Q–U</span>
+          </div>
+          <div class="simd-keyboard" id="keyboard" role="group" aria-label="Two-octave computer keyboard"></div>
+        </section>
+
+        <p class="sr-only" id="liveStatus" aria-live="polite">Audio is off. Sequence is paused.</p>
+        <p class="audio-error simd-audio-error" id="audioError" role="alert" hidden></p>
+      </section>
+
+      <aside class="panel simd-synth-panel" aria-label="SIMD SYNTH patch controls">
+        <section class="simd-panel-transport" aria-label="Transport, tempo, and patch recall">
+          <div class="simd-transport-row">
+            <button
+              class="play-button simd-play-button"
+              id="playButton"
+              type="button"
+              aria-pressed="false"
+              aria-label="Play SIMD SYNTH sequence"
+              aria-keyshortcuts="Space"
+              data-primary-transport
+            >
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              <span class="sr-only">Play sequence</span>
+            </button>
+            <span class="sr-only" id="playLabel">Play sequence</span>
+            <span class="sr-only" id="playState">paused · Space</span>
+            <label class="simd-tempo-control" for="bpm">
+              <span><b>Tempo</b><output id="bpmOut" for="bpm">112 BPM</output></span>
+              <input id="bpm" data-param="bpm" type="range" min="30" max="240" step="1" />
+            </label>
+          </div>
+          <label class="simd-preset-picker" for="presetSelect"><span>Patch</span><select id="presetSelect" aria-label="SIMD SYNTH preset"></select></label>
+          <div class="simd-recovery-tools" role="group" aria-label="Patch recovery and creation">
+            <button class="mini-action" type="button" id="initPatch" data-reset-all data-reset-in-place>Init</button>
+            <button class="mini-action" type="button" id="undoPatch" disabled>Undo</button>
+            <button class="mini-action" type="button" id="randomPatch">Random</button>
+            <button class="mini-action" type="button" id="panicButton">Panic</button>
+          </div>
+          <details class="simd-local-preset-disclosure">
+            <summary>Browser presets</summary>
+            <div class="simd-local-tools">
+              <label for="presetName"><span>Name</span><input id="presetName" type="text" maxlength="48" placeholder="name this patch" /></label>
+              <button class="mini-action" type="button" id="savePreset">Save</button>
+              <button class="mini-action" type="button" id="deletePreset" disabled>Delete</button>
+            </div>
+          </details>
+        </section>
+
+        <details class="group control-section" data-section="sources" open>
+          <summary class="group-summary"><h2 class="group-title">Generators</h2><span class="section-state" id="sourceSummary">A + B</span></summary>
+          <div class="group-body">
+            <article class="simd-module-card simd-module-a">
+              <header><span>A</span><label for="sourceA"><span class="sr-only">Generator A algorithm</span><select id="sourceA" data-param="sourceA"></select></label></header>
+              <p id="sourceAHint">sine → triangle → saw</p>
+              <div class="simd-knob-grid" data-control-bank="source-a">
+                <label class="simd-knob"><span class="simd-dial"><input id="tuneA" data-param="tuneA" type="range" min="-24" max="24" step="1" /></span><span>Tune</span><output id="tuneAOut" for="tuneA">0 st</output></label>
+                <label class="simd-knob"><span class="simd-dial"><input id="colorA" data-param="colorA" type="range" min="0" max="1" step="0.01" /></span><span>Color</span><output id="colorAOut" for="colorA">56%</output></label>
+                <label class="simd-knob"><span class="simd-dial"><input id="motionA" data-param="motionA" type="range" min="0" max="1" step="0.01" /></span><span>Motion</span><output id="motionAOut" for="motionA">28%</output></label>
+                <label class="simd-knob"><span class="simd-dial"><input id="detailA" data-param="detailA" type="range" min="1" max="24" step="1" /></span><span>Detail</span><output id="detailAOut" for="detailA">18</output></label>
+              </div>
+            </article>
+            <article class="simd-module-card simd-module-b">
+              <header><span>B</span><label for="sourceB"><span class="sr-only">Generator B algorithm</span><select id="sourceB" data-param="sourceB"></select></label></header>
+              <p id="sourceBHint">four-operator phase color</p>
+              <div class="simd-knob-grid" data-control-bank="source-b">
+                <label class="simd-knob"><span class="simd-dial"><input id="tuneB" data-param="tuneB" type="range" min="-24" max="24" step="1" /></span><span>Tune</span><output id="tuneBOut" for="tuneB">+12 st</output></label>
+                <label class="simd-knob"><span class="simd-dial"><input id="colorB" data-param="colorB" type="range" min="0" max="1" step="0.01" /></span><span>Color</span><output id="colorBOut" for="colorB">42%</output></label>
+                <label class="simd-knob"><span class="simd-dial"><input id="motionB" data-param="motionB" type="range" min="0" max="1" step="0.01" /></span><span>Motion</span><output id="motionBOut" for="motionB">34%</output></label>
+                <label class="simd-knob"><span class="simd-dial"><input id="detailB" data-param="detailB" type="range" min="1" max="24" step="1" /></span><span>Detail</span><output id="detailBOut" for="detailB">4</output></label>
+              </div>
+            </article>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="combine">
+          <summary class="group-summary"><h2 class="group-title">Combine</h2><span class="section-state" id="combineSummary">Morph</span></summary>
+          <div class="group-body">
+            <label class="simd-select-control" for="combine"><span>Algorithm</span><select id="combine" data-param="combine"></select></label>
+            <p class="simd-module-hint" id="combineHint">equal-power A/B blend</p>
+            <div class="simd-inline-controls">
+              <label for="combineMix"><span>Balance <output id="combineMixOut" for="combineMix">36%</output></span><input id="combineMix" data-param="combineMix" type="range" min="0" max="1" step="0.01" /></label>
+              <label for="combineDrive"><span>Drive <output id="combineDriveOut" for="combineDrive">1.25×</output></span><input id="combineDrive" data-param="combineDrive" type="range" min="0.25" max="6" step="0.01" /></label>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="tone">
+          <summary class="group-summary"><h2 class="group-title">Tone order</h2><span class="section-state" id="toneSummary">shape → filters</span></summary>
+          <div class="group-body">
+            <div class="simd-order-strip" role="group" aria-label="Shaper and filters order">
+              <button class="mini-action" type="button" id="toneOrderButton"><span id="toneOrderFirst">Shaper</span><i aria-hidden="true">→</i><span id="toneOrderSecond">Filters</span></button>
+              <small>tap to reverse</small>
+            </div>
+            <label class="simd-select-control" for="shaper"><span>Shaper</span><select id="shaper" data-param="shaper"></select></label>
+            <label for="shaperAmount" class="simd-range-control"><span>Amount <output id="shaperAmountOut" for="shaperAmount">18%</output></span><input id="shaperAmount" data-param="shaperAmount" type="range" min="0" max="1" step="0.01" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="filters">
+          <summary class="group-summary"><h2 class="group-title">Dual filter</h2><span class="section-state" id="filterSummary">serial</span></summary>
+          <div class="group-body">
+            <div class="simd-filter-route">
+              <label for="filterRoute"><span>Routing</span><select id="filterRoute" data-param="filterRoute"></select></label>
+              <label for="filterBlend"><span>Blend <output id="filterBlendOut" for="filterBlend">45%</output></span><input id="filterBlend" data-param="filterBlend" type="range" min="0" max="1" step="0.01" /></label>
+            </div>
+            <article class="simd-filter-card">
+              <label for="filter1"><b>Filter 1</b><select id="filter1" data-param="filter1"></select></label>
+              <label for="cutoff1"><span>Cutoff <output id="cutoff1Out" for="cutoff1">7.2 kHz</output></span><input id="cutoff1" data-param="cutoff1" data-log type="range" min="0" max="1" step="0.001" /></label>
+              <label for="resonance1"><span>Resonance <output id="resonance1Out" for="resonance1">28%</output></span><input id="resonance1" data-param="resonance1" type="range" min="0" max="1" step="0.01" /></label>
+            </article>
+            <article class="simd-filter-card">
+              <label for="filter2"><b>Filter 2</b><select id="filter2" data-param="filter2"></select></label>
+              <label for="cutoff2"><span>Cutoff <output id="cutoff2Out" for="cutoff2">2.2 kHz</output></span><input id="cutoff2" data-param="cutoff2" data-log type="range" min="0" max="1" step="0.001" /></label>
+              <label for="resonance2"><span>Resonance <output id="resonance2Out" for="resonance2">42%</output></span><input id="resonance2" data-param="resonance2" type="range" min="0" max="1" step="0.01" /></label>
+            </article>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="voice">
+          <summary class="group-summary"><h2 class="group-title">Voice + motion</h2><span class="section-state">ADSR · glide</span></summary>
+          <div class="group-body simd-control-list">
+            <label for="attack"><span>Attack <output id="attackOut" for="attack">8 ms</output></span><input id="attack" data-param="attack" data-log type="range" min="0" max="1" step="0.001" /></label>
+            <label for="decay"><span>Decay <output id="decayOut" for="decay">320 ms</output></span><input id="decay" data-param="decay" data-log type="range" min="0" max="1" step="0.001" /></label>
+            <label for="sustain"><span>Sustain <output id="sustainOut" for="sustain">72%</output></span><input id="sustain" data-param="sustain" type="range" min="0" max="1" step="0.01" /></label>
+            <label for="release"><span>Release <output id="releaseOut" for="release">460 ms</output></span><input id="release" data-param="release" data-log type="range" min="0" max="1" step="0.001" /></label>
+            <label for="glide"><span>Glide <output id="glideOut" for="glide">8%</output></span><input id="glide" data-param="glide" type="range" min="0" max="0.95" step="0.01" /></label>
+            <label for="stereo"><span>Stereo <output id="stereoOut" for="stereo">62%</output></span><input id="stereo" data-param="stereo" type="range" min="0" max="1" step="0.01" /></label>
+            <label for="drift"><span>Voice drift <output id="driftOut" for="drift">8%</output></span><input id="drift" data-param="drift" type="range" min="0" max="1" step="0.01" /></label>
+            <label for="lfo1Rate"><span>LFO 1 <output id="lfo1RateOut" for="lfo1Rate">0.17 Hz</output></span><input id="lfo1Rate" data-param="lfo1Rate" data-log type="range" min="0" max="1" step="0.001" /></label>
+            <label for="lfo2Rate"><span>LFO 2 <output id="lfo2RateOut" for="lfo2Rate">0.43 Hz</output></span><input id="lfo2Rate" data-param="lfo2Rate" data-log type="range" min="0" max="1" step="0.001" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="effects">
+          <summary class="group-summary"><h2 class="group-title">Effects chain</h2><span class="section-state" id="effectsSummary">1 → 2</span></summary>
+          <div class="group-body">
+            <div class="simd-order-strip" role="group" aria-label="Effects slot order">
+              <button class="mini-action" type="button" id="fxOrderButton"><span>FX 1</span><i aria-hidden="true">→</i><span>FX 2</span></button>
+              <small>tap to reverse</small>
+            </div>
+            <article class="simd-fx-card">
+              <label for="fx1"><b>FX 1</b><select id="fx1" data-param="fx1"></select></label>
+              <label for="fx1Amount"><span>Wet <output id="fx1AmountOut" for="fx1Amount">22%</output></span><input id="fx1Amount" data-param="fx1Amount" type="range" min="0" max="1" step="0.01" /></label>
+              <label for="fx1Time"><span>Time <output id="fx1TimeOut" for="fx1Time">18 ms</output></span><input id="fx1Time" data-param="fx1Time" data-log type="range" min="0" max="1" step="0.001" /></label>
+              <label for="fx1Feedback"><span>Feedback <output id="fx1FeedbackOut" for="fx1Feedback">16%</output></span><input id="fx1Feedback" data-param="fx1Feedback" type="range" min="0" max="0.84" step="0.01" /></label>
+            </article>
+            <article class="simd-fx-card">
+              <label for="fx2"><b>FX 2</b><select id="fx2" data-param="fx2"></select></label>
+              <label for="fx2Amount"><span>Wet <output id="fx2AmountOut" for="fx2Amount">20%</output></span><input id="fx2Amount" data-param="fx2Amount" type="range" min="0" max="1" step="0.01" /></label>
+              <label for="fx2Time"><span>Time <output id="fx2TimeOut" for="fx2Time">280 ms</output></span><input id="fx2Time" data-param="fx2Time" data-log type="range" min="0" max="1" step="0.001" /></label>
+              <label for="fx2Feedback"><span>Feedback <output id="fx2FeedbackOut" for="fx2Feedback">34%</output></span><input id="fx2Feedback" data-param="fx2Feedback" type="range" min="0" max="0.84" step="0.01" /></label>
+            </article>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="modulation">
+          <summary class="group-summary"><h2 class="group-title">Modulation matrix</h2><span class="section-state">4 routes</span></summary>
+          <div class="group-body">
+            <p class="simd-module-hint">Per-voice sources stay in their SIMD lane. X and Y make the pad a macro controller.</p>
+            <div class="simd-mod-matrix" id="modMatrix"></div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sequencer">
+          <summary class="group-summary"><h2 class="group-title">Sequence</h2><span class="section-state" id="clockSummary">Dorian</span></summary>
+          <div class="group-body simd-control-list">
+            <label for="swing"><span>Swing <output id="swingOut" for="swing">8%</output></span><input id="swing" data-param="swing" type="range" min="0" max="0.42" step="0.01" /></label>
+            <label for="steps"><span>Length <output id="stepsOut" for="steps">16</output></span><input id="steps" data-param="steps" type="range" min="4" max="16" step="1" /></label>
+            <label for="gateLength"><span>Gate <output id="gateLengthOut" for="gateLength">72%</output></span><input id="gateLength" data-param="gateLength" type="range" min="0.05" max="1" step="0.01" /></label>
+            <label for="rootNote"><span>Root <output id="rootNoteOut" for="rootNote">G1</output></span><input id="rootNote" data-param="rootNote" type="range" min="24" max="84" step="1" /></label>
+            <label class="simd-select-control" for="scale"><span>Scale</span><select id="scale" data-param="scale"></select></label>
+          </div>
+        </details>
+
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="simd-synth-app.js"></script>
+  </body>
+</html>

@@ -11,6 +11,8 @@ const artifacts = [
   "simd-resonator-simd.wasm",
   "simd-303-scalar.wasm",
   "simd-303-simd.wasm",
+  "simd-synth-scalar.wasm",
+  "simd-synth-simd.wasm",
 ];
 
 try {

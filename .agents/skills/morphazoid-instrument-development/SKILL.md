@@ -85,9 +85,9 @@ instruments' aesthetic or pause behavior.
    one accessible `h1` in, or directly edge-aligned to, the positioned wrapper
    that owns the primary graphic, with its inset derived from that graphic's
    bounds rather than the page shell. Use one coherent font family, weight, and
-   treatment across the complete title; do not split its words into unrelated
-   display styles. Verify that it remains clear of primary gestures and controls
-   at the required desktop, phone portrait, and phone landscape viewports.
+   color across the complete title; do not split its words into competing display
+   styles. Verify that it remains clear of primary gestures and controls at the
+   required desktop, phone portrait, and phone landscape viewports.
 5. Establish bounds before adding voices or effects: input clamps, gain staging,
    maximum voices/nodes/events, scheduler lookahead, geometry/DPR budgets, and
    release/teardown behavior.
@@ -100,6 +100,24 @@ instruments' aesthetic or pause behavior.
    min/default/max relationship, visual synchronization, state ownership, and
    focused tests. Presets must demonstrate distinct regions of the sound space
    rather than small parameter variations.
+
+## Keep the performance surface direct
+
+- Keep the stage for the primary graphic, direct gestures, concise labels, and
+  causal feedback. Move backend/kernel timing, lane counts, topology copy,
+  explanatory slogans, and signal-path documentation out of permanent playing
+  space unless the performer needs the information to make a musical decision.
+- Put Play, tempo, patch/preset recall, and deterministic recovery at the top of
+  the control rail for transport instruments. Separate deeper synthesis controls
+  below with spacing or thin dividers instead of nested bordered cards.
+- Do not render passive decoration with button affordance. If a step lane looks
+  paintable, support a captured drag across the complete lane, interpolate cells
+  skipped by fast pointer motion, and commit one undo snapshot per gesture.
+- For pitched computer-key performance, show the actual key labels and map the
+  complete two-row layout. Suppress the shared generic key handler when the page
+  owns the mapping so a physical key cannot double-trigger.
+- Add ADSR or X/Y controls only when every envelope stage or axis has an explicit
+  state owner, audible DSP destination, visible synchronization, and recovery.
 
 Version persistent preset/state formats when they may outlive the current page
 version. Validate and apply migrations transactionally, preserve unknown fields

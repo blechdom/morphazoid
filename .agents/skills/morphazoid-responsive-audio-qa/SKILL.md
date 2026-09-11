@@ -29,9 +29,22 @@ destination where promised, safe numerical bounds, and recovery. This pass may
 prove that state or measured output changed; use `morphazoid-perceptual-qa` to
 decide whether the audible leverage or musical result is adequate.
 
+For paintable sequencers, cross several cells in one fast pointer gesture, verify
+interpolated cells, pointer-cancel cleanup, and one-step undo of the whole stroke;
+also retain native focus and arrow-key editing. For page-owned pitched QWERTY,
+verify that every displayed physical label matches its sounding key, simultaneous
+presses release independently, editable fields keep typing, blur releases held
+notes, and the shared generic handler is disabled. Reject passive marks that look
+clickable and focus treatments that obscure the edited value.
+
 ## Exercise viewports
 
 Check a normal desktop viewport, narrow phone portrait, and short phone landscape. At each size confirm the full instrument can be understood, all controls remain reachable, touch targets remain usable, the intended panel scrolls, the document does not accidentally overflow, labels remain legible, and no overlay blocks gestures. Check resize and orientation changes during playback.
+
+Confirm the permanent stage and control rail contain only performance-relevant
+controls or feedback: no backend/kernel/lane/budget telemetry, topology slogans,
+or explanatory panels unless the performer needs them to operate the instrument.
+Check that transport, preset recall, tempo, and reset remain immediately reachable.
 
 ## Verify integration
 

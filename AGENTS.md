@@ -55,6 +55,23 @@ command names.
 - Use Morphazoid's existing visual language before inventing component styles:
   dark surfaces, saturated accents, high contrast, compact native controls, and
   deliberately strange but readable graphics. Use negative space structurally.
+- Use borders once per semantic region. Prefer spacing, alignment, quiet surface
+  shifts, and a single accent over nested card boxes; never add button-like marks
+  or tiles that have no action.
+- Reserve permanent instrument real estate for playing and recovery. Keep backend,
+  lane, kernel, budget, topology, implementation counts, slogans, and explanatory
+  diagrams in diagnostics or documentation unless a performer needs them to act.
+- For transport instruments, keep Play, tempo, patch/preset recall, and safe reset
+  at the top of the control rail. The stage itself should remain the exploratory
+  graphic and gesture surface.
+- A sequencer that visually invites painting must support one continuous captured
+  drag across steps, including interpolated skipped cells and one undo transaction.
+  A pitched computer-key surface must show the actual physical key labels and use
+  the full two-row mapping rather than a short note-name-only piano.
+- Use one coherent font and one color across the complete instrument title; do not
+  split title words into competing treatments.
+- Use ADSR envelopes and X/Y controls when each dimension has a clear, audible DSP
+  destination and visible state. Do not add either as decorative control chrome.
 - Keep the playable viewport compact and immediate. Put substantial explanatory
   prose, research background, and instructional chrome in adjacent documentation
   or notes rather than displacing the instrument or covering its controls.

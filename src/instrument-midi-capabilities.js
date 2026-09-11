@@ -87,6 +87,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "surround-field",
     "webgpu-303",
     "simd-303",
+    "simd-synth",
     "moire-organ",
     "chladni-plate",
     "spring-choir",
@@ -194,6 +195,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "gesturama",
   "constellation",
   "simd-resonator",
+  "simd-synth",
 ]);
 
 // These pages still expose hardware MIDI for labeled controls, presets, and

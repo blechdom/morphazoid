@@ -173,6 +173,7 @@ export const TOOL_GROUPS = Object.freeze([
       href: "simd-303.html",
       imageHref: "assets/instruments/webgpu-303.webp",
     },
+    { id: "simd-synth", label: "SIMD SYNTH", href: "simd-synth.html" },
     {
       id: "webgpu-chiptune",
       label: "WebGPU Chiptune",
