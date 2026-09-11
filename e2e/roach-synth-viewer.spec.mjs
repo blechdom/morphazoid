@@ -51,7 +51,7 @@ test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen vi
 
 test('roach surface drags edit all three joint axes; background drags orbit and cancellation releases ownership', async ({ page }) => {
   await specimen(page);
-  for (const [jointId, view, axis] of [['wings', 'top', 'z'], ['head', 'face', 'x'], ['middle_left_middle', 'side', 'y']]) {
+  for (const [jointId, view, axis] of [['wing_cover_left', 'top', 'z'], ['head', 'face', 'x'], ['middle_left_middle', 'bottom', 'y']]) {
     await page.evaluate(({ view, axis }) => { specimenViewer.setViewPreset(view); specimenViewer.setDragAxis(axis); }, { view, axis });
     const point = await page.evaluate((id) => specimenViewer.getPartScreenPosition(id), jointId);
     expect(point).not.toBeNull();
@@ -102,11 +102,70 @@ test('mobile vertical swipes on the roach canvas scroll the document; horizontal
   await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await page.evaluate(() => { scrollTo(0, 0); specimenViewer.setViewPreset('top'); specimenViewer.setDragAxis('z'); });
   await page.waitForTimeout(300);
-  const point = await page.evaluate(() => specimenViewer.getPartScreenPosition('wings'));
+  const point = await page.evaluate(() => specimenViewer.getPartScreenPosition('wing_cover_left'));
   expect(point).not.toBeNull();
   await swipe(point.x, point.y, point.x + 50, point.y);
   expect(await page.evaluate(() => poseChanges.length)).toBeGreaterThan(0);
   expect(await page.evaluate(() => scrollY)).toBe(0);
   expect(await page.evaluate(() => specimenViewer.getState().interaction.active)).toBeNull();
   await context.close();
+});
+
+test('four textured/reconstructed wings articulate independently, underside fill is view-specific, and knees stay below the back', async ({ page }) => {
+  await specimen(page);
+  const geometry = await page.evaluate(async () => {
+    const THREE = await import('/vendor/three/three.module.min.js');
+    const state = specimenViewer.getState();
+    const normal = new THREE.Vector3(...state.ground.normal), matrices = new Map();
+    const ranges = state.bones.map((joint) => {
+      const local = new THREE.Matrix4().compose(new THREE.Vector3(...joint.kinematics.position),
+        new THREE.Quaternion(...joint.quaternion), new THREE.Vector3(...joint.kinematics.scale));
+      local.premultiply(joint.parent ? matrices.get(joint.parent) : new THREE.Matrix4().fromArray(joint.kinematics.parentMatrix));
+      matrices.set(joint.id, local);
+      return { id: joint.jointId, high: Math.max(...joint.collisionSamples.map((sample) => new THREE.Vector3(...sample).applyMatrix4(local).dot(normal))) };
+    });
+    return { state, ranges };
+  });
+  expect(geometry.state.bones).toHaveLength(31);
+  expect(geometry.state.bones[7].jointId).toBe('front_left_proximal');
+  expect(geometry.state.wings.independent).toBe(4);
+  expect(geometry.state.wings.originalPairedMeshRemoved).toBe(true);
+  expect(geometry.state.wings.fanOpen).toEqual([0, 0]);
+  expect(await page.evaluate(() => specimenViewer.getPartScreenPosition('wing_hind_left'))).toBeNull();
+  expect(await page.evaluate(() => specimenViewer.getPartScreenPosition('wing_hind_right'))).toBeNull();
+  const carapace = Math.max(...geometry.ranges.filter((part) => part.id.startsWith('wing_cover')).map((part) => part.high));
+  for (const femur of geometry.ranges.filter((part) => /^(front|middle|hind)_(left|right)_middle$/.test(part.id))) expect(femur.high).toBeLessThan(carapace);
+  const clearance = (geometry.state.ground.bellyHeight - geometry.state.ground.height) / geometry.state.ground.bodyLength;
+  expect(clearance).toBeGreaterThan(.1); expect(clearance).toBeLessThan(.2);
+  await page.evaluate(() => specimenViewer.setViewPreset('bottom'));
+  expect(await page.evaluate(() => specimenViewer.getState().lighting.bottomFill)).toBeGreaterThan(2);
+  await page.evaluate(() => {
+    specimenViewer.setViewPreset('top');
+    for (const joint of joints) {
+      if (joint.wingLayer === 'cover') joint.offset = { x: 4, y: joint.wingOpenSign * 22, z: joint.wingOpenSign * 65 };
+      if (joint.wingLayer === 'hind') joint.offset = { x: -4, y: joint.wingOpenSign * 12, z: joint.wingOpenSign * 40 };
+    }
+    drawSpecimen();
+  });
+  await expect.poll(() => page.evaluate(() => specimenViewer.getState().wings.fanOpen[0])).toBeGreaterThan(.5);
+  expect(await page.evaluate(() => specimenViewer.getState().lighting.bottomFill)).toBe(0);
+  for (const id of ['wing_cover_left', 'wing_cover_right', 'wing_hind_left', 'wing_hind_right']) expect(await page.evaluate((part) => specimenViewer.getPartScreenPosition(part), id)).not.toBeNull();
+  const before = await page.evaluate(() => specimenViewer.getState().bones.filter((joint) => joint.wingLayer).map((joint) => ({ id: joint.jointId, quaternion: joint.quaternion })));
+  await page.evaluate(() => { joints.find((joint) => joint.jointId === 'wing_hind_left').offset.z += 10; drawSpecimen(); });
+  await page.waitForTimeout(150);
+  const after = await page.evaluate(() => specimenViewer.getState().bones.filter((joint) => joint.wingLayer).map((joint) => ({ id: joint.jointId, quaternion: joint.quaternion })));
+  for (let i = 0; i < before.length; i += 1) {
+    if (before[i].id === 'wing_hind_left') expect(after[i].quaternion).not.toEqual(before[i].quaternion);
+    else expect(after[i].quaternion).toEqual(before[i].quaternion);
+  }
+  const constrained = await page.evaluate(async () => {
+    const { constrainRoachPose } = await import('/src/roach-synth-motion.js');
+    const pose = new Float32Array(joints.length * 3);
+    joints.forEach((joint, i) => ['x', 'y', 'z'].forEach((axis, a) => { pose[i * 3 + a] = joint.restOffset[axis]; }));
+    const wing = joints.findIndex((joint) => joint.jointId === 'wing_cover_left');
+    pose[wing * 3 + 1] = -50; pose[wing * 3 + 2] = -90;
+    constrainRoachPose(pose, joints);
+    return { y: pose[wing * 3 + 1], z: pose[wing * 3 + 2], finite: Array.from(pose).every(Number.isFinite) };
+  });
+  expect(constrained).toEqual({ y: 0, z: 0, finite: true });
 });

@@ -12,13 +12,17 @@ contacts; the continuous drone starts at zero, and the VOICE slider controls
 words independently. This is scalar AudioWorklet DSP, informed by SIMD Synth's
 modal-bank design rather than an actual SIMD backend.
 
-All 27 joints start with editable sound routes. Individual or combined XYZ
+All 31 runtime joints start with editable sound routes. Individual or combined XYZ
 rotations control pitch, vowel, brightness, shell decay, hiss, wing rate, rhythm,
 percussion, crunch, stereo pan, feet, growl, drone or voice level. Grabbing a
 part selects it. Dragging a leg produces a filtered scrape, a head/neck gesture
 excites shell creaks, and moving the covers excites an unfurling texture.
 These manual gestures work with Audio armed and automatic animation paused;
-releasing them returns to silence unless words or an explicit drone are active.
+releasing them returns to silence unless words or either player is active.
+Sound Play has its own audio clock and excites textures from a held pose without
+advancing animation or inventing foot contacts. Animation Play advances the
+joint score. Audio arming alone is silent. The shared sound preset also colors
+the KAL word voice; its default pronunciation remains unchanged.
 
 Twenty-four repetitive motion patches share an audio-clock pose and stylized
 six-foot support state. Ground travel, foot swing, touchdown counters, body
@@ -26,12 +30,28 @@ lift and upright dances come from that state. The viewer calibrates an unfolded
 neutral stance from the curled scan once at load, using bounded joint solving;
 those neutral angles are passed to the sound engine too. This is an authored
 support model, not validated animal biomechanics or a general collision solver.
-Extreme manual poses can still intersect or leave the ground. Secondary
-hindwings and mouthparts are absent; covers stay paired and antennae rigid.
+The neutral stance is lowered and spread with bent knees. Runtime wing
+geometry separates the source-textured covers and adds two authored veined
+hindwings, each with an independent hinge. The original GLB retains its
+27-joint source hierarchy; four runtime wing joints bring the total to 31.
+The two long antennae remain rigid articulated meshes. Small mouth palps are
+fused into the scanned head and have no independent joints.
+Shared angular limits and sampled-point exclusion from an ellipsoidal body
+core constrain the same pose in audio and graphics. This provides a solid
+interior guard for common poses; it is not triangle-level collision detection,
+continuous swept collision or a full limb-to-limb physics solver. Surface seams
+and fine appendages can still overlap outside that conservative core.
+Depth testing and self/ground shadows supply visible occlusion.
 
-The joint score contains sixteen smoothly interpolated rotation keyframes per
-axis, independently assigned to each joint (up to 81 tracks). It adds to the
-chosen routine; scores are remembered per routine and can be saved locally.
+Animation presets populate every joint and axis with sixteen editable knots
+over 64 underlying samples, preserving quick scuttles between edit points.
+Factory contours replace the procedural joint angles rather than doubling them;
+manual offsets still add on top. Layered XYZ, whole-body axis and single-track
+views expose the curves. The page bounds edits to 128 tracks and saves compact knots per routine in
+versioned local storage, rebuilding factory detail on load; legacy additive
+scores remain readable.
+Twenty-four static poses plus seeded random poses hold a complete body state;
+Reset body position returns to neutral without changing sound routes or mix.
 Switching routines preserves transport phase. Camera views never form part of
 the score. Camera-directed head offsets are shared with audio as well as the
 visible pose. The renderer caps frame rate and pixel ratio, with bounded shadow
@@ -89,4 +109,4 @@ This is an explicitly creative voice. Reuse the existing phoneme/diphone path fo
 
 `src/spelling-pronunciation.js` exports `spellingPronunciationTokens(value, pronunciations)` around 313 with dictionary lookup and fallback pronunciation; prefer it over raw letter `spellingTokens`. `SpellingSynthesizerAudio` in `src/spelling-synthesizer-audio.js` around 1293 supports the existing `vocoder` backend and enable/articulate/durationMs/release/close lifecycle. `event.wordSpeech=true` selects shorter 100–220 ms vowels in the diphone engine. Existing `src/spelling-vocoder-processor.js` uses speech envelopes with pulse/noise carriers and preserves unvoiced consonants. The KAL16 asset and its existing repository attribution should be reused consistently. This is a practical speech starting point, not a cockroach vocal-tract model.
 
-The current GLB/rig manifest has **paired wing covers in one mesh**, no separate unfolded secondary hindwings, and no independent mandible/jaw meshes. Hindwings or mouthparts added for animation are authored additions and need to be described that way. The rigid-joint hierarchy is approximate and has no flexible tissue deformation. These limitations are explicit in `assets/roach-synth/rig-manifest.json`; they cannot be fixed by a sound preset.
+The on-disk GLB/rig manifest preserves **paired wing covers in one mesh**. The viewer now partitions their triangles into independently hinged covers while preserving source UVs, and authors two thin veined hindwing fans underneath. These fans are a flight illusion, not recovered scan anatomy. There are no independent mouth-palps, mandible or jaw meshes. The rigid hierarchy has no flexible tissue deformation; the manifest describes the original asset, while these runtime additions are recorded in `assets/roach-synth/SOURCE.LICENSE.txt`.

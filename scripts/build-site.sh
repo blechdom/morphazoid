@@ -65,6 +65,7 @@ for worktree_runtime_file in \
   roach-synth.css \
   roach-synth-app.js \
   src/roach-synth-viewer.js \
+  src/roach-synth-wings.js \
   src/roach-synth-motion.js \
   src/roach-synth-audio.js \
   src/roach-synth-dsp.js \

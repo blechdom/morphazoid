@@ -3,10 +3,12 @@ import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoach
 // Artistic sonification of one shared support/flight model: six short foot
 // contacts, shell friction, wing pulses and keyed growls. The optional modal
 // drone is scalar DSP informed by SIMD Resonator, not a claim of SIMD execution.
-// Spoken words retain the bundled KAL16 source independently of animation.
+// Sound Play adds a pose-dependent pulse texture on its own sample clock;
+// Animation Play alone advances the shared pose clock. Spoken words retain the
+// bundled KAL16 source independently of either transport.
 const TAU = Math.PI * 2;
 const MAX_JOINTS = 128;
-const MAX_MAPPINGS = 96;
+const MAX_MAPPINGS = 128;
 const MAX_PHONES = 96;
 const EMPTY_PHONES = Object.freeze([]);
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -80,10 +82,43 @@ function normalizeGaitPose(value) {
   if (!value || !GAIT_CORNERS.every((key) => Array.isArray(value[key]) && value[key].length === 3)) return null;
   return Object.fromEntries(GAIT_CORNERS.map((key) => [key, value[key].map((angle) => clamp(finite(angle), -180, 180))]));
 }
+function jointVector(value, length, limit = 1e9) {
+  if (!Array.isArray(value) || value.length !== length || !value.every((number) => Number.isFinite(number))) return null;
+  return value.map((number) => clamp(number, -limit, limit));
+}
+function normalizeKinematics(value) {
+  if (!value) return null;
+  const position = jointVector(value.position, 3); const quaternion = jointVector(value.quaternion, 4, 1);
+  const scale = jointVector(value.scale, 3);
+  if (!position || !quaternion || !scale) return null;
+  return { position, quaternion, scale, parentMatrix: jointVector(value.parentMatrix, 16), footTip: jointVector(value.footTip, 3) };
+}
+function normalizePoseLimits(value) {
+  if (!value) return null;
+  const result = {};
+  for (const axis of ['x', 'y', 'z']) {
+    const range = jointVector(value[axis], 2, 180);
+    if (!range || range[0] > range[1]) return null;
+    result[axis] = range;
+  }
+  return result;
+}
+function normalizeBodyEllipsoid(value) {
+  if (!value || !value.jointId) return null;
+  const center = jointVector(value.center, 3); const radii = jointVector(value.radii, 3);
+  if (!center || !radii || radii.some((radius) => radius <= 0)) return null;
+  return { jointId: String(value.jointId).slice(0, 120), center, radii };
+}
 function normalizeJoints(value) {
   return (Array.isArray(value) ? value : []).slice(0, MAX_JOINTS).map((joint, index) => ({
     id: String(joint?.id ?? index).slice(0, 120), jointId: String(joint?.jointId ?? joint?.id ?? index).slice(0, 120),
-    name: String(joint?.name ?? '').slice(0, 160),
+    name: String(joint?.name ?? '').slice(0, 160), parent: joint?.parent == null ? null : String(joint.parent).slice(0, 120),
+    kinematics: normalizeKinematics(joint?.kinematics), poseLimits: normalizePoseLimits(joint?.poseLimits),
+    collisionSamples: Array.isArray(joint?.collisionSamples) ? joint.collisionSamples.slice(0, 8).map((point) => jointVector(point, 3)).filter(Boolean) : null,
+    bodyEllipsoid: normalizeBodyEllipsoid(joint?.bodyEllipsoid),
+    wingOpenSign: joint?.wingOpenSign === 1 || joint?.wingOpenSign === -1 ? joint.wingOpenSign : null,
+    wingLayer: joint?.wingLayer === 'cover' || joint?.wingLayer === 'hind' ? joint.wingLayer : null,
+    authoredReconstruction: joint?.authoredReconstruction === true,
     gaitPose: normalizeGaitPose(joint?.gaitPose),
     offset: Object.fromEntries(['x', 'y', 'z'].map((axis) => [axis, clamp(joint?.offset?.[axis] ?? 0, -180, 180)])),
     restOffset: Object.fromEntries(['x', 'y', 'z'].map((axis) => [axis, clamp(joint?.restOffset?.[axis] ?? 0, -145, 145)])),
@@ -117,9 +152,9 @@ const VOWELS = [[800, 1150, 2900], [500, 1750, 2450], [300, 2300, 3000], [500, 9
 export class RoachSynthDsp {
   constructor(sampleRate = 48000) {
     this.sampleRate = clamp(sampleRate, 8000, 192000);
-    this.time = 0; this.enabled = false; this.playing = false; this.hasBeenEnabled = false;
+    this.time = 0; this.soundTime = 0; this.enabled = false; this.playing = false; this.soundPlaying = false; this.hasBeenEnabled = false;
     this.motion = normalizeRoachMotion(); this.sound = normalizeRoachSound();
-    this.joints = []; this.mappings = []; this.pose = new Float32Array(MAX_JOINTS * 3);
+    this.joints = []; this.jointStructureKey = ''; this.mappings = []; this.pose = new Float32Array(MAX_JOINTS * 3);
     this.previousPose = new Float32Array(MAX_JOINTS * 3);
     this.jointKinds = new Uint8Array(MAX_JOINTS); // leg, wing, head/body, antenna/other
     this.mod = new Float64Array(ROACH_MOD_TARGETS.length); this.modCounts = new Uint16Array(ROACH_MOD_TARGETS.length);
@@ -127,7 +162,7 @@ export class RoachSynthDsp {
     this.footEnvelopes = new Float64Array(6); this.footAges = new Float64Array(6);
     this.contactsPrimed = false; this.contactEvents = 0; this.lastContactTime = -1;
     this.controlStride = Math.max(1, Math.round(this.sampleRate / 200)); this.controlCountdown = 0;
-    this.controlPrimed = false; this.master = 0; this.gate = 0; this.drive = 0; this.wingDrive = 0; this.bodyDrive = 0;
+    this.controlPrimed = false; this.master = 0; this.gate = 0; this.soundGate = 0; this.drive = 0; this.wingDrive = 0; this.bodyDrive = 0;
     this.manualDrive = new Float64Array(4); this.interactionJoint = -1; this.interactionActive = false; this.interactionPeak = 0;
     this.manualDecay = Math.exp(-1 / (this.sampleRate * .055));
     this.footDecay = Math.exp(-1 / (this.sampleRate * .017));
@@ -135,9 +170,14 @@ export class RoachSynthDsp {
     this.smoothing = 1 - Math.exp(-1 / (this.sampleRate * .022));
     this.gateSmoothing = 1 - Math.exp(-1 / (this.sampleRate * .018));
     this.shellModes = Array.from({ length: 16 }, resonator);
+    this.poseModes = Array.from({ length: 8 }, resonator);
     this.voiceModes = Array.from({ length: 3 }, resonator);
+    this.speechModes = Array.from({ length: 3 }, resonator);
     this.wingModes = Array.from({ length: 2 }, resonator);
     this.voicePhase = 0; this.wingPhase = 0; this.rhythmPhase = 0; this.creakPhase = 0;
+    this.posePhase = 0; this.poseGrain = 0; this.poseImpulse = 0; this.poseGrainIndex = 0;
+    this.posePressure = 0; this.poseWing = 0; this.poseHead = 0; this.poseSignature = 0;
+    this.poseTargets = new Float64Array(4); this.poseGrainDecay = Math.exp(-1 / (this.sampleRate * .026));
     this.impulse = 0; this.noiseLow = 0; this.filterL = 0; this.filterR = 0;
     this.dcL = 0; this.dcR = 0; this.previousL = 0; this.previousR = 0; this.randomState = 0x756d4f21;
     this.atlas = null; this.atlasRate = 16000; this.phoneQueue = EMPTY_PHONES; this.phoneIndex = 0;
@@ -145,7 +185,7 @@ export class RoachSynthDsp {
     this.speechGain = 0; this.speechTarget = 0; this.pendingSpeech = null;
     this.speechSmoothing = 1 - Math.exp(-1 / (this.sampleRate * .0015));
     this.filterCoefficient = .25; this.panL = Math.SQRT1_2; this.panR = Math.SQRT1_2; this.speechRate = 1;
-    this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, motionTime: 0, renderedFrames: 0 };
+    this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, motionTime: 0, soundTime: 0, renderedFrames: 0 };
   }
   update(value = {}) {
     if (value.time != null) {
@@ -158,6 +198,11 @@ export class RoachSynthDsp {
       if (this.playing !== (value.playing === true)) this.contactsPrimed = false;
       this.playing = value.playing === true;
     }
+    if ('soundPlaying' in value) {
+      const next = value.soundPlaying === true;
+      if (next && !this.soundPlaying) { this.poseGrain = .7; this.poseImpulse = .28; }
+      this.soundPlaying = next;
+    }
     if (value.motion) {
       const motion = normalizeRoachMotion({ ...this.motion, ...value.motion });
       if (motion.presetId !== this.motion.presetId || motion.sequenceEnabled !== this.motion.sequenceEnabled || motion.tempo !== this.motion.tempo) {
@@ -168,7 +213,9 @@ export class RoachSynthDsp {
     if (value.sound) this.sound = normalizeRoachSound({ ...this.sound, ...value.sound });
     if (value.joints) {
       const next = normalizeJoints(value.joints);
-      const same = next.length === this.joints.length && next.every((joint, i) => joint.id === this.joints[i].id && joint.jointId === this.joints[i].jointId);
+      const structureKey = JSON.stringify(next.map(({ offset, motion, ...structure }) => structure));
+      const same = structureKey === this.jointStructureKey;
+      this.jointStructureKey = structureKey;
       if (same) {
         for (let i = 0; i < next.length; i += 1) {
           let delta = 0;
@@ -176,7 +223,8 @@ export class RoachSynthDsp {
           if (delta > .001 && this.enabled && this.hasBeenEnabled) this.exciteInteraction(i, clamp(delta / 18, .025, 1));
           // Retain object identity and the motion module's metadata cache. A UI
           // edit must not erase the previous pose and silence its own gesture.
-          Object.assign(this.joints[i], next[i]);
+          this.joints[i].offset = next[i].offset;
+          this.joints[i].motion = next[i].motion;
         }
       } else {
         this.joints = next; this.controlPrimed = false; this.contactsPrimed = false;
@@ -260,6 +308,20 @@ export class RoachSynthDsp {
   }
   control() {
     writeRoachPose(this.time, this.motion, this.joints, this.pose);
+    let pressure = 0; let wingShape = 0; let headShape = 0; let signature = 0; let wingShapes = 0; let headShapes = 0;
+    for (let i = 0; i < this.joints.length; i += 1) {
+      const rest = this.joints[i].restOffset; const k = i * 3;
+      const x = this.pose[k] - rest.x; const y = this.pose[k + 1] - rest.y; const z = this.pose[k + 2] - rest.z;
+      const magnitude = Math.min(1, (Math.abs(x) + Math.abs(y) + Math.abs(z)) / 90);
+      pressure += magnitude;
+      signature += Math.sin((x * (1 + i % 3) + y * 1.7 + z * .8) * Math.PI / 180) / Math.sqrt(i + 1);
+      if (this.jointKinds[i] === 1) { wingShape += magnitude; wingShapes += 1; }
+      if (this.jointKinds[i] === 2) { headShape += magnitude; headShapes += 1; }
+    }
+    this.poseTargets[0] = clamp(pressure / Math.max(1, this.joints.length), 0, 1);
+    this.poseTargets[1] = clamp(wingShape / Math.max(1, wingShapes), 0, 1);
+    this.poseTargets[2] = clamp(headShape / Math.max(1, headShapes), 0, 1);
+    this.poseTargets[3] = clamp(signature / Math.sqrt(Math.max(1, this.joints.length)), -1, 1);
     this.mod.fill(0);
     for (const mapping of this.mappings) {
       let value = 0;
@@ -323,9 +385,17 @@ export class RoachSynthDsp {
       tune(this.shellModes[i], smooth.pitch * 2.15 * ratio,
         Math.exp(-1 / (this.sampleRate * (.020 + smooth.resonance * .23) / (1 + i * .2))), this.sampleRate);
     }
+    for (let i = 0; i < this.poseModes.length; i += 1) {
+      const ratio = (i + 1) * Math.sqrt(1 + i * i * .012);
+      tune(this.poseModes[i], smooth.pitch * (1.8 + this.poseSignature * .5) * ratio,
+        Math.exp(-1 / (this.sampleRate * (.018 + smooth.resonance * .18) / (1 + i * .2))), this.sampleRate);
+    }
     const vowel = smooth.vowel * 4; const first = Math.min(3, Math.floor(vowel)); const mix = vowel - first;
-    for (let i = 0; i < 3; i += 1) tune(this.voiceModes[i], VOWELS[first][i] * (1 - mix) + VOWELS[first + 1][i] * mix,
-      Math.exp(-Math.PI * (90 + i * 50) / this.sampleRate), this.sampleRate);
+    for (let i = 0; i < 3; i += 1) {
+      const frequency = VOWELS[first][i] * (1 - mix) + VOWELS[first + 1][i] * mix;
+      tune(this.voiceModes[i], frequency, Math.exp(-Math.PI * (90 + i * 50) / this.sampleRate), this.sampleRate);
+      tune(this.speechModes[i], frequency, Math.exp(-Math.PI * (160 + i * 70) / this.sampleRate), this.sampleRate);
+    }
     for (let i = 0; i < 2; i += 1) tune(this.wingModes[i], 1100 + smooth.brightness * 2400 + i * 230,
       Math.exp(-Math.PI * (200 - smooth.resonance * 100) / this.sampleRate), this.sampleRate);
   }
@@ -360,10 +430,16 @@ export class RoachSynthDsp {
     for (let sampleIndex = 0; sampleIndex < count; sampleIndex += 1) {
       if (this.controlCountdown-- <= 0) { this.control(); this.controlCountdown = this.controlStride - 1; }
       if (this.playing) this.time += 1 / this.sampleRate;
+      if (this.soundPlaying) this.soundTime += 1 / this.sampleRate;
       for (const key of SOUND_KEYS) this.smooth[key] += (this.targets[key] - this.smooth[key]) * this.smoothing;
       const s = this.smooth;
       this.master += ((this.enabled ? 1 : 0) - this.master) * this.gateSmoothing;
       this.gate += ((this.playing ? 1 : 0) - this.gate) * this.gateSmoothing;
+      this.soundGate += ((this.soundPlaying ? 1 : 0) - this.soundGate) * this.gateSmoothing;
+      this.posePressure += (this.poseTargets[0] - this.posePressure) * this.smoothing;
+      this.poseWing += (this.poseTargets[1] - this.poseWing) * this.smoothing;
+      this.poseHead += (this.poseTargets[2] - this.poseHead) * this.smoothing;
+      this.poseSignature += (this.poseTargets[3] - this.poseSignature) * this.smoothing;
       for (let i = 0; i < 4; i += 1) this.manualDrive[i] *= this.manualDecay;
       const leg = this.manualDrive[0]; const manualWing = this.manualDrive[1]; const head = this.manualDrive[2]; const feeler = this.manualDrive[3];
       const noise = this.random(); this.noiseLow += (noise - this.noiseLow) * .055;
@@ -371,9 +447,25 @@ export class RoachSynthDsp {
       this.rhythmPhase = (this.rhythmPhase + this.motion.tempo / 60 * s.rhythm / this.sampleRate) % 1;
       const grouping = .18 + .82 * Math.max(0, Math.sin(TAU * this.rhythmPhase));
       const autoDrive = this.drive * this.gate;
-      const headDrive = Math.max(head, Math.min(1, this.bodyDrive * this.gate * (.5 + this.scene.energy.growl * 2.5)));
-      const wingDrive = Math.max(Math.min(1, manualWing * 3.5), this.wingDrive * this.gate * (.08 + this.scene.energy.wing * .92));
-      const hiss = scratch * s.hiss * (autoDrive * .032 * grouping + (leg + head * .35 + feeler) * .18);
+      if (this.soundPlaying) {
+        // This is a synth pulse, not a claimed foot contact. Its own clock can
+        // sound a completely static pose without advancing animation or feet.
+        const grainRate = clamp((6 + this.posePressure * 19) * s.rhythm * (1 + this.poseSignature * .35), 1, 72);
+        this.posePhase += grainRate / this.sampleRate;
+        if (this.posePhase >= 1) {
+          this.posePhase %= 1; this.poseGrainIndex += 1;
+          const accent = this.poseGrainIndex % 4 === 0 ? 1 : this.poseGrainIndex % 3 === 0 ? .35 : .64;
+          this.poseGrain = (.5 + this.posePressure * .5) * accent;
+          this.poseImpulse = Math.min(.7, this.poseImpulse + this.poseGrain * .34);
+        }
+      }
+      this.poseGrain *= this.poseGrainDecay;
+      const staticPulse = this.poseGrain * this.soundGate;
+      const droneGate = Math.max(this.soundGate, autoDrive);
+      const physicalHeadDrive = Math.max(head, Math.min(1, this.bodyDrive * this.gate * (.5 + this.scene.energy.growl * 2.5)));
+      const headDrive = Math.max(physicalHeadDrive, staticPulse * (.25 + this.poseHead * .75));
+      const wingDrive = Math.max(Math.min(1, manualWing * 3.5), this.wingDrive * this.gate * (.08 + this.scene.energy.wing * .92), staticPulse * (.12 + this.poseWing * .88));
+      const hiss = scratch * s.hiss * (autoDrive * .032 * grouping + (leg + head * .35 + feeler) * .18 + staticPulse * (.04 + this.posePressure * .035));
       let feet = 0;
       for (let i = 0; i < 6; i += 1) {
         const envelope = this.footEnvelopes[i];
@@ -384,14 +476,19 @@ export class RoachSynthDsp {
         this.footEnvelopes[i] *= this.footDecay;
       }
       feet *= s.feet;
+      const poseRattle = staticPulse * s.feet * (scratch * .058
+        + Math.sin(TAU * this.voicePhase * (2 + this.poseSignature * .6)) * .025);
       this.creakPhase = (this.creakPhase + (38 + headDrive * 230) / this.sampleRate) % 1;
       const stickSlip = this.creakPhase < .08 ? .35 : -.02;
-      const excite = this.impulse + scratch * (autoDrive * .0009 + leg * .009)
-        + stickSlip * headDrive * .055 + noise * s.drone * .001;
-      this.impulse *= .58;
+      const excite = this.impulse + scratch * (autoDrive * .0009 + leg * .009) + stickSlip * physicalHeadDrive * .055;
+      const poseExcite = this.poseImpulse * this.soundGate + stickSlip * staticPulse * .02 + noise * s.drone * droneGate * .002;
+      this.impulse *= .58; this.poseImpulse *= .58;
       let shell = 0;
       for (let i = 0; i < this.shellModes.length; i += 1) shell += resonate(this.shellModes[i], excite / (1 + i * .28)) * (.039 / Math.sqrt(i + 1));
-      shell *= s.shell * Math.max(this.gate, Math.min(1, (leg + head + feeler) * 4), s.drone > .0001 ? 1 : 0);
+      shell *= s.shell * Math.max(this.gate, Math.min(1, (leg + head + feeler) * 4));
+      let poseShell = 0;
+      for (let i = 0; i < this.poseModes.length; i += 1) poseShell += resonate(this.poseModes[i], poseExcite / (1 + i * .3)) * (.045 / Math.sqrt(i + 1));
+      poseShell *= s.shell * Math.max(this.soundGate, s.drone > .0001 ? droneGate : 0);
       const wingStep = s.wingRate / this.sampleRate;
       this.wingPhase += wingStep;
       const tooth = this.wingPhase >= 1 ? 1 : 0; this.wingPhase %= 1;
@@ -405,14 +502,20 @@ export class RoachSynthDsp {
       for (let i = 0; i < 3; i += 1) formant += resonate(this.voiceModes[i], glottal * this.voiceModes[i].gain) * FORMANT_GAINS[i];
       const growl = (Math.tanh(Math.sin(TAU * this.voicePhase) * 3 + noise * .2) * .06
         + formant * .3) * headDrive * s.growl * (.2 + .8 * grouping);
-      const drone = (formant * .25 + Math.sin(TAU * this.voicePhase) * .025) * s.drone;
+      const drone = (formant * .25 + Math.sin(TAU * this.voicePhase) * .025) * s.drone * droneGate;
       const speech = this.atlas ? this.speechSample() : 0;
       this.speechEnvelope += (Math.abs(speech) - this.speechEnvelope) * .008;
       const speechDuck = 1 / (1 + this.speechEnvelope * 12);
       // Contact tails and direct manipulation remain audible with animation
       // paused. Only automatic movement follows the transport gate.
-      const mechanical = (hiss + shell + feet + wing + growl + drone) * speechDuck;
-      const voice = speech * s.voice * 1.15;
+      const mechanical = (hiss + shell + poseShell + feet + poseRattle + wing + growl + drone) * speechDuck;
+      let speechColor = 0;
+      for (let i = 0; i < 3; i += 1) speechColor += resonate(this.speechModes[i], speech * this.speechModes[i].gain) * FORMANT_GAINS[i];
+      // Keep the familiar word voice dry at its default. Other vowel/resonance
+      // settings gently color the sampled phones, preserving consonant attacks.
+      const speechColorMix = Math.min(.22, Math.abs(s.vowel - ROACH_SOUND_DEFAULTS.vowel) * .22
+        + Math.abs(s.resonance - ROACH_SOUND_DEFAULTS.resonance) * .06);
+      const voice = (speech * (1 - speechColorMix * .3) + speechColor * speechColorMix) * s.voice * 1.15;
       const raw = mechanical + voice;
       const distortion = Math.tanh(raw * (1 + s.crunch * 7)) / (1 + s.crunch * 2.5);
       const mixed = raw * (1 - s.crunch * .65) + distortion * s.crunch * .65;
@@ -428,7 +531,7 @@ export class RoachSynthDsp {
       if (this.interactionActive) this.interactionPeak = Math.max(this.interactionPeak, Math.abs(l), Math.abs(r));
     }
     this.telemetry.rms = Math.sqrt(energy / Math.max(1, count * 2)); this.telemetry.peak = peak;
-    this.telemetry.motionTime = this.time; this.telemetry.speechEnvelope = this.speechEnvelope;
+    this.telemetry.motionTime = this.time; this.telemetry.soundTime = this.soundTime; this.telemetry.speechEnvelope = this.speechEnvelope;
     this.telemetry.contactEvents = this.contactEvents; this.telemetry.lastContactTime = this.lastContactTime;
     this.telemetry.interactionPeak = this.interactionPeak;
     this.telemetry.renderedFrames += count;

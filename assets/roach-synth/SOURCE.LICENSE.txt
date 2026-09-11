@@ -26,9 +26,14 @@ Morphazoid modifications:
 - Added 27 named rigid joints in an anatomical parent/child hierarchy.
 - Parent parts carry their attached children when posed.
 - Added a six-second Gentle joint demonstration with ten rotation channels.
-- Original geometry, materials, image data, and rest pose are preserved.
+- The on-disk GLB preserves original geometry, materials, images and rest pose.
+- At runtime the cover mesh is partitioned into separate left/right wings with
+  source textures/UVs. Two authored translucent veined hindwing fans sit below.
+  Four added runtime hinges bring the playable count to 31; the original
+  27-joint GLB and its manifest remain unchanged.
 - Runtime controls compose user pose offsets, 24 procedural routines and a
-  sixteen-step per-joint score; embedded clips remain visual previews.
+  preset-populated joint contours (16 edit knots, 64 underlying samples) and
+  24 static poses. Embedded clips remain visual previews.
 - Runtime-only bounded CCD calibration unfolds the curled legs into a neutral
   support stance and four gait corner poses. These angles are shared with the
   sound engine. The on-disk GLB, geometry and texture bytes remain unchanged.
@@ -43,9 +48,12 @@ The original scan had separate parts but no animation rig. Contact-based pivot
 centers were authored for this page. Leg-root, neck/pronotum, abdomen and wing
 pivots are approximate. The source is a dried specimen with curled legs; its
 motion demonstration is not a walking cycle or a biomechanical simulation.
-Both wing covers share one mesh and move together. Each antenna remains one
-rigid mesh. Large rotations may expose scan seams or intersect neighboring
-parts. User controls deliberately allow exploratory poses.
+The source covers share one mesh; the runtime split and hindwing fans are
+authored adaptations, not a recovered biological flight rig. Each long antenna
+is one rigid mesh. Small mouth feelers are fused into the head without joints.
+Joint limits and sampled body-core exclusion bound motion in the shared audio/
+visual pose model. This is not mesh-accurate or full limb-to-limb collision
+physics; large exploratory rotations can still expose scan seams.
 
 Build and validation:
 The source repository's scripts/build-roach-rig.py accepts the downloaded source

@@ -5,6 +5,9 @@
  * Rotations are degrees; scene distances are fractions of body length.
  */
 const TAU = Math.PI * 2;
+const XYZ_AXES = Object.freeze(['x', 'y', 'z']);
+const BODY_AXES = Object.freeze(['lift', 'pitch', 'roll', 'yaw']);
+const ENERGY_KEYS = Object.freeze(['scuttle', 'wing', 'growl', 'voice']);
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const positiveMod = (value, modulus) => ((value % modulus) + modulus) % modulus;
@@ -12,7 +15,8 @@ const smooth = (value) => value * value * (3 - 2 * value);
 const safeTime = (time) => clamp(finite(time), 0, 1_000_000_000);
 const beatsAt = (time, settings) => safeTime(time) * clamp(finite(settings?.tempo, 108), 30, 240) / 60;
 export const ROACH_SEQUENCE_STEPS = 16;
-export const ROACH_MAX_JOINT_TRACKS = 81;
+export const ROACH_MAX_JOINT_TRACKS = 384;
+export const ROACH_TRACK_SUBSTEPS = 4;
 export const ROACH_FOOT_IDS = Object.freeze(['front_left', 'front_right', 'middle_left', 'middle_right', 'hind_left', 'hind_right']);
 const preset = (id, label, category, mode, soundFlavor, gaitRate, groundSpeed, rootPosture, description) => Object.freeze({
   id, label, category, mode, soundFlavor, gaitRate, groundSpeed, rootPosture, description,
@@ -50,13 +54,14 @@ const EMPTY_TRACKS = Object.freeze([]);
 export const ROACH_MOTION_DEFAULTS = Object.freeze({
   presetId: 'side_walk', tempo: 108, intensity: 1, antennae: true,
   sequenceEnabled: false, tracks: EMPTY_TRACKS, stepBeats: .25, gaze: Object.freeze({ x: 0, y: 0, z: 0 }),
+  trackMode: 'add', sceneFrames: null, sceneTravelPerLoop: 0, sceneContactCounts: null, staticScene: null,
 });
 
 export function createRoachJointTrack(jointId, axis = 'x', steps = []) {
   return {
     jointId: String(jointId ?? '').slice(0, 120),
     axis: ['x', 'y', 'z'].includes(axis) ? axis : 'x',
-    steps: Array.from({ length: ROACH_SEQUENCE_STEPS }, (_, i) => clamp(finite(steps?.[i]), -90, 90)),
+    steps: Array.from({ length: ROACH_SEQUENCE_STEPS }, (_, i) => clamp(finite(steps?.[i]), -180, 180) || 0),
     enabled: true,
   };
 }
@@ -71,6 +76,10 @@ export function normalizeRoachMotion(settings = {}) {
     if (!track.jointId || seen.has(key)) continue;
     seen.add(key);
     track.enabled = value.enabled !== false;
+    if (value.samples?.length === ROACH_SEQUENCE_STEPS * ROACH_TRACK_SUBSTEPS && value.sourceSteps?.length === ROACH_SEQUENCE_STEPS) {
+      track.samples = Array.from(value.samples, (sample) => clamp(finite(sample), -180, 180) || 0);
+      track.sourceSteps = Array.from(value.sourceSteps, (sample) => clamp(finite(sample), -180, 180) || 0);
+    }
     tracks.push(track);
   }
   return {
@@ -82,6 +91,11 @@ export function normalizeRoachMotion(settings = {}) {
     tracks,
     stepBeats: clamp(finite(source.stepBeats, .25), 1 / 16, 4),
     gaze: { x: clamp(finite(source.gaze?.x), -22, 22), y: clamp(finite(source.gaze?.y), -22, 22), z: clamp(finite(source.gaze?.z), -22, 22) },
+    trackMode: source.trackMode === 'replace' ? 'replace' : 'add',
+    sceneFrames: Array.isArray(source.sceneFrames) && source.sceneFrames.length === 64 ? source.sceneFrames.map((frame) => normalizeSceneSnapshot(frame)) : null,
+    sceneTravelPerLoop: clamp(finite(source.sceneTravelPerLoop), -100, 100),
+    sceneContactCounts: source.sceneContactCounts?.length === 6 ? Array.from(source.sceneContactCounts, (count) => clamp(Math.floor(finite(count)), 0, 1024)) : null,
+    staticScene: source.staticScene && typeof source.staticScene === 'object' ? normalizeSceneSnapshot(source.staticScene, true) : null,
   };
 }
 /** Camera changes never select or sequence an animation. */
@@ -92,11 +106,25 @@ export function roachSequencePosition(timeSeconds, settings = ROACH_MOTION_DEFAU
   const position = beatsAt(timeSeconds, settings) / clamp(finite(settings?.stepBeats, .25), 1 / 16, 4);
   return { step: Math.floor(position) % ROACH_SEQUENCE_STEPS, fraction: position % 1, length: ROACH_SEQUENCE_STEPS };
 }
-function scoreValue(track, position) {
-  const step = Math.floor(position) % ROACH_SEQUENCE_STEPS;
-  const mix = smooth(position % 1);
-  const from = clamp(finite(track.steps?.[step]), -90, 90);
-  return from + (clamp(finite(track.steps?.[(step + 1) % ROACH_SEQUENCE_STEPS]), -90, 90) - from) * mix;
+/** Position is measured in editable steps (0..16), not seconds. */
+export function evaluateRoachTrack(track, position) {
+  const local = positiveMod(finite(position), ROACH_SEQUENCE_STEPS);
+  const step = Math.floor(local);
+  const mix = smooth(local % 1);
+  const next = (step + 1) % ROACH_SEQUENCE_STEPS;
+  const from = clamp(finite(track?.steps?.[step]), -180, 180);
+  const to = clamp(finite(track?.steps?.[next]), -180, 180);
+  if (track?.samples?.length === 64 && track?.sourceSteps?.length === 16) {
+    const fine = local * ROACH_TRACK_SUBSTEPS;
+    const sample = Math.floor(fine);
+    const fineMix = smooth(fine % 1);
+    const a = finite(track.samples[sample]);
+    const b = finite(track.samples[(sample + 1) % 64]);
+    const correctionA = from - finite(track.sourceSteps[step]);
+    const correctionB = to - finite(track.sourceSteps[next]);
+    return clamp(a + (b - a) * fineMix + correctionA + (correctionB - correctionA) * mix, -180, 180);
+  }
+  return from + (to - from) * mix;
 }
 const JOINT_METADATA = new WeakMap();
 function metadata(joint) {
@@ -106,10 +134,11 @@ function metadata(joint) {
   const leg = /front/.test(name) ? 0 : /hind/.test(name) ? 2 : 1;
   const side = /right/.test(name) ? -1 : 1;
   const isLeg = /leg|proximal|distal|middle_|front_|hind_/.test(name) && !/body|abdomen/.test(name);
-  const kind = /antenna/.test(name) ? 'antenna' : isLeg ? 'leg' : /wing/.test(name) ? 'wings'
+  const kind = /antenna/.test(name) ? 'antenna' : /wing/.test(name) ? 'wings' : isLeg ? 'leg'
     : /abdomen/.test(name) ? 'abdomen' : /neck|pronotum/.test(name) ? 'neck' : /head/.test(name) ? 'head'
       : /body|thorax/.test(name) ? 'body' : 'other';
-  item = { kind, side, leg, footIndex: leg * 2 + (side < 0 ? 1 : 0),
+  item = { kind, side, leg, wingKind: /wing_hind/.test(name) ? 'hind' : /wing_cover/.test(name) ? 'cover' : 'aggregate',
+    footIndex: leg * 2 + (side < 0 ? 1 : 0),
     segment: /proximal/.test(name) ? 0 : /distal/.test(name) ? 2 : /foot/.test(name) ? 3 : 1 };
   JOINT_METADATA.set(joint, item);
   return item;
@@ -122,10 +151,82 @@ export function createRoachSceneState() {
     energy: { scuttle: 0, wing: 0, growl: 0, voice: 0 },
   };
 }
+function copySceneSnapshot(value, out, isStatic = false) {
+  out.presetId = String(value?.presetId ?? 'none').slice(0, 120);
+  out.beat = isStatic ? 0 : clamp(finite(value?.beat), 0, 1e9);
+  out.loopBeat = isStatic ? 0 : clamp(finite(value?.loopBeat), 0, 1024);
+  out.groundOffset = isStatic ? 0 : clamp(finite(value?.groundOffset), -1e8, 1e8);
+  out.groundSpeed = isStatic ? 0 : clamp(finite(value?.groundSpeed), -10, 10);
+  out.body.lift = isStatic ? 0 : clamp(finite(value?.body?.lift), 0, 1);
+  out.body.pitch = clamp(finite(value?.body?.pitch), -120, 120);
+  out.body.roll = clamp(finite(value?.body?.roll), -90, 90);
+  out.body.yaw = clamp(finite(value?.body?.yaw), -180, 180);
+  for (let i = 0; i < 6; i += 1) {
+    const foot = value?.feet?.[i]; const target = out.feet[i];
+    target.stance = foot?.stance !== false;
+    target.lift = clamp(finite(foot?.lift), 0, 1);
+    target.stride = clamp(finite(foot?.stride), -1, 1);
+    target.phase = clamp(finite(foot?.phase), 0, 1);
+    target.contactCount = isStatic ? 0 : clamp(Math.floor(finite(foot?.contactCount)), 0, 1e9);
+    target.impact = isStatic ? 0 : clamp(finite(foot?.impact), 0, 1);
+  }
+  for (const key of ENERGY_KEYS) out.energy[key] = clamp(finite(value?.energy?.[key]), 0, 1);
+  return out;
+}
+function normalizeSceneSnapshot(value, isStatic = false) {
+  const out = copySceneSnapshot(value, createRoachSceneState(), isStatic);
+  const round = (number) => Math.round(number * 10000) / 10000 || 0;
+  out.groundOffset = round(out.groundOffset); out.groundSpeed = round(out.groundSpeed);
+  for (const axis of BODY_AXES) out.body[axis] = round(out.body[axis]);
+  for (const key of ENERGY_KEYS) out.energy[key] = round(out.energy[key]);
+  for (let i = 0; i < 6; i += 1) {
+    const foot = out.feet[i];
+    foot.lift = round(foot.lift); foot.stride = round(foot.stride); foot.phase = round(foot.phase); foot.impact = round(foot.impact);
+  }
+  return out;
+}
+function writeBakedScene(beats, controls, out) {
+  const stepBeats = clamp(finite(controls.stepBeats, .5), 1 / 16, 4);
+  const intensity = clamp(finite(controls.intensity, 1), 0, 2);
+  const editPosition = beats / stepBeats;
+  const lap = Math.floor(editPosition / ROACH_SEQUENCE_STEPS);
+  const local = positiveMod(editPosition, ROACH_SEQUENCE_STEPS);
+  const fine = local * ROACH_TRACK_SUBSTEPS;
+  const index = Math.floor(fine);
+  const nextIndex = (index + 1) % 64;
+  const mix = smooth(fine % 1);
+  const a = controls.sceneFrames[index]; const b = controls.sceneFrames[nextIndex];
+  const travel = clamp(finite(controls.sceneTravelPerLoop), -100, 100);
+  out.presetId = String(controls.presetId ?? 'none'); out.beat = beats; out.loopBeat = local * stepBeats;
+  out.groundOffset = lap * travel + finite(a.groundOffset) + (finite(b.groundOffset) + (nextIndex === 0 ? travel : 0) - finite(a.groundOffset)) * mix;
+  out.groundSpeed = finite(a.groundSpeed) + (finite(b.groundSpeed) - finite(a.groundSpeed)) * mix;
+  for (const axis of BODY_AXES) out.body[axis] = finite(a.body?.[axis]) + (finite(b.body?.[axis]) - finite(a.body?.[axis])) * mix;
+  for (const key of ENERGY_KEYS) out.energy[key] = finite(a.energy?.[key]) + (finite(b.energy?.[key]) - finite(a.energy?.[key])) * mix;
+  for (let i = 0; i < 6; i += 1) {
+    const first = a.feet[i]; const second = b.feet[i]; const foot = out.feet[i];
+    foot.lift = finite(first.lift) + (finite(second.lift) - finite(first.lift)) * mix;
+    foot.stride = finite(first.stride) + (finite(second.stride) - finite(first.stride)) * mix;
+    foot.phase = finite(first.phase);
+    foot.stance = foot.lift < 1e-8 && first.stance;
+    foot.impact = foot.stance ? finite(first.impact) : 0;
+    foot.contactCount = lap * Math.max(0, Math.floor(finite(controls.sceneContactCounts?.[i]))) + finite(first.contactCount);
+  }
+  out.groundOffset *= intensity; out.groundSpeed *= intensity;
+  for (const axis of BODY_AXES) out.body[axis] *= intensity;
+  for (const key of ENERGY_KEYS) out.energy[key] = clamp(out.energy[key] * intensity, 0, 1);
+  for (let i = 0; i < 6; i += 1) {
+    out.feet[i].lift = clamp(out.feet[i].lift * intensity, 0, 1);
+    out.feet[i].stride = clamp(out.feet[i].stride * intensity, -1, 1);
+    out.feet[i].impact = clamp(out.feet[i].impact * intensity, 0, 1);
+  }
+  return out;
+}
 const TRIPOD_PHASES = Object.freeze([0, .5, .5, 0, 0, .5]);
 const SCORE_FOOT_VALUES = Array.from({ length: 6 }, () => new Float64Array(ROACH_SEQUENCE_STEPS));
+const SCORE_FOOT_PRESENT = new Uint8Array(6);
 function writeScoreFeet(beats, controls, joints, out, intensity) {
   for (const values of SCORE_FOOT_VALUES) values.fill(0);
+  SCORE_FOOT_PRESENT.fill(0);
   let any = false;
   const tracks = Array.isArray(controls.tracks) ? controls.tracks : EMPTY_TRACKS;
   for (let trackIndex = 0; trackIndex < Math.min(tracks.length, ROACH_MAX_JOINT_TRACKS); trackIndex += 1) {
@@ -139,8 +240,9 @@ function writeScoreFeet(beats, controls, joints, out, intensity) {
     const item = metadata(joint);
     if (item.kind !== 'leg') continue;
     any = true;
+    SCORE_FOOT_PRESENT[item.footIndex] = 1;
     const values = SCORE_FOOT_VALUES[item.footIndex];
-    for (let step = 0; step < ROACH_SEQUENCE_STEPS; step += 1) values[step] += clamp(finite(track.steps?.[step]), -90, 90);
+    for (let step = 0; step < ROACH_SEQUENCE_STEPS; step += 1) values[step] += clamp(finite(track.steps?.[step]), -180, 180);
   }
   if (!any) return;
   const position = beats / clamp(finite(controls.stepBeats, .25), 1 / 16, 4);
@@ -148,6 +250,7 @@ function writeScoreFeet(beats, controls, joints, out, intensity) {
   const local = positiveMod(position, ROACH_SEQUENCE_STEPS);
   const step = Math.floor(local);
   for (let footIndex = 0; footIndex < 6; footIndex += 1) {
+    if (!SCORE_FOOT_PRESENT[footIndex]) continue;
     const values = SCORE_FOOT_VALUES[footIndex];
     const from = values[step];
     const to = values[(step + 1) % ROACH_SEQUENCE_STEPS];
@@ -185,6 +288,18 @@ export function writeRoachSceneState(timeSeconds, settings, out, joints = []) {
   const controls = settings ?? ROACH_MOTION_DEFAULTS;
   const current = activeRoachPreset(timeSeconds, controls);
   const beats = beatsAt(timeSeconds, controls);
+  if (controls.staticScene) {
+    copySceneSnapshot(controls.staticScene, out, true);
+    if (controls.sequenceEnabled) {
+      writeScoreFeet(beats, controls, joints, out, clamp(finite(controls.intensity, 1), 0, 2));
+      for (let i = 0; i < 6; i += 1) if (out.feet[i].impact > 0) out.energy.scuttle = .4;
+    }
+    return out;
+  }
+  if (controls.sequenceEnabled && controls.trackMode === 'replace' && controls.sceneFrames?.length === 64) {
+    writeBakedScene(beats, controls, out);
+    return writeEditedBakedFeet(beats, controls, joints, out);
+  }
   const loopBeat = positiveMod(beats, 8);
   const phase = loopBeat * TAU;
   const intensity = clamp(finite(controls.intensity, 1), 0, 2);
@@ -276,7 +391,7 @@ function addCalibratedGait(joint, item, mode, amount, phase, scene, out, index) 
   else if (mode === 8) out[index] += item.side * Math.sin(phase * 3) * 2.5 * liftAmount;
   else if (mode === 19) out[index + 2] += Math.tanh(Math.sin(phase + item.side) * 4) * 3 * liftAmount;
 }
-function addPreset(beats, item, mode, amount, out, index, antennae, scene) {
+function addPreset(beats, item, mode, amount, out, index, antennae, scene, independentWings = false) {
   if (mode < 0) return;
   const phase = beats * TAU;
   const side = item.side;
@@ -321,7 +436,20 @@ function addPreset(beats, item, mode, amount, out, index, antennae, scene) {
     y = Math.sin(phase * (mode === 8 ? 2 : .5) - .7) * (mode === 4 || mode === 6 ? 8 : 3);
     x = mode === 22 ? Math.sin(phase * .25) * 6 : mode === 5 ? -3 + beat : 0;
   } else if (item.kind === 'wings') {
-    if (mode === 3) { y = 8 * (1 - Math.cos(phase * .5)); x = Math.sin(phase * 4) * 3; }
+    if (item.wingKind !== 'aggregate') {
+      const opening = .5 - .5 * Math.cos(phase * .25);
+      const wingMode = mode === 3 || mode === 5 || mode === 21;
+      const hind = item.wingKind === 'hind';
+      const maximum = hind ? (mode === 5 ? 75 : mode === 21 ? 60 : 48) : 38;
+      const spread = wingMode ? (mode === 21 ? .55 + .45 * Math.sin(phase * .5) : opening) : mode === 18 ? .16 : 0;
+      z = side * spread * maximum;
+      y = side * spread * (hind ? 16 : 6) * (1 + Math.sin(phase * (mode === 5 ? 3 : mode === 21 ? 2.5 : 1)));
+      x = hind ? Math.sin(phase * .5 + side) * spread * 3 : 0;
+    } else if (independentWings) {
+      // The original parent remains a collective manual control. Leaf hinges
+      // own automatic spread/flap, avoiding a second parent-level rotation.
+      x = 0; y = 0; z = 0;
+    } else if (mode === 3) { y = 8 * (1 - Math.cos(phase * .5)); x = Math.sin(phase * 4) * 3; }
     else if (mode === 5 || mode === 21) { y = 8 + Math.sin(phase * (mode === 5 ? 6 : 8)) * 8; z = Math.cos(phase * 4) * 3; }
     else if (mode === 4) y = Math.sin(phase * .5 - 1) * 4;
     else if (mode === 8 || mode === 18) y = beat * 4;
@@ -354,6 +482,11 @@ export function writeRoachPose(timeSeconds, settings, joints, out) {
   const antennae = controls.antennae !== false;
   const current = activeRoachPreset(time, controls);
   const scene = writeRoachSceneState(time, controls, POSE_SCENE, joints);
+  let independentWings = false;
+  for (let i = 0; i < joints.length; i += 1) {
+    const item = metadata(joints[i]);
+    if (item.kind === 'wings' && item.wingKind !== 'aggregate') { independentWings = true; break; }
+  }
   const tracks = controls.sequenceEnabled && Array.isArray(controls.tracks) ? controls.tracks : EMPTY_TRACKS;
   const scorePosition = beats / clamp(finite(controls.stepBeats, .25), 1 / 16, 4);
   for (let i = 0; i < joints.length; i += 1) {
@@ -373,20 +506,444 @@ export function writeRoachPose(timeSeconds, settings, joints, out) {
     const calibrated = item.kind === 'leg' && hasGaitPose(joint) && current.mode >= 0
       && current.rootPosture === 'low';
     if (calibrated) addCalibratedGait(joint, item, current.mode, intensity, phase, scene, out, index);
-    else addPreset(positiveMod(beats, 8), item, current.mode, intensity, out, index, antennae, scene);
-    // Camera-derived gaze is published as motion state, so DSP receives the same head pose.
+    else addPreset(positiveMod(beats, 8), item, current.mode, intensity, out, index, antennae, scene, independentWings);
+    for (let trackIndex = 0; trackIndex < Math.min(tracks.length, ROACH_MAX_JOINT_TRACKS); trackIndex += 1) {
+      const track = tracks[trackIndex];
+      if (!track || track.enabled === false || (track.jointId !== joint.id && track.jointId !== joint.jointId)) continue;
+      if (item.kind === 'antenna' && !antennae && controls.trackMode === 'replace' && track.samples?.length === 64 && track.sourceSteps?.length === 16) continue;
+      const axis = track.axis === 'y' ? 1 : track.axis === 'z' ? 2 : 0;
+      const value = evaluateRoachTrack(track, scorePosition);
+      if (controls.trackMode === 'replace') {
+        const name = axis === 0 ? 'x' : axis === 1 ? 'y' : 'z';
+        const extraMotion = joint.motion?.enabled && (joint.motion.axis === name || (!['x', 'y', 'z'].includes(joint.motion.axis) && axis === 0))
+          ? Math.sin(time * TAU * clamp(finite(joint.motion.speed, .5), .05, 8)) * clamp(finite(joint.motion.amplitude, 12), 0, 90) : 0;
+        out[index + axis] = clamp(finite(joint.restOffset?.[name]), -145, 145) + finite(joint.offset?.[name]) + extraMotion + value * intensity;
+      } else out[index + axis] += value;
+    }
+    // Apply camera gaze once after track composition; sound and graphics share it.
     if (item.kind === 'head') {
       out[index] += clamp(finite(controls.gaze?.x), -22, 22);
       out[index + 1] += clamp(finite(controls.gaze?.y), -22, 22);
       out[index + 2] += clamp(finite(controls.gaze?.z), -22, 22);
     }
-    for (let trackIndex = 0; trackIndex < Math.min(tracks.length, ROACH_MAX_JOINT_TRACKS); trackIndex += 1) {
-      const track = tracks[trackIndex];
-      if (!track || track.enabled === false || (track.jointId !== joint.id && track.jointId !== joint.jointId)) continue;
-      const axis = track.axis === 'y' ? 1 : track.axis === 'z' ? 2 : 0;
-      out[index + axis] += scoreValue(track, scorePosition);
-    }
     out[index] = clamp(out[index], -180, 180); out[index + 1] = clamp(out[index + 1], -180, 180); out[index + 2] = clamp(out[index + 2], -180, 180);
+  }
+  return constrainRoachPose(out, joints, out);
+}
+
+/** Unit-intensity factory motion, authored as 16 editable knots plus 64 samples. */
+export function bakeRoachPresetTracks(presetId, joints, options = {}) {
+  const rig = cleanFactoryJoints(joints);
+  const settings = normalizeRoachMotion({ presetId, tempo: options.tempo ?? 108, intensity: 1,
+    antennae: options.antennae !== false, sequenceEnabled: false, tracks: [], staticScene: null, gaze: { x: 0, y: 0, z: 0 } });
+  const output = new Float32Array(rig.length * 3);
+  const tracks = [];
+  for (let i = 0; i < rig.length; i += 1) for (const axis of ['x', 'y', 'z']) {
+    const track = createRoachJointTrack(rig[i].id ?? rig[i].jointId ?? String(i), axis);
+    track.samples = new Array(64); track.sourceSteps = new Array(16);
+    tracks.push(track);
+  }
+  const frames = [];
+  const secondsPerBeat = 60 / settings.tempo;
+  for (let sample = 0; sample < 64; sample += 1) {
+    const time = sample / 8 * secondsPerBeat;
+    writeRoachPose(time, settings, rig, output);
+    frames.push(writeRoachSceneState(time, settings, createRoachSceneState(), rig));
+    for (let trackIndex = 0; trackIndex < tracks.length; trackIndex += 1) {
+      const joint = rig[Math.floor(trackIndex / 3)]; const track = tracks[trackIndex];
+      const value = Math.round(clamp(output[trackIndex] - finite(joint.restOffset?.[track.axis]), -180, 180) * 10000) / 10000 || 0;
+      track.samples[sample] = value;
+      if (sample % 4 === 0) track.steps[sample / 4] = track.sourceSteps[sample / 4] = value;
+    }
+  }
+  const end = writeRoachSceneState(8 * secondsPerBeat, settings, createRoachSceneState(), rig);
+  return normalizeRoachMotion({ ...settings, intensity: options.intensity ?? 1, stepBeats: .5,
+    sequenceEnabled: true, trackMode: 'replace', tracks, sceneFrames: frames,
+    sceneTravelPerLoop: end.groundOffset - frames[0].groundOffset,
+    sceneContactCounts: end.feet.map((foot, i) => foot.contactCount - frames[0].feet[i].contactCount),
+    staticScene: null,
+  });
+}
+function cleanFactoryJoints(joints) {
+  return (Array.isArray(joints) ? joints : []).slice(0, 128).map((joint) => ({ ...joint,
+    offset: { x: 0, y: 0, z: 0 }, motion: { enabled: false, axis: 'x', amplitude: 0, speed: 1 } }));
+}
+const staticPose = (id, label, presetId, beat, adjustment = '') => Object.freeze({ id, label, presetId, beat, adjustment });
+export const ROACH_STATIC_POSES = Object.freeze([
+  staticPose('neutral', 'Grounded neutral', 'none', 0),
+  staticPose('ready_crouch', 'Ready to pounce', 'side_jump', 1),
+  staticPose('frozen_scuttle', 'Caught scuttling', 'side_walk', .28),
+  staticPose('peek_left', 'Peeking left', 'face_curious', 1),
+  staticPose('peek_right', 'Peeking right', 'face_curious', 3),
+  staticPose('little_bow', 'A little bow', 'face_sing', 2, 'bow'),
+  staticPose('standing_tall', 'Standing tall', 'dance_upright', .5),
+  staticPose('boxer_guard', 'Tiny boxer', 'dance_boxer', .3),
+  staticPose('high_kick', 'High kick', 'dance_can_can', .25),
+  staticPose('noodle_legs', 'Noodle legs', 'bottom_wiggle', .5),
+  staticPose('low_prowl', 'Low prowl', 'side_tiptoe', .5),
+  staticPose('listening', 'Listening closely', 'face_curious', 0, 'listening'),
+  staticPose('antenna_v', 'Antenna victory', 'none', 0, 'antenna_v'),
+  staticPose('wings_spread', 'Wings spread', 'top_flight', 2, 'wings_spread'),
+  staticPose('wings_half', 'Half-open wings', 'top_wing_fan', 1),
+  staticPose('wing_left', 'Left wing salute', 'none', 0, 'wing_left'),
+  staticPose('wing_right', 'Right wing salute', 'none', 0, 'wing_right'),
+  staticPose('hindwing_display', 'Hindwing display', 'none', 0, 'hindwing_display'),
+  staticPose('tucked', 'Tucked little bug', 'top_flight', 1.5, 'tucked'),
+  staticPose('salute', 'Kitchen salute', 'dance_boxer', .25, 'salute'),
+  staticPose('lean_left', 'Leaning left', 'dance_waltz', 1, 'lean_left'),
+  staticPose('lean_right', 'Leaning right', 'dance_waltz', 2, 'lean_right'),
+  staticPose('house_monster', 'House monster', 'face_growl', 2),
+  staticPose('sleeping', 'Sleeping in the cupboard', 'none', 0, 'sleeping'),
+]);
+const STATIC_POSES_BY_ID = new Map(ROACH_STATIC_POSES.map((item) => [item.id, item]));
+function randomGenerator(seed) {
+  let value = (Math.floor(finite(seed, 1)) >>> 0) || 0x91e10da5;
+  return () => { value ^= value << 13; value ^= value >>> 17; value ^= value << 5; return (value >>> 0) / 4294967296; };
+}
+/** A snapshot has no internal clock. Offsets are relative to calibrated rest. */
+export function getRoachStaticPose(poseId, joints, options = {}) {
+  const random = randomGenerator(options.seed ?? 1);
+  const randomized = poseId === 'random';
+  const selected = randomized ? ROACH_STATIC_POSES[1 + Math.floor(random() * (ROACH_STATIC_POSES.length - 1))]
+    : STATIC_POSES_BY_ID.get(poseId) ?? ROACH_STATIC_POSES[0];
+  const rig = cleanFactoryJoints(joints);
+  if (selected.id === 'neutral' && !randomized) {
+    return { id: 'neutral', label: selected.label, sourcePresetId: 'none', seed: Math.floor(finite(options.seed, 1)),
+      offsets: rig.map((joint, i) => ({ jointId: String(joint.id ?? joint.jointId ?? i), x: 0, y: 0, z: 0 })),
+      scene: createRoachSceneState() };
+  }
+  const settings = normalizeRoachMotion({ presetId: selected.presetId, tempo: 120, intensity: 1,
+    antennae: selected.presetId !== 'none', sequenceEnabled: false, tracks: [] });
+  const time = selected.beat * .5;
+  const output = writeRoachPose(time, settings, rig, new Float32Array(rig.length * 3));
+  const scene = normalizeSceneSnapshot(writeRoachSceneState(time, settings, createRoachSceneState(), rig), true);
+  if (selected.adjustment === 'lean_left') scene.body.roll = -16;
+  if (selected.adjustment === 'lean_right') scene.body.roll = 16;
+  if (selected.adjustment === 'tucked') scene.body.pitch = 8;
+  if (randomized) {
+    scene.body.roll = clamp(scene.body.roll + (random() * 2 - 1) * 9, -24, 24);
+    scene.body.yaw = (random() * 2 - 1) * 25;
+  }
+  for (let i = 0; i < rig.length; i += 1) {
+    const item = metadata(rig[i]); const k = i * 3; const adjustment = selected.adjustment;
+    if (adjustment === 'bow' && item.kind === 'head') output[k] += 16;
+    if ((adjustment === 'listening' || adjustment === 'antenna_v') && item.kind === 'antenna') {
+      output[k] = 10 * item.side; output[k + 1] = 35 * item.side; output[k + 2] = -10 * item.side;
+    }
+    if (adjustment === 'sleeping') {
+      if (item.kind === 'antenna') output[k + 1] = item.side * -18;
+      if (item.kind === 'head') output[k] = 15;
+      if (item.kind === 'leg') output[k + 1] += item.segment === 0 ? -7 : 10;
+    }
+    if (adjustment === 'salute' && item.kind === 'leg' && item.side > 0 && item.leg === 0) output[k + 1] -= 22;
+    if (item.kind === 'wings' && item.wingKind !== 'aggregate') {
+      const sideSelected = adjustment === 'wing_left' ? item.side > 0 : adjustment === 'wing_right' ? item.side < 0 : true;
+      if (adjustment === 'wing_left' || adjustment === 'wing_right' || adjustment === 'hindwing_display' || adjustment === 'wings_spread') {
+        output[k] = 0;
+        output[k + 1] = sideSelected ? item.side * (item.wingKind === 'hind' ? 15 : 6) : 0;
+        output[k + 2] = sideSelected ? item.side * (item.wingKind === 'hind' ? 75 : 38) : 0;
+      }
+      if (adjustment === 'tucked') { output[k] = 0; output[k + 1] = 0; output[k + 2] = 0; }
+    }
+    if (randomized) {
+      const range = item.kind === 'leg' ? 7 : item.kind === 'antenna' ? 24 : item.kind === 'head' ? 16 : item.kind === 'wings' ? 13 : 4;
+      for (let axis = 0; axis < 3; axis += 1) output[k + axis] += (random() * 2 - 1) * range;
+    }
+  }
+  constrainRoachPose(output, rig, output);
+  const offsets = rig.map((joint, i) => ({ jointId: String(joint.id ?? joint.jointId ?? i),
+    x: clamp(output[i * 3] - finite(joint.restOffset?.x), -180, 180),
+    y: clamp(output[i * 3 + 1] - finite(joint.restOffset?.y), -180, 180),
+    z: clamp(output[i * 3 + 2] - finite(joint.restOffset?.z), -180, 180),
+  }));
+  return { id: randomized ? 'random' : selected.id, label: randomized ? 'Random static pose' : selected.label,
+    sourcePresetId: selected.presetId, seed: Math.floor(finite(options.seed, 1)), offsets, scene };
+}
+
+// Conservative body-core exclusion shared by graphics and sound. Each tested
+// limb point must remain outside an ellipsoid derived from the scan's abdomen.
+// Neutral insertion points inside that core are exempt; this is not mesh CCD.
+const CONSTRAINT_RIGS = new WeakMap();
+const IDENTITY_MATRIX = Object.freeze([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+function multiplyMatrix(a, ai, b, bi, out, oi) {
+  for (let column = 0; column < 4; column += 1) {
+    const x = b[bi + column * 4]; const y = b[bi + column * 4 + 1];
+    const z = b[bi + column * 4 + 2]; const w = b[bi + column * 4 + 3];
+    for (let row = 0; row < 4; row += 1) out[oi + column * 4 + row] = a[ai + row] * x + a[ai + 4 + row] * y + a[ai + 8 + row] * z + a[ai + 12 + row] * w;
+  }
+}
+function composeJoint(matrix, joint, x, y, z) {
+  const k = joint.kinematics;
+  const hx = x * Math.PI / 360; const hy = y * Math.PI / 360; const hz = z * Math.PI / 360;
+  const cx = Math.cos(hx); const cy = Math.cos(hy); const cz = Math.cos(hz);
+  const sx = Math.sin(hx); const sy = Math.sin(hy); const sz = Math.sin(hz);
+  const ox = sx * cy * cz + cx * sy * sz; const oy = cx * sy * cz - sx * cy * sz;
+  const oz = cx * cy * sz + sx * sy * cz; const ow = cx * cy * cz - sx * sy * sz;
+  const q = k?.quaternion;
+  const bx = finite(q?.[0]); const by = finite(q?.[1]); const bz = finite(q?.[2]); const bw = finite(q?.[3], 1);
+  const qx = bx * ow + bw * ox + by * oz - bz * oy;
+  const qy = by * ow + bw * oy + bz * ox - bx * oz;
+  const qz = bz * ow + bw * oz + bx * oy - by * ox;
+  const qw = bw * ow - bx * ox - by * oy - bz * oz;
+  const x2 = qx + qx; const y2 = qy + qy; const z2 = qz + qz;
+  const xx = qx * x2; const xy = qx * y2; const xz = qx * z2;
+  const yy = qy * y2; const yz = qy * z2; const zz = qz * z2;
+  const wx = qw * x2; const wy = qw * y2; const wz = qw * z2;
+  const scaleX = finite(k?.scale?.[0], 1); const scaleY = finite(k?.scale?.[1], 1); const scaleZ = finite(k?.scale?.[2], 1);
+  matrix[0] = (1 - yy - zz) * scaleX; matrix[1] = (xy + wz) * scaleX; matrix[2] = (xz - wy) * scaleX; matrix[3] = 0;
+  matrix[4] = (xy - wz) * scaleY; matrix[5] = (1 - xx - zz) * scaleY; matrix[6] = (yz + wx) * scaleY; matrix[7] = 0;
+  matrix[8] = (xz + wy) * scaleZ; matrix[9] = (yz - wx) * scaleZ; matrix[10] = (1 - xx - yy) * scaleZ; matrix[11] = 0;
+  matrix[12] = finite(k?.position?.[0]); matrix[13] = finite(k?.position?.[1]); matrix[14] = finite(k?.position?.[2]); matrix[15] = 1;
+}
+function forwardKinematics(rig, pose, joints) {
+  for (let order = 0; order < rig.order.length; order += 1) {
+    const i = rig.order[order]; const p = i * 3;
+    composeJoint(rig.local, joints[i], pose[p], pose[p + 1], pose[p + 2]);
+    const parent = rig.parents[i];
+    if (parent >= 0) multiplyMatrix(rig.world, parent * 16, rig.local, 0, rig.world, i * 16);
+    else multiplyMatrix(joints[i].kinematics?.parentMatrix ?? IDENTITY_MATRIX, 0, rig.local, 0, rig.world, i * 16);
+  }
+  const a = rig.world; const o = rig.body * 16; const inverse = rig.inverse;
+  const aa = a[o]; const ab = a[o + 4]; const ac = a[o + 8];
+  const ba = a[o + 1]; const bb = a[o + 5]; const bc = a[o + 9];
+  const ca = a[o + 2]; const cb = a[o + 6]; const cc = a[o + 10];
+  const determinant = aa * (bb * cc - bc * cb) - ab * (ba * cc - bc * ca) + ac * (ba * cb - bb * ca);
+  if (Math.abs(determinant) < 1e-15) { rig.valid = false; return; }
+  const d = 1 / determinant;
+  inverse[0] = (bb * cc - bc * cb) * d; inverse[1] = (ac * cb - ab * cc) * d; inverse[2] = (ab * bc - ac * bb) * d;
+  inverse[3] = (bc * ca - ba * cc) * d; inverse[4] = (aa * cc - ac * ca) * d; inverse[5] = (ac * ba - aa * bc) * d;
+  inverse[6] = (ba * cb - bb * ca) * d; inverse[7] = (ab * ca - aa * cb) * d; inverse[8] = (aa * bb - ab * ba) * d;
+  inverse[9] = a[o + 12]; inverse[10] = a[o + 13]; inverse[11] = a[o + 14];
+  rig.valid = true;
+}
+function coreDistance(rig, jointIndex, pointIndex) {
+  const point = rig.samples[jointIndex]; const offset = pointIndex * 3; const matrix = rig.world; const m = jointIndex * 16;
+  const x = point[offset]; const y = point[offset + 1]; const z = point[offset + 2]; const inv = rig.inverse;
+  const wx = matrix[m] * x + matrix[m + 4] * y + matrix[m + 8] * z + matrix[m + 12] - inv[9];
+  const wy = matrix[m + 1] * x + matrix[m + 5] * y + matrix[m + 9] * z + matrix[m + 13] - inv[10];
+  const wz = matrix[m + 2] * x + matrix[m + 6] * y + matrix[m + 10] * z + matrix[m + 14] - inv[11];
+  const bx = (inv[0] * wx + inv[1] * wy + inv[2] * wz - rig.center[0]) / rig.radii[0];
+  const by = (inv[3] * wx + inv[4] * wy + inv[5] * wz - rig.center[1]) / rig.radii[1];
+  const bz = (inv[6] * wx + inv[7] * wy + inv[8] * wz - rig.center[2]) / rig.radii[2];
+  return bx * bx + by * by + bz * bz;
+}
+function collisionBranch(rig, branch = -1) {
+  if (!rig.valid) return -1;
+  for (let i = 0; i < rig.samples.length; i += 1) {
+    if (i === rig.body || (branch >= 0 && rig.branches[i] !== branch)) continue;
+    const active = rig.active[i];
+    for (let j = 0; j < active.length; j += 1) if (active[j] && coreDistance(rig, i, j) < .99999) return rig.branches[i];
+  }
+  return -1;
+}
+function constraintRig(joints) {
+  let body = -1;
+  for (let i = 0; i < joints.length; i += 1) if (joints[i].bodyEllipsoid) { body = i; break; }
+  if (body < 0 || joints.length > 128) return null;
+  let rig = CONSTRAINT_RIGS.get(joints);
+  if (rig && rig.refs.length === joints.length && rig.ellipsoidRef === joints[body].bodyEllipsoid) {
+    let same = true;
+    for (let i = 0; i < joints.length; i += 1) {
+      if (rig.refs[i] !== joints[i].kinematics || rig.sampleRefs[i] !== joints[i].collisionSamples || rig.restRefs[i] !== joints[i].restOffset) { same = false; break; }
+    }
+    if (same) return rig;
+  }
+  const count = joints.length;
+  const parents = new Int16Array(count); parents.fill(-1);
+  for (let i = 0; i < count; i += 1) for (let j = 0; j < count; j += 1) if (joints[i].parent === joints[j].id && i !== j) parents[i] = j;
+  const order = []; const done = new Uint8Array(count);
+  for (let pass = 0; pass < count; pass += 1) for (let i = 0; i < count; i += 1) {
+    if (!done[i] && (parents[i] < 0 || done[parents[i]])) { order.push(i); done[i] = 1; }
+  }
+  if (order.length !== count) return null;
+  const branches = new Int16Array(count);
+  for (let i = 0; i < count; i += 1) {
+    let ancestor = i;
+    for (let depth = 0; depth < count && parents[ancestor] >= 0 && parents[ancestor] !== body; depth += 1) ancestor = parents[ancestor];
+    branches[i] = ancestor;
+  }
+  const ellipsoid = joints[body].bodyEllipsoid;
+  rig = { body, order, parents, branches, ellipsoidRef: ellipsoid, world: new Float64Array(count * 16), local: new Float64Array(16), inverse: new Float64Array(12),
+    neutral: new Float64Array(count * 3), target: new Float64Array(count * 3), samples: [], active: [], valid: true,
+    center: Array.from({ length: 3 }, (_, i) => finite(ellipsoid.center?.[i])),
+    radii: Array.from({ length: 3 }, (_, i) => Math.max(1e-5, Math.abs(finite(ellipsoid.radii?.[i], 1)))),
+    refs: joints.map((joint) => joint.kinematics), sampleRefs: joints.map((joint) => joint.collisionSamples), restRefs: joints.map((joint) => joint.restOffset),
+  };
+  for (let i = 0; i < count; i += 1) {
+    for (let axis = 0; axis < 3; axis += 1) rig.neutral[i * 3 + axis] = clamp(finite(joints[i].restOffset?.[XYZ_AXES[axis]]), -145, 145);
+    const source = Array.isArray(joints[i].collisionSamples) ? joints[i].collisionSamples.slice(0, 8) : [];
+    const samples = new Float64Array(source.length * 9);
+    for (let j = 0; j < source.length; j += 1) for (let section = 0; section < 3; section += 1) for (let axis = 0; axis < 3; axis += 1) {
+      samples[j * 9 + section * 3 + axis] = finite(source[j]?.[axis]) * (.5 + section * .25);
+    }
+    rig.samples.push(samples); rig.active.push(new Uint8Array(source.length * 3));
+  }
+  forwardKinematics(rig, rig.neutral, joints);
+  for (let i = 0; i < count; i += 1) for (let j = 0; j < rig.active[i].length; j += 1) rig.active[i][j] = coreDistance(rig, i, j) >= 1.001 ? 1 : 0;
+  CONSTRAINT_RIGS.set(joints, rig);
+  return rig;
+}
+/** Degree output is clamped to joint limits and the conservative body core. */
+export function constrainRoachPose(target, joints, out = target) {
+  if (!out || out.length < joints.length * 3) throw new RangeError('A pose buffer needs three values per joint.');
+  for (let i = 0; i < joints.length; i += 1) for (let axis = 0; axis < 3; axis += 1) {
+    const name = XYZ_AXES[axis]; const limits = joints[i].poseLimits?.[name];
+    const rest = clamp(finite(joints[i].restOffset?.[name]), -145, 145);
+    const min = limits?.length === 2 ? Math.max(-180, rest + finite(limits[0], -180)) : -180;
+    const max = limits?.length === 2 ? Math.min(180, rest + finite(limits[1], 180)) : 180;
+    out[i * 3 + axis] = clamp(finite(target[i * 3 + axis]), Math.min(min, max), Math.max(min, max));
+  }
+  const rig = constraintRig(joints);
+  if (!rig) return out;
+  forwardKinematics(rig, out, joints);
+  let branch = collisionBranch(rig);
+  if (branch < 0) return out;
+  for (let i = 0; i < joints.length * 3; i += 1) rig.target[i] = out[i];
+  for (let attempt = 0; attempt < 8 && branch >= 0; attempt += 1) {
+    let low = 0; let high = 1;
+    for (let iteration = 0; iteration < 8; iteration += 1) {
+      const fraction = (low + high) * .5;
+      for (let i = 0; i < joints.length; i += 1) if (rig.branches[i] === branch && i !== rig.body) {
+        for (let axis = 0; axis < 3; axis += 1) { const k = i * 3 + axis; out[k] = rig.neutral[k] + (rig.target[k] - rig.neutral[k]) * fraction; }
+      }
+      forwardKinematics(rig, out, joints);
+      if (collisionBranch(rig, branch) < 0) low = fraction; else high = fraction;
+    }
+    for (let i = 0; i < joints.length; i += 1) if (rig.branches[i] === branch && i !== rig.body) {
+      for (let axis = 0; axis < 3; axis += 1) { const k = i * 3 + axis; out[k] = rig.neutral[k] + (rig.target[k] - rig.neutral[k]) * low; }
+    }
+    forwardKinematics(rig, out, joints);
+    branch = collisionBranch(rig);
+  }
+  if (branch >= 0) {
+    // Bounded fallback for an unusually crowded imported hierarchy.
+    for (let i = 0; i < joints.length; i += 1) if (i !== rig.body) for (let axis = 0; axis < 3; axis += 1) out[i * 3 + axis] = rig.neutral[i * 3 + axis];
+  }
+  return out;
+}
+
+const EDITED_FOOT_CACHES = new WeakMap();
+function editedFootCache(controls, joints) {
+  const tracks = controls.tracks;
+  let cache = EDITED_FOOT_CACHES.get(controls);
+  let rebuild = !cache || cache.tracks !== tracks || cache.joints !== joints;
+  if (!rebuild) for (let i = 0; i < Math.min(tracks.length, ROACH_MAX_JOINT_TRACKS); i += 1) {
+    if (cache.trackRefs[i] !== tracks[i]) { rebuild = true; break; }
+  }
+  if (rebuild) {
+    const count = Math.min(tracks.length, ROACH_MAX_JOINT_TRACKS);
+    const jointIndices = new Int16Array(count); jointIndices.fill(-1);
+    const footIndices = new Int8Array(count); footIndices.fill(-1);
+    for (let i = 0; i < count; i += 1) {
+      const track = tracks[i];
+      for (let j = 0; j < joints.length; j += 1) if (track.jointId === joints[j].id || track.jointId === joints[j].jointId) {
+        jointIndices[i] = j;
+        const item = metadata(joints[j]);
+        if (item.kind === 'leg') footIndices[i] = item.footIndex;
+        break;
+      }
+    }
+    cache = { tracks, joints, jointIndices, footIndices, trackRefs: tracks.slice(0, count), hash: null,
+      edited: new Uint8Array(6), scratchEdited: new Uint8Array(6), lifts: Array.from({ length: 6 }, () => new Float64Array(64)),
+      crossings: Array.from({ length: 6 }, () => []), strengths: new Float64Array(6), moving: new Uint8Array(6) };
+    EDITED_FOOT_CACHES.set(controls, cache);
+  }
+  let hash = 2166136261;
+  const edited = cache.scratchEdited; edited.fill(0);
+  for (let i = 0; i < cache.trackRefs.length; i += 1) {
+    const foot = cache.footIndices[i]; if (foot < 0) continue;
+    const track = tracks[i];
+    const detailed = track.samples?.length === 64 && track.sourceSteps?.length === 16;
+    let changed = !detailed;
+    hash = Math.imul(hash ^ (track.enabled === false ? 7 : detailed ? 13 : 29), 16777619);
+    for (let j = 0; j < 16; j += 1) {
+      const value = finite(track.steps[j]);
+      hash = Math.imul(hash ^ Math.round(value * 10000), 16777619);
+      if (detailed && Math.abs(value - finite(track.sourceSteps[j])) > .00001) changed = true;
+    }
+    if (changed && track.enabled !== false) edited[foot] = 1;
+  }
+  if (cache.hash === hash) return cache;
+  cache.hash = hash; cache.edited.set(edited); cache.moving.fill(0);
+  for (let footIndex = 0; footIndex < 6; footIndex += 1) {
+    cache.crossings[footIndex].length = 0; cache.strengths[footIndex] = 0;
+    if (!edited[footIndex]) continue;
+    const lifts = cache.lifts[footIndex];
+    let hasMotion = false;
+    for (let trackIndex = 0; trackIndex < cache.trackRefs.length; trackIndex += 1) {
+      if (cache.footIndices[trackIndex] !== footIndex || tracks[trackIndex].enabled === false) continue;
+      let min = Infinity; let max = -Infinity;
+      for (let sample = 0; sample < 64; sample += 1) {
+        const value = evaluateRoachTrack(tracks[trackIndex], sample / 4);
+        min = Math.min(min, value); max = Math.max(max, value);
+      }
+      if (max - min > .0001) hasMotion = true;
+    }
+    cache.moving[footIndex] = hasMotion ? 1 : 0;
+    for (let sample = 0; sample < 64; sample += 1) {
+      const frame = controls.sceneFrames[sample]; const foot = frame.feet[footIndex];
+      let projection = 0; let energy = 0;
+      for (let trackIndex = 0; trackIndex < cache.trackRefs.length; trackIndex += 1) {
+        if (cache.footIndices[trackIndex] !== footIndex || tracks[trackIndex].enabled === false) continue;
+        const track = tracks[trackIndex]; const joint = joints[cache.jointIndices[trackIndex]]; const item = metadata(joint);
+        const axis = track.axis === 'y' ? 1 : track.axis === 'z' ? 2 : 0;
+        const along = (finite(foot.stride) + 1) * .5;
+        let liftAngle; let factoryAngle;
+        if (hasGaitPose(joint)) {
+          const gait = joint.gaitPose;
+          const lower = finite(gait.back[axis]) + (finite(gait.front[axis]) - finite(gait.back[axis])) * along;
+          const upper = finite(gait.raisedBack[axis]) + (finite(gait.raisedFront[axis]) - finite(gait.raisedBack[axis])) * along;
+          liftAngle = upper - lower;
+          factoryAngle = lower + liftAngle * finite(foot.lift) - finite(joint.restOffset?.[track.axis]);
+        } else {
+          liftAngle = axis === 0 ? item.side * (item.segment === 0 ? 9 : item.segment === 1 ? -12 : -5) : axis === 1 ? 2 : 0;
+          const run = controls.presetId === 'side_run' || controls.presetId === 'side_zigzag';
+          factoryAngle = axis === 0 ? liftAngle * finite(foot.lift) * (run ? 1.3 : 1)
+            : axis === 1 ? finite(foot.stride) * (item.segment === 0 ? 15 : item.segment === 1 ? 12 : 7) * (run ? 1.25 : 1)
+              : item.side * finite(foot.stride) * 2;
+        }
+        const baseline = track.samples?.length === 64 ? finite(track.samples[sample]) : factoryAngle;
+        const value = evaluateRoachTrack(track, sample / 4);
+        projection += (value - baseline) * liftAngle;
+        energy += liftAngle * liftAngle;
+      }
+      // The body itself can land even when every joint contour is held still.
+      const rootLift = finite(frame.body.lift) * 10;
+      lifts[sample] = hasMotion ? clamp(finite(foot.lift) + (energy > .00001 ? projection / energy : 0) + rootLift, -2, 3) : rootLift;
+      cache.strengths[footIndex] = Math.max(cache.strengths[footIndex], finite(foot.impact));
+    }
+    const threshold = .03;
+    for (let i = 0; i < 64; i += 1) {
+      const a = lifts[i]; const b = lifts[(i + 1) % 64];
+      if (a <= threshold || b > threshold) continue;
+      const target = (a - threshold) / (a - b);
+      let low = 0; let high = 1;
+      for (let j = 0; j < 16; j += 1) { const middle = (low + high) * .5; if (smooth(middle) < target) low = middle; else high = middle; }
+      cache.crossings[footIndex].push(i + (low + high) * .5);
+    }
+  }
+  return cache;
+}
+function writeEditedBakedFeet(beats, controls, joints, out) {
+  if (!Array.isArray(controls.tracks) || !controls.tracks.length || !joints.length) return out;
+  const cache = editedFootCache(controls, joints);
+  const position = beats / clamp(finite(controls.stepBeats, .5), 1 / 16, 4);
+  const lap = Math.floor(position / 16); const fine = positiveMod(position, 16) * 4;
+  const index = Math.floor(fine); const mix = smooth(fine % 1);
+  const intensity = clamp(finite(controls.intensity, 1), 0, 2);
+  for (let i = 0; i < 6; i += 1) {
+    if (!cache.edited[i]) continue;
+    const values = cache.lifts[i];
+    const value = values[index] + (values[(index + 1) % 64] - values[index]) * mix;
+    const foot = out.feet[i];
+    foot.lift = clamp(value * intensity, 0, 1);
+    foot.stance = value <= .03 || intensity === 0;
+    if (!cache.moving[i]) foot.stride = 0;
+    const crossings = cache.crossings[i];
+    let count = lap * crossings.length;
+    for (let j = 0; j < crossings.length; j += 1) if (crossings[j] <= fine + 1e-7) count += 1;
+    foot.contactCount = count;
+    foot.impact = foot.stance && crossings.length ? clamp(cache.strengths[i] * intensity, 0, 1) : 0;
   }
   return out;
 }

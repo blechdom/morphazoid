@@ -1,5 +1,5 @@
 import { createRoachViewer } from "./src/roach-synth-viewer.js";
-import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset, writeRoachPose, createRoachJointTrack, roachSequencePosition, createRoachSceneState, writeRoachSceneState } from "./src/roach-synth-motion.js";
+import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset, writeRoachPose, createRoachJointTrack, roachSequencePosition, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks, evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose } from "./src/roach-synth-motion.js";
 import { RoachSynthAudio, ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS, createDefaultRoachMappings } from "./src/roach-synth-audio.js";
 
 const el = (id) => document.getElementById(id);
@@ -10,7 +10,7 @@ const sources = ["x", "y", "z", "xy", "xz", "yz", "xyz"];
 const quality = { economy: { fps: 20, pixelRatio: 1 }, balanced: { fps: 25, pixelRatio: 1.25 }, detail: { fps: 30, pixelRatio: 1.5 } };
 const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
 const state = {
-  playing: false, audioOn: false, audioStarting: false, disposed: false,
+  playing: false, soundPlaying: false, posePreset: "custom", poseSeed: 0, sequenceView: "joint", audioOn: false, audioStarting: false, disposed: false,
   view: "side", side: "left", motion: normalizeRoachMotion(ROACH_MOTION_DEFAULTS),
   sound: { ...ROACH_SOUND_DEFAULTS }, mappings: [], joints: [],
   time: 0, anchor: performance.now(), clipPreview: false, sequenceAxis: "y", selectedStep: 0,
@@ -24,24 +24,25 @@ let lastFrame = -Infinity;
 let pose = new Float32Array(0);
 let routeSerial = 0;
 const sceneState = createRoachSceneState();
-const patchStorageKey = "morphazoid.roach-synth.joint-patches.v1";
+const patchStorageKey = "morphazoid.roach-synth.joint-patches.v2";
 const editedPatches = new Map();
 try {
-  const stored = localStorage.getItem(patchStorageKey);
-  if (stored && stored.length < 800000) {
+  const stored = localStorage.getItem(patchStorageKey) ?? localStorage.getItem("morphazoid.roach-synth.joint-patches.v1");
+  if (stored && stored.length < 12000000) {
     const data = JSON.parse(stored);
     if (data && typeof data === "object" && !Array.isArray(data)) {
       for (const preset of [{ id: "none" }, ...ROACH_MOTION_PRESETS]) {
         if (data[preset.id]) {
           const motion = normalizeRoachMotion({ ...data[preset.id], presetId: preset.id });
-          editedPatches.set(preset.id, { tracks: motion.tracks, sequenceEnabled: motion.sequenceEnabled });
+          if (Array.isArray(data[preset.id].baseOffsets)) motion.baseOffsets = data[preset.id].baseOffsets.slice(0, 128).filter(item => item && typeof item.jointId === "string");
+          editedPatches.set(preset.id, data[preset.id].format === "factory-edits-v2" ? data[preset.id] : motion);
         }
       }
     }
   }
 } catch { /* Storage is optional; live performance never depends on it. */ }
 const initialEdits = editedPatches.get(state.motion.presetId);
-if (initialEdits) state.motion = normalizeRoachMotion({ ...state.motion, ...initialEdits });
+if (initialEdits && initialEdits.format !== "factory-edits-v2") state.motion = normalizeRoachMotion({ ...state.motion, ...initialEdits });
 const setStatus = (message) => { el("modelStatus").textContent = String(message); };
 const announce = (message) => { el("liveStatus").textContent = String(message); };
 const audio = new RoachSynthAudio({
@@ -60,7 +61,7 @@ function fallbackTime() { return state.time + (state.playing ? (performance.now(
 function currentTime() { return state.audioOn ? audio.getTime() : fallbackTime(); }
 function anchorTime(time) { state.time = Math.max(0, Number(time) || 0); state.anchor = performance.now(); }
 function publish(extra = {}) {
-  audio.update({ playing: state.playing, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: state.sound, ...extra });
+  audio.update({ playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: state.sound, ...extra });
 }
 function selectedPart() { return state.joints.find((part) => part.id === el("bodyPart").value); }
 function refreshJoints() {
@@ -90,14 +91,36 @@ function populateMotionPresets() {
 function selectedTrack(create = false) {
   const part = selectedPart(); if (!part) return null;
   let track = state.motion.tracks.find((track) => track.jointId === part.id && track.axis === state.sequenceAxis);
-  if (!track && create && state.motion.tracks.length < 81) {
+  if (!track && create && state.motion.tracks.length < 128) {
     track = createRoachJointTrack(part.id, state.sequenceAxis);
     state.motion.tracks.push(track);
   }
   return track;
 }
+function resolvePatch(saved, id) {
+  if (!saved || saved.format !== "factory-edits-v2") return saved;
+  const factory = bakeRoachPresetTracks(id, state.joints, state.motion);
+  const edits = normalizeRoachMotion({ tracks: saved.tracks }).tracks;
+  for (const edit of edits) {
+    const track = factory.tracks.find(item => item.jointId === edit.jointId && item.axis === edit.axis);
+    if (!track) continue;
+    track.steps = edit.steps; track.enabled = edit.enabled;
+    const original = saved.tracks.find(item => item?.jointId === edit.jointId && item.axis === edit.axis);
+    if (original?.retainFactoryCurve === false) { delete track.samples; delete track.sourceSteps; }
+  }
+  factory.sequenceEnabled = saved.sequenceEnabled === true;
+  return factory;
+}
+function storagePatch(motion) {
+  if (motion.format === "factory-edits-v2" || motion.trackMode !== "replace") return motion;
+  return { format: "factory-edits-v2", sequenceEnabled: motion.sequenceEnabled,
+    tracks: motion.tracks.map(({ jointId, axis, steps, enabled, samples, sourceSteps }) => ({ jointId, axis, steps, enabled, retainFactoryCurve: samples?.length === 64 && sourceSteps?.length === 16 })) };
+}
 function rememberPatch() {
-  editedPatches.set(state.motion.presetId, { tracks: structuredClone(state.motion.tracks), sequenceEnabled: state.motion.sequenceEnabled });
+  if (state.motion.staticScene && !(state.motion.sequenceEnabled && state.motion.tracks.length)) return;
+  const score = structuredClone(state.motion);
+  if (state.motion.staticScene) score.baseOffsets = state.joints.map(joint => ({ jointId: joint.id, ...joint.offset }));
+  editedPatches.set(state.motion.presetId, score);
 }
 function markScoreEdited() {
   state.motion.sequenceEnabled = true; el("sequenceEnabled").checked = true;
@@ -124,7 +147,7 @@ function renderSequence() {
   }
   for (const button of el("sequenceAxes").querySelectorAll("button")) button.setAttribute("aria-pressed", String(button.dataset.axis === state.sequenceAxis));
   const tracks = state.motion.tracks.filter((item) => item.enabled !== false && item.steps.some((value) => Math.abs(value) > .01)).length;
-  el("sequenceSummary").textContent = `${tracks} tracks · 16 steps`;
+  el("sequenceSummary").textContent = `${tracks} tracks · 16 edit steps`;
   syncStepEditor();
 }
 function syncStepEditor() {
@@ -132,17 +155,99 @@ function syncStepEditor() {
   el("stepRotation").value = String(value); el("stepRotationOut").value = `${Math.round(value)}°`;
   el("stepLabel").textContent = `Step ${state.selectedStep + 1} · ${state.sequenceAxis.toUpperCase()} rotation`;
   for (const id of ["stepRotation", "captureStep", "waveTrack", "clearTrack"]) el(id).disabled = !selectedPart();
+  el("captureStep").disabled = !selectedPart() || (state.motion.trackMode === "replace" && state.motion.intensity <= 0);
   for (const button of el("sequenceSteps").children) button.setAttribute("aria-pressed", String(Number(button.dataset.step) === state.selectedStep));
+  renderContours();
 }
+const contourColors = { x: "#e9a27f", y: "#c2df85", z: "#81bbef" };
+let contourLimit = 60;
+function svgNode(tag, attributes, text = "") {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, String(value));
+  if (text) node.textContent = text;
+  return node;
+}
+function renderContours() {
+  const part = selectedPart();
+  const all = state.motion.tracks;
+  let tracks = state.sequenceView === "body" ? all.filter(track => track.axis === state.sequenceAxis) : state.sequenceView === "track" ? all.filter(track => track.jointId === part?.id && track.axis === state.sequenceAxis) : all.filter(track => track.jointId === part?.id);
+  if (part && state.sequenceView !== "body") {
+    tracks = (state.sequenceView === "track" ? [state.sequenceAxis] : ["x", "y", "z"]).map(axis => tracks.find(track => track.axis === axis) ?? createRoachJointTrack(part.id, axis));
+  }
+  contourLimit = contourDrag?.limit ?? Math.max(10, Math.min(180, Math.ceil(Math.max(0, ...tracks.flatMap(track => track.steps.map(Math.abs))) / 10) * 10));
+  const y = value => 74 - Math.max(-contourLimit, Math.min(contourLimit, value)) / contourLimit * 60;
+  const grid = el("contourGrid"); grid.replaceChildren();
+  for (let step = 0; step <= 16; step += 1) grid.append(svgNode("line", { x1: 12 + step * 18.5, x2: 12 + step * 18.5, y1: 8, y2: 140, class: "contour-grid" }));
+  grid.append(svgNode("line", { x1: 12, x2: 308, y1: 74, y2: 74, class: "contour-zero" }));
+  const paths = el("contourPaths"); paths.replaceChildren();
+  const points = el("contourPoints"); points.replaceChildren();
+  tracks.sort((a, b) => Number(a.jointId === part?.id && a.axis === state.sequenceAxis) - Number(b.jointId === part?.id && b.axis === state.sequenceAxis));
+  for (const track of tracks) {
+    const selected = track.jointId === part?.id && track.axis === state.sequenceAxis;
+    const color = contourColors[track.axis];
+    const d = Array.from({ length: 129 }, (_, i) => `${i ? "L" : "M"}${12 + i / 128 * 296},${y(evaluateRoachTrack(track, i / 8))}`).join(" ");
+    paths.append(svgNode("path", { d, stroke: color, class: `contour-path${selected ? " is-selected" : ""}`, opacity: state.sequenceView === "body" && !selected ? .18 : selected ? 1 : .55 }));
+    if (track.jointId !== part?.id || (state.sequenceView === "body" && !selected)) continue;
+    track.steps.forEach((value, step) => {
+      const dot = svgNode("circle", { cx: 12 + step * 18.5, cy: y(value), r: selected ? 4 : 2.5, fill: color, class: `contour-point${selected && step === state.selectedStep ? " is-selected" : ""}`, "data-step": step, "data-axis": track.axis });
+      dot.append(svgNode("title", {}, `${track.axis.toUpperCase()} · step ${step + 1} · ${Math.round(value)}°`)); points.append(dot);
+    });
+  }
+  const legend = el("contourLegend"); legend.replaceChildren();
+  for (const axis of state.sequenceView === "body" ? [state.sequenceAxis] : ["x", "y", "z"]) {
+    const item = document.createElement("span"); item.style.color = contourColors[axis];
+    item.append(document.createElement("i"), document.createTextNode(state.sequenceView === "body" ? `${axis.toUpperCase()} · ${tracks.length} joints · selected joint highlighted` : `${axis.toUpperCase()} rotation`)); legend.append(item);
+  }
+  const scaleLabel = document.createElement("span"); scaleLabel.textContent = `±${contourLimit}°`; legend.append(scaleLabel);
+  el("contourDescription").textContent = `${state.sequenceView === "body" ? "Whole body" : part?.name ?? "No joint"}, layered rotation contours from minus ${contourLimit} to plus ${contourLimit} degrees. Select any of the sixteen steps below to edit with the rotation slider.`;
+}
+let contourDrag = null;
+el("sequenceContours").addEventListener("pointerdown", event => {
+  const dot = event.target.closest(".contour-point"); if (!dot || !selectedPart() || event.button !== 0) return;
+  state.selectedStep = Number(dot.dataset.step); state.sequenceAxis = dot.dataset.axis;
+  contourDrag = { limit: contourLimit, sequenceEnabled: state.motion.sequenceEnabled, pointerId: event.pointerId, startY: event.clientY, startX: event.clientX, pointerType: event.pointerType, active: event.pointerType !== "touch", original: structuredClone(selectedTrack()) };
+  if (contourDrag.active) { event.preventDefault(); el("sequenceContours").setPointerCapture(event.pointerId); }
+  renderSequence();
+}, options);
+el("sequenceContours").addEventListener("pointermove", event => {
+  if (!contourDrag || event.pointerId !== contourDrag.pointerId) return;
+  if (!contourDrag.active) {
+    // Native vertical page scrolling wins on phones. A horizontal start commits a point drag.
+    if (Math.abs(event.clientY - contourDrag.startY) > Math.abs(event.clientX - contourDrag.startX) + 6) { contourDrag = null; return; }
+    if (Math.abs(event.clientX - contourDrag.startX) < 10) return;
+    contourDrag.active = true; el("sequenceContours").setPointerCapture(event.pointerId);
+  }
+  const box = el("sequenceContours").getBoundingClientRect();
+  const value = Math.round((74 - (event.clientY - box.top) / box.height * 152) / 60 * contourLimit);
+  const track = selectedTrack(true); if (!track) return;
+  track.steps[state.selectedStep] = Math.max(-180, Math.min(180, value)); markScoreEdited();
+}, options);
+function finishContour(event) {
+  if (!contourDrag || contourDrag.pointerId !== event.pointerId) return;
+  if (event.type === "pointercancel" && contourDrag.active) {
+    const track = selectedTrack();
+    if (track && contourDrag.original) Object.assign(track, contourDrag.original);
+    else if (track) state.motion.tracks = state.motion.tracks.filter(item => item !== track);
+    state.motion.sequenceEnabled = contourDrag.sequenceEnabled;
+    rememberPatch(); publish(); renderSequence(); updateVisual();
+  }
+  if (el("sequenceContours").hasPointerCapture(event.pointerId)) el("sequenceContours").releasePointerCapture(event.pointerId);
+  contourDrag = null; renderContours();
+}
+for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) el("sequenceContours").addEventListener(event, finishContour, options);
 function syncTransport() {
   const button = el("motionButton");
   button.setAttribute("aria-pressed", String(state.playing));
-  button.setAttribute("aria-label", state.playing ? "Pause cockroach motion" : "Play cockroach motion");
+  button.setAttribute("aria-label", state.playing ? "Pause animation" : "Play animation");
   el("motionSummary").textContent = state.playing ? "Playing" : "Paused";
-  if (state.playing && !state.audioOn) announce("Audio is off — turn it on to hear playback");
-  else announce(state.playing ? "Body motion is driving the sound." : "Animation paused. Drag a part to play it, or say a phrase.");
+  el("soundPlayButton").setAttribute("aria-pressed", String(state.soundPlaying));
+  el("soundPlayButton").setAttribute("aria-label", state.soundPlaying ? "Stop sound" : "Play sound");
+  el("soundPlaySummary").textContent = state.soundPlaying ? "Playing" : "Stopped";
+  if ((state.playing || state.soundPlaying) && !state.audioOn) announce("Audio is off — turn it on to hear playback");
+  else announce(state.playing ? "Animation is driving the sound." : state.soundPlaying ? "Sound playing. Body held still; drag a part to change its timbre." : "Both players stopped. Drag a part to play it, or say a phrase.");
 }
 function setPlaying(playing) {
+  if (playing && state.motion.staticScene && !(state.motion.sequenceEnabled && state.motion.tracks.length) && !state.joints.some(joint => joint.motion.enabled)) setMotionPreset(el("motionPreset").value === "none" ? "side_walk" : el("motionPreset").value);
   const time = currentTime();
   state.playing = Boolean(playing);
   anchorTime(time);
@@ -161,7 +266,7 @@ function syncSelectedPart() {
   const part = selectedPart();
   el("poseControls").disabled = !part;
   el("motionControls").disabled = !part;
-  el("addMapping").disabled = !part || state.mappings.length >= 81;
+  el("addMapping").disabled = !part || state.mappings.length >= 128;
   for (const axis of ["x", "y", "z"]) {
     const id = `pose${axis.toUpperCase()}`;
     el(id).value = String(part?.offset[axis] ?? 0);
@@ -190,7 +295,7 @@ function syncRig() {
   if (signature !== rigSignature) {
     rigSignature = signature;
     refreshJoints();
-    state.mappings = createDefaultRoachMappings(state.joints).slice(0, 81).map((route) => ({ ...route, id: `route-${++routeSerial}` }));
+    state.mappings = createDefaultRoachMappings(state.joints).slice(0, 128).map((route) => ({ ...route, id: `route-${++routeSerial}` }));
     el("bodyPart").replaceChildren(); el("sequenceJoint").replaceChildren();
     for (const part of state.joints) { el("bodyPart").add(new Option(part.name, part.id)); el("sequenceJoint").add(new Option(part.name, part.id)); }
     if (!state.joints.length) el("bodyPart").add(new Option("No movable joints", ""));
@@ -198,11 +303,14 @@ function syncRig() {
     rig.clips.forEach((clip, index) => el("animationClip").add(new Option(clip.name || `Clip ${index + 1}`, String(index))));
     el("clipControls").hidden = !rig.clips.length;
     state.clipPreview = false;
+    const saved = resolvePatch(editedPatches.get(state.motion.presetId), state.motion.presetId);
+    state.motion = normalizeRoachMotion({ ...state.motion, ...(saved ?? bakeRoachPresetTracks(state.motion.presetId, state.joints, state.motion)), staticScene: null });
+    el("sequenceEnabled").checked = state.motion.sequenceEnabled;
     publish();
   }
   el("jointCount").textContent = `${rig.bones.length} joints`;
   for (const id of ["bodyPart", "sequenceJoint", "showJoints"]) el(id).disabled = !rig.bones.length;
-  for (const id of ["motionButton", "resetCamera", "resetPose"]) el(id).disabled = !rig.loaded;
+  for (const id of ["motionButton", "soundPlayButton", "posePreset", "randomPose", "resetCamera", "resetPose"]) el(id).disabled = !rig.loaded;
   syncSelectedPart();
 }
 function renderMappings() {
@@ -231,7 +339,7 @@ function renderMappings() {
   }
   if (!routes.length) { const note = document.createElement("p"); note.className = "roach-note"; note.textContent = "Add a route from this part’s rotation to a sound parameter."; container.append(note); }
   el("mappingCount").textContent = `${state.mappings.length} routes across ${new Set(state.mappings.map((route) => route.jointId)).size} parts. Combine axes or add more routes.`;
-  el("addMapping").disabled = !part || state.mappings.length >= 81;
+  el("addMapping").disabled = !part || state.mappings.length >= 128;
 }
 function formatSound(id, value) {
   if (id === "pitch" || id === "wingRate") return `${Math.round(value)} Hz`;
@@ -246,17 +354,42 @@ function syncSound() {
   }
   el("level").value = String(state.sound.level); el("levelOut").value = `${Math.round(state.sound.level * 100)}%`;
 }
-function setMotionPreset(id) {
-  rememberPatch();
-  const edited = editedPatches.get(id) ?? { tracks: [], sequenceEnabled: false };
-  state.motion = normalizeRoachMotion({ ...state.motion, ...edited, presetId: id });
+function setMotionPreset(id, { factory = false, remember = true } = {}) {
+  if (remember) rememberPatch();
+  const wasStatic = Boolean(state.motion.staticScene);
+  const previous = { tempo: state.motion.tempo, intensity: state.motion.intensity };
+  const edited = factory ? null : resolvePatch(editedPatches.get(id), id);
+  const score = edited ?? (id === "none" ? normalizeRoachMotion({ ...previous, presetId: "none", tracks: [], sequenceEnabled: false }) : bakeRoachPresetTracks(id, state.joints, previous));
+  state.motion = normalizeRoachMotion({ ...state.motion, ...score, ...previous, presetId: id, staticScene: score.staticScene ?? null });
   el("sequenceEnabled").checked = state.motion.sequenceEnabled;
-  if (id !== "none") { state.motion.antennae = true; el("antennae").checked = true; }
+  if (id !== "none") state.motion.antennae = true;
+  el("antennae").checked = state.motion.antennae;
   state.clipPreview = false; el("animationClip").value = "-1";
   viewer?.setClip(-1); viewer?.setPlaying(false);
-  populateMotionPresets(); renderSequence(); refreshGaze();
-  el("patchStatus").textContent = edited.tracks.length ? "Your joint score is loaded for this routine." : "Factory routine. Add a joint score to customize it.";
+  // Static poses are absolute starting points. Leave them before loading a score.
+  if (wasStatic || score.baseOffsets) {
+    viewer?.resetPose();
+    for (const offset of score.baseOffsets ?? []) viewer?.setBoneOffset(offset.jointId, offset);
+    refreshJoints();
+  }
+  state.posePreset = "custom"; el("posePreset").value = "custom";
+  populateMotionPresets(); syncSelectedPart(); renderSequence(); refreshGaze();
+  el("patchStatus").textContent = edited ? "Your joint contours are loaded for this routine." : id === "none" ? "Create a loop joint by joint." : "Factory contours loaded for every joint. Edit any step.";
   publish(); updateVisual();
+}
+function applyStaticPose(id) {
+  rememberPatch();
+  setPlaying(false); state.clipPreview = false;
+  viewer?.setExternalPose(null); viewer?.resetPose();
+  refreshJoints();
+  const shape = getRoachStaticPose(id, state.joints, { seed: ++state.poseSeed });
+  for (const offset of shape.offsets) viewer?.setBoneOffset(offset.jointId, offset);
+  state.motion = normalizeRoachMotion({ ...ROACH_MOTION_DEFAULTS, tempo: state.motion.tempo, intensity: 1, presetId: "none", antennae: false, sequenceEnabled: false, tracks: [], staticScene: shape.scene });
+  state.posePreset = id; el("posePreset").value = id;
+  el("poseStatus").textContent = `${shape.label}. Held still; Sound Play and part dragging use this pose.`;
+  el("antennae").checked = false; el("sequenceEnabled").checked = false; el("animationClip").value = "-1";
+  el("intensity").value = "1"; el("intensityOut").value = "100%";
+  refreshJoints(); populateMotionPresets(); seek(0); syncSelectedPart(); publish(); updateVisual(); syncTransport();
 }
 async function loadModel(file) {
   if (!viewer) return;
@@ -296,11 +429,13 @@ function updateVisual() {
     viewer.setSceneState(sceneState);
   }
   const position = roachSequencePosition(time, state.motion);
+  const playheadX = 12 + (position.step + position.fraction) / 16 * 296;
+  el("contourPlayhead").setAttribute("x1", playheadX); el("contourPlayhead").setAttribute("x2", playheadX);
   el("timelinePositionOut").value = `${position.step + 1} / 16`;
   if (document.activeElement !== el("timelinePosition")) el("timelinePosition").value = String(position.step + position.fraction);
   for (const cell of el("sequenceSteps").children) cell.classList.toggle("is-current", state.motion.sequenceEnabled && Number(cell.dataset.step) === position.step);
   const motionLabel = state.clipPreview ? (el("animationClip").selectedOptions[0]?.textContent ?? "Clip preview") : preset.label;
-  el("stageMotion").textContent = `${motionLabel.toUpperCase()} / ${state.playing ? "PLAYING" : "PAUSED"}`;
+  el("stageMotion").textContent = `${(state.motion.staticScene ? (ROACH_STATIC_POSES.find(item => item.id === state.posePreset)?.label ?? "STATIC POSE") : motionLabel).toUpperCase()} / ${state.playing ? "ANIMATING" : state.soundPlaying ? "SOUND" : "PAUSED"}`;
   el("timelinePosition").disabled = state.clipPreview;
   el("sequenceEnabled").disabled = state.clipPreview;
   const index = state.joints.findIndex((part) => part.id === el("bodyPart").value);
@@ -308,6 +443,7 @@ function updateVisual() {
   else if (index >= 0) el("jointReadout").textContent = ["X", "Y", "Z"].map((axis, offset) => `${axis} ${Math.round(pose[index * 3 + offset])}°`).join(" · ");
 }
 function syncManualPose() {
+  state.posePreset = "custom"; el("posePreset").value = "custom";
   refreshJoints(); const part = selectedPart();
   for (const axis of ["x", "y", "z"]) {
     const value = part?.offset[axis] ?? 0;
@@ -324,9 +460,14 @@ function tick(now) {
 }
 function scheduleFrame() { if (!frame && !state.disposed && !document.hidden) frame = requestAnimationFrame(tick); }
 
+el("posePreset").replaceChildren(new Option("Custom / current pose", "custom"), ...ROACH_STATIC_POSES.map(item => new Option(item.label, item.id)), new Option("Random pose", "random"));
+el("posePreset").value = state.posePreset;
 el("soundPreset").replaceChildren(...ROACH_SOUND_PRESETS.map((preset) => new Option(preset.label, preset.id)));
 const defaultSound = ROACH_SOUND_PRESETS.find((preset) => JSON.stringify(preset.sound) === JSON.stringify(state.sound)) ?? ROACH_SOUND_PRESETS[0];
 if (defaultSound) { el("soundPreset").value = defaultSound.id; el("soundSummary").textContent = defaultSound.label; }
+el("tempo").value = String(state.motion.tempo); el("tempoOut").value = `${state.motion.tempo} BPM`;
+el("intensity").value = String(state.motion.intensity); el("intensityOut").value = `${Math.round(state.motion.intensity * 100)}%`;
+el("antennae").checked = state.motion.antennae;
 populateMotionPresets(); renderSequence(); syncSound(); el("sequenceEnabled").checked = state.motion.sequenceEnabled; updateVisual();
 try {
   viewer = createRoachViewer({ canvas: el("roachCanvas"), onStatus: setStatus, onRig: syncRig, onSelect: syncSelectedPart,
@@ -340,7 +481,7 @@ try {
   });
   viewer.setRenderBudget(quality[state.renderQuality]);
   Object.defineProperty(window, "roachSynth", { configurable: true, value: Object.freeze({ getState: () => ({
-    ...viewer.getState(), playing: state.playing, time: currentTime(), view: state.view, side: state.side,
+    ...viewer.getState(), playing: state.playing, soundPlaying: state.soundPlaying, posePreset: state.posePreset, sequenceView: state.sequenceView, time: currentTime(), view: state.view, side: state.side,
     motionSettings: structuredClone(state.motion), sound: { ...state.sound }, mappings: structuredClone(state.mappings),
     audio: audio.getState(), audioOn: state.audioOn, clipPreview: state.clipPreview,
     activePreset: state.activePreset, renderQuality: state.renderQuality,
@@ -359,7 +500,7 @@ el("audioButton").addEventListener("click", async () => {
   }
   state.audioStarting = true; el("audioButton").disabled = true; el("audioState").textContent = "starting";
   try {
-    await audio.enable({ time: currentTime(), playing: state.playing, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: state.sound });
+    await audio.enable({ time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: state.sound });
     if (state.disposed) return;
     const time = fallbackTime(); state.audioOn = true; publish({ time });
     el("audioButton").setAttribute("aria-pressed", "true"); el("audioState").textContent = "on";
@@ -370,6 +511,10 @@ el("audioButton").addEventListener("click", async () => {
   } finally { state.audioStarting = false; el("audioButton").disabled = false; }
 }, options);
 el("motionButton").addEventListener("click", () => setPlaying(!state.playing), options);
+el("soundPlayButton").addEventListener("click", () => { state.soundPlaying = !state.soundPlaying; publish(); syncTransport(); updateVisual(); }, options);
+el("posePreset").addEventListener("change", () => { if (el("posePreset").value !== "custom") applyStaticPose(el("posePreset").value); }, options);
+el("randomPose").addEventListener("click", () => applyStaticPose("random"), options);
+el("sequenceView").addEventListener("change", () => { state.sequenceView = el("sequenceView").value; renderContours(); }, options);
 for (const button of el("viewPresets").querySelectorAll("button")) button.addEventListener("click", () => selectView(button.dataset.view), options);
 el("sideToggle").addEventListener("click", () => {
   state.side = state.side === "left" ? "right" : "left";
@@ -382,7 +527,7 @@ el("tempo").addEventListener("input", () => {
   const oldTempo = state.motion.tempo; const time = currentTime(); state.motion.tempo = Number(el("tempo").value);
   el("tempoOut").value = `${state.motion.tempo} BPM`; seek(time * oldTempo / state.motion.tempo); publish();
 }, options);
-el("intensity").addEventListener("input", () => { state.motion.intensity = Number(el("intensity").value); el("intensityOut").value = `${Math.round(state.motion.intensity * 100)}%`; publish(); updateVisual(); }, options);
+el("intensity").addEventListener("input", () => { state.motion.intensity = Number(el("intensity").value); el("intensityOut").value = `${Math.round(state.motion.intensity * 100)}%`; syncStepEditor(); publish(); updateVisual(); }, options);
 el("antennae").addEventListener("change", () => { state.motion.antennae = el("antennae").checked; publish(); updateVisual(); }, options);
 el("sequenceEnabled").addEventListener("change", () => { state.motion.sequenceEnabled = el("sequenceEnabled").checked; rememberPatch(); publish(); updateVisual(); }, options);
 el("timelinePosition").addEventListener("input", () => seek(Number(el("timelinePosition").value) * state.motion.stepBeats * 60 / state.motion.tempo), options);
@@ -417,19 +562,14 @@ el("jointMotion").addEventListener("click", () => { const part = selectedPart();
 for (const id of ["motionAmount", "motionRate"]) el(id).addEventListener("input", () => changePartMotion(), options);
 el("motionAxis").addEventListener("change", () => changePartMotion(), options);
 el("addMapping").addEventListener("click", () => {
-  const part = selectedPart(); if (!part || state.mappings.length >= 81) return;
+  const part = selectedPart(); if (!part || state.mappings.length >= 128) return;
   const used = state.mappings.filter((route) => route.jointId === part.id).map((route) => route.source);
   state.mappings.push({ id: `route-${++routeSerial}`, jointId: part.id, source: sources.find((source) => !used.includes(source)) ?? "xyz", target: "pitch", amount: 0.5 });
   publish(); renderMappings();
 }, options);
 el("resetCamera").addEventListener("click", () => { viewer?.resetCamera(); refreshGaze(); }, options);
 el("showJoints").addEventListener("click", () => { const visible = el("showJoints").getAttribute("aria-pressed") !== "true"; viewer?.setSkeletonVisible(visible); el("showJoints").setAttribute("aria-pressed", String(visible)); }, options);
-el("resetPose").addEventListener("click", () => {
-  setPlaying(false); state.clipPreview = false; viewer?.setExternalPose(null); viewer?.resetPose();
-  state.motion = normalizeRoachMotion({ ...state.motion, presetId: "none", antennae: false, sequenceEnabled: false, tracks: [] });
-  el("antennae").checked = false; el("sequenceEnabled").checked = false; el("animationClip").value = "-1";
-  refreshJoints(); populateMotionPresets(); seek(0); syncSelectedPart(); publish(); updateVisual();
-}, options);
+el("resetPose").addEventListener("click", () => applyStaticPose("neutral"), options);
 el("animationClip").addEventListener("change", () => {
   const clip = Number(el("animationClip").value); state.clipPreview = clip >= 0;
   viewer?.setExternalPose(null); viewer?.setClip(clip); viewer?.setPlaying(state.clipPreview && state.playing);
@@ -457,16 +597,14 @@ el("nextPatch").addEventListener("click", () => changePatchBy(1), options);
 el("savePatch").addEventListener("click", () => {
   rememberPatch();
   try {
-    localStorage.setItem(patchStorageKey, JSON.stringify(Object.fromEntries(editedPatches)));
+    localStorage.setItem(patchStorageKey, JSON.stringify(Object.fromEntries([...editedPatches].map(([id, motion]) => [id, storagePatch(motion)]))));
     el("patchStatus").textContent = "Joint scores saved in this browser.";
   } catch { el("patchStatus").textContent = "Browser storage is unavailable. Your edits remain playable in this tab."; }
 }, options);
 el("restorePatch").addEventListener("click", () => {
   editedPatches.delete(state.motion.presetId);
-  state.motion.tracks = []; state.motion.sequenceEnabled = false;
-  el("sequenceEnabled").checked = false;
-  el("patchStatus").textContent = "Factory motion restored. Sound routes remain yours.";
-  renderSequence(); publish(); updateVisual();
+  setMotionPreset(state.motion.presetId, { factory: true, remember: false });
+  el("patchStatus").textContent = "Factory joint contours restored.";
 }, options);
 el("sequenceJoint").addEventListener("change", () => viewer?.selectBone(el("sequenceJoint").value), options);
 for (const button of el("sequenceAxes").querySelectorAll("button")) button.addEventListener("click", () => { state.sequenceAxis = button.dataset.axis; renderSequence(); }, options);
@@ -476,17 +614,22 @@ el("stepRotation").addEventListener("input", () => {
 }, options);
 el("captureStep").addEventListener("click", () => {
   const track = selectedTrack(true); const part = selectedPart(); if (!track || !part) return;
-  track.steps[state.selectedStep] = Math.max(-60, Math.min(60, track.steps[state.selectedStep] + part.offset[state.sequenceAxis]));
+  const gain = state.motion.trackMode === "replace" ? state.motion.intensity : 1;
+  if (gain <= 0) return;
+  track.steps[state.selectedStep] = Math.max(-180, Math.min(180, track.steps[state.selectedStep] + part.offset[state.sequenceAxis] / gain));
   viewer.setBoneOffset(part.id, { [state.sequenceAxis]: 0 }); refreshJoints();
   markScoreEdited(); syncManualPose();
 }, options);
 el("waveTrack").addEventListener("click", () => {
   const track = selectedTrack(true); if (!track) return;
+  delete track.samples; delete track.sourceSteps;
   track.steps = Array.from({ length: 16 }, (_, index) => Math.round(Math.sin(index * Math.PI / 8) * 18)); markScoreEdited();
 }, options);
 el("clearTrack").addEventListener("click", () => {
   const part = selectedPart(); if (!part) return;
-  state.motion.tracks = state.motion.tracks.filter((track) => track.jointId !== part.id || track.axis !== state.sequenceAxis);
+  const track = selectedTrack();
+  if (state.motion.trackMode === "replace" && track) { track.steps.fill(0); delete track.samples; delete track.sourceSteps; }
+  else state.motion.tracks = state.motion.tracks.filter((track) => track.jointId !== part.id || track.axis !== state.sequenceAxis);
   rememberPatch(); renderSequence(); publish(); updateVisual();
 }, options);
 el("dragAxis").addEventListener("change", () => viewer?.setDragAxis(el("dragAxis").value), options);

@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { loadSpellingPronunciations } from '../src/spelling-pronunciation.js';
+import { SPELLING_DIPHONE_ATLAS_URL } from '../src/spelling-diphone-atlas.js';
 import { RoachSynthDsp, ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS, createDefaultRoachMappings } from '../src/roach-synth-dsp.js';
 import { RoachSynthAudio, createRoachSpeechPlan } from '../src/roach-synth-audio.js';
-import { ROACH_MOTION_PRESETS, createRoachSceneState, writeRoachSceneState } from '../src/roach-synth-motion.js';
+import { ROACH_MOTION_PRESETS, ROACH_STATIC_POSES, getRoachStaticPose, bakeRoachPresetTracks, createRoachSceneState, writeRoachSceneState, writeRoachPose } from '../src/roach-synth-motion.js';
 import { getSharedAudioOutputManager } from '../src/audio-output-manager.js';
 
 const labels = ['body', 'abdomen', 'head', 'neck', 'wing_covers', 'left_antenna', 'right_antenna'];
@@ -10,6 +13,7 @@ for (const side of ['left', 'right']) for (const leg of ['front', 'middle', 'hin
   for (const segment of ['proximal', 'mid', 'distal']) labels.push(`${side}_${leg}_leg_${segment}`);
 }
 labels.push('left_front_foot', 'right_front_foot');
+labels.push('wing_cover_left', 'wing_cover_right', 'wing_hind_left', 'wing_hind_right');
 const joints = labels.map((name, i) => ({ id: `bone-${i}`, jointId: name, name,
   offset: { x: 0, y: 0, z: 0 }, motion: { enabled: false, axis: 'x', amplitude: 12, speed: .5 } }));
 const RATE = 24000;
@@ -29,6 +33,7 @@ function peak(samples) { return samples.reduce((largest, value) => Math.max(larg
 
 test('audio starts silent and has bounded release without stopping its transport clock', () => {
   assert.equal(peak(render(engine({ sound: { level: 0 } })).left), 0, 'zero master at first arm must not blip');
+  assert.equal(peak(render(engine({ playing: false, soundPlaying: true, sound: { level: 0 } })).left), 0, 'Sound Play respects a preselected zero master');
   const dsp = new RoachSynthDsp(RATE);
   dsp.update({ playing: true, joints });
   assert.equal(peak(render(dsp).left), 0);
@@ -52,6 +57,10 @@ test('rendering is identical across arbitrary block boundaries and needs no disp
   assert.deepEqual(standard.left, odd.left); assert.deepEqual(standard.right, odd.right);
   assert.equal(a.telemetry.renderedFrames, RATE * .75);
   assert.ok(a.time > .749);
+  const staticA = engine({ playing: false, soundPlaying: true });
+  const staticB = engine({ playing: false, soundPlaying: true });
+  assert.deepEqual(render(staticA, .75, 128).left, render(staticB, .75, 73).left);
+  assert.equal(staticA.time, 0); assert.ok(staticA.soundTime > .749);
 });
 
 test('six mechanical layers produce independent signal; voice is reserved for words', () => {
@@ -71,11 +80,15 @@ test('six mechanical layers produce independent signal; voice is reserved for wo
   for (let i = 1; i < outputs.length; i += 1) assert.ok(difference(outputs[0], outputs[i]) > .001);
 });
 
-test('all 27 joints have editable defaults and each modulation target changes actual output', () => {
+test('all 31 joints have editable defaults and each modulation target changes actual output', () => {
   const defaults = createDefaultRoachMappings(joints);
-  assert.equal(defaults.length, 27); assert.equal(new Set(defaults.map(({ jointId }) => jointId)).size, 27);
+  assert.equal(defaults.length, 31); assert.equal(new Set(defaults.map(({ jointId }) => jointId)).size, 31);
   assert.equal(defaults[2].target, 'percussion'); assert.equal(defaults[4].target, 'wingRate');
   assert.equal(defaults[7].target, 'filter');
+  const allAxes = defaults.flatMap((mapping) => ['x', 'y', 'z'].map((source) => ({ ...mapping, source })));
+  const fullyRouted = engine({ mappings: allAxes });
+  assert.equal(fullyRouted.mappings.length, 93, 'all 31 XYZ routes fit the fixed mapping budget');
+  assert.equal(fullyRouted.jointKinds[29], 1, 'hind wings remain wings, not hind legs');
   for (const { id } of ROACH_MOD_TARGETS) {
     const outputs = [-1, 1].map((amount) => {
       const dsp = engine({ joints: joints.map((joint, i) => i ? joint : { ...joint, offset: { x: 28, y: 0, z: 0 } }),
@@ -118,7 +131,7 @@ test('armed paused direct manipulation excites leg, head, wing and antenna witho
 });
 
 test('grounding calibration is preserved as a neutral sound baseline', () => {
-  const settings = { playing: false, motion: { presetId: 'none', antennae: false }, sound: { drone: .6 } };
+  const settings = { playing: false, soundPlaying: true, motion: { presetId: 'none', antennae: false }, sound: { drone: .6 } };
   const plain = engine(settings);
   const grounded = engine({ ...settings, joints: joints.map((joint) => ({ ...joint, restOffset: { x: 75, y: -35, z: 44 } })) });
   assert.equal(grounded.joints[7].restOffset.x, 75);
@@ -127,6 +140,23 @@ test('grounding calibration is preserved as a neutral sound baseline', () => {
   assert.deepEqual(calibrated.joints[7].gaitPose, gaitPose);
   assert.notEqual(calibrated.joints[7].gaitPose.front, gaitPose.front, 'the audio state owns its calibration arrays');
   assert.deepEqual(render(plain, .4).left, render(grounded, .4).left, 'neutral ground pose must not bias any mapped parameter');
+});
+
+test('joint collision metadata is bounded, immutable and refreshed when a same-ID rig changes', () => {
+  const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  const body = { ...joints[0], kinematics: { position: [0, 0, 0], quaternion: [0, 0, 0, 1], scale: [1, 1, 1], parentMatrix: identity, footTip: null },
+    poseLimits: { x: [-45, 45], y: [-45, 45], z: [-45, 45] },
+    bodyEllipsoid: { jointId: joints[0].id, center: [0, 0, 0], radii: [1, 2, 1] },
+    collisionSamples: Array.from({ length: 20 }, (_, i) => [i, 0, 0]) };
+  const dsp = engine({ playing: false, joints: [body] });
+  assert.equal(dsp.joints[0].collisionSamples.length, 8);
+  const original = dsp.joints[0];
+  body.kinematics.position[0] = 100; body.poseLimits.x[1] = 5; body.bodyEllipsoid.radii[0] = 4;
+  assert.equal(original.kinematics.position[0], 0); assert.equal(original.poseLimits.x[1], 45); assert.equal(original.bodyEllipsoid.radii[0], 1);
+  dsp.update({ joints: [body] });
+  assert.notEqual(dsp.joints[0], original, 'a changed physical rig must invalidate joint-identity geometry caches');
+  assert.equal(dsp.joints[0].kinematics.position[0], 100);
+  assert.equal(peak(render(dsp, .2).left), 0, 'geometry reinitialization must not be mistaken for a manual drag');
 });
 
 test('grounded foot events follow shared contacts, stay quiet in flight and never fire on stationary offsets', () => {
@@ -187,19 +217,98 @@ test('all 24 animation patches respond and factory sound has a rhythmic transien
   assert.ok(levels[Math.floor(levels.length * .9)] > levels[Math.floor(levels.length * .2)] * 5, 'contact accents should rise clearly above motion texture');
 });
 
-test('explicit drone can sustain while animation is paused and fades when its own level is removed', () => {
-  const dsp = engine({ playing: false, sound: { drone: .6 } });
+test('Sound Play makes a static pose audible without advancing animation, and stops independently', () => {
+  const dsp = engine({ playing: false, soundPlaying: false, motion: { presetId: 'none', antennae: false } });
+  assert.equal(peak(render(dsp, .2).left), 0);
+  dsp.update({ soundPlaying: true });
+  const output = render(dsp, 1).left;
+  assert.ok(rms(output) > .001);
+  assert.equal(dsp.time, 0); assert.equal(dsp.contactEvents, 0, 'pose grains are not fictitious ground contacts');
+  assert.ok(dsp.soundTime > .999);
+  dsp.update({ playing: true }); render(dsp, .2);
+  dsp.update({ soundPlaying: false });
+  const stoppedSoundTime = dsp.soundTime;
+  const tail = render(dsp, .8).left;
+  assert.equal(dsp.soundTime, stoppedSoundTime); assert.ok(dsp.time > .99);
+  assert.ok(rms(tail.slice(-RATE / 10)) < 1e-6, 'a still animation must not keep the pose bed sounding');
+  dsp.update({ motion: { presetId: 'side_run' } });
+  assert.ok(rms(render(dsp, .7).left) > .001, 'Animation Play retains its own movement sounds');
+});
+
+test('static poses and live mappings change the pulsed sound bed with its animation clock frozen', () => {
+  const outputs = [0, 28, -35, 65].map((angle) => {
+    const dsp = engine({ playing: false, soundPlaying: true, motion: { presetId: 'none', antennae: false },
+      joints: joints.map((joint, i) => ({ ...joint, offset: { x: angle * (i % 3 ? 1 : -.6), y: angle * .2, z: 0 } })) });
+    const signal = render(dsp, 1).left;
+    assert.equal(dsp.time, 0); assert.ok(signal.every(Number.isFinite)); assert.ok(rms(signal) > .001);
+    return signal;
+  });
+  for (let i = 1; i < outputs.length; i += 1) assert.ok(difference(outputs[0], outputs[i]) > .0005);
+  const dsp = engine({ playing: false, soundPlaying: true, motion: { presetId: 'none', antennae: false } });
+  const before = render(dsp, .4).left;
+  dsp.update({ sound: { pitch: 360, rhythm: 3.5, brightness: .9, crunch: .8 },
+    joints: joints.map((joint, i) => i === 4 ? { ...joint, offset: { x: 20, y: 45, z: 35 } } : joint) });
+  const after = render(dsp, .4).left;
+  assert.equal(dsp.time, 0); assert.equal(dsp.soundPlaying, true);
+  assert.ok(difference(before, after) > .001); assert.ok(peak(after) < 1);
+});
+
+test('all 24 static pose presets produce distinct sound without moving their body or animation clock', () => {
+  assert.equal(ROACH_STATIC_POSES.length, 24);
+  const outputs = [];
+  for (const preset of ROACH_STATIC_POSES) {
+    const shape = getRoachStaticPose(preset.id, joints);
+    const posed = joints.map((joint) => ({ ...joint, offset: shape.offsets.find((offset) => offset.jointId === joint.id) }));
+    const dsp = engine({ playing: false, soundPlaying: true, joints: posed,
+      motion: { presetId: 'none', antennae: false, staticScene: shape.scene } });
+    const initialPose = new Float32Array(dsp.pose);
+    const output = render(dsp, .9).left;
+    assert.equal(dsp.time, 0); assert.equal(dsp.contactEvents, 0);
+    assert.deepEqual(dsp.pose, initialPose, `${preset.id} moved while only Sound Play was running`);
+    assert.ok(rms(output) > .0005, `${preset.id} has no static-pose sound`);
+    assert.ok(output.every(Number.isFinite)); assert.ok(peak(output) < .8);
+    outputs.push(output);
+  }
+  const unique = outputs.filter((output, i) => outputs.slice(0, i).every((previous) => difference(output, previous) > .00001));
+  assert.equal(unique.length, 24);
+});
+
+test('baked joint contours and scene frames survive the audio boundary without double-applying factory motion', () => {
+  const motion = bakeRoachPresetTracks('side_run', joints);
+  const dsp = engine({ motion, time: .35 });
+  assert.equal(dsp.motion.trackMode, 'replace'); assert.equal(dsp.motion.tracks.length, 93);
+  assert.equal(dsp.motion.tracks[0].samples.length, 64); assert.equal(dsp.motion.sceneFrames.length, 64);
+  const expected = writeRoachPose(.35, motion, joints, new Float32Array(joints.length * 3));
+  dsp.control();
+  assert.deepEqual(dsp.pose.slice(0, expected.length), expected);
   assert.ok(rms(render(dsp, .6).left) > .001);
+});
+
+test('even a drone preset is silent on Audio arm until a sound or animation transport starts', () => {
+  const sound = { drone: .6, feet: 0, hiss: 0, shell: 0, wing: 0, growl: 0 };
+  const dsp = engine({ playing: false, soundPlaying: false, sound });
+  assert.equal(peak(render(dsp, .3).left), 0);
+  dsp.update({ soundPlaying: true }); assert.ok(rms(render(dsp, .6).left) > .001);
   dsp.update({ sound: { drone: 0 } });
   assert.ok(rms(render(dsp, 1).left.slice(-RATE / 10)) < 1e-6);
   assert.equal(dsp.time, 0);
+});
+
+test('Sound Play stays muted with Audio off while both independent clocks keep their intended state', () => {
+  const dsp = engine({ enabled: false, playing: false, soundPlaying: true });
+  assert.equal(peak(render(dsp, .4).left), 0); assert.equal(dsp.time, 0); assert.ok(dsp.soundTime > .399);
+  dsp.update({ enabled: true }); assert.ok(rms(render(dsp, .4).left) > .001);
+  dsp.update({ enabled: false }); const muted = render(dsp, .6).left;
+  assert.ok(rms(muted.slice(-RATE / 10)) < 1e-7); assert.equal(dsp.soundPlaying, true); assert.equal(dsp.playing, false);
+  dsp.update({ soundPlaying: false, enabled: true });
+  assert.ok(rms(render(dsp, .5).left.slice(-RATE / 10)) < 1e-6);
 });
 
 test('live edits preserve phase and remain bounded with hostile parameters and mapping counts', () => {
   const dsp = engine(); render(dsp, .2); const time = dsp.time;
   dsp.update({ sound: { pitch: Infinity, resonance: NaN, crunch: 500, level: 8, pan: -500 },
     mappings: Array.from({ length: 500 }, () => ({ jointId: joints[0].id, source: 'xyz', target: 'pitch', amount: 1e9 })) });
-  assert.equal(dsp.time, time); assert.ok(dsp.mappings.length <= 96);
+  assert.equal(dsp.time, time); assert.ok(dsp.mappings.length <= 128);
   const output = render(dsp, .8);
   assert.ok(output.left.every(Number.isFinite)); assert.ok(output.right.every(Number.isFinite));
   assert.ok(peak(output.left) < 1); assert.ok(rms(output.right.slice(-2000)) < rms(output.left.slice(-2000)) * .001);
@@ -232,6 +341,34 @@ test('phoneme speech is bounded, capturable, and independent of paused motion', 
   assert.ok(rms(spoken.slice(-RATE / 10)) < 1e-6);
   assert.equal(dsp.time, 0);
   assert.ok(createRoachSpeechPlan('cockroach '.repeat(1000)).length <= 96);
+});
+
+test('the shared preset bank shapes actual KAL words and vowel coloring preserves the spoken source', async () => {
+  const bytes = readFileSync(SPELLING_DIPHONE_ATLAS_URL); let atlas;
+  for (let cursor = 12; cursor + 8 < bytes.length;) {
+    const size = bytes.readUInt32LE(cursor + 4);
+    if (bytes.toString('ascii', cursor, cursor + 4) === 'data') {
+      atlas = Float32Array.from({ length: size / 2 }, (_, i) => bytes.readInt16LE(cursor + 8 + i * 2) / 32768); break;
+    }
+    cursor += 8 + size + size % 2;
+  }
+  assert.ok(atlas?.length > 100000);
+  const text = "hi, I'm a cockroach and I live in your house";
+  const pronunciations = await loadSpellingPronunciations(text, { fetcher: async (url) => ({ ok: true, text: () => readFileSync(url, 'utf8') }) });
+  const phones = createRoachSpeechPlan(text, pronunciations);
+  assert.ok(phones.length > 20);
+  const duration = Math.ceil(phones.reduce((sum, phone) => sum + phone.duration, 0) / .72 + .5);
+  function words(sound) {
+    const dsp = engine({ playing: false, soundPlaying: false, mappings: [], sound });
+    dsp.setAtlas(atlas, 16000); assert.equal(dsp.speak(phones), true);
+    const output = render(dsp, duration).left;
+    assert.ok(output.every(Number.isFinite)); assert.ok(peak(output) < .95); assert.ok(rms(output) > .006);
+    assert.equal(dsp.time, 0); assert.equal(dsp.soundTime, 0);
+    return output;
+  }
+  const presets = ROACH_SOUND_PRESETS.map((preset) => words(preset.sound));
+  for (let i = 1; i < presets.length; i += 1) assert.ok(difference(presets[0], presets[i]) > .001, `${ROACH_SOUND_PRESETS[i].id} does not shape words`);
+  assert.ok(difference(words({ vowel: 0 }), words({ vowel: 1 })) > .0001, 'vowel must affect spoken samples as well as synthesized drones');
 });
 
 test('replacing or muting speech releases the old phrase without reviving it on re-enable', () => {
@@ -269,7 +406,7 @@ function runtimeFixture() {
 
 test('explicit Audio creates/resumes before module await; disable during startup cannot rearm', async () => {
   const fixture = runtimeFixture(); const audio = new RoachSynthAudio({ runtime: fixture.runtime });
-  audio.update({ playing: true, time: 4 }); audio.interact({ jointId: 'head', active: true, velocity: 1 });
+  audio.update({ playing: true, soundPlaying: true, time: 4 }); audio.interact({ jointId: 'head', active: true, velocity: 1 });
   assert.equal(fixture.contexts.length, 0, 'direct interaction cannot silently create or arm audio');
   const start = audio.enable();
   assert.equal(fixture.contexts.length, 1); assert.equal(fixture.contexts[0].resumeCount, 1);
@@ -281,6 +418,11 @@ test('explicit Audio creates/resumes before module await; disable during startup
   audio.interact({ jointId: 'head', active: true, velocity: 400 });
   assert.deepEqual(audio.node.messages.at(-1), { type: 'interact', interaction: { jointId: 'head', active: true, velocity: 1 } });
   fixture.contexts[0].currentTime = 2; assert.equal(audio.getTime(), 6);
+  audio.update({ playing: false }); audio.update({ soundPlaying: false });
+  assert.equal(audio.getState().soundPlaying, false);
+  audio.update({ soundPlaying: true }); fixture.contexts[0].currentTime = 3;
+  assert.equal(audio.getTime(), 6, 'Sound Play must not advance or restart the animation clock');
+  assert.equal(audio.getState().soundPlaying, true);
   assert.equal(getSharedAudioOutputManager(fixture.runtime).connectionCount(), 1);
   audio.dispose(); assert.equal(fixture.contexts[0].state, 'closed');
   assert.equal(getSharedAudioOutputManager(fixture.runtime).connectionCount(), 0);

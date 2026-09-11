@@ -45,16 +45,16 @@ export class RoachSynthAudio {
     this.enabled = false; this.ready = false; this.disposed = false;
     this.generation = 0; this.speechGeneration = 0; this.buildPromise = null;
     this.atlasPromise = null; this.atlasReady = false; this.speechAbort = null;
-    this.state = { playing: false, sound: { ...ROACH_SOUND_DEFAULTS } };
+    this.state = { playing: false, soundPlaying: false, sound: { ...ROACH_SOUND_DEFAULTS } };
     this.anchorTime = 0; this.anchorClock = this.clock();
-    this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, renderedFrames: 0 };
+    this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, renderedFrames: 0, soundTime: 0 };
   }
   clock() { return this.context ? this.context.currentTime : finite(this.runtime.performance?.now?.(), Date.now()) / 1000; }
   getTime() { return this.anchorTime + (this.state.playing ? Math.max(0, this.clock() - this.anchorClock) : 0); }
   getState() {
     return { ...this.telemetry, enabled: this.enabled, ready: this.ready,
       contextState: this.context?.state ?? 'uninitialized', time: this.getTime(),
-      playing: this.state.playing, disposed: this.disposed };
+      playing: this.state.playing, soundPlaying: this.state.soundPlaying, disposed: this.disposed };
   }
   post(data, transfer) { if (this.node && !this.disposed) this.node.port.postMessage(data, transfer ?? []); }
   postState(changes) {
@@ -69,6 +69,7 @@ export class RoachSynthAudio {
       if ('playing' in changes) this.state.playing = changes.playing === true;
       next.time = this.anchorTime; next.playing = this.state.playing;
     }
+    if ('soundPlaying' in changes) next.soundPlaying = changes.soundPlaying === true;
     if (changes.sound) next.sound = normalizeRoachSound({ ...this.state.sound, ...changes.sound });
     Object.assign(this.state, next);
     this.postState(next);
@@ -108,7 +109,7 @@ export class RoachSynthAudio {
         if (this.disposed) return;
         if (data?.type === 'telemetry') {
           this.telemetry = { rms: finite(data.rms), peak: finite(data.peak), speechEnvelope: finite(data.speechEnvelope),
-            renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime),
+            renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             interactionPeak: finite(data.interactionPeak) };
           safeCall(this.onTelemetry, { ...this.getState() });

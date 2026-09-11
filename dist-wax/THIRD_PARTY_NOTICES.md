@@ -6,8 +6,9 @@ Roach Synth adapts **Cockroach (3D photogrammetry scan)** by
 Kathrin&Christian (extracrispi), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 [Original model](https://sketchfab.com/3d-models/cockroach-3d-photogrammetry-scan-cff6ea065e2e4029be5ba20f03937b63),
 retrieved from the Allen Institute for AI's public Objaverse collection.
-Morphazoid preserves its geometry and textures while adding approximate rigid
-joint pivots and a gentle motion demonstration. The preview image and catalogue
+Morphazoid preserves the on-disk scan while adding approximate rigid joint
+pivots. Runtime adaptations split the textured wing covers and add two authored
+veined hindwing fans with independent hinges. The preview image and catalogue
 icon are renders of this adapted model. Full attribution, exact hashes, and
 modification details are in `assets/roach-synth/SOURCE.LICENSE.txt` and
 `assets/roach-synth/rig-manifest.json`.

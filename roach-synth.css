@@ -76,7 +76,8 @@ body.roach-synth-page {
 .roach-mapping .mapping-remove { padding: 0; min-width: 24px; background: transparent; border: 0; color: var(--muted); cursor: pointer; }
 #jointReadout { color: var(--accent); font-variant-numeric: tabular-nums; }
 #jointMotion { margin-bottom: 12px; }
-#resetPose { width: 100%; margin-top: 12px; }
+.roach-pose-actions { display: flex; gap: 8px; }
+.roach-pose-actions .mini-action { flex: 1; }
 #modelFile { width: 100%; min-width: 0; font-size: 10px; }
 #modelFile::file-selector-button { border: 1px solid var(--line-strong); background: var(--panel-high); color: var(--ink); padding: 8px; margin: 0 8px 6px 0; }
 @media (max-width: 960px) {
@@ -103,7 +104,7 @@ body.roach-synth-page {
   .roach-notes { margin-left: 14px; margin-right: 14px; }
 }
 @media (pointer: coarse) {
-  .roach-synth-page #audioButton, .roach-synth-page [data-primary-transport] { min-width: 48px; min-height: 48px; }
+  .roach-synth-page #audioButton, .roach-synth-page [data-primary-transport], .roach-synth-page #soundPlayButton { min-width: 48px; min-height: 48px; }
   .roach-panel select, .roach-panel input[type="range"], .roach-panel .mini-action, .roach-stage-toolbar button, .roach-interaction-tools select, .roach-interaction-tools button, .roach-check, .roach-step, .roach-advanced summary, .roach-notes summary { min-height: 44px; }
   .roach-mapping .mapping-remove { min-width: 32px; }
 }
@@ -116,3 +117,15 @@ body.roach-synth-page {
   .roach-heading h1 { font-size: 20px; }
   .roach-heading > span { display: none; }
 }
+
+.roach-contours { display: block; width: 100%; height: auto; min-height: 140px; margin-top: 8px; overflow: visible; background: var(--bg-deep); touch-action: pan-y; }
+.roach-contours .contour-grid { stroke: var(--line); stroke-width: 1; }
+.roach-contours .contour-zero { stroke: var(--faint); stroke-dasharray: 3 5; }
+.roach-contours .contour-path { fill: none; stroke-width: 1.5; }
+.roach-contours .contour-path.is-selected { stroke-width: 2.5; }
+.roach-contours .contour-point { cursor: ns-resize; stroke: var(--bg-deep); stroke-width: 1.5; }
+.roach-contours .contour-point.is-selected { stroke: var(--ink); stroke-width: 2; }
+#contourPlayhead { stroke: var(--ink); stroke-width: 1; opacity: .65; pointer-events: none; }
+.roach-contour-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 9px; margin: 8px 0; }
+.roach-contour-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.roach-contour-legend i { display: inline-block; width: 12px; height: 2px; background: currentColor; }
