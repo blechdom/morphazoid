@@ -65,6 +65,12 @@ runs the shared motion clock independently. Camera fitting occurs on loading,
 explicit view selection or Fit; zoom has explicit +/− controls rather than
 pinch, wheel or pose-driven refitting.
 
+A fixed 20-frame output lookahead (0.42 ms at 48 kHz) protects dense mixtures.
+The guard conservatively bounds a four-times windowed-sinc reconstruction,
+including peaks between samples, with preallocated buffers and a fast path for
+quiet signals. Ordinary low-level samples pass unchanged after the fixed delay.
+This matches the offline headroom check; it is not a certified broadcast meter.
+
 Speech reuses Morphazoid's locally bundled KAL16 atlas and pronunciation
 dictionary with their existing attribution. The talking bug, growls and
 unfurling textures are creative sound design. No ultrasound is output. Automated

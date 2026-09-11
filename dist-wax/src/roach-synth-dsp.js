@@ -15,6 +15,61 @@ const EMPTY_PHONES = Object.freeze([]);
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, finite(value, low)));
 const clean = (value) => Number.isFinite(value) && Math.abs(value) > 1e-24 ? value : 0;
+// Absolute polyphase taps of the 81-tap, 4x Kaiser-5 windowed-sinc interpolator
+// (cutoff .25 Nyquist, unity DC gain). This is the same reconstruction used by
+// the offline 4x peak checks, not a claim of certified broadcast true-peak I/O.
+const RECONSTRUCTION_TAPS = [
+  [0.0011305975791844614,0.0029265141089618871,0.0059320518437837155,0.010605090076805452,0.017579165251157443,0.027866916359520887,0.043423086442114837,0.068972338798174965,0.1201343501545469,0.29654281960437512,0.89963257101020833,0.17397774297154042,0.089283348532046142,0.054425491068782507,0.034795254750361118,0.022219885567699757,0.01375395907063175,0.0080261254612654931,0.0042523190668551048,0.0019016679348927712],
+  [0.0021031678617178758,0.0050185309234718201,0.0097908339711988927,0.017115155028976113,0.02798327701095811,0.044051484099836259,0.068688534985681365,0.11058973007292544,0.20188442282305527,0.63347608687987322,0.63347608687987322,0.20188442282305527,0.11058973007292544,0.068688534985681365,0.044051484099836259,0.02798327701095811,0.017115155028976113,0.0097908339711988927,0.0050185309234718201,0.0021031678617178758],
+  [0.0019016679348927712,0.0042523190668551048,0.0080261254612654931,0.01375395907063175,0.022219885567699757,0.034795254750361118,0.054425491068782507,0.089283348532046142,0.17397774297154042,0.89963257101020833,0.29654281960437512,0.1201343501545469,0.068972338798174965,0.043423086442114837,0.027866916359520887,0.017579165251157443,0.010605090076805452,0.0059320518437837155,0.0029265141089618871,0.0011305975791844614],
+];
+const RECONSTRUCTION_BOUND = .9;
+const RECONSTRUCTION_SAFE_SAMPLE = RECONSTRUCTION_BOUND / Math.max(...RECONSTRUCTION_TAPS.map((phase) => phase.reduce((sum, tap) => sum + tap, 0)));
+class ReconstructionGuard {
+  constructor() {
+    this.inputL = new Float64Array(32); this.inputR = new Float64Array(32);
+    this.absoluteL = new Float64Array(32); this.absoluteR = new Float64Array(32);
+    this.gains = new Float64Array(32).fill(1); this.dangerous = new Uint8Array(32);
+    this.cursor = 0; this.dangerCount = 0; this.left = 0; this.right = 0;
+    this.delayFrames = 20;
+  }
+  sample(left, right) {
+    const cursor = this.cursor;
+    this.inputL[cursor] = left; this.inputR[cursor] = right;
+    this.absoluteL[cursor] = Math.abs(left); this.absoluteR[cursor] = Math.abs(right);
+    this.gains[cursor] = 1;
+    const dangerous = Math.max(Math.abs(left), Math.abs(right)) > RECONSTRUCTION_SAFE_SAMPLE ? 1 : 0;
+    this.dangerCount += dangerous - this.dangerous[cursor]; this.dangerous[cursor] = dangerous;
+    // The common case needs only the ring delay: no reconstruction arithmetic.
+    if (this.dangerCount) {
+      const center = (cursor - 10) & 31;
+      // Phase zero is an impulse (other taps <4e-17). Rounded upward to keep a
+      // conservative margin without spending 21 multiplies on numerical zeros.
+      let bound = Math.max(this.absoluteL[center], this.absoluteR[center]) * 1.000637 + 1e-14;
+      for (let phase = 0; phase < 3; phase += 1) {
+        const taps = RECONSTRUCTION_TAPS[phase]; let sumL = 0; let sumR = 0;
+        for (let i = 0; i < 20; i += 1) {
+          const index = (cursor - i) & 31;
+          sumL += taps[i] * this.absoluteL[index]; sumR += taps[i] * this.absoluteR[index];
+        }
+        bound = Math.max(bound, sumL, sumR);
+      }
+      if (bound > RECONSTRUCTION_BOUND) {
+        const gain = RECONSTRUCTION_BOUND / bound;
+        // Every input contributing to this window must respect its bound.
+        // A sample is emitted only after ALL its future windows were checked.
+        // Thus |sum(h*x*gain)| <= sum(|h*x|)*gain <= .9, even as gain varies.
+        for (let i = 0; i <= this.delayFrames; i += 1) {
+          const index = (cursor - i) & 31;
+          this.gains[index] = Math.min(this.gains[index], gain);
+        }
+      }
+    }
+    const delayed = (cursor - this.delayFrames) & 31;
+    this.left = this.inputL[delayed] * this.gains[delayed]; this.right = this.inputR[delayed] * this.gains[delayed];
+    this.cursor = (cursor + 1) & 31;
+  }
+}
 
 export const ROACH_SOUND_DEFAULTS = Object.freeze({
   level: 0.5, hiss: 0.22, shell: 0.46, wing: 0.28, voice: 0.78,
@@ -206,6 +261,7 @@ export class RoachSynthDsp {
     this.smoothing = 1 - Math.exp(-1 / (this.sampleRate * .022)); this.gateSmoothing = 1 - Math.exp(-1 / (this.sampleRate * .028));
     this.speechModes = Array.from({length:3},resonator);
     this.mixEnvelope = 0; this.mixAttack = 1 - Math.exp(-1 / (this.sampleRate * .0015)); this.mixRelease = 1 - Math.exp(-1 / (this.sampleRate * .085));
+    this.outputGuard = new ReconstructionGuard();
     this.filterL = 0; this.filterR = 0; this.dcL = 0; this.dcR = 0; this.previousL = 0; this.previousR = 0; this.randomState = 0x756d4f21;
     this.atlas = null; this.atlasRate = 16000; this.phoneQueue = EMPTY_PHONES; this.phoneIndex = 0;
     this.phonePosition = 0; this.phone = null; this.speechEnvelope = 0; this.speechGain = 0; this.speechTarget = 0; this.pendingSpeech = null;
@@ -455,7 +511,8 @@ export class RoachSynthDsp {
       this.dcL=clean(this.filterL-this.previousL+this.dcL*.997); this.dcR=clean(this.filterR-this.previousR+this.dcR*.997);
       this.previousL=this.filterL; this.previousR=this.filterR;
       const gain=this.master*s.level*1.25;
-      const l=Math.tanh(this.dcL*gain); const r=Math.tanh(this.dcR*gain);
+      this.outputGuard.sample(Math.tanh(this.dcL*gain),Math.tanh(this.dcR*gain));
+      const l=this.outputGuard.left; const r=this.outputGuard.right;
       left[sampleIndex]=Number.isFinite(l)?l:0; right[sampleIndex]=Number.isFinite(r)?r:0;
       energy+=l*l+r*r; peak=Math.max(peak,Math.abs(l),Math.abs(r));
       if(this.interactionActive) this.interactionPeak=Math.max(this.interactionPeak,Math.abs(l),Math.abs(r));

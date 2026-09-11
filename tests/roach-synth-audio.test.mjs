@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { loadSpellingPronunciations } from '../src/spelling-pronunciation.js';
 import { SPELLING_DIPHONE_ATLAS_URL } from '../src/spelling-diphone-atlas.js';
 import { RoachSynthDsp, ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS, createDefaultRoachMappings, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId } from '../src/roach-synth-dsp.js';
-import { RoachSynthAudio, createRoachSpeechPlan } from '../src/roach-synth-audio.js';
+import { RoachSynthAudio, createRoachSpeechPlan, ROACH_RECORDINGS } from '../src/roach-synth-audio.js';
 import { ROACH_MOTION_PRESETS, ROACH_STATIC_POSES, getRoachStaticPose, bakeRoachPresetTracks, createRoachSceneState, writeRoachSceneState, writeRoachPose } from '../src/roach-synth-motion.js';
 import { getSharedAudioOutputManager } from '../src/audio-output-manager.js';
 
@@ -34,6 +34,25 @@ function recordingFixture() {
     data: Float32Array.from({ length: RATE / 2 }, (_, i) => (Math.sin(i * 1.31 + k) + Math.sin(i * .417)) * .05) }));
 }
 function peak(samples) { return samples.reduce((largest, value) => Math.max(largest, Math.abs(value)), 0); }
+function reconstructedPeak4x(samples) {
+  // Independent windowed-sinc construction, rather than copying the guard's
+  // absolute polyphase table; includes interpolation ringing beyond both ends.
+  function bessel0(value) {
+    let term = 1; let sum = 1;
+    for (let i = 1; i < 30; i += 1) { term *= value * value / (4 * i * i); sum += term; }
+    return sum;
+  }
+  const taps = Float64Array.from({ length: 81 }, (_, i) => {
+    const x = (i - 40) / 4; const sinc = x === 0 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x);
+    return sinc * bessel0(5 * Math.sqrt(1 - ((i - 40) / 40) ** 2)) / bessel0(5);
+  });
+  const scale = 4 / taps.reduce((sum, value) => sum + value, 0);
+  const reconstructed = new Float64Array(samples.length * 4 + 81);
+  for (let i = 0; i < samples.length; i += 1) for (let tap = 0; tap < taps.length; tap += 1) {
+    reconstructed[i * 4 + tap] += samples[i] * taps[tap] * scale;
+  }
+  return peak(reconstructed);
+}
 
 function solo(groupId, source, level = 1) {
   return createDefaultRoachBodyMix().map((row) => ({ ...row, source: row.groupId === groupId ? source : row.source, level: row.groupId === groupId ? level : 0 }));
@@ -248,6 +267,58 @@ test('all group sources at hostile limits keep fixed storage, headroom and finit
   assert.equal(dsp.recordings.voices, recordingPool);
   dsp.update({ enabled: false, soundPlaying: false, playing: false, resetActivity: true }); render(dsp, .8);
   assert.ok(peak(render(dsp, .1).left) < 1e-7);
+});
+
+test('sixteen coherent real recording grains retain headroom at maximum accepted mixer gain', () => {
+  const dsp = engine({ playing: false, soundPlaying: true, motion: { presetId: 'none', antennae: false },
+    bodyMix: createDefaultRoachBodyMix().map((row) => ({ ...row, source: 'rustle', level: 1 })),
+    sound: { level: .8, brightness: 1, crunch: 0, voice: 0 } });
+  dsp.setSampleBank(ROACH_RECORDINGS.map(({ id, url, cues }) => {
+    const bytes = readFileSync(url);
+    assert.equal(bytes.toString('ascii', 36, 40), 'data');
+    const data = Float32Array.from({ length: bytes.readUInt32LE(40) / 2 }, (_, i) => bytes.readInt16LE(44 + i * 2) / 32768);
+    return { id, cues, data, sampleRate: bytes.readUInt32LE(24) };
+  }));
+  render(dsp, .15);
+  let largest = 0; let guarded = false;
+  const outputL = []; const outputR = [];
+  for (let burst = 0; burst < 8; burst += 1) {
+    for (let group = 0; group < 8; group += 1) dsp.recordings.trigger(1, 1, .5, group);
+    const signal = render(dsp, .04);
+    for (const channel of [signal.left, signal.right]) {
+      assert.ok(channel.every(Number.isFinite));
+      largest = Math.max(largest, peak(channel));
+    }
+    outputL.push(...signal.left); outputR.push(...signal.right);
+    guarded ||= dsp.outputGuard.gains.some((gain) => gain < 1);
+  }
+  assert.ok(dsp.recordings.events >= 16, 'the stress case must fill all sixteen group-owned voices');
+  assert.ok(guarded, 'the real recordings must exercise reconstruction protection');
+  assert.ok(largest <= .9, `coherent grains exceeded the reserved headroom: ${largest}`);
+  dsp.update({ enabled: false, soundPlaying: false, resetActivity: true });
+  const tail = render(dsp, .8); outputL.push(...tail.left); outputR.push(...tail.right);
+  assert.ok(reconstructedPeak4x(outputL) <= .900001);
+  assert.ok(reconstructedPeak4x(outputR) <= .900001);
+  assert.ok(peak(render(dsp, .1).left) < 1e-7);
+});
+
+test('reconstruction guard preserves ordinary samples with a fixed delay and bounds arbitrary correlated peaks', () => {
+  const guard = engine().outputGuard; const delay = guard.delayFrames;
+  const ordinary = Float64Array.from({ length: 512 }, (_, i) => Math.sin(i * .53) * .3);
+  const out = [];
+  for (let i = 0; i < ordinary.length + delay; i += 1) { guard.sample(ordinary[i] || 0, 0); out.push(guard.left); }
+  assert.deepEqual(out.slice(0, delay), Array(delay).fill(0));
+  assert.deepEqual(out.slice(delay), Array.from(ordinary));
+  const fresh = engine().outputGuard; const retained = fresh.gains; let seed = 82719; const left = []; const right = [];
+  for (let i = 0; i < 4096 + delay; i += 1) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const a = i < 4096 ? (seed / 0x100000000 * 2 - 1) : 0;
+    const b = i < 4096 ? (i % 5 === 0 ? 1 : -1) : 0;
+    fresh.sample(a, b); left.push(fresh.left); right.push(fresh.right);
+  }
+  assert.equal(fresh.gains, retained);
+  assert.ok(reconstructedPeak4x(left) <= .900001);
+  assert.ok(reconstructedPeak4x(right) <= .900001);
 });
 
 
