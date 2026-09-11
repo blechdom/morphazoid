@@ -1,687 +1,377 @@
-import { createRoachViewer } from "./src/roach-synth-viewer.js";
-import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset, writeRoachPose, createRoachJointTrack, roachSequencePosition, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks, evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose } from "./src/roach-synth-motion.js";
-import { RoachSynthAudio, ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS, createDefaultRoachMappings } from "./src/roach-synth-audio.js";
+import { createRoachViewer } from './src/roach-synth-viewer.js';
+import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
+  writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
+  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose } from './src/roach-synth-motion.js';
+import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
+  ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId } from './src/roach-synth-audio.js';
 
-const el = (id) => document.getElementById(id);
+const el = id => document.getElementById(id);
 const listeners = new AbortController();
 const options = { signal: listeners.signal };
-const modelUrl = new URL("./assets/roach-synth/cockroach.glb", import.meta.url);
-const sources = ["x", "y", "z", "xy", "xz", "yz", "xyz"];
-const mixChannels = ["feet", "shell", "hiss", "wing", "zing", "growl", "drone", "samples", "voice"];
-const quality = { economy: { fps: 20, pixelRatio: 1 }, balanced: { fps: 25, pixelRatio: 1.25 }, detail: { fps: 30, pixelRatio: 1.5 } };
-const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
+const modelUrl = new URL('./assets/roach-synth/cockroach.glb', import.meta.url);
+const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
-  playing: false, soundPlaying: false, posePreset: "custom", poseSeed: 0, sequenceView: "joint", audioOn: false, audioStarting: false, disposed: false,
-  view: "side", side: "left", motion: normalizeRoachMotion(ROACH_MOTION_DEFAULTS),
-  sound: { ...ROACH_SOUND_DEFAULTS }, muted: new Set(), solo: new Set(), mappings: [], joints: [],
-  time: 0, anchor: performance.now(), clipPreview: false, sequenceAxis: "y", selectedStep: 0,
-  renderQuality: "economy", activePreset: "", phraseRequest: 0,
+  playing: false, soundPlaying: false, audioOn: false, audioStarting: false, disposed: false,
+  posePreset: 'neutral', poseSeed: 0, motionSeed: 0, soundSeed: 0, phraseRequest: 0,
+  motionChoice: ROACH_MOTION_PRESETS[0].id, motionPrepared: false, antennae: true,
+  motion: normalizeRoachMotion({ ...ROACH_MOTION_DEFAULTS, presetId: 'none', antennae: false }),
+  sound: { ...ROACH_SOUND_PRESETS[0].sound }, bodyMix: structuredClone(ROACH_SOUND_PRESETS[0].bodyMix), muted: new Set(), solo: new Set(),
+  joints: [], selectedGroup: '', view: 'side', side: 'left', time: 0, anchor: performance.now(), applyingPose: false,
 };
-let viewer;
-let rigSignature = "";
-let loadVersion = 0;
-let frame = 0;
-let lastFrame = -Infinity;
+let viewer, frame = 0, loadVersion = 0, lastFrame = -Infinity;
 let pose = new Float32Array(0);
-let routeSerial = 0;
 const sceneState = createRoachSceneState();
-const patchStorageKey = "morphazoid.roach-synth.joint-patches.v2";
-const editedPatches = new Map();
-try {
-  const stored = localStorage.getItem(patchStorageKey) ?? localStorage.getItem("morphazoid.roach-synth.joint-patches.v1");
-  if (stored && stored.length < 12000000) {
-    const data = JSON.parse(stored);
-    if (data && typeof data === "object" && !Array.isArray(data)) {
-      for (const preset of [{ id: "none" }, ...ROACH_MOTION_PRESETS]) {
-        if (data[preset.id]) {
-          const motion = normalizeRoachMotion({ ...data[preset.id], presetId: preset.id });
-          if (Array.isArray(data[preset.id].baseOffsets)) motion.baseOffsets = data[preset.id].baseOffsets.slice(0, 128).filter(item => item && typeof item.jointId === "string");
-          editedPatches.set(preset.id, data[preset.id].format === "factory-edits-v2" ? data[preset.id] : motion);
-        }
-      }
-    }
-  }
-} catch { /* Storage is optional; live performance never depends on it. */ }
-const initialEdits = editedPatches.get(state.motion.presetId);
-if (initialEdits && initialEdits.format !== "factory-edits-v2") state.motion = normalizeRoachMotion({ ...state.motion, ...initialEdits });
-const setStatus = (message) => { el("modelStatus").textContent = String(message); };
-const announce = (message) => { el("liveStatus").textContent = String(message); };
+const status = (id, message = '') => { el(id).textContent = message; el(id).hidden = !message; };
+const announce = message => status('liveStatus', message);
 const audio = new RoachSynthAudio({
-  onStatus: (message) => {
+  onStatus(message) {
     if (state.disposed) return;
-    el("voiceStatus").textContent = String(message);
+    // Only actionable messages occupy the compact controls.
+    if (!['Roach sound ready.', 'Audio off.', 'Starting roach sound…'].includes(message)) status('voiceStatus', String(message));
     if (state.audioOn && !audio.getState().enabled) {
-      anchorTime(audio.getTime()); state.audioOn = false;
-      el("audioButton").setAttribute("aria-pressed", "false"); el("audioState").textContent = "off";
-      syncTransport();
+      anchorTime(audio.getTime()); state.audioOn = false; syncAudioButton(); syncTransport();
     }
   },
-  onTelemetry: ({ peak }) => {
+  onTelemetry({ peak }) {
     if (state.disposed) return;
     const db = state.audioOn && peak > .000001 ? 20 * Math.log10(peak) : -Infinity;
-    el("mixMeter").value = Math.max(-60, db);
-    el("mixPeak").value = Number.isFinite(db) ? `${db.toFixed(1)} dBFS` : "−∞ dBFS";
+    el('mixMeter').value = Math.max(-60, db);
+    el('mixPeak').value = Number.isFinite(db) ? `${db.toFixed(1)} dBFS` : '−∞ dBFS';
   },
-  onSamples: ({ status }) => {
-    if (state.disposed) return;
-    el("sampleStatus").textContent = status === "ready" ? "Recording: real cockroach movements · CC0 / nicotep"
-      : status === "loading" ? "Loading cockroach recording…"
-        : "Recording unavailable; the synthesized layers remain playable.";
+  onSamples({ status: sampleState }) {
+    if (!state.disposed) status('sampleStatus', sampleState === 'unavailable' ? 'Roach rustle unavailable; synthesized sounds remain playable.' : '');
   },
 });
 function fallbackTime() { return state.time + (state.playing ? (performance.now() - state.anchor) / 1000 : 0); }
 function currentTime() { return state.audioOn ? audio.getTime() : fallbackTime(); }
 function anchorTime(time) { state.time = Math.max(0, Number(time) || 0); state.anchor = performance.now(); }
+function effectiveBodyMix() {
+  return state.bodyMix.map(row => ({ ...row, level: state.muted.has(row.groupId) || (state.solo.size && !state.solo.has(row.groupId)) ? 0 : row.level }));
+}
 function publish(extra = {}) {
-  audio.update({ playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: mixedSound(), ...extra });
+  audio.update({ playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion,
+    joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), ...extra });
 }
-function mixedSound() {
-  const sound = { ...state.sound };
-  for (const key of mixChannels) if (state.muted.has(key) || (state.solo.size && !state.solo.has(key))) sound[key] = 0;
-  return sound;
-}
-function publishSound() { audio.update({ sound: mixedSound() }); }
-function syncMixer() {
-  for (const key of mixChannels) {
-    const channel = document.querySelector(`[data-channel="${key}"]`);
-    channel.querySelector("[data-mute]").setAttribute("aria-pressed", String(state.muted.has(key)));
-    channel.querySelector("[data-solo]").setAttribute("aria-pressed", String(state.solo.has(key)));
-    channel.classList.toggle("is-silent", state.muted.has(key) || Boolean(state.solo.size && !state.solo.has(key)));
-  }
-  el("mixStatus").textContent = state.solo.size ? `${state.solo.size} solo${state.solo.size === 1 ? "" : "s"} · M overrides S · clear S to hear the full mix.`
-    : state.muted.size ? `${state.muted.size} muted · fader levels are remembered.` : "M mutes · S solos · combine solos to build a mix.";
-}
-function selectedPart() { return state.joints.find((part) => part.id === el("bodyPart").value); }
+function publishSound() { audio.update({ sound: state.sound, bodyMix: effectiveBodyMix() }); }
 function refreshJoints() {
   if (!viewer) return;
   state.joints = viewer.getState().bones;
   if (pose.length !== state.joints.length * 3) pose = new Float32Array(state.joints.length * 3);
 }
-function selectView(view) {
-  state.view = ["side", "top", "bottom", "face"].includes(view) ? view : "side";
-  viewer?.setViewPreset(state.view, { side: state.side });
-  for (const button of el("viewPresets").querySelectorAll("button")) button.setAttribute("aria-pressed", String(button.dataset.view === state.view));
-  el("sideToggle").hidden = state.view !== "side";
-  refreshGaze();
+function syncAudioButton() {
+  el('audioButton').setAttribute('aria-pressed', String(state.audioOn));
+  el('audioState').textContent = state.audioStarting ? 'starting' : state.audioOn ? 'on' : 'off';
 }
-function refreshGaze() {
-  const preset = activeRoachPreset(currentTime(), state.motion);
-  state.motion.gaze = viewer && (state.view === "face" || preset.lookAtViewer) ? viewer.getGazeOffset() : { x: 0, y: 0, z: 0 };
-  publish(); updateVisual();
-}
-function populateMotionPresets() {
-  el("motionPreset").replaceChildren(new Option("Manual / joint score only", "none"));
-  ROACH_MOTION_PRESETS.forEach((preset, index) => el("motionPreset").add(new Option(`${String(index + 1).padStart(2, "0")} · ${preset.label}`, preset.id)));
-  el("motionPreset").value = state.motion.presetId;
-  const index = ROACH_MOTION_PRESETS.findIndex((preset) => preset.id === state.motion.presetId);
-  el("patchNumber").value = index < 0 ? "Manual" : `${String(index + 1).padStart(2, "0")} / ${ROACH_MOTION_PRESETS.length}`;
-}
-function selectedTrack(create = false) {
-  const part = selectedPart(); if (!part) return null;
-  let track = state.motion.tracks.find((track) => track.jointId === part.id && track.axis === state.sequenceAxis);
-  if (!track && create && state.motion.tracks.length < 128) {
-    track = createRoachJointTrack(part.id, state.sequenceAxis);
-    state.motion.tracks.push(track);
-  }
-  return track;
-}
-function resolvePatch(saved, id) {
-  if (!saved || saved.format !== "factory-edits-v2") return saved;
-  const factory = bakeRoachPresetTracks(id, state.joints, state.motion);
-  const edits = normalizeRoachMotion({ tracks: saved.tracks }).tracks;
-  for (const edit of edits) {
-    const track = factory.tracks.find(item => item.jointId === edit.jointId && item.axis === edit.axis);
-    if (!track) continue;
-    track.steps = edit.steps; track.enabled = edit.enabled;
-    const original = saved.tracks.find(item => item?.jointId === edit.jointId && item.axis === edit.axis);
-    if (original?.retainFactoryCurve === false) { delete track.samples; delete track.sourceSteps; }
-  }
-  factory.sequenceEnabled = saved.sequenceEnabled === true;
-  return factory;
-}
-function storagePatch(motion) {
-  if (motion.format === "factory-edits-v2" || motion.trackMode !== "replace") return motion;
-  return { format: "factory-edits-v2", sequenceEnabled: motion.sequenceEnabled,
-    tracks: motion.tracks.map(({ jointId, axis, steps, enabled, samples, sourceSteps }) => ({ jointId, axis, steps, enabled, retainFactoryCurve: samples?.length === 64 && sourceSteps?.length === 16 })) };
-}
-function rememberPatch() {
-  if (state.motion.staticScene && !(state.motion.sequenceEnabled && state.motion.tracks.length)) return;
-  const score = structuredClone(state.motion);
-  if (state.motion.staticScene) score.baseOffsets = state.joints.map(joint => ({ jointId: joint.id, ...joint.offset }));
-  editedPatches.set(state.motion.presetId, score);
-}
-function markScoreEdited() {
-  state.motion.sequenceEnabled = true; el("sequenceEnabled").checked = true;
-  rememberPatch(); el("patchStatus").textContent = "Joint score edited. Save edits to keep it in this browser.";
-  publish(); renderSequence(); updateVisual();
-}
-function renderSequence() {
-  const part = selectedPart();
-  const track = selectedTrack();
-  el("sequenceJoint").value = part?.id ?? "";
-  el("sequenceSteps").replaceChildren();
-  for (let index = 0; index < 16; index += 1) {
-    const button = document.createElement("button"); button.type = "button"; button.className = "roach-step"; button.dataset.step = String(index);
-    const value = track?.steps[index] ?? 0;
-    button.setAttribute("aria-label", `Step ${index + 1}, ${state.sequenceAxis.toUpperCase()} rotation ${Math.round(value)} degrees`);
-    button.setAttribute("aria-pressed", String(index === state.selectedStep));
-    button.disabled = !part;
-    const label = document.createElement("span"); label.textContent = String(index + 1).padStart(2, "0");
-    const amount = document.createElement("strong"); amount.textContent = `${Math.round(value)}°`;
-    button.classList.toggle("has-value", Math.abs(value) > .1);
-    button.append(label, amount);
-    button.addEventListener("click", () => { state.selectedStep = index; syncStepEditor(); }, options);
-    el("sequenceSteps").append(button);
-  }
-  for (const button of el("sequenceAxes").querySelectorAll("button")) button.setAttribute("aria-pressed", String(button.dataset.axis === state.sequenceAxis));
-  const tracks = state.motion.tracks.filter((item) => item.enabled !== false && item.steps.some((value) => Math.abs(value) > .01)).length;
-  el("sequenceSummary").textContent = `${tracks} tracks · 16 edit steps`;
-  syncStepEditor();
-}
-function syncStepEditor() {
-  const track = selectedTrack(); const value = track?.steps[state.selectedStep] ?? 0;
-  el("stepRotation").value = String(value); el("stepRotationOut").value = `${Math.round(value)}°`;
-  el("stepLabel").textContent = `Step ${state.selectedStep + 1} · ${state.sequenceAxis.toUpperCase()} rotation`;
-  for (const id of ["stepRotation", "captureStep", "waveTrack", "clearTrack"]) el(id).disabled = !selectedPart();
-  el("captureStep").disabled = !selectedPart() || (state.motion.trackMode === "replace" && state.motion.intensity <= 0);
-  for (const button of el("sequenceSteps").children) button.setAttribute("aria-pressed", String(Number(button.dataset.step) === state.selectedStep));
-  renderContours();
-}
-const contourColors = { x: "#e9a27f", y: "#c2df85", z: "#81bbef" };
-let contourLimit = 60;
-function svgNode(tag, attributes, text = "") {
-  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
-  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, String(value));
-  if (text) node.textContent = text;
-  return node;
-}
-function renderContours() {
-  const part = selectedPart();
-  const all = state.motion.tracks;
-  let tracks = state.sequenceView === "body" ? all.filter(track => track.axis === state.sequenceAxis) : state.sequenceView === "track" ? all.filter(track => track.jointId === part?.id && track.axis === state.sequenceAxis) : all.filter(track => track.jointId === part?.id);
-  if (part && state.sequenceView !== "body") {
-    tracks = (state.sequenceView === "track" ? [state.sequenceAxis] : ["x", "y", "z"]).map(axis => tracks.find(track => track.axis === axis) ?? createRoachJointTrack(part.id, axis));
-  }
-  contourLimit = contourDrag?.limit ?? Math.max(10, Math.min(180, Math.ceil(Math.max(0, ...tracks.flatMap(track => track.steps.map(Math.abs))) / 10) * 10));
-  const y = value => 74 - Math.max(-contourLimit, Math.min(contourLimit, value)) / contourLimit * 60;
-  const grid = el("contourGrid"); grid.replaceChildren();
-  for (let step = 0; step <= 16; step += 1) grid.append(svgNode("line", { x1: 12 + step * 18.5, x2: 12 + step * 18.5, y1: 8, y2: 140, class: "contour-grid" }));
-  grid.append(svgNode("line", { x1: 12, x2: 308, y1: 74, y2: 74, class: "contour-zero" }));
-  const paths = el("contourPaths"); paths.replaceChildren();
-  const points = el("contourPoints"); points.replaceChildren();
-  tracks.sort((a, b) => Number(a.jointId === part?.id && a.axis === state.sequenceAxis) - Number(b.jointId === part?.id && b.axis === state.sequenceAxis));
-  for (const track of tracks) {
-    const selected = track.jointId === part?.id && track.axis === state.sequenceAxis;
-    const color = contourColors[track.axis];
-    const d = Array.from({ length: 129 }, (_, i) => `${i ? "L" : "M"}${12 + i / 128 * 296},${y(evaluateRoachTrack(track, i / 8))}`).join(" ");
-    paths.append(svgNode("path", { d, stroke: color, class: `contour-path${selected ? " is-selected" : ""}`, opacity: state.sequenceView === "body" && !selected ? .18 : selected ? 1 : .55 }));
-    if (track.jointId !== part?.id || (state.sequenceView === "body" && !selected)) continue;
-    track.steps.forEach((value, step) => {
-      const dot = svgNode("circle", { cx: 12 + step * 18.5, cy: y(value), r: selected ? 4 : 2.5, fill: color, class: `contour-point${selected && step === state.selectedStep ? " is-selected" : ""}`, "data-step": step, "data-axis": track.axis });
-      dot.append(svgNode("title", {}, `${track.axis.toUpperCase()} · step ${step + 1} · ${Math.round(value)}°`)); points.append(dot);
-    });
-  }
-  const legend = el("contourLegend"); legend.replaceChildren();
-  for (const axis of state.sequenceView === "body" ? [state.sequenceAxis] : ["x", "y", "z"]) {
-    const item = document.createElement("span"); item.style.color = contourColors[axis];
-    item.append(document.createElement("i"), document.createTextNode(state.sequenceView === "body" ? `${axis.toUpperCase()} · ${tracks.length} joints · selected joint highlighted` : `${axis.toUpperCase()} rotation`)); legend.append(item);
-  }
-  const scaleLabel = document.createElement("span"); scaleLabel.textContent = `±${contourLimit}°`; legend.append(scaleLabel);
-  el("contourDescription").textContent = `${state.sequenceView === "body" ? "Whole body" : part?.name ?? "No joint"}, layered rotation contours from minus ${contourLimit} to plus ${contourLimit} degrees. Select any of the sixteen steps below to edit with the rotation slider.`;
-}
-let contourDrag = null;
-el("sequenceContours").addEventListener("pointerdown", event => {
-  const dot = event.target.closest(".contour-point"); if (!dot || !selectedPart() || event.button !== 0) return;
-  state.selectedStep = Number(dot.dataset.step); state.sequenceAxis = dot.dataset.axis;
-  contourDrag = { limit: contourLimit, sequenceEnabled: state.motion.sequenceEnabled, pointerId: event.pointerId, startY: event.clientY, startX: event.clientX, pointerType: event.pointerType, active: event.pointerType !== "touch", original: structuredClone(selectedTrack()) };
-  if (contourDrag.active) { event.preventDefault(); el("sequenceContours").setPointerCapture(event.pointerId); }
-  renderSequence();
-}, options);
-el("sequenceContours").addEventListener("pointermove", event => {
-  if (!contourDrag || event.pointerId !== contourDrag.pointerId) return;
-  if (!contourDrag.active) {
-    // Native vertical page scrolling wins on phones. A horizontal start commits a point drag.
-    if (Math.abs(event.clientY - contourDrag.startY) > Math.abs(event.clientX - contourDrag.startX) + 6) { contourDrag = null; return; }
-    if (Math.abs(event.clientX - contourDrag.startX) < 10) return;
-    contourDrag.active = true; el("sequenceContours").setPointerCapture(event.pointerId);
-  }
-  const box = el("sequenceContours").getBoundingClientRect();
-  const value = Math.round((74 - (event.clientY - box.top) / box.height * 152) / 60 * contourLimit);
-  const track = selectedTrack(true); if (!track) return;
-  track.steps[state.selectedStep] = Math.max(-180, Math.min(180, value)); markScoreEdited();
-}, options);
-function finishContour(event) {
-  if (!contourDrag || contourDrag.pointerId !== event.pointerId) return;
-  if (event.type === "pointercancel" && contourDrag.active) {
-    const track = selectedTrack();
-    if (track && contourDrag.original) Object.assign(track, contourDrag.original);
-    else if (track) state.motion.tracks = state.motion.tracks.filter(item => item !== track);
-    state.motion.sequenceEnabled = contourDrag.sequenceEnabled;
-    rememberPatch(); publish(); renderSequence(); updateVisual();
-  }
-  if (el("sequenceContours").hasPointerCapture(event.pointerId)) el("sequenceContours").releasePointerCapture(event.pointerId);
-  contourDrag = null; renderContours();
-}
-for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) el("sequenceContours").addEventListener(event, finishContour, options);
 function syncTransport() {
-  const button = el("motionButton");
-  button.setAttribute("aria-pressed", String(state.playing));
-  button.setAttribute("aria-label", state.playing ? "Pause animation" : "Play animation");
-  el("motionSummary").textContent = state.playing ? "Playing" : "Paused";
-  el("soundPlayButton").setAttribute("aria-pressed", String(state.soundPlaying));
-  el("soundPlayButton").setAttribute("aria-label", state.soundPlaying ? "Stop sound" : "Play sound");
-  el("soundPlaySummary").textContent = state.soundPlaying ? "Playing" : "Stopped";
-  if ((state.playing || state.soundPlaying) && !state.audioOn) announce("Audio is off — turn it on to hear playback");
-  else announce(state.playing ? "Animation is driving the sound." : state.soundPlaying ? "Sound playing. Body held still; drag a part to change its timbre." : "Both players stopped. Drag a part to play it, or say a phrase.");
+  for (const [id, active, noun] of [['soundPlayButton', state.soundPlaying, 'sound'], ['motionButton', state.playing, 'animation']]) {
+    el(id).setAttribute('aria-pressed', String(active));
+    el(id).setAttribute('aria-label', `${active ? 'Pause' : 'Play'} ${noun}`);
+  }
+  if (!state.audioOn && (state.playing || state.soundPlaying)) announce('Audio is off — turn it on to hear playback');
+  else announce('');
 }
-function setPlaying(playing) {
-  if (playing && state.motion.staticScene && !(state.motion.sequenceEnabled && state.motion.tracks.length) && !state.joints.some(joint => joint.motion.enabled)) setMotionPreset(el("motionPreset").value === "none" ? "side_walk" : el("motionPreset").value);
-  const time = currentTime();
-  state.playing = Boolean(playing);
-  anchorTime(time);
-  if (state.clipPreview) viewer?.setPlaying(state.playing);
-  publish({ time });
-  syncTransport();
-  updateVisual();
-  scheduleFrame();
-}
-function seek(time) { anchorTime(time); publish({ time: state.time }); updateVisual(); }
 function syncSelectedPart() {
   if (!viewer) return;
-  refreshJoints();
   const rig = viewer.getState();
-  el("bodyPart").value = rig.selectedBone ?? "";
-  const part = selectedPart();
-  el("poseControls").disabled = !part;
-  el("motionControls").disabled = !part;
-  el("addMapping").disabled = !part || state.mappings.length >= 128;
-  for (const axis of ["x", "y", "z"]) {
-    const id = `pose${axis.toUpperCase()}`;
-    el(id).value = String(part?.offset[axis] ?? 0);
-    el(`${id}Out`).value = `${Math.round(part?.offset[axis] ?? 0)}°`;
-  }
-  el("motionAxis").value = part?.motion.axis ?? "y";
-  el("motionAmount").value = String(part?.motion.amplitude ?? 12);
-  el("motionRate").value = String(part?.motion.speed ?? 0.5);
-  el("motionAmountOut").value = `${el("motionAmount").value}°`;
-  el("motionRateOut").value = `${Number(el("motionRate").value).toFixed(1)} Hz`;
-  el("jointMotion").setAttribute("aria-pressed", String(Boolean(part?.motion.enabled)));
-  el("jointMotion").textContent = part?.motion.enabled ? "Stop this part" : "Animate this part";
-  const count = state.joints.filter((joint) => joint.motion.enabled).length;
-  el("activeMotions").textContent = `${count} extra part movement${count === 1 ? "" : "s"}. Each part keeps its settings.`;
-  el("stageJoint").textContent = part?.name.toUpperCase() ?? "";
-  renderMappings();
-  renderSequence();
-  updateVisual();
+  const part = rig.bones.find(joint => joint.id === rig.selectedBone);
+  state.selectedGroup = part ? getRoachBodyGroupId(part) : '';
+  for (const button of document.querySelectorAll('.roach-body-name')) button.setAttribute('aria-pressed', String(button.dataset.group === state.selectedGroup));
 }
 function syncRig() {
   if (!viewer) return;
-  const rig = viewer.getState();
-  const signature = JSON.stringify([rig.modelName, rig.bones.map(({ id, name }) => [id, name]), rig.clips]);
-  el("specimenImage").hidden = rig.loaded;
-  el("roachCanvas").style.visibility = rig.loaded ? "visible" : "hidden";
-  if (signature !== rigSignature) {
-    rigSignature = signature;
-    refreshJoints();
-    state.mappings = createDefaultRoachMappings(state.joints).slice(0, 128).map((route) => ({ ...route, id: `route-${++routeSerial}` }));
-    el("bodyPart").replaceChildren(); el("sequenceJoint").replaceChildren();
-    for (const part of state.joints) { el("bodyPart").add(new Option(part.name, part.id)); el("sequenceJoint").add(new Option(part.name, part.id)); }
-    if (!state.joints.length) el("bodyPart").add(new Option("No movable joints", ""));
-    el("animationClip").replaceChildren(new Option("Procedural body motion", "-1"));
-    rig.clips.forEach((clip, index) => el("animationClip").add(new Option(clip.name || `Clip ${index + 1}`, String(index))));
-    el("clipControls").hidden = !rig.clips.length;
-    state.clipPreview = false;
-    const saved = resolvePatch(editedPatches.get(state.motion.presetId), state.motion.presetId);
-    state.motion = normalizeRoachMotion({ ...state.motion, ...(saved ?? bakeRoachPresetTracks(state.motion.presetId, state.joints, state.motion)), staticScene: null });
-    el("sequenceEnabled").checked = state.motion.sequenceEnabled;
-    publish();
-  }
-  el("jointCount").textContent = `${rig.bones.length} joints`;
-  for (const id of ["bodyPart", "sequenceJoint", "showJoints"]) el(id).disabled = !rig.bones.length;
-  for (const id of ["motionButton", "soundPlayButton", "posePreset", "randomPose", "resetCamera", "resetPose"]) el(id).disabled = !rig.loaded;
+  const rig = viewer.getState(); refreshJoints();
+  el('specimenImage').hidden = rig.loaded;
+  el('roachCanvas').style.visibility = rig.loaded ? 'visible' : 'hidden';
+  for (const id of ['motionButton', 'soundPlayButton', 'posePreset', 'randomPose', 'resetPose', 'resetCamera', 'randomMotion', 'motionPreset', 'previousMotion', 'nextMotion', 'zoomIn', 'zoomOut']) el(id).disabled = !rig.loaded;
+  el('showJoints').disabled = !rig.bones.length;
   syncSelectedPart();
 }
-function renderMappings() {
-  const part = selectedPart();
-  const container = el("jointMappings"); container.replaceChildren();
-  const routes = state.mappings.filter((route) => route.jointId === part?.id);
-  for (const route of routes) {
-    const row = document.createElement("div"); row.className = "roach-mapping";
-    const source = document.createElement("select"); source.setAttribute("aria-label", `${part.name} movement source`);
-    for (const id of sources) source.add(new Option(id.toUpperCase().split("").join(" + "), id));
-    source.value = route.source;
-    const target = document.createElement("select"); target.setAttribute("aria-label", `${part.name} sound destination`);
-    for (const item of ROACH_MOD_TARGETS) target.add(new Option(item.label, item.id));
-    target.value = route.target;
-    const remove = document.createElement("button"); remove.type = "button"; remove.className = "mapping-remove"; remove.textContent = "×"; remove.setAttribute("aria-label", `Remove ${part.name} ${route.source} to ${route.target} route`);
-    const label = document.createElement("label"); label.className = "control mapping-depth";
-    const text = document.createElement("span"); text.textContent = "Depth ";
-    const output = document.createElement("output"); output.value = `${Math.round(route.amount * 100)}%`; text.append(output);
-    const depth = document.createElement("input"); depth.type = "range"; depth.min = "-1"; depth.max = "1"; depth.step = "0.01"; depth.value = String(route.amount); depth.setAttribute("aria-label", `${part.name} route depth`);
-    label.append(text, depth);
-    source.addEventListener("change", () => { route.source = source.value; publish(); }, options);
-    target.addEventListener("change", () => { route.target = target.value; publish(); }, options);
-    depth.addEventListener("input", () => { route.amount = Number(depth.value); output.value = `${Math.round(route.amount * 100)}%`; publish(); }, options);
-    remove.addEventListener("click", () => { state.mappings = state.mappings.filter((item) => item !== route); publish(); renderMappings(); }, options);
-    row.append(source, target, remove, label); container.append(row);
-  }
-  if (!routes.length) { const note = document.createElement("p"); note.className = "roach-note"; note.textContent = "Add a route from this part’s rotation to a sound parameter."; container.append(note); }
-  el("mappingCount").textContent = `${state.mappings.length} routes across ${new Set(state.mappings.map((route) => route.jointId)).size} parts. Combine axes or add more routes.`;
-  el("addMapping").disabled = !part || state.mappings.length >= 128;
+function updateGaze() {
+  const preset = activeRoachPreset(currentTime(), state.motion);
+  state.motion.gaze = viewer && (state.view === 'face' || preset.lookAtViewer) ? viewer.getGazeOffset() : { x: 0, y: 0, z: 0 };
 }
-function formatSound(id, value) {
-  if (id === "pitch" || id === "wingRate") return `${Math.round(value)} Hz`;
-  if (id === "rhythm") return `${Number(value).toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×`;
-  if (id === "pan") return Math.abs(value) < .01 ? "Center" : `${Math.round(Math.abs(value) * 100)}% ${value < 0 ? "L" : "R"}`;
-  return `${Math.round(value * 100)}%`;
-}
-function syncSound() {
-  for (const input of document.querySelectorAll("[data-sound]")) {
-    input.value = String(state.sound[input.dataset.sound]);
-    el(`${input.id}Out`).value = formatSound(input.id, state.sound[input.dataset.sound]);
-  }
-  el("level").value = String(state.sound.level); el("levelOut").value = `${Math.round(state.sound.level * 100)}%`;
-  syncMixer();
-}
-function setMotionPreset(id, { factory = false, remember = true } = {}) {
-  if (remember) rememberPatch();
-  const wasStatic = Boolean(state.motion.staticScene);
-  const previous = { tempo: state.motion.tempo, intensity: state.motion.intensity };
-  const edited = factory ? null : resolvePatch(editedPatches.get(id), id);
-  const score = edited ?? (id === "none" ? normalizeRoachMotion({ ...previous, presetId: "none", tracks: [], sequenceEnabled: false }) : bakeRoachPresetTracks(id, state.joints, previous));
-  state.motion = normalizeRoachMotion({ ...state.motion, ...score, ...previous, presetId: id, staticScene: score.staticScene ?? null });
-  el("sequenceEnabled").checked = state.motion.sequenceEnabled;
-  if (id !== "none") state.motion.antennae = true;
-  el("antennae").checked = state.motion.antennae;
-  state.clipPreview = false; el("animationClip").value = "-1";
-  viewer?.setClip(-1); viewer?.setPlaying(false);
-  // Static poses are absolute starting points. Leave them before loading a score.
-  if (wasStatic || score.baseOffsets) {
-    viewer?.resetPose();
-    for (const offset of score.baseOffsets ?? []) viewer?.setBoneOffset(offset.jointId, offset);
-    refreshJoints();
-  }
-  state.posePreset = "custom"; el("posePreset").value = "custom";
-  populateMotionPresets(); syncSelectedPart(); renderSequence(); refreshGaze();
-  el("patchStatus").textContent = edited ? "Your joint contours are loaded for this routine." : id === "none" ? "Create a loop joint by joint." : "Factory contours loaded for every joint. Edit any step.";
-  publish(); updateVisual();
-}
-function applyStaticPose(id) {
-  rememberPatch();
-  setPlaying(false); state.clipPreview = false;
-  viewer?.setExternalPose(null); viewer?.resetPose();
-  refreshJoints();
-  const shape = getRoachStaticPose(id, state.joints, { seed: ++state.poseSeed });
-  for (const offset of shape.offsets) viewer?.setBoneOffset(offset.jointId, offset);
-  state.motion = normalizeRoachMotion({ ...ROACH_MOTION_DEFAULTS, tempo: state.motion.tempo, intensity: 1, presetId: "none", antennae: false, sequenceEnabled: false, tracks: [], staticScene: shape.scene });
-  state.posePreset = id; el("posePreset").value = id;
-  el("poseStatus").textContent = `${shape.label}. Held still; Sound Play and part dragging use this pose.`;
-  el("antennae").checked = false; el("sequenceEnabled").checked = false; el("animationClip").value = "-1";
-  el("intensity").value = "1"; el("intensityOut").value = "100%";
-  refreshJoints(); populateMotionPresets(); seek(0); syncSelectedPart(); publish(); updateVisual(); syncTransport();
-}
-async function loadModel(file) {
-  if (!viewer) return;
-  const version = ++loadVersion; el("retryModel").hidden = true;
-  try {
-    if (file) {
-      if (!/\.glb$/i.test(file.name)) throw new Error("Choose a self-contained .glb model file.");
-      if (file.size > 64 * 1024 * 1024) throw new Error("Choose a GLB smaller than 64 MB.");
-      const buffer = await file.arrayBuffer();
-      if (version !== loadVersion) return;
-      await viewer.loadArrayBuffer(buffer, { name: file.name });
-    } else await viewer.loadUrl(modelUrl.href, { name: "Cockroach · photogrammetry scan" });
-    if (version !== loadVersion) return;
-    const rig = viewer.getState(); const head = rig.bones.find((part) => /^head$/i.test(part.name));
-    if (head) viewer.selectBone(head.id);
-    syncRig(); selectView(state.view, { manual: false }); publish();
-    setStatus(`${rig.modelName} · ${rig.bones.length} movable joints`);
-    updateVisual();
-  } catch (error) {
-    if (version !== loadVersion) return;
-    setStatus(`${error.message || "The model could not load."}${viewer.getState().loaded ? " The current model is still available." : ""}`);
-    el("retryModel").hidden = false;
-  } finally { el("modelFile").value = ""; }
+function refreshGaze() { updateGaze(); audio.update({ motion: state.motion }); updateVisual(); }
+function selectView(view) {
+  state.view = ['side', 'top', 'bottom', 'face'].includes(view) ? view : 'side';
+  viewer?.setViewPreset(state.view, { side: state.side });
+  for (const button of el('viewPresets').querySelectorAll('button')) button.setAttribute('aria-pressed', String(button.dataset.view === state.view));
+  el('sideToggle').hidden = state.view !== 'side'; refreshGaze();
 }
 function updateVisual() {
-  if (state.disposed) return;
+  if (state.disposed || !viewer || !state.joints.length) return;
   const time = currentTime();
-  const preset = activeRoachPreset(time, state.motion);
-  if (state.activePreset !== preset.id) {
-    state.activePreset = preset.id;
-    el("motionDescription").textContent = preset.description || (preset.id === "none" ? "Manual pose and your joint score." : `${preset.label} · looping motion patch.`);
-  }
-  if (viewer && state.joints.length && !state.clipPreview) {
-    writeRoachPose(time, state.motion, state.joints, pose);
-    writeRoachSceneState(time, state.motion, sceneState, state.joints);
-    viewer.setExternalPose(pose);
-    viewer.setSceneState(sceneState);
-  }
-  const position = roachSequencePosition(time, state.motion);
-  const playheadX = 12 + (position.step + position.fraction) / 16 * 296;
-  el("contourPlayhead").setAttribute("x1", playheadX); el("contourPlayhead").setAttribute("x2", playheadX);
-  el("timelinePositionOut").value = `${position.step + 1} / 16`;
-  if (document.activeElement !== el("timelinePosition")) el("timelinePosition").value = String(position.step + position.fraction);
-  for (const cell of el("sequenceSteps").children) cell.classList.toggle("is-current", state.motion.sequenceEnabled && Number(cell.dataset.step) === position.step);
-  const motionLabel = state.clipPreview ? (el("animationClip").selectedOptions[0]?.textContent ?? "Clip preview") : preset.label;
-  el("stageMotion").textContent = `${(state.motion.staticScene ? (ROACH_STATIC_POSES.find(item => item.id === state.posePreset)?.label ?? "STATIC POSE") : motionLabel).toUpperCase()} / ${state.playing ? "ANIMATING" : state.soundPlaying ? "SOUND" : "PAUSED"}`;
-  el("timelinePosition").disabled = state.clipPreview;
-  el("sequenceEnabled").disabled = state.clipPreview;
-  const index = state.joints.findIndex((part) => part.id === el("bodyPart").value);
-  if (state.clipPreview) el("jointReadout").textContent = "Visual clip preview · sound follows the motion patch";
-  else if (index >= 0) el("jointReadout").textContent = ["X", "Y", "Z"].map((axis, offset) => `${axis} ${Math.round(pose[index * 3 + offset])}°`).join(" · ");
-}
-function syncManualPose() {
-  state.posePreset = "custom"; el("posePreset").value = "custom";
-  refreshJoints(); const part = selectedPart();
-  for (const axis of ["x", "y", "z"]) {
-    const value = part?.offset[axis] ?? 0;
-    el(`pose${axis.toUpperCase()}`).value = String(value);
-    el(`pose${axis.toUpperCase()}Out`).value = `${Math.round(value)}°`;
-  }
-  publish(); updateVisual();
+  writeRoachPose(time, state.motion, state.joints, pose);
+  writeRoachSceneState(time, state.motion, sceneState, state.joints);
+  viewer.setExternalPose(pose); viewer.setSceneState(sceneState);
 }
 function tick(now) {
   frame = 0;
   if (state.disposed || document.hidden) return;
-  if (now - lastFrame >= 1000 / quality[state.renderQuality].fps) { lastFrame = now; updateVisual(); }
+  if (now - lastFrame >= 50) { lastFrame = now; updateVisual(); }
   if (state.playing) scheduleFrame();
 }
 function scheduleFrame() { if (!frame && !state.disposed && !document.hidden) frame = requestAnimationFrame(tick); }
+function populateMotionPresets() {
+  el('motionPreset').replaceChildren(...ROACH_MOTION_PRESETS.map(item => new Option(item.label, item.id)));
+  if (state.motionChoice === 'random') el('motionPreset').add(new Option('Random motion', 'random'));
+  el('motionPreset').value = state.motionChoice;
+  el('motionPreset').title = state.motion.randomLabel ?? '';
+}
+function setMotionPreset(id) {
+  if (!state.joints.length) return;
+  const time = currentTime();
+  const controls = { tempo: state.motion.tempo, intensity: state.motion.intensity, antennae: state.antennae };
+  state.applyingPose = true;
+  try { viewer.setExternalPose(null); viewer.resetPose(); refreshJoints(); }
+  finally { state.applyingPose = false; }
+  state.motionChoice = id === 'random' ? id : ROACH_MOTION_PRESETS.find(item => item.id === id)?.id ?? ROACH_MOTION_PRESETS[0].id;
+  state.motion = state.motionChoice === 'random'
+    ? createRandomRoachMotion(++state.motionSeed * 2654435761 >>> 0, state.joints, controls)
+    : bakeRoachPresetTracks(state.motionChoice, state.joints, controls);
+  state.motionPrepared = true; state.posePreset = 'custom'; el('posePreset').value = 'custom';
+  updateGaze(); populateMotionPresets(); anchorTime(time); publish({ time, resetActivity: true }); updateVisual();
+}
+function setPlaying(playing) {
+  if (!state.joints.length) return;
+  if (playing && !state.motionPrepared) setMotionPreset(state.motionChoice);
+  const time = currentTime(); state.playing = playing === true; anchorTime(time);
+  publish({ time }); syncTransport(); updateVisual();
+  if (state.playing) scheduleFrame();
+  else if (frame) { cancelAnimationFrame(frame); frame = 0; }
+}
+function applyStaticPose(id) {
+  if (!state.joints.length) return;
+  setPlaying(false); state.applyingPose = true;
+  let shape;
+  try {
+    viewer.setExternalPose(null); viewer.resetPose(); refreshJoints();
+    shape = getRoachStaticPose(id, state.joints, { seed: ++state.poseSeed * 2654435761 >>> 0 });
+    for (const offset of shape.offsets) viewer.setBoneOffset(offset.jointId, offset);
+    refreshJoints();
+  } finally { state.applyingPose = false; }
+  state.motion = normalizeRoachMotion({ ...ROACH_MOTION_DEFAULTS, tempo: state.motion.tempo,
+    intensity: state.motion.intensity, presetId: 'none', antennae: false, staticScene: shape.scene });
+  state.motionPrepared = false; state.posePreset = id; el('posePreset').value = id;
+  anchorTime(0); publish({ time: 0, resetActivity: true }); updateVisual(); syncTransport();
+}
+function syncManualPose() {
+  if (state.applyingPose || state.disposed) return;
+  state.posePreset = 'custom'; el('posePreset').value = 'custom'; refreshJoints();
+  // This is a continuous gesture, unlike loading a pose: retain velocity and friction.
+  audio.update({ joints: state.joints }); updateVisual(); syncSelectedPart();
+}
+function paintKnob(input) {
+  const value = Number(input.value), fraction = (value - Number(input.min)) / (Number(input.max) - Number(input.min));
+  input.closest('.roach-knob')?.style.setProperty('--knob-angle', `${-135 + 270 * fraction}deg`);
+  const text = input.id === 'pitch' ? `${Math.round(value)}` : `${Math.round(value * 100)}%`;
+  el(`${input.id}Out`).textContent = text;
+  input.setAttribute('aria-valuetext', input.id === 'pitch' ? `${text} Hz` : text);
+}
+function syncMixer() {
+  for (const row of state.bodyMix) {
+    const container = document.querySelector(`.roach-body-row[data-group="${row.groupId}"]`);
+    container.querySelector('select').value = row.source;
+    const input = container.querySelector('input'); input.value = row.level; paintKnob(input);
+    container.querySelector('[data-mute]').setAttribute('aria-pressed', String(state.muted.has(row.groupId)));
+    container.querySelector('[data-solo]').setAttribute('aria-pressed', String(state.solo.has(row.groupId)));
+    container.classList.toggle('is-silent', state.muted.has(row.groupId) || Boolean(state.solo.size && !state.solo.has(row.groupId)));
+  }
+}
+function syncSound() {
+  for (const input of document.querySelectorAll('[data-sound]')) { input.value = state.sound[input.dataset.sound]; paintKnob(input); }
+  el('level').value = state.sound.level; el('levelOut').value = `${Math.round(state.sound.level * 100)}%`; syncMixer();
+}
+function markSoundCustom() {
+  if (!el('soundPreset').querySelector('[value="custom"]')) el('soundPreset').add(new Option('Custom sound', 'custom'));
+  el('soundPreset').value = 'custom';
+}
+function buildMixer() {
+  for (const { id, label } of ROACH_BODY_GROUPS) {
+    const row = document.createElement('div'); row.className = 'roach-body-row'; row.dataset.group = id;
+    const name = document.createElement('button'); name.type = 'button'; name.className = 'roach-body-name'; name.dataset.group = id; name.textContent = label; name.setAttribute('aria-pressed', 'false');
+    name.addEventListener('click', () => {
+      const part = state.joints.find(joint => getRoachBodyGroupId(joint) === id && (id !== 'covers' || joint.wingLayer === 'cover'));
+      if (part) viewer?.selectBone(part.id);
+    }, options);
+    const source = document.createElement('select'); source.id = `source-${id}`; source.dataset.bodySource = id; source.setAttribute('aria-label', `${label} sound`);
+    for (const item of ROACH_BODY_SOURCES) source.add(new Option(item.label, item.id));
+    source.addEventListener('change', () => { state.bodyMix.find(item => item.groupId === id).source = source.value; markSoundCustom(); publishSound(); }, options);
+    const knob = document.createElement('label'); knob.className = 'roach-knob'; knob.htmlFor = `mix-${id}`;
+    const face = document.createElement('span'); face.className = 'knob-face'; face.setAttribute('aria-hidden', 'true');
+    const pointer = document.createElement('i'), output = document.createElement('small'); output.id = `mix-${id}Out`; face.append(pointer, output);
+    const level = document.createElement('input'); Object.assign(level, { id: `mix-${id}`, type: 'range', min: '0', max: '1', step: '.01' }); level.dataset.bodyLevel = id; level.setAttribute('aria-label', `${label} level`);
+    level.addEventListener('input', () => { state.bodyMix.find(item => item.groupId === id).level = Number(level.value); paintKnob(level); publishSound(); }, options);
+    knob.append(face, level); row.append(name, source, knob);
+    for (const [attribute, copy] of [['mute', 'M'], ['solo', 'S']]) {
+      const button = document.createElement('button'); button.type = 'button'; button.dataset[attribute] = id; button.textContent = copy;
+      button.setAttribute('aria-label', `${attribute === 'mute' ? 'Mute' : 'Solo'} ${label}`); button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', () => { const set = attribute === 'mute' ? state.muted : state.solo; if (set.has(id)) set.delete(id); else set.add(id); syncMixer(); publishSound(); }, options);
+      row.append(button);
+    }
+    el('bodyMixer').append(row);
+  }
+}
+// Native ranges remain keyboard/MIDI controls. Horizontal touch drags adjust a
+// knob; vertical gestures remain document scrolling. Mouse drags also use Y.
+function initializeKnobs() {
+  for (const input of document.querySelectorAll('.roach-knob input')) {
+    const area = input.closest('.roach-knob');
+    let drag = null;
+    // The visible label owns pointer gestures. Native range touch defaults
+    // otherwise jump to the touched fraction before scrolling can cancel them.
+    area.addEventListener('click', event => event.preventDefault(), options);
+    area.addEventListener('pointerdown', event => {
+      if (!event.isPrimary || event.button !== 0) return;
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, value: Number(input.value), touch: event.pointerType === 'touch', active: event.pointerType !== 'touch' };
+      event.preventDefault();
+      if (!drag.touch) { input.focus({ preventScroll: true }); area.setPointerCapture(event.pointerId); }
+    }, options);
+    area.addEventListener('pointermove', event => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+      if (drag.touch && !drag.active) {
+        if (Math.abs(dy) > 5 && Math.abs(dy) > Math.abs(dx)) { drag = null; return; }
+        if (Math.abs(dx) < 5) return;
+        drag.active = true; area.setPointerCapture(event.pointerId);
+      }
+      event.preventDefault();
+      const min = Number(input.min), max = Number(input.max), step = Number(input.step);
+      const value = drag.value + (dx - (drag.touch ? 0 : dy)) / 150 * (max - min);
+      input.value = String(Math.max(min, Math.min(max, Math.round(value / step) * step)));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }, options);
+    const release = event => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const active = drag.active; drag = null;
+      if (area.hasPointerCapture(event.pointerId)) area.releasePointerCapture(event.pointerId);
+      if (active) input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) area.addEventListener(type, release, options);
+  }
+}
+async function loadModel() {
+  if (!viewer) return;
+  const version = ++loadVersion; el('retryModel').hidden = true;
+  try {
+    await viewer.loadUrl(modelUrl.href, { name: 'Cockroach · photogrammetry scan' });
+    if (version !== loadVersion || state.disposed) return;
+    syncRig();
+    const head = state.joints.find(part => /^head$/i.test(part.name)); if (head) viewer.selectBone(head.id);
+    applyStaticPose('neutral'); selectView(state.view); publish({ resetActivity: true }); status('modelStatus');
+  } catch (error) {
+    if (version !== loadVersion || state.disposed) return;
+    status('modelStatus', error.message || 'The model could not load.'); el('retryModel').hidden = false;
+  }
+}
 
-el("posePreset").replaceChildren(new Option("Custom / current pose", "custom"), ...ROACH_STATIC_POSES.map(item => new Option(item.label, item.id)), new Option("Random pose", "random"));
-el("posePreset").value = state.posePreset;
-el("soundPreset").replaceChildren(...ROACH_SOUND_PRESETS.map((preset) => new Option(preset.label, preset.id)));
-const defaultSound = ROACH_SOUND_PRESETS.find((preset) => JSON.stringify(preset.sound) === JSON.stringify(state.sound)) ?? ROACH_SOUND_PRESETS[0];
-if (defaultSound) { el("soundPreset").value = defaultSound.id; el("soundSummary").textContent = defaultSound.label; }
-el("tempo").value = String(state.motion.tempo); el("tempoOut").value = `${state.motion.tempo} BPM`;
-el("intensity").value = String(state.motion.intensity); el("intensityOut").value = `${Math.round(state.motion.intensity * 100)}%`;
-el("antennae").checked = state.motion.antennae;
-populateMotionPresets(); renderSequence(); syncSound(); el("sequenceEnabled").checked = state.motion.sequenceEnabled; updateVisual();
+buildMixer(); initializeKnobs();
+el('posePreset').replaceChildren(new Option('Custom pose', 'custom'), ...ROACH_STATIC_POSES.map(item => new Option(item.label, item.id)), new Option('Random pose', 'random'));
+el('posePreset').value = state.posePreset;
+el('soundPreset').replaceChildren(...ROACH_SOUND_PRESETS.map(item => new Option(item.label, item.id)));
+el('tempo').value = state.motion.tempo; el('tempoOut').value = `${state.motion.tempo} BPM`;
+el('intensity').value = state.motion.intensity; el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`;
+populateMotionPresets(); syncSound(); syncTransport();
 try {
-  viewer = createRoachViewer({ canvas: el("roachCanvas"), onStatus: setStatus, onRig: syncRig, onSelect: syncSelectedPart,
+  viewer = createRoachViewer({ canvas: el('roachCanvas'), onStatus: message => status('modelStatus', message), onRig: syncRig, onSelect: syncSelectedPart,
     onPoseChange: syncManualPose,
-    onInteraction: (gesture) => {
-      if (gesture.kind === "orbit") { if (gesture.phase === "change" || gesture.phase === "end") refreshGaze(); return; }
-      if (gesture.kind !== "joint") return;
-      audio.interact({ jointId: gesture.id, active: gesture.phase === "start" || gesture.phase === "change", velocity: gesture.velocity });
-      if (!state.audioOn && gesture.phase === "start") announce("Audio is off — turn it on to hear playback");
+    onInteraction(gesture) {
+      if (gesture.kind === 'orbit') { if (gesture.phase === 'change' || gesture.phase === 'end') refreshGaze(); return; }
+      if (gesture.kind !== 'joint') return;
+      audio.interact({ jointId: gesture.id, active: gesture.phase === 'start' || gesture.phase === 'change', velocity: 0 });
+      if (!state.audioOn && gesture.phase === 'start') announce('Audio is off — turn it on to hear playback');
     },
   });
-  viewer.setRenderBudget(quality[state.renderQuality]);
-  Object.defineProperty(window, "roachSynth", { configurable: true, value: Object.freeze({ getState: () => ({
-    ...viewer.getState(), playing: state.playing, soundPlaying: state.soundPlaying, posePreset: state.posePreset, sequenceView: state.sequenceView, time: currentTime(), view: state.view, side: state.side,
-    motionSettings: structuredClone(state.motion), sound: { ...state.sound }, mix: { muted: [...state.muted], solo: [...state.solo], effective: mixedSound() }, mappings: structuredClone(state.mappings),
-    audio: audio.getState(), audioOn: state.audioOn, clipPreview: state.clipPreview,
-    activePreset: state.activePreset, renderQuality: state.renderQuality,
-  }), getPartScreenPosition: (id) => viewer.getPartScreenPosition(id) }) });
-  loadModel();
-} catch (error) {
-  setStatus(`3D could not start: ${error.message || "WebGL unavailable"}.`);
-  el("roachCanvas").hidden = true; el("modelFile").disabled = true;
-}
+  viewer.setRenderBudget({ fps: 20, pixelRatio: 1 });
+  Object.defineProperty(window, 'roachSynth', { configurable: true, value: Object.freeze({
+    getState: () => ({ ...viewer.getState(), time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying,
+      posePreset: state.posePreset, motionChoice: state.motionChoice, motionSettings: structuredClone(state.motion),
+      sound: { ...state.sound }, bodyMix: structuredClone(state.bodyMix), effectiveBodyMix: effectiveBodyMix(),
+      muted: [...state.muted], solo: [...state.solo], selectedGroup: state.selectedGroup, mappings: [],
+      audio: audio.getState(), audioOn: state.audioOn, view: state.view, side: state.side, renderQuality: 'economy', clipPreview: false }),
+    getPartScreenPosition: id => viewer.getPartScreenPosition(id),
+  }) });
+  void loadModel();
+} catch (error) { status('modelStatus', `3D could not start: ${error.message || 'WebGL unavailable'}.`); el('roachCanvas').hidden = true; }
 
-el("audioButton").addEventListener("click", async () => {
+el('audioButton').addEventListener('click', async () => {
   if (state.audioStarting || state.disposed) return;
   if (state.audioOn) {
-    const time = currentTime(); state.audioOn = false; anchorTime(time); audio.disable();
-    el("audioButton").setAttribute("aria-pressed", "false"); el("audioState").textContent = "off"; syncTransport(); return;
+    const time = currentTime(); state.audioOn = false; anchorTime(time); audio.disable(); syncAudioButton(); syncTransport(); return;
   }
-  state.audioStarting = true; el("audioButton").disabled = true; el("audioState").textContent = "starting";
+  state.audioStarting = true; el('audioButton').disabled = true; syncAudioButton();
   try {
-    await audio.enable({ time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion, joints: state.joints, mappings: state.mappings, sound: mixedSound() });
+    await audio.enable({ time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying,
+      motion: state.motion, joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), resetActivity: true });
     if (state.disposed) return;
-    const time = fallbackTime(); state.audioOn = true; publish({ time });
-    el("audioButton").setAttribute("aria-pressed", "true"); el("audioState").textContent = "on";
-    syncTransport();
-  } catch (error) {
-    state.audioOn = false; el("audioButton").setAttribute("aria-pressed", "false"); el("audioState").textContent = "error";
-    announce(`Audio could not start: ${error.message || error}`);
-  } finally { state.audioStarting = false; el("audioButton").disabled = false; }
+    const time = fallbackTime(); state.audioOn = true; publish({ time }); status('voiceStatus'); syncTransport();
+  } catch (error) { state.audioOn = false; announce(`Audio could not start: ${error.message || error}`); }
+  finally { state.audioStarting = false; if (!state.disposed) { el('audioButton').disabled = false; syncAudioButton(); } }
 }, options);
-el("motionButton").addEventListener("click", () => setPlaying(!state.playing), options);
-el("soundPlayButton").addEventListener("click", () => { state.soundPlaying = !state.soundPlaying; publish(); syncTransport(); updateVisual(); }, options);
-el("posePreset").addEventListener("change", () => { if (el("posePreset").value !== "custom") applyStaticPose(el("posePreset").value); }, options);
-el("randomPose").addEventListener("click", () => applyStaticPose("random"), options);
-el("sequenceView").addEventListener("change", () => { state.sequenceView = el("sequenceView").value; renderContours(); }, options);
-for (const button of el("viewPresets").querySelectorAll("button")) button.addEventListener("click", () => selectView(button.dataset.view), options);
-el("sideToggle").addEventListener("click", () => {
-  state.side = state.side === "left" ? "right" : "left";
-  el("sideToggle").textContent = state.side === "left" ? "L → R" : "R → L";
-  el("sideToggle").setAttribute("aria-label", `Side view: ${state.side}; switch to ${state.side === "left" ? "right" : "left"}`);
-  selectView("side");
-}, options);
-el("motionPreset").addEventListener("change", () => setMotionPreset(el("motionPreset").value), options);
-el("tempo").addEventListener("input", () => {
-  const oldTempo = state.motion.tempo; const time = currentTime(); state.motion.tempo = Number(el("tempo").value);
-  el("tempoOut").value = `${state.motion.tempo} BPM`; seek(time * oldTempo / state.motion.tempo); publish();
-}, options);
-el("intensity").addEventListener("input", () => { state.motion.intensity = Number(el("intensity").value); el("intensityOut").value = `${Math.round(state.motion.intensity * 100)}%`; syncStepEditor(); publish(); updateVisual(); }, options);
-el("antennae").addEventListener("change", () => { state.motion.antennae = el("antennae").checked; publish(); updateVisual(); }, options);
-el("sequenceEnabled").addEventListener("change", () => { state.motion.sequenceEnabled = el("sequenceEnabled").checked; rememberPatch(); publish(); updateVisual(); }, options);
-el("timelinePosition").addEventListener("input", () => seek(Number(el("timelinePosition").value) * state.motion.stepBeats * 60 / state.motion.tempo), options);
-el("soundPreset").addEventListener("change", () => {
-  const preset = ROACH_SOUND_PRESETS.find((item) => item.id === el("soundPreset").value); if (!preset) return;
-  state.sound = { ...ROACH_SOUND_DEFAULTS, ...preset.sound, level: state.sound.level };
-  el("soundSummary").textContent = preset.label; syncSound(); publishSound();
-}, options);
-for (const input of document.querySelectorAll("[data-sound]")) input.addEventListener("input", () => {
-  state.sound[input.dataset.sound] = Number(input.value); el(`${input.id}Out`).value = formatSound(input.id, Number(input.value)); publishSound();
-}, options);
-for (const button of el("mixerChannels").querySelectorAll("button")) button.addEventListener("click", () => {
-  const key = button.dataset.mute ?? button.dataset.solo;
-  const selected = button.hasAttribute("data-mute") ? state.muted : state.solo;
-  if (selected.has(key)) selected.delete(key); else selected.add(key);
-  syncMixer(); publishSound();
-}, options);
-el("resetMix").addEventListener("click", () => {
-  const preset = ROACH_SOUND_PRESETS.find(item => item.id === el("soundPreset").value)?.sound ?? ROACH_SOUND_DEFAULTS;
-  for (const key of mixChannels) state.sound[key] = preset[key] ?? ROACH_SOUND_DEFAULTS[key];
-  state.muted.clear(); state.solo.clear(); syncSound(); publishSound();
-}, options);
-el("level").addEventListener("input", () => { state.sound.level = Number(el("level").value); el("levelOut").value = `${Math.round(state.sound.level * 100)}%`; audio.setLevel(state.sound.level); }, options);
-el("speakButton").addEventListener("click", async () => {
-  if (!state.audioOn) { announce("Audio is off — turn it on to hear playback"); el("voiceStatus").textContent = "Turn Audio on, then say the phrase."; return; }
-  const text = el("phrase").value.trim(); if (!text) { el("voiceStatus").textContent = "Give the bug a few words first."; return; }
-  const version = ++state.phraseRequest; el("voiceStatus").textContent = "Preparing the bug’s words…";
-  try { const spoken = await audio.speak(text); if (spoken && version === state.phraseRequest && !state.disposed && state.audioOn) el("voiceStatus").textContent = `Saying “${text}”`; }
-  catch (error) { if (version === state.phraseRequest) el("voiceStatus").textContent = `Voice: ${error.message || error}`; }
-}, options);
-el("bodyPart").addEventListener("change", () => viewer?.selectBone(el("bodyPart").value), options);
-for (const axis of ["x", "y", "z"]) el(`pose${axis.toUpperCase()}`).addEventListener("input", (event) => {
-  const part = selectedPart(); if (!part) return;
-  viewer.setBoneOffset(part.id, { [axis]: Number(event.target.value) }); syncManualPose();
-  audio.interact({ jointId: part.id, active: true, velocity: .35 });
-}, options);
-function changePartMotion(enabled) {
-  const part = selectedPart(); if (!part) return;
-  viewer.setBoneMotion(part.id, { enabled: enabled ?? part.motion.enabled, axis: el("motionAxis").value, amplitude: Number(el("motionAmount").value), speed: Number(el("motionRate").value) });
-  syncSelectedPart(); publish(); updateVisual();
+el('soundPlayButton').addEventListener('click', () => { state.soundPlaying = !state.soundPlaying; audio.update({ soundPlaying: state.soundPlaying }); syncTransport(); }, options);
+el('motionButton').addEventListener('click', () => setPlaying(!state.playing), options);
+el('posePreset').addEventListener('change', () => { if (el('posePreset').value !== 'custom') applyStaticPose(el('posePreset').value); }, options);
+el('randomPose').addEventListener('click', () => applyStaticPose('random'), options);
+el('resetPose').addEventListener('click', () => applyStaticPose('neutral'), options);
+el('motionPreset').addEventListener('change', () => setMotionPreset(el('motionPreset').value), options);
+el('randomMotion').addEventListener('click', () => setMotionPreset('random'), options);
+function changeMotionBy(amount) {
+  const index = ROACH_MOTION_PRESETS.findIndex(item => item.id === state.motionChoice);
+  setMotionPreset(ROACH_MOTION_PRESETS[(index + amount + ROACH_MOTION_PRESETS.length) % ROACH_MOTION_PRESETS.length].id);
 }
-el("jointMotion").addEventListener("click", () => { const part = selectedPart(); if (!part) return; const enabled = !part.motion.enabled; changePartMotion(enabled); if (enabled) setPlaying(true); }, options);
-for (const id of ["motionAmount", "motionRate"]) el(id).addEventListener("input", () => changePartMotion(), options);
-el("motionAxis").addEventListener("change", () => changePartMotion(), options);
-el("addMapping").addEventListener("click", () => {
-  const part = selectedPart(); if (!part || state.mappings.length >= 128) return;
-  const used = state.mappings.filter((route) => route.jointId === part.id).map((route) => route.source);
-  state.mappings.push({ id: `route-${++routeSerial}`, jointId: part.id, source: sources.find((source) => !used.includes(source)) ?? "xyz", target: "pitch", amount: 0.5 });
-  publish(); renderMappings();
+el('previousMotion').addEventListener('click', () => changeMotionBy(-1), options);
+el('nextMotion').addEventListener('click', () => changeMotionBy(1), options);
+document.addEventListener('keydown', event => {
+  if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (event.target.closest?.('input, textarea, select, canvas, [contenteditable="true"]')) return;
+  if (event.target !== document.body && !event.target.closest?.('.roach-panel')) return;
+  event.preventDefault(); changeMotionBy(event.key === 'ArrowRight' ? 1 : -1);
 }, options);
-el("resetCamera").addEventListener("click", () => { viewer?.resetCamera(); refreshGaze(); }, options);
-el("showJoints").addEventListener("click", () => { const visible = el("showJoints").getAttribute("aria-pressed") !== "true"; viewer?.setSkeletonVisible(visible); el("showJoints").setAttribute("aria-pressed", String(visible)); }, options);
-el("resetPose").addEventListener("click", () => applyStaticPose("neutral"), options);
-el("animationClip").addEventListener("change", () => {
-  const clip = Number(el("animationClip").value); state.clipPreview = clip >= 0;
-  viewer?.setExternalPose(null); viewer?.setClip(clip); viewer?.setPlaying(state.clipPreview && state.playing);
-  updateVisual();
+el('tempo').addEventListener('input', () => {
+  const time = currentTime() * state.motion.tempo / Number(el('tempo').value);
+  state.motion.tempo = Number(el('tempo').value); el('tempoOut').value = `${state.motion.tempo} BPM`;
+  anchorTime(time); publish({ time, resetActivity: true }); updateVisual();
 }, options);
-el("clipSpeed").addEventListener("input", () => { viewer?.setSpeed(Number(el("clipSpeed").value)); el("clipSpeedOut").value = `${el("clipSpeed").value}×`; }, options);
-el("renderQuality").addEventListener("change", () => { state.renderQuality = el("renderQuality").value; viewer?.setRenderBudget(quality[state.renderQuality]); updateVisual(); }, options);
-el("modelFile").addEventListener("change", () => { if (el("modelFile").files[0]) loadModel(el("modelFile").files[0]); }, options);
-el("retryModel").addEventListener("click", () => loadModel(), options);
-document.addEventListener("visibilitychange", () => { if (document.hidden) { if (frame) cancelAnimationFrame(frame); frame = 0; } else { lastFrame = -Infinity; updateVisual(); scheduleFrame(); } }, options);
-motionQuery.addEventListener("change", () => { if (motionQuery.matches) setPlaying(false); }, options);
-window.addEventListener("pagehide", (event) => {
+el('intensity').addEventListener('input', () => { state.motion.intensity = Number(el('intensity').value); el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`; audio.update({ motion: state.motion }); updateVisual(); }, options);
+el('antennae').addEventListener('change', () => { state.antennae = el('antennae').checked; state.motion.antennae = state.motionPrepared && state.antennae; audio.update({ motion: state.motion }); updateVisual(); }, options);
+el('soundPreset').addEventListener('change', () => {
+  const preset = ROACH_SOUND_PRESETS.find(item => item.id === el('soundPreset').value); if (!preset) return;
+  state.sound = { ...preset.sound, level: state.sound.level }; state.bodyMix = structuredClone(preset.bodyMix); syncSound(); publishSound();
+}, options);
+el('randomSound').addEventListener('click', () => {
+  const next = createRandomRoachSound(++state.soundSeed * 2654435761 >>> 0);
+  state.sound = { ...next.sound, level: state.sound.level }; state.bodyMix = next.bodyMix; markSoundCustom(); syncSound(); publishSound();
+}, options);
+for (const input of document.querySelectorAll('[data-sound]')) input.addEventListener('input', () => { state.sound[input.dataset.sound] = Number(input.value); paintKnob(input); markSoundCustom(); publishSound(); }, options);
+el('resetMix').addEventListener('click', () => {
+  state.bodyMix = structuredClone(ROACH_SOUND_PRESETS.find(item => item.id === el('soundPreset').value)?.bodyMix ?? createDefaultRoachBodyMix());
+  state.muted.clear(); state.solo.clear(); syncMixer(); publishSound();
+}, options);
+el('level').addEventListener('input', () => { state.sound.level = Number(el('level').value); el('levelOut').value = `${Math.round(state.sound.level * 100)}%`; audio.setLevel(state.sound.level); }, options);
+el('speakButton').addEventListener('click', async () => {
+  if (!state.audioOn) { announce('Audio is off — turn it on to hear playback'); return; }
+  const text = el('phrase').value.trim(); if (!text) { status('voiceStatus', 'Give the bug a few words first.'); return; }
+  const version = ++state.phraseRequest; status('voiceStatus');
+  try { await audio.speak(text); }
+  catch (error) { if (version === state.phraseRequest && !state.disposed) status('voiceStatus', `Voice: ${error.message || error}`); }
+}, options);
+el('phrase').addEventListener('keydown', event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); el('speakButton').click(); } }, options);
+for (const button of el('viewPresets').querySelectorAll('button')) button.addEventListener('click', () => selectView(button.dataset.view), options);
+el('sideToggle').addEventListener('click', () => { state.side = state.side === 'left' ? 'right' : 'left'; el('sideToggle').textContent = state.side === 'left' ? 'L / R' : 'R / L'; selectView('side'); }, options);
+el('resetCamera').addEventListener('click', () => { viewer?.resetCamera(); refreshGaze(); }, options);
+el('zoomIn').addEventListener('click', () => viewer?.zoom(.87), options);
+el('zoomOut').addEventListener('click', () => viewer?.zoom(1 / .87), options);
+el('dragAxis').addEventListener('change', () => viewer?.setDragAxis(el('dragAxis').value), options);
+el('touch3D').addEventListener('click', () => {
+  const active = el('touch3D').getAttribute('aria-pressed') !== 'true';
+  el('touch3D').setAttribute('aria-pressed', String(active)); el('touch3D').textContent = active ? '3D touch on' : '3D touch'; viewer?.setTouchInteraction(active);
+}, options);
+el('showJoints').addEventListener('click', () => { const visible = el('showJoints').getAttribute('aria-pressed') !== 'true'; viewer?.setSkeletonVisible(visible); el('showJoints').setAttribute('aria-pressed', String(visible)); }, options);
+el('retryModel').addEventListener('click', () => void loadModel(), options);
+document.addEventListener('visibilitychange', () => { if (document.hidden) { if (frame) cancelAnimationFrame(frame); frame = 0; } else { lastFrame = -Infinity; updateVisual(); if (state.playing) scheduleFrame(); } }, options);
+motionQuery.addEventListener('change', () => { if (motionQuery.matches) setPlaying(false); }, options);
+window.addEventListener('pagehide', event => {
   if (event.persisted) return;
   state.disposed = true; loadVersion += 1; state.phraseRequest += 1;
   if (frame) cancelAnimationFrame(frame); frame = 0;
   listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.roachSynth;
-}, options);
-
-function changePatchBy(amount) {
-  const index = ROACH_MOTION_PRESETS.findIndex((preset) => preset.id === state.motion.presetId);
-  setMotionPreset(ROACH_MOTION_PRESETS[(index + amount + ROACH_MOTION_PRESETS.length) % ROACH_MOTION_PRESETS.length].id);
-}
-el("previousPatch").addEventListener("click", () => changePatchBy(-1), options);
-el("nextPatch").addEventListener("click", () => changePatchBy(1), options);
-el("savePatch").addEventListener("click", () => {
-  rememberPatch();
-  try {
-    localStorage.setItem(patchStorageKey, JSON.stringify(Object.fromEntries([...editedPatches].map(([id, motion]) => [id, storagePatch(motion)]))));
-    el("patchStatus").textContent = "Joint scores saved in this browser.";
-  } catch { el("patchStatus").textContent = "Browser storage is unavailable. Your edits remain playable in this tab."; }
-}, options);
-el("restorePatch").addEventListener("click", () => {
-  editedPatches.delete(state.motion.presetId);
-  setMotionPreset(state.motion.presetId, { factory: true, remember: false });
-  el("patchStatus").textContent = "Factory joint contours restored.";
-}, options);
-el("sequenceJoint").addEventListener("change", () => viewer?.selectBone(el("sequenceJoint").value), options);
-for (const button of el("sequenceAxes").querySelectorAll("button")) button.addEventListener("click", () => { state.sequenceAxis = button.dataset.axis; renderSequence(); }, options);
-el("stepRotation").addEventListener("input", () => {
-  const track = selectedTrack(true); if (!track) return;
-  track.steps[state.selectedStep] = Number(el("stepRotation").value); markScoreEdited();
-}, options);
-el("captureStep").addEventListener("click", () => {
-  const track = selectedTrack(true); const part = selectedPart(); if (!track || !part) return;
-  const gain = state.motion.trackMode === "replace" ? state.motion.intensity : 1;
-  if (gain <= 0) return;
-  track.steps[state.selectedStep] = Math.max(-180, Math.min(180, track.steps[state.selectedStep] + part.offset[state.sequenceAxis] / gain));
-  viewer.setBoneOffset(part.id, { [state.sequenceAxis]: 0 }); refreshJoints();
-  markScoreEdited(); syncManualPose();
-}, options);
-el("waveTrack").addEventListener("click", () => {
-  const track = selectedTrack(true); if (!track) return;
-  delete track.samples; delete track.sourceSteps;
-  track.steps = Array.from({ length: 16 }, (_, index) => Math.round(Math.sin(index * Math.PI / 8) * 18)); markScoreEdited();
-}, options);
-el("clearTrack").addEventListener("click", () => {
-  const part = selectedPart(); if (!part) return;
-  const track = selectedTrack();
-  if (state.motion.trackMode === "replace" && track) { track.steps.fill(0); delete track.samples; delete track.sourceSteps; }
-  else state.motion.tracks = state.motion.tracks.filter((track) => track.jointId !== part.id || track.axis !== state.sequenceAxis);
-  rememberPatch(); renderSequence(); publish(); updateVisual();
-}, options);
-el("dragAxis").addEventListener("change", () => viewer?.setDragAxis(el("dragAxis").value), options);
-el("touch3D").addEventListener("click", () => {
-  const active = el("touch3D").getAttribute("aria-pressed") !== "true";
-  el("touch3D").setAttribute("aria-pressed", String(active)); viewer?.setTouchInteraction(active);
-  el("touch3D").textContent = active ? "3D touch on" : "3D touch";
-}, options);
-for (const axis of ["X", "Y", "Z"]) {
-  const release = () => { const part = selectedPart(); if (part) audio.interact({ jointId: part.id, active: false }); };
-  for (const name of ["change", "pointerup", "pointercancel", "blur"]) el(`pose${axis}`).addEventListener(name, release, options);
-}
-el("phrase").addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); el("speakButton").click(); }
 }, options);

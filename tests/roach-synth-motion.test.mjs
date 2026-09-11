@@ -4,7 +4,7 @@ import {
   ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, ROACH_SEQUENCE_STEPS, ROACH_MAX_JOINT_TRACKS,
   normalizeRoachMotion, activeRoachPreset, writeRoachPose, createRoachJointTrack,
   roachSequencePosition, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
-  evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose, constrainRoachPose,
+  evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose, constrainRoachPose, createRandomRoachMotion,
 } from '../src/roach-synth-motion.js';
 
 const jointIds = ['body', 'abdomen', 'neck', 'head', 'antenna_left', 'antenna_right', 'wings'];
@@ -230,7 +230,7 @@ test('grounded leg poses interpolate calibrated planted and lifted corners on th
   rig[7].restOffset = { x: 10, y: 20, z: 30 };
   rig[7].gaitPose = { back: [0, 20, 30], front: [20, 20, 30], raisedBack: [0, 40, 30], raisedFront: [20, 40, 30] };
   rig[7].offset.z = 5;
-  const settings = { presetId: 'side_walk', tempo: 120 };
+  const settings = { presetId: 'bottom_shuffle', tempo: 120 };
   for (const time of [0, .1, .2, .27, .34, .39]) {
     const foot = scene(time, settings, rig).feet[0];
     const out = pose(time, settings, rig);
@@ -490,5 +490,96 @@ test('camera gaze remains additive exactly once after fully baked head-track rep
   for (let i = 0; i < aimed.length; i += 1) {
     const delta = i === 9 ? 5 : i === 10 ? -7 : i === 11 ? 9 : 0;
     assert.ok(Math.abs(aimed[i] - neutral[i] - delta) < .00001);
+  }
+});
+
+
+test('factory choices interleave grounded crawls, wings, dances and expressive heads without numeric names', () => {
+  const first = ROACH_MOTION_PRESETS.slice(0, 4);
+  assert.deepEqual(first.map(({ category }) => category), ['Scuttle', 'Wings', 'Dance', 'Face']);
+  assert.ok(ROACH_MOTION_PRESETS.every(({ label }) => !/^\d/.test(label)));
+});
+
+test('low crawl keeps planted calibrated support and reduces the returning foot arc', () => {
+  const rig = joints();
+  rig[7].restOffset = { x: 10, y: 20, z: 30 };
+  rig[7].gaitPose = { back: [0, 20, 30], front: [20, 20, 30], raisedBack: [0, 40, 30], raisedFront: [20, 40, 30] };
+  const planted = scene(0, { presetId: 'side_walk', tempo: 120 }, rig);
+  assert.equal(planted.feet[0].stance, true);
+  assert.equal(planted.feet[0].lift, 0);
+  const plantedPose = pose(0, { presetId: 'side_walk', tempo: 120 }, rig);
+  assert.equal(plantedPose[22], 20, 'planted feet keep the authored support target');
+  let maximumLift = 0;
+  for (let frame = 0; frame < 200; frame += 1) maximumLift = Math.max(maximumLift, scene(frame / 200, { presetId: 'side_walk', tempo: 120 }, rig).feet[0].lift);
+  assert.ok(maximumLift > .3 && maximumLift < .4, 'crawl clears the floor with a low returning foot arc');
+  assert.equal(scene(0, { presetId: 'side_walk' }, rig).body.lift, 0);
+});
+
+test('random motions are reproducible, varied, bounded and preserve the full base support gait', () => {
+  const rig = wingRig(); const before = structuredClone(rig);
+  const signatures = new Set(); const bases = new Set();
+  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 42, 71, 999, 4294967295]) {
+    const random = createRandomRoachMotion(seed, rig, { tempo: 120, intensity: .7 });
+    const base = bakeRoachPresetTracks(random.presetId, rig, { tempo: 120, intensity: .7 });
+    assert.deepEqual(random, createRandomRoachMotion(seed, rig, { tempo: 120, intensity: .7 }));
+    assert.deepEqual(normalizeRoachMotion(JSON.parse(JSON.stringify(random))), random);
+    assert.equal(random.randomSeed, seed);
+    assert.ok(random.randomLabel && random.randomSourceId);
+    assert.equal(random.tracks.length, 93);
+    assert.deepEqual(random.sceneContactCounts, base.sceneContactCounts);
+    assert.equal(random.sceneTravelPerLoop, base.sceneTravelPerLoop);
+    for (let jointIndex = 0; jointIndex < rig.length; jointIndex += 1) {
+      const id = rig[jointIndex].jointId;
+      if (id !== 'body' && !/^(front|middle|hind)_/.test(id)) continue;
+      assert.deepEqual(random.tracks.slice(jointIndex * 3, jointIndex * 3 + 3), base.tracks.slice(jointIndex * 3, jointIndex * 3 + 3));
+    }
+    let previous = scene(0, random, rig);
+    for (let step = 0; step <= 256; step += 1) {
+      const time = step / 64; const next = scene(time, random, rig); const original = scene(time, base, rig);
+      assert.deepEqual(next.feet, original.feet);
+      assert.deepEqual(next.body, original.body);
+      assert.equal(next.groundOffset, original.groundOffset);
+      assert.ok(next.feet.every((foot, i) => foot.contactCount >= previous.feet[i].contactCount));
+      const out = pose(time, random, rig);
+      assert.ok(out.every((angle) => Number.isFinite(angle) && Math.abs(angle) <= 180));
+      previous = next;
+    }
+    assert.ok(maxDifference(pose(4 - 1e-7, random, rig), pose(4, random, rig)) < .01);
+    assert.equal(random.view, undefined);
+    signatures.add(JSON.stringify(random.tracks)); bases.add(random.presetId);
+  }
+  assert.equal(signatures.size, 12); assert.ok(bases.size >= 6, 'consecutive small seeds spread across the factory bank');
+  assert.deepEqual(rig, before);
+});
+
+test('random motion has real time variation, independent wing hinges, and the same zero-intensity stop', () => {
+  const rig = wingRig(); const motion = createRandomRoachMotion(42, rig, { tempo: 120 });
+  assert.ok(maxDifference(pose(.19, motion, rig), pose(.83, motion, rig)) > 1);
+  assert.ok(pose(.83, { ...motion, intensity: 0 }, rig).every((value) => value === 0));
+  assert.ok(scene(.83, { ...motion, intensity: 0 }, rig).feet.every(({ impact }) => impact === 0));
+  assert.ok(pose(.83, { ...motion, antennae: false }, rig).slice(12, 18).every((value) => value === 0));
+  const bad = createRandomRoachMotion(Infinity, rig, { tempo: 900, intensity: -2 });
+  assert.equal(bad.randomSeed, 1); assert.equal(bad.tempo, 240); assert.equal(bad.intensity, 0);
+});
+
+test('baked touchdown counts remain observable between sample knots at the audio control rate', () => {
+  for (const tempo of [108, 120, 173]) {
+    const settings = bakeRoachPresetTracks('side_run', joints, { tempo });
+    const end = 8 * 60 / tempo;
+    let previous = scene(0, settings, joints), heard = 0;
+    for (let time = .005; time < end; time += .005) {
+      const current = scene(time, settings, joints);
+      for (let i = 0; i < 6; i += 1) {
+        const delta = current.feet[i].contactCount - previous.feet[i].contactCount;
+        if (delta > 0) {
+          assert.equal(current.feet[i].stance, true, `lost foot ${i} at ${time}s / ${tempo} BPM`);
+          assert.ok(current.feet[i].impact > 0);
+          heard += delta;
+        }
+      }
+      previous = current;
+    }
+    assert.equal(heard, previous.feet.reduce((sum, foot, i) => sum + foot.contactCount - scene(0, settings, joints).feet[i].contactCount, 0));
+    assert.ok(heard > 130);
   }
 });

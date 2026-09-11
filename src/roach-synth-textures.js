@@ -53,10 +53,14 @@ export class RoachZing {
 }
 
 export class RoachRecordingGrains {
-  constructor(sampleRate) {
-    this.rate = sampleRate; this.bank = []; this.events = 0; this.cooldown = 0;
-    this.voices = Array.from({ length: MAX_SAMPLE_VOICES }, () => ({
-      recording: null, position: 0, increment: 1, age: 0, frames: 0, gain: 0,
+  constructor(sampleRate, { groups = 1, voices = MAX_SAMPLE_VOICES } = {}) {
+    this.rate = sampleRate; this.bank = []; this.events = 0;
+    this.groupCount = Math.max(1, Math.min(8, Math.floor(groups)));
+    this.cooldowns = new Int32Array(this.groupCount);
+    this.groupEvents = new Uint32Array(this.groupCount);
+    this.releaseDecay = Math.exp(-1 / (this.rate * .008));
+    this.voices = Array.from({ length: Math.max(1, Math.min(16, Math.floor(voices))) }, () => ({
+      recording: null, position: 0, increment: 1, age: 0, frames: 0, gain: 0, group: 0, release: 1, releasing: false,
     }));
   }
   setBank(source, { transferred = false } = {}) {
@@ -80,8 +84,13 @@ export class RoachRecordingGrains {
     this.bank = bank;
     for (const voice of this.voices) voice.recording = null;
   }
-  trigger(kind, strength, variation) {
-    if (this.cooldown > 0 || !this.bank.length || strength <= 0) return;
+  trigger(kind, strength, variation, group = 0) {
+    if (!Number.isInteger(group) || group < 0 || group >= this.groupCount || this.cooldowns[group] > 0 || !this.bank.length || strength <= 0) return;
+    if (this.groupCount > 1) {
+      let active = 0;
+      for (let i = 0; i < this.voices.length; i += 1) if (this.voices[i].recording && this.voices[i].group === group) active += 1;
+      if (active >= 2) return;
+    }
     let recording = this.bank[0];
     for (let i = 0; i < this.bank.length; i += 1) if (this.bank[i].id === SAMPLE_IDS[kind]) recording = this.bank[i];
     let voice = null;
@@ -92,24 +101,30 @@ export class RoachRecordingGrains {
     // requests instead of discontinuously stealing a full-level rustle.
     if (!voice) return;
     const duration = (kind === 1 ? .18 : .075) + variation * (kind === 1 ? .24 : .12);
+    voice.group = group; voice.release = 1; voice.releasing = false;
     voice.frames = Math.max(1, Math.round(duration * this.rate));
     voice.increment = recording.sampleRate / this.rate * (.87 + variation * .25);
     const available = Math.max(0, recording.data.length - voice.frames * voice.increment - 2);
     const cue = recording.cues.length ? recording.cues[Math.min(recording.cues.length - 1, Math.floor(variation * recording.cues.length))] : null;
     voice.recording = recording; voice.position = cue == null ? available * variation : clamp((cue - .007) * recording.sampleRate, 0, available); voice.age = 0;
     voice.gain = clamp(strength, 0, 1) * (kind === 2 ? .9 : .75);
-    this.cooldown = Math.round(this.rate * .037); this.events += 1;
+    this.cooldowns[group] = Math.round(this.rate * .037); this.events += 1; this.groupEvents[group] += 1;
   }
-  sample() {
-    if (this.cooldown > 0) this.cooldown -= 1;
+  release() { for (const voice of this.voices) voice.releasing = true; }
+  sample(groups = null) {
+    if (groups) groups.fill(0);
+    for (let i = 0; i < this.groupCount; i += 1) if (this.cooldowns[i] > 0) this.cooldowns[i] -= 1;
     let output = 0;
     for (let i = 0; i < this.voices.length; i += 1) {
       const voice = this.voices[i]; if (!voice.recording) continue;
       const data = voice.recording.data; const index = Math.floor(voice.position);
       if (voice.age >= voice.frames || index + 1 >= data.length) { voice.recording = null; continue; }
+      if (voice.releasing) { voice.release *= this.releaseDecay; if (voice.release < 1e-8) { voice.recording = null; continue; } }
       const mix = voice.position - index;
       const envelope = Math.min(1, voice.age / (this.rate * .004), (voice.frames - voice.age) / (this.rate * .028));
-      output += (data[index] * (1 - mix) + data[index + 1] * mix) * envelope * voice.gain;
+      const sample = (data[index] * (1 - mix) + data[index + 1] * mix) * envelope * voice.gain * voice.release;
+      output += sample;
+      if (groups) groups[voice.group] += sample;
       voice.position += voice.increment; voice.age += 1;
     }
     return output;

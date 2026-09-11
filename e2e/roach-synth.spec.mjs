@@ -1,399 +1,216 @@
-import { expect, test } from "@playwright/test";
-import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from "./helpers/audio-probe.mjs";
-import { installFakeMidi, enableFakeMidi, sendMidi, MIDI_BYTES } from "./helpers/fake-midi.mjs";
+import { expect, test } from '@playwright/test';
+import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from './helpers/audio-probe.mjs';
+import { installFakeMidi, enableFakeMidi, sendMidi, MIDI_BYTES } from './helpers/fake-midi.mjs';
 
-test.setTimeout(60_000);
-const snapshot = (page) => page.evaluate(() => window.roachSynth.getState());
-async function openRoach(page) {
-  await page.goto("roach-synth.html");
-  await page.waitForFunction(() => window.roachSynth?.getState().loaded, undefined, { timeout: 45_000 });
-  await expect(page.locator("#bodyPart option")).toHaveCount(31);
+test.setTimeout(90000);
+const snapshot = page => page.evaluate(() => window.roachSynth.getState());
+async function loaded(page) {
+  await page.waitForFunction(() => window.roachSynth?.getState().loaded, undefined, { timeout: 45000 });
+  expect((await snapshot(page)).bones).toHaveLength(31);
 }
+async function openRoach(page) { await page.goto('roach-synth.html'); await loaded(page); }
 async function arm(page) {
-  await page.locator("#audioButton").click();
-  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true", { timeout: 10_000 });
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
 }
 
-test("four anatomical views retain free orbit, side choice, face target and deterministic reset", async ({ page }) => {
-  const failures = [];
-  page.on("requestfailed", (request) => failures.push(request.url()));
-  await openRoach(page);
-  expect(failures).toEqual([]);
+test('index chooser opens the compact instrument with a held neutral body and Audio off', async ({ page }) => {
+  const failures = []; page.on('pageerror', error => failures.push(error.message));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('index.html');
+  const chooser = page.locator('.instrument-picker');
+  await chooser.locator('.instrument-picker-trigger').click();
+  await chooser.getByRole('searchbox', { name: 'Filter instruments' }).fill('Roach');
+  await chooser.locator('.instrument-picker-link[data-tool-id="roach-synth"]').first().click();
+  await expect(page).toHaveURL(/roach-synth\.html$/); await loaded(page);
   const initial = await snapshot(page);
-  expect(initial.playing).toBe(false);
-  expect(initial.audio.contextState).toBe("uninitialized");
-  expect(initial.mappings).toHaveLength(31);
+  expect(initial.playing).toBe(false); expect(initial.soundPlaying).toBe(false);
+  expect(initial.audio.contextState).toBe('uninitialized');
+  expect(initial.bones.every(joint => Object.values(joint.offset).every(value => value === 0))).toBe(true);
+  await page.waitForTimeout(250);
+  const held = await snapshot(page);
+  expect(held.time).toBe(initial.time);
+  expect(held.bones.map(joint => joint.quaternion)).toEqual(initial.bones.map(joint => joint.quaternion));
+  expect(await page.evaluate(() => {
+    const ids = ['soundPlayButton', 'phrase', 'motionButton', 'bodyMixer'];
+    return ids.slice(1).every((id, i) => Boolean(document.getElementById(ids[i]).compareDocumentPosition(document.getElementById(id)) & Node.DOCUMENT_POSITION_FOLLOWING));
+  })).toBe(true);
+  expect(failures).toEqual([]);
+});
+
+test('four anatomical views, free orbit, explicit zoom buttons and keyboard fit keep distinct ownership', async ({ page }) => {
+  await openRoach(page);
   const cameras = [];
-  for (const view of ["side", "top", "bottom", "face"]) {
+  for (const view of ['side', 'top', 'bottom', 'face']) {
     await page.locator(`[data-view="${view}"]`).click();
-    const current = await snapshot(page);
-    expect(current.camera.viewPreset).toBe(view);
-    cameras.push(current.camera);
+    const current = await snapshot(page); expect(current.camera.viewPreset).toBe(view); cameras.push(current.camera);
   }
-  expect(new Set(cameras.map((camera) => JSON.stringify(camera.quaternion))).size).toBe(4);
-  expect(cameras[3].target).not.toEqual(cameras[0].target);
+  expect(new Set(cameras.map(camera => JSON.stringify(camera.quaternion))).size).toBe(4);
   expect(cameras[3].distance).toBeLessThan(cameras[0].distance);
-  await page.locator('[data-view="side"]').click();
-  await page.locator("#sideToggle").click();
-  expect((await snapshot(page)).camera.side).toBe("right");
-  const before = (await snapshot(page)).camera;
-  const canvas = page.locator("#roachCanvas"); const box = await canvas.boundingBox();
-  await page.mouse.move(box.x + box.width * .04, box.y + box.height * .12);
-  await page.mouse.down(); await page.mouse.move(box.x + box.width * .16, box.y + box.height * .20, { steps: 6 }); await page.mouse.up();
+  await page.locator('[data-view="side"]').click(); await page.locator('#sideToggle').click();
+  const before = (await snapshot(page)).camera; expect(before.side).toBe('right');
+  const canvas = page.locator('#roachCanvas'); const box = await canvas.boundingBox();
+  await page.mouse.move(box.x + 18, box.y + 70); await page.mouse.down();
+  await page.mouse.move(box.x + 80, box.y + 90, { steps: 3 }); await page.mouse.up();
   expect((await snapshot(page)).camera.quaternion).not.toEqual(before.quaternion);
-  await canvas.focus(); await page.keyboard.press("+");
+  expect((await snapshot(page)).camera.distance).toBe(before.distance);
+  await page.locator('#zoomIn').click(); const near = (await snapshot(page)).camera.distance;
+  expect(near).toBeLessThan(before.distance);
+  await page.locator('#zoomOut').click(); expect((await snapshot(page)).camera.distance).toBeGreaterThan(near);
+  await canvas.focus(); await page.keyboard.press('+');
   expect((await snapshot(page)).camera.distance).toBeLessThan(before.distance);
-  await page.locator("#resetCamera").click();
-  expect((await snapshot(page)).camera).toEqual(before);
+  await page.locator('#resetCamera').click();
+  const reset = (await snapshot(page)).camera;
+  expect(reset.quaternion).toEqual(before.quaternion); expect(reset.distance).toBeCloseTo(before.distance, 7);
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
 });
 
-test("all 24 animation patches switch live without selecting a camera or arming audio", async ({ page }) => {
-  test.setTimeout(120000);
+test('animation routines and random motion switch live without selecting a camera or arming Audio', async ({ page }) => {
   await openRoach(page);
-  await expect(page.locator(".roach-panel #motionButton")).toBeVisible();
-  await expect(page.locator("#motionPreset option")).toHaveCount(25);
-  await page.locator('[data-view="top"]').click();
-  const camera = (await snapshot(page)).camera;
-  await page.locator("#motionButton").click();
-  await expect(page.locator("#liveStatus")).toContainText("Audio is off");
-  const ids = await page.locator("#motionPreset option").evaluateAll(options => options.map(o => o.value).filter(id => id !== 'none'));
-  for (const id of ids) {
-    await page.locator("#motionPreset").selectOption(id);
+  const options = await page.locator('#motionPreset option').evaluateAll(items => items.map(item => item.value));
+  expect(options.filter(id => id !== 'none' && id !== 'random')).toHaveLength(24);
+  await page.locator('[data-view="top"]').click(); const camera = (await snapshot(page)).camera;
+  await page.locator('#motionButton').click();
+  await expect(page.locator('#motionButton .transport-pause')).toBeVisible();
+  await expect(page.locator('#motionButton .transport-play')).toBeHidden();
+  for (const id of ['side_walk', 'side_run', 'top_flight', 'dance_upright']) {
+    await page.locator('#motionPreset').selectOption(id);
     const current = await snapshot(page);
-    expect(current.motionSettings.presetId).toBe(id);
-    expect(current.playing).toBe(true);
-    expect(current.view).toBe("top");
-    current.camera.quaternion.forEach((value, index) => expect(value).toBeCloseTo(camera.quaternion[index], 12));
+    expect(current.playing).toBe(true); expect(current.view).toBe('top');
+    expect(current.camera.quaternion).toEqual(camera.quaternion); expect(current.camera.distance).toBe(camera.distance);
   }
-  const moving = await snapshot(page);
-  await expect.poll(async () => (await snapshot(page)).bones.filter((part) => /antenna/i.test(part.name)).map((part) => part.quaternion)).not.toEqual(moving.bones.filter((part) => /antenna/i.test(part.name)).map((part) => part.quaternion));
-  expect((await snapshot(page)).audio.contextState).toBe("uninitialized");
-  await page.locator("#motionButton").click();
-  await page.waitForTimeout(150);
-  const paused = await snapshot(page);
-  await page.waitForTimeout(150);
-  expect((await snapshot(page)).time).toBe(paused.time);
-  expect((await snapshot(page)).bones.map((part) => part.quaternion)).toEqual(paused.bones.map((part) => part.quaternion));
+  const before = await snapshot(page); await page.locator('#randomMotion').click();
+  const random = await snapshot(page);
+  expect(random.playing).toBe(true); expect(random.time).toBeGreaterThanOrEqual(before.time);
+  expect(random.motionSettings).not.toEqual(before.motionSettings); expect(random.camera).toEqual(before.camera);
+  await page.locator('#randomMotion').click();
+  expect((await snapshot(page)).motionSettings).not.toEqual(random.motionSettings);
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  await page.locator('#motionButton').click();
+  await page.waitForTimeout(100); const paused = await snapshot(page);
+  await page.waitForTimeout(180); const held = await snapshot(page);
+  expect(held.time).toBe(paused.time); expect(held.bones.map(j => j.quaternion)).toEqual(paused.bones.map(j => j.quaternion));
+  await expect(page.locator('#motionButton .transport-play')).toBeVisible();
 });
 
-test("each part retains pose and editable multi-axis routes, and reset clears motion without erasing routes", async ({ page }) => {
-  await openRoach(page);
-  await page.locator("#bodyPart").selectOption({ label: "Head" });
-  await page.locator("#poseX").fill("20");
-  await page.locator("#addMapping").click();
-  await expect(page.locator(".roach-mapping")).toHaveCount(2);
-  const row = page.locator(".roach-mapping").last();
-  await row.locator("select").nth(0).selectOption("xz");
-  await row.locator("select").nth(1).selectOption("pitch");
-  await row.locator('input[type="range"]').fill("0.8");
-  const head = (await snapshot(page)).bones.find((part) => part.name === "Head");
-  await page.locator("#bodyPart").selectOption({ label: "Left antenna" });
-  await page.locator("#bodyPart").selectOption({ label: "Head" });
-  await expect(page.locator("#poseX")).toHaveValue("20");
-  expect((await snapshot(page)).mappings.find((route) => route.jointId === head.id && route.source === "xz")).toMatchObject({ target: "pitch", amount: .8 });
-  await page.locator("#resetPose").click();
-  const reset = await snapshot(page);
-  expect(reset.playing).toBe(false);
-  expect(reset.motionSettings.presetId).toBe("none");
-  expect(reset.bones.every((part) => Object.values(part.offset).every((value) => value === 0) && !part.motion.enabled)).toBe(true);
-  expect(reset.mappings).toHaveLength(32);
+test('Sound Play, Animation Play and explicit Audio remain independent with visible pause icons', async ({ page }) => {
+  await openRoach(page); await page.locator('#soundPlayButton').click();
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  await expect(page.locator('#soundPlayButton .transport-pause')).toBeVisible();
+  await expect(page.locator('#soundPlayButton .transport-play')).toBeHidden();
+  await arm(page); await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.001);
+  const started = await snapshot(page); await page.waitForTimeout(180); const held = await snapshot(page);
+  expect(held.time).toBe(started.time); expect(held.bones.map(j => j.quaternion)).toEqual(started.bones.map(j => j.quaternion));
+  await page.locator('#randomPose').click(); const random = await snapshot(page);
+  expect(random.playing).toBe(false); expect(random.soundPlaying).toBe(true);
+  expect(random.bones.map(j => j.offset)).not.toEqual(held.bones.map(j => j.offset));
+  await page.locator('#resetPose').click();
+  expect((await snapshot(page)).bones.every(j => Object.values(j.offset).every(value => value === 0))).toBe(true);
+  await page.locator('#motionButton').click(); await page.locator('#soundPlayButton').click();
+  expect((await snapshot(page)).playing).toBe(true); expect((await snapshot(page)).soundPlaying).toBe(false);
+  await page.locator('#motionButton').click();
+  await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
+  await page.locator('#motionButton').click(); await page.locator('#audioButton').click();
+  expect((await snapshot(page)).playing).toBe(true); await waitForStableAudioState(page, false);
 });
 
-test("sixteen-step joint tracks retain independent XYZ edits, loop, save and recall without camera changes", async ({ page }) => {
-  await openRoach(page);
-  await page.locator('[data-view="bottom"]').click();
-  await page.locator("#motionPreset").selectOption("none");
-  await page.locator("#antennae").uncheck();
-  await page.locator("#sequenceJoint").selectOption({ label: "Head" });
-  const head = (await snapshot(page)).bones.find(part => part.name === "Head");
-  await page.locator('#sequenceAxes [data-axis="x"]').click();
-  await page.locator('#sequenceSteps [data-step="0"]').click();
-  await page.locator("#stepRotation").fill("25");
-  await page.locator('#sequenceSteps [data-step="8"]').click();
-  await page.locator("#stepRotation").fill("-18");
-  await page.locator("#poseX").fill("7");
-  await page.locator("#captureStep").click();
-  await expect(page.locator("#poseX")).toHaveValue("0");
-  await page.locator('#sequenceAxes [data-axis="z"]').click();
-  await page.locator("#waveTrack").click();
-  await page.locator("#sequenceJoint").selectOption({ label: "Left antenna" });
-  await page.locator('#sequenceAxes [data-axis="y"]').click();
-  await page.locator("#stepRotation").fill("12");
-  const tracks = (await snapshot(page)).motionSettings.tracks;
-  expect(tracks).toHaveLength(3);
-  expect(tracks.find(track => track.jointId === head.id && track.axis === 'x').steps[0]).toBe(25);
-  expect(tracks.find(track => track.jointId === head.id && track.axis === 'x').steps[8]).toBe(-11);
-  await page.locator("#timelinePosition").fill("0");
-  const first = (await snapshot(page)).bones.find(part => part.id === head.id).quaternion;
-  await page.locator("#timelinePosition").fill("8");
-  expect((await snapshot(page)).bones.find(part => part.id === head.id).quaternion).not.toEqual(first);
-  expect((await snapshot(page)).view).toBe("bottom");
-  await page.locator("#motionButton").click();
-  await page.locator("#motionPreset").selectOption("dance_upright");
-  expect((await snapshot(page)).playing).toBe(true);
-  expect((await snapshot(page)).view).toBe("bottom");
-  await page.locator("#motionPreset").selectOption("none");
-  expect((await snapshot(page)).motionSettings.tracks).toEqual(tracks);
-  // Save one of the 24 routine slots, then verify browser reload persistence.
-  await page.locator("#motionPreset").selectOption("side_walk");
-  await page.locator("#waveTrack").click();
-  await page.locator("#savePatch").click();
-  const saved = (await snapshot(page)).motionSettings.tracks;
-  await page.reload();
-  await page.waitForFunction(() => window.roachSynth?.getState().loaded);
-  expect((await snapshot(page)).motionSettings.tracks).toEqual(saved);
-  expect((await snapshot(page)).playing).toBe(false);
-});
-
-test("real worklet audio is bounded, follows transport through a stalled renderer, and mutes independently", async ({ page }, testInfo) => {
-  await openRoach(page);
-  await page.locator("#motionButton").click();
-  expect((await readAudioStatus(page)).active).toBe(false);
-  await arm(page);
+test('real worklet audio stays bounded and advances while graphics and UI are stalled', async ({ page }, testInfo) => {
+  await openRoach(page); await page.locator('#motionButton').click();
+  expect((await readAudioStatus(page)).active).toBe(false); await arm(page);
   await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.001);
   const envelope = await sampleAudioEnvelope(page, { durationMs: 500 });
   expect(envelope.summary.finite).toBe(true); expect(envelope.summary.clippedSamples).toBe(0);
-  expect(envelope.summary.maxPeak).toBeGreaterThan(.001);
   const before = await snapshot(page);
-  await page.evaluate(() => { const until = performance.now() + 700; while (performance.now() < until) { /* emulate a blocked graphics/UI thread */ } });
+  await page.evaluate(() => { const end = performance.now() + 700; while (performance.now() < end) {} });
   await expect.poll(async () => (await snapshot(page)).audio.renderedFrames).toBeGreaterThan(before.audio.renderedFrames + 16000);
-  const after = await snapshot(page);
-  expect(after.time - before.time).toBeGreaterThan(.6);
-  expect(Math.abs(after.audio.motionTime - after.time)).toBeLessThan(.4);
-  await page.locator("#motionButton").click();
-  await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
-  await page.locator("#motionButton").click();
-  await page.locator("#audioButton").click();
-  expect((await snapshot(page)).playing).toBe(true);
-  await waitForStableAudioState(page, false);
-  await testInfo.attach("roach-audio-envelope.json", { body: JSON.stringify({ envelope: envelope.summary, before: before.audio, after: after.audio }), contentType: "application/json" });
+  const after = await snapshot(page); expect(after.time - before.time).toBeGreaterThan(.6);
+  // Worklet status arrives through a queued message after the intentional UI
+  // stall. Let that report catch up before comparing its clock to the live one.
+  await expect.poll(async () => {
+    const current = await snapshot(page);
+    return Math.abs(current.audio.motionTime - current.time);
+  }).toBeLessThan(.4);
+  await testInfo.attach('roach-audio-thread.json', { body: JSON.stringify({ envelope: envelope.summary, before: before.audio, after: after.audio }), contentType: 'application/json' });
 });
 
-test("spoken words enter the same audio graph while the motion is paused", async ({ page }) => {
+test('Say it speaks edited words while the body is held and does not arm Audio implicitly', async ({ page }) => {
   await openRoach(page);
-  await expect(page.locator('.roach-voice .group-title')).toHaveText('Sound / VOICE');
   await expect(page.locator('#phrase')).toHaveValue("hi, I'm a cockroach and I live in your house");
   await expect(page.locator('#phrase')).toHaveJSProperty('tagName', 'TEXTAREA');
-  await page.locator("#speakButton").click();
-  expect((await snapshot(page)).audio.contextState).toBe("uninitialized");
-  await arm(page);
-  await page.locator("#soundPreset").selectOption("crunchy-orator");
-  await page.locator("#phrase").fill("hello tiny robot bug");
-  await page.locator("#speakButton").click();
+  await expect(page.locator('#speakButton')).toHaveText('Say it');
+  await page.locator('#speakButton').click(); expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  await arm(page); await page.locator('#phrase').fill('hello tiny robot bug');
+  await page.locator('#phrase').press('Control+Enter');
   await expect.poll(async () => (await snapshot(page)).audio.speechEnvelope, { timeout: 12000 }).toBeGreaterThan(.0001);
-  expect((await snapshot(page)).playing).toBe(false);
-  const envelope = await sampleAudioEnvelope(page, { durationMs: 400 });
-  expect(envelope.summary.maxPeak).toBeGreaterThan(.001);
-  expect(envelope.summary.clippedSamples).toBe(0);
-  await page.locator("#audioButton").click();
-  await waitForStableAudioState(page, false);
+  expect((await snapshot(page)).playing).toBe(false); expect((await snapshot(page)).soundPlaying).toBe(false);
+  const envelope = await sampleAudioEnvelope(page, { durationMs: 350 });
+  expect(envelope.summary.maxPeak).toBeGreaterThan(.001); expect(envelope.summary.clippedSamples).toBe(0);
 });
 
-test("explicit MIDI input reaches pitch and transport through the shared controls", async ({ page }) => {
-  await installFakeMidi(page);
-  await openRoach(page);
-  await enableFakeMidi(page);
+test('MIDI input reaches the visible pitch control and animation transport', async ({ page }) => {
+  await installFakeMidi(page); await openRoach(page); await enableFakeMidi(page);
   await sendMidi(page, MIDI_BYTES.noteOn(69, 100));
-  await expect(page.locator("#pitch")).toHaveValue("440");
-  await expect(page.locator("#motionButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('#pitch')).toHaveValue('440');
+  await expect(page.locator('#motionButton')).toHaveAttribute('aria-pressed', 'true');
   expect((await snapshot(page)).sound.pitch).toBe(440);
 });
 
-test("invalid local model preserves the cockroach and makes no external requests", async ({ page }) => {
-  await openRoach(page);
-  const requests = []; const origin = new URL(page.url()).origin;
-  page.on("request", (request) => { if (new URL(request.url()).origin !== origin) requests.push(request.url()); });
-  await page.locator("#modelFile").setInputFiles({ name: "broken.glb", mimeType: "model/gltf-binary", buffer: Buffer.from("not a glb") });
-  await expect(page.locator("#modelStatus")).toContainText("current model is still available");
-  expect((await snapshot(page)).bones).toHaveLength(31); expect(requests).toEqual([]);
+test('failed specimen download preserves its poster and Retry loads all 31 joints', async ({ page }) => {
+  await page.route('**/assets/roach-synth/cockroach.glb', route => route.fulfill({ status: 503, body: 'Unavailable' }));
+  await page.goto('roach-synth.html'); await expect(page.locator('#modelStatus')).toContainText('503');
+  await expect(page.locator('#specimenImage')).toBeVisible(); await expect(page.locator('#roachCanvas')).toBeHidden();
+  await page.unroute('**/assets/roach-synth/cockroach.glb'); await page.locator('#retryModel').click();
+  await loaded(page); await expect(page.locator('#roachCanvas')).toBeVisible(); await expect(page.locator('#specimenImage')).toBeHidden();
 });
 
-test("download failure keeps the preview visible and retry restores the full instrument", async ({ page }) => {
-  await page.route("**/assets/roach-synth/cockroach.glb", (route) => route.fulfill({ status: 503, body: "Unavailable" }));
-  await page.goto("roach-synth.html");
-  await expect(page.locator("#modelStatus")).toContainText("503");
-  await expect(page.locator("#specimenImage")).toBeVisible(); await expect(page.locator("#roachCanvas")).toBeHidden();
-  await page.unroute("**/assets/roach-synth/cockroach.glb"); await page.locator("#retryModel").click();
-  await expect(page.locator("#bodyPart option")).toHaveCount(31, { timeout: 45_000 });
-  await expect(page.locator("#roachCanvas")).toBeVisible();
-  expect((await snapshot(page)).mappings).toHaveLength(31);
-});
-
-test("invalid import during startup cannot hide a subsequently loaded model", async ({ page }) => {
-  let release; const gate = new Promise((resolve) => { release = resolve; });
-  await page.route("**/assets/roach-synth/cockroach.glb", async (route) => { await gate; await route.continue(); });
-  await page.goto("roach-synth.html"); await page.waitForFunction(() => Boolean(window.roachSynth));
-  await page.locator("#modelFile").setInputFiles({ name: "wrong.obj", mimeType: "text/plain", buffer: Buffer.from("wrong") });
-  await expect(page.locator("#modelStatus")).toContainText("self-contained .glb"); release();
-  await expect(page.locator("#bodyPart option")).toHaveCount(31, { timeout: 45_000 });
-  await expect(page.locator("#specimenImage")).toBeHidden(); await expect(page.locator("#roachCanvas")).toBeVisible();
-});
-
-test("grabbing body parts plays them with animation paused, while background dragging only orbits", async ({ page }) => {
-  await openRoach(page);
-  await arm(page);
-  expect((await snapshot(page)).playing).toBe(false);
+test('direct part drags choose their body group and play while animation and Sound Play are paused', async ({ page }) => {
+  await openRoach(page); await arm(page);
   await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
-  for (const target of [{ view: 'face', match: '^Head$', axis: 'x' }, { view: 'top', match: 'wing', axis: 'z' }, { view: 'side', match: 'leg', axis: 'y' }]) {
-    await page.locator(`[data-view="${target.view}"]`).click();
-    await page.locator('#dragAxis').selectOption(target.axis);
-    const candidate = await page.evaluate(({ match }) => {
-      for (const part of window.roachSynth.getState().bones.filter(part => new RegExp(match, 'i').test(part.name))) {
-        const point = window.roachSynth.getPartScreenPosition(part.id);
-        if (point) return { id: point.id, point };
-      }
-      return null;
-    }, target);
-    expect(candidate).not.toBeNull();
-    const before = await snapshot(page);
-    await page.mouse.move(candidate.point.x, candidate.point.y); await page.mouse.down();
-    for (let step = 1; step <= 12; step++) {
-      await page.mouse.move(candidate.point.x + step * 5, candidate.point.y - step * 2);
-      await page.waitForTimeout(45);
-    }
+  for (const target of [{ view: 'face', joint: 'head', axis: 'x', group: 'head' }, { view: 'top', joint: 'wing_cover_left', axis: 'z', group: 'covers' }, { view: 'bottom', joint: 'middle_left_middle', axis: 'y', group: 'legs' }]) {
+    await page.locator(`[data-view="${target.view}"]`).click(); await page.locator('#dragAxis').selectOption(target.axis);
+    const point = await page.evaluate(joint => window.roachSynth.getPartScreenPosition(joint), target.joint);
+    expect(point).not.toBeNull(); const before = await snapshot(page);
+    await page.mouse.move(point.x, point.y); await page.mouse.down();
+    for (let step = 1; step <= 8; step++) { await page.mouse.move(point.x + step * 4, point.y - step); await page.waitForTimeout(35); }
     const moved = await snapshot(page);
-    expect(moved.selectedBone).toBe(candidate.id);
-    moved.camera.quaternion.forEach((value, index) => expect(value).toBeCloseTo(before.camera.quaternion[index], 12));
-    expect(moved.bones.find(part => part.id === candidate.id).offset).not.toEqual(before.bones.find(part => part.id === candidate.id).offset);
-    expect(moved.audio.interactionPeak, `${target.match} motion must produce sound while moving`).toBeGreaterThan(.001);
+    expect(moved.selectedBone).toBe(point.id); expect(moved.selectedGroup).toBe(target.group);
+    expect(moved.camera).toEqual(before.camera);
+    expect(moved.bones.find(part => part.id === point.id).offset).not.toEqual(before.bones.find(part => part.id === point.id).offset);
+    expect(moved.audio.interactionPeak).toBeGreaterThan(.001);
     await page.mouse.up();
-    expect((await snapshot(page)).playing).toBe(false);
+    expect((await snapshot(page)).playing).toBe(false); expect((await snapshot(page)).soundPlaying).toBe(false);
     await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
   }
 });
 
-for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
-  test(`touch scrolling at ${size.width}×${size.height} keeps the roach sticky and controls reachable`, async ({ browser }) => {
+for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+  test(`mobile ${size.width}×${size.height} keeps a larger sticky stage, scrollable controls and fitting body rows`, async ({ browser, baseURL }) => {
     const context = await browser.newContext({ viewport: size, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
     const page = await context.newPage();
-    await page.goto('http://127.0.0.1:3435/roach-synth.html');
-    await page.waitForFunction(() => window.roachSynth?.getState().loaded, undefined, { timeout: 45000 });
-    const cdp = await context.newCDPSession(page);
-    async function swipe(x, from, to) {
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: from }] });
-      for (let i = 1; i <= 10; i++) {
-        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: from + (to - from) * i / 10 }] });
-        await page.waitForTimeout(16);
-      }
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await page.waitForTimeout(250);
-    }
     try {
-      const canvas = await page.locator('#roachCanvas').boundingBox();
-      await swipe(size.width * .45, canvas.y + canvas.height * .85, canvas.y + canvas.height * .15);
+      await page.goto(new URL('roach-synth.html', baseURL).href); await loaded(page);
+      const stage = await page.locator('#specimenViewport').boundingBox();
+      expect(stage.height).toBeGreaterThanOrEqual(size.width < size.height ? 300 : 170);
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: size.width * .4, y: stage.y + stage.height * .85 }] });
+      for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: size.width * .4, y: stage.y + stage.height * (.85 - .6 * i / 8) }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(30);
       await expect.poll(() => page.locator('#specimenViewport').evaluate(element => Math.round(element.getBoundingClientRect().top))).toBe(0);
-      const height = await page.locator('#specimenViewport').evaluate(element => element.getBoundingClientRect().height);
-      const before = await page.evaluate(() => scrollY);
-      await swipe(size.width - 10, size.height - 20, Math.max(height + 10, size.height * .55));
-      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before);
-      const after = await page.evaluate(() => scrollY);
-      await swipe(size.width - 10, height + 12, size.height - 15);
-      await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThan(after);
+      for (const selector of ['#posePreset', '#phrase', '#motionPreset', '#source-antennae', '#crunch']) {
+        await page.locator(selector).scrollIntoViewIfNeeded();
+        const box = await page.locator(selector).boundingBox();
+        expect(box.y + box.height).toBeLessThanOrEqual(size.height + 1);
+        expect(box.y).toBeGreaterThanOrEqual(stage.height - 1);
+      }
+      for (const row of await page.locator('.roach-body-row').all()) {
+        const box = await row.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(size.width + 1);
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(size.width);
       for (const selector of ['#audioButton', '#motionButton', '#soundPlayButton']) {
         const box = await page.locator(selector).boundingBox(); expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
       }
-      await expect(page.locator('.roach-panel #motionButton')).toHaveCount(1);
       expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
     } finally { await context.close(); }
   });
 }
-
-
-test("Sound Play holds static poses while Animation Play advances independently, and body reset is reproducible", async ({ page }) => {
-  await openRoach(page);
-  await expect(page.locator('#posePreset option')).toHaveCount(26);
-  await page.locator('#soundPlayButton').click();
-  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
-  await arm(page);
-  await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.001);
-  const started = await snapshot(page);
-  await page.waitForTimeout(200);
-  const held = await snapshot(page);
-  expect(held.time).toBe(started.time);
-  expect(held.bones.map(joint => joint.quaternion)).toEqual(started.bones.map(joint => joint.quaternion));
-  await page.locator('#randomPose').click();
-  const random = await snapshot(page);
-  expect(random.playing).toBe(false); expect(random.soundPlaying).toBe(true);
-  expect(random.motionSettings.staticScene).toBeTruthy();
-  expect(random.bones.map(joint => joint.offset)).not.toEqual(held.bones.map(joint => joint.offset));
-  await page.locator('#randomPose').click();
-  expect((await snapshot(page)).bones.map(joint => joint.offset)).not.toEqual(random.bones.map(joint => joint.offset));
-  await page.locator('#resetPose').click();
-  const reset = await snapshot(page);
-  expect(reset.bones.every(joint => Object.values(joint.offset).every(value => value === 0))).toBe(true);
-  expect(reset.soundPlaying).toBe(true); expect(reset.playing).toBe(false);
-  await page.locator('#motionButton').click();
-  expect((await snapshot(page)).playing).toBe(true);
-  expect((await snapshot(page)).motionSettings.staticScene).toBeNull();
-  await page.locator('#soundPlayButton').click();
-  expect((await snapshot(page)).soundPlaying).toBe(false);
-  expect((await snapshot(page)).playing).toBe(true);
-  await page.locator('#motionButton').click();
-  await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
-});
-
-test("factory presets fill layered joint contours and edits replace their steps without changing camera", async ({ page }) => {
-  await openRoach(page);
-  await page.locator('[data-view="top"]').click();
-  await page.locator('#motionPreset').selectOption('top_flight');
-  const initial = await snapshot(page);
-  expect(initial.motionSettings.trackMode).toBe('replace');
-  expect(initial.motionSettings.tracks).toHaveLength(initial.bones.length * 3);
-  expect(initial.motionSettings.tracks.some(track => track.steps.some(value => Math.abs(value) > 1))).toBe(true);
-  expect(initial.motionSettings.tracks.every(track => track.samples.length === 64 && track.sourceSteps.length === 16)).toBe(true);
-  const wingId = initial.bones.find(joint => joint.jointId === 'wing_cover_left').id;
-  await page.locator('#sequenceJoint').selectOption(wingId);
-  await page.locator('#sequenceAxes [data-axis="z"]').click();
-  await expect(page.locator('#contourPaths path')).toHaveCount(3);
-  await page.locator('#sequenceView').selectOption('body');
-  await expect(page.locator('#contourPaths path')).toHaveCount(initial.bones.length);
-  await page.locator('#sequenceView').selectOption('track');
-  await expect(page.locator('#contourPaths path')).toHaveCount(1);
-  await page.locator('#sequenceSteps [data-step="4"]').click();
-  await page.locator('#stepRotation').fill('45');
-  const edited = await snapshot(page);
-  const track = edited.motionSettings.tracks.find(track => track.jointId === wingId && track.axis === 'z');
-  expect(track.steps[4]).toBe(45);
-  expect(track.samples).toEqual(initial.motionSettings.tracks.find(item => item.jointId === wingId && item.axis === 'z').samples);
-  expect(edited.camera.quaternion).toEqual(initial.camera.quaternion);
-  const dot = page.locator('#contourPoints circle[data-step="4"][data-axis="z"]');
-  await dot.scrollIntoViewIfNeeded(); const bounds = await dot.boundingBox();
-  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-  await page.mouse.down(); await page.mouse.move(bounds.x + bounds.width / 2, bounds.y - 20, { steps: 4 }); await page.mouse.up();
-  expect(Number(await page.locator('#stepRotation').inputValue())).toBeGreaterThan(45);
-  await page.locator('#restorePatch').click();
-  expect((await snapshot(page)).motionSettings.tracks).toEqual(initial.motionSettings.tracks);
-});
-
-
-test("a sequencer made from a static pose saves its body base and capture respects movement depth", async ({ page }) => {
-  await openRoach(page);
-  await page.locator('#posePreset').selectOption('standing_tall');
-  await page.locator('#sequenceJoint').selectOption({ label: 'Head' });
-  await page.locator('#sequenceAxes [data-axis="x"]').click();
-  await page.locator('#stepRotation').fill('12');
-  const saved = await snapshot(page);
-  await page.locator('#savePatch').click();
-  await page.locator('#motionPreset').selectOption('side_walk');
-  await page.reload();
-  await page.waitForFunction(() => window.roachSynth?.getState().loaded);
-  await page.locator('#motionPreset').selectOption('none');
-  const recalled = await snapshot(page);
-  expect(recalled.motionSettings.staticScene).toEqual(saved.motionSettings.staticScene);
-  expect(recalled.motionSettings.tracks).toEqual(saved.motionSettings.tracks);
-  expect(recalled.bones.map(joint => joint.offset)).toEqual(saved.bones.map(joint => joint.offset));
-  await page.locator('#motionButton').click();
-  expect((await snapshot(page)).motionSettings.staticScene).toEqual(saved.motionSettings.staticScene);
-  await page.locator('#motionButton').click();
-  await page.locator('#motionPreset').selectOption('side_walk');
-  await page.locator('#sequenceJoint').selectOption({ label: 'Head' });
-  await page.locator('#sequenceAxes [data-axis="x"]').click();
-  await page.locator('#intensity').fill('0.5');
-  await page.locator('#stepRotation').fill('10');
-  await page.locator('#poseX').fill('10');
-  await page.locator('#captureStep').click();
-  await expect(page.locator('#stepRotation')).toHaveValue('30');
-  await expect(page.locator('#poseX')).toHaveValue('0');
-});

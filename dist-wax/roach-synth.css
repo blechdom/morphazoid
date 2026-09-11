@@ -1,149 +1,110 @@
-body.roach-synth-page {
-  --accent: #c2df85;
-  --accent-soft: #9aaa71;
-  --accent-glow: #a8c66b12;
-  height: 100svh;
-  min-height: 100svh;
-  overflow: hidden;
-}
-.roach-shell { display: grid; grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 390px); min-height: 0; flex: 1; }
-.roach-stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; border: 0; background: var(--bg-deep); overflow-y: auto; }
-.roach-panel { position: relative; min-width: 0; min-height: 0; overflow-y: auto; background: var(--panel); border: 0; border-radius: 0; scrollbar-color: var(--faint) transparent; scrollbar-width: thin; }
-.roach-viewport { position: relative; min-height: 280px; flex: 1 0 280px; overflow: hidden; background: #090d12; }
+body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow: #a8c66b12; --roach-mobile-height: clamp(300px, 46svh, 440px); height: 100svh; min-height: 100svh; overflow: hidden; }
+.roach-shell { display: grid; grid-template-columns: minmax(0, 1fr) clamp(350px, 30vw, 440px); flex: 1; min-height: 0; }
+.roach-stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; background: var(--bg-deep); border: 0; }
+.roach-viewport { position: relative; min-height: 300px; flex: 1 0 300px; overflow: hidden; background: #090d12; }
 .roach-stage > :not(.roach-viewport) { flex-shrink: 0; }
-#roachCanvas { display: block; visibility: hidden; position: relative; width: 100%; height: 100%; touch-action: pan-y pinch-zoom; cursor: grab; }
+.roach-heading { position: absolute; top: 20px; left: 22px; z-index: 1; pointer-events: none; }
+.roach-heading h1 { margin: 0; color: var(--ink); font: 500 clamp(23px, 3vw, 36px)/1.1 var(--mono); letter-spacing: -.06em; }
+.roach-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#roachCanvas { position: relative; display: block; visibility: hidden; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
 #roachCanvas:active { cursor: grabbing; }
 #roachCanvas:focus-visible { outline-offset: -4px; }
-.roach-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-.roach-heading { position: absolute; z-index: 1; top: 20px; left: 22px; pointer-events: none; }
-.roach-heading h1 { margin: 0; color: var(--ink); font: 500 clamp(22px, 3vw, 36px)/1.1 var(--mono); letter-spacing: -.06em; }
-.roach-heading > span { display: block; margin-top: 8px; color: var(--muted); font-size: 8px; letter-spacing: .13em; }
-.roach-stage-meta { position: absolute; bottom: 12px; left: 22px; right: 22px; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; color: var(--accent); font-size: 9px; letter-spacing: .06em; }
-.roach-stage-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 14px 22px 6px; }
-
-.roach-views { display: flex; margin: 0; min-width: 0; }
-.roach-views button { min-width: 64px; padding: 9px 11px; }
-.roach-help, .roach-status { margin: 6px 22px; color: var(--muted); font-size: 9px; line-height: 1.5; }
-.roach-status { min-height: 14px; }
-#retryModel { margin: 8px 22px; }
-.roach-check { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; min-height: 32px; }
-.roach-check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
-.roach-sequence { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 14px 0; }
-.roach-step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 48px; padding: 6px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--bg-deep); font: 10px var(--mono); cursor: pointer; }
-.roach-step strong { font-size: 12px; font-weight: 500; color: var(--ink); }
-.roach-step[aria-pressed="true"] { border-color: var(--accent); background: #c2df8512; }
-.roach-step.is-current::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--accent); }
-.roach-step.has-value strong { color: var(--accent); }
-.roach-scrub { margin: 16px 0 0; }
-.roach-scrub input { margin: 0; }
-.roach-patch-actions, .roach-score-actions, .roach-voice-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.roach-patch-actions .mini-action { flex: 1; white-space: nowrap; }
-.roach-patch-actions #previousPatch, .roach-patch-actions #nextPatch { flex: 0 0 38px; }
-.roach-interaction-tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 8px 22px; color: var(--muted); font-size: 10px; }
-.roach-interaction-tools label { display: inline-flex; gap: 8px; align-items: center; }
-.roach-interaction-tools select { font-size: 10px; padding: 5px 8px; background: var(--bg-deep); border: 1px solid var(--line-strong); }
-#touch3D[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
-.roach-voice textarea { display: block; resize: vertical; min-height: 86px; width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--line-strong); border-bottom: 2px solid var(--blue); border-radius: 0; background: var(--bg-deep); color: var(--ink); font: 13px/1.6 var(--mono); cursor: text; }
-.roach-voice textarea:focus { border-color: var(--blue); }
-.roach-voice-actions { margin-bottom: 18px; }
-.roach-voice-actions .roach-note { margin: 0; }
-#sequenceAxes { margin: 14px 0 0; }
-#sequenceAxes button { flex: 1; }
-.roach-notes { margin: 8px 22px 20px; font-size: 10px; line-height: 1.7; color: var(--muted); }
-.roach-notes summary, .roach-advanced summary { cursor: pointer; color: var(--muted); padding: 8px 0; font-size: 10px; }
-.roach-notes a { color: var(--accent); text-underline-offset: 3px; }
-.roach-notes p { max-width: 90ch; }
-.roach-section-heading { display: flex; min-height: 52px; padding: 0 22px; align-items: center; justify-content: space-between; gap: 12px; }
-.roach-section-heading h2 { color: var(--accent); font-size: 11px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; margin: 0; }
-.roach-section-heading > span { color: var(--muted); font-size: 9px; text-transform: uppercase; }
-.roach-transport { display: flex; align-items: center; gap: 14px; margin-bottom: 15px; }
-.roach-transport .control { flex: 1; margin: 0; }
-.roach-transport .play-button { flex: 0 0 auto; }
-.roach-panel .control select, .roach-panel .control input[type="text"] { width: 100%; min-width: 0; margin-top: 5px; }
-.roach-panel .control input[type="text"] { border: 1px solid var(--line-strong); border-radius: 0; padding: 9px; color: var(--ink); background: var(--bg-deep); font: 12px var(--mono); }
-.roach-panel input[type="range"] { accent-color: var(--accent); }
-.roach-note { color: var(--muted); font-size: 9px; line-height: 1.55; margin: 10px 0; }
-.roach-mixer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
-.roach-mixer-channel { min-width: 0; }
-.roach-mixer-channel .control { margin: 0; }
-.roach-mixer-channel .control > span { font-size: 9px; gap: 3px; }
-.roach-mixer-channel .control b { font-size: 10px; }
-.roach-mixer-channel .control input { height: 28px; margin: 0; }
-.roach-mixer-channel .control output { font-size: 8px; }
-.roach-mixer-channel.is-silent .control { opacity: .5; }
-.roach-mixer-switches { display: flex; gap: 4px; }
-.roach-mixer-switches button { flex: 1; min-width: 0; min-height: 24px; padding: 2px; border: 0; background: var(--bg-deep); color: var(--muted); font: 9px var(--mono); cursor: pointer; }
-.roach-mixer-switches button[aria-pressed="true"] { background: #c2df8522; color: var(--accent); }
-.roach-mix-meter { display: flex; gap: 10px; align-items: center; margin-top: 15px; }
+.roach-stage-toolbar, .roach-interaction-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 20px 0; }
+.roach-views { display: flex; margin: 0; }
+.roach-views button { min-width: 58px; padding: 9px 10px; }
+.roach-zoom { display: flex; align-items: center; gap: 6px; font-size: 9px; color: var(--muted); }
+.roach-zoom button { min-width: 30px; font-size: 15px; }
+.roach-interaction-tools { padding-bottom: 0; font-size: 10px; color: var(--muted); }
+.roach-interaction-tools label { display: flex; align-items: center; gap: 8px; }
+.roach-interaction-tools select { background: var(--panel); font: 10px var(--mono); padding: 6px; border: 1px solid var(--line-strong); }
+.roach-interaction-tools button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.roach-help { margin: 8px 20px 10px; color: var(--muted); font-size: 9px; line-height: 1.6; }
+.roach-stage > .roach-status, #retryModel { margin: 6px 20px 12px; }
+.roach-panel { position: relative; min-width: 0; min-height: 0; overflow-y: auto; padding: 8px 0 18px; background: var(--panel); border: 0; scrollbar-color: var(--faint) transparent; scrollbar-width: thin; }
+.roach-control-block { padding: 14px 20px 4px; }
+.roach-control-row { display: flex; align-items: flex-end; gap: 8px; min-width: 0; }
+.roach-inline-select { display: grid; flex: 1; min-width: 0; gap: 6px; color: var(--muted); font-size: 10px; }
+.roach-inline-select select { width: 100%; min-width: 0; min-height: 36px; padding: 7px 8px; font: 11px var(--mono); color: var(--ink); background: var(--bg-deep); border: 1px solid var(--line-strong); }
+.roach-control-row > .mini-action { flex: 0 0 auto; min-height: 36px; padding: 7px 8px; font-size: 9px; }
+.roach-control-row .play-button { flex: 0 0 40px; display: grid; place-items: center; width: 40px; height: 40px; min-width: 40px; padding: 0; background: transparent; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--accent); cursor: pointer; }
+.roach-control-row .play-button svg { width: 22px; height: 22px; fill: currentColor; }
+.roach-control-row .play-button .transport-pause { display: none; fill: none; stroke: currentColor; stroke-width: 3; }
+.roach-control-row .play-button[aria-pressed="true"] { background: #c2df8522; border-color: var(--accent); }
+.roach-control-row .play-button[aria-pressed="true"] .transport-play { display: none; }
+.roach-control-row .play-button[aria-pressed="true"] .transport-pause { display: block; }
+.roach-control-row .play-button:disabled { opacity: .4; cursor: default; }
+.roach-invitation { margin: 12px 0 1px; color: var(--accent); font-size: 10px; }
+.roach-voice textarea { display: block; resize: vertical; width: 100%; min-height: 66px; margin: 10px 0 8px; padding: 9px 11px; background: var(--bg-deep); color: var(--ink); border: 1px solid var(--line-strong); border-bottom: 2px solid var(--accent-soft); font: 12px/1.6 var(--mono); cursor: text; }
+.roach-voice-actions { display: flex; gap: 14px; align-items: center; }
+.roach-speak { min-height: 36px; padding: 8px 18px; }
+.roach-knob.roach-voice-level { width: 82px; padding-left: 34px; }
+.roach-voice-level .knob-label { position: absolute; left: 0; top: 16px; font-size: 9px; color: var(--muted); }
+.roach-voice-level input[type="range"] { left: 34px; width: calc(100% - 34px); }
+.roach-animation-picker { display: flex; align-items: flex-end; flex: 1; min-width: 0; }
+.roach-inline-arrows { display: flex; }
+.roach-inline-arrows button { min-width: 22px; min-height: 36px; padding: 0; background: var(--bg-deep); color: var(--accent); border: 0; font-size: 20px; cursor: pointer; }
+.roach-animation-picker select { border-right: 0; }
+.roach-motion-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+.roach-motion-controls .control { margin: 0; }
+.roach-motion-controls .control b, .roach-motion-controls output { font-size: 10px; }
+.roach-motion-controls input { height: 30px; }
+.roach-check { display: flex; align-items: center; gap: 7px; min-height: 30px; color: var(--muted); font-size: 10px; }
+.roach-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.roach-mixer-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 10px; }
+.roach-mixer-heading h2 { font-size: 10px; color: var(--accent); font-weight: 500; letter-spacing: .13em; text-transform: uppercase; margin: 0; }
+.roach-mixer-heading .mini-action { padding: 5px 7px; font-size: 8px; }
+.roach-body-row { display: grid; grid-template-columns: minmax(66px, .85fr) minmax(85px, 1.25fr) 40px 28px 28px; gap: 5px; align-items: center; min-width: 0; min-height: 44px; }
+.roach-body-name { min-width: 0; padding: 5px 0; text-align: left; font: 10px var(--mono); color: var(--ink); background: transparent; border: 0; cursor: pointer; }
+.roach-body-name[aria-pressed="true"] { color: var(--accent); text-decoration: underline; text-underline-offset: 4px; }
+.roach-body-row select { width: 100%; min-width: 0; min-height: 30px; padding: 5px; font: 10px var(--mono); background: var(--bg-deep); border: 1px solid var(--line-strong); color: var(--ink); }
+.roach-body-row > [data-mute], .roach-body-row > [data-solo] { min-height: 30px; min-width: 0; padding: 0; font: 9px var(--mono); border: 0; background: var(--bg-deep); color: var(--muted); cursor: pointer; }
+.roach-body-row > button[aria-pressed="true"] { color: var(--accent); background: #c2df8518; }
+.roach-body-row.is-silent select { opacity: .5; }
+.roach-knob { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; height: 44px; flex: 0 0 auto; cursor: ns-resize; touch-action: pan-y; }
+.knob-face { display: block; position: relative; width: 32px; height: 32px; border: 1px solid var(--accent-soft); border-radius: 50%; background: var(--bg-deep); pointer-events: none; }
+.knob-face i { position: absolute; left: calc(50% - 1px); top: calc(50% - 1px); width: 2px; height: 7px; background: var(--accent); transform-origin: 50% 1px; transform: rotate(var(--knob-angle, 0deg)) translateY(-13px); }
+.knob-face small { position: absolute; left: -6px; right: -6px; bottom: 3px; text-align: center; color: var(--muted); font: 7px var(--mono); }
+.roach-knob input[type="range"] { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; opacity: 0; pointer-events: none; cursor: ns-resize; touch-action: pan-y; }
+.roach-knob:focus-within .knob-face { outline: 2px solid var(--accent); outline-offset: 3px; }
+.roach-tone-controls { display: flex; justify-content: space-around; gap: 10px; margin: 12px 0 6px; }
+.roach-tone-knob { width: 68px; height: 63px; justify-content: flex-end; }
+.roach-tone-knob .knob-label { position: absolute; top: 0; color: var(--muted); font-size: 9px; }
+.roach-tone-knob input[type="range"] { top: 15px; height: 48px; }
+.roach-mix-meter { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
 .roach-mix-meter meter { flex: 1; min-width: 0; height: 8px; accent-color: var(--accent); }
 .roach-mix-meter output { min-width: 65px; text-align: right; color: var(--muted); font: 9px var(--mono); }
-.roach-mixer .roach-note { margin: 7px 0 0; }
-.roach-advanced { margin: 10px 0; }
-.roach-advanced[open] > summary { margin-bottom: 8px; }
-.roach-panel fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
-.roach-routing-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 15px 0 10px; }
-.roach-routing-heading .field-label { font-size: 10px; }
-.roach-mapping { display: grid; grid-template-columns: 64px minmax(0,1fr) 25px; gap: 7px; padding: 9px 0; border-bottom: 1px solid var(--line); }
-.roach-mapping select { width: 100%; min-width: 0; padding: 6px 3px; font-size: 10px; }
-.roach-mapping .mapping-depth { grid-column: 1 / -1; margin: 0; }
-.roach-mapping .mapping-depth > span { font-size: 9px; }
-.roach-mapping .mapping-remove { padding: 0; min-width: 24px; background: transparent; border: 0; color: var(--muted); cursor: pointer; }
-#jointReadout { color: var(--accent); font-variant-numeric: tabular-nums; }
-#jointMotion { margin-bottom: 12px; }
-.roach-pose-actions { display: flex; gap: 8px; }
-.roach-pose-actions .mini-action { flex: 1; }
-#modelFile { width: 100%; min-width: 0; font-size: 10px; }
-#modelFile::file-selector-button { border: 1px solid var(--line-strong); background: var(--panel-high); color: var(--ink); padding: 8px; margin: 0 8px 6px 0; }
+.roach-note, .roach-status { color: var(--muted); font-size: 9px; line-height: 1.6; margin: 7px 0 0; }
+.roach-notes { margin: 12px 20px 4px; color: var(--muted); font-size: 9px; line-height: 1.7; }
+.roach-notes summary { padding: 8px 0; cursor: pointer; }
+.roach-notes a { color: var(--accent); }
 @media (max-width: 960px) {
-  html.roach-synth-document { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; }
-  body.roach-synth-page { height: auto; min-height: 100svh; overflow: visible; }
-  .roach-shell { display: block; flex: none; overflow: visible; }
-  .roach-stage { display: contents; overflow: visible; }
-  .roach-viewport { position: sticky; top: 0; z-index: 20; height: clamp(220px, 35svh, 320px); min-height: 0; flex: none; box-shadow: 0 8px 18px #0007; }
-  .roach-panel { display: block; overflow: visible; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
-  .roach-panel > .group { min-width: 0; }
-  .roach-panel :is(button, input, select, textarea, summary) { scroll-margin-top: calc(clamp(220px, 35svh, 320px) + 12px); }
+ html.roach-synth-document { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; }
+ body.roach-synth-page { height: auto; min-height: 100svh; overflow: visible; }
+ .roach-shell { display: block; flex: none; overflow: visible; }
+ .roach-stage { display: contents; overflow: visible; }
+ .roach-viewport { position: sticky; top: 0; z-index: 20; height: var(--roach-mobile-height); min-height: 0; flex: none; box-shadow: 0 8px 18px #0007; }
+ .roach-panel { display: block; overflow: visible; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+ .roach-panel :is(button, input, select, textarea, summary) { scroll-margin-top: calc(var(--roach-mobile-height) + 12px); }
 }
 @media (max-width: 600px) {
-  .roach-panel { display: block; }
-  .roach-heading { top: 16px; left: 14px; }
-  .roach-heading h1 { font-size: 26px; }
-  .roach-stage-meta { left: 14px; right: 14px; font-size: 8px; }
-  .roach-viewport { height: clamp(220px, 35svh, 300px); }
-  .roach-stage-toolbar { padding: 10px 14px 4px; gap: 8px; }
-  .roach-views { flex: 1 0 100%; }
-  .roach-stage-toolbar > button { order: 1; }
-  .roach-views button { flex: 1; min-width: 0; }
-  .roach-help, .roach-status { margin-left: 14px; margin-right: 14px; }
-  .roach-interaction-tools { margin-left: 14px; margin-right: 14px; }
-  .roach-notes { margin-left: 14px; margin-right: 14px; }
+ .roach-heading { top: 16px; left: 16px; }
+ .roach-heading h1 { font-size: 28px; }
+ .roach-control-block { padding-left: 16px; padding-right: 16px; }
+ .roach-stage-toolbar, .roach-interaction-tools { padding-left: 16px; padding-right: 16px; }
+ .roach-views { flex: 1 0 100%; }
+ .roach-views button { flex: 1; }
 }
 @media (pointer: coarse) {
-  .roach-mixer-channel .control input { height: 44px; }
-  .roach-mixer-switches button { min-width: 40px; min-height: 44px; }
-  .roach-synth-page #audioButton, .roach-synth-page [data-primary-transport], .roach-synth-page #soundPlayButton { min-width: 48px; min-height: 48px; }
-  .roach-panel select, .roach-panel input[type="range"], .roach-panel .mini-action, .roach-stage-toolbar button, .roach-interaction-tools select, .roach-interaction-tools button, .roach-check, .roach-step, .roach-advanced summary, .roach-notes summary { min-height: 44px; }
-  .roach-mapping .mapping-remove { min-width: 32px; }
+ .roach-synth-page #audioButton, .roach-control-row .play-button { min-width: 48px; min-height: 48px; width: 48px; height: 48px; }
+ .roach-panel select, .roach-panel .mini-action, .roach-stage-toolbar button, .roach-interaction-tools button, .roach-interaction-tools select, .roach-check, .roach-body-name, .roach-notes summary { min-height: 44px; }
+ .roach-motion-controls input { height: 44px; }
+ .roach-body-row { grid-template-columns: minmax(60px, .85fr) minmax(80px, 1.25fr) 44px 36px 36px; gap: 4px; }
+ .roach-body-row > [data-mute], .roach-body-row > [data-solo], .roach-inline-arrows button { min-height: 44px; }
+ .roach-inline-arrows button { min-width: 26px; }
+ .roach-knob { width: 44px; min-height: 44px; }
 }
-
-@media (min-width: 601px) and (max-width: 960px) { .roach-panel .group-body, .roach-panel .group-summary, .roach-section-heading { padding-left: 28px; padding-right: 28px; } }
-
 @media (max-width: 960px) and (orientation: landscape) {
-  .roach-viewport { height: clamp(140px, 39svh, 220px); }
-  .roach-heading { top: 10px; }
-  .roach-heading h1 { font-size: 20px; }
-  .roach-heading > span { display: none; }
-  .roach-panel :is(button, input, select, textarea, summary) { scroll-margin-top: calc(clamp(140px, 39svh, 220px) + 12px); }
+ body.roach-synth-page { --roach-mobile-height: clamp(170px, 46svh, 240px); }
+ .roach-heading { top: 10px; }
+ .roach-heading h1 { font-size: 23px; }
 }
-
-.roach-contours { display: block; width: 100%; height: auto; min-height: 140px; margin-top: 8px; overflow: visible; background: var(--bg-deep); touch-action: pan-y; }
-.roach-contours .contour-grid { stroke: var(--line); stroke-width: 1; }
-.roach-contours .contour-zero { stroke: var(--faint); stroke-dasharray: 3 5; }
-.roach-contours .contour-path { fill: none; stroke-width: 1.5; }
-.roach-contours .contour-path.is-selected { stroke-width: 2.5; }
-.roach-contours .contour-point { cursor: ns-resize; stroke: var(--bg-deep); stroke-width: 1.5; }
-.roach-contours .contour-point.is-selected { stroke: var(--ink); stroke-width: 2; }
-#contourPlayhead { stroke: var(--ink); stroke-width: 1; opacity: .65; pointer-events: none; }
-.roach-contour-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 9px; margin: 8px 0; }
-.roach-contour-legend span { display: inline-flex; align-items: center; gap: 5px; }
-.roach-contour-legend i { display: inline-block; width: 12px; height: 2px; background: currentColor; }

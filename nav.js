@@ -225,6 +225,7 @@ export const TOOL_GROUPS = Object.freeze([
       href: "quadruped.html",
       legacyHrefs: Object.freeze(["quadroped.html"]),
     },
+    { id: "roach-synth", label: "Roach Synth", href: "roach-synth.html" },
     {
       id: "colony-syrinx",
       label: "Monstrozoid",
@@ -376,7 +377,6 @@ export const TOOL_GROUPS = Object.freeze([
       href: "morphazoid-roulette.html",
       catalogue: false,
     },
-    { id: "roach-synth", label: "Roach Synth", href: "roach-synth.html" },
     { id: "yoyodyne", label: "Yoyodyne", href: "yoyodyne.html" },
     { id: "hanoi", label: "Hanoi Carillon", href: "hanoi.html" },
     { id: "minimax", label: "Alpha-Beta Minimax", href: "minimax.html" },

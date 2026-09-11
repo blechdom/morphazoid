@@ -208,8 +208,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   let distance = 4.5;
   let viewPreset = 'side';
   let viewSide = 'left';
-  let cameraPristine = true;
-  let framedPosture = 'grounded';
   let anatomy = null;
   let sceneState = null;
   let groundHeight = 0;
@@ -223,7 +221,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   let renderCount = 0;
   let model = null;
   let wingRig = null;
-  let wingFrameDistance = 0;
   let mixer = null;
   let action = null;
   let bones = [];
@@ -291,7 +288,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
         target: target.toArray(), distance, viewPreset, side: viewSide },
       externalPoseActive: externalPose !== null, renderBudget: { fps: renderFps, pixelRatio: renderPixelRatio }, renderCount,
-      interaction: { dragAxis, touchInteraction, touchAction: canvas.style.touchAction,
+      interaction: { dragAxis, touchInteraction, touchAction: canvas.style.touchAction, pointerCount: pointers.size,
         active: gesture ? { kind: gesture.kind, jointId: gesture.id ?? null, committed: gesture.committed } : null },
       lighting: { exposure: renderer.toneMappingExposure, ambient: ambientLight.intensity,
         key: keyLight.intensity, bottomFill: bottomLight.intensity, selfShadow: renderer.shadowMap.enabled, shadowSize: keyLight.shadow.mapSize.x },
@@ -394,7 +391,9 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     const bellyHeight = bellySamples[Math.floor(bellySamples.length * .025)] ?? bodyCenter.dot(dorsal);
     anatomy = { bounds, fitPoints, headBounds, center, bodyCenter, headCenter, forward, faceForward, dorsal, left, bodyLength, bellyHeight };
     captureFeet();
-    groundHeight = bellyHeight - bodyLength * 0.15;
+    // Lower the authored support posture by moving the grounded foot targets
+    // toward the belly; do not push the rendered body through a fixed floor.
+    groundHeight = bellyHeight - bodyLength * 0.12;
     calibrateStance();
     captureCollisionBounds();
     performer.updateMatrixWorld(true);
@@ -552,7 +551,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       const rest = new THREE.Euler().setFromQuaternion(item.baseQuaternion.clone().invert().multiply(item.bone.quaternion), 'XYZ');
       return { x: rest.x / RAD, y: rest.y / RAD, z: rest.z / RAD };
     }
-    function groundedLeg(foot, target) {
+    function groundedLeg(foot, target, preserveBranch = false) {
       const chain = chainFor(foot);
       const femur = chain.find((joint) => /_(left|right)_middle$/.test(joint.userData.jointId));
       const tibia = chain.find((joint) => /_(left|right)_distal$/.test(joint.userData.jointId));
@@ -570,11 +569,16 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       const bend = firstLength * Math.sqrt(Math.max(0, 1 - cosine ** 2));
       // Choose the IK branch on a horizontal knee-height plane. Merely aiming
       // toward an outward hint can flip a long rear femur above the back.
-      const kneeHeight = groundHeight + bodyLength * .15;
+      const kneeHeight = anatomy.bellyHeight;
       const verticalAmount = clamp((kneeHeight - hipPoint.dot(dorsal) - firstLength * cosine * direction.dot(dorsal))
         / Math.max(.00001, bend * verticalPole.dot(dorsal)), -1, 1);
+      // Keep the neutral knee branch through the whole stride. Choosing the
+      // outward-X sign again can flip a front knee as its target crosses the hip.
+      const branch = preserveBranch
+        ? (kneePoint.clone().sub(hipPoint).dot(lateralPole) >= 0 ? 1 : -1)
+        : (lateralPole.dot(left) * sign >= 0 ? 1 : -1);
       const pole = verticalPole.multiplyScalar(verticalAmount).addScaledVector(lateralPole,
-        Math.sqrt(Math.max(0, 1 - verticalAmount ** 2)) * (lateralPole.dot(left) * sign >= 0 ? 1 : -1));
+        Math.sqrt(Math.max(0, 1 - verticalAmount ** 2)) * branch);
       const desiredKnee = hipPoint.clone().addScaledVector(direction, firstLength * cosine)
         .addScaledVector(pole, bend);
       function align(joint, from, to) {
@@ -611,8 +615,10 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       for (const [key, stride, lift] of corners) {
         chain.forEach((joint, i) => joint.quaternion.copy(neutral[i]));
         performer.updateMatrixWorld(true);
-        targetPoint.copy(foot.target).addScaledVector(forward, stride * bodyLength * 0.12).addScaledVector(dorsal, lift * bodyLength * 0.1);
-        groundedLeg(foot, targetPoint);
+        // Small strides stay inside calibrated joint limits and interpolate
+        // near the ground instead of stretching the scanned legs straight.
+        targetPoint.copy(foot.target).addScaledVector(forward, stride * bodyLength * 0.04).addScaledVector(dorsal, lift * bodyLength * 0.1);
+        groundedLeg(foot, targetPoint, true);
         for (const item of items) {
           const offset = readOffset(item);
           item.gaitPose[key] = [offset.x, offset.y, offset.z];
@@ -675,9 +681,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
         const depth = corner.dot(direction);
         distance = Math.max(distance, depth + Math.abs(corner.dot(right)) / (tangent * aspect), depth + Math.abs(corner.dot(cameraUp)) / tangent);
       }
-      wingFrameDistance = Math.max(wingFrameDistance, distance);
-      distance = wingFrameDistance;
-    } else wingFrameDistance = 0;
+    }
     distance = clamp(distance * 1.1, 0.3, 16);
     updateCamera();
   }
@@ -685,14 +689,12 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     if (!['side', 'top', 'bottom', 'face'].includes(view)) return false;
     viewPreset = view;
     viewSide = side === 'right' ? 'right' : 'left';
-    cameraPristine = true;
     frameView();
     invalidate();
     return true;
   }
   function resetCamera() { setViewPreset(viewPreset, { side: viewSide }); }
   function orbit(dx, dy) {
-    cameraPristine = false;
     turn.setFromAxisAngle(axisY, -dx);
     orbitQuaternion.multiply(turn);
     turn.setFromAxisAngle(axisX, -dy);
@@ -701,10 +703,11 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     invalidate();
   }
   function zoom(factor) {
-    cameraPristine = false;
+    if (!Number.isFinite(factor) || factor <= 0 || disposed) return false;
     distance = clamp(distance * factor, 0.15, 16);
     updateCamera();
     invalidate();
+    return true;
   }
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -718,7 +721,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    if (cameraPristine) frameView();
+    // A resize changes the projection aspect, never the chosen camera distance.
+    // Framing belongs to initial load and explicit view/reset actions.
     dirty = true;
   }
   function restoreAnimationBase() {
@@ -750,7 +754,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     performer.updateMatrixWorld(true);
     updateRoachWingFans(wingRig);
     applyScenePose();
-    if (cameraPristine && (wingRig?.unfolded > .12 || wingFrameDistance > 0)) frameView();
     const selected = bones.find((item) => item.id === selectedBone);
     selectedMarker.visible = skeletonVisible && !!selected;
     if (skeletonVisible && jointPoints) {
@@ -817,13 +820,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
         // This is a designed gait contact projected onto the floor, not IK.
         x: worldFoot.x, y: worldFoot.y });
     }
-    const posture = Math.abs(body?.pitch ?? 0) > 28 ? 'upright' : 'grounded';
-    if (posture !== framedPosture) {
-      framedPosture = posture;
-      // Keep the chosen side/top/bottom/face orientation. Only the untouched
-      // preset framing widens when an upright routine needs more headroom.
-      if (cameraPristine) frameView();
-    }
   }
   function render(timestamp) {
     frame = 0;
@@ -854,7 +850,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     if (model) { content.remove(model); disposeObject(model); }
     model = null;
     wingRig = null;
-    wingFrameDistance = 0;
     mixer = null;
     action = null;
     bones = [];
@@ -865,7 +860,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     externalPose = null;
     anatomy = null;
     sceneState = null;
-    framedPosture = 'grounded';
     footJoints = [];
     contactEvidence = [];
     groundRoot.visible = false;
@@ -1087,8 +1081,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       playing = false;
       motionTime = 0;
       captureAnatomy();
-      resetCamera();
       applyPose();
+      resetCamera();
       announce();
       selectBone(bones[0]?.id);
       onStatus(`${name}: ${bones.length} joints · ${clips.length} animation clips`);
@@ -1237,10 +1231,15 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     canvas.focus({ preventScroll: true });
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.size > 1) {
-      if (!touchInteraction) { cancelPointers(); return; }
-      interaction('end');
-      gesture = { kind: 'orbit', committed: false, x: event.clientX, y: event.clientY, time: event.timeStamp };
-      commitGesture(event);
+      // A second finger cancels direct manipulation. Keep every held pointer
+      // tracked until release, so finger churn cannot restart a drag midway.
+      // Zoom is available only through the explicit API/buttons and +/- keys.
+      interaction('cancel');
+      gesture = null;
+      pointerMoved = true;
+      canvas.style.cursor = 'grab';
+      // Retain capture only to receive every up/cancel, even outside the canvas.
+      canvas.setPointerCapture?.(event.pointerId);
       return;
     }
     pointerMoved = false;
@@ -1263,8 +1262,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       commitGesture(event);
     }
     event.preventDefault();
-    const before = [...pointers.values()];
-    const oldPinch = before.length === 2 ? Math.hypot(before[0].x - before[1].x, before[0].y - before[1].y) : 0;
     if (Math.hypot(dx, dy) > 1) pointerMoved = true;
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.size === 1 && gesture.kind === 'joint') {
@@ -1284,12 +1281,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     } else if (pointers.size === 1) {
       orbit(dx * 0.006, (gesture.scrollTouch ? 0 : dy) * 0.006);
       interaction('change');
-    } else if (pointers.size === 2) {
-      const after = [...pointers.values()];
-      const pinch = Math.hypot(after[0].x - after[1].x, after[0].y - after[1].y);
-      if (oldPinch > 3 && pinch > 3) zoom(oldPinch / pinch);
-      pointerMoved = true;
-      interaction('change');
     }
     gesture.time = event.timeStamp;
   }, { passive: false });
@@ -1308,13 +1299,11 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   }
   listen(canvas, 'pointerup', pointerEnd);
   listen(canvas, 'pointercancel', pointerEnd);
-  listen(canvas, 'lostpointercapture', (event) => { if (pointers.has(event.pointerId)) cancelPointers(); });
+  listen(canvas, 'lostpointercapture', (event) => { if (gesture && pointers.has(event.pointerId)) cancelPointers(); });
   listen(canvas, 'wheel', (event) => {
-    // Wheel scroll belongs to the page/panel. Ctrl+wheel is an explicit zoom
-    // gesture; keyboard +/- provides the same operation without a pointer.
-    if (!event.ctrlKey) return;
-    event.preventDefault();
-    zoom(Math.exp(clamp(event.deltaY, -200, 200) * 0.0015));
+    // Trackpad pinch arrives as Ctrl+wheel. Suppress that implicit zoom over
+    // the instrument; ordinary wheel scrolling still belongs to the page.
+    if (event.ctrlKey) event.preventDefault();
   }, { passive: false });
   listen(canvas, 'keydown', (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
@@ -1380,7 +1369,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     renderer.dispose();
   }
   return { loadUrl, loadArrayBuffer, getState, getPlaybackState, selectBone, setBoneOffset, setBoneMotion,
-    setClip, setPlaying, setSpeed, setTime, resetPose, resetCamera, setViewPreset,
+    setClip, setPlaying, setSpeed, setTime, resetPose, resetCamera, setViewPreset, zoom,
     setExternalPose, setSceneState, setDragAxis, setTouchInteraction, getPartScreenPosition, getGazeOffset,
     setRenderBudget, setSkeletonVisible, dispose };
 }

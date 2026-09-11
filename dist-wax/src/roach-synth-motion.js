@@ -23,32 +23,32 @@ const preset = (id, label, category, mode, soundFlavor, gaitRate, groundSpeed, r
   loopBeats: 8, lookAtViewer: category === 'Face',
 });
 export const ROACH_MOTION_PRESETS = Object.freeze([
-  preset('side_walk', 'Scuttle', 'Scuttle', 0, 'scuttle', 1.25, .28, 'low', 'Alternating tripod steps with quick returning feet.'),
-  preset('side_run', 'Nervous run', 'Scuttle', 1, 'pitter', 3, .62, 'low', 'Fast tripod steps, fluttering feelers and a low body.'),
-  preset('side_jump', 'Pogo jump', 'Dance', 2, 'stomp', .25, .03, 'jump', 'Crouch, lift all six feet, then land together every four beats.'),
-  preset('top_wing_fan', 'Wing rustle', 'Wings', 3, 'wing', .25, 0, 'low', 'Paired wing covers open and flutter over a shifting stance.'),
-  preset('top_body_wave', 'Carapace wave', 'Dance', 4, 'growl', .5, 0, 'low', 'A slow rolling wave crosses the shell and six legs.'),
-  preset('top_flight', 'Takeoff flutter', 'Wings', 5, 'wing', .25, .05, 'flight', 'A repeating supported takeoff mime with tucked legs and moving covers.'),
-  preset('bottom_wiggle', 'Leg noodles', 'Dance', 6, 'scrape', .75, 0, 'low', 'Six staggered loose curls and an abdomen wiggle.'),
-  preset('bottom_shuffle', 'Side shuffle', 'Dance', 7, 'pitter', 1.5, .09, 'low', 'Quick side steps and a rocking shell.'),
-  preset('bottom_rave', 'Bug rave', 'Dance', 8, 'metal', 2, 0, 'low', 'Syncopated leg fans with a fast body shimmy.'),
-  preset('face_curious', "Who's there?", 'Face', 9, 'creak', .125, 0, 'low', 'Looks toward the viewer with asymmetric head tilts and searching feelers.'),
-  preset('face_chatter', 'Kitchen gossip', 'Face', 10, 'voice', .25, 0, 'low', 'Syllabic head and neck nods with busy antennae.'),
-  preset('face_sing', 'Crooner', 'Face', 11, 'voice', .25, 0, 'low', 'Long head bows with short nods and antenna flourishes.'),
-  preset('side_skitter', 'Stop / go skitter', 'Scuttle', 12, 'scuttle', 1.5, .32, 'low', 'Nervous bursts accelerate into little rests without resetting phase.'),
-  preset('side_tiptoe', 'Pitter patter', 'Scuttle', 13, 'pitter', 1, .14, 'low', 'Six individually staggered toe taps and a raised head.'),
-  preset('side_backpedal', 'Reverse gear', 'Scuttle', 14, 'scrape', 1.25, -.23, 'low', 'Backwards tripod travel with backward-looking head turns.'),
-  preset('side_zigzag', 'Zigzag panic', 'Scuttle', 15, 'scuttle', 2.25, .46, 'low', 'Rapid scuttles and sharp alternating body turns.'),
+  preset('side_walk', 'Floor creep', 'Scuttle', 0, 'scuttle', 1.25, .28, 'low', 'Low tripod crawl with close-to-floor returning feet.'),
+  preset('top_wing_fan', 'Wing twitter', 'Wings', 3, 'wing', .25, 0, 'low', 'Asymmetric cover twitches and rapid hindwing twitter over a shifting stance.'),
   preset('dance_upright', 'Back-leg boogie', 'Dance', 16, 'stomp', 1, 0, 'upright', 'Stands on the rear pair, stepping while four arms wave.'),
+  preset('face_curious', "Who's there?", 'Face', 9, 'creak', .125, 0, 'low', 'Looks toward the viewer with asymmetric head tilts and searching feelers.'),
+  preset('side_run', 'Panic sprint', 'Scuttle', 1, 'pitter', 3, .62, 'low', 'Fast tripod steps, fluttering feelers and a low body.'),
+  preset('top_body_wave', 'Rock and roach', 'Dance', 4, 'growl', .5, 0, 'low', 'Rocking shell rolls and head bobs over a low six-leg groove.'),
+  preset('face_chatter', 'Kitchen gossip', 'Face', 10, 'voice', .25, 0, 'low', 'Syllabic head and neck nods with busy antennae.'),
+  preset('top_flight', 'Flutter flight', 'Wings', 5, 'wing', .25, .05, 'flight', 'A repeating supported takeoff mime with tucked legs and moving covers.'),
+  preset('side_skitter', 'Dash and freeze', 'Scuttle', 12, 'scuttle', 1.5, .32, 'low', 'Nervous bursts accelerate into little rests without resetting phase.'),
   preset('dance_boxer', 'Tiny shadow boxer', 'Dance', 17, 'growl', 1.5, 0, 'upright', 'Rear-leg footwork and alternating front-leg punches.'),
+  preset('face_sing', 'Crooner', 'Face', 11, 'voice', .25, 0, 'low', 'Long head bows with short nods and antenna flourishes.'),
+  preset('bottom_wiggle', 'Leg noodles', 'Dance', 6, 'scrape', .75, 0, 'low', 'Six staggered loose curls and an abdomen wiggle.'),
+  preset('side_tiptoe', 'Quiet sneak', 'Scuttle', 13, 'pitter', 1, .14, 'low', 'Six individually staggered toe taps and a raised head.'),
+  preset('wings_alarm', 'Wing alarm', 'Wings', 21, 'wing', 2, .1, 'low', 'Rapid wing-cover tremolo over a frightened scuttle.'),
   preset('dance_can_can', 'Six-leg can-can', 'Dance', 18, 'metal', 1, 0, 'upright', 'High alternating kicks and a jaunty shell sway.'),
-  preset('dance_robot', 'Broken robot', 'Dance', 19, 'metal', 1, 0, 'low', 'Rounded mechanical ticks, held poses and quick antenna snaps.'),
-  preset('dance_waltz', 'Kitchen waltz', 'Dance', 20, 'pitter', .75, .04, 'upright', 'Six-beat rear-foot waltz with sweeping front arms.'),
-  preset('wings_alarm', 'Alarm flutter', 'Wings', 21, 'wing', 2, .1, 'low', 'Rapid wing-cover tremolo over a frightened scuttle.'),
   preset('face_growl', 'Tiny house monster', 'Face', 22, 'growl', .25, 0, 'low', 'A low shell growl, threatening head dips and spiky feelers.'),
+  preset('side_zigzag', 'Zigzag panic', 'Scuttle', 15, 'scuttle', 2.25, .46, 'low', 'Rapid scuttles and sharp alternating body turns.'),
+  preset('bottom_rave', 'Bug rave', 'Dance', 8, 'metal', 2, 0, 'low', 'Syncopated leg fans with a fast body shimmy.'),
   preset('face_serenade', 'Antenna serenade', 'Face', 23, 'voice', .125, 0, 'low', 'Direct-address head phrases and wide fluttering antenna arcs.'),
+  preset('dance_waltz', 'Cupboard waltz', 'Dance', 20, 'pitter', .75, .04, 'upright', 'Six-beat rear-foot waltz with sweeping front arms.'),
+  preset('side_backpedal', 'Reverse gear', 'Scuttle', 14, 'scrape', 1.25, -.23, 'low', 'Backwards tripod travel with backward-looking head turns.'),
+  preset('dance_robot', 'Broken robot', 'Dance', 19, 'metal', 1, 0, 'low', 'Rounded mechanical ticks, held poses and quick antenna snaps.'),
+  preset('side_jump', 'Pogo jump', 'Dance', 2, 'stomp', .25, .03, 'jump', 'Crouch, lift all six feet, then land together every four beats.'),
+  preset('bottom_shuffle', 'Side shuffle', 'Dance', 7, 'pitter', 1.5, .09, 'low', 'Quick side steps and a rocking shell.'),
 ]);
-const POSE_ONLY = preset('none', 'Pose / joint score only', 'Pose', -1, 'creak', 0, 0, 'low', 'Manual offsets, enabled joint oscillators and the joint score.');
+const POSE_ONLY = preset('none', 'Held pose', 'Pose', -1, 'creak', 0, 0, 'low', 'Manual offsets and enabled independent joint motion.');
 const PRESETS_BY_ID = new Map(ROACH_MOTION_PRESETS.map((item) => [item.id, item]));
 const EMPTY_TRACKS = Object.freeze([]);
 export const ROACH_MOTION_DEFAULTS = Object.freeze({
@@ -82,7 +82,7 @@ export function normalizeRoachMotion(settings = {}) {
     }
     tracks.push(track);
   }
-  return {
+  const normalized = {
     presetId: source.presetId === 'none' || PRESETS_BY_ID.has(source.presetId) ? source.presetId : ROACH_MOTION_DEFAULTS.presetId,
     tempo: clamp(finite(source.tempo, 108), 30, 240),
     intensity: clamp(finite(source.intensity, 1), 0, 2),
@@ -97,6 +97,13 @@ export function normalizeRoachMotion(settings = {}) {
     sceneContactCounts: source.sceneContactCounts?.length === 6 ? Array.from(source.sceneContactCounts, (count) => clamp(Math.floor(finite(count)), 0, 1024)) : null,
     staticScene: source.staticScene && typeof source.staticScene === 'object' ? normalizeSceneSnapshot(source.staticScene, true) : null,
   };
+  if (source.randomSeed != null && Number.isFinite(Number(source.randomSeed))) {
+    normalized.randomSeed = Math.floor(Number(source.randomSeed)) >>> 0;
+    normalized.randomSourceId = PRESETS_BY_ID.has(source.randomSourceId) ? source.randomSourceId : normalized.presetId;
+    normalized.randomBlend = clamp(finite(source.randomBlend, .5), 0, 1);
+    normalized.randomLabel = String(source.randomLabel ?? 'Random motion').slice(0, 120);
+  }
+  return normalized;
 }
 /** Camera changes never select or sequence an animation. */
 export function activeRoachPreset(_timeSeconds, settings = ROACH_MOTION_DEFAULTS) {
@@ -207,7 +214,9 @@ function writeBakedScene(beats, controls, out) {
     foot.lift = finite(first.lift) + (finite(second.lift) - finite(first.lift)) * mix;
     foot.stride = finite(first.stride) + (finite(second.stride) - finite(first.stride)) * mix;
     foot.phase = finite(first.phase);
-    foot.stance = foot.lift < 1e-8 && first.stance;
+    // Contact states use the same discrete frame as the cumulative ledger.
+    // Interpolating toward the next swing must not erase this frame's landing.
+    foot.stance = first.stance === true;
     foot.impact = foot.stance ? finite(first.impact) : 0;
     foot.contactCount = lap * Math.max(0, Math.floor(finite(controls.sceneContactCounts?.[i]))) + finite(first.contactCount);
   }
@@ -329,7 +338,7 @@ export function writeRoachSceneState(timeSeconds, settings, out, joints = []) {
     body.lift = 0;
     body.roll = Math.sin(phase * .75) * (mode === 20 ? 9 : 5) * intensity;
   } else if (mode >= 0) {
-    body.roll = Math.sin(phase * (mode === 1 ? 1.5 : .5)) * (mode === 8 ? 7 : mode === 7 ? 5 : 1.2) * intensity;
+    body.roll = Math.sin(phase * (mode === 1 ? 1.5 : mode === 4 ? .25 : .5)) * (mode === 4 ? 8 : mode === 8 ? 7 : mode === 7 ? 5 : 1.2) * intensity;
     if (mode === 15) body.yaw = Math.sin(phase * .5) * 18 * intensity;
     else if (mode === 7) body.yaw = Math.sin(phase * .5) * 9 * intensity;
     else if (mode === 4) body.pitch = Math.sin(phase * .25) * 5 * intensity;
@@ -343,7 +352,7 @@ export function writeRoachSceneState(timeSeconds, settings, out, joints = []) {
     const swing = clamp((legPhase - duty) / (1 - duty), 0, 1);
     foot.phase = legPhase;
     foot.stance = legPhase < duty;
-    foot.lift = foot.stance ? 0 : Math.sin(swing * Math.PI);
+    foot.lift = foot.stance ? 0 : Math.sin(swing * Math.PI) * (mode === 0 || mode === 12 || mode === 14 ? .38 : mode === 1 || mode === 15 ? .52 : 1);
     foot.stride = direction * (foot.stance ? 1 - 2 * legPhase / duty : -1 + 2 * smooth(swing));
     foot.contactCount = Math.floor(total);
     foot.impact = clamp((mode === 1 ? .45 : mode === 13 ? .27 : .55) * intensity * (i >= 4 ? 1 : .8), 0, 1);
@@ -438,12 +447,13 @@ function addPreset(beats, item, mode, amount, out, index, antennae, scene, indep
   } else if (item.kind === 'wings') {
     if (item.wingKind !== 'aggregate') {
       const opening = .5 - .5 * Math.cos(phase * .25);
+      const twitter = .55 + .45 * Math.sin(phase * 2.5 + side * .7);
       const wingMode = mode === 3 || mode === 5 || mode === 21;
       const hind = item.wingKind === 'hind';
       const maximum = hind ? (mode === 5 ? 75 : mode === 21 ? 60 : 48) : 38;
-      const spread = wingMode ? (mode === 21 ? .55 + .45 * Math.sin(phase * .5) : opening) : mode === 18 ? .16 : 0;
+      const spread = wingMode ? (mode === 21 ? .55 + .45 * Math.sin(phase * .5) : mode === 3 ? opening * (.65 + twitter * .35) : opening) : mode === 18 ? .16 : 0;
       z = side * spread * maximum;
-      y = side * spread * (hind ? 16 : 6) * (1 + Math.sin(phase * (mode === 5 ? 3 : mode === 21 ? 2.5 : 1)));
+      y = side * spread * (hind ? (mode === 3 ? 23 : 25) : 7) * (1 + Math.sin(phase * (mode === 5 ? 3.5 : mode === 21 ? 3 : 2.5) + (hind ? side * .4 : 0)));
       x = hind ? Math.sin(phase * .5 + side) * spread * 3 : 0;
     } else if (independentWings) {
       // The original parent remains a collective manual control. Leaf hinges
@@ -461,7 +471,8 @@ function addPreset(beats, item, mode, amount, out, index, antennae, scene, indep
       const phrase = .5 - .5 * Math.cos(phase * .25);
       x = Math.sin(phase * (mode === 23 ? 1.5 : 1)) * (4 + phrase * 10);
       y = Math.sin(phase * .5) * (mode === 23 ? 12 : 8); z = slow * 6;
-    } else if (mode === 22) { x = 4 + Math.sin(phase * .5) * 10; y = Math.sin(phase * .25) * 13; z = Math.sin(phase * 4) * 2; }
+    } else if (mode === 4) { x = Math.sin(phase) * 8; z = Math.sin(phase * .25) * 7; }
+    else if (mode === 22) { x = 4 + Math.sin(phase * .5) * 10; y = Math.sin(phase * .25) * 13; z = Math.sin(phase * 4) * 2; }
     else { y = Math.sin(phase * .5 + .3) * (mode === 14 ? 13 : mode === 15 ? 8 : 3); x = mode === 13 ? -5 : 0; }
     x *= scale; y *= scale; z *= scale;
   } else if (item.kind === 'antenna' && antennae) {
@@ -563,6 +574,48 @@ export function bakeRoachPresetTracks(presetId, joints, options = {}) {
     sceneContactCounts: end.feet.map((foot, i) => foot.contactCount - frames[0].feet[i].contactCount),
     staticScene: null,
   });
+}
+/** Seeded variation keeps one complete support gait and blends only independent
+ * upper-body curves. Foot phases/counts and torso motion remain the base patch,
+ * so random wings or expressions cannot invent or erase ground contacts. */
+export function createRandomRoachMotion(seed, joints, options = {}) {
+  const safeSeed = Math.floor(finite(seed, 1)) >>> 0;
+  const random = randomGenerator(safeSeed ^ 0x9e3779b9);
+  // Mix the seed before selecting: adjacent UI seeds should not all pick the
+  // first factory patch because their first xorshift outputs are very small.
+  random(); random(); random();
+  const base = ROACH_MOTION_PRESETS[Math.floor(random() * ROACH_MOTION_PRESETS.length)];
+  const compatible = ROACH_MOTION_PRESETS.filter((item) => item.id !== base.id
+    && (item.rootPosture === base.rootPosture || item.category === 'Wings' || item.category === 'Face'));
+  const donor = compatible[Math.floor(random() * compatible.length)];
+  const mix = .3 + random() * .4;
+  const shift = Math.floor(random() * 8) * 8;
+  const result = bakeRoachPresetTracks(base.id, joints, options);
+  const alternate = bakeRoachPresetTracks(donor.id, joints, options);
+  const rig = cleanFactoryJoints(joints);
+  const round = (value) => Math.round(clamp(value, -180, 180) * 10000) / 10000 || 0;
+  for (let jointIndex = 0; jointIndex < rig.length; jointIndex += 1) {
+    const item = metadata(rig[jointIndex]);
+    if (!['head', 'neck', 'antenna', 'wings', 'abdomen'].includes(item.kind)) continue;
+    const wobble = item.kind === 'antenna' ? 2 + random() * 4 : 0;
+    const phase = random() * TAU;
+    for (let axis = 0; axis < 3; axis += 1) {
+      const track = result.tracks[jointIndex * 3 + axis];
+      const other = alternate.tracks[jointIndex * 3 + axis];
+      for (let sample = 0; sample < 64; sample += 1) {
+        const value = track.samples[sample] * (1 - mix) + other.samples[(sample + shift) % 64] * mix
+          + wobble * Math.sin(sample / 64 * TAU * (axis + 2) + phase);
+        track.samples[sample] = round(value);
+        if (sample % 4 === 0) track.steps[sample / 4] = track.sourceSteps[sample / 4] = track.samples[sample];
+      }
+    }
+  }
+  for (let sample = 0; sample < 64; sample += 1) {
+    for (const key of ['wing', 'growl', 'voice']) result.sceneFrames[sample].energy[key]
+      = result.sceneFrames[sample].energy[key] * (1 - mix) + alternate.sceneFrames[(sample + shift) % 64].energy[key] * mix;
+  }
+  return normalizeRoachMotion({ ...result, randomSeed: safeSeed, randomSourceId: donor.id,
+    randomBlend: mix, randomLabel: `${base.label} / ${donor.label}` });
 }
 function cleanFactoryJoints(joints) {
   return (Array.isArray(joints) ? joints : []).slice(0, 128).map((joint) => ({ ...joint,

@@ -1,10 +1,11 @@
 import { connectAudioOutput } from './audio-output-manager.js';
 import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from './spelling-diphone-atlas.js';
 import { loadSpellingPronunciations, spellingPhoneDefinition, spellingPronunciationTokens } from './spelling-pronunciation.js';
-import { normalizeRoachSound, ROACH_SOUND_DEFAULTS } from './roach-synth-dsp.js';
+import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js';
 
 export { ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS,
-  createDefaultRoachMappings, normalizeRoachSound } from './roach-synth-dsp.js';
+  createDefaultRoachMappings, normalizeRoachSound, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES,
+  createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId } from './roach-synth-dsp.js';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
@@ -57,7 +58,7 @@ export class RoachSynthAudio {
     this.generation = 0; this.speechGeneration = 0; this.buildPromise = null;
     this.atlasPromise = null; this.atlasReady = false; this.speechAbort = null;
     this.samplesPromise = null; this.samplesAbort = null; this.samplesStatus = 'idle'; this.samplesLoaded = 0;
-    this.state = { playing: false, soundPlaying: false, sound: { ...ROACH_SOUND_DEFAULTS } };
+    this.state = { playing: false, soundPlaying: false, sound: { ...ROACH_SOUND_DEFAULTS }, bodyMix: createDefaultRoachBodyMix() };
     this.anchorTime = 0; this.anchorClock = this.clock();
     this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, renderedFrames: 0, soundTime: 0 };
   }
@@ -84,7 +85,10 @@ export class RoachSynthAudio {
     }
     if ('soundPlaying' in changes) next.soundPlaying = changes.soundPlaying === true;
     if (changes.sound) next.sound = normalizeRoachSound({ ...this.state.sound, ...changes.sound });
+    if ('bodyMix' in changes) next.bodyMix = normalizeRoachBodyMix(changes.bodyMix);
     Object.assign(this.state, next);
+    // Reset is an edge, never a sticky part of future full-state publications.
+    delete this.state.resetActivity;
     this.postState(next);
   }
   setLevel(value) { this.update({ sound: { level: value } }); }

@@ -4,70 +4,73 @@ Research checked 2026-09-11. The scanned model is a generic winged cockroach spe
 
 ## Implemented playable approximation
 
-The instrument combines short six-foot impact envelopes, filtered scraping and
-airflow noise, a 16-mode shell resonator, wing rustle/buzz, rough low growls,
-an optional modal/formant drone, two lossy wire-delay loops, recorded vivarium
-movement fragments, and locally bundled KAL16 phoneme samples for words.
-Eight sound presets and nine independent level/mute/solo channels expose these
-layers. Contact envelopes open irregular friction-collision clusters; short,
-inharmonic modes and wall particles replace the former pitched foot tones.
-The continuous drone starts at zero, and the VOICE slider controls words
-independently. This is scalar AudioWorklet DSP, informed by SIMD Synth's
-modal/waveguide design rather than an actual SIMD backend.
+The instrument has eight anatomical sound groups: legs, outer wing covers,
+hindwings, thorax, abdomen, neck, head and antennae. Each owns its oscillator
+phases, filters, excitation envelopes, seeded randomness and sound assignment.
+The twelve source choices include four smooth held-pose sounds (resonance,
+drone, sub pressure and shimmer) and eight movement sounds (buzz, wire zing,
+skuttle, wall scratches, recorded rustle, shriek, hiss and growl). Eighteen
+sound/voice presets and a bounded randomizer set the sonic character; a compact
+body mixer controls assignment, level, mute and solo. Voice level is independent
+of the body solos.
 
-All 31 runtime joints start with editable sound routes. Individual or combined XYZ
-rotations control pitch, vowel, brightness, shell decay, hiss, wing rate, rhythm,
-percussion, crunch, stereo pan, feet, growl, drone, wire zing, recording or voice level. Grabbing a
-part selects it. Dragging a leg produces a filtered scrape, a head/neck gesture
-excites shell creaks, and moving the covers excites an unfurling texture.
-These manual gestures work with Audio armed and automatic animation paused;
-releasing them returns to silence unless words or either player is active.
-Sound Play has its own audio clock and excites textures from a held pose without
-advancing animation or inventing foot contacts. Animation Play advances the
-joint score. Audio arming alone is silent. The shared sound preset also colors
-the KAL word voice; its default pronunciation remains unchanged.
+Sound Play opens the smooth held-pose sources without advancing the animation.
+It never creates a footstep, scraping pulse or recorded grain. Moving each
+body group's actual joints supplies its own friction and excitation; stopping
+releases those textures back to the held resonance bed. XYZ rotations alter
+pitch, filtering and stereo within that group. Left/right and individual joints
+have different weighting even when their source is shared. Touching a joint
+selects its group. Manual gestures work with Audio armed and either player
+paused. Audio arming alone is silent; spoken KAL16 words have their own trigger.
+Discrete pose loads and resets re-prime activity, preventing teleportation from
+manufacturing contact events.
 
-Twenty-four repetitive motion patches share an audio-clock pose and stylized
-six-foot support state. Ground travel, foot swing, touchdown counters, body
-lift and upright dances come from that state. The viewer calibrates an unfolded
-neutral stance from the curled scan once at load, using bounded joint solving;
-those neutral angles are passed to the sound engine too. This is an authored
-support model, not validated animal biomechanics or a general collision solver.
-The neutral stance is lowered and spread with bent knees. Runtime wing
-geometry separates the source-textured covers and adds two authored veined
-hindwings, each with an independent hinge. The original GLB retains its
-27-joint source hierarchy; four runtime wing joints bring the total to 31.
-The two long antennae remain rigid articulated meshes. Small mouth palps are
-fused into the scanned head and have no independent joints.
+Six independent foot-contact envelopes follow the same contact counters used
+by the visible gait. They excite irregular short friction clusters and damped
+material modes. Wire zing uses a lossy waveguide informed by Morphazoid's
+Karplus and modal-resonator lineage. The engine is scalar AudioWorklet DSP,
+not an actual SIMD backend or a validated cockroach biomechanical model.
+Roach rustle plays bounded fragments of the CC0 vivarium recording described
+below, triggered by that group's movement or the legs' contact events; it is
+not a continuously looping ambience. No acquired clip is an isolated flight
+sound, house-wall recording, shriek or demonstrated ultrasonic signal.
+
+Twenty-four interleaved animation patches and seeded motion blends share an
+audio-clock pose and stylized six-foot support state. Ground travel, swing,
+touchdown counters, body lift and upright dances come from that state. Internal
+64-sample curves preserve fast gestures; there is no exposed joint sequencer or
+route editor in the compact main view. Random routines blend upper-body curves
+while retaining their base routine's leg geometry and contact timing. Changing
+routines preserves transport phase, and camera views remain independent.
+Twenty-four static poses plus seeded random poses hold complete body states;
+Reset restores neutral without changing the sound mix.
+
+The viewer calibrates a lowered, spread neutral stance from the curled scan
+once at load, using bounded joint solving. Its angles and kinematic metadata
+are passed to the sound engine. The original GLB retains 27 source joints;
+four runtime wing hinges bring the total to 31. The viewer separates the
+source-textured covers and reconstructs two thin veined hindwings underneath.
+Those hindwings are an authored flight illusion, not recovered scan anatomy.
+The long antennae remain rigid articulated meshes. Small palps, mouth and jaw
+are fused into the scanned head, so they share Head and have no invented
+independent controls.
+
 Shared angular limits and sampled-point exclusion from an ellipsoidal body
-core constrain the same pose in audio and graphics. This provides a solid
-interior guard for common poses; it is not triangle-level collision detection,
-continuous swept collision or a full limb-to-limb physics solver. Surface seams
-and fine appendages can still overlap outside that conservative core.
-Depth testing and self/ground shadows supply visible occlusion.
+core constrain the same pose in audio and graphics. This is an interior guard
+for common poses, not triangle-level or continuous collision detection, or a
+full limb-to-limb physics solver. Fine appendages and surface seams can still
+overlap outside that core. Depth testing and self/ground shadows supply visible
+occlusion. Graphics remain capped at 20 fps and pixel ratio 1; the AudioWorklet
+runs the shared motion clock independently. Camera fitting occurs on loading,
+explicit view selection or Fit; zoom has explicit +/− controls rather than
+pinch, wheel or pose-driven refitting.
 
-Animation presets populate every joint and axis with sixteen editable knots
-over 64 underlying samples, preserving quick scuttles between edit points.
-Factory contours replace the procedural joint angles rather than doubling them;
-manual offsets still add on top. Layered XYZ, whole-body axis and single-track
-views expose the curves. The page bounds edits to 128 tracks and saves compact knots per routine in
-versioned local storage, rebuilding factory detail on load; legacy additive
-scores remain readable.
-Twenty-four static poses plus seeded random poses hold a complete body state;
-Reset body position returns to neutral without changing sound routes or mix.
-Switching routines preserves transport phase. Camera views never form part of
-the score. Camera-directed head offsets are shared with audio as well as the
-visible pose. The renderer caps frame rate and pixel ratio, with bounded shadow
-maps, self-shadowing and ground shadows; it follows the audio clock without
-scheduling sound on animation frames.
-
-Three short edits from nicotep's CC0 vivarium movement recording are bundled
-as the v5 sample bank described below; the other animal recordings remain
-linked references. Speech reuses Morphazoid's existing KAL16 atlas and pronunciation
+Speech reuses Morphazoid's locally bundled KAL16 atlas and pronunciation
 dictionary with their existing attribution. The talking bug, growls and
-unfurling textures are creative sound design. No ultrasound is output. Human
-listening and physical-device testing have not validated this revision's
-intelligibility, feel, or timbral quality.
+unfurling textures are creative sound design. No ultrasound is output. Automated
+renders, measurements and browser interaction tests assess timing, stability
+and levels; human listening and physical-device testing have not validated
+this revision's intelligibility, feel or timbral quality.
 
 ## Available recordings
 

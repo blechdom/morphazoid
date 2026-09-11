@@ -44,9 +44,41 @@ test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen vi
   expect(initial.bones.every((joint) => Object.values(joint.restOffset).every(Number.isFinite))).toBe(true);
   await page.evaluate(() => { motion.presetId = 'dance_upright'; motionTime = 0.4; drawSpecimen(); });
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.body.pitch)).toBeGreaterThan(40);
+  await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(initial.renderCount);
   expect((await page.evaluate(() => specimenViewer.getState())).camera.viewPreset).toBe('side');
+  expect((await page.evaluate(() => specimenViewer.getState())).camera).toEqual(initial.camera);
   await page.evaluate(() => { motion.presetId = 'side_run'; motionTime = 1; drawSpecimen(); });
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.offset)).toBeGreaterThan(0);
+});
+
+test('calibrated walk and run keep a low body with moving, grounded feet across the stride', async ({ page }, testInfo) => {
+  await specimen(page);
+  const initial = await page.evaluate(() => specimenViewer.getState());
+  const records = [];
+  for (const presetId of ['side_walk', 'side_run']) {
+    for (let phase = 0; phase < 12; phase += 1) {
+      const renderCount = await page.evaluate(() => specimenViewer.getState().renderCount);
+      await page.evaluate(({ presetId, phase }) => {
+        motion.presetId = presetId;
+        motionTime = phase / 12 * 60 / motion.tempo;
+        drawSpecimen();
+      }, { presetId, phase });
+      await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(renderCount);
+      const state = await page.evaluate(() => specimenViewer.getState());
+      // This support correction is calculated from the actual transformed foot
+      // endpoints. A wrong knee branch used to raise the body by ~.25 lengths.
+      const clearance = (state.ground.bellyHeight - state.ground.height + state.ground.groundingOffset) / state.ground.bodyLength;
+      expect(clearance).toBeGreaterThan(.07);
+      expect(clearance).toBeLessThan(.20);
+      expect(Math.min(...state.ground.contacts.map(foot => foot.gap))).toBeGreaterThanOrEqual(-.002);
+      expect(Math.min(...state.ground.contacts.map(foot => foot.gap))).toBeLessThan(.02);
+      expect(state.bones.filter(joint => /^(front|middle|hind)_/.test(joint.jointId)).map(joint => joint.quaternion))
+        .not.toEqual(initial.bones.filter(joint => /^(front|middle|hind)_/.test(joint.jointId)).map(joint => joint.quaternion));
+      expect(state.camera).toEqual(initial.camera);
+      records.push({ presetId, phase, clearance, feet: state.ground.contacts });
+    }
+  }
+  await testInfo.attach('grounded-gait.json', { body: JSON.stringify(records), contentType: 'application/json' });
 });
 
 test('roach surface drags edit all three joint axes; background drags orbit and cancellation releases ownership', async ({ page }) => {
@@ -64,6 +96,9 @@ test('roach surface drags edit all three joint axes; background drags orbit and 
     expect(after.selectedBone).toBe(point.id);
     expect(after.bones.find((joint) => joint.id === point.id).offset[axis]).toBeGreaterThan(10);
     expect(after.camera.quaternion).toEqual(before.camera.quaternion);
+    expect(after.camera.distance).toBe(before.camera.distance);
+    expect(after.camera.position).toEqual(before.camera.position);
+    expect(after.camera.target).toEqual(before.camera.target);
     expect(after.interaction.active).toBeNull();
   }
   await page.evaluate(() => specimenViewer.setViewPreset('side'));
@@ -136,11 +171,12 @@ test('four textured/reconstructed wings articulate independently, underside fill
   const carapace = Math.max(...geometry.ranges.filter((part) => part.id.startsWith('wing_cover')).map((part) => part.high));
   for (const femur of geometry.ranges.filter((part) => /^(front|middle|hind)_(left|right)_middle$/.test(part.id))) expect(femur.high).toBeLessThan(carapace);
   const clearance = (geometry.state.ground.bellyHeight - geometry.state.ground.height) / geometry.state.ground.bodyLength;
-  expect(clearance).toBeGreaterThan(.1); expect(clearance).toBeLessThan(.2);
+  expect(clearance).toBeGreaterThan(.11); expect(clearance).toBeLessThan(.14);
   await page.evaluate(() => specimenViewer.setViewPreset('bottom'));
   expect(await page.evaluate(() => specimenViewer.getState().lighting.bottomFill)).toBeGreaterThan(2);
+  await page.evaluate(() => specimenViewer.setViewPreset('top'));
+  const beforeWings = await page.evaluate(() => specimenViewer.getState().camera);
   await page.evaluate(() => {
-    specimenViewer.setViewPreset('top');
     for (const joint of joints) {
       if (joint.wingLayer === 'cover') joint.offset = { x: 4, y: joint.wingOpenSign * 22, z: joint.wingOpenSign * 65 };
       if (joint.wingLayer === 'hind') joint.offset = { x: -4, y: joint.wingOpenSign * 12, z: joint.wingOpenSign * 40 };
@@ -148,6 +184,9 @@ test('four textured/reconstructed wings articulate independently, underside fill
     drawSpecimen();
   });
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().wings.fanOpen[0])).toBeGreaterThan(.5);
+  expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(beforeWings);
+  // Wide wings can be fitted deliberately; opening a body part never zooms.
+  await page.evaluate(() => specimenViewer.resetCamera());
   expect(await page.evaluate(() => specimenViewer.getState().lighting.bottomFill)).toBe(0);
   for (const id of ['wing_cover_left', 'wing_cover_right', 'wing_hind_left', 'wing_hind_right']) expect(await page.evaluate((part) => specimenViewer.getPartScreenPosition(part), id)).not.toBeNull();
   const before = await page.evaluate(() => specimenViewer.getState().bones.filter((joint) => joint.wingLayer).map((joint) => ({ id: joint.jointId, quaternion: joint.quaternion })));
@@ -168,4 +207,82 @@ test('four textured/reconstructed wings articulate independently, underside fill
     return { y: pose[wing * 3 + 1], z: pose[wing * 3 + 2], finite: Array.from(pose).every(Number.isFinite) };
   });
   expect(constrained).toEqual({ y: 0, z: 0, finite: true });
+});
+
+test('only explicit zoom controls change camera distance; wheel scrolling, resizing and invalid factors do not', async ({ page }) => {
+  await specimen(page);
+  const before = await page.evaluate(() => specimenViewer.getState().camera);
+  expect(await page.evaluate(() => [0, -1, NaN, Infinity, undefined, '0.8'].map((factor) => specimenViewer.zoom(factor)))).toEqual(Array(6).fill(false));
+  expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(before);
+  const wheel = await page.evaluate(() => {
+    const canvas = document.querySelector('#specimen');
+    return [false, true].map((ctrlKey) => {
+      const event = new WheelEvent('wheel', { deltaY: 150, ctrlKey, bubbles: true, cancelable: true });
+      canvas.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+  });
+  expect(wheel).toEqual([false, true]);
+  expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(before);
+  await page.mouse.move(20, 40);
+  await page.mouse.wheel(0, 250);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
+  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBe(before.distance);
+  await page.evaluate(() => { scrollTo(0, 0); document.querySelector('#specimen').focus({ preventScroll: true }); });
+  await page.keyboard.press('+');
+  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBeCloseTo(before.distance * .87, 10);
+  expect(await page.evaluate(() => specimenViewer.zoom(.8))).toBe(true);
+  await page.keyboard.press('-');
+  const zoomed = await page.evaluate(() => specimenViewer.getState());
+  expect(zoomed.camera.distance).toBeCloseTo(before.distance * .87 * .8 * 1.15, 10);
+  expect(zoomed.camera.quaternion).toEqual(before.quaternion);
+  expect(zoomed.camera.target).toEqual(before.target);
+  await page.setViewportSize({ width: 940, height: 720 });
+  await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(zoomed.renderCount);
+  expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(zoomed.camera);
+});
+
+test('two-finger churn cancels touch manipulation without zooming or restarting a remaining finger', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  try {
+    await specimen(page, { touch: true });
+    await page.evaluate(() => specimenViewer.setTouchInteraction(true));
+    const client = await context.newCDPSession(page);
+    const touch = (type, points) => client.send('Input.dispatchTouchEvent', { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) });
+    const initial = await page.evaluate(() => specimenViewer.getState().camera);
+    await touch('touchStart', [[11, 20, 25]]);
+    await touch('touchMove', [[11, 55, 35]]);
+    const orbit = await page.evaluate(() => specimenViewer.getState().camera);
+    expect(orbit.distance).toBe(initial.distance);
+    expect(orbit.quaternion).not.toEqual(initial.quaternion);
+    await touch('touchStart', [[11, 55, 35], [22, 125, 35]]);
+    await touch('touchMove', [[11, 15, 130], [22, 245, 170]]);
+    await touch('touchEnd', [[22, 245, 170]]);
+    await touch('touchMove', [[22, 290, 215]]);
+    await touch('touchStart', [[22, 290, 215], [33, 80, 250]]);
+    await touch('touchEnd', [[33, 80, 250]]);
+    await touch('touchMove', [[33, 120, 280]]);
+    await touch('touchEnd', []);
+    const after = await page.evaluate(() => specimenViewer.getState());
+    expect(after.camera).toEqual(orbit);
+    expect(after.interaction.active).toBeNull();
+    expect(after.interaction.pointerCount).toBe(0);
+    expect(await page.evaluate(() => interactions.some((event) => event.phase === 'cancel'))).toBe(true);
+    expect(await page.evaluate(() => scrollY)).toBe(0);
+    // After every finger is released, a new single-finger joint gesture works.
+    await page.evaluate(() => { specimenViewer.setViewPreset('top'); specimenViewer.setDragAxis('z'); });
+    const part = await page.evaluate(() => specimenViewer.getPartScreenPosition('wing_cover_left'));
+    expect(part).not.toBeNull();
+    const jointCamera = await page.evaluate(() => specimenViewer.getState().camera);
+    await touch('touchStart', [[44, part.x, part.y]]);
+    await touch('touchMove', [[44, part.x + 30, part.y]]);
+    await touch('touchEnd', []);
+    await expect.poll(() => page.evaluate(() => poseChanges.length)).toBeGreaterThan(0);
+    const edited = await page.evaluate(() => specimenViewer.getState());
+    expect(edited.selectedBone).toBe(part.id);
+    expect(edited.camera).toEqual(jointCamera);
+    expect(edited.interaction.active).toBeNull();
+    expect(edited.interaction.pointerCount).toBe(0);
+  } finally { await context.close(); }
 });

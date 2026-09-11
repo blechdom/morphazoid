@@ -2,17 +2,17 @@
 
 A growing collection of geometric, recursive, analytic, and transformed-audio instruments.
 
-**Roach Synth** turns a detailed CC BY cockroach scan into an articulated sound
-instrument with 31 runtime joints, four independently hinged wings, a grounded
-stance, and selectable side/top/bottom/face views. Sound Play uses 24 static
-poses or random body positions; Animation Play runs 24 editable routines.
-Preset-filled joint contours offer 16 edit steps with layered XYZ and whole-body
-views. Joint gestures drive scuttles, shell creaks, wing textures and a tiny robot
-voice through one AudioWorklet; a shared sound preset also colors spoken words.
-The nine-channel mixer separates voice, recorded CC0 cockroach movements,
-scraping contacts, wall textures, hiss, wings, growl, drone and resonant wire zing,
-with individual level, mute and solo controls.
-The mobile specimen stays visible while the controls scroll below it.
+**Roach Synth** turns a detailed CC BY cockroach scan into a playable instrument
+with 31 runtime joints, four independently hinged wings, a grounded stance and
+side/top/bottom/face views. Sound Play holds smooth ominous resonances; dragging
+body parts changes their pitch, filtering and texture. Eight body groups each
+have a choice of twelve sources, a level knob, mute and solo. Movement excites
+scratches, wing buzz, wire zing and short CC0 cockroach rustles; six shared
+foot-contact streams supply the scuttling rhythm. Eighteen sound/voice presets,
+random sounds, 24 static poses, 24 interleaved animations and random motion
+blends keep the sound and animation players independent. Tiny robot words have
+their own voice level. The larger mobile specimen stays visible while controls
+scroll below; explicit zoom buttons isolate zoom from body manipulation.
 [Sound evidence, recordings and model limitations](ROACH_SYNTH_RESEARCH.md).
 
 **Puggler the Punk Rock Jugger** turns juggling into a noisy punk band on a trash-strewn stage. Choose from 22 starting acts, every solo/duo combination of Puggler, Roxy, and Moss, or the trio. Up to ten weighted objects juggle at 100–1,200 beats/minute: recorded drums punch on catches, guitar/bass riffs follow flights, and sampled “oi”/“woo” vocals keep a natural register. Thirty-one patterns and evolving phrases include holds and rests. Real misses bring boos and audience-lobbed replacements; throw props back to the pit. Fixed, clickable keyboard clusters steer each rider, adjust height, kick, and throw to the crowd. Pause stops new juggling throws while existing flights land, unicycles keep moving, and the crowd remains audible when Audio is on. Forty trashpunk flyers, exaggerated faces, and compact controls frame the stage. Switch between Trashpunk, a mixed-history cast and stage, and Future 3026 with a cyber woman and alien; each skin has a full prop image bank. Stage-lighting looks and eight rear-view audience members, including two women and a baby, follow the performance. Audio starts off. [Research and approximations](PUGGLER_RESEARCH.md); [CC0 recording credits](assets/puggler/CREDITS.md).

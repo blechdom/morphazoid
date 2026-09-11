@@ -951,3 +951,19 @@ test("card renderer separates in-development experiments from the main catalogue
   assert.match(css, /@media \(min-width: 1080px\)[\s\S]*repeat\(3/);
   assert.match(css, /@media \(min-width: 1500px\)[\s\S]*repeat\(4/);
 });
+
+
+test("Roach Synth is discoverable in the main chooser with current body-instrument copy", () => {
+  const group = TOOL_GROUPS.find(({ id }) => id === "voice-synths");
+  const entry = group.tools.find(({ id }) => id === "roach-synth");
+  assert.equal(entry.href, "roach-synth.html");
+  assert.notEqual(group.picker, false);
+  assert.equal(TOOL_GROUPS.flatMap(({ tools }) => tools).filter(({ id }) => id === "roach-synth").length, 1);
+  const instrument = instrumentById("roach-synth");
+  assert.equal(instrument.status, null);
+  assert.equal(instrument.tags[0].id, "voice-synths");
+  assert.match(instrument.description, /31 playable joints/);
+  assert.match(instrument.description, /body-part mixer/);
+  assert.doesNotMatch(instrument.description + instrument.start, /27 playable|16-step|joint score|edit each joint.s loop/);
+  assert.ok(instrument.features.includes("Recordings"));
+});
