@@ -84,6 +84,11 @@ command names.
   must not silently arm Audio. The documented explicit MIDI-enable and
   positively detected WAX-host paths are exceptions. Follow
   `contracts/audio-transport-v1.md` and `contracts/web-midi-toolbar-v1.md`.
+- Audio takes priority over graphics in both timing and resource budgets.
+  Keep synthesis and rhythmic triggers independent of rendering; graphics
+  follow the audio clock. When resources are tight, reduce visual frame rate,
+  resolution, shadows, or effects before compromising audio continuity or
+  timing. Verify that rendering and UI stalls do not interrupt sound.
 - Schedule browser musical events on `AudioContext.currentTime`; use animation
   frames only for display. Bound voices, nodes, events, levels, and rendering;
   skip stale attacks, smooth live changes, and release audio, devices, timers,

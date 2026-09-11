@@ -196,12 +196,13 @@ function buildMixer() {
     const source = document.createElement('select'); source.id = `source-${id}`; source.dataset.bodySource = id; source.setAttribute('aria-label', `${label} sound`);
     for (const item of ROACH_BODY_SOURCES) source.add(new Option(item.label, item.id));
     source.addEventListener('change', () => { state.bodyMix.find(item => item.groupId === id).source = source.value; markSoundCustom(); publishSound(); }, options);
+    const sourceShell = document.createElement('span'); sourceShell.className = 'select-shell'; sourceShell.append(source);
     const knob = document.createElement('label'); knob.className = 'roach-knob'; knob.htmlFor = `mix-${id}`;
     const face = document.createElement('span'); face.className = 'knob-face'; face.setAttribute('aria-hidden', 'true');
     const pointer = document.createElement('i'), output = document.createElement('small'); output.id = `mix-${id}Out`; face.append(pointer, output);
     const level = document.createElement('input'); Object.assign(level, { id: `mix-${id}`, type: 'range', min: '0', max: '1', step: '.01' }); level.dataset.bodyLevel = id; level.setAttribute('aria-label', `${label} level`);
     level.addEventListener('input', () => { state.bodyMix.find(item => item.groupId === id).level = Number(level.value); paintKnob(level); publishSound(); }, options);
-    knob.append(face, level); row.append(name, source, knob);
+    knob.append(face, level); row.append(name, sourceShell, knob);
     for (const [attribute, copy] of [['mute', 'M'], ['solo', 'S']]) {
       const button = document.createElement('button'); button.type = 'button'; button.dataset[attribute] = id; button.textContent = copy;
       button.setAttribute('aria-label', `${attribute === 'mute' ? 'Mute' : 'Solo'} ${label}`); button.setAttribute('aria-pressed', 'false');
