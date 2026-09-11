@@ -5,7 +5,8 @@ import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, normalizeRoachBodyMix, creat
 
 export { ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS,
   createDefaultRoachMappings, normalizeRoachSound, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES,
-  createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId } from './roach-synth-dsp.js';
+  createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './roach-synth-dsp.js';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
@@ -129,6 +130,7 @@ export class RoachSynthAudio {
             renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             recordingEvents: finite(data.recordingEvents),
+            metronomeEvents: finite(data.metronomeEvents), lastMetronomeTime: finite(data.lastMetronomeTime, -1),
             interactionPeak: finite(data.interactionPeak) };
           safeCall(this.onTelemetry, { ...this.getState() });
         } else if (data?.type === 'error') safeCall(this.onStatus, `Sound: ${data.message}`);

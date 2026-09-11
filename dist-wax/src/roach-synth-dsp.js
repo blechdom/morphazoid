@@ -1,7 +1,7 @@
-import { RoachBodyEngine } from './roach-synth-body-engine.js';
-import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js';
-export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js';
-import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState } from './roach-synth-motion.js';
+import { RoachBodyEngine } from './roach-synth-body-engine.js?v=365ba8cf3adb';
+import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=365ba8cf3adb';
+export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=365ba8cf3adb';
+import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState } from './roach-synth-motion.js?v=365ba8cf3adb';
 
 // A held pose has smooth, group-owned resonances. Motion-only sources receive
 // only their own joints' actual displacement and the shared six-foot contacts.
@@ -93,16 +93,16 @@ export function normalizeRoachSound(value = {}) {
   return result;
 }
 const PATCHES = [
-  ['scuttling-shell', 'House in the walls', 140, .38, .55, .14, ['skuttle','walls','rustle','resonance','drone','growl','sub','shimmer']],
+  ['scuttling-shell', 'Little footsteps', 140, .38, .55, .14, ['footsteps','walls','rustle','resonance','drone','sine','sub','shimmer']],
   ['spiracle-whisper', 'Breathing plaster', 92, .28, .7, .1, ['walls','hiss','rustle','drone','sub','hiss','resonance','shimmer']],
   ['wing-radio', 'Wing radio', 185, .57, .65, .2, ['skuttle','buzz','rustle','resonance','drone','zing','sub','shimmer']],
-  ['tin-carapace', 'Rusting carapace', 235, .53, .8, .36, ['zing','walls','buzz','resonance','sub','growl','drone','shimmer']],
+  ['tin-carapace', 'FM carapace', 175, .53, .55, .12, ['fm','walls','buzz','resonance','sub','sine','drone','shimmer']],
   ['crunchy-orator', 'Crusty orator', 116, .37, .45, .32, ['skuttle','rustle','hiss','resonance','drone','growl','sub','shimmer']],
-  ['pitter-patter', 'Wall skitter', 225, .63, .42, .18, ['skuttle','walls','zing','resonance','sub','hiss','drone','shimmer']],
+  ['pitter-patter', 'Cartoon tiptoe', 225, .63, .42, .08, ['footsteps','walls','zing','sine','sub','sine','pluck','shimmer']],
   ['under-fridge', 'Under the fridge', 76, .22, .72, .48, ['walls','rustle','buzz','drone','sub','growl','resonance','hiss']],
-  ['modal-carapace', 'Black cavity', 108, .34, .88, .16, ['zing','resonance','shimmer','drone','sub','walls','resonance','shimmer']],
+  ['modal-carapace', 'Karplus carapace', 148, .54, .78, .09, ['pluck','resonance','shimmer','drone','sub','sine','resonance','shimmer']],
   ['pipe-organism', 'Pipe organism', 98, .3, .79, .12, ['skuttle','zing','rustle','resonance','drone','growl','sub','resonance']],
-  ['radiator', 'Behind the radiator', 155, .48, .82, .24, ['walls','zing','buzz','resonance','sub','hiss','drone','shimmer']],
+  ['radiator', 'Rattlesnake drums', 155, .48, .62, .14, ['rattle','zing','buzz','resonance','sub','sine','fm','shimmer']],
   ['velvet-threat', 'Velvet threat', 83, .24, .62, .09, ['rustle','walls','hiss','drone','sub','growl','resonance','shimmer']],
   ['antenna-static', 'Antenna static', 175, .62, .5, .26, ['skuttle','buzz','rustle','resonance','drone','walls','sub','hiss']],
   ['tiny-alarm', 'Tiny alarm', 265, .57, .66, .23, ['skuttle','zing','buzz','drone','sub','growl','shriek','shimmer']],
@@ -123,7 +123,10 @@ const PATCH_ARTICULATION = [
 export const ROACH_SOUND_PRESETS = Object.freeze(PATCHES.map(([id,label,pitch,brightness,resonance,crunch,sources],index) => Object.freeze({
   id, label, sound: Object.freeze({...ROACH_SOUND_DEFAULTS,pitch,brightness,resonance,crunch,
     vowel:PATCH_ARTICULATION[index][0],wingRate:PATCH_ARTICULATION[index][1],rhythm:PATCH_ARTICULATION[index][2],voice:PATCH_ARTICULATION[index][3],pan:PATCH_ARTICULATION[index][4]}),
-  bodyMix: Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i]}))),
+  // Wing radio is the user's accepted reference. Its prior gains, source
+  // assignments and globals remain exact despite gentler defaults elsewhere.
+  bodyMix: Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],
+    level:index===2?[.85,.48,.65,.68,.6,.36,.36,.24][i]:row.level}))),
 })));
 export function createRandomRoachSound(seed = 1) {
   let state = (Number(seed) >>> 0) || 1;
@@ -135,6 +138,48 @@ export function createRandomRoachSound(seed = 1) {
     level:(i===3||i===4 ? .45 : .22)+random()*.35,
   }));
   return {sound,bodyMix};
+}
+
+// Authored companions are applied only by an explicit animation selection.
+// They do not alter the animation clock or overwrite a player's subsequent mix.
+const MOTION_SOUND_ROWS = [
+  ['side_walk','Sole taps',125,.46,.4,.08,['footsteps','walls','rustle','resonance','drone','sine','sub','shimmer'],[.76,.3,.5,.35,.25,.4,.25,.14]],
+  ['top_wing_fan','Wing radio twitter',185,.57,.65,.2,['footsteps','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.35,.48,.65,.3,.24,.2,.2,.16]],
+  ['dance_upright','Rubber boogie',110,.5,.48,.09,['footsteps','pluck','rustle','fm','sub','sine','rattle','shimmer'],[.78,.4,.3,.44,.3,.48,.3,.16]],
+  ['face_curious','Question tones',185,.48,.35,.04,['pluck','walls','rustle','sine','drone','sine','fm','shimmer'],[.28,.2,.3,.25,.2,.68,.6,.22]],
+  ['side_run','Six-foot FM',165,.52,.38,.08,['fm','walls','rustle','resonance','sub','sine','footsteps','shimmer'],[.74,.24,.35,.3,.28,.35,.2,.12]],
+  ['top_body_wave','Modal body drums',115,.44,.64,.1,['rattle','pluck','rustle','fm','sub','sine','resonance','shimmer'],[.58,.4,.35,.58,.28,.48,.28,.18]],
+  ['face_chatter','Neck syllables',210,.59,.34,.06,['footsteps','walls','rustle','sine','drone','sine','fm','pluck'],[.32,.2,.3,.24,.18,.72,.56,.2]],
+  ['top_flight','Wing radio lift',185,.57,.65,.2,['pluck','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.38,.48,.65,.34,.24,.2,.2,.16]],
+  ['side_skitter','One nervous scuttle',140,.34,.45,.12,['skuttle','walls','rustle','resonance','drone','sine','sub','shimmer'],[.36,.2,.32,.28,.22,.38,.2,.12]],
+  ['dance_boxer','FM knuckles',95,.48,.42,.14,['fm','rattle','rustle','rattle','sub','sine','fm','shimmer'],[.7,.38,.3,.42,.26,.42,.38,.14]],
+  ['face_sing','Singing sine',170,.42,.6,.04,['pluck','walls','rustle','resonance','drone','sine','sine','shimmer'],[.25,.2,.3,.28,.22,.66,.5,.2]],
+  ['bottom_wiggle','Plucked noodles',205,.6,.7,.06,['pluck','walls','rustle','sine','sub','sine','fm','shimmer'],[.88,.2,.3,.28,.2,.4,.3,.2]],
+  ['side_tiptoe','Tiny clicks',235,.65,.28,.035,['click','walls','rustle','sine','drone','sine','pluck','shimmer'],[.86,.16,.25,.24,.16,.42,.3,.12]],
+  ['wings_alarm','Wing radio alarm',185,.57,.65,.2,['fm','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.48,.48,.65,.24,.2,.2,.18,.14]],
+  ['dance_can_can','Rattlesnake kicks',180,.62,.47,.09,['rattle','pluck','rustle','fm','sub','sine','footsteps','shimmer'],[.68,.35,.25,.35,.26,.44,.34,.16]],
+  ['face_growl','Bass and clean neck',85,.32,.68,.24,['rattle','walls','rustle','resonance','growl','sine','growl','shimmer'],[.28,.24,.28,.28,.55,.56,.6,.14]],
+  ['side_zigzag','FM zigzag',275,.68,.3,.07,['fm','pluck','rustle','sine','sub','sine','rattle','shimmer'],[.66,.26,.32,.24,.24,.4,.3,.14]],
+  ['bottom_rave','Percussion circuits',165,.7,.54,.16,['rattle','fm','rustle','fm','sub','sine','pluck','shimmer'],[.62,.38,.3,.4,.28,.38,.35,.16]],
+  ['face_serenade','Glassy conversation',245,.6,.72,.045,['pluck','walls','rustle','shimmer','drone','sine','pluck','sine'],[.28,.18,.3,.26,.18,.68,.76,.2]],
+  ['dance_waltz','Cupboard strings',155,.48,.76,.05,['pluck','resonance','rustle','sine','sub','sine','footsteps','shimmer'],[.82,.3,.28,.34,.24,.44,.35,.16]],
+  ['side_backpedal','Reverse tines',125,.62,.58,.08,['pluck','walls','rustle','fm','drone','sine','rattle','shimmer'],[.86,.24,.3,.36,.22,.4,.24,.12]],
+  ['dance_robot','Clacking servos',210,.64,.31,.12,['clack','pluck','rustle','rattle','sub','sine','fm','shimmer'],[.78,.3,.28,.36,.24,.52,.4,.14]],
+  ['side_jump','Rubber landing',90,.5,.52,.09,['footsteps','rattle','rustle','fm','sub','sine','pluck','shimmer'],[.8,.32,.28,.45,.28,.4,.35,.14]],
+  ['bottom_shuffle','Shuffle shells',190,.56,.42,.07,['footsteps','pluck','rustle','rattle','drone','sine','fm','shimmer'],[.72,.38,.28,.42,.22,.42,.3,.14]],
+];
+export const ROACH_MOTION_SOUND_PRESETS = Object.freeze(MOTION_SOUND_ROWS.map(([motionId,label,pitch,brightness,resonance,crunch,sources,levels],index) => {
+  const wing = motionId === 'top_wing_fan' || motionId === 'top_flight' || motionId === 'wings_alarm';
+  const articulation = PATCH_ARTICULATION[index % PATCH_ARTICULATION.length];
+  return Object.freeze({motionId,label,
+    sound:Object.freeze(wing ? {...ROACH_SOUND_PRESETS[2].sound} : normalizeRoachSound({...ROACH_SOUND_DEFAULTS,pitch,brightness,resonance,crunch,
+      vowel:articulation[0],wingRate:articulation[1],rhythm:articulation[2],pan:articulation[4]})),
+    bodyMix:Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],level:levels[i]}))),
+  });
+}));
+export function getRoachMotionSound(motionId) {
+  const preset = ROACH_MOTION_SOUND_PRESETS.find((item)=>item.motionId===motionId) ?? ROACH_MOTION_SOUND_PRESETS[0];
+  return {motionId:preset.motionId,sound:{...preset.sound},bodyMix:preset.bodyMix.map((row)=>({...row}))};
 }
 
 export const ROACH_MOD_TARGETS = Object.freeze([
@@ -245,6 +290,9 @@ export class RoachSynthDsp {
   constructor(sampleRate = 48000) {
     this.sampleRate = clamp(sampleRate, 8000, 192000);
     this.time = 0; this.soundTime = 0; this.enabled = false; this.playing = false; this.soundPlaying = false; this.hasBeenEnabled = false;
+    this.metronome = false; this.metronomeBeat = -1; this.metronomeEnvelope = 0; this.metronomePhase = 0; this.metronomeWasActive = false;
+    this.metronomeFrequency = 1600; this.metronomeEvents = 0; this.lastMetronomeTime = -1;
+    this.metronomeDecay = Math.exp(-1 / (this.sampleRate * .009));
     this.motion = normalizeRoachMotion(); this.sound = normalizeRoachSound(); this.smooth = normalizeRoachSound(); this.targets = normalizeRoachSound();
     this.bodyMix = createDefaultRoachBodyMix(); this.body = new RoachBodyEngine(this.sampleRate); this.recordings = this.body.recordings;
     this.joints = []; this.jointStructureKey = ''; this.mappings = []; this.pose = new Float32Array(MAX_JOINTS * 3);
@@ -270,6 +318,8 @@ export class RoachSynthDsp {
     this.telemetry = {rms:0,peak:0,speechEnvelope:0,motionTime:0,soundTime:0,renderedFrames:0};
   }
   update(value = {}) {
+    if ('time' in value || 'playing' in value || 'enabled' in value || 'metronome' in value
+      || (value.motion?.tempo != null && value.motion.tempo !== this.motion.tempo)) this.metronomeWasActive = false;
     const resetActivity = value.resetActivity === true;
     if (resetActivity) { this.body.resetActivity(); this.controlPrimed = false; this.contactsPrimed = false; }
     if (value.bodyMix) { this.bodyMix = normalizeRoachBodyMix(value.bodyMix); this.body.setMix(this.bodyMix, !this.hasBeenEnabled); }
@@ -284,6 +334,7 @@ export class RoachSynthDsp {
       this.playing = value.playing === true;
     }
     if ('soundPlaying' in value) this.soundPlaying = value.soundPlaying === true;
+    if ('metronome' in value) this.metronome = value.metronome === true;
     if (value.motion) {
       const motion = normalizeRoachMotion({ ...this.motion, ...value.motion });
       if (motion.presetId !== this.motion.presetId || motion.sequenceEnabled !== this.motion.sequenceEnabled || motion.tempo !== this.motion.tempo) {
@@ -435,7 +486,7 @@ export class RoachSynthDsp {
       const p=group*4; const divisor=Math.sqrt(Math.max(1,this.groupCounts[group]));
       this.body.voices[group].control(clamp(this.groupPose[p]/divisor,-2,2),clamp(this.groupPose[p+1]/divisor,-2,2),clamp(this.groupPose[p+2]/divisor,-2,2),
         clamp(this.groupPose[p+3]/divisor,-1,1),clamp(this.groupMotion[group]/divisor,0,1),this.smooth,this.mod,group*ROACH_MOD_TARGETS.length);
-      this.body.movement(group,this.groupDistance[group],this.enabled);
+      this.body.movement(group,this.groupDistance[group],this.enabled,this.motion.presetId!=='none'||(this.motion.sequenceEnabled&&this.motion.tracks.length>0));
     }
     this.previousPose.set(this.pose); this.controlPrimed=true;
     writeRoachSceneState(this.time,this.motion,this.scene,this.joints);
@@ -484,6 +535,20 @@ export class RoachSynthDsp {
     const count=Math.min(left.length,right.length); let energy=0; let peak=0;
     for(let sampleIndex=0;sampleIndex<count;sampleIndex+=1) {
       if(this.controlCountdown--<=0) { this.control(); this.controlCountdown=this.controlStride-1; }
+      const beatPosition=this.time*this.motion.tempo/60;
+      const beat=Math.floor(beatPosition+1e-9);
+      const clickActive=this.enabled&&this.playing&&this.metronome;
+      if(clickActive) {
+        if((this.metronomeWasActive&&beat!==this.metronomeBeat)
+          ||(!this.metronomeWasActive&&Math.abs(beatPosition-beat)<this.motion.tempo/(60*this.sampleRate))) {
+          this.metronomeEnvelope=1; this.metronomePhase=0; this.metronomeFrequency=beat%4===0?1900:1250;
+          this.metronomeEvents+=1; this.lastMetronomeTime=this.time;
+        }
+      }
+      this.metronomeBeat=beat; this.metronomeWasActive=clickActive;
+      this.metronomePhase=(this.metronomePhase+this.metronomeFrequency/this.sampleRate)%1;
+      const click=Math.sin(TAU*this.metronomePhase)*this.metronomeEnvelope*.11;
+      this.metronomeEnvelope*=this.metronomeDecay;
       if(this.playing) this.time+=1/this.sampleRate;
       if(this.soundPlaying) this.soundTime+=1/this.sampleRate;
       for(const key of SOUND_KEYS) this.smooth[key]+=(this.targets[key]-this.smooth[key])*this.smoothing;
@@ -499,7 +564,7 @@ export class RoachSynthDsp {
       const speechColorMix=Math.min(.22,Math.abs(s.vowel-ROACH_SOUND_DEFAULTS.vowel)*.22+Math.abs(s.resonance-ROACH_SOUND_DEFAULTS.resonance)*.06);
       const voice=(speech*(1-speechColorMix*.3)+speechColor*speechColorMix)*s.voice*1.8;
       const bodyScale=2.1*speechDuck;
-      const busL=this.body.left*bodyScale+voice*this.panL; const busR=this.body.right*bodyScale+voice*this.panR;
+      const busL=this.body.left*bodyScale+voice*this.panL+click; const busR=this.body.right*bodyScale+voice*this.panR+click;
       const absolute=Math.max(Math.abs(busL),Math.abs(busR));
       this.mixEnvelope+=(absolute-this.mixEnvelope)*(absolute>this.mixEnvelope?this.mixAttack:this.mixRelease);
       const reduction=this.mixEnvelope>.72?(.72+(this.mixEnvelope-.72)*.3)/this.mixEnvelope:1;
@@ -521,6 +586,7 @@ export class RoachSynthDsp {
     this.telemetry.motionTime=this.time; this.telemetry.soundTime=this.soundTime; this.telemetry.speechEnvelope=this.speechEnvelope;
     this.telemetry.contactEvents=this.contactEvents; this.telemetry.lastContactTime=this.lastContactTime;
     this.telemetry.interactionPeak=this.interactionPeak; this.telemetry.recordingEvents=this.recordings.events;
+    this.telemetry.metronomeEvents=this.metronomeEvents; this.telemetry.lastMetronomeTime=this.lastMetronomeTime;
     this.telemetry.renderedFrames+=count;
     return this.telemetry;
   }

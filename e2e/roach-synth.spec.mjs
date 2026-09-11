@@ -14,6 +14,74 @@ async function arm(page) {
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
 }
 
+async function tapStickyAudio(page, context) {
+  const box = await page.locator('#stageAudioButton').boundingBox();
+  const viewport = page.viewportSize();
+  expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
+  expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+  const client = await context.newCDPSession(page);
+  await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await client.detach();
+}
+
+test('Sound Play and sticky Audio work while the specimen download is still pending', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route('**/assets/roach-synth/cockroach.glb', async route => { await gate; await route.continue().catch(() => {}); });
+  try {
+    await page.goto(new URL('roach-synth.html', baseURL).href, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => Boolean(window.roachSynth));
+    expect((await snapshot(page)).loaded).toBe(false);
+    await expect(page.locator('#soundPlayButton')).toBeEnabled(); await expect(page.locator('#motionButton')).toBeDisabled();
+    await expect(page.locator('#liveStatus')).toContainText(/loading/i);
+    await page.locator('#soundPlayButton').tap();
+    expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+    await page.locator('#source-antennae').scrollIntoViewIfNeeded();
+    const scroll = await page.evaluate(() => scrollY);
+    await tapStickyAudio(page, context);
+    await expect.poll(async () => (await snapshot(page)).audioOn).toBe(true);
+    await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
+    expect((await snapshot(page)).loaded).toBe(false);
+    expect(await page.evaluate(() => scrollY)).toBe(scroll);
+    await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+    release(); await loaded(page);
+    expect((await snapshot(page)).soundPlaying).toBe(true); expect((await snapshot(page)).audioOn).toBe(true);
+  } finally { release(); await context.close(); }
+});
+
+for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+  test(`sticky Audio ${size.width}×${size.height} arms and mutes beside the mixer without moving the page`, async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ viewport: size, isMobile: true, hasTouch: true });
+    const page = await context.newPage();
+    try {
+      await page.goto(new URL('roach-synth.html', baseURL).href); await loaded(page);
+      await page.locator('#motionButton').tap();
+      expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+      await page.locator('#source-antennae').scrollIntoViewIfNeeded();
+      const status = await page.locator('#liveStatus').boundingBox();
+      await expect(page.locator('#liveStatus')).toContainText(/audio is off/i);
+      expect(status.y).toBeGreaterThanOrEqual(0); expect(status.y + status.height).toBeLessThanOrEqual(size.height);
+      const scroll = await page.evaluate(() => scrollY), before = await snapshot(page);
+      await tapStickyAudio(page, context);
+      await expect.poll(async () => (await snapshot(page)).audioOn).toBe(true);
+      await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
+      const playing = await snapshot(page);
+      expect(playing.playing).toBe(true); expect(playing.soundPlaying).toBe(false); expect(playing.time).toBeGreaterThan(before.time);
+      expect(playing.camera).toEqual(before.camera); expect(await page.evaluate(() => scrollY)).toBe(scroll);
+      await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.locator('#stageAudioButton')).toHaveText('Audio on');
+      await tapStickyAudio(page, context);
+      await expect.poll(async () => (await snapshot(page)).audioOn).toBe(false);
+      expect((await snapshot(page)).playing).toBe(true); expect(await page.evaluate(() => scrollY)).toBe(scroll);
+      await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+      await expect(page.locator('#stageAudioButton')).toHaveText('Audio off');
+    } finally { await context.close(); }
+  });
+}
+
 test('index chooser opens the compact instrument with a held neutral body and Audio off', async ({ page }) => {
   const failures = []; page.on('pageerror', error => failures.push(error.message));
   await page.setViewportSize({ width: 390, height: 844 });

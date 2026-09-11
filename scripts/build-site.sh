@@ -71,6 +71,7 @@ for worktree_runtime_file in \
   src/roach-synth-dsp.js \
   src/roach-synth-body.js \
   src/roach-synth-body-engine.js \
+  src/roach-synth-percussion.js \
   src/roach-synth-textures.js \
   src/roach-synth-processor.js \
   ROACH_SYNTH_RESEARCH.md \
@@ -771,6 +772,7 @@ for catalog_icon in "$repo_root"/assets/instruments/*.webp; do
 done
 
 required_files=(
+  src/roach-synth-percussion.js
   jaw-jam.html
   jaw-jam.css
   jaw-jam-app.js

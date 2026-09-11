@@ -4,7 +4,7 @@ import {
   ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, ROACH_SEQUENCE_STEPS, ROACH_MAX_JOINT_TRACKS,
   normalizeRoachMotion, activeRoachPreset, writeRoachPose, createRoachJointTrack,
   roachSequencePosition, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
-  evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose, constrainRoachPose, createRandomRoachMotion,
+  evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose, constrainRoachPose, createRandomRoachMotion, writeRoachBeatState, ROACH_CONTACT_GRID_BEATS,
 } from '../src/roach-synth-motion.js';
 
 const jointIds = ['body', 'abdomen', 'neck', 'head', 'antenna_left', 'antenna_right', 'wings'];
@@ -114,7 +114,7 @@ test('tripod contacts match displayed swing/stance and count independently of re
     const next = scene(i / 3000, settings);
     for (let foot = 0; foot < 6; foot += 1) {
       const current = next.feet[foot];
-      assert.equal(current.stance, current.phase < .54);
+      assert.equal(current.stance, current.phase < .58);
       if (current.stance) assert.equal(current.lift, 0);
       assert.ok(current.contactCount >= previous.feet[foot].contactCount);
       if (current.contactCount !== previous.feet[foot].contactCount) {
@@ -127,7 +127,7 @@ test('tripod contacts match displayed swing/stance and count independently of re
   }
   const start = scene(0, settings); const end = scene(4, settings);
   assert.equal(contacts, end.feet.reduce((sum, foot, i) => sum + foot.contactCount - start.feet[i].contactCount, 0));
-  assert.equal(contacts, 144);
+  assert.equal(contacts, 96);
   assert.ok(end.groundOffset > start.groundOffset);
   assert.ok(scene(4, { presetId: 'side_backpedal' }).groundOffset < 0);
 });
@@ -302,7 +302,7 @@ test('baked unit-intensity samples scale at runtime and retain loop travel and e
   assert.ok(halfPose.every((value, i) => Math.abs(value - fullPose[i] * .5) < .0001));
   assert.ok(pose(.375, zero, rig).every((value) => value === 0));
   const start = scene(0, full, rig); const end = scene(4, full, rig);
-  assert.equal(end.feet.reduce((sum, foot, i) => sum + foot.contactCount - start.feet[i].contactCount, 0), 144);
+  assert.equal(end.feet.reduce((sum, foot, i) => sum + foot.contactCount - start.feet[i].contactCount, 0), 96);
   assert.ok(Math.abs(end.groundOffset - baked.sceneTravelPerLoop) < .00001);
   assert.ok(Math.abs(scene(4, baked, rig).groundOffset - end.groundOffset * .5) < .00001);
   assert.ok(scene(.375, zero, rig).feet.every((foot) => foot.impact === 0));
@@ -580,6 +580,68 @@ test('baked touchdown counts remain observable between sample knots at the audio
       previous = current;
     }
     assert.equal(heard, previous.feet.reduce((sum, foot, i) => sum + foot.contactCount - scene(0, settings, joints).feet[i].contactCount, 0));
-    assert.ok(heard > 130);
+    assert.ok(heard > 90);
   }
+});
+
+test('beat state shares audio-time quarter notes, sixteenths and four-beat bars without allocation', () => {
+  const out = {}; const controls = { tempo: 120 };
+  assert.equal(writeRoachBeatState(1.25, controls, out), out);
+  assert.deepEqual(out, { beat: 2.5, index: 2, bar: 0, beatInBar: 2, phase: .5,
+    subdivisionIndex: 10, subdivisionInBar: 10, subdivisionPhase: 0, accent: .65, pulse: 0 });
+  writeRoachBeatState(2, controls, out);
+  assert.equal(out.index, 4); assert.equal(out.bar, 1); assert.equal(out.beatInBar, 0);
+  assert.equal(out.accent, 1); assert.equal(out.pulse, 1);
+  assert.deepEqual(writeRoachBeatState(1, { tempo: 240 }, {}), out);
+  assert.deepEqual(writeRoachBeatState(8, { tempo: 30 }, {}), out);
+  assert.ok(Object.values(writeRoachBeatState(NaN, {}, out)).every(Number.isFinite));
+});
+
+test('all factory landings occur on the shared sixteenth grid with continuous supported gaits', () => {
+  const rig = joints(); const signatures = new Set();
+  assert.equal(ROACH_CONTACT_GRID_BEATS, .25);
+  for (const preset of ROACH_MOTION_PRESETS) {
+    const controls = normalizeRoachMotion({ presetId: preset.id, tempo: 120 });
+    let previous = scene(0, controls, rig); const contacts = [];
+    for (let step = 1; step <= 1024; step += 1) {
+      const beat = step / 128; const current = scene(beat / 2, controls, rig);
+      if (!['jump', 'flight'].includes(preset.rootPosture)) {
+        assert.ok(current.feet.some((foot) => foot.stance), `${preset.id} loses all physical support at beat ${beat}`);
+        assert.equal(current.body.lift, 0);
+      }
+      for (let i = 0; i < 6; i += 1) {
+        const delta = current.feet[i].contactCount - previous.feet[i].contactCount;
+        assert.ok(delta >= 0);
+        if (delta) {
+          assert.equal((beat * 4) % 1, 0, `${preset.id} foot ${i} lands off grid`);
+          assert.equal(current.feet[i].stance, true); assert.equal(current.feet[i].lift, 0);
+          assert.ok(current.feet[i].impact > 0);
+          contacts.push([beat, i, current.feet[i].impact]);
+          assert.ok(maxDifference(pose(beat / 2 - 1e-7, controls, rig), pose(beat / 2, controls, rig)) < .02);
+        }
+      }
+      previous = current;
+    }
+    signatures.add(JSON.stringify(contacts));
+    const fast = scene(1.9375 * 60 / 240, { ...controls, tempo: 240 }, rig);
+    const slow = scene(1.9375 * 60 / 30, { ...controls, tempo: 30 }, rig);
+    assert.deepEqual(fast.feet, slow.feet, `${preset.id} changes rhythm instead of just speed`);
+  }
+  assert.ok(signatures.size >= 16, 'factory rhythms include distinct phrase shapes and accents');
+});
+
+test('baked factory contacts and musical accents remain on the same grid as generated poses', () => {
+  const rig = wingRig();
+  for (const preset of ROACH_MOTION_PRESETS) {
+    const controls = { presetId: preset.id, tempo: 120 };
+    const baked = bakeRoachPresetTracks(preset.id, rig, controls);
+    for (let tick = 0; tick <= 32; tick += 1) {
+      const direct = scene(tick / 8, controls, rig), sampled = scene(tick / 8, baked, rig);
+      assert.deepEqual(sampled.feet.map((f) => f.contactCount), direct.feet.map((f) => f.contactCount));
+      assert.deepEqual(sampled.feet.map((f) => f.stance), direct.feet.map((f) => f.stance));
+    }
+  }
+  const down = scene(0, { presetId: 'side_run', tempo: 120 }, rig);
+  const offbeat = scene(.125, { presetId: 'side_run', tempo: 120 }, rig);
+  assert.ok(down.feet[0].impact > offbeat.feet[1].impact, 'downbeats have stronger grounded contacts than sixteenth pickups');
 });

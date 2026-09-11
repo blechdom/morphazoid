@@ -3,7 +3,7 @@ import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 test.setTimeout(90000);
 const groups = ['legs', 'covers', 'hindwings', 'thorax', 'abdomen', 'neck', 'head', 'antennae'];
-const sources = ['resonance', 'drone', 'sub', 'shimmer', 'buzz', 'zing', 'skuttle', 'walls', 'rustle', 'shriek', 'hiss', 'growl'];
+const sources = ['resonance', 'drone', 'sub', 'shimmer', 'buzz', 'zing', 'skuttle', 'walls', 'rustle', 'shriek', 'hiss', 'growl', 'footsteps', 'fm', 'rattle', 'pluck', 'sine', 'click', 'clack'];
 const state = page => page.evaluate(() => window.roachSynth.getState());
 async function open(page) {
   await page.goto('roach-synth.html');
@@ -14,8 +14,69 @@ async function arm(page) {
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
 }
 
+test('all nine sound parameters are editable without changing body assignments or arming Audio', async ({ page }) => {
+  await open(page);
+  const parameters = ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice'];
+  expect(await page.locator('[data-sound]').evaluateAll(inputs => inputs.map(input => input.dataset.sound))).toEqual(parameters);
+  const before = await state(page);
+  for (const key of parameters) {
+    const input = page.locator(`[data-sound="${key}"]`);
+    const next = await input.evaluate(element => Math.round((Number(element.min) + (Number(element.max) - Number(element.min)) * .63) / Number(element.step)) * Number(element.step));
+    await input.fill(String(next));
+    expect((await state(page)).sound[key]).toBe(Number(await input.inputValue()));
+  }
+  const after = await state(page);
+  expect(after.bodyMix).toEqual(before.bodyMix); expect(after.playing).toBe(false); expect(after.soundPlaying).toBe(false);
+  expect(after.audio.contextState).toBe('uninitialized'); await expect(page.locator('#soundPreset')).toHaveValue('custom');
+});
+
+test('animation sound presets follow explicit motion choices while first Play preserves a chosen sound', async ({ page }) => {
+  await open(page);
+  expect(await page.locator('#soundPreset optgroup[label="Sound presets"] option').count()).toBeGreaterThanOrEqual(18);
+  await expect(page.locator('#soundPreset optgroup[label="Animation sounds"] option')).toHaveCount(24);
+  await page.locator('#soundPreset').selectOption('wing-radio');
+  await page.locator('#level').fill('0.43');
+  const chosen = await state(page);
+  await page.locator('#motionButton').click();
+  const started = await state(page);
+  expect(started.sound).toEqual(chosen.sound); expect(started.bodyMix).toEqual(chosen.bodyMix);
+  const before = await state(page);
+  await page.locator('#motionPreset').selectOption('side_run');
+  await expect(page.locator('#soundPreset')).toHaveValue('motion:side_run');
+  const running = await state(page);
+  expect(running.bodyMix).not.toEqual(chosen.bodyMix); expect(running.sound.level).toBe(.43);
+  expect(running.playing).toBe(true); expect(running.time).toBeGreaterThanOrEqual(before.time); expect(running.camera).toEqual(before.camera);
+  await page.locator('#soundPreset').selectOption('motion:top_flight');
+  const flightSound = await state(page);
+  expect(flightSound.motionChoice).toBe('side_run'); expect(flightSound.playing).toBe(true);
+  expect(flightSound.bodyMix).not.toEqual(running.bodyMix); expect(flightSound.sound.level).toBe(.43);
+  expect(flightSound.camera).toEqual(before.camera); expect(flightSound.audio.contextState).toBe('uninitialized');
+});
+
+test('the metronome follows Animation only and never arms Audio or adds beats to held Sound Play', async ({ page }) => {
+  await open(page);
+  for (const group of groups) await page.locator(`[data-mute="${group}"]`).click();
+  await page.locator('#metronome').check(); await page.locator('#soundPlayButton').click();
+  expect((await state(page)).audio.contextState).toBe('uninitialized');
+  await arm(page);
+  await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
+  await expect(page.locator('#beatIndicator')).toHaveAttribute('aria-label', 'Beat stopped');
+  await page.locator('#motionButton').click();
+  await expect(page.locator('#beatIndicator')).toHaveAttribute('aria-label', /Beat [1-4] of 4/);
+  // Every body row is muted and no phrase is queued: this is the metronome.
+  await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.0001);
+  await page.locator('#metronome').uncheck();
+  await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
+  expect((await state(page)).playing).toBe(true);
+  await page.locator('#metronome').check(); await page.locator('#motionButton').click();
+  await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
+  await expect(page.locator('#beatIndicator')).toHaveAttribute('aria-label', 'Beat stopped');
+  expect((await state(page)).soundPlaying).toBe(true);
+});
+
 test('eight body rows each own a source selector, playable level knob and separate mute/solo', async ({ page }) => {
   await open(page);
+  await expect(page.locator('#source-legs')).toHaveValue('footsteps');
   await expect(page.locator('.roach-body-row')).toHaveCount(8);
   expect(await page.locator('.roach-body-row').evaluateAll(rows => rows.map(row => row.dataset.group))).toEqual(groups);
   for (const group of groups) {
@@ -116,8 +177,9 @@ test('body solos leave the independent Voice level and Say it audible', async ({
 
 test('recorded rustle follows moving legs and releases while a held animation preset stays silent', async ({ page }) => {
   await open(page);
+  await page.locator('#motionPreset').selectOption('side_run');
   await page.locator('#source-legs').selectOption('rustle'); await page.locator('[data-solo="legs"]').click();
-  await page.locator('#motionPreset').selectOption('side_run'); await page.locator('#soundPlayButton').click(); await arm(page);
+  await page.locator('#soundPlayButton').click(); await arm(page);
   await expect.poll(async () => (await state(page)).audio.samplesLoaded).toBe(3);
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
   await page.locator('#motionButton').click();
@@ -131,6 +193,31 @@ test('recorded rustle follows moving legs and releases while a held animation pr
   const stopped = await state(page); await page.waitForTimeout(250);
   expect((await state(page)).audio.contactEvents).toBe(stopped.audio.contactEvents);
   expect((await state(page)).soundPlaying).toBe(true);
+});
+
+test('Click and Clack are leg percussion that follows movement and releases when held', async ({ page }, testInfo) => {
+  await open(page);
+  await page.locator('#motionPreset').selectOption('side_walk');
+  await page.locator('[data-solo="legs"]').click();
+  await page.locator('#source-legs').selectOption('click');
+  await page.locator('#soundPlayButton').click(); await arm(page);
+  const reports = [];
+  for (const source of ['click', 'clack']) {
+    await page.locator('#source-legs').selectOption(source);
+    await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
+    expect((await state(page)).bodyMix.find(row => row.groupId === 'legs').source).toBe(source);
+    const before = await state(page);
+    await page.locator('#motionButton').click();
+    await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
+    await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(before.audio.contactEvents);
+    const report = await sampleAudioEnvelope(page, { durationMs: 650 });
+    expect(report.summary.finite).toBe(true); expect(report.summary.clippedSamples).toBe(0);
+    reports.push({ source, ...report.summary });
+    await page.locator('#motionButton').click();
+    await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
+    expect((await state(page)).soundPlaying).toBe(true);
+  }
+  await testInfo.attach('click-clack-motion.json', { body: JSON.stringify(reports), contentType: 'application/json' });
 });
 
 test('Random sound changes complete tone parameters and body assignments while preserving master and transport', async ({ page }) => {

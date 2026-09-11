@@ -18,8 +18,50 @@ export const ROACH_SEQUENCE_STEPS = 16;
 export const ROACH_MAX_JOINT_TRACKS = 384;
 export const ROACH_TRACK_SUBSTEPS = 4;
 export const ROACH_FOOT_IDS = Object.freeze(['front_left', 'front_right', 'middle_left', 'middle_right', 'hind_left', 'hind_right']);
+export const ROACH_CONTACT_GRID_BEATS = .25;
+// Each list is an eight-beat phrase of sixteenth-note ticks. Alternating
+// entries hand support from one tripod to the other; no audio-only footbeats.
+function contactRhythm(label, ticks, staggered = false) {
+  const a = Object.freeze(ticks.filter((_, i) => i % 2 === 0));
+  const b = Object.freeze(ticks.filter((_, i) => i % 2 === 1));
+  const feet = staggered
+    ? ticks.map((tick) => Object.freeze([tick, tick + 16]))
+    : [a, b, b, a, a, b];
+  return Object.freeze({ label, staggered, feet: Object.freeze(feet) });
+}
+const eighths = Array.from({ length: 16 }, (_, i) => i * 2);
+const sixteenths = Array.from({ length: 32 }, (_, i) => i);
+const quarters = Array.from({ length: 8 }, (_, i) => i * 4);
+const shuffle = [0,2,3,6,8,10,11,14,16,18,19,22,24,26,27,30];
+const RHYTHMS = Object.freeze([
+  contactRhythm('Eighth-note tripod', eighths),
+  contactRhythm('Sixteenth-note sprint', sixteenths),
+  contactRhythm('Unison landing', [12,28]),
+  contactRhythm('Half-note wing brace', [0,8,16,24]),
+  contactRhythm('Quarter-note rock', quarters),
+  contactRhythm('Offbeat landing', [14,30]),
+  contactRhythm('Staggered leg wave', [0,8,4,12,2,10], true),
+  contactRhythm('Syncopated shuffle', shuffle),
+  contactRhythm('Sixteenth-note pickups', [0,2,4,7,8,10,12,15,16,18,20,23,24,26,28,31]),
+  contactRhythm('Slow listening stance', [0,16]),
+  contactRhythm('Half-note chatter', [0,8,16,24]),
+  contactRhythm('Phrase-ending step', [0,12,16,28]),
+  contactRhythm('Four-step bursts', [0,1,2,3,8,9,10,11,16,17,18,19,24,25,26,27]),
+  contactRhythm('Individual quiet taps', [0,6,2,10,4,12], true),
+  contactRhythm('Reverse eighths', eighths),
+  contactRhythm('Broken sixteenths', [0,1,2,4,6,7,8,10,12,13,14,16,18,19,20,22,24,25,26,28,30,31]),
+  contactRhythm('Alternating rear-foot eighths', eighths),
+  contactRhythm('Boxer footwork', shuffle),
+  contactRhythm('Offbeat kicks', [0,3,4,7,8,11,12,15,16,19,20,23,24,27,28,31]),
+  contactRhythm('Mechanical syncopation', [0,4,6,8,12,14,16,20,22,24,28,30]),
+  contactRhythm('Triple rear-foot accents', quarters),
+  contactRhythm('Alarm sixteenths', sixteenths),
+  contactRhythm('Half-note threat', [0,8,16,24]),
+  contactRhythm('Slow serenade stance', [0,16]),
+]);
 const preset = (id, label, category, mode, soundFlavor, gaitRate, groundSpeed, rootPosture, description) => Object.freeze({
-  id, label, category, mode, soundFlavor, gaitRate, groundSpeed, rootPosture, description,
+  id, label, category, mode, soundFlavor, gaitRate: RHYTHMS[mode]?.feet[0].length / 8 || gaitRate, groundSpeed, rootPosture, description,
+  rhythmLabel: RHYTHMS[mode]?.label ?? 'Held pose', contactGridBeats: ROACH_CONTACT_GRID_BEATS,
   loopBeats: 8, lookAtViewer: category === 'Face',
 });
 export const ROACH_MOTION_PRESETS = Object.freeze([
@@ -42,7 +84,7 @@ export const ROACH_MOTION_PRESETS = Object.freeze([
   preset('side_zigzag', 'Zigzag panic', 'Scuttle', 15, 'scuttle', 2.25, .46, 'low', 'Rapid scuttles and sharp alternating body turns.'),
   preset('bottom_rave', 'Bug rave', 'Dance', 8, 'metal', 2, 0, 'low', 'Syncopated leg fans with a fast body shimmy.'),
   preset('face_serenade', 'Antenna serenade', 'Face', 23, 'voice', .125, 0, 'low', 'Direct-address head phrases and wide fluttering antenna arcs.'),
-  preset('dance_waltz', 'Cupboard waltz', 'Dance', 20, 'pitter', .75, .04, 'upright', 'Six-beat rear-foot waltz with sweeping front arms.'),
+  preset('dance_waltz', 'Cupboard waltz', 'Dance', 20, 'pitter', .75, .04, 'upright', 'Triple rear-foot accents with sweeping front arms over an eight-beat phrase.'),
   preset('side_backpedal', 'Reverse gear', 'Scuttle', 14, 'scrape', 1.25, -.23, 'low', 'Backwards tripod travel with backward-looking head turns.'),
   preset('dance_robot', 'Broken robot', 'Dance', 19, 'metal', 1, 0, 'low', 'Rounded mechanical ticks, held poses and quick antenna snaps.'),
   preset('side_jump', 'Pogo jump', 'Dance', 2, 'stomp', .25, .03, 'jump', 'Crouch, lift all six feet, then land together every four beats.'),
@@ -112,6 +154,20 @@ export function activeRoachPreset(_timeSeconds, settings = ROACH_MOTION_DEFAULTS
 export function roachSequencePosition(timeSeconds, settings = ROACH_MOTION_DEFAULTS) {
   const position = beatsAt(timeSeconds, settings) / clamp(finite(settings?.stepBeats, .25), 1 / 16, 4);
   return { step: Math.floor(position) % ROACH_SEQUENCE_STEPS, fraction: position % 1, length: ROACH_SEQUENCE_STEPS };
+}
+/** Caller-owned beat display/metronome state; pass the authoritative audio time. */
+export function writeRoachBeatState(timeSeconds, settings, out) {
+  const beat = beatsAt(timeSeconds, settings);
+  const index = Math.floor(beat + 1e-10);
+  const subdivisions = beat * 4;
+  out.beat = beat; out.index = index; out.bar = Math.floor(index / 4);
+  out.beatInBar = index % 4; out.phase = Math.max(0, beat - index);
+  out.subdivisionIndex = Math.floor(subdivisions + 1e-10);
+  out.subdivisionInBar = out.subdivisionIndex % 16;
+  out.subdivisionPhase = Math.max(0, subdivisions - out.subdivisionIndex);
+  out.accent = out.beatInBar === 0 ? 1 : .65;
+  out.pulse = Math.max(0, 1 - out.phase / .16) ** 2;
+  return out;
 }
 /** Position is measured in editable steps (0..16), not seconds. */
 export function evaluateRoachTrack(track, position) {
@@ -230,7 +286,6 @@ function writeBakedScene(beats, controls, out) {
   }
   return out;
 }
-const TRIPOD_PHASES = Object.freeze([0, .5, .5, 0, 0, .5]);
 const SCORE_FOOT_VALUES = Array.from({ length: 6 }, () => new Float64Array(ROACH_SEQUENCE_STEPS));
 const SCORE_FOOT_PRESENT = new Uint8Array(6);
 function writeScoreFeet(beats, controls, joints, out, intensity) {
@@ -292,6 +347,37 @@ function writeScoreFeet(beats, controls, joints, out, intensity) {
     foot.impact = crossings ? clamp(strength * intensity, 0, 1) : 0;
   }
 }
+function writeRhythmicFoot(beats, mode, index, foot) {
+  const rhythm = RHYTHMS[mode];
+  if (!rhythm) { foot.phase = 0; foot.contactCount = 0; return .66; }
+  const ticks = rhythm.feet[index];
+  const lap = Math.floor(beats / 8); const tick = (beats - lap * 8) * 4;
+  let previous = -1;
+  for (let i = 0; i < ticks.length; i += 1) { if (ticks[i] > tick + 1e-9) break; previous = i; }
+  const from = previous < 0 ? ticks[ticks.length - 1] - 32 : ticks[previous];
+  const to = previous + 1 < ticks.length ? ticks[previous + 1] : ticks[0] + 32;
+  foot.phase = clamp((tick - from) / (to - from), 0, 1);
+  foot.contactCount = Math.max(0, lap * ticks.length + previous + 1 - (ticks[0] === 0 ? 1 : 0));
+  let duty = mode === 1 || mode === 15 || mode === 21 ? .54 : rhythm.staggered ? .85 : .66;
+  if (!rhythm.staggered) {
+    // On uneven phrases the supporting tripod waits for its partner to land.
+    // A fixed duty cycle can otherwise put all six feet in the air at once.
+    const other = rhythm.feet[index === 0 || index === 3 || index === 4 ? 1 : 0];
+    let nextSupport = other[0] + 32;
+    for (let i = 0; i < other.length; i += 1) {
+      let candidate = other[i]; if (candidate <= from) candidate += 32;
+      if (candidate < nextSupport && candidate > from) nextSupport = candidate;
+      candidate -= 32;
+      if (candidate < nextSupport && candidate > from) nextSupport = candidate;
+    }
+    duty = Math.max(duty, clamp((nextSupport - from) / (to - from) + .08, 0, .96));
+  }
+  const event = positiveMod(from, 32);
+  const accent = mode === 20 ? (Math.floor(event / 4) % 3 === 0 ? 1 : .6)
+    : event % 16 === 0 ? 1 : event % 4 === 0 ? .88 : event % 2 === 0 ? .7 : .54;
+  foot.impact = accent;
+  return duty;
+}
 /** Caller-owned result makes this safe for the audio worklet's control cadence. */
 export function writeRoachSceneState(timeSeconds, settings, out, joints = []) {
   const controls = settings ?? ROACH_MOTION_DEFAULTS;
@@ -317,17 +403,16 @@ export function writeRoachSceneState(timeSeconds, settings, out, joints = []) {
   const body = out.body;
   out.presetId = current.id; out.beat = beats; out.loopBeat = loopBeat;
   body.lift = 0; body.pitch = 0; body.roll = 0; body.yaw = 0;
-  const motionBeats = mode === 12 ? beats + Math.sin(phase * .5) * .28 : beats;
+  const motionBeats = beats;
   const direction = mode === 14 ? -1 : 1;
-  const cadence = motionBeats * current.gaitRate;
   out.groundOffset = motionBeats * current.groundSpeed * intensity;
-  out.groundSpeed = current.groundSpeed * intensity * (mode === 12 ? 1 + .28 * Math.PI * Math.cos(phase * .5) : 1);
+  out.groundSpeed = current.groundSpeed * intensity;
   let airborne = false;
   let flightPhase = 0;
   if (mode === 2 || mode === 5) {
     flightPhase = positiveMod(beats, 4) / 4;
-    const launch = mode === 2 ? .3 : .2;
-    const land = mode === 2 ? .72 : .8;
+    const launch = .25;
+    const land = mode === 2 ? .75 : .875;
     airborne = flightPhase > launch && flightPhase < land;
     if (airborne) body.lift = Math.sin((flightPhase - launch) / (land - launch) * Math.PI) * (mode === 2 ? .22 : .3) * intensity;
     body.pitch = Math.sin(flightPhase * TAU) * (mode === 2 ? 12 : 7) * intensity;
@@ -345,24 +430,21 @@ export function writeRoachSceneState(timeSeconds, settings, out, joints = []) {
   }
   for (let i = 0; i < 6; i += 1) {
     const foot = out.feet[i];
-    const offset = mode === 13 || mode === 6 ? i / 6 : TRIPOD_PHASES[i];
-    const total = cadence + offset;
-    const legPhase = positiveMod(total, 1);
-    const duty = mode === 1 || mode === 15 || mode === 21 ? .54 : mode === 13 ? .8 : .66;
+    const duty = writeRhythmicFoot(beats, mode, i, foot);
+    const legPhase = foot.phase;
     const swing = clamp((legPhase - duty) / (1 - duty), 0, 1);
     foot.phase = legPhase;
     foot.stance = legPhase < duty;
     foot.lift = foot.stance ? 0 : Math.sin(swing * Math.PI) * (mode === 0 || mode === 12 || mode === 14 ? .38 : mode === 1 || mode === 15 ? .52 : 1);
     foot.stride = direction * (foot.stance ? 1 - 2 * legPhase / duty : -1 + 2 * smooth(swing));
-    foot.contactCount = Math.floor(total);
-    foot.impact = clamp((mode === 1 ? .45 : mode === 13 ? .27 : .55) * intensity * (i >= 4 ? 1 : .8), 0, 1);
+    foot.impact = clamp(foot.impact * (mode === 1 ? .45 : mode === 13 ? .27 : .55) * intensity * (i >= 4 ? 1 : .8), 0, 1);
     if (mode < 0 || intensity === 0 || (upright && i < 4)) {
       foot.stance = !upright; foot.lift = upright ? .8 : 0; foot.stride = 0; foot.impact = 0; foot.contactCount = 0;
     }
     if (mode === 2 || mode === 5) {
-      foot.stance = !airborne; foot.lift = airborne ? Math.sin((flightPhase - (mode === 2 ? .3 : .2)) / (mode === 2 ? .42 : .6) * Math.PI) : 0;
+      foot.stance = !airborne; foot.lift = airborne ? Math.sin((flightPhase - .25) / (mode === 2 ? .5 : .625) * Math.PI) : 0;
       foot.stride = 0;
-      foot.contactCount = Math.floor(beats / 4) + (flightPhase >= (mode === 2 ? .72 : .8) ? 1 : 0);
+      foot.contactCount = Math.floor(beats / 4) + (flightPhase >= (mode === 2 ? .75 : .875) ? 1 : 0);
       foot.impact = intensity === 0 || airborne ? 0 : mode === 2 ? .7 : .32;
     }
     if (intensity === 0) { foot.stance = true; foot.lift = 0; foot.stride = 0; foot.impact = 0; foot.contactCount = 0; }

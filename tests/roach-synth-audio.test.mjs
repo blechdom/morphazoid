@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { loadSpellingPronunciations } from '../src/spelling-pronunciation.js';
 import { SPELLING_DIPHONE_ATLAS_URL } from '../src/spelling-diphone-atlas.js';
-import { RoachSynthDsp, ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS, createDefaultRoachMappings, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId } from '../src/roach-synth-dsp.js';
+import { RoachSynthDsp, ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS, createDefaultRoachMappings, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId, ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from '../src/roach-synth-dsp.js';
 import { RoachSynthAudio, createRoachSpeechPlan, ROACH_RECORDINGS } from '../src/roach-synth-audio.js';
 import { ROACH_MOTION_PRESETS, ROACH_STATIC_POSES, getRoachStaticPose, bakeRoachPresetTracks, createRoachSceneState, writeRoachSceneState, writeRoachPose } from '../src/roach-synth-motion.js';
 import { getSharedAudioOutputManager } from '../src/audio-output-manager.js';
@@ -59,17 +59,123 @@ function solo(groupId, source, level = 1) {
 }
 const muted = () => createDefaultRoachBodyMix().map((row) => ({ ...row, level: 0 }));
 
-test('eight anatomical groups own twelve sources and normalized immutable assignments', () => {
-  assert.equal(ROACH_BODY_GROUPS.length, 8); assert.ok(ROACH_BODY_SOURCES.length > 8);
+test('eight anatomical groups own nineteen sources and normalized immutable assignments', () => {
+  assert.equal(ROACH_BODY_GROUPS.length, 8); assert.equal(ROACH_BODY_SOURCES.length, 19);
   assert.equal(getRoachBodyGroupId(joints[2]), 'head'); assert.equal(getRoachBodyGroupId(joints[3]), 'neck');
   assert.equal(getRoachBodyGroupId(joints[4]), 'covers'); assert.equal(getRoachBodyGroupId(joints[29]), 'hindwings');
   assert.equal(getRoachBodyGroupId(joints[30]), 'hindwings'); assert.equal(getRoachBodyGroupId(joints[7]), 'legs');
   assert.equal(getRoachBodyGroupId(joints[5]), 'antennae'); assert.equal(getRoachBodyGroupId(joints[0]), 'thorax');
   const input = createDefaultRoachBodyMix(); const output = normalizeRoachBodyMix(input);
   input[0].level = 100; input[0].source = 'imaginary';
-  assert.equal(output[0].source, 'skuttle'); assert.equal(output[0].level, .85);
+  assert.equal(output[0].source, 'footsteps'); assert.equal(output[0].level, .72);
   assert.equal(normalizeRoachBodyMix(input)[0].level, 1);
   assert.equal(normalizeRoachBodyMix([{ groupId: 'legs', source: 'drone', level: 0 }])[0].level, 0);
+});
+
+test('24 animation companions cover distinct instruments and reserve scuttle for one routine', () => {
+  assert.deepEqual(ROACH_MOTION_SOUND_PRESETS.map((item) => item.motionId).sort(), ROACH_MOTION_PRESETS.map((item) => item.id).sort());
+  assert.equal(new Set(ROACH_MOTION_SOUND_PRESETS.map((item) => JSON.stringify(item.bodyMix))).size, 24);
+  assert.deepEqual(ROACH_MOTION_SOUND_PRESETS.filter((item) => item.bodyMix.some((row) => row.source === 'skuttle')).map((item) => item.motionId), ['side_skitter']);
+  assert.equal(ROACH_SOUND_PRESETS[0].bodyMix[0].source, 'footsteps');
+  assert.equal(ROACH_SOUND_PRESETS[0].bodyMix[5].source, 'sine');
+  for (const source of ['footsteps', 'fm', 'rattle', 'pluck']) assert.ok(ROACH_SOUND_PRESETS.some((item) => item.bodyMix[0].source === source));
+  const copy = getRoachMotionSound('side_walk'); copy.sound.pitch = 999; copy.bodyMix[0].source = 'skuttle';
+  assert.notEqual(getRoachMotionSound('side_walk').sound.pitch, 999);
+  assert.equal(getRoachMotionSound('side_walk').bodyMix[0].source, 'footsteps');
+  assert.deepEqual(ROACH_SOUND_PRESETS.find((item) => item.id === 'wing-radio').bodyMix.map((row) => row.level), [.85,.48,.65,.68,.6,.36,.36,.24]);
+});
+
+test('percussion source changes do not freeze and resurrect a previous strike', () => {
+  for (const source of ['footsteps', 'fm', 'rattle', 'pluck', 'click', 'clack']) {
+    const dsp = engine({ playing: false, soundPlaying: false, motion: { presetId: 'none', antennae: false }, bodyMix: solo('head', source) });
+    render(dsp, .1); dsp.interact({ jointId: joints[2].id, active: true, velocity: 1 });
+    assert.ok(peak(render(dsp, .015).left) > .005);
+    dsp.interact({ active: false }); dsp.update({ bodyMix: solo('head', 'drone') }); render(dsp, 1.2);
+    dsp.update({ bodyMix: solo('head', source) });
+    assert.ok(peak(render(dsp, .2).left) < 1e-7, `${source} revived a stale strike`);
+    dsp.interact({ jointId: joints[2].id, active: true, velocity: 1 });
+    assert.ok(peak(render(dsp, .05).left) > .005, `${source} must still accept a fresh gesture`);
+  }
+});
+
+test('queued source changes clear an unsampled percussion strike before reselecting it', () => {
+  for (const source of ['footsteps', 'fm', 'rattle', 'pluck', 'click', 'clack']) {
+    const dsp = engine({ playing: false, soundPlaying: false, motion: { presetId: 'none', antennae: false }, bodyMix: solo('head', source) });
+    dsp.interact({ jointId: joints[2].id, active: true, velocity: 1 });
+    assert.equal(dsp.body.voices[6].percussion.events, 1);
+    // Worklet messages can queue multiple assignments before the first sample;
+    // the second change replaces both the current and fading percussion source.
+    dsp.interact({ active: false });
+    dsp.update({ bodyMix: solo('head', 'drone') });
+    dsp.update({ bodyMix: solo('head', 'sine') });
+    render(dsp, 1.2);
+    dsp.update({ bodyMix: solo('head', source) });
+    assert.ok(peak(render(dsp, .2).left) < 1e-7, `${source} revived a never-rendered strike`);
+    dsp.interact({ jointId: joints[2].id, active: true, velocity: 1 });
+    assert.ok(peak(render(dsp, .05).left) > .005, `${source} must accept a new strike after cleanup`);
+  }
+});
+
+test('clear footsteps follow the shared beat-grid contacts without extra movement-generated hits', () => {
+  const dsp = engine({ motion: { presetId: 'side_run', tempo: 120 }, bodyMix: solo('legs', 'footsteps') });
+  const contact = dsp.body.contact.bind(dsp.body); const times = [];
+  dsp.body.contact = (index, strength) => { times.push(dsp.time); contact(index, strength); };
+  const signal = render(dsp, 2);
+  assert.ok(times.length >= 36); assert.equal(dsp.body.voices[0].percussion.events, times.length);
+  for (const time of times) assert.ok(Math.abs(time * 2 * 4 - Math.round(time * 2 * 4)) <= .041, `off-grid foot ${time}`);
+  assert.ok(peak(signal.left) > .025); assert.ok(rms(signal.left) > .004);
+  dsp.update({ playing: false }); render(dsp, .8); assert.ok(peak(render(dsp, .1).left) < 1e-7);
+});
+
+test('realistic foot strengths retain audible FM, modal and Karplus detail beside clear taps', () => {
+  const outputs = [];
+  for (const source of ['footsteps', 'fm', 'rattle', 'pluck']) {
+    const dsp = engine({ motion: { presetId: 'none', tempo: 120, antennae: false }, bodyMix: solo('legs', source, .72) });
+    render(dsp, .05); const signal = [];
+    for (let step = 0; step < 4; step += 1) {
+      for (const foot of step % 2 ? [1, 2, 5] : [0, 3, 4]) dsp.triggerFoot(foot, .3);
+      signal.push(...render(dsp, .125).left);
+    }
+    assert.equal(dsp.body.voices[0].percussion.events, 12); outputs.push(Float32Array.from(signal));
+  }
+  const reference = rms(outputs[0]);
+  for (let i = 1; i < outputs.length; i += 1) {
+    assert.ok(rms(outputs[i]) > reference * .35, 'ordinary contact strength must not disappear into two multiplied envelopes');
+    assert.ok(rms(outputs[i]) < reference * 2.2, 'one percussion source must not overpower the other foot instruments');
+    assert.ok(difference(outputs[0], outputs[i]) > reference * .5);
+  }
+});
+
+test('Click and Clack have distinct dry and woody tails from one real foot strike', () => {
+  const signals = [];
+  for (const source of ['click', 'clack']) {
+    const dsp = engine({ motion: { presetId: 'none', antennae: false }, bodyMix: solo('legs', source) });
+    render(dsp, .1); const slots = dsp.body.voices[0].percussion.slots;
+    dsp.triggerFoot(0, .6); const signal = render(dsp, .1).left;
+    assert.ok(peak(signal) > .025); assert.equal(dsp.body.voices[0].percussion.events, 1);
+    assert.equal(dsp.body.voices[0].percussion.slots, slots); signals.push(signal);
+    dsp.update({ playing: false, soundPlaying: true }); render(dsp, .5);
+    assert.ok(peak(render(dsp, .1).left) < 1e-7, `${source} must not loop while held`);
+  }
+  assert.ok(rms(signals[0].subarray(RATE * .035)) < rms(signals[1].subarray(RATE * .035)) * .2);
+  assert.ok(difference(signals[0], signals[1]) > .015);
+  assert.equal(getRoachMotionSound('side_tiptoe').bodyMix[0].source, 'click');
+  assert.equal(getRoachMotionSound('dance_robot').bodyMix[0].source, 'clack');
+});
+
+test('optional metronome uses the sample clock, preserves phase through pause and never arms sound', () => {
+  const dsp = engine({ enabled: false, playing: true, metronome: true, bodyMix: muted(), motion: { presetId: 'none', tempo: 120, antennae: false } });
+  assert.equal(peak(render(dsp, .2).left), 0); assert.equal(dsp.metronomeEvents, 0);
+  dsp.update({ enabled: true }); render(dsp, .2); assert.equal(dsp.metronomeEvents, 0, 'arming between beats does not invent a click');
+  const signal = render(dsp, .2); assert.equal(dsp.metronomeEvents, 1); assert.ok(peak(signal.left) > .02);
+  assert.ok(Math.abs(dsp.lastMetronomeTime - .5) < 1 / RATE);
+  dsp.update({ playing: false }); render(dsp, .2); assert.equal(dsp.metronomeEvents, 1);
+  dsp.update({ playing: true }); render(dsp, .2); assert.equal(dsp.metronomeEvents, 1, 'resume mid-beat waits for the next grid point');
+  render(dsp, .3); assert.equal(dsp.metronomeEvents, 2);
+  dsp.update({ metronome: false }); render(dsp, .2); assert.ok(peak(render(dsp, .2).left) < 1e-7);
+  assert.equal(dsp.metronomeEvents, 2);
+  const first = engine({ metronome: true, bodyMix: muted(), motion: { presetId: 'none', tempo: 90, antennae: false } });
+  render(first, .7); assert.equal(first.metronomeEvents, 2); assert.ok(Math.abs(first.lastMetronomeTime - 2 / 3) <= 1 / RATE);
 });
 
 test('held Sound Play is healthy smooth sound without motion, grains, or fictional contacts', () => {

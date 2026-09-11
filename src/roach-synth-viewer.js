@@ -128,7 +128,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   renderer.toneMappingExposure = 0.86;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  const ambientLight = new THREE.HemisphereLight(0xd7dbe0, 0x11100f, 0.58);
+  const ambientLight = new THREE.HemisphereLight(0xd7dbe0, 0x11100f, 0.67);
   scene.add(ambientLight);
   const keyLight = new THREE.DirectionalLight(0xfff8f1, 2.1);
   keyLight.position.set(-3, 5, 4);
@@ -141,7 +141,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   const edgeLight = new THREE.DirectionalLight(0xc2cbd7, 0.55);
   edgeLight.position.set(4, 2, -3);
   scene.add(edgeLight);
-  const fillLight = new THREE.DirectionalLight(0xc3c5c7, 0.18);
+  const fillLight = new THREE.DirectionalLight(0xc3c5c7, 0.21);
   fillLight.position.set(0, -3, 1);
   scene.add(fillLight);
   const bottomLight = new THREE.DirectionalLight(0xe0e6ec, 0);
@@ -307,7 +307,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     camera.position.copy(baseOffset.set(0, 0, distance).applyQuaternion(orbitQuaternion)).add(target);
     camera.quaternion.copy(orbitQuaternion);
     camera.updateMatrixWorld();
-    bottomLight.intensity = viewPreset === 'bottom' ? 2.3 : 0;
+    bottomLight.intensity = viewPreset === 'bottom' ? 2.55 : 0;
     bottomLight.position.copy(camera.position).addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion), distance * .35);
     bottomLight.target.position.copy(target);
   }

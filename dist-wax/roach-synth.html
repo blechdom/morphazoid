@@ -9,7 +9,7 @@
     <title>Roach Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="roach-synth.css" />
+    <link rel="stylesheet" href="roach-synth.css?v=365ba8cf3adb" />
   </head>
   <body class="roach-synth-page" data-instrument-info="off">
     <header class="masthead">
@@ -39,6 +39,8 @@
       <section class="roach-stage" aria-labelledby="roachTitle">
         <div class="roach-viewport" id="specimenViewport">
           <div class="roach-heading"><h1 id="roachTitle">Roach Synth</h1></div>
+          <button class="mini-action roach-audio-toggle" id="stageAudioButton" type="button" aria-pressed="false" aria-label="Turn Audio on">Audio off</button>
+          <p class="roach-stage-notice" id="liveStatus" role="status" hidden></p>
           <img class="roach-poster" id="specimenImage" src="assets/roach-synth/specimen.webp" width="1052" height="588" alt="Cockroach specimen preview." />
           <canvas id="roachCanvas" tabindex="0" aria-label="Playable 3D cockroach: drag a body part to change its sound; drag the background to rotate; plus and minus zoom" aria-describedby="viewHelp">An articulated cockroach instrument.</canvas>
         </div>
@@ -61,14 +63,24 @@
       <aside class="roach-panel" aria-label="Roach Synth controls">
         <section class="roach-control-block roach-pose-controls" aria-label="Sound and body pose">
           <div class="roach-control-row">
-            <button class="play-button" id="soundPlayButton" type="button" aria-pressed="false" aria-label="Play sound" disabled><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+            <div class="roach-player"><span>Sound</span><button class="play-button" id="soundPlayButton" type="button" aria-pressed="false" aria-label="Play sound"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button></div>
             <label class="roach-inline-select" for="posePreset"><span>Body pose</span><span class="select-shell"><select id="posePreset" disabled><option value="neutral">Neutral</option></select></span></label>
             <button class="mini-action" id="randomPose" type="button" aria-label="Random body pose" disabled>Random</button><button class="mini-action" id="resetPose" type="button" data-reset-all data-reset-in-place aria-label="Reset body position" disabled>Reset</button>
           </div>
           <p class="roach-invitation">Drag body part to change the sound</p>
         </section>
         <section class="roach-control-block roach-voice" aria-label="Sound and voice">
-          <div class="roach-control-row"><label class="roach-inline-select" for="soundPreset"><span>Sound + voice preset</span><span class="select-shell"><select id="soundPreset"><option>Resonant stillness</option></select></span></label><button class="mini-action" id="randomSound" type="button" aria-label="Random sound">Random</button></div>
+          <div class="roach-control-row"><label class="roach-inline-select" for="soundPreset"><span>Sound + voice presets</span><span class="select-shell"><select id="soundPreset"><option value="">Loading sound presets…</option></select></span></label><button class="mini-action" id="randomSound" type="button" aria-label="Random sound">Random</button></div>
+          <div class="roach-tone-controls" role="group" aria-label="Sound parameters">
+            <label class="roach-knob roach-tone-knob" for="pitch"><span class="knob-label">Pitch</span><span class="knob-face" aria-hidden="true"><i></i><small id="pitchOut">140 Hz</small></span><input id="pitch" data-sound="pitch" type="range" min="60" max="600" step="1" value="140" aria-label="Pitch" /></label>
+            <label class="roach-knob roach-tone-knob" for="brightness"><span class="knob-label">Filter</span><span class="knob-face" aria-hidden="true"><i></i><small id="brightnessOut">46%</small></span><input id="brightness" data-sound="brightness" type="range" min="0" max="1" step="0.01" value="0.46" aria-label="Filter" /></label>
+            <label class="roach-knob roach-tone-knob" for="resonance"><span class="knob-label">Resonance</span><span class="knob-face" aria-hidden="true"><i></i><small id="resonanceOut">38%</small></span><input id="resonance" data-sound="resonance" type="range" min="0" max="1" step="0.01" value="0.38" aria-label="Resonance" /></label>
+            <label class="roach-knob roach-tone-knob" for="crunch"><span class="knob-label">Crust</span><span class="knob-face" aria-hidden="true"><i></i><small id="crunchOut">18%</small></span><input id="crunch" data-sound="crunch" type="range" min="0" max="1" step="0.01" value="0.18" aria-label="Crust" /></label>
+            <label class="roach-knob roach-tone-knob" for="vowel"><span class="knob-label">Vowel</span><span class="knob-face" aria-hidden="true"><i></i><small id="vowelOut">35%</small></span><input id="vowel" data-sound="vowel" type="range" min="0" max="1" step="0.01" value="0.35" aria-label="Vowel" /></label>
+            <label class="roach-knob roach-tone-knob" for="wingRate"><span class="knob-label">Wing rate</span><span class="knob-face" aria-hidden="true"><i></i><small id="wingRateOut">72 Hz</small></span><input id="wingRate" data-sound="wingRate" type="range" min="12" max="220" step="1" value="72" aria-label="Wing rate" /></label>
+            <label class="roach-knob roach-tone-knob" for="rhythm"><span class="knob-label">Rattle rate</span><span class="knob-face" aria-hidden="true"><i></i><small id="rhythmOut">1.00×</small></span><input id="rhythm" data-sound="rhythm" type="range" min="0.25" max="4" step="0.05" value="1" aria-label="Rattle rate" /></label>
+            <label class="roach-knob roach-tone-knob" for="pan"><span class="knob-label">Pan</span><span class="knob-face" aria-hidden="true"><i></i><small id="panOut">C</small></span><input id="pan" data-sound="pan" type="range" min="-1" max="1" step="0.01" value="0" aria-label="Pan" /></label>
+          </div>
           <label class="roach-voice-label" for="phrase">Voice <span>Type words to speak</span></label><textarea id="phrase" rows="2" maxlength="96" placeholder="Type words here…" autocomplete="off" spellcheck="false">hi, I'm a cockroach and I live in your house</textarea>
           <div class="roach-voice-actions"><button class="mini-action roach-speak" id="speakButton" type="button">Say it</button><label class="roach-knob roach-voice-level" for="voice"><span class="knob-label">Voice</span><span class="knob-face" aria-hidden="true"><i></i><small id="voiceOut">78%</small></span><input id="voice" data-sound="voice" type="range" min="0" max="1" step="0.01" value="0.78" aria-label="Voice level" /></label><span class="sr-only">Control or Command + Enter speaks.</span></div>
           <p class="roach-status" id="voiceStatus" role="status" hidden></p>
@@ -80,19 +92,13 @@
             <button class="mini-action" id="randomMotion" type="button" aria-label="Random animation" disabled>Random</button>
           </div>
           <div class="roach-motion-controls"><label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">108 BPM</output></span><input id="tempo" type="range" min="35" max="240" step="1" value="108" /></label><label class="control" for="intensity"><span><b>Movement</b><output id="intensityOut" for="intensity">100%</output></span><input id="intensity" type="range" min="0" max="1.5" step="0.01" value="1" /></label></div>
+          <div class="roach-beat-controls"><label class="roach-check"><input id="metronome" type="checkbox" /> Metronome</label><div class="roach-beat" id="beatIndicator" role="img" aria-label="Beat stopped"><i></i><i></i><i></i><i></i></div></div>
           <label class="roach-check"><input id="antennae" type="checkbox" checked /> Antennae keep exploring</label>
-          <p id="liveStatus" class="roach-status" role="status" hidden></p>
         </section>
         <section class="roach-control-block roach-body-mixer" aria-labelledby="mixerTitle">
           <div class="roach-mixer-heading"><h2 id="mixerTitle">Body sounds</h2><button class="mini-action" id="resetMix" type="button">Reset mix</button></div>
           <div id="bodyMixer" role="group" aria-label="Body sound assignments"></div>
           <p class="roach-note">Face feelers and mouth follow Head.</p>
-          <div class="roach-tone-controls">
-            <label class="roach-knob roach-tone-knob" for="pitch"><span class="knob-label">Pitch</span><span class="knob-face" aria-hidden="true"><i></i><small id="pitchOut">140</small></span><input id="pitch" data-sound="pitch" type="range" min="60" max="600" step="1" value="140" aria-label="Pitch" /></label>
-            <label class="roach-knob roach-tone-knob" for="brightness"><span class="knob-label">Filter</span><span class="knob-face" aria-hidden="true"><i></i><small id="brightnessOut">0.46</small></span><input id="brightness" data-sound="brightness" type="range" min="0" max="1" step="0.01" value="0.46" aria-label="Filter" /></label>
-            <label class="roach-knob roach-tone-knob" for="resonance"><span class="knob-label">Resonance</span><span class="knob-face" aria-hidden="true"><i></i><small id="resonanceOut">0.38</small></span><input id="resonance" data-sound="resonance" type="range" min="0" max="1" step="0.01" value="0.38" aria-label="Resonance" /></label>
-            <label class="roach-knob roach-tone-knob" for="crunch"><span class="knob-label">Crust</span><span class="knob-face" aria-hidden="true"><i></i><small id="crunchOut">0.18</small></span><input id="crunch" data-sound="crunch" type="range" min="0" max="1" step="0.01" value="0.18" aria-label="Crust" /></label>
-          </div>
           <div class="roach-mix-meter"><meter id="mixMeter" min="-60" max="0" low="-36" high="-3" optimum="-12" value="-60" aria-label="Output peak in dBFS"></meter><output id="mixPeak" aria-live="off">−∞ dBFS</output></div>
           <p class="roach-status" id="sampleStatus" role="status" hidden></p>
         </section>
@@ -100,7 +106,7 @@
       </aside>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="roach-synth-app.js"></script>
+    <script type="module" src="roach-synth-app.js?v=365ba8cf3adb"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

@@ -1,8 +1,10 @@
 import { RoachZing, RoachRecordingGrains } from './roach-synth-textures.js';
-import { ROACH_BODY_SOURCE_INDEX, normalizeRoachBodyMix } from './roach-synth-body.js';
+import { ROACH_BODY_SOURCE_INDEX, ROACH_BODY_SOURCES, normalizeRoachBodyMix } from './roach-synth-body.js';
+import { RoachPercussion } from './roach-synth-percussion.js';
 
 const TAU = Math.PI * 2;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+const percussionFamily = (source) => source >= 12 && source <= 15 ? source - 12 : source === 17 ? 4 : source === 18 ? 5 : -1;
 function mode() { return { re: 0, im: 0, c: 1, s: 0, r: .99 }; }
 function tune(m, f, decay, rate) {
   const angle = TAU * clamp(f, 20, rate * .43) / rate;
@@ -38,13 +40,14 @@ class BodyVoice {
     this.low = 0; this.particle = 0; this.contact = new Float64Array(6); this.footAge = new Float64Array(6);
     this.footNoise = new Float64Array(6); this.footParticle = new Float64Array(6);
     this.modes = Array.from({ length: 4 }, mode); this.zing = new RoachZing(rate);
+    this.percussion = new RoachPercussion(rate, index === 0); this.percussionDistance = 0; this.percussionActive = false;
     this.randomState = (0x756d4f21 ^ (index + 1) * 0x45d9f3b) | 0;
     this.smooth = 1 - Math.exp(-1 / (rate * .028));
     this.manualDecay = Math.exp(-1 / (rate * .052));
     this.contactDecay = Math.exp(-1 / (rate * .045));
     this.contactRelease = Math.exp(-1 / (rate * .016));
     this.particleDecay = Math.exp(-1 / (rate * .004));
-    this.output = new Float64Array(12); this.releaseContacts = false;
+    this.output = new Float64Array(ROACH_BODY_SOURCES.length); this.releaseContacts = false;
   }
   random() {
     let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.randomState = x | 0;
@@ -53,6 +56,9 @@ class BodyVoice {
   assign(row, initial = false) {
     const source = ROACH_BODY_SOURCE_INDEX.get(row.source) ?? 0;
     if (source !== this.source) { this.oldSource = this.source; this.source = source; this.sourceFade = initial ? 1 : 0; }
+    // A gesture and several source changes may arrive before the first sample.
+    // Remember that this source can own an unsampled strike as soon as selected.
+    if (percussionFamily(source) >= 0) this.percussionActive = true;
     this.targetLevel = row.level;
     if (initial) this.level = row.level;
   }
@@ -60,11 +66,13 @@ class BodyVoice {
     this.manual = Math.min(1, Math.max(this.manual, amount));
     this.zing.excite(amount * .65);
     this.particle = Math.min(1.5, this.particle + amount * .4);
+    if (percussionFamily(this.source) >= 0) this.percussion.strike(amount);
   }
   foot(index, amount) {
     this.contact[index] = Math.min(1.3, this.contact[index] + amount);
     this.footAge[index] = 0; this.footParticle[index] = amount;
     this.releaseContacts = false; this.zing.excite(amount * .55); this.particle = Math.min(1.2, this.particle + amount * .4);
+    if (percussionFamily(this.source) >= 0) this.percussion.strike(amount, index);
   }
   control(x, y, z, side, velocity, sound, mods, offset) {
     this.x = x; this.y = y; this.z = z; this.side = side;
@@ -83,6 +91,9 @@ class BodyVoice {
     this.targetCoefficient = 1 - Math.exp(-TAU * Math.min(this.rate * .39, 450 * 22 ** this.brightness) / this.rate);
     for (let i = 0; i < 4; i += 1) tune(this.modes[i], this.frequency * (2.13 + i * 1.473) * (1 + (this.vowel - .35) * (.4 + i * .11)), .016 + this.resonance * .09, this.rate);
     this.zing.tune(this.frequency, this.brightness, this.resonance, clamp(x, -1, 1));
+    if (percussionFamily(this.source) >= 0 || (percussionFamily(this.oldSource) >= 0 && this.sourceFade < 1)) {
+      this.percussion.configure(this.frequency, this.brightness, this.resonance, this.rhythm, this.vowel);
+    }
   }
   sample(stillGate, recording, moving) {
     this.level += (this.targetLevel - this.level) * this.smooth;
@@ -140,6 +151,20 @@ class BodyVoice {
     out[9] = Math.sin(TAU * this.phase3 * 5 + sine * (1.2 + this.crunch * 5)) * movement * .19;
     out[10] = scratch * movement * .16;
     out[11] = (Math.tanh(sub * 3 + sine * (1 + this.vowel)) * .18 + saw * (.02 + this.vowel * .043)) * movement;
+    if (percussionFamily(this.source) >= 0 || (percussionFamily(this.oldSource) >= 0 && this.sourceFade < 1)) {
+      this.percussionActive = true;
+      const percussion = this.percussion.sample(white, percussionFamily(this.source), this.sourceFade < 1 ? percussionFamily(this.oldSource) : percussionFamily(this.source));
+      for (let i = 0; i < 4; i += 1) out[12 + i] = percussion[i];
+      out[17] = percussion[4]; out[18] = percussion[5];
+    } else if (this.percussionActive) {
+      // Keep the hot branch on this voice's stable boolean. Reading .running
+      // through dormant/active percussion object maps repeatedly deoptimized
+      // V8's first live instrument; cleanup still happens once after the fade.
+      this.percussion.clear(); this.percussionActive = false;
+    }
+    // The neck's clean source exposes joint pitch/filter/pan without shell
+    // noise. A small second harmonic makes its higher-frequency poses legible.
+    out[16] = (sine * .18 + Math.sin(TAU * this.phase * 2) * this.brightness * .025) * sustained;
     this.sourceFade = Math.min(1, this.sourceFade + 1 / (this.rate * .035));
     const raw = out[this.source] * this.sourceFade + out[this.oldSource] * (1 - this.sourceFade);
     const drive = 1 + this.crunch * 3;
@@ -154,6 +179,7 @@ export class RoachBodyEngine {
     this.rate = rate; this.voices = Array.from({ length: 8 }, (_, i) => new BodyVoice(rate, i));
     this.recordings = new RoachRecordingGrains(rate, { groups: 8, voices: 16 });
     this.recordingOutput = new Float64Array(8); this.left = 0; this.right = 0;
+    this.wasMoving = false;
     this.setMix(normalizeRoachBodyMix(), true);
   }
   setMix(mix, initial = false) { for (let i = 0; i < 8; i += 1) this.voices[i].assign(mix[i], initial); }
@@ -165,9 +191,16 @@ export class RoachBodyEngine {
     this.voices[0].foot(index, strength);
     if (this.voices[0].source === 8) this.recordings.trigger(2, strength, (this.voices[0].random() + 1) * .5, 0);
   }
-  movement(group, deltaDegrees, enabled) {
+  movement(group, deltaDegrees, enabled, gaitContacts = false) {
     const voice = this.voices[group];
     if (!enabled || deltaDegrees <= .001) return;
+    if (percussionFamily(voice.source) >= 0 && !(group === 0 && gaitContacts)) {
+      voice.percussionDistance += deltaDegrees;
+      if (voice.percussionDistance >= 10) {
+        voice.percussionDistance %= 10;
+        voice.percussion.strike(Math.min(1, deltaDegrees / 6 + .3));
+      }
+    }
     voice.distance += deltaDegrees;
     if (voice.distance >= 3) {
       voice.distance %= 3; voice.zing.excite(Math.min(1, deltaDegrees / 5 + .1));
@@ -175,10 +208,15 @@ export class RoachBodyEngine {
     }
   }
   resetActivity() {
-    for (const voice of this.voices) { voice.manual = 0; voice.motionTarget = 0; voice.distance = 0; voice.releaseContacts = true; }
+    for (const voice of this.voices) {
+      voice.manual = 0; voice.motionTarget = 0; voice.distance = 0; voice.releaseContacts = true;
+      voice.percussionDistance = 0; voice.percussion.releaseAll();
+    }
     this.recordings.release();
   }
   sample(stillGate, moving) {
+    if (this.wasMoving && !moving) for (const voice of this.voices) voice.percussion.releaseAll();
+    this.wasMoving = moving;
     this.recordings.sample(this.recordingOutput);
     this.left = 0; this.right = 0;
     for (let i = 0; i < 8; i += 1) {

@@ -1,9 +1,10 @@
-import { createRoachViewer } from './src/roach-synth-viewer.js';
+import { createRoachViewer } from './src/roach-synth-viewer.js?v=365ba8cf3adb';
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
-  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose } from './src/roach-synth-motion.js';
+  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState } from './src/roach-synth-motion.js?v=365ba8cf3adb';
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
-  ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId } from './src/roach-synth-audio.js';
+  ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './src/roach-synth-audio.js?v=365ba8cf3adb';
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController();
@@ -12,6 +13,7 @@ const modelUrl = new URL('./assets/roach-synth/cockroach.glb', import.meta.url);
 const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
   playing: false, soundPlaying: false, audioOn: false, audioStarting: false, disposed: false,
+  modelLoading: true, notice: '', metronome: false,
   posePreset: 'neutral', poseSeed: 0, motionSeed: 0, soundSeed: 0, phraseRequest: 0,
   motionChoice: ROACH_MOTION_PRESETS[0].id, motionPrepared: false, antennae: true,
   motion: normalizeRoachMotion({ ...ROACH_MOTION_DEFAULTS, presetId: 'none', antennae: false }),
@@ -21,8 +23,12 @@ const state = {
 let viewer, frame = 0, loadVersion = 0, lastFrame = -Infinity;
 let pose = new Float32Array(0);
 const sceneState = createRoachSceneState();
+const beatState = {};
 const status = (id, message = '') => { el(id).textContent = message; el(id).hidden = !message; };
-const announce = message => status('liveStatus', message);
+function syncStageStatus() {
+  status('liveStatus', state.notice || (state.modelLoading ? 'Loading the roach… Sound and voice are available.' : ''));
+}
+const announce = message => { state.notice = message; syncStageStatus(); };
 const audio = new RoachSynthAudio({
   onStatus(message) {
     if (state.disposed) return;
@@ -50,7 +56,7 @@ function effectiveBodyMix() {
 }
 function publish(extra = {}) {
   audio.update({ playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion,
-    joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), ...extra });
+    joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), metronome: state.metronome, ...extra });
 }
 function publishSound() { audio.update({ sound: state.sound, bodyMix: effectiveBodyMix() }); }
 function refreshJoints() {
@@ -61,6 +67,11 @@ function refreshJoints() {
 function syncAudioButton() {
   el('audioButton').setAttribute('aria-pressed', String(state.audioOn));
   el('audioState').textContent = state.audioStarting ? 'starting' : state.audioOn ? 'on' : 'off';
+  const button = el('stageAudioButton');
+  button.disabled = state.audioStarting;
+  button.setAttribute('aria-pressed', String(state.audioOn));
+  button.setAttribute('aria-label', state.audioStarting ? 'Starting Audio' : state.audioOn ? 'Turn Audio off' : 'Turn Audio on');
+  button.textContent = state.audioStarting ? 'Starting…' : state.audioOn ? 'Audio on' : 'Audio off';
 }
 function syncTransport() {
   for (const [id, active, noun] of [['soundPlayButton', state.soundPlaying, 'sound'], ['motionButton', state.playing, 'animation']]) {
@@ -82,7 +93,7 @@ function syncRig() {
   const rig = viewer.getState(); refreshJoints();
   el('specimenImage').hidden = rig.loaded;
   el('roachCanvas').style.visibility = rig.loaded ? 'visible' : 'hidden';
-  for (const id of ['motionButton', 'soundPlayButton', 'posePreset', 'randomPose', 'resetPose', 'resetCamera', 'randomMotion', 'motionPreset', 'previousMotion', 'nextMotion', 'zoomIn', 'zoomOut']) el(id).disabled = !rig.loaded;
+  for (const id of ['motionButton', 'posePreset', 'randomPose', 'resetPose', 'resetCamera', 'randomMotion', 'motionPreset', 'previousMotion', 'nextMotion', 'zoomIn', 'zoomOut']) el(id).disabled = !rig.loaded;
   el('showJoints').disabled = !rig.bones.length;
   syncSelectedPart();
 }
@@ -98,6 +109,10 @@ function selectView(view) {
   el('sideToggle').hidden = state.view !== 'side'; refreshGaze();
 }
 function updateVisual() {
+  writeRoachBeatState(currentTime(), state.motion, beatState);
+  const beat = state.playing ? beatState.beatInBar : -1;
+  for (const [index, dot] of [...el('beatIndicator').children].entries()) dot.classList.toggle('is-active', index === beat);
+  el('beatIndicator').setAttribute('aria-label', beat < 0 ? 'Beat stopped' : `Beat ${beat + 1} of 4`);
   if (state.disposed || !viewer || !state.joints.length) return;
   const time = currentTime();
   writeRoachPose(time, state.motion, state.joints, pose);
@@ -117,7 +132,7 @@ function populateMotionPresets() {
   el('motionPreset').value = state.motionChoice;
   el('motionPreset').title = state.motion.randomLabel ?? '';
 }
-function setMotionPreset(id) {
+function setMotionPreset(id, { applySound = true } = {}) {
   if (!state.joints.length) return;
   const time = currentTime();
   const controls = { tempo: state.motion.tempo, intensity: state.motion.intensity, antennae: state.antennae };
@@ -129,11 +144,19 @@ function setMotionPreset(id) {
     ? createRandomRoachMotion(++state.motionSeed * 2654435761 >>> 0, state.joints, controls)
     : bakeRoachPresetTracks(state.motionChoice, state.joints, controls);
   state.motionPrepared = true; state.posePreset = 'custom'; el('posePreset').value = 'custom';
+  if (applySound) {
+    const patch = state.motionChoice === 'random' ? createRandomRoachSound(state.motionSeed * 2654435761 >>> 0) : getRoachMotionSound(state.motionChoice);
+    state.sound = { ...patch.sound, level: state.sound.level, voice: state.sound.voice };
+    state.bodyMix = structuredClone(patch.bodyMix);
+    if (state.motionChoice === 'random') markSoundCustom();
+    else el('soundPreset').value = `motion:${state.motionChoice}`;
+    syncSound();
+  }
   updateGaze(); populateMotionPresets(); anchorTime(time); publish({ time, resetActivity: true }); updateVisual();
 }
 function setPlaying(playing) {
   if (!state.joints.length) return;
-  if (playing && !state.motionPrepared) setMotionPreset(state.motionChoice);
+  if (playing && !state.motionPrepared) setMotionPreset(state.motionChoice, { applySound: false });
   const time = currentTime(); state.playing = playing === true; anchorTime(time);
   publish({ time }); syncTransport(); updateVisual();
   if (state.playing) scheduleFrame();
@@ -163,9 +186,12 @@ function syncManualPose() {
 function paintKnob(input) {
   const value = Number(input.value), fraction = (value - Number(input.min)) / (Number(input.max) - Number(input.min));
   input.closest('.roach-knob')?.style.setProperty('--knob-angle', `${-135 + 270 * fraction}deg`);
-  const text = input.id === 'pitch' ? `${Math.round(value)}` : `${Math.round(value * 100)}%`;
+  const text = ['pitch', 'wingRate'].includes(input.id) ? `${Math.round(value)}`
+    : input.id === 'rhythm' ? `${value.toFixed(2)}×`
+      : input.id === 'pan' ? value === 0 ? 'C' : `${Math.round(Math.abs(value) * 100)}${value < 0 ? 'L' : 'R'}`
+        : `${Math.round(value * 100)}%`;
   el(`${input.id}Out`).textContent = text;
-  input.setAttribute('aria-valuetext', input.id === 'pitch' ? `${text} Hz` : text);
+  input.setAttribute('aria-valuetext', ['pitch', 'wingRate'].includes(input.id) ? `${text} Hz` : text);
 }
 function syncMixer() {
   for (const row of state.bodyMix) {
@@ -184,6 +210,10 @@ function syncSound() {
 function markSoundCustom() {
   if (!el('soundPreset').querySelector('[value="custom"]')) el('soundPreset').add(new Option('Custom sound', 'custom'));
   el('soundPreset').value = 'custom';
+}
+function selectedSoundPreset() {
+  const id = el('soundPreset').value;
+  return id.startsWith('motion:') ? getRoachMotionSound(id.slice(7)) : ROACH_SOUND_PRESETS.find(item => item.id === id);
 }
 function buildMixer() {
   for (const { id, label } of ROACH_BODY_GROUPS) {
@@ -252,6 +282,7 @@ function initializeKnobs() {
 }
 async function loadModel() {
   if (!viewer) return;
+  state.modelLoading = true; syncStageStatus();
   const version = ++loadVersion; el('retryModel').hidden = true;
   try {
     await viewer.loadUrl(modelUrl.href, { name: 'Cockroach · photogrammetry scan' });
@@ -262,13 +293,17 @@ async function loadModel() {
   } catch (error) {
     if (version !== loadVersion || state.disposed) return;
     status('modelStatus', error.message || 'The model could not load.'); el('retryModel').hidden = false;
-  }
+  } finally { if (version === loadVersion && !state.disposed) { state.modelLoading = false; syncStageStatus(); } }
 }
 
 buildMixer(); initializeKnobs();
 el('posePreset').replaceChildren(new Option('Custom pose', 'custom'), ...ROACH_STATIC_POSES.map(item => new Option(item.label, item.id)), new Option('Random pose', 'random'));
 el('posePreset').value = state.posePreset;
-el('soundPreset').replaceChildren(...ROACH_SOUND_PRESETS.map(item => new Option(item.label, item.id)));
+const soundBank = document.createElement('optgroup'); soundBank.label = 'Sound presets';
+soundBank.append(...ROACH_SOUND_PRESETS.map(item => new Option(item.label, item.id)));
+const animationSoundBank = document.createElement('optgroup'); animationSoundBank.label = 'Animation sounds';
+animationSoundBank.append(...ROACH_MOTION_SOUND_PRESETS.map(item => new Option(`${ROACH_MOTION_PRESETS.find(motion => motion.id === item.motionId)?.label ?? item.motionId} · ${item.label}`, `motion:${item.motionId}`)));
+el('soundPreset').replaceChildren(soundBank, animationSoundBank);
 el('tempo').value = state.motion.tempo; el('tempoOut').value = `${state.motion.tempo} BPM`;
 el('intensity').value = state.motion.intensity; el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`;
 populateMotionPresets(); syncSound(); syncTransport();
@@ -286,28 +321,30 @@ try {
   Object.defineProperty(window, 'roachSynth', { configurable: true, value: Object.freeze({
     getState: () => ({ ...viewer.getState(), time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying,
       posePreset: state.posePreset, motionChoice: state.motionChoice, motionSettings: structuredClone(state.motion),
+      soundPreset: el('soundPreset').value, metronome: state.metronome,
       sound: { ...state.sound }, bodyMix: structuredClone(state.bodyMix), effectiveBodyMix: effectiveBodyMix(),
       muted: [...state.muted], solo: [...state.solo], selectedGroup: state.selectedGroup, mappings: [],
       audio: audio.getState(), audioOn: state.audioOn, view: state.view, side: state.side, renderQuality: 'economy', clipPreview: false }),
     getPartScreenPosition: id => viewer.getPartScreenPosition(id),
   }) });
   void loadModel();
-} catch (error) { status('modelStatus', `3D could not start: ${error.message || 'WebGL unavailable'}.`); el('roachCanvas').hidden = true; }
+} catch (error) { state.modelLoading = false; syncStageStatus(); status('modelStatus', `3D could not start: ${error.message || 'WebGL unavailable'}.`); el('roachCanvas').hidden = true; }
 
 el('audioButton').addEventListener('click', async () => {
   if (state.audioStarting || state.disposed) return;
-  if (state.audioOn) {
+  if (state.audioOn && audio.getState().contextState === 'running') {
     const time = currentTime(); state.audioOn = false; anchorTime(time); audio.disable(); syncAudioButton(); syncTransport(); return;
   }
   state.audioStarting = true; el('audioButton').disabled = true; syncAudioButton();
   try {
     await audio.enable({ time: currentTime(), playing: state.playing, soundPlaying: state.soundPlaying,
-      motion: state.motion, joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), resetActivity: true });
+      motion: state.motion, joints: state.joints, mappings: [], sound: state.sound, bodyMix: effectiveBodyMix(), metronome: state.metronome, resetActivity: true });
     if (state.disposed) return;
     const time = fallbackTime(); state.audioOn = true; publish({ time }); status('voiceStatus'); syncTransport();
   } catch (error) { state.audioOn = false; announce(`Audio could not start: ${error.message || error}`); }
   finally { state.audioStarting = false; if (!state.disposed) { el('audioButton').disabled = false; syncAudioButton(); } }
 }, options);
+el('stageAudioButton').addEventListener('click', () => el('audioButton').click(), options);
 el('soundPlayButton').addEventListener('click', () => { state.soundPlaying = !state.soundPlaying; audio.update({ soundPlaying: state.soundPlaying }); syncTransport(); }, options);
 el('motionButton').addEventListener('click', () => setPlaying(!state.playing), options);
 el('posePreset').addEventListener('change', () => { if (el('posePreset').value !== 'custom') applyStaticPose(el('posePreset').value); }, options);
@@ -334,8 +371,9 @@ el('tempo').addEventListener('input', () => {
 }, options);
 el('intensity').addEventListener('input', () => { state.motion.intensity = Number(el('intensity').value); el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`; audio.update({ motion: state.motion }); updateVisual(); }, options);
 el('antennae').addEventListener('change', () => { state.antennae = el('antennae').checked; state.motion.antennae = state.motionPrepared && state.antennae; audio.update({ motion: state.motion }); updateVisual(); }, options);
+el('metronome').addEventListener('change', () => { state.metronome = el('metronome').checked; audio.update({ metronome: state.metronome }); }, options);
 el('soundPreset').addEventListener('change', () => {
-  const preset = ROACH_SOUND_PRESETS.find(item => item.id === el('soundPreset').value); if (!preset) return;
+  const preset = selectedSoundPreset(); if (!preset) return;
   state.sound = { ...preset.sound, level: state.sound.level }; state.bodyMix = structuredClone(preset.bodyMix); syncSound(); publishSound();
 }, options);
 el('randomSound').addEventListener('click', () => {
@@ -344,7 +382,7 @@ el('randomSound').addEventListener('click', () => {
 }, options);
 for (const input of document.querySelectorAll('[data-sound]')) input.addEventListener('input', () => { state.sound[input.dataset.sound] = Number(input.value); paintKnob(input); markSoundCustom(); publishSound(); }, options);
 el('resetMix').addEventListener('click', () => {
-  state.bodyMix = structuredClone(ROACH_SOUND_PRESETS.find(item => item.id === el('soundPreset').value)?.bodyMix ?? createDefaultRoachBodyMix());
+  state.bodyMix = structuredClone(selectedSoundPreset()?.bodyMix ?? createDefaultRoachBodyMix());
   state.muted.clear(); state.solo.clear(); syncMixer(); publishSound();
 }, options);
 el('level').addEventListener('input', () => { state.sound.level = Number(el('level').value); el('levelOut').value = `${Math.round(state.sound.level * 100)}%`; audio.setLevel(state.sound.level); }, options);

@@ -8,6 +8,7 @@ import { bashPath, buildWaxSite } from "./build-wax-site.mjs";
 import { buildShaderSynthXyflow } from "./build-shader-synth-xyflow.mjs";
 import { fingerprintDentaphone } from "./fingerprint-dentaphone.mjs";
 import { fingerprintHiccupHead } from "./fingerprint-hiccup-head.mjs";
+import { fingerprintRoachSynth } from "./fingerprint-roach-synth.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -29,6 +30,7 @@ export async function buildReleaseSite(outputArgument = "dist") {
   await Promise.all([
     fingerprintDentaphone(outputDirectory),
     fingerprintHiccupHead(outputDirectory),
+    fingerprintRoachSynth(outputDirectory),
   ]);
   const waxResult = await buildWaxSite(path.join(outputDirectory, "dist-wax"));
   return {

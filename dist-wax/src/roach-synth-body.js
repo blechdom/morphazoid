@@ -13,10 +13,14 @@ export const ROACH_BODY_SOURCES = Object.freeze([
   ['skuttle', 'Skuttle', true], ['walls', 'Wall scratches', true],
   ['rustle', 'Roach rustle', true], ['shriek', 'Small shriek', true],
   ['hiss', 'Friction hiss', true], ['growl', 'Crusty growl', true],
+  ['footsteps', 'Cartoon footsteps', true], ['fm', 'FM percussion', true],
+  ['rattle', 'Rattlesnake percussion', true], ['pluck', 'Karplus pluck', true],
+  ['sine', 'Clean synth', false],
+  ['click', 'Click', true], ['clack', 'Clack', true],
 ].map(([id, label, motionOnly]) => Object.freeze({ id, label, motionOnly })));
 export const ROACH_BODY_SOURCE_INDEX = new Map(ROACH_BODY_SOURCES.map(({ id }, index) => [id, index]));
-const DEFAULT_SOURCES = ['skuttle', 'walls', 'rustle', 'resonance', 'drone', 'growl', 'sub', 'shimmer'];
-const DEFAULT_LEVELS = [.85, .48, .65, .68, .6, .36, .36, .24];
+const DEFAULT_SOURCES = ['footsteps', 'walls', 'rustle', 'resonance', 'drone', 'sine', 'sub', 'shimmer'];
+const DEFAULT_LEVELS = [.72, .48, .65, .36, .28, .4, .2, .14];
 
 export function createDefaultRoachBodyMix() {
   return ROACH_BODY_GROUPS.map(({ id }, index) => ({ groupId: id, source: DEFAULT_SOURCES[index], level: DEFAULT_LEVELS[index] }));

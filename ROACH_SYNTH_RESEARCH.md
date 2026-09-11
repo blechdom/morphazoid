@@ -7,12 +7,19 @@ Research checked 2026-09-11. The scanned model is a generic winged cockroach spe
 The instrument has eight anatomical sound groups: legs, outer wing covers,
 hindwings, thorax, abdomen, neck, head and antennae. Each owns its oscillator
 phases, filters, excitation envelopes, seeded randomness and sound assignment.
-The twelve source choices include four smooth held-pose sounds (resonance,
-drone, sub pressure and shimmer) and eight movement sounds (buzz, wire zing,
-skuttle, wall scratches, recorded rustle, shriek, hiss and growl). Eighteen
-sound/voice presets and a bounded randomizer set the sonic character; a compact
-body mixer controls assignment, level, mute and solo. Voice level is independent
-of the body solos.
+The nineteen source choices include smooth held-pose sounds (resonance,
+drone, sub pressure, shimmer and clean sine), wing buzz and movement textures,
+plus short cartoon footsteps, clicks, clacks, FM hits, rattling percussion and
+Karplus plucks. Click and Clack provide separate crisp and resonant foot-contact
+articulations without adding independent rhythmic loops.
+Eighteen sound/voice presets and twenty-four animation sound patches share a
+visible preset selector. Each animation chooses a distinct body mix; only
+Dash and freeze assigns Skuttle in its authored animation patch. Default feet
+use rounded impacts and the neck uses a clean pitch-responsive synth tone.
+The Wing radio patch retains its previous wing generators and settings.
+A compact body mixer controls assignment, level, mute and solo. Voice level
+is independent of body solos. All nine consumed global sound controls are
+visible beside the sound presets and voice input.
 
 Sound Play opens the smooth held-pose sources without advancing the animation.
 It never creates a footstep, scraping pulse or recorded grain. Moving each
@@ -26,9 +33,12 @@ Discrete pose loads and resets re-prime activity, preventing teleportation from
 manufacturing contact events.
 
 Six independent foot-contact envelopes follow the same contact counters used
-by the visible gait. They excite irregular short friction clusters and damped
-material modes. Wire zing uses a lossy waveguide informed by Morphazoid's
-Karplus and modal-resonator lineage. The engine is scalar AudioWorklet DSP,
+by the visible gait. The assigned instrument turns them into rounded sole taps,
+FM drum hits, rattling modal bursts, plucked strings or friction clusters.
+FM and rattle articulation draw on Morphazoid's FM drums and Rattlesnake drum
+engine; fractional string feedback draws on its Karplus engine. These are
+creative percussive instruments, not recordings of those animals. Wire zing
+uses the existing lossy waveguide. The engine is scalar AudioWorklet DSP,
 not an actual SIMD backend or a validated cockroach biomechanical model.
 Roach rustle plays bounded fragments of the CC0 vivarium recording described
 below, triggered by that group's movement or the legs' contact events; it is
@@ -42,6 +52,13 @@ touchdown counters, body lift and upright dances come from that state. Internal
 route editor in the compact main view. Random routines blend upper-body curves
 while retaining their base routine's leg geometry and contact timing. Changing
 routines preserves transport phase, and camera views remain independent.
+Each routine has an authored eight-beat contact phrase on a sixteenth-note
+grid, including eighth-note tripods, individual taps, syncopation and landings.
+The optional metronome runs on the audio sample clock only during animation;
+the four-dot display follows the same beat. Selecting an animation also loads
+its sound patch while retaining master/voice levels and mute/solo choices.
+Starting the first animation preserves any sound patch already edited or
+chosen by the player. Sound presets can also be selected independently.
 Twenty-four static poses plus seeded random poses hold complete body states;
 Reset restores neutral without changing the sound mix.
 
@@ -64,6 +81,12 @@ occlusion. Graphics remain capped at 20 fps and pixel ratio 1; the AudioWorklet
 runs the shared motion clock independently. Camera fitting occurs on loading,
 explicit view selection or Fit; zoom has explicit +/− controls rather than
 pinch, wheel or pose-driven refitting.
+
+On phones, an explicit Audio on/off control remains on the sticky viewport,
+with nearby loading/audio status that does not shift the scrolled controls.
+Sound Play and speech remain usable while the GLB is loading; animation waits
+for the rig. Built browser and WAX pages version the complete Roach module
+graph together to prevent cached controls and worklets from mixing releases.
 
 A fixed 20-frame output lookahead (0.42 ms at 48 kHz) protects dense mixtures.
 The guard conservatively bounds a four-times windowed-sinc reconstruction,
