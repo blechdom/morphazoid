@@ -624,6 +624,52 @@ export function writeRoachPose(timeSeconds, settings, joints, out) {
   return constrainRoachPose(out, joints, out);
 }
 
+const SPEECH_POSE_BUFFERS = new WeakMap();
+/**
+ * Add a voice-envelope gesture to a freshly written base/MIDI pose. Time is
+ * absolute audio-clock seconds, independent of the animation transport. The
+ * caller owns envelope smoothing; amount zero leaves the buffer exactly alone.
+ */
+export function applyRoachSpeechPose(timeSeconds, amount, joints, pose) {
+  const strength = clamp(finite(amount), 0, 1);
+  if (strength === 0) return pose;
+  if (!pose || pose.length < joints.length * 3 || joints.length > 128) throw new RangeError('Speech pose needs XYZ values for at most 128 joints.');
+  let speech = SPEECH_POSE_BUFFERS.get(joints);
+  if (!speech || speech.length !== joints.length * 3) {
+    speech = new Float64Array(joints.length * 3);
+    SPEECH_POSE_BUFFERS.set(joints, speech);
+  }
+  for (let i = 0; i < speech.length; i += 1) speech[i] = pose[i];
+  const time = safeTime(timeSeconds);
+  const nod = Math.sin(time * TAU * 3.4) * 9 + Math.sin(time * TAU * 1.25 + .4) * 5;
+  const yaw = Math.sin(time * TAU * .72 + .3) * 10;
+  const tilt = Math.sin(time * TAU * 1.13 + .8) * 8;
+  for (let i = 0; i < joints.length; i += 1) {
+    const item = metadata(joints[i]); const index = i * 3;
+    if (item.kind === 'head' || item.kind === 'neck') {
+      const scale = strength * (item.kind === 'neck' ? -.24 : 1);
+      speech[index] += nod * scale;
+      speech[index + 1] += yaw * scale;
+      speech[index + 2] += tilt * scale;
+    } else if (item.kind === 'antenna') {
+      const side = item.side;
+      speech[index] += Math.sin(time * TAU * (side > 0 ? 5.1 : 6.3) + side * .7) * 10 * strength;
+      speech[index + 1] += (Math.sin(time * TAU * 2.2 + side) * 9 + Math.sin(time * TAU * 7.7 + side * .4) * 4) * strength;
+      speech[index + 2] += Math.sin(time * TAU * 3.7 + side * 1.1) * side * 7 * strength;
+    }
+  }
+  constrainRoachPose(speech, joints, speech);
+  // Constraint projection can revisit a whole imported branch. Copy only the
+  // expressive joints back so speech never changes a leg, wing or body angle.
+  for (let i = 0; i < joints.length; i += 1) {
+    const kind = metadata(joints[i]).kind;
+    if (kind !== 'head' && kind !== 'neck' && kind !== 'antenna') continue;
+    const index = i * 3;
+    pose[index] = speech[index]; pose[index + 1] = speech[index + 1]; pose[index + 2] = speech[index + 2];
+  }
+  return pose;
+}
+
 /** Unit-intensity factory motion, authored as 16 editable knots plus 64 samples. */
 export function bakeRoachPresetTracks(presetId, joints, options = {}) {
   const rig = cleanFactoryJoints(joints);

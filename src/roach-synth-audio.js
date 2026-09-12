@@ -170,6 +170,7 @@ export class RoachSynthAudio {
         if (this.disposed) return;
         if (data?.type === 'telemetry') {
           this.telemetry = { rms: finite(data.rms), peak: finite(data.peak), speechEnvelope: finite(data.speechEnvelope),
+            audioTime: finite(data.audioTime, this.clock()),
             renderedFrames: finite(data.renderedFrames), motionTime: finite(data.motionTime), soundTime: finite(data.soundTime),
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             recordingEvents: finite(data.recordingEvents),

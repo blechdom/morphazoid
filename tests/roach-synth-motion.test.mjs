@@ -4,7 +4,7 @@ import {
   ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, ROACH_SEQUENCE_STEPS, ROACH_MAX_JOINT_TRACKS,
   normalizeRoachMotion, activeRoachPreset, writeRoachPose, createRoachJointTrack,
   roachSequencePosition, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
-  evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose, constrainRoachPose, createRandomRoachMotion, writeRoachBeatState, ROACH_CONTACT_GRID_BEATS,
+  evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose, constrainRoachPose, createRandomRoachMotion, writeRoachBeatState, ROACH_CONTACT_GRID_BEATS, applyRoachSpeechPose,
 } from '../src/roach-synth-motion.js';
 
 const jointIds = ['body', 'abdomen', 'neck', 'head', 'antenna_left', 'antenna_right', 'wings'];
@@ -644,4 +644,71 @@ test('baked factory contacts and musical accents remain on the same grid as gene
   const down = scene(0, { presetId: 'side_run', tempo: 120 }, rig);
   const offbeat = scene(.125, { presetId: 'side_run', tempo: 120 }, rig);
   assert.ok(down.feet[0].impact > offbeat.feet[1].impact, 'downbeats have stronger grounded contacts than sixteenth pickups');
+});
+
+
+test('speech amount zero is an exact no-op and never edits stored pose controls', () => {
+  const rig = wingRig(); rig[3].offset = { x: 4, y: -6, z: 2 };
+  const original = structuredClone(rig);
+  const base = pose(.31, { presetId: 'side_walk' }, rig);
+  for (const amount of [0, -1, NaN, Infinity]) {
+    const output = base.slice();
+    assert.equal(applyRoachSpeechPose(2.7, amount, rig, output), output);
+    assert.deepEqual(output, base);
+  }
+  applyRoachSpeechPose(2.7, 1, rig, base.slice());
+  assert.deepEqual(rig, original);
+});
+
+test('speech nods and tilts the head, counters with the neck, and flutters antennae asymmetrically', () => {
+  const rig = wingRig(); const base = pose(0, { presetId: 'none', antennae: false }, rig);
+  const result = applyRoachSpeechPose(.13, 1, rig, base.slice());
+  for (let i = 0; i < rig.length; i += 1) {
+    const expressive = /^(head|neck|antenna_)/.test(rig[i].jointId);
+    if (!expressive) assert.deepEqual(result.slice(i * 3, i * 3 + 3), base.slice(i * 3, i * 3 + 3));
+    else assert.notDeepEqual(result.slice(i * 3, i * 3 + 3), base.slice(i * 3, i * 3 + 3));
+  }
+  for (let axis = 0; axis < 3; axis += 1) assert.ok(Math.abs(result[6 + axis] + result[9 + axis] * .24) < 1e-6);
+  assert.notDeepEqual(result.slice(12, 15), result.slice(15, 18));
+  const quiet = applyRoachSpeechPose(.13, .5, rig, base.slice());
+  for (let i = 0; i < result.length; i += 1) assert.ok(Math.abs(quiet[i] - (base[i] + (result[i] - base[i]) * .5)) < 1e-6);
+});
+
+test('speech uses its supplied clock while fresh base writes prevent accumulation and silence restores the pose', () => {
+  const rig = wingRig(); const controls = normalizeRoachMotion({ presetId: 'side_walk' });
+  const base = pose(.35, controls, rig); const output = base.slice();
+  const first = applyRoachSpeechPose(.2, .8, rig, output).slice();
+  writeRoachPose(.35, controls, rig, output);
+  assert.deepEqual(applyRoachSpeechPose(.2, .8, rig, output), first);
+  writeRoachPose(.35, controls, rig, output);
+  assert.notDeepEqual(applyRoachSpeechPose(.3, .8, rig, output), first, 'speech moves while animation time is frozen');
+  writeRoachPose(.35, controls, rig, output);
+  assert.deepEqual(applyRoachSpeechPose(100, 0, rig, output), base);
+  for (const time of [0, .03, .17, 1, 10000]) {
+    const talking = applyRoachSpeechPose(time, 999, rig, new Float32Array(rig.length * 3));
+    assert.ok(Math.abs(talking[9]) <= 14 && Math.abs(talking[10]) <= 10 && Math.abs(talking[11]) <= 8);
+    assert.ok(talking.every(Number.isFinite));
+  }
+});
+
+test('speech obeys calibrated joint limits and body-core exclusion without changing unrelated rotations', () => {
+  const rig = wingRig(); rig[3].restOffset = { x: 30, y: -12, z: 4 };
+  rig[3].poseLimits = { x: [-2, 3], y: [-1, 2], z: [-3, 1] };
+  const base = pose(0, { presetId: 'none', antennae: false }, rig);
+  for (const time of [.02, .15, .4, .9]) {
+    const result = applyRoachSpeechPose(time, 1, rig, base.slice());
+    for (let axis = 0; axis < 3; axis += 1) {
+      const name = ['x', 'y', 'z'][axis];
+      assert.ok(result[9 + axis] >= rig[3].restOffset[name] + rig[3].poseLimits[name][0]);
+      assert.ok(result[9 + axis] <= rig[3].restOffset[name] + rig[3].poseLimits[name][1]);
+    }
+  }
+  const core = exclusionRig(); core[1].jointId = 'head';
+  // Place the head near the core boundary; a positive speech tilt must stop
+  // outside the ellipsoid rather than passing through its solid proxy.
+  const source = new Float32Array([0, 0, 30, 0, 0, 123]);
+  const result = applyRoachSpeechPose(0, 1, core, source.slice());
+  assert.deepEqual(result.slice(0, 3), source.slice(0, 3));
+  assert.ok(result[5] < source[5] + Math.sin(.8) * 8);
+  assert.deepEqual(constrainRoachPose(result, core, new Float32Array(6)), result);
 });
