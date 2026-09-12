@@ -9,7 +9,7 @@ import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
 const el = id => document.getElementById(id);
 const listeners = new AbortController();
 const options = { signal: listeners.signal };
-const modelUrl = new URL('./assets/roach-synth/cockroach.glb', import.meta.url);
+const modelUrl = new URL('./assets/roach-synth/cockroach-mobile.glb', import.meta.url);
 const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
   playing: false, soundPlaying: false, audioOn: false, audioStarting: false, disposed: false,

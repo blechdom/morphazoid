@@ -1,0 +1,2831 @@
+{
+  "schemaVersion": 1,
+  "textureProfile": "normalhalf",
+  "attributeProfile": "precision16",
+  "tools": {
+    "meshoptimizer": "0.25",
+    "pillow": "10.2.0",
+    "libwebp": "1.3.2"
+  },
+  "source": {
+    "bytes": 40633612,
+    "sha256": "dfae3733cfa3bab78c6a9fc45b637d2421438101966f265a7d8ea7b6ee4b2bc3"
+  },
+  "output": {
+    "bytes": 13593440,
+    "sha256": "77fc19bf4acaff26f76d3d9a8e154faafdf314eded046298f5d11522c4113016",
+    "reductionPercent": 66.54631638457344
+  },
+  "invariants": {
+    "exactDecodedGeometryAndAnimationBytes": false,
+    "exactPositionsIndicesAndAnimationBytes": true,
+    "semanticGraphsAndAccessorLayoutsUnchanged": true,
+    "losslessImagePixels": false,
+    "textureDimensionsUnchanged": false
+  },
+  "nodes": 84,
+  "joints": 27,
+  "meshoptDecodedBytes": 16889992,
+  "attributes": [
+    {
+      "index": 1,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 9895,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000031386886223459487,
+      "maximumAngularDegrees": 0.0006385307973948243
+    },
+    {
+      "index": 2,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 9895,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.00000271540626357911,
+      "maximumAngularDegrees": 0.0006240659036722885
+    },
+    {
+      "index": 3,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 9895,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032814809782400467,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 6,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 22935,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032002535251896413,
+      "maximumAngularDegrees": 0.0006330597733669303
+    },
+    {
+      "index": 7,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 22935,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000002736562060250313,
+      "maximumAngularDegrees": 0.0006444831828330249
+    },
+    {
+      "index": 8,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 22935,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033741848432392216,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 11,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 2508,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032023880695305483,
+      "maximumAngularDegrees": 0.0006048080926692259
+    },
+    {
+      "index": 12,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 2508,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000002754958843162429,
+      "maximumAngularDegrees": 0.0006039602256497414
+    },
+    {
+      "index": 13,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 2508,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032279916208259083,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 16,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 2613,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032285202072043008,
+      "maximumAngularDegrees": 0.0006134789926222926
+    },
+    {
+      "index": 17,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 2613,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000028052752163998884,
+      "maximumAngularDegrees": 0.0006129434794206404
+    },
+    {
+      "index": 18,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 2613,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033796013856295878,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 21,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 31307,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033304964712696654,
+      "maximumAngularDegrees": 0.0006862306261694493
+    },
+    {
+      "index": 22,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 31307,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000028186470612785997,
+      "maximumAngularDegrees": 0.0006744006616394985
+    },
+    {
+      "index": 23,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 31307,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003113681202245321,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 26,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 9276,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003460588683807717,
+      "maximumAngularDegrees": 0.0006983330883166214
+    },
+    {
+      "index": 27,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 9276,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000028551764722071953,
+      "maximumAngularDegrees": 0.0006636177755550784
+    },
+    {
+      "index": 28,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 9276,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000031863689748027026,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 31,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 6939,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003433865105229308,
+      "maximumAngularDegrees": 0.0006980825281491331
+    },
+    {
+      "index": 32,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 6939,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000002962695996614205,
+      "maximumAngularDegrees": 0.000616173829060253
+    },
+    {
+      "index": 33,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 6939,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000035021772194499064,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 36,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 6355,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003300162563108031,
+      "maximumAngularDegrees": 0.0006392524344592415
+    },
+    {
+      "index": 37,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 6355,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000029755080483608645,
+      "maximumAngularDegrees": 0.0006368167081931526
+    },
+    {
+      "index": 38,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 6355,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033834776526519012,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 41,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 7489,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033751452486957824,
+      "maximumAngularDegrees": 0.0006502964695753844
+    },
+    {
+      "index": 42,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 7489,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000029219741956741876,
+      "maximumAngularDegrees": 0.0006609123503992802
+    },
+    {
+      "index": 43,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 7489,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000034472935694642756,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 46,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 8127,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003303892185171172,
+      "maximumAngularDegrees": 0.0006496230092029611
+    },
+    {
+      "index": 47,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 8127,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000002835751505506084,
+      "maximumAngularDegrees": 0.0006452970101796668
+    },
+    {
+      "index": 48,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 8127,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033923818703227462,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 51,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 2800,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032959036018019995,
+      "maximumAngularDegrees": 0.0006228441134013387
+    },
+    {
+      "index": 52,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 2800,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000002786984760652602,
+      "maximumAngularDegrees": 0.00060805648798137
+    },
+    {
+      "index": 53,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 2800,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003154530750007851,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 56,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 7185,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003293981209630598,
+      "maximumAngularDegrees": 0.0006409099691525622
+    },
+    {
+      "index": 57,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 7185,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000002859373180995041,
+      "maximumAngularDegrees": 0.0006262957825426174
+    },
+    {
+      "index": 58,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 7185,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033496791390965284,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 61,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 7185,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032025161321459585,
+      "maximumAngularDegrees": 0.0006107662988939076
+    },
+    {
+      "index": 62,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 7185,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000002807192319459524,
+      "maximumAngularDegrees": 0.0006243584273278237
+    },
+    {
+      "index": 63,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 7185,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033491462078848376,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 66,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 9873,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033787971359807943,
+      "maximumAngularDegrees": 0.0006863522398407813
+    },
+    {
+      "index": 67,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 9873,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003068924893099909,
+      "maximumAngularDegrees": 0.0006716789806590091
+    },
+    {
+      "index": 68,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 9873,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003283923547706356,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 71,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 9887,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033197939051493457,
+      "maximumAngularDegrees": 0.0006602248774692186
+    },
+    {
+      "index": 72,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 9887,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000029361458678196655,
+      "maximumAngularDegrees": 0.0006717630810949484
+    },
+    {
+      "index": 73,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 9887,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003290341776874882,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 76,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 2380,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033355104515295146,
+      "maximumAngularDegrees": 0.0006144294023081727
+    },
+    {
+      "index": 77,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 2380,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000028011551720293793,
+      "maximumAngularDegrees": 0.000599654896406842
+    },
+    {
+      "index": 78,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 2380,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.00000327941330984557,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 81,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 2826,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032600838314204555,
+      "maximumAngularDegrees": 0.0006185140773783241
+    },
+    {
+      "index": 82,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 2826,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000027970156525127405,
+      "maximumAngularDegrees": 0.000661534101401847
+    },
+    {
+      "index": 83,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 2826,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003532147035495106,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 86,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 2710,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003271734526389585,
+      "maximumAngularDegrees": 0.0005900502494688075
+    },
+    {
+      "index": 87,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 2710,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000030959353296034195,
+      "maximumAngularDegrees": 0.0006562915313290544
+    },
+    {
+      "index": 88,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 2710,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003424841506647454,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 91,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 2758,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000031271527302610455,
+      "maximumAngularDegrees": 0.0006085412036110844
+    },
+    {
+      "index": 92,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 2758,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000028793215448998115,
+      "maximumAngularDegrees": 0.000603599249802662
+    },
+    {
+      "index": 93,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 2758,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000034471202499670296,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 96,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 10316,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033218514235500983,
+      "maximumAngularDegrees": 0.0006628368904185858
+    },
+    {
+      "index": 97,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 10316,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000028561916518176047,
+      "maximumAngularDegrees": 0.0006228991162025918
+    },
+    {
+      "index": 98,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 10316,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000035428568265747325,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 101,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 10336,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032959420180182695,
+      "maximumAngularDegrees": 0.000667545626080328
+    },
+    {
+      "index": 102,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 10336,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000002819863959230871,
+      "maximumAngularDegrees": 0.0006684066229128781
+    },
+    {
+      "index": 103,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 10336,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003536168394408047,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 106,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 25,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003707352206715534,
+      "maximumAngularDegrees": 0.0005907669455690079
+    },
+    {
+      "index": 107,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 25,
+      "maximumError": 0.000007450580596923828,
+      "rmsError": 0.0000032044190993730398,
+      "maximumAngularDegrees": 0.0004789335330587704
+    },
+    {
+      "index": 108,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 25,
+      "maximumError": 0.0000037550926208496094,
+      "rmsError": 0.0000019169751700500147,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 111,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 8448,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000034718703647216067,
+      "maximumAngularDegrees": 0.0006333999320759885
+    },
+    {
+      "index": 112,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 8448,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003065090723893155,
+      "maximumAngularDegrees": 0.0006704156644827849
+    },
+    {
+      "index": 113,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 8448,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033892992205510483,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 116,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 7748,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003260546510358052,
+      "maximumAngularDegrees": 0.000658098894647376
+    },
+    {
+      "index": 117,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 7748,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000029752535897932305,
+      "maximumAngularDegrees": 0.0006160460525479728
+    },
+    {
+      "index": 118,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 7748,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003298069091947765,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 121,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 19097,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032559555315863835,
+      "maximumAngularDegrees": 0.0006572704204699302
+    },
+    {
+      "index": 122,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 19097,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000027512088382954558,
+      "maximumAngularDegrees": 0.0006365133048344449
+    },
+    {
+      "index": 123,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 19097,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000035057187449077533,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 126,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 19097,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032368766883467757,
+      "maximumAngularDegrees": 0.0006701068058619562
+    },
+    {
+      "index": 127,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 19097,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000026912336554960182,
+      "maximumAngularDegrees": 0.0006150329589458836
+    },
+    {
+      "index": 128,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 19097,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.000003505336085213692,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 131,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 2380,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000033906075088963416,
+      "maximumAngularDegrees": 0.0006028137739730031
+    },
+    {
+      "index": 132,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 2380,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000029615162506439824,
+      "maximumAngularDegrees": 0.0006182305790358299
+    },
+    {
+      "index": 133,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 2380,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032837714973604676,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 146,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 5491,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000032385572508284397,
+      "maximumAngularDegrees": 0.0006385467792150889
+    },
+    {
+      "index": 148,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 5491,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000027879990639839706,
+      "maximumAngularDegrees": 0.0006034488801315431
+    },
+    {
+      "index": 149,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 5491,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000034057855485927936,
+      "maximumAngularDegrees": 0
+    },
+    {
+      "index": 151,
+      "semantic": "NORMAL",
+      "significantBits": 16,
+      "count": 5324,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000030166989049362942,
+      "maximumAngularDegrees": 0.0006385307973948243
+    },
+    {
+      "index": 153,
+      "semantic": "TANGENT",
+      "significantBits": 16,
+      "count": 5324,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.0000026414595981402244,
+      "maximumAngularDegrees": 0.0006240659036722885
+    },
+    {
+      "index": 154,
+      "semantic": "TEXCOORD_0",
+      "significantBits": 16,
+      "count": 5324,
+      "maximumError": 0.00000762939453125,
+      "rmsError": 0.00000315049549042672,
+      "maximumAngularDegrees": 0
+    }
+  ],
+  "views": [
+    {
+      "index": 0,
+      "originalBytes": 5097468,
+      "storedBytes": 1312253,
+      "decodedSha256": "40504ca0a3bcf0141ffe9ed27f91e99689601db0c2ec3ed2c38382bb6585e58b",
+      "mode": "INDICES",
+      "byteStride": 4,
+      "count": 1274367,
+      "compressed": true
+    },
+    {
+      "index": 1,
+      "originalBytes": 1859960,
+      "storedBytes": 800611,
+      "decodedSha256": "b6fdf0110b62f354d3ae1c0506ceeb5d38af875fcc275ecc1a6ece8f514f088a",
+      "mode": "ATTRIBUTES",
+      "byteStride": 8,
+      "count": 232495,
+      "compressed": true
+    },
+    {
+      "index": 2,
+      "originalBytes": 5579880,
+      "storedBytes": 3517428,
+      "decodedSha256": "f1da6b4887821cfa5e1cc23c6bfeb487c74c051eda8ec28fa08de6868a82cffd",
+      "mode": "ATTRIBUTES",
+      "byteStride": 12,
+      "count": 464990,
+      "compressed": true
+    },
+    {
+      "index": 3,
+      "originalBytes": 3719920,
+      "storedBytes": 1599459,
+      "decodedSha256": "40d059396497a50a6d60af45f5cd3c6ccb3287a76ac20e5c7b00907da8198104",
+      "mode": "ATTRIBUTES",
+      "byteStride": 16,
+      "count": 232495,
+      "compressed": true
+    },
+    {
+      "index": 84,
+      "originalBytes": 100,
+      "storedBytes": 71,
+      "decodedSha256": "ae51f40d84705c1a402d1f6c14aa176cfc0306fd7a6bf756864db73505380a8b",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 25,
+      "compressed": true
+    },
+    {
+      "index": 85,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "d097447565538b5be52acc77c1d48d8c00ccd697147aadc1703eff2a8d207006",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 86,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "4c96956384eba65635415a47de2ce3469ebb304bf88cac7ed967aafedb3da123",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 87,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "aa2a8b974a599d7202ce072f5b4f6217353bf96ca9cc217206e79b7875cb6537",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 88,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "ab0a4715564c99921fe311d891b0c53d42364751b1b3018593ae28d4dffa81bf",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 89,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "93cbbf077f7e15af699a838d64296edbe18ac6d827da63b48a1dae8f74014410",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 90,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "1fac6453651d14f735a470f69fa6a6e01541f55edda9fa7c017a3bd157424e1f",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 91,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "1fac6453651d14f735a470f69fa6a6e01541f55edda9fa7c017a3bd157424e1f",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 92,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "93cbbf077f7e15af699a838d64296edbe18ac6d827da63b48a1dae8f74014410",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 93,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "93cbbf077f7e15af699a838d64296edbe18ac6d827da63b48a1dae8f74014410",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 94,
+      "originalBytes": 400,
+      "storedBytes": 400,
+      "decodedSha256": "1fac6453651d14f735a470f69fa6a6e01541f55edda9fa7c017a3bd157424e1f",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 100,
+      "compressed": false
+    },
+    {
+      "index": 95,
+      "originalBytes": 65892,
+      "storedBytes": 49448,
+      "decodedSha256": "6a85f07c9603a385edfc214f6daf57d25e55685f41028416b45a69475f1909b3",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 16473,
+      "compressed": true
+    },
+    {
+      "index": 96,
+      "originalBytes": 65892,
+      "storedBytes": 64262,
+      "decodedSha256": "3608099d6a737f09419f408b86b19bbe7fc6a644879f4b6c7ec8d67c801eb7b1",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 16473,
+      "compressed": true
+    },
+    {
+      "index": 97,
+      "originalBytes": 87856,
+      "storedBytes": 63318,
+      "decodedSha256": "418d41aa2bb7ff8bf29731f894dbc545c3925e14f086b553da4d48ba3e7b3891",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 21964,
+      "compressed": true
+    },
+    {
+      "index": 98,
+      "originalBytes": 43928,
+      "storedBytes": 25113,
+      "decodedSha256": "49202467f28c3d98bef77e7957b1587a714d4597cbbd450eb2dd03c8a5484338",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 10982,
+      "compressed": true
+    },
+    {
+      "index": 99,
+      "originalBytes": 57696,
+      "storedBytes": 29354,
+      "decodedSha256": "40c4759a7b04e31bf157119561944972a1ad1a2a410c1ddfc17bd6745b342009",
+      "mode": "INDICES",
+      "byteStride": 2,
+      "count": 28848,
+      "compressed": true
+    },
+    {
+      "index": 100,
+      "originalBytes": 63888,
+      "storedBytes": 47256,
+      "decodedSha256": "cd603ce50eeca188970ac09a38b45affb362e452b3edc276d235360573eaf62d",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 15972,
+      "compressed": true
+    },
+    {
+      "index": 101,
+      "originalBytes": 63888,
+      "storedBytes": 60704,
+      "decodedSha256": "2bf5d7f4a8108c0c9bb1fcfbe06c64c6235faa3867b88547a13c74d9f8c5f117",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 15972,
+      "compressed": true
+    },
+    {
+      "index": 102,
+      "originalBytes": 85184,
+      "storedBytes": 61006,
+      "decodedSha256": "59584f44fc09dac2a1fbd3be282def40631d1ea8dbe8f6d1f726611baf1e3ded",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 21296,
+      "compressed": true
+    },
+    {
+      "index": 103,
+      "originalBytes": 42592,
+      "storedBytes": 24148,
+      "decodedSha256": "fcd9ed8e14415dabe88f205e6a6345377e4be8c0ecd77748285c89d37b2ef926",
+      "mode": "ATTRIBUTES",
+      "byteStride": 4,
+      "count": 10648,
+      "compressed": true
+    },
+    {
+      "index": 104,
+      "originalBytes": 55848,
+      "storedBytes": 28499,
+      "decodedSha256": "087208a74ba26ff9bef2c027eecc170643914e9b47af503141dcf18d4731c98f",
+      "mode": "INDICES",
+      "byteStride": 2,
+      "count": 27924,
+      "compressed": true
+    }
+  ],
+  "images": [
+    {
+      "index": 0,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 87504,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "54049e6df33e272a4d80f113d1aff0a40b1d75e6e11894bf6ebe07c5fe597762",
+      "mode": "lossy",
+      "outputBytes": 25258,
+      "maximumPixelError": 17,
+      "rmsPixelError": 1.5782497847671881,
+      "psnr": 44.16728883322388,
+      "quality": 90
+    },
+    {
+      "index": 1,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 178688,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "cdf7074e03dba15767cfc942f99c7c97c06927be1fc033c2eaa49ba7c72c5de2",
+      "mode": "lossy",
+      "outputBytes": 27104,
+      "maximumPixelError": 42,
+      "rmsPixelError": 2.13528600773734,
+      "psnr": 41.54168252484871,
+      "quality": 90
+    },
+    {
+      "index": 2,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 282156,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "0f8f0f4c8ad4a801dc1a885a8b8ddc3f39253025aea30aebdd3413a7d6cdd866",
+      "mode": "resampled-lossless",
+      "outputBytes": 78082,
+      "maximumPixelError": 135,
+      "rmsPixelError": 5.678862751893744,
+      "psnr": 33.045576155120784,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.5168495775144617,
+        "p95": 10.100481944354764,
+        "p99": 21.948364875161733,
+        "maximumSampled": 75.95086212528041
+      }
+    },
+    {
+      "index": 3,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 29822,
+      "width": 256,
+      "height": 256,
+      "rgbaSha256": "0f3dcc0d05335c64d78129c3f0d8e7307cfcfd36da317b0210003e80516d56ed",
+      "mode": "lossy",
+      "outputBytes": 10836,
+      "maximumPixelError": 13,
+      "rmsPixelError": 1.9178146020667355,
+      "psnr": 42.47467118901551,
+      "quality": 90
+    },
+    {
+      "index": 4,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 17941,
+      "width": 256,
+      "height": 256,
+      "rgbaSha256": "3a80a24e10875a1692b7ed9639028e70dbd22cac6a0560412cce1a2b094c2185",
+      "mode": "lossy",
+      "outputBytes": 4434,
+      "maximumPixelError": 59,
+      "rmsPixelError": 1.4086310679506195,
+      "psnr": 45.154858354491324,
+      "quality": 90
+    },
+    {
+      "index": 5,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 103,
+      "width": 256,
+      "height": 256,
+      "rgbaSha256": "fe4f6b98e863f1c5255d0fe545cb4e0c583f3298a13556701f02f413506b9275",
+      "mode": "resampled-lossless",
+      "outputBytes": 32,
+      "maximumPixelError": 0,
+      "rmsPixelError": 0,
+      "psnr": null,
+      "outputWidth": 128,
+      "outputHeight": 128,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 0,
+        "p95": 0,
+        "p99": 0,
+        "maximumSampled": 0
+      }
+    },
+    {
+      "index": 6,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 29814,
+      "width": 256,
+      "height": 256,
+      "rgbaSha256": "b2d87bbe9b5b94e66acfe422e1f97c90e8da6680144d33b02c627688b7fbe6d3",
+      "mode": "lossy",
+      "outputBytes": 10708,
+      "maximumPixelError": 13,
+      "rmsPixelError": 1.9426447335503771,
+      "psnr": 42.36293590719238,
+      "quality": 90
+    },
+    {
+      "index": 7,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 18879,
+      "width": 256,
+      "height": 256,
+      "rgbaSha256": "922702f4b91f8345dcfedcf927077908d2e92ff158e6ac45663f134ebce49e9d",
+      "mode": "lossy",
+      "outputBytes": 4542,
+      "maximumPixelError": 56,
+      "rmsPixelError": 1.4318511100384563,
+      "psnr": 45.01284639799253,
+      "quality": 90
+    },
+    {
+      "index": 8,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 103,
+      "width": 256,
+      "height": 256,
+      "rgbaSha256": "fe4f6b98e863f1c5255d0fe545cb4e0c583f3298a13556701f02f413506b9275",
+      "mode": "resampled-lossless",
+      "outputBytes": 32,
+      "maximumPixelError": 0,
+      "rmsPixelError": 0,
+      "psnr": null,
+      "outputWidth": 128,
+      "outputHeight": 128,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 0,
+        "p95": 0,
+        "p99": 0,
+        "maximumSampled": 0
+      }
+    },
+    {
+      "index": 9,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 115017,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "5c3f059a3742251282b29b40ea4c036cd98c8aef2b76a41e030ac4e2d491a516",
+      "mode": "lossy",
+      "outputBytes": 41234,
+      "maximumPixelError": 18,
+      "rmsPixelError": 1.929141318674449,
+      "psnr": 42.42352275022874,
+      "quality": 90
+    },
+    {
+      "index": 10,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 197289,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "ffda8775320ac430c2624280f87aed1cdf04d2d1e4722c603595311d77c672ce",
+      "mode": "lossy",
+      "outputBytes": 27746,
+      "maximumPixelError": 50,
+      "rmsPixelError": 2.1302472571910567,
+      "psnr": 41.56220331266002,
+      "quality": 90
+    },
+    {
+      "index": 11,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 315952,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "5330e927705b691fab474b8991588f7869dbef5cbaff47eb9ce67ced3e168fed",
+      "mode": "resampled-lossless",
+      "outputBytes": 85192,
+      "maximumPixelError": 104,
+      "rmsPixelError": 5.153589660533728,
+      "psnr": 33.88860688534519,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.449112802402284,
+        "p95": 10.144626136409844,
+        "p99": 20.61213167082752,
+        "maximumSampled": 55.65119917323095
+      }
+    },
+    {
+      "index": 12,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 108716,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "f43a82de7dafa545016e570950a12e77e2d7f2c72547afc684222cff7fdf13d6",
+      "mode": "lossy",
+      "outputBytes": 36446,
+      "maximumPixelError": 15,
+      "rmsPixelError": 1.827832320822124,
+      "psnr": 42.892076558423156,
+      "quality": 90
+    },
+    {
+      "index": 13,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 99635,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "4ab5932ffaacbec6d2f4debd829b156a95ea0fe2b3e3d8bf9e12a14b70d1547d",
+      "mode": "lossy",
+      "outputBytes": 11622,
+      "maximumPixelError": 55,
+      "rmsPixelError": 1.38744960384089,
+      "psnr": 45.28645926354231,
+      "quality": 90
+    },
+    {
+      "index": 14,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 4160,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "09fb88f329c3ebea1254f029f0647bb1dd65f382f072fc20ae1db9b05e7894fd",
+      "mode": "resampled-lossless",
+      "outputBytes": 1016,
+      "maximumPixelError": 13,
+      "rmsPixelError": 0.07082603267370603,
+      "psnr": 71.12694529993794,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 0.004584019984858401,
+        "p95": 0,
+        "p99": 0,
+        "maximumSampled": 6.5220078748091765
+      }
+    },
+    {
+      "index": 15,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 197088,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "9fc032f808997514149998bd49ae750e5b35c155ee3dfaf3f0ae9fd45ac2a2fb",
+      "mode": "lossy",
+      "outputBytes": 24090,
+      "maximumPixelError": 60,
+      "rmsPixelError": 2.071427415744102,
+      "psnr": 41.80540921026846,
+      "quality": 90
+    },
+    {
+      "index": 16,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 319468,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "b0c1a7abf92d093b0e00242dba242d051054f5ef74c66f0787a395a379ce4c99",
+      "mode": "resampled-lossless",
+      "outputBytes": 86676,
+      "maximumPixelError": 121,
+      "rmsPixelError": 4.896306159812734,
+      "psnr": 34.33343229128789,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.3106785160506034,
+        "p95": 8.90264093372793,
+        "p99": 19.8374797631301,
+        "maximumSampled": 59.29783396647442
+      }
+    },
+    {
+      "index": 17,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 117708,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "7fd40f3bbc2d3ed38d5fb4ade0f3357ed578d5852ff518ef8bb900b713168b44",
+      "mode": "lossy",
+      "outputBytes": 44012,
+      "maximumPixelError": 17,
+      "rmsPixelError": 1.9085292010453168,
+      "psnr": 42.51682742535215,
+      "quality": 90
+    },
+    {
+      "index": 18,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 268372,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "87041987853229f6f76273a374262ec1221397063e078094e9e0e0fba9166cf6",
+      "mode": "lossy",
+      "outputBytes": 47226,
+      "maximumPixelError": 74,
+      "rmsPixelError": 4.0477428315839985,
+      "psnr": 35.98654536194473,
+      "quality": 90
+    },
+    {
+      "index": 19,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 370740,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "e192fad13d2e2f62cdb08fb17f19ecb9a9518c23c97314856683190ebaabc1b8",
+      "mode": "resampled-lossless",
+      "outputBytes": 106718,
+      "maximumPixelError": 130,
+      "rmsPixelError": 8.2108474276436,
+      "psnr": 29.84304396408143,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 4.342555700790395,
+        "p95": 16.707208027917172,
+        "p99": 30.229738237140616,
+        "maximumSampled": 81.9211876138955
+      }
+    },
+    {
+      "index": 20,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 117780,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "eae4109c216f5a48a84ea820777da32e812dc32af25a055903e15485b4dbf09b",
+      "mode": "lossy",
+      "outputBytes": 43966,
+      "maximumPixelError": 16,
+      "rmsPixelError": 1.8982586560563786,
+      "psnr": 42.563695829947115,
+      "quality": 90
+    },
+    {
+      "index": 21,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 259879,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "e6071e92c66b8c056815ef1cb8eaa57916a8dce1831851f6379058feb68e3ce9",
+      "mode": "lossy",
+      "outputBytes": 43084,
+      "maximumPixelError": 73,
+      "rmsPixelError": 3.774429727894399,
+      "psnr": 36.59377672639441,
+      "quality": 90
+    },
+    {
+      "index": 22,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 350329,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "52253e4977823c38cc002f1b4fb08a1399941fc687619bea6fc763c83e454bb4",
+      "mode": "resampled-lossless",
+      "outputBytes": 98804,
+      "maximumPixelError": 129,
+      "rmsPixelError": 6.334232124331996,
+      "psnr": 32.096924118932726,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 3.2849449196053153,
+        "p95": 12.29279838957007,
+        "p99": 24.37162628108181,
+        "maximumSampled": 75.49786782006964
+      }
+    },
+    {
+      "index": 23,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 103918,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "7031e63a2693b9d2abe1de4b2a52283c71a51c63e917105fe39a77e704d9eea4",
+      "mode": "lossy",
+      "outputBytes": 36008,
+      "maximumPixelError": 15,
+      "rmsPixelError": 1.7447851683841986,
+      "psnr": 43.29596439170315,
+      "quality": 90
+    },
+    {
+      "index": 24,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 184983,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "9ea3407c60e7ce03e1d9d8105bd278609a59595c73b40b6fe6c77fa2a7b79243",
+      "mode": "lossy",
+      "outputBytes": 22836,
+      "maximumPixelError": 46,
+      "rmsPixelError": 1.9372240916040944,
+      "psnr": 42.3872063815147,
+      "quality": 90
+    },
+    {
+      "index": 25,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 332298,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "4e020b9d9b1a44bf1a17b4c178a6f3a3e68ee8589557e473ed8e56b8ef70f2f3",
+      "mode": "resampled-lossless",
+      "outputBytes": 85312,
+      "maximumPixelError": 104,
+      "rmsPixelError": 5.141091554566649,
+      "psnr": 33.90969684824548,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.6366331582625673,
+        "p95": 10.04159253448875,
+        "p99": 18.694196441038656,
+        "maximumSampled": 48.59671140531381
+      }
+    },
+    {
+      "index": 26,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 101715,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "25c0a7b16d53ba139015fe18662beee7096a7973343a44e955371249caaa669a",
+      "mode": "lossy",
+      "outputBytes": 33610,
+      "maximumPixelError": 18,
+      "rmsPixelError": 1.7001484749974434,
+      "psnr": 43.52106660397965,
+      "quality": 90
+    },
+    {
+      "index": 27,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 199564,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "5c30d250f5d7c49e21bcaa489a7f5152b310aafd6ed88c2d148555a5e2ee0212",
+      "mode": "lossy",
+      "outputBytes": 26242,
+      "maximumPixelError": 58,
+      "rmsPixelError": 2.1698533123731654,
+      "psnr": 41.40219610018944,
+      "quality": 90
+    },
+    {
+      "index": 28,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 334746,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "82b7e626e34689485a6a7435a366153155df731a2cc7b3f0c3b2df726b3ca64f",
+      "mode": "resampled-lossless",
+      "outputBytes": 88720,
+      "maximumPixelError": 118,
+      "rmsPixelError": 5.703132859316074,
+      "psnr": 33.008533829455516,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.597825951600413,
+        "p95": 10.264785468414775,
+        "p99": 22.943122398653742,
+        "maximumSampled": 65.8039606036288
+      }
+    },
+    {
+      "index": 29,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 111342,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "134c7fd8db8242f4f965066eac7e0c0b47b32fca1bc6525e8d3c22f635c3c41e",
+      "mode": "lossy",
+      "outputBytes": 38234,
+      "maximumPixelError": 16,
+      "rmsPixelError": 1.8797658750155686,
+      "psnr": 42.64872838426324,
+      "quality": 90
+    },
+    {
+      "index": 30,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 192300,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "fde3cd8f454e9a67837f3fff7bfc17f702727edeaca3252d3ac5185802935f04",
+      "mode": "lossy",
+      "outputBytes": 27036,
+      "maximumPixelError": 72,
+      "rmsPixelError": 2.3325119162170282,
+      "psnr": 40.774326186168324,
+      "quality": 90
+    },
+    {
+      "index": 31,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 295799,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "527bdf43692e2a39616fdeec8c3050a637a1f7b0ab036440f703550b46881460",
+      "mode": "resampled-lossless",
+      "outputBytes": 78978,
+      "maximumPixelError": 126,
+      "rmsPixelError": 5.013782673864577,
+      "psnr": 34.127493504415924,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.184951790951166,
+        "p95": 9.571455275485267,
+        "p99": 20.144882880026707,
+        "maximumSampled": 77.10927276625861
+      }
+    },
+    {
+      "index": 32,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 87467,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "61da4ac493993fbac3486c538fc9a26eb5af8290f14fc1167bae59e74b6417d1",
+      "mode": "lossy",
+      "outputBytes": 25190,
+      "maximumPixelError": 15,
+      "rmsPixelError": 1.5830029929368334,
+      "psnr": 44.1411688892624,
+      "quality": 90
+    },
+    {
+      "index": 33,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 179405,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "8e0b5722e80e236d90ccab1132c5994042cde79b07afd44e028ee1e69b1c5846",
+      "mode": "lossy",
+      "outputBytes": 25682,
+      "maximumPixelError": 42,
+      "rmsPixelError": 2.1976824691407213,
+      "psnr": 41.291504731933095,
+      "quality": 90
+    },
+    {
+      "index": 34,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 243867,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "01baf10ecd8ca48bace23f37beefab68dfa13949f82586dfb0c0ab22fa4734c5",
+      "mode": "resampled-lossless",
+      "outputBytes": 64972,
+      "maximumPixelError": 97,
+      "rmsPixelError": 3.38787688238558,
+      "psnr": 37.5322512205595,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 1.5003291583347789,
+        "p95": 5.958075923698821,
+        "p99": 12.463811649500215,
+        "maximumSampled": 52.627417592390756
+      }
+    },
+    {
+      "index": 35,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 116065,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "d47ddc8667991504338fc043ae241d0d7d38799ad2948d0eb2e18f9b9dd8aa88",
+      "mode": "lossy",
+      "outputBytes": 43382,
+      "maximumPixelError": 17,
+      "rmsPixelError": 1.8611367478510707,
+      "psnr": 42.735237923008754,
+      "quality": 90
+    },
+    {
+      "index": 36,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 261268,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "c893d3a8e75c148ec89c6916dee729ecae33395477c70b4e5f79b3816bfd039e",
+      "mode": "lossy",
+      "outputBytes": 44350,
+      "maximumPixelError": 68,
+      "rmsPixelError": 3.5583557652310605,
+      "psnr": 37.10581627305415,
+      "quality": 90
+    },
+    {
+      "index": 37,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 387895,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "3629c9b148ba14ab28e2bfdc28202c984ee00171729e610a611132fb30d4e580",
+      "mode": "resampled-lossless",
+      "outputBytes": 108716,
+      "maximumPixelError": 126,
+      "rmsPixelError": 7.630098045689099,
+      "psnr": 30.48020123640149,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 4.033902905709615,
+        "p95": 14.5522863150081,
+        "p99": 29.985741764197034,
+        "maximumSampled": 70.91089712664079
+      }
+    },
+    {
+      "index": 38,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 115955,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "b2beb0529dba26c1487c69c20a97b1359096e87a62367945bb22bab450698656",
+      "mode": "lossy",
+      "outputBytes": 43686,
+      "maximumPixelError": 14,
+      "rmsPixelError": 1.8528450817190805,
+      "psnr": 42.774021428098806,
+      "quality": 90
+    },
+    {
+      "index": 39,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 245165,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "d7c80d736d8114e444d4b65675b7af80a5cdd346311515697341f21c11be7279",
+      "mode": "lossy",
+      "outputBytes": 37938,
+      "maximumPixelError": 74,
+      "rmsPixelError": 3.1635413223348476,
+      "psnr": 38.127333376510244,
+      "quality": 90
+    },
+    {
+      "index": 40,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 451539,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "6de4cac78824d47a9f5976a20fcdf2338c70c2a9576e892942005f22d8a5a58a",
+      "mode": "resampled-lossless",
+      "outputBytes": 131336,
+      "maximumPixelError": 177,
+      "rmsPixelError": 12.984665666579149,
+      "psnr": 25.862188173622336,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 7.467957465284425,
+        "p95": 26.685348237646142,
+        "p99": 45.74566522254316,
+        "maximumSampled": 104.37351704193748
+      }
+    },
+    {
+      "index": 41,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 106944,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "161803b9de5db7823f3b5074356dbbe31421426e35ca075a9d4e9a2efb8aeaeb",
+      "mode": "lossy",
+      "outputBytes": 34822,
+      "maximumPixelError": 18,
+      "rmsPixelError": 1.8257877374222837,
+      "psnr": 42.90179789087564,
+      "quality": 90
+    },
+    {
+      "index": 42,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 179622,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "b9ed32ab938ffa74fa58d3c4cbbe66ae6dcde7799e9fdde8f0451c6c4e4d15f6",
+      "mode": "lossy",
+      "outputBytes": 21370,
+      "maximumPixelError": 54,
+      "rmsPixelError": 1.7765475659174694,
+      "psnr": 43.13926680995507,
+      "quality": 90
+    },
+    {
+      "index": 43,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 332378,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "87e05adb11a0647ae14cffcee13557274b319e19abaf3687800519b2fe00baac",
+      "mode": "resampled-lossless",
+      "outputBytes": 91110,
+      "maximumPixelError": 139,
+      "rmsPixelError": 6.329579428732126,
+      "psnr": 32.10330652633811,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.9843980558102343,
+        "p95": 11.510194433495792,
+        "p99": 25.01981391362202,
+        "maximumSampled": 78.61053930632404
+      }
+    },
+    {
+      "index": 44,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 106935,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "c0581091ae17cfc09f1965d1f28eba983a3923c7c9f07af9908a01b1c5a27c54",
+      "mode": "lossy",
+      "outputBytes": 35252,
+      "maximumPixelError": 15,
+      "rmsPixelError": 1.8098580409067622,
+      "psnr": 42.977913376142645,
+      "quality": 90
+    },
+    {
+      "index": 45,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 180039,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "e6b37f35e2cfdee0da64dee71efdc2938fc821f8e0979cef86de9762edea3a11",
+      "mode": "lossy",
+      "outputBytes": 21204,
+      "maximumPixelError": 52,
+      "rmsPixelError": 1.7671718067177304,
+      "psnr": 43.18522812412076,
+      "quality": 90
+    },
+    {
+      "index": 46,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 335099,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "7211131aad2f354d34d2e9d2b17e11f559eb7293b0dc643197ba40f42bfafeb6",
+      "mode": "resampled-lossless",
+      "outputBytes": 91482,
+      "maximumPixelError": 139,
+      "rmsPixelError": 6.319971252207018,
+      "psnr": 32.116501552639804,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 3.0251303246042323,
+        "p95": 11.561181623622545,
+        "p99": 24.590551616276077,
+        "maximumSampled": 78.61053930632404
+      }
+    },
+    {
+      "index": 47,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 105034,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "ce6305be974691552f76edf0710ad382abf8daa57c5013ef8c496628ad97db68",
+      "mode": "lossy",
+      "outputBytes": 36632,
+      "maximumPixelError": 17,
+      "rmsPixelError": 1.7286325878506679,
+      "psnr": 43.376749689125624,
+      "quality": 90
+    },
+    {
+      "index": 48,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 205706,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "d768c79602246199e1fea28d7ceb097ea18bbdb2d47244cca0b98f1aca12800f",
+      "mode": "lossy",
+      "outputBytes": 25684,
+      "maximumPixelError": 67,
+      "rmsPixelError": 2.253049479368337,
+      "psnr": 41.07538902071222,
+      "quality": 90
+    },
+    {
+      "index": 49,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 352141,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "ec81c092f24867779151d36e72de5928bb9f83738f1826f52b2eea5af92c8b82",
+      "mode": "resampled-lossless",
+      "outputBytes": 94716,
+      "maximumPixelError": 146,
+      "rmsPixelError": 6.952005634858687,
+      "psnr": 31.288601299628,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 3.2685857344866958,
+        "p95": 13.025948606690449,
+        "p99": 27.28067000298248,
+        "maximumSampled": 87.98128648491735
+      }
+    },
+    {
+      "index": 50,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 108764,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "0108a607595a188d4402d602e9b13b7c35cec76799d548744255ca857d05544d",
+      "mode": "lossy",
+      "outputBytes": 36414,
+      "maximumPixelError": 18,
+      "rmsPixelError": 1.8157164873982565,
+      "psnr": 42.949842865625484,
+      "quality": 90
+    },
+    {
+      "index": 51,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 235268,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "d1c46744199540f3fdd217d91f7b036291b608158ced336355dd07a06fa10379",
+      "mode": "lossy",
+      "outputBytes": 33056,
+      "maximumPixelError": 54,
+      "rmsPixelError": 2.6238982295327906,
+      "psnr": 39.75186387882508,
+      "quality": 90
+    },
+    {
+      "index": 52,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 392367,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "5d0d1f13d15ba8b720c768eef724ab9a71355a82950c3c5aaf1cada52aaa85be",
+      "mode": "resampled-lossless",
+      "outputBytes": 107030,
+      "maximumPixelError": 136,
+      "rmsPixelError": 7.703052884087346,
+      "psnr": 30.397546019653213,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 4.095556429301217,
+        "p95": 14.848395514689544,
+        "p99": 28.408634621651505,
+        "maximumSampled": 77.27820157265306
+      }
+    },
+    {
+      "index": 53,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 106536,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "a7c7911551152a77cfa743a6148e98b90029534e4356f87a5f68f4a019f77a5a",
+      "mode": "lossy",
+      "outputBytes": 36478,
+      "maximumPixelError": 14,
+      "rmsPixelError": 1.7773086041339623,
+      "psnr": 43.13554674153161,
+      "quality": 90
+    },
+    {
+      "index": 54,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 226790,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "3d828f9ec7fd180e8a84416b7668a2fd27277d8916ab945bef128d81ea96535a",
+      "mode": "lossy",
+      "outputBytes": 31098,
+      "maximumPixelError": 71,
+      "rmsPixelError": 2.5620649014902495,
+      "psnr": 39.95900106926395,
+      "quality": 90
+    },
+    {
+      "index": 55,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 377589,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "bfdcedb70d897de098238700525ae80c81411d8a0267d85a6c27ff00f2b50387",
+      "mode": "resampled-lossless",
+      "outputBytes": 100398,
+      "maximumPixelError": 139,
+      "rmsPixelError": 6.532776722585376,
+      "psnr": 31.828847306374286,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 3.500721326666247,
+        "p95": 11.759499294905138,
+        "p99": 24.407572059347707,
+        "maximumSampled": 85.85693461411515
+      }
+    },
+    {
+      "index": 56,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 101645,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "0e31df8ce6a74681fc125602de2dff15a64451a72c2f88901f0de7ab2c12bf6f",
+      "mode": "lossy",
+      "outputBytes": 31868,
+      "maximumPixelError": 19,
+      "rmsPixelError": 1.729094844690017,
+      "psnr": 43.37442728980798,
+      "quality": 90
+    },
+    {
+      "index": 57,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 194160,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "0865d0dca4c2562a3d56748c27d7fdc06ed712fb0d594c20c0186b552c646a10",
+      "mode": "lossy",
+      "outputBytes": 24068,
+      "maximumPixelError": 53,
+      "rmsPixelError": 2.0087444354243136,
+      "psnr": 42.07230987466104,
+      "quality": 90
+    },
+    {
+      "index": 58,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 355083,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "2ec6125b5180e6d5c5bc0b9418e83c3f5d35c056d650f453f73de8daeb51a98f",
+      "mode": "resampled-lossless",
+      "outputBytes": 94960,
+      "maximumPixelError": 118,
+      "rmsPixelError": 5.374812455564856,
+      "psnr": 33.523537310170134,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.833718727924555,
+        "p95": 9.987892801156391,
+        "p99": 19.620738846649598,
+        "maximumSampled": 60.09838114620225
+      }
+    },
+    {
+      "index": 59,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 105106,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "b28113f27d1bbf3569cc99e42c3847118d20fb1718cb10fb7ecf59dfa314e4e0",
+      "mode": "lossy",
+      "outputBytes": 33334,
+      "maximumPixelError": 20,
+      "rmsPixelError": 1.8070488875699713,
+      "psnr": 42.99140556781275,
+      "quality": 90
+    },
+    {
+      "index": 60,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 223142,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "aa3aa78f2e117323a722b283c0e879e314d976f2ebbaccd6d68d7ab821d60d2d",
+      "mode": "lossy",
+      "outputBytes": 36082,
+      "maximumPixelError": 81,
+      "rmsPixelError": 3.0751008800303254,
+      "psnr": 38.37361625736508,
+      "quality": 90
+    },
+    {
+      "index": 61,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 329417,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "15abe5bd6375efc84589e8d7a6995514aae81b6b4b685621bc2b1bf6fdb05907",
+      "mode": "resampled-lossless",
+      "outputBytes": 95406,
+      "maximumPixelError": 126,
+      "rmsPixelError": 6.158771521327651,
+      "psnr": 32.340921750829786,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.9075060749441044,
+        "p95": 11.853189513404741,
+        "p99": 23.723759239684462,
+        "maximumSampled": 75.53730729802699
+      }
+    },
+    {
+      "index": 62,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 431054,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "74fa2573745df8c5d7861196738ffcfc05b9e1d3baf83a8e83a3ec8457e427a6",
+      "mode": "lossy",
+      "outputBytes": 147420,
+      "maximumPixelError": 23,
+      "rmsPixelError": 1.8171124797892761,
+      "psnr": 42.94316738679049,
+      "quality": 90
+    },
+    {
+      "index": 63,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 735528,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "9cea8f6cc799cbaa1f14387b9d8767bb524a2848a5589410de32d1fb9a47c9e2",
+      "mode": "lossy",
+      "outputBytes": 96472,
+      "maximumPixelError": 68,
+      "rmsPixelError": 2.422360623801707,
+      "psnr": 40.446027642872544,
+      "quality": 90
+    },
+    {
+      "index": 64,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 1093392,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "624631e1a64f4eb0e891bc6a8e9519fd9ef7b9589008a9e4e642496b379287be",
+      "mode": "resampled-lossless",
+      "outputBytes": 311988,
+      "maximumPixelError": 108,
+      "rmsPixelError": 5.19785046073424,
+      "psnr": 33.814327989996926,
+      "outputWidth": 512,
+      "outputHeight": 512,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.128862291198715,
+        "p95": 9.770095754020934,
+        "p99": 22.16547196723115,
+        "maximumSampled": 60.320847149550026
+      }
+    },
+    {
+      "index": 65,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": true,
+      "inputBytes": 421098,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "7ab3cbb7bae3b8b381fe012745cf5535538f24b8436ba671717e293db18004b1",
+      "mode": "lossy",
+      "outputBytes": 212628,
+      "maximumPixelError": 13,
+      "rmsPixelError": 1.32096395277904,
+      "psnr": 45.712984278686086,
+      "quality": 95
+    },
+    {
+      "index": 66,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 1060015,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "233f69e271836340a1acb25b2f5b6825c2d13549360c82d9f44403f308ddafc2",
+      "mode": "lossy",
+      "outputBytes": 173230,
+      "maximumPixelError": 65,
+      "rmsPixelError": 3.2953161739728625,
+      "psnr": 37.772861809597835,
+      "quality": 90
+    },
+    {
+      "index": 67,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 1022828,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "3b9660d79cc33ced5cf7fca3b220822df99b57f501ed2da891abf5410fa18162",
+      "mode": "resampled-lossless",
+      "outputBytes": 302188,
+      "maximumPixelError": 108,
+      "rmsPixelError": 3.090405438437776,
+      "psnr": 38.330494420664,
+      "outputWidth": 512,
+      "outputHeight": 512,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 1.3669161216417487,
+        "p95": 5.939052145253128,
+        "p99": 11.742213887071614,
+        "maximumSampled": 40.73197447837
+      }
+    },
+    {
+      "index": 68,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 89554,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "4cdf4236679abe4e8ea8043be03277d7028c31aab4c9c34a34463cbac7cf24c2",
+      "mode": "lossy",
+      "outputBytes": 26664,
+      "maximumPixelError": 16,
+      "rmsPixelError": 1.577649035297984,
+      "psnr": 44.170595684267056,
+      "quality": 90
+    },
+    {
+      "index": 69,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 183720,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "39eb62c0d9cde24fc7774673546a571caea7cd6ca35b01072b3d01873a2a8ec8",
+      "mode": "lossy",
+      "outputBytes": 24184,
+      "maximumPixelError": 38,
+      "rmsPixelError": 2.014406530859604,
+      "psnr": 42.047861193041065,
+      "quality": 90
+    },
+    {
+      "index": 70,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 333379,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "dd0f27cbf671400a5d5e0814ff7fd9686be27e3b81460478a05a07bb2ccb1203",
+      "mode": "resampled-lossless",
+      "outputBytes": 87202,
+      "maximumPixelError": 129,
+      "rmsPixelError": 5.147095570473165,
+      "psnr": 33.899558963925216,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.5176781324392863,
+        "p95": 9.172475051170142,
+        "p99": 18.86425021105168,
+        "maximumSampled": 70.21691605076012
+      }
+    },
+    {
+      "index": 71,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 82206,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "2dbceca01ae3868ffdaf42b092ae44c0767aeb94f2146acb84ccf467056f5cdc",
+      "mode": "lossy",
+      "outputBytes": 21818,
+      "maximumPixelError": 13,
+      "rmsPixelError": 1.5078801747685262,
+      "psnr": 44.56346698363332,
+      "quality": 90
+    },
+    {
+      "index": 72,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 195647,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "22e7db72cf0365a30190e01825a2afd3a1816efa2b652c08797f7cdfcd7c4587",
+      "mode": "lossy",
+      "outputBytes": 28732,
+      "maximumPixelError": 66,
+      "rmsPixelError": 2.523835803269546,
+      "psnr": 40.08958166897712,
+      "quality": 90
+    },
+    {
+      "index": 73,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 297914,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "28b53ecc5d358839d3bff99c139b0cf7d80db6b4003f479fe7e0025583d27f1d",
+      "mode": "resampled-lossless",
+      "outputBytes": 77480,
+      "maximumPixelError": 110,
+      "rmsPixelError": 3.970291318990813,
+      "psnr": 36.15435612536415,
+      "outputWidth": 256,
+      "outputHeight": 256,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 1.7926583775560514,
+        "p95": 6.362663943704726,
+        "p99": 15.307389568289322,
+        "maximumSampled": 74.19435932119293
+      }
+    },
+    {
+      "index": 74,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 445415,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "6fa7ca283bc9d0f011a22504d503b5e2a91ac51abf26504c2f109fd2f1e3c728",
+      "mode": "lossy",
+      "outputBytes": 166246,
+      "maximumPixelError": 18,
+      "rmsPixelError": 1.79848103275855,
+      "psnr": 43.03268636872151,
+      "quality": 90
+    },
+    {
+      "index": 75,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 978334,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "7ce65d887aa4a34315da5274c349108924bb3cb436ea2647dc54f326bfe78307",
+      "mode": "lossy",
+      "outputBytes": 158548,
+      "maximumPixelError": 82,
+      "rmsPixelError": 3.2452689361219633,
+      "psnr": 37.90578975461634,
+      "quality": 90
+    },
+    {
+      "index": 76,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 1133649,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "62091959cbe6b6f84c1e1cc693a39cce5cf71f7c252ea60e584f83fbfcd09e2a",
+      "mode": "resampled-lossless",
+      "outputBytes": 350140,
+      "maximumPixelError": 102,
+      "rmsPixelError": 4.503412198101583,
+      "psnr": 35.05996961204508,
+      "outputWidth": 512,
+      "outputHeight": 512,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 2.061859651815424,
+        "p95": 9.999057600536224,
+        "p99": 17.206156213699007,
+        "maximumSampled": 55.34450126853343
+      }
+    },
+    {
+      "index": 77,
+      "mimeType": "image/webp",
+      "roles": [
+        "color"
+      ],
+      "colorOnly": true,
+      "faceColor": false,
+      "inputBytes": 611425,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "faa17e9c90a00950b641ae84e752e70a275cb7b138c66ba1eea4914a5a30d246",
+      "mode": "lossy",
+      "outputBytes": 200588,
+      "maximumPixelError": 37,
+      "rmsPixelError": 2.3333473261913165,
+      "psnr": 40.771215814191905,
+      "quality": 90
+    },
+    {
+      "index": 78,
+      "mimeType": "image/webp",
+      "roles": [
+        "data"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 975712,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "bd2aaa7a476c0a893c33acabd0ba9a6a3f56043c36380ce16d40cd1d0fd428bc",
+      "mode": "lossy",
+      "outputBytes": 136644,
+      "maximumPixelError": 126,
+      "rmsPixelError": 3.2144679873117457,
+      "psnr": 37.988621508536895,
+      "quality": 90
+    },
+    {
+      "index": 79,
+      "mimeType": "image/webp",
+      "roles": [
+        "normal"
+      ],
+      "colorOnly": false,
+      "faceColor": false,
+      "inputBytes": 1486493,
+      "width": 1024,
+      "height": 1024,
+      "rgbaSha256": "f0d9db95c734185544abb1937c859ab738c5514d148b39dc1b7e3ad0624bafe9",
+      "mode": "resampled-lossless",
+      "outputBytes": 375802,
+      "maximumPixelError": 163,
+      "rmsPixelError": 8.47992253664012,
+      "psnr": 29.562965908033988,
+      "outputWidth": 512,
+      "outputHeight": 512,
+      "resampling": "Lanczos half-size; error compared after bilinear upsampling",
+      "normalAngularDegrees": {
+        "samples": 65536,
+        "mean": 3.756903014615286,
+        "p95": 15.51284233232387,
+        "p99": 39.763450588863314,
+        "maximumSampled": 77.52531702733687
+      }
+    }
+  ]
+}

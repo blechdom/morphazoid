@@ -54,3 +54,67 @@ test('four wing joints replace the original cover mesh and independently unfold 
   assert.equal(rig.leaves[0].quaternion.w, 1);
   assert.equal(rig.leaves[2].quaternion.w, 1);
 });
+
+test('prepared covers reuse their geometry and reproduce the original rig and pre-articulation bounds', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { precomputeRoachWingsGlb, decodeRoachGlb, roachGeometryScene } = await import('../scripts/precompute-roach-wings.mjs');
+  const bytes = await readFile(new URL('../assets/roach-synth/cockroach.glb', import.meta.url));
+  const original = decodeRoachGlb(bytes), prepared = precomputeRoachWingsGlb(bytes), encoded = decodeRoachGlb(prepared.buffer);
+  const first = roachGeometryScene(original.json, original.binary).scene;
+  const second = roachGeometryScene(encoded.json, encoded.binary).scene;
+  function authoredJoints(scene) {
+    const joints = []; scene.traverse((object) => { if (object.userData.roachJoint) joints.push(object.userData.jointId); }); return joints;
+  }
+  const ids = authoredJoints(first);
+  assert.equal(ids.length, 27);
+  assert.deepEqual(authoredJoints(second), ids);
+  assert.deepEqual(encoded.json.animations, original.json.animations);
+  assert.deepEqual(encoded.json.materials, original.json.materials);
+  assert.deepEqual(encoded.json.images, original.json.images);
+  assert.deepEqual(encoded.binary.subarray(0, original.binary.length), original.binary);
+  const firstBounds = new THREE.Box3().setFromObject(first), secondBounds = new THREE.Box3().setFromObject(second);
+  assert.ok(firstBounds.min.distanceTo(secondBounds.min) < 1e-7);
+  assert.ok(firstBounds.max.distanceTo(secondBounds.max) < 1e-7);
+  const existingGeometry = [];
+  second.traverse((object) => {
+    if (object.userData.preparedRoachWingCover) {
+      existingGeometry.push(object.geometry);
+      object.geometry.clone = () => { throw new Error('Prepared covers must not be cloned or reclipped at load time.'); };
+    }
+  });
+  const a = articulateRoachWings(first), b = articulateRoachWings(second);
+  assert.equal(a.prepared, false); assert.equal(b.prepared, true);
+  assert.equal(b.sourceTriangles, a.sourceTriangles); assert.equal(b.coverTriangles, a.coverTriangles);
+  assert.deepEqual(b.leaves.map((joint) => joint.userData), a.leaves.map((joint) => joint.userData));
+  assert.deepEqual(b.leaves.map((joint) => joint.position.toArray()), a.leaves.map((joint) => joint.position.toArray()));
+  assert.equal(b.leaves[0].children[0].geometry, existingGeometry[0]);
+  assert.equal(b.leaves[2].children[0].geometry, existingGeometry[1]);
+  for (let leaf = 0; leaf < 4; leaf += 1) {
+    const firstObjects = a.leaves[leaf].children, secondObjects = b.leaves[leaf].children;
+    assert.equal(firstObjects.length, secondObjects.length);
+    for (let child = 0; child < firstObjects.length; child += 1) {
+      const before = firstObjects[child].geometry, after = secondObjects[child].geometry;
+      for (const name of Object.keys(before.attributes)) assert.deepEqual(after.attributes[name].array, before.attributes[name].array);
+      assert.deepEqual(after.index?.array, before.index?.array);
+    }
+  }
+  for (const angle of [0, .2, .8, 1.4]) {
+    for (const rig of [a, b]) {
+      rig.leaves.forEach((joint, i) => joint.rotation.set(angle * .1, angle * (i % 2 ? .3 : .1), angle * (i < 2 ? 1 : -1)));
+      updateRoachWingFans(rig);
+      rig.parent.updateMatrixWorld(true);
+    }
+    assert.deepEqual(b.fans.map((fan) => fan.membrane.morphTargetInfluences), a.fans.map((fan) => fan.membrane.morphTargetInfluences));
+    for (let leaf = 0; leaf < 4; leaf += 1) assert.deepEqual(b.leaves[leaf].matrixWorld.elements, a.leaves[leaf].matrixWorld.elements);
+  }
+  assert.equal(articulateRoachWings(second), null);
+});
+
+test('precomputation is deterministic and rejects an already prepared asset', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { precomputeRoachWingsGlb } = await import('../scripts/precompute-roach-wings.mjs');
+  const bytes = await readFile(new URL('../assets/roach-synth/cockroach.glb', import.meta.url));
+  const first = precomputeRoachWingsGlb(bytes), second = precomputeRoachWingsGlb(bytes);
+  assert.deepEqual(first.buffer, second.buffer);
+  assert.throws(() => precomputeRoachWingsGlb(first.buffer), /unprepared/);
+});

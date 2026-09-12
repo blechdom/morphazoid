@@ -1,14 +1,15 @@
 import { test, expect } from '@playwright/test';
 
-async function specimen(page, { touch = false } = {}) {
+async function specimen(page, { touch = false, modelUrl = '/assets/roach-synth/cockroach.glb' } = {}) {
   await page.goto('/README.md');
   await page.setContent(`<html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;background:#090d12;min-height:1800px"><canvas id="specimen" tabindex="0" aria-label="Articulated roach" style="display:block;width:100%;height:${touch ? 460 : 700}px"></canvas></body></html>`);
-  await page.evaluate(async () => {
+  await page.evaluate(async (modelUrl) => {
     const { createRoachViewer } = await import('/src/roach-synth-viewer.js');
     const { writeRoachPose, writeRoachSceneState, createRoachSceneState } = await import('/src/roach-synth-motion.js');
     window.interactions = [];
     window.poseChanges = [];
     window.joints = [];
+    window.rigNotifications = [];
     window.motion = { presetId: 'none', intensity: 1, antennae: false, tempo: 108 };
     window.motionTime = 0;
     const scene = createRoachSceneState();
@@ -21,13 +22,12 @@ async function specimen(page, { touch = false } = {}) {
       specimenViewer.setSceneState(scene);
     };
     window.specimenViewer = createRoachViewer({ canvas: document.querySelector('#specimen'),
-      onRig(state) { joints = state.bones; },
+      onRig(state) { joints = state.bones; rigNotifications.push({ modelName: state.modelName, joints: state.bones.length }); },
       onPoseChange(change) { poseChanges.push(change); joints.find((joint) => joint.id === change.id).offset = change.offset; drawSpecimen(); },
       onInteraction(change) { interactions.push(change); },
     });
-    await specimenViewer.loadUrl('/assets/roach-synth/cockroach.glb');
-    drawSpecimen();
-  });
+    if (modelUrl) { await specimenViewer.loadUrl(modelUrl); drawSpecimen(); }
+  }, modelUrl);
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(0);
 }
 
@@ -285,4 +285,118 @@ test('two-finger churn cancels touch manipulation without zooming or restarting 
     expect(edited.interaction.active).toBeNull();
     expect(edited.interaction.pointerCount).toBe(0);
   } finally { await context.close(); }
+});
+
+
+const optimizedModelUrl = '/assets/roach-synth/cockroach-mobile.glb';
+
+async function optimizedFixture(page) {
+  // Local candidate runs can route the same final public URL before the asset
+  // is copied into the checkout. Normal CI always tests the bundled GLB.
+  if (process.env.ROACH_SYNTH_OPTIMIZED_FIXTURE) await page.route(`**${optimizedModelUrl}`, (route) => route.fulfill({
+    path: process.env.ROACH_SYNTH_OPTIMIZED_FIXTURE, contentType: 'model/gltf-binary',
+  }));
+}
+
+function workerLifecycle(page) {
+  const state = { started: 0, peak: 0, live: new Set(), errors: [] };
+  page.on('worker', (worker) => {
+    state.started += 1; state.live.add(worker); state.peak = Math.max(state.peak, state.live.size);
+    worker.on('close', () => state.live.delete(worker));
+  });
+  page.on('pageerror', (error) => state.errors.push(error.message));
+  return state;
+}
+
+async function geometryLifecycleFixture(page) {
+  await page.evaluate(async (url) => {
+    const bytes = await (await fetch(url)).arrayBuffer(), view = new DataView(bytes);
+    const jsonLength = view.getUint32(12, true);
+    const json = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes, 20, jsonLength)));
+    // Preserve the real compressed geometry and joint graph while avoiding
+    // multiple full texture uploads in a lifecycle/ownership regression.
+    json.materials = json.materials.map(() => ({})); json.images = []; json.textures = [];
+    const encoded = new TextEncoder().encode(JSON.stringify(json)), length = Math.ceil(encoded.length / 4) * 4;
+    const binary = new Uint8Array(bytes, 28 + jsonLength, view.getUint32(20 + jsonLength, true));
+    const buffer = new ArrayBuffer(28 + length + binary.length), header = new DataView(buffer);
+    header.setUint32(0, 0x46546c67, true); header.setUint32(4, 2, true); header.setUint32(8, buffer.byteLength, true);
+    header.setUint32(12, length, true); header.setUint32(16, 0x4e4f534a, true);
+    new Uint8Array(buffer, 20, length).fill(32); new Uint8Array(buffer, 20, encoded.length).set(encoded);
+    header.setUint32(20 + length, binary.length, true); header.setUint32(24 + length, 0x004e4942, true);
+    new Uint8Array(buffer, 28 + length).set(binary);
+    window.optimizedGeometry = buffer;
+    const mesh = json.meshes[json.nodes.find(node => node.mesh != null).mesh];
+    const accessor = json.accessors[mesh.primitives[0].attributes.POSITION];
+    const packed = json.bufferViews[accessor.bufferView].extensions?.EXT_meshopt_compression;
+    if (!packed) throw new Error('The lifecycle fixture requires a real compressed POSITION view.');
+    window.corruptPositionByte = 28 + length + (packed.byteOffset ?? 0);
+  }, optimizedModelUrl);
+}
+
+test('optimized roach loads 31 ordered joints and four wings, then closes its decoder worker', async ({ page }) => {
+  const workers = workerLifecycle(page);
+  await optimizedFixture(page);
+  await specimen(page, { modelUrl: optimizedModelUrl });
+  const state = await page.evaluate(() => specimenViewer.getState());
+  expect(state.bones).toHaveLength(31);
+  expect(state.bones[7].jointId).toBe('front_left_proximal');
+  expect(state.bones.slice(27).map(joint => joint.jointId)).toEqual([
+    'wing_cover_left', 'wing_hind_left', 'wing_cover_right', 'wing_hind_right',
+  ]);
+  expect(state.wings).toMatchObject({ independent: 4, reconstructedHindwings: 2, splitTexturedCovers: 2,
+    sourceTriangles: 18024, coverTriangles: 18924, originalPairedMeshRemoved: true });
+  expect(state.ground.contacts).toHaveLength(6);
+  expect(state.bones.filter(joint => joint.gaitPose)).toHaveLength(20);
+  expect(workers.started).toBe(1);
+  await expect.poll(() => page.workers().length).toBe(0);
+  expect(workers.errors).toEqual([]);
+  await page.evaluate(() => specimenViewer.dispose());
+});
+
+test('overlapping optimized replacements share one decoder and only the latest rig commits', async ({ page }) => {
+  const workers = workerLifecycle(page);
+  await optimizedFixture(page);
+  await specimen(page, { modelUrl: null });
+  await geometryLifecycleFixture(page);
+  const results = await page.evaluate(async () => {
+    const obsolete = specimenViewer.loadArrayBuffer(optimizedGeometry.slice(0), { name: 'Obsolete optimized rig' });
+    const latest = specimenViewer.loadArrayBuffer(optimizedGeometry.slice(0), { name: 'Latest optimized rig' });
+    return await Promise.all([obsolete, latest]);
+  });
+  expect(results).toEqual([false, true]);
+  expect(await page.evaluate(() => rigNotifications)).toEqual([{ modelName: 'Latest optimized rig', joints: 31 }]);
+  expect(await page.evaluate(() => specimenViewer.getState().modelName)).toBe('Latest optimized rig');
+  expect(workers.started).toBe(1); expect(workers.peak).toBe(1);
+  await expect.poll(() => page.workers().length).toBe(0);
+  expect(workers.errors).toEqual([]);
+  await page.evaluate(() => specimenViewer.dispose());
+});
+
+test('failed optimized decoding preserves the prior rig and disposal cancels a pending replacement without leaking a worker', async ({ page }) => {
+  const workers = workerLifecycle(page);
+  await optimizedFixture(page);
+  await specimen(page, { modelUrl: null });
+  await geometryLifecycleFixture(page);
+  await page.evaluate(() => specimenViewer.loadArrayBuffer(optimizedGeometry.slice(0), { name: 'Retained optimized rig' }));
+  await expect.poll(() => page.workers().length).toBe(0);
+  const failure = await page.evaluate(async () => {
+    const corrupt = optimizedGeometry.slice(0); new Uint8Array(corrupt)[corruptPositionByte] = 0;
+    try { await specimenViewer.loadArrayBuffer(corrupt, { name: 'Corrupt rig' }); return null; }
+    catch (error) { return error.message; }
+  });
+  expect(failure).toMatch(/buffer|decode|malformed/i);
+  expect(await page.evaluate(() => specimenViewer.getState().modelName)).toBe('Retained optimized rig');
+  expect(await page.evaluate(() => rigNotifications)).toEqual([{ modelName: 'Retained optimized rig', joints: 31 }]);
+  await expect.poll(() => page.workers().length).toBe(0);
+  const disposed = await page.evaluate(async () => {
+    const pending = specimenViewer.loadArrayBuffer(optimizedGeometry.slice(0), { name: 'Disposed pending rig' });
+    specimenViewer.dispose();
+    return { result: await pending, state: specimenViewer.getState(), notifications: rigNotifications };
+  });
+  expect(disposed.result).toBe(false); expect(disposed.state.disposed).toBe(true);
+  expect(disposed.state.loaded).toBe(false); expect(disposed.state.bones).toEqual([]);
+  expect(disposed.notifications).toEqual([{ modelName: 'Retained optimized rig', joints: 31 }]);
+  expect(workers.started).toBe(3); expect(workers.peak).toBe(1);
+  await expect.poll(() => page.workers().length).toBe(0);
+  expect(workers.errors).toEqual([]);
 });

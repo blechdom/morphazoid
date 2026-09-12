@@ -112,19 +112,14 @@ function authoredHindwing(length, sign) {
   return { membrane, veinLines };
 }
 
-/** Adapt only the known paired-cover rig. Original GLB bytes stay untouched.
- * Hindwing membranes are authored reconstructions, absent from the scan. */
-export function articulateRoachWings(model) {
-  let parent = null;
-  model.traverse((object) => { if (object.userData.jointId === 'wings') parent = object; });
-  if (!parent || parent.userData.fourWings) return null;
-  const originals = [];
-  parent.traverse((object) => { if (object.isMesh && !object.isSkinnedMesh && object.geometry?.attributes?.position) originals.push(object); });
-  if (originals.length !== 1) return null;
-  model.updateMatrixWorld(true);
-  const original = originals[0];
-  const matrix = parent.matrixWorld.clone().invert().multiply(original.matrixWorld);
-  const temporary = original.geometry.clone().applyMatrix4(matrix);
+export const ROACH_WING_PREPARATION_VERSION = 1;
+const WING_ORDER = ['wing_cover_left', 'wing_hind_left', 'wing_cover_right', 'wing_hind_right'];
+
+/** The expensive sagittal fit and triangle clipping are shared by the browser
+ * fallback and scripts/precompute-roach-wings.mjs. Covers leave this function
+ * in hinge-local coordinates, ready to store directly in the derived GLB. */
+export function prepareRoachWingGeometry(source, { matrix = new THREE.Matrix4() } = {}) {
+  const temporary = source.clone().applyMatrix4(matrix);
   temporary.computeBoundingBox();
   const bounds = temporary.boundingBox;
   const span = bounds.getSize(new THREE.Vector3());
@@ -143,26 +138,87 @@ export function articulateRoachWings(model) {
   const slope = samples.reduce((sum, point) => sum + (point[0] - mx) * (point[1] - my), 0)
     / Math.max(1e-8, samples.reduce((sum, point) => sum + (point[1] - my) ** 2, 0));
   const intercept = mx - slope * my;
-  const halves = splitRoachWingGeometry(original.geometry, { matrix, slope, intercept });
+  const halves = splitRoachWingGeometry(source, { matrix, slope, intercept });
   const hingeY = bounds.max.y - span.y * .09;
   const centerX = slope * hingeY + intercept;
   frontZ.sort((a, b) => a - b);
   const hingeZ = frontZ[Math.floor(frontZ.length / 2)] ?? bounds.min.z;
+  const hinges = {};
+  for (const [side, sign] of [['left', 1], ['right', -1]]) for (const type of ['cover', 'hind']) {
+    hinges[`wing_${type}_${side}`] = [centerX + sign * span.x * .13,
+      hingeY - (type === 'hind' ? span.y * .04 : 0), hingeZ + (type === 'hind' ? span.z * .11 : 0)];
+  }
+  for (const [index, side] of ['left', 'right'].entries()) {
+    const position = hinges[`wing_cover_${side}`];
+    halves[index].translate(-position[0], -position[1], -position[2]);
+  }
+  temporary.dispose();
+  return { covers: halves, metadata: { version: ROACH_WING_PREPARATION_VERSION, span: span.toArray(), hinges,
+    sourceTriangles: (source.index?.count ?? source.attributes.position.count) / 3,
+    coverTriangles: halves.reduce((sum, geometry) => sum + geometry.index.count / 3, 0) } };
+}
+
+function preparedWingCovers(parent) {
+  const metadata = parent.userData.preparedRoachWings;
+  const vector = (value) => Array.isArray(value) && value.length === 3 && value.every((number) => Number.isFinite(number) && Math.abs(number) < 1e12);
+  if (metadata?.version !== ROACH_WING_PREPARATION_VERSION || !vector(metadata.span)
+    || metadata.span[0] <= 0 || metadata.span[1] <= 0 || metadata.span[2] < 0
+    || !WING_ORDER.every((id) => vector(metadata.hinges?.[id]))
+    || !Number.isInteger(metadata.sourceTriangles) || metadata.sourceTriangles < 1
+    || !Number.isInteger(metadata.coverTriangles) || metadata.coverTriangles < 1) return null;
+  const covers = ['left', 'right'].map((side) => parent.children.filter((object) => object.isMesh
+    && !object.isSkinnedMesh && object.userData.preparedRoachWingCover === side
+    && object.geometry?.attributes?.position));
+  if (covers.some((meshes) => meshes.length !== 1)) return null;
+  const meshes = covers.map(([mesh]) => mesh);
+  if (meshes.some((mesh, index) => !mesh.position.equals(new THREE.Vector3().fromArray(metadata.hinges[WING_ORDER[index * 2]]))
+    || mesh.quaternion.x !== 0 || mesh.quaternion.y !== 0 || mesh.quaternion.z !== 0 || mesh.quaternion.w !== 1
+    || mesh.scale.x !== 1 || mesh.scale.y !== 1 || mesh.scale.z !== 1)) return null;
+  const triangles = meshes.reduce((sum, mesh) => sum + (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3, 0);
+  if (triangles !== metadata.coverTriangles) return null;
+  return { metadata, covers: meshes };
+}
+
+/** Adapt only the known paired-cover rig. Prepared derived assets reuse their
+ * split covers; original GLBs use the same clipping algorithm as a fallback.
+ * Both append four joints after the authored joints. Hindwing membranes are
+ * small authored reconstructions, absent from the scan. */
+export function articulateRoachWings(model) {
+  let parent = null;
+  model.traverse((object) => { if (object.userData.jointId === 'wings') parent = object; });
+  if (!parent || parent.userData.fourWings) return null;
+  const prepared = preparedWingCovers(parent);
+  let original = null;
+  let metadata;
+  let covers;
+  if (prepared) ({ metadata, covers } = prepared);
+  else {
+    const originals = [];
+    parent.traverse((object) => { if (object.isMesh && !object.isSkinnedMesh && object.geometry?.attributes?.position) originals.push(object); });
+    if (originals.length !== 1) return null;
+    model.updateMatrixWorld(true);
+    original = originals[0];
+    const matrix = parent.matrixWorld.clone().invert().multiply(original.matrixWorld);
+    const geometry = prepareRoachWingGeometry(original.geometry, { matrix });
+    metadata = geometry.metadata;
+    covers = geometry.covers.map((half) => new THREE.Mesh(half, original.material));
+  }
+  const span = new THREE.Vector3().fromArray(metadata.span);
   const leaves = [];
   const fans = [];
   for (const [side, sign, index] of [['left', 1, 0], ['right', -1, 1]]) {
     for (const type of ['cover', 'hind']) {
       const joint = new THREE.Group();
       joint.name = `roach_joint_wing_${type}_${side}`;
-      joint.position.set(centerX + sign * span.x * .13, hingeY - (type === 'hind' ? span.y * .04 : 0), hingeZ + (type === 'hind' ? span.z * .11 : 0));
+      joint.position.fromArray(metadata.hinges[`wing_${type}_${side}`]);
       joint.userData = { roachJoint: true, jointId: `wing_${type}_${side}`, displayName: `${side === 'left' ? 'Left' : 'Right'} ${type === 'cover' ? 'wing cover' : 'hindwing'}`,
         jointGroup: type === 'cover' ? 'Wing covers' : 'Hindwings', suggestedRotationLimitDegrees: 90,
         wingOpenSign: sign, wingLayer: type, authoredReconstruction: type === 'hind' };
       parent.add(joint);
       leaves.push(joint);
       if (type === 'cover') {
-        halves[index].translate(-joint.position.x, -joint.position.y, -joint.position.z);
-        const mesh = new THREE.Mesh(halves[index], original.material);
+        const mesh = covers[index];
+        mesh.position.set(0, 0, 0);
         mesh.name = `${side} split photogrammetry wing cover`;
         mesh.userData.splitPhotogrammetryCover = true;
         joint.add(mesh);
@@ -173,17 +229,18 @@ export function articulateRoachWings(model) {
       }
     }
   }
-  original.removeFromParent();
+  original?.removeFromParent();
   // This geometry was unique to the removed paired mesh; materials/textures
   // are still shared by the two replacement covers and must stay alive.
   let shared = false;
-  model.traverse((object) => { if (object.geometry === original.geometry) shared = true; });
-  if (!shared) original.geometry.dispose();
-  temporary.dispose();
+  if (original) {
+    model.traverse((object) => { if (object.geometry === original.geometry) shared = true; });
+    if (!shared) original.geometry.dispose();
+  }
   parent.userData.fourWings = true;
   parent.userData.displayName = 'All four wings';
-  return { parent, leaves, fans, sourceTriangles: (original.geometry.index?.count ?? positions.count) / 3,
-    coverTriangles: halves.reduce((sum, geometry) => sum + geometry.index.count / 3, 0), unfolded: 0 };
+  return { parent, leaves, fans, sourceTriangles: metadata.sourceTriangles,
+    coverTriangles: metadata.coverTriangles, unfolded: 0, prepared: !!prepared };
 }
 
 export function updateRoachWingFans(rig) {

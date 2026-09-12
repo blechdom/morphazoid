@@ -65,8 +65,9 @@ Reset restores neutral without changing the sound mix.
 The viewer calibrates a lowered, spread neutral stance from the curled scan
 once at load, using bounded joint solving. Its angles and kinematic metadata
 are passed to the sound engine. The original GLB retains 27 source joints;
-four runtime wing hinges bring the total to 31. The viewer separates the
-source-textured covers and reconstructs two thin veined hindwings underneath.
+four runtime wing hinges bring the total to 31. The default mobile asset has
+pre-separated source-textured covers; the original GLB uses the same split at
+runtime. The viewer reconstructs two thin veined hindwings underneath.
 Those hindwings are an authored flight illusion, not recovered scan anatomy.
 The long antennae remain rigid articulated meshes. Small palps, mouth and jaw
 are fused into the scanned head, so they share Head and have no invented
@@ -86,7 +87,10 @@ On phones, an explicit Audio on/off control remains on the sticky viewport,
 with nearby loading/audio status that does not shift the scrolled controls.
 Sound Play and speech remain usable while the GLB is loading; animation waits
 for the rig. Built browser and WAX pages version the complete Roach module
-graph together to prevent cached controls and worklets from mixing releases.
+graph and the mobile model together to prevent cached controls, worklets and
+model assets from mixing releases. A temporary worker decodes the compressed
+geometry, and texture uploads yield between short batches. Audio remains in
+its existing independent AudioWorklet; loading does not arm or suspend it.
 
 A fixed 20-frame output lookahead (0.42 ms at 48 kHz) protects dense mixtures.
 The guard conservatively bounds a four-times windowed-sinc reconstruction,
@@ -145,7 +149,7 @@ This is an explicitly creative voice. Reuse the existing phoneme/diphone path fo
 
 `src/spelling-pronunciation.js` exports `spellingPronunciationTokens(value, pronunciations)` around 313 with dictionary lookup and fallback pronunciation; prefer it over raw letter `spellingTokens`. `SpellingSynthesizerAudio` in `src/spelling-synthesizer-audio.js` around 1293 supports the existing `vocoder` backend and enable/articulate/durationMs/release/close lifecycle. `event.wordSpeech=true` selects shorter 100–220 ms vowels in the diphone engine. Existing `src/spelling-vocoder-processor.js` uses speech envelopes with pulse/noise carriers and preserves unvoiced consonants. The KAL16 asset and its existing repository attribution should be reused consistently. This is a practical speech starting point, not a cockroach vocal-tract model.
 
-The on-disk GLB/rig manifest preserves **paired wing covers in one mesh**. The viewer now partitions their triangles into independently hinged covers while preserving source UVs, and authors two thin veined hindwing fans underneath. These fans are a flight illusion, not recovered scan anatomy. There are no independent mouth-palps, mandible or jaw meshes. The rigid hierarchy has no flexible tissue deformation; the manifest describes the original asset, while these runtime additions are recorded in `assets/roach-synth/SOURCE.LICENSE.txt`.
+The original GLB/rig manifest preserves **paired wing covers in one mesh**. The mobile derivative precomputes the viewer's triangle partition into independently hinged covers, and the viewer authors two thin veined hindwing fans underneath. These fans are a flight illusion, not recovered scan anatomy. There are no independent mouth-palps, mandible or jaw meshes. The rigid hierarchy has no flexible tissue deformation; the manifest describes the original asset, while these adaptations are recorded in `assets/roach-synth/SOURCE.LICENSE.txt`.
 
 ## V5: acquired recording bank and the boundary between recording and synthesis
 

@@ -64,6 +64,27 @@ transforms (maximum measured difference 1.11e-16).
 See rig-manifest.json for per-joint pivot evidence, parent relationships,
 confidence, suggested ranges and source/output hashes.
 
+Mobile delivery derivative (cockroach-mobile.glb):
+- The original cockroach.glb above remains unchanged and attributed.
+- The same cover partition is prepared offline, retaining the original 27
+  joints and adding two unjointed cover mesh nodes. Runtime adds the same four
+  hinges and authored hindwing fans, preserving the 31 playable controls.
+- Vertex positions, index ordering, joint transforms and animation values are
+  preserved exactly by compression. No triangles are decimated. Normal,
+  tangent and UV float attributes retain 16 significant bits; their small
+  shading error is measured in cockroach-mobile.glb.report.json.
+- The normalhalf delivery profile halves normal-map dimensions with Lanczos
+  resampling and then lossless WebP encoding. Color and material-data images
+  keep their original dimensions with high-quality lossy WebP; head color is
+  retained at quality 95. This derivative changes shading/texture data and must
+  not be described as a lossless copy of the scan.
+- Geometry streams use lossless EXT_meshopt_compression. The MIT-licensed
+  meshoptimizer decoder is separately attributed in vendor/meshoptimizer.
+- MOBILE_ASSET.md records the exact rebuild commands, quality alternatives,
+  byte counts, measured errors and the GPU-memory estimate. The adjacent JSON
+  report pins the input/output hashes and tool versions. The derivative remains
+  CC BY 4.0; no endorsement by the original creators is implied.
+
 Example from the repository root:
 python3 scripts/build-roach-rig.py /path/to/original-cockroach.glb assets/roach-synth/cockroach.glb
 

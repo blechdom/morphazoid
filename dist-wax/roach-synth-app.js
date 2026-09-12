@@ -1,15 +1,15 @@
-import { createRoachViewer } from './src/roach-synth-viewer.js?v=365ba8cf3adb';
+import { createRoachViewer } from './src/roach-synth-viewer.js?v=195ff4b2d228';
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
-  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState } from './src/roach-synth-motion.js?v=365ba8cf3adb';
+  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState } from './src/roach-synth-motion.js?v=195ff4b2d228';
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './src/roach-synth-audio.js?v=365ba8cf3adb';
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './src/roach-synth-audio.js?v=195ff4b2d228';
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController();
 const options = { signal: listeners.signal };
-const modelUrl = new URL('./assets/roach-synth/cockroach.glb', import.meta.url);
+const modelUrl = new URL('./assets/roach-synth/cockroach-mobile.glb?v=77fc19bf4aca', import.meta.url);
 const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
   playing: false, soundPlaying: false, audioOn: false, audioStarting: false, disposed: false,

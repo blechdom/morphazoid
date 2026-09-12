@@ -7,7 +7,9 @@ Kathrin&Christian (extracrispi), licensed under [CC BY 4.0](https://creativecomm
 [Original model](https://sketchfab.com/3d-models/cockroach-3d-photogrammetry-scan-cff6ea065e2e4029be5ba20f03937b63),
 retrieved from the Allen Institute for AI's public Objaverse collection.
 Morphazoid preserves the on-disk scan while adding approximate rigid joint
-pivots. Runtime adaptations split the textured wing covers and add two authored
+pivots. The mobile derivative pre-splits the textured wing covers, compresses
+geometry streams and textures, and retains the source vertex positions and
+joint transforms. Runtime adaptations add two authored
 veined hindwing fans with independent hinges. The preview image and catalogue
 icon are renders of this adapted model. Full attribution, exact hashes, and
 modification details are in `assets/roach-synth/SOURCE.LICENSE.txt` and
@@ -24,6 +26,15 @@ derived from its public high-quality MP3 preview, with filtering, gain adjustmen
 and short fades. Exact source offsets, processing, checksums and attribution are
 in `assets/roach-synth/audio/CREDITS.md` and its adjacent `manifest.json`.
 Other animal recordings in `ROACH_SYNTH_RESEARCH.md` remain linked references.
+
+## meshoptimizer
+
+Roach Synth's compressed model uses the unmodified meshoptimizer 0.25 decoder
+by Arseny Kapoulkine, under the MIT license. The decoder and its embedded WASM
+are in `vendor/meshoptimizer/`; source URLs and checksums are in its `README.md`,
+and the full license is in `LICENSE.txt`. The matching encoder under
+`scripts/vendor/meshoptimizer/` is used only to prepare assets and is excluded
+from published site bundles.
 
 ## MakeHuman teeth_base
 

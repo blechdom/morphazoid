@@ -76,6 +76,12 @@ for worktree_runtime_file in \
   src/roach-synth-processor.js \
   ROACH_SYNTH_RESEARCH.md \
   assets/roach-synth/cockroach.glb \
+  assets/roach-synth/cockroach-mobile.glb \
+  assets/roach-synth/cockroach-mobile.glb.report.json \
+  assets/roach-synth/MOBILE_ASSET.md \
+  vendor/meshoptimizer/meshopt_decoder.module.js \
+  vendor/meshoptimizer/LICENSE.txt \
+  vendor/meshoptimizer/README.md \
   assets/roach-synth/rig-manifest.json \
   assets/roach-synth/specimen.webp \
   assets/roach-synth/SOURCE.LICENSE.txt \
@@ -772,6 +778,9 @@ for catalog_icon in "$repo_root"/assets/instruments/*.webp; do
 done
 
 required_files=(
+  assets/roach-synth/cockroach-mobile.glb
+  vendor/meshoptimizer/meshopt_decoder.module.js
+  vendor/meshoptimizer/LICENSE.txt
   src/roach-synth-percussion.js
   jaw-jam.html
   jaw-jam.css

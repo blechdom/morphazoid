@@ -52,3 +52,60 @@ test('GLB preflight refuses truncated and out-of-range binary data', () => {
   assert.throws(() => inspectRoachGlb(complete.slice(0, -1)), /valid GLB/);
   assert.throws(() => inspectRoachGlb(glb({ bufferViews: [{ buffer: 0, byteOffset: 2, byteLength: 8 }] })), /buffer range/);
 });
+
+function packedDocument() {
+  return {
+    extensionsRequired: ['EXT_meshopt_compression'],
+    buffers: [{ byteLength: 4 }, { byteLength: 16, extensions: { EXT_meshopt_compression: { fallback: true } } }],
+    bufferViews: [{ buffer: 1, byteOffset: 0, byteLength: 16, extensions: {
+      EXT_meshopt_compression: { buffer: 0, byteOffset: 0, byteLength: 4, byteStride: 4, count: 4, mode: 'ATTRIBUTES', filter: 'NONE' },
+    } }],
+  };
+}
+
+test('compressed GLB preflight permits embedded mesh data with a bounded virtual decode buffer', () => {
+  const document = packedDocument();
+  assert.equal(inspectRoachGlb(glb(document)).json.buffers[1].byteLength, 16);
+  document.buffers[1].extensions.EXT_meshopt_compression.fallback = false;
+  assert.throws(() => inspectRoachGlb(glb(document)), /decompression buffer/);
+});
+
+test('compressed GLB preflight rejects external streams, truncated data and inconsistent decode sizes', () => {
+  for (const change of [
+    packed => { packed.buffer = 1; },
+    packed => { packed.byteOffset = 2; },
+    packed => { packed.byteLength = 0; },
+    packed => { packed.count = 100; },
+    packed => { packed.count = 1.5; },
+    packed => { packed.byteStride = 3; },
+    packed => { packed.mode = 'UNKNOWN'; },
+    packed => { packed.mode = 'TRIANGLES'; },
+  ]) {
+    const document = packedDocument();
+    change(document.bufferViews[0].extensions.EXT_meshopt_compression);
+    assert.throws(() => inspectRoachGlb(glb(document)), /compressed buffer/);
+  }
+  const document = packedDocument();
+  delete document.bufferViews[0].extensions;
+  assert.throws(() => inspectRoachGlb(glb(document)), /buffer range/);
+});
+
+test('compressed GLB preflight limits total allocation even when virtual ranges overlap', () => {
+  const document = packedDocument();
+  const budget = 64 * 1024 * 1024;
+  document.buffers[1].byteLength = budget;
+  document.bufferViews[0].byteLength = budget;
+  document.bufferViews[0].extensions.EXT_meshopt_compression.count = budget / 4;
+  document.bufferViews.push(structuredClone(document.bufferViews[0]));
+  assert.throws(() => inspectRoachGlb(glb(document)), /decompression budget/);
+  document.bufferViews.pop();
+  document.buffers[1].byteLength = budget + 1;
+  assert.throws(() => inspectRoachGlb(glb(document)), /decompression buffer/);
+});
+
+test('an alternative meshopt extension cannot bypass the decompression preflight', () => {
+  const document = { buffers: [{ byteLength: 4 }], bufferViews: [{ buffer: 0, byteLength: 4,
+    extensions: { KHR_meshopt_compression: { buffer: 0, byteLength: 4, count: 1_000_000, byteStride: 256, mode: 'ATTRIBUTES' } },
+  }] };
+  assert.throws(() => inspectRoachGlb(glb(document)), /unsupported compressed buffer/);
+});

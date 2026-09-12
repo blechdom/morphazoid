@@ -30,7 +30,7 @@ test('Sound Play and sticky Audio work while the specimen download is still pend
   const page = await context.newPage();
   let release;
   const gate = new Promise(resolve => { release = resolve; });
-  await page.route('**/assets/roach-synth/cockroach.glb', async route => { await gate; await route.continue().catch(() => {}); });
+  await page.route('**/assets/roach-synth/cockroach-mobile.glb', async route => { await gate; await route.continue().catch(() => {}); });
   try {
     await page.goto(new URL('roach-synth.html', baseURL).href, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(window.roachSynth));
@@ -224,10 +224,10 @@ test('MIDI input reaches the visible pitch control and animation transport', asy
 });
 
 test('failed specimen download preserves its poster and Retry loads all 31 joints', async ({ page }) => {
-  await page.route('**/assets/roach-synth/cockroach.glb', route => route.fulfill({ status: 503, body: 'Unavailable' }));
+  await page.route('**/assets/roach-synth/cockroach-mobile.glb', route => route.fulfill({ status: 503, body: 'Unavailable' }));
   await page.goto('roach-synth.html'); await expect(page.locator('#modelStatus')).toContainText('503');
   await expect(page.locator('#specimenImage')).toBeVisible(); await expect(page.locator('#roachCanvas')).toBeHidden();
-  await page.unroute('**/assets/roach-synth/cockroach.glb'); await page.locator('#retryModel').click();
+  await page.unroute('**/assets/roach-synth/cockroach-mobile.glb'); await page.locator('#retryModel').click();
   await loaded(page); await expect(page.locator('#roachCanvas')).toBeVisible(); await expect(page.locator('#specimenImage')).toBeHidden();
 });
 

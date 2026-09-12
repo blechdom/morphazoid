@@ -1,8 +1,11 @@
 import * as THREE from '../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../vendor/three/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
 import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js';
 
 const MAX_BYTES = 64 * 1024 * 1024;
+const MESHOPT = 'EXT_meshopt_compression';
+const MAX_DECODED_BYTES = 64 * 1024 * 1024;
 const MAX_VERTICES = 1_000_000;
 const MAX_NODES = 2048;
 const MAX_BONES = 512;
@@ -10,6 +13,20 @@ const MAX_RENDER_PIXELS = 1_650_000;
 const RAD = Math.PI / 180;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
 const finiteArray = (values) => values.every(Number.isFinite);
+let decoderLoads = 0;
+let decoderWorker = false;
+
+// One temporary worker keeps decompression away from touch and audio controls.
+// Overlapping replacement loads share it until every parse has settled.
+function acquireDecoder() {
+  if (decoderLoads++ === 0 && typeof Worker === 'function') {
+    try { MeshoptDecoder.useWorkers(1); decoderWorker = true; }
+    catch { decoderWorker = false; } // Environments without blob workers use the same bounded WASM decoder.
+  }
+  return () => {
+    if (--decoderLoads === 0 && decoderWorker) { MeshoptDecoder.useWorkers(0); decoderWorker = false; }
+  };
+}
 
 /** Validate before decoding images or constructing a graph. Imports stay self-contained. */
 export function inspectRoachGlb(buffer) {
@@ -37,20 +54,46 @@ export function inspectRoachGlb(buffer) {
     offset += 8 + length;
   }
   if (!json || json.asset?.version !== '2.0') throw new Error('The GLB must use glTF 2.0.');
-  if ((json.buffers?.length ?? 0) > 1 || (json.buffers ?? []).some((item) => item.uri != null)
+  const buffers = json.buffers ?? [];
+  const compressed = (json.extensionsRequired ?? []).includes(MESHOPT);
+  if (buffers.length > (compressed ? 2 : 1) || buffers.some((item) => item.uri != null)
     || (json.images ?? []).some((item) => item.uri != null || !Number.isInteger(item.bufferView))) {
     throw new Error('Export one GLB with all buffers and textures embedded; external resources are not supported.');
   }
-  if ((json.buffers?.[0]?.byteLength ?? 0) > binaryBytes) throw new Error('The GLB binary data is incomplete.');
+  if ((buffers[0]?.byteLength ?? 0) > binaryBytes) throw new Error('The GLB binary data is incomplete.');
+  if (buffers.length === 2 && (buffers[1].extensions?.[MESHOPT]?.fallback !== true
+    || !Number.isSafeInteger(buffers[1].byteLength) || buffers[1].byteLength < 0 || buffers[1].byteLength > MAX_DECODED_BYTES)) {
+    throw new Error('The GLB has an invalid or oversized decompression buffer.');
+  }
   if ((json.nodes?.length ?? 0) > MAX_NODES || (json.images?.length ?? 0) > 96
     || (json.animations?.length ?? 0) > 128 || (json.materials?.length ?? 0) > 256) {
     throw new Error('This model exceeds the viewer’s scene or texture budget.');
   }
   const views = json.bufferViews ?? [];
+  let decodedBytes = 0;
+  const range = (offset, length, limit) => Number.isSafeInteger(offset) && offset >= 0
+    && Number.isSafeInteger(length) && length >= 0 && offset + length <= limit;
   for (const item of views) {
-    if ((item.buffer ?? 0) !== 0 || !Number.isInteger(item.byteLength) || item.byteLength < 0
-      || !Number.isInteger(item.byteOffset ?? 0) || (item.byteOffset ?? 0) < 0
-      || (item.byteOffset ?? 0) + item.byteLength > binaryBytes) throw new Error('The GLB has an invalid buffer range.');
+    if (item.extensions?.KHR_meshopt_compression) throw new Error('This GLB uses an unsupported compressed buffer extension.');
+    const packed = item.extensions?.[MESHOPT];
+    const target = item.buffer ?? 0;
+    const limit = target === 0 ? binaryBytes : buffers[1]?.byteLength ?? 0;
+    if ((target !== 0 && !(target === 1 && compressed && packed))
+      || !range(item.byteOffset ?? 0, item.byteLength, limit)) throw new Error('The GLB has an invalid buffer range.');
+    if (packed) {
+      const stride = packed.byteStride;
+      const attributes = packed.mode === 'ATTRIBUTES' && stride >= 4 && stride <= 256 && stride % 4 === 0;
+      const indices = ['INDICES', 'TRIANGLES'].includes(packed.mode) && [2, 4].includes(stride);
+      if (packed.buffer !== 0 || !range(packed.byteOffset ?? 0, packed.byteLength, binaryBytes) || packed.byteLength === 0
+        || !Number.isSafeInteger(packed.count) || packed.count <= 0 || !Number.isSafeInteger(stride)
+        || !(attributes || indices) || (packed.filter ?? 'NONE') !== 'NONE'
+        || (packed.mode === 'TRIANGLES' && packed.count % 3 !== 0)
+        || packed.count * stride !== item.byteLength || (item.byteStride != null && item.byteStride !== stride)) {
+        throw new Error('The GLB has an invalid compressed buffer.');
+      }
+      decodedBytes += item.byteLength;
+      if (decodedBytes > MAX_DECODED_BYTES) throw new Error('The GLB exceeds the decompression budget.');
+    }
   }
   const widths = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16 };
   let accessorValues = 0;
@@ -973,13 +1016,16 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   async function parseModel(buffer, name, serial) {
     let imported = null;
     try {
-      inspectRoachGlb(buffer);
+      const inspected = inspectRoachGlb(buffer);
       const manager = new THREE.LoadingManager();
       manager.setURLModifier((url) => {
         if (!url.startsWith('blob:')) throw new Error('The GLB attempted to load a non-embedded resource.');
         return url;
       });
-      imported = await new GLTFLoader(manager).parseAsync(buffer, '');
+      const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
+      const releaseDecoder = inspected.json.bufferViews?.some(view => view.extensions?.[MESHOPT]) ? acquireDecoder() : () => {};
+      try { imported = await loader.parseAsync(buffer, ''); }
+      finally { releaseDecoder(); }
       if (disposed || serial !== loadSerial) { disposeObject(imported.scene); return false; }
       const nextModel = imported.scene;
       nextModel.updateMatrixWorld(true);
@@ -1003,6 +1049,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       let oversizedTexture = false;
       let texturePixels = 0;
       const textureImages = new Set();
+      const textures = new Set();
       const preparedMaterials = new Set();
       nextModel.traverse((object) => {
         actualNodes += 1;
@@ -1021,6 +1068,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
             material.shadowSide = THREE.FrontSide;
           }
           for (const value of Object.values(material)) if (value?.isTexture) {
+            textures.add(value);
             const source = value.source?.data;
             if ((source?.width ?? 0) > 8192 || (source?.height ?? 0) > 8192) oversizedTexture = true;
             if (source && !textureImages.has(source)) {
@@ -1033,6 +1081,19 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       if (actualVertices > MAX_VERTICES || actualNodes > MAX_NODES || uniqueBones.size > MAX_BONES || oversizedTexture || texturePixels > 128_000_000) {
         throw new Error('The decoded model exceeds the viewer’s geometry, skeleton, or 8K texture budget.');
       }
+      // Upload in short batches before revealing the specimen, yielding to
+      // sound controls between batches. Avoid Three's uncancellable shader
+      // warmup polling, which can outlive disposal or context restoration.
+      let batchStart = win.performance.now();
+      for (const texture of textures) {
+        if (disposed || serial !== loadSerial) { disposeObject(imported.scene); return false; }
+        renderer.initTexture(texture);
+        if (win.performance.now() - batchStart > 6) {
+          await new Promise(resolve => win.setTimeout(resolve, 0));
+          batchStart = win.performance.now();
+        }
+      }
+      if (disposed || serial !== loadSerial) { disposeObject(imported.scene); return false; }
       // Commit only after the replacement has parsed and passed validation.
       const parsedClips = imported.animations ?? [];
       clearModel();
