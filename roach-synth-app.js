@@ -1,4 +1,5 @@
 import { createRoachViewer } from './src/roach-synth-viewer.js';
+import { createRoachMidiControls } from './src/roach-synth-midi-controls.js';
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
   createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState } from './src/roach-synth-motion.js';
@@ -20,7 +21,7 @@ const state = {
   sound: { ...ROACH_SOUND_PRESETS[0].sound }, bodyMix: structuredClone(ROACH_SOUND_PRESETS[0].bodyMix), muted: new Set(), solo: new Set(),
   joints: [], selectedGroup: '', view: 'side', side: 'left', time: 0, anchor: performance.now(), applyingPose: false,
 };
-let viewer, frame = 0, loadVersion = 0, lastFrame = -Infinity;
+let viewer, midiControls, frame = 0, loadVersion = 0, lastFrame = -Infinity;
 let pose = new Float32Array(0);
 const sceneState = createRoachSceneState();
 const beatState = {};
@@ -116,6 +117,7 @@ function updateVisual() {
   if (state.disposed || !viewer || !state.joints.length) return;
   const time = currentTime();
   writeRoachPose(time, state.motion, state.joints, pose);
+  audio.applyMidiPose(pose, state.joints, state.motion.tempo, state.motion.intensity);
   writeRoachSceneState(time, state.motion, sceneState, state.joints);
   viewer.setExternalPose(pose); viewer.setSceneState(sceneState);
 }
@@ -123,7 +125,7 @@ function tick(now) {
   frame = 0;
   if (state.disposed || document.hidden) return;
   if (now - lastFrame >= 50) { lastFrame = now; updateVisual(); }
-  if (state.playing) scheduleFrame();
+  if (state.playing || midiControls?.isAnimating()) scheduleFrame();
 }
 function scheduleFrame() { if (!frame && !state.disposed && !document.hidden) frame = requestAnimationFrame(tick); }
 function populateMotionPresets() {
@@ -154,12 +156,12 @@ function setMotionPreset(id, { applySound = true } = {}) {
   }
   updateGaze(); populateMotionPresets(); anchorTime(time); publish({ time, resetActivity: true }); updateVisual();
 }
-function setPlaying(playing) {
+function setPlaying(playing, { restart = false } = {}) {
   if (!state.joints.length) return;
   if (playing && !state.motionPrepared) setMotionPreset(state.motionChoice, { applySound: false });
-  const time = currentTime(); state.playing = playing === true; anchorTime(time);
+  const time = restart ? 0 : currentTime(); state.playing = playing === true; anchorTime(time);
   publish({ time }); syncTransport(); updateVisual();
-  if (state.playing) scheduleFrame();
+  if (state.playing || midiControls?.isAnimating()) scheduleFrame();
   else if (frame) { cancelAnimationFrame(frame); frame = 0; }
 }
 function applyStaticPose(id) {
@@ -289,7 +291,7 @@ async function loadModel() {
     if (version !== loadVersion || state.disposed) return;
     syncRig();
     const head = state.joints.find(part => /^head$/i.test(part.name)); if (head) viewer.selectBone(head.id);
-    applyStaticPose('neutral'); selectView(state.view); publish({ resetActivity: true }); status('modelStatus');
+    applyStaticPose('neutral'); selectView(state.view); publish({ resetActivity: true }); status('modelStatus'); midiControls?.syncRig();
   } catch (error) {
     if (version !== loadVersion || state.disposed) return;
     status('modelStatus', error.message || 'The model could not load.'); el('retryModel').hidden = false;
@@ -324,7 +326,7 @@ try {
       soundPreset: el('soundPreset').value, metronome: state.metronome,
       sound: { ...state.sound }, bodyMix: structuredClone(state.bodyMix), effectiveBodyMix: effectiveBodyMix(),
       muted: [...state.muted], solo: [...state.solo], selectedGroup: state.selectedGroup, mappings: [],
-      audio: audio.getState(), audioOn: state.audioOn, view: state.view, side: state.side, renderQuality: 'economy', clipPreview: false }),
+      audio: audio.getState(), midi: midiControls?.getState(), audioOn: state.audioOn, view: state.view, side: state.side, renderQuality: 'economy', clipPreview: false }),
     getPartScreenPosition: id => viewer.getPartScreenPosition(id),
   }) });
   void loadModel();
@@ -349,7 +351,7 @@ el('soundPlayButton').addEventListener('click', () => { state.soundPlaying = !st
 el('motionButton').addEventListener('click', () => setPlaying(!state.playing), options);
 el('posePreset').addEventListener('change', () => { if (el('posePreset').value !== 'custom') applyStaticPose(el('posePreset').value); }, options);
 el('randomPose').addEventListener('click', () => applyStaticPose('random'), options);
-el('resetPose').addEventListener('click', () => applyStaticPose('neutral'), options);
+el('resetPose').addEventListener('click', () => { midiControls?.panic(); applyStaticPose('neutral'); }, options);
 el('motionPreset').addEventListener('change', () => setMotionPreset(el('motionPreset').value), options);
 el('randomMotion').addEventListener('click', () => setMotionPreset('random'), options);
 function changeMotionBy(amount) {
@@ -406,11 +408,19 @@ el('touch3D').addEventListener('click', () => {
 }, options);
 el('showJoints').addEventListener('click', () => { const visible = el('showJoints').getAttribute('aria-pressed') !== 'true'; viewer?.setSkeletonVisible(visible); el('showJoints').setAttribute('aria-pressed', String(visible)); }, options);
 el('retryModel').addEventListener('click', () => void loadModel(), options);
-document.addEventListener('visibilitychange', () => { if (document.hidden) { if (frame) cancelAnimationFrame(frame); frame = 0; } else { lastFrame = -Infinity; updateVisual(); if (state.playing) scheduleFrame(); } }, options);
+midiControls = createRoachMidiControls({ audio, setPlaying,
+  selectGroup: (id, side = 0) => {
+    const part = state.joints.find(joint => getRoachBodyGroupId(joint) === id
+      && (!side || `${joint.jointId ?? ''} ${joint.name ?? ''}`.toLowerCase().includes(side < 0 ? 'left' : 'right')));
+    if (part) viewer?.selectBone(part.id);
+  },
+  onVisual: () => { updateVisual(); scheduleFrame(); },
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) { if (frame) cancelAnimationFrame(frame); frame = 0; } else { lastFrame = -Infinity; updateVisual(); if (state.playing || midiControls?.isAnimating()) scheduleFrame(); } }, options);
 motionQuery.addEventListener('change', () => { if (motionQuery.matches) setPlaying(false); }, options);
 window.addEventListener('pagehide', event => {
   if (event.persisted) return;
   state.disposed = true; loadVersion += 1; state.phraseRequest += 1;
   if (frame) cancelAnimationFrame(frame); frame = 0;
-  listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.roachSynth;
+  midiControls?.dispose(); listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.roachSynth;
 }, options);

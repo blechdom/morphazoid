@@ -17,6 +17,10 @@ The default 13.6 MB model replaces a 40 MB startup download, preserves joint
 positions and animations, and reduces texture memory by using smaller normal
 maps. Color textures retain their resolution. Geometry decoding uses a temporary
 worker; sound remains playable while the model loads.
+[MIDI performance](docs/roach-synth-midi.md) maps keys to held body poses,
+with velocity, sustain, pitch bend and eight assignable controller
+routes. Body notes play the assigned mixer sounds without taking over either
+player; graphics follow the same audio-clock gestures.
 [Sound evidence, recordings and model limitations](ROACH_SYNTH_RESEARCH.md).
 
 **Puggler the Punk Rock Jugger** turns juggling into a noisy punk band on a trash-strewn stage. Choose from 22 starting acts, every solo/duo combination of Puggler, Roxy, and Moss, or the trio. Up to ten weighted objects juggle at 100–1,200 beats/minute: recorded drums punch on catches, guitar/bass riffs follow flights, and sampled “oi”/“woo” vocals keep a natural register. Thirty-one patterns and evolving phrases include holds and rests. Real misses bring boos and audience-lobbed replacements; throw props back to the pit. Fixed, clickable keyboard clusters steer each rider, adjust height, kick, and throw to the crowd. Pause stops new juggling throws while existing flights land, unicycles keep moving, and the crowd remains audible when Audio is on. Forty trashpunk flyers, exaggerated faces, and compact controls frame the stage. Switch between Trashpunk, a mixed-history cast and stage, and Future 3026 with a cyber woman and alien; each skin has a full prop image bank. Stage-lighting looks and eight rear-view audience members, including two women and a baby, follow the performance. Audio starts off. [Research and approximations](PUGGLER_RESEARCH.md); [CC0 recording credits](assets/puggler/CREDITS.md).

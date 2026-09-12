@@ -1,16 +1,21 @@
 import { connectAudioOutput } from './audio-output-manager.js';
 import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from './spelling-diphone-atlas.js';
 import { loadSpellingPronunciations, spellingPhoneDefinition, spellingPronunciationTokens } from './spelling-pronunciation.js';
-import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js?v=195ff4b2d228';
+import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js?v=1fe61cc28159';
+import { RoachMidiPerformance, normalizeRoachMidiMessage } from './roach-synth-midi.js?v=1fe61cc28159';
 
 export { ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS,
   createDefaultRoachMappings, normalizeRoachSound, ROACH_BODY_GROUPS, ROACH_BODY_SOURCES,
   createDefaultRoachBodyMix, normalizeRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './roach-synth-dsp.js?v=195ff4b2d228';
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './roach-synth-dsp.js?v=1fe61cc28159';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
 const cancelled = () => Object.assign(new Error('Audio start was cancelled.'), { name: 'AbortError' });
+const midiScope = (scope) => scope && typeof scope === 'object' ? {
+  ...(scope.sourceId != null ? { sourceId: String(scope.sourceId).slice(0, 128) } : {}),
+  ...(scope.channel != null ? { channel: Math.round(Math.max(0, Math.min(15, finite(scope.channel)))) } : {}),
+} : undefined;
 // Event starts measured in the bundled excerpts; provenance and processing are
 // recorded in assets/roach-synth/audio/manifest.json. Start near movement rather
 // than sampling the quiet gaps between contacts.
@@ -61,6 +66,7 @@ export class RoachSynthAudio {
     this.samplesPromise = null; this.samplesAbort = null; this.samplesStatus = 'idle'; this.samplesLoaded = 0;
     this.state = { playing: false, soundPlaying: false, sound: { ...ROACH_SOUND_DEFAULTS }, bodyMix: createDefaultRoachBodyMix() };
     this.anchorTime = 0; this.anchorClock = this.clock();
+    this.midiPerformance = new RoachMidiPerformance();
     this.telemetry = { rms: 0, peak: 0, speechEnvelope: 0, renderedFrames: 0, soundTime: 0 };
   }
   clock() { return this.context ? this.context.currentTime : finite(this.runtime.performance?.now?.(), Date.now()) / 1000; }
@@ -69,7 +75,43 @@ export class RoachSynthAudio {
     return { ...this.telemetry, enabled: this.enabled, ready: this.ready,
       contextState: this.context?.state ?? 'uninitialized', time: this.getTime(),
       samplesStatus: this.samplesStatus, samplesLoaded: this.samplesLoaded,
-      playing: this.state.playing, soundPlaying: this.state.soundPlaying, disposed: this.disposed };
+      playing: this.state.playing, soundPlaying: this.state.soundPlaying, disposed: this.disposed,
+      midi: this.getMidiState() };
+  }
+  getMidiState() { return this.midiPerformance.getState(this.clock()); }
+  applyMidiPose(pose, joints, tempo = this.state.motion?.tempo ?? 120, intensity = this.state.motion?.intensity ?? 1) {
+    if (this.disposed) return pose;
+    return this.midiPerformance.applyPose(pose, joints, this.clock(), tempo, intensity);
+  }
+  midiEventTime(value) {
+    const now = this.clock(); const timestamp = value?.timestamp;
+    const performanceNow = this.runtime.performance?.now?.();
+    if (timestamp == null || !Number.isFinite(Number(timestamp)) || !Number.isFinite(performanceNow)) return now;
+    // MIDIManager uses DOMHighResTimeStamp milliseconds. Preserve past event
+    // timing across UI stalls; never schedule a release into the future.
+    return now - Math.min(60, Math.max(0, (performanceNow - Number(timestamp)) / 1000));
+  }
+  midi(value) {
+    if (this.disposed) return false;
+    const message = normalizeRoachMidiMessage(value); if (!message) return false;
+    const audioTime = this.midiEventTime(value);
+    const accepted = this.midiPerformance.handle(message, audioTime);
+    if (accepted) this.post({ type: 'midi', message, audioTime });
+    return accepted;
+  }
+  midiControl(groupId, axis, value, scope) {
+    if (this.disposed) return false;
+    const audioTime = this.clock(); const normalized = Math.max(-1, Math.min(1, finite(value)));
+    const owner = midiScope(scope);
+    const accepted = this.midiPerformance.setControl(groupId, axis, normalized, audioTime, owner);
+    if (accepted) this.post({ type: 'midi-control', groupId, axis, value: normalized, scope: owner, audioTime });
+    return accepted;
+  }
+  resetMidi(scope) {
+    if (this.disposed) return;
+    const audioTime = this.clock(); const owner = midiScope(scope);
+    this.midiPerformance.reset(audioTime, owner);
+    this.post({ type: 'midi-reset', scope: owner, audioTime });
   }
   post(data, transfer) { if (this.node && !this.disposed) this.node.port.postMessage(data, transfer ?? []); }
   postState(changes) {
@@ -102,8 +144,9 @@ export class RoachSynthAudio {
     if (this.context?.state !== 'closed' && this.context) return this.context;
     const Audio = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
     if (typeof Audio !== 'function') throw new Error('This browser does not support Web Audio.');
-    const time = this.getTime();
+    const time = this.getTime(); const previousClock = this.clock();
     const context = new Audio({ latencyHint: 'interactive' });
+    this.midiPerformance.rebaseTime(context.currentTime - previousClock);
     this.context = context; this.anchorTime = time; this.anchorClock = context.currentTime;
     return context;
   }
@@ -114,7 +157,7 @@ export class RoachSynthAudio {
       if (!context.audioWorklet?.addModule || typeof this.runtime.AudioWorkletNode !== 'function') {
         throw new Error('Roach Synth requires AudioWorklet support.');
       }
-      await context.audioWorklet.addModule(new URL('./roach-synth-processor.js?v=195ff4b2d228', import.meta.url));
+      await context.audioWorklet.addModule(new URL('./roach-synth-processor.js?v=1fe61cc28159', import.meta.url));
       if (this.disposed || this.context !== context || context.state === 'closed') throw cancelled();
       const node = new this.runtime.AudioWorkletNode(context, 'roach-synth', {
         numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
@@ -131,6 +174,11 @@ export class RoachSynthAudio {
             contactEvents: finite(data.contactEvents), lastContactTime: finite(data.lastContactTime, -1),
             recordingEvents: finite(data.recordingEvents),
             metronomeEvents: finite(data.metronomeEvents), lastMetronomeTime: finite(data.lastMetronomeTime, -1),
+            midiActive: finite(data.midiActive), midiEvents: finite(data.midiEvents),
+            midiNotes: Array.from(data.midiNotes ?? [], value => finite(value, -1)),
+            midiGates: Array.from(data.midiGates ?? [], value => finite(value)),
+            midiFrequencies: Array.from(data.midiFrequencies ?? [], value => finite(value)),
+            midiExpressions: Array.from(data.midiExpressions ?? [], value => finite(value)),
             interactionPeak: finite(data.interactionPeak) };
           safeCall(this.onTelemetry, { ...this.getState() });
         } else if (data?.type === 'error') safeCall(this.onStatus, `Sound: ${data.message}`);
@@ -165,6 +213,10 @@ export class RoachSynthAudio {
       if (this.disposed || generation !== this.generation || this.context !== context) throw cancelled();
       if (context.state !== 'running') throw new Error('Audio is suspended. Tap Audio again.');
       this.enabled = true;
+      // Restore current ownership, not an event queue. A note released during
+      // module loading must not play late; notes still held keep their phase.
+      this.midiPerformance.sample(context.currentTime, this.state.motion?.tempo ?? 120);
+      this.post({ type: 'midi-state', snapshot: this.midiPerformance.serialize(), audioTime: context.currentTime });
       this.postState({ ...this.state, time: this.getTime(), enabled: true });
       const now = context.currentTime;
       this.master.gain.cancelScheduledValues(now);
@@ -185,6 +237,7 @@ export class RoachSynthAudio {
   disable() {
     if (this.disposed) return;
     this.generation += 1; this.speechGeneration += 1; this.enabled = false;
+    // Audio is a mute, not MIDI panic: held notes and CC still animate.
     this.postState({ enabled: false }); this.post({ type: 'stop-speech' });
     if (this.master && this.context?.state !== 'closed') {
       const now = this.context.currentTime;
@@ -279,7 +332,7 @@ export class RoachSynthAudio {
   }
   dispose() {
     if (this.disposed) return;
-    this.disable(); this.post({ type: 'dispose' });
+    this.disable(); this.resetMidi(); this.post({ type: 'dispose' });
     this.disposed = true; this.generation += 1; this.speechGeneration += 1;
     this.speechAbort?.abort(); this.speechAbort = null;
     this.samplesAbort?.abort(); this.samplesAbort = null;

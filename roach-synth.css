@@ -61,6 +61,15 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 .roach-motion-controls input { height: 30px; }
 .roach-check { display: flex; align-items: center; gap: 7px; min-height: 30px; color: var(--muted); font-size: 10px; }
 .roach-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.roach-midi-status { display: block; min-height: 18px; margin: 6px 0; color: var(--accent); font: 10px/1.6 var(--mono); }
+.roach-midi details { font: 10px/1.6 var(--mono); color: var(--muted); }
+.roach-midi summary { padding: 8px 0; cursor: pointer; color: var(--accent); }
+.roach-midi-routes { display: grid; gap: 6px; margin: 10px 0; }
+.roach-midi-routes label { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 8px; align-items: center; }
+.roach-midi-routes select { min-width: 0; width: 100%; min-height: 34px; padding: 5px 7px; background: var(--bg-deep); color: var(--ink); border: 1px solid var(--line-strong); font: 10px var(--mono); }
+.roach-midi-keymap { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px minmax(0, 1fr); gap: 5px 8px; margin: 10px 0; }
+.roach-midi-keymap dt { color: var(--accent); }.roach-midi-keymap dd { margin: 0; }
+.roach-midi #midiPanic { min-height: 48px; }
 .roach-beat-controls { display: flex; align-items: center; gap: 16px; }
 .roach-beat { display: flex; gap: 7px; }
 .roach-beat i { width: 9px; height: 9px; border: 1px solid var(--accent-soft); border-radius: 50%; }

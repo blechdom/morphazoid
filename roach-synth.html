@@ -94,6 +94,21 @@
           <div class="roach-beat-controls"><label class="roach-check"><input id="metronome" type="checkbox" /> Metronome</label><div class="roach-beat" id="beatIndicator" role="img" aria-label="Beat stopped"><i></i><i></i><i></i><i></i></div></div>
           <label class="roach-check"><input id="antennae" type="checkbox" checked /> Antennae keep exploring</label>
         </section>
+        <section class="roach-control-block roach-midi" aria-label="MIDI performance">
+          <div class="roach-control-row"><span class="roach-player">MIDI poses</span><button class="mini-action" id="midiPanic" type="button" title="Release MIDI notes and return MIDI-controlled joints">Release MIDI</button></div>
+          <p class="roach-note" id="midiHelp">Turn MIDI In on above. Hold keys to pose body parts; release to relax. Animation Play stays independent.</p>
+          <output id="midiStatus" class="roach-midi-status" aria-live="off">MIDI poses ready</output>
+          <details id="midiRoutes"><summary>CC routes &amp; key map</summary>
+            <p class="roach-note">Choose what each controller knob moves. The Generic profile uses CC14–21; the MIDI Map in Settings adapts other controllers.</p>
+            <div id="midiMacroRoutes" class="roach-midi-routes" role="group" aria-label="MIDI macro assignments"></div>
+            <button class="mini-action" id="midiResetRoutes" type="button">Reset routes</button>
+            <p class="roach-note">Combine keys into poses. Octaves vary the pose and pitch; velocity changes strength, pitch bend moves ±2 semitones, and sustain holds notes.</p>
+            <dl id="midiKeyMap" class="roach-midi-keymap"></dl>
+            <p class="roach-note">Every key plays its body part’s assigned sound. Program Change selects a sound preset. Notes never start or stop either player.</p>
+            <p class="roach-note">CC1 movement · CC7 level · CC10 pan · CC11 expression · CC64 sustain · CC71 resonance · CC74 filter. Assigned controller macros take precedence. MIDI Start/Stop controls animation; incoming clock sets tempo. C4 = note 60.</p>
+            <p class="roach-note">Computer keys: Z S X D C V G B H N J M = C3–B3; Q 2 W 3 E R 5 T 6 Y 7 U = C4–B4. [ / ] shift octaves.</p>
+          </details>
+        </section>
         <section class="roach-control-block roach-body-mixer" aria-labelledby="mixerTitle">
           <div class="roach-mixer-heading"><h2 id="mixerTitle">Body sounds</h2><button class="mini-action" id="resetMix" type="button">Reset mix</button></div>
           <div id="bodyMixer" role="group" aria-label="Body sound assignments"></div>

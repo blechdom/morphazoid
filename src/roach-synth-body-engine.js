@@ -48,6 +48,7 @@ class BodyVoice {
     this.contactRelease = Math.exp(-1 / (rate * .016));
     this.particleDecay = Math.exp(-1 / (rate * .004));
     this.output = new Float64Array(ROACH_BODY_SOURCES.length); this.releaseContacts = false;
+    this.midiGate = 0; this.midiGateTarget = 0; this.midiFrequency = 0;
   }
   random() {
     let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.randomState = x | 0;
@@ -74,19 +75,24 @@ class BodyVoice {
     this.releaseContacts = false; this.zing.excite(amount * .55); this.particle = Math.min(1.2, this.particle + amount * .4);
     if (percussionFamily(this.source) >= 0) this.percussion.strike(amount, index);
   }
-  control(x, y, z, side, velocity, sound, mods, offset) {
+  control(x, y, z, side, velocity, sound, mods, offset, midiFrequency = 0, midiGate = 0, midiPan = 0) {
     this.x = x; this.y = y; this.z = z; this.side = side;
+    const firstMidi = midiFrequency > 0 && this.midiFrequency === 0;
+    this.midiFrequency = midiFrequency; this.midiGateTarget = clamp(midiGate, 0, 1);
     const pitchMod = mods[offset] || 0; const brightMod = mods[offset + 2] || 0;
-    this.frequencyTarget = clamp(sound.pitch * (.63 + this.index * .039)
-      * 2 ** (x * .9 + y * .13 + pitchMod * 1.5 + side * .13), 28, this.rate * .12);
+    this.frequencyTarget = midiFrequency > 0
+      ? clamp(midiFrequency * (sound.pitch / 140) * 2 ** (x * .06 + y * .035 + pitchMod * 1.5), 28, this.rate * .12)
+      : clamp(sound.pitch * (.63 + this.index * .039) * 2 ** (x * .9 + y * .13 + pitchMod * 1.5 + side * .13), 28, this.rate * .12);
+    if (firstMidi) this.frequency = this.frequencyTarget;
     this.brightness = clamp(sound.brightness + y * .44 + z * .1 + brightMod * .5, 0, 1);
     this.resonance = clamp(sound.resonance + (mods[offset + 3] || 0) * .5, 0, .98);
     this.crunch = clamp(sound.crunch + (mods[offset + 8] || 0) * .5, 0, 1);
     this.rhythm = clamp(sound.rhythm * 2 ** (mods[offset + 6] || 0), .25, 6);
     this.vowel = clamp(sound.vowel + (mods[offset + 1] || 0) * .55, 0, 1);
     this.buzzTarget = clamp(sound.wingRate * 2 ** (x * .35 + (mods[offset + 5] || 0) * 1.5), 8, 420);
+    if (midiFrequency > 0) this.buzzTarget = clamp(this.buzzTarget * midiFrequency / 261.625565, 8, 1200);
     this.motionTarget = Math.min(1, velocity);
-    const pan = clamp(sound.pan + z * .63 + side * .35 + (mods[offset + 9] || 0) * .7, -.94, .94);
+    const pan = clamp(sound.pan + z * .63 + side * .35 + midiPan * .35 + (mods[offset + 9] || 0) * .7, -.94, .94);
     this.targetPanL = Math.cos((pan + 1) * Math.PI / 4); this.targetPanR = Math.sin((pan + 1) * Math.PI / 4);
     this.targetCoefficient = 1 - Math.exp(-TAU * Math.min(this.rate * .39, 450 * 22 ** this.brightness) / this.rate);
     for (let i = 0; i < 4; i += 1) tune(this.modes[i], this.frequency * (2.13 + i * 1.473) * (1 + (this.vowel - .35) * (.4 + i * .11)), .016 + this.resonance * .09, this.rate);
@@ -96,6 +102,7 @@ class BodyVoice {
     }
   }
   sample(stillGate, recording, moving) {
+    this.midiGate += (this.midiGateTarget - this.midiGate) * this.smooth;
     this.level += (this.targetLevel - this.level) * this.smooth;
     this.panL += (this.targetPanL - this.panL) * this.smooth; this.panR += (this.targetPanR - this.panR) * this.smooth;
     this.coefficient += (this.targetCoefficient - this.coefficient) * this.smooth;
@@ -104,7 +111,7 @@ class BodyVoice {
     this.motion += (this.motionTarget - this.motion) * this.smooth;
     this.manual *= this.manualDecay;
     const activity = Math.max(this.manual, this.motion);
-    let sustained = Math.max(stillGate, activity);
+    let sustained = Math.max(stillGate, activity, this.midiGate);
     const white = this.random(); this.low += (white - this.low) * .045;
     const scratch = white - this.low;
     const step = Math.min(.18, this.frequency / this.rate);
@@ -183,6 +190,20 @@ export class RoachBodyEngine {
     this.setMix(normalizeRoachBodyMix(), true);
   }
   setMix(mix, initial = false) { for (let i = 0; i < 8; i += 1) this.voices[i].assign(mix[i], initial); }
+  releaseMidi(group) {
+    const voice = this.voices[group];
+    voice.releaseContacts = true; voice.percussionDistance = 0; voice.distance = 0;
+    voice.percussion.releaseAll();
+    for (const recording of this.recordings.voices) if (recording.group === group) recording.releasing = true;
+  }
+  retuneMidiRecordings(group, frequency) {
+    if (!(frequency > 0)) return;
+    // Existing fixed grain voices retain their position/envelope through bend;
+    // only their playback increment changes. No additional sample players.
+    for (const voice of this.recordings.voices) if (voice.recording && voice.group === group) {
+      voice.increment = voice.recording.sampleRate / this.rate * clamp(frequency / 261.625565, .25, 4);
+    }
+  }
   excite(group, strength) {
     const voice = this.voices[group]; voice.excite(strength);
     if (voice.source === 8) this.recordings.trigger(group === 0 ? 0 : 1, strength, (voice.random() + 1) * .5, group);
@@ -215,12 +236,12 @@ export class RoachBodyEngine {
     this.recordings.release();
   }
   sample(stillGate, moving) {
-    if (this.wasMoving && !moving) for (const voice of this.voices) voice.percussion.releaseAll();
+    if (this.wasMoving && !moving) for (const voice of this.voices) if (voice.midiGateTarget < .0001) voice.percussion.releaseAll();
     this.wasMoving = moving;
     this.recordings.sample(this.recordingOutput);
     this.left = 0; this.right = 0;
     for (let i = 0; i < 8; i += 1) {
-      const voice = this.voices[i]; const sample = voice.sample(stillGate, this.recordingOutput[i], moving);
+      const voice = this.voices[i]; const sample = voice.sample(stillGate, this.recordingOutput[i], moving || voice.midiGate > .0001);
       this.left += sample * voice.panL; this.right += sample * voice.panR;
     }
   }

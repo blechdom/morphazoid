@@ -74,6 +74,9 @@ for worktree_runtime_file in \
   src/roach-synth-percussion.js \
   src/roach-synth-textures.js \
   src/roach-synth-processor.js \
+  src/roach-synth-midi.js \
+  src/roach-synth-midi-controls.js \
+  docs/roach-synth-midi.md \
   ROACH_SYNTH_RESEARCH.md \
   assets/roach-synth/cockroach.glb \
   assets/roach-synth/cockroach-mobile.glb \
@@ -778,6 +781,9 @@ for catalog_icon in "$repo_root"/assets/instruments/*.webp; do
 done
 
 required_files=(
+  src/roach-synth-midi.js
+  src/roach-synth-midi-controls.js
+  docs/roach-synth-midi.md
   assets/roach-synth/cockroach-mobile.glb
   vendor/meshoptimizer/meshopt_decoder.module.js
   vendor/meshoptimizer/LICENSE.txt

@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=195ff4b2d228';
+import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=1fe61cc28159';
 
 const MAX_BYTES = 64 * 1024 * 1024;
 const MESHOPT = 'EXT_meshopt_compression';

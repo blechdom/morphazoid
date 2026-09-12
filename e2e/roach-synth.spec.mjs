@@ -215,12 +215,17 @@ test('Say it speaks edited words while the body is held and does not arm Audio i
   expect(envelope.summary.maxPeak).toBeGreaterThan(.001); expect(envelope.summary.clippedSamples).toBe(0);
 });
 
-test('MIDI input reaches the visible pitch control and animation transport', async ({ page }) => {
+test('MIDI input plays the selected body group without taking over either player', async ({ page }) => {
   await installFakeMidi(page); await openRoach(page); await enableFakeMidi(page);
   await sendMidi(page, MIDI_BYTES.noteOn(69, 100));
-  await expect(page.locator('#pitch')).toHaveValue('440');
-  await expect(page.locator('#motionButton')).toHaveAttribute('aria-pressed', 'true');
-  expect((await snapshot(page)).sound.pitch).toBe(440);
+  await expect(page.locator('#midiStatus')).toContainText('Head');
+  await expect.poll(async () => (await snapshot(page)).audio.midiFrequencies[6]).toBe(440);
+  await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
+  await expect(page.locator('#motionButton')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#soundPlayButton')).toHaveAttribute('aria-pressed', 'false');
+  expect((await snapshot(page)).selectedGroup).toBe('head');
+  await sendMidi(page, MIDI_BYTES.noteOff(69));
+  await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
 });
 
 test('failed specimen download preserves its poster and Retry loads all 31 joints', async ({ page }) => {

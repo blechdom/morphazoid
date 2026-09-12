@@ -1,7 +1,8 @@
-import { RoachBodyEngine } from './roach-synth-body-engine.js?v=195ff4b2d228';
-import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=195ff4b2d228';
-export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=195ff4b2d228';
-import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState } from './roach-synth-motion.js?v=195ff4b2d228';
+import { RoachBodyEngine } from './roach-synth-body-engine.js?v=1fe61cc28159';
+import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=1fe61cc28159';
+import { RoachMidiPerformance } from './roach-synth-midi.js?v=1fe61cc28159';
+export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=1fe61cc28159';
+import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState } from './roach-synth-motion.js?v=1fe61cc28159';
 
 // A held pose has smooth, group-owned resonances. Motion-only sources receive
 // only their own joints' actual displacement and the shared six-foot contacts.
@@ -290,6 +291,9 @@ export class RoachSynthDsp {
   constructor(sampleRate = 48000) {
     this.sampleRate = clamp(sampleRate, 8000, 192000);
     this.time = 0; this.soundTime = 0; this.enabled = false; this.playing = false; this.soundPlaying = false; this.hasBeenEnabled = false;
+    this.audioTime = 0; this.midiPerformance = new RoachMidiPerformance();
+    this.midiSerials = new Uint32Array(8); this.midiEvents = 0;
+    this.midiGates = new Float64Array(8); this.midiFrequencies = new Float64Array(8);
     this.metronome = false; this.metronomeBeat = -1; this.metronomeEnvelope = 0; this.metronomePhase = 0; this.metronomeWasActive = false;
     this.metronomeFrequency = 1600; this.metronomeEvents = 0; this.lastMetronomeTime = -1;
     this.metronomeDecay = Math.exp(-1 / (this.sampleRate * .009));
@@ -297,6 +301,8 @@ export class RoachSynthDsp {
     this.bodyMix = createDefaultRoachBodyMix(); this.body = new RoachBodyEngine(this.sampleRate); this.recordings = this.body.recordings;
     this.joints = []; this.jointStructureKey = ''; this.mappings = []; this.pose = new Float32Array(MAX_JOINTS * 3);
     this.previousPose = new Float32Array(MAX_JOINTS * 3);
+    this.basePose = new Float32Array(MAX_JOINTS * 3); this.previousMidiOverlay = new Float32Array(MAX_JOINTS * 3);
+    this.midiOverlayPrimed = false; this.hadMidiPose = false;
     this.editedPose = new Float32Array(MAX_JOINTS * 3); this.editedJoints = new Uint8Array(MAX_JOINTS);
     this.jointKinds = new Uint8Array(MAX_JOINTS);
     this.jointGroups = new Uint8Array(MAX_JOINTS); this.jointSides = new Int8Array(MAX_JOINTS); this.groupCounts = new Uint16Array(8);
@@ -328,7 +334,13 @@ export class RoachSynthDsp {
       if (Math.abs(next - this.time) > .05) this.contactsPrimed = false;
       this.time = next;
     }
-    if ('enabled' in value) { this.enabled = value.enabled === true; if (!this.enabled) this.stopSpeech(); }
+    if ('enabled' in value) {
+      const wasEnabled = this.enabled; this.enabled = value.enabled === true;
+      if (!this.enabled) { this.stopSpeech(); this.body.resetActivity(); this.midiOverlayPrimed = false; }
+      // Audio mute preserves visual MIDI ownership, but never queues attacks
+      // for a later rearm. The wrapper restores the latest held-note snapshot.
+      if (!this.enabled || !wasEnabled) this.midiSerials.set(this.midiPerformance.groupSerials);
+    }
     if ('playing' in value) {
       if (this.playing !== (value.playing === true)) this.contactsPrimed = false;
       this.playing = value.playing === true;
@@ -370,6 +382,7 @@ export class RoachSynthDsp {
         }
       } else {
         this.joints = next; this.controlPrimed = false; this.contactsPrimed = false;
+        this.midiPerformance.setJoints(this.joints); this.midiOverlayPrimed = false;
         this.jointKinds.fill(3); this.groupCounts.fill(0);
         for (let i = 0; i < this.joints.length; i += 1) {
           const label = `${this.joints[i].name} ${this.joints[i].jointId}`.toLowerCase();
@@ -422,6 +435,41 @@ export class RoachSynthDsp {
     const velocity = clamp(value.velocity ?? 0, 0, 1);
     if (this.enabled && this.interactionJoint >= 0 && velocity > 0) this.exciteInteraction(this.interactionJoint, velocity);
   }
+  midi(message, audioTime = this.audioTime) {
+    let previousGroups = 0;
+    for (let group = 0; group < 8; group += 1) if (this.midiPerformance.output.notes[group] >= 0) previousGroups |= 1 << group;
+    const accepted = this.midiPerformance.handle(message, Number.isFinite(audioTime) ? audioTime : this.audioTime);
+    if (accepted) {
+      this.controlCountdown = 0;
+      if (message.type === 'noteOn' && this.audioTime - audioTime >= .1) this.midiOverlayPrimed = false;
+      if (message.type === 'controlChange' && Number(message.controller) === 120 && message.logical?.type !== 'macro') {
+        this.midiPerformance.sample(Number.isFinite(audioTime) ? audioTime : this.audioTime, this.motion.tempo);
+        // All Sound Off is an immediate reset; its removed pose is not motion.
+        this.midiOverlayPrimed = false;
+        for (let group = 0; group < 8; group += 1) if ((previousGroups & (1 << group)) && this.midiPerformance.output.notes[group] < 0) this.body.releaseMidi(group);
+      }
+    }
+    return accepted;
+  }
+  midiControl(groupId, axis, value, audioTime = this.audioTime, scope) {
+    const accepted = this.midiPerformance.setControl(groupId, axis, value, audioTime, scope);
+    if (accepted) this.controlCountdown = 0;
+    return accepted;
+  }
+  resetMidi(scope, audioTime = this.audioTime) {
+    let previousGroups = 0;
+    for (let group = 0; group < 8; group += 1) if (this.midiPerformance.output.notes[group] >= 0) previousGroups |= 1 << group;
+    this.midiPerformance.reset(audioTime, scope); this.controlCountdown = 0;
+    // The return to a neutral overlay is a release, not a fresh physical strike.
+    this.midiOverlayPrimed = false;
+    for (let group = 0; group < 8; group += 1) if ((previousGroups & (1 << group)) && this.midiPerformance.output.notes[group] < 0) this.body.releaseMidi(group);
+  }
+  restoreMidi(snapshot) {
+    if (!this.midiPerformance.restore(snapshot)) return false;
+    this.midiSerials.set(this.midiPerformance.groupSerials);
+    this.midiOverlayPrimed = false; this.controlCountdown = 0;
+    return true;
+  }
   exciteInteraction(index, amount) {
     this.interactionJoint = index;
     this.body.excite(this.jointGroups[index], amount);
@@ -457,6 +505,9 @@ export class RoachSynthDsp {
   }
   control() {
     writeRoachPose(this.time, this.motion, this.joints, this.pose);
+    this.basePose.set(this.pose);
+    this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+    const midi = this.midiPerformance.output;
     this.groupPose.fill(0); this.groupMotion.fill(0); this.groupDistance.fill(0); this.mod.fill(0);
     const interval = this.controlStride / this.sampleRate;
     for (let i=0;i<this.joints.length;i+=1) {
@@ -467,11 +518,20 @@ export class RoachSynthDsp {
       this.groupPose[p]+=x/45*identity; this.groupPose[p+1]+=y/45*identity; this.groupPose[p+2]+=z/45*identity;
       const magnitude=Math.abs(x)+Math.abs(y)+Math.abs(z);
       this.groupPose[p+3]+=this.jointSides[i]*Math.min(1,magnitude/45)*focus;
-      if(this.controlPrimed && this.playing) {
-        const distance=Math.abs(this.pose[k]-this.previousPose[k])+Math.abs(this.pose[k+1]-this.previousPose[k+1])+Math.abs(this.pose[k+2]-this.previousPose[k+2]);
+      if(this.controlPrimed && (this.playing || (this.midiOverlayPrimed && (midi.hasPose || this.hadMidiPose)))) {
+        let distance = 0;
+        for (let axis = 0; axis < 3; axis += 1) {
+          const overlay = this.pose[k + axis] - this.basePose[k + axis];
+          const delta = this.playing ? (this.midiOverlayPrimed
+            ? this.pose[k + axis] - this.previousPose[k + axis]
+            : this.basePose[k + axis] - (this.previousPose[k + axis] - this.previousMidiOverlay[k + axis]))
+            : overlay - this.previousMidiOverlay[k + axis];
+          distance += Math.abs(delta);
+        }
         this.groupDistance[group]+=distance;
         this.groupMotion[group]+=distance/(interval*160);
       }
+      for (let axis = 0; axis < 3; axis += 1) this.previousMidiOverlay[k + axis] = this.pose[k + axis] - this.basePose[k + axis];
     }
     for(const mapping of this.mappings) {
       const group=this.jointGroups[mapping.joint]; const index=group*ROACH_MOD_TARGETS.length+mapping.target; let value=0;
@@ -485,10 +545,25 @@ export class RoachSynthDsp {
     for(let group=0;group<8;group+=1) {
       const p=group*4; const divisor=Math.sqrt(Math.max(1,this.groupCounts[group]));
       this.body.voices[group].control(clamp(this.groupPose[p]/divisor,-2,2),clamp(this.groupPose[p+1]/divisor,-2,2),clamp(this.groupPose[p+2]/divisor,-2,2),
-        clamp(this.groupPose[p+3]/divisor,-1,1),clamp(this.groupMotion[group]/divisor,0,1),this.smooth,this.mod,group*ROACH_MOD_TARGETS.length);
-      this.body.movement(group,this.groupDistance[group],this.enabled,this.motion.presetId!=='none'||(this.motion.sequenceEnabled&&this.motion.tracks.length>0));
+        clamp(this.groupPose[p+3]/divisor,-1,1),clamp(this.groupMotion[group]/divisor,0,1),this.smooth,this.mod,group*ROACH_MOD_TARGETS.length,
+        midi.notes[group] >= 0 ? midi.frequencies[group] : 0,
+        midi.gates[group] * midi.velocities[group] * midi.expressions[group] * (1 + .35 * (midi.pressures?.[group] || 0)), midi.pans[group]);
+      if (midi.serials[group] !== this.midiSerials[group]) {
+        const age = this.audioTime - midi.onsetTimes[group];
+        if (this.enabled && midi.held[group] && age >= 0 && age < .1) {
+          const strength = clamp(midi.velocities[group] * midi.expressions[group], 0, 1);
+          if (strength > 0) {
+            if (group === 0) this.body.contact(midi.pans[group] < 0 ? 0 : 1, strength);
+            else this.body.excite(group, strength);
+            this.midiEvents += 1;
+          }
+        }
+        if (age >= 0 || !midi.held[group]) this.midiSerials[group] = midi.serials[group];
+      }
+      this.body.movement(group,this.groupDistance[group],this.enabled,this.playing&&(this.motion.presetId!=='none'||(this.motion.sequenceEnabled&&this.motion.tracks.length>0)));
+      if (midi.notes[group] >= 0) this.body.retuneMidiRecordings(group, midi.frequencies[group]);
     }
-    this.previousPose.set(this.pose); this.controlPrimed=true;
+    this.previousPose.set(this.pose); this.controlPrimed=true; this.midiOverlayPrimed=true; this.hadMidiPose=midi.hasPose;
     writeRoachSceneState(this.time,this.motion,this.scene,this.joints);
     for(let i=0;i<6;i+=1) {
       const foot=this.scene.feet[i];
@@ -531,7 +606,11 @@ export class RoachSynthDsp {
     if (!Number.isFinite(sample)) sample = 0;
     return sample * this.speechGain;
   }
-  render(left, right) {
+  render(left, right, audioTime) {
+    if (Number.isFinite(audioTime)) {
+      if (Math.abs(audioTime - this.audioTime) > .02) this.midiOverlayPrimed = false;
+      this.audioTime = audioTime;
+    }
     const count=Math.min(left.length,right.length); let energy=0; let peak=0;
     for(let sampleIndex=0;sampleIndex<count;sampleIndex+=1) {
       if(this.controlCountdown--<=0) { this.control(); this.controlCountdown=this.controlStride-1; }
@@ -551,6 +630,7 @@ export class RoachSynthDsp {
       this.metronomeEnvelope*=this.metronomeDecay;
       if(this.playing) this.time+=1/this.sampleRate;
       if(this.soundPlaying) this.soundTime+=1/this.sampleRate;
+      this.audioTime+=1/this.sampleRate;
       for(const key of SOUND_KEYS) this.smooth[key]+=(this.targets[key]-this.smooth[key])*this.smoothing;
       const s=this.smooth;
       this.master+=((this.enabled?1:0)-this.master)*this.gateSmoothing;
@@ -587,6 +667,15 @@ export class RoachSynthDsp {
     this.telemetry.contactEvents=this.contactEvents; this.telemetry.lastContactTime=this.lastContactTime;
     this.telemetry.interactionPeak=this.interactionPeak; this.telemetry.recordingEvents=this.recordings.events;
     this.telemetry.metronomeEvents=this.metronomeEvents; this.telemetry.lastMetronomeTime=this.lastMetronomeTime;
+    const midi = this.midiPerformance.output; let active = 0;
+    for (let group = 0; group < 8; group += 1) {
+      this.midiGates[group] = this.body.voices[group].midiGate;
+      this.midiFrequencies[group] = midi.notes[group] >= 0 ? midi.frequencies[group] : 0;
+      if (midi.notes[group] >= 0) active += 1;
+    }
+    this.telemetry.midiActive = active; this.telemetry.midiEvents = this.midiEvents;
+    this.telemetry.midiNotes = midi.notes; this.telemetry.midiGates = this.midiGates;
+    this.telemetry.midiFrequencies = this.midiFrequencies; this.telemetry.midiExpressions = midi.expressions;
     this.telemetry.renderedFrames+=count;
     return this.telemetry;
   }

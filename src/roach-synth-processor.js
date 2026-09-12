@@ -15,18 +15,22 @@ class RoachSynthProcessor extends AudioWorkletProcessor {
           }
           this.dsp.update(state);
         } else if (data?.type === 'interact') this.dsp.interact(data.interaction);
+        else if (data?.type === 'midi') this.dsp.midi(data.message, data.audioTime);
+        else if (data?.type === 'midi-control') this.dsp.midiControl(data.groupId, data.axis, data.value, data.audioTime, data.scope);
+        else if (data?.type === 'midi-reset') this.dsp.resetMidi(data.scope, data.audioTime);
+        else if (data?.type === 'midi-state') this.dsp.restoreMidi(data.snapshot);
         else if (data?.type === 'sample-bank') this.dsp.setSampleBank(data.samples, { transferred: true });
         else if (data?.type === 'atlas') this.dsp.setAtlas(data.samples, data.sampleRate);
         else if (data?.type === 'speak') this.dsp.speak(data.phones);
         else if (data?.type === 'stop-speech') this.dsp.stopSpeech();
-        else if (data?.type === 'dispose') { this.disposed = true; this.dsp.stopSpeech(); }
+        else if (data?.type === 'dispose') { this.disposed = true; this.dsp.stopSpeech(); this.dsp.resetMidi(); }
       } catch (error) { this.port.postMessage({ type: 'error', message: String(error.message || error) }); }
     };
   }
   process(inputs, outputs) {
     const [left, right = left] = outputs[0] ?? [];
     if (this.disposed || !left) return false;
-    const telemetry = this.dsp.render(left, right);
+    const telemetry = this.dsp.render(left, right, currentTime);
     this.framesSinceTelemetry += left.length;
     this.telemetryEnergy += telemetry.rms * telemetry.rms * left.length;
     this.telemetryPeak = Math.max(this.telemetryPeak, telemetry.peak);
