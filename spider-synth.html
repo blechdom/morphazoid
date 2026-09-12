@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en" class="spider-synth-document">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b100d" />
+    <meta name="description" content="Spider Synth — a scanned orb-weaver in a playable web. Eight articulated legs pluck silk strings; body gestures shape resonances and a tiny speaking voice." />
+    <title>Spider Synth — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="spider-synth.css" />
+  </head>
+  <body class="spider-synth-page" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="spider-synth.html" aria-current="page">Spider Synth</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="spider-synth.html" selected>Spider Synth</option>
+        </select>
+      </label>
+      <div class="audio-strip" role="group" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" aria-describedby="liveStatus">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level"><span><b>Master level</b><output id="levelOut" for="level">50%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="0.8" step="0.01" value="0.5" /></label>
+      </div>
+    </header>
+
+    <main class="spider-shell">
+      <section class="spider-stage" aria-labelledby="spiderTitle">
+        <div class="spider-viewport" id="specimenViewport">
+          <div class="spider-heading"><h1 id="spiderTitle">Spider Synth</h1></div>
+          <p class="spider-stage-notice" id="liveStatus" role="status" hidden></p>
+          <img class="spider-poster" id="specimenImage" src="assets/spider-synth/specimen.webp" width="1100" height="900" alt="Spider specimen preview." />
+          <canvas id="spiderCanvas" tabindex="0" aria-label="Playable 3D spider: drag a body part to change its sound; pluck web strands; drag the background to rotate; plus and minus zoom" aria-describedby="gestureHelp">An articulated spider instrument.</canvas>
+        </div>
+        <p class="spider-status" id="modelStatus" role="status">Loading the spider…</p><button class="mini-action" id="retryModel" type="button" hidden>Retry model</button>
+      </section>
+      <aside class="spider-panel" aria-label="Spider Synth controls">
+        <section class="spider-control-block spider-view-controls" aria-label="View and joint controls">
+          <div class="spider-stage-toolbar">
+            <div class="choice-switch spider-views" id="viewPresets" role="group" aria-label="Camera view">
+              <button type="button" data-view="side" aria-pressed="false">Sideways</button><button type="button" data-view="top" aria-pressed="true">Top</button><button type="button" data-view="bottom" aria-pressed="false">Bottom</button><button type="button" data-view="face" aria-pressed="false">Face</button>
+            </div>
+            <div class="spider-gesture-info">
+              <button class="mini-action" id="gestureInfo" type="button" aria-label="View and gesture help" aria-controls="gestureHelp" aria-expanded="false" aria-describedby="gestureHelp">i</button>
+              <p id="gestureHelp" role="tooltip" hidden>Swipe vertically to scroll; drag sideways to play. 3D touch allows free dragging. Zoom uses + / − only. Tap a strand to pluck it; Move on web lets you drag the spider along its silk. Arrow keys rotate the view; Shift + arrows move the selected joint. Choose an axis for X, Y or Z movement.</p>
+            </div>
+          </div>
+          <div class="spider-camera-tools">
+            <button class="mini-action" id="sideToggle" type="button" hidden aria-label="Switch side view">L / R</button>
+            <button class="mini-action" id="resetCamera" type="button" disabled>Fit</button>
+            <div class="spider-zoom" role="group" aria-label="Zoom"><button class="mini-action" id="zoomOut" type="button" aria-label="Zoom out">−</button><span>Zoom</span><button class="mini-action" id="zoomIn" type="button" aria-label="Zoom in">+</button></div>
+            <label class="spider-axis" for="dragAxis">Axis <select id="dragAxis" aria-label="Joint movement axis"><option value="xy">X + Y</option><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label>
+          </div>
+          <div class="spider-interaction-tools">
+            <button class="mini-action" id="touch3D" type="button" aria-pressed="false">3D touch</button>
+            <button class="mini-action" id="moveOnWeb" type="button" aria-pressed="false">Move on web</button>
+            <button class="mini-action" id="showJoints" type="button" aria-pressed="false" disabled>Joints</button>
+          </div>
+        </section>
+        <section class="spider-control-block spider-pose-controls" aria-label="Sound and body pose">
+          <div class="spider-control-row">
+            <div class="spider-player"><span>Sound</span><button class="play-button" id="soundPlayButton" type="button" aria-pressed="false" aria-label="Play sound"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button></div>
+            <label class="spider-inline-select" for="posePreset"><span>Body pose</span><span class="select-shell"><select id="posePreset"><option value="neutral">Neutral</option></select></span></label>
+            <button class="mini-action" id="randomPose" type="button" aria-label="Random body pose">Random</button><button class="mini-action" id="resetPose" type="button" data-reset-all data-reset-in-place aria-label="Reset body position">Reset</button>
+          </div>
+          <p class="spider-invitation">Drag the spider to shape sound · pluck a web strand</p>
+        </section>
+        <section class="spider-control-block spider-voice" aria-label="Sound and voice">
+          <div class="spider-control-row"><label class="spider-inline-select" for="soundPreset"><span>Sound + voice presets</span><span class="select-shell"><select id="soundPreset"><option value="">Loading sound presets…</option></select></span></label><button class="mini-action" id="randomSound" type="button" aria-label="Random sound">Random</button></div>
+          <label class="spider-voice-label" for="phrase">Voice <span>Type words to speak</span></label><textarea id="phrase" rows="2" maxlength="96" placeholder="Type words here…" autocomplete="off" spellcheck="false">hi, I'm a spider and this is my web</textarea>
+          <div class="spider-voice-actions"><button class="mini-action spider-speak" id="speakButton" type="button">Say it</button><label class="spider-knob spider-voice-level" for="voice"><span class="knob-label">Voice</span><span class="knob-face" aria-hidden="true"><i></i><small id="voiceOut">78%</small></span><input id="voice" data-sound="voice" type="range" min="0" max="1" step="0.01" value="0.78" aria-label="Voice level" /></label><span class="sr-only">Control or Command + Enter speaks.</span></div>
+          <p class="spider-status" id="voiceStatus" role="status" hidden></p>
+        </section>
+        <section class="spider-control-block spider-performance" aria-label="Animation">
+          <div class="spider-control-row spider-animation-row">
+            <button class="play-button" id="motionButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play animation"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+            <div class="spider-animation-picker"><label class="spider-inline-select" for="motionPreset"><span>Animation</span><span class="select-shell"><select id="motionPreset"><option value="orb-walk">Orb walk</option></select></span></label><div class="spider-inline-arrows"><button type="button" id="previousMotion" aria-label="Previous animation">‹</button><button type="button" id="nextMotion" aria-label="Next animation">›</button></div></div>
+            <button class="mini-action" id="randomMotion" type="button" aria-label="Random animation">Random</button>
+          </div>
+          <div class="spider-motion-controls"><label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">108 BPM</output></span><input id="tempo" type="range" min="35" max="240" step="1" value="108" /></label><label class="control" for="intensity"><span><b>Movement</b><output id="intensityOut" for="intensity">65%</output></span><input id="intensity" type="range" min="0" max="1" step="0.01" value="0.65" /></label></div>
+          <div class="spider-beat-controls"><label class="spider-check"><input id="metronome" type="checkbox" /> Metronome</label><div class="spider-beat" id="beatIndicator" role="img" aria-label="Beat stopped"><i></i><i></i><i></i><i></i></div></div>
+          <label class="spider-check"><input id="explore" type="checkbox" checked /> Roam the web</label>
+        </section>
+        <section class="spider-control-block spider-web-controls" aria-labelledby="webTitle">
+          <div class="spider-mixer-heading"><h2 id="webTitle">Silk strings</h2><button class="mini-action" id="catchBug" type="button">Catch a bug</button></div>
+          <div id="webControls" class="spider-tone-controls" role="group" aria-label="Web string parameters"></div>
+          <div class="spider-motion-controls"><label class="control" for="spokes"><span><b>Radials</b><output id="spokesOut" for="spokes">16</output></span><input id="spokes" type="range" min="8" max="24" step="1" value="16" /></label><label class="control" for="rings"><span><b>Spirals</b><output id="ringsOut" for="rings">10</output></span><input id="rings" type="range" min="4" max="16" step="1" value="10" /></label></div>
+          <p class="spider-note">Shorter strands ring higher. Leg contacts pluck; movement changes the attack.</p>
+        </section>
+        <section class="spider-control-block spider-body-mixer" aria-labelledby="mixerTitle">
+          <div class="spider-mixer-heading"><h2 id="mixerTitle">Body + web sounds</h2><button class="mini-action" id="resetMix" type="button">Reset mix</button></div>
+          <div id="bodyMixer" role="group" aria-label="Body sound assignments"></div>
+          <p class="spider-note">Head and thorax form one body. Spinneret sound follows the abdomen.</p>
+          <div class="spider-mix-meter"><meter id="mixMeter" min="-60" max="0" low="-36" high="-3" optimum="-12" value="-60" aria-label="Output peak in dBFS"></meter><output id="mixPeak" aria-live="off">−∞ dBFS</output></div>
+          <div id="toneControls" class="spider-tone-controls" role="group" aria-label="Sound parameters"></div>
+        </section>
+        <section class="spider-control-block spider-midi" aria-label="MIDI performance">
+          <div class="spider-control-row"><span class="spider-player">MIDI poses</span><button class="mini-action" id="midiPanic" type="button" title="Release MIDI notes and return MIDI-controlled joints">Release MIDI</button></div>
+          <p class="spider-note" id="midiHelp">Turn MIDI In on above. Hold keys to pose body parts; release to relax. Animation Play stays independent.</p>
+          <output id="midiStatus" class="spider-midi-status" aria-live="off">MIDI poses ready</output>
+          <details id="midiRoutes"><summary>CC routes &amp; key map</summary>
+            <p class="spider-note">Choose what each controller knob moves. The Generic profile uses CC14–21; the MIDI Map in Settings adapts other controllers.</p>
+            <div id="midiMacroRoutes" class="spider-midi-routes" role="group" aria-label="MIDI macro assignments"></div>
+            <button class="mini-action" id="midiResetRoutes" type="button">Reset routes</button>
+            <p class="spider-note">Combine keys into poses. Octaves vary the pose and pitch; velocity changes strength, pitch bend moves ±2 semitones, and sustain holds notes.</p>
+            <dl id="midiKeyMap" class="spider-midi-keymap"></dl>
+            <p class="spider-note">Every key plays its body part’s assigned sound. Program Change selects a sound preset. Notes never start or stop either player.</p>
+            <p class="spider-note">CC1 movement · CC7 level · CC10 pan · CC11 expression · CC64 sustain · CC71 body · CC74 brightness. Assigned controller macros take precedence. MIDI Start/Stop controls animation; incoming clock sets tempo. C4 = note 60.</p>
+            <p class="spider-note">Computer keys: Z S X D C V G B H N J M = C3–B3; Q 2 W 3 E R 5 T 6 Y 7 U = C4–B4. [ / ] shift octaves.</p>
+          </details>
+        </section>
+        <details class="spider-notes"><summary>Specimen &amp; sound sources</summary><p>A real <i>Argiope bruennichi</i> scan by <a href="https://sketchfab.com/3d-models/cc0-orb-weaver-spider-a-bruennichi-bb646be39dad44948a403366b0ebc977">Yuichi Kano / ffish.asia</a>, CC0. Morphazoid adds a flexible rig with eight articulated legs and authored face pivots. The head and thorax are fused; tiny mouthpart boundaries are approximate.</p><p>The web is a musical string model: shorter silk subdivisions ring higher; tension raises pitch, and leg speed and angle shape each pluck. These are amplified, stylized string sounds, not recordings of a spider’s voice.</p><p><a href="SPIDER_SYNTH_RESEARCH.md">Research &amp; limitations</a> · <a href="docs/spider-synth-midi.md">MIDI guide</a> · <a href="assets/spider-synth/SOURCE.LICENSE.txt">Scan provenance</a></p></details>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="spider-synth-app.js"></script>
+  </body>
+</html>

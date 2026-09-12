@@ -1,0 +1,8 @@
+{
+  "inputBytes": 9521040,
+  "outputBytes": 5488852,
+  "decodedGeometryBytes": 7179600,
+  "geometry": "All compressed buffers decoded and compared byte-for-byte; no decimation or attribute quantization.",
+  "inputSha256": "050375e8cff1df8dbb6aeb1e917052bded448ee3eed624aece93c6b13694627d",
+  "outputSha256": "aee7f2b4c9b24bae69598390fe26314c2c8949cb0ae0c65f3a486f152c48a694"
+}

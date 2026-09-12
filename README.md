@@ -1,5 +1,12 @@
 # Morphazoid
 
+[Spider Synth](spider-synth.html) makes a scanned orb-weaver and its web into an
+instrument. Eight articulated legs pluck length-dependent silk strings; 24
+motion patches, held poses, body/web source assignments, speech and independent
+MIDI poses share an audio-clock contact model. See the
+[research and model limits](SPIDER_SYNTH_RESEARCH.md) and
+[MIDI performance guide](docs/spider-synth-midi.md).
+
 A growing collection of geometric, recursive, analytic, and transformed-audio instruments.
 
 **Roach Synth** turns a detailed CC BY cockroach scan into a playable instrument

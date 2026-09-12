@@ -61,6 +61,30 @@ done < <(git -C "$repo_root" ls-files -z)
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  spider-synth.html \
+  spider-synth.css \
+  spider-synth-app.js \
+  src/spider-synth-model.js \
+  src/spider-synth-viewer.js \
+  src/spider-synth-audio.js \
+  src/spider-synth-dsp.js \
+  src/spider-synth-processor.js \
+  src/spider-synth-body.js \
+  src/spider-synth-midi.js \
+  src/spider-synth-midi-controls.js \
+  src/spider-synth-string.js \
+  docs/spider-synth-midi.md \
+  docs/spider-synth-qa.md \
+  contracts/spider-synth-v1.md \
+  SPIDER_SYNTH_RESEARCH.md \
+  assets/spider-synth/spider-mobile.glb \
+  assets/spider-synth/rig-manifest.json \
+  assets/spider-synth/source-provenance.json \
+  assets/spider-synth/spider-mobile.glb.report.json \
+  assets/spider-synth/ASSET.md \
+  assets/spider-synth/specimen.webp \
+  assets/spider-synth/SOURCE.LICENSE.txt \
+  assets/instruments/spider-synth.webp \
   roach-synth.html \
   roach-synth.css \
   roach-synth-app.js \
@@ -781,6 +805,11 @@ for catalog_icon in "$repo_root"/assets/instruments/*.webp; do
 done
 
 required_files=(
+  spider-synth.html
+  src/spider-synth-model.js
+  src/spider-synth-processor.js
+  assets/spider-synth/spider-mobile.glb
+  assets/instruments/spider-synth.webp
   src/roach-synth-midi.js
   src/roach-synth-midi-controls.js
   docs/roach-synth-midi.md

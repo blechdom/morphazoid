@@ -13,6 +13,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "spider-synth": define(
+    "Spider + silk string instrument",
+    "A detailed orb-weaver scan with eight articulated legs in a playable web. Leg contacts pluck silk subdivisions, while held poses, a body mixer and a tiny voice shape its sound.",
+    "Turn Audio on, pluck a strand or animate the spider. Drag its joints, move it across the web, change silk tension, or hold MIDI keys to play temporary poses.",
+    ["Built-in synth", "3D scan", "Pointer", "Voice", "Body-part mixer", "Physical strings"],
+  ),
   "roach-synth": define(
     "Articulated cockroach voice",
     "A grounded cockroach scan with 31 playable joints, static poses and 24 varied motions, a body-part mixer, real movement recordings and a crunchy word voice.",

@@ -1,0 +1,45 @@
+Model Information:
+* title:	CC0 ナガコガネグモ 🕷️ Orb-weaver Spider, A. bruennichi
+* source:	https://sketchfab.com/3d-models/cc0-orb-weaver-spider-a-bruennichi-bb646be39dad44948a403366b0ebc977
+* author:	ffish.asia / floraZia.com (https://sketchfab.com/ffishAsia-and-floraZia)
+
+Model License:
+* license type:	CC0-1.0 (http://creativecommons.org/publicdomain/zero/1.0/)
+* requirements:	Credit is not mandatory. Commercial use is allowed.
+
+Retrieved 2026-09-12 from the public Creative Commons Sketchfab archive:
+https://mirror.traines.eu/sketchfab-backup/bb/bb646be39dad44948a403366b0ebc977.zip
+Archive SHA-256: be2dca355c5093f3302b75a04c27f4f4c6d854442b353133ee71664d0eac41c8
+
+This asset is a real specimen photogrammetry reconstruction from Yuichi Kano's
+ffish.asia / floraZia collection, not a generated or authored species model.
+The published model is static and unrigged. Morphazoid's articulation, web,
+contact constraints and performances are authored approximations.
+
+Creator and capture methodology:
+https://sketchfab.com/ffishAsia-and-floraZia
+https://sketchfab.com/blogs/community/digitizing-biodiversity-capturing-the-aquatic-creatures-of-asia-in-3d/
+https://doi.org/10.3897/rio.8.e86985
+https://qou.jp/usage_3d_jp
+
+Morphazoid derivative:
+* All 106,200 animal triangles and the original UV coordinates are retained.
+  The 12-triangle calibration cube and its separate texture were removed.
+* The original 4096 x 4096 photographed color atlas was re-encoded as WebP,
+  quality 92. Meshoptimizer compression is lossless for every mesh attribute;
+  there is no mesh decimation or position quantization.
+* The source has no supplied skeleton. Morphazoid authored 38 weighted joints:
+  cephalothorax, abdomen, paired pedipalps/chelicerae and four grouped joints
+  for each of the eight walking legs. Mouth-region skin boundaries and the
+  grouped leg articulations are approximate. This is not a measured live
+  animal gait, a recovered anatomical skeleton, or full collision simulation.
+* Neutral inverse binds preserve the complete source surface. Procedural web
+  contacts drive the same targets used by the instrument's sound engine;
+  the viewer uses bounded inverse kinematics to bend the existing scan.
+* Web geometry, lighting, the temporary caught-insect marker, and the rig are
+  authored presentation. specimen.webp is rendered from this actual model
+  and web, without a generated replacement image.
+
+Delivered spider-mobile.glb: 5,488,852 bytes.
+SHA-256: aee7f2b4c9b24bae69598390fe26314c2c8949cb0ae0c65f3a486f152c48a694
+Preparation and reproducibility notes: ASSET.md.

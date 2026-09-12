@@ -1,6 +1,6 @@
-export async function readAudioStatus(page) {
-  return page.evaluate(async () => {
-    const moduleUrl = new URL("src/audio-output-manager.js", `${location.origin}/`).href;
+export async function readAudioStatus(page, { moduleUrl = null } = {}) {
+  return page.evaluate(async (requestedUrl) => {
+    const moduleUrl = requestedUrl ?? new URL("src/audio-output-manager.js", `${location.origin}/`).href;
     const { getSharedAudioOutputManager } = await import(moduleUrl);
     const status = getSharedAudioOutputManager(globalThis).getStatus();
     return {
@@ -13,17 +13,18 @@ export async function readAudioStatus(page) {
       connectionCount: Number(status.connectionCount) || 0,
       outputMode: status.output?.mode ?? null,
     };
-  });
+  }, moduleUrl);
 }
 
 export async function sampleAudioEnvelope(page, {
   durationMs = 900,
   intervalMs = 50,
+  moduleUrl = null,
 } = {}) {
   const samples = [];
   const startedAt = Date.now();
   while (Date.now() - startedAt < durationMs) {
-    samples.push({ elapsedMs: Date.now() - startedAt, ...await readAudioStatus(page) });
+    samples.push({ elapsedMs: Date.now() - startedAt, ...await readAudioStatus(page, { moduleUrl }) });
     await page.waitForTimeout(intervalMs);
   }
   const values = samples.filter(({ peak, rms }) => Number.isFinite(peak) && Number.isFinite(rms));

@@ -506,3 +506,15 @@ Samples acoustic drums, rhink’s “Oi.wav,” NeoSpica’s “Booing Crowd,”
 See [recording sources and processing](assets/puggler/CREDITS.md) and the
 [included CC0 text](assets/puggler/CC0-1.0.txt). Guitar and bass are original repository synthesis. No episode or commercial music
 audio is bundled.
+
+## Spider Synth scanned specimen
+
+`assets/spider-synth/spider-mobile.glb`, its specimen image and catalogue icon
+are derived from **Argiope bruennichi**, a CC0 scan by **Yuichi Kano / ffish.asia
+and floraZia.com**, published on Sketchfab on 2025-03-18. Morphazoid removes the
+calibration cube and adds authored skin weights and 38 joint controls. Source:
+https://sketchfab.com/3d-models/cc0-orb-weaver-spider-a-bruennichi-bb646be39dad44948a403366b0ebc977
+
+See [exact provenance and license](assets/spider-synth/SOURCE.LICENSE.txt).
+Voice uses the existing KAL16 diphone atlas and CMU pronunciation resources;
+Spider Synth does not bundle new animal audio recordings.

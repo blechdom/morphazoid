@@ -1,0 +1,145 @@
+body.spider-synth-page { --accent: #d8ca94; --accent-soft: #aa9976; --accent-glow: #d8ca9412; --spider-mobile-height: clamp(300px, 46svh, 440px); height: 100svh; min-height: 100svh; overflow: hidden; }
+.spider-shell { display: grid; grid-template-columns: minmax(0, 1fr) clamp(350px, 30vw, 440px); flex: 1; min-height: 0; }
+.spider-stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; background: var(--bg-deep); border: 0; }
+.spider-viewport { position: relative; min-height: 300px; flex: 1 0 300px; overflow: hidden; background: #090d12; }
+.spider-stage > :not(.spider-viewport) { flex-shrink: 0; }
+.spider-heading { position: absolute; top: 20px; left: 22px; z-index: 1; pointer-events: none; }
+.spider-heading h1 { margin: 0; color: var(--ink); font: 500 clamp(23px, 3vw, 36px)/1.1 var(--mono); letter-spacing: -.06em; }
+.spider-stage-notice { position: absolute; z-index: 2; bottom: 8px; left: 12px; right: 12px; width: fit-content; max-width: calc(100% - 24px); margin: 0; padding: 7px 10px; background: #090d12e8; color: var(--accent); font-size: 10px; pointer-events: none; }
+.spider-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#spiderCanvas { position: relative; display: block; visibility: hidden; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
+#spiderCanvas:active { cursor: grabbing; }
+#spiderCanvas:focus-visible { outline-offset: -4px; }
+.spider-view-controls { display: grid; gap: 6px; }
+.spider-stage-toolbar, .spider-camera-tools, .spider-interaction-tools { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.spider-views { display: flex; flex: 1; margin: 0; min-width: 0; }
+.spider-view-controls button { min-width: 28px; min-height: 28px; padding: 5px 7px; font-size: 9px; }
+.spider-views button { flex: 1; min-width: 0; padding: 5px 4px; }
+.spider-zoom { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--muted); }
+.spider-zoom button { padding: 3px 5px; font-size: 15px; }
+.spider-axis { display: flex; align-items: center; gap: 5px; margin-left: auto; font-size: 9px; color: var(--muted); }
+.spider-axis select { min-width: 0; min-height: 28px; background: var(--panel); font: 10px var(--mono); padding: 4px; border: 1px solid var(--line-strong); }
+.spider-interaction-tools button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.spider-gesture-info { position: relative; flex: 0 0 auto; }
+#gestureInfo { width: 28px; border-radius: 50%; font: 12px Georgia, serif; text-transform: none; }
+#gestureHelp { position: absolute; z-index: 30; top: 100%; right: 0; width: min(280px, calc(100vw - 48px)); margin: 0; padding: 10px 12px; color: var(--ink); background: var(--bg-deep); border: 1px solid var(--line-strong); box-shadow: 0 5px 15px #0007; font: 10px/1.6 var(--mono); }
+.spider-stage > .spider-status, #retryModel { margin: 6px 20px 12px; }
+.spider-panel { position: relative; min-width: 0; min-height: 0; overflow-y: auto; padding: 8px 0 18px; background: var(--panel); border: 0; scrollbar-color: var(--faint) transparent; scrollbar-width: thin; }
+.spider-control-block { padding: 14px 20px 4px; }
+.spider-control-row { display: flex; align-items: flex-end; gap: 8px; min-width: 0; }
+.spider-player { display: grid; flex: 0 0 auto; gap: 6px; color: var(--accent); font-size: 10px; }
+.spider-inline-select { display: grid; flex: 1; min-width: 0; gap: 6px; color: var(--muted); font-size: 10px; }
+.spider-inline-select select { width: 100%; min-width: 0; min-height: 36px; padding: 7px 8px; font: 11px var(--mono); color: var(--ink); background: var(--bg-deep); border: 1px solid var(--line-strong); }
+.spider-control-row > .mini-action { flex: 0 0 auto; min-height: 36px; padding: 7px 8px; font-size: 9px; }
+.spider-control-row .play-button { flex: 0 0 40px; display: grid; place-items: center; width: 40px; height: 40px; min-width: 40px; padding: 0; background: transparent; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--accent); cursor: pointer; }
+.spider-control-row .play-button svg { width: 22px; height: 22px; fill: currentColor; }
+.spider-control-row .play-button .transport-pause { display: none; fill: none; stroke: currentColor; stroke-width: 3; }
+.spider-control-row .play-button[aria-pressed="true"] { background: #d8ca9422; border-color: var(--accent); }
+.spider-control-row .play-button[aria-pressed="true"] .transport-play { display: none; }
+.spider-control-row .play-button[aria-pressed="true"] .transport-pause { display: block; }
+.spider-control-row .play-button:disabled { opacity: .4; cursor: default; }
+.spider-invitation { margin: 12px 0 1px; color: var(--accent); font-size: 10px; }
+.spider-panel .select-shell { min-width: 0; }
+.spider-panel .select-shell select { padding-right: 28px; }
+.spider-panel .select-shell::after { right: 11px; }
+.spider-voice .spider-inline-select > span:first-child { color: var(--accent); }
+.spider-voice-label { display: flex; align-items: baseline; gap: 12px; margin-top: 14px; color: var(--accent); font-size: 10px; letter-spacing: .13em; text-transform: uppercase; }
+.spider-voice-label span { color: var(--muted); font-size: 9px; letter-spacing: 0; text-transform: none; }
+.spider-voice textarea { display: block; resize: vertical; width: 100%; min-height: 66px; margin: 10px 0 8px; padding: 9px 11px; background: var(--bg-deep); color: var(--ink); border: 1px solid var(--line-strong); border-bottom: 2px solid var(--accent-soft); font: 12px/1.6 var(--mono); cursor: text; }
+.spider-voice-actions { display: flex; gap: 14px; align-items: center; }
+.spider-speak { min-height: 44px; min-width: 96px; padding: 8px 18px; border-color: var(--accent); background: var(--accent); color: var(--bg-deep); font-size: 11px; }
+.spider-speak:hover:not(:disabled) { background: var(--accent-soft); color: var(--bg-deep); }
+.spider-knob.spider-voice-level { width: 82px; padding-left: 34px; }
+.spider-voice-level .knob-label { position: absolute; left: 0; top: 16px; font-size: 9px; color: var(--muted); }
+.spider-voice-level input[type="range"] { left: 34px; width: calc(100% - 34px); }
+.spider-animation-picker { display: flex; align-items: flex-end; flex: 1; min-width: 0; }
+.spider-inline-arrows { display: flex; }
+.spider-inline-arrows button { min-width: 26px; min-height: 36px; padding: 0; background: var(--bg-deep); color: var(--accent); border: 0; font-size: 20px; cursor: pointer; }
+.spider-animation-picker select { border-right: 0; }
+.spider-motion-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+.spider-motion-controls .control { margin: 0; }
+.spider-motion-controls .control b, .spider-motion-controls output { font-size: 10px; }
+.spider-motion-controls input { height: 30px; }
+.spider-check { display: flex; align-items: center; gap: 7px; min-height: 30px; color: var(--muted); font-size: 10px; }
+.spider-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.spider-midi-status { display: block; min-height: 18px; margin: 6px 0; color: var(--accent); font: 10px/1.6 var(--mono); }
+.spider-midi details { font: 10px/1.6 var(--mono); color: var(--muted); }
+.spider-midi summary { padding: 8px 0; cursor: pointer; color: var(--accent); }
+.spider-midi-routes { display: grid; gap: 6px; margin: 10px 0; }
+.spider-midi-routes label { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 8px; align-items: center; }
+.spider-midi-routes select { min-width: 0; width: 100%; min-height: 34px; padding: 5px 7px; background: var(--bg-deep); color: var(--ink); border: 1px solid var(--line-strong); font: 10px var(--mono); }
+.spider-midi-keymap { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px minmax(0, 1fr); gap: 5px 8px; margin: 10px 0; }
+.spider-midi-keymap dt { color: var(--accent); }.spider-midi-keymap dd { margin: 0; }
+.spider-midi #midiPanic { min-width: 0; min-height: 26px; height: 26px; padding: 4px 6px; font-size: 8px; }
+.spider-beat-controls { display: flex; align-items: center; gap: 16px; }
+.spider-beat { display: flex; gap: 7px; }
+.spider-beat i { width: 9px; height: 9px; border: 1px solid var(--accent-soft); border-radius: 50%; }
+.spider-beat i.is-active { background: var(--accent); }
+.spider-mixer-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 10px; }
+.spider-mixer-heading h2 { font-size: 10px; color: var(--accent); font-weight: 500; letter-spacing: .13em; text-transform: uppercase; margin: 0; }
+.spider-mixer-heading .mini-action { padding: 5px 7px; font-size: 8px; }
+.spider-body-row { display: grid; grid-template-columns: minmax(66px, .85fr) minmax(85px, 1.25fr) 40px 28px 28px; gap: 5px; align-items: center; min-width: 0; min-height: 44px; }
+.spider-body-name { min-width: 0; padding: 5px 0; text-align: left; font: 10px var(--mono); color: var(--ink); background: transparent; border: 0; cursor: pointer; }
+.spider-body-name[aria-pressed="true"] { color: var(--accent); text-decoration: underline; text-underline-offset: 4px; }
+.spider-body-row select { width: 100%; min-width: 0; min-height: 30px; padding: 5px; font: 10px var(--mono); background: var(--bg-deep); border: 1px solid var(--line-strong); color: var(--ink); }
+.spider-body-row > [data-mute], .spider-body-row > [data-solo] { min-height: 30px; min-width: 0; padding: 0; font: 9px var(--mono); border: 0; background: var(--bg-deep); color: var(--muted); cursor: pointer; }
+.spider-body-row > button[aria-pressed="true"] { color: var(--accent); background: #d8ca9418; }
+.spider-body-row.is-silent select { opacity: .5; }
+.spider-knob { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; height: 44px; flex: 0 0 auto; cursor: ns-resize; touch-action: pan-y; }
+.knob-face { display: block; position: relative; width: 32px; height: 32px; border: 1px solid var(--accent-soft); border-radius: 50%; background: var(--bg-deep); pointer-events: none; }
+.knob-face i { position: absolute; left: calc(50% - 1px); top: calc(50% - 1px); width: 2px; height: 7px; background: var(--accent); transform-origin: 50% 1px; transform: rotate(var(--knob-angle, 0deg)) translateY(-13px); }
+.knob-face small { position: absolute; left: -6px; right: -6px; bottom: 3px; text-align: center; color: var(--muted); font: 7px var(--mono); }
+.spider-knob input[type="range"] { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; opacity: 0; pointer-events: none; cursor: ns-resize; touch-action: pan-y; }
+.spider-knob:focus-within .knob-face { outline: 2px solid var(--accent); outline-offset: 3px; }
+.spider-tone-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); justify-items: center; gap: 12px 4px; margin: 18px 0 6px; }
+.spider-tone-knob { width: 68px; height: 63px; justify-content: flex-end; }
+.spider-tone-knob .knob-label { position: absolute; top: 0; color: var(--muted); font-size: 9px; white-space: nowrap; }
+.spider-tone-knob input[type="range"] { top: 15px; height: 48px; }
+.spider-mix-meter { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.spider-mix-meter meter { flex: 1; min-width: 0; height: 8px; accent-color: var(--accent); }
+.spider-mix-meter output { min-width: 65px; text-align: right; color: var(--muted); font: 9px var(--mono); }
+.spider-note, .spider-status { color: var(--muted); font-size: 9px; line-height: 1.6; margin: 7px 0 0; }
+.spider-notes { margin: 12px 20px 4px; color: var(--muted); font-size: 9px; line-height: 1.7; }
+.spider-notes summary { padding: 8px 0; cursor: pointer; }
+.spider-notes a { color: var(--accent); }
+@media (max-width: 960px) {
+ html.spider-synth-document { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; }
+ body.spider-synth-page { height: auto; min-height: 100svh; overflow: visible; }
+ .spider-synth-page > .masthead { position: sticky; top: 0; background: var(--bg-deep); }
+ .spider-shell { display: block; flex: none; overflow: visible; }
+ .spider-stage { display: contents; overflow: visible; }
+ .spider-viewport { position: sticky; top: var(--spider-header-height, 58px); z-index: 20; height: var(--spider-mobile-height); min-height: 0; flex: none; box-shadow: 0 8px 18px #0007; }
+ .spider-panel { display: block; overflow: visible; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+ .spider-panel :is(button, input, select, textarea, summary) { scroll-margin-top: calc(var(--spider-header-height, 58px) + var(--spider-mobile-height) + 16px); scroll-margin-bottom: 12px; }
+}
+@media (max-width: 600px) {
+ .spider-heading { top: 16px; left: 16px; }
+ .spider-heading h1 { font-size: 28px; }
+ .spider-control-block { padding-left: 16px; padding-right: 16px; }
+}
+@media (pointer: coarse) {
+ .spider-synth-page #audioButton, .spider-control-row .play-button { min-width: 48px; min-height: 48px; width: 48px; height: 48px; }
+ .spider-panel select, .spider-panel .mini-action, .spider-stage-toolbar button, .spider-interaction-tools button, .spider-interaction-tools select, .spider-check, .spider-body-name, .spider-notes summary { min-height: 44px; }
+ .spider-motion-controls input { height: 44px; }
+ .spider-body-row { grid-template-columns: minmax(60px, .85fr) minmax(80px, 1.25fr) 44px 36px 36px; gap: 4px; }
+ .spider-body-row > [data-mute], .spider-body-row > [data-solo], .spider-inline-arrows button { min-height: 44px; }
+ .spider-inline-arrows button { min-width: 26px; }
+ .spider-knob { width: 44px; min-height: 44px; }
+ .spider-panel .spider-view-controls :is(button, select) { min-height: 32px; }
+ .spider-view-controls #gestureInfo { width: 32px; }
+ .spider-midi #midiPanic { min-height: 32px; height: 32px; }
+}
+@media (max-width: 960px) and (orientation: landscape) {
+ body.spider-synth-page { --spider-mobile-height: clamp(170px, 46svh, 240px); }
+ .spider-heading { top: 10px; }
+ .spider-heading h1 { font-size: 23px; }
+ .spider-view-controls { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+ .spider-stage-toolbar { flex: 1 0 240px; }
+ .spider-axis { margin-left: 6px; }
+ #gestureHelp { width: min(340px, calc(100vw - 48px)); }
+}
+
+.spider-web-controls .spider-tone-controls { margin-top: 12px; }
+.spider-web-controls .spider-mixer-heading { margin-top: 2px; }
+.spider-synth-page .play-button { min-width: 48px; min-height: 48px; width: 48px; height: 48px; }
+.spider-synth-page .spider-invitation { line-height: 1.6; }

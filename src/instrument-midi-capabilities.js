@@ -45,6 +45,7 @@ const NOTE_MODE_IDS = Object.freeze({
   ]),
   pitched: Object.freeze([
     "roach-synth",
+    "spider-synth",
     "combo",
     "shape",
     "playhead-paint",

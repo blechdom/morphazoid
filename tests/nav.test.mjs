@@ -669,6 +669,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "creaturazoid", label: "Creaturazoid", href: "creaturazoid.html" },
       { id: "quadruped", label: "Quadruped", href: "quadruped.html" },
       { id: "roach-synth", label: "Roach Synth", href: "roach-synth.html" },
+      { id: "spider-synth", label: "Spider Synth", href: "spider-synth.html" },
       { id: "colony-syrinx", label: "Monstrozoid", href: "monstrozoid.html" },
       { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },

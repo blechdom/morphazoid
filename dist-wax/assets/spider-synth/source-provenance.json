@@ -1,0 +1,78 @@
+{
+  "uid": "bb646be39dad44948a403366b0ebc977",
+  "name": "CC0 ナガコガネグモ 🕷️ Orb-weaver Spider, A. bruennichi",
+  "description": "License: **CC0**  \n\n  \nAnimalia 動物界  \n　Arthropoda 節足動物門  \n　　Arachnida クモ綱  \n　　　Araneae クモ目  \n　　　　Araneidae コガネグモ科  \n　　　　　Argiope コガネグモ属  \n　　　　　　Argiope bruennichi ナガコガネグモ  \n  \nクモ 蜘蛛",
+  "license": {
+    "uid": "7c23a1ba438d4306920229c12afcb5f9",
+    "label": "CC0 Public Domain"
+  },
+  "createdAt": "2025-03-18T02:58:46.781666",
+  "publishedAt": "2025-03-18T02:59:21.175573",
+  "faceCount": 106212,
+  "vertexCount": 53106,
+  "animationCount": 0,
+  "isDownloadable": true,
+  "isProtected": false,
+  "archives": {
+    "extra": {
+      "textureCount": null,
+      "size": 8104588,
+      "type": "extra",
+      "textureMaxResolution": null,
+      "faceCount": null,
+      "vertexCount": null
+    },
+    "glb": {
+      "textureCount": 2,
+      "size": 12450444,
+      "type": "glb",
+      "textureMaxResolution": 4096,
+      "faceCount": 106212,
+      "vertexCount": 105474
+    },
+    "gltf": {
+      "textureCount": 2,
+      "size": 11019630,
+      "type": "gltf",
+      "textureMaxResolution": 4096,
+      "faceCount": 106212,
+      "vertexCount": 105474
+    },
+    "source": {
+      "textureCount": null,
+      "size": 22007216,
+      "type": "source",
+      "textureMaxResolution": null,
+      "faceCount": null,
+      "vertexCount": null
+    },
+    "usdz": {
+      "textureCount": null,
+      "size": 11452523,
+      "type": "usdz",
+      "textureMaxResolution": null,
+      "faceCount": null,
+      "vertexCount": null
+    }
+  },
+  "creator": {
+    "displayName": "ffish.asia / floraZia.com",
+    "profileUrl": "https://sketchfab.com/ffishAsia-and-floraZia",
+    "username": "ffishAsia-and-floraZia"
+  },
+  "retrieved": "2026-09-12",
+  "archive": "https://mirror.traines.eu/sketchfab-backup/bb/bb646be39dad44948a403366b0ebc977.zip",
+  "archiveSha256": "be2dca355c5093f3302b75a04c27f4f4c6d854442b353133ee71664d0eac41c8",
+  "inspection": {
+    "spiderTriangles": 106200,
+    "calibrationCubeTriangles": 12,
+    "connectedComponentsAfterPositionWeld": 1,
+    "suppliedSkin": false,
+    "suppliedAnimation": false,
+    "colorTexture": [
+      4096,
+      4096
+    ],
+    "morphology": "real specimen surface, fused cephalothorax, abdomen, eight walking legs, small fused mouth appendages"
+  }
+}
