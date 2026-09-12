@@ -146,7 +146,7 @@ test('mobile vertical swipes on the roach canvas scroll the document; horizontal
   await context.close();
 });
 
-test('four textured/reconstructed wings articulate independently, underside fill is view-specific, and knees stay below the back', async ({ page }) => {
+test('four textured/reconstructed wings articulate independently, camera fill is consistent across views, and knees stay below the back', async ({ page }) => {
   await specimen(page);
   const geometry = await page.evaluate(async () => {
     const THREE = await import('/vendor/three/three.module.min.js');
@@ -172,9 +172,11 @@ test('four textured/reconstructed wings articulate independently, underside fill
   for (const femur of geometry.ranges.filter((part) => /^(front|middle|hind)_(left|right)_middle$/.test(part.id))) expect(femur.high).toBeLessThan(carapace);
   const clearance = (geometry.state.ground.bellyHeight - geometry.state.ground.height) / geometry.state.ground.bodyLength;
   expect(clearance).toBeGreaterThan(.11); expect(clearance).toBeLessThan(.14);
-  await page.evaluate(() => specimenViewer.setViewPreset('bottom'));
-  expect(await page.evaluate(() => specimenViewer.getState().lighting.bottomFill)).toBeGreaterThan(2);
-  await page.evaluate(() => specimenViewer.setViewPreset('top'));
+  expect(geometry.state.lighting.bottomFill).toBeGreaterThan(0);
+  for (const view of ['bottom', 'face', 'side', 'top']) {
+    await page.evaluate(view => specimenViewer.setViewPreset(view), view);
+    expect(await page.evaluate(() => specimenViewer.getState().lighting)).toEqual(geometry.state.lighting);
+  }
   const beforeWings = await page.evaluate(() => specimenViewer.getState().camera);
   await page.evaluate(() => {
     for (const joint of joints) {
@@ -187,7 +189,7 @@ test('four textured/reconstructed wings articulate independently, underside fill
   expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(beforeWings);
   // Wide wings can be fitted deliberately; opening a body part never zooms.
   await page.evaluate(() => specimenViewer.resetCamera());
-  expect(await page.evaluate(() => specimenViewer.getState().lighting.bottomFill)).toBe(0);
+  expect(await page.evaluate(() => specimenViewer.getState().lighting)).toEqual(geometry.state.lighting);
   for (const id of ['wing_cover_left', 'wing_cover_right', 'wing_hind_left', 'wing_hind_right']) expect(await page.evaluate((part) => specimenViewer.getPartScreenPosition(part), id)).not.toBeNull();
   const before = await page.evaluate(() => specimenViewer.getState().bones.filter((joint) => joint.wingLayer).map((joint) => ({ id: joint.jointId, quaternion: joint.quaternion })));
   await page.evaluate(() => { joints.find((joint) => joint.jointId === 'wing_hind_left').offset.z += 10; drawSpecimen(); });

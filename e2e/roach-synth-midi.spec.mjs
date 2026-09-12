@@ -43,6 +43,8 @@ test('MIDI exposes eight editable routes without requesting permission or arming
   await open(page);
   await expect(page.locator('#midiKeyMap dt')).toHaveCount(12);
   await expect(page.locator('#midiPanic')).toBeVisible();
+  const panic = await page.locator('#midiPanic').boundingBox();
+  expect(panic.height).toBeGreaterThanOrEqual(26); expect(panic.height).toBeLessThanOrEqual(28);
   await page.locator('#midiRoutes').evaluate(element => { element.open = true; });
   const defaults = ['param:intensity', 'param:brightness', 'param:resonance', 'param:crunch', 'joint:covers:y', 'joint:hindwings:y', 'joint:head:x', 'joint:antennae:y'];
   for (let index = 0; index < 8; index += 1) {
@@ -204,14 +206,14 @@ test('turning Audio off prevents later MIDI notes from rearming it; MIDI Off and
   await page.locator('#source-head').selectOption('sine');
   await sendMidi(page, MIDI_BYTES.noteOn(69)); await gate(page, 'head');
   await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
-  await page.locator('#stageAudioButton').click(); expect((await state(page)).audioOn).toBe(false);
+  await page.locator('#audioButton').click(); expect((await state(page)).audioOn).toBe(false);
   expect((await state(page)).midi.heldCount).toBe(1);
   await sendMidi(page, MIDI_BYTES.noteOn(72)); expect((await state(page)).audioOn).toBe(false);
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.0001);
   expect(players(await state(page))).toEqual({ sound: false, animation: false });
   await sendMidi(page, MIDI_BYTES.noteOff(72));
   expect((await state(page)).midi.heldCount).toBe(1);
-  await page.locator('#stageAudioButton').click(); await gate(page, 'head');
+  await page.locator('#audioButton').click(); await gate(page, 'head');
   await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
   await sendMidi(page, MIDI_BYTES.noteOff(69)); await silentMidi(page);
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.0001);
@@ -257,7 +259,6 @@ test('phone MIDI routes and Panic remain reachable below the sticky specimen', a
   try {
     await installFakeMidi(page); await page.goto(new URL('roach-synth.html', baseURL).href);
     await page.waitForFunction(() => window.roachSynth?.getState().loaded);
-    await page.screenshot({ path: testInfo.outputPath('phone-midi-collapsed.png'), fullPage: true });
     await page.locator('#midiRoutes').evaluate(element => { element.open = true; });
     for (const selector of ['#midiRoute0', '#midiRoute7', '#midiPanic']) {
       await page.locator(selector).scrollIntoViewIfNeeded();
@@ -265,10 +266,16 @@ test('phone MIDI routes and Panic remain reachable below the sticky specimen', a
       expect(box.y).toBeGreaterThanOrEqual(stage.y + stage.height - 1); expect(box.y + box.height).toBeLessThanOrEqual(845);
       expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(391);
     }
+    const panic = await page.locator('#midiPanic').boundingBox();
+    expect(panic.height).toBeGreaterThanOrEqual(32); expect(panic.height).toBeLessThanOrEqual(34);
     await page.locator('#midiPanic').tap();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
     expect((await state(page)).audio.contextState).toBe('uninitialized'); expect((await fakeMidiSnapshot(page)).requests).toEqual([]);
-    await page.screenshot({ path: testInfo.outputPath('phone-midi-routes.png'), fullPage: true }); expect(errors).toEqual([]);
+    expect(errors).toEqual([]);
+    // Full-page captures can reset Chromium touch emulation; capture only after the input checks.
+    await page.screenshot({ path: testInfo.outputPath('phone-midi-routes.png') });
+    await page.locator('#midiRoutes').evaluate(element => { element.open = false; });
+    await page.screenshot({ path: testInfo.outputPath('phone-midi-collapsed.png') });
   } finally { await context.close(); }
 });
 

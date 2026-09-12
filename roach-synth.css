@@ -5,23 +5,24 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 .roach-stage > :not(.roach-viewport) { flex-shrink: 0; }
 .roach-heading { position: absolute; top: 20px; left: 22px; z-index: 1; pointer-events: none; }
 .roach-heading h1 { margin: 0; color: var(--ink); font: 500 clamp(23px, 3vw, 36px)/1.1 var(--mono); letter-spacing: -.06em; }
-.roach-audio-toggle { position: absolute; z-index: 2; top: 14px; right: 16px; min-width: 88px; min-height: 48px; color: var(--accent); background: var(--bg-deep); border-color: var(--accent-soft); }
-.roach-audio-toggle[aria-pressed="true"] { background: var(--accent); color: var(--bg-deep); }
 .roach-stage-notice { position: absolute; z-index: 2; bottom: 8px; left: 12px; right: 12px; width: fit-content; max-width: calc(100% - 24px); margin: 0; padding: 7px 10px; background: #090d12e8; color: var(--accent); font-size: 10px; pointer-events: none; }
 .roach-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 #roachCanvas { position: relative; display: block; visibility: hidden; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
 #roachCanvas:active { cursor: grabbing; }
 #roachCanvas:focus-visible { outline-offset: -4px; }
-.roach-stage-toolbar, .roach-interaction-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 20px 0; }
-.roach-views { display: flex; margin: 0; }
-.roach-views button { min-width: 58px; padding: 9px 10px; }
-.roach-zoom { display: flex; align-items: center; gap: 6px; font-size: 9px; color: var(--muted); }
-.roach-zoom button { min-width: 30px; font-size: 15px; }
-.roach-interaction-tools { padding-bottom: 0; font-size: 10px; color: var(--muted); }
-.roach-interaction-tools label { display: flex; align-items: center; gap: 8px; }
-.roach-interaction-tools select { background: var(--panel); font: 10px var(--mono); padding: 6px; border: 1px solid var(--line-strong); }
+.roach-view-controls { display: grid; gap: 6px; }
+.roach-stage-toolbar, .roach-camera-tools, .roach-interaction-tools { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.roach-views { display: flex; flex: 1; margin: 0; min-width: 0; }
+.roach-view-controls button { min-width: 28px; min-height: 28px; padding: 5px 7px; font-size: 9px; }
+.roach-views button { flex: 1; min-width: 0; padding: 5px 4px; }
+.roach-zoom { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--muted); }
+.roach-zoom button { padding: 3px 5px; font-size: 15px; }
+.roach-axis { display: flex; align-items: center; gap: 5px; margin-left: auto; font-size: 9px; color: var(--muted); }
+.roach-axis select { min-width: 0; min-height: 28px; background: var(--panel); font: 10px var(--mono); padding: 4px; border: 1px solid var(--line-strong); }
 .roach-interaction-tools button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
-.roach-help { margin: 8px 20px 10px; color: var(--muted); font-size: 9px; line-height: 1.6; }
+.roach-gesture-info { position: relative; flex: 0 0 auto; }
+#gestureInfo { width: 28px; border-radius: 50%; font: 12px Georgia, serif; text-transform: none; }
+#gestureHelp { position: absolute; z-index: 30; top: 100%; right: 0; width: min(280px, calc(100vw - 48px)); margin: 0; padding: 10px 12px; color: var(--ink); background: var(--bg-deep); border: 1px solid var(--line-strong); box-shadow: 0 5px 15px #0007; font: 10px/1.6 var(--mono); }
 .roach-stage > .roach-status, #retryModel { margin: 6px 20px 12px; }
 .roach-panel { position: relative; min-width: 0; min-height: 0; overflow-y: auto; padding: 8px 0 18px; background: var(--panel); border: 0; scrollbar-color: var(--faint) transparent; scrollbar-width: thin; }
 .roach-control-block { padding: 14px 20px 4px; }
@@ -69,7 +70,7 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 .roach-midi-routes select { min-width: 0; width: 100%; min-height: 34px; padding: 5px 7px; background: var(--bg-deep); color: var(--ink); border: 1px solid var(--line-strong); font: 10px var(--mono); }
 .roach-midi-keymap { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px minmax(0, 1fr); gap: 5px 8px; margin: 10px 0; }
 .roach-midi-keymap dt { color: var(--accent); }.roach-midi-keymap dd { margin: 0; }
-.roach-midi #midiPanic { min-height: 48px; }
+.roach-midi #midiPanic { min-width: 0; min-height: 26px; height: 26px; padding: 4px 6px; font-size: 8px; }
 .roach-beat-controls { display: flex; align-items: center; gap: 16px; }
 .roach-beat { display: flex; gap: 7px; }
 .roach-beat i { width: 9px; height: 9px; border: 1px solid var(--accent-soft); border-radius: 50%; }
@@ -104,19 +105,17 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
 @media (max-width: 960px) {
  html.roach-synth-document { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; }
  body.roach-synth-page { height: auto; min-height: 100svh; overflow: visible; }
+ .roach-synth-page > .masthead { position: sticky; top: 0; background: var(--bg-deep); }
  .roach-shell { display: block; flex: none; overflow: visible; }
  .roach-stage { display: contents; overflow: visible; }
- .roach-viewport { position: sticky; top: 0; z-index: 20; height: var(--roach-mobile-height); min-height: 0; flex: none; box-shadow: 0 8px 18px #0007; }
+ .roach-viewport { position: sticky; top: var(--roach-header-height, 58px); z-index: 20; height: var(--roach-mobile-height); min-height: 0; flex: none; box-shadow: 0 8px 18px #0007; }
  .roach-panel { display: block; overflow: visible; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
- .roach-panel :is(button, input, select, textarea, summary) { scroll-margin-top: calc(var(--roach-mobile-height) + 36px); scroll-margin-bottom: 12px; }
+ .roach-panel :is(button, input, select, textarea, summary) { scroll-margin-top: calc(var(--roach-header-height, 58px) + var(--roach-mobile-height) + 16px); scroll-margin-bottom: 12px; }
 }
 @media (max-width: 600px) {
  .roach-heading { top: 16px; left: 16px; }
  .roach-heading h1 { font-size: 28px; }
  .roach-control-block { padding-left: 16px; padding-right: 16px; }
- .roach-stage-toolbar, .roach-interaction-tools { padding-left: 16px; padding-right: 16px; }
- .roach-views { flex: 1 0 100%; }
- .roach-views button { flex: 1; }
 }
 @media (pointer: coarse) {
  .roach-synth-page #audioButton, .roach-control-row .play-button { min-width: 48px; min-height: 48px; width: 48px; height: 48px; }
@@ -126,9 +125,16 @@ body.roach-synth-page { --accent: #c2df85; --accent-soft: #9aaa71; --accent-glow
  .roach-body-row > [data-mute], .roach-body-row > [data-solo], .roach-inline-arrows button { min-height: 44px; }
  .roach-inline-arrows button { min-width: 26px; }
  .roach-knob { width: 44px; min-height: 44px; }
+ .roach-panel .roach-view-controls :is(button, select) { min-height: 32px; }
+ .roach-view-controls #gestureInfo { width: 32px; }
+ .roach-midi #midiPanic { min-height: 32px; height: 32px; }
 }
 @media (max-width: 960px) and (orientation: landscape) {
  body.roach-synth-page { --roach-mobile-height: clamp(170px, 46svh, 240px); }
  .roach-heading { top: 10px; }
  .roach-heading h1 { font-size: 23px; }
+ .roach-view-controls { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+ .roach-stage-toolbar { flex: 1 0 240px; }
+ .roach-axis { margin-left: 6px; }
+ #gestureHelp { width: min(340px, calc(100vw - 48px)); }
 }

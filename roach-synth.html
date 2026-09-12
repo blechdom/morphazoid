@@ -38,28 +38,34 @@
       <section class="roach-stage" aria-labelledby="roachTitle">
         <div class="roach-viewport" id="specimenViewport">
           <div class="roach-heading"><h1 id="roachTitle">Roach Synth</h1></div>
-          <button class="mini-action roach-audio-toggle" id="stageAudioButton" type="button" aria-pressed="false" aria-label="Turn Audio on">Audio off</button>
           <p class="roach-stage-notice" id="liveStatus" role="status" hidden></p>
           <img class="roach-poster" id="specimenImage" src="assets/roach-synth/specimen.webp" width="1052" height="588" alt="Cockroach specimen preview." />
-          <canvas id="roachCanvas" tabindex="0" aria-label="Playable 3D cockroach: drag a body part to change its sound; drag the background to rotate; plus and minus zoom" aria-describedby="viewHelp">An articulated cockroach instrument.</canvas>
+          <canvas id="roachCanvas" tabindex="0" aria-label="Playable 3D cockroach: drag a body part to change its sound; drag the background to rotate; plus and minus zoom" aria-describedby="gestureHelp">An articulated cockroach instrument.</canvas>
         </div>
-        <div class="roach-stage-toolbar">
-          <div class="choice-switch roach-views" id="viewPresets" role="group" aria-label="Camera view">
-            <button type="button" data-view="side" aria-pressed="true">Sideways</button><button type="button" data-view="top" aria-pressed="false">Top</button><button type="button" data-view="bottom" aria-pressed="false">Bottom</button><button type="button" data-view="face" aria-pressed="false">Face</button>
-          </div>
-          <button class="mini-action" id="sideToggle" type="button" aria-label="Switch side view">L / R</button>
-          <button class="mini-action" id="resetCamera" type="button" disabled>Fit</button>
-          <div class="roach-zoom" role="group" aria-label="Zoom"><button class="mini-action" id="zoomOut" type="button" aria-label="Zoom out">−</button><span>Zoom</span><button class="mini-action" id="zoomIn" type="button" aria-label="Zoom in">+</button></div>
-        </div>
-        <div class="roach-interaction-tools">
-          <label for="dragAxis">Joint axis <select id="dragAxis"><option value="xy">X + Y</option><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label>
-          <button class="mini-action" id="touch3D" type="button" aria-pressed="false">3D touch</button>
-          <button class="mini-action" id="showJoints" type="button" aria-pressed="false" disabled>Joints</button>
-        </div>
-        <p class="roach-help" id="viewHelp">Swipe vertically to scroll; drag sideways to play. 3D touch allows free dragging. Zoom uses + / − only.<span class="sr-only">Arrow keys rotate the view; Shift + arrows move the selected joint. Choose a joint axis for X, Y or Z movement.</span></p>
         <p class="roach-status" id="modelStatus" role="status">Loading the cockroach…</p><button class="mini-action" id="retryModel" type="button" hidden>Retry model</button>
       </section>
       <aside class="roach-panel" aria-label="Roach Synth controls">
+        <section class="roach-control-block roach-view-controls" aria-label="View and joint controls">
+          <div class="roach-stage-toolbar">
+            <div class="choice-switch roach-views" id="viewPresets" role="group" aria-label="Camera view">
+              <button type="button" data-view="side" aria-pressed="true">Sideways</button><button type="button" data-view="top" aria-pressed="false">Top</button><button type="button" data-view="bottom" aria-pressed="false">Bottom</button><button type="button" data-view="face" aria-pressed="false">Face</button>
+            </div>
+            <div class="roach-gesture-info">
+              <button class="mini-action" id="gestureInfo" type="button" aria-label="View and gesture help" aria-controls="gestureHelp" aria-expanded="false" aria-describedby="gestureHelp">i</button>
+              <p id="gestureHelp" role="tooltip" hidden>Swipe vertically to scroll; drag sideways to play. 3D touch allows free dragging. Zoom uses + / − only. Arrow keys rotate the view; Shift + arrows move the selected joint. Choose an axis for X, Y or Z movement.</p>
+            </div>
+          </div>
+          <div class="roach-camera-tools">
+            <button class="mini-action" id="sideToggle" type="button" aria-label="Switch side view">L / R</button>
+            <button class="mini-action" id="resetCamera" type="button" disabled>Fit</button>
+            <div class="roach-zoom" role="group" aria-label="Zoom"><button class="mini-action" id="zoomOut" type="button" aria-label="Zoom out">−</button><span>Zoom</span><button class="mini-action" id="zoomIn" type="button" aria-label="Zoom in">+</button></div>
+            <label class="roach-axis" for="dragAxis">Axis <select id="dragAxis" aria-label="Joint movement axis"><option value="xy">X + Y</option><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label>
+          </div>
+          <div class="roach-interaction-tools">
+            <button class="mini-action" id="touch3D" type="button" aria-pressed="false">3D touch</button>
+            <button class="mini-action" id="showJoints" type="button" aria-pressed="false" disabled>Joints</button>
+          </div>
+        </section>
         <section class="roach-control-block roach-pose-controls" aria-label="Sound and body pose">
           <div class="roach-control-row">
             <div class="roach-player"><span>Sound</span><button class="play-button" id="soundPlayButton" type="button" aria-pressed="false" aria-label="Play sound"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button></div>

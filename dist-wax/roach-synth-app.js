@@ -1,11 +1,11 @@
-import { createRoachViewer } from './src/roach-synth-viewer.js?v=1fe61cc28159';
-import { createRoachMidiControls } from './src/roach-synth-midi-controls.js?v=1fe61cc28159';
+import { createRoachViewer } from './src/roach-synth-viewer.js?v=093c2b188c19';
+import { createRoachMidiControls } from './src/roach-synth-midi-controls.js?v=093c2b188c19';
 import { ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, normalizeRoachMotion, activeRoachPreset,
   writeRoachPose, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
-  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState } from './src/roach-synth-motion.js?v=1fe61cc28159';
+  createRandomRoachMotion, ROACH_STATIC_POSES, getRoachStaticPose, writeRoachBeatState } from './src/roach-synth-motion.js?v=093c2b188c19';
 import { RoachSynthAudio, ROACH_SOUND_PRESETS, ROACH_BODY_GROUPS,
   ROACH_BODY_SOURCES, createDefaultRoachBodyMix, createRandomRoachSound, getRoachBodyGroupId,
-  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './src/roach-synth-audio.js?v=1fe61cc28159';
+  ROACH_MOTION_SOUND_PRESETS, getRoachMotionSound } from './src/roach-synth-audio.js?v=093c2b188c19';
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController();
@@ -68,11 +68,6 @@ function refreshJoints() {
 function syncAudioButton() {
   el('audioButton').setAttribute('aria-pressed', String(state.audioOn));
   el('audioState').textContent = state.audioStarting ? 'starting' : state.audioOn ? 'on' : 'off';
-  const button = el('stageAudioButton');
-  button.disabled = state.audioStarting;
-  button.setAttribute('aria-pressed', String(state.audioOn));
-  button.setAttribute('aria-label', state.audioStarting ? 'Starting Audio' : state.audioOn ? 'Turn Audio off' : 'Turn Audio on');
-  button.textContent = state.audioStarting ? 'Starting…' : state.audioOn ? 'Audio on' : 'Audio off';
 }
 function syncTransport() {
   for (const [id, active, noun] of [['soundPlayButton', state.soundPlaying, 'sound'], ['motionButton', state.playing, 'animation']]) {
@@ -346,7 +341,6 @@ el('audioButton').addEventListener('click', async () => {
   } catch (error) { state.audioOn = false; announce(`Audio could not start: ${error.message || error}`); }
   finally { state.audioStarting = false; if (!state.disposed) { el('audioButton').disabled = false; syncAudioButton(); } }
 }, options);
-el('stageAudioButton').addEventListener('click', () => el('audioButton').click(), options);
 el('soundPlayButton').addEventListener('click', () => { state.soundPlaying = !state.soundPlaying; audio.update({ soundPlaying: state.soundPlaying }); syncTransport(); }, options);
 el('motionButton').addEventListener('click', () => setPlaying(!state.playing), options);
 el('posePreset').addEventListener('change', () => { if (el('posePreset').value !== 'custom') applyStaticPose(el('posePreset').value); }, options);
@@ -408,6 +402,27 @@ el('touch3D').addEventListener('click', () => {
 }, options);
 el('showJoints').addEventListener('click', () => { const visible = el('showJoints').getAttribute('aria-pressed') !== 'true'; viewer?.setSkeletonVisible(visible); el('showJoints').setAttribute('aria-pressed', String(visible)); }, options);
 el('retryModel').addEventListener('click', () => void loadModel(), options);
+// Keep the single Audio control available above the sticky mobile specimen.
+const masthead = document.querySelector('.masthead');
+let headerHeight = 0;
+function measureHeader() {
+  const height = Math.ceil(masthead.getBoundingClientRect().height);
+  if (height === headerHeight) return;
+  headerHeight = height; document.body.style.setProperty('--roach-header-height', `${height}px`);
+}
+const headerObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(measureHeader) : null;
+headerObserver?.observe(masthead); measureHeader(); window.addEventListener('resize', measureHeader, options);
+const gestureInfo = el('gestureInfo'), gestureHelp = el('gestureHelp'), infoArea = gestureInfo.parentElement;
+let infoPinned = false;
+function showGestureHelp(open) { gestureHelp.hidden = !open; gestureInfo.setAttribute('aria-expanded', String(open)); }
+function closeGestureHelp() { infoPinned = false; showGestureHelp(false); }
+gestureInfo.addEventListener('pointerenter', event => { if (event.pointerType !== 'touch') showGestureHelp(true); }, options);
+infoArea.addEventListener('pointerleave', () => { if (!infoPinned && !infoArea.contains(document.activeElement)) showGestureHelp(false); }, options);
+gestureInfo.addEventListener('focus', () => showGestureHelp(true), options);
+infoArea.addEventListener('focusout', event => { if (!infoArea.contains(event.relatedTarget)) closeGestureHelp(); }, options);
+gestureInfo.addEventListener('click', () => { infoPinned = !infoPinned; showGestureHelp(infoPinned); }, options);
+document.addEventListener('pointerdown', event => { if (!infoArea.contains(event.target)) closeGestureHelp(); }, options);
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeGestureHelp(); }, options);
 midiControls = createRoachMidiControls({ audio, setPlaying,
   selectGroup: (id, side = 0) => {
     const part = state.joints.find(joint => getRoachBodyGroupId(joint) === id
@@ -422,5 +437,5 @@ window.addEventListener('pagehide', event => {
   if (event.persisted) return;
   state.disposed = true; loadVersion += 1; state.phraseRequest += 1;
   if (frame) cancelAnimationFrame(frame); frame = 0;
-  midiControls?.dispose(); listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.roachSynth;
+  midiControls?.dispose(); headerObserver?.disconnect(); listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.roachSynth;
 }, options);

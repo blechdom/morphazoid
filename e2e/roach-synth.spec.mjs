@@ -9,14 +9,28 @@ async function loaded(page) {
   expect((await snapshot(page)).bones).toHaveLength(31);
 }
 async function openRoach(page) { await page.goto('roach-synth.html'); await loaded(page); }
+async function settleScroll(page) {
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const deadline = performance.now() + 3000; let previous = scrollY, stableSince = performance.now();
+    function check(now) {
+      if (Math.abs(scrollY - previous) > .1) { previous = scrollY; stableSince = now; }
+      if (now - stableSince >= 140) resolve();
+      else if (now > deadline) reject(new Error('Touch scroll did not settle'));
+      else requestAnimationFrame(check);
+    }
+    requestAnimationFrame(check);
+  }));
+}
 async function arm(page) {
   await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
 }
 
-async function tapStickyAudio(page, context) {
-  const box = await page.locator('#stageAudioButton').boundingBox();
-  const viewport = page.viewportSize();
+async function tapMainAudio(page, context) {
+  const box = await page.locator('#audioButton').boundingBox();
+  const viewport = page.viewportSize(), header = await page.locator('.masthead').boundingBox();
+  expect(header.y).toBeGreaterThanOrEqual(-1); expect(header.y).toBeLessThanOrEqual(1);
+  expect(box.y).toBeGreaterThanOrEqual(header.y); expect(box.y + box.height).toBeLessThanOrEqual(header.y + header.height + 1);
   expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
   expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
   const client = await context.newCDPSession(page);
@@ -25,7 +39,7 @@ async function tapStickyAudio(page, context) {
   await client.detach();
 }
 
-test('Sound Play and sticky Audio work while the specimen download is still pending', async ({ browser, baseURL }) => {
+test('Sound Play and the main Audio button work while the specimen download is still pending', async ({ browser, baseURL }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   let release;
@@ -41,7 +55,7 @@ test('Sound Play and sticky Audio work while the specimen download is still pend
     expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
     await page.locator('#source-antennae').scrollIntoViewIfNeeded();
     const scroll = await page.evaluate(() => scrollY);
-    await tapStickyAudio(page, context);
+    await tapMainAudio(page, context);
     await expect.poll(async () => (await snapshot(page)).audioOn).toBe(true);
     await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
     expect((await snapshot(page)).loaded).toBe(false);
@@ -53,7 +67,7 @@ test('Sound Play and sticky Audio work while the specimen download is still pend
 });
 
 for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
-  test(`sticky Audio ${size.width}×${size.height} arms and mutes beside the mixer without moving the page`, async ({ browser, baseURL }) => {
+  test(`main Audio ${size.width}×${size.height} stays reachable while mixer controls scroll`, async ({ browser, baseURL }) => {
     const context = await browser.newContext({ viewport: size, isMobile: true, hasTouch: true });
     const page = await context.newPage();
     try {
@@ -65,19 +79,17 @@ for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
       await expect(page.locator('#liveStatus')).toContainText(/audio is off/i);
       expect(status.y).toBeGreaterThanOrEqual(0); expect(status.y + status.height).toBeLessThanOrEqual(size.height);
       const scroll = await page.evaluate(() => scrollY), before = await snapshot(page);
-      await tapStickyAudio(page, context);
+      await tapMainAudio(page, context);
       await expect.poll(async () => (await snapshot(page)).audioOn).toBe(true);
       await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.0001);
       const playing = await snapshot(page);
       expect(playing.playing).toBe(true); expect(playing.soundPlaying).toBe(false); expect(playing.time).toBeGreaterThan(before.time);
       expect(playing.camera).toEqual(before.camera); expect(await page.evaluate(() => scrollY)).toBe(scroll);
       await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
-      await expect(page.locator('#stageAudioButton')).toHaveText('Audio on');
-      await tapStickyAudio(page, context);
+      await tapMainAudio(page, context);
       await expect.poll(async () => (await snapshot(page)).audioOn).toBe(false);
       expect((await snapshot(page)).playing).toBe(true); expect(await page.evaluate(() => scrollY)).toBe(scroll);
       await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
-      await expect(page.locator('#stageAudioButton')).toHaveText('Audio off');
     } finally { await context.close(); }
   });
 }
@@ -108,6 +120,23 @@ test('index chooser opens the compact instrument with a held neutral body and Au
 
 test('four anatomical views, free orbit, explicit zoom buttons and keyboard fit keep distinct ownership', async ({ page }) => {
   await openRoach(page);
+  const controls = page.locator('.roach-panel > .roach-view-controls');
+  await expect(controls).toHaveCount(1);
+  for (const id of ['viewPresets', 'sideToggle', 'resetCamera', 'zoomIn', 'zoomOut', 'dragAxis', 'touch3D', 'showJoints', 'gestureInfo']) {
+    await expect(controls.locator(`#${id}`)).toHaveCount(1);
+  }
+  expect(await controls.evaluate(element => element.parentElement.firstElementChild === element
+    && Boolean(element.compareDocumentPosition(document.getElementById('soundPlayButton')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  const info = page.locator('#gestureInfo'), help = page.locator('#gestureHelp');
+  await expect(info).toHaveAccessibleName(/help|gesture/i);
+  await expect(info).toHaveAttribute('aria-controls', 'gestureHelp'); await expect(help).toBeHidden();
+  await info.hover(); await expect(help).toBeVisible();
+  const infoBox = await info.boundingBox(), helpBox = await help.boundingBox();
+  await page.mouse.move(infoBox.x + infoBox.width / 2, helpBox.y + Math.min(8, helpBox.height / 2), { steps: 8 });
+  await expect(help).toBeVisible();
+  await page.mouse.move(0, 0); await expect(help).toBeHidden();
+  await info.focus(); await expect(help).toBeVisible();
+  await info.press('Escape'); await expect(help).toBeHidden();
   const cameras = [];
   for (const view of ['side', 'top', 'bottom', 'face']) {
     await page.locator(`[data-view="${view}"]`).click();
@@ -269,13 +298,30 @@ for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { 
       for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: size.width * .4, y: stage.y + stage.height * (.85 - .6 * i / 8) }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(30);
-      await expect.poll(() => page.locator('#specimenViewport').evaluate(element => Math.round(element.getBoundingClientRect().top))).toBe(0);
-      for (const selector of ['#posePreset', '#phrase', '#motionPreset', '#source-antennae', '#crunch']) {
-        await page.locator(selector).scrollIntoViewIfNeeded();
+      await settleScroll(page);
+      await expect.poll(async () => {
+        const currentStage = await page.locator('#specimenViewport').boundingBox(), header = await page.locator('.masthead').boundingBox();
+        return Math.abs(currentStage.y - header.y - header.height);
+      }).toBeLessThanOrEqual(1);
+      for (const selector of ['[data-view=side]', '#dragAxis', '#posePreset', '#phrase', '#motionPreset', '#source-antennae', '#crunch']) {
+        await page.locator(selector).evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
         const box = await page.locator(selector).boundingBox();
         expect(box.y + box.height).toBeLessThanOrEqual(size.height + 1);
-        expect(box.y).toBeGreaterThanOrEqual(stage.height - 1);
+        const currentStage = await page.locator('#specimenViewport').boundingBox();
+        expect(box.y).toBeGreaterThanOrEqual(currentStage.y + currentStage.height - 1);
+        expect(await page.locator(selector).evaluate(element => {
+          const rect = element.getBoundingClientRect(), hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+          return element.contains(hit) || Boolean(element.closest('label')?.contains(hit));
+        })).toBe(true);
       }
+      const info = page.locator('#gestureInfo'), help = page.locator('#gestureHelp');
+      await page.locator('[data-view=side]').evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      await page.locator('[data-view=side]').tap(); expect((await snapshot(page)).camera.viewPreset).toBe('side');
+      await info.evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' })); await info.tap(); await expect(help).toBeVisible();
+      const helpBox = await help.boundingBox();
+      expect(helpBox.x).toBeGreaterThanOrEqual(0); expect(helpBox.x + helpBox.width).toBeLessThanOrEqual(size.width + 1);
+      expect(helpBox.y).toBeGreaterThanOrEqual(0); expect(helpBox.y + helpBox.height).toBeLessThanOrEqual(size.height + 1);
+      await info.tap(); await expect(help).toBeHidden();
       for (const row of await page.locator('.roach-body-row').all()) {
         const box = await row.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(size.width + 1);
       }

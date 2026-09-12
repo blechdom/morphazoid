@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=1fe61cc28159';
+import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=093c2b188c19';
 
 const MAX_BYTES = 64 * 1024 * 1024;
 const MESHOPT = 'EXT_meshopt_compression';
@@ -171,9 +171,9 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   renderer.toneMappingExposure = 0.86;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  const ambientLight = new THREE.HemisphereLight(0xd7dbe0, 0x11100f, 0.67);
+  const ambientLight = new THREE.HemisphereLight(0xd7dbe0, 0x11100f, 0.536);
   scene.add(ambientLight);
-  const keyLight = new THREE.DirectionalLight(0xfff8f1, 2.1);
+  const keyLight = new THREE.DirectionalLight(0xfff8f1, 1.68);
   keyLight.position.set(-3, 5, 4);
   scene.add(keyLight);
   keyLight.castShadow = true;
@@ -181,13 +181,13 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   Object.assign(keyLight.shadow.camera, { left: -3.7, right: 3.7, top: 3.7, bottom: -3.7, near: 0.1, far: 18 });
   keyLight.shadow.bias = -0.00018;
   keyLight.shadow.normalBias = 0.002;
-  const edgeLight = new THREE.DirectionalLight(0xc2cbd7, 0.55);
+  const edgeLight = new THREE.DirectionalLight(0xc2cbd7, 0.44);
   edgeLight.position.set(4, 2, -3);
   scene.add(edgeLight);
-  const fillLight = new THREE.DirectionalLight(0xc3c5c7, 0.21);
+  const fillLight = new THREE.DirectionalLight(0xc3c5c7, 0.168);
   fillLight.position.set(0, -3, 1);
   scene.add(fillLight);
-  const bottomLight = new THREE.DirectionalLight(0xe0e6ec, 0);
+  const bottomLight = new THREE.DirectionalLight(0xe0e6ec, 2.04);
   scene.add(bottomLight, bottomLight.target);
 
   // The normalized specimen is articulated inside this world-space performer
@@ -350,7 +350,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     camera.position.copy(baseOffset.set(0, 0, distance).applyQuaternion(orbitQuaternion)).add(target);
     camera.quaternion.copy(orbitQuaternion);
     camera.updateMatrixWorld();
-    bottomLight.intensity = viewPreset === 'bottom' ? 2.55 : 0;
+    // The same camera-relative fill keeps every view as readable as the underside.
     bottomLight.position.copy(camera.position).addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion), distance * .35);
     bottomLight.target.position.copy(target);
   }
