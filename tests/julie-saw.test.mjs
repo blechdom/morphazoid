@@ -471,7 +471,14 @@ test("Julie Saw page, research, navigation, and release lists expose the full in
   assert.match(app, /function drawJulieHairWave/);
   assert.match(app, /function drawJulieShoe/);
   assert.match(app, /function drawJulieChest/);
-  assert.match(app, /bowHandle\.y - height \* \.02/);
+  assert.match(app, /direction \* width \* \.006, height \* \.425/);
+  assert.match(app, /direction \* width \* \.014, height \* \.455/);
+  assert.match(app, /direction \* width \* \.04, height \* \.458/);
+  assert.doesNotMatch(app, /direction \* width \* \.012, height \* \.417/);
+  assert.match(app, /bowHandle\.x \+ width \* \.04/);
+  assert.match(app, /bowHandle\.y - height \* \.035/);
+  assert.doesNotMatch(app, /bowHandle\.x - width \* \.04/);
+  assert.match(html, /wrist bent outward, away from her torso/);
   assert.match(app, /One solid, faceted prism supports Julie/);
   assert.match(app, /telemetry\.activity \* 7/);
   assert.match(app, /lowResourceVisualMode\(\) \? 720_000 : 1_800_000/);

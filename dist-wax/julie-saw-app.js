@@ -1025,11 +1025,11 @@ function drawJulieChest(bodyCenter, width, height) {
   drawing.lineWidth = Math.max(1.5, width * .0018);
   for (const direction of [-1, 1]) {
     drawing.beginPath();
-    drawing.moveTo(bodyCenter + direction * width * .004, height * .446);
+    drawing.moveTo(bodyCenter + direction * width * .006, height * .425);
     drawing.bezierCurveTo(
-      bodyCenter + direction * width * .012, height * .417,
-      bodyCenter + direction * width * .038, height * .412,
-      bodyCenter + direction * width * .052, height * .436,
+      bodyCenter + direction * width * .014, height * .455,
+      bodyCenter + direction * width * .04, height * .458,
+      bodyCenter + direction * width * .052, height * .43,
     );
     drawing.stroke();
   }
@@ -1185,7 +1185,9 @@ function drawJulie(width, height, tip, bowHandle) {
   roundedLine([
     rightShoulder,
     { x: bodyCenter + width * .105, y: height * .45 },
-    { x: bowHandle.x - width * .04, y: bowHandle.y - height * .02 },
+    // The wrist joint stays outside the bow hand, so its bend points away
+    // from Julie's torso instead of folding back across her body.
+    { x: bowHandle.x + width * .04, y: bowHandle.y - height * .035 },
     bowHandle,
   ], "#efbd72", Math.max(4, width * .0062), .88);
   drawing.fillStyle = "#ef8c9a";
