@@ -100,7 +100,7 @@ test("presets cover the requested physical materials, bodies, and airflow regime
   );
   assert.deepEqual(
     PHYSICAL_SOUND_PRESETS["bowed-things"].map(({ id }) => id),
-    ["uniform-bar", "tuned-bar", "glass-harmonica", "singing-bowl", "bowed-cymbal"],
+    ["musical-saw", "uniform-bar", "tuned-bar", "glass-harmonica", "singing-bowl", "bowed-cymbal"],
   );
   assert.deepEqual(
     new Set(PHYSICAL_SOUND_PRESETS["airflow-objects"].map(({ settings }) => settings.airflowMode)),

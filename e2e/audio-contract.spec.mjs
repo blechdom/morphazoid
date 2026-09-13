@@ -9,6 +9,11 @@ import {
 
 const audibleContracts = [
   {
+    id: "julie-saw",
+    href: "julie-saw.html",
+    trigger: "[data-gesture='soft-mallet']",
+  },
+  {
     id: "karplus-strong",
     href: "karplus-strong.html",
     trigger: "#pluckButton",

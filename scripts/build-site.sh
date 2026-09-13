@@ -309,6 +309,13 @@ for worktree_runtime_file in \
   src/harmonica.js \
   src/harmonica-processor.js \
   assets/instruments/harmonica.webp \
+  julie-saw.html \
+  julie-saw.css \
+  julie-saw-app.js \
+  src/julie-saw.js \
+  src/julie-saw-processor.js \
+  assets/instruments/julie-saw.webp \
+  JULIE_SAW_RESEARCH.md \
   hiccup-head.html \
   hiccup-head.css \
   hiccup-head-app.js \
@@ -1019,6 +1026,13 @@ required_files=(
   src/harmonica.js
   src/harmonica-processor.js
   assets/instruments/harmonica.webp
+  julie-saw.html
+  julie-saw.css
+  julie-saw-app.js
+  src/julie-saw.js
+  src/julie-saw-processor.js
+  assets/instruments/julie-saw.webp
+  JULIE_SAW_RESEARCH.md
   hiccup-head.html
   hiccup-head.css
   hiccup-head-app.js

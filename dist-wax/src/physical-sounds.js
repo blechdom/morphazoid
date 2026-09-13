@@ -890,6 +890,40 @@ export const PHYSICAL_SOUND_PRESETS = deepFreeze({
   "bowed-things": [
     definePreset({
       kind: "bowed-things",
+      id: "musical-saw",
+      label: "Musical Saw",
+      description: "An S-curved steel blade with one strongly localized singing mode and faster-decaying plate color during bow contact.",
+      tags: ["musical saw", "steel blade", "localized mode", "bowed"],
+      settings: {
+        ...bowedCommon,
+        damping: 0.2,
+        brightness: 0.48,
+        energy: 0.58,
+        stereoWidth: 0.34,
+        baseFrequencyHz: 392,
+        bowPressure: 0.48,
+        bowVelocity: 0.43,
+        bowPosition: 0.52,
+        rosin: 0.62,
+      },
+      physical: {
+        resonator: "S-curved tapered steel blade",
+        exciter: "velocity-dependent rosined bow friction near a curvature-localized sweet spot",
+      },
+      model: {
+        baseFrequencyHz: 392,
+        dispersion: 0.15,
+        defaultStrikePosition: 0.52,
+        modes: [
+          [1, 8.2, 1, -0.08, 1], [2.13, 1.72, 0.34, 0.16, 2],
+          [3.78, 1.08, 0.24, -0.24, 3], [5.62, 0.73, 0.18, 0.29, 4],
+          [7.71, 0.5, 0.13, -0.32, 5], [10.05, 0.34, 0.09, 0.34, 6],
+          [12.64, 0.23, 0.062, -0.2, 7], [15.48, 0.16, 0.04, 0.18, 8],
+        ],
+      },
+    }),
+    definePreset({
+      kind: "bowed-things",
       id: "uniform-bar",
       label: "Uniform Bar",
       description: "A bowed free-free bar following the classic inharmonic bending-mode ratios.",

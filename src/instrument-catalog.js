@@ -334,6 +334,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose Midnight Growl or another performance, then hold Blow or Draw; pull either lip-window edge, reshape the tongue and bend, sweep the hand cup, or move Breath Shift from pristine to sloppy.",
     ["Built-in source", "Pointer", "Computer keys", "MIDI expression", "Physical-model DSP"],
   ),
+  "julie-saw": define(
+    "Seated musical-saw physical model",
+    "Localizes a long singing mode at the inflection of an S-curved steel blade, then couples bow pressure, signed speed, rosin, and moving contact through a velocity-weakening stick–slip junction.",
+    "Turn on audio, drag Julie's pink flex hand to bend and curl the blade, then drag the amber bow across its moving sweet spot. Lift to ring, or explore sourced bow pulses, vibrato, glides, mallets, edge pluck, scrape, and choke.",
+    ["Built-in source", "Pointer", "Computer keys", "MIDI expression", "Physical-model DSP"],
+  ),
   "hiccup-head": define(
     "Monophonic physical beatbox sequencer",
     "Moves a softly translucent, step-shifting pastel-rainbow checkerboard polka-dot goofball face and one persistent Pink Trombone–lineage oral waveguide between fifty-two exclusive gestures, including sustained alveolar ZZZZ, a vibrato-rich EH-YEAH vowel carousel, moving WAOW, arched WHOOP, pitched DOO-DOO, held lateral LLLL, long RRRR, alternating L-R-L-R, LA-LA-LA, four-place KLIK-KLAK clicks, low PURR, warm HUFF, short HIC!, full HICCUP!, EEF! breaths, a wet double KISS, bidirectional BRUSH tooth gliss, mouth KSH snare, longer cheek toms, BRRAP, resonant face claps, open-throat and rough voices, grunt, moan, PB-PB, a wet pull-out tongue, missing-incisor FWEE, and twelve pitched dead-wood teeth.",

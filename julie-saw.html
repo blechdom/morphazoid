@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#070708" />
+    <meta
+      name="description"
+      content="Julie Saw is a two-hand musical-saw physical-model synthesizer: flex an S-curved blade, follow its moving sweet spot with a bow, and play researched saw gestures and rhythms."
+    />
+    <title>Julie Saw · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="julie-saw.css" />
+  </head>
+  <body class="julie-saw-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="jaw-harp.html">jaw harp</a>
+        <a class="tab" href="harmonica.html">harmonicazoid</a>
+        <a class="tab active" href="julie-saw.html" aria-current="page">julie saw</a>
+        <a class="tab" href="mouthophones.html">mouthophones</a>
+        <a class="tab" href="karplus-strong.html">karplus strong</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="jaw-harp.html">jaw harp</option>
+          <option value="harmonica.html">harmonicazoid</option>
+          <option value="julie-saw.html" selected>julie saw</option>
+          <option value="mouthophones.html">mouthophones</option>
+          <option value="karplus-strong.html">karplus strong</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">∿</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">42%</output></span>
+          <input id="level" aria-label="Julie Saw output level" type="range" min="0" max="0.78" step="0.01" value="0.42" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="julieSaw">
+      <section class="stage julie-stage" aria-label="Interactive seated musical-saw performer">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Julie sits with a musical saw between her knees. Drag the pink flex hand to bend and curl the S-shaped blade. Drag the amber bow across the smooth edge; horizontal speed and direction bow the blade, vertical position follows its moving sweet spot, and pointer pressure changes bow force. Two touches can flex and bow at once."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A seated player bends an S-curved musical saw with one hand and bows its moving sweet spot with the other.
+          </canvas>
+
+          <div class="julie-stage-heading" aria-hidden="true">
+            <p>CURVED STEEL · MOVING SWEET SPOT · TWO-HAND BOW</p>
+            <h1>JULIE SAW</h1>
+            <small>flex the pink hand · bow the amber handle · release to ring</small>
+          </div>
+
+          <div class="julie-stage-readout" role="group" aria-label="Current saw pitch and bow contact">
+            <span><small>pitch</small><b id="pitchReadout">D5 · 571 Hz</b></span>
+            <span><small>contact</small><b id="contactReadout">sweet spot</b></span>
+          </div>
+          <p class="julie-audio-error" id="audioError" role="alert" hidden></p>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Julie Saw controls">
+        <section class="julie-top" aria-label="Transport and recovery">
+          <button id="playButton" class="julie-play" type="button" data-primary-transport aria-pressed="false" aria-label="Play automatic saw phrase">
+            <span aria-hidden="true">▶</span>
+          </button>
+          <label class="julie-preset" for="presetSelect">
+            <span>Performance</span>
+            <select id="presetSelect" aria-label="Julie Saw performance preset"></select>
+          </label>
+          <label class="julie-tempo" for="tempoBpm">
+            <span><b>Tempo</b><output id="tempoBpmOut" for="tempoBpm">76</output></span>
+            <input id="tempoBpm" type="range" min="30" max="300" step="1" value="76" />
+          </label>
+          <button id="resetAll" class="julie-reset" type="button" data-reset-all data-reset-in-place>Reset</button>
+        </section>
+
+        <section class="julie-actions" aria-label="Manual saw actions">
+          <button id="bowButton" type="button" aria-pressed="false"><span aria-hidden="true">↔</span><b>Bow</b><small>hold</small></button>
+          <button type="button" data-gesture="soft-mallet"><span aria-hidden="true">●</span><b>Soft</b><small>mallet</small></button>
+          <button type="button" data-gesture="hard-mallet"><span aria-hidden="true">◆</span><b>Hard</b><small>mallet</small></button>
+          <button type="button" data-gesture="pluck"><span aria-hidden="true">⌁</span><b>Pluck</b><small>edge</small></button>
+          <button type="button" data-gesture="thimble"><span aria-hidden="true">⁙</span><b>Tap</b><small>thimble</small></button>
+          <button type="button" data-gesture="teeth"><span aria-hidden="true">≋</span><b>Teeth</b><small>scrape</small></button>
+          <button id="chokeButton" type="button"><span aria-hidden="true">×</span><b>Choke</b><small>damp</small></button>
+        </section>
+
+        <section class="julie-phrase" aria-label="Technique and rhythm">
+          <div class="julie-select-row">
+            <label for="techniqueSelect"><span>Technique</span><select id="techniqueSelect"></select></label>
+            <label for="rhythmSelect"><span>Rhythm / motion</span><select id="rhythmSelect"></select></label>
+          </div>
+          <div class="julie-score" id="rhythmScore" role="img" aria-label="Current automatic saw rhythm"></div>
+          <p><b id="techniqueName">Ring + lift</b><span id="techniqueDescription">A clean onset, then the bow lifts so the localized fundamental can ring.</span></p>
+          <div class="julie-phrase-buttons">
+            <button id="randomizeButton" type="button">Randomize</button>
+            <button id="trackSweetSpot" type="button" aria-pressed="true">Track sweet spot</button>
+          </div>
+        </section>
+
+        <details class="group control-section" open>
+          <summary class="group-summary"><h2 class="group-title">Flex + blade</h2><span class="section-state" id="bladeSummary">concert tenor · S curve</span></summary>
+          <div class="group-body julie-controls">
+            <label class="julie-select-control" for="bladeSelect"><span><b>Blade</b><small id="bladeDescription">Balanced tapered steel.</small></span><select id="bladeSelect"></select></label>
+            <label class="control" for="bend"><span><b>Arch / pitch</b><output id="bendOut" for="bend">43%</output></span><input id="bend" type="range" min="0.02" max="0.98" step="0.005" value="0.43" /></label>
+            <label class="control" for="tipCurl"><span><b>Tip curl</b><output id="tipCurlOut" for="tipCurl">64%</output></span><input id="tipCurl" type="range" min="0" max="1" step="0.01" value="0.64" /></label>
+            <label class="control" for="localization"><span><b>S localization</b><output id="localizationOut" for="localization">86%</output></span><input id="localization" type="range" min="0" max="1" step="0.01" value="0.86" /></label>
+            <label class="control" for="bladeDamping"><span><b>Knee + steel damping</b><output id="bladeDampingOut" for="bladeDamping">20%</output></span><input id="bladeDamping" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+            <label class="control" for="brightness"><span><b>Plate brightness</b><output id="brightnessOut" for="brightness">48%</output></span><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" open>
+          <summary class="group-summary"><h2 class="group-title">Bow + contact</h2><span class="section-state" id="bowSummary">centered · stable slip</span></summary>
+          <div class="group-body julie-controls">
+            <label class="control" for="bowPressure"><span><b>Bow pressure</b><output id="bowPressureOut" for="bowPressure">48%</output></span><input id="bowPressure" type="range" min="0" max="1.4" step="0.01" value="0.48" /></label>
+            <label class="control" for="bowSpeed"><span><b>Bow speed</b><output id="bowSpeedOut" for="bowSpeed">43%</output></span><input id="bowSpeed" type="range" min="0.01" max="1.5" step="0.01" value="0.43" /></label>
+            <label class="control" for="bowContact"><span><b>Blade contact</b><output id="bowContactOut" for="bowContact">52%</output></span><input id="bowContact" type="range" min="0" max="1" step="0.005" value="0.52" /></label>
+            <label class="control" for="rosin"><span><b>Rosin grip</b><output id="rosinOut" for="rosin">62%</output></span><input id="rosin" type="range" min="0" max="1" step="0.01" value="0.62" /></label>
+            <label class="control" for="edgeRasp"><span><b>Edge rasp</b><output id="edgeRaspOut" for="edgeRasp">16%</output></span><input id="edgeRasp" type="range" min="0" max="1" step="0.01" value="0.16" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section">
+          <summary class="group-summary"><h2 class="group-title">Movement</h2><span class="section-state" id="motionSummary">delayed knee vibrato</span></summary>
+          <div class="group-body julie-controls">
+            <label class="control" for="vibratoDepthCents"><span><b>Vibrato depth</b><output id="vibratoDepthCentsOut" for="vibratoDepthCents">24 ct</output></span><input id="vibratoDepthCents" type="range" min="0" max="120" step="1" value="24" /></label>
+            <label class="control" for="vibratoRateHz"><span><b>Vibrato rate</b><output id="vibratoRateHzOut" for="vibratoRateHz">5.2 Hz</output></span><input id="vibratoRateHz" type="range" min="0.1" max="14" step="0.1" value="5.2" /></label>
+            <label class="control" for="vibratoDelaySeconds"><span><b>Vibrato delay</b><output id="vibratoDelaySecondsOut" for="vibratoDelaySeconds">0.28 s</output></span><input id="vibratoDelaySeconds" type="range" min="0" max="2.5" step="0.01" value="0.28" /></label>
+            <label class="control" for="glideSeconds"><span><b>Flex glide</b><output id="glideSecondsOut" for="glideSeconds">0.16 s</output></span><input id="glideSeconds" type="range" min="0.005" max="1.5" step="0.005" value="0.16" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section">
+          <summary class="group-summary"><h2 class="group-title">Envelope + body</h2><span class="section-state">bow onset · blade ring · stereo</span></summary>
+          <div class="group-body julie-controls">
+            <div class="julie-adsr" aria-label="Bow-drive ADSR envelope">
+              <label class="control" for="attackSeconds"><span><b>Attack</b><output id="attackSecondsOut" for="attackSeconds">0.04 s</output></span><input id="attackSeconds" type="range" min="0.002" max="1.5" step="0.002" value="0.035" /></label>
+              <label class="control" for="decaySeconds"><span><b>Decay</b><output id="decaySecondsOut" for="decaySeconds">0.16 s</output></span><input id="decaySeconds" type="range" min="0.01" max="2.5" step="0.01" value="0.16" /></label>
+              <label class="control" for="sustain"><span><b>Sustain</b><output id="sustainOut" for="sustain">88%</output></span><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.88" /></label>
+              <label class="control" for="releaseSeconds"><span><b>Release</b><output id="releaseSecondsOut" for="releaseSeconds">0.44 s</output></span><input id="releaseSeconds" type="range" min="0.01" max="5" step="0.01" value="0.44" /></label>
+            </div>
+            <label class="control" for="body"><span><b>Chair + room body</b><output id="bodyOut" for="body">38%</output></span><input id="body" type="range" min="0" max="1" step="0.01" value="0.38" /></label>
+            <label class="control" for="stereoWidth"><span><b>Plate width</b><output id="stereoWidthOut" for="stereoWidth">34%</output></span><input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+          </div>
+        </details>
+
+        <p class="julie-research-link"><a href="JULIE_SAW_RESEARCH.md">Acoustics, techniques + model limits ↗</a></p>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Drag the pink flex hand horizontally to change the arch and pitch and vertically to change the tip curl. Drag the amber bow left and right across the smooth edge to bow; moving vertically changes contact position and pointer pressure changes force. Two simultaneous pointers can operate both arms. Use A W S E D F T G Y H U J K O L P and semicolon as chromatic notes through the shared computer-key player. Space toggles the automatic phrase, Escape silences the instrument, and arrow keys flex the blade while the canvas is focused. The Bow and exciter buttons and sliders provide keyboard-accessible equivalents for every continuous gesture.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="julie-saw-app.js"></script>
+  </body>
+</html>

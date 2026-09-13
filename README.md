@@ -11,6 +11,15 @@ See the [request audit](docs/spider-synth-request-audit.md),
 
 A growing collection of geometric, recursive, analytic, and transformed-audio instruments.
 
+**Julie Saw** is a seated, two-arm musical-saw physical model built from
+Morphazoid's previously hidden Bowed Things modal/friction family. Drag the pink
+flex hand to form the pitch-setting S curve and move its localized sweet spot;
+drag the amber bow for direction, speed, contact, and pressure, then lift it to
+leave the purer long-lived mode ringing. Twenty-one recoverable performances,
+sourced bow pulses and rhythms, hand or knee vibrato, siren and storm motions,
+mallets, edge pluck, thimble taps, scrape, and choke expose the blade's range.
+See [the acoustics, comprehensive technique inventory, and model limits](JULIE_SAW_RESEARCH.md).
+
 **Roach Synth** turns a detailed CC BY cockroach scan into a playable instrument
 with 31 runtime joints, four independently hinged wings, a grounded stance and
 side/top/bottom/face views. Sound Play holds smooth ominous resonances; dragging

@@ -674,6 +674,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
       { id: "harmonica", label: "Harmonicazoid", href: "harmonica.html" },
+      { id: "julie-saw", label: "Julie Saw", href: "julie-saw.html" },
       { id: "hiccup-head", label: "Hiccup Head", href: "hiccup-head.html" },
       { id: "digestazoid", label: "Digestazoid", href: "digestazoid.html" },
       { id: "breath-atlas", label: "Mouthophones", href: "mouthophones.html" },
@@ -981,6 +982,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}quadruped.html`, SITE_ROOT)?.id, "quadruped");
   assert.equal(resolveActiveTool(`${SITE_ROOT}quadroped.html`, SITE_ROOT)?.id, "quadruped");
   assert.equal(resolveActiveTool(`${SITE_ROOT}harmonica.html`, SITE_ROOT)?.id, "harmonica");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}julie-saw.html`, SITE_ROOT)?.id, "julie-saw");
   assert.equal(resolveActiveTool(`${SITE_ROOT}dentaphone.html`, SITE_ROOT)?.id, "object-forge");
   for (const page of ["monstrozoid.html", "monsterzoid.html", "colony-syrinx.html"]) {
     assert.equal(resolveActiveTool(`${SITE_ROOT}${page}`, SITE_ROOT)?.id, "colony-syrinx");

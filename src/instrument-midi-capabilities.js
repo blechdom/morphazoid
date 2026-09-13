@@ -66,6 +66,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "jaw-harp",
     "jaw-jam",
     "harmonica",
+    "julie-saw",
     "breath-atlas",
     "morphynx",
     "hyper-syrinx",

@@ -237,6 +237,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "blowhole", label: "Blowhole", href: "blowhole.html" },
     { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
     { id: "harmonica", label: "Harmonicazoid", href: "harmonica.html" },
+    { id: "julie-saw", label: "Julie Saw", href: "julie-saw.html" },
     { id: "hiccup-head", label: "Hiccup Head", href: "hiccup-head.html" },
     {
       id: "digestazoid",

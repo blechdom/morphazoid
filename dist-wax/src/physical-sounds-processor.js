@@ -1,7 +1,7 @@
 import {
   buildPhysicalModalBank,
   sanitizePhysicalSoundState,
-} from "./physical-sounds.js?v=26242d8891c6";
+} from "./physical-sounds.js?v=dcb126496595";
 
 const PROCESSOR_NAME = "morphazoid-physical-sounds";
 const MAX_MODES = 64;

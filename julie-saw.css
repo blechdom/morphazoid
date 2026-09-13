@@ -1,0 +1,625 @@
+.julie-saw-page {
+  --accent: #ef8c9a;
+  --accent-soft: color-mix(in oklab, #ef8c9a 48%, transparent);
+  --accent-glow: color-mix(in oklab, #ef8c9a 18%, transparent);
+  --julie-pink: #ef8c9a;
+  --julie-bow: #efbd72;
+  --julie-steel: #dce3df;
+  --julie-muted: #89918d;
+  --julie-dark: #070708;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--julie-dark);
+}
+
+.julie-saw-page .masthead,
+.julie-saw-page .panel {
+  background: #09090a;
+}
+
+.julie-saw-page .tab.active {
+  color: var(--julie-pink);
+}
+
+.julie-saw-page .shell {
+  height: calc(100dvh - 58px);
+  min-height: 0;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 28vw, 420px);
+}
+
+.julie-saw-page .stage,
+.julie-saw-page .stage-wrap,
+.julie-saw-page #stage {
+  min-height: 0;
+}
+
+.julie-saw-page .stage-wrap {
+  background:
+    radial-gradient(ellipse at 58% 48%, rgba(239, 140, 154, 0.075), transparent 35%),
+    radial-gradient(ellipse at 68% 63%, rgba(239, 189, 114, 0.055), transparent 28%),
+    linear-gradient(rgba(220, 227, 223, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(220, 227, 223, 0.018) 1px, transparent 1px),
+    #070708;
+  background-size: auto, auto, 32px 32px, 32px 32px, auto;
+}
+
+.julie-saw-page #stage {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.julie-saw-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.julie-saw-page .panel {
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(239, 140, 154, 0.45) #09090a;
+}
+
+.julie-saw-page .audio-button[aria-pressed="true"] {
+  border-color: var(--julie-pink);
+  color: #070708;
+  background: var(--julie-pink);
+  box-shadow: 0 0 18px rgba(239, 140, 154, 0.18);
+}
+
+.julie-saw-page .audio-glyph {
+  color: currentColor;
+  font-size: 21px;
+}
+
+.julie-stage-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(22px, 4vh, 48px);
+  left: clamp(22px, 3.4vw, 52px);
+  pointer-events: none;
+}
+
+.julie-stage-heading p,
+.julie-stage-heading h1,
+.julie-stage-heading small {
+  margin: 0;
+}
+
+.julie-stage-heading p {
+  color: rgba(239, 140, 154, 0.78);
+  font-size: 7px;
+  letter-spacing: 0.18em;
+}
+
+.julie-stage-heading h1 {
+  margin-top: 7px;
+  color: rgba(226, 231, 228, 0.94);
+  font-family: inherit;
+  font-size: clamp(30px, 4.6vw, 66px);
+  font-weight: 360;
+  letter-spacing: -0.062em;
+  line-height: 0.86;
+}
+
+.julie-stage-heading small {
+  display: block;
+  margin-top: 10px;
+  color: rgba(137, 145, 141, 0.78);
+  font-size: 7px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.julie-stage-readout {
+  position: absolute;
+  z-index: 2;
+  right: 20px;
+  bottom: 17px;
+  display: flex;
+  pointer-events: none;
+  gap: 18px;
+}
+
+.julie-stage-readout span {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.julie-stage-readout small {
+  color: rgba(137, 145, 141, 0.72);
+  font-size: 6px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.julie-stage-readout b {
+  color: rgba(220, 227, 223, 0.88);
+  font-size: 8px;
+  font-weight: 620;
+}
+
+.julie-audio-error {
+  position: absolute;
+  z-index: 5;
+  right: 20px;
+  bottom: 45px;
+  max-width: min(400px, 70%);
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(239, 140, 154, 0.5);
+  color: #ffc0c8;
+  background: rgba(31, 8, 12, 0.95);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.julie-top {
+  position: sticky;
+  z-index: 4;
+  top: 0;
+  display: grid;
+  min-width: 0;
+  min-height: 62px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(239, 140, 154, 0.28);
+  background:
+    linear-gradient(100deg, rgba(239, 140, 154, 0.1), transparent 48%),
+    rgba(7, 7, 8, 0.97);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.26);
+  grid-template-columns: 46px minmax(112px, 1fr) minmax(88px, 0.7fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.julie-play {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0 0 0 2px;
+  border: 1px solid rgba(239, 140, 154, 0.62);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--julie-pink);
+  background: rgba(239, 140, 154, 0.06);
+  place-items: center;
+  font-size: 15px;
+}
+
+.julie-play[aria-pressed="true"] {
+  color: #080708;
+  background: var(--julie-pink);
+  box-shadow: 0 0 20px rgba(239, 140, 154, 0.23);
+}
+
+.julie-preset,
+.julie-tempo,
+.julie-select-row label,
+.julie-select-control {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.julie-preset > span,
+.julie-select-row label > span {
+  color: var(--julie-muted);
+  font-size: 6px;
+  font-weight: 680;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.julie-saw-page select {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 3px 25px 3px 8px;
+  border-color: rgba(220, 227, 223, 0.18);
+  font-size: 8px;
+}
+
+.julie-tempo > span {
+  display: flex;
+  justify-content: space-between;
+  color: var(--julie-muted);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.julie-tempo output {
+  color: var(--julie-pink);
+}
+
+.julie-tempo input[type="range"] {
+  height: 21px;
+}
+
+.julie-reset {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid rgba(220, 227, 223, 0.18);
+  color: var(--julie-muted);
+  background: transparent;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.julie-play:hover,
+.julie-play:focus-visible,
+.julie-reset:hover,
+.julie-reset:focus-visible,
+.julie-actions button:hover,
+.julie-actions button:focus-visible,
+.julie-phrase-buttons button:hover,
+.julie-phrase-buttons button:focus-visible {
+  outline: 1px solid var(--julie-pink);
+  outline-offset: 2px;
+}
+
+.julie-actions {
+  display: grid;
+  min-width: 0;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(220, 227, 223, 0.1);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.julie-actions button {
+  display: grid;
+  min-width: 0;
+  min-height: 42px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--julie-muted);
+  background: rgba(220, 227, 223, 0.035);
+  place-items: center;
+  gap: 0;
+}
+
+.julie-actions button > span {
+  color: var(--julie-bow);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.julie-actions button b,
+.julie-actions button small {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.julie-actions button b {
+  color: currentColor;
+  font-size: 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.julie-actions button small {
+  color: rgba(164, 172, 168, 0.92);
+  font-size: 5px;
+}
+
+.julie-actions button[aria-pressed="true"] {
+  color: #080708;
+  background: var(--julie-bow);
+}
+
+.julie-actions button[aria-pressed="true"] > span,
+.julie-actions button[aria-pressed="true"] small {
+  color: currentColor;
+}
+
+.julie-phrase {
+  padding: 9px 10px 8px;
+  border-bottom: 1px solid rgba(239, 140, 154, 0.22);
+  background: linear-gradient(120deg, rgba(239, 189, 114, 0.045), transparent 58%);
+}
+
+.julie-select-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.julie-score {
+  display: grid;
+  height: 22px;
+  margin: 8px 0 6px;
+  grid-template-columns: repeat(var(--score-steps, 8), minmax(0, 1fr));
+  align-items: end;
+  gap: 2px;
+}
+
+.julie-score i {
+  display: block;
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: rgba(137, 145, 141, 0.2);
+}
+
+.julie-score i.is-hit {
+  background: color-mix(in oklab, var(--julie-bow) calc(var(--hit, .7) * 100%), #32271b);
+}
+
+.julie-score i.is-current {
+  box-shadow: 0 0 0 1px var(--julie-pink), 0 0 8px rgba(239, 140, 154, 0.3);
+}
+
+.julie-phrase > p {
+  display: grid;
+  margin: 0;
+  grid-template-columns: minmax(70px, auto) 1fr;
+  gap: 8px;
+  color: var(--julie-muted);
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.julie-phrase > p b {
+  color: var(--julie-steel);
+  font-weight: 650;
+}
+
+.julie-phrase-buttons {
+  display: flex;
+  margin-top: 7px;
+  gap: 5px;
+}
+
+.julie-phrase-buttons button {
+  min-height: 25px;
+  padding: 3px 8px;
+  border: 1px solid rgba(220, 227, 223, 0.14);
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--julie-muted);
+  background: rgba(220, 227, 223, 0.025);
+  font-size: 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.julie-phrase-buttons button[aria-pressed="true"] {
+  border-color: rgba(239, 140, 154, 0.48);
+  color: var(--julie-pink);
+  background: rgba(239, 140, 154, 0.08);
+}
+
+.julie-saw-page .control-section {
+  border: 0;
+  border-bottom: 1px solid rgba(220, 227, 223, 0.1);
+  border-radius: 0;
+  background: transparent;
+}
+
+.julie-saw-page .group-summary {
+  min-height: 35px;
+  padding: 7px 11px;
+  background: rgba(220, 227, 223, 0.012);
+}
+
+.julie-saw-page .group-title {
+  color: var(--julie-steel);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.julie-saw-page .section-state {
+  color: var(--julie-muted);
+  font-size: 6px;
+}
+
+.julie-saw-page .group-body {
+  padding: 5px 11px 9px;
+}
+
+.julie-controls {
+  display: grid;
+  min-width: 0;
+  gap: 0;
+}
+
+.julie-controls .control {
+  margin: 0;
+  padding: 6px 0 5px;
+  border-bottom: 1px solid rgba(220, 227, 223, 0.055);
+}
+
+.julie-controls .control:last-child {
+  border-bottom: 0;
+}
+
+.julie-controls .control > span {
+  margin-bottom: -1px;
+}
+
+.julie-controls .control b,
+.julie-select-control b {
+  color: var(--julie-muted);
+  font-size: 7px;
+  font-weight: 620;
+  letter-spacing: 0.045em;
+}
+
+.julie-controls .control output {
+  color: var(--julie-pink);
+  font-size: 7px;
+}
+
+.julie-controls input[type="range"] {
+  height: 22px;
+}
+
+.julie-select-control {
+  margin-bottom: 4px;
+  padding: 4px 0 7px;
+  border-bottom: 1px solid rgba(220, 227, 223, 0.07);
+  grid-template-columns: 1fr minmax(130px, 1.1fr);
+  align-items: end;
+  gap: 8px;
+}
+
+.julie-select-control > span {
+  display: grid;
+  gap: 2px;
+}
+
+.julie-select-control small {
+  color: rgba(164, 172, 168, 0.9);
+  font-size: 6px;
+  line-height: 1.3;
+}
+
+.julie-adsr {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 11px;
+}
+
+.julie-research-link {
+  margin: 0;
+  padding: 12px 11px 18px;
+}
+
+.julie-research-link a {
+  color: var(--julie-muted);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.julie-research-link a:hover,
+.julie-research-link a:focus-visible {
+  color: var(--julie-pink);
+}
+
+@media (max-width: 960px) {
+  .julie-saw-page {
+    min-height: 100dvh;
+    height: auto;
+    overflow: auto;
+  }
+
+  .julie-saw-page .shell {
+    height: auto;
+    min-height: calc(100dvh - 58px);
+    overflow: visible;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(48dvh, 58dvh) auto;
+  }
+
+  .julie-saw-page .stage {
+    position: sticky;
+    z-index: 2;
+    top: 58px;
+    min-height: 48dvh;
+  }
+
+  .julie-saw-page .panel {
+    overflow: visible;
+  }
+
+  .julie-top {
+    top: 58px;
+  }
+}
+
+@media (max-width: 650px) {
+  .julie-saw-page .shell {
+    min-height: calc(100dvh - 54px);
+    grid-template-rows: minmax(43dvh, 50dvh) auto;
+  }
+
+  .julie-saw-page .stage {
+    top: 54px;
+    min-height: 43dvh;
+  }
+
+  .julie-top {
+    top: 54px;
+    min-height: 56px;
+    padding: 6px 7px;
+    grid-template-columns: 42px minmax(104px, 1fr) minmax(74px, .64fr) auto;
+    gap: 5px;
+  }
+
+  .julie-play {
+    width: 40px;
+    height: 40px;
+  }
+
+  .julie-saw-page select {
+    height: 28px;
+    font-size: 7px;
+  }
+
+  .julie-actions {
+    padding-right: 6px;
+    padding-left: 6px;
+    gap: 2px;
+  }
+
+  .julie-actions button {
+    min-height: 45px;
+  }
+
+  .julie-stage-heading {
+    top: 15px;
+    left: 16px;
+  }
+
+  .julie-stage-heading p,
+  .julie-stage-heading small {
+    display: none;
+  }
+
+  .julie-stage-heading h1 {
+    margin: 0;
+    font-size: clamp(27px, 9vw, 38px);
+  }
+
+  .julie-stage-readout {
+    right: 12px;
+    bottom: 10px;
+    gap: 11px;
+  }
+
+  .julie-phrase > p {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .julie-saw-page .shell {
+    grid-template-rows: minmax(230px, 70dvh) auto;
+  }
+
+  .julie-saw-page .stage {
+    position: relative;
+    top: auto;
+    min-height: 230px;
+  }
+
+  .julie-top {
+    top: 54px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .julie-play,
+  .julie-score i {
+    transition: none;
+  }
+}

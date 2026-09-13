@@ -7,7 +7,7 @@ import {
   sanitizePhysicalSoundState,
   serializePhysicalModalJson,
   tuneAirflowStateToFrequency,
-} from "./src/physical-sounds.js?v=26242d8891c6";
+} from "./src/physical-sounds.js?v=dcb126496595";
 import {
   DENTAPHONE_BRUSH_ROUTE,
   DENTAPHONE_DEFAULT_PITCH_STATE,
@@ -2439,7 +2439,7 @@ async function createAudioGraph() {
   let releaseOutput = null;
   try {
     await context.audioWorklet.addModule(
-      new URL("./src/physical-sounds-processor.js?v=9c3153a0b49a", import.meta.url),
+      new URL("./src/physical-sounds-processor.js?v=bd39fc6b2837", import.meta.url),
     );
     const source = new AudioWorkletNode(context, "morphazoid-physical-sounds", {
       numberOfInputs: 0,
