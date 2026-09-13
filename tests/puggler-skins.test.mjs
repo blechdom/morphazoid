@@ -39,6 +39,11 @@ test('every prop has distinct themed presentation with unchanged physics and sou
   assert.deepEqual(PROPS, before);
 });
 
+test('history mash-up offers the candelabra, harpsichord, violin and talking drum', () => {
+  const names=new Set(PROPS.map(prop=>presentProp(prop,'history').name));
+  for(const name of ['Candelabra','Harpsichord','Violin','Talking drum'])assert.ok(names.has(name),name);
+});
+
 test('cached presentations preserve transient supplied fields and invalidate on source changes', () => {
   const base = PROPS[0];
   const history = presentProp(base, 'history');

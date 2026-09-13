@@ -6,12 +6,12 @@ const skins={
     grit:'Amp filth',gains:{guitar:.38,bass:.53,oi:.8,woo:.75},impact:1,
   },
   history:{
-    names:{guitar:'Twang / keys',bass:'Acoustic bass',oi:'Earth chant',woo:'Chamber voice',kick:'Frame drum',snare:'Tabor',crash:'Bronze gong',tom:'Log drum',hat:'Finger cymbals'},
-    grit:'String bite',gains:{guitar:.65,bass:.78,oi:.8,woo:.8},impact:.85,
+    names:{guitar:'Harpsichord',bass:'Bowed cello',oi:'Opera call',woo:'Opera aria',kick:'Timpani',snare:'Cello pizz.',crash:'Balinese gong',tom:'Hand drum',hat:'Bronze cymbals'},
+    grit:'Rosin + quill',gains:{guitar:.65,bass:.78,oi:.8,woo:.8},impact:.85,
   },
   future:{
-    names:{guitar:'Liquid lead',bass:'Cyber bass',oi:'Cyber call',woo:'Octopus opera',kick:'Sub kick',snare:'Laser clap',crash:'Splash crash',tom:'Water tom',hat:'Glitch hat'},
-    grit:'Cyber grit',gains:{guitar:.55,bass:.7,oi:.8,woo:.8},impact:1,
+    names:{guitar:'SIMD goo',bass:'Buzzy sub',oi:'Vocoder call',woo:'Slippery aria',kick:'Volt pulse',snare:'Vector zap',crash:'Plasma bloom',tom:'Goo cell',hat:'Bit swarm'},
+    grit:'Filter goo',gains:{guitar:.55,bass:.7,oi:.8,woo:.8},impact:1,
   },
 };
 export const SONIC_SKINS=Object.freeze(Object.fromEntries(Object.entries(skins).map(([id,skin])=>[

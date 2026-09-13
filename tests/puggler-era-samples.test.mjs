@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderEraPhrase, renderEraDrum } from '../src/puggler-era-samples.js';
+import { renderEraPhrase, renderEraDrum, ERA_IMPACT_MODELS } from '../src/puggler-era-samples.js';
+import { sonicSkin } from '../src/puggler-sonic-skins.js';
 
 const skins = ['history', 'future'], roles = ['guitar', 'bass'], drums = ['kick', 'snare', 'crash', 'tom', 'hat'];
 const rms = data => Math.sqrt(data.reduce((sum, x) => sum + x * x, 0) / data.length);
@@ -30,6 +31,24 @@ const phraseBank = skins.flatMap(skin => roles.flatMap(role => [0, 1, 2].map(own
   skin, role, owner, data: renderEraPhrase(skin, role, owner),
 }))));
 const drumBank = skins.flatMap(skin => drums.map(drum => ({ skin, drum, data: renderEraDrum(skin, drum) })));
+
+test('stable impact roles map to orchestral and synthetic instruments while punk stays the approved kit', () => {
+  assert.deepEqual(ERA_IMPACT_MODELS.history, {
+    kick:'timpani',snare:'cello-pizzicato',crash:'balinese-gong',tom:'hand-drum',hat:'bronze-cymbals',
+  });
+  assert.deepEqual(ERA_IMPACT_MODELS.future, {
+    kick:'volt-pulse',snare:'vector-zap',crash:'plasma-bloom',tom:'goo-cell',hat:'bit-swarm',
+  });
+  assert.ok(Object.isFrozen(ERA_IMPACT_MODELS));
+  assert.ok(Object.isFrozen(ERA_IMPACT_MODELS.history));
+  assert.deepEqual(drums.map(id=>sonicSkin('punk').names[id]),['Kick','Snare','Crash','Tom','Hi-hat']);
+  for(const skin of skins) {
+    assert.ok(drums.every(id=>!/(kick|snare|crash|tom|hi-hat)/i.test(sonicSkin(skin).names[id])),`${skin} has no kit labels`);
+  }
+  assert.equal(sonicSkin('history').names.guitar,'Harpsichord');
+  assert.equal(sonicSkin('history').names.bass,'Bowed cello');
+  assert.match(sonicSkin('history').names.woo,/Opera/);
+});
 
 test('every era/character/role produces a fresh deterministic two-second phrase with balanced levels', () => {
   for (const { skin, role, owner, data } of phraseBank) {
@@ -93,6 +112,19 @@ test('era drum hits have finite decaying tails, useful levels and distinct era s
     const b = features(drumBank.find(part => part.skin === 'future' && part.drum === drum).data);
     assert.ok(distance(a.spectrum, b.spectrum) > .02, `${drum} era spectra differ after level matching`);
     assert.ok(distance(a.envelope, b.envelope) > .02, `${drum} era envelopes differ`);
+  }
+});
+
+test('future impacts are consistently buzzier than their acoustic role counterparts', () => {
+  const roughness = data => {
+    let energy = 0;
+    for (let i = 1; i < data.length; i++) energy += (data[i] - data[i - 1]) ** 2;
+    return Math.sqrt(energy / (data.length - 1)) / rms(data);
+  };
+  for(const drum of drums) {
+    const acoustic=drumBank.find(part=>part.skin==='history'&&part.drum===drum).data;
+    const synthetic=drumBank.find(part=>part.skin==='future'&&part.drum===drum).data;
+    assert.ok(roughness(synthetic)>roughness(acoustic)*1.25,`${drum} future packet has more electric edge`);
   }
 });
 

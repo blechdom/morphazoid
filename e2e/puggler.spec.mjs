@@ -682,20 +682,22 @@ test('automatic Roxy and Moss yield to direct touch while Audio stays off', asyn
   }
 });
 
-test('Puggler sonic skins change instruments, vocal colors and impact kits during a live act', async ({ page }) => {
+test('Puggler sonic skins change instruments, vocal colors and impact voices during a live act', async ({ page }) => {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await openShow(page);await page.locator('#count').selectOption('4');
   await page.locator('#pattern').selectOption('fountain');await range(page,'chaos',0);
   await range(page,'assist',120);await page.locator('#autoRide').uncheck();
   await page.locator('#skin').selectOption('history');
   expect((await state(page)).audioOn).toBe(false);
-  await expect(page.locator('#riffs0 option:checked')).toHaveText('Twang / keys');
-  await expect(page.locator('#drums0 option:checked')).toHaveText('Frame drum');
+  await expect(page.locator('#riffs0 option:checked')).toHaveText('Harpsichord');
+  await expect(page.locator('#drums0 option:checked')).toHaveText('Timpani');
+  const historyObjects=await page.locator('#object0 option').allTextContents();
+  for(const name of ['Candelabra','Harpsichord','Violin','Talking drum'])expect(historyObjects).toContain(name);
   await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:15000});
   for(const [skin,lead,drum,grit] of [
-    ['history','Twang / keys','Frame drum','String bite'],
-    ['future','Liquid lead','Sub kick','Cyber grit'],
+    ['history','Harpsichord','Timpani','Rosin + quill'],
+    ['future','SIMD goo','Volt pulse','Filter goo'],
     ['punk','Guitar','Kick','Amp filth'],
   ]){
     const before=await state(page);

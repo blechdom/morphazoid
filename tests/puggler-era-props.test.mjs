@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ERA_PROP_ATLAS, ERA_PROP_OVERRIDES } from '../src/puggler-era-props.js';
+import { ERA_PROP_ATLAS, ERA_PROP_OVERRIDES, ERA_VECTOR_PROP_IDS } from '../src/puggler-era-props.js';
 import { drawEraProp } from '../src/puggler-era-prop-renderer.js';
 
 function atlasHeader() {
@@ -44,35 +44,40 @@ test('the bundled era atlas is a complete WebP with alpha and seven isolated in-
     }
   }
 });
-test('the seven requested appearance overrides each resolve exactly one atlas sprite', () => {
+test('era appearance overrides resolve their raster or code-native silhouettes', () => {
   assert.deepEqual(Object.keys(ERA_PROP_OVERRIDES).sort(), ['future', 'history']);
   const expected = {
-    history: { mic: 'history-bones', banana: 'history-hamhock', plushrat: 'history-baby',
-      skateboard: 'history-harpsichord', bowling: 'history-boulder', club: 'history-club' },
+    history: { can:'history-talking-drum', mic: 'history-bones', banana: 'history-hamhock', plushrat: 'history-baby',
+      skateboard: 'history-harpsichord', bowling: 'history-boulder', club: 'history-club', glowstick:'history-candelabra' },
     future: { fish: 'future-octopus' },
   };
-  const used = [];
+  const raster = [], vector = [];
   for (const [skin, mappings] of Object.entries(expected)) {
     const overrides = ERA_PROP_OVERRIDES[skin];
     assert.deepEqual(Object.keys(overrides).sort(), Object.keys(mappings).sort());
     for (const [id, sprite] of Object.entries(mappings)) {
       const entry = overrides[id];
       assert.equal(entry.sprite, sprite);
-      assert.equal(entry.atlas, 'eraProps');
       assert.ok(entry.name.trim());
       assert.match(entry.color, /^#[0-9a-f]{6}$/i);
-      assert.ok(ERA_PROP_ATLAS.ids.includes(entry.sprite));
-      assert.deepEqual(Object.keys(entry).sort(), ['atlas', 'color', 'name', 'sprite'], 'appearance metadata contains no physics or sound mutations');
-      used.push(entry.sprite);
+      if(ERA_PROP_ATLAS.ids.includes(entry.sprite)) {
+        assert.equal(entry.atlas,'eraProps');raster.push(entry.sprite);
+        assert.deepEqual(Object.keys(entry).sort(), ['atlas', 'color', 'name', 'sprite']);
+      } else {
+        assert.equal(Object.hasOwn(entry,'atlas'),false);vector.push(entry.sprite);
+        assert.deepEqual(Object.keys(entry).sort(), ['color', 'name', 'sprite']);
+      }
     }
   }
-  assert.deepEqual(used.sort(), [...ERA_PROP_ATLAS.ids].sort());
+  assert.deepEqual(raster.sort(), [...ERA_PROP_ATLAS.ids].sort());
+  assert.deepEqual(vector.sort(), [...ERA_VECTOR_PROP_IDS].sort());
 });
 
 test('atlas metadata and every override resist accidental renderer mutation', () => {
   assert.ok(Object.isFrozen(ERA_PROP_ATLAS));
   assert.ok(Object.isFrozen(ERA_PROP_ATLAS.ids));
   assert.ok(Object.isFrozen(ERA_PROP_ATLAS.rects));
+  assert.ok(Object.isFrozen(ERA_VECTOR_PROP_IDS));
   assert.throws(() => { ERA_PROP_ATLAS.columns = 5; }, TypeError);
   assert.throws(() => ERA_PROP_ATLAS.ids.push('unrelated'), TypeError);
   for (const rect of Object.values(ERA_PROP_ATLAS.rects)) {
@@ -112,9 +117,10 @@ for (const method of ['beginPath', 'moveTo', 'lineTo', 'closePath', 'ellipse', '
   };
 }
 
-test('seven fallbacks draw distinct bounded silhouettes and preserve the caller Canvas state', () => {
+test('all raster and code-native fallbacks draw distinct bounded silhouettes and preserve Canvas state', () => {
   const signatures = new Set();
-  for (const sprite of ERA_PROP_ATLAS.ids) {
+  const sprites=[...ERA_PROP_ATLAS.ids,...ERA_VECTOR_PROP_IDS];
+  for (const sprite of sprites) {
     const c = new RecordingCanvas(), before = { ...c.state };
     assert.equal(drawEraProp(c, { sprite, color: '#88bbcc' }), true);
     assert.deepEqual(c.state, before, `${sprite} preserves styles, alpha and inherited shadow`);
@@ -126,7 +132,7 @@ test('seven fallbacks draw distinct bounded silhouettes and preserve the caller 
     // Colors are excluded: changing a generic shape's label cannot pass.
     signatures.add(JSON.stringify(c.operations));
   }
-  assert.equal(signatures.size, 7);
+  assert.equal(signatures.size, sprites.length);
 });
 
 test('recognizable fallback mechanisms include eight curled octopus arms and harpsichord keys', () => {
@@ -139,6 +145,10 @@ test('recognizable fallback mechanisms include eight curled octopus arms and har
   const instrument = new RecordingCanvas();
   drawEraProp(instrument, { sprite: 'history-harpsichord' });
   assert.ok(instrument.operations.filter(([method]) => method === 'fillRect').length >= 5, 'the keyboard has distinct dark keys');
+  const candelabra=new RecordingCanvas();drawEraProp(candelabra,{sprite:'history-candelabra'});
+  assert.equal(candelabra.operations.filter(([method])=>method==='ellipse').length,6,'five flames stand over one solid base');
+  const drum=new RecordingCanvas();drawEraProp(drum,{sprite:'history-talking-drum'});
+  assert.ok(drum.operations.filter(([method])=>method==='lineTo').length>=10,'talking drum has an hourglass body and tension cords');
 });
 
 test('unknown fallback sprites leave the context untouched and drawing errors restore state', () => {

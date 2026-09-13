@@ -128,7 +128,7 @@ test('dispose releases images and late decodes cannot repopulate the cache', asy
   assert.equal(collage.drawProp(c, { id: 'ball' }, 0, 0), false);
 });
 
-test('new historical objects and octopus select their actual cutouts across live skin changes',async t=>{
+test('era objects select their photographic cutouts or yield cleanly to native silhouettes across skin changes',async t=>{
   const {images,imageFactory}=makeImages();
   const collage=new PugglerCollage({imageFactory,atlases:TEST_ATLASES});
   t.after(()=>collage.dispose());
@@ -137,8 +137,10 @@ test('new historical objects and octopus select their actual cutouts across live
   for(const [skin,overrides] of Object.entries(ERA_PROP_OVERRIDES))for(const id of Object.keys(overrides)){
     const base=PROPS.find(prop=>prop.id===id),themed=presentProp(base,skin);
     calls.length=0;
-    assert.equal(collage.drawProp(c,themed,10,20),true);
-    assert.equal(calls.find(call=>call[0]==='drawImage')[1],images[atlasIndex]);
+    const photographed=Object.hasOwn(overrides[id],'atlas');
+    assert.equal(collage.drawProp(c,themed,10,20),photographed);
+    if(photographed)assert.equal(calls.find(call=>call[0]==='drawImage')[1],images[atlasIndex]);
+    else assert.equal(calls.some(call=>call[0]==='drawImage'),false,'native silhouette does not borrow an unrelated photograph');
     assert.equal(presentProp(themed,'punk'),base);
     const other=presentProp(themed,skin==='history'?'future':'history');
     assert.equal(other.sprite,undefined,'switching era must clear the prior override');

@@ -17,8 +17,8 @@ const THEME_DATA = {
       "color": "#aaa59b"
     },
     "can": {
-      "name": "Bronze beaker",
-      "color": "#ad8954"
+      "name": "Talking drum",
+      "color": "#ad7547"
     },
     "club": {
       "name": "Knotted wooden club",
@@ -85,8 +85,8 @@ const THEME_DATA = {
       "color": "#c8b080"
     },
     "glowstick": {
-      "name": "Beeswax candle",
-      "color": "#e2bb64"
+      "name": "Candelabra",
+      "color": "#d8ad58"
     },
     "plushrat": {
       "name": "Stitched cloth doll",
@@ -113,7 +113,7 @@ const THEME_DATA = {
       "color": "#879167"
     },
     "violin": {
-      "name": "Bowed rebec",
+      "name": "Violin",
       "color": "#c79458"
     },
     "skull": {

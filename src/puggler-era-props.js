@@ -21,14 +21,18 @@ export const ERA_PROP_ATLAS = Object.freeze({
   rects: Object.freeze(Object.fromEntries(Object.entries(rects).map(([id, rect]) => [id, Object.freeze(rect)]))),
 });
 const override = (name, color, sprite) => Object.freeze({ name, color, atlas: 'eraProps', sprite });
+const vectorOverride = (name, color, sprite) => Object.freeze({ name, color, sprite });
+export const ERA_VECTOR_PROP_IDS = Object.freeze(['history-candelabra', 'history-talking-drum']);
 export const ERA_PROP_OVERRIDES = Object.freeze({
   history: Object.freeze({
+    can: vectorOverride('Talking drum', '#ad7547', 'history-talking-drum'),
     mic: override('Bones', '#ded0ad', 'history-bones'),
     banana: override('Ham hock', '#be7446', 'history-hamhock'),
     plushrat: override('Swaddled baby', '#e3cfac', 'history-baby'),
     skateboard: override('Harpsichord', '#a4824d', 'history-harpsichord'),
     bowling: override('Boulder', '#a6a39c', 'history-boulder'),
     club: override('Wooden club', '#987147', 'history-club'),
+    glowstick: vectorOverride('Candelabra', '#d8ad58', 'history-candelabra'),
   }),
   future: Object.freeze({
     fish: override('Fluorescent octopus', '#55efd0', 'future-octopus'),

@@ -37,13 +37,13 @@ addRange('physicsControls','chaos','Throw wildness',0,100,1,PAGE_DEFAULTS.chaos,
 addRange('physicsControls','gravity','Gravity',.45,1.65,.01,1,v=>`${v.toFixed(2)}×`,'model');
 addRange('physicsControls','wind','Crosswind',-12,12,.1,0,v=>`${v>0?'+':''}${v.toFixed(1)}`,'model');
 addRange('soundControls','flight','Airborne riffs',0,1,.01,params.flight,percent);
-addRange('soundControls','impacts','Catch drums',0,2,.01,params.impacts,percent);
+addRange('soundControls','impacts','Catch impacts',0,2,.01,params.impacts,percent);
 addRange('soundControls','boo','Audience',0,1,.01,params.boo,percent);
 addRange('soundControls','height','Height → pitch',0,1.5,.01,.65,v=>`${v.toFixed(2)}×`);
 addRange('soundControls','stereo','Stereo width',0,1,.01,1,percent);
 addRange('soundControls','grit','Amp filth',0,1,.01,params.grit,percent);
 addRange('soundControls','motion','Speed → brightness',0,12,.1,params.motion,v=>`${v.toFixed(1)}×`);
-addRange('soundControls','decay','Drum tail',.2,1,.05,1,v=>v===1?'Full':percent(v));
+addRange('soundControls','decay','Impact tail',.2,1,.05,1,v=>v===1?'Full':percent(v));
 $('preset').replaceChildren(...PRESETS.map(p=>new Option(p.name,p.id)));
 $('cast').replaceChildren(...CASTS.map(c=>new Option(c.name,c.id)));
 $('skin').replaceChildren(...SKINS.map(skin=>new Option(skin.name,skin.id)));

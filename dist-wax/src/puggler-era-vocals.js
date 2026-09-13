@@ -15,12 +15,12 @@ const sample=(data,at)=>{
 };
 const smooth=x=>{x=clamp(x,0,1);return x*x*(3-2*x);};
 const profiles=[
-  {id:'history-caveman',skin:'history',owner:0,hz:196,notes:[0,-2,0,3,0],stretch:1.04,formant:.86,vowel:0,vibrato:.19,vibratoHz:4.2,liquid:0,singing:.27,room:.19,chorus:.06,cutoff:4500},
-  {id:'history-dame-roxy',skin:'history',owner:1,hz:261.63,notes:[0,3,2,0,-2],stretch:1.07,formant:1.05,vowel:1,vibrato:.24,vibratoHz:5.1,liquid:0,singing:.31,room:.24,chorus:.05,cutoff:6100},
-  {id:'history-maestro-moss',skin:'history',owner:2,hz:329.63,notes:[0,4,7,9,7,4,2,0],stretch:1.10,formant:.96,vowel:2,vibrato:.36,vibratoHz:5.6,liquid:0,singing:.39,room:.28,chorus:.06,cutoff:7000},
-  {id:'future-futureman',skin:'future',owner:0,hz:174.61,notes:[0,0,-3,0,7,5,0],stretch:.99,formant:.84,vowel:2,vibrato:.09,vibratoHz:4.7,liquid:.12,singing:.42,room:.05,chorus:.17,cutoff:4300},
-  {id:'future-cyberwoman',skin:'future',owner:1,hz:523.25,notes:[0,7,9,7,4,12,7,0],stretch:1.06,formant:1.16,vowel:1,vibrato:.37,vibratoHz:5.8,liquid:.24,singing:.37,room:.13,chorus:.18,cutoff:8200},
-  {id:'future-quor',skin:'future',owner:2,hz:261.63,notes:[0,7,2,10,5,12,3,0],stretch:1.09,formant:.78,vowel:3,vibrato:.88,vibratoHz:5.2,liquid:1,singing:.42,room:.11,chorus:.24,cutoff:5300},
+  {id:'history-caveman',skin:'history',owner:0,hz:196,notes:[0,5,3,7,5,0],stretch:1.10,formant:.86,vowel:0,vibrato:.45,vibratoHz:4.9,liquid:0,singing:.60,room:.26,chorus:.07,slip:0,cutoff:4700},
+  {id:'history-dame-roxy',skin:'history',owner:1,hz:261.63,notes:[0,4,7,12,9,7,4,0],stretch:1.12,formant:1.05,vowel:1,vibrato:.57,vibratoHz:5.4,liquid:0,singing:.70,room:.30,chorus:.07,slip:0,cutoff:6500},
+  {id:'history-maestro-moss',skin:'history',owner:2,hz:329.63,notes:[0,7,12,10,14,12,7,4,0],stretch:1.14,formant:.96,vowel:2,vibrato:.66,vibratoHz:5.7,liquid:0,singing:.74,room:.34,chorus:.08,slip:0,cutoff:7200},
+  {id:'future-futureman',skin:'future',owner:0,hz:174.61,notes:[0,0,-3,0,7,5,0],stretch:.99,formant:.84,vowel:2,vibrato:.16,vibratoHz:4.7,liquid:.32,singing:.66,room:.18,chorus:.25,slip:.31,cutoff:4300},
+  {id:'future-cyberwoman',skin:'future',owner:1,hz:493.88,notes:[0,7,9,7,4,12,7,0],stretch:1.06,formant:1.16,vowel:1,vibrato:.43,vibratoHz:5.8,liquid:.52,singing:.63,room:.22,chorus:.28,slip:.36,cutoff:8200},
+  {id:'future-quor',skin:'future',owner:2,hz:261.63,notes:[0,7,2,10,5,12,3,0],stretch:1.09,formant:.78,vowel:3,vibrato:.88,vibratoHz:5.2,liquid:1,singing:.70,room:.25,chorus:.34,slip:.42,cutoff:5300},
 ];
 export const ERA_VOCAL_PROFILES=Object.freeze(profiles.map(p=>Object.freeze({...p,notes:Object.freeze(p.notes)})));
 const vowels=[[740,1120,2480],[440,1720,2600],[560,900,2300],[330,730,2180]];
@@ -144,23 +144,36 @@ export function renderEraVocal(input,sampleRate,character,role='woo') {
       state.z1=-a1*y+state.z2;state.z2=-b*excitation-a2*y;
       vowel+=y*[1,.72,.34][k];
     }
-    const funk=p.skin==='future'&&p.owner===0?.84+.16*Math.cos(TAU*3.3*time):1;
-    sung[i]=vowel*envelope*voicing*syllableGate*funk;
+    // The synthetic carrier follows the recorded spectral envelope like a
+    // compact formant vocoder. A slow sideband shimmer makes the future voices
+    // electronic without replacing their consonants or source timing.
+    const carrier=p.skin==='future'?.76+.24*Math.cos(TAU*(23+p.owner*17)*time+p.liquid*Math.sin(TAU*1.3*time)):1;
+    sung[i]=vowel*envelope*voicing*syllableGate*carrier;
   }
   const humanGain=Math.min(3,sourceRms/Math.max(1e-12,rms(human))),sungGain=Math.min(18,sourceRms/Math.max(1e-12,rms(sung)));
   for(let i=0;i<length;i++)output[i]=human[i]*humanGain*(1-p.singing)+sung[i]*sungGain*p.singing;
   const dry=output.slice();
-  const delay=sampleRate*(p.skin==='future'?.021+p.owner*.008:.019);
+  const delay=sampleRate*(p.skin==='future'?.021+p.owner*.008:.019),room=p.room*(isOi?.3:1),slip=(p.slip??0)*(isOi?.28:1);
   for(let i=0;i<length;i++){
     const time=i/sampleRate,mod=p.skin==='future'?sampleRate*(.0007+p.liquid*.004)*Math.sin(TAU*(1.1+p.owner*.4)*time):0;
     output[i]+=p.chorus*sample(dry,i-delay-mod);
     // Sparse early reflections, bounded to 113 ms rather than a feedback reverb.
-    output[i]+=p.room*(sample(dry,i-sampleRate*.037)*.52+sample(dry,i-sampleRate*.071)*.30+sample(dry,i-sampleRate*.113)*.18);
+    output[i]+=room*(sample(dry,i-sampleRate*.037)*.52+sample(dry,i-sampleRate*.071)*.30+sample(dry,i-sampleRate*.113)*.18);
+    if(p.skin==='future'){
+      const glide=sampleRate*(.0015+.0035*p.liquid)*Math.sin(TAU*(.63+p.owner*.19)*time+.8);
+      // Three non-feedback taps smear vowels into a slippery finite halo while
+      // keeping silence silent and avoiding an unbounded reverb network.
+      output[i]+=slip*(sample(dry,i-sampleRate*.049-glide)*.48+sample(dry,i-sampleRate*.101+glide*.7)*.31+sample(dry,i-sampleRate*.157-glide*.35)*.21);
+    }
     const fade=Math.min(smooth(i/(sampleRate*.008)),smooth((length-1-i)/(sampleRate*.035)));
     output[i]*=fade;
   }
+  if(p.skin==='future'){
+    const body=rms(output),shoulder=body*3.6;
+    if(shoulder>1e-12)for(let i=0;i<output.length;i++)output[i]=Math.tanh(output[i]/shoulder)*shoulder;
+  }
   let peak=0;for(const x of output)peak=Math.max(peak,Math.abs(x));
-  const target=Math.min(.18,sourceRms*.92),gain=Math.min(3,target/Math.max(1e-12,rms(output)),.8799/Math.max(1e-12,peak));
+  const target=Math.min(.18,sourceRms*.92),gain=Math.min(p.skin==='future'?8:3,target/Math.max(1e-12,rms(output)),.8799/Math.max(1e-12,peak));
   for(let i=0;i<length;i++)output[i]*=gain;
   return output;
 }

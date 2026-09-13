@@ -3,7 +3,8 @@
 const COLORS = Object.freeze({
   'history-bones': '#ded0ad', 'history-hamhock': '#be7446', 'history-baby': '#e3cfac',
   'history-harpsichord': '#a4824d', 'history-boulder': '#a6a39c',
-  'history-club': '#987147', 'future-octopus': '#55efd0',
+  'history-club': '#987147', 'history-candelabra': '#d8ad58',
+  'history-talking-drum': '#ad7547', 'future-octopus': '#55efd0',
 });
 function ellipse(c, x, y, rx, ry, color, outline = null) {
   c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
@@ -82,6 +83,32 @@ export function drawEraProp(c, prop) {
         line(c, [[-2, 23], [4, 1], [14, -20]], '#c2a172', 3);
         line(c, [[-4, -4], [3, -15], [2, -25]], '#6a4b31', 3);
         ellipse(c, 12, -12, 4, 5, '#7c5838', '#b19061');
+        break;
+      case 'history-candelabra':
+        ellipse(c, 0, 28, 17, 4, '#8c6839', '#4f3b2d');
+        line(c, [[0, 27], [0, -12]], '#6e4d2c', 5);
+        line(c, [[-22, -2], [-22, -18]], '#6e4d2c', 4);
+        line(c, [[22, -2], [22, -18]], '#6e4d2c', 4);
+        line(c, [[-11, -8], [-11, -23]], '#6e4d2c', 4);
+        line(c, [[11, -8], [11, -23]], '#6e4d2c', 4);
+        c.beginPath(); c.moveTo(0, 4); c.bezierCurveTo(-8, 2, -14, -2, -22, -6); c.strokeStyle=color;c.lineWidth=4;c.stroke();
+        c.beginPath(); c.moveTo(0, 4); c.bezierCurveTo(8, 2, 14, -2, 22, -6); c.strokeStyle=color;c.lineWidth=4;c.stroke();
+        c.beginPath(); c.moveTo(0, -2); c.bezierCurveTo(-4, -5, -7, -8, -11, -12); c.stroke();
+        c.beginPath(); c.moveTo(0, -2); c.bezierCurveTo(4, -5, 7, -8, 11, -12); c.stroke();
+        for (const [x,y] of [[-22,-21],[-11,-26],[0,-17],[11,-26],[22,-21]]) {
+          line(c, [[x, y + 7], [x, y + 1]], '#efe1b3', 3);
+          ellipse(c, x, y - 2, 2.8, 5.5, '#ffbd58', '#b96532');
+        }
+        break;
+      case 'history-talking-drum':
+        ellipse(c, 0, -22, 18, 6, '#ead4a5', '#593b2b');
+        ellipse(c, 0, 22, 18, 6, '#ead4a5', '#593b2b');
+        polygon(c, [[-16,-20],[-9,-6],[-10,7],[-16,20],[16,20],[10,7],[9,-6],[16,-20]], color, '#593b2b');
+        for (const x of [-13,-7,0,7,13]) {
+          line(c, [[x, -20], [x * .55, 0], [x, 20]], '#ead4a5', 1.6);
+        }
+        line(c, [[20,-25],[27,-31],[24,-4]], '#725032', 3);
+        ellipse(c, 24, -3, 3.5, 4.5, '#8e5b36', '#493126');
         break;
       case 'future-octopus':
         for (let i = 0; i < 8; i++) {

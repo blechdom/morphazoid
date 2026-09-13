@@ -41,6 +41,40 @@ test('six era identities are immutable and punk rendering is exactly unchanged',
   }
 });
 
+test('history voices use sustained operatic contours instead of short chants', () => {
+  const opera=ERA_VOCAL_PROFILES.filter(profile=>profile.skin==='history');
+  assert.equal(opera.length,3);
+  for(const profile of opera) {
+    assert.ok(profile.singing>=.60,`${profile.id}: formant singing is prominent`);
+    assert.ok(profile.vibrato>=.45,`${profile.id}: operatic vibrato is present`);
+    assert.ok(profile.notes.length>=6,`${profile.id}: phrase carries a melodic contour`);
+    assert.ok(Math.max(...profile.notes)>=5,`${profile.id}: phrase opens beyond speech inflection`);
+  }
+});
+
+test('future voices foreground a vocoder carrier and a bounded slippery reflection field', () => {
+  const future=ERA_VOCAL_PROFILES.filter(profile=>profile.skin==='future');
+  assert.equal(future.length,3);
+  for(const profile of future) {
+    assert.ok(profile.singing>=.63,`${profile.id}: synthetic formant carrier is foregrounded`);
+    assert.ok(profile.slip>=.31,`${profile.id}: slippery taps are present`);
+    assert.ok(profile.chorus>=.25,`${profile.id}: moving delay is present`);
+    assert.ok(profile.room>=.18,`${profile.id}: reflection field is present`);
+  }
+});
+
+test('future arias leave a stronger finite halo than the classical opera voices', () => {
+  const rate=decoded.woo.sampleRate;
+  const halo=(profile,output)=>{
+    const speech=Math.ceil(source.woo.length*profile.stretch);
+    return rms(output.subarray(speech,Math.min(output.length,speech+Math.round(rate*.14))));
+  };
+  const levels=characters.map((character,index)=>halo(ERA_VOCAL_PROFILES.find(profile=>profile.id===character.id),clips.woo[index]));
+  const historyMax=Math.max(...levels.slice(0,3)),futureMin=Math.min(...levels.slice(3));
+  assert.ok(futureMin>historyMax*2.5,`future halo ${futureMin} exceeds classical room ${historyMax}`);
+  assert.ok(futureMin<.02,'the finite halo remains below the foreground voice');
+});
+
 test('actual OI and WOO recordings render useful finite phrases with clean boundaries', () => {
   for(const role of ['oi','woo']) for(const [index,p] of characters.entries()) {
     const input=source[role], before=input.slice(), rate=decoded[role].sampleRate;
