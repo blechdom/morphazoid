@@ -19,7 +19,7 @@ for (const [id, label, directory, description, credit] of entries) {
   catch (error) { if (partial && error.code === 'ENOENT') continue; throw error; }
   if (rig.joints?.length !== 38 || rig.legs?.length !== 8) throw new Error(`Invalid ${id} specimen rig`);
   records.push({ id, label, description, credit, species: rig.species,
-    modelPath: `${base}spider-mobile.glb`, rigPath: `${base}rig-manifest.json`,
+    modelPath: `${base}spider-mobile.glb`, phoneModelPath: `${base}spider-phone.glb`, rigPath: `${base}rig-manifest.json`,
     rig: { version: rig.version, species: rig.species, bodyLength: rig.bodyLength,
       bodyHeight: rig.neutralBodyHeight ?? rig.bodyHeight, collision: rig.collision,
       joints: rig.joints.map(({ id, parent, pivot }) => ({ id, parent, pivot })),

@@ -18,6 +18,42 @@ async function drawn(page, operation, value) {
   await expect.poll(() => page.evaluate(() => spiderViewerQA.viewer.renderCount)).toBeGreaterThan(old);
 }
 
+test('Face fits actual skinned front vertices for every specimen and preserves explicit zoom on rotation and resize', async ({ page, baseURL }) => {
+  test.setTimeout(120000); await open(page, baseURL);
+  for (const id of ['argiope', 'golden', 'devil', 'tarantula', 'huntsman', 'fishing']) {
+    const report = await page.evaluate(async id => {
+      const viewer = spiderViewerQA.viewer, base = `./assets/spider-synth/${id === 'argiope' ? '' : `skins/${id}/`}`;
+      if (!await viewer.load(`${base}spider-mobile.glb`, `${base}rig-manifest.json`)) throw new Error(`Load failed: ${id}`);
+      viewer.setFrame({ time: 0, body: { x: 0, y: viewer.rig.neutralBodyHeight, z: 0, yaw: 0, pitch: 0, roll: 0 }, pose: new Float32Array(114), feet: [] });
+      viewer.applyFrame(); viewer.setViewPreset('face');
+      let sampled = 0, clipped = 0, nearest = Infinity;
+      const joints = viewer.mesh.geometry.attributes.skinIndex, point = viewer.temp[9];
+      for (let i = 0; i < joints.count; i += 17) {
+        const joint = joints.getX(i); if (joint === 1 || joint > 5) continue;
+        viewer.mesh.getVertexPosition(i, point); point.applyMatrix4(viewer.mesh.matrixWorld).project(viewer.camera);
+        sampled++; if (Math.abs(point.x) > 1 || Math.abs(point.y) > 1 || point.z < -1 || point.z > 1) clipped++;
+        nearest = Math.min(nearest, point.z);
+      }
+      const distance = viewer.distance;
+      viewer.orbit.setFromAxisAngle(viewer.camera.up, .5); viewer.updateCamera();
+      const rotatedDistance = viewer.distance; viewer.fit(); viewer.zoomBy(.85);
+      return { sampled, clipped, nearest, distance, rotatedDistance, zoomFactor: viewer.zoomFactor, display: viewer.getState().display };
+    }, id);
+    expect(report.sampled, id).toBeGreaterThan(20); expect(report.clipped, id).toBe(0);
+    expect(report.nearest, id).toBeGreaterThan(-1); expect(report.rotatedDistance, id).toBe(report.distance);
+    expect(report.zoomFactor, id).toBeCloseTo(.85, 10);
+    expect(report.display.width * report.display.height).toBeLessThanOrEqual(report.display.maxPixels);
+    expect(report.display.pixelRatio).toBeLessThanOrEqual(report.display.maxDpr);
+    expect(report.display).toMatchObject({ mobileAssets: false, maxFps: 20, shadowMapSize: 768 });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => spiderViewerQA.viewer.camera.aspect)).toBeCloseTo(390 / 700, 4);
+  expect(await page.evaluate(() => spiderViewerQA.viewer.zoomFactor)).toBeCloseTo(.85, 10);
+  expect(await page.evaluate(() => spiderViewerQA.viewer.getState().display.mobileAssets)).toBe(false);
+  await drawn(page, 'spiderViewerQA.viewer.fit()');
+  expect(await page.evaluate(() => spiderViewerQA.viewer.zoomFactor)).toBe(1);
+});
+
 test('magnified event waves travel while every actual planted toe remains pinned in all four views', async ({ page, baseURL }, testInfo) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message)); await open(page, baseURL);
   const selected = await page.evaluate(() => {

@@ -1,19 +1,47 @@
 import * as THREE from '../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { createSpiderCollisionProfile, constrainSpiderCollisionPose, createSpiderCollisionSolver } from './spider-synth-collision.js?v=ba050afc7c8e';
+import { createSpiderCollisionProfile, constrainSpiderCollisionPose, createSpiderCollisionSolver } from './spider-synth-collision.js?v=64d3f9bd2cd0';
+import { getSpiderDisplayProfile } from './spider-synth-display.js?v=64d3f9bd2cd0';
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, Number(value) || 0));
 const AXES = ['x', 'y', 'z'];
 const MODEL_URL = new URL('../assets/spider-synth/spider-mobile.glb?v=aee7f2b4c9b2', import.meta.url);
 const RIG_URL = new URL('../assets/spider-synth/rig-manifest.json?v=8dc0f1eec0ca', import.meta.url);
 const MAX_BYTES = 16 * 1024 * 1024;
-const MAX_PIXELS = 1_150_000;
 const WEB_PIECES = 20; // Twelve regular spans plus up to eight exact toe knots.
 const WEB_VERTICES = WEB_PIECES * 2;
 const NO_EVENTS = Object.freeze([]);
 const UP = new THREE.Vector3(0, 1, 0);
 const finite3 = value => value && AXES.every(axis => Number.isFinite(value[axis]));
+
+/** Bind-local front-part bounds, measured once at load rather than per frame. */
+export function createSpiderFaceBounds(rig, geometry) {
+  const bounds = [0, 2, 3, 4, 5].map(index => ({ index, box: new THREE.Box3(), corners: [] }));
+  const body = rig.collision?.bodies.find(body => body.jointId === 'cephalothorax');
+  const point = new THREE.Vector3();
+  if (body) {
+    const pivot = rig.joints[0].pivot;
+    bounds[0].box.set(new THREE.Vector3(...body.center.map((value, axis) => value - pivot[axis] - body.radii[axis])),
+      new THREE.Vector3(...body.center.map((value, axis) => value - pivot[axis] + body.radii[axis])));
+  }
+  const positions = geometry?.attributes.position, joints = geometry?.attributes.skinIndex;
+  const pivots = rig.joints.slice(0, 6).map(joint => new THREE.Vector3().fromArray(joint.pivot));
+  if (positions && joints) for (let i = 0; i < positions.count; i++) {
+    const index = joints.getX(i); if (index < 2 || index > 5) continue;
+    // These normalized rigs use translation-only bind matrices. Dominant skin
+    // assignment includes the actual long tarantula palps, unlike pivot sizing.
+    point.fromBufferAttribute(positions, i).sub(pivots[index]);
+    bounds[index - 1].box.expandByPoint(point);
+  }
+  for (const entry of bounds) {
+    if (entry.box.isEmpty()) entry.box.set(new THREE.Vector3(-.012, -.012, -.012), new THREE.Vector3(.012, .012, .012));
+    for (const x of [entry.box.min.x, entry.box.max.x]) for (const y of [entry.box.min.y, entry.box.max.y]) for (const z of [entry.box.min.z, entry.box.max.z]) {
+      entry.corners.push(new THREE.Vector3(x, y, z));
+    }
+  }
+  return bounds;
+}
 
 /** Magnified transverse event display, not a numerical silk displacement solver. */
 export function sampleSpiderStrand(segment, a, b, u, time, events = NO_EVENTS, pins = NO_EVENTS, out = {}) {
@@ -80,10 +108,11 @@ function releaseObject(root) {
 /** GPU-skinned real specimen and shared web contact display. Owns no audio clock. */
 export class SpiderSynthViewer {
   constructor({ canvas, onStatus = () => {}, onChange = () => {}, onSelect = () => {},
-    onInteract = () => {}, onPluck = () => {}, onMove = () => {}, onPreySelect = () => {} }) {
+    onInteract = () => {}, onPluck = () => {}, onMove = () => {}, onPreySelect = () => {}, displayProfile }) {
     if (!canvas?.getContext) throw new TypeError('A canvas is required');
     Object.assign(this, { canvas, onStatus, onChange, onSelect, onInteract, onPluck, onMove, onPreySelect });
     this.win = canvas.ownerDocument.defaultView; this.doc = canvas.ownerDocument;
+    this.displayProfile = displayProfile || getSpiderDisplayProfile(this.win);
     this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x080d11);
     this.camera = new THREE.PerspectiveCamera(39, 1, .005, 30);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
@@ -94,7 +123,7 @@ export class SpiderSynthViewer {
     this.scene.add(new THREE.HemisphereLight(0xe1e6ec, 0x20202a, .85));
     this.key = new THREE.DirectionalLight(0xfff7e8, 1.85);
     this.key.position.set(-1.3, 2.5, 1.5); this.key.castShadow = true;
-    this.key.shadow.mapSize.set(768, 768);
+    this.key.shadow.mapSize.set(this.displayProfile.shadowMapSize, this.displayProfile.shadowMapSize);
     Object.assign(this.key.shadow.camera, { left: -1.35, right: 1.35, top: 1.35, bottom: -1.35, near: .1, far: 8 });
     this.key.shadow.bias = -.00015; this.key.shadow.normalBias = .0007; this.scene.add(this.key);
     this.fill = new THREE.DirectionalLight(0xcadce5, 1.35); this.scene.add(this.fill, this.fill.target);
@@ -108,6 +137,8 @@ export class SpiderSynthViewer {
     this.raycaster = new THREE.Raycaster(); this.pointer = new THREE.Vector2();
     this.target = new THREE.Vector3(0, .04, -.03); this.orbit = new THREE.Quaternion();
     this.distance = 2.8; this.view = 'top'; this.side = 'right'; this.axis = 'xy';
+    this.fitDistance = this.distance; this.zoomFactor = 1;
+    this.faceBounds = []; this.faceBox = new THREE.Box3();
     this.touchMode = false; this.moveMode = false; this.showJoints = false; this.offsets = {};
     this.moveCenter = { x: 0, z: 0 };
     this.frameData = { time: 0, body: { x: 0, y: .06, z: 0, yaw: 0, pitch: 0, roll: 0 }, feet: [], pose: new Float32Array(114) };
@@ -174,6 +205,7 @@ export class SpiderSynthViewer {
         || !leg.jointIds.every(id => nextBones.some(bone => bone.id === id)) || !leg.lengths.every(length => Number.isFinite(length) && length > 0)
         || !leg.anchors.every(anchor => anchor?.length === 3 && anchor.every(Number.isFinite))) throw new Error('The spider leg rig is invalid.');
       const collisionProfile = createSpiderCollisionProfile(rig);
+      const faceBounds = createSpiderFaceBounds(rig, mesh[0].geometry);
       this.cancelGesture();
       releaseObject(this.model); if (this.model) this.performer.remove(this.model);
       this.model = imported.scene; this.mesh = mesh[0]; this.rig = rig; this.performer.add(this.model);
@@ -181,6 +213,7 @@ export class SpiderSynthViewer {
       this.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 2);
       this.mesh.boundingBox = new THREE.Box3(new THREE.Vector3(-2, -2, -2), new THREE.Vector3(2, 2, 2));
       this.bones = nextBones;
+      this.faceBounds = faceBounds;
       this.bones.forEach(bone => { bone.samples = []; });
       for (let i = 0; i < sourcePositions.count; i += 13) {
         const bone = this.bones[sourceJoints.getX(i)];
@@ -623,11 +656,19 @@ export class SpiderSynthViewer {
     this.camera.position.copy(this.target).add(direction.normalize()); this.camera.lookAt(this.target); this.orbit.copy(this.camera.quaternion);
     this.fit(); this.onChange(this.getState()); return true;
   }
-  fit() {
+  fit({ preserveZoom = false } = {}) {
     const rect = this.canvas.getBoundingClientRect(), aspect = rect.width / Math.max(1, rect.height);
     const tangent = Math.tan(this.camera.fov * Math.PI / 360);
     if (this.view === 'face') {
-      this.faceTarget(this.target); this.distance = .12 / tangent / Math.min(1, aspect) * 1.07;
+      this.faceTarget(this.target);
+      const inverse = this.orbit.clone().invert(), point = new THREE.Vector3();
+      let distance = .13;
+      for (const entry of this.faceBounds) for (const corner of entry.corners) {
+        point.copy(corner).applyMatrix4(this.bones[entry.index].bone.matrixWorld).sub(this.target).applyQuaternion(inverse);
+        distance = Math.max(distance, point.z + Math.abs(point.x) / (tangent * aspect), point.z + Math.abs(point.y) / tangent,
+          point.length() + this.camera.near * 2);
+      }
+      this.distance = distance * 1.16;
     } else {
       const bounds = this.webBounds?.isEmpty() === false ? this.webBounds.clone() : new THREE.Box3(new THREE.Vector3(-1, 0, -1), new THREE.Vector3(1, .1, 1));
       const body = this.frameData.body;
@@ -641,16 +682,27 @@ export class SpiderSynthViewer {
       }
       this.distance = distance * 1.08;
     }
+    this.fitDistance = this.distance;
+    if (!preserveZoom) this.zoomFactor = 1;
+    this.distance = clamp(this.fitDistance * this.zoomFactor, .13, 6);
     this.updateCamera(); this.invalidate(); return true;
   }
   faceTarget(out) {
+    if (this.faceBounds?.length) {
+      this.faceBox.makeEmpty();
+      for (const entry of this.faceBounds) for (const corner of entry.corners) {
+        this.faceBox.expandByPoint(this.temp[6].copy(corner).applyMatrix4(this.bones[entry.index].bone.matrixWorld));
+      }
+      return this.faceBox.getCenter(out);
+    }
     const head = this.bones[0]?.bone;
     if (head) head.getWorldPosition(out); else out.set(this.frameData.body.x, this.frameData.body.y, this.frameData.body.z);
     return out;
   }
   zoomBy(factor) {
     if (!Number.isFinite(factor) || factor <= 0 || this.disposed) return false;
-    this.distance = clamp(this.distance * factor, .13, 6); this.updateCamera(); this.invalidate(); return true;
+    this.distance = clamp(this.distance * factor, .13, 6); this.zoomFactor = this.distance / this.fitDistance;
+    this.updateCamera(); this.invalidate(); return true;
   }
   updateCamera() {
     this.camera.position.set(0, 0, this.distance).applyQuaternion(this.orbit).add(this.target);
@@ -662,10 +714,11 @@ export class SpiderSynthViewer {
   }
   resize() {
     const rect = this.canvas.getBoundingClientRect(), width = Math.max(1, Math.round(rect.width)), height = Math.max(1, Math.round(rect.height));
-    const dpr = Math.min(1.5, this.win.devicePixelRatio || 1, Math.sqrt(MAX_PIXELS / (width * height)));
+    const dpr = Math.min(this.displayProfile.maxDpr, this.win.devicePixelRatio || 1, Math.sqrt(this.displayProfile.maxPixels / (width * height)));
     const key = `${width}:${height}:${dpr}`; if (this.resizeKey === key) return;
     this.resizeKey = key; this.renderer.setPixelRatio(dpr); this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height; this.camera.updateProjectionMatrix(); this.dirty = true;
+    if (this.loaded) this.fit({ preserveZoom: true });
   }
   invalidate() {
     if (this.disposed) return; this.dirty = true;
@@ -673,7 +726,7 @@ export class SpiderSynthViewer {
   }
   draw(time) {
     this.frameRequest = 0; if (this.disposed || this.doc.hidden || this.contextLost) return;
-    if (time - this.lastDraw < 49) { this.frameRequest = this.win.requestAnimationFrame(now => this.draw(now)); return; }
+    if (time - this.lastDraw < 1000 / this.displayProfile.maxFps - 1) { this.frameRequest = this.win.requestAnimationFrame(now => this.draw(now)); return; }
     this.resize();
     if (this.dirty) {
       this.applyFrame(); this.updateWeb(); this.renderer.render(this.scene, this.camera);
@@ -838,7 +891,8 @@ export class SpiderSynthViewer {
     return { loaded: this.loaded, specimen: this.rig?.id || this.rig?.species || null, collision: this.collisionSolver ? { ...this.collisionSolver.stats } : null,
     bones: this.bones.map(({ id, name, groupId, bone, index }) => ({ id, jointId: id, name, groupId, index,
       quaternion: bone.quaternion.toArray(), position: bone.getWorldPosition(this.temp[11]).toArray(), offset: { ...(this.offsets[id] || { x: 0, y: 0, z: 0 }) } })),
-    selectedBone: this.selectedBone, camera: { view: this.view, side: this.side, distance: this.distance, target: this.target.toArray(), quaternion: this.orbit.toArray(), position: this.camera.position.toArray() },
+    selectedBone: this.selectedBone, camera: { view: this.view, side: this.side, distance: this.distance, fitDistance: this.fitDistance, zoomFactor: this.zoomFactor, target: this.target.toArray(), quaternion: this.orbit.toArray(), position: this.camera.position.toArray() },
+    display: { ...this.displayProfile, width: this.canvas.width, height: this.canvas.height, pixelRatio: this.renderer.getPixelRatio() },
     footPositions: this.legs.map(leg => ({ id: `${leg.id}_tip`, position: leg.actual.toArray(), target: leg.target.toArray(), error: leg.error, stance: !!this.frameData.feet[leg.index]?.stance,
       airborne: !!(this.frameData.airborne || this.frameData.feet[leg.index]?.airborne) })),
     contactErrors: this.legs.map(leg => leg.error), renderCount: this.renderCount, axis: this.axis, touchMode: this.touchMode, moveMode: this.moveMode,

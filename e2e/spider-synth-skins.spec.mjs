@@ -9,7 +9,7 @@ async function ready(page, id) {
 for (const mobile of [false, true]) test(`scanned skins load individually and preserve ${mobile ? 'phone' : 'desktop'} playback`, async ({ browser, baseURL }, testInfo) => {
   const context = await browser.newContext({ baseURL, viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 }, isMobile: mobile, hasTouch: mobile });
   const page = await context.newPage(), requests = [], errors = [];
-  page.on('request', request => { if (/spider-mobile\.glb/.test(request.url())) requests.push(request.url()); });
+  page.on('request', request => { if (/spider-(?:mobile|phone)\.glb/.test(request.url())) requests.push(request.url()); });
   page.on('pageerror', error => errors.push(error.message));
   let release; const gate = new Promise(resolve => { release = resolve; });
   try {
@@ -20,7 +20,7 @@ for (const mobile of [false, true]) test(`scanned skins load individually and pr
     await page.locator('#audioButton').click(); await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
     await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(2);
     const before = await state(page);
-    await page.route('**/skins/golden/spider-mobile.glb*', async route => { await gate; await route.continue().catch(() => {}); });
+    await page.route('**/skins/golden/spider-*.glb*', async route => { await gate; await route.continue().catch(() => {}); });
     await page.locator('#specimenPreset').selectOption('golden');
     await expect(page.locator('#specimenPreset')).toHaveAttribute('aria-busy', 'true');
     expect((await state(page)).specimen).toBe('argiope');
@@ -43,6 +43,15 @@ for (const mobile of [false, true]) test(`scanned skins load individually and pr
       await page.screenshot({ path: testInfo.outputPath(`${id}.png`) });
     }
     expect(requests).toHaveLength(6);
+    expect(requests.every(url => url.includes(mobile ? '/spider-phone.glb' : '/spider-mobile.glb'))).toBe(true);
+    if (mobile) {
+      await page.setViewportSize({ width: 844, height: 390 });
+      await page.locator('[data-view="face"]').click();
+      expect(requests).toHaveLength(6);
+      expect((await state(page)).playing).toBe(true);
+      await page.locator('#specimenPreset').selectOption('tarantula'); await ready(page, 'tarantula');
+      expect(requests.at(-1)).toContain('/spider-phone.glb');
+    }
     await page.locator('#motionButton').click(); await page.locator('#soundPlayButton').click();
     const paused = await state(page);
     await page.locator('#specimenPreset').selectOption('argiope'); await ready(page, 'argiope');
@@ -51,6 +60,22 @@ for (const mobile of [false, true]) test(`scanned skins load individually and pr
     expect(errors).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { release(); await context.close(); }
+});
+
+for (const profile of ['landscape touch', 'desktop Save-Data']) test(`${profile} uses phone textures from the first request`, async ({ browser, baseURL }) => {
+  const touch = profile === 'landscape touch';
+  const context = await browser.newContext({ baseURL, viewport: touch ? { width: 844, height: 390 } : { width: 1440, height: 900 }, isMobile: touch, hasTouch: touch });
+  try {
+    if (!touch) await context.addInitScript(() => Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } }));
+    const page = await context.newPage(), requests = [];
+    page.on('request', request => { if (/spider-(?:mobile|phone)\.glb/.test(request.url())) requests.push(request.url()); });
+    await page.goto('spider-synth.html'); await ready(page, 'argiope');
+    expect(requests).toHaveLength(1); expect(requests[0]).toContain('/spider-phone.glb');
+    if (touch) expect((await page.locator('#specimenPreset').boundingBox()).width).toBeGreaterThan(250);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.locator('#specimenPreset').selectOption('tarantula'); await ready(page, 'tarantula');
+    expect(requests).toHaveLength(2); expect(requests[1]).toContain('/skins/tarantula/spider-phone.glb');
+  } finally { await context.close(); }
 });
 
 test('failed and superseded skin loads retain a playable specimen and support retry', async ({ page }) => {
@@ -62,7 +87,7 @@ test('failed and superseded skin loads retain a playable specimen and support re
   let s = await state(page); expect(s.specimen).toBe('argiope'); expect(s.loaded).toBe(true); expect(s.bones).toHaveLength(38); expect(s.playing).toBe(true);
   await page.unroute('**/skins/devil/rig-manifest.json*');
   await page.locator('#retryModel').click(); await ready(page, 'devil');
-  await page.route('**/skins/golden/spider-mobile.glb*', route => route.abort());
+  await page.route('**/skins/golden/spider-*.glb*', route => route.abort());
   await page.evaluate(() => {
     const select = document.getElementById('specimenPreset');
     for (const id of ['golden', 'fishing']) { select.value = id; select.dispatchEvent(new Event('change', { bubbles: true })); }

@@ -72,6 +72,7 @@ for worktree_runtime_file in \
   src/spider-synth-recordings.js \
   src/spider-synth-specimens.js \
   src/spider-synth-specimen-data.js \
+  src/spider-synth-display.js \
   src/spider-synth-navigation-controls.js \
   src/spider-synth-viewer.js \
   src/spider-synth-audio.js \
@@ -89,6 +90,9 @@ for worktree_runtime_file in \
   contracts/spider-synth-v1.md \
   SPIDER_SYNTH_RESEARCH.md \
   assets/spider-synth/spider-mobile.glb \
+  assets/spider-synth/spider-phone.glb \
+  assets/spider-synth/spider-phone.glb.report.json \
+  assets/spider-synth/PHONE_ASSETS.md \
   assets/spider-synth/rig-manifest.json \
   assets/spider-synth/source-provenance.json \
   assets/spider-synth/spider-mobile.glb.report.json \
@@ -835,11 +839,13 @@ required_files=(
   src/spider-synth-processor.js
   src/spider-synth-specimens.js
   src/spider-synth-specimen-data.js
+  src/spider-synth-display.js
   src/spider-synth-collision.js
   src/spider-synth-contact.js
   docs/spider-synth-request-audit.md
   docs/spider-synth-scan-candidates.md
   assets/spider-synth/spider-mobile.glb
+  assets/spider-synth/spider-phone.glb
   assets/instruments/spider-synth.webp
   src/roach-synth-midi.js
   src/roach-synth-midi-controls.js

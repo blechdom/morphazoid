@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "specimen": "argiope",
+  "profile": "phone-2k-q90",
+  "tools": {
+    "pillow": "10.2.0",
+    "libwebp": "1.3.2"
+  },
+  "source": {
+    "file": "assets/spider-synth/spider-mobile.glb",
+    "bytes": 5488852,
+    "sha256": "aee7f2b4c9b24bae69598390fe26314c2c8949cb0ae0c65f3a486f152c48a694"
+  },
+  "output": {
+    "file": "assets/spider-synth/spider-phone.glb",
+    "bytes": 3885404,
+    "sha256": "68cdde99de49edb82da9f0e9a47c3ce169ab9cdd31627cfc14b2a17a48b3e5b7"
+  },
+  "texture": {
+    "sourceWidth": 4096,
+    "sourceHeight": 4096,
+    "width": 2048,
+    "height": 2048,
+    "sourceBytes": 2323696,
+    "bytes": 720234,
+    "sourceSha256": "4367fa6e12b666878ad178ea8dfe820ef3ff7d319ff7980e2f5ab2d6c8046533",
+    "sha256": "cf5bde2dc6094bd1a0ebcd143825e64b1fdea13f84961fc4ba22a09bda56f217",
+    "resampling": "Lanczos",
+    "quality": 90,
+    "method": 6,
+    "sourceRgbaBytes": 67108864,
+    "rgbaBytes": 16777216,
+    "sourceRgbaMipBytes": 89478484,
+    "rgbaMipBytes": 22369620,
+    "encodingPsnrDbAgainstResampledReference": 41.921278,
+    "maximumRgbaEncodingError": 38,
+    "decodedRgbaSha256": "1742315fba983d0ca2d657024691b8a216e4b9f76335e1170c7806ae1c8d9fc7"
+  },
+  "preservedPayloads": [
+    {
+      "bufferView": 0,
+      "bytes": 958418,
+      "sha256": "86dbee1d438591ce33feda5c86663195c8493d0f082602703054c238239f0864",
+      "meshopt": true
+    },
+    {
+      "bufferView": 1,
+      "bytes": 1074578,
+      "sha256": "8fc87f7dac2e2c921e4cc090c658041fbc360be30772026c3da219fb1c0839c6",
+      "meshopt": true
+    },
+    {
+      "bufferView": 2,
+      "bytes": 577936,
+      "sha256": "bde1156578856ba60a4712b6bbf36a74c788f66b186e419b05c7eb3c63ad939e",
+      "meshopt": true
+    },
+    {
+      "bufferView": 3,
+      "bytes": 59966,
+      "sha256": "799f122f58e5d6d41a0d3de1f12a0136cb9b07b4ae0fcf49393a1866880d5347",
+      "meshopt": true
+    },
+    {
+      "bufferView": 4,
+      "bytes": 147453,
+      "sha256": "a26874457a8b49c903981c930cd0ab3ffb3b1346c74285acfe5b88adf7fe5e4a",
+      "meshopt": true
+    },
+    {
+      "bufferView": 5,
+      "bytes": 327888,
+      "sha256": "17523c43d88ca25fba0ab0355db9777a86abff59c3619c056aeb294de808d575",
+      "meshopt": true
+    },
+    {
+      "bufferView": 6,
+      "bytes": 2432,
+      "sha256": "f24f8003f54db67c13ca879257d5316df29cb3b728ef461e739548e825fec33d",
+      "meshopt": false
+    }
+  ],
+  "invariants": {
+    "exactCompressedGeometryAndRigPayloads": true,
+    "exactAccessorAndSceneMetadata": true,
+    "allTrianglesAndWeightsRetained": true,
+    "selfContained": true
+  },
+  "decodedGeometryBytes": 7179600
+}

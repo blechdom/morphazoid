@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const versionedReference = /(spider-synth(?:-[\w-]+)?\.(?:js|css)|spider-mobile\.glb|rig-manifest\.json|peacock-[\w-]+\.wav)\?v=[a-f0-9]{12}/g;
-const reference = /(["'])([^"'\s?]*\b(?:spider-synth(?:-[\w-]+)?\.(?:js|css)|spider-mobile\.glb|rig-manifest\.json|peacock-[\w-]+\.wav))\1/g;
-const specimenReference = /(["'])([^"'\s?]*(?:spider-mobile\.glb|rig-manifest\.json|peacock-[\w-]+\.wav))\1/g;
+const versionedReference = /(spider-synth(?:-[\w-]+)?\.(?:js|css)|spider-(?:mobile|phone)\.glb|rig-manifest\.json|peacock-[\w-]+\.wav)\?v=[a-f0-9]{12}/g;
+const reference = /(["'])([^"'\s?]*\b(?:spider-synth(?:-[\w-]+)?\.(?:js|css)|spider-(?:mobile|phone)\.glb|rig-manifest\.json|peacock-[\w-]+\.wav))\1/g;
+const specimenReference = /(["'])([^"'\s?]*(?:spider-(?:mobile|phone)\.glb|rig-manifest\.json|peacock-[\w-]+\.wav))\1/g;
 const unversion = source => source.replace(versionedReference, '$1');
 const relativeAsset = (source, reference) => path.posix.normalize(path.posix.join(path.posix.dirname(source), reference));
 

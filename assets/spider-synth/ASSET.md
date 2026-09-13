@@ -4,6 +4,11 @@ The real CC0 *Argiope bruennichi* scan is credited in [SOURCE.LICENSE.txt](SOURC
 
 `spider-mobile.glb` contains the entire animal surface, one 4K photographed color atlas, and an authored 38-joint skin. Its 5,488,852-byte transfer uses lossless Meshopt compression and WebP quality 92. Texture encoding is lossy; geometry, UVs and skin attributes are not quantized or decimated. The decoded mesh attributes occupy 7,179,600 bytes. A decoded 4K RGBA texture occupies about 64 MiB before mipmaps and renderer overhead.
 
+The separate [`spider-phone.glb` derivative](PHONE_ASSETS.md) keeps every packed
+geometry and rig byte while reducing the photographed atlas to 2K. It is
+3,885,404 bytes and uses about 16 MiB for decoded RGBA texture storage before
+mipmaps. The full 4K file above remains unchanged; both use the same rig.
+
 The rig separates cephalothorax, abdomen, paired pedipalps and chelicerae, and four grouped segments per walking leg. These are authored control regions on the continuous scanned surface. The four grouped leg joints do not imply that spiders have only four anatomical leg segments. Small mouth-region boundaries, skinning and all movement are approximations. The viewer has no flying motion and does not claim a full mesh collision solver.
 
 `rig-manifest.json` records source-space pivots after the coordinate transform, eight measured centerlines and four link lengths per leg. Its `outputSha256` identifies the intermediate uncompressed prepared GLB. `spider-mobile.glb.report.json` separately identifies the final compressed delivery and verifies all decoded attribute bytes against that intermediate file. Instrument coordinates are +Y up, +Z forward and +X right, with the web in the XZ plane.

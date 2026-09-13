@@ -154,6 +154,7 @@ body.spider-synth-page { --accent: #d8ca94; --accent-soft: #aa9976; --accent-glo
  .spider-heading { top: 10px; }
  .spider-heading h1 { font-size: 23px; }
  .spider-view-controls { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+ .spider-specimen-picker { flex: 1 0 100%; grid-template-columns: 90px minmax(0, 1fr); align-items: center; margin-bottom: 0; }
  .spider-stage-toolbar { flex: 1 0 240px; }
  .spider-axis { margin-left: 6px; }
  #gestureHelp { width: min(340px, calc(100vw - 48px)); }

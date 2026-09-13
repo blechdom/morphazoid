@@ -4,6 +4,11 @@ Each specimen is a photographed, three-dimensional surface scan, independently
 rigged for the instrument. These are five different anatomical meshes, not color
 swaps on the original Argiope. The browser loads one selected GLB at a time.
 
+Each skin also has a [2K phone derivative](../PHONE_ASSETS.md),
+`spider-phone.glb`, with the same complete packed geometry and 38-joint rig.
+The original 4K `spider-mobile.glb` files listed below remain unchanged. The
+phone atlas reduces decoded RGBA texture storage from 64 to 16 MiB per skin.
+
 | Skin | Species recorded by publisher | Animal triangles retained | Compressed GLB | License |
 | --- | --- | ---: | ---: | --- |
 | [Golden orb-weaver](golden/specimen.webp) | *Nephila pilipes* | 116,379 | 4,982,988 bytes | CC0 |

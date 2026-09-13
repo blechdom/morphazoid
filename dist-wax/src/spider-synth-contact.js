@@ -1,4 +1,4 @@
-import { createSpiderCollisionBodies, writeSpiderCollisionBodies } from './spider-synth-collision.js?v=ba050afc7c8e';
+import { createSpiderCollisionBodies, writeSpiderCollisionBodies } from './spider-synth-collision.js?v=64d3f9bd2cd0';
 
 export function spiderFootNeutralX(geometry) {
   if (!geometry.id.endsWith('_1') || geometry.lengths[0] <= geometry.reach - geometry.lengths[0]) return geometry.neutral[0];

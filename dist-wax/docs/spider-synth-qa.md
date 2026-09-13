@@ -1,3 +1,69 @@
+# Spider Synth — mobile skin and Face camera update
+
+Date: 2026-09-13. This release changes model delivery and graphics only. Audio
+DSP, the shared movement/contact planner, scan geometry and collision geometry
+remain unchanged. Earlier version measurements below are historical.
+
+## Phone delivery
+
+All six scans now have a separate 2K photographed texture delivery. Primary
+coarse pointers, viewports at or below 760 CSS pixels, and explicit Save-Data
+requests select it once per page lifetime. Orientation changes retain that
+selection; inactive skins are not prefetched. Desktop keeps the original 4K
+files. Each file has an independent content hash, including phone variants, so
+sound/UI changes do not force another model download.
+
+Phone files range from 3,556,500 to 4,771,936 bytes. Five skins transfer 23–29%
+less data; the geometry-heavy tarantula saves 9.8%. All six decoded RGBA atlases
+fall from 64 to 16 MiB before mipmaps, a 75% texture-storage reduction. These
+figures are file sizes and calculated texture storage, not measured total GPU
+memory or physical-phone load times. See [phone asset details](../assets/spider-synth/PHONE_ASSETS.md)
+for per-specimen measurements, reproducibility and quality limits.
+
+Every compressed geometry stream and every decoded position, normal, UV,
+triangle, skin weight, joint and inverse bind matches the original. The same
+38-joint rig and specimen geometry therefore drive both deliveries.
+
+## Graphics and framing
+
+The mobile display budget is 600,000 pixels, maximum DPR 1.25, 15 frames per
+second and a 512-pixel shadow map. Desktop retains its 1.15-million-pixel,
+DPR 1.5, 20-frame-per-second and 768-pixel shadow budget. The main visual tick
+uses the selected frame limit; musical event timing remains in the worklet.
+
+Face view previously used the same framing size for every scan. Before-change
+captures reproduce the tarantula's camera cropping into its enlarged front
+body on both desktop and phone. The new framing accounts for the specimen's
+front-body dimensions and the canvas aspect ratio. A landscape-only layout fix
+also gives the skin selector its own readable row instead of squeezing its
+label between camera controls.
+
+## Verification
+
+`npm run verify` passes: 3,528 tests passed, six existing skips, zero failures;
+syntax, SIMD, XYFlow and generated-WAX checks also pass. Twenty focused asset
+and cache tests pass, as do 23 camera/viewer/collision tests. All six phone GLBs
+and reports reproduce byte-for-byte.
+
+All 38 source browser cases pass, including sampled posed front vertices inside
+the Face frustum for every scan, separate players, contact timing through a
+main-thread stall, delayed/failed skin loading, both phone orientations,
+landscape-first and Save-Data selection, and stable quality across resize. Four
+shared audits pass, including strict accessibility and control inventory.
+Before/after captures were inspected for all phone faces and the tarantula on
+desktop; the final tarantula landscape capture also confirms the readable skin
+selector.
+
+All 38 generated-WAX browser cases report passed, with an empty failed-test
+list. That invocation’s outer shell returned 143 after the completed report;
+a direct-Node follow-up of all nine skin/viewer cases passes and exits zero.
+The source run exits zero. The production and Storybook builds pass, including
+the Storybook artifact check. Physical-phone and human
+listening acceptance remain unperformed; this graphics-only update does not
+claim new DSP timing measurements.
+
+---
+
 # Spider Synth — version 4 QA record
 
 Date: 2026-09-12. This update adds five independently rigged scanned specimens,

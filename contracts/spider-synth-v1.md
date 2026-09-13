@@ -45,10 +45,16 @@ bounded, with idle motion sources silent and held resonance paths separate.
 Four camera presets, explicit zoom, body axes, 3D touch and joint markers sit
 above the sound player. Mobile scroll remains available; the sticky specimen
 and main Audio must not trap or hide controls. Model loading cannot block audio.
+Face framing accounts for each scan's front-body dimensions and canvas aspect;
+explicit zoom and direct orbit remain independent of body-part gestures.
 
 Six separately calibrated scans share the 38-joint control layout. Each retains
 its measured link lengths, reach limits, body height and collision proxies.
-Only the selected mesh downloads. Recorded animal material loads after explicit
+Only the selected mesh downloads. A stable per-page display profile selects a
+2K texture delivery for primary coarse pointers, widths at or below 760 CSS
+pixels, or explicit Save-Data; desktop retains 4K. Both deliveries preserve the
+same complete geometry and rig. Rotation must not reload or prefetch a scan.
+Recorded animal material loads after explicit
 Audio arm without blocking the procedural engine; failures leave it playable.
 The three credited recordings are Maratus volans substrate courtship vibrations,
 not calls attributed to the selected scan. Original MIDI Program Change sound
@@ -76,7 +82,10 @@ scales the shared gait phase and body progress; speed and Movement scale stride
 length. Supported feet remain planted while the body advances within the
 scanned legs' reachable ranges. Forward, backward and sideways routines have
 different heading policies. The renderer follows
-at 20 fps and renders decaying strand waves localized around each pluck.
+at up to 20 fps on desktop and 15 fps with the mobile profile, rendering decaying
+strand waves localized around each pluck. Mobile limits the canvas to 600,000
+pixels/DPR 1.25 and shadows to 512 pixels; desktop retains 1.15 million pixels,
+DPR 1.5 and 768-pixel shadows. These limits never change audio scheduling.
 Endpoints and actual planted contact points pin the visible wave; they do not
 silence the entire contacted strand. The visualization is slowed for legibility.
 

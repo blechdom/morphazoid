@@ -1,0 +1,2 @@
+# Build only. The builder also verifies libwebp 1.3.2 at runtime.
+Pillow==10.2.0

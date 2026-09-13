@@ -20,13 +20,14 @@ test('Spider releases keep worklet, motion, scan and rig metadata cache versions
       'src/spider-synth-processor.js': "import './spider-synth-dsp.js';",
       'src/spider-synth-dsp.js': "import './spider-synth-model.js'; export const gain = 1;",
       'src/spider-synth-model.js': 'export const beat = 1;',
-      'src/spider-synth-specimen-data.js': 'export const skins = ["../assets/spider-synth/skins/golden/spider-mobile.glb", "../assets/spider-synth/skins/golden/rig-manifest.json"];',
+      'src/spider-synth-specimen-data.js': 'export const skins = ["../assets/spider-synth/skins/golden/spider-mobile.glb", "../assets/spider-synth/skins/golden/spider-phone.glb", "../assets/spider-synth/skins/golden/rig-manifest.json"];',
       'src/spider-synth-recordings.js': 'export const recording = "../assets/audio/spider-synth/peacock-rumble.wav";',
     };
     const skinDirectory = path.join(root, 'assets/spider-synth/skins/golden');
     const recordingDirectory = path.join(root, 'assets/audio/spider-synth');
     await mkdir(skinDirectory, { recursive: true }); await mkdir(recordingDirectory, { recursive: true });
     await writeFile(path.join(skinDirectory, 'spider-mobile.glb'), new Uint8Array([8,9,10]));
+    await writeFile(path.join(skinDirectory, 'spider-phone.glb'), new Uint8Array([20,21,22]));
     await writeFile(path.join(skinDirectory, 'rig-manifest.json'), '{"species":"golden"}');
     await writeFile(path.join(recordingDirectory, 'peacock-rumble.wav'), new Uint8Array([11,12,13]));
     for (const [name, source] of Object.entries(fixture)) await writeFile(path.join(root, name), source);
@@ -53,5 +54,16 @@ test('Spider releases keep worklet, motion, scan and rig metadata cache versions
     assert.equal(await readFile(path.join(root, 'src/spider-synth-specimen-data.js'), 'utf8'), skinBefore);
     assert.notEqual(await readFile(path.join(root, 'src/spider-synth-recordings.js'), 'utf8'), sampleBefore);
     assert.deepEqual(await fingerprintSpiderSynth(root), sampleRelease);
+    const phoneVersion = skinBefore.match(/spider-phone\.glb\?v=([a-f0-9]{12})/)?.[1];
+    assert.ok(phoneVersion, 'the lighter phone scan has a content-based URL');
+    await writeFile(path.join(skinDirectory, 'spider-phone.glb'), new Uint8Array([20,21,23]));
+    const phoneRelease = await fingerprintSpiderSynth(root);
+    assert.notEqual(phoneRelease.version, sampleRelease.version);
+    assert.equal(phoneRelease.modelVersion, sampleRelease.modelVersion);
+    assert.equal(phoneRelease.rigVersion, sampleRelease.rigVersion);
+    const phoneAfter = await readFile(path.join(root, 'src/spider-synth-specimen-data.js'), 'utf8');
+    assert.notEqual(phoneAfter.match(/spider-phone\.glb\?v=([a-f0-9]{12})/)?.[1], phoneVersion);
+    assert.equal(phoneAfter.replace(/spider-phone\.glb\?v=[a-f0-9]{12}/, 'phone'), skinBefore.replace(/spider-phone\.glb\?v=[a-f0-9]{12}/, 'phone'));
+    assert.deepEqual(await fingerprintSpiderSynth(root), phoneRelease);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

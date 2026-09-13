@@ -1,19 +1,22 @@
-import { SpiderSynthViewer } from './src/spider-synth-viewer.js?v=ba050afc7c8e';
-import { SPIDER_SPECIMENS, getSpiderSpecimen } from './src/spider-synth-specimens.js?v=ba050afc7c8e';
-import { createSpiderMidiControls } from './src/spider-synth-midi-controls.js?v=ba050afc7c8e';
-import { createSpiderNavigationControls } from './src/spider-synth-navigation-controls.js?v=ba050afc7c8e';
-import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from './src/spider-synth-world.js?v=ba050afc7c8e';
-import { normalizeSpiderWeb, serializeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './src/spider-synth-web.js?v=ba050afc7c8e';
+import { SpiderSynthViewer } from './src/spider-synth-viewer.js?v=64d3f9bd2cd0';
+import { getSpiderDisplayProfile } from './src/spider-synth-display.js?v=64d3f9bd2cd0';
+import { SPIDER_SPECIMENS, getSpiderSpecimen } from './src/spider-synth-specimens.js?v=64d3f9bd2cd0';
+import { createSpiderMidiControls } from './src/spider-synth-midi-controls.js?v=64d3f9bd2cd0';
+import { createSpiderNavigationControls } from './src/spider-synth-navigation-controls.js?v=64d3f9bd2cd0';
+import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from './src/spider-synth-world.js?v=64d3f9bd2cd0';
+import { normalizeSpiderWeb, serializeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './src/spider-synth-web.js?v=64d3f9bd2cd0';
 import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_MOTION_DEFAULTS, SPIDER_STATIC_POSES,
   normalizeSpiderMotion, createRandomSpiderMotion, createSpiderStaticPose,
-  createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from './src/spider-synth-model.js?v=ba050afc7c8e';
+  createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from './src/spider-synth-model.js?v=64d3f9bd2cd0';
 import { SpiderSynthAudio, SPIDER_SOUND_PRESETS, SPIDER_SOUND_DEFAULTS, SPIDER_BODY_GROUPS,
   SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, createRandomSpiderSound,
-  getSpiderMotionSound, getSpiderBodyGroupId } from './src/spider-synth-audio.js?v=ba050afc7c8e';
+  getSpiderMotionSound, getSpiderBodyGroupId } from './src/spider-synth-audio.js?v=64d3f9bd2cd0';
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController(), options = { signal: listeners.signal };
 const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+// Choose once: rotating a phone must not trigger another scan download.
+const displayProfile = getSpiderDisplayProfile(window);
 const state = {
   playing: false, soundPlaying: false, audioOn: false, audioStarting: false, disposed: false,
   modelLoading: true, notice: '', metronome: false, phraseRequest: 0,
@@ -161,7 +164,7 @@ function updateVisual() {
 }
 function tick(now) {
   animationFrame = 0; if (state.disposed || document.hidden) return;
-  if (now - lastFrame >= 50) { lastFrame = now; updateVisual(); }
+  if (now - lastFrame >= 1000 / displayProfile.maxFps) { lastFrame = now; updateVisual(); }
   if (needsVisualFrames()) scheduleFrame();
 }
 function scheduleFrame() { if (!animationFrame && !state.disposed && !document.hidden) animationFrame = requestAnimationFrame(tick); }
@@ -376,7 +379,8 @@ async function loadModel(id = state.specimenChoice) {
     // Resolve asset URLs here: the geometry metadata also runs in the audio
     // worklet, whose global scope has no URL constructor.
     const assetBase = new URL('./src/', import.meta.url);
-    const loaded = await viewer.load(new URL(specimen.modelPath, assetBase).href, new URL(specimen.rigPath, assetBase).href);
+    const modelPath = displayProfile.mobileAssets ? specimen.phoneModelPath : specimen.modelPath;
+    const loaded = await viewer.load(new URL(modelPath, assetBase).href, new URL(specimen.rigPath, assetBase).href);
     if (version !== loadVersion || state.disposed) return;
     if (loaded === false || !viewer.getState().loaded) throw new Error('The spider scan could not load');
     state.motion = normalizeSpiderMotion({ ...state.motion, specimen: specimen.id });
@@ -412,7 +416,7 @@ el('tempo').value = state.motion.tempo; el('tempoOut').value = `${state.motion.t
 el('intensity').value = state.motion.intensity; el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`;
 populateMotionPresets(); syncSound(); syncTransport();
 try {
-  viewer = new SpiderSynthViewer({ canvas: el('spiderCanvas'),
+  viewer = new SpiderSynthViewer({ canvas: el('spiderCanvas'), displayProfile,
     onStatus(data) { if (data?.state === 'error') status('modelStatus', data.message); },
     onSelect({ jointId }) { state.selectedGroup = getSpiderBodyGroupId(jointId); syncSelection(); },
     onInteract({ jointId, offset, active, velocity }) {

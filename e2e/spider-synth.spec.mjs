@@ -25,7 +25,7 @@ test('scan loading cannot block mobile audio, animation or voice controls', asyn
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage(); let release;
   const gate = new Promise(resolve => { release = resolve; });
-  await page.route('**/assets/spider-synth/spider-mobile.glb*', async route => { await gate; await route.continue().catch(() => {}); });
+  await page.route('**/assets/spider-synth/spider-*.glb*', async route => { await gate; await route.continue().catch(() => {}); });
   try {
     await page.goto(new URL('spider-synth.html', baseURL).href, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(window.spiderSynth));
@@ -178,7 +178,7 @@ test('web plucking and a trapped fly work independently, then hunting ends its s
 
 test('failed scan download retains a real preview and retry restores all38 controls', async ({ page }) => {
   let reject = true;
-  await page.route('**/assets/spider-synth/spider-mobile.glb*', route => reject ? route.abort('failed') : route.continue());
+  await page.route('**/assets/spider-synth/spider-*.glb*', route => reject ? route.abort('failed') : route.continue());
   await page.goto('spider-synth.html'); await expect(page.locator('#retryModel')).toBeVisible();
   await expect(page.locator('#specimenImage')).toBeVisible();
   expect(await page.locator('#specimenImage').evaluate(image => image.complete && image.naturalWidth > 500)).toBe(true);
