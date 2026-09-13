@@ -25,8 +25,9 @@ test("Home page is the About guide", async () => {
   assert.match(html, /src="instrument-catalog-app\.js\?v=catalog-[^"]+"/);
   assert.match(
     html,
-    /<h1>Morphazoid<\/h1>[\s\S]*?<h2>Instrument Catalogue<\/h2>[\s\S]*?Select an instrument, turn on audio, then find its play, input, or transport control\./,
+    /<h1>Morphazoid<\/h1>[\s\S]*?<h2>Instrument Catalogue<\/h2>/,
   );
+  assert.doesNotMatch(html, /Select an instrument, turn on audio/);
   assert.doesNotMatch(html, /class="about-lede"|Basic operation/);
   assert.doesNotMatch(html, /manual-section-label">Browse|Instrument sections, titles, and order/);
   assert.doesNotMatch(html, /microphone input|audio files?|file instruments?/i);
@@ -46,7 +47,7 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /<script type="module" src="app\.js"><\/script>/);
 });
 
-test("Home mounts the only complete menu-ordered catalogue", async () => {
+test("Home mounts the only complete registry-backed catalogue", async () => {
   const [home, about, catalogue] = await Promise.all([
     readFile(new URL("index.html", root), "utf8"),
     readFile(new URL("about.html", root), "utf8"),
@@ -141,15 +142,15 @@ test("Standalone MIDI guide keeps WAX output distinct", async () => {
   assert.doesNotMatch(visibleText, /every page (?:generates|outputs) MIDI/i);
 });
 
-test("Home gives one concise instruction before the catalogue", async () => {
+test("Home lets the visual catalogue begin without instructional copy", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-  assert.match(
+  assert.match(html, /<h2>Instrument Catalogue<\/h2>[\s\S]*?data-instrument-catalog/);
+  assert.doesNotMatch(
     visibleText,
-    /Morphazoid Instrument Catalogue Select an instrument, turn on audio, then find its play, input, or transport control\./,
+    /Basic operation|Select the speaker to arm audio|Select an instrument, turn on audio/,
   );
-  assert.doesNotMatch(visibleText, /Basic operation|Select the speaker to arm audio/);
 });
 
 test("legacy About and catalogue URLs redirect to the single home page", async () => {

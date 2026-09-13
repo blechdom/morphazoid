@@ -4,7 +4,9 @@ import test from "node:test";
 
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../nav.js";
 import {
+  HOMEPAGE_ACTIVITY_IDS,
   instrumentMatchesTag,
+  orderHomepageInstruments,
   renderInstrumentCatalog,
 } from "../instrument-catalog-app.js";
 import {
@@ -57,7 +59,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
   );
 });
 
-test("every instrument has factual card copy, a start action, traits, and a transparent icon path", async () => {
+test("every instrument keeps factual catalogue metadata and a transparent icon path", async () => {
   for (const instrument of INSTRUMENTS) {
     assert.ok(instrument.description.length >= 45, `${instrument.id} description is too short`);
     assert.ok(instrument.start.length >= 35, `${instrument.id} start text is too short`);
@@ -614,7 +616,7 @@ test("catalogue tag matching includes secondary tags", () => {
   assert.equal(instrumentMatchesTag(instrumentById("lattice"), "faves"), true);
 });
 
-test("catalogue tag controls hide experiments until All is restored", () => {
+test("home catalogue renders every instrument as one compact linked image and name", () => {
   class FakeElement {
     constructor(tagName, ownerDocument) {
       this.tagName = tagName;
@@ -622,8 +624,6 @@ test("catalogue tag controls hide experiments until All is restored", () => {
       this.children = [];
       this.dataset = {};
       this.attributes = new Map();
-      this.listeners = new Map();
-      this.hidden = false;
       this.textContent = "";
     }
 
@@ -639,88 +639,44 @@ test("catalogue tag controls hide experiments until All is restored", () => {
       this.attributes.set(name, value);
     }
 
-    addEventListener(type, listener) {
-      this.listeners.set(type, listener);
-    }
-
-    click() {
-      this.listeners.get("click")?.();
-    }
   }
 
   const doc = {};
   doc.createElement = (tagName) => new FakeElement(tagName, doc);
   const rootElement = new FakeElement("div", doc);
   const rendered = renderInstrumentCatalog(rootElement);
-  const filterLabels = rendered.filter.children.map(({ textContent }) => textContent);
-  assert.deepEqual(filterLabels, [
-    "All",
-    "Faves",
-    "Geometry Synths",
-    "Tiles",
-    "Drum Machines",
-    "Sequencers",
-    "Voice Synths",
-    "Mic FX",
-    "Barber Shop Poles",
-    "Fractals & Recursion",
-    "Chaotic Synths",
-    "Misc",
-    "Instruments",
-    "Algorithmic Sequencers",
-    "Apps",
-  ]);
   const homeCardIds = rendered.grid.children.map(({ dataset }) => dataset.instrumentId);
-  assert.deepEqual(homeCardIds.slice(0, FAVE_TOOL_IDS.length), FAVE_TOOL_IDS);
-  assert.equal(homeCardIds.includes("combo"), false);
-  assert.equal(homeCardIds.includes("l-systems"), true);
+  assert.equal(rootElement.children.length, 1);
+  assert.equal(rootElement.children[0], rendered.grid);
+  assert.equal(rendered.cards.length, INSTRUMENTS.length);
+  assert.equal(new Set(homeCardIds).size, INSTRUMENTS.length);
   assert.deepEqual(
-    rendered.deferredAppGrid.children.map(({ dataset }) => dataset.instrumentId),
-    ["combo"],
-  );
-  assert.equal(rendered.root.children.at(-1), rendered.deferredAppGrid);
-
-  const favesButton = rendered.filter.children.find(
-    ({ dataset }) => dataset.catalogueTag === "faves",
-  );
-  favesButton.click();
-  assert.equal(rendered.experiments.hidden, true);
-  assert.equal(
-    rendered.cards.find(({ dataset }) => dataset.instrumentId === "shape").hidden,
-    false,
-  );
-  assert.equal(
-    rendered.cards.find(({ dataset }) => dataset.instrumentId === "moire-drone").hidden,
-    true,
+    new Set(homeCardIds),
+    new Set(INSTRUMENTS.map(({ id }) => id)),
   );
   assert.deepEqual(
-    rendered.grid.children
-      .filter(({ hidden }) => !hidden)
-      .map(({ dataset }) => dataset.instrumentId),
-    FAVE_TOOL_IDS,
+    homeCardIds.slice(0, HOMEPAGE_ACTIVITY_IDS.length),
+    HOMEPAGE_ACTIVITY_IDS,
   );
-  assert.equal(rendered.deferredAppGrid.hidden, true);
-  assert.equal(favesButton.attributes.get("aria-pressed"), "true");
+  assert.equal(homeCardIds.includes("combo"), true);
+  assert.equal(homeCardIds.includes("plasma-ball"), true);
 
-  const chaoticButton = rendered.filter.children.find(
-    ({ dataset }) => dataset.catalogueTag === "chaotic-synths",
-  );
-  chaoticButton.click();
-  assert.equal(rendered.experiments.hidden, true);
-  assert.equal(
-    rendered.cards.find(({ dataset }) => dataset.instrumentId === "plasma-ball").hidden,
-    true,
-  );
-  assert.equal(
-    rendered.cards.find(({ dataset }) => dataset.instrumentId === "recursive-fm").hidden,
-    false,
-  );
-  assert.equal(chaoticButton.attributes.get("aria-pressed"), "true");
-
-  rendered.filter.children[0].click();
-  assert.equal(rendered.experiments.hidden, false);
-  assert.equal(rendered.deferredAppGrid.hidden, false);
-  assert.equal(rendered.cards.every(({ hidden }) => !hidden), true);
+  const firstInstrument = orderHomepageInstruments(INSTRUMENTS)[0];
+  const firstCard = rendered.cards[0];
+  const [cardLink] = firstCard.children;
+  const [visual, title] = cardLink.children;
+  const [image] = visual.children;
+  assert.equal(firstCard.children.length, 1);
+  assert.equal(cardLink.tagName, "a");
+  assert.equal(cardLink.href, firstInstrument.href);
+  assert.equal(cardLink.attributes.get("aria-label"), firstInstrument.label);
+  assert.equal(visual.tagName, "span");
+  assert.equal(image.tagName, "img");
+  assert.equal(image.alt, "");
+  assert.equal(image.src, firstInstrument.imageHref);
+  assert.equal(title.tagName, "h3");
+  assert.equal(title.textContent, firstInstrument.label);
+  assert.equal(cardLink.children.length, 2);
 });
 
 test("input and plug-in availability facts remain explicit", () => {
@@ -908,67 +864,37 @@ test("Hyper Rubix copy documents every order, playback scope, and five instrumen
   assert.match(readme, /manual quarter-turns.*without rewinding its clock/i);
 });
 
-test("card renderer separates in-development experiments from the main catalogue", async () => {
+test("card renderer stays a dense, complete activity-ranked visual index", async () => {
   const [app, css] = await Promise.all([
     readFile(new URL("instrument-catalog-app.js", root), "utf8"),
     readFile(new URL("instrument-catalog.css", root), "utf8"),
   ]);
-  assert.match(app, /INSTRUMENTS\.map\(\(instrument, index\) => \(\{/);
+  assert.equal(new Set(HOMEPAGE_ACTIVITY_IDS).size, HOMEPAGE_ACTIVITY_IDS.length);
+  assert.deepEqual(
+    HOMEPAGE_ACTIVITY_IDS.filter((id) => !instrumentById(id)),
+    [],
+  );
+  assert.match(app, /const instruments = orderHomepageInstruments\(INSTRUMENTS\)/);
+  assert.match(app, /instruments\.map\(\(instrument, index\) => createCard/);
   assert.match(app, /image\.loading = index < 12 \? "eager" : "lazy"/);
   assert.match(app, /image\.decoding = index < 12 \? "sync" : "async"/);
   assert.ok(app.indexOf("image.loading =") < app.indexOf("image.src = instrument.imageHref"));
-  assert.match(app, /grid\.append\(\.\.\.instrumentCards\)/);
-  assert.match(app, /experimentGrid\.append\(\.\.\.experimentCards\)/);
-  assert.match(app, /root\.replaceChildren\(filter, grid, experiments, deferredAppGrid\)/);
-  assert.match(app, /catalogue-tag-filter/);
-  assert.match(app, /Filter instruments by tag/);
-  assert.match(app, /button\.dataset\.catalogueTag = tag\.id/);
-  assert.match(app, /button\.setAttribute\("aria-pressed"/);
-  assert.match(app, /card\.hidden = !matches/);
-  assert.match(app, /experiments\.hidden = visibleExperiments === 0/);
-  assert.match(app, /catalogue-experiments/);
-  assert.match(app, /instrument-card-status/);
-  assert.match(app, /"Works in progress"/);
-  assert.match(app, /aria-labelledby/);
-  assert.match(app, /Play in browser/);
-  assert.match(app, /instrument-card-heading/);
-  assert.match(app, /instrument-card-heading-copy/);
-  assert.match(app, /instrument-card-image-preview/);
+  assert.match(app, /grid\.append\(\.\.\.cards\)/);
+  assert.match(app, /root\.replaceChildren\(grid\)/);
   assert.match(app, /element\(doc, "a", "instrument-card-link"\)/);
   assert.match(app, /cardLink\.href = instrument\.href/);
-  assert.match(app, /cardLink\.setAttribute\("aria-labelledby", title\.id\)/);
-  assert.match(app, /cardLink\.append\(heading, body, actions\)/);
-  assert.match(app, /card\.append\(cardLink, preview\)/);
-  assert.doesNotMatch(app, /card\.dataset\.previewOpen|visual\.addEventListener/);
-  assert.match(app, /instrument-tags/);
-  assert.match(app, /instrument\.tags/);
-  assert.doesNotMatch(app, /type = "search"/);
-  assert.doesNotMatch(app, /catalogue-controls/);
-  assert.doesNotMatch(app, /catalogue-section-index/);
-  assert.doesNotMatch(app, /catalogue-group-heading/);
-  assert.doesNotMatch(app, /All sections|All types|Name, sound, or idea|instruments match/);
-  assert.doesNotMatch(app, /Get plug-in/);
-  assert.doesNotMatch(app, /Plug-in unavailable/);
-  assert.doesNotMatch(app, /aria-disabled/);
-  assert.doesNotMatch(app, /instrument-card-subtitle/);
-  assert.match(css, /grid-template-columns: 92px minmax\(0, 1fr\)/);
-  assert.match(css, /\.instrument-tags\s*\{/);
-  assert.match(css, /\.catalogue-tag-filter\s*\{/);
-  assert.match(css, /\.catalogue-tag-filter-button\[aria-pressed="true"\]/);
-  assert.match(css, /\.instrument-card\[hidden\]\s*\{/);
-  assert.match(css, /\.catalogue-experiments\s*\{/);
-  assert.match(css, /\.instrument-card-status\s*\{/);
-  assert.match(css, /\.instrument-card-link\s*\{[^}]*min-height: 100%;[^}]*cursor: pointer;/s);
-  assert.match(css, /\.instrument-card:has\(\.instrument-card-link:focus-visible\)/);
-  assert.doesNotMatch(css, /\.catalogue-controls|\.catalogue-section-index|\.catalogue-group-heading/);
-  assert.match(css, /\.instrument-card-visual\s*\{[^}]*width: 92px;/s);
-  assert.match(css, /\.instrument-card-image-preview\s*\{[^}]*bottom: -1px;/s);
-  assert.match(css, /\.instrument-card:has\(\.instrument-card-visual:hover\)/);
-  assert.match(css, /@media \(max-width: 560px\)[\s\S]*grid-template-columns: 78px minmax\(0, 1fr\)/);
-  assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
-  assert.match(css, /@media \(min-width: 620px\)[\s\S]*repeat\(2/);
-  assert.match(css, /@media \(min-width: 1080px\)[\s\S]*repeat\(3/);
-  assert.match(css, /@media \(min-width: 1500px\)[\s\S]*repeat\(4/);
+  assert.match(app, /cardLink\.setAttribute\("aria-label", instrument\.label\)/);
+  assert.match(app, /cardLink\.append\(visual, title\)/);
+  assert.match(app, /card\.append\(cardLink\)/);
+  assert.doesNotMatch(app, /instrument-description|instrument-start|instrument-tags/);
+  assert.doesNotMatch(app, /instrument\.description|instrument\.start|instrument\.status/);
+  assert.doesNotMatch(app, /catalogue-tag-filter|catalogue-experiments|image-preview/);
+  assert.match(css, /grid-template-columns: repeat\(auto-fill, minmax\(76px, 1fr\)\)/);
+  assert.match(css, /\.instrument-card-link\s*\{[^}]*min-height: 68px;/s);
+  assert.match(css, /\.instrument-card-visual\s*\{[^}]*width: 34px;[^}]*height: 34px;/s);
+  assert.match(css, /@media \(max-width: 560px\)[\s\S]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@media \(max-width: 340px\)[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.doesNotMatch(css, /catalogue-tag-filter|catalogue-experiments|instrument-description/);
 });
 
 
