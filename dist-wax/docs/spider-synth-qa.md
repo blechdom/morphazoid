@@ -1,3 +1,116 @@
+# Spider Synth — version 3 QA record
+
+Date: 2026-09-12. This record covers the coupled locomotion, construction and
+pluck-voice corrections. The version 2 record is retained below as historical
+evidence. Results are automated measurement and visual inspection of captured
+browser frames. No human listening approval, physical-phone test or DAW capture
+is claimed.
+
+## Motion, interaction and geometry
+
+The integrated focused suite passes **138 tests, zero failures**. Coverage now
+includes tempo-proportional body travel, exact foot-event identity, inner and
+outer reach of the actual scanned leg links, all 17 constructions during fast
+turns, edge recovery, Home at an eccentric hub, stationary routines after
+travel, and heading-relative silk deposition. A supported recovery step moves
+the body inward when a boundary blocks the requested turn; it does not teleport
+or unpin the feet.
+
+Actual browser top/bottom/side captures at 300 BPM retained at least four
+supports. Maximum observed planted-toe error was 0.000009986 web units. A
+separate final edge-recovery capture moved 0.939 web units in 1.3 seconds after a
+perpendicular joystick command, changed heading by 2.816 radians, retained four
+supports and kept maximum planted-toe error below 0.00000904. Both Play buttons
+remained off during manual steering. Captures showed no obvious hovering or
+mesh clipping in these poses; this does not establish general mesh collision
+safety for every possible manual pose.
+
+Four shared browser audits pass, including strict accessibility (no serious or
+critical violations). Portrait 390×844 and landscape 844×390 retain reachable
+new controls, no horizontal overflow and a 48-pixel main Audio target. Sound
+presets, Random sound and MIDI Program Change have explicit independence
+coverage. Real-worklet tests compare planned leg/strand/position/timestamp with
+emitted attacks and compare body travel at 60 and 300 BPM. A deliberate 450 ms
+main-thread stall exercises audio independence from rendering.
+
+## Pluck characterization
+
+Seventy-two isolated renders compare 24 sound patches with three deterministic
+excitation seeds on the same 0.28-unit strand. Measured dominant spectral peaks
+span approximately **47–1,008 Hz**, spectral centroids **148–3,434 Hz**, and
+half-peak onset **0–310 ms**. These are rendered waveform measurements, not
+inferences from knob values. The measurement isolates string voices; it is not
+a loudness-normalized sample collection or human timbral acceptance.
+
+A fixed pool of 24 strings retains authored attack/hold/release contours.
+Extreme repeated physical contacts can replace old physical tails with a
+4 ms fade and an incoming attack capped at 6 ms, so long attacks do not remain
+inaudible through repeated resets. Ordinary isolated notes retain their full
+contours, and MIDI/intentional ownership is protected. Duplicate MIDI pose
+settling/neutral-return pulls are suppressed; pointer and CC-only pulls remain
+available. The 51 audio tests cover these boundaries and source responses.
+
+The actual initial app travel configuration was rendered separately at 48 kHz:
+Audio on, first Animation Play, Sound Play off, Orb walk at 108 BPM / Movement
+65%, figure-eight travel at speed 1 / range .52, Argiope seed 1 and the initial
+Orb silk mix. Three four-second excitation seeds measured **−21.44 to −20.90
+dBFS RMS** and **−6.01 to −5.83 dBFS sample peak**. Each produced 28 contacts,
+72 physical pulls and 30 releases, with no late events, dropped attacks or
+nonfinite samples. These are worklet output levels before additional shared
+output/host gain, not a human loudness assessment.
+
+A separate 264-render matrix covers 24 sound presets and 40 motion companions
+with three seeds. Those are three-second fixed-topology, stationary stepping
+fixtures for comparing timbres, not full traveling loops. All outputs are
+finite with no late/queue/string-attack drops. Maximum-gain stress reached
+−9.79 dBFS RMS / −3.88 dBFS sample peak; fourfold reconstruction of that capture
+peaked at 0.770 (approximately −2.27 dBFS). Audio-off probes released the voice
+pool and approached numerical silence without new attacks.
+
+## Release verification
+
+`npm run verify` passes **3,461 tests, six skipped, zero failures**, plus
+syntax, SIMD, XYFlow and generated-WAX consistency checks. All 26 browser cases
+pass on source and WAX. After the final force-ownership/deadline refinement,
+the six affected timing, MIDI, dragging and rendering-stall cases were rerun
+successfully on both surfaces. The deployment build and Storybook artifact
+check pass. Local checks used Node 22.23.2; canonical AWS CI verifies Node 24.
+Publication additionally requires confirmation of the remote commit,
+automatic deployment and public runtime bytes. The original 5,488,852-byte scan is
+unchanged. Additional scanned-specimen candidates are research downloads only;
+none adds a runtime download to this release.
+
+## Final audio timing and callback budget
+
+The worklet uses a baseline 200 Hz world refresh plus explicit planning/event
+deadlines. Refreshing the next stride separately from the next audible attack
+prevents a 4.8 ms lift-off from falling between 5 ms control samples. Force
+records distinguish direct control pulls from planned stance pulls, so MIDI
+pose settling cannot suppress genuine walking forces or duplicate key attacks.
+A continuous 24-note/all-axis CC fixture retained 264 actual touchdowns as
+264 contacts, plus 268 stance pulls and 268 releases, without late/dropped
+records. Maximum measured onset error was 8.34 microseconds at 48 kHz.
+
+The final quiet benchmark includes 10 Hz snapshot serialization, 48 kHz stereo
+and 128-frame callbacks. Each regime measures 5,000 blocks after warmup; the
+callback budget is 2.667 ms. These are development-machine measurements,
+not a physical-phone guarantee.
+
+| Regime | Mean ms | p99 ms | Maximum ms | Over budget |
+| --- | ---: | ---: | ---: | ---: |
+| Held sound | 0.526 | 0.629 | 0.756 | 0 / 5,000 |
+| Moving dense web | 0.657 | 1.320 | 2.232 | 0 / 5,000 |
+| All string materials | 0.652 | 1.301 | 1.498 | 0 / 5,000 |
+| 24 notes, continuous CC and world activity | 0.814 | 1.468 | 2.053 | 0 / 5,000 |
+
+The dense fixtures include up to 1,118 web segments and 24 active string voices.
+The continuous-CC benchmark retains 1,732 contacts and 1,732 planned pulls with
+zero late events, queue drops or string-attack drops. DSP SHA-256 begins
+`b473bbc8be86ed004`; world begins `c31fbf713daae8a5`; model begins `c07b4232`;
+web geometry begins `6e511820`; string engine begins `fed0c670`.
+
+---
+
 # Spider Synth — version 2 QA record
 
 Date: 2026-09-12. Evidence below is automated browser testing, actual mesh/rig

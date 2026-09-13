@@ -114,6 +114,14 @@ test('computer keys and MIDI hold individual poses while both players stay indep
   await expect.poll(async () => (await snapshot(page)).midi.activeCount).toBe(0); expect((await snapshot(page)).playing).toBe(true);
   await page.locator('#motionButton').click(); await page.locator('#phrase').fill('hello web'); await page.locator('#phrase').press('q');
   expect((await snapshot(page)).midi.heldCount).toBe(0);
+  const beforeProgram = await snapshot(page);
+  await sendMidi(page, [0xc0, 17]);
+  const afterProgram = await snapshot(page);
+  expect(afterProgram.soundPreset).not.toBe(beforeProgram.soundPreset);
+  expect(afterProgram.motionSettings).toEqual(beforeProgram.motionSettings);
+  expect(afterProgram.webSettings).toEqual(beforeProgram.webSettings);
+  expect(afterProgram.worldSettings).toEqual(beforeProgram.worldSettings);
+  expect(afterProgram.playing).toBe(false); expect(afterProgram.soundPlaying).toBe(false);
 });
 
 test('spoken words move face controls and release back to the stored pose without starting Animation', async ({ page }) => {

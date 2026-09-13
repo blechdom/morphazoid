@@ -2,7 +2,7 @@ import { SpiderSynthViewer } from './src/spider-synth-viewer.js';
 import { createSpiderMidiControls } from './src/spider-synth-midi-controls.js';
 import { createSpiderNavigationControls } from './src/spider-synth-navigation-controls.js';
 import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from './src/spider-synth-world.js';
-import { normalizeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './src/spider-synth-web.js';
+import { normalizeSpiderWeb, serializeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './src/spider-synth-web.js';
 import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_MOTION_DEFAULTS, SPIDER_STATIC_POSES,
   normalizeSpiderMotion, createRandomSpiderMotion, createSpiderStaticPose,
   createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from './src/spider-synth-model.js';
@@ -19,14 +19,15 @@ const state = {
   posePreset: 'neutral', poseSeed: 0, motionSeed: 0, soundSeed: 0,
   motionChoice: SPIDER_MOTION_PRESETS[0].id,
   motion: normalizeSpiderMotion({ ...SPIDER_MOTION_DEFAULTS, preset: 'none' }),
-  webSettings: normalizeSpiderWeb({ preset: 'argiope', spokes: 16, rings: 10, seed: 1 }),
-  worldSettings: normalizeSpiderWorld({ path: 'orbit', speed: .65, range: .45, playing: false }),
+  webSettings: normalizeSpiderWeb({ preset: 'argiope', seed: 1 }),
+  worldSettings: normalizeSpiderWorld({ ...SPIDER_MOTION_PRESETS[0].world, playing: false }),
   sound: { ...SPIDER_SOUND_DEFAULTS, ...SPIDER_SOUND_PRESETS[0].sound },
   bodyMix: structuredClone(SPIDER_SOUND_PRESETS[0].bodyMix), muted: new Set(), solo: new Set(),
   selectedGroup: '', view: 'top', side: 'left', time: 0, anchor: performance.now(),
 };
 let viewer, midiControls, navigationControls, animationFrame = 0, loadVersion = 0, lastFrame = -Infinity, pulsesUntil = 0, wavesActive = false;
 let web = createSpiderWeb(state.webSettings);
+let preparedWeb = serializeSpiderWeb(web);
 const visualWorld = new SpiderSynthWorld(state.worldSettings);
 const steering = new Map();
 const pose = new Float32Array(SPIDER_JOINTS.length * 3), scene = createSpiderFrame();
@@ -98,7 +99,7 @@ function effectiveBodyMix() {
 }
 function audioSettings(extra = {}) {
   return { playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion,
-    webSettings: state.webSettings, worldSettings: effectiveWorldSettings(), sound: state.sound, bodyMix: effectiveBodyMix(), metronome: state.metronome, ...extra };
+    webSettings: state.webSettings, preparedWeb, worldSettings: effectiveWorldSettings(), sound: state.sound, bodyMix: effectiveBodyMix(), metronome: state.metronome, ...extra };
 }
 function publish(extra = {}) { updateWorldSettings(effectiveWorldSettings()); audio.update(audioSettings(extra)); }
 function publishSound() { audio.update({ sound: state.sound, bodyMix: effectiveBodyMix() }); }
@@ -160,7 +161,7 @@ function tick(now) {
 function scheduleFrame() { if (!animationFrame && !state.disposed && !document.hidden) animationFrame = requestAnimationFrame(tick); }
 function setPlaying(playing, { restart = false } = {}) {
   const time = restart ? 0 : currentTime();
-  if (playing && state.motion.preset === 'none') setMotionPreset(state.motionChoice, { applySound: false });
+  if (playing && state.motion.preset === 'none') setMotionPreset(state.motionChoice, { applySound: false, applyTravel: false });
   state.playing = playing === true; anchorTime(time); publish({ time }); syncTransport(); updateVisual();
   if (needsVisualFrames()) scheduleFrame();
 }
@@ -169,12 +170,18 @@ function populateMotionPresets() {
   if (state.motionChoice === 'random') el('motionPreset').add(new Option('Random motion', 'random'));
   el('motionPreset').value = state.motionChoice;
 }
-function setMotionPreset(id, { applySound = true } = {}) {
+function setMotionPreset(id, { applySound = true, applyTravel = true } = {}) {
   const time = currentTime();
   state.motionChoice = id === 'random' ? id : SPIDER_MOTION_PRESETS.find(item => item.id === id)?.id ?? SPIDER_MOTION_PRESETS[0].id;
   const base = { ...state.motion, offsets: {}, center: { x: 0, z: 0 }, yaw: 0, explore: el('explore').checked };
-  state.motion = id === 'random' ? createRandomSpiderMotion(++state.motionSeed * 2654435761 >>> 0, base)
+  const next = id === 'random' ? createRandomSpiderMotion(++state.motionSeed * 2654435761 >>> 0, base)
     : normalizeSpiderMotion({ ...base, preset: state.motionChoice });
+  state.motion = normalizeSpiderMotion(next);
+  const travel = next.world ?? SPIDER_MOTION_PRESETS.find(item => item.id === state.motionChoice)?.world;
+  if (applyTravel && travel) {
+    state.worldSettings = normalizeSpiderWorld({ ...state.worldSettings, ...travel });
+    syncTravelControls();
+  }
   state.posePreset = 'custom'; el('posePreset').value = 'custom'; viewer?.setOffsets?.(state.motion.offsets);
   if (applySound) {
     const patch = id === 'random' ? createRandomSpiderSound(state.motionSeed * 2654435761 >>> 0) : getSpiderMotionSound(id);
@@ -195,13 +202,20 @@ function applyStaticPose(id) {
 function paintKnob(input) {
   const value = Number(input.value), fraction = (value - Number(input.min)) / (Number(input.max) - Number(input.min));
   input.closest('.spider-knob')?.style.setProperty('--knob-angle', `${-135 + 270 * fraction}deg`);
-  const text = ['tune', 'tension', 'travelSpeed'].includes(input.id) ? `${value.toFixed(2)}×` : input.id === 'decay' ? `${value.toFixed(1)}s`
+  const parameter = SPIDER_WEB_PARAMETERS.find(item => item.key === input.id);
+  const text = parameter?.step === 1 ? String(value) : input.id === 'pluckRegister' ? `${value > 0 ? '+' : ''}${value} st`
+    : ['pluckAttack', 'pluckHold'].includes(input.id) ? `${Math.round(value * 1000)} ms`
+    : input.id === 'pluckRelease' ? `${value.toFixed(2)}s`
+    : ['tune', 'tension', 'travelSpeed', 'pluckSpread'].includes(input.id) ? `${value.toFixed(2)}×` : input.id === 'decay' ? `${value.toFixed(1)}s`
     : input.id === 'pan' ? value === 0 ? 'C' : `${Math.round(Math.abs(value) * 100)}${value < 0 ? 'L' : 'R'}` : `${Math.round(value * 100)}%`;
   el(`${input.id}Out`).textContent = text; input.setAttribute('aria-valuetext', text);
 }
 function buildToneControls() {
   const params = [ ['tension', 'Tension', .25, 4, .01, 'webControls'], ['damping', 'Damping', 0, 1, .01, 'webControls'],
     ['coupling', 'Coupling', 0, .4, .01, 'webControls'], ['decay', 'Decay', .08, 6, .01, 'webControls'],
+    ['pluckRegister', 'Register', -24, 36, 1, 'pluckControls'], ['pluckSpread', 'Pitch span', .35, 1.8, .01, 'pluckControls'],
+    ['pluckAttack', 'Attack', .001, .35, .001, 'pluckControls'], ['pluckHold', 'Hold', 0, .6, .001, 'pluckControls'],
+    ['pluckRelease', 'Release', .04, 4, .01, 'pluckControls'],
     ['tune', 'Tuning', .5, 2, .01, 'toneControls'], ['brightness', 'Brightness', 0, 1, .01, 'toneControls'],
     ['body', 'Body', 0, 1, .01, 'toneControls'], ['pan', 'Pan', -1, 1, .01, 'toneControls'],
     ['texture', 'Texture', 0, 1, .01, 'toneControls'], ['slide', 'Glide', 0, 1, .01, 'toneControls'],
@@ -224,6 +238,7 @@ function syncWebControls() {
   el('webPreset').value = state.webSettings.preset;
   for (const parameter of SPIDER_WEB_PARAMETERS) {
     const input = el(parameter.key); if (!input) continue;
+    input.min = parameter.min; input.max = parameter.max; input.step = parameter.step;
     input.value = state.webSettings[parameter.key];
     if (input.closest('.spider-knob')) paintKnob(input);
     else el(`${parameter.key}Out`).value = input.value;
@@ -231,11 +246,18 @@ function syncWebControls() {
 }
 function changeWeb(settings) {
   state.webSettings = normalizeSpiderWeb(settings); web = createSpiderWeb(state.webSettings);
-  syncWebControls(); viewer?.setWeb(web); audio.update({ webSettings: state.webSettings }); updateVisual();
+  preparedWeb = serializeSpiderWeb(web);
+  syncWebControls(); viewer?.setWeb(web); audio.update({ webSettings: state.webSettings, preparedWeb }); updateVisual();
 }
 function selectWebPreset(id) {
   const preset = SPIDER_WEB_PRESETS.find(item => item.id === id); if (!preset) return;
   changeWeb({ ...preset.settings, seed: state.webSettings.seed });
+}
+function syncTravelControls() {
+  el('travelPath').value = state.worldSettings.path;
+  for (const [key, id] of [['speed', 'travelSpeed'], ['range', 'travelRange']]) {
+    const input = el(id); input.value = state.worldSettings[key]; paintKnob(input);
+  }
 }
 function buildWorldControls() {
   el('webPreset').replaceChildren(...SPIDER_WEB_PRESETS.map(item => new Option(item.label, item.id)));
@@ -243,10 +265,11 @@ function buildWorldControls() {
   el('travelPath').value = state.worldSettings.path;
   for (const parameter of SPIDER_WEB_PARAMETERS) {
     if (['spokes', 'rings'].includes(parameter.key)) continue;
-    const input = addKnob({ id: parameter.key, name: parameter.label, ...parameter, parent: 'webGeometryControls' });
+    const name = ({ irregularity: 'Variation', asymmetry: 'Hub offset' })[parameter.key] ?? parameter.label;
+    const input = addKnob({ id: parameter.key, name, ...parameter, parent: 'webGeometryControls' });
     input.addEventListener('input', () => changeWeb({ ...state.webSettings, [parameter.key]: Number(input.value) }), options);
   }
-  for (const [key, id, name, max] of [['speed', 'travelSpeed', 'Speed', 2], ['range', 'travelRange', 'Range', .58]]) {
+  for (const [key, id, name, max] of [['speed', 'travelSpeed', 'Speed', 2], ['range', 'travelRange', 'Range', .85]]) {
     const input = addKnob({ id, name, min: 0, max, step: .01, parent: 'travelControls' });
     input.value = state.worldSettings[key]; paintKnob(input);
     input.addEventListener('input', () => { state.worldSettings[key] = Number(input.value); paintKnob(input); publishWorld(); }, options);
@@ -488,7 +511,6 @@ el('catchBug').addEventListener('click', () => {
 el('soundPreset').addEventListener('change', () => {
   const preset = selectedSoundPreset(); if (!preset) return;
   state.sound = { ...preset.sound, level: state.sound.level }; state.bodyMix = structuredClone(preset.bodyMix);
-  if (preset.webSettings) changeWeb({ ...preset.webSettings, seed: state.webSettings.seed });
   syncSound(); publishSound();
 }, options);
 el('randomSound').addEventListener('click', () => {

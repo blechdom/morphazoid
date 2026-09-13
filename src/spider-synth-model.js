@@ -35,10 +35,13 @@ const JOINT_INDEX = new Map(SPIDER_JOINTS.map((joint, index) => [joint.id, index
 const LIMITS = freeze({ cephalothorax: [.3, .48, .28], abdomen: [.4, .38, .38], pedipalps: [.75, .7, .65], chelicerae: [.48, .4, .4], hip: [.65, .7, .65], knee: [.7, .55, .65], ankle: [.6, .6, .65], tip: [.55, .55, .55] });
 
 function preset(id, label, mode, period, duty, mask, travel, lift, twist, flavor) {
-  return { id, label, mode, period, duty, mask, travel, lift, twist, flavor, loopBeats: 24 };
+  const locomotion = ['crawl', 'side', 'back', 'circle', 'shuffle'].includes(mode) && travel > 0;
+  const path = !locomotion ? 'hold' : mode === 'circle' ? 'orbit' : mode === 'side' ? 'radial' : mode === 'back' ? 'patrol' : period <= 1 ? 'radial' : period >= 8 ? 'patrol' : 'figure8';
+  const speed = !locomotion ? .65 : period <= 1 ? 1.8 : period >= 8 ? .25 : mode === 'side' ? .75 : 1;
+  return { id, label, mode, period, duty, mask, travel, lift, twist, flavor, loopBeats: 24, world: { path, speed, range: locomotion ? period >= 8 ? .35 : .52 : .4 }, direction: mode === 'back' ? 'backward' : mode === 'side' ? 'sideways' : 'forward' };
 }
 export const SPIDER_MOTION_PRESETS = freeze([
-  preset('orb-walk', 'Orb walk', 'crawl', 2, .65, 255, .7, .034, .08, 0),
+  { ...preset('orb-walk', 'Orb walk', 'crawl', 2, .78, 255, .7, .034, .08, 0), gait: 'ripple' },
   preset('cross-pluck', 'Cross pluck', 'pluck', 2, .66, 17, 0, .075, .1, 1),
   preset('tiptoe', 'Silk tiptoe', 'crawl', 4, .78, 255, .3, .045, .035, 2),
   preset('web-waltz', 'Web waltz', 'dance', 3, .66, 255, .15, .055, .18, 3),
@@ -64,7 +67,7 @@ export const SPIDER_MOTION_PRESETS = freeze([
   preset('spinneret-sway', 'Spinneret sway', 'silk', 4, 1, 0, 0, 0, .1, 23),
   { ...preset('wave-walk', 'Traveling wave', 'crawl', 4, .88, 255, .35, .035, .025, 24), gait: 'wave' },
   { ...preset('ripple-run', 'Ripple runner', 'crawl', 2, .76, 255, .8, .035, .05, 25), gait: 'ripple' },
-  preset('low-sprint', 'Low silk sprint', 'crawl', .5, .62, 255, .7, .018, .025, 26),
+  preset('low-sprint', 'Low silk sprint', 'crawl', .4, .62, 255, .7, .018, .025, 26),
   preset('pushups', 'Silk push-ups', 'pushup', 4, 1, 0, 0, 0, .02, 27),
   { ...preset('web-jump', 'Safety-line jump', 'jump', 4, .72, 255, 0, .14, .02, 28), support: 'airborne', gait: 'together' },
   { ...preset('long-leap', 'Long silk leap', 'leap', 8, .72, 255, .3, .22, .04, 29), support: 'airborne', gait: 'together' },
@@ -100,7 +103,10 @@ function randomGenerator(seed) {
 }
 export function createRandomSpiderMotion(seed = 1, base = {}) {
   const random = randomGenerator(seed);
-  return normalizeSpiderMotion({ ...base, seed, preset: SPIDER_MOTION_PRESETS[Math.floor(random() * SPIDER_MOTION_PRESETS.length)].id, intensity: .45 + random() * .55, yaw: (random() - .5) * .6, offsets: createSpiderStaticPose('random', seed) });
+  const item = SPIDER_MOTION_PRESETS[Math.floor(random() * SPIDER_MOTION_PRESETS.length)];
+  const motion = normalizeSpiderMotion({ ...base, seed, preset: item.id, intensity: .45 + random() * .55, yaw: (random() - .5) * .6, offsets: createSpiderStaticPose('random', seed) });
+  motion.world = { path: item.world.path === 'hold' ? 'hold' : ['orbit', 'figure8', 'radial', 'patrol', 'random'][Math.floor(random() * 5)], speed: .25 + random() * 1.75, range: .25 + random() * .5 };
+  return motion;
 }
 
 export const SPIDER_STATIC_POSES = freeze([
@@ -183,8 +189,8 @@ function bodyAt(beat, motion, item, intensity, out, web, travel) {
   if (item.mode === 'side') { dx = exploration * Math.sin(a * 2); dz = 0; }
   if (item.mode === 'back') dz = -exploration * Math.sin(a);
   if (item.mode === 'circle') { dx = exploration * Math.sin(a); dz = exploration * (Math.cos(a) - 1) * .5; }
-  let cx = clamp(finite(motion?.center?.x), -.42, .42); let cz = clamp(finite(motion?.center?.z), -.42, .42);
-  const radius = Math.hypot(cx, cz); if (radius > .46) { cx *= .46 / radius; cz *= .46 / radius; }
+  let cx = clamp(finite(motion?.center?.x), -.78, .78); let cz = clamp(finite(motion?.center?.z), -.78, .78);
+  const radius = Math.hypot(cx, cz); if (radius > .78) { cx *= .78 / radius; cz *= .78 / radius; }
   out.x = cx + dx; out.z = cz + dz;
   out.y = .06 + intensity * (item.mode === 'crawl' || item.mode === 'back' ? -.006 : .004 * Math.sin(TAU * beat / item.period));
   out.yaw = clamp(finite(motion?.yaw), -Math.PI, Math.PI) + item.twist * intensity * Math.sin(a + phase);
@@ -260,7 +266,7 @@ const LEG_DATA = [{"id":"leg_left_1","hip":[-0.028999999999999998,-0.008,0.02799
 export const SPIDER_LEG_GEOMETRY = freeze(LEG_DATA.map(leg => {
   const reach = leg.lengths.reduce((sum, length) => sum + length, 0);
   const dx = leg.tip[0] - leg.hip[0]; const dz = leg.tip[2] - leg.hip[2]; const length = Math.hypot(dx, dz);
-  return { ...leg, reach, neutral: [leg.hip[0] + dx / length * reach * .68, 0, leg.hip[2] + dz / length * reach * .68] };
+  return { ...leg, reach, innerReach: Math.max(0, Math.max(...leg.lengths) * 2 - reach), neutral: [leg.hip[0] + dx / length * reach * .68, 0, leg.hip[2] + dz / length * reach * .68] };
 }));
 
 export function createSpiderFrame() {
@@ -274,6 +280,27 @@ function anchoredOffset(base, manual, midi, limit) {
   // and Float32 storage. Opposing MIDI can pull a saturated manual pose inward.
   const manualPose = Math.fround(clamp(Math.fround(base + finite(manual)), -limit, limit));
   return Math.fround(clamp(Math.fround(manualPose + finite(midi)), -limit, limit)) - base;
+}
+
+/** Local foot-target overlay, evaluated against its touchdown pose. The raw
+ * MIDI layer remains separate so saturated held controls cannot inherit the
+ * changing procedural pose. Caller supplies reusable output and scratch. */
+export function writeSpiderLegOffset(legIndex, touchTime, motion, pose, midiOffsets, out, scratch) {
+  const beat = timeOf(touchTime) * tempoOf(motion) / 60; const item = presetOf(motion); const intensity = intensityOf(motion);
+  writeLegPose(beat, item, intensity, legIndex, scratch);
+  const side = legIndex < 4 ? -1 : 1; let dx = 0; let dz = 0;
+  for (let segment = 0; segment < 4; segment += 1) {
+    const index = 6 + legIndex * 4 + segment; const i = index * 3; const k = segment * 3; const weight = .024 / (1 + segment * .45);
+    const manual = motion?.offsets?.[SPIDER_JOINTS[index].id]; const limits = LIMITS[SEGMENTS[segment]];
+    let px; let py; let pz;
+    if (midiOffsets) {
+      px = anchoredOffset(scratch[k], manual?.x, midiOffsets[i], limits[0]);
+      py = anchoredOffset(scratch[k + 1], manual?.y, midiOffsets[i + 1], limits[1]);
+      pz = anchoredOffset(scratch[k + 2], manual?.z, midiOffsets[i + 2], limits[2]);
+    } else { px = finite(manual?.x); py = finite(manual?.y); pz = finite(manual?.z); }
+    dx += weight * (py + side * pz * .8 + side * px * .32); dz += weight * (px - py * side * .35 + pz * .5);
+  }
+  out.x = clamp(dx, -.055, .055); out.z = clamp(dz, -.055, .055); return out;
 }
 
 function anchor(beat, motion, item, intensity, web, legIndex, pose, base, body, out, midiPoseOffsets, anchorBase, travel) {
@@ -305,7 +332,7 @@ function anchor(beat, motion, item, intensity, web, legIndex, pose, base, body, 
   const c = Math.cos(body.yaw); const s = Math.sin(body.yaw);
   const hx = body.x + geometry.hip[0] * c + geometry.hip[2] * s;
   const hz = body.z + geometry.hip[2] * c - geometry.hip[0] * s;
-  return projectInto(web, body.x + x * c + z * s, body.z + z * c - x * s, out, hx, hz, geometry.reach * .78, web.depth ? body.y + geometry.hip[1] : 0);
+  return projectInto(web, body.x + x * c + z * s, body.z + z * c - x * s, out, hx, hz, geometry.reach * .78, body.y + geometry.hip[1], true, geometry.innerReach + .035);
 }
 
 // Optional final argument is the MIDI layer's pre-clamp additive XYZ radians.

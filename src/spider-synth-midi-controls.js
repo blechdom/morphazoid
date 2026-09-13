@@ -15,6 +15,9 @@ const PARAMS = [
   ['silkLevel', 'Spinning silk level'], ['preyLevel', 'Bug level'], ['travelSpeed', 'Travel speed'], ['travelRange', 'Travel range'],
   ['spokes', 'Web struts'], ['rings', 'Web rows'], ['asymmetry', 'Web asymmetry'], ['twist', 'Web twist'],
   ['irregularity', 'Web irregularity'], ['depth', 'Web depth'], ['stabilimentum', 'Web zigzag'],
+  ['anchors', 'Web anchors'], ['spacing', 'Capture spacing'],
+  ['pluckRegister', 'String register'], ['pluckSpread', 'String pitch span'], ['pluckAttack', 'String attack'],
+  ['pluckHold', 'String hold'], ['pluckRelease', 'String release'],
 ];
 const ACTIONS = [
   ['speakButton', 'Say phrase'], ['soundPlayButton', 'Sound play / pause'], ['motionButton', 'Animation play / pause'],

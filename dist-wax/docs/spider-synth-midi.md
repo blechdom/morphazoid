@@ -4,7 +4,8 @@ Turn **Audio** on, then pluck a strand or start **Animation**. **Sound** holds
 body resonances independently. Shorter contacted silk segments ring higher;
 raise Tension for a tighter, brighter web, or Damping for shorter, softer notes.
 Choose a motion preset to hear its own body and web mix. Random sound and
-Random animation are separate controls.
+Random animation are separate controls. Sound presets change only the sound
+and voice: they preserve the web, pose, travel, tempo and both players.
 
 Drag a body joint to change its sound. Choose X, Y or Z for a single axis;
 **Move on web** makes dragging the body relocate the spider’s strand contacts.
@@ -25,21 +26,32 @@ Words temporarily animate the face without starting Animation.
 
 The initial web takes its zigzag decoration from *Argiope aurantia*. The scan is
 the related *Argiope bruennichi*. Construction presets include other spider web
-families and playful geometric patterns. Adjust struts, rows, asymmetry, twist,
-irregularity, depth and zigzag amount. Changing construction clears the flies
-and extra silk attached to the previous web. Sound presets can also recall a
-web construction without changing either Play button or the camera.
+families and playful geometric patterns. Adjust radials, spiral density,
+external anchors, capture spacing, asymmetry, twist, irregularity, depth and
+zigzag amount. Changing construction clears the flies and extra silk attached
+to the previous web. The Sound preset never changes construction.
 
 Drag the round **Steer** pad or focus it and hold arrow keys. Steering follows
 the current camera's directions across the web. Release to stop
 manual travel. **Roam during animation** follows the chosen path; Speed and
-Range shape that route. **Home** returns to the hub. Arrow keys over the 3D
+Range shape that route. Tempo changes the pace of complete strides, including
+body travel. Motion presets recall their own path, speed and range while
+preserving your tempo; stationary gestures start with a held path. Choose a
+travel path to make those gestures roam, or steer them yourself. **Home**
+returns to the hub. Arrow keys over the 3D
 canvas still orbit the camera; Shift+arrows manipulate the selected joint.
 
 Turn on **Lay silk** and travel to leave new playable threads. Silk level sets
 the spinning sound; **Clear new silk** removes those added strands. Plucked
 threads visibly vibrate around their contact points. The base graph and newly
 laid silk share the bounded audio voice pool.
+
+**String voice** separates pluck Register and Pitch span from body/voice tuning.
+Longer strands remain lower within a preset; Register transposes the whole web
+and Pitch span widens or narrows its intervals. Attack, Hold and Release shape
+each pluck’s loudness contour. Decay and Damping shape the vibrating string
+inside that contour. Sound presets recall different registers, materials and
+envelopes, from dry little ticks to high chimes and softly rising silk.
 
 Texture, Glide, Courtship and Space expand body resonances into rubbing,
 sliding, tremulous and layered timbres. Courtship is a musical pulse macro,

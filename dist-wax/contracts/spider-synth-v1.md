@@ -10,6 +10,7 @@ pose/contact model; rendering never owns automatic audio onsets.
 | Fresh navigation | No AudioContext or permission request | Neutral held pose |
 | Audio arm | Prepare one worklet and shared stereo output | Preserve both Play states |
 | Sound Play | Held resonances at assigned levels | Preserve animation state |
+| Sound preset / Program Change / Random sound | Replace body, silk and voice timbres | Preserve web, contacts, prey, deposited silk, pose, tempo and both player states |
 | Animation Play / Space | Contact plucks if armed | Advance the selected routine |
 | Pause animation | Stop new automatic contacts; let tails decay | Freeze procedural time |
 | Drag joint / pluck strand | Finite gesture if armed | Change selected pose/contact, independently of Play |
@@ -49,7 +50,14 @@ A real-device touch or listening pass is recorded separately from automation.
 
 ## Shared world clock
 
-The worklet evaluates contacts and world events at 200 Hz. The renderer follows
+The worklet advances the world at a baseline 200 Hz, refreshes at planned
+stride/event boundaries, and schedules predicted contact, pull
+and release events at their individual audio sample times. A bounded ledger
+retains each event's leg, exact strand and fractional contact position. Tempo
+scales the shared gait phase and body progress; speed and Movement scale stride
+length. Supported feet remain planted while the body advances within the
+scanned legs' reachable ranges. Forward, backward and sideways routines have
+different heading policies. The renderer follows
 at 20 fps and renders decaying strand waves localized around each pluck.
 Endpoints and actual planted contact points pin the visible wave; they do not
 silence the entire contacted strand. The visualization is slowed for legibility.
@@ -62,3 +70,11 @@ resuming it never advances through missed wall time. Audio off transfers visible
 world state back to the performance clock. MIDI sustain may hold a body pose but
 cannot latch steering after a physical note release. Panic and lost input
 ownership release steering without pressing either player.
+
+Construction happens on the main thread. The worklet accepts validated prepared
+graphs; it never runs the construction triangulator in an audio callback.
+String register and pitch spread preserve the length ordering while widening
+preset pitch choices. Attack, hold and release shape excitation independently
+from physical string damping. Long tails have a bounded voice budget, and new
+physical contacts may replace older physical tails without taking MIDI-owned
+voices.

@@ -508,7 +508,9 @@ export class SpiderSynthViewer {
     const reach = lengths.reduce((sum, length) => sum + length, 0);
     const wanted = this.temp[2].copy(target);
     if (root.distanceTo(wanted) >= reach * .999) wanted.copy(root).add(direction.copy(target).sub(root).setLength(reach * .999));
-    for (let pass = 0; pass < 14; pass++) {
+    // Tight reversals can need extra convergence on the scanned unequal links.
+    // Ordinary poses still exit early; this remains a bounded visual-only solve.
+    for (let pass = 0; pass < 28; pass++) {
       points[4].copy(wanted);
       for (let i = 3; i >= 0; i--) {
         direction.subVectors(points[i], points[i + 1]).setLength(lengths[i]);

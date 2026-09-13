@@ -9,7 +9,7 @@
     <title>Spider Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="spider-synth.css?v=74d232932f0e" />
+    <link rel="stylesheet" href="spider-synth.css?v=4c83d761d89b" />
   </head>
   <body class="spider-synth-page" data-instrument-info="off">
     <header class="masthead">
@@ -101,8 +101,10 @@
           <div class="spider-mixer-heading"><h2 id="webTitle">Web</h2><button class="mini-action" id="randomWeb" type="button">Random web</button></div>
           <label class="spider-inline-select spider-web-preset" for="webPreset"><span>Construction</span><span class="select-shell"><select id="webPreset"><option value="orb">Orb</option></select></span></label>
           <div id="webGeometryControls" class="spider-tone-controls" role="group" aria-label="Web construction geometry"></div>
-          <div id="webControls" class="spider-tone-controls" role="group" aria-label="Web string parameters"></div>
           <div class="spider-motion-controls"><label class="control" for="spokes"><span><b>Radials</b><output id="spokesOut" for="spokes">16</output></span><input id="spokes" type="range" min="8" max="24" step="1" value="16" /></label><label class="control" for="rings"><span><b>Spirals</b><output id="ringsOut" for="rings">10</output></span><input id="rings" type="range" min="4" max="16" step="1" value="10" /></label></div>
+          <div class="spider-mixer-heading"><h2 id="pluckTitle">String voice</h2></div>
+          <div id="webControls" class="spider-tone-controls" role="group" aria-label="Web string parameters"></div>
+          <div id="pluckControls" class="spider-tone-controls" role="group" aria-labelledby="pluckTitle"></div>
           <div class="spider-silk-actions"><button class="mini-action" id="laySilk" type="button" aria-pressed="false">Lay silk</button><button class="mini-action" id="clearSilk" type="button">Clear new silk</button><div id="silkMixControl" class="spider-inline-knobs"></div></div>
           <div class="spider-prey-actions"><button class="mini-action" id="catchBug" type="button">Send a fly</button><button class="mini-action" id="huntBug" type="button">Hunt bug</button><div id="preyMixControl" class="spider-inline-knobs"></div></div>
           <output class="spider-note spider-world-status" id="webWorldStatus" aria-live="polite"></output>
@@ -136,7 +138,7 @@
       </aside>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="spider-synth-app.js?v=74d232932f0e"></script>
+    <script type="module" src="spider-synth-app.js?v=4c83d761d89b"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

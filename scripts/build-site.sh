@@ -79,6 +79,8 @@ for worktree_runtime_file in \
   src/spider-synth-textures.js \
   docs/spider-synth-midi.md \
   docs/spider-synth-qa.md \
+  docs/spider-synth-request-audit.md \
+  docs/spider-synth-scan-candidates.md \
   contracts/spider-synth-v1.md \
   SPIDER_SYNTH_RESEARCH.md \
   assets/spider-synth/spider-mobile.glb \
@@ -812,6 +814,8 @@ required_files=(
   spider-synth.html
   src/spider-synth-model.js
   src/spider-synth-processor.js
+  docs/spider-synth-request-audit.md
+  docs/spider-synth-scan-candidates.md
   assets/spider-synth/spider-mobile.glb
   assets/instruments/spider-synth.webp
   src/roach-synth-midi.js

@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import * as THREE from '../vendor/three/three.module.min.js';
 import { MeshoptDecoder } from '../vendor/meshoptimizer/meshopt_decoder.module.js';
 import { SpiderSynthViewer } from '../src/spider-synth-viewer.js';
+import { SpiderSynthWorld } from '../src/spider-synth-world.js';
 import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_WEB_PRESETS, createSpiderWeb, createSpiderFrame, writeSpiderFrame } from '../src/spider-synth-model.js';
 
 const rig = JSON.parse(await readFile(new URL('../assets/spider-synth/rig-manifest.json', import.meta.url)));
@@ -123,4 +124,54 @@ test('Skinned support toes reach the three-dimensional strands in every web fami
     }
   }
   assert.deepEqual(failures.sort((a, b) => b.error - a.error).slice(0, 12), []);
+});
+
+test('Fast world-driven travel keeps the actual rig toes on their anchored strands through turns', () => {
+  const viewer = fixture(), failures = [];
+  for (const family of SPIDER_WEB_PRESETS) {
+    const web = createSpiderWeb(family.settings);
+    const world = new SpiderSynthWorld({ path: 'hold', speed: 2, range: .85, playing: true, joystick: { x: 0, z: 1 } });
+    const motion = { preset: 'radial-run', tempo: 300, intensity: 1, explore: false, seed: 1, center: { x: 0, z: 0 }, yaw: 0, offsets: {} };
+    const anchors = new Map();
+    for (let step = 0; step <= 120; step++) {
+      const time = step / 60;
+      if (step === 45) world.update({ joystick: { x: 1, z: 0 } }, time);
+      if (step === 90) world.update({ joystick: { x: 0, z: -1 } }, time);
+      world.sample(time, motion, web, viewer.frameData, null, null, { motionTime: time, playing: true });
+      viewer.applyFrame();
+      if (viewer.frameData.supportCount < 4) failures.push({ family: family.id, step, supports: viewer.frameData.supportCount });
+      for (const leg of viewer.legs) {
+        const foot = viewer.frameData.feet[leg.index];
+        if (!foot.stance) { anchors.delete(leg.index); continue; }
+        if (leg.error > .004) failures.push({ family: family.id, step, leg: leg.id, gap: leg.error });
+        const prior = anchors.get(leg.index);
+        const contact = `${viewer.frameData.contactEpoch}:${foot.step}`;
+        if (prior && prior.contact === contact) {
+          const drift = Math.hypot(foot.x - prior.x, foot.y - prior.y, foot.z - prior.z);
+          if (drift > 1e-7) failures.push({ family: family.id, step, leg: leg.id, drift });
+        }
+        anchors.set(leg.index, { x: foot.x, y: foot.y, z: foot.z, contact });
+      }
+    }
+  }
+  assert.deepEqual(failures.slice(0, 15), []);
+});
+
+test('actual scan reaches contacts while recovering from a manually steered edge', () => {
+  const viewer = fixture(), web = createSpiderWeb();
+  const motion = { preset: 'low-sprint', tempo: 300, intensity: .65, explore: false, seed: 1, center: { x: 0, z: 0 }, yaw: 0, offsets: {} };
+  for (const next of [{ x: 0, z: -1 }, { x: 0, z: 1 }, { x: 1, z: 0 }]) {
+    const world = new SpiderSynthWorld({ playing: false, speed: .75 });
+    world.sample(0, motion, web, viewer.frameData, null, null, { motionTime: 11.464, playing: false });
+    world.command({ type: 'home' }, 0); world.update({ joystick: { x: -1, z: 0 } }, 0);
+    for (let i = 0; i <= 156; i++) {
+      const time = i / 60;
+      if (i === 78) world.update({ joystick: next }, time);
+      world.sample(time, motion, web, viewer.frameData, null, null, { motionTime: 11.464, playing: false });
+      viewer.applyFrame();
+      for (const leg of viewer.legs) if (viewer.frameData.feet[leg.index].stance) {
+        assert.ok(leg.error < .004, `${next.z}/${i}/${leg.id}: ${leg.error}`);
+      }
+    }
+  }
 });

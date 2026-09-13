@@ -52,10 +52,13 @@ source, derivative and processing information.
 ## The shared contact model
 
 The web is parameterized in XZ, with Y providing depth for the bowl, dome,
-funnel and other surfaces. Radial strands and polygonal capture rings share
-graph junctions. A separate continuous-spiral construction connects successive
-turns; the plain orb retains its original ring approximation. Every stance foot projects onto an actual
-segment and records the segment ID and fractional position. Locomotion keeps
+funnel and other surfaces. Natural orb constructions use unequal external
+anchors, an eccentric hub, a dry free zone, and a continuous inward capture
+spiral. The oval capture area is separate from the polygonal support frame;
+local spacing and additional lower traverses vary its mesh. Every radius/spiral
+attachment shares a graph junction. A crossing without a shared node is not an
+attachment. Every stance foot selects an actual segment and records its ID
+and fractional position. Locomotion keeps
 at least four support contacts while other legs transfer to new anchors.
 Explicit jumps, leaps and somersaults instead mark their airborne/tethered
 phases and landing contacts. Macarena, disco, pushups and rollover are authored
@@ -142,10 +145,92 @@ This is a playable sonification, not a measured vocal reconstruction. Argiope au
 
 The perpetual Sound Play bed is an intentionally musical extension: slowly changing modal amplitudes, mild pitch drift and a bounded bowed delay loop. Event-only sources still receive no excitation at a held pose. Silk extrusion is driven by measured world travel while Lay Silk is enabled; prey approach, struggle and eating are owned by bounded shared-world prey records.
 
-Four short damped feedback paths provide Space; they are part of the same worklet, not extra Web Audio nodes. Existing output reconstruction guard and20-frame output delay are retained. Audio control/world sampling is200Hz and does not depend on the renderer.
+Four short damped feedback paths provide Space; they are part of the same worklet, not extra Web Audio nodes. Existing output reconstruction guard and20-frame output delay are retained. Audio control/world sampling has a 200 Hz baseline with extra refreshes at planned stride/event deadlines and does not depend on the renderer.
 
 ## Recording search and provenance decision
 
 The [Elias laboratory multimedia archive](https://nature.berkeley.edu/eliaslab/Multimedia.html) exposes real research sonifications/recordings for other spider species. No explicit redistribution license was located for those individual audio files, so none was copied. Open-access article licensing does not automatically license unrelated archive audio. The [Steatoda grossa study](https://doi.org/10.1371/journal.pone.0228988) also cautions against assuming stridulation merely from an apparent apparatus: the tested North American males did not stridulate during courtship. Its behavioral videos are not substitutes for an identified Argiope sound recording.
 
 All new animal/world sounds here are deterministic procedural mechanisms. No claim of ultrasonic recording, authentic Argiope speech, human listening approval, phone-hardware validation or DAW routing validation is made.
+
+
+## Construction rules added in version 3
+
+Twelve natural approximations and five explicitly artistic networks retain the
+existing preset IDs. External anchors and mesh spacing join the existing
+construction controls. Natural sheets use irregular shared junctions instead
+of a rectangular grid; the funnel has a sheet, an off-center mouth and a
+connected retreat tube. Tangles use a spatial scaffold with descending
+gumfoot motifs.
+
+| Reference / strength | Documented mechanism | Implemented mapping | Deliberate limit |
+| --- | --- | --- | --- |
+| Reed, Witt & Scarboro (1969), *The Orb Web during the Life of Argiope aurantia*, primary longitudinal laboratory observations. [Original paper](https://www.drpeterwitt.com/wp-content/uploads/1969-The-Orb-Web-during-the-Life-of.pdf) | Dry radii support a viscid spiral; hub/free zone and external scaffold are distinguishable. Webs are slightly oval with the hub toward the upper portion; stabilimenta vary. | Unequal external anchors and a split polygonal frame; offset hub; unequal radial angles and lengths; dry hub platform separated from capture thread; vertical zigzag overlay for Argiope. | Geometric scale and spacing are authored. No single function of the decoration is claimed. The graph is presented in the instrument's XZ plane rather than asserting the animal builds a horizontal orb. |
+| Eberhard (2014), *A new view of orb webs: multiple trap designs in a single structure*, primary comparative measurements. [Smithsonian repository](https://repository.si.edu/items/8c025cc0-8acb-4fa6-893f-f7982b42278e) | Radial and capture-mesh spacing vary systematically from the hub toward the perimeter; webs contain locally different trapping regions. | Capture density uses a monotonic radial spacing exponent plus bounded local interval variation. The oval capture boundary is distinct from the polygonal attachment scaffold. | The knob values are normalized design controls, not measured millimeters or species-specific behavioral parameters. |
+| Zschokke, *Spiral and web asymmetry in the orb webs of Araneus diadematus*, primary web-geometry study. [University repository](https://edoc.unibas.ch/entities/publication/94b4380b-28f6-4b8e-97c2-4a64bc111e7b) | An eccentric spiral and additional lower capture threads can enlarge the lower catching region. | Argiope/eccentric settings move the hub separately from the capture oval and add connected partial capture traverses below it. | This documented orb motif is borrowed as a bounded construction rule; it is not asserted to be the exact sequence used by the scanned individual. |
+| Mortimer et al. (2015), *Unpicking the signal thread of the sector web spider Zygiella x-notata*, primary mechanical and behavioral study. [Open paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC4707845/) | A capture-free sector contains a signal thread linking the hub and a peripheral retreat. | `missing-sector` omits capture crossings in an angular sector and adds one actual signal edge to a connected retreat. | Signal silk has explicit metadata; this does not by itself validate the instrument's vibration propagation. |
+| Harmer & Herberstein (2010), *Functional diversity of ladder-webs: moth specialization or optimal area use?*, primary observational and experimental study. [Journal PDF](https://www.americanarachnology.org/journal-joa/joa-all-articles/article/download/arac-38-01-119.pdf/?no_cache=1) | Ladder webs are elongated orb modifications; aerial and trunk-associated ladders have different ecological contexts. | A lower hub, long diverging support radii and many short capture traverses create an elongated fan with a separate rear scaffold. | This is a ladder-orb approximation, not the former rectangular grid and not a species-specific capture-efficiency model. |
+| Eberhard & Hazzi (2017), *Web building and prey wrapping behavior of Aglaoctenus castaneus*, primary construction observations. [Journal PDF](https://www.americanarachnology.org/journal-joa/joa-all-volumes/detail/article/download/arac-45-2-177.pdf/?no_cache=1) | Funnel webs comprise a dense sheet of largely non-adhesive lines, an edge-connected tubular retreat, and sometimes an upper tangle. | An irregular connected sheet leads into an off-center depressed mouth and tubular retreat, with distinct upper interception/support threads. | The local sheet is triangulated for explicit shared junctions and predictable walking support. Delaunay triangulation is an engineering approximation, not a claim about spider motor behavior. |
+| 2006 linyphiid architecture presentation, observational conference abstract. [American Arachnology 74](https://www.americanarachnology.org/fileadmin/documents/am_arachnol_newsletter/AmerArachnol74.pdf) | Sheet platforms vary in concavity or convexity and have additional irregular structures above or below. | Bowl and dome use different signed support surfaces plus interception/suspension strands. | Evidence here is a primary abstract, weaker than a full methods paper; presets are labeled family approximations. |
+| Eberhard et al. (2008), *Vestiges of an orb-weaving ancestor?*, primary ontogenetic web/construction observations. [Author repository](https://kerwa.ucr.ac.cr/items/32181177-dbab-408a-bc64-e5e87974dca0) | Gumfoot-bearing cobwebs use supporting threads and descending adhesive-ended lines, with substantial architectural diversity. | The tangle is a nonpolar 3D scaffold with local branches, cross-braces and descending gumfoot lines. | The model is a selected set of structural motifs; it does not represent every theridiid web. |
+| Han et al. (2019), *External power amplification drives prey capture in a spider web*, primary high-speed/mechanical study; Blackledge et al. (2006), silk mechanics with web descriptions. [PNAS record](https://pubmed.ncbi.nlm.nih.gov/31085643/), [JEB paper](https://journals.biologists.com/jeb/article/209/16/3131/16224/Unraveling-the-mechanical-properties-of-composite) | A Hyptiotes triangle has a reduced fan of capture sectors and a separately tensioned anchor line. | Default triangle has four primary rays, transverse capture strands and a rear tension line. | Higher branch settings are an artistic extension. The geometry does not claim to reproduce the animal's power amplification or launch acceleration. |
+
+
+Geometry construction runs on the main thread. Audio receives a validated
+prepared graph, retaining separate spatial lookup scratch storage. Tension,
+sound presets and voice changes do not rebuild the graph. Graph generation,
+projection and snapshots remain bounded; this is a musical construction model
+rather than a simulation of silk secretion, breakage or prey-capture efficiency.
+
+## Locomotion and contact corrections in version 3
+
+[Corver et al. (2021)](https://doi.org/10.1016/j.cub.2021.09.030) identify
+different movement patterns across web-building stages. Leg sweeps and turns
+are part of how the animal samples and works on its surroundings. This supports
+distinct exploratory, stepping and attachment gestures; it does not supply an
+exhaustive fixed list of musical gaits.
+
+[Mulder, Mortimer and Vollrath (2020)](https://doi.org/10.1242/jeb.234070)
+document orientation, radial tugging and movement toward prey in
+*Araneus diadematus*, including altered behavior in distorted webs. The
+instrument uses separate contact, load/pull and release events, forward-facing
+pursuit and explicit backward/sideways exceptions. Its timing and force values
+are authored musical controls, not fitted measurements from that study.
+[Prey reeling in Verrucosa arenata](https://journals.biologists.com/jeb/article/222/24/jeb213751/223595/Reeling-in-the-prey-fishing-behaviour-in-an-orb)
+provides another distinct mechanism; it should not be generalized into every
+spider's walking pattern.
+
+Body travel previously followed an independent time path while legs changed
+tempo. The replacement plans reachable steps in the shared beat phase. Stance
+feet remain at their attached web points while their pull advances the body;
+swinging feet choose reachable strands for the next support. Tempo changes the
+cadence and travel together. Stride length responds to Speed and Movement.
+Candidate poses respect both maximum extension and the minimum folding radius
+of the actual unequal scanned leg links. Default walking uses staggered ripple
+steps; sprinting can exchange larger leg groups. Turning is subject to the same
+support limits, rather than rotating through planted feet.
+
+The audio worklet schedules the planner's exact event times, leg indices,
+strand IDs and fractional positions. A later graphics frame cannot introduce
+a new attack or quantize the event to a display frame. Control changes discard
+obsolete forecasts; long clock jumps skip stale attacks. These are engineering
+guarantees of the musical mechanism, not a claim of biological force accuracy.
+
+## Pluck identity and additional specimens
+
+Pitch register and spread remap the same physical string lengths into distinct
+musical ranges. Preset-specific attack, hold and release span crisp clicks,
+rounded plucks, metallic shimmer and slow silk blooms; damping still determines
+loss in the resonant loop. Faster movement can excite overlapping events while
+the fixed voice pool limits resource use. Under extreme physical-event load,
+old physical tails may be replaced so new steps remain audible. MIDI-owned
+strings keep separate ownership.
+
+[Five additional real-scan candidates](docs/spider-synth-scan-candidates.md)
+were downloaded and inspected. The giant golden orb-weaver and *Araneus
+ventricosus* offer the strongest next specimen choices. Tarantulas need a
+silk-retreat setting and different rig calibration. Candidate research does
+not add selectable skins to this release. The
+[request audit](docs/spider-synth-request-audit.md) records remaining limits,
+including the absence of a full body collision solver and redistributed
+animal recordings.

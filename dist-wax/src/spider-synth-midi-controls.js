@@ -1,6 +1,6 @@
 import { getSharedMidiManager } from './midi-manager.js';
-import { SPIDER_BODY_GROUPS } from './spider-synth-body.js?v=74d232932f0e';
-import { SPIDER_MIDI_GESTURES } from './spider-synth-midi.js?v=74d232932f0e';
+import { SPIDER_BODY_GROUPS } from './spider-synth-body.js?v=4c83d761d89b';
+import { SPIDER_MIDI_GESTURES } from './spider-synth-midi.js?v=4c83d761d89b';
 
 export const SPIDER_MIDI_ROUTE_DEFAULTS = Object.freeze([
   'param:tension', 'param:damping', 'param:brightness', 'param:coupling',
@@ -15,6 +15,9 @@ const PARAMS = [
   ['silkLevel', 'Spinning silk level'], ['preyLevel', 'Bug level'], ['travelSpeed', 'Travel speed'], ['travelRange', 'Travel range'],
   ['spokes', 'Web struts'], ['rings', 'Web rows'], ['asymmetry', 'Web asymmetry'], ['twist', 'Web twist'],
   ['irregularity', 'Web irregularity'], ['depth', 'Web depth'], ['stabilimentum', 'Web zigzag'],
+  ['anchors', 'Web anchors'], ['spacing', 'Capture spacing'],
+  ['pluckRegister', 'String register'], ['pluckSpread', 'String pitch span'], ['pluckAttack', 'String attack'],
+  ['pluckHold', 'String hold'], ['pluckRelease', 'String release'],
 ];
 const ACTIONS = [
   ['speakButton', 'Say phrase'], ['soundPlayButton', 'Sound play / pause'], ['motionButton', 'Animation play / pause'],

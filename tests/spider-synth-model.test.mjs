@@ -45,14 +45,14 @@ test('web graph is connected, deterministic, finite and bounded at topology extr
   for (const options of [{}, { spokes: 8, rings: 3 }, { spokes: 999, rings: 999, tension: 999, seed: 42 }]) {
     const graph = createSpiderWeb(options);
     assert.deepEqual(graph, createSpiderWeb(options));
-    assert.ok(graph.nodes.length <= 385); assert.ok(graph.segments.length <= 768);
+    assert.ok(graph.nodes.length <= 1200); assert.ok(graph.segments.length <= 2400);
     const visited = new Set([0]);
     for (let pass = 0; pass < graph.nodes.length; pass += 1) for (const s of graph.segments) {
       assert.equal(s.id, graph.segments.indexOf(s)); assert.ok(s.length > 0 && Number.isFinite(s.angle));
       if (visited.has(s.a) || visited.has(s.b)) { visited.add(s.a); visited.add(s.b); }
     }
     assert.equal(visited.size, graph.nodes.length);
-    for (const node of graph.nodes) { assert.equal(node.y, 0); assert.ok(Math.hypot(node.x, node.z) <= 1 + 1e-12); }
+    for (const node of graph.nodes) { assert.equal(node.y, 0); assert.ok(Math.abs(node.x) < 1.5 && Math.abs(node.z) < 1.5); }
   }
   assert.notDeepEqual(createSpiderWeb({ seed: 1 }), createSpiderWeb({ seed: 2 }));
 });
@@ -93,7 +93,7 @@ test('all 24 routines have exact silk support, bounded reachable toes and finite
         const hx = frame.body.x + leg.hip[0] * c + leg.hip[2] * sn; const hz = frame.body.z + leg.hip[2] * c - leg.hip[0] * sn;
         const distance = Math.hypot(foot.x - hx, foot.y - frame.body.y - leg.hip[1], foot.z - hz);
         assert.ok(distance < leg.reach * .98, `${preset.id} leg ${index}: reach ${distance}/${leg.reach}`);
-        assert.ok(Math.hypot(foot.x, foot.z) < .99);
+        assert.ok(Math.abs(foot.x) < 1.5 && Math.abs(foot.z) < 1.5);
       }
     }
   }
@@ -120,7 +120,7 @@ test('landing serials, lift and projection remain continuous at actual tempo-gri
   for (const item of SPIDER_MOTION_PRESETS.slice(0, 24)) if (item.mask && item.duty < 1) {
     const motion = normalizeSpiderMotion({ preset: item.id, tempo: 120 });
     for (let index = 0; index < 8; index += 1) if (item.mask & (1 << index)) {
-      const offset = ((index < 4 ? index : index + 1) & 1) * .5;
+      const offset = item.gait === 'ripple' ? index % 4 / 4 : ((index < 4 ? index : index + 1) & 1) * .5;
       const landingBeat = (3 - offset) * item.period; const time = landingBeat / 2;
       writeSpiderFrame(time - 1e-6, motion, web, before); writeSpiderFrame(time + 1e-6, motion, web, after);
       assert.equal(before.feet[index].stance, false); assert.equal(after.feet[index].stance, true);
@@ -325,4 +325,13 @@ test('Circle patrol completes a full yaw turn with fixed supported toes and reac
     }
     close(turn, Math.PI * 2, 1e-7);
   }
+});
+
+test('motion profiles preserve all IDs, stationary intent, ripple default and deterministic random travel', () => {
+  const normal = SPIDER_MOTION_PRESETS.find(p => p.id === 'orb-walk'); assert.equal(normal.gait, 'ripple');
+  for (const item of SPIDER_MOTION_PRESETS) { assert.ok(['forward', 'backward', 'sideways'].includes(item.direction)); assert.ok(item.world.speed >= 0 && item.world.speed <= 2); assert.ok(item.world.range <= .85); assert.ok(Object.isFrozen(item.world)); }
+  assert.equal(SPIDER_MOTION_PRESETS.find(p => p.id === 'palp-talk').world.path, 'hold');
+  assert.equal(SPIDER_MOTION_PRESETS.find(p => p.id === 'backpedal').direction, 'backward');
+  const a = createRandomSpiderMotion(72); assert.deepEqual(a, createRandomSpiderMotion(72)); assert.ok(a.world); assert.notDeepEqual(a, createRandomSpiderMotion(73));
+  for (const g of SPIDER_LEG_GEOMETRY) close(g.innerReach, Math.max(0, Math.max(...g.lengths) * 2 - g.reach));
 });

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SpiderSynthDsp, SPIDER_SOUND_PRESETS, SPIDER_MOTION_SOUND_PRESETS, SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, normalizeSpiderBodyMix, normalizeSpiderSound, getSpiderMotionSound } from '../src/spider-synth-dsp.js';
-import { SpiderStrings } from '../src/spider-synth-string.js';
+import { SpiderStrings, spiderPluckFrequency } from '../src/spider-synth-string.js';
 import { SpiderSynthAudio, createSpiderSpeechPlan } from '../src/spider-synth-audio.js';
 import { SPELLING_DIPHONE_ATLAS_URL } from '../src/spelling-diphone-atlas.js';
 import { loadSpellingPronunciations } from '../src/spelling-pronunciation.js';
@@ -34,7 +34,7 @@ test('all motion-only sources remain silent for unchanged held geometry',()=>{
 });
 
 test('real pooled string pitch follows substring length and tension and angle changes excitation',()=>{
- const sound=normalizeSpiderSound({damping:.15,decay:2,brightness:.8,tune:1});const levels=new Float64Array(8).fill(1);
+ const sound=normalizeSpiderSound({damping:.15,decay:2,brightness:.8,tune:1,pluckRegister:0,pluckSpread:1,slide:0});const levels=new Float64Array(8).fill(1);
  const signals=[];
  for(const f of [220,440]){const strings=new SpiderStrings(24000);assert.ok(strings.pluck(f,.8,0,sound,6,0,0,.5));const out=new Float32Array(24000);for(let i=0;i<out.length;i++){strings.sample(levels,.8);out[i]=strings.left;}const measured=toneFrequency(out,24000,f);assert.ok(Math.abs(measured/f-1)<.03,`${f}->${measured}`);signals.push(out);}
  assert.ok(energy(signals[0])>.01);assert.ok(energy(signals[1])>.01);
@@ -44,9 +44,12 @@ test('real pooled string pitch follows substring length and tension and angle ch
  assert.ok(outputs[1]>outputs[0]*2,outputs.join(','));
 });
 
-test('coupling only excites an adjacent strand and has a fixed one-generation budget',()=>{
- const d=synth({bodyMix:mix(['radials','spirals']),sound:{coupling:.3}});d.pluck({segmentId:10,u:.4,velocity:.7});assert.equal(d.pluckEvents,2);
- const events=d.recentEvents.filter(e=>e.id>0);const a=d.web.segments[events[0].segmentId],b=d.web.segments[events[1].segmentId];assert.ok([a.a,a.b].some(node=>node===b.a||node===b.b));assert.equal(events[1].source,'coupling');assert.equal(events[0].silkId,null);assert.equal(events[1].silkId,null);
+test('coupling transfers existing loop energy to one adjacent string without a second attack',()=>{
+ const d=synth({bodyMix:mix(['radials','spirals']),sound:{coupling:.3}});d.pluck({segmentId:10,u:.4,velocity:.7});assert.equal(d.pluckEvents,1);assert.equal(d.strings.propagationEvents,1);
+ const voices=d.strings.voices.filter(v=>v.remaining>0);assert.equal(voices.length,2);const a=d.web.segments[voices[0].segmentId],b=d.web.segments[voices[1].segmentId];assert.ok([a.a,a.b].some(node=>node===b.a||node===b.b));assert.equal(voices[1].burst,0);assert.equal(voices[1].amplitude,0);
+ const levels=new Float64Array(8).fill(1);let receiverPeak=0;for(let i=0;i<2400;i++){d.strings.sample(levels,.7);receiverPeak=Math.max(receiverPeak,Math.abs(voices[1].lastL));}
+ assert.ok(receiverPeak>.001);assert.equal(d.pluckEvents,1);assert.equal(d.strings.propagationEvents,1);
+ const silent=new SpiderStrings(24000),sound=normalizeSpiderSound({coupling:.4});silent.pluck(220,.8,0,sound,6,1);silent.voices[0].burst=0;silent.coupleLast(330,0,sound,7,2,0);for(let n=0;n<1000;n++){silent.sample(levels,.7);assert.equal(silent.left,0);}
 });
 
 test('worklet contacts consume exactly the shared foot step ledger without visual updates',()=>{
@@ -71,7 +74,7 @@ test('live tune, damping and tension retune real existing delay loops',()=>{
 });
 
 test('manual offsets and body translation excite strings while stopped, then become quiet',()=>{
- const d=synth({bodyMix:mix(['legs','radials','spirals'])});render(d,.1);d.update({motion:{offsets:{leg_left_1_hip:{x:.25,y:.2,z:0}}}});assert.ok(render(d,.15).pluckEvents>0);const events=d.pluckEvents;render(d,4);assert.equal(d.pluckEvents,events);assert.ok(render(d,.2).peak<1e-5);
+ const d=synth({bodyMix:mix(['legs','radials','spirals'])});render(d,.1);d.update({motion:{offsets:{leg_left_1_hip:{x:.25,y:.2,z:0}}}});assert.ok(render(d,.15).peak>.002);assert.ok(d.strings.voices.some(v=>v.group===0&&v.segmentId===-2));const events=d.pluckEvents;render(d,4);assert.equal(d.pluckEvents,events);assert.ok(render(d,.2).peak<1e-5);
  d.update({motion:{center:{x:.2,z:.1}}});const moved=render(d,.1);assert.ok(moved.pluckEvents>events);assert.equal(d.time,0);
 });
 
@@ -125,8 +128,8 @@ test('adapter never autoarms, preserves pending held notes, skips released attac
 test('pointer speed alone is silent and a saturated offset cannot invent a second attack',()=>{
  const d=synth({bodyMix:mix(['legs','radials','spirals'])});render(d,.1);
  d.interact({jointId:'leg_left_1_hip',active:true,velocity:1});assert.equal(render(d,.1).pluckEvents,0);
- d.update({motion:{offsets:{leg_left_1_hip:{x:99,y:0,z:0}}}});render(d,.1);const events=d.pluckEvents;assert.ok(events>0);
- d.update({motion:{offsets:{leg_left_1_hip:{x:100,y:0,z:0}}}});d.interact({jointId:'leg_left_1_hip',active:true,velocity:1});render(d,.15);assert.equal(d.pluckEvents,events);
+ d.update({motion:{offsets:{leg_left_1_hip:{x:99,y:0,z:0}}}});const attack=render(d,.1);assert.ok(attack.peak>.002);const events=d.pluckEvents,pose=d.pose.slice();render(d,2);
+ d.update({motion:{offsets:{leg_left_1_hip:{x:100,y:0,z:0}}}});d.interact({jointId:'leg_left_1_hip',active:true,velocity:1});const blocked=render(d,.15);assert.equal(d.pluckEvents,events);assert.deepEqual(d.pose,pose);assert.ok(blocked.peak<1e-6);
 });
 
 
@@ -217,7 +220,7 @@ test('world snapshots retain clock ownership and do not replay already consumed 
 test('laid silk plucks use strand length and retain silk identity; topology replacement preserves player state',()=>{
  const d=synth({soundPlaying:true});d.update({worldSettings:{joystick:{x:1,z:0},laySilk:true,speed:1}});render(d,.8);d.update({worldSettings:{joystick:{x:0,z:0}}});render(d,.2);
  const strand=d.world.silkSegments[0];assert.ok(strand);d.worldCommand({type:'pluck-silk',silkId:strand.id,u:.35,velocity:.8,angle:strand.angle+Math.PI/2});render(d,.01);const event=d.recentEvents.find(e=>e.source==='silk');assert.equal(event.silkId,strand.id);assert.equal(event.segmentId,-1);assert.equal(event.u,.35);
- const voice=d.strings.voices.find(v=>v.remaining>0&&v.segmentId===-1);assert.ok(voice);assert.ok(Math.abs(voice.targetPeriod-(d.sampleRate/(spiderStringFrequency(strand.length,d.smooth.tension,.35)*d.smooth.tune)-.5))<2);
+ const voice=d.strings.voices.find(v=>v.remaining>0&&v.segmentId===-1);assert.ok(voice);assert.ok(Math.abs(voice.targetPeriod-(d.sampleRate/spiderPluckFrequency(spiderStringFrequency(strand.length,d.smooth.tension,.35)*d.smooth.tune,d.smooth,d.sampleRate)-.5))<2);
  const old=d.web;d.update({webSettings:{preset:'sheet',depth:.1},playing:true});assert.notEqual(d.web,old);assert.equal(d.playing,true);assert.equal(d.soundPlaying,true);render(d,.01);assert.equal(d.world.silkSegments.length,0);assert.ok(d.recentEvents.every(e=>e.id===0||e.graphVersion===d.world.state.graphVersion));
 });
 
@@ -253,4 +256,123 @@ test('procedural root-body turns excite their body owners and release when anima
 
 test('root-turn timbre is periodic and crossing an angle wrap cannot invent a large movement',()=>{
  const d=synth({bodyMix:mix(['cephalothorax'],'palp-roll')});let yaw=0;const sample=d.world.sample.bind(d.world);d.world.sample=(...args)=>{const state=sample(...args);args[3].body.yaw+=yaw;return state;};d.control();const pose=d.groupPose.slice();yaw=Math.PI*2;d.control();for(let i=0;i<pose.length;i++)assert.ok(Math.abs(d.groupPose[i]-pose[i])<1e-6);assert.ok(d.groupDistance[1]<1e-6);assert.equal(d.pluckEvents,0);yaw=Math.PI-.01;d.control();yaw=Math.PI+.01;d.control();assert.ok(d.groupDistance[1]<.02);
+});
+
+
+test('authored string registers retain physical length ordering and separate actual pitch and onset',()=>{
+ assert.equal(new Set(SPIDER_SOUND_PRESETS.map(p=>JSON.stringify([p.sound.pluckRegister,p.sound.pluckSpread,p.sound.pluckAttack,p.sound.pluckHold,p.sound.pluckRelease]))).size,24);
+ const levels=new Float64Array(8).fill(1);const results=[];
+ for(const id of ['thread-bass','tiny-bells','velvet-listener']){
+  const sound={...SPIDER_SOUND_PRESETS.find(p=>p.id===id).sound,slide:0};
+  assert.ok(spiderPluckFrequency(300,sound)>spiderPluckFrequency(150,sound));
+  const strings=new SpiderStrings(24000);strings.pluck(220,.8,0,sound,6,0);const wave=new Float32Array(24000),bins=new Float64Array(100);
+  for(let i=0;i<wave.length;i++){strings.sample(levels,sound.brightness);wave[i]=strings.left;bins[Math.floor(i/240)]+=wave[i]*wave[i];}
+  const peak=Math.max(...bins);results.push({frequency:strings.voices[0].frequency,half:bins.findIndex(v=>v>=peak*.25)*.01,rms:energy(wave)});assert.ok(energy(wave)>.003,id);
+ }
+ assert.ok(results[1].frequency>results[0].frequency*8);assert.ok(results[2].half>results[1].half+.12);
+ for(const key of ['pluckRegister','pluckSpread','pluckAttack','pluckHold','pluckRelease'])assert.ok(Number.isFinite(normalizeSpiderSound({[key]:NaN})[key]));
+});
+
+test('a slow bloom survives maximum damping and minimum physical decay, then fully releases',()=>{
+ const strings=new SpiderStrings(24000),sound=normalizeSpiderSound({pluckAttack:.35,pluckHold:.2,pluckRelease:.4,decay:.08,damping:1,slide:0}),levels=new Float64Array(8).fill(1),wave=new Float32Array(30000);
+ strings.pluck(220,.8,0,sound,6,0);for(let n=0;n<wave.length;n++){strings.sample(levels,.6);wave[n]=strings.left;}
+ assert.ok(energy(wave.subarray(7200,12000))>.003);assert.ok(energy(wave.subarray(0,240))<energy(wave.subarray(7200,12000))*.05);assert.equal(energy(wave.subarray(24000)),0);
+});
+
+test('physical foot replacements preserve the fixed pool and accept new owned pitches under long tails',()=>{
+ const strings=new SpiderStrings(24000),sound=normalizeSpiderSound({pluckAttack:.2,pluckHold:.6,pluckRelease:4,decay:6}),levels=new Float64Array(8).fill(1);
+ for(let n=0;n<100;n++){assert.equal(strings.pluck(110+n*10,.8,0,sound,6,n,0,.5,null,1,false,0,n%8),true);for(let k=0;k<120;k++)strings.sample(levels,.7);}
+ assert.equal(strings.voices.length,24);assert.ok(strings.voiceReplacements>=80);assert.equal(strings.voices[strings.lastVoiceIndex].frequency,spiderPluckFrequency(1100,sound));assert.ok(strings.active<=24);
+});
+
+test('the realtime DSP accepts prepared graphs and rejects unprepared or mismatched replacement atomically',async()=>{
+ const {createSpiderWeb,serializeSpiderWeb}=await import('../src/spider-synth-web.js');
+ const d=new SpiderSynthDsp(24000,{requirePreparedWeb:true});const previous=d.web;
+ assert.throws(()=>d.update({webSettings:{preset:'sheet'}}),/prepared web/i);assert.equal(d.web,previous);
+ const prepared=serializeSpiderWeb(createSpiderWeb({preset:'sheet',anchors:9,spacing:.7}));
+ d.update({webSettings:prepared,preparedWeb:prepared});assert.equal(d.web.preset,'sheet');const web=d.web;
+ d.update({sound:{tension:2},webSettings:{...prepared,tension:2},preparedWeb:{invalid:true}});assert.equal(d.web,web);assert.equal(d.sound.tension,2);assert.equal(d.web.tension,2);
+ assert.throws(()=>d.update({webSettings:{preset:'triangle'},preparedWeb:prepared}),/does not match/);assert.equal(d.web,web);
+ const broken=structuredClone(prepared);broken.anchors=8;broken.segments[0].a=999999;
+ assert.throws(()=>d.update({webSettings:broken,preparedWeb:broken}),/Invalid prepared/);assert.equal(d.web,web);
+});
+
+test('adapter prepares graph changes on the main thread once and retains them across sound changes',()=>{
+ const f=adapter(),audio=new SpiderSynthAudio({runtime:f.runtime});audio.update({webSettings:{preset:'sheet',anchors:9,spacing:.7}});
+ const graph=audio.state.preparedWeb;assert.ok(graph.nodes.length>20);assert.equal(graph.constructionVersion,3);
+ audio.update({sound:{pluckRegister:24,pluckAttack:.2}});assert.equal(audio.state.preparedWeb,graph);
+ audio.update({webSettings:{...audio.state.webSettings,tension:2}});assert.equal(audio.state.preparedWeb,graph);
+ audio.update({webSettings:{spacing:.2}});assert.notEqual(audio.state.preparedWeb,graph);assert.equal(f.contexts.length,0);audio.dispose();
+});
+
+test('forecast contact/pull/release onsets use their exact sample clock, without beat quantization',()=>{
+ const d=synth({playing:true,sound:{coupling:0}}),sample=d.world.sample.bind(d.world);
+ const events=[.00371,.00791,.00813].map((time,i)=>({serial:i+1,epoch:7,time,legIndex:2,kind:['contact','pull','release'][i],segmentId:10,u:.37,impulse:.4,force:.4,speed:.2,angle:1.3}));
+ d.world.sample=(...args)=>{const state=sample(...args);d.frame.contactEpoch=7;state.footEvents=events;state.nextFootEventTime=Infinity;return state;};
+ render(d,.02);assert.equal(d.contactEvents,1);assert.equal(d.pullEvents,1);assert.equal(d.footReleaseEvents,1);assert.equal(d.pluckEvents,3);
+ for(const expected of events){const actual=d.recentEvents.find(e=>e.footSerial===expected.serial);assert.ok(actual);assert.equal(actual.segmentId,expected.segmentId);assert.equal(actual.u,expected.u);assert.equal(actual.sourceTime,expected.time);assert.equal(actual.kind,expected.kind);assert.equal(actual.legIndex,2);assert.ok(Math.abs(actual.audioTime-expected.time)<=.51/d.sampleRate);assert.ok(actual.frequency>0);}
+ assert.equal(d.droppedFootEvents,0);assert.equal(d.lateFootEvents,0);render(d,.2);assert.equal(d.pluckEvents,3);
+});
+
+test('pause, epoch invalidation and late clock adoption cannot replay queued physical attacks',()=>{
+ const d=synth({playing:true,sound:{coupling:0}}),sample=d.world.sample.bind(d.world);let epoch=2;
+ const events=[{serial:1,epoch:2,time:.04,legIndex:0,kind:'contact',segmentId:10,u:.4,impulse:.8,force:.8,speed:.3,angle:1}];
+ d.world.sample=(...args)=>{const state=sample(...args);d.frame.contactEpoch=epoch;state.footEvents=events;state.nextFootEventTime=Infinity;return state;};
+ render(d,.01);d.update({playing:false});render(d,.1);assert.equal(d.contactEvents,0);
+ epoch=3;events.push({...events[0],serial:2,epoch:3,time:.2});d.update({playing:true});render(d,.01);render(d,.1,10);assert.equal(d.contactEvents,0);assert.ok(d.droppedFootEvents>=1);
+ const count=d.pluckEvents;render(d,1);assert.equal(d.pluckEvents,count);
+});
+
+test('a live string keeps its attack/hold/release contour when another preset is selected',()=>{
+ const strings=new SpiderStrings(24000),sound=normalizeSpiderSound({pluckAttack:.2,pluckHold:.3,pluckRelease:2}),levels=new Float64Array(8).fill(1);
+ strings.pluck(220,.8,0,sound,6,0);const v=strings.voices[0],contour=[v.attackFrames,v.holdFrames,v.releaseFrames];
+ for(let i=0;i<1200;i++)strings.sample(levels,.7);strings.retune(normalizeSpiderSound({pluckAttack:.001,pluckHold:0,pluckRelease:.04,pluckRegister:24}));
+ assert.deepEqual([v.attackFrames,v.holdFrames,v.releaseFrames],contour);assert.ok(v.targetPeriod<v.period);assert.equal(v.release,false);
+});
+
+test('string register and envelope controls do not retune an independent held body oscillator',()=>{
+ const a=synth({soundPlaying:true,bodyMix:mix(['cephalothorax'],'hollow')}),b=synth({soundPlaying:true,bodyMix:mix(['cephalothorax'],'hollow')});render(a,.1);render(b,.1);
+ b.update({sound:{pluckRegister:36,pluckSpread:1.8,pluckAttack:.35,pluckHold:.6,pluckRelease:4}});
+ assert.deepEqual(render(a,.2).l,render(b,.2).l);assert.equal(a.pluckEvents,0);assert.equal(b.pluckEvents,0);
+});
+
+test('fast dense-web contacts remain audible with soft contours, no dropped attacks and fixed resources',()=>{
+ const d=synth({playing:true,motion:{preset:'low-sprint',tempo:300,intensity:1},worldSettings:{path:'orbit',speed:2,range:.58},webSettings:{preset:'sheet',spokes:24,rings:16,anchors:12,spacing:1},bodyMix:mix(['radials','spirals'],'glass'),sound:{pluckAttack:.35,pluckHold:.6,pluckRelease:4,decay:6,coupling:.4}});
+ const result=render(d,1.2);assert.ok(result.contactEvents>80);assert.ok(result.pullEvents>80);assert.equal(result.lateFootEvents,0);assert.equal(result.droppedFootEvents,0);assert.equal(result.droppedStringEvents,0);assert.ok(result.voiceReplacements>0);assert.ok(result.shortenedAttacks>0);assert.ok(result.rms>.015);assert.ok(result.peak<.95);assert.equal(d.strings.voices.length,24);
+ const ids=new Set();for(const event of d.recentEvents){if(!event.id)continue;assert.ok(event.footSerial>0);assert.ok(!ids.has(event.footSerial));ids.add(event.footSerial);assert.ok(Math.abs(event.audioTime-event.sourceTime)<=.51/d.sampleRate);assert.ok(['contact','pull','release'].includes(event.kind));}
+ d.update({playing:false,worldSettings:{path:'hold',joystick:{x:0,z:0}}});const contacts=d.contactEvents,plucks=d.pluckEvents;render(d,6);assert.equal(d.contactEvents,contacts);assert.equal(d.pluckEvents,plucks);assert.ok(render(d,.1).peak<1e-6);
+});
+
+test('MIDI panic cannot turn its neutral-pose restoration into a new world pull attack',()=>{
+ for(const mode of ['reset','cc120']){
+  const d=synth({sound:{coupling:0}});d.midi(note(60,120));render(d,.5);const count=d.pluckEvents;
+  if(mode==='reset')d.resetMidi({sourceId:'keys'});else d.midi({type:'controlChange',controller:120,value:0,sourceId:'keys',channel:0});
+  render(d,.5);assert.equal(d.pluckEvents,count,mode);assert.ok(render(d,.2).peak<1e-6,mode);
+ }
+});
+
+test('continuous held-note CC ramps cannot cancel the gait contacts at their forecast boundary',()=>{
+ const d=new SpiderSynthDsp(48000);d.update({enabled:true,playing:true,motion:{preset:'low-sprint',tempo:300,intensity:1},worldSettings:{path:'orbit',speed:2,range:.58}});
+ for(let n=60;n<84;n++)d.midi(note(n,127,{channel:n%2}));const l=new Float32Array(128),r=new Float32Array(128),steps=new Float64Array(8);let observed=0;
+ for(let i=0;i<400;i++){
+  if(i%8===0)for(const group of ['legs','cephalothorax','abdomen','pedipalps','chelicerae','spinnerets','radials','spirals'])for(const axis of ['x','y','z'])d.midiControl(group,axis,Math.sin(i*.006),d.audioTime);
+  d.render(l,r);for(let j=0;j<8;j++){const f=d.frame.feet[j];if(f.step>steps[j])observed+=f.step-steps[j];steps[j]=f.step;}
+ }
+ assert.ok(observed>=100);assert.equal(d.contactEvents,observed);assert.ok(d.pullEvents>=observed*.95,'Planned stance pulls survive MIDI envelope deduplication');assert.ok(d.footReleaseEvents>=observed*.95);assert.ok(d.footReleaseEvents<=observed+8);assert.equal(d.lateFootEvents,0);assert.equal(d.droppedFootEvents,0);assert.ok(d.maxFootLateness<=.51/d.sampleRate);
+});
+
+test('direct pointer and CC-only pulls retain ownership while held-key envelope pulls are deduplicated',()=>{
+ const d=synth({sound:{coupling:0}});render(d,.05);d.midi(note(60,120));render(d,.1);assert.equal(d.midiEvents,1);assert.equal(d.pluckEvents,1);assert.equal(d.recentEvents.find(e=>e.id).source,'midi');
+ const before=d.pluckEvents;d.update({motion:{center:{x:.15,z:.1}}});render(d,.02);assert.ok(d.pluckEvents>before);assert.ok(d.recentEvents.some(e=>e.id>before&&e.kind==='pull'&&e.manual));
+ d.resetMidi();render(d,3);const events=d.pluckEvents;d.midiControl('legs','y',.5);render(d,.15);assert.ok(d.pluckEvents>events);assert.ok(d.recentEvents.some(e=>e.id>events&&e.manual));
+ const settled=d.pluckEvents;render(d,3);assert.equal(d.pluckEvents,settled);assert.ok(render(d,.1).peak<1e-6);
+});
+
+test('tempo changes preserve future force kinds and pause cancels them without catch-up attacks',()=>{
+ const d=new SpiderSynthDsp(48000);d.update({enabled:true,playing:true,motion:{preset:'low-sprint',tempo:300,intensity:1},worldSettings:{path:'orbit',speed:2,range:.58}});render(d,.73);
+ const old=[d.contactEvents,d.pullEvents,d.footReleaseEvents];d.update({motion:{tempo:113},time:d.time*300/113});render(d,1);
+ for(const [n,value] of [d.contactEvents,d.pullEvents,d.footReleaseEvents].entries()){assert.ok(value-old[n]>=25);assert.ok(value-old[n]<=48);}
+ assert.equal(d.lateFootEvents,0);assert.equal(d.droppedFootEvents,0);assert.ok(d.maxFootLateness<=.51/d.sampleRate);
+ const stopped=[d.contactEvents,d.pullEvents,d.footReleaseEvents];d.update({playing:false});render(d,.23);assert.deepEqual([d.contactEvents,d.pullEvents,d.footReleaseEvents],stopped);
+ d.update({playing:true});render(d,.3);assert.ok(d.contactEvents-stopped[0]<=16);assert.equal(d.lateFootEvents,0);assert.equal(d.droppedFootEvents,0);
 });

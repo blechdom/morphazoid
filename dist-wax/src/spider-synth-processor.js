@@ -1,9 +1,9 @@
-import { SpiderSynthDsp } from './spider-synth-dsp.js?v=74d232932f0e';
+import { SpiderSynthDsp } from './spider-synth-dsp.js?v=4c83d761d89b';
 
 class SpiderSynthProcessor extends AudioWorkletProcessor {
-  constructor() {
+  constructor(options={}) {
     super();
-    this.dsp = new SpiderSynthDsp(sampleRate);
+    this.dsp = new SpiderSynthDsp(sampleRate,{requirePreparedWeb:true,preparedWeb:options.processorOptions?.preparedWeb});
     this.disposed = false;
     this.framesSinceTelemetry = 0; this.telemetryEnergy = 0; this.telemetryPeak = 0;
     this.port.onmessage = ({ data }) => {
