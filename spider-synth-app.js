@@ -161,7 +161,7 @@ function tick(now) {
 function scheduleFrame() { if (!animationFrame && !state.disposed && !document.hidden) animationFrame = requestAnimationFrame(tick); }
 function setPlaying(playing, { restart = false } = {}) {
   const time = restart ? 0 : currentTime();
-  if (playing && state.motion.preset === 'none') setMotionPreset(state.motionChoice, { applySound: false, applyTravel: false });
+  if (playing && state.motion.preset === 'none') state.motion = normalizeSpiderMotion({ ...state.motion, preset: state.motionChoice });
   state.playing = playing === true; anchorTime(time); publish({ time }); syncTransport(); updateVisual();
   if (needsVisualFrames()) scheduleFrame();
 }
@@ -193,11 +193,11 @@ function setMotionPreset(id, { applySound = true, applyTravel = true } = {}) {
   populateMotionPresets(); anchorTime(time); publish({ time, resetActivity: true }); updateVisual();
 }
 function applyStaticPose(id) {
-  // Choosing a static pose explicitly stops the animation; held MIDI keys never do.
-  state.playing = false; state.posePreset = id; el('posePreset').value = id;
-  state.motion = normalizeSpiderMotion({ ...state.motion, preset: 'none', center: { x: 0, z: 0 }, yaw: 0,
+  state.posePreset = id; el('posePreset').value = id;
+  state.motion = normalizeSpiderMotion({ ...state.motion,
     offsets: createSpiderStaticPose(id, ++state.poseSeed * 2654435761 >>> 0) });
-  viewer?.setOffsets?.(state.motion.offsets); anchorTime(0); publish({ time: 0, resetActivity: true }); syncTransport(); updateVisual();
+  // Pose is a joint-offset layer. It never owns transport, phase or voice release.
+  viewer?.setOffsets?.(state.motion.offsets); audio.update({ motion: state.motion }); updateVisual(); scheduleFrame();
 }
 function paintKnob(input) {
   const value = Number(input.value), fraction = (value - Number(input.min)) / (Number(input.max) - Number(input.min));

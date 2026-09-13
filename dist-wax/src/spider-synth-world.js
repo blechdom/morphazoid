@@ -1,5 +1,5 @@
-import { writeSpiderFrame, writeSpiderLegOffset, createSpiderFrame, SPIDER_LEG_GEOMETRY, SPIDER_MOTION_PRESETS, SPIDER_JOINTS } from './spider-synth-model.js?v=4c83d761d89b';
-import { projectSpiderWebInto, spiderWebHeight, spiderWebGeometryKey } from './spider-synth-web.js?v=4c83d761d89b';
+import { writeSpiderFrame, writeSpiderLegOffset, createSpiderFrame, SPIDER_LEG_GEOMETRY, SPIDER_MOTION_PRESETS, SPIDER_JOINTS } from './spider-synth-model.js?v=f3d28731af44';
+import { projectSpiderWebInto, spiderWebHeight, spiderWebGeometryKey } from './spider-synth-web.js?v=f3d28731af44';
 
 const TAU = Math.PI * 2;
 const WAVE_ORDER = Object.freeze([0, 4, 1, 5, 2, 6, 3, 7]);

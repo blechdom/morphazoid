@@ -21,6 +21,57 @@ async function webHub(page) {
   });
 }
 
+for (const [label, viewport, mobile] of [
+  ['desktop', { width: 1440, height: 900 }, false],
+  ['phone portrait', { width: 390, height: 844 }, true],
+  ['phone landscape', { width: 844, height: 390 }, true],
+]) test(`body pose edits preserve animation and phase on ${label}`, async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, viewport, isMobile: mobile, hasTouch: mobile });
+  const page = await context.newPage();
+  try {
+    await open(page);
+    await page.locator('#posePreset').selectOption('peek');
+    const held = await state(page);
+    expect(held.playing).toBe(false); expect(held.audioOn).toBe(false);
+    await page.locator('#motionButton').click();
+    await expect.poll(async () => (await state(page)).time).toBeGreaterThan(.6);
+    const started = await state(page);
+    expect(started.motionSettings.offsets).toEqual(held.motionSettings.offsets);
+    expect(started.posePreset).toBe('peek'); expect(started.audioOn).toBe(false);
+    await arm(page); await page.locator('#soundPlayButton').click();
+    await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(2);
+    const baseline = await state(page);
+    const unchangedMotion = ({ offsets, ...motion }) => motion;
+    const ids = await page.locator('#posePreset option').evaluateAll(items => items.map(item => item.value).filter(id => id !== 'custom'));
+    const actions = ids.map(id => () => page.locator('#posePreset').selectOption(id));
+    actions.push(() => page.locator('#randomPose').click(), () => page.locator('#resetPose').click());
+    let previousTime = baseline.time;
+    for (const action of actions) {
+      await action();
+      const after = await state(page);
+      expect(after.playing).toBe(true); expect(after.soundPlaying).toBe(true); expect(after.audioOn).toBe(true);
+      expect(after.time).toBeGreaterThanOrEqual(previousTime); previousTime = after.time;
+      expect(unchangedMotion(after.motionSettings)).toEqual(unchangedMotion(baseline.motionSettings));
+      expect(after.motionChoice).toBe(baseline.motionChoice);
+      expect(after.worldSettings).toEqual(baseline.worldSettings);
+      expect(after.webSettings).toEqual(baseline.webSettings);
+      expect(after.soundPreset).toBe(baseline.soundPreset);
+      expect(after.sound).toEqual(baseline.sound); expect(after.bodyMix).toEqual(baseline.bodyMix);
+      await expect(page.locator('#motionButton')).toHaveAttribute('aria-pressed', 'true');
+    }
+    expect((await state(page)).motionSettings.offsets).toEqual({});
+    await expect.poll(async () => (await state(page)).time).toBeGreaterThan(previousTime + .3);
+    await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(baseline.audio.contactEvents);
+    await page.locator('#motionButton').click();
+    const paused = await state(page);
+    for (const action of [() => page.locator('#posePreset').selectOption('wide'), () => page.locator('#randomPose').click(), () => page.locator('#resetPose').click()]) {
+      await action(); const after = await state(page);
+      expect(after.playing).toBe(false); expect(after.time).toBeCloseTo(paused.time, 5);
+      expect(after.soundPlaying).toBe(true); expect(after.motionChoice).toBe(paused.motionChoice);
+    }
+  } finally { await context.close(); }
+});
+
 test('every sound preset preserves the web, held pose, travel and both players', async ({ page }) => {
   await open(page);
   await page.locator('#webPreset').selectOption('missing-sector');

@@ -1,5 +1,5 @@
-import { createSpiderWeb, projectSpiderWebInto as projectInto, spiderWebHeight } from './spider-synth-web.js?v=4c83d761d89b';
-export { createSpiderWeb, projectSpiderWebPoint, normalizeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './spider-synth-web.js?v=4c83d761d89b';
+import { createSpiderWeb, projectSpiderWebInto as projectInto, spiderWebHeight } from './spider-synth-web.js?v=f3d28731af44';
+export { createSpiderWeb, projectSpiderWebPoint, normalizeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './spider-synth-web.js?v=f3d28731af44';
 /**
  * Shared audio-clock web contacts and authored spider gestures.
  * Coordinates are web-radius units, Y up, Z forward; rotations are radians.

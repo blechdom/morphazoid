@@ -1,4 +1,4 @@
-import { SpiderSynthDsp } from './spider-synth-dsp.js?v=4c83d761d89b';
+import { SpiderSynthDsp } from './spider-synth-dsp.js?v=f3d28731af44';
 
 class SpiderSynthProcessor extends AudioWorkletProcessor {
   constructor(options={}) {

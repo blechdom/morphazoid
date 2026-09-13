@@ -11,6 +11,7 @@ pose/contact model; rendering never owns automatic audio onsets.
 | Audio arm | Prepare one worklet and shared stereo output | Preserve both Play states |
 | Sound Play | Held resonances at assigned levels | Preserve animation state |
 | Sound preset / Program Change / Random sound | Replace body, silk and voice timbres | Preserve web, contacts, prey, deposited silk, pose, tempo and both player states |
+| Body pose / Random pose / Reset pose | Change joint modulation without releasing active sound | Replace pose offsets; preserve routine, phase, travel and both player states. First Animation Play retains the chosen pose. |
 | Animation Play / Space | Contact plucks if armed | Advance the selected routine |
 | Pause animation | Stop new automatic contacts; let tails decay | Freeze procedural time |
 | Drag joint / pluck strand | Finite gesture if armed | Change selected pose/contact, independently of Play |

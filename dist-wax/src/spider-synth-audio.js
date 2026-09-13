@@ -1,14 +1,14 @@
-import { createSpiderWeb, normalizeSpiderWeb, spiderWebGeometryKey, serializeSpiderWeb } from './spider-synth-web.js?v=4c83d761d89b';
-import { SpiderSynthWorld } from './spider-synth-world.js?v=4c83d761d89b';
+import { createSpiderWeb, normalizeSpiderWeb, spiderWebGeometryKey, serializeSpiderWeb } from './spider-synth-web.js?v=f3d28731af44';
+import { SpiderSynthWorld } from './spider-synth-world.js?v=f3d28731af44';
 import { connectAudioOutput } from './audio-output-manager.js';
 import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from './spelling-diphone-atlas.js';
 import { loadSpellingPronunciations, spellingPhoneDefinition, spellingPronunciationTokens } from './spelling-pronunciation.js';
-import { normalizeSpiderSound, SPIDER_SOUND_DEFAULTS, normalizeSpiderBodyMix, createDefaultSpiderBodyMix } from './spider-synth-dsp.js?v=4c83d761d89b';
-import { SpiderMidiPerformance, normalizeSpiderMidiMessage } from './spider-synth-midi.js?v=4c83d761d89b';
+import { normalizeSpiderSound, SPIDER_SOUND_DEFAULTS, normalizeSpiderBodyMix, createDefaultSpiderBodyMix } from './spider-synth-dsp.js?v=f3d28731af44';
+import { SpiderMidiPerformance, normalizeSpiderMidiMessage } from './spider-synth-midi.js?v=f3d28731af44';
 
 export { SPIDER_SOUND_DEFAULTS, SPIDER_SOUND_PRESETS, SPIDER_BODY_GROUPS, SPIDER_BODY_SOURCES,
   normalizeSpiderSound, createDefaultSpiderBodyMix, normalizeSpiderBodyMix, createRandomSpiderSound,
-  SPIDER_MOTION_SOUND_PRESETS, getSpiderMotionSound, getSpiderBodyGroupId } from './spider-synth-dsp.js?v=4c83d761d89b';
+  SPIDER_MOTION_SOUND_PRESETS, getSpiderMotionSound, getSpiderBodyGroupId } from './spider-synth-dsp.js?v=f3d28731af44';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const safeCall = (callback, value) => { try { callback?.(value); } catch {} };
@@ -174,7 +174,7 @@ export class SpiderSynthAudio {
       if (!context.audioWorklet?.addModule || typeof this.runtime.AudioWorkletNode !== 'function') {
         throw new Error('Spider Synth requires AudioWorklet support.');
       }
-      await context.audioWorklet.addModule(new URL('./spider-synth-processor.js?v=4c83d761d89b', import.meta.url));
+      await context.audioWorklet.addModule(new URL('./spider-synth-processor.js?v=f3d28731af44', import.meta.url));
       if (this.disposed || this.context !== context || context.state === 'closed') throw cancelled();
       const node = new this.runtime.AudioWorkletNode(context, 'spider-synth', {
         numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
