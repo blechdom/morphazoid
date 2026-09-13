@@ -939,6 +939,37 @@ body.quadruped-page {
   }
 }
 
+@media (max-width: 960px) {
+  body.quadruped-page {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .quadruped-shell {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    flex: 1 1 0;
+    overscroll-behavior-y: contain;
+    scroll-padding-top: clamp(300px, 52dvh, 410px);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .quadruped-workspace {
+    position: relative;
+  }
+
+  .quadruped-stage-card {
+    position: sticky;
+    z-index: 20;
+    top: 0;
+    align-self: start;
+    background: #0b1816;
+    box-shadow: 0 -24px 0 var(--quad-bg), 0 12px 28px rgba(0, 0, 0, 0.42);
+  }
+}
+
 @media (max-width: 760px) {
   .quadruped-shell {
     padding: 10px;
@@ -1063,6 +1094,7 @@ body.quadruped-page {
 @media (max-height: 480px) and (orientation: landscape) {
   .quadruped-shell {
     padding: 8px 12px 16px;
+    scroll-padding-top: 270px;
   }
 
   .quadruped-intro {
@@ -1075,11 +1107,12 @@ body.quadruped-page {
 
   .quadruped-stage-wrap,
   #stage {
-    min-height: 200px;
+    min-height: 0;
   }
 
   .quadruped-stage-wrap {
-    aspect-ratio: 16 / 4.3;
+    height: 160px;
+    aspect-ratio: auto;
   }
 
   .quadruped-stage-instructions {

@@ -506,48 +506,53 @@
 
 @media (max-width: 960px) {
   .julie-saw-page {
-    min-height: 100dvh;
-    height: auto;
-    overflow: auto;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .julie-saw-page .shell {
     height: auto;
-    min-height: calc(100dvh - 58px);
-    overflow: visible;
+    min-height: 0;
+    overflow: hidden;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(48dvh, 58dvh) auto;
+    grid-template-rows: clamp(300px, 52dvh, 480px) minmax(0, 1fr);
   }
 
   .julie-saw-page .stage {
     position: sticky;
     z-index: 2;
-    top: 58px;
-    min-height: 48dvh;
+    top: 0;
+    min-height: 0;
   }
 
   .julie-saw-page .panel {
-    overflow: visible;
+    min-height: 0;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scroll-padding-top: 70px;
+    -webkit-overflow-scrolling: touch;
   }
 
   .julie-top {
-    top: 58px;
+    top: 0;
   }
 }
 
 @media (max-width: 650px) {
   .julie-saw-page .shell {
-    min-height: calc(100dvh - 54px);
-    grid-template-rows: minmax(43dvh, 50dvh) auto;
+    grid-template-rows: clamp(290px, 50dvh, 422px) minmax(0, 1fr);
   }
 
   .julie-saw-page .stage {
-    top: 54px;
-    min-height: 43dvh;
+    top: 0;
+    min-height: 0;
   }
 
   .julie-top {
-    top: 54px;
+    top: 0;
     min-height: 56px;
     padding: 6px 7px;
     grid-template-columns: 42px minmax(104px, 1fr) minmax(74px, .64fr) auto;
@@ -603,17 +608,17 @@
 
 @media (max-height: 500px) and (orientation: landscape) {
   .julie-saw-page .shell {
-    grid-template-rows: minmax(230px, 70dvh) auto;
+    grid-template-rows: 232px minmax(0, 1fr);
   }
 
   .julie-saw-page .stage {
-    position: relative;
-    top: auto;
-    min-height: 230px;
+    position: sticky;
+    top: 0;
+    min-height: 0;
   }
 
   .julie-top {
-    top: 54px;
+    top: 0;
   }
 }
 

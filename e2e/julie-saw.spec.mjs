@@ -220,6 +220,24 @@ for (const viewport of [
     expect(top).not.toBeNull();
     expect(stage.height).toBeGreaterThanOrEqual(viewport.height < 500 ? 230 : 300);
     expect(top.y).toBeGreaterThanOrEqual(stage.y + stage.height - 2);
+
+    const panel = page.locator(".julie-saw-page .panel");
+    const stageTop = stage.y;
+    const panelBox = await panel.boundingBox();
+    await page.mouse.move(panelBox.x + panelBox.width / 2, panelBox.y + panelBox.height / 2);
+    await page.mouse.wheel(0, 360);
+    await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    const downwardScroll = await panel.evaluate((element) => element.scrollTop);
+    await page.mouse.wheel(0, -180);
+    await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBeLessThan(downwardScroll);
+    await panel.evaluate((element) => {
+      element.scrollTop = Math.min(700, element.scrollHeight - element.clientHeight);
+    });
+    await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect.poll(async () => (await page.locator("#stageWrap").boundingBox())?.y ?? -1)
+      .toBeCloseTo(stageTop, 0);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
     await page.locator("#resetAll").scrollIntoViewIfNeeded();
     await expect(page.locator("#resetAll")).toBeVisible();
     await page.locator("#bladeSelect").scrollIntoViewIfNeeded();

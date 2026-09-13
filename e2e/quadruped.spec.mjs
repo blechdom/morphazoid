@@ -259,6 +259,28 @@ test.describe("Quadruped", () => {
       expect(dimensions.gridScroll).toBeGreaterThanOrEqual(dimensions.gridClient);
       if (viewport.width === 390) expect(dimensions.gridScroll).toBeGreaterThan(dimensions.gridClient);
 
+      const shell = page.locator(".quadruped-shell");
+      const shellBox = await shell.boundingBox();
+      await page.mouse.move(shellBox.x + shellBox.width - 8, shellBox.y + shellBox.height - 8);
+      await page.mouse.wheel(0, 360);
+      await expect.poll(() => shell.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      const downwardScroll = await shell.evaluate((element) => element.scrollTop);
+      await page.mouse.wheel(0, -180);
+      await expect.poll(() => shell.evaluate((element) => element.scrollTop)).toBeLessThan(downwardScroll);
+      await shell.evaluate((element) => {
+        element.scrollTop = Math.min(900, element.scrollHeight - element.clientHeight);
+      });
+      await expect.poll(() => shell.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      const firstStickyTop = (await page.locator(".quadruped-stage-card").boundingBox())?.y ?? -1;
+      await shell.evaluate((element) => {
+        element.scrollTop = Math.min(1100, element.scrollHeight - element.clientHeight);
+      });
+      await expect.poll(async () => (await page.locator(".quadruped-stage-card").boundingBox())?.y ?? -1)
+        .toBeCloseTo(firstStickyTop, 0);
+      expect(firstStickyTop).toBeGreaterThanOrEqual(0);
+      expect(firstStickyTop).toBeLessThan(viewport.height);
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
       await page.locator("#playButton").click();
       await page.locator("#sequenceGrid").scrollIntoViewIfNeeded();
       const offscreenStep = await page.locator("#stageStep").textContent();
