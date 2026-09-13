@@ -1,3 +1,4 @@
+import { sonicSkin } from './src/puggler-sonic-skins.js';
 import { PugglerModel, PROPS, PATTERNS, DEFAULTS, DRUMS, RIFFS, MAX_OBJECTS, RIDER_NAMES, CASTS, clamp, soundMapping } from './src/puggler.js';
 import { PAGE_DEFAULTS, PRESETS } from './src/puggler-presets.js';
 import { PugglerAudio } from './src/puggler-audio.js';
@@ -17,7 +18,6 @@ const keys=new Set(),cleanups=[],ranges=new Map(),objectRows=[],keyButtons=new M
 const riderToggles=[],toggleKeys=['Digit1','Digit2','Digit3'];
 const listen=(element,type,handler,options)=>{element.addEventListener(type,handler,options);cleanups.push(()=>element.removeEventListener(type,handler,options));};
 const percent=v=>`${Math.round(v*100)}%`;
-const soundNames={guitar:'Guitar',bass:'Bass',oi:'Oi chant',woo:'Woooo',kick:'Kick',snare:'Snare',crash:'Crash',tom:'Tom',hat:'Hi-hat'};
 function updateAudio(){audio.update(model.objects,{...params,active:!document.hidden},running&&!document.hidden);}
 function status(){
   $('playButton').textContent=running?'Pause':'Play';
@@ -49,6 +49,7 @@ $('cast').replaceChildren(...CASTS.map(c=>new Option(c.name,c.id)));
 $('skin').replaceChildren(...SKINS.map(skin=>new Option(skin.name,skin.id)));
 $('lighting').replaceChildren(...LIGHTING_SCENES.map(scene=>new Option(scene.name,scene.id)));
 function syncSkinLabels(){
+  ranges.get('grit').querySelector('.mz-field__label').textContent=sonicSkin(params.skin).grit;
   const skin=skinFor(params.skin),names=skin.riders;
   $('skin').value=skin.id;$('lighting').value=params.lighting;
   $('postersButton').textContent=skin.id==='punk'?'↻ Random flyers':'↻ Random backdrop';
@@ -102,7 +103,7 @@ function syncObjects(){
     select.addEventListener('change',()=>{const ids=[...model.config.propIds];ids[i]=select.value;model.apply({propIds:ids});syncObjectValues();});row.append(select);
     for(const [kind,choices,title] of [['drums',DRUMS,'Catch'],['riffs',RIFFS,'Air']]){
       const choice=document.createElement('select');choice.className='mz-select-field__select';choice.id=`${kind}${i}`;choice.setAttribute('aria-label',`${title} sound for object ${i+1}`);
-      choice.append(...choices.map(id=>new Option(soundNames[id],id)));choice.value=model.config[kind][i];
+      choice.append(...choices.map(id=>new Option(sonicSkin(params.skin).names[id],id)));choice.value=model.config[kind][i];
       choice.addEventListener('change',()=>{const values=[...model.config[kind]];values[i]=choice.value;model.apply({[kind]:values});});row.append(choice);
     }
     $('objectControls').append(row);objectRows.push({select,row});
@@ -234,4 +235,4 @@ function teardown(){if(disposed)return;disposed=true;releaseControls();clearInte
 listen(window,'pagehide',teardown,{once:true});
 window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});
 syncSelectors();status();timer=setInterval(tick,20);frame=requestAnimationFrame(draw);
-window.__puggler=Object.freeze({snapshot:()=>({skin:params.skin,lighting:params.lighting,riderNames:[...skinFor(params.skin).riders],time:model.time,running,audioOn:audio.on,x:model.x,beat:model.beat,pattern:model.pattern.id,count:model.objects.length,catches:model.catches,drops:model.drops,passes:model.passes,crowdCatches:model.crowdCatches,riders:model.riderCount,activeIds:[...model.activeIds],chaos:model.config.chaos,posterSeed:model.posterSeed,phrase:model.config.phrase,cast:model.config.cast,autoRide:model.config.autoRide,ridePattern:model.config.ridePattern,rideSpeed:model.config.rideSpeed,rideRange:model.config.rideRange,steeringTargets:[...targets],trails:params.trails,tempo:model.config.tempo,loft:model.config.loft,players:model.players.map(p=>({...p})),attacks:audio.attacks.size,vocals:audio.voices.filter(v=>v?.character).map(v=>({slot:v.slot,character:v.character,speaker:v.speaker,role:v.role,startedAt:v.startedAt})),collage:renderer.collageStatus(),crowd:renderer.crowdSnapshot(model.time),pyro:renderer.pyroSnapshot(model.time),objects:model.objects.map(o=>({id:o.id,start:o.start,x:o.x,y:o.y,vx:o.vx,vy:o.vy,phase:o.phase,prop:o.prop.id,name:presentProp(o.prop,params.skin).name,owner:o.owner,fromOwner:o.fromOwner,voiceOwner:o.voiceOwner,drum:o.drum,riff:o.riff})),disposed})});
+window.__puggler=Object.freeze({snapshot:()=>({skin:params.skin,lighting:params.lighting,riderNames:[...skinFor(params.skin).riders],time:model.time,running,audioOn:audio.on,x:model.x,beat:model.beat,pattern:model.pattern.id,count:model.objects.length,catches:model.catches,drops:model.drops,passes:model.passes,crowdCatches:model.crowdCatches,riders:model.riderCount,activeIds:[...model.activeIds],chaos:model.config.chaos,posterSeed:model.posterSeed,phrase:model.config.phrase,cast:model.config.cast,autoRide:model.config.autoRide,ridePattern:model.config.ridePattern,rideSpeed:model.config.rideSpeed,rideRange:model.config.rideRange,steeringTargets:[...targets],trails:params.trails,tempo:model.config.tempo,loft:model.config.loft,players:model.players.map(p=>({...p})),attacks:audio.attacks.size,sonics:audio.voices.filter(Boolean).map(v=>({slot:v.slot,key:v.key,skin:v.skin,speaker:v.speaker,role:v.role})),hitSounds:[...audio.attacks].map(v=>v.key),vocals:audio.voices.filter(v=>v?.character).map(v=>({slot:v.slot,character:v.character,speaker:v.speaker,role:v.role,startedAt:v.startedAt})),collage:renderer.collageStatus(),crowd:renderer.crowdSnapshot(model.time),pyro:renderer.pyroSnapshot(model.time),objects:model.objects.map(o=>({id:o.id,start:o.start,x:o.x,y:o.y,vx:o.vx,vy:o.vy,phase:o.phase,prop:o.prop.id,name:presentProp(o.prop,params.skin).name,owner:o.owner,fromOwner:o.fromOwner,voiceOwner:o.voiceOwner,drum:o.drum,riff:o.riff})),disposed})});
