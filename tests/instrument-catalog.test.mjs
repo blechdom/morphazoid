@@ -59,7 +59,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
   );
 });
 
-test("every instrument keeps factual catalogue metadata and a transparent icon path", async () => {
+test("every instrument keeps factual catalogue metadata and a valid icon path", async () => {
   for (const instrument of INSTRUMENTS) {
     assert.ok(instrument.description.length >= 45, `${instrument.id} description is too short`);
     assert.ok(instrument.start.length >= 35, `${instrument.id} start text is too short`);
@@ -72,7 +72,7 @@ test("every instrument keeps factual catalogue metadata and a transparent icon p
     );
     const expectedImageHref = ["shader-synth-playground", "srtuss"].includes(instrument.id)
       ? "assets/instruments/webgpu-synths.webp"
-      : ["webgpu-chiptune", "simd-303"].includes(instrument.id)
+      : instrument.id === "webgpu-chiptune"
         ? "assets/instruments/webgpu-303.webp"
         : instrument.id === "constellation"
         ? "assets/instruments/graph-synth.webp"

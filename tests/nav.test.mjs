@@ -805,7 +805,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "simd-303",
       label: "SIMD 303",
       href: "simd-303.html",
-      imageHref: "assets/instruments/webgpu-303.webp",
+      imageHref: "assets/instruments/simd-303.webp",
     },
   );
   assert.deepEqual(
